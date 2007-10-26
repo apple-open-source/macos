@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2004, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2005, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -12,7 +12,7 @@
 #if !UCONFIG_NO_SERVICE
 
 #include "icusvtst.h"
-#include "iculserv.h"
+#include "servloc.h"
 #include <stdio.h>
 
 
@@ -24,13 +24,22 @@ class WrongListener : public EventListener {
 
 class ICUNSubclass : public ICUNotifier {
     public:
-    UBool acceptsListener(const EventListener& l) const {
+    UBool acceptsListener(const EventListener& /*l*/) const {
         return TRUE;
         // return l instanceof MyListener;
     }
 
-    virtual void notifyListener(EventListener& l) const {
+    virtual void notifyListener(EventListener& /*l*/) const {
     }
+};
+
+// This factory does nothing
+class LKFSubclass0 : public LocaleKeyFactory {
+public:
+        LKFSubclass0()
+                : LocaleKeyFactory(VISIBLE, "LKFSubclass0")
+        {
+        }
 };
 
 class LKFSubclass : public LocaleKeyFactory {
@@ -62,22 +71,22 @@ class Integer : public UObject {
     virtual ~Integer() {
     }
 
-    virtual UBool operator==(const UObject& other) const 
-    {
-        return other.getDynamicClassID() == getStaticClassID() &&
-            _val == ((Integer&)other)._val;
-    }
-
     public:
     /**
      * UObject boilerplate.
      */
+    static UClassID getStaticClassID() { 
+        return (UClassID)&fgClassID;
+    }
+
     virtual UClassID getDynamicClassID() const {
         return getStaticClassID();
     }
 
-    static UClassID getStaticClassID() { 
-        return (UClassID)&fgClassID;
+    virtual UBool operator==(const UObject& other) const 
+    {
+        return other.getDynamicClassID() == getStaticClassID() &&
+            _val == ((Integer&)other)._val;
     }
 
     public:
@@ -460,6 +469,25 @@ ICUServiceTest::testAPI_One()
 /*
  ******************************************************************
  */
+class TestStringSimpleKeyService : public ICUService {
+public:
+ 
+        virtual ICUServiceFactory* createSimpleFactory(UObject* obj, const UnicodeString& id, UBool visible, UErrorCode& status) 
+    {
+                // We could put this type check into ICUService itself, but we'd still
+                // have to implement cloneInstance.  Otherwise we could just tell the service
+                // what the object type is when we create it, and the default implementation
+                // could handle everything for us.  Phooey.
+        if (obj && obj->getDynamicClassID() == UnicodeString::getStaticClassID()) {
+                        return ICUService::createSimpleFactory(obj, id, visible, status);
+        }
+        return NULL;
+    }
+
+    virtual UObject* cloneInstance(UObject* instance) const {
+        return instance ? new UnicodeString(*(UnicodeString*)instance) : NULL;
+    }
+};
 
 class TestStringService : public ICUService {
     public:
@@ -497,12 +525,12 @@ class AnonymousStringFactory : public ICUServiceFactory
         return result;
     }
 
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
-
     static UClassID getStaticClassID() {
         return (UClassID)&fgClassID;
+    }
+
+    virtual UClassID getDynamicClassID() const {
+        return getStaticClassID();
     }
 
     private:
@@ -573,12 +601,12 @@ class TestMultipleKeyStringFactory : public ICUServiceFactory {
         return result;
     }
 
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
-
     static UClassID getStaticClassID() {
         return (UClassID)&fgClassID;
+    }
+
+    virtual UClassID getDynamicClassID() const {
+        return getStaticClassID();
     }
 
     private:
@@ -668,7 +696,7 @@ ICUServiceTest::testAPI_Two()
     {
         UErrorCode status = U_ZERO_ERROR;
         UVector names(userv_deleteStringPair, NULL, status);
-        service.getDisplayNames(names, Locale::getGerman(), status);
+        service.getDisplayNames(names, status);
         for (int i = 0; i < names.size(); ++i) {
             const StringPair* pair = (const StringPair*)names[i];
             logln("  " + pair->displayName + " --> " + pair->id);
@@ -1014,7 +1042,7 @@ void ICUServiceTest::testLocale() {
     service.registerInstance(root, "", status);
     service.registerInstance(german, "de", status);
     service.registerInstance(germany, Locale::getGermany(), status);
-    service.registerInstance(japanese, "ja", status);
+    service.registerInstance(japanese, (UnicodeString)"ja", TRUE, status);
     service.registerInstance(japan, Locale::getJapan(), status);
 
     {
@@ -1225,12 +1253,12 @@ class WrapFactory : public ICUServiceFactory {
     /**
      * UObject boilerplate.
      */
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
-
     static UClassID getStaticClassID() { 
         return (UClassID)&fgClassID;
+    }
+
+    virtual UClassID getDynamicClassID() const {
+        return getStaticClassID();
     }
 
     private:
@@ -1303,18 +1331,45 @@ void ICUServiceTest::testCoverage()
     }
 
     // ICUService
-    TestStringService service;
-    service.registerFactory(sf, status);
+        {
+                TestStringService service;
+                service.registerFactory(sf,     status);
 
-    {
-      UnicodeString* result = (UnicodeString*)service.get("object", status);
-      if (result) {
-    logln("object is: " + *result);
-    delete result;
-      } else {
-    errln("could not get object");
-      }
-    }
+                {
+                        UnicodeString* result   = (UnicodeString*)service.get("object", status);
+                        if (result) {
+                                logln("object is: "     + *result);
+                                delete result;
+                        }       else {
+                                errln("could not get object");
+                        }
+                }
+        }
+  }
+  
+  // ICUServiceKey
+  {
+      UErrorCode status = U_ZERO_ERROR;
+          UnicodeString* howdy = new UnicodeString("Howdy");
+
+          TestStringSimpleKeyService service;
+          service.registerInstance(howdy, "Greetings", status);
+          {
+                  UnicodeString* result = (UnicodeString*)service.get("Greetings",      status);
+                  if (result) {
+                          logln("object is: "   + *result);
+                          delete result;
+                  }     else {
+                          errln("could not get object");
+                  }
+          }
+
+      UVector ids(uhash_deleteUnicodeString, uhash_compareUnicodeString, status);
+          // yuck, this is awkward to use.  All because we pass null in an overload.
+          // TODO: change this.
+          UnicodeString str("Greet");
+      service.getVisibleIDs(ids, &str, status);
+      confirmIdentical("no fallback of greet", ids.size(), 0);
   }
 
   // ICULocaleService
@@ -1374,15 +1429,40 @@ void ICUServiceTest::testCoverage()
     }
     delete obj;
     delete key;
+
+        key = LocaleKey::createWithCanonicalFallback(&primary, &fallback, 123, status);
+        if (U_SUCCESS(status)) {
+                UnicodeString str;
+                key->currentDescriptor(str);
+                key->parsePrefix(str);
+                if (str != "123") {
+                        errln("did not get expected prefix");
+                }
+                delete key;
+        }
+
+        // coverage, getSupportedIDs is either overridden or the calling method is
+        LKFSubclass0 lkFactory;
+        Hashtable table0;
+        lkFactory.updateVisibleIDs(table0, status);
+        if (table0.count() != 0) {
+                errln("LKF returned non-empty hashtable");
+        }
+
+
+        // ResourceBundleFactory
+    key = LocaleKey::createWithCanonicalFallback(&primary, &fallback, status);
+        ICUResourceBundleFactory rbf;
+        UObject* icurb = rbf.create(*key, NULL, status);
+        if (icurb != NULL) {
+                logln("got resource bundle for key");
+                delete icurb;
+        }
+        delete key;
   }
 
-
-#if 0
-  // ResourceBundleFactory
-  ICUResourceBundleFactory rbf = new ICUResourceBundleFactory();
-  logln("RB: " + rbf.create(lkey, null));
-
-  // ICUNotifier
+ #if 0
+ // ICUNotifier
   ICUNotifier nf = new ICUNSubclass();
   try {
     nf.addListener(null);

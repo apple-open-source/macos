@@ -26,14 +26,42 @@
 
 #include <CoreFoundation/CFPropertyList.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFArray.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 void
 my_CFRelease(void * t);
 
 CFPropertyListRef 
-my_CFPropertyListCreateFromFile(char * filename);
+my_CFPropertyListCreateFromFile(const char * filename);
 
 int
-my_CFPropertyListWriteFile(CFPropertyListRef plist, char * filename);
+my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename);
+
+Boolean
+my_CFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
+			       int * ret_count);
+Boolean
+my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
+			     int * ret_count);
+bool
+my_CFStringToIPAddress(CFStringRef str, struct in_addr * ret_ip);
+
+int
+my_CFStringToCStringAndLengthExt(CFStringRef cfstr, char * str, int len,
+				 boolean_t is_external);
+static __inline__ int
+my_CFStringToCStringAndLength(CFStringRef cfstr, char * str, int len)
+{
+    return (my_CFStringToCStringAndLengthExt(cfstr, str, len, FALSE));
+}
+
+bool
+my_CFTypeToNumber(CFTypeRef element, uint32_t * l_p);
+
+bool
+my_CFStringToNumber(CFStringRef str, uint32_t * ret_val);
 
 #endif _S_CFUTIL_H

@@ -44,7 +44,7 @@ Boston, MA 02111-1307, USA.  */
 	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2 %{+e1*}\
         "/* APPLE LOCAL ss2 */" \
-        -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} %{fsave-repository=*: \n as -o %w%* %g.s %A}%V}}}",
+        -o %g.s %{!o*:--output-pch=%i.gch} %W{o*:--output-pch=%*} %{fsave-repository=*: \n as %a -o %w%* %g.s %A}%V}}}",
      CPLUSPLUS_CPP_SPEC, 0, 0},
   {"@c++",
     "%{E|M|MM:cc1plus -E %(cpp_options) %2 %(cpp_debug_options)}\

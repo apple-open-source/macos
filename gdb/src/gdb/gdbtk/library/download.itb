@@ -31,7 +31,7 @@ itcl::body Download::constructor {args} {
 
   set i 0
   while {$i <$num_sections} {
-    iwidgets::feedback $f.meter$i -steps $num_steps -fraction 0.0
+    iwidgets::feedback $f.meter$i -steps $num_steps
     grid forget [$f.meter$i component percentage]
     label $f.sec$i -text [lindex $section(names) $i] -anchor w
     label $f.num$i -text $bytes($i) -anchor e
@@ -63,11 +63,26 @@ itcl::body Download::update_download { sec num tot } {
     set i $section($s)
 
     if {$s == $sec} {
-      set f [expr {$num / $bytes($i)}]
-      $itk_interior.f.meter$i configure -fraction $f
+      # Advance feedback meter. The iwidgets meter leaves a lot to
+      # be desired. No way to query the current setting. No way to
+      # set the state of the meter by percentage. It only understands
+      # steps, and we must be careful not to step the widget past the
+      # the configured number of steps, or else the meter will be
+      # set wrong. How lame.
+      set steps [expr {$num / $bytes($i) * $num_steps}]
+      if {[expr {$completed_steps($s) + $steps}] > $num_steps} {
+	set steps [expr {$num_steps - $completed_steps($s)}]
+      }
+      incr completed_steps($s) $steps
+      $itk_interior.f.meter$i step $steps
       break
     } else {
-      $itk_interior.f.meter$i configure -fraction 1.0
+      # Section already loaded. Make sure meter is at 100%.
+      if {$completed_steps($s) < $num_steps} {
+        set steps [expr {$num_steps - $completed_steps($s)}]
+        set completed_steps($s) $num_steps
+        $itk_interior.f.meter$i step $steps
+      }
     }
   }
 
@@ -91,7 +106,11 @@ itcl::body Download::done { {msg ""} } {
     # set all indicators to FULL
     foreach sec $section(names) {
       set i $section($sec)
-      $itk_interior.f.meter$i configure -fraction 1.0
+      if {$completed_steps($sec) < $num_steps} {
+        set steps [expr {$num_steps - $completed_steps($sec)}]
+        set completed_steps($sec) $num_steps
+        $itk_interior.f.meter$i step $steps
+      }
     }
   } else {
     # download failed
@@ -221,6 +240,7 @@ itcl::body Download::download_it { } {
     set b [lindex $x 1]
     set bytes($i) [expr {double($b)}]
     incr total_bytes $b
+    set completed_steps($s) 0
     incr i
   }
   set num_sections $i

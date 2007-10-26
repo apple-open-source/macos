@@ -101,8 +101,8 @@ bool IOHIDPointing::start(IOService *provider)
 //====================================================================================================
 void IOHIDPointing::dispatchAbsolutePointerEvent(
                                 AbsoluteTime                timeStamp,
-                                Point *                     newLoc,
-                                Bounds *                    bounds,
+                                IOGPoint *                  newLoc,
+                                IOGBounds *                 bounds,
                                 UInt32                      buttonState,
                                 bool                        inRange,
                                 SInt32                      tipPressure,
@@ -259,9 +259,16 @@ void IOHIDPointing::setupProperties()
         
     setProperty(kIOHIDPointerAccelerationTableKey, _provider->getProperty( kIOHIDPointerAccelerationTableKey ));
     setProperty(kIOHIDScrollAccelerationTableKey, _provider->getProperty( kIOHIDScrollAccelerationTableKey ));
+    setProperty(kIOHIDScrollAccelerationTableXKey, _provider->getProperty( kIOHIDScrollAccelerationTableXKey ));
+    setProperty(kIOHIDScrollAccelerationTableYKey, _provider->getProperty( kIOHIDScrollAccelerationTableYKey ));
+    setProperty(kIOHIDScrollAccelerationTableZKey, _provider->getProperty( kIOHIDScrollAccelerationTableZKey ));
     
     setProperty(kIOHIDPointerResolutionKey, _provider->getProperty( kIOHIDPointerResolutionKey ));
     setProperty(kIOHIDScrollReportRateKey, _provider->getProperty( kIOHIDScrollReportRateKey ));
 
     setProperty( kIOHIDScrollMouseButtonKey, _provider->getProperty( kIOHIDScrollMouseButtonKey ));
+    
+    setProperty(kIOHIDScrollResolutionXKey, _provider->getProperty( kIOHIDScrollResolutionXKey ));
+    setProperty(kIOHIDScrollResolutionYKey, _provider->getProperty( kIOHIDScrollResolutionYKey ));
+    setProperty(kIOHIDScrollResolutionZKey, _provider->getProperty( kIOHIDScrollResolutionZKey ));
 }

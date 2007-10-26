@@ -1,0 +1,26 @@
+--- time.c.orig	2004-11-25 11:38:01.000000000 -0800
++++ time.c	2005-03-24 14:09:30.000000000 -0800
+@@ -39,6 +39,7 @@
+ 
+ #include <sys/types.h>
+ #include <sys/time.h>
++#include <fenv.h>
+ 
+ time_t
+ time(t)
+@@ -46,12 +47,15 @@
+ {
+ 	struct timeval tt;
+ 	time_t retval;
++	fenv_t fenv;
+ 
++	fegetenv(&fenv); /* 3965505 - need to preserve floating point enviroment */
+ 	if (gettimeofday(&tt, (struct timezone *)0) < 0)
+ 		retval = -1;
+ 	else
+ 		retval = tt.tv_sec;
+ 	if (t != NULL)
+ 		*t = retval;
++	fesetenv(&fenv);
+ 	return (retval);
+ }

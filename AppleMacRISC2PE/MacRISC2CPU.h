@@ -71,6 +71,7 @@
 #define	kIOFBPrepareDMAValueKey	"prepareDMATransaction"
 #define	kIOFBPerformDMAValueKey	"performDMATransaction"
 
+
 class MacRISC2PE;
 class MacRISC2CPUInterruptController;
 

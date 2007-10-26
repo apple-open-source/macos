@@ -15,13 +15,16 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /*  Create and destroy argument vectors.  An argument vector is simply an
     array of string pointers, terminated by a NULL pointer. */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 #include "ansidecl.h"
 #include "libiberty.h"
 
@@ -29,25 +32,9 @@ Boston, MA 02111-1307, USA.  */
 
 /*  Routines imported from standard C runtime libraries. */
 
-#ifdef ANSI_PROTOTYPES
-
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
-
-#else	/* !ANSI_PROTOTYPES */
-
-#if !defined _WIN32 || defined __GNUC__
-extern char *memcpy ();		/* Copy memory region */
-extern int strlen ();		/* Count length of string */
-extern char *malloc ();		/* Standard memory allocater */
-extern char *realloc ();	/* Standard memory reallocator */
-extern void free ();		/* Free malloc'd memory */
-extern char *strdup ();		/* Duplicate a string */
-#endif
-
-#endif	/* ANSI_PROTOTYPES */
-
 
 #ifndef NULL
 #define NULL 0
@@ -75,8 +62,7 @@ argument vector.
 */
 
 char **
-dupargv (argv)
-     char **argv;
+dupargv (char **argv)
 {
   int argc;
   char **copy;
@@ -94,7 +80,7 @@ dupargv (argv)
   for (argc = 0; argv[argc] != NULL; argc++)
     {
       int len = strlen (argv[argc]);
-      copy[argc] = malloc (sizeof (char *) * (len + 1));
+      copy[argc] = (char *) malloc (len + 1);
       if (copy[argc] == NULL)
 	{
 	  freeargv (copy);
@@ -119,8 +105,7 @@ itself.
 
 */
 
-void freeargv (vector)
-char **vector;
+void freeargv (char **vector)
 {
   register char **scan;
 
@@ -174,8 +159,7 @@ returned, as appropriate.
 
 */
 
-char **buildargv (input)
-     const char *input;
+char **buildargv (const char *input)
 {
   char *arg;
   char *copybuf;
@@ -325,7 +309,8 @@ static const char *const tests[] =
   NULL
 };
 
-int main ()
+int
+main (void)
 {
   char **argv;
   const char *const *test;

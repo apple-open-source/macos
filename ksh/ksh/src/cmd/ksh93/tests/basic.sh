@@ -1,26 +1,22 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
@@ -30,7 +26,7 @@ function err_exit
 alias err_exit='err_exit $LINENO'
 
 # test basic file operations like redirection, pipes, file expansion
-Command=$0
+Command=${0##*/}
 integer Errors=0
 umask u=rwx,go=rx || err_exit "umask u=rws,go=rx failed"
 if	[[ $(umask -S) != u=rwx,g=rx,o=rx ]]
@@ -159,14 +155,19 @@ if	[[ $x != $'foo\nbar' ]]
 then	err_exit " ( (/bin/echo);(/bin/echo bar ) failed"
 fi
 cat > /tmp/ksh$$ <<\!
-builtin cat
-cat - > /dev/null
-test -p /dev/fd/0 && print yes
+if	[[ -p /dev/fd/0 ]]
+then	builtin cat
+	cat - > /dev/null
+	[[ -p /dev/fd/0 ]] && print ok
+else	print no
+fi
 !
 chmod +x /tmp/ksh$$
-if	[[ $( (print) | /tmp/ksh$$;:) != yes ]]
-then	err_exit "standard input no longer a pipe"
-fi
+case $( (print) | /tmp/ksh$$;:) in
+ok)	;;
+no)	err_exit "[[ -p /dev/fd/0 ]] fails for standard input pipe" ;;
+*)	err_exit "builtin replaces standard input pipe" ;;
+esac
 print 'print $0' > /tmp/ksh$$
 print ". /tmp/ksh$$" > /tmp/ksh$$x
 chmod +x /tmp/ksh$$x
@@ -271,27 +272,71 @@ optbug()
 	return 1
 }
 optbug ||  err_exit 'array size optimzation bug'
+wait # not running --pipefile which would interfere with subsequent tests
+: $(jobs -p) # required to clear jobs for next jobs -p (interactive side effect)
 sleep 20 &
-if	[[ $(jobs -p) != *$!* ]]
+if	[[ $(jobs -p) != $! ]]
 then	err_exit 'jobs -p not reporting a background job' 
 fi
 sleep 20 &
 foo()
 {
 	set -- $(jobs -p)
-	(( $# == 2 )) || err_exit 'both jobs not reported'
+	(( $# == 2 )) || err_exit "$# jobs not reported -- 2 expected"
 }
-: $(jobs -p)
 foo
-[[ $( (trap 'print alarm' ALRM; sleep 4) & sleep 2; kill -ALRM $!) == alarm ]] || print -u2 'ALRM signal not working'
+[[ $( (trap 'print alarm' ALRM; sleep 4) & sleep 2; kill -ALRM $!) == alarm ]] || err_exit 'ALRM signal not working'
 [[ $($SHELL -c 'trap "" HUP; $SHELL -c "(sleep 2;kill -HUP $$)& sleep 4;print done"') != done ]] && err_exit 'ignored traps not being ignored'
 [[ $($SHELL -c 'o=foobar; for x in foo bar; do (o=save);print $o;done' 2> /dev/null ) == $'foobar\nfoobar' ]] || err_exit 'for loop optimization subshell bug'
-if	[[ -d /dev/fd ]]
+command exec 3<> /dev/null
+if	cat /dev/fd/3 >/dev/null 2>&1
 then	[[ $($SHELL -c 'cat <(print foo)' 2> /dev/null) == foo ]] || err_exit 'process substitution not working'
 	[[ $($SHELL -c 'print $(cat <(print foo) )' 2> /dev/null) == foo ]] || err_exit 'process substitution in subshell not working'
+	[[ $($SHELL -c  $'tee >(grep \'1$\' > /tmp/ksh'$$'x) > /dev/null <<-  \!!!
+	line0
+	line1
+	line2
+	!!!
+	wait
+	cat /tmp/ksh'$$x 2> /dev/null)  == line1 ]] || err_exit '>() process substitution fails'
+	> /tmp/ksh$$x
+	[[ $($SHELL -c  $'
+	for i in 1
+	do	tee >(grep \'1$\' > /tmp/ksh'$$'x) > /dev/null  <<-  \!!!
+		line0
+		line1
+		line2
+		!!!
+	done
+	wait
+	cat /tmp/ksh'$$x 2>> /dev/null) == line1 ]] || err_exit '>() process substitution fails in for loop'
+	[[ $({ $SHELL -c 'cat <(for i in x y z; do print $i; done)';} 2> /dev/null) == $'x\ny\nz' ]] ||
+		err_exit 'process substitution of compound commands not working'
 fi
 [[ $($SHELL -r 'command -p :' 2>&1) == *restricted* ]]  || err_exit 'command -p not restricted'
 print cat >  /tmp/ksh$$x
 chmod +x /tmp/ksh$$x
 [[ $($SHELL -c "print foo | /tmp/ksh$$x ;:" 2> /dev/null ) == foo ]] || err_exit 'piping into script fails'
+[[ $($SHELL -c 'X=1;print -r -- ${X:=$(expr "a(0)" : '"'a*(\([^)]\))')}'" 2> /dev/null) == 1 ]] || err_exit 'x=1;${x:=$(..."...")} failure'
+[[ $($SHELL -c 'print -r -- ${X:=$(expr "a(0)" : '"'a*(\([^)]\))')}'" 2> /dev/null) == 0 ]] || err_exit '${x:=$(..."...")} failure'
+if	[[ -d /dev/fd  && -w /dev/fd/3 ]]
+then	[[ $(cat <(print hello) ) == hello ]] || err_exit "process substitution not working outside for or while loop"
+	$SHELL -c '[[ $(for i in 1;do cat <(print hello);done ) == hello ]]' 2> /dev/null|| err_exit "process substitution not working in for or while loop"
+fi
+exec 3> /dev/null
+print 'print foo "$@"' > /tmp/ksh$$x
+[[ $( print "(/tmp/ksh$$x bar)" | $SHELL 2>/dev/null) == 'foo bar' ]] || err_exit 'script pipe to shell fails'
+print "#! $SHELL" > /tmp/ksh$$x
+print 'print  -- $0' >> /tmp/ksh$$x
+chmod +x /tmp/ksh$$x
+[[ $(/tmp/ksh$$x) == /tmp/ksh$$x ]] || err_exit  "\$0 is $0 instead of /tmp/ksh$$x"
+cat > /tmp/ksh$$x <<- \EOF
+	myfilter() { x=$(print ok | cat); print  -r -- $SECONDS;}
+	set -o pipefail
+	sleep 3 | myfilter
+EOF
+(( $($SHELL /tmp/ksh$$x) > 2.0 )) && err_exit 'command substitution causes pipefail option to hang'
+rm -f /tmp/ksh$$x
+exec 3<&-
+( typeset -r foo=bar) 2> /dev/null || err_exit 'readonly variables set in a subshell cannot unset'
 exit $((Errors))

@@ -1,8 +1,0 @@
-dnl ../doc/m4.texinfo:2114: Origin of test
-define(`bar', include(`incl.m4'))
-dnl @result{}
-This is `bar':  >>>bar<<<
-dnl @result{}This is bar:  >>>Include file start
-dnl @result{}foo
-dnl @result{}Include file end
-dnl @result{}<<<

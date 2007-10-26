@@ -40,11 +40,11 @@ DEVANSWER=tty.usbmodem
 ALTDEV=cu.modem
 ALTDEVANSWER=tty.modem
 
-if [ ! -e /dev/$DEV -a "x$ALTDEV" != "x" ]; then
+if [ ! -e /dev/$DEV -a "x$ALTDEV" != "x" -a -e /dev/$ALTDEV ]; then
     DEV=$ALTDEV
 fi
 
-if [ ! -e /dev/$DEVANSWER -a "x$ALTDEVANSWER" != "x" ]; then
+if [ ! -e /dev/$DEVANSWER -a "x$ALTDEVANSWER" != "x" -a -e /dev/$ALTDEVANSWER ]; then
     DEVANSWER=$ALTDEVANSWER
 fi
 
@@ -220,11 +220,11 @@ PRINT='$EFIX -ve -p$PAGEDIM -r300 -s0.98 -d0,0.125 -o$PRTYPE $f'
 # VIEW='$EFIX -ve -p$PAGEDIM -r200 -opgm $f' 	# 50dpi: fast, whole-page view
 VIEW='$EFIX -ve -p$PAGEDIM -r300 -opgm $f'	# 75dpi: slower, readable size
 
-# Commands to set up modem.  "-iZ -iE0&D2S7=120 -i&C0"
+# Commands to set up modem.  "-iZ -iE0&D2S7=120"
 # works with almost all modems.  See the efax(1) man page for
 # details.
 
-INIT="-iZ -i&FE0&D2S7=120 -i&C0"
+INIT="-iZ -i&FE0&D2S7=120"
 
 # Command(s) to reset modem when efax finishes. "-kZ" works in
 # almost all cases.
@@ -530,7 +530,7 @@ while : ; do 	# so we can use `break' to get to the end of the script
 
 case $cmd in 
 
-# fax answer : clean up logs and exec efax. normally run by init(8).
+# fax answer : clean up logs and exec efax. normally run by launchd(8).
 
 	answer)
 

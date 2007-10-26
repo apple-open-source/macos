@@ -28,7 +28,7 @@
 #define _SECURITY_CIPHERSUITE_H_
 
 /* fetch Uint32 */
-#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <CoreFoundation/CFBase.h>
 
 /*
  * Defined as enum for debugging, but in the protocol
@@ -81,7 +81,7 @@ enum
 	TLS_DHE_DSS_WITH_AES_256_CBC_SHA  =			0x0038,
 	TLS_DHE_RSA_WITH_AES_256_CBC_SHA  =			0x0039,
 	TLS_DH_anon_WITH_AES_256_CBC_SHA  =			0x003A,
-
+	
 	/*
 	 * Tags for SSL 2 cipher kinds which are not specified 
 	 * for SSL 3. 

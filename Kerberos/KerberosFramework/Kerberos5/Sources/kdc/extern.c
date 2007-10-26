@@ -38,6 +38,9 @@ krb5_timestamp kdc_infinity = KRB5_INT32_MAX; /* XXX */
 krb5_rcache	kdc_rcache = (krb5_rcache) NULL;
 krb5_keyblock	psr_key;
 
+#ifndef APPLE_KDC_MODS
+#define APPLE_KDC_MODS
+#endif
 #ifdef APPLE_KDC_MODS
 extern int    kdc_notify_pws_apple = 0;       /* flag for apple password server integration   */
 #endif

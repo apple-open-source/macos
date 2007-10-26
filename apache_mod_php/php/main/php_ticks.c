@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Stig Bakken <ssb@fast.no>                                    |
+   | Author: Stig Bakken <ssb@php.net>                                    |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_ticks.c,v 1.15.8.1.8.2 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: php_ticks.c,v 1.20.2.1.2.1 2007/01/01 09:36:11 sebastian Exp $ */
 
 #include "php.h"
 #include "php_ticks.h"

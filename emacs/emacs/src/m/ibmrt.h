@@ -1,5 +1,6 @@
-/* RTPC machine dependent defines 
-   Copyright (C) 1986 Free Software Foundation, Inc.
+/* RTPC machine dependent defines
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="bsd4-2"  */
 
@@ -79,15 +80,6 @@ Boston, MA 02111-1307, USA.  */
    numerically.  */
 
 #undef VIRT_ADDR_VARIES
-
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
 
 /* The data segment in this machine starts at a fixed address.
    An address of data cannot be stored correctly in a Lisp object;
@@ -126,3 +118,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* Use the bitmap files that come with Emacs.  */
 #define EMACS_BITMAP_FILES
+
+/* arch-tag: 89aa7e7d-593e-432c-966a-3db6aa2ad665
+   (do not change this comment) */

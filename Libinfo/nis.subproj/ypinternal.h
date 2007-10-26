@@ -79,6 +79,14 @@ extern int _yplib_timeout;
 void _yp_unbind __P((struct dom_binding *));
 int _yp_check __P((char **));
 
+/* allows callers to cancel yp_bind */
+#define ThreadStateExitRequested 4
+
+/* used to tell _yp_dobind to use UDP or TCP */
+#define YP_BIND_UDP -1
+#define YP_BIND_TCP -2
+
+
 #ifdef YPMATCHCACHE
 
 static bool_t ypmatch_add __P((const char *, const char *,

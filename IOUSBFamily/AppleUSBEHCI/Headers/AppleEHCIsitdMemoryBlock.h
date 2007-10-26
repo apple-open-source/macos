@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,7 +27,7 @@
 #include "AppleUSBEHCI.h"
 #include "USBEHCI.h"
 
-class AppleEHCIsitdMemoryBlock : public IOBufferMemoryDescriptor
+class AppleEHCIsitdMemoryBlock : public OSObject
 {
     OSDeclareDefaultStructors(AppleEHCIsitdMemoryBlock);
     
@@ -37,6 +37,7 @@ private:
     IOPhysicalAddress							_sharedPhysical;
     EHCISplitIsochTransferDescriptorSharedPtr	_sharedLogical;
     AppleEHCIsitdMemoryBlock					*_nextBlock;
+	IOBufferMemoryDescriptor					*_buffer;
     
 public:
 

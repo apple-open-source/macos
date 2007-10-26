@@ -17,6 +17,7 @@ create table ldap_attr_mappings
 	oc_map_id integer unsigned not null references ldap_oc_mappings(id),
 	name varchar(255) not null,
 	sel_expr varchar(255) not null,
+	sel_expr_u varchar(255),
 	from_tbls varchar(255) not null,
 	join_where varchar(255),
 	add_proc varchar(255),
@@ -47,13 +48,6 @@ alter table ldap_entries add
 	(
 		dn
 	);  
-
-drop table if exists ldap_referrals;
-create table ldap_referrals
- (
-	entry_id integer not null references ldap_entries(id),
-	url text not null
-);
 
 drop table if exists ldap_entry_objclasses;
 create table ldap_entry_objclasses

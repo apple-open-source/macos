@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: mutex.h,v 1.4 2005/03/05 00:37:01 dasenbro Exp $ */
+/* $Id: mutex.h,v 1.2 2003/10/22 18:02:58 rjs3 Exp $ */
 
 #ifndef CYRUS_MUTEX_H
 #define CYRUS_MUTEX_H

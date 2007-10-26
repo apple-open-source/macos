@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef SH_SIGBITS
 /*
@@ -98,7 +94,7 @@ struct checkpt
 	int		mode;
 	struct openlist	*olist;
 #if (ERROR_VERSION >= 20030214L)
-	struct Error_context_s err;
+	Error_context_t err;
 #else
 	struct errorcontext err;
 #endif
@@ -107,7 +103,7 @@ struct checkpt
 #define sh_pushcontext(bp,n)	( (bp)->mode=(n) , (bp)->olist=0,  \
 				  (bp)->topfd=sh.topfd, (bp)->prev=sh.jmplist, \
 				  (bp)->err = *ERROR_CONTEXT_BASE, \
-					sh.jmplist = (sigjmp_buf*)(bp) \
+					sh.jmplist = (sigjmp_buf*)(&(bp)->buff) \
 				)
 #define sh_popcontext(bp)	(sh.jmplist=(bp)->prev, errorpop(&((bp)->err)))
 

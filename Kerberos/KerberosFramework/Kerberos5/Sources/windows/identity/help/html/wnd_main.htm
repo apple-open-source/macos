@@ -1,0 +1,87 @@
+<html>
+<head>
+  <title>Network Identity Manager - Application Window</title>
+  <meta name="description" content="Main Window">
+  <meta name="keywords" content="main window">
+  <link rel="stylesheet" type="text/css" href="nidmgr.css">
+  
+<Object type="application/x-oleobject" classid="clsid:1e2a7bd0-dab9-11d0-b93a-00c04fc99f9e">
+  <param name="Keyword" value="Application Window Basic View">
+  <param name="Keyword" value="Application Windows Advanced View">
+  <param name="Keyword" value="Identity Views">
+</OBJECT>
+
+</head>
+<body>
+
+<h1>Network Identity Manager - Application Window</h1>
+
+<p>The application window of Network Identity Manager can be displayed in two modes: <b>basic</b> and <b>advanced</b>.</p>
+
+<p>The basic view provides status information of the currently available identities whereas the advanced 
+view provides more detailed information of all the active credentials.</p>
+
+<div>
+<img src="images/screen_main_wnd_basic.png"/>
+<p class="caption">Figure 1. Network Identity Manager Basic View</p>
+</div>
+
+<div>
+
+<img src="images/screen_main_wnd.png"/>
+<p class="caption">Figure 2.  Network Identity Manager Advanced View</p>
+</div>
+
+<ol>
+  <li>Menu bar</li>
+  <li>Tool bar</li>
+  <li>Credentials list</li>
+
+</ol>
+
+<h3>Identity views</h3>
+
+<p>
+The default credentials view organizes them grouped by identity name
+and then by credential type.  Each credential is then shown under each
+group heading sorted by the credential name.  The default headings for
+the credential view provides you with a minimal amount of information
+to reduce clutter.  If you wish you can add columns to the display
+using the <span class="pre">Choose columns...</span> action on the
+<span class="pre"><a href="menu_view.htm">View</a></span> menu.
+</p>
+
+<p>
+The header backgrounds and the credential rows change color if the
+credentials are about to expire or are expired.  
+
+<ul> 
+
+<li> <span style="background-color:#fbc74d">Headers</span> mean that
+credentials at that level will expire unless renewed.  Credentials
+will have a warning icon next to them.<br/>
+
+The threshold for this can be set as the <span class="pre">Warn</span>
+parameter in the <span class="pre">Notifications</span> configuration
+panel.</li>
+
+<li> <span style="background-color:#f08575">Headers</span> mean that
+credentials at that level will expire in a few minutes.  Credentials
+will have a critical icon next to them.<br/>
+
+The threshold for this can be set as the <span class="pre">Warn
+again</span> parameter in the <span class="pre">Notifications</span>
+configuration panel.  </li>
+
+<li> <span style="background-color:#ff9090">Headers</span> mean that
+the credentials at that level have expired.  Credentials will have an
+expired icon next to them.<br/>
+
+The threshold for this is always zero.
+</li>
+
+</ul> 
+</p> 
+
+</body>
+</html>

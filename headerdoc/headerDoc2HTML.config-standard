@@ -1,5 +1,5 @@
 # Configuration file for HeaderDoc
-# $Revision: 1.1.2.2 $
+# $Revision: 1.1.2.4 $
 ###########################################################
 copyrightOwner =>
 defaultFrameName => index.html
@@ -7,7 +7,17 @@ masterTOCName => masterTOC.html
 apiUIDPrefix => apple_ref
 ignorePrefixes =>
 htmlHeader => 
+htmlHeaderFile =>
+htmlFooterFile =>
+stripDotH => 1
+TOCTemplateFile => exampletoctemplate.html
 dateFormat => %A, %B %d, %Y
+# styleSheetExtrasFile =>
+# externalStyleSheets =>
+# externalTOCStyleSheets =>
+# styleImports => @import "/Resources/CSS/frameset_styles.css";
+# tocStyleImports => @import "/Resources/CSS/frameset_styles.css";
+# tocStyleImports => @import "/Resources/CSS/adcstyle.css";
 textStyle =>
 commentStyle => 
 preprocessorStyle =>

@@ -25,6 +25,13 @@
 
 #include <IOKit/firewire/IOFWAddressSpace.h>
 
+/*
+ * If installed, this callback is invoked for drivers which 
+ * would like to coalesce incoming writes and do batch processing 
+ * of incoming block write packets.
+ * This callback can be installed by calling setARxReqIntCompleteHandler
+ * method in IOFWPseudoAddressSpace object. 
+ */
 typedef void (*IOFWARxReqIntCompleteHandler)( void * refcon );
 
 /*
@@ -76,10 +83,18 @@ protected:
 	void destroyMemberVariables( void );
 	
 	virtual void handleARxReqIntComplete();
-	
+		
 public:
 
+/*!	@function setARxReqIntCompleteHandler
+	@abstract Installs a callback to receive notification, when FWIM has completed
+			  ARxReqInt processing and no incoming packets are left in the queue.
+	@param refcon	Client's callback object.
+	@param handler	Client callback to be invoked, at the end of interrupt processing.
+	@result none.	*/	
 	virtual void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler );
+
+	virtual bool intersects( IOFWAddressSpace * space );
 	
 private:
 
@@ -131,6 +146,17 @@ protected:
 	
 public:
 
+/*!	@function	simpleReader
+	@abstract	A method for processing an address space read request
+	@param		refcon		Client's callback object.
+	@param		nodeID		FireWire Read from nodeID.
+	@param		speed		at this 'speed'.
+	@param		addr		with FireWire address 'addr'.
+	@param		len			read 'len' bytes from nodeID.
+	@param		buf			points to a memory descriptor containing the packet data.
+	@param		offset		start from this 'offset' in 'buf'.
+	@param		reqrefcon	Can be queried for extra info about the request.
+	@result		UIn32		returns kFWResponseComplete on success */
     static 	UInt32 					simpleReader(
 											void*					refcon,
 											UInt16 					nodeID,
@@ -140,7 +166,17 @@ public:
 											IOMemoryDescriptor**	buf,
 											IOByteCount* 			offset,
                                             IOFWRequestRefCon		reqrefcon);
-    
+
+/*!	@function	simpleWriter
+	@abstract	A method for processing an address space write request
+	@param		refcon		Client's callback object.
+	@param		nodeID		FireWire Write to nodeID.
+	@param		speed		at this 'speed'.
+	@param		addr		with FireWire address 'addr'.
+	@param		len			write 'len' bytes to nodeID.
+	@param		buf			obtain bytes from location given by 'buf'.
+	@param		reqrefcon	Can be queried for extra info about the request.
+	@result		UIn32		returns kFWResponseComplete on success */
     static 	UInt32 					simpleWriter(
 											void*					refcon,
 											UInt16 					nodeID,
@@ -169,33 +205,69 @@ public:
 											FWWriteCallback 		writer,
 											void*					refcon);
 
-    // make an address space object to handle read-only memory (eg. the local ROM)
-    // Handles everything itself
+/*!	@function	simpleRead
+	@abstract	Create an address space object to handle read-only memory (eg. the local ROM)
+				handles everything itself
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		len		Length of the Pseudo Address Space.
+	@param		data	The virtual address of the first byte in the memory.
+	@result		returns valid IOFWPseudoAddressSpace on success, null on failure */
     static IOFWPseudoAddressSpace*	simpleRead(
                                             IOFireWireBus*			bus,
 			                                FWAddress*				addr,
 											UInt32 					len,
 											const void*				data);
 
-    // make an address space object to handle fixed read-only memory (eg. the local ROM)
-    // Handles everything itself
+/*!	@function	simpleReadFixed
+	@abstract	Create an address space object to handle fixed read-only memory (eg. the local ROM)
+				handles everything itself
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		len		Length of the Pseudo Address Space.
+	@param		data	The virtual address of the first byte in the memory.
+	@result		returns valid IOFWPseudoAddressSpace on success, null on failure */
     static IOFWPseudoAddressSpace*	simpleReadFixed(
                                             IOFireWireBus*			bus,
 			                                FWAddress 				addr,
 											UInt32 					len,
 											const void*				data);
 
-    // make an address space object to handle r/w memory
-    // Handles everything itself
+/*!	@function	simpleRW
+	@abstract	Create an address space object to handle r/w memory
+				handles everything itself
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		len		Length of the Pseudo Address Space.
+	@param		data	The virtual address of the first byte in the memory.
+	@result		returns valid IOFWPseudoAddressSpace on success, null on failure */
     static IOFWPseudoAddressSpace*	simpleRW(
                                             IOFireWireBus*			bus,
                                 			FWAddress*				addr,
 											UInt32 					len,
 											void *					data);
+											
+/*!	@function	simpleRW
+	@abstract	Create an address space object to handle r/w memory
+				handles everything itself
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		data	The virtual address of the first byte in the memory.
+	@result		returns valid IOFWPseudoAddressSpace on success, null on failure */
     static IOFWPseudoAddressSpace*	simpleRW(
                                             IOFireWireBus*			bus,
                                 			FWAddress*				addr,
 											IOMemoryDescriptor *	data);
+											
+/*!	@function	initAll
+	@abstract	Initialize an address space object to handle r/w memory
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		len		Length of the Pseudo Address Space.
+	@param		reader	Callback handler for incoming Read.
+	@param		writer	Callback handler for incoming Write.
+	@param		refcon	Client's callback object.
+	@result		returns true on success, false on failure */
     virtual bool 					initAll(
                                             IOFireWireBus*			bus,
                 							FWAddress*				addr,
@@ -203,6 +275,15 @@ public:
 											FWReadCallback 			reader,
 											FWWriteCallback 		writer,
 											void*					refcon);
+											
+/*!	@function	initFixed
+	@abstract	Initialize a fixed address space at top of kCSRRegisterSpaceBaseAddressHi
+	@param		bus		Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		reader	Callback handler for incoming Read.
+	@param		writer	Callback handler for incoming Write.
+	@param		refcon	Client's callback object.
+	@result		returns true on success, false on failure */
     virtual bool 					initFixed(
                                             IOFireWireBus*			bus,
 							                FWAddress 				addr,
@@ -210,6 +291,17 @@ public:
                 							FWReadCallback 			reader,
 											FWWriteCallback 		writer,
 											void*					refcon);
+
+/*!	@function	doRead
+	@abstract	A method for processing an address space read request
+	@param		nodeID	FireWire Read from nodeID.
+	@param		speed	at this 'speed'.
+	@param		addr	with FireWire address 'addr'.
+	@param		len		read 'len' bytes from nodeID.
+	@param		buf		points to a memory descriptor containing the packet data.
+	@param		offset	start from this 'offset' in 'buf'.
+	@param		reqrefcon  Can be queried for extra info about the request.
+	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 					doRead(
 											UInt16 					nodeID, 
 											IOFWSpeed &				speed, 
@@ -218,6 +310,15 @@ public:
                                				IOMemoryDescriptor **	buf, 
 											IOByteCount * 			offset,
                                             IOFWRequestRefCon		reqrefcon);
+/*!	@function	doWrite
+	@abstract	A method for processing an address space write request
+	@param		nodeID	FireWire Write to nodeID.
+	@param		speed	at this 'speed'.
+	@param		addr	with FireWire address 'addr'.
+	@param		len		write 'len' bytes to nodeID.
+	@param		buf		obtain bytes from location given by 'buf'.
+	@param		reqrefcon  Can be queried for extra info about the request.
+	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 					doWrite(
 											UInt16 					nodeID,
 											IOFWSpeed&				speed,
@@ -226,8 +327,19 @@ public:
 											const void*				buf,
                                             IOFWRequestRefCon		reqrefcon);
 
+/*!	@function	contains
+	@abstract	returns number of bytes starting at addr in this space
+	@result		0 if it doesn't contain the address
+	*/
     virtual UInt32					contains(FWAddress addr);
 
+/*!	@function	simpleRWFixed
+	@abstract	Create a Read/Write fixed address space at top of kCSRRegisterSpaceBaseAddressHi.
+	@param		control	Points to IOFireWireBus object.
+	@param		addr	Points to starting address for the Pseudo Address Space.
+	@param		len		Length of the address range.
+	@param		data	The virtual address of the first byte in the memory.
+	@result		returns valid IOFWPseudoAddressSpace on success, null on failure */
 	static IOFWPseudoAddressSpace * simpleRWFixed( IOFireWireBus *control, FWAddress addr, UInt32 len, const void *data );
 
 protected:
@@ -239,6 +351,12 @@ protected:
 		{ ((IOFWPseudoAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->handleARxReqIntComplete(); }
 	
 public:
+/*!	@function setARxReqIntCompleteHandler
+	@abstract Installs a callback to receive notification, when FWIM has completed
+			  ARxReqInt processing and no incoming packets are left in the queue.
+	@param refcon	Client's callback object.
+	@param handler	Client callback to be invoked, at the end of interrupt processing.
+	@result none.	*/	
 	inline void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler )
 		{ ((IOFWPseudoAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->setARxReqIntCompleteHandler( refcon, handler ); }
 			

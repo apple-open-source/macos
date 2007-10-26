@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2006-07-24</string>
+		<key>OpenSourceLicense</key>
+		<string>Uganda</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>vim.txt</string>
+		<key>OpenSourceProject</key>
+		<string>vim</string>
+		<key>OpenSourceSHA1</key>
+		<string>38ef48cabf942d0dc804a794dcc6f002b9457fc8</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.vim.org/pub/vim/unix/vim-7.0.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>7.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.vim.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2006-07-24</string>
+		<key>OpenSourceLicense</key>
+		<string>Uganda</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>vim.txt</string>
+		<key>OpenSourceProject</key>
+		<string>vim</string>
+		<key>OpenSourceSHA1</key>
+		<string>101a3b82b26cd16ca48e2b4a5e4acfc6041abd1e</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.vim.org/pub/vim/extra/vim-7.0-extra.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>7.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.vim.org/</string>
+	</dict>
+</array>
+</plist>

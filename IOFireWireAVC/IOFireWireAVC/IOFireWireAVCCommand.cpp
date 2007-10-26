@@ -27,7 +27,7 @@
 #include <IOKit/IOSyncer.h>
 
 #if FIRELOG
-#import <IOKit/firewire/IOFireLog.h>
+#import <IOKit/firewire/FireLog.h>
 #define FIRELOG_MSG(x) FireLog x
 #else
 #define FIRELOG_MSG(x) do {} while (0)
@@ -95,6 +95,13 @@ void IOFireWireAVCCommand::writeDone(void *refcon, IOReturn status, IOFireWireNu
     }
 }
 
+UInt32 IOFireWireAVCCommand::handleResponseWithSimpleMatching(UInt16 nodeID, UInt32 len, const void *buf)
+{
+	bypassRobustCommandResponseMatching = true;
+	return handleResponse(nodeID,len,buf);
+}
+
+
 UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const void *buf)
 {
 	FIRELOG_MSG(("IOFireWireAVCCommand::handleResponse (this=0x%08X)\n",this));
@@ -102,13 +109,62 @@ UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const voi
     const UInt8 *p;
     UInt32 i;
     UInt32 res = kFWResponseAddressError;
+	UInt8 commandAddress;
+	UInt8 commandOpcode;
     
     // copy the status bytes from fPseudoSpace if this is for us
     // Don't need to check generation because the command is cancelled when a bus reset happens.
     // fTimeout is only non-zero if the write was successful.
     if(fTimeout && nodeID == fWriteNodeID) {
+		
+		// Add additional validation, to make sure this AVCResponse packet
+		// seems sensible for matching on our outstanding AVCCommand.
+		// Check the unit/subunit address, and the opcode. Note, If subunit is tape,
+		// and AVCCommand opcode is "Transport State", the AVCResponse packet has the
+		// opcode overwritten with either the Play, Wind, Record, or LoadMedium opcode. 
+		if (fCommand)
+		{
+			p = (UInt8*) fCommand;
+			commandAddress = p[kAVCAddress];
+			commandOpcode = p[kAVCOpcode];
+		}
+		else
+		{
+			UInt8 commandBytes[4];
+			IOByteCount cmdByteCount = fMem->readBytes(0,commandBytes,4);
+			if (cmdByteCount != 4)
+				return kFWResponseAddressError;
+			commandAddress = commandBytes[kAVCAddress];
+			commandOpcode = commandBytes[kAVCOpcode];
+		}
+		
         p = (const UInt8 *)buf;
-        if(p[kAVCCommandResponse] == kAVCInterimStatus) {
+
+		// Unless bypass flag is set, do the robust command/response matching
+		if (!bypassRobustCommandResponseMatching)
+		{
+			//IOLog("Doing robust response matching for IOFireWireAVCCommand\n");
+			
+			if (p[kAVCAddress] != commandAddress)
+				return kFWResponseAddressError;
+
+			if (((commandAddress & 0xF8) == 0x20) && (commandOpcode == 0xD0))
+			{
+				if ( (p[kAVCOpcode] != 0xD0) && (p[kAVCOpcode] != 0xC1) && (p[kAVCOpcode] != 0xC2) && (p[kAVCOpcode] != 0xC3) && (p[kAVCOpcode] != 0xC4))
+					return kFWResponseAddressError;
+			}
+			else
+			{
+				if (p[kAVCOpcode] != commandOpcode)
+					return kFWResponseAddressError;
+			}
+		}
+		else
+		{
+			//IOLog("Bypassing robust response matching for IOFireWireAVCCommand\n");
+		}
+
+		if(p[kAVCCommandResponse] == kAVCInterimStatus) {
             fTimeout = kInterimTimeout;	// We could wait for ever after the Interim, 10 seconds seems long enough
             updateTimer();
         }
@@ -224,6 +280,7 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
     fMaxRetries = 4;
     fCurRetries = fMaxRetries;
     fCmdLen = cmdLen;
+	bypassRobustCommandResponseMatching = false;
     
     // create command
     if(cmdLen == 4 || cmdLen == 8) {

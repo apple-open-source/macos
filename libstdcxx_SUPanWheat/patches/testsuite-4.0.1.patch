@@ -1,0 +1,24 @@
+diff -upr ../../libstdcxx-orig/libstdcxx/libstdc++-v3/testsuite/27_io/ios_base/cons/assign_neg.cc libstdc++-v3/testsuite/27_io/ios_base/cons/assign_neg.cc
+--- ../../libstdcxx-orig/libstdcxx/libstdc++-v3/testsuite/27_io/ios_base/cons/assign_neg.cc	2004-11-02 11:00:18.000000000 -0800
++++ libstdc++-v3/testsuite/27_io/ios_base/cons/assign_neg.cc	2005-08-03 15:13:22.000000000 -0700
+@@ -40,6 +40,7 @@ void test01()
+   test_base io2;
+   io1 = io2;
+ }
+-// { dg-error "within this context" "" { target *-*-* } 41 } 
++// { dg-error "synthesized" "" { target *-*-* } 41 } 
++// { dg-error "within this context" "" { target *-*-* } 34 } 
+ // { dg-error "is private" "" { target *-*-* } 782 } 
+ // { dg-error "operator=" "" { target *-*-* } 0 } 
+diff -upr ../../libstdcxx-orig/libstdcxx/libstdc++-v3/testsuite/27_io/ios_base/cons/copy_neg.cc libstdc++-v3/testsuite/27_io/ios_base/cons/copy_neg.cc
+--- ../../libstdcxx-orig/libstdcxx/libstdc++-v3/testsuite/27_io/ios_base/cons/copy_neg.cc	2004-11-02 11:00:18.000000000 -0800
++++ libstdc++-v3/testsuite/27_io/ios_base/cons/copy_neg.cc	2005-08-03 15:13:22.000000000 -0700
+@@ -40,6 +40,7 @@ void test02()
+   test_base io1;
+   test_base io2 = io1; 
+ }
+-// { dg-error "within this context" "" { target *-*-* } 41 } 
++// { dg-error "within this context" "" { target *-*-* } 35 } 
++// { dg-error "synthesized" "" { target *-*-* } 41 } 
+ // { dg-error "is private" "" { target *-*-* } 779 } 
+ // { dg-error "copy constructor" "" { target *-*-* } 0 } 

@@ -26,11 +26,11 @@ install-plist:
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 2.59
+AEP_Version    = 2.61
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = patch-Makefile.in patch-doc__Makefile.in
+AEP_Patches    = patch-Makefile.in patch-doc__Makefile.in patch-3505843-glibtoolize.in
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

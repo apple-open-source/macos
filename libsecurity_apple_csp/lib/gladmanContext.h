@@ -27,7 +27,7 @@
 #include "AppleCSPContext.h"
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
-#include "rijndaelGladman.h"
+#include <CommonCrypto/aesopt.h>
 #include "aesCommon.h"
 
 #define GLADMAN_BLOCK_SIZE_BYTES	DEFAULT_AES_BLOCK_BYTES
@@ -55,6 +55,7 @@ public:
 		bool			final);
 	void decryptBlock(
 		const void		*cipherText,		// length implied (one cipher block)
+		size_t			cipherTextLen,	
 		void			*plainText,	
 		size_t			&plainTextLen,		// in/out, throws on overflow
 		bool			final);
@@ -63,13 +64,18 @@ private:
 	void deleteKey();
 	
 	/* scheduled key */
-	GAesKey				mAesKey;
-	bool				mKeyValid;
+	aes_cc_ctx			mAesKey;
 	bool				mInitFlag;			// for easy reuse
 	
-	/* raw key bits saved here and checked on re-init to avoid extra key schedule */
+	/* 
+	 * Raw key bits saved here and checked on re-init to avoid extra key 
+	 * schedule on re-init. We also have to do a new key schedule if 
+	 * changing between encrypting and decrypting since the key schedules
+	 * differ for the two.
+	 */
 	uint8				mRawKey[MAX_AES_KEY_BITS / 8];
 	uint32				mRawKeySize;
+	bool				mWasEncrypting;
 };	/* AESContext */
 
 #endif //_H_GLADMAN_CONTEXT

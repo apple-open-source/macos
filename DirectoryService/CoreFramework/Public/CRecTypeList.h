@@ -35,7 +35,7 @@ public:
 		   			CRecTypeList			( tDataListPtr inNodeList );
 	virtual		   ~CRecTypeList			( void );
 
-	sInt32			GetRecType				( uInt32 inIndex, char **outData );
+	SInt32			GetRecType				( UInt32 inIndex, char **outData );
 
 protected:
 

@@ -56,6 +56,104 @@ typedef __darwin_wctype_t	wctype_t;
 #define WEOF			__DARWIN_WEOF
 #endif
 
+#ifndef __DARWIN_WCTYPE_TOP_static_inline
+#define __DARWIN_WCTYPE_TOP_static_inline static __inline
+#endif
+
+#include <ctype.h>
+
+/*
+ * Use inline functions if we are allowed to and the compiler supports them.
+ */
+#if !defined(_DONT_USE_CTYPE_INLINE_) && \
+    (defined(_USE_CTYPE_INLINE_) || defined(__GNUC__) || defined(__cplusplus))
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswalnum(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_A|_CTYPE_D));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswalpha(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_A));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswcntrl(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_C));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswctype(wint_t _wc, wctype_t _charclass)
+{
+	return (__istype(_wc, _charclass));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswdigit(wint_t _wc)
+{
+	return (__isctype(_wc, _CTYPE_D));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswgraph(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_G));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswlower(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_L));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswprint(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_R));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswpunct(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_P));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswspace(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_S));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswupper(wint_t _wc)
+{
+	return (__istype(_wc, _CTYPE_U));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswxdigit(wint_t _wc)
+{
+	return (__isctype(_wc, _CTYPE_X));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline wint_t
+towlower(wint_t _wc)
+{
+        return (__tolower(_wc));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline wint_t
+towupper(wint_t _wc)
+{
+        return (__toupper(_wc));
+}
+
+#else /* not using inlines */
+
 __BEGIN_DECLS
 int	iswalnum(wint_t);
 int	iswalpha(wint_t);
@@ -71,26 +169,14 @@ int	iswupper(wint_t);
 int	iswxdigit(wint_t);
 wint_t	towlower(wint_t);
 wint_t	towupper(wint_t);
+__END_DECLS
+
+#endif /* using inlines */
+
+__BEGIN_DECLS
 wctype_t
 	wctype(const char *);
 __END_DECLS
-
-#include <ctype.h>
-
-#define	iswalnum(wc)		__istype((wc), _CTYPE_A|_CTYPE_D)
-#define	iswalpha(wc)		__istype((wc), _CTYPE_A)
-#define	iswcntrl(wc)		__istype((wc), _CTYPE_C)
-#define	iswctype(wc, charclass)	__istype((wc), (charclass))
-#define	iswdigit(wc)		__istype((wc), _CTYPE_D)
-#define	iswgraph(wc)		__istype((wc), _CTYPE_G)
-#define	iswlower(wc)		__istype((wc), _CTYPE_L)
-#define	iswprint(wc)		__istype((wc), _CTYPE_R)
-#define	iswpunct(wc)		__istype((wc), _CTYPE_P)
-#define	iswspace(wc)		__istype((wc), _CTYPE_S)
-#define	iswupper(wc)		__istype((wc), _CTYPE_U)
-#define	iswxdigit(wc)		__istype((wc), _CTYPE_X)
-#define	towlower(wc)		__tolower(wc)
-#define	towupper(wc)		__toupper(wc)
 
 #ifdef _USE_EXTENDED_LOCALES_
 #include <xlocale/__wctype.h>

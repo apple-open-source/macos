@@ -56,9 +56,13 @@ namespace IOFireWireLib {
 	: IOFireWireIUnknown( interface ),
 	  mUserClient( userclient )
 	{	
-		IOReturn err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-														kConfigDirectory_Create, 
-														0, 1, & mKernConfigDirectoryRef) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		IOReturn err = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+												 kConfigDirectory_Create,
+												 NULL,0,
+												 &outputVal,&outputCnt);
+		mKernConfigDirectoryRef = (UserObjectHandle) outputVal;
 		if (err)
 			throw err ;
 
@@ -69,9 +73,13 @@ namespace IOFireWireLib {
 	{
 		IOReturn error = kIOReturnSuccess;
 		
-		error = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-											   kReleaseUserObject, 1, 0, mKernConfigDirectoryRef ) ;
-
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[1]={(const uint64_t)mKernConfigDirectoryRef};
+		error = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+													kReleaseUserObject,
+													inputs,1,
+													NULL,&outputCnt);
+		
 		DebugLogCond( error, "release config dir failed err=%x\n", error ) ;
 	
 		mUserClient.Release() ;
@@ -86,8 +94,15 @@ namespace IOFireWireLib {
 	IOReturn
 	ConfigDirectory::GetKeyType(int key, IOConfigKeyType& type)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetKeyType,
-					2, 1, mKernConfigDirectoryRef, key, & type) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, key};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetKeyType,
+													inputs,2,
+													&outputVal,&outputCnt);
+		type = (IOConfigKeyType) (outputCnt & 0xFFFFFFFF);
+		return result;
 	}
 	
 	IOReturn
@@ -95,10 +110,18 @@ namespace IOFireWireLib {
 	{
 		UserObjectHandle	kernelStringRef ;
 		UInt32				stringLen ;
-		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-				kConfigDirectory_GetKeyValue_UInt32, 3, 3, mKernConfigDirectoryRef, key, text != nil,
-				& value, & kernelStringRef, & stringLen) ;
-	
+		
+		uint32_t outputCnt = 3;
+		uint64_t outputVal[3];
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,(text != nil)};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetKeyValue_UInt32,
+													inputs,3,
+													outputVal,&outputCnt);
+		value = outputVal[0] & 0xFFFFFFFF;
+		kernelStringRef = (UserObjectHandle) outputVal[1];
+		stringLen = outputVal[2] & 0xFFFFFFFF;
+		
 		if (text && (kIOReturnSuccess == result))
 			result = mUserClient.CreateCFStringWithOSStringRef(kernelStringRef, stringLen, text) ;
 		
@@ -109,11 +132,16 @@ namespace IOFireWireLib {
 	ConfigDirectory::GetKeyValue(int key, CFDataRef* value, CFStringRef*& text)
 	{
 		GetKeyValueDataResults results ;
-		IOByteCount	resultsSize = sizeof(results) ;
 		
-		IOReturn error = IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), 
-				kConfigDirectory_GetKeyValue_Data, 3, & resultsSize, mKernConfigDirectoryRef, key, text != nil,
-				& results ) ;
+		uint32_t outputCnt = 0;
+		size_t outputStructSize = sizeof(results) ;
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key, (text != nil)};
+		IOReturn error = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
+											 kConfigDirectory_GetKeyValue_Data,
+											 inputs,3,
+											 NULL,0,
+											 NULL,&outputCnt,
+											 & results,&outputStructSize);
 	
 		if ( text && (kIOReturnSuccess == error))
 			error = mUserClient.CreateCFStringWithOSStringRef( results.text, results.textLength, text ) ;
@@ -129,8 +157,18 @@ namespace IOFireWireLib {
 		UserObjectHandle			kernelStringRef ;
 		UserObjectHandle	kernelDirectoryRef ;
 		UInt32						stringLen ;
-		IOReturn result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetKeyValue_ConfigDirectory,
-				3, 3, mKernConfigDirectoryRef, key, text != nil, & kernelDirectoryRef, & kernelStringRef, & stringLen ) ;
+		
+		
+		uint32_t outputCnt = 3;
+		uint64_t outputVal[3];
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,(text != nil)};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetKeyValue_ConfigDirectory,
+													inputs,3,
+													outputVal,&outputCnt);
+		kernelDirectoryRef =(UserObjectHandle) outputVal[0];
+		kernelStringRef = (UserObjectHandle) outputVal[1];
+		stringLen = outputVal[2] & 0xFFFFFFFF;
 	
 		IUnknownVTbl**	iUnknown = nil ;
 		if (kIOReturnSuccess == result)
@@ -155,18 +193,21 @@ namespace IOFireWireLib {
 	}
 	
 	IOReturn
-	ConfigDirectory :: GetKeyOffset (
+	ConfigDirectory::GetKeyOffset (
 		int					key, 
 		FWAddress &			value, 
 		CFStringRef * &		text)
 	{
 		GetKeyOffsetResults results ;
-		IOByteCount resultsSize = sizeof(results) ;
-
-		IOReturn error = ::IOConnectMethodScalarIStructureO(	mUserClient.GetUserClientConnection(), 
-																kConfigDirectory_GetKeyOffset_FWAddress,
-																3, & resultsSize, mKernConfigDirectoryRef, key, text != nil, & results ) ;
-		
+		uint32_t outputCnt = 0;
+		size_t outputStructSize = sizeof(results) ;
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key, (text != nil)};
+		IOReturn error = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
+											 kConfigDirectory_GetKeyOffset_FWAddress,
+											 inputs,3,
+											 NULL,0,
+											 NULL,&outputCnt,
+											 & results,&outputStructSize);
 		value = results.address ;
 
 		if (text && (kIOReturnSuccess == error))
@@ -181,40 +222,61 @@ namespace IOFireWireLib {
 		UserObjectHandle			kernelStringRef ;
 		UserObjectHandle	kernelDirectoryRef ;
 		UInt32						stringLen ;
-		IOReturn result = IOConnectMethodScalarIScalarO (
-								mUserClient.GetUserClientConnection(),
-								kConfigDirectory_GetKeyValue_ConfigDirectory,
-								3,
-								3,
-								mKernConfigDirectoryRef,
-								key,
-								(UInt32)false,
-								& kernelDirectoryRef,
-								& kernelStringRef,
-								& stringLen) ;
 		
+		
+		uint32_t outputCnt = 3;
+		uint64_t outputVal[3];
+		const uint64_t inputs[3] = {(const uint64_t)mKernConfigDirectoryRef, key,false};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetKeyValue_ConfigDirectory,
+													inputs,3,
+													outputVal,&outputCnt);
+		kernelDirectoryRef =(UserObjectHandle) outputVal[0];
+		kernelStringRef = (UserObjectHandle) outputVal[1];
+		stringLen = outputVal[2] & 0xFFFFFFFF;
 		return result ;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetIndexType(int index, IOConfigKeyType &type)
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetIndexType,
-					2, 1, mKernConfigDirectoryRef, index, & type) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexType,
+													inputs,2,
+													&outputVal,&outputCnt);
+		type = (IOConfigKeyType)(outputVal & 0xFFFFFFFF);
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetIndexKey(int index, int &key)
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetIndexKey,
-					2, 1, mKernConfigDirectoryRef, index, & key) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexKey,
+													inputs,2,
+													&outputVal,&outputCnt);
+		key = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetIndexValue(int index, UInt32& value)
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-				kConfigDirectory_GetIndexValue_UInt32, 2, 1, mKernConfigDirectoryRef, index, & value) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexValue_UInt32,
+													inputs,2,
+													&outputVal,&outputCnt);
+		value = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 		
@@ -223,10 +285,17 @@ namespace IOFireWireLib {
 	{
 		UserObjectHandle	dataRef ;
 		IOByteCount		dataLen ;
-		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-								kConfigDirectory_GetIndexValue_Data, 2, 2, mKernConfigDirectoryRef, index, 
-								& dataRef, & dataLen) ;
-	
+		
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexValue_Data,
+													inputs,2,
+													outputVal,&outputCnt);
+		dataRef = (UserObjectHandle) outputVal[0];
+		dataLen = outputVal[1] & 0xFFFFFFFF;
+		
 		if (kIOReturnSuccess == result)
 			result = mUserClient.CreateCFDataWithOSDataRef(dataRef, dataLen, value) ;
 	
@@ -238,34 +307,56 @@ namespace IOFireWireLib {
 	{
 		UserObjectHandle		stringRef ;
 		UInt32				stringLen ;
-		IOReturn result = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(),
-								kConfigDirectory_GetIndexValue_String, 2, 2, mKernConfigDirectoryRef,
-								index, & stringRef, & stringLen) ;
-	
+		
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexValue_String,
+													inputs,2,
+													outputVal,&outputCnt);
+		stringRef = (UserObjectHandle) outputVal[0];
+		stringLen = outputVal[1] & 0xFFFFFFFF;
+		
 		if (kIOReturnSuccess == result)
 			result = mUserClient.CreateCFStringWithOSStringRef(stringRef, stringLen, value) ;
 		
 		return result ;
 	}
-	
+
+#if 0	
 	IOReturn
 	ConfigDirectory::GetIndexValue(int index, UserObjectHandle& value)
 	{
-		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-				kConfigDirectory_GetIndexValue_ConfigDirectory, 2, 1, mKernConfigDirectoryRef, index, & value) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexValue_ConfigDirectory,
+													inputs,2,
+													&outputVal,&outputCnt);
+		value = (UserObjectHandle) outputVal;
+		return result;
 	}
+#endif
 	
 	IOReturn
-	ConfigDirectory :: GetIndexValue (
+	ConfigDirectory::GetIndexValue (
 		int						index, 
 		IOFireWireLibConfigDirectoryRef & value, 
 		REFIID					iid)
 	{
 		UserObjectHandle	directoryRef ;
-		IOReturn result = IOConnectMethodScalarIScalarO(	mUserClient.GetUserClientConnection(), 
-															kConfigDirectory_GetIndexValue_ConfigDirectory, 
-															2, 1, mKernConfigDirectoryRef, index, & directoryRef) ;
-	
+		
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexValue_ConfigDirectory,
+													inputs,2,
+													&outputVal,&outputCnt);
+		directoryRef = (UserObjectHandle) outputVal;
+		
 		IUnknownVTbl** iUnknown ;
 		if (kIOReturnSuccess == result)
 		{
@@ -288,54 +379,102 @@ namespace IOFireWireLib {
 	IOReturn
 	ConfigDirectory::GetIndexOffset(int index, FWAddress& value)
 	{
-		IOByteCount resultsSize = sizeof(value) ;
-		IOReturn result = IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), 
-															kConfigDirectory_GetIndexOffset_FWAddress, 
-															2, &resultsSize, mKernConfigDirectoryRef, index, &value) ;
 		
+		uint32_t outputCnt = 0;
+		size_t outputStructSize = sizeof(value) ;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
+											 kConfigDirectory_GetIndexOffset_FWAddress,
+											 inputs,2,
+											 NULL,0,
+											 NULL,&outputCnt,
+											 & value,&outputStructSize);
 		return result ;
 	}
 		
 	IOReturn
 	ConfigDirectory::GetIndexOffset(int index, UInt32& value)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetIndexOffset_UInt32, 2, 1,
-						mKernConfigDirectoryRef, index, & value) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexOffset_UInt32,
+													inputs,2,
+													&outputVal,&outputCnt);
+		value = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetIndexEntry(int index, UInt32 &value)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetIndexEntry, 2, 1, 
-						mKernConfigDirectoryRef, index, & value) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, index};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetIndexEntry,
+													inputs,2,
+													&outputVal,&outputCnt);
+		value = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetSubdirectories(io_iterator_t *outIterator)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetSubdirectories, 1, 1,
-						mKernConfigDirectoryRef, outIterator) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[1]={(const uint64_t)mKernConfigDirectoryRef};
+
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetSubdirectories,
+													inputs,1,
+													&outputVal,&outputCnt);
+		*outIterator = (io_iterator_t) outputVal;
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetKeySubdirectories(int key, io_iterator_t *outIterator)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetKeySubdirectories, 2, 1,
-						mKernConfigDirectoryRef, key, outIterator) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[2] = {(const uint64_t)mKernConfigDirectoryRef, key};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetKeySubdirectories,
+													inputs,2,
+													&outputVal,&outputCnt);
+		*outIterator = (io_iterator_t) outputVal;
+		return result;
 	}
 	
 	IOReturn
 	ConfigDirectory::GetType(int *outType)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetType, 1, 1, mKernConfigDirectoryRef,
-						outType) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[1]={(const uint64_t)mKernConfigDirectoryRef};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetType,
+													inputs,1,
+													&outputVal,&outputCnt);
+		*outType = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	IOReturn 
 	ConfigDirectory::GetNumEntries(int *outNumEntries)
 	{
-		return IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kConfigDirectory_GetNumEntries, 1, 1,
-						mKernConfigDirectoryRef, outNumEntries) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal;
+		const uint64_t inputs[1]={(const uint64_t)mKernConfigDirectoryRef};
+		IOReturn result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+													kConfigDirectory_GetNumEntries,
+													inputs,1,
+													&outputVal,&outputCnt);
+		*outNumEntries = outputVal & 0xFFFFFFFF;
+		return result;
 	}
 	
 	// ============================================================

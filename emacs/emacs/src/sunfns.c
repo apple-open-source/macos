@@ -1,5 +1,6 @@
 /* Functions for Sun Windows menus and selection buffer.
-   Copyright (C) 1987, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is probably totally obsolete.  In any case, the FSF is
 unwilling to support it.  We agreed to include it in our distribution
@@ -25,8 +26,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Author: Jeff Peck, Sun Microsystems, Inc. <peck@sun.com>
 Original ideas by David Kastan and Eric Negaard, SRI International
@@ -108,12 +109,12 @@ struct cursor DefaultCursor = {0, 0, PIX_SRC ^ PIX_DST, &ArrowCursorMpr};
  *	Initialize window
  */
 DEFUN ("sun-window-init", Fsun_window_init, Ssun_window_init, 0, 1, 0,
-       "One time setup for using Sun Windows with mouse.\n\
-Unless optional argument FORCE is non-nil, is a noop after its first call.\n\
-Returns a number representing the file descriptor of the open Sun Window,\n\
-or -1 if can not open it.")
-      (force)
-      Lisp_Object force;
+       doc: /* One time setup for using Sun Windows with mouse.
+Unless optional argument FORCE is non-nil, is a noop after its first call.
+Returns a number representing the file descriptor of the open Sun Window,
+or -1 if can not open it.  */)
+     (force)
+     Lisp_Object force;
 {
   char *cp;
   static int already_initialized = 0;
@@ -149,17 +150,17 @@ or -1 if can not open it.")
  *	and can be interrupted by the mouse)
  */
 DEFUN ("sit-for-millisecs", Fsit_for_millisecs, Ssit_for_millisecs, 1, 1, 0,
-   "Like sit-for, but ARG is milliseconds. \n\
-Perform redisplay, then wait for ARG milliseconds or until\n\
-input is available.  Returns t if wait completed with no input.\n\
-Redisplay does not happen if input is available before it starts.")
-	(n)
-	Lisp_Object n;
+       doc: /* Like sit-for, but ARG is milliseconds.
+Perform redisplay, then wait for ARG milliseconds or until
+input is available.  Returns t if wait completed with no input.
+Redisplay does not happen if input is available before it starts.  */)
+     (n)
+     Lisp_Object n;
 {
   struct timeval Timeout;
   int waitmask = 1;
-  
-  CHECK_NUMBER (n, 0);
+
+  CHECK_NUMBER (n);
   Timeout.tv_sec = XINT(n) / 1000;
   Timeout.tv_usec = (XINT(n) - (Timeout.tv_sec * 1000)) * 1000;
 
@@ -178,23 +179,23 @@ Redisplay does not happen if input is available before it starts.")
 /*
  *   Sun sleep-for (allows a shorter interval than the regular sleep-for)
  */
-DEFUN ("sleep-for-millisecs", 
-	Fsleep_for_millisecs,
-	Ssleep_for_millisecs, 1, 1, 0,
-   "Pause, without updating display, for ARG milliseconds.")
-	(n)
-	Lisp_Object n;
+DEFUN ("sleep-for-millisecs",
+       Fsleep_for_millisecs,
+       Ssleep_for_millisecs, 1, 1, 0,
+       doc: /* Pause, without updating display, for ARG milliseconds.  */)
+     (n)
+     Lisp_Object n;
 {
   unsigned useconds;
 
-  CHECK_NUMBER (n, 0);
+  CHECK_NUMBER (n);
   useconds = XINT(n) * 1000;
   usleep(useconds);
   return(Qt);
 }
 
 DEFUN ("update-display", Fupdate_display, Supdate_display, 0, 0, 0,
-       "Perform redisplay.")
+       doc: /* Perform redisplay.  */)
      ()
 {
   redisplay_preserve_echo_area (17);
@@ -206,12 +207,13 @@ DEFUN ("update-display", Fupdate_display, Supdate_display, 0, 0, 0,
  *	Change the Sun mouse icon
  */
 DEFUN ("sun-change-cursor-icon",
-	Fsun_change_cursor_icon,
-	Ssun_change_cursor_icon, 1, 1, 0,
-  "Change the Sun mouse cursor icon.  ICON is a lisp vector whose 1st element\n\
-is the X offset of the cursor hot-point, whose 2nd element is the Y offset\n\
-of the cursor hot-point and whose 3rd element is the cursor pixel data\n\
-expressed as a string.  If ICON is nil then the original arrow cursor is used")
+       Fsun_change_cursor_icon,
+       Ssun_change_cursor_icon, 1, 1, 0,
+       doc: /* Change the Sun mouse cursor icon.
+ICON is a lisp vector whose 1st element
+is the X offset of the cursor hot-point, whose 2nd element is the Y offset
+of the cursor hot-point and whose 3rd element is the cursor pixel data
+expressed as a string.  If ICON is nil then the original arrow cursor is used.  */)
      (Icon)
      Lisp_Object Icon;
 {
@@ -219,33 +221,33 @@ expressed as a string.  If ICON is nil then the original arrow cursor is used")
   register short *p;
   register int i;
   Lisp_Object X_Hot, Y_Hot, Data;
-  
+
   CHECK_GFX (Qnil);
   /*
    *	If the icon is null, we just restore the DefaultCursor
    */
-  if (NILP(Icon)) 
+  if (NILP(Icon))
     CurrentCursor = DefaultCursor;
   else {
     /*
      *	extract the data from the vector
      */
-    CHECK_VECTOR (Icon, 0);
+    CHECK_VECTOR (Icon);
     if (XVECTOR(Icon)->size < 3) return(Qnil);
     X_Hot = XVECTOR(Icon)->contents[0];
     Y_Hot = XVECTOR(Icon)->contents[1];
     Data = XVECTOR(Icon)->contents[2];
-    
-    CHECK_NUMBER (X_Hot, 0);
-    CHECK_NUMBER (Y_Hot, 0);
-    CHECK_STRING (Data, 0);
-    if (XSTRING(Data)->size != 32) return(Qnil);
+
+    CHECK_NUMBER (X_Hot);
+    CHECK_NUMBER (Y_Hot);
+    CHECK_STRING (Data);
+    if (SCHARS (Data) != 32) return(Qnil);
     /*
      *	Setup the new cursor
      */
     NewCursor.cur_xhot = X_Hot;
     NewCursor.cur_yhot = Y_Hot;
-    cp = XSTRING(Data)->data;
+    cp = SDATA (Data);
     p = CursorData;
     i = 16;
     while(--i >= 0)
@@ -266,7 +268,7 @@ sel_write (sel, file)
      struct selection *sel;
      FILE *file;
 {
-  fwrite (XSTRING (Current_Selection)->data, sizeof (char), 
+  fwrite (SDATA (Current_Selection), sizeof (char),
 	  sel->sel_items, file);
 }
 
@@ -284,7 +286,7 @@ sel_read (sel, file)
 {
   register int i, n;
   register char *cp;
-  
+
   Current_Selection = make_string ("", 0);
   if (sel->sel_items <= 0)
     return (0);
@@ -298,14 +300,14 @@ sel_read (sel, file)
     error("fread botch in sel_read");
     return(-1);
   } else if (n < 0) {
-    error("Error reading selection.");
+    error("Error reading selection");
     return(-1);
   }
   /*
    * The shelltool select saves newlines as carriage returns,
    * but emacs wants newlines.
    */
-  for (i = 0; i < n; i++) 
+  for (i = 0; i < n; i++)
     if (cp[i] == '\r') cp[i] = '\n';
 
   Current_Selection = make_string (cp, n);
@@ -318,18 +320,18 @@ sel_read (sel, file)
  */
 DEFUN ("sun-set-selection", Fsun_set_selection, Ssun_set_selection, 1, 1,
        "sSet selection to: ",
-  "Set the current sunwindow selection to STRING.")
+       doc: /* Set the current sunwindow selection to STRING.  */)
      (str)
      Lisp_Object str;
 {
   struct selection selection;
 
-  CHECK_STRING (str, 0);
+  CHECK_STRING (str);
   Current_Selection = str;
 
   CHECK_GFX (Qnil);
   selection.sel_type = SELTYPE_CHAR;
-  selection.sel_items = XSTRING (str)->size;
+  selection.sel_items = SCHARS (str);
   selection.sel_itembytes = 1;
   selection.sel_pubflags = 1;
   selection_set(&selection, sel_write, sel_clear, win_fd);
@@ -339,7 +341,7 @@ DEFUN ("sun-set-selection", Fsun_set_selection, Ssun_set_selection, 1, 1,
  *	Stuff the current window system selection into the current buffer
  */
 DEFUN ("sun-get-selection", Fsun_get_selection, Ssun_get_selection, 0, 0, 0,
-       "Return the current sunwindows selection as a string.")
+       doc: /* Return the current sunwindows selection as a string.  */)
      ()
 {
   CHECK_GFX (Current_Selection);
@@ -361,33 +363,33 @@ sun_item_create (Pair)
   Lisp_Object String;
   Lisp_Object Value;
 
-  if (!CONSP(Pair)) wrong_type_argument(Qlistp, Pair);
+  CHECK_LIST_CONS (Pair, Pair);
   String = Fcar(Pair);
-  CHECK_STRING(String, 0);
+  CHECK_STRING(String);
   Value = Fcdr(Pair);
   if (SYMBOLP (Value))
-    Value = XSYMBOL(Value)->value;
+    Value = SYMBOL_VALUE (Value);
   if (VECTORP (Value)) {
     submenu = sun_menu_create (Value);
     menu_item = menu_create_item
-      (MENU_RELEASE, MENU_PULLRIGHT_ITEM, XSTRING(String)->data, submenu, 0);
+      (MENU_RELEASE, MENU_PULLRIGHT_ITEM, SDATA (String), submenu, 0);
   } else {
     menu_item = menu_create_item
-      (MENU_RELEASE, MENU_STRING_ITEM, XSTRING(String)->data, Value, 0);
+      (MENU_RELEASE, MENU_STRING_ITEM, SDATA (String), Value, 0);
   }
   return menu_item;
 }
 
-Menu 
+Menu
 sun_menu_create (Vector)
      Lisp_Object Vector;
 {
   Menu menu;
   int i;
-  CHECK_VECTOR(Vector,0);
-  menu=menu_create(0); 
+  CHECK_VECTOR(Vector);
+  menu=menu_create(0);
   for(i = 0; i < XVECTOR(Vector)->size; i++) {
-    menu_set (menu, MENU_APPEND_ITEM, 
+    menu_set (menu, MENU_APPEND_ITEM,
 	      sun_item_create(XVECTOR(Vector)->contents[i]), 0);
   }
   return menu;
@@ -422,39 +424,41 @@ make_menu_label (menu)
 DEFUN ("sun-menu-internal",
        Fsun_menu_internal,
        Ssun_menu_internal, 5, 5, 0,
-       "Set up a SunView pop-up menu and return the user's choice.\n\
-Arguments WINDOW, X, Y, BUTTON, and MENU.\n\
-*** User code should generally use sun-menu-evaluate ***\n\
-\n\
-Arguments WINDOW, X, Y, BUTTON, and MENU.\n\
-Put MENU up in WINDOW at position X, Y.\n\
-The BUTTON argument specifies the button to be released that selects an item:\n\
-   1 = LEFT BUTTON\n\
-   2 = MIDDLE BUTTON\n\
-   4 = RIGHT BUTTON\n\
-The MENU argument is a vector containing (STRING . VALUE) pairs.\n\
-The VALUE of the selected item is returned.\n\
-If the VALUE of the first pair is nil, then the first STRING will be used\n\
-as a menu label.")
-      (window, X_Position, Y_Position, Button, MEnu)
-      Lisp_Object window, X_Position, Y_Position, Button, MEnu;
+       doc: /* Set up a SunView pop-up menu and return the user's choice.
+Arguments WINDOW, X, Y, BUTTON, and MENU.
+*** User code should generally use sun-menu-evaluate ***
+
+Arguments WINDOW, X, Y, BUTTON, and MENU.
+Put MENU up in WINDOW at position X, Y.
+The BUTTON argument specifies the button to be released that selects an item:
+   1 = LEFT BUTTON
+   2 = MIDDLE BUTTON
+   4 = RIGHT BUTTON
+The MENU argument is a vector containing (STRING . VALUE) pairs.
+The VALUE of the selected item is returned.
+If the VALUE of the first pair is nil, then the first STRING will be used
+as a menu label.  */)
+     (window, X_Position, Y_Position, Button, MEnu)
+     Lisp_Object window, X_Position, Y_Position, Button, MEnu;
 {
   Menu menu;
   int button, xpos, ypos;
   Event event0;
   Event *event = &event0;
   Lisp_Object Value, Pair;
-  
-  CHECK_NUMBER(X_Position, 0);
-  CHECK_NUMBER(Y_Position, 1);
-  CHECK_LIVE_WINDOW(window, 2);
-  CHECK_NUMBER(Button, 3);
-  CHECK_VECTOR(MEnu, 4);
+
+  CHECK_NUMBER(X_Position);
+  CHECK_NUMBER(Y_Position);
+  CHECK_LIVE_WINDOW(window);
+  CHECK_NUMBER(Button);
+  CHECK_VECTOR(MEnu);
 
   CHECK_GFX (Qnil);
 
-  xpos = CtoSX (WINDOW_LEFT_MARGIN (XWINDOW (window)) + XINT(X_Position));
-  ypos = CtoSY (XWINDOW(window)->top  + XINT(Y_Position));
+  xpos = CtoSX (WINDOW_LEFT_EDGE_COL (XWINDOW (window))
+		+ WINDOW_LEFT_SCROLL_BAR_COLS (XWINDOW (window))
+		+ XINT(X_Position));
+  ypos = CtoSY (WINDOW_TOP_EDGE_LINE (XWINDOW(window)) + XINT(Y_Position));
 #ifdef  Menu_Base_Kludge
   {static Lisp_Object symbol[2];
    symbol[0] = Fintern (sm_kludge_string, Qnil);
@@ -510,3 +514,6 @@ syms_of_sunfns()
   defsubr(&Ssun_get_selection);
   defsubr(&Ssun_menu_internal);
 }
+
+/* arch-tag: 2d7decb7-58f6-41aa-b45b-077ccfab7158
+   (do not change this comment) */

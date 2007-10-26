@@ -1,0 +1,102 @@
+diff -Naur net-snmp-5.4/agent/mibgroup/ucd-snmp/diskio.c net-snmp-5.4.patched/agent/mibgroup/ucd-snmp/diskio.c
+--- net-snmp-5.4/agent/mibgroup/ucd-snmp/diskio.c	2006-09-25 16:57:52.000000000 -0700
++++ net-snmp-5.4.patched/agent/mibgroup/ucd-snmp/diskio.c	2007-02-09 15:54:54.000000000 -0800
+@@ -91,7 +91,9 @@
+ #endif
+ 
+ #if defined (darwin)
+-#include <CoreFoundation/CoreFoundation.h>
++#include <CoreFoundation/CFDictionary.h>
++#include <CoreFoundation/CFNumber.h>
++#include <CoreFoundation/CFString.h>
+ #include <IOKit/IOKitLib.h>
+ #include <IOKit/storage/IOBlockStorageDriver.h>
+ #include <IOKit/storage/IOMedia.h>
+@@ -844,11 +846,15 @@
+ #define MAXDRIVES	16	/* most drives we will record */
+ #define MAXDRIVENAME	31	/* largest drive name we allow */
+ 
+-#define kIDXBytesRead		0	/* used as index into the stats array in a drivestats struct */
+-#define kIDXBytesWritten	1
+-#define kIDXNumReads		2
+-#define kIDXNumWrites		3
+-#define kIDXLast		3
++#define kIDXBytesRead			0	/* used as index into the stats array in a drivestats struct */
++#define kIDXBytesWritten		1
++#define kIDXNumReads			2
++#define kIDXNumWrites			3
++#define kIDXBytesReadXhi		4
++#define kIDXBytesReadXlo		5
++#define kIDXBytesWrittenXhi		6
++#define kIDXBytesWrittenXlo		7
++#define kIDXLast				7
+ 
+ struct drivestats {
+     char name[MAXDRIVENAME + 1];
+@@ -869,6 +875,7 @@
+     CFDictionaryRef properties;
+     CFDictionaryRef statistics;
+     long            value;
++    SInt64			value64;
+     kern_return_t   status;
+     int             i;
+ 
+@@ -918,6 +925,23 @@
+ 	    CFNumberGetValue(number, kCFNumberSInt32Type, &value);
+ 	    stats[kIDXNumWrites] = value;
+ 	}
++	
++	/* grab the 64 bit versions of the bytes read */
++	if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
++						 CFSTR(kIOBlockStorageDriverStatisticsBytesReadKey)))) {
++		CFNumberGetValue(number, kCFNumberSInt64Type, &value64);
++		stats[kIDXBytesReadXhi] = (long)(value64 >> 32);
++		stats[kIDXBytesReadXlo] = (long)(value64 & 0xffffffff);	
++	}
++		
++	/* grab the 64 bit versions of the bytes written */
++	if ((number = (CFNumberRef)CFDictionaryGetValue(statistics,
++						 CFSTR(kIOBlockStorageDriverStatisticsBytesWrittenKey)))) {
++		CFNumberGetValue(number, kCFNumberSInt64Type, &value64);
++		stats[kIDXBytesWrittenXhi] = (long)(value64 >> 32);
++		stats[kIDXBytesWrittenXlo] = (long)(value64 & 0xffffffff);	
++	}
++
+     }
+     /* we're done with the properties, release them */
+     CFRelease(properties);
+@@ -1001,7 +1025,7 @@
+     if (status != KERN_SUCCESS) {
+ 	snmp_log(LOG_ERR, "diskio: couldn't match whole IOMedia devices\n");
+ /*	fprintf(stderr,"Couldn't match whole IOMedia devices\n"); */
+-	return(1);
++	return(-1);
+     }
+ 
+     num_drives = 0;  /* NB: Incremented by handle_drive */
+@@ -1022,6 +1046,7 @@
+            int exact, size_t * var_len, WriteMethod ** write_method)
+ {
+     static long     long_ret;
++    static struct   counter64 c64_ret;
+     unsigned int    indx;
+ 
+     if (getstats() == 1) {
+@@ -1058,7 +1083,16 @@
+ 	case DISKIO_WRITES:
+ 	    long_ret = (signed long) drivestat[indx].stats[kIDXNumWrites];
+ 	    return (u_char *) & long_ret;
+-
++    case DISKIO_NREADX:
++        *var_len = 8;
++        c64_ret.low = (signed long) drivestat[indx].stats[kIDXBytesReadXlo];
++        c64_ret.high = (signed long) drivestat[indx].stats[kIDXBytesReadXhi];
++        return (u_char *) & c64_ret;
++    case DISKIO_NWRITTENX:
++        *var_len = 8;
++        c64_ret.low = (signed long) drivestat[indx].stats[kIDXBytesWrittenXlo];
++        c64_ret.high = (signed long) drivestat[indx].stats[kIDXBytesWrittenXhi];
++        return (u_char *) & c64_ret;
+ 	default:
+ 	    ERROR_MSG("diskio.c: don't know how to handle this request.");
+     }

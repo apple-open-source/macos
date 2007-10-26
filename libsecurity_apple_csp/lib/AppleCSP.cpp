@@ -306,11 +306,12 @@ static KeyRef CssmDataToKeyRef(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_REFERENCE);
 	}
 	
-	uint8 *cp = data.Data;
-	KeyRef keyRef = cp[0];
-	keyRef |= ((KeyRef)cp[1]) << 8;
-	keyRef |= ((KeyRef)cp[2]) << 16;
-	keyRef |= ((KeyRef)cp[3]) << 24;
+	uint8 *cp = data.Data + sizeof(KeyRef) - 1;
+	KeyRef keyRef = 0;
+	for(unsigned dex=0; dex<sizeof(KeyRef); dex++) {
+		keyRef <<= 8;
+		keyRef |= *cp--;
+	}
 	return keyRef;
 }
 
@@ -333,10 +334,10 @@ static void keyRefToCssmData(
 	setUpData(data, sizeof(keyRef), allocator);
 	
 	uint8 *cp = data.Data;
-	cp[0] = keyRef & 0xff;
-	cp[1] = (keyRef >> 8) & 0xff;
-	cp[2] = (keyRef >> 16) & 0xff;
-	cp[3] = (keyRef >> 24) & 0xff;
+	for(unsigned i=0; i<sizeof(keyRef); i++) {
+		*cp++ = keyRef & 0xff;
+		keyRef >>= 8;
+	}
 }
 
 // Look up a BinaryKey by its KeyRef. Returns NULL if not 

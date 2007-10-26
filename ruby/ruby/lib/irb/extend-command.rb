@@ -1,9 +1,9 @@
 #
-#   irb/extend-command.rb - irb command extend
-#   	$Release Version: 0.9$
-#   	$Revision: 1.4 $
-#   	$Date: 2002/07/29 06:14:08 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   irb/extend-command.rb - irb extend command 
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
@@ -100,16 +100,20 @@ module IRB
 	[:fg, NO_OVERRIDE]],
       [:irb_kill, :Kill, "irb/cmd/subirb", 
 	[:kill, OVERRIDE_PRIVATE_ONLY]],
+
+      [:irb_help, :Help, "irb/cmd/help",
+        [:help, NO_OVERRIDE]],
+
     ]
 
-    def EXCB.install_extend_commands
+    def self.install_extend_commands
       for args in @EXTEND_COMMANDS
 	def_extend_command(*args)
       end
     end
 
     # aliases = [commans_alias, flag], ...
-    def EXCB.def_extend_command(cmd_name, cmd_class, load_file = nil, *aliases)
+    def self.def_extend_command(cmd_name, cmd_class, load_file = nil, *aliases)
       case cmd_class
       when Symbol
 	cmd_class = cmd_class.id2name
@@ -168,7 +172,7 @@ module IRB
       "irb_" + method_name + "_org"
     end
 
-    def EXCB.extend_object(obj)
+    def self.extend_object(obj)
       unless (class<<obj;ancestors;end).include?(EXCB)
 	super
 	for ali, com, flg in @ALIASES
@@ -189,17 +193,19 @@ module IRB
       [:use_tracer=, "irb/ext/tracer.rb"],
       [:math_mode=, "irb/ext/math-mode.rb"],
       [:use_loader=, "irb/ext/use-loader.rb"],
+      [:save_history=, "irb/ext/save-history.rb"],
     ]
 
-    def CE.install_extend_commands
+    def self.install_extend_commands
       for args in @EXTEND_COMMANDS
 	def_extend_command(*args)
       end
     end
 
-    def CE.def_extend_command(cmd_name, load_file, *aliases)
+    def self.def_extend_command(cmd_name, load_file, *aliases)
       Context.module_eval %[
         def #{cmd_name}(*opts, &b)
+	  Context.module_eval {remove_method(:#{cmd_name})}
 	  require "#{load_file}"
 	  send :#{cmd_name}, *opts, &b
 	end
@@ -210,6 +216,49 @@ module IRB
     end
 
     CE.install_extend_commands
+  end
+
+  module MethodExtender
+    def def_pre_proc(base_method, extend_method)
+      base_method = base_method.to_s
+      extend_method = extend_method.to_s
+
+      alias_name = new_alias_name(base_method)
+      module_eval %[
+        alias_method alias_name, base_method
+        def #{base_method}(*opts)
+	  send :#{extend_method}, *opts
+	  send :#{alias_name}, *opts
+	end
+      ]
+    end
+
+    def def_post_proc(base_method, extend_method)
+      base_method = base_method.to_s
+      extend_method = extend_method.to_s
+
+      alias_name = new_alias_name(base_method)
+      module_eval %[
+        alias_method alias_name, base_method
+        def #{base_method}(*opts)
+	  send :#{alias_name}, *opts
+	  send :#{extend_method}, *opts
+	end
+      ]
+    end
+
+    # return #{prefix}#{name}#{postfix}<num>
+    def new_alias_name(name, prefix = "__alias_of__", postfix = "__")
+      base_name = "#{prefix}#{name}#{postfix}"
+      all_methods = instance_methods(true) + private_instance_methods(true)
+      same_methods = all_methods.grep(/^#{Regexp.quote(base_name)}[0-9]*$/)
+      return base_name if same_methods.empty?
+      no = same_methods.size
+      while !same_methods.include?(alias_name = base_name + no)
+	no += 1
+      end
+      alias_name
+    end
   end
 end
 

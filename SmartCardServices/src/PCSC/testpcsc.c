@@ -45,9 +45,9 @@ int main(int argc, char **argv)
 	SCARDHANDLE hCard;
 	SCARDCONTEXT hContext;
 	SCARD_READERSTATE_A rgReaderStates[1];
-	unsigned long dwReaderLen, dwState, dwProt, dwAtrLen;
+	uint32_t dwReaderLen, dwState, dwProt, dwAtrLen;
 	// unsigned long dwSendLength, dwRecvLength;
-	unsigned long dwPref, dwReaders;
+	uint32_t dwPref, dwReaders;
 	char *pcReaders, *mszReaders;
 	unsigned char pbAtr[MAX_ATR_SIZE];
 	const char *mszGroups;
@@ -153,6 +153,7 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
+//	printf("   context handle: %d [0x%08X]\n", hContext, hContext);
 	printf("Testing SCardConnect             : ");
 	rv = SCardConnect(hContext, &mszReaders[iList[iReader]],
 		SCARD_SHARE_SHARED, SCARD_PROTOCOL_T0 | SCARD_PROTOCOL_T1,
@@ -170,16 +171,17 @@ int main(int argc, char **argv)
 
 	dwReaderLen = 50;
 	pcReaders = (char *) malloc(sizeof(char) * 50);
-
+	dwAtrLen = MAX_ATR_SIZE;
+	
 	rv = SCardStatus(hCard, pcReaders, &dwReaderLen, &dwState, &dwProt,
 		pbAtr, &dwAtrLen);
 
 	printf("%s\n", pcsc_stringify_error(rv));
 
 	printf("Current Reader Name              : %s\n", pcReaders);
-	printf("Current Reader State             : %lx\n", dwState);
-	printf("Current Reader Protocol          : %lx\n", dwProt - 1);
-	printf("Current Reader ATR Size          : %lx\n", dwAtrLen);
+	printf("Current Reader State             : %x\n", dwState);
+	printf("Current Reader Protocol          : %x\n", dwProt - 1);
+	printf("Current Reader ATR Size          : %x\n", dwAtrLen);
 	printf("Current Reader ATR Value         : ");
 
 	for (i = 0; i < dwAtrLen; i++)

@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/mi.varargs.h,v 1.1.1.2 2001/06/28 23:10:49 bbraun Exp $ */
+/* $Header: /src/pub/tcsh/mi.varargs.h,v 1.2 1996/04/26 19:18:39 christos Exp $ */
 /*
  * mi.varargs.h: Correct varargs for minix
  */

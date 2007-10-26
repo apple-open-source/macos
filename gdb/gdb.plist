@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceCVS</key>
+	<string>cvs -d :pserver:anoncvs@sources.redhat.com:/cvs/src co -D 2005-08-15 gdb</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-08-15</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>gdb.txt</string>
+	<key>OpenSourceProject</key>
+	<string>gdb</string>
+	<key>OpenSourceVersion</key>
+	<string>6.3.50-20050815</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://sourceware.org/gdb/</string>
+</dict>
+</plist>

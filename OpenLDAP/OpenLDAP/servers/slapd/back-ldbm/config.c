@@ -1,8 +1,8 @@
 /* config.c - ldbm backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.33.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.37.2.4 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,6 +23,7 @@
 
 #include "slap.h"
 #include "back-ldbm.h"
+#include "lutil.h"
 
 int
 ldbm_back_db_config(
@@ -62,7 +63,12 @@ ldbm_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		li->li_mode = strtol( argv[1], NULL, 0 );
+		if ( lutil_atoix( &li->li_mode, argv[1], 0 ) != 0 ) {
+			fprintf( stderr,
+			"%s: line %d: unable to parse mode=\"%s\" in \"mode <mode>\" line\n",
+			    fname, lineno, argv[1] );
+			return( 1 );
+		}
 
 	/* attribute to index */
 	} else if ( strcasecmp( argv[0], "index" ) == 0 ) {
@@ -73,8 +79,11 @@ ldbm_back_db_config(
 			return( 1 );
 		} else if ( argc > 3 ) {
 			fprintf( stderr,
-"%s: line %d: extra junk after \"index <attr> [pres,eq,approx,sub]\" line (ignored)\n",
+"%s: line %d: extra junk after \"index <attr> [pres,eq,approx,sub]\" line" SLAPD_CONF_UNKNOWN_IGNORED ".\n",
 			    fname, lineno );
+#ifdef SLAPD_CONF_UNKNOWN_BAILOUT
+			return( 1 );
+#endif /* SLAPD_CONF_UNKNOWN_BAILOUT */
 		}
 		rc = attr_index_config( li, fname, lineno, argc - 1, &argv[1] );
 
@@ -88,7 +97,12 @@ ldbm_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		li->li_cache.c_maxsize = atoi( argv[1] );
+		if ( lutil_atoi( &li->li_cache.c_maxsize, argv[1] ) != 0 ) {
+			fprintf( stderr,
+		"%s: line %d: unable to parse cachesize \"%s\"\n",
+			    fname, lineno, argv[1] );
+			return( 1 );
+		}
 
 	/* size of each dbcache in bytes */
 	} else if ( strcasecmp( argv[0], "dbcachesize" ) == 0 ) {
@@ -98,7 +112,12 @@ ldbm_back_db_config(
 			    fname, lineno );
 			return( 1 );
 		}
-		li->li_dbcachesize = atoi( argv[1] );
+		if ( lutil_atoi( &li->li_dbcachesize, argv[1] ) ) {
+			fprintf( stderr,
+		"%s: line %d: unable to parse dbcachesize \"%s\"\n",
+			    fname, lineno, argv[1] );
+			return( 1 );
+		}
 
 	/* no locking (not safe) */
 	} else if ( strcasecmp( argv[0], "dbnolocking" ) == 0 ) {
@@ -115,68 +134,36 @@ ldbm_back_db_config(
 #ifndef NO_THREADS
 		int i;
 		if ( argc < 2 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, ERR, "ldbm_back_db_config: %s: "
-				"line %d: missing frequency value in \"dbsync <frequency> "
-				"[<wait-times> [wait-interval]]\" line\n", fname, lineno, 0 );
-#else	
 			Debug( LDAP_DEBUG_ANY,
     "%s: line %d: missing frquency value in \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 			    fname, lineno, 0 );
-#endif
 			return 1;
 		}
 
-		i = atoi( argv[1] );
-
-		if( i < 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( CONFIG, ERR, 
-				"ldbm_back_db_config: %s: "
-				"line %d: frequency value (%d) invalid \"dbsync "
-				"<frequency> [<wait-times> [wait-interval]]\" line\n", 
-				fname, lineno, i );
-#else	
+		if ( lutil_atoi( &i, argv[1] ) != 0 || i < 0 ) {
 			Debug( LDAP_DEBUG_ANY,
     "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 			    fname, lineno, i );
-#endif
 			return 1;
 		}
 
 		li->li_dbsyncfreq = i;
 
 		if ( argc > 2 ) {
-			i = atoi( argv[2] );
-			if ( i < 0 ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG ( CONFIG,ERR, "ldbm_back_db_config: %s: "
-					"line %d: frequency value (%d) invalid \"dbsync "
-					"<frequency> [<wait-times> [wait-interval]]\" line\n", 
-					fname, lineno, i );
-#else	
+			if ( lutil_atoi( &i, argv[2] ) != 0 || i < 0 ) {
 				Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 				    fname, lineno, i );
-#endif
 				return 1;
 			}
 			li ->li_dbsyncwaitn = i;
 		}
 
 		if ( argc > 3 ) {
-			i = atoi( argv[3] );
-			if ( i <= 0 ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG ( CONFIG,ERR, "ldbm_back_db_config: %s: "
-					"line %d: frequency value (%d) invalid \"dbsync "
-					"<frequency> [<wait-times> [wait-interval]]\" line\n", 
-					fname, lineno, i );
-#else	
+			if ( lutil_atoi( &i, argv[3] ) != 0 || i <= 0 ) {
 				Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 				    fname, lineno, i );
-#endif
 				return 1;
 			}
 			li ->li_dbsyncwaitinterval = i;
@@ -186,13 +173,8 @@ ldbm_back_db_config(
 		li->li_dbwritesync = 0;
 
 #else
-#ifdef NEW_LOGGING
-		LDAP_LOG ( CONFIG, ERR, "ldbm_back_db_config: \"dbsync\""
-			" policies not supported in non-threaded environments\n", 0, 0, 0 );
-#else	
 		Debug( LDAP_DEBUG_ANY,
     "\"dbsync\" policies not supported in non-threaded environments\n", 0, 0, 0);
-#endif
 		return 1;
 #endif
 

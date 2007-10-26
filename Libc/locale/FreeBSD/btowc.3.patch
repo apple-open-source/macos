@@ -1,29 +1,45 @@
---- btowc.3.orig	Fri Mar 11 18:06:40 2005
-+++ btowc.3	Fri Mar 11 18:08:08 2005
-@@ -29,7 +29,9 @@
+--- btowc.3	2003-05-20 15:21:44.000000000 -0700
++++ btowc.3.edit	2006-07-12 11:14:18.000000000 -0700
+@@ -29,16 +29,35 @@
  .Os
  .Sh NAME
  .Nm btowc ,
 -.Nm wctob
-+.Nm wctob ,
 +.Nm btowc_l ,
++.Nm wctob ,
 +.Nm wctob_l
  .Nd "convert between wide and single-byte characters"
  .Sh LIBRARY
  .Lb libc
-@@ -39,6 +41,11 @@
- .Fn btowc "int c"
+ .Sh SYNOPSIS
++.In stdio.h
+ .In wchar.h
+ .Ft wint_t
+-.Fn btowc "int c"
++.Fo btowc
++.Fa "int c"
++.Fc
  .Ft int
- .Fn wctob "wint_t c"
+-.Fn wctob "wint_t c"
++.Fo wctob
++.Fa "wint_t c"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft wint_t
-+.Fn btowc_l "int c" "locale_t loc"
++.Fo btowc_l
++.Fa "int c"
++.Fa "locale_t loc"
++.Fc
 +.Ft int
-+.Fn wctob_l "wint_t c" "locale_t loc"
++.Fo wctob_l
++.Fa "wint_t c"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn btowc
-@@ -59,10 +66,23 @@
+@@ -59,10 +78,29 @@
  .Fn wctob
  returns
  .Dv WEOF .
@@ -39,12 +55,18 @@
 +functions may be passed locales directly. See
 +.Xr xlocale 3
 +for more information.
++.Sh LEGACY SYNOPSIS
++.Pp
++The include file
++.In stdio.h
++is not necessary for these functions.
  .Sh SEE ALSO
  .Xr mbrtowc 3 ,
  .Xr multibyte 3 ,
 -.Xr wcrtomb 3
 +.Xr wcrtomb 3 ,
-+.Xr xlocale 3
++.Xr xlocale 3 ,
++.Xr compat 5
  .Sh STANDARDS
  The
  .Fn btowc

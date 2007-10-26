@@ -1,0 +1,261 @@
+2006-04-28  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.2
+
+2006-04-03  Adam Jackson  <ajax@freedesktop.org>
+
+	* Makefile.am:
+	* configure.ac:
+	* src/Makefile.am:
+	Bug #6404: Cygwin build fixes (Yaakov Selkowitz)
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-08  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* src/Makefile.am:
+	Add configure options to allow hard-coded paths to be changed.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* man/Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Fix libtool hack to work with older libtools.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-20  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac: 
+	libXaw6 shouldn't depend on libXpm, only Xaw7 & Xaw8 should
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xaw6.pc.in:
+	* xaw7.pc.in:
+	* xaw8.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-28  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/Makefile.am:
+	Add libXaw.so.N -> libXawN.so.N links for platforms where
+	ldconfig doesn't add them automatically for you.
+
+2005-10-24  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/Makefile.am: 
+	Add -DOLDXAW to flags for building libXaw6 to disable features
+	that are only supposed to be in the newer versions.
+
+2005-10-21  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Add xext check.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* man/Makefile.am: 
+	* configure.ac:
+	Use sed to fill in variables in man page
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	Add old-doc files to EXTRA_DIST
+
+	* include/Makefile.am:
+	Add Template.c to install list
+
+	* src/Makefile.am:
+	Add sharedlib.c to EXTRA_DIST
+
+	* Xaw6/Makefile.am:
+	* Xaw7/Makefile.am:
+	* Xaw8/Makefile.am:
+	Remove the unneeded Makefile.am's
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* include/.cvsignore:
+	* man/.cvsignore:
+	* src/.cvsignore:
+	Add .cvsignore files
+	
+	* Makefile.am:
+	* configure.ac:
+	* src/Makefile.am:
+	Build all three versions in src. Hack libtool to set SONAME in the
+	libtool output to match old libXaw file names. Still missing is the
+	creation of appropriate symlinks from libXaw.so.6 -> libXaw6.so.6 et
+	al so that libraries not yet installed will work properly.
+
+2005-01-22  Daniel Stone  <daniel@freedesktop.org>
+
+	* configure.ac:
+	Remove AC_CONFIG_AUX_DIR.
+
+2004-05-10  Eric Anholt  <anholt@FreeBSD.org>
+
+	* Makefile.am:
+	* configure.ac:
+	Link to libXpm as well.
+	Bump to version 7.0.2.
+	Properly include LIBS/CFLAGS in .pc and linking.
+
+2004-04-13  Daniel Stone  <daniel@freedesktop.org>
+
+	* TextSink.c:
+	* Vendor.c:
+	* Actions.c:
+	* Text.c:
+	* XawI18n.h:
+	* Xaw.man:
+	* include/X11/Xaw/XawInit.h:
+	Sync with X11R6.7, including fixing a wrong number of arguments to
+	XmuSnprintf, adding better Cygwin support, and cleaning up OLDXAW
+	semantics.
+
+	* Bump version to 7.0.1 for xlibs 1.0.1.
+
+2004-01-25  Eric Anholt  <anholt@FreeBSD.org>
+
+	* Makefile.am:
+	Fix Xaw manpage section.
+
+2004-01-25  Eric Anholt  <anholt@FreeBSD.org>
+
+	* Makefile.am:
+	Change an XT_CFLAGS to XAW_CFLAGS, which should fix the FreeBSD
+	build.
+
+2004-01-25  Eric Anholt  <anholt@FreeBSD.org>
+
+	* CHANGES:
+	* Changelog:
+	Remove some very dated changelogs.
+
+2004-01-25  Eric Anholt  <anholt@FreeBSD.org>
+
+	* CHANGES:
+	* Changelog:
+	* Makefile.am:
+
+2004-01-24  Eric Anholt  <anholt@FreeBSD.org>
+
+	reviewed by: daniel
+
+	* CHANGES:
+	* Changelog:
+	Remove old changelogs, which are a bit dated.
+
+2004-01-24  Eric Anholt  <anholt@FreeBSD.org>
+
+	* Makefile.am:
+	Fix distcheck (missing header files).
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* ChangeLog
+	Catch up on all my changes for Dec. 23, 2003 UTC. (Also
+	notice that older CHANGES and Changelog also exist.)
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* .cvsignore
+	Add ltcf-c.sh and ltconfig to list of files for CVS to ignore.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* COPYING
+	* INSTALL
+	Add INSTALL and COPYING documents.  (COPYING is empty and
+	needs licenses added to it.)
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* README
+	Start README.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Makefile.am
+	Install Xaw man page.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* configure.ac
+	* xaw.pc.in
+	Make sure CFLAGS and LIBS are right for pkgconfig file.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Makefile.am
+	* configure.ac
+	Use 7.0.0 for version for libtool version-info and for
+	autoconf AC_INIT.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* Makefile.am
+	* configure.ac
+	* include/Makefile.am
+	Added Makefile.am for include headers.  Added support for
+	include headers.  (I moved header files to include/X11/Xaw/
+	on CVS server itself.)  Add more pkg-config files to use.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* include/.cvsignore
+	Add list of files for CVS to ignore.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+	* AUTHORS
+	* ChangeLog
+	* Makefile.am
+	* NEWS
+	* README
+	* autogen.sh
+	* configure.ac
+	* xaw.pc.in
+	Add initial files for automake/autoconf support.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* .cvsignore
+	Fix .pc (pkg-config) files to ignore.
+
+2003-12-23 Jeremy C. Reed <reed@reedmedia.net>
+
+	* .cvsignore
+	Add list of files for CVS to ignore.

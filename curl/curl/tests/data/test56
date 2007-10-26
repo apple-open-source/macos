@@ -1,7 +1,16 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP POST
+chunked Transfer-Encoding
+-A
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
-HTTP/1.1 200 OK swsclose
+HTTP/1.0 200 OK swsclose
 Funny-head: yesyes
 
 This is the proof it works
@@ -40,7 +49,6 @@ header "Transfer-Encoding: chunked"
 <protocol>
 POST /that.site.com/56 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Transfer-Encoding: chunked
 Content-Type: application/x-www-form-urlencoded
@@ -51,3 +59,4 @@ we post this
 
 </protocol>
 </verify>
+</testcase>

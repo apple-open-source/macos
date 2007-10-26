@@ -4,7 +4,7 @@
 ## Do not edit by hand.  ##
 ## --------------------- ##
 
-# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 AT_BANNER([Testing autoconf/programs macros.])
 
@@ -15,7 +15,9 @@ AT_CHECK_MACRO([AC_PROG_INSTALL])
 AT_CHECK_MACRO([AC_PROG_LEX])
 AT_CHECK_MACRO([AC_PROG_LN_S])
 AT_CHECK_MACRO([AC_PROG_MAKE_SET])
+AT_CHECK_MACRO([AC_PROG_MKDIR_P])
 AT_CHECK_MACRO([AC_PROG_RANLIB])
+AT_CHECK_MACRO([AC_PROG_SED])
 AT_CHECK_MACRO([AC_PROG_YACC])
 
 # Obsolete macros.

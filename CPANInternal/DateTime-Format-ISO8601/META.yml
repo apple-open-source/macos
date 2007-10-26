@@ -1,0 +1,17 @@
+--- #YAML:1.0
+name: DateTime-Format-ISO8601
+version: 0.0402
+author: ~
+abstract: ~
+license: perl
+requires:
+  DateTime: 0.18
+  DateTime::Format::Builder: 0.77
+recommends:
+  File::Find::Rule: 0.24
+  Test::Pod: 0.95
+provides:
+  DateTime::Format::ISO8601:
+    file: lib/DateTime/Format/ISO8601.pm
+    version: 0.0402
+generated_by: Module::Build version 0.25

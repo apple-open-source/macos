@@ -1,12 +1,27 @@
 #! /bin/sh
+# Copyright (C) 2001, 2002  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
 
 # Some simple tests of ylwrap functionality.
 
-. $srcdir/defs || exit 1
-
-# Likewise for some other tools.
-(gcc -v) > /dev/null 2>&1 || exit 77
-(bison -V) > /dev/null 2>&1 || exit 77
+required='bison gcc'
+. ./defs || exit 1
 
 cat > configure.in << 'END'
 AC_INIT
@@ -48,12 +63,6 @@ END
 cat > foo.c << 'END'
 int main () { return 0; }
 END
-
-# We are not checking Autoconf, so we pick $YACC for it.
-YACC="bison -y"
-export YACC
-
-$YACC --version || exit 77
 
 set -e
 

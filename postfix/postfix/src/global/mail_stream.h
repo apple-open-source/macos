@@ -12,6 +12,11 @@
 /* .nf
 
  /*
+  * System library.
+  */
+#include <sys/time.h>
+
+ /*
   * Utility library.
   */
 #include <vstream.h>
@@ -34,13 +39,27 @@ struct MAIL_STREAM {
     char   *class;			/* trigger class */
     char   *service;			/* trigger service */
     int     mode;			/* additional permissions */
+#ifdef DELAY_ACTION
+    int     delay;			/* deferred delivery */
+#endif
+    struct timeval ctime;		/* creation time */
 };
+
+#define MAIL_STREAM_CTL_END	0	/* Terminator */
+#define MAIL_STREAM_CTL_QUEUE	1	/* Change queue */
+#define MAIL_STREAM_CTL_CLASS	2	/* Change notification class */
+#define MAIL_STREAM_CTL_SERVICE	3	/* Change notification service */
+#define MAIL_STREAM_CTL_MODE	4	/* Change final queue file mode */
+#ifdef DELAY_ACTION
+#define MAIL_STREAM_CTL_DELAY	5	/* Change final queue file mtime */
+#endif
 
 extern MAIL_STREAM *mail_stream_file(const char *, const char *, const char *, int);
 extern MAIL_STREAM *mail_stream_service(const char *, const char *);
 extern MAIL_STREAM *mail_stream_command(const char *);
 extern void mail_stream_cleanup(MAIL_STREAM *);
 extern int mail_stream_finish(MAIL_STREAM *, VSTRING *);
+extern void mail_stream_ctl(MAIL_STREAM *, int,...);
 
 
 /* LICENSE

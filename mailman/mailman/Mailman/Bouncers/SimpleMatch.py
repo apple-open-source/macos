@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Recognizes simple heuristically delimited bounces."""
 
@@ -74,6 +75,58 @@ PATTERNS = [
     (_c('This message was created automatically by mail delivery'),
      _c('^---- START OF RETURNED MESSAGE ----'),
      _c("addressed to '(?P<addr>[^']*)'")),
+    # Prodigy.net full mailbox
+    (_c("User's mailbox is full:"),
+     _c('Unable to deliver mail.'),
+     _c("User's mailbox is full:\s*<(?P<addr>[^>]*)>")),
+    # Microsoft SMTPSVC
+    (_c('The email below could not be delivered to the following user:'),
+     _c('Old message:'),
+     _c('<(?P<addr>[^>]*)>')),
+    # Yahoo on behalf of other domains like sbcglobal.net
+    (_c('Unable to deliver message to the following address\(es\)\.'),
+     _c('--- Original message follows\.'),
+     _c('<(?P<addr>[^>]*)>:')),
+    # kundenserver.de
+    (_c('A message that you sent could not be delivered'),
+     _c('^---'),
+     _c('<(?P<addr>[^>]*)>')),
+    # another kundenserver.de
+    (_c('A message that you sent could not be delivered'),
+     _c('^---'),
+     _c('^(?P<addr>[^\s@]+@[^\s@:]+):')),
+    # thehartford.com
+    (_c('Delivery to the following recipients failed'),
+     _c("Bogus - there actually isn't anything"),
+     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # and another thehartfod.com/hartfordlife.com
+    (_c('^Your message\s*$'),
+     _c('^because:'),
+     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # kviv.be (NTMail)
+    (_c('^Unable to deliver message to'),
+     _c(r'\*+\s+End of message\s+\*+'),
+     _c('<(?P<addr>[^>]*)>')),
+    # earthlink.net supported domains
+    (_c('^Sorry, unable to deliver your message to'),
+     _c('^A copy of the original message'),
+     _c('\s*(?P<addr>[^\s@]+@[^\s@]+)\s+')),
+    # ademe.fr
+    (_c('^A message could not be delivered to:'),
+     _c('^Subject:'),
+     _c('^\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # andrew.ac.jp
+    (_c('^Invalid final delivery userid:'),
+     _c('^Original message follows.'),
+     _c('\s*(?P<addr>[^\s@]+@[^\s@]+)\s*$')),
+    # E500_SMTP_Mail_Service@lerctr.org
+    (_c('------ Failed Recipients ------'),
+     _c('-------- Returned Mail --------'),
+     _c('<(?P<addr>[^>]*)>')),
+    # cynergycom.net
+    (_c('A message that you sent could not be delivered'),
+     _c('^---'),
+     _c('(?P<addr>[^\s@]+@[^\s@)]+)')),
     # Next one goes here...
     ]
 
@@ -86,19 +139,27 @@ def process(msg, patterns=None):
     #     0 = nothing seen yet
     #     1 = intro seen
     addrs = {}
-    state = 0
-    for line in email.Iterators.body_line_iterator(msg):
-        if state == 0:
-            for scre, ecre, acre in patterns:
+    # MAS: This is a mess. The outer loop used to be over the message
+    # so we only looped through the message once.  Looping through the
+    # message for each set of patterns is obviously way more work, but
+    # if we don't do it, problems arise because scre from the wrong
+    # pattern set matches first and then acre doesn't match.  The
+    # alternative is to split things into separate modules, but then
+    # we process the message multiple times anyway.
+    for scre, ecre, acre in patterns:
+        state = 0
+        for line in email.Iterators.body_line_iterator(msg):
+            if state == 0:
                 if scre.search(line):
                     state = 1
+            if state == 1:
+                mo = acre.search(line)
+                if mo:
+                    addr = mo.group('addr')
+                    if addr:
+                        addrs[mo.group('addr')] = 1
+                elif ecre.search(line):
                     break
-        if state == 1:
-            mo = acre.search(line)
-            if mo:
-                addr = mo.group('addr')
-                if addr:
-                    addrs[mo.group('addr')] = 1
-            elif ecre.search(line):
-                break
+        if addrs:
+            break
     return addrs.keys()

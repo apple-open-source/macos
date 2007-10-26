@@ -1,10 +1,11 @@
 ;;; calculator.el --- a [not so] simple calculator for Emacs
 
-;; Copyright (C) 1998, 2000, 2001 by Free Software Foundation, Inc.
+;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Eli Barzilay <eli@barzilay.org>
 ;; Keywords: tools, convenience
-;; Time-stamp: <2001-10-11 16:18:29 eli>
+;; Time-stamp: <2006-02-06 13:36:00 ttn>
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
-;; MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 ;;;=====================================================================
 ;;; Commentary:
@@ -87,9 +88,9 @@ This determines the default behavior of unary operators."
 
 (defcustom calculator-prompt "Calc=%s> "
   "*The prompt used by the Emacs calculator.
-It should contain a \"%s\" somewhere that will indicate the i/o radixes,
-this string will be a two-character string as described in the
-documentation for `calculator-mode'."
+It should contain a \"%s\" somewhere that will indicate the i/o radixes;
+this will be a two-character string as described in the documentation
+for `calculator-mode'."
   :type  'string
   :group 'calculator)
 
@@ -99,6 +100,26 @@ Used by the `calculator-standard-display' function - it will use the
 format string \"%.NC\" where this number is N and C is a character given
 at runtime."
   :type  'integer
+  :group 'calculator)
+
+(defcustom calculator-radix-grouping-mode t
+  "*Use digit grouping in radix output mode.
+If this is set, chunks of `calculator-radix-grouping-digits' characters
+will be separated by `calculator-radix-grouping-separator' when in radix
+output mode is active (determined by `calculator-output-radix')."
+  :type  'boolean
+  :group 'calculator)
+
+(defcustom calculator-radix-grouping-digits 4
+  "*The number of digits used for grouping display in radix modes.
+See `calculator-radix-grouping-mode'."
+  :type  'integer
+  :group 'calculator)
+
+(defcustom calculator-radix-grouping-separator "'"
+  "*The separator used in radix grouping display.
+See `calculator-radix-grouping-mode'."
+  :type  'string
   :group 'calculator)
 
 (defcustom calculator-remove-zeros t
@@ -126,17 +147,18 @@ of digits displayed).
 
 An exception to the above is the case of the list (std C) where C is a
 character, in this case the `calculator-standard-displayer' function
-will be used with this character for a format string.")
+will be used with this character for a format string."
+  :group 'calculator)
 
 (defcustom calculator-displayers
-  '(((std ?n) "Standard dislpay, decimal point or scientific")
+  '(((std ?n) "Standard display, decimal point or scientific")
     (calculator-eng-display "Eng display")
     ((std ?f) "Standard display, decimal point")
-    ((std ?e) "Standard dislpay, scientific")
+    ((std ?e) "Standard display, scientific")
     ("%S"     "Emacs printer"))
   "*A list of displayers.
 Each element is a list of a displayer and a description string.  The
-first element is the one which is curently used, this is for the display
+first element is the one which is currently used, this is for the display
 of result values not values in expressions.  A displayer specification
 is the same as the values that can be stored in `calculator-displayer'.
 
@@ -155,7 +177,9 @@ floats, otherwise the Emacs reader will fail on them."
   "*If non-nil, this is any value that can be used for
 `calculator-displayer', to format a string before copying it with
 `calculator-copy'.  If nil, then `calculator-displayer's normal value is
-used.")
+used."
+  :type  'boolean
+  :group 'calculator)
 
 (defcustom calculator-2s-complement nil
   "*If non-nil, show negative numbers in 2s complement in radix modes.
@@ -164,7 +188,11 @@ Otherwise show as a negative number."
   :group 'calculator)
 
 (defcustom calculator-mode-hook nil
-  "*List of hook functions for `calculator-mode' to run."
+  "*List of hook functions for `calculator-mode' to run.
+Note: if `calculator-electric-mode' is on, then this hook will get
+activated in the minibuffer - in that case it should not do much more
+than local key settings and other effects that will change things
+outside the scope of calculator related code."
   :type  'hook
   :group 'calculator)
 
@@ -388,7 +416,7 @@ Used for repeating operations in calculator-repR/L.")
                                            "oD" "oH" "oX" "oO" "oB")
              (calculator-rotate-displayer      "'")
              (calculator-rotate-displayer-back "\"")
-             (calculator-displayer-pref        "{")
+             (calculator-displayer-prev        "{")
              (calculator-displayer-next        "}")
              (calculator-saved-up      [up] [?\C-p])
              (calculator-saved-down    [down] [?\C-n])
@@ -400,10 +428,10 @@ Used for repeating operations in calculator-repR/L.")
              (calculator-save-and-quit [(control return)]
                                        [(control kp-enter)])
              (calculator-paste         [insert] [(shift insert)]
-                                       [mouse-2])
+                                       [paste] [mouse-2] [?\C-y])
              (calculator-clear         [delete] [?\C-?] [?\C-d])
              (calculator-help          [?h] [??] [f1] [help])
-             (calculator-copy          [(control insert)])
+             (calculator-copy          [(control insert)] [copy])
              (calculator-backspace     [backspace])
              )))
       (while p
@@ -533,11 +561,11 @@ Used for repeating operations in calculator-repR/L.")
                                      calculator-output-radix)))]
             "---"
             ,@(mapcar 'car radix-selectors)
-            ("Seperate I/O"
+            ("Separate I/O"
              ,@(mapcar (lambda (x) (nth 1 x)) radix-selectors)
              "---"
              ,@(mapcar (lambda (x) (nth 2 x)) radix-selectors)))
-           ("Decimal Dislpay"
+           ("Decimal Display"
             ,@(mapcar (lambda (d)
                         (vector (cadr d)
                                 ;; Note: inserts actual object here
@@ -612,10 +640,11 @@ The prompt indicates the current modes:
 * \"=?\": (? is B/O/H) the display radix (when input is decimal);
 * \"??\": (? is D/B/O/H) 1st char for input radix, 2nd for display.
 
-Also, the quote character can be used to switch display modes for
-decimal numbers (double-quote rotates back), and the two brace
-characters (\"{\" and \"}\" change display parameters that these
-displayers use (if they handle such).
+Also, the quote key can be used to switch display modes for decimal
+numbers (double-quote rotates back), and the two brace characters
+\(\"{\" and \"}\" change display parameters that these displayers use (if
+they handle such).  If output is using any radix mode, then these keys
+toggle digit grouping mode and the chunk size.
 
 Values can be saved for future reference in either a list of saved
 values, or in registers.
@@ -652,7 +681,7 @@ more information.
   (setq major-mode 'calculator-mode)
   (setq mode-name "Calculator")
   (use-local-map calculator-mode-map)
-  (run-hooks 'calculator-mode-hook))
+  (run-mode-hooks 'calculator-mode-hook))
 
 (eval-when-compile (require 'electric) (require 'ehelp))
 
@@ -669,14 +698,13 @@ See the documentation for `calculator-mode' for more information."
            ;; don't change this since it is a customization variable,
            ;; its set function will add any new operators
            (calculator-add-operators calculator-user-operators)))
+  (setq calculator-buffer (get-buffer-create "*calculator*"))
   (if calculator-electric-mode
     (save-window-excursion
       (progn (require 'electric) (message nil)) ; hide load message
       (let (old-g-map old-l-map (echo-keystrokes 0)
             (garbage-collection-messages nil)) ; no gc msg when electric
-        ;; strange behavior in FSF: doesn't always select correct
-        ;; minibuffer.  I have no idea how to fix this
-        (setq calculator-buffer (window-buffer (minibuffer-window)))
+        (set-window-buffer (minibuffer-window) calculator-buffer)
         (select-window (minibuffer-window))
         (calculator-reset)
         (calculator-update-display)
@@ -685,6 +713,7 @@ See the documentation for `calculator-mode' for more information."
         (setq calculator-saved-global-map (current-global-map))
         (use-local-map nil)
         (use-global-map calculator-mode-map)
+        (run-hooks 'calculator-mode-hook)
         (unwind-protect
             (catch 'calculator-done
               (Electric-command-loop
@@ -698,7 +727,6 @@ See the documentation for `calculator-mode' for more information."
           (use-local-map old-l-map)
           (use-global-map old-g-map))))
     (progn
-      (setq calculator-buffer (get-buffer-create "*calculator*"))
       (cond
         ((not (get-buffer-window calculator-buffer))
          (let ((split-window-keep-point nil)
@@ -707,8 +735,42 @@ See the documentation for `calculator-mode' for more information."
            ;; `raised' modeline in Emacs 21
            (select-window
             (split-window-vertically
+             ;; If the modeline might interfere with the calculator buffer,
+             ;; use 3 lines instead.
              (if (and (fboundp 'face-attr-construct)
-                      (plist-get (face-attr-construct 'modeline) :box))
+                      (let* ((dh (plist-get (face-attr-construct 'default) :height))
+                             (mf (face-attr-construct 'modeline))
+                             (mh (plist-get mf :height)))
+                        ;; If the modeline is shorter than the default,
+                        ;; stick with 2 lines.  (It may be necessary to
+                        ;; check how much shorter.)
+                        (and
+                         (not
+                          (or (and (integerp dh)
+                                   (integerp mh)
+                                   (< mh dh))
+                              (and (numberp mh)
+                                   (not (integerp mh))
+                                   (< mh 1))))
+                         (or
+                          ;; If the modeline is taller than the default,
+                          ;; use 3 lines.
+                          (and (integerp dh)
+                               (integerp mh)
+                               (> mh dh))
+                          (and (numberp mh)
+                               (not (integerp mh))
+                               (> mh 1))
+                          ;; If the modeline has a box with non-negative line-width,
+                          ;; use 3 lines.
+                          (let* ((bx (plist-get mf :box))
+                                 (lh (plist-get bx :line-width)))
+                            (and bx
+                                 (or
+                                  (not lh)
+                                  (> lh 0))))
+                          ;; If the modeline has an overline, use 3 lines.
+                          (plist-get (face-attr-construct 'modeline) :overline)))))
                -3 -2)))
            (switch-to-buffer calculator-buffer)))
         ((not (eq (current-buffer) calculator-buffer))
@@ -720,8 +782,14 @@ See the documentation for `calculator-mode' for more information."
   (if (and calculator-restart-other-mode calculator-electric-mode)
     (calculator)))
 
+(defun calculator-message (string &rest arguments)
+  "Same as `message', but special handle of electric mode."
+  (apply 'message string arguments)
+  (if calculator-electric-mode
+    (progn (sit-for 1) (message nil))))
+
 ;;;---------------------------------------------------------------------
-;;; Operatos
+;;; Operators
 
 (defun calculator-op-arity (op)
   "Return OP's arity, 2, +1 or -1."
@@ -821,82 +889,116 @@ The string is set not to exceed the screen width."
       (concat calculator-prompt
               (substring prompt (+ trim (length calculator-prompt)))))))
 
-(defun calculator-curnum-value ()
-  "Get the numeric value of the displayed number string as a float."
+(defun calculator-string-to-number (str)
+  "Convert the given STR to a number, according to the value of
+`calculator-input-radix'."
   (if calculator-input-radix
     (let ((radix
            (cdr (assq calculator-input-radix
                       '((bin . 2) (oct . 8) (hex . 16)))))
-          (i -1) (value 0))
-      ;; assume valid input (upcased & characters in range)
-      (while (< (setq i (1+ i)) (length calculator-curnum))
-        (setq value
-              (+ (let ((ch (aref calculator-curnum i)))
-                   (- ch (if (<= ch ?9) ?0 (- ?A 10))))
-                 (* radix value))))
+          (i -1) (value 0) (new-value 0))
+      ;; assume mostly valid input (e.g., characters in range)
+      (while (< (setq i (1+ i)) (length str))
+        (setq new-value
+              (let* ((ch (upcase (aref str i)))
+                     (n (cond ((< ch ?0)  nil)
+                              ((<= ch ?9) (- ch ?0))
+                              ((< ch ?A)  nil)
+                              ((<= ch ?Z) (- ch (- ?A 10)))
+                              (t          nil))))
+                (if (and n (<= 0 n) (< n radix))
+                  (+ n (* radix value))
+                  (progn
+                    (calculator-message
+                     "Warning: Ignoring bad input character `%c'." ch)
+                    (sit-for 1)
+                    value))))
+        (if (if (< new-value 0) (> value 0) (< value 0))
+          (calculator-message "Warning: Overflow in input."))
+        (setq value new-value))
       value)
-    (car
-     (read-from-string
-      (cond
-        ((equal "." calculator-curnum)
-         "0.0")
-        ((string-match "[eE][+-]?$" calculator-curnum)
-         (concat calculator-curnum "0"))
-        ((string-match "\\.[0-9]\\|[eE]" calculator-curnum)
-         calculator-curnum)
-        ((string-match "\\." calculator-curnum)
-         ;; do this because Emacs reads "23." as an integer
-         (concat calculator-curnum "0"))
-        ((stringp calculator-curnum)
-         (concat calculator-curnum ".0"))
-        (t "0.0"))))))
+    (car (read-from-string
+          (cond ((equal "." str) "0.0")
+                ((string-match "[eE][+-]?$" str) (concat str "0"))
+                ((string-match "\\.[0-9]\\|[eE]" str) str)
+                ((string-match "\\." str)
+                 ;; do this because Emacs reads "23." as an integer
+                 (concat str "0"))
+                ((stringp str) (concat str ".0"))
+                (t "0.0"))))))
+
+(defun calculator-curnum-value ()
+  "Get the numeric value of the displayed number string as a float."
+  (calculator-string-to-number calculator-curnum))
 
 (defun calculator-rotate-displayer (&optional new-disp)
   "Switch to the next displayer on the `calculator-displayers' list.
 Can be called with an optional argument NEW-DISP to force rotation to
-that argument."
+that argument.
+If radix output mode is active, toggle digit grouping."
   (interactive)
-  (setq calculator-displayers
-        (if (and new-disp (memq new-disp calculator-displayers))
-          (let ((tmp nil))
-            (while (not (eq (car calculator-displayers) new-disp))
-              (setq tmp (cons (car calculator-displayers) tmp))
-              (setq calculator-displayers (cdr calculator-displayers)))
-            (setq calculator-displayers
-                  (nconc calculator-displayers (nreverse tmp))))
-          (nconc (cdr calculator-displayers)
-                 (list (car calculator-displayers)))))
-  (message "Using %s." (cadr (car calculator-displayers)))
-  (if calculator-electric-mode
-    (progn (sit-for 1) (message nil)))
+  (cond
+    (calculator-output-radix
+     (setq calculator-radix-grouping-mode
+           (not calculator-radix-grouping-mode))
+     (calculator-message
+      "Digit grouping mode %s."
+      (if calculator-radix-grouping-mode "ON" "OFF")))
+    (t
+     (setq calculator-displayers
+           (if (and new-disp (memq new-disp calculator-displayers))
+             (let ((tmp nil))
+               (while (not (eq (car calculator-displayers) new-disp))
+                 (setq tmp (cons (car calculator-displayers) tmp))
+                 (setq calculator-displayers
+                       (cdr calculator-displayers)))
+               (setq calculator-displayers
+                     (nconc calculator-displayers (nreverse tmp))))
+             (nconc (cdr calculator-displayers)
+                    (list (car calculator-displayers)))))
+     (calculator-message
+      "Using %s." (cadr (car calculator-displayers)))))
   (calculator-enter))
 
 (defun calculator-rotate-displayer-back ()
-  "Like `calculator-rotate-displayer', but rotates modes back."
+  "Like `calculator-rotate-displayer', but rotates modes back.
+If radix output mode is active, toggle digit grouping."
   (interactive)
   (calculator-rotate-displayer (car (last calculator-displayers))))
 
 (defun calculator-displayer-prev ()
   "Send the current displayer function a 'left argument.
 This is used to modify display arguments (if the current displayer
-function supports this)."
+function supports this).
+If radix output mode is active, increase the grouping size."
   (interactive)
-  (and (car calculator-displayers)
-       (let ((disp (caar calculator-displayers)))
-         (cond ((symbolp disp) (funcall disp 'left))
-               ((and (consp disp) (eq 'std (car disp)))
-                (calculator-standard-displayer 'left (cadr disp)))))))
+  (if calculator-output-radix
+    (progn (setq calculator-radix-grouping-digits
+                 (1+ calculator-radix-grouping-digits))
+           (calculator-enter))
+    (and (car calculator-displayers)
+         (let ((disp (caar calculator-displayers)))
+           (cond
+             ((symbolp disp) (funcall disp 'left))
+             ((and (consp disp) (eq 'std (car disp)))
+              (calculator-standard-displayer 'left (cadr disp))))))))
 
 (defun calculator-displayer-next ()
   "Send the current displayer function a 'right argument.
 This is used to modify display arguments (if the current displayer
-function supports this)."
+function supports this).
+If radix output mode is active, decrease the grouping size."
   (interactive)
-  (and (car calculator-displayers)
-       (let ((disp (caar calculator-displayers)))
-         (cond ((symbolp disp) (funcall disp 'right))
-               ((and (consp disp) (eq 'std (car disp)))
-                (calculator-standard-displayer 'right (cadr disp)))))))
+  (if calculator-output-radix
+    (progn (setq calculator-radix-grouping-digits
+                 (max 2 (1- calculator-radix-grouping-digits)))
+           (calculator-enter))
+    (and (car calculator-displayers)
+         (let ((disp (caar calculator-displayers)))
+           (cond
+             ((symbolp disp) (funcall disp 'right))
+             ((and (consp disp) (eq 'std (car disp)))
+              (calculator-standard-displayer 'right (cadr disp))))))))
 
 (defun calculator-remove-zeros (numstr)
   "Get a number string NUMSTR and remove unnecessary zeroes.
@@ -998,7 +1100,7 @@ the 'left or 'right when one of the standard modes is used."
                   (calculator-remove-zeros str))
                 "e" (number-to-string exp))))))
 
-(defun calculator-num-to-string (num)
+(defun calculator-number-to-string (num)
   "Convert NUM to a displayable string."
   (cond
     ((and (numberp num) calculator-output-radix)
@@ -1018,6 +1120,14 @@ the 'left or 'right when one of the standard modes is used."
                                         (?6 . "110") (?7 . "111")))))))
            (string-match "^0*\\(.+\\)" s)
            (setq str (match-string 1 s))))
+       (if calculator-radix-grouping-mode
+         (let ((d (/ (length str) calculator-radix-grouping-digits))
+               (r (% (length str) calculator-radix-grouping-digits)))
+           (while (>= (setq d (1- d)) (if (zerop r) 1 0))
+             (let ((i (+ r (* d calculator-radix-grouping-digits))))
+               (setq str (concat (substring str 0 i)
+                                 calculator-radix-grouping-separator
+                                 (substring str i)))))))
        (upcase
         (if (and (not calculator-2s-complement) (< num 0))
           (concat "-" str)
@@ -1054,7 +1164,7 @@ If optional argument FORCE is non-nil, don't use the cached string."
                             ;; customizable display for a single value
                             (caar calculator-displayers)
                             calculator-displayer)))
-                     (mapconcat 'calculator-num-to-string
+                     (mapconcat 'calculator-number-to-string
                                 (reverse calculator-stack)
                                 " "))
                    " "
@@ -1202,12 +1312,6 @@ arguments."
             (if Dbound (fset 'D Dsave) (fmakunbound 'D)))))
     (error 0)))
 
-(eval-when-compile ; silence the compiler
-  (or (fboundp 'event-key)
-      (defun event-key (&rest _) nil))
-  (or (fboundp 'key-press-event-p)
-      (defun key-press-event-p (&rest _) nil)))
-
 ;;;---------------------------------------------------------------------
 ;;; Input interaction
 
@@ -1226,8 +1330,9 @@ Optional string argument KEYS will force using it as the keys entered."
           (setq k (aref inp i))
           ;; if Emacs will someday have a event-key, then this would
           ;; probably be modified anyway
-          (and (fboundp 'event-key) (key-press-event-p k)
-               (event-key k) (setq k (event-key k)))
+          (and (if (fboundp 'key-press-event-p) (key-press-event-p k))
+	       (if (fboundp 'event-key)
+		   (and (event-key k) (setq k (event-key k)))))
           ;; assume all symbols are translatable with an ascii-character
           (and (symbolp k)
                (setq k (or (get k 'ascii-character) ? )))
@@ -1322,9 +1427,8 @@ Optional string argument KEYS will force using it as the keys entered."
           (if (not (and op (= -1 (calculator-op-arity op))))
             ;;(error "Binary operator without a first operand")
             (progn
-              (message "Binary operator without a first operand")
-              (if calculator-electric-mode
-                (progn (sit-for 1) (message nil)))
+              (calculator-message
+               "Binary operator without a first operand")
               (throw 'op-error nil)))))
       (calculator-reduce-stack
        (cond ((eq (nth 1 op) '\() 10)
@@ -1337,9 +1441,7 @@ Optional string argument KEYS will force using it as the keys entered."
                    (not (numberp (car calculator-stack)))))
         ;;(error "Unterminated expression")
         (progn
-          (message "Unterminated expression")
-          (if calculator-electric-mode
-            (progn (sit-for 1) (message nil)))
+          (calculator-message "Unterminated expression")
           (throw 'op-error nil)))
       (setq calculator-stack (cons op calculator-stack))
       (calculator-reduce-stack (calculator-op-prec op))
@@ -1527,7 +1629,7 @@ Optional string argument KEYS will force using it as the keys entered."
         (calculator-displayers
          (if calculator-copy-displayer nil calculator-displayers)))
     (calculator-enter)
-    ;; remove trailing spaces and and an index
+    ;; remove trailing spaces and an index
     (let ((s (cdr calculator-stack-display)))
       (and s
            (if (string-match "^\\([^ ]+\\) *\\(\\[[0-9/]+\\]\\)? *$" s)
@@ -1543,7 +1645,7 @@ Optional string argument KEYS will force using it as the keys entered."
       (setcdr as val)
       (setq calculator-registers
             (cons (cons reg val) calculator-registers)))
-    (message (format "[%c] := %S" reg val))))
+    (calculator-message "[%c] := %S" reg val)))
 
 (defun calculator-put-value (val)
   "Paste VAL as if entered.
@@ -1555,24 +1657,26 @@ Used by `calculator-paste' and `get-register'."
     (progn
       (calculator-clear-fragile)
       (setq calculator-curnum (let ((calculator-displayer "%S"))
-                                (calculator-num-to-string val)))
+                                (calculator-number-to-string val)))
       (calculator-update-display))))
 
 (defun calculator-paste ()
   "Paste a value from the `kill-ring'."
   (interactive)
   (calculator-put-value
-   (let ((str (current-kill 0)))
-     (and calculator-paste-decimals
+   (let ((str (replace-regexp-in-string
+               "^ *\\(.+[^ ]\\) *$" "\\1" (current-kill 0))))
+     (and (not calculator-input-radix)
+          calculator-paste-decimals
           (string-match "\\([0-9]+\\)\\(\\.[0-9]+\\)?\\(e[0-9]+\\)?"
                         str)
           (or (match-string 1 str)
               (match-string 2 str)
               (match-string 3 str))
-          (setq str (concat (match-string 1 str)
+          (setq str (concat (or (match-string 1 str) "0")
                             (or (match-string 2 str) ".0")
-                            (match-string 3 str))))
-     (condition-case nil (car (read-from-string str))
+                            (or (match-string 3 str) ""))))
+     (condition-case nil (calculator-string-to-number str)
        (error nil)))))
 
 (defun calculator-get-register (reg)
@@ -1681,7 +1785,7 @@ To use this, apply a binary operator (evaluate it), then call this."
     (while (> x 0)
       (setq r (* r (truncate x)))
       (setq x (1- x)))
-    r))
+    (+ 0.0 r)))
 
 (defun calculator-truncate (n)
   "Truncate N, return 0 in case of overflow."
@@ -1690,4 +1794,5 @@ To use this, apply a binary operator (evaluate it), then call this."
 
 (provide 'calculator)
 
+;;; arch-tag: a1b9766c-af8a-4a74-b466-65ad8eeb0c73
 ;;; calculator.el ends here

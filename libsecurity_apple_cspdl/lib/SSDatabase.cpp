@@ -249,6 +249,14 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 				reinterpret_cast<const void *>(1));
 		}
 	}
+	catch(CssmError e)
+	{
+		if (e.error != CSSMERR_DL_DATASTORE_ALREADY_EXISTS)
+		{
+			DbImpl::deleteDb();
+		}
+		throw;
+	}
 	catch(...)
 	{
 		DbImpl::deleteDb();

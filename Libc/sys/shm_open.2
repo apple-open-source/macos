@@ -29,12 +29,18 @@
 .Sh SYNOPSIS
 .Fd #include <sys/mman.h>
 .Ft int
-.Fn shm_open "const char *name" "int flags" "mode_t mode"
+.Fo shm_open
+.Fa "const char *name"
+.Fa "int oflag"
+.Fa "..."
+.Fc
+.Pp
+The parameter "mode_t mode" is optional.
 .Sh DESCRIPTION
 The shared memory object referenced by
 .Fa name
 is opened for reading and/or writing as specified by the argument
-.Fa flags
+.Fa oflag
 and the file descriptor returned to the calling process.
 The returned file descriptor will be the lowest non-open file
 descriptor for the calling process, and is not shared with any
@@ -51,7 +57,7 @@ will return a file descriptor referring to the same shared memory
 object, provided that the object has not been unlinked by a call to
 .Fn shm_unlink .
 The
-.Fa flags
+.Fa oflag
 argument may indicate the file is to be
 created if it does not exist (by specifying the
 .Dv O_CREAT
@@ -62,7 +68,9 @@ as described in
 and modified by the process' umask value (see
 .Xr umask 2 ) .
 .Pp
-The flags specified are formed by
+The value of
+.Fa oflag
+is formed by
 .Em or Ns 'ing
 the following values:
 .Pp

@@ -37,7 +37,6 @@ private:
     IOHIKeyboard *		_keyboard;
     
     UInt8			_cachedLEDState;
-    UInt8 			_adb2usb[0x80];
     UInt32          _lastFlags;
     
     bool			_inputReportOnly;

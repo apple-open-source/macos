@@ -1,5 +1,7 @@
 /* { dg-do compile { target powerpc*-*-* } } */
-/* { dg-options "-O -mpowerpc-gfxopt" } */
+/* APPLE LOCAL begin radar 3961392 */
+/* { dg-options "-O -mpowerpc-gfxopt -ftrapping-math" } */
+/* APPLE LOCAL end radar 3961392 */
 /* { dg-final { scan-assembler-not "fsub" } } */
 
 /* Check that an fsub isn't generated when no arithmetic was requested;

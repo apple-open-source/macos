@@ -185,10 +185,6 @@ static unsigned long ambiguous_specifications = 0;
 
 static void layout_ordered_section(
     struct merged_section *ms);
-static unsigned long align_to_input_mod(
-    unsigned long output_offset,
-    unsigned long input_offset,
-    unsigned long align);
 static void create_name_arrays(
     void);
 static struct archive_name *create_archive_name(
@@ -2011,13 +2007,14 @@ struct merged_section *ms)
 	if(load_map == TRUE || dead_strip == TRUE)
 	    create_order_load_maps(ms, order - 1);
 }
+#endif /* RLD */
 
 /*
  * align_to_input_mod() is passed the current output_offset, and returns the
  * next output_offset aligned to the passed input offset modulus the passed
  * power of 2 alignment.
  */
-static
+__private_extern__
 unsigned long
 align_to_input_mod(
 unsigned long output_offset,
@@ -2034,6 +2031,7 @@ unsigned long align)
 	    return(round(output_offset, (1 << align)) + input_mod);
 }
 
+#ifndef RLD
 /*
  * is_literal_output_offset_live() is passed a pointer to a merged literal
  * section and an output_offset in there and returns if the literal for that

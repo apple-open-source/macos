@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.52 2005/01/08 16:04:02 giva Exp $
+# $Id: Makefile.am,v 1.55 2007-02-17 01:29:01 danf Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
@@ -26,14 +26,18 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 # we use srcdir/include for the static global include files
 # we use builddir/src for the generated include files to get found
 # we use srcdir/lib for the header files we "borrow" from the lib
-INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/include -I$(top_builddir)/src \
-	-I$(top_srcdir)/lib
+
+INCLUDES = -I$(top_srcdir)/include \
+           -I$(top_builddir)/lib   \
+           -I$(top_builddir)/src   \
+           -I$(top_srcdir)/lib     \
+           -I$(top_srcdir)/src
 
 bin_PROGRAMS = curl
 
 include Makefile.inc
 
-curl_LDADD = ../lib/libcurl.la
+curl_LDADD = ../lib/libcurl.la @CURL_LIBS@
 curl_DEPENDENCIES = ../lib/libcurl.la
 BUILT_SOURCES = hugehelp.c
 CLEANFILES = hugehelp.c

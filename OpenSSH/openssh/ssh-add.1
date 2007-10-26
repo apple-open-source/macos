@@ -110,6 +110,12 @@ specified in
 Unlock the agent.
 .It Fl x
 Lock the agent with a password.
+.It Fl K
+When adding identities, each passphrase will also be stored in your
+keychain.  When removing identities with -d, each passphrase will be
+removed from your keychain.
+.It Fl k
+Add identities to the agent using any passphrases stored in your keychain.
 .El
 .Sh ENVIRONMENT
 .Bl -tag -width Ds

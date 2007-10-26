@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,13 +104,13 @@ public:
     /*  APIs exported by IOCDAudioControl      */
     /*-----------------------------------------*/
 
-    virtual IOReturn	audioPause(bool pause)							= 0;
-    virtual IOReturn	audioPlay(CDMSF timeStart,CDMSF timeStop)		= 0;
-    virtual IOReturn	audioScan(CDMSF timeStart,bool reverse)	= 0;
-    virtual IOReturn	audioStop()	= 0;
-    virtual IOReturn	getAudioStatus(CDAudioStatus *status)				= 0;
-    virtual IOReturn	getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)			= 0;
-    virtual IOReturn	setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)				= 0;
+    virtual IOReturn	audioPause(bool pause)	__attribute__ ((deprecated));
+    virtual IOReturn	audioPlay(CDMSF timeStart,CDMSF timeStop)	__attribute__ ((deprecated));
+    virtual IOReturn	audioScan(CDMSF timeStart,bool reverse)	__attribute__ ((deprecated));
+    virtual IOReturn	audioStop()	__attribute__ ((deprecated));
+    virtual IOReturn	getAudioStatus(CDAudioStatus *status)	__attribute__ ((deprecated));
+    virtual IOReturn	getAudioVolume(UInt8 *leftVolume,UInt8 *rightVolume)	__attribute__ ((deprecated));
+    virtual IOReturn	setAudioVolume(UInt8 leftVolume,UInt8 rightVolume)	__attribute__ ((deprecated));
 
     /*-----------------------------------------*/
     /* CD APIs                                 */

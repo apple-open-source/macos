@@ -27,11 +27,12 @@
  */
 
 #import "TicketListController.h"
-#import "CacheCollection.h"
-#import "Cache.h"
+#import "TicketInfoController.h"
+#import "KerberosCacheCollection.h"
+#import "KerberosCache.h"
 #import "Utilities.h"
-#import "ErrorAlert.h"
-#import "Preferences.h"
+#import "KerberosErrorAlert.h"
+#import "KerberosPreferences.h"
 
 NSString *ActiveUserMenuToolbarItemIdentifier = @"ActiveUserMenu";
 NSString *GetTicketsToolbarItemIdentifier     = @"GetTickets";
@@ -62,7 +63,7 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
         NSRect frameRect = { { 0, 0 }, { 150, 22 } };
         
         NSPopUpButton *button = [[[NSPopUpButton alloc] initWithFrame: frameRect pullsDown: NO] autorelease];
-        if (button == NULL) {
+        if (!button) {
             [self release];
             return NULL;
         }
@@ -87,7 +88,7 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 - (void) validate
 {
     NSMenu *menu = [[self view] menu];
-    if (menu != NULL) {
+    if (menu) {
         [self menuNeedsUpdate: menu];
     }
 }
@@ -101,7 +102,7 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     int defaultCacheIndex = 0;
     
     [Utilities synchronizeCacheMenu: menu 
-                           fontSize: 11 // default size
+                              popup: YES
              staticPrefixItemsCount: 0
                          headerItem: NO
                   checkDefaultCache: YES
@@ -131,15 +132,15 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
         minuteTimer = NULL;
         cacheNameString = NULL;
         cascadePoint = NSZeroPoint;
-
-        cacheCollection = [[CacheCollection sharedCacheCollection] retain];
-        if (cacheCollection == NULL) {
+        
+        cacheCollection = [[KerberosCacheCollection sharedCacheCollection] retain];
+        if (!cacheCollection) {
             [self release];
             return NULL;
         }
         
         toolbar = [[NSToolbar alloc] initWithIdentifier: @"TicketListToolbar"];
-        if (toolbar == NULL) {
+        if (!toolbar) {
             [self release];
             return NULL;
         }
@@ -156,15 +157,15 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     dprintf ("Ticket List window %lx releasing...", (long) self);
     [[NSNotificationCenter defaultCenter] removeObserver: self];
 
-    if (minuteTimer != NULL) { 
+    if (minuteTimer) { 
         // invalidate a TargetOwnedTimer before releasing it
         [minuteTimer invalidate]; 
-        [minuteTimer  release]; 
+        [minuteTimer release]; 
     }
 
-    if (cacheCollection != NULL) { [cacheCollection release]; }
-    if (cacheNameString != NULL) { [cacheNameString release]; }
-    if (toolbar         != NULL) { [toolbar release]; }
+    if (cacheCollection) { [cacheCollection release]; }
+    if (cacheNameString) { [cacheNameString release]; }
+    if (toolbar        ) { [toolbar release]; }
     
     [super dealloc];
 }
@@ -186,13 +187,6 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     // toolbar
     [toolbar setDelegate: self];
     [[self window] setToolbar: toolbar];
-    
-    
-    // Automatically resize columns in the tables.  
-    // Do not move columns when disclosure triangles are selected
-    [cacheCollectionTableView setColumnAutoresizingStyle: NSTableViewSequentialColumnAutoresizingStyle];
-    [ticketsOutlineView       setColumnAutoresizingStyle: NSTableViewSequentialColumnAutoresizingStyle];
-    [ticketsOutlineView       setAutoresizesOutlineColumn: NO];
     
     [[NSNotificationCenter defaultCenter] addObserver: self
                                              selector: @selector (cacheCollectionDidChange:)
@@ -216,7 +210,13 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     if (![[self window] isVisible]) {
         dprintf ("TicketListController %lx displaying window...", (long) self);
         
-        [[self window] center];
+        // If the user doesn't want to save the window preferences or 
+        // if we failed to read them, center the window on screen
+        if ([[KerberosPreferences sharedPreferences] ticketWindowDefaultPosition] ||
+            ![[self window] setFrameUsingName: TicketListFrameAutosaveName]) {
+            [[self window] center];
+        }
+        
         [self preferencesDidChange: NULL];
         [self synchronizeCascadePoint];
     }
@@ -230,12 +230,12 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) getTickets: (id) sender
 {
-    KLStatus err = [Principal getTickets];
-    if (err == klNoErr) {
+    KLStatus err = [KerberosPrincipal getTickets];
+    if (!err) {
         [cacheCollection update];
     } else if (err != klUserCanceledErr) {
-        [ErrorAlert alertForError: err
-                           action: KerberosGetTicketsAction
+        [KerberosErrorAlert alertForError: err
+                                   action: KerberosGetTicketsAction
                    modalForWindow: [self window]];
     }        
 }
@@ -244,14 +244,14 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) changePasswordForSelectedCache: (id) sender
 {
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [self selectedCache];
+    if (cache) {
         KLStatus err = [[cache principal] changePassword];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosChangePasswordAction
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosChangePasswordAction
                        modalForWindow: [self window]];
         }        
     }
@@ -261,14 +261,14 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) destroyTicketsForSelectedCache: (id) sender
 {
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [self selectedCache];
+    if (cache) {
         KLStatus err = [[cache principal] destroyTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosDestroyTicketsAction
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosDestroyTicketsAction
                        modalForWindow: [self window]];
         }        
     }
@@ -278,14 +278,14 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) renewTicketsForSelectedCache: (id) sender
 {
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [self selectedCache];
+    if (cache) {
         KLStatus err = [[cache principal] renewTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosRenewTicketsAction
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosRenewTicketsAction
                        modalForWindow: [self window]];
         }        
     }
@@ -295,14 +295,14 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) validateTicketsForSelectedCache: (id) sender
 {
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
+    KerberosCache *cache = [self selectedCache];
+    if (cache) {
         KLStatus err = [[cache principal] validateTickets];
-        if (err == klNoErr) {
+        if (!err) {
             [cacheCollection update];
         } else if (err != klUserCanceledErr) {
-            [ErrorAlert alertForError: err
-                               action: KerberosValidateTicketsAction
+            [KerberosErrorAlert alertForError: err
+                                       action: KerberosValidateTicketsAction
                        modalForWindow: [self window]];
         }        
     }
@@ -317,14 +317,14 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
         NSMenu *menu = [item menu];
         
         if ([cacheCollection numberOfCaches] > 0) {
-            Cache *cache = [cacheCollection cacheAtIndex: [menu indexOfItem: item]];
+            KerberosCache *cache = [cacheCollection cacheAtIndex: [menu indexOfItem: item]];
             if (![cache isDefault]) {
                 KLStatus err = [[cache principal] setDefault];
-                if (err == klNoErr) {
+                if (!err) {
                     [cacheCollection update];
                 } else if (err != klUserCanceledErr) {
-                    [ErrorAlert alertForError: err
-                                       action: KerberosChangeActiveUserAction
+                    [KerberosErrorAlert alertForError: err
+                                               action: KerberosChangeActiveUserAction
                                modalForWindow: [self window]];
                 }        
             }
@@ -336,9 +336,15 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (IBAction) showTicketInfo: (id) sender
 {
-    Credential *credential = [self selectedCredential];
-    if (credential != NULL) {
-        cascadePoint = [credential showInfoWindowCascadingFromPoint: cascadePoint];        
+    KerberosCredential *credential = [self selectedCredential];
+    if (credential) {
+        NSWindowController *infoWindowController = [credential infoWindowController];
+        if (!infoWindowController) {
+            infoWindowController = [[[TicketInfoController alloc] initWithCredential: credential] autorelease];
+            cascadePoint = [[infoWindowController window] cascadeTopLeftFromPoint: cascadePoint];
+            [credential setInfoWindowController: infoWindowController];
+        }
+        [infoWindowController showWindow: credential];
     }
 }
 
@@ -348,95 +354,82 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (int) numberOfRowsInTableView: (NSTableView *) tableView
 {
-    return [cacheCollection numberOfCaches];
+    if (tableView == cacheCollectionTableView) {
+        return [cacheCollection numberOfCaches];
+    }
+    
+    if (tableView == ticketsTableView) {
+        KerberosCache *cache = [self selectedCache];
+        if (cache) { return [cache numberOfCredentials]; }
+    }
+    
+    return 0;
 }
 
 // ---------------------------------------------------------------------------
 
 - (id) tableView: (NSTableView *) tableView objectValueForTableColumn: (NSTableColumn *) tableColumn row: (int) rowIndex
 {
-    if (tableColumn == cacheCollectionTableColumn) {
-        return [cacheCollection stringValueForTicketColumnAtIndex: rowIndex];
-    } else if (tableColumn == cacheCollectionTimeRemainingTableColumn) {
-        return [cacheCollection stringValueForLifetimeColumnAtIndex: rowIndex];
-    } else {
-        return @"";
-    }
-}
+    NSAttributedString *string = NULL;
+    
+    if (tableView == cacheCollectionTableView) {
+        KerberosCache *cache = [cacheCollection cacheAtIndex: rowIndex];
+        
+        if (cache) {
+            int state = [cache state];
+            cc_time_t timeRemaining = [cache timeRemaining];
 
-// ---------------------------------------------------------------------------
-
-- (id) outlineView: (NSOutlineView *) outlineView child: (int) rowIndex ofItem: (id) item
-{    
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
-        if (item == NULL) {
-            return [cache credentialsVersionAtIndex: rowIndex];
-        } else {
-            return [item childAtIndex: rowIndex];
-        }
+            if (tableColumn == cacheCollectionTableColumn) {
+                string = [Utilities attributedStringForControlType: kUtilitiesTableCellControlType
+                                                            string: [cache principalString]
+                                                         alignment: kUtilitiesLeftStringAlignment
+                                                              bold: [cache isDefault]
+                                                            italic: (state != CredentialValid)
+                                                               red: NO];
+                
+            } else if (tableColumn == cacheCollectionTimeRemainingTableColumn) {
+                string = [Utilities attributedStringForControlType: kUtilitiesTableCellControlType
+                                                            string: [cache shortTimeRemainingString]
+                                                         alignment: kUtilitiesRightStringAlignment
+                                                              bold: [cache isDefault]
+                                                            italic: (state != CredentialValid)
+                                                               red: (state != CredentialValid || 
+                                                                     timeRemaining <= kFiveMinutes)];
+            }
+        } 
     }
     
-    return NULL;
-}
+    if ((tableView == ticketsTableView) && [self hasSelectedCache]) {
+        KerberosCredential *credential = [[self selectedCache] credentialAtIndex: rowIndex];
 
-// ---------------------------------------------------------------------------
+        if (credential) { 
+            int state = [credential state];
+            cc_time_t timeRemaining = [credential timeRemaining];
 
-- (BOOL) outlineView: (NSOutlineView *) outlineView isItemExpandable: (id) item
-{
-    if ([self haveSelectedCache]) {
-        if (item == NULL) {
-            return YES;
-        } else {
-            return ([item numberOfChildren] > 0);
-        }
-    }
-    return NO;
-}
+            if (tableColumn == ticketsTableColumn) { 
+                string = [Utilities attributedStringForControlType: kUtilitiesTableCellControlType
+                                                            string: [credential servicePrincipalString]
+                                                         alignment: kUtilitiesLeftStringAlignment
+                                                              bold: NO
+                                                            italic: (state != CredentialValid)
+                                                               red: NO];
 
-// ---------------------------------------------------------------------------
-
-- (int) outlineView: (NSOutlineView *) outlineView numberOfChildrenOfItem: (id) item
-{
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
-        if (item == NULL) {
-            return [cache numberOfCredentialsVersions];
-        } else {
-            return [item numberOfChildren];
-        }
-    }
-    return 0;
-}
-
-// ---------------------------------------------------------------------------
-
-- (id) outlineView: (NSOutlineView *) outlineView objectValueForTableColumn: (NSTableColumn *) tableColumn byItem: (id) item
-{
-    if ([self haveSelectedCache]) {
-        if (item != NULL) {
-            if (tableColumn == ticketsTableColumn) {
-                return [item stringValueForTicketColumn];
             } else if (tableColumn == ticketsTimeRemainingTableColumn) {
-                if ([outlineView isItemExpanded: item]) {
-                    return @"";
-                } else {
-                    return [item stringValueForLifetimeColumn];
-                }
+                string = [Utilities attributedStringForControlType: kUtilitiesTableCellControlType
+                                                            string: [credential shortTimeRemainingString]
+                                                         alignment: kUtilitiesRightStringAlignment
+                                                              bold: NO
+                                                            italic: (state != CredentialValid)
+                                                               red: (state != CredentialValid || 
+                                                                     timeRemaining <= kFiveMinutes)];
             }
         }
     }
-    return @"";
+    
+    return string ? string : @"";
 }
 
 #pragma mark --- Delegate Methods --
-
-// ---------------------------------------------------------------------------
-
-- (BOOL) outlineView: (NSOutlineView *) outlineView shouldEditTableColumn: (NSTableColumn *) tableColumn item: (id) item 
-{
-    return NO;
-}
 
 // ---------------------------------------------------------------------------
 
@@ -458,9 +451,9 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (float) splitView: (NSSplitView *) sender constrainMaxCoordinate: (float) proposedMax ofSubviewAt: (int) offset
 {
-    float m = (proposedMax - ([[ticketsOutlineView headerView] frame].size.height +
-                              ([ticketsOutlineView rowHeight] * 2) + 
-                              ([ticketsOutlineView intercellSpacing].height * 3)));
+    float m = (proposedMax - ([[ticketsTableView headerView] frame].size.height +
+                              ([ticketsTableView rowHeight] * 2) + 
+                              ([ticketsTableView intercellSpacing].height * 3)));
     return m;
 }
 
@@ -540,16 +533,16 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
         return YES;
         
     } else if ([itemIdentifier isEqual: RenewTicketsToolbarItemIdentifier]) {
-        return [self haveSelectedCache];
+        return [self hasSelectedCache];
         
     } else if ([itemIdentifier isEqual: DestroyTicketsToolbarItemIdentifier]) {
-        return [self haveSelectedCache];
+        return [self hasSelectedCache];
         
     } else if ([itemIdentifier isEqual: ChangePasswordToolbarItemIdentifier]) {
-        return [self haveSelectedCache];
+        return [self hasSelectedCache];
         
     } else if ([itemIdentifier isEqual: TicketInfoToolbarItemIdentifier]) {
-        return [self haveSelectedCredential];
+        return [self hasSelectedCredential];
         
     }
     
@@ -596,7 +589,7 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 {
     // Update things with time values in them:
     [cacheCollectionTableView reloadData];
-    [ticketsOutlineView reloadData];
+    [ticketsTableView reloadData];
     [self synchronizeWindowTitle];
 }
 
@@ -608,15 +601,15 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 {
     dprintf ("Ticket List window %lx got CacheCollectionDidChangeNotification", (long) self);
     [cacheCollectionTableView reloadData];
-    [ticketsOutlineView reloadData];
+    [ticketsTableView reloadData];
 
     // Attempt to select the cache that was previously selected
     // Make sure we don't select anything while we are still looking at
     // cacheNameString because selecting entries invalidates it
     unsigned int newSelectedIndex = NSNotFound;
-    if (cacheNameString != NULL) {
-        Cache *cache = [cacheCollection findCacheForName: cacheNameString];
-        if (cache != NULL) {
+    if (cacheNameString) {
+        KerberosCache *cache = [cacheCollection findCacheForName: cacheNameString];
+        if (cache) {
             newSelectedIndex = [cacheCollection indexOfCache: cache];
         }
     }
@@ -629,7 +622,6 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
     }
     
     [self tableViewSelectionDidChange: NULL];
-    [self outlineViewSelectionDidChange: NULL];
     
     // Now that the ticket list is up to date, let other objects know about it
     [[NSNotificationCenter defaultCenter] postNotificationName: TicketListDidChangeNotification 
@@ -646,7 +638,7 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
         [[self window] saveFrameUsingName: TicketListFrameAutosaveName];
     }
     
-    if ([[Preferences sharedPreferences] ticketWindowDefaultPosition]) {
+    if ([[KerberosPreferences sharedPreferences] ticketWindowDefaultPosition]) {
         [self setWindowFrameAutosaveName: @""]; // Don't save frame position
     } else {
         [self setWindowFrameAutosaveName: TicketListFrameAutosaveName];
@@ -657,38 +649,34 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (void) tableViewSelectionDidChange: (NSNotification *) notification
 {    
-    [ticketsOutlineView reloadData];
+    NSTableView *tableView = [notification object];
     
-    Cache *cache = [self selectedCache];
-    if (cache != NULL) {
-        int i;
+    if (tableView == cacheCollectionTableView) {
+        [ticketsTableView reloadData];
         
-        // Used when cacheCollection changes out from under us 
-        // so the user's selection follows the cache
-        if (cacheNameString != NULL) { [cacheNameString release]; }
-        cacheNameString = [[cache ccacheName] retain];
-        
-        for (i = 0; i < [cache numberOfCredentialsVersions]; i++) {
-            [ticketsOutlineView expandItem: [cache credentialsVersionAtIndex: i]];
+        KerberosCache *cache = [self selectedCache];
+        if (cache) {
+            // Used when cacheCollection changes out from under us 
+            // so the user's selection follows the cache
+            if (cacheNameString) { [cacheNameString release]; }
+            cacheNameString = [[cache ccacheName] retain];
+        } else {
+            if (cacheNameString) { [cacheNameString release]; }
+            cacheNameString = NULL;
         }
-    } else {
-        if (cacheNameString != NULL) { [cacheNameString release]; }
-        cacheNameString = NULL;
+        
+        [self synchronizeToolbar];
+        [self synchronizeWindowTitle];
+        [[NSNotificationCenter defaultCenter] postNotificationName: CacheSelectionDidChangeNotification object: self];
     }
     
-    [self synchronizeToolbar];
-    [self synchronizeWindowTitle];
-    [[NSNotificationCenter defaultCenter] postNotificationName: CacheSelectionDidChangeNotification object: self];
+    if (tableView == ticketsTableView) {
+        [self synchronizeToolbar];
+        [self synchronizeWindowTitle];
+        [[NSNotificationCenter defaultCenter] postNotificationName: TicketSelectionDidChangeNotification object: self];
+    }
 }
 
-// ---------------------------------------------------------------------------
-
-- (void) outlineViewSelectionDidChange: (NSNotification *) notification
-{
-    [self synchronizeToolbar];
-    [self synchronizeWindowTitle];
-    [[NSNotificationCenter defaultCenter] postNotificationName: TicketSelectionDidChangeNotification object: self];
-}
 
 // ---------------------------------------------------------------------------
 
@@ -703,9 +691,12 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (void) synchronizeWindowTitle
 {
-    Cache *defaultCache = [cacheCollection defaultCache];
-    if (defaultCache != NULL) {
-        [[self window] setTitle: [defaultCache stringValueForWindowTitle]];
+    KerberosCache *defaultCache = [cacheCollection defaultCache];
+    if (defaultCache) {
+        [[self window] setTitle: [NSString stringWithFormat: 
+            NSLocalizedString (@"KAppStringWindowTitleFormat", NULL), 
+            [defaultCache principalString], 
+            [defaultCache longTimeRemainingString]]];
     } else {
         [[self window] setTitle: NSLocalizedString (@"KAppStringNoTicketsAvailable", NULL)];
     }
@@ -742,16 +733,16 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 // ---------------------------------------------------------------------------
 
-- (BOOL) haveSelectedCache
+- (BOOL) hasSelectedCache
 {
     return ([cacheCollectionTableView selectedRow] >= 0);
 }
 
 // ---------------------------------------------------------------------------
 
-- (Cache *) selectedCache
+- (KerberosCache *) selectedCache
 {
-    if ([self haveSelectedCache]) {
+    if ([self hasSelectedCache]) {
         return [cacheCollection cacheAtIndex: [cacheCollectionTableView selectedRow]]; 
     } else {
         return NULL;
@@ -762,30 +753,23 @@ NSString *TicketListFrameAutosaveName         = @"KATicketListWindowPosition";
 
 - (BOOL) selectedCacheNeedsValidation
 {
-    Cache *selectedCache = [self selectedCache];
+    KerberosCache *selectedCache = [self selectedCache];
     return ((selectedCache != NULL) && [selectedCache needsValidation]);
 }
 
 // ---------------------------------------------------------------------------
 
-- (BOOL) haveSelectedCredential
+- (BOOL) hasSelectedCredential
 {
-    int selectedTicketRow = [ticketsOutlineView selectedRow];
-    
-    if ((selectedTicketRow >= 0) && 
-        ([[ticketsOutlineView itemAtRow: selectedTicketRow] isMemberOfClass: [Credential class]])) {
-        return YES;
-    }
- 
-    return NO;
+    return ([ticketsTableView selectedRow] >= 0);
 }
 
 // ---------------------------------------------------------------------------
 
-- (Credential *) selectedCredential
+- (KerberosCredential *) selectedCredential
 {
-    if ([self haveSelectedCredential]) {
-        return [ticketsOutlineView itemAtRow: [ticketsOutlineView selectedRow]];
+    if ([self hasSelectedCache] && [self hasSelectedCredential]) {
+        return [[self selectedCache] credentialAtIndex: [ticketsTableView selectedRow]];
     } else {
         return NULL;
     }

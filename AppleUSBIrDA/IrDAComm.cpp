@@ -66,7 +66,7 @@ EventTraceCauseDesc gTraceEvents[] = {
     {kLogStateChange,       "IrDAComm: state change entry, event=, current state="}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd ( x, y, z, gTraceEvents, true)
+#define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, gTraceEvents, true)
 #else
 #define XTRACE(x, y, z) ((void)0)
 #endif
@@ -99,7 +99,7 @@ IrDAComm::irDAComm(AppleIrDASerial *driver, AppleIrDA *appleirda)
 {
     IrDAComm *obj = new IrDAComm;   // create an IrDAComm object
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->init(driver, appleirda)) {
 	obj->release();
@@ -114,7 +114,7 @@ void IrDAComm::free()
 {
     IOWorkLoop *workloop;
     
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
     
     this->Stop();       // make sure we're stopped before releasing memory
 
@@ -166,7 +166,7 @@ bool IrDAComm::init(AppleIrDASerial *driver, AppleIrDA *appleirda)
     IOReturn rc;
     IOWorkLoop *workloop;
 	
-    XTRACE(kLogInit, (int)this >> 16, (short)this);
+    XTRACE(kLogInit, (int)this >> 16, this);
 #if (hasTracing > 0)
     DebugLog("log info at 0x%lx", (UInt32)IrDALogGetInfo());
 #endif
@@ -247,7 +247,7 @@ IOReturn IrDAComm::Stop(void)
     int i;
     IOReturn rc = kIOReturnSuccess;
     
-    XTRACE(kLogStop, (int)this >> 16, (short)this);
+    XTRACE(kLogStop, (int)this >> 16, this);
     require(fGate, Fail);
     require(fIrDA, Fail);           // sanity
     require(fDriver, Fail);         // sanity
@@ -331,7 +331,7 @@ size_t IrDAComm::Write(UInt8 *buf, size_t length)
     UInt32 result = length;
     IOReturn rc;
     
-    XTRACE(kLogWrite, fState, (short)length);
+    XTRACE(kLogWrite, fState, length);
 
     // this is coming from outside our workloop, send through our gate
      
@@ -360,7 +360,7 @@ IOReturn IrDAComm::ReadComplete(UInt8 *buf, size_t length)
 {
     IOReturn rc;
 
-    XTRACE(kLogReadComplete, length >> 16, (short)length);
+    XTRACE(kLogReadComplete, length >> 16, length);
     
     if (fGate && fIrComm && fIrDA) {
 	rc = fGate->runAction(&DoSomething, (void *)cmdReadComplete, buf, (void *)length, nil);     
@@ -378,7 +378,7 @@ IrDAComm::ReturnCredit(size_t byte_count)       // serial client has consumed co
 {
     IOReturn rc;
     
-    XTRACE(kLogReturnCredit, byte_count >> 16, (short)byte_count);
+    XTRACE(kLogReturnCredit, byte_count >> 16, byte_count);
     
     // this is coming from outside our workloop, send to irda via our command gate
 	    
@@ -765,7 +765,7 @@ IrDAComm::DoSomething(OSObject *owner, void *arg1, void *arg2, void *arg3, void 
     IrDAComm *obj;
     int cmd = (int)arg1;
     
-    XTRACE(kLogDoSomething, 0, (short)arg1);        // log the command code
+    XTRACE(kLogDoSomething, 0, arg1);        // log the command code
     
     obj = OSDynamicCast(IrDAComm, owner);
     require(obj, Fail);

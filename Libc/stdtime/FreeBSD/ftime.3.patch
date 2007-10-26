@@ -1,11 +1,48 @@
---- ftime.3.orig	Sat Jan  3 18:59:56 2004
-+++ ftime.3	Tue Jan 13 17:41:55 2004
-@@ -38,8 +38,6 @@
+--- ftime.3	2004-04-15 16:20:14.000000000 -0700
++++ ftime.3.edit	2006-07-12 11:19:27.000000000 -0700
+@@ -38,13 +38,12 @@
  .Sh NAME
  .Nm ftime
  .Nd get date and time
 -.Sh LIBRARY
 -.Lb libcompat
  .Sh SYNOPSIS
- .In sys/types.h
+-.In sys/types.h
  .In sys/timeb.h
+ .Ft int
+-.Fn ftime "struct timeb *tp"
++.Fo ftime
++.Fa "struct timeb *tp"
++.Fc
+ .Sh DESCRIPTION
+ .Bf -symbolic
+ This interface is obsoleted by
+@@ -69,16 +68,24 @@
+ };
+ .Ed
+ .Pp
+-The structure contains the time since the epoch in seconds,
+-up to 1000 milliseconds of more-precise interval,
+-the local time zone (measured in minutes of time westward from Greenwich),
++The structure contains the time since the epoch, in seconds;
++up to 1000 milliseconds of more-precise interval;
++the local time zone (measured in minutes of time westward from Greenwich);
+ and a flag that, if nonzero, indicates that
+ Daylight Saving time applies locally during the appropriate part of the year.
++.Sh LEGACY SYNOPSIS
++.Fd #include <sys/types.h>
++.Fd #include <sys/timeb.h>
++.Pp
++The include file
++.In sys/types.h
++is necessary.
+ .Sh SEE ALSO
+ .Xr gettimeofday 2 ,
+ .Xr settimeofday 2 ,
+ .Xr ctime 3 ,
+-.Xr time 3
++.Xr time 3 ,
++.Xr compat 5
+ .Sh HISTORY
+ The
+ .Nm

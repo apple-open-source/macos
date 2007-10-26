@@ -1,16 +1,15 @@
 Source: libiodbc2
 Section: libs
 Priority: optional
-Maintainer: Christian Hammers <ch@debian.org>
-Build-Depends: debhelper (>= 3.0.0), libgtk1.2-dev
-Standards-Version: 3.5.1
+Maintainer: Bart Martens <bartm@knars.be>
+Build-Depends: debhelper (>= 4.1.0), libgtk1.2-dev, autotools-dev, libtool (>= 1.5-2), automake1.9, autoconf, autotools-dev, cdbs
+Standards-Version: 3.6.2
 
 Package: iodbc
 Section: misc
 Architecture: any
-Depends: libiodbc2 (= ${Source-Version}), ${shlibs:Depends}
-Replaces: libiodbc2
-Description: GTK config frontend for the iODBC Driver Manger
+Depends: ${shlibs:Depends}
+Description: GTK config frontend for the iODBC Driver Manager
  The iODBC (intrinsic Open Database Connectivity) driver manager is compatible
  with ODBC 2.x and 3.x specification and performs exact the jobs of a
  ODBC driver manager (i.e. driver loading, Parameters and function sequence
@@ -23,11 +22,14 @@ Description: GTK config frontend for the iODBC Driver Manger
  one process through suitable iODBC drivers.
  .
  This package contains the configuration binaries.
+ .
+  Homepage: http://www.iodbc.org/
 
 Package: libiodbc2
 Section: libs
 Architecture: any
 Depends: ${shlibs:Depends}
+Replaces: libiodbc2-dev
 Description: iODBC Driver Manager
  iODBC (intrinsic Open Database Connectivity) driver manager is compatible
  with ODBC 2.x and 3.x specification and performs exact the jobs of a
@@ -41,11 +43,14 @@ Description: iODBC Driver Manager
  one process through suitable iODBC drivers.
  .
  This package contains the library files. Look for the iodbc package, too!
+ .
+  Homepage: http://www.iodbc.org/
 
 Package: libiodbc2-dev
-Section: devel
+Section: libdevel
 Architecture: any
 Depends: libiodbc2 (= ${Source-Version}), libc6-dev
+Replaces: libiodbc2 (<=3.0.6-3)
 Description: iODBC Driver Manager (development files)
  iODBC (intrinsic Open Database Connectivity) driver manager is compatible
  with ODBC 2.x and 3.x specification and performs exact the jobs of a
@@ -59,3 +64,5 @@ Description: iODBC Driver Manager (development files)
  one process through suitable iODBC drivers.
  .
  This package contains the development files.
+ .
+  Homepage: http://www.iodbc.org/

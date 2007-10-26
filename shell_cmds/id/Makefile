@@ -17,6 +17,7 @@ CFILES = id.c
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble groups.1\
             id.1 whoami.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID -DUSE_BSM_AUDIT
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

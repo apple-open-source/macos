@@ -84,11 +84,11 @@ fi
 
   #################################################
   # check for krb5-config from recent MIT and Heimdal kerberos 5
-  AC_PATH_PROG(KRB5_CONFIG, krb5-config)
+  AC_PATH_PROG(KRB5CONFIG, krb5-config)
   AC_MSG_CHECKING(for working krb5-config)
-  if test -x "$KRB5_CONFIG"; then
-    CFLAGS="$CFLAGS `$KRB5_CONFIG --cflags | sed s/@INCLUDE_des@//`" 
-    CPPFLAGS="$CPPFLAGS `$KRB5_CONFIG --cflags | sed s/@INCLUDE_des@//`"
+  if test -x "$KRB5CONFIG"; then
+    CFLAGS="$CFLAGS `$KRB5CONFIG --cflags | sed s/@INCLUDE_des@//`" 
+    CPPFLAGS="$CPPFLAGS `$KRB5CONFIG --cflags | sed s/@INCLUDE_des@//`"
     FOUND_KRB5=yes
     AC_MSG_RESULT(yes)
   else
@@ -181,6 +181,10 @@ SHLD="\${CC}"
 PICFLAGS=""
 PICSUFFIX="po"
 SHLIBEXT="so"
+
+# Since we are not embedded in the Samba tree, building shared modules is
+# really the only option.
+enable_shared=yes
 
 if test "$enable_shared" = "yes"; then
   # this bit needs to be modified for each OS that is suported by

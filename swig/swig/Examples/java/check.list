@@ -1,0 +1,16 @@
+# see top-level Makefile.in
+callback
+class
+constants
+enum
+extend
+funcptr
+mpointer
+multimap
+native
+pointer
+reference
+simple
+template
+typemap
+variables

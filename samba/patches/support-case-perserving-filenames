@@ -1,0 +1,31 @@
+Index: samba/source/smbd/filename.c
+===================================================================
+--- samba/source/smbd/filename.c.orig
++++ samba/source/smbd/filename.c
+@@ -237,6 +237,26 @@ NTSTATUS unix_convert(connection_struct 
+ 				return NT_STATUS_OBJECT_NAME_INVALID;
+ 			}
+ 		}
++		/*
++		 * This is a case insensitive file system, we really need to
++		 * get the correct case of the name.
++		 */
++		if (!(conn->fs_capabilities & FILE_CASE_SENSITIVE_SEARCH)) {
++		    pstring case_preserved_name;
++
++		    if (SMB_VFS_GET_PRESERVED_NAME(conn, name, case_preserved_name)) {
++			char * last_component = strrchr(name, '/');
++			int space_left = PSTRING_LEN;
++
++			if (last_component) {
++				last_component++;
++				*last_component = 0;
++				space_left = PSTRING_LEN - strlen(name);
++			} else
++				last_component = name;
++			strlcpy(last_component, case_preserved_name, space_left);
++		    }
++		}
+ 		stat_cache_add(orig_path, name, conn->case_sensitive);
+ 		DEBUG(5,("conversion finished %s -> %s\n",orig_path, name));
+ 		*pst = st;

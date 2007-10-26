@@ -2,7 +2,7 @@
 #
 # Build a sjeng opening book
 #
-cat <<END_BOOK_COMMANDS | ${BUILT_PRODUCTS_DIR}/sjeng
+cat <<END_BOOK_COMMANDS | ${BUILT_PRODUCTS_DIR}/sjeng.ChessEngine
 variant $1
 book
 $2

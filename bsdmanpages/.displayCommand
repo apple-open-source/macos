@@ -1,1 +1,0 @@
-tbl %s | nroff -man

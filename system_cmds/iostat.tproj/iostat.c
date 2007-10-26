@@ -132,7 +132,7 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/IOBSD.h>
-
+#include <mach/mach_host.h>	/* host_statistics */
 #include <err.h>
 #include <signal.h>
 #include <stdio.h>
@@ -169,8 +169,9 @@ static mach_port_t masterPort;
 
 static int num_devices;
 static int maxshowdevs;
-static int dflag = 0, Iflag = 0, Cflag = 0, Tflag = 0, oflag = 0, Kflag = 0;
+static int dflag = 0, Iflag = 0, Cflag = 0, Tflag = 0, oflag = 0, Uflag = 0, Kflag = 0;
 static volatile sig_atomic_t phdr_flag = 0;
+static IONotificationPortRef notifyPort;
 
 /* local function declarations */
 static void usage(void);
@@ -178,11 +179,16 @@ static void phdr(int signo);
 static void do_phdr();
 static void devstats(int perf_select, long double etime, int havelast);
 static void cpustats(void);
+static void loadstats(void);
 static int readvar(const char *name, void *ptr, size_t len);
 
 static int record_all_devices(void);
+static void record_drivelist(void* context, io_iterator_t drivelist);
+static void remove_drivelist(void* context, io_iterator_t drivelist);
 static int record_one_device(char *name);
 static int record_device(io_registry_entry_t drive);
+
+static int compare_drivestats(const void* pa, const void* pb);
 
 static long double compute_etime(struct timeval cur_time, 
 				 struct timeval prev_time);
@@ -196,7 +202,7 @@ usage(void)
 	 * This isn't mentioned in the man page, or the usage statement,
 	 * but it is supported.
 	 */
-	fprintf(stderr, "usage: iostat [-CdIKoT?] [-c count] [-n devs]\n"
+	fprintf(stderr, "usage: iostat [-CUdIKoT?] [-c count] [-n devs]\n"
 		"\t      [-w wait] [drives]\n");
 }
 
@@ -210,9 +216,11 @@ main(int argc, char **argv)
 	int num_devices_specified;
 	int havelast = 0;
 
+	CFRunLoopSourceRef rls;
+
 	maxshowdevs = 3;
 
-	while ((c = getopt(argc, argv, "c:CdIKM:n:oTw:?")) != -1) {
+	while ((c = getopt(argc, argv, "c:CdIKM:n:oTUw:?")) != -1) {
 		switch(c) {
 			case 'c':
 				cflag++;
@@ -245,6 +253,9 @@ main(int argc, char **argv)
 			case 'T':
 				Tflag++;
 				break;
+			case 'U':
+				Uflag++;
+				break;
 			case 'w':
 				wflag++;
 				waittime = atoi(optarg);
@@ -271,13 +282,18 @@ main(int argc, char **argv)
 	 */
 	IOMasterPort(bootstrap_port, &masterPort);
 
+	notifyPort = IONotificationPortCreate(masterPort);
+	rls = IONotificationPortGetRunLoopSource(notifyPort);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+
 	/*
-	 * Make sure Tflag and/or Cflag are set if dflag == 0.  If dflag is
+	 * Make sure Tflag, Cflag and Uflag are set if dflag == 0.  If dflag is
 	 * greater than 0, they may be 0 or non-zero.
 	 */
 	if (dflag == 0) {
 		Cflag = 1;
 		Tflag = 1;
+		Uflag = 1;
 	}
 
 	/*
@@ -391,16 +407,12 @@ main(int argc, char **argv)
 			}
 		 }
 
-		if (phdr_flag) {
+		if (!--headercount || phdr_flag) {
 			phdr_flag = 0;
+			headercount = 20;
 			do_phdr();
 		}
 		
-		if (!--headercount) {
-			do_phdr();
-			headercount = 20;
-		}
-
 		last_time = cur_time;
 		gettimeofday(&cur_time, NULL);
 
@@ -427,13 +439,21 @@ main(int argc, char **argv)
 		if (Cflag > 0)
 			cpustats();
 
+		if (Uflag > 0)
+			loadstats();
+
 		printf("\n");
 		fflush(stdout);
 
 		if (count >= 0 && --count <= 0)
 			break;
 
-		sleep(waittime);
+		/*
+		 * Instead of sleep(waittime), wait in
+		 * the RunLoop for IONotifications.
+		 */
+		CFRunLoopRunInMode(kCFRunLoopDefaultMode, (CFTimeInterval)waittime, 1);
+
 		havelast = 1;
 	}
 
@@ -455,7 +475,7 @@ do_phdr()
 	if (Tflag > 0)
 		(void)printf("      tty");
 
-	for (i = 0; (i < num_devices); i++){
+	for (i = 0; i < num_devices && i < maxshowdevs; i++){
 		if (oflag > 0)
 			(void)printf("%12.6s ", drivestat[i].name);
 		else
@@ -463,14 +483,17 @@ do_phdr()
 	}
 		
 	if (Cflag > 0)
-		(void)printf("      cpu\n");
+		(void)printf("      cpu");
+
+	if (Uflag > 0)
+		(void)printf("     load average\n");
 	else
 		(void)printf("\n");
 
 	if (Tflag > 0)
 		(void)printf(" tin tout");
 
-	for (i=0; i < num_devices; i++){
+	for (i=0; i < num_devices && i < maxshowdevs; i++){
 		if (oflag > 0) {
 			if (Iflag == 0)
 				(void)printf(" sps tps msps ");
@@ -478,14 +501,17 @@ do_phdr()
 				(void)printf(" blk xfr msps ");
 		} else {
 			if (Iflag == 0)
-				printf("  KB/t tps  MB/s ");
+				printf("    KB/t tps  MB/s ");
 			else
-				printf("  KB/t xfrs   MB ");
+				printf("    KB/t xfrs   MB ");
 		}
 	}
 
 	if (Cflag > 0)
-		(void)printf(" us sy id\n");
+		(void)printf(" us sy id");
+
+	if (Uflag > 0)
+		(void)printf("   1m   5m   15m\n");
 	else
 		printf("\n");
 }
@@ -507,7 +533,7 @@ devstats(int perf_select, long double etime, int havelast)
 	kern_return_t status;
 	int i;
 
-	for (i = 0; i < num_devices; i++) {
+	for (i = 0; i < num_devices && i < maxshowdevs; i++) {
 
 		/*
 		 * If the drive goes away, we may not get any properties
@@ -523,7 +549,7 @@ devstats(int perf_select, long double etime, int havelast)
 			kCFAllocatorDefault,
 			kNilOptions);
 		if (status != KERN_SUCCESS)
-			err(1, "device has no properties");
+			continue;
 
 		/* get statistics from properties */
 		statistics = (CFDictionaryRef)CFDictionaryGetValue(properties,
@@ -627,7 +653,7 @@ devstats(int perf_select, long double etime, int havelast)
 				       ms_per_transaction);
 		} else {
 			if (Iflag == 0)
-				printf(" %5.2Lf %3.0Lf %5.2Lf ", 
+				printf(" %7.2Lf %3.0Lf %5.2Lf ", 
 				       kb_per_transfer,
 				       transfers_per_second,
 				       mb_per_second);
@@ -635,7 +661,7 @@ devstats(int perf_select, long double etime, int havelast)
 				interval_mb = interval_bytes;
 				interval_mb /= 1024 * 1024;
 
-				printf(" %5.2Lf %3.1qu %5.2Lf ", 
+				printf(" %7.2Lf %3.1qu %5.2Lf ", 
 				       kb_per_transfer,
 				       interval_transfers,
 				       interval_mb);
@@ -684,15 +710,24 @@ cpustats(void)
 	/*
 	 * Print times.
 	 */
-	printf("%3.0f",
-		rint(100. * cur.load.cpu_ticks[CPU_STATE_USER]
-		     / (time ? time : 1)));
-	printf("%3.0f",
-		rint(100. * cur.load.cpu_ticks[CPU_STATE_SYSTEM]
-		     / (time ? time : 1)));
-	printf("%3.0f",
-		rint(100. * cur.load.cpu_ticks[CPU_STATE_IDLE]
-		     / (time ? time : 1)));
+#define PTIME(kind) { \
+	double cpu = rint(100. * cur.load.cpu_ticks[kind] / (time ? time : 1));\
+	 printf("%*.0f", (100 == cpu) ? 4 : 3, cpu); \
+}
+	PTIME(CPU_STATE_USER);
+	PTIME(CPU_STATE_SYSTEM);
+	PTIME(CPU_STATE_IDLE);
+}
+
+static void
+loadstats(void)
+{
+	double loadavg[3];
+
+	if(getloadavg(loadavg,3)!=3)
+		errx(1, "couldn't fetch load average");
+
+	printf("  %4.2f %4.2f %4.2f",loadavg[0],loadavg[1],loadavg[2]);
 }
 
 static int
@@ -760,9 +795,7 @@ static int
 record_all_devices(void)
 {
 	io_iterator_t drivelist;
-	io_registry_entry_t drive;
 	CFMutableDictionaryRef match;
-	int error, ndrives;
 	kern_return_t status;
 
 	/*
@@ -770,7 +803,10 @@ record_all_devices(void)
 	 */
 	match = IOServiceMatching("IOMedia");
 	CFDictionaryAddValue(match, CFSTR(kIOMediaWholeKey), kCFBooleanTrue);
-	status = IOServiceGetMatchingServices(masterPort, match, &drivelist);
+
+	CFRetain(match);
+	status = IOServiceAddMatchingNotification(notifyPort, kIOFirstMatchNotification, match, &record_drivelist, NULL, &drivelist);
+
 	if (status != KERN_SUCCESS)
 		errx(1, "couldn't match whole IOMedia devices");
 
@@ -782,19 +818,72 @@ record_all_devices(void)
 	 *
 	 * XXX What about RAID devices?
 	 */
-	error = 1;
-	ndrives = 0;
-	while ((drive = IOIteratorNext(drivelist))
-		&& (ndrives < maxshowdevs)) {
-		if (!record_device(drive)) {
-			error = 0;
-			ndrives++;
+
+	record_drivelist(NULL, drivelist);
+
+
+	status = IOServiceAddMatchingNotification(notifyPort, kIOTerminatedNotification, match, &remove_drivelist, NULL, &drivelist);
+
+	if (status != KERN_SUCCESS)
+		errx(1, "couldn't match whole IOMedia device removal");
+
+	remove_drivelist(NULL, drivelist);
+
+	return(0);
+}
+
+static void record_drivelist(void* context, io_iterator_t drivelist)
+{
+	io_registry_entry_t drive;
+	while ((drive = IOIteratorNext(drivelist))) {
+		if (num_devices < MAXDRIVES) {
+			record_device(drive);
+			phdr_flag = 1;
 		}
 		IOObjectRelease(drive);
 	}
-	IOObjectRelease(drivelist);
+	qsort(drivestat, num_devices, sizeof(struct drivestats), &compare_drivestats);
+}
 
-	return(error);
+static void remove_drivelist(void* context, io_iterator_t drivelist)
+{
+	io_registry_entry_t drive;
+	while ((drive = IOIteratorNext(drivelist))) {
+		kern_return_t status;
+		char bsdname[MAXDRIVENAME];
+		CFDictionaryRef properties;
+		CFStringRef name;
+
+		/* get drive properties */
+		status = IORegistryEntryCreateCFProperties(drive,
+			(CFMutableDictionaryRef *)&properties,
+			kCFAllocatorDefault,
+			kNilOptions);
+		if (status != KERN_SUCCESS) continue;
+
+		/* get name from properties */
+		name = (CFStringRef)CFDictionaryGetValue(properties,
+			CFSTR(kIOBSDNameKey));
+		CFRelease(properties);
+		if (!name) continue;
+
+		if (CFStringGetCString(name, bsdname, MAXDRIVENAME, CFStringGetSystemEncoding())) {
+			int i;
+			for (i = 0; i < num_devices; ++i) {
+				if (strcmp(bsdname,drivestat[i].name) == 0) {
+					if (i < MAXDRIVES-1) {
+						memmove(&drivestat[i], &drivestat[i+1], sizeof(struct drivestats)*(MAXDRIVES-i));
+					}
+					--num_devices;
+					phdr_flag = 1;
+					qsort(drivestat, num_devices, sizeof(struct drivestats), &compare_drivestats);
+					break;
+				}
+			}
+		}
+		
+		IOObjectRelease(drive);
+	}
 }
 
 /*
@@ -820,7 +909,7 @@ record_one_device(char *name)
 	/*
 	 * Get the first match (should only be one)
 	 */
-	if ((drive = IOIteratorNext(drivelist)) == NULL)
+	if (!(drive = IOIteratorNext(drivelist)))
 		errx(1, "'%s' not found", name);
 	if (!IOObjectConformsTo(drive, "IOMedia"))
 		errx(1, "'%s' is not a storage device", name);
@@ -869,14 +958,21 @@ record_device(io_registry_entry_t drive)
 		/* get name from properties */
 		name = (CFStringRef)CFDictionaryGetValue(properties,
 			CFSTR(kIOBSDNameKey));
-		CFStringGetCString(name, drivestat[num_devices].name, 
-			MAXDRIVENAME, CFStringGetSystemEncoding());
+		if (name)
+			CFStringGetCString(name, drivestat[num_devices].name, 
+					   MAXDRIVENAME, CFStringGetSystemEncoding());
+		else {
+			errx(1, "device does not have a BSD name");
+		}
 
 		/* get blocksize from properties */
 		number = (CFNumberRef)CFDictionaryGetValue(properties,
 			CFSTR(kIOMediaPreferredBlockSizeKey));
-		CFNumberGetValue(number, kCFNumberSInt64Type,
-			&drivestat[num_devices].blocksize);
+		if (number)
+			CFNumberGetValue(number, kCFNumberSInt64Type,
+					 &drivestat[num_devices].blocksize);
+		else
+			errx(1, "device does not have a preferred block size");
 
 		/* clean up, return success */
 		CFRelease(properties);
@@ -887,4 +983,12 @@ record_device(io_registry_entry_t drive)
 	/* failed, don't keep parent */
 	IOObjectRelease(parent);
 	return(1);
+}
+
+static int
+compare_drivestats(const void* pa, const void* pb)
+{
+	struct drivestats* a = (struct drivestats*)pa;
+	struct drivestats* b = (struct drivestats*)pb;
+	return strcmp(a->name, b->name);
 }

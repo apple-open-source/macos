@@ -156,6 +156,53 @@ _pthread_setup(pthread_t thread,
 			r);
 	}
 
+#elif defined(__x86_64__)
+        x86_thread_state64_t state = {0};
+        x86_thread_state64_t *ts = &state;
+        uintptr_t *sp = vsp;
+
+        /*
+         * Set up x86-64 registers & function call.
+         */
+        count = x86_THREAD_STATE64_COUNT;
+	if (suspended) {
+	        PTHREAD_MACH_CALL(thread_get_state(thread->kernel_thread,
+					   x86_THREAD_STATE64,
+					   (thread_state_t) &state,
+					   &count),
+			  r);
+	}
+        ts->rip = (uintptr_t) routine;
+
+        /*
+        ** We need to simulate a 16-byte aligned stack frame as if we had
+        ** executed a call instruction. The stack should already be aligned
+		** before it comes to us and we don't need to push any arguments,
+		** so we shouldn't need to change it.
+        */
+
+		ts->rdi = (uintptr_t) thread;	/* argument to function */
+        *--sp = 0;            /* fake return address */
+        ts->rsp = (uintptr_t) sp;   /* set stack pointer */
+	/* Incase of needresume, suspend is always set */
+        if (suspended) {
+		PTHREAD_MACH_CALL(thread_set_state(thread->kernel_thread,
+					   x86_THREAD_STATE64,
+					   (thread_state_t) &state,
+					   x86_THREAD_STATE64_COUNT),
+			  r);
+		if (needresume)
+			PTHREAD_MACH_CALL(thread_resume(thread->kernel_thread),
+				r);
+	} else {
+		PTHREAD_MACH_CALL(thread_create_running(mach_task_self(),
+					x86_THREAD_STATE64,
+					(thread_state_t) ts,
+					x86_THREAD_STATE64_COUNT,
+					&thread->kernel_thread),
+			r);
+	}
+
 #else
 #error _pthread_setup not defined for this architecture
 #endif

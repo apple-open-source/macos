@@ -38,10 +38,11 @@
 #if 0
 static char sccsid[] = "@(#)misc.c	8.2 (Berkeley) 4/1/94";
 #else
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/find/misc.c,v 1.2.12.1 2000/06/23 18:38:46 roberto Exp $";
 #endif
 #endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/find/misc.c,v 1.8 2005/04/02 07:44:12 tjr Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -60,12 +61,10 @@ static const char rcsid[] =
  *	Replace occurrences of {} in s1 with s2 and return the result string.
  */
 void
-brace_subst(orig, store, path, len)
-	char *orig, **store, *path;
-	int len;
+brace_subst(char *orig, char **store, char *path, int len)
 {
-	register int plen;
-	register char ch, *p;
+	int plen;
+	char ch, *p;
 
 	plen = strlen(path);
 	for (p = *store; (ch = *orig) != '\0'; ++orig)
@@ -84,13 +83,13 @@ brace_subst(orig, store, path, len)
 /*
  * queryuser --
  *	print a message to standard error and then read input from standard
- *	input. If the input is 'y' then 1 is returned.
+ *	input. If the input is an affirmative response (according to the
+ *	current locale) then 1 is returned.
  */
 int
-queryuser(argv)
-	register char **argv;
+queryuser(char *argv[])
 {
-	int ch, first, nl;
+	char *p, resp[256];
 
 	(void)fprintf(stderr, "\"%s", *argv);
 	while (*++argv)
@@ -98,35 +97,17 @@ queryuser(argv)
 	(void)fprintf(stderr, "\"? ");
 	(void)fflush(stderr);
 
-	first = ch = getchar();
-	for (nl = 0;;) {
-		if (ch == '\n') {
-			nl = 1;
-			break;
-		}
-		if (ch == EOF)
-			break;
-		ch = getchar();
-	}
-
-	if (!nl) {
+	if (fgets(resp, sizeof(resp), stdin) == NULL)
+		*resp = '\0';
+	if ((p = strchr(resp, '\n')) != NULL)
+		*p = '\0';
+	else {
 		(void)fprintf(stderr, "\n");
 		(void)fflush(stderr);
 	}
-        return (first == 'y');
-}
-
-/*
- * emalloc --
- *	malloc with error checking.
- */
-void *
-emalloc(len)
-	u_int len;
-{
-	void *p;
-
-	if ((p = malloc(len)) == NULL)
-		err(1, NULL);
-	return (p);
+#ifdef __APPLE__
+        return (resp[0] == 'y');
+#else
+        return (rpmatch(resp) == 1);
+#endif
 }

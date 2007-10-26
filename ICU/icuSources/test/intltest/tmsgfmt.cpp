@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -28,6 +28,7 @@
 #include "unicode/numfmt.h"
 #include "unicode/choicfmt.h"
 #include "unicode/gregocal.h"
+#include <stdio.h>
 
 void
 TestMessageFormat::runIndexedTest(int32_t index, UBool exec,
@@ -51,7 +52,9 @@ TestMessageFormat::runIndexedTest(int32_t index, UBool exec,
         TESTCASE(15,testAdopt);
         TESTCASE(16,testCopyConstructor2);
         TESTCASE(17,TestUnlimitedArgsAndSubformats);
-    TESTCASE(18,TestRBNF);
+        TESTCASE(18,TestRBNF);
+        TESTCASE(19,TestTurkishCasing);
+        TESTCASE(20,testAutoQuoteApostrophe);
         default: name = ""; break;
     }
 }
@@ -191,7 +194,6 @@ void TestMessageFormat::testBug2()
 
 #include "unicode/datefmt.h"
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
 IntlTest&
@@ -402,6 +404,41 @@ void TestMessageFormat::testStaticFormat()
     }
 }
 
+/* When the default locale is tr, make sure that the pattern can still be parsed. */
+void TestMessageFormat::TestTurkishCasing()
+{
+    UErrorCode err = U_ZERO_ERROR;
+    Locale  saveDefaultLocale;
+    Locale::setDefault( Locale("tr"), err );
+
+    Formattable arguments[] = {
+        (int32_t)7,
+        Formattable(UDate(8.71068e+011), Formattable::kIsDate),
+        "a disturbance in the Force"
+        };
+
+    UnicodeString result;
+    result = MessageFormat::format(
+        "At {1,TIME} on {1,DATE,SHORT}, there was {2} on planet {0,NUMBER,INTEGER}.",
+        arguments,
+        3,
+        result,
+        err);
+
+    if (U_FAILURE(err)) {
+        errln("TestTurkishCasing #1 with error code %s", u_errorName(err));
+        return;
+    }
+
+    const UnicodeString expected(
+            "At 12:20:00 on 08.08.1997, there was a disturbance in the Force on planet 7.", "");
+    if (result != expected) {
+        errln("TestTurkishCasing failed on test");
+        errln( UnicodeString("     Result: ") + result );
+        errln( UnicodeString("   Expected: ") + expected );
+    }
+    Locale::setDefault( saveDefaultLocale, err );
+}
 
 void TestMessageFormat::testSimpleFormat(/* char* par */)
 {
@@ -1144,9 +1181,15 @@ void TestMessageFormat::TestRBNF(void) {
     Formattable args[1];
 
     NumberFormat* numFmt = NumberFormat::createInstance(locale, ec);
+    if (U_FAILURE(ec)) {
+        dataerrln("Error calling NumberFormat::createInstance()");
+        return;
+    }
+
     for (int i = 0; i < formats_count; ++i) {
         MessageFormat* fmt = new MessageFormat(formats[i], locale, ec);
         logln((UnicodeString)"Testing format pattern: '" + formats[i] + "'");
+
         for (int j = 0; j < values_count; ++j) {
             ec = U_ZERO_ERROR;
             numFmt->parse(values[j], args[0], ec);
@@ -1173,6 +1216,43 @@ void TestMessageFormat::TestRBNF(void) {
         delete fmt;
     }
     delete numFmt;
+}
+
+void TestMessageFormat::testAutoQuoteApostrophe(void) {
+    const char* patterns[] = { // pattern, expected pattern
+        "'", "''",
+        "''", "''",
+        "'{", "'{'",
+        "' {", "'' {",
+        "'a", "''a",
+        "'{'a", "'{'a",
+        "'{a'", "'{a'",
+        "'{}", "'{}'",
+        "{'", "{'",
+        "{'a", "{'a",
+        "{'a{}'a}'a", "{'a{}'a}''a",
+        "'}'", "'}'",
+        "'} '{'}'", "'} '{'}''",
+        "'} {{{''", "'} {{{'''",
+    };
+    int32_t pattern_count = sizeof(patterns)/sizeof(patterns[0]);
+
+    for (int i = 0; i < pattern_count; i += 2) {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeString result = MessageFormat::autoQuoteApostrophe(patterns[i], status);
+        UnicodeString target(patterns[i+1]);
+        if (target != result) {
+            const int BUF2_LEN = 64;
+            char buf[256];
+            char buf2[BUF2_LEN];
+            int32_t len = result.extract(0, result.length(), buf2, BUF2_LEN);
+            if (len >= BUF2_LEN) {
+                buf2[BUF2_LEN-1] = 0;
+            }
+            sprintf(buf, "[%2d] test \"%s\": target (\"%s\") != result (\"%s\")\n", i/2, patterns[i], patterns[i+1], buf2);
+            errln(buf);
+        }
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

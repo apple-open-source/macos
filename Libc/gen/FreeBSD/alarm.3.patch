@@ -1,0 +1,13 @@
+--- _SB/Libc/gen/FreeBSD/alarm.3	2003-05-20 15:21:01.000000000 -0700
++++ _SB/Libc/gen/FreeBSD/alarm.3.edit	2006-06-28 16:55:50.000000000 -0700
+@@ -42,8 +42,8 @@
+ .Lb libc
+ .Sh SYNOPSIS
+ .In unistd.h
+-.Ft unsigned int
+-.Fn alarm "unsigned int seconds"
++.Ft unsigned
++.Fn alarm "unsigned seconds"
+ .Sh DESCRIPTION
+ .Bf -symbolic
+ This interface is made obsolete by

@@ -176,7 +176,7 @@ RecordHandle *MultiCursor::next(TokenContext *tokenContext)
 			mCursor.reset(new LinearCursor(mQuery.get(), aRelation));
 		}
 
-		if (result = mCursor->next(tokenContext))
+		if ((result = mCursor->next(tokenContext)))
 			return result;
 			
 		mCursor.reset(NULL);
@@ -186,5 +186,4 @@ RecordHandle *MultiCursor::next(TokenContext *tokenContext)
 
 }	// end namespace Tokend
 
-/* arch-tag: D29D64E5-EBDA-11D8-AF32-000A95C4302E */
 

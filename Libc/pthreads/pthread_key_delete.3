@@ -39,11 +39,13 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_key_delete "pthread_key_t key"
+.Fo pthread_key_delete
+.Fa "pthread_key_t key"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_key_delete
-function deletes a thread-specific data key previously returned by
+function deletes a thread-specific data key, previously returned by
 .Fn pthread_key_create .
 The thread-specific data values associated with
 .Fa key
@@ -75,7 +77,7 @@ will no longer be called upon thread exit.
 If successful, the
 .Fn pthread_key_delete
 function will return zero.
-Otherwise an error number will be returned to
+Otherwise, an error number will be returned to
 indicate the error.
 .Sh ERRORS
 .Fn pthread_key_delete

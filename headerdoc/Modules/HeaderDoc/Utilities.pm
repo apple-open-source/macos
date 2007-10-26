@@ -2,7 +2,7 @@
 # Utilities.pm
 # 
 # Common subroutines
-# Last Updated: $Date: 2005/01/15 01:41:55 $
+# Last Updated: $Date: 2007/07/19 18:45:00 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -30,13 +30,13 @@
 package HeaderDoc::Utilities;
 use strict;
 use vars qw(@ISA @EXPORT $VERSION);
-use Carp;
+use Carp qw(cluck);
 use Exporter;
 foreach (qw(Mac::Files Mac::MoreFiles)) {
     eval "use $_";
 }
 
-$VERSION = '$Revision: 1.11.2.4.2.35 $';
+$VERSION = '$Revision: 1.11.2.4.2.59 $';
 @ISA = qw(Exporter);
 @EXPORT = qw(findRelativePath safeName safeNameNoCollide linesFromFile makeAbsolutePath
              printHash printArray fileNameFromPath folderPathForFile convertCharsForFileMaker 
@@ -45,8 +45,10 @@ $VERSION = '$Revision: 1.11.2.4.2.35 $';
              logMsg logMsgAndWarning logWarning logToAllFiles closeLogs
              registerUID resolveLink quote parseTokens isKeyword html2xhtml
              resolveLinks stringToFields sanitize warnHDComment
-             classTypeFromFieldAndBPinfo get_super casecmp unregisterUID);
+             classTypeFromFieldAndBPinfo get_super casecmp unregisterUID
+	     unregister_force_uid_clear dereferenceUIDObject validTag);
 
+my %uid_list_by_uid = ();
 my %uid_list = ();
 my %uid_conflict = ();
 my $xmllintversion = "";
@@ -325,8 +327,9 @@ sub getNameAndDisc {
     if ($line =~ /^\s*\n\s*/o) {
 	print "returning discussion only.\n" if ($localDebug);
 	$line =~ s/^\s+//o;
-	return ("", "$line");
+	return ("", "$line", 0);
     }
+    my $nameline = 0;
     # otherwise, get rid of leading space
     $line =~ s/^\s+//o;
 
@@ -338,8 +341,10 @@ sub getNameAndDisc {
     # we split on the newline, else split on the first
     # whitespace.
     if ($line =~ /\S+.*\n.*\S+/o) {
+	$nameline = 0;
 	($name, $disc) = split (/\n/, $line, 2);
     } else {
+	$nameline = 1;
 	($name, $disc) = split (/\s/, $line, 2);
     }
     # ensure that if the discussion is empty, we return an empty
@@ -351,7 +356,7 @@ sub getNameAndDisc {
         $name = $operator." ".$name;
     }
     # print "name is $name, disc is $disc";
-    return ($name, $disc);
+    return ($name, $disc, $nameline);
 }
 
 sub convertCharsForFileMaker {
@@ -409,7 +414,10 @@ sub linesFromFile {
 	
 	$oldRecSep = $/;
 	undef $/;    # read in files as strings
-	open(INFILE, "<$filePath") || die "Can't open $filePath: $!\n";
+	if (!open(INFILE, "<$filePath")) {
+		$HeaderDoc::exitstatus = -1;
+		warn "Can't open $filePath: $!\n";
+	}
 	$fileString = <INFILE>;
 	close INFILE;
 	$/ = $oldRecSep;
@@ -426,6 +434,10 @@ sub linesFromFile {
 	return map($_."\n", @lineArray);
 }
 
+# This function supports the use of the @link tag to link to functions and
+# types within a single file.  If you specify something like @link foo .... @/link,
+# This code will get called.  If you specify an API ref instead of a bare symbol
+# name, you should not even get here.
 sub resolveLink
 {
     my $symbol = shift;
@@ -436,29 +448,83 @@ sub resolveLink
 	if ($uid && length($uid)) {
 	    $ret = $uid;
 	    if ($uid_conflict{$symbol}) {
-		warn "$filename:0:WARNING: multiple matches found for symbol \"$symbol\"!!!\n";
-		warn "$filename:0:Only the first matching symbol will be linked.\n";
-		warn "$filename:0:Replace the symbol with a specific api ref tag\n";
-		warn "$filename:0:(e.g. apple_ref) in header file to fix this conflict.\n";
+		warn "$filename:0: warning: multiple matches found for symbol \"$symbol\"!!! Only the first matching symbol will be linked. Replace the symbol with a specific api ref tag (e.g. apple_ref) in header file to fix this conflict.\n";
 	    }
 	}
     if ($ret eq "") {
-	warn "$filename:0:WARNING: no symbol matching \"$symbol\" found.  If this\n";
-	warn "$filename:0:symbol is not in this file or class, you need to specify it\n";
-	warn "$filename:0:with an api ref tag (e.g. apple_ref).\n";
+        # If symbol is in an external API, resolution will be done
+        # by resolveLinks, later; don't issue any warning yet.        
+        if ($symbol !~ /^\/\//){
+	       warn "$filename:0: warning: no symbol matching \"$symbol\" found.  If this symbol is not in this file or class, you need to specify it with an api ref tag (e.g. apple_ref).\n";
+        }
+	$ret = $symbol; # If $symbol is a uid, keep it as is
     # } else {
 	# warn "RET IS \"$ret\"\n"
     }
     return $ret;
 }
 
-sub registerUID($$)
+sub registerUID($$$)
 {
     # This is now classless.
     # my $self = shift;
     my $uid = shift;
     my $name = shift;
+    my $object = shift;
     my $localDebug = 0;
+
+    if ($HeaderDoc::ignore_apiuid_errors == 2) { return; }
+    if ($object->noRegisterUID()) { return; }
+
+    my $objtype = ref($object) || $object;
+
+    if ($objtype =~ /HeaderDoc::HeaderElement/) { return; }
+    if ($objtype =~ /HeaderDoc::APIOwner/) { return; }
+
+    print "OBJECT: $object\n" if ($localDebug);
+    print "New UID registered: $object -> $uid.\n" if ($localDebug);
+    # cluck("New UID registered: $object -> $uid.  Backtrace follows\n");
+
+    if ($uid_list_by_uid{$uid} != undef) {
+    	if ($uid_list_by_uid{$uid} != $object) {
+		# If we match, keep quiet.  This is normal.
+		# Otherwise, resolve the duplicate apple_ref
+		# below.
+		my $objid = "" . $object;
+		$objid =~ s/^.*\(//s;
+		$objid =~ s/\).*$//s;
+		my $newuid = $uid . "_DONTLINK_$objid";
+		if ($uid_list_by_uid{$newuid} == undef) {
+		    my $quiet = 0;
+		    # Avoid warning about methods before the return type
+		    # has been set.
+		    if ($object->can("returntype")) {
+			if ($object->returntype() == undef) {
+			    if ($objtype =~ /HeaderDoc::Method/) { $quiet = 1; }
+			    if ($objtype =~ /HeaderDoc::Function/) {
+				my $apio = $object->apiOwner();
+				my $apioname = ref($apio) || $apio;
+				if ($apioname !~ /HeaderDoc::Header/) { $quiet = 1; }
+			    }
+			}
+		    }
+		    if (!$quiet) {
+			if ($newuid=~/^\/\/apple_ref\/doc\/title:(.*?)\//) {
+				warn("Warning: same name used for more than one comment (base apple_ref type was $1)\n");
+				warn("    UID changed from $uid to $newuid\n");
+			} else {
+				warn("Warning: UID $uid shared by multiple objects.  Disambiguating: new uid is $newuid\n");
+			}
+			if ($localDebug) { cluck("Backtrace follows\n"); }
+		    }
+		}
+		$uid = $newuid;
+		$uid_list_by_uid{$uid} = $object;
+	}
+    } else {
+	$uid_list_by_uid{$uid} = $object;
+    }
+
 
     print "registered UID $uid\n" if ($localDebug);
     # my $name = $uid;
@@ -471,20 +537,53 @@ sub registerUID($$)
     }
     $uid_list{$name} = $uid;
     # push(@uid_list, $uid);
+
+    return $uid;
+}
+
+sub dereferenceUIDObject
+{
+    my $uid = shift;
+    my $object = shift;
+
+    if ( $uid_list_by_uid{$uid} == $object) {
+	$uid_list_by_uid{$uid} = undef;
+	$uid_list_by_uid{$uid} = 3;
+	# print "Releasing object reference\n";
+    # } else {
+	# warn("Call to dereferenceUIDObject for non-matching object\n");
+    }
 }
 
 sub unregisterUID
 {
     my $uid = shift;
     my $name = shift;
+    my $object = undef;
+    if (@_) { $object = shift; }
+
+    if ($HeaderDoc::ignore_apiuid_errors == 2) { return 0; }
+
     my $old_uid = $uid_list{$name};
+    my $ret = 1;
 
     if ($uid_list{$name} eq $uid) {
 	$uid_list{$name} = undef;
-	return 1;
+    } else {
+	# warn("Attempt to unregister UID with wrong name: ".$uid_list{$name}." != $uid.\n");
+	$ret = 0;
     }
+    # if ($uid_list_by_uid{$uid} == $object) {
+	# $uid_list_by_uid{$uid} = undef;
+    # }
 
     return 0;
+}
+
+sub unregister_force_uid_clear
+{
+    my $uid = shift;
+    $uid_list_by_uid{$uid} = undef;
 }
 
 sub quote
@@ -537,6 +636,7 @@ sub parseTokens
     my $sopreproc = "";
     my $lbrace = "";
     my $rbrace = "";
+    my $enumname = "enum";
     my $unionname = "union";
     my $structname = "struct";
     my $typedefname = "typedef";
@@ -548,6 +648,7 @@ sub parseTokens
     my $classbraceregexp = "";
     my $classclosebraceregexp = "";
     my $accessregexp = "";
+    my $propname = "";
 
     print "PARSETOKENS FOR lang: $lang sublang: $sublang\n" if ($localDebug);
 
@@ -562,6 +663,7 @@ sub parseTokens
 	else { $sofunction = "function"; }
 	$lbrace = "{";
 	$rbrace = "}";
+	$enumname = "";
 	$unionname = "";
 	$structname = "";
 	$typedefname = "";
@@ -579,6 +681,7 @@ sub parseTokens
 	$soprocedure = "procedure";
 	$lbrace = "begin";
 	$rbrace = "end";
+	$enumname = "";
 	$unionname = "";
 	$structname = "record";
 	$typedefname = "type";
@@ -596,13 +699,24 @@ sub parseTokens
 		# }
 		$operator = "operator";
 		$sopreproc = "#";
+		if ($sublang eq "occ") {
+			$accessregexp = "^(\@?public|\@?private|\@?protected)\$";
+			$propname = "\@property";
+		}
+	} elsif ($lang eq "IDL") {
+		$sopreproc = "#";
 	} elsif ($lang eq "MIG") {
 		$sopreproc = "#";
 	}
-	if ($lang eq "C" && $sublang ne "php") { # if ($sublang eq "occ" || $sublang eq "C") {
-		$classregexp = "^(class|\@class|\@interface|\@protocol)\$";
-		$classbraceregexp = "^(\@interface|\@protocol)\$";
+	if ($lang eq "C" && $sublang ne "php" && $sublang ne "IDL") { # if ($sublang eq "occ" || $sublang eq "C") {
+		$classregexp = "^(class|\@class|\@interface|\@protocol|\@implementation)\$";
+		$classbraceregexp = "^(\@interface|\@protocol|\@implementation)\$";
 		$classclosebraceregexp = "^(\@end)\$";
+	}
+	if ($lang eq "C" && $sublang eq "IDL") {
+		$classregexp = "^(module|interface)\$";
+		$classbraceregexp = "";
+		$classclosebraceregexp = "";
 	}
 	if ($lang eq "java" && $sublang eq "java") {
 		$accessregexp = "^(public|private|protected|package)\$";
@@ -614,6 +728,7 @@ sub parseTokens
 	$ilc = "//";
 	$lbrace = "{";
 	$rbrace = "}";
+	$enumname = "enum";
 	$unionname = "union";
 	$structname = "struct";
 	$typedefname = "typedef";
@@ -643,8 +758,10 @@ sub parseTokens
 
     return ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
 	$typedefname, $varname, $constname, $structisbrace, \%macronames,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp);
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	$propname);
 }
 
 sub isKeyword
@@ -775,20 +892,165 @@ sub html2xhtml
 }
 
 
-sub resolveLinks($)
+sub resolveLinks($$$)
 {
     my $path = shift;
 
+    if (@_) {
+        my $externalXRefFiles = shift;
+	if (length($externalXRefFiles)) {
+		my @files = split(/\s/s, $externalXRefFiles);
+		foreach my $file (@files) {
+			$path .= " -s \"$file\"";
+		}
+	}
+    }
+    if (@_) {
+        my $externalAPIRefs = shift;
+	if (length($externalAPIRefs)) {
+		my @refs = split(/\s/s, $externalAPIRefs);
+		foreach my $ref (@refs) {
+			$path .= " -r \"$ref\"";
+		}
+	}
+    }
+    
     my $resolverpath = $HeaderDoc::modulesPath."bin/resolveLinks";
 
-    # print "EXECUTING $resolverpath $path\n";
-    my $retval = system($resolverpath." $path");
+    $path =~ s/"/\\"/sg;
+    print "EXECUTING $resolverpath \"$path\"\n";
+    my $retval = system($resolverpath." \"$path\"");
 
     if ($retval == -1) {
-	warn "WARNING: resolveLinks not installed.  Please check your installation.\n";
+	warn "error: resolveLinks not installed.  Please check your installation.\n";
     } elsif ($retval) {
-	warn "WARNING: resolveLinks failed ($retval).  Please check your installation.\n";
+	warn "error: resolveLinks failed ($retval).  Please check your installation.\n";
     }
+}
+
+
+# /*! validTag returns 1 if a tag is valid, -1 if a tag should be
+#     replaced with another string, or 0 if a tag is not valid.
+#  */
+sub validTag
+{
+    my $field = shift;
+    my $origfield = $field;
+    my $include_first_tier = 1;
+    my $include_second_tier = 1;
+    if (@_) {
+	my $level = shift;
+	if ($level == 0) {
+		$include_first_tier = 1;
+		$include_second_tier = 1;
+	} elsif ($level == 1) {
+		$include_first_tier = 1;
+		$include_second_tier = 0;
+	} elsif ($level == 2) {
+		$include_first_tier = 0;
+		$include_second_tier = 1;
+	}
+	# print "DEBUG: field $field level: $level first: $include_first_tier second: $include_second_tier\n";
+    # } else {
+	# print "NO SECOND ARG\n";
+    }
+
+
+    SWITCH: {
+            ($field =~ s/^\/\*\!//so) && do { return ($include_first_tier || $include_second_tier); };
+            ($field =~ s/^abstract(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^attribute(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^attributeblock(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^attributelist(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^author(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^availability(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^availabilitymacro(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^brief(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^callback(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^category(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^class(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^const(ant)?(\s+|$)//sio) && do { return ($include_first_tier || $include_second_tier); };
+            ($field =~ s/^copyright(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^define(d)?(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^define(d)?block(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^\/define(d)?block(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^deprecated(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^discussion(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^enum(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^exception(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^field(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^file(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^framework(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^frameworkpath(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^function(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^functiongroup(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^group(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^<\/hd_link>//sio) && do { return $include_second_tier; };	# note: opening tag not needed.
+									# This is not a real tag.  It
+									# is automatically inserted to
+									# repalce @/link, however,
+									# and thus may appear at the
+									# start of a parsed field in
+									# some parts of the code.
+            ($field =~ s/^header(\s+|$)//sio) && do { return $include_first_tier; }; 
+            ($field =~ s/^ignore(\s+|$)//sio) && do { return $include_second_tier; }; 
+            ($field =~ s/^important(\s+|$)//sio) && do { return -$include_second_tier; }; 
+            ($field =~ s/^indexgroup(\s+|$)//sio) && do { return $include_second_tier; }; 
+            ($field =~ s/^interface(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^internal(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^language(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^link(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^\/link//sio) && do { return $include_second_tier; };
+            ($field =~ s/^method(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^methodgroup(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^name(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^namespace(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^noParse(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^param(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^parseOnly(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^property(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^protocol(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^result(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^return(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^see(also|)(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^serial(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^serialData(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^serialfield(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^since(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^struct(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^super(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^template(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^templatefield(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^throws(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^typedef(\s+|$)//sio) && do { return $include_first_tier; };
+	    ($field =~ s/^union(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^unsorted(\s+|$)//sio) && do { return $include_first_tier; };
+            ($field =~ s/^updated(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^var(\s+|$)//sio) && do { return $include_first_tier; }; 
+            ($field =~ s/^version(\s+|$)//sio) && do { return $include_second_tier; };
+            ($field =~ s/^warning(\s+|$)//sio) && do { return -$include_second_tier; }; 
+                {                       # print "NOTFOUND: \"$field\"\n";
+					if (length($field)) {
+						return 0;
+					}
+					return 1;
+                };
+         
+        }
+}
+
+
+sub replaceTag($)
+{
+	my $tag = shift;
+
+	if ($tag =~ s/^warning(\s|$)//si) {
+		return "<p><b>WARNING:</b><br /></p><blockquote>".$tag."</blockquote>";
+	}
+	if ($tag =~ s/^important(\s|$)//si) {
+		return "<p><b>Important:</b><br /></p><blockquote>".$tag."</blockquote>";
+	}
+	warn "Could not replace unknown tag \"$tag\"\n";
 }
 
 
@@ -809,7 +1071,28 @@ sub stringToFields($$$)
 	my $in_link = 0;
 	my $lastlinkfield = "";
 
+	my $keepfield = "";
 	foreach my $field (@fields) {
+		if ($field =~ /\\$/s) {
+			$field =~ s/\\$//s;
+			if ($keepfield ne "") {
+				$keepfield .= "@".$field;
+			} else {
+				$keepfield = $field;
+			}
+		} elsif ($keepfield ne "") {
+			$field = $keepfield."@".$field;
+			$keepfield = "";
+			push(@newfields, $field);
+		} else {
+			push(@newfields, $field);
+		}
+	}
+	@fields = @newfields;
+	@newfields = ();
+
+	foreach my $field (@fields) {
+	  my $dropfield = 0;
 	  print "processing $field\n" if ($localDebug);
 	  if ($in_textblock) {
 	    if ($field =~ /^\/textblock/so) {
@@ -840,7 +1123,28 @@ sub stringToFields($$$)
 	    }
 	    # if ($field =~ /value/so) { warn "field now $field\n"; }
 	    if ($field =~ s/^\/link/<\/hd_link>/sio) {
-		$in_link = 0;
+		if ($in_link) {
+			$in_link = 0;
+		} else {
+			# drop this field on the floor.
+			my $lastfield = pop(@newfields);
+			$field =~ s/^<\/hd_link>//s;
+			push(@newfields, $lastfield.$field);
+			$field = "";
+			$dropfield = 1;
+		}
+	    }
+	    my $valid = validTag($field);
+	    # Do field substitutions up front.
+	    if ($valid == -1) {
+		$field = replaceTag($field);
+		# print "REPLACEMENT IS $field\n";
+		if ($field !~ /^\@/) {
+		    my $prev = pop(@newfields);
+		    if (!$prev) { $prev = ""; }
+		    push(@newfields, $prev.$field);
+		    $dropfield = 2;
+		}
 	    }
 	    if ($field =~ s/^link\s+//sio) {
 		$lastlinkfield = $field;
@@ -867,6 +1171,10 @@ sub stringToFields($$$)
 		$field =~ s/^$qtarget//sg;
 		$field =~ s/\\$/\@/so;
 		print "name $field\n" if ($localDebug);
+
+		# Work around the infamous star-slash (eoc) problem.
+		$target =~ s/\\\//\//g;
+
 		$lastappend .= "<hd_link posstarget=\"$target\">";
 		$lastappend .= "$field";
 	    } elsif ($field =~ /^textblock\s/sio) {
@@ -878,12 +1186,36 @@ sub stringToFields($$$)
 		    $in_textblock = 2;
 		    print "in textblock (continuation)\n" if ($localDebug);
 		}
-		$field =~ s/^textblock\s+//sio;
+		$field =~ s/^textblock(?:[ \t]+|([\n\r]))/$1/sio;
 		# clean up text block
 		$field =~ s/\</\&lt\;/sgo;
 		$field =~ s/\>/\&gt\;/sgo;
 		$lastappend .= "$field";
-		print "in textblock.\n" if ($localDebug);
+		print "in textblock.\nLASTAPPEND:\n$lastappend\nENDLASTAPPEND\n" if ($localDebug);
+	    } elsif ($dropfield) {
+		if ($dropfield == 1) {
+			warn "$filename:$linenum:Unexpected \@/link tag found in HeaderDoc comment.\n";
+		}
+	    } elsif (!$valid) {
+		my $fieldword = $field;
+		my $lastfield = "";
+
+		if ($lastappend == "") {
+			$lastfield = pop(@newfields);
+		} else {
+			$lastfield = "";
+		}
+		$lastappend .= $lastfield; 
+
+		# $fieldword =~ s/^\s*//sg; # Don't do this.  @ followed by space is an error.
+		$fieldword =~ s/\s.*$//sg;
+		warn "$filename:$linenum:Unknown field type \@".$fieldword." in HeaderDoc comment.\n";
+		$lastappend .= "\@".$field;
+
+		if ($field !~ s/\\$/\@/so) {
+			push(@newfields, $lastappend);
+			$lastappend = "";
+		}
 	    } elsif ($field =~ s/\\$/\@/so) {
 		$lastappend .= $field;
 	    } elsif ($lastappend eq "") {
@@ -899,17 +1231,17 @@ sub stringToFields($$$)
 	    push(@newfields, $lastappend);
 	}
 	if ($in_link) {
-		warn "$filename:$linenum:Unterminated \@link tag (starting field was: $lastlinkfield)\n";
+		warn "$filename:$linenum: warning: Unterminated \@link tag (starting field was: $lastlinkfield)\n";
 	}
 	if ($in_textblock) {
-		warn "$filename:$linenum:Unterminated \@textblock tag\n";
+		warn "$filename:$linenum: warning: Unterminated \@textblock tag\n";
 	}
 	@fields = @newfields;
 
 	if ($localDebug) {
 		print "FIELDS:\n";
 		for my $field (@fields) {
-			print "$field\n";
+			print "FIELD:\n$field\n";
 		}
 	}
 
@@ -918,9 +1250,18 @@ sub stringToFields($$$)
 
 
 # /*! Sanitize a string for use in a URL */
-sub sanitize($)
+sub sanitize
 {
     my $string = shift;
+    my $isname = 0;
+    if (@_) {
+	$isname = shift;
+    }
+    my $isoperator = 0;
+    if ($isname) {
+	if ($string =~ /operator/) { $isoperator = 1; }
+    }
+
     my $newstring = "";
     my $prepart = "";
     my $postpart = "";
@@ -941,17 +1282,20 @@ if ($string =~ /^\w*$/o) { return $string; }
 		next;
 	} elsif ($part =~ /\w/o) {
 		$newstring .= $part;
-	# } elsif ($part =~ /\s/o) {
+	} elsif ($part =~ /\s/o) {
+		# drop spaces.
 		# $newstring .= $part;
 	} elsif ($part =~ /[\~\:\,\.\-\_\+\!\*\(\)\/]/o) {
 		# We used to exclude '$' as well, but this
 		# confused libxml2's HTML parser.
 		$newstring .= $part;
 	} else {
-		# $newstring .= "%".ord($part);
-		my $val = ord($part);
-		my $valstring = sprintf("%02d", $val);
-		$newstring .= "\%$valstring";
+		if (!$isname || ($isoperator && $part =~ /[\=\|\/\&\%\^\!\<\>]/)) {
+			# $newstring .= "%".ord($part);
+			my $val = ord($part);
+			my $valstring = sprintf("%02d", $val);
+			$newstring .= "\%$valstring";
+		}
 	}
     }
 
@@ -982,7 +1326,8 @@ sub nestignore
     # defineblock can only be passed in for debug point 12, so
     # this can't break anything.
 
-    if ($dectype =~ /defineblock/o && $tag =~ /^\@define/o) {
+    if ($dectype =~ /defineblock/o && ($tag =~ /^\@define/o || $tag =~ /^\s*[^\s\@]/)) {
+	# print "SETTING NODEC TO 1 (DECTYPE IS $dectype)\n";
 	$HeaderDoc::nodec = 1;
 	return 1;
     }
@@ -1084,11 +1429,12 @@ print "DT: $dectype\n" if ($rawLocalDebug);
 		}
 	} else {
 		printf("Nested headerdoc markup with no tag.\n") if ($rawLocalDebug);
+		 if (nestignore($rest, $dectype)) {
+#print "IGNORE\n" if ($rawLocalDebug);
+			return 0;
+		}
 	}
 
-	if (!$HeaderDoc::ignore_apiuid_errors) {
-		warn("$filename:$linenum: WARNING: Unexpected headerdoc markup found in $dectype declaration$debugString.  Output may be broken.\n");
-	}
 	if ($maybeblock) {
 		if ($rest =~ /^\s*\@define(d?)\s+/) {
 			return 2;
@@ -1096,6 +1442,9 @@ print "DT: $dectype\n" if ($rawLocalDebug);
 		if ($rest =~ /^\s*[^\@\s]/) {
 			return 2;
 		}
+	}
+	if (!$HeaderDoc::ignore_apiuid_errors) {
+		warn("$filename:$linenum: warning: Unexpected headerdoc markup found in $dectype declaration$debugString.  Output may be broken.\n");
 	}
 	return 1;
     }
@@ -1214,8 +1563,11 @@ sub classTypeFromFieldAndBPinfo
 		($classBPtype =~ /typedef/) && do { return "C"; };
 		($classBPtype =~ /struct/) && do { return "C"; };
 		($classBPtype =~ /class/) && do { return $sublang; };
+		($classBPtype =~ /interface/) && do { return $sublang; };
+		($classBPtype =~ /implementation/) && do { return $sublang; };
+		($classBPtype =~ /module/) && do { return $sublang; };
 	}
-	warn "$filename:$linenum:Unable to determine class type.\n";
+	warn "$filename:$linenum: warning: Unable to determine class type.\n";
 	warn "KW: $classKeyword\n";
 	warn "BPT: $classBPtype\n";
 	warn "DEC: $deccopy\n";

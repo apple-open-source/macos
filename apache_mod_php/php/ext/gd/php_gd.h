@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
-   |          Stig Bakken <ssb@fast.no>                                   |
+   |          Stig Bakken <ssb@php.net>                                   |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.44.2.5.8.4 2007/01/01 09:46:42 sebastian Exp $ */
+/* $Id: php_gd.h,v 1.59.2.3.2.5 2007/04/17 15:31:45 pajoye Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -32,7 +32,7 @@
 
 /* open_basedir and safe_mode checks */
 #define PHP_GD_CHECK_OPEN_BASEDIR(filename, errormsg)                                   \
-	if (!filename || filename == empty_string || php_check_open_basedir(filename TSRMLS_CC) || \
+	if (!filename || php_check_open_basedir(filename TSRMLS_CC) ||                      \
 		(PG(safe_mode) && !php_checkuid(filename, NULL, CHECKUID_CHECK_FILE_AND_DIR))   \
 	) {                                                                                 \
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, errormsg);                          \
@@ -66,7 +66,9 @@ extern zend_module_entry gd_module_entry;
 /* gd.c functions */
 PHP_MINFO_FUNCTION(gd);
 PHP_MINIT_FUNCTION(gd);
+#if HAVE_LIBT1 || HAVE_GD_FONTMUTEX
 PHP_MSHUTDOWN_FUNCTION(gd);
+#endif
 #if HAVE_LIBGD20 && HAVE_GD_STRINGFT
 PHP_RSHUTDOWN_FUNCTION(gd);
 #endif
@@ -110,6 +112,11 @@ PHP_FUNCTION(imagecolorresolvealpha);
 PHP_FUNCTION(imagecolorclosestalpha);
 PHP_FUNCTION(imagecolorexactalpha);
 PHP_FUNCTION(imagecopyresampled);
+#endif
+
+#ifdef PHP_WIN32
+PHP_FUNCTION(imagegrabwindow);
+PHP_FUNCTION(imagegrabscreen);
 #endif
 
 #ifdef HAVE_GD_BUNDLED
@@ -184,6 +191,8 @@ PHP_FUNCTION(image2wbmp);
 PHP_FUNCTION(imagelayereffect);
 PHP_FUNCTION(imagecolormatch);
 PHP_FUNCTION(imagefilter);
+PHP_FUNCTION(imageconvolution);
+PHP_FUNCTION(imagexbm);
 #endif
 
 PHP_GD_API int phpi_get_le_gd(void);

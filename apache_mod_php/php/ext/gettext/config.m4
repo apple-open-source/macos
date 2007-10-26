@@ -1,9 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.11.4.2 2003/10/01 02:53:58 sniper Exp $
+dnl $Id: config.m4,v 1.15 2005/05/29 23:16:41 sniper Exp $
 dnl
 
 PHP_ARG_WITH(gettext,for GNU gettext support,
-[  --with-gettext[=DIR]    Include GNU gettext support.])
+[  --with-gettext[=DIR]    Include GNU gettext support])
 
 if test "$PHP_GETTEXT" != "no"; then
   for i in $PHP_GETTEXT /usr/local /usr; do
@@ -14,7 +14,7 @@ if test "$PHP_GETTEXT" != "no"; then
     AC_MSG_ERROR(Cannot locate header file libintl.h)
   fi
 
-  GETTEXT_LIBDIR=$GETTEXT_DIR/lib
+  GETTEXT_LIBDIR=$GETTEXT_DIR/$PHP_LIBDIR
   GETTEXT_INCDIR=$GETTEXT_DIR/include
   
   O_LDFLAGS=$LDFLAGS

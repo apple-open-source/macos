@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: file.h,v 1.70.2.6.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: file.h,v 1.94.2.2.2.5 2007/01/10 14:40:06 bjori Exp $ */
 
 /* Synced with php 3.0 revision 1.30 1999-06-16 [ssb] */
 
@@ -39,6 +39,7 @@ PHPAPI PHP_FUNCTION(fgets);
 PHP_FUNCTION(fscanf);
 PHPAPI PHP_FUNCTION(fgetss);
 PHP_FUNCTION(fgetcsv);
+PHP_FUNCTION(fputcsv);
 PHPAPI PHP_FUNCTION(fwrite);
 PHPAPI PHP_FUNCTION(fflush);
 PHPAPI PHP_FUNCTION(rewind);
@@ -54,11 +55,7 @@ PHP_FUNCTION(unlink);
 PHP_FUNCTION(copy);
 PHP_FUNCTION(file);
 PHP_FUNCTION(file_get_contents);
-PHP_FUNCTION(set_socket_blocking); /* deprecated */
-PHP_FUNCTION(stream_set_blocking);
-PHP_FUNCTION(stream_select);
-PHP_FUNCTION(stream_set_timeout);
-PHP_FUNCTION(stream_set_write_buffer);
+PHP_FUNCTION(file_put_contents);
 PHP_FUNCTION(get_meta_tags);
 PHP_FUNCTION(flock);
 PHP_FUNCTION(fd_set);
@@ -71,21 +68,25 @@ PHP_FUNCTION(fnmatch);
 #endif
 PHP_NAMED_FUNCTION(php_if_ftruncate);
 PHP_NAMED_FUNCTION(php_if_fstat);
+PHP_FUNCTION(sys_get_temp_dir);
 
-PHP_FUNCTION(stream_get_meta_data);
-PHP_FUNCTION(stream_register_wrapper);
-PHP_FUNCTION(stream_context_create);
-PHP_FUNCTION(stream_context_set_params);
-PHP_FUNCTION(stream_context_set_option);
-PHP_FUNCTION(stream_context_get_options);
-PHP_FUNCTION(stream_filter_prepend);
-PHP_FUNCTION(stream_filter_append);
 PHP_MINIT_FUNCTION(user_streams);
 
+PHPAPI int php_le_stream_context(void);
 PHPAPI int php_set_sock_blocking(int socketd, int block TSRMLS_DC);
 PHPAPI int php_copy_file(char *src, char *dest TSRMLS_DC);
+PHPAPI int php_copy_file_ex(char *src, char *dest, int src_chk TSRMLS_DC);
+PHPAPI int php_mkdir_ex(char *dir, long mode, int options TSRMLS_DC);
+PHPAPI int php_mkdir(char *dir, long mode TSRMLS_DC);
+PHPAPI void php_fgetcsv(php_stream *stream, char delimiter, char enclosure, size_t buf_len, char *buf, zval *return_value TSRMLS_DC);
 
 #define META_DEF_BUFSIZE 8192
+
+#define PHP_FILE_USE_INCLUDE_PATH 1
+#define PHP_FILE_IGNORE_NEW_LINES 2
+#define PHP_FILE_SKIP_EMPTY_LINES 4
+#define PHP_FILE_APPEND 8
+#define PHP_FILE_NO_DEFAULT_CONTEXT 16
 
 typedef enum _php_meta_tags_token {
 	TOK_EOF = 0,
@@ -118,7 +119,9 @@ typedef struct {
 	long default_socket_timeout;
 	char *user_agent;
 	char *user_stream_current_filename; /* for simple recursion protection */
+	php_stream_context *default_context;
 	HashTable *stream_wrappers;			/* per-request copy of url_stream_wrappers_hash */
+	HashTable *stream_filters;			/* per-request copy of stream_filters_hash */
 } php_file_globals;
 
 #ifdef ZTS
@@ -126,10 +129,9 @@ typedef struct {
 extern PHPAPI int file_globals_id;
 #else
 #define FG(v) (file_globals.v)
-extern php_file_globals file_globals;
+extern PHPAPI php_file_globals file_globals;
 #endif
 
-PHPAPI int php_le_stream_context(void);
 
 #endif /* FILE_H */
 

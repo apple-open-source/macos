@@ -24,37 +24,24 @@
 # define _GNU_SOURCE	1
 #endif
 
-#ifdef __GNUC__
-# define alloca __builtin_alloca
-# define HAVE_ALLOCA 1
-#else
-# if defined HAVE_ALLOCA_H || defined _LIBC
-#  include <alloca.h>
-# else
-#  ifdef _AIX
- #  pragma alloca
-#  else
-#   ifndef alloca
-char *alloca ();
-#   endif
-#  endif
-# endif
-#endif
-
 #if ! defined __builtin_expect && __GNUC__ < 3
 # define __builtin_expect(expr, expected) (expr)
 #endif
 
 #include <fnmatch.h>
 
+#include <alloca.h>
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define WIDE_CHAR_SUPPORT (HAVE_WCTYPE_H && HAVE_WCHAR_H && HAVE_BTOWC)
+#define WIDE_CHAR_SUPPORT \
+  (HAVE_WCTYPE_H && HAVE_WCHAR_H && HAVE_BTOWC \
+   && HAVE_WMEMCHR && (HAVE_WMEMCPY || HAVE_WMEMPCPY))
 
 /* For platform which support the ISO C amendement 1 functionality we
    support user defined character classes.  */
@@ -171,10 +158,6 @@ extern int fnmatch (const char *pattern, const char *string, int flags);
 
 /* Avoid depending on library functions or files
    whose names are inconsistent.  */
-
-# ifndef errno
-extern int errno;
-# endif
 
 /* Global variable.  */
 static int posixly_correct;

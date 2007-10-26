@@ -1,0 +1,46 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define to 1 if you have the <X11/extensions/dpms.h> header file. */
+#undef HAVE_X11_EXTENSIONS_DPMS_H
+
+/* Define to 1 if you have the <X11/extensions/fontcacheP.h> header file. */
+#undef HAVE_X11_EXTENSIONS_FONTCACHEP_H
+
+/* Define to 1 if you have the <X11/extensions/fontcache.h> header file. */
+#undef HAVE_X11_EXTENSIONS_FONTCACHE_H
+
+/* Define to 1 if you have the <X11/extensions/MITMisc.h> header file. */
+#undef HAVE_X11_EXTENSIONS_MITMISC_H
+
+/* Define to 1 if you have the <X11/extensions/Print.h> header file. */
+#undef HAVE_X11_EXTENSIONS_PRINT_H
+
+/* Define to 1 if you have the <X11/extensions/xf86misc.h> header file. */
+#undef HAVE_X11_EXTENSIONS_XF86MISC_H
+
+/* Define to 1 if you have the <X11/extensions/xf86mscstr.h> header file. */
+#undef HAVE_X11_EXTENSIONS_XF86MSCSTR_H
+
+/* Define to 1 if you have the <X11/XKBlib.h> header file. */
+#undef HAVE_X11_XKBLIB_H
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Version number of package */
+#undef VERSION

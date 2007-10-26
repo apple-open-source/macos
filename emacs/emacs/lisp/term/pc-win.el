@@ -1,6 +1,7 @@
 ;;; pc-win.el --- setup support for `PC windows' (whatever that is)
 
-;; Copyright (C) 1994, 1996, 1997, 1999, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1996, 1997, 1999, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Morten Welinder <terra@diku.dk>
 ;; Maintainer: FSF
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -43,22 +44,22 @@
 ;;; color is ``light''; see `frame-set-background-mode' in lisp/faces.el for
 ;;; an example.
 (defvar msdos-color-values
-  '(("white"         15 65535 65535 65535)
-    ("yellow"        14 65535 65535     0) ; Yellow
-    ("lightmagenta"  13 65535     0 65535) ; Magenta
-    ("lightred"      12 65535     0     0) ; Red
-    ("lightcyan"     11     0 65535 65535) ; Cyan
-    ("lightgreen"    10     0 65535     0) ; Green
-    ("lightblue"      9     0     0 65535) ; Blue
-    ("darkgray"       8 26112 26112 26112) ; Gray40
-    ("lightgray"      7 48640 48640 48640) ; Gray
-    ("brown"          6 40960 20992 11520) ; Sienna
-    ("magenta"        5 35584     0 35584) ; DarkMagenta
-    ("red"            4 45568  8704  8704) ; FireBrick
-    ("cyan"           3     0 52736 53504) ; DarkTurquoise
-    ("green"          2  8704 35584  8704) ; ForestGreen
+  '(("black"          0     0     0     0)
     ("blue"           1     0     0 52480) ; MediumBlue
-    ("black"          0     0     0     0))
+    ("green"          2  8704 35584  8704) ; ForestGreen
+    ("cyan"           3     0 52736 53504) ; DarkTurquoise
+    ("red"            4 45568  8704  8704) ; FireBrick
+    ("magenta"        5 35584     0 35584) ; DarkMagenta
+    ("brown"          6 40960 20992 11520) ; Sienna
+    ("lightgray"      7 48640 48640 48640) ; Gray
+    ("darkgray"       8 26112 26112 26112) ; Gray40
+    ("lightblue"      9     0     0 65535) ; Blue
+    ("lightgreen"    10     0 65535     0) ; Green
+    ("lightcyan"     11     0 65535 65535) ; Cyan
+    ("lightred"      12 65535     0     0) ; Red
+    ("lightmagenta"  13 65535     0 65535) ; Magenta
+    ("yellow"        14 65535 65535     0) ; Yellow
+    ("white"         15 65535 65535 65535))
   "A list of MS-DOS console colors, their indices and 16-bit RGB values.")
 
 ;; ---------------------------------------------------------------------------
@@ -181,15 +182,15 @@ support other types of selections."
   :group 'killing)
 
 (defun x-select-text (text &optional push)
-  (if x-select-enable-clipboard 
+  (if x-select-enable-clipboard
       (w16-set-clipboard-data text))
   (setq x-last-selected-text text))
-    
+
 ;;; Return the value of the current selection.
 ;;; Consult the selection, then the cut buffer.  Treat empty strings
 ;;; as if they were unset.
 (defun x-get-selection-value ()
-  (if x-select-enable-clipboard 
+  (if x-select-enable-clipboard
       (let (text)
 	;; Don't die if x-get-selection signals an error.
 	(condition-case c
@@ -214,8 +215,10 @@ support other types of selections."
 ;; it, no matter which variety they've asked for.
 (defun x-frob-font-slant (font which)
   font)
+(make-obsolete 'x-frob-font-slant 'make-face-... "21.1")
 (defun x-frob-font-weight (font which)
   font)
+(make-obsolete 'x-frob-font-weight 'make-face-... "21.1")
 (defun x-font-family-list ()
   "Return a list of available font families on FRAME.\n\
 If FRAME is omitted or nil, use the selected frame.\n\
@@ -238,4 +241,5 @@ are fixed-pitch."
 
 ;; ---------------------------------------------------------------------------
 
+;;; arch-tag: 5cbdb455-b495-427b-95d0-e417d77d00b4
 ;;; pc-win.el ends here

@@ -31,7 +31,6 @@
             Makefile.preamble, 
             Makefile, 
             Makefile.postamble, 
-            ether_addr.3, 
             getifaddrs.3, 
             if_indextoname.3, 
             inet6_rthdr_space.3, 

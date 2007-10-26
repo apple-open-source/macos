@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: levenshtein.c,v 1.25.4.2.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: levenshtein.c,v 1.34.2.1.2.3 2007/01/01 09:36:08 sebastian Exp $ */
 
 #include "php.h"
 #include <stdlib.h>
@@ -40,13 +40,8 @@ static int reference_levdist(const char *s1, int l1,
 	if((l1>LEVENSHTEIN_MAX_LENTH)||(l2>LEVENSHTEIN_MAX_LENTH))
 		return -1;
 
-	if(!(p1=emalloc((l2+1)*sizeof(int)))) {
-		return -2;
-	}
-	if(!(p2=emalloc((l2+1)*sizeof(int)))) {
-		free(p1);
-		return -2;
-	}
+	p1 = safe_emalloc((l2+1), sizeof(int), 0);
+	p2 = safe_emalloc((l2+1), sizeof(int), 0);
 
 	for(i2=0;i2<=l2;i2++)
 		p1[i2] = i2*cost_ins;
@@ -75,10 +70,8 @@ static int reference_levdist(const char *s1, int l1,
 
 /* {{{ custom_levdist
  */
-static int custom_levdist(char *str1, char *str2, char *callback_name) 
+static int custom_levdist(char *str1, char *str2, char *callback_name TSRMLS_DC) 
 {
-	TSRMLS_FETCH();
-
 	php_error_docref(NULL TSRMLS_CC, E_WARNING, "The general Levenshtein support is not there yet");
 	/* not there yet */
 
@@ -86,7 +79,7 @@ static int custom_levdist(char *str1, char *str2, char *callback_name)
 }
 /* }}} */
 
-/* {{{ proto int levenshtein(string str1, string str2)
+/* {{{ proto int levenshtein(string str1, string str2[, int cost_ins, int cost_rep, int cost_del])
    Calculate Levenshtein distance between two strings */
 PHP_FUNCTION(levenshtein)
 {
@@ -132,14 +125,14 @@ PHP_FUNCTION(levenshtein)
 		convert_to_string_ex(callback_name);
 
 		distance = custom_levdist(Z_STRVAL_PP(str1), Z_STRVAL_PP(str2),
-								  Z_STRVAL_PP(callback_name));
+								  Z_STRVAL_PP(callback_name) TSRMLS_CC);
 		break;
 
 	default: 
 		WRONG_PARAM_COUNT;
 	}	
 
-	if(distance<0) {
+	if(distance < 0 && /* TODO */ ZEND_NUM_ARGS() != 3) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument string(s) too long");
 	}
 	

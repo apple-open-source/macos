@@ -53,7 +53,7 @@ prep:
 META-FAQ: FORCE
 	@cd Doc && $(MAKE) $(MAKEDEFS) ../META-FAQ
 
-dvi ps html info:
+dvi ps html info pdf:
 	@cd Doc && $(MAKE) $(MAKEDEFS) $@
 
 # ========== DEPENDENCIES FOR INSTALLING ==========
@@ -84,8 +84,10 @@ install.fns:
 	  test x$(sitefndir) != xno && \
 	    $(SHELL) $(sdir_top)/mkinstalldirs $(DESTDIR)$(sitefndir); \
 	  sdir_top="$(sdir_top)" fndir="$(fndir)" dir_top="$(dir_top)" \
+	  scriptdir="$(scriptdir)" \
 	  FUNCTIONS_SUBDIRS="$(FUNCTIONS_SUBDIRS)" \
 	  INSTALL_DATA="$(INSTALL_DATA)" \
+	  INSTALL_PROGRAM="$(INSTALL_PROGRAM)" \
 	  DESTDIR="$(DESTDIR)" VERSION="$(VERSION)" \
 	  $(SHELL) $(sdir_top)/Config/installfns.sh || exit 1; \
 	fi; \
@@ -94,6 +96,7 @@ install.fns:
 uninstall.fns:
 	if test x$(fndir) != x && test x$(fndir) != xno; then \
 	  fndir="$(fndir)" dir_top="$(dir_top)" \
+	  scriptdir="$(scriptdir)" \
 	  FUNCTIONS_SUBDIRS="$(FUNCTIONS_SUBDIRS)" \
 	  DESTDIR="$(DESTDIR)" VERSION="$(VERSION)" \
 	  $(SHELL) $(sdir_top)/Config/uninstallfns.sh || exit 1; \
@@ -118,6 +121,7 @@ check test:
 
 distclean-here:
 	rm -f Makefile config.h config.status config.log config.cache config.modules config.modules.sh stamp-h Config/defs.mk
+	rm -rf autom4te.cache
 
 realclean-here:
 	cd $(sdir) && rm -f config.h.in stamp-h.in configure

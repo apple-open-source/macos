@@ -2,20 +2,24 @@
 " Compiler:     splint/lclint (C source code checker)
 " Maintainer:   Ralf Wildenhues <Ralf.Wildenhues@gmx.de>
 " Splint Home:	http://www.splint.org/
-" Last Change:  $Date$
-" $Revision$
+" Last Change:  2005 Apr 21
+" $Revision: 1.3 $
 
 if exists("current_compiler")
   finish
 endif
 let current_compiler = "splint"
 
+if exists(":CompilerSet") != 2		" older Vim always used :setlocal
+  command -nargs=* CompilerSet setlocal <args>
+endif
+
 let s:cpo_save = &cpo
 set cpo-=C
 
 " adapt this if you want to check more than one file at a time.
 " put command line options in .splintrc or ~/.splintrc
-setlocal makeprg=splint\ %
+CompilerSet makeprg=splint\ %
 
 " Note: when using the new array bounds checking flags:  Each warning
 " usually has several lines and several references to source code mostly
@@ -47,8 +51,9 @@ setlocal makeprg=splint\ %
 "  A memory write may write to an address beyond the allocated buffer. (Use
 "  -boundswrite to inhibit warning)
 
-setlocal errorformat=%OLCLint*m,
+CompilerSet errorformat=%OLCLint*m,
 	\%OSplint*m,
+	\%f(%l\\,%c):\ %m,
 	\%*[\ ]%f:%l:%c:\ %m,
 	\%*[\ ]%f:%l:\ %m,
 	\%*[^\"]\"%f\"%*\\D%l:\ %m,
@@ -60,7 +65,7 @@ setlocal errorformat=%OLCLint*m,
 	\%D%*\\a[%*\\d]:\ Entering\ directory\ `%f',
 	\%X%*\\a[%*\\d]:\ Leaving\ directory\ `%f',
 	\%DMaking\ %*\\a\ in\ %f,
-	\%C\ \ %m
+	\%C\ %#%m
 
 let &cpo = s:cpo_save
 unlet s:cpo_save

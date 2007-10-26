@@ -50,7 +50,7 @@ CRecNameList::~CRecNameList ( void )
 //	* GetRecName
 //------------------------------------------------------------------------------------
 
-sInt32 CRecNameList::GetRecName ( uInt32 inIndex, char **outData )
+SInt32 CRecNameList::GetRecName ( UInt32 inIndex, char **outData )
 {
 	return( GetAttribute( inIndex, outData ) );
 }

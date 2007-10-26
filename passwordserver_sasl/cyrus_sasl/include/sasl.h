@@ -122,7 +122,11 @@
 
 #define SASL_VERSION_MAJOR 2
 #define SASL_VERSION_MINOR 1
-#define SASL_VERSION_STEP 18
+#define SASL_VERSION_STEP 22
+
+/* A convenience macro: same as was defined in the OpenLDAP LDAPDB */
+#define SASL_VERSION_FULL ((SASL_VERSION_MAJOR << 16) |\
+      (SASL_VERSION_MINOR << 8) | SASL_VERSION_STEP)
 
 #include "prop.h"
 
@@ -717,12 +721,6 @@ LIBSASL_API int sasl_getprop(sasl_conn_t *conn, int propnum,
 #define SASL_CALLBACK     7	/* current callback function list */
 #define SASL_IPLOCALPORT  8	/* iplocalport string passed to server_new */
 #define SASL_IPREMOTEPORT 9	/* ipremoteport string passed to server_new */
-#define SASL_SERVICE      12	/* service passed to sasl_*_new */
-#define SASL_SERVERFQDN   13	/* serverFQDN passed to sasl_*_new */
-#define SASL_AUTHSOURCE   14	/* name of auth source last used, useful
-				 * for failed authentication tracking */
-#define SASL_MECHNAME     15    /* active mechanism name, if any */
-#define SASL_AUTHUSER     16    /* authentication/admin user */
 
 /* This returns a string which is either empty or has an error message
  * from sasl_seterror (e.g., from a plug-in or callback).  It differs
@@ -730,6 +728,24 @@ LIBSASL_API int sasl_getprop(sasl_conn_t *conn, int propnum,
  * last return status code.
  */
 #define SASL_PLUGERR     10
+
+/* a handle to any delegated credentials or NULL if none is present 
+ * is returned by the mechanism. The user will probably need to know
+ * which mechanism was used to actually known how to make use of them
+ * currently only implemented for the gssapi mechanism */
+#define SASL_DELEGATEDCREDS 11  
+
+#define SASL_SERVICE      12	/* service passed to sasl_*_new */
+#define SASL_SERVERFQDN   13	/* serverFQDN passed to sasl_*_new */
+#define SASL_AUTHSOURCE   14	/* name of auth source last used, useful
+				 * for failed authentication tracking */
+#define SASL_MECHNAME     15    /* active mechanism name, if any */
+#define SASL_AUTHUSER     16    /* authentication/admin user */
+#define SASL_APPNAME	  17	/* application name (used for logging/
+				   configuration), same as appname parameter
+				   to sasl_server_init */
+
+#define SASL_KRB5_AUTHDATA	700	/* APPLE: PAC information for GSSAPI */
 
 /* set property in SASL connection state
  * returns:
@@ -1093,6 +1109,8 @@ LIBSASL_API int sasl_setpass(sasl_conn_t *conn,
 #define SASL_SET_CREATE  0x01   /* create a new entry for user */
 #define SASL_SET_DISABLE 0x02	/* disable user account */
 #define SASL_SET_NOPLAIN 0x04	/* do not store secret in plain text */
+#define SASL_SET_CURMECH_ONLY 0x08	/* set the mechanism specific password only.
+					   fail if no current mechanism */
 
 /*********************************************************
  * Auxiliary Property Support -- added by cjn 1999-09-29 *

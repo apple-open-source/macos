@@ -1,6 +1,6 @@
 #! /usr/local/bin/perl -w
 #
-# $Id: imapdu.pl,v 1.5 2005/03/05 00:37:33 dasenbro Exp $
+# $Id: imapdu.pl,v 1.8 2001/11/30 19:30:45 leg Exp $
 # 
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #

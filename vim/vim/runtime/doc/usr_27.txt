@@ -1,4 +1,4 @@
-*usr_27.txt*	For Vim version 6.2.  Last change: 2002 Dec 31
+*usr_27.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -272,7 +272,7 @@ Matches "folder" and "folders".
 SPECIFIC COUNTS
 
 To match a specific number of items use the form "\{n,m}".  "n" and "m" are
-numbers.  The item before it will be matched "n" to "m" times (inclusive).
+numbers.  The item before it will be matched "n" to "m" times |inclusive|.
 Example: >
 
 	/ab\{3,5}
@@ -304,9 +304,9 @@ Will match "ab" in "abbb".  Actually, it will never match more than one b,
 because there is no reason to match more.  It requires something else to force
 it to match more than the lower limit.
    The same rules apply to removing "n" and "m".  It's even possible to remove
-both of the, resulting in "\{-}".  This matches the item before it zero or
-more times, as few as possible.  The item by itself always match zero times.
-It is useful when combined with something else.  Example: >
+both of the numbers, resulting in "\{-}".  This matches the item before it
+zero or more times, as few as possible.  The item by itself always matches
+zero times.  It is useful when combined with something else.  Example: >
 
 	/a.\{-}b
 

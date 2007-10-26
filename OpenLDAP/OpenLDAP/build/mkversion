@@ -1,9 +1,9 @@
 #! /bin/sh
 # Create a version.c file
-# $OpenLDAP: pkg/ldap/build/mkversion,v 1.8.2.2 2004/01/01 18:16:25 kurt Exp $
+# $OpenLDAP: pkg/ldap/build/mkversion,v 1.12.2.2 2006/01/03 22:16:01 kurt Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -55,7 +55,7 @@ WHOWHERE="$USER@`uname -n`:`pwd`"
 cat << __EOF__
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -67,7 +67,11 @@ cat << __EOF__
  * <http://www.OpenLDAP.org/license.html>.
  */
 
+static const char copyright[] =
+"Copyright 1998-2006 The OpenLDAP Foundation.  All rights reserved.\n"
+"COPYING RESTRICTIONS APPLY\n";
+
 $static $const char $SYMBOL[] =
-"@(#) \$$PACKAGE: $APPLICATION $VERSION \$\n";
+"@(#) \$$PACKAGE: $APPLICATION $VERSION (" __DATE__ " " __TIME__ ") \$\n";
 
 __EOF__

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -320,7 +320,7 @@ Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID )
                             }
                         }
 
-                        DALogDebug( "  dispatched response, id = %08X:%08X, kind = %s, disk = %@, dissented, status = 0x%08X.",
+                        DALogDebug( "  dispatched response, id = %016llX:%016llX, kind = %s, disk = %@, dissented, status = 0x%08X.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -329,7 +329,7 @@ Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID )
                     }
                     else
                     {
-                        DALogDebug( "  dispatched response, id = %08X:%08X, kind = %s, disk = %@, approved.",
+                        DALogDebug( "  dispatched response, id = %016llX:%016llX, kind = %s, disk = %@, approved.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -340,7 +340,7 @@ Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID )
                 }
                 case _kDADiskPeekCallback:
                 {
-                    DALogDebug( "  dispatched response, id = %08X:%08X, kind = %s, disk = %@.",
+                    DALogDebug( "  dispatched response, id = %016llX:%016llX, kind = %s, disk = %@.",
                                 DACallbackGetAddress( callback ),
                                 DACallbackGetContext( callback ),
                                 _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -373,11 +373,6 @@ void DADiskClaimReleaseCallback( DADiskRef disk, DACallbackRef callback, DARespo
     DAQueueCallback( callback, disk, NULL );
 
     __DAResponseComplete( disk );
-}
-
-void DADiskClassicCallback( DADiskRef disk )
-{
-    __DAQueueCallbacks( _kDADiskClassicCallback, disk, NULL );
 }
 
 void DADiskDescriptionChangedCallback( DADiskRef disk, CFTypeRef key )
@@ -495,7 +490,6 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
             switch ( DACallbackGetKind( callback ) )
             {
                 case _kDADiskAppearedCallback:
-                case _kDADiskClassicCallback:
                 case _kDADiskDisappearedCallback:
                 {
                     if ( DADiskGetOption( argument0, kDADiskOptionPrivate ) == FALSE )
@@ -510,7 +504,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
 
                             DASessionQueueCallback( session, callback );
 
-                            DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@.",
+                            DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
                                         DACallbackGetAddress( callback ),
                                         DACallbackGetContext( callback ),
                                         _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -538,7 +532,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
 
                     if ( argument1 )
                     {
-                        DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@, status = 0x%08X.",
+                        DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@, status = 0x%08X.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -547,7 +541,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                     }
                     else
                     {
-                        DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@, success.",
+                        DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@, success.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -595,7 +589,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
 
                                 DASessionQueueCallback( session, callback );
 
-                                DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@.",
+                                DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
                                             DACallbackGetAddress( callback ),
                                             DACallbackGetContext( callback ),
                                             _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -656,7 +650,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
 
                                     DASessionQueueCallback( session, callback );
 
-                                    DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@.",
+                                    DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@.",
                                                 DACallbackGetAddress( callback ),
                                                 DACallbackGetContext( callback ),
                                                 _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -715,7 +709,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
 
                                         for ( index = 0; index < count; index++ )
                                         {
-                                            DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s, disk = %@, key = %@.",
+                                            DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s, disk = %@, key = %@.",
                                                         DACallbackGetAddress( callback ),
                                                         DACallbackGetContext( callback ),
                                                         _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -750,7 +744,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                     {
                         DASessionQueueCallback( session, callback );
 
-                        DALogDebug( "  dispatched callback, id = %08X:%08X, kind = %s.",
+                        DALogDebug( "  dispatched callback, id = %016llX:%016llX, kind = %s.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ) );

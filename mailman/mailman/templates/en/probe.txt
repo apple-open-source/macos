@@ -17,10 +17,7 @@ You can also visit your membership page at
     %(optionsurl)s
 
 On your membership page, you can change various delivery options such
-as your email address and whether you get digests or not.  As a
-reminder, your membership password is
-
-    %(password)s
+as your email address and whether you get digests or not.
 
 If you have any questions or problems, you can contact the list owner
 at

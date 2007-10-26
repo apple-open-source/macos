@@ -213,18 +213,18 @@ parse_cmatcher(char *name, char *s)
 	default:
 	    if (name)
 		zwarnnam(name, "unknown match specification character `%c'",
-			 NULL, *s);
+			 *s);
 	    return pcm_err;
 	}
 	if (s[1] != ':') {
 	    if (name)
-		zwarnnam(name, "missing `:'", NULL, 0);
+		zwarnnam(name, "missing `:'");
 	    return pcm_err;
 	}
 	s += 2;
 	if (!*s) {
 	    if (name)
-		zwarnnam(name, "missing patterns", NULL, 0);
+		zwarnnam(name, "missing patterns");
 	    return pcm_err;
 	}
 	if ((fl & CMF_LEFT) && !fl2) {
@@ -237,7 +237,7 @@ parse_cmatcher(char *name, char *s)
 
 	    if (!*s || !*++s) {
 		if (name)
-		    zwarnnam(name, "missing line pattern", NULL, 0);
+		    zwarnnam(name, "missing line pattern");
 		return pcm_err;
 	    }
 	} else
@@ -256,11 +256,11 @@ parse_cmatcher(char *name, char *s)
 	}
 	if ((fl & CMF_RIGHT) && !fl2 && (!*s || !*++s)) {
 	    if (name)
-		zwarnnam(name, "missing right anchor", NULL, 0);
+		zwarnnam(name, "missing right anchor");
 	} else if (!(fl & CMF_RIGHT) || fl2) {
 	    if (!*s) {
 		if (name)
-		    zwarnnam(name, "missing word pattern", NULL, 0);
+		    zwarnnam(name, "missing word pattern");
 		return pcm_err;
 	    }
 	    s++;
@@ -278,7 +278,7 @@ parse_cmatcher(char *name, char *s)
 		return pcm_err;
 	    if (!*s) {
 		if (name)
-		    zwarnnam(name, "missing word pattern", NULL, 0);
+		    zwarnnam(name, "missing word pattern");
 		return pcm_err;
 	    }
 	    s++;
@@ -288,7 +288,7 @@ parse_cmatcher(char *name, char *s)
 	if (*s == '*') {
 	    if (!(fl & (CMF_LEFT | CMF_RIGHT))) {
 		if (name)
-		    zwarnnam(name, "need anchor for `*'", NULL, 0);
+		    zwarnnam(name, "need anchor for `*'");
 		return pcm_err;
 	    }
 	    word = NULL;
@@ -302,8 +302,7 @@ parse_cmatcher(char *name, char *s)
 
 	    if (!word && !line) {
 		if (name)
-		    zwarnnam(name, "need non-empty word or line pattern",
-			     NULL, 0);
+		    zwarnnam(name, "need non-empty word or line pattern");
 		return pcm_err;
 	    }
 	}
@@ -353,7 +352,7 @@ parse_pattern(char *name, char **sp, int *lp, char e, int *err)
 	    s = parse_class(n, s + 1, ']');
 	    if (!*s) {
 		*err = 1;
-		zwarnnam(name, "unterminated character class", NULL, 0);
+		zwarnnam(name, "unterminated character class");
 		return NULL;
 	    }
 	} else if (*s == '{') {
@@ -361,14 +360,14 @@ parse_pattern(char *name, char **sp, int *lp, char e, int *err)
 	    s = parse_class(n, s + 1, '}');
 	    if (!*s) {
 		*err = 1;
-		zwarnnam(name, "unterminated character class", NULL, 0);
+		zwarnnam(name, "unterminated character class");
 		return NULL;
 	    }
 	} else if (*s == '?') {
 	    memset(n->tab, 1, 256);
 	} else if (*s == '*' || *s == '(' || *s == ')' || *s == '=') {
 	    *err = 1;
-	    zwarnnam(name, "invalid pattern character `%c'", NULL, *s);
+	    zwarnnam(name, "invalid pattern character `%c'", *s);
 	    return NULL;
 	} else {
 	    if (*s == '\\' && s[1])
@@ -429,7 +428,7 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     Cmatcher match = NULL;
 
     if (incompfunc != 1) {
-	zwarnnam(name, "can only be called from completion function", NULL, 0);
+	zwarnnam(name, "can only be called from completion function");
 	return 1;
     }
     dat.ipre = dat.isuf = dat.ppre = dat.psuf = dat.prpre = dat.mesg =
@@ -569,6 +568,9 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    case 'l':
 		dat.flags |= CMF_DISPLINE;
 		break;
+	    case 'o':
+		dat.flags |= CMF_MORDER;
+		break;
 	    case 'E':
                 if (p[1]) {
                     dat.dummies = atoi(p + 1);
@@ -578,11 +580,11 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
                     dat.dummies = atoi(*argv);
                     p = "" - 1;
                 } else {
-                    zwarnnam(name, "number expected after -%c", NULL, *p);
+                    zwarnnam(name, "number expected after -%c", *p);
                     return 1;
                 }
                 if (dat.dummies < 0) {
-                    zwarnnam(name, "invalid number: %d", NULL, dat.dummies);
+                    zwarnnam(name, "invalid number: %d", dat.dummies);
                     return 1;
                 }
 		break;
@@ -590,7 +592,7 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		argv++;
 		goto ca_args;
 	    default:
-		zwarnnam(name, "bad option: -%c", NULL, *p);
+		zwarnnam(name, "bad option: -%c", *p);
 		return 1;
 	    }
 	    if (sp) {
@@ -604,7 +606,7 @@ bin_compadd(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 			*sp = *argv;
 		    p = "" - 1;
 		} else {
-		    zwarnnam(name, e, NULL, *p);
+		    zwarnnam(name, e, *p);
 		    return 1;
 		}
 		if (dm) {
@@ -820,19 +822,32 @@ do_comp_vars(int test, int na, char *sa, int nb, char *sb, int mod)
 		    na = -na;
 		    add = -1;
 		} else {
-		    p = compprefix + 1;
+		    p = compprefix + 1 + (*compprefix == Meta);
+		    if (p > compprefix + l)
+			p = compprefix + l;
 		    add = 1;
 		}
-		for (; l; l--, p += add) {
+		for (;;) {
 		    sav = *p;
 		    *p = '\0';
 		    test = pattry(pp, compprefix);
 		    *p = sav;
 		    if (test && !--na)
 			break;
+		    if (add > 0) {
+			if (p == compprefix + l)
+			    return 0;
+			p = p + 1 + (*p == Meta);
+			if (p > compprefix + l)
+			    p = compprefix + l;
+		    } else {
+			if (p == compprefix)
+			    return 0;
+			p--;
+			if (p > compprefix && p[-1] == Meta)
+			    p--;
+		    }
 		}
-		if (!l)
-		    return 0;
 		if (mod)
 		    ignore_prefix(p - compprefix);
 	    } else {
@@ -847,14 +862,30 @@ do_comp_vars(int test, int na, char *sa, int nb, char *sb, int mod)
 		    add = 1;
 		} else {
 		    p = compsuffix + l - 1;
+		    if (p > compsuffix && p[-1] == Meta)
+			p--;
 		    add = -1;
 		}
-		for (; l; l--, p += add)
+		for (;;) {
 		    if (pattry(pp, p) && !--na)
 			break;
 
-		if (!l)
-		    return 0;
+		    if (add > 0) {
+			if (p == compsuffix + l)
+			    return 0;
+			if (*p == Meta)
+			    p += 2;
+			else
+			    p++;
+		    } else {
+			if (p == compsuffix)
+			    return 0;
+			p--;
+			if (p > compsuffix && p[-1] == Meta)
+			    p--;
+		    }
+		}
+
 		if (mod)
 		    ignore_suffix(ol - (p - compsuffix));
 	    }
@@ -872,11 +903,11 @@ bin_compset(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     char *sa = NULL, *sb = NULL;
 
     if (incompfunc != 1) {
-	zwarnnam(name, "can only be called from completion function", NULL, 0);
+	zwarnnam(name, "can only be called from completion function");
 	return 1;
     }
     if (argv[0][0] != '-') {
-	zwarnnam(name, "missing option", NULL, 0);
+	zwarnnam(name, "missing option");
 	return 1;
     }
     switch (argv[0][1]) {
@@ -888,7 +919,7 @@ bin_compset(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     case 'S': test = CVT_SUFPAT; break;
     case 'q': return set_comp_sep();
     default:
-	zwarnnam(name, "bad option -%c", NULL, argv[0][1]);
+	zwarnnam(name, "bad option -%c", argv[0][1]);
 	return 1;
     }
     if (argv[0][2]) {
@@ -897,7 +928,7 @@ bin_compset(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	na = 2;
     } else {
 	if (!(sa = argv[1])) {
-	    zwarnnam(name, "missing string for option -%c", NULL, argv[0][1]);
+	    zwarnnam(name, "missing string for option -%c", argv[0][1]);
 	    return 1;
 	}
 	sb = argv[2];
@@ -905,7 +936,7 @@ bin_compset(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     }
     if (((test == CVT_PRENUM || test == CVT_SUFNUM) ? !!sb :
 	 (sb && argv[na]))) {
-	zwarnnam(name, "too many arguments", NULL, 0);
+	zwarnnam(name, "too many arguments");
 	return 1;
     }
     switch (test) {
@@ -961,6 +992,8 @@ static const struct gsu_scalar unambig_pos_gsu =
 { get_unambig_pos, nullstrsetfn, compunsetfn };
 static const struct gsu_scalar insert_pos_gsu =
 { get_insert_pos, nullstrsetfn, compunsetfn };
+static const struct gsu_scalar compqstack_gsu =
+{ get_compqstack, nullstrsetfn, compunsetfn };
 
 static const struct gsu_integer compvarinteger_gsu =
 { intvargetfn, intvarsetfn, compunsetfn };
@@ -1016,7 +1049,7 @@ static struct compparam compkparams[] = {
     { "old_insert", PM_SCALAR, VAL(compoldins), NULL },
     { "vared", PM_SCALAR, VAL(compvared), NULL },
     { "list_lines", PM_INTEGER | PM_READONLY, NULL, GSU(listlines_gsu) },
-    { "all_quotes", PM_SCALAR | PM_READONLY, VAL(compqstack), NULL },
+    { "all_quotes", PM_SCALAR | PM_READONLY, NULL, GSU(compqstack_gsu) },
     { "ignored", PM_INTEGER | PM_READONLY, VAL(compignored), NULL },
     { NULL, 0, NULL, NULL }
 };
@@ -1116,7 +1149,7 @@ set_compstate(UNUSED(Param pm), HashTable ht)
 			zsfree(*((char **) cp->var));
 			*((char **) cp->var) = ztrdup(str);
 		    }
-		    (*pp)->flags &= ~PM_UNSET;
+		    (*pp)->node.flags &= ~PM_UNSET;
 
 		    break;
 		}
@@ -1192,23 +1225,43 @@ get_insert_pos(UNUSED(Param pm))
 }
 
 /**/
+static char *
+get_compqstack(UNUSED(Param pm))
+{
+    char *p, *ptr, *cqp;
+
+    if (!compqstack)		/* TODO: don't think this can happen... */
+	return "";
+
+    ptr = p = zhalloc(2*strlen(compqstack)+1);
+
+    for (cqp = compqstack; *cqp; cqp++) {
+	char *str = comp_quoting_string(*cqp);
+	*ptr++ = *str;
+    }
+    *ptr = '\0';
+
+    return p;
+}
+
+/**/
 static void
 compunsetfn(Param pm, int exp)
 {
     if (exp) {
 	if (pm->u.data) {
-	    if (PM_TYPE(pm->flags) == PM_SCALAR) {
+	    if (PM_TYPE(pm->node.flags) == PM_SCALAR) {
 		zsfree(*((char **) pm->u.data));
 		*((char **) pm->u.data) = ztrdup("");
-	    } else if (PM_TYPE(pm->flags) == PM_ARRAY) {
+	    } else if (PM_TYPE(pm->node.flags) == PM_ARRAY) {
 		freearray(*((char ***) pm->u.data));
 		*((char ***) pm->u.data) = zshcalloc(sizeof(char *));
-	    } else if (PM_TYPE(pm->flags) == PM_HASHED) {
+	    } else if (PM_TYPE(pm->node.flags) == PM_HASHED) {
 		deleteparamtable(pm->u.hash);
 		pm->u.hash = NULL;
 	    }
 	}
-    } else if (PM_TYPE(pm->flags) == PM_HASHED) {
+    } else if (PM_TYPE(pm->node.flags) == PM_HASHED) {
 	Param *p;
 	int i;
 
@@ -1240,9 +1293,9 @@ comp_setunset(int rset, int runset, int kset, int kunset)
 	for (p = comprpms; rset || runset; rset >>= 1, runset >>= 1, p++) {
 	    if (*p) {
 		if (rset & 1)
-		    (*p)->flags &= ~PM_UNSET;
+		    (*p)->node.flags &= ~PM_UNSET;
 		if (runset & 1)
-		    (*p)->flags |= PM_UNSET;
+		    (*p)->node.flags |= PM_UNSET;
 	    }
 	}
     }
@@ -1250,9 +1303,9 @@ comp_setunset(int rset, int runset, int kset, int kunset)
 	for (p = compkpms; kset || kunset; kset >>= 1, kunset >>= 1, p++) {
 	    if (*p) {
 		if (kset & 1)
-		    (*p)->flags &= ~PM_UNSET;
+		    (*p)->node.flags &= ~PM_UNSET;
 		if (kunset & 1)
-		    (*p)->flags |= PM_UNSET;
+		    (*p)->node.flags |= PM_UNSET;
 	    }
 	}
     }
@@ -1274,10 +1327,10 @@ comp_wrapper(Eprog prog, FuncWrap w, char *name)
 	m = CP_WORDS | CP_REDIRS | CP_CURRENT | CP_PREFIX | CP_SUFFIX | 
 	    CP_IPREFIX | CP_ISUFFIX | CP_QIPREFIX | CP_QISUFFIX;
 	for (pp = comprpms, sm = 1; m; pp++, m >>= 1, sm <<= 1) {
-	    if ((m & 1) && ((*pp)->flags & PM_UNSET))
+	    if ((m & 1) && ((*pp)->node.flags & PM_UNSET))
 		runset |= sm;
 	}
-	if (compkpms[CPN_RESTORE]->flags & PM_UNSET)
+	if (compkpms[CPN_RESTORE]->node.flags & PM_UNSET)
 	    kunset = CP_RESTORE;
 	orest = comprestore;
 	comprestore = ztrdup("auto");
@@ -1358,7 +1411,7 @@ static int
 comp_check(void)
 {
     if (incompfunc != 1) {
-	zerr("condition can only be used in completion function", NULL, 0);
+	zerr("condition can only be used in completion function");
 	return 0;
     }
     return 1;

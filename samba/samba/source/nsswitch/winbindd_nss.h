@@ -4,22 +4,21 @@
    Winbind daemon for ntdom nss module
 
    Copyright (C) Tim Potter 2000
+   Copyright (C) Gerald Carter 2006
    
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-   
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-   
-   You should have received a copy of the GNU Library General Public
-   License along with this library; if not, write to the
-   Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA  02111-1307, USA.   
+   You are free to use this interface definition in any way you see
+   fit, including without restriction, using this header in your own
+   products. You do not need to give any attribution.  
 */
+
+
+#ifndef CONST_DISCARD
+#define CONST_DISCARD(type, ptr)      ((type) ((void *) (ptr)))
+#endif
+
+#ifndef CONST_ADD
+#define CONST_ADD(type, ptr)          ((type) ((const void *) (ptr)))
+#endif
 
 #ifndef SAFE_FREE
 #define SAFE_FREE(x) do { if(x) {free(x); x=NULL;} } while(0)
@@ -29,14 +28,32 @@
 #define _WINBINDD_NTDOM_H
 
 #define WINBINDD_SOCKET_NAME "pipe"            /* Name of PF_UNIX socket */
+
+/* Let the build environment override the public winbindd socket location. This
+ * is needed for launchd support -- jpeach.
+ */
+#ifndef WINBINDD_SOCKET_DIR
 #define WINBINDD_SOCKET_DIR  "/tmp/.winbindd"  /* Name of PF_UNIX dir */
+#endif
+
 #define WINBINDD_PRIV_SOCKET_SUBDIR "winbindd_privileged" /* name of subdirectory of lp_lockdir() to hold the 'privileged' pipe */
 #define WINBINDD_DOMAIN_ENV  "WINBINDD_DOMAIN" /* Environment variables */
 #define WINBINDD_DONT_ENV    "_NO_WINBINDD"
 
 /* Update this when you change the interface.  */
 
-#define WINBIND_INTERFACE_VERSION 10
+#define WINBIND_INTERFACE_VERSION 18
+
+/* Have to deal with time_t being 4 or 8 bytes due to structure alignment.
+   On a 64bit Linux box, we have to support a constant structure size
+   between /lib/libnss_winbind.so.2 and /li64/libnss_winbind.so.2.
+   The easiest way to do this is to always use 8byte values for time_t. */
+
+#if defined(int64)
+#  define SMB_TIME_T int64
+#else
+#  define SMB_TIME_T time_t
+#endif
 
 /* Socket commands */
 
@@ -66,6 +83,8 @@ enum winbindd_cmd {
 	WINBINDD_PAM_AUTH,
 	WINBINDD_PAM_AUTH_CRAP,
 	WINBINDD_PAM_CHAUTHTOK,
+	WINBINDD_PAM_LOGOFF,
+	WINBINDD_PAM_CHNG_PSWD_AUTH_CRAP,
 
 	/* List various things */
 
@@ -77,16 +96,24 @@ enum winbindd_cmd {
 
 	WINBINDD_LOOKUPSID,
 	WINBINDD_LOOKUPNAME,
+	WINBINDD_LOOKUPRIDS,
 
 	/* Lookup functions */
 
 	WINBINDD_SID_TO_UID,       
 	WINBINDD_SID_TO_GID,
+	WINBINDD_SIDS_TO_XIDS,
 	WINBINDD_UID_TO_SID,
 	WINBINDD_GID_TO_SID,
-	WINBINDD_ALLOCATE_RID,
+
+	WINBINDD_ALLOCATE_UID,
+	WINBINDD_ALLOCATE_GID,
+	WINBINDD_SET_MAPPING,
+	WINBINDD_SET_HWM,
 
 	/* Miscellaneous other stuff */
+
+	WINBINDD_DUMP_MAPS,
 
 	WINBINDD_CHECK_MACHACC,     /* Check machine account pw works */
 	WINBINDD_PING,              /* Just tell me winbind is running */
@@ -95,6 +122,7 @@ enum winbindd_cmd {
 
 	WINBINDD_DOMAIN_INFO,	/* Most of what we know from
 				   struct winbindd_domain */
+	WINBINDD_GETDCNAME,	/* Issue a GetDCName Request */
 
 	WINBINDD_SHOW_SEQUENCE, /* display sequence numbers of domains */
 
@@ -103,16 +131,6 @@ enum winbindd_cmd {
 	WINBINDD_WINS_BYIP,
 	WINBINDD_WINS_BYNAME,
 
-	/* account management commands */
-
-	WINBINDD_CREATE_USER,
-	WINBINDD_CREATE_GROUP,
-	WINBINDD_ADD_USER_TO_GROUP,
-	WINBINDD_REMOVE_USER_FROM_GROUP,
-	WINBINDD_SET_USER_PRIMARY_GROUP,
-	WINBINDD_DELETE_USER,
-	WINBINDD_DELETE_GROUP,
-	
 	/* this is like GETGRENT but gives an empty group list */
 	WINBINDD_GETGRLST,
 
@@ -122,9 +140,38 @@ enum winbindd_cmd {
 	WINBINDD_PRIV_PIPE_DIR,
 
 	/* return a list of group sids for a user sid */
-	WINBINDD_GETUSERSIDS,	
+	WINBINDD_GETUSERSIDS,
 
-	/* Placeholder for end of cmd list */
+	/* Various group queries */
+	WINBINDD_GETUSERDOMGROUPS,
+
+	/* Initialize connection in a child */
+	WINBINDD_INIT_CONNECTION,
+
+	/* Blocking calls that are not allowed on the main winbind pipe, only
+	 * between parent and children */
+	WINBINDD_DUAL_SID2UID,
+	WINBINDD_DUAL_SID2GID,
+	WINBINDD_DUAL_SIDS2XIDS,
+	WINBINDD_DUAL_UID2SID,
+	WINBINDD_DUAL_GID2SID,
+	WINBINDD_DUAL_SET_MAPPING,
+	WINBINDD_DUAL_SET_HWM,
+	WINBINDD_DUAL_DUMP_MAPS,
+
+	/* Wrapper around possibly blocking unix nss calls */
+	WINBINDD_DUAL_UID2NAME,
+	WINBINDD_DUAL_NAME2UID,
+	WINBINDD_DUAL_GID2NAME,
+	WINBINDD_DUAL_NAME2GID,
+
+	WINBINDD_DUAL_USERINFO,
+	WINBINDD_DUAL_GETSIDALIASES,
+
+	/* Complete the challenge phase of the NTLM authentication
+	   protocol using cached password. */
+	WINBINDD_CCACHE_NTLMAUTH,
+
 	WINBINDD_NUM_CMDS
 };
 
@@ -143,9 +190,8 @@ typedef struct winbindd_gr {
 	fstring gr_name;
 	fstring gr_passwd;
 	gid_t gr_gid;
-	int num_gr_mem;
-	int gr_mem_ofs;   /* offset to group membership */
-	char **gr_mem;
+	uint32 num_gr_mem;
+	uint32 gr_mem_ofs;   /* offset to group membership */
 } WINBINDD_GR;
 
 
@@ -155,12 +201,31 @@ typedef struct winbindd_gr {
 #define WBFLAG_PAM_LMKEY      		0x0008
 #define WBFLAG_PAM_CONTACT_TRUSTDOM 	0x0010
 #define WBFLAG_QUERY_ONLY		0x0020
-#define WBFLAG_ALLOCATE_RID		0x0040
 #define WBFLAG_PAM_UNIX_NAME            0x0080
 #define WBFLAG_PAM_AFS_TOKEN            0x0100
 #define WBFLAG_PAM_NT_STATUS_SQUASH     0x0200
 
+/* This is a flag that can only be sent from parent to child */
+#define WBFLAG_IS_PRIVILEGED            0x0400
+/* Flag to say this is a winbindd internal send - don't recurse. */
+#define WBFLAG_RECURSE			0x0800
+
+#define WBFLAG_PAM_KRB5			0x1000
+#define WBFLAG_PAM_FALLBACK_AFTER_KRB5	0x2000
+#define WBFLAG_PAM_CACHED_LOGIN		0x4000
+#define WBFLAG_PAM_GET_PWD_POLICY	0x8000	/* not used */
+
+#define WINBINDD_MAX_EXTRA_DATA (128*1024)
+
 /* Winbind request structure */
+
+/*******************************************************************************
+ * This structure MUST be the same size in the 32bit and 64bit builds
+ * for compatibility between /lib64/libnss_winbind.so and /lib/libnss_winbind.so
+ * 
+ * DO NOT CHANGE THIS STRUCTURE WITHOUT TESTING THE 32BIT NSS LIB AGAINST
+ * A 64BIT WINBINDD    --jerry
+ ******************************************************************************/
 
 struct winbindd_request {
 	uint32 length;
@@ -181,16 +246,19 @@ struct winbindd_request {
                            character is. */	
 			fstring user;
 			fstring pass;
-		        fstring require_membership_of_sid;
+			pstring require_membership_of_sid;
+			fstring krb5_cc_type;
+			uid_t uid;
 		} auth;              /* pam_winbind auth module */
                 struct {
                         unsigned char chal[8];
+			uint32 logon_parameters;
                         fstring user;
                         fstring domain;
                         fstring lm_resp;
-                        uint16 lm_resp_len;
+                        uint32 lm_resp_len;
                         fstring nt_resp;
-                        uint16 nt_resp_len;
+                        uint32 nt_resp_len;
 			fstring workstation;
 		        fstring require_membership_of_sid;
                 } auth_crap;
@@ -199,6 +267,23 @@ struct winbindd_request {
                     fstring oldpass;
                     fstring newpass;
                 } chauthtok;         /* pam_winbind passwd module */
+		struct {
+			fstring user;
+			fstring domain;
+			unsigned char new_nt_pswd[516];
+			uint16	new_nt_pswd_len;
+			unsigned char old_nt_hash_enc[16];
+			uint16 	old_nt_hash_enc_len;
+			unsigned char new_lm_pswd[516];
+			uint16	new_lm_pswd_len;
+			unsigned char old_lm_hash_enc[16];
+			uint16	old_lm_hash_enc_len;
+		} chng_pswd_auth_crap;/* pam_winbind passwd module */
+		struct {
+			fstring user;
+			fstring krb5ccname;
+			uid_t uid;
+		} logoff;              /* pam_winbind session module */
 		fstring sid;         /* lookupsid, sid_to_[ug]id */
 		struct {
 			fstring dom_name;       /* lookupname */
@@ -209,7 +294,45 @@ struct winbindd_request {
 			fstring username;
 			fstring groupname;
 		} acct_mgt;
+		struct {
+			BOOL is_primary;
+			fstring dcname;
+		} init_conn;
+		struct {
+			fstring sid;
+			fstring name;
+		} dual_sid2id;
+		struct {
+			fstring sid;
+			uint32 type;
+			uint32 id;
+		} dual_idmapset;
+		BOOL list_all_domains;
+
+		struct {
+			uid_t uid;
+			fstring user;
+			/* the effective uid of the client, must be the uid for 'user'.
+			   This is checked by the main daemon, trusted by children. */
+			/* if the blobs are length zero, then this doesn't
+			   produce an actual challenge response. It merely
+			   succeeds if there are cached credentials available
+			   that could be used. */
+			uint32 initial_blob_len; /* blobs in extra_data */
+			uint32 challenge_blob_len;
+		} ccache_ntlm_auth;
+
+		/* padding -- needed to fix alignment between 32bit and 64bit libs.
+		   The size is the sizeof the union without the padding aligned on 
+		   an 8 byte boundary.   --jerry */
+
+		char padding[1560];
 	} data;
+	union {
+		SMB_TIME_T padding;
+		char *data;
+	} extra_data;
+	uint32 extra_len;
 	char null_term;
 };
 
@@ -217,10 +340,19 @@ struct winbindd_request {
 
 enum winbindd_result {
 	WINBINDD_ERROR,
+	WINBINDD_PENDING,
 	WINBINDD_OK
 };
 
 /* Winbind response structure */
+
+/*******************************************************************************
+ * This structure MUST be the same size in the 32bit and 64bit builds
+ * for compatibility between /lib64/libnss_winbind.so and /lib/libnss_winbind.so
+ * 
+ * DO NOT CHANGE THIS STRUCTURE WITHOUT TESTING THE 32BIT NSS LIB AGAINST
+ * A 64BIT WINBINDD    --jerry
+ ******************************************************************************/
 
 struct winbindd_response {
     
@@ -262,6 +394,7 @@ struct winbindd_response {
 		} info;
 		fstring domain_name;
 		fstring netbios_name;
+		fstring dc_name;
 
 		struct auth_reply {
 			uint32 nt_status;
@@ -270,8 +403,43 @@ struct winbindd_response {
 			int pam_error;
 			char user_session_key[16];
 			char first_8_lm_hash[8];
+			fstring krb5ccname;
+			uint32 reject_reason;
+			uint32 padding;
+			struct policy_settings {
+				uint32 min_length_password;
+				uint32 password_history;
+				uint32 password_properties;
+				uint32 padding;
+				SMB_TIME_T expire;
+				SMB_TIME_T min_passwordage;
+			} policy;
+			struct info3_text {
+				SMB_TIME_T logon_time;
+				SMB_TIME_T logoff_time;
+				SMB_TIME_T kickoff_time;
+				SMB_TIME_T pass_last_set_time;
+				SMB_TIME_T pass_can_change_time;
+				SMB_TIME_T pass_must_change_time;
+				uint32 logon_count;
+				uint32 bad_pw_count;
+				uint32 user_rid;
+				uint32 group_rid;
+				uint32 num_groups;
+				uint32 user_flgs;
+				uint32 acct_flags;
+				uint32 num_other_sids;
+				fstring dom_sid;
+				fstring user_name;
+				fstring full_name;
+				fstring logon_script;
+				fstring profile_path;
+				fstring home_dir;
+				fstring dir_drive;
+				fstring logon_srv;
+				fstring logon_dom;
+			} info3;
 		} auth;
-		uint32 rid;	/* create user or group or allocate rid */
 		struct {
 			fstring name;
 			fstring alt_name;
@@ -281,11 +449,52 @@ struct winbindd_response {
 			BOOL primary;
 			uint32 sequence_number;
 		} domain_info;
+		struct {
+			fstring acct_name;
+			fstring full_name;
+			fstring homedir;
+			fstring shell;
+			uint32 primary_gid;			
+			uint32 group_rid;
+		} user_info;
+		struct {
+			uint32 auth_blob_len; /* blob in extra_data */
+		} ccache_ntlm_auth;
 	} data;
 
 	/* Variable length return data */
 
-	void *extra_data;               /* getgrnam, getgrgid, getgrent */
+	union {
+		SMB_TIME_T padding;
+		void *data;
+	} extra_data;
+};
+
+struct WINBINDD_MEMORY_CREDS {
+	struct WINBINDD_MEMORY_CREDS *next, *prev;
+	const char *username; /* lookup key. */
+	uid_t uid;
+	int ref_count;
+	size_t len;
+	unsigned char *nt_hash; /* Base pointer for the following 2 */
+	unsigned char *lm_hash;
+	char *pass;
+};
+
+struct WINBINDD_CCACHE_ENTRY {
+	struct WINBINDD_CCACHE_ENTRY *next, *prev;
+	const char *principal_name;
+	const char *ccname;
+	const char *service;
+	const char *username;
+	const char *realm;
+	struct WINBINDD_MEMORY_CREDS *cred_ptr;
+	int ref_count;
+	uid_t uid;
+	time_t create_time;
+	time_t renew_until;
+	time_t refresh_time;
+	struct timed_event *event;
 };
 
 #endif

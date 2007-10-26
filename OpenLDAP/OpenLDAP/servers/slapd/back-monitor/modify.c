@@ -1,8 +1,8 @@
 /* modify.c - monitor backend modify routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/modify.c,v 1.11.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/modify.c,v 1.17.2.5 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -32,53 +32,64 @@
 
 int
 monitor_back_modify( Operation *op, SlapReply *rs )
-	/*
-	Backend		*be,
-	Connection	*conn,
-	Operation	*op,
-	struct berval	*dn,
-	struct berval	*ndn,
-	Modifications	*modlist
-	*/
 {
-	int 			rc = 0;
-	struct monitorinfo	*mi
-		= (struct monitorinfo *) op->o_bd->be_private;
-	Entry			*matched;
-	Entry			*e;
+	int 		rc = 0;
+	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
+	Entry		*matched;
+	Entry		*e;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( BACK_MON, ENTRY, "monitor_back_modify: enter\n", 0, 0, 0 );
-#else
 	Debug(LDAP_DEBUG_ARGS, "monitor_back_modify:\n", 0, 0, 0);
-#endif
 
 	/* acquire and lock entry */
-	monitor_cache_dn2entry( op, &op->o_req_ndn, &e, &matched );
+	monitor_cache_dn2entry( op, rs, &op->o_req_ndn, &e, &matched );
 	if ( e == NULL ) {
 		rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		if ( matched ) {
-			rs->sr_matched = matched->e_name.bv_val;
+#ifdef SLAP_ACL_HONOR_DISCLOSE
+			if ( !access_allowed_mask( op, matched,
+					slap_schema.si_ad_entry,
+					NULL, ACL_DISCLOSE, NULL, NULL ) )
+			{
+				/* do nothing */ ;
+			} else 
+#endif /* SLAP_ACL_HONOR_DISCLOSE */
+			{
+				rs->sr_matched = matched->e_dn;
+			}
 		}
 		send_ldap_result( op, rs );
 		if ( matched != NULL ) {
 			rs->sr_matched = NULL;
 			monitor_cache_release( mi, matched );
 		}
-		return( 0 );
+		return rs->sr_err;
 	}
 
 	if ( !acl_check_modlist( op, e, op->oq_modify.rs_modlist )) {
 		rc = LDAP_INSUFFICIENT_ACCESS;
+
 	} else {
-		rc = monitor_entry_modify( op, e );
+		assert( !SLAP_SHADOW( op->o_bd ) );
+		slap_mods_opattrs( op, &op->orm_modlist, 0 );
+
+		rc = monitor_entry_modify( op, rs, e );
 	}
+
+#ifdef SLAP_ACL_HONOR_DISCLOSE
+	if ( rc != LDAP_SUCCESS ) {
+		if ( !access_allowed_mask( op, e, slap_schema.si_ad_entry,
+				NULL, ACL_DISCLOSE, NULL, NULL ) )
+		{
+			rc = LDAP_NO_SUCH_OBJECT;
+		}
+	}
+#endif /* SLAP_ACL_HONOR_DISCLOSE */
 
 	rs->sr_err = rc;
 	send_ldap_result( op, rs );
 
 	monitor_cache_release( mi, e );
 
-	return( 0 );
+	return rs->sr_err;
 }
 

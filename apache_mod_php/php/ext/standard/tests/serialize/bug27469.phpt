@@ -11,17 +11,17 @@ echo serialize($obj)."\n";
 var_dump($obj);
 ?>
 --EXPECT--
-object(__PHP_Incomplete_Class)(1) {
+object(__PHP_Incomplete_Class)#1 (1) {
   ["__PHP_Incomplete_Class_Name"]=>
-  string(9) "testclass"
+  string(9) "TestClass"
 }
-O:9:"testclass":0:{}
-object(__PHP_Incomplete_Class)(1) {
+O:9:"TestClass":0:{}
+object(__PHP_Incomplete_Class)#1 (1) {
   ["__PHP_Incomplete_Class_Name"]=>
-  string(9) "testclass"
+  string(9) "TestClass"
 }
-O:9:"testclass":0:{}
-object(__PHP_Incomplete_Class)(1) {
+O:9:"TestClass":0:{}
+object(__PHP_Incomplete_Class)#1 (1) {
   ["__PHP_Incomplete_Class_Name"]=>
-  string(9) "testclass"
+  string(9) "TestClass"
 }

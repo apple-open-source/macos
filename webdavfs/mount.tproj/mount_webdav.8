@@ -1,5 +1,5 @@
 .\" 
-.\" Copyright (c) 2001-2004 Apple Computer, Inc. All rights reserved.
+.\" Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
 .\" 
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -22,14 +22,14 @@
 .\"
 .\" ********************************************************************
 .\" *
-.\" *  mount_webdav [-S] [-a<fd>] [-o options] [-v volume_name] [scheme://]host[:port][/path] node
+.\" *  mount_webdav [-s] [-S] [-a<fd>] [-o options] [-v volume_name] [scheme://]host[:port][/path] node
 .\" *
 .\" ********************************************************************
 .\"
 .\" ********************************************************************
 .\" *  Required macros
 .\" ********************************************************************
-.Dd December 3, 2004
+.Dd August 22, 2005
 .Os Mac\ OS\ X
 .Dt MOUNT_WEBDAV 8
 .\"
@@ -45,6 +45,7 @@
 .\" ********************************************************************
 .Sh SYNOPSIS
 .Nm
+.Op Fl s
 .Op Fl S
 .Op Fl a Ns Ar fd
 .Op Fl v Ar volume_name
@@ -69,6 +70,10 @@ and other.
 .Pp
 The arguments and options are:
 .Bl -tag -width indent
+.It Fl s
+Require that authentication credentials be sent securely to the server.
+Note: If this option is not set, sending authentication credentials insecurely
+to the server will be allowed but will be logged.
 .It Fl S
 Suppresses all user interface including the authentication dialogs and the
 non-responsive ("disconnect") server dialogs. If the server connection becomes

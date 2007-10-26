@@ -2,7 +2,7 @@
 	File:		MBCBoardView.mm
 	Contains:	General view handling infrastructure
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,18 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.mm,v $
+		Revision 1.32  2007/03/02 23:06:00  neerache
+		<rdar://problem/4038207> Allow the user to type in a move in Chess
+		
+		Revision 1.31  2006/10/09 21:05:01  neerache
+		Correct HiDPI problems <rdar://problem/4412218>
+		
+		Revision 1.30  2006/07/14 04:11:23  neerache
+		Reset move arrows <rdar://problem/4376681>
+		
+		Revision 1.29  2005/06/17 22:26:31  neerache
+		gcc4 enforces language rules more strictly
+		
 		Revision 1.28  2004/08/16 07:50:55  neerache
 		Support accessibility
 		
@@ -198,7 +210,8 @@ void MBCColor::SetColor(NSColor * newColor)
 	fWantMouse			= false;
 	fNeedPerspective	= true;
 	fAmbient			= light_ambient;
-	fLightPos			= light_pos;
+	memcpy(fLightPos, light_pos, sizeof(fLightPos));
+	fKeyBuffer			= 0;
 
 	fHandCursor			= [[NSCursor alloc]
 							  initWithImage:[NSImage imageNamed:@"handCursor"]
@@ -225,6 +238,10 @@ void MBCColor::SetColor(NSColor * newColor)
 {
 	fBoard			= [fController board];
 	fInteractive	= [fController interactive];
+	
+	const float	kUserSpaceScale = 1.0f / [[self window] userSpaceScaleFactor];
+		
+	[self scaleUnitSquareToSize:NSMakeSize(kUserSpaceScale, kUserSpaceScale)];
 }
 
 - (BOOL) isOpaque
@@ -275,7 +292,9 @@ void MBCColor::SetColor(NSColor * newColor)
 {
 	[MBCAnimation cancelCurrentAnimation];
 	fSelectedPiece		= EMPTY;
+	fPickedSquare		= kInvalidSquare;
 	fWantMouse			= false;
+	[self hideMoves];
 	[self needsUpdate];
 }
 

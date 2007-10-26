@@ -6,6 +6,9 @@
 
 AWK = awk
 
+# Set to $(VIMTARGET) when executed from src/Makefile.
+VIMEXE = vim
+
 # include the config.mk from the source directory.  It's only needed to set
 # AWK, used for "make html".  Comment this out if the include gives problems.
 include ../../src/auto/config.mk
@@ -16,6 +19,7 @@ DOCS = \
 	change.txt \
 	cmdline.txt \
 	debugger.txt \
+	debug.txt \
 	develop.txt \
 	diff.txt \
 	digraph.txt \
@@ -24,6 +28,7 @@ DOCS = \
 	farsi.txt \
 	filetype.txt \
 	fold.txt \
+	getscript.txt \
 	gui.txt \
 	gui_w16.txt \
 	gui_w32.txt \
@@ -33,6 +38,7 @@ DOCS = \
 	help.txt \
 	howto.txt \
 	if_cscop.txt \
+	if_mzsch.txt \
 	if_ole.txt \
 	if_perl.txt \
 	if_pyth.txt \
@@ -64,10 +70,14 @@ DOCS = \
 	os_vms.txt \
 	os_win32.txt \
 	pattern.txt \
-	pi_expl.txt \
 	pi_gzip.txt \
 	pi_netrw.txt \
+	pi_paren.txt \
 	pi_spec.txt \
+	pi_tar.txt \
+	pi_vimball.txt \
+	pi_zip.txt \
+	print.txt \
 	quickfix.txt \
 	quickref.txt \
 	quotes.txt \
@@ -75,10 +85,15 @@ DOCS = \
 	remote.txt \
 	repeat.txt \
 	rileft.txt \
+	russian.txt \
 	scroll.txt \
 	sign.txt \
+	sponsor.txt \
 	starting.txt \
+	spell.txt \
+	sql.txt \
 	syntax.txt \
+	tabpage.txt \
 	tagsrch.txt \
 	term.txt \
 	tips.txt \
@@ -109,6 +124,7 @@ DOCS = \
 	usr_29.txt \
 	usr_30.txt \
 	usr_31.txt \
+	usr_32.txt \
 	usr_40.txt \
 	usr_41.txt \
 	usr_42.txt \
@@ -121,6 +137,7 @@ DOCS = \
 	version4.txt \
 	version5.txt \
 	version6.txt \
+	version7.txt \
 	vi_diff.txt \
 	visual.txt \
 	windows.txt \
@@ -131,6 +148,7 @@ HTMLS = \
 	autocmd.html \
 	change.html \
 	cmdline.html \
+	debug.html \
 	debugger.html \
 	develop.html \
 	diff.html \
@@ -140,15 +158,16 @@ HTMLS = \
 	farsi.html \
 	filetype.html \
 	fold.html \
+	getscript.html \
 	gui.html \
 	gui_w16.html \
 	gui_w32.html \
 	gui_x11.html \
 	hangulin.html \
 	hebrew.html \
-	help.html \
 	howto.html \
 	if_cscop.html \
+	if_mzsch.html \
 	if_ole.html \
 	if_perl.html \
 	if_pyth.html \
@@ -157,6 +176,7 @@ HTMLS = \
 	if_tcl.html \
 	indent.html \
 	index.html \
+	vimindex.html \
 	insert.html \
 	intro.html \
 	map.html \
@@ -180,10 +200,14 @@ HTMLS = \
 	os_vms.html \
 	os_win32.html \
 	pattern.html \
-	pi_expl.html \
 	pi_gzip.html \
 	pi_netrw.html \
+	pi_paren.html \
 	pi_spec.html \
+	pi_tar.html \
+	pi_vimball.html \
+	pi_zip.html \
+	print.html \
 	quickfix.html \
 	quickref.html \
 	quotes.html \
@@ -191,10 +215,15 @@ HTMLS = \
 	remote.html \
 	repeat.html \
 	rileft.html \
+	russian.html \
 	scroll.html \
 	sign.html \
+	sponsor.html \
 	starting.html \
+	spell.html \
+	sql.html \
 	syntax.html \
+	tabpage.html \
 	tagsrch.html \
 	tags.html \
 	term.html \
@@ -226,6 +255,7 @@ HTMLS = \
 	usr_29.html \
 	usr_30.html \
 	usr_31.html \
+	usr_32.html \
 	usr_40.html \
 	usr_41.html \
 	usr_42.html \
@@ -238,21 +268,40 @@ HTMLS = \
 	version4.html \
 	version5.html \
 	version6.html \
+	version7.html \
 	vi_diff.html \
 	visual.html \
 	windows.html \
 	workshop.html
 
+CONVERTED = \
+	vim-fr.UTF-8.1 \
+	evim-fr.UTF-8.1 \
+	vimdiff-fr.UTF-8.1 \
+	vimtutor-fr.UTF-8.1 \
+	xxd-fr.UTF-8.1 \
+	vim-it.UTF-8.1 \
+	evim-it.UTF-8.1 \
+	vimdiff-it.UTF-8.1 \
+	vimtutor-it.UTF-8.1 \
+	xxd-it.UTF-8.1 \
+	vim-ru.UTF-8.1 \
+	evim-ru.UTF-8.1 \
+	vimdiff-ru.UTF-8.1 \
+	vimtutor-ru.UTF-8.1 \
+	xxd-ru.UTF-8.1 \
+
 .SUFFIXES:
 .SUFFIXES: .c .o .txt .html
 
-all: tags vim.man vimdiff.man vimtutor.man xxd.man
+all: tags vim.man vimdiff.man vimtutor.man xxd.man $(CONVERTED)
 
 # Use Vim to generate the tags file.  Can only be used when Vim has been
-# compiled and installed.
+# compiled and installed.  Supports multiple languages.
 vimtags: $(DOCS)
-	vim -c "helptags ." -c quit
+	$(VIMEXE) -u NONE -esX -c "helptags ." -c quit
 
+# Use "doctags" to generate the tags file.  Only works for English!
 tags: doctags $(DOCS)
 	./doctags $(DOCS) | LANG=C LC_ALL=C sort >tags
 	uniq -d -2 tags
@@ -274,7 +323,7 @@ xxd.man: xxd.1
 
 uganda.nsis.txt: uganda.txt
 	sed -e 's/[ 	]*\*[-a-zA-Z0-9.]*\*//g' -e 's/vim:tw=78://' \
-		uganda.txt >uganda.nsis.txt
+		uganda.txt | uniq >uganda.nsis.txt
 
 # Awk version of .txt to .html conversion.
 html: noerrors tags tags.ref $(HTMLS)
@@ -285,6 +334,14 @@ noerrors:
 
 .txt.html:
 	$(AWK) -f makehtml.awk $< >$@
+
+# index.html is the starting point for HTML, but for the help files it is
+# help.txt.  Therefore use vimindex.html for index.txt.
+index.html: help.txt
+	$(AWK) -f makehtml.awk help.txt >index.html
+
+vimindex.html: index.txt
+	$(AWK) -f makehtml.awk index.txt >vimindex.html
 
 tags.ref tags.html: tags
 	$(AWK) -f maketags.awk tags >tags.html
@@ -308,6 +365,9 @@ farsi.txt:
 
 hebrew.txt:
 	touch hebrew.txt
+
+russian.txt:
+	touch russian.txt
 
 gui_w16.txt:
 	touch gui_w16.txt
@@ -350,3 +410,50 @@ os_risc.txt:
 
 os_win32.txt:
 	touch os_win32.txt
+
+# Note that $< works with GNU make while $> works for BSD make.
+# Is there a solution that works for both??
+vim-fr.UTF-8.1: vim-fr.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+evim-fr.UTF-8.1: evim-fr.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vimdiff-fr.UTF-8.1: vimdiff-fr.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vimtutor-fr.UTF-8.1: vimtutor-fr.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+xxd-fr.UTF-8.1: xxd-fr.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vim-it.UTF-8.1: vim-it.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+evim-it.UTF-8.1: evim-it.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vimdiff-it.UTF-8.1: vimdiff-it.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vimtutor-it.UTF-8.1: vimtutor-it.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+xxd-it.UTF-8.1: xxd-it.1
+	iconv -f latin1 -t utf-8 $< >$@
+
+vim-ru.UTF-8.1: vim-ru.1
+	iconv -f KOI8-R -t utf-8 $< >$@
+
+evim-ru.UTF-8.1: evim-ru.1
+	iconv -f KOI8-R -t utf-8 $< >$@
+
+vimdiff-ru.UTF-8.1: vimdiff-ru.1
+	iconv -f KOI8-R -t utf-8 $< >$@
+
+vimtutor-ru.UTF-8.1: vimtutor-ru.1
+	iconv -f KOI8-R -t utf-8 $< >$@
+
+xxd-ru.UTF-8.1: xxd-ru.1
+	iconv -f KOI8-R -t utf-8 $< >$@

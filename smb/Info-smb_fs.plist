@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.smb</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>smbfs</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.4.0</string>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>smbfs</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB File System</string>
+		</dict>
+		<key>SMB_FS_FAT</key>
+		<dict> 
+			<key>FSName</key>
+			<string>SMB (FAT)</string>
+			<key>FSSubType</key>
+			<integer>0</integer>
+		</dict>
+		<key>SMB_FS_CDFS</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (CDFS)</string>
+			<key>FSSubType</key>
+			<integer>1</integer>
+		</dict>
+		<key>SMB_FS_UDF</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (UDF)</string>
+			<key>FSSubType</key>
+			<integer>2</integer>
+		</dict>
+		<key>SMB_FS_NTFS_UNKNOWN</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (Unknown)</string>
+			<key>FSSubType</key>
+			<integer>3</integer>
+		</dict>
+		<key>SMB_FS_NTFS</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (NTFS)</string>
+			<key>FSSubType</key>
+			<integer>4</integer>
+		</dict>
+		<key>SMB_FS_NTFS_UNIX</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (Other)</string>
+			<key>FSSubType</key>
+			<integer>5</integer>
+		</dict>
+		<key>SMB_FS_MAC_OS_X</key>
+		<dict>
+			<key>FSName</key>
+			<string>SMB (Mac OS X)</string>
+			<key>FSSubType</key>
+			<integer>6</integer>
+		</dict>
+	</dict>
+</dict>
+</plist>

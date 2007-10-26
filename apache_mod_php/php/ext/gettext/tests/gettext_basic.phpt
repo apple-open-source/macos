@@ -10,7 +10,7 @@ Gettext basic test
 	}
 ?>
 --FILE--
-<?php // $Id: gettext_basic.phpt,v 1.1.2.2 2004/05/26 18:18:19 iliaa Exp $
+<?php // $Id: gettext_basic.phpt,v 1.2 2004/05/26 18:18:14 iliaa Exp $
 
 chdir(dirname(__FILE__));
 setlocale(LC_ALL, 'fi_FI');

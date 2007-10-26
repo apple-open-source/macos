@@ -23,7 +23,6 @@ int main (int argc, const char * argv[]) {
                      "the people, shall not perish from the earth.";
     
     dprintf ("Testing dprintf.  Here is a string: '%s'\n", "Hello World");
-    dprintbootstrap (mach_task_self ());
     dprintmem (buffer, sizeof (buffer));
     return 0;
 }

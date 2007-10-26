@@ -22,6 +22,9 @@
 .Op Fl -setBoot
 .Op Fl -openfolder Ar directory
 .Op Fl -nextonly
+.Op Fl -shortform
+.Op Fl -legacy
+.Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
@@ -30,6 +33,9 @@
 .Op Fl -file Ar file
 .Op Fl -setBoot
 .Op Fl -nextonly
+.Op Fl -shortform
+.Op Fl -legacy
+.Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
@@ -39,6 +45,9 @@
 .Op Fl -startupfile Ar file
 .Op Fl -setBoot
 .Op Fl -nextonly
+.Op Fl -shortform
+.Op Fl -legacy
+.Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
 .Op Fl -quiet | -verbose
 .Pp
@@ -102,7 +111,7 @@ Additionally,
 can be used to display the command-line usage summary.
 .Ss FILE/FOLDER MODE
 Folder Mode has the following options:
-.Bl -tag -width "xxopenfolderxdirectory" -compact
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
 .It Fl -folder Ar directory
 Set this directory to be the Mac OS X/Darwin blessed directory, containing a
 .Pa BootX
@@ -185,6 +194,23 @@ variable is changed.
 .It Fl -nextonly
 Only change the boot device selection for the next boot. This is only supported
 on EFI-based systems.
+.It Fl -shortform
+Use an abbreviated device path form. This option can allow for booting from
+new devices, at the expense of boot time performance. This is only supported
+on EFI-based systems.
+.It Fl -legacy
+If
+.Fl -setBoot
+is given, set the firmware to boot a legacy BIOS-based operating system
+from the specified disk. The active flag of an MBR-partitioned disk is not
+modified, which can be done with
+.Xr fdisk 8
+\&. This is only supported
+on EFI-based systems.
+.It Fl legacydrivehint Ar device
+Instruct the firmware to treat the specified whole disk as the primary,
+master IDE drive. This is only supported
+on EFI-based systems.
 .It Fl -options
 Set load options associated with the new boot option. This is only supported
 on EFI-based systems, and in general should be avoided. Instead, use
@@ -199,7 +225,7 @@ Print verbose output
 .El
 .Ss  MOUNT MODE
 Mount Mode has the following options:
-.Bl -tag -width "xxopenfolderxdirectory" -compact
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
 .It Fl -mount Ar directory
 Use the volume mounted at
 .Ar directory
@@ -215,7 +241,13 @@ should not be normally used. This is only supported on EFI-based systems.
 Same as for Folder Mode.
 .It Fl -nextonly
 Same as for Folder Mode.
+.It Fl -shortform
+Same as for Folder Mode.
 .It Fl -options
+Same as for Folder Mode.
+.It Fl -legacy
+Same as for Folder Mode.
+.It Fl -legacydrivehint Ar device
 Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output
@@ -224,7 +256,7 @@ Print verbose output
 .El
 .Ss DEVICE MODE
 Device Mode has the following options:
-.Bl -tag -width "xxopenfolderxdirectory" -compact
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
 .It Fl -device Ar device
 Use the block device
 .Ar device
@@ -247,7 +279,13 @@ as the HFS+ StartupFile, and update other information on disk as appropriate
 for the startup file type.
 .It Fl -nextonly
 Same as for Folder Mode.
+.It Fl -shortform
+Same as for Folder Mode.
 .It Fl -options
+Same as for Folder Mode.
+.It Fl -legacy
+Same as for Folder Mode.
+.It Fl -legacydrivehint Ar device
 Same as for Folder Mode.
 .It Fl -quiet
 Do not print any output
@@ -256,7 +294,7 @@ Print verbose output
 .El
 .Ss NETBOOT MODE
 NetBoot Mode has the following options:
-.Bl -tag -width "xxopenfolderxdirectory" -compact
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
 .It Fl -netboot
 Instead of setting the active boot selection to a disk-based volume, set the system
 to NetBoot.
@@ -282,7 +320,7 @@ Print verbose output
 .El
 .Ss INFO MODE
 Info Mode has the following options:
-.Bl -tag -width "xxopenfolderxdirectory" -compact
+.Bl -tag -width "xxopenfolderxdirectoryx" -compact
 .It Fl -info Op Ar directory
 Print out the blessed system folder for the volume mounted at
 .Ar directory

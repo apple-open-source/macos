@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -114,9 +114,9 @@ public:
     { assert(newLength <= Length); Length = newLength; }
 
 	void *at(off_t offset) const
-	{ assert(offset >= 0 && offset <= Length); return Data + offset; }
+	{ assert(offset >= 0 && (CSSM_SIZE)offset <= Length); return Data + offset; }
 	void *at(off_t offset, size_t size) const	// length-checking version
-	{ assert(offset >= 0 && offset + size <= Length); return Data + offset; }
+	{ assert(offset >= 0 && (CSSM_SIZE)offset + size <= Length); return Data + offset; }
 	
     unsigned char operator [] (size_t pos) const
     { assert(pos < Length); return Data[pos]; }
@@ -466,6 +466,7 @@ public:
 	CssmPolyData(const sint32 &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const sint64 &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const double &t) : CssmData(set(t), sizeof(t)) { }
+	CssmPolyData(const unsigned long &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const CSSM_GUID &t) : CssmData(set(t), sizeof(t)) { }
 	CssmPolyData(const StringPtr s) : CssmData (reinterpret_cast<char*>(s + 1), uint32 (s[0])) {}
 };

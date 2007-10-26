@@ -1,5 +1,6 @@
 /* systty.h - System-dependent definitions for terminals.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,36 +16,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_TERMIOS
 #define HAVE_TCATTR
 #endif
 
-/* If we defined these before and we are about to redefine them,
-   prevent alarming warnings.  */
-#ifdef BSD_TERMIOS
-#undef NL0
-#undef NL1
-#undef CR0
-#undef CR1
-#undef CR2
-#undef CR3
-#undef TAB0
-#undef TAB1
-#undef TAB2
-#undef XTABS
-#undef BS0
-#undef BS1
-#undef FF0
-#undef FF1
-#undef ECHO
-#undef NOFLSH
-#undef TOSTOP
-#undef FLUSHO
-#undef PENDIN
-#endif
 
 /* Include the proper files.  */
 #ifdef HAVE_TERMIO
@@ -135,7 +113,7 @@ static struct sensemode {
 
 #ifdef NEED_BSDTTY
 #include <sys/bsdtty.h>
-#endif 
+#endif
 
 #if defined (HPUX) && defined (HAVE_PTYS)
 #include <sys/ptyio.h>
@@ -294,30 +272,11 @@ static struct sensemode {
 
 /* EMACS_GETPGRP (arg) returns the process group of the process.  */
 
-#ifdef __GNU_LIBRARY__
-/* GNU libc by default defines getpgrp with no args on all systems.  */
-#if __GLIBC__  >= 2
-/* glibc-2.1 adds the BSD compatibility getpgrp function
-   if you use _BSD_SOURCE, which Emacs does on GNU/Linux systems.  */
-#if __GLIBC_MINOR__ < 1 || ! defined (__FAVOR_BSD)
-#define GETPGRP_NO_ARG
-#endif
-#else /* __GLIBC__ < 2 */
-#define GETPGRP_NO_ARG
-#endif /* __GLIBC__ < 2 */
-#else /* not __GNU_LIBRARY__ */
-#if defined (USG) && !defined (GETPGRP_NEEDS_ARG)
-#  if !defined (GETPGRP_NO_ARG)
-#    define GETPGRP_NO_ARG
-#  endif
-#endif
-#endif /* not __GNU_LIBRARY__ */
-
-#if defined (GETPGRP_NO_ARG)
+#if defined (GETPGRP_VOID)
 #  define EMACS_GETPGRP(x) getpgrp()
 #else
 #  define EMACS_GETPGRP(x) getpgrp(x)
-#endif /* !GETPGRP_NO_ARG */
+#endif /* !GETPGRP_VOID */
 
 /* Manipulate a TTY's input/output processing parameters.  */
 
@@ -429,3 +388,6 @@ extern int emacs_set_tty P_ ((int, struct emacs_tty *, int));
 #endif /* not def VMS */
 #endif /* not def HAVE_TERMIO */
 #endif /* not def HAVE_TERMIOS */
+
+/* arch-tag: cf4b90bc-be41-401c-be98-40619178a712
+   (do not change this comment) */

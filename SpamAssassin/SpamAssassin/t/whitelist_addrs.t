@@ -2,7 +2,8 @@
 
 use lib '.'; use lib 't';
 use SATest; sa_t_init("whitelist_addrs");
-use Test; BEGIN { plan tests => 5 };
+
+use Test; BEGIN { plan tests => 5; }
 
 # ---------------------------------------------------------------------------
 
@@ -35,5 +36,4 @@ sarun ("--add-addr-to-blacklist whitelist_test\@whitelist.spamassassin.taint.org
 %patterns = %is_spam_patterns;
 sarun ("-L < data/nice/002", \&patterns_run_cb);
 ok_all_patterns();
-
 

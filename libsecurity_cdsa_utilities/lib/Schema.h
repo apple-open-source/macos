@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -107,6 +107,18 @@ extern const CSSM_DB_SCHEMA_ATTRIBUTE_INFO UnlockReferralSchemaAttributeList[];
 extern const CSSM_DB_SCHEMA_INDEX_INFO UnlockReferralSchemaIndexList[];
 extern const uint32 UnlockReferralSchemaAttributeCount;
 extern const uint32 UnlockReferralSchemaIndexCount;
+
+// Extended Attribute record attributes and schema
+extern const CSSM_DB_ATTRIBUTE_INFO kExtendedAttributeRecordType;
+extern const CSSM_DB_ATTRIBUTE_INFO kExtendedAttributeItemID;
+extern const CSSM_DB_ATTRIBUTE_INFO kExtendedAttributeAttributeName;
+extern const CSSM_DB_ATTRIBUTE_INFO kExtendedAttributeModDate;
+extern const CSSM_DB_ATTRIBUTE_INFO kExtendedAttributeAttributeValue;
+
+extern const CSSM_DB_SCHEMA_ATTRIBUTE_INFO ExtendedAttributeSchemaAttributeList[];
+extern const CSSM_DB_SCHEMA_INDEX_INFO ExtendedAttributeSchemaIndexList[];
+extern const uint32 ExtendedAttributeSchemaAttributeCount;
+extern const uint32 ExtendedAttributeSchemaIndexCount;
 
 } // end namespace Schema
 

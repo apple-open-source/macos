@@ -2,8 +2,8 @@
 
 use strict;
 use Getopt::Std;
-use Fcntl qw(O_TRUNC O_CREAT O_WRONLY);
-use IO::Scalar;
+use Fcntl qw(O_TRUNC O_CREAT O_WRONLY SEEK_SET);
+use File::Temp qw(tempfile);
 use IO::File;
 
 my %opt;
@@ -51,6 +51,8 @@ my %csym = (
 
 my @corder = (); # collating order
 my @corder_weights = (); # collating directions (forward, backward, position)
+
+my @colldef = ();
 
 my(%monetary, %numeric, %time, %messages);
 
@@ -217,7 +219,7 @@ EOT
 use strict qw(vars);
 
 if (@ARGV != 1) {
-	die "usage: $0 [-c] [-f charmap-file] [-u codesetname] [-i localdef-file] LOCALENAME\n";
+	&exit(4, "usage: $0 [-c] [-f charmap-file] [-u codesetname] [-i localdef-file] LOCALENAME\n");
 }
 
 my $locale_dir = $ARGV[0];
@@ -225,9 +227,16 @@ $locale_dir = "/usr/share/locale/$locale_dir" unless ($locale_dir =~ m{/});
 
 my $CMAP;
 if (defined($opt{'f'})) {
-	$CMAP = (new IO::File $opt{'f'}, "r") || die "Can't open charmap file $opt{f}: $!\n";
+	# Using new IO::File $opt{'f'}, "r" runs into problems with long path names
+	sysopen(CMAP_KLUDGE, $opt{'f'}, O_RDONLY) || &exit(4, "Can't open $opt{f}: $!\n");
+	$CMAP = new IO::Handle;
+	$CMAP->fdopen(fileno(CMAP_KLUDGE), "r") || &exit(4, "Can't fdopen $opt{f}: $!\n");
 } else {
-	$CMAP = new IO::Scalar \$default_charmap;
+	# er, not everyone gets IO::Scalar, so use an unamed tmp file
+	# $CMAP = new IO::Scalar \$default_charmap;
+	$CMAP = new_tmpfile IO::File;
+	print $CMAP $default_charmap;
+	seek $CMAP, 0, SEEK_SET;
 }
 
 while(<$CMAP>) {
@@ -238,13 +247,13 @@ while(<$CMAP>) {
 	} elsif (m/^\s*($comment_char.*)?$/) {
 	} else {
 		chomp;
-		die "syntax error on line $. ($_)";
+		&exit(4, "syntax error on line $. ($_)");
 	}
 }
 &parse_widths() if (0 == %width);
 
 if (defined($opt{'i'})) {
-	sysopen(STDIN, $opt{'i'}, 0) || die "Can't open localdef file $opt{i}: $!";
+	sysopen(STDIN, $opt{'i'}, 0) || &exit(4, "Can't open localdef file $opt{i}: $!");
 } else {
 	$opt{'i'} = "/dev/stdin";
 }
@@ -252,15 +261,15 @@ if (defined($opt{'i'})) {
 my %LC_parsers = (
 	NONE => [\&parse_LC_NONE, qr/^\s*((escape|comment)_char\s+$val_match\s*)?$/],
 	CTYPE => [\&parse_LC_CTYPE, qr/^\s*(\S+)\s+(\S+.*?)\s*$/],
-	COLLATE => [\&parse_LC_COLLATE, qr/^\s*(<[^>\s]+>|(\S*)\s+(\S+.*?)|collating[_-]element\s*<[^>]+>\s+from\s+$val_match)\s*$/],
-	TIME => [\&parse_LC_TIME, qr/^\s*(abday|day|abmon|mon|d_t_fmt|d_fmt|t_fmt|am_pm|t_fmt_ampm|era|era_d_fmt|era_t_fmt|era_d_t_fmt|alt_digits|copy|END)\s+(\S+.*?)\s*$/],
+	COLLATE => [\&parse_LC_COLLATE, qr/^\s*(<[^>\s]+>|order_end|END|(\S*)\s+(\S+.*?)|collating[_-]element\s*<[^>]+>\s+from\s+$val_match)\s*$/, 1],
+	TIME => [\&parse_LC_TIME, qr/^\s*(ab_?day|day|abmon|mon|d_t_fmt|d_fmt|t_fmt|am_pm|t_fmt_ampm|era|era_d_fmt|era_t_fmt|era_d_t_fmt|alt_digits|copy|END)\s+(\S+.*?)\s*$/],
 	NUMERIC => [\&parse_LC_NUMERIC, qr/^\s*(decimal_point|thousands_sep|grouping|END|copy)\s+(\S+.*?)\s*$/],
-	MONETARY => [\&parse_LC_MONETARY, qr/^\s*(int_curr_symbol|currency_symbol|mon_decimal_point|mon_thousands_sep|mon_grouping|positive_sign|negative_sign|int_frac_digits|frac_digits|p_cs_precedes|p_sep_by_space|n_cs_precedes|n_sep_by_space|p_sign_posn|n_sign_posn|copy|END)\s+(\S+.*?)\s*$/],
+	MONETARY => [\&parse_LC_MONETARY, qr/^\s*(int_curr_symbol|currency_symbol|mon_decimal_point|mon_thousands_sep|mon_grouping|positive_sign|negative_sign|int_frac_digits|frac_digits|p_cs_precedes|p_sep_by_space|n_cs_precedes|n_sep_by_space|p_sign_posn|n_sign_posn|int_p_cs_precedes|int_n_cs_precedes|int_p_sep_by_space|int_n_sep_by_space|int_p_sign_posn|int_n_sign_posn|copy|END)\s+(\S+.*?)\s*$/],
 	MESSAGES => [\&parse_LC_MESSAGES, qr/^\s*(END|yesexpr|noexpr|yesstr|nostr|copy)\s+(\S+.*?)\s*$/],
 	"COLLATE order" => [\&parse_collate_order, qr/^\s*(order_end|(<[^>\s]+>|UNDEFINED|\Q...\E)(\s+\S+.*)?)\s*$/],
 );
-my($current_LC, $parse_func, $validate_line) 
-  = ("NONE", $LC_parsers{"NONE"}->[0], $LC_parsers{"NONE"}->[1]);
+my($current_LC, $parse_func, $validate_line, $call_parse_on_END) 
+  = ("NONE", $LC_parsers{"NONE"}->[0], $LC_parsers{"NONE"}->[1], undef);
 
 while(<STDIN>) {
 	next if (m/^\s*($comment_char.*)?\s*$/);
@@ -269,7 +278,7 @@ while(<STDIN>) {
 		chop;
 		my $tmp = <STDIN>;
 		if (!defined($tmp)) {
-			die "Syntax error, last line ($.) of $opt{i} is marked as a continued line\n";
+			&exit(4, "Syntax error, last line ($.) of $opt{i} is marked as a continued line\n");
 		}
 		$tmp =~ s/^\s*//;
 		$_ .= $tmp;
@@ -282,7 +291,7 @@ while(<STDIN>) {
 	}
 	
 	unless (m/$validate_line/) {
-		die "Syntax error on line $. of $opt{i}\n";
+		&exit(4, "Syntax error on line $. of $opt{i}\n");
 	}
 
 	my($action, $args);
@@ -295,7 +304,10 @@ while(<STDIN>) {
 
 	if ($action eq "END") {
 		if ($args ne "LC_$current_LC" || $current_LC eq "NONE") {
-			die "Syntax error on line $. of $opt{i} attempting to end $args when LC_$current_LC is open\n";
+			&exit(4, "Syntax error on line $. of $opt{i} attempting to end $args when LC_$current_LC is open\n");
+		}
+		if ($call_parse_on_END) {
+		    &{$parse_func}($action, $args);
 		}
 		&set_parser("NONE");
 	} else {
@@ -317,14 +329,14 @@ sub parse_charmaps {
 		# <escape_char>, and <comment_char> before the generic "<sym> val"
 		if (m/^\s*<([\w\-]+)>\s+($val_match+)\s*$/) {
 			my($sym, $val) = ($1, $2);
-			$val = &parse_value($val);
+			$val = &parse_value_double_backwhack($val);
 			$sym{$sym} = $val;
 		} elsif (m/^\s*<([\w\-]*\d)>\s*\Q...\E\s*<([\w\-]*\d)>\s+($val_match+)\s*$/) {
 			# We don't deal with $se < $ss, or overflow of the last byte of $vs
 			# then again the standard doesn't say anything in particular needs
 			# to happen for those cases
 			my($ss, $se, $vs) = ($1, $2, $3);
-			$vs = &parse_value($vs);
+			$vs = &parse_value_double_backwhack($vs);
 			my $vlast = length($vs) -1;
 			for(my($s, $v) = ($ss, $vs); $s cmp $se; $s++) {
 				$sym{$s} = $v;
@@ -334,7 +346,7 @@ sub parse_charmaps {
 			return;
 		} elsif (m/^\s*($comment_char.*)?$/) {
 		} else {
-			die "syntax error on line $.";
+			&exit(4, "syntax error on line $.");
 		}
 	}
 }
@@ -370,7 +382,7 @@ sub parse_widths {
 			last;
 		} elsif (m/^\s*($comment_char.*)?$/) {
 		} else {
-			die "syntax error on line $.";
+			&exit(4, "syntax error on line $.");
 		}
 	}
 
@@ -413,12 +425,26 @@ sub parse_value_return_extra {
 sub parse_value {
 	my ($ret, $err) = &parse_value_return_extra($_[0]);
 	if ($err ne "") {
-		die "Syntax error, unexpected '$err' in value (after '$ret') on line $."
+		&exit(4, "Syntax error, unexpected '$err' in value (after '$ret') on line $.\n");
 	}
 
 	return $ret;
 }
 
+sub parse_value_double_backwhack {
+	my($val) = @_;
+
+	my ($ret, $err) = &parse_value_return_extra($val);
+	return $ret if ($err eq "");
+	
+	$val =~ s{\\\\}{\\}g;
+	($ret, $err) = &parse_value_return_extra($val);
+	if ($err ne "") {
+		&exit(4, "Syntax error, unexpected '$err' in value (after '$ret') on line $.\n");
+	}
+
+	return $ret;
+}
 # $values is the string to parse, $dot_expand is a function ref that will
 # return an array to insert when "X;...;Y" is parsed (undef means that
 # construct is a syntax error), $nest is true if parens indicate a nested
@@ -440,7 +466,7 @@ sub parse_values {
 			$values = pop(@subret);
 			push(@ret, [@subret]);
 			unless ($values =~ s/^\)($sep)?//) {
-				die "Syntax error, unmatched open paren on line $. of $opt{i}\n";
+				&exit(4, "Syntax error, unmatched open paren on line $. of $opt{i}\n");
 			}
 			next;
 		}
@@ -463,7 +489,7 @@ sub parse_values {
 			last;
 		} else {
 			last if ($return_extra);
-			die "Syntax error parsing arguments on line $. of $opt{i}\n"
+			&exit(4, "Syntax error parsing arguments on line $. of $opt{i}\n");
 		}
 	}
 
@@ -486,7 +512,7 @@ sub parse_LC_NONE {
 		&set_escape_char(&parse_value($arg));
 	} elsif($cmd eq "") {
 	} else {
-		die "Syntax error on line $. of $opt{i}\n";
+		&exit(4, "Syntax error on line $. of $opt{i}\n");
 	}
 }
 
@@ -498,7 +524,7 @@ sub parse_LC_CTYPE {
 		# XXX -- the locale command line utility doesn't currently
 		# output any LC_CTYPE info, so there isn't much of a way
 		# to implent copy yet
-		die "copy not supported on line $. of $opt{i}\n";
+		&exit(2, "copy not supported on line $. of $opt{i}\n");
 	} elsif($cmd eq "charclass") {
 		my $cc = &parse_value($arg);
 		if (!defined($ctype_classes{$cc})) {
@@ -509,7 +535,7 @@ sub parse_LC_CTYPE {
 	} elsif($cmd =~ m/^to(upper|lower)$/) {
 		my @arg = &parse_values($arg, ';', undef, 1);
 		foreach my $p (@arg) {
-			die "Syntax error on line $. of $opt{i} ${cmd}'s arguments must be character pairs like (a,A);(b,B)\n" if ("ARRAY" ne ref $p || 2 != @$p);
+			&exit(4, "Syntax error on line $. of $opt{i} ${cmd}'s arguments must be character pairs like (a,A);(b,B)\n") if ("ARRAY" ne ref $p || 2 != @$p);
 		}
 		foreach my $pair (@arg) {
 			$ctype_classes{$cmd}{$pair->[0]} = $pair->[1];
@@ -552,10 +578,10 @@ sub parse_LC_CTYPE {
 		&add_to_ctype_class('print', keys(%{$ctype_classes{'space'}}));
 
 		# Yes, this is a requirment of the standard
-		die "The digit class must have exactly 10 elements\n" if (10 != values(%{$ctype_classes{'digit'}}));
+		&exit(2, "The digit class must have exactly 10 elements\n") if (10 != values(%{$ctype_classes{'digit'}}));
 		foreach my $d (values %{$ctype_classes{'digit'}}) {
 			if (!defined $ctype_classes{'xdigits'}->{$d}) {
-				die "$d isn't in class xdigits, but all digits must appaer in xdigits\n";
+				&exit(4, "$d isn't in class xdigits, but all digits must appaer in xdigits\n");
 			}
 		}
 
@@ -565,47 +591,17 @@ sub parse_LC_CTYPE {
 		}
 		
 	} else {
-		die "Syntax error on line $. of $opt{i}\n";
+		&exit(4, "Syntax error on line $. of $opt{i}\n");
 	}
 }
 
 sub parse_LC_COLLATE {
-	my ($cmd, $arg) = @_;
-
-	if ($cmd eq "copy") {
-		# XXX  -- again locale doesn't support output of LC_COLLATE information
-		# so it is very hard to support the copy operator.  Once locale is 
-		# extended this won't be hard
-		die "copy not supported on line $. of $opt{i}\n";
-	} elsif($cmd =~ m/collating[-_]symbol/) {
-		if (exists($csym{$arg})) {
-			warn "collating symbol $arg redefined on line $. of $opt{i}"
-		}
-		$csym{$arg} = undef;
-	} elsif($cmd =~ m/collating[-_]element/) {
-		if ($arg =~ m/(<[^>]+>)\s+from\s+($val_match)\s*$/) {
-			my($cele, $str) = ($1, &parse_value($2));
-			$cele{$cele} = $str;
-		} else {
-			die "Syntax error on line $. of $opt{i}\n";
-		}
-	} elsif($cmd =~ m/order[-_]start/) {
-		@corder_weights = &parse_values($arg, '[;,]', undef, 0);
-		for(my $i = 1; $i < @corder_weights; ++$i) {
-			if (defined($corder_weights[$i]) && "position" eq $corder_weights[$i]) {
-				$corder_weights[$i -1] .= ",position";
-				splice @corder_weights, $i, 1;
-				redo;
-			}
-		}
-		# This may be the only catagory that uses a subparser.  Because
-		# it has a space in it the main loop can't be tricked into ending
-		# it with "END LC_COLLATE order", so don't tidy the space away.
-		&set_parser("COLLATE order");
-	} elsif($cmd eq "END") {
-	} else {
-		die "Syntax error on line $. of $opt{i}\n";
-	}
+    my ($cmd, $arg) = @_;
+    if (defined($arg) && $arg ne "") {
+	push(@colldef, "$cmd $arg");
+    } else {
+	push(@colldef, "$cmd");
+    }
 }
 
 sub parse_collate_order {
@@ -692,15 +688,15 @@ sub parse_collate_order {
 
 			if (@args != @corder_weights) {
 				if (@args < @corder_weights) {
-					die "Only " . (0 + @args) 
+					&exit(4, "Only " . (0 + @args) 
 					  . " weights supplied on line $. of $opt{i}, needed "
 					  . (0 + @corder_weights)
-					  . "\n";
+					  . "\n");
 				} else {
-					die "Too many weights supplied on line $. of $opt{i},"
+					&exit(4,  "Too many weights supplied on line $. of $opt{i},"
 					  . " wanted " . (0 + @corder_weights) . " but had "
 					  . (0 + @args)
-					  . "\n";
+					  . "\n");
 				}
 			}
 
@@ -754,6 +750,8 @@ sub parse_LC_NUMERIC {
 sub parse_LC_TIME {
 	my($cmd, $arg) = @_;
 
+	$cmd =~ s/^ab_day$/abday/;
+
 	if ($cmd eq "copy") {
 		&do_copy(&parse_value($arg));
 	} elsif($cmd eq "END") {
@@ -773,7 +771,7 @@ sub parse_LC_TIME {
 ###############################################################################
 
 sub run_mklocale {
-	my $L = (new IO::File "|/usr/bin/mklocale -o $locale_dir/LC_CTYPE") || die "$0: Can't start mklocale $!\n";
+	my $L = (new IO::File "|/usr/bin/mklocale -o $locale_dir/LC_CTYPE") || &exit(5, "$0: Can't start mklocale $!\n");
 	if (defined($opt{'u'})) {
 		$L->print(qq{ENCODING "$opt{u}"\n});
 	} else {
@@ -830,9 +828,9 @@ sub run_mklocale {
 
 	if (!$L->close()) {
 		if (0 == $!) {
-			die "Bad return from mklocale $?";
+			&exit(5, "Bad return from mklocale $?");
 		} else {
-			die "Couldn't close mklocale pipe: $!";
+			&exit(5, "Couldn't close mklocale pipe: $!");
 		}
 	}
 }
@@ -844,7 +842,7 @@ sub hexchars {
 	my($ret);
 
 	$ret = unpack "H*", $str;
-	die "Rune >4 bytes ($ret; for $str)" if (length($ret) > 8);
+	&exit(2, "Rune >4 bytes ($ret; for $str)") if (length($ret) > 8);
 
 	return "0x" . $ret;
 }
@@ -922,7 +920,7 @@ sub resym {
 				next SYM;
 			}
 		}
-		die "Can't convert $str ($_[0]) back into symbolic form\n";
+		&exit(4, "Can't convert $str ($_[0]) back into symbolic form\n");
 	}
 
 	return $ret;
@@ -935,10 +933,11 @@ sub set_escape {
 
 sub set_parser {
 	my $section = $_[0];
-	($current_LC, $parse_func, $validate_line) 
-	  = ($section, $LC_parsers{$section}->[0], $LC_parsers{$section}->[1]);
+	($current_LC, $parse_func, $validate_line, $call_parse_on_END) 
+	  = ($section, $LC_parsers{$section}->[0], $LC_parsers{$section}->[1],
+	  $LC_parsers{$section}->[2]);
 	unless (defined $parse_func) {
-		die "Unknown section name LC_$section on line $. of $opt{i}\n";
+		&exit(4, "Unknown section name LC_$section on line $. of $opt{i}\n");
 	}
 }
 
@@ -946,21 +945,21 @@ sub do_copy {
 	my($from) = @_;
 	local($ENV{LC_ALL}) = $from;
 
-	my $C = (new IO::File "/usr/bin/locale -k LC_$current_LC |") || die "can't fork locale during copy of LC_$current_LC";
+	my $C = (new IO::File "/usr/bin/locale -k LC_$current_LC |") || &exit(5, "can't fork locale during copy of LC_$current_LC");
 	while(<$C>) {
 		if (s/=\s*$/ ""/ || s/=/ /) {
 			if (m/$validate_line/ && m/^\s*(\S*)(\s+(\S+.*?))?\s*$/) {
 				my($action, $args) = ($1, $3);
 				&{$parse_func}($action, $args);
 			} else {
-				die "Syntax error on line $. of locale -k output"
-				  . " during copy $current_LC\n";
+				&exit(4, "Syntax error on line $. of locale -k output"
+				  . " during copy $current_LC\n");
 			}
 		} else {
-			die "Ill-formed line $. from locale -k during copy $current_LC\n";
+			&exit(4, "Ill-formed line $. from locale -k during copy $current_LC\n");
 		}
 	}
-	$C->close() || die "copying LC_$current_LC from $from failed";
+	$C->close() || &exit(5, "copying LC_$current_LC from $from failed");
 }
 
 sub fixup_collate_order_args {
@@ -989,7 +988,7 @@ sub deny_in_ctype_class {
 	foreach my $r (@runes) {
 		next unless exists $c->{$r};
 		$deny_reason =~ s/^(\S+)$/can't belong in class $class and in class $1 at the same time/;
-		die &hexchars($r) . " " . $deny_reason . "\n";
+		&exit(4, &hexchars($r) . " " . $deny_reason . "\n");
 	}
 }
 
@@ -998,7 +997,7 @@ sub deny_in_ctype_class {
 # in a predetermined order.
 
 sub write_lc_money {
-	my $F = (new IO::File "$locale_dir/LC_MONETARY", O_TRUNC|O_WRONLY|O_CREAT, 0666) || die "$0 can't create $locale_dir/LC_MONETARY: $!";
+	my $F = (new IO::File "$locale_dir/LC_MONETARY", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_MONETARY: $!");
 	foreach my $s (qw(int_curr_symbol currency_symbol mon_decimal_point mon_thousands_sep mon_grouping positive_sign negative_sign int_frac_digits frac_digits p_cs_precedes p_sep_by_space n_cs_precedes n_sep_by_space p_sign_posn n_sign_posn int_p_cs_precedes int_n_cs_precedes int_p_sep_by_space int_n_sep_by_space int_p_sign_posn int_n_sign_posn)) {
 		if (exists $monetary{$s}) {
 			my $v = $monetary{$s};
@@ -1018,7 +1017,7 @@ sub write_lc_money {
 }
 
 sub write_lc_time {
-	my $F = (new IO::File "$locale_dir/LC_DATE", O_TRUNC|O_WRONLY|O_CREAT, 0666) || die "$0 can't create $locale_dir/LC_DATE: $!";
+	my $F = (new IO::File "$locale_dir/LC_DATE", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_DATE: $!");
 	my %array_cnt = (abmon => 12, mon => 12, abday => 7, day => 7, alt_month => 12, am_pm => 2);
 
 	$time{"md_order"} = "md" unless defined $time{"md_order"};
@@ -1030,8 +1029,8 @@ sub write_lc_time {
 		if (defined $v) {
 			if (defined $cnt) {
 				my @a = @{$v};
-				die "$0: $s has " . (0 + @a) 
-				  . " elements, it needs to have exactly $cnt\n" 
+				&exit(4, "$0: $s has " . (0 + @a) 
+				  . " elements, it needs to have exactly $cnt\n") 
 				  unless (@a == $cnt);
 				$F->print(join("\n", @a), "\n");
 			} else {
@@ -1046,7 +1045,7 @@ sub write_lc_time {
 
 sub write_lc_messages {
 	mkdir("$locale_dir/LC_MESSAGES");
-	my $F = (new IO::File "$locale_dir/LC_MESSAGES/LC_MESSAGES", O_TRUNC|O_WRONLY|O_CREAT, 0666) || die "$0 can't create $locale_dir/LC_DATE: $!";
+	my $F = (new IO::File "$locale_dir/LC_MESSAGES/LC_MESSAGES", O_TRUNC|O_WRONLY|O_CREAT, 0666) || &exit(4, "$0 can't create $locale_dir/LC_DATE: $!");
 
 	foreach my $s (qw(yesexpr noexpr yesstr nostr)) {
 		my $v = $messages{$s};
@@ -1072,96 +1071,33 @@ sub bylenval {
 	return $aval cmp $bval;
 }
 
-# The format for LC_COLLATE is (see pack_p_int for format of numbers):
-# "collmajk2.0\n"
-# number-of-collation-elements
-#   length-of-element-name bytes-of-element-name length-of-element-value bytes-of-element-value
-# number-of-collation-symbols
-#   length-of-collation-symbol-name bytes-of-collation-symbol-name collation-number
-# number-of-weights
-#  'f' for forward, 'F' for forward,position, 'b' for backward, 'B' for backward,position
-# number-of-table-entries
-#  length-of-table-char bytes-of-table-char
-#  (number of weights -- loop only, not written)
-#    collation-number-count
-#      colation-number
-
 sub write_lc_collate {
-	my $F = (new IO::File "$locale_dir/LC_COLLATE", O_TRUNC|O_WRONLY|O_CREAT, 0666) || die "$0 can't create $locale_dir/LC_COLLATE: $!";
-	my %map_sym;
+    return unless @colldef;
 
-	$F->print("collmajk2.0\n");
-	$F->print(&pack_p_int(0 + keys(%cele)));
-	while(my($e, $ev) = each(%cele)) {
-		$e = &strip_angles($e);
-		$F->print(&pack_p_int(length($e)), $e, &pack_p_int(length($ev)), $ev);
-	}
+    # colldef doesn't parse the whole glory of SuSv3 charmaps, and we
+    # already have, so we cna spit out a simplifyed one; unfortunitly
+    # it doesn't like "/dev/fd/N" so we need a named tmp file
+    my($CMAP, $cmapname) = tempfile(DIR => "/tmp");
+    foreach my $s (keys(%sym)) {
+	$CMAP->print("<$s>\t", sprintf "\\x%02x\n", ord($sym{$s}));
+    }
+    $CMAP->flush();
+    unshift(@colldef, qq{charmap $cmapname});
+    unshift(@colldef, "LC_COLLATE");
+    $colldef[$#colldef] = "END LC_COLLATE";
 
-	for(my $i = 0; $i < @corder; ++$i) {
-		# $map2 exists in case we need to make space for special
-		# values (say, reserving 0 for IGNORE)
-		my $map2 = $i;
-		if ("ARRAY" eq ref $corder[$i]) {
-			$map_sym{$corder[$i]->[0]} = $map2;
-		} else {
-			$map_sym{$corder[$i]} = $map2;
-		}
-	}
+    # Can't just use /dev/stdin, colldef appears to use seek,
+    # and even seems to need a named temp file (re-open?)
+    my($COL, $colname) = tempfile(DIR => "/tmp");
+    $COL->print(join("\n", @colldef), "\n");
+    $COL->flush();
 
-	$F->print(&pack_p_int(0 + keys(%csym)));
-	foreach my $s (keys(%csym)) {
-		my $ss = &strip_angles($s);
-		$F->print(&pack_p_int(length($ss)), $ss, &pack_p_int($map_sym{$s}));
-	}
-
-	$F->print(&pack_p_int(0 + @corder_weights));
-	my %w2o = (
-		forward => 'f',
-		backward => 'b',
-		"backward,position" => 'B',
-		"forward,position" => 'F',
-	);
-	foreach my $w (@corder_weights) {
-		my $o = $w2o{$w};
-		die "Unknown collation order weight $w\n" unless defined $o;
-		$F->print($o);
-	}
-
-	$F->print(&pack_p_int(0 + @corder));
-
-	foreach my $c (sort bylenval @corder) {
-		next unless "ARRAY" eq ref $c;
-		my @c = @$c;
-		my $ch = shift @c;
-		my @row;
-		foreach my $o (@c) {
-			my @v;
-			if ("HASH" eq ref $o) {
-				warn "Unknown collation property on character $ch\n" if ("IGNORE" ne join("", keys(%$o)));
-				@v = ();
-			} else {
-				my $s = $o;
-				$s =~ s/\G(.*?)(<[^>]+>|$)/&resym($1) . $2/ge;
-				pos($s) = 0;
-				while ($s =~ m/\G(<[^>]+>)/g) {
-					my $sym = $1;
-					if (defined $map_sym{$sym}) {
-						push(@v, $map_sym{$1});
-					} else {
-						warn "undefined charmap symbol $sym referenced in collation table for $ch\n";
-					}
-				}
-			}
-			push(@row, 0+@v);
-			push(@row, @v);
-		}
-
-		my($cval, $cf) = &unsym_with_check($ch);
-		if (!$cf) {
-			$cval = $cele{$ch};
-		}
-		$F->print(&pack_p_int(length($cval)), $cval, &pack_p_int(@row));
-	}
+    my $rc = system(
+      "/usr/bin/colldef -o $locale_dir/LC_COLLATE $colname");
+    unlink $colname, $cmapname;
+    if ($rc) {
+	&exit(1, "Bad return from colldef $rc");
+    }
 }
 
 # Pack an int of unknown size into a series of bytes, each of which
@@ -1182,7 +1118,7 @@ sub pack_p_int {
 	my $v = $_[0];
 	my $b;
 
-	die "pack_p_int only works on positive values" if ($v < 0);
+	&exit(4, "pack_p_int only works on positive values") if ($v < 0);
 	if ($v < 128) {
 		$b = chr($v);
 	} else {
@@ -1196,4 +1132,17 @@ sub strip_angles {
 	my $s = $_[0];
 	$s =~ s/^<(.*)>$/$1/;
 	return $s;
+}
+
+# For localedef
+#  xc=0 "no warnings, locale defined"
+#  xc=1 "warnings, locale defined"
+#  xc=2 "implmentation limits or unsupported charactor sets, no locale defined"
+#  xc=3 "can't create new locales"
+#  xc=4+ "wornings or errors, no locale defined"
+sub exit {
+    my($xc, $message) = @_;
+
+    print STDERR $message;
+    exit $xc;
 }

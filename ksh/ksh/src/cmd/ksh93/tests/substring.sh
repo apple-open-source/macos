@@ -1,26 +1,22 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
@@ -29,7 +25,7 @@ function err_exit
 }
 alias err_exit='err_exit $LINENO'
 
-Command=$0
+Command=${0##*/}
 integer Errors=0 j=4
 base=/home/dgk/foo//bar
 string1=$base/abcabcabc
@@ -170,6 +166,21 @@ x=[123]def
 if	[[ "${x//\[(*)\]/\{\1\}}" != {123}def ]]
 then	err_exit 'closing brace escape not working'
 fi
+xx=%28text%29
+if	[[ ${xx//%28/abc\)} != 'abc)text%29' ]]
+then	 err_exit '${xx//%28/abc\)} not working'
+fi
+xx='a:b'
+str='(){}[]*?|&^%$#@l'
+for ((i=0 ; i < ${#str}; i++))
+do      [[ $(eval print -r -- \${xx//:/\\${str:i:1}}) == "a${str:i:1}b" ]] || err_exit "substitution of \\${str:i:1}} failed"
+        [[ $(eval print -rn -- \${xx//:/\'${str:i:1}\'}) == "a${str:i:1}b" ]] || err_exit "substitution of '${str:i:1}' failed"
+        [[ $(eval print -r -- \${xx//:/\"${str:i:1}\"}) == "a${str:i:1}b" ]] || err_exit "substitution of \"${str:i:1}\" failed"
+done
+[[ ${xx//:/\\n} == 'a\nb' ]]  || err_exit "substituion of \\\\n failed"
+[[ ${xx//:/'\n'} == 'a\nb' ]] || err_exit "substituion of '\\n' failed"
+[[ ${xx//:/"\n"} ==  'a\nb' ]] || err_exit "substituion of \"\\n\" failed"
+[[ ${xx//:/$'\n'} ==  $'a\nb' ]] || err_exit "substituion of \$'\\n' failed"
 unset foo
 foo=one/two/three
 if	[[ ${foo//'/'/_} != one_two_three ]]
@@ -274,6 +285,10 @@ unset a b
 a='\[abc @(*) def\]'
 b='[abc 123 def]'
 [[ ${b//$a/\1} == 123 ]] || err_exit "\${var/pattern} not working with \[ in pattern"
+unset foo
+foo='(win32.i386) '
+[[ ${foo/'('/'(x11-'} == '(x11-win32.i386) ' ]] || err_exit "\${var/pattern} not working with ' in pattern" 
+$SHELL -c $'v=\'$(hello)\'; [[ ${v//\'$(\'/-I\'$(\'} == -I"$v" ]]' 2> /dev/null || err_exit "\${var/pattern} not working with \$( as pattern"
 unset X
 $SHELL -c '[[ ! ${X[@]:0:300} ]]' 2> /dev/null || err_exit '${X[@]:0:300} with X undefined fails'
 $SHELL -c '[[ ${@:0:300} == "$0" ]]' 2> /dev/null || err_exit '${@:0:300} with no arguments fails'
@@ -286,4 +301,223 @@ i="   ."
 unset x
 x=foo
 [[ "${x%o}(1)" == "fo(1)" ]] ||  err_exit 'print ${}() treated as pattern'
+unset i pattern string
+string=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghigklmnopqrstuvwxyz
+integer i
+for((i=0; i < ${#string}; i++))
+do	pattern+='@(?)'
+done
+[[ $(string=$string $SHELL -c  ": \${string/$pattern/}; print \${.sh.match[26]}") == Z ]] || err_exit -u2 'sh.match[26] not Z'
+: ${string/$pattern/}
+(( ${#.sh.match[@]} == 53 )) || err_exit '.sh.match has wrong number of elements'
+[[ ${.sh.match[@]:2:4} == 'B C D E'  ]] || err_exit '${.sh.match[@]:2:4} incorrect' 
+
+D=$';' E=$'\\\\' Q=$'"' S=$'\'' M='nested pattern substitution failed'
+
+x='-(-)-'
+[[ ${x/*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-(-)-)-'
+[[ ${x/*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-(-()-)-'
+[[ ${x/*%(())*/\1} == '()' ]] || err_exit $M
+x='-(-\)-)-'
+[[ ${x/*%(())*/\1} == '(-\)' ]] || err_exit $M
+x='-(-\\)-)-'
+[[ ${x/*%(())*/\1} == '(-\\)' ]] || err_exit $M
+x='-(-(-)-'
+[[ ${x/*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-(-(-)-)-'
+[[ ${x/*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-(-[-]-)-'
+[[ ${x/*%(()[])*/\1} == '(-[-]-)' ]] || err_exit $M
+x='-[-(-)-]-'
+[[ ${x/*%(()[])*/\1} == '(-)' ]] || err_exit $M
+x='-(-[-)-]-'
+[[ ${x/*%(()[])*/\1} == '-(-[-)-]-' ]] || err_exit $M
+x='-(-[-]-)-'
+[[ ${x/*%([]())*/\1} == '[-]' ]] || err_exit $M
+x='-[-(-)-]-'
+[[ ${x/*%([]())*/\1} == '[-(-)-]' ]] || err_exit $M
+x='-(-[-)-]-'
+[[ ${x/*%([]())*/\1} == '-(-[-)-]-' ]] || err_exit $M
+
+x='-((-))-'
+[[ ${x/*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(-g)*%(())*/\1} == '((-))-' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(-g:*)*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(+g)*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(+g:*)*%(())*/\1} == '(-)' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/*(?)*%(())*(?)*/:\1:\2:\3:} == ':-(:(-):)-:' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(-g)*(?)*%(())*(?)*/:\1:\2:\3:} == '::((-))::-' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(-g:*(?))*%(())*(?)*/:\1:\2:\3:} == '::(-):)-:' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(+g)*(?)*%(())*(?)*/:\1:\2:\3:} == ':-(:(-):)-:' ]] || err_exit $M
+x='-((-))-'
+[[ ${x/~(+g:*(?))*%(())*(?)*/:\1:\2:\3:} == ':-(:(-):)-:' ]] || err_exit $M
+x='call(a+b,x/(c/d),(0));'
+[[ ${x/+([[:alnum:]])*([[:space:]])(*%(()))*/:\1:\2:\3:} == ':call::(a+b,x/(c/d),(0)):' ]] || err_exit $M
+
+x='-(-;-)-'
+[[ ${x/*%(()D${D})*/\1} == '-(-;-)-' ]] || err_exit $M
+x='-(-);-'
+[[ ${x/*%(()D${D})*/\1} == '(-)' ]] || err_exit $M
+x='-(-)\;-'
+[[ ${x/*%(()D${D})*/\1} == '(-)' ]] || err_exit $M
+x='-(-\;-)-'
+[[ ${x/*%(()D${D}E${E})*/\1} == '(-\;-)' ]] || err_exit $M
+x='-(-)\;-'
+[[ ${x/*%(()D${D}E${E})*/\1} == '(-)' ]] || err_exit $M
+x='-(-(-)\;-)-'
+[[ ${x/*%(()D${D}E${E})*/\1} == '(-)' ]] || err_exit $M
+
+x='-(-")"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-")"-)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-\")"-)' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-\")\"-)' ]] || err_exit $M
+x=$'-(-\\\'")\\\'-)-'
+[[ ${x/*%(()Q${S}Q${Q})*/\1} == $'(-\\\'")\\\'-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()Q${S}Q${Q})*/\1} == $'-(-\\\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"\'-)-'
+[[ ${x/*%(()Q${S}Q${Q})*/\1} == $'(-\\\'")"\'-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()Q${S}Q${Q})*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\')\\\'\'-)-'
+[[ ${x/*%(()Q${S}Q${Q})*/\1} == $'-(-\')\\\'\'-)-' ]] || err_exit $M
+x=$'-(-\'")\'-)-'
+[[ ${x/*%(()L${S}Q${Q})*/\1} == $'(-\'")\'-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()L${S}Q${Q})*/\1} == $'-(-\\\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"\'-)-'
+[[ ${x/*%(()L${S}Q${Q})*/\1} == $'(-\\\'")"\'-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()L${S}Q${Q})*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\')\\\'\'-)-'
+[[ ${x/*%(()L${S}Q${Q})*/\1} == $'-(-\')\\\'\'-)-' ]] || err_exit $M
+x='-(-")"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-")"-)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-\")"-)' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()Q${Q})*/\1} == '(-\")\"-)' ]] || err_exit $M
+
+x='-(-\)-)-'
+[[ ${x/*%(()E${E})*/\1} == '(-\)-)' ]] || err_exit $M
+x='-(-\\)-)-'
+[[ ${x/*%(()E${E})*/\1} == '(-\\)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()E${E}Q${Q})*/\1} == '(-\")' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()E${E}Q${Q})*/\1} == '(-\")' ]] || err_exit $M
+x=$'-(-\'")"-)-'
+[[ ${x/*%(()E${E}Q${S}Q${Q})*/\1} == $'-(-\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()E${E}Q${S}Q${Q})*/\1} == $'(-\\\'")"-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()E${E}Q${S}Q${Q})*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()E${E}L${S}Q${Q})*/\1} == $'(-\\\'")"-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()E${E}L${S}Q${Q})*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\\"\')\\\'\\"-)-'
+[[ ${x/*%(()E${E}L${S}Q${Q})*/\1} == $'(-\\"\')\\\'\\"-)' ]] || err_exit $M
+x=$'-(-\\"\')\\\'\\"\'-)-'
+[[ ${x/*%(()E${E}L${S}Q${Q})*/\1} == $'-(-\\"\')\\\'\\"\'-)-' ]] || err_exit $M
+
+x='-(-;-)-'
+[[ ${x/*%(()D\;)*/\1} == '-(-;-)-' ]] || err_exit $M
+x='-(-);-'
+[[ ${x/*%(()D\;)*/\1} == '(-)' ]] || err_exit $M
+x='-(-)\;-'
+[[ ${x/*%(()D\;)*/\1} == '(-)' ]] || err_exit $M
+x='-(-\;-)-'
+[[ ${x/*%(()D\;E\\)*/\1} == '(-\;-)' ]] || err_exit $M
+x='-(-);-'
+[[ ${x/*%(()D\;E\\)*/\1} == '(-)' ]] || err_exit $M
+x='-(-)\;-'
+[[ ${x/*%(()D\;E\\)*/\1} == '(-)' ]] || err_exit $M
+x='-(-(-)\;-)-'
+[[ ${x/*%(()D\;E\\)*/\1} == '(-)' ]] || err_exit $M
+
+x='-(-")"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-")"-)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-\")"-)' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-\")\"-)' ]] || err_exit $M
+x=$'-(-\\\'")\\\'-)-'
+[[ ${x/*%(()Q\'Q\")*/\1} == $'(-\\\'")\\\'-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()Q\'Q\")*/\1} == $'-(-\\\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"\'-)-'
+[[ ${x/*%(()Q\'Q\")*/\1} == $'(-\\\'")"\'-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()Q\'Q\")*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\')\\\'\'-)-'
+[[ ${x/*%(()Q\'Q\")*/\1} == $'-(-\')\\\'\'-)-' ]] || err_exit $M
+x=$'-(-\'")\'-)-'
+[[ ${x/*%(()L\'Q\")*/\1} == $'(-\'")\'-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()L\'Q\")*/\1} == $'-(-\\\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"\'-)-'
+[[ ${x/*%(()L\'Q\")*/\1} == $'(-\\\'")"\'-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()L\'Q\")*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\')\\\'\'-)-'
+[[ ${x/*%(()L\'Q\")*/\1} == $'-(-\')\\\'\'-)-' ]] || err_exit $M
+x='-(-")"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-")"-)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-\")"-)' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()Q\")*/\1} == '(-\")\"-)' ]] || err_exit $M
+
+x='-(-\)-)-'
+[[ ${x/*%(()E\\)*/\1} == '(-\)-)' ]] || err_exit $M
+x='-(-\\)-)-'
+[[ ${x/*%(()E\\)*/\1} == '(-\\)' ]] || err_exit $M
+x='-(-\")"-)-'
+[[ ${x/*%(()E\\Q\")*/\1} == '(-\")' ]] || err_exit $M
+x='-(-\")\"-)-'
+[[ ${x/*%(()E\\Q\")*/\1} == '(-\")' ]] || err_exit $M
+x=$'-(-\'")"-)-'
+[[ ${x/*%(()E\\Q\'Q\")*/\1} == $'-(-\'")"-)-' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()E\\Q\'Q\")*/\1} == $'(-\\\'")"-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()E\\Q\'Q\")*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\\\'")"-)-'
+[[ ${x/*%(()E\\L\'Q\")*/\1} == $'(-\\\'")"-)' ]] || err_exit $M
+x=$'-(-\\"\')\'\\"-)-'
+[[ ${x/*%(()E\\L\'Q\")*/\1} == $'(-\\"\')\'\\"-)' ]] || err_exit $M
+x=$'-(-\\"\')\\\'\\"-)-'
+[[ ${x/*%(()E\\L\'Q\")*/\1} == $'(-\\"\')\\\'\\"-)' ]] || err_exit $M
+x=$'-(-\\"\')\\\'\\"\'-)-'
+[[ ${x/*%(()E\\L\'Q\")*/\1} == $'-(-\\"\')\\\'\\"\'-)-' ]] || err_exit $M
+
+pattern=00
+var=100
+[[ $( print $(( ${var%%00} )) ) == 1 ]] || err_exit "arithmetic with embeddded patterns fails"
+[[ $( print $(( ${var%%$pattern} )) ) == 1 ]] || err_exit "arithmetic with embeddded pattern variables fails"
+if	[[ ax == @(a)* ]] && [[ ${.sh.match[1]:0:${#.sh.match[1]}}  != a ]] 
+then	err_exit '${.sh.match[1]:1:${#.sh.match[1]}} not expanding correctly'
+fi
+
+string='foo(d:\nt\box\something)bar'
+expected='d:\nt\box\something'
+[[ ${string/*\(+([!\)])\)*/\1} == "$expected" ]] || err_exit "substring expansion failed '${string/*\(+([!\)])\)*/\1}' returned -- '$expected' expected"
+if	[[ $($SHELL -c $'export LC_ALL=en_US.UTF-8; print -r "\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254" | wc -m' 2>/dev/null) == 10 ]]
+then	LC_ALL=en_US.UTF-8 $SHELL -c b1=$'"\342\202\254\342\202\254\342\202\254\342\202\254w\342\202\254\342\202\254\342\202\254\342\202\254"; [[ ${b1:4:1} == w ]]' || err_exit 'Multibyte ${var:offset:len} not working correctly'
+fi
+{ $SHELL -c 'unset x;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is not set' 
+{ $SHELL -c 'x=;[[ ${SHELL:$x} == $SHELL ]]';} 2> /dev/null || err_exit '${var:$x} fails when x is null' 
 exit $((Errors))

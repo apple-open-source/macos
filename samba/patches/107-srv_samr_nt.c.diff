@@ -1,88 +1,104 @@
---- samba/source/rpc_server/srv_samr_nt.c.orig	2005-01-06 15:23:02.000000000 -0800
-+++ samba/source/rpc_server/srv_samr_nt.c	2005-02-18 14:57:14.000000000 -0800
-@@ -99,7 +99,38 @@
+Index: samba/source/rpc_server/srv_samr_nt.c
+===================================================================
+--- samba/source/rpc_server/srv_samr_nt.c.orig
++++ samba/source/rpc_server/srv_samr_nt.c
+@@ -33,6 +33,10 @@
+ 
+ #include "includes.h"
+ 
++#ifdef HAVE_MEMBERSHIP_H
++#include <membership.h>
++#endif /* HAVE_MEMBERSHIP_H */
++
+ #undef DBGC_CLASS
+ #define DBGC_CLASS DBGC_RPC_SRV
+ 
+@@ -45,6 +49,10 @@
+ 
+ #define DISP_INFO_CACHE_TIMEOUT 10
+ 
++#if defined(HAVE_MBR_UID_TO_UUID) && defined(HAVE_MBR_GID_TO_UUID) && defined(HAVE_MBR_CHECK_MEMBERSHIP)
++#define HAVE_MEMBERD
++#endif
++
+ typedef struct disp_info {
+ 	DOM_SID sid; /* identify which domain this is. */
+ 	BOOL builtin_domain; /* Quick flag to check if this is the builtin domain. */
+@@ -107,6 +115,58 @@ static struct generic_mapping ali_generi
  /*******************************************************************
-  Checks if access to a function can be granted
- ********************************************************************/
-+#ifdef WITH_MEMBERD
-+int is_member_of_group(uid_t uid, gid_t gid)
+ *******************************************************************/
+ 
++#ifdef HAVE_MEMBERD
++
++static BOOL is_member_of_group(uid_t uid, gid_t gid)
 +{
 +	uuid_t user_uuid;
 +	uuid_t grp_uuid;
 +	int result = 0;
 +	char uustr[50];
 +	int ismember = 0;
-+	
++
 +	DEBUG(4,("is_member_of_group(uid<%d>, gid<%d>)\n", uid, gid));
++
 +	uuid_clear(user_uuid);
 +	if ((result = mbr_uid_to_uuid( uid, user_uuid)) != 0) {
-+		DEBUG(0,("[%d]mbr_uid_to_uuid: errno(%d) - (%s)\n", result, errno, strerror(errno)));
-+	} else {
-+		uuid_clear(grp_uuid);
-+		if ((result = mbr_gid_to_uuid( gid, grp_uuid)) != 0) {
-+			DEBUG(0,("[%d]mbr_gid_to_uuid: errno(%d) - (%s)\n", result, errno, strerror(errno)));
-+		} else {
-+			uuid_unparse(grp_uuid, uustr);
-+			DEBUG(4,("mbr_gid_to_uuid: (%s)\n",uustr));			
-+		}
-+			
-+		if ((result = mbr_check_membership(user_uuid, grp_uuid, &ismember)) != 0) {
-+			DEBUG(0,("[%d]mbr_check_membership: errno(%d) - (%s)\n", result, errno, strerror(errno)));
-+		} else {
-+			DEBUG(4,("mbr_check_membership: ismember(%d)\n",ismember));					
-+		}
++		DEBUG(0,("[%d]mbr_uid_to_uuid: errno(%d) - (%s)\n",
++		    result, errno, strerror(errno)));
++		return False;
 +	}
- 
-+	return ismember;
++
++	uuid_clear(grp_uuid);
++	if ((result = mbr_gid_to_uuid( gid, grp_uuid)) != 0) {
++		DEBUG(0,("[%d]mbr_gid_to_uuid: errno(%d) - (%s)\n",
++		    result, errno, strerror(errno)));
++		return False;
++	}
++
++	uuid_unparse(grp_uuid, uustr);
++	DEBUG(4,("mbr_gid_to_uuid: (%s)\n", uustr));
++
++	result = mbr_check_membership(user_uuid, grp_uuid, &ismember);
++	if (result != 0) {
++		DEBUG(0,("[%d]mbr_check_membership: errno(%d) - (%s)\n",
++		    result, errno, strerror(errno)));
++		return False;
++	}
++
++	DEBUG(4,("mbr_check_membership: ismember(%d)\n",ismember));
++	return ismember ? True : False;
 +}
-+#endif
- NTSTATUS access_check_samr_function(uint32 acc_granted, uint32 acc_required, const char *debug)
- {
- 	DEBUG(5,("%s: access check ((granted: %#010x;  required: %#010x)\n",
-@@ -111,6 +142,14 @@
- 			DEBUGADD(4,("but overwritten by euid == 0\n"));
- 			return NT_STATUS_OK;
- 		}
-+#ifdef WITH_MEMBERD
-+		else if (is_member_of_group(geteuid(), 80)) { // admin group
-+			DEBUG(4,("%s: ACCESS should be DENIED (granted: %#010x;  required: %#010x)\n",
++
++#else /* HAVE_MEMBERD */
++
++static BOOL is_member_of_group(uid_t uid, gid_t gid)
++{
++	return False;
++}
++
++#endif /* HAVE_MEMBERD */
++
++/*******************************************************************
++*******************************************************************/
++
+ static NTSTATUS make_samr_object_sd( TALLOC_CTX *ctx, SEC_DESC **psd, size_t *sd_size,
+                                      struct generic_mapping *map,
+ 				     DOM_SID *sid, uint32 sid_access )
+@@ -238,6 +298,18 @@ static NTSTATUS access_check_samr_functi
+ 		DEBUGADD(4,("but overwritten by euid == 0\n"));
+ 		
+ 		return NT_STATUS_OK;
++	} else {
++		struct group * admin;
++		admin = getgrnam("admin");
++
++		if (admin && is_member_of_group(geteuid(), admin->gr_gid)) {
++			DEBUG(4,("%s: ACCESS should be DENIED "
++				 "(granted: %#010x;  required: %#010x)\n",
 +				debug, acc_granted, acc_required));
-+			DEBUGADD(4,("but overwritten by egid == 80\n"));
++			DEBUGADD(4,("but overwritten by egid == %d\n",
++				admin->gr_gid));
 +			return NT_STATUS_OK;
 +		}
-+#endif
- 		DEBUG(2,("%s: ACCESS DENIED (granted: %#010x;  required: %#010x)\n",
- 			debug, acc_granted, acc_required));
- 		return NT_STATUS_ACCESS_DENIED;
-@@ -2246,7 +2285,14 @@
- 		if (*add_script) {
-   			int add_ret;
-   			all_string_sub(add_script, "%u", account, sizeof(add_script));
-+  		// access_check_samr_function checks for membership in admin group (gid=80) when memberd is available
-+#ifdef WITH_MEMBERD 
-+  			become_root();
-+#endif
-   			add_ret = smbrun(add_script,NULL);
-+#ifdef WITH_MEMBERD
-+ 			unbecome_root();
-+#endif
-  			DEBUG(3,("_samr_create_user: Running the command `%s' gave %d\n", add_script, add_ret));
-   		}
- 		else	/* no add user script -- ask winbindd to do it */
-@@ -2264,6 +2310,8 @@
- 	if ( !NT_STATUS_IS_OK(nt_status = pdb_init_sam_new(&sam_pass, account, new_rid)) )
- 		return nt_status;
- 		
-+	if (!lp_opendirectory())
-+	{
-  	pdb_set_acct_ctrl(sam_pass, acb_info, PDB_CHANGED);
+ 	}
  	
-  	if (!pdb_add_sam_account(sam_pass)) {
-@@ -2272,6 +2320,7 @@
-  			  account));
-  		return NT_STATUS_ACCESS_DENIED;		
-  	}
-+	}
-  	
- 	/* Get the user's SID */
- 	sid_copy(&sid, pdb_get_user_sid(sam_pass));
+ 	DEBUG(2,("%s: ACCESS DENIED (granted: %#010x;  required: %#010x)\n", 

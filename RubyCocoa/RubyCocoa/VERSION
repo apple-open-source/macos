@@ -1,0 +1,12 @@
+VERSION = "0.12.0"
+STAGE = ""
+RELEASE_DATE = "2007-07-19"
+SVN_REVISION = proc {
+                 vers = `svnversion`
+                 rev = $?.success? ? vers.strip : 'unknown'
+                 if rev == 'exported' 
+                   ma = /\$Revision:\s*(\d+)\s*\$/.match("$Revision: 1925 $")
+                   rev = ma ? ma[1] : 'unknown'
+                 end
+                 rev
+               }.call

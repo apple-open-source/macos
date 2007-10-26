@@ -19,9 +19,10 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 #include <quotearg.h>
 #include <errno.h>
+#include <xgetcwd.h>
 
 #if HAVE_UTIME_H
 # include <utime.h>
@@ -130,8 +131,20 @@ extr_init (void)
   we_are_root = geteuid () == 0;
   same_permissions_option += we_are_root;
   same_owner_option += we_are_root;
-  xalloc_fail_func = extract_finish;
 
+  /* Save 'root device' to avoid purging mount points.
+     FIXME: Should the same be done after handling -C option ? */
+  if (one_file_system_option)
+    {
+      struct stat st;      
+      char *dir = xgetcwd ();
+
+      if (deref_stat (true, dir, &st))
+	stat_diag (dir);
+      else
+	root_device = st.st_dev;
+    }
+  
   /* Option -p clears the kernel umask, so it does not affect proper
      restoration of file permissions.  New intermediate directories will
      comply with umask at start of program.  */
@@ -332,7 +345,7 @@ delay_set_stat (char const *file_name, struct stat const *stat_info,
 }
 
 /* Update the delayed_set_stat info for an intermediate directory
-   created on the path to DIR.  The intermediate directory turned
+   created within the file name of DIR.  The intermediate directory turned
    out to be the same as this directory, e.g. due to ".." or symbolic
    links.  *DIR_STAT_INFO is the status of the directory.  */
 static void
@@ -364,6 +377,46 @@ repair_delayed_set_stat (char const *dir,
 	  quotearg_colon (dir)));
 }
 
+void
+apply_qtn(int fd)
+{
+	int stat_ok;
+	struct stat sb;
+	int qstatus;
+
+	if (archive_qtn_file != NULL) {
+		stat_ok = (fstat(fd, &sb) == 0);
+
+		if (stat_ok) fchmod(fd, sb.st_mode | S_IWUSR);
+		qstatus = qtn_file_apply_to_fd(archive_qtn_file, fd);
+		if (stat_ok) fchmod(fd, sb.st_mode);
+
+		if (qstatus) {
+			warnx("qtn_file_apply_to_fd: %s", qtn_error(qstatus));
+		}
+	}
+}
+
+void
+apply_qtn_to_path(char *path)
+{
+	int stat_ok;
+	struct stat sb;
+	int qstatus;
+
+	if (archive_qtn_file != NULL) {
+		stat_ok = (stat(path, &sb) == 0);
+
+		if (stat_ok) chmod(path, sb.st_mode | S_IWUSR);
+		qstatus = qtn_file_apply_to_path(archive_qtn_file, path);
+		if (stat_ok) chmod(path, sb.st_mode);
+
+		if (qstatus) {
+			warnx("qtn_file_apply_to_path: %s", qtn_error(qstatus));
+		}
+	}
+}
+
 /* After a file/link/symlink/directory creation has failed, see if
    it's because some required directory was not present, and if so,
    create all required directories.  Return non-zero if a directory
@@ -371,8 +424,8 @@ repair_delayed_set_stat (char const *dir,
 static int
 make_directories (char *file_name)
 {
-  char *cursor0 = file_name + FILESYSTEM_PREFIX_LEN (file_name);
-  char *cursor;			/* points into path */
+  char *cursor0 = file_name + FILE_SYSTEM_PREFIX_LEN (file_name);
+  char *cursor;			/* points into the file name */
   int did_something = 0;	/* did we do anything yet? */
   int mode;
   int invert_permissions;
@@ -389,7 +442,7 @@ make_directories (char *file_name)
       if (cursor == cursor0 || ISSLASH (cursor[-1]))
 	continue;
 
-      /* Avoid mkdir where last part of path is "." or "..".  */
+      /* Avoid mkdir where last part of file name is "." or "..".  */
 
       if (cursor[-1] == '.'
 	  && (cursor == cursor0 + 1 || ISSLASH (cursor[-2])
@@ -397,13 +450,15 @@ make_directories (char *file_name)
 		  && (cursor == cursor0 + 2 || ISSLASH (cursor[-3])))))
 	continue;
 
-      *cursor = '\0';		/* truncate the path there */
+      *cursor = '\0';		/* truncate the name there */
       mode = MODE_RWX & ~ newdir_umask;
       invert_permissions = we_are_root ? 0 : MODE_WXUSR & ~ mode;
       status = mkdir (file_name, mode ^ invert_permissions);
 
       if (status == 0)
 	{
+	  apply_qtn_to_path(file_name);
+
 	  /* Create a struct delayed_set_stat even if
 	     invert_permissions is zero, because
 	     repair_delayed_set_stat may need to update the struct.  */
@@ -466,7 +521,9 @@ prepare_to_extract (char const *file_name)
   switch (old_files_option)
     {
     case UNLINK_FIRST_OLD_FILES:
-      if (!remove_any_file (file_name, recursive_unlink_option)
+      if (!remove_any_file (file_name, 
+                            recursive_unlink_option ? RECURSIVE_REMOVE_OPTION 
+                                                      : ORDINARY_REMOVE_OPTION)
 	  && errno && errno != ENOENT)
 	{
 	  unlink_error (file_name);
@@ -523,7 +580,7 @@ maybe_recoverable (char *file_name, int *interdir_made)
 	case NO_OVERWRITE_DIR_OLD_FILES:
 	case OVERWRITE_OLD_FILES:
 	  {
-	    int r = remove_any_file (file_name, 0);
+	    int r = remove_any_file (file_name, ORDINARY_REMOVE_OPTION);
 	    errno = EEXIST;
 	    return r;
 	  }
@@ -639,9 +696,9 @@ extract_archive (void)
     print_header (&current_stat_info, -1);
 
   file_name = safer_name_suffix (current_stat_info.file_name, false);
-  if (strip_path_elements)
+  if (strip_name_components)
     {
-      size_t prefix_len = stripped_prefix_len (file_name, strip_path_elements);
+      size_t prefix_len = stripped_prefix_len (file_name, strip_name_components);
       if (prefix_len == (size_t) -1)
 	{
 	  skip_member ();
@@ -778,29 +835,22 @@ extract_archive (void)
 	}
 
 #ifdef __APPLE__
-    /* Pre-allocate blocks for the destination file if it resides
-       on Xsan.  */
+	/* Attempts to pre-allocate blocks for the destination file. */
+	if (!current_stat_info.is_sparse) {
+		fstore_t fst;
 
-    if (! current_stat_info.is_sparse)
-      {
-	struct statfs sfs;
+		fst.fst_flags = 0;
+		fst.fst_posmode = F_PEOFPOSMODE;
+		fst.fst_offset = 0;
+		fst.fst_length = current_stat_info.stat.st_size;
 
-	if (fstatfs (fd, &sfs) == 0
-	    && strcmp (sfs.f_fstypename, "acfs") == 0)
-	  {
-	    fstore_t fst;
-
-	    fst.fst_flags = 0;
-	    fst.fst_posmode = F_PEOFPOSMODE;
-	    fst.fst_offset = 0;
-	    fst.fst_length = current_stat_info.stat.st_size;
-
-	    (void) fcntl (fd, F_PREALLOCATE, &fst);
-	  }
-      }
+		(void)fcntl(fd, F_PREALLOCATE, &fst);
+	}
 #endif /* __APPLE__ */
 
     extract_file:
+      apply_qtn(fd);
+
       if (current_stat_info.is_sparse)
 	{
 	  sparse_extract_file (fd, &current_stat_info, &size);
@@ -867,7 +917,6 @@ extract_archive (void)
 		 ? UNKNOWN_PERMSTATUS
 		 : ARCHIVED_PERMSTATUS),
 		typeflag);
-
       break;
 
     case SYMTYPE:
@@ -876,8 +925,7 @@ extract_archive (void)
 	break;
 
       if (absolute_names_option
-	  || ! (ISSLASH (current_stat_info.link_name
-			 [FILESYSTEM_PREFIX_LEN (current_stat_info.link_name)])
+	  || ! (IS_ABSOLUTE_FILE_NAME (current_stat_info.link_name)
 		|| contains_dot_dot (current_stat_info.link_name)))
 	{
 	  while (status = symlink (current_stat_info.link_name, file_name),
@@ -1094,7 +1142,7 @@ extract_archive (void)
 	  /* Read the entry and delete files that aren't listed in the
 	     archive.  */
 
-	  gnu_restore (file_name);
+	  purge_directory (file_name);
 	}
       else if (typeflag == GNUTYPE_DUMPDIR)
 	skip_member ();
@@ -1151,11 +1199,14 @@ extract_archive (void)
     directory_exists:
       if (status == 0
 	  || old_files_option == OVERWRITE_OLD_FILES)
+      {
+	apply_qtn_to_path(file_name);
 	delay_set_stat (file_name, &current_stat_info.stat,
 			MODE_RWX & (mode ^ current_stat_info.stat.st_mode),
 			(status == 0
 			 ? ARCHIVED_PERMSTATUS
 			 : UNKNOWN_PERMSTATUS));
+      }
       break;
 
     case GNUTYPE_VOLHDR:
@@ -1164,7 +1215,13 @@ extract_archive (void)
       break;
 
     case GNUTYPE_NAMES:
-      FATAL_ERROR((0, 0, _("GNUTYPE_NAMES support withdrawn CVE-2006-6097")));
+      if (allow_name_mangling_option) {
+          extract_mangle ();
+      }
+      else {
+          ERROR ((0, 0, _("GNUTYPE_NAMES mangling ignored")));
+          skip_member ();
+      }
       break;
 
     case GNUTYPE_MULTIVOL:
@@ -1273,4 +1330,11 @@ fatal_exit (void)
   extract_finish ();
   error (TAREXIT_FAILURE, 0, _("Error is not recoverable: exiting now"));
   abort ();
+}
+
+void
+xalloc_die (void)
+{
+  error (0, 0, "%s", _("memory exhausted"));
+  fatal_exit ();
 }

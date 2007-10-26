@@ -21,7 +21,7 @@ ifeq "macos" "$(RC_OS)"
 		         [ "$(RC_RELEASE)" = "Jaguar"    ] || \
 		         [ "$(RC_RELEASE)" = "Panther" ]; then \
 	echo /Developer/Documentation/ReleaseNotes; else \
-	echo /Developer/ADC\ Reference\ Library/releasenotes/DeveloperTools ; \
+	echo /Developer/Documentation/DocSets/com.apple.ADC_Reference_Library.DeveloperTools.docset/Contents/Resources/Documents/documentation/DeveloperTools ; \
     fi; \
   fi;)
 else

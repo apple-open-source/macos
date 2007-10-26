@@ -291,6 +291,21 @@ unsigned long n_sect)
 }
 
 unsigned long
+is_section_cstring_literals(
+unsigned long n_sect)
+{
+    struct frchain *frchainP;
+
+	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
+	    if(frchainP->frch_nsect == n_sect &&
+	       (frchainP->frch_section.flags & SECTION_TYPE) ==
+		S_CSTRING_LITERALS)
+		return(1); /* TRUE */
+	}
+	return(0); /* FALSE */
+}
+
+unsigned long
 is_end_section_address(
 unsigned long n_sect,
 unsigned long addr)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Nov 14 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: bless.c,v 1.81 2005/12/07 04:49:17 ssen Exp $
+ *  $Id: bless.c,v 1.85 2006/07/17 22:19:05 ssen Exp $
  *
  */
 
@@ -45,14 +45,22 @@
 #include "structs.h"
 
 #include "bless.h"
+#include "bless_private.h"
+#include "protos.h"
 
 struct clarg actargs[klast];
+
+/*
+ * To add an option, allocate an enum in enums.h, add a getopt_long entry here,
+ * add to main(), add to usage and man page
+ */
 
 /* options descriptor */
 static struct option longopts[] = {
 { "bootinfo",       optional_argument,      0,              kbootinfo},
 { "bootefi",		optional_argument,      0,              kbootefi},
 { "bootBlockFile",  required_argument,      0,              kbootblockfile },
+{ "bootblockfile",  required_argument,      0,              kbootblockfile },
 { "booter",         required_argument,      0,              kbooter },
 { "device",         required_argument,      0,              kdevice },
 { "firmware",       required_argument,      0,              kfirmware },	
@@ -60,27 +68,32 @@ static struct option longopts[] = {
 { "folder",         required_argument,      0,              kfolder },
 { "folder9",        required_argument,      0,              kfolder9 },
 { "getBoot",        no_argument,            0,              kgetboot },
+{ "getboot",        no_argument,            0,              kgetboot },
 { "help",           no_argument,            0,              khelp },
 { "info",           optional_argument,      0,              kinfo },
 { "kernel",         required_argument,      0,              kkernel },
 { "label",          required_argument,      0,              klabel },
 { "labelfile",      required_argument,      0,              klabelfile },
+{ "legacy",         no_argument,            0,              klegacy },
+{ "legacydrivehint",required_argument,      0,              klegacydrivehint },
 { "mkext",          required_argument,      0,              kmkext },
 { "mount",          required_argument,      0,              kmount },
 { "netboot",        no_argument,            0,              knetboot},
-{ "netbootserver",  required_argument,      0,              knetbootserver},
 { "nextonly",       no_argument,            0,              knextonly},
 { "openfolder",     required_argument,      0,              kopenfolder },
 { "options",        required_argument,      0,              koptions },
 { "payload",        required_argument,      0,              kpayload },
 { "plist",          no_argument,            0,              kplist },
 { "quiet",          no_argument,            0,              kquiet },
+{ "recovery",		no_argument,            0,              krecovery },
 { "reset",          no_argument,            0,              kreset },
 { "save9",          no_argument,            0,              ksave9 },
 { "saveX",          no_argument,            0,              ksaveX },
 { "server",         required_argument,      0,              kserver },
 { "setBoot",        no_argument,            0,              ksetboot },
-{ "setOF",          no_argument,            0,              ksetOF },
+{ "setboot",        no_argument,            0,              ksetboot },
+{ "setOF",          no_argument,            0,              ksetboot }, // legacy option name
+{ "shortform",      no_argument,            0,              kshortform },
 { "startupfile",    required_argument,      0,              kstartupfile },
 { "use9",           no_argument,            0,              kuse9 },
 { "verbose",        no_argument,            0,              kverbose },
@@ -91,28 +104,13 @@ static struct option longopts[] = {
 extern char *optarg;
 extern int optind;
 
-
-int modeInfo(BLContextPtr context, struct clarg actargs[klast]);
-int modeDevice(BLContextPtr context, struct clarg actargs[klast]);
-int modeFolder(BLContextPtr context, struct clarg actargs[klast]);
-int modeFirmware(BLContextPtr context, struct clarg actargs[klast]);
-int modeNetboot(BLContextPtr context, struct clarg actargs[klast]);
-
-int blesslog(void *context, int loglevel, const char *string);
-extern void usage();
-extern void usage_short();
-
-extern void addPayload(const char *path);
-
-void arg_err(char *message, char *opt);
-
 int main (int argc, char * argv[])
 {
 
-    int ch;
-
+    int ch, longindex;
     BLContext context;
     struct blesscon bcon;
+    extern double blessVersionNumber;
 
     bcon.quiet = 0;
     bcon.verbose = 0;
@@ -122,7 +120,7 @@ int main (int argc, char * argv[])
     context.logrefcon = &bcon;
 
     if(argc == 1) {
-        arg_err(NULL, NULL);
+        usage_short();
     }
     
     if(getenv("BL_PRINT_ARGUMENTS")) {
@@ -132,9 +130,9 @@ int main (int argc, char * argv[])
         }
     }
     
+
     
-    while ((ch = getopt_long_only(argc, argv, "", longopts, NULL)) != -1) {
-        if(ch == ksetOF) ch = ksetboot; // remap here
+    while ((ch = getopt_long_only(argc, argv, "", longopts, &longindex)) != -1) {
         
         switch(ch) {
             case khelp:
@@ -145,83 +143,58 @@ int main (int argc, char * argv[])
             case kverbose:
                 bcon.verbose = 1;
                 break;
-                
-            // common handling for all other options
-            case kbootinfo:
-			case kbootefi:
-            case kbootblockfile:
-            case kbooter:
-            case kdevice:
-			case kfirmware:
-            case kfile:
-            case kfolder:
-            case kfolder9:
-            case kgetboot:
-            case kinfo:
-            case kkernel:
-            case klabel:
-            case klabelfile:
-            case kmkext:
-            case kmount:
-            case knetboot:
-            case knetbootserver:
-            case knextonly:
-            case kopenfolder:
-            case koptions:
-            case kplist:
-            case kreset:
-            case ksave9:
-            case ksaveX:
-            case kserver:
-            case ksetboot:
-            case kstartupfile:
-            case kuse9:
             case kversion:
+                printf("%.1f\n", blessVersionNumber);
+                exit(0);
+                break;
+            case kpayload:
+                actargs[ch].present = 1;
+                break;
+            case '?':
+            case ':':
+                usage_short();
+                break;
+            default:
+                // common handling for all other options
+            {
+                struct option *opt = &longopts[longindex];
+                
+                
                 if(actargs[ch].present) {
-                    warnx("Option \"%s\" already specified", longopts[ch-1].name);
+                    warnx("Option \"%s\" already specified", opt->name);
                     usage_short();
                     break;
                 } else {
                     actargs[ch].present = 1;
                 }
                 
-                switch(longopts[ch-1].has_arg) {
+                switch(opt->has_arg) {
                     case no_argument:
                         actargs[ch].hasArg = 0;
                         break;
                     case required_argument:
                         actargs[ch].hasArg = 1;
-                        strcpy(actargs[ch].argument, optarg);
+                        strlcpy(actargs[ch].argument, optarg, sizeof(actargs[ch].argument));
                         break;
                     case optional_argument:
                         if(argv[optind] && argv[optind][0] != '-') {
                             actargs[ch].hasArg = 1;
-                            strcpy(actargs[ch].argument, argv[optind]);
+                            strlcpy(actargs[ch].argument, argv[optind], sizeof(actargs[ch].argument));
                         } else {
                             actargs[ch].hasArg = 0;
                         }
                         break;
                 }
+            }
                 break;
-            case kpayload:
-                actargs[ch].present = 1;
-                break;
-            case '?':
-            default:
-                usage_short();
         }
     }
 
     argc -= optind;
     argc += optind;
     
-    if(actargs[kversion].present) {
-        extern double blessVersionNumber;
-        printf("%.1f\n", blessVersionNumber);
-        return 0;
-    }
-
-    /* There are three modes of execution: info, device, folder.
+    /* There are 4 public modes of execution: info, device, folder, netboot
+     * There is 1 private mode: firmware
      * These are all one-way function jumps.
      */
 
@@ -267,9 +240,3 @@ int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
     return ret;
 }
 
-void arg_err(char *message, char *opt) {
-    if(!(message == NULL && opt == NULL))
-	fprintf(stderr, "%s \"%s\"\n", message, opt);
-
-    usage_short();
-}

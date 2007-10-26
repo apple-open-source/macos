@@ -1,0 +1,27 @@
+--- _SB/Libc/string/FreeBSD/strspn.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strspn.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,17 +47,20 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft size_t
+-.Fn strspn "const char *s" "const char *charset"
++.Fo strspn
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strspn
+ function
+ spans the initial part of the null-terminated string
+-.Fa s
++.Fa s1 ,
+ as long as the characters from
+-.Fa s
++.Fa s1
+ occur in string
+-.Fa charset .
++.Fa s2 .
+ .Sh RETURN VALUES
+ The
+ .Fn strspn

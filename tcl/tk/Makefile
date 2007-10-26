@@ -54,6 +54,10 @@ MkLinks_Flags         = -z 'eval CASEINSENSITIVEFS=1 && Z=$(Manpage_Suffix) && S
 extra-int-headers:
 	$(_v) $(INSTALL_FILE) "$(Sources)/generic/default.h" "$(Sources)/macosx/tkMacOSXDefault.h" \
 	        "$(Sources)/generic/tkFont.h" "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
+	$(_v) $(MKDIR)  "$(DSTROOT)$(FmwkDir)/Headers/tk-private"
+	$(_v) $(MV) $(foreach f,$(PrivateHeaderItems),"$(DSTROOT)$(FmwkDir)/PrivateHeaders/$(f)") "$(DSTROOT)$(FmwkDir)/Headers/tk-private"
+	$(_v) $(RMDIR)  "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
+	$(_v) $(LN) -fs "Headers/tk-private" "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 
 links:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(USRLIBDIR)"
@@ -65,7 +69,7 @@ links:
 	        "$(DSTROOT)/usr/include"
 # Install compat sym links for private headers in /usr/local/include
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/usr/local/include"
-	$(_v) $(LN) -fs $(foreach f,$(PrivateHeaderItems),"../../..$(FmwkDir)/PrivateHeaders/$(f)") \
+	$(_v) $(LN) -fs $(foreach f,$(PrivateHeaderItems),"../../..$(FmwkDir)/Headers/tk-private/$(f)") \
 	        "$(DSTROOT)/usr/local/include/"
 # Move wish.1 to wish$(Version).1 and link wish.1 to wish$(Version).1
 	$(_v) $(MV) "$(DSTROOT)$(MANDIR)/man1/wish.1$(Manpage_Suffix)" \
@@ -91,6 +95,8 @@ build:: $(Fmwk)
 
 $(Fmwk):
 	@echo "Building $(Project)..."
+	$(_v) $(MKDIR) $(OBJROOT)/Deployment.build/Wish.build
+	$(_v) $(LN) -fs Deployment.build/Wish.build $(OBJROOT)/Wish.build
 	$(_v) $(MAKE) -C $(MakeDir) $(Environment) $(BuildTarget)
 
 install:: $(Fmwk)
@@ -109,6 +115,7 @@ install:: $(Fmwk)
 	        $(XARGS) -0 $(CHMOD) $(Install_Program_Mode)
 	$(_v) $(FIND) $(DSTROOT) -type d -print0 | \
 	        $(XARGS) -0 $(CHMOD) $(Install_Directory_Mode)
+	SYMROOT="$(SYMROOT)" DSTROOT="$(DSTROOT)" $(SRCROOT)/fix_tkConfig.sh
 
 almostclean::
 	@echo "Cleaning $(Project)..."

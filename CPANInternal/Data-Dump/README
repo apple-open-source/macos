@@ -1,0 +1,24 @@
+This package contain the Data::Dump module.  It is a simplification of
+Sarathy's Data::Dumper.  I made it to demonstrate for Sarathy how I
+would like Data::Dumper to work, and found it useful myself.  Sarathy
+have plans to integrate this with his dumper, but while we wait, you
+can test this out.
+
+The Data::Dump module provide a single function called dump() which
+you can import to your namespace if you wish:
+
+     use Data::Dump qw(dump);
+     $str = dump(@list);
+     @copy_of_list = eval $str;
+
+No OO interface is available and there are no configuration options to
+worry about. Other benefits is that the dump produced does not try to
+set any variables. It only returns what is needed to produce a copy of
+the arguments passed in. It means that `dump("foo")' simply returns
+`"foo"', and `dump(1..5)' simply returns `(1, 2, 3, 4, 5)'.
+
+Copyright 1998-1999,2003-2004 Gisle Aas.
+Copyright 1996-1998 Gurusamy Sarathy.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.

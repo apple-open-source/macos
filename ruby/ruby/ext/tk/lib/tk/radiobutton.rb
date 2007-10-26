@@ -17,6 +17,24 @@ class TkRadioButton<TkButton
   #end
   #private :create_self
 
+  def __boolval_optkeys
+    super() << 'indicatoron'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'selectcolor'
+  end
+  private :__strval_optkeys
+
+  def __ruby2val_optkeys  # { key=>proc, ... }
+    {
+      'variable'=>proc{|v| tk_trace_variable(v)}  # for backward compatibility
+    }
+  end
+  private :__ruby2val_optkeys
+
+
   def deselect
     tk_send_without_enc('deselect')
     self
@@ -24,9 +42,6 @@ class TkRadioButton<TkButton
   def select
     tk_send_without_enc('select')
     self
-  end
-  def variable(v)
-    configure 'variable', tk_trace_variable(v)
   end
 
   def get_value

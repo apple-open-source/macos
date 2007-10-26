@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -15,7 +15,7 @@
 *
 *   This is the reference implementation of BOCU-1,
 *   the MIME-friendly form of the Binary Ordered Compression for Unicode,
-*   taken directly from ### http://oss.software.ibm.com/cvs/icu/icuhtml/design/conversion/bocu1/
+*   taken directly from ### http://dev.icu-project.org/cgi-bin/viewcvs.cgi/icuhtml/design/conversion/bocu1/
 *   The files bocu1.h and bocu1.c from the design folder are taken
 *   verbatim (minus copyright and #include) and copied together into this file.
 *   The reference code and some of the reference bocu1tst.c
@@ -718,7 +718,7 @@ writeString(const UChar *s, int32_t length, uint8_t *p) {
         UTF_NEXT_CHAR(s, i, length, c);
         p+=writePacked(encodeBocu1(&prev, c), p);
     }
-    return p-p0;
+    return (int32_t)(p-p0);
 }
 
 /**

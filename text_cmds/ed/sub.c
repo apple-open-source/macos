@@ -1,6 +1,4 @@
-/*	$NetBSD: sub.c,v 1.5 1997/07/20 06:35:41 thorpej Exp $	*/
-
-/* sub.c: This file contains the substitution routines for the ed 
+/* sub.c: This file contains the substitution routines for the ed
    line editor */
 /*-
  * Copyright (c) 1993 Andrew Moore, Talke Studio.
@@ -29,13 +27,7 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-#if 0
-static char *rcsid = "@(#)sub.c,v 1.1 1994/02/01 00:34:44 alm Exp";
-#else
-__RCSID("$NetBSD: sub.c,v 1.5 1997/07/20 06:35:41 thorpej Exp $");
-#endif
-#endif /* not lint */
+__FBSDID("$FreeBSD: src/bin/ed/sub.c,v 1.15 2002/06/30 05:13:53 obrien Exp $");
 
 #include "ed.h"
 
@@ -46,9 +38,7 @@ int rhbufi;			/* rhs substitution buffer index */
 
 /* extract_subst_tail: extract substitution tail from the command buffer */
 int
-extract_subst_tail(flagp, np)
-	int *flagp;
-	long *np;
+extract_subst_tail(int *flagp, long *np)
 {
 	char delimiter;
 
@@ -79,7 +69,7 @@ extract_subst_tail(flagp, np)
 /* extract_subst_template: return pointer to copy of substitution template
    in the command buffer */
 char *
-extract_subst_template()
+extract_subst_template(void)
 {
 	int n = 0;
 	int i = 0;
@@ -88,7 +78,8 @@ extract_subst_template()
 
 	if (*ibufp == '%' && *(ibufp + 1) == delimiter) {
 		ibufp++;
-		if (!rhbuf) sprintf(errmsg, "no previous substitution");
+		if (!rhbuf)
+			errmsg = "no previous substitution";
 		return rhbuf;
 	}
 	while (*ibufp != delimiter) {
@@ -120,14 +111,11 @@ int rbufsz;			/* substitute_matching_text buffer size */
 /* search_and_replace: for each line in a range, change text matching a pattern
    according to a substitution template; return status  */
 int
-search_and_replace(pat, gflag, kth)
-	pattern_t *pat;
-	int gflag;
-	int kth;
+search_and_replace(pattern_t *pat, int gflag, int kth)
 {
 	undo_t *up;
-	char *txt;
-	char *eot;
+	const char *txt;
+	const char *eot;
 	long lc;
 	long xa = current_addr;
 	int nsubs = 0;
@@ -160,13 +148,14 @@ search_and_replace(pat, gflag, kth)
 			} while (txt != eot);
 			SPL0();
 			nsubs++;
+			/* 3751351 */
 			replace_marks(lp, get_addressed_line_node(current_addr));
 			xa = current_addr;
 		}
 	}
 	current_addr = xa;
 	if  (nsubs == 0 && !(gflag & GLB)) {
-		sprintf(errmsg, "no match");
+		errmsg = "no match";
 		return ERR;
 	} else if ((gflag & (GPR | GLS | GNP)) &&
 	    display_lines(current_addr, current_addr, gflag) < 0)
@@ -178,11 +167,7 @@ search_and_replace(pat, gflag, kth)
 /* substitute_matching_text: replace text matched by a pattern according to
    a substitution template; return pointer to the modified text */
 int
-substitute_matching_text(pat, lp, gflag, kth)
-	pattern_t *pat;
-	line_t *lp;
-	int gflag;
-	int kth;
+substitute_matching_text(pattern_t *pat, line_t *lp, int gflag, int kth)
 {
 	int off = 0;
 	int changed = 0;
@@ -194,7 +179,7 @@ substitute_matching_text(pat, lp, gflag, kth)
 
 	if ((txt = get_sbuf_line(lp)) == NULL)
 		return ERR;
-	if (isbinary) 
+	if (isbinary)
 		NUL_TO_NEWLINE(txt, lp->len);
 	eot = txt + lp->len;
 	if (!regexec(pat, txt, SE_MAX, rm, 0)) {
@@ -219,12 +204,13 @@ substitute_matching_text(pat, lp, gflag, kth)
 				off += i;
 			}
 			txt += rm[0].rm_eo;
-		} while (*txt && (!changed || ((gflag & GSG) && rm[0].rm_eo))
-		    && !regexec(pat, txt, SE_MAX, rm, REG_NOTBOL));
+		} while (*txt &&
+                        (!changed || ((gflag & GSG) && rm[0].rm_eo)) &&
+		        !regexec(pat, txt, SE_MAX, rm, REG_NOTBOL));
 		i = eot - txt;
 		REALLOC(rbuf, rbufsz, off + i + 2, ERR);
 		if (i > 0 && !rm[0].rm_eo && (gflag & GSG)) {
-			sprintf(errmsg, "infinite substitution loop");
+			errmsg = "infinite substitution loop";
 			return  ERR;
 		}
 		if (isbinary)
@@ -239,11 +225,7 @@ substitute_matching_text(pat, lp, gflag, kth)
 /* apply_subst_template: modify text according to a substitution template;
    return offset to end of modified text */
 int
-apply_subst_template(boln, rm, off, re_nsub)
-	char *boln;
-	regmatch_t *rm;
-	int off;
-	int re_nsub;
+apply_subst_template(const char *boln, regmatch_t *rm, int off, int re_nsub)
 {
 	int j = 0;
 	int k = 0;

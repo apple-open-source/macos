@@ -1,0 +1,51 @@
+Hi,
+
+This here's a patch for John F Haugh's "shadow" password program, to get
+it using "CrackLib".  I'm afraid I haven't had much opportunity to test
+it (I don't have the time or resources), but I'd like to know how you
+get on using it.
+
+Instructions:
+
+    1) Read the docs. Build and install CrackLib.
+
+    2) Install the latest version of "shadow" (patchlevel 6)
+     - available from comp.sources.misc archives everywhere.
+
+    It's spattered amongst several directories (being a initial
+    distribution, + patches), so you'll need the contents of:
+
+	usenet/comp.sources.misc/volume26/shadow
+	usenet/comp.sources.misc/volume28/shadow
+	usenet/comp.sources.misc/volume29/shadow
+	usenet/comp.sources.misc/volume30/shadow
+	usenet/comp.sources.misc/volume32/shadow
+
+    3) Install the enclosed file as "obscure.c" - it's only a
+       trivial change, you might like to hack it a bit yourself.
+
+    4) Edit the new "obscure.c" to change the value of:
+
+	CRACKLIB_DICTPATH
+
+       - to whatever you used during the CrackLib installation
+
+    5) Change the "shadow" Makefile to that shadow will be linked
+       with CrackLib, eg:
+
+    change:
+
+	LIBS = -lcrypt -lndbm
+
+    to:
+
+	LIBS = /where/ever/cracklib/cracklib.a -lcrypt -lndbm
+
+    6) Build and install "shadow"
+
+    7) Make sure you have obscure checks enabled
+
+    8) Run with it.
+
+
+					- alec (16 Jun 1993)

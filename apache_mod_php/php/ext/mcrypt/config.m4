@@ -1,9 +1,27 @@
 dnl
-dnl $Id: config.m4,v 1.24.4.4 2005/01/22 01:37:12 sniper Exp $
+dnl $Id: config.m4,v 1.31.4.1 2006/12/23 17:58:47 derick Exp $
 dnl 
 
+AC_DEFUN([PHP_MCRYPT_CHECK_VERSION],[
+  old_CPPFLAGS=$CPPFLAGS
+  CPPFLAGS=-I$MCRYPT_DIR/include
+  AC_MSG_CHECKING(for libmcrypt version)
+  AC_EGREP_CPP(yes,[
+#include <mcrypt.h>
+#if MCRYPT_API_VERSION >= 20021217
+  yes
+#endif
+  ],[
+    AC_MSG_RESULT(>= 2.5.6)
+  ],[
+    AC_MSG_ERROR(libmcrypt version 2.5.6 or greater required.)
+  ])
+  CPPFLAGS=$old_CPPFLAGS
+])  
+
+
 PHP_ARG_WITH(mcrypt, for mcrypt support,
-[  --with-mcrypt[=DIR]     Include mcrypt support.])
+[  --with-mcrypt[=DIR]     Include mcrypt support])
 
 if test "$PHP_MCRYPT" != "no"; then
   for i in $PHP_MCRYPT /usr/local /usr; do
@@ -14,49 +32,28 @@ if test "$PHP_MCRYPT" != "no"; then
     AC_MSG_ERROR(mcrypt.h not found. Please reinstall libmcrypt.)
   fi
 
+  PHP_MCRYPT_CHECK_VERSION
+
   PHP_CHECK_LIBRARY(mcrypt, mcrypt_module_open, 
   [
     PHP_ADD_LIBRARY(ltdl,, MCRYPT_SHARED_LIBADD)
-    AC_DEFINE(HAVE_LIBMCRYPT24,1,[ ])
-
-    PHP_CHECK_LIBRARY(mcrypt, mcrypt_generic_deinit, 
-    [
-      AC_DEFINE(HAVE_MCRYPT_GENERIC_DEINIT,1,[ ])
-    ],[],[
-      -L$MCRYPT_DIR/lib -lltdl
-    ])
-
+    AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
   ],[
     PHP_CHECK_LIBRARY(mcrypt, mcrypt_module_open,
     [
-      AC_DEFINE(HAVE_LIBMCRYPT24,1,[ ])
-
-      PHP_CHECK_LIBRARY(mcrypt, mcrypt_generic_deinit,
-      [
-        AC_DEFINE(HAVE_MCRYPT_GENERIC_DEINIT,1,[ ])
-      ],[],[
-        -L$MCRYPT_DIR/lib
-      ])
+      AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
     ],[
-      PHP_CHECK_LIBRARY(mcrypt, init_mcrypt, 
-      [
-        AC_DEFINE(HAVE_LIBMCRYPT22,1,[ ])
-      ],[
-        AC_MSG_ERROR([Sorry, I was not able to diagnose which libmcrypt version you have installed.])
-      ],[
-        -L$MCRYPT_DIR/lib
-      ])
+      AC_MSG_ERROR([Sorry, I was not able to diagnose which libmcrypt version you have installed.])
     ],[
-      -L$MCRYPT_DIR/lib
+      -L$MCRYPT_DIR/$PHP_LIBDIR
     ])
   ],[
-    -L$MCRYPT_DIR/lib -lltdl
+    -L$MCRYPT_DIR/$PHP_LIBDIR -lltdl
   ])
 
-  PHP_ADD_LIBRARY_WITH_PATH(mcrypt, $MCRYPT_DIR/lib, MCRYPT_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(mcrypt, $MCRYPT_DIR/$PHP_LIBDIR, MCRYPT_SHARED_LIBADD)
   PHP_ADD_INCLUDE($MCRYPT_DIR/include)
 
-  PHP_NEW_EXTENSION(mcrypt, mcrypt.c, $ext_shared)
   PHP_SUBST(MCRYPT_SHARED_LIBADD)
-  AC_DEFINE(HAVE_LIBMCRYPT,1,[ ])
+  PHP_NEW_EXTENSION(mcrypt, mcrypt.c, $ext_shared)
 fi

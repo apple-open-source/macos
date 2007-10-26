@@ -127,7 +127,8 @@ if !exists("*s:SpecChangelog")
 	endfunction
 endif
 
-function s:ParseRpmVars(str, strline)
+if !exists("*s:ParseRpmVars")
+    function s:ParseRpmVars(str, strline)
 	let end = -1
 	let ret = ""
 	while (1)
@@ -153,7 +154,8 @@ function s:ParseRpmVars(str, strline)
 		endif
 	endwhile
 	return ret
-endfunction
+    endfunction
+endif
 
 " The following lines, along with the macros/matchit.vim plugin,
 " make it easy to navigate the different sections of a spec file

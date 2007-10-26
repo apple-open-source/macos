@@ -60,6 +60,7 @@ enum {
 #define kInterruptControllerNameKey   "InterruptControllerName"
 #define kDestinationAPICIDKey         "Destination APIC ID"
 #define kBaseVectorNumberKey          "Base Vector Number"
+#define kVectorCountKey               "Vector Count"
 #define kPhysicalAddressKey           "Physical Address"
 #define kTimerVectorNumberKey         "Timer Vector Number"
 
@@ -67,13 +68,6 @@ enum {
  * callPlatformFunction function names.
  */
 #define kHandleSleepWakeFunction      "HandleSleepWake"
-
-/*
- * This must agree with the trap number reported by the low-level
- * interrupt handler (osfmk/i386/locore.s).
- */
-enum {
-    kBaseIOInterruptVectors = 0x40
-};
+#define kSetVectorPhysicalDestination "SetVectorPhysicalDestination"
 
 #endif /* !_IOKIT_PICSHARED_H */

@@ -36,26 +36,36 @@
 .Dt GETPROTOENT 3
 .Os
 .Sh NAME
-.Nm getprotoent ,
-.Nm getprotobynumber ,
+.Nm endprotoent ,
 .Nm getprotobyname ,
-.Nm setprotoent ,
-.Nm endprotoent
+.Nm getprotobynumber ,
+.Nm getprotoent ,
+.Nm setprotoent
 .Nd get protocol entry
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .Fd #include <netdb.h>
-.Ft struct protoent *
-.Fn getprotoent void
-.Ft struct protoent *
-.Fn getprotobyname "const char *name"
-.Ft struct protoent *
-.Fn getprotobynumber "int proto"
 .Ft void
-.Fn setprotoent "int stayopen"
+.Fo endprotoent
+.Fa void
+.Fc
+.Ft struct protoent *
+.Fo getprotobyname
+.Fa "const char *name"
+.Fc
+.Ft struct protoent *
+.Fo getprotobynumber
+.Fa "int proto"
+.Fc
+.Ft struct protoent *
+.Fo getprotoent
+.Fa void
+.Fc
 .Ft void
-.Fn endprotoent void
+.Fo setprotoent
+.Fa "int stayopen"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn getprotoent ,

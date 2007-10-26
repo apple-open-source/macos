@@ -78,13 +78,13 @@ bool DefaultCredentials::operator () (Db database)
 						keyReferral(**it);
 						break;
 					default:
-						secdebug("kcreferral", "referral type %ld (to %s) not supported",
-							(*it)->type(), (*it)->dbName().c_str());
+						secdebug("kcreferral", "referral type %lu (to %s) not supported",
+							(unsigned long)(*it)->type(), (*it)->dbName().c_str());
 						break;
 					}
 				}
 			}
-			secdebug("kcreferral", "%ld samples generated", size());
+			secdebug("kcreferral", "%lu samples generated", (unsigned long)size());
 		} catch (...) {
 			secdebug("kcreferral", "exception setting default credentials for %s; using standard value", database->name());
 		}
@@ -102,7 +102,7 @@ bool DefaultCredentials::operator () (Db database)
 void DefaultCredentials::keyReferral(const UnlockReferralRecord &ref)
 {
 	secdebug("kcreferral", "processing type %ld referral to %s",
-		ref.type(), ref.dbName().c_str());
+		(long)ref.type(), ref.dbName().c_str());
 	DLDbIdentifier identifier(ref.dbName().c_str(), ref.dbGuid(), ref.dbSSID(), ref.dbSSType());
 
 	// first, try the keychain indicated
@@ -149,12 +149,15 @@ bool DefaultCredentials::unlockKey(const UnlockReferralRecord &ref, const Keycha
 			// get the CSP handle FOR THE UNLOCKING KEY'S KEYCHAIN
 			CSSM_CSP_HANDLE cspHandle = key->csp()->handle();
 
-			// symmetric-key form: KCLOCK, SYMMETRIC_KEY, cspHandle, masterKey
+			// (a)symmetric-key form: KCLOCK, (A)SYMMETRIC_KEY, cspHandle, masterKey
+			// Note that the last list element ("ref") is doing an implicit cast to a
+			// CssmData, which passes the data portion of the UnlockReferralRecord
 			append(TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
-				new(allocator) ListElement(CSSM_WORDID_SYMMETRIC_KEY),
+				new(allocator) ListElement((recordType==CSSM_DL_DB_RECORD_SYMMETRIC_KEY)?
+					CSSM_WORDID_SYMMETRIC_KEY:CSSM_WORDID_ASYMMETRIC_KEY),
 				new(allocator) ListElement(allocator, CssmData::wrap(cspHandle)),
 				new(allocator) ListElement(allocator, CssmData::wrap(masterKey)),
-				new(allocator) ListElement(allocator, ref)
+				new(allocator) ListElement(allocator, ref.get())		
 				));
 
 			// let's make sure everything we need stays around

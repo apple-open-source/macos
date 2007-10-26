@@ -53,12 +53,12 @@ libbz2.a: $(OBJS)
 	fi
 
 libbz2.dylib: $(OBJS)
-	rm -f libbz2.1.0.3.dylib libbz2.1.0.dylib
-	$(CC) $(LDFLAGS) -dynamiclib -o libbz2.1.0.3.dylib $(OBJS) \
+	rm -f libbz2.$(BZIP2_VERSION).dylib libbz2.1.0.dylib
+	$(CC) $(LDFLAGS) -dynamiclib -o libbz2.$(BZIP2_VERSION).dylib $(OBJS) \
 		-install_name $(PREFIX)/lib/libbz2.1.0.dylib \
-		-compatibility_version 1.0 -current_version 1.0.3
-	ln -s libbz2.1.0.3.dylib libbz2.1.0.dylib
-	ln -s libbz2.1.0.3.dylib libbz2.dylib
+		-compatibility_version 1.0 -current_version $(BZIP2_VERSION)
+	ln -s libbz2.$(BZIP2_VERSION).dylib libbz2.1.0.dylib
+	ln -s libbz2.$(BZIP2_VERSION).dylib libbz2.dylib
 
 check: test
 test: bzip2
@@ -98,10 +98,10 @@ install: bzip2 bzip2recover
 	chmod a+r $(PREFIX)/include/bzlib.h
 	cp -f libbz2.a $(PREFIX)/local/lib
 	chmod a+r $(PREFIX)/local/lib/libbz2.a
-	cp -f libbz2.1.0.3.dylib $(PREFIX)/lib
-	ln -s libbz2.1.0.3.dylib $(PREFIX)/lib/libbz2.1.0.dylib
-	ln -s libbz2.1.0.3.dylib $(PREFIX)/lib/libbz2.dylib
-	chmod a+r $(PREFIX)/lib/libbz2.1.0.3.dylib
+	cp -f libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib
+	ln -s libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib/libbz2.1.0.dylib
+	ln -s libbz2.$(BZIP2_VERSION).dylib $(PREFIX)/lib/libbz2.dylib
+	chmod a+r $(PREFIX)/lib/libbz2.$(BZIP2_VERSION).dylib
 	cp -f bzgrep $(PREFIX)/bin/bzgrep
 	ln -s -f bzgrep $(PREFIX)/bin/bzegrep
 	ln -s -f bzgrep $(PREFIX)/bin/bzfgrep

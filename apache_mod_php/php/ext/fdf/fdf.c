@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: fdf.c,v 1.66.2.13.2.5 2007/03/05 22:12:19 stas Exp $ */
+/* $Id: fdf.c,v 1.89.2.2.2.9 2007/03/05 21:54:46 stas Exp $ */
 
 /* FdfTk lib 2.0 is a Complete C/C++ FDF Toolkit available from
    http://beta1.adobe.com/ada/acrosdk/forms.html. */
@@ -47,49 +47,279 @@ static int le_fdf;
 
 SAPI_POST_HANDLER_FUNC(fdf_post_handler);
 
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_open, 0)
+	ZEND_ARG_INFO(0, filename)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_open_string, 0)
+	ZEND_ARG_INFO(0, fdf_data)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_create, 0)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_close, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_get_value, 0, 0, 2)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, which)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_set_value, 0, 0, 3)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, value)
+	ZEND_ARG_INFO(0, isname)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_next_field_name, 0, 0, 1)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_ap, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, face)
+	ZEND_ARG_INFO(0, filename)
+	ZEND_ARG_INFO(0, pagenr)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_ap, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, face)
+	ZEND_ARG_INFO(0, filename)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_encoding, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_status, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, status)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_status, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_set_file, 0, 0, 2)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, filename)
+	ZEND_ARG_INFO(0, target_frame)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_file, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_save, 0, 0, 1)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, filename)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_save_string, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_add_template, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, newpage)
+	ZEND_ARG_INFO(0, filename)
+	ZEND_ARG_INFO(0, template)
+	ZEND_ARG_INFO(0, rename)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_flags, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, whichflags)
+	ZEND_ARG_INFO(0, newflags)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_flags, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, whichflags)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_opt, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, element)
+	ZEND_ARG_INFO(0, value)
+	ZEND_ARG_INFO(0, name)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_get_opt, 0, 0, 2)
+	ZEND_ARG_INFO(0, fdfdof)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, element)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_submit_form_action, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, whichtrigger)
+	ZEND_ARG_INFO(0, url)
+	ZEND_ARG_INFO(0, flags)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_javascript_action, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, whichtrigger)
+	ZEND_ARG_INFO(0, script)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_encoding, 0)
+	ZEND_ARG_INFO(0, fdf_document)
+	ZEND_ARG_INFO(0, encoding)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_errno, 0)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_error, 0)
+	ZEND_ARG_INFO(0, errno)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_get_version, 0, 0, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_version, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, version)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_add_doc_javascript, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, scriptname)
+	ZEND_ARG_INFO(0, script)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_on_import_javascript, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, script)
+	ZEND_ARG_INFO(0, before_data_import)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_set_target_frame, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, target)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_remove_item, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, item)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_get_attachment, 0)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, fieldname)
+	ZEND_ARG_INFO(0, savepath)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO_EX(arginfo_fdf_enum_values, 0, 0, 2)
+	ZEND_ARG_INFO(0, fdfdoc)
+	ZEND_ARG_INFO(0, function)
+	ZEND_ARG_INFO(0, userdata)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_fdf_header, 0)
+ZEND_END_ARG_INFO()
+
+/* }}} */
+
 /* {{{ fdf_functions[]
  */
-function_entry fdf_functions[] = {
-	PHP_FE(fdf_add_template,						NULL)
-	PHP_FE(fdf_close,								NULL)
-	PHP_FE(fdf_create,								NULL)
-	PHP_FE(fdf_enum_values,                         NULL)
-	PHP_FE(fdf_errno,        						NULL)
-	PHP_FE(fdf_error,        						NULL)
-	PHP_FE(fdf_get_ap,								NULL)
-	PHP_FE(fdf_get_encoding,						NULL)
-	PHP_FE(fdf_get_file,							NULL)
-	PHP_FE(fdf_get_flags,							NULL)
-	PHP_FE(fdf_get_opt,								NULL)
-	PHP_FE(fdf_get_status,							NULL)
-	PHP_FE(fdf_get_value,							NULL)
-	PHP_FE(fdf_get_version,                         NULL)
-	PHP_FE(fdf_next_field_name,						NULL)
-	PHP_FE(fdf_open,								NULL)
-	PHP_FE(fdf_open_string,							NULL)
-	PHP_FE(fdf_remove_item,                         NULL)
-	PHP_FE(fdf_save,								NULL)
-	PHP_FE(fdf_save_string,	        				NULL)
-	PHP_FE(fdf_set_ap,								NULL)
-	PHP_FE(fdf_set_encoding,						NULL)
-	PHP_FE(fdf_set_file,							NULL)
-	PHP_FE(fdf_set_flags,							NULL)
-	PHP_FE(fdf_set_javascript_action,				NULL)
-	PHP_FE(fdf_set_opt,								NULL)
-	PHP_FE(fdf_set_status,							NULL)
-	PHP_FE(fdf_set_submit_form_action,				NULL)
-	PHP_FE(fdf_set_value,							NULL)
-	PHP_FE(fdf_header,                              NULL)
+zend_function_entry fdf_functions[] = {
+	PHP_FE(fdf_add_template,						arginfo_fdf_add_template)
+	PHP_FE(fdf_close,								arginfo_fdf_close)
+	PHP_FE(fdf_create,								arginfo_fdf_create)
+	PHP_FE(fdf_enum_values,                         arginfo_fdf_enum_values)
+	PHP_FE(fdf_errno,        						arginfo_fdf_errno)
+	PHP_FE(fdf_error,        						arginfo_fdf_error)
+	PHP_FE(fdf_get_ap,								arginfo_fdf_get_ap)
+	PHP_FE(fdf_get_encoding,						arginfo_fdf_get_encoding)
+	PHP_FE(fdf_get_file,							arginfo_fdf_get_file)
+	PHP_FE(fdf_get_flags,							arginfo_fdf_get_flags)
+	PHP_FE(fdf_get_opt,								arginfo_fdf_get_opt)
+	PHP_FE(fdf_get_status,							arginfo_fdf_get_status)
+	PHP_FE(fdf_get_value,							arginfo_fdf_get_value)
+	PHP_FE(fdf_get_version,                         arginfo_fdf_get_version)
+	PHP_FE(fdf_next_field_name,						arginfo_fdf_next_field_name)
+	PHP_FE(fdf_open,								arginfo_fdf_open)
+	PHP_FE(fdf_open_string,							arginfo_fdf_open_string)
+	PHP_FE(fdf_remove_item,                         arginfo_fdf_remove_item)
+	PHP_FE(fdf_save,								arginfo_fdf_save)
+	PHP_FE(fdf_save_string,	        				arginfo_fdf_save_string)
+	PHP_FE(fdf_set_ap,								arginfo_fdf_set_ap)
+	PHP_FE(fdf_set_encoding,						arginfo_fdf_set_encoding)
+	PHP_FE(fdf_set_file,							arginfo_fdf_set_file)
+	PHP_FE(fdf_set_flags,							arginfo_fdf_set_flags)
+	PHP_FE(fdf_set_javascript_action,				arginfo_fdf_set_javascript_action)
+	PHP_FE(fdf_set_opt,								arginfo_fdf_set_opt)
+	PHP_FE(fdf_set_status,							arginfo_fdf_set_status)
+	PHP_FE(fdf_set_submit_form_action,				arginfo_fdf_set_submit_form_action)
+	PHP_FE(fdf_set_value,							arginfo_fdf_set_value)
+	PHP_FE(fdf_header,                              arginfo_fdf_header)
 #ifdef HAVE_FDFTK_5
-	PHP_FE(fdf_add_doc_javascript,                  NULL)
-	PHP_FE(fdf_get_attachment,                      NULL)
-	PHP_FE(fdf_set_on_import_javascript,            NULL)
-	PHP_FE(fdf_set_target_frame,                    NULL)
-	PHP_FE(fdf_set_version,                         NULL)
+	PHP_FE(fdf_add_doc_javascript,                  arginfo_fdf_add_doc_javascript)
+	PHP_FE(fdf_get_attachment,                      arginfo_fdf_get_attachment)
+	PHP_FE(fdf_set_on_import_javascript,            arginfo_fdf_set_on_import_javascript)
+	PHP_FE(fdf_set_target_frame,                    arginfo_fdf_set_target_frame)
+	PHP_FE(fdf_set_version,                         arginfo_fdf_set_version)
 #endif
 	{NULL, NULL, NULL}
 };
 /* }}} */
+
+ZEND_DECLARE_MODULE_GLOBALS(fdf)
+static PHP_GINIT_FUNCTION(fdf);
 
 zend_module_entry fdf_module_entry = {
     STANDARD_MODULE_HEADER,
@@ -101,14 +331,16 @@ zend_module_entry fdf_module_entry = {
 	NULL,
 	PHP_MINFO(fdf), 
     NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
+    PHP_MODULE_GLOBALS(fdf),
+    PHP_GINIT(fdf),
+    NULL,
+    NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 
 #ifdef COMPILE_DL_FDF
 ZEND_GET_MODULE(fdf)
 #endif
-
-ZEND_DECLARE_MODULE_GLOBALS(fdf)
 
 #define FDF_SUCCESS do { FDF_G(error)=FDFErcOK; RETURN_TRUE;} while(0)
 #define FDF_FAILURE(err)  do { FDF_G(error)=err; RETURN_FALSE;} while(0)
@@ -129,21 +361,21 @@ static sapi_post_entry php_fdf_post_entry =	{
 	fdf_post_handler
 };
 
-static void php_fdf_init_globals(zend_fdf_globals *fdf_globals)
+static PHP_GINIT_FUNCTION(fdf)
 {
 	memset(fdf_globals, 0, sizeof(*fdf_globals));
 }
+
+
 
 /* {{{ PHP_MINIT_FUNCTION
  */
 PHP_MINIT_FUNCTION(fdf)
 {
-	ZEND_INIT_MODULE_GLOBALS(fdf, php_fdf_init_globals, NULL);
-
 	le_fdf = zend_register_list_destructors_ex(phpi_FDFClose, NULL, "fdf", module_number);
 
  	/* add handler for Acrobat FDF form post requests */
-	sapi_register_post_entry(&php_fdf_post_entry);
+	sapi_register_post_entry(&php_fdf_post_entry TSRMLS_CC);
 
 
 	/* Constants used by fdf_set_opt() */ 
@@ -171,6 +403,7 @@ PHP_MINIT_FUNCTION(fdf)
 	REGISTER_LONG_CONSTANT("FDFUp", FDFUp, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDFFormat", FDFFormat, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDFValidate", FDFValidate, CONST_CS | CONST_PERSISTENT);
+
 	REGISTER_LONG_CONSTANT("FDFKeystroke", FDFKeystroke, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDFCalculate", FDFCalculate, CONST_CS | CONST_PERSISTENT);
 
@@ -178,7 +411,7 @@ PHP_MINIT_FUNCTION(fdf)
 	REGISTER_LONG_CONSTANT("FDFNormalAP", 1, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDFRolloverAP", 2, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("FDFDownAP", 3, CONST_CS | CONST_PERSISTENT);
-	
+
 #ifdef PHP_WIN32
 	return SUCCESS;
 #else
@@ -190,6 +423,7 @@ PHP_MINIT_FUNCTION(fdf)
 /* {{{ RINIT */
 PHP_RINIT_FUNCTION(fdf)
 {
+	FDF_G(error) = FDFErcOK;
 	return SUCCESS;
 }
 /* }}} */
@@ -211,7 +445,7 @@ PHP_MINFO_FUNCTION(fdf)
 PHP_MSHUTDOWN_FUNCTION(fdf)
 {
 	/* remove handler for Acrobat FDF form post requests */
-	sapi_unregister_post_entry(&php_fdf_post_entry); 
+	sapi_unregister_post_entry(&php_fdf_post_entry TSRMLS_CC); 
 
 #ifdef PHP_WIN32
 	return SUCCESS;
@@ -309,7 +543,7 @@ PHP_FUNCTION(fdf_create)
 }
 /* }}} */
 
-/* {{{ proto bool fdf_close(resource fdfdoc)
+/* {{{ proto void fdf_close(resource fdfdoc)
    Closes the FDF document */
 PHP_FUNCTION(fdf_close) 
 {
@@ -387,7 +621,7 @@ PHP_FUNCTION(fdf_get_value)
 #endif
 	}
 
-	if ((err != FDFErcOK) && (err != FDFErcNoValue)) {
+	if((err != FDFErcOK) && (err != FDFErcNoValue)) {
 		if(buffer) efree(buffer);
 		FDF_FAILURE(err);
 	}
@@ -780,7 +1014,7 @@ PHP_FUNCTION(fdf_get_file)
 }
 /* }}} */
 
-/* {{{ proto mixed fdf_save(resource fdfdoc [, string filename])
+/* {{{ proto bool fdf_save(resource fdfdoc [, string filename])
    Writes out the FDF file */
 PHP_FUNCTION(fdf_save) 
 {
@@ -837,7 +1071,7 @@ PHP_FUNCTION(fdf_save)
 } 
 /* }}} */
 
-/* {{{ proto mixed fdf_save_string(resource fdfdoc)
+/* {{{ proto string fdf_save_string(resource fdfdoc)
    Returns the FDF file as a string */
 PHP_FUNCTION(fdf_save_string) 
 {
@@ -1208,10 +1442,15 @@ SAPI_POST_HANDLER_FUNC(fdf_post_handler)
 			if(nBytes>0) {
 				err = FDFGetValue(theFDF, name, value, value_len-1, &nBytes);
 				if(err == FDFErcOK && nBytes != 0) {
+					unsigned int new_val_len;
+
 					for(p=value;*p;p++) if(*p=='\r') *p='\n';
 					if(lastfieldname) efree(lastfieldname);
 					lastfieldname = estrdup(name);
-					php_register_variable(name, value, array_ptr TSRMLS_CC);
+
+					if (sapi_module.input_filter(PARSE_POST, name, &value, nBytes, &new_val_len TSRMLS_CC)) {
+						php_register_variable_safe(name, value, new_val_len, array_ptr TSRMLS_CC);
+					}
 				} 
 			}
 		}   
@@ -1379,7 +1618,7 @@ PHP_FUNCTION(fdf_add_doc_javascript) {
 }
 /* }}} */
 
-/* {{{ proto bool fdf_set_on_import_javascript(resource fdfdoc, string script [, bool before_data_import])
+/* {{{ proto bool fdf_set_on_import_javascript(resource fdfdoc, string script, bool before_data_import)
    Adds javascript code to be executed when Acrobat opens the FDF */
 PHP_FUNCTION(fdf_set_on_import_javascript) {
 	zval *r_fdf;
@@ -1578,14 +1817,6 @@ PHP_FUNCTION(fdf_enum_values) {
 	}
 
 	ZEND_FETCH_RESOURCE(fdf, FDFDoc *, &r_fdf, -1, "fdf", le_fdf);
-
-	if (Z_TYPE_P(callback) != IS_ARRAY && 
-		Z_TYPE_P(callback) != IS_STRING) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Wrong syntax for function name");
-		RETURN_FALSE;
-	}
-
-	convert_to_string_ex(&callback);
 
 	if (!zend_is_callable(callback, 0, &name)) {
 		php_error_docref1(NULL TSRMLS_CC, name, E_WARNING, "Second argument is expected to be a valid callback");

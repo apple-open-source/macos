@@ -1,0 +1,428 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXApplicationTarget section */
+		29B97326FDCFA39411CA2CEA /* RoundTransparentWindow */ = {
+			isa = PBXApplicationTarget;
+			buildConfigurationList = 2298EA4009B4472A00DBC147 /* Build configuration list for PBXApplicationTarget "RoundTransparentWindow" */;
+			buildPhases = (
+				29B97327FDCFA39411CA2CEA /* Headers */,
+				29B97328FDCFA39411CA2CEA /* Resources */,
+				29B9732BFDCFA39411CA2CEA /* Sources */,
+				29B9732DFDCFA39411CA2CEA /* Frameworks */,
+				043355C9FE30361CC02AAC07 /* Rez */,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = RoundTransparentWindow;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+			};
+			dependencies = (
+			);
+			name = RoundTransparentWindow;
+			productInstallPath = "$(HOME)/Applications";
+			productName = TransparentWindow;
+			productReference = 17587328FF379C6511CA2CBB /* RoundTransparentWindow.app */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>RoundTransparentWindow</string>
+	<key>CFBundleGetInfoString</key>
+	<string>RoundTransparentWindow Sample Code</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>RoundTransparentWindow</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.1</string>
+	<key>NSHelpFile</key>
+	<string>ReadMe.html</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+</dict>
+</plist>
+";
+		};
+/* End PBXApplicationTarget section */
+
+/* Begin PBXBuildFile section */
+		016AEBDA00065A0911CB1529 /* pentagon.tif in Resources */ = {isa = PBXBuildFile; fileRef = 016AEBD900065A0911CB1529 /* pentagon.tif */; };
+		025E71590062A3557F000001 /* ReadMe.html in Resources */ = {isa = PBXBuildFile; fileRef = 025E71580062A3557F000001 /* ReadMe.html */; };
+		04C2D0EBFFA109D011CB1529 /* circle.tif in Resources */ = {isa = PBXBuildFile; fileRef = 04C2D0EAFFA109D011CB1529 /* circle.tif */; };
+		080E96DCFE201CFB7F000001 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
+		1058C7A3FEA54F0111CA2CBB /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+		2237124809B4DC7C00E4B8B6 /* README in Resources */ = {isa = PBXBuildFile; fileRef = 2237124709B4DC7C00E4B8B6 /* README */; };
+		22FD724A09B4BE0F00E1BEFD /* RubyCocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 22FD724909B4BE0F00E1BEFD /* RubyCocoa.framework */; };
+		22FD725809B4BE6200E1BEFD /* rb_main.rb in Resources */ = {isa = PBXBuildFile; fileRef = 22FD725709B4BE6200E1BEFD /* rb_main.rb */; };
+		22FD727409B4BF5100E1BEFD /* RTW.rb in Resources */ = {isa = PBXBuildFile; fileRef = 22FD727309B4BF5100E1BEFD /* RTW.rb */; };
+		29B9732CFDCFA39411CA2CEA /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
+		3123626F00F242E30B000001 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3123626E00F242E30B000001 /* ApplicationServices.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		0153C382FFE560D811CB1529 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		0153C383FFE560D811CB1529 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		016AEBD900065A0911CB1529 /* pentagon.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = pentagon.tif; sourceTree = "<group>"; };
+		025E71580062A3557F000001 /* ReadMe.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = ReadMe.html; sourceTree = "<group>"; };
+		04C2D0EAFFA109D011CB1529 /* circle.tif */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = circle.tif; sourceTree = "<group>"; };
+		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		17587328FF379C6511CA2CBB /* RoundTransparentWindow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = RoundTransparentWindow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2237124709B4DC7C00E4B8B6 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		22FD724909B4BE0F00E1BEFD /* RubyCocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RubyCocoa.framework; path = /Library/Frameworks/RubyCocoa.framework; sourceTree = "<absolute>"; };
+		22FD725709B4BE6200E1BEFD /* rb_main.rb */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.ruby; path = rb_main.rb; sourceTree = "<group>"; };
+		22FD727309B4BF5100E1BEFD /* RTW.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = RTW.rb; sourceTree = "<group>"; };
+		29B97316FDCFA39411CA2CEA /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		3123626E00F242E30B000001 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		29B9732DFDCFA39411CA2CEA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1058C7A3FEA54F0111CA2CBB /* Cocoa.framework in Frameworks */,
+				3123626F00F242E30B000001 /* ApplicationServices.framework in Frameworks */,
+				22FD724A09B4BE0F00E1BEFD /* RubyCocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		080E96DDFE201D6D7F000001 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
+				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FACFE9D520D11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				17587328FF379C6511CA2CBB /* RoundTransparentWindow.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		22FD724D09B4BE2C00E1BEFD /* Ruby */ = {
+			isa = PBXGroup;
+			children = (
+				22FD725709B4BE6200E1BEFD /* rb_main.rb */,
+				22FD727309B4BF5100E1BEFD /* RTW.rb */,
+			);
+			name = Ruby;
+			sourceTree = "<group>";
+		};
+		29B97314FDCFA39411CA2CEA /* TransparentWindow */ = {
+			isa = PBXGroup;
+			children = (
+				22FD724D09B4BE2C00E1BEFD /* Ruby */,
+				22FD724909B4BE0F00E1BEFD /* RubyCocoa.framework */,
+				080E96DDFE201D6D7F000001 /* Classes */,
+				29B97315FDCFA39411CA2CEA /* Other Sources */,
+				29B97317FDCFA39411CA2CEA /* Resources */,
+				29B97323FDCFA39411CA2CEA /* Frameworks */,
+				19C28FACFE9D520D11CA2CBB /* Products */,
+				2237124709B4DC7C00E4B8B6 /* README */,
+			);
+			name = TransparentWindow;
+			sourceTree = "<group>";
+		};
+		29B97315FDCFA39411CA2CEA /* Other Sources */ = {
+			isa = PBXGroup;
+			children = (
+				29B97316FDCFA39411CA2CEA /* main.m */,
+			);
+			name = "Other Sources";
+			sourceTree = "<group>";
+		};
+		29B97317FDCFA39411CA2CEA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				025E71580062A3557F000001 /* ReadMe.html */,
+				04C2D0EAFFA109D011CB1529 /* circle.tif */,
+				016AEBD900065A0911CB1529 /* pentagon.tif */,
+				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
+				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
+				3123626E00F242E30B000001 /* ApplicationServices.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		29B97327FDCFA39411CA2CEA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXProject section */
+		29B97313FDCFA39411CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 2298EA4409B4472A00DBC147 /* Build configuration list for PBXProject "RoundTransparentWindow" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				0153C382FFE560D811CB1529 /* Development */,
+				0153C383FFE560D811CB1529 /* Deployment */,
+			);
+			hasScannedForEncodings = 0;
+			mainGroup = 29B97314FDCFA39411CA2CEA /* TransparentWindow */;
+			projectDirPath = "";
+			targets = (
+				29B97326FDCFA39411CA2CEA /* RoundTransparentWindow */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		29B97328FDCFA39411CA2CEA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				080E96DCFE201CFB7F000001 /* MainMenu.nib in Resources */,
+				04C2D0EBFFA109D011CB1529 /* circle.tif in Resources */,
+				016AEBDA00065A0911CB1529 /* pentagon.tif in Resources */,
+				025E71590062A3557F000001 /* ReadMe.html in Resources */,
+				22FD725809B4BE6200E1BEFD /* rb_main.rb in Resources */,
+				22FD727409B4BF5100E1BEFD /* RTW.rb in Resources */,
+				2237124809B4DC7C00E4B8B6 /* README in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		043355C9FE30361CC02AAC07 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		29B9732BFDCFA39411CA2CEA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				29B9732CFDCFA39411CA2CEA /* main.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		29B97318FDCFA39411CA2CEA /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				29B97319FDCFA39411CA2CEA /* English */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		2298EA4109B4472A00DBC147 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = RoundTransparentWindow;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		2298EA4209B4472A00DBC147 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = RoundTransparentWindow;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		2298EA4309B4472A00DBC147 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = RoundTransparentWindow;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+			};
+			name = Default;
+		};
+		2298EA4509B4472A00DBC147 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		2298EA4609B4472A00DBC147 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		2298EA4709B4472A00DBC147 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2298EA4009B4472A00DBC147 /* Build configuration list for PBXApplicationTarget "RoundTransparentWindow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2298EA4109B4472A00DBC147 /* Development */,
+				2298EA4209B4472A00DBC147 /* Deployment */,
+				2298EA4309B4472A00DBC147 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		2298EA4409B4472A00DBC147 /* Build configuration list for PBXProject "RoundTransparentWindow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2298EA4509B4472A00DBC147 /* Development */,
+				2298EA4609B4472A00DBC147 /* Deployment */,
+				2298EA4709B4472A00DBC147 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
+}

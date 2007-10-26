@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* { dg-do compile { target i?86-*-* x86_64-*-* } } */
 /* { dg-options "-O2 -march=k8" } */
 /* { dg-final { scan-assembler "sar\[^\\n\]*magic_namea" } } */
@@ -9,15 +10,15 @@
 
 /* Check code generation for several conditional moves doable by single arithmetics.  */
 
-int magic_namea;
-char magic_nameb;
-short magic_namec;
-int magic_named;
-char magic_namee;
-short magic_namef;
+static int magic_namea;
+static char magic_nameb;
+static short magic_namec;
+static int magic_named;
+static char magic_namee;
+static short magic_namef;
 
 unsigned int gen;
-m()
+void m(void)
 {
   magic_namec=magic_namec>=0?0:-1;
   magic_namea=magic_namea>=0?0:-1;
@@ -26,4 +27,3 @@ m()
   magic_namee=magic_namee>=0?0:1;
   magic_namef=magic_namef>=0?0:1;
 }
-

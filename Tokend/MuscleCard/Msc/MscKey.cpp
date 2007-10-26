@@ -40,8 +40,9 @@ void MscKey::importKey(const MSCKeyACL& keyACL,const void *keyBlob,size_t keyBlo
 
 void MscKey::exportKey(void *keyBlob,size_t keyBlobSize,MSCPVoid32 pAddParams, MSCUChar8 addParamsSize)
 {
+	uint32_t kbs = keyBlobSize;
 	MSC_RV rv = MSCExportKey(&Required(mConnection),number(),
-		reinterpret_cast<MSCPUChar8>(keyBlob),&keyBlobSize,pAddParams,addParamsSize);
+		reinterpret_cast<MSCPUChar8>(keyBlob),&kbs,pAddParams,addParamsSize);
 	if (rv!=MSC_SUCCESS)
 		MscError::throwMe(rv);
 }
@@ -151,8 +152,10 @@ void MscKey::computeCrypt(MSCUChar8 cipherMode, MSCUChar8 cipherDirection,
 	MSCUChar8 *outputData, size_t &outputDataSize)
 {
 	MSCCryptInit cryptInit = { number(), cipherMode, cipherDirection, };
+	uint32_t outsz = outputDataSize;
 	MSC_RV rv = MSCComputeCrypt(mConnection, &cryptInit, const_cast<MSCUChar8 *>(inputData),
-		inputDataSize, outputData, &outputDataSize);
+		inputDataSize, outputData, &outsz);
+	outputDataSize = outsz;
 	if (rv != MSC_SUCCESS)
 		MscError::throwMe(rv);
 }
@@ -165,5 +168,3 @@ void MscKey::debugDump()
 }
 #endif /* !defined(DEBUGDUMP) */
 
-
-/* arch-tag: 952FB8DC-BE68-11D8-AD35-000A95C4302E */

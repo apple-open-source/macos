@@ -35,67 +35,141 @@
 
 // system
 #import <IOKit/IOWorkLoop.h>
+#import <IOKit/IOLocksPrivate.h>
+
+SInt32 IOFWWorkLoop::sLockGroupCount = 0;
 
 OSDefineMetaClassAndStructors( IOFWWorkLoop, IOWorkLoop )
+
+// workLoop
+//
+// factory method
 
 IOFWWorkLoop * IOFWWorkLoop::workLoop()
 {
     IOFWWorkLoop *loop;
     
     loop = new IOFWWorkLoop;
-    if(!loop)
+    if( !loop )
         return loop;
-    if(!loop->init()) {
+		
+    if( !loop->init() ) 
+	{
         loop->release();
         loop = NULL;
     }
+	
     return loop;
 }
+
+// init
+//
+//
+
+bool IOFWWorkLoop::init( void )
+{
+	// create a unique lock group for this instance of the FireWire workloop
+	// this helps elucidate lock statistics
+	
+	SInt32	count = OSIncrementAtomic( &sLockGroupCount );
+	char	name[64];
+	
+	snprintf( name, sizeof(name), "FireWire %d", (int)count );
+	fLockGroup = lck_grp_alloc_init( name, LCK_GRP_ATTR_NULL );
+	if( fLockGroup )
+	{
+		gateLock = IORecursiveLockAllocWithLockGroup( fLockGroup );
+	}
+	
+	return IOWorkLoop::init();
+}
+
+// free
+//
+//
+
+void IOFWWorkLoop::free( void )
+{
+	if( fLockGroup )
+	{
+		lck_grp_free( fLockGroup );
+		fLockGroup = NULL;
+	}
+	
+	IOWorkLoop::free();	
+}
+
+// closeGate
+//
+//
 
 void IOFWWorkLoop::closeGate()
 {
     IOWorkLoop::closeGate();
-    if(fSleepToken) {
+    if( fSleepToken ) 
+	{
         IOReturn res;
-        do {
-            res = sleepGate(fSleepToken, THREAD_ABORTSAFE);
-            if(res == kIOReturnSuccess)
+        do 
+		{
+            res = sleepGate( fSleepToken, THREAD_ABORTSAFE );
+            if( res == kIOReturnSuccess )
                 break;
             IOLog("sleepGate returned 0x%x\n", res);
-        } while (true);
+        } 
+		while( true );
     }
 }
+
+// tryCloseGate
+//
+//
 
 bool IOFWWorkLoop::tryCloseGate()
 {
     bool ret;
     ret = IOWorkLoop::tryCloseGate();
-    if(ret && fSleepToken) {
+    if( ret && fSleepToken ) 
+	{
         openGate();
         ret = false;
     }
+	
     return ret;
 }
 
+// sleep
+//
+//
+
 IOReturn IOFWWorkLoop::sleep(void *token)
 {
-    if(fSleepToken) {
-        DEBUGLOG("IOFWWorkLoop::sleep: Already asleep: %p\n", token);
+    if( fSleepToken )
+	{
+        DEBUGLOG( "IOFWWorkLoop::sleep: Already asleep: %p\n", token );
         return kIOReturnError;
     }
+	
     fSleepToken = token;
     openGate();
-    return kIOReturnSuccess;
+    
+	return kIOReturnSuccess;
 }
+
+// wake
+//
+//
 
 IOReturn IOFWWorkLoop::wake(void *token)
 {
-    if(fSleepToken != token) {
-        DEBUGLOG("IOFWWorkLoop::wake: wrong token: %p<->%p\n", token, fSleepToken);
+    if( fSleepToken != token ) 
+	{
+        DEBUGLOG( "IOFWWorkLoop::wake: wrong token: %p<->%p\n", token, fSleepToken );
         return kIOReturnError;
     }
-    IORecursiveLockLock(gateLock);
+	
+    IORecursiveLockLock( gateLock );
     fSleepToken = NULL;
-    wakeupGate(token, false);
-    return kIOReturnSuccess;
+    wakeupGate( token, false );
+    
+	return kIOReturnSuccess;
 }

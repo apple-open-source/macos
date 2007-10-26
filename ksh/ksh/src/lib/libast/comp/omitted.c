@@ -2,28 +2,14 @@
 
 /*
  * workarounds to bring the native interface close to posix and x/open
- *
- *	Glenn Fowler <gsf@research.att.com>
- *	AT&T Labs Research
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of THIS SOFTWARE FILE (the "Software"), to deal in the Software
- * without restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, and/or sell copies of the
- * Software, and to permit persons to whom the Software is furnished to do
- * so, subject to the following disclaimer:
- *
- * THIS SOFTWARE IS PROVIDED BY AT&T ``AS IS'' AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL AT&T BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:hide utime utimes
+#else
+#define utime		______utime
+#define utimes		______utimes
+#endif
 
 #include <ast.h>
 #include <error.h>
@@ -42,6 +28,16 @@
 
 #if __CYGWIN__
 #include <ast_windows.h>
+#if _win32_botch_execve || _lib_spawn_mode
+#define CONVERT		1
+#endif
+#endif
+
+#if defined(__STDPP__directive) && defined(__STDPP__hide)
+__STDPP__directive pragma pp:nohide utime utimes
+#else
+#undef	utime
+#undef	utimes
 #endif
 
 #ifndef MAX_PATH
@@ -81,7 +77,8 @@ extern int		_rename(const char*, const char*);
 extern pid_t		_spawnve(int, const char*, char* const*, char* const*);
 extern int		_stat(const char*, struct stat*);
 extern int		_unlink(const char*);
-extern int		_utime(const char*, struct utimbuf*);
+extern int		_utime(const char*, const struct utimbuf*);
+extern int		_utimes(const char*, const struct timeval*);
 extern ssize_t		_write(int, const void*, size_t);
 
 #if defined(__EXPORT__)
@@ -120,31 +117,48 @@ execrate(const char* path, char* buf, int size, int physical)
 	return 1;
 }
 
-#define MAGIC_mode		0
-#define MAGIC_exec		1
-
 /*
  * return 0 if path is magic, -1 otherwise
- * op==MAGIC_exec retains errno for -1 return
+ * ux!=0 set to 1 if path is unix executable
+ * ux!=0 also retains errno for -1 return
  */
 
 static int
-magic(const char* path, int op)
+magic(const char* path, int* ux)
 {
 	int		fd;
 	int		r;
+	int		n;
+	int		m;
 	int		oerrno;
+#if CONVERT
+	unsigned char	buf[512];
+#else
 	unsigned char	buf[2];
+#endif
 
 	oerrno = errno;
 	if ((fd = _open(path, O_RDONLY, 0)) >= 0)
 	{
-		r = _read(fd, buf, 2) == 2 && (buf[1] == 0x5a && (buf[0] == 0x4c || buf[0] == 0x4d) || op == MAGIC_exec && buf[0] == '#' && buf[1] == '!') ? 0 : -1;
+#if CONVERT
+		if (ux)
+			n = sizeof(buf);
+		else
+#endif
+			n = 2;
+		r = (m = _read(fd, buf, n)) >= 2 && (buf[1] == 0x5a && (buf[0] == 0x4c || buf[0] == 0x4d) || ux && buf[0] == '#' && buf[1] == '!' && (*ux = 1) && !(ux = 0)) ? 0 : -1;
 		close(fd);
-		if (r && op == MAGIC_exec)
-			oerrno = ENOEXEC;
+		if (ux)
+		{
+			if (r)
+				oerrno = ENOEXEC;
+			else if (m > 61 && (n = buf[60] | (buf[61]<<8) + 92) < (m - 1))
+				*ux = (buf[n] | (buf[n+1]<<8)) == 3;
+			else
+				*ux = 0;
+		}
 	}
-	else if (op != MAGIC_exec)
+	else if (!ux)
 		r = -1;
 	else if (errno == ENOENT)
 	{
@@ -152,7 +166,10 @@ magic(const char* path, int op)
 		r = -1;
 	}
 	else
+	{
 		r = 0;
+		*ux = 0;
+	}
 	errno = oerrno;
 	return r;
 }
@@ -219,7 +236,7 @@ chmod(const char* path, mode_t mode)
 	    (strlen(path) + 4) < sizeof(buf))
 	{
 		oerrno = errno;
-		if (!magic(path, MAGIC_mode))
+		if (!magic(path, NiL))
 		{
 			snprintf(buf, sizeof(buf), "%s.exe", path);
 			_rename(path, buf);
@@ -249,6 +266,81 @@ chmod(const char* path, mode_t mode)
 
 #endif
 
+#if CONVERT
+
+/*
+ * this intercept converts dos env vars to unix
+ * we'd rather intercept main but can't twist cc to do it
+ * getuid() gets ksh to do the right thing and
+ * that's our main concern
+ *
+ *	DOSPATHVARS='a b c'	convert { a b c }
+ */
+
+extern uid_t		_getuid(void);
+
+static int		convertinit;
+
+/*
+ * convertvars[0] names the list of env var names
+ * convertvars[i] are not converted
+ */
+
+static const char*	convertvars[] = { "DOSPATHVARS", "PATH" };
+
+static int
+convert(register const char* d, const char* s)
+{
+	register const char*	t;
+	register const char*	v;
+	int			i;
+
+	for (i = 0; i < elementsof(convertvars); i++)
+	{
+		for (v = convertvars[i], t = s; *t && *t == *v; t++, v++);
+		if (*t == '=' && *v == 0)
+			return 0;
+	}
+	for (;;)
+	{
+		while (*d == ' ' || *d == '\t')
+			d++;
+		if (!*d)
+			break;
+		for (t = s; *t && *t == *d; d++, t++);
+		if (*t == '=' && (*d == ' ' || *d == '\t' || *d == 0))
+			return t - s + 1;
+		while (*d && *d != ' ' && *d != '\t')
+			d++;
+	}
+	return 0;
+}
+
+uid_t
+getuid(void)
+{
+	register char*		d;
+	register char*		s;
+	register char*		t;
+	register char**		e;
+	int			n;
+	int			m;
+
+	if (!convertinit++ && (d = getenv(convertvars[0])))
+		for (e = environ; s = *e; e++)
+			if ((n = convert(d, s)) && (m = cygwin_win32_to_posix_path_list_buf_size(s + n)) > 0)
+			{
+				if (!(t = malloc(n + m + 1)))
+					break;
+				*e = t;
+				memcpy(t, s, n);
+				cygwin_win32_to_posix_path_list(s + n, t + n);
+			}
+	return _getuid();
+}
+
+#endif
+
 #ifndef _P_OVERLAY
 #define _P_OVERLAY	(-1)
 #endif
@@ -266,16 +358,21 @@ runve(int mode, const char* path, char* const* argv, char* const* envv)
 	void*		m2;
 	pid_t		pid;
 	int		oerrno;
+	int		ux;
+	int		n;
 #if defined(_P_DETACH) && defined(_P_NOWAIT)
 	int		pgrp;
+#endif
+#if CONVERT
+	char*		d;
+	char*		t;
+	int		m;
 #endif
 	struct stat	st;
 	char		buf[PATH_MAX];
 	char		tmp[PATH_MAX];
 
 #if DEBUG
-	int		n;
-
 	static int	trace;
 #endif
 
@@ -316,12 +413,13 @@ runve(int mode, const char* path, char* const* argv, char* const* envv)
 		errno = EACCES;
 		return -1;
 	}
-	if (magic(path, MAGIC_exec))
+	if (magic(path, &ux))
 	{
 #if _CYGWIN_fork_works
 		errno = ENOEXEC;
 		return -1;
 #else
+		ux = 1;
 		p = (char**)argv;
 		while (*p++);
 		if (!(v = (char**)malloc((p - (char**)argv + 2) * sizeof(char*))))
@@ -392,6 +490,18 @@ runve(int mode, const char* path, char* const* argv, char* const* envv)
 				while (*v++ = *p++);
 			}
 		}
+#if CONVERT
+		if (!ux && (d = getenv(convertvars[0])))
+			for (p = (char**)envv; s = *p; p++)
+				if ((n = convert(d, s)) && (m = cygwin_posix_to_win32_path_list_buf_size(s + n)) > 0)
+				{
+					if (!(t = malloc(n + m + 1)))
+						break;
+					*p = t;
+					memcpy(t, s, n);
+					cygwin_posix_to_win32_path_list(s + n, t + n);
+				}
+#endif
 	}
 
 #if DEBUG
@@ -813,8 +923,66 @@ unlink(const char* path)
 
 #if _win32_botch_utime
 
+#if __CYGWIN__
+
+/*
+ * cygwin refuses to set st_ctime for some operations
+ * this rejects that refusal
+ */
+
+static void
+ctime_now(const char* path)
+{
+	HANDLE		hp;
+	SYSTEMTIME	st;
+	FILETIME	ct;
+	WIN32_FIND_DATA	ff;
+	struct stat	fs;
+	int		oerrno;
+	char		tmp[MAX_PATH];
+
+	if (_stat(path, &fs) || (fs.st_mode & S_IWUSR) || _chmod(path, (fs.st_mode | S_IWUSR) & S_IPERM))
+		fs.st_mode = 0;
+	cygwin_conv_to_win32_path(path, tmp);
+	hp = CreateFile(tmp, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hp && hp != INVALID_HANDLE_VALUE)
+	{
+		GetSystemTime(&st);
+		SystemTimeToFileTime(&st, &ct);
+		SetFileTime(hp, &ct, 0, 0);
+		CloseHandle(hp);
+	}
+	if (fs.st_mode)
+		_chmod(path, fs.st_mode & S_IPERM);
+	errno = oerrno;
+}
+
+#else
+
+#define ctime_now(p)
+
+#endif
+
 extern int
-utime(const char* path, struct utimbuf* ut)
+utimes(const char* path, const struct timeval* ut)
+{
+	int	r;
+	int	oerrno;
+	char	buf[PATH_MAX];
+
+	oerrno = errno;
+	if ((r = _utimes(path, ut)) && errno == ENOENT && execrate(path, buf, sizeof(buf), 0))
+	{
+		errno = oerrno;
+		r = _utimes(path = buf, ut);
+	}
+	if (!r)
+		ctime_now(path);
+	return r;
+}
+
+extern int
+utime(const char* path, const struct utimbuf* ut)
 {
 	int	r;
 	int	oerrno;
@@ -826,38 +994,8 @@ utime(const char* path, struct utimbuf* ut)
 		errno = oerrno;
 		r = _utime(path = buf, ut);
 	}
-#if __CYGWIN__
-
-	/*
-	 * cygwin refuses to set st_ctime
-	 * utime() (at least) rejects that refusal
-	 */
-
 	if (!r)
-	{
-		HANDLE		hp;
-		SYSTEMTIME	st;
-		FILETIME	ct;
-		WIN32_FIND_DATA	ff;
-		struct stat	fs;
-		char		tmp[MAX_PATH];
-
-		if (_stat(path, &fs) || (fs.st_mode & S_IWUSR) || _chmod(path, (fs.st_mode | S_IWUSR) & S_IPERM))
-			fs.st_mode = 0;
-		cygwin_conv_to_win32_path(path, tmp);
-		hp = CreateFile(tmp, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-		if (hp && hp != INVALID_HANDLE_VALUE)
-		{
-			GetSystemTime(&st);
-			SystemTimeToFileTime(&st, &ct);
-			SetFileTime(hp, &ct, 0, 0);
-			CloseHandle(hp);
-		}
-		if (fs.st_mode)
-			_chmod(path, fs.st_mode & S_IPERM);
-		errno = oerrno;
-	}
-#endif
+		ctime_now(path);
 	return r;
 }
 
@@ -891,18 +1029,18 @@ bzero(void* b, size_t n)
 #undef	getpagesize
 
 #ifdef	_SC_PAGESIZE
-#undef	PAGESIZE
-#define PAGESIZE	(int)sysconf(_SC_PAGESIZE)
+#undef	_AST_PAGESIZE
+#define _AST_PAGESIZE	(int)sysconf(_SC_PAGESIZE)
 #else
-#ifndef PAGESIZE
-#define PAGESIZE	4096
+#ifndef _AST_PAGESIZE
+#define _AST_PAGESIZE	4096
 #endif
 #endif
 
 int
 getpagesize()
 {
-	return PAGESIZE;
+	return _AST_PAGESIZE;
 }
 
 #endif

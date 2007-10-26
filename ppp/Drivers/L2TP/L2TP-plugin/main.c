@@ -70,6 +70,7 @@
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFBundle.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <sys/un.h>
 
 
 #include "../../../Controller/PPPControllerPriv.h"
@@ -85,6 +86,7 @@
 #include "../../../Helpers/vpnd/cf_utils.h"
 #include "l2tp.h"
 #include "../../../Helpers/vpnd/ipsec_utils.h"
+#include "vpn_control.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -96,7 +98,7 @@
 #define MODE_ANSWER	"answer"
 
 
-#define L2TP_DEFAULT_RECV_TIMEOUT      60 /* seconds */
+#define L2TP_DEFAULT_RECV_TIMEOUT      20 /* seconds */
 
 #define L2TP_MIN_HDR_SIZE 220		/* IPSec + Nat Traversal + L2TP/UDP + PPP */
 
@@ -388,7 +390,7 @@ void l2tp_wait_input()
                 case KEV_INET_NEW_ADDR:
                 case KEV_INET_CHANGED_ADDR:
                 case KEV_INET_ADDR_DELETED:
-                    sprintf(ev_if, "%s%ld", inetdata->link_data.if_name, inetdata->link_data.if_unit);
+                    sprintf(ev_if, "%s%d", inetdata->link_data.if_name, inetdata->link_data.if_unit);
                     // check if changes occured on the interface we are using
                     if (!strncmp(ev_if, interface, sizeof(interface))) {
                         if (inetdata->link_data.if_family == APPLE_IF_FAM_PPP) {
@@ -435,7 +437,7 @@ void l2tp_wait_input()
 							/* If we are behind a NAT, let's flust security association to force renegotiation and 
 							  reacquisition of the correct port */
 							if (!opt_noipsec) {
-								if (IN_PRIVATE(our_address.sin_addr.s_addr) && !IN_PRIVATE(peer_address.sin_addr.s_addr)) {
+								if (IN_PRIVATE(ntohl(our_address.sin_addr.s_addr)) && !IN_PRIVATE(ntohl(peer_address.sin_addr.s_addr))) {
 									IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
 								}
 							}
@@ -520,6 +522,206 @@ void *l2tp_resolver_thread(void *arg)
     return 0;
 }
 
+/* ----------------------------------------------------------------------------- 
+get the ipsec string corresponding to the ike error
+----------------------------------------------------------------------------- */
+char *ipsec_error_to_str(int ike_code)
+{
+	switch (ike_code) {
+		case VPNCTL_NTYPE_INVALID_PAYLOAD_TYPE: return "Invalid payload type";
+		case VPNCTL_NTYPE_DOI_NOT_SUPPORTED: return "DOI not supported";
+		case VPNCTL_NTYPE_SITUATION_NOT_SUPPORTED: return "Situation not supported";
+		case VPNCTL_NTYPE_INVALID_COOKIE: return "Invalid cookie";
+		case VPNCTL_NTYPE_INVALID_MAJOR_VERSION: return "Invalid major version";
+		case VPNCTL_NTYPE_INVALID_MINOR_VERSION: return "Invalid minor version";
+		case VPNCTL_NTYPE_INVALID_EXCHANGE_TYPE: return "Invalid exchange type";
+		case VPNCTL_NTYPE_INVALID_FLAGS: return "Invalid flags";
+		case VPNCTL_NTYPE_INVALID_MESSAGE_ID: return "Invalid message id";
+		case VPNCTL_NTYPE_INVALID_PROTOCOL_ID: return "Invalid protocol id";
+		case VPNCTL_NTYPE_INVALID_SPI: return "Invalid SPI";
+		case VPNCTL_NTYPE_INVALID_TRANSFORM_ID: return "Invalid transform id";
+		case VPNCTL_NTYPE_ATTRIBUTES_NOT_SUPPORTED: return "Attributes not supported";
+		case VPNCTL_NTYPE_NO_PROPOSAL_CHOSEN: return "No proposal chosen";
+		case VPNCTL_NTYPE_BAD_PROPOSAL_SYNTAX: return "Bad proposal syntax";
+		case VPNCTL_NTYPE_PAYLOAD_MALFORMED: return "Payload malformed";
+		case VPNCTL_NTYPE_INVALID_KEY_INFORMATION: return "Invalid key information";
+		case VPNCTL_NTYPE_INVALID_ID_INFORMATION: return "Invalid id information";
+		case VPNCTL_NTYPE_INVALID_CERT_ENCODING: return "Invalid cert encoding";
+		case VPNCTL_NTYPE_INVALID_CERTIFICATE: return "Invalid certificate";
+		case VPNCTL_NTYPE_BAD_CERT_REQUEST_SYNTAX: return "Bad cert request syntax";
+		case VPNCTL_NTYPE_INVALID_CERT_AUTHORITY: return "Invalid cert authority";
+		case VPNCTL_NTYPE_INVALID_HASH_INFORMATION: return "Invalid hash information";
+		case VPNCTL_NTYPE_AUTHENTICATION_FAILED: return "Authentication Failed";
+		case VPNCTL_NTYPE_INVALID_SIGNATURE: return "Invalid signature";
+		case VPNCTL_NTYPE_ADDRESS_NOTIFICATION: return "Address notification";
+		case VPNCTL_NTYPE_NOTIFY_SA_LIFETIME: return "Notify SA lifetime";
+		case VPNCTL_NTYPE_CERTIFICATE_UNAVAILABLE: return "Certificate unavailable";
+		case VPNCTL_NTYPE_UNSUPPORTED_EXCHANGE_TYPE: return "Unsupported exchange type";
+		case VPNCTL_NTYPE_UNEQUAL_PAYLOAD_LENGTHS: return "Unequal payload lengths";
+		case VPNCTL_NTYPE_LOAD_BALANCE: return "Load balance";
+		case VPNCTL_NTYPE_INTERNAL_ERROR: return "Internal error";
+	}
+	return "Unknown error";
+}
+
+/* ----------------------------------------------------------------------------- 
+trigger an IKE exchange
+----------------------------------------------------------------------------- */
+int l2tp_trigger_ipsec()
+{			
+	int					fd = -1, size, state, timeo, err = -1;
+	struct sockaddr_un	sun;
+    struct sockaddr		from;
+	u_int16_t			reliable;
+	struct sockaddr_in	redirect_addr;
+	u_int8_t					data[256]; 
+	struct vpnctl_hdr			*hdr = (struct vpnctl_hdr *)data;
+	struct vpnctl_cmd_bind		*cmd_bind = (struct vpnctl_cmd_bind *)data;
+	struct vpnctl_status_failed *failed_status = (struct vpnctl_status_failed *)data;
+
+	enum {
+		RACOON_TRIGGERED = 1,	// we send a packet to triggerd racoon
+		RACOON_STARTED,			// racoon received our request and started IKE
+		RACOON_NEGOTIATING,		// the server replied, negotiation in progress 
+		RACOON_DONE				// racoon is done
+	};
+
+	/* open and connect to the racoon control socket */
+	fd = socket(PF_LOCAL, SOCK_STREAM, 0);
+	if (fd < 0) {
+		error("L2TP: cannot create racoon control socket: %m\n");
+		goto fail;
+	}
+
+	bzero(&sun, sizeof(sun));
+	sun.sun_family = AF_LOCAL;
+	strncpy(sun.sun_path, "/etc/racoon/vpncontrol.sock", sizeof(sun.sun_path));
+
+	if (connect(fd,  (struct sockaddr *)&sun, sizeof(sun)) < 0) {
+		error("L2TP: cannot connect racoon control socket: %m\n");
+		goto fail;
+	}
+
+start:	
+
+	// bind racoon control socket to the peer address to receive only pertinent messages
+	bzero(cmd_bind, sizeof(struct vpnctl_cmd_bind));
+	cmd_bind->hdr.len = htons(sizeof(struct vpnctl_cmd_bind) - sizeof(struct vpnctl_hdr));
+	cmd_bind->hdr.msg_type = htons(VPNCTL_CMD_BIND);
+	cmd_bind->address = peer_address.sin_addr.s_addr;
+	write(fd, cmd_bind, sizeof(struct vpnctl_cmd_bind));
+	
+	/* send a L2TP packet to trigger IPSec connection */
+	reliable = 0;
+	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+	l2tp_send_SCCRQ(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params);
+	reliable = 1;
+	setsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_RELIABILITY, &reliable, 2);
+	
+	notice("IPSec connection started\n");
+	state = RACOON_TRIGGERED;
+
+	while (state != RACOON_DONE) {
+
+		switch (state) {
+			case RACOON_TRIGGERED:  timeo = 5; break;
+			case RACOON_STARTED:	timeo = 10; break;
+			default:				timeo = 30; break;
+		}
+		
+		from.sa_len = sizeof(from);
+		err = l2tp_recv(fd, data, sizeof(struct vpnctl_hdr), &size, &from, timeo, "from racoon control socket");
+		if (err || size == 0) {	// no reply
+			if (err != -2) // cancel
+				notice("IPSec connection failed\n");
+			goto fail;
+		}
+		
+		/* read end of packet */
+		if (ntohs(hdr->len)) {
+			from.sa_len = sizeof(from);
+			err = l2tp_recv(fd, data + sizeof(struct vpnctl_hdr), ntohs(hdr->len), &size, &from, timeo, "from racoon control socket");
+			if (err || size == 0) {	// no reply
+				if (err != -2) // cancel
+					notice("IPSec connection failed\n");
+				goto fail;
+			}
+		}
+
+		if (debug > 1) {
+			dbglog("L2TP received racoon message <type 0x%x> <flags 0x%x> <cookie 0x%x> <result %d> <reserved 0x%x> <len %d>", 
+				ntohs(hdr->msg_type), ntohs(hdr->flags), ntohl(hdr->cookie), ntohl(hdr->reserved), ntohs(hdr->result), ntohs(hdr->len));
+		}
+
+		switch (ntohs(hdr->msg_type)) {
+		
+			case VPNCTL_STATUS_IKE_FAILED:
+											 
+				switch (ntohs(failed_status->ike_code)) {
+
+					case VPNCTL_NTYPE_LOAD_BALANCE:		
+
+						redirect_addr = peer_address;
+						redirect_addr.sin_addr.s_addr = *(u_int32_t*)failed_status->data;
+						notice("IPSec connection redirected to server '%s'...\n", inet_ntoa(redirect_addr.sin_addr));
+				
+						err = l2tp_change_peeraddress(ctrlsockfd, (struct sockaddr *)&redirect_addr);
+						if (err)
+							goto fail;
+				
+						goto start; // restart the connection to an other server
+						break;
+
+					default:	
+						notice("IPSec connection failed <IKE Error %d (0x%x) %s>\n", ntohs(failed_status->ike_code), ntohs(failed_status->ike_code), ipsec_error_to_str(ntohs(failed_status->ike_code)));
+						err = -1;
+						goto fail;
+						break;
+				}
+				break;
+
+			case VPNCTL_STATUS_PH1_START_US:
+				dbglog("IPSec phase 1 client started\n");
+				state = RACOON_STARTED;
+				break;
+
+			case VPNCTL_STATUS_PH1_START_PEER:
+				dbglog("IPSec phase 1 server replied\n");
+				state = RACOON_NEGOTIATING;
+				break;
+
+			case VPNCTL_STATUS_PH1_ESTABLISHED:
+				dbglog("IPSec phase 1 established\n");
+				state = RACOON_NEGOTIATING;
+				break;
+
+			case VPNCTL_STATUS_PH2_START:
+				dbglog("IPSec phase 2 started\n");
+				state = RACOON_NEGOTIATING;
+				break;
+
+			case VPNCTL_STATUS_PH2_ESTABLISHED:
+				state = RACOON_DONE;
+				dbglog("IPSec phase 2 established\n");
+				notice("IPSec connection established\n");
+				break;
+
+			default:
+				/* ignore other messages */
+				break;
+
+		}
+	}
+	
+	err = 0;
+	
+fail:
+	if (fd != -1) {
+		close(fd);
+		fd = -1;
+	}	
+	return err;
+}
 
 /* ----------------------------------------------------------------------------- 
 get the socket ready to start doing PPP.
@@ -538,7 +740,7 @@ int l2tp_connect(int *errorcode)
 	u_int32_t baudrate;
 	char				*errstr;
 	int					host_name_specified;
-
+	
 	*errorcode = 0;
 
     if (cfgCache == NULL || serviceidRef == NULL) {
@@ -652,13 +854,14 @@ int l2tp_connect(int *errorcode)
     l2tp_set_flag(ctrlsockfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
     l2tp_set_flag(ctrlsockfd, 1, L2TP_FLAG_CONTROL);
     l2tp_set_flag(ctrlsockfd, our_params.seq_required, L2TP_FLAG_SEQ_REQ);
+    l2tp_set_flag(ctrlsockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
 
     /* ask the kernel extension to make and assign a new tunnel id to the tunnel */
     optlen = 2;
     getsockopt(ctrlsockfd, PPPPROTO_L2TP, L2TP_OPT_NEW_TUNNEL_ID, &our_params.tunnel_id, &optlen);
 
     l2tp_set_ourparams(ctrlsockfd,  &our_params);
-    l2tp_reset_timers(ctrlsockfd, 1);
+    l2tp_reset_timers(ctrlsockfd, 0);
 
     if (kill_link)
         goto fail1;
@@ -676,6 +879,8 @@ int l2tp_connect(int *errorcode)
             goto fail;
         }
 
+		set_network_signature("VPN.RemoteAddress", remoteaddress, 0, 0);
+		
         /* build the peer address */
         peer_address.sin_len = sizeof(peer_address);
         peer_address.sin_family = AF_INET;
@@ -736,63 +941,90 @@ int l2tp_connect(int *errorcode)
         /* remember the original source and dest addresses */
         orig_our_address = our_address;
         orig_peer_address = peer_address;
-        
+
+        err = 0;
+
         /* install IPSec filters for our address and peer address */
         if (!opt_noipsec) {
 
 			CFStringRef				secret_string = NULL;
+			CFStringRef				secret_encryption_string = NULL;
 			CFStringRef				localidentifier_string = NULL;
 			CFStringRef				localidentifiertype_string = NULL;
 			CFStringRef				auth_method = NULL;
+			CFStringRef				verify_id = NULL;
 			CFDataRef				certificate = NULL;
 			CFDictionaryRef			useripsec_dict = NULL;
+			int useripsec_dict_fromsystem = 0;
 			
             struct sockaddr_in addr = orig_peer_address;
             addr.sin_port = htons(0);	// allow port to change
 
 			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
 			
-			if (userOptions) {
+			if (userOptions)
 				useripsec_dict = CFDictionaryGetValue(userOptions, kSCEntNetIPSec);
-				if (useripsec_dict) {
-					/* XXX as a simplification, the authentication method is set in the main dictionary
-						instead of having an array of proposals with one proposal with the
-						requested authentication method
-					  */
-					auth_method = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecProposalAuthenticationMethod);
-					if (!isString(auth_method) || CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
-						auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
-						secret_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecSharedSecret);
-						if (!isString(secret_string)) {
-							error("L2TP: no user shared secret found.\n");
+			if (!useripsec_dict && systemOptions) {
+				useripsec_dict = CFDictionaryGetValue(systemOptions, kSCEntNetIPSec);
+				useripsec_dict_fromsystem = 1;
+			}
+
+			if (!useripsec_dict && !opt_ipsecsharedsecret[0]) {
+				error("L2TP: no user shared secret found.\n");
+				devstatus = EXIT_L2TP_NOSHAREDSECRET;
+				goto fail;
+			}
+
+			if (useripsec_dict) {
+				/* XXX as a simplification, the authentication method is set in the main dictionary
+					instead of having an array of proposals with one proposal with the
+					requested authentication method
+				  */
+				auth_method = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecProposalAuthenticationMethod);
+				if (!isString(auth_method) || CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+					auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+					secret_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecSharedSecret);
+					if (!isString(secret_string) &&
+						!(isData(secret_string) && ((CFDataGetLength((CFDataRef)secret_string) % sizeof(UniChar)) == 0))) {
+						error("L2TP: incorrect user shared secret found.\n");
+						devstatus = EXIT_L2TP_NOSHAREDSECRET;
+						goto fail;
+					}
+					if (useripsec_dict_fromsystem) {
+						secret_encryption_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecSharedSecretEncryption);
+						if (secret_encryption_string && !isString(secret_encryption_string)) {
+							error("L2TP: incorrect secret encyption found.\n");
 							goto fail;
 						}
-					}
-					else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
-						certificate = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalCertificate);
-						if (!isData(certificate)) {
-							error("L2TP: no user certificate  found.\n");
-							goto fail;
-						}
-					}
-					else {
-						error("L2TP: incorrect authentication method.\n");
-						goto fail;
-					}
-
-					localidentifier_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalIdentifier);
-					if (localidentifier_string && !isString(localidentifier_string)) {
-						error("L2TP: incorrect local identifier found.\n");
-						goto fail;
-					}
-
-					localidentifiertype_string = CFDictionaryGetValue(useripsec_dict, CFSTR("LocalIdentifierType"));
-					if (localidentifiertype_string && !isString(localidentifiertype_string)) {
-						error("L2TP: incorrect local identifier type found.\n");
-						goto fail;
-					}
+					} 
 
 				}
+				else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+					certificate = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalCertificate);
+					if (!isData(certificate)) {
+						devstatus = EXIT_L2TP_NOCERTIFICATE;
+						error("L2TP: no user certificate  found.\n");
+						goto fail;
+					}
+				}
+				else {
+					error("L2TP: incorrect authentication method.\n");
+					goto fail;
+				}
+
+				localidentifier_string = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecLocalIdentifier);
+				if (localidentifier_string && !isString(localidentifier_string)) {
+					error("L2TP: incorrect local identifier found.\n");
+					goto fail;
+				}
+
+					verify_id = CFDictionaryGetValue(useripsec_dict, kRASPropIPSecIdentifierVerification);
+					if (verify_id && !isString(verify_id)) {
+						error("L2TP: incorrect identifier verification found.\n");
+						goto fail;
+					}
+
+
 			}
 
 			if (ipsec_dict) {
@@ -803,7 +1035,7 @@ int l2tp_connect(int *errorcode)
 			ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
 				(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
 				(host_name_specified ? remoteaddress : NULL),
-				auth_method, 1); 
+				auth_method, 1, 0, verify_id); 
 	
 			if (!ipsec_dict) {
 				error("L2TP: cannot create L2TP configuration.\n");
@@ -811,7 +1043,24 @@ int l2tp_connect(int *errorcode)
 			}
 			
 			if (secret_string) {
-				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+				if (isString(secret_string))
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+				else {
+					CFStringEncoding	encoding;
+					CFDataRef			secret_data	= (CFDataRef)secret_string;
+
+#if     __BIG_ENDIAN__
+					encoding = (*(CFDataGetBytePtr(secret_data) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
+#else   // __LITTLE_ENDIAN__
+					encoding = (*(CFDataGetBytePtr(secret_data)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
+#endif
+					secret_string = CFStringCreateWithBytes(NULL, (const UInt8 *)CFDataGetBytePtr(secret_data), CFDataGetLength(secret_data), encoding, FALSE);
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, secret_string);
+					CFRelease(secret_string);
+				}
+				if (secret_encryption_string) {
+					CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, secret_encryption_string);
+				}
 			}
 			else if (certificate) {
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalCertificate, certificate);
@@ -861,12 +1110,17 @@ int l2tp_connect(int *errorcode)
 				error("L2TP: cannot configure secure transport (%s).\n", errstr);
 				goto fail;
 			}
+			
+			/* now trigger IKE */
+			err = l2tp_trigger_ipsec();
         }
 
-        err = l2tp_outgoing_call(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params, &peer_params, opt_recv_timeout);
+		if (err == 0) {
+			err = l2tp_outgoing_call(ctrlsockfd, (struct sockaddr *)&peer_address, &our_params, &peer_params, opt_recv_timeout);
 
-        /* setup the specific route */
-        l2tp_set_peer_route();
+			/* setup the specific route */
+			l2tp_set_peer_route();
+		}
 
     } else {	            
 
@@ -893,6 +1147,7 @@ int l2tp_connect(int *errorcode)
     
             l2tp_set_flag(listenfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
             l2tp_set_flag(listenfd, 1, L2TP_FLAG_CONTROL);
+			l2tp_set_flag(listenfd, !opt_noipsec, L2TP_FLAG_IPSEC);
     
             /* bind the socket in the kernel with L2TP port */
             listen_address.sin_len = sizeof(peer_address);
@@ -914,7 +1169,7 @@ int l2tp_connect(int *errorcode)
 				ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
 					(struct sockaddr *)&our_address, (struct sockaddr *)&peer_address, 
 					(host_name_specified ? remoteaddress : NULL),
-					kRASValIPSecProposalAuthenticationMethodSharedSecret, 0); 
+					kRASValIPSecProposalAuthenticationMethodSharedSecret, 0, 0, 0); 
 
 				/* set the authentication information */
 				secret_string = CFStringCreateWithCString(0, opt_ipsecsharedsecret, kCFStringEncodingUTF8);
@@ -941,17 +1196,18 @@ int l2tp_connect(int *errorcode)
             close(listenfd);
         }
         
-        //-------------------------------------------------
+		//-------------------------------------------------
         //	listen or answer mode
         //		process incoming connection		
         //-------------------------------------------------
         if (err == 0) {
-            notice("L2TP incoming call in progress");
 
-            err = l2tp_incoming_call(ctrlsockfd, &our_params, &peer_params, opt_recv_timeout);
+			// log incoming call from l2tp_change_peeraddress() because that's when we know the peer address
+
+           err = l2tp_incoming_call(ctrlsockfd, &our_params, &peer_params, opt_recv_timeout);
         }
 
-        remoteaddress = inet_ntoa(peer_address.sin_addr);
+		//remoteaddress = inet_ntoa(peer_address.sin_addr);
 
     }
 
@@ -985,6 +1241,7 @@ int l2tp_connect(int *errorcode)
     l2tp_set_flag(datasockfd, 0, L2TP_FLAG_CONTROL);
     l2tp_set_flag(datasockfd, kdebugflag & 1, L2TP_FLAG_DEBUG);
     l2tp_set_flag(datasockfd, peer_params.seq_required, L2TP_FLAG_SEQ_REQ);
+	l2tp_set_flag(datasockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
 
     l2tp_set_ouraddress(datasockfd, (struct sockaddr *)&our_address);
     /* set the peer address of the data socket */
@@ -1001,6 +1258,7 @@ int l2tp_connect(int *errorcode)
     return datasockfd;
  
 fail:   
+
     status = EXIT_CONNECT_FAILED;
 fail1:
     l2tp_close_fds();
@@ -1151,6 +1409,13 @@ int l2tp_change_peeraddress(int fd, struct sockaddr *peer)
 
         err = l2tp_set_peeraddress(fd, peer);
 
+		if (!strncmp(opt_mode, MODE_ANSWER, strlen(opt_mode))
+			|| !strncmp(opt_mode, MODE_LISTEN, strlen(opt_mode))) {
+		
+			remoteaddress = inet_ntoa(peer_address.sin_addr);
+			notice("L2TP incoming call in progress from '%s'...", remoteaddress ? remoteaddress : "");
+		}
+
         /* install new IPSec filters */
         if (!opt_noipsec) {
             if (!strcmp(opt_mode, MODE_CONNECT)) {
@@ -1265,7 +1530,6 @@ close the socket descriptors
 ----------------------------------------------------------------------------- */
 void l2tp_close_fds()
 {
-	char *errstr;
 	
     if (hello_timer_running) {
         UNTIMEOUT(l2tp_hello_timeout, 0);
@@ -1284,6 +1548,16 @@ void l2tp_close_fds()
         ctrlsockfd = -1;
     }
     
+}
+
+/* ----------------------------------------------------------------------------- 
+clean up before quitting
+----------------------------------------------------------------------------- */
+void l2tp_cleanup()
+{
+	char *errstr;
+
+    l2tp_close_fds();
     if (!opt_noipsec) {
              
 		if (ipsec_dict) {
@@ -1296,14 +1570,6 @@ void l2tp_close_fds()
             IPSecRemoveSecurityAssociations((struct sockaddr *)&our_address, (struct sockaddr *)&peer_address);
         }
     }
-}
-
-/* ----------------------------------------------------------------------------- 
-clean up before quitting
------------------------------------------------------------------------------ */
-void l2tp_cleanup()
-{
-    l2tp_close_fds();
     l2tp_clean_peer_route();
 }
 

@@ -4,7 +4,7 @@
 #
 #   Copyright (C) UENO Katsuhiro 2000-2003
 #
-# $Id: zlib.rd,v 1.1.2.1 2004/03/28 14:10:39 akr Exp $
+# $Id: zlib.rd 11708 2007-02-12 23:01:19Z shyouhei $
 #
 
 = Ruby/zlib version 0.6.0

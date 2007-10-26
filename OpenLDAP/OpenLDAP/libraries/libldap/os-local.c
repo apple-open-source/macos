@@ -1,8 +1,8 @@
 /* os-local.c -- platform-specific domain socket code */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.28.2.4 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.37.2.6 2006/01/03 22:16:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -50,8 +50,6 @@
 
 #include "ldap-int.h"
 #include "ldap_defaults.h"
-
-/* int ldap_int_tblsize = 0; */
 
 #ifdef LDAP_DEBUG
 
@@ -103,11 +101,12 @@ ldap_pvt_close_socket(LDAP *ld, int s)
 
 #undef TRACE
 #define TRACE do { \
+	char ebuf[128]; \
 	oslocal_debug(ld, \
 		"ldap_is_socket_ready: errror on socket %d: errno: %d (%s)\n", \
 		s, \
 		errno, \
-		STRERROR(errno) ); \
+		AC_STRERROR_R(errno, ebuf, sizeof ebuf)); \
 } while( 0 )
 
 /*
@@ -157,7 +156,8 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 
 #if !defined(HAVE_GETPEEREID) && \
 	!defined(SO_PEERCRED) && !defined(LOCAL_PEERCRED) && \
-	defined(HAVE_SENDMSG) && defined(HAVE_MSGHDR_MSG_ACCRIGHTS)
+	defined(HAVE_SENDMSG) && (defined(HAVE_STRUCT_MSGHDR_MSG_ACCRIGHTSLEN) || \
+		defined(HAVE_STRUCT_MSGHDR_MSG_CONTROL))
 #define DO_SENDMSG
 static const char abandonPDU[] = {LDAP_TAG_MESSAGE, 6,
 	LDAP_TAG_MSGID, 1, 0, LDAP_REQ_ABANDON, 1, 0};
@@ -167,26 +167,24 @@ static int
 ldap_pvt_connect(LDAP *ld, ber_socket_t s, struct sockaddr_un *sa, int async)
 {
 	int rc;
-	struct timeval	tv, *opt_tv=NULL;
-	fd_set		wfds, *z=NULL;
+	struct timeval	tv = { 0 },
+			*opt_tv = NULL;
 
-	if ( (opt_tv = ld->ld_options.ldo_tm_net) != NULL ) {
-		tv.tv_usec = opt_tv->tv_usec;
-		tv.tv_sec = opt_tv->tv_sec;
+	opt_tv = ld->ld_options.ldo_tm_net;
+	if ( opt_tv != NULL ) {
+		tv = *opt_tv;
 	}
 
 	oslocal_debug(ld, "ldap_connect_timeout: fd: %d tm: %ld async: %d\n",
-			s, opt_tv ? tv.tv_sec : -1L, async);
+		s, opt_tv ? tv.tv_sec : -1L, async);
 
-	if ( ldap_pvt_ndelay_on(ld, s) == -1 )
-		return ( -1 );
+	if ( ldap_pvt_ndelay_on(ld, s) == -1 ) return -1;
 
 	if ( connect(s, (struct sockaddr *) sa, sizeof(struct sockaddr_un))
 		!= AC_SOCKET_ERROR )
 	{
-		if ( ldap_pvt_ndelay_off(ld, s) == -1 ) {
-			return ( -1 );
-		}
+		if ( ldap_pvt_ndelay_off(ld, s) == -1 ) return -1;
+
 #ifdef DO_SENDMSG
 	/* Send a dummy message with access rights. Remote side will
 	 * obtain our uid/gid by fstat'ing this descriptor.
@@ -198,50 +196,116 @@ sendcred:
 				/* Abandon, noop, has no reply */
 				struct iovec iov;
 				struct msghdr msg = {0};
+# ifdef HAVE_STRUCT_MSGHDR_MSG_CONTROL
+# ifndef CMSG_SPACE
+# define CMSG_SPACE(len)	(_CMSG_ALIGN( sizeof(struct cmsghdr)) + _CMSG_ALIGN(len) )
+# endif
+# ifndef CMSG_LEN
+# define CMSG_LEN(len)		(_CMSG_ALIGN( sizeof(struct cmsghdr)) + (len) )
+# endif
+				union {
+					struct cmsghdr cm;
+					unsigned char control[CMSG_SPACE(sizeof(int))];
+				} control_un;
+				struct cmsghdr *cmsg;
+# endif /* HAVE_STRUCT_MSGHDR_MSG_CONTROL */
+				msg.msg_name = NULL;
+				msg.msg_namelen = 0;
 				iov.iov_base = (char *) abandonPDU;
 				iov.iov_len = sizeof abandonPDU;
 				msg.msg_iov = &iov;
 				msg.msg_iovlen = 1;
+# ifdef HAVE_STRUCT_MSGHDR_MSG_CONTROL
+				msg.msg_control = control_un.control;
+				msg.msg_controllen = sizeof( control_un.control );
+				msg.msg_flags = 0;
+
+				cmsg = CMSG_FIRSTHDR( &msg );
+				cmsg->cmsg_len = CMSG_LEN( sizeof(int) );
+				cmsg->cmsg_level = SOL_SOCKET;
+				cmsg->cmsg_type = SCM_RIGHTS;
+
+				*((int *)CMSG_DATA(cmsg)) = fds[0];
+# else
 				msg.msg_accrights = (char *)fds;
 				msg.msg_accrightslen = sizeof(int);
+# endif /* HAVE_STRUCT_MSGHDR_MSG_CONTROL */
 				sendmsg( s, &msg, 0 );
 				close(fds[0]);
 				close(fds[1]);
 			}
 		}
 #endif
-		return ( 0 );
+		return 0;
 	}
 
-	if ( errno != EINPROGRESS && errno != EWOULDBLOCK ) {
-		return ( -1 );
-	}
+	if ( errno != EINPROGRESS && errno != EWOULDBLOCK ) return -1;
 	
 #ifdef notyet
-	if ( async ) return ( -2 );
+	if ( async ) return -2;
 #endif
 
-	FD_ZERO(&wfds);
-	FD_SET(s, &wfds );
+#ifdef HAVE_POLL
+	{
+		struct pollfd fd;
+		int timeout = INFTIM;
 
-	do { 
-		rc = select(ldap_int_tblsize, z, &wfds, z, opt_tv ? &tv : NULL);
-	} while( rc == AC_SOCKET_ERROR && errno == EINTR &&
-		LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_RESTART ));
+		if( opt_tv != NULL ) timeout = TV2MILLISEC( &tv );
 
-	if( rc == AC_SOCKET_ERROR ) return rc;
+		fd.fd = s;
+		fd.events = POLL_WRITE;
 
-	if ( FD_ISSET(s, &wfds) ) {
-		if ( ldap_pvt_is_socket_ready(ld, s) == -1 )
-			return ( -1 );
-		if ( ldap_pvt_ndelay_off(ld, s) == -1 )
-			return ( -1 );
+		do {
+			fd.revents = 0;
+			rc = poll( &fd, 1, timeout );
+		} while( rc == AC_SOCKET_ERROR && errno == EINTR &&
+			LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_RESTART ));
+
+		if( rc == AC_SOCKET_ERROR ) return rc;
+
+		if( fd.revents & POLL_WRITE ) {
+			if ( ldap_pvt_is_socket_ready(ld, s) == -1 ) return -1;
+			if ( ldap_pvt_ndelay_off(ld, s) == -1 ) return -1;
 #ifdef DO_SENDMSG
-		goto sendcred;
+			goto sendcred;
 #else
-		return ( 0 );
+			return ( 0 );
 #endif
+		}
 	}
+#else
+	{
+		fd_set wfds, *z=NULL;
+
+#ifdef FD_SETSIZE
+		if ( s >= FD_SETSIZE ) {
+			rc = AC_SOCKET_ERROR;
+			tcp_close( s );
+			ldap_pvt_set_errno( EMFILE );
+			return rc;
+		}
+#endif
+		do { 
+			FD_ZERO(&wfds);
+			FD_SET(s, &wfds );
+			rc = select( ldap_int_tblsize, z, &wfds, z, opt_tv ? &tv : NULL );
+		} while( rc == AC_SOCKET_ERROR && errno == EINTR &&
+			LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_RESTART ));
+
+		if( rc == AC_SOCKET_ERROR ) return rc;
+
+		if ( FD_ISSET(s, &wfds) ) {
+			if ( ldap_pvt_is_socket_ready(ld, s) == -1 ) return -1;
+			if ( ldap_pvt_ndelay_off(ld, s) == -1 ) return -1;
+#ifdef DO_SENDMSG
+			goto sendcred;
+#else
+			return ( 0 );
+#endif
+		}
+	}
+#endif
+
 	oslocal_debug(ld, "ldap_connect_timeout: timed out\n",0,0,0);
 	ldap_pvt_set_errno( ETIMEDOUT );
 	return ( -1 );

@@ -1,6 +1,7 @@
 ;;; rnewspost.el --- USENET news poster/mailer for GNU Emacs
 
-;; Copyright (C) 1985, 1986, 1987, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1987, 1995, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: mail, news
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Change Log:
 
@@ -58,6 +59,8 @@
 
 (require 'sendmail)
 (require 'rnews)
+
+(defvar mail-reply-buffer)
 
 (defvar news-reply-mode-map () "Mode map used by news-reply.")
 
@@ -130,7 +133,7 @@ C-c C-r  caesar rotate all letters by 13 places in the article's body (rot13)."
   (setq mode-name "News Reply")
   (make-local-variable 'paragraph-separate)
   (make-local-variable 'paragraph-start)
-  (run-hooks 'text-mode-hook 'news-reply-mode-hook))
+  (run-mode-hooks 'text-mode-hook 'news-reply-mode-hook))
 
 (defvar news-reply-yank-from ""
   "Save `From:' field for `news-reply-yank-original'.")
@@ -221,7 +224,7 @@ summary (abstract) of the message."
 	;; Avoid inserting a signature.
        	(mail-signature))
     (if (null to)
-	;; this hack is needed so that inews wont be confused by 
+	;; this hack is needed so that inews wont be confused by
 	;; the fcc: and bcc: fields
 	(let ((mail-self-blind nil)
 	      (mail-archive-file-name nil))
@@ -250,7 +253,7 @@ summary (abstract) of the message."
       (setq paragraph-separate
 	    (concat "^" actual-header-separator "$\\|" paragraph-separate)))
     (run-hooks 'news-setup-hook)))
-   
+
 (defun news-inews ()
   "Send a news message using inews."
   (interactive)
@@ -271,8 +274,8 @@ summary (abstract) of the message."
 	  (insert ?\n))
       (message "Posting to USENET...")
       (unwind-protect
-	  (if (not (eq 0 
-		       (call-process-region (point-min) (point-max) 
+	  (if (not (eq 0
+		       (call-process-region (point-min) (point-max)
 					    news-inews-program nil 0 nil
 					    "-h"))) ; take all header lines!
 					;@@ setting of subject and newsgroups still needed?
@@ -440,4 +443,5 @@ original message into it."
 
 (provide 'rnewspost)
 
+;;; arch-tag: 18f7b2af-cf9a-49e4-878b-71eb49913e00
 ;;; rnewspost.el ends here

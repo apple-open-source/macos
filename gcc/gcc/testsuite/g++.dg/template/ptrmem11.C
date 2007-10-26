@@ -1,8 +1,10 @@
 // PR c++/18407
 
-template <typename Class>
+// APPLE LOCAL mainline 2006-10-13 3904173
+template <typename Klasse>
 struct the_base{
-  template <void (Class::*Fn)()> void foo() { }
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  template <void (Klasse::*Fn)()> void foo() { }
 };
 
 template <typename T>

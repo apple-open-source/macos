@@ -51,7 +51,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- *	$Id: pathnames.h,v 1.1.1.2 2000/01/11 02:10:05 wsanchez Exp $
+ *	$Id: pathnames.h,v 1.2 2005/07/30 01:30:01 lindak Exp $
  */
 
 #ifndef _PATHNAMES_H_
@@ -59,9 +59,11 @@
 
 #include <paths.h>
 
-#define _PATH_ATJOBS	"/var/at/jobs/"
-#define _PATH_ATSPOOL	"/var/at/spool/"
-#define _PATH_LOCKFILE	"/var/at/.lockfile"
-#define _PATH_AT	"/var/at/"
+#define _PATH_ATJOBS	"/usr/lib/cron/jobs/"
+#define _PATH_ATSPOOL	"/usr/lib/cron/spool/"
+/* Note: _PATH_LOCKFILE appears to be unused; /usr/lib/cron/jobs/.lockfile 
+   is the file currently being used by at.*/
+#define _PATH_LOCKFILE	"/usr/lib/cron/.lockfile"
+#define _PATH_AT	"/usr/lib/cron/"
 
 #endif				/* !_PATHNAMES_H_ */

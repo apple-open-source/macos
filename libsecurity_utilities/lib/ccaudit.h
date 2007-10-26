@@ -60,14 +60,14 @@ class AuditToken
     AuditToken(const audit_token_t &token);
     ~AuditToken()					{ }
     
-    uid_t auditId()                 { return mAuditId;          }
-    uid_t euid()                    { return mEuid;             }
-    gid_t egid()                    { return mEgid;             }
-    uid_t ruid()                    { return mRuid;             }
-    gid_t rgid()                    { return mRgid;             }
-    pid_t pid()                     { return mPid;              }
-    au_asid_t auditSession()        { return mAuditSessionId;   }
-    const au_tid_t &terminalId()    { return mTerminalId;		}
+    uid_t auditId() const           { return mAuditId;          }
+    uid_t euid() const              { return mEuid;             }
+    gid_t egid() const              { return mEgid;             }
+    uid_t ruid() const              { return mRuid;             }
+    gid_t rgid() const              { return mRgid;             }
+    pid_t pid() const               { return mPid;              }
+    au_asid_t auditSession() const  { return mAuditSessionId;   }
+    const au_tid_t &terminalId() const { return mTerminalId;	}
     
   private:
     uid_t mAuditId;

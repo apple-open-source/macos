@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -31,11 +27,11 @@
  * cat
  */
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <fcntl.h>
 
 static const char usage[] =
-"[-?\n@(#)$Id: cat (AT&T Labs Research) 2001-05-07 $\n]"
+"[-?\n@(#)$Id: cat (AT&T Research) 2006-05-17 $\n]"
 USAGE_LICENSE
 "[+NAME?cat - concatenate files]"
 "[+DESCRIPTION?\bcat\b copies each \afile\a in sequence to the standard"
@@ -52,13 +48,14 @@ USAGE_LICENSE
 "[t?Equivalent to \b-vT\b.]"
 "[u:unbuffer?The output is not delayed by buffering.]"
 "[v:show-nonprinting?Causes non-printing characters (whith the exception of"
-"	tabs, new-lines, and form-feeds) to be output is printable charater"
+"	tabs, new-lines, and form-feeds) to be output as printable charater"
 "	sequences. ASCII control characters are printed as \b^\b\an\a,"
 "	where \an\a is the corresponding ASCII character in the range"
 "	octal 100-137. The DEL character (octal 0177) is copied"
 "	as \b^?\b. Other non-printable characters are copied as \bM-\b\ax\a"
 "	where \ax\a is the ASCII character specified by the low-order seven"
-"	bits.]"
+"	bits.  Multibyte characters in the current locale are treated as"
+"	printable characters.]"
 "[A:show-all?Equivalent to \b-vET\b.]"
 "[B:squeeze-blank?Multiple adjacent new-line characters are replace by one"
 "	new-line.]"
@@ -98,26 +95,27 @@ USAGE_LICENSE
 
 #define printof(c)	((c)^0100)
 
-static char		states[UCHAR_MAX+1];
-
 /*
  * called for any special output processing
  */
 
 static int
-vcat(Sfio_t *fdin, Sfio_t *fdout, int flags)
+vcat(register char* states, Sfio_t *fdin, Sfio_t *fdout, int flags)
 {
 	register unsigned char*	cp;
 	register unsigned char*	cpold;
 	register int		n;
+	register int		m;
 	register int		line = 1;
 	register unsigned char*	endbuff;
 	unsigned char*		inbuff;
 	int			printdefer = (flags&(B_FLAG|N_FLAG));
 	int			lastchar;
 
-	static unsigned char	meta[4] = "M-";
+	unsigned char		meta[4];
 
+	meta[0] = 'M';
+	meta[1] = '-';
 	for (;;)
 	{
 		/* read in a buffer full */
@@ -137,8 +135,11 @@ vcat(Sfio_t *fdin, Sfio_t *fdout, int flags)
 		while (endbuff)
 		{
 			cpold = cp;
-			/* skip over ASCII characters */
-			while ((n = states[*cp++]) == 0);
+			/* skip over printable characters */
+			if (mbwide())
+				while ((n = (m = mbsize(cp)) < 2 ? states[*cp++] : (cp += m, states['a'])) == 0);
+			else
+				while ((n = states[*cp++]) == 0);
 			if (n==T_ENDBUF)
 			{
 				if (cp>endbuff)
@@ -232,9 +233,10 @@ b_cat(int argc, char** argv, void* context)
 	char*			mode;
 	int			att;
 	int			dovcat=0;
+	char			states[UCHAR_MAX+1];
 
 	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	att = !strcmp(astconf("UNIVERSE", NiL, NiL), "att");
 	mode = "r";
 	for (;;)
@@ -295,6 +297,7 @@ b_cat(int argc, char** argv, void* context)
 	argv += opt_info.index;
 	if (error_info.errors)
 		error(ERROR_usage(2), "%s", optusage(NiL));
+	memset(states, 0, sizeof(states));
 	if (flags&V_FLAG)
 	{
 		memset(states, T_CONTROL, ' ');
@@ -353,14 +356,14 @@ b_cat(int argc, char** argv, void* context)
 		if (flags&U_FLAG)
 			sfsetbuf(fp, (void*)fp, -1);
 		if (dovcat)
-			n = vcat(fp, sfstdout, flags);
+			n = vcat(states, fp, sfstdout, flags);
 		else if (sfmove(fp, sfstdout, SF_UNBOUND, -1) >= 0 && sfeof(fp))
 			n = 0;
 		else
 			n = -1;
 		if (fp != sfstdin)
 			sfclose(fp);
-		if (n < 0)
+		if (n < 0 && errno != EPIPE)
 		{
 			if (cp)
 				error(ERROR_system(0), "%s: read error", cp);
@@ -372,5 +375,7 @@ b_cat(int argc, char** argv, void* context)
 	} while (cp = *argv++);
 	if (sfsync(sfstdout))
 		error(ERROR_system(0), "write error");
+	if (flags&d_FLAG)
+		sfopen(sfstdout, NiL, "w");
 	return error_info.errors;
 }

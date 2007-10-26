@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,21 +27,30 @@
  * SUCH DAMAGE.
  *
  *	@(#)pathnames.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/make/pathnames.h,v 1.12 2002/05/24 15:51:27 ru Exp $
+ * $FreeBSD: src/usr.bin/make/pathnames.h,v 1.14 2005/03/11 13:02:38 harti Exp $
  */
 
-#ifndef _PATH_OBJDIR
-#define	_PATH_OBJDIR		"obj"
-#endif /* ! _PATH_OBJDIR */
-#ifndef _PATH_OBJDIRPREFIX
-#define	_PATH_OBJDIRPREFIX	"/usr/obj"
-#endif /* ! _PATH_OBJDIRPREFIX */
-#ifndef _PATH_DEFSHELLDIR
-#define	_PATH_DEFSHELLDIR	"/bin"
-#endif /* ! _PATH_DEFSHELLDIR */
-#ifndef _PATH_DEFSYSMK
-#define	_PATH_DEFSYSMK		"sys.mk"
-#endif /* ! _PATH_DEFSYSMK */
-#ifndef _PATH_DEFSYSPATH
-#define	_PATH_DEFSYSPATH	"/usr/share/mk"
-#endif /* ! _PATH_DEFSYSPATH */
+#ifndef pathnames_h_235b888a
+#define	pathnames_h_235b888a
+
+#ifndef PATH_OBJDIR
+#define	PATH_OBJDIR		"obj"
+#endif /* ! PATH_OBJDIR */
+
+#ifndef PATH_OBJDIRPREFIX
+#define	PATH_OBJDIRPREFIX	"/usr/obj"
+#endif /* ! PATH_OBJDIRPREFIX */
+
+#ifndef PATH_DEFSHELLDIR
+#define	PATH_DEFSHELLDIR	"/bin"
+#endif /* ! PATH_DEFSHELLDIR */
+
+#ifndef PATH_DEFSYSMK
+#define	PATH_DEFSYSMK		"sys.mk"
+#endif /* ! PATH_DEFSYSMK */
+
+#ifndef PATH_DEFSYSPATH
+#define	PATH_DEFSYSPATH	"/usr/share/mk"
+#endif /* ! PATH_DEFSYSPATH */
+
+#endif /* pathnames_h_235b888a */

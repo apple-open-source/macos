@@ -1,26 +1,188 @@
+2004-05-31  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dsp: Add "../lib/timespec.h" and "../windows-NT/woe32.h".
+
+2004-05-26  Conrad T. Pino  <Conrad@Pino.com>
+
+	* diff.c: Include "../lib/error.h" so "error" function has prototype.
+
+2004-05-24  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for ../cvsnt.dsp changes.
+
+2005-05-09  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.mak: Regenerated after Windows full rebuild.
+
+2005-03-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerated.
+
+2004-12-14  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add .cvsignore.
+
+2004-11-30  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.mak: Regenerated for "../cvsnt.dsp" change.
+
 2004-11-05  Conrad T. Pino  <Conrad@Pino.com>
 
-	* libdiff.dep: Regenerated after complete rebuild.
+	* libdiff.dep: Regenerated for "../lib/libcvs.dsp" change.
+
+2004-11-04  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for "../lib/libcvs.dsp" change.
+
+2004-11-01  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for "../lib/libcvs.dsp" change.
+
+2004-10-26  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerate for "../cvsnt.dsp" and "../lib/libcvs.dsp" change.
+
+2004-10-21  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for "../zlib/libz.dsp" change.
+	* libdiff.mak: Regenerated for "../zlib/libz.dsp" change.
+
+2004-10-20  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2004-10-09  Mark D. Baushke  <mdb@cvshome.org>
+
+	* diff.c, diff3.c: Backout last change.
+	* Makefile.am: Add -I$(top_builddir)/lib to find getopt.h
+	* Makefile.in: Regenerated.
+
+2004-10-09  Mark D. Baushke  <mdb@cvshome.org>
+
+	* diff.c: Add support for systems that do not #include <stio.h>
+	* diff3.c: Ditto.
+
+2004-10-07  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerate for "../lib/libcvs.dsp" changes made 2004-10-07.
+
+2004-10-05  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for "../cvsnt.dsp" and "../lib/libcvs.dsp"
+	changes made 2004-10-05.
+	* libdiff.mak: Regenerated for "../cvsnt.dsp" and "../lib/libcvs.dsp"
+	changes made 2004-10-05.
+
+2004-09-09  Conrad T. Pino  <Conrad@Pino.com>
+
+	* libdiff.dep: Regenerated for "../cvsnt.dsp" changes made 2004-09-08.
+	* libdiff.mak: Regenerated for "../cvsnt.dsp" changes made 2004-09-08.
+
+2004-07-13  Derek Price  <derek@ximbiot.com>
+
+	* .cvsignore: Ignore GCC profiling data.
 
 2004-05-15  Derek Price  <derek@ximbiot.com>
 
-	* libdiff.dsp: Header file list updated.
+	* libdiff.dsp: Header file list updated for GNULIB updates.
 	* libdiff.dep: Regenerated for "libdiff.dsp" changes.
 	* libdiff.mak: Regenerated for "libdiff.dsp" changes.
-	(Patch from Conrad Pino <conrad@pino.com>.)
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
 
-2004-05-13  Derek Price  <derek@ximbiot.com>
+2004-04-23  Derek Price  <derek@ximbiot.com>
 
-	* .cvsignore: Changed for "libdiff.dsp" changes.
-	* libdiff.dep: Added for "../cvsnt.dsw" changes.
-	* libdiff.dsp: Changed for "../cvsnt.dsw" changes.
-	* libdiff.mak: Regenerated for "../cvsnt.dsw" changes.
-	(Patch from Conrad Pino <conrad@pino.com>.)
+	* libdiff.mak: Regenerated.
+
+2004-04-19  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.mak: Regenerated for "zlib/libz.dsp" change.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-04-17  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dep, libdiff.mak: Regenerated for "../cvsnt.dsw" changes.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dsp: Set PROP BASE directories to projet standard
+	which has "Reset" function use project defaults.
+	(Patch from Conrad T. Pino <Conrad@Pino.com>.)
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dsp: Set default configuration on generated make files to
+	Win32 Debug.
+	(Patch from Conrad T. Pino <conrad@pino.com>.)
+	* libdiff.mak: Regenerated.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Add libdiff.dep.
+	* Makefile.in: Regenerated.
+
+2004-04-15  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dep: New generated file.
+	* libdiff.mak: Regenerated.
+	(Original patch from Conrad T. Pino <conrad@pino.com>.)
+
+2004-04-14  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am (EXTRA_DIST): Remove libdiff.dep.
+	* Makefile.in: Regenerated.
+
+2004-03-29  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.mak: Regenerated with VC++ 5.0.
+	(Original sent by Dennis Jones <djones@oregon.com>.)
+	* libdiff.dep: Removed.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.mak: ...and correct a typo in the path.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.mak: Remove absolute path again.
+
+2004-03-28  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dsp, libdiff.mak: Repair & regenerate, relativizing path
+	that MSVC seems intent on keeping absolute.
+
+2004-03-27  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dep, libdiff.mak, libdiff.dsp: Repaired & regnerated.
+
+2004-03-26  Derek Price  <derek@ximbiot.com>
+
+	* .cvsignore: Ignore MSVC build cruft.
+	* libdiff.dep, libdiff.mak, libdiff.dsp: Repaired & regnerated.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2004-03-25  Derek Price  <derek@ximbiot.com>
+
+	* libdiff.dep, libdiff.mak: New files created by Visual C++ 6.0.
+	* libdiff.dsp: Updated by Visual C++ 6.0.
+	* Makefile.am (EXTRA_DIST): Add diff.dep & diff.mak.
+	* .cvsignore: Add and remove files for new MSVC++ setup.
 
 2004-03-20  Derek Price  <derek@ximbiot.com>
 
 	* diff.c (diff_run): Update string arg to const.
 	* diffrun.h: Update prototype to match.
+
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2003-07-21  Derek Price  <derek@ximbiot.com>
+
+	* system.h: We can assume limits.h under C89.
 
 2003-07-12  Larry Jones  <lawrence.jones@eds.com>
 
@@ -33,15 +195,45 @@
 	* diff3.c (read_diff): Fix memory leak.
 	(Patch from Kenneth Lorber <keni@his.com>.)
 
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2003-06-03  Derek Price  <derek@ximbiot.com>
+
+	* README: Add this file to point would-be patchers to please send their
+	changes to the GNU diffutils project and then ask us to reimport the
+	new diffutils release with the bug fix.
+
 2003-05-21  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
 
 2003-05-09  Derek Price  <derek@ximbiot.com>
 
 	* system.h: Define S_ISSOCK on SCO OpenServer.
 
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
 2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerated.
+
+2003-03-19  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerated.
 

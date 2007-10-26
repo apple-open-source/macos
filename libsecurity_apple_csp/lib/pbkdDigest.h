@@ -70,7 +70,7 @@ void DigestCtxFree(
 int DigestCtxUpdate(
 	DigestCtx 	*ctx,
 	const void 	*textPtr,
-	UInt32 textLen);
+	uint32 textLen);
 int DigestCtxFinal(
 	DigestCtx 	*ctx,
 	void 		*digest);

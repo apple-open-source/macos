@@ -1,0 +1,121 @@
+--- getenv.3	2004-11-25 11:38:41.000000000 -0800
++++ getenv.3.edit	2006-09-17 20:33:52.000000000 -0700
+@@ -50,13 +50,23 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft char *
+-.Fn getenv "const char *name"
++.Fo getenv
++.Fa "const char *name"
++.Fc
+ .Ft int
+-.Fn setenv "const char *name" "const char *value" "int overwrite"
++.Fo putenv
++.Fa "char *string"
++.Fc
+ .Ft int
+-.Fn putenv "const char *string"
+-.Ft void
+-.Fn unsetenv "const char *name"
++.Fo setenv
++.Fa "const char *name"
++.Fa "const char *value"
++.Fa "int overwrite"
++.Fc
++.Ft int
++.Fo unsetenv
++.Fa "const char *name"
++.Fc
+ .Sh DESCRIPTION
+ These functions set, unset and fetch environment variables from the
+ host
+@@ -104,12 +114,26 @@
+ setenv(name, value, 1);
+ .Ed
+ .Pp
++The string pointed to by
++.Fa string
++becomes part of the environment.
++A program should not alter or free the string,
++and should not use stack or other transient string variables
++as arguments to
++.Fn putenv .
++The
++.Fn setenv
++function is strongly preferred to
++.Fn putenv .
++.Pp
+ The
+ .Fn unsetenv
+ function
+ deletes all instances of the variable name pointed to by
+ .Fa name
+ from the list.
++Note that only the variable name (e.g., "NAME") should be given;
++"NAME=value" will not work.
+ .Sh RETURN VALUES
+ The
+ .Fn getenv
+@@ -122,20 +146,60 @@
+ .Dv NULL
+ is returned.
+ .Pp
+-.Rv -std setenv putenv
++.Rv -std setenv putenv unsetenv
+ .Sh ERRORS
+ .Bl -tag -width Er
++.It Bq Er EINVAL
++The function
++.Fn unsetenv
++failed because
++.Fa name
++was not found in the environment list.
+ .It Bq Er ENOMEM
+ The function
+ .Fn setenv
+ or
+ .Fn putenv
+-failed because they were unable to allocate memory for the environment.
++failed because it was unable to allocate memory for the environment.
+ .El
++.Sh LEGACY SYNOPSIS
++.Fd #include <stdlib.h>
++.Pp
++.Ft void
++.br
++.Fo unsetenv
++.Fa "const char *name"
++.Fc ;
++.Pp
++.Fn unsetenv
++doesn't return a value.
++.Sh COMPATIBILITY
++.Fn putenv
++no longer copies its input buffer.
++This often appears in crash logs as a crash in
++.Fn getenv .
++Avoid passing local buffers or freeing the memory
++that is passed to
++.Fn putenv .
++Use
++.Fn setenv ,  
++which still makes an internal copy of its buffers.
++.Pp
++.Fn unsetenv
++no longer parses the variable name;
++e.g., unsetenv ("FOO=BAR") no longer works.
++Use unsetenv("FOO").
++.Fn unsetenv
++also now returns a status value and will set
++.Va errno
++to EINVAL if
++.Fa name
++is not a defined environment variable.
+ .Sh SEE ALSO
+ .Xr csh 1 ,
+ .Xr sh 1 ,
+ .Xr execve 2 ,
++.Xr compat 5 ,
+ .Xr environ 7
+ .Sh STANDARDS
+ The

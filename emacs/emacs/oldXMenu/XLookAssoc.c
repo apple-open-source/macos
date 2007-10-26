@@ -1,17 +1,7 @@
-/* $XConsortium: XLookAssoc.c,v 10.16 91/01/06 12:09:24 rws Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
 
-/*
-Permission to use, copy, modify, distribute, and sell this software and its
-documentation for any purpose is hereby granted without fee, provided that
-the above copyright notice appear in all copies and that both that
-copyright notice and this permission notice appear in supporting
-documentation, and that the name of M.I.T. not be used in advertising or
-publicity pertaining to distribution of the software without specific,
-written prior permission.  M.I.T. makes no representations about the
-suitability of this software for any purpose.  It is provided "as is"
-without express or implied warranty.
-*/
+#include "copyright.h"
+
 
 #include <X11/Xlib.h>
 #include <X11/Xresource.h>
@@ -21,7 +11,7 @@ without express or implied warranty.
 #define NULL 0
 #endif
 
-/* 
+/*
  * XLookUpAssoc - Retrieve the data stored in an XAssocTable by its XId.
  * If an appropriately matching XId can be found in the table the routine will
  * return apointer to the data associated with it. If the XId can not be found
@@ -66,3 +56,5 @@ caddr_t XLookUpAssoc(dpy, table, x_id)
 	return(NULL);
 }
 
+/* arch-tag: d5075d0c-4b71-467d-b33c-3f5c4c4afcf2
+   (do not change this comment) */

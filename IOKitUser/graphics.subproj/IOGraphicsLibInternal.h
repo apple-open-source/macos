@@ -35,11 +35,9 @@ if (cref->logfile) { 					\
 #endif
 
 
-#if IOGRAPHICSTYPES_REV < 9
+#if IOGRAPHICSTYPES_REV < 12
 
-enum { kIORangeSupportsInterlacedCEATimingWithConfirm = 0x00000008 };
-
-#define kIODisplayOverrideMatchingKey  "IODisplayOverrideMatching"
+enum { kDisplayModeValidateAgainstDisplay = 0x00002000 };
 
 #endif
 
@@ -371,7 +369,7 @@ IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
                  IOFBDisplayModeDescription * desc,
                  UInt32 driverFlags, IOOptionBits modeGenFlags );
 
-io_service_t
+__private_extern__ io_service_t
 IODisplayForFramebuffer(
 	io_service_t		framebuffer,
 	IOOptionBits		options );
@@ -401,7 +399,7 @@ UpdateTimingInfoForTransform(IOFBConnectRef connectRef,
 				IOOptionBits flags );
 
 __private_extern__ IOReturn
-readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize);
+readFile(const char *path, vm_address_t * objAddr, vm_size_t * objSize);
 
 __private_extern__ float
 ratioOver( float a, float b );

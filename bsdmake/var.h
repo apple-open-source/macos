@@ -36,62 +36,50 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/make/var.h,v 1.1 2002/10/28 23:33:57 jmallett Exp $
+ * $FreeBSD: src/usr.bin/make/var.h,v 1.29 2005/05/24 16:05:51 harti Exp $
  */
 
-typedef struct Var {
-    char          *name;	/* the variable's name */
-    Buffer	  val;	    	/* its value */
-    int	    	  flags;    	/* miscellaneous status flags */
-#define	VAR_IN_USE	1   	    /* Variable's value currently being used.
-				     * Used to avoid recursion */
-#define	VAR_FROM_ENV	2   	    /* Variable comes from the environment */
-#define	VAR_JUNK  	4   	    /* Variable is a junk variable that
-				     * should be destroyed when done with
-				     * it. Used by Var_Parse for undefined,
-				     * modified variables */
-} Var;
+#ifndef var_h_9cccafce
+#define	var_h_9cccafce
 
-/* Var*Pattern flags */
-#define	VAR_SUB_GLOBAL	0x01	/* Apply substitution globally */
-#define	VAR_SUB_ONE	0x02	/* Apply substitution to one word */
-#define	VAR_SUB_MATCHED	0x04	/* There was a match */
-#define	VAR_MATCH_START	0x08	/* Match at start of word */
-#define	VAR_MATCH_END	0x10	/* Match at end of word */
-#define	VAR_NOSUBST	0x20	/* don't expand vars in VarGetPattern */
+struct Buffer;
+struct GNode;
+struct List;
 
-typedef struct {
-    char    	  *lhs;	    /* String to match */
-    int	    	  leftLen;  /* Length of string */
-    char    	  *rhs;	    /* Replacement string (w/ &'s removed) */
-    int	    	  rightLen; /* Length of replacement */
-    int	    	  flags;
-} VarPattern;
+/* Variables defined in a global context, e.g in the Makefile itself */
+extern struct GNode	*VAR_GLOBAL;
 
-typedef struct { 
-    regex_t	   re; 
-    int		   nsub;
-    regmatch_t	  *matches;
-    char	  *replace;
-    int		   flags;
-} VarREPattern;
+/* Variables defined on the command line */
+extern struct GNode	*VAR_CMD;
 
 /*
- * var.c
+ * Value returned by Var_Parse when an error is encountered.  It actually
+ * points to an empty string, so naive callers needn't worry about it.
  */
-void VarREError(int, regex_t *, const char *);
+extern char		var_Error[];
 
 /*
- * var_modify.c
+ * TRUE if environment should be searched for all variables before
+ * the global context
  */
-Boolean VarHead(const char *, Boolean, Buffer, void *);
-Boolean VarTail(const char *, Boolean, Buffer, void *);
-Boolean VarSuffix(const char *, Boolean, Buffer, void *);
-Boolean VarRoot(const char *, Boolean, Buffer, void *);
-Boolean VarMatch(const char *, Boolean, Buffer, void *);
-#ifdef SYSVVARSUB
-Boolean VarSYSVMatch(const char *, Boolean, Buffer, void *);
-#endif
-Boolean VarNoMatch(const char *, Boolean, Buffer, void *);
-Boolean VarRESubstitute(const char *, Boolean, Buffer, void *);
-Boolean VarSubstitute(const char *, Boolean, Buffer, void *);
+extern Boolean		checkEnvFirst;
+
+/* Do old-style variable substitution */
+extern Boolean		oldVars;
+
+void Var_Append(const char *, const char *, struct GNode *);
+void Var_Delete(const char *, struct GNode *);
+void Var_Dump(void);
+Boolean Var_Exists(const char *, struct GNode *);
+void Var_Init(char **);
+size_t Var_Match(const char [], struct GNode *);
+char *Var_Parse(const char *, struct GNode *, Boolean, size_t *, Boolean *);
+void Var_Print(struct Lst *, Boolean);
+void Var_Set(const char *, const char *, struct GNode *);
+void Var_SetGlobal(const char *, const char *);
+void Var_SetEnv(const char *, struct GNode *);
+struct Buffer *Var_Subst(const char *, struct GNode *, Boolean);
+struct Buffer *Var_SubstOnly(const char *, const char *, Boolean);
+const char *Var_Value(const char [], struct GNode *);
+
+#endif /* var_h_9cccafce */

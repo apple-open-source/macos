@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/smb.h,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/smb.h,v 1.9 2004/12/28 22:29:44 guy Exp $ (LBL) */
 /*
  * Copyright (C) Andrew Tridgell 1995-1999
  *
@@ -119,4 +119,4 @@
 #define PTR_DIFF(p1, p2) ((size_t)(((char *)(p1)) - (char *)(p2)))
 
 /* some protos */
-const u_char *smb_fdata(const u_char *, const char *, const u_char *);
+const u_char *smb_fdata(const u_char *, const char *, const u_char *, int);

@@ -8,7 +8,6 @@ ProjectName     = OpenSSL
 UserType        = Developer
 ToolType        = Libraries
 Configure       = $(Sources)/config
-Extra_CC_Flags  = -Wno-precomp
 GnuAfterInstall = shlibs strip 
 
 

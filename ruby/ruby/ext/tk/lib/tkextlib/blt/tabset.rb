@@ -78,7 +78,7 @@ module Tk::BLT
       #end
       def bind(context, *args)
         # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-        if TkComm._callback_entry?(args[0])
+        if TkComm._callback_entry?(args[0]) || !block_given?
           cmd = args.shift
         else
           cmd = Proc.new
@@ -92,7 +92,7 @@ module Tk::BLT
       #end
       def bind_append(context, *args)
         # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-        if TkComm._callback_entry?(args[0])
+        if TkComm._callback_entry?(args[0]) || !block_given?
           cmd = args.shift
         else
           cmd = Proc.new
@@ -189,6 +189,16 @@ module Tk::BLT
 
     ########################################
 
+    def __boolval_optkeys
+      super() << 'samewidth' << 'tearoff'
+    end
+    private :__strval_optkeys
+
+    def __strval_optkeys
+      super() << 'tabbackground' << 'tabforeground'
+    end
+    private :__strval_optkeys
+
     def __item_cget_cmd(id)
       [self.path, 'tab', 'cget', id]
     end
@@ -212,6 +222,11 @@ module Tk::BLT
     alias tab_configure itemconfigure
     alias tab_configinfo itemconfiginfo
     alias current_tab_configinfo current_itemconfiginfo
+
+    def __item_strval_optkeys(id)
+      super(id) << 'shadow'
+    end
+    private :__item_strval_optkeys
 
     def tagid(tab)
       if tab.kind_of?(Tk::BLT::Tabset::Tab)
@@ -243,7 +258,7 @@ module Tk::BLT
     #end
     def tabbind(tag, context, *args)
       # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-      if TkComm._callback_entry?(args[0])
+      if TkComm._callback_entry?(args[0]) || !block_given?
         cmd = args.shift
       else
         cmd = Proc.new
@@ -257,7 +272,7 @@ module Tk::BLT
     #end
     def tabbind_append(tag, context, *args)
       # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-      if TkComm._callback_entry?(args[0])
+      if TkComm._callback_entry?(args[0]) || !block_given?
         cmd = args.shift
       else
         cmd = Proc.new

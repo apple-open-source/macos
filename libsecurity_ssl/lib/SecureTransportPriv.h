@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -21,7 +21,7 @@
 
 	Contains:	Apple-private exported routines
 
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 2000-2007 Apple Inc., all rights reserved.
 
 */
 
@@ -123,6 +123,53 @@ OSStatus
 SSLGetEncryptionCertificate (
 	SSLContextRef	context,
 	CFArrayRef		*certRefs);				// RETURNED, *not* retained
+
+/*
+ * Getter for SSLSetClientSideAuthenticate()
+ */
+OSStatus
+SSLGetClientSideAuthenticate (
+	SSLContextRef	context,
+	SSLAuthenticate	*auth);					// RETURNED
+
+/*
+ * Get/set array of trusted leaf certificates.
+ *
+ * If none have been set previously with SSLSetTrustedLeafCertificates(),
+ * then SSLCopyTrustedLeafCertificates() will return NULL with noErr.
+ */
+OSStatus 
+SSLSetTrustedLeafCertificates (
+	SSLContextRef	context,
+	CFArrayRef 		certRefs);
+
+OSStatus 
+SSLCopyTrustedLeafCertificates (
+	SSLContextRef	context,
+	CFArrayRef 		*certRefs);				// RETURNED, caller must release
+
+/*
+ * Get/set enable of anonymous ciphers. Default is enabled.
+ *
+ * SSLSetAllowAnonymousCiphers() returns badReqErr if SSLSetEnabledCiphers()
+ * has already been called. 
+ *
+ * The enable state set by SSLSetAllowAnonymousCiphers() is ignored if 
+ * SSLSetEnabledCiphers() is called after SSLSetAllowAnonymousCiphers() is
+ * called, i.e., SSLSetEnabledCiphers() overrides SSLSetAllowAnonymousCiphers().
+ *
+ * NOTE: "Anonymous" ciphers include those ciphers that perform no encryption,
+ * as well as ciphers that perform no authentication, since neither are secure.
+ */
+OSStatus 
+SSLSetAllowAnonymousCiphers(
+	SSLContextRef	context, 
+	Boolean			enable);
+
+OSStatus 
+SSLGetAllowAnonymousCiphers(
+	SSLContextRef	context, 
+	Boolean			*enable);
 
 /*
  * Override the default session cache timeout for a cache entry created for

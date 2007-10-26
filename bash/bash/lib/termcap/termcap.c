@@ -21,11 +21,15 @@ Free Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.  */
 #include <config.h>
 
 /* Get the O_* definitions for open et al.  */
-#ifndef _MINIX
-#include <sys/file.h>
+#if !defined (_MINIX) && defined (HAVE_SYS_FILE_H)
+#  include <sys/file.h>
 #endif
 
 #include <fcntl.h>
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
@@ -33,6 +37,14 @@ Free Software Foundation, 59 Temple Place, Suite 330, Boston, MA 02111 USA.  */
 extern char *getenv ();
 extern char *malloc ();
 extern char *realloc ();
+#endif
+
+#if defined (HAVE_STRING_H)
+#include <string.h>
+#endif
+
+#if !defined (HAVE_BCOPY) && (defined (HAVE_STRING_H) || defined (STDC_HEADERS))
+#  define bcopy(s, d, n)	memcpy ((d), (s), (n))
 #endif
 
 #else /* not HAVE_CONFIG_H */

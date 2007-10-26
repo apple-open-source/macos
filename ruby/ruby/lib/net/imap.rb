@@ -284,7 +284,11 @@ module Net
 
     # Disconnects from the server.
     def disconnect
-      @sock.shutdown unless @usessl
+      if SSL::SSLSocket === @sock
+        @sock.io.shutdown
+      else
+        @sock.shutdown
+      end
       @receiver_thread.join
       @sock.close
     end
@@ -885,15 +889,16 @@ module Net
           raise "SSL extension not installed"
         end
         @usessl = true
-        @sock = SSLSocket.new(@sock)
 
         # verify the server.
-        @sock.ca_file = certs if certs && FileTest::file?(certs)
-        @sock.ca_path = certs if certs && FileTest::directory?(certs)
-        @sock.verify_mode = VERIFY_PEER if verify
+        context = SSLContext::new()
+        context.ca_file = certs if certs && FileTest::file?(certs)
+        context.ca_path = certs if certs && FileTest::directory?(certs)
+        context.verify_mode = VERIFY_PEER if verify
         if defined?(VerifyCallbackProc)
-          @sock.verify_callback = VerifyCallbackProc 
+          context.verify_callback = VerifyCallbackProc 
         end
+        @sock = SSLSocket.new(@sock, context)
         @sock.connect   # start ssl session.
       else
         @usessl = false
@@ -901,8 +906,8 @@ module Net
       @responses = Hash.new([].freeze)
       @tagged_responses = {}
       @response_handlers = []
-      @tagged_response_arrival = new_cond
-      @continuation_request_arrival = new_cond
+      @response_arrival = new_cond
+      @continuation_request = nil
       @logout_command_tag = nil
       @debug_output_bol = true
 
@@ -933,7 +938,7 @@ module Net
             case resp
             when TaggedResponse
               @tagged_responses[resp.tag] = resp
-              @tagged_response_arrival.broadcast
+              @response_arrival.broadcast
               if resp.tag == @logout_command_tag
                 return
               end
@@ -948,7 +953,8 @@ module Net
                 raise ByeResponseError, resp.raw_data
               end
             when ContinuationRequest
-              @continuation_request_arrival.signal
+              @continuation_request = resp
+              @response_arrival.broadcast
             end
             @response_handlers.each do |handler|
               handler.call(resp)
@@ -960,10 +966,14 @@ module Net
       end
     end
 
-    def get_tagged_response(tag, cmd)
+    def get_tagged_response(tag)
       until @tagged_responses.key?(tag)
-        @tagged_response_arrival.wait
+        @response_arrival.wait
       end
+      return pick_up_tagged_response(tag)
+    end
+
+    def pick_up_tagged_response(tag)
       resp = @tagged_responses.delete(tag)
       case resp.name
       when /\A(?:NO)\z/ni
@@ -1004,7 +1014,7 @@ module Net
 
     def send_command(cmd, *args, &block)
       synchronize do
-        tag = generate_tag
+        tag = Thread.current[:net_imap_tag] = generate_tag
         put_string(tag + " " + cmd)
         args.each do |i|
           put_string(" ")
@@ -1018,7 +1028,7 @@ module Net
           add_response_handler(block)
         end
         begin
-          return get_tagged_response(tag, cmd)
+          return get_tagged_response(tag)
         ensure
           if block
             remove_response_handler(block)
@@ -1087,7 +1097,15 @@ module Net
 
     def send_literal(str)
       put_string("{" + str.length.to_s + "}" + CRLF)
-      @continuation_request_arrival.wait
+      while @continuation_request.nil? &&
+        !@tagged_responses.key?(Thread.current[:net_imap_tag])
+        @response_arrival.wait
+      end
+      if @continuation_request.nil?
+        pick_up_tagged_response(Thread.current[:net_imap_tag])
+        raise ResponseError.new("expected continuation request")
+      end
+      @continuation_request = nil
       put_string(str)
     end
 
@@ -1266,7 +1284,7 @@ module Net
           buf.concat(c)
           i += 1
         elsif (c & 0xe0) == 0xc0 &&
-            inlen >= 2 &&
+            len >= 2 &&
             (s[i + 1] & 0xc0) == 0x80
           if c == 0xc0 || c == 0xc1
             raise DataFormatError, format("non-shortest UTF-8 sequence (%02x)", c)
@@ -1882,7 +1900,7 @@ module Net
       T_TEXT    = :TEXT
 
       BEG_REGEXP = /\G(?:\
-(?# 1:  SPACE   )( )|\
+(?# 1:  SPACE   )( +)|\
 (?# 2:  NIL     )(NIL)(?=[\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+])|\
 (?# 3:  NUMBER  )(\d+)(?=[\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+])|\
 (?# 4:  ATOM    )([^\x80-\xff(){ \x00-\x1f\x7f%*"\\\[\]+]+)|\
@@ -2734,7 +2752,7 @@ module Net
         token = match(T_ATOM)
         name = token.value.upcase
         case name
-        when /\A(?:ALERT|PARSE|READ-ONLY|READ-WRITE|TRYCREATE)\z/n
+        when /\A(?:ALERT|PARSE|READ-ONLY|READ-WRITE|TRYCREATE|NOMODSEQ)\z/n
           result = ResponseCode.new(name, nil)
         when /\A(?:PERMANENTFLAGS)\z/n
           match(T_SPACE)

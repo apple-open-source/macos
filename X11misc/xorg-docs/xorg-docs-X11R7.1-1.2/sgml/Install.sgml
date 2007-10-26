@@ -1,0 +1,41 @@
+<!DOCTYPE linuxdoc PUBLIC "-//Xorg//DTD linuxdoc//EN" [
+<!ENTITY % defs SYSTEM "defs.ent"> %defs;
+]>
+
+<article>
+
+<title>Installation Details for X11R&relvers;
+<author>The X.Org Foundation
+<date>&reldate;
+
+<ident>
+$Id: Install.sgml,v 1.4 2005/12/19 07:56:55 alanc Exp $  
+</ident>
+
+<abstract>
+
+How to install the X.Org Foundation's X Window System release version
+X11R&relvers;.
+
+</abstract>
+
+<toc>
+
+<sect>Introduction
+<p>
+At this time, the X.Org Foundation is not making binary releases; this
+will likely change in the future as our tinderbox system reaches its
+full potential.
+<p>
+However, people are already packaging the distribution for release in
+many of the common distributions (e.g., Fedora Core, SuSE Linux,
+Debian), and you may wish to work with those distributors on their
+packaged binaries.
+<p>
+In the meanwhile, we recommend building X from source and doing an
+install on top of your running X installation *after* having carefully
+backed up /usr/X11R6 to allow restoration in case of some unanticipated
+problems.  See the file INSTALL.TXT in the root of the source
+distribution for build and install details.
+
+</article>

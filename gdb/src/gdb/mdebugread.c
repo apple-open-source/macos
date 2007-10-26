@@ -56,30 +56,7 @@
 #include "gdb_assert.h"
 #include "block.h"
 #include "dictionary.h"
-
-/* These are needed if the tm.h file does not contain the necessary
-   mips specific definitions.  */
-
-#ifndef MIPS_EFI_SYMBOL_NAME
-#define MIPS_EFI_SYMBOL_NAME "__GDB_EFI_INFO__"
-extern void ecoff_relocate_efi (struct symbol *, CORE_ADDR);
-#include "coff/sym.h"
-#include "coff/symconst.h"
-typedef struct mips_extra_func_info
-  {
-    long numargs;
-    PDR pdr;
-  }
- *mips_extra_func_info_t;
-#ifndef RA_REGNUM
-#define RA_REGNUM 0
-#endif
-#endif
-
-#ifdef USG
-#include <sys/types.h>
-#endif
-
+#include "mdebugread.h"
 #include "gdb_stat.h"
 #include "gdb_string.h"
 
@@ -92,7 +69,6 @@ typedef struct mips_extra_func_info
 #include "aout/stab_gnu.h"	/* STABS information */
 
 #include "expression.h"
-#include "language.h"		/* For local_hex_string() */
 
 extern void _initialize_mdebugread (void);
 
@@ -148,39 +124,39 @@ struct symloc
 static void
 index_complaint (const char *arg1)
 {
-  complaint (&symfile_complaints, "bad aux index at symbol %s", arg1);
+  complaint (&symfile_complaints, _("bad aux index at symbol %s"), arg1);
 }
 
 static void
 unknown_ext_complaint (const char *arg1)
 {
-  complaint (&symfile_complaints, "unknown external symbol %s", arg1);
+  complaint (&symfile_complaints, _("unknown external symbol %s"), arg1);
 }
 
 static void
 basic_type_complaint (int arg1, const char *arg2)
 {
-  complaint (&symfile_complaints, "cannot map ECOFF basic type 0x%x for %s",
+  complaint (&symfile_complaints, _("cannot map ECOFF basic type 0x%x for %s"),
 	     arg1, arg2);
 }
 
 static void
 bad_tag_guess_complaint (const char *arg1)
 {
-  complaint (&symfile_complaints, "guessed tag type of %s incorrectly", arg1);
+  complaint (&symfile_complaints, _("guessed tag type of %s incorrectly"), arg1);
 }
 
 static void
 bad_rfd_entry_complaint (const char *arg1, int arg2, int arg3)
 {
-  complaint (&symfile_complaints, "bad rfd entry for %s: file %d, index %d",
+  complaint (&symfile_complaints, _("bad rfd entry for %s: file %d, index %d"),
 	     arg1, arg2, arg3);
 }
 
 static void
 unexpected_type_code_complaint (const char *arg1)
 {
-  complaint (&symfile_complaints, "unexpected type code for %s", arg1);
+  complaint (&symfile_complaints, _("unexpected type code for %s"), arg1);
 }
 
 /* Macros and extra defs */
@@ -321,21 +297,6 @@ static void handle_psymbol_enumerators (struct objfile *, FDR *, int,
 
 static char *mdebug_next_symbol_text (struct objfile *);
 
-/* Address bounds for the signal trampoline in inferior, if any */
-
-CORE_ADDR sigtramp_address, sigtramp_end;
-
-/* Allocate zeroed memory */
-
-static void *
-xzalloc (unsigned int size)
-{
-  void *p = xmalloc (size);
-
-  memset (p, 0, size);
-  return p;
-}
-
 /* Exported procedure: Builds a symtab from the PST partial one.
    Restores the environment in effect when PST was created, delegates
    most of the work to an ancillary procedure, and sorts
@@ -350,7 +311,7 @@ mdebug_psymtab_to_symtab (struct partial_symtab *pst)
 
   if (info_verbose)
     {
-      printf_filtered ("Reading in symbols for %s...", pst->filename);
+      printf_filtered (_("Reading in symbols for %s..."), pst->filename);
       gdb_flush (gdb_stdout);
     }
 
@@ -363,7 +324,7 @@ mdebug_psymtab_to_symtab (struct partial_symtab *pst)
   scan_file_globals (pst->objfile);
 
   if (info_verbose)
-    printf_filtered ("done.\n");
+    printf_filtered (_("done.\n"));
 }
 
 /* File-level interface functions */
@@ -446,9 +407,9 @@ mdebug_build_psymtabs (struct objfile *objfile,
   if (compare_glevel (max_glevel, GLEVEL_2) < 0)
     {
       if (max_gdbinfo == 0)
-	printf_unfiltered ("\n%s not compiled with -g, debugging support is limited.\n",
+	printf_unfiltered (_("\n%s not compiled with -g, debugging support is limited.\n"),
 			   objfile->name);
-      printf_unfiltered ("You should compile with -g2 or -g3 for best debugging support.\n");
+      printf_unfiltered (_("You should compile with -g2 or -g3 for best debugging support.\n"));
       gdb_flush (gdb_stdout);
     }
 #endif
@@ -545,9 +506,9 @@ struct mdebug_pending
 
 
 /* The pending information is kept for an entire object file, and used
-   to be in the sym_private field.  I took it out when I split
-   mdebugread from mipsread, because this might not be the only type
-   of symbols read from an object file.  Instead, we allocate the
+   to be in the deprecated_sym_private field.  I took it out when I
+   split mdebugread from mipsread, because this might not be the only
+   type of symbols read from an object file.  Instead, we allocate the
    pending information table when we create the partial symbols, and
    we store a pointer to the single table in each psymtab.  */
 
@@ -779,7 +740,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
                     break;
                   default:
                     complaint (&symfile_complaints,
-                               "unknown symbol type 0x%x", sh->st);
+                               _("unknown symbol type 0x%x"), sh->st);
                     break;
                 }
             }
@@ -816,7 +777,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	  struct blockvector *bv = BLOCKVECTOR (top_stack->cur_st);
 	  /* The next test should normally be true, but provides a
 	     hook for nested functions (which we don't want to make
-	     global). */
+	     global).  */
 	  if (b == BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK))
 	    b = BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK);
 	  /* Irix 5 sometimes has duplicate names for the same
@@ -996,7 +957,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 
 	      default:
 		complaint (&symfile_complaints,
-			   "declaration block contains unhandled symbol type %d",
+			   _("declaration block contains unhandled symbol type %d"),
 			   tsym.st);
 	      }
 	  }
@@ -1190,7 +1151,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	{
 	  /* Finished with procedure */
 	  struct blockvector *bv = BLOCKVECTOR (top_stack->cur_st);
-	  struct mips_extra_func_info *e;
+	  struct mdebug_extra_func_info *e;
 	  struct block *b = top_stack->cur_block;
 	  struct type *ftype = top_stack->cur_type;
 	  int i;
@@ -1198,14 +1159,14 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	  BLOCK_END (top_stack->cur_block) += sh->value;	/* size */
 
 	  /* Make up special symbol to contain procedure specific info */
-	  s = new_symbol (MIPS_EFI_SYMBOL_NAME);
+	  s = new_symbol (MDEBUG_EFI_SYMBOL_NAME);
 	  SYMBOL_DOMAIN (s) = LABEL_DOMAIN;
 	  SYMBOL_CLASS (s) = LOC_CONST;
 	  SYMBOL_TYPE (s) = mdebug_type_void;
-	  e = ((struct mips_extra_func_info *)
+	  e = ((struct mdebug_extra_func_info *)
 	       obstack_alloc (&current_objfile->objfile_obstack,
-			      sizeof (struct mips_extra_func_info)));
-	  memset (e, 0, sizeof (struct mips_extra_func_info));
+			      sizeof (struct mdebug_extra_func_info)));
+	  memset (e, 0, sizeof (struct mdebug_extra_func_info));
 	  SYMBOL_VALUE (s) = (long) e;
 	  e->numargs = top_stack->numargs;
 	  e->pdr.framereg = -1;
@@ -1284,7 +1245,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
 	}
       else
 	complaint (&symfile_complaints,
-		   "stEnd with storage class %d not handled", sh->sc);
+		   _("stEnd with storage class %d not handled"), sh->sc);
 
       pop_parse_stack ();	/* restore previous lexical context */
       break;
@@ -1396,7 +1357,7 @@ parse_symbol (SYMR *sh, union aux_ext *ax, char *ext_sh, int bigend,
     case stConstant:
       break;			/* constant */
     default:
-      complaint (&symfile_complaints, "unknown symbol type 0x%x", sh->st);
+      complaint (&symfile_complaints, _("unknown symbol type 0x%x"), sh->st);
       break;
     }
 
@@ -1537,7 +1498,7 @@ parse_type (int fd, union aux_ext *ax, unsigned int aux_index, int *bs,
 	  else if (t->bt == btEnum)
 	    ;
 	  else
-	    complaint (&symfile_complaints, "can't handle TIR fBitfield for %s",
+	    complaint (&symfile_complaints, _("can't handle TIR fBitfield for %s"),
 		       sym_name);
 	}
       else
@@ -1567,7 +1528,7 @@ parse_type (int fd, union aux_ext *ax, unsigned int aux_index, int *bs,
       if (rf == -1)
 	{
 	  complaint (&symfile_complaints,
-		     "unable to cross ref btIndirect for %s", sym_name);
+		     _("unable to cross ref btIndirect for %s"), sym_name);
 	  return mdebug_type_int;
 	}
       xref_fh = get_rfd (fd, rf);
@@ -1684,7 +1645,7 @@ parse_type (int fd, union aux_ext *ax, unsigned int aux_index, int *bs,
       if (tp == (struct type *) NULL)
 	{
 	  complaint (&symfile_complaints,
-		     "unable to cross ref btTypedef for %s", sym_name);
+		     _("unable to cross ref btTypedef for %s"), sym_name);
 	  tp = mdebug_type_int;
 	}
     }
@@ -1734,7 +1695,7 @@ parse_type (int fd, union aux_ext *ax, unsigned int aux_index, int *bs,
 
   /* Complain for illegal continuations due to corrupt aux entries.  */
   if (t->continued)
-    complaint (&symfile_complaints, "illegal TIR continued for %s", sym_name);
+    complaint (&symfile_complaints, _("illegal TIR continued for %s"), sym_name);
 
   return tp;
 }
@@ -1797,7 +1758,7 @@ upgrade_type (int fd, struct type **tpp, int tq, union aux_ext *ax, int bigend,
       if (TYPE_CODE (indx) != TYPE_CODE_INT)
 	{
 	  complaint (&symfile_complaints,
-		     "illegal array index type for %s, assuming int", sym_name);
+		     _("illegal array index type for %s, assuming int"), sym_name);
 	  indx = mdebug_type_int;
 	}
 
@@ -1847,7 +1808,7 @@ upgrade_type (int fd, struct type **tpp, int tq, union aux_ext *ax, int bigend,
       return 0;
 
     default:
-      complaint (&symfile_complaints, "unknown type qualifier 0x%x", tq);
+      complaint (&symfile_complaints, _("unknown type qualifier 0x%x"), tq);
       return 0;
     }
 }
@@ -1855,13 +1816,13 @@ upgrade_type (int fd, struct type **tpp, int tq, union aux_ext *ax, int bigend,
 
 /* Parse a procedure descriptor record PR.  Note that the procedure is
    parsed _after_ the local symbols, now we just insert the extra
-   information we need into a MIPS_EFI_SYMBOL_NAME symbol that has
+   information we need into a MDEBUG_EFI_SYMBOL_NAME symbol that has
    already been placed in the procedure's main block.  Note also that
    images that have been partially stripped (ld -x) have been deprived
    of local symbols, and we have to cope with them here.  FIRST_OFF is
    the offset of the first procedure for this FDR; we adjust the
    address by this amount, but I don't know why.  SEARCH_SYMTAB is the symtab
-   to look for the function which contains the MIPS_EFI_SYMBOL_NAME symbol
+   to look for the function which contains the MDEBUG_EFI_SYMBOL_NAME symbol
    in question, or NULL to use top_stack->cur_block.  */
 
 static void parse_procedure (PDR *, struct symtab *, struct partial_symtab *);
@@ -1872,7 +1833,7 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
 {
   struct symbol *s, *i;
   struct block *b;
-  struct mips_extra_func_info *e;
+  struct mdebug_extra_func_info *e;
   char *sh_name;
 
   /* Simple rule to find files linked "-x" */
@@ -1883,7 +1844,7 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
 	  /* Static procedure at address pr->adr.  Sigh. */
 	  /* FIXME-32x64.  assuming pr->adr fits in long.  */
 	  complaint (&symfile_complaints,
-		     "can't handle PDR for static proc at 0x%lx",
+		     _("can't handle PDR for static proc at 0x%lx"),
 		     (unsigned long) pr->adr);
 	  return;
 	}
@@ -1944,7 +1905,7 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
     }
   else
     {
-      complaint (&symfile_complaints, "PDR for %s, but no symbol", sh_name);
+      complaint (&symfile_complaints, _("PDR for %s, but no symbol"), sh_name);
 #if 1
       return;
 #else
@@ -1968,11 +1929,11 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
 #endif
     }
 
-  i = mylookup_symbol (MIPS_EFI_SYMBOL_NAME, b, LABEL_DOMAIN, LOC_CONST);
+  i = mylookup_symbol (MDEBUG_EFI_SYMBOL_NAME, b, LABEL_DOMAIN, LOC_CONST);
 
   if (i)
     {
-      e = (struct mips_extra_func_info *) SYMBOL_VALUE (i);
+      e = (struct mdebug_extra_func_info *) SYMBOL_VALUE (i);
       e->pdr = *pr;
       e->pdr.isym = (long) s;
 
@@ -1993,8 +1954,12 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
       if (e->pdr.pcreg == 0
 	  && strcmp (sh_name, "setjmp") == 0)
 	{
-	  complaint (&symfile_complaints, "fixing bad setjmp PDR from libc");
+	  complaint (&symfile_complaints, _("fixing bad setjmp PDR from libc"));
+#ifdef RA_REGNUM
 	  e->pdr.pcreg = RA_REGNUM;
+#else
+	  e->pdr.pcreg = 0;
+#endif
 	  e->pdr.regmask = 0x80000000;
 	  e->pdr.regoffset = -4;
 	}
@@ -2019,18 +1984,6 @@ parse_procedure (PDR *pr, struct symtab *search_symtab,
       && found_ecoff_debugging_info == 0
       && TYPE_CODE (TYPE_TARGET_TYPE (SYMBOL_TYPE (s))) == TYPE_CODE_VOID)
     SYMBOL_TYPE (s) = nodebug_func_symbol_type;
-}
-
-/* Relocate the extra function info pointed to by the symbol table.  */
-
-void
-ecoff_relocate_efi (struct symbol *sym, CORE_ADDR delta)
-{
-  struct mips_extra_func_info *e;
-
-  e = (struct mips_extra_func_info *) SYMBOL_VALUE (sym);
-
-  e->pdr.adr += delta;
 }
 
 /* Parse the external symbol ES. Just call parse_symbol() after
@@ -2090,7 +2043,7 @@ parse_external (EXTR *es, int bigend, struct section_offsets *section_offsets,
       n_undef_symbols++;
       /* FIXME:  Turn this into a complaint? */
       if (info_verbose)
-	printf_filtered ("Warning: %s `%s' is undefined (in %s)\n",
+	printf_filtered (_("Warning: %s `%s' is undefined (in %s)\n"),
 			 what, debug_info->ssext + es->asym.iss,
 			 fdr_name (cur_fdr));
       return;
@@ -2191,7 +2144,7 @@ parse_lines (FDR *fh, PDR *pr, struct linetable *lt, int maxlines,
 	  if (lt->nitems >= maxlines)
 	    {
 	      complaint (&symfile_complaints,
-			 "guessed size of linetable for %s incorrectly",
+			 _("guessed size of linetable for %s incorrectly"),
 			 fdr_name (fh));
 	      break;
 	    }
@@ -2205,8 +2158,87 @@ static void
 function_outside_compilation_unit_complaint (const char *arg1)
 {
   complaint (&symfile_complaints,
-	     "function `%s' appears to be defined outside of all compilation units",
+	     _("function `%s' appears to be defined outside of all compilation units"),
 	     arg1);
+}
+
+/* Use the STORAGE_CLASS to compute which section the given symbol
+   belongs to, and then records this new minimal symbol.  */
+
+static void
+record_minimal_symbol (const char *name, const CORE_ADDR address,
+                       enum minimal_symbol_type ms_type, int storage_class,
+                       struct objfile *objfile)
+{
+  int section;
+  asection *bfd_section;
+
+  switch (storage_class)
+    {
+      case scText:
+        section = SECT_OFF_TEXT (objfile);
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".text");
+        break;
+      case scData:
+        section = SECT_OFF_DATA (objfile);
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".data");
+        break;
+      case scBss:
+        section = SECT_OFF_BSS (objfile);
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".bss");
+        break;
+      case scSData:
+        section = get_section_index (objfile, ".sdata");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".sdata");
+        break;
+      case scSBss:
+        section = get_section_index (objfile, ".sbss");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".sbss");
+        break;
+      case scRData:
+        section = get_section_index (objfile, ".rdata");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".rdata");
+        break;
+      case scInit:
+        section = get_section_index (objfile, ".init");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".init");
+        break;
+      case scXData:
+        section = get_section_index (objfile, ".xdata");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".xdata");
+        break;
+      case scPData:
+        section = get_section_index (objfile, ".pdata");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".pdata");
+        break;
+      case scFini:
+        section = get_section_index (objfile, ".fini");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".fini");
+        break;
+      case scRConst:
+        section = get_section_index (objfile, ".rconst");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".rconst");
+        break;
+#ifdef scTlsData
+      case scTlsData:
+        section = get_section_index (objfile, ".tlsdata");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".tlsdata");
+        break;
+#endif
+#ifdef scTlsBss
+      case scTlsBss:
+        section = get_section_index (objfile, ".tlsbss");
+        bfd_section = bfd_get_section_by_name (cur_bfd, ".tlsbss");
+        break;
+#endif
+      default:
+        /* This kind of symbol is not associated to a section.  */
+        section = -1;
+        bfd_section = NULL;
+    }
+
+  prim_record_minimal_symbol_and_info (name, address, ms_type, NULL,
+                                       section, bfd_section, objfile);
 }
 
 /* Master parsing procedure for first-pass reading of file symbols
@@ -2386,14 +2418,14 @@ parse_partial_symbols (struct objfile *objfile)
       if (ext_in->ifd < -1 || ext_in->ifd >= hdr->ifdMax)
 	{
 	  complaint (&symfile_complaints,
-		     "bad ifd for external symbol: %d (max %ld)", ext_in->ifd,
+		     _("bad ifd for external symbol: %d (max %ld)"), ext_in->ifd,
 		     hdr->ifdMax);
 	  continue;
 	}
       if (ext_in->asym.iss < 0 || ext_in->asym.iss >= hdr->issExtMax)
 	{
 	  complaint (&symfile_complaints,
-		     "bad iss for external symbol: %ld (max %ld)",
+		     _("bad iss for external symbol: %ld (max %ld)"),
 		     ext_in->asym.iss, hdr->issExtMax);
 	  continue;
 	}
@@ -2523,7 +2555,8 @@ parse_partial_symbols (struct objfile *objfile)
 	  unknown_ext_complaint (name);
 	}
       if (!ECOFF_IN_ELF (cur_bfd))
-	prim_record_minimal_symbol (name, svalue, ms_type, objfile);
+        record_minimal_symbol (name, svalue, ms_type, ext_in->asym.sc,
+                               objfile);
     }
 
   /* Pass 3 over files, over local syms: fill in static symbols */
@@ -2640,13 +2673,9 @@ parse_partial_symbols (struct objfile *objfile)
 		      if (sh.st == stStaticProc)
 			{
 			  namestring = debug_info->ss + fh->issBase + sh.iss;
-			  prim_record_minimal_symbol_and_info (namestring,
-							       sh.value,
-							       mst_file_text,
-							       NULL,
-							       SECT_OFF_TEXT (objfile),
-							       NULL,
-							       objfile);
+                          record_minimal_symbol (namestring, sh.value,
+                                                 mst_file_text, sh.sc,
+                                                 objfile);
 			}
 		      procaddr = sh.value;
 
@@ -2688,13 +2717,9 @@ parse_partial_symbols (struct objfile *objfile)
 			case scXData:
 			  namestring = debug_info->ss + fh->issBase + sh.iss;
 			  sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_DATA (objfile));
-			  prim_record_minimal_symbol_and_info (namestring,
-							       sh.value,
-							       mst_file_data,
-							       NULL,
-							       SECT_OFF_DATA (objfile),
-							       NULL,
-							       objfile);
+                          record_minimal_symbol (namestring, sh.value,
+                                                 mst_file_data, sh.sc,
+                                                 objfile);
 			  break;
 
 			default:
@@ -2702,13 +2727,9 @@ parse_partial_symbols (struct objfile *objfile)
 			     then have the default be abs? */
 			  namestring = debug_info->ss + fh->issBase + sh.iss;
 			  sh.value += ANOFFSET (objfile->section_offsets, SECT_OFF_BSS (objfile));
-			  prim_record_minimal_symbol_and_info (namestring,
-							       sh.value,
-							       mst_file_bss,
-							       NULL,
-							       SECT_OFF_BSS (objfile),
-							       NULL,
-							       objfile);
+                          record_minimal_symbol (namestring, sh.value,
+                                                 mst_file_bss, sh.sc,
+                                                 objfile);
 			  break;
 			}
 		    }
@@ -3212,7 +3233,7 @@ parse_partial_symbols (struct objfile *objfile)
 			   a backslash.  */
 
 			complaint (&symfile_complaints,
-				   "unknown symbol descriptor `%c'", p[1]);
+				   _("unknown symbol descriptor `%c'"), p[1]);
 
 			/* Ignore it; perhaps it is an extension that we don't
 			   know about.  */
@@ -3273,8 +3294,8 @@ parse_partial_symbols (struct objfile *objfile)
 		  default:
 		    /* If we haven't found it yet, ignore it.  It's probably some
 		       new type we don't know about yet.  */
-		    complaint (&symfile_complaints, "unknown symbol type %s",
-			       local_hex_string (type_code)); /*CUR_SYMBOL_TYPE*/
+		    complaint (&symfile_complaints, _("unknown symbol type %s"),
+			       hex_string (type_code)); /*CUR_SYMBOL_TYPE*/
 		    continue;
 		  }
 		if (stabstring
@@ -3370,7 +3391,7 @@ parse_partial_symbols (struct objfile *objfile)
 		    {
 		      /* This should not happen either... FIXME.  */
 		      complaint (&symfile_complaints,
-				 "bad proc end in aux found from symbol %s",
+				 _("bad proc end in aux found from symbol %s"),
 				 name);
 		      new_sdx = cur_sdx + 1;	/* Don't skip backward */
 		    }
@@ -3485,7 +3506,7 @@ parse_partial_symbols (struct objfile *objfile)
 		    {
 		      /* This happens with the Ultrix kernel. */
 		      complaint (&symfile_complaints,
-				 "bad aux index at block symbol %s", name);
+				 _("bad aux index at block symbol %s"), name);
 		      new_sdx = cur_sdx + 1;	/* Don't skip backward */
 		    }
 		  cur_sdx = new_sdx;
@@ -3505,9 +3526,9 @@ parse_partial_symbols (struct objfile *objfile)
 		default:
 		  /* Both complaints are valid:  one gives symbol name,
 		     the other the offending symbol type.  */
-		  complaint (&symfile_complaints, "unknown local symbol %s",
+		  complaint (&symfile_complaints, _("unknown local symbol %s"),
 			     name);
-		  complaint (&symfile_complaints, "with type %d", sh.st);
+		  complaint (&symfile_complaints, _("with type %d"), sh.st);
 		  cur_sdx++;
 		  continue;
 		}
@@ -3533,7 +3554,7 @@ parse_partial_symbols (struct objfile *objfile)
 	      CORE_ADDR svalue;
 
 	      if (ext_ptr->ifd != f_idx)
-		internal_error (__FILE__, __LINE__, "failed internal consistency check");
+		internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 	      psh = &ext_ptr->asym;
 
 	      /* Do not add undefined symbols to the partial symbol table.  */
@@ -3605,13 +3626,6 @@ parse_partial_symbols (struct objfile *objfile)
       includes_used = 0;
       dependencies_used = 0;
 
-      if (objfile->ei.entry_point >= save_pst->textlow &&
-	  objfile->ei.entry_point < save_pst->texthigh)
-	{
-	  objfile->ei.deprecated_entry_file_lowpc = save_pst->textlow;
-	  objfile->ei.deprecated_entry_file_highpc = save_pst->texthigh;
-	}
-
       /* The objfile has its functions reordered if this partial symbol
          table overlaps any other partial symbol table.
          We cannot assume a reordered objfile if a partial symbol table
@@ -3673,7 +3687,7 @@ parse_partial_symbols (struct objfile *objfile)
 			  &rh);
 	  if (rh < 0 || rh >= hdr->ifdMax)
 	    {
-	      complaint (&symfile_complaints, "bad file number %ld", rh);
+	      complaint (&symfile_complaints, _("bad file number %ld"), rh);
 	      continue;
 	    }
 
@@ -3948,13 +3962,13 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 		{
 		  /* Make up special symbol to contain
 		     procedure specific info */
-		  struct mips_extra_func_info *e =
-		  ((struct mips_extra_func_info *)
+		  struct mdebug_extra_func_info *e =
+		  ((struct mdebug_extra_func_info *)
 		   obstack_alloc (&current_objfile->objfile_obstack,
-				  sizeof (struct mips_extra_func_info)));
-		  struct symbol *s = new_symbol (MIPS_EFI_SYMBOL_NAME);
+				  sizeof (struct mdebug_extra_func_info)));
+		  struct symbol *s = new_symbol (MDEBUG_EFI_SYMBOL_NAME);
 
-		  memset (e, 0, sizeof (struct mips_extra_func_info));
+		  memset (e, 0, sizeof (struct mdebug_extra_func_info));
 		  SYMBOL_DOMAIN (s) = LABEL_DOMAIN;
 		  SYMBOL_CLASS (s) = LOC_CONST;
 		  SYMBOL_TYPE (s) = mdebug_type_void;
@@ -3975,7 +3989,10 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 		{
 		  /* Handle encoded stab line number. */
 		  valu += ANOFFSET (pst->section_offsets, SECT_OFF_TEXT (pst->objfile));
-		  record_line (current_subfile, sh.index, valu);
+		  /* APPLE LOCAL begin subroutine inlining  */
+		  record_line (current_subfile, sh.index, valu, 0, 
+			       NORMAL_LT_ENTRY);
+		  /* APPLE LOCAL end subroutine inlining  */
 		}
 	    }
 	  else if (sh.st == stProc || sh.st == stStaticProc
@@ -3983,7 +4000,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
 	    /* These are generated by gcc-2.x, do not complain */
 	    ;
 	  else
-	    complaint (&symfile_complaints, "unknown stabs symbol %s", name);
+	    complaint (&symfile_complaints, _("unknown stabs symbol %s"), name);
 	}
 
       if (! last_symtab_ended)
@@ -4166,7 +4183,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst, char *filename)
          from a shared library, so tell the user only if verbose is on.  */
       if (info_verbose && n_undef_symbols)
 	{
-	  printf_filtered ("File %s contains %d unresolved references:",
+	  printf_filtered (_("File %s contains %d unresolved references:"),
 			   st->filename, n_undef_symbols);
 	  printf_filtered ("\n\t%4d variables\n\t%4d procedures\n\t%4d labels\n",
 			   n_undef_vars, n_undef_procs, n_undef_labels);
@@ -4339,7 +4356,7 @@ cross_ref (int fd, union aux_ext *ax, struct type **tpp, enum type_code type_cod
 				      &tir);
 	  if (tir.tq0 != tqNil)
 	    complaint (&symfile_complaints,
-		       "illegal tq0 in forward typedef for %s", sym_name);
+		       _("illegal tq0 in forward typedef for %s"), sym_name);
 	  switch (tir.bt)
 	    {
 	    case btVoid:
@@ -4377,7 +4394,7 @@ cross_ref (int fd, union aux_ext *ax, struct type **tpp, enum type_code type_cod
 
 	    default:
 	      complaint (&symfile_complaints,
-			 "illegal bt %d in forward typedef for %s", tir.bt,
+			 _("illegal bt %d in forward typedef for %s"), tir.bt,
 			 sym_name);
 	      *tpp = init_type (type_code, 0, 0, (char *) NULL,
 				current_objfile);
@@ -4686,6 +4703,10 @@ new_block (enum block_type type)
      should be allocated on an obstack.  */
   struct block *retval = xzalloc (sizeof (struct block));
 
+  /* APPLE LOCAL begin address ranges  */
+  retval->ranges = NULL;
+  /* APPLE LOCAL end address ranges  */
+
   if (type == FUNCTION_BLOCK)
     BLOCK_DICT (retval) = dict_create_linear_expandable ();
   else
@@ -4746,7 +4767,7 @@ elfmdebug_build_psymtabs (struct objfile *objfile,
 			 sizeof (struct ecoff_debug_info)));
 
   if (!(*swap->read_debug_info) (abfd, sec, info))
-    error ("Error reading ECOFF debugging information: %s",
+    error (_("Error reading ECOFF debugging information: %s"),
 	   bfd_errmsg (bfd_get_error ()));
 
   mdebug_build_psymtabs (objfile, swap, info);
@@ -4754,126 +4775,6 @@ elfmdebug_build_psymtabs (struct objfile *objfile,
   install_minimal_symbols (objfile);
   do_cleanups (back_to);
 }
-
-
-/* Things used for calling functions in the inferior.
-   These functions are exported to our companion
-   mips-tdep.c file and are here because they play
-   with the symbol-table explicitly. */
-
-/* Sigtramp: make sure we have all the necessary information
-   about the signal trampoline code. Since the official code
-   from MIPS does not do so, we make up that information ourselves.
-   If they fix the library (unlikely) this code will neutralize itself. */
-
-/* FIXME: This function is called only by mips-tdep.c.  It needs to be
-   here because it calls functions defined in this file, but perhaps
-   this could be handled in a better way.  Only compile it in when
-   tm-mips.h is included. */
-
-#ifdef TM_MIPS_H
-
-void
-fixup_sigtramp (void)
-{
-  struct symbol *s;
-  struct symtab *st;
-  struct block *b, *b0 = NULL;
-
-  sigtramp_address = -1;
-
-  /* We have to handle the following cases here:
-     a) The Mips library has a sigtramp label within sigvec.
-     b) Irix has a _sigtramp which we want to use, but it also has sigvec.  */
-  s = lookup_symbol ("sigvec", 0, VAR_DOMAIN, 0, NULL);
-  if (s != 0)
-    {
-      b0 = SYMBOL_BLOCK_VALUE (s);
-      s = lookup_symbol ("sigtramp", b0, VAR_DOMAIN, 0, NULL);
-    }
-  if (s == 0)
-    {
-      /* No sigvec or no sigtramp inside sigvec, try _sigtramp.  */
-      s = lookup_symbol ("_sigtramp", 0, VAR_DOMAIN, 0, NULL);
-    }
-
-  /* But maybe this program uses its own version of sigvec */
-  if (s == 0)
-    return;
-
-  /* Did we or MIPSco fix the library ? */
-  if (SYMBOL_CLASS (s) == LOC_BLOCK)
-    {
-      sigtramp_address = BLOCK_START (SYMBOL_BLOCK_VALUE (s));
-      sigtramp_end = BLOCK_END (SYMBOL_BLOCK_VALUE (s));
-      return;
-    }
-
-  sigtramp_address = SYMBOL_VALUE (s);
-  sigtramp_end = sigtramp_address + 0x88;	/* black magic */
-
-  /* But what symtab does it live in ? */
-  st = find_pc_symtab (SYMBOL_VALUE (s));
-
-  /*
-   * Ok, there goes the fix: turn it into a procedure, with all the
-   * needed info.  Note we make it a nested procedure of sigvec,
-   * which is the way the (assembly) code is actually written.
-   */
-  SYMBOL_DOMAIN (s) = VAR_DOMAIN;
-  SYMBOL_CLASS (s) = LOC_BLOCK;
-  SYMBOL_TYPE (s) = init_type (TYPE_CODE_FUNC, 4, 0, (char *) NULL,
-			       st->objfile);
-  TYPE_TARGET_TYPE (SYMBOL_TYPE (s)) = mdebug_type_void;
-
-  /* Need a block to allocate MIPS_EFI_SYMBOL_NAME in */
-  b = new_block (NON_FUNCTION_BLOCK);
-  SYMBOL_BLOCK_VALUE (s) = b;
-  BLOCK_START (b) = sigtramp_address;
-  BLOCK_END (b) = sigtramp_end;
-  BLOCK_FUNCTION (b) = s;
-  BLOCK_SUPERBLOCK (b) = BLOCK_SUPERBLOCK (b0);
-  add_block (b, st);
-  sort_blocks (st);
-
-  /* Make a MIPS_EFI_SYMBOL_NAME entry for it */
-  {
-    struct mips_extra_func_info *e =
-    ((struct mips_extra_func_info *)
-     xzalloc (sizeof (struct mips_extra_func_info)));
-
-    e->numargs = 0;		/* the kernel thinks otherwise */
-    e->pdr.frameoffset = 32;
-    e->pdr.framereg = SP_REGNUM;
-    /* Note that setting pcreg is no longer strictly necessary as
-       mips_frame_saved_pc is now aware of signal handler frames.  */
-    e->pdr.pcreg = PC_REGNUM;
-    e->pdr.regmask = -2;
-    /* Offset to saved r31, in the sigtramp case the saved registers
-       are above the frame in the sigcontext.
-       We have 4 alignment bytes, 12 bytes for onstack, mask and pc,
-       32 * 4 bytes for the general registers, 12 bytes for mdhi, mdlo, ownedfp
-       and 32 * 4 bytes for the floating point registers.  */
-    e->pdr.regoffset = 4 + 12 + 31 * 4;
-    e->pdr.fregmask = -1;
-    /* Offset to saved f30 (first saved *double* register).  */
-    e->pdr.fregoffset = 4 + 12 + 32 * 4 + 12 + 30 * 4;
-    e->pdr.isym = (long) s;
-    e->pdr.adr = sigtramp_address;
-
-    current_objfile = st->objfile;	/* Keep new_symbol happy */
-    s = new_symbol (MIPS_EFI_SYMBOL_NAME);
-    SYMBOL_VALUE (s) = (long) e;
-    SYMBOL_DOMAIN (s) = LABEL_DOMAIN;
-    SYMBOL_CLASS (s) = LOC_CONST;
-    SYMBOL_TYPE (s) = mdebug_type_void;
-    current_objfile = NULL;
-  }
-
-  dict_add_symbol (BLOCK_DICT (b), s);
-}
-
-#endif /* TM_MIPS_H */
 
 void
 _initialize_mdebugread (void)

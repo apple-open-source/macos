@@ -39,10 +39,9 @@
 #ifndef	_RUNETYPE_H_
 #define	_RUNETYPE_H_
 
-#include <sys/cdefs.h>
 #include <_types.h>
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 
 #ifndef	_SIZE_T
 #define _SIZE_T
@@ -71,7 +70,7 @@ typedef	__darwin_wchar_t	wchar_t;
 typedef	__darwin_wint_t		wint_t;
 #endif
 
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 #define	_CACHED_RUNES	(1 <<8 )	/* Must be a power of 2 */
 #define	_CRMASK		(~(_CACHED_RUNES - 1))
@@ -90,6 +89,11 @@ typedef struct {
 	int		__nranges;	/* Number of ranges stored */
 	_RuneEntry	*__ranges;	/* Pointer to the ranges */
 } _RuneRange;
+
+typedef struct {
+	char		__name[14];	/* CHARCLASS_NAME_MAX = 14 */
+	__uint32_t	__mask;		/* charclass mask */
+} _RuneCharClass;
 
 typedef struct {
 	char		__magic[8];	/* Magic saying what version we are */
@@ -114,9 +118,15 @@ typedef struct {
 
 	void		*__variable;	/* Data which depends on the encoding */
 	int		__variable_len;	/* how long that data is */
+
+	/*
+	 * extra fields to deal with arbitrary character classes
+	 */
+	int		__ncharclasses;
+	_RuneCharClass	*__charclasses;
 } _RuneLocale;
 
-#define	_RUNE_MAGIC_1	"RuneMagi"	/* Indicates version 0 of RuneLocale */
+#define	_RUNE_MAGIC_A	"RuneMagA"	/* Indicates version A of RuneLocale */
 
 __BEGIN_DECLS
 extern _RuneLocale _DefaultRuneLocale;

@@ -1,6 +1,7 @@
 /*
 *******************************************************************************
-* Copyright (C) 1996-2004, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1996-2006, International Business Machines Corporation
+* and others. All Rights Reserved.
 *******************************************************************************
 *
 *   file name:  umsg.h
@@ -154,6 +155,21 @@
  * If a pattern is used, then unquoted braces in the pattern, if any,
  * must match: that is, "ab {0} de" and "ab '}' de" are ok, but "ab
  * {0'}' de" and "ab } de" are not.
+ * <p>
+ * <dl><dt><b>Warning:</b><dd>The rules for using quotes within message
+ * format patterns unfortunately have shown to be somewhat confusing.
+ * In particular, it isn't always obvious to localizers whether single
+ * quotes need to be doubled or not. Make sure to inform localizers about
+ * the rules, and tell them (for example, by using comments in resource
+ * bundle source files) which strings will be processed by MessageFormat.
+ * Note that localizers may need to use single quotes in translated
+ * strings where the original version doesn't have them.
+ * <br>Note also that the simplest way to avoid the problem is to
+ * use the real apostrophe (single quote) character U+2019 (') for
+ * human-readable text, and to use the ASCII apostrophe (U+0027 ' )
+ * only in program syntax, like quoting in MessageFormat.
+ * See the annotations for U+0027 Apostrophe in The Unicode Standard.</p>
+ * </dl>
  * <P>
  * The argument is a number from 0 to 9, which corresponds to the
  * arguments presented in an array to be formatted.
@@ -597,18 +613,34 @@ umsg_vparse(const UMessageFormat *fmt,
 
 
 /**
- * Get the locale for this message format object.
- * You can choose between valid and actual locale.
- * @param fmt The formatter to get the locale from
- * @param type type of the locale we're looking for (valid or actual) 
- * @param status error code for the operation
- * @return the locale name
- * @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+ * Convert an 'apostrophe-friendly' pattern into a standard
+ * pattern.  Standard patterns treat all apostrophes as
+ * quotes, which is problematic in some languages, e.g. 
+ * French, where apostrophe is commonly used.  This utility
+ * assumes that only an unpaired apostrophe immediately before
+ * a brace is a true quote.  Other unpaired apostrophes are paired,
+ * and the resulting standard pattern string is returned.
+ *
+ * <p><b>Note</b> it is not guaranteed that the returned pattern
+ * is indeed a valid pattern.  The only effect is to convert
+ * between patterns having different quoting semantics.
+ *
+ * @param pattern the 'apostrophe-friendly' patttern to convert
+ * @param patternLength the length of pattern, or -1 if unknown and pattern is null-terminated
+ * @param dest the buffer for the result, or NULL if preflight only
+ * @param destCapacity the length of the buffer, or 0 if preflighting
+ * @param ec the error code
+ * @return the length of the resulting text, not including trailing null
+ *        if buffer has room for the trailing null, it is provided, otherwise
+ *        not
+ * @stable ICU 3.4
  */
-U_STABLE const char* U_EXPORT2
-umsg_getLocaleByType(const UMessageFormat *fmt,
-                     ULocDataLocaleType type,
-                     UErrorCode* status); 
+U_STABLE int32_t U_EXPORT2 
+umsg_autoQuoteApostrophe(const UChar* pattern, 
+                         int32_t patternLength,
+                         UChar* dest,
+                         int32_t destCapacity,
+                         UErrorCode* ec);
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

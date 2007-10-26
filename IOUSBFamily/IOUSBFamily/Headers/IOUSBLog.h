@@ -41,8 +41,8 @@
 // Possible Debug levels. If DEBUG_LEVEL is set to DEBUG_LEVEL_PRODUCTION, all debug logs will be 
 // stripped of the final code. 
 
-#define	DEBUG_LEVEL_PRODUCTION			0
-#define	DEBUG_LEVEL_DEVELOPMENT			1
+#define	DEBUG_LEVEL_PRODUCTION		0
+#define	DEBUG_LEVEL_DEVELOPMENT		1
 #define	DEBUG_LEVEL_ALPHA			2
 #define	DEBUG_LEVEL_BETA			3
 #define	DEBUG_LEVEL_FINAL			DEBUG_LEVEL_PRODUCTION

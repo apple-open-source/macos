@@ -2,6 +2,7 @@
 " Language:	Python
 " Maintainer:	Neil Schemenauer <nas@python.ca>
 " Updated:	2002-10-18
+"		Added Python 2.4 features 2006 May 4 (Dmitry Vasiliev)
 "
 " Options to control Python syntax highlighting:
 "
@@ -47,9 +48,13 @@ syn match   pythonFunction	"[a-zA-Z_][a-zA-Z0-9_]*" contained
 syn keyword pythonRepeat	for while
 syn keyword pythonConditional	if elif else
 syn keyword pythonOperator	and in is not or
-syn keyword pythonPreCondit	import from
+" AS will be a keyword in Python 3
+syn keyword pythonPreCondit	import from as
 syn match   pythonComment	"#.*$" contains=pythonTodo
 syn keyword pythonTodo		TODO FIXME XXX contained
+
+" Decorators (new in Python 2.4)
+syn match   pythonDecorator	"@" display nextgroup=pythonFunction skipwhite
 
 " strings
 syn region pythonString		matchgroup=Normal start=+[uU]\='+ end=+'+ skip=+\\\\\|\\'+ contains=pythonEscape
@@ -84,6 +89,8 @@ endif
 
 if exists("python_highlight_builtins")
   " builtin functions, types and objects, not really part of the syntax
+  syn keyword pythonBuiltin	True False bool enumerate set frozenset help
+  syn keyword pythonBuiltin	reversed sorted sum
   syn keyword pythonBuiltin	Ellipsis None NotImplemented __import__ abs
   syn keyword pythonBuiltin	apply buffer callable chr classmethod cmp
   syn keyword pythonBuiltin	coerce compile complex delattr dict dir divmod
@@ -109,6 +116,8 @@ if exists("python_highlight_exceptions")
   syn keyword pythonException	StandardError StopIteration SyntaxError
   syn keyword pythonException	SyntaxWarning SystemError SystemExit TabError
   syn keyword pythonException	TypeError UnboundLocalError UnicodeError
+  syn keyword pythonException	UnicodeEncodeError UnicodeDecodeError
+  syn keyword pythonException	UnicodeTranslateError
   syn keyword pythonException	UserWarning ValueError Warning WindowsError
   syn keyword pythonException	ZeroDivisionError
 endif
@@ -150,6 +159,7 @@ if version >= 508 || !exists("did_python_syn_inits")
   HiLink pythonPreCondit	PreCondit
   HiLink pythonComment		Comment
   HiLink pythonTodo		Todo
+  HiLink pythonDecorator	Define
   if exists("python_highlight_numbers")
     HiLink pythonNumber	Number
   endif

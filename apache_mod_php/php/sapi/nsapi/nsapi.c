@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: nsapi.c,v 1.28.2.32.2.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: nsapi.c,v 1.69.2.3.2.6 2007/04/27 00:29:26 thetaphi Exp $ */
 
 /*
  * PHP includes
@@ -72,8 +72,6 @@
 #define NSLS_C		request_context
 #define NSLS_CC		, NSLS_C
 #define NSG(v)		(request_context->v)
-
-#define NS_BUF_SIZE 2048
 
 /*
  * ZTS needs to be defined for NSAPI to work
@@ -174,7 +172,7 @@ ZEND_DECLARE_MODULE_GLOBALS(nsapi)
  *
  * Every user visible function must have an entry in nsapi_functions[].
  */
-function_entry nsapi_functions[] = {
+zend_function_entry nsapi_functions[] = {
 	PHP_FE(nsapi_virtual,	NULL)										/* Make subrequest */
 	PHP_FALIAS(virtual, nsapi_virtual, NULL)							/* compatibility */
 	PHP_FE(nsapi_request_headers, NULL)									/* get request headers */
@@ -205,7 +203,7 @@ zend_module_entry nsapi_module_entry = {
 /* {{{ PHP_INI
  */
 PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("nsapi.read_timeout", "60", PHP_INI_ALL, OnUpdateInt, read_timeout, zend_nsapi_globals, nsapi_globals)
+    STD_PHP_INI_ENTRY("nsapi.read_timeout", "60", PHP_INI_ALL, OnUpdateLong, read_timeout, zend_nsapi_globals, nsapi_globals)
 PHP_INI_END()
 /* }}} */
 
@@ -248,7 +246,7 @@ static void php_nsapi_init_dynamic_symbols(void)
 		/* try user specified server_lib */
 		module = GetModuleHandle(nsapi_dll);
 		if (!module) {
-			log_error(LOG_WARN, "php4_init", NULL, NULL, "Cannot find DLL specified by server_lib parameter: %s", nsapi_dll);
+			log_error(LOG_WARN, "php5_init", NULL, NULL, "Cannot find DLL specified by server_lib parameter: %s", nsapi_dll);
 		}
 	} else {
 		/* find a LOADED dll module from nsapi_dlls */
@@ -310,7 +308,7 @@ PHP_MSHUTDOWN_FUNCTION(nsapi)
 PHP_MINFO_FUNCTION(nsapi)
 {
 	php_info_print_table_start();
-	php_info_print_table_row(2, "NSAPI Module Revision", "$Revision: 1.28.2.32.2.2 $");
+	php_info_print_table_row(2, "NSAPI Module Revision", "$Revision: 1.69.2.3.2.6 $");
 	php_info_print_table_row(2, "Server Software", system_version());
 	php_info_print_table_row(2, "Sub-requests with nsapi_virtual()",
 	 (nsapi_servact_service)?((zend_ini_long("zlib.output_compression", sizeof("zlib.output_compression"), 0))?"not supported with zlib.output_compression":"enabled"):"not supported on this platform" );
@@ -329,7 +327,7 @@ PHP_MINFO_FUNCTION(nsapi)
  */
 PHP_FUNCTION(nsapi_virtual)
 {
-	pval **uri;
+	zval **uri;
 	int rv;
 	char *value;
 	Request *rq;
@@ -348,7 +346,7 @@ PHP_FUNCTION(nsapi_virtual)
 		RETURN_FALSE;
 	} else {
 		php_end_ob_buffers(1 TSRMLS_CC);
-		php_header();
+		php_header(TSRMLS_C);
 
 		/* do the sub-request */
 		/* thanks to Chris Elving from Sun for this code sniplet */
@@ -429,7 +427,7 @@ PHP_FUNCTION(nsapi_response_headers)
 
 	array_init(return_value);
 
-	php_header();
+	php_header(TSRMLS_C);
 
 	for (i=0; i < rc->rq->srvhdrs->hsize; i++) {
 		entry=rc->rq->srvhdrs->ht[i];
@@ -589,7 +587,7 @@ static void sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_D
 	register size_t i;
 	int pos;
 	char *value,*p;
-	char buf[NS_BUF_SIZE + 1];
+	char buf[32];
 	struct pb_entry *entry;
 
 	for (i = 0; i < nsapi_reqpb_size; i++) {
@@ -604,20 +602,22 @@ static void sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_D
 		while (entry) {
 			if (!PG(safe_mode) || strncasecmp(entry->param->name, "authorization", 13)) {
 				if (strcasecmp(entry->param->name, "content-length")==0 || strcasecmp(entry->param->name, "content-type")==0) {
-					strlcpy(buf, entry->param->name, NS_BUF_SIZE);
+					value=estrdup(entry->param->name);
 					pos = 0;
 				} else {
-					snprintf(buf, NS_BUF_SIZE, "HTTP_%s", entry->param->name);
+					spprintf(&value, 0, "HTTP_%s", entry->param->name);
 					pos = 5;
 				}
-				buf[NS_BUF_SIZE]='\0';
-				for(p = buf + pos; *p; p++) {
-					*p = toupper(*p);
-					if (*p < 'A' || *p > 'Z') {
-						*p = '_';
+				if (value) {
+					for(p = value + pos; *p; p++) {
+						*p = toupper(*p);
+						if (*p < 'A' || *p > 'Z') {
+							*p = '_';
+						}
 					}
+					php_register_variable(value, entry->param->value, track_vars_array TSRMLS_CC);
+					efree(value);
 				}
-				php_register_variable(buf, entry->param->value, track_vars_array TSRMLS_CC);
 			}
 			entry=entry->next;
 		}
@@ -642,7 +642,7 @@ static void sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_D
 		nsapi_free(value);
 	}
 
-	sprintf(buf, "%d", conf_getglobals()->Vport);
+	slprintf(buf, sizeof(buf), "%d", conf_getglobals()->Vport);
 	php_register_variable("SERVER_PORT", buf, track_vars_array TSRMLS_CC);
 	php_register_variable("SERVER_NAME", conf_getglobals()->Vserver_hostname, track_vars_array TSRMLS_CC);
 
@@ -672,30 +672,34 @@ static void sapi_nsapi_register_server_variables(zval *track_vars_array TSRMLS_D
 
 	/* Create full Request-URI & Script-Name */
 	if (SG(request_info).request_uri) {
-		strlcpy(buf, SG(request_info).request_uri, NS_BUF_SIZE);
 		if (SG(request_info).query_string) {
-		  	p = strchr(buf, 0);
-			snprintf(p, NS_BUF_SIZE-(p-buf), "?%s", SG(request_info).query_string);
-			buf[NS_BUF_SIZE]='\0';
-		}
-		php_register_variable("REQUEST_URI", buf, track_vars_array TSRMLS_CC);
-
-		strlcpy(buf, SG(request_info).request_uri, NS_BUF_SIZE);
-		if (rc->path_info) {
-			pos = strlen(SG(request_info).request_uri) - strlen(rc->path_info);
-			if (pos>=0 && pos<=NS_BUF_SIZE && rc->path_info) {
-				buf[pos] = '\0';
-			} else {
-				buf[0]='\0';
+			spprintf(&value, 0, "%s?%s", SG(request_info).request_uri, SG(request_info).query_string);
+			if (value) {
+				php_register_variable("REQUEST_URI", value, track_vars_array TSRMLS_CC);
+				efree(value);
 			}
+		} else {
+			php_register_variable("REQUEST_URI", SG(request_info).request_uri, track_vars_array TSRMLS_CC);
 		}
-		php_register_variable("SCRIPT_NAME", buf, track_vars_array TSRMLS_CC);
+
+		if (value = nsapi_strdup(SG(request_info).request_uri)) {
+			if (rc->path_info) {
+				pos = strlen(SG(request_info).request_uri) - strlen(rc->path_info);
+				if (pos>=0) {
+					value[pos] = '\0';
+				} else {
+					value[0]='\0';
+				}
+			}
+			php_register_variable("SCRIPT_NAME", value, track_vars_array TSRMLS_CC);
+			nsapi_free(value);
+		}
 	}
 	php_register_variable("SCRIPT_FILENAME", SG(request_info).path_translated, track_vars_array TSRMLS_CC);
 
 	/* special variables in error mode */
 	if (rc->http_error) {
-		sprintf(buf, "%d", rc->http_error);
+		slprintf(buf, sizeof(buf), "%d", rc->http_error);
 		php_register_variable("ERROR_TYPE", buf, track_vars_array TSRMLS_CC);
 	}
 }
@@ -705,7 +709,16 @@ static void nsapi_log_message(char *message)
 	TSRMLS_FETCH();
 	nsapi_request_context *rc = (nsapi_request_context *)SG(server_context);
 
-	log_error(LOG_INFORM, pblock_findval("fn", rc->pb), rc->sn, rc->rq, "%s", message);
+	if (rc) {
+		log_error(LOG_INFORM, pblock_findval("fn", rc->pb), rc->sn, rc->rq, "%s", message);
+	} else {
+		log_error(LOG_INFORM, "php5", NULL, NULL, "%s", message);
+	}
+}
+
+static time_t sapi_nsapi_get_request_time(TSRMLS_D)
+{
+	return REQ_TIME( ((nsapi_request_context *)SG(server_context))->rq );
 }
 
 static int php_nsapi_startup(sapi_module_struct *sapi_module)
@@ -743,6 +756,7 @@ static sapi_module_struct nsapi_sapi_module = {
 
 	sapi_nsapi_register_server_variables,   /* register server variables */
 	nsapi_log_message,                      /* Log message */
+	sapi_nsapi_get_request_time,			/* Get request time */
 
 	NULL,                                   /* Block interruptions */
 	NULL,                                   /* Unblock interruptions */
@@ -768,7 +782,7 @@ static void nsapi_php_ini_entries(NSLS_D TSRMLS_DC)
 				/* change the ini entry */
 				if (zend_alter_ini_entry(entry->param->name, strlen(entry->param->name)+1,
 				 entry->param->value, strlen(entry->param->value),
-				 PHP_INI_SYSTEM, PHP_INI_STAGE_RUNTIME)==FAILURE) {
+				 PHP_INI_SYSTEM, PHP_INI_STAGE_ACTIVATE)==FAILURE) {
 					log_error(LOG_WARN, pblock_findval("fn", NSG(pb)), NSG(sn), NSG(rq), "Cannot change php.ini key \"%s\" to \"%s\"", entry->param->name, entry->param->value);
 				}
 			}
@@ -777,7 +791,7 @@ static void nsapi_php_ini_entries(NSLS_D TSRMLS_DC)
   	}
 }
 
-void NSAPI_PUBLIC php4_close(void *vparam)
+void NSAPI_PUBLIC php5_close(void *vparam)
 {
 	if (nsapi_sapi_module.shutdown) {
 		nsapi_sapi_module.shutdown(&nsapi_sapi_module);
@@ -796,13 +810,13 @@ void NSAPI_PUBLIC php4_close(void *vparam)
 
 	tsrm_shutdown();
 
-	log_error(LOG_INFORM, "php4_close", NULL, NULL, "Shutdown PHP Module");
+	log_error(LOG_INFORM, "php5_close", NULL, NULL, "Shutdown PHP Module");
 }
 
 /*********************************************************
 / init SAF
 /
-/ Init fn="php4_init" [php_ini="/path/to/php.ini"] [server_lib="ns-httpdXX.dll"]
+/ Init fn="php5_init" [php_ini="/path/to/php.ini"] [server_lib="ns-httpdXX.dll"]
 /   Initialize the NSAPI module in magnus.conf
 /
 / php_ini: gives path to php.ini file
@@ -810,7 +824,7 @@ void NSAPI_PUBLIC php4_close(void *vparam)
 /  servact_* functions
 /
 /*********************************************************/
-int NSAPI_PUBLIC php4_init(pblock *pb, Session *sn, Request *rq)
+int NSAPI_PUBLIC php5_init(pblock *pb, Session *sn, Request *rq)
 {
 	php_core_globals *core_globals;
 	char *strval;
@@ -827,13 +841,13 @@ int NSAPI_PUBLIC php4_init(pblock *pb, Session *sn, Request *rq)
 
 	core_globals = ts_resource(core_globals_id);
 
-	/* look if php_ini parameter is given to php4_init */
+	/* look if php_ini parameter is given to php5_init */
 	if (strval = pblock_findval("php_ini", pb)) {
 		nsapi_sapi_module.php_ini_path_override = strdup(strval);
 	}
 	
 #ifdef PHP_WIN32
-	/* look if server_lib parameter is given to php4_init
+	/* look if server_lib parameter is given to php5_init
 	 * (this disables the automatic search for the newest ns-httpdXX.dll) */
 	if (strval = pblock_findval("server_lib", pb)) {
 		nsapi_dll = strdup(strval);
@@ -844,7 +858,7 @@ int NSAPI_PUBLIC php4_init(pblock *pb, Session *sn, Request *rq)
 	sapi_startup(&nsapi_sapi_module);
 	nsapi_sapi_module.startup(&nsapi_sapi_module);
 
-	daemon_atrestart(&php4_close, NULL);
+	daemon_atrestart(&php5_close, NULL);
 
 	log_error(LOG_INFORM, pblock_findval("fn", pb), sn, rq, "Initialized PHP Module (%d threads exspected)", threads);
 	return REQ_PROCEED;
@@ -853,19 +867,19 @@ int NSAPI_PUBLIC php4_init(pblock *pb, Session *sn, Request *rq)
 /*********************************************************
 / normal use in Service directive:
 /
-/ Service fn="php4_execute" type=... method=... [inikey=inivalue inikey=inivalue...]
+/ Service fn="php5_execute" type=... method=... [inikey=inivalue inikey=inivalue...]
 /
 / use in Service for a directory to supply a php-made directory listing instead of server default:
 /
-/ Service fn="php4_execute" type="magnus-internal/directory" script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
+/ Service fn="php5_execute" type="magnus-internal/directory" script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
 /
 / use in Error SAF to display php script as error page:
 /
-/ Error fn="php4_execute" code=XXX script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
-/ Error fn="php4_execute" reason="Reason" script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
+/ Error fn="php5_execute" code=XXX script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
+/ Error fn="php5_execute" reason="Reason" script="/path/to/script.php" [inikey=inivalue inikey=inivalue...]
 /
 /*********************************************************/
-int NSAPI_PUBLIC php4_execute(pblock *pb, Session *sn, Request *rq)
+int NSAPI_PUBLIC php5_execute(pblock *pb, Session *sn, Request *rq)
 {
 	int retval;
 	nsapi_request_context *request_context;
@@ -932,7 +946,7 @@ int NSAPI_PUBLIC php4_execute(pblock *pb, Session *sn, Request *rq)
 	SG(request_info).content_type = nsapi_strdup(content_type);
 	SG(request_info).content_length = (content_length == NULL) ? 0 : strtoul(content_length, 0, 0);
 	SG(sapi_headers).http_response_code = (error_directive) ? rq->status_num : 200;
-
+	
 	nsapi_php_ini_entries(NSLS_C TSRMLS_CC);
 
 	if (!PG(safe_mode)) php_handle_auth_data(pblock_findval("authorization", rq->headers) TSRMLS_CC);
@@ -988,15 +1002,15 @@ int NSAPI_PUBLIC php4_execute(pblock *pb, Session *sn, Request *rq)
 / will pass authentication through to php, and allow us to
 / check authentication with our scripts.
 /
-/ php4_auth_trans
+/ php5_auth_trans
 /   main function called from netscape server to authenticate
 /   a line in obj.conf:
-/		funcs=php4_auth_trans shlib="path/to/this/phpnsapi.dll"
+/		funcs=php5_auth_trans shlib="path/to/this/phpnsapi.dll"
 /	and:
 /		<Object ppath="path/to/be/authenticated/by/php/*">
-/		AuthTrans fn="php4_auth_trans"
+/		AuthTrans fn="php5_auth_trans"
 /*********************************************************/
-int NSAPI_PUBLIC php4_auth_trans(pblock * pb, Session * sn, Request * rq)
+int NSAPI_PUBLIC php5_auth_trans(pblock * pb, Session * sn, Request * rq)
 {
 	/* This is a DO NOTHING function that allows authentication
 	 * information

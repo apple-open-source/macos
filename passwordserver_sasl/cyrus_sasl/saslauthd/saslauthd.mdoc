@@ -1,4 +1,4 @@
-.\" $Id: saslauthd.mdoc,v 1.5 2005/01/10 19:01:36 snsimon Exp $
+.\" $Id: saslauthd.mdoc,v 1.9 2006/01/24 00:16:04 snsimon Exp $
 .\" Copyright 1997-2001 Messaging Direct Ltd. All rights reserved.
 .\"
 .\" This manpage uses the BSD mdoc manpage macros. Please don't
@@ -20,7 +20,7 @@
 .Nm
 .Fl a
 .Ar authmech
-.Op Fl \&Tvdchl
+.Op Fl \&Tvdchlr
 .Op Fl O Ar option
 .Op Fl m Ar mux_path
 .Op Fl n Ar threads
@@ -96,6 +96,10 @@ Show usage information
 Enable cacheing of authentication credentials
 .It Fl l
 Disable the use of a lock file for controlling access to accept().
+.It Fl r
+Combine the realm with the login (with an '@' sign in between).  e.g.
+login: "foo" realm: "bar" will get passed as login: "foo@bar".  Note that
+the realm will still be passed, which may lead to unexpected behavior.
 .It Fl v
 Print the version number and available authentication
 mechanisms on standard error, then exit.

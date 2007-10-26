@@ -1,0 +1,2 @@
+/-compatibility_version.*/s//-compatibility_version $(COMPATIBILITY_VERSION) -current_version $(CURRENT_VERSION)/
+w

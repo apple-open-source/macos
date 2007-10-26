@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *   Routines to implement a stack-like storage library
@@ -71,19 +67,11 @@ __EXTERN__(Sfio_t, _Stak_data);
 
 struct frame
 {
-	union
-	{
-		char	frame_align[STK_ALIGN];
-		struct
-		{
-			char	*frame_prev;	/* address of previous frame */
-			char	*frame_end;	/* address of end this frame */
-		}	frame_head;
-	}	frame_union;
+	char	*prev;		/* address of previous frame */
+	char	*end;		/* address of end this frame */
+	char	**aliases;	/* address aliases */
+	int	nalias;		/* number of aliases */
 };
-
-#define prev	frame_union.frame_head.frame_prev
-#define end	frame_union.frame_head.frame_end
 
 struct stk
 {
@@ -258,6 +246,8 @@ Sfio_t *stkopen(int flags)
 	cp = (char*)(fp+1);
 	sp->stkbase = (char*)fp;
 	fp->prev = 0;
+	fp->nalias = 0;
+	fp->aliases = 0;
 	fp->end = sp->stkend = cp+bsize;
 	if(!sfnew(stream,cp,bsize,-1,SF_STRING|SF_WRITE|SF_STATIC|SF_EOF))
 		return((Sfio_t*)0);
@@ -339,27 +329,37 @@ char *stkset(register Sfio_t * stream, register char* loc, unsigned offset)
 	register char *cp;
 	register struct frame *fp;
 	register int frames = 0;
+	int n;
 	if(!init)
 		stkinit(offset+1);
 	increment(set);
 	while(1)
 	{
-		/* see whether <loc> is in current stack frame */
-		if(loc>(cp=sp->stkbase) && loc<=sp->stkend)
+		fp = (struct frame*)sp->stkbase;
+		cp  = sp->stkbase + roundof(sizeof(struct frame), STK_ALIGN);
+		n = fp->nalias;
+		while(n-->0)
 		{
-			cp += sizeof(struct frame);
+			if(loc==fp->aliases[n])
+			{
+				loc = cp;
+				break;
+			}
+		}
+		/* see whether <loc> is in current stack frame */
+		if(loc>=cp && loc<=sp->stkend)
+		{
 			if(frames)
 				sfsetbuf(stream,cp,sp->stkend-cp);
 			stream->_data = (unsigned char*)(cp + roundof(loc-cp,STK_ALIGN));
 			stream->_next = (unsigned char*)loc+offset;
 			goto found;
 		}
-		fp = (struct frame*)cp;
 		if(fp->prev)
 		{
 			sp->stkbase = fp->prev;
 			sp->stkend = ((struct frame*)(fp->prev))->end;
-			free(cp);
+			free((void*)fp);
 		}
 		else
 			break;
@@ -462,9 +462,10 @@ static char *stkgrow(register Sfio_t *stream, unsigned size)
 {
 	register int n = size;
 	register struct stk *sp = stream2stk(stream);
-	register struct frame *fp;
-	register char *cp;
+	register struct frame *fp= (struct frame*)sp->stkbase;
+	register char *cp, *dp=0;
 	register unsigned m = stktell(stream);
+	int nn=0;
 	n += (m + sizeof(struct frame)+1);
 	if(sp->stkflags&STK_SMALL)
 #ifndef USE_REALLOC
@@ -473,19 +474,35 @@ static char *stkgrow(register Sfio_t *stream, unsigned size)
 #endif /* !USE_REALLOC */
 		n = roundof(n,STK_FSIZE);
 	/* see whether current frame can be extended */
-	cp = newof((char*)0, char, n, 0);
+	if(stkptr(stream,0)==sp->stkbase+sizeof(struct frame))
+	{
+		nn = fp->nalias+1;
+		dp=sp->stkbase;
+		sp->stkbase = ((struct frame*)dp)->prev;
+	}
+	cp = newof(dp, char, n, nn*sizeof(char*));
 	if(!cp && (!sp->stkoverflow || !(cp = (*sp->stkoverflow)(n))))
 		return(0);
 	increment(grow);
-	count(addsize,n);
+	count(addsize,n - (dp?m:0));
+	if(dp && cp==dp)
+		nn--;
 	fp = (struct frame*)cp;
 	fp->prev = sp->stkbase;
 	sp->stkbase = cp;
 	sp->stkend = fp->end = cp+n;
 	cp = (char*)(fp+1);
-	if(m)
+	cp = sp->stkbase + roundof((cp-sp->stkbase),STK_ALIGN);
+	if(fp->nalias=nn)
+	{
+		fp->aliases = (char**)fp->end;
+		fp->aliases[nn-1] =  dp + roundof(sizeof(struct frame),STK_ALIGN);
+	}
+	if(m && !dp)
+	{
 		memcpy(cp,(char*)stream->_data,m);
-	count(movsize,m);
+		count(movsize,m);
+	}
 	sfsetbuf(stream,cp,sp->stkend-cp);
 	return((char*)(stream->_next = stream->_data+m));
 }

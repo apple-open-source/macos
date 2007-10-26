@@ -1,31 +1,28 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1994-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#               Glenn Fowler <gsf@research.att.com>                #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#                     Copyright (c) 1994-2007 AT&T                     #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                               by AT&T                                #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                 Glenn Fowler <gsf@research.att.com>                  #
+#                                                                      #
+########################################################################
 : convert command that operates on file args to pipeline filter
 
 command=filter
 
 tmp=/tmp/$command$$
+suf=
 
 case `(getopts '[-][123:xyz]' opt --xyz; echo 0$opt) 2>/dev/null` in
 0123)	ARGV0="-a $command"
@@ -80,16 +77,22 @@ do	shift
 	*)	break ;;
 	esac
 done
-trap "rm -f $tmp" 0 1 2 3 15
+trap 'rm -f $tmp$suf' 0 1 2 3 15
 case $# in
 0)	cat > $tmp
 	$cmd $tmp
 	;;
 *)	for file
-	do	cp $file $tmp || exit 1
-		chmod u+rwx $tmp || exit 1
-		$cmd $tmp || exit 1
-		cat $tmp
+	do	suf=${file##*/}
+		case $suf in
+		*.*)	suf=.${suf#*.} ;;
+		*)	suf= ;;
+		esac
+		cp $file $tmp$suf || exit 1
+		chmod u+rwx $tmp$suf || exit 1
+		$cmd $tmp$suf || exit 1
+		cat $tmp$suf
+		rm -f $tmp$suf
 	done
 	;;
 esac

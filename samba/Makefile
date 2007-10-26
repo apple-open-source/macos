@@ -1,134 +1,254 @@
-# Set these variables as needed, then include this file, then:
-#
-
 # Project info
-Project         = samba/source
-UserType        = Administration
-ToolType        = Services
+Project         := samba/source
+UserType        := Administration
+ToolType        := Services
 
-GnuNoChown      = YES
-GnuAfterInstall = install-startup-items install-config install-logdir install-testtools install-strip plugins
+GnuNoPatch      ?= NO
+GnuNoChown      ?= YES
+GnoNoStrip      ?= NO
+GnuAfterInstall := install-directories \
+		   install-startup-items \
+		   install-tools \
+		   install-config \
+		   install-application-bundle \
+		   install-testtools \
+		   install-plugins \
+		   install-strip
 
-Extra_CC_Flags  = -mdynamic-no-pic  -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon -F/System/Library/PrivateFrameworks\
-		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_SACL
+# Neutralise the installsrc target in Common.make. We do our own
+# source installation using rsync, which is faster.
+CommonNoInstallSource := YES
 
-ifneq "$(RC_RELEASE)" "Darwin"
-Extra_CC_Flags += -DWITH_BRLM
+ifeq ($(GnuNoStrip),YES)
+STRIP_X	:= true
+else
+STRIP_X	:= strip -x
 endif
 
-Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
-			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
-			--with-configdir="/private/etc"				\
-			--with-privatedir="$(VARDIR)/db/samba"			\
-			--with-libdir="/usr/lib/samba"				\
-			--with-lockdir="$(VARDIR)/samba"			\
-			--with-logfilebase="$(LOGDIR)/samba"			\
-			--with-piddir="$(RUNDIR)"				\
-			--with-krb5						\
-			--with-ads						\
-			--with-cups						\
-			--with-ldap						\
-			--with-libiconv						\
-			--without-readline					\
-			--disable-shared					\
-			--without-libsmbclient					\
-			--with-winbind						\
-			--with-pam						
+# Note that we use single quotes to stop the shell trying to expand
+# anything. We want the Samba makefile to be the one expanding this.
+Environment += \
+	CONFIG_SITE=$(SRCROOT)/config.site.leopard \
+	EXTRA_BIN_PROGS='bin/smbget$$(EXEEXT)' \
+	EXTRA_ALL_TARGETS='bin/smbtorture$$(EXEEXT) \
+		bin/msgtest$$(EXEEXT) bin/masktest$$(EXEEXT) \
+		bin/locktest$$(EXEEXT) bin/locktest2$$(EXEEXT) \
+		bin/vfstest$$(EXEEXT)'
 
-Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
-			SAMBABOOK="$(DSTROOT)$(SHAREDIR)/swat/using_samba"	\
-			PRIVATEDIR="$(DSTROOT)$(VARDIR)/db/samba"		\
-			VARDIR="$(DSTROOT)$(VARDIR)"				\
-			LIBDIR="$(DSTROOT)/usr/lib/samba"			\
-			PIDDIR="$(DSTROOT)$(RUNDIR)"				\
-			MANDIR="$(DSTROOT)/usr/share/man"			\
-			LOCKDIR="$(DSTROOT)$(VARDIR)/samba"			\
-			CONFIGDIR="$(DSTROOT)/private/etc"
-			
-Environment += EXTRA_BIN_PROGS="bin/smbget" \
-EXTRA_ALL_TARGETS="bin/smbtorture bin/msgtest bin/masktest bin/locktest bin/locktest2 bin/vfstest"
+build::
+	@echo building from `pwd`
+	$(_v) $(MKDIR) $(OBJROOT)/tools/prefsync
+	( cd tools/prefsync && $(MAKE) \
+		SRCROOT=$(SRCROOT)/tools/prefsync \
+		OBJROOT=$(OBJROOT)/tools/prefsync \
+		SYMROOT=$(SYMROOT) build )
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+# This is a little subtle. We want to use parallel make to speed up the build,
+# so we update MAKEFLAGS for the build target. Unfortunately, not all of the
+# Samba build has proper dependencies, so we need to prepend a build phase to
+# make proto.h and friends.
+build:: MAKEFLAGS += -j $(NPROCS)
+
+build:: configure
+ifneq ($(GnuNoBuild),YES)
+	$(_v) for arch in $(RC_ARCHS) ; do \
+		echo "Building $(Project) headers for $$arch..." ;\
+		cd $(BuildDirectory)/$$arch && \
+			$(MAKE) $(Environment) proto && \
+			$(MAKE) $(Environment) pch && \
+			$(MAKE) $(Environment) SHOWFLAGS || exit 1; \
+	done
+endif
+
+
+quick:
+	./scripts/run-samba.sh QUICKLOOKS 2>&1 | tee quick.log
+
+# When the default makefiles support building multiple architectures in
+# separate directories with multiple invokations of configure, we
+# can go back to using them.
+# include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+include GNUSource.make
+include make.common
 
 ifneq "$(RC_RELEASE)" "Darwin"
 LDFLAGS += -framework ByteRangeLocking
 endif
 
-LDFLAGS += -framework Security -framework CoreFoundation -framework DirectoryService -L$(OBJROOT) -lopendirectorycommon
+Install_Target := install
 
-PATCHES = $(wildcard $(SRCROOT)/patches/*.diff)
+# Hook the pre-configure stage in the release-control makefiles.
+install_source:: rsync_source patch autogen
 
-Install_Target = install
+rsync_source:
+	@echo Installing source for $(Project) using rsync ...
+	$(_v) $(MKDIR) $(SRCROOT)
+	$(_v) rsync --archive  --cvs-exclude . $(SRCROOT)
 
-lazy_install_source::
-	gcc $(RC_CFLAGS) -framework Security -DUSES_KEYCHAIN=1  -fPIC -c $(SRCROOT)/libopendirectorycommon/libopendirectorycommon.c -o $(OBJROOT)/libopendirectorycommon.o
-	libtool -static -o $(OBJROOT)/libopendirectorycommon.a $(OBJROOT)/libopendirectorycommon.o
+ifeq ($(GnuNoPatch), YES)
+patch:
+	@echo skipping patch application phase
+else
+patch:
+	@./scripts/apply-patches.sh
+endif
 
-patch: $(PATCHES)
-	for PATCH in $(PATCHES); do	\
-	    echo "patching: $$PATCH";	\
-	    patch -p0 -i "$$PATCH";	\
-	done
-	
-repatch:
-	for PATCH in $(PATCHES); do					\
-	    echo "patching: $${PATCH##*/}";				\
-	    patch -p0 -b -i "$$PATCH";					\
-	    find samba -type f -name '*.orig' |				\
-		while read F; do					\
-		    echo -e "\t* $$F";					\
-		    diff -udbNp "$$F" "$${F%.orig}" >> "$$PATCH.new";	\
-		    mv "$$F" "$${F%.orig}";				\
-		done;							\
-		mv "$$PATCH.new" "$$PATCH";				\
-	done
+autogen:
+	cd $(Sources) && ./autogen.sh
 
+norejects:
+	@echo removing patch rejects
+	@find . -name \*.rej | xargs rm -f
+
+LAUNCH_DAEMONS := $(DSTROOT)/System/Library/LaunchDaemons
+SYSTEM_CONFIGURATION := $(DSTROOT)/Library/Preferences/SystemConfiguration
+OPENSOURCE_VERSIONS := $(DSTROOT)/usr/local/OpenSourceVersions
+DIRECTORY_PREFERENCES := $(DSTROOT)/Library/Preferences/DirectoryService
+
+install-directories:
+	$(INSTALL) -d -m 755 $(LAUNCH_DAEMONS)
+	$(INSTALL) -d -m 755 $(OPENSOURCE_VERSIONS)
+	$(INSTALL) -d -m 755 $(SYSTEM_CONFIGURATION)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_CONFDIR)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOGDIR)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -d -m 755 $(DSTROOT)$(SMB_LOCKDIR)/shares
+	$(INSTALL) -d -m 755 -o root -g admin \
+		$(DIRECTORY_PREFERENCES)
+	$(INSTALL) -d -m 700 -o root -g wheel \
+		$(DSTROOT)$(SMB_LOCKDIR)/winbindd_privileged
+	$(INSTALL) -d -m 755 -o root -g wheel \
+		$(DSTROOT)$(SMB_LOCKDIR)/winbindd_public
+
+# Install all the launchd control files. The smbd and nmbd files
+# must not have the org.samba prefix because these were not uses on
+# 10.4. It's not worth the effort to track down and change everything
+# that manipulates these just for the cosmetic benefit of consistent
+# naming :(
+# XXX Once all the UI tools start using the SMB preferences, we can do
+# this rename.
 install-startup-items:
-	$(INSTALL) -d -m 755 $(DSTROOT)/System/Library/LaunchDaemons
-	$(INSTALL) -c -m 444 $(SRCROOT)/smbd.plist $(DSTROOT)/System/Library/LaunchDaemons/smbd.plist
-	$(INSTALL) -c -m 444 $(SRCROOT)/nmbd.plist $(DSTROOT)/System/Library/LaunchDaemons/nmbd.plist
-	$(INSTALL) -c -m 444 $(SRCROOT)/swat.plist $(DSTROOT)/System/Library/LaunchDaemons/swat.plist
+	$(INSTALL) -c -m 644 -o root -g wheel \
+		$(SRCROOT)/org.samba.smbd.plist \
+		$(LAUNCH_DAEMONS)/smbd.plist
+	$(INSTALL) -c -m 644 -o root -g wheel \
+		$(SRCROOT)/org.samba.nmbd.plist \
+		$(LAUNCH_DAEMONS)/nmbd.plist
+	$(INSTALL) -c -m 644 -o root -g wheel \
+		$(SRCROOT)/org.samba.winbindd.plist \
+		$(LAUNCH_DAEMONS)
+	$(INSTALL) -c -m 444 -o root -g wheel \
+		$(SRCROOT)/tools/com.apple.smb.server.preferences.plist \
+		$(LAUNCH_DAEMONS)
 
+CORE_SERVICES := $(DSTROOT)$(NSLIBRARYDIR)/CoreServices
+
+# Create an application bundle in CoreServices. This should give UI preference
+# clients a convenient place to find all out public interfaces.
+SMB_BUNDLE := SmbFileServer.bundle
+install-application-bundle:
+	$(INSTALL) -d -m 755 $(CORE_SERVICES)
+	INSTALL="$(INSTALL)" $(SRCROOT)/scripts/create-bundle.sh \
+			$(SMB_BUNDLE) $(CORE_SERVICES)
+	$(INSTALL) -c -m 644 $(SRCROOT)/config/DesktopDefaults.plist \
+		$(CORE_SERVICES)/$(SMB_BUNDLE)/Resources
+	$(INSTALL) -c -m 644 $(SRCROOT)/config/ServerDefaults.plist \
+		$(CORE_SERVICES)/$(SMB_BUNDLE)/Resources
+
+# Install the config files. Use -b to preserve an existing config as
+# smb.conf.old.
 install-config:
-	$(INSTALL) -d -m 755 $(DSTROOT)/usr/local/OpenSourceVersions
-	$(INSTALL) -d -m 755 $(DSTROOT)/private/etc
-	$(INSTALL) -c -m 444 $(SRCROOT)/smb.conf.template $(DSTROOT)/private/etc
-	$(INSTALL) -c -m 444 $(SRCROOT)/samba.plist $(DSTROOT)/usr/local/OpenSourceVersions
-	$(INSTALL) -c -m 444 $(SRCROOT)/tdbtool.8 $(DSTROOT)/usr/share/man/man8/tdbtool.8
+	$(INSTALL) -c -m 644 -o root -g wheel \
+		$(SRCROOT)/config/smb.conf.template $(DSTROOT)$(SMB_CONFDIR)
+	$(INSTALL) -b -c -m 644 -o root -g wheel \
+		$(SRCROOT)/config/smb.conf.template \
+		$(DSTROOT)$(SMB_CONFDIR)/smb.conf
+	$(INSTALL) -c -m 644 -o root -g wheel \
+		$(SRCROOT)/samba.plist $(OPENSOURCE_VERSIONS)
 
-install-logdir:
-	$(INSTALL) -d -m 755 $(DSTROOT)/private/var/log/samba
+install-tools:
+	( cd tools/prefsync && $(MAKE) \
+		SRCROOT=$(SRCROOT)/tools/prefsync \
+		OBJROOT=$(OBJROOT)/tools/prefsync \
+		SYMROOT=$(SYMROOT) \
+		DSTROOT=$(DSTROOT) \
+		install )
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(SRCROOT)/tools/synchronize-shares \
+		$(DSTROOT)$(SMB_LIBEXEC)
+	$(INSTALL) -c -m 755 -o root -g wheel \
+		$(SRCROOT)/tools/migrate-preferences \
+		$(DSTROOT)$(SMB_LIBEXEC)
+
+NOSHIP_MANPAGES := \
+	man8/smbmnt.8 \
+	man8/smbmount.8 \
+	man8/smbumount.8 \
+	man8/mount.cifs.8 \
+	man8/umount.cifs.8 \
+	man8/swat.8 \
+	man1/log2pcap.1 \
+	man1/vfstest.1 \
+	man7/libsmbclient.7
 
 install-strip:
-	for F in $(DSTROOT)/usr/{s,}bin/*; do	\
-		cp "$$F" $(SYMROOT); \
-		[ -f "$$F" -a -x "$$F" ] && strip -x "$$F";	\
-	done
-	rmdir $(DSTROOT)/$(RUNDIR)
-	rm -f $(DSTROOT)/usr/share/man/man8/smbmnt.8
-	rm -f $(DSTROOT)/usr/share/man/man8/smbmount.8
-	rm -f $(DSTROOT)/usr/share/man/man8/smbumount.8
-	rm -f $(DSTROOT)/usr/share/swat/help/smbmnt.8.html
-	rm -f $(DSTROOT)/usr/share/swat/help/smbmount.8.html
-	rm -f $(DSTROOT)/usr/share/swat/help/smbumount.8.html
+	( \
+	  cd $(DSTROOT); \
+	  find . -type f | while read f ; do \
+		$(MKDIR) $(SYMROOT)/`dirname "$$f"` ; \
+		cp "$$f" "$(SYMROOT)/$$f" ; \
+		if [ -x "$$f" ] ; then \
+			dsymutil "$(SYMROOT)/$$f" || true ; \
+			$(STRIP_X) "$$f" || true ; \
+		fi ; \
+		case "$$f" in *.dylib) \
+			dsymutil "$(SYMROOT)/$$f" || true ; \
+			$(STRIP_X) "$$f"  || true ; \
+			;; \
+		esac \
+	  done ; \
+	)
+	rmdir $(DSTROOT)$(SMB_PIDDIR) || true
+	# Blow away man pages for things that won't exist for us.
+	rm -f $(patsubst %,$(DSTROOT)$(SMB_MANDIR)/%,$(NOSHIP_MANPAGES))
+	# Rename the winbind PAM module to match the other PAM modules
+	( cd $(DSTROOT)$(SMB_PAMDIR) && mv pam_winbind.dylib pam_winbind.so)
+	# Blow away anything that was renamed by the Samba install rules
+	find $(DSTROOT) -name \*.old | xargs rm
+	# The Samba build system bogusly creates this
+	rmdir $(DSTROOT)/usr/var
+	# We don't want to support any developer APIs, so blow away
+	# all the installed headers.
+	rm -rf $(DSTROOT)/usr/include
+
+RC_OBJROOTS := $(addprefix $(OBJROOT)/, $(RC_ARCHS))
+
+TESTTOOLS := smbtorture masktest vfstest msgtest locktest locktest2
 
 install-testtools:
-	$(INSTALL) -d -m 755 $(DSTROOT)/usr/local/bin
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/smbtorture $(DSTROOT)/usr/local/bin/smbtorture
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/masktest $(DSTROOT)/usr/local/bin/masktest
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/vfstest $(DSTROOT)/usr/local/bin/vfstest
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/msgtest $(DSTROOT)/usr/local/bin/msgtest
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/locktest $(DSTROOT)/usr/local/bin/locktest
-	$(INSTALL) -c -m 555 $(OBJROOT)/bin/locktest2 $(DSTROOT)/usr/local/bin/locktest2
-	
-plugins:
-	echo "building $@";
-	make -C $(SRCROOT)/auth_ods -f auth_ods.make RC_CFLAGS="$(RC_CFLAGS)"
-	install -c -m 755 $(OBJROOT)/auth_ods.so $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
-	strip -x $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
-	make -C $(SRCROOT)/pdb_ods -f pdb_ods.make RC_CFLAGS="$(RC_CFLAGS) -DUSES_ODGROUPMAPPING -DUSE_ALGORITHMIC_RID -DUSES_KEYCHAIN"
-	install -c -m 755 $(OBJROOT)/pdb_ods.so $(DSTROOT)/usr/lib/samba/pdb/opendirectorysam.so
-	strip -x $(DSTROOT)/usr/lib/samba/pdb/opendirectorysam.so
-	make -C $(SRCROOT)/darwin_vfs -f darwin_acls.make RC_CFLAGS="$(RC_CFLAGS)"
-	install -c -m 755 $(OBJROOT)/darwin_acls.so $(DSTROOT)/usr/lib/samba/vfs/darwin_acls.so
-	strip -x $(DSTROOT)/usr/lib/samba/vfs/darwin_acls.so
+ifneq ($(GnuNoInstall),YES)
+	$(_v) $(INSTALL) -d -m 755 $(DSTROOT)/usr/local/bin ; \
+	$(_v) for tool in $(TESTTOOLS) ; do \
+		$(_v) lipo -create -output $(DSTROOT)/usr/local/bin/$$tool \
+			$(addsuffix /bin/$$tool, $(RC_OBJROOTS)) && \
+		$(CHOWN) root:wheel $(DSTROOT)/usr/local/bin/$$tool && \
+		$(CHMOD) 555 $(DSTROOT)/usr/local/bin/$$tool || exit 1; \
+	done
+endif
+
+install-plugins: auth-opendirectory pdb-opendirectory
+
+# Install compatibility symlinks for Open Directory AUTH module.
+auth-opendirectory:
+	@echo "installing $@";
+	(cd $(DSTROOT)$(SMB_LIBDIR)/auth && \
+	 	ln -s odsam.dylib opendirectory.dylib)
+
+# Install compatibility symlinks for Open Directory SAM module.
+pdb-opendirectory:
+	@echo "installing $@";
+	(cd $(DSTROOT)$(SMB_LIBDIR)/pdb && \
+	 	ln -s odsam.dylib opendirectorysam.dylib)
+
+# vim: set sw=8 ts=8 noet tw=0 :

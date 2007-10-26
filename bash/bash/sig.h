@@ -1,6 +1,6 @@
 /* sig.h -- header file for signal handler definitions. */
 
-/* Copyright (C) 1994 Free Software Foundation, Inc.
+/* Copyright (C) 1994-2006 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -108,14 +108,25 @@ do { \
 
 #endif /* JOB_CONTROL */
 
+/* Extern variables */
+extern volatile int sigwinch_received;
+
+extern int interrupt_immediately;
+extern int terminate_immediately;
+
 /* Functions from sig.c. */
-extern sighandler termination_unwind_protect __P((int));
+extern sighandler termsig_sighandler __P((int));
+extern void termsig_handler __P((int));
 extern sighandler sigint_sighandler __P((int));
 extern void initialize_signals __P((int));
 extern void initialize_terminating_signals __P((void));
 extern void reset_terminating_signals __P((void));
 extern void throw_to_top_level __P((void));
 extern void jump_to_top_level __P((int)) __attribute__((__noreturn__));
+
+extern sighandler sigwinch_sighandler __P((int));
+extern void set_sigwinch_handler __P((void));
+extern void unset_sigwinch_handler __P((void));
 
 /* Functions defined in trap.c. */
 extern SigHandler *set_sigint_handler __P((void));

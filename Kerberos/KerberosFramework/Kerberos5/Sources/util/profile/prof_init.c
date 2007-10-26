@@ -12,16 +12,13 @@
 #endif
 #include <errno.h>
 
-/* Find a 4-byte integer type */
-#if	(SIZEOF_SHORT == 4)
-typedef short	prof_int32;
-#elif	(SIZEOF_INT == 4)
-typedef int	prof_int32;
-#elif	(SIZEOF_LONG == 4)
-typedef long	prof_int32;
-#else	/* SIZEOF_LONG == 4 */
-error(do not have a 4-byte integer type)
-#endif	/* SIZEOF_LONG == 4 */
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
+#ifdef HAVE_INTTYPES_H
+# include <inttypes.h>
+#endif
+typedef int32_t prof_int32;
 
 errcode_t KRB5_CALLCONV
 profile_init(const_profile_filespec_t *files, profile_t *ret_profile)
@@ -37,8 +34,11 @@ profile_init(const_profile_filespec_t *files, profile_t *ret_profile)
 	memset(profile, 0, sizeof(struct _profile_t));
 	profile->magic = PROF_MAGIC_PROFILE;
 
-        /* if the filenames list is not specified return an empty profile */
-        if ( files ) {
+	/*
+	 * If the filenames list is not specified or empty, return an empty
+	 * profile.
+	 */
+	if ( files && !PROFILE_LAST_FILESPEC(*files) ) {
 	    for (fs = files; !PROFILE_LAST_FILESPEC(*fs); fs++) {
 		retval = profile_open_file(*fs, &new_file);
 		/* if this file is missing, skip to the next */
@@ -67,6 +67,39 @@ profile_init(const_profile_filespec_t *files, profile_t *ret_profile)
 
         *ret_profile = profile;
         return 0;
+}
+
+#define COUNT_LINKED_LIST(COUNT, PTYPE, START, FIELD)	\
+	{						\
+	    int cll_counter = 0;			\
+	    PTYPE cll_ptr = (START);			\
+	    while (cll_ptr != NULL) {			\
+		cll_counter++;				\
+		cll_ptr = cll_ptr->FIELD;		\
+	    }						\
+	    (COUNT) = cll_counter;			\
+	}
+
+errcode_t KRB5_CALLCONV
+profile_copy(profile_t old_profile, profile_t *new_profile)
+{
+    size_t size, i;
+    const_profile_filespec_t *files;
+    prf_file_t file;
+    errcode_t err;
+
+    /* The fields we care about are read-only after creation, so
+       no locking is needed.  */
+    COUNT_LINKED_LIST (size, prf_file_t, old_profile->first_file, next);
+    files = malloc ((size+1) * sizeof(*files));
+    if (files == NULL)
+	return errno;
+    for (i = 0, file = old_profile->first_file; i < size; i++, file = file->next)
+	files[i] = file->data->filespec;
+    files[size] = NULL;
+    err = profile_init (files, new_profile);
+    free (files);
+    return err;
 }
 
 errcode_t KRB5_CALLCONV
@@ -123,31 +156,31 @@ profile_init_path(const_profile_filespec_list_t filepath,
 errcode_t KRB5_CALLCONV
 profile_is_writable(profile_t profile, int *writable)
 {
-	if (!profile || profile->magic != PROF_MAGIC_PROFILE)
-		return PROF_MAGIC_PROFILE;
-	
-	if (!writable) 
-		return EINVAL;
-	
-	if (profile->first_file)
-		*writable = (profile->first_file->data->flags & PROFILE_FILE_RW);
-	
-	return 0;
+    if (!profile || profile->magic != PROF_MAGIC_PROFILE)
+        return PROF_MAGIC_PROFILE;
+    
+    if (!writable) 
+        return EINVAL;
+    
+    if (profile->first_file)
+        *writable = (profile->first_file->data->flags & PROFILE_FILE_RW);
+    
+    return 0;
 }
 
 errcode_t KRB5_CALLCONV
 profile_is_modified(profile_t profile, int *modified)
 {
-	if (!profile || profile->magic != PROF_MAGIC_PROFILE)
-		return PROF_MAGIC_PROFILE;
-	
-	if (!modified) 
-		return EINVAL;
-	
-	if (profile->first_file)
-		*modified = (profile->first_file->data->flags & PROFILE_FILE_DIRTY);
-	
-	return 0;
+    if (!profile || profile->magic != PROF_MAGIC_PROFILE)
+        return PROF_MAGIC_PROFILE;
+    
+    if (!modified) 
+        return EINVAL;
+    
+    if (profile->first_file)
+        *modified = (profile->first_file->data->flags & PROFILE_FILE_DIRTY);
+    
+    return 0;
 }
 
 errcode_t KRB5_CALLCONV

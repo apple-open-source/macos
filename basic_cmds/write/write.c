@@ -34,8 +34,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif
@@ -46,7 +47,6 @@ static char sccsid[] = "@(#)write.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif
 
-#include <sys/cdefs.h>
 __RCSID("$FreeBSD: src/usr.bin/write/write.c,v 1.17 2002/09/04 23:29:09 dwmalone Exp $");
 
 #include <sys/param.h>
@@ -63,7 +63,7 @@ __RCSID("$FreeBSD: src/usr.bin/write/write.c,v 1.17 2002/09/04 23:29:09 dwmalone
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 
 void done(int);
 void do_write(char *, char *, uid_t);
@@ -151,21 +151,20 @@ usage(void)
 int
 utmp_chk(char *user, char *tty)
 {
-	struct utmp u;
-	int ufd;
+	struct utmpx *u;
 
-	if ((ufd = open(_PATH_UTMP, O_RDONLY)) < 0)
-		return(0);	/* ignore error, shouldn't happen anyway */
-
-	while (read(ufd, (char *) &u, sizeof(u)) == sizeof(u))
-		if (strncmp(user, u.ut_name, sizeof(u.ut_name)) == 0 &&
-		    strncmp(tty, u.ut_line, sizeof(u.ut_line)) == 0) {
-			(void)close(ufd);
-			return(0);
+	setutxent();
+	while((u = getutxent()) != NULL)
+		if(strncmp(u->ut_line, tty, sizeof(u->ut_line)) == 0) {
+			if(u->ut_type == USER_PROCESS &&
+			  strncmp(u->ut_user, user, sizeof(u->ut_user)) == 0) {
+				endutxent();
+				return 0;
+			}
+			break;
 		}
-
-	(void)close(ufd);
-	return(1);
+	endutxent();
+	return 1;
 }
 
 /*
@@ -182,22 +181,21 @@ utmp_chk(char *user, char *tty)
 void
 search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
 {
-	struct utmp u;
+	struct utmpx ux, *u;
 	time_t bestatime, atime;
-	int ufd, nloggedttys, nttys, msgsok, user_is_me;
-	char atty[UT_LINESIZE + 1];
-
-	if ((ufd = open(_PATH_UTMP, O_RDONLY)) < 0)
-		err(1, "utmp");
+	int nloggedttys, nttys, msgsok, user_is_me;
+	char atty[sizeof(ux.ut_line) + 1];
 
 	nloggedttys = nttys = 0;
 	bestatime = 0;
 	user_is_me = 0;
-	while (read(ufd, (char *) &u, sizeof(u)) == sizeof(u))
-		if (strncmp(user, u.ut_name, sizeof(u.ut_name)) == 0) {
+	setutxent();
+	while ((u = getutxent()) != NULL) {
+		if (u->ut_type != USER_PROCESS)
+			continue;
+		if (strncmp(user, u->ut_user, sizeof(u->ut_user)) == 0) {
 			++nloggedttys;
-			(void)strncpy(atty, u.ut_line, UT_LINESIZE);
-			atty[UT_LINESIZE] = '\0';
+			(void)strlcpy(atty, u->ut_line, sizeof(atty));
 			if (term_chk(atty, &msgsok, &atime, 0))
 				continue;	/* bad term? skip */
 			if (myuid && !msgsok)
@@ -212,8 +210,9 @@ search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
 				(void)strcpy(tty, atty);
 			}
 		}
+	}
 
-	(void)close(ufd);
+	endutxent();
 	if (nloggedttys == 0)
 		errx(1, "%s is not logged in", user);
 	if (nttys == 0) {
@@ -285,7 +284,7 @@ do_write(char *tty, char *mytty, uid_t myuid)
 	    login, host, mytty, nows + 11);
 
 	while (fgets(line, sizeof(line), stdin) != NULL)
-		wr_fputs(line);
+		wr_fputs((unsigned char *)line);
 }
 
 /*

@@ -3,7 +3,7 @@
 # Copyright (c) 2001-2002
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: si006.tcl,v 1.1.1.1 2003/02/15 04:56:16 zarzycki Exp $
+# $Id: si006.tcl,v 1.1 2003/02/15 04:56:16 zarzycki Exp $
 #
 # TEST	sindex006
 # TEST	Basic secondary index put/delete test with transactions

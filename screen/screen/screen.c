@@ -101,6 +101,11 @@
 
 #include "logfile.h"	/* islogfile, logfflush */
 
+#ifdef __APPLE__
+#include <vproc.h>
+#include <vproc_priv.h>
+#endif
+
 #ifdef DEBUG
 FILE *dfp;
 #endif
@@ -1210,6 +1215,11 @@ char **av;
 #endif
   freopen("/dev/null", "w", stderr);
   debug("-- screen.back debug started\n");
+
+#ifdef __APPLE__
+	if (_vprocmgr_move_subset_to_user(real_uid, "Background") != NULL)
+		errx(1, "can't migrate to background session");
+#endif
 
   /* 
    * This guarantees that the session owner is listed, even when we

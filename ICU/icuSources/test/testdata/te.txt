@@ -1,6 +1,6 @@
 //*******************************************************************************
 //*
-//*   Copyright (C) 1998-2003, International Business Machines
+//*   Copyright (C) 1998-2005, International Business Machines
 //*   Corporation and others.  All Rights Reserved.
 //*
 //*******************************************************************************
@@ -98,6 +98,68 @@ te
         ", O\u0308 & S < s\u0327 , S\u0327 & U < u\u0308 , U\u0308 " }
       }
     }
+    aliasClient:alias {"/LOCALE/aliasDestination"}
+    aliasDestination {"tedest"}
+    rootAliasDestination {"correct"}
+    a {
+	a1{"a21"}
+	a2{"a22"}
+        a3{"a23"}
+	a4{"a24"}
+    }    
+  zoneStrings{
+        {
+            "Pacific/Honolulu",
+            "Hawaii Standard Time",
+            "HST",
+            "Hawaii Daylight Time",
+            "HDT",
+            "Honolulu",
+            "Hawaii Time",
+            "HT",
+        }
+        {
+            "America/Anchorage",
+            "Alaska Standard Time",
+            "AKST",
+            "Alaska Daylight Time",
+            "AKDT",
+            "Anchorage",
+            "Alaska Time",
+            "AKT",
+        }
+        {
+            "America/Los_Angeles",
+            "Pacific Standard Time",
+            "PST",
+            "Pacific Daylight Time",
+            "PDT",
+            "Los Angeles",
+            "Pacific Time",
+            "PT",
+        }
+        {
+            "America/Phoenix",
+            "Mountain Standard Time",
+            "MST",
+            "Mountain Daylight Time",
+            "MDT",
+            "Phoenix",
+            "Mountain Time",
+            "MT",
+        }
+        {
+            "America/Denver",
+            "Mountain Standard Time",
+            "MST",
+            "Mountain Daylight Time",
+            "MDT",
+            "Denver",
+            "Mountain Time",
+            "MT",
+        }
+    }
+
 }
 
 //eof

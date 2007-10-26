@@ -1,6 +1,14 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+--write-out
+</keywords>
+</info>
 # Server-side
 <reply>
-<data nocheck=true>
+<data nocheck="true">
 HTTP/1.4 200 OK
 Fake: yes
 Fake: yes
@@ -42,8 +50,8 @@ http://127.0.0.1:%HTTPPORT/want/15 200 26
 <protocol>
 GET /want/15 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

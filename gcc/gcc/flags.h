@@ -137,12 +137,12 @@ extern int flag_short_enums;
 
 extern int flag_pcc_struct_return;
 
-/* APPLE LOCAL begin fwritable-strings  */
+/* APPLE LOCAL begin fwritable strings  */
 /* Nonzero for -fwritable-strings:
    store string constants in data segment and don't uniquize them.  */
 
 extern int flag_writable_strings;
-/* APPLE LOCAL end fwritable-strings  */
+/* APPLE LOCAL end fwritable strings  */
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -222,9 +222,13 @@ extern bool g_switch_set;
    of two not less than the variable, for .align output.  */
 
 extern int align_loops_log;
-extern int align_loops_max_skip;
+/* APPLE LOCAL begin optimization pragmas 4760857*/
+/* remove align_loops_max_skip */
+/* APPLE LOCAL end optimization pragmas 4760857*/
 extern int align_jumps_log;
-extern int align_jumps_max_skip;
+/* APPLE LOCAL begin optimization pragmas 4760857*/
+/* remove align_jumps_max_skip */
+/* APPLE LOCAL end optimization pragmas 4760857*/
 extern int align_labels_log;
 extern int align_labels_max_skip;
 extern int align_functions_log;

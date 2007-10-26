@@ -204,8 +204,11 @@ xsltEvalTemplateString(xsltTransformContextPtr ctxt, xmlNodePtr node,
 
     insert = xmlNewDocNode(ctxt->output, NULL,
 	                   (const xmlChar *)"fake", NULL);
-    if (insert == NULL)
+    if (insert == NULL) {
+	xsltTransformError(ctxt, NULL, node,
+		"Failed to create temporary node\n");
 	return(NULL);
+    }
     oldInsert = ctxt->insert;
     ctxt->insert = insert;
 
@@ -481,7 +484,6 @@ xsltAttrTemplateProcess(xsltTransformContextPtr ctxt, xmlNodePtr target,
 	    ns = xsltGetPlainNamespace(ctxt, cur->parent, cur->ns, target);
 	else
 	    ns = NULL;
-	/* TODO output doc->dict, use xmlNewNsPropEatName() instead */
 	ret = xmlNewNsProp(target, ns, cur->name, NULL);
     }
     if (ret != NULL) {
@@ -504,6 +506,9 @@ xsltAttrTemplateProcess(xsltTransformContextPtr ctxt, xmlNodePtr target,
 		text->content = xmlStrdup(value);
 	    }
 	}
+    } else {
+	xsltTransformError(ctxt, NULL, cur->parent,
+		"Failed to create attribute %s\n", cur->name);
     }
     return(ret);
 }
@@ -532,7 +537,7 @@ xsltAttrListTemplateProcess(xsltTransformContextPtr ctxt,
         q = xsltAttrTemplateProcess(ctxt, target, cur);
 	if (q != NULL) {
 	    q->parent = target;
-	    q->doc = ctxt->output;
+	    q->doc = target->doc;
 	    if (ret == NULL) {
 		ret = q;
 	    }

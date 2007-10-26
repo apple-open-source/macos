@@ -1545,6 +1545,18 @@ block_alloc (int b)
      First try the register class that is cheapest for this qty,
      if there is more than one class.  */
 
+/* APPLE LOCAL begin ARM conditionally disable local RA */
+/* At -O0 GRA is not run, so turning off LRA as well is a bad idea.  (Appears
+   to be needed for correctness as well; non-local goto's load FP, then SP,
+   from saved locations in memory; if the memory address has to be reloaded
+   from [FP+offset] in between this doesn't work, see gcc.c-torture/execute/
+   920428-2.c and others.  I'm not entirely sure running LRA is enough to
+   guarantee this will work anyway, but it works on the dejagnu cases, and
+   this isn't an important enough issue to dig into just now....if a fix
+   is needed probably we need a special pattern to represent both loads
+   at once.) */
+if (flag_local_alloc || !optimize)
+/* APPLE LOCAL end ARM conditionally disable local RA */
   for (i = 0; i < next_qty; i++)
     {
       q = qty_order[i];
@@ -2195,6 +2207,12 @@ find_free_reg (enum reg_class class, enum machine_mode mode, int qtyno,
 #else
       int regno = i;
 #endif
+/* APPLE LOCAL begin ARM add DIMODE_REG_ALLOC_ORDER */
+#ifdef DIMODE_REG_ALLOC_ORDER
+      if (mode == DImode)
+	regno = dimode_reg_alloc_order[i];
+#endif
+/* APPLE LOCAL end ARM add DIMODE_REG_ALLOC_ORDER */
       if (! TEST_HARD_REG_BIT (first_used, regno)
 	  && HARD_REGNO_MODE_OK (regno, mode)
 	  && (qty[qtyno].n_calls_crossed == 0

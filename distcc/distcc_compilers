@@ -1,0 +1,13 @@
+# This file contains a list of the compilers that distcc will allow to be remotely invoked.
+# One compiler per line, newline separated, no whitespace allowed.
+
+# All paths not beginning with a '/' are relative to the exectuable directory. Those
+# beginning with a '/' are considered absolute paths.
+
+bin/gcc
+bin/cc
+bin/gcc-3.3
+bin/gcc-4.0
+bin/g++
+bin/g++-3.3
+bin/g++-4.0

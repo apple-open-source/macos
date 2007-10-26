@@ -57,6 +57,7 @@
 #define kATASATA2BayString "sata-2-bay"
 #define kATAUnkownSocketString "unknown"
 
+#define kATANotifyOnChangeKey "media-notify"
 
 // allows for porting to non-memory-mapped IO systems, such as x86.
 // for such a platform, create a class and overload the assignment operators
@@ -211,7 +212,7 @@ enum ataRegMask{
 
 
 enum ataFlags{
-
+	bATAFlagQuiesce				= 20,
 	bATAFlagNoIRQ				= 19,							/* bit Number of no IRQ protocol flag*/
 	bATAFlag48BitLBA			= 18,
 	bATAFlagDMAQueued			= 17,
@@ -226,6 +227,7 @@ enum ataFlags{
 	bATAFlagImmediate			= 1,							/* bit number of immediate flag */
 	bATAFlagTFAccess			= 0,							/* bit number of TF access */
 
+	mATAFlagQuiesce				= 1 << bATAFlagQuiesce,
 	mATAFlagUseNoIRQ			= 1 << bATAFlagNoIRQ,  			/* Special purpose! Avoid using! No-IRQ, polled synchronous protocol valid only for PIO commands*/
 	mATAFlag48BitLBA			= 1 << bATAFlag48BitLBA,		/* Use 48 bit extended LBA protocol on this command. Requires support from the controller.*/
 	mATAFlagDMAQueued			= 1 << bATAFlagDMAQueued,		/* Use tagged dma queuing protocol on this command. Requires support from the controller.*/

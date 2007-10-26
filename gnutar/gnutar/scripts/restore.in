@@ -19,14 +19,16 @@
 
 # Load library routines
 SYSCONFDIR=${SYSCONFDIR-@sysconfdir@}
-. ${LIBPATH-@libexecdir@}/backup.sh
+. ${LIBDIR-@libexecdir@}/backup.sh
 
 usage() {
     	cat - <<EOF
 usage: $PROGNAME [OPTIONS] [PATTERN [PATTERN...]]
 Options are:
 
-   -l, --level=LEVEL       Start restoring from backup level LEVEL (default $DUMP_LEVEL).
+   -a, --all               Restore all filesystems.
+   -l, --level=LEVEL       Start restoring from the given backup LEVEL
+                           (default $DUMP_LEVEL).
    -v, --verbose[=LEVEL]   Set verbosity level. Default 100.
 
 Informational options:   
@@ -53,6 +55,9 @@ do
       optarg=$opt
   fi
   case $option in
+  -a|--a|--al|--all)
+	 RESTORE_ALL=1
+	 ;;
   --l=*|--le=*|--lev=*|--leve=*|--level=*)
          DUMP_LEVEL=$optarg
 	 ;;
@@ -84,6 +89,13 @@ do
       ;;
   esac	
 done    
+
+if [ -z "$RESTORE_ALL" ]; then
+	if [ -z "$PATTERN" ]; then
+		usage
+		exit;
+	fi
+fi	
 
 init_restore
 cat > $LOGFILE <<EOF
@@ -132,7 +144,7 @@ restore_fs()
       LABEL="`print_level $level` backup of ${fs} on ${remotehost} at ${DATE}"
       ${RESTORE_BEGIN-:} $level $remotehost $fs $fsname
       backup_host ${remotehost} \
-                  "--listed=`level_log_name $fs $level`" \
+                  "--listed=\"$FILE\"" \
                   "--label=\"$LABEL\"" \
 		  -C ${ROOT_FS-/}$fs
       ${RESTORE_END-:} $level $remotehost $fs $fsname 		  
@@ -164,7 +176,7 @@ restore_files()
       LABEL="`print_level $level` backup of miscellaneous files at ${DATE}"
       ${RESTORE_BEGIN-:} $level $localhost MISC MISC
       backup_host ${localhost} \
-                  "--listed=`level_log_name MISC $level`" \
+                  "--listed=\"$FILE\"" \
                   "--label=\"$LABEL\"" \
 		  -C ${ROOT_FS-/} $@
       ${RESTORE_END-:} $level $localhost MISC MISC

@@ -32,7 +32,10 @@ Boston, MA 02111-1307, USA.  */
 #include "assert.h"
 #include "toplev.h"
 #include "convert.h"
+/* APPLE LOCAL begin mainline 4.3 2006-01-10 4871915 */
+#include "target.h"
 
+/* APPLE LOCAL end mainline 4.3 2006-01-10 4871915 */
 /* C++ returns type information to the user in struct type_info
    objects. We also use type information to implement dynamic_cast and
    exception handlers. Type information for a particular type is
@@ -1367,14 +1370,19 @@ emit_support_tinfos (void)
 	  tinfo = get_tinfo_decl (types[i]);
 	  TREE_USED (tinfo) = 1;
 	  mark_needed (tinfo);
+/* APPLE LOCAL begin mainline 4.3 2006-01-10 4871915 */
 	  /* The C++ ABI requires that these objects be COMDAT.  But,
 	     On systems without weak symbols, initialized COMDAT 
 	     objects are emitted with internal linkage.  (See
 	     comdat_linkage for details.)  Since we want these objects
 	     to have external linkage so that copies do not have to be
 	     emitted in code outside the runtime library, we make them
-	     non-COMDAT here.  */
-	  if (!flag_weak)
+	     non-COMDAT here.  
+
+	     It might also not be necessary to follow this detail of the
+	     ABI.  */
+	  if (!flag_weak || ! targetm.cxx.library_rtti_comdat ())
+/* APPLE LOCAL end mainline 4.3 2006-01-10 4871915 */
 	    {
 	      gcc_assert (TREE_PUBLIC (tinfo) && !DECL_COMDAT (tinfo));
 	      DECL_INTERFACE_KNOWN (tinfo) = 1;

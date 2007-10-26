@@ -235,6 +235,7 @@ struct	cmd {
 #ifdef USE_BONDS
 	{ "bonddev",	NEXTARG,	setbonddev },
 	{ "-bonddev",	NEXTARG,	unsetbonddev },
+	{ "bondmode",	NEXTARG,	setbondmode },
 #endif
 #if 0
 	/* XXX `create' special-cased below */

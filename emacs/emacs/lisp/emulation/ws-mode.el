@@ -1,6 +1,7 @@
 ;;; ws-mode.el --- WordStar emulation mode for GNU Emacs
 
-;; Copyright (C) 1991 Free Software Foundation, Inc.
+;; Copyright (C) 1991, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Juergen Nickelsen <nickel@cs.tu-berlin.de>
 ;; Version: 0.7
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -42,7 +43,7 @@
   (setq wordstar-C-k-map (make-keymap))
   (setq wordstar-C-o-map (make-keymap))
   (setq wordstar-C-q-map (make-keymap))
-  
+
   (define-key wordstar-mode-map "\C-a" 'backward-word)
   (define-key wordstar-mode-map "\C-b" 'fill-paragraph)
   (define-key wordstar-mode-map "\C-c" 'scroll-up)
@@ -68,9 +69,9 @@
   (define-key wordstar-mode-map "\C-x" 'next-line)
   (define-key wordstar-mode-map "\C-y" 'kill-complete-line)
   (define-key wordstar-mode-map "\C-z" 'scroll-up-line)
-  
+
   ;; wordstar-C-k-map
-  
+
   (define-key wordstar-C-k-map " " ())
   (define-key wordstar-C-k-map "0" 'ws-set-marker-0)
   (define-key wordstar-C-k-map "1" 'ws-set-marker-1)
@@ -116,11 +117,11 @@
   (define-key wordstar-C-k-map "\C-x" 'save-buffers-kill-emacs)
   (define-key wordstar-C-k-map "y" 'ws-delete-block)
   (define-key wordstar-C-k-map "\C-y" 'ws-delete-block)
-  
+
   ;; wordstar-C-j-map not yet implemented
-  
+
   ;; wordstar-C-o-map
-  
+
   (define-key wordstar-C-o-map " " ())
   (define-key wordstar-C-o-map "c" 'wordstar-center-line)
   (define-key wordstar-C-o-map "\C-c" 'wordstar-center-line)
@@ -141,7 +142,7 @@
   (define-key wordstar-C-o-map "wh" 'split-window-horizontally)
   (define-key wordstar-C-o-map "wo" 'other-window)
   (define-key wordstar-C-o-map "wv" 'split-window-vertically)
-  
+
   ;; wordstar-C-q-map
   (define-key wordstar-C-q-map " " ())
   (define-key wordstar-C-q-map "0" 'ws-find-marker-0)
@@ -294,7 +295,7 @@ The key bindings are:
   (use-local-map wordstar-mode-map)
   (setq mode-name "WordStar")
   (setq major-mode 'wordstar-mode)
-  (run-hooks 'wordstar-mode-hook))
+  (run-mode-hooks 'wordstar-mode-hook))
 
 
 (defun wordstar-center-paragraph ()
@@ -336,8 +337,8 @@ the distance between the end of the text and `fill-column'."
       (delete-horizontal-space)
       (setq line-length (current-column))
       (beginning-of-line)
-      (indent-to 
-       (+ left-margin 
+      (indent-to
+       (+ left-margin
 	  (/ (- fill-column left-margin line-length) 2))))))
 
 (defun scroll-down-line ()
@@ -368,13 +369,13 @@ the distance between the end of the text and `fill-column'."
 (defvar ws-block-end-marker nil "End of \"Block\" in WordStar mode.")
 
 (defvar ws-search-string nil "String of last search in WordStar mode.")
-(defvar ws-search-direction t 
-  "Direction of last search in WordStar mode. T if forward, NIL if backward.")
+(defvar ws-search-direction t
+  "Direction of last search in WordStar mode. t if forward, nil if backward.")
 
-(defvar ws-last-cursorposition nil 
+(defvar ws-last-cursorposition nil
   "Position before last search etc. in WordStar mode.")
 
-(defvar ws-last-errormessage nil 
+(defvar ws-last-errormessage nil
   "Last error message issued by a WordStar mode function.")
 
 ;;;;;;;;;;;
@@ -510,7 +511,7 @@ in ws-last-errormessage for recovery with C-q w."
   "In WordStar mode: Move block to current cursor position."
   (interactive)
   (if (and ws-block-begin-marker ws-block-end-marker)
-      (let () 
+      (let ()
 	(kill-region ws-block-begin-marker ws-block-end-marker)
 	(yank)
 	(save-excursion
@@ -691,7 +692,7 @@ in ws-last-errormessage for recovery with C-q w."
 This will only work for errors raised by WordStar mode functions."
   (interactive)
   (if ws-last-errormessage
-      (message ws-last-errormessage)
+      (message "%s" ws-last-errormessage)
     (message "No WordStar error yet.")))
 
 (defun ws-kill-eol ()
@@ -702,7 +703,7 @@ This will only work for errors raised by WordStar mode functions."
     (kill-region p (point))))
 
 (defun ws-kill-bol ()
-  "In WordStar mode: Kill to beginning of line 
+  "In WordStar mode: Kill to beginning of line
 \(like WordStar, not like Emacs)."
   (interactive)
   (let ((p (point)))
@@ -730,7 +731,7 @@ This will only work for errors raised by WordStar mode functions."
 
 (defun ws-query-replace (from to)
   "In WordStar mode: Search string, remember string for repetition."
-  (interactive "sReplace: 
+  (interactive "sReplace:
 sWith: " )
   (setq ws-search-string from)
   (setq ws-search-direction t)
@@ -755,4 +756,5 @@ sWith: " )
 
 (provide 'ws-mode)
 
+;;; arch-tag: 6dd864bf-2ccb-4d59-af6e-492eba2890a3
 ;;; ws-mode.el ends here

@@ -1,6 +1,7 @@
-;;; czech.el --- support for Czech -*- coding: iso-2022-7bit; -*-
+;;; czech.el --- support for Czech -*- coding: iso-2022-7bit; no-byte-compile: t -*-
 
-;; Copyright (C) 1998, 2001 Free Software Foundation.
+;; Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation.
 
 ;; Author: Milan Zamazal <pdm@zamazal.org>
 ;; Maintainer: Pavel Jan,Am(Bk <Pavel@Janik.cz>
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -41,10 +42,11 @@
 	   (sample-text . "P,Bx(Bejeme v,Ba(Bm hezk,B}(B den!")
 	   (documentation . "\
 This language environment is almost the same as Latin-2,
-but default input method is set to \"czech\",
-and select's the Czech tutorial."))
+but sets the default input method to \"czech\",
+and selects the Czech tutorial."))
  '("European"))
 
 (provide 'czech)
 
+;;; arch-tag: 45ac0d83-ca13-4b5e-9e82-821e44080c24
 ;;; czech.el ends here

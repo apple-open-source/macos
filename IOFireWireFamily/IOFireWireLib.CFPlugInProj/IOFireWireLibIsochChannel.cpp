@@ -37,9 +37,15 @@ namespace IOFireWireLib {
 
 		mUserClient.AddRef() ;
 
-		IOReturn	err = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-								kIsochChannel_Allocate, 3, 1, inDoIRM, inPacketSize, inPrefSpeed, 
-								& mKernChannelRef) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		const uint64_t inputs[3] = {inDoIRM, inPacketSize, inPrefSpeed};
+		IOReturn err = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+												 kIsochChannel_Allocate,
+												 inputs,3,
+												 &outputVal,&outputCnt);
+		mKernChannelRef = (UserObjectHandle) outputVal;
+		
 		if(err)
 		{
 			throw err ;
@@ -54,8 +60,14 @@ namespace IOFireWireLib {
 		
 		if (mKernChannelRef)
 		{
-			IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
-											kReleaseUserObject, 1, 0, mKernChannelRef ) ;
+			uint32_t outputCnt = 0;
+			const uint64_t inputs[1]={(const uint64_t)mKernChannelRef};
+
+			IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+									  kReleaseUserObject,
+									  inputs,1,
+									  NULL,&outputCnt);
+			
 			mKernChannelRef = 0 ;
 		}
 	
@@ -96,10 +108,12 @@ namespace IOFireWireLib {
 		
 		if ( port )
 		{
-			::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-											kLocalIsochPort_SetChannel,
-											2, 0,
-											port->mKernPortRef, mKernChannelRef ) ;
+			uint32_t outputCnt = 0;
+			const uint64_t inputs[2] = {(const uint64_t)port->mKernPortRef, (const uint64_t)mKernChannelRef};
+			IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+									  kLocalIsochPort_SetChannel,
+									  inputs,2,
+									  NULL,&outputCnt);
 		}
 
 		return kIOReturnSuccess ;
@@ -116,10 +130,12 @@ namespace IOFireWireLib {
 		
 		if ( port )
 		{
-			::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-											kLocalIsochPort_SetChannel,
-											2, 0,
-											port->mKernPortRef, mKernChannelRef ) ;
+			uint32_t outputCnt = 0;
+			const uint64_t inputs[2] = {(const uint64_t)port->mKernPortRef, (const uint64_t)mKernChannelRef};
+			IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+									  kLocalIsochPort_SetChannel,
+									  inputs,2,
+									  NULL,&outputCnt);
 		}
 		
 		return kIOReturnSuccess ;
@@ -162,14 +178,16 @@ namespace IOFireWireLib {
 		}
 	
 		// call the kernel middle bits
-		result = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-												kIsochChannel_UserAllocateChannelBegin,
-//												mUserClient.MakeSelectorWithObject( kIsochChannel_UserAllocateChannelBegin_d, 
-//													mKernChannelRef ), 
-												4, 2, mKernChannelRef, mSpeed,
-												(UInt32)(allowedChans >> 32), (UInt32)(0xFFFFFFFF & allowedChans), & mSpeed,
-												& mChannel) ;
-	
+		uint32_t outputCnt = 2;
+		uint64_t outputVal[2];
+		const uint64_t inputs[4] = {(const uint64_t)mKernChannelRef, (const uint64_t)mSpeed, (allowedChans >> 32),(0xFFFFFFFF & allowedChans)};
+		result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+										   kIsochChannel_UserAllocateChannelBegin,
+												 inputs,4,
+												 outputVal,&outputCnt);
+		mSpeed = (IOFWSpeed) (outputVal[0] & 0xFFFFFFFF);
+		mChannel =  outputVal[1] & 0xFFFFFFFF;
+		
 		if (kIOReturnSuccess == result)
 		{
 			// complete in user space
@@ -215,10 +233,11 @@ namespace IOFireWireLib {
 			++index ;
 		}
 	
-		result = ::IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(),
-													mUserClient.MakeSelectorWithObject( kIsochChannel_UserReleaseChannelComplete_d, 
-													mKernChannelRef ), 
-													0, 0 ) ;
+		uint32_t outputCnt = 0;
+		result = IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(),
+										   mUserClient.MakeSelectorWithObject( kIsochChannel_UserReleaseChannelComplete_d, mKernChannelRef ),
+										   NULL,0,
+										   NULL,&outputCnt);
 		
 		return result ;
 	}
@@ -275,7 +294,7 @@ namespace IOFireWireLib {
 	}
 
 	IOFireWireIsochChannelForceStopHandler
-	IsochChannel :: SetChannelForceStopHandler (
+	IsochChannel::SetChannelForceStopHandler (
 		IOFireWireIsochChannelForceStopHandler stopProc,
 		IOFireWireLibIsochChannelRef interface )
 	{
@@ -288,16 +307,19 @@ namespace IOFireWireLib {
 
 		if ( mNotifyIsOn && connection )
 		{
-			io_scalar_inband_t		params = { (UInt32) mKernChannelRef } ;
-			unsigned				size = 0 ;
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) mForceStopHandler;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)interface;
+			uint32_t outputCnt = 0;
+			const uint64_t inputs[1]={(const uint64_t)mKernChannelRef};
+
+			IOReturn error = IOConnectCallAsyncScalarMethod(connection,
+															kSetAsyncRef_IsochChannelForceStop,
+															mUserClient.GetAsyncPort(), 
+															refrncData,kOSAsyncRef64Count,
+															inputs,1,
+															NULL,&outputCnt);
 			
-			mAsyncRef[ kIOAsyncCalloutFuncIndex ] = (natural_t) mForceStopHandler ;
-			mAsyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t) interface ;
-		
-			IOReturn error = ::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mAsyncRef,
-																kOSAsyncRefCount, kSetAsyncRef_IsochChannelForceStop, params, 
-																1, params, & size) ;
-																
 			#pragma unused( error )
 			DebugLogCond( error, "Error setting isoch channel force stop handler\n") ;
 		}
@@ -343,16 +365,18 @@ namespace IOFireWireLib {
 		
 		IOReturn error = kIOReturnSuccess ;
 		{
-			io_scalar_inband_t		params = { (UInt32) mKernChannelRef } ;
-			io_scalar_inband_t		output ;
-			mach_msg_type_number_t	size = 0 ;
-			
-			mAsyncRef[ kIOAsyncCalloutFuncIndex ] = (natural_t) mForceStopHandler ;
-			mAsyncRef[ kIOAsyncCalloutRefconIndex ] = (natural_t) interface ;
-		
-			error = ::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mAsyncRef, 
-															kOSAsyncRefCount, kSetAsyncRef_IsochChannelForceStop, params, 
-															1, output, & size) ;
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) mForceStopHandler;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)interface;
+			uint32_t outputCnt = 0;
+			const uint64_t inputs[1]={(const uint64_t)mKernChannelRef};
+
+			error = IOConnectCallAsyncScalarMethod(connection,
+												   kSetAsyncRef_IsochChannelForceStop,
+												   mUserClient.GetAsyncPort(), 
+												   refrncData,kOSAsyncRef64Count,
+												   inputs,1,
+												   NULL,&outputCnt);
 		}
 
 		{
@@ -362,10 +386,16 @@ namespace IOFireWireLib {
 			{
 				// have kernel channel force stop proc call user dcl program force stop proc
 
-				LocalIsochPort * port = (LocalIsochPort*) IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( (IsochPort*) ::CFArrayGetValueAtIndex( mListeners, index ) ) ;
+				LocalIsochPort * port = dynamic_cast<LocalIsochPort*>(IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( (IsochPort*) ::CFArrayGetValueAtIndex( mListeners, index ) ) ) ;
 				if ( port )
 				{
-					error = ::IOConnectMethodScalarIScalarO( connection, kLocalIsochPort_SetChannel, 2, 0, port->mKernPortRef, mKernChannelRef ) ;
+					
+					uint32_t outputCnt = 0;
+					const uint64_t inputs[2] = {(const uint64_t)port->mKernPortRef, (const uint64_t)mKernChannelRef};
+					error = IOConnectCallScalarMethod(connection,
+													  kLocalIsochPort_SetChannel,
+													  inputs,2,
+													  NULL,&outputCnt);
 				}
 				
 				++index ;
@@ -377,7 +407,12 @@ namespace IOFireWireLib {
 			LocalIsochPort * port = dynamic_cast<LocalIsochPort*>( IOFireWireIUnknown::InterfaceMap<IsochPort>::GetThis( mTalker ) ) ;
 			if ( port )
 			{
-				error = ::IOConnectMethodScalarIScalarO( connection, kLocalIsochPort_SetChannel, 2, 0, port->mKernPortRef, mKernChannelRef ) ;
+				uint32_t outputCnt = 0;
+				const uint64_t inputs[2] = {(const uint64_t)port->mKernPortRef, (const uint64_t)mKernChannelRef};
+				error = IOConnectCallScalarMethod(connection,
+												  kLocalIsochPort_SetChannel,
+												  inputs,2,
+												  NULL,&outputCnt);
 			}
 		}
 		
@@ -400,12 +435,17 @@ namespace IOFireWireLib {
 			return ;
 		}
 		
-		io_scalar_inband_t		params = { (UInt32) mKernChannelRef, (UInt32)(IOAsyncCallback) 0, (UInt32) this } ;
-		mach_msg_type_number_t	size = 0 ;
-	
-		::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mAsyncRef, kOSAsyncRefCount, 
-				kSetAsyncRef_IsochChannelForceStop, params, 3, params, & size) ;
-		
+		uint64_t refrncData[kOSAsyncRef64Count];
+		refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+		refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long) 0;
+		const uint64_t inputs[3] = {(const uint64_t)mKernChannelRef,0,(const uint64_t)this};
+		uint32_t outputCnt = 0;
+		IOConnectCallAsyncScalarMethod(connection,
+									   kSetAsyncRef_IsochChannelForceStop,
+									   mUserClient.GetAsyncPort(), 
+									   refrncData,kOSAsyncRef64Count,
+									   inputs,3,
+									   NULL,&outputCnt);
 		mNotifyIsOn = false ;
 	}
 	

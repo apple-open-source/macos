@@ -64,51 +64,6 @@ typedef	char *Ptr;
 #define bit31			0x80000000
 
 
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
- * Configuration Registers
- *
- */
-enum {
-        kConfigStart		= 0x00,
-        cwVendorID		= 0x00,	/* 0x1000 */
-        cwDeviceID		= 0x02,	/* 0x0003 */
-        cwCommand		= 0x04,
-        cwStatus		= 0x06,
-        clClassCodeAndRevID	= 0x08,
-        clHeaderAndLatency	= 0x0C,
-        clBaseAddressZero	= 0x10,	/* I/O Base address */
-        clBaseAddressOne	= 0x14,	/* Memory Base address */
-        clExpansionRomAddr	= 0x30,
-        clLatGntIntPinLine	= 0x3C,	/* Max_Lat, Max_Gnt, Int. Pin, Int. Line */
-        kConfigEnd		= 0x40
-};
-
-/*
- * 0x04 cwCommand	Command Register (read/write)
- */
-enum {
-	cwCommandSERREnable		= bit8,
-	cwCommandEnableParityError	= bit6,
-	cwCommandEnableBusMaster	= bit2,	/* Set this on initialization	*/
-	cwCommandEnableMemorySpace	= bit1,	/* Respond at Base Address One if set	*/
-	cwCommandEnableIOSpace		= bit0	/* Respond at Base Address Zero if set	*/
-};
-/*
- * 0x06 cwStatus	Status Register (read/write)
- */
-enum {
-	cwStatusDetectedParityError	= bit15, /* Detected from slave			*/
-	cwStatusSignaledSystemError	= bit14, /* Device asserts SERR/ signal		*/
-	cwStatusMasterAbort		= bit13, /* Master sets when transaction aborts	*/
-	cwStatusReceivedTargetAbort	= bit12, /* Master sets when target-abort	*/
-	cwStatusDEVSELTimingMask	= (bit10 | bit9), /* DEVSEL timing encoding R/O	*/
-	cwStatusDEVSELFastTiming	= 0,
-	cwStatusDEVSELMediumTiming	= bit9,
-	cwStatusDEVSELSlowTiming	= bit10,
-	cwStatusDataParityReported	= bit8
-};
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // OHCI type defs.
@@ -468,41 +423,41 @@ enum
     kOHCIEndpointNumberOffset		= 7,
     kOHCIEndpointDirectionOffset	= 11,
     kOHCIMaxPacketSizeOffset		= 16,
-    kOHCISpeedOffset			= 13,
+    kOHCISpeedOffset				= 13,
     kOHCIBufferRoundingOffset		= 18,
-    kOHCIDirectionOffset		= 19,
-    kENOffset				= 7,
+    kOHCIDirectionOffset			= 19,
+    kENOffset						= 7,
 
-    kUniqueNumMask			= OHCIBitRange (0, 12),
-    kUniqueNumNoDirMask			= OHCIBitRange (0, 10),
-    kOHCIHeadPMask			= OHCIBitRange (4, 31),
-    kOHCIInterruptSOFMask		= kOHCIHcInterrupt_SF,
-    kOHCISkipped			= kOHCIEDControl_K,
-    kOHCIDelayIntOffset			= 21,
-    kOHCIPageSize			= 4096,
+    kUniqueNumMask					= OHCIBitRange (0, 12),
+    kOHCIUniqueNumNoDirMask			= OHCIBitRange (0, 10),
+    kOHCIHeadPMask					= OHCIBitRange (4, 31),
+    kOHCIInterruptSOFMask			= kOHCIHcInterrupt_SF,
+    kOHCISkipped					= kOHCIEDControl_K,
+    kOHCIDelayIntOffset				= 21,
+    kOHCIPageSize					= 4096,
     kOHCIEndpointDirectionMask		= OHCIBitRange (11, 12),
-    kOHCIEDToggleBitMask 		= OHCIBitRange (1, 1),
-    kOHCIGTDClearErrorMask		= OHCIBitRange (0, 25),
-    kHCCAalignment			= 0x100,	// required alignment for HCCA
-    kHCCAsize				= 256,		// size of HCCA
+    kOHCIEDToggleBitMask			= OHCIBitRange (1, 1),
+    kOHCIGTDClearErrorMask			= OHCIBitRange (0, 25),
+    kHCCAalignment					= 0x100,	// required alignment for HCCA
+    kHCCAsize						= 256,		// size of HCCA
     kHCCAInterruptTableOffset		= 0x0,
-    kHCCAFrameNumberOffset		= 0x80,
-    kHCCAPad1Offset			= 0x82,
-    kHCCADoneHeadOffset			= 0x84
+    kHCCAFrameNumberOffset			= 0x80,
+    kHCCAPad1Offset					= 0x82,
+    kHCCADoneHeadOffset				= 0x84
 };
 
 
 enum {
-    kOHCIBulkTransferOutType		= 1,
-    kOHCIBulkTransferInType		= 2,
-    kOHCIControlSetupType		= 3,
-    kOHCIControlDataType		= 4,
-    kOHCIControlStatusType 		= 5,
-    kOHCIInterruptInType		= 6,
-    kOHCIInterruptOutType		= 7,
-    kOHCIOptiLSBug			= 8,
-    kOHCIIsochronousInType		= 9,
-    kOHCIIsochronousOutType		= 10,
+    kOHCIBulkTransferOutType			= 1,
+    kOHCIBulkTransferInType				= 2,
+    kOHCIControlSetupType				= 3,
+    kOHCIControlDataType				= 4,
+    kOHCIControlStatusType				= 5,
+    kOHCIInterruptInType				= 6,
+    kOHCIInterruptOutType				= 7,
+    kOHCIOptiLSBug						= 8,
+    kOHCIIsochronousInType				= 9,
+    kOHCIIsochronousOutType				= 10,
     kOHCIIsochronousInLowLatencyType	= 11,
     kOHCIIsochronousOutLowLatencyType	= 12
 };
@@ -550,5 +505,7 @@ struct OHCIIsochTransferDescriptorShared
 
 #define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)
+
+#define	kOHCIStructureAllocationPhysicalMask	0x00000000FFFFF000ULL			// for use with inTaskWithPhysicalMask (below 4GB and 4K aligned)
 
 #endif

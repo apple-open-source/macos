@@ -16,6 +16,7 @@ int seclevel = 0;
 int options = 0;
 int show_help = 0;
 int show_version = 0;
+int opt_buffsize = 0;
 
 struct option longopts[] = {
   { "directory", no_argument, NULL, 'd' },
@@ -29,6 +30,8 @@ struct option longopts[] = {
   { "zero", no_argument, NULL, 'z' },
   { "help", no_argument, &show_help, 1 },
   { "version", no_argument, &show_version, 1 },
+  { "verify", no_argument, NULL, 'V' },
+  { "bsize", required_argument, NULL, 'B' },
   { NULL, no_argument, NULL, 0 }
 };
 
@@ -43,7 +46,7 @@ int main(int argc, char *argv[]) {
   else
     program_name = argv[0];
 
-  while ((opt = getopt_long(argc, argv, "dfirRvsnmz", longopts,
+  while ((opt = getopt_long(argc, argv, "dfirRvsnmzVB:", longopts,
 			    NULL)) != -1) {
     switch (opt) {
     case ':': 
@@ -76,7 +79,13 @@ int main(int argc, char *argv[]) {
       options |= OPT_V;
       break;
     case 'z':
-      options |= OPT_Z;
+      options |= OPT_ZERO;
+      break;
+    case 'V':
+      options |= OPT_VERIFY;
+      break;
+    case 'B':
+      opt_buffsize = atoi(optarg);
       break;
     default:
       error("unhandled option %c", opt);
@@ -88,7 +97,7 @@ int main(int argc, char *argv[]) {
 	   "Usage: %s [OPTION]... [FILE]...\n"
 	   "Overwrite and remove (unlink) the files.\n"
 	   "\n"
-	   "  -d, --directory     ignored (for compatability with rm(1))\n"
+	   "  -d, --directory     ignored (for compatibility with rm(1))\n"
 	   "  -f, --force         ignore nonexistent files, never prompt\n"
 	   "  -i, --interactive   prompt before any removal\n"
 	   "  -s, --simple        only overwrite with single random pass\n"

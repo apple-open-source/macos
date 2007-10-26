@@ -1,4 +1,4 @@
-Confirmare de abonare la lista de discuþii %(listname)s
+Confirmarea abonãrii la lista de discuþii %(listname)s
 
 Am primit o cerere %(remote)s pentru înscrierea adresei dumneavoastrã
 de email,  "%(email)s",  în lista de discuþii %(listaddr)s.  Pentru a

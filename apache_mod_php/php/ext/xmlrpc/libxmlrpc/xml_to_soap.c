@@ -165,7 +165,7 @@ static const char* get_array_soap_type(XMLRPC_VALUE node) {
 	return soapType;
 }
 
-/* determines wether a node is a fault or not, and of which type:
+/* determines whether a node is a fault or not, and of which type:
  * 0 = not a fault,
  * 1 = xmlrpc style fault
  * 2 = soap style fault.
@@ -363,7 +363,7 @@ XMLRPC_VALUE xml_element_to_SOAP_REQUEST_worker(XMLRPC_REQUEST request,
 			}
 			else if (!strcmp(type, TOKEN_BASE64)) {
 				struct buffer_st buf;
-				base64_decode(&buf, el->text.str, el->text.len);
+				base64_decode_xmlrpc(&buf, el->text.str, el->text.len);
 				XMLRPC_SetValueBase64(xCurrent, buf.data, buf.offset);
 				buffer_delete(&buf);
 			}
@@ -529,7 +529,7 @@ xml_element* SOAP_to_xml_element_worker(XMLRPC_REQUEST request, XMLRPC_VALUE nod
 			{
 				struct buffer_st buf;
 				pAttrType = TOKEN_BASE64;
-				base64_encode(&buf, XMLRPC_GetValueBase64(node), XMLRPC_GetValueStringLen(node));
+				base64_encode_xmlrpc(&buf, XMLRPC_GetValueBase64(node), XMLRPC_GetValueStringLen(node));
 				simplestring_addn(&elem_val->text, buf.data, buf.offset );
 				buffer_delete(&buf);
 			}

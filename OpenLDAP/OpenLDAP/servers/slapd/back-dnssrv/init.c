@@ -1,8 +1,8 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/init.c,v 1.17.2.4 2004/04/12 18:20:13 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/init.c,v 1.24.2.5 2006/01/03 22:16:17 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *
@@ -26,23 +26,7 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "external.h"
-
-#if SLAPD_DNSSRV == SLAPD_MOD_DYNAMIC
-
-int init_module(int argc, char *argv[])
-{
-    BackendInfo bi;
-
-    memset( &bi, '\0', sizeof(bi) );
-    bi.bi_type = "dnssrv";
-    bi.bi_init = dnssrv_back_initialize;
-
-    backend_add( &bi );
-    return 0;
-}
-
-#endif /* SLAPD_DNSSRV */
+#include "proto-dnssrv.h"
 
 int
 dnssrv_back_initialize(
@@ -50,13 +34,12 @@ dnssrv_back_initialize(
 {
 	static char *controls[] = {
 		LDAP_CONTROL_MANAGEDSAIT,
- 		LDAP_CONTROL_VALUESRETURNFILTER,
 		NULL
 	};
 
 	bi->bi_controls = controls;
 
-	bi->bi_open = 0;
+	bi->bi_open = dnssrv_back_open;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
 	bi->bi_destroy = 0;
@@ -84,6 +67,25 @@ dnssrv_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
+#ifdef SLAP_OVERLAY_ACCESS
+	bi->bi_access_allowed = slap_access_always_allowed;
+#endif /* SLAP_OVERLAY_ACCESS */
+
+	return 0;
+}
+
+AttributeDescription	*ad_dc;
+AttributeDescription	*ad_associatedDomain;
+
+int
+dnssrv_back_open(
+    BackendInfo *bi )
+{
+	const char *text;
+
+	(void)slap_str2ad( "dc", &ad_dc, &text );
+	(void)slap_str2ad( "associatedDomain", &ad_associatedDomain, &text );
+
 	return 0;
 }
 
@@ -100,3 +102,11 @@ dnssrv_back_db_destroy(
 {
 	return 0;
 }
+
+#if SLAPD_DNSSRV == SLAPD_MOD_DYNAMIC
+
+/* conditionally define the init_module() function */
+SLAP_BACKEND_INIT_MODULE( dnssrv )
+
+#endif /* SLAPD_DNSSRV == SLAPD_MOD_DYNAMIC */
+

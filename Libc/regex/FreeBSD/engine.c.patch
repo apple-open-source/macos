@@ -1,6 +1,6 @@
 --- engine.c.orig	2004-11-25 11:38:32.000000000 -0800
-+++ engine.c	2005-02-24 14:25:22.000000000 -0800
-@@ -270,7 +270,7 @@
++++ engine.c	2005-04-18 16:52:09.000000000 -0700
+@@ -270,7 +270,7 @@ int eflags;
  				break;
  			assert(m->coldp < m->endp);
  			m->coldp += XMBRTOWC(NULL, m->coldp,
@@ -9,7 +9,7 @@
  		}
  		if (nmatch == 1 && !g->backrefs)
  			break;		/* no further info needed */
-@@ -331,7 +331,7 @@
+@@ -331,7 +331,7 @@ int eflags;
  		NOTE("false alarm");
  		/* recycle starting later */
  		start = m->coldp + XMBRTOWC(NULL, m->coldp,
@@ -18,7 +18,7 @@
  		assert(start <= stop);
  	}
  
-@@ -409,7 +409,7 @@
+@@ -409,7 +409,7 @@ sopno stopst;
  			assert(nope);
  			break;
  		case OCHAR:
@@ -27,7 +27,7 @@
  			break;
  		case OBOL:
  		case OEOL:
-@@ -418,7 +418,7 @@
+@@ -418,7 +418,7 @@ sopno stopst;
  			break;
  		case OANY:
  		case OANYOF:
@@ -36,7 +36,33 @@
  			break;
  		case OBACK_:
  		case O_BACK:
-@@ -585,14 +585,14 @@
+@@ -479,6 +479,10 @@ sopno stopst;
+ 				sep = ssp;
+ 				ssp = oldssp;
+ 			}
++			else if (tail==rest) {
++				/* Fix for test expr 105 */
++				ssp = oldssp;
++			}
+ 			assert(sep == rest);	/* must exhaust substring */
+ 			assert(slow(m, ssp, sep, ssub, esub) == rest);
+ 			dp = dissect(m, ssp, sep, ssub, esub);
+@@ -531,6 +535,14 @@ sopno stopst;
+ 			i = OPND(m->g->strip[ss]);
+ 			assert(0 < i && i <= m->g->nsub);
+ 			m->pmatch[i].rm_so = sp - m->offp;
++			/* fix for T.regcomp 43: don't remember previous
++			   subexpression matches beyond the current one (i) */
++			i++;
++			while (i<= m->g->nsub) {
++				m->pmatch[i].rm_so = -1;
++				m->pmatch[i].rm_eo = -1;
++				i++;
++			}
+ 			break;
+ 		case ORPAREN:
+ 			i = OPND(m->g->strip[ss]);
+@@ -585,14 +597,14 @@ sopno lev;			/* PLUS nesting level */
  		case OCHAR:
  			if (sp == stop)
  				return(NULL);
@@ -53,7 +79,7 @@
  			if (wc == BADCHAR)
  				return (NULL);
  			break;
-@@ -600,8 +600,8 @@
+@@ -600,8 +612,8 @@ sopno lev;			/* PLUS nesting level */
  			if (sp == stop)
  				return (NULL);
  			cs = &m->g->sets[OPND(s)];
@@ -64,7 +90,7 @@
  				return(NULL);
  			break;
  		case OBOL:
-@@ -625,8 +625,8 @@
+@@ -625,8 +637,8 @@ sopno lev;			/* PLUS nesting level */
  					(sp < m->endp && *(sp-1) == '\n' &&
  						(m->g->cflags&REG_NEWLINE)) ||
  					(sp > m->beginp &&
@@ -75,7 +101,7 @@
  				{ /* yes */ }
  			else
  				return(NULL);
-@@ -635,8 +635,8 @@
+@@ -635,8 +647,8 @@ sopno lev;			/* PLUS nesting level */
  			if (( (sp == m->endp && !(m->eflags&REG_NOTEOL)) ||
  					(sp < m->endp && *sp == '\n' &&
  						(m->g->cflags&REG_NEWLINE)) ||
@@ -86,7 +112,7 @@
  				{ /* yes */ }
  			else
  				return(NULL);
-@@ -807,7 +807,7 @@
+@@ -807,7 +819,7 @@ sopno stopst;
  		if (p == m->endp)
  			c = OUT;
  		else
@@ -95,7 +121,7 @@
  		if (EQ(st, fresh))
  			coldp = p;
  
-@@ -831,12 +831,12 @@
+@@ -831,12 +843,12 @@ sopno stopst;
  		}
  
  		/* how about a word boundary? */
@@ -112,7 +138,7 @@
  			flagch = EOW;
  		}
  		if (flagch == BOW || flagch == EOW) {
-@@ -861,7 +861,7 @@
+@@ -861,7 +873,7 @@ sopno stopst;
  	assert(coldp != NULL);
  	m->coldp = coldp;
  	if (ISSET(st, stopst))
@@ -121,7 +147,7 @@
  	else
  		return(NULL);
  }
-@@ -913,7 +913,7 @@
+@@ -913,7 +925,7 @@ sopno stopst;
  			c = OUT;
  			clen = 0;
  		} else
@@ -130,7 +156,7 @@
  
  		/* is there an EOL and/or BOL between lastc and c? */
  		flagch = '\0';
-@@ -935,12 +935,12 @@
+@@ -935,12 +947,12 @@ sopno stopst;
  		}
  
  		/* how about a word boundary? */
@@ -147,7 +173,7 @@
  			flagch = EOW;
  		}
  		if (flagch == BOW || flagch == EOW) {
-@@ -1031,7 +1031,7 @@
+@@ -1031,7 +1043,7 @@ states aft;			/* states already known re
  			break;
  		case OANYOF:
  			cs = &g->sets[OPND(s)];

@@ -1,9 +1,10 @@
 # <@LICENSE>
-# Copyright 2004 Apache Software Foundation
-# 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to you under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at:
 # 
 #     http://www.apache.org/licenses/LICENSE-2.0
 # 
@@ -40,9 +41,11 @@ interfaces.
 
 package Mail::SpamAssassin::Conf::SQL;
 
+use Mail::SpamAssassin::Logger;
+
 use strict;
+use warnings;
 use bytes;
-use Carp;
 
 use vars qw{
   @ISA
@@ -87,8 +90,8 @@ sub load {
    my ($self, $username) = @_;
 
    my $dsn = $self->{main}->{conf}->{user_scores_dsn};
-   if(!defined($dsn) || $dsn eq '') {
-     dbg ("No DSN defined; skipping sql");
+   if (!defined($dsn) || $dsn eq '') {
+     dbg("config: no DSN defined; skipping sql");
      return 1;
    }
 
@@ -100,7 +103,7 @@ sub load {
    };
 
    if ($@) {
-     warn "failed to load user ($username) scores from SQL database: $@\n";
+     warn "config: failed to load user ($username) scores from SQL database: $@\n";
      return 0;
    }
    return 1;
@@ -121,12 +124,12 @@ sub load_with_dbi {
 
    my $dbh = DBI->connect($dsn, $dbuser, $dbpass, {'PrintError' => 0});
 
-   if($dbh) {
+   if ($dbh) {
      my $sql;
      if (defined($custom_query)) {
        $sql = $custom_query;
        my $quoted_username = $dbh->quote($username);
-       my ($mailbox, $domain) = split('@',$username);
+       my ($mailbox, $domain) = split('@', $username);
        my $quoted_mailbox = $dbh->quote($mailbox);
        my $quoted_domain = $dbh->quote($domain);
 
@@ -140,33 +143,42 @@ sub load_with_dbi {
         "$f_username = ".$dbh->quote($username).
         " or $f_username = '\@GLOBAL' order by $f_username asc";
      }
-     dbg("Conf::SQL: executing SQL: $sql");
-      my $sth = $dbh->prepare($sql);
-      if($sth) {
-         my $rv  = $sth->execute();
-         if($rv) {
-            dbg("retrieving prefs for $username from SQL server");
-            my @row;
-            my $text = '';
-            while(@row = $sth->fetchrow_array()) {
-               $text .= "$row[0]\t$row[1]\n";
-            }
-            if($text ne '') {
-	      $main->{conf}->{main} = $main;
-	      $main->{conf}->parse_scores_only(join('',$text));
-	      delete $main->{conf}->{main};
-            }
-            $sth->finish();
-         } else { die "SQL Error: $sql\n".$sth->errstr."\n"; }
-      } else { die "SQL Error: " . $dbh->errstr . "\n"; }
-   $dbh->disconnect();
-   } else { die "SQL Error: " . DBI->errstr . "\n"; }
+     dbg("config: Conf::SQL: executing SQL: $sql");
+     my $sth = $dbh->prepare($sql);
+     if ($sth) {
+       my $rv  = $sth->execute();
+       if ($rv) {
+	 dbg("config: retrieving prefs for $username from SQL server");
+	 my @row;
+	 my $text = '';
+	 while (@row = $sth->fetchrow_array()) {
+	   $text .= (defined($row[0]) ? $row[0] : '') . "\t" .
+	       (defined($row[1]) ? $row[1] : '')  . "\n";
+	 }
+	 if ($text ne '') {
+	   $main->{conf}->{main} = $main;
+	   $main->{conf}->parse_scores_only(join('', $text));
+	   delete $main->{conf}->{main};
+	 }
+	 $sth->finish();
+       }
+       else {
+	 die "config: SQL error: $sql\n".$sth->errstr."\n";
+       }
+     }
+     else {
+       die "config: SQL error: " . $dbh->errstr . "\n";
+     }
+     $dbh->disconnect();
+   }
+   else {
+     die "config: SQL error: " . DBI->errstr . "\n";
+   }
 }
 
 ###########################################################################
 
-sub dbg { Mail::SpamAssassin::dbg (@_); }
-sub sa_die { Mail::SpamAssassin::sa_die (@_); }
+sub sa_die { Mail::SpamAssassin::sa_die(@_); }
 
 ###########################################################################
 

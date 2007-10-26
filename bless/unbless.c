@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Sun Mar 6, 2005.
- *  Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  *  $Id: unbless.c,v 1.2 2005/09/12 22:09:06 ssen Exp $
  *

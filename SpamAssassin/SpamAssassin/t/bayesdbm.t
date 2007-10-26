@@ -16,7 +16,7 @@ BEGIN {
     unshift(@INC, '../blib/lib');
   }
 
-  plan tests => (HAS_DB_FILE ? 44 : 0);
+  plan tests => (HAS_DB_FILE ? 48 : 0);
 };
 
 exit unless HAS_DB_FILE;
@@ -63,7 +63,8 @@ my($msgid,$msgid_hdr) = $sa->{bayes_scanner}->get_msgid($mail);
 
 # $msgid is the generated hash messageid
 # $msgid_hdr is the Message-Id header
-ok($msgid eq 'ce33e4a8bc5798c65428d6018380bae346c7c126@sa_generated');
+ok($msgid eq 'ce33e4a8bc5798c65428d6018380bae346c7c126@sa_generated')
+    or warn "got: [$msgid]";
 ok($msgid_hdr eq '9PS291LhupY');
 
 ok($sa->{bayes_scanner}->{store}->tie_db_writable());
@@ -177,7 +178,7 @@ bayes_min_ham_num 10
 
 # we get to bastardize the existing pattern matching code here.  It lets us provide
 # our own checking callback and keep using the existing ok_all_patterns call
-%patterns = ( 1 => 'Learned from message' );
+%patterns = ( 1 => 'Acted on message' );
 
 ok(salearnrun("--spam data/spam", \&check_examined));
 ok_all_patterns();
@@ -224,7 +225,7 @@ my $score = $sa->{bayes_scanner}->scan($msgstatus, $mail, $body);
 # so just make sure that the score wasn't equal to .5 which is the default
 # return value.
 print "\treturned score: $score\n";
-ok($score != .5);
+ok($score =~ /\d/ && $score <= 1.0 && $score != .5);
 
 open(MAIL,"< ../sample-spam.txt");
 
@@ -247,9 +248,15 @@ $score = $sa->{bayes_scanner}->scan($msgstatus, $mail, $body);
 # so just make sure that the score wasn't equal to .5 which is the default
 # return value.
 print "\treturned score: $score\n";
-ok($score != .5);
+ok($score =~ /\d/ && $score <= 1.0 && $score != .5);
 
 }
+
+ok($sa->{bayes_scanner}->{store}->clear_database());
+
+ok(!-e 'log/user_state/bayes_journal');
+ok(!-e 'log/user_state/bayes_seen');
+ok(!-e 'log/user_state/bayes_toks');
 
 sub check_examined {
   local ($_);
@@ -261,8 +268,8 @@ sub check_examined {
     $_ = join ('', <IN>);
   }
 
-  if ($_ =~ /Learned from \d+ message\(s\) \(\d+ message\(s\) examined\)/) {
-    $found{'Learned from message'}++;
+  if ($_ =~ /(?:Forgot|Learned) tokens from \d+ message\(s\) \(\d+ message\(s\) examined\)/) {
+    $found{'Acted on message'}++;
   }
 }
 

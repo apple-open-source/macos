@@ -53,61 +53,97 @@
 
 #include "srm.h"
 
+enum {
+  W_SINGLE  = 0,
+  W_RANDOM  = 1,
+  W_TRIPLE  = 2
+};
+
 static int file;
 static off_t file_size;
-static unsigned char *buffer;
-static u_int32_t buffsize;
+static unsigned char *buffer = NULL;
+static unsigned char *verify_buffer = NULL;
+static u_int32_t buffsize, allocated_buffsize = 0;
 static off_t bytes_total;
 static off_t bytes_completed;
 
+int init_write_buffer(struct stat *statbuf, struct statfs *fs_stats) {
+  u_int64_t maxbytecount;
+  u_int32_t tmp_buffsize;
+
+  file_size = statbuf->st_size;
+  buffsize = statbuf->st_blksize;
+
+#if HAVE_SYS_PARAM_H
+  /* try to determine an optimal write buffer size */
+  buffsize = (u_int32_t)(statbuf->st_size / statbuf->st_blksize) * statbuf->st_blksize;
+  if ((statbuf->st_size % statbuf->st_blksize) != 0) {
+    /* add full size of last block */
+    buffsize += statbuf->st_blksize;
+  } else if (buffsize < statbuf->st_blksize) {
+    /* no smaller than one device block */
+    buffsize = statbuf->st_blksize;
+  }
+  tmp_buffsize = MAXBSIZE;
+  if (buffsize > tmp_buffsize) {
+    /* no larger than the largest file system buffer size */
+    buffsize = tmp_buffsize;
+  }
+#endif
+
+  if (opt_buffsize) {
+    /* allow command-line override */
+    buffsize = opt_buffsize;
+  }
+
+  /* Allocated buffer must be at least 2 bytes larger than logical buffsize.
+     This lets us align repeating 3-byte patterns across multiple buffer
+     writes by using a variable offset (0..2) from the start of the buffer. */
+
+  tmp_buffsize = buffsize + 4;
+
+  if (buffer) {
+    if (tmp_buffsize > allocated_buffsize) {
+      free(buffer);
+      buffer = NULL;
+    } else {
+      return 0; /* use existing buffer */
+    }
+  }
+  if ((buffer = (unsigned char *)malloc(tmp_buffsize)) == NULL) {
+    errno = ENOMEM;
+    return -1;
+  }
+  if (options & OPT_VERIFY) {
+    if ((verify_buffer = (unsigned char *)malloc(buffsize)) == NULL) {
+      errno = ENOMEM;
+      return -1;
+    }
+  }
+  allocated_buffsize = tmp_buffsize;
+  return 0;
+}
+
 void flush(int fd) {
   /* force buffered writes to be flushed to disk */
-#if HAVE_FDATASYNC
+#if defined F_FULLFSYNC
+  /* F_FULLFSYNC is equivalent to fsync plus device flush to media */
+  if (fcntl(fd, F_FULLFSYNC, NULL) != 0) {
+    /* we're not on a fs that supports this; fall back to plain fsync */
+    fsync(fd);
+  }
+#elif HAVE_FDATASYNC
   fdatasync(fd);
 #else
   fsync(fd);
 #endif
-
-#if __APPLE__
-  sync();
-  /* if we're root, we can issue an ioctl to flush the device's cache */
-  if (getuid() == 0) {
-    int err;
-    struct statfs sfs;
-	if (fstatfs(fd, &sfs) != 0) {
-      fprintf(stderr, "\ncannot stat file (%s)\n", strerror(errno));
-      fflush(stderr);
-    } else {
-	  int devfd;
-      char *volname;
-      char rawdevname[MNAMELEN], *ptr;
-      strcpy(rawdevname, sfs.f_mntfromname);
-	  ptr = strrchr(rawdevname, '/');
-	  if (ptr != NULL) {
-	    memmove(ptr+2, ptr+1, strlen(ptr) + 1);
-	    ptr[1] = 'r';
-      }
-      devfd = open(rawdevname, O_RDONLY);
-	  if (devfd < 0) {
-	    fprintf(stderr, "\ncannot open %s : %s\n",
-		  rawdevname, strerror(errno));
-        fflush(stderr);
-      } else {
-        err = ioctl(devfd, DKIOCSYNCHRONIZECACHE, NULL);
-		if (err) {
-          fprintf(stderr, "\nflushing cache on %s returned: %s\n",
-		    sfs.f_mntfromname, strerror(errno));
-          fflush(stderr);
-        }
-        close(devfd);
-      }
-    }
-  }
-#endif /* __APPLE__ */
 }
 
 void update_progress(u_int32_t bytes_written) {
   u_int32_t cur_percent, new_percent;
+
+  if (!bytes_total)
+    return;
 
   cur_percent = (u_int32_t)((off_t)(bytes_completed*100)/bytes_total);
   bytes_completed += bytes_written;
@@ -121,18 +157,66 @@ void update_progress(u_int32_t bytes_written) {
   }
 }
 
-static void overwrite() {
-  u_int32_t i;
+unsigned char *align_buffer(unsigned char *buf, off_t pos) {
+  /* return a pointer to the start of the buffer which should be written,
+     offset from the given buffer by 0, 1, or 2 bytes, so that the 3-byte
+     pattern which the buffer contains is aligned with the previous write. */
+  return (unsigned char *)((uintptr_t)buf + (unsigned int)(pos % 3));
+}
+
+void verification_failure(off_t count) {
+  if (sizeof(off_t) == 4)
+    printf("warning: failed to verify write at offset %d\n", count);
+  else if (sizeof(off_t) == 8)
+    printf("warning: failed to verify write at offset %lld\n", count);
+  else
+    printf("warning: previous write failed to verify!\n");
+  fflush(stdout);
+}
+
+void overwrite(int stage) {
+  u_int32_t i, j;
   off_t count = 0;
+  unsigned char *buffptr = buffer;
 
   lseek(file, 0, SEEK_SET);
   while (count < file_size - buffsize) {
-    i = write(file, buffer, buffsize);
-    if (options & OPT_V) update_progress(i);
+    if (stage == W_RANDOM) {
+      randomize_buffer(buffer, buffsize);
+    } else if (stage == W_TRIPLE) {
+      buffptr = align_buffer(buffer, count);
+    }
+    i = write(file, buffptr, buffsize);
+    if (options & OPT_VERIFY) {
+        /* verify the write */
+        lseek(file, count, SEEK_SET);
+        j = read(file, verify_buffer, buffsize);
+        if (!(i == j && !memcmp(verify_buffer, buffptr, buffsize))) {
+          verification_failure(count);
+        }
+    }
+    if (options & OPT_V) {
+      update_progress(i);
+    }
 	count += i;
   }
-  i = write(file, buffer, file_size - count);
-  if (options & OPT_V) update_progress(i);
+  if (stage == W_RANDOM) {
+    randomize_buffer(buffer, file_size - count);
+  } else if (stage == W_TRIPLE) {
+    buffptr = align_buffer(buffer, count);
+  }
+  i = write(file, buffptr, file_size - count);
+  if (options & OPT_VERIFY) {
+    /* verify the write */
+    lseek(file, count, SEEK_SET);
+    j = read(file, verify_buffer, file_size - count);
+    if (!(i == j && !memcmp(verify_buffer, buffptr, file_size - count))) {
+      verification_failure(count);
+    }
+  }
+  if (options & OPT_V) {
+    update_progress(i);
+  }
   flush(file);
   lseek(file, 0, SEEK_SET);
 }
@@ -141,34 +225,52 @@ void overwrite_random(int num_passes) {
   int i;
 
   for (i = 0; i < num_passes; i++) {
-    randomize_buffer(buffer, buffsize);
-    overwrite();
+    overwrite(W_RANDOM);
   }
 }
 
 void overwrite_byte(int byte) {
   memset(buffer, byte, buffsize);
-  overwrite();
+  overwrite(W_SINGLE);
 }
 
-void overwrite_bytes(int byte1, int byte2, int byte3) {
-  int i;
+void overwrite_bytes(unsigned int byte1, unsigned int byte2, unsigned int byte3) {
+  u_int32_t val[3], *p = (u_int32_t *)buffer;
+  unsigned int i, mod12buffsize = allocated_buffsize - (allocated_buffsize % 12);
+  
+  val[0] = (byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte1;
+  val[1] = (byte2 << 24) | (byte3 << 16) | (byte1 << 8) | byte2;
+  val[2] = (byte3 << 24) | (byte1 << 16) | (byte2 << 8) | byte3;
 
-  memset(buffer, byte1, buffsize);
-  for (i = 1; i < buffsize; i += 3) {
-    buffer[i] = byte2;
-    buffer[i+1] = byte3;
+  /* fill buffer 12 bytes at a time, optimized for 4-byte alignment */
+  for (i = 0; i < mod12buffsize; i += 12) {
+    *p++ = val[0];
+    *p++ = val[1];
+    *p++ = val[2];
   }
-  overwrite();
+  while (i < allocated_buffsize) {
+    buffer[i] = ((unsigned char *)&val[0])[i % 3];
+    i++;
+  }
+  overwrite(W_TRIPLE);
 }
 
 void overwrite_file() {
   bytes_completed = 0;
   bytes_total = 0;
+  
+  if (!file_size) {
+    /* nothing to overwrite in a zero-length file */
+    if (options & OPT_V) {
+      printf("\rdone\n");
+      fflush(stdout);
+    }
+    return;
+  }
 
-  if (options & OPT_Z)
+  if (options & OPT_ZERO) {
     bytes_total = file_size;
-
+  }
   if (seclevel==1) {
     /* simple one-pass overwrite */
     bytes_total += file_size*1;
@@ -216,8 +318,9 @@ void overwrite_file() {
     overwrite_bytes(0xDB, 0x6D, 0xB6);
     overwrite_random(4);
   }
-  if (options & OPT_Z)
+  if (options & OPT_ZERO) {
     overwrite_byte(0x00);
+  }
 }
 
 int sunlink(const char *path) {
@@ -226,6 +329,7 @@ int sunlink(const char *path) {
 #if HAVE_LINUX_EXT2_FS_H
   int flags = 0;
 #endif
+  int fmode = (options & OPT_VERIFY) ? O_RDWR : O_WRONLY;
   struct flock flock;
 
   if (lstat(path, &statbuf) == -1) 
@@ -239,15 +343,7 @@ int sunlink(const char *path) {
     return -1;
   }
 
-  file_size = statbuf.st_size;
-  buffsize = statbuf.st_blksize;
-
-  if ( (buffer = (unsigned char *)alloca(buffsize)) == NULL ) {
-    errno = ENOMEM;
-    return -1;
-  }
-  
-  if ( (file = open(path, O_WRONLY)) == -1) /* BSD doesn't support O_SYNC */
+  if ( (file = open(path, fmode)) == -1) /* BSD doesn't support O_SYNC */
     return -1;
 
   if (fcntl(file, F_WRLCK, &flock) == -1) {
@@ -319,6 +415,15 @@ int sunlink(const char *path) {
     }
 #endif /* HAVE_CHFLAGS */
 
+  if (init_write_buffer(&statbuf, &fs_stats) == -1) {
+    close(file);
+    return -1;
+  }
+#if defined F_NOCACHE
+  /* before performing file I/O, set F_NOCACHE to prevent caching */
+  (void)fcntl(file, F_NOCACHE, 1);
+#endif
+
   overwrite_file();
 
 #if HAVE_LINUX_EXT2_FS_H
@@ -363,7 +468,6 @@ int sunlink(const char *path) {
     }
 
     if (rsrc_fork_size > 0) {
-      file_size = rsrc_fork_size;
 
       if ((file = open(rsrc_path, O_WRONLY)) == -1) {
         return -1;
@@ -377,6 +481,15 @@ int sunlink(const char *path) {
         printf("removing %s\n", rsrc_path);
         fflush(stdout);
       }
+
+      if (init_write_buffer(&statbuf, &fs_stats) == -1) {
+        close(file);
+        return -1;
+      }
+    #if defined F_NOCACHE
+      /* before performing file I/O, set F_NOCACHE to prevent caching */
+      (void)fcntl(file, F_NOCACHE, 1);
+    #endif
 
       overwrite_file();
 

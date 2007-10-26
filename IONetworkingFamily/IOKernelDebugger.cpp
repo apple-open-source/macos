@@ -481,23 +481,28 @@ IOKernelDebugger * IOKernelDebugger::debugger( IOService *          target,
                                                IODebuggerRxHandler  rxHandler )
 {
     IOKernelDebugger * debugger = new IOKernelDebugger;
-
+	
     if (debugger && (debugger->init( target, txHandler, rxHandler ) == false))
     {
         debugger->release();
         return 0;
     }
 
-#if defined (__ppc__)
-    IOService * device = target->getProvider();
-    if ( device && device->getProperty( "built-in" ) )
-        debugger->setProperty( kIOPrimaryDebugPortKey, true );
-    else
-        debugger->setProperty( kIOPrimaryDebugPortKey, false );
-#else
-    debugger->setProperty( kIOPrimaryDebugPortKey, true );
-#endif
-
+	// determine if this debugger is the "primary" debugger- the one KDP will attach to unless told otherwise
+    IOService * device = target->getProvider(); //get info from our provider's provider
+    //the debugger is primary if...
+	if ( device && device->getProperty( "built-in" )) // ...it is a built in controller...
+	{
+		OSObject *locationProperty = device->copyProperty("location");
+		OSData *locationAsData = OSDynamicCast(OSData, locationProperty);
+		if(!locationAsData || // ...AND we don't know anything else about its location.....
+		   (strcmp( (char *)locationAsData->getBytesNoCopy(), "1")== 0) ) // ...OR we do know its location and it is 'slot' 1
+			debugger->setProperty( kIOPrimaryDebugPortKey, true );
+		else
+			debugger->setProperty( kIOPrimaryDebugPortKey, false );
+		if(locationProperty)
+			locationProperty->release();
+	}
     return debugger;
 }
 

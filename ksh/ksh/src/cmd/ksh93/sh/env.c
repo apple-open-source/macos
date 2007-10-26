@@ -1,30 +1,28 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 #include	<ast.h>
 #include	<cdt.h>
+
+#define	env_change()		(++ast.env_serial)
 
 typedef struct _venv_ Evar_t;
 struct _venv_
@@ -156,6 +154,7 @@ int env_add(Env_t *ep, const char *str, int flags)
 		vp->index |= ENV_PMALLOC;
 	else
 		vp->index &= ~ENV_PMALLOC;
+	env_change();
 	return(1);
 }
 
@@ -175,6 +174,7 @@ int env_delete(Env_t *ep, const char *str)
 	dtdelete(ep->dt,vp);
 	vp->un.next = ep->freelist;
 	ep->freelist = vp;
+	env_change();
 	return(1);
 }
 
@@ -253,4 +253,3 @@ void env_close(Env_t *ep)
 	}
 	dtclose(ep->dt);
 }
-

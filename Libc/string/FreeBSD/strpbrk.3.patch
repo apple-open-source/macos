@@ -1,0 +1,32 @@
+--- _SB/Libc/string/FreeBSD/strpbrk.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strpbrk.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,20 +47,23 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft char *
+-.Fn strpbrk "const char *s" "const char *charset"
++.Fo strpbrk
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn strpbrk
+ function
+ locates in the null-terminated string
+-.Fa s
++.Fa s1
+ the first occurrence of any character in the string
+-.Fa charset
+-and returns a pointer to this character.
++.Fa s2 ,
++returning a pointer to this character.
+ If no characters from
+-.Fa charset
++.Fa s2
+ occur anywhere in
+-.Fa s
++.Fa s1 ,
+ .Fn strpbrk
+ returns NULL.
+ .Sh SEE ALSO

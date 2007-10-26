@@ -1,76 +1,51 @@
---- samba/source/smbd/sesssetup.c.orig	2004/08/26 21:35:15	1.1.1.10
-+++ samba/source/smbd/sesssetup.c	2005/03/03 01:28:40
-@@ -154,6 +154,11 @@
- 	uint8 tok_id[2];
- 	DATA_BLOB nullblob = data_blob(NULL, 0);
- 	fstring real_username;
-+#ifdef WITH_OPENDIRECTORY
-+	SAM_ACCOUNT *sam_pass=NULL;
+Index: samba/source/smbd/sesssetup.c
+===================================================================
+--- samba/source/smbd/sesssetup.c.orig
++++ samba/source/smbd/sesssetup.c
+@@ -247,6 +247,7 @@ static int reply_spnego_kerberos(connect
+ 	BOOL map_domainuser_to_guest = False;
+ 	BOOL username_was_mapped;
+ 	PAC_LOGON_INFO *logon_info = NULL;
 +	BOOL trustaccount = False;
-+	char *fullname=NULL;
-+#endif
  
  	ZERO_STRUCT(ticket);
- 	ZERO_STRUCT(auth_data);
-@@ -248,18 +253,50 @@
- 	
- 	if (!pw) {
- 		DEBUG(1,("Username %s is invalid on this system\n",user));
-+#ifdef WITH_OPENDIRECTORY
-+
-+		if (lp_opendirectory() && strchr_m(client, '$')) { 
-+			DEBUG(1,("Lookup trust account via passdb (%s)\n",user));
-+			pdb_init_sam(&sam_pass);
-+			trustaccount = pdb_getsampwnam(sam_pass, client);
-+			if (trustaccount == True) {
-+				fullname = pdb_get_fullname (sam_pass);
-+				fstrcpy(real_username, fullname);
-+				DEBUG(1,("trust account found via passdb fullname(%s)\n",fullname));
-+			}
-+			pdb_free_sam(&sam_pass);
-+		}
-+		if (!trustaccount) {
-+#endif
- 		SAFE_FREE(user);
- 		SAFE_FREE(client);
- 		data_blob_free(&ap_rep);
- 		data_blob_free(&session_key);
- 		return ERROR_NT(NT_STATUS_LOGON_FAILURE);
-+#ifdef WITH_OPENDIRECTORY
- 	}
-+#endif
-+	}
+ 	ZERO_STRUCT(pac_data);
+@@ -407,6 +408,28 @@ static int reply_spnego_kerberos(connect
  
- 	/* setup the string used by %U */
- 	
- 	sub_set_smb_name( real_username );
-+
- 	reload_services(True);
- 	
-+#ifdef WITH_OPENDIRECTORY
-+	if (trustaccount && lp_opendirectory()) {
-+		if (!NT_STATUS_IS_OK(ret = make_server_info_guest(&server_info)))
-+		{
-+			DEBUG(1,("make_server_info_guest (TRUST ACCOUNT) failed!\n"));
-+			SAFE_FREE(user);
-+			SAFE_FREE(client);
-+			data_blob_free(&ap_rep);
-+			data_blob_free(&session_key);
-+			return ERROR_NT(ret);
-+		}
-+	} else {
-+#endif
- 	if (!NT_STATUS_IS_OK(ret = make_server_info_pw(&server_info, real_username, pw))) 
- 	{
- 		DEBUG(1,("make_server_info_from_pw failed!\n"));
-@@ -269,7 +306,9 @@
- 		data_blob_free(&session_key);
- 		return ERROR_NT(ret);
- 	}
--
-+#ifdef WITH_OPENDIRECTORY
-+	}
-+#endif
-         /* make_server_info_pw does not set the domain. Without this we end up
- 	 * with the local netbios name in substitutions for %D. */
+ 	pw = smb_getpwnam( mem_ctx, user, real_username, True );
  
++	if (!pw && lp_opendirectory() && strchr_m(client, '$')) {
++		struct samu *sam_pass = NULL;
++               	char *fullname = NULL;
++
++               	DEBUG(1,("Lookup trust account via passdb (%s)\n",user));
++
++               	sam_pass = samu_new(NULL);
++               	trustaccount = pdb_getsampwnam(sam_pass, client);
++
++		/* If this is a trust account, map it to guest because OD
++		 * doesn't have a corresponding user account.
++		 */
++               	if (trustaccount == True) {
++	       		fullname = pdb_get_fullname (sam_pass);
++			map_domainuser_to_guest = True;
++                       	fstrcpy(real_username, fullname);
++                       	DEBUG(1,("trust account found via passdb fullname(%s)\n",fullname));
++               	}
++
++               	TALLOC_FREE(sam_pass);
++       	}
++
+ 	if (pw) {
+ 		/* if a real user check pam account restrictions */
+ 		/* only really perfomed if "obey pam restriction" is true */
+@@ -427,7 +450,8 @@ static int reply_spnego_kerberos(connect
+ 		   did not have a local uid but has been authenticated, then 
+ 		   map them to a guest account */
+ 
+-		if (lp_map_to_guest() == MAP_TO_GUEST_ON_BAD_UID){ 
++		if (map_domainuser_to_guest ||
++		    lp_map_to_guest() == MAP_TO_GUEST_ON_BAD_UID) {
+ 			map_domainuser_to_guest = True;
+ 			fstrcpy(user,lp_guestaccount());
+ 			pw = smb_getpwnam( mem_ctx, user, real_username, True );

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,7 +26,7 @@
 
 #define kAppleRAIDLevelNameStripe "Stripe"
 
-extern const OSSymbol * gAppleRAIDStripeName;
+#ifdef KERNEL
 
 class AppleRAIDStripeSet : public AppleRAIDSet
 {
@@ -64,6 +64,9 @@ protected:
  public:
     static AppleRAIDMemoryDescriptor *withStorageRequest(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
     virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount *length);
+    virtual addr64_t getPhysicalSegment64(IOByteCount offset, IOByteCount *length);
 };
+
+#endif KERNEL
 
 #endif /* ! _APPLERAIDSTRIPESET_H */

@@ -1,4 +1,4 @@
-*fold.txt*      For Vim version 6.2.  Last change: 2003 Apr 01
+*fold.txt*      For Vim version 7.0.  Last change: 2006 Mar 29
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -109,6 +109,7 @@ level of the previous line.
 
 There must be no side effects from the expression.  The text in the buffer,
 cursor position, the search patterns, options etc. must not be changed.
+You can change and restore them if you are careful.
 
 If there is some error in the expression, or the resulting value isn't
 recognized, there is no error message and the fold level will be zero.
@@ -119,14 +120,12 @@ Note: Since the expression has to be evaluated for every line, this fold
 method can be very slow!
 
 Try to avoid the "=", "a" and "s" return values, since Vim often has to search
-backwards for a line for which the fold level is defined.  Using foldlevel()
-can help here.  Example: >
-	" extra is level compared to previous line
-	let lvl = foldlevel(v:lnum - 1)
-	if lvl >= 0
-	  return lvl + extra
-	endif
-	" return "=", "a" or "s"
+backwards for a line for which the fold level is defined.  This can be slow.
+
+|foldlevel()| can be useful to compute a fold level relative to a previous
+fold level.  But note that foldlevel() may return -1 if the level is not known
+yet.  And it returns the level at the start of the line, while a fold might
+end in that line.
 
 
 SYNTAX						*fold-syntax*
@@ -135,6 +134,12 @@ A fold is defined by syntax items that have the "fold" argument. |:syn-fold|
 
 The fold level is defined by nesting folds.  The nesting of folds is limited
 with 'foldnestmax'.
+
+Be careful to specify proper syntax syncing.  If this is not done right, folds
+may differ from the displayed highlighting.  This is especially relevant when
+using patterns that match more than one line.  In case of doubt, try using
+brute-force syncing: >
+	:syn sync fromstart
 
 
 DIFF						*fold-diff*
@@ -151,6 +156,9 @@ of lines between the fold and a change that are not included in the fold.  For
 example, to use a context of 8 lines: >
 	:set diffopt=filler,context:8
 The default context is six lines.
+
+When 'scrollbind' is also set, Vim will attempt to keep the same folds open in
+other diff windows, so that the same text is visible.
 
 
 MARKER						*fold-marker*
@@ -183,11 +191,11 @@ and the level given by the marker:
 3. if a marker with a lower fold level is found, all folds up to and including
    this level end and a fold with the specified level starts.
 
-The number indicates the fold level.  A zero cannot be used.
-You can use "}}}" with a digit to indicate the level of the fold that
-ends.  The fold level of the following line will be one less than the
-indicated level.  Note that Vim doesn't look back to the level of the matching
-marker (that would take too much time).  Example: >
+The number indicates the fold level.  A zero cannot be used (a marker with
+level zero is ignored).  You can use "}}}" with a digit to indicate the level
+of the fold that ends.  The fold level of the following line will be one less
+than the indicated level.  Note that Vim doesn't look back to the level of the
+matching marker (that would take too much time).  Example: >
 
 	{{{1
 	fold level here is 1
@@ -272,7 +280,7 @@ zF		Create a fold for N lines.  Works like "zf".
 		Create a fold for the lines in {range}.  Works like "zf".
 
 							*zd* *E351*
-zd		Delete one fold at the cursor.  When the cursor is on folded
+zd		Delete one fold at the cursor.  When the cursor is on a folded
 		line, that fold is deleted.  Nested folds are moved one level
 		up.  In Visual mode all folds (partially) in the selected area
 		are deleted.  Careful: This easily deletes more folds than you
@@ -323,7 +331,7 @@ zC		Close all folds under the cursor recursively.  Folds that
 		'foldenable' will be set.
 
 							*za*
-za		When on a closed fold: open it. When folds are nested, you
+za		When on a closed fold: open it.  When folds are nested, you
 		may have to use "za" several times.  When a count is given,
 		that many closed folds are opened.
 		When on an open fold: close it and set 'foldenable'.  This
@@ -400,7 +408,7 @@ MOVING OVER FOLDS ~
 		When a count is used, repeats the command N times.
 
 							*zj*
-zj		Move downwards. to the start of the next fold.  A closed fold
+zj		Move downwards to the start of the next fold.  A closed fold
 		is counted as one fold.
 		When a count is used, repeats the command N times.
 		This command can be used after an |operator|.
@@ -450,7 +458,7 @@ FOLDLEVEL						*fold-foldlevel*
 
 'foldlevel' is a number option: The higher the more folded regions are open.
 When 'foldlevel' is 0, all folds are closed.
-When 'foldlevel' is positive, some folds closed.
+When 'foldlevel' is positive, some folds are closed.
 When 'foldlevel' is very high, all folds are open.
 'foldlevel' is applied when it is changed.  After that manually folds can be
 opened and closed.
@@ -505,7 +513,8 @@ FOLDCOLUMN						*fold-foldcolumn*
 
 'foldcolumn' is a number, which sets the width for a column on the side of the
 window to indicate folds.  When it is zero, there is no foldcolumn.  A normal
-value is 4 or 5.  The minimal useful value is 2.  The maximum is 12.
+value is 4 or 5.  The minimal useful value is 2, although 1 still provides
+some information.  The maximum is 12.
 
 An open fold is indicated with a column that has a '-' at the top and '|'
 characters below it.  This column stops where the open fold stops.  When folds
@@ -519,7 +528,7 @@ shown to indicate the nesting level.
 The mouse can also be used to open and close folds by clicking in the
 fold column:
 - Click on a '+' to open the closed fold at this row.
-- Click on any other non-blank character to close the open fold at this row
+- Click on any other non-blank character to close the open fold at this row.
 
 
 OTHER OPTIONS
@@ -547,8 +556,8 @@ While the cursor is on folded lines, the cursor is always displayed in the
 first column.  The ruler does show the actual cursor position, but since the
 line is folded, it cannot be displayed there.
 
-Movement commands handle a sequence of folded lines like an empty line.  For
-example, the "w" command stops once in the first column.
+Many movement commands handle a sequence of folded lines like an empty line.
+For example, the "w" command stops once in the first column.
 
 When in Insert mode, the cursor line is never folded.  That allows you to see
 what you type!
@@ -557,7 +566,7 @@ When using an operator, a closed fold is included as a whole.  Thus "dl"
 deletes the whole closed fold under the cursor.
 
 For Ex commands the range is adjusted to always start at the first line of a
-fold and end at the last line of a fold.  Thus this command: >
+closed fold and end at the last line of a closed fold.  Thus this command: >
 	:s/foo/bar/g
 when used with the cursor on a closed fold, will replace "foo" with "bar" in
 all lines of the fold.

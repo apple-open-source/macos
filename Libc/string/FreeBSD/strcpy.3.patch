@@ -1,11 +1,119 @@
-Index: strcpy.3
-===================================================================
-RCS file: /cvs/root/Libc/string/FreeBSD/strcpy.3,v
-retrieving revision 1.2
-diff -u -r1.2 strcpy.3
---- strcpy.3	2003/05/20 22:23:54	1.2
-+++ strcpy.3	2003/10/24 18:27:22
-@@ -179,11 +179,6 @@
+--- _SB/Libc/string/FreeBSD/strcpy.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strcpy.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -40,18 +40,30 @@
+ .Dt STRCPY 3
+ .Os
+ .Sh NAME
+-.Nm strcpy , strncpy
++.Nm stpcpy ,
++.Nm strcpy ,
++.Nm strncpy
+ .Nd copy strings
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft char *
+-.Fn stpcpy "char *dst" "const char *src"
++.Fo stpcpy
++.Fa "char *s1"
++.Fa "const char *s2"
++.Fc
+ .Ft char *
+-.Fn strcpy "char * restrict dst" "const char * restrict src"
++.Fo strcpy
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fc
+ .Ft char *
+-.Fn strncpy "char * restrict dst" "const char * restrict src" "size_t len"
++.Fo strncpy
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fa "size_t n"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn stpcpy
+@@ -59,33 +71,33 @@
+ .Fn strcpy
+ functions
+ copy the string
+-.Fa src
++.Fa s2
+ to
+-.Fa dst
++.Fa s1
+ (including the terminating
+ .Ql \e0
+-character.)
++character).
+ .Pp
+ The
+ .Fn strncpy
+ function copies at most
+-.Fa len
++.Fa n
+ characters from
+-.Fa src
++.Fa s2
+ into
+-.Fa dst .
++.Fa s1 .
+ If
+-.Fa src
++.Fa s2
+ is less than
+-.Fa len
++.Fa n
+ characters long,
+ the remainder of
+-.Fa dst
++.Fa s1
+ is filled with
+ .Ql \e0
+ characters.
+ Otherwise,
+-.Fa dst
++.Fa s1
+ is
+ .Em not
+ terminated.
+@@ -96,13 +108,13 @@
+ .Fn strncpy
+ functions
+ return
+-.Fa dst .
++.Fa s1 .
+ The
+ .Fn stpcpy
+ function returns a pointer to the terminating
+ .Ql \e0
+ character of
+-.Fa dst .
++.Fa s1 .
+ .Sh EXAMPLES
+ The following sets
+ .Va chararray
+@@ -128,7 +140,7 @@
+ .Em not
+ .Tn NUL
+ terminate
+-.Va chararray
++.Va chararray ,
+ because the length of the source string is greater than or equal
+ to the length argument.
+ .Pp
+@@ -159,7 +171,7 @@
+ .Pp
+ .Dl "(void)strlcpy(buf, input, sizeof(buf));"
+ .Pp
+-Note that because
++Note that, because
+ .Xr strlcpy 3
+ is not defined in any standards, it should
+ only be used when portability is not a concern.
+@@ -179,11 +191,6 @@
  .Xr memcpy 3 ,
  .Xr memmove 3 ,
  .Xr strlcpy 3

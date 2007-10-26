@@ -107,7 +107,8 @@ void CryptKit::FEEBinaryKey::generateKeyBlob(
 			derBlob = false;
 			break;
 		default:
-			feeKeyDebug("FEEBinaryKey::generateKeyBlob: bad format (%ld)\n", format);
+			feeKeyDebug("FEEBinaryKey::generateKeyBlob: bad format (%ld)\n", 
+				(long)format);
 			CssmError::throwMe(feePubKeyIsPrivate(mFeeKey) ?
 				CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT :
 				CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);

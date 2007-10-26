@@ -57,7 +57,7 @@ KLStatus __KLAcquireNewInitialTicketsTerminal (KLPrincipal 	  inPrincipal,
     KLPrincipal  principal = NULL;
     char        *ccacheName = NULL;
     char        *passwordString = NULL;
-    _KLCertState certState = CS_Initial;
+	_KLCertState certState = CS_Initial;
     
     // Gather localized display strings
     if (err == klNoErr) {
@@ -129,17 +129,20 @@ KLStatus __KLAcquireNewInitialTicketsTerminal (KLPrincipal 	  inPrincipal,
         /*
          * See if there is a PKINIT cert for this principal; if so, skip the password for now
          */
-		pkinit_signing_cert_t client_cert = NULL;
-        krb5_error_code krtn = pkinit_get_client_cert(principalString, &client_cert);
-        if (krtn) {
+        krb5_boolean b = krb5_pkinit_have_client_cert(principalString);
+        if (!b) {
             certState = CS_NoCert;
         } else {
             certState = CS_TryingNoPassword;
-            passwordString = "";
+	    /* 
+	     * a nontrivial string: specifying the empty string results in 
+	     * lower-level code assuming a "need password" condition. We won't free
+	     * this of course...
+	     */
+            passwordString = "trying PKINIT";
         }
-		if (client_cert != NULL) { pkinit_release_cert(client_cert); }
     }
-    
+
     // Get the password
     if ((err == klNoErr) & (certState != CS_TryingNoPassword)) {
         err = __KLReadStringFromTerminal (&passwordString, true, enterPasswordFormat, displayPrincipalString);
@@ -148,10 +151,6 @@ KLStatus __KLAcquireNewInitialTicketsTerminal (KLPrincipal 	  inPrincipal,
     // Get tickets
     if (err == klNoErr) {
         err = KLAcquireNewInitialTicketsWithPassword (principal, inLoginOptions, passwordString, &ccacheName);
-        if(certState == CS_TryingNoPassword) {
-            /* avoid freeing the empty string we put here */
-            passwordString = NULL;
-        }         
 
         if (err == KRB5KDC_ERR_KEY_EXP) {
             do {  // Loop until we succeed, the user cancels the operation or the user gives up trying to change their expired password
@@ -211,6 +210,16 @@ KLStatus __KLAcquireNewInitialTicketsTerminal (KLPrincipal 	  inPrincipal,
                    if (err == klNoErr) { err = klUserCanceledErr; }       
                }
     }
+
+    switch(certState) {
+	case CS_TryingNoPassword:
+	case CS_GaveUp:
+	    /* avoid freeing the static string we put here */
+	    passwordString = NULL;
+	    break;
+	default:
+	    break;
+    }         
     
     if (principalString            != NULL) { KLDisposeString (principalString); }
     if (displayPrincipalString     != NULL) { KLDisposeString (displayPrincipalString); }
@@ -321,43 +330,19 @@ KLStatus __KLChangePasswordTerminal (KLPrincipal inPrincipal, char **outNewPassw
 
         if (err == klNoErr) {
             // Make sure this is a valid password
-            if (__KLPrincipalShouldUseKerberos5ChangePasswordProtocol (inPrincipal)) {
-                krb5_context context = NULL;
-                krb5_creds creds;
-
-                if (err == klNoErr) {
-                    err = krb5_init_context (&context);
-                }
-
-                if (err == klNoErr) {
-                    err = __KLGetKerberos5ChangePasswordTicketForPrincipal (inPrincipal, oldPassword, context, &creds);
-                    if (err == klNoErr) { krb5_free_cred_contents (context, &creds); }
-                }
-                    
-                if (context != NULL) { krb5_free_context (context); }
-                
-            } else if (__KLPrincipalShouldUseKerberos4ChangePasswordProtocol (inPrincipal)) {
-                CREDENTIALS  creds;
-                char        *name = NULL;
-                char        *instance = NULL;
-                char        *realm = NULL;
-
-                if (err == klNoErr) {
-                    err = __KLGetTripletFromPrincipal (inPrincipal, kerberosVersion_V4,
-                                                       &name, &instance, &realm);
-                }
-
-                if (err == klNoErr) {
-                    err = krb_get_pw_in_tkt_creds (name, instance, realm, "changepw", "kerberos", 1, oldPassword, &creds);
-                    err = __KLRemapKerberos4Error (err);
-                }
-
-                if (name     != NULL) { KLDisposeString (name); }
-                if (instance != NULL) { KLDisposeString (instance); }
-                if (realm    != NULL) { KLDisposeString (realm); }
-            } else {
-                err = KLError_ (klRealmDoesNotExistErr);
+            krb5_context context = NULL;
+            krb5_creds creds;
+            
+            if (err == klNoErr) {
+                err = krb5_init_context (&context);
             }
+            
+            if (err == klNoErr) {
+                err = __KLGetKerberos5ChangePasswordTicketForPrincipal (inPrincipal, oldPassword, context, &creds);
+                if (err == klNoErr) { krb5_free_cred_contents (context, &creds); }
+            }
+            
+            if (context != NULL) { krb5_free_context (context); }
         }
         
         if (err == klNoErr) {
@@ -457,7 +442,7 @@ KLStatus __KLReadStringFromTerminal (char **outString, KLBoolean inHidden, const
     }
 
     if (err == klNoErr) {
-        int     shouldPrint;
+        unsigned int shouldPrint;
         va_list args;
         
         va_start (args, inFormat);

@@ -217,6 +217,27 @@ OSStatus SecPkcs12ExportKeychainItems(
 	CFArrayRef					items);
 
 /*
+ * Specify additional optional imported private key attributes: 
+ * -- a SecAccessRef; default is the default ACL. Passing NULL here 
+ *    results in private keys being created with no ACL.
+ * -- CSSM_KEYUSE; default is CSSM_KEYUSE_ANY. 
+ * -- CSSM_KEYATTR_FLAGS; default is CSSM_KEYATTR_RETURN_REF | 
+ *    CSSM_KEYATTR_EXTRACTABLE | CSSM_KEYATTR_SENSITIVE, plus
+ *    CSSM_KEYATTR_PERMANENT if importing to a keychain
+ */
+OSStatus SecPkcs12SetAccess(
+	SecPkcs12CoderRef		coder,
+	SecAccessRef			access);
+	
+OSStatus SecPkcs12SetKeyUsage(
+	SecPkcs12CoderRef		coder,
+	CSSM_KEYUSE				keyUsage);
+	
+OSStatus SecPkcs12SetKeyAttrs(
+	SecPkcs12CoderRef		coder,
+	CSSM_KEYATTR_FLAGS		keyAttrs);
+	
+/*
  * Parse and decode.
  */
 OSStatus SecPkcs12Decode(

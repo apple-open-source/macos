@@ -41,15 +41,16 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
+#include <sys/cdefs.h>
 #ifndef lint
-char    copyright[] =
+__unused char    copyright[] =
 "@(#) Copyright (c) 1990 The Regents of the University of California.\n\
  All rights reserved.\n";
 #endif				/* not lint */
 
 #ifndef lint
-static char rcsid[] =
-"@(#) $Id: rarpd.c,v 1.1 1999/05/02 03:57:59 wsanchez Exp $";
+__unused static char rcsid[] =
+"@(#) $Id: rarpd.c,v 1.3 2006/04/05 03:13:14 lindak Exp $";
 #endif
 
 
@@ -120,7 +121,7 @@ int     aflag = 0;		/* listen on "all" interfaces  */
 int     dflag = 0;		/* print debugging messages */
 int     fflag = 0;		/* don't fork */
 
-void
+int
 main(argc, argv)
 	int     argc;
 	char  **argv;
@@ -191,7 +192,7 @@ main(argc, argv)
 			(void) close(f);
 		}
 		(void) chdir("/");
-		(void) setpgrp(0, getpid());
+		(void) setpgid(0, getpid());
 		devnull = open("/dev/null", O_RDWR);
 		if (devnull >= 0) {
 			(void) dup2(devnull, 0);
@@ -202,6 +203,8 @@ main(argc, argv)
 		}
 	}
 	rarp_loop();
+	/* NOTREACHED */
+	return 0;
 }
 /*
  * Add 'ifname' to the interface list.  Lookup its IP address and network
@@ -488,7 +491,7 @@ rarp_bootable(addr)
 	char    ipname[9];
 	static DIR *dd = 0;
 
-	(void) sprintf(ipname, "%08X", addr);
+	(void) sprintf(ipname, "%08lX", addr);
 	/* If directory is already open, rewind it.  Otherwise, open it. */
 	if (d = dd)
 		rewinddir(d);
@@ -543,7 +546,7 @@ rarp_process(ii, pkt)
 
 	ep = (struct ether_header *) pkt;
 
-	if (ether_ntohost(ename, &ep->ether_shost) != 0 ||
+	if (ether_ntohost(ename, (struct ether_addr *)&ep->ether_shost) != 0 ||
 	    (hp = gethostbyname(ename)) == 0)
 		return;
 
@@ -663,7 +666,7 @@ update_arptab(ep, ipaddr)
 	u_char *ep;
 	u_long  ipaddr;
 {
-	int     s;
+	//int     s;
 	struct arpreq request;
 	struct sockaddr_in *sin;
 
@@ -767,6 +770,7 @@ ipaddrtonetmask(addr)
 		return IN_CLASSC_NET;
 	err(FATAL, "unknown IP address class: %08X", addr);
 	/* NOTREACHED */
+	return 0;
 }
 
 #if __STDC__

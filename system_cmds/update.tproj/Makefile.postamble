@@ -108,6 +108,18 @@
 # target runs.  Such rules should be specified with the '::' syntax rather than 
 # a single colon.
 
-after_install:
+install-man-page:
 	mkdir -p "$(DSTROOT)/usr/share/man/man8"
 	install -c -m 644 update.8 "$(DSTROOT)/usr/share/man/man8/update.8"
+
+LAUNCHD_PLIST_DIR = $(DSTROOT)/System/Library/LaunchDaemons
+LAUNCHD_PLIST = com.apple.update.plist
+SANDBOX = "$(DSTROOT)/usr/share/sandbox"
+
+install-launchd-plist:
+	install -d $(LAUNCHD_PLIST_DIR)
+	install -c -m 644 $(LAUNCHD_PLIST) $(LAUNCHD_PLIST_DIR)/$(LAUNCHD_PLIST)
+
+install-sb:
+	install -d $(SANDBOX)
+	install -c -m 644 update.sb $(SANDBOX)

@@ -61,18 +61,26 @@ void PMPowerEventCallback(void * x,io_service_t y,natural_t messageType,void * m
           IOAllowPowerChange(root_port,(long)messageArgument);
           break;
     case kIOMessageSystemWillSleep:
-          DebugLogA("PMPowerEventCallback: system going into sleep");
+          DebugLogA("PMPowerEventCallback: system will sleep");
           SYS_MutexLock(&usbNotifierMutex);
-          RFSuspendAllReaders();
+	// see WrapRFSuspendAllReaders
+    //      RFSuspendAllReaders();
           IOAllowPowerChange(root_port,(long)messageArgument);
           DebugLogA("PMPowerEventCallback: system allowed to sleep");
           break;
     case kIOMessageSystemHasPoweredOn: 
-        DebugLogA("PMPowerEventCallback: system coming out of sleep");
-        HPSearchHotPluggables();       
-        RFAwakeAllReaders();
+        DebugLogA("PMPowerEventCallback: system has powered on");
+    // see WrapRFSuspendAllReaders
+	//    HPSearchHotPluggables();       
+     //   RFAwakeAllReaders();
         SYS_MutexUnLock(&usbNotifierMutex);
         break;
+	case kIOMessageSystemWillPowerOn:
+        DebugLogA("PMPowerEventCallback: system will power on");
+		break;
+	default:
+		DebugLogB("PMPowerEventCallback: unknown event: %d", messageType);
+		break;
     }
     
 }
@@ -93,13 +101,12 @@ void PMPowerRegistrationThread() {
     CFRunLoopRun();
 }
 
-ULONG PMRegisterForPowerEvents() {
-
-  LONG rv; 
-    
-  rv = SYS_ThreadCreate(&pmgmtThread, NULL,
-                        (LPVOID) PMPowerRegistrationThread, NULL);
-  return 0;
+ULONG PMRegisterForPowerEvents()
+{
+	LONG rv;
+	DebugLogA("PMRegisterForPowerEvents");
+	rv = SYS_ThreadCreate(&pmgmtThread, THREAD_ATTR_DEFAULT, (LPVOID) PMPowerRegistrationThread, NULL);
+	return 0;
 }
 
 

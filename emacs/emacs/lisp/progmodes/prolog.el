@@ -1,6 +1,7 @@
 ;;; prolog.el --- major mode for editing and running Prolog under Emacs
 
-;; Copyright (C) 1986, 1987 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 1987, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
 ;; Author: Masanobu UMEDA <umerin@mse.kyutech.ac.jp>
 ;; Keywords: languages
@@ -19,44 +20,49 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; This package provides a major mode for editing Prolog.  It knows
 ;; about Prolog syntax and comments, and can send regions to an inferior
-;; Prolog interpreter process.
+;; Prolog interpreter process.  Font locking is tuned towards GNU Prolog.
 
 ;;; Code:
 
-(defvar prolog-mode-syntax-table nil)
-(defvar prolog-mode-abbrev-table nil)
-(defvar prolog-mode-map nil)
+(defvar comint-prompt-regexp)
+
 
 (defgroup prolog nil
-  "Major mode for editing and running Prolog under Emacs"
+  "Major mode for editing and running Prolog under Emacs."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'languages)
 
-  
-(defcustom prolog-program-name "prolog"
-  "*Program name for invoking an inferior Prolog with `run-prolog'."
+
+(defcustom prolog-program-name
+  (let ((names '("prolog" "gprolog" "swipl")))
+    (while (and names
+		(not (executable-find (car names))))
+      (setq names (cdr names)))
+    (or (car names) "prolog"))
+  "Program name for invoking an inferior Prolog with `run-prolog'."
   :type 'string
   :group 'prolog)
 
 (defcustom prolog-consult-string "reconsult(user).\n"
-  "*(Re)Consult mode (for C-Prolog and Quintus Prolog). "
+  "(Re)Consult mode (for C-Prolog and Quintus Prolog). "
   :type 'string
   :group 'prolog)
 
 (defcustom prolog-compile-string "compile(user).\n"
-  "*Compile mode (for Quintus Prolog)."
+  "Compile mode (for Quintus Prolog)."
   :type 'string
   :group 'prolog)
 
 (defcustom prolog-eof-string "end_of_file.\n"
-  "*String that represents end of file for prolog.
-nil means send actual operating system end of file."
+  "String that represents end of file for Prolog.
+When nil, send actual operating system end of file."
   :type 'string
   :group 'prolog)
 
@@ -65,13 +71,22 @@ nil means send actual operating system end of file."
   :type 'integer
   :group 'prolog)
 
-(if prolog-mode-syntax-table
-    ()
+(defvar prolog-font-lock-keywords
+  '(("\\(#[<=]=>\\|:-\\)\\|\\(#=\\)\\|\\(#[#<>\\/][=\\/]*\\|!\\)"
+     0 font-lock-keyword-face)
+    ("\\<\\(is\\|write\\|nl\\|read_\\sw+\\)\\>"
+     1 font-lock-keyword-face)
+    ("^\\(\\sw+\\)\\s-*\\((\\(.+\\))\\)*"
+     (1 font-lock-function-name-face)
+     (3 font-lock-variable-name-face)))
+  "Font-lock keywords for Prolog mode.")
+
+(defvar prolog-mode-syntax-table
   (let ((table (make-syntax-table)))
     (modify-syntax-entry ?_ "w" table)
     (modify-syntax-entry ?\\ "\\" table)
-    (modify-syntax-entry ?/ "." table)
-    (modify-syntax-entry ?* "." table)
+    (modify-syntax-entry ?/ ". 14" table)
+    (modify-syntax-entry ?* ". 23" table)
     (modify-syntax-entry ?+ "." table)
     (modify-syntax-entry ?- "." table)
     (modify-syntax-entry ?= "." table)
@@ -80,40 +95,47 @@ nil means send actual operating system end of file."
     (modify-syntax-entry ?< "." table)
     (modify-syntax-entry ?> "." table)
     (modify-syntax-entry ?\' "\"" table)
-    (setq prolog-mode-syntax-table table)))
+    table))
 
+(defvar prolog-mode-abbrev-table nil)
 (define-abbrev-table 'prolog-mode-abbrev-table ())
 
 (defun prolog-mode-variables ()
-  (set-syntax-table prolog-mode-syntax-table)
-  (setq local-abbrev-table prolog-mode-abbrev-table)
-  (make-local-variable 'paragraph-start)
-  (setq paragraph-start (concat "%%\\|$\\|" page-delimiter)) ;'%%..'
   (make-local-variable 'paragraph-separate)
-  (setq paragraph-separate paragraph-start)
+  (setq paragraph-separate (concat "%%\\|$\\|" page-delimiter)) ;'%%..'
   (make-local-variable 'paragraph-ignore-fill-prefix)
   (setq paragraph-ignore-fill-prefix t)
   (make-local-variable 'imenu-generic-expression)
-  (setq imenu-generic-expression "^[a-z][a-zA-Z0-9_]+")
+  (setq imenu-generic-expression '((nil "^\\sw+" 0)))
   (make-local-variable 'indent-line-function)
   (setq indent-line-function 'prolog-indent-line)
   (make-local-variable 'comment-start)
   (setq comment-start "%")
   (make-local-variable 'comment-start-skip)
-  (setq comment-start-skip "%+ *")
+  (setq comment-start-skip "\\(?:%+\\|/\\*+\\)[ \t]*")
+  (make-local-variable 'comment-end-skip)
+  (setq comment-end-skip "[ \t]*\\(\n\\|\\*+/\\)")
   (make-local-variable 'comment-column)
-  (setq comment-column 48)
-  (make-local-variable 'comment-indent-function)
-  (setq comment-indent-function 'prolog-comment-indent))
+  (setq comment-column 48))
 
-(defun prolog-mode-commands (map)
-  (define-key map "\t" 'prolog-indent-line)
-  (define-key map "\e\C-x" 'prolog-consult-region))
-
-(if prolog-mode-map
-    nil
-  (setq prolog-mode-map (make-sparse-keymap))
-  (prolog-mode-commands prolog-mode-map))
+(defvar prolog-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\e\C-x" 'prolog-consult-region)
+    (define-key map "\C-c\C-l" 'inferior-prolog-load-file)
+    (define-key map "\C-c\C-z" 'switch-to-prolog)
+    map))
+ 
+(easy-menu-define prolog-mode-menu prolog-mode-map "Menu for Prolog mode."
+  ;; Mostly copied from scheme-mode's menu.
+  ;; Not tremendously useful, but it's a start.
+  '("Prolog"
+    ["Indent line" indent-according-to-mode t]
+    ["Indent region" indent-region t]
+    ["Comment region" comment-region t]
+    ["Uncomment region" uncomment-region t]
+    "--"
+    ["Run interactive Prolog session" run-prolog t]
+    ))
 
 ;;;###autoload
 (defun prolog-mode ()
@@ -126,31 +148,31 @@ if that value is non-nil."
   (interactive)
   (kill-all-local-variables)
   (use-local-map prolog-mode-map)
+  (set-syntax-table prolog-mode-syntax-table)
   (setq major-mode 'prolog-mode)
   (setq mode-name "Prolog")
   (prolog-mode-variables)
-  (run-hooks 'prolog-mode-hook))
+  (set (make-local-variable 'comment-add) 1)
+  ;; font lock
+  (setq font-lock-defaults '(prolog-font-lock-keywords
+                             nil nil nil
+                             beginning-of-line))
+  (run-mode-hooks 'prolog-mode-hook))
 
-(defun prolog-indent-line (&optional whole-exp)
+(defun prolog-indent-line ()
   "Indent current line as Prolog code.
 With argument, indent any additional lines of the same clause
 rigidly along with this one (not yet)."
   (interactive "p")
   (let ((indent (prolog-indent-level))
-	(pos (- (point-max) (point))) beg)
+	(pos (- (point-max) (point))))
     (beginning-of-line)
-    (setq beg (point))
-    (skip-chars-forward " \t")
-    (if (zerop (- indent (current-column)))
-	nil
-      (delete-region beg (point))
-      (indent-to indent))
+    (indent-line-to indent)
     (if (> (- (point-max) pos) (point))
-	(goto-char (- (point-max) pos)))
-    ))
+	(goto-char (- (point-max) pos)))))
 
 (defun prolog-indent-level ()
-  "Compute prolog indentation level."
+  "Compute Prolog indentation level."
   (save-excursion
     (beginning-of-line)
     (skip-chars-forward " \t")
@@ -203,26 +225,22 @@ rigidly along with this one (not yet)."
     (if (re-search-forward comment-start-skip eolpos 'move)
 	(goto-char (match-beginning 0)))
     (skip-chars-backward " \t")))
-
-(defun prolog-comment-indent ()
-  "Compute prolog comment indentation."
-  (cond ((looking-at "%%%") 0)
-	((looking-at "%%") (prolog-indent-level))
-	(t
-	 (save-excursion
-	       (skip-chars-backward " \t")
-	       ;; Insert one space at least, except at left margin.
-	       (max (+ (current-column) (if (bolp) 0 1))
-		    comment-column)))
-	))
-
 
 ;;;
 ;;; Inferior prolog mode
 ;;;
-(defvar inferior-prolog-mode-map nil)
+(defvar inferior-prolog-mode-map
+  (let ((map (make-sparse-keymap)))
+    ;; This map will inherit from `comint-mode-map' when entering
+    ;; inferior-prolog-mode.
+    (define-key map [remap self-insert-command]
+      'inferior-prolog-self-insert-command)
+    map))
 
-(defun inferior-prolog-mode ()
+(defvar inferior-prolog-mode-syntax-table prolog-mode-syntax-table)
+(defvar inferior-prolog-mode-abbrev-table prolog-mode-abbrev-table)
+
+(define-derived-mode inferior-prolog-mode comint-mode "Inferior Prolog"
   "Major mode for interacting with an inferior Prolog process.
 
 The following commands are available:
@@ -232,8 +250,8 @@ Entry to this mode calls the value of `prolog-mode-hook' with no arguments,
 if that value is non-nil.  Likewise with the value of `comint-mode-hook'.
 `prolog-mode-hook' is called after `comint-mode-hook'.
 
-You can send text to the inferior Prolog from other buffers
-using the commands `send-region', `send-string' and \\[prolog-consult-region].
+You can send text to the inferior Prolog from other buffers using the commands
+`process-send-region', `process-send-string' and \\[prolog-consult-region].
 
 Commands:
 Tab indents for Prolog; with argument, shifts rest
@@ -246,48 +264,132 @@ Return not at end copies rest of line to end and sends it.
 \\[comint-kill-input] and \\[backward-kill-word] are kill commands, imitating normal Unix input editing.
 \\[comint-interrupt-subjob] interrupts the shell or its current subjob if any.
 \\[comint-stop-subjob] stops. \\[comint-quit-subjob] sends quit signal."
-  (interactive)
-  (require 'comint)
-  (comint-mode)
-  (setq major-mode 'inferior-prolog-mode
-	mode-name "Inferior Prolog"
-	comint-prompt-regexp "^| [ ?][- ] *")
-  (prolog-mode-variables)
-  (if inferior-prolog-mode-map nil
-    (setq inferior-prolog-mode-map (copy-keymap comint-mode-map))
-    (prolog-mode-commands inferior-prolog-mode-map))
-  (use-local-map inferior-prolog-mode-map)
-  (run-hooks 'prolog-mode-hook))
+  (setq comint-prompt-regexp "^| [ ?][- ] *")
+  (prolog-mode-variables))
+
+(defvar inferior-prolog-buffer nil)
+
+(defun inferior-prolog-run (&optional name)
+  (with-current-buffer (make-comint "prolog" (or name prolog-program-name))
+    (inferior-prolog-mode)
+    (setq-default inferior-prolog-buffer (current-buffer))
+    (make-local-variable 'inferior-prolog-buffer)
+    (when (and name (not (equal name prolog-program-name)))
+      (set (make-local-variable 'prolog-program-name) name))
+    (set (make-local-variable 'inferior-prolog-flavor)
+         ;; Force re-detection.
+         (let* ((proc (get-buffer-process (current-buffer)))
+                (pmark (and proc (marker-position (process-mark proc)))))
+           (cond
+            ((null pmark) (1- (point-min)))
+            ;; The use of insert-before-markers in comint.el together with
+            ;; the potential use of comint-truncate-buffer in the output
+            ;; filter, means that it's difficult to reliably keep track of
+            ;; the buffer position where the process's output started.
+            ;; If possible we use a marker at "start - 1", so that
+            ;; insert-before-marker at `start' won't shift it.  And if not,
+            ;; we fall back on using a plain integer.
+            ((> pmark (point-min)) (copy-marker (1- pmark)))
+            (t (1- pmark)))))
+    (add-hook 'comint-output-filter-functions
+              'inferior-prolog-guess-flavor nil t)))
+
+(defun inferior-prolog-process (&optional dontstart)
+  (or (and (buffer-live-p inferior-prolog-buffer)
+           (get-buffer-process inferior-prolog-buffer))
+      (unless dontstart
+        (inferior-prolog-run)
+        ;; Try again.
+        (inferior-prolog-process))))
+
+(defvar inferior-prolog-flavor 'unknown
+  "Either a symbol or a buffer position offset by one.
+If a buffer position, the flavor has not been determined yet and
+it is expected that the process's output has been or will
+be inserted at that position plus one.")
+
+(defun inferior-prolog-guess-flavor (&optional ignored)
+  (save-excursion
+    (goto-char (1+ inferior-prolog-flavor))
+    (setq inferior-prolog-flavor
+          (cond
+           ((looking-at "GNU Prolog") 'gnu)
+           ((looking-at "Welcome to SWI-Prolog") 'swi)
+           ((looking-at ".*\n") 'unknown) ;There's at least one line.
+           (t inferior-prolog-flavor))))
+  (when (symbolp inferior-prolog-flavor)
+    (remove-hook 'comint-output-filter-functions
+                 'inferior-prolog-guess-flavor t)
+    (if (eq inferior-prolog-flavor 'gnu)
+        (set (make-local-variable 'comint-process-echoes) t))))
 
 ;;;###autoload
-(defun run-prolog ()
-  "Run an inferior Prolog process, input and output via buffer *prolog*."
+(defalias 'run-prolog 'switch-to-prolog)
+;;;###autoload
+(defun switch-to-prolog (&optional name)
+  "Run an inferior Prolog process, input and output via buffer *prolog*.
+With prefix argument \\[universal-prefix], prompt for the program to use."
+  (interactive
+   (list (when current-prefix-arg
+           (let ((proc (inferior-prolog-process 'dontstart)))
+             (if proc
+                 (if (yes-or-no-p "Kill current process before starting new one? ")
+                     (kill-process proc)
+                   (error "Abort")))
+             (read-string "Run Prolog: " prolog-program-name)))))
+  (unless (inferior-prolog-process 'dontstart)
+    (inferior-prolog-run name))
+  (pop-to-buffer inferior-prolog-buffer))
+
+(defun inferior-prolog-self-insert-command ()
+  "Insert the char in the buffer or pass it directly to the process."
   (interactive)
-  (require 'comint)
-  (switch-to-buffer (make-comint "prolog" prolog-program-name))
-  (inferior-prolog-mode))
+  (let* ((proc (get-buffer-process (current-buffer)))
+         (pmark (and proc (marker-position (process-mark proc)))))
+    (if (and (eq inferior-prolog-flavor 'gnu)
+             pmark
+             (null current-prefix-arg)
+             (eobp)
+             (eq (point) pmark)
+             (save-excursion
+               (goto-char (- pmark 3))
+               (looking-at " \\? ")))
+        (comint-send-string proc (string last-command-char))
+      (call-interactively 'self-insert-command))))
 
 (defun prolog-consult-region (compile beg end)
   "Send the region to the Prolog process made by \"M-x run-prolog\".
 If COMPILE (prefix arg) is not nil, use compile mode rather than consult mode."
   (interactive "P\nr")
-  (save-excursion
-    (if compile
-	(send-string "prolog" prolog-compile-string)
-      (send-string "prolog" prolog-consult-string))
-    (send-region "prolog" beg end)
-    (send-string "prolog" "\n")		;May be unnecessary
+  (let ((proc (inferior-prolog-process)))
+    (comint-send-string proc
+                        (if compile prolog-compile-string
+                          prolog-consult-string))
+    (comint-send-region proc beg end)
+    (comint-send-string proc "\n")		;May be unnecessary
     (if prolog-eof-string
-	(send-string "prolog" prolog-eof-string)
-      (process-send-eof "prolog")))) ;Send eof to prolog process.
+        (comint-send-string proc prolog-eof-string)
+      (with-current-buffer (process-buffer proc)
+        (comint-send-eof))))) ;Send eof to prolog process.
 
 (defun prolog-consult-region-and-go (compile beg end)
   "Send the region to the inferior Prolog, and switch to *prolog* buffer.
 If COMPILE (prefix arg) is not nil, use compile mode rather than consult mode."
   (interactive "P\nr")
   (prolog-consult-region compile beg end)
-  (switch-to-buffer "*prolog*"))
+  (pop-to-buffer inferior-prolog-buffer))
+
+(defun inferior-prolog-load-file ()
+  "Pass the current buffer's file to the inferior prolog process."
+  (interactive)
+  (save-buffer)
+  (let ((file buffer-file-name)
+        (proc (inferior-prolog-process)))
+    (with-current-buffer (process-buffer proc)
+      (comint-send-string proc (concat "['" (file-relative-name file) "'].\n"))
+      (pop-to-buffer (current-buffer)))))
 
 (provide 'prolog)
 
+;; arch-tag: f3ec6748-1272-4ab6-8826-c50cb1607636
 ;;; prolog.el ends here

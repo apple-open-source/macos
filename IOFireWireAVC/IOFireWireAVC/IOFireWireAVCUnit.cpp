@@ -31,7 +31,7 @@
 #include <IOKit/avc/IOFireWirePCRSpace.h>
 
 #if FIRELOG
-#import <IOKit/firewire/IOFireLog.h>
+#import <IOKit/firewire/FireLog.h>
 #define FIRELOG_MSG(x) FireLog x
 #else
 #define FIRELOG_MSG(x) do {} while (0)
@@ -347,6 +347,38 @@ IOReturn IOFireWireAVCAsynchronousCommand::cancel(void)
 }	
 
 //////////////////////////////////////////////////////
+// IOFireWireAVCUnit::setProperties
+//////////////////////////////////////////////////////
+IOReturn IOFireWireAVCUnit::setProperties (OSObject * properties )
+{
+	IOReturn result = kIOReturnSuccess ;
+	
+	//IOLog(IOFireWireAVCUnit::setProperties\n");
+	
+	OSDictionary*	dict = OSDynamicCast( OSDictionary, properties ) ;
+	
+	if ( dict )
+	{
+		OSObject*	value = dict->getObject( "RobustAVCResponseMatching" ) ;
+		
+		if ( value )
+		{
+			// Disable robust AV/C command/response matching
+			//IOLog("Disabling RobustAVCResponseMatching for AV/C device 0x%08X\n",(unsigned int) this);
+			fIOFireWireAVCUnitExpansion->enableRobustAVCCommandResponseMatching = false;
+		}
+		else
+		{
+			result = IOFireWireAVCNub::setProperties ( properties ) ;
+		}
+	}
+	else
+		result = IOFireWireAVCNub::setProperties ( properties ) ;
+
+	return result ;
+}
+
+//////////////////////////////////////////////////////
 // IOFireWireAVCUnit::AVCResponse
 //////////////////////////////////////////////////////
 UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
@@ -396,10 +428,18 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 			// Evaluate the AVCAddress, and Opcode, looking for a match
 			if ((pCmd->pCommandBuf[kAVCAddress] == pResponseBytes[kAVCAddress]) && (pCmd->pCommandBuf[kAVCOpcode] == pResponseBytes[kAVCOpcode]))
 			{
-				// This is a match
-				matchFound = true;
-				matchedCommandIndex = i;
-				break;
+				if ((pCmd->pCommandBuf[kAVCCommandResponse] == kAVCNotifyCommand) && 
+						((pResponseBytes[kAVCCommandResponse] == kAVCAcceptedStatus) || (pResponseBytes[kAVCCommandResponse] == kAVCInTransitionStatus) || (pResponseBytes[kAVCCommandResponse] == kAVCImplementedStatus)))
+				{
+					// This is not a match because notify commands cannot have this type of response!
+				}
+				else
+				{
+					// This is a match
+					matchFound = true;
+					matchedCommandIndex = i;
+					break;
+				}
 			}
 		}
 	}
@@ -407,7 +447,7 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 	// If we didn't match, yet we have an oustanding command for this node, and the response is from a tape-subunit,
 	// see if this is the special-case of the tape-subunit transport-state command, which overwrites the opcode
 	// in the response packet.
-	if ((!matchFound) && (foundOutstandingAVCAsynchCommandForNode) && (pResponseBytes[kAVCAddress] == 0x20))
+	if ((!matchFound) && (foundOutstandingAVCAsynchCommandForNode) && ((pResponseBytes[kAVCAddress] & 0xF8) == 0x20))
 	{
 		// Look again through all the pending AVCAsynch commands to find a match
 		for (i = 0; i < me->fIOFireWireAVCUnitExpansion->fAVCAsyncCommands->getCount(); i++)
@@ -427,10 +467,18 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 						 (pResponseBytes[kAVCOpcode] == 0xC3) ||
 						 (pResponseBytes[kAVCOpcode] == 0xC4)) && (len == 4))
 					{
-						// This is a match
-						matchFound = true;
-						matchedCommandIndex = i;
-						break;
+						if ((pCmd->pCommandBuf[kAVCCommandResponse] == kAVCNotifyCommand) && 
+							((pResponseBytes[kAVCCommandResponse] == kAVCAcceptedStatus) || (pResponseBytes[kAVCCommandResponse] == kAVCInTransitionStatus) || (pResponseBytes[kAVCCommandResponse] == kAVCImplementedStatus)))
+						{
+							// This is not a match because notify commands cannot have this type of response!
+						}
+						else
+						{
+							// This is a match
+							matchFound = true;
+							matchedCommandIndex = i;
+							break;
+						}
 					}
 				}
 			}
@@ -517,7 +565,12 @@ UInt32 IOFireWireAVCUnit::AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &sp
 	{
 		// if this is for us, copy the status bytes from fPseudoSpace 
 		if(me->fCommand)
-			res = me->fCommand->handleResponse(nodeID, len, buf);
+		{
+			if (me->fIOFireWireAVCUnitExpansion->enableRobustAVCCommandResponseMatching)
+				res = me->fCommand->handleResponse(nodeID, len, buf);
+			else
+				res = me->fCommand->handleResponseWithSimpleMatching(nodeID, len, buf);
+		}
 	}
 
     return res;
@@ -567,6 +620,12 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
             IOSleep(10);
             continue;	// Try again
         }
+		else if(res == kIOReturnOffline){
+			// Bus-reset occurred.
+			FIRELOG_MSG(("IOFireWireAVCUnit %p, bus-reset during subunit scan! firstTime=%s\n",this,firstTime == true ? "true" : "false"));
+			IOSleep(10);
+			continue;	// Try again
+		}
         else
             break;		// Got a final result code
     }
@@ -658,6 +717,23 @@ void IOFireWireAVCUnit::updateSubUnits(bool firstTime)
 
                 sub->registerService();
                 
+				// Special handling for Sony TVs - make them root!
+				if (type == 0)
+				{
+					OSObject *prop;
+					OSNumber *deviceGUID;
+					unsigned long long guidVal;
+
+					prop = getProperty(gFireWire_GUID);
+					deviceGUID = OSDynamicCast( OSNumber, prop );
+					guidVal = deviceGUID->unsigned64BitValue();
+					
+					if ((guidVal & 0xFFFFFF0000000000LL) == 0x0800460000000000LL) // Sony
+					{
+						fDevice->setNodeFlags(kIOFWMustBeRoot);
+					}
+				}
+				
             } while (0);
             if(sub)
                 sub->release();
@@ -718,6 +794,9 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 	fIOFireWireAVCUnitExpansion->fControl = fDevice->getController();
     if(!fIOFireWireAVCUnitExpansion->fControl)
         return false;
+	
+	// Enable robust AV/C Command/Response Matching
+	fIOFireWireAVCUnitExpansion->enableRobustAVCCommandResponseMatching = true;
 	
 	// Create array to hold outstanding async AVC commands
 	fIOFireWireAVCUnitExpansion->fAVCAsyncCommands = OSArray::withCapacity(1);
@@ -809,6 +888,32 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 			series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
 			if ((series <= 0x13) || ((series >= 0x18) && (series <= 0x23)))
 				fDevice->setNodeFlags( kIOFWLimitAsyncPacketSize );
+			
+			series = (UInt8) (((guidVal & 0x00000000FFFFFFFFLL) >> 18) & 0x3f); // GL-2
+			if(series == 0x19) // GL-2
+				fDevice->setNodeFlags(kIOFWMustNotBeRoot);
+		}
+		
+		if ((guidVal & 0xFFFFFF0000000000LL) == 0x0080450000000000LL) // panasonic
+		{
+			series = (UInt8) ((guidVal & 0x0000000000FF0000LL) >> 16);
+
+			prop = provider->getProperty(gFireWireProduct_Name);
+			if(prop)
+			{
+				OSString * string = OSDynamicCast ( OSString, prop ) ;
+				if (string->isEqualTo("PV-GS15"))
+				{
+					fDevice->setNodeFlags(kIOFWMustNotBeRoot);
+					fDevice->setNodeFlags(kIOFWMustHaveGap63);
+					
+					IOLog("Panasonic guid=%lld series=%x model=%s\n", guidVal, series, string->getCStringNoCopy()); // node flags happens here
+				}
+				else
+				{
+					FIRELOG_MSG("Unknown Panasonic series\n");
+				}
+			}
 		}
 	}
 	

@@ -68,10 +68,6 @@
 #include <strings.h>
 #endif
 
-#ifndef INADDR_NONE
-#define INADDR_NONE 0xffffffff
-#endif
-
 /* Utility library. */
 
 #include <msg.h>
@@ -80,14 +76,17 @@
 #include <dict.h>
 #include <match_ops.h>
 #include <stringops.h>
+#include <cidr_match.h>
+
+#define MATCH_DICTIONARY(pattern) \
+    ((pattern)[0] != '[' && strchr((pattern), ':') != 0)
 
 /* match_string - match a string literal */
 
 int     match_string(int unused_flags, const char *string, const char *pattern)
 {
-    char   *myname = "match_string";
+    const char *myname = "match_string";
     int     match;
-    char   *key;
 
     if (msg_verbose)
 	msg_info("%s: %s ~? %s", myname, string, pattern);
@@ -95,10 +94,8 @@ int     match_string(int unused_flags, const char *string, const char *pattern)
     /*
      * Try dictionary lookup: exact match.
      */
-    if (strchr(pattern, ':') != 0) {
-	key = lowercase(mystrdup(string));
-	match = (dict_lookup(pattern, key) != 0);
-	myfree(key);
+    if (MATCH_DICTIONARY(pattern)) {
+	match = (dict_lookup(pattern, string) != 0);
 	if (match != 0)
 	    return (1);
 	if (dict_errno != 0)
@@ -123,33 +120,42 @@ int     match_string(int unused_flags, const char *string, const char *pattern)
 
 int     match_hostname(int flags, const char *name, const char *pattern)
 {
-    char   *myname = "match_hostname";
+    const char *myname = "match_hostname";
     const char *pd;
     const char *entry;
-    char   *next;
-    char   *temp;
+    const char *next;
     int     match;
+    DICT   *dict;
 
     if (msg_verbose)
 	msg_info("%s: %s ~? %s", myname, name, pattern);
 
     /*
      * Try dictionary lookup: exact match and parent domains.
+     * 
+     * Don't look up parent domain substrings with regexp maps etc.
      */
-    if (strchr(pattern, ':') != 0) {
-	temp = lowercase(mystrdup(name));
+    if (MATCH_DICTIONARY(pattern)) {
+	if ((dict = dict_handle(pattern)) == 0)
+	    msg_panic("%s: unknown dictionary: %s", myname, pattern);
 	match = 0;
-	for (entry = temp; *entry != 0; entry = next) {
-	    if ((match = (dict_lookup(pattern, entry) != 0)) != 0)
-		break;
-	    if (dict_errno != 0)
-		msg_fatal("%s: table lookup problem", pattern);
+	for (entry = name; *entry != 0; entry = next) {
+	    if (entry == name || (dict->flags & DICT_FLAG_FIXED)) {
+		match = (dict_get(dict, entry) != 0);
+		if (msg_verbose > 1)
+		    msg_info("%s: lookup %s:%s %s: %s",
+			     myname, dict->type, dict->name, entry,
+			     match ? "found" : "notfound");
+		if (match != 0)
+		    break;
+		if (dict_errno != 0)
+		    msg_fatal("%s: table lookup problem", pattern);
+	    }
 	    if ((next = strchr(entry + 1, '.')) == 0)
 		break;
 	    if (flags & MATCH_FLAG_PARENT)
 		next += 1;
 	}
-	myfree(temp);
 	return (match);
     }
 
@@ -177,49 +183,28 @@ int     match_hostname(int flags, const char *name, const char *pattern)
     return (0);
 }
 
-/* match_parse_mask - parse net/mask pattern */
-
-static int match_parse_mask(const char *pattern, unsigned long *net_bits,
-			            unsigned int *mask_shift)
-{
-    char   *saved_pattern;
-    char   *mask;
-
-#define BITS_PER_ADDR	32
-
-    saved_pattern = mystrdup(pattern);
-    if ((mask = split_at(saved_pattern, '/')) != 0) {
-	if (!alldig(mask) || (*mask_shift = atoi(mask)) > BITS_PER_ADDR
-	    || (*net_bits = inet_addr(saved_pattern)) == INADDR_NONE) {
-	    msg_fatal("bad net/mask pattern: %s", pattern);
-	}
-    }
-    myfree(saved_pattern);
-    return (mask != 0);
-}
-
 /* match_hostaddr - match host by address */
 
 int     match_hostaddr(int unused_flags, const char *addr, const char *pattern)
 {
-    char   *myname = "match_hostaddr";
-    unsigned int mask_shift;
-    unsigned long mask_bits;
-    unsigned long net_bits;
-    unsigned long addr_bits;
-    struct in_addr net_addr;
+    const char *myname = "match_hostaddr";
+    char   *saved_patt;
+    CIDR_MATCH match_info;
+    VSTRING *err;
 
     if (msg_verbose)
 	msg_info("%s: %s ~? %s", myname, addr, pattern);
 
-    if (addr[strspn(addr, "01234567890./:")] != 0)
+#define V4_ADDR_STRING_CHARS	"01234567890."
+#define V6_ADDR_STRING_CHARS	V4_ADDR_STRING_CHARS "abcdefABCDEF:"
+
+    if (addr[strspn(addr, V6_ADDR_STRING_CHARS)] != 0)
 	return (0);
 
     /*
-     * Try dictionary lookup. This can be case insensitive. XXX Probably
-     * should also try again after stripping least significant octets.
+     * Try dictionary lookup. This can be case insensitive.
      */
-    if (strchr(pattern, ':') != 0) {
+    if (MATCH_DICTIONARY(pattern)) {
 	if (dict_lookup(pattern, addr) != 0)
 	    return (1);
 	if (dict_errno != 0)
@@ -230,28 +215,45 @@ int     match_hostaddr(int unused_flags, const char *addr, const char *pattern)
     /*
      * Try an exact match with the host address.
      */
-    if (strcasecmp(addr, pattern) == 0) {
-	return (1);
+    if (pattern[0] != '[') {
+	if (strcasecmp(addr, pattern) == 0)
+	    return (1);
+    } else {
+	size_t  addr_len = strlen(addr);
+
+	if (strncasecmp(addr, pattern + 1, addr_len) == 0
+	    && strcmp(pattern + 1 + addr_len, "]") == 0)
+	    return (1);
     }
 
     /*
-     * In a net/mask pattern, the mask is specified as the number of bits of
-     * the network part.
+     * Light-weight tests before we get into expensive operations.
+     * 
+     * - Don't bother matching IPv4 against IPv6. Postfix transforms
+     * IPv4-in-IPv6 to native IPv4 form when IPv4 support is enabled in
+     * Postfix; if not, then Postfix has no business dealing with IPv4
+     * addresses anyway.
+     * 
+     * - Don't bother if the pattern is a bare IPv4 address. That form would
+     * have been matched with the strcasecmp() call above.
+     * 
+     * - Don't bother if the pattern isn't an address or address/mask.
      */
-    if (match_parse_mask(pattern, &net_bits, &mask_shift)) {
-	addr_bits = inet_addr(addr);
-	if (addr_bits == INADDR_NONE)
-	    msg_fatal("%s: bad address argument: %s", myname, addr);
-	mask_bits = mask_shift > 0 ?
-	    htonl((0xffffffff) << (BITS_PER_ADDR - mask_shift)) : 0;
-	if ((addr_bits & mask_bits) == net_bits)
-	    return (1);
-	if (net_bits & ~mask_bits) {
-	    net_addr.s_addr = (net_bits & mask_bits);
-	    msg_fatal("net/mask pattern %s has a non-null host portion; "
-		      "specify %s/%d if this is really what you want",
-		      pattern, inet_ntoa(net_addr), mask_shift);
-	}
-    }
-    return (0);
+    if (!strchr(addr, ':') != !strchr(pattern, ':')
+	|| pattern[strspn(pattern, V4_ADDR_STRING_CHARS)] == 0
+	|| pattern[strspn(pattern, V6_ADDR_STRING_CHARS "[]/")] != 0)
+	return (0);
+
+    /*
+     * No escape from expensive operations: either we have a net/mask
+     * pattern, or we have an address that can have multiple valid
+     * representations (e.g., 0:0:0:0:0:0:0:1 versus ::1, etc.). The only way
+     * to find out if the address matches the pattern is to transform
+     * everything into to binary form, and to do the comparison there.
+     */
+    saved_patt = mystrdup(pattern);
+    if ((err = cidr_match_parse(&match_info, saved_patt, (VSTRING *) 0)) != 0)
+	msg_fatal("%s", vstring_str(err));
+    myfree(saved_patt);
+    return (cidr_match_execute(&match_info, addr) != 0);
 }

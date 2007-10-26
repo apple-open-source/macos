@@ -31,6 +31,7 @@
 #include "tui/tui-win.h"
 #include "tui/tui.h"
 #include "tui/tui-io.h"
+#include "exceptions.h"
 
 /* Set to 1 when the TUI mode must be activated when we first start gdb.  */
 static int tui_start_enabled = 0;
@@ -105,10 +106,10 @@ tui_display_prompt_p (void *data)
     return 1;
 }
 
-static int
+static struct gdb_exception
 tui_exec (void *data, const char *command_str)
 {
-  internal_error (__FILE__, __LINE__, "tui_exec called");
+  internal_error (__FILE__, __LINE__, _("tui_exec called"));
 }
 
 

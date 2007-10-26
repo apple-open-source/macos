@@ -1,7 +1,7 @@
 ;;; mouse.el --- window system-independent mouse support
 
-;; Copyright (C) 1993, 1994, 1995, 1999, 2000, 2001
-;;   Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1999, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: hardware, mouse
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -42,6 +42,57 @@
   "*If non-nil, mouse yank commands yank at point instead of at click."
   :type 'boolean
   :group 'mouse)
+
+(defcustom mouse-drag-copy-region t
+  "*If non-nil, mouse drag copies region to kill-ring."
+  :type 'boolean
+  :version "22.1"
+  :group 'mouse)
+
+(defcustom mouse-1-click-follows-link 450
+  "Non-nil means that clicking Mouse-1 on a link follows the link.
+
+With the default setting, an ordinary Mouse-1 click on a link
+performs the same action as Mouse-2 on that link, while a longer
+Mouse-1 click \(hold down the Mouse-1 button for more than 450
+milliseconds) performs the original Mouse-1 binding \(which
+typically sets point where you click the mouse).
+
+If value is an integer, the time elapsed between pressing and
+releasing the mouse button determines whether to follow the link
+or perform the normal Mouse-1 action (typically set point).
+The absolute numeric value specifices the maximum duration of a
+\"short click\" in milliseconds.  A positive value means that a
+short click follows the link, and a longer click performs the
+normal action.  A negative value gives the opposite behavior.
+
+If value is `double', a double click follows the link.
+
+Otherwise, a single Mouse-1 click unconditionally follows the link.
+
+Note that dragging the mouse never follows the link.
+
+This feature only works in modes that specifically identify
+clickable text as links, so it may not work with some external
+packages.  See `mouse-on-link-p' for details."
+  :version "22.1"
+  :type '(choice (const :tag "Disabled" nil)
+		 (const :tag "Double click" double)
+                 (number :tag "Single click time limit" :value 450)
+                 (other :tag "Single click" t))
+  :group 'mouse)
+
+(defcustom mouse-1-click-in-non-selected-windows t
+  "*If non-nil, a Mouse-1 click also follows links in non-selected windows.
+
+If nil, a Mouse-1 click on a link in a non-selected window performs
+the normal mouse-1 binding, typically selects the window and sets
+point at the click position."
+  :type 'boolean
+  :version "22.1"
+  :group 'mouse)
+
+
 
 ;; Provide a mode-specific menu on a mouse button.
 
@@ -102,7 +153,7 @@ PREFIX is the prefix argument (if any) to pass to the command."
 
 (defvar mouse-major-mode-menu-prefix)	; dynamically bound
 
-(defun mouse-major-mode-menu (event prefix)
+(defun mouse-major-mode-menu (event &optional prefix)
   "Pop up a mode-specific menu of mouse commands.
 Default to the Edit menu if the major mode doesn't define a menu."
   ;; Switch to the window clicked on, because otherwise
@@ -122,8 +173,7 @@ Default to the Edit menu if the major mode doesn't define a menu."
 	 ;; default to the edit menu.
 	 (newmap (if ancestor
 		     (make-sparse-keymap (concat mode-name " Mode"))
-		   menu-bar-edit-menu))
-	 result)
+		   menu-bar-edit-menu)))
     (if ancestor
 	;; Make our menu inherit from the desired keymap which we want
 	;; to display as the menu now.
@@ -166,7 +216,7 @@ Default to the Edit menu if the major mode doesn't define a menu."
 	  (lookup-key menubar (vector (car submap)))))))
 
 (defun mouse-popup-menubar (event prefix)
-  "Pops up a menu equiavlent to the menu bar a keyboard EVENT with PREFIX.
+  "Pop up a menu equivalent to the menu bar for keyboard EVENT with PREFIX.
 The contents are the items that would be in the menu bar whether or
 not it is actually displayed."
   (interactive "@e \nP")
@@ -191,7 +241,7 @@ not it is actually displayed."
 			  (cons 'keymap
 				(cons (concat
 				       (capitalize (subst-char-in-string
-						    ?- ?\  (symbol-name
+						    ?- ?\s (symbol-name
 							    minor-mode)))
 				       " Menu")
 				      (cdr menu)))))
@@ -302,10 +352,51 @@ This command must be bound to a mouse click."
 	(split-window-horizontally
 	 (min (max new-width first-col) last-col))))))
 
+(defun mouse-drag-window-above (window)
+  "Return the (or a) window directly above WINDOW.
+That means one whose bottom edge is at the same height as WINDOW's top edge."
+  (let ((start-top   (nth 1 (window-edges window)))
+        (start-left  (nth 0 (window-edges window)))
+        (start-right (nth 2 (window-edges window)))
+	(start-window window)
+	above-window)
+    (setq window (previous-window window 0))
+    (while (and (not above-window) (not (eq window start-window)))
+      (let ((left  (nth 0 (window-edges window)))
+            (right (nth 2 (window-edges window))))
+        (when (and (= (+ (window-height window) (nth 1 (window-edges window)))
+                      start-top)
+                   (or (and (<= left start-left)  (<= start-right right))
+                       (and (<= start-left left)  (<= left start-right))
+                       (and (<= start-left right) (<= right start-right))))
+          (setq above-window window)))
+      (setq window (previous-window window)))
+    above-window))
+
+(defun mouse-drag-move-window-bottom (window growth)
+  "Move the bottom of WINDOW up or down by GROWTH lines.
+Move it down if GROWTH is positive, or up if GROWTH is negative.
+If this would make WINDOW too short,
+shrink the window or windows above it to make room."
+  (condition-case nil
+      (adjust-window-trailing-edge window growth nil)
+    (error nil)))
+
+(defsubst mouse-drag-move-window-top (window growth)
+  "Move the top of WINDOW up or down by GROWTH lines.
+Move it down if GROWTH is positive, or up if GROWTH is negative.
+If this would make WINDOW too short, shrink the window or windows
+above it to make room."
+  ;; Moving the top of WINDOW is actually moving the bottom of the
+  ;; window above.
+  (let ((window-above (mouse-drag-window-above window)))
+    (and window-above
+	 (mouse-drag-move-window-bottom window-above (- growth)))))
+
 (defun mouse-drag-mode-line-1 (start-event mode-line-p)
   "Change the height of a window by dragging on the mode or header line.
 START-EVENT is the starting mouse-event of the drag action.
-MODE-LINE-P non-nil means a mode line is dragged."
+MODE-LINE-P non-nil means dragging a mode line; nil means a header line."
   ;; Give temporary modes such as isearch a chance to turn off.
   (run-hooks 'mouse-leave-buffer-hook)
   (let* ((done nil)
@@ -314,16 +405,10 @@ MODE-LINE-P non-nil means a mode line is dragged."
 	 (start-event-window (posn-window start))
 	 (start-event-frame (window-frame start-event-window))
 	 (start-nwindows (count-windows t))
-	 (old-selected-window (selected-window))
 	 (minibuffer (frame-parameter nil 'minibuffer))
 	 should-enlarge-minibuffer event mouse y top bot edges wconfig growth)
     (track-mouse
       (progn
-	;; enlarge-window only works on the selected window, so
-	;; we must select the window where the start event originated.
-	;; unwind-protect will restore the old selected window later.
-	(select-window start-event-window)
-	
 	;; if this is the bottommost ordinary window, then to
 	;; move its modeline the minibuffer must be enlarged.
 	(setq should-enlarge-minibuffer
@@ -331,14 +416,14 @@ MODE-LINE-P non-nil means a mode line is dragged."
 		   mode-line-p
 		   (not (one-window-p t))
 		   (= (nth 1 (window-edges minibuffer))
-		      (nth 3 (window-edges)))))
-	
+		      (nth 3 (window-edges start-event-window)))))
+
 	;; loop reading events and sampling the position of
 	;; the mouse.
 	(while (not done)
 	  (setq event (read-event)
 		mouse (mouse-position))
-	  
+
 	  ;; do nothing if
 	  ;;   - there is a switch-frame event.
 	  ;;   - the mouse isn't in the frame that we started in
@@ -352,33 +437,29 @@ MODE-LINE-P non-nil means a mode line is dragged."
 	  ;;     unknown event.
 	  (cond ((integerp event)
 		 (setq done t))
-		
-		((eq (car event) 'switch-frame)
+
+		((memq (car event) '(switch-frame select-window))
 		 nil)
-		
+
 		((not (memq (car event) '(mouse-movement scroll-bar-movement)))
 		 (when (consp event)
 		   (push event unread-command-events))
 		 (setq done t))
-		
+
 		((not (eq (car mouse) start-event-frame))
 		 nil)
-		
+
 		((null (car (cdr mouse)))
 		 nil)
-		
+
 		(t
 		 (setq y (cdr (cdr mouse))
-		       edges (window-edges)
+		       edges (window-edges start-event-window)
 		       top (nth 1 edges)
 		       bot (nth 3 edges))
-		 
+
 		 ;; compute size change needed
 		 (cond (mode-line-p
-			;; Scale back a move that would make the
-			;; window too short.
-			(when (< (- y top -1) window-min-height)
-			  (setq y (+ top window-min-height -1)))
 			(setq growth (- y bot -1)))
 		       (t	; header line
 			(when (< (- bot y) window-min-height)
@@ -386,34 +467,23 @@ MODE-LINE-P non-nil means a mode line is dragged."
 			;; The window's top includes the header line!
 			(setq growth (- top y))))
 		 (setq wconfig (current-window-configuration))
-		 
+
 		 ;; Check for an error case.
 		 (when (and (/= growth 0)
 			    (not minibuffer)
 			    (one-window-p t))
 		   (error "Attempt to resize sole window"))
-		 
+
 		 ;; grow/shrink minibuffer?
 		 (if should-enlarge-minibuffer
-		     (progn
-		       ;; yes.  briefly select minibuffer so
-		       ;; enlarge-window will affect the
-		       ;; correct window.
-		       (select-window minibuffer)
-		       ;; scale back shrinkage if it would
-		       ;; make the minibuffer less than 1
-		       ;; line tall.
-		       (if (and (> growth 0)
-				(< (- (window-height minibuffer)
-				      growth)
-				   1))
-			   (setq growth (1- (window-height minibuffer))))
-		       (enlarge-window (- growth))
-		       (select-window start-event-window))
+		     (unless resize-mini-windows
+		       (mouse-drag-move-window-bottom start-event-window growth))
 		   ;; no.  grow/shrink the selected window
 		   ;(message "growth = %d" growth)
-		   (enlarge-window growth))
-		 
+		   (if mode-line-p
+		       (mouse-drag-move-window-bottom start-event-window growth)
+		     (mouse-drag-move-window-top start-event-window growth)))
+
 		 ;; if this window's growth caused another
 		 ;; window to be deleted because it was too
 		 ;; short, rescind the change.
@@ -426,6 +496,7 @@ MODE-LINE-P non-nil means a mode line is dragged."
 		 ;; around it.
 		 (when (or (/= start-nwindows (count-windows t))
 			   (and (not should-enlarge-minibuffer)
+				(> growth 0)
 				mode-line-p
 				(/= top (nth 1 (window-edges)))))
 		   (set-window-configuration wconfig)))))))))
@@ -447,13 +518,30 @@ resized by dragging their header-line."
 	 (window (posn-window start))
 	 (frame (window-frame window))
 	 (first-window (frame-first-window frame)))
-    (when (or (eq window first-window)
-	      (= (nth 1 (window-edges window))
-		 (nth 1 (window-edges first-window))))
-      (error "Cannot move header-line at the top of the frame"))
-    (mouse-drag-mode-line-1 start-event nil)))
+    (unless (or (eq window first-window)
+		(= (nth 1 (window-edges window))
+		   (nth 1 (window-edges first-window))))
+      (mouse-drag-mode-line-1 start-event nil))))
 
 
+(defun mouse-drag-vertical-line-rightward-window (window)
+  "Return a window that is immediately to the right of WINDOW, or nil."
+  (let ((bottom (nth 3 (window-inside-edges window)))
+	(left (nth 0 (window-inside-edges window)))
+	best best-right
+	(try (previous-window window)))
+    (while (not (eq try window))
+      (let ((try-top (nth 1 (window-inside-edges try)))
+	    (try-bottom (nth 3 (window-inside-edges try)))
+	    (try-right (nth 2 (window-inside-edges try))))
+	(if (and (< try-top bottom)
+		 (>= try-bottom bottom)
+		 (< try-right left)
+		 (or (null best-right) (> try-right best-right)))
+	    (setq best-right try-right best try)))
+      (setq try (previous-window try)))
+    best))
+
 (defun mouse-drag-vertical-line (start-event)
   "Change the width of a window by dragging on the vertical line."
   (interactive "e")
@@ -463,26 +551,22 @@ resized by dragging their header-line."
 	 (echo-keystrokes 0)
 	 (start-event-frame (window-frame (car (car (cdr start-event)))))
 	 (start-event-window (car (car (cdr start-event))))
-	 (start-nwindows (count-windows t))
-	 (old-selected-window (selected-window))
-	 event mouse x left right edges wconfig growth
+	 event mouse x left right edges growth
 	 (which-side
 	  (or (cdr (assq 'vertical-scroll-bars (frame-parameters start-event-frame)))
 	      'right)))
-    (if (one-window-p t)
-	(error "Attempt to resize sole ordinary window"))
-    (if (eq which-side 'right)
-	(if (= (nth 2 (window-edges start-event-window))
-	       (frame-width start-event-frame))
-	    (error "Attempt to drag rightmost scrollbar"))
-      (if (= (nth 0 (window-edges start-event-window)) 0)
-	  (error "Attempt to drag leftmost scrollbar")))
+    (cond
+     ((one-window-p t)
+      (error "Attempt to resize sole ordinary window"))
+     ((and (eq which-side 'right)
+	   (>= (nth 2 (window-inside-edges start-event-window))
+	       (frame-width start-event-frame)))
+      (error "Attempt to drag rightmost scrollbar"))
+     ((and (eq which-side 'left)
+	   (= (nth 0 (window-inside-edges start-event-window)) 0))
+      (error "Attempt to drag leftmost scrollbar")))
     (track-mouse
       (progn
-	;; enlarge-window only works on the selected window, so
-	;; we must select the window where the start event originated.
-	;; unwind-protect will restore the old selected window later.
-	(select-window start-event-window)
 	;; loop reading events and sampling the position of
 	;; the mouse.
 	(while (not done)
@@ -501,7 +585,7 @@ resized by dragging their header-line."
 	  ;;     unknown event.
 	  (cond ((integerp event)
 		 (setq done t))
-		((eq (car event) 'switch-frame)
+		((memq (car event) '(switch-frame select-window))
 		 nil)
 		((not (memq (car event)
 			    '(mouse-movement scroll-bar-movement)))
@@ -514,14 +598,16 @@ resized by dragging their header-line."
 		((null (car (cdr mouse)))
 		 nil)
 		(t
-		 (save-selected-window
-		   ;; If the scroll bar is on the window's left,
-		   ;; adjust the window on the left.
-		   (unless (eq which-side 'right)
-		     (select-window (previous-window)))
+		 (let ((window
+			;; If the scroll bar is on the window's left,
+			;; adjust the window on the left.
+			(if (eq which-side 'right)
+			    start-event-window
+			  (mouse-drag-vertical-line-rightward-window
+			   start-event-window))))
 		   (setq x (- (car (cdr mouse))
 			      (if (eq which-side 'right) 0 2))
-			 edges (window-edges)
+			 edges (window-edges window)
 			 left (nth 0 edges)
 			 right (nth 2 edges))
 		   ;; scale back a move that would make the
@@ -529,19 +615,10 @@ resized by dragging their header-line."
 		   (if (< (- x left -1) window-min-width)
 		       (setq x (+ left window-min-width -1)))
 		   ;; compute size change needed
-		   (setq growth (- x right -1)
-			 wconfig (current-window-configuration))
-		   (enlarge-window growth t)
-		   ;; if this window's growth caused another
-		   ;; window to be deleted because it was too
-		   ;; thin, rescind the change.
-		   ;;
-		   ;; if size change caused space to be stolen
-		   ;; from a window to the left of this one,
-		   ;; rescind the change.
-		   (if (or (/= start-nwindows (count-windows t))
-			   (/= left (nth 0 (window-edges))))
-		       (set-window-configuration wconfig))))))))))
+		   (setq growth (- x right -1))
+		   (condition-case nil
+		       (adjust-window-trailing-edge window growth t)
+		     (error nil))))))))))
 
 (defun mouse-set-point (event)
   "Move point to the position clicked on with the mouse.
@@ -550,12 +627,7 @@ This should be bound to a mouse click event type."
   (mouse-minibuffer-check event)
   ;; Use event-end in case called from mouse-drag-region.
   ;; If EVENT is a click, event-end and event-start give same value.
-  (let ((posn (event-end event)))
-    (if (not (windowp (posn-window posn)))
-	(error "Cursor not in text area of window"))
-    (select-window (posn-window posn))
-    (if (numberp (posn-point posn))
-	(goto-char (posn-point posn)))))
+  (posn-set-point (event-end event)))
 
 (defvar mouse-last-region-beg nil)
 (defvar mouse-last-region-end nil)
@@ -581,7 +653,7 @@ This should be bound to a mouse drag event."
     ;; If mark is highlighted, no need to bounce the cursor.
     ;; On X, we highlight while dragging, thus once again no need to bounce.
     (or transient-mark-mode
-	(memq (framep (selected-frame)) '(x pc w32))
+	(memq (framep (selected-frame)) '(x pc w32 mac))
 	(sit-for 1))
     (push-mark)
     (set-mark (point))
@@ -590,11 +662,15 @@ This should be bound to a mouse drag event."
     ;; Don't set this-command to kill-region, so that a following
     ;; C-w will not double the text in the kill ring.
     ;; Ignore last-command so we don't append to a preceding kill.
-    (let (this-command last-command deactivate-mark)
-      (copy-region-as-kill (mark) (point)))
+    (when mouse-drag-copy-region
+      (let (this-command last-command deactivate-mark)
+	(copy-region-as-kill (mark) (point))))
     (mouse-set-region-1)))
 
 (defun mouse-set-region-1 ()
+  ;; Set transient-mark-mode for a little while.
+  (if (memq transient-mark-mode '(nil identity))
+      (setq transient-mark-mode 'only))
   (setq mouse-last-region-beg (region-beginning))
   (setq mouse-last-region-end (region-end))
   (setq mouse-last-region-tick (buffer-modified-tick)))
@@ -657,9 +733,11 @@ Upon exit, point is at the far edge of the newly visible text."
 	(goto-char opoint))))
 
 ;; Create an overlay and immediately delete it, to get "overlay in no buffer".
-(defvar mouse-drag-overlay (make-overlay 1 1))
-(delete-overlay mouse-drag-overlay)
-(overlay-put mouse-drag-overlay 'face 'region)
+(defconst mouse-drag-overlay
+  (let ((ol (make-overlay (point-min) (point-min))))
+    (delete-overlay ol)
+    (overlay-put ol 'face 'region)
+    ol))
 
 (defvar mouse-selection-click-count 0)
 
@@ -670,45 +748,204 @@ Upon exit, point is at the far edge of the newly visible text."
 Highlight the drag area as you move the mouse.
 This must be bound to a button-down mouse event.
 In Transient Mark mode, the highlighting remains as long as the mark
-remains active.  Otherwise, it remains until the next input event."
+remains active.  Otherwise, it remains until the next input event.
+
+If the click is in the echo area, display the `*Messages*' buffer."
   (interactive "e")
+  (let ((w (posn-window (event-start start-event))))
+    (if (and (window-minibuffer-p w)
+	     (not (minibuffer-window-active-p w)))
+	(save-excursion
+	  ;; Swallow the up-event.
+	  (read-event)
+	  (set-buffer (get-buffer-create "*Messages*"))
+	  (goto-char (point-max))
+	  (display-buffer (current-buffer)))
+      ;; Give temporary modes such as isearch a chance to turn off.
+      (run-hooks 'mouse-leave-buffer-hook)
+      (mouse-drag-track start-event t))))
+
+
+(defun mouse-posn-property (pos property)
+  "Look for a property at click position.
+POS may be either a buffer position or a click position like
+those returned from `event-start'.  If the click position is on
+a string, the text property PROPERTY is examined.
+If this is nil or the click is not on a string, then
+the corresponding buffer position is searched for PROPERTY.
+If PROPERTY is encountered in one of those places,
+its value is returned."
+  (if (consp pos)
+      (let ((w (posn-window pos)) (pt (posn-point pos))
+	    (str (posn-string pos)))
+	(or (and str
+		 (get-text-property (cdr str) property (car str)))
+	    (and pt
+		 (get-char-property pt property w))))
+    (get-char-property pos property)))
+
+(defun mouse-on-link-p (pos)
+  "Return non-nil if POS is on a link in the current buffer.
+POS must be a buffer position in the current buffer or a mouse
+event location in the selected window (see `event-start').
+However, if `mouse-1-click-in-non-selected-windows' is non-nil,
+POS may be a mouse event location in any window.
+
+A clickable link is identified by one of the following methods:
+
+- If the character at POS has a non-nil `follow-link' text or
+overlay property, the value of that property determines what to do.
+
+- If there is a local key-binding or a keybinding at position POS
+for the `follow-link' event, the binding of that event determines
+what to do.
+
+The resulting value determine whether POS is inside a link:
+
+- If the value is `mouse-face', POS is inside a link if there
+is a non-nil `mouse-face' property at POS.  Return t in this case.
+
+- If the value is a function, FUNC, POS is inside a link if
+the call \(FUNC POS) returns non-nil.  Return the return value
+from that call.  Arg is \(posn-point POS) if POS is a mouse event.
+
+- Otherwise, return the value itself.
+
+The return value is interpreted as follows:
+
+- If it is a string, the mouse-1 event is translated into the
+first character of the string, i.e. the action of the mouse-1
+click is the local or global binding of that character.
+
+- If it is a vector, the mouse-1 event is translated into the
+first element of that vector, i.e. the action of the mouse-1
+click is the local or global binding of that event.
+
+- Otherwise, the mouse-1 event is translated into a mouse-2 event
+at the same position."
+  (let ((action
+	 (and (or (not (consp pos))
+		  mouse-1-click-in-non-selected-windows
+		  (eq (selected-window) (posn-window pos)))
+	      (or (mouse-posn-property pos 'follow-link)
+		  (key-binding [follow-link] nil t pos)))))
+    (cond
+     ((eq action 'mouse-face)
+      (and (mouse-posn-property pos 'mouse-face) t))
+     ((functionp action)
+      ;; FIXME: This seems questionable if the click is not in a buffer.
+      ;; Should we instead decide that `action' takes a `posn'?
+      (if (consp pos)
+	  (with-current-buffer (window-buffer (posn-window pos))
+	    (funcall action (posn-point pos)))
+	(funcall action pos)))
+     (t action))))
+
+(defun mouse-fixup-help-message (msg)
+  "Fix help message MSG for `mouse-1-click-follows-link'."
+  (let (mp pos)
+    (if (and mouse-1-click-follows-link
+	     (stringp msg)
+	     (save-match-data
+	       (string-match "^mouse-2" msg))
+	     (setq mp (mouse-pixel-position))
+	     (consp (setq pos (cdr mp)))
+	     (car pos) (>= (car pos) 0)
+	     (cdr pos) (>= (cdr pos) 0)
+	     (setq pos (posn-at-x-y (car pos) (cdr pos) (car mp)))
+	     (windowp (posn-window pos)))
+	(with-current-buffer (window-buffer (posn-window pos))
+	  (if (mouse-on-link-p pos)
+	      (setq msg (concat
+		    (cond
+		     ((eq mouse-1-click-follows-link 'double) "double-")
+		     ((and (integerp mouse-1-click-follows-link)
+			   (< mouse-1-click-follows-link 0)) "Long ")
+		     (t ""))
+		    "mouse-1" (substring msg 7)))))))
+  msg)
+
+(defun mouse-move-drag-overlay (ol start end mode)
+  (unless (= start end)
+    ;; Go to START first, so that when we move to END, if it's in the middle
+    ;; of intangible text, point jumps in the direction away from START.
+    ;; Don't do it if START=END otherwise a single click risks selecting
+    ;; a region if it's on intangible text.  This exception was originally
+    ;; only applied on entry to mouse-drag-region, which had the problem
+    ;; that a tiny move during a single-click would cause the intangible
+    ;; text to be selected.
+    (goto-char start)
+    (goto-char end)
+    (setq end (point)))
+  (let ((range (mouse-start-end start end mode)))
+    (move-overlay ol (car range) (nth 1 range))))
+
+(defun mouse-drag-track (start-event  &optional
+				      do-mouse-drag-region-post-process)
+    "Track mouse drags by highlighting area between point and cursor.
+The region will be defined with mark and point, and the overlay
+will be deleted after return.  DO-MOUSE-DRAG-REGION-POST-PROCESS
+should only be used by mouse-drag-region."
   (mouse-minibuffer-check start-event)
-  (let* ((echo-keystrokes 0)
+  (setq mouse-selection-click-count-buffer (current-buffer))
+  (let* ((original-window (selected-window))
+         ;; We've recorded what we needed from the current buffer and
+         ;; window, now let's jump to the place of the event, where things
+         ;; are happening.
+         (_ (mouse-set-point start-event))
+         (echo-keystrokes 0)
 	 (start-posn (event-start start-event))
 	 (start-point (posn-point start-posn))
 	 (start-window (posn-window start-posn))
-	 (start-frame (window-frame start-window))
+	 (start-window-start (window-start start-window))
 	 (start-hscroll (window-hscroll start-window))
 	 (bounds (window-edges start-window))
+	 (make-cursor-line-fully-visible nil)
 	 (top (nth 1 bounds))
 	 (bottom (if (window-minibuffer-p start-window)
 		     (nth 3 bounds)
 		   ;; Don't count the mode line.
 		   (1- (nth 3 bounds))))
-	 (click-count (1- (event-click-count start-event))))
+	 (on-link (and mouse-1-click-follows-link
+		       (or mouse-1-click-in-non-selected-windows
+			   (eq start-window original-window))
+                       ;; Use start-point before the intangibility
+                       ;; treatment, in case we click on a link inside an
+                       ;; intangible text.
+                       (mouse-on-link-p start-posn)))
+	 (click-count (1- (event-click-count start-event)))
+	 (remap-double-click (and on-link
+				  (eq mouse-1-click-follows-link 'double)
+				  (= click-count 1)))
+	 ;; Suppress automatic hscrolling, because that is a nuisance
+	 ;; when setting point near the right fringe (but see below).
+	 (automatic-hscrolling-saved automatic-hscrolling)
+	 (automatic-hscrolling nil))
     (setq mouse-selection-click-count click-count)
-    (setq mouse-selection-click-count-buffer (current-buffer))
-    (mouse-set-point start-event)
     ;; In case the down click is in the middle of some intangible text,
     ;; use the end of that text, and put it in START-POINT.
     (if (< (point) start-point)
 	(goto-char start-point))
     (setq start-point (point))
-    (let ((range (mouse-start-end start-point start-point click-count)))
-      (move-overlay mouse-drag-overlay (car range) (nth 1 range)
-		    (window-buffer start-window)))
+    (if remap-double-click ;; Don't expand mouse overlay in links
+	(setq click-count 0))
+    (mouse-move-drag-overlay mouse-drag-overlay start-point start-point
+                             click-count)
+    (overlay-put mouse-drag-overlay 'window start-window)
     (deactivate-mark)
-    ;; end-of-range is used only in the single-click case.
-    ;; It is the place where the drag has reached so far
-    ;; (but not outside the window where the drag started).
-    (let (event end end-point last-end-point (end-of-range (point)))
+    (let (event end end-point last-end-point)
       (track-mouse
 	(while (progn
 		 (setq event (read-event))
-		 (or (mouse-movement-p event)
-		     (eq (car-safe event) 'switch-frame)))
-	  (if (eq (car-safe event) 'switch-frame)
+                 (or (mouse-movement-p event)
+                     (memq (car-safe event) '(switch-frame select-window))))
+          (if (memq (car-safe event) '(switch-frame select-window))
 	      nil
+	    ;; Automatic hscrolling did not occur during the call to
+	    ;; `read-event'; but if the user subsequently drags the
+	    ;; mouse, go ahead and hscroll.
+	    (let ((automatic-hscrolling automatic-hscrolling-saved))
+	      (redisplay))
 	    (setq end (event-end event)
 		  end-point (posn-point end))
 	    (if (numberp end-point)
@@ -718,56 +955,41 @@ remains active.  Otherwise, it remains until the next input event."
 	     ;; Are we moving within the original window?
 	     ((and (eq (posn-window end) start-window)
 		   (integer-or-marker-p end-point))
-	      ;; Go to START-POINT first, so that when we move to END-POINT,
-	      ;; if it's in the middle of intangible text,
-	      ;; point jumps in the direction away from START-POINT.
-	      (goto-char start-point)
-	      (goto-char end-point)
-	      (if (zerop (% click-count 3))
-		  (setq end-of-range (point)))
-	      (let ((range (mouse-start-end start-point (point) click-count)))
-		(move-overlay mouse-drag-overlay (car range) (nth 1 range))))
+              (mouse-move-drag-overlay mouse-drag-overlay start-point end-point click-count))
 
 	     (t
 	      (let ((mouse-row (cdr (cdr (mouse-position)))))
-		(cond
-		 ((null mouse-row))
-		 ((< mouse-row top)
-		  (mouse-scroll-subr start-window (- mouse-row top)
-				     mouse-drag-overlay start-point)
-		  ;; Without this, point tends to jump back to the starting
-		  ;; position where the mouse button was pressed down.
-		  (setq end-of-range (overlay-start mouse-drag-overlay)))
-		 ((>= mouse-row bottom)
-		  (mouse-scroll-subr start-window (1+ (- mouse-row bottom))
-				     mouse-drag-overlay start-point)
-		  (setq end-of-range (overlay-end mouse-drag-overlay))))))))))
+                (cond
+                 ((null mouse-row))
+                 ((< mouse-row top)
+                  (mouse-scroll-subr start-window (- mouse-row top)
+                                     mouse-drag-overlay start-point))
+                 ((>= mouse-row bottom)
+                  (mouse-scroll-subr start-window (1+ (- mouse-row bottom))
+                                     mouse-drag-overlay start-point)))))))))
+
       ;; In case we did not get a mouse-motion event
       ;; for the final move of the mouse before a drag event
       ;; pretend that we did get one.
       (when (and (memq 'drag (event-modifiers (car-safe event)))
-		 (setq end (event-end event)
+                 (setq end (event-end event)
 		       end-point (posn-point end))
 		 (eq (posn-window end) start-window)
 		 (integer-or-marker-p end-point))
+        (mouse-move-drag-overlay mouse-drag-overlay start-point end-point click-count))
 
-	;; Go to START-POINT first, so that when we move to END-POINT,
-	;; if it's in the middle of intangible text,
-	;; point jumps in the direction away from START-POINT.
-	(goto-char start-point)
-	(goto-char end-point)
-	(if (zerop (% click-count 3))
-	    (setq end-of-range (point)))
-	(let ((range (mouse-start-end start-point (point) click-count)))
-	  (move-overlay mouse-drag-overlay (car range) (nth 1 range))))
-
+      ;; Handle the terminating event
       (if (consp event)
-	  (let ((fun (key-binding (vector (car event)))))
+	  (let* ((fun (key-binding (vector (car event))))
+		 (do-multi-click   (and (> (event-click-count event) 0)
+					(functionp fun)
+					(not (memq fun
+						   '(mouse-set-point
+						     mouse-set-region))))))
 	    ;; Run the binding of the terminating up-event, if possible.
-	    ;; In the case of a multiple click, it gives the wrong results,
-	    ;; because it would fail to set up a region.
-	    (if (not (= (overlay-start mouse-drag-overlay)
-			(overlay-end mouse-drag-overlay)))
+	    (if (and (not (= (overlay-start mouse-drag-overlay)
+			     (overlay-end mouse-drag-overlay)))
+		     (not do-multi-click))
 		(let* ((stop-point
 			(if (numberp (posn-point (event-end event)))
 			    (posn-point (event-end event))
@@ -787,28 +1009,75 @@ remains active.  Otherwise, it remains until the next input event."
 		       last-command this-command)
 		  (push-mark region-commencement t t)
 		  (goto-char region-termination)
-		  ;; Don't let copy-region-as-kill set deactivate-mark.
-		  (let (deactivate-mark)
-		    (copy-region-as-kill (point) (mark t)))
-		  (let ((buffer (current-buffer)))
-		    (mouse-show-mark)
-		    ;; mouse-show-mark can call read-event,
-		    ;; and that means the Emacs server could switch buffers
-		    ;; under us.  If that happened, 
-		    ;; avoid trying to use the region.
-		    (and (mark t) mark-active
-			 (eq buffer (current-buffer))
-			 (mouse-set-region-1))))
-	      (delete-overlay mouse-drag-overlay)
-	      ;; Run the binding of the terminating up-event.
-	      (when (and (functionp fun)
-			 (= start-hscroll (window-hscroll start-window)))
-		(setq unread-command-events
-		      (cons event unread-command-events)))))
+		  (if (not do-mouse-drag-region-post-process)
+		      ;; Skip all post-event handling, return immediately.
+		      (delete-overlay mouse-drag-overlay)
+		    ;; Don't let copy-region-as-kill set deactivate-mark.
+		    (when mouse-drag-copy-region
+		      (let (deactivate-mark)
+			(copy-region-as-kill (point) (mark t))))
+		    (let ((buffer (current-buffer)))
+		      (mouse-show-mark)
+		      ;; mouse-show-mark can call read-event,
+		      ;; and that means the Emacs server could switch buffers
+		      ;; under us.  If that happened,
+		      ;; avoid trying to use the region.
+		      (and (mark t) mark-active
+			   (eq buffer (current-buffer))
+			   (mouse-set-region-1)))))
+              ;; Run the binding of the terminating up-event.
+	      ;; If a multiple click is not bound to mouse-set-point,
+	      ;; cancel the effects of mouse-move-drag-overlay to
+	      ;; avoid producing wrong results.
+	      (if do-multi-click (goto-char start-point))
+              (delete-overlay mouse-drag-overlay)
+              (when (and (functionp fun)
+			 (= start-hscroll (window-hscroll start-window))
+			 ;; Don't run the up-event handler if the
+			 ;; window start changed in a redisplay after
+			 ;; the mouse-set-point for the down-mouse
+			 ;; event at the beginning of this function.
+			 ;; When the window start has changed, the
+			 ;; up-mouse event will contain a different
+			 ;; position due to the new window contents,
+			 ;; and point is set again.
+			 (or end-point
+			     (= (window-start start-window)
+				start-window-start)))
+		(when (and on-link
+			   (or (not end-point) (= end-point start-point))
+			   (consp event)
+			   (or remap-double-click
+			       (and
+				(not (eq mouse-1-click-follows-link 'double))
+				(= click-count 0)
+				(= (event-click-count event) 1)
+				(or (not (integerp mouse-1-click-follows-link))
+				    (let ((t0 (posn-timestamp (event-start start-event)))
+					  (t1 (posn-timestamp (event-end event))))
+				      (and (integerp t0) (integerp t1)
+					   (if (> mouse-1-click-follows-link 0)
+					       (<= (- t1 t0) mouse-1-click-follows-link)
+					     (< (- t0 t1) mouse-1-click-follows-link))))))))
+		  ;; If we rebind to mouse-2, reselect previous selected window,
+		  ;; so that the mouse-2 event runs in the same
+		  ;; situation as if user had clicked it directly.
+		  ;; Fixes the bug reported by juri@jurta.org on 2005-12-27.
+		  (if (or (vectorp on-link) (stringp on-link))
+		      (setq event (aref on-link 0))
+		    (select-window original-window)
+		    (setcar event 'mouse-2)
+		    ;; If this mouse click has never been done by
+		    ;; the user, it doesn't have the necessary
+		    ;; property to be interpreted correctly.
+		    (put 'mouse-2 'event-kind 'mouse-click)))
+		(push event unread-command-events))))
+
+        ;; Case where the end-event is not a cons cell (it's just a boring
+        ;; char-key-press).
 	(delete-overlay mouse-drag-overlay)))))
 
 ;; Commands to handle xterm-style multiple clicks.
-
 (defun mouse-skip-word (dir)
   "Skip over word, over whitespace, or over identical punctuation.
 If DIR is positive skip forward; if negative, skip backward."
@@ -840,12 +1109,12 @@ If DIR is positive skip forward; if negative, skip backward."
 	   (while (and (not (eobp)) (= (following-char) char))
 	     (forward-char 1))))))
 
-;; Return a list of region bounds based on START and END according to MODE.
-;; If MODE is 0 then set point to (min START END), mark to (max START END).
-;; If MODE is 1 then set point to start of word at (min START END),
-;; mark to end of word at (max START END).
-;; If MODE is 2 then do the same for lines.
 (defun mouse-start-end (start end mode)
+  "Return a list of region bounds based on START and END according to MODE.
+If MODE is 0 then set point to (min START END), mark to (max START END).
+If MODE is 1 then set point to start of word at (min START END),
+mark to end of word at (max START END).
+If MODE is 2 then do the same for lines."
   (if (> start end)
       (let ((temp start))
         (setq start end
@@ -866,7 +1135,7 @@ If DIR is positive skip forward; if negative, skip backward."
               (= start end)
 	      (char-after start)
               (= (char-syntax (char-after start)) ?\)))
-	 (list (save-excursion 
+	 (list (save-excursion
 		 (goto-char (1+ start))
 		 (backward-sexp 1)
 		 (point))
@@ -883,7 +1152,7 @@ If DIR is positive skip forward; if negative, skip backward."
 	       (list start
 		     (save-excursion
 		       (condition-case nil
-			   (progn 
+			   (progn
 			     (goto-char start)
 			     (forward-sexp 1)
 			     (point))
@@ -945,64 +1214,75 @@ If DIR is positive skip forward; if negative, skip backward."
       (setcar last event)
       nil)))
 
-;; Momentarily show where the mark is, if highlighting doesn't show it. 
+;; Momentarily show where the mark is, if highlighting doesn't show it.
 
-(defvar mouse-region-delete-keys '([delete])
-  "List of keys which shall cause the mouse region to be deleted.")
+(defcustom mouse-region-delete-keys '([delete] [deletechar] [backspace])
+  "List of keys that should cause the mouse region to be deleted."
+  :group 'mouse
+  :type '(repeat key-sequence))
 
 (defun mouse-show-mark ()
-  (if transient-mark-mode
-      (delete-overlay mouse-drag-overlay)
-    (let ((inhibit-quit t)
-	  (echo-keystrokes 0)
-	  event events key ignore
-	  x-lost-selection-hooks)
-      (add-hook 'x-lost-selection-hooks
-		(lambda (seltype)
-		  (if (eq seltype 'PRIMARY)
-		      (progn (setq ignore t)
-			     (throw 'mouse-show-mark t)))))
-      (move-overlay mouse-drag-overlay (point) (mark t))
-      (catch 'mouse-show-mark
-	;; In this loop, execute scroll bar and switch-frame events.
-	;; Also ignore down-events that are undefined.
-	(while (progn (setq event (read-event))
-		      (setq events (append events (list event)))
-		      (setq key (apply 'vector events))
-		      (or (and (consp event)
-			       (eq (car event) 'switch-frame))
-			  (and (consp event)
-			       (eq (posn-point (event-end event))
-				   'vertical-scroll-bar))
-			  (and (memq 'down (event-modifiers event))
-			       (not (key-binding key))
-			       (not (mouse-undouble-last-event events))
-			       (not (member key mouse-region-delete-keys)))))
-	  (and (consp event)
-	       (or (eq (car event) 'switch-frame)
-		   (eq (posn-point (event-end event))
-		       'vertical-scroll-bar))
-	       (let ((keys (vector 'vertical-scroll-bar event)))
-		 (and (key-binding keys)
-		      (progn
-			(call-interactively (key-binding keys)
-					    nil keys)
-			(setq events nil)))))))
-      ;; If we lost the selection, just turn off the highlighting.
-      (if ignore
-	  nil
-	;; For certain special keys, delete the region.
-	(if (member key mouse-region-delete-keys)
-	    (delete-region (overlay-start mouse-drag-overlay)
-			   (overlay-end mouse-drag-overlay))
-	  ;; Otherwise, unread the key so it gets executed normally.
-	  (setq unread-command-events
-		(nconc events unread-command-events))))
-      (setq quit-flag nil)
-      (delete-overlay mouse-drag-overlay))
-    (save-excursion
-      (goto-char (mark t))
-      (sit-for 1))))
+  (let ((inhibit-quit t)
+	(echo-keystrokes 0)
+	event events key ignore
+	(x-lost-selection-functions
+	 (when (boundp 'x-lost-selection-functions)
+           (copy-sequence x-lost-selection-functions))))
+    (add-hook 'x-lost-selection-functions
+	      (lambda (seltype)
+		(when (eq seltype 'PRIMARY)
+                  (setq ignore t)
+                  (throw 'mouse-show-mark t))))
+    (if transient-mark-mode
+	(delete-overlay mouse-drag-overlay)
+      (move-overlay mouse-drag-overlay (point) (mark t)))
+    (catch 'mouse-show-mark
+      ;; In this loop, execute scroll bar and switch-frame events.
+      ;; Should we similarly handle `select-window' events?  --Stef
+      ;; Also ignore down-events that are undefined.
+      (while (progn (setq event (read-event))
+		    (setq events (append events (list event)))
+		    (setq key (apply 'vector events))
+		    (or (and (consp event)
+			     (eq (car event) 'switch-frame))
+			(and (consp event)
+			     (eq (posn-point (event-end event))
+				 'vertical-scroll-bar))
+			(and (memq 'down (event-modifiers event))
+			     (not (key-binding key))
+			     (not (mouse-undouble-last-event events))
+			     (not (member key mouse-region-delete-keys)))))
+	(and (consp event)
+	     (or (eq (car event) 'switch-frame)
+		 (eq (posn-point (event-end event))
+		     'vertical-scroll-bar))
+	     (let ((keys (vector 'vertical-scroll-bar event)))
+	       (and (key-binding keys)
+		    (progn
+		      (call-interactively (key-binding keys)
+					  nil keys)
+		      (setq events nil)))))))
+    ;; If we lost the selection, just turn off the highlighting.
+    (unless ignore
+      ;; For certain special keys, delete the region.
+      (if (member key mouse-region-delete-keys)
+	  (progn
+	    ;; Since notionally this is a separate command,
+	    ;; run all the hooks that would be run if it were
+	    ;; executed separately.
+	    (run-hooks 'post-command-hook)
+	    (setq last-command this-command)
+	    (setq this-original-command 'delete-region)
+	    (setq this-command (or (command-remapping this-original-command)
+				   this-original-command))
+	    (run-hooks 'pre-command-hook)
+	    (call-interactively this-command))
+	;; Otherwise, unread the key so it gets executed normally.
+	(setq unread-command-events
+	      (nconc events unread-command-events))))
+    (setq quit-flag nil)
+    (unless transient-mark-mode
+      (delete-overlay mouse-drag-overlay))))
 
 (defun mouse-set-mark (click)
   "Set mark at the position clicked on with the mouse.
@@ -1035,7 +1315,7 @@ The text is saved in the kill ring, as with \\[kill-region]."
 (defun mouse-yank-at-click (click arg)
   "Insert the last stretch of killed text at the position clicked on.
 Also move point to one end of the text thus inserted (normally the end),
-and set mark at the beginning..
+and set mark at the beginning.
 Prefix arguments are interpreted as with \\[yank].
 If `mouse-yank-at-point' is non-nil, insert at point
 regardless of where you click."
@@ -1108,7 +1388,7 @@ which prepares for a second click to delete the text.
 If you have selected words or lines, this command extends the
 selection through the word or line clicked on.  If you do this
 again in a different position, it extends the selection again.
-If you do this twice in the same position, the selection is killed." 
+If you do this twice in the same position, the selection is killed."
   (interactive "e")
   (let ((before-scroll
 	 (with-current-buffer (window-buffer (posn-window (event-start click)))
@@ -1118,11 +1398,11 @@ If you do this twice in the same position, the selection is killed."
 	  ;; Don't let a subsequent kill command append to this one:
 	  ;; prevent setting this-command to kill-region.
 	  (this-command this-command))
-      (if (and (save-excursion
-		 (set-buffer (window-buffer (posn-window (event-start click))))
+      (if (and (with-current-buffer
+                   (window-buffer (posn-window (event-start click)))
 		 (and (mark t) (> (mod mouse-selection-click-count 3) 0)
 		      ;; Don't be fooled by a recent click in some other buffer.
-		      (eq mouse-selection-click-count-buffer 
+		      (eq mouse-selection-click-count-buffer
 			  (current-buffer)))))
 	  (if (not (and (eq last-command 'mouse-save-then-kill)
 			(equal click-posn
@@ -1182,15 +1462,14 @@ If you do this twice in the same position, the selection is killed."
 			  (goto-char new)
 			(set-mark new))
 		      (setq deactivate-mark nil)))
-		(kill-new (buffer-substring (point) (mark t)) t)
-		(mouse-show-mark))
+		(kill-new (buffer-substring (point) (mark t)) t))
 	    ;; Set the mark where point is, then move where clicked.
 	    (mouse-set-mark-fast click)
 	    (if before-scroll
 		(goto-char before-scroll))
-	    (exchange-point-and-mark)
-	    (kill-new (buffer-substring (point) (mark t)))
-	    (mouse-show-mark))
+	    (exchange-point-and-mark)   ;Why??? --Stef
+	    (kill-new (buffer-substring (point) (mark t))))
+          (mouse-show-mark)
 	  (mouse-set-region-1)
 	  (setq mouse-save-then-kill-posn
 		(list (car kill-ring) (point) click-posn)))))))
@@ -1201,10 +1480,13 @@ If you do this twice in the same position, the selection is killed."
 (global-set-key [M-mouse-3] 'mouse-secondary-save-then-kill)
 (global-set-key [M-mouse-2] 'mouse-yank-secondary)
 
-;; An overlay which records the current secondary selection
-;; or else is deleted when there is no secondary selection.
-;; May be nil.
-(defvar mouse-secondary-overlay nil)
+(defconst mouse-secondary-overlay
+  (let ((ol (make-overlay (point-min) (point-min))))
+    (delete-overlay ol)
+    (overlay-put ol 'face 'secondary-selection)
+    ol)
+  "An overlay which records the current secondary selection.
+It is deleted when there is no secondary selection.")
 
 (defvar mouse-secondary-click-count 0)
 
@@ -1219,11 +1501,9 @@ and complete the secondary selection."
   (interactive "e")
   (mouse-minibuffer-check click)
   (let ((posn (event-start click)))
-    (save-excursion
-      (set-buffer (window-buffer (posn-window posn)))
+    (with-current-buffer (window-buffer (posn-window posn))
       ;; Cancel any preexisting secondary selection.
-      (if mouse-secondary-overlay
-	  (delete-overlay mouse-secondary-overlay))
+      (delete-overlay mouse-secondary-overlay)
       (if (numberp (posn-point posn))
 	  (progn
 	    (or mouse-secondary-start
@@ -1238,14 +1518,14 @@ This must be bound to a mouse drag event."
   (let ((posn (event-start click))
 	beg
 	(end (event-end click)))
-    (save-excursion
-      (set-buffer (window-buffer (posn-window posn)))
+    (with-current-buffer (window-buffer (posn-window posn))
       (if (numberp (posn-point posn))
 	  (setq beg (posn-point posn)))
-      (if mouse-secondary-overlay
-	  (move-overlay mouse-secondary-overlay beg (posn-point end))
-	(setq mouse-secondary-overlay (make-overlay beg (posn-point end))))
-      (overlay-put mouse-secondary-overlay 'face 'secondary-selection))))
+      (move-overlay mouse-secondary-overlay beg (posn-point end))
+      (x-set-selection
+       'SECONDARY
+       (buffer-substring (overlay-start mouse-secondary-overlay)
+			 (overlay-end mouse-secondary-overlay))))))
 
 (defun mouse-drag-secondary (start-event)
   "Set the secondary selection to the text that the mouse is dragged over.
@@ -1258,7 +1538,6 @@ The function returns a non-nil value if it creates a secondary selection."
 	 (start-posn (event-start start-event))
 	 (start-point (posn-point start-posn))
 	 (start-window (posn-window start-posn))
-	 (start-frame (window-frame start-window))
 	 (bounds (window-edges start-window))
 	 (top (nth 1 bounds))
 	 (bottom (if (window-minibuffer-p start-window)
@@ -1266,20 +1545,16 @@ The function returns a non-nil value if it creates a secondary selection."
 		   ;; Don't count the mode line.
 		   (1- (nth 3 bounds))))
 	 (click-count (1- (event-click-count start-event))))
-    (save-excursion
-      (set-buffer (window-buffer start-window))
+    (with-current-buffer (window-buffer start-window)
       (setq mouse-secondary-click-count click-count)
-      (or mouse-secondary-overlay
-	  (setq mouse-secondary-overlay
-		(make-overlay (point) (point))))
-      (overlay-put mouse-secondary-overlay 'face 'secondary-selection)
       (if (> (mod click-count 3) 0)
 	  ;; Double or triple press: make an initial selection
 	  ;; of one word or line.
 	  (let ((range (mouse-start-end start-point start-point click-count)))
 	    (set-marker mouse-secondary-start nil)
-	    (move-overlay mouse-secondary-overlay 1 1
-			  (window-buffer start-window))
+            ;; Why the double move?  --Stef
+	    ;; (move-overlay mouse-secondary-overlay 1 1
+	    ;;     	  (window-buffer start-window))
 	    (move-overlay mouse-secondary-overlay (car range) (nth 1 range)
 			  (window-buffer start-window)))
 	;; Single-press: cancel any preexisting secondary selection.
@@ -1292,9 +1567,9 @@ The function returns a non-nil value if it creates a secondary selection."
 	  (while (progn
 		   (setq event (read-event))
 		   (or (mouse-movement-p event)
-		       (eq (car-safe event) 'switch-frame)))
+		       (memq (car-safe event) '(switch-frame select-window))))
 
-	    (if (eq (car-safe event) 'switch-frame)
+	    (if (memq (car-safe event) '(switch-frame select-window))
 		nil
 	      (setq end (event-end event)
 		    end-point (posn-point end))
@@ -1364,13 +1639,12 @@ is to prevent accidents."
 	      (current-buffer)))
 	(error "Select or click on the buffer where the secondary selection is")))
   (let (this-command)
-    (save-excursion
-      (set-buffer (overlay-buffer mouse-secondary-overlay))
+    (with-current-buffer (overlay-buffer mouse-secondary-overlay)
       (kill-region (overlay-start mouse-secondary-overlay)
 		   (overlay-end mouse-secondary-overlay))))
   (delete-overlay mouse-secondary-overlay)
 ;;;  (x-set-selection 'SECONDARY nil)
-  (setq mouse-secondary-overlay nil))
+  )
 
 (defun mouse-secondary-save-then-kill (click)
   "Save text to point in kill ring; the second time, kill the text.
@@ -1393,13 +1667,11 @@ again.  If you do this twice in the same position, it kills the selection."
 	;; prevent setting this-command to kill-region.
 	(this-command this-command))
     (or (eq (window-buffer (posn-window posn))
-	    (or (and mouse-secondary-overlay
-		     (overlay-buffer mouse-secondary-overlay))
+	    (or (overlay-buffer mouse-secondary-overlay)
 		(if mouse-secondary-start
 		    (marker-buffer mouse-secondary-start))))
 	(error "Wrong buffer"))
-    (save-excursion
-      (set-buffer (window-buffer (posn-window posn)))
+    (with-current-buffer (window-buffer (posn-window posn))
       (if (> (mod mouse-secondary-click-count 3) 0)
 	  (if (not (and (eq last-command 'mouse-secondary-save-then-kill)
 			(equal click-posn
@@ -1463,7 +1735,7 @@ again.  If you do this twice in the same position, it kills the selection."
 				      click-posn))
 		      (setq deactivate-mark nil)))
 		(if (eq last-command 'mouse-secondary-save-then-kill)
-		    ;; If the front of the kill ring comes from 
+		    ;; If the front of the kill ring comes from
 		    ;; an immediately previous use of this command,
 		    ;; replace it with the extended region.
 		    ;; (It would be annoying to make a separate entry.)
@@ -1478,10 +1750,7 @@ again.  If you do this twice in the same position, it kills the selection."
 		;; so put the other end here.
 		(let ((start (+ 0 mouse-secondary-start)))
 		  (kill-ring-save start click-posn)
-		  (if mouse-secondary-overlay
-		      (move-overlay mouse-secondary-overlay start click-posn)
-		    (setq mouse-secondary-overlay (make-overlay start click-posn)))
-		  (overlay-put mouse-secondary-overlay 'face 'secondary-selection))))
+                  (move-overlay mouse-secondary-overlay start click-posn))))
 	  (setq mouse-save-then-kill-posn
 		(list (car kill-ring) (point) click-posn))))
       (if (overlay-buffer mouse-secondary-overlay)
@@ -1516,6 +1785,8 @@ a large number if you prefer a mixed multitude.  The default is 4."
     ("ObjC" . "C")
     ("Text" . "Text")
     ("Outline" . "Text")
+    ("\\(HT\\|SG\\|X\\|XHT\\)ML" . "SGML")
+    ("log\\|diff\\|vc\\|cvs" . "Version Control") ; "Change Management"?
     ("Lisp" . "Lisp"))
   "How to group various major modes together in \\[mouse-buffer-menu].
 Each element has the form (REGEXP . GROUPNAME).
@@ -1604,7 +1875,9 @@ and selects that window."
     (let ((buf (x-popup-menu event menu))
 	  (window (posn-window (event-start event))))
       (when buf
-	    (or (framep window) (select-window window))
+	(select-window
+	 (if (framep window) (frame-selected-window window)
+	   window))
 	(switch-to-buffer buf)))))
 
 (defun mouse-buffer-menu-alist (buffers)
@@ -1617,7 +1890,7 @@ and selects that window."
 			    (string< (buffer-name elt1) (buffer-name elt2))))))
     (setq tail buffers)
     (while tail
-      (or (eq ?\ (aref (buffer-name (car tail)) 0))
+      (or (eq ?\s (aref (buffer-name (car tail)) 0))
 	  (setq maxlen
 		(max maxlen
 		     (length (buffer-name (car tail))))))
@@ -1625,7 +1898,7 @@ and selects that window."
     (setq tail buffers)
     (while tail
       (let ((elt (car tail)))
-	(if (/= (aref (buffer-name elt) 0) ?\ )
+	(if (/= (aref (buffer-name elt) 0) ?\s)
 	    (setq head
 		  (cons
 		   (cons
@@ -1636,7 +1909,7 @@ and selects that window."
 		     (save-excursion
 		       (set-buffer elt)
 		       (if buffer-read-only "%" " "))
-		     (or (buffer-file-name elt) 
+		     (or (buffer-file-name elt)
 			 (save-excursion
 			   (set-buffer elt)
 			   (if list-buffers-directory
@@ -1673,27 +1946,27 @@ and selects that window."
 ;;; These need to be rewritten for the new scroll bar implementation.
 
 ;;;!! ;; Commands for the scroll bar.
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-down (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (scroll-down (1+ (cdr (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-up (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (scroll-up (1+ (cdr (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-down-full ()
 ;;;!!   (interactive "@")
 ;;;!!   (scroll-down nil))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-up-full ()
 ;;;!!   (interactive "@")
 ;;;!!   (scroll-up nil))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-move-cursor (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (move-to-window-line (1+ (cdr (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-absolute (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (let* ((pos (car event))
@@ -1707,70 +1980,70 @@ and selects that window."
 ;;;!! 		      scale-factor)))
 ;;;!!       (goto-char newpos)
 ;;;!!       (recenter '(4)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-left (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (scroll-left (1+ (car (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-right (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (scroll-right (1+ (car (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-left-full ()
 ;;;!!   (interactive "@")
 ;;;!!   (scroll-left nil))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-right-full ()
 ;;;!!   (interactive "@")
 ;;;!!   (scroll-right nil))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-move-cursor-horizontally (click)
 ;;;!!   (interactive "@e")
 ;;;!!   (move-to-column (1+ (car (mouse-coords click)))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-scroll-absolute-horizontally (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (let* ((pos (car event))
 ;;;!! 	 (position (car pos))
 ;;;!! 	 (length (car (cdr pos))))
 ;;;!!   (set-window-hscroll (selected-window) 33)))
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [scroll-bar mouse-1] 'mouse-scroll-up)
 ;;;!! (global-set-key [scroll-bar mouse-2] 'mouse-scroll-absolute)
 ;;;!! (global-set-key [scroll-bar mouse-3] 'mouse-scroll-down)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [vertical-slider mouse-1] 'mouse-scroll-move-cursor)
 ;;;!! (global-set-key [vertical-slider mouse-2] 'mouse-scroll-move-cursor)
 ;;;!! (global-set-key [vertical-slider mouse-3] 'mouse-scroll-move-cursor)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [thumbup mouse-1] 'mouse-scroll-up-full)
 ;;;!! (global-set-key [thumbup mouse-2] 'mouse-scroll-up-full)
 ;;;!! (global-set-key [thumbup mouse-3] 'mouse-scroll-up-full)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [thumbdown mouse-1] 'mouse-scroll-down-full)
 ;;;!! (global-set-key [thumbdown mouse-2] 'mouse-scroll-down-full)
 ;;;!! (global-set-key [thumbdown mouse-3] 'mouse-scroll-down-full)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [horizontal-scroll-bar mouse-1] 'mouse-scroll-left)
 ;;;!! (global-set-key [horizontal-scroll-bar mouse-2]
 ;;;!! 		'mouse-scroll-absolute-horizontally)
 ;;;!! (global-set-key [horizontal-scroll-bar mouse-3] 'mouse-scroll-right)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [horizontal-slider mouse-1]
 ;;;!! 		'mouse-scroll-move-cursor-horizontally)
 ;;;!! (global-set-key [horizontal-slider mouse-2]
 ;;;!! 		'mouse-scroll-move-cursor-horizontally)
 ;;;!! (global-set-key [horizontal-slider mouse-3]
 ;;;!! 		'mouse-scroll-move-cursor-horizontally)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [thumbleft mouse-1] 'mouse-scroll-left-full)
 ;;;!! (global-set-key [thumbleft mouse-2] 'mouse-scroll-left-full)
 ;;;!! (global-set-key [thumbleft mouse-3] 'mouse-scroll-left-full)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [thumbright mouse-1] 'mouse-scroll-right-full)
 ;;;!! (global-set-key [thumbright mouse-2] 'mouse-scroll-right-full)
 ;;;!! (global-set-key [thumbright mouse-3] 'mouse-scroll-right-full)
-;;;!! 
+;;;!!
 ;;;!! (global-set-key [horizontal-scroll-bar S-mouse-2]
 ;;;!! 		'mouse-split-window-horizontally)
 ;;;!! (global-set-key [mode-line S-mouse-2]
@@ -1802,7 +2075,7 @@ and selects that window."
 ;;;!! ;;		   (car relative-coordinate)
 ;;;!! ;;		   (car (cdr relative-coordinate)))
 ;;;!! ;;	(message "mouse: [%d %d]" abs-x abs-y)))))
-;;;!! 
+;;;!!
 ;;;!! ;;
 ;;;!! ;; Dynamically put a box around the line indicated by point
 ;;;!! ;;
@@ -1843,7 +2116,7 @@ and selects that window."
 ;;;!! ;;	       (abs-x (car pos))
 ;;;!! ;;	       (abs-y (cdr pos))
 ;;;!! ;;	       (relative-coordinate
-;;;!! ;;		(coordinates-in-window-p (` ((, abs-x) (, abs-y)))
+;;;!! ;;		(coordinates-in-window-p `(,abs-x ,abs-y)
 ;;;!! ;;					 (selected-window)))
 ;;;!! ;;	       (begin-reg nil)
 ;;;!! ;;	       (end-reg nil)
@@ -1874,20 +2147,20 @@ and selects that window."
 ;;;!! ;;      (progn
 ;;;!! ;;	(x-erase-rectangle (selected-screen))
 ;;;!! ;;	(setq last-line-drawn nil))))
-;;;!! 
+;;;!!
 ;;;!! ;;; (defun test-x-rectangle ()
 ;;;!! ;;;   (use-local-mouse-map (setq rectangle-test-map (make-sparse-keymap)))
 ;;;!! ;;;   (define-key rectangle-test-map mouse-motion-button-left 'mouse-boxing)
 ;;;!! ;;;   (define-key rectangle-test-map mouse-button-left-up 'mouse-erase-box))
-;;;!! 
+;;;!!
 ;;;!! ;;
 ;;;!! ;; Here is how to do double clicking in lisp.  About to change.
 ;;;!! ;;
-;;;!! 
+;;;!!
 ;;;!! (defvar double-start nil)
 ;;;!! (defconst double-click-interval 300
 ;;;!!   "Max ticks between clicks")
-;;;!! 
+;;;!!
 ;;;!! (defun double-down (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (if double-start
@@ -1899,58 +2172,58 @@ and selects that window."
 ;;;!! 	      (sleep-for 1)))
 ;;;!! 	(setq double-start nil))
 ;;;!!     (setq double-start (nth 4 event))))
-;;;!!     
+;;;!!
 ;;;!! (defun double-up (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (and double-start
 ;;;!!        (> (- (nth 4 event ) double-start) double-click-interval)
 ;;;!!        (setq double-start nil)))
-;;;!! 
+;;;!!
 ;;;!! ;;; (defun x-test-doubleclick ()
 ;;;!! ;;;   (use-local-mouse-map (setq doubleclick-test-map (make-sparse-keymap)))
 ;;;!! ;;;   (define-key doubleclick-test-map mouse-button-left 'double-down)
 ;;;!! ;;;   (define-key doubleclick-test-map mouse-button-left-up 'double-up))
-;;;!! 
+;;;!!
 ;;;!! ;;
 ;;;!! ;; This scrolls while button is depressed.  Use preferable in scroll bar.
 ;;;!! ;;
-;;;!! 
+;;;!!
 ;;;!! (defvar scrolled-lines 0)
 ;;;!! (defconst scroll-speed 1)
-;;;!! 
+;;;!!
 ;;;!! (defun incr-scroll-down (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (setq scrolled-lines 0)
 ;;;!!   (incremental-scroll scroll-speed))
-;;;!! 
+;;;!!
 ;;;!! (defun incr-scroll-up (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (setq scrolled-lines 0)
 ;;;!!   (incremental-scroll (- scroll-speed)))
-;;;!! 
+;;;!!
 ;;;!! (defun incremental-scroll (n)
 ;;;!!   (while (= (x-mouse-events) 0)
 ;;;!!     (setq scrolled-lines (1+ (* scroll-speed scrolled-lines)))
 ;;;!!     (scroll-down n)
 ;;;!!     (sit-for 300 t)))
-;;;!! 
+;;;!!
 ;;;!! (defun incr-scroll-stop (event)
 ;;;!!   (interactive "@e")
 ;;;!!   (message "Scrolled %d lines" scrolled-lines)
 ;;;!!   (setq scrolled-lines 0)
 ;;;!!   (sleep-for 1))
-;;;!! 
+;;;!!
 ;;;!! ;;; (defun x-testing-scroll ()
 ;;;!! ;;;   (let ((scrolling-map (function mouse-vertical-scroll-bar-prefix)))
 ;;;!! ;;;     (define-key scrolling-map mouse-button-left 'incr-scroll-down)
 ;;;!! ;;;     (define-key scrolling-map mouse-button-right 'incr-scroll-up)
 ;;;!! ;;;     (define-key scrolling-map mouse-button-left-up 'incr-scroll-stop)
 ;;;!! ;;;     (define-key scrolling-map mouse-button-right-up 'incr-scroll-stop)))
-;;;!! 
+;;;!!
 ;;;!! ;;
 ;;;!! ;; Some playthings suitable for picture mode?  They need work.
 ;;;!! ;;
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-kill-rectangle (event)
 ;;;!!   "Kill the rectangle between point and the mouse cursor."
 ;;;!!   (interactive "@e")
@@ -1961,7 +2234,7 @@ and selects that window."
 ;;;!!       (if (> point-save (point))
 ;;;!! 	  (kill-rectangle (point) point-save)
 ;;;!! 	(kill-rectangle point-save (point))))))
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-open-rectangle (event)
 ;;;!!   "Kill the rectangle between point and the mouse cursor."
 ;;;!!   (interactive "@e")
@@ -1972,16 +2245,16 @@ and selects that window."
 ;;;!!       (if (> point-save (point))
 ;;;!! 	  (open-rectangle (point) point-save)
 ;;;!! 	(open-rectangle point-save (point))))))
-;;;!! 
+;;;!!
 ;;;!! ;; Must be a better way to do this.
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-multiple-insert (n char)
 ;;;!!   (while (> n 0)
 ;;;!!     (insert char)
 ;;;!!     (setq n (1- n))))
-;;;!! 
+;;;!!
 ;;;!! ;; What this could do is not finalize until button was released.
-;;;!! 
+;;;!!
 ;;;!! (defun mouse-move-text (event)
 ;;;!!   "Move text from point to cursor position, inserting spaces."
 ;;;!!   (interactive "@e")
@@ -2021,7 +2294,7 @@ and selects that window."
 	  (setq beg (previous-single-property-change beg 'mouse-face))
 	  (setq end (or (next-single-property-change end 'mouse-face)
 			(point-max)))
-	  (setq choice (buffer-substring beg end)))))
+	  (setq choice (buffer-substring-no-properties beg end)))))
     (let ((owindow (selected-window)))
       (select-window (posn-window (event-start event)))
       (if (and (one-window-p t 'selected-frame)
@@ -2117,12 +2390,16 @@ and selects that window."
   "X fonts suitable for use in Emacs.")
 
 (defun mouse-set-font (&rest fonts)
-  "Select an emacs font from a list of known good fonts and fontsets."
+  "Select an Emacs font from a list of known good fonts and fontsets."
   (interactive
-   (x-popup-menu
-    last-nonmenu-event
-    ;; Append list of fontsets currently defined.
-    (append x-fixed-font-alist (list (generate-fontset-menu)))))
+   (progn (unless (display-multi-font-p)
+	    (error "Cannot change fonts on this display"))
+	  (x-popup-menu
+	   (if (listp last-nonmenu-event)
+	       last-nonmenu-event
+	     (list '(0 0) (selected-window)))
+	   ;; Append list of fontsets currently defined.
+	   (append x-fixed-font-alist (list (generate-fontset-menu))))))
   (if fonts
       (let (font)
 	(while fonts
@@ -2146,8 +2423,17 @@ and selects that window."
 (global-set-key [double-mouse-1] 'mouse-set-point)
 (global-set-key [triple-mouse-1] 'mouse-set-point)
 
+;; Clicking on the fringes causes hscrolling:
+(global-set-key [left-fringe mouse-1]	'mouse-set-point)
+(global-set-key [right-fringe mouse-1]	'mouse-set-point)
+
 (global-set-key [mouse-2]	'mouse-yank-at-click)
+;; Allow yanking also when the corresponding cursor is "in the fringe".
+(global-set-key [right-fringe mouse-2] 'mouse-yank-at-click)
+(global-set-key [left-fringe mouse-2] 'mouse-yank-at-click)
 (global-set-key [mouse-3]	'mouse-save-then-kill)
+(global-set-key [right-fringe mouse-3]	'mouse-save-then-kill)
+(global-set-key [left-fringe mouse-3]	'mouse-save-then-kill)
 
 ;; By binding these to down-going events, we let the user use the up-going
 ;; event to make the selection, saving a click.
@@ -2187,4 +2473,5 @@ and selects that window."
 (make-obsolete 'mldrag-drag-vertical-line 'mouse-drag-vertical-line "21.1")
 (provide 'mldrag)
 
+;; arch-tag: 9a710ce1-914a-4923-9b81-697f7bf82ab3
 ;;; mouse.el ends here

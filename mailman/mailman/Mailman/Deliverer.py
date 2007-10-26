@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """Mixin class with message delivery routines."""
@@ -41,8 +42,6 @@ except NameError:
 class Deliverer:
     def SendSubscribeAck(self, name, password, digest, text=''):
         pluser = self.getMemberLanguage(name)
-        if not self.send_welcome_msg:
-            return
         if self.welcome_msg:
             welcome = Utils.wrap(self.welcome_msg) + '\n'
         else:
@@ -112,19 +111,27 @@ your membership administrative address, %(addr)s.'''))
         cpuser = self.getMemberCPAddress(user)
         recipient = self.GetMemberAdminEmail(cpuser)
         subject = _('%(listfullname)s mailing list reminder')
+        # Get user's language and charset
+        lang = self.getMemberLanguage(user)
+        cset = Utils.GetCharSet(lang)
+        password = self.getMemberPassword(user)
+        # TK: Make unprintables to ?
+        # The list owner should allow users to set language options if they
+        # want to use non-us-ascii characters in password and send it back.
+        password = unicode(password, cset, 'replace').encode(cset, 'replace')
         # get the text from the template
         text = Utils.maketext(
             'userpass.txt',
             {'user'       : cpuser,
              'listname'   : self.real_name,
              'fqdn_lname' : self.GetListEmail(),
-             'password'   : self.getMemberPassword(user),
+             'password'   : password,
              'options_url': self.GetOptionsURL(user, absolute=True),
              'requestaddr': requestaddr,
              'owneraddr'  : self.GetOwnerEmail(),
-            }, lang=self.getMemberLanguage(user), mlist=self)
+            }, lang=lang, mlist=self)
         msg = Message.UserNotification(recipient, adminaddr, subject, text,
-                                       self.getMemberLanguage(user))
+                                       lang)
         msg['X-No-Archive'] = 'yes'
         msg.send(self, verp=mm_cfg.VERP_PERSONALIZED_DELIVERIES)
 
@@ -189,7 +196,6 @@ is required.""")))
         d = {'listname': listname,
              'address': member,
              'optionsurl': self.GetOptionsURL(member, absolute=True),
-             'password': self.getMemberPassword(member),
              'owneraddr': self.GetOwnerEmail(),
              }
         text = Utils.maketext('probe.txt', d,
@@ -212,7 +218,8 @@ is required.""")))
             subject = _('%(listname)s mailing list probe message')
         finally:
             i18n.set_translation(otrans)
-        outer = Message.UserNotification(member, probeaddr, subject)
+        outer = Message.UserNotification(member, probeaddr, subject,
+                                         lang=ulang)
         outer.set_type('multipart/mixed')
         text = MIMEText(text, _charset=Utils.GetCharSet(ulang))
         outer.attach(text)

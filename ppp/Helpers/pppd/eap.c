@@ -37,7 +37,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: eap.c,v 1.22 2005/05/20 23:27:49 lindak Exp $"
+#define RCSID	"$Id: eap.c,v 1.25 2005/12/13 06:30:15 lindak Exp $"
 
 #include <stdio.h>
 #include <string.h>
@@ -106,6 +106,7 @@ struct protent eap_protent = {
     NULL,
     NULL,
 #ifdef __APPLE__
+    NULL,
     NULL,
     NULL,
     NULL
@@ -713,7 +714,7 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 
     GETCHAR(type, inp);		/* get type */
     len -= 1;
-    if ((type != EAP_TYPE_NAK && type != cstate->req_type)
+    if ((type != EAP_TYPE_NAK && cstate->req_type && type != cstate->req_type)
 		|| (type == EAP_TYPE_NAK && cstate->server_ext == 0)) {
 	EAPDEBUG(("EapReceiveResponse: type doesn't match our request."));
 	return;			/* doesn't match type of last challenge */
@@ -754,6 +755,15 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 
 				last_eap = cstate->server_ext;
 
+                /* check if we support the type desired by the client */
+                eap = EapSupportedType(auth_type);
+                if (eap == NULL && last_eap->type == 0) {
+					/* if we don't support the specfic type, but are currently doing type 0 (eap radius proxy)
+						then just process the NAK */
+					EAPServerProcess(cstate, EAP_NOTIFICATION_PACKET, inpacket, packet_len);
+					break;
+				}
+				
 				/* free previous selected eap module */ 
 				cstate->server_ext->dispose(cstate->server_ext_ctx);
 				free (cstate->server_ext_input);
@@ -763,11 +773,9 @@ EapReceiveResponse(cstate, inpacket, packet_len,  inp, id, len)
 				cstate->server_ext_input = 0;
 				cstate->server_ext_output = 0;
 				
-                /* check if we support the type desired by the client */
-                eap = EapSupportedType(auth_type);
-                if (eap == NULL) {
+				if (eap == NULL) {
 				
-					/* if not, then use next in list */
+					/* if not supported, then use next in list */
 					eap = last_eap->next; 
 					if (eap == NULL) {
 						error("Server and client disagree on EAP type");
@@ -1387,10 +1395,13 @@ eaploadplugin(argv)
     if (eap == 0)
         novm("Couldn't allocate memory for EAP plugin");
     
+	bzero(eap, sizeof(eap_ext));
+
     err = sys_eaploadplugin(*argv, eap);
     if (err) {
 	option_error("Couldn't load EAP plugin %s", arg);
-        return 0;
+		// continue without loading plugin
+        return 1;
     }
 
     if (eap->init == 0 || eap->dispose == 0 || eap->process == 0) {

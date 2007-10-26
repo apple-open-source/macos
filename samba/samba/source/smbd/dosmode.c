@@ -2,6 +2,7 @@
    Unix SMB/CIFS implementation.
    dos mode handling functions
    Copyright (C) Andrew Tridgell 1992-1998
+   Copyright (C) James Peach 2006
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,10 +21,37 @@
 
 #include "includes.h"
 
+static int set_sparse_flag(const SMB_STRUCT_STAT * const sbuf)
+{
+#if defined (HAVE_STAT_ST_BLOCKS) && defined(STAT_ST_BLOCKSIZE)
+	if (sbuf->st_size > sbuf->st_blocks * (SMB_OFF_T)STAT_ST_BLOCKSIZE) {
+		return FILE_ATTRIBUTE_SPARSE;
+	}
+#endif
+	return 0;
+}
+
+/****************************************************************************
+ Work out whether this file is offline
+****************************************************************************/
+
+static uint32 set_offline_flag(connection_struct *conn, const char *const path)
+{
+	if (ISDOT(path) || ISDOTDOT(path)) {
+		return 0;
+	}
+
+	if (!lp_dmapi_support(SNUM(conn)) || !dmapi_have_session()) {
+		return 0;
+	}
+
+	return dmapi_file_flags(path);
+}
+
 /****************************************************************************
  Change a dos mode to a unix mode.
     Base permission for files:
-         if inheriting
+         if creating file and inheriting (i.e. parent_dir != NULL)
            apply read/write bits from parent directory.
          else   
            everybody gets read bit set
@@ -43,23 +71,26 @@
          }
 ****************************************************************************/
 
-mode_t unix_mode(connection_struct *conn, int dosmode, const char *fname)
+mode_t unix_mode(connection_struct *conn, int dosmode, const char *fname,
+		 const char *inherit_from_dir)
 {
 	mode_t result = (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH);
-	mode_t dir_mode = 0; /* Mode of the parent directory if inheriting. */
+	mode_t dir_mode = 0; /* Mode of the inherit_from directory if
+			      * inheriting. */
 
 	if (!lp_store_dos_attributes(SNUM(conn)) && IS_DOS_READONLY(dosmode)) {
 		result &= ~(S_IWUSR | S_IWGRP | S_IWOTH);
 	}
 
-	if (fname && lp_inherit_perms(SNUM(conn))) {
-		char *dname;
+	if (fname && (inherit_from_dir != NULL)
+	    && lp_inherit_perms(SNUM(conn))) {
 		SMB_STRUCT_STAT sbuf;
 
-		dname = parent_dirname(fname);
-		DEBUG(2,("unix_mode(%s) inheriting from %s\n",fname,dname));
-		if (SMB_VFS_STAT(conn,dname,&sbuf) != 0) {
-			DEBUG(4,("unix_mode(%s) failed, [dir %s]: %s\n",fname,dname,strerror(errno)));
+		DEBUG(2, ("unix_mode(%s) inheriting from %s\n", fname,
+			  inherit_from_dir));
+		if (SMB_VFS_STAT(conn, inherit_from_dir, &sbuf) != 0) {
+			DEBUG(4,("unix_mode(%s) failed, [dir %s]: %s\n", fname,
+				 inherit_from_dir, strerror(errno)));
 			return(0);      /* *** shouldn't happen! *** */
 		}
 
@@ -116,30 +147,86 @@ mode_t unix_mode(connection_struct *conn, int dosmode, const char *fname)
  Change a unix mode to a dos mode.
 ****************************************************************************/
 
-uint32 dos_mode_from_sbuf(connection_struct *conn, SMB_STRUCT_STAT *sbuf)
+static uint32 dos_mode_from_sbuf(connection_struct *conn, const char *path, SMB_STRUCT_STAT *sbuf)
 {
 	int result = 0;
+	enum mapreadonly_options ro_opts = (enum mapreadonly_options)lp_map_readonly(SNUM(conn));
 
-	if ((sbuf->st_mode & S_IWUSR) == 0)
+#if defined(HAVE_STAT_ST_FLAGS) && defined(UF_IMMUTABLE) && defined(SF_IMMUTABLE)
+	/* We should check the immutable bit irrespective of which MAP_READONLY
+	 * mode we are in.
+	 */
+	if (sbuf->st_flags & (UF_IMMUTABLE | SF_IMMUTABLE)) {
 		result |= aRONLY;
-	
-	if (MAP_ARCHIVE(conn) && ((sbuf->st_mode & S_IXUSR) != 0))
+	}
+
+#else
+	if (ro_opts == MAP_READONLY_YES) {
+		/* Original Samba method - map inverse of user "w" bit. */
+		if ((sbuf->st_mode & S_IWUSR) == 0) {
+			result |= aRONLY;
+		}
+	} else if (ro_opts == MAP_READONLY_PERMISSIONS) {
+		/* Check actual permissions for read-only. */
+		if (!can_write_to_file(conn, path, sbuf)) {
+			result |= aRONLY;
+		}
+	} /* Else never set the readonly bit. */
+#endif
+
+#if defined(HAVE_STAT_ST_FLAGS)
+	/* The archived bit really only makes sense for regular files. Some
+	 * systems hijack it for different purposes on directories anyway, so
+	 * it is best avoided.
+	 */
+	if (S_ISREG(sbuf->st_mode)) {
 		result |= aARCH;
 
-	if (MAP_SYSTEM(conn) && ((sbuf->st_mode & S_IXGRP) != 0))
+#if defined(SF_ARCHIVED)
+		/* aARCH means "needs to be archived", but SF_ARCHIVED
+		 * means "was already archived", so we invert the sense
+		 * here.
+		 */
+		if (sbuf->st_flags & SF_ARCHIVED) {
+			result &= ~aARCH;
+		}
+#endif
+#if defined(UF_NODUMP)
+		/* If a file is marked as not to be dumped (backed up), this
+		 * is approximately the same as marking it as already
+		 * having been backed up. The net effect is that any app
+		 * looking at these flags will figure it doesn't need to
+		 * be backed up.
+		 */
+		if (sbuf->st_flags & UF_NODUMP) {
+			result &= ~aARCH;
+		}
+#endif
+	}
+#else
+	if (MAP_ARCHIVE(conn) && ((sbuf->st_mode & S_IXUSR) != 0)) {
+		result |= aARCH;
+	}
+#endif
+
+	if ( MAP_SYSTEM(conn) && ((sbuf->st_mode & S_IXGRP) != 0)) {
 		result |= aSYSTEM;
+	}
 	
-	if (MAP_HIDDEN(conn) && ((sbuf->st_mode & S_IXOTH) != 0))
+#if defined(HAVE_STAT_ST_FLAGS) && defined(UF_HIDDEN)
+	if (sbuf->st_flags & UF_HIDDEN) {
+		result |= aHIDDEN;
+	}
+#else
+	if ( MAP_HIDDEN(conn) && ((sbuf->st_mode & S_IXOTH) != 0)) {
 		result |= aHIDDEN;   
-  
+	}
+#endif
+
 	if (S_ISDIR(sbuf->st_mode))
 		result = aDIR | (result & aRONLY);
 
-#if defined (HAVE_STAT_ST_BLOCKS) && defined(STAT_ST_BLOCKSIZE)
-	if (sbuf->st_size > sbuf->st_blocks * (SMB_OFF_T)STAT_ST_BLOCKSIZE) {
-		result |= FILE_ATTRIBUTE_SPARSE;
-	}
-#endif
+	result |= set_sparse_flag(sbuf);
  
 #ifdef S_ISLNK
 #if LINKS_READ_ONLY
@@ -174,12 +261,13 @@ static BOOL get_ea_dos_attribute(connection_struct *conn, const char *path,SMB_S
 		return False;
 	}
 
-	*pattr = 0;
+	/* Don't reset pattr to zero as we may already have filename-based attributes we
+	   need to preserve. */
 
 	sizeret = SMB_VFS_GETXATTR(conn, path, SAMBA_XATTR_DOS_ATTRIB, attrstr, sizeof(attrstr));
 	if (sizeret == -1) {
 #if defined(ENOTSUP) && defined(ENOATTR)
-		if ((errno != ENOTSUP) && (errno != ENOATTR) && (errno != EACCES)) {
+		if ((errno != ENOTSUP) && (errno != ENOATTR) && (errno != EACCES) && (errno != EPERM)) {
 			DEBUG(1,("get_ea_dos_attributes: Cannot get attribute from EA on file %s: Error = %s\n",
 				path, strerror(errno) ));
 			set_store_dos_attributes(SNUM(conn), False);
@@ -244,7 +332,7 @@ static BOOL set_ea_dos_attribute(connection_struct *conn, const char *path, SMB_
 		}
 
 		/* We want DOS semantics, ie allow non owner with write permission to change the
-			bits on a file. Just like file_utime below.
+			bits on a file. Just like file_ntimes below.
 		*/
 
 		/* Check if we have write access. */
@@ -257,8 +345,7 @@ static BOOL set_ea_dos_attribute(connection_struct *conn, const char *path, SMB_
 		 * are not violating security in doing the setxattr.
 		 */
 
-		fsp = open_file_fchmod(conn,path,sbuf);
-		if (!fsp)
+		if (!NT_STATUS_IS_OK(open_file_fchmod(conn,path,sbuf,&fsp)))
 			return ret;
 		become_root();
 		if (SMB_VFS_SETXATTR(conn, path, SAMBA_XATTR_DOS_ATTRIB, attrstr, strlen(attrstr), 0) == 0) {
@@ -270,6 +357,57 @@ static BOOL set_ea_dos_attribute(connection_struct *conn, const char *path, SMB_
 	}
 	DEBUG(10,("set_ea_dos_attribute: set EA %s on file %s\n", attrstr, path));
 	return True;
+}
+
+/****************************************************************************
+ Change a unix mode to a dos mode for an ms dfs link.
+****************************************************************************/
+
+uint32 dos_mode_msdfs(connection_struct *conn, const char *path,SMB_STRUCT_STAT *sbuf)
+{
+	uint32 result = 0;
+
+	DEBUG(8,("dos_mode_msdfs: %s\n", path));
+
+	if (!VALID_STAT(*sbuf)) {
+		return 0;
+	}
+
+	/* First do any modifications that depend on the path name. */
+	/* hide files with a name starting with a . */
+	if (lp_hide_dot_files(SNUM(conn))) {
+		const char *p = strrchr_m(path,'/');
+		if (p) {
+			p++;
+		} else {
+			p = path;
+		}
+		
+		if (p[0] == '.' && p[1] != '.' && p[1] != 0) {
+			result |= aHIDDEN;
+		}
+	}
+	
+	result |= dos_mode_from_sbuf(conn, path, sbuf);
+
+	/* Optimization : Only call is_hidden_path if it's not already
+	   hidden. */
+	if (!(result & aHIDDEN) && IS_HIDDEN_PATH(conn,path)) {
+		result |= aHIDDEN;
+	}
+
+	DEBUG(8,("dos_mode_msdfs returning "));
+
+	if (result & aHIDDEN) DEBUG(8, ("h"));
+	if (result & aRONLY ) DEBUG(8, ("r"));
+	if (result & aSYSTEM) DEBUG(8, ("s"));
+	if (result & aDIR   ) DEBUG(8, ("d"));
+	if (result & aARCH  ) DEBUG(8, ("a"));
+	if (result & FILE_ATTRIBUTE_SPARSE ) DEBUG(8, ("[sparse]"));
+	
+	DEBUG(8,("\n"));
+
+	return(result);
 }
 
 /****************************************************************************
@@ -286,26 +424,32 @@ uint32 dos_mode(connection_struct *conn, const char *path,SMB_STRUCT_STAT *sbuf)
 		return 0;
 	}
 
-	/* Get the DOS attributes from an EA by preference. */
-	if (get_ea_dos_attribute(conn, path, sbuf, &result)) {
-		return result;
-	}
-
-	result = dos_mode_from_sbuf(conn, sbuf);
-
-	/* Now do any modifications that depend on the path name. */
+	/* First do any modifications that depend on the path name. */
 	/* hide files with a name starting with a . */
 	if (lp_hide_dot_files(SNUM(conn))) {
 		const char *p = strrchr_m(path,'/');
-		if (p)
+		if (p) {
 			p++;
-		else
+		} else {
 			p = path;
+		}
 		
-		if (p[0] == '.' && p[1] != '.' && p[1] != 0)
+		if (p[0] == '.' && p[1] != '.' && p[1] != 0) {
 			result |= aHIDDEN;
+		}
 	}
 	
+	/* Get the DOS attributes from an EA by preference. */
+	if (get_ea_dos_attribute(conn, path, sbuf, &result)) {
+		result |= set_sparse_flag(sbuf);
+	} else {
+		result |= dos_mode_from_sbuf(conn, path, sbuf);
+	}
+
+	if (S_ISREG(sbuf->st_mode)) {
+		result |= set_offline_flag(conn, path);
+	}
+
 	/* Optimization : Only call is_hidden_path if it's not already
 	   hidden. */
 	if (!(result & aHIDDEN) && IS_HIDDEN_PATH(conn,path)) {
@@ -319,6 +463,7 @@ uint32 dos_mode(connection_struct *conn, const char *path,SMB_STRUCT_STAT *sbuf)
 	if (result & aSYSTEM) DEBUG(8, ("s"));
 	if (result & aDIR   ) DEBUG(8, ("d"));
 	if (result & aARCH  ) DEBUG(8, ("a"));
+	if (result & FILE_ATTRIBUTE_SPARSE ) DEBUG(8, ("[sparse]"));
 	
 	DEBUG(8,("\n"));
 
@@ -329,7 +474,9 @@ uint32 dos_mode(connection_struct *conn, const char *path,SMB_STRUCT_STAT *sbuf)
  chmod a file - but preserve some bits.
 ********************************************************************/
 
-int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode, SMB_STRUCT_STAT *st)
+int file_set_dosmode(connection_struct *conn, const char *fname,
+		     uint32 dosmode, SMB_STRUCT_STAT *st,
+		     const char *parent_dir)
 {
 	SMB_STRUCT_STAT st1;
 	int mask=0;
@@ -337,8 +484,11 @@ int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode,
 	mode_t unixmode;
 	int ret = -1;
 
+	/* We only allow READONLY|HIDDEN|SYSTEM|DIRECTORY|ARCHIVE here. */
+	dosmode &= SAMBA_ATTRIBUTES_MASK;
+
 	DEBUG(10,("file_set_dosmode: setting dos mode 0x%x on file %s\n", dosmode, fname));
-	if (!st) {
+	if (!st || (st && !VALID_STAT(*st))) {
 		st = &st1;
 		if (SMB_VFS_STAT(conn,fname,st))
 			return(-1);
@@ -359,7 +509,7 @@ int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode,
 		return 0;
 	}
 
-	unixmode = unix_mode(conn,dosmode,fname);
+	unixmode = unix_mode(conn,dosmode,fname, parent_dir);
 
 	/* preserve the s bits */
 	mask |= (S_ISUID | S_ISGID);
@@ -391,8 +541,11 @@ int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode,
 		unixmode |= (st->st_mode & (S_IWUSR|S_IWGRP|S_IWOTH));
 	}
 
-	if ((ret = SMB_VFS_CHMOD(conn,fname,unixmode)) == 0)
+	if ((ret = SMB_VFS_CHMOD(conn,fname,unixmode)) == 0) {
+		notify_fname(conn, NOTIFY_ACTION_MODIFIED,
+			     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
 		return 0;
+	}
 
 	if((errno != EPERM) && (errno != EACCES))
 		return -1;
@@ -401,7 +554,7 @@ int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode,
 		return -1;
 
 	/* We want DOS semantics, ie allow non owner with write permission to change the
-		bits on a file. Just like file_utime below.
+		bits on a file. Just like file_ntimes below.
 	*/
 
 	/* Check if we have write access. */
@@ -414,39 +567,55 @@ int file_set_dosmode(connection_struct *conn, const char *fname, uint32 dosmode,
 		 * holding. We need to review this.... may need to
 		 * break batch oplocks open by others. JRA.
 		 */
-		files_struct *fsp = open_file_fchmod(conn,fname,st);
-		if (!fsp)
+		files_struct *fsp;
+		if (!NT_STATUS_IS_OK(open_file_fchmod(conn,fname,st,&fsp)))
 			return -1;
 		become_root();
-		ret = SMB_VFS_FCHMOD(fsp, fsp->fd, unixmode);
+		ret = SMB_VFS_FCHMOD(fsp, fsp->fh->fd, unixmode);
 		unbecome_root();
 		close_file_fchmod(fsp);
+		notify_fname(conn, NOTIFY_ACTION_MODIFIED,
+			     FILE_NOTIFY_CHANGE_ATTRIBUTES, fname);
 	}
 
 	return( ret );
 }
 
 /*******************************************************************
- Wrapper around dos_utime that possibly allows DOS semantics rather
+ Wrapper around the VFS ntimes that possibly allows DOS semantics rather
  than POSIX.
 *******************************************************************/
 
-int file_utime(connection_struct *conn, char *fname, struct utimbuf *times)
+int file_ntimes(connection_struct *conn, const char *fname, const struct timespec ts[2])
 {
-	extern struct current_user current_user;
-	SMB_STRUCT_STAT sb;
+	SMB_STRUCT_STAT sbuf;
 	int ret = -1;
 
 	errno = 0;
+	ZERO_STRUCT(sbuf);
 
-	if(SMB_VFS_UTIME(conn,fname, times) == 0)
+	/* Don't update the time on read-only shares */
+	/* We need this as set_filetime (which can be called on
+	   close and other paths) can end up calling this function
+	   without the NEED_WRITE protection. Found by : 
+	   Leo Weppelman <leo@wau.mis.ah.nl>
+	*/
+
+	if (!CAN_WRITE(conn)) {
 		return 0;
+	}
 
-	if((errno != EPERM) && (errno != EACCES))
-		return -1;
+	if(SMB_VFS_NTIMES(conn, fname, ts) == 0) {
+		return 0;
+	}
 
-	if(!lp_dos_filetimes(SNUM(conn)))
+	if((errno != EPERM) && (errno != EACCES)) {
 		return -1;
+	}
+
+	if(!lp_dos_filetimes(SNUM(conn))) {
+		return -1;
+	}
 
 	/* We have permission (given by the Samba admin) to
 	   break POSIX semantics and allow a user to change
@@ -454,21 +623,12 @@ int file_utime(connection_struct *conn, char *fname, struct utimbuf *times)
 	   (as DOS does).
 	 */
 
-	if(SMB_VFS_STAT(conn,fname,&sb) != 0)
-		return -1;
-
 	/* Check if we have write access. */
-	if (CAN_WRITE(conn)) {
-		if (((sb.st_mode & S_IWOTH) || conn->admin_user ||
-			((sb.st_mode & S_IWUSR) && current_user.uid==sb.st_uid) ||
-			((sb.st_mode & S_IWGRP) &&
-				in_group(sb.st_gid,current_user.gid,
-					current_user.ngroups,current_user.groups)))) {
-			/* We are allowed to become root and change the filetime. */
-			become_root();
-			ret = SMB_VFS_UTIME(conn,fname, times);
-			unbecome_root();
-		}
+	if (can_write_to_file(conn, fname, &sbuf)) {
+		/* We are allowed to become root and change the filetime. */
+		become_root();
+		ret = SMB_VFS_NTIMES(conn, fname, ts);
+		unbecome_root();
 	}
 
 	return ret;
@@ -478,19 +638,25 @@ int file_utime(connection_struct *conn, char *fname, struct utimbuf *times)
  Change a filetime - possibly allowing DOS semantics.
 *******************************************************************/
 
-BOOL set_filetime(connection_struct *conn, char *fname, time_t mtime)
+BOOL set_filetime(connection_struct *conn, const char *fname,
+		const struct timespec mtime)
 {
-	struct utimbuf times;
+	struct timespec ts[2];
 
-	if (null_mtime(mtime))
+	if (null_timespec(mtime)) {
 		return(True);
+	}
 
-	times.modtime = times.actime = mtime;
+	ts[1] = mtime; /* mtime. */
+	ts[0] = ts[1]; /* atime. */
 
-	if (file_utime(conn, fname, &times)) {
+	if (file_ntimes(conn, fname, ts)) {
 		DEBUG(4,("set_filetime(%s) failed: %s\n",fname,strerror(errno)));
 		return False;
 	}
+
+	notify_fname(conn, NOTIFY_ACTION_MODIFIED,
+		     FILE_NOTIFY_CHANGE_LAST_WRITE, fname);
   
-	return(True);
-} 
+	return True;
+}

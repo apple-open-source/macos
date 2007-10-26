@@ -144,18 +144,6 @@ extern	struct refclock	refclock_atom;
 #define refclock_atom	refclock_none
 #endif
 
-#ifdef CLOCK_PTBACTS
-extern	struct refclock	refclock_ptb;
-#else
-#define refclock_ptb	refclock_none
-#endif
-
-#ifdef CLOCK_USNO
-extern	struct refclock	refclock_usno;
-#else
-#define refclock_usno	refclock_none
-#endif
-
 #ifdef CLOCK_HPGPS
 extern	struct refclock	refclock_hpgps;
 #else
@@ -186,13 +174,13 @@ extern  struct refclock refclock_palisade;
 #define refclock_palisade refclock_none
 #endif
 
-#if defined(CLOCK_ONCORE) && defined(HAVE_PPSAPI)
+#if defined(CLOCK_ONCORE)
 extern	struct refclock refclock_oncore;
 #else
 #define refclock_oncore refclock_none
 #endif
 
-#if defined(CLOCK_JUPITER) && defined(PPS)
+#if defined(CLOCK_JUPITER) && defined(HAVE_PPSAPI)
 extern	struct refclock refclock_jupiter;
 #else
 #define refclock_jupiter refclock_none
@@ -246,6 +234,30 @@ extern	struct refclock	refclock_jjy;
 #define	refclock_jjy refclock_none
 #endif
 
+#ifdef CLOCK_TT560
+extern	struct refclock	refclock_tt560;
+#else
+#define	refclock_tt560 refclock_none
+#endif
+
+#ifdef CLOCK_ZYFER
+extern	struct refclock	refclock_zyfer;
+#else
+#define	refclock_zyfer refclock_none
+#endif
+
+#ifdef CLOCK_RIPENCC
+extern struct refclock refclock_ripencc;
+#else
+#define refclock_ripencc refclock_none
+#endif
+
+#ifdef CLOCK_NEOCLOCK4X
+extern	struct refclock	refclock_neoclock4x;
+#else
+#define	refclock_neoclock4x	refclock_none
+#endif
+
 /*
  * Order is clock_start(), clock_shutdown(), clock_poll(),
  * clock_control(), clock_init(), clock_buginfo, clock_flags;
@@ -265,35 +277,39 @@ struct refclock *refclock_conf[] = {
 	&refclock_mx4200,	/* 9 REFCLK_GPS_MX4200 */
 	&refclock_as2201,	/* 10 REFCLK_GPS_AS2201 */
 	&refclock_arbiter,	/* 11 REFCLK_GPS_ARBITER */
-        &refclock_tpro,		/* 12 REFCLK_IRIG_TPRO */
+	&refclock_tpro,		/* 12 REFCLK_IRIG_TPRO */
 	&refclock_leitch,	/* 13 REFCLK_ATOM_LEITCH */
 	&refclock_msfees,	/* 14 REFCLK_MSF_EES */
-	&refclock_true,		/* 15 alias for REFCLK_TRUETIME */
+	&refclock_none,		/* 15 not used */
 	&refclock_bancomm,	/* 16 REFCLK_IRIG_BANCOMM */
 	&refclock_datum,	/* 17 REFCLK_GPS_DATUM */
-	&refclock_acts,		/* 18 REFCLK_NIST_ACTS */
+	&refclock_acts,		/* 18 REFCLK_ACTS */
 	&refclock_heath,	/* 19 REFCLK_WWV_HEATH */
 	&refclock_nmea,		/* 20 REFCLK_GPS_NMEA */
 	&refclock_gpsvme,	/* 21 REFCLK_GPS_VME */
 	&refclock_atom,		/* 22 REFCLK_ATOM_PPS */
-	&refclock_ptb,		/* 23 REFCLK_PTB_ACTS */
-	&refclock_usno,		/* 24 REFCLK_USNO */
-	&refclock_true,		/* 25 alias for REFCLK_TRUETIME */
+	&refclock_none,		/* 23 not used */
+	&refclock_none,		/* 24 not used */
+	&refclock_none,		/* 25 not used */
 	&refclock_hpgps,	/* 26 REFCLK_GPS_HP */
 	&refclock_arc, 		/* 27 REFCLK_ARCRON_MSF */
 	&refclock_shm,		/* 28 REFCLK_SHM */
-	&refclock_palisade,     /* 29 REFCLK_PALISADE */
+	&refclock_palisade,	/* 29 REFCLK_PALISADE */
 	&refclock_oncore,	/* 30 REFCLK_ONCORE */
 	&refclock_jupiter,	/* 31 REFCLK_GPS_JUPITER */
 	&refclock_chronolog,	/* 32 REFCLK_CHRONOLOG */
 	&refclock_dumbclock,	/* 33 REFCLK_DUMBCLOCK */
-	&refclock_ulink,        /* 34 REFCLOCK_ULINK */
-	&refclock_pcf,          /* 35 REFCLOCK_PCF */
+	&refclock_ulink,	/* 34 REFCLOCK_ULINK */
+	&refclock_pcf,		/* 35 REFCLOCK_PCF */
 	&refclock_wwv,		/* 36 REFCLOCK_WWV_AUDIO */
 	&refclock_fg,		/* 37 REFCLOCK_FG */
 	&refclock_hopfser,	/* 38 REFCLK_HOPF_SERIAL */
 	&refclock_hopfpci,	/* 39 REFCLK_HOPF_PCI */
-	&refclock_jjy		/* 40 REFCLK_JJY */
+	&refclock_jjy,		/* 40 REFCLK_JJY */
+	&refclock_tt560,	/* 41 REFCLK_TT560 */
+	&refclock_zyfer,	/* 42 REFCLK_ZYFER */
+	&refclock_ripencc,	/* 43 REFCLK_RIPENCC */
+	&refclock_neoclock4x    /* 44 REFCLK_NEOCLOCK4X */
 };
 
 u_char num_refclock_conf = sizeof(refclock_conf)/sizeof(struct refclock *);

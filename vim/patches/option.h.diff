@@ -1,0 +1,18 @@
+--- src/option.h.orig	2005-05-17 18:20:33.000000000 -0700
++++ src/option.h	2005-05-17 18:26:10.000000000 -0700
+@@ -312,6 +312,7 @@ EXTERN char_u	*p_ambw;	/* 'ambiwidth' */
+ #if defined(FEAT_GUI) && defined(MACOS_X)
+ EXTERN int	*p_antialias;	/* 'antialias' */
+ #endif
++EXTERN int	p_ap;		/* 'autoprint' */
+ EXTERN int	p_ar;		/* 'autoread' */
+ EXTERN int	p_aw;		/* 'autowrite' */
+ EXTERN int	p_awa;		/* 'autowriteall' */
+@@ -340,6 +341,7 @@ EXTERN int	p_beval;	/* 'ballooneval' */
+ EXTERN char_u	*p_bexpr;
+ # endif
+ #endif
++EXTERN int	p_bf;		/* 'beautify' */
+ #ifdef FEAT_BROWSE
+ EXTERN char_u	*p_bsdir;	/* 'browsedir' */
+ #endif

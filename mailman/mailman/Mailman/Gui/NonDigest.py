@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """GUI component for managing the non-digest delivery options.
 """
@@ -133,6 +133,15 @@ and footers:
              _('Footer added to mail sent to regular list members'),
              _('''Text appended to the bottom of every immediately-delivery
              message. ''') + headfoot + extra),
+            ])
+
+        info.extend([
+            ('scrub_nondigest', mm_cfg.Toggle, (_('No'), _('Yes')), 0,
+             _('Scrub attachments of regular delivery message?'),
+             _('''When you scrub attachments, they are stored in archive
+             area and links are made in the message so that the member can
+             access via web browser. If you want the attachments totally
+             disappear, you can use content filter options.''')),
             ])
         return info
 

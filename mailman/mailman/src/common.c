@@ -1,6 +1,6 @@
 /* common.c --- Common routines, constants, etc.  Used by all the wrappers.
  *
- * Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+ * Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -14,7 +14,8 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+ * USA.
  */
 
 #include "common.h"
@@ -63,8 +64,8 @@ fatal(const char* ident, int exitcode, char* format, ...)
 {
 #ifndef HAVE_VSNPRINTF
         /* A replacement is provided in vsnprintf.c for ancient systems still
-	 * lacking one in their C library.
-	 */
+         * lacking one in their C library.
+         */
         int vsnprintf(char*, size_t, const char*, va_list);
 #endif /* !HAVE_VSNPRINTF */
 
@@ -99,10 +100,10 @@ fatal(const char* ident, int exitcode, char* format, ...)
                 printf("<title>Mailman CGI error!!!</title>\n");
                 printf("</head><body>\n");
                 printf("<h1>Mailman CGI error!!!</h1>\n");
-		printf("The Mailman CGI wrapper encountered a fatal error. ");
-		printf("This entry is being stored in your syslog:");
+                printf("The Mailman CGI wrapper encountered a fatal error. ");
+                printf("This entry is being stored in your syslog:");
                 printf("\n<pre>\n");
-                printf(log_entry);
+                printf("%s", log_entry);
                 printf("</pre>\n");
         }
         else
@@ -119,39 +120,44 @@ void
 check_caller(const char* ident, const char* parentgroup)
 {
         GID_T mygid = getgid();
-	struct group *mygroup = getgrgid(mygid);
-	char* option;
-	char* server;
-	char* wrapper;
+        struct group *mygroup = getgrgid(mygid);
+        char* option;
+        char* server;
+        char* wrapper;
 
-	if (running_as_cgi) {
-		option = "--with-cgi-gid";
-		server = "web";
-		wrapper = "CGI";
-	}
-	else {
-		option = "--with-mail-gid";
-		server = "mail";
-		wrapper = "mail";
-	}
+        if (running_as_cgi) {
+                option = "--with-cgi-gid";
+                server = "web";
+                wrapper = "CGI";
+        }
+        else {
+                option = "--with-mail-gid";
+                server = "mail";
+                wrapper = "mail";
+        }
 
-	if (!mygroup)
-		fatal(ident, GROUP_NAME_NOT_FOUND,
-		      "Failure to find group name %s.  Try adding this group\n"
-		      "to your system, or re-run configure, providing an\n"
-		      "existing group name with the command line option %s.",
-		      parentgroup, option);
+        if (!mygroup)
+                fatal(ident, GROUP_NAME_NOT_FOUND,
+                      "Failure to find group name for GID %d.  Mailman\n"
+                      "expected the %s wrapper to be executed as group\n"
+                      "\"%s\", but the system's %s server executed the\n"
+                      "wrapper as GID %d for which the name could not be\n"
+                      "found.  Try adding GID %d to your system as \"%s\",\n"
+                      "or tweak your %s server to run the wrapper as group\n"
+                      "\"%s\".",
+                      mygid, wrapper, parentgroup, server, mygid, mygid,
+                      parentgroup, server, parentgroup);
 
         if (strcmp(parentgroup, mygroup->gr_name))
                 fatal(ident, GROUP_MISMATCH,
-		      "Group mismatch error.  Mailman expected the %s\n"
-		      "wrapper script to be executed as group \"%s\", but\n"
-		      "the system's %s server executed the %s script as\n"
-		      "group \"%s\".  Try tweaking the %s server to run the\n"
-		      "script as group \"%s\", or re-run configure, \n"
-		      "providing the command line option `%s=%s'.",
-		      wrapper, parentgroup, server, wrapper, mygroup->gr_name,
-		      server, parentgroup, option, mygroup->gr_name);
+                      "Group mismatch error.  Mailman expected the %s\n"
+                      "wrapper script to be executed as group \"%s\", but\n"
+                      "the system's %s server executed the %s script as\n"
+                      "group \"%s\".  Try tweaking the %s server to run the\n"
+                      "script as group \"%s\", or re-run configure, \n"
+                      "providing the command line option `%s=%s'.",
+                      wrapper, parentgroup, server, wrapper, mygroup->gr_name,
+                      server, parentgroup, option, mygroup->gr_name);
 }
 
 
@@ -295,5 +301,6 @@ run_script(const char* script, int argc, char** argv, char** env)
 /*
  * Local Variables:
  * c-file-style: "python"
+ * indent-tabs-mode: nil
  * End:
  */

@@ -119,6 +119,7 @@ CFDictionaryRef copyService(CFStringRef domain, CFStringRef serviceID)
         kSCEntNetInterface,
     	kSCEntNetIPv4,
     	kSCEntNetIPv6,
+    	kSCEntNetSMB,
         kSCEntNetDNS,
         kSCEntNetL2TP,
         kSCEntNetPPTP,
@@ -131,10 +132,14 @@ CFDictionaryRef copyService(CFStringRef domain, CFStringRef serviceID)
         goto fail;
         
     data = SCDynamicStoreCopyValue(gDynamicStore, key);
-    if (data == 0)
-        goto fail;
+    if (data == 0) {
+		data = CFDictionaryCreate(NULL, 0, 0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (data == 0)
+			goto fail;
+	}
         
     CFRelease(key);
+	key = NULL;
         
     service = CFDictionaryCreateMutableCopy(NULL, 0, data);
     if (service == 0)
@@ -209,16 +214,22 @@ int getString(CFDictionaryRef service, CFStringRef property, u_char *str, u_int1
     ref  = CFDictionaryGetValue(service, property);
     if (ref) {
         if (CFGetTypeID(ref) == CFStringGetTypeID()) {
-           CFStringGetCString((CFStringRef)ref, str, maxlen, kCFStringEncodingUTF8);
+            CFStringGetCString((CFStringRef)ref, str, maxlen, kCFStringEncodingUTF8);
             return 1;
         }
         else if (CFGetTypeID(ref) == CFDataGetTypeID()) {
-           string = CFStringCreateWithCharacters(NULL, 
-                    (UniChar *)CFDataGetBytePtr(ref), CFDataGetLength(ref)/sizeof(UniChar));               	    
-           if (string) {
-                CFStringGetCString(string, str, maxlen, kCFStringEncodingUTF8);
+            CFStringEncoding    encoding;
+
+#if     __BIG_ENDIAN__
+            encoding = (*(CFDataGetBytePtr(ref) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
+#else   // __LITTLE_ENDIAN__
+            encoding = (*(CFDataGetBytePtr(ref)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
+#endif
+            string = CFStringCreateWithBytes(NULL, (const UInt8 *)CFDataGetBytePtr(ref), CFDataGetLength(ref), encoding, FALSE);
+            if (string) {
+                CFStringGetCString((CFStringRef)string, str, maxlen, kCFStringEncodingUTF8);
                 CFRelease(string);
-            	return 1;
+                return 1;
             }
         }
     }
@@ -302,7 +313,7 @@ u_int32_t CFStringAddrToLong(CFStringRef string)
     if (string) {
 	str[0] = 0;
         CFStringGetCString(string, str, sizeof(str), kCFStringEncodingMacRoman);
-        ret = inet_addr(str);
+        ret = ntohl(inet_addr(str));
     }
     return ret;
 }

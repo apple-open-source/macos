@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_dynamic_array.h,v 1.14.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 #ifndef ZEND_DYNAMIC_ARRAY_H
 #define ZEND_DYNAMIC_ARRAY_H
@@ -29,10 +30,18 @@ typedef struct _dynamic_array {
 } dynamic_array;
 
 BEGIN_EXTERN_C()
-ZEND_API int zend_dynamic_array_init(dynamic_array *da);
+ZEND_API int zend_dynamic_array_init(dynamic_array *da, unsigned int element_size, unsigned int size);
 ZEND_API void *zend_dynamic_array_push(dynamic_array *da);
 ZEND_API void *zend_dynamic_array_pop(dynamic_array *da);
 ZEND_API void *zend_dynamic_array_get_element(dynamic_array *da, unsigned int index);
 END_EXTERN_C()
 
 #endif /* ZEND_DYNAMIC_ARRAY_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

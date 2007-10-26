@@ -2,15 +2,19 @@
 #  Makefile.mac
 #
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -24,8 +28,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,7 +38,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -64,43 +68,63 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-all: iODBCinst iODBC iODBCtest iODBCtestw
-
-#
-# ascertain whether to use pbxbuild (jaguar) or xcodebuild (panther)
 #
 
-PROJBUILD:=$(shell (ls -1 /usr/bin/{pbxbuild,xcodebuild}|head -1)2>/dev/null)
 
 #
-#  Build the libraries 
+#  Determine build model (Deployment/Development)
 #
-.PHONY: iODBCinst iODBC
-iODBC: include iODBCinst
-	cd iODBC; $(PROJBUILD) build -buildstyle Deployment
+ifeq (,$(MODEL))
+MODEL	:= Deployment
+endif
 
-iODBCinst: include 
-	echo "Projbuild is [$(PROJBUILD)]"
-	cd iODBCinst; $(PROJBUILD) build -buildstyle Deployment
 
 #
-#  Build the test program
+#  Determine which version of Mac OS X we are running
 #
-.PHONY: iODBCtest iODBCtestw
-iODBCtest:
-	cd iODBCtest; $(PROJBUILD) build -buildstyle Deployment
+macosx_version	:= $(shell sw_vers -productVersion)
 
-iODBCtestw:
-	cd iODBCtestw ; $(PROJBUILD) build -buildstyle Deployment
+#
+#  Mac OS X 10.2
+#
+ifeq (10.2, $(findstring 10.2, $(macosx_version)))
+    PROJBUILD := /usr/bin/pbxbuild -buildstyle $(MODEL)
+endif
+
+#
+#  Mac OS X 10.3
+#
+ifeq (10.3, $(findstring 10.3, $(macosx_version)))
+    PROJBUILD := /usr/bin/xcodebuild -buildstyle $(MODEL)
+endif
+
+#
+#  Mac OS X 10.4
+#
+ifeq (10.4, $(findstring 10.4, $(macosx_version)))
+    PROJBUILD := /usr/bin/xcodebuild -configuration $(MODEL)
+endif
+
+
+#
+#  Build the libraries
+#
+all: include
+	@echo "Building on Mac OS X $(macosx_version)"
+	@echo "Projbuild is [$(PROJBUILD)]"
+	cd iODBCinst;	$(PROJBUILD) build
+	cd iODBC;	$(PROJBUILD) build
+	cd iODBCtest;	$(PROJBUILD) build
+	cd iODBCtestw;	$(PROJBUILD) build
+
 
 #
 #  Generate iODBC framework style include files
 #
-.PHONY: include
-include: framework-include.sh ../include/sql.h ../include/sqlext.h ../include/sqltypes.h ../include/iodbcext.h ../include/iodbcunix.h ../include/iodbcinst.h
+include: framework-include.sh ../include/sql.h ../include/sqlext.h ../include/sqltypes.h ../include/iodbcext.h ../include/iodbcunix.h ../include/odbcinst.h
 	sh framework-include.sh
+	touch include
+
 
 #
 #  Install libraries in /Library/Frameworks
@@ -108,16 +132,22 @@ include: framework-include.sh ../include/sql.h ../include/sqlext.h ../include/sq
 install:
 	-sudo rm /Library/Frameworks/iODBC.framework/Versions/Current
 	-sudo rm /Library/Frameworks/iODBCinst.framework/Versions/Current
-	cd iODBC;     sudo $(PROJBUILD) install -buildstyle Deployment DSTROOT=/
-	cd iODBCinst; sudo $(PROJBUILD) install -buildstyle Deployment DSTROOT=/
+	cd iODBCinst;	sudo $(PROJBUILD) install DSTROOT=/
+	cd iODBC;	sudo $(PROJBUILD) install DSTROOT=/
+	cd iODBCtest;	sudo $(PROJBUILD) install DSTROOT=/
+	cd iODBCtestw;	sudo $(PROJBUILD) install DSTROOT=/
 	sudo sh link-inclibs.sh
+
 
 #
 #  Clean out the targets
 #
 clean:
 	rm -rf include
-	cd iODBC;     $(PROJBUILD) clean
-	cd iODBCinst; $(PROJBUILD) clean
-	cd iODBCtest; $(PROJBUILD) clean
-	cd iODBCtestw; $(PROJBUILD) clean
+	cd iODBC;	$(PROJBUILD) clean
+	cd iODBCinst;	$(PROJBUILD) clean
+	cd iODBCtest;	$(PROJBUILD) clean
+	cd iODBCtestw;	$(PROJBUILD) clean
+
+realclean: clean
+	rm -rf iODBC/build iODBCinst/build iODBCtest/build iODBCtestw/build

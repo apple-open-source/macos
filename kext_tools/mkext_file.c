@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,11 +43,9 @@
 #include <IOKit/kext/KXKext.h>
 
 #include <Kernel/libsa/mkext.h>
-// In compression.c
-__private_extern__ u_int8_t *
-encodeLZSS(u_int8_t *dstP, long dstLen, u_int8_t *srcP, long srcLen);
-__private_extern__ void
-checkLZSS(u_int8_t *codeP, u_int8_t *srcEnd, u_int8_t *textP, u_int32_t tLen);
+#include "utility.h"
+
+// In compression.c (XX folding this into a .h file wouldn't hurt)
 __private_extern__ u_int32_t
 local_adler32(u_int8_t *buffer, int32_t length);
 
@@ -35,11 +55,6 @@ find_arch(u_int8_t **dataP, off_t *sizeP, cpu_type_t in_cpu,
     cpu_subtype_t in_cpu_subtype, u_int8_t *data_ptr, off_t filesize);
 __private_extern__ int
 get_arch_from_flag(char *name, cpu_type_t *cpuP, cpu_subtype_t *subcpuP);
-
-// in kextcache_main.c
-extern char * CFURLCopyCString(CFURLRef anURL);
-
-extern const char * progname;
 
 /* Open Firmware has an upper limit of 16MB on file transfers,
  * so we'll limit ourselves just beneath that.
@@ -75,6 +90,21 @@ static int resizeArchive(archive_file * archive, unsigned long increaseBy)
     return 1;
 }
 
+
+/*******************************************************************************
+* Returns true if the file is an acceptable size, or false if it's too large.
+*******************************************************************************/
+Boolean mkextArchiveSizeOverLimit(ssize_t size, cpu_type_t cpuType)
+{
+    if (cpuType != CPU_TYPE_ANY && cpuType != CPU_TYPE_POWERPC) {
+        return false;
+    }
+    if (size > kOpenFirmwareMaxFileSize) {
+        return true;
+    } else {
+        return false;
+    }
+}
 /*******************************************************************************
 *
 *******************************************************************************/
@@ -136,7 +166,15 @@ static int compressFile(
         goto finish;
     }
 
-    src = mmap(0, (size_t) statbuf.st_size, PROT_READ, MAP_FILE, fd, 0);
+    if ( (statbuf.st_uid != 0) || (statbuf.st_gid != 0 ) ||
+        (statbuf.st_mode & S_IWOTH) || (statbuf.st_mode & S_IWGRP) ) {
+
+        fprintf(stderr, "%s is not authentic\n", fileName);
+        result = 0;
+        goto finish;
+    }
+
+    src = mmap(0, (size_t) statbuf.st_size, PROT_READ, MAP_FILE|MAP_PRIVATE, fd, 0);
     if (-1 == (int) src) {
         fprintf(stderr, "can't map file %s - %s\n", fileName, strerror(errno));
         result = 0;
@@ -146,7 +184,7 @@ static int compressFile(
     find_arch(&data, &size, archCPU, archSubtype, src, statbuf.st_size);
     if (!size) {
         // At this point not finding the requested arch is more significant
-        if (verbose_level >= 1) {
+        if (verbose_level >= kKXKextManagerLogLevelBasic) {
             fprintf(stdout, "can't find architecture %s in %s\n",
                 archName, fileName);
         }
@@ -159,7 +197,7 @@ static int compressFile(
         *uncompressedSize = size;
     }
 
-    if (verbose_level >= 2) {
+    if (verbose_level >= kKXKextManagerLogLevelLoadBasic) {
         fprintf(stdout, "compressing %s %ld => ", fileName, (size_t)size);
     }
 
@@ -180,7 +218,7 @@ static int compressFile(
         }
     }
 
-    if (archive->length > kOpenFirmwareMaxFileSize) {
+    if (mkextArchiveSizeOverLimit(archive->length, archCPU)) {
         fflush(stdout);
         fprintf(stderr, "archive would be too large; aborting\n");
         fflush(stderr);
@@ -207,7 +245,8 @@ static int compressFile(
         dstend = archive->compression_loc + size;
     }
 
-    if (archive->length > kOpenFirmwareMaxFileSize) {
+    if (mkextArchiveSizeOverLimit(archive->length, archCPU)) {
+
         fprintf(stderr, "archive would be too large; aborting\n");
         result = -1;
         goto finish;
@@ -217,7 +256,7 @@ static int compressFile(
         *compressedSize = dstend - archive->compression_loc;
     }
 
-    if (file->compsize && verbose_level >= 3) {
+    if (file->compsize && verbose_level >= kKXKextManagerLogLevelDetails) {
         size_t chklen;
 
         chkbuf = (u_int8_t *)malloc((size_t)size);
@@ -225,7 +264,7 @@ static int compressFile(
         chklen = decompress_lzss(chkbuf, archive->compression_loc,
             dstend - archive->compression_loc);
         if (chklen != (size_t)size) {
-            if (verbose_level >= 2) {
+            if (verbose_level >= kKXKextManagerLogLevelLoadBasic) {
                 fprintf(stdout, "\n\n");
             }
             fprintf(stderr,
@@ -236,7 +275,7 @@ static int compressFile(
             goto finish; // FIXME: mkextcache used to exit with EX_SOFTWARE
         }
         if (0 != memcmp(chkbuf, data, (size_t) size)) {
-            if (verbose_level >= 2) {
+            if (verbose_level >= kKXKextManagerLogLevelLoadBasic) {
                 fprintf(stdout, "\n\n");
             }
             fprintf(stderr,
@@ -246,7 +285,7 @@ static int compressFile(
         }
     }
 
-    if (verbose_level >= 2) {
+    if (verbose_level >= kKXKextManagerLogLevelLoadBasic) {
         if (0 == NXSwapBigLongToHost(file->compsize)) {
             fprintf(stdout, "same (compression did not reduce size; copied as-is)\n");
         } else {
@@ -286,13 +325,13 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
     int verbose_level)
 {
     Boolean result = true;
+    char info_dict_path[PATH_MAX];
     CFBundleRef kextBundle = NULL;    // don't release
     CFURLRef infoDictURL = NULL;      // must release
     CFURLRef executableURL = NULL;    // must release
-    char * info_dict_path = NULL;     // must free
     const char * executable_path = NULL;    // don't free; set to one of following
     const char * empty_executable_path = "";    // don't free
-    char * alloced_executable_path = NULL; // must free
+    char executable_path_buf[PATH_MAX];
     unsigned long uncompressedSize;
     unsigned long compressedSize;
 
@@ -310,8 +349,8 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
         goto finish;
     }
 
-    info_dict_path = CFURLCopyCString(infoDictURL);
-    if (!info_dict_path) {
+    if (!CFURLGetFileSystemRepresentation(infoDictURL, true /*resolve*/,
+	    (UInt8*)info_dict_path, PATH_MAX)) {
         fprintf(stderr, "string conversion or memory allocation failure\n");
         result = false;
         goto finish;
@@ -349,13 +388,13 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
             goto finish;
         }
 
-        alloced_executable_path = CFURLCopyCString(executableURL);
-        if (!alloced_executable_path) {
-           fprintf(stderr, "string conversion or memory allocation failure\n");
+	if (!CFURLGetFileSystemRepresentation(executableURL, true /*resolve*/,
+		(UInt8*)executable_path_buf, PATH_MAX)) {
+            fprintf(stderr, "string conversion or memory allocation failure\n");
             result = false;
             goto finish;
         }
-        executable_path = alloced_executable_path;
+        executable_path = executable_path_buf;
     }
 
    /* Note this function must be called even with no executable file in
@@ -386,8 +425,6 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
 finish:
     if (infoDictURL)             CFRelease(infoDictURL);
     if (executableURL)           CFRelease(executableURL);
-    if (info_dict_path)          free(info_dict_path);
-    if (alloced_executable_path) free(alloced_executable_path);
     return result;
 }
 
@@ -428,6 +465,10 @@ ssize_t createMkextArchive(
         goto finish;  // FIXME: mkextcache used to exit with EX_NOINPUT
     }
 
+   /* Begin with an uncompressed buffer as large as Open Firmware allows,
+    * regardless of platform. It gets resized as necessary and checked
+    * after compression against the limit, for generic/PPC archives only.
+    */
     archive.start = (u_int8_t *)malloc(kOpenFirmwareMaxFileSize);
     if (!archive.start) {
         fprintf(stderr, "failed to allocate address space\n");
@@ -497,7 +538,7 @@ ssize_t createMkextArchive(
         }
     }
 
-    if (verbose_level >= 1) {
+    if (verbose_level >= kKXKextManagerLogLevelBasic) {
         fprintf(stdout, "%s: %s contains %d kexts for %d bytes with crc 0x%x\n",
             progname, 
             output_filename,
@@ -513,18 +554,4 @@ finish:
     }
 
     return bytes_written;
-}
-
-
-/*******************************************************************************
-* Returns true if the file is an acceptable size,
-* or false if it's too large.
-*******************************************************************************/
-Boolean checkMkextArchiveSize( ssize_t size )
-{
-    if (size > kOpenFirmwareMaxFileSize) {
-        return false;
-    } else {
-        return true;
-    }
 }

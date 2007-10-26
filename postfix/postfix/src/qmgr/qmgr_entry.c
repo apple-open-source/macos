@@ -20,6 +20,10 @@
 /*	void	qmgr_entry_unselect(queue, entry)
 /*	QMGR_QUEUE *queue;
 /*	QMGR_ENTRY *entry;
+/*
+/*	void	qmgr_entry_move_todo(dst, entry)
+/*	QMGR_QUEUE *dst;
+/*	QMGR_ENTRY *entry;
 /* DESCRIPTION
 /*	These routines add/delete/manipulate per-site message
 /*	delivery requests.
@@ -57,7 +61,10 @@
 /*
 /*	qmgr_entry_unselect() takes the named entry off the named
 /*	per-site queue's `busy' list and moves it to the queue's
-/*	`todo' list. The entry is also appended to its peer list again.
+/*	`todo' list. The entry is also prepended to its peer list again.
+/*
+/*	qmgr_entry_move_todo() moves the specified "todo" queue entry
+/*	to the specified "todo" queue.
 /* DIAGNOSTICS
 /*	Panic: interface violations, internal inconsistencies.
 /* LICENSE
@@ -92,6 +99,7 @@
 /* Global library. */
 
 #include <mail_params.h>
+#include <deliver_request.h>		/* opportunistic session caching */
 
 /* Application-specific. */
 
@@ -101,6 +109,7 @@
 
 QMGR_ENTRY *qmgr_entry_select(QMGR_PEER *peer)
 {
+    const char *myname = "qmgr_entry_select";
     QMGR_ENTRY *entry;
     QMGR_QUEUE *queue;
 
@@ -112,6 +121,59 @@ QMGR_ENTRY *qmgr_entry_select(QMGR_PEER *peer)
 	queue->busy_refcount++;
 	QMGR_LIST_UNLINK(peer->entry_list, QMGR_ENTRY *, entry, peer_peers);
 	peer->job->selected_entries++;
+
+	/*
+	 * With opportunistic session caching, the delivery agent must not
+	 * only 1) save a session upon completion, but also 2) reuse a cached
+	 * session upon the next delivery request. In order to not miss out
+	 * on 2), we have to make caching sticky or else we get silly
+	 * behavior when the in-memory queue drains. Specifically, new
+	 * connections must not be made as long as cached connections exist.
+	 * 
+	 * Safety: don't enable opportunistic session caching unless the queue
+	 * manager is able to schedule concurrent or back-to-back deliveries
+	 * (we need to recognize back-to-back deliveries for transports with
+	 * concurrency 1).
+	 * 
+	 * XXX It would be nice if we could say "try to reuse a cached
+	 * connection, but don't bother saving it when you're done". As long
+	 * as we can't, we must not turn off session caching too early.
+	 */
+#define CONCURRENT_OR_BACK_TO_BACK_DELIVERY() \
+	    (queue->busy_refcount > 1 || BACK_TO_BACK_DELIVERY())
+
+#define BACK_TO_BACK_DELIVERY() \
+		(queue->last_done + 1 >= event_time())
+
+	/*
+	 * Turn on session caching after we get up to speed. Don't enable
+	 * session caching just because we have concurrent deliveries. This
+	 * prevents unnecessary session caching when we have a burst of mail
+	 * <= the initial concurrency limit.
+	 */
+	if ((queue->dflags & DEL_REQ_FLAG_SCACHE) == 0) {
+	    if (BACK_TO_BACK_DELIVERY()) {
+		if (msg_verbose)
+		    msg_info("%s: allowing on-demand session caching for %s",
+			     myname, queue->name);
+		queue->dflags |= DEL_REQ_FLAG_SCACHE;
+	    }
+	}
+
+	/*
+	 * Turn off session caching when concurrency drops and we're running
+	 * out of steam. This is what prevents from turning off session
+	 * caching too early, and from making new connections while old ones
+	 * are still cached.
+	 */
+	else {
+	    if (!CONCURRENT_OR_BACK_TO_BACK_DELIVERY()) {
+		if (msg_verbose)
+		    msg_info("%s: disallowing on-demand session caching for %s",
+			     myname, queue->name);
+		queue->dflags &= ~DEL_REQ_FLAG_SCACHE;
+	    }
+	}
     }
     return (entry);
 }
@@ -123,12 +185,64 @@ void    qmgr_entry_unselect(QMGR_ENTRY *entry)
     QMGR_PEER *peer = entry->peer;
     QMGR_QUEUE *queue = entry->queue;
 
+    /*
+     * Move the entry back to the todo lists. In case of the peer list,
+     * put it back to the beginning, so the select()/unselect() does
+     * not reorder entries. We use this in qmgr_message_assign()
+     * to put recipients into existing entries when possible.
+     */
     QMGR_LIST_UNLINK(queue->busy, QMGR_ENTRY *, entry, queue_peers);
     queue->busy_refcount--;
     QMGR_LIST_APPEND(queue->todo, entry, queue_peers);
     queue->todo_refcount++;
-    QMGR_LIST_APPEND(peer->entry_list, entry, peer_peers);
+    QMGR_LIST_PREPEND(peer->entry_list, entry, peer_peers);
     peer->job->selected_entries--;
+}
+
+/* qmgr_entry_move_todo - move entry between todo queues */
+
+void    qmgr_entry_move_todo(QMGR_QUEUE *dst_queue, QMGR_ENTRY *entry)
+{
+    const char *myname = "qmgr_entry_move_todo";
+    QMGR_TRANSPORT *dst_transport = dst_queue->transport;
+    QMGR_MESSAGE *message = entry->message;
+    QMGR_QUEUE *src_queue = entry->queue;
+    QMGR_PEER *dst_peer, *src_peer = entry->peer;
+    QMGR_JOB *dst_job, *src_job = src_peer->job;
+    QMGR_ENTRY *new_entry;
+    int     rcpt_count = entry->rcpt_list.len;
+
+    if (entry->stream != 0)
+	msg_panic("%s: queue %s entry is busy", myname, src_queue->name);
+    if (QMGR_QUEUE_THROTTLED(dst_queue))
+	msg_panic("%s: destination queue %s is throttled", myname, dst_queue->name);
+    if (QMGR_TRANSPORT_THROTTLED(dst_transport))
+	msg_panic("%s: destination transport %s is throttled",
+		  myname, dst_transport->name);
+
+    /*
+     * Create new entry, swap the recipients between the two entries,
+     * adjusting the job counters accordingly, then dispose of the old entry.
+     * 
+     * Note that qmgr_entry_done() will also take care of adjusting the
+     * recipient limits of all the message jobs, so we do not have to do that
+     * explicitly for the new job here.
+     * 
+     * XXX This does not enforce the per-entry recipient limit, but that is not
+     * a problem as long as qmgr_entry_move_todo() is called only to bounce
+     * or defer mail.
+     */
+    dst_job = qmgr_job_obtain(message, dst_transport);
+    dst_peer = qmgr_peer_obtain(dst_job, dst_queue);
+
+    new_entry = qmgr_entry_create(dst_peer, message);
+
+    recipient_list_swap(&entry->rcpt_list, &new_entry->rcpt_list);
+
+    src_job->rcpt_count -= rcpt_count;
+    dst_job->rcpt_count += rcpt_count;
+
+    qmgr_entry_done(entry, QMGR_QUEUE_TODO);
 }
 
 /* qmgr_entry_done - dispose of queue entry */
@@ -138,8 +252,7 @@ void    qmgr_entry_done(QMGR_ENTRY *entry, int which)
     QMGR_QUEUE *queue = entry->queue;
     QMGR_MESSAGE *message = entry->message;
     QMGR_PEER *peer = entry->peer;
-    QMGR_JOB *sponsor,
-           *job = peer->job;
+    QMGR_JOB *sponsor, *job = peer->job;
     QMGR_TRANSPORT *transport = job->transport;
 
     /*
@@ -166,7 +279,7 @@ void    qmgr_entry_done(QMGR_ENTRY *entry, int which)
     job->rcpt_count -= entry->rcpt_list.len;
     message->rcpt_count -= entry->rcpt_list.len;
     qmgr_recipient_count -= entry->rcpt_list.len;
-    qmgr_rcpt_list_free(&entry->rcpt_list);
+    recipient_list_free(&entry->rcpt_list);
     myfree((char *) entry);
 
     /*
@@ -219,6 +332,11 @@ void    qmgr_entry_done(QMGR_ENTRY *entry, int which)
 	qmgr_peer_free(peer);
 
     /*
+     * Maintain back-to-back delivery status.
+     */
+    queue->last_done = event_time();
+
+    /*
      * When the in-core queue for this site is empty and when this site is
      * not dead, discard the in-core queue. When this site is dead, but the
      * number of in-core queues exceeds some threshold, get rid of this
@@ -259,7 +377,7 @@ QMGR_ENTRY *qmgr_entry_create(QMGR_PEER *peer, QMGR_MESSAGE *message)
     entry = (QMGR_ENTRY *) mymalloc(sizeof(QMGR_ENTRY));
     entry->stream = 0;
     entry->message = message;
-    qmgr_rcpt_list_init(&entry->rcpt_list);
+    recipient_list_init(&entry->rcpt_list, RCPT_LIST_INIT_QUEUE);
     message->refcount++;
     entry->peer = peer;
     QMGR_LIST_APPEND(peer->entry_list, entry, peer_peers);
@@ -267,6 +385,7 @@ QMGR_ENTRY *qmgr_entry_create(QMGR_PEER *peer, QMGR_MESSAGE *message)
     entry->queue = queue;
     QMGR_LIST_APPEND(queue->todo, entry, queue_peers);
     queue->todo_refcount++;
+    peer->job->read_entries++;
 
     /*
      * Warn if a destination is falling behind while the active queue

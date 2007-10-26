@@ -1,0 +1,347 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4E191BAB0B7CBBD7007D95C7 /* VPRubyScript.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4E191BAA0B7CBBD7007D95C7 /* VPRubyScript.rb */; };
+		4E191BB80B7CD00B007D95C7 /* VPPlugin.xml in Resources */ = {isa = PBXBuildFile; fileRef = 4E191BB70B7CD00B007D95C7 /* VPPlugin.xml */; };
+		4E191BFD0B7CD40D007D95C7 /* count of words in document.rb in copy Script PlugIns */ = {isa = PBXBuildFile; fileRef = 4E191BCE0B7CD2A9007D95C7 /* count of words in document.rb */; };
+		4E191BFE0B7CD40D007D95C7 /* count of words in page.rb in copy Script PlugIns */ = {isa = PBXBuildFile; fileRef = 4E191BCF0B7CD2A9007D95C7 /* count of words in page.rb */; };
+		4E191BFF0B7CD40D007D95C7 /* new page with date.rb in copy Script PlugIns */ = {isa = PBXBuildFile; fileRef = 4E191BD00B7CD2A9007D95C7 /* new page with date.rb */; };
+		4E191C000B7CD40D007D95C7 /* select line.rb in copy Script PlugIns */ = {isa = PBXBuildFile; fileRef = 4E191BD10B7CD2A9007D95C7 /* select line.rb */; };
+		4E191C010B7CD40D007D95C7 /* select paragraph.rb in copy Script PlugIns */ = {isa = PBXBuildFile; fileRef = 4E191BD20B7CD2A9007D95C7 /* select paragraph.rb */; };
+		4E85D9F80B785902007290BD /* VPRubyPlugin.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4E85D9F70B785902007290BD /* VPRubyPlugin.rb */; };
+		4E85DE010B79A238007290BD /* VPPlugin.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E85DE000B79A238007290BD /* VPPlugin.framework */; };
+		4EC18A890B730C9E0004D480 /* RubyCocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4EC18A880B730C9E0004D480 /* RubyCocoa.framework */; };
+		4EC18A900B730D230004D480 /* VPRubyPluginEnabler.m in Sources */ = {isa = PBXBuildFile; fileRef = 4EC18A8F0B730D230004D480 /* VPRubyPluginEnabler.m */; };
+		4EC18AA80B7313D70004D480 /* vpr_init.rb in Resources */ = {isa = PBXBuildFile; fileRef = 4EC18AA60B7313D70004D480 /* vpr_init.rb */; };
+		8D5B49B0048680CD000E48DA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
+		8D5B49B4048680CD000E48DA /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4E191BF10B7CD3B7007D95C7 /* copy Script PlugIns */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "Script PlugIns";
+			dstSubfolderSpec = 7;
+			files = (
+				4E191BFD0B7CD40D007D95C7 /* count of words in document.rb in copy Script PlugIns */,
+				4E191BFE0B7CD40D007D95C7 /* count of words in page.rb in copy Script PlugIns */,
+				4E191BFF0B7CD40D007D95C7 /* new page with date.rb in copy Script PlugIns */,
+				4E191C000B7CD40D007D95C7 /* select line.rb in copy Script PlugIns */,
+				4E191C010B7CD40D007D95C7 /* select paragraph.rb in copy Script PlugIns */,
+			);
+			name = "copy Script PlugIns";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		089C1672FE841209C02AAC07 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		089C167FFE841241C02AAC07 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		32DBCF630370AF2F00C91783 /* RubyPluginEnabler_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RubyPluginEnabler_Prefix.pch; sourceTree = "<group>"; };
+		4E191BAA0B7CBBD7007D95C7 /* VPRubyScript.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = VPRubyScript.rb; sourceTree = "<group>"; };
+		4E191BB70B7CD00B007D95C7 /* VPPlugin.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = VPPlugin.xml; sourceTree = "<group>"; };
+		4E191BCE0B7CD2A9007D95C7 /* count of words in document.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = "count of words in document.rb"; sourceTree = "<group>"; };
+		4E191BCF0B7CD2A9007D95C7 /* count of words in page.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = "count of words in page.rb"; sourceTree = "<group>"; };
+		4E191BD00B7CD2A9007D95C7 /* new page with date.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = "new page with date.rb"; sourceTree = "<group>"; };
+		4E191BD10B7CD2A9007D95C7 /* select line.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = "select line.rb"; sourceTree = "<group>"; };
+		4E191BD20B7CD2A9007D95C7 /* select paragraph.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = "select paragraph.rb"; sourceTree = "<group>"; };
+		4E85D9F70B785902007290BD /* VPRubyPlugin.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = VPRubyPlugin.rb; sourceTree = "<group>"; };
+		4E85DE000B79A238007290BD /* VPPlugin.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VPPlugin.framework; path = /Users/hisa/proj/VoodooPadPlugin/plugin/build/Deployment/VPPlugin.framework; sourceTree = "<absolute>"; };
+		4EC18A880B730C9E0004D480 /* RubyCocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RubyCocoa.framework; path = /Library/Frameworks/RubyCocoa.framework; sourceTree = "<absolute>"; };
+		4EC18A8F0B730D230004D480 /* VPRubyPluginEnabler.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VPRubyPluginEnabler.m; sourceTree = "<group>"; };
+		4EC18AA60B7313D70004D480 /* vpr_init.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = vpr_init.rb; sourceTree = "<group>"; };
+		8D5B49B6048680CD000E48DA /* RubyPluginEnabler.vpplugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RubyPluginEnabler.vpplugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		8D5B49B7048680CD000E48DA /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		D2F7E65807B2D6F200F64583 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D5B49B3048680CD000E48DA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D5B49B4048680CD000E48DA /* Cocoa.framework in Frameworks */,
+				4EC18A890B730C9E0004D480 /* RubyCocoa.framework in Frameworks */,
+				4E85DE010B79A238007290BD /* VPPlugin.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* RubyPluginEnabler */ = {
+			isa = PBXGroup;
+			children = (
+				08FB77AFFE84173DC02AAC07 /* Classes */,
+				32C88E010371C26100C91783 /* Other Sources */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				089C1671FE841209C02AAC07 /* Frameworks and Libraries */,
+				19C28FB8FE9D52D311CA2CBB /* Products */,
+			);
+			name = RubyPluginEnabler;
+			sourceTree = "<group>";
+		};
+		089C1671FE841209C02AAC07 /* Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7ACFEA557BF11CA2CBB /* Linked Frameworks */,
+				1058C7AEFEA557BF11CA2CBB /* Other Frameworks */,
+			);
+			name = "Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4E191BCD0B7CD2A9007D95C7 /* Script PlugIns */,
+				4E191BB70B7CD00B007D95C7 /* VPPlugin.xml */,
+				8D5B49B7048680CD000E48DA /* Info.plist */,
+				089C167DFE841241C02AAC07 /* InfoPlist.strings */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		08FB77AFFE84173DC02AAC07 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				4E191BAA0B7CBBD7007D95C7 /* VPRubyScript.rb */,
+				4E85D9F70B785902007290BD /* VPRubyPlugin.rb */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		1058C7ACFEA557BF11CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4EC18A880B730C9E0004D480 /* RubyCocoa.framework */,
+				1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7AEFEA557BF11CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4E85DE000B79A238007290BD /* VPPlugin.framework */,
+				089C167FFE841241C02AAC07 /* AppKit.framework */,
+				D2F7E65807B2D6F200F64583 /* CoreData.framework */,
+				089C1672FE841209C02AAC07 /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FB8FE9D52D311CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D5B49B6048680CD000E48DA /* RubyPluginEnabler.vpplugin */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		32C88E010371C26100C91783 /* Other Sources */ = {
+			isa = PBXGroup;
+			children = (
+				4EC18AA60B7313D70004D480 /* vpr_init.rb */,
+				32DBCF630370AF2F00C91783 /* RubyPluginEnabler_Prefix.pch */,
+				4EC18A8F0B730D230004D480 /* VPRubyPluginEnabler.m */,
+			);
+			name = "Other Sources";
+			sourceTree = "<group>";
+		};
+		4E191BCD0B7CD2A9007D95C7 /* Script PlugIns */ = {
+			isa = PBXGroup;
+			children = (
+				4E191BCE0B7CD2A9007D95C7 /* count of words in document.rb */,
+				4E191BCF0B7CD2A9007D95C7 /* count of words in page.rb */,
+				4E191BD00B7CD2A9007D95C7 /* new page with date.rb */,
+				4E191BD10B7CD2A9007D95C7 /* select line.rb */,
+				4E191BD20B7CD2A9007D95C7 /* select paragraph.rb */,
+			);
+			path = "Script PlugIns";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8D5B49AC048680CD000E48DA /* RubyPluginEnabler */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB913A08733D840010E9CD /* Build configuration list for PBXNativeTarget "RubyPluginEnabler" */;
+			buildPhases = (
+				8D5B49AF048680CD000E48DA /* Resources */,
+				4E191BF10B7CD3B7007D95C7 /* copy Script PlugIns */,
+				8D5B49B1048680CD000E48DA /* Sources */,
+				8D5B49B3048680CD000E48DA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RubyPluginEnabler;
+			productInstallPath = "$(HOME)/Library/Bundles";
+			productName = RubyPluginEnabler;
+			productReference = 8D5B49B6048680CD000E48DA /* RubyPluginEnabler.vpplugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB913E08733D840010E9CD /* Build configuration list for PBXProject "RubyPluginEnabler" */;
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* RubyPluginEnabler */;
+			projectDirPath = "";
+			targets = (
+				8D5B49AC048680CD000E48DA /* RubyPluginEnabler */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D5B49AF048680CD000E48DA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8D5B49B0048680CD000E48DA /* InfoPlist.strings in Resources */,
+				4EC18AA80B7313D70004D480 /* vpr_init.rb in Resources */,
+				4E85D9F80B785902007290BD /* VPRubyPlugin.rb in Resources */,
+				4E191BAB0B7CBBD7007D95C7 /* VPRubyScript.rb in Resources */,
+				4E191BB80B7CD00B007D95C7 /* VPPlugin.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8D5B49B1048680CD000E48DA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4EC18A900B730D230004D480 /* VPRubyPluginEnabler.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		089C167DFE841241C02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C167EFE841241C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB913B08733D840010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../plugin/build/Deployment\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_2 = "\"$(SRCROOT)/../../../../VoodooPadPlugin/plugin/build/Deployment\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = RubyPluginEnabler_Prefix.pch;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(HOME)/Library/Bundles";
+				PRODUCT_NAME = RubyPluginEnabler;
+				WRAPPER_EXTENSION = vpplugin;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		1DEB913C08733D840010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)/../plugin/build/Deployment\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_2 = "\"$(SRCROOT)/../../../../VoodooPadPlugin/plugin/build/Deployment\"";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = RubyPluginEnabler_Prefix.pch;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(HOME)/Library/Bundles";
+				PRODUCT_NAME = RubyPluginEnabler;
+				WRAPPER_EXTENSION = vpplugin;
+			};
+			name = Release;
+		};
+		1DEB913F08733D840010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = Debug;
+		};
+		1DEB914008733D840010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB913A08733D840010E9CD /* Build configuration list for PBXNativeTarget "RubyPluginEnabler" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB913B08733D840010E9CD /* Debug */,
+				1DEB913C08733D840010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB913E08733D840010E9CD /* Build configuration list for PBXProject "RubyPluginEnabler" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB913F08733D840010E9CD /* Debug */,
+				1DEB914008733D840010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

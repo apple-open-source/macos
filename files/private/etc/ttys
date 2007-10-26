@@ -3,9 +3,8 @@
 #
 # name	getty				type	status		comments
 #
-# To secure single-user mode, enable Open Firmware password protection.
-# http://www.apple.com/downloads/macosx/apple/openfirmwarepassword.html
-# http://docs.info.apple.com/article.html?artnum=120095
+# To secure single-user mode, enable Firmware password protection.
+# http://docs.info.apple.com/article.html?artnum=106482
 #
 #console 	"/usr/libexec/getty std.57600"	vt100	on secure
 console "/System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow" vt100 on secure onoption="/usr/libexec/getty std.9600"
@@ -26,44 +25,17 @@ fax	"/usr/bin/fax answer"	unknown	off
 
 # Hardwired lines are marked off, by default, so getty(8)
 # is quiet when they don't exist.
-tty00	"/usr/libexec/getty std.9600"	unknown	off secure
-tty01	"/usr/libexec/getty std.9600"	unknown	off secure
-tty02	"/usr/libexec/getty std.9600"	unknown	off secure
-tty03	"/usr/libexec/getty std.9600"	unknown	off secure
-tty04	"/usr/libexec/getty std.9600"	unknown	off secure
-tty05	"/usr/libexec/getty std.9600"	unknown	off secure
-tty06	"/usr/libexec/getty std.9600"	unknown	off secure
-tty07	"/usr/libexec/getty std.9600"	unknown	off secure
+tty[00-07]	"/usr/libexec/getty std.9600"	unknown	off secure
 
-ttyp0	none			network
-ttyp1	none			network
-ttyp2	none			network
-ttyp3	none			network
-ttyp4	none			network
-ttyp5	none			network
-ttyp6	none			network
-ttyp7	none			network
-ttyp8	none			network
-ttyp9	none			network
-ttypa	none			network
-ttypb	none			network
-ttypc	none			network
-ttypd	none			network
-ttype	none			network
-ttypf	none			network
-ttyq0	none			network
-ttyq1	none			network
-ttyq2	none			network
-ttyq3	none			network
-ttyq4	none			network
-ttyq5	none			network
-ttyq6	none			network
-ttyq7	none			network
-ttyq8	none			network
-ttyq9	none			network
-ttyqa	none			network
-ttyqb	none			network
-ttyqc	none			network
-ttyqd	none			network
-ttyqe	none			network
-ttyqf	none			network
+# pseudo-ttys
+ttyp[0x0-0xf]	none			network slot=36
+ttyq[0x0-0xf]	none			network
+ttyr[0x0-0xf]	none			network
+ttys[0x0-0xf]	none			network
+ttyt[0x0-0xf]	none			network
+ttyu[0x0-0xf]	none			network
+ttyv[0x0-0xf]	none			network
+ttyw[0x0-0xf]	none			network
+
+# cloning ptys
+ttys[000-999]	none			network

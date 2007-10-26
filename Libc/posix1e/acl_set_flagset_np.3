@@ -26,10 +26,10 @@
 .\" $FreeBSD: src/lib/libc/posix1e/acl_set_permset.3,v 1.6 2002/12/18 12:45:09 ru Exp $
 .\"
 .Dd March 10, 2001
-.Dt ACL_SET_FLAGSET 3
+.Dt ACL_SET_FLAGSET_NP 3
 .Os
 .Sh NAME
-.Nm acl_set_flagset
+.Nm acl_set_flagset_np
 .Nd set the flags of an ACL or ACL entry
 .Sh LIBRARY
 .Lb libc
@@ -37,20 +37,20 @@
 .In sys/types.h
 .In sys/acl.h
 .Ft int
-.Fn acl_set_flagset "void *obj" "acl_flagset_t flagset_d"
+.Fn acl_set_flagset_np "void *obj" "acl_flagset_t flagset_d"
 .Sh DESCRIPTION
 The
-.Fn acl_set_flagset
+.Fn acl_set_flagset_np
 function
 is a nonstandard extension that sets the permissions of the ACL or ACL entry
 .Fa obj
 with the flags contained in
 .Fa flagset_d .
 .Sh RETURN VALUES
-.Rv -std acl_set_flagset
+.Rv -std acl_set_flagset_np
 .Sh ERRORS
 The
-.Fn acl_set_flagset
+.Fn acl_set_flagset_np
 function fails if:
 .Bl -tag -width Er
 .It Bq Er EINVAL
@@ -63,10 +63,10 @@ is not a valid flagset for
 .El
 .Sh SEE ALSO
 .Xr acl 3 ,
-.Xr acl_add_flag 3 ,
-.Xr acl_clear_flags 3 ,
-.Xr acl_delete_flag 3 ,
-.Xr acl_get_flagset 3 ,
+.Xr acl_add_flag_np 3 ,
+.Xr acl_clear_flags_np 3 ,
+.Xr acl_delete_flag_np 3 ,
+.Xr acl_get_flagset_np 3
 .Sh AUTHORS
 .An Michael Smith
 .An Chris D. Faulhaber

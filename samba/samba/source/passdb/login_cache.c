@@ -1,6 +1,6 @@
 /* 
    Unix SMB/CIFS implementation.
-   SAM_ACCOUNT local cache for 
+   struct samu local cache for 
    Copyright (C) Jim McDonough (jmcd@us.ibm.com) 2004.
       
    This program is free software; you can redistribute it and/or modify
@@ -64,13 +64,17 @@ BOOL login_cache_shutdown(void)
 }
 
 /* if we can't read the cache, oh well, no need to return anything */
-LOGIN_CACHE * login_cache_read(SAM_ACCOUNT *sampass)
+LOGIN_CACHE * login_cache_read(struct samu *sampass)
 {
 	TDB_DATA keybuf, databuf;
 	LOGIN_CACHE *entry;
 
 	if (!login_cache_init())
 		return NULL;
+
+	if (pdb_get_nt_username(sampass) == NULL) {
+		return NULL;
+	}
 
 	keybuf.dptr = SMB_STRDUP(pdb_get_nt_username(sampass));
 	if (!keybuf.dptr || !strlen(keybuf.dptr)) {
@@ -108,7 +112,7 @@ LOGIN_CACHE * login_cache_read(SAM_ACCOUNT *sampass)
 	return entry;
 }
 
-BOOL login_cache_write(const SAM_ACCOUNT *sampass, LOGIN_CACHE entry)
+BOOL login_cache_write(const struct samu *sampass, LOGIN_CACHE entry)
 {
 
 	TDB_DATA keybuf, databuf;
@@ -116,6 +120,10 @@ BOOL login_cache_write(const SAM_ACCOUNT *sampass, LOGIN_CACHE entry)
 
 	if (!login_cache_init())
 		return False;
+
+	if (pdb_get_nt_username(sampass) == NULL) {
+		return False;
+	}
 
 	keybuf.dptr = SMB_STRDUP(pdb_get_nt_username(sampass));
 	if (!keybuf.dptr || !strlen(keybuf.dptr)) {
@@ -132,7 +140,7 @@ BOOL login_cache_write(const SAM_ACCOUNT *sampass, LOGIN_CACHE entry)
 			 entry.acct_ctrl,
 			 entry.bad_password_count,
 			 entry.bad_password_time);
-	databuf.dptr = SMB_MALLOC(databuf.dsize);
+	databuf.dptr = SMB_MALLOC_ARRAY(char, databuf.dsize);
 	if (!databuf.dptr) {
 		SAFE_FREE(keybuf.dptr);
 		return False;
@@ -155,13 +163,17 @@ BOOL login_cache_write(const SAM_ACCOUNT *sampass, LOGIN_CACHE entry)
 	return ret == 0;
 }
 
-BOOL login_cache_delentry(const SAM_ACCOUNT *sampass)
+BOOL login_cache_delentry(const struct samu *sampass)
 {
 	int ret;
 	TDB_DATA keybuf;
 	
 	if (!login_cache_init()) 
 		return False;	
+
+	if (pdb_get_nt_username(sampass) == NULL) {
+		return False;
+	}
 
 	keybuf.dptr = SMB_STRDUP(pdb_get_nt_username(sampass));
 	if (!keybuf.dptr || !strlen(keybuf.dptr)) {

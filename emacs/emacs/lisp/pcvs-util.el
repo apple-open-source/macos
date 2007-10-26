@@ -1,11 +1,10 @@
 ;;; pcvs-util.el --- utility functions for PCL-CVS  -*- byte-compile-dynamic: t -*-
 
-;; Copyright (C) 1991,92,93,94,95,96,97,98,99,2000, 2001
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stefan Monnier <monnier@cs.yale.edu>
+;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: pcl-cvs
-;; Revision: $Id: pcvs-util.el,v 1.1.1.1 2001/10/31 17:55:59 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -21,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -50,7 +49,6 @@
   (let ((zs ys))
     (dolist (x xs zs)
       (unless (member x ys) (push x zs)))))
-      
 
 (defun cvs-map (-cvs-map-f &rest -cvs-map-ls)
   (unless (cvs-every 'null -cvs-map-ls)
@@ -77,22 +75,6 @@ the other elements.  The ordering among elements is maintained."
     (dolist (x l)
       (if (funcall p x) (push x car) (push x cdr)))
     (cons (nreverse car) (nreverse cdr))))
-
-;; Copied from CL ;-(
-
-(defun cvs-butlast (x &optional n)
-  "Returns a copy of LIST with the last N elements removed."
-  (if (and n (<= n 0)) x
-    (cvs-nbutlast (copy-sequence x) n)))
-
-(defun cvs-nbutlast (x &optional n)
-  "Modifies LIST to remove the last N elements."
-  (let ((m (length x)))
-    (or n (setq n 1))
-    (and (< n m)
-	 (progn
-	   (if (> n 0) (setcdr (nthcdr (- (1- m) n) x) nil))
-	   x))))
 
 ;;;
 ;;; frame, window, buffer handling
@@ -122,11 +104,12 @@ BUF is assumed to be a temporary buffer used from the buffer MAINBUF."
 	    (condition-case ()
 		(delete-window win)
 	      (error (iconify-frame (window-frame win))))
-	  (if (and mainbuf (get-buffer-window mainbuf))
-	      ;; FIXME: if the buffer popped into a pre-existing window,
-	      ;; we don't want to delete that window.
-	      t ;;(delete-window win)
-	      ))))
+;;; 	  (if (and mainbuf (get-buffer-window mainbuf))
+;;; 	      ;; FIXME: if the buffer popped into a pre-existing window,
+;;; 	      ;; we don't want to delete that window.
+;;; 	      t ;;(delete-window win)
+;;; 	      )
+	  )))
     (with-current-buffer buf
       (bury-buffer (unless (and (eq buf (window-buffer (selected-window)))
 				(not (window-dedicated-p (selected-window))))
@@ -135,7 +118,7 @@ BUF is assumed to be a temporary buffer used from the buffer MAINBUF."
       (let ((mainwin (or (get-buffer-window mainbuf)
 			 (get-buffer-window mainbuf 'visible))))
 	(when mainwin (select-window mainwin))))))
-	      
+
 (defun cvs-get-buffer-create (name &optional noreuse)
   "Create a buffer NAME unless such a buffer already exists.
 If the NAME looks like an absolute file name, the buffer will be created
@@ -143,7 +126,9 @@ with `create-file-buffer' and will probably get another name than NAME.
 In such a case, the search for another buffer with the same name doesn't
 use the buffer name but the buffer's `list-buffers-directory' variable.
 If NOREUSE is non-nil, always return a new buffer."
-  (or (and (not (file-name-absolute-p name)) (get-buffer-create name))
+  (or (and (not (file-name-absolute-p name))
+           (if noreuse (generate-new-buffer name)
+             (get-buffer-create name)))
       (unless noreuse
 	(dolist (buf (buffer-list))
 	  (with-current-buffer buf
@@ -174,10 +159,11 @@ Uses columns to keep the listing readable but compact."
       (setq tab-width colwidth)
       ;; The insertion should be "sensible" no matter what choices were made.
       (dolist (str strings)
-	(unless (bolp) (insert " \t"))
-	(when (< wwidth (+ (max colwidth (length str)) (current-column)))
-	  (delete-char -2) (insert "\n"))
-	(insert str)))))
+	(unless (bolp)
+          (insert " \t")
+          (when (< wwidth (+ (max colwidth (length str)) (current-column)))
+            (delete-char -2) (insert "\n")))
+        (insert str)))))
 
 
 (defun cvs-file-to-string (file &optional oneline args)
@@ -185,31 +171,27 @@ Uses columns to keep the listing readable but compact."
 If ONELINE is t, only the first line (no \\n) will be returned.
 If ARGS is non-nil, the file will be executed with ARGS as its
 arguments.  If ARGS is not a list, no argument will be passed."
-  (with-temp-buffer
-    (condition-case nil
-	(progn
-	  (if args
-	      (apply 'call-process
-		     file nil t nil (when (listp args) args))
-	    (insert-file-contents file))
-	  (buffer-substring (point-min)
-			    (if oneline
-				(progn (goto-char (point-min)) (end-of-line) (point))
-			      (point-max))))
-      (file-error nil))))
+  (condition-case nil
+      (with-temp-buffer
+	(if args
+	    (apply 'call-process
+		   file nil t nil (when (listp args) args))
+	  (insert-file-contents file))
+	(goto-char (point-min))
+	(buffer-substring (point)
+			  (if oneline (line-end-position) (point-max))))
+    (file-error nil)))
 
 (defun cvs-string-prefix-p (str1 str2)
   "Tell whether STR1 is a prefix of STR2."
-  (let ((length1 (length str1)))
-    (and (>= (length str2) length1)
-	 (string= str1 (substring str2 0 length1)))))
+  (eq t (compare-strings str2 nil (length str1) str1 nil nil)))
 
 ;; (string->strings (strings->string X)) == X
 (defun cvs-strings->string (strings &optional separator)
   "Concatenate the STRINGS, adding the SEPARATOR (default \" \").
 This tries to quote the strings to avoid ambiguity such that
   (cvs-string->strings (cvs-strings->string strs)) == strs
-Only some SEPARATOR will work properly."
+Only some SEPARATORs will work properly."
   (let ((sep (or separator " ")))
     (mapconcat
      (lambda (str)
@@ -226,15 +208,16 @@ It understands elisp style quoting within STRING such that
 The SEPARATOR regexp defaults to \"\\s-+\"."
   (let ((sep (or separator "\\s-+"))
 	(i (string-match "[\"]" string)))
-    (if (null i) (split-string string sep)	; no quoting:  easy
-      (append (unless (eq i 0) (split-string (substring string 0 i) sep))
+    (if (null i) (split-string string sep t)	; no quoting:  easy
+      (append (unless (eq i 0) (split-string (substring string 0 i) sep t))
 	      (let ((rfs (read-from-string string i)))
 		(cons (car rfs)
-		      (cvs-string->strings (substring string (cdr rfs)) sep)))))))
+		      (cvs-string->strings (substring string (cdr rfs))
+					   sep)))))))
 
-;;;; 
+;;;;
 ;;;; file names
-;;;; 
+;;;;
 
 (defsubst cvs-expand-dir-name (d)
   (file-name-as-directory (expand-file-name d)))
@@ -274,9 +257,9 @@ The SEPARATOR regexp defaults to \"\\s-+\"."
 				initval hist-sym))
 	      (t initval)))))
 
-;;;; 
+;;;;
 ;;;; Flags handling
-;;;; 
+;;;;
 
 (defstruct (cvs-flags
 	    (:constructor nil)
@@ -297,7 +280,7 @@ The SEPARATOR regexp defaults to \"\\s-+\"."
 
 (defun cvs-flags-query (sym &optional desc arg)
   "Query flags based on SYM.
-Optional argument DESC will be used for the prompt
+Optional argument DESC will be used for the prompt.
 If ARG (or a prefix argument) is nil, just use the 0th default.
 If it is a non-negative integer, use the corresponding default.
 If it is a negative integer query for a new value of the corresponding
@@ -336,9 +319,9 @@ If it is \\[universal-argument] \\[universal-argument], behave just
   "Set SYM's INDEX'th setting to VALUE."
   (setf (nth index (cvs-flags-defaults (symbol-value sym))) value))
 
-;;;; 
+;;;;
 ;;;; Prefix keys
-;;;; 
+;;;;
 
 (defconst cvs-prefix-number 10)
 
@@ -350,7 +333,7 @@ If it is \\[universal-argument] \\[universal-argument], behave just
     `(progn
        (defvar ,sym nil ,(concat (or docstring "") "
 See `cvs-prefix-set' for further description of the behavior."))
-       (defconst ,cps
+       (defvar ,cps
 	 (let ((defaults ,defaults))
 	   ;; sanity ensurance
 	   (unless (>= (length defaults) cvs-prefix-number)
@@ -373,11 +356,12 @@ If ARG is negative (or \\[universal-argument] which corresponds to negative 0),
   it queries the user and sets the -ARG'th default.
 If ARG is greater than 9 (or \\[universal-argument] \\[universal-argument]),
   the (ARG mod 10)'th prefix is made persistent.
-If ARG is NIL toggle the PREFIX's value between its 0th default and NIL
+If ARG is nil toggle the PREFIX's value between its 0th default and nil
   and reset the persistence."
   (let* ((prefix (symbol-value (cvs-prefix-sym sym)))
 	 (numarg (if (integerp arg) arg 0))
-	 (defs (cvs-flags-defaults prefix)))
+	 ;; (defs (cvs-flags-defaults prefix))
+         )
 
     ;; set persistence if requested
     (when (> (prefix-numeric-value arg) 9)
@@ -402,7 +386,7 @@ If ARG is NIL toggle the PREFIX's value between its 0th default and NIL
 
 (defun cvs-prefix-get (sym &optional read-only)
   "Return the current value of the prefix SYM.
-and reset it unless READ-ONLY is non-nil."
+And reset it unless READ-ONLY is non-nil."
   (prog1 (symbol-value sym)
     (unless (or read-only
 		(cvs-flags-persist (symbol-value (cvs-prefix-sym sym))))
@@ -411,4 +395,5 @@ and reset it unless READ-ONLY is non-nil."
 
 (provide 'pcvs-util)
 
+;; arch-tag: 3b2588bb-2ae3-4f1f-bf5b-dea91b1f8a59
 ;;; pcvs-util.el ends here

@@ -216,9 +216,6 @@ extern int read(), write();
 extern int errno;
 #endif
 
-#ifndef	_PATH_UTMP
-#define	_PATH_UTMP	"/etc/utmp"
-#endif
 #ifndef	_PATH_FSTAB
 #define	_PATH_FSTAB	"/etc/fstab"
 #endif

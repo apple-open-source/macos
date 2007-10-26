@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,10 +66,10 @@ bool IOACPIPlatformExpertGlobals::isValid() const
 
 //---------------------------------------------------------------------------
 
-#define super IOPlatformExpert
+#define super IODTPlatformExpert
 
 OSDefineMetaClassAndAbstractStructors( IOACPIPlatformExpert,
-                                       IOPlatformExpert )
+                                       IODTPlatformExpert )
 
 OSMetaClassDefineReservedUnused( IOACPIPlatformExpert,  0 );
 OSMetaClassDefineReservedUnused( IOACPIPlatformExpert,  1 );

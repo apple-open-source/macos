@@ -36,11 +36,9 @@ extern new_handler __new_handler;
 void *
 operator new (unsigned long sz, const std::nothrow_t&)
 {
-  void *p;
-
   /* malloc (0) is unpredictable; avoid it.  */
   if (sz == 0)
     sz = 1;
-  return kern_os_malloc (sz);
+  return kern_os_malloc(sz);
 }
 

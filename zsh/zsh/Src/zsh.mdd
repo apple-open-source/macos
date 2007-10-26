@@ -2,7 +2,7 @@ name=zsh/main
 link=static
 load=yes
 # load=static should replace use of alwayslink
-functions='Functions/Misc/* Functions/MIME/* Functions/Prompts/*'
+functions='Functions/Exceptions/* Functions/Misc/* Functions/MIME/* Functions/Prompts/*'
 
 nozshdep=1
 alwayslink=1
@@ -12,7 +12,7 @@ alwayslink=1
 objects="builtin.o compat.o cond.o exec.o glob.o hashtable.o \
 hist.o init.o input.o jobs.o lex.o linklist.o loop.o math.o \
 mem.o module.o options.o params.o parse.o pattern.o prompt.o signals.o \
-signames.o string.o subst.o text.o utils.o watch.o"
+signames.o sort.o string.o subst.o text.o utils.o watch.o"
 
 headers="../config.h system.h zsh.h sigcount.h signals.h \
 prototypes.h hashtable.h ztype.h"
@@ -38,19 +38,25 @@ version.h: $(sdir_top)/Config/version.mk
 
 zshpaths.h: Makemod $(CONFIG_INCS)
 	@echo '#define MODULE_DIR "'$(MODDIR)'"' > zshpaths.h.tmp
+	@if test x$(sitescriptdir) != xno; then \
+	  echo '#define SITESCRIPT_DIR "'$(sitescriptdir)'"' >> zshpaths.h.tmp; \
+	fi
+	@if test x$(scriptdir) != xno; then \
+	  echo '#define SCRIPT_DIR "'$(scriptdir)'"' >> zshpaths.h.tmp; \
+	fi
 	@if test x$(sitefndir) != xno; then \
 	  echo '#define SITEFPATH_DIR "'$(sitefndir)'"' >> zshpaths.h.tmp; \
 	fi
 	@if test x$(fndir) != xno; then \
 	  echo '#define FPATH_DIR "'$(fndir)'"' >> zshpaths.h.tmp; \
-	  if test x$(FUNCTIONS_SUBDIRS) != x -a \
-	  x$(FUNCTIONS_SUBDIRS) != xno; then \
+	  if test x$(FUNCTIONS_SUBDIRS) != x && \
+	     test x$(FUNCTIONS_SUBDIRS) != xno; then \
 	    fpath_tmp="`grep ' functions=.' \
 	    $(dir_top)/config.modules | sed -e '/^#/d' -e '/ link=no/d' \
 	    -e 's/^.* functions=//'`"; \
 	    fpath_tmp=`for f in $$fpath_tmp; do \
 	      echo $$f | sed -e 's%^Functions/%%' -e 's%/[^/]*$$%%' -e 's%/\*%%'; \
-	    done | sort | uniq`; \
+	    done | grep -v Scripts | sort | uniq`; \
 	    fpath_tmp=`echo $$fpath_tmp | sed 's/ /\", \"/g'`; \
 	    echo "#define FPATH_SUBDIRS { \"$$fpath_tmp\" }" \
 	    >>zshpaths.h.tmp; \

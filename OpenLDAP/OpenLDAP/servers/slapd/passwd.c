@@ -1,8 +1,8 @@
 /* passwd.c - password extended operation routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/passwd.c,v 1.53.2.13 2004/09/12 20:22:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/passwd.c,v 1.95.2.19 2006/01/03 22:16:15 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -23,10 +23,15 @@
 #include <ac/string.h>
 #include <ac/unistd.h>
 
+#ifdef SLAPD_CRYPT
+#include <ac/crypt.h>
+#endif
+
 #include "slap.h"
 
 #include <lber_pvt.h>
 #include <lutil.h>
+#include <lutil_sha1.h>
 
 static const char *defhash[] = {
 #ifdef LUTIL_SHA1_BYTES
@@ -43,70 +48,110 @@ int passwd_extop(
 {
 	struct berval id = {0, NULL}, hash, *rsp = NULL;
 	req_pwdexop_s *qpw = &op->oq_pwdexop;
+	req_extended_s qext = op->oq_extended;
 	Modifications *ml;
-	Operation op2;
 	slap_callback cb = { NULL, slap_null_cb, NULL, NULL };
 	slap_callback cb2 = { NULL, slap_replog_cb, NULL, NULL };
 	int i, nhash;
 	char **hashes;
+	int rc;
+	BackendDB *op_be;
+	int freenewpw = 0;
 
 	cb2.sc_next = &cb;
 
 	assert( ber_bvcmp( &slap_EXOP_MODIFY_PASSWD, &op->ore_reqoid ) == 0 );
 
 	if( op->o_dn.bv_len == 0 ) {
+		Statslog( LDAP_DEBUG_STATS, "%s PASSMOD\n",
+			op->o_log_prefix, 0, 0, 0, 0 );
 		rs->sr_text = "only authenticated users may change passwords";
 		return LDAP_STRONG_AUTH_REQUIRED;
 	}
 
+	qpw->rs_old.bv_len = 0;
 	qpw->rs_old.bv_val = NULL;
+	qpw->rs_new.bv_len = 0;
 	qpw->rs_new.bv_val = NULL;
 	qpw->rs_mods = NULL;
 	qpw->rs_modtail = NULL;
 
-	rs->sr_err = slap_passwd_parse( op->ore_reqdata, &id, &qpw->rs_old,
-		&qpw->rs_new, &rs->sr_text );
+	rs->sr_err = slap_passwd_parse( op->ore_reqdata, &id,
+		&qpw->rs_old, &qpw->rs_new, &rs->sr_text );
+
+	if ( rs->sr_err == LDAP_SUCCESS && !BER_BVISEMPTY( &id ) ) {
+		Statslog( LDAP_DEBUG_STATS, "%s PASSMOD id=\"%s\"%s%s\n",
+			op->o_log_prefix, id.bv_val,
+			qpw->rs_old.bv_val ? " old" : "",
+			qpw->rs_new.bv_val ? " new" : "", 0 );
+	} else {
+		Statslog( LDAP_DEBUG_STATS, "%s PASSMOD%s%s\n",
+			op->o_log_prefix,
+			qpw->rs_old.bv_val ? " old" : "",
+			qpw->rs_new.bv_val ? " new" : "", 0, 0 );
+	}
 
 	if ( rs->sr_err != LDAP_SUCCESS ) {
 		return rs->sr_err;
 	}
 
-	if ( id.bv_len ) {
-		op->o_req_dn = id;
-		/* ndn is in tmpmem, so we don't need to free it */
-		rs->sr_err = dnNormalize( 0, NULL, NULL, &id, &op->o_req_ndn, op->o_tmpmemctx );
+	if ( !BER_BVISEMPTY( &id ) ) {
+		rs->sr_err = dnPrettyNormal( NULL, &id, &op->o_req_dn,
+				&op->o_req_ndn, op->o_tmpmemctx );
 		if ( rs->sr_err != LDAP_SUCCESS ) {
 			rs->sr_text = "Invalid DN";
-			return rs->sr_err;
+			rc = rs->sr_err;
+			goto error_return;
 		}
-		op->o_bd = select_backend( &op->o_req_ndn, 0, 0 );
+		op->o_bd = select_backend( &op->o_req_ndn, 0, 1 );
+
 	} else {
-		op->o_req_dn = op->o_dn;
-		op->o_req_ndn = op->o_ndn;
+		ber_dupbv_x( &op->o_req_dn, &op->o_dn, op->o_tmpmemctx );
+		ber_dupbv_x( &op->o_req_ndn, &op->o_ndn, op->o_tmpmemctx );
 		ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 		op->o_bd = op->o_conn->c_authz_backend;
 		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 	}
 
 	if( op->o_bd == NULL ) {
+		if ( qpw->rs_old.bv_val != NULL ) {
+			rs->sr_text = "unwilling to verify old password";
+			rc = LDAP_UNWILLING_TO_PERFORM;
+			goto error_return;
+		}
+
 #ifdef HAVE_CYRUS_SASL
-		return slap_sasl_setpass( op, rs );
+		rc = slap_sasl_setpass( op, rs );
 #else
 		rs->sr_text = "no authz backend";
-		return LDAP_OTHER;
+		rc = LDAP_OTHER;
 #endif
+		goto error_return;
 	}
 
 	if ( op->o_req_ndn.bv_len == 0 ) {
 		rs->sr_text = "no password is associated with the Root DSE";
-		return LDAP_UNWILLING_TO_PERFORM;
+		rc = LDAP_UNWILLING_TO_PERFORM;
+		goto error_return;
+	}
+
+	/* If we've got a glued backend, check the real backend */
+	op_be = op->o_bd;
+	if ( SLAP_GLUE_INSTANCE( op->o_bd )) {
+		op->o_bd = select_backend( &op->o_req_ndn, 0, 0 );
 	}
 
 	if (backend_check_restrictions( op, rs,
 			(struct berval *)&slap_EXOP_MODIFY_PASSWD ) != LDAP_SUCCESS) {
-		return rs->sr_err;
+		rc = rs->sr_err;
+		goto error_return;
 	}
 
+	/* check for referrals */
+	if ( backend_check_referrals( op, rs ) != LDAP_SUCCESS ) {
+		rc = rs->sr_err;
+		goto error_return;
+	}
 
 #ifndef SLAPD_MULTIMASTER
 	/* This does not apply to multi-master case */
@@ -123,12 +168,14 @@ int passwd_extop(
 			} else {
 				rs->sr_ref = defref;
 			}
-			return LDAP_REFERRAL;
+			rc = LDAP_REFERRAL;
+			goto error_return;
 
 		}
 
 		rs->sr_text = "shadow context; no update referral";
-		return LDAP_UNWILLING_TO_PERFORM;
+		rc = LDAP_UNWILLING_TO_PERFORM;
+		goto error_return;
 	}
 #endif /* !SLAPD_MULTIMASTER */
 
@@ -137,28 +184,61 @@ int passwd_extop(
 		slap_passwd_generate( &qpw->rs_new );
 		if ( qpw->rs_new.bv_len ) {
 			rsp = slap_passwd_return( &qpw->rs_new );
+			freenewpw = 1;
 		}
 	}
 	if ( qpw->rs_new.bv_len == 0 ) {
 		rs->sr_text = "password generation failed";
-		return LDAP_OTHER;
+		rc = LDAP_OTHER;
+		goto error_return;
 	}
+
+	op->o_bd = op_be;
 
 	/* Give the backend a chance to handle this itself */
 	if ( op->o_bd->be_extended ) {
 		rs->sr_err = op->o_bd->be_extended( op, rs );
 		if ( rs->sr_err != LDAP_UNWILLING_TO_PERFORM &&
-			rs->sr_err != SLAP_CB_CONTINUE ) {
-			return rs->sr_err;
+			rs->sr_err != SLAP_CB_CONTINUE )
+		{
+			rc = rs->sr_err;
+			if ( rsp ) {
+				rs->sr_rspdata = rsp;
+				rsp = NULL;
+			}
+			goto error_return;
 		}
 	}
 
 	/* The backend didn't handle it, so try it here */
 	if( op->o_bd && !op->o_bd->be_modify ) {
 		rs->sr_text = "operation not supported for current user";
-		return LDAP_UNWILLING_TO_PERFORM;
+		rc = LDAP_UNWILLING_TO_PERFORM;
+		goto error_return;
 	}
 
+	if ( qpw->rs_old.bv_val != NULL ) {
+		Entry *e = NULL;
+
+		rc = be_entry_get_rw( op, &op->o_req_ndn, NULL,
+			slap_schema.si_ad_userPassword, 0, &e );
+		if ( rc == LDAP_SUCCESS && e ) {
+			Attribute *a = attr_find( e->e_attrs,
+				slap_schema.si_ad_userPassword );
+			if ( a )
+				rc = slap_passwd_check( op, e, a, &qpw->rs_old, &rs->sr_text );
+			else
+				rc = 1;
+			be_entry_release_r( op, e );
+			if ( rc == LDAP_SUCCESS )
+				goto old_good;
+		}
+		rs->sr_text = "unwilling to verify old password";
+		rc = LDAP_UNWILLING_TO_PERFORM;
+		goto error_return;
+	}
+
+old_good:
 	ml = ch_malloc( sizeof(Modifications) );
 	if ( !qpw->rs_modtail ) qpw->rs_modtail = &ml->sml_next;
 
@@ -183,39 +263,55 @@ int passwd_extop(
 	ml->sml_values[i].bv_val = NULL;
 	ml->sml_nvalues = NULL;
 	ml->sml_desc = slap_schema.si_ad_userPassword;
+	ml->sml_type = ml->sml_desc->ad_cname;
 	ml->sml_op = LDAP_MOD_REPLACE;
+	ml->sml_flags = 0;
 	ml->sml_next = qpw->rs_mods;
 	qpw->rs_mods = ml;
 
 	if ( hashes[i] ) {
 		rs->sr_err = LDAP_OTHER;
-	} else {
 
-		op2 = *op;
-		op2.o_tag = LDAP_REQ_MODIFY;
-		op2.o_callback = &cb2;
-		op2.orm_modlist = qpw->rs_mods;
+	} else {
+		slap_callback *sc = op->o_callback;
+
+		op->o_tag = LDAP_REQ_MODIFY;
+		op->o_callback = &cb2;
+		op->orm_modlist = qpw->rs_mods;
 		cb2.sc_private = qpw;	/* let Modify know this was pwdMod,
 					 * if it cares... */
 
-		rs->sr_err = slap_mods_opattrs( &op2, ml, qpw->rs_modtail, &rs->sr_text,
-			NULL, 0, 1 );
-		
-		if ( rs->sr_err == LDAP_SUCCESS ) {
-			rs->sr_err = op2.o_bd->be_modify( &op2, rs );
-		}
+		rs->sr_err = op->o_bd->be_modify( op, rs );
 		if ( rs->sr_err == LDAP_SUCCESS ) {
 			rs->sr_rspdata = rsp;
 		} else if ( rsp ) {
 			ber_bvfree( rsp );
+			rsp = NULL;
 		}
-	}
-	slap_mods_free( qpw->rs_mods );
-	if ( rsp ) {
-		free( qpw->rs_new.bv_val );
+		op->o_tag = LDAP_REQ_EXTENDED;
+		op->o_callback = sc;
 	}
 
-	return rs->sr_err;
+	rc = rs->sr_err;
+	op->oq_extended = qext;
+
+error_return:;
+	if ( qpw->rs_mods ) {
+		slap_mods_free( qpw->rs_mods, 1 );
+	}
+	if ( freenewpw ) {
+		free( qpw->rs_new.bv_val );
+	}
+	if ( !BER_BVISNULL( &op->o_req_dn ) ) {
+		op->o_tmpfree( op->o_req_dn.bv_val, op->o_tmpmemctx );
+		BER_BVZERO( &op->o_req_dn );
+	}
+	if ( !BER_BVISNULL( &op->o_req_ndn ) ) {
+		op->o_tmpfree( op->o_req_ndn.bv_val, op->o_tmpmemctx );
+		BER_BVZERO( &op->o_req_ndn );
+	}
+
+	return rc;
 }
 
 int slap_passwd_parse( struct berval *reqdata,
@@ -245,13 +341,8 @@ int slap_passwd_parse( struct berval *reqdata,
 	tag = ber_scanf( ber, "{" /*}*/ );
 
 	if( tag == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"slap_passwd_parse: decoding error\n", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			"slap_passwd_parse: decoding error\n", 0, 0, 0 );
-#endif
 		rc = LDAP_PROTOCOL_ERROR;
 		goto done;
 	}
@@ -259,13 +350,8 @@ int slap_passwd_parse( struct berval *reqdata,
 	tag = ber_peek_tag( ber, &len );
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_ID ) {
 		if( id == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse: ID not allowed.\n", 0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID not allowed.\n",
 				0, 0, 0 );
-#endif
 
 			*text = "user must change own password";
 			rc = LDAP_UNWILLING_TO_PERFORM;
@@ -275,29 +361,19 @@ int slap_passwd_parse( struct berval *reqdata,
 		tag = ber_scanf( ber, "m", id );
 
 		if( tag == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse:  ID parse failed.\n", 0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID parse failed.\n",
 				0, 0, 0 );
-#endif
 
 			goto decoding_error;
 		}
 
-		tag = ber_peek_tag( ber, &len);
+		tag = ber_peek_tag( ber, &len );
 	}
 
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_OLD ) {
 		if( oldpass == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse: OLD not allowed.\n" , 0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD not allowed.\n",
 				0, 0, 0 );
-#endif
 
 			*text = "use bind to verify old password";
 			rc = LDAP_UNWILLING_TO_PERFORM;
@@ -307,15 +383,19 @@ int slap_passwd_parse( struct berval *reqdata,
 		tag = ber_scanf( ber, "m", oldpass );
 
 		if( tag == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse:  ID parse failed.\n" , 0, 0, 0 );
-#else
-			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID parse failed.\n",
+			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD parse failed.\n",
 				0, 0, 0 );
-#endif
 
 			goto decoding_error;
+		}
+
+		if( oldpass->bv_len == 0 ) {
+			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD empty.\n",
+				0, 0, 0 );
+
+			*text = "old password value is empty";
+			rc = LDAP_UNWILLING_TO_PERFORM;
+			goto done;
 		}
 
 		tag = ber_peek_tag( ber, &len );
@@ -323,13 +403,8 @@ int slap_passwd_parse( struct berval *reqdata,
 
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_NEW ) {
 		if( newpass == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse:  NEW not allowed.\n", 0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: NEW not allowed.\n",
 				0, 0, 0 );
-#endif
 
 			*text = "user specified passwords disallowed";
 			rc = LDAP_UNWILLING_TO_PERFORM;
@@ -339,15 +414,19 @@ int slap_passwd_parse( struct berval *reqdata,
 		tag = ber_scanf( ber, "m", newpass );
 
 		if( tag == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, ERR,
-			   "slap_passwd_parse:  OLD parse failed.\n", 0, 0, 0 );
-#else
-			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD parse failed.\n",
+			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: NEW parse failed.\n",
 				0, 0, 0 );
-#endif
 
 			goto decoding_error;
+		}
+
+		if( newpass->bv_len == 0 ) {
+			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: NEW empty.\n",
+				0, 0, 0 );
+
+			*text = "new password value is empty";
+			rc = LDAP_UNWILLING_TO_PERFORM;
+			goto done;
 		}
 
 		tag = ber_peek_tag( ber, &len );
@@ -355,14 +434,9 @@ int slap_passwd_parse( struct berval *reqdata,
 
 	if( len != 0 ) {
 decoding_error:
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"slap_passwd_parse: decoding error, len=%ld\n", (long)len, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			"slap_passwd_parse: decoding error, len=%ld\n",
 			(long) len, 0, 0 );
-#endif
 
 		*text = "data decoding error";
 		rc = LDAP_PROTOCOL_ERROR;
@@ -383,13 +457,8 @@ struct berval * slap_passwd_return(
 
 	assert( cred != NULL );
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( OPERATION, ENTRY, 
-		"slap_passwd_return: %ld\n",(long)cred->bv_len, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "slap_passwd_return: %ld\n",
 		(long) cred->bv_len, 0, 0 );
-#endif
 	
 	ber_init_w_nullc( ber, LBER_USE_DER );
 
@@ -405,35 +474,43 @@ struct berval * slap_passwd_return(
 	return bv;
 }
 
+/*
+ * if "e" is provided, access to each value of the password is checked first
+ */
 int
 slap_passwd_check(
-	Connection *conn,
-	Attribute *a,
-	struct berval *cred,
-	const char **text )
+	Operation	*op,
+	Entry		*e,
+	Attribute	*a,
+	struct berval	*cred,
+	const char	**text )
 {
-	int result = 1;
-	struct berval *bv;
+	int			result = 1;
+	struct berval		*bv;
+	AccessControlState	acl_state = ACL_STATE_INIT;
 
-#if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
-	ldap_pvt_thread_mutex_lock( &passwd_mutex );
 #ifdef SLAPD_SPASSWD
-	lutil_passwd_sasl_conn = conn->c_sasl_authctx;
-#endif
+	ldap_pvt_thread_pool_setkey( op->o_threadctx, slap_sasl_bind,
+		op->o_conn->c_sasl_authctx, NULL );
 #endif
 
 	for ( bv = a->a_vals; bv->bv_val != NULL; bv++ ) {
-		if( !lutil_passwd( bv, cred, NULL, text ) ) {
+		/* if e is provided, check access */
+		if ( e && access_allowed( op, e, a->a_desc, bv,
+					ACL_AUTH, &acl_state ) == 0 )
+		{
+			continue;
+		}
+		
+		if ( !lutil_passwd( bv, cred, NULL, text ) ) {
 			result = 0;
 			break;
 		}
 	}
 
-#if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 #ifdef SLAPD_SPASSWD
-	lutil_passwd_sasl_conn = NULL;
-#endif
-	ldap_pvt_thread_mutex_unlock( &passwd_mutex );
+	ldap_pvt_thread_pool_setkey( op->o_threadctx, slap_sasl_bind,
+		NULL, NULL );
 #endif
 
 	return result;
@@ -442,11 +519,7 @@ slap_passwd_check(
 void
 slap_passwd_generate( struct berval *pass )
 {
-#ifdef NEW_LOGGING
-	LDAP_LOG( OPERATION, ENTRY, "slap_passwd_generate: begin\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "slap_passwd_generate\n", 0, 0, 0 );
-#endif
 	pass->bv_val = NULL;
 	pass->bv_len = 0;
 
@@ -467,18 +540,9 @@ slap_passwd_hash_type(
 	new->bv_len = 0;
 	new->bv_val = NULL;
 
-	assert( hash );
-
-#if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
-	ldap_pvt_thread_mutex_lock( &passwd_mutex );
-#endif
+	assert( hash != NULL );
 
 	lutil_passwd_hash( cred , hash, new, text );
-	
-#if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
-	ldap_pvt_thread_mutex_unlock( &passwd_mutex );
-#endif
-
 }
 void
 slap_passwd_hash(
@@ -496,3 +560,42 @@ slap_passwd_hash(
 
 	slap_passwd_hash_type( cred, new, hash, text );
 }
+
+#ifdef SLAPD_CRYPT
+static ldap_pvt_thread_mutex_t passwd_mutex;
+static lutil_cryptfunc slapd_crypt;
+
+static int slapd_crypt( const char *key, const char *salt, char **hash )
+{
+	char *cr;
+	int rc;
+
+	ldap_pvt_thread_mutex_lock( &passwd_mutex );
+
+	cr = crypt( key, salt );
+	if ( cr == NULL || cr[0] == '\0' ) {
+		/* salt must have been invalid */
+		rc = LUTIL_PASSWD_ERR;
+	} else {
+		if ( hash ) {
+			*hash = ber_strdup( cr );
+			rc = LUTIL_PASSWD_OK;
+
+		} else {
+			rc = strcmp( salt, cr ) ? LUTIL_PASSWD_ERR : LUTIL_PASSWD_OK;
+		}
+	}
+
+	ldap_pvt_thread_mutex_unlock( &passwd_mutex );
+	return rc;
+}
+#endif /* SLAPD_CRYPT */
+
+void slap_passwd_init()
+{
+#ifdef SLAPD_CRYPT
+	ldap_pvt_thread_mutex_init( &passwd_mutex );
+	lutil_cryptptr = slapd_crypt;
+#endif
+}
+

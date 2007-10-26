@@ -1,0 +1,16 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         Pod-WSDL
+version:      0.05
+version_from: lib/Pod/WSDL.pm
+installdirs:  site
+requires:
+    Carp:                          1.03
+    IO::Scalar:                    2.11
+    Pod::Text:                     2.21
+    Test::More:                    0.47
+    XML::Writer:                   0.531
+    XML::XPath:                    1.13
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.30

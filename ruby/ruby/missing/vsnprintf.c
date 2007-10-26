@@ -13,11 +13,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -99,7 +95,7 @@
 # endif
 #endif
 
-#if defined(__hpux) && !defined(__GNUC__)
+#if defined(__hpux) && !defined(__GNUC__) && !defined(__STDC__)
 #define const
 #endif
 
@@ -785,14 +781,19 @@ fp_begin:		_double = va_arg(ap, double);
 			 * defined manner.''
 			 *	-- ANSI X3J11
 			 */
+#ifdef _HAVE_LLP64_
+			uqval = (u_long)va_arg(ap, void *);
+			flags = (flags) | QUADINT | HEXPREFIX;
+#else
 			ulval = (u_long)va_arg(ap, void *);
-			base = 16;
-			xdigs = "0123456789abcdef";
 #ifdef _HAVE_SANE_QUAD_
 			flags = (flags & ~QUADINT) | HEXPREFIX;
 #else /* _HAVE_SANE_QUAD_ */
 			flags = (flags) | HEXPREFIX;
 #endif /* _HAVE_SANE_QUAD_ */
+#endif
+			base = 16;
+			xdigs = "0123456789abcdef";
 			ch = 'x';
 			goto nosign;
 		case 's':

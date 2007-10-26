@@ -34,6 +34,7 @@
 #include <net/if_var.h>
 #include <net/route.h>
 #include <netinet/in.h>
+#include <netinet6/in6_var.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -58,169 +59,190 @@ my_SCDynamicStoreCopyValue(SCDynamicStoreRef session, CFStringRef key)
     return (dict);
 }
 
-/*
-static boolean_t
-host_route(int cmd, struct in6_addr * i6addr)
-{
-    int		len;
-    boolean_t	ret = TRUE;
-    int 	rtm_seq = 0;
-    int 	sockfd = -1;
-    struct {
-	struct rt_msghdr	hdr;
-	struct sockaddr_in6	dst;
-	struct sockaddr_in6	gway;
-    } rtmsg;
-
-    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET6)) < 0) {
-	my_log(LOG_INFO, "host_route: open routing socket failed, %s",
-		    strerror(errno));
-	ret = FALSE;
-	goto done;
-    }
-
-    memset(&rtmsg, 0, sizeof(rtmsg));
-    rtmsg.hdr.rtm_type = cmd;
-    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC | RTF_HOST;
-    rtmsg.hdr.rtm_version = RTM_VERSION;
-    rtmsg.hdr.rtm_seq = ++rtm_seq;
-    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
-    rtmsg.dst.sin6_len = sizeof(rtmsg.dst);
-    rtmsg.dst.sin6_family = AF_INET6;
-    memcpy(&rtmsg.dst.sin6_addr, i6addr, sizeof(struct in6_addr));
-    rtmsg.gway.sin6_len = sizeof(rtmsg.gway);
-    rtmsg.gway.sin6_family = AF_INET6;
-    memcpy(&rtmsg.gway.sin6_addr, &in6addr_loopback, sizeof(struct in6_addr));
-
-    len = sizeof(rtmsg);
-    rtmsg.hdr.rtm_msglen = len;
-    if (write(sockfd, &rtmsg, len) < 0) {
-		my_log(LOG_DEBUG, "host_route: write routing socket failed, %s",
-			   strerror(errno));
-		ret = FALSE;
-    }
- done:
-    close(sockfd);
-    return (ret);
-}
-*/
-
 __private_extern__ int
-service_set_address(Service_t * service_p,
-		    struct in6_addr * addr,
-		    int prefixLen)
+service_set_addresses(Service_t * service_p, ip6_addrinfo_list_t * addr_list)
 {
-    interface_t *	if_p = service_interface(service_p);
-    int			ret = 0;
-    struct in6_addr	prefixmask;
-    struct in6_addr	netaddr;
-    int 		s = inet6_dgram_socket();
-    char		str[64];
+	char	str[64];
+	int 	i, 
+		count = 0, 
+		ret = 0, 
+		s = inet6_dgram_socket();
+	interface_t		*if_p = service_interface(service_p);
+	ip6_addrinfo_list_t	valid_addrs;
     
-    memset(&prefixmask, 0, sizeof(struct in6_addr));
-    prefixLen2mask(&prefixmask, prefixLen);
-    memset(&netaddr, 0, sizeof(struct in6_addr));
-    network_addr(addr, &prefixmask, &netaddr);
-
-    inet_ntop(AF_INET6, (const void *)addr, str, sizeof(str));
-    
-    if (G_verbose) {
-        char	prefx[64], net[64];
-        inet_ntop(AF_INET6, (const void *)&prefixmask, prefx, sizeof(prefx));
-        inet_ntop(AF_INET6, (const void *)&netaddr, net, sizeof(net));
-        my_log(LOG_DEBUG,
-                "service_set_address(%s): %s prefixmask: %s netaddr: %s",
-                if_name(if_p), str, prefx, net);
-    }
-
-    if (s < 0) {
-	ret = errno; /* ??? */
-	my_log(LOG_ERR,
-		"service_set_address(%s): socket() failed, %s (%d)",
-		if_name(if_p), strerror(errno), errno);
-    }
-    else {
-	inet6_addrinfo_t * info_p = &service_p->info;
-
-	if (inet6_aifaddr(s, if_name(if_p), addr, NULL, &prefixmask) < 0) {
-            ret = errno;
-            my_log(LOG_DEBUG,
-		    "service_set_address(%s): %s inet_aifaddr() failed, %s (%d)",
-		    if_name(if_p), str, strerror(errno), errno);
+	if (s < 0) {
+		my_log(LOG_ERR, "service_set_addresses(%s): socket() failed, %s (%d)",
+			   if_name(if_p), strerror(errno), errno);
+		return (errno);
 	}
-        if_setflags(if_p, if_flags(if_p) | IFF_UP);
-        ifflags_set(s, if_name(if_p), IFF_UP);
-        bzero(info_p, sizeof(*info_p));
-        memcpy(&info_p->addr, addr, sizeof(struct in6_addr));
-        memcpy(&info_p->prefixmask, &prefixmask, sizeof(struct in6_addr));
-        memcpy(&info_p->netaddr, &netaddr, sizeof(struct in6_addr));
-        info_p->prefixlen = prefixLen;
-        close(s);
-/*
-        **** JV ****
-        (void)host_route(RTM_DELETE, addr);
-        (void)host_route(RTM_ADD, addr);
-*/
-    }
-
-    return (ret);
+	
+	valid_addrs.addr_list = malloc(addr_list->n_addrs * sizeof(ip6_addrinfo_t));
+	if (!valid_addrs.addr_list) {
+		my_log(LOG_ERR, "service_set_addresses(%s): socket() failed, %s (%d)",
+			   if_name(if_p), strerror(errno), errno);
+		close(s);
+		return (-1);
+	}
+	
+	for (i = 0; i < addr_list->n_addrs; i++) {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&addr_list->addr_list[i].addr)) {
+			prefixLen2mask(&addr_list->addr_list[i].prefixmask, addr_list->addr_list[i].prefixlen);
+			if (!(addr_list->addr_list[i].flags & IN6_IFF_AUTOCONF) &&
+				inet6_aifaddr(s, if_name(if_p), 
+							  &addr_list->addr_list[i].addr, 
+							  NULL, &addr_list->addr_list[i].prefixmask) < 0) {
+				ret = errno;
+				my_log(LOG_DEBUG,
+					   "service_set_addresses(%s): %s inet_aifaddr() failed, %s (%d)",
+					   if_name(if_p), str, strerror(errno), errno);
+				break;
+			}
+			memcpy(&valid_addrs.addr_list[count], 
+				   &addr_list->addr_list[i], 
+				   sizeof(struct in6_addr));
+			count++;
+		}
+	}
+	
+	if (!ret) {
+		if_setflags(if_p, if_flags(if_p) | IFF_UP);
+		ifflags_set(s, if_name(if_p), IFF_UP);
+		
+		if (service_p->info.addrs.addr_list) 
+			free(service_p->info.addrs.addr_list);
+		service_p->info.addrs.n_addrs = i;
+		service_p->info.addrs.addr_list = valid_addrs.addr_list;
+		
+		if (G_verbose) {
+			char	str[64], prefx[64], net[64];
+			
+			for (i = 0; i < service_p->info.addrs.n_addrs; i++) {
+				inet_ntop(AF_INET6, 
+						  (const void *)&service_p->info.addrs.addr_list[i].addr, 
+						  str, sizeof(str));
+				inet_ntop(AF_INET6, (const void *)&service_p->info.addrs.addr_list[i].prefixmask, 
+						  prefx, sizeof(prefx));
+				my_log(LOG_DEBUG, "service_set_addresses(%s): %s , prefixmask: %s", 
+					   if_name(if_p), str, prefx);
+			}
+		}
+	}
+	
+	free(valid_addrs.addr_list);
+	close(s);
+	return (ret);
 }
 
 __private_extern__ int
-service_remove_address(Service_t * service_p)
+service_set_address(Service_t * service_p, struct in6_addr * addr, int prefixLen, int flags)
 {
-    interface_t *	if_p = service_interface(service_p);
-    inet6_addrinfo_t *	info_p = &service_p->info;
-    int			ret = 0;
+	int 	ret = 0, s = inet6_dgram_socket();
+	char	str[64];
+	interface_t	*if_p = service_interface(service_p);
+	struct in6_addr	prefixmask;
+    
+	if (s < 0) {
+		my_log(LOG_ERR, "service_set_address(%s): socket() failed, %s (%d)",
+			   if_name(if_p), strerror(errno), errno);
+		return (errno);
+	}
+	
+	prefixLen2mask(&prefixmask, prefixLen);
+	if (!IN6_IS_ADDR_UNSPECIFIED(addr)) {
+		if (inet6_aifaddr(s, if_name(if_p), addr, NULL, &prefixmask) < 0) {
+			ret = errno;
+			my_log(LOG_DEBUG,
+				   "service_set_address(%s): %s inet_aifaddr() failed, %s (%d)",
+				   if_name(if_p), str, strerror(errno), errno);
+		}
+	}
+	
+	if (!ret) {
+		if_setflags(if_p, if_flags(if_p) | IFF_UP);
+		ifflags_set(s, if_name(if_p), IFF_UP);
+		
+		if (service_p->info.addrs.addr_list) 
+			free(service_p->info.addrs.addr_list);
+		service_p->info.addrs.addr_list = malloc(sizeof(ip6_addrinfo_t));
+		if (!service_p->info.addrs.addr_list) {
+			my_log(LOG_ERR, "service_set_address(%s): socket() failed, %s (%d)",
+				   if_name(if_p), strerror(errno), errno);
+			close(s);
+			return (-1);
+		}
+		
+		service_p->info.addrs.n_addrs = 1;
+		memcpy(&service_p->info.addrs.addr_list->addr, addr, sizeof(struct in6_addr));
+		memcpy(&service_p->info.addrs.addr_list->prefixlen, &prefixLen, sizeof(int));
+		memcpy(&service_p->info.addrs.addr_list->flags, &flags, sizeof(int));
+		memcpy(&service_p->info.addrs.addr_list->prefixmask, &prefixmask, sizeof(struct in6_addr));
+		
+		if (G_verbose) {
+			char	str[64], prefx[64], net[64];
+			
+			inet_ntop(AF_INET6, 
+						  (const void *)&service_p->info.addrs.addr_list->addr, 
+						  str, sizeof(str));
+			my_log(LOG_DEBUG, "service_set_address(%s): %s ", if_name(if_p), str);
+			inet_ntop(AF_INET6, (const void *)&prefixmask, prefx, sizeof(prefx));
+			my_log(LOG_DEBUG, "prefixmask: %s", prefx);
+		}
+	}
+	
+	close(s);
+	return (ret);
+}
 
-    if (!IN6_IS_ADDR_UNSPECIFIED(&info_p->addr)) {
-        inet6_addrinfo_t	saved_info;
+/* Remove all addresses for this service */
+__private_extern__ int
+service_remove_addresses(Service_t * service_p)
+{
+	int	i, ret = 0;
+	int	s = inet6_dgram_socket();
+	interface_t		*if_p = service_interface(service_p);
+	ip6_addrinfo_list_t	*addrs_p = &service_p->info.addrs;
 
-        /* copy IP info then clear it so that it won't be elected */
-        saved_info = service_p->info;
-        bzero(info_p, sizeof(*info_p));
+	if (s < 0) {
+		my_log(LOG_DEBUG,
+			   "service_remove_addresses(%s) socket() failed, %s (%d)",
+			   if_name(if_p), strerror(errno), errno);
+		return (errno);
+	}
 
-        /* if no service on this interface refers to this IP, remove the IP */
-        if (IFState_service_with_ip(service_ifstate(service_p),
-                                    &saved_info.addr) == NULL) {
-            int s;
+	for (i = 0; i < addrs_p->n_addrs; i++) {
+		if (!IN6_IS_ADDR_UNSPECIFIED(&addrs_p->addr_list[i].addr)) {
+			ip6_addrinfo_t	saved_addr_info;
+			
+			/* copy addr info then clear it so that it won't be elected */
+			memcpy(&saved_addr_info, 
+				   &service_p->info.addrs.addr_list[i], 
+				   sizeof(ip6_addrinfo_t));
+			bzero(&addrs_p->addr_list[i], sizeof(ip6_addrinfo_t));
+			
+			/* if no service on this interface refers to this addr, remove it */
+			if (IFState_service_with_ip(service_ifstate(service_p), &saved_addr_info.addr) == NULL) {				
+				my_log(LOG_DEBUG, "service_remove_addresses(%s): " IP6_FORMAT,
+					   if_name(if_p), IP6_LIST(&saved_addr_info.addr));
+				
+				if (inet6_difaddr(s, if_name(if_p), &saved_addr_info.addr) < 0) {
+					ret = errno;
+					my_log(LOG_DEBUG, "service_remove_addresses(%s) "
+						   IP6_FORMAT " failed, %s (%d)", if_name(if_p),
+						   IP6_LIST(&saved_addr_info.addr), strerror(errno), errno);
+				}
+			}
+		}		
+	}
+	
+	/* clean up */
+	addrs_p->n_addrs = 0;
+	if (addrs_p->addr_list)
+		free(addrs_p->addr_list);
+	bzero(&service_p->info, sizeof(inet6_addrinfo_t));
+	if (s)
+		close(s);
 
-            /*
-            * JV: Is this comment still valid?
-            * This can only happen if there's a manual service
-            * and an rtadv service with the same IP.  Duplicate
-            * manual services are prevented when created.
-            */
-            s = inet6_dgram_socket();
-            if (s < 0) {
-                ret = errno;
-                my_log(LOG_DEBUG,
-                        "service_remove_address(%s) socket() failed, %s (%d)",
-                        if_name(if_p), strerror(errno), errno);
-            }
-            else {
-                my_log(LOG_DEBUG, "service_remove_address(%s): " IP6_FORMAT,
-                        if_name(if_p), IP6_LIST(&saved_info.addr));
-
-                if (inet6_difaddr(s, if_name(if_p), &saved_info.addr) < 0) {
-                    ret = errno;
-                    my_log(LOG_DEBUG, "service_remove_address(%s) "
-                            IP6_FORMAT " failed, %s (%d)", if_name(if_p),
-                            IP6_LIST(&saved_info.addr), strerror(errno), errno);
-                }
-                close(s);
-            }
-        }
-        /* if no service refers to this IP, remove the host route for the IP */
-/*
-        if (IFStateList_service_with_ip(&G_ifstate_list,
-                                        &saved_info.addr, NULL) == NULL) {
-            (void)host_route(RTM_DELETE, &saved_info.addr);
-        }
-*/
-    }
-
-    return (ret);
+	return (ret);
 }
 
 __private_extern__ void
@@ -354,6 +376,7 @@ publish_service(CFStringRef serviceID, CFDictionaryRef ipv6_dict)
 __private_extern__ void
 service_publish_success(Service_t * service_p)
 {
+    int	i;
     CFMutableArrayRef		array = NULL;
     inet6_addrinfo_t *		info_p;
     CFMutableDictionaryRef	ipv6_dict = NULL;
@@ -376,42 +399,51 @@ service_publish_success(Service_t * service_p)
 					  &kCFTypeDictionaryValueCallBacks);
 
     /* set the ip6 address array */
-    array = CFArrayCreateMutable(NULL, 1,  &kCFTypeArrayCallBacks);
+    array = CFArrayCreateMutable(NULL, 0,  &kCFTypeArrayCallBacks);
 
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP6_FORMAT), IP6_LIST(&info_p->addr));
-
-    if (array && str) {
-        CFArrayAppendValue(array, str);
-        CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Addresses, array);
-    }
-    my_CFRelease(&str);
-    my_CFRelease(&array);
+	for (i = 0; i < info_p->addrs.n_addrs; i++) {
+		str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP6_FORMAT), 
+									   IP6_LIST(&info_p->addrs.addr_list[i].addr));
+		if (array && str) {
+			CFArrayAppendValue(array, str);
+		}
+		my_CFRelease(&str);
+	}
+	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Addresses, array);
+	my_CFRelease(&array);
 
     /* set the ip6 prefixlen array */
     array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    prefixlen = CFNumberCreate(NULL, kCFNumberIntType, &info_p->prefixlen);
-    if (array && prefixlen) {
-        CFArrayAppendValue(array, prefixlen);
-        CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6PrefixLength, array);
-    }
-    my_CFRelease(&prefixlen);
-    my_CFRelease(&array);
+	
+	for (i = 0; i < info_p->addrs.n_addrs; i++) {
+		prefixlen = CFNumberCreate(NULL, kCFNumberIntType, 
+								   &info_p->addrs.addr_list[i].prefixlen);
+		if (array && prefixlen) {
+			CFArrayAppendValue(array, prefixlen);
+		}
+		my_CFRelease(&prefixlen);
+	}
+	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6PrefixLength, array);
+	my_CFRelease(&array);
 
     /* set the ip6 flags array */
     array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    flags = CFNumberCreate(NULL, kCFNumberIntType, &info_p->addr_flags);
-    if (array && flags) {
-        CFArrayAppendValue(array, flags);
-        CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Flags, array);
-    }
-    my_CFRelease(&flags);
-    my_CFRelease(&array);
+
+	for (i = 0; i < info_p->addrs.n_addrs; i++) {
+		flags = CFNumberCreate(NULL, kCFNumberIntType, &info_p->addrs.addr_list[i].flags);
+		if (array && flags) {
+			CFArrayAppendValue(array, flags);
+		}
+		my_CFRelease(&flags);
+	}
+	CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Flags, array);
+	my_CFRelease(&array);
     
     /* set the router */
     if (!IN6_IS_ADDR_UNSPECIFIED(&info_p->router)) {
-        str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP6_FORMAT), IP6_LIST(&info_p->router));
+	str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP6_FORMAT), IP6_LIST(&info_p->router));
         if (str) {
-            CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Router, str);
+	    CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6Router, str);
         }
         my_CFRelease(&str);
     }
@@ -699,6 +731,8 @@ Service_free(void * arg)
 
     config_method_stop(service_p);
     service_publish_clear(service_p);
+    if (service_p->info.addrs.addr_list)
+	free(service_p->info.addrs.addr_list);
     if (service_p->user_rls) {
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(), service_p->user_rls,
                             kCFRunLoopDefaultMode);

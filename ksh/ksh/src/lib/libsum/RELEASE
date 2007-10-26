@@ -1,0 +1,8 @@
+05-02-14 sumlib.c: split into sum-*.c
+	 sum-sha2.c: add SHA { 256 384 512 }
+04-02-29 Makefile: compile with $(CC.PIC) for codexlib/sum $(CC.DLL)
+03-12-16 add { crc prng } generic methods and maps[] to these methods
+03-12-16 sum.h,sumlib.c: add sumdata()
+03-09-29 sumlib.c: fix FNV to use ^ instead of +
+03-04-28 sumlib.c: drop md5 `zeroize' for performance
+	 sumlib.c: add FIPS 180-1 SHA-1

@@ -34,6 +34,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <notify.h>
+#include <asl_store.h>
 #include "daemon.h"
 
 #define _PATH_ASL_CONF "/etc/asl.conf"
@@ -43,6 +44,9 @@
 #define IndexNull ((uint32_t)-1)
 #define forever for(;;)
 
+#define ACT_STORE_FLAG_STAY_OPEN     0x00000001
+#define ACT_STORE_FLAG_EXCLUDE_ASLDB 0x00000002
+
 static asl_msg_t *query = NULL;
 static int reset = 0;
 
@@ -51,7 +55,15 @@ struct action_rule
 	asl_msg_t *query;
 	char *action;
 	char *options;
+	void *data;
 	TAILQ_ENTRY(action_rule) entries;
+};
+
+struct store_data
+{
+	asl_store_t *store;
+	char *path;
+	uint32_t flags;
 };
 
 static TAILQ_HEAD(cr, action_rule) asl_action_rule;
@@ -164,6 +176,68 @@ _parse_line(char *s)
 	return 0;
 }
 
+static char *
+_next_word(char **s)
+{
+	char *a, *p, *e, *out;
+	int quote, len;
+
+	if (s == NULL) return NULL;
+	if (*s == NULL) return NULL;
+
+	quote = 0;
+
+	p = *s;
+	a = p;
+	e = p;
+
+	while (*p != '\0')
+	{
+		if (*p == '\\')
+		{
+			p++;
+			e = p;
+
+			if (*p == '\0')
+			{
+				p--;
+				break;
+			}
+
+			p++;
+			e = p;
+			continue;
+		}
+
+		if (*p == '"')
+		{
+			if (quote == 0) quote = 1;
+			else quote = 0;
+		}
+
+		if (((*p == ' ') || (*p == '\t')) && (quote == 0))
+		{
+			e = p + 1;
+			break;
+		}
+
+		p++;
+		e = p;
+	}
+
+	*s = e;
+
+	len = p - a;
+	if (len == 0) return NULL;
+
+	out = malloc(len + 1);
+	if (out == NULL) return NULL;
+
+	memcpy(out, a, len);
+	out[len] = '\0';
+	return out;
+}
+
 static void 
 _act_notify(struct action_rule *r)
 {
@@ -172,11 +246,95 @@ _act_notify(struct action_rule *r)
 	notify_post(r->options);
 }
 
+static void
+_act_access_control(struct action_rule *r, asl_msg_t *msg)
+{
+	int32_t ruid, rgid;
+	char *p;
+
+	ruid = atoi(r->options);
+	rgid = -1;
+	p = strchr(r->options, ' ');
+	if (p == NULL) p = strchr(r->options, '\t');
+	if (p != NULL)
+	{
+		*p = '\0';
+		p++;
+		rgid = atoi(p);
+	}
+
+	if (ruid != -1) asl_set((aslmsg)msg, ASL_KEY_READ_UID, r->options);
+	if (p != NULL)
+	{
+		if (rgid != -1) asl_set((aslmsg)msg, ASL_KEY_READ_GID, p);
+		p--;
+		*p = ' ';
+	}
+}
+
+static void 
+_act_store(struct action_rule *r, asl_msg_t *msg)
+{
+	struct store_data *sd;
+	asl_store_t *s;
+	char *p, *opts;
+	uint32_t status;
+	uint64_t msgid;
+
+	if (r == NULL) return;
+	if (r->options == NULL) return;
+	if (r->data == NULL)
+	{
+		/* Set up store data */
+		sd = (struct store_data *)calloc(1, sizeof(struct store_data));
+		if (sd == NULL) return;
+
+		opts = r->options;
+		sd->store = NULL;
+		sd->path = _next_word(&opts);
+		if (sd->path == NULL)
+		{
+			free(sd);
+			return;
+		}
+
+		sd->flags = 0;
+		while (NULL != (p = _next_word(&opts)))
+		{
+			if (!strcmp(p, "stayopen")) sd->flags |= ACT_STORE_FLAG_STAY_OPEN;
+			else if (!strcmp(p, "exclude_asldb")) sd->flags |= ACT_STORE_FLAG_EXCLUDE_ASLDB;
+			free(p);
+			p = NULL;
+		}
+	}
+	else
+	{
+		sd = (struct store_data *)r->data;
+	}
+
+	if (sd->store == NULL)
+	{
+		s = NULL;
+		status = asl_store_open(sd->path, 0, &s);
+		if (status != ASL_STATUS_OK) return;
+		if (s == NULL) return;
+		sd->store = s;
+	}
+
+	asl_store_save(sd->store, msg, -1, -1, &msgid);
+	if (!(sd->flags & ACT_STORE_FLAG_STAY_OPEN))
+	{
+		asl_store_close(sd->store);
+		sd->store = NULL;
+	}
+
+	if (sd->flags & ACT_STORE_FLAG_EXCLUDE_ASLDB) asl_set(msg, ASL_KEY_IGNORE, "Yes");
+}
+
 int
 asl_action_sendmsg(asl_msg_t *msg, const char *outid)
 {
 	struct action_rule *r;
-
 
 	if (reset != 0)
 	{
@@ -191,7 +349,9 @@ asl_action_sendmsg(asl_msg_t *msg, const char *outid)
 		if (asl_msg_cmp(r->query, msg) == 1)
 		{
 			if (r->action == NULL) continue;
-			if (!strcmp(r->action, "notify")) _act_notify(r);
+			else if (!strcmp(r->action, "access")) _act_access_control(r, msg);
+			else if (!strcmp(r->action, "notify")) _act_notify(r);
+			else if (!strcmp(r->action, "store")) _act_store(r, msg);
 		}
 	}
 
@@ -244,11 +404,20 @@ int
 asl_action_close(void)
 {
 	struct action_rule *r, *n;
+	struct store_data *sd;
 
 	n = NULL;
 	for (r = asl_action_rule.tqh_first; r != NULL; r = n)
 	{
 		n = r->entries.tqe_next;
+
+		if ((!strcmp(r->action, "store")) && (r->data != NULL))
+		{
+			sd = (struct store_data *)r->data;
+			if (sd->store != NULL) asl_store_close(sd->store);
+			if (sd->path != NULL) free(sd->path);
+			free(r->data);
+		}
 
 		if (r->query != NULL) asl_free(r->query);
 		if (r->action != NULL) free(r->action);

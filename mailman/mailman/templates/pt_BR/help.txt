@@ -1,7 +1,7 @@
-Ajuda da lista de discussão %(listname)s:
+Ajuda para a lista de discussão %(listname)s:
 
-Esta é a ajuda por email para o gerenciador de listas "Mailman"
-%(version)s. Esta mensagem descreve comandos que pode enviar para 
+Este é o e-mail para a ajuda dos comandos da versão %(version)s do 
+"Mailman". Esta mensagem descreve comandos que pode enviar para 
 obter detalhes sobre o controle de sua inscrição nas listas 
 de discussão do Mailman neste site. O comando pode ser 
 especificado no assunto ou no corpo da mensagem.

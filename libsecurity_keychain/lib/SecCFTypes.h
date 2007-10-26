@@ -77,10 +77,6 @@ class SecCFTypes
 public:
     SecCFTypes();
 
-private:
-	// Allocator for those CFClass instances that need to lock on CFRelease
-	CFAllocator mAllocator;
-
 public:
 	/* Add new instances of CFClass here that you want registered with the CF runtime. */
 	CFClass Access;
@@ -98,6 +94,7 @@ public:
 	CFClass PolicyCursor;
 	CFClass Trust;
 	CFClass TrustedApplication;
+	CFClass ExtendedAttribute;
 };
 
 extern SecCFTypes &gTypes();

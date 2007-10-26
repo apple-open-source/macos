@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1999-2007 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -6893,8 +6893,9 @@ output_merged_symbols(void)
 			continue;
 #endif /* RLD */
 		    if(strip_level == STRIP_DYNAMIC_EXECUTABLE &&
-		       (merged_symbol->nlist.n_desc & REFERENCED_DYNAMICALLY) !=
-			REFERENCED_DYNAMICALLY)
+		       (((merged_symbol->nlist.n_desc &
+			  REFERENCED_DYNAMICALLY) != REFERENCED_DYNAMICALLY) ||
+			 (merged_symbol->nlist.n_type & N_PEXT) == N_PEXT))
 			continue;
 		    if(dead_strip == TRUE && merged_symbol->live == FALSE)
 			continue;
@@ -7396,7 +7397,7 @@ void)
 	 * does not support them generate a warning can clear the weak reference
 	 * bit.
 	 */
-	if(macosx_deployment_target <= MACOSX_DEPLOYMENT_TARGET_10_1){
+	if(macosx_deployment_target.major <= 1){
 	    weak_ref_warning = FALSE;
 	    for(merged_symbol_list = merged_symbol_root == NULL ? NULL :
 				     merged_symbol_root->list;
@@ -7413,7 +7414,7 @@ void)
 			    warning("weak symbol references not set in output "
 				    "with MACOSX_DEPLOYMENT_TARGET environment "
 				    "variable set to: %s",
-				    macosx_deployment_target_name);
+				    macosx_deployment_target.name);
 			    warning("weak referenced symbols:");
 			    weak_ref_warning = TRUE;
 			}

@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: readconfig.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
+/* $Id: readconfig.h,v 1.4 2003/02/13 20:15:47 rjs3 Exp $ */
 
 #ifndef READCONFIG_H
 #define READCONFIG_H

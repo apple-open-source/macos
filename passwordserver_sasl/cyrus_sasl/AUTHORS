@@ -44,4 +44,4 @@ getaddrinfo.c was written by Hajimu UMEMOTO <ume@mahoroba.org>
 which is based on the IPv6 code written by KIKUCHI Takahiro
 <kick@kyoto.wide.ad.jp>
 
-$Id: AUTHORS,v 1.4 2005/01/10 19:17:38 snsimon Exp $
+$Id: AUTHORS,v 1.5 2006/01/24 20:37:07 snsimon Exp $

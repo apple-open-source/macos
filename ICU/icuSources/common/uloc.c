@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2007, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -31,6 +31,7 @@
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
 #include "unicode/uloc.h"
+#include "unicode/ures.h"
 
 #include "putilimp.h"
 #include "ustr_imp.h"
@@ -113,32 +114,34 @@ static int32_t _installedLocalesCount = 0;
  */
 static const char * const LANGUAGES[] = {
     "aa",  "ab",  "ace", "ach", "ada", "ady", "ae",  "af",  "afa",
-    "afh", "ak",  "akk", "ale", "alg", "am",  "an",  "ang", "apa",
+    "afh", "ain", "ak",  "akk", "ale", "alg", "alt", "am",  "an",  
+    "ang", "anp", "apa",
     "ar",  "arc", "arn", "arp", "art", "arw", "as",  "ast",
     "ath", "aus", "av",  "awa", "ay",  "az",  "ba",  "bad",
     "bai", "bal", "ban", "bas", "bat", "be",  "bej",
     "bem", "ber", "bg",  "bh",  "bho", "bi",  "bik", "bin",
     "bla", "bm",  "bn",  "bnt", "bo",  "br",  "bra", "bs",
     "btk", "bua", "bug", "byn", "ca",  "cad", "cai", "car", "cau",
-    "ce",  "ceb", "cel", "ch",  "chb", "chg", "chk", "chm",
+    "cch", "ce",  "ceb", "cel", "ch",  "chb", "chg", "chk", "chm",
     "chn", "cho", "chp", "chr", "chy", "cmc", "co",  "cop",
     "cpe", "cpf", "cpp", "cr",  "crh", "crp", "cs",  "csb", "cu",  "cus",
     "cv",  "cy",  "da",  "dak", "dar", "day", "de",  "del", "den",
     "dgr", "din", "doi", "dra", "dsb", "dua", "dum", "dv",  "dyu",
     "dz",  "ee",  "efi", "egy", "eka", "el",  "elx", "en",
     "enm", "eo",  "es",  "et",  "eu",  "ewo", "fa",
-    "fan", "fat", "ff",  "fi",  "fiu", "fj",  "fo",  "fon",
-    "fr",  "frm", "fro", "fur", "fy",  "ga",  "gaa", "gay",
-    "gba", "gd",  "gem", "gez", "gil", "gl",  "gmh", "gn",
-    "goh", "gon", "gor", "got", "grb", "grc", "gu",  "gv",
-    "gwi", "ha",  "hai", "haw", "he",  "hi",  "hil", "him",
+    "fan", "fat", "ff",  "fi",  "fil", "fiu", "fj",  "fo",  "fon",
+    "fr",  "frm", "fro", "frr", "frs", "fur", "fy",  
+    "ga",  "gaa", "gay", "gba", "gd",  "gem", "gez", "gil", 
+    "gl",  "gmh", "gn",  "goh", "gon", "gor", "got", "grb", 
+    "grc", "gsw", "gu",  "gv", "gwi", 
+    "ha",  "hai", "haw", "he",  "hi",  "hil", "him",
     "hit", "hmn", "ho",  "hr",  "hsb", "ht",  "hu",  "hup", "hy",  "hz",
     "ia",  "iba", "id",  "ie",  "ig",  "ii",  "ijo", "ik",
     "ilo", "inc", "ine", "inh", "io",  "ira", "iro", "is",  "it",
     "iu",  "ja",  "jbo", "jpr", "jrb", "jv",  "ka",  "kaa", "kab",
-    "kac", "kam", "kar", "kaw", "kbd", "kg",  "kha", "khi",
+    "kac", "kaj", "kam", "kar", "kaw", "kbd", "kcg", "kfo", "kg",  "kha", "khi",
     "kho", "ki",  "kj",  "kk",  "kl",  "km",  "kmb", "kn",
-    "ko",  "kok", "kos", "kpe", "kr",  "krc", "kro", "kru", "ks",
+    "ko",  "kok", "kos", "kpe", "kr",  "krc", "krl", "kro", "kru", "ks",
     "ku",  "kum", "kut", "kv",  "kw",  "ky",  "la",  "lad",
     "lah", "lam", "lb",  "lez", "lg",  "li",  "ln",  "lo",  "lol",
     "loz", "lt",  "lu",  "lua", "lui", "lun", "luo", "lus",
@@ -146,7 +149,7 @@ static const char * const LANGUAGES[] = {
     "mdf", "mdr", "men", "mg",  "mga", "mh",  "mi",  "mic", "min",
     "mis", "mk",  "mkh", "ml",  "mn",  "mnc", "mni", "mno",
     "mo",  "moh", "mos", "mr",  "ms",  "mt",  "mul", "mun",
-    "mus", "mwr", "my",  "myn", "myv", "na",  "nah", "nai", "nap",
+    "mus", "mwl", "mwr", "my",  "myn", "myv", "na",  "nah", "nai", "nap",
     "nb",  "nd",  "nds", "ne",  "new", "ng",  "nia", "nic",
     "niu", "nl",  "nn",  "no",  "nog", "non", "nr",  "nso", "nub",
     "nv",  "nwc", "ny",  "nym", "nyn", "nyo", "nzi", "oc",  "oj",
@@ -154,12 +157,12 @@ static const char * const LANGUAGES[] = {
     "pag", "pal", "pam", "pap", "pau", "peo", "phi", "phn",
     "pi",  "pl",  "pon", "pra", "pro", "ps",  "pt",  "qu",
     "raj", "rap", "rar", "rm",  "rn",  "ro",  "roa", "rom",
-    "ru",  "rw",  "sa",  "sad", "sah", "sai", "sal", "sam",
-    "sas", "sat", "sc",  "sco", "sd",  "se",  "sel", "sem",
+    "ru",  "rup", "rw",  "sa",  "sad", "sah", "sai", "sal", "sam",
+    "sas", "sat", "sc",  "scn", "sco", "sd",  "se",  "sel", "sem",
     "sg",  "sga", "sgn", "shn", "si",  "sid", "sio", "sit",
     "sk",  "sl",  "sla", "sm",  "sma", "smi", "smj", "smn",
     "sms", "sn",  "snk", "so",  "sog", "son", "sq",  "sr",
-    "srr", "ss",  "ssa", "st",  "su",  "suk", "sus", "sux",
+    "srn", "srr", "ss",  "ssa", "st",  "su",  "suk", "sus", "sux",
     "sv",  "sw",  "syr", "ta",  "tai", "te",  "tem", "ter",
     "tet", "tg",  "th",  "ti",  "tig", "tiv", "tk",  "tkl",
     "tl",  "tlh", "tli", "tmh", "tn",  "to",  "tog", "tpi", "tr",
@@ -168,10 +171,16 @@ static const char * const LANGUAGES[] = {
     "uz",  "vai", "ve",  "vi",  "vo",  "vot", "wa",  "wak",
     "wal", "war", "was", "wen", "wo",  "xal", "xh",  "yao", "yap",
     "yi",  "yo",  "ypk", "za",  "zap", "zen", "zh",  "znd",
-    "zu",  "zun", 
+    "zu",  "zun", "zxx",
 NULL,
     "in",  "iw",  "ji",  "jw",  "sh",    /* obsolete language codes */
 NULL
+};
+static const char* const DEPRECATED_LANGUAGES[]={
+    "in", "iw", "ji", "jw", NULL, NULL
+};
+static const char* const REPLACEMENT_LANGUAGES[]={
+    "id", "he", "yi", "jv", NULL, NULL
 };
 
 /**
@@ -193,8 +202,8 @@ NULL
 static const char * const LANGUAGES_3[] = {
 /*  "aa",  "ab",  "ace", "ach", "ada", "ady", "ae",  "af",  "afa",    */
     "aar", "abk", "ace", "ach", "ada", "ady", "ave", "afr", "afa",
-/*  "afh", "ak",  "akk", "ale", "alg", "am",  "an",  "ang", "apa",    */
-    "afh", "aka", "akk", "ale", "alg", "amh", "arg", "ang", "apa",
+/*  "afh", "ain", "ak",  "akk", "ale", "alg", "alt", "am",  "an",  "ang", "anp", "apa",    */
+    "afh", "ain", "aka", "akk", "ale", "alg", "alt", "amh", "arg", "ang", "anp", "apa",
 /*  "ar",  "arc", "arn", "arp", "art", "arw", "as",  "ast",    */
     "ara", "arc", "arn", "arp", "art", "arw", "asm", "ast",
 /*  "ath", "aus", "av",  "awa", "ay",  "az",  "ba",  "bad",    */
@@ -207,8 +216,8 @@ static const char * const LANGUAGES_3[] = {
     "bla", "bam", "ben", "bnt", "bod", "bre", "bra", "bos",
 /*  "btk", "bua", "bug", "byn", "ca",  "cad", "cai", "car", "cau",    */
     "btk", "bua", "bug", "byn", "cat", "cad", "cai", "car", "cau",
-/*  "ce",  "ceb", "cel", "ch",  "chb", "chg", "chk", "chm",    */
-    "che", "ceb", "cel", "cha", "chb", "chg", "chk", "chm",
+/*  "cch", "ce",  "ceb", "cel", "ch",  "chb", "chg", "chk", "chm",    */
+    "cch", "che", "ceb", "cel", "cha", "chb", "chg", "chk", "chm",
 /*  "chn", "cho", "chp", "chr", "chy", "cmc", "co",  "cop",    */
     "chn", "cho", "chp", "chr", "chy", "cmc", "cos", "cop",
 /*  "cpe", "cpf", "cpp", "cr",  "crh", "crp", "cs",  "csb", "cu",  "cus",    */
@@ -221,14 +230,14 @@ static const char * const LANGUAGES_3[] = {
     "dzo", "ewe", "efi", "egy", "eka", "ell", "elx", "eng",
 /*  "enm", "eo",  "es",  "et",  "eu",  "ewo", "fa",     */
     "enm", "epo", "spa", "est", "eus", "ewo", "fas",
-/*  "fan", "fat", "ff",  "fi",  "fiu", "fj",  "fo",  "fon",    */
-    "fan", "fat", "ful", "fin", "fiu", "fij", "fao", "fon",
-/*  "fr",  "frm", "fro", "fur", "fy",  "ga",  "gaa", "gay",    */
-    "fra", "frm", "fro", "fur", "fry", "gle", "gaa", "gay",
+/*  "fan", "fat", "ff",  "fi",  "fil", "fiu", "fj",  "fo",  "fon",    */
+    "fan", "fat", "ful", "fin", "fil", "fiu", "fij", "fao", "fon",
+/*  "fr",  "frm", "fro", "fur", "frr", "frs", "fy",  "ga",  "gaa", "gay",    */
+    "fra", "frm", "fro", "fur", "frr", "frs", "fry", "gle", "gaa", "gay",
 /*  "gba", "gd",  "gem", "gez", "gil", "gl",  "gmh", "gn",     */
     "gba", "gla", "gem", "gez", "gil", "glg", "gmh", "grn",
-/*  "goh", "gon", "gor", "got", "grb", "grc", "gu",  "gv",     */
-    "goh", "gon", "gor", "got", "grb", "grc", "guj", "glv",
+/*  "goh", "gon", "gor", "got", "grb", "grc", "gsw", "gu",  "gv",     */
+    "goh", "gon", "gor", "got", "grb", "grc", "gsw", "guj", "glv",
 /*  "gwi", "ha",  "hai", "haw", "he",  "hi",  "hil", "him",    */
     "gwi", "hau", "hai", "haw", "heb", "hin", "hil", "him",
 /*  "hit", "hmn", "ho",  "hr",  "hsb", "ht",  "hu",  "hup", "hy",  "hz",     */
@@ -239,12 +248,12 @@ static const char * const LANGUAGES_3[] = {
     "ilo", "inc", "ine", "inh", "ido", "ira", "iro", "isl", "ita",
 /*  "iu",  "ja",  "jbo", "jpr", "jrb", "jv",  "ka",  "kaa", "kab",   */
     "iku", "jpn", "jbo", "jpr", "jrb", "jav", "kat", "kaa", "kab",
-/*  "kac", "kam", "kar", "kaw", "kbd", "kg",  "kha", "khi",    */
-    "kac", "kam", "kar", "kaw", "kbd", "kon", "kha", "khi",
+/*  "kac", "kaj", "kam", "kar", "kaw", "kbd", "kcg", "kfo", "kg",  "kha", "khi",*/
+    "kac", "kaj", "kam", "kar", "kaw", "kbd", "kcg", "kfo", "kg",  "kha", "khi",
 /*  "kho", "ki",  "kj",  "kk",  "kl",  "km",  "kmb", "kn",     */
     "kho", "kik", "kua", "kaz", "kal", "khm", "kmb", "kan",
-/*  "ko",  "kok", "kos", "kpe", "kr",  "krc", "kro", "kru", "ks",     */
-    "kor", "kok", "kos", "kpe", "kau", "krc", "kro", "kru", "kas",
+/*  "ko",  "kok", "kos", "kpe", "kr",  "krc", "krl", "kro", "kru", "ks",     */
+    "kor", "kok", "kos", "kpe", "kau", "krc", "krl", "kro", "kru", "kas",
 /*  "ku",  "kum", "kut", "kv",  "kw",  "ky",  "la",  "lad",    */
     "kur", "kum", "kut", "kom", "cor", "kir", "lat", "lad",
 /*  "lah", "lam", "lb",  "lez", "lg",  "li",  "ln",  "lo",  "lol",    */
@@ -259,8 +268,8 @@ static const char * const LANGUAGES_3[] = {
     "mis", "mkd", "mkh", "mal", "mon", "mnc", "mni", "mno",
 /*  "mo",  "moh", "mos", "mr",  "ms",  "mt",  "mul", "mun",    */
     "mol", "moh", "mos", "mar", "msa", "mlt", "mul", "mun",
-/*  "mus", "mwr", "my",  "myn", "myv", "na",  "nah", "nai", "nap",    */
-    "mus", "mwr", "mya", "myn", "myv", "nau", "nah", "nai", "nap",
+/*  "mus", "mwl", "mwr", "my",  "myn", "myv", "na",  "nah", "nai", "nap",    */
+    "mus", "mwl", "mwr", "mya", "myn", "myv", "nau", "nah", "nai", "nap",
 /*  "nb",  "nd",  "nds", "ne",  "new", "ng",  "nia", "nic",    */
     "nob", "nde", "nds", "nep", "new", "ndo", "nia", "nic",
 /*  "niu", "nl",  "nn",  "no",  "nog", "non", "nr",  "nso", "nub",    */
@@ -275,18 +284,18 @@ static const char * const LANGUAGES_3[] = {
     "pli", "pol", "pon", "pra", "pro", "pus", "por", "que",
 /*  "raj", "rap", "rar", "rm",  "rn",  "ro",  "roa", "rom",    */
     "raj", "rap", "rar", "roh", "run", "ron", "roa", "rom",
-/*  "ru",  "rw",  "sa",  "sad", "sah", "sai", "sal", "sam",    */
-    "rus", "kin", "san", "sad", "sah", "sai", "sal", "sam",
-/*  "sas", "sat", "sc",  "sco", "sd",  "se",  "sel", "sem",    */
-    "sas", "sat", "srd", "sco", "snd", "sme", "sel", "sem",
+/*  "ru",  "rup", "rw",  "sa",  "sad", "sah", "sai", "sal", "sam",    */
+    "rus", "rup", "kin", "san", "sad", "sah", "sai", "sal", "sam",
+/*  "sas", "sat", "sc",  "scn", "sco", "sd",  "se",  "sel", "sem",    */
+    "sas", "sat", "srd", "scn", "sco", "snd", "sme", "sel", "sem",
 /*  "sg",  "sga", "sgn", "shn", "si",  "sid", "sio", "sit",    */
     "sag", "sga", "sgn", "shn", "sin", "sid", "sio", "sit",
 /*  "sk",  "sl",  "sla", "sm",  "sma", "smi", "smj", "smn",    */
     "slk", "slv", "sla", "smo", "sma", "smi", "smj", "smn",
 /*  "sms", "sn",  "snk", "so",  "sog", "son", "sq",  "sr",     */
     "sms", "sna", "snk", "som", "sog", "son", "sqi", "srp",
-/*  "srr", "ss",  "ssa", "st",  "su",  "suk", "sus", "sux",    */
-    "srr", "ssw", "ssa", "sot", "sun", "suk", "sus", "sux",
+/*  "srn", "srr", "ss",  "ssa", "st",  "su",  "suk", "sus", "sux",    */
+    "srn", "srr", "ssw", "ssa", "sot", "sun", "suk", "sus", "sux",
 /*  "sv",  "sw",  "syr", "ta",  "tai", "te",  "tem", "ter",    */
     "swe", "swa", "syr", "tam", "tai", "tel", "tem", "ter",
 /*  "tet", "tg",  "th",  "ti",  "tig", "tiv", "tk",  "tkl",    */
@@ -304,7 +313,7 @@ static const char * const LANGUAGES_3[] = {
 /*  "yi",  "yo",  "ypk", "za",  "zap", "zen", "zh",  "znd",    */
     "yid", "yor", "ypk", "zha", "zap", "zen", "zho", "znd",
 /*  "zu",  "zun",                                              */
-    "zul", "zun",  
+    "zul", "zun", "zxx", 
 NULL,
 /*  "in",  "iw",  "ji",  "jw",  "sh",                          */
     "ind", "heb", "yid", "jaw", "srp",
@@ -337,7 +346,7 @@ NULL
  */
 static const char * const COUNTRIES[] = {
     "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",  "AN",
-    "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AZ",
+    "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AX",  "AZ",
     "BA",  "BB",  "BD",  "BE",  "BF",  "BG",  "BH",  "BI",
     "BJ",  "BM",  "BN",  "BO",  "BR",  "BS",  "BT",  "BV",
     "BW",  "BY",  "BZ",  "CA",  "CC",  "CD",  "CF",  "CG",
@@ -345,11 +354,11 @@ static const char * const COUNTRIES[] = {
     "CU",  "CV",  "CX",  "CY",  "CZ",  "DE",  "DJ",  "DK",
     "DM",  "DO",  "DZ",  "EC",  "EE",  "EG",  "EH",  "ER",
     "ES",  "ET",  "FI",  "FJ",  "FK",  "FM",  "FO",  "FR",
-    "GA",  "GB",  "GD",  "GE",  "GF",  "GH",  "GI",  "GL",
+    "GA",  "GB",  "GD",  "GE",  "GF",  "GG",  "GH",  "GI",  "GL",
     "GM",  "GN",  "GP",  "GQ",  "GR",  "GS",  "GT",  "GU",
     "GW",  "GY",  "HK",  "HM",  "HN",  "HR",  "HT",  "HU",
-    "ID",  "IE",  "IL",  "IN",  "IO",  "IQ",  "IR",  "IS",
-    "IT",  "JM",  "JO",  "JP",  "KE",  "KG",  "KH",  "KI",
+    "ID",  "IE",  "IL",  "IM",  "IN",  "IO",  "IQ",  "IR",  "IS",
+    "IT",  "JE",  "JM",  "JO",  "JP",  "KE",  "KG",  "KH",  "KI",
     "KM",  "KN",  "KP",  "KR",  "KW",  "KY",  "KZ",  "LA",
     "LB",  "LC",  "LI",  "LK",  "LR",  "LS",  "LT",  "LU",
     "LV",  "LY",  "MA",  "MC",  "MD",  "MG",  "MH",  "MK",
@@ -365,12 +374,20 @@ static const char * const COUNTRIES[] = {
     "TK",  "TL",  "TM",  "TN",  "TO",  "TR",  "TT",  "TV",
     "TW",  "TZ",  "UA",  "UG",  "UM",  "US",  "UY",  "UZ",
     "VA",  "VC",  "VE",  "VG",  "VI",  "VN",  "VU",  "WF",
-    "WS",  "YE",  "YT",  "YU",  "ZA",  "ZM",  "ZW",  
+    "WS",  "YE",  "YT",  "YU",  "ZA",  "ZM",  "ZW",  "ZZ",
 NULL,
     "FX",  "RO",  "TP",  "ZR",   /* obsolete country codes */
 NULL
 };
 
+static const char* const DEPRECATED_COUNTRIES[] ={
+    "BU", "DY", "FX", "HV", "NH", "RH", "TP", "YU", "ZR", NULL, NULL /* deprecated country list */
+};
+static const char* const REPLACEMENT_COUNTRIES[] = {
+/*  "BU", "DY", "FX", "HV", "NH", "RH", "TP", "YU", "ZR" */
+    "MM", "BJ", "FR", "BF", "VU", "ZW", "TL", "CS", "CD", NULL, NULL  /* replacement country codes */      
+};
+    
 /**
  * Table of 3-letter country codes.
  *
@@ -387,8 +404,8 @@ NULL
 static const char * const COUNTRIES_3[] = {
 /*  "AD",  "AE",  "AF",  "AG",  "AI",  "AL",  "AM",  "AN",     */
     "AND", "ARE", "AFG", "ATG", "AIA", "ALB", "ARM", "ANT",
-/*  "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AZ",     */
-    "AGO", "ATA", "ARG", "ASM", "AUT", "AUS", "ABW", "AZE",
+/*  "AO",  "AQ",  "AR",  "AS",  "AT",  "AU",  "AW",  "AX",  "AZ",     */
+    "AGO", "ATA", "ARG", "ASM", "AUT", "AUS", "ABW", "ALA", "AZE",
 /*  "BA",  "BB",  "BD",  "BE",  "BF",  "BG",  "BH",  "BI",     */
     "BIH", "BRB", "BGD", "BEL", "BFA", "BGR", "BHR", "BDI",
 /*  "BJ",  "BM",  "BN",  "BO",  "BR",  "BS",  "BT",  "BV",     */
@@ -403,16 +420,16 @@ static const char * const COUNTRIES_3[] = {
     "DMA", "DOM", "DZA", "ECU", "EST", "EGY", "ESH", "ERI",
 /*  "ES",  "ET",  "FI",  "FJ",  "FK",  "FM",  "FO",  "FR",     */
     "ESP", "ETH", "FIN", "FJI", "FLK", "FSM", "FRO", "FRA",
-/*  "GA",  "GB",  "GD",  "GE",  "GF",  "GH",  "GI",  "GL",     */
-    "GAB", "GBR", "GRD", "GEO", "GUF", "GHA", "GIB", "GRL",
+/*  "GA",   "GB",   "GD",   "GE",    "GF",   "GG",   "GH",  "GI",  "GL",     */
+    "GAB", "GBR", "GRD", "GEO", "GUF", "GGY", "GHA", "GIB", "GRL",
 /*  "GM",  "GN",  "GP",  "GQ",  "GR",  "GS",  "GT",  "GU",     */
     "GMB", "GIN", "GLP", "GNQ", "GRC", "SGS", "GTM", "GUM",
 /*  "GW",  "GY",  "HK",  "HM",  "HN",  "HR",  "HT",  "HU",     */
     "GNB", "GUY", "HKG", "HMD", "HND", "HRV", "HTI", "HUN",
-/*  "ID",  "IE",  "IL",  "IN",  "IO",  "IQ",  "IR",  "IS",     */
-    "IDN", "IRL", "ISR", "IND", "IOT", "IRQ", "IRN", "ISL",
-/*  "IT",  "JM",  "JO",  "JP",  "KE",  "KG",  "KH",  "KI",     */
-    "ITA", "JAM", "JOR", "JPN", "KEN", "KGZ", "KHM", "KIR",
+/*  ID",    "IE",   "IL",    "IM",   "IN",   "IO",   "IQ",   "IR",   "IS" */
+    "IDN", "IRL", "ISR", "IMN", "IND", "IOT", "IRQ", "IRN", "ISL",	   
+/*  "IT",   "JE",   "JM",   "JO",    "JP",   "KE",   "KG",  "KH",  "KI",     */
+    "ITA", "JEY", "JAM", "JOR", "JPN", "KEN", "KGZ", "KHM", "KIR",
 /*  "KM",  "KN",  "KP",  "KR",  "KW",  "KY",  "KZ",  "LA",     */
     "COM", "KNA", "PRK", "KOR", "KWT", "CYM", "KAZ", "LAO",
 /*  "LB",  "LC",  "LI",  "LK",  "LR",  "LS",  "LT",  "LU",     */
@@ -443,8 +460,8 @@ static const char * const COUNTRIES_3[] = {
     "TWN", "TZA", "UKR", "UGA", "UMI", "USA", "URY", "UZB",
 /*  "VA",  "VC",  "VE",  "VG",  "VI",  "VN",  "VU",  "WF",     */
     "VAT", "VCT", "VEN", "VGB", "VIR", "VNM", "VUT", "WLF",
-/*  "WS",  "YE",  "YT",  "YU",  "ZA",  "ZM",  "ZW",            */
-    "WSM", "YEM", "MYT", "YUG", "ZAF", "ZMB", "ZWE",
+/*  "WS",  "YE",  "YT",  "YU",  "ZA",  "ZM",  "ZW", "ZZZ"          */
+    "WSM", "YEM", "MYT", "YUG", "ZAF", "ZMB", "ZWE",  "ZZZ",
 NULL,
 /*  "FX",  "RO",  "TP",  "ZR",   */
     "FXX", "ROM", "TMP", "ZAR",
@@ -465,6 +482,7 @@ typedef struct CanonicalizationMap {
 static const CanonicalizationMap CANONICALIZE_MAP[] = {
     { "",               "en_US_POSIX", NULL, NULL }, /* .NET name */
     { "C",              "en_US_POSIX", NULL, NULL }, /* POSIX name */
+    { "posix",          "en_US_POSIX", NULL, NULL }, /* POSIX name (alias of C) */
     { "art_LOJBAN",     "jbo", NULL, NULL }, /* registered name */
     { "az_AZ_CYRL",     "az_Cyrl_AZ", NULL, NULL }, /* .NET name */
     { "az_AZ_LATN",     "az_Latn_AZ", NULL, NULL }, /* .NET name */
@@ -498,12 +516,14 @@ static const CanonicalizationMap CANONICALIZE_MAP[] = {
     { "nl_NL_PREEURO",  "nl_NL", "currency", "NLG" },
     { "pt_PT_PREEURO",  "pt_PT", "currency", "PTE" },
     { "sl_ROZAJ",       "sl__ROZAJ", NULL, NULL }, /* registered name */
-    { "sr_SP_CYRL",     "sr_Cyrl_SP", NULL, NULL }, /* .NET name */
-    { "sr_SP_LATN",     "sr_Latn_SP", NULL, NULL }, /* .NET name */
+    { "sr_SP_CYRL",     "sr_Cyrl_CS", NULL, NULL }, /* .NET name */
+    { "sr_SP_LATN",     "sr_Latn_CS", NULL, NULL }, /* .NET name */
+    { "sr_YU_CYRILLIC", "sr_Cyrl_CS", NULL, NULL }, /* Linux name */
+    { "uz_UZ_CYRILLIC", "uz_Cyrl_UZ", NULL, NULL }, /* Linux name */
     { "uz_UZ_CYRL",     "uz_Cyrl_UZ", NULL, NULL }, /* .NET name */
     { "uz_UZ_LATN",     "uz_Latn_UZ", NULL, NULL }, /* .NET name */
     { "zh_CHS",         "zh_Hans", NULL, NULL }, /* .NET name */
-    { "zh_CHT",         "zh_TW", NULL, NULL }, /* .NET name TODO: This should be zh_Hant once the locale structure is fixed. */
+    { "zh_CHT",         "zh_Hant", NULL, NULL }, /* .NET name TODO: This should be zh_Hant once the locale structure is fixed. */
     { "zh_GAN",         "zh__GAN", NULL, NULL }, /* registered name */
     { "zh_GUOYU",       "zh", NULL, NULL }, /* registered name */
     { "zh_HAKKA",       "zh__HAKKA", NULL, NULL }, /* registered name */
@@ -513,7 +533,7 @@ static const CanonicalizationMap CANONICALIZE_MAP[] = {
     { "zh_XIANG",       "zh__XIANG", NULL, NULL }, /* registered name */
     { "zh_YUE",         "zh__YUE", NULL, NULL }, /* registered name */
     { "th_TH_TRADITIONAL", "th_TH", "calendar", "buddhist" },
-    { "zh_TW_STROKE",   "zh_TW", "collation", "stroke" },
+    { "zh_TW_STROKE",   "zh_Hant_TW", "collation", "stroke" },
     { "zh__PINYIN",     "zh", "collation", "pinyin" }
 };
 
@@ -524,14 +544,16 @@ static const CanonicalizationMap CANONICALIZE_MAP[] = {
 
 static const char * 
 locale_getKeywordsStart(const char *localeID) {
-    /* TODO This seems odd. No matter what charset we're on, won't '@'
-       be '@'? Or are we building on one EBCDIC machine and moving the
-       library to another? */
     const char *result = NULL;
-    static const uint8_t ebcdicSigns[] = { 0x7C, 0x44, 0x66, 0x80, 0xAC, 0xAE, 0xAF, 0xB5, 0xEC, 0xEF, 0x00 };
     if((result = uprv_strchr(localeID, '@')) != NULL) {
         return result;
-    } else if(U_CHARSET_FAMILY == U_EBCDIC_FAMILY) {
+    }
+#if (U_CHARSET_FAMILY == U_EBCDIC_FAMILY)
+    else {
+        /* We do this because the @ sign is variant, and the @ sign used on one
+        EBCDIC machine won't be compiled the same way on other EBCDIC based
+        machines. */
+        static const uint8_t ebcdicSigns[] = { 0x7C, 0x44, 0x66, 0x80, 0xAC, 0xAE, 0xAF, 0xB5, 0xEC, 0xEF, 0x00 };
         const uint8_t *charToFind = ebcdicSigns;
         while(*charToFind) {
             if((result = uprv_strchr(localeID, *charToFind)) != NULL) {
@@ -540,6 +562,7 @@ locale_getKeywordsStart(const char *localeID) {
             charToFind++;
         }
     }
+#endif
     return NULL;
 }
 
@@ -552,7 +575,7 @@ locale_getKeywordsStart(const char *localeID) {
 static int32_t locale_canonKeywordName(char *buf, const char *keywordName, UErrorCode *status)
 {
   int32_t i;
-  int32_t keywordNameLen = uprv_strlen(keywordName);
+  int32_t keywordNameLen = (int32_t)uprv_strlen(keywordName);
   
   if(keywordNameLen >= ULOC_KEYWORD_BUFFER_LEN) {
     /* keyword name too long for internal buffer */
@@ -660,10 +683,10 @@ _getKeywords(const char *localeID,
                 while(*(pos - i - 1) == ' ') {
                     i++;
                 }
-                keywordList[numKeywords].valueLen = pos - equalSign - i;
+                keywordList[numKeywords].valueLen = (int32_t)(pos - equalSign - i);
                 pos++;
             } else {
-                i = uprv_strlen(equalSign);
+                i = (int32_t)uprv_strlen(equalSign);
                 while(equalSign[i-1] == ' ') {
                     i--;
                 }
@@ -699,9 +722,9 @@ _getKeywords(const char *localeID,
                     return 0;
                 }
                 uprv_strcpy(keywordList[numKeywords].keyword, addKeyword);
-                keywordList[numKeywords].keywordLen = uprv_strlen(addKeyword);
+                keywordList[numKeywords].keywordLen = (int32_t)uprv_strlen(addKeyword);
                 keywordList[numKeywords].valueStart = addValue;
-                keywordList[numKeywords].valueLen = uprv_strlen(addValue);
+                keywordList[numKeywords].valueLen = (int32_t)uprv_strlen(addValue);
                 ++numKeywords;
             }
         } else {
@@ -775,7 +798,6 @@ uloc_getKeywordValue(const char* localeID,
                      UErrorCode* status)
 { 
     const char* nextSeparator = NULL;
-    int32_t keywordNameLen;
     char keywordNameBuffer[ULOC_KEYWORD_BUFFER_LEN];
     char localeKeywordNameBuffer[ULOC_KEYWORD_BUFFER_LEN];
     int32_t i = 0;
@@ -789,7 +811,7 @@ uloc_getKeywordValue(const char* localeID,
           return 0;
       }
 
-      keywordNameLen = locale_canonKeywordName(keywordNameBuffer, keywordName, status);
+      locale_canonKeywordName(keywordNameBuffer, keywordName, status);
       if(U_FAILURE(*status)) {
         return 0;
       }
@@ -833,9 +855,9 @@ uloc_getKeywordValue(const char* localeID,
                       startSearchHere--;
                   }
                   uprv_strncpy(buffer, nextSeparator, startSearchHere - nextSeparator);
-                  result = u_terminateChars(buffer, bufferCapacity, startSearchHere - nextSeparator, status);
+                  result = u_terminateChars(buffer, bufferCapacity, (int32_t)(startSearchHere - nextSeparator), status);
               } else if(!startSearchHere && (int32_t)uprv_strlen(nextSeparator) < bufferCapacity) { /* last item in string */
-                  i = uprv_strlen(nextSeparator);
+                  i = (int32_t)uprv_strlen(nextSeparator);
                   while(nextSeparator[i - 1] == ' ') {
                       i--;
                   }
@@ -845,9 +867,9 @@ uloc_getKeywordValue(const char* localeID,
                   /* give a bigger buffer, please */
                   *status = U_BUFFER_OVERFLOW_ERROR;
                   if(startSearchHere) {
-                      result = startSearchHere - nextSeparator;
+                      result = (int32_t)(startSearchHere - nextSeparator);
                   } else {
-                      result = uprv_strlen(nextSeparator); 
+                      result = (int32_t)uprv_strlen(nextSeparator); 
                   }
               }
               return result;
@@ -882,11 +904,22 @@ uloc_setKeywordValue(const char* keywordName,
     if(U_FAILURE(*status)) { 
         return -1; 
     }
+    if(bufferCapacity>1) {
+        bufLen = (int32_t)uprv_strlen(buffer);
+    } else {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    if(bufferCapacity<bufLen) {
+        /* The capacity is less than the length?! Is this NULL terminated? */
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
     if(keywordValue && !*keywordValue) { 
         keywordValue = NULL;
     }
     if(keywordValue) {
-        keywordValueLen = uprv_strlen(keywordValue);
+        keywordValueLen = (int32_t)uprv_strlen(keywordValue);
     } else { 
         keywordValueLen = 0;
     }
@@ -895,12 +928,6 @@ uloc_setKeywordValue(const char* keywordName,
         return 0;
     }
     startSearchHere = (char*)locale_getKeywordsStart(buffer);
-    if(bufferCapacity>1) {
-        bufLen = uprv_strlen(buffer);
-    } else {
-        *status = U_ILLEGAL_ARGUMENT_ERROR;
-        return 0;
-    }
     if(startSearchHere == NULL || (startSearchHere[1]==0)) {
         if(!keywordValue) { /* no keywords = nothing to remove */
             return bufLen; 
@@ -965,10 +992,10 @@ uloc_setKeywordValue(const char* keywordName,
             /* we actually found the keyword. Change the value */
             if (nextSeparator) {
                 keywordAtEnd = 0;
-                foundValueLen = nextSeparator - nextEqualsign;
+                foundValueLen = (int32_t)(nextSeparator - nextEqualsign);
             } else {
                 keywordAtEnd = 1;
-                foundValueLen = uprv_strlen(nextEqualsign);
+                foundValueLen = (int32_t)uprv_strlen(nextEqualsign);
             }
             if(keywordValue) { /* adding a value - not removing */
               if(foundValueLen == keywordValueLen) {
@@ -1001,11 +1028,11 @@ uloc_setKeywordValue(const char* keywordName,
               if(keywordAtEnd) {
                 /* zero out the ';' or '@' just before startSearchhere */
                 keywordStart[-1] = 0;
-                return (keywordStart-buffer)-1; /* (string length without keyword) minus separator */
+                return (int32_t)((keywordStart-buffer)-1); /* (string length without keyword) minus separator */
               } else {
                 uprv_memmove(keywordStart, nextSeparator+1, bufLen-((nextSeparator+1)-buffer));
                 keywordStart[bufLen-((nextSeparator+1)-buffer)]=0;
-                return bufLen-((nextSeparator+1)-keywordStart);
+                return (int32_t)(bufLen-((nextSeparator+1)-keywordStart));
               }
             }
         } else if(rc<0){ /* end match keyword */
@@ -1123,6 +1150,22 @@ _copyCount(char *dest, int32_t destCapacity, const char *src) {
     }
 }
 
+static const char* 
+uloc_getCurrentCountryID(const char* oldID){
+    int32_t offset = _findIndex(DEPRECATED_COUNTRIES, oldID);
+    if (offset >= 0) {
+        return REPLACEMENT_COUNTRIES[offset];
+    }
+    return oldID;
+}
+static const char* 
+uloc_getCurrentLanguageID(const char* oldID){
+    int32_t offset = _findIndex(DEPRECATED_LANGUAGES, oldID);
+    if (offset >= 0) {
+        return REPLACEMENT_LANGUAGES[offset];
+    }
+    return oldID;        
+}
 /*
  * the internal functions _getLanguage(), _getCountry(), _getVariant()
  * avoid duplicating code to handle the earlier locale ID pieces
@@ -1355,7 +1398,7 @@ _deleteVariant(char* variants, int32_t variantsLen,
                 return delta;
             }
             ++p;
-            variantsLen -= p - variants;
+            variantsLen -= (int32_t)(p - variants);
             variants = p;
         }
     }
@@ -1393,7 +1436,7 @@ uloc_kw_nextKeyword(UEnumeration* en,
     const char* result = ((UKeywordsContext *)en->context)->current;
     int32_t len = 0;
     if(*result) {
-        len = uprv_strlen(((UKeywordsContext *)en->context)->current);
+        len = (int32_t)uprv_strlen(((UKeywordsContext *)en->context)->current);
         ((UKeywordsContext *)en->context)->current += len+1;
     } else {
         result = NULL;
@@ -1498,6 +1541,9 @@ uloc_openKeywords(const char* localeID,
 
 #define OPTION_SET(options, mask) ((options & mask) != 0)
 
+static const char i_default[] = {'i', '-', 'd', 'e', 'f', 'a', 'u', 'l', 't'};
+#define I_DEFAULT_LENGTH (sizeof i_default / sizeof i_default[0])
+
 /**
  * Canonicalize the given localeID, to level 1 or to level 2,
  * depending on the options.  To specify level 1, pass in options=0.
@@ -1513,6 +1559,7 @@ _canonicalize(const char* localeID,
               UErrorCode* err) {
     int32_t j, len, fieldCount=0, scriptSize=0, variantSize=0, nameCapacity;
     char localeBuffer[ULOC_FULLNAME_CAPACITY];
+    const char* origLocaleID = localeID;
     const char* keywordAssign = NULL;
     const char* separatorIndicator = NULL;
     const char* addKeyword = NULL;
@@ -1542,7 +1589,16 @@ _canonicalize(const char* localeID,
 
     /* get all pieces, one after another, and separate with '_' */
     len=_getLanguage(localeID, name, nameCapacity, &localeID);
-    if(_isIDSeparator(*localeID)) {
+
+    if(len == I_DEFAULT_LENGTH && uprv_strncmp(origLocaleID, i_default, len) == 0) {
+        const char *d = uloc_getDefault();
+        
+        len = uprv_strlen(d);
+
+        if (name != NULL) {
+            uprv_strncpy(name, d, len);
+        }
+    } else if(_isIDSeparator(*localeID)) {
         const char *scriptID;
 
         ++fieldCount;
@@ -1663,7 +1719,7 @@ _canonicalize(const char* localeID,
         /* Look up the ID in the canonicalization map */
         for (j=0; j<(int32_t)(sizeof(CANONICALIZE_MAP)/sizeof(CANONICALIZE_MAP[0])); j++) {
             const char* id = CANONICALIZE_MAP[j].id;
-            int32_t n = uprv_strlen(id);
+            int32_t n = (int32_t)uprv_strlen(id);
             if (len == n && uprv_strncmp(name, id, n) == 0) {
                 if (n == 0 && localeID != NULL) {
                     break; /* Don't remap "" if keywords present */
@@ -1733,7 +1789,7 @@ uloc_getParent(const char*    localeID,
         i=0;
     }
 
-    if(i>0) {
+    if(i>0 && parent != localeID) {
         uprv_memcpy(parent, localeID, uprv_min(i, parentCapacity));
     }
     return u_terminateChars(parent, parentCapacity, i, err);
@@ -1824,7 +1880,6 @@ uloc_getVariant(const char* localeID,
                 UErrorCode* err) 
 {
     int32_t i=0;
-    UBool haveVariant=FALSE;
     
     if(err==NULL || U_FAILURE(*err)) {
         return 0;
@@ -1848,7 +1903,6 @@ uloc_getVariant(const char* localeID,
         if (_isIDSeparator(*localeID)) {
             _getCountry(localeID+1, NULL, 0, &localeID);
             if(_isIDSeparator(*localeID)) {
-                haveVariant=TRUE;
                 i=_getVariant(localeID+1, *localeID, variant, variantCapacity);
             }
         }
@@ -1946,6 +2000,25 @@ uloc_getLCID(const char* localeID)
     return uprv_convertToLCID(langID, localeID, &status);
 }
 
+U_CAPI int32_t U_EXPORT2
+uloc_getLocaleForLCID(uint32_t hostid, char *locale, int32_t localeCapacity,
+                UErrorCode *status)
+{
+    int32_t length;
+    const char *posix = uprv_convertToPosix(hostid, status);
+    if (U_FAILURE(*status) || posix == NULL) {
+        return 0;
+    }
+    length = (int32_t)uprv_strlen(posix);
+    if (length+1 > localeCapacity) {
+        *status = U_BUFFER_OVERFLOW_ERROR;
+    }
+    else {
+        uprv_strcpy(locale, posix);
+    }
+    return length;
+}
+
 /* ### Default locale **************************************************/
 
 U_CAPI const char*  U_EXPORT2
@@ -1988,153 +2061,107 @@ _res_getTableStringWithFallback(const char *path, const char *locale,
                               int32_t *pLength,
                               UErrorCode *pErrorCode)
 {
-    char localeBuffer[ULOC_FULLNAME_CAPACITY*4];
-    UResourceBundle *rb, table;
-    const UChar *item;
+/*    char localeBuffer[ULOC_FULLNAME_CAPACITY*4];*/
+    UResourceBundle *rb=NULL, table, subTable;
+    const UChar *item=NULL;
     UErrorCode errorCode;
     char explicitFallbackName[ULOC_FULLNAME_CAPACITY] = {0};
-    int32_t efnLen =0;
-    const UChar* ef = NULL;
-    UBool overrideExplicitFallback = FALSE;
-    for(;;) {
-        /*
-         * open the bundle for the current locale
-         * this falls back through the locale's chain to root
-         */
-        errorCode=U_ZERO_ERROR;
-        rb=ures_open(path, locale, &errorCode);
-        if(U_FAILURE(errorCode)) {
-            /* total failure, not even root could be opened */
-            *pErrorCode=errorCode;
-            return NULL;
-        } else if(errorCode==U_USING_DEFAULT_WARNING ||
-                  (errorCode==U_USING_FALLBACK_WARNING && *pErrorCode!=U_USING_DEFAULT_WARNING)
-        ) {
-            /* set the "strongest" error code (success->fallback->default->failure) */
-            *pErrorCode=errorCode;
-        }
 
-        /*
-         * try to open the requested table
-         * this falls back through the locale's chain to root, but not through the default locale
-         */
-        errorCode=U_ZERO_ERROR;
-        ures_initStackObject(&table);
-        ures_getByKey(rb, tableKey, &table, &errorCode);
-        if(U_FAILURE(errorCode)) {
-            /* no such table anywhere in this fallback chain */
-            ures_close(rb);
-            *pErrorCode=errorCode;
-            return NULL;
-        } else if(errorCode==U_USING_DEFAULT_WARNING ||
-                  (errorCode==U_USING_FALLBACK_WARNING && *pErrorCode!=U_USING_DEFAULT_WARNING)
-        ) {
-            /* set the "strongest" error code (success->fallback->default->failure) */
-            *pErrorCode=errorCode;
-        }
-
-        /* check if the fallback token is set */
-        ef = ures_getStringByKey(&table, "Fallback", &efnLen, &errorCode);
-        if(U_SUCCESS(errorCode)){
-            /* set the fallback chain */
-            u_UCharsToChars(ef, explicitFallbackName, efnLen);
-            /* null terminate the buffer */
-            explicitFallbackName[efnLen]=0;
-        }else if(errorCode==U_USING_DEFAULT_WARNING ||
-              (errorCode==U_USING_FALLBACK_WARNING && *pErrorCode!=U_USING_DEFAULT_WARNING)
-        ) {
-            /* set the "strongest" error code (success->fallback->default->failure) */
-            *pErrorCode=errorCode;
-        }
-
-        /* try to open the requested item in the table */
-        errorCode=U_ZERO_ERROR;
-        if(subTableKey == NULL){
-            item=ures_getStringByKey(&table, itemKey, pLength, &errorCode);
-        }else{
-            UResourceBundle subTable;
-            ures_initStackObject(&subTable);
-            ures_getByKey(&table, subTableKey, &subTable, &errorCode);
-            item = ures_getStringByKey(&subTable, itemKey, pLength, &errorCode);
-            ures_close(&subTable);
-        }
-        if(U_SUCCESS(errorCode)) {
-            /* if the item for the key is empty ... override the explicit fall back set */
-            if(item[0]==0 && efnLen > 0){
-                overrideExplicitFallback = TRUE;
-            }else{
-                /* we got the requested item! */
-                ures_close(&table);
-                ures_close(rb);
-
-                if(errorCode==U_USING_DEFAULT_WARNING ||
-                   (errorCode==U_USING_FALLBACK_WARNING && *pErrorCode!=U_USING_DEFAULT_WARNING)
-                ) {
-                    /* set the "strongest" error code (success->fallback->default->failure) */
-                    *pErrorCode=errorCode;
-                }
-
-                /*
-                 * It is safe to close the bundle and still return the
-                 * string pointer because resource bundles are
-                 * cached until u_cleanup().
-                 */
-                return item;
-            }
-        }
-
-        /*
-         * We get here if the item was not found.
-         * We will follow the chain to the parent locale bundle and look in
-         * the table there.
-         */
-
-        /* get the real locale ID for this table */
-        errorCode=U_ZERO_ERROR;
-        locale=ures_getLocale(&table, &errorCode);
-        /* keep table and rb open until we are done using the locale string owned by the table bundle */
-        if(U_FAILURE(errorCode)) {
-            /* error getting the locale ID for an open RB - should never happen */
-            ures_close(&table);
-            ures_close(rb);
-            *pErrorCode=U_INTERNAL_PROGRAM_ERROR;
-            return NULL;
-        }
-
-        if(*locale==0 || 0==uprv_strcmp(locale, _kRootName) || 0==uprv_strcmp(locale,explicitFallbackName)) {
-            /* end of fallback; even root does not have the requested item either */
-            ures_close(&table);
-            ures_close(rb);
-            *pErrorCode=U_MISSING_RESOURCE_ERROR;
-            return NULL;
-        }
-
-        /* could not find the table, or its item, try to fall back to a different RB and table */
-        errorCode=U_ZERO_ERROR;
-        if(efnLen > 0 && overrideExplicitFallback == FALSE){
-            /* continue the fallback lookup with the explicit fallback that is requested */
-            locale = explicitFallbackName;
-        }else{
-            uloc_getParent(locale, localeBuffer, sizeof(localeBuffer), &errorCode);
-            if(U_FAILURE(errorCode) || errorCode==U_STRING_NOT_TERMINATED_WARNING) {
-                /* error getting the parent locale ID - should never happen */
-                *pErrorCode=U_INTERNAL_PROGRAM_ERROR;
-                return NULL;
-            }
-
-            /* continue the fallback lookup with the parent locale ID */
-            locale=localeBuffer;
-
-            /* adjust error code as we fall back */
-            if (uprv_strlen(locale) == 0)   /* Falling back to root locale? */
-                  *pErrorCode = U_USING_DEFAULT_WARNING;
-            else if (*pErrorCode != U_USING_DEFAULT_WARNING)
-                  *pErrorCode = U_USING_FALLBACK_WARNING;
-        }
-        /* done with the locale string - ready to close table and rb */
-        ures_close(&table);
-        ures_close(rb);
+    /*
+     * open the bundle for the current locale
+     * this falls back through the locale's chain to root
+     */
+    errorCode=U_ZERO_ERROR;
+    rb=ures_open(path, locale, &errorCode);
+    if(U_FAILURE(errorCode)) {
+        /* total failure, not even root could be opened */
+        *pErrorCode=errorCode;
+        return NULL;
+    } else if(errorCode==U_USING_DEFAULT_WARNING ||
+                (errorCode==U_USING_FALLBACK_WARNING && *pErrorCode!=U_USING_DEFAULT_WARNING)
+    ) {
+        /* set the "strongest" error code (success->fallback->default->failure) */
+        *pErrorCode=errorCode;
     }
+
+    for(;;){
+        ures_initStackObject(&table);
+        ures_initStackObject(&subTable);
+        ures_getByKeyWithFallback(rb, tableKey, &table, &errorCode);
+        if (subTableKey != NULL) {
+            /*
+            ures_getByKeyWithFallback(&table,subTableKey, &subTable, &errorCode);
+            item = ures_getStringByKeyWithFallback(&subTable, itemKey, pLength, &errorCode);
+            if(U_FAILURE(errorCode)){
+                *pErrorCode = errorCode;
+            }
+            
+            break;*/
+            
+            ures_getByKeyWithFallback(&table,subTableKey, &table, &errorCode);
+        }
+        if(U_SUCCESS(errorCode)){
+            item = ures_getStringByKeyWithFallback(&table, itemKey, pLength, &errorCode);
+            if(U_FAILURE(errorCode)){
+                const char* replacement = NULL;
+                *pErrorCode = errorCode; /*save the errorCode*/
+                errorCode = U_ZERO_ERROR;
+                /* may be a deprecated code */
+                if(uprv_strcmp(tableKey, "Countries")==0){
+                    replacement =  uloc_getCurrentCountryID(itemKey);
+                }else if(uprv_strcmp(tableKey, "Languages")==0){
+                    replacement =  uloc_getCurrentLanguageID(itemKey);
+                }
+                /*pointer comparison is ok since uloc_getCurrentCountryID & uloc_getCurrentLanguageID return the key itself is replacement is not found*/
+                if(replacement!=NULL && itemKey != replacement){
+                    item = ures_getStringByKeyWithFallback(&table, replacement, pLength, &errorCode);
+                    if(U_SUCCESS(errorCode)){
+                        *pErrorCode = errorCode;
+                        break;
+                    }
+                }
+            }else{
+                break;
+            }
+        }
+        
+        if(U_FAILURE(errorCode)){    
+
+            /* still can't figure out ?.. try the fallback mechanism */
+            int32_t len = 0;
+            const UChar* fallbackLocale =  NULL;
+            *pErrorCode = errorCode;
+            errorCode = U_ZERO_ERROR;
+
+            fallbackLocale = ures_getStringByKeyWithFallback(&table, "Fallback", &len, &errorCode);
+            if(U_FAILURE(errorCode)){
+               *pErrorCode = errorCode;
+                break;
+            }
+            
+            u_UCharsToChars(fallbackLocale, explicitFallbackName, len);
+            
+            /* guard against recursive fallback */
+            if(uprv_strcmp(explicitFallbackName, locale)==0){
+                *pErrorCode = U_INTERNAL_PROGRAM_ERROR;
+                break;
+            }
+            ures_close(rb);
+            rb = ures_open(NULL, explicitFallbackName, &errorCode);
+            if(U_FAILURE(errorCode)){
+                *pErrorCode = errorCode;
+                break;
+            }
+            /* succeeded in opening the fallback bundle .. continue and try to fetch the item */
+        }else{
+            break;
+        }
+    }
+    /* done with the locale string - ready to close table and rb */
+    ures_close(&subTable);
+    ures_close(&table);
+    ures_close(rb);
+    return item;
 }
 
 static int32_t
@@ -2146,7 +2173,7 @@ _getStringOrCopyKey(const char *path, const char *locale,
                     UChar *dest, int32_t destCapacity,
                     UErrorCode *pErrorCode) {
     const UChar *s = NULL;
-    int32_t length;
+    int32_t length = 0;
 
     if(itemKey==NULL) {
         /* top-level item: normal resource bundle access */
@@ -2796,7 +2823,7 @@ uloc_acceptLanguageFromHTTP(char *result, int32_t resultAvailable, UAcceptResult
     const char *t;
     int32_t res;
     int32_t i;
-    int32_t l = uprv_strlen(httpAcceptLanguage);
+    int32_t l = (int32_t)uprv_strlen(httpAcceptLanguage);
     int32_t jSize;
 
     j = smallBuffer;
@@ -2840,7 +2867,7 @@ uloc_acceptLanguageFromHTTP(char *result, int32_t resultAvailable, UAcceptResult
         /* eat spaces prior to semi */
         for(t=(paramEnd-1);(paramEnd>s)&&isspace(*t);t--)
             ;
-        j[n].locale = uprv_strndup(s,(t+1)-s);
+        j[n].locale = uprv_strndup(s,(int32_t)((t+1)-s));
         uloc_canonicalize(j[n].locale,tmp,sizeof(tmp)/sizeof(tmp[0]),status);
         if(strcmp(j[n].locale,tmp)) {
             uprv_free(j[n].locale);
@@ -2938,7 +2965,7 @@ uloc_acceptLanguage(char *result, int32_t resultAvailable,
 #if defined(ULOC_DEBUG)
             fprintf(stderr,"  %s\n", l);
 #endif
-            len = uprv_strlen(l);
+            len = (int32_t)uprv_strlen(l);
             if(!uprv_strcmp(acceptList[i], l)) {
                 if(outResult) { 
                     *outResult = ULOC_ACCEPT_VALID;
@@ -2978,7 +3005,7 @@ uloc_acceptLanguage(char *result, int32_t resultAvailable,
 #if defined(ULOC_DEBUG)
                     fprintf(stderr,"  %s\n", l);
 #endif
-                    len = uprv_strlen(l);
+                    len = (int32_t)uprv_strlen(l);
                     if(!uprv_strcmp(fallbackList[i], l)) {
                         if(outResult) { 
                             *outResult = ULOC_ACCEPT_FALLBACK;
@@ -2989,11 +3016,11 @@ uloc_acceptLanguage(char *result, int32_t resultAvailable,
                         if(len>0) {
                             uprv_strncpy(result, l, uprv_min(len, resultAvailable));
                         }
-                        for(i=0;i<acceptListCount;i++) {
-                            uprv_free(fallbackList[i]);
+                        for(j=0;j<acceptListCount;j++) {
+                            uprv_free(fallbackList[j]);
                         }
                         uprv_free(fallbackList);
-                        return u_terminateChars(result, resultAvailable, len, status);   
+                        return u_terminateChars(result, resultAvailable, len, status);
                     }
                 }
                 uenum_reset(availableLocales, status);    

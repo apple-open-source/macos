@@ -1,0 +1,991 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: port File,  Next: dial File,  Prev: sys File,  Up: Configuration Files
+
+The Port Configuration File
+===========================
+
+   The port files may be used to name and describe ports.  By default
+there is a single port file, named `port' in the directory
+NEWCONFIGDIR.  This may be overridden by the `portfile' command in the
+main configuration file; see *Note Configuration File Names::.
+
+   Any commands in a port file before the first `port' command specify
+defaults for all ports in the file; however, since the `type' command
+must appear before all other commands for a port, the defaults are only
+useful if all ports in the file are of the same type (this restriction
+may be lifted in a later version).  All commands after a `port' command
+up to the next `port' command then describe that port.  There are
+different types of ports; each type supports its own set of commands.
+Each command indicates which types of ports support it.  There may be
+many ports with the same name; if a system requests a port by name then
+each port with that name will be tried until an unlocked one is found.
+
+`port STRING'
+     Introduces and names a port.
+
+`type STRING'
+     Define the type of port.  The default is `modem'.  If this command
+     appears, it must immediately follow the `port' command.  The type
+     defines what commands are subsequently allowed.  Currently the
+     types are:
+
+    `modem'
+          For a modem hookup.
+
+    `stdin'
+          For a connection through standard input and standard output,
+          as when `uucico' is run as a login shell.
+
+    `direct'
+          For a direct connection to another system.
+
+    `tcp'
+          For a connection using TCP.
+
+    `tli'
+          For a connection using TLI.
+
+    `pipe'
+          For a connection through a pipe running another program.
+
+`protocol STRING'
+     Specify a list of protocols to use for this port.  This is just
+     like the corresponding command for a system (*note Protocol
+     Selection::).  A protocol list for a system takes precedence over
+     a list for a port.
+
+`protocol-parameter CHARACTER STRINGS [ any type ]'
+     The same command as the `protocol-parameter' command used for
+     systems (*note Protocol Selection::).  This one takes precedence.
+
+`seven-bit BOOLEAN [ any type ]'
+     This is only used during protocol negotiation; if the argument is
+     true, it forces the selection of a protocol which works across a
+     seven-bit link.  It does not prevent eight bit characters from
+     being transmitted.  The default is false.
+
+`reliable BOOLEAN [ any type ]'
+     This is only used during protocol negotiation; if the argument is
+     false, it forces the selection of a protocol which works across an
+     unreliable communication link.  The default is true.  It would be
+     more common to specify this for a dialer rather than a port.
+
+`half-duplex BOOLEAN [ any type ]'
+     If the argument is true, it means that the port only supports
+     half-duplex connections.  This only affects bidirectional
+     protocols, and causes them to not do bidirectional transfers.
+
+`device STRING [ modem, direct and tli only ]'
+     Names the device associated with this port.  If the device is not
+     named, the port name is taken as the device.  Device names are
+     system dependent.  On Unix, a modem or direct connection might be
+     something like `/dev/ttyd0'; a TLI port might be `/dev/inet/tcp'.
+
+`speed NUMBER [modem and direct only ]'
+
+`baud NUMBER [ modem and direct only ]'
+     The speed this port runs at.  If a system specifies a speed but no
+     port name, then all ports which match the speed will be tried in
+     order.  If the speed is not specified here and is not specified by
+     the system, the natural speed of the port will be used by default.
+
+`speed-range NUMBER NUMBER [ modem only ]'
+
+`baud-range NUMBER NUMBER [ modem only ]'
+     Specify a range of speeds this port can run at.  The first number
+     is the minimum speed, the second number is the maximum speed.
+     These numbers will be used when matching a system which specifies
+     a desired speed.  The simple `speed' (or `baud') command is still
+     used to determine the speed to run at if the system does not
+     specify a speed.  For example, the command `speed-range 300 19200'
+     means that the port will match any system which uses a speed from
+     300 to 19200 baud (and will use the speed specified by the
+     system); this could be combined with `speed 2400', which means
+     that when this port is used with a system that does not specify a
+     speed, the port will be used at 2400 baud.
+
+`carrier BOOLEAN [ modem and direct only ]'
+     The argument indicates whether the port supports carrier.
+
+     If a modem port does not support carrier, the carrier detect
+     signal will never be required on this port, regardless of what the
+     modem chat script indicates.  The default for a modem port is true.
+
+     If a direct port supports carrier, the port will be set to expect
+     carrier whenever it is used.  The default for a direct port is
+     false.
+
+`hardflow BOOLEAN [ modem and direct only ]'
+     The argument indicates whether the port supports hardware flow
+     control.  If it does not, hardware flow control will not be turned
+     on for this port.  The default is true.  Hardware flow control is
+     only supported on some systems.
+
+`dial-device STRING [ modem only ]'
+     Dialing instructions should be output to the named device, rather
+     than to the normal port device.  The default is to output to the
+     normal port device.
+
+`dialer STRING [ modem only ]'
+     Name a dialer to use.  The information is looked up in the dial
+     file.  There is no default.  Some sort of dialer information must
+     be specified to call out on a modem.
+
+`dialer STRING ... [ modem only ]'
+     If more than one string follows the `dialer' command, the strings
+     are treated as a command that might appear in the dial file (*note
+     dial File::).  If a dialer is named (by using the first form of
+     this command, described just above), these commands are ignored.
+     They may be used to specify dialer information directly in simple
+     situations without needing to go to a separate file.  There is no
+     default.  Some sort of dialer information must be specified to
+     call out on a modem.
+
+`dialer-sequence STRINGS [ modem or tcp or tli only ]'
+     Name a sequence of dialers and tokens (phone numbers) to use.  The
+     first argument names a dialer, and the second argument names a
+     token.  The third argument names another dialer, and so on.  If
+     there are an odd number of arguments, the phone number specified
+     with a `phone' command in the system file is used as the final
+     token.  The token is what is used for `\D' or `\T' in the dialer
+     chat script.  If the token in this string is `\D', the system
+     phone number will be used; if it is `\T', the system phone number
+     will be used after undergoing dialcodes translation.  A missing
+     final token is taken as `\D'.
+
+     This command currently does not work if `dial-device' is specified;
+     to handle this correctly will require a more systematic notion of
+     chat scripts.  Moreover, the `complete' and `abort' chat scripts,
+     the protocol parameters, and the `carrier' and `dtr-toggle'
+     commands are ignored for all but the first dialer.
+
+     This command basically lets you specify a sequence of chat scripts
+     to use.  For example, the first dialer might get you to a local
+     network and the second dialer might describe how to select a
+     machine from the local network.  This lets you break your dialing
+     sequence into simple modules, and may make it easier to share
+     dialer entries between machines.
+
+     This command is to only way to use a chat script with a TCP port.
+     This can be useful when using a modem which is accessed via TCP.
+
+     When this command is used with a TLI port, then if the first
+     dialer is `TLI' or `TLIS' the first token is used as the address to
+     connect to.  If the first dialer is something else, or if there is
+     no token, the address given by the `address' command is used
+     (*note Placing the Call::).  Escape sequences in the address are
+     expanded as they are for chat script expect strings (*note Chat
+     Scripts::).  The different between `TLI' and `TLIS' is that the
+     latter implies the command `stream true'.  These contortions are
+     all for HDB compatibility.  Any subsequent dialers are treated as
+     they are for a TCP port.
+
+`lockname STRING [ modem and direct only ]'
+     Give the name to use when locking this port.  On Unix, this is the
+     name of the file that will be created in the lock directory.  It
+     is used as is, so on Unix it should generally start with `LCK..'.
+     For example, if a single port were named both `/dev/ttycu0' and
+     `/dev/tty0' (perhaps with different characteristics keyed on the
+     minor device number), then the command `lockname LCK..ttycu0' could
+     be used to force the latter to use the same lock file name as the
+     former.
+
+`service STRING [ tcp only ]'
+     Name the TCP port number to use.  This may be a number.  If not,
+     it will be looked up in `/etc/services'.  If this is not
+     specified, the string `uucp' is looked up in `/etc/services'.  If
+     it is not found, port number 540 (the standard UUCP-over-TCP port
+     number) will be used.
+
+`version STRING [ tcp only ]'
+     Specify the IP version number to use.  The default is `0', which
+     permits any version.  The other possible choices are `4', which
+     requires `IPv4', or `6', which requires `IPv6'.  Normally it is
+     not necessary to use this command, but in some cases, as `IPv6' is
+     rolled out across the Internet, it may be necessary to require
+     UUCP to use a particular type of connection.
+
+`push STRINGS [ tli only ]'
+     Give a list of modules to push on to the TLI stream.
+
+`stream BOOLEAN [ tli only ]'
+     If this is true, and the `push' command was not used, the `tirdwr'
+     module is pushed on to the TLI stream.
+
+`server-address STRING [ tli only ]'
+     Give the address to use when running as a TLI server.  Escape
+     sequences in the address are expanded as they are for chat script
+     expect strings (*note Chat Scripts::).
+
+     The string is passed directly to the TLI `t_bind' function.  The
+     value needed may depend upon your particular TLI implementation.
+     Check the manual pages, and, if necessary, try writing some sample
+     programs.
+
+     For AT&T 3B2 System V Release 3 using the Wollongong TCP/IP stack,
+     which is probably typical, the format of TLI string is `SSPPIIII',
+     where `SS' is the service number (for TCP, this is 2), `PP' is the
+     TCP port number, and `IIII' is the Internet address.  For example,
+     to accept a connection from on port 540 from any interface, use
+     `server-address \x00\x02\x02\x1c\x00\x00\x00\x00'.  To only accept
+     connections from a particular interface, replace the last four
+     digits with the network address of the interface.  (Thanks to Paul
+     Pryor for the information in this paragraph).
+
+`command STRINGS [ pipe only ]'
+     Give the command, with arguments, to run when using a pipe port
+     type.  When a port of this type is used, the command is executed
+     and `uucico' communicates with it over a pipe.  This permits
+     `uucico' or `cu' to communicate with another system which can only
+     be reached through some unusual means.  A sample use might be
+     `command /bin/rlogin -E -8 -l LOGIN SYSTEM'.  The command is run
+     with the full privileges of UUCP; it is responsible for
+     maintaining security.
+
+
+File: uucp.info,  Node: dial File,  Next: UUCP Over TCP,  Prev: port File,  Up: Configuration Files
+
+The Dialer Configuration File
+=============================
+
+   The dialer configuration files define dialers.  By default there is a
+single dialer file, named `dial' in the directory NEWCONFIGDIR.  This
+may be overridden by the `dialfile' command in the main configuration
+file; see *Note Configuration File Names::.
+
+   Any commands in the file before the first `dialer' command specify
+defaults for all the dialers in the file.  All commands after a
+`dialer' command up to the next `dialer' command are associated with
+the named dialer.
+
+`dialer STRING'
+     Introduces and names a dialer.
+
+`chat STRINGS'
+
+`chat-timeout NUMBER'
+
+`chat-fail STRING'
+
+`chat-seven-bit BOOLEAN'
+
+`chat-program STRINGS'
+     Specify a chat script to be used to dial the phone.  This chat
+     script is used before the login chat script in the `sys' file, if
+     any (*note Logging In::).  For full details on chat scripts, see
+     *Note Chat Scripts::.
+
+     The `uucico' daemon will sleep for one second between attempts to
+     dial out on a modem.  If your modem requires a longer wait period,
+     you must start your chat script with delays (`\d' in a send
+     string).
+
+     The chat script will be read from and sent to the port specified
+     by the `dial-device' command for the port, if there is one.
+
+     The following escape addition escape sequences may appear in send
+     strings:
+
+    `\D'
+          send phone number without dialcode translation
+
+    `\T'
+          send phone number with dialcode translation
+
+     See the description of the dialcodes file (*note Configuration
+     File Names::) for a description of dialcode translation.
+
+     If both the port and the dialer support carrier, as set by the
+     `carrier' command in the port file and the `carrier' command in
+     the dialer file, then every chat script implicitly begins with
+     `\M' and ends with `\m'.
+
+     There is no default chat script for dialers.
+
+     The following additional escape sequences may be used in
+     `chat-program':
+
+    `\D'
+          phone number without dialcode translation
+
+    `\T'
+          phone number with dialcode translation
+
+     If the program changes the port in any way (e.g., sets parity) the
+     changes will be preserved during protocol negotiation, but once the
+     protocol is selected it will change the port settings.
+
+`dialtone STRING'
+     A string to output when dialing the phone number which causes the
+     modem to wait for a secondary dial tone.  This is used to
+     translate the `=' character in a phone number.  The default is a
+     comma.
+
+`pause STRING'
+     A string to output when dialing the phone number which causes the
+     modem to wait for 1 second.  This is used to translate the `-'
+     character in a phone number.  The default is a comma.
+
+`carrier BOOLEAN'
+     An argument of true means that the dialer supports the modem
+     carrier signal.  After the phone number is dialed, `uucico' will
+     require that carrier be on.  One some systems, it will be able to
+     wait for it.  If the argument is false, carrier will not be
+     required.  The default is true.
+
+`carrier-wait NUMBER'
+     If the port is supposed to wait for carrier, this may be used to
+     indicate how many seconds to wait.  The default is 60 seconds.
+     Only some systems support waiting for carrier.
+
+`dtr-toggle BOOLEAN BOOLEAN'
+     If the first argument is true, then DTR is toggled before using
+     the modem.  This is only supported on some systems and some ports.
+     The second BOOLEAN need not be present; if it is, and it is true,
+     the program will sleep for 1 second after toggling DTR.  The
+     default is to not toggle DTR.
+
+`complete-chat STRINGS'
+
+`complete-chat-timeout NUMBER'
+
+`complete-chat-fail STRING'
+
+`complete-chat-seven-bit BOOLEAN'
+
+`complete-chat-program STRINGS'
+     These commands define a chat script (*note Chat Scripts::) which
+     is run when a call is finished normally.  This allows the modem to
+     be reset.  There is no default.  No additional escape sequences
+     may be used.
+
+`complete STRING'
+     This is a simple use of `complete-chat'.  It is equivalent to
+     `complete-chat "" STRING'; this has the effect of sending STRING
+     to the modem when a call finishes normally.
+
+`abort-chat STRINGS'
+
+`abort-chat-timeout NUMBER'
+
+`abort-chat-fail STRING'
+
+`abort-chat-seven-bit BOOLEAN'
+
+`abort-chat-program STRINGS'
+     These commands define a chat script (*note Chat Scripts::) to be
+     run when a call is aborted.  They may be used to interrupt and
+     reset the modem.  There is no default.  No additional escape
+     sequences may be used.
+
+`abort STRING'
+     This is a simple use of `abort-chat'.  It is equivalent to
+     `abort-chat "" STRING'; this has the effect of sending STRING to
+     the modem when a call is aborted.
+
+`protocol-parameter CHARACTER STRINGS'
+     Set protocol parameters, just like the `protocol-parameter' command
+     in the system configuration file or the port configuration file;
+     see *Note Protocol Selection::.  These parameters take precedence,
+     then those for the port, then those for the system.
+
+`seven-bit BOOLEAN'
+     This is only used during protocol negotiation; if it is true, it
+     forces selection of a protocol which works across a seven-bit
+     link.  It does not prevent eight bit characters from being
+     transmitted.  The default is false.  It would be more common to
+     specify this for a port than for a dialer.
+
+`reliable BOOLEAN'
+     This is only used during protocol negotiation; if it is false, it
+     forces selection of a protocol which works across an unreliable
+     communication link.  The default is true.
+
+`half-duplex BOOLEAN [ any type ]'
+     If the argument is true, it means that the dialer only supports
+     half-duplex connections.  This only affects bidirectional
+     protocols, and causes them to not do bidirectional transfers.
+
+
+File: uucp.info,  Node: UUCP Over TCP,  Next: Security,  Prev: dial File,  Up: Configuration Files
+
+UUCP Over TCP
+=============
+
+   If your system has a Berkeley style socket library, or a System V
+style TLI interface library, you can compile the code to permit making
+connections over TCP.  Specifying that a system should be reached via
+TCP is easy, but nonobvious.
+
+* Menu:
+
+* TCP Client::                  Connecting to Another System Over TCP
+* TCP Server::                  Running a TCP Server
+
+
+File: uucp.info,  Node: TCP Client,  Next: TCP Server,  Prev: UUCP Over TCP,  Up: UUCP Over TCP
+
+Connecting to Another System Over TCP
+-------------------------------------
+
+   If you are using the new style configuration files (*note
+Configuration Files::), add the line `port type tcp' to the entry in the
+`sys' file.  By default UUCP will get the port number by looking up
+`uucp' in `/etc/services'; if the `uucp' service is not defined, port
+540 will be used.  You can set the port number to use with the command
+`port service XXX', where XXX can be either a number or a name to look
+up in `/etc/services'.  You can specify the address of the remote host
+with `address A.B.C'; if you don't give an address, the remote system
+name will be used.  You should give an explicit chat script for the
+system when you use TCP; the default chat script begins with a carriage
+return, which will not work with some UUCP TCP servers.
+
+   If you are using V2 configuration files, add a line like this to
+`L.sys':
+     SYS Any TCP uucp HOST.DOMAIN chat-script
+   This will make an entry for system SYS, to be called at any time,
+over TCP, using port number `uucp' (as found in `/etc/services'; this
+may be specified as a number), using remote host `HOST.DOMAIN', with
+some chat script.
+
+   If you are using HDB configuration files, add a line like this to
+Systems:
+     SYS Any TCP - HOST.DOMAIN chat-script
+   and a line like this to `Devices':
+     TCP uucp - -
+   You only need one line in `Devices' regardless of how many systems
+you contact over TCP.  This will make an entry for system SYS, to be
+called at any time, over TCP, using port number `uucp' (as found in
+`/etc/services'; this may be specified as a number), using remote host
+`HOST.DOMAIN', with some chat script.
+
+
+File: uucp.info,  Node: TCP Server,  Prev: TCP Client,  Up: UUCP Over TCP
+
+Running a TCP Server
+--------------------
+
+   The `uucico' daemon may be run as a TCP server.  To use the default
+port number, which is a reserved port, `uucico' must be invoked by the
+superuser (or it must be set user ID to the superuser, but I don't
+recommend doing that).
+
+   You must define a port, either using the port file (*note port
+File::), if you are using the new configuration method, or with an
+entry in `Devices' if you are using HDB; there is no way to define a
+port using V2.  If you are using HDB the port must be named `TCP'; a
+line as shown above will suffice.  You can then start `uucico' as
+`uucico -p TCP' (after the `-p', name the port; in HDB it must be
+`TCP').  This will wait for incoming connections, and fork off a child
+for each one.  Each connection will be prompted with `login:' and
+`Password:'; the results will be checked against the UUCP (not the
+system) password file (*note Configuration File Names::).
+
+   Another way to run a UUCP TCP server is to use the BSD `uucpd'
+program.
+
+   Yet another way to run a UUCP TCP server is to use `inetd'.  Arrange
+for `inetd' to start up `uucico' with the `-l' switch.  This will cause
+`uucico' to prompt with `login:' and `Password:' and check the results
+against the UUCP (not the system) password file (you may want to also
+use the `-D' switch to avoid a fork, which in this case is unnecessary).
+
+
+File: uucp.info,  Node: Security,  Prev: UUCP Over TCP,  Up: Configuration Files
+
+Security
+========
+
+   This discussion of UUCP security applies only to Unix.  It is a bit
+cursory; suggestions for improvement are solicited.
+
+   UUCP is traditionally not very secure.  Taylor UUCP addresses some
+security issues, but is still far from being a secure system.
+
+   If security is very important to you, then you should not permit any
+external access to your computer, including UUCP.  Any opening to the
+outside world is a potential security risk.
+
+   When local users use UUCP to transfer files, Taylor UUCP can do
+little to secure them from each other.  You can allow somewhat increased
+security by putting the owner of the UUCP programs (normally `uucp')
+into a separate group; the use of this is explained in the following
+paragraphs, which refer to this separate group as `uucp-group'.
+
+   When the `uucp' program is invoked to copy a file to a remote
+system, it will, by default, copy the file into the UUCP spool
+directory.  When the `uux' program is used, the `-C' switch must be
+used to copy the file into the UUCP spool directory.  In any case, once
+the file has been copied into the spool directory, other local users
+will not be able to access it.
+
+   When a file is requested from a remote system, UUCP will only permit
+it to be placed in a directory which is writable by the requesting user.
+The directory must also be writable by UUCP.  A local user can create a
+directory with a group of `uucp-group' and set the mode to permit group
+write access.  This will allow the file be requested without permitting
+it to be viewed by any other user.
+
+   There is no provision for security for `uucp' requests (as opposed
+to `uux' requests) made by a user on a remote system.  A file sent over
+by a remote request may only be placed in a directory which is world
+writable, and the file will be world readable and writable.  This will
+permit any local user to destroy or replace the contents of the file.
+A file requested by a remote system must be world readable, and the
+directory it is in must be world readable.  Any local user will be able
+to examine, although not necessarily modify, the file before it is sent.
+
+   There are some security holes and race conditions that apply to the
+above discussion which I will not elaborate on.  They are not hidden
+from anybody who reads the source code, but they are somewhat technical
+and difficult (though scarcely impossible) to exploit.  Suffice it to
+say that even under the best of conditions UUCP is not completely
+secure.
+
+   For many sites, security from remote sites is a more important
+consideration.  Fortunately, Taylor UUCP does provide some support in
+this area.
+
+   The greatest security is provided by always dialing out to the other
+site.  This prevents anybody from pretending to be the other site.  Of
+course, only one side of the connection can do this.
+
+   If remote dialins must be permitted, then it is best if the dialin
+line is used only for UUCP.  If this is the case, then you should
+create a call-in password file (*note Configuration File Names::) and
+let `uucico' do its own login prompting.  For example, to let remote
+sites log in on a port named `entry' in the port file (*note port
+File::), you might invoke `uucico -e -p entry'.  This would cause
+`uucico' to enter an endless loop of login prompts and daemon
+executions.  The advantage of this approach is that even if remote users
+break into the system by guessing or learning the password, they will
+only be able to do whatever `uucico' permits them to do.  They will not
+be able to start a shell on your system.
+
+   If remote users can dial in and log on to your system, then you have
+a security hazard more serious than that posed by UUCP.  But then, you
+probably knew that already.
+
+   Once your system has connected with the remote UUCP, there is a fair
+amount of control you can exercise.  You can use the `remote-send' and
+`remote-receive' commands to control the directories the remote UUCP
+can access.  You can use the `request' command to prevent the remote
+UUCP from making any requests of your system at all; however, if you do
+this it will not even be able to send you mail or news.  If you do
+permit remote requests, you should be careful to restrict what commands
+may be executed at the remote system's request.  The default is `rmail'
+and `rnews', which will suffice for most systems.
+
+   If different remote systems call in and they must be granted
+different privileges (perhaps some systems are within the same
+organization and some are not) then the `called-login' command should
+be used for each system to require that they use different login names.
+Otherwise, it would be simple for a remote system to use the `myname'
+command and pretend to be a different system.  The `sequence' command
+can be used to detect when one system pretended to be another, but,
+since the sequence numbers must be reset manually after a failed
+handshake, this can sometimes be more trouble than it's worth.
+
+
+File: uucp.info,  Node: Protocols,  Next: Hacking,  Prev: Configuration Files,  Up: Top
+
+UUCP Protocol Internals
+***********************
+
+   This chapter describes how the various UUCP protocols work, and
+discusses some other internal UUCP issues.
+
+   This chapter is quite technical.  You do not need to understand it,
+or even read it, in order to use Taylor UUCP.  It is intended for people
+who are interested in how the UUCP code works.
+
+   The information in this chapter is posted monthly to the Usenet
+newsgroups `comp.mail.uucp', `news.answers', and `comp.answers'.  The
+posting is available from any `news.answers' archive site, such as
+`rtfm.mit.edu'.  If you plan to use this information to write a UUCP
+program, please make sure you get the most recent version of the
+posting, in case there have been any corrections.
+
+* Menu:
+
+* UUCP Protocol Sources::       Sources for UUCP Protocol Information
+* UUCP Grades::                 UUCP Grades
+* UUCP Lock Files::             UUCP Lock Files
+* Execution File Format::       Execution File Format
+* UUCP Protocol::               UUCP Protocol
+* g Protocol::                  g protocol
+* f Protocol::                  f protocol
+* t Protocol::                  t protocol
+* e Protocol::                  e protocol
+* Big G Protocol::              G protocol
+* i Protocol::                  i protocol
+* j Protocol::                  j protocol
+* x Protocol::                  x protocol
+* y Protocol::                  y protocol
+* d Protocol::                  d protocol
+* h Protocol::                  h protocol
+* v Protocol::                  v protocol
+
+
+File: uucp.info,  Node: UUCP Protocol Sources,  Next: UUCP Grades,  Prev: Protocols,  Up: Protocols
+
+UUCP Protocol Sources
+=====================
+
+     "Unix-to-Unix Copy Program," said PDP-1.  "You will never find a
+     more wretched hive of bugs and flamers.  We must be cautious."
+                                                              --DECWars
+
+   I took a lot of the information from Jamie E. Hanrahan's paper in the
+Fall 1990 DECUS Symposium, and from `Managing UUCP and Usenet' by Tim
+O'Reilly and Grace Todino (with contributions by several other people).
+The latter includes most of the former, and is published by
+     O'Reilly & Associates, Inc.
+     103 Morris Street, Suite A
+     Sebastopol, CA 95472
+   It is currently in its tenth edition.  The ISBN number is
+`0-937175-93-5'.
+
+   Some information is originally due to a Usenet article by Chuck
+Wegrzyn.  The information on execution files comes partially from Peter
+Honeyman.  The information on the `g' protocol comes partially from a
+paper by G.L. Chesson of Bell Laboratories, partially from Jamie E.
+Hanrahan's paper, and partially from source code by John Gilmore.  The
+information on the `f' protocol comes from the source code by Piet
+Berteema.  The information on the `t' protocol comes from the source
+code by Rick Adams.  The information on the `e' protocol comes from a
+Usenet article by Matthias Urlichs.  The information on the `d'
+protocol comes from Jonathan Clark, who also supplied information about
+QFT.  The UUPlus information comes straight from Christopher J. Ambler,
+of UUPlus Development; it applies to version 1.52 and up of the
+shareware version of UUPlus Utilities, called FSUUCP 1.52, but referred
+to in this article as UUPlus.
+
+   Although there are few books about UUCP, there are many about
+networks and protocols in general.  I recommend two non-technical books
+which describe the sorts of things that are available on the network:
+`The Whole Internet', by Ed Krol, and `Zen and the Art of the
+Internet', by Brendan P. Kehoe.  Good technical discussions of
+networking issues can be found in `Internetworking with TCP/IP', by
+Douglas E. Comer and David L. Stevens and in `Design and Validation of
+Computer Protocols' by Gerard J. Holzmann.
+
+
+File: uucp.info,  Node: UUCP Grades,  Next: UUCP Lock Files,  Prev: UUCP Protocol Sources,  Up: Protocols
+
+UUCP Grades
+===========
+
+   Modern UUCP packages support a priority grade for each command.  The
+grades generally range from `A' (the highest) to `Z' followed by `a' to
+`z'.  Some UUCP packages (including Taylor UUCP) also support `0' to
+`9' before `A'.  Some UUCP packages may permit any ASCII character as a
+grade.
+
+   On Unix, these grades are encoded in the name of the command file
+created by `uucp' or `uux'.  A command file name generally has the form
+`C.nnnngssss' where `nnnn' is the remote system name for which the
+command is queued, `g' is a single character grade, and `ssss' is a
+four character sequence number.  For example, a command file created
+for the system `airs' at grade `Z' might be named `C.airsZ2551'.
+
+   The remote system name will be truncated to seven characters, to
+ensure that the command file name will fit in the 14 character file
+name limit of the traditional Unix file system.  UUCP packages which
+have no other means of distinguishing which command files are intended
+for which systems thus require all systems they connect to to have
+names that are unique in the first seven characters.  Some UUCP
+packages use a variant of this format which truncates the system name
+to six characters.  HDB and Taylor UUCP use a different spool directory
+format, which allows up to fourteen characters to be used for each
+system name.
+
+   The sequence number in the command file name may be a decimal
+integer, or it may be a hexadecimal integer, or it may contain any
+alphanumeric character.  Different UUCP packages are different.  Taylor
+UUCP uses any alphanumeric character.
+
+   UUPlus Utilities (as FSUUCP, a shareware DOS based UUCP and news
+package) uses up to 8 characters for file names in the spool (this is a
+DOS file system limitation; actually, with the extension, 11 characters
+are available, but FSUUCP reserves that for future use).  FSUUCP
+defaults mail to grade `D', and news to grade `N', except that when the
+grade of incoming mail can be determined, that grade is preserved if
+the mail is forwarded to another system. The default grades may be
+changed by editing the `LIB/MAILRC' file for mail, or the `UUPLUS.CFG'
+file for news.
+
+   UUPC/extended for DOS, OS/2 and Windows NT handles mail at grade
+`C', news at grade `d', and file transfers at grade `n'.  The
+UUPC/extended `UUCP' and `RMAIL' commands accept grades to override the
+default, the others do not.
+
+   I do not know how command grades are handled in other non-Unix UUCP
+packages.
+
+   Modern UUCP packages allow you to restrict file transfer by grade
+depending on the time of day.  Typically this is done with a line in
+the `Systems' (or `L.sys') file like this:
+         airs Any/Z,Any2305-0855 ...
+   This allows grades `Z' and above to be transferred at any time.
+Lower grades may only be transferred at night.  I believe that this
+grade restriction applies to local commands as well as to remote
+commands, but I am not sure.  It may only apply if the UUCP package
+places the call, not if it is called by the remote system.
+
+   Taylor UUCP can use the `timegrade' and `call-timegrade' commands to
+achieve the same effect.  *Note When to Call::.  It supports the above
+format when reading `Systems' or `L.sys'.
+
+   UUPC/extended provides the `symmetricgrades' option to announce the
+current grade in effect when calling the remote system.
+
+   UUPlus allows specification of the highest grade accepted on a
+per-call basis with the `-g' option in `UUCICO'.
+
+   This sort of grade restriction is most useful if you know what grades
+are being used at the remote site.  The default grades used depend on
+the UUCP package.  Generally `uucp' and `uux' have different defaults.
+A particular grade can be specified with the `-g' option to `uucp' or
+`uux'.  For example, to request execution of `rnews' on `airs' with
+grade `d', you might use something like
+         uux -gd - airs!rnews < article
+
+   Uunet queues up mail at grade `C', but increases the grade based on
+the size.  News is queued at grade `d', and file transfers at grade
+`n'.  The example above would allow mail (below some large size) to be
+received at any time, but would only permit news to be transferred at
+night.
+
+
+File: uucp.info,  Node: UUCP Lock Files,  Next: Execution File Format,  Prev: UUCP Grades,  Up: Protocols
+
+UUCP Lock Files
+===============
+
+   This discussion applies only to Unix.  I have no idea how UUCP locks
+ports on other systems.
+
+   UUCP creates files to lock serial ports and systems.  On most, if not
+all, systems, these same lock files are also used by `cu' to coordinate
+access to serial ports.  On some systems `getty' also uses these lock
+files, often under the name `uugetty'.
+
+   The lock file normally contains the process ID of the locking
+process.  This makes it easy to determine whether a lock is still
+valid.  The algorithm is to create a temporary file and then link it to
+the name that must be locked.  If the link fails because a file with
+that name already exists, the existing file is read to get the process
+ID.  If the process still exists, the lock attempt fails.  Otherwise
+the lock file is deleted and the locking algorithm is retried.
+
+   Older UUCP packages put the lock files in the main UUCP spool
+directory, `/usr/spool/uucp'.  HDB UUCP generally puts the lock files
+in a directory of their own, usually `/usr/spool/locks' or `/etc/locks'.
+
+   The original UUCP lock file format encodes the process ID as a four
+byte binary number.  The order of the bytes is host-dependent.  HDB UUCP
+stores the process ID as a ten byte ASCII decimal number, with a
+trailing newline.  For example, if process 1570 holds a lock file, it
+would contain the eleven characters space, space, space, space, space,
+space, one, five, seven, zero, newline.  Some versions of UUCP add a
+second line indicating which program created the lock (`uucp', `cu', or
+`getty/uugetty').  I have also seen a third type of UUCP lock file
+which does not contain the process ID at all.
+
+   The name of the lock file is traditionally `LCK..' followed by the
+base name of the device.  For example, to lock `/dev/ttyd0' the file
+`LCK..ttyd0' would be created.  On SCO Unix, the last letter of the
+lock file name is always forced to lower case even if the device name
+ends with an upper case letter.
+
+   System V Release 4 UUCP names the lock file using the major and minor
+device numbers rather than the device name.  The file is named
+`LK.XXX.YYY.ZZZ', where XXX, YYY and ZZZ are all three digit decimal
+numbers.  XXX is the major device number of the device holding the
+directory holding the device file (e.g., `/dev').  YYY is the major
+device number of the device file itself.  ZZZ is the minor device
+number of the device file itself.  If `s' holds the result of passing
+the device to the stat system call (e.g., `stat ("/dev/ttyd0", &s)'),
+the following line of C code will print out the corresponding lock file
+name:
+         printf ("LK.%03d.%03d.%03d", major (s.st_dev),
+                 major (s.st_rdev), minor (s.st_rdev));
+   The advantage of this system is that even if there are several links
+to the same device, they will all use the same lock file name.
+
+   When two or more instances of `uuxqt' are executing, some sort of
+locking is needed to ensure that a single execution job is only started
+once.  I don't know how most UUCP packages deal with this.  Taylor UUCP
+uses a lock file for each execution job.  The name of the lock file is
+the same as the name of the `X.*' file, except that the initial `X' is
+changed to an `L'.  The lock file holds the process ID as described
+above.
+
+
+File: uucp.info,  Node: Execution File Format,  Next: UUCP Protocol,  Prev: UUCP Lock Files,  Up: Protocols
+
+Execution File Format
+=====================
+
+   UUCP `X.*' files control program execution.  They are created by
+`uux'.  They are transferred between systems just like any other file.
+The `uuxqt' daemon reads them to figure out how to execute the job
+requested by `uux'.
+
+   An `X.*' file is simply a text file.  The first character of each
+line is a command, and the remainder of the line supplies arguments.
+The following commands are defined:
+
+`C command'
+     This gives the command to execute, including the program and all
+     arguments.  For example, `rmail ian@airs.com'.
+
+`U user system'
+     This names the user who requested the command, and the system from
+     which the request came.
+
+`I standard-input'
+     This names the file from which standard input is taken.  If no
+     standard input file is given, the standard input will probably be
+     attached to `/dev/null'.  If the standard input file is not from
+     the system on which the execution is to occur, it will also appear
+     in an `F' command.
+
+`O standard-output [system]'
+     This names the standard output file.  The optional second argument
+     names the system to which the file should be sent.  If there is no
+     second argument, the file should be created on the executing
+     system.
+
+`F required-file [filename-to-use]'
+     The `F' command can appear multiple times.  Each `F' command names
+     a file which must exist before the execution can proceed.  This
+     will usually be a file which is transferred from the system on
+     which `uux' was executed, but it can also be a file from the local
+     system or some other system.  If the file is not from the local
+     system, then the command will usually name a file in the spool
+     directory.  If the optional second argument appears, then the file
+     should be copied to the execution directory under that name.  This
+     is necessary for any file other than the standard input file.  If
+     the standard input file is not from the local system, it will
+     appear in both an `F' command and an `I' command.
+
+`R requestor-address'
+     This is the address to which mail about the job should be sent.
+     It is relative to the system named in the `U' command.  If the `R'
+     command does not appear, then mail is sent to the user named in the
+     `U' command.
+
+`Z'
+     This command takes no arguments.  It means that a mail message
+     should be sent if the command failed.  This is the default
+     behaviour for most modern UUCP packages, and for them the `Z'
+     command does not actually do anything.
+
+`N'
+     This command takes no arguments.  It means that no mail message
+     should be sent, even if the command failed.
+
+`n'
+     This command takes no arguments.  It means that a mail message
+     should be sent if the command succeeded.  Normally a message is
+     sent only if the command failed.
+
+`B'
+     This command takes no arguments.  It means that the standard input
+     should be returned with any error message.  This can be useful in
+     cases where the input would otherwise be lost.
+
+`e'
+     This command takes no arguments.  It means that the command should
+     be processed with `/bin/sh'.  For some packages this is the default
+     anyhow.  Most packages will refuse to execute complex commands or
+     commands containing wildcards, because of the security holes this
+     opens.
+
+`E'
+     This command takes no arguments.  It means that the command should
+     be processed with the `execve' system call.  For some packages
+     this is the default anyhow.
+
+`M status-file'
+     This command means that instead of mailing a message, the message
+     should be copied to the named file on the system named by the `U'
+     command.
+
+`Q'
+     This command takes no arguments.  It means that the string
+     arguments to all the other commands are backslash quoted.  Any
+     backslash in one of the strings should be followed by either a
+     backslash or three octal digits.  The backslash quoting is
+     interpreted as in a C string.  If the `Q' command does not appear,
+     backslashes in the strings are not treated specially.  The `Q'
+     command was introduced in Taylor UUCP version 1.07.
+
+`# comment'
+     This command is ignored, as is any other unrecognized command.
+
+   Here is an example.  Given the following command executed on system
+test1
+         uux - test2!cat - test2!~ian/bar !qux '>~/gorp'
+   (this is only an example, as most UUCP systems will not permit the
+cat command to be executed) Taylor UUCP will produce something like the
+following `X.'  file:
+     U ian test1
+     F D.test1N003r qux
+     O /usr/spool/uucppublic/gorp test1
+     F D.test1N003s
+     I D.test1N003s
+     C cat - ~ian/bar qux
+   The standard input will be read into a file and then transferred to
+the file `D.test1N003s' on system `test2'.  The file `qux' will be
+transferred to `D.test1N003r' on system `test2'.  When the command is
+executed, the latter file will be copied to the execution directory
+under the name `qux'.  Note that since the file `~ian/bar' is already
+on the execution system, no action need be taken for it.  The standard
+output will be collected in a file, then copied to the file
+`/usr/spool/uucppublic/gorp' on the system `test1'.
+
+
+File: uucp.info,  Node: UUCP Protocol,  Next: g Protocol,  Prev: Execution File Format,  Up: Protocols
+
+UUCP Protocol
+=============
+
+   The UUCP protocol is a conversation between two UUCP packages.  A
+UUCP conversation consists of three parts: an initial handshake, a
+series of file transfer requests, and a final handshake.
+
+* Menu:
+
+* The Initial Handshake::       The Initial Handshake
+* UUCP Protocol Commands::      UUCP Protocol Commands
+* The Final Handshake::         The Final Handshake
+

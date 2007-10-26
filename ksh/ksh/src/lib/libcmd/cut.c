@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -33,7 +29,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: cut (AT&T Labs Research) 2003-05-27 $\n]"
+"[-?\n@(#)$Id: cut (AT&T Research) 2007-01-23 $\n]"
 USAGE_LICENSE
 "[+NAME?cut - cut out selected columns or fields of each line of a file]"
 "[+DESCRIPTION?\bcut\b bytes, characters, or character-delimited fields "
@@ -60,15 +56,15 @@ USAGE_LICENSE
 "[f:fields]:[list?\bcut\b based on fields separated by the delimiter "
 	"character specified with the \b-d\b optiion.]"
 "[n:nosplit?Do not split characters.  Currently ignored.]"
-"[r:reclen]#[reclen?If \areclen\a > 0, the input will be read as fixed length "
+"[R|r:reclen]#[reclen?If \areclen\a > 0, the input will be read as fixed length "
 	"records of length \areclen\a when used with the \b-b\b or \b-c\b "
 	"option.]"
 "[s:suppress|only-delimited?Suppress lines with no delimiter characters, "
 	"when used with the \b-f\b option.  By default, lines with no "
 	"delimiters will be passsed in untouched.]"
-"[D:line-delimeter]:[ldelim?The line delimiter character for the \b-f\b "
-	"option is set to \aldelim\a.  The default is the \bnewline\b "
-	"character.]"
+"[D:line-delimeter|output-delimiter]:[ldelim?The line delimiter character for "
+	"the \b-f\b option is set to \aldelim\a.  The default is the "
+	"\bnewline\b character.]"
 "[N:nonewline?Do not output new-lines at end of each record when used "
 	"with the \b-b\b or \b-c\b option.]"
 "\n"
@@ -81,31 +77,39 @@ USAGE_LICENSE
 "[+SEE ALSO?\bpaste\b(1), \bgrep\b(1)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <ctype.h>
 
-typedef struct
+typedef struct Last_s
 {
-	int	cflag;
-	int	sflag;
-	int	nlflag;
-	int	wdelim;
-	int	ldelim;
-	int	seqno;
-	int	reclen;
-	int	list[2];
+	int		seqno;
+	int		seq;
+	int		wdelim;
+	int		ldelim;
+} Last_t;
+
+typedef struct Cut_s
+{
+	int		cflag;
+	int		sflag;
+	int		nlflag;
+	int		wdelim;
+	int		ldelim;
+	int		seqno;
+	int		reclen;
+	signed char	space[UCHAR_MAX];
+	Last_t		last;
+	int		list[2];	/* NOTE: must be last member */
 } Cut_t;
 
 #define HUGE		(1<<14)
-#define BSIZE		8*1024
+#define BLOCK		8*1024
 #define C_BYTES		1
 #define C_CHARS		2
 #define C_FIELDS	4
 #define C_SUPRESS	8
 #define C_NOCHOP	16
 #define C_NONEWLINE	32
-
-static int seqno;
 
 /*
  * compare the first of an array of integers
@@ -124,13 +128,18 @@ static Cut_t *cutinit(int mode,char *str,int wdelim,int ldelim,size_t reclen)
 	Cut_t *cuthdr;
 	if (!(cuthdr = (Cut_t*)stakalloc(sizeof(Cut_t)+strlen(cp)*sizeof(int))))
 		error(ERROR_exit(1), "out of space");
+	memset(cuthdr->space, 0, sizeof(cuthdr->space));
+	cuthdr->last.seqno = 0;
+	cuthdr->last.seq = 0;
+	cuthdr->last.wdelim = 0;
+	cuthdr->last.ldelim = '\n';
 	cuthdr->cflag = ((mode&C_CHARS)!=0 && mbwide());
 	cuthdr->sflag = ((mode&C_SUPRESS)!=0);
 	cuthdr->nlflag = ((mode&C_NONEWLINE)!=0);
 	cuthdr->wdelim = wdelim;
 	cuthdr->ldelim = ldelim;
 	cuthdr->reclen = reclen;
-	cuthdr->seqno = ++seqno;
+	cuthdr->seqno = ++cuthdr->last.seqno;
 	lp = cuthdr->list;
 	while(1) switch(c= *cp++)
 	{
@@ -240,7 +249,7 @@ static int advance(const char *str, register int n, register int inlen)
  * cut each line of file <fdin> and put results to <fdout> using list <list>
  */
 
-static int cutcols(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
+static int cutcols(Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 {
 	register int		c, ncol=0,len;
 	register const int	*lp = cuthdr->list;
@@ -248,14 +257,13 @@ static int cutcols(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 	register int		skip; /* non-zero for don't copy */
 	while(1)
 	{
-		if(cuthdr->reclen)
-			inp = sfreserve(fdin,cuthdr->reclen, -1);
+		if(len = cuthdr->reclen)
+			inp = sfreserve(fdin, len, -1);
 		else
 			inp = sfgetr(fdin, '\n', 0);
-		if(!inp)
+		if(!inp && !(inp = sfgetr(fdin, 0, SF_LASTR)))
 			break;
-		if(!(len=cuthdr->reclen))
-			len = sfvalue(fdin);
+		len = sfvalue(fdin);
 		if((ncol = skip  = *(lp = cuthdr->list)) == 0)
 			ncol = *++lp;
 		while(1)
@@ -287,10 +295,8 @@ static int cutcols(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 
 #define endline(c)	(((signed char)-1)<0?(c)<0:(c)==((char)-1))
 
-static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
+static int cutfields(Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 {
-	static signed char space[1<<CHAR_BIT];
-	static int lastseq, lastwdelim = 0, lastldelim = '\n';
 	register unsigned char *cp;
 	register int c, nfields;
 	register const int *lp = cuthdr->list;
@@ -301,13 +307,13 @@ static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 	int lastchar;
 	Sfio_t *fdtmp = 0;
 	long offset = 0;
-	if(cuthdr->seqno != lastseq)
+	if(cuthdr->seqno != cuthdr->last.seq)
 	{
-		space[lastldelim] = 0;
-		space[lastwdelim] = 0;
-		space[(lastwdelim=cuthdr->wdelim)] = 1;
-		space[(lastldelim=cuthdr->ldelim)] = -1;
-		lastseq = cuthdr->seqno;
+		cuthdr->space[cuthdr->last.ldelim] = 0;
+		cuthdr->space[cuthdr->last.wdelim] = 0;
+		cuthdr->space[cuthdr->last.wdelim=cuthdr->wdelim] = 1;
+		cuthdr->space[cuthdr->last.ldelim=cuthdr->ldelim] = -1;
+		cuthdr->last.seq = cuthdr->seqno;
 	}
 	/* process each buffer */
 	while ((inbuff = (unsigned char*)sfreserve(fdin, SF_UNBOUND, 0)) && (c = sfvalue(fdin)) > 0)
@@ -335,15 +341,15 @@ static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 			while(!inword)
 			{
 				/* skip over non-delimiter characters */
-				while(!(c=space[*cp++]));
+				while(!(c=cuthdr->space[*cp++]));
 				/* check for end-of-line */
 				if(endline(c))
 				{
 					if(cp<=endbuff)
 						break;
-					if((c=space[lastchar]),endline(c))
+					if((c=cuthdr->space[lastchar]),endline(c))
 						break;
-					/* restore last character */
+					/* restore cuthdr->last. character */
 					if(lastchar != cuthdr->ldelim)
 						*endbuff = lastchar;
 					inword++;
@@ -375,7 +381,7 @@ static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 						{
 							if(offset)
 							{
-								sfseek(fdtmp,0L,0);
+								sfseek(fdtmp,(Sfoff_t)0,SEEK_SET);
 								sfmove(fdtmp,fdout,offset,-1);
 							}
 							copy = first;
@@ -385,7 +391,7 @@ static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 						sfputc(fdout,'\n');
 				}
 				if(offset)
-					sfseek(fdtmp,offset=0L,0);
+					sfseek(fdtmp,offset=0,SEEK_SET);
 			}
 			if(copy && (c=cp-copy)>0 && (!nodelim || !cuthdr->sflag) && sfwrite(fdout,(char*)copy,c)< 0)
 				goto failed;
@@ -395,7 +401,7 @@ static int cutfields(const Cut_t *cuthdr,Sfio_t *fdin,Sfio_t *fdout)
 		{
 			/* copy line to tmpfile in case no fields */
 			if(!fdtmp)
-				fdtmp = sftmp(BSIZE);
+				fdtmp = sftmp(BLOCK);
 			sfwrite(fdtmp,(char*)first,c);
 			offset +=c;
 		}
@@ -418,8 +424,7 @@ b_cut(int argc,char *argv[], void* context)
 	int	ldelim = '\n';
 	size_t	reclen = 0;
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	while (n = optget(argv, usage)) switch (n)
 	{
 	  case 'b':
@@ -456,6 +461,7 @@ b_cut(int argc,char *argv[], void* context)
 	  case 'N':
 		mode |= C_NONEWLINE;
 		break;
+	  case 'R':
 	  case 'r':
 		if(opt_info.num>0)
 			reclen = opt_info.num;
@@ -504,4 +510,3 @@ b_cut(int argc,char *argv[], void* context)
 	while(cp= *argv++);
 	return(error_info.errors?1:0);
 }
-

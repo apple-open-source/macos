@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -53,6 +49,8 @@ fmtquote(const char* as, const char* qb, const char* qe, size_t n, int flags)
 	register int		c;
 	register int		escaped;
 	register int		spaced;
+	register int		doublequote;
+	register int		singlequote;
 	int			shell;
 	char*			f;
 	char*			buf;
@@ -64,13 +62,24 @@ fmtquote(const char* as, const char* qb, const char* qe, size_t n, int flags)
 		c += strlen((char*)qe);
 	b = buf = fmtbuf(c);
 	shell = 0;
+	doublequote = 0;
+	singlequote = 0;
 	if (qb)
 	{
 		if (qb[0] == '$' && qb[1] == '\'' && qb[2] == 0)
 			shell = 1;
+		else if ((flags & FMT_SHELL) && qb[1] == 0)
+		{
+			if (qb[0] == '"')
+				doublequote = 1;
+			else if (qb[0] == '\'')
+				singlequote = 1;
+		}
 		while (*b = *qb++)
 			b++;
 	}
+	else if (flags & FMT_SHELL)
+		doublequote = 1;
 	f = b;
 	escaped = spaced = !!(flags & FMT_ALWAYS);
 	while (s < e)
@@ -134,10 +143,50 @@ fmtquote(const char* as, const char* qb, const char* qe, size_t n, int flags)
 				if (*s)
 					c = *s++;
 			}
-			else if (qe && strchr(qe, c) || (flags & FMT_SHELL) && !shell && (c == '$' || c == '`'))
+			else if (qe && strchr(qe, c))
 			{
-				escaped = 1;
-				*b++ = '\\';
+				if (singlequote && c == '\'')
+				{
+					spaced = 1;
+					*b++ = '\'';
+					*b++ = '\\';
+					*b++ = '\'';
+					c = '\'';
+				}
+				else
+				{
+					escaped = 1;
+					*b++ = '\\';
+				}
+			}
+			else if (c == '$' || c == '`')
+			{
+				if (c == '$' && (flags & FMT_PARAM) && (*s == '{' || *s == '('))
+				{
+					if (singlequote || shell)
+					{
+						escaped = 1;
+						*b++ = '\'';
+						*b++ = c;
+						*b++ = *s++;
+						if (shell)
+						{
+							spaced = 1;
+							*b++ = '$';
+						}
+						c = '\'';
+					}
+					else
+					{
+						escaped = 1;
+						*b++ = c;
+						c = *s++;
+					}
+				}
+				else if (doublequote)
+					*b++ = '\\';
+				else if (singlequote || (flags & FMT_SHELL))
+					spaced = 1;
 			}
 			else if (!spaced && !escaped && (isspace(c) || ((flags & FMT_SHELL) || shell) && (strchr("\";~&|()<>[]*?", c) || c == '#' && (b == f || isspace(*(b - 1))))))
 				spaced = 1;

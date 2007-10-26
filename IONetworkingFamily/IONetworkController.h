@@ -223,12 +223,24 @@ enum {
     @constant kIONetworkFeaturesSoftwareVlan Set this bit in the value
         returned by getFeatures() to indicate that the controller can support software
         based vlan by transmitting and receiving packets 4 bytes longer that normal. 
+    @constant kIONetworkFeatureMultiPages Set this bit if the driver is
+	capable of handling packets coming down from the network stack that
+	reside in virtually, but not in physically contiguous span of the
+	external mbuf clusters.  In this case, the data area of a packet in
+	the external mbuf cluster might cross one or more physical pages that
+	are disjoint, depending on the interface MTU and the packet size.
+	Such a use of larger than system page size clusters by the network
+	stack is done for better system efficiency.  Drivers that utilize the
+	IOMbufNaturalMemoryCursor with the getPhysicalSegmentsWithCoalesce
+	interfaces and enumerate the list of vectors should set this flag
+	for possible gain in performance during bulk data transfer.
 */
 
 enum {
     kIONetworkFeatureNoBSDWait = 0x01,
 	kIONetworkFeatureHardwareVlan = 0x02,
-	kIONetworkFeatureSoftwareVlan = 0x4
+	kIONetworkFeatureSoftwareVlan = 0x4,
+	kIONetworkFeatureMultiPages = 0x8
 };
 
 /*
@@ -298,6 +310,13 @@ extern const OSSymbol *  gIONetworkFilterGroup;
     from the interface to the controller have no implicit serialization. 
     Drivers must implement an output function that is thread safe, or use
     an IOOutputQueue object which will provide a serialization model.
+
+	Note: IONetworkController internally uses some private messaging constants
+	in the sys_iokit | sub_iokit_networking range defined in 
+	"IONetworkControllerPrivate.h".	If you create a client for your controller
+	(for example an IOUserClient), and it overrides the IOService::message 
+	method, your client may receive these messages.  It should ignore these 
+	messages and pass them to super::message() 	
     */
 
 class IONetworkController : public IOService

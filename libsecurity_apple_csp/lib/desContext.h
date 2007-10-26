@@ -28,7 +28,11 @@
 #include "AppleCSPContext.h"
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
-#include <DES.h>
+#include <CommonCrypto/opensslDES.h>
+#include <CommonCrypto/CommonCryptor.h>
+
+#define DES_KEY_SIZE_BITS_EXTERNAL		(kCCKeySizeDES * 8)
+#define DES_BLOCK_SIZE_BYTES			kCCBlockSizeDES
 
 /* DES Symmetric encryption context */
 class DESContext : public BlockCryptor {
@@ -49,12 +53,13 @@ public:
 		bool			final);
 	void decryptBlock(
 		const void		*cipherText,		// length implied (one cipher block)
+		size_t			cipherTextLen,
 		void			*plainText,	
 		size_t			&plainTextLen,		// in/out, throws on overflow
 		bool			final);
 	
 private:
-	struct _desInst		DesInst;
+	DES_key_schedule	DesInst;
 	
 };	/* DESContext */
 
@@ -81,12 +86,13 @@ public:
 		bool			final);
 	void decryptBlock(
 		const void		*cipherText,		// length implied (one cipher block)
+		size_t			cipherTextLen,
 		void			*plainText,	
 		size_t			&plainTextLen,		// in/out, throws on overflow
 		bool			final);
 	
 private:
-	struct _desInst		DesInst[3];
+	DES3_Schedule		DesInst;
 	
 };	/* DES3Context */
 

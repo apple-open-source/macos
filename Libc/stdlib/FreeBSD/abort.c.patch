@@ -1,11 +1,43 @@
---- abort.c.orig	2003-08-16 04:43:57.000000000 -0700
-+++ abort.c	2004-10-26 17:29:31.000000000 -0700
-@@ -45,7 +45,7 @@
+--- abort.c.orig	2007-04-17 01:31:46.000000000 -0700
++++ abort.c	2007-04-17 01:36:22.000000000 -0700
+@@ -45,7 +45,10 @@
  #include <pthread.h>
  #include "un-namespace.h"
  
 -void (*__cleanup)();
 +extern void (*__cleanup)();
++extern void __abort(void) __dead2;
++
++#define TIMEOUT	10000	/* 10 milliseconds */
  
  void
  abort()
+@@ -67,11 +70,20 @@
+ 	sigdelset(&act.sa_mask, SIGABRT);
+ 	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
+ 	(void)raise(SIGABRT);
++	usleep(TIMEOUT); /* give time for signal to happen */
+ 
+ 	/*
+ 	 * If SIGABRT was ignored, or caught and the handler returns, do
+ 	 * it again, only harder.
+ 	 */
++	 __abort();
++}
++
++__private_extern__ void
++__abort()
++{
++	struct sigaction act;
++
+ 	act.sa_handler = SIG_DFL;
+ 	act.sa_flags = 0;
+ 	sigfillset(&act.sa_mask);
+@@ -79,5 +91,6 @@
+ 	sigdelset(&act.sa_mask, SIGABRT);
+ 	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
+ 	(void)raise(SIGABRT);
+-	exit(1);
++	usleep(TIMEOUT); /* give time for signal to happen */
++	__builtin_trap(); /* never exit normally */
+ }

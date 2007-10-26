@@ -43,20 +43,6 @@
 #define BOOL int
 #endif
 
-#ifdef USE_SETRESUID
-#undef USE_SETRESUID
-#endif
-
-#ifdef USE_SETREUID
-#undef USE_SETREUID
-#endif
-
-#ifdef USE_SETUIDX
-#undef USE_SETUIDX
-#endif
-
-#define USE_SETEUID 1
-
 /* are we running as non-root? This is used by the regresison test code,
    and potentially also for sites that want non-root smbd */
 static uid_t initial_uid;
@@ -66,10 +52,16 @@ static gid_t initial_gid;
 remember what uid we got started as - this allows us to run correctly
 as non-root while catching trapdoor systems
 ****************************************************************************/
+
 void sec_init(void)
 {
-	initial_uid = geteuid();
-	initial_gid = getegid();
+	static int initialized;
+
+	if (!initialized) {
+		initial_uid = geteuid();
+		initial_gid = getegid();
+		initialized = 1;
+	}
 }
 
 /****************************************************************************
@@ -206,7 +198,13 @@ void set_effective_uid(uid_t uid)
 {
 #if USE_SETRESUID
         /* Set the effective as well as the real uid. */
-	setresuid(uid,uid,-1);
+	if (setresuid(uid,uid,-1) == -1) {
+		if (errno == EAGAIN) {
+			DEBUG(0, ("setresuid failed with EAGAIN. uid(%d) "
+				  "might be over its NPROC limit\n",
+				  (int)uid));
+		}
+	}
 #endif
 
 #if USE_SETREUID
@@ -266,10 +264,9 @@ void save_re_uid(void)
 /****************************************************************************
  and restore them!
 ****************************************************************************/
-void restore_re_uid(void)
-{
-	set_effective_uid(0);
 
+void restore_re_uid_fromroot(void)
+{
 #if USE_SETRESUID
 	setresuid(saved_ruid, saved_euid, -1);
 #elif USE_SETREUID
@@ -288,6 +285,11 @@ void restore_re_uid(void)
 	assert_uid(saved_ruid, saved_euid);
 }
 
+void restore_re_uid(void)
+{
+	set_effective_uid(0);
+	restore_re_uid_fromroot();
+}
 
 /****************************************************************************
  save the real and effective gid for later restoration. Used by the 

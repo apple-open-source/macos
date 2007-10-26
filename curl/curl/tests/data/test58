@@ -1,3 +1,10 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP PUT
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -34,7 +41,6 @@ a few bytes
 <protocol>
 PUT /we/want/58te%5B%5Dst%2Etxt HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 12
 Expect: 100-continue
@@ -42,3 +48,4 @@ Expect: 100-continue
 a few bytes
 </protocol>
 </verify>
+</testcase>

@@ -25,6 +25,15 @@
  * HISTORY
  *
  *	$Log: IOFWDCLProgram.cpp,v $
+ *	Revision 1.31  2007/03/14 01:01:12  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.30  2007/02/15 19:42:07  ayanowit
+ *	For 4369537, eliminated support for legacy DCL SendPacketWithHeader, since it didn't work anyway, and NuDCL does support it.
+ *	
+ *	Revision 1.29  2006/02/09 00:21:50  niels
+ *	merge chardonnay branch to tot
+ *	
  *	Revision 1.28  2005/03/12 03:27:51  collin
  *	*** empty log message ***
  *	
@@ -94,7 +103,7 @@ getDCLDataBuffer(
 	switch( dcl->opcode & ~kFWDCLOpFlagMask)
 	{
 		case kDCLSendPacketStartOp:
-		case kDCLSendPacketWithHeaderStartOp:
+		//case kDCLSendPacketWithHeaderStartOp:
 		case kDCLSendPacketOp:
 		case kDCLReceivePacketStartOp:
 		case kDCLReceivePacketOp:
@@ -117,7 +126,7 @@ getDCLDataBuffer(
 }
 
 void
-IODCLProgram :: generateBufferMap( DCLCommand * program )
+IODCLProgram::generateBufferMap( DCLCommand * program )
 {
 	IOVirtualAddress lowAddress = (IOVirtualAddress)-1 ;
 	IOVirtualAddress highAddress = 0 ;
@@ -129,8 +138,8 @@ IODCLProgram :: generateBufferMap( DCLCommand * program )
 		{
 //			DebugLog( "see range %p +0x%x\n", (void*)(tempRange.address), (unsigned)(tempRange.length) ) ;
 			
-			lowAddress = lowAddress <? trunc_page( tempRange.address ) ;
-			highAddress = highAddress >? round_page( tempRange.address + tempRange.length ) ;
+			lowAddress = MIN( lowAddress, trunc_page( tempRange.address ) ) ;
+			highAddress = MAX( highAddress, round_page( tempRange.address + tempRange.length ) ) ;
 		}		
 	}
 	
@@ -163,7 +172,7 @@ IODCLProgram :: generateBufferMap( DCLCommand * program )
 }
 
 IOReturn
-IODCLProgram :: virtualToPhysical( 
+IODCLProgram::virtualToPhysical( 
 	IOVirtualRange						ranges[], 
 	unsigned							rangeCount, 
 	IOMemoryCursor::IOPhysicalSegment	outSegments[], 
@@ -194,7 +203,7 @@ IODCLProgram :: virtualToPhysical(
 		while( transferBytes > 0 )
 		{
 			outSegments[ outPhysicalSegmentCount ].location = fBufferMem->getPhysicalSegment( offset, & outSegments[ outPhysicalSegmentCount ].length ) ;
-			outSegments[ outPhysicalSegmentCount ].length = outSegments[ outPhysicalSegmentCount ].length <? transferBytes ;
+			outSegments[ outPhysicalSegmentCount ].length = min( outSegments[ outPhysicalSegmentCount ].length, transferBytes ) ;
 
 			transferBytes -= outSegments[ outPhysicalSegmentCount ].length ;			
 			offset += outSegments[ outPhysicalSegmentCount ].length ;
@@ -208,9 +217,9 @@ IODCLProgram :: virtualToPhysical(
 }
 
 bool
-IODCLProgram :: init ( IOFireWireBus :: DCLTaskInfo * info)
+IODCLProgram::init ( IOFireWireBus::DCLTaskInfo * info)
 {
-	if ( ! super :: init () )
+	if ( ! super::init () )
 		return false ;
 
 	fExpansionData = new ExpansionData ;
@@ -294,28 +303,28 @@ IOReturn IODCLProgram::resume()
 }
 
 void
-IODCLProgram :: setForceStopProc ( 
+IODCLProgram::setForceStopProc ( 
 	IOFWIsochChannel::ForceStopNotificationProc proc, 
 	void * 						refCon,
 	IOFWIsochChannel *			channel )
 {
-	DebugLog("IODCLProgram :: setForceStopProc\n") ;
+	DebugLog("IODCLProgram::setForceStopProc\n") ;
 }
 
 void
-IODCLProgram :: setIsochResourceFlags ( IOFWIsochResourceFlags flags )
+IODCLProgram::setIsochResourceFlags ( IOFWIsochResourceFlags flags )
 {
 	fExpansionData->resourceFlags = flags ;
 }
 
 IOFWIsochResourceFlags
-IODCLProgram :: getIsochResourceFlags () const
+IODCLProgram::getIsochResourceFlags () const
 {
 	return fExpansionData->resourceFlags ;
 }
 
 IOMemoryMap *
-IODCLProgram :: getBufferMap() const
+IODCLProgram::getBufferMap() const
 {
 	return fBufferMem ;
 }

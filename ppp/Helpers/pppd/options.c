@@ -62,7 +62,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: options.c,v 1.20 2005/02/27 21:10:15 lindak Exp $"
+#define RCSID	"$Id: options.c,v 1.24 2005/11/03 05:25:59 lindak Exp $"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -125,6 +125,8 @@ int 	controlfd = -1;		/* file descriptor for options and control */
 int 	statusfd = -1;		/* file descriptor status update */
 char	username[MAXNAMELEN];	/* copy original user */
 char	new_passwd[MAXSECRETLEN];	/* new password for protocol supporting changing password */
+int		passwdfrom = PASSWDFROM_UNKNOWN;
+char	passwdkey[MAXSECRETLEN];	/* keychain key where the password is located, when itcomes from the keychain  */
 #endif
 char	passwd[MAXSECRETLEN];	/* Password for PAP */
 bool	persist = 0;		/* Reopen link after it goes down */
@@ -324,7 +326,7 @@ option_t general_options[] = {
 
     { "unit", o_int, &req_unit,
       "PPP interface unit number to use if possible",
-      OPT_PRIO | OPT_LLIMIT, 0, 0 },
+      OPT_PRIO | OPT_LLIMIT | OPT_ULIMIT, 0, 0x7fff },
 
     { "dump", o_bool, &dump_options,
       "Print out option values after parsing all options", 1 },
@@ -860,6 +862,7 @@ process_option(opt, cmd, argv)
 	break;
 
     case o_special_noarg:
+	case o_special_cfarg:
     case o_special:
 	parser = (int (*) __P((char **))) opt->addr;
 	if (!(*parser)(argv))
@@ -891,7 +894,29 @@ process_option(opt, cmd, argv)
 		|OPT_A2PRINTER|OPT_A2STRVAL|OPT_A2LIST|OPT_A2OR)) == 0)
 	*(bool *)(opt->addr2) = !(opt->flags & OPT_A2CLR);
 
-    mainopt->source = option_source;
+#ifdef __APPLE__
+    if (!mainopt->source)
+		mainopt->source = option_source;
+	else {
+		if (!mainopt->other_source) {
+			mainopt->other_source = malloc(sizeof(char*));
+			if (!mainopt->other_source)
+				novm("option other source");
+			mainopt->other_source[0] = option_source;
+			mainopt->nb_other_source = 1;
+		}
+		else {
+			char **p = (char **)realloc(mainopt->other_source, (mainopt->nb_other_source + 1) * sizeof(char*));
+			if (p) {
+				mainopt->other_source = p;
+				mainopt->other_source[mainopt->nb_other_source] = option_source;
+				mainopt->nb_other_source++;
+			}
+		}
+	}
+#else
+	mainopt->source = option_source;
+#endif
     mainopt->priority = prio;
     mainopt->winner = opt - mainopt;
 
@@ -1034,6 +1059,7 @@ print_option(opt, mainopt, printer, arg)
 
 	case o_special:
 	case o_special_noarg:
+	case o_special_cfarg:
 	case o_wild:
 		if (opt->type != o_wild) {
 			printer(arg, "%s", opt->name);
@@ -1074,7 +1100,15 @@ print_option(opt, mainopt, printer, arg)
 		printer(arg, "# %s value (type %d\?\?)", opt->name, opt->type);
 		break;
 	}
+
+#ifdef __APPLE__
+	printer(arg, "\t\t# (from %s", mainopt->source);
+	for (i = 0; i < mainopt->nb_other_source; i++)
+		printer(arg, ", %s", mainopt->other_source[i]);
+	printer(arg, ")\n", mainopt->source);
+#else
 	printer(arg, "\t\t# (from %s)\n", mainopt->source);
+#endif
 }
 
 /*
@@ -1604,9 +1638,9 @@ setdomain(argv)
     gethostname(hostname, MAXNAMELEN);
     if (**argv != 0) {
 	if (**argv != '.')
-	    strncat(hostname, ".", MAXNAMELEN - strlen(hostname));
+	    strlcat(hostname, ".", MAXNAMELEN);
 	domain = hostname + strlen(hostname);
-	strncat(hostname, *argv, MAXNAMELEN - strlen(hostname));
+	strlcat(hostname, *argv, MAXNAMELEN);
     }
     hostname[MAXNAMELEN-1] = 0;
     return (1);
@@ -1678,7 +1712,8 @@ loadplugin(argv)
     err = sys_loadplugin(*argv);
     if (err) {
 	option_error("Couldn't load plugin %s", arg);
-        return 0;
+		// continue without loading plugin
+        return 1;
     }
 
     //info("Plugin %s loaded.", arg);
@@ -1697,9 +1732,10 @@ options_from_controller()
     int i, newline, ret;
     option_t *opt;
     int n, oldpriv;
-    char *argv[MAXARGS];
+    char *argv[MAXARGS+1]; // +1 because of cfarg
     char args[MAXARGS][MAXWORDLEN];
     char cmd[MAXWORDLEN];
+	char *data = NULL;
 
     oldpriv = privileged_option;
     privileged_option = controlled;
@@ -1730,12 +1766,24 @@ options_from_controller()
 	    }
 	    argv[i] = args[i];
 	}
+
+	if (opt->type == o_special_cfarg) {
+
+		int iv;
+		if (!int_option(*argv, &iv))
+			goto err;
+
+		data = malloc(iv);
+		fread(data, iv, 1, controlfile);
+		argv[1] = data;
+	}
 	if (!process_option(opt, cmd, argv))
 	    goto err;
     }
     ret = 1;
 
 err:
+	if (data) free(data);
 	privileged_option = oldpriv;
     return ret;
 }
@@ -1775,6 +1823,12 @@ controlled_connection(argv)
 	goto err;
     }
 
+	/* can'	t send logs to stdout when controlled */
+	if (log_default) {
+		log_to_fd = -1;
+		log_default = 0;
+	}
+
     controlled = 1;
     return 1;
     
@@ -1790,6 +1844,23 @@ err:
         statusfd = -1;
     }
     return 0;
+}
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+void options_close()
+{
+    if (controlfile) {
+        fclose(controlfile); // also closes controlfd
+        controlfile = 0;
+        controlfd = -1;
+    }
+    
+    if (statusfd != -1) {
+        close(statusfd); 
+        statusfd = -1;
+    }
+	controlled = 0;
 }
 
 #else

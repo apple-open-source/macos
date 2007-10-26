@@ -2,9 +2,6 @@
 Check for extname presence
 --SKIPIF--
 <?php if (!extension_loaded("extname")) print "skip"; ?>
---POST--
---GET--
---INI--
 --FILE--
 <?php 
 echo "extname extension is available";
@@ -16,7 +13,7 @@ echo "extname extension is available";
   to pass, differences between the output and the
   expected text are interpreted as failure
 
-	see php4/README.TESTING for further information on
+	see php5/README.TESTING for further information on
   writing regression tests
 */
 ?>

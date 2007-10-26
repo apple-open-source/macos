@@ -1,3 +1,6 @@
 override DEBUG_SUFFIX = _debug
 PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(DEBUG_SUFFIX)$(LIBRARY_EXT)
 PRODUCTS += $(LIBRARY_PREFIX)$(NAME)$(PROFILE_SUFFIX)$(LIBRARY_EXT)
+
+$(OFILE_DIR)/_version.c:
+	/Developer/Makefiles/bin/version.pl Libunc > $@

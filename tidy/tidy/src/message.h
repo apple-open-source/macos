@@ -3,14 +3,14 @@
 
 /* message.h -- general message writing routines
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
   
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2004/08/16 23:45:24 $ 
-    $Revision: 1.1.1.2 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:52 $ 
+    $Revision: 1.3 $ 
 
 */
 
@@ -30,72 +30,41 @@
 ** Keeps track of ShowWarnings, ShowErrors, etc.
 */
 
-ctmbstr ReleaseDate(void);
+ctmbstr TY_(ReleaseDate)(void);
 
-/* Reports error at current Lexer line/column. */ 
-void message( TidyDocImpl* doc, TidyReportLevel level, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 3, 4)))
-#endif
-;
+/* void TY_(ShowVersion)( TidyDocImpl* doc ); */
+void TY_(ReportUnknownOption)( TidyDocImpl* doc, ctmbstr option );
+void TY_(ReportBadArgument)( TidyDocImpl* doc, ctmbstr option );
+void TY_(NeedsAuthorIntervention)( TidyDocImpl* doc );
 
-/* Reports error at node line/column. */ 
-void messageNode( TidyDocImpl* doc, TidyReportLevel level,
-                  Node* node, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 4, 5)))
-#endif
-;
+/* void TY_(HelloMessage)( TidyDocImpl* doc, ctmbstr date, ctmbstr filename ); */
+void TY_(ReportMarkupVersion)( TidyDocImpl* doc );
+void TY_(ReportNumWarnings)( TidyDocImpl* doc );
 
-/* Reports error at given line/column. */ 
-void messageLexer( TidyDocImpl* doc, TidyReportLevel level, 
-                   ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 3, 4)))
-#endif
-;
+void TY_(GeneralInfo)( TidyDocImpl* doc );
+/* void TY_(UnknownOption)( TidyDocImpl* doc, char c ); */
+/* void TY_(UnknownFile)( TidyDocImpl* doc, ctmbstr program, ctmbstr file ); */
+void TY_(FileError)( TidyDocImpl* doc, ctmbstr file, TidyReportLevel level );
 
-/* For general reporting.  Emits nothing if --quiet yes */
-void tidy_out( TidyDocImpl* doc, ctmbstr msg, ... )
-#ifdef __GNUC__
-__attribute__((format(printf, 2, 3)))
-#endif
-;
+void TY_(ErrorSummary)( TidyDocImpl* doc );
 
-
-void ShowVersion( TidyDocImpl* doc );
-void ReportUnknownOption( TidyDocImpl* doc, ctmbstr option );
-void ReportBadArgument( TidyDocImpl* doc, ctmbstr option );
-void NeedsAuthorIntervention( TidyDocImpl* doc );
-
-void HelloMessage( TidyDocImpl* doc, ctmbstr date, ctmbstr filename );
-void ReportMarkupVersion( TidyDocImpl* doc );
-void ReportNumWarnings( TidyDocImpl* doc );
-
-void GeneralInfo( TidyDocImpl* doc );
-void UnknownOption( TidyDocImpl* doc, char c );
-void UnknownFile( TidyDocImpl* doc, ctmbstr program, ctmbstr file );
-void FileError( TidyDocImpl* doc, ctmbstr file, TidyReportLevel level );
-
-void ErrorSummary( TidyDocImpl* doc );
-
-void ReportEncodingWarning(TidyDocImpl* doc, uint code, uint encoding);
-void ReportEncodingError(TidyDocImpl* doc, uint code, uint c, Bool discarded);
-void ReportEntityError( TidyDocImpl* doc, uint code, ctmbstr entity, int c );
-void ReportAttrError( TidyDocImpl* doc, Node* node, AttVal* av, uint code );
-void ReportMissingAttr( TidyDocImpl* doc, Node* node, ctmbstr name );
+void TY_(ReportEncodingWarning)(TidyDocImpl* doc, uint code, uint encoding);
+void TY_(ReportEncodingError)(TidyDocImpl* doc, uint code, uint c, Bool discarded);
+void TY_(ReportEntityError)( TidyDocImpl* doc, uint code, ctmbstr entity, int c );
+void TY_(ReportAttrError)( TidyDocImpl* doc, Node* node, AttVal* av, uint code );
+void TY_(ReportMissingAttr)( TidyDocImpl* doc, Node* node, ctmbstr name );
 
 #if SUPPORT_ACCESSIBILITY_CHECKS
 
-void ReportAccessWarning( TidyDocImpl* doc, Node* node, uint code );
-void ReportAccessError( TidyDocImpl* doc, Node* node, uint code );
+void TY_(ReportAccessWarning)( TidyDocImpl* doc, Node* node, uint code );
+void TY_(ReportAccessError)( TidyDocImpl* doc, Node* node, uint code );
 
 #endif
 
-void ReportNotice(TidyDocImpl* doc, Node *element, Node *node, uint code);
-void ReportWarning(TidyDocImpl* doc, Node *element, Node *node, uint code);
-void ReportError(TidyDocImpl* doc, Node* element, Node* node, uint code);
-void ReportFatal(TidyDocImpl* doc, Node* element, Node* node, uint code);
+void TY_(ReportNotice)(TidyDocImpl* doc, Node *element, Node *node, uint code);
+void TY_(ReportWarning)(TidyDocImpl* doc, Node *element, Node *node, uint code);
+void TY_(ReportError)(TidyDocImpl* doc, Node* element, Node* node, uint code);
+void TY_(ReportFatal)(TidyDocImpl* doc, Node* element, Node* node, uint code);
 
 /* error codes for entities/numeric character references */
 
@@ -151,7 +120,7 @@ void ReportFatal(TidyDocImpl* doc, Node* element, Node* node, uint code);
 #define UNEXPECTED_ENDTAG_IN         47
 #define REPLACING_ELEMENT            83
 #define REPLACING_UNEX_ELEMENT       84
-#define COERCE_TO_ENDTAG_WARN        85 /* last */
+#define COERCE_TO_ENDTAG_WARN        85
 
 /* error codes used for attribute messages */
 
@@ -188,7 +157,8 @@ void ReportFatal(TidyDocImpl* doc, Node* element, Node* node, uint code);
 
 #define INVALID_XML_ID               74
 #define UNEXPECTED_END_OF_FILE_ATTR  75
-
+#define MISSING_ATTRIBUTE            86
+#define WHITE_IN_URI                 87 /* last */
 
 /* character encoding errors */
 

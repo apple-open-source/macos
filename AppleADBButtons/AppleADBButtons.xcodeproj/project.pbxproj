@@ -1,0 +1,349 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		1A224C40FF42367911CA2CB7 /* AppleADBButtons.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleADBButtons.h */; };
+		1A224C41FF42367911CA2CB7 /* AppleADBButtons.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleADBButtons.cpp */; settings = {ATTRIBUTES = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBundleTarget section */
+		089C1673FE841209C02AAC07 /* AppleADBButtons */ = {
+			isa = PBXBundleTarget;
+			buildConfigurationList = 843E45520B96B6CF00983159 /* Build configuration list for PBXBundleTarget "AppleADBButtons" */;
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA /* ShellScript */,
+				089C1674FE841209C02AAC07 /* Headers */,
+				089C1676FE841209C02AAC07 /* Sources */,
+				84195A6E0B96B9380022E093 /* Resources */,
+				089C1677FE841209C02AAC07 /* Frameworks */,
+				06AA1264FFB2107B11CA28AA /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = AppleADBButtons;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleADBButtons;
+			productReference = 0B81C263FFB7832611CA28AA /* AppleADBButtons.kext */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleADBButtons</string>
+	<key>CFBundleGetInfoString</key>
+	<string>AppleADBButtons version 3.0, Copyright 2003-2007 Apple Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleADBButtons</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleADBButtons</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>3.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>3.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleADBButtons</key>
+		<dict>
+			<key>ADB Match</key>
+			<string>7</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleADBButtons</string>
+			<key>Eject Delay Milliseconds</key>
+			<integer>250</integer>
+			<key>IOClass</key>
+			<string>AppleADBButtons</string>
+			<key>IOProbeScore</key>
+			<integer>1000</integer>
+			<key>IOProviderClass</key>
+			<string>IOADBDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOADBFamily</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.iokit.IOHIDSystem</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.0.0b1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.0.0b1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
+</dict>
+</plist>
+";
+		};
+/* End PBXBundleTarget section */
+
+/* Begin PBXFileReference section */
+		0B81C263FFB7832611CA28AA /* AppleADBButtons.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = AppleADBButtons.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A224C3EFF42367911CA2CB7 /* AppleADBButtons.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AppleADBButtons.h; sourceTree = "<group>"; };
+		1A224C3FFF42367911CA2CB7 /* AppleADBButtons.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AppleADBButtons.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		089C1677FE841209C02AAC07 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleADBButtons */ = {
+			isa = PBXGroup;
+			children = (
+				247142CAFF3F8F9811CA285C /* Source */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+			);
+			name = AppleADBButtons;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0B81C263FFB7832611CA28AA /* AppleADBButtons.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				1A224C3EFF42367911CA2CB7 /* AppleADBButtons.h */,
+				1A224C3FFF42367911CA2CB7 /* AppleADBButtons.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		089C1674FE841209C02AAC07 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A224C40FF42367911CA2CB7 /* AppleADBButtons.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 843E45560B96B6CF00983159 /* Build configuration list for PBXProject "AppleADBButtons" */;
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleADBButtons */;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07 /* AppleADBButtons */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		84195A6E0B96B9380022E093 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		06AA1264FFB2107B11CA28AA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1267FFB2110C11CA28AA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		089C1676FE841209C02AAC07 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1A224C41FF42367911CA2CB7 /* AppleADBButtons.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		843E45530B96B6CF00983159 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleADBButtons;
+				MODULE_VERSION = 3.0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleADBButtons;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		843E45540B96B6CF00983159 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_SETTING = "";
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleADBButtons;
+				MODULE_VERSION = 3.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleADBButtons;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		843E45550B96B6CF00983159 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_SETTING = "";
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleADBButtons;
+				MODULE_VERSION = 3.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleADBButtons;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Default;
+		};
+		843E45570B96B6CF00983159 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		843E45580B96B6CF00983159 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		843E45590B96B6CF00983159 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		843E45520B96B6CF00983159 /* Build configuration list for PBXBundleTarget "AppleADBButtons" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				843E45530B96B6CF00983159 /* Development */,
+				843E45540B96B6CF00983159 /* Deployment */,
+				843E45550B96B6CF00983159 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		843E45560B96B6CF00983159 /* Build configuration list for PBXProject "AppleADBButtons" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				843E45570B96B6CF00983159 /* Development */,
+				843E45580B96B6CF00983159 /* Deployment */,
+				843E45590B96B6CF00983159 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

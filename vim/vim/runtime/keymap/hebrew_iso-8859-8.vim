@@ -1,5 +1,5 @@
 " Vim Keymap file for hebrew
-" Maintainer  : Ron Aaron <ronaharon@yahoo.com>
+" Maintainer  : Ron Aaron <ron@ronware.org>
 " Last Updated: Wed 28 Feb 2001 21:28:51
 " This is the standard Israeli keyboard layout
 

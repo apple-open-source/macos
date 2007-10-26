@@ -1,6 +1,8 @@
---- samba/source/smbd/server.c.orig	2004-12-15 18:29:03.000000000 -0800
-+++ samba/source/smbd/server.c	2004-12-15 18:32:02.000000000 -0800
-@@ -46,6 +46,10 @@
+Index: PR-4741524/samba/source/smbd/server.c
+===================================================================
+--- PR-4741524.orig/samba/source/smbd/server.c
++++ PR-4741524/samba/source/smbd/server.c
+@@ -46,6 +46,10 @@ extern int dcelogin_atmost_once;
   */
  static int server_fd = -1;
  
@@ -11,7 +13,7 @@
  int smbd_server_fd(void)
  {
  	return server_fd;
-@@ -132,6 +136,13 @@
+@@ -132,6 +136,13 @@ static BOOL open_sockets_inetd(void)
  	set_socket_options(smbd_server_fd(),"SO_KEEPALIVE");
  	set_socket_options(smbd_server_fd(), user_socket_options);
  
@@ -25,7 +27,7 @@
  	return True;
  }
  
-@@ -387,9 +398,15 @@
+@@ -387,9 +398,15 @@ static BOOL open_sockets_smbd(BOOL is_da
  			/* Ensure child is set to blocking mode */
  			set_blocking(smbd_server_fd(),True);
  
@@ -43,7 +45,7 @@
  			if (allowable_number_of_smbd_processes() && smbd_server_fd() != -1 && sys_fork()==0) {
  				/* Child code ... */
  				
-@@ -421,6 +438,13 @@
+@@ -421,6 +438,13 @@ static BOOL open_sockets_smbd(BOOL is_da
  					smb_panic("tdb_reopen_all failed.");
  				}
  
@@ -57,7 +59,7 @@
  				return True; 
  			}
  			/* The parent doesn't need this socket */
-@@ -611,6 +635,11 @@
+@@ -611,6 +635,11 @@ void exit_server(const char *reason)
  	locking_end();
  	printing_end();
  
@@ -69,9 +71,11 @@
  	DEBUG(3,("Server exit (%s)\n", (reason ? reason : "")));
  	exit(0);
  }
---- samba/source/include/smb.h.orig	2004-12-04 15:24:16.000000000 -0800
-+++ samba/source/include/smb.h	2004-12-04 15:41:45.000000000 -0800
-@@ -380,6 +380,10 @@
+Index: PR-4741524/samba/source/include/smb.h
+===================================================================
+--- PR-4741524.orig/samba/source/include/smb.h
++++ PR-4741524/samba/source/include/smb.h
+@@ -377,6 +377,10 @@ typedef struct
  
  #include "fake_file.h"
  
@@ -82,7 +86,7 @@
  typedef struct files_struct {
  	struct files_struct *next, *prev;
  	int fnum;
-@@ -415,6 +419,11 @@
+@@ -412,6 +416,11 @@ typedef struct files_struct {
  	BOOL directory_delete_on_close;
  	char *fsp_name;
   	FAKE_FILE_HANDLE *fake_file_handle;
@@ -94,22 +98,11 @@
  } files_struct;
  
  #include "ntquotas.h"
---- samba/source/include/includes.h.orig        Wed Apr 28 16:49:45 2004
-+++ samba/source/include/includes.h     Wed Apr 28 16:41:12 2004
-@@ -27,6 +27,10 @@
- 
- #include "local.h"
- 
-+#ifdef WITH_BRLM
-+#include <ByteRangeLocking/BRLM.h>
-+#endif
-+
- #ifdef AIX
- #define DEFAULT_PRINTING PRINT_AIX
- #define PRINTCAP_NAME "/etc/qconfig"
---- samba/source/smbd/vfs-wrap.c.orig	Fri Jun  4 14:11:02 2004
-+++ samba/source/smbd/vfs-wrap.c	Fri Jun  4 14:14:58 2004
-@@ -172,10 +172,31 @@
+Index: PR-4741524/samba/source/smbd/vfs-wrap.c
+===================================================================
+--- PR-4741524.orig/samba/source/smbd/vfs-wrap.c
++++ PR-4741524/samba/source/smbd/vfs-wrap.c
+@@ -172,10 +172,31 @@ int vfswrap_open(vfs_handle_struct *hand
  int vfswrap_close(vfs_handle_struct *handle, files_struct *fsp, int fd)
  {
  	int result;
@@ -135,17 +128,19 @@
 +#endif
  	result = close(fd);
 +#ifdef WITH_BRLM
-+       }       /* lp_BRLM */   
-+#endif         
-+	
++       }       /* lp_BRLM */
++#endif
++
  	END_PROFILE(syscall_close);
  	return result;
  }
---- samba/source/param/loadparm.c.orig	Fri Jun  4 14:17:36 2004
-+++ samba/source/param/loadparm.c	Fri Jun  4 14:23:05 2004
-@@ -288,6 +288,9 @@
+Index: PR-4741524/samba/source/param/loadparm.c
+===================================================================
+--- PR-4741524.orig/samba/source/param/loadparm.c
++++ PR-4741524/samba/source/param/loadparm.c
+@@ -293,6 +293,9 @@ typedef struct
  #ifdef WITH_OPENDIRECTORY
- 	BOOL bOpenDirectory;
+   	BOOL bOpenDirectory;
  #endif
 +#ifdef WITH_BRLM
 +	BOOL bBRLM;
@@ -153,17 +148,17 @@
  	int restrict_anonymous;
  	int name_cache_timeout;
  	int client_signing;
-@@ -1169,6 +1172,9 @@
+@@ -1191,6 +1194,9 @@ static struct parm_struct parm_table[] =
  #ifdef WITH_OPENDIRECTORY
- 	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED}, 
+ 	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED},
  #endif
 +#ifdef WITH_BRLM
-+	{"brlm", P_BOOL, P_GLOBAL, &Globals.bBRLM, NULL, NULL, FLAG_ADVANCED}, 
++	{"brlm", P_BOOL, P_GLOBAL, &Globals.bBRLM, NULL, NULL, FLAG_ADVANCED},
 +#endif
  
  	{NULL,  P_BOOL,  P_NONE,  NULL,  NULL,  NULL,  0}
  };
-@@ -1529,6 +1535,9 @@
+@@ -1544,6 +1550,9 @@ static void init_globals(void)
  #ifdef WITH_OPENDIRECTORY
  	Globals.bOpenDirectory = True;
  #endif
@@ -173,18 +168,20 @@
  }
  
  static TALLOC_CTX *lp_talloc;
-@@ -1905,6 +1914,9 @@
- FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
+@@ -1932,6 +1941,9 @@ FN_GLOBAL_INTEGER(lp_server_signing, &Gl
  #ifdef WITH_OPENDIRECTORY
  FN_GLOBAL_BOOL(lp_opendirectory, &Globals.bOpenDirectory)
-+#endif
+ #endif
 +#ifdef WITH_BRLM
 +FN_GLOBAL_BOOL(lp_BRLM, &Globals.bBRLM)
- #endif
++#endif
  
  /* local prototypes */
---- samba/source/locking/posix.c.orig	2005/01/06 23:22:20	1.1.1.7
-+++ samba/source/locking/posix.c	2005/07/21 21:40:48
+ 
+Index: PR-4741524/samba/source/locking/posix.c
+===================================================================
+--- PR-4741524.orig/samba/source/locking/posix.c
++++ PR-4741524/samba/source/locking/posix.c
 @@ -30,6 +30,13 @@
  
  static TDB_CONTEXT *posix_lock_tdb;
@@ -199,7 +196,7 @@
  /*
   * The pending close database handle.
   */
-@@ -97,12 +104,29 @@
+@@ -97,12 +104,29 @@ static BOOL add_fd_to_close_entry(files_
  	TDB_DATA kbuf = locking_key_fsp(fsp);
  	TDB_DATA dbuf;
  	char *tp;
@@ -230,7 +227,7 @@
  	if (!tp) {
  		DEBUG(0,("add_fd_to_close_entry: Realloc fail !\n"));
  		SAFE_FREE(dbuf.dptr);
-@@ -110,8 +134,8 @@
+@@ -110,8 +134,8 @@ static BOOL add_fd_to_close_entry(files_
  	} else
  		dbuf.dptr = tp;
  
@@ -241,7 +238,7 @@
  
  	if (tdb_store(posix_pending_close_tdb, kbuf, dbuf, TDB_REPLACE) == -1) {
  		DEBUG(0,("add_fd_to_close_entry: tdb_store fail !\n"));
-@@ -138,7 +162,11 @@
+@@ -138,7 +162,11 @@ static void delete_close_entries(files_s
   free. Returns number of entries.
  ****************************************************************************/
  
@@ -253,7 +250,7 @@
  {
  	TDB_DATA kbuf = locking_key_fsp(fsp);
  	TDB_DATA dbuf;
-@@ -153,9 +181,13 @@
+@@ -153,9 +181,13 @@ static size_t get_posix_pending_close_en
  		return 0;
  	}
  
@@ -268,7 +265,7 @@
  	return count;
  }
  
-@@ -198,7 +230,12 @@
+@@ -198,7 +230,12 @@ int fd_close_posix(struct connection_str
  	int ret;
  	size_t count, i;
  	struct posix_lock *entries = NULL;
@@ -281,7 +278,7 @@
  	BOOL locks_on_other_fds = False;
  
  	if (!lp_posix_locking(SNUM(conn))) {
-@@ -259,9 +296,25 @@
+@@ -259,9 +296,25 @@ int fd_close_posix(struct connection_str
  		DEBUG(10,("fd_close_posix: doing close on %u fd's.\n", (unsigned int)count ));
  
  		for(i = 0; i < count; i++) {
@@ -307,7 +304,7 @@
  		}
  
  		/*
-@@ -646,9 +699,58 @@
+@@ -646,9 +699,58 @@ static BOOL posix_lock_in_range(SMB_OFF_
  static BOOL posix_fcntl_lock(files_struct *fsp, int op, SMB_OFF_T offset, SMB_OFF_T count, int type)
  {
  	int ret;
@@ -323,7 +320,7 @@
 +{
 +	if (op == SMB_F_GETLK)
 +	{
-+		if (type == F_RDLCK) 
++		if (type == F_RDLCK)
 +		{
 +			brlm_status  = BRLMCanRead(fsp->brlm_ref, offset, count);
 +			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanRead offset[%d] count[%d]\n",brlm_status, offset, count));
@@ -334,26 +331,26 @@
 +			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_GETLK !!!!! type[0x%X]\n", type));
 +			ret = 0;
 +		}
-+		if (BRLMNoErr == brlm_status) 
++		if (BRLMNoErr == brlm_status)
 +			ret = 0; /* can read | write */
 +		else
 +			ret = 1;
 +	} else if (op == SMB_F_SETLK) {
 +		if (type == F_RDLCK) {
 +			brlm_status = BRLMByteRangeLock(fsp->brlm_ref, kBRLMRLock, offset, count);
-+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMRLock\n",brlm_status));		
++			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMRLock\n",brlm_status));
 +		} else if (type == F_WRLCK) {
 +			brlm_status = BRLMByteRangeLock(fsp->brlm_ref, kBRLMWLock, offset, count);
-+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMWLock\n",brlm_status));		
++			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock kBRLMWLock\n",brlm_status));
 +		} else if (type == F_UNLCK) {
 +			brlm_status = BRLMByteRangeUnlock(fsp->brlm_ref, kBRLMFree, offset, count);
-+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeUnlock kBRLMFree\n",brlm_status));		
++			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeUnlock kBRLMFree\n",brlm_status));
 +		} else {
 +			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_SETLK !!!!! type[0x%X]\n", type));
-+			ret = 0;		
++			ret = 0;
 +		}
-+			
-+		if (BRLMNoErr == brlm_status) 
++
++		if (BRLMNoErr == brlm_status)
 +			ret = 1;
 +		else
 +			ret = 0;
@@ -366,7 +363,7 @@
  	ret = SMB_VFS_LOCK(fsp,fsp->fd,op,offset,count,type);
  
  	if (!ret && ((errno == EFBIG) || (errno == ENOLCK) || (errno ==  EINVAL))) {
-@@ -676,7 +778,9 @@
+@@ -676,7 +778,9 @@ static BOOL posix_fcntl_lock(files_struc
  			ret = SMB_VFS_LOCK(fsp,fsp->fd,op,offset,count,type);
  		}
  	}
@@ -377,9 +374,11 @@
  	DEBUG(8,("posix_fcntl_lock: Lock call %s\n", ret ? "successful" : "failed"));
  
  	return ret;
---- samba/source/smbd/open.c.orig	2005/01/06 23:23:16	1.1.1.15
-+++ samba/source/smbd/open.c	2005/07/21 21:42:50
-@@ -83,6 +83,59 @@
+Index: PR-4741524/samba/source/smbd/open.c
+===================================================================
+--- PR-4741524.orig/samba/source/smbd/open.c
++++ PR-4741524/samba/source/smbd/open.c
+@@ -83,6 +83,59 @@ static void check_for_pipe(const char *f
  }
  
  /****************************************************************************
@@ -389,21 +388,21 @@
 +int map_deny_mode_to_brlm_permissions(files_struct *fsp, int flags)
 +{
 +	int deny_mode = 0;
-+	
++
 +	switch (flags) {
-+		   case DENY_ALL: 
-+				   deny_mode = kBRLMDenyRead | kBRLMDenyWrite; 
++		   case DENY_ALL:
++				   deny_mode = kBRLMDenyRead | kBRLMDenyWrite;
 +				   break;
-+		   case DENY_WRITE: 
-+				   deny_mode = kBRLMDenyWrite; 
++		   case DENY_WRITE:
++				   deny_mode = kBRLMDenyWrite;
 +				   break;
-+		   case DENY_READ: 
-+				   deny_mode = kBRLMDenyRead; 
++		   case DENY_READ:
++				   deny_mode = kBRLMDenyRead;
 +				   break;
-+		   case DENY_DOS: 
-+		   case DENY_FCB: 
-+		   default: 
-+				   deny_mode = 0; 
++		   case DENY_DOS:
++		   case DENY_FCB:
++		   default:
++				   deny_mode = 0;
 +				   break;
 +	}
 +	DEBUG(4,("map_deny_mode_to_brlm_permissions[0x%X] flags[0x%X]\n",deny_mode, flags));
@@ -414,24 +413,24 @@
 +int map_open_mode_to_brlm_permissions(files_struct *fsp, int flags)
 +{
 +	int open_mode = 0;
-+	
++
 +	if (flags & DOS_OPEN_RDONLY) {
-+		   open_mode = kBRLMRead;  
++		   open_mode = kBRLMRead;
 +		   DEBUG(4,("map_open_mode_to_brlm_permissions: DOS_OPEN_RDONLY\n"));
 +	} else if ( flags & DOS_OPEN_WRONLY) {
-+		   open_mode = kBRLMWrite;         
++		   open_mode = kBRLMWrite;
 +	} else if ( flags & DOS_OPEN_RDWR) {
-+		   open_mode = kBRLMRead | kBRLMWrite;     
++		   open_mode = kBRLMRead | kBRLMWrite;
 +	} else if ( flags & DOS_OPEN_FCB) {
-+		   open_mode = kBRLMRead; 
++		   open_mode = kBRLMRead;
 +	} else {
-+		   open_mode = kBRLMRead;          
++		   open_mode = kBRLMRead;
 +		   DEBUG(4,("map_open_mode_to_brlm_permissions: !!! default open permissions - kBRLMRead flags[0x%X]\n", flags));
 +	}
-+	
++
 +	fsp->brlm_open_mode = open_mode;
 +	DEBUG(4,("map_open_mode_to_brlm_permissions[0x%X] flags[0x%X]\n",open_mode, flags));
-+	
++
 +	return open_mode;
 +}
 +#endif
@@ -439,7 +438,7 @@
   Open a file.
  ****************************************************************************/
  
-@@ -92,6 +145,10 @@
+@@ -92,6 +145,10 @@ static BOOL open_file(files_struct *fsp,
  	extern struct current_user current_user;
  	int accmode = (flags & O_ACCMODE);
  	int local_flags = flags;
@@ -450,14 +449,14 @@
  
  	fsp->fd = -1;
  	fsp->oplock_type = NO_OPLOCK;
-@@ -172,7 +229,29 @@
+@@ -172,7 +229,29 @@ static BOOL open_file(files_struct *fsp,
  		}
  
  		/* Actually do the open */
 +#ifdef WITH_BRLM
 +	if (lp_BRLM())
 +	{
-+		map_open_mode_to_brlm_permissions(fsp, local_flags); 
++		map_open_mode_to_brlm_permissions(fsp, local_flags);
 +		brlm_status = BRLMPosixOpen(fname, kBRLMDataFork, fsp->brlm_deny_mode | fsp->brlm_open_mode, local_flags & ~O_ACCMODE/* creatPermissions */, mode, &brlm_ref, 0 /* sessionID */, 0 /* options */);
 +		fsp->brlm_ref = brlm_ref;
 +		if (BRLMNoErr == brlm_status) {
@@ -475,20 +474,35 @@
 +#endif
  		fsp->fd = fd_open(conn, fname, local_flags, mode);
 +#ifdef WITH_BRLM
-+	} /* lp_BRLM */   
-+#endif         
++	} /* lp_BRLM */
++#endif
  		if (fsp->fd == -1)  {
  			DEBUG(3,("Error opening file %s (%s) (local_flags=%d) (flags=%d)\n",
  				 fname,strerror(errno),local_flags,flags));
-@@ -1163,7 +1242,10 @@
+@@ -1163,7 +1242,10 @@ files_struct *open_file_shared1(connecti
  			flags2 &= ~O_CREAT;
  		}
  	}
 -
 +#ifdef WITH_BRLM
 +	if (lp_BRLM())
-+		map_deny_mode_to_brlm_permissions(fsp, deny_mode); 
++		map_deny_mode_to_brlm_permissions(fsp, deny_mode);
 +#endif
  	if (file_existed) {
  
  		dev = psbuf->st_dev;
+Index: PR-4741524/samba/source/include/includes.h
+===================================================================
+--- PR-4741524.orig/samba/source/include/includes.h
++++ PR-4741524/samba/source/include/includes.h
+@@ -36,6 +36,10 @@
+ 
+ #include "local.h"
+ 
++#ifdef WITH_BRLM
++#include <ByteRangeLocking/BRLM.h>
++#endif
++
+ #ifdef AIX
+ #define DEFAULT_PRINTING PRINT_AIX
+ #define PRINTCAP_NAME "/etc/qconfig"

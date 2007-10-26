@@ -40,14 +40,22 @@ AuditLogDir = $(DSTROOT)/$(VARDIR)/audit
 ##
 ## shadow_source symlinks into SRCROOT so make can build in OBJROOT.  
 ##
-## The "all" target sidesteps the lower-level Makefiles' "install" target 
-## so this target can take its own, Apple-specific installation steps.  
+## We inherit the installsrc:: target from Common.make.  
 ##
-install:: bsm
-	$(INSTALL) -g wheel -d $(BSMSbinDst) $(BSMEtcDst) $(BSMLibDst) $(BSMLibHdrsDst) $(BSMMan1Dst) $(BSMMan5Dst) $(AuditLogDir)
+## The "install" target sidesteps the lower-level Makefiles' "install" 
+## target so this target can take its own, Apple-specific installation 
+## steps.  
+##
+install:: bsm installhdrs
+	$(INSTALL) -g wheel -d $(BSMSbinDst) $(BSMEtcDst) $(BSMLibDst) $(BSMMan1Dst) $(BSMMan5Dst) $(AuditLogDir)
 
+    # Unfortunately we have to lipo each undesired architecture separately
+    # to ensure that even if one of the undesired archs isn't present, the
+    # other(s) will still be thinned.  
 	$(_v) for bsmfile in $(BSMSbinFiles) ; do \
 		$(INSTALL) $(OBJROOT)/$(Project)/bin/$${bsmfile} $(BSMSbinDst) ; \
+		$(LIPO) -remove ppc64 -output $(BSMSbinDst)/$${bsmfile} $(BSMSbinDst)/$${bsmfile} ; \
+		$(LIPO) -remove x86_64 -output $(BSMSbinDst)/$${bsmfile} $(BSMSbinDst)/$${bsmfile} ; \
 		$(STRIP) -S $(BSMSbinDst)/$${bsmfile} ; \
 		$(INSTALL) $(OBJROOT)/$(Project)/bin/$${bsmfile} $(SYMROOT) ; \
 	done
@@ -64,10 +72,8 @@ install:: bsm
 		$(INSTALL) -m 0555 $(OBJROOT)/$(Project)/etc/$${bsmfile} $(BSMEtcDst) ; \
 	done
 
+    # installhdrs steps used to live here
 	$(INSTALL) $(OBJROOT)/$(Project)/lib/$(BSMLib) $(BSMLibDst)
-	$(_v) for bsmfile in $(BSMLibHdrs) ; do \
-		$(INSTALL) -m 0644 $(OBJROOT)/$(Project)/lib/$${bsmfile} $(BSMLibHdrsDst) ; \
-	done
 
 	$(_v) for bsmfile in $(BSMMan1Pages) ; do \
 		$(INSTALL) -m 0444 $(OBJROOT)/$(Project)/man/$${bsmfile} $(BSMMan1Dst) ; \
@@ -87,3 +93,9 @@ install:: bsm
 
 bsm:: shadow_source
 	$(_v) $(MAKE) -C $(OBJROOT)/$(Project) $(Environment) all
+
+installhdrs::
+	$(INSTALL) -g wheel -d $(BSMLibHdrsDst)
+	$(_v) for bsmfile in $(BSMLibHdrs) ; do \
+		$(INSTALL) -m 0644 $(SRCROOT)/$(Project)/lib/$${bsmfile} $(BSMLibHdrsDst) ; \
+	done

@@ -1,7 +1,6 @@
 # only executed from a subdir
 MAN1 = man whatis apropos
 MAN5 = man.conf
-MAN8 = makewhatis
 ALL = man.1 whatis.1 apropos.1 man.conf.5
 MAYBE8 = makewhatis
 

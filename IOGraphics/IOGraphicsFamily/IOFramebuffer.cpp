@@ -31,6 +31,7 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IOHibernatePrivate.h>
 
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IOGraphicsPrivate.h>
@@ -38,13 +39,13 @@
 #include <IOKit/graphics/IODisplay.h>
 #include <IOKit/i2c/IOI2CInterface.h>
 #include <IOKit/i2c/PPCI2CInterface.h>
+#include <IOKit/acpi/IOACPIPlatformExpert.h>
 
 #include "IOFramebufferUserClient.h"
 #include "IODisplayWrangler.h"
 #include "IOFramebufferReallyPrivate.h"
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/pwr_mgt/IOPMPrivate.h>
-#include <IOKit/IOHibernatePrivate.h>
 
 #include <string.h>
 #include <IOKit/assert.h>
@@ -54,12 +55,14 @@
 
 #define ACCEL_OFF_ON_DIM	false
 
+#define LID_OPEN_PROBE		0
+
 #define DOANIO	      0
 #define VRAM_SAVE     1
 #define VRAM_COMPRESS 1
 
 #ifdef __i386__
-enum { kIOFBMapCacheMode = kIOMapWriteCombineCache };
+enum { kIOFBMapCacheMode = kIOMapWriteCombineCache }; 
 #else
 enum { kIOFBMapCacheMode = kIOMapInhibitCache };
 #endif
@@ -73,6 +76,11 @@ enum { kIOFBMapCacheMode = kIOMapInhibitCache };
 #include <sys/conf.h>
 #endif
 
+enum {
+    kIOFBClamshellProbeDelayMS = 2000
+};
+
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 static OSArray *	    gAllFramebuffers;
@@ -82,9 +90,12 @@ static thread_call_t	    gIOFBSleepCallout;
 static IOWorkLoop *	    gIOFBWorkLoop;
 static IOTimerEventSource * gIOFBDelayedPrefsEvent;
 static IONotifier *	    gIOFBRootNotifier;
+static IONotifier *	    gIOFBClamshellNotify;
+static IOTimerEventSource * gIOFBClamshellProbeTES;
 static IOService *	    gIOFBSystemPowerAckTo;
 static UInt32		    gIOFBSystemPowerAckRef;
 bool			    gIOFBSystemPower = true;
+bool			    gIOGraphicsSystemPower = true;
 static bool		    gIOFBSleepThread;
 static thread_call_t	    gIOFBClamshellCallout;
 static SInt32		    gIOFBClamshellEnable;
@@ -93,6 +104,7 @@ static SInt32		    gIOFBSuspendCount;
 static IOFramebuffer *      gIOFBConsoleFramebuffer;
 bool			    gIOFBDesktopModeAllowed = true;
 IOOptionBits		    gIOFBLastClamshellState;
+static IOOptionBits	    gIOFBLastReadClamshellState;
 const OSSymbol *	    gIOFBGetSensorValueKey;
 const OSSymbol *	    gIOFramebufferKey;
 const OSSymbol *	    gIOFBRotateKey;
@@ -100,6 +112,9 @@ static bool		    gIOFBDimDisable;
 OSDictionary *   	    gIOFBPrefs;
 OSDictionary *   	    gIOFBPrefsParameters;
 OSSerializer * 		    gIOFBPrefsSerializer;
+IOService *                 gIOGraphicsControl;
+AbsoluteTime		    gIOFBNextProbeAllTime;
+AbsoluteTime		    gIOFBMaxVBLDelta;
 
 #define	kIOFBGetSensorValueKey	"getSensorValue"
 
@@ -128,10 +143,13 @@ struct IOFramebufferPrivate
     SInt32			xPending;
     SInt32			yPending;
     IOGPoint			cursorHotSpotAdjust[2];
+    IOGPoint			lastHotSpot;
+    void *			waitVBLEvent;
 
     IOByteCount			gammaHeaderSize;
     UInt32			desiredGammaDataWidth;
     UInt32			desiredGammaDataCount;
+
 
     IOInterruptEventSource *	deferredCLUTSetEvent;
     IOInterruptEventSource *	deferredSpeedChangeEvent;
@@ -154,6 +172,8 @@ struct IOFramebufferPrivate
     UInt32			saveLength;
     void *			saveFramebuffer;
 
+    UInt8			gammaNeedSet;
+    UInt8			scaledMode;
     UInt8			visiblePending;
     UInt8			testingCursor;
     UInt8			disabledForConnectChange;
@@ -171,7 +191,13 @@ struct IOFramebufferPrivate
 
     UInt8			enableScalerUnderscan;
     UInt8			userSetTransform;
-    UInt8			pad[2];
+    UInt8			online;
+    UInt8			lastNotifyOnline;
+    UInt8			offlinePoweredOff;
+    UInt8			pad[3];
+
+    IODisplayModeID		offlineDisplayMode;
+    IOIndex			offlineDisplayDepth;
 
     UInt64			transform;
     UInt64			selectedTransform;
@@ -225,6 +251,10 @@ public:
     inline void wakeupGate(void *event, bool oneThread)
     {
 	return IOCommandGate::wakeupGate(event, oneThread);
+    }
+    inline bool inGate()
+    {
+	return workLoop->inGate();
     }
 };
 
@@ -333,7 +363,7 @@ OSDefineAbstractStructors( IOFramebuffer, IOGraphicsDevice )
 inline void IOFramebuffer::StdFBDisplayCursor( IOFramebuffer * inst )
 {
     StdFBShmem_t *shmem;
-    Bounds saveRect;
+    IOGBounds saveRect;
     volatile unsigned char *vramPtr;	/* screen data pointer */
     unsigned int cursStart;
     unsigned int cursorWidth;
@@ -410,9 +440,12 @@ inline void IOFramebuffer::RemoveCursor( IOFramebuffer * inst )
 {
     StdFBShmem_t *	shmem = GetShmem(inst);
 
+    if (!inst->pagingState)
+	return;
+
     if (shmem->hardwareCursorActive)
     {
-        Point *		hs;
+        IOGPoint *		hs;
 
         hs = &shmem->hotSpot[0 != shmem->frame];
         inst->_setCursorState(
@@ -425,9 +458,12 @@ inline void IOFramebuffer::RemoveCursor( IOFramebuffer * inst )
 
 inline void IOFramebuffer::DisplayCursor( IOFramebuffer * inst )
 {
-    Point 	 *	hs;
+    IOGPoint 	 *	hs;
     StdFBShmem_t *	shmem = GetShmem(inst);
     SInt32		x, y;
+
+    if (!inst->pagingState)
+	return;
 
     hs = &shmem->hotSpot[0 != shmem->frame];
     x  = shmem->cursorLoc.x - hs->x;
@@ -466,9 +502,9 @@ inline void IOFramebuffer::SysShowCursor( IOFramebuffer * inst )
 
 inline void IOFramebuffer::CheckShield( IOFramebuffer * inst )
 {
-    Point *		hs;
+    IOGPoint *		hs;
     int 		intersect;
-    Bounds 		tempRect;
+    IOGBounds 		tempRect;
     StdFBShmem_t *	shmem = GetShmem(inst);
 
     /* Calculate temp cursorRect */
@@ -590,11 +626,38 @@ IOReturn IOFramebuffer::extCreateSharedCursor(
     if ((err = extEntry()))
 	return (err);
 
-    err = createSharedCursor( version, maxWidth, maxWidth );
+#if 0
+    if (__private->offlinePoweredOff)
+	err = kIOReturnOffline;
+    else
+#endif
+	err = createSharedCursor( version, maxWidth, maxWidth );
 
     FBUNLOCK();
 
     return (err);
+}
+
+bool IOFramebuffer::deepFramebuffer( 
+    IOPixelInformation * pixelInfo )
+{
+    if ((pixelInfo->pixelType == kIORGBSignedFloatingPointPixels)
+    || (pixelInfo->bitsPerComponent > 8))
+	return (true);
+    else
+	return (false);
+}
+
+bool IOFramebuffer::validFramebuffer(
+    IOPixelInformation * pixelInfo )
+{
+    if (pixelInfo->pixelType == kIORGBSignedDirectPixels)
+	return (false);
+
+    if (deepFramebuffer(pixelInfo))
+	return (true);
+
+    return (true);
 }
 
 IOReturn IOFramebuffer::extGetPixelInformation(
@@ -606,7 +669,25 @@ IOReturn IOFramebuffer::extGetPixelInformation(
     if ((err = extEntry()))
 	return (err);
 
-    err = getPixelInformation(  displayMode, depth, aperture, pixelInfo );
+    if (__private->offlinePoweredOff)
+    {
+	bzero(pixelInfo, sizeof(IOPixelInformation));
+	pixelInfo->bytesPerRow = 32;
+	pixelInfo->bytesPerPlane = 0;
+	pixelInfo->flags = 0;
+	pixelInfo->activeWidth = 1;
+	pixelInfo->activeHeight = 1;
+	strcpy( pixelInfo->pixelFormat, "--------RRRRRRRRGGGGGGGGBBBBBBBB");
+	pixelInfo->pixelType = kIORGBDirectPixels;
+	pixelInfo->componentMasks[0] = 0x00ff0000;
+	pixelInfo->componentMasks[1] = 0x0000ff00;
+	pixelInfo->componentMasks[2] = 0x000000ff;
+	pixelInfo->bitsPerPixel = 32;
+	pixelInfo->componentCount = 3;
+	pixelInfo->bitsPerComponent = 8;
+    }
+    else
+	err = getPixelInformation(  displayMode, depth, aperture, pixelInfo );
 
     FBUNLOCK();
 
@@ -621,7 +702,13 @@ IOReturn IOFramebuffer::extGetCurrentDisplayMode(
     if ((err = extEntry()))
 	return (err);
 
-    err = getCurrentDisplayMode( displayMode, depth );
+    if (__private->offlinePoweredOff)
+    {
+	*displayMode = __private->offlineDisplayMode;
+	*depth       = __private->offlineDisplayDepth;
+    }
+    else
+	err = getCurrentDisplayMode( displayMode, depth );
 
     FBUNLOCK();
 
@@ -636,7 +723,8 @@ IOReturn IOFramebuffer::extSetStartupDisplayMode(
     if ((err = extEntry()))
 	return (err);
 
-    err = setStartupDisplayMode( displayMode, depth );
+    if (!__private->offlinePoweredOff)
+	err = setStartupDisplayMode( displayMode, depth );
 
     FBUNLOCK();
 
@@ -659,6 +747,9 @@ IOReturn IOFramebuffer::extSetGammaTable(
 
     do
     {
+	if (__private->offlinePoweredOff)
+	    break;
+
 	if (!__private->desiredGammaDataWidth)
 	{
 	    __private->desiredGammaDataWidth = dataWidth;
@@ -693,6 +784,7 @@ IOReturn IOFramebuffer::extSetGammaTable(
 		needAlloc = true;
 	    }
 	    __private->gammaDataLen = 0;
+	    __private->gammaNeedSet = false;
 	}
 
 	if (needAlloc)
@@ -720,8 +812,8 @@ IOReturn IOFramebuffer::extSetGammaTable(
 	    UInt32 pin, pt5, value;
     
 	    pin = (1 << tryWidth) - 1;
-	    pt5 = (1 << (dataWidth - tryWidth - 1));
-    
+	    pt5 = 0;	// truncate not round
+
 	    for (UInt32 in = 0, out = 0; out < (dataCount * channelCount);)
 	    {
 		value = (((UInt16 *) data)[in++] + pt5) >> (dataWidth - tryWidth);
@@ -737,10 +829,11 @@ IOReturn IOFramebuffer::extSetGammaTable(
 	    }
 	}
 	__private->gammaDataWidth = tryWidth;
+	__private->gammaDataLen   = dataLen;
     
 	if (__private->deferredCLUTSetEvent)
 	{
-	    __private->gammaDataLen = dataLen;
+	    __private->gammaNeedSet = true;
 	    err = kIOReturnSuccess;
 	}
 	else
@@ -749,7 +842,6 @@ IOReturn IOFramebuffer::extSetGammaTable(
 				 __private->gammaDataWidth, __private->gammaData );
     
 	    updateCursorForCLUTSet();
-	    IODelete(__private->gammaData, UInt8, dataLen);
 	}
     }
     while (false);
@@ -768,6 +860,12 @@ IOReturn IOFramebuffer::extSetCLUTWithEntries( UInt32 index, IOOptionBits option
 
     if ((err = extEntry()))
 	return (err);
+
+    if (__private->offlinePoweredOff)
+    {
+	FBUNLOCK();
+	return (err);
+    }
 
     err = kIOReturnBadArgument;
     if (__private->deferredCLUTSetEvent)
@@ -843,8 +941,9 @@ void IOFramebuffer::updateCursorForCLUTSet( void )
         if ((kIOFBHardwareCursorActive == shmem->hardwareCursorActive) 
 	 && !shmem->cursorShow)
 	{
-            setCursorImage( (void *) shmem->frame );
-            DisplayCursor(this);
+	    RemoveCursor(this);
+	    setCursorImage( (void *) shmem->frame );
+	    DisplayCursor(this);
 	}
 	CLEARSEMA(shmem, this);
     }
@@ -855,27 +954,31 @@ void IOFramebuffer::deferredCLUTSetInterrupt( OSObject * owner,
 {
     IOFramebuffer *	self = (IOFramebuffer *) owner;
 
+    if (self->__private->waitVBLEvent)
+    {
+	gIOFBGate->commandWakeup(self->__private->waitVBLEvent, true);
+	self->__private->waitVBLEvent = 0;
+    }
+
     self->checkDeferredCLUTSet();
 }
 
 void IOFramebuffer::checkDeferredCLUTSet( void )
 {
     IOReturn    ret;
-    IOByteCount gammaLen = __private->gammaDataLen;
-    IOByteCount clutLen  = __private->clutDataLen;
+    bool        gammaNeedSet = __private->gammaNeedSet;
+    IOByteCount clutLen      = __private->clutDataLen;
 
-    if( !gammaLen && !clutLen)
+    if( !gammaNeedSet && !clutLen)
 	return;
 
-    __private->gammaDataLen = 0;
+    __private->gammaNeedSet = false;
     __private->clutDataLen  = 0;
 
-    if (gammaLen)
+    if (gammaNeedSet)
     {
 	ret = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
 			     __private->gammaDataWidth, __private->gammaData );
-
-	IODelete(__private->gammaData, UInt8, gammaLen);
     }
 
     if (clutLen)
@@ -985,7 +1088,7 @@ IOReturn IOFramebuffer::createSharedCursor(
     return (kIOReturnSuccess);
 }
 
-IOReturn IOFramebuffer::setBoundingRect( Bounds * bounds )
+IOReturn IOFramebuffer::setBoundingRect( IOGBounds * bounds )
 {
     StdFBShmem_t *shmem;
 
@@ -1019,7 +1122,7 @@ IOReturn IOFramebuffer::newUserClient(  task_t		owningTask,
                 err = kIOReturnExclusiveAccess;
             else
             {
-                if (this == gIOFBConsoleFramebuffer)
+                if ((this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
                     getPlatform()->setConsoleInfo( 0, kPEReleaseScreen);
 
                 err = open();
@@ -1071,7 +1174,10 @@ IOReturn IOFramebuffer::extGetDisplayModeCount( IOItemCount * count )
     if ((err = extEntry()))
 	return (err);
 
-    *count = dead ? 0 : getDisplayModeCount();
+    if (__private->offlinePoweredOff)
+	*count = 1;
+    else
+	*count = dead ? 0 : getDisplayModeCount();
 
     FBUNLOCK();
 
@@ -1086,15 +1192,30 @@ IOReturn IOFramebuffer::extGetDisplayModes( IODisplayModeID * allModes, IOByteCo
     if ((err = extEntry()))
 	return (err);
 
-    outSize = getDisplayModeCount() * sizeof( IODisplayModeID);
-
-    if (*size >= outSize)
+    if (__private->offlinePoweredOff)
     {
-        *size = outSize;
-        err = getDisplayModes( allModes );
+	outSize = 1 * sizeof(IODisplayModeID);
+
+	if (*size >= outSize)
+	{
+	    *size = outSize;
+	    *allModes = __private->offlineDisplayMode;
+	}
+	else
+	    err = kIOReturnBadArgument;
     }
     else
-        err = kIOReturnBadArgument;
+    {
+	outSize = getDisplayModeCount() * sizeof( IODisplayModeID);
+
+	if (*size >= outSize)
+	{
+	    *size = outSize;
+	    err = getDisplayModes( allModes );
+	}
+	else
+	    err = kIOReturnBadArgument;
+    }
 
     FBUNLOCK();
 
@@ -1141,7 +1262,7 @@ IOReturn IOFramebuffer::extEntry(void)
     return (err);
 }
 
-IOReturn IOFramebuffer::extSetBounds( Bounds * bounds )
+IOReturn IOFramebuffer::extSetBounds( IOGBounds * bounds )
 {
     IOReturn       err;
     StdFBShmem_t * shmem;
@@ -1152,10 +1273,10 @@ IOReturn IOFramebuffer::extSetBounds( Bounds * bounds )
     shmem = GetShmem(this);
     if (shmem)
     {
-        if (kIOFBHardwareCursorActive == shmem->hardwareCursorActive) 
+        if ((kIOFBHardwareCursorActive == shmem->hardwareCursorActive) && !__private->offlinePoweredOff)
 	{
-	    IOReturn err;
-            Point *  hs;
+	    IOReturn   err;
+            IOGPoint * hs;
             hs = &shmem->hotSpot[0 != shmem->frame];
             err = _setCursorState(
                       shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
@@ -1182,7 +1303,10 @@ IOReturn IOFramebuffer::extValidateDetailedTiming(
     if ((err = extEntry()))
 	return (err);
 
-    err = validateDetailedTiming( description, inSize );
+    if (__private->offlinePoweredOff)
+	err = kIOReturnOffline;
+    else
+	err = validateDetailedTiming( description, inSize );
 
     if (kIOReturnSuccess == err)
         bcopy( description, outDescription, inSize );
@@ -1219,6 +1343,9 @@ IOReturn IOFramebuffer::extSetColorConvertTable( UInt32 select,
 
     do
     {
+	if (__private->offlinePoweredOff)
+	    break;
+
         err = kIOReturnNoMemory;
         table = colorConvert.tables[select];
         if (0 == table)
@@ -1277,9 +1404,6 @@ void IOFramebuffer::stop( IOService * provider )
 	FBLOCK();
 
 	dead = true;
-
-	for (UInt32 i = 0; i < pm_vars->theNumberOfPowerStates; i++)
-	    pm_vars->thePowerStates[i].capabilityFlags &= ~kIOPMPreventSystemSleep;
 
 	setAttribute( kIOSystemPowerAttribute, kIOMessageSystemWillPowerOff );
 
@@ -1343,6 +1467,7 @@ bool IOFramebuffer::start( IOService * provider )
 	if (!__private)
 	    return (false);
 	bzero( __private, sizeof(IOFramebufferPrivate) );
+	__private->lastNotifyOnline = 0xdd;
 
 	userAccessRanges = OSArray::withCapacity( 1 );
 	if (!userAccessRanges)
@@ -1357,6 +1482,7 @@ bool IOFramebuffer::start( IOService * provider )
     // initialize superclass power management variables
     PMinit();
     // attach into the power management hierarchy
+    setProperty("IOPMStrictTreeOrder", kOSBooleanTrue);
     provider->joinPMtree(this);
 
     if (runaway)
@@ -1414,7 +1540,7 @@ void IOFramebuffer::deferredMoveCursor( IOFramebuffer * inst )
             CheckShield(inst);
         if (!shmem->cursorShow)
         {
-            Point * hs;
+            IOGPoint * hs;
             hs = &shmem->hotSpot[0 != shmem->frame];
             err = inst->_setCursorState(
 			shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
@@ -1441,7 +1567,7 @@ void IOFramebuffer::deferredMoveCursor( IOFramebuffer * inst )
 
 	if (inst->__private->cursorPanning)
         {
-            Point * hs;
+            IOGPoint * hs;
             hs = &shmem->hotSpot[0 != shmem->frame];
             err = inst->setCursorState(
                       shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
@@ -1492,10 +1618,37 @@ void IOFramebuffer::cursorWork( OSObject * p0, IOInterruptEventSource * evtSrc, 
 
 IOOptionBits IOFramebuffer::_setCursorImage( UInt32 frame )
 {
-    IOOptionBits flags;
+    StdFBShmem_t * shmem = GetShmem(this);
+    IOGPoint *	   hs;
+    IOOptionBits   flags;
+    bool           animation = (((int) frame) != shmem->frame);
 
+    hs = &shmem->hotSpot[0 != frame];
+    if (false && ((hs->x != __private->lastHotSpot.x) || (hs->y != __private->lastHotSpot.y)))
+    {
+	__private->lastHotSpot = *hs;
+	if (GetShmem(this) && __private->deferredCLUTSetEvent && shmem->vblCount && !__private->cursorSlept && !suspended)
+	{
+	    if (false)
+	    {
+		__private->waitVBLEvent = hs;
+		gIOFBGate->sleepGate(hs, THREAD_UNINT);
+	    }
+	    else if (CMP_ABSOLUTETIME(&shmem->vblDelta, &gIOFBMaxVBLDelta) < 0)
+	    {
+		AbsoluteTime deadline = shmem->vblTime;
+		ADD_ABSOLUTETIME(&deadline, &shmem->vblDelta);
+		clock_delay_until(deadline);
+	    }
+	}
+    }
+
+    if (!animation && ((kIOFBHardwareCursorActive == shmem->hardwareCursorActive) || !shmem->cursorShow))
+	RemoveCursor(this);
     flags = (kIOReturnSuccess == setCursorImage( (void *) frame ))
             ? kIOFBHardwareCursorActive : 0;
+    if (!animation && !shmem->cursorShow)
+	DisplayCursor(this);
 
     if (!flags && __private->cursorThread && (bytesPerPixel >= 2))
     {
@@ -1551,7 +1704,7 @@ void IOFramebuffer::transformLocation(StdFBShmem_t * shmem,
     transformLoc->y = y + shmem->screenBounds.miny;
 }
 
-void IOFramebuffer::moveCursor( Point * cursorLoc, int frame )
+void IOFramebuffer::moveCursor( IOGPoint * cursorLoc, int frame )
 {
     nextCursorLoc = *cursorLoc;
     nextCursorFrame = frame;
@@ -1622,6 +1775,10 @@ void IOFramebuffer::handleVBL( IOFramebuffer * inst, void * ref )
     if (inst->vblSemaphore)
         semaphore_signal_all(inst->vblSemaphore);
 
+    if (inst->__private->deferredCLUTSetEvent 
+     && (inst->__private->gammaNeedSet || inst->__private->clutDataLen || inst->__private->waitVBLEvent))
+	inst->__private->deferredCLUTSetEvent->interruptOccurred(0, 0, 0);
+
     SETSEMA(shmem);
 
     if (inst->needCursorService)
@@ -1635,13 +1792,9 @@ void IOFramebuffer::handleVBL( IOFramebuffer * inst, void * ref )
     }
 
     CLEARSEMA(shmem, inst);
-
-    if (inst->__private->deferredCLUTSetEvent 
-     && (inst->__private->gammaDataLen || inst->__private->clutDataLen))
-	inst->__private->deferredCLUTSetEvent->interruptOccurred(0, 0, 0);
 }
 
-void IOFramebuffer::showCursor( Point * cursorLoc, int frame )
+void IOFramebuffer::showCursor( IOGPoint * cursorLoc, int frame )
 {
     StdFBShmem_t *shmem;
     UInt32 hwCursorActive;
@@ -1701,7 +1854,7 @@ void IOFramebuffer::getVBLTime( AbsoluteTime * time, AbsoluteTime * delta )
         AbsoluteTime_to_scalar(&time) = 0;
 }
 
-void IOFramebuffer::getBoundingRect( Bounds ** bounds )
+void IOFramebuffer::getBoundingRect( IOGBounds ** bounds )
 {
     StdFBShmem_t *shmem;
 
@@ -1748,14 +1901,14 @@ IOReturn IOFramebuffer::getNotificationSemaphore(
 IOReturn IOFramebuffer::extSetCursorVisible( bool visible )
 {
     IOReturn		err;
-    Point *		hs;
+    IOGPoint *		hs;
     StdFBShmem_t *	shmem;
 
     if ((err = extEntry()))
 	return (err);
 
     shmem = GetShmem(this);
-    if (shmem->hardwareCursorActive)
+    if (shmem->hardwareCursorActive && !__private->offlinePoweredOff)
     {
         hs = &shmem->hotSpot[0 != shmem->frame];
         err = _setCursorState(
@@ -1837,7 +1990,7 @@ void IOFramebuffer::transformCursor( StdFBShmem_t * shmem, IOIndex frame )
 	    if (cursPtr32)
 		*out++ = cursPtr32[sx + sy * sw];
 	    else
-		*((UInt16 *)out)++ = cursPtr16[sx + sy * sw];
+		STOREINC(out, cursPtr16[sx + sy * sw], UInt16)
 	}
     }
 
@@ -1877,7 +2030,8 @@ IOReturn IOFramebuffer::extSetNewCursor( void * cursor, IOIndex frame,
 
     shmem = GetShmem(this);
     // assumes called with cursorSema held
-    if (cursor || options || (((UInt32) frame) >= __private->numCursorFrames))
+    if (cursor || options || (((UInt32) frame) >= __private->numCursorFrames) 
+	|| __private->offlinePoweredOff)
         err = kIOReturnBadArgument;
     else
     {
@@ -2082,9 +2236,9 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
                         pixel = 0;
 
                     if (hwDesc->bitDepth == 32)
-                        *((UInt32 *)dataOut)++ = pixel;
+			STOREINC(dataOut, pixel, UInt32)
                     else
-                        *((UInt16 *)dataOut)++ = pixel;
+			STOREINC(dataOut, pixel, UInt16)
                 }
                 else
                 {
@@ -2101,7 +2255,7 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
                                   | ((green & 0xff) << 8)
                                   | (blue   & 0xff);
 
-                        *((UInt32 *)dataOut)++ = pixel;
+			STOREINC(dataOut, pixel, UInt32)
                     }
                     else
                     {
@@ -2110,7 +2264,7 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
                                   | ((green & 0xf0) << 0)
                                   | ((blue  & 0xf0) >> 4);
 
-                        *((UInt16 *)dataOut)++ = pixel;
+			STOREINC(dataOut, pixel, UInt16)
                     }
                 }
             }
@@ -2351,6 +2505,20 @@ static void doanio( void )
 
 #endif
 
+IOReturn IOFramebuffer::deliverDisplayModeDidChangeNotification( void )
+{
+    IOReturn
+    ret = deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange );
+
+    if (__private->lastNotifyOnline != __private->online)
+    {
+	__private->lastNotifyOnline = __private->online;
+	deliverFramebufferNotification( kIOFBNotifyOnlineChange, (void *) __private->online);
+    }
+
+    return (ret);
+}
+
 IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
 {
     IOReturn ret;
@@ -2374,13 +2542,27 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
 
             ret = deliverFramebufferNotification( event, info );
             configPending = true;
+
+	    __private->offlinePoweredOff = (0 != gIOGraphicsControl);
+	    if (__private->offlinePoweredOff 
+	      && (kIOReturnSuccess != 
+			getCurrentDisplayMode(&__private->offlineDisplayMode, &__private->offlineDisplayDepth)))
+	    {
+		__private->offlineDisplayMode  = 0;
+		__private->offlineDisplayDepth = 0;
+	    }
             break;
 
         case kIOFBNotifyDidPowerOff:
 	    __private->connectChangeAtSleep = connectChange;
-	    ret = kIOReturnSuccess;
+            ret = deliverFramebufferNotification( event, info );
 	    break;
 
+        case kIOFBNotifyWillPowerOn:
+	    __private->offlinePoweredOff = false;
+            ret = deliverFramebufferNotification( event, info );
+            break;
+            
         case kIOFBNotifyDidPowerOn:
 
             if (this == gIOFBConsoleFramebuffer)
@@ -2445,10 +2627,17 @@ IOReturn IOFramebuffer::handleEvent( IOIndex event, void * info )
                         bcopy_nc( __private->saveFramebuffer, (void *) frameBuffer, __private->saveLength );
 #endif
                         DEBG(thisIndex, " screen drawn\n");
+
+			if (__private->gammaDataLen && __private->gammaData && !__private->scaledMode)
+			    setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
+					   __private->gammaDataWidth, __private->gammaData );
                     }
 
                     if (this == gIOFBConsoleFramebuffer)
+		    {
                         getPMRootDomain()->removeProperty(kIOHibernatePreviewBufferKey);
+			getProvider()->removeProperty(kIOHibernatePreviewActiveKey);
+		    }
                     IOFreePageable( __private->saveFramebuffer, __private->saveLength );
                     __private->saveFramebuffer = 0;
                     __private->saveLength      = 0;
@@ -2636,7 +2825,8 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
             if (doSave
                     && !dead
                     && !__private->saveLength
-                    && (kIOReturnSuccess == getAttribute(kIOVRAMSaveAttribute, &value)) && value)
+                    && (kIOReturnSuccess == getAttribute(kIOVRAMSaveAttribute, &value)) 
+		    && value)
             {
                 vm_size_t sLen;
                 sLen = __private->framebufferHeight * rowBytes;
@@ -2651,7 +2841,7 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
 #if VRAM_COMPRESS
                 vm_size_t dLen;
 
-                dLen = 5 + sLen + ((sLen + 7) >> 3) + (__private->framebufferHeight * 3);
+                dLen = 5 + sLen + ((sLen + 7) >> 3) + (__private->framebufferHeight * 3) + rowBytes;
                 dLen = round_page_32(dLen);
                 __private->saveLength = dLen;
 #else
@@ -2692,12 +2882,34 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
 
                         if (this == gIOFBConsoleFramebuffer)
                         {
-                            OSData * previewBuffer = OSData::withBytesNoCopy(
+#if VERSION_MAJOR >= 9
+			    IOMemoryDescriptor *
+			    previewBuffer = IOMemoryDescriptor::withAddress(
+						__private->saveFramebuffer, 
+						__private->saveLength, 
+						kIODirectionInOut);
+#else
+                            OSData *
+			    previewBuffer = OSData::withBytesNoCopy(
                                     __private->saveFramebuffer, __private->saveLength);
+#endif
                             if (previewBuffer)
                             {
                                 getPMRootDomain()->setProperty(kIOHibernatePreviewBufferKey, previewBuffer);
                                 previewBuffer->release();
+
+				OSNumber * num;
+				if ((num = OSDynamicCast(OSNumber, getPMRootDomain()->getProperty(kIOHibernateModeKey))) 
+				 && (kIOHibernateModeOn == ((kIOHibernateModeSleep | kIOHibernateModeOn) & num->unsigned32BitValue()))
+				 && !gIOFBLastClamshellState)
+				{
+				    // hibernate enabled, will power off, clamshell open - do preview
+				    UInt32 flags = 0;
+				    getProvider()->setProperty(kIOHibernatePreviewActiveKey, &flags, sizeof(flags));
+				    PreviewDecompressData(__private->saveFramebuffer, (void *)frameBuffer, 
+							    __private->framebufferWidth, __private->framebufferHeight,
+							    bytesPerPixel, rowBytes);
+				}
                             }
                         }
                     }
@@ -2722,6 +2934,14 @@ IOOptionBits IOFramebuffer::checkPowerWork( void )
         setAttribute( kIOPowerAttribute, newState );
 
         FBUNLOCK();
+
+	OSObject * obj;
+	if ((this == gIOFBConsoleFramebuffer) 
+	 && (obj = copyProperty(kIOHibernatePreviewActiveKey, gIOServicePlane)))
+	{
+	    getPMRootDomain()->setProperty(kIOHibernatePreviewActiveKey, obj);
+	    obj->release();
+	}
 
         DEBG(thisIndex, " acknowledgeSetPowerState\n");
         acknowledgeSetPowerState();
@@ -2771,8 +2991,7 @@ IOReturn IOFramebuffer::setPowerState( unsigned long powerStateOrdinal,
         startThread(!gIOFBSystemPower || sleepConnectCheck);
     }
 
-    if (now)
-        setAttribute( kIOPowerAttribute, powerStateOrdinal );
+//    if (now)        setAttribute( kIOPowerAttribute, powerStateOrdinal );
 
     FBUNLOCK();
 
@@ -2788,7 +3007,7 @@ IOReturn IOFramebuffer::powerStateWillChangeTo( IOPMPowerFlags flags,
 
     FBLOCK();
 
-    if (state && !pm_vars->myCurrentState)
+    if (state && !getPowerState())
     {
         gIOFBSystemPower = true;
         sleepConnectCheck = true;
@@ -2869,6 +3088,16 @@ void IOFramebuffer::clamshellEnable( SInt32 delta )
     {
         publishResource(kAppleClamshellStateKey, gIOFBLastClamshellState ? kOSBooleanTrue : kOSBooleanFalse );
     }
+
+    FBLOCK();
+    if (((kIOPMEnableClamshell | kIOPMSetDesktopMode) == change)
+     && (kOSBooleanFalse == state)
+     && gIOFBLastReadClamshellState)
+    {
+	// clamshell was closed during probe, now open => reprobe
+	probeAll(kIOFBUserRequestProbe);
+    }
+    FBUNLOCK();
 }
 
 IOOptionBits IOFramebuffer::clamshellState( void )
@@ -2896,6 +3125,7 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
             FBLOCK();
 
             gIOFBSystemPower       = false;
+            gIOGraphicsSystemPower = false;
             gIOFBSystemPowerAckRef = (UInt32) params->powerRef;
             gIOFBSystemPowerAckTo  = service;
 
@@ -2907,6 +3137,10 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
             params->returnValue = 20 * 1000 * 1000;
             ret 		= kIOReturnSuccess;
             break;
+
+        case kIOMessageSystemWillPowerOn:
+            gIOGraphicsSystemPower = true;
+	    /* fall thru */
 
         case kIOMessageSystemHasPoweredOn:
             params->returnValue = 0;
@@ -2923,7 +3157,10 @@ IOReturn IOFramebuffer::systemPowerChange( void * target, void * refCon,
                 for (UInt32 index = 0;
                         (fb = (IOFramebuffer *) gAllFramebuffers->getObject(index));
                         index++)
+		{
+		    fb->deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
                     fb->setAttribute( kIOSystemPowerAttribute, messageType );
+		}
             }
             FBUNLOCK();
 
@@ -3144,7 +3381,7 @@ void IOFramebuffer::checkConnectionChange( bool message )
             DEBG(thisIndex, " spurious\n");
     }
     sleepConnectCheck = false;
-    clamshellEnable(0);
+    thread_call_enter1(gIOFBClamshellCallout, (thread_call_param_t) 0);
 }
 
 static bool 
@@ -3191,7 +3428,14 @@ IOReturn IOFramebuffer::open( void )
             }
             gIOFBDesktopModeAllowed = !data || (0 != (8 & *((UInt32 *) data->getBytesNoCopy())));
 
-	    OSIterator * iter = getMatchingServices(serviceMatching("IOAccelerator"));
+	    OSIterator * iter = getMatchingServices(serviceMatching("AppleGraphicsControl"));
+	    if (iter)
+	    {
+		gIOGraphicsControl = OSDynamicCast(IOService, iter->getNextObject());
+		iter->release();
+	    }
+
+	    iter = getMatchingServices(serviceMatching("IOAccelerator"));
 	    if (iter)
 	    {
 		IOService * accel;
@@ -3204,6 +3448,8 @@ IOReturn IOFramebuffer::open( void )
             if (gIOFBPrefs)
                 gIOFBPrefsSerializer = OSSerializer::forTarget(gIOFBPrefs, 
                                                                 &IOFramebufferLockedSerialize, 0);
+
+	    clock_interval_to_absolutetime_interval(20, kMillisecondScale, &gIOFBMaxVBLDelta);
         }
 
 	if (!gIOFramebufferKey)
@@ -3260,6 +3506,9 @@ IOReturn IOFramebuffer::open( void )
                 getWorkLoop()->addEventSource(gIOFBDelayedPrefsEvent);
         }
 
+	if (!IODisplayWrangler::serverStart())
+	    continue;
+
         if (!gIOFBGate)
 	{
             gIOFBGate = IOFBGate::gate( this );
@@ -3270,15 +3519,26 @@ IOReturn IOFramebuffer::open( void )
 	    FBLOCK();
 	}
 
+	if (!gIOFBClamshellProbeTES)
+	{
+	    gIOFBClamshellProbeTES = IOTimerEventSource::timerEventSource(
+						this, &clamshellProbeAction);
+	    if (gIOFBClamshellProbeTES)
+		gIOFBWorkLoop->addEventSource(gIOFBClamshellProbeTES);
+
+	    gIOFBClamshellNotify = addNotification( gIOPublishNotification,
+						       resourceMatching(kAppleClamshellStateKey),
+						       &clamshellHandler, NULL, 0, 10000 );
+	}
+
         serverNotified   = true;
         serverState      = true;
 
         // tell the console if it's on this display, it's going away
-        if (isConsoleDevice())
-        {
+        if (isConsoleDevice() /*&& !gIOFBConsoleFramebuffer*/)
             gIOFBConsoleFramebuffer = this;
+	if ((this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
             getPlatform()->setConsoleInfo( 0, kPEDisableScreen);
-        }
 
         deliverFramebufferNotification( kIOFBNotifyDisplayModeWillChange );
 
@@ -3291,7 +3551,7 @@ IOReturn IOFramebuffer::open( void )
                 nextDependent->setNextDependent( NULL );
                 nextDependent = NULL;
             }
-            deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange );
+	    deliverDisplayModeDidChangeNotification();
             continue;
         }
 
@@ -3428,12 +3688,16 @@ IOReturn IOFramebuffer::open( void )
         if (kIOReturnSuccess != err)
             connectEnabled = true;
 
+	if (!gIOFBConsoleFramebuffer && connectEnabled)
+	    gIOFBConsoleFramebuffer = this;
+
 	__private->paramHandler = IOFramebufferParameterHandler::withFramebuffer(this);
 	if (__private->paramHandler)
 	    setProperty(gIODisplayParametersKey, __private->paramHandler);
 
         IOFramebufferI2CInterface::create( this );
 
+	__private->online = (0 != connectEnabled);
         if (connectEnabled)
             IODisplayWrangler::makeDisplayConnects(this);
 	else
@@ -3457,7 +3721,7 @@ IOReturn IOFramebuffer::open( void )
             err = kIOReturnSuccess;
         }
         else
-            deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange, 0 );
+	    deliverDisplayModeDidChangeNotification();
 
         // if( firstOpen)
         {
@@ -3540,20 +3804,78 @@ IOReturn IOFramebuffer::checkMirrorSafe( UInt32 value, IOFramebuffer * other )
     return (err);
 }
 
+IOReturn IOFramebuffer::probeAll( IOOptionBits options )
+{
+    IOReturn err = kIOReturnSuccess;
+    do
+    {
+	unsigned int    index;
+	IOFramebuffer * fb;
+
+	if (gIOGraphicsControl)
+	{
+	    err = gIOGraphicsControl->requestProbe(options);
+//          if (kIOReturnSuccess == err)
+		break;
+	}
+	for (index = 0;
+		(fb = (IOFramebuffer *) gAllFramebuffers->getObject(index));
+		index++)
+	{
+	    if (fb->captured || fb->__private->offlinePoweredOff)
+		continue;
+
+	    IOReturn
+	    thisErr = fb->setAttributeForConnection(0, kConnectionProbe, options);
+	    if (kIOReturnSuccess == err)
+		err = thisErr;
+	}
+    }
+    while (false);
+
+    return (err);
+}
+
 IOReturn IOFramebuffer::requestProbe( IOOptionBits options )
 {
-    IOReturn	    err;
+    IOReturn err;
+
+    if (!gIOFBGate || gIOFBGate->inGate())
+	return (kIOReturnNotReady);
+
+    if ((err = extEntry()))
+	return (err);
+
+    if (__private->offlinePoweredOff)
+    {
+        FBUNLOCK();
+	return (kIOReturnSuccess);
+    }
 
     if (kIOFBSetTransform & options)
     {
-	if ((err = extEntry()))
-	    return (err);
-
 	options >>= 16;
         selectTransform(options, true);
-
-	FBUNLOCK();
     }
+    else
+    {
+	if (captured)
+	{
+	    err = kIOReturnBusy;
+	}
+	else
+	{
+	    AbsoluteTime now;
+	    clock_get_uptime(&now);
+	    if (CMP_ABSOLUTETIME(&now, &gIOFBNextProbeAllTime) >= 0) 
+	    {
+		err = probeAll(options);
+		clock_interval_to_deadline(10, kSecondScale, &gIOFBNextProbeAllTime);
+	    }
+	}
+    }
+
+    FBUNLOCK();
 
     return (kIOReturnSuccess);
 }
@@ -3686,7 +4008,17 @@ IOWorkLoop * IOFramebuffer::getWorkLoop() const
 
 void IOFramebuffer::setCaptured( bool isCaptured )
 {
+    bool wasCaptured = captured;
+
     captured = isCaptured;
+    if (wasCaptured != isCaptured)
+    {
+	if (isCaptured)
+	    setProperty(kIOFBCapturedKey, kOSBooleanTrue);
+	else
+	    removeProperty(kIOFBCapturedKey);
+	deliverFramebufferNotification(kIOFBNotifyCaptureChange, (void *) isCaptured);
+    }
 }
 
 void IOFramebuffer::setDimDisable( bool dimDisable )
@@ -3795,24 +4127,39 @@ IOReturn IOFramebuffer::doSetup( bool full )
     err = getCurrentDisplayMode( &mode, &depth );
     if (kIOReturnSuccess == err)
 	err = getPixelInformation( mode, depth, kIOFBSystemAperture, &info );
-    haveFB = ((kIOReturnSuccess == err) && (info.activeWidth >= 128)); 
+    haveFB = (__private->online && (kIOReturnSuccess == err) && (info.activeWidth >= 128)); 
 
     IOTimingInformation timingInfo;
     timingInfo.flags = kIODetailedTimingValid;
     if (haveFB 
-     && (kIOReturnSuccess == getTimingInfoForDisplayMode(mode, &timingInfo))
-     && (kIODetailedTimingValid & timingInfo.flags))
+     && (kIOReturnSuccess == getTimingInfoForDisplayMode(mode, &timingInfo)))
     {
-	setProperty(kIOFBCurrentPixelClockKey, timingInfo.detailedInfo.v2.pixelClock, 64);
-	setProperty(kIOFBCurrentPixelCountKey, ((UInt64)(timingInfo.detailedInfo.v2.horizontalActive
-							+ timingInfo.detailedInfo.v2.horizontalBlanking))
-					    * ((UInt64)(timingInfo.detailedInfo.v2.verticalActive
-					               + timingInfo.detailedInfo.v2.verticalBlanking)), 64);
-    }
-    else
-    {
-	removeProperty(kIOFBCurrentPixelClockKey);
-	removeProperty(kIOFBCurrentPixelCountKey);
+	if (kIODetailedTimingValid & timingInfo.flags)
+	{
+	    setProperty(kIOFBCurrentPixelClockKey, timingInfo.detailedInfo.v2.pixelClock, 64);
+	    setProperty(kIOFBCurrentPixelCountKey, ((UInt64)(timingInfo.detailedInfo.v2.horizontalActive
+							    + timingInfo.detailedInfo.v2.horizontalBlanking))
+						* ((UInt64)(timingInfo.detailedInfo.v2.verticalActive
+							   + timingInfo.detailedInfo.v2.verticalBlanking)), 64);
+	}
+	else
+	{
+	    removeProperty(kIOFBCurrentPixelClockKey);
+	    removeProperty(kIOFBCurrentPixelCountKey);
+	}
+
+	__private->scaledMode = false;
+	if (kIOScalingInfoValid & timingInfo.flags)
+	{
+	    __private->scaledMode =
+	    (timingInfo.detailedInfo.v2.scalerFlags
+	     || timingInfo.detailedInfo.v2.horizontalScaledInset
+	     || timingInfo.detailedInfo.v2.verticalScaledInset
+	     || (timingInfo.detailedInfo.v2.horizontalScaled 
+		    && (timingInfo.detailedInfo.v2.horizontalScaled != timingInfo.detailedInfo.v2.horizontalActive))
+	     || (timingInfo.detailedInfo.v2.verticalScaled 
+		    && (timingInfo.detailedInfo.v2.verticalScaled != timingInfo.detailedInfo.v2.verticalActive)));
+	}
     }
 
     fbRange = getApertureRange( kIOFBSystemAperture );
@@ -3838,16 +4185,21 @@ IOReturn IOFramebuffer::doSetup( bool full )
         vramMap = fbRange->map( kIOFBMapCacheMode );
         assert( vramMap );
         if (vramMap)
+	{
             base = vramMap->getVirtualAddress();
+	    frameBuffer = (volatile unsigned char *) base;
+	}
 
         // console now available
-        if (haveFB && (this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
+        if (haveFB && ((this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer))
         {
+	    bzero(&newConsole, sizeof(newConsole));
             newConsole.v_baseAddr	= base;
             newConsole.v_rowBytes	= info.bytesPerRow;
             newConsole.v_width		= info.activeWidth;
             newConsole.v_height		= info.activeHeight;
             newConsole.v_depth		= info.bitsPerPixel;
+            newConsole.v_display 	= 1;  // graphics mode for i386
             //	strcpy( consoleInfo->v_pixelFormat, "PPPPPPPP");
             getPlatform()->setConsoleInfo( &newConsole, kPEReleaseScreen );
             getPlatform()->setConsoleInfo( &newConsole, kPEEnableScreen );
@@ -3859,7 +4211,7 @@ IOReturn IOFramebuffer::doSetup( bool full )
     }
 
     if (full)
-        deliverFramebufferNotification( kIOFBNotifyDisplayModeDidChange, 0 );
+	deliverDisplayModeDidChangeNotification();
 
     if (fbRange)
         fbRange->release();
@@ -3877,6 +4229,12 @@ IOReturn IOFramebuffer::extSetDisplayMode( IODisplayModeID displayMode,
 
     if ((err = extEntry()))
 	return (err);
+
+    if (__private->offlinePoweredOff)
+    {
+        FBUNLOCK();
+	return (kIOReturnSuccess);
+    }
 
     stopCursor();
 
@@ -3920,7 +4278,7 @@ IOReturn IOFramebuffer::extSetDisplayMode( IODisplayModeID displayMode,
     {
         AbsoluteTime deadline;
 
-        clock_interval_to_deadline( 10*1000, kMillisecondScale, &deadline );
+        clock_interval_to_deadline( 5*1000, kMillisecondScale, &deadline );
         thread_call_enter1_delayed( gIOFBClamshellCallout,
                                     (thread_call_param_t) 0, deadline );
     }
@@ -3938,6 +4296,12 @@ IOReturn IOFramebuffer::extSetAttribute(
 
     if ((err = extEntry()))
 	return (err);
+
+    if (__private->offlinePoweredOff)
+    {
+        FBUNLOCK();
+	return (kIOReturnSuccess);
+    }
 
     switch (attribute)
     {
@@ -3999,6 +4363,12 @@ IOReturn IOFramebuffer::extGetAttribute(
     if ((err = extEntry()))
 	return (err);
 
+    if (__private->offlinePoweredOff)
+    {
+        FBUNLOCK();
+	return (kIOReturnOffline);
+    }
+
     switch (attribute)
     {
         case kConnectionChanged:
@@ -4031,6 +4401,7 @@ IOReturn IOFramebuffer::extGetAttribute(
                 nowOnline = (!dead && ((kIOReturnSuccess != err) || connectEnabled));
 
                 temporaryPowerClampOn();
+		__private->online = nowOnline;
                 FBUNLOCK();
                 IODisplayWrangler::destroyDisplayConnects( this );
 		if (nowOnline)
@@ -4093,22 +4464,37 @@ IOReturn IOFramebuffer::extGetInformationForDisplayMode(
     if ((err = extEntry()))
 	return (err);
 
-    err = getInformationForDisplayMode( mode, &out->info );
-    if (kIOReturnSuccess == err)
+    if (__private->offlinePoweredOff)
     {
-        err = IODisplayWrangler::getFlagsForDisplayMode( this, mode, &flags);
-        if (kIOReturnSuccess == err)
-        {
-            out->info.flags &= ~kDisplayModeSafetyFlags;
-            out->info.flags |= flags;
-        }
-        getTiming = (length >= sizeof(IOFBDisplayModeDescription));
-        out->timingInfo.flags = getTiming ? kIODetailedTimingValid : 0;
-        if (kIOReturnSuccess != getTimingInfoForDisplayMode(mode, &out->timingInfo))
-        {
-            out->timingInfo.flags &= ~kIODetailedTimingValid;
-            out->timingInfo.appleTimingID = 0;
-        }
+	out->info.nominalWidth = 1;
+	out->info.nominalHeight = 1;
+	out->info.refreshRate = 0;
+	out->info.maxDepthIndex = 0;
+	out->info.flags = kDisplayModeValidFlag 
+			| kDisplayModeSafeFlag 
+			| kDisplayModeDefaultFlag;
+	out->timingInfo.flags = 0;
+	out->timingInfo.appleTimingID = kIOTimingIDApple_0x0_0hz_Offline;
+    }
+    else
+    {
+	err = getInformationForDisplayMode( mode, &out->info );
+	if (kIOReturnSuccess == err)
+	{
+	    err = IODisplayWrangler::getFlagsForDisplayMode( this, mode, &flags);
+	    if (kIOReturnSuccess == err)
+	    {
+		out->info.flags &= ~kDisplayModeSafetyFlags;
+		out->info.flags |= flags;
+	    }
+	    getTiming = (length >= sizeof(IOFBDisplayModeDescription));
+	    out->timingInfo.flags = getTiming ? kIODetailedTimingValid : 0;
+	    if (kIOReturnSuccess != getTimingInfoForDisplayMode(mode, &out->timingInfo))
+	    {
+		out->timingInfo.flags &= ~kIODetailedTimingValid;
+		out->timingInfo.appleTimingID = 0;
+	    }
+	}
     }
 
     FBUNLOCK();
@@ -4125,6 +4511,12 @@ IOReturn IOFramebuffer::extSetProperties( OSDictionary * props )
 
     if ((err = extEntry()))
 	return (err);
+
+    if (__private->offlinePoweredOff)
+    {
+        FBUNLOCK();
+	return (kIOReturnSuccess);
+    }
 
     err = kIOReturnUnsupported;
     if ((dict = OSDynamicCast(OSDictionary, props->getObject(kIOFBConfigKey))))
@@ -4185,12 +4577,15 @@ IOReturn IOFramebuffer::setAttribute( IOSelect attribute, UInt32 value )
 
                 if (wasCaptured && !captured)
                 {
-                    next = this;
-                    do
-                    {
-                        next->getAttributeForConnection( 0, kConnectionChanged, 0 );
-                    }
-                    while ((next = next->getNextDependent()) && (next != this));
+		    if (!gIOGraphicsControl)
+		    {
+			next = this;
+			do
+			{
+			    next->getAttributeForConnection( 0, kConnectionChanged, 0 );
+			}
+			while ((next = next->getNextDependent()) && (next != this));
+		    }
 
                     next = this;
                     do
@@ -4254,9 +4649,183 @@ IOReturn IOFramebuffer::setAttribute( IOSelect attribute, UInt32 value )
     return (ret);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if __ppc__
+static IOReturn
+ApplePMUSendMiscCommand( UInt32 command,
+			    IOByteCount sendLength, UInt8 * sendBuffer,
+			    IOByteCount * readLength, UInt8 * readBuffer )
+{
+    struct SendMiscCommandParameterBlock
+    {
+	int command;
+	IOByteCount sLength;
+	UInt8 *sBuffer;
+	IOByteCount *rLength;
+	UInt8 *rBuffer;
+    };
+    IOReturn ret = kIOReturnError;
+    static IOService * pmu;
+
+    // See if ApplePMU exists
+    if (!pmu)
+    {
+	OSIterator * iter;
+	iter = IOService::getMatchingServices(IOService::serviceMatching("ApplePMU"));
+	if (iter)
+	{
+	    pmu = (IOService *) iter->getNextObject();
+	    iter->release();
+	}
+    }
+
+    SendMiscCommandParameterBlock params = { command, sendLength, sendBuffer,
+					    readLength, readBuffer };
+    if (pmu)
+	ret = pmu->callPlatformFunction( "sendMiscCommand", true,
+					    (void*)&params, NULL, NULL, NULL );
+    return (ret);
+}
+#endif
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+extern "C" IOReturn
+IOGetHardwareClamshellState( IOOptionBits * result )
+{
+    IOReturn ret = kIOReturnUnsupported;
+
+    // zero -> lid open
+    *result = 0;
+
+#if __ppc__
+
+#define	readExtSwitches	0xDC
+
+    UInt8 bootEnvIntData[32];
+    IOByteCount iLen = sizeof(UInt8);
+
+    ret = ApplePMUSendMiscCommand(readExtSwitches, 0, NULL, &iLen, &bootEnvIntData[0]);
+    if (kIOReturnSuccess == ret)
+    {
+	gIOFBLastClamshellState = bootEnvIntData[0] & 1;
+	if (gIOFBDesktopModeAllowed)
+	    *result = bootEnvIntData[0];
+    }
+
+#elif __i386__
+    static IOACPIPlatformDevice * lidDevice;
+    UInt32 lidState;
+
+    if (!lidDevice)
+    {
+	OSIterator * iter;
+	IOService *  service;
+
+	iter = IOService::getMatchingServices(IOService::nameMatching("PNP0C0D"));
+	if (iter)
+	{			
+	    service = (IOService *)iter->getNextObject();
+	    if (service->metaCast("IOACPIPlatformDevice"))
+	    {
+		lidDevice = (IOACPIPlatformDevice *) service;
+		lidDevice->retain();
+	    }
+	    iter->release();
+	}
+    }
+
+    if (lidDevice)
+    {
+	ret = lidDevice->evaluateInteger("_LID", &lidState);
+	if (kIOReturnSuccess == ret)
+	    lidState = (lidState == 0);
+	else
+	    lidState = 0;
+
+	gIOFBLastClamshellState = lidState;
+	if (gIOFBDesktopModeAllowed)
+	    *result = lidState;
+
+    }
+#endif
+
+    gIOFBLastReadClamshellState = gIOFBLastClamshellState;
+
+    DEBG(0, "(%ld) result %d\n", ret, *result);
+
+    return (ret);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+void IOFramebuffer::clamshellProbeAction( OSObject * p0, IOTimerEventSource * evtSrc )
+{
+    OSObject * clamshellProperty;
+    IOFramebuffer * fb;
+
+    clamshellProperty = getPMRootDomain()->getProperty(kAppleClamshellStateKey);
+    if (!clamshellProperty)
+        return;
+
+    for (uint32_t index = 0;
+	    (fb = (IOFramebuffer *) gAllFramebuffers->getObject(index));
+	    index++)
+    {
+	fb->deliverFramebufferNotification(kIOFBNotifyClamshellChange, clamshellProperty);
+    }
+
+    if (!gIOFBLastClamshellState)
+    {
+	enum { bits = kIOPMSetDesktopMode | kIOPMSetValue };
+	if (bits == (bits & gIOFBClamshellState))
+	{
+	    // lid open, desktop mode
+#if LID_OPEN_PROBE
+	    probeAll(kIOFBUserRequestProbe);
+#endif
+	}
+    }
+}
+
+bool IOFramebuffer::clamshellHandler( void * target, void * ref,
+   				       IOService * resourceService )
+{
+    OSObject * clamshellProperty;
+
+    clamshellProperty = resourceService->getProperty(kAppleClamshellStateKey);
+    if (!clamshellProperty)
+        return (true);
+
+    gIOFBLastClamshellState = (clamshellProperty == kOSBooleanTrue);
+
+    resourceService->removeProperty(kAppleClamshellStateKey);
+
+    if (gIOFBClamshellProbeTES)
+	gIOFBClamshellProbeTES->setTimeoutMS(kIOFBClamshellProbeDelayMS);
+
+    return (true);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 IOReturn IOFramebuffer::getAttribute( IOSelect attribute, UInt32 * value )
 {
-    return (kIOReturnUnsupported);
+    IOReturn ret = kIOReturnUnsupported;
+
+    switch (attribute)
+    {
+      case kIOClamshellStateAttribute:
+	ret = IOGetHardwareClamshellState( value );
+	break;
+
+      default:
+	break;
+    }
+
+    return (ret);
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -5740,7 +6309,7 @@ bool IOFramebufferParameterHandler::setDisplay( IODisplay * display )
 	    if (attributes[i] < 0x00ffffff)
 		continue;
 
-	    str[0] = attributes[i];
+	    OSWriteBigInt32(str, 0, attributes[i]);
 	    sym = OSSymbol::withCString((const char *) str);
 	    if (!sym)
 		continue;
@@ -5814,7 +6383,7 @@ bool IOFramebufferParameterHandler::doIntegerSet( OSDictionary * params,
         if (fDisplay && gIOFBPrefsParameters && gIOFBPrefsParameters->getObject(paramName))
             fFramebuffer->setIntegerPreference(fDisplay, paramName, value);
 
-	attribute = *((UInt32 *) paramName->getCStringNoCopy());
+	attribute = OSReadBigInt32(paramName->getCStringNoCopy(), 0);
     
 	ok = (kIOReturnSuccess == fFramebuffer->setAttributeForConnection(
 					0, attribute, value));

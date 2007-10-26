@@ -71,7 +71,12 @@ DEFINE_API( ComponentResult ) DeviceControlDoAVCTransaction(ComponentInstance in
 
 	#else
 	struct DeviceControlDoAVCTransactionGluePB myDeviceControlDoAVCTransactionGluePB;
-	*((unsigned long*)&myDeviceControlDoAVCTransactionGluePB) = 0x00040001;
+	//*((unsigned long*)&myDeviceControlDoAVCTransactionGluePB) = 0x00040001;
+	
+	myDeviceControlDoAVCTransactionGluePB.componentFlags = 0;
+	myDeviceControlDoAVCTransactionGluePB.componentParamSize = 4;
+	myDeviceControlDoAVCTransactionGluePB.componentWhat = 1;
+	
 	#endif
 
 	myDeviceControlDoAVCTransactionGluePB.params = params;

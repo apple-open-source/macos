@@ -1,7 +1,12 @@
 " Set options and add mapping such that Vim behaves a lot like MS-Windows
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last change:	2003 May 17
+" Last change:	2006 Apr 02
+
+" bail out if this isn't wanted (mrsvim.vim uses this).
+if exists("g:skip_loading_mswin") && g:skip_loading_mswin
+  finish
+endif
 
 " set the 'cpoptions' to its Vim default
 if 1	" only do this when compiled with expression evaluation
@@ -36,21 +41,11 @@ cmap <S-Insert>		<C-R>+
 " Pasting blockwise and linewise selections is not possible in Insert and
 " Visual mode without the +virtualedit feature.  They are pasted as if they
 " were characterwise instead.
-if has("virtualedit")
-  nnoremap <silent> <SID>Paste :call <SID>Paste()<CR>
-  func! <SID>Paste()
-    let ove = &ve
-    set ve=all
-    normal `^"+gPi
-    let &ve = ove
-  endfunc
-  inoremap <script> <C-V>	x<BS><Esc><SID>Pastegi
-  vnoremap <script> <C-V>	"-c<Esc><SID>Paste
-else
-  nnoremap <silent> <SID>Paste	"=@+.'xy'<CR>gPFx"_2x
-  inoremap <script> <C-V>	x<Esc><SID>Paste"_s
-  vnoremap <script> <C-V>	"-c<Esc>gix<Esc><SID>Paste"_x
-endif
+" Uses the paste.vim autoload script.
+
+exe 'inoremap <script> <C-V>' paste#paste_cmd['i']
+exe 'vnoremap <script> <C-V>' paste#paste_cmd['v']
+
 imap <S-Insert>		<C-V>
 vmap <S-Insert>		<C-V>
 
@@ -87,16 +82,21 @@ endif
 noremap <C-A> gggH<C-O>G
 inoremap <C-A> <C-O>gg<C-O>gH<C-O>G
 cnoremap <C-A> <C-C>gggH<C-O>G
+onoremap <C-A> <C-C>gggH<C-O>G
+snoremap <C-A> <C-C>gggH<C-O>G
+xnoremap <C-A> <C-C>ggVG
 
 " CTRL-Tab is Next window
 noremap <C-Tab> <C-W>w
 inoremap <C-Tab> <C-O><C-W>w
 cnoremap <C-Tab> <C-C><C-W>w
+onoremap <C-Tab> <C-C><C-W>w
 
 " CTRL-F4 is Close window
 noremap <C-F4> <C-W>c
 inoremap <C-F4> <C-O><C-W>c
 cnoremap <C-F4> <C-C><C-W>c
+onoremap <C-F4> <C-C><C-W>c
 
 " restore 'cpoptions'
 set cpo&

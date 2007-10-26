@@ -24,8 +24,8 @@ INSTALL_DATA = copy
 
 #### End of system configuration section. ####
 
-all :
-	set default [.lib]charset
+all : config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms all
 	set default [-]
 	$(LN) [.libcharset.include]localcharset.h [.lib]localcharset.h
@@ -49,8 +49,11 @@ all :
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms all
 	set default [-]
 
-install :
-	set default [.lib]charset
+config.h : config.h_vms
+	$(LN) config.h_vms config.h
+
+install : config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms install
 	set default [-]
 	set default [.lib]
@@ -76,7 +79,7 @@ install :
 	$(INSTALL_DATA) [.include]iconv.h $(includedir)]iconv.h
 
 installdirs :
-	set default [.lib]charset
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms installdirs
 	set default [-]
 	set default [.lib]
@@ -101,7 +104,7 @@ installdirs :
 	create /directory $(includedir)]
 
 uninstall :
-	set default [.lib]charset
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms uninstall
 	set default [-]
 	set default [.lib]
@@ -125,7 +128,7 @@ uninstall :
 	$(RM) $(includedir)]iconv.h
 
 check : all
-	set default [.lib]charset
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms check
 	set default [-]
 	set default [.lib]
@@ -148,7 +151,8 @@ check : all
 	set default [-]
 
 mostlyclean :
-	set default [.lib]charset
+	$(RM) config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms mostlyclean
 	set default [-]
 	$(RM) [.lib]localcharset.h
@@ -173,7 +177,8 @@ mostlyclean :
 	set default [-]
 
 clean :
-	set default [.lib]charset
+	$(RM) config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms clean
 	set default [-]
 	$(RM) [.lib]localcharset.h
@@ -198,7 +203,8 @@ clean :
 	set default [-]
 
 distclean :
-	set default [.lib]charset
+	$(RM) config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms distclean
 	set default [-]
 	$(RM) [.lib]localcharset.h
@@ -223,7 +229,8 @@ distclean :
 	set default [-]
 
 maintainer-clean :
-	set default [.lib]charset
+	$(RM) config.h
+	set default [.libcharset]
 	$(MMS) $(MMSQUALIFIERS) /description=Makefile.vms maintainer-clean
 	set default [-]
 	$(RM) [.lib]localcharset.h

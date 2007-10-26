@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_rand.c,v 1.2 2003/09/17 09:05:02 gotoyuzo Exp $
+ * $Id: ossl_rand.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -115,6 +115,10 @@ ossl_rand_egd_bytes(VALUE self, VALUE filename, VALUE len)
 void
 Init_ossl_rand()
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+
     mRandom = rb_define_module_under(mOSSL, "Random");
 	
     eRandomError = rb_define_class_under(mRandom, "RandomError", eOSSLError);

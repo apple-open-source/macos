@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,17 +29,6 @@
 //
 #include "ss_types.h"
 
-namespace Security {
-
-using namespace SecurityServer;
-
-typedef DataWalkers::DLDbFlatIdentifier DLDbIdentBlob;
-typedef DataWalkers::DLDbFlatIdentifier *DLDbIdentPtr;
-
-typedef AuthorizationItemSet AuthorizationItemSetBlob;
-typedef AuthorizationItemSet *AuthorizationItemSetPtr;
-typedef void *AuthorizationHandle;
-
 
 //
 // Customization macros for MIG code
@@ -50,7 +39,5 @@ typedef void *AuthorizationHandle;
 
 #define UseStaticTemplates 0
 
-
-} // end namespace Security
 
 #endif //_H_UCSP_TYPES

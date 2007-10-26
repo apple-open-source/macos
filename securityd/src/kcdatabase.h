@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,9 +99,9 @@ public:
 	
 	bool unlockDb(DbBlob *blob, void **privateAclBlob = NULL);
 	void lockDb();				// make locked (if currently unlocked)
-	bool isLocked() const { return mIsLocked; } // lock status
+	bool isLocked()			{ return mIsLocked; } // lock status
 	void setUnlocked();
-	void invalidateBlob() { version++; }
+	void invalidateBlob()	{ version++; }
 	
 	void activity();			// reset lock timeout
 	
@@ -113,7 +113,7 @@ public:
 	
 	DbBlob *encode(KeychainDatabase &db);
 	
-	void notify(NotificationEvent event);
+	void notify(NotificationEvent event) { DbCommon::notify(event, identifier()); }
 
 	void sleepProcessing();
 	void lockProcessing();
@@ -124,6 +124,10 @@ public:
 	
 protected:
 	void action();				// timer queue action to lock keychain
+	
+	// lifetime management for our Timer personality
+	void select();
+	void unselect();
 
 public:
 	// all following data locked with object lock
@@ -187,9 +191,9 @@ public:
 	bool decode(const CssmData &passphrase);				// set master key from PP, try unlock
 
 	bool validatePassphrase(const CssmData &passphrase) const; // nonthrowing validation
-	bool isLocked() const { return common().isLocked(); }	// lock status
+	bool isLocked()			{ return common().isLocked(); }	// lock status
     void notify(NotificationEvent event) { return common().notify(event); }
-    void activity() const { common().activity(); }			// reset timeout clock
+    void activity() const	{ common().activity(); }		// reset timeout clock
 	
 	// encoding/decoding keys
     void decodeKey(KeyBlob *blob, CssmKey &key, void * &pubAcl, void * &privAcl);
@@ -228,7 +232,9 @@ protected:
 	void establishOldSecrets(const AccessCredentials *creds);
 	void establishNewSecrets(const AccessCredentials *creds, SecurityAgent::Reason reason);
 	
-	static CssmClient::Key keyFromCreds(const TypedList &sample, unsigned int requiredLength);
+	bool interactiveUnlock();
+	
+	CssmClient::Key keyFromCreds(const TypedList &sample, unsigned int requiredLength);
 	
 	void encode();									// (re)generate mBlob if needed
 	

@@ -30,6 +30,7 @@
 #include <Security/SecTrustedApplication.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <security_cdsa_utilities/cssmaclpod.h>
+#include <security_cdsa_utilities/acl_codesigning.h>
 #include <security_utilities/seccfobject.h>
 #include "SecCFTypes.h"
 
@@ -50,30 +51,25 @@ class TrustedApplication : public SecCFObject {
 public:
 	SECCFFUNCTIONS(TrustedApplication, SecTrustedApplicationRef, errSecInvalidItemRef, gTypes().TrustedApplication)
 
-	TrustedApplication(const TypedList &subject);
-	TrustedApplication(const CssmData &signature, const CssmData &comment);
-	TrustedApplication(const char *path);
-	TrustedApplication();	// for current application
-    virtual ~TrustedApplication() throw();
+	TrustedApplication(const TypedList &subject);	// from ACL subject form
+	TrustedApplication(const std::string &path);	// from code on disk
+	TrustedApplication();							// for current application
+	TrustedApplication(const std::string &path, SecRequirementRef requirement); // with requirement and aux. path
+	TrustedApplication(CFDataRef external);			// from external representation
+	~TrustedApplication() throw ();
 
-	const CssmData &signature() const;
-
-	// data (aka "comment") access
-	const CssmData &data() const	{ return mData; }
-	const char *path() const;
-	template <class Data>
-	void data(const Data &data)		{ mData = data; }
+	const char *path() const { return mForm->path().c_str(); }
+	CssmData legacyHash() const	{ return CssmData::wrap(mForm->legacyHash(), SHA1::digestLength); }
+	SecRequirementRef requirement() const { return mForm->requirement(); }
 	
-	TypedList makeSubject(Allocator &allocator);
-
-	bool sameSignature(const char *path); // return true if object at path has same signature
+	CFDataRef externalForm() const;
 	
-protected:
-	void calcSignature(const char *path, CssmOwnedData &signature); // generate a signature
+	CssmList makeSubject(Allocator &allocator);
+
+	bool verifyToDisk(const char *path);		// verify against on-disk image
 
 private:
-	CssmAutoData mSignature;
-	CssmAutoData mData;
+	RefPointer<CodeSignatureAclSubject> mForm;
 };
 
 

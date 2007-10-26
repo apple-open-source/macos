@@ -54,8 +54,8 @@
 #undef ASM_SPEC
 #define ASM_SPEC \
 "%(asm_cpu) \
- %{.s: %{mregnames} %{mno-regnames}} \
- %{.S: %{mregnames} %{mno-regnames}}"
+"/* APPLE LOCAL mainline 2007-03-13 5040758 */" \
+ %{,assembler|,assembler-with-cpp: %{mregnames} %{mno-regnames}}"
 
 #undef STARTFILE_SPEC
 #undef ENDFILE_SPEC

@@ -1,7 +1,7 @@
 /* testsuite.c -- Stress the library a little
  * Rob Siemborski
  * Tim Martin
- * $Id: testsuite.c,v 1.5 2005/01/10 19:09:03 snsimon Exp $
+ * $Id: testsuite.c,v 1.6 2006/01/20 20:20:33 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -97,10 +97,10 @@ char myhostname[1024+1];
 #define REALLY_LONG_LENGTH  32000
 #define REALLY_LONG_BACKOFF  2000
 
-const char *username = "rjs3";
+const char *username = "shadow";
 const char *nonexistant_username = "ABCDEFGHIJ";
-const char *authname = "rjs3";
-const char *proxyasname = "rjs3proxy";
+const char *authname = "shadow";
+const char *proxyasname = "shadowproxy";
 const char *password = "1234";
 const char *cu_plugin = "INTERNAL";
 char other_result[1024];
@@ -180,7 +180,7 @@ int test_getsecret(sasl_conn_t *conn __attribute__((unused)),
     if(!psecret) return SASL_BADPARAM;
 
     *psecret = malloc(sizeof(sasl_secret_t) + strlen(password));
-    (*psecret)->len = strlen(password);
+    (*psecret)->len = (unsigned) strlen(password);
     strcpy((*psecret)->data, password);
 
     return SASL_OK;
@@ -202,7 +202,7 @@ int test_getsimple(void *context __attribute__((unused)), int id,
 	fatal("unknown callback in test_getsimple");
     }
 
-    if(len) *len = strlen(*result);
+    if (len) *len = (unsigned) strlen(*result);
     return SASL_OK;
 }
 
@@ -250,7 +250,7 @@ void *test_malloc(size_t size)
     out = malloc(size);
 
     if(DETAILED_MEMORY_DEBUGGING)
-	fprintf(stderr, "  %X = malloc(%d)\n", (unsigned)out, size);
+	fprintf(stderr, "  %X = malloc(%u)\n", (unsigned)out, (unsigned) size);
     
     if(out) {
 	new_data = malloc(sizeof(mem_info_t));
@@ -459,22 +459,22 @@ int good_getopt(void *context __attribute__((unused)),
     {
 	*result = "auxprop";
 	if (len)
-	    *len = strlen("auxprop");
+	    *len = (unsigned) strlen("auxprop");
 	return SASL_OK;
     } else if (!strcmp(option, "auxprop_plugin")) {
 	*result = "sasldb";
 	if (len)
-	    *len = strlen("sasldb");
+	    *len = (unsigned) strlen("sasldb");
 	return SASL_OK;
     } else if (!strcmp(option, "sasldb_path")) {
 	*result = "./sasldb";
 	if (len)
-	    *len = strlen("./sasldb");
+	    *len = (unsigned) strlen("./sasldb");
 	return SASL_OK;
     } else if (!strcmp(option, "canon_user_plugin")) {
 	*result = cu_plugin;
 	if (len)
-	    *len = strlen(*result);
+	    *len = (unsigned) strlen(*result);
 	return SASL_OK;
     }
 
@@ -603,10 +603,6 @@ void test_init(void)
     sasl_done();
     if(mem_stat() != SASL_OK) fatal("memory error after long appname test");
 
-    /* try passing NULL name */
-    result = sasl_server_init(emptysasl_cb, NULL);
-    if (result == SASL_OK) fatal("Allowed null name to sasl_server_init");
-
     /* this calls sasl_done when it wasn't inited */
     sasl_done();
     if(mem_stat() != SASL_OK) fatal("memory error after null appname test");
@@ -625,12 +621,13 @@ void test_init(void)
     sasl_done();
     if(mem_stat() != SASL_OK) fatal("memory error after client test");
 
+#if defined(DO_DLOPEN) && (defined(PIC) || (!defined(PIC) && defined(TRY_DLOPEN_WHEN_STATIC)))
     /* try giving it an invalid path for where the plugins are */
     result = sasl_server_init(withbadpathsasl_cb, NULL);
-
     if (result==SASL_OK) fatal("Allowed invalid path");
     sasl_done();
     if(mem_stat() != SASL_OK) fatal("memory error after bad path test");
+#endif
 
     /* and the client - xxx is this necessary?*/
 #if 0
@@ -1120,7 +1117,7 @@ void interaction (int id, const char *prompt,
     } else if ((id==SASL_CB_GETREALM)) {
 	*tresult=(char *) myhostname;
     } else {
-	int c;
+	size_t c;
 	
 	printf("%s: ",prompt);
 	fgets(other_result, sizeof(other_result) - 1, stdin);
@@ -1129,7 +1126,7 @@ void interaction (int id, const char *prompt,
 	*tresult=other_result;
     }
 
-    *tlen=strlen(*tresult);
+    *tlen = (unsigned int) strlen(*tresult);
 }
 
 void fillin_correctly(sasl_interact_t *tlist)
@@ -1464,7 +1461,7 @@ void sendbadsecond(char *mech, void *rock)
 
     /* client to server */
     result = sasl_encode(clientconn, CLIENT_TO_SERVER,
-			 strlen(CLIENT_TO_SERVER), &out, &outlen);
+			 (unsigned) strlen(CLIENT_TO_SERVER), &out, &outlen);
     if (result != SASL_OK) fatal("Error encoding");
 
     if (mystep == send->step)
@@ -2293,7 +2290,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	   test_props[i]->maxbufsize);
 
     if(!test_props[i]->maxbufsize) {
-	result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+	result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			     &out, &outlen);
 	if(result == SASL_OK) {
 	    fatal("got OK when encoding with zero maxbufsize");
 	}
@@ -2305,19 +2303,19 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	continue;
     }
     
-    sasl_encode(NULL, txstring, strlen(txstring), &out, &outlen);
-    sasl_encode(cconn, NULL, strlen(txstring), &out, &outlen);
+    sasl_encode(NULL, txstring, (unsigned) strlen(txstring), &out, &outlen);
+    sasl_encode(cconn, NULL, (unsigned) strlen(txstring), &out, &outlen);
     sasl_encode(cconn, txstring, 0, &out, &outlen);
     sasl_encode(cconn, txstring, (unsigned)-1, &out, &outlen);
-    sasl_encode(cconn, txstring, strlen(txstring), NULL, &outlen);
-    sasl_encode(cconn, txstring, strlen(txstring), &out, NULL);
+    sasl_encode(cconn, txstring, (unsigned) strlen(txstring), NULL, &outlen);
+    sasl_encode(cconn, txstring, (unsigned) strlen(txstring), &out, NULL);
     
-    sasl_decode(NULL, txstring, strlen(txstring), &out, &outlen);
-    sasl_decode(cconn, NULL, strlen(txstring), &out, &outlen);
+    sasl_decode(NULL, txstring, (unsigned) strlen(txstring), &out, &outlen);
+    sasl_decode(cconn, NULL, (unsigned) strlen(txstring), &out, &outlen);
     sasl_decode(cconn, txstring, 0, &out, &outlen);
     sasl_decode(cconn, txstring, (unsigned)-1, &out, &outlen);
-    sasl_decode(cconn, txstring, strlen(txstring), NULL, &outlen);
-    sasl_decode(cconn, txstring, strlen(txstring), &out, NULL);
+    sasl_decode(cconn, txstring, (unsigned) strlen(txstring), NULL, &outlen);
+    sasl_decode(cconn, txstring, (unsigned) strlen(txstring), &out, NULL);
     
     cleanup_auth(&sconn, &cconn);
 
@@ -2326,7 +2324,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	fatal("doauth failed in testseclayer");
     }
 
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out, &outlen);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure");
     }
@@ -2343,7 +2342,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	fatal("doauth failed in testseclayer");
     }
 
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out, &outlen);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure (2)");
     }
@@ -2381,7 +2381,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	fatal("doauth failed in testseclayer");
     }
 
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out, &outlen);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure (3)");
     }
@@ -2391,7 +2392,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
     tmp = buf + outlen;
     totlen = outlen;
     
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out, &outlen);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure (4)");
     }
@@ -2418,7 +2420,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 	fatal("doauth failed in testseclayer");
     }
 
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out, &outlen);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out, &outlen);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure (3)");
     }
@@ -2427,7 +2430,8 @@ void testseclayer(char *mech, void *rock __attribute__((unused)))
 
     tmp = buf + outlen;
 
-    result = sasl_encode(cconn, txstring, strlen(txstring), &out2, &outlen2);
+    result = sasl_encode(cconn, txstring, (unsigned) strlen(txstring),
+			 &out2, &outlen2);
     if(result != SASL_OK) {
 	fatal("basic sasl_encode failure (4)");
     }
@@ -2692,15 +2696,17 @@ void create_ids(void)
     
     /* Try to set password then check it */
 
-    result = sasl_setpass(saslconn, username, password, strlen(password),
+    result = sasl_setpass(saslconn, username, password,
+			  (unsigned) strlen(password),
 			  NULL, 0, SASL_SET_CREATE);
     if (result != SASL_OK) {
 	printf("error was %s (%d)\n",sasl_errstring(result,NULL,NULL),result);
 	fatal("Error setting password. Do we have write access to sasldb?");
     }    
     
-    result = sasl_checkpass(saslconn, username, strlen(username),
-			    password, strlen(password));
+    result = sasl_checkpass(saslconn, username,
+			    (unsigned) strlen(username),
+			    password, (unsigned) strlen(password));
     if (result != SASL_OK) {
 	fprintf(stderr, "%s\n", sasl_errdetail(saslconn));
 	fatal("Unable to verify password we just set");
@@ -2740,12 +2746,14 @@ void create_ids(void)
 
     /* now delete user and make sure can't find him anymore */
     result = sasl_setpass(saslconn, username, password,
-			  strlen(password), NULL, 0, SASL_SET_DISABLE);
+			  (unsigned) strlen(password),
+			  NULL, 0, SASL_SET_DISABLE);
     if (result != SASL_OK)
 	fatal("Error disabling password. Do we have write access to sasldb?");
 
-    result = sasl_checkpass(saslconn, username, strlen(username),
-			    password, strlen(password));
+    result = sasl_checkpass(saslconn, username,
+			    (unsigned) strlen(username),
+			    password, (unsigned) strlen(password));
     if (result == SASL_OK) {
 	printf("\n  WARNING: sasl_checkpass got SASL_OK after disableing\n");
 	printf("           This is generally ok, just an artifact of sasldb\n");
@@ -2765,15 +2773,19 @@ void create_ids(void)
 #endif
 
     /* try bad params */
-    if (sasl_setpass(NULL,username, password, strlen(password), NULL, 0, SASL_SET_CREATE)==SASL_OK)
+    if (sasl_setpass(NULL,username, password,
+		     (unsigned) strlen(password),
+		     NULL, 0, SASL_SET_CREATE)==SASL_OK)
 	fatal("Didn't specify saslconn");
     if (sasl_setpass(saslconn,username, password, 0, NULL, 0, SASL_SET_CREATE)==SASL_OK)
 	fatal("Allowed password of zero length");
-    if (sasl_setpass(saslconn,username, password, strlen(password), NULL, 0, 43)==SASL_OK)
+    if (sasl_setpass(saslconn,username, password,
+		     (unsigned) strlen(password), NULL, 0, 43)==SASL_OK)
 	fatal("Gave weird code");
 
 #ifndef SASL_NDBM
-    if (sasl_setpass(saslconn,really_long_string, password, strlen(password), 
+    if (sasl_setpass(saslconn,really_long_string,
+		     password, (unsigned)strlen(password), 
 		     NULL, 0, SASL_SET_CREATE)!=SASL_OK)
 	fatal("Didn't allow really long username");
 #else
@@ -2781,11 +2793,12 @@ void create_ids(void)
 #endif
 
     if (sasl_setpass(saslconn,"bob",really_long_string,
-		     strlen(really_long_string),NULL, 0,
+		     (unsigned) strlen(really_long_string),NULL, 0,
 		     SASL_SET_CREATE)!=SASL_OK)
 	fatal("Didn't allow really long password");
 
-    result = sasl_setpass(saslconn,"frank" ,password, strlen(password), 
+    result = sasl_setpass(saslconn,"frank",
+			  password, (unsigned) strlen(password), 
 			  NULL, 0, SASL_SET_DISABLE);
 
     if ((result!=SASL_NOUSER) && (result!=SASL_OK))
@@ -2795,7 +2808,8 @@ void create_ids(void)
 	}
     
     /* Now set the user again (we use for rest of program) */
-    result = sasl_setpass(saslconn, username, password, strlen(password),
+    result = sasl_setpass(saslconn, username,
+			  password, (unsigned) strlen(password),
 			  NULL, 0, SASL_SET_CREATE);
     if (result != SASL_OK)
 	fatal("Error setting password. Do we have write access to sasldb?");
@@ -2814,8 +2828,11 @@ void test_checkpass(void)
     sasl_conn_t *saslconn;
 
     /* try without initializing anything */
-    if(sasl_checkpass(NULL, username, strlen(username),
-		      password, strlen(password)) != SASL_NOTINIT) {
+    if(sasl_checkpass(NULL,
+		      username,
+		      (unsigned) strlen(username),
+		      password,
+		      (unsigned) strlen(password)) != SASL_NOTINIT) {
 	fatal("sasl_checkpass() when library not initialized");
     }    
 
@@ -2829,23 +2846,23 @@ void test_checkpass(void)
 
     /* make sure works for general case */
 
-    if (sasl_checkpass(saslconn, username, strlen(username),
-		       password, strlen(password))!=SASL_OK)
+    if (sasl_checkpass(saslconn, username, (unsigned) strlen(username),
+		       password, (unsigned) strlen(password))!=SASL_OK)
 	fatal("sasl_checkpass() failed on simple case");
 
     /* NULL saslconn */
-    if (sasl_checkpass(NULL, username, strlen(username),
-		   password, strlen(password)) == SASL_OK)
+    if (sasl_checkpass(NULL, username, (unsigned) strlen(username),
+		   password, (unsigned) strlen(password)) == SASL_OK)
 	fatal("Suceeded with NULL saslconn");
 
     /* NULL username -- should be OK if sasl_checkpass enabled */
-    if (sasl_checkpass(saslconn, NULL, strlen(username),
-		   password, strlen(password)) != SASL_OK)
+    if (sasl_checkpass(saslconn, NULL, (unsigned) strlen(username),
+		   password, (unsigned) strlen(password)) != SASL_OK)
 	fatal("failed check if sasl_checkpass is enabled");
 
     /* NULL password */
-    if (sasl_checkpass(saslconn, username, strlen(username),
-		   NULL, strlen(password)) == SASL_OK)
+    if (sasl_checkpass(saslconn, username, (unsigned) strlen(username),
+		   NULL, (unsigned) strlen(password)) == SASL_OK)
 	fatal("Suceeded with NULL password");
 
     sasl_dispose(&saslconn);
@@ -2862,7 +2879,7 @@ void notes(void)
     printf("-For both KERBEROS_V4 and GSSAPI you must have non-expired tickets\n");
     printf("-For OTP (w/OPIE) must be able to read/write opiekeys (/etc/opiekeys)\n");
     printf("-For OTP you must have a non-expired secret\n");
-    printf("-Must be able to read sasldb, which needs to be setup with a.\n");
+    printf("-Must be able to read sasldb, which needs to be setup with a\n");
     printf(" username and a password (see top of testsuite.c)\n");
     printf("\n\n");
 }
@@ -2887,7 +2904,7 @@ int main(int argc, char **argv)
     int random_tests = -1;
     int do_all = 0;
     int skip_do_correct = 0;
-    unsigned int seed = time(NULL);
+    unsigned int seed = (unsigned int) time(NULL);
 #ifdef WIN32
   /* initialize winsock */
     int result;

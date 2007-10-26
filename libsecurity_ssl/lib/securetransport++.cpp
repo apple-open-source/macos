@@ -102,7 +102,7 @@ size_t SecureTransportCore::read(void *data, size_t length)
 {
     if (continueHandshake())
         return 0;
-    UInt32 bytesRead;
+    size_t bytesRead;
     switch (OSStatus err = SSLRead(mContext, data, length, &bytesRead)) {
     case noErr:					// full read
     case errSSLWouldBlock:		// partial read
@@ -127,7 +127,7 @@ size_t SecureTransportCore::write(const void *data, size_t length)
 {
     if (continueHandshake())
         return 0;
-    UInt32 bytesWritten;
+    size_t bytesWritten;
     switch (OSStatus err = SSLWrite(mContext, data, length, &bytesWritten)) {
     case noErr:
         return bytesWritten;
@@ -184,37 +184,37 @@ void SecureTransportCore::version(SSLProtocol version)
     MacOSError::check(SSLSetProtocolVersion(mContext, version));
 }
     
-UInt32 SecureTransportCore::numSupportedCiphers() const
+size_t SecureTransportCore::numSupportedCiphers() const
 {
-	UInt32 numCiphers;
+	size_t numCiphers;
     MacOSError::check(SSLGetNumberSupportedCiphers(mContext, &numCiphers));
     return numCiphers;
 }
 
 void SecureTransportCore::supportedCiphers(
 	SSLCipherSuite *ciphers, 
-	UInt32 &numCiphers) const
+	size_t &numCiphers) const
 {
     MacOSError::check(SSLGetSupportedCiphers(mContext, ciphers, &numCiphers));
 }
 
-UInt32 SecureTransportCore::numEnabledCiphers() const
+size_t SecureTransportCore::numEnabledCiphers() const
 {
-	UInt32 numCiphers;
+	size_t numCiphers;
     MacOSError::check(SSLGetNumberEnabledCiphers(mContext, &numCiphers));
     return numCiphers;
 }
 
 void SecureTransportCore::enabledCiphers(
 	SSLCipherSuite *ciphers, 
-	UInt32 &numCiphers) const
+	size_t &numCiphers) const
 {
     MacOSError::check(SSLGetEnabledCiphers(mContext, ciphers, &numCiphers));
 }
 
 void SecureTransportCore::enabledCiphers(
 	SSLCipherSuite *ciphers, 
-	UInt32 numCiphers)
+	size_t numCiphers)
 {
     MacOSError::check(SSLSetEnabledCiphers(mContext, ciphers, numCiphers));
 }
@@ -255,17 +255,17 @@ void SecureTransportCore::peerId(const void *id, size_t length)
 // are returned even though data has been produced.
 //
 OSStatus SecureTransportCore::sslReadFunc(SSLConnectionRef connection,
-    void *data, UInt32 *length)
+    void *data, size_t *length)
 {
     const SecureTransportCore *stc = reinterpret_cast<const SecureTransportCore *>(connection);
     try {
         size_t lengthRequested = *length;
         *length = stc->ioRead(data, lengthRequested);
-        secdebug("sslconio", "%p read %ld of %ld bytes", stc, *length, lengthRequested);
+        secdebug("sslconio", "%p read %lu of %lu bytes", stc, *length, lengthRequested);
         if (*length == lengthRequested)	// full deck
             return noErr;
         else if (stc->ioAtEnd()) {
-            secdebug("sslconio", "%p end of source input, returning %ld bytes",
+            secdebug("sslconio", "%p end of source input, returning %lu bytes",
                 stc, *length);
             return errSSLClosedGraceful;
         } else
@@ -285,13 +285,13 @@ OSStatus SecureTransportCore::sslReadFunc(SSLConnectionRef connection,
 }
 
 OSStatus SecureTransportCore::sslWriteFunc(SSLConnectionRef connection,
-    const void *data, UInt32 *length)
+    const void *data, size_t *length)
 {
     const SecureTransportCore *stc = reinterpret_cast<const SecureTransportCore *>(connection);
     try {
         size_t lengthRequested = *length;
         *length = stc->ioWrite(data, lengthRequested);
-        secdebug("sslconio", "%p wrote %ld of %ld bytes", stc, *length, lengthRequested);
+        secdebug("sslconio", "%p wrote %lu of %lu bytes", stc, *length, lengthRequested);
         return *length == lengthRequested ? OSStatus(noErr) : OSStatus(errSSLWouldBlock);
     } catch (const CommonError &err) {
         *length = 0;

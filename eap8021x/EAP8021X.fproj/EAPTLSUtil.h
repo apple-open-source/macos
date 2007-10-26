@@ -142,7 +142,6 @@ EAPSSLCopyPeerCertificates(SSLContextRef context, CFArrayRef * certs);
  */
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
-				   int32_t trust_proceed_id,
 				   CFArrayRef server_certs, 
 				   OSStatus * ret_status);
 /*

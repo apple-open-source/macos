@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2007 Apple Inc. All Rights Reserved.
  * 
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -202,7 +202,9 @@ uint32_t CACToken::pinStatus(int pinNum)
 		CssmError::throwMe(CSSM_ERRCODE_SAMPLE_VALUE_NOT_SUPPORTED);
 
 	if (mPinStatus && isInTransaction())
+{ secdebug("adhoc", "returning cached PIN status 0x%x", mPinStatus);
 		return mPinStatus;
+}
 
 	PCSC::Transaction _(*this);
 	/* Verify pin only works if one of the CAC applets are selected. */
@@ -227,6 +229,7 @@ uint32_t CACToken::pinStatus(int pinNum)
 		&& mPinStatus != SCARD_AUTHENTICATION_BLOCKED)
 		CACError::check(mPinStatus);
 
+secdebug("adhoc", "new PIN status=0x%x", mPinStatus);
 	return mPinStatus;
 }
 
@@ -299,6 +302,139 @@ uint32_t CACToken::getData(unsigned char *result, size_t &resultLength)
 	unsigned char apdu[] = { 0x80, INS_GET_DATA, 0x9F, 0x7F, 0x2D };
 	return exchangeAPDU(apdu, sizeof(apdu), result, resultLength);
 }
+
+/*
+	See NIST IR 6887 Ð 2003 EDITION, GSC-IS VERSION 2.1
+	5.3.4 Generic Container Provider Virtual Machine Card Edge Interface
+	for a description of how this command works
+	
+	READ BUFFER 0x80 0x52 Off/H Off/L 0x02 <buffer & number bytes to read> Ð 
+
+*/
+
+#if 0
+        unsigned char toread = bytes_left > MAX_READ ? MAX_READ : bytes_left;
+	unsigned char apdu[] = { 0x80, 0x52,
+            offset >> 8, offset & 0xFF,
+            0x02, (getTB ? 0x01 : 0x02),
+            toread };
+
+#define TBD_ZERO						0x00
+
+#define CAC_CLA_STANDARD				CLA_STANDARD	// 00
+#define CAC_INS_GET_DATA				INS_GET_DATA	0xCB	// [SP800731 7.1.2]
+
+//										0x00				0xCB
+#define CAC_GETDATA_APDU			CAC_CLA_STANDARD, CAC_INS_GET_DATA, 0x3F, 0xFF
+// Template for getting data
+//									 00 CB 3F FF		Lc		Tag	  Len	    OID1	  OID2	  OID3
+#define PIV_GETDATA_APDU_TEMPLATE	PIV_GETDATA_APDU, TBD_ZERO, 0x5C, TBD_ZERO, TBD_FF, TBD_FF, TBD_FF
+
+#define PIV_GETDATA_APDU_INDEX_LEN		4	// Index into APDU for APDU data length (this is TLV<OID>) [Lc]
+#define PIV_GETDATA_APDU_INDEX_OIDLEN	6	// Index into APDU for requested length of data
+#define PIV_GETDATA_APDU_INDEX_OID		7	// Index into APDU for object ID
+
+#define CAC_GETDATA_CONT_APDU_TEMPLATE	0x00, 0xC0, 0x00, 0x00, TBD_ZERO
+
+#define CAC_GETDATA_CONT_APDU_INDEX_LEN	4	// Index into CONT APDU for requested length of data
+
+void CACToken::getDataCore(const unsigned char *oid, size_t oidlen, const char *description, bool isCertificate,
+	bool allowCaching, CssmData &data)
+{
+	unsigned char result[MAX_BUFFER_SIZE];
+	size_t resultLength = sizeof(result);
+	size_t returnedDataLength = 0;
+
+	// The APDU only has space for a 3 byte OID
+	if (oidlen != 3)
+		PCSC::Error::throwMe(SCARD_E_PROTO_MISMATCH);
+	
+	if (!mReturnedData)
+	{
+		mReturnedData = new unsigned char[PIV_MAX_DATA_SIZE];
+		if (!mReturnedData)
+			CssmError::throwMe(CSSM_ERRCODE_MEMORY_ERROR);
+	}
+	
+	const unsigned char dataFieldLen = 0x05;	// doc says must be 16, but in pratice it is 5
+	unsigned char initialapdu[] = { PIV_GETDATA_APDU_TEMPLATE };
+
+	initialapdu[PIV_GETDATA_APDU_INDEX_LEN] = dataFieldLen;
+	initialapdu[PIV_GETDATA_APDU_INDEX_OIDLEN] = oidlen;
+	memcpy(initialapdu + PIV_GETDATA_APDU_INDEX_OID, oid, oidlen);
+
+	unsigned char continuationapdu[] = { PIV_GETDATA_CONT_APDU_TEMPLATE };
+	
+	unsigned char *apdu = initialapdu;
+	size_t apduSize = sizeof(initialapdu);
+
+	selectDefault();
+	// Talk to token here to get data
+	{
+		PCSC::Transaction _(*this);
+
+		uint32_t rx;
+		do
+		{
+			resultLength = sizeof(result);	// must reset each time
+			transmit(apdu, apduSize, result, resultLength);
+			if (resultLength < 2)
+				break;
+			rx = (result[resultLength - 2] << 8) + result[resultLength - 1];
+			secdebug("pivtokend", "exchangeAPDU result %02X", rx);
+
+			if ((rx & 0xFF00) != SCARD_BYTES_LEFT_IN_SW2 &&
+				(rx & 0xFF00) != SCARD_SUCCESS)
+				PIVError::check(rx);
+
+			// Switch to the continuation APDU after first exchange
+			apdu = continuationapdu;
+			apduSize = sizeof(continuationapdu);
+			
+			memcpy(mReturnedData + returnedDataLength, result, resultLength - 2);
+			returnedDataLength += resultLength - 2;
+			
+			// Number of bytes to fetch next time around is in the last byte returned.
+			// For all except the penultimate read, this is 0, indicating that the
+			// token should read all bytes.
+			
+			*(apdu + PIV_GETDATA_CONT_APDU_INDEX_LEN) = static_cast<unsigned char>(rx & 0xFF);
+			
+		} while ((rx & 0xFF00) == SCARD_BYTES_LEFT_IN_SW2);
+	}
+
+	dumpDataRecord(mReturnedData, returnedDataLength, oid);
+	
+	// Start to parse the BER-TLV encoded data. In the end, we only return the
+	// main data part of this but we need to step through the rest first
+	// The certficates are the only types we parse here
+
+	if (returnedDataLength>0)
+	{
+		const unsigned char *pd = &mReturnedData[0];
+		if (*pd != PIV_GETDATA_RESPONSE_TAG)
+			PIVError::throwMe(SCARD_RETURNED_DATA_CORRUPTED);
+		pd++;
+
+		if (isCertificate)
+			processCertificateRecord(pd, returnedDataLength, oid, description, data);
+		else
+		{
+			data.Data = mReturnedData;
+			data.Length = returnedDataLength;
+		}
+
+		if (allowCaching)
+			cacheObject(0, description, data);
+	}
+	else
+	{
+		data.Data = mReturnedData;
+		data.Length = 0;
+	}
+}
+#endif
+
 
 uint32 CACToken::probe(SecTokendProbeFlags flags,
 	char tokenUid[TOKEND_MAX_UID])
@@ -384,8 +520,23 @@ void CACToken::getOwner(AclOwnerPrototype &owner)
 
 void CACToken::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 {
-	//uint32_t cacresult = pinStatus();
 	Allocator &alloc = Allocator::standard();
+	
+	if (unsigned pin = pinFromAclTag(tag, "?")) {
+		static AutoAclEntryInfoList acl;
+		acl.clear();
+		acl.allocator(alloc);
+		uint32_t status = this->pinStatus(pin);
+		if (status == SCARD_SUCCESS)
+			acl.addPinState(pin, CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED);
+		else if (status >= CAC_AUTHENTICATION_FAILED_0 && status <= CAC_AUTHENTICATION_FAILED_3)
+			acl.addPinState(pin, 0, status - CAC_AUTHENTICATION_FAILED_0);
+		else
+			acl.addPinState(pin, CSSM_ACL_PREAUTH_TRACKING_UNKNOWN);
+		count = acl.size();
+		acls = acl.entries();
+		return;
+	}
 
 	// mAclEntries sets the handle of each AclEntryInfo to the
 	// offset in the array.
@@ -464,4 +615,3 @@ void CACToken::populate()
 	secdebug("populate", "CACToken::populate() end");
 }
 
-/* arch-tag: 36F733B4-0DBC-11D9-914C-000A9595DEEE */

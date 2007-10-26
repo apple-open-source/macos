@@ -20,6 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <TargetConditionals.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFUnserialize.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -27,7 +28,7 @@
 #include <mach/mach_port.h>
 #include <mach/vm_map.h>
 #include <servers/bootstrap.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "IOSystemConfiguration.h"
 #include "IOPMLibPrivate.h"
 #include "powermanagement.h"
 
@@ -41,7 +42,7 @@ static IOReturn _pm_connect(mach_port_t *newConnection)
 
     // open reference to PM configd
     kern_result = bootstrap_look_up(bootstrap_port, 
-            kIOPMServerBootstrapName, newConnection);    
+            kIOPMServerBootstrapName, newConnection);
     if(KERN_SUCCESS != kern_result) {
         return kIOReturnError;
     }
@@ -55,24 +56,43 @@ static IOReturn _pm_disconnect(mach_port_t connection)
     return kIOReturnSuccess;
 }
 
+static bool _supportedAssertion(CFStringRef assertion)
+{
+    return (CFEqual(assertion, kIOPMAssertionTypeNoIdleSleep)
+        || CFEqual(assertion, kIOPMAssertionTypeNoDisplaySleep)
+        || CFEqual(assertion, kIOPMAssertionTypeDisableInflow)
+        || CFEqual(assertion, kIOPMAssertionTypeInhibitCharging)
 
-IOReturn IOPMAssertionCreate(CFStringRef  assertion, int level, IOPMAssertionID *assertion_id)
+#if TARGET_EMBEDDED_OS
+        // kIOPMAssertionTypeEnableIdleSleep is only supported on
+        // embedded platforms. IOPMAssertionCreate returns an error
+        // when a caller tries to assert it on user OS X.
+        || CFEqual(assertion, kIOPMAssertionTypeEnableIdleSleep)
+#endif
+
+        || CFEqual(assertion, kIOPMAssertionTypeDisableLowBatteryWarnings) 
+        || CFEqual(assertion, kIOPMAssertionTypeNeedsCPU) );
+}
+
+
+IOReturn IOPMAssertionCreate(
+    CFStringRef             AssertionType,
+    IOPMAssertionLevel      AssertionLevel,
+    IOPMAssertionID         *AssertionID)
 {
     IOReturn                return_code = kIOReturnError;
     kern_return_t           kern_result = KERN_SUCCESS;
-    char                    profile_str[50];
-    int                     profile_len = 50;
+    char                    assertion_str[50];
+    int                     assertion_len = 50;
     mach_port_t             pm_server = MACH_PORT_NULL;
     mach_port_t             task_self = mach_task_self();
     IOReturn                err;
 
     // Set assertion_id to a known invalid setting. If successful, it will
     // get a valid value later on.
-    *assertion_id = -1;
+    *AssertionID = -1;
 
-    // The only supported assertion is kIOPMCPUBoundAssertion
-    if(kCFCompareEqualTo != 
-       CFStringCompare(assertion, kIOPMCPUBoundAssertion, 0)) 
+    if(!_supportedAssertion(AssertionType))
     {
         return kIOReturnUnsupported;
     }
@@ -83,18 +103,19 @@ IOReturn IOPMAssertionCreate(CFStringRef  assertion, int level, IOPMAssertionID 
         goto exit;
     }
     
-    CFStringGetCString(assertion, profile_str, profile_len, kCFStringEncodingMacRoman);
-    profile_len = strlen(profile_str)+1;
+    CFStringGetCString( AssertionType, assertion_str, 
+                        assertion_len, kCFStringEncodingMacRoman);
+    assertion_len = strlen(assertion_str)+1;
 
     // io_pm_assertion_create mig's over to configd, and it's configd 
-    // that actively tracks and manages the list of active power profiles.
+    // that actively tracks and manages the list of active power assertions.
     kern_result = io_pm_assertion_create(
             pm_server, 
             task_self,
-            profile_str,
-            profile_len,
-            level, 
-            assertion_id,
+            assertion_str,
+            assertion_len,
+            AssertionLevel, 
+            AssertionID,
             &return_code);
             
     if(KERN_SUCCESS != kern_result) {
@@ -106,18 +127,14 @@ exit:
     return return_code;
 }
 
-IOReturn IOPMAssertionRelease(IOPMAssertionID assertion_id)
+IOReturn IOPMAssertionRelease(
+    IOPMAssertionID         AssertionID)
 {
     IOReturn                return_code = kIOReturnError;
     kern_return_t           kern_result = KERN_SUCCESS;
     mach_port_t             pm_server = MACH_PORT_NULL;
     mach_port_t             task_self = mach_task_self();
     IOReturn                err;
-
-    if((assertion_id < 0) || (assertion_id >= kAssertionsArraySize)) {
-        return_code = kIOReturnBadArgument;
-        goto exit;
-    }
 
     err = _pm_connect(&pm_server);
     if(kIOReturnSuccess != err) {
@@ -128,7 +145,7 @@ IOReturn IOPMAssertionRelease(IOPMAssertionID assertion_id)
     kern_result = io_pm_assertion_release(
             pm_server, 
             task_self,
-            assertion_id,
+            AssertionID,
             &return_code);
             
     if(KERN_SUCCESS != kern_result) {
@@ -140,17 +157,18 @@ exit:
     return return_code;
 }
 
-IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *assertions_by_pid)
+IOReturn IOPMCopyAssertionsByProcess(
+    CFDictionaryRef         *AssertionsByPid)
 {
     IOReturn                return_code = kIOReturnError;
     kern_return_t           kern_result = KERN_SUCCESS;
-    CFDictionaryRef         activeProfiles = NULL;
+    CFDictionaryRef         activeAssertions = NULL;
     mach_port_t             pm_server = MACH_PORT_NULL;
-    void                    *out_buf;
-    int                     buf_size;
+    vm_offset_t             out_buf;
+    mach_msg_type_number_t  buf_size;
     IOReturn                err;
 
-    *assertions_by_pid = NULL;
+    *AssertionsByPid = NULL;
 
     err = _pm_connect(&pm_server);
     if(kIOReturnSuccess != err) {
@@ -158,18 +176,15 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *assertions_by_pid)
         goto exit;
     }
 
-    kern_result = io_pm_copy_active_assertions(
-            pm_server,
-            &out_buf,
-            &buf_size);
+    kern_result = io_pm_copy_active_assertions(pm_server, &out_buf, &buf_size);
             
     if(KERN_SUCCESS != kern_result) {
         return_code = kIOReturnInternalError;
         goto exit;
     }
 
-    activeProfiles = (CFDictionaryRef)IOCFUnserialize(out_buf, 0, 0, 0);
-    if(isA_CFDictionary(activeProfiles)) 
+    activeAssertions = (CFDictionaryRef)IOCFUnserialize((void *) out_buf, 0,0,0);
+    if(isA_CFDictionary(activeAssertions)) 
     {
         CFMutableDictionaryRef      ret_dict;
         CFStringRef         *pid_keys;
@@ -182,35 +197,37 @@ IOReturn IOPMCopyAssertionsByProcess(CFDictionaryRef *assertions_by_pid)
         int                 i;
 
         // hackaround: Turn CFStringRef pids back into CFNumberRefs
-        //   (workaround for IOCFSerialize bug)
+        //   (workaround for IOCFSerialize behavior)
         ret_dict = CFDictionaryCreateMutable(0, 0, 
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        dict_count = CFDictionaryGetCount(activeProfiles);
+        dict_count = CFDictionaryGetCount(activeAssertions);
         pid_keys = (CFStringRef *)malloc(dict_count * sizeof(CFStringRef));
         arr_vals = (CFArrayRef *)malloc(dict_count * sizeof(CFArrayRef));
         if(!pid_keys || !arr_vals) goto exit;
         CFDictionaryGetKeysAndValues(
-                        activeProfiles, 
+                        activeAssertions, 
                         (const void **)pid_keys, 
                         (const void **)arr_vals);
         for(i=0; i<dict_count; i++)
         {
             if(!pid_keys[i]) continue;
-            CFStringGetCString(pid_keys[i], pid_str, 10, kCFStringEncodingMacRoman);
+            CFStringGetCString( pid_keys[i], pid_str, 
+                                10, kCFStringEncodingMacRoman);
             the_pid = strtol(pid_str, &endptr, 10);
             if(0 != *endptr) continue;
             tmp_pid = CFNumberCreate(0, kCFNumberIntType, &the_pid);
             CFDictionarySetValue(ret_dict, tmp_pid, arr_vals[i]);
+            CFRelease(tmp_pid);
         }
         free(pid_keys);
         free(arr_vals);
-        CFRelease(activeProfiles);
+        CFRelease(activeAssertions);
         // end of hack
         
-        *assertions_by_pid = ret_dict;
+        *AssertionsByPid = ret_dict;
         return_code = kIOReturnSuccess;
     } else {
-        if(activeProfiles) CFRelease(activeProfiles);
+        if(activeAssertions) CFRelease(activeAssertions);
     }
 
     vm_deallocate(mach_task_self(), (vm_address_t)out_buf, buf_size);
@@ -221,17 +238,18 @@ exit:
     return return_code;
 }
 
-IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *assertions_status)
+IOReturn IOPMCopyAssertionsStatus(
+    CFDictionaryRef         *AssertionsStatus)
 {
     IOReturn                return_code = kIOReturnError;
     kern_return_t           kern_result = KERN_SUCCESS;
     CFDictionaryRef         supported_assertions = NULL;
     mach_port_t             pm_server = MACH_PORT_NULL;
-    void                    *out_buf = NULL;
-    int                     buf_size = NULL;
+    vm_offset_t             out_buf = 0;
+    mach_msg_type_number_t  buf_size = 0;
     IOReturn                err;
 
-    *assertions_status = NULL;
+    *AssertionsStatus = NULL;
 
     err = _pm_connect(&pm_server);
     if(kIOReturnSuccess != err) {
@@ -239,29 +257,26 @@ IOReturn IOPMCopyAssertionsStatus(CFDictionaryRef *assertions_status)
         goto exit;
     }
 
-    kern_result = io_pm_copy_assertions_status(
-            pm_server,
-            &out_buf,
-            &buf_size);
+    kern_result = io_pm_copy_assertions_status(pm_server, &out_buf, &buf_size);
             
     if(KERN_SUCCESS != kern_result) {
         return_code = kIOReturnInternalError;
         goto exit;
     }
 
-    supported_assertions = (CFDictionaryRef)IOCFUnserialize(out_buf, 0, 0, 0);
+    supported_assertions = (CFDictionaryRef)
+                IOCFUnserialize((void *) out_buf, 0, 0, 0);
     if(isA_CFDictionary(supported_assertions)) {
-        *assertions_status = supported_assertions;
+        *AssertionsStatus = supported_assertions;
         return_code = kIOReturnSuccess;
-    } else 
-    {
+    } else {
         if(supported_assertions) CFRelease(supported_assertions);
         return_code = kIOReturnInternalError;
     }
 
-    vm_deallocate(mach_task_self(), (vm_address_t)out_buf, buf_size);
+    vm_deallocate(mach_task_self(), out_buf, buf_size);
 
-    _pm_disconnect(pm_server);    
+    _pm_disconnect(pm_server);
 exit:
     return return_code;
 }

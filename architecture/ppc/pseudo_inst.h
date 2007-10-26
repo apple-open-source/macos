@@ -286,38 +286,70 @@ MEMREF_INST(stmd)
  *
  *	E.g.	addi32	rD,rS,IMMED
  */
-#define	ARITH_INST(op, op3, sf)					\
-.macro	op ## 32 ## sf						@\
+#define	ARITH_INST(op, op3)					\
+.macro	op ## 32						@\
 .if	$n != 3							@\
 	.abort	"invalid operands to " #op "32"			@\
 .endif								@\
 .abs	__is_abs,$2						@\
 .if	__is_abs						@\
  .if	($2 & 0xffff8000) == 0					@\
-	op##sf	$0,$1,$2					@\
+	op	$0,$1,$2					@\
  .elseif	($2 & 0xffff8000) == 0xffff8000			@\
-	op##sf	$0,$1,$2					@\
+	op	$0,$1,$2					@\
  .elseif	__no_at						@\
 	.abort	"Macro uses at while .no_at in effect"		@\
  .else								@\
 	li32	at,$2						@\
-	op3##sf	$0,$1,at					@\
+	op3	$0,$1,at					@\
  .endif								@\
 .elseif	__no_at							@\
 	.abort	"Macro uses at while .no_at in effect"		@\
 .else								@\
 	li32	at,$2						@\
-	op3##sf	$0,$1,at					@\
+	op3	$0,$1,at					@\
 .endif								@\
 .endmacro
 
-ARITH_INST(addi, add, )
-ARITH_INST(subi, sub, )
-ARITH_INST(addic, addc, )
-ARITH_INST(subic, subc, )
-ARITH_INST(addic, addc, .)
-ARITH_INST(subic, subc, .)
-ARITH_INST(mulli, mull, )
+ARITH_INST(addi, add)
+ARITH_INST(subi, sub)
+ARITH_INST(addic, addc)
+ARITH_INST(subic, subc)
+ARITH_INST(mulli, mull)
+
+/*
+ * COND_ARITH_INST -- define 32-bit immediate forms of arithmetic
+ * instructions that set bits in the condition register
+ *
+ *	E.g.	addic32.	rD,rS,IMMED
+ */
+#define	COND_ARITH_INST(name, op, op3)					\
+.macro	name						@\
+.if	$n != 3							@\
+	.abort	"invalid operands to " #name			@\
+.endif								@\
+.abs	__is_abs,$2						@\
+.if	__is_abs						@\
+ .if	($2 & 0xffff8000) == 0					@\
+	op	$0,$1,$2					@\
+ .elseif	($2 & 0xffff8000) == 0xffff8000			@\
+	op	$0,$1,$2					@\
+ .elseif	__no_at						@\
+	.abort	"Macro uses at while .no_at in effect"		@\
+ .else								@\
+	li32	at,$2						@\
+	op3	$0,$1,at					@\
+ .endif								@\
+.elseif	__no_at							@\
+	.abort	"Macro uses at while .no_at in effect"		@\
+.else								@\
+	li32	at,$2						@\
+	op3	$0,$1,at					@\
+.endif								@\
+.endmacro
+
+COND_ARITH_INST(addic32., addic., addc.)
+COND_ARITH_INST(subic32., subic., subc.)
 
 /*
  * CMPEX_INST -- define 32-bit immediate forms of extended compare

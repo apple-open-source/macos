@@ -242,12 +242,12 @@ enum client_action
 	*term_code = 0;
 #endif /* KANJI */
 
-	if (!lp_load(dyn_CONFIGFILE,True, False, False))
+	if (!lp_load(dyn_CONFIGFILE,True, False, False, True))
 	{
 		fprintf(stderr, "Can't load %s - run testparm to debug it\n", dyn_CONFIGFILE);
 	}
 
-	SAMBA_DEBUGLEVEL = 0;
+	DEBUGLEVEL = 0;
 
 	cli_info.put_total_size = 0;
 	cli_info.put_total_time_ms = 0;
@@ -285,7 +285,11 @@ enum client_action
 	ZERO_STRUCT(cli_info.dom.level5_sid);
 	pstrcpy(cli_info.dom.level5_dom, "");
 
-	smb_cli->nt_pipe_fnum   = 0xffff;
+	{
+		int i;
+		for (i=0; i<PI_MAX_PIPES; i++)
+			smb_cli->pipes[i].fnum   = 0xffff;
+	}
 
 	setup_logging(pname, True);
 
@@ -431,9 +435,9 @@ enum client_action
 			case 'd':
 			{
 				if (*optarg == 'A')
-					SAMBA_DEBUGLEVEL = 10000;
+					DEBUGLEVEL = 10000;
 				else
-					SAMBA_DEBUGLEVEL = atoi(optarg);
+					DEBUGLEVEL = atoi(optarg);
 				break;
 			}
 
@@ -489,7 +493,7 @@ enum client_action
 	strupper_m(global_myname);
 	fstrcpy(cli_info.myhostname, global_myname);
 
-	DEBUG(3,("%s client started (version %s)\n",timestring(False),SAMBA_VERSION_STRING));
+	DEBUG(3,("%s client started (version %s)\n",current_timestring(False),SAMBA_VERSION_STRING));
 
 	if (*smb_cli->domain == 0)
 	{

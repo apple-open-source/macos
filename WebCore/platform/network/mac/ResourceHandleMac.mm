@@ -488,11 +488,7 @@ void ResourceHandle::receivedCancellation(const AuthenticationChallenge& challen
         if (cachedResponse)
             [info setObject:cachedResponse forKey:@"cachedResponse"];
 
-        // Include synchronous url connection's mode as an acceptable run loopmode
-        // <rdar://problem/5511842>
-        NSArray *modes = [[NSArray alloc] initWithObjects:(NSString *)kCFRunLoopCommonModes, @"NSSynchronousURLConnection_PrivateMode", nil];        
-        [self performSelectorOnMainThread:@selector(_callConnectionWillCacheResponseWithInfo:) withObject:info waitUntilDone:YES modes:modes];
-        [modes release];
+        [self performSelectorOnMainThread:@selector(_callConnectionWillCacheResponseWithInfo:) withObject:info waitUntilDone:YES];
 
         NSCachedURLResponse *result = [[info valueForKey:@"result"] retain];
         [info release];

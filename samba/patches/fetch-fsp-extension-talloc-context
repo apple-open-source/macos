@@ -1,0 +1,64 @@
+Index: samba/source/include/vfs.h
+===================================================================
+--- samba/source/include/vfs.h.orig
++++ samba/source/include/vfs.h
+@@ -560,12 +560,21 @@ typedef struct vfs_statvfs_struct {
+ 	/* NB flags can come from FILE_SYSTEM_DEVICE_INFO call   */
+ } vfs_statvfs_struct;
+ 
++/* Add a new FSP extension of the given type. Returns a pointer to the
++ * extenstion data.
++ */
+ #define VFS_ADD_FSP_EXTENSION(handle, fsp, type) \
+     vfs_add_fsp_extension_notype(handle, (fsp), sizeof(type))
+ 
++/* Return a pointer to the existing FSP extension data. */
+ #define VFS_FETCH_FSP_EXTENSION(handle, fsp) \
+     vfs_fetch_fsp_extension(handle, (fsp))
+ 
++/* Return the talloc context associated with an FSP extension. */
++#define VFS_MEMCTX_FSP_EXTENSION(handle, fsp) \
++    vfs_memctx_fsp_extension(handle, (fsp))
++
++/* Remove and destroy an FSP extension. */
+ #define VFS_REMOVE_FSP_EXTENSION(handle, fsp) \
+     vfs_remove_fsp_extension((handle), (fsp))
+ 
+Index: samba/source/smbd/vfs.c
+===================================================================
+--- samba/source/smbd/vfs.c.orig
++++ samba/source/smbd/vfs.c
+@@ -238,19 +238,31 @@ void vfs_remove_fsp_extension(vfs_handle
+ 	}
+ }
+ 
+-void *vfs_fetch_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
++void *vfs_memctx_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
+ {
+ 	struct vfs_fsp_data *head;
+ 
+ 	for (head = fsp->vfs_extension; head; head = head->next) {
+ 		if (head->owner == handle) {
+-			return EXT_DATA_AREA(head);
++			return head;
+ 		}
+ 	}
+ 
+ 	return NULL;
+ }
+ 
++void *vfs_fetch_fsp_extension(vfs_handle_struct *handle, files_struct *fsp)
++{
++	struct vfs_fsp_data *head;
++
++	head = vfs_memctx_fsp_extension(handle, fsp);
++	if (head != NULL) {
++		return EXT_DATA_AREA(head);
++	}
++
++	return NULL;
++}
++
+ #undef EXT_DATA_AREA
+ 
+ /*****************************************************************

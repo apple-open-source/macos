@@ -1,0 +1,18 @@
+--- _SB/Libc/stdio/FreeBSD/fwide.3	2003-05-20 15:22:42.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/fwide.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -63,10 +63,12 @@
+ .Fa mode
+ is less than zero,
+ .Fa stream
+-is set to byte-oriented.
+-If it is greater than zero,
++is set to be byte-oriented.
++If
++.Fa mode
++is greater than zero,
+ .Fa stream
+-is set to wide-oriented.
++is set to be wide-oriented.
+ Otherwise,
+ .Fa mode
+ is zero, and

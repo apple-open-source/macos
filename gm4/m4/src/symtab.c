@@ -1,21 +1,22 @@
 /* GNU m4 -- A simple macro processor
 
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2003 Free
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2003, 2006 Free
    Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 /* This file handles all the low level work around the symbol table.  The
@@ -31,7 +32,61 @@
    will then always be the first found.  */
 
 #include "m4.h"
+#include <limits.h>
 
+#ifdef DEBUG_SYM
+/* When evaluating hash table performance, this profiling code shows
+   how many collisions were encountered.  */
+
+struct profile
+{
+  int entry; /* Number of times lookup_symbol called with this mode.  */
+  int comparisons; /* Number of times strcmp was called.  */
+  int misses; /* Number of times strcmp did not return 0.  */
+  long long bytes; /* Number of bytes compared.  */
+};
+
+static struct profile profiles[5];
+static symbol_lookup current_mode;
+
+/* On exit, show a profile of symbol table performance.  */
+static void
+show_profile (void)
+{
+  int i;
+  for (i = 0; i < 5; i++)
+    {
+      fprintf(stderr, "m4: lookup mode %d called %d times, %d compares, "
+	      "%d misses, %lld bytes\n",
+	      i, profiles[i].entry, profiles[i].comparisons,
+	      profiles[i].misses, profiles[i].bytes);
+    }
+}
+
+/* Like strcmp (S1, S2), but also track profiling statistics.  */
+static int
+profile_strcmp (const char *s1, const char *s2)
+{
+  int i = 1;
+  int result;
+  while (*s1 && *s1 == *s2)
+    {
+      s1++;
+      s2++;
+      i++;
+    }
+  result = (unsigned char) *s1 - (unsigned char) *s2;
+  profiles[current_mode].comparisons++;
+  if (result != 0)
+    profiles[current_mode].misses++;
+  profiles[current_mode].bytes += i;
+  return result;
+}
+
+# define strcmp profile_strcmp
+#endif /* DEBUG_SYM */
+
+
 /*----------------------------------------------------------------------.
 | Initialise the symbol table, by allocating the necessary storage, and |
 | zeroing all the entries.					        |
@@ -43,73 +98,87 @@ symbol **symtab;
 void
 symtab_init (void)
 {
-  int i;
+  size_t i;
   symbol **s;
 
   s = symtab = (symbol **) xmalloc (hash_table_size * sizeof (symbol *));
 
-  for (i = hash_table_size; --i >= 0;)
-    *s++ = NULL;
+  for (i = 0; i < hash_table_size; i++)
+    s[i] = NULL;
+
+#ifdef DEBUG_SYM
+  {
+    int e = atexit(show_profile);
+    if (e != 0)
+      M4ERROR ((warning_status, 0,
+		"INTERNAL ERROR: unable to show symtab profile"));
+  }
+#endif /* DEBUG_SYM */
 }
 
 /*--------------------------------------------------.
 | Return a hashvalue for a string, from GNU-emacs.  |
 `--------------------------------------------------*/
 
-static int
+static size_t
 hash (const char *s)
 {
-  register int val = 0;
+  register size_t val = 0;
 
   register const char *ptr = s;
   register char ch;
 
   while ((ch = *ptr++) != '\0')
-    {
-      if (ch >= 0140)
-	ch -= 40;
-      val = ((val << 3) + (val >> 28) + ch);
-    };
-  val = (val < 0) ? -val : val;
-  return val % hash_table_size;
+    val = (val << 7) + (val >> (sizeof (val) * CHAR_BIT - 7)) + ch;
+  return val;
 }
 
 /*--------------------------------------------.
 | Free all storage associated with a symbol.  |
 `--------------------------------------------*/
 
-static void
+void
 free_symbol (symbol *sym)
 {
-  if (SYMBOL_NAME (sym))
-    xfree (SYMBOL_NAME (sym));
-  if (SYMBOL_TYPE (sym) == TOKEN_TEXT)
-    xfree (SYMBOL_TEXT (sym));
-  xfree ((voidstar) sym);
+  if (SYMBOL_PENDING_EXPANSIONS (sym) > 0)
+    SYMBOL_DELETED (sym) = TRUE;
+  else
+    {
+      free (SYMBOL_NAME (sym));
+      if (SYMBOL_TYPE (sym) == TOKEN_TEXT)
+	free (SYMBOL_TEXT (sym));
+      free (sym);
+    }
 }
 
-/*------------------------------------------------------------------------.
-| Search in, and manipulation of the symbol table, are all done by	  |
-| lookup_symbol ().  It basically hashes NAME to a list in the symbol	  |
-| table, and searched this list for the first occurence of a symbol with  |
-| the name.								  |
-| 									  |
-| The MODE parameter determines what lookup_symbol () will do.  It can	  |
-| either just do a lookup, do a lookup and insert if not present, do an	  |
-| insertion even if the name is already in the list, delete the first	  |
-| occurrence of the name on the list or delete all occurences of the name |
-| on the list.								  |
-`------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------.
+| Search in, and manipulation of the symbol table, are all done by   |
+| lookup_symbol ().  It basically hashes NAME to a list in the	     |
+| symbol table, and searches this list for the first occurrence of a |
+| symbol with the name.						     |
+|								     |
+| The MODE parameter determines what lookup_symbol () will do.  It   |
+| can either just do a lookup, do a lookup and insert if not	     |
+| present, do an insertion even if the name is already in the list,  |
+| delete the first occurrence of the name on the list, or delete all |
+| occurrences of the name on the list.				     |
+`-------------------------------------------------------------------*/
 
 symbol *
 lookup_symbol (const char *name, symbol_lookup mode)
 {
-  int h, cmp = 1;
+  size_t h;
+  int cmp = 1;
   symbol *sym, *prev;
   symbol **spp;
 
+#if DEBUG_SYM
+  current_mode = mode;
+  profiles[mode].entry++;
+#endif /* DEBUG_SYM */
+
   h = hash (name);
-  sym = symtab[h];
+  sym = symtab[h % hash_table_size];
 
   for (prev = NULL; sym != NULL; prev = sym, sym = sym->next)
     {
@@ -125,18 +194,41 @@ lookup_symbol (const char *name, symbol_lookup mode)
 
   /* Symbol not found.  */
 
-  spp = (prev != NULL) ?  &prev->next : &symtab[h];
+  spp = (prev != NULL) ?  &prev->next : &symtab[h % hash_table_size];
 
   switch (mode)
     {
 
     case SYMBOL_INSERT:
 
-      /* Return the symbol, if the name was found in the table.
-	 Otherwise, just insert the name, and return the new symbol.  */
+      /* If the name was found in the table, check whether it is still in
+	 use by a pending expansion.  If so, replace the table element with
+	 a new one; if not, just return the symbol.  If not found, just
+	 insert the name, and return the new symbol.  */
 
       if (cmp == 0 && sym != NULL)
-	return sym;
+	{
+	  if (SYMBOL_PENDING_EXPANSIONS (sym) > 0)
+	    {
+	      symbol *old = sym;
+	      SYMBOL_DELETED (old) = TRUE;
+
+	      sym = (symbol *) xmalloc (sizeof (symbol));
+	      SYMBOL_TYPE (sym) = TOKEN_VOID;
+	      SYMBOL_TRACED (sym) = SYMBOL_TRACED (old);
+	      SYMBOL_NAME (sym) = xstrdup (name);
+	      SYMBOL_SHADOWED (sym) = FALSE;
+	      SYMBOL_MACRO_ARGS (sym) = FALSE;
+	      SYMBOL_BLIND_NO_ARGS (sym) = FALSE;
+	      SYMBOL_DELETED (sym) = FALSE;
+	      SYMBOL_PENDING_EXPANSIONS (sym) = 0;
+
+	      SYMBOL_NEXT (sym) = SYMBOL_NEXT (old);
+	      SYMBOL_NEXT (old) = NULL;
+	      (*spp) = sym;
+	    }
+	  return sym;
+	}
       /* Fall through.  */
 
     case SYMBOL_PUSHDEF:
@@ -147,11 +239,13 @@ lookup_symbol (const char *name, symbol_lookup mode)
 
       sym = (symbol *) xmalloc (sizeof (symbol));
       SYMBOL_TYPE (sym) = TOKEN_VOID;
-      SYMBOL_TRACED (sym) = SYMBOL_SHADOWED (sym) = FALSE;
+      SYMBOL_TRACED (sym) = FALSE;
       SYMBOL_NAME (sym) = xstrdup (name);
       SYMBOL_SHADOWED (sym) = FALSE;
       SYMBOL_MACRO_ARGS (sym) = FALSE;
       SYMBOL_BLIND_NO_ARGS (sym) = FALSE;
+      SYMBOL_DELETED (sym) = FALSE;
+      SYMBOL_PENDING_EXPANSIONS (sym) = 0;
 
       SYMBOL_NEXT (sym) = *spp;
       (*spp) = sym;
@@ -164,75 +258,107 @@ lookup_symbol (const char *name, symbol_lookup mode)
       return sym;
 
     case SYMBOL_DELETE:
-
-      /* Delete all occurences of symbols with NAME.  */
-
-      if (cmp != 0 || sym == NULL)
-	return NULL;
-      do
-	{
-	  *spp = SYMBOL_NEXT (sym);
-	  free_symbol (sym);
-	  sym = *spp;
-	}
-      while (sym != NULL && strcmp (name, SYMBOL_NAME (sym)) == 0);
-      return NULL;
-
     case SYMBOL_POPDEF:
 
-       /* Delete the first occurence of a symbol with NAME.  */
+      /* Delete occurrences of symbols with NAME.  SYMBOL_DELETE kills
+	 all definitions, SYMBOL_POPDEF kills only the first.
+	 However, if the last instance of a symbol is marked for
+	 tracing, reinsert a placeholder in the table.  And if the
+	 definition is still in use, let the caller free the memory
+	 after it is done with the symbol.  */
 
       if (cmp != 0 || sym == NULL)
 	return NULL;
-      if (SYMBOL_NEXT (sym) != NULL && cmp == 0)
-	SYMBOL_SHADOWED (SYMBOL_NEXT (sym)) = FALSE;
-      *spp = SYMBOL_NEXT (sym);
-      free_symbol (sym);
+      {
+	boolean traced = FALSE;
+	if (SYMBOL_NEXT (sym) != NULL
+	    && SYMBOL_SHADOWED (SYMBOL_NEXT (sym))
+	    && mode == SYMBOL_POPDEF)
+	  {
+	    SYMBOL_SHADOWED (SYMBOL_NEXT (sym)) = FALSE;
+	    SYMBOL_TRACED (SYMBOL_NEXT (sym)) = SYMBOL_TRACED (sym);
+	  }
+	else
+	  traced = SYMBOL_TRACED (sym);
+	do
+	  {
+	    *spp = SYMBOL_NEXT (sym);
+	    free_symbol (sym);
+	    sym = *spp;
+	  }
+	while (*spp != NULL && SYMBOL_SHADOWED (*spp)
+	       && mode == SYMBOL_DELETE);
+	if (traced)
+	  {
+	    sym = (symbol *) xmalloc (sizeof (symbol));
+	    SYMBOL_TYPE (sym) = TOKEN_VOID;
+	    SYMBOL_TRACED (sym) = TRUE;
+	    SYMBOL_NAME (sym) = xstrdup (name);
+	    SYMBOL_SHADOWED (sym) = FALSE;
+	    SYMBOL_MACRO_ARGS (sym) = FALSE;
+	    SYMBOL_BLIND_NO_ARGS (sym) = FALSE;
+	    SYMBOL_DELETED (sym) = FALSE;
+	    SYMBOL_PENDING_EXPANSIONS (sym) = 0;
+
+	    SYMBOL_NEXT (sym) = *spp;
+	    (*spp) = sym;
+	  }
+      }
       return NULL;
 
     default:
       M4ERROR ((warning_status, 0,
-		"INTERNAL ERROR: Illegal mode to symbol_lookup ()"));
+		"INTERNAL ERROR: invalid mode to symbol_lookup ()"));
       abort ();
     }
 }
 
-/*----------------------------------------------------------------------.
-| The following function is used for the cases, where we want to do     |
-| something to each and every symbol in the table.  The function        |
-| hack_all_symbols () traverses the symbol table, and calls a specified |
-| function FUNC for each symbol in the table.  FUNC is called with a    |
-| pointer to the symbol, and the DATA argument.			        |
-`----------------------------------------------------------------------*/
+/*-----------------------------------------------------------------.
+| The following function is used for the cases where we want to do |
+| something to each and every symbol in the table.  The function   |
+| hack_all_symbols () traverses the symbol table, and calls a	   |
+| specified function FUNC for each symbol in the table.  FUNC is   |
+| called with a pointer to the symbol, and the DATA argument.	   |
+|								   |
+| FUNC may safely call lookup_symbol with mode SYMBOL_POPDEF or	   |
+| SYMBOL_LOOKUP, but any other mode can break the iteration.	   |
+`-----------------------------------------------------------------*/
 
 void
 hack_all_symbols (hack_symbol *func, const char *data)
 {
-  int h;
+  size_t h;
   symbol *sym;
+  symbol *next;
 
   for (h = 0; h < hash_table_size; h++)
     {
-      for (sym = symtab[h]; sym != NULL; sym = SYMBOL_NEXT (sym))
-	(*func) (sym, data);
+      /* We allow func to call SYMBOL_POPDEF, which can invalidate
+	 sym, so we must grab the next element to traverse before
+	 calling func.  */
+      for (sym = symtab[h]; sym != NULL; sym = next)
+	{
+	  next = SYMBOL_NEXT (sym);
+	  (*func) (sym, data);
+	}
     }
 }
 
 #ifdef DEBUG_SYM
 
-static void
+static void symtab_print_list (int i);
+
+static void M4_GNUC_UNUSED
 symtab_debug (void)
 {
-  token_type t;
   token_data td;
   const char *text;
   symbol *s;
   int delete;
+  static int i;
 
-  while ((t = next_token (&td)) != NULL)
+  while (next_token (&td) == TOKEN_WORD)
     {
-      if (t != TOKEN_WORD)
-	continue;
       text = TOKEN_DATA_TEXT (&td);
       if (*text == '_')
 	{
@@ -252,20 +378,26 @@ symtab_debug (void)
       else
 	(void) lookup_symbol (text, SYMBOL_INSERT);
     }
-  hack_all_symbols (dump_symbol);
+  symtab_print_list (i++);
 }
 
 static void
 symtab_print_list (int i)
 {
   symbol *sym;
+  size_t h;
 
-  printf ("Symbol dump #d:\n", i);
-  for (sym = symtab[i]; sym != NULL; sym = sym->next)
-    printf ("\tname %s, addr 0x%x, next 0x%x, flags%s%s\n",
-	   SYMBOL_NAME (sym), sym, sym->next,
-	   SYMBOL_TRACED (sym) ? " traced" : "",
-	   SYMBOL_SHADOWED (sym) ? " shadowed" : "");
+  printf ("Symbol dump #%d:\n", i);
+  for (h = 0; h < hash_table_size; h++)
+    for (sym = symtab[h]; sym != NULL; sym = sym->next)
+      printf ("\tname %s, bucket %lu, addr %p, next %p, "
+	      "flags%s%s%s, pending %d\n",
+	      SYMBOL_NAME (sym),
+	      (unsigned long int) h, sym, SYMBOL_NEXT (sym),
+	      SYMBOL_TRACED (sym) ? " traced" : "",
+	      SYMBOL_SHADOWED (sym) ? " shadowed" : "",
+	      SYMBOL_DELETED (sym) ? " deleted" : "",
+	      SYMBOL_PENDING_EXPANSIONS (sym));
 }
 
 #endif /* DEBUG_SYM */

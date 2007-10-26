@@ -1,0 +1,123 @@
+Index: samba/source/passdb/machine_sid.c
+===================================================================
+--- samba/source/passdb/machine_sid.c.orig
++++ samba/source/passdb/machine_sid.c
+@@ -206,7 +206,11 @@ void reset_global_sam_sid(void) 
+ 
+ BOOL sid_check_is_domain(const DOM_SID *sid)
+ {
+-	return sid_equal(sid, get_global_sam_sid());
++	DOM_SID apple_wellknown =
++	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
++
++	return sid_equal(sid, get_global_sam_sid()) ||
++		sid_equal(sid, &apple_wellknown);
+ }
+ 
+ /*****************************************************************
+@@ -221,5 +225,5 @@ BOOL sid_check_is_in_our_domain(const DO
+ 	sid_copy(&dom_sid, sid);
+ 	sid_split_rid(&dom_sid, &rid);
+ 	
+-	return sid_equal(&dom_sid, get_global_sam_sid());
++	return sid_check_is_domain(&dom_sid);
+ }
+Index: samba/source/passdb/pdb_interface.c
+===================================================================
+--- samba/source/passdb/pdb_interface.c.orig
++++ samba/source/passdb/pdb_interface.c
+@@ -1274,6 +1274,9 @@ static BOOL pdb_default_sid_to_id(struct
+ 	const char *name;
+ 	uint32 rid;
+ 
++	DOM_SID apple_wellknown =
++	    { 1, 1, {0,0,0,0,0,5}, {21,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
++
+ 	mem_ctx = talloc_new(NULL);
+ 
+ 	if (mem_ctx == NULL) {
+@@ -1287,6 +1290,12 @@ static BOOL pdb_default_sid_to_id(struct
+ 		goto done;
+ 	}
+ 
++	if (sid_peek_check_rid(&apple_wellknown, sid, &rid)) {
++		/* Here we might have users as well as groups and aliases */
++		ret = lookup_global_sam_rid(mem_ctx, rid, &name, type, id);
++		goto done;
++	}
++
+ 	/* check for "Unix User" */
+ 
+ 	if ( sid_peek_check_rid(&global_sid_Unix_Users, sid, &rid) ) {
+@@ -1307,8 +1316,8 @@ static BOOL pdb_default_sid_to_id(struct
+ 	
+ 
+ 	/* BUILTIN */
+-
+-	if (sid_peek_check_rid(&global_sid_Builtin, sid, &rid)) {
++	if (sid_check_is_in_builtin(sid) ||
++	    sid_check_is_in_wellknown_domain(sid)) {
+ 		/* Here we only have aliases */
+ 		GROUP_MAP map;
+ 		if (!NT_STATUS_IS_OK(methods->getgrsid(methods, &map, *sid))) {
+Index: samba/source/nsswitch/winbindd_util.c
+===================================================================
+--- samba/source/nsswitch/winbindd_util.c.orig
++++ samba/source/nsswitch/winbindd_util.c
+@@ -603,12 +603,18 @@ struct winbindd_domain *find_domain_from
+ struct winbindd_domain *find_domain_from_sid_noinit(const DOM_SID *sid)
+ {
+ 	struct winbindd_domain *domain;
++	uint32_t discard;
+ 
+ 	/* Search through list */
+ 
+ 	for (domain = domain_list(); domain != NULL; domain = domain->next) {
+-		if (sid_compare_domain(sid, &domain->sid) == 0)
++		/* We need to use sid_peek_check_rid, because some systems, eg
++		 * Open Directory, have allocated their own builtin SIDs.
++		 * These need to get to the default idmap backend.
++		 */
++		if (sid_peek_check_rid(&domain->sid, sid, &discard) == 0) {
+ 			return domain;
++		}
+ 	}
+ 
+ 	/* Not found */
+Index: samba/source/nsswitch/winbindd_passdb.c
+===================================================================
+--- samba/source/nsswitch/winbindd_passdb.c.orig
++++ samba/source/nsswitch/winbindd_passdb.c
+@@ -125,7 +125,8 @@ static NTSTATUS sid_to_name(struct winbi
+ 
+ 	/* Paranoia check */
+ 	if (!sid_check_is_in_builtin(sid) &&
+-	    !sid_check_is_in_our_domain(sid)) {
++	    !sid_check_is_in_our_domain(sid) &&
++	    !sid_check_is_in_wellknown_domain(sid)) {
+ 		DEBUG(0, ("Possible deadlock: Trying to lookup SID %s with "
+ 			  "passdb backend\n", sid_string_static(sid)));
+ 		return NT_STATUS_NONE_MAPPED;
+Index: samba/source/passdb/util_wellknown.c
+===================================================================
+--- samba/source/passdb/util_wellknown.c.orig
++++ samba/source/passdb/util_wellknown.c
+@@ -64,10 +64,18 @@ static const struct rid_name_map nt_auth
+ 	{ 20, "Network Service"},
+ 	{  0,  NULL}};
+ 
++static const DOM_SID global_sid_NULL_Authority =  /* NULL sid */
++{ 1, 0, {0,0,0,0,0,0}, {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
++
++static const struct rid_name_map null_authority_users[] = {
++	{ 0, "Nobody" },
++	{ 0, NULL}};
++
+ static struct sid_name_map_info special_domains[] = {
+ 	{ &global_sid_World_Domain, "", everyone_users },
+ 	{ &global_sid_Creator_Owner_Domain, "", creator_owner_users },
+ 	{ &global_sid_NT_Authority, "NT Authority", nt_authority_users },
++	{ &global_sid_NULL_Authority, "NULL Authority", null_authority_users },
+ 	{ NULL, NULL, NULL }};
+ 
+ BOOL sid_check_is_wellknown_domain(const DOM_SID *sid, const char **name)

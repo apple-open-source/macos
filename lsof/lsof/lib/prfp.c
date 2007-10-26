@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: prfp.c,v 1.12 2006/03/27 22:56:06 abe Exp $";
+static char *rcsid = "$Id: prfp.c,v 1.12 2006/03/27 22:56:06 abe Exp abe $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -63,6 +63,7 @@ process_file(fp)
 {
 	struct file f;
 	int flag;
+	char tbuf[32];
 
 #if	defined(FILEPTR)
 /*
@@ -196,8 +197,9 @@ process_file(fp)
 	    default:
 		if (f.f_type || f.f_ops) {
 		    (void) snpf(Namech, Namechl,
-			"%s file struct, ty=%#x, op=%#x",
-			print_kptr(fp, (char *)NULL, 0), f.f_type, f.f_ops);
+			"%s file struct, ty=%#x, op=%s",
+			print_kptr(fp, tbuf, sizeof(tbuf)), (int)f.f_type,
+			print_kptr((KA_T)f.f_ops, (char *)NULL, 0));
 		    enter_nm(Namech);
 		    return;
 		}

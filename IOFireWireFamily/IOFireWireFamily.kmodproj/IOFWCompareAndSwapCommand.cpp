@@ -30,7 +30,6 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
@@ -424,8 +423,9 @@ bool IOFWCompareAndSwapCommand::locked( UInt32 * oldVal )
 void IOFWCompareAndSwapCommand::gotPacket( int rcode, const void* data, int size )
 {
 	setResponseCode( rcode );
+    IOReturn result = kIOReturnSuccess;
 	
-    int i;
+    unsigned int i;
     
 	if( rcode != kFWResponseComplete ) 
 	{
@@ -434,14 +434,22 @@ void IOFWCompareAndSwapCommand::gotPacket( int rcode, const void* data, int size
         return;
     }
 	
-	// Truncate the receive packet, if greater than 8 bytes.
-	if (size > 8)
-		size = 8;
+	if( size != (fSize / 2) )
+	{
+        // IOLog("Bad Lock Response Length for node %x (%08x instead of %08x)\n", fNodeID,size,fSize / 2);
+		result = kIOFireWireInvalidResponseLength;
+	}
 	
-    for( i = 0; i < size / 4; i++ ) 
+	unsigned int clipped_size = size;
+	if( clipped_size > sizeof(fOldVal) )
+	{
+		clipped_size = sizeof(fOldVal);
+	}
+	
+    for( i = 0; i < clipped_size / 4; i++ ) 
 	{
         fOldVal[i] = ((UInt32 *)data)[i];
     }
 	
-    complete( kIOReturnSuccess );
+    complete( result );
 }

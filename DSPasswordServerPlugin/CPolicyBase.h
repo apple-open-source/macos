@@ -41,9 +41,6 @@ extern "C" {
 #include <CoreFoundation/CoreFoundation.h>
 #include <PasswordServer/AuthFile.h>
 
-bool pwsf_ConvertCFDateToBSDTime( CFDateRef inDateRef, struct tm *outBSDDate );
-bool pwsf_ConvertBSDTimeToCFDate( struct tm *inBSDDate, CFDateRef *outDateRef );
-
 #ifdef __cplusplus
 };
 #endif

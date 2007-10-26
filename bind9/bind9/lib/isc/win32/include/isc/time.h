@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: time.h,v 1.19.2.1.10.5 2004/03/11 05:58:43 marka Exp $ */
+/* $Id: time.h,v 1.27 2004/03/16 05:52:23 marka Exp $ */
 
 #ifndef ISC_TIME_H
 #define ISC_TIME_H 1

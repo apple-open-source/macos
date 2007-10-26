@@ -20,6 +20,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef __DYNAMIC__
 #include <notify.h>
 
 uint32_t notify_post(const char *name)
@@ -70,3 +71,4 @@ uint32_t notify_monitor_file(int t, char *s, int f)
 {
 	return 0;
 }
+#endif /* !defined(__DYNAMIC__) */

@@ -1,9 +1,4 @@
-# Server-side
-<reply>
-<data>
-</data>
-</reply>
-
+<testcase>
 # Client-side
 <client>
 <features>
@@ -16,7 +11,7 @@ https
 insecure HTTPS without permission
  </name>
  <command>
-https://%HOSTIP:%HTTPPORT/want/305 --cacert moooo
+https://%HOSTIP:%HTTPSPORT/want/305 --cacert moooo
 </command>
 </client>
 
@@ -25,9 +20,8 @@ https://%HOSTIP:%HTTPPORT/want/305 --cacert moooo
 <strip>
 ^User-Agent:.*
 </strip>
-<protocol>
-</protocol>
 <errorcode>
-60
+77
 </errorcode>
 </verify>
+</testcase>

@@ -32,6 +32,8 @@
 #import "IOFireWireLibDevice.h"
 #import <exception>
 
+#import <System/libkern/OSCrossEndian.h>
+
 namespace IOFireWireLib {
 	
 	// COM
@@ -150,10 +152,14 @@ namespace IOFireWireLib {
 		if (!mKernPhysicalAddrSpaceRef)
 			throw kIOReturnNoMemory ;
 		
-		IOReturn error = ::IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(), 
-															mUserClient.MakeSelectorWithObject( kPhysicalAddrSpace_GetSegmentCount_d, 
-																mKernPhysicalAddrSpaceRef ), 
-															0, 1, & mSegmentCount) ;
+		uint32_t outputCnt = 1;
+		uint64_t outputVal = 0;
+		IOReturn error = IOConnectCallScalarMethod( mUserClient.GetUserClientConnection(), 
+													mUserClient.MakeSelectorWithObject( kPhysicalAddrSpace_GetSegmentCount_d, mKernPhysicalAddrSpaceRef ), 
+													NULL,0,
+													&outputVal,&outputCnt);
+		mSegmentCount = outputVal & 0xFFFFFFFF;
+		
 		if ( error || mSegmentCount == 0)
 			throw error ;
 			
@@ -163,23 +169,46 @@ namespace IOFireWireLib {
 			throw kIOReturnNoMemory ;
 		}
 		
-		error = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-						kPhysicalAddrSpace_GetSegments, 3, 1, mKernPhysicalAddrSpaceRef,
-						mSegmentCount, mSegments, & mSegmentCount) ;
-
+		outputCnt = 1;
+		outputVal = 0;
+		const uint64_t inputs[3] = {(const uint64_t)mKernPhysicalAddrSpaceRef, mSegmentCount, (const uint64_t)mSegments};
+		error = IOConnectCallScalarMethod( mUserClient.GetUserClientConnection(), 
+										  kPhysicalAddrSpace_GetSegments, 
+										  inputs,3,
+										  &outputVal,&outputCnt);
+		mSegmentCount = outputVal & 0xFFFFFFFF;
+		
 		if (error)
 		{
 			throw error ;
 		}
 
+#ifndef __LP64__		
+		ROSETTA_ONLY(	
+			{
+				UInt32 i;
+				for( i = 0; i < mSegmentCount; i++ );
+				{
+					mSegments[i].location = OSSwapInt32( mSegments[i].location );
+					mSegments[i].length = OSSwapInt32( mSegments[i].length );
+				}
+			}
+		);
+#endif
+		
 		mFWAddress = FWAddress(0, mSegments[0].location, 0) ;
 	}
 	
 	PhysicalAddressSpace::~PhysicalAddressSpace()
 	{
 		// call user client to delete our addr space ref here (if not yet released)
-		IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
-										kReleaseUserObject, 1, 0, mKernPhysicalAddrSpaceRef ) ;
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[1]={(const uint64_t)mKernPhysicalAddrSpaceRef};
+
+		IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+								  kReleaseUserObject,
+								  inputs,1,
+								  NULL,&outputCnt);
 		
 		delete[] mSegments ;
 	
@@ -198,7 +227,7 @@ namespace IOFireWireLib {
 			return ;
 		}
 		
-		*ioSegmentCount = *ioSegmentCount <? mSegmentCount ;
+		*ioSegmentCount = MIN( *ioSegmentCount, mSegmentCount ) ;
 		
 		for( unsigned index=0; index < *ioSegmentCount; ++index )
 		{

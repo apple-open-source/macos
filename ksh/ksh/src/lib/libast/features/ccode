@@ -1,5 +1,5 @@
 tst output{
-	main()
+	int main()
 	{
 		printf("\n");
 		printf("#define CC_ASCII	1		/* ISO-8859-1			*/\n");
@@ -8,8 +8,10 @@ tst output{
 		printf("#define CC_EBCDIC_O	4		/* IBM-1047 mvs OpenEdition	*/\n");
 		printf("#define CC_EBCDIC_S	5		/* Siemens posix-bc		*/\n");
 		printf("#define CC_EBCDIC_H	6		/* IBM-37 AS/400		*/\n");
+		printf("#define CC_EBCDIC_M	7		/* IBM mvs cobol		*/\n");
+		printf("#define CC_EBCDIC_U	8		/* microfocus cobol		*/\n");
 		printf("\n");
-		printf("#define CC_MAPS		6		/* number of code maps		*/\n");
+		printf("#define CC_MAPS		8		/* number of code maps		*/\n");
 		printf("\n");
 		printf("#define CC_EBCDIC	CC_EBCDIC_E\n");
 		printf("#define CC_EBCDIC1	CC_EBCDIC_E\n");

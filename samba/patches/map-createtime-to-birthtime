@@ -1,0 +1,76 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -878,6 +878,9 @@ main() {
+ #
+     *darwin*)
+ 	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
++	# Enable _DARWIN_USE_64_BIT_INODE to get access to st_birthtimespec
++	# in struct stat.
++	CPPFLAGS="$CPPFLAGS -D_DARWIN_USE_64_BIT_INODE=1"
+ 
+ 	# Link smbd against Directory Services. This is a layering violation
+ 	# that needs to be removed. -- jpeach
+@@ -1623,6 +1626,39 @@ if test x"$samba_stat_hires_notimespec" 
+ 	    [whether struct stat has sub-second timestamps without struct timespec])
+ fi
+ 
++AC_CACHE_CHECK([whether struct stat has st_birthtimespec],
++    samba_stat_st_birthtimespec,
++    [
++	AC_TRY_COMPILE(
++	    [
++#if TIME_WITH_SYS_TIME
++# include <sys/time.h>
++# include <time.h>
++#else
++# if HAVE_SYS_TIME_H
++#  include <sys/time.h>
++# else
++#  include <time.h>
++# endif
++#endif
++#ifdef HAVE_SYS_STAT_H
++#include <sys/stat.h>
++#endif
++	    ],
++	    [
++		struct timespec t;
++		struct stat s = {0};
++		t.tv_sec = s.st_birthtimespec.tv_sec;
++		t.tv_nsec = s.st_birthtimespec.tv_nsec;
++	    ],
++	    samba_stat_st_birthtimespec=yes, samba_stat_st_birthtimespec=no)
++    ])
++
++if test x"$samba_stat_st_birthtimespec" = x"yes" ; then
++    AC_DEFINE(HAVE_STAT_ST_BIRTHTIMESPEC, 1,
++		[whether struct stat has st_birthtimespec])
++fi
++
+ #####################################
+ # needed for SRV lookups
+ AC_CHECK_LIB(resolv, dn_expand)
+Index: samba/source/lib/time.c
+===================================================================
+--- samba/source/lib/time.c.orig
++++ samba/source/lib/time.c
+@@ -829,6 +829,9 @@ void put_long_date(char *p, time_t t)
+ 
+ time_t get_create_time(const SMB_STRUCT_STAT *st,BOOL fake_dirs)
+ {
++#ifdef HAVE_STAT_ST_BIRTHTIMESPEC
++       return st->st_birthtimespec.tv_sec;
++#else
+ 	time_t ret, ret1;
+ 
+ 	if(S_ISDIR(st->st_mode) && fake_dirs) {
+@@ -847,6 +850,7 @@ time_t get_create_time(const SMB_STRUCT_
+ 	 * Just return MIN(ctime, mtime).
+ 	 */
+ 	return ret;
++#endif
+ }
+ 
+ struct timespec get_create_timespec(const SMB_STRUCT_STAT *st,BOOL fake_dirs)

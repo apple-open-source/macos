@@ -21,7 +21,7 @@ if $tracelevel then {
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists noobjc64] {
     verbose "Disable Objective-C tests on 64-bit PowerPC."
     return
 }

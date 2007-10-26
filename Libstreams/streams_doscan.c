@@ -63,6 +63,7 @@ static char _sctab[256] = {
 
 #define SCTAB_SIZE	256
 
+__private_extern__
 int
 NXVScanf(NXStream *stream, register const char *fmt, va_list arg)
 {

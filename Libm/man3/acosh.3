@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)acosh.3	5.2 (Berkeley) 5/6/91
-.\"	$Id: acosh.3,v 1.4 2004/12/20 21:35:44 scp Exp $
+.\"	$Id: acosh.3,v 1.6 2006/06/19 18:38:40 scanon Exp $
 .\"
 .Dd November 15, 2002
 .Dt ACOSH 3
@@ -49,10 +49,10 @@
 .Sh DESCRIPTION
 The
 .Fn acosh
-function computes the inverse hyperbolic cosine
-of the real
-argument
+function computes the principle value of the inverse hyperbolic cosine of 
 .Ar x .
+The result is in the range
+.Bq 0 , +infinity .
 .Sh SPECIAL VALUES
 .Fn acosh "1"
 returns +0.

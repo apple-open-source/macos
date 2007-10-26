@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8-conv.c,v 1.8.2.2 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8-conv.c,v 1.11.2.4 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +40,9 @@
 
 #include "portable.h"
 
+#if SIZEOF_WCHAR_T >= 4
+/* These routines assume ( sizeof(wchar_t) >= 4 ) */
+
 #include <stdio.h>
 #include <ac/stdlib.h>		/* For wctomb, wcstombs, mbtowc, mbstowcs */
 #include <ac/string.h>
@@ -76,8 +79,8 @@ ASCII chars 						7 bits
 Unicode address space   (0 - 0x10FFFF)    21 bits
 ISO-10646 address space (0 - 0x7FFFFFFF)  31 bits
 
-Note:  This code does not prevent UTF-8 sequences which are longer than
-	   necessary from being decoded.
+Note: This code does not prevent UTF-8 sequences which are longer than
+      necessary from being decoded.
 */
 
 /*----------------------------------------------------------------------------- 
@@ -90,31 +93,25 @@ ldap_x_utf8_to_wc ( wchar_t *wchar, const char *utf8char )
 	int utflen, i;
 	wchar_t ch;
 
-	/* If input ptr is NULL, treat it as empty string. */
-	if (utf8char == NULL)
-		utf8char = "";
+	if (utf8char == NULL) return -1;
 
 	/* Get UTF-8 sequence length from 1st byte */
 	utflen = LDAP_UTF8_CHARLEN2(utf8char, utflen);
 	
-	if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN )
-		return -1;								 	/* Invalid input */
+	if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN ) return -1;
 
 	/* First byte minus length tag */
 	ch = (wchar_t)(utf8char[0] & mask[utflen]);
 	
-	for(i=1; i < utflen; i++)
-	{
+	for(i=1; i < utflen; i++) {
 		/* Subsequent bytes must start with 10 */
-		if ((utf8char[i] & 0xc0) != 0x80)
-			return -1;
+		if ((utf8char[i] & 0xc0) != 0x80) return -1;
 	
 		ch <<= 6;			/* 6 bits of data in each subsequent byte */
 		ch |= (wchar_t)(utf8char[i] & 0x3f);
 	}
 	
-	if (wchar)
-		*wchar = ch;
+	if (wchar) *wchar = ch;
 
 	return utflen;
 }
@@ -132,42 +129,39 @@ ldap_x_utf8s_to_wcs ( wchar_t *wcstr, const char *utf8str, size_t count )
 	wchar_t ch;
 
 
-	/* If input ptr is NULL, treat it as empty string. */
-	if (utf8str == NULL)
-		utf8str = "";
+	/* If input ptr is NULL or empty... */
+	if (utf8str == NULL || !*utf8str) {
+		if ( wcstr )
+			*wcstr = 0;
+		return 0;
+	}
 
 	/* Examine next UTF-8 character.  If output buffer is NULL, ignore count */
-	while ( *utf8str && (wcstr==NULL || wclen<count) )
-	{
+	while ( *utf8str && (wcstr==NULL || wclen<count) ) {
 		/* Get UTF-8 sequence length from 1st byte */
 		utflen = LDAP_UTF8_CHARLEN2(utf8str, utflen);
 		
-		if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN )
-			return -1;								 	/* Invalid input */
+		if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN ) return -1;
 
 		/* First byte minus length tag */
 		ch = (wchar_t)(utf8str[0] & mask[utflen]);
 		
-		for(i=1; i < utflen; i++)
-		{
+		for(i=1; i < utflen; i++) {
 			/* Subsequent bytes must start with 10 */
-			if ((utf8str[i] & 0xc0) != 0x80)
-				return -1;
+			if ((utf8str[i] & 0xc0) != 0x80) return -1;
 		
 			ch <<= 6;			/* 6 bits of data in each subsequent byte */
 			ch |= (wchar_t)(utf8str[i] & 0x3f);
 		}
 		
-		if (wcstr)
-			wcstr[wclen] = ch;
+		if (wcstr) wcstr[wclen] = ch;
 		
-		utf8str += utflen;		/* Move to next UTF-8 character */
-		wclen++;				/* Count number of wide chars stored/required */
+		utf8str += utflen;	/* Move to next UTF-8 character */
+		wclen++;			/* Count number of wide chars stored/required */
 	}
 
 	/* Add null terminator if there's room in the buffer. */
-	if (wcstr && wclen < count)
-		wcstr[wclen] = 0;
+	if (wcstr && wclen < count) wcstr[wclen] = 0;
 
 	return wclen;
 }
@@ -472,3 +466,5 @@ ldap_x_mbs_to_utf8s ( char *utf8str, const char *mbstr, size_t count,
 
 	return n;	
 }
+
+#endif

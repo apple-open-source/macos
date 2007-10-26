@@ -33,11 +33,14 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlockattr_getpshared "const pthread_rwlockattr_t *attr" "int *pshared"
+.Fo pthread_rwlockattr_getpshared
+.Fa "const pthread_rwlockattr_t *restrict attr"
+.Fa "int *restrict pshared"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlockattr_getpshared
-function is used to get the process shared setting of a read/write
+function is used to get the process-shared setting of a read/write
 lock attribute object.  The setting is returned via
 .Fa pshared ,
 and may be one of two values:
@@ -53,12 +56,12 @@ the default value.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlockattr_getpshared
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
+.Xr pthread_rwlock_init 3 ,
 .Xr pthread_rwlockattr_init 3 ,
-.Xr pthread_rwlockattr_setpshared 3 ,
-.Xr pthread_rwlock_init 3
+.Xr pthread_rwlockattr_setpshared 3
 .Sh STANDARDS
 The
 .Fn pthread_rwlockattr_getpshared

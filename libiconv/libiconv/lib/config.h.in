@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2003 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2003, 2005 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 
 /* Define to 1 to enable a few rarely used encodings. */
@@ -52,6 +52,10 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
+
+/* Define to 1 or 0, depending whether the compiler supports simple visibility
+   declarations. */
+#undef HAVE_VISIBILITY
 
 /* Define if you have the wcrtomb() function. */
 #undef HAVE_WCRTOMB

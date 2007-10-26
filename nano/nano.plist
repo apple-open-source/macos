@@ -3,13 +3,13 @@
 	<key>OpenSourceProject</key>
 	<string>nano</string>
 	<key>OpenSourceVersion</key>
-	<string>1.2.4</string>
+	<string>2.0.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.nano-editor.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.nano-editor.org/dist/v1.2/nano-1.2.4.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>2c513310ec5e8b63abaecaf48670ac7a</string>
+	<string>http://www.nano-editor.org/dist/v2.0/nano-2.0.1.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>9c5e26893879355e41e417de30e9473439ceaf5d</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	</array>

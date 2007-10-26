@@ -1,0 +1,21 @@
+--- _SB/Libc/stdlib/FreeBSD/ldiv.3	2003-05-20 15:23:24.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/ldiv.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -47,14 +47,15 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft ldiv_t
+-.Fn ldiv "long num" "long denom"
++.Fn ldiv "long numer" "long denom"
+ .Sh DESCRIPTION
+ The
+ .Fn ldiv
+ function
+ computes the value
+-.Fa num Ns / Ns Fa denom
+-and returns the quotient and remainder in a structure named
++.Fa numer Ns / Ns Fa denom
++(numerator/denominator).
++Ir returns the quotient and remainder in a structure named
+ .Vt ldiv_t
+ that contains two
+ .Vt long

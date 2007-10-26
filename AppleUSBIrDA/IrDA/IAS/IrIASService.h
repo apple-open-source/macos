@@ -112,7 +112,7 @@ class TIASElement : public OSObject
 	    UByte               type;
 	    ULong               length;
 	    UByte               characterSet;       // used to store the character set of a string
-	    ULong               valueOrBytes;       // Used to store an integer value or up to 4 bytes
+	    ULong               valueOrBytes;       // Used to store an integer value or up to 4 bytes -- in network order
 	    UByte*              nameOrBytes;        // Used to store string or more than 4 bytes
 
 };

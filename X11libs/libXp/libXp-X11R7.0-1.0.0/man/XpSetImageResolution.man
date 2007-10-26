@@ -1,0 +1,96 @@
+.\" $XdotOrg: $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpSetImageResolution 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+
+.SH NAME
+XpSetImageResolution \- Sets the resolution for subsequent PutImage requests
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B Bool XpSetImageResolution
+(
+.I display,
+.I print_context,
+.I image_res,
+.I prev_res_return
+)
+.br
+      Display *\fI display \fP\^;
+.br
+      XPContext \fI print_context \fP\^;
+.br
+      int \fI image_res \fP\^;
+.br
+      int *\fI prev_res_return \fP\^;            
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I \- display
+Specifies a pointer to the Display structure.
+.TP
+.I \- print_context
+Specifies the print context on which to set the resolution.
+.TP
+.I \- image_res
+Specifies the image resolution in pixels per inch.
+.TP
+.I \- prev_res_return
+Returns the previous image resolution in pixels per inch.
+.SH DESCRIPTION
+.LP
+XpSetImageResolution returns True if the printer server allowed the resolution to be set, otherwise False is returned.
+
+XpSetImageResolution sets the resolution for subsequent PutImage requests to the screen of the specified print context. If the return value is False, then the print server does not support image scaling for the particular resolution given the current configuration of the printer, and the application is responsible for any desired scaling. If the return value is True, then the contents of any subsequent PutImage request to a Pixmap or to a Window on the screen of the specified print context will automatically be scaled as part of the PutImage request. The scale factor is:
+
+.nf
+    default_printer_resolution / image_res
+.fi    
+
+Where default_printer_resolution is the current value of that page attribute. Only the image itself is scaled (meaning the effective width and height of the image change), the dst-x and dst-y parameters to PutImage are not altered.
+
+As a special case, a value of zero for image_res resets the resolution to automatically track the printer resolution; in this case (which is also the default setting for a newly created print context), subsequent images will not be scaled.
+
+If the return value is True and prev_res_return is a non-NULL pointer, then the previous image resolution that was set for the print context is stored in prev_res_return.
+
+XpSetImageResolution returns False immediately if image_res is negative or greater than 65535.
+.SH DIAGNOSTICS
+.TP 15
+.B XpBadContext
+A valid print context-id has not been set prior to making this call.

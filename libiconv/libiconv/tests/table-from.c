@@ -1,4 +1,4 @@
-/* Copyright (C) 2000-2002 Free Software Foundation, Inc.
+/* Copyright (C) 2000-2002, 2004-2005 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,8 +13,8 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Create a table from CHARSET to Unicode. */
 
@@ -26,6 +26,8 @@
 #include <string.h>
 #include <iconv.h>
 #include <errno.h>
+
+#include "binary-io.h"
 
 /* If nonzero, ignore conversions outside Unicode plane 0. */
 static int bmp_only;
@@ -106,15 +108,19 @@ int main (int argc, char* argv[])
   }
   charset = argv[1];
 
+#if O_BINARY
+  SET_BINARY(fileno(stdout));
+#endif
+
   cd = iconv_open("UCS-4-INTERNAL",charset);
   if (cd == (iconv_t)(-1)) {
     perror("iconv_open");
     exit(1);
   }
 
-  /* When testing UTF-8 or GB18030, stop at 0x10000, otherwise the output
-     file gets too big. */
-  bmp_only = (strcmp(charset,"UTF-8") == 0 || strcmp(charset,"GB18030") == 0);
+  /* When testing UTF-8, stop at 0x10000, otherwise the output file gets too
+     big. */
+  bmp_only = (strcmp(charset,"UTF-8") == 0);
   search_depth = (strcmp(charset,"UTF-8") == 0 ? 3 : 4);
 
   {
@@ -175,7 +181,7 @@ int main (int argc, char* argv[])
     exit(1);
   }
 
-  if (ferror(stdin) || ferror(stdout)) {
+  if (ferror(stdin) || ferror(stdout) || fclose(stdout)) {
     fprintf(stderr,"I/O error\n");
     exit(1);
   }

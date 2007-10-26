@@ -1,0 +1,94 @@
+--- netdissect.h~	2005-09-29 00:46:46.000000000 -0700
++++ netdissect.h	2006-05-03 00:32:21.000000000 -0700
+@@ -85,6 +85,7 @@
+   int ndo_aflag;		/* translate network and broadcast addresses */
+   int ndo_eflag;		/* print ethernet header */
+   int ndo_fflag;		/* don't translate "foreign" IP address */
++  int ndo_Kflag;		/* don't check TCP checksums */
+   int ndo_nflag;		/* leave addresses as numbers */
+   int ndo_Nflag;		/* remove domains from printed host names */
+   int ndo_qflag;		/* quick (shorter) output */
+--- interface.h~	2005-09-29 00:46:45.000000000 -0700
++++ interface.h	2006-05-03 00:33:12.000000000 -0700
+@@ -344,6 +344,7 @@
+ 
+ #define eflag gndo->ndo_eflag 
+ #define fflag gndo->ndo_fflag 
++#define Kflag gndo->ndo_Kflag 
+ #define nflag gndo->ndo_nflag 
+ #define Nflag gndo->ndo_Nflag 
+ #define Oflag gndo->ndo_Oflag 
+--- tcpdump.c~	2005-08-23 03:29:41.000000000 -0700
++++ tcpdump.c	2006-05-03 00:36:40.000000000 -0700
+@@ -499,7 +499,7 @@
+ 
+ 	opterr = 0;
+ 	while (
+-	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:i:lLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:YZ:")) != -1)
++	    (op = getopt(argc, argv, "aA" B_FLAG "c:C:d" D_FLAG "eE:fF:i:KlLm:M:nNOpqr:Rs:StT:u" U_FLAG "vw:W:xXy:YZ:")) != -1)
+ 		switch (op) {
+ 
+ 		case 'a':
+@@ -637,6 +637,10 @@
+ 			++Nflag;
+ 			break;
+ 
++		case 'K':
++			++Kflag;
++			break;
++
+ 		case 'm':
+ #ifdef LIBSMI
+ 		        if (smiLoadModule(optarg) == 0) {
+@@ -1409,7 +1413,7 @@
+ #endif /* WIN32 */
+ #endif /* HAVE_PCAP_LIB_VERSION */
+ 	(void)fprintf(stderr,
+-"Usage: %s [-aAd" D_FLAG "eflLnNOpqRStu" U_FLAG "vxX]" B_FLAG_USAGE " [-c count] [ -C file_size ]\n", program_name);
++"Usage: %s [-aAd" D_FLAG "efKlLnNOpqRStu" U_FLAG "vxX]" B_FLAG_USAGE " [-c count] [ -C file_size ]\n", program_name);
+ 	(void)fprintf(stderr,
+ "\t\t[ -E algo:secret ] [ -F file ] [ -i interface ] [ -M secret ]\n");
+ 	(void)fprintf(stderr,
+--- print-tcp.c~	2005-04-20 23:36:05.000000000 -0700
++++ print-tcp.c	2006-05-03 00:46:04.000000000 -0700
+@@ -420,7 +420,7 @@
+ 		return;
+ 	}
+ 
+-	if (IP_V(ip) == 4 && vflag && !fragmented) {
++	if (IP_V(ip) == 4 && vflag && !Kflag && !fragmented) {
+ 		u_int16_t sum, tcp_sum;
+ 		if (TTEST2(tp->th_sport, length)) {
+ 			sum = tcp_cksum(ip, tp, length);
+@@ -434,7 +434,7 @@
+ 		}
+ 	}
+ #ifdef INET6
+-	if (IP_V(ip) == 6 && ip6->ip6_plen && vflag && !fragmented) {
++	if (IP_V(ip) == 6 && ip6->ip6_plen && vflag && !Kflag && !fragmented) {
+ 		u_int16_t sum,tcp_sum;
+ 		if (TTEST2(tp->th_sport, length)) {
+ 			sum = tcp6_cksum(ip6, tp, length);
+--- tcpdump.1~	2005-09-05 02:14:37.000000000 -0700
++++ tcpdump.1	2006-05-03 00:52:30.000000000 -0700
+@@ -29,7 +29,7 @@
+ .na
+ .B tcpdump
+ [
+-.B \-AdDeflLnNOpqRStuUvxX
++.B \-AdDefKlLnNOpqRStuUvxX
+ ] [
+ .B \-c
+ .I count
+@@ -378,6 +378,11 @@
+ .I interface
+ argument.
+ .TP
++.B \-K
++Don't attempt to verify TCP checksums.  This is useful for interfaces
++that perform the TCP checksum calculation in hardware; otherwise,
++all outgoing TCP checksums will be flagged as bad.
++.TP
+ .B \-l
+ Make stdout line buffered.
+ Useful if you want to see the data

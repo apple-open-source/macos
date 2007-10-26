@@ -1,0 +1,8 @@
+--- configure.orig	2006-01-23 17:31:58.000000000 -0800
++++ configure	2006-01-23 17:32:04.000000000 -0800
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/bash
+ #
+ # Copyright 1999-2004 The Apache Software Foundation
+ #

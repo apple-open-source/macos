@@ -36,6 +36,7 @@ CSSM_RETURN ocspdCrlRefresh(
 	unsigned			staleDays,
 	unsigned			expireOverlapSeconds,
 	bool				purgeAll,
-	bool				fullCryptoVerify);
+	bool				fullCryptoVerify,
+	bool				doRefresh);
 
 #endif	/* _OCSPD_CRL_REFRESH_H_ */

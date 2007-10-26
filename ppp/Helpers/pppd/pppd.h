@@ -61,7 +61,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: pppd.h,v 1.30 2005/03/09 16:49:36 lindak Exp $
+ * $Id: pppd.h,v 1.35.12.1 2006/04/17 18:37:15 callie Exp $
  */
 
 /*
@@ -128,7 +128,8 @@ enum opt_type {
 	o_int,
 	o_uint32,
 	o_string,
-	o_wild
+	o_wild,
+	o_special_cfarg
 };
 
 typedef struct {
@@ -145,6 +146,8 @@ typedef struct {
 	short int winner;
 #ifdef __APPLE__
 	void	*addr3;
+	char **other_source;
+	int	nb_other_source;	
 #endif
 } option_t;
 
@@ -248,10 +251,17 @@ struct notifier {
  */
 
 extern int	hungup;		/* Physical layer has disconnected */
+#ifdef __APPLE__
+extern int do_modem_hungup;			/* need to finish disconnection */
+#endif
 extern int	ifunit;		/* Interface unit number */
 extern char	ifname[];	/* Interface name */
 extern char	hostname[];	/* Our hostname */
+#ifdef __APPLE__
+extern u_char	outpacket_buf[PPP_MRU+PPP_HDRLEN]; /* Buffer for outgoing packets */
+#else
 extern u_char	outpacket_buf[]; /* Buffer for outgoing packets */
+#endif
 extern int	phase;		/* Current state of link - see values below */
 extern int	baud_rate;	/* Current link speed in bits/sec */
 extern char	*progname;	/* Name of this program */
@@ -301,11 +311,20 @@ extern struct notifier *link_down_notifier; /* link has gone down */
 extern struct notifier *fork_notifier;	/* we are a new child process */
 
 #ifdef __APPLE__
+extern int ip_src_address_filter; /* ip source address filter */
 extern u_char inpacket_buf[PPP_MRU+PPP_HDRLEN]; /* buffer for incoming packet */
 extern uid_t	connector_uid;	/* uid for connect script */
 extern uid_t	disconnector_uid;	/*uid for disconnect script */
 extern char	*terminal_script;/* Script to etablish connection once modem is connected */
 extern char	*altconnect_script;/* alternate script to establish physical link */
+extern char	*altconnect_data;/* alternate connect data top pipe to the script */
+extern int altconnect_data_len;/* alternate connect data length */
+extern char	*connect_data;/* connect data top pipe to the script */
+extern int connect_data_len;/* connect data length */
+extern char	*disconnect_data;/* disconnect data top pipe to the script */
+extern int disconnect_data_len;/* disconnect data length */
+extern char	*terminal_data;/* terminal data top pipe to the script */
+extern int terminal_data_len;/* terminal data length */
 extern int 	pty_delay;	/* timeout to wait for the pty command */
 extern char 	*device;	 /* device we are using (can be use as a generic device container) */
 extern char 	*remoteaddress; /* remoteaddress we are connecting to (can be use as a generic address container) */
@@ -372,6 +391,8 @@ extern struct notifier *disconnect_done_notify;
 extern struct notifier *stop_notify;
 extern struct notifier *cont_notify;
 
+extern struct notifier *system_inited_notify;
+
 #endif
 
 /* Values for do_callback and doing_callback */
@@ -412,6 +433,12 @@ extern char	*ipparam;	/* Extra parameter for ip up/down scripts */
 extern bool	cryptpap;	/* Others' PAP passwords are encrypted */
 extern int	idle_time_limit;/* Shut down link if idle for this long */
 #ifdef __APPLE__
+#define PASSWDFROM_UNKNOWN		0	/* password comes from an unknown location, can't save it back */
+#define PASSWDFROM_KEYCHAIN		1	/* password comes from system keychain */
+#define PASSWDFROM_USERKEYCHAIN 2	/* password comes from user keychain */
+#define PASSWDFROM_PREFS		3	/* password comes from system prefs */
+extern int	passwdfrom;					/* where does the password com from, so we can save a new one back if needed */
+extern char	passwdkey[MAXSECRETLEN];	/* keychain key where the password is located, when itcomes from the keychain  */
 extern char	new_passwd[MAXSECRETLEN];	/* new password for protocol supporting changing password */
 extern bool    	noidlerecv;     /* Disconnect if idle only for outgoing traffic */
 extern bool    	noidlesend;     /* Disconnect if idle only for incoming traffic */
@@ -548,6 +575,10 @@ struct protent {
     /* connection resumes */
     void  (*cont) __P((int unit)); 
     int (*state) __P((int unit)); 
+    /* Print a data packet in readable form */
+    int  (*printdatapkt) __P((u_char *pkt, int len,
+			  void (*printer) __P((void *, char *, ...)),
+			  void *arg));
 #endif
 };
 
@@ -612,7 +643,7 @@ void untimeout __P((void (*func)(void *), void *arg));
 void record_child __P((int, char *, void (*) (void *), void *));
 pid_t safe_fork __P((void));	/* Fork & close stuff in child */
 #ifdef __APPLE__
-int  device_script __P((char *cmd, int in, int out, int dont_wait, uid_t program_uid));
+int  device_script __P((char *cmd, int in, int out, int dont_wait, uid_t program_uid, char *pipe_args, int pipe_args_len));
 				/* Run `cmd' with given stdin and stdout */
 #else
 int  device_script __P((char *cmd, int in, int out, int dont_wait));
@@ -741,6 +772,7 @@ void wait_input __P((struct timeval *));
 void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
+int save_new_password(); /* save new password to the keychain */
 void sys_statusnotify(); /* send status notification to the controller */
 void sys_reinit();			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
@@ -757,7 +789,10 @@ void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
 void auth_hold(int unit);
 void auth_cont(int unit);
 void option_change_idle();
+void set_network_signature(char *, char *, char *, char *); /* set the network signature */
 int wait_input_fd(int fd, int delay);
+void closeallfrom(int from);
+void options_close __P((void));	/* close options stuff */
 #ifdef INET6
 int ether_to_eui64(eui64_t *p_eui64);
 #endif
@@ -809,6 +844,7 @@ int cifroute __P((void));
 int  sifnpafmode __P((int u, int proto, enum NPAFmode mode));
 				/* Set mode for filtering addresses for proto */
 int sifdns(u_int32_t dns1, u_int32_t dns2);
+int sifwins(u_int32_t wins1, u_int32_t wins2);
 #endif
 int  sifdefaultroute __P((int, u_int32_t, u_int32_t));
 				/* Create default route through i/f */
@@ -882,6 +918,12 @@ extern int (*allowed_address_hook) __P((u_int32_t addr));
 extern void (*ip_up_hook) __P((void));
 extern void (*ip_down_hook) __P((void));
 extern void (*ip_choose_hook) __P((u_int32_t *));
+#ifdef __APPLE__
+extern void (*ipdata_input_hook) __P((int, u_char *, int, u_int32_t, u_int32_t));
+extern void (*ipdata_up_hook) __P((int, u_int32_t, u_int32_t));
+extern void (*ipdata_down_hook) __P((int));
+extern int (*ipdata_print_hook) __P((u_char *, int, void (*) __P((void *, char *, ...)), void *));
+#endif
 
 extern int (*chap_check_hook) __P((void));
 extern int (*chap_passwd_hook) __P((char *user, char *passwd));

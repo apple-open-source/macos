@@ -201,7 +201,7 @@ public:
 	bool GetExtenTop(
 		unsigned			index,			// which occurrence (0 = first)
 		uint32				&numFields,		// RETURNED
-		Allocator		&alloc,
+		Allocator			&alloc,
 		const CSSM_OID		&fieldId,		// identifies extension we seek
 		NssType				*&nssObj,		// RETURNED
 		CdsaType			*&cdsaObj,		// mallocd and RETURNED

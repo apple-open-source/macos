@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucstr.c,v 1.27.2.6 2004/01/01 18:16:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucstr.c,v 1.34.2.3 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -401,6 +401,7 @@ int UTF8bvnormcmp(
 		l1 = ulen;
 		ucs = malloc( l2 * sizeof(*ucs) );
 		if ( ucs == NULL ) {
+			free( ucsout1 );
 			return l1 > l2 ? 1 : -1; /* what to do??? */
 		}
 	} else {

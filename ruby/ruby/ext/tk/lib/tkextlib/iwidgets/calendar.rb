@@ -18,6 +18,24 @@ class Tk::Iwidgets::Calendar
   WidgetClassName = 'Calendar'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __strval_optkeys
+    super() + [
+      'buttonforeground', 'outline', 'selectcolor', 
+      'weekdaybackground', 'weekendbackground'
+    ]
+  end
+  private :__strval_optkeys
+
+  def __listval_optkeys
+    super() << 'days'
+  end
+  private :__listval_optkeys
+
+  def __font_optkeys
+    super() + ['currentdatefont', 'datefont', 'dayfont', 'titlefont']
+  end
+  private :__font_optkeys
+
   ####################################
 
   include Tk::ValidateConfigure
@@ -45,7 +63,7 @@ class Tk::Iwidgets::Calendar
   end
 
   def __validation_class_list
-    super << CalendarCommand
+    super() << CalendarCommand
   end
 
   Tk::ValidateConfigure.__def_validcmd(binding, CalendarCommand)

@@ -1786,6 +1786,7 @@ rule ProcessFrameworksAndLibraries
                 if ! $(INNER_PRODUCT_SUBDIR) in $(PRODUCT_FILES) {
                     Mkdir $(INNER_PRODUCT_SUBDIR) ;
                     ProductFile $(INNER_PRODUCT_SUBDIR) ;
+                    DEPENDS $(INNER_PRODUCT_$(VARIANT)) : $(INNER_PRODUCT_SUBDIR) ;
                 }
                 Cp $(INNER_PRODUCT_$(VARIANT)) : $(JAVA_APP_STUB) ;
                 ProductFile $(INNER_PRODUCT_$(VARIANT)) ;

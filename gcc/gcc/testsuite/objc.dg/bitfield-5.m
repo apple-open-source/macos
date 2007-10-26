@@ -7,6 +7,7 @@
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-Wpadded" } */
 /* { dg-do run } */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/objc.h>
 #include <objc/Object.h>

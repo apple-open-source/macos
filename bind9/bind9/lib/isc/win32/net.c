@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: net.c,v 1.3.2.2.4.7 2004/04/29 01:31:23 marka Exp $ */
+/* $Id: net.c,v 1.9.18.3 2005/02/24 00:32:22 marka Exp $ */
 
 #include <config.h>
 
@@ -146,6 +146,11 @@ isc_result_t
 isc_net_probeipv6(void) {
 	initialize();
 	return (ipv6_result);
+}
+
+isc_result_t
+isc_net_probeunix(void) {
+	return (ISC_R_NOTFOUND);
 }
 
 #ifdef ISC_PLATFORM_HAVEIPV6

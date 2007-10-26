@@ -6,7 +6,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: lastdirsep.c,v 1.1.1.1 1999/09/23 17:30:07 wsanchez Exp $";
+ "$Id: lastdirsep.c,v 1.1 1999/09/23 17:30:07 wsanchez Exp $";
 #endif
 #include "includes.h"
 #include "lastdirsep.h"

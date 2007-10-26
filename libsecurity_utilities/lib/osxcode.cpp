@@ -20,55 +20,17 @@
 // osxcode - MacOS X's standard code objects
 //
 #include <security_utilities/osxcode.h>
+#include <security_utilities/unix++.h>
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <errno.h>
 #include <CoreFoundation/CFBundle.h>
-#include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFBundlePriv.h>
-
-using namespace CodeSigning;
 
 
 namespace Security {
-
-
-//
-// Enumerate a single file on disk.
-//
-void OSXCode::scanFile(const char *pathname, Signer::State &state)
-{
-	// open the file (well, try)
-	int fd = open(pathname, O_RDONLY);
-	if (fd < 0)
-		UnixError::throwMe();
-	
-	// how big is it?
-	struct stat st;
-	if (fstat(fd, &st)) {
-		close(fd);
-		UnixError::throwMe();
-	}
-#if defined(LIMITED_SIGNING)
-	if (st.st_size >= 0x4000)
-		st.st_size = 0x4000;
-#endif
-	
-	// map it
-	void *p = mmap(NULL, st.st_size, PROT_READ, MAP_FILE, fd, 0);
-	close(fd);	// done with this either way
-	if (p == MAP_FAILED)
-		UnixError::throwMe();
-	
-	// scan it
-	secdebug("codesign", "scanning file %s (%ld bytes)", pathname, long(st.st_size));
-	state.enumerateContents(p, st.st_size);
-	
-	// unmap it (ignore error)
-	munmap(p, st.st_size);
-}
 
 
 //
@@ -82,7 +44,7 @@ OSXCode *OSXCode::decode(const char *extForm)
 	case 't':
 		return new ExecutableTool(extForm+2);
 	case 'b':
-		return new GenericBundle(extForm+2);
+		return new Bundle(extForm+2);
 	default:
 		return NULL;
 	}
@@ -108,7 +70,7 @@ RefPointer<OSXCode> OSXCode::main()
 		if (const char *slash = strrchr(cpath, '/'))
 			if (const char *contents = strstr(cpath, "/Contents/MacOS/"))
 				if (contents + 15 == slash)
-					return new ApplicationBundle(path.substr(0, contents-cpath).c_str());
+					return new Bundle(path.substr(0, contents-cpath).c_str());
 		secdebug("bundle", "OSXCode::main(%s) not recognized as bundle (treating as tool)", cpath);
 	}
 	return new ExecutableTool(path.c_str());
@@ -126,13 +88,13 @@ RefPointer<OSXCode> OSXCode::at(const char *path)
 	if (stat(path, &st))
 		UnixError::throwMe();
 	if ((st.st_mode & S_IFMT) == S_IFDIR) {	// directory - assume bundle
-		return new GenericBundle(path);
+		return new Bundle(path);
 	} else {
 		// look for .../Contents/MacOS/<base>
 		if (const char *slash = strrchr(path, '/'))
 			if (const char *contents = strstr(path, "/Contents/MacOS/"))
 				if (contents + 15 == slash)
-					return new GenericBundle(string(path).substr(0, contents-path).c_str(), path);
+					return new Bundle(string(path).substr(0, contents-path).c_str(), path);
 		// assume tool (single executable)
 		return new ExecutableTool(path);
 	}
@@ -142,11 +104,6 @@ RefPointer<OSXCode> OSXCode::at(const char *path)
 //
 // Executable Tools
 //
-void ExecutableTool::scanContents(Signer::State &state) const
-{
-	scanFile(mPath.c_str(), state);
-}
-
 string ExecutableTool::encode() const
 {
 	return "t:" + mPath;
@@ -166,32 +123,32 @@ string ExecutableTool::executablePath() const
 //
 // Generic Bundles
 //
-GenericBundle::GenericBundle(const char *path, const char *execPath /* = NULL */)
+Bundle::Bundle(const char *path, const char *execPath /* = NULL */)
 	: mPath(path), mBundle(NULL)
 {
 	if (execPath)						// caller knows that one; set it
 		mExecutablePath = execPath;
-	secdebug("bundle", "%p GenericBundle from path %s(%s)", this, path, executablePath().c_str());
+	secdebug("bundle", "%p Bundle from path %s(%s)", this, path, executablePath().c_str());
 }
 
-GenericBundle::GenericBundle(CFBundleRef bundle, const char *root /* = NULL */)
+Bundle::Bundle(CFBundleRef bundle, const char *root /* = NULL */)
 	: mBundle(bundle)
 {
 	assert(bundle);
 	CFRetain(bundle);
 	mPath = root ? root : cfString(CFBundleCopyBundleURL(mBundle), true);
-	secdebug("bundle", "%p GenericBundle from bundle %p(%s)", this, bundle, mPath.c_str());
+	secdebug("bundle", "%p Bundle from bundle %p(%s)", this, bundle, mPath.c_str());
 }
 
 
-GenericBundle::~GenericBundle()
+Bundle::~Bundle()
 {
 	if (mBundle)
 		CFRelease(mBundle);
 }
 
 
-string GenericBundle::executablePath() const
+string Bundle::executablePath() const
 {
 	if (mExecutablePath.empty())
 		return mExecutablePath = cfString(CFBundleCopyExecutableURL(cfBundle()), true);
@@ -200,7 +157,7 @@ string GenericBundle::executablePath() const
 }
 
 
-CFBundleRef GenericBundle::cfBundle() const
+CFBundleRef Bundle::cfBundle() const
 {
 	if (!mBundle) {
 		secdebug("bundle", "instantiating CFBundle for %s", mPath.c_str());
@@ -213,23 +170,18 @@ CFBundleRef GenericBundle::cfBundle() const
 }
 
 
-CFTypeRef GenericBundle::infoPlistItem(const char *name) const
+CFTypeRef Bundle::infoPlistItem(const char *name) const
 {
 	return CFBundleGetValueForInfoDictionaryKey(cfBundle(), CFTempString(name));
 }
 
 
-void GenericBundle::scanContents(Signer::State &state) const
-{
-	scanFile(executablePath().c_str(), state);
-}
-
-string GenericBundle::encode() const
+string Bundle::encode() const
 {
 	return "b:" + mPath;
 }
 
-void *GenericBundle::lookupSymbol(const char *name)
+void *Bundle::lookupSymbol(const char *name)
 {
     CFRef<CFStringRef> cfName(CFStringCreateWithCString(NULL, name,
                                                         kCFStringEncodingMacRoman));
@@ -241,19 +193,19 @@ void *GenericBundle::lookupSymbol(const char *name)
     return function;
 }
 
-string GenericBundle::canonicalPath() const
+string Bundle::canonicalPath() const
 {
 	return path();
 }
 
 
-string GenericBundle::resource(const char *name, const char *type, const char *subdir)
+string Bundle::resource(const char *name, const char *type, const char *subdir)
 {
 	return cfString(CFBundleCopyResourceURL(cfBundle(),
 		CFTempString(name), CFTempString(type), CFTempString(subdir)), true);
 }
 
-void GenericBundle::resources(vector<string> &paths, const char *type, const char *subdir)
+void Bundle::resources(vector<string> &paths, const char *type, const char *subdir)
 {
 	CFRef<CFArrayRef> cfList = CFBundleCopyResourceURLsOfType(cfBundle(),
 		CFTempString(type), CFTempString(subdir));

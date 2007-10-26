@@ -1,5 +1,3 @@
-/*	$NetBSD: undo.c,v 1.3 1997/07/20 06:35:42 thorpej Exp $	*/
-
 /* undo.c: This file contains the undo routines for the ed line editor */
 /*-
  * Copyright (c) 1993 Andrew Moore, Talke Studio.
@@ -28,13 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-#if 0
-static char *rcsid = "@(#)undo.c,v 1.1 1994/02/01 00:34:44 alm Exp";
-#else
-__RCSID("$NetBSD: undo.c,v 1.3 1997/07/20 06:35:42 thorpej Exp $");
-#endif
-#endif /* not lint */
+__FBSDID("$FreeBSD: src/bin/ed/undo.c,v 1.12 2002/06/30 05:13:53 obrien Exp $");
 
 #include "ed.h"
 
@@ -44,12 +36,9 @@ undo_t *ustack = NULL;				/* undo stack */
 long usize = 0;					/* stack size variable */
 long u_p = 0;					/* undo stack pointer */
 
-/* push_undo_stack: return pointer to intialized undo node */
+/* push_undo_stack: return pointer to initialized undo node */
 undo_t *
-push_undo_stack(type, from, to)
-	int type;
-	long from;
-	long to;
+push_undo_stack(int type, long from, long to)
 {
 	undo_t *t;
 
@@ -57,7 +46,7 @@ push_undo_stack(type, from, to)
 	if (ustack == NULL &&
 	    (ustack = (undo_t *) malloc((usize = USIZE) * sizeof(undo_t))) == NULL) {
 		fprintf(stderr, "%s\n", strerror(errno));
-		sprintf(errmsg, "out of memory");
+		errmsg = "out of memory";
 		return NULL;
 	}
 #endif
@@ -72,7 +61,7 @@ push_undo_stack(type, from, to)
 	}
 	/* out of memory - release undo stack */
 	fprintf(stderr, "%s\n", strerror(errno));
-	sprintf(errmsg, "out of memory");
+	errmsg = "out of memory";
 	clear_undo_stack();
 	free(ustack);
 	ustack = NULL;
@@ -93,14 +82,14 @@ long u_addr_last = -1;		/* if >= 0, undo enabled */
 
 /* pop_undo_stack: undo last change to the editor buffer */
 int
-pop_undo_stack()
+pop_undo_stack(void)
 {
 	long n;
 	long o_current_addr = current_addr;
 	long o_addr_last = addr_last;
 
 	if (u_current_addr == -1 || u_addr_last == -1) {
-		sprintf(errmsg, "nothing to undo");
+		errmsg = "nothing to undo";
 		return ERR;
 	} else if (u_p)
 		modified = 1;
@@ -142,7 +131,7 @@ pop_undo_stack()
 
 /* clear_undo_stack: clear the undo stack */
 void
-clear_undo_stack()
+clear_undo_stack(void)
 {
 	line_t *lp, *ep, *tl;
 

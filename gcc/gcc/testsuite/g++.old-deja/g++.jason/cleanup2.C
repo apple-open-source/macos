@@ -2,14 +2,18 @@
 // PRMS Id: 6303
 // Bug: compiler crashes processing the cleanup for arrayOfClass.
 
-class Class {
+// APPLE LOCAL mainline 2006-10-13 3904173
+class Klasse {
 public:
-  ~Class();		// This dtor MUST be declared to generate the error...
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  ~Klasse();		// This dtor MUST be declared to generate the error...
 };
 
-Class varOfClass;
+// APPLE LOCAL mainline 2006-10-13 3904173
+Klasse varOfClass;
 
 int main() {
   // This MUST be 'const' to generate the error...
-  const Class	arrayOfClass[1] = { varOfClass }; // causes abort
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  const Klasse	arrayOfClass[1] = { varOfClass }; // causes abort
 }

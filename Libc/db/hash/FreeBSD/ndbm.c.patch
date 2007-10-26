@@ -1,14 +1,16 @@
---- ndbm.c.orig	2004-10-28 23:25:13.000000000 -0700
-+++ ndbm.c	2004-10-28 23:25:42.000000000 -0700
-@@ -51,6 +51,7 @@
+--- ndbm.c.org	2006-09-08 18:47:42.000000000 -0700
++++ ndbm.c	2006-09-08 18:48:03.000000000 -0700
+@@ -51,6 +51,9 @@
  #include <string.h>
  #include <errno.h>
  
 +#include <db.h>
++#define _DBM
++typedef DB DBM;
  #include <ndbm.h>
  #include "hash.h"
  
-@@ -62,7 +63,8 @@
+@@ -62,7 +65,8 @@
  extern DBM *
  dbm_open(file, flags, mode)
  	const char *file;
@@ -18,7 +20,7 @@
  {
  	HASHINFO info;
  	char path[MAXPATHLEN];
-@@ -128,10 +130,14 @@
+@@ -128,10 +132,14 @@
  	int status;
  	datum retkey;
  	DBT dbtretkey, dbtretdata;
@@ -34,7 +36,7 @@
  	retkey.dptr = dbtretkey.data;
  	retkey.dsize = dbtretkey.size;
  	return (retkey);
-@@ -146,13 +152,20 @@
+@@ -146,13 +154,20 @@
  dbm_nextkey(db)
  	DBM *db;
  {

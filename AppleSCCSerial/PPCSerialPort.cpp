@@ -121,6 +121,26 @@ bool AppleSCCSerial::start(IOService *provider)
 
     // get our workloop
     myWorkLoop = getWorkLoop();
+
+    if (!myWorkLoop)
+    {
+		return false;
+    }
+	
+    fCommandGate = IOCommandGate::commandGate(this);
+    if (!fCommandGate)
+    {
+		return false;
+    }
+
+
+    if (myWorkLoop->addEventSource(fCommandGate) != kIOReturnSuccess)
+    {
+        return false;
+    }
+
+    fCommandGate->enable();
+
     
 #if USE_TIMER_EVENT_SOURCE_DEBUGGING        
 		// get a timer and set our timeout handler to be called when it fires
@@ -942,8 +962,25 @@ IOReturn AppleSCCSerial::acquirePort(bool sleep, void *refCon)
  */
 IOReturn AppleSCCSerial::releasePort(void *refCon)
 {
-    PortInfo_t *port = (PortInfo_t *) refCon;
-    UInt32 	busyState = 0;
+    IOReturn	ret;
+	
+    retain();
+    ret = fCommandGate->runAction(releasePortAction);
+    release();
+    
+    return ret;
+}
+
+IOReturn AppleSCCSerial::releasePortAction(OSObject *owner, void *, void *, void *, void *)
+{
+    return ((AppleSCCSerial *)owner)->releasePortGated();
+}
+
+IOReturn AppleSCCSerial::releasePortGated()
+{
+//    PortInfo_t *port = (PortInfo_t *) refCon;
+    PortInfo_t *port	= &Port;
+    UInt32		busyState = 0;
     int 		i;
 
 	OSIncrementAtomic((SInt32 *) &gTimerCanceled);			//Set the timer cancelled flag
@@ -1040,6 +1077,8 @@ IOReturn AppleSCCSerial::releasePort(void *refCon)
 
     return kIOReturnSuccess;
 }
+
+
 
 /*
  *Set the state for the port device.  The lower 16 bits are used to set the
@@ -2484,7 +2523,8 @@ IOReturn AppleSCCSerial::watchState(PortInfo_t *port, UInt32 *state, UInt32 mask
         IOLockUnlock(port->WatchLock);          /* release the lock */
 //        IOSimpleLockUnlockEnableInterrupt(port->serialRequestLock, previousInterruptState);
         IORecursiveLockUnlock(port->serialRequestLock);
-        rtn = thread_block((void (*)(void)) 0);                       /* block ourselves */
+//        rtn = thread_block((void (*)(void)) 0);                       /* block ourselves */
+        rtn = thread_block(THREAD_CONTINUE_NULL);                       /* block ourselves */
 //rs!        previousInterruptState = IOSimpleLockLockDisableInterrupt(port->serialRequestLock);
         IORecursiveLockLock(port->serialRequestLock);
 

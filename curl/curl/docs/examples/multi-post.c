@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-post.c,v 1.2 2004/11/24 16:11:35 bagder Exp $
+ * $Id: multi-post.c,v 1.4 2006-10-13 14:01:19 bagder Exp $
  *
  * This is an example application source code using the multi interface
  * to do a multipart formpost without "blocking".
@@ -24,12 +24,13 @@ int main(int argc, char *argv[])
   CURLM *multi_handle;
   int still_running;
 
-  struct HttpPost *formpost=NULL;
-  struct HttpPost *lastptr=NULL;
+  struct curl_httppost *formpost=NULL;
+  struct curl_httppost *lastptr=NULL;
   struct curl_slist *headerlist=NULL;
   char buf[] = "Expect:";
 
-  /* Fill in the file upload field */
+  /* Fill in the file upload field. This makes libcurl load data from  
+     the given file name when curl_easy_perform() is called. */
   curl_formadd(&formpost,
                &lastptr,
                CURLFORM_COPYNAME, "sendfile",
@@ -42,7 +43,6 @@ int main(int argc, char *argv[])
                CURLFORM_COPYNAME, "filename",
                CURLFORM_COPYCONTENTS, "postit2.c",
                CURLFORM_END);
-
 
   /* Fill in the submit field too, even if this is rarely needed */
   curl_formadd(&formpost,
@@ -92,6 +92,10 @@ int main(int argc, char *argv[])
 
       /* get file descriptors from the transfers */
       curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
+
+      /* In a real-world program you OF COURSE check the return code of the
+         function calls, *and* you make sure that maxfd is bigger than -1
+         so that the call to select() below makes sense! */
 
       rc = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
 

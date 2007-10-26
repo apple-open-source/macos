@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/delete.c,v 1.95.2.11 2004/09/03 18:14:17 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/delete.c,v 1.126.2.7 2006/01/17 19:37:20 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,39 +30,18 @@
 #include <ac/string.h>
 #include <ac/socket.h>
 
-#include "ldap_pvt.h"
 #include "slap.h"
 
 #include "lutil.h"
 
-#ifdef LDAP_SLAPI
-#include "slapi/slapi.h"
-#endif
-
 int
 do_delete(
     Operation	*op,
-    SlapReply	*rs
-)
+    SlapReply	*rs )
 {
 	struct berval dn = BER_BVNULL;
-	struct berval pdn = BER_BVNULL;
-	struct berval org_req_dn = BER_BVNULL;
-	struct berval org_req_ndn = BER_BVNULL;
-	struct berval org_dn = BER_BVNULL;
-	struct berval org_ndn = BER_BVNULL;
-	int	org_managedsait;
-	int manageDSAit;
-#ifdef APPLE_USE_DACLS
-	int changed_dacl = 0;
-#endif
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( OPERATION, ENTRY, 
-		"do_delete: conn %d\n", op->o_connid, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "do_delete\n", 0, 0, 0 );
-#endif
 
 	/*
 	 * Parse the delete request.  It looks like this:
@@ -71,69 +50,59 @@ do_delete(
 	 */
 
 	if ( ber_scanf( op->o_ber, "m", &dn ) == LBER_ERROR ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"do_delete: conn: %d  ber_scanf failed\n", op->o_connid, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "ber_scanf failed\n", 0, 0, 0 );
-#endif
 		send_ldap_discon( op, rs, LDAP_PROTOCOL_ERROR, "decoding error" );
 		return SLAPD_DISCONNECT;
 	}
 
 	if( get_ctrls( op, rs, 1 ) != LDAP_SUCCESS ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, ERR, 
-			"do_delete: conn %d  get_ctrls failed\n", op->o_connid, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "do_delete: get_ctrls failed\n", 0, 0, 0 );
-#endif
 		goto cleanup;
 	} 
 
-	rs->sr_err = dnPrettyNormal( NULL, &dn, &op->o_req_dn, &op->o_req_ndn, op->o_tmpmemctx );
+	rs->sr_err = dnPrettyNormal( NULL, &dn, &op->o_req_dn, &op->o_req_ndn,
+		op->o_tmpmemctx );
 	if( rs->sr_err != LDAP_SUCCESS ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, INFO, 
-			"do_delete: conn %d  invalid dn (%s)\n",
-			op->o_connid, dn.bv_val, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"do_delete: invalid dn (%s)\n", dn.bv_val, 0, 0 );
-#endif
 		send_ldap_error( op, rs, LDAP_INVALID_DN_SYNTAX, "invalid DN" );
 		goto cleanup;
 	}
 
 	if( op->o_req_ndn.bv_len == 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, INFO, 
-			"do_delete: conn %d: Attempt to delete root DSE.\n", 
-			op->o_connid, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "do_delete: root dse!\n", 0, 0, 0 );
-#endif
 		/* protocolError would likely be a more appropriate error */
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
 			"cannot delete the root DSE" );
 		goto cleanup;
 
-	} else if ( bvmatch( &op->o_req_ndn, &global_schemandn ) ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, INFO, "do_delete: conn %d: "
-			"Attempt to delete subschema subentry.\n", op->o_connid, 0, 0 );
-#else
+	} else if ( bvmatch( &op->o_req_ndn, &frontendDB->be_schemandn ) ) {
 		Debug( LDAP_DEBUG_ANY, "do_delete: subschema subentry!\n", 0, 0, 0 );
-#endif
 		/* protocolError would likely be a more appropriate error */
 		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
 			"cannot delete the root DSE" );
 		goto cleanup;
 	}
 
-	Statslog( LDAP_DEBUG_STATS, "conn=%lu op=%lu DEL dn=\"%s\"\n",
-		op->o_connid, op->o_opid, op->o_req_dn.bv_val, 0, 0 );
+	Statslog( LDAP_DEBUG_STATS, "%s DEL dn=\"%s\"\n",
+		op->o_log_prefix, op->o_req_dn.bv_val, 0, 0, 0 );
 
+	op->o_bd = frontendDB;
+	rs->sr_err = frontendDB->be_delete( op, rs );
+
+cleanup:;
+	op->o_tmpfree( op->o_req_dn.bv_val, op->o_tmpmemctx );
+	op->o_tmpfree( op->o_req_ndn.bv_val, op->o_tmpmemctx );
+	return rs->sr_err;
+}
+
+int
+fe_op_delete( Operation *op, SlapReply *rs )
+{
+	struct berval	pdn = BER_BVNULL;
+	int		manageDSAit;
+	BackendDB *op_be, *bd = op->o_bd;
+	
 	manageDSAit = get_manageDSAit( op );
 
 	/*
@@ -141,15 +110,15 @@ do_delete(
 	 * appropriate one, or send a referral to our "referral server"
 	 * if we don't hold it.
 	 */
-	op->o_bd = select_backend( &op->o_req_ndn, manageDSAit, 0 );
+	op->o_bd = select_backend( &op->o_req_ndn, manageDSAit, 1 );
 	if ( op->o_bd == NULL ) {
+		op->o_bd = bd;
 		rs->sr_ref = referral_rewrite( default_referral,
 			NULL, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 
 		if (!rs->sr_ref) rs->sr_ref = default_referral;
 		if ( rs->sr_ref != NULL ) {
 			rs->sr_err = LDAP_REFERRAL;
-
 			send_ldap_result( op, rs );
 
 			if (rs->sr_ref != default_referral) ber_bvarray_free( rs->sr_ref );
@@ -158,6 +127,12 @@ do_delete(
 				"no global superior knowledge" );
 		}
 		goto cleanup;
+	}
+
+	/* If we've got a glued backend, check the real backend */
+	op_be = op->o_bd;
+	if ( SLAP_GLUE_INSTANCE( op->o_bd )) {
+		op->o_bd = select_backend( &op->o_req_ndn, manageDSAit, 0 );
 	}
 
 	/* check restrictions */
@@ -170,35 +145,6 @@ do_delete(
 	if( backend_check_referrals( op, rs ) != LDAP_SUCCESS ) {
 		goto cleanup;
 	}
-
-#if defined( LDAP_SLAPI )
-#define pb op->o_pb
-	if ( pb ) {
-		slapi_int_pblock_set_operation( pb, op );
-		slapi_pblock_set( pb, SLAPI_DELETE_TARGET, (void *)dn.bv_val );
-		slapi_pblock_set( pb, SLAPI_MANAGEDSAIT, (void *)manageDSAit );
-
-		rs->sr_err = slapi_int_call_plugins( op->o_bd, SLAPI_PLUGIN_PRE_DELETE_FN, pb );
-		if ( rs->sr_err < 0 ) {
-			/*
-			 * A preoperation plugin failure will abort the
-			 * entire operation.
-			 */
-#ifdef NEW_LOGGING
-			LDAP_LOG( OPERATION, INFO, "do_delete: delete preoperation plugin "
-					"failed\n", 0, 0, 0 );
-#else
-			Debug (LDAP_DEBUG_TRACE, "do_delete: delete preoperation plugin failed.\n",
-					0, 0, 0);
-#endif
-			if ( ( slapi_pblock_get( pb, SLAPI_RESULT_CODE, (void *)&rs->sr_err ) != 0 )  ||
-				 rs->sr_err == LDAP_SUCCESS ) {
-				rs->sr_err = LDAP_OTHER;
-			}
-			goto cleanup;
-		}
-	}
-#endif /* defined( LDAP_SLAPI ) */
 
 	/*
 	 * do the delete if 1 && (2 || 3)
@@ -213,14 +159,14 @@ do_delete(
 		if ( !SLAP_SHADOW(op->o_bd) || repl_user )
 #endif
 		{
-			slap_callback cb = { NULL, slap_replog_cb, NULL, NULL };
-			char csnbuf[ LDAP_LUTIL_CSNSTR_BUFSIZE ];
+			struct berval	org_req_dn = BER_BVNULL;
+			struct berval	org_req_ndn = BER_BVNULL;
+			struct berval	org_dn = BER_BVNULL;
+			struct berval	org_ndn = BER_BVNULL;
+			int		org_managedsait;
+			slap_callback 	cb = { NULL, slap_replog_cb, NULL, NULL };
 
-			if ( !repl_user ) {
-				struct berval csn = BER_BVNULL;
-				char csnbuf[LDAP_LUTIL_CSNSTR_BUFSIZE];
-				slap_get_csn( op, csnbuf, sizeof(csnbuf), &csn, 1 );
-			}
+			op->o_bd = op_be;
 
 #ifdef SLAPD_MULTIMASTER
 			if ( !op->o_bd->be_update_ndn.bv_len || !repl_user )
@@ -239,14 +185,14 @@ do_delete(
 			org_managedsait = get_manageDSAit( op );
 			op->o_dn = op->o_bd->be_rootdn;
 			op->o_ndn = op->o_bd->be_rootndn;
-			op->o_managedsait = 1;
+			op->o_managedsait = SLAP_CONTROL_NONCRITICAL;
 
 			while ( rs->sr_err == LDAP_SUCCESS &&
 				op->o_delete_glue_parent )
 			{
 				op->o_delete_glue_parent = 0;
 				if ( !be_issuffix( op->o_bd, &op->o_req_ndn )) {
-					slap_callback cb = { NULL };
+					slap_callback cb = { NULL, NULL, NULL, NULL };
 					cb.sc_response = slap_null_cb;
 					dnParent( &op->o_req_ndn, &pdn );
 					op->o_req_dn = pdn;
@@ -292,29 +238,7 @@ do_delete(
 			"operation not supported within namingContext" );
 	}
 
-#if defined( LDAP_SLAPI )
-	if ( pb != NULL && slapi_int_call_plugins( op->o_bd, SLAPI_PLUGIN_POST_DELETE_FN, pb ) < 0) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, INFO, "do_delete: delete postoperation plugins "
-				"failed\n", 0, 0, 0 );
-#else
-		Debug(LDAP_DEBUG_TRACE, "do_delete: delete postoperation plugins "
-				"failed.\n", 0, 0, 0);
-#endif
-	}
-#endif /* defined( LDAP_SLAPI ) */
-
-cleanup:
-
-	slap_graduate_commit_csn( op );
-
-#ifdef APPLE_USE_DACLS
-	/* if a DACL was changed, then reload the DACLs */
-	if( changed_dacl )
-		acl_load_directory_based_acls( 0, op->o_bd );
-#endif
-
-	op->o_tmpfree( op->o_req_dn.bv_val, op->o_tmpmemctx );
-	op->o_tmpfree( op->o_req_ndn.bv_val, op->o_tmpmemctx );
+cleanup:;
+	op->o_bd = bd;
 	return rs->sr_err;
 }

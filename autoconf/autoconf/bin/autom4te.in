@@ -6,7 +6,7 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
     if 0;
 
 # autom4te - Wrapper around M4 libraries.
-# Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2002, 2003, 2005, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 
 BEGIN
@@ -95,7 +95,7 @@ fatal "need GNU m4 1.4 or later: $m4"
 # Set some high recursion limit as the default limit, 250, has already
 # been hit with AC_OUTPUT.  Don't override the user's choice.
 $m4 .= ' --nesting-limit=1024'
-  if " $m4 " !~ / (--nesting-limit|-L) /;
+  if " $m4 " !~ / (--nesting-limit(=[0-9]+)?|-L[0-9]*) /;
 
 
 # @M4_BUILTIN -- M4 builtins and a useful comment.
@@ -191,7 +191,7 @@ Languages include:
 
 " . Autom4te::ChannelDefs::usage . "
 
-The environment variable \`WARNINGS\' is honored.
+The environment variables \`M4\' and \`WARNINGS\' are honored.
 
 Library directories:
   -B, --prepend-include=DIR  prepend directory DIR to search path
@@ -211,11 +211,12 @@ Report bugs to <bug-autoconf\@gnu.org>.
 # --------
 $version =  <<"EOF";
 autom4te (@PACKAGE_NAME@) @VERSION@
-Written by Akim Demaille.
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
 
-Copyright (C) 2003 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Akim Demaille.
 EOF
 
 
@@ -448,12 +449,10 @@ sub handle_m4 ($@)
 {
   my ($req, @macro) = @_;
 
-  # GNU m4 appends when using --error-output.
+  # GNU m4 appends when using --debugfile/--error-output.
   unlink ($tcache . $req->id . "t");
 
   # Run m4.
-  #
-  # Neutralize its stdin, so that GNU M4 1.5 doesn't neutralize SIGINT.
   #
   # We don't output directly to the cache files, to avoid problems
   # when we are interrupted (that leaves corrupted files).
@@ -461,10 +460,9 @@ sub handle_m4 ($@)
 	   . join (' --include=', '', @include)
 	   . ' --debug=aflq'
 	   . (!exists $ENV{'AUTOM4TE_NO_FATAL'} ? ' --fatal-warning' : '')
-	   . " --error-output=$tcache" . $req->id . "t"
+	   . " @M4_DEBUGFILE@=$tcache" . $req->id . "t"
 	   . join (' --trace=',   '', sort @macro)
 	   . " " . files_to_options (@ARGV)
-	   . ' </dev/null'
 	   . " >$ocache" . $req->id . "t");
 
   # Everything went ok: preserve the outputs.
@@ -572,7 +570,7 @@ sub handle_output ($$)
       foreach (split (/\W+/))
 	{
 	  $prohibited{$_} = $.
-	    if /$forbidden/o && !/$allowed/o && ! exists $prohibited{$_};
+	    if !/^$/ && /$forbidden/o && !/$allowed/o && ! exists $prohibited{$_};
 	}
 
       # Performed *last*: the empty quadrigraph.
@@ -836,7 +834,7 @@ EOF
       # It makes no sense to try to transform __oline__.
       s/\@<:\@/[/g;
       s/\@:>\@/]/g;
-      s/\@\$\|\@/\$/g;
+      s/\@S\|\@/\$/g;
       s/\@%:\@/#/g;
       s/\@&t\@//g;
       print $out $_;
@@ -986,7 +984,7 @@ $req->valid (0)
 # We now know whether we can trust the Request object.  Say it.
 verb "the trace request object is:\n" . $req->marshall;
 
-# We need to run M4 if (i) the users wants it (--force), (ii) $REQ is
+# We need to run M4 if (i) the user wants it (--force), (ii) $REQ is
 # invalid.
 handle_m4 ($req, keys %{$req->macro})
   if $force || ! $req->valid;
@@ -1025,10 +1023,10 @@ if (%trace)
   }
 else
   {
-    # Actual M4 expansion, only if $output is too old. STDOUT is
-    # pretty old.
+    # Actual M4 expansion, if the user wants it, or if $output is old
+    # (STDOUT is pretty old).
     handle_output ($req, $output)
-      if mtime ($output) < mtime ($ocache . $req->id);
+      if $force || mtime ($output) < mtime ($ocache . $req->id);
   }
 
 # If we ran up to here, the cache is valid.

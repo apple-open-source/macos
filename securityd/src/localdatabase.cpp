@@ -183,7 +183,8 @@ void LocalDatabase::generateKey(const Context &context,
 		privKey, LocalKey::KeySpec(privUsage, privAttrs));
 		
 	// register and return the generated keys
-	publicKey = makeKey(pubKey, pubAttrs & LocalKey::managedAttributes, owner);
+	publicKey = makeKey(pubKey, pubAttrs & LocalKey::managedAttributes, 
+		(pubAttrs & CSSM_KEYATTR_PUBLIC_KEY_ENCRYPT) ? owner : NULL);
 	privateKey = makeKey(privKey, privAttrs & LocalKey::managedAttributes, owner);
 }
 

@@ -20,12 +20,13 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\toolutil,..\..\..\source\i18n"
-				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\toolutil;..\..\i18n"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/genrb.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -81,12 +82,13 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\toolutil,..\..\..\source\i18n"
-				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\toolutil;..\..\i18n"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/genrb.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -153,6 +155,9 @@
 				RelativePath=".\prscmnts.cpp">
 			</File>
 			<File
+				RelativePath=".\rbutil.c">
+			</File>
+			<File
 				RelativePath=".\read.c">
 			</File>
 			<File
@@ -163,9 +168,6 @@
 			</File>
 			<File
 				RelativePath=".\ustr.c">
-			</File>
-			<File
-				RelativePath=".\util.c">
 			</File>
 			<File
 				RelativePath=".\wrtjava.c">
@@ -190,6 +192,9 @@
 				RelativePath=".\prscmnts.h">
 			</File>
 			<File
+				RelativePath=".\rbutil.h">
+			</File>
+			<File
 				RelativePath=".\read.h">
 			</File>
 			<File
@@ -200,9 +205,6 @@
 			</File>
 			<File
 				RelativePath=".\ustr.h">
-			</File>
-			<File
-				RelativePath=".\util.h">
 			</File>
 		</Filter>
 		<Filter

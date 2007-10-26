@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef __DGRAPH_H__
 #define __DGRAPH_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #ifdef KERNEL
 #include <libsa/stdlib.h>
@@ -166,8 +168,7 @@ dgraph_entry_t * dgraph_add_dependency(
     vm_address_t load_address,
     char is_kernel_component);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif /* __DGRAPH_H__ */
+#endif // !__LP64__

@@ -1,6 +1,7 @@
 ;;; regexp-opt.el --- generate efficient regexps to match strings
 
-;; Copyright (C) 1994,95,96,97,98,99,2000 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+;;   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Simon Marshall <simon@gnu.org>
 ;; Maintainer: FSF
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -87,7 +88,7 @@
 
 ;;;###autoload
 (defun regexp-opt (strings &optional paren)
-  "Return a regexp to match a string in STRINGS.
+  "Return a regexp to match a string in the list STRINGS.
 Each string should be unique in STRINGS and should not contain any regexps,
 quoted or not.  If optional PAREN is non-nil, ensure that the returned regexp
 is enclosed by at least one regexp grouping construct.
@@ -101,28 +102,34 @@ by \\=\\< and \\>."
   (save-match-data
     ;; Recurse on the sorted list.
     (let* ((max-lisp-eval-depth (* 1024 1024))
+	   (max-specpdl-size (* 1024 1024))
 	   (completion-ignore-case nil)
+	   (completion-regexp-list nil)
 	   (words (eq paren 'words))
 	   (open (cond ((stringp paren) paren) (paren "\\(")))
-	   (sorted-strings (sort (copy-sequence strings) 'string-lessp))
+	   (sorted-strings (delete-dups
+			    (sort (copy-sequence strings) 'string-lessp)))
 	   (re (regexp-opt-group sorted-strings open)))
       (if words (concat "\\<" re "\\>") re))))
 
 ;;;###autoload
 (defun regexp-opt-depth (regexp)
   "Return the depth of REGEXP.
-This means the number of regexp grouping constructs (parenthesised expressions)
-in REGEXP."
+This means the number of non-shy regexp grouping constructs
+\(parenthesized expressions) in REGEXP."
   (save-match-data
     ;; Hack to signal an error if REGEXP does not have balanced parentheses.
     (string-match regexp "")
     ;; Count the number of open parentheses in REGEXP.
-    (let ((count 0) start)
-      (while (string-match "\\(\\`\\|[^\\]\\)\\\\\\(\\\\\\\\\\)*([^?]"
-			   regexp start)
-	(setq count (1+ count)
-	      ;; Go back 2 chars (one for [^?] and one for [^\\]).
-	      start (- (match-end 0) 2)))
+    (let ((count 0) start last)
+      (while (string-match "\\\\(\\(\\?:\\)?" regexp start)
+	(setq start (match-end 0))	      ; Start of next search.
+	(when (and (not (match-beginning 1))
+		   (subregexp-context-p regexp (match-beginning 0) last))
+	  ;; It's not a shy group and it's not inside brackets or after
+	  ;; a backslash: it's really a group-open marker.
+	  (setq last start)	    ; Speed up next regexp-opt-re-context-p.
+	  (setq count (1+ count))))
       count)))
 
 ;;; Workhorse functions.
@@ -131,18 +138,18 @@ in REGEXP."
   (require 'cl))
 
 (defun regexp-opt-group (strings &optional paren lax)
-  "Return a regexp to match a string in STRINGS.
-If PAREN non-nil, output regexp parentheses around returned regexp.
-If LAX non-nil, don't output parentheses if it doesn't require them.
-Merges keywords to avoid backtracking in Emacs' regexp matcher.
+  ;; Return a regexp to match a string in the sorted list STRINGS.
+  ;; If PAREN non-nil, output regexp parentheses around returned regexp.
+  ;; If LAX non-nil, don't output parentheses if it doesn't require them.
+  ;; Merges keywords to avoid backtracking in Emacs' regexp matcher.
 
-The basic idea is to find the shortest common prefix or suffix, remove it
-and recurse.  If there is no prefix, we divide the list into two so that
-\(at least) one half will have at least a one-character common prefix.
+  ;; The basic idea is to find the shortest common prefix or suffix, remove it
+  ;; and recurse.  If there is no prefix, we divide the list into two so that
+  ;; \(at least) one half will have at least a one-character common prefix.
 
-Also we delay the addition of grouping parenthesis as long as possible
-until we're sure we need them, and try to remove one-character sequences
-so we can use character sets rather than grouping parenthesis."
+  ;; Also we delay the addition of grouping parenthesis as long as possible
+  ;; until we're sure we need them, and try to remove one-character sequences
+  ;; so we can use character sets rather than grouping parenthesis.
   (let* ((open-group (cond ((stringp paren) paren) (paren "\\(?:") (t "")))
 	 (close-group (if paren "\\)" ""))
 	 (open-charset (if lax "" open-group))
@@ -190,7 +197,7 @@ so we can use character sets rather than grouping parenthesis."
      ;;
      ;; We have a list of different length strings.
      (t
-      (let ((prefix (try-completion "" (mapcar 'list strings))))
+      (let ((prefix (try-completion "" strings)))
 	(if (> (length prefix) 0)
 	    ;; common prefix: take it and recurse on the suffixes.
 	    (let* ((n (length prefix))
@@ -203,7 +210,7 @@ so we can use character sets rather than grouping parenthesis."
 	  (let* ((sgnirts (mapcar (lambda (s)
 				    (concat (nreverse (string-to-list s))))
 				  strings))
-		 (xiffus (try-completion "" (mapcar 'list sgnirts))))
+		 (xiffus (try-completion "" sgnirts)))
 	    (if (> (length xiffus) 0)
 		;; common suffix: take it and recurse on the prefixes.
 		(let* ((n (- (length xiffus)))
@@ -216,11 +223,11 @@ so we can use character sets rather than grouping parenthesis."
 			  (regexp-quote
 			   (concat (nreverse (string-to-list xiffus))))
 			  close-group))
-	      
+
 	      ;; Otherwise, divide the list into those that start with a
 	      ;; particular letter and those that do not, and recurse on them.
 	      (let* ((char (char-to-string (string-to-char (car strings))))
-		     (half1 (all-completions char (mapcar 'list strings)))
+		     (half1 (all-completions char strings))
 		     (half2 (nthcdr (length half1) strings)))
 		(concat open-group
 			(regexp-opt-group half1)
@@ -278,4 +285,5 @@ so we can use character sets rather than grouping parenthesis."
 
 (provide 'regexp-opt)
 
+;; arch-tag: 6c5a66f4-29af-4fd6-8c3b-4b554d5b4370
 ;;; regexp-opt.el ends here

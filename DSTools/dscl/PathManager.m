@@ -65,6 +65,20 @@ BOOL gRawMode = NO;
     
     return self;
 }
+
+// Open a conection to a slimmed version of DS daemon that likely ONLY has a local node in it.
+- initWithLocalPath:(NSString*)filePath
+{
+    id dirBase;
+    
+    [self init];
+    dirBase = [[PathDirService alloc] initWithLocalPath:filePath];
+    [_stack addObject:dirBase];
+    [dirBase release];
+    
+    return self;
+}
+
 // Open a conection to a remote machine using DS Proxy.
 - initWithHost:(NSString*)hostName user:(NSString*)user password:(NSString*)password
 {
@@ -258,7 +272,7 @@ BOOL gRawMode = NO;
 - (tDirStatus)createRecord:(NSString*)inRecordPath key:(NSString*)inKey values:(NSArray*)inValues
 {
     tDirStatus status = eDSNoErr;
-    
+
     if (inRecordPath == nil || [inRecordPath isEqualToString:@"."] )
     {
         status = [[_stack lastObject] createKey:inKey withValues:inValues];
@@ -388,18 +402,218 @@ BOOL gRawMode = NO;
     return status;
 }
 
-- (void)read:(NSString*)inPath keys:(NSArray*)inKeys
+- (tDirStatus)read:(NSString*)inPath keys:(NSArray*)inKeys
 {
+    tDirStatus status = eDSNoErr;
+    
     if (inPath == nil)
     {
-        [[_stack lastObject] read:inKeys];
+        status = (tDirStatus)[[_stack lastObject] read:inKeys];
+    }
+    else 
+    {
+		[self backupStack];
+
+		// Mount records can look like a path, but need to be treated as a
+		// single entity.  Mount records look like:  "machine:/path/to/somewhere".
+		// Need to handle both: "machine:/path/to/somewhere" and
+		// "/LDAPv3/127.0.0.1/machine:/path/to/somewhere".
+		NSRange colon = [inPath rangeOfString:@":"];
+		if (colon.location == NSNotFound)
+		{
+			// Regular path (not a mount record).
+			[self cd:[inPath stringByDeletingLastPathComponent]];
+			status = (tDirStatus)[[_stack lastObject] read:[inPath lastPathComponent] keys:inKeys];
+		}
+		else
+		{
+			// Mount record.  Split the DS path from the mount record itself.
+
+			NSString* mountRecString;
+
+			// Find the first slash that preceeds the colon - that will be the
+			// end of the DS path.
+			colon.length = colon.location;
+			colon.location = 0;
+			NSRange dsPathEnd = [inPath rangeOfString:@"/" options:NSBackwardsSearch range:colon];
+			if (dsPathEnd.location == NSNotFound)
+			{
+				// No DS path preceeding the mount record.
+				mountRecString = inPath;
+			}
+			else
+			{
+				// Split the DS path from the mount record.
+				NSString* dsPath = [inPath substringToIndex:dsPathEnd.location];
+				mountRecString   = [inPath substringFromIndex:dsPathEnd.location + 1];
+
+				[self cd:dsPath];
+			}
+
+			status = (tDirStatus)[[_stack lastObject] read:mountRecString keys:inKeys];
+		}
+
+		[self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)readAll:(NSString*)inPath keys:(NSArray*)inKeys
+{
+    tDirStatus status = eDSNoErr;
+    if (inPath == nil)
+    {
+        status = [[_stack lastObject] readAll:inKeys];
     }
     else 
     {
         [self backupStack];
         [self cd:inPath];
-        [[_stack lastObject] read:inKeys];
+        status = [[_stack lastObject] readAll:inKeys];
         [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)read:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath
+{
+    tDirStatus status = eDSNoErr;
+    
+    if (inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] read:inKey plistPath:inPlistPath];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)read:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath
+{
+    tDirStatus status = eDSNoErr;
+    
+    if (inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] read:inKey atIndex:index plistPath:inPlistPath];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)create:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    tDirStatus status = eDSNoErr;
+    
+    if (inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] create:inKey plistPath:inPlistPath values:inValues];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)create:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    tDirStatus status = eDSNoErr;
+    
+    if (inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] create:inKey atIndex:index plistPath:inPlistPath values:inValues];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)delete:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    tDirStatus status = eDSNoErr;
+    
+    if(inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] delete:inKey plistPath:inPlistPath values:inValues];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (tDirStatus)delete:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues
+{
+    tDirStatus status = eDSNoErr;
+    
+    if(inPath != nil)
+    {
+        [self backupStack];
+        [self cd:inPath];
+        status = (tDirStatus)[[_stack lastObject] delete:inKey atIndex:index plistPath:inPlistPath values:inValues];
+        [self restoreStack];
+    }
+    
+    return status;
+}
+
+- (void)diff:(NSString*)inPath1 otherPath:(NSString*)inPath2 keys:(NSArray*)inKeys
+{
+    NSDictionary* dict1 = nil;
+    NSDictionary* dict2 = nil;
+    if (inPath1 != nil && inPath2 != nil)
+    {
+        // should always be true but just in case
+        [self backupStack];
+        [self cd:inPath1];
+        dict1 = [[_stack lastObject] getDictionary:inKeys];
+        [self restoreStack];
+        [self backupStack];
+        [self cd:inPath2];
+        dict2 = [[_stack lastObject] getDictionary:inKeys];
+        [self restoreStack];
+        
+        // Get the union of the keys from both dictionaries and then sort them in to an array
+        NSArray *keys = [dict1 allKeys];
+        NSMutableSet *keysSet = [[NSMutableSet alloc] initWithArray:keys];
+        keys = [dict2 allKeys];
+        [keysSet addObjectsFromArray:keys];
+        keys = [keysSet allObjects];
+        [keys sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
+        
+        NSEnumerator *enumerator = [keys objectEnumerator];
+        id key;
+        
+        while(key = [enumerator nextObject])
+        {
+            id object1;
+            id object2;
+            object1 = [dict1 objectForKey:key];
+            object2 = [dict2 objectForKey:key];
+            if(![object2 isEqual:object1])
+            {
+                if(object1 != nil)
+                {
+                    printAttribute(key, object1, @"- ");
+                }
+                if(object2 != nil)
+                {
+                    printAttribute(key, object2, @"+ ");
+                }
+            }
+        }
+        
+        [keysSet release];
     }
 }
 
@@ -702,6 +916,12 @@ BOOL gRawMode = NO;
 		printf(" ");
 	}
 	printf("\n");
+}
+
+-(NSArray*) stack
+{
+	// ATM - give PlugInManager access to the stack
+	return _stack;
 }
 
 @end

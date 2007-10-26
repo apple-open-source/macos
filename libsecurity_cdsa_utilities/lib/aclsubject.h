@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 
 namespace Security {
 
+class ObjectAcl;
 class AclValidationContext;
 class AclSubject;
 
@@ -73,12 +74,14 @@ public:
 // the environment (which is indirect and modifyable).
 //
 class AclValidationContext {
+	friend class ObjectAcl;
 public:
     AclValidationContext(const AccessCredentials *cred,
         AclAuthorization auth, AclValidationEnvironment *env = NULL)
     : mCred(cred), mAuth(auth), mEnv(env), mEntryTag(NULL) { }
     AclValidationContext(const AclValidationContext &ctx)
-    : mCred(ctx.mCred), mAuth(ctx.mAuth), mEnv(ctx.mEnv), mEntryTag(NULL) { }
+    : mAcl(ctx.mAcl), mSubject(ctx.mSubject), mCred(ctx.mCred),
+	  mAuth(ctx.mAuth), mEnv(ctx.mEnv), mEntryTag(NULL) { }
 	virtual ~AclValidationContext();
 
     // access to (suitably focused) sample set
@@ -92,20 +95,26 @@ public:
 	const AccessCredentials *cred() const	{ return mCred; }
 	AclValidationEnvironment *environment() const { return mEnv; }
     template <class Env> Env *environment() const { return dynamic_cast<Env *>(mEnv); }
+	AclSubject *subject() const				{ return mSubject; }
+	ObjectAcl *acl() const					{ return mAcl; }
 
+	// tag manipulation
 	virtual const char *credTag() const;
 	virtual const char *entryTag() const;
 	std::string s_credTag() const;
 	void entryTag(const char *tag);
 	void entryTag(const std::string &tag);
-
-    //@@@ add certificate access functions
-    //@@@ add callback management
 	
+	// selective match support - not currently implemented
 	virtual void matched(const TypedList *match) const = 0;
 	void matched(const TypedList &match) const { return matched(&match); }
+	
+private:
+	void init(ObjectAcl *acl, AclSubject *subject);
 
 private:
+	ObjectAcl *mAcl;					// underlying ObjectAcl
+	AclSubject *mSubject;				// subject being validated
     const AccessCredentials *mCred;		// original credentials
     AclAuthorization mAuth;				// action requested
     AclValidationEnvironment *mEnv;		// environmental context (if any)
@@ -159,6 +168,7 @@ public:
 	
 	// debug suupport (dummied out but present for -UDEBUGDUMP)
 	virtual void debugDump() const;
+	IFDUMP(void dump(const char *title) const);
 	
 protected:
 	void version(Version v)	{ mVersion = v; }

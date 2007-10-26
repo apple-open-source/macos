@@ -784,8 +784,8 @@ xsltEvalGlobalVariables(xsltTransformContextPtr ctxt) {
  * @style:  the XSLT transformation context
  * @name:  the variable name
  * @ns_uri:  the variable namespace URI
- * @select:  the expression which need to be evaluated to generate a value
- * @tree:  the subtree if select is NULL
+ * @sel:  the expression which need to be evaluated to generate a value
+ * @tree:  the subtree if sel is NULL
  * @comp:  the precompiled value
  * @value:  the string value if available
  *
@@ -796,7 +796,7 @@ xsltEvalGlobalVariables(xsltTransformContextPtr ctxt) {
  */
 static int
 xsltRegisterGlobalVariable(xsltStylesheetPtr style, const xmlChar *name,
-		     const xmlChar *ns_uri, const xmlChar *select,
+		     const xmlChar *ns_uri, const xmlChar *sel,
 		     xmlNodePtr tree, xsltStylePreCompPtr comp,
 		     const xmlChar *value) {
     xsltStackElemPtr elem, tmp;
@@ -821,7 +821,7 @@ xsltRegisterGlobalVariable(xsltStylesheetPtr style, const xmlChar *name,
 	return(-1);
     elem->comp = comp;
     elem->name = xmlDictLookup(style->dict, name, -1);
-    elem->select = xmlDictLookup(style->dict, select, -1);
+    elem->select = xmlDictLookup(style->dict, sel, -1);
     if (ns_uri)
 	elem->nameURI = xmlDictLookup(style->dict, ns_uri, -1);
     elem->tree = tree;

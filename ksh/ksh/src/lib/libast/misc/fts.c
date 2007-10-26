@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Phong Vo
@@ -36,6 +32,7 @@
 #include <ast_dir.h>
 #include <error.h>
 #include <fs3d.h>
+#include <ls.h>
 
 struct Ftsent;
 
@@ -74,7 +71,7 @@ typedef int (*Stat_f)(const char*, struct stat*);
 	char*		home;			/* home/path buffer	*/ \
 	char*		endbase;		/* space to build paths */ \
 	char*		endbuf;			/* space to build paths */ \
-	char*		pad;
+	char*		pad[2];			/* $0.02 to splain this	*/
 
 /*
  * NOTE: <ftwalk.h> relies on status and statb being the first two elements
@@ -83,12 +80,12 @@ typedef int (*Stat_f)(const char*, struct stat*);
 #define _FTSENT_PRIVATE_ \
 	short		status;			/* internal status	*/ \
 	struct stat	statb;			/* fts_statp data	*/ \
+	FTS*		fts;			/* fts_open() handle	*/ \
 	int		nd;			/* popdir() count	*/ \
 	FTSENT*		left;			/* left child		*/ \
 	FTSENT*		right;			/* right child		*/ \
 	FTSENT*		pwd;			/* pwd parent		*/ \
 	FTSENT*		stack;			/* getlist() stack	*/ \
-	FTS*		fts;			/* for fts verification	*/ \
 	long		nlink;			/* FTS_D link count	*/ \
 	unsigned char	must;			/* must stat		*/ \
 	unsigned char	type;			/* DT_* type		*/ \
@@ -198,6 +195,7 @@ node(FTS* fts, FTSENT* parent, register char* name, register int namelen)
 		}
 		f->fts = fts;
 	}
+	TYPE(f, DT_UNKNOWN);
 	f->status = 0;
 	f->symlink = 0;
 	f->fts_level = (f->fts_parent = parent)->fts_level + 1;
@@ -517,16 +515,19 @@ info(FTS* fts, register FTSENT* f, const char* path, struct stat* sp, int flags)
 		if ((flags & FTS_NOSTAT) && !fts->fs3d)
 		{
 			f->fts_parent->nlink--;
-			if (sp->st_nlink >= 2)
-			{
-				f->nlink = sp->st_nlink - 2;
-				f->must = 0;
-			}
-			else
+#ifdef D_TYPE
+			f->must = 0;
+			if ((f->nlink = sp->st_nlink) < 2)
+				f->nlink = 2;
+#else
+			if ((f->nlink = sp->st_nlink) >= 2)
 				f->must = 1;
+			else
+				f->must = 2;
+#endif
 		}
 		else
-			f->must = 1;
+			f->must = 2;
 		TYPE(f, DT_DIR);
 		f->fts_info = FTS_D;
 	}
@@ -740,7 +741,7 @@ fts_open(char* const* pathnames, int flags, int (*comparf)(FTSENT* const*, FTSEN
 	memcpy(fts->parent->fts_accpath = fts->parent->fts_path = fts->parent->fts_name = fts->parent->name, ".", 2);
 	fts->parent->fts_level = -1;
 	fts->parent->fts_statp = &fts->parent->statb;
-	fts->parent->must = 1;
+	fts->parent->must = 2;
 	fts->parent->type = DT_UNKNOWN;
 	fts->path = fts->home + strlen(fts->home) + 1;
 
@@ -962,12 +963,16 @@ fts_read(register FTS* fts)
 			{
 				if (s[1] == 0)
 				{
+					fts->current->nlink--;
 					if (!(fts->flags & FTS_SEEDOT))
 						continue;
 					n = 1;
 				}
 				else if (s[1] == '.' && s[2] == 0)
 				{
+					fts->current->nlink--;
+					if (fts->current->must == 1)
+						fts->current->must = 0;
 					if (!(fts->flags & FTS_SEEDOT))
 						continue;
 					n = 2;
@@ -1450,6 +1455,22 @@ fts_flags(void)
 	if (streq(s, "physical"))
 		return FTS_PHYSICAL|FTS_SEEDOTDIR;
 	return FTS_META|FTS_PHYSICAL|FTS_SEEDOTDIR;
+}
+
+/*
+ * return 1 if ent is mounted on a local filesystem
+ */
+
+int
+fts_local(FTSENT* ent)
+{
+#ifdef ST_LOCAL
+	struct statvfs	fs;
+
+	return statvfs(ent->fts_path, &fs) || (fs.f_flag & ST_LOCAL);
+#else
+	return !strgrpmatch(fmtfs(ent->fts_statp), "([an]fs|samb)", NiL, 0, STR_LEFT|STR_ICASE);
+#endif
 }
 
 /*

@@ -58,10 +58,6 @@ typedef struct {
 #define set(x,ctrl)   (ctrl = ((ctrl)&smb_args[x].mask)|smb_args[x].flag)
 #define unset(x,ctrl) (ctrl &= ~(smb_args[x].flag))
 
-#ifndef __linux__
-#define strncasecmp(s1,s2,n) StrnCaseCmp(s1,s2,n)
-#endif
-
 /* the generic mask */
 #define _ALL_ON_  (~0U)
 
@@ -125,7 +121,7 @@ static const SMB_Ctrls smb_args[SMB_CTRLS_] = {
 
 struct _pam_failed_auth {
     char *user;                 /* user that's failed to be authenticated */
-    int id;                     /* uid of requested user */
+    uid_t id;                   /* uid of requested user */
     char *agent;                /* attempt from user with name */
     int count;                  /* number of failures so far */
 };

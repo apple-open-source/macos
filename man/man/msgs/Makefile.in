@@ -10,7 +10,7 @@ install:
 	sh ./inst.sh "@languages@" "$(DESTDIR)@locale@"
 
 clean:
-	rm -f gencat gencat.out core *~ *.cat *.catin
+	rm -f gencat gencat.out core *~ *.cat *.catin *.catin2
 
 spotless:
 	rm -f Makefile

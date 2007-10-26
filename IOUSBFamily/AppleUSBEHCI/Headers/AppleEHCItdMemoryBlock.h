@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,7 +28,7 @@
 #include "AppleUSBEHCI.h"
 #include "USBEHCI.h"
 
-class AppleEHCItdMemoryBlock : public IOBufferMemoryDescriptor
+class AppleEHCItdMemoryBlock : public OSObject
 {
     OSDeclareDefaultStructors(AppleEHCItdMemoryBlock);
     
@@ -38,6 +37,7 @@ class AppleEHCItdMemoryBlock : public IOBufferMemoryDescriptor
 private:
     EHCIGeneralTransferDescriptor		_TDs[TDsPerBlock];
     AppleEHCItdMemoryBlock				*_nextBlock;
+	IOBufferMemoryDescriptor			*_buffer;
     
 public:
 

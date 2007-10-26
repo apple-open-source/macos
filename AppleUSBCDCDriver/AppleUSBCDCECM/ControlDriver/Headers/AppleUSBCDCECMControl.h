@@ -53,6 +53,7 @@ class AppleUSBCDCECMControl : public IOService
     OSDeclareDefaultStructors(AppleUSBCDCECMControl);	// Constructor & Destructor stuff
 
 private:
+	AppleUSBCDC				*fCDCDriver;		// The CDC driver
 	AppleUSBCDCECMData		*fDataDriver;		// Our data interface driver
     bool			fdataAcquired;				// Has the data port been acquired
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)

@@ -32,23 +32,13 @@
 
 /* Support for signal handlers.  */
 
-/* Return whether PC is in a BSD sigtramp routine.  */
-
-int
-i386bsd_pc_in_sigtramp (CORE_ADDR pc, char *name)
-{
-  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
-
-  return (pc >= tdep->sigtramp_start && pc < tdep->sigtramp_end);
-}
-
 /* Assuming NEXT_FRAME is for a frame following a BSD sigtramp
    routine, return the address of the associated sigcontext structure.  */
 
 static CORE_ADDR
 i386bsd_sigcontext_addr (struct frame_info *next_frame)
 {
-  char buf[4];
+  gdb_byte buf[4];
   CORE_ADDR sp;
 
   frame_unwind_register (next_frame, I386_ESP_REGNUM, buf);
@@ -56,33 +46,9 @@ i386bsd_sigcontext_addr (struct frame_info *next_frame)
 
   return read_memory_unsigned_integer (sp + 8, 4);
 }
-
-/* Return the start address of the sigtramp routine.  */
-
-CORE_ADDR
-i386bsd_sigtramp_start (CORE_ADDR pc)
-{
-  return gdbarch_tdep (current_gdbarch)->sigtramp_start;
-}
-
-/* Return the end address of the sigtramp routine.  */
-
-CORE_ADDR
-i386bsd_sigtramp_end (CORE_ADDR pc)
-{
-  return gdbarch_tdep (current_gdbarch)->sigtramp_end;
-}
 
 
 /* Support for shared libraries.  */
-
-/* Return non-zero if we are in a shared library trampoline code stub.  */
-
-int
-i386bsd_aout_in_solib_call_trampoline (CORE_ADDR pc, char *name)
-{
-  return (name && !strcmp (name, "_DYNAMIC"));
-}
 
 /* Traditional BSD (4.3 BSD, still used for BSDI and 386BSD).  */
 
@@ -111,16 +77,6 @@ void
 i386bsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
-
-  set_gdbarch_pc_in_sigtramp (gdbarch, i386bsd_pc_in_sigtramp);
-
-  /* Allow the recognition of sigtramps as a function named <sigtramp>.  */
-  set_gdbarch_sigtramp_start (gdbarch, i386bsd_sigtramp_start);
-  set_gdbarch_sigtramp_end (gdbarch, i386bsd_sigtramp_end);
-
-  /* Assume SunOS-style shared libraries.  */
-  set_gdbarch_in_solib_call_trampoline (gdbarch,
-					i386bsd_aout_in_solib_call_trampoline);
 
   tdep->jb_pc_offset = 0;
 
@@ -163,8 +119,7 @@ _initialize_i386bsd_tdep (void)
   gdbarch_register_osabi_sniffer (bfd_arch_i386, bfd_target_aout_flavour,
 				  i386bsd_aout_osabi_sniffer);
 
-  /* BFD doesn't set the architecture for NetBSD style a.out core
-     files.  */
-  gdbarch_register_osabi_sniffer (bfd_arch_unknown, bfd_target_unknown_flavour,
+  /* BFD doesn't set a flavour for NetBSD style a.out core files.  */
+  gdbarch_register_osabi_sniffer (bfd_arch_i386, bfd_target_unknown_flavour,
 				  i386bsd_core_osabi_sniffer);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2006-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,17 @@ public:
 
 
 //
+// This is the object that is being "attached" (as an Adornment) to hold
+// the pre-authorization state of a SourceAclSubject.
+// The Adornable used for storage is determined by the Environment's store() method.
+// 
+struct AclState {
+	AclState() : accepted(false) { }
+	bool accepted;						// was previously accepted by upstream
+};
+
+
+//
 // This is the "origin" subject class that gets created the usual way.
 // It models a pre-auth "origin" - i.e. it points at a preauth slot and accepts
 // its verdict on validation. Think of it as the "come from" part of the link.
@@ -107,20 +118,9 @@ public:
 	void exportBlob(Writer &pub, Writer &priv);
 	
 	IFDUMP(void debugDump() const);
-
-private:
-	struct Store {
-		bool accepted;						// was previously accepted by upstream
-	};
 	
-	bool trackingKnown() const { return !(mTrackingState & CSSM_ACL_PREAUTH_TRACKING_UNKNOWN); }
-	bool trackingAuthorized() const { return mTrackingState & CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED; }
-	unsigned int trackingRetries() const
-	{ assert(trackingKnown()); return mTrackingState & CSSM_ACL_PREAUTH_TRACKING_COUNT_MASK; }
-
 private:
 	RefPointer<AclSubject> mSourceSubject;	// subject determining outcome (source only)
-	CSSM_ACL_PREAUTH_TRACKING_STATE mTrackingState; // tracking state
 };
 
 

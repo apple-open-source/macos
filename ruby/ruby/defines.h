@@ -2,8 +2,8 @@
 
   defines.h -
 
-  $Author: akiyoshi $
-  $Date: 2004/12/09 07:08:31 $
+  $Author: knu $
+  $Date: 2007-02-25 02:52:08 +0900 (Sun, 25 Feb 2007) $
   created at: Wed May 18 00:21:44 JST 1994
 
 ************************************************/
@@ -179,7 +179,6 @@ void xfree _((void*));
 #ifndef X_OK
 #define X_OK 1
 #endif
-typedef int pid_t;
 #endif /* __APPLE__ */
 #endif /* NeXT */
 
@@ -195,11 +194,8 @@ typedef int pid_t;
 #include <net/socket.h> /* intern.h needs fd_set definition */
 #endif
 
+#ifdef RUBY_EXPORT
 #undef RUBY_EXTERN
-#if defined _WIN32 && !defined __GNUC__
-# ifndef RUBY_EXPORT
-#  define RUBY_EXTERN extern __declspec(dllimport)
-# endif
 #endif
 
 #ifndef RUBY_EXTERN
@@ -208,6 +204,11 @@ typedef int pid_t;
 
 #ifndef EXTERN
 #define EXTERN RUBY_EXTERN	/* deprecated */
+#endif
+
+#ifndef RUBY_MBCHAR_MAXSIZE
+#define RUBY_MBCHAR_MAXSIZE INT_MAX
+        /* MB_CUR_MAX will not work well in C locale */
 #endif
 
 #if defined(sparc) || defined(__sparc__)
@@ -228,6 +229,10 @@ flush_register_windows(void)
 	;
 }
 #  define FLUSH_REGISTER_WINDOWS flush_register_windows()
+#elif defined(__ia64)
+void *rb_ia64_bsp(void);
+void rb_ia64_flushrs(void);
+#  define FLUSH_REGISTER_WINDOWS rb_ia64_flushrs()
 #else
 #  define FLUSH_REGISTER_WINDOWS ((void)0)
 #endif
@@ -249,6 +254,10 @@ flush_register_windows(void)
 
 #if defined(DOSISH) && !defined(__human68k__) && !defined(__EMX__)
 #define ENV_IGNORECASE
+#endif
+
+#ifndef DLEXT_MAXLEN
+#define DLEXT_MAXLEN 4
 #endif
 
 #ifndef RUBY_PLATFORM

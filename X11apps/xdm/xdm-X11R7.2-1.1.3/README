@@ -1,0 +1,22 @@
+The default installation settings of xdm match those used for most platforms
+in the previous X.Org releases:
+
+Scripts & modules:	$(libdir)/X11/xdm (aka $(prefix)/lib/X11/xdm)
+Configuration files:	$(libdir)/X11/xdm
+Pixmap files:		$(libdir)/X11/xdm/pixmaps
+Log files:		/var/log
+Process id/lock files:	/var/run
+
+These may be overridden with the following options to configure:
+Loadable modules:	--with-xdmlibdir
+Scripts:		--with-xdmscriptdir (or --with-xdmlibdir)
+Configuration files:	--with-xdmconfigdir (or --with-xdmlibdir)
+Pixmap files:		--with-xdmpixmapdir (or --with-xdmlibdir)
+Log files:		--with-logdir
+Process id/lock files:	--with-piddir
+
+For instance, some packagers/sites may prefer:
+	--with-xdmconfigdir=/etc/X11/xdm --with-xdmlibdir=$(prefix)/lib/xdm
+	--with-xdmscriptdir=/etc/X11/xdm
+
+$Id$

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfdchdr.h"
 
 /*	Discipline to turn \r\n into \n.
@@ -36,8 +32,8 @@
 
 struct map
 {
-	off_t	logical;
-	off_t	physical;
+	Sfoff_t	logical;
+	Sfoff_t	physical;
 };
 
 typedef struct _dosdisc
@@ -46,13 +42,13 @@ typedef struct _dosdisc
 	struct map	*maptable;
 	int		mapsize;
 	int		maptop;
-	off_t		lhere;
-	off_t		llast;
-	off_t		lmax;
-	off_t		pmax;
-	off_t		phere;
-	off_t		plast;
-	off_t		begin;
+	Sfoff_t		lhere;
+	Sfoff_t		llast;
+	Sfoff_t		lmax;
+	Sfoff_t		pmax;
+	Sfoff_t		phere;
+	Sfoff_t		plast;
+	Sfoff_t		begin;
 	int		skip;
 	void		*buff;
 	char		last;
@@ -84,11 +80,11 @@ register Dosdisc_t *dp;
 }
 
 #if __STD_C
-static struct map *getmapping(Dosdisc_t *dp, off_t offset, register int whence)
+static struct map *getmapping(Dosdisc_t *dp, Sfoff_t offset, register int whence)
 #else
 static struct map *getmapping(dp, offset, whence)
 Dosdisc_t *dp;
-off_t offset;
+Sfoff_t offset;
 register int whence;
 #endif
 {
@@ -231,16 +227,16 @@ done:
  *  otherwise, logical offset is converted to physical offset
  */
 #if __STD_C
-static off_t cur_offset(Dosdisc_t *dp, off_t offset,Sfio_t *iop,register int whence)
+static Sfoff_t cur_offset(Dosdisc_t *dp, Sfoff_t offset,Sfio_t *iop,register int whence)
 #else
-static off_t cur_offset(dp, offset, iop, whence)
+static Sfoff_t cur_offset(dp, offset, iop, whence)
 Dosdisc_t *dp;
-off_t offset;
+Sfoff_t offset;
 Sfio_t *iop;
 register int whence;
 #endif
 {
-	register off_t n,m=0;
+	register Sfoff_t n,m=0;
 	register char *cp;
 
 	if(whence==SEEK_CUR)
@@ -288,13 +284,13 @@ Sfdisc_t* disc;
 {
 	register Dosdisc_t *dp = (Dosdisc_t*)disc;
 	struct map dummy, *mp=0;
-	off_t physical;
+	Sfoff_t physical;
 	register int n,size;
 retry:
 	switch(whence)
 	{
 	    case SEEK_CUR:
-		offset = sfsk(iop, (off_t)0,SEEK_CUR,disc);
+		offset = sfsk(iop, (Sfoff_t)0,SEEK_CUR,disc);
 		if(offset<=dp->begin)
 			return(offset);
 		/* check for seek outside buffer */

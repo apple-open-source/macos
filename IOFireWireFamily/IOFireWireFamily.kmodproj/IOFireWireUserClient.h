@@ -25,6 +25,78 @@
  * HISTORY
  *
  * $Log: IOFireWireUserClient.h,v $
+ * Revision 1.66  2007/04/28 02:54:23  collin
+ * *** empty log message ***
+ *
+ * Revision 1.65  2007/04/24 02:50:08  collin
+ * *** empty log message ***
+ *
+ * Revision 1.64  2007/03/12 22:15:28  arulchan
+ * mach_vm_address_t & io_user_reference_t changes
+ *
+ * Revision 1.63  2007/03/10 07:48:25  collin
+ * *** empty log message ***
+ *
+ * Revision 1.62  2007/03/10 04:15:25  collin
+ * *** empty log message ***
+ *
+ * Revision 1.61  2007/03/10 02:58:03  collin
+ * *** empty log message ***
+ *
+ * Revision 1.60  2007/03/09 23:57:53  collin
+ * *** empty log message ***
+ *
+ * Revision 1.59  2007/03/08 18:13:56  ayanowit
+ * Fix for 5047793. A problem where user-space CompareSwap() was not checking lock results.
+ *
+ * Revision 1.58  2007/03/08 02:37:09  collin
+ * *** empty log message ***
+ *
+ * Revision 1.57  2007/02/16 00:28:25  ayanowit
+ * More work on IRMAllocation APIs
+ *
+ * Revision 1.56  2007/02/09 20:36:46  ayanowit
+ * More Leopard IRMAllocation changes.
+ *
+ * Revision 1.55  2007/02/06 01:08:41  ayanowit
+ * More work on Leopard features such as new User-space IRM allocation APIs.
+ *
+ * Revision 1.54  2007/01/26 20:52:31  ayanowit
+ * changes to user-space isoch stuff to support 64-bit apps.
+ *
+ * Revision 1.53  2007/01/24 04:10:14  collin
+ * *** empty log message ***
+ *
+ * Revision 1.52  2006/12/21 21:17:44  ayanowit
+ * More changes necessary to eventually get support for 64-bit apps working (4222965).
+ *
+ * Revision 1.51  2006/12/06 00:01:08  arulchan
+ * Isoch Channel 31 Generic Receiver
+ *
+ * Revision 1.50  2006/11/29 18:42:53  ayanowit
+ * Modified the IOFireWireUserClient to use the Leopard externalMethod method of dispatch.
+ *
+ * Revision 1.49  2006/02/09 00:21:51  niels
+ * merge chardonnay branch to tot
+ *
+ * Revision 1.48  2005/09/24 00:55:28  niels
+ * *** empty log message ***
+ *
+ * Revision 1.47  2005/03/31 02:31:44  niels
+ * more object exporter fixes
+ *
+ * Revision 1.46  2005/03/30 22:14:55  niels
+ * Fixed compile errors see on Tiger w/ GCC 4.0
+ * Moved address-of-member-function calls to use OSMemberFunctionCast
+ * Added owner field to IOFWUserObjectExporter
+ * User client now cleans up published unit directories when client dies
+ *
+ * Revision 1.45.18.3  2006/01/31 04:49:51  collin
+ * *** empty log message ***
+ *
+ * Revision 1.45.18.1  2005/08/17 03:33:57  collin
+ * *** empty log message ***
+ *
  * Revision 1.45  2004/01/22 01:49:59  niels
  * fix user space physical address space getPhysicalSegments
  *
@@ -71,21 +143,23 @@
 #import "IOFireWireLibPriv.h"
 #import <IOKit/IOMemoryCursor.h>
 #import <IOKit/IOUserClient.h>
+#import <IOKit/firewire/IOFWCommand.h>
 
 using namespace IOFireWireLib ;
-
-//struct AsyncRefHolder
-//{
-//	OSAsyncReference	asyncRef ;
-//	void*				userRefCon ;
-//	void*				obj ;
-//} ;
 
 class IOFireWireDevice;
 class IOFWIsochChannel ;
 class IOFWUserObjectExporter ;
 class IOFireWireUserClient ;
 class IOFWBufferFillIsochPort ;
+class IOFireWireNub ;
+//class IOFWCommand ;
+//class IOFWReadCommand ;
+//class IOFWReadQuadCommand ;
+//class IOFWWriteCommand ;
+//class IOFWWriteQuadCommand ;
+//class IOFWCompareAndSwapCommand ;
+
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 class IOFWUserDebugInfo : public OSObject
 {
@@ -116,27 +190,6 @@ class IOFireWireUserClient : public IOUserClient
 
 	private:
 
-		struct ExternalMethod 
-		{
-			UInt32			objectTableLookupIndex ;
-			IOMethod		func;
-			IOOptionBits	flags;
-			IOByteCount		count0;
-			IOByteCount		count1;
-		};
-		
-		struct ExternalAsyncMethod 
-		{
-			UInt32			objectTableLookupIndex ;
-			IOAsyncMethod	func;
-			IOOptionBits	flags;
-			IOByteCount		count0;
-			IOByteCount		count1;
-		};
-
-		static const ExternalMethod			sMethods[ kNumMethods ] ;
-		static const ExternalAsyncMethod	sAsyncMethods[ kNumAsyncMethods ] ;
-
 		IOService *							fObjectTable[3] ;
 		task_t								fTask;
 		const IOExternalMethod *			fMethods ;
@@ -144,8 +197,8 @@ class IOFireWireUserClient : public IOUserClient
 		IOFWUserObjectExporter *			fExporter ;
 		mach_port_t							fNotificationPort ;
 		UInt32								fNotificationRefCon ;
-		OSAsyncReference					fBusResetAsyncNotificationRef ;
-		OSAsyncReference					fBusResetDoneAsyncNotificationRef ;
+		OSAsyncReference64					fBusResetAsyncNotificationRef ;
+		OSAsyncReference64					fBusResetDoneAsyncNotificationRef ;
 		IONotifier*							fNotifier ;
 		IOService*							fOpenClient ;
 		bool								fUnsafeResets ;
@@ -169,6 +222,7 @@ class IOFireWireUserClient : public IOUserClient
 		virtual IOReturn				setProperties ( OSObject * properties ) ;
 
 		// IOService
+		virtual bool					initWithTask( task_t owningTask, void * securityToken, UInt32 type, OSDictionary * properties );
 		virtual bool 					start ( IOService * provider );
 		virtual void 					stop ( IOService * provider );
 		virtual IOReturn 				message(
@@ -177,26 +231,22 @@ class IOFireWireUserClient : public IOUserClient
 												void* 					argument );
 
 		// IOUserClient
+	
+		virtual IOReturn				externalMethod( uint32_t selector, 
+														IOExternalMethodArguments * arguments, 
+														IOExternalMethodDispatch * dispatch, 
+														OSObject * target, 
+														void * reference);
+	
 		virtual IOReturn 				clientClose ( void );
 		virtual IOReturn 				clientDied ( void );	
-		inline static IOReturn 			sendAsyncResult (
-												OSAsyncReference 		reference,
-												IOReturn 				result, 
-												void*					args[], 
-												UInt32 					numArgs)
-												{ return IOUserClient::sendAsyncResult(reference, result, args, numArgs) ; }									
-		inline static void 				setAsyncReference (
-												OSAsyncReference 		asyncRef,
-												mach_port_t 			wakePort,
-												void*					callback, 
-												void*					refcon)
-												{ IOUserClient::setAsyncReference(asyncRef, wakePort, callback, refcon) ; }
-		IOExternalMethod *				getTargetAndMethodForIndex(
-												IOService **			target, 
-												UInt32 					index) ;
-		IOExternalAsyncMethod *			getAsyncTargetAndMethodForIndex (
-												IOService **			target, 
-												UInt32 					index) ;
+
+		inline static IOReturn 			sendAsyncResult64 (OSAsyncReference64 		reference,
+														   IOReturn 				result, 
+														   io_user_reference_t      args[], 
+														   UInt32 					numArgs)
+														{ return IOUserClient::sendAsyncResult64(reference, result, args, numArgs) ; }									
+	
 		IOReturn						registerNotificationPort ( 
 												mach_port_t 			port, 
 												UInt32 					type, 
@@ -204,10 +254,10 @@ class IOFireWireUserClient : public IOUserClient
 
 		// me
 		
-		static IOFireWireUserClient*	withTask( task_t owningTask ) ;
 //		void							deallocateSets () ; 
 		const task_t					getOwningTask () const {return fTask;}
-		IOFireWireNub *					getOwner ()	const				{ return (IOFireWireNub*) getProvider() ; }
+		IOFWUserObjectExporter *		getExporter()		{ return fExporter; }
+		IOFireWireNub *					getOwner ()	const				{ return fOwner ; }
 
 #pragma mark -
 		// --- startup ----------
@@ -225,13 +275,13 @@ class IOFireWireUserClient : public IOUserClient
 		// --- utils ----------
 		IOReturn						copyToUserBuffer (
 												IOVirtualAddress 		kernelBuffer,
-												IOVirtualAddress		userBuffer,
+												mach_vm_address_t		userBuffer,
 												IOByteCount 			bytes,
 												IOByteCount & 			bytesCopied ) ;
 		IOReturn						copyUserData (
-												IOVirtualAddress 		userBuffer, 
-												IOVirtualAddress		kernBuffer, 
-												IOByteCount 			bytes ) const ;
+												mach_vm_address_t 		userBuffer, 
+												mach_vm_address_t		kernBuffer, 
+												mach_vm_size_t 			bytes ) const ;
 	
 #pragma mark -
 		// --- read/write/lock ----------------
@@ -239,7 +289,7 @@ class IOFireWireUserClient : public IOUserClient
 		IOReturn		 				read ( const ReadParams* inParams, IOByteCount* outBytesTransferred ) ;
 		IOReturn		 				writeQuad ( const WriteQuadParams* inParams ) ;
 		IOReturn		 				write ( const WriteParams* inParams, IOByteCount* outBytesTransferred ) ;
-		IOReturn		 				compareSwap ( const CompareSwapParams* inParams, UInt64* oldVal) ;
+		IOReturn		 				compareSwap ( const CompareSwapParams* inParams, UInt32* oldVal) ;
 	
 #pragma mark -
 		// --- other -----------------
@@ -256,14 +306,14 @@ class IOFireWireUserClient : public IOUserClient
 #pragma mark -
 		// --- my conversion helpers -------
 		IOReturn						getOSStringData(
-												UserObjectHandle			inStringRef,
+												UserObjectHandle		inStringRef,
 												UInt32					inStringLen,
-												char*					inStringBuffer,
+												mach_vm_address_t		inStringBuffer,
 												UInt32*					outStringLen) ;
 		IOReturn						getOSDataData(
-												UserObjectHandle			inDataRef,
+												UserObjectHandle		inDataRef,
 												IOByteCount				inDataLen,
-												char*					inDataBuffer,
+												mach_vm_address_t		inDataBuffer,
 												IOByteCount*			outDataLen) ;
 		
 #pragma mark -
@@ -312,36 +362,62 @@ class IOFireWireUserClient : public IOUserClient
 												UserObjectHandle		inAddrSpaceRef,
 												FWClientCommandID		inCommandID,
 												IOReturn				inResult ) ;	
-		IOReturn						setAsyncRef_Packet( OSAsyncReference asyncRef, UserObjectHandle addrSpace,
-												void* callback, void* userRefCon, void*, void*, void* ) ;
+
+		IOReturn						setAsyncStreamRef_Packet (
+												OSAsyncReference64		asyncRef,
+												UserObjectHandle		asyncStreamListenerHandle,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
+												void*,
+												void*,
+												void* ) ;
+												
+		IOReturn						setAsyncStreamRef_SkippedPacket (
+												OSAsyncReference64		asyncRef,
+												UserObjectHandle		inAsyncStreamListenerRef,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
+												void*,
+												void*,
+												void*) ;
+												
+		IOReturn						setAsyncRef_Packet( 
+												OSAsyncReference64		asyncRef, 
+												UserObjectHandle		addrSpace,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
+												void*, 
+												void*, 
+												void* ) ;
+												
 		IOReturn						setAsyncRef_SkippedPacket(
-												OSAsyncReference		asyncRef,
+												OSAsyncReference64		asyncRef,
 												UserObjectHandle		inAddrSpaceRef,
-												void*					inCallback,
-												void*					inUserRefCon,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
 												void*,
 												void*,
 												void*) ;
 		IOReturn						setAsyncRef_Read(
-												OSAsyncReference		asyncRef,
+												OSAsyncReference64		asyncRef,
 												UserObjectHandle		inAddrSpaceRef,
-												void*					inCallback,
-												void*					inUserRefCon,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
 												void*,
 												void*,
 												void*) ;
 		IOReturn						setAsyncRef_BusReset(
-												OSAsyncReference		asyncRef,
-												void*					inCallback,
-												void*					inUserRefCon,
+												OSAsyncReference64		asyncRef,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
 												void*,
 												void*,
 												void*,
 												void*) ;
 		IOReturn						setAsyncRef_BusResetDone(
-												OSAsyncReference		asyncRef,
-												void*					inCallback,
-												void*					inUserRefCon,
+												OSAsyncReference64		asyncRef,
+												mach_vm_address_t		inCallback,
+												io_user_reference_t		inUserRefCon,
 												void*,
 												void*,
 												void*,
@@ -350,20 +426,20 @@ class IOFireWireUserClient : public IOUserClient
 #pragma mark -
 		// physical address space stuff
 		IOReturn						physicalAddressSpace_Create ( 
-												UInt32						size,
-												void *						backingStore,
+												mach_vm_size_t				size,
+												mach_vm_address_t			backingStore,
 												UInt32						flags,
 												UserObjectHandle * 			outKernAddrSpaceRef ) ;
 		IOReturn						physicalAddressSpace_GetSegments (
 												UserObjectHandle			addressSpaceHandle,
-												UInt32								inSegmentCount,
-												IOMemoryCursor::IOPhysicalSegment *	outSegments,
-												UInt32*								outSegmentCount) ;
+												UInt32						inSegmentCount,
+												mach_vm_address_t			outSegments,
+												UInt32*						outSegmentCount) ;
 
 #pragma mark -
 		// async commands
 		IOReturn						userAsyncCommand_Submit(
-												OSAsyncReference					asyncRef,
+												OSAsyncReference64					asyncRef,
 												CommandSubmitParams *				inParams,
 												CommandSubmitResult *				outResult,
 												IOByteCount							inParamsSize,
@@ -472,15 +548,15 @@ class IOFireWireUserClient : public IOUserClient
 														UserObjectHandle			portHandle,
 														UserObjectHandle			channelHandle ) ;
 		IOReturn						setAsyncRef_DCLCallProc ( 
-														OSAsyncReference			asyncRef, 
+														OSAsyncReference64			asyncRef, 
 														UserObjectHandle			portRef ) ;
 		
 #pragma mark -
 		// isoch channel
-		static IOReturn					s_IsochChannel_ForceStopHandler(
-												void*					refCon,
-												IOFWIsochChannel*		isochChannelID,
-												UInt32					stopCondition) ;
+//		static IOReturn					s_IsochChannel_ForceStopHandler(
+//												void*					refCon,
+//												IOFWIsochChannel*		isochChannelID,
+//												UInt32					stopCondition) ;
 		IOReturn						isochChannel_Create (
 												bool					inDoIRM,
 												UInt32					inPacketSize,
@@ -494,7 +570,7 @@ class IOFireWireUserClient : public IOUserClient
 												UInt32 *				outSpeed,
 												UInt32 *				outChannel ) ;
 		IOReturn						setAsyncRef_IsochChannelForceStop(
-														OSAsyncReference		asyncRef,
+														OSAsyncReference64		asyncRef,
 														UserObjectHandle		channel ) ;
 	
 #pragma mark -
@@ -579,5 +655,76 @@ class IOFireWireUserClient : public IOUserClient
 		// v7
 		//
 		IOReturn						getSessionRef( IOFireWireSessionRef * sessionRef ) ;
+
+		//
+		// v8
+		//
+		IOReturn						asyncStreamListener_Create ( 
+														FWUserAsyncStreamListenerCreateParams*	params, 
+														UserObjectHandle*						outAsyncStreamListenerHandle );
+		
+		IOReturn						asyncStreamListener_ClientCommandIsComplete (
+														UserObjectHandle		asyncStreamListenerHandle,
+														FWClientCommandID		inCommandID );
+
+		IOReturn						asyncStreamListener_GetOverrunCounter (
+														UserObjectHandle		asyncStreamListenerHandle,
+														UInt32					*overrunCounter );
+
+		IOReturn						asyncStreamListener_SetFlags (
+														UserObjectHandle		asyncStreamListenerHandle,
+														UInt32					flags );
+
+		IOReturn						asyncStreamListener_GetFlags (
+														UserObjectHandle		asyncStreamListenerHandle,
+														UInt32					*flags );
+														
+		IOReturn						asyncStreamListener_TurnOnNotification (
+														UserObjectHandle		asyncStreamListenerHandle );
+
+		IOReturn						asyncStreamListener_TurnOffNotification (
+														UserObjectHandle		asyncStreamListenerHandle );
+	
+		IOReturn						allocateIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation) ;
+	
+		IOReturn						releaseIRMBandwidthInGeneration(UInt32 bandwidthUnits, UInt32 generation) ;
+	
+		IOReturn						allocateIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) ;
+	
+		IOReturn						releaseIRMChannelInGeneration(UInt8 isochChannel, UInt32 generation) ;
+	
+		IOReturn						irmAllocation_Create(Boolean releaseIRMResourcesOnFree, UserObjectHandle* outIRMAllocationHandle);	
+
+		IOReturn						irmAllocation_AllocateResources(UserObjectHandle irmAllocationHandle, UInt8 isochChannel, UInt32 bandwidthUnits);
+
+		IOReturn						irmAllocation_DeallocateResources(UserObjectHandle irmAllocationHandle);
+
+		Boolean							irmAllocation_areResourcesAllocated(UserObjectHandle irmAllocationHandle, UInt8 *pIsochChannel, UInt32 *pBandwidthUnits);
+
+		void							irmAllocation_setDeallocateOnRelease(UserObjectHandle irmAllocationHandle, Boolean doDeallocationOnRelease);
+	
+		IOReturn						irmAllocation_setRef(OSAsyncReference64 asyncRef,
+															 UserObjectHandle		irmAllocationHandle,
+															 io_user_reference_t	inCallback,
+															 io_user_reference_t	inUserRefCon);
+		
+		IOReturn						createAsyncCommand(	OSAsyncReference64 asyncRef,
+															CommandSubmitParams * params,
+															UserObjectHandle * kernel_ref );
+
+		IOReturn						createVectorCommand( UserObjectHandle * kernel_ref );
+	
+	public:
+		static void						setAsyncReference64(OSAsyncReference64 asyncRef,
+											mach_port_t wakePort,
+											mach_vm_address_t callback, io_user_reference_t refcon)
+										{
+											// why is this protected?
+											// hack to make it public
+											IOUserClient::setAsyncReference64( asyncRef, wakePort, callback, refcon );
+										}
+
+		IOReturn						createPHYPacketListener( UInt32 queue_count, UserObjectHandle * kernel_ref );
+
 } ;
 

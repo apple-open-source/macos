@@ -41,6 +41,7 @@ static char sccsid[] = "@(#)net.c	8.4 (Berkeley) 4/28/95";
 #endif
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/finger/net.c,v 1.23 2004/05/16 22:08:15 stefanf Exp $");
 
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -54,10 +55,10 @@ static char sccsid[] = "@(#)net.c	8.4 (Berkeley) 4/28/95";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 #include "finger.h"
 
-static void cleanup(int sig);;
+static void cleanup(int sig);
 static int do_protocol(const char *name, const struct addrinfo *ai);
 static void trying(const struct addrinfo *ai);
 
@@ -143,6 +144,9 @@ do_protocol(const char *name, const struct addrinfo *ai)
 	iov[msg.msg_iovlen].iov_base = neteol;
 	iov[msg.msg_iovlen++].iov_len = 2;
 
+#ifdef __APPLE__
+	if (connect(s, ai->ai_addr, ai->ai_addrlen) < 0) {
+#else
 	/*
 	 * -T disables data-on-SYN: compatibility option to finger broken
 	 * hosts.  Also, the implicit-open API is broken on IPv6, so do
@@ -150,6 +154,7 @@ do_protocol(const char *name, const struct addrinfo *ai)
 	 */
 	if ((Tflag || ai->ai_addr->sa_family == AF_INET6)
 	    && connect(s, ai->ai_addr, ai->ai_addrlen) < 0) {
+#endif
 		warn("connect");
 		close(s);
 		return -1;
@@ -236,7 +241,7 @@ trying(const struct addrinfo *ai)
 }
 
 void
-cleanup(int sig)
+cleanup(int sig __unused)
 {
 #define	ERRSTR	"Timed out.\n"
 	write(STDERR_FILENO, ERRSTR, sizeof ERRSTR);

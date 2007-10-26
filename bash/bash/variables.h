@@ -1,6 +1,6 @@
 /* variables.h -- data structures for shell variables. */
 
-/* Copyright (C) 1987-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1987-2005 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -71,7 +71,11 @@ union _value {
   ARRAY *a;			/* array */
   HASH_TABLE *h;		/* associative array */
   double d;			/* floating point number */
-  void *v;			/* opaque data for future use */
+#if defined (HAVE_LONG_DOUBLE)
+  long double ld;		/* long double */
+#endif
+  struct variable *v;		/* possible indirect variable use */
+  void *opaque;			/* opaque data for future use */
 };
 
 typedef struct variable {
@@ -198,7 +202,6 @@ extern VAR_CONTEXT *shell_variables;
 
 extern HASH_TABLE *shell_functions;
 extern HASH_TABLE *temporary_env;
-extern int temporary_env_errors;
 
 extern int variable_context;
 extern char *dollar_vars[];
@@ -215,13 +218,16 @@ extern void make_funcname_visible __P((int));
 extern SHELL_VAR *var_lookup __P((const char *, VAR_CONTEXT *));
 
 extern SHELL_VAR *find_function __P((const char *));
+extern FUNCTION_DEF *find_function_def __P((const char *));
 extern SHELL_VAR *find_variable __P((const char *));
 extern SHELL_VAR *find_variable_internal __P((const char *, int));
 extern SHELL_VAR *find_tempenv_variable __P((const char *));
 extern SHELL_VAR *copy_variable __P((SHELL_VAR *));
 extern SHELL_VAR *make_local_variable __P((const char *));
-extern SHELL_VAR *bind_variable __P((const char *, char *));
+extern SHELL_VAR *bind_variable __P((const char *, char *, int));
 extern SHELL_VAR *bind_function __P((const char *, COMMAND *));
+
+extern void bind_function_def __P((const char *, FUNCTION_DEF *));
 
 extern SHELL_VAR **map_over __P((sh_var_map_func_t *, VAR_CONTEXT *));
 SHELL_VAR **map_over_funcs __P((sh_var_map_func_t *));
@@ -244,15 +250,17 @@ extern char **add_or_supercede_exported_var __P((char *, int));
 extern char *get_variable_value __P((SHELL_VAR *));
 extern char *get_string_value __P((const char *));
 extern char *sh_get_env_value __P((const char *));
-extern char *make_variable_value __P((SHELL_VAR *, char *));
+extern char *make_variable_value __P((SHELL_VAR *, char *, int));
 
-extern SHELL_VAR *bind_variable_value __P((SHELL_VAR *, char *));
+extern SHELL_VAR *bind_variable_value __P((SHELL_VAR *, char *, int));
 extern SHELL_VAR *bind_int_variable __P((char *, char *));
 extern SHELL_VAR *bind_var_to_int __P((char *, intmax_t));
 
-extern int assign_in_env __P((const char *));
+extern int assign_in_env __P((WORD_DESC *));
+
 extern int unbind_variable __P((const char *));
 extern int unbind_func __P((const char *));
+extern int unbind_function_def __P((const char *));
 extern int makunbound __P((const char *, VAR_CONTEXT *));
 extern int kill_local_variable __P((const char *));
 extern void delete_all_variables __P((HASH_TABLE *));
@@ -270,6 +278,9 @@ extern void pop_context __P((void));
 extern void push_dollar_vars __P((void));
 extern void pop_dollar_vars __P((void));
 extern void dispose_saved_dollar_vars __P((void));
+
+extern void push_args __P((WORD_LIST *));
+extern void pop_args __P((void));
 
 extern void adjust_shell_level __P((int));
 extern void non_unsettable __P((char *));
@@ -327,12 +338,14 @@ extern void sv_opterr __P((char *));
 extern void sv_locale __P((char *));
 
 #if defined (READLINE)
+extern void sv_comp_wordbreaks __P((char *));
 extern void sv_terminal __P((char *));
 extern void sv_hostfile __P((char *));
+extern void sv_winsize __P((char *));
 #endif
 
-#if defined (HAVE_TZSET) && defined (PROMPT_STRING_DECODE)
-extern void sv_tz __P((char *));
+#if defined (__CYGWIN__)
+extern void sv_home __P((char *));
 #endif
 
 #if defined (HISTORY)
@@ -342,6 +355,11 @@ extern void sv_history_control __P((char *));
 #  if defined (BANG_HISTORY)
 extern void sv_histchars __P((char *));
 #  endif
+extern void sv_histtimefmt __P((char *));
 #endif /* HISTORY */
+
+#if defined (HAVE_TZSET) && defined (PROMPT_STRING_DECODE)
+extern void sv_tz __P((char *));
+#endif
 
 #endif /* !_VARIABLES_H_ */

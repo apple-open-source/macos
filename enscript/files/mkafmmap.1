@@ -1,0 +1,34 @@
+.TH MKAFMMAP 1 "May 10, 2004"
+.\"
+.SH NAME
+mkafmmap \- creates font map for AFM files
+.\"
+.SH SYNOPSIS
+.B mkafmmap
+.RI [ options ] " files" ...
+.\"
+.SH DESCRIPTION
+The \fBmkafmmap\fP command will generate a font map file reading all the AFM
+files given in the command line. By default it will write the map to a file
+named \fBfont.map\fP, a different filename can be specified with the
+\fB\-\-output\-file\fP options. Using '\fB\-\fP' will make the program write
+the map to \fBstdout\fP.
+.\"
+.SH OPTIONS
+.TP
+.B \-h, \-\-help
+Show summary of options.
+.TP
+.B \-v, \-\-version
+Show version of program.
+.TP
+.B \-p, \-\-output\-file=NAME
+Print output to file NAME.
+.\"
+.SH SEE ALSO
+.BR enscript (1),
+.BR states (1).
+.\"
+.SH AUTHOR
+This manual page was written by Lucas Wall <kthulhu@usa.net>,
+for the Debian project (but may be used by others).

@@ -36,11 +36,14 @@
 
 #include <sys/cdefs.h>
 
+__FBSDID("$FreeBSD: src/usr.bin/tail/forward.c,v 1.39 2005/08/26 08:15:57 ps Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
 #endif
 
+#include <sys/param.h>
+#include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -59,11 +62,19 @@ static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
 #include "extern.h"
 
 static void rlines(FILE *, off_t, struct stat *);
+static void show(file_info_t *);
+static void set_events(file_info_t *files);
 
 /* defines for inner loop actions */
 #define USE_SLEEP	0
 #define USE_KQUEUE	1
 #define ADD_EVENTS	2
+
+struct kevent *ev;
+int action = USE_SLEEP;
+int kq;
+
+static const file_info_t *last;
 
 /*
  * forward -- display the file, from an offset, forward.
@@ -88,17 +99,9 @@ static void rlines(FILE *, off_t, struct stat *);
  *	NOREG	cyclically read lines into a wrap-around array of buffers
  */
 void
-forward(fp, style, off, sbp)
-	FILE *fp;
-	enum STYLE style;
-	off_t off;
-	struct stat *sbp;
+forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
 {
-	int ch, n, kq = -1;
-	int action = USE_SLEEP;
-	struct kevent ev[2];
-	struct stat sb2;
-	struct timespec ts;
+	int ch;
 
 	switch(style) {
 	case FBYTES:
@@ -175,96 +178,14 @@ forward(fp, style, off, sbp)
 		break;
 	}
 
-	if (fflag) {
-		kq = kqueue();
-		if (kq < 0)
-			err(1, "kqueue");
-		action = ADD_EVENTS;
+	while ((ch = getc(fp)) != EOF)
+		if (putchar(ch) == EOF)
+			oerr();
+	if (ferror(fp)) {
+		ierr();
+		return;
 	}
-
-	for (;;) {
-		while ((ch = getc(fp)) != EOF)
-			if (putchar(ch) == EOF)
-				oerr();
-		if (ferror(fp)) {
-			ierr();
-			return;
-		}
-		(void)fflush(stdout);
-		if (! fflag)
-			break;
-		clearerr(fp);
-
-		switch (action) {
-		case ADD_EVENTS:
-			n = 0;
-			ts.tv_sec = 0;
-			ts.tv_nsec = 0;
-
-			if (Fflag && fileno(fp) != STDIN_FILENO) {
-				EV_SET(&ev[n], fileno(fp), EVFILT_VNODE,
-				    EV_ADD | EV_ENABLE | EV_CLEAR,
-				    NOTE_DELETE | NOTE_RENAME, 0, 0);
-				n++;
-			}
-			EV_SET(&ev[n], fileno(fp), EVFILT_READ,
-			    EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, 0);
-			n++;
-
-			if (kevent(kq, ev, n, NULL, 0, &ts) < 0) {
-				action = USE_SLEEP;
-			} else {
-				action = USE_KQUEUE;
-			}
-			break;
-
-		case USE_KQUEUE:
-			ts.tv_sec = 1;
-			ts.tv_nsec = 0;
-			/*
-			 * In the -F case we set a timeout to ensure that
-			 * we re-stat the file at least once every second.
-			 */
-			n = kevent(kq, NULL, 0, ev, 1, Fflag ? &ts : NULL);
-			if (n < 0)
-				err(1, "kevent");
-			if (n == 0) {
-				/* timeout */
-				break;
-			} else if (ev->filter == EVFILT_READ && ev->data < 0) {
-				 /* file shrank, reposition to end */
-				if (fseeko(fp, (off_t)0, SEEK_END) == -1) {
-					ierr();
-					return;
-				}
-			}
-			break;
-
-		case USE_SLEEP:
-                	(void) usleep(250000);
-	                clearerr(fp);
-			break;
-		}
-
-		if (Fflag && fileno(fp) != STDIN_FILENO) {
-			while (stat(fname, &sb2) != 0)
-				/* file was rotated, wait until it reappears */
-				(void)sleep(1);
-			if (sb2.st_ino != sbp->st_ino ||
-			    sb2.st_dev != sbp->st_dev ||
-			    sb2.st_rdev != sbp->st_rdev ||
-			    sb2.st_nlink == 0) {
-				fp = freopen(fname, "r", fp);
-				if (fp == NULL) {
-					ierr();
-					return;
-				} else {
-					*sbp = sb2;
-					action = ADD_EVENTS;
-				}
-			}
-		}
-	}
+	(void)fflush(stdout);
 }
 
 /*
@@ -318,5 +239,164 @@ rlines(fp, off, sbp)
 	if (map.start != NULL && munmap(map.start, map.maplen)) {
 		ierr();
 		return;
+	}
+}
+
+static void
+show(file_info_t *file)
+{
+    int ch;
+
+    while ((ch = getc(file->fp)) != EOF) {
+	if (last != file && no_files > 1) {
+		(void)printf("\n==> %s <==\n", file->file_name);
+		last = file;
+	}
+	if (putchar(ch) == EOF)
+		oerr();
+    }
+    (void)fflush(stdout);
+    if (ferror(file->fp)) {
+	    if (fileno(file->fp) != STDIN_FILENO)
+		    fclose(file->fp);
+	    file->fp = NULL;
+	    fname = file->file_name; /* cleared in tail.c */
+	    ierr();
+    } else
+	    clearerr(file->fp);
+}
+
+static void
+set_events(file_info_t *files)
+{
+	int i, n = 0;
+	file_info_t *file;
+	struct timespec ts;
+	struct statfs sf;
+
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
+
+	action = USE_KQUEUE;
+	for (i = 0, file = files; i < no_files; i++, file++) {
+		if (! file->fp)
+			continue;
+
+		if (fstatfs(fileno(file->fp), &sf) == 0 &&
+		    (sf.f_flags & MNT_LOCAL) == 0) {
+			action = USE_SLEEP;
+			return;
+		}
+
+		if (Fflag && fileno(file->fp) != STDIN_FILENO) {
+			EV_SET(&ev[n], fileno(file->fp), EVFILT_VNODE,
+			    EV_ADD | EV_ENABLE | EV_CLEAR,
+			    NOTE_DELETE | NOTE_RENAME, 0, 0);
+			n++;
+		}
+		EV_SET(&ev[n], fileno(file->fp), EVFILT_READ,
+		    EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, 0);
+		n++;
+	}
+
+	if (kevent(kq, ev, n, NULL, 0, &ts) < 0) {
+		action = USE_SLEEP;
+	}
+}
+
+/*
+ * follow -- display the file, from an offset, forward.
+ *
+ */
+void
+follow(file_info_t *files, enum STYLE style, off_t off)
+{
+	int active, i, n = -1;
+	struct stat sb2;
+	file_info_t *file;
+	struct timespec ts;
+
+	/* Position each of the files */
+
+	file = files;
+	active = 0;
+	n = 0;
+	for (i = 0; i < no_files; i++, file++) {
+		if (file->fp) {
+			active = 1;
+			n++;
+			if (no_files > 1)
+				(void)printf("\n==> %s <==\n", file->file_name);
+			forward(file->fp, style, off, &file->st);
+			if (Fflag && fileno(file->fp) != STDIN_FILENO)
+			    n++;
+		}
+	}
+	if (! active)
+		return;
+
+	last = --file;
+
+	kq = kqueue();
+	if (kq < 0)
+		err(1, "kqueue");
+	ev = malloc(n * sizeof(struct kevent));
+	if (! ev)
+	    err(1, "Couldn't allocate memory for kevents.");
+	set_events(files);
+
+	for (;;) {
+		for (i = 0, file = files; i < no_files; i++, file++) {
+			if (! file->fp)
+				continue;
+			if (Fflag && file->fp && fileno(file->fp) != STDIN_FILENO) {
+				if (stat(file->file_name, &sb2) != 0) {
+					/* file was rotated, skip it until it reappears */
+					continue;
+				}
+				if (sb2.st_ino != file->st.st_ino ||
+				    sb2.st_dev != file->st.st_dev ||
+				    sb2.st_nlink == 0) {
+					file->fp = freopen(file->file_name, "r", file->fp);
+					if (file->fp == NULL) {
+						fname = file->file_name;
+						ierr();
+						continue;
+					} else {
+						memcpy(&file->st, &sb2, sizeof(struct stat));
+						set_events(files);
+					}
+				}
+			}
+			show(file);
+		}
+
+		switch (action) {
+		case USE_KQUEUE:
+			ts.tv_sec = 1;
+			ts.tv_nsec = 0;
+			/*
+			 * In the -F case we set a timeout to ensure that
+			 * we re-stat the file at least once every second.
+			 */
+			n = kevent(kq, NULL, 0, ev, 1, Fflag ? &ts : NULL);
+			if (n < 0)
+				err(1, "kevent");
+			if (n == 0) {
+				/* timeout */
+				break;
+			} else if (ev->filter == EVFILT_READ && ev->data < 0) {
+				 /* file shrank, reposition to end */
+				if (lseek(ev->ident, (off_t)0, SEEK_END) == -1) {
+					ierr();
+					continue;
+				}
+			}
+			break;
+
+		case USE_SLEEP:
+			(void) usleep(250000);
+			break;
+		}
 	}
 }

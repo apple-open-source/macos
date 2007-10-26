@@ -44,7 +44,7 @@
  * as an ASCII string. 
  *
  * Within one per-policy dictionary exists a number of per-user dictionaries,
- * with the username key as a string. Note that this user name, the one passed to the 
+ * with the username key as a string. Note that this user name, the one passed to the 
  * .mac server, does NOT have to have any relation to the current Unix user name; one 
  * Unix user can have multiple .mac accounts. 
  *
@@ -121,10 +121,11 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 {
 	certReqDbg("CertificateRequest construct");
 	
-	/* validate policy OID */
-	if(!nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) && 
-	   !nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) && 
-	   !nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy)) {
+	/* Validate policy OID. */
+	if(!(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) ||
+	     nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) || 
+	     nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy) ||
+	     nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_SHARED_SERVICES, &policy))) {
 		certReqDbg("CertificateRequest(): unknown policy oid");
 		MacOSError::throwMe(paramErr);
 	}
@@ -145,6 +146,7 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 	bool doPendingRequest = false;
 	for(unsigned dex=0; dex<attributeList->count; dex++) {
 		const SecCertificateRequestAttribute *attr = &attributeList->attr[dex];
+		
 		if((attr->oid.Data == NULL) || (attr->value.Data == NULL)) {
 			MacOSError::throwMe(paramErr);
 		}
@@ -158,7 +160,11 @@ CertificateRequest::CertificateRequest(const CSSM_OID &policy,
 			mHostName.copy(attr->value);
 		}
 		else if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_RENEW, &attr->oid)) {
-			/* any nonzero value means true */
+			/* 
+			 * any nonzero value means true 
+			 * FIXME: this is deprecated, Treadstone doesn't allow this. Reject this 
+			 * request? Ignore?
+			 */
 			mDoRenew = attrBoolValue(attr);
 		}
 		else if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_VALUE_ASYNC, &attr->oid)) {
@@ -217,13 +223,14 @@ void CertificateRequest::submit(
 	CSSM_DATA &policy = mPolicy.get();
 	if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) ||
 	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) ||
-	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy)) {
+	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy) ||
+	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_SHARED_SERVICES, &policy)) {
 		return submitDotMac(estimatedTime);
 	}
 	else {
 		/* shouldn't be here, we already validated policy in constructor */
 		assert(0);
-		certReqDbg("CertificateRequest::sumit(): bad policy");
+		certReqDbg("CertificateRequest::submit(): bad policy");
 		MacOSError::throwMe(paramErr);
 	}
 }
@@ -254,7 +261,7 @@ void CertificateRequest::submitDotMac(
 		certReqDbg("CertificateRequest: user name and password required");
 		MacOSError::throwMe(paramErr);
 	}
-	
+
 	/* get keys and CSP handle in CSSM terms */
 	if((mPrivKey == NULL) || (mPubKey == NULL)) {
 		certReqDbg("CertificateRequest: pub and priv keys required");
@@ -345,7 +352,7 @@ void CertificateRequest::submitDotMac(
 			/* refID is a cert, we have to store it in prefs for later retrieval. */
 			certReqDbg("submitDotMac: full success, storing cert");
 			if(!mIsAsync) {
-				/* store in prefs if not running in async modce */
+				/* store in prefs if not running in async mode */
 				ortn = storeResults(NULL, &refId);
 				if(ortn) {
 					crtn = ortn;
@@ -408,7 +415,8 @@ void CertificateRequest::getResult(
 	CSSM_DATA &policy = mPolicy.get();
 	if(nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_IDENTITY, &policy) ||
 	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN, &policy) ||
-	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy)) {
+	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT, &policy) || 
+	   nssCompareCssmData(&CSSMOID_DOTMAC_CERT_REQ_SHARED_SERVICES, &policy)) {
 		return getResultDotMac(estimatedTime, certData);
 	}
 	else {
@@ -453,16 +461,17 @@ void CertificateRequest::getResultDotMac(
 					break;
 				case CSSMERR_TP_CERT_NOT_VALID_YET:
 					/* 
-					 * By crufty convention, this means "not ready yet".
+					 * By convention, this means "not ready yet".
 					 * The dot mac server does not have a way of telling us the 
-					 * estimated time on a straight lookup like this so we
+					 * estimated time on a straight lookup like this (we only get
+					 * an estimated completion time on the initial request), so we
 					 * fake it. 
 					 */
 					certReqDbg("getResultDotMac: polled server, not ready yet");
 					if(estimatedTime) {
-						*estimatedTime = 1;
+						*estimatedTime = (mEstTime) ? mEstTime : 1;
 					}
-					MacOSError::throwMe(errSecItemNotFound);
+					MacOSError::throwMe(CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING);
 				default:
 					certReqDbg("CSSM_TP_RetrieveCredResult error");
 					CssmError::throwMe(crtn);
@@ -473,7 +482,7 @@ void CertificateRequest::getResultDotMac(
 			}
 			if(resultSet->NumberOfResults != 1) {
 				certReqDbg("***CSSM_TP_RetrieveCredResult OK, NumberOfResults (%lu)",
-					resultSet->NumberOfResults);
+					(unsigned long)resultSet->NumberOfResults);
 				MacOSError::throwMe(internalComponentErr);
 			}
 			if(resultSet->Results == NULL) {
@@ -691,7 +700,7 @@ void CertificateRequest::removeResults()
  *
  * The distinguishing features about this TP request are:
  *
- * policy OID doesn't matter
+ * policy OID = CSSMOID_DOTMAC_CERT_REQ_{IDENTITY,EMAIL_SIGN,EMAIL_ENCRYPT,SHARED_SERVICES}
  * CSSM_TP_AUTHORITY_REQUEST_TYPE = CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP
  * CSSM_APPLE_DOTMAC_TP_CERT_REQUEST.flags = CSSM_DOTMAC_TP_IS_REQ_PENDING
  * must have userName and password
@@ -771,7 +780,7 @@ void CertificateRequest::postPendingRequest()
 			crtn = internalComponentErr;
 			break;
 		default:
-			certReqDbg("postPendingRequest: unexpected rtn %lu", crtn);
+			certReqDbg("postPendingRequest: unexpected rtn %lu", (unsigned long)crtn);
 			break;
 	}
 	CssmError::throwMe(crtn);

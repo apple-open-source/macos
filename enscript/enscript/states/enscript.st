@@ -28,7 +28,7 @@
  */
 
 /*
- * $Id: enscript.st,v 1.1.1.1 1999/04/20 23:26:45 wsanchez Exp $
+ * $Id: enscript.st,v 1.1 1999/04/20 23:26:45 wsanchez Exp $
  */
 
 /*

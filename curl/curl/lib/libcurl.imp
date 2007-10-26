@@ -3,6 +3,8 @@
 #
 #	(LIBCURL)
 	curl_easy_cleanup,
+	curl_easy_escape,
+	curl_easy_unescape,
 	curl_easy_getinfo,
 	curl_easy_init,
 	curl_easy_perform,
@@ -23,6 +25,7 @@
 	curl_msprintf,
 	curl_msnprintf,
 	curl_mvfprintf,
+	curl_mvsnprintf,
 	curl_strequal,
 	curl_strnequal,
 	curl_easy_duphandle,

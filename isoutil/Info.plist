@@ -78,7 +78,7 @@
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_cd9660</string>
 			<key>FSName</key>
-			<string>ISO 9660 File System</string>
+			<string>ISO 9660</string>
 			<key>FSSubType</key>
 			<integer>0</integer>
 		</dict>
@@ -89,7 +89,7 @@
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_cd9660</string>
 			<key>FSName</key>
-			<string>ISO 9660 File System (Joliet)</string>
+			<string>ISO 9660 (Joliet)</string>
 			<key>FSSubType</key>
 			<integer>1</integer>
 		</dict>
@@ -100,7 +100,7 @@
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_cd9660</string>
 			<key>FSName</key>
-			<string>ISO 9660 File System (Rockridge)</string>
+			<string>ISO 9660 (Rockridge)</string>
 			<key>FSSubType</key>
 			<integer>2</integer>
 		</dict>

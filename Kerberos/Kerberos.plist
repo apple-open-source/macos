@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2007-08-14</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>kerberos.html</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>LW_net_trans.patch</string>
+		<string>LW+AJ-5146581_kdc_notify_pws.patch</string>
+		<string>SC-stash.patch</string>
+		<string>SC-alignment.patch</string>
+		<string>SC-4674490-pkinit.patch</string>
+		<string>SC-4663590-LDFLAGS.patch</string>
+		<string>SC-spnego-export.patch</string>
+		<string>SC-ThrottleInternval.patch</string>
+		<string>SC-singular-plural.patch</string>
+		<string>DM_pkinit_full.patch</string>
+		<string>DVG+SC-Makefile.patch</string>
+		<string>CM+AJ-4891103_pkinit-agent.patch</string>
+		<string>SC-debug-symbols.patch</string>
+		<string>SJ-4910231+5093293-authdata-plugin.patch</string>
+		<string>DVG-manpage_fixes.patch</string>
+		<string>BR-5023012-was-4858064_lucid_support_for_SPNEGO.patch</string>
+		<string>KM-4811199+5299234_apple_gss.patch</string>
+		<string>CM-5018969_dialog_fix.patch</string>
+		<string>DVG-5037747_per-user_launchd.patch</string>
+		<string>SC-PR-4804143-plural-strings.patch</string>
+		<string>DVG-5014262_krb5-config.patch</string>
+		<string>DVG-kdb5_ldap_util_manpage.patch</string>
+		<string>CM-5082558_dialog_collapse.patch</string>
+		<string>CPM-5189092_keychain_password_rewrite.patch</string>
+		<string>DVG-5142011_Seatbelting.patch</string>
+		<string>AJ-5229538_CCacheServer_should_not_be_programmatically_loaded_by_Kerberos.patch</string>
+		<string>AJ-5242016_kinit_should_not_fail_when_krb5conf_is_missing.patch</string>
+		<string>DVG-5374608_CCacheServer_plist_fixed_to_not_access_the_home_directory.patch</string>
+		<string>DVG-5386087_MITKRB5-SA-2007-006_CVE-2007-3999_CVE-2007-4000_kadmind_code_execution_fix.patch</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>Kerberos</string>
+	<key>OpenSourceSHA1</key>
+	<string>11a0b9d6509b2fc9518b0d8a99ea2fba86844e63</string>
+	<key>OpenSourceURL</key>
+	<string>Unreleased BETA Version</string>
+	<key>OpenSourceVersion</key>
+	<string>KfM-6.0fc5</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://web.mit.edu/kerberos/</string>
+</dict>
+</plist>

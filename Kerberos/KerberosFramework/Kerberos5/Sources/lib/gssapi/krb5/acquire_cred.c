@@ -222,6 +222,7 @@ acquire_init_cred(context, minor_status, desired_name, output_princ, cred)
    krb5_cc_cursor cur;
    krb5_creds creds;
    int got_endtime;
+   int caller_provided_ccache_name = 0;
 
    cred->ccache = NULL;
 
@@ -230,33 +231,38 @@ acquire_init_cred(context, minor_status, desired_name, output_princ, cred)
    if (GSS_ERROR(kg_sync_ccache_name(context, minor_status)))
        return(GSS_S_FAILURE);
 
+   /* check to see if the caller provided a ccache name if so 
+    * we will just use that and not search the cache collection */
+   if (GSS_ERROR(kg_caller_provided_ccache_name (minor_status, &caller_provided_ccache_name))) {
+       return(GSS_S_FAILURE);
+   }
+
 #if defined(USE_LOGIN_LIBRARY) || defined(USE_LEASH)
-   if (desired_name != NULL) {
+   if (desired_name && !caller_provided_ccache_name) {
 #if defined(USE_LOGIN_LIBRARY)
+       KLStatus err = klNoErr;
        char *ccache_name = NULL;
        KLPrincipal kl_desired_princ = NULL;
+
+       err = __KLCreatePrincipalFromKerberos5Principal ((krb5_principal) desired_name,
+                                                        &kl_desired_princ);
        
-       if ((code = __KLCreatePrincipalFromKerberos5Principal ((krb5_principal) desired_name,
-                                                              &kl_desired_princ))) {
-           *minor_status = code;
+       if (!err) {
+           err = KLAcquireInitialTickets (kl_desired_princ, NULL, NULL, &ccache_name);
+       }
+
+       if (!err) {
+           err = krb5_cc_resolve (context, ccache_name, &ccache);
+       }
+       
+       if (err) {
+           *minor_status = err;
            return(GSS_S_CRED_UNAVAIL);
        }
        
-       if ((code = KLAcquireInitialTickets (kl_desired_princ, NULL, NULL, &ccache_name))) {
-           KLDisposePrincipal (kl_desired_princ);
-           *minor_status = code;
-           return(GSS_S_CRED_UNAVAIL);
-       }
-       
-       if ((code = krb5_cc_resolve (context, ccache_name, &ccache))) {
-           KLDisposeString (ccache_name);
-           KLDisposePrincipal (kl_desired_princ);
-           *minor_status = code;
-           return(GSS_S_CRED_UNAVAIL);
-       }
-   
        if (kl_desired_princ != NULL) { KLDisposePrincipal (kl_desired_princ); }
        if (ccache_name      != NULL) { KLDisposeString (ccache_name); }
+       
 #elif defined(USE_LEASH)
        if ( hLeashDLL == INVALID_HANDLE_VALUE ) {
 	   hLeashDLL = LoadLibrary("leashw32.dll");
@@ -275,6 +281,13 @@ acquire_init_cred(context, minor_status, desired_name, output_princ, cred)
 	   }
 
 	   if ((code = krb5_cc_resolve (context, ccname, &ccache))) {
+	       *minor_status = code;
+	       return(GSS_S_CRED_UNAVAIL);
+	   }
+       } else {
+	   /* leash dll not available, open the default credential cache */
+   
+	   if ((code = krb5int_cc_default(context, &ccache))) {
 	       *minor_status = code;
 	       return(GSS_S_CRED_UNAVAIL);
 	   }
@@ -426,7 +439,7 @@ krb5_gss_acquire_cred(minor_status, desired_name, time_req,
        return GSS_S_FAILURE;
    }
 
-   code = krb5_init_context(&context);
+   code = krb5_gss_init_context(&context);
    if (code) {
        *minor_status = code;
        return GSS_S_FAILURE;
@@ -602,11 +615,11 @@ krb5_gss_acquire_cred(minor_status, desired_name, time_req,
 							    &ret_mechs)) ||
 	   (cred->prerfc_mech &&
 	    GSS_ERROR(ret = generic_gss_add_oid_set_member(minor_status,
-							   (gss_OID) gss_mech_krb5_old,
+							   gss_mech_krb5_old,
 							   &ret_mechs))) ||
 	   (cred->rfc_mech &&
 	    GSS_ERROR(ret = generic_gss_add_oid_set_member(minor_status,
-							   (gss_OID) gss_mech_krb5,
+							   gss_mech_krb5,
 							   &ret_mechs)))) {
 	   if (cred->ccache)
 	       (void)krb5_cc_close(context, cred->ccache);

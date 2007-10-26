@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,8 +44,9 @@ typedef UInt32 DAServerStatus;
 extern void _DAConfigurationCallback( SCDynamicStoreRef store, CFArrayRef keys, void * info );
 extern void _DAMediaAppearedCallback( void * context, io_iterator_t notification );
 extern void _DAMediaDisappearedCallback( void * context, io_iterator_t notification );
-extern void _DANotifyCallback( CFMachPortRef port, void * context, CFIndex messageSize, void * info );
-extern void _DAServerCallback( CFMachPortRef port, void * context, CFIndex messageSize, void * info );
+extern void _DAServerCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+extern void _DAVolumeMountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+extern void _DAVolumeUnmountedCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
 
 extern CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFIndex order );
 

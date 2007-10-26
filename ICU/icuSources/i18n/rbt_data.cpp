@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -22,41 +22,31 @@
 U_NAMESPACE_BEGIN
 
 TransliterationRuleData::TransliterationRuleData(UErrorCode& status)
- : UMemory(), ruleSet(status),
-    variableNames(0), variables(0)
+ : UMemory(), ruleSet(status), variableNames(status),
+    variables(0), variablesAreOwned(TRUE)
 {
     if (U_FAILURE(status)) {
         return;
     }
-    variableNames = new Hashtable(status);
-    /* test for NULL */
-    if (variableNames == 0) {
-        status = U_MEMORY_ALLOCATION_ERROR;
-        return;
-    }
-    if (U_SUCCESS(status)) {
-        variableNames->setValueDeleter(uhash_deleteUnicodeString);
-    }
+    variableNames.setValueDeleter(uhash_deleteUnicodeString);
     variables = 0;
     variablesLength = 0;
 }
 
 TransliterationRuleData::TransliterationRuleData(const TransliterationRuleData& other) :
     UMemory(other), ruleSet(other.ruleSet),
+    variablesAreOwned(TRUE),
     variablesBase(other.variablesBase),
     variablesLength(other.variablesLength)
 {
     UErrorCode status = U_ZERO_ERROR;
-    variableNames = new Hashtable(status);
-    if (U_SUCCESS(status)) {
-        variableNames->setValueDeleter(uhash_deleteUnicodeString);
-        int32_t pos = -1;
-        const UHashElement *e;
-        while ((e = other.variableNames->nextElement(pos)) != 0) {
-            UnicodeString* value =
-                new UnicodeString(*(const UnicodeString*)e->value.pointer);
-            variableNames->put(*(UnicodeString*)e->key.pointer, value, status);
-        }
+    variableNames.setValueDeleter(uhash_deleteUnicodeString);
+    int32_t pos = -1;
+    const UHashElement *e;
+    while ((e = other.variableNames.nextElement(pos)) != 0) {
+        UnicodeString* value =
+            new UnicodeString(*(const UnicodeString*)e->value.pointer);
+        variableNames.put(*(UnicodeString*)e->key.pointer, value, status);
     }
 
     variables = 0;
@@ -77,13 +67,12 @@ TransliterationRuleData::TransliterationRuleData(const TransliterationRuleData& 
 }
 
 TransliterationRuleData::~TransliterationRuleData() {
-    delete variableNames;
-    if (variables != 0) {
+    if (variablesAreOwned && variables != 0) {
         for (int32_t i=0; i<variablesLength; ++i) {
             delete variables[i];
         }
-        uprv_free(variables);
     }
+    uprv_free(variables);
 }
 
 UnicodeFunctor*

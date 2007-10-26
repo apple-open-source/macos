@@ -6,7 +6,7 @@
 /* SYNOPSIS
 /*	\fBpickup\fR [generic Postfix daemon options]
 /* DESCRIPTION
-/*	The \fBpickup\fR daemon waits for hints that new mail has been
+/*	The \fBpickup\fR(8) daemon waits for hints that new mail has been
 /*	dropped into the \fBmaildrop\fR directory, and feeds it into the
 /*	\fBcleanup\fR(8) daemon.
 /*	Ill-formatted files are deleted without notifying the originator.
@@ -15,32 +15,33 @@
 /* STANDARDS
 /* .ad
 /* .fi
-/*	None. The \fBpickup\fR daemon does not interact with the outside world.
+/*	None. The \fBpickup\fR(8) daemon does not interact with
+/*	the outside world.
 /* SECURITY
 /* .ad
 /* .fi
-/*	The \fBpickup\fR daemon is moderately security sensitive. It runs
+/*	The \fBpickup\fR(8) daemon is moderately security sensitive. It runs
 /*	with fixed low privilege and can run in a chrooted environment.
 /*	However, the program reads files from potentially hostile users.
-/*	The \fBpickup\fR daemon opens no files for writing, is careful about
+/*	The \fBpickup\fR(8) daemon opens no files for writing, is careful about
 /*	what files it opens for reading, and does not actually touch any data
 /*	that is sent to its public service endpoint.
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /* BUGS
-/*	The \fBpickup\fR daemon copies mail from file to the \fBcleanup\fR(8)
+/*	The \fBpickup\fR(8) daemon copies mail from file to the \fBcleanup\fR(8)
 /*	daemon.  It could avoid message copying overhead by sending a file
 /*	descriptor instead of file data, but then the already complex
 /*	\fBcleanup\fR(8) daemon would have to deal with unfiltered user data.
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	As the pickup(8) daemon is a relatively long-running process, up
+/*	As the \fBpickup\fR(8) daemon is a relatively long-running process, up
 /*	to an hour may pass before a \fBmain.cf\fR change takes effect.
 /*	Use the command "\fBpostfix reload\fR" command to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* CONTENT INSPECTION CONTROLS
 /* .ad
 /* .fi
@@ -49,7 +50,7 @@
 /*	it is queued.
 /* .IP "\fBreceive_override_options (empty)\fR"
 /*	Enable or disable recipient validation, built-in content
-/*	filtering, or address rewriting.
+/*	filtering, or address mapping.
 /* MISCELLANEOUS CONTROLS
 /* .ad
 /* .fi
@@ -66,11 +67,11 @@
 /*	Upon input, long lines are chopped up into pieces of at most
 /*	this length; upon delivery, long lines are reconstructed.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
 /* .IP "\fBprocess_name (read-only)\fR"
@@ -87,6 +88,7 @@
 /*	sendmail(1), Sendmail-compatible interface
 /*	postdrop(1), mail posting agent
 /*	postconf(5), configuration parameters
+/*	master(5), generic daemon options
 /*	master(8), process manager
 /*	syslogd(8), system logging
 /* LICENSE
@@ -122,6 +124,7 @@
 #include <set_ugid.h>
 #include <safe_open.h>
 #include <watchdog.h>
+#include <stringops.h>
 
 /* Global library. */
 
@@ -137,6 +140,8 @@
 #include <rec_type.h>
 #include <lex_822.h>
 #include <input_transp.h>
+#include <rec_attr_map.h>
+#include <mail_version.h>
 
 /* Single-threaded server skeleton. */
 
@@ -146,10 +151,6 @@
 
 char   *var_filter_xport;
 char   *var_input_transp;
-
-#ifdef __APPLE__
-static time_t last_mod_time = 0;
-#endif /* __APPLE__ */
 
  /*
   * Structure to bundle a bunch of information about a queue file.
@@ -184,14 +185,24 @@ static int file_read_error(PICKUP_INFO *info, int type)
     return (REMOVE_MESSAGE_FILE);
 }
 
-/* cleanup_service_error - handle error writing to cleanup service. */
+/* cleanup_service_error_reason - handle error writing to cleanup service. */
 
-static int cleanup_service_error(PICKUP_INFO *info, int status)
+static int cleanup_service_error_reason(PICKUP_INFO *info, int status,
+					        const char *reason)
 {
-    msg_warn("%s: %s", info->path, cleanup_strerror(status));
+
+    /*
+     * XXX If the cleanup server gave a reason, then it was already logged.
+     * Don't bother logging it another time.
+     */
+    if (reason == 0)
+	msg_warn("%s: %s", info->path, cleanup_strerror(status));
     return ((status & CLEANUP_STAT_BAD) ?
 	    REMOVE_MESSAGE_FILE : KEEP_MESSAGE_FILE);
 }
+
+#define cleanup_service_error(info, status) \
+	cleanup_service_error_reason((info), (status), (char *) 0)
 
 /* copy_segment - copy a record group */
 
@@ -200,18 +211,20 @@ static int copy_segment(VSTREAM *qfile, VSTREAM *cleanup, PICKUP_INFO *info,
 {
     int     type;
     int     check_first = (*expected == REC_TYPE_CONTENT[0]);
+    int     time_seen = 0;
+    char   *attr_name;
+    char   *attr_value;
+    char   *saved_attr;
+    int     skip_attr;
 
     /*
      * Limit the input record size. All front-end programs should protect the
      * mail system against unreasonable inputs. This also requires that we
      * limit the size of envelope records written by the local posting agent.
      * 
-     * As time stamp we use the scrutinized queue file modification time, and
-     * ignore the time stamp embedded in the queue file.
+     * Records with named attributes are filtered by postdrop(1).
      * 
-     * Allow attribute records if the queue file is owned by the mail system
-     * (postsuper -r) or if the attribute specifies the MIME body type
-     * (sendmail -B).
+     * We must allow PTR records here because of "postsuper -r".
      */
     for (;;) {
 	if ((type = rec_get(qfile, buf, var_line_limit)) < 0
@@ -221,20 +234,49 @@ static int copy_segment(VSTREAM *qfile, VSTREAM *cleanup, PICKUP_INFO *info,
 	    msg_info("%s: read %c %s", info->id, type, vstring_str(buf));
 	if (type == *expected)
 	    break;
-	if (type == REC_TYPE_FROM)
+	if (type == REC_TYPE_FROM) {
 	    if (info->sender == 0)
 		info->sender = mystrdup(vstring_str(buf));
+	    /* Compatibility with Postfix < 2.3. */
+	    if (time_seen == 0)
+		rec_fprintf(cleanup, REC_TYPE_TIME, "%ld",
+			    (long) info->st.st_mtime);
+	}
 	if (type == REC_TYPE_TIME)
-	    /* Use our own arrival time record instead. */
-	    continue;
+	    time_seen = 1;
 
 	/*
 	 * XXX Workaround: REC_TYPE_FILT (used in envelopes) == REC_TYPE_CONT
 	 * (used in message content).
+	 * 
+	 * As documented in postsuper(1), ignore content filter record.
 	 */
-	if (type == REC_TYPE_FILT && *expected != REC_TYPE_CONTENT[0])
-	    /* Use our own content filter settings instead. */
-	    continue;
+	if (*expected != REC_TYPE_CONTENT[0]) {
+	    if (type == REC_TYPE_FILT)
+		/* Discard FILTER record after "postsuper -r". */
+		continue;
+	    if (type == REC_TYPE_RDR)
+		/* Discard REDIRECT record after "postsuper -r". */
+		continue;
+	}
+	if (*expected == REC_TYPE_EXTRACT[0]) {
+	    if (type == REC_TYPE_RRTO)
+		/* Discard return-receipt record after "postsuper -r". */
+		continue;
+	    if (type == REC_TYPE_ERTO)
+		/* Discard errors-to record after "postsuper -r". */
+		continue;
+	    if (type == REC_TYPE_ATTR) {
+		saved_attr = mystrdup(vstring_str(buf));
+		skip_attr = (split_nameval(saved_attr,
+					   &attr_name, &attr_value) == 0
+			     && rec_attr_map(attr_name) == 0);
+		myfree(saved_attr);
+		/* Discard other/header/body action after "postsuper -r". */
+		if (skip_attr)
+		    continue;
+	    }
+	}
 
 	/*
 	 * XXX Force an empty record when the queue file content begins with
@@ -277,25 +319,14 @@ static int pickup_copy(VSTREAM *qfile, VSTREAM *cleanup,
 	info->st.st_mtime = now;
     } else if (info->st.st_mtime < now - DAY_SECONDS) {
 	msg_warn("%s: message has been queued for %d days",
-		 info->id, (int) (now - info->st.st_mtime) / DAY_SECONDS);
+		 info->id, (int) ((now - info->st.st_mtime) / DAY_SECONDS));
     }
 
     /*
-     * Make sure the message has a posting-time record.
-     */
-    rec_fprintf(cleanup, REC_TYPE_TIME, "%ld", (long) info->st.st_mtime);
-
-    /*
-     * Add content inspection transport.
+     * Add content inspection transport. See also postsuper(1).
      */
     if (*var_filter_xport)
 	rec_fprintf(cleanup, REC_TYPE_FILT, "%s", var_filter_xport);
-
-    /*
-     * Origin is local.
-     */
-    rec_fprintf(cleanup, REC_TYPE_ATTR, "%s=%s",
-		MAIL_ATTR_ORIGIN, MAIL_ATTR_ORG_LOCAL);
 
     /*
      * Copy the message envelope segment. Allow only those records that we
@@ -314,10 +345,13 @@ static int pickup_copy(VSTREAM *qfile, VSTREAM *cleanup,
      * For messages belonging to $mail_owner also log the maildrop queue id.
      * This supports message tracking for mail requeued via "postsuper -r".
      */
-    if (info->st.st_uid == var_owner_uid) {
+#define MAIL_IS_REQUEUED(info) \
+    ((info)->st.st_uid == var_owner_uid && ((info)->st.st_mode & S_IROTH) == 0)
+
+    if (MAIL_IS_REQUEUED(info)) {
 	msg_info("%s: uid=%d from=<%s> orig_id=%s", info->id,
 		 (int) info->st.st_uid, info->sender,
-		 ((name = strrchr(info->path, '/')) ?
+		 ((name = strrchr(info->path, '/')) != 0 ?
 		  name + 1 : info->path));
     } else {
 	msg_info("%s: uid=%d from=<%s>", info->id,
@@ -359,8 +393,9 @@ static int pickup_copy(VSTREAM *qfile, VSTREAM *cleanup,
      */
     rec_fputs(cleanup, REC_TYPE_END, "");
     if (attr_scan(cleanup, ATTR_FLAG_MISSING,
-		  ATTR_TYPE_NUM, MAIL_ATTR_STATUS, &status,
-		  ATTR_TYPE_END) != 1)
+		  ATTR_TYPE_INT, MAIL_ATTR_STATUS, &status,
+		  ATTR_TYPE_STR, MAIL_ATTR_WHY, buf,
+		  ATTR_TYPE_END) != 2)
 	return (cleanup_service_error(info, CLEANUP_STAT_WRITE));
 
     /*
@@ -370,7 +405,7 @@ static int pickup_copy(VSTREAM *qfile, VSTREAM *cleanup,
      * now and then.
      */
     if (status) {
-	return (cleanup_service_error(info, status));
+	return (cleanup_service_error_reason(info, status, vstring_str(buf)));
     } else {
 	return (REMOVE_MESSAGE_FILE);
     }
@@ -411,22 +446,30 @@ static int pickup_file(PICKUP_INFO *info)
      * bounces its copy of the message. because the original input file is
      * not readable by the bounce service.
      * 
+     * If mail is re-injected with "postsuper -r", disable Milter applications.
+     * If they were run before the mail was queued then there is no need to
+     * run them again. Moreover, the queue file does not contain enough
+     * information to reproduce the exact same SMTP events and Sendmail
+     * macros that Milters received when the mail originally arrived in
+     * Postfix.
+     * 
      * The actual message copying code is in a separate routine, so that it is
      * easier to implement the many possible error exits without forgetting
      * to close files, or to release memory.
      */
-    cleanup_flags = (CLEANUP_FLAG_BOUNCE | CLEANUP_FLAG_MASK_EXTERNAL);
-    if (pickup_input_transp_mask & INPUT_TRANSP_ADDRESS_MAPPING)
-	cleanup_flags &= ~(CLEANUP_FLAG_BCC_OK | CLEANUP_FLAG_MAP_OK);
-    if (pickup_input_transp_mask & INPUT_TRANSP_HEADER_BODY)
-	cleanup_flags &= ~CLEANUP_FLAG_FILTER;
+    cleanup_flags =
+	input_transp_cleanup(CLEANUP_FLAG_BOUNCE | CLEANUP_FLAG_MASK_EXTERNAL,
+			     pickup_input_transp_mask);
+    /* As documented in postsuper(1). */
+    if (MAIL_IS_REQUEUED(info))
+	cleanup_flags &= ~CLEANUP_FLAG_MILTER;
 
     cleanup = mail_connect_wait(MAIL_CLASS_PUBLIC, var_cleanup_service);
     if (attr_scan(cleanup, ATTR_FLAG_STRICT,
 		  ATTR_TYPE_STR, MAIL_ATTR_QUEUEID, buf,
 		  ATTR_TYPE_END) != 1
 	|| attr_print(cleanup, ATTR_FLAG_NONE,
-		      ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, cleanup_flags,
+		      ATTR_TYPE_INT, MAIL_ATTR_FLAGS, cleanup_flags,
 		      ATTR_TYPE_END) != 0) {
 	status = KEEP_MESSAGE_FILE;
     } else {
@@ -488,18 +531,6 @@ static void pickup_service(char *unused_buf, int unused_len,
      * maildrop directory.
      */
     queue_name = MAIL_QUEUE_MAILDROP;		/* XXX should be a list */
-
-#ifdef __APPLE__
-	struct stat sb;
-	if ( !stat( queue_name, &sb ) ) 
-	{
-		if ( sb.st_mtime == last_mod_time ) 
-			return; 
-
-		last_mod_time = sb.st_mtime;
-	}
-#endif /* __APPLE__ */
-
     do {
 	file_count = 0;
 	scan = scan_dir_open(queue_name);
@@ -540,6 +571,8 @@ static void post_jail_init(char *unused_name, char **unused_argv)
 	input_transp_mask(VAR_INPUT_TRANSP, var_input_transp);
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the multi-threaded server skeleton */
 
 int     main(int argc, char **argv)
@@ -549,6 +582,11 @@ int     main(int argc, char **argv)
 	VAR_INPUT_TRANSP, DEF_INPUT_TRANSP, &var_input_transp, 0, 0,
 	0,
     };
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Use the multi-threaded skeleton, because no-one else should be

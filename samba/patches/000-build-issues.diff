@@ -1,35 +1,8 @@
---- samba/source/include/includes.h.orig	2005-02-19 17:35:36.000000000 -0800
-+++ samba/source/include/includes.h	2005-02-19 17:36:32.000000000 -0800
-@@ -25,6 +25,15 @@
- #include "config.h"
- #endif
- 
-+#ifdef WITH_OPENDIRECTORY
-+#include <DirectoryService/DirectoryService.h>
-+#include <CoreFoundation/CoreFoundation.h>
-+#endif
-+ 
-+#ifdef WITH_MEMBERD
-+#include <membership.h>
-+#endif
-+
- #include "local.h"
- 
- #ifdef AIX
---- samba/source/include/smb.h.orig	Thu Dec 18 15:12:42 2003
-+++ samba/source/include/smb.h	Fri Dec 19 08:31:10 2003
-@@ -171,7 +171,7 @@ typedef uint16 smb_ucs2_t;
- typedef smb_ucs2_t wpstring[PSTRING_LEN];
- typedef smb_ucs2_t wfstring[FSTRING_LEN];
- 
--#ifdef WORDS_BIGENDIAN
-+#if __BIG_ENDIAN__ /* apple: configure test is bad for our platform ->  WORDS_BIGENDIAN */
- #define UCS2_SHIFT 8
- #else
- #define UCS2_SHIFT 0
---- samba/source/script/installman.sh.orig	Thu Dec 18 15:12:47 2003
-+++ samba/source/script/installman.sh	Fri Dec 19 08:31:10 2003
-@@ -25,7 +25,7 @@ for lang in $langs; do
+Index: samba/source/script/installman.sh
+===================================================================
+--- samba/source/script/installman.sh.orig
++++ samba/source/script/installman.sh
+@@ -33,7 +33,7 @@ for lang in $langs; do
      langdir=$MANDIR/$lang
      for d in $MANDIR $langdir $langdir/man1 $langdir/man5 $langdir/man7 $langdir/man8; do
  	if [ ! -d $d ]; then
@@ -38,94 +11,16 @@
  	    if [ ! -d $d ]; then
  		echo Failed to make directory $d, does $USER have privileges?
  		exit 1
---- samba/source/tdb/spinlock.c.orig	Thu Dec 18 15:12:49 2003
-+++ samba/source/tdb/spinlock.c	Fri Dec 19 08:31:10 2003
-@@ -75,7 +75,7 @@ static inline int __spin_is_locked(spinl
- 	return (*lock != 0);
- }
- 
--#elif defined(POWERPC_SPINLOCKS) 
-+#elif defined(__ppc__) // defined(POWERPC_SPINLOCKS) 
- 
- static inline int __spin_trylock(spinlock_t *lock)
- {
-@@ -113,7 +113,7 @@ static inline int __spin_is_locked(spinl
- 	return (*lock != 0);
- }
- 
--#elif defined(INTEL_SPINLOCKS) 
-+#elif defined(__i386__) // defined(INTEL_SPINLOCKS) 
- 
- static inline int __spin_trylock(spinlock_t *lock)
- {
---- samba/source/configure.in.orig	2004-11-15 19:03:30.000000000 -0800
-+++ samba/source/configure.in	2004-12-01 11:56:03.000000000 -0800
-@@ -607,6 +607,8 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -809,6 +809,8 @@ main() {
  # is so horribly broken....
  #
      *darwin*)
 +	AC_DEFINE(DARWINOS,1,[Whether the host os is Darwin/MacOSX])
 +	AC_DEFINE(STAT_ST_BLOCKSIZE,512)
  	AC_DEFINE(BROKEN_UNICODE_COMPOSE_CHARACTERS, 1, [Does this system use unicode compose characters])
- # Add Fink directories for various packages, like dlcompat.
- # Note: iconv does that explicitly below, but other packages
-@@ -622,7 +624,8 @@
  
  # Add a system specific charset module.
- 
--	default_shared_modules="$default_shared_modules charset_macosxfs"
-+	#default_shared_modules="$default_shared_modules charset_macosxfs"
-+	default_shared_modules=""
- 	;;
-     *hurd*)
-         AC_MSG_CHECKING([for LFS support])
-@@ -665,6 +668,8 @@
- AC_CHECK_HEADERS(langinfo.h locale.h)
- 
- # Look for Darwin headers
-+AC_CHECK_HEADERS(pam/pam_modules.h pam/_pam_macros.h)
-+AC_CHECK_HEADERS(pam/pam_appl.h pam/pam_modules.h)
- old_CPPFLAGS="$CPPFLAGS"
- CPPFLAGS="-Iinclude $CPPFLAGS"
- AC_CHECK_HEADERS([CoreFoundation/CFStringEncodingConverter.h], [], [AC_CHECK_HEADERS([CFStringEncodingConverter.h])])
-@@ -3108,9 +3113,9 @@
- [ case "$withval" in
-   yes)
-     AC_MSG_RESULT(yes)
--    if test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
--       if test x"$ac_cv_header_security_pam_modules_h" = x"no"; then
--	  if test x"$ac_cv_header_security__pam_macros_h" = x"no"; then
-+    if test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
-+       if test x"$ac_cv_header_pam_pam_modules_h" = x"no"; then
-+	  if test x"$ac_cv_header_pam__pam_macros_h" = x"no"; then
- 	     AC_MSG_ERROR(--with-pam specified but no PAM headers found)
- 	  fi
-        fi
-@@ -3142,8 +3147,8 @@
- 
-        if test x$PICFLAGS = x; then
-           AC_MSG_ERROR([No support for PIC code])
--       elif test x"$ac_cv_header_security_pam_appl_h" = x"no"; then
--	  AC_MSG_ERROR([No security/pam_appl.h found])
-+       elif test x"$ac_cv_header_pam_pam_appl_h" = x"no"; then
-+	  AC_MSG_ERROR([No pam/pam_appl.h found])
-        elif test x$ac_cv_lib_pam_pam_get_data = xno; then
-           AC_MSG_ERROR([No libpam found])
-        else
---- samba/source/include/config.h.in.orig	2004/07/27 01:32:16	1.12
-+++ samba/source/include/config.h.in	2004/08/16 05:02:05
-@@ -857,6 +857,15 @@
- /* Define to 1 if you have the <security/_pam_macros.h> header file. */
- #undef HAVE_SECURITY__PAM_MACROS_H
- 
-+/* Define to 1 if you have the <pam/pam_appl.h> header file. */
-+#undef HAVE_PAM_PAM_APPL_H
-+
-+/* Define to 1 if you have the <pam/pam_modules.h> header file. */
-+#undef HAVE_PAM_PAM_MODULES_H
-+
-+/* Define to 1 if you have the <pam/_pam_macros.h> header file. */
-+#undef HAVE_PAM__PAM_MACROS_H
-+
- /* Define to 1 if you have the `select' function. */
- #undef HAVE_SELECT

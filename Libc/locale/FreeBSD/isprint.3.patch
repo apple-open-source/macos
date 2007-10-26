@@ -1,12 +1,33 @@
---- isprint.3.orig	Fri Mar 11 19:25:22 2005
-+++ isprint.3	Fri Mar 11 19:26:43 2005
-@@ -105,7 +105,8 @@
- .Xr ctype 3 ,
- .Xr iswprint 3 ,
- .Xr multibyte 3 ,
--.Xr ascii 7
-+.Xr ascii 7 ,
-+.Xr isalnum_l
- .Sh STANDARDS
+--- isprint.3	2004-11-25 11:38:17.000000000 -0800
++++ isprint.3.edit	2006-08-09 13:24:27.000000000 -0700
+@@ -51,19 +51,19 @@
+ .Sh DESCRIPTION
  The
  .Fn isprint
+-function tests for any printing character including space
++function tests for any printing character, including space
+ .Pq Ql "\ " .
+ For single C
+ .Va char Ns s
+ locales (see
+-.Xr multibyte 3 )
++.Xr multibyte 3 ) ,
+ the value of the argument is
+ representable as an
+ .Li unsigned char
+ or the value of
+ .Dv EOF .
+ In the ASCII character set, this includes the following characters
+-(with their numeric values shown in octal):
++(preceded by their numeric values, in octal):
+ .Pp
+ .Bl -column \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__
+ .It "\&040\ sp \t041\ ``!'' \t042\ ``""'' \t043\ ``#'' \t044\ ``$''"
+@@ -103,6 +103,7 @@
+ function should be used instead.
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
++.Xr isalnum_l 3 ,
+ .Xr iswprint 3 ,
+ .Xr multibyte 3 ,
+ .Xr ascii 7

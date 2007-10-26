@@ -1,0 +1,60 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from mimesweeper.ademe.fr (mail.ademe.fr [81.255.193.84])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2ECmVcf007798
+	for <gpc-talk-bounces@grizz.org>; Tue, 14 Mar 2006 04:48:32 -0800
+Date: Tue, 14 Mar 2006 13:47:54 +0100 (CET)
+Message-Id: N77056c0a550a010202b5c
+Subject: =?UTF-8?Q?Utilisateur_non_recens=C3=A9_dans_l'annuaire_Ademe?=
+To: gpc-talk-bounces@grizz.org
+MIME-Version: 1.0
+Content-Type: multipart/report; report-type=delivery-status; 
+	boundary="2453809.54.1306"
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: 
+
+--2453809.54.1306
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+A message could not be delivered to:
+dycusibreix@ademe.fr
+Subject: The results of your email commands
+L'adresse de messagerie r=C3=A9f=C3=A9renc=C3=A9e ci-dessus n'existe pas. V=
+euillez en v=C3=A9rifier l'orthographe.
+
+
+--2453809.54.1306
+Content-Type: message/delivery-status
+Reporting-MTA: mimesweeper.ademe.fr
+
+Received: from sb7.songbird.com (unverified [208.184.79.137]) by
+	mimesweeper.ademe.fr
+	(Postfix) with ESMTP id <T77056c0a260a010202d24@mimesweeper.ademe.fr>
+	for <dycusibreix@ademe.fr>; Tue, 14 Mar 2006 13:47:54 +0100
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2ECm2kE007671
+	for <dycusibreix@ademe.fr>; Tue, 14 Mar 2006 04:48:02 -0800
+Subject: The results of your email commands
+From: gpc-talk-bounces@grizz.org
+To: dycusibreix@ademe.fr
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============0891094467=="
+Message-ID: <mailman.2481.1142340481.1567.gpc-talk@grizz.org>
+Date: Tue, 14 Mar 2006 04:48:01 -0800
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more in
+
+--===============0891094467==
+
+
+--===============0891094467==--
+--2453809.54.1306--
+
+

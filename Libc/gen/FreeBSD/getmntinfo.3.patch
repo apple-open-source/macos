@@ -1,0 +1,89 @@
+--- getmntinfo.3.orig	2007-01-21 11:53:36.000000000 -0800
++++ getmntinfo.3	2007-01-21 17:19:17.000000000 -0800
+@@ -46,14 +46,22 @@
+ .In sys/mount.h
+ .Ft int
+ .Fn getmntinfo "struct statfs **mntbufp" "int flags"
++.Ft int
++.Fn getmntinfo64 "struct statfs64 **mntbufp" "int flags"
+ .Sh DESCRIPTION
+ The
+ .Fn getmntinfo
+ function
+ returns an array of
+-.Fn statfs
++.Ft statfs
+ structures describing each currently mounted file system (see
+ .Xr statfs 2 ) .
++Likewise, the
++.Fn getmntinfo64
++function
++returns an array of
++.Ft statfs64
++structures describing each currently mounted file system.
+ .Pp
+ The
+ .Fn getmntinfo
+@@ -61,11 +69,20 @@
+ passes its
+ .Fa flags
+ argument transparently to
+-.Xr getfsstat 2 .
++.Xr getfsstat 2 ,
++while the
++.Fn getmntinfo64
++function
++passes its
++.Fa flags
++argument transparently to
++.Fn getfsstat64 .
+ .Sh RETURN VALUES
+ On successful completion,
+ .Fn getmntinfo
+-returns a count of the number of elements in the array.
++and
++.Fn getmntinfo64
++return a count of the number of elements in the array.
+ The pointer to the array is stored into
+ .Fa mntbufp .
+ .Pp
+@@ -76,11 +93,15 @@
+ .Fa mntbufp
+ will be unmodified, any information previously returned by
+ .Fn getmntinfo
++or
++.Fn getmntinfo64
+ will be lost.
+ .Sh ERRORS
+ The
+ .Fn getmntinfo
+-function
++and
++.Fn getmntinfo64
++functions
+ may fail and set errno for any of the errors specified for the library
+ routines
+ .Xr getfsstat 2
+@@ -99,15 +120,21 @@
+ .Sh BUGS
+ The
+ .Fn getmntinfo
+-function writes the array of structures to an internal static object
++and
++.Fn getmntinfo64
++functions write the array of structures to an internal static object
+ and returns
+ a pointer to that object.
+ Subsequent calls to
+ .Fn getmntinfo
++and
++.Fn getmntinfo64
+ will modify the same object.
+ .Pp
+ The memory allocated by
+ .Fn getmntinfo
++and
++.Fn getmntinfo64
+ cannot be
+ .Xr free 3 Ns 'd
+ by the application.

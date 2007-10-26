@@ -34,8 +34,8 @@
  */
 
 #ifndef NO_WIRELESS
-#include <Apple80211/Wireless.h>
-#include <Apple80211/Apple80211.h>
+#include <Apple80211/Apple80211API.h>
+#include <Apple80211/Apple80211IE.h>
 #include <CoreFoundation/CFString.h>
 
 #include <unistd.h>
@@ -43,142 +43,147 @@
 #include <stdlib.h>
 #include <net/ethernet.h>
 
-#define WIRELESS_MODE_NORMAL	1
-#define WIRELESS_MODE_AP	2
-#define WIRELESS_MODE_IBSS	4
+#include <sys/socket.h>
+#include <Kernel/IOKit/apple80211/apple80211_ioctl.h>
 
 #include "wireless.h"
 
-static boolean_t
-S_wireless_find(const struct ether_addr * client_mac, WirelessRef * wref_p)
+boolean_t
+wireless_bind(const char * if_name, wireless_t * wref_p)
 {
-    WirelessError	error;
+    Apple80211Err	error;
     boolean_t		found = FALSE;
-    int			i;
-    WirelessInfo2	winfo2;
+    CFStringRef		if_name_cf;
+    Apple80211Ref	wref;
 
-#if 0
-    /* this is what I should be able to code, but can't because of 3170019 */
-    // for (i = 0; TRUE; i++) { 
-#endif
-    for (i = 0; i < 1; i++) {
-	error = WirelessAttach(wref_p, i);
-	if (error != errWirelessNoError) {
-	    if (i == 0) {
-		fprintf(stderr, "WirelessAttach failed, %x\n", error);
-	    }
-	    break;
-	}
-	error = WirelessGetInfo2(*wref_p, &winfo2);
-	if (error != errWirelessNoError) {
-	    fprintf(stderr, "WirelessGetInfo2 failed, %x\n", error);
-	}
-	else if (bcmp(winfo2.macAddress, client_mac, sizeof(*client_mac)) 
-		 == 0) {
-	    found = TRUE;
-	    break;
-	}
-	WirelessDetach(*wref_p);
+    error = Apple80211Open(&wref);
+    if (error != kA11NoErr) {
+	fprintf(stderr, "Apple80211Open failed, %x\n", error);
+	return (FALSE);
+    }
+    if_name_cf = CFStringCreateWithCString(NULL, if_name,
+					   kCFStringEncodingASCII);
+    error = Apple80211BindToInterface(wref, if_name_cf);
+    CFRelease(if_name_cf);
+    if (error == kA11NoErr) {
+	*wref_p = (wireless_t *)wref;
+	found = TRUE;
+    }
+    else {
+	fprintf(stderr, "Apple80211BindToInterface %s failed, %x\n",
+		if_name, error);
+	Apple80211Close(wref);
+	*wref_p = NULL;
     }
     return (found);
 }
 
-boolean_t
-wireless_find(const struct ether_addr * client_mac, wireless_t * wref_p)
-{
-    return (S_wireless_find(client_mac, (WirelessRef *)wref_p));
-}
 
 boolean_t
 wireless_ap_mac(const wireless_t wref, struct ether_addr * AP_mac)
 {
-    WirelessError	error;
-    struct ether_addr	no_ap = { {0x44, 0x44, 0x44, 0x44, 0x44, 0x44 } };
-    WirelessInfo2	winfo2;
-    boolean_t		valid = FALSE;
+    const struct ether_addr	no_ap = { {0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } };
 
-    error = WirelessGetInfo2(wref, &winfo2);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, "WirelessGetInfo2 failed, %x\n", error);
+    if (Apple80211Get((Apple80211Ref)wref, APPLE80211_IOC_BSSID, 0, 
+		      AP_mac, sizeof(*AP_mac)) != kA11NoErr) {
 	return (FALSE);
     }
-    if (winfo2.info1.portType == WIRELESS_MODE_NORMAL
-	&& bcmp(winfo2.info1.bssID, &no_ap, sizeof(no_ap)) != 0) {
-	*AP_mac = *((struct ether_addr *)winfo2.info1.bssID);
-	valid = TRUE;
+    /* Work around for Atheros: <rdar://problem/5255595> */
+    if (memcmp(AP_mac, &no_ap, sizeof(no_ap)) == 0) {
+	return (FALSE);
     }
-    return (valid);
+    return (TRUE);
 }
 
 boolean_t
 wireless_set_key(const wireless_t wref, wirelessKeyType type, 
 		 int index, const uint8_t * key, int key_length)
 {
-    WirelessError	error;
-    boolean_t		ret = TRUE;
+    struct apple80211_key 	akey;
 
-    error = WirelessSetKey((WirelessRef)wref, type, index, key_length, 
-			   (uint8_t *)key);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, "wireless_set_key: WirelessSetKey failed, %x\n",
-		error);
-	ret = FALSE;
+    bzero(&akey, sizeof(akey));
+    akey.version = APPLE80211_VERSION;
+
+    /* validate the type */
+    switch (type) {
+    case kKeyTypeIndexedTx:
+	akey.key_flags = (APPLE80211_KEY_FLAG_TX
+			  | APPLE80211_KEY_FLAG_UNICAST);
+	break;
+    case kKeyTypeIndexedRx:
+	akey.key_flags = (APPLE80211_KEY_FLAG_RX
+			  | APPLE80211_KEY_FLAG_UNICAST);
+	break;
+    case kKeyTypeMulticast:
+	akey.key_flags = APPLE80211_KEY_FLAG_MULTICAST;
+	break;
+    case kKeyTypeDefault:
+	akey.key_flags = APPLE80211_KEY_FLAG_UNICAST;
+	break;
+    default:
+	return (FALSE);
     }
-    return (ret);
+
+    /* validate the length */
+    switch (key_length) {
+    case 5:
+	akey.key_cipher_type = APPLE80211_CIPHER_WEP_40;
+	break;
+    case 13:
+	akey.key_cipher_type = APPLE80211_CIPHER_WEP_104;
+	break;
+    default:
+	return (FALSE);
+    }
+
+    /* set the key */
+    memcpy(akey.key, key, key_length);
+    akey.key_len = (uint32_t)key_length;
+    akey.key_index = (uint16_t)index;
+    return (Apple80211Set((Apple80211Ref)wref, APPLE80211_IOC_CIPHER_KEY, 0, 
+			  &akey, sizeof(akey)) == kA11NoErr);
 }
 
 boolean_t
 wireless_set_wpa_session_key(const wireless_t wref, 
 			     const uint8_t * key, int key_length)
 {
-    WirelessError	error;
-    boolean_t		ret = TRUE;
-
-    error = WirelessSetWPAKey((WirelessRef)wref, kWPAKeyTypeSession, 
-			      key_length, (uint8_t *)key);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, 
-		"wireless_set_key: WirelessSetWPAKey session key failed, %x\n",
-		error);
-	ret = FALSE;
+    struct apple80211_key 	akey;
+	
+    /* validate the key_length */
+    if (key_length != 0 && key_length != 32) {
+	return (FALSE);
     }
-    return (ret);
-}
-
-boolean_t
-wireless_set_wpa_server_key(const wireless_t wref, 
-			    const uint8_t * key, int key_length)
-{
-    WirelessError	error;
-    boolean_t		ret = TRUE;
-
-    error = WirelessSetWPAKey((WirelessRef)wref, kWPAKeyTypeServer, 
-			      key_length, (uint8_t *)key);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, 
-		"wireless_set_key: WirelessSetWPAKey server key failed, %x\n",
-		error);
-	ret = FALSE;
+    bzero(&akey, sizeof(akey));
+    akey.version = APPLE80211_VERSION;
+    akey.key_len = (u_int32_t)key_length;
+    if (key_length > 0) {
+	memcpy(akey.key, key, key_length);
     }
-    return (ret);
+    akey.key_cipher_type = APPLE80211_CIPHER_PMK;
+    return (Apple80211Set((Apple80211Ref)wref, APPLE80211_IOC_CIPHER_KEY, 0, 
+			  &akey, sizeof(akey)) == kA11NoErr);
 }
 
 void
 wireless_free(wireless_t wref)
 {
-    WirelessDetach(wref);
+    Apple80211Close((Apple80211Ref)wref);
     return;
 }
 
 
 #ifdef TEST_WIRELESS
 
+#include <EAP8021X/LinkAddresses.h>
+#include "myCFUtil.h"
+
 void
 wireless_disassociate(const wireless_t wref)
 {
-    WirelessError	error;
-    error = WirelessDisassociate((WirelessRef)wref);
-    if (error != errWirelessNoError) {
+    Apple80211Err	error;
+    error = Apple80211Disassociate( (Apple80211Ref)wref );
+    if (error != kA11NoErr) {
 	fprintf(stderr, 
 		"wireless_disassociate: WirelessDisassociate failed, %x\n",
 		error);
@@ -186,46 +191,93 @@ wireless_disassociate(const wireless_t wref)
     return;
 }
 
-static boolean_t
-S_wireless_first(WirelessRef * wref_p, struct ether_addr * client_mac)
+static char *
+wireless_first(wireless_t * wref_p)
 {
-    WirelessError	error = errWirelessNoError;
-    WirelessInfo2	winfo2;
+    int			count;
+    Apple80211Err	error;
+    int			i;
+    CFArrayRef		if_name_list;
+    char *		ret_name = NULL;
+    Apple80211Ref	wref;
 
-    error = WirelessAttach(wref_p, 0);
-    if (error != errWirelessNoError) {
-	return (FALSE);
+    error = Apple80211Open(&wref);
+    if (error != kA11NoErr) {
+	fprintf(stderr, "Apple80211Open failed, %x\n", error);
+	return (NULL);
     }
-    error = WirelessGetInfo2(*wref_p, &winfo2);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, "WirelessGetInfo2 failed, %x\n", error);
-	WirelessDetach(*wref_p);
-	return (FALSE);
+    error = Apple80211GetIfListCopy(wref, &if_name_list);
+    if (error != kA11NoErr) {
+	fprintf(stderr, "Apple80211GetIfListCopy failed, %x\n", error);
+	goto done;
     }
-    *client_mac = *((struct ether_addr *)winfo2.macAddress);
-    return (TRUE);
+    count = CFArrayGetCount(if_name_list);
+    if (count > 0) {
+	CFStringRef	if_name;
+
+	if_name = CFArrayGetValueAtIndex(if_name_list, 0);
+	error = Apple80211BindToInterface(wref, if_name);
+	if (error != kA11NoErr) {
+	    fprintf(stderr, "Apple80211BindToInterface failed, %x\n",
+		    error);
+	}
+	else {
+	    ret_name = my_CFStringToCString(if_name, kCFStringEncodingASCII);
+	}
+    }
+    CFRelease(if_name_list);
+
+ done:
+    if (ret_name == NULL) {
+	Apple80211Close(wref);
+	*wref_p = NULL;
+    }
+    else {
+	*wref_p = wref;
+    }
+    return (ret_name);
 }
 
 static boolean_t
-wireless_first(wireless_t * wref_p, struct ether_addr * client_mac)
+wireless_join(wireless_t wref, CFDataRef ssid)
 {
-    return (S_wireless_first((WirelessRef *)wref_p, client_mac));
-}
+    Apple80211Err 		error;
+    boolean_t			ret = FALSE;
+    CFMutableDictionaryRef 	scan_args = NULL;
+    CFArrayRef 			scan_result = NULL;
+    CFStringRef 		ssid_str;
+	
+    ssid_str = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(ssid),
+				       CFDataGetLength(ssid),
+				       kCFStringEncodingUTF8, FALSE);
+    scan_args = CFDictionaryCreateMutable(NULL, 0,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks );
+    CFDictionarySetValue(scan_args, APPLE80211KEY_SCAN_SSID, ssid_str);
+    CFRelease(ssid_str);
+    error = Apple80211Scan((Apple80211Ref)wref, &scan_result, scan_args);
+    CFRelease(scan_args);
+    if (error != kA11NoErr) {
+	fprintf(stderr, "Apple80211Scan failed, %d\n", error);
+	return (FALSE);
+    }
+    if (CFArrayGetCount(scan_result) > 0) {
+	CFDictionaryRef 	scan_dict;
 
-static boolean_t
-wireless_join(wireless_t wref, CFDataRef ssid, WirelessJoinType join_type)
-{
-    WirelessError	error;
-    boolean_t		ret = TRUE;
-
-    error = WirelessAssociate((WirelessRef)wref, join_type, ssid, NULL);
-    if (error != errWirelessNoError) {
-	fprintf(stderr, "wireless_join: WirelessAssociate failed, %x\n",
-		error);
-	ret = FALSE;
+	scan_dict = CFArrayGetValueAtIndex(scan_result, 0);
+	error = Apple80211Associate((Apple80211Ref)wref, scan_dict, NULL);
+	if (error == kA11NoErr) {
+	    ret = TRUE;
+	}
+	else {
+	    fprintf(stderr, "Apple80211Associate failed, %d\n", error);
+	    CFShow(scan_dict);
+	}
+    }
+    if (scan_result != NULL) {
+	CFRelease(scan_result);
     }
     return (ret);
-    
 }
 
 static void
@@ -244,26 +296,47 @@ hexstrtobin(const char * hexstr, int hexlen, uint8_t * bin, int bin_len)
     return;
 }
 
+static boolean_t
+get_mac_address(const char * if_name, struct sockaddr_dl * ret)
+{
+    struct sockaddr_dl *	dl_p;
+    boolean_t			found = FALSE;
+    LinkAddressesRef		list;
+
+    list = LinkAddresses_create();
+    if (list != NULL) {
+	dl_p = LinkAddresses_lookup(list, (char *)if_name);
+	if (dl_p != NULL) {
+	    *ret = *dl_p;
+	    found = TRUE;
+	}
+	LinkAddresses_free(&list);
+    }
+    return (found);
+}
+
 int
 main(int argc, char * argv[])
 {
     struct ether_addr	AP_mac;
     int			ch;
-    boolean_t		has_wireless;
     boolean_t		disassociate = FALSE;
+    const char *	if_name = NULL;
+    boolean_t		has_wireless;
     const char *	key_str = NULL;
     const char *	network = NULL;
-    struct ether_addr	wireless_mac;
+    struct sockaddr_dl	w;
     wireless_t		wref;
 
-    if (wireless_first(&wref, &wireless_mac) == FALSE) {
-	printf("no AirPort card\n");
-	exit(0);
-    }
-    printf("AirPort %s\n", ether_ntoa(&wireless_mac));
-    while ((ch =  getopt(argc, argv, "dk:x:")) != EOF) {
+    while ((ch =  getopt(argc, argv, "dhHi:k:x:")) != EOF) {
 	switch ((char)ch) {
-	case 'x':		/* join 802.1x network */
+	case 'h':
+	case 'H':
+	    fprintf(stderr,
+		    "usage: wireless [ -i <interface> ] ( -d | -k | -x <ssid> )\n");
+	    exit(0);
+	    break;
+	case 'x':		/* join network */
 	    network = optarg;
 	    break;
 	case 'k':		/* set the wireless key */
@@ -272,10 +345,28 @@ main(int argc, char * argv[])
 	case 'd':
 	    disassociate = TRUE;
 	    break;
+	case 'i':		/* specify the interface */
+	    if_name = optarg;
+	    break;
 	default:
 	    break;
 	}
     }
+
+    if (if_name != NULL) {
+	if (wireless_bind(if_name, &wref) == FALSE) {
+	    printf("interface '%s' is not present or not AirPort\n",
+		   if_name);
+	    exit(1);
+	}
+    }
+    else if ((if_name = wireless_first(&wref)) == NULL) {
+	printf("no AirPort card\n");
+	exit(0);
+    }
+    get_mac_address(if_name, &w);
+    printf("AirPort %.*s %s\n", w.sdl_nlen, w.sdl_data,
+	   ether_ntoa((struct ether_addr *)(w.sdl_data + w.sdl_nlen)));
 
     if (wireless_ap_mac(wref, &AP_mac) == FALSE) {
 	printf("Not associated\n");
@@ -319,8 +410,8 @@ main(int argc, char * argv[])
 	CFDataRef	ssid;
 	ssid = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)network,
 					   strlen(network), kCFAllocatorNull);
-	fprintf(stderr, "attempting to join 802.1x network '%s'\n", network);
-	if (wireless_join(wref, ssid, eJoinWPA_Unspecified/* eJoin8021X */) == FALSE) {
+	fprintf(stderr, "attempting to join network '%s'\n", network);
+	if (wireless_join(wref, ssid) == FALSE) {
 	    fprintf(stderr, "wireless_join failed\n");
 	}
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #include "DAPrivate.h"
 
 #include "DAInternal.h"
+#include "DALog.h"
 #include "DAMain.h"
 #include "DAMount.h"
 #include "DAQueue.h"
@@ -35,41 +36,6 @@
 #include <sys/dirent.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
-
-DADiskRef _gDAClassic = NULL;
-
-static CFStringRef __DAFileSystemCopyName( DAFileSystemRef filesystem, CFURLRef mountpoint )
-{
-    struct attr_name_t
-    {
-        size_t          size;
-        attrreference_t data;
-        char            name[MAXNAMLEN + 1];
-    };
-
-    struct attr_name_t attr     = { 0 };
-    struct attrlist    attrlist = { 0 };
-    CFStringRef        name     = NULL;
-    char *             path     = NULL;
-    int                status   = 0;
-
-    attrlist.bitmapcount = ATTR_BIT_MAP_COUNT;
-    attrlist.volattr     = ATTR_VOL_INFO | ATTR_VOL_NAME;
-
-    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-    if ( path == NULL )  goto DAFileSystemCopyNameErr;
-
-    status = getattrlist( path, &attrlist, &attr, sizeof( attr ), 0 );
-    if ( status == -1 )  goto DAFileSystemCopyNameErr;
-
-    name = CFStringCreateWithCString( kCFAllocatorDefault, attr.name, kCFStringEncodingUTF8 );
-
-DAFileSystemCopyNameErr:
-
-    if ( path )  free( path );
-
-    return name;
-}
 
 static int __DAFileSystemSetAdoption( DAFileSystemRef filesystem, CFURLRef mountpoint, Boolean adoption )
 {
@@ -132,11 +98,11 @@ static int __DAFileSystemSetEncoding( DAFileSystemRef filesystem, CFURLRef mount
                fs.f_fstypename,
                "-u",
                option,
-               ( fs.f_flags & MNT_NODEV              ) ? "-onodev"  : "-odev",
-               ( fs.f_flags & MNT_NOEXEC             ) ? "-onoexec" : "-oexec",
-               ( fs.f_flags & MNT_NOSUID             ) ? "-onosuid" : "-osuid",
-               ( fs.f_flags & MNT_RDONLY             ) ? "-ordonly" : "-orw",
-               ( fs.f_flags & MNT_UNKNOWNPERMISSIONS ) ? "-onoperm" : "-operm",
+               ( fs.f_flags & MNT_NODEV            ) ? "-onodev"    : "-odev",
+               ( fs.f_flags & MNT_NOEXEC           ) ? "-onoexec"   : "-oexec",
+               ( fs.f_flags & MNT_NOSUID           ) ? "-onosuid"   : "-osuid",
+               ( fs.f_flags & MNT_RDONLY           ) ? "-ordonly"   : "-orw",
+               ( fs.f_flags & MNT_IGNORE_OWNERSHIP ) ? "-onoowners" : "-oowners",
                fs.f_mntfromname,
                fs.f_mntonname,
                NULL );
@@ -196,6 +162,10 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             }
             else
             {
+                DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
+
+                DALogDebug( "  removed disk, id = %@.", disk );
+
                 DADiskDisappearedCallback( disk );
 
                 DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, NULL );
@@ -231,7 +201,7 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             CFURLRef path;
 
             path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault,
-                                                            mountList[mountListIndex].f_mntonname,
+                                                            ( void * ) mountList[mountListIndex].f_mntonname,
                                                             strlen( mountList[mountListIndex].f_mntonname ),
                                                             TRUE );
 
@@ -292,7 +262,7 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, CFStringEncoding encoding )
     name1 = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
     if ( name1 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
 
-    name2 = __DAFileSystemCopyName( DADiskGetFileSystem( disk ), path1 );
+    name2 = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path1 );
     if ( name2 == NULL )  { status = kDAReturnError; goto _DADiskSetEncodingErr; }
 
     status = CFEqual( name1, name2 );

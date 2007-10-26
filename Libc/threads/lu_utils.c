@@ -39,25 +39,32 @@
 #include <servers/bootstrap.h>
 
 mach_port_t _lu_port = MACH_PORT_NULL;
+mach_port_t _ds_port = MACH_PORT_NULL;
+
 static name_t LOOKUP_NAME = "lookup daemon v2";
 
-mach_port_t _lookupd_port(mach_port_t port) {
-	kern_return_t ret;
+#ifndef kDSStdMachDSLookupPortName
+#define kDSStdMachDSLookupPortName "com.apple.system.DirectoryService.libinfo_v1"
+#endif
 
-	if (port != MACH_PORT_NULL) {
-		ret = bootstrap_register(bootstrap_port, LOOKUP_NAME, port);
-		if (ret != BOOTSTRAP_SUCCESS) {
-			mach_error("bootstrap_register() failed", ret);
-			abort();
-		}
-                return port;
-	} else if ((_lu_port == MACH_PORT_NULL) && (getpid() > 1)) {
-		ret = bootstrap_look_up(bootstrap_port, LOOKUP_NAME, &_lu_port);
-		if (ret != BOOTSTRAP_SUCCESS && ret != BOOTSTRAP_UNKNOWN_SERVICE) {
-			mach_error("bootstrap_look_up() failed", ret);
-			_lu_port = MACH_PORT_NULL;
-		}
+mach_port_t
+_lookupd_port(mach_port_t port)
+{
+	kern_return_t status;
+
+	if (port != MACH_PORT_NULL)
+	{
+		status = bootstrap_register(bootstrap_port, LOOKUP_NAME, port);
+		if (status != BOOTSTRAP_SUCCESS) abort();
+
+		return port;
 	}
+	else if ((_lu_port == MACH_PORT_NULL) && (getpid() > 1))
+	{
+		status = bootstrap_look_up(bootstrap_port, LOOKUP_NAME, &_lu_port);
+		if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _lu_port = MACH_PORT_NULL;
+	}
+
 	return _lu_port;
 }
 
@@ -66,20 +73,31 @@ void
 _lu_fork_child()
 {
 	_lu_port = MACH_PORT_NULL;
+	_ds_port = MACH_PORT_NULL;
 }
 
 void
 _lu_setport(mach_port_t desired)
 {
-	if (_lu_port != MACH_PORT_NULL) {
-		mach_port_deallocate(mach_task_self(), _lu_port);
-	}
+	if (_lu_port != MACH_PORT_NULL) mach_port_deallocate(mach_task_self(), _lu_port);
 	_lu_port = desired;
 }
 
 int
 _lu_running(void)
 {
-	return ((_lu_port != MACH_PORT_NULL) ||
-		(_lookupd_port(MACH_PORT_NULL) != MACH_PORT_NULL));
+	return ((_lu_port != MACH_PORT_NULL) || (_lookupd_port(MACH_PORT_NULL) != MACH_PORT_NULL));
+}
+
+int
+_ds_running(void)
+{
+	kern_return_t status;
+
+	if (_ds_port != MACH_PORT_NULL) return 1;
+	
+	status = bootstrap_look_up(bootstrap_port, kDSStdMachDSLookupPortName, &_ds_port);
+	if ((status != BOOTSTRAP_SUCCESS) && (status != BOOTSTRAP_UNKNOWN_SERVICE)) _ds_port = MACH_PORT_NULL;
+
+	return (_ds_port != MACH_PORT_NULL);
 }

@@ -319,7 +319,7 @@ unsigned int len;
 
 static void MD5_memcpy (output, input, len)
 POINTER output;
-POINTER input;
+const POINTER input;
 unsigned int len;
 {
        unsigned int i; 

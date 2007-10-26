@@ -35,5 +35,7 @@ void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol_family);
 int ppp_ip_af_src_out(ifnet_t ifp, char *pkt);
 int ppp_ip_af_src_in(ifnet_t ifp, char *pkt);
 
+int ppp_ip_bootp_server_in(ifnet_t ifp, char *pkt);
+int ppp_ip_bootp_client_in(ifnet_t ifp, char *pkt);
 
 #endif

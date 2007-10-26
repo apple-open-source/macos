@@ -1,0 +1,11 @@
+--- lib/rdoc/ri/ri_options.rb.orig	2007-09-25 01:33:48.000000000 +0200
++++ lib/rdoc/ri/ri_options.rb	2007-09-25 01:34:04.000000000 +0200
+@@ -136,7 +136,7 @@
+           RI::Paths::HOMEDIR
+         ]
+ 
+-        directories << "#{Gem.path}/doc/*/ri" if RI::Paths::GEMDIRS
++        directories.concat Gem.path.to_a.map { |p| "#{p}/doc/*/ri" } if RI::Paths::GEMDIRS
+ 
+         directories = directories.join("\n    ")
+ 

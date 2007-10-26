@@ -17,6 +17,7 @@
    when files are being checked out or updated.  It is used only when
    hardlinked files are being checked out. */
 
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
 struct hardlink_info
 {
     Ctype status;		/* as returned from Classify_File() */
@@ -26,8 +27,9 @@ struct hardlink_info
 extern List *hardlist;
 extern char *working_dir;
 
-Node *lookup_file_by_inode PROTO ((const char *));
-void update_hardlink_info PROTO ((const char *));
-List *list_linked_files_on_disk PROTO ((char *));
-int compare_linkage_lists PROTO ((List *, List *));
-int find_checkedout_proc PROTO ((Node *, void *));
+Node *lookup_file_by_inode (const char *);
+void update_hardlink_info (const char *);
+List *list_linked_files_on_disk (char *);
+int compare_linkage_lists (List *, List *);
+int find_checkedout_proc (Node *, void *);
+#endif /* PRESERVE_PERMISSIONS_SUPPORT */

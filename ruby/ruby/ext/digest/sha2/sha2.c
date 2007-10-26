@@ -34,7 +34,7 @@
  */
 
 /* $RoughId: sha2.c,v 1.3 2002/02/26 22:03:36 knu Exp $ */
-/* $Id: sha2.c,v 1.4 2003/07/26 15:03:12 matz Exp $ */
+/* $Id: sha2.c 11708 2007-02-12 23:01:19Z shyouhei $ */
 
 #include "sha2.h"
 #include <stdio.h>
@@ -67,7 +67,7 @@ typedef uint8_t  sha2_byte;	/* Exactly 1 byte */
 typedef uint32_t sha2_word32;	/* Exactly 4 bytes */
 typedef uint64_t sha2_word64;	/* Exactly 8 bytes */
 
-#if defined(__GNUC__) || defined(_HPUX_SOURCE)
+#if defined(__GNUC__) || defined(_HPUX_SOURCE) || defined(__IBMC__)
 #define ULL(number)	number##ULL
 #else
 #define ULL(number)	(uint64_t)(number)
@@ -515,7 +515,7 @@ void SHA256_Update(SHA256_CTX* context, const sha2_byte *data, size_t len) {
 	usedspace = freespace = 0;
 }
 
-void SHA256_Final(sha2_byte digest[], SHA256_CTX* context) {
+void SHA256_Finish(SHA256_CTX* context, sha2_byte digest[]) {
 	sha2_word32	*d = (sha2_word32*)digest;
 	unsigned int	usedspace;
 
@@ -576,12 +576,6 @@ void SHA256_Final(sha2_byte digest[], SHA256_CTX* context) {
 	/* Clean up state data: */
 	MEMSET_BZERO(context, sizeof(SHA256_CTX));
 	usedspace = 0;
-}
-
-int SHA256_Equal(SHA256_CTX* pctx1, SHA256_CTX* pctx2) {
-	return pctx1->bitcount == pctx2->bitcount
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->buffer, pctx2->buffer, sizeof(pctx1->buffer)) == 0;
 }
 
 /*** SHA-512: *********************************************************/
@@ -852,7 +846,7 @@ void SHA512_Last(SHA512_CTX* context) {
 	SHA512_Transform(context, (const sha2_word64*)context->buffer);
 }
 
-void SHA512_Final(sha2_byte digest[], SHA512_CTX* context) {
+void SHA512_Finish(SHA512_CTX* context, sha2_byte digest[]) {
 	sha2_word64	*d = (sha2_word64*)digest;
 
 	/* Sanity check: */
@@ -881,12 +875,6 @@ void SHA512_Final(sha2_byte digest[], SHA512_CTX* context) {
 	MEMSET_BZERO(context, sizeof(SHA512_CTX));
 }
 
-int SHA512_Equal(SHA512_CTX* pctx1, SHA512_CTX* pctx2) {
-	return memcmp(pctx1->bitcount, pctx2->bitcount, sizeof(pctx1->bitcount)) == 0
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->buffer, pctx2->buffer, sizeof(pctx1->buffer)) == 0;
-}
-
 /*** SHA-384: *********************************************************/
 void SHA384_Init(SHA384_CTX* context) {
 	if (context == (SHA384_CTX*)0) {
@@ -901,7 +889,7 @@ void SHA384_Update(SHA384_CTX* context, const sha2_byte* data, size_t len) {
 	SHA512_Update((SHA512_CTX*)context, data, len);
 }
 
-void SHA384_Final(sha2_byte digest[], SHA384_CTX* context) {
+void SHA384_Finish(SHA384_CTX* context, sha2_byte digest[]) {
 	sha2_word64	*d = (sha2_word64*)digest;
 
 	/* Sanity check: */
@@ -928,10 +916,4 @@ void SHA384_Final(sha2_byte digest[], SHA384_CTX* context) {
 
 	/* Zero out state data */
 	MEMSET_BZERO(context, sizeof(SHA384_CTX));
-}
-
-int SHA384_Equal(SHA384_CTX* pctx1, SHA384_CTX* pctx2) {
-	return memcmp(pctx1->bitcount, pctx2->bitcount, sizeof(pctx1->bitcount)) == 0
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->buffer, pctx2->buffer, sizeof(pctx1->buffer)) == 0;
 }

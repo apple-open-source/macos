@@ -1,0 +1,26 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>ntp</string>
+	<key>OpenSourceVersion</key>
+	<string>4.2.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.ntp.org</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.eecis.udel.edu/~ntp/ntp_spool/ntp4/ntp-4.2/ntp-4.2.2.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>a3e9652a1d9e288e2c0d88d1876de67ca4d608fb</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-06-06</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Build fixes</string>
+		<string>-c configpath option for ntpdate</string>
+		<string>rdar://2620001 disable driftfile writes when saving energy</string>
+		<string>Update interfaces when network changes</string>
+		<string>Map getaddrinfo EAI_NONAME to EAI_AGAIN</string>
+	</array>
+	<key>OpenSourceLicenseFile</key>
+	<string>ntp.txt</string>
+</dict>
+</plist>

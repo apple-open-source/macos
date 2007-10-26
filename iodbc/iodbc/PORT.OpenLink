@@ -1,0 +1,359 @@
+#!/bin/sh
+#
+#  PORT.OpenLink
+#
+#  Script to port iODBC to various platforms and ABIs
+#
+#  The iODBC driver manager.
+#
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
+#  All Rights Reserved.
+#
+#  This software is released under the terms of either of the following
+#  licenses:
+#
+#      - GNU Library General Public License (see LICENSE.LGPL)
+#      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
+#
+#  While not mandated by the BSD license, any patches you make to the
+#  iODBC source code may be contributed back into the iODBC project
+#  at your discretion. Contributions will benefit the Open Source and
+#  Data Access community as a whole. Submissions may be made at:
+#
+#      http://www.iodbc.org
+#
+#
+#  GNU Library Generic Public License Version 2
+#  ============================================
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Library General Public
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Library General Public License for more details.
+#
+#  You should have received a copy of the GNU Library General Public
+#  License along with this library; if not, write to the Free
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+#
+#
+#  The BSD License
+#  ===============
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in
+#     the documentation and/or other materials provided with the
+#     distribution.
+#  3. Neither the name of OpenLink Software Inc. nor the names of its
+#     contributors may be used to endorse or promote products derived
+#     from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL OPENLINK OR
+#  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+#  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+#  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+#  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+#  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+
+#
+#  Defaults
+#
+TOP=`pwd`
+OS=`admin/config.guess`
+PREFIX=/usr/local/iODBC
+
+CC=cc
+CFLAGS="-O"
+LDFLAGS=""
+CONFLAGS="--disable-gui --enable-maintainer-mode"
+BUILD=run_make
+MAKE=gmake
+
+export TOP CC CFLAGS LDFLAGS OS PREFIX CONFLAGS BUILD MAKE
+
+
+#
+#  Parse arguments
+#
+ARG=${1:-usage}
+case $ARG in
+    -[Cc]|configure) 
+	BUILD=run_config;;
+
+    -[Mm]|make)	   
+	BUILD=run_make;;
+
+    *)
+	echo "PORT script to build OpenLink type installation packages"
+	echo "in $PREFIX."
+	echo ""
+	echo "Usage: $0 [ -c | -m]"
+	echo ""
+	echo "  -c  run configure"
+        echo "  -m  run make [clean|install]"
+	exit 1
+	;;
+esac
+
+
+#
+#  Optional argument for make clean
+#
+shift
+MAKERULE=${*:-""}
+export MAKERULE
+
+
+#
+#  Configure the package
+#
+run_config()
+{
+    MODE=${1:-"default"}
+    export MODE
+
+    case $MODE in
+    o32)	# Irix
+	$TOP/admin/mkinstalldirs build-o32
+	cd build-o32
+	../configure --prefix=$PREFIX $CONFLAGS --bindir='${prefix}/bino32' --libdir='${prefix}/libo32'
+	cd ..
+	;;
+
+    32)
+	$TOP/admin/mkinstalldirs build-32
+	cd build-32
+	../configure --prefix=$PREFIX $CONFLAGS --bindir='${prefix}/bin32' --libdir='${prefix}/lib32'
+	cd ..
+	;;
+
+    64)
+	$TOP/admin/mkinstalldirs build-64
+	cd build-64
+	../configure --prefix=$PREFIX $CONFLAGS --bindir='${prefix}/bin64' --libdir='${prefix}/lib64'
+	cd ..
+	;;
+
+    universal)
+	$TOP/admin/mkinstalldirs build-universal
+	cd build-universal
+	../configure --prefix=$PREFIX $CONFLAGS 
+	cd ..
+	;;
+
+    cur)
+	./configure --prefix=$PREFIX $CONFLAGS
+	;;
+
+    *)
+	$TOP/admin/mkinstalldirs build
+	cd build
+	../configure --prefix=$PREFIX $CONFLAGS
+	cd ..
+	;;
+    esac
+}
+
+
+#
+#  Make the package
+#
+run_make()
+{
+    MODE=${1:-"default"}
+    export MODE
+
+    case $MODE in
+    o32)
+	cd build-o32
+	$MAKE $MAKERULE
+	cd ..
+	;;
+
+    32)
+	cd build-32
+	$MAKE $MAKERULE
+	cd ..
+	;;
+
+    64)
+	cd build-64
+	$MAKE $MAKERULE
+	cd ..
+	;;
+
+    universal)
+	cd build-universal
+	$MAKE $MAKERULE
+	cd ..
+	;;
+
+    cur)
+    	$MAKE $MAKERULE
+	;;
+
+    *)
+	cd build
+	$MAKE $MAKERULE
+	cd ..
+	;;
+    esac
+}
+
+
+#
+#  Main
+#
+case $OS in
+    powerpc-ibm-aix4*)
+	CC=cc_r7
+	CFLAGS="-O -q32"
+	LDFLAGS="-brtl"
+	OBJECT_MODE=64
+	export CC CFLAGS LDFLAGS OBJECT_MODE
+	$BUILD 32
+
+	CC=cc_r7
+	CFLAGS="-O -q64"
+	LDFLAGS="-brtl"
+	OBJECT_MODE=64
+	export CC CFLAGS LDFLAGS OBJECT_MODE
+	$BUILD 64
+	;;
+
+    hppa2.0w-hp-hpux11*)
+	CFLAGS="-O -Ae +DA1.1"
+	export CFLAGS
+	$BUILD 32
+
+	CFLAGS="-O -Ae +DA2.0W"
+	export CFLAGS
+	$BUILD 64
+	;;
+
+    sparc-sun-solaris2.[89]*)
+	CFLAGS="-O"
+	export CFLAGS
+	$BUILD 32
+
+	CFLAGS="-O -xtarget=ultra -xarch=v9"
+	export CFLAGS
+	$BUILD 64
+	;;
+
+    i[3456]86-pc-linux-*)
+    	CFLAGS="-O3"
+	CONFLAGS="--enable-gui --enable-maintainer-mode"
+	export CFLAGS CONFLAGS
+	$BUILD cur
+	;;
+
+    x86_64-suse-linux)
+       CFLAGS="-O3"
+       CONFLAGS="--enable-gui --enable-maintainer-mode"
+       export CFLAGS CONFLAGS
+       $BUILD
+       ;;
+
+    x86_64-redhat-linux-gnu)
+       CONFLAGS="--enable-gui --enable-maintainer-mode"
+
+       CFLAGS="-O3 -m32"
+       export CFLAGS CONFLAGS
+       $BUILD 32
+
+       CFLAGS="-O3 -m64"
+       export CFLAGS CONFLAGS
+       $BUILD 64
+       ;;
+
+    powerpc-apple-darwin8*)
+	PREFIX=/usr/local/iODBC.darwin
+	CONFLAGS="--disable-shared --with-pic"
+	CFLAGS="-O -m32"
+	export CFLAGS CONFLAGS PREFIX
+	$BUILD 32
+
+	CFLAGS="-O -m64"
+	export CFLAGS
+	$BUILD 64
+
+
+	PREFIX=/usr/local/iODBC.universal
+	CONFLAGS="--disable-shared --with-pic --disable-dependency-tracking"
+	CFLAGS="-O -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch ppc64 -arch i386"
+	export PREFIX CONFLAGS CFLAGS
+	$BUILD universal
+	;;
+
+    powerpc-apple-darwin7*)
+	PREFIX=/usr/local/iODBC.darwin
+	CONFLAGS="--disable-shared --with-pic"
+	CFLAGS="-O -DNO_FRAMEWORKS"
+	export CFLAGS CONFLAGS PREFIX
+	$BUILD
+	;;
+
+    powerpc-apple-darwin6*)
+	PREFIX=/usr/local/iODBC.darwin
+	CONFLAGS="--disable-shared --with-pic"
+	CFLAGS="-O -DNO_FRAMEWORKS -DMACOSX102"
+	export CFLAGS CONFLAGS PREFIX
+	$BUILD
+	;;
+
+    ia64-hp-hpux11.23)
+	CFLAGS="-O -Ae +DD32"
+	export CFLAGS
+	$BUILD 32
+
+	CFLAGS="-O -Ae +DD64"
+	export CFLAGS
+	$BUILD 64
+	;;
+
+    powerpc-ibm-aix5*)
+	CC=cc_r
+	CFLAGS="-O -q32"
+	LDFLAGS="-brtl"
+	OBJECT_MODE=32
+	export CC CFLAGS LDFLAGS OBJECT_MODE
+	$BUILD 32
+
+	CC=cc_r
+	CFLAGS="-O -q64"
+	LDFLAGS="-brtl"
+	OBJECT_MODE=64
+	export CC CFLAGS LDFLAGS OBJECT_MODE
+	$BUILD 64
+	;;
+
+    *)
+	CFLAGS="-O"
+	export CFLAGS
+	$BUILD
+	;;
+esac
+
+
+# End
+exit 0

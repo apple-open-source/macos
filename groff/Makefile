@@ -10,6 +10,8 @@ Extra_CC_Flags      = -mdynamic-no-pic
 Extra_Install_Flags = INSTALL_PROGRAM="$(INSTALL) -c -s"
 GnuAfterInstall     = symlink remove-dir install-plist
 
+Extra_Configure_Flags = --without-x
+
 # GNU build setup
 install:: makeprefix
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -18,13 +20,12 @@ Install_Target = install
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.19.1
+AEP_Version    = 1.19.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = tmac__doc-common.diff tmac__troffrc.diff \
-                 tmac__doc-syms.diff tmac__groff_mdoc.man.diff \
-                 CAN-2004-0969.diff
+                 tmac__doc-syms.diff tmac__groff_mdoc.man.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

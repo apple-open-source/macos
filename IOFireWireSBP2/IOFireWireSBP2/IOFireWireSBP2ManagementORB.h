@@ -178,7 +178,7 @@ protected:
     void * 						fCompletionRefCon;
 
     // for user client
-    OSAsyncReference			fCallbackAsyncRef;
+    OSAsyncReference64			fCallbackAsyncRef;
 	
 	IOMemoryMap *				fResponseMap;
 	

@@ -13,11 +13,13 @@ libdir = @libdir@
 
 # Programs used by "make":
 CC = @CC@
-CFLAGS = @CFLAGS@
+CFLAGS = @CFLAGS@ @CFLAG_VISIBILITY@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
 INCLUDES = -I. -I$(srcdir) -I.. -I$(srcdir)/.. -I../include
-DEFS = -DLIBDIR=\"$(libdir)\" \
+# -DBUILDING_LIBCHARSET: Change expansion of LIBCHARSET_DLL_EXPORTED macro.
+# -DBUILDING_DLL: Change expansion of RELOCATABLE_DLL_EXPORTED macro.
+DEFS = -DLIBDIR=\"$(libdir)\" -DBUILDING_LIBCHARSET -DBUILDING_DLL \
 -DENABLE_RELOCATABLE=1 -DIN_LIBRARY -DINSTALLDIR=\"$(libdir)\" -DNO_XMALLOC \
 -Dset_relocation_prefix=libcharset_set_relocation_prefix \
 -Drelocate=libcharset_relocate @DEFS@
@@ -31,7 +33,7 @@ RM = rm -f
 # Programs used by "make install":
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
-mkinstalldirs = $(SHELL) @top_srcdir@/autoconf/mkinstalldirs
+mkinstalldirs = $(SHELL) @top_srcdir@/build-aux/mkinstalldirs
 
 #### End of system configuration section. ####
 
@@ -127,7 +129,7 @@ check : all
 mostlyclean : clean
 
 clean : force
-	$(RM) *.o *.lo *.a *.la *.o.lock core charset.alias ref-add.sed ref-del.sed
+	$(RM) *.o *.lo *.a *.la *.o.lock core *.stackdump charset.alias ref-add.sed ref-del.sed
 	$(RM) -r .libs _libs
 
 distclean : clean

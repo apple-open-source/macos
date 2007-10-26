@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:	A-A-P recipe
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2003 May 16
+" Last Change:	2004 Jun 13
 
 " Quit when a syntax file was already loaded
 if exists("b:current_syntax")
@@ -11,9 +11,10 @@ endif
 let s:cpo_save = &cpo
 set cpo&vim
 
-syn match	aapComment '#.*' contains=aapTodo
-syn match	aapSpecial '$#'
-syn match	aapSpecial '$\$'
+syn include @aapPythonScript syntax/python.vim
+
+syn match       aapVariable /$[-+?*="'\\!]*[a-zA-Z0-9_.]*/
+syn match       aapVariable /$[-+?*="'\\!]*([a-zA-Z0-9_.]*)/
 syn keyword	aapTodo contained TODO Todo
 syn match	aapString +'[^']\{-}'+
 syn match	aapString +"[^"]\{-}"+
@@ -28,13 +29,14 @@ syn match	aapCommand '^\s*:attribute\>'
 syn match	aapCommand '^\s*:autodepend\>'
 syn match	aapCommand '^\s*:buildcheck\>'
 syn match	aapCommand '^\s*:cd\>'
+syn match	aapCommand '^\s*:chdir\>'
 syn match	aapCommand '^\s*:checkin\>'
 syn match	aapCommand '^\s*:checkout\>'
-syn match	aapCommand '^\s*:chdir\>'
 syn match	aapCommand '^\s*:child\>'
 syn match	aapCommand '^\s*:chmod\>'
 syn match	aapCommand '^\s*:commit\>'
 syn match	aapCommand '^\s*:commitall\>'
+syn match	aapCommand '^\s*:conf\>'
 syn match	aapCommand '^\s*:copy\>'
 syn match	aapCommand '^\s*:del\>'
 syn match	aapCommand '^\s*:deldir\>'
@@ -49,15 +51,21 @@ syn match	aapCommand '^\s*:export\>'
 syn match	aapCommand '^\s*:fetch\>'
 syn match	aapCommand '^\s*:fetchall\>'
 syn match	aapCommand '^\s*:filetype\>'
+syn match	aapCommand '^\s*:finish\>'
 syn match	aapCommand '^\s*:global\>'
+syn match	aapCommand '^\s*:import\>'
 syn match	aapCommand '^\s*:include\>'
+syn match	aapCommand '^\s*:installpkg\>'
 syn match	aapCommand '^\s*:lib\>'
 syn match	aapCommand '^\s*:local\>'
+syn match	aapCommand '^\s*:log\>'
+syn match	aapCommand '^\s*:ltlib\>'
 syn match	aapCommand '^\s*:mkdir\>'
 syn match	aapCommand '^\s*:mkdownload\>'
 syn match	aapCommand '^\s*:move\>'
 syn match	aapCommand '^\s*:pass\>'
 syn match	aapCommand '^\s*:popdir\>'
+syn match	aapCommand '^\s*:produce\>'
 syn match	aapCommand '^\s*:program\>'
 syn match	aapCommand '^\s*:progsearch\>'
 syn match	aapCommand '^\s*:publish\>'
@@ -76,10 +84,13 @@ syn match	aapCommand '^\s*:rule\>'
 syn match	aapCommand '^\s*:start\>'
 syn match	aapCommand '^\s*:symlink\>'
 syn match	aapCommand '^\s*:sys\>'
+syn match	aapCommand '^\s*:sysdepend\>'
 syn match	aapCommand '^\s*:syspath\>'
 syn match	aapCommand '^\s*:system\>'
 syn match	aapCommand '^\s*:tag\>'
 syn match	aapCommand '^\s*:tagall\>'
+syn match	aapCommand '^\s*:toolsearch\>'
+syn match	aapCommand '^\s*:totype\>'
 syn match	aapCommand '^\s*:touch\>'
 syn match	aapCommand '^\s*:tree\>'
 syn match	aapCommand '^\s*:unlock\>'
@@ -96,11 +107,13 @@ syn match	aapCommand '^\s*:syseval\>' nextgroup=aapPipeEnd
 syn match	aapPipeCmd '\s*:syseval\>' nextgroup=aapPipeEnd contained
 syn match	aapPipeCmd '\s*:assign\>' contained
 syn match	aapCommand '^\s*:eval\>' nextgroup=aapPipeEnd
-syn match	aapPipeCmd '\s*:eval\>' nextgroup=aapPipeEnd contained
+syn match	aapPipeCmd '\s*:eval\>' nextgroup=aapPipeEndPy contained
 syn match	aapPipeCmd '\s*:tee\>' nextgroup=aapPipeEnd contained
-syn match	aapPipeEnd '[^|]*|' nextgroup=aapPipeCmd contained
+syn match	aapPipeCmd '\s*:log\>' nextgroup=aapPipeEnd contained
+syn match	aapPipeEnd '[^|]*|' nextgroup=aapPipeCmd contained skipnl
+syn match	aapPipeEndPy '[^|]*|' nextgroup=aapPipeCmd contained skipnl contains=@aapPythonScript
+syn match	aapPipeStart '^\s*|' nextgroup=aapPipeCmd
 
-syn include @aapPythonScript syntax/python.vim
 "
 " A Python line starts with @.  Can be continued with a trailing backslash.
 syn region aapPythonRegion start="\s*@" skip='\\$' end=+$+ contains=@aapPythonScript keepend
@@ -111,6 +124,14 @@ syn region aapPythonRegion matchgroup=aapCommand start="\z(\s*\):python" skip='\
 
 " A Python expression is enclosed in backticks.
 syn region aapPythonRegion start="`" skip="``" end="`" contains=@aapPythonScript
+
+" TODO: There is something wrong with line continuation.
+syn match	aapComment '#.*' contains=aapTodo
+syn match	aapComment '#.*\(\\\n.*\)' contains=aapTodo
+
+syn match	aapSpecial '$#'
+syn match	aapSpecial '$\$'
+syn match	aapSpecial '$(.)'
 
 " A heredoc assignment.
 syn region aapHeredoc start="^\s*\k\+\s*$\=+\=?\=<<\s*\z(\S*\)"hs=e+1 end="^\s*\z1\s*$"he=s-1
@@ -124,6 +145,7 @@ hi def link aapTodo		Todo
 hi def link aapString		String
 hi def link aapComment		Comment
 hi def link aapSpecial		Special
+hi def link aapVariable		Identifier
 hi def link aapPipeCmd		aapCommand
 hi def link aapCommand		Statement
 hi def link aapHeredoc		Constant

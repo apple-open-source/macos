@@ -4,7 +4,7 @@
 ## Do not edit by hand.  ##
 ## --------------------- ##
 
-# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 AT_BANNER([Testing autoconf/fortran macros.])
 
@@ -17,4 +17,5 @@ AT_CHECK_MACRO([AC_PROG_F77_C_O])
 AT_CHECK_MACRO([AC_PROG_FC_C_O])
 
 # Obsolete macros.
+AT_CHECK_AU_MACRO([AC_F77_NAME_MANGLING])
 AT_CHECK_AU_MACRO([AC_LANG_FORTRAN77])

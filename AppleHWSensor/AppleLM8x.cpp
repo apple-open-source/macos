@@ -138,7 +138,7 @@ void AppleLM8x::stop(IOService *provider)
 IOReturn AppleLM8x::initHW(IOService *provider)
 {
     IOReturn status;
-    UInt8 cfgReg;
+    UInt8 cfgReg = 0;
     UInt8 attempts = 0;
 
     DLOG("AppleLM8x::initHW(0x%x) entered.\n", kLM8xAddr<<1);
@@ -149,47 +149,56 @@ IOReturn AppleLM8x::initHW(IOService *provider)
         DLOG("AppleLM8x::initHW(0x%x) failed to open I2C bus.\n", kLM8xAddr<<1);
         return status;
     }
-    
-	while( attempts < kTriesToAttempt)
-    {
-		cfgReg = 0;
-		
+ 
+	// Attempt to start LM87 by setting bit 0 in Configuration Register 1.  If we detect the RESET
+	// bit, then make a second attempt.
+	for ( ; attempts < 2; attempts++ )
+	{
 		// Read Configuration Register 1
 		status = readI2C((UInt8)kConfReg1, (UInt8 *) &cfgReg, 1);
 		if(status != kIOReturnSuccess)
 		{
 			DLOG("AppleLM8x::initHW(0x%x) readI2C failed.\n", kLM8xAddr<<1);
-			closeI2C();
-			return status;
+			break;
 		}
 
-		// Check for RESET bit, this should not happen!
-		if((cfgReg & 0x10) == 0x10)
+		DLOG("AppleLM8x::readI2C(0x%x) retrieved data = 0x%x\n", kLM8xAddr<<1, cfgReg);    
+
+		// If we detect RESET, wait at least 45ms for it to clear.
+		if ( cfgReg & kConfRegRESET )
+		{
+			IOSleep(50);
 			status = kIOReturnError;
-		
-		if(status == kIOReturnSuccess)
-        {
-            DLOG("AppleLM8x::readI2C(0x%x) retrieved data = 0x%x\n", kLM8xAddr<<1, *data);    
-            break;
-        }
-                  
-        attempts++;
+		}
 
-		IOSleep(10); // sleep 10 milliseconds
-    }	
+		if(status != kIOReturnSuccess)
+		{
+			IOLog("AppleLM8x::initHW(0x%x) readI2C detected RESET bit.\n", kLM8xAddr<<1);
+		}
 
-	if(status != kIOReturnSuccess)
-	{
-		IOLog("AppleLM8x::initHW(0x%x) readI2C failed due to persistant RESET bit.\n", kLM8xAddr<<1);
-		closeI2C();
-		return status;
+		// Start monitoring operations
+		cfgReg = 0x1;
+
+		// Failure of this write operation is fatal
+		status = writeI2C((UInt8)kConfReg1, (UInt8 *)&cfgReg, 1);
+
+		// Read Configuration Register 1
+		status = readI2C((UInt8)kConfReg1, (UInt8 *) &cfgReg, 1);
+		if(status != kIOReturnSuccess)
+		{
+			DLOG("AppleLM8x::initHW(0x%x) readI2C failed.\n", kLM8xAddr<<1);
+			break;
+		}
+	
+		if ( cfgReg == kConfRegStart )
+		{
+			break;
+		}
+		else
+		{
+			IOLog("AppleLM8x::readI2C(0x%x) retrieved configuration register 1 = 0x%x\n", kLM8xAddr<<1, cfgReg);    
+		}
 	}
-
-	// Start monitoring operations
-	cfgReg |= 0x1;
-
-    // Failure of this write operation is fatal
-    status = writeI2C((UInt8)kConfReg1, (UInt8 *)&cfgReg, 1);
 
     closeI2C();
 

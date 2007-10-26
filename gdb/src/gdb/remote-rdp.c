@@ -51,6 +51,8 @@
 #include "gdbcore.h"
 #include "regcache.h"
 #include "serial.h"
+/* APPLE LOCAL - subroutine inlining  */
+#include "inlining.h"
 
 #include "arm-tdep.h"
 
@@ -193,7 +195,7 @@ get_byte (void)
       if (timeout == 0)
 	return (unsigned char) c;
 
-      error ("Timeout reading from remote_system");
+      error (_("Timeout reading from remote_system"));
     }
 
   return c;
@@ -387,7 +389,7 @@ rdp_init (int cold, int tty)
 
   if (!sync)
     {
-      error ("Couldn't reset the board, try pressing the reset button");
+      error (_("Couldn't reset the board, try pressing the reset button"));
     }
 }
 
@@ -454,10 +456,10 @@ send_rdp (char *template,...)
 	      printf_unfiltered ("RDP: Unimplemented message\n");
 	      return;
 	    case 255:
-	      error ("Command garbled");
+	      error (_("Command garbled"));
 	      break;
 	    default:
-	      error ("Corrupt reply from target");
+	      error (_("Corrupt reply from target"));
 	      break;
 	    }
 	  break;
@@ -495,13 +497,13 @@ send_rdp (char *template,...)
 	  *pi = get_byte ();
 	  break;
 	default:
-	  internal_error (__FILE__, __LINE__, "failed internal consistency check");
+	  internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 	}
     }
   va_end (alist);
 
   if (dst != buf)
-    internal_error (__FILE__, __LINE__, "failed internal consistency check");
+    internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 }
 
 
@@ -630,7 +632,7 @@ remote_rdp_fetch_register (int regno)
     }
   else
     {
-      char buf[ARM_MAX_REGISTER_RAW_SIZE];
+      char buf[MAX_REGISTER_SIZE];
       if (regno < 15)
 	rdp_fetch_one_register (1 << regno, buf);
       else if (regno == ARM_PC_REGNUM)
@@ -645,7 +647,7 @@ remote_rdp_fetch_register (int regno)
 	{
 	  printf ("Help me with fetch reg %d\n", regno);
 	}
-      supply_register (regno, buf);
+      regcache_raw_supply (current_regcache, regno, buf);
     }
 }
 
@@ -660,7 +662,7 @@ remote_rdp_store_register (int regno)
     }
   else
     {
-      char tmp[ARM_MAX_REGISTER_RAW_SIZE];
+      char tmp[MAX_REGISTER_SIZE];
       deprecated_read_register_gen (regno, tmp);
       if (regno < 15)
 	rdp_store_one_register (1 << regno, tmp);
@@ -721,7 +723,7 @@ rdp_set_command_line (char *command, char *args)
   if (commandline != NULL)
     xfree (commandline);
 
-  xasprintf (&commandline, "%s %s", command, args);
+  commandline = xstrprintf ("%s %s", command, args);
 }
 
 static void
@@ -988,7 +990,7 @@ handle_swi (void)
 	  break;
 
 	default:
-	  error ("Unimplemented SWI argument");
+	  error (_("Unimplemented SWI argument"));
 	}
 
       type = type >> 2;
@@ -1053,7 +1055,7 @@ rdp_execute (void)
 }
 
 static int
-remote_rdp_insert_breakpoint (CORE_ADDR addr, char *save)
+remote_rdp_insert_breakpoint (CORE_ADDR addr, bfd_byte *save)
 {
   int res;
   if (ds.rdi_level > 0)
@@ -1077,7 +1079,7 @@ remote_rdp_insert_breakpoint (CORE_ADDR addr, char *save)
 }
 
 static int
-remote_rdp_remove_breakpoint (CORE_ADDR addr, char *save)
+remote_rdp_remove_breakpoint (CORE_ADDR addr, bfd_byte *save)
 {
   int res;
   if (ds.rdi_level > 0)
@@ -1126,7 +1128,7 @@ remote_rdp_open (char *args, int from_tty)
   int not_icebreaker;
 
   if (!args)
-    error_no_arg ("serial port device name");
+    error_no_arg (_("serial port device name"));
 
   baud_rate = 9600;
 
@@ -1181,7 +1183,15 @@ remote_rdp_open (char *args, int from_tty)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  print_stack_frame (get_selected_frame (), -1, 1);
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* If the PC has changed since the last time we updated the
+     global_inlined_call_stack data, we need to verify the current
+     data and possibly update it.  */
+  if (stop_pc != inlined_function_call_stack_pc ())
+    inlined_function_update_call_stack (stop_pc);
+  print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC);
+  clear_inlined_subroutine_print_frames ();
+  /* APPLE LOCAL end subroutine inlining  */
 }
 
 
@@ -1351,12 +1361,13 @@ remote_rdp_files_info (struct target_ops *target)
 
 
 static void
-remote_rdp_create_inferior (char *exec_file, char *allargs, char **env)
+remote_rdp_create_inferior (char *exec_file, char *allargs, char **env,
+			    int from_tty)
 {
   CORE_ADDR entry_point;
 
   if (exec_file == 0 || exec_bfd == 0)
-    error ("No executable file specified.");
+    error (_("No executable file specified."));
 
   entry_point = (CORE_ADDR) bfd_get_start_address (exec_bfd);
 
@@ -1404,7 +1415,7 @@ init_remote_rdp_ops (void)
   remote_rdp_ops.to_fetch_registers = remote_rdp_fetch_register;
   remote_rdp_ops.to_store_registers = remote_rdp_store_register;
   remote_rdp_ops.to_prepare_to_store = remote_rdp_prepare_to_store;
-  remote_rdp_ops.to_xfer_memory = remote_rdp_xfer_inferior_memory;
+  remote_rdp_ops.deprecated_xfer_memory = remote_rdp_xfer_inferior_memory;
   remote_rdp_ops.to_files_info = remote_rdp_files_info;
   remote_rdp_ops.to_insert_breakpoint = remote_rdp_insert_breakpoint;
   remote_rdp_ops.to_remove_breakpoint = remote_rdp_remove_breakpoint;

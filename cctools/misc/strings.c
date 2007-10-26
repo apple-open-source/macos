@@ -74,6 +74,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "stuff/bool.h"
 #include "stuff/ofile.h"
 #include "stuff/errors.h"
@@ -118,7 +120,8 @@ char **envp)
     char *endp;
     struct arch_flag *arch_flags;
     unsigned long narch_flags;
-    enum bool all_archs, rest_args_files;
+    enum bool all_archs, rest_args_files, use_member_syntax;
+    struct stat stat_buf;
 
 	progname = argv[0];
 
@@ -249,10 +252,19 @@ char **envp)
 			rewind(stdin);
 			find(ULONG_MAX, &flags);
 		    }
-		    else
+		    else{
+			/*
+			 * If there's a filename that's an exact match then use
+			 * that, else fall back to the member syntax.
+			 */
+			if(stat(argv[i], &stat_buf) == 0)
+			    use_member_syntax = FALSE;
+			else
+			    use_member_syntax = TRUE;
 			ofile_process(argv[i], arch_flags, narch_flags,
-				      all_archs, TRUE, TRUE, TRUE,
+				      all_archs, TRUE, TRUE, use_member_syntax,
 				      ofile_processor,&flags);
+		    }
 		}
 		else if(strcmp(argv[i], "-arch") == 0 ||
 			strcmp(argv[i], "-n") == 0 ||

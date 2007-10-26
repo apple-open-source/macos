@@ -1,0 +1,74 @@
+--- _SB/Libc/stdio/FreeBSD/flockfile.3	2003-05-20 15:22:41.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/flockfile.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -37,21 +37,22 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft void
+-.Fn flockfile "FILE *stream"
++.Fn flockfile "FILE *file"
+ .Ft int
+-.Fn ftrylockfile "FILE *stream"
++.Fn ftrylockfile "FILE *file"
+ .Ft void
+-.Fn funlockfile "FILE *stream"
++.Fn funlockfile "FILE *file"
+ .Sh DESCRIPTION
+-These functions provide explicit application-level locking of stdio streams.
++These functions provide explicit application-level locking
++of stdio FILE objects.
+ They can be used to avoid output from multiple threads being interspersed,
+ input being dispersed among multiple readers, and to avoid the overhead
+-of locking the stream for each operation.
++of locking the object for each operation.
+ .Pp
+ The
+ .Fn flockfile
+-function acquires an exclusive lock on the specified stream.
+-If another thread has already locked the stream,
++function acquires an exclusive lock on the specified object.
++If another thread has already locked the object,
+ .Fn flockfile
+ will block until the lock is released.
+ .Pp
+@@ -65,19 +66,19 @@
+ .Pp
+ The
+ .Fn funlockfile
+-function releases the lock on a stream acquired by an earlier call to
++function releases the lock on an object acquired by an earlier call to
+ .Fn flockfile
+ or
+ .Fn ftrylockfile .
+ .Pp
+ These functions behave as if there is a lock count associated
+-with each stream.
++with each object.
+ Each time
+ .Fn flockfile
+-is called on the stream, the count is incremented,
++is called on the object, the count is incremented,
+ and each time
+ .Fn funlockfile
+-is called on the stream, the count is decremented.
++is called on the object, the count is decremented.
+ The lock is only actually released when the count reaches zero.
+ .Sh RETURN VALUES
+ The
+@@ -89,7 +90,7 @@
+ The
+ .Fn ftrylockfile
+ function
+-returns zero if the stream was successfully locked,
++returns zero if the object was successfully locked,
+ non-zero otherwise.
+ .Sh SEE ALSO
+ .Xr getc_unlocked 3 ,
+@@ -97,7 +98,7 @@
+ .Sh STANDARDS
+ The
+ .Fn flockfile ,
+-.Fn ftrylockfile
++.Fn ftrylockfile ,
+ and
+ .Fn funlockfile
+ functions conform to

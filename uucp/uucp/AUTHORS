@@ -1,0 +1,5 @@
+Taylor UUCP was written by Ian Lance Taylor <ian@airs.com>.
+
+Many people have contributed patches; see the ChangeLog file.
+Particularly large or significant patches came from Chip Salzenberg,
+Francois Pinard, Doug Evans, Marc Boucher, and Jorge Cwik.

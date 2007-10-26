@@ -54,18 +54,21 @@
 #include <arpa/inet.h>
 
 #include "ipconfig_ext.h"
-#include "ipconfig.h"
+#include "ipconfig_types.h"
 #include "dhcp_options.h"
 #include "dhcplib.h"
 #include "bsdp.h"
 #include "bsdplib.h"
 #include "ioregpath.h"
+#include "ipconfig.h"
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 
-typedef int func_t(port_t server, int argc, char * argv[]);
+typedef int func_t(mach_port_t server, int argc, char * argv[]);
 typedef func_t * funcptr_t;
-char * progname = NULL;
+
+static char * progname;
+static char * command_name;
 
 #define STARTUP_KEY	CFSTR("Plugin:IPConfiguration")
 
@@ -79,7 +82,7 @@ on_alarm(int sigraised)
     exit(0);
 }
 
-#define WAIT_ALL_DEFAULT_TIMEOUT	60
+#define WAIT_ALL_DEFAULT_TIMEOUT	90
 #define WAIT_ALL_MAX_TIMEOUT		120
 
 static void
@@ -89,7 +92,7 @@ key_appeared(SCDynamicStoreRef session, CFArrayRef changes, void * arg)
 }
 
 static int
-S_wait_all(port_t server, int argc, char * argv[])
+S_wait_all(mach_port_t server, int argc, char * argv[])
 {
     CFMutableArrayRef	keys;
     SCDynamicStoreRef 	session;
@@ -139,7 +142,7 @@ S_wait_all(port_t server, int argc, char * argv[])
 
 #if 0
 static int
-S_wait_if(port_t server, int argc, char * argv[])
+S_wait_if(mach_port_t server, int argc, char * argv[])
 {
     return (0);
     if_name_t		name;
@@ -157,7 +160,7 @@ S_wait_if(port_t server, int argc, char * argv[])
 #endif 0
 
 static int
-S_bsdp_get_packet(port_t server, int argc, char * argv[])
+S_bsdp_get_packet(mach_port_t server, int argc, char * argv[])
 {
     CFDictionaryRef	chosen = NULL;
     struct dhcp *	dhcp;
@@ -189,7 +192,7 @@ S_bsdp_get_packet(port_t server, int argc, char * argv[])
 }
 
 static int
-S_bsdp_option(port_t server, int argc, char * argv[])
+S_bsdp_option(mach_port_t server, int argc, char * argv[])
 {
     CFDictionaryRef	chosen = NULL;
     void *		data = NULL;
@@ -277,7 +280,7 @@ S_bsdp_option(port_t server, int argc, char * argv[])
 }
 
 static int
-S_if_addr(port_t server, int argc, char * argv[])
+S_if_addr(mach_port_t server, int argc, char * argv[])
 {
     struct in_addr	ip;
     if_name_t		name;
@@ -295,7 +298,7 @@ S_if_addr(port_t server, int argc, char * argv[])
 }
 
 static int
-S_if_count(port_t server, int argc, char * argv[])
+S_if_count(mach_port_t server, int argc, char * argv[])
 {
     int 		count = 0;
     kern_return_t	status;
@@ -310,7 +313,7 @@ S_if_count(port_t server, int argc, char * argv[])
 }
 
 static int
-S_get_option(port_t server, int argc, char * argv[])
+S_get_option(mach_port_t server, int argc, char * argv[])
 {
     char		buf[1024];
     inline_data_t 	data;
@@ -342,7 +345,7 @@ S_get_option(port_t server, int argc, char * argv[])
 }
 
 static int
-S_get_packet(port_t server, int argc, char * argv[])
+S_get_packet(mach_port_t server, int argc, char * argv[])
 {
     inline_data_t 	data;
     unsigned int 	data_len = sizeof(data);
@@ -375,6 +378,9 @@ ipconfig_method_from_string(const char * m, ipconfig_method_t * method)
     else if (strcmp(m, "LINKLOCAL") == 0) {
 	*method = ipconfig_method_linklocal_e;
     }
+    else if (strcmp(m, "FAILOVER") == 0) {
+	*method = ipconfig_method_failover_e;
+    }
     else if (strcmp(m, "NONE") == 0) {
 	*method = ipconfig_method_none_e;
     }
@@ -384,12 +390,79 @@ ipconfig_method_from_string(const char * m, ipconfig_method_t * method)
     return (TRUE);
 }
 
-static int
-S_set(port_t server, int argc, char * argv[])
+static void
+get_method_information(int argc, char * argv[],
+		       const char * cmd, ipconfig_method_t * method_p,
+		       ipconfig_method_data_t * data, int * data_len_p)
 {
-    char			buf[512];	
+    char *			method_name;
+    
+    method_name = argv[0];
+    if (ipconfig_method_from_string(method_name, method_p) == FALSE) {
+	fprintf(stderr, "ipconfig: %s: method '%s' unknown\n", 
+		cmd, method_name);
+	fprintf(stderr, 
+		"must be MANUAL, INFORM, BOOTP, DHCP, FAILOVER, or NONE\n");
+	exit(1);
+    }
+    argc--;
+    argv++;
+    switch (*method_p) {
+      case ipconfig_method_failover_e:
+	  if (argc != 1 && argc != 2 && argc != 3) {
+	      fprintf(stderr, "usage: ipconfig %s en0 %s <ip> "
+		      "[ <mask> [ <timeout> ] ]\n",
+		      cmd, method_name);
+	      exit(1);
+	  }
+	  goto common;
+      case ipconfig_method_inform_e:
+      case ipconfig_method_manual_e:
+	  if (argc != 1 && argc != 2) {
+	      fprintf(stderr, "usage: ipconfig %s en0 %s <ip> [ <mask> ]\n",
+		      cmd, method_name);
+	      exit(1);
+	  }
+      common:
+	  bzero(data, *data_len_p);
+	  if (*data_len_p < (sizeof(*data) + sizeof(data->ip[0]))) {
+	      fprintf(stderr, "Invalid size passed %d < %ld\n",
+		      *data_len_p, sizeof(*data) + sizeof(data->ip[0]));
+	      exit(1);
+	  }
+	  data->n_ip = 1;
+	  if (inet_aton(argv[0], &data->ip[0].addr) == 0) {
+	      fprintf(stderr, "Invalid IP address %s\n", argv[0]);
+	      exit(1);
+	  }
+	  if (argc >= 2) {
+	      if (inet_aton(argv[1], &data->ip[0].mask) == 0) {
+		  fprintf(stderr, "Invalid IP mask %s\n", argv[1]);
+		  exit(1);
+	      }
+	  }
+	  if (argc >= 3) {
+	      data->u.failover_timeout = strtoul(argv[2], NULL, 0);
+	  }
+	  *data_len_p = sizeof(*data) + sizeof(data->ip[0]);
+	  break;
+      default:
+	  if (argc) {
+	      fprintf(stderr, "too many arguments for method\n");
+	      exit(1);
+	  }
+	  *data_len_p = 0;
+	  break;
+    }
+    return;
+}
+
+static int
+S_set(mach_port_t server, int argc, char * argv[])
+{
+    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
     ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
-    int				data_len = 0;
+    int				data_len;
     if_name_t			name;
     char *			method_name;
     ipconfig_method_t		method;
@@ -397,47 +470,12 @@ S_set(port_t server, int argc, char * argv[])
     ipconfig_status_t		ipstatus = ipconfig_status_success_e;
 
     strcpy(name, argv[0]);
-    method_name = argv[1];
-    if (ipconfig_method_from_string(method_name, &method) == FALSE) {
-	fprintf(stderr, "ipconfig: set: method '%s' unknown\n",
-		argv[1]);
-	fprintf(stderr, 
-		"method is one of MANUAL, INFORM, BOOTP, DHCP, or NONE\n");
-	exit(1);
-    }
-    argv += 2;
-    argc -= 2;
-    switch (method) {
-      case ipconfig_method_inform_e:
-      case ipconfig_method_manual_e: {
-	  int i;
-	  if (argc < 2 || (argc & 0x1)) {
-	      fprintf(stderr, "usage: ipconfig set en0 %s <ip> <mask>\n",
-		      method_name);
-	      exit(1);
-	  }
-	  bzero(buf, sizeof(buf));
-	  data->n_ip = argc / 2;
-	  for (i = 0; i < data->n_ip; i++) {
-	      if (inet_aton(argv[i * 2], &data->ip[i].addr) == 0) {
-		  fprintf(stderr, "Invalid IP address %s\n", argv[i * 2]);
-		  exit(1);
-	      }
-	      if (inet_aton(argv[i * 2 + 1], &data->ip[i].mask) == 0) {
-		  fprintf(stderr, "Invalid IP mask %s\n", argv[i * 2]);
-		  exit(1);
-	      }
-	  }
-	  data_len = sizeof(*data) + data->n_ip * sizeof(data->ip[0]);
-	  break;
-      }
-      default:
-	  if (argc) {
-	      fprintf(stderr, "too many arguments for method\n");
-	      exit(1);
-	  }
-	  break;
-    }
+    argv++;
+    argc--;
+
+    method_name = argv[0];
+    data_len = sizeof(buf);
+    get_method_information(argc, argv, command_name, &method, data, &data_len);
     status = ipconfig_set(server, name, method, (void *)data, data_len,
 			  &ipstatus);
     if (status != KERN_SUCCESS) {
@@ -453,7 +491,7 @@ S_set(port_t server, int argc, char * argv[])
 }
 
 static int
-S_set_verbose(port_t server, int argc, char * argv[])
+S_set_verbose(mach_port_t server, int argc, char * argv[])
 {
     ipconfig_status_t		ipstatus = ipconfig_status_success_e;
     kern_return_t		status;
@@ -479,7 +517,7 @@ S_set_verbose(port_t server, int argc, char * argv[])
 
 #ifdef IPCONFIG_TEST_NO_ENTRY
 static int
-S_set_something(port_t server, int argc, char * argv[])
+S_set_something(mach_port_t server, int argc, char * argv[])
 {
     ipconfig_status_t		ipstatus = ipconfig_status_success_e;
     kern_return_t		status;
@@ -504,6 +542,168 @@ S_set_something(port_t server, int argc, char * argv[])
 }
 #endif IPCONFIG_TEST_NO_ENTRY
 
+static int
+S_add_or_set_service(mach_port_t server, int argc, char * argv[], bool add)
+{
+    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
+    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
+    int				data_len;
+    if_name_t			name;
+    char *			method_name;
+    ipconfig_method_t		method;
+    inline_data_t 		service_id;
+    unsigned int 		service_id_len = sizeof(service_id);
+    kern_return_t		status;
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+
+    strcpy(name, argv[0]);
+    argv++;
+    argc--;
+
+    method_name = argv[0];
+    data_len = sizeof(buf);
+    get_method_information(argc, argv, command_name, &method, data, &data_len);
+    if (add) {
+	status = ipconfig_add_service(server, name, method,
+				      (void *)data, data_len,
+				      service_id, &service_id_len, &ipstatus);
+    }
+    else {
+	status = ipconfig_set_service(server, name, method,
+				      (void *)data, data_len,
+				      service_id, &service_id_len, &ipstatus);
+    }
+    if (status != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_%s_service failed, %s\n", add ? "add" : "set",
+		mach_error_string(status));
+	exit(1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_%s_service %s %s failed: %s\n",
+		add ? "add" : "set",
+		name, method_name, ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    printf("%.*s\n", service_id_len, service_id);
+    return (0);
+}
+
+static int
+S_add_service(mach_port_t server, int argc, char * argv[])
+{
+    return (S_add_or_set_service(server, argc, argv, TRUE));
+}
+
+static int
+S_set_service(mach_port_t server, int argc, char * argv[])
+{
+    return (S_add_or_set_service(server, argc, argv, FALSE));
+}
+
+static int
+S_remove_service_with_id(mach_port_t server, int argc, char * argv[])
+{
+    inline_data_t 		service_id;
+    unsigned int 		service_id_len;
+    kern_return_t		status;
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+
+    service_id_len = strlen(argv[0]);
+    if (service_id_len > sizeof(service_id)) {
+	service_id_len = sizeof(service_id); 
+    }
+    memcpy(service_id, argv[0], service_id_len);
+    status = ipconfig_remove_service_with_id(server, service_id, service_id_len,
+					     &ipstatus);
+    if (status != KERN_SUCCESS) {
+	mach_error("ipconfig_remove_service_with_id failed", status);
+	exit(1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_remove_service_with_id %s failed: %s\n",
+		argv[0], ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    return (0);
+}
+
+static int
+S_find_service(mach_port_t server, int argc, char * argv[])
+{
+    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
+    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
+    int				data_len;
+    if_name_t			name;
+    boolean_t			exact = FALSE;
+    char *			method_name;
+    ipconfig_method_t		method;
+    inline_data_t 		service_id;
+    unsigned int 		service_id_len = sizeof(service_id);
+    kern_return_t		status;
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+
+    strcpy(name, argv[0]);
+    argv++;
+    argc--;
+
+    if (strcasecmp(argv[0], "exact") == 0) {
+	exact = TRUE;
+	argc--;
+	argv++;
+    }
+    method_name = argv[0];
+    data_len = sizeof(buf);
+    get_method_information(argc, argv, command_name, &method, data, &data_len);
+    status = ipconfig_find_service(server, name, exact,
+				   method, (void *)data, data_len,
+				   service_id, &service_id_len, &ipstatus);
+    if (status != KERN_SUCCESS) {
+	mach_error("ipconfig_find_service failed", status);
+	exit(1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_find_service %s %s failed: %s\n",
+		name, method_name, ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    printf("%.*s\n", service_id_len, service_id);
+    return (0);
+}
+
+static int
+S_remove_service(mach_port_t server, int argc, char * argv[])
+{
+    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
+    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
+    int				data_len;
+    if_name_t			name;
+    char *			method_name;
+    ipconfig_method_t		method;
+    kern_return_t		status;
+    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+
+    strcpy(name, argv[0]);
+    argv++;
+    argc--;
+
+    method_name = argv[0];
+    data_len = sizeof(buf);
+    get_method_information(argc, argv, command_name, &method, data, &data_len);
+    status = ipconfig_remove_service(server, name, method,
+				     (void *)data, data_len, &ipstatus);
+    if (status != KERN_SUCCESS) {
+	mach_error("ipconfig_remove_service failed", status);
+	exit(1);
+    }
+    if (ipstatus != ipconfig_status_success_e) {
+	fprintf(stderr, "ipconfig_remove_service %s %s failed: %s\n",
+		name, method_name, ipconfig_status_string(ipstatus));
+	return (1);
+    }
+    return (0);
+}
+
+
 static const struct command_info {
     const char *command;
     funcptr_t	func;
@@ -522,7 +722,7 @@ static const struct command_info {
       " <interface name | \"\" > <option name> | <option code>", 1, 0 },
     { "getpacket", S_get_packet, 1, " <interface name>", 1, 0 },
     { "set", S_set, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | NONE > <method args>", 1, 0 },
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 1, 0 },
     { "netbootoption", S_bsdp_option, 1, "<option> [<vendor option>] | " 
       SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
       " | " MACHINE_NAME_COMMAND, 0, 1 },
@@ -531,6 +731,16 @@ static const struct command_info {
 #ifdef IPCONFIG_TEST_NO_ENTRY
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
 #endif IPCONFIG_TEST_NO_ENTRY
+    { "addService", S_add_service, 2, 
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+    { "setService", S_set_service, 2, 
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+    { "findService", S_find_service, 2, 
+      " <interface name> [ noexact ] < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+    { "removeServiceWithId", S_remove_service_with_id, 1, 
+      " <service ID>", 0, 0 },
+    { "removeService", S_remove_service, 2, 
+      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 
@@ -556,7 +766,7 @@ S_lookup_command(char * cmd, int argc)
     int i;
 
     for (i = 0; commands[i].command; i++) {
-	if (strcmp(cmd, commands[i].command) == 0) {
+	if (strcasecmp(cmd, commands[i].command) == 0) {
 	    if (argc < commands[i].argc) {
 		if (commands[i].display) {
 		    fprintf(stderr, "usage: %s %s\n", commands[i].command,
@@ -573,9 +783,8 @@ S_lookup_command(char * cmd, int argc)
 int
 main(int argc, char * argv[])
 {
-    boolean_t			active = FALSE;
     const struct command_info *	command;
-    port_t			server;
+    mach_port_t			server;
     kern_return_t		status;
 
     progname = argv[0];
@@ -613,18 +822,21 @@ main(int argc, char * argv[])
 	
     }
 #endif 0
-    command = S_lookup_command(argv[0], argc - 1);
+    command_name = argv[0];
+    command = S_lookup_command(command_name, argc - 1);
     if (command == NULL)
 	usage();
     argv++; argc--;
     if (command->no_server == 0) {
-	status = ipconfig_server_port(&server, &active);
-	if (active == FALSE) {
+	status = ipconfig_server_port(&server);
+	switch (status) {
+	case BOOTSTRAP_SUCCESS:
+	    break;
+	case BOOTSTRAP_UNKNOWN_SERVICE:
 	    fprintf(stderr, "ipconfig server not active\n");
 	    /* start it maybe??? */
 	    exit(1);
-	}
-	if (status != BOOTSTRAP_SUCCESS) {
+	default:
 	    mach_error("ipconfig_server_port failed", status);
 	    exit(1);
 	}

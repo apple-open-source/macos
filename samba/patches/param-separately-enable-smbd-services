@@ -1,0 +1,73 @@
+Index: samba/source/param/loadparm.c
+===================================================================
+--- samba/source/param/loadparm.c.orig
++++ samba/source/param/loadparm.c
+@@ -209,6 +209,8 @@ typedef struct {
+ 	int maxprotocol;
+ 	int minprotocol;
+ 	int security;
++	BOOL bEnableDisks;
++	BOOL bEnablePrinters;
+ 	char **AuthMethods;
+ 	BOOL paranoid_server_security;
+ 	int maxdisksize;
+@@ -860,6 +862,8 @@ static struct parm_struct parm_table[] =
+ 	{N_("Security Options"), P_SEP, P_SEPARATOR}, 
+ 
+ 	{"security", P_ENUM, P_GLOBAL, &Globals.security, NULL, enum_security, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
++	{"enable disk services", P_BOOL, P_GLOBAL, &Globals.bEnableDisks, NULL, NULL, FLAG_ADVANCED | FLAG_SHARE},
++	{"enable print services", P_BOOL, P_GLOBAL, &Globals.bEnablePrinters, NULL, NULL, FLAG_ADVANCED | FLAG_PRINT},
+ 	{"auth methods", P_LIST, P_GLOBAL, &Globals.AuthMethods, NULL, NULL, FLAG_ADVANCED}, 
+ 	{"encrypt passwords", P_BOOL, P_GLOBAL, &Globals.bEncryptPasswords, NULL, NULL, FLAG_BASIC | FLAG_ADVANCED | FLAG_WIZARD}, 
+ 	{"update encrypted", P_BOOL, P_GLOBAL, &Globals.bUpdateEncrypt, NULL, NULL, FLAG_ADVANCED}, 
+@@ -1512,6 +1516,8 @@ static void init_globals(BOOL first_time
+ 	Globals.maxprotocol = PROTOCOL_NT1;
+ 	Globals.minprotocol = PROTOCOL_CORE;
+ 	Globals.security = SEC_USER;
++	Globals.bEnableDisks = True;
++	Globals.bEnablePrinters = True;
+ 	Globals.paranoid_server_security = True;
+ 	Globals.bEncryptPasswords = True;
+ 	Globals.bUpdateEncrypt = False;
+@@ -2012,6 +2018,8 @@ FN_GLOBAL_INTEGER(lp_deadtime, &Globals.
+ FN_GLOBAL_INTEGER(lp_maxprotocol, &Globals.maxprotocol)
+ FN_GLOBAL_INTEGER(lp_minprotocol, &Globals.minprotocol)
+ FN_GLOBAL_INTEGER(lp_security, &Globals.security)
++FN_GLOBAL_BOOL(lp_enable_disks, &Globals.bEnableDisks)
++FN_GLOBAL_BOOL(lp_enable_printers, &Globals.bEnablePrinters)
+ FN_GLOBAL_LIST(lp_auth_methods, &Globals.AuthMethods)
+ FN_GLOBAL_BOOL(lp_paranoid_server_security, &Globals.paranoid_server_security)
+ FN_GLOBAL_INTEGER(lp_maxdisksize, &Globals.maxdisksize)
+@@ -4092,7 +4100,19 @@ static void dump_copy_map(BOOL *pcopymap
+ 
+ BOOL lp_snum_ok(int iService)
+ {
+-	return (LP_SNUM_OK(iService) && ServicePtrs[iService]->bAvailable);
++	if (!LP_SNUM_OK(iService) || !ServicePtrs[iService]->bAvailable) {
++		return False;
++	}
++
++	if (lp_print_ok(iService)) {
++		return lp_enable_printers();
++	}
++
++	if (!strequal(lp_fstype(iService), "IPC")) {
++		return lp_enable_disks();
++	}
++
++	return True;
+ }
+ 
+ /***************************************************************************
+@@ -5585,8 +5605,9 @@ static void set_default_server_announce_
+ 	/* note that the flag should be set only if we have a 
+ 	   printer service but nmbd doesn't actually load the 
+ 	   services so we can't tell   --jerry */
+-
+-	default_server_announce |= SV_TYPE_PRINTQ_SERVER;
++	if (lp_enable_printers()) {
++		default_server_announce |= SV_TYPE_PRINTQ_SERVER;
++	}
+ 
+ 	switch (lp_announce_as()) {
+ 		case ANNOUNCE_AS_NT_SERVER:

@@ -21,13 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "ppc-macosx-regs.h"
-#include "ppc-macosx-regnums.h"
-#include "ppc-macosx-thread-status.h"
-#include "ppc-macosx-regs.h"
-#include "macosx-nat-mutils.h"
-#include "macosx-nat-inferior.h"
-
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
@@ -37,6 +30,13 @@
 #include "symfile.h"
 #include "objfiles.h"
 #include "regcache.h"
+
+#include "ppc-macosx-regs.h"
+#include "ppc-macosx-regnums.h"
+#include "ppc-macosx-thread-status.h"
+#include "ppc-macosx-regs.h"
+#include "macosx-nat-mutils.h"
+#include "macosx-nat-inferior.h"
 
 extern macosx_inferior_status *macosx_status;
 
@@ -48,11 +48,11 @@ validate_inferior_registers (int regno)
     {
       for (i = 0; i < NUM_REGS; i++)
         {
-          if (!deprecated_register_valid[i])
+          if (!register_cached (i))
             fetch_inferior_registers (i);
         }
     }
-  else if (!deprecated_register_valid[regno])
+  else if (!register_cached (regno))
     {
       fetch_inferior_registers (regno);
     }
@@ -75,7 +75,11 @@ fetch_inferior_registers (int regno)
       kern_return_t ret = thread_get_state
         (current_thread, GDB_PPC_THREAD_STATE_64, (thread_state_t) & gp_regs,
          &gp_count);
-      MACH_CHECK_ERROR (ret);
+      if (ret != KERN_SUCCESS)
+	{
+	  printf ("Error calling thread_get_state for GP registers for thread 0x%ulx", current_thread);
+	  MACH_CHECK_ERROR (ret);
+	}
       ppc_macosx_fetch_gp_registers_64 (&gp_regs);
     }
 
@@ -87,7 +91,11 @@ fetch_inferior_registers (int regno)
       kern_return_t ret = thread_get_state
         (current_thread, GDB_PPC_THREAD_FPSTATE, (thread_state_t) & fp_regs,
          &fp_count);
-      MACH_CHECK_ERROR (ret);
+      if (ret != KERN_SUCCESS)
+	{
+	  printf ("Error calling thread_get_state for FP registers for thread 0x%ulx", current_thread);
+	  MACH_CHECK_ERROR (ret);
+	}
       ppc_macosx_fetch_fp_registers (&fp_regs);
     }
 
@@ -99,7 +107,11 @@ fetch_inferior_registers (int regno)
       kern_return_t ret = thread_get_state
         (current_thread, GDB_PPC_THREAD_VPSTATE, (thread_state_t) & vp_regs,
          &vp_count);
-      MACH_CHECK_ERROR (ret);
+      if (ret != KERN_SUCCESS)
+	{
+	  printf ("Error calling thread_get_state for Vector registers for thread 0x%ulx", current_thread);
+	  MACH_CHECK_ERROR (ret);
+	}
       ppc_macosx_fetch_vp_registers (&vp_regs);
     }
 }
@@ -154,4 +166,9 @@ store_inferior_registers (int regno)
                               GDB_PPC_THREAD_VPSTATE_COUNT);
       MACH_CHECK_ERROR (ret);
     }
+}
+
+void
+macosx_complete_child_target (struct target_ops *target)
+{
 }

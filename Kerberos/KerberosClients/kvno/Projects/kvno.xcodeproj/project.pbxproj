@@ -11,32 +11,10 @@
 		A181F2CE05E5542D006CE0A8 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1AE6757049E14EB00120112 /* Kerberos.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		A1AE6721049A7DE100120112 /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		A1AE6722049A7DE100120112 /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXFileReference section */
-		A181F2D105E5542D006CE0A8 /* kvno */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = kvno; sourceTree = BUILT_PRODUCTS_DIR; };
+		A108E72F0A41E9B8008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7300A41E9B8008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A181F2D105E5542D006CE0A8 /* kvno */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = kvno; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1AE672A049A7E1000120112 /* kvno.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kvno.c; sourceTree = "<group>"; };
 		A1AE6757049E14EB00120112 /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1AE6796049E3B8300120112 /* kvno.M */ = {isa = PBXFileReference; explicitFileType = text.man; fileEncoding = 30; path = kvno.M; sourceTree = "<group>"; };
@@ -57,6 +35,8 @@
 		A1AE671F049A7DE100120112 = {
 			isa = PBXGroup;
 			children = (
+				A108E72F0A41E9B8008545E5 /* Release.xcconfig */,
+				A108E7300A41E9B8008545E5 /* Debug.xcconfig */,
 				A1AE6728049A7E1000120112 /* Sources */,
 				A1AE6793049E3B8300120112 /* Documentation */,
 				A1AE6757049E14EB00120112 /* Kerberos.framework */,
@@ -92,41 +72,17 @@
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		A181F2CA05E5542D006CE0A8 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
 		A181F2C805E5542D006CE0A8 /* kvno */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A151919E086C8E130042CBBC /* Build configuration list for PBXNativeTarget "kvno" */;
 			buildPhases = (
-				A181F2CA05E5542D006CE0A8 /* Headers */,
 				A181F2CB05E5542D006CE0A8 /* Sources */,
 				A181F2CD05E5542D006CE0A8 /* Frameworks */,
-				A181F2CF05E5542D006CE0A8 /* Rez */,
 				A1C7E214069DF0C800DF6AFE /* ShellScript */,
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = YES;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = kvno;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = kvno;
@@ -141,12 +97,6 @@
 		A1AE6723049A7DE100120112 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = A15191A2086C8E130042CBBC /* Build configuration list for PBXProject "kvno" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				A1AE6721049A7DE100120112 /* Development */,
-				A1AE6722049A7DE100120112 /* Deployment */,
-			);
 			hasScannedForEncodings = 1;
 			mainGroup = A1AE671F049A7DE100120112;
 			productRefGroup = A1AE6753049E146200120112 /* Products */;
@@ -156,16 +106,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXRezBuildPhase section */
-		A181F2CF05E5542D006CE0A8 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		A1C7E214069DF0C800DF6AFE /* ShellScript */ = {
@@ -197,79 +137,43 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		A151919F086C8E130042CBBC /* Development */ = {
+		A151919F086C8E130042CBBC /* Debug */ = {
 			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = kvno;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		A15191A0086C8E130042CBBC /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
-				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INSTALL_PATH = /usr/bin;
-				PRODUCT_NAME = kvno;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		A15191A1086C8E130042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7300A41E9B8008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
 				GCC_DYNAMIC_NO_PIC = YES;
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = kvno;
-				REZ_EXECUTABLE = YES;
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
+				VALID_ARCHS = "i386 ppc";
 			};
-			name = Default;
+			name = Debug;
 		};
-		A15191A3086C8E130042CBBC /* Development */ = {
+		A15191A0086C8E130042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E72F0A41E9B8008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "$(DSTROOT)/System/Library/Frameworks";
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = kvno;
+				VALID_ARCHS = "i386 ppc";
+			};
+			name = Release;
+		};
+		A15191A3086C8E130042CBBC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7300A41E9B8008545E5 /* Debug.xcconfig */;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		A15191A4086C8E130042CBBC /* Deployment */ = {
+		A15191A4086C8E130042CBBC /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E72F0A41E9B8008545E5 /* Release.xcconfig */;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		A15191A5086C8E130042CBBC /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -277,22 +181,20 @@
 		A151919E086C8E130042CBBC /* Build configuration list for PBXNativeTarget "kvno" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A151919F086C8E130042CBBC /* Development */,
-				A15191A0086C8E130042CBBC /* Deployment */,
-				A15191A1086C8E130042CBBC /* Default */,
+				A151919F086C8E130042CBBC /* Debug */,
+				A15191A0086C8E130042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 		A15191A2086C8E130042CBBC /* Build configuration list for PBXProject "kvno" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				A15191A3086C8E130042CBBC /* Development */,
-				A15191A4086C8E130042CBBC /* Deployment */,
-				A15191A5086C8E130042CBBC /* Default */,
+				A15191A3086C8E130042CBBC /* Debug */,
+				A15191A4086C8E130042CBBC /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};

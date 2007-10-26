@@ -1,6 +1,7 @@
 ;;; makesum.el --- generate key binding summary for Emacs
 
-;; Copyright (C) 1985 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: help
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -113,4 +114,5 @@ Previous contents of that buffer are killed first."
 
 (provide 'makesum)
 
+;;; arch-tag: c2383336-fc89-46ad-8110-ded42bffaee3
 ;;; makesum.el ends here

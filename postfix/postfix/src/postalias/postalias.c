@@ -5,25 +5,34 @@
 /*	Postfix alias database maintenance
 /* SYNOPSIS
 /* .fi
-/*	\fBpostalias\fR [\fB-Nfinoprvw\fR] [\fB-c \fIconfig_dir\fR]
+/*	\fBpostalias\fR [\fB-Nfinoprsvw\fR] [\fB-c \fIconfig_dir\fR]
 /*	[\fB-d \fIkey\fR] [\fB-q \fIkey\fR]
 /*		[\fIfile_type\fR:]\fIfile_name\fR ...
 /* DESCRIPTION
-/*	The \fBpostalias\fR command creates or queries one or more Postfix
+/*	The \fBpostalias\fR(1) command creates or queries one or more Postfix
 /*	alias databases, or updates an existing one. The input and output
 /*	file formats are expected to be compatible with Sendmail version 8,
 /*	and are expected to be suitable for the use as NIS alias maps.
 /*
 /*	If the result files do not exist they will be created with the
-/*	same group and other read permissions as the source file.
+/*	same group and other read permissions as their source file.
 /*
 /*	While a database update is in progress, signal delivery is
 /*	postponed, and an exclusive, advisory, lock is placed on the
 /*	entire database, in order to avoid surprises in spectator
-/*	programs.
+/*	processes.
 /*
 /*	The format of Postfix alias input files is described in
 /*	\fBaliases\fR(5).
+/*
+/*	By default the lookup key is mapped to lowercase to make
+/*	the lookups case insensitive; as of Postfix 2.3 this case
+/*	folding happens only with tables whose lookup keys are
+/*	fixed-case strings such as btree:, dbm: or hash:. With
+/*	earlier versions, the lookup key is folded even with tables
+/*	where a lookup field can match both upper and lower case
+/*	text, such as regexp: and pcre:. This resulted in loss of
+/*	information with $\fInumber\fR substitutions.
 /*
 /*	Options:
 /* .IP "\fB-c \fIconfig_dir\fR"
@@ -38,22 +47,28 @@
 /*	when at least one of the requested keys was found.
 /* .IP \fB-f\fR
 /*	Do not fold the lookup key to lower case while creating or querying
-/*	a map.
+/*	a table.
+/*
+/*	With Postfix version 2.3 and later, this option has no
+/*	effect for regular expression tables. There, case folding
+/*	is controlled by appending a flag to a pattern.
 /* .IP \fB-i\fR
 /*	Incremental mode. Read entries from standard input and do not
-/*	truncate an existing database. By default, \fBpostalias\fR creates
+/*	truncate an existing database. By default, \fBpostalias\fR(1) creates
 /*	a new database from the entries in \fIfile_name\fR.
 /* .IP \fB-N\fR
 /*	Include the terminating null character that terminates lookup keys
-/*	and values. By default, Postfix does whatever is the default for
+/*	and values. By default, \fBpostalias\fR(1) does whatever
+/*	is the default for
 /*	the host operating system.
 /* .IP \fB-n\fR
 /*	Don't include the terminating null character that terminates lookup
-/*	keys and values. By default, Postfix does whatever is the default for
+/*	keys and values. By default, \fBpostalias\fR(1) does whatever
+/*	is the default for
 /*	the host operating system.
 /* .IP \fB-o\fR
 /*	Do not release root privileges when processing a non-root
-/*	input file. By default, \fBpostalias\fR drops root privileges
+/*	input file. By default, \fBpostalias\fR(1) drops root privileges
 /*	and runs as the source file owner instead.
 /* .IP \fB-p\fR
 /*	Do not inherit the file access permissions from the input file
@@ -69,37 +84,48 @@
 /*	\fIkey: value\fR output for each key that was found. The exit
 /*	status is zero when at least one of the requested keys was found.
 /* .IP \fB-r\fR
-/*	When updating a table, do not warn about duplicate entries; silently
-/*	replace them.
+/*	When updating a table, do not complain about attempts to update
+/*	existing entries, and make those updates anyway.
+/* .IP \fB-s\fR
+/*	Retrieve all database elements, and write one line of
+/*	\fIkey: value\fR output for each element. The elements are
+/*	printed in database order, which is not necessarily the same
+/*	as the original input order.
+/*	This feature is available in Postfix version 2.2 and later,
+/*	and is not available for all database types.
 /* .IP \fB-v\fR
 /*	Enable verbose logging for debugging purposes. Multiple \fB-v\fR
 /*	options make the software increasingly verbose.
 /* .IP \fB-w\fR
-/*	When updating a table, do not warn about duplicate entries; silently
-/*	ignore them.
+/*	When updating a table, do not complain about attempts to update
+/*	existing entries, and ignore those attempts.
 /* .PP
 /*	Arguments:
 /* .IP \fIfile_type\fR
 /*	The database type. To find out what types are supported, use
-/*	the "\fBpostconf -m" command.
+/*	the "\fBpostconf -m\fR" command.
 /*
-/*	The \fBpostalias\fR command can query any supported file type,
+/*	The \fBpostalias\fR(1) command can query any supported file type,
 /*	but it can create only the following file types:
 /* .RS
 /* .IP \fBbtree\fR
 /*	The output is a btree file, named \fIfile_name\fB.db\fR.
-/*	This is available only on systems with support for \fBdb\fR databases.
+/*	This is available on systems with support for \fBdb\fR databases.
+/* .IP \fBcdb\fR
+/*	The output is one file named \fIfile_name\fB.cdb\fR.
+/*	This is available on systems with support for \fBcdb\fR databases.
 /* .IP \fBdbm\fR
 /*	The output consists of two files, named \fIfile_name\fB.pag\fR and
 /*	\fIfile_name\fB.dir\fR.
-/*	This is available only on systems with support for \fBdbm\fR databases.
+/*	This is available on systems with support for \fBdbm\fR databases.
 /* .IP \fBhash\fR
 /*	The output is a hashed file, named \fIfile_name\fB.db\fR.
-/*	This is available only on systems with support for \fBdb\fR databases.
+/*	This is available on systems with support for \fBdb\fR databases.
+/* .IP \fBsdbm\fR
+/*	The output consists of two files, named \fIfile_name\fB.pag\fR and
+/*	\fIfile_name\fB.dir\fR.
+/*	This is available on systems with support for \fBsdbm\fR databases.
 /* .PP
-/*	Use the command \fBpostconf -m\fR to find out what types of database
-/*	your Postfix installation can support.
-/*
 /*	When no \fIfile_type\fR is specified, the software uses the database
 /*	type specified via the \fBdefault_database_type\fR configuration
 /*	parameter.
@@ -113,8 +139,8 @@
 /*	no problems were detected. Duplicate entries are skipped and are
 /*	flagged with a warning.
 /*
-/*	\fBpostalias\fR terminates with zero exit status in case of success
-/*	(including successful \fBpostalias -q\fR lookup) and terminates
+/*	\fBpostalias\fR(1) terminates with zero exit status in case of success
+/*	(including successful "\fBpostalias -q\fR" lookup) and terminates
 /*	with non-zero exit status in case of failure.
 /* ENVIRONMENT
 /* .ad
@@ -130,9 +156,9 @@
 /*	this program.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* .IP "\fBalias_database (see 'postconf -d' output)\fR"
-/*	The alias databases for local(8) delivery that are updated with
+/*	The alias databases for \fBlocal\fR(8) delivery that are updated with
 /*	"\fBnewaliases\fR" or with "\fBsendmail -bi\fR".
 /* .IP "\fBconfig_directory (see 'postconf -d' output)\fR"
 /*	The default location of the Postfix main.cf and master.cf
@@ -144,8 +170,8 @@
 /*	The per-table I/O buffer size for programs that read Berkeley DB
 /*	hash or btree tables.
 /* .IP "\fBdefault_database_type (see 'postconf -d' output)\fR"
-/*	The default database type for use in newaliases(1), postalias(1)
-/*	and postmap(1) commands.
+/*	The default database type for use in \fBnewaliases\fR(1), \fBpostalias\fR(1)
+/*	and \fBpostmap\fR(1) commands.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
 /* .IP "\fBsyslog_name (postfix)\fR"
@@ -210,6 +236,7 @@
 #include <mail_conf.h>
 #include <mail_dict.h>
 #include <mail_params.h>
+#include <mail_version.h>
 #include <mkmap.h>
 #include <mail_task.h>
 
@@ -345,8 +372,6 @@ static void postalias(char *map_type, char *path_name, int postalias_flags,
 	/*
 	 * Store the value under a case-insensitive key.
 	 */
-	if (dict_flags & DICT_FLAG_FOLD_KEY)
-	    lowercase(STR(key_buffer));
 	mkmap_append(mkmap, STR(key_buffer), STR(value_buffer));
     }
 
@@ -372,6 +397,7 @@ static void postalias(char *map_type, char *path_name, int postalias_flags,
     mkmap->dict->flags |= DICT_FLAG_TRY0NULL;
     vstring_sprintf(value_buffer, "%010ld", (long) time((time_t *) 0));
 #if (defined(HAS_NIS) || defined(HAS_NISPLUS))
+    mkmap->dict->flags &= ~DICT_FLAG_FOLD_FIX;
     mkmap_append(mkmap, "YP_LAST_MODIFIED", STR(value_buffer));
     mkmap_append(mkmap, "YP_MASTER_NAME", var_myhostname);
 #endif
@@ -421,13 +447,11 @@ static int postalias_queries(VSTREAM *in, char **maps, const int map_count,
      * maps.
      */
     while (vstring_get_nonl(keybuf, in) != VSTREAM_EOF) {
-	if (dict_flags & DICT_FLAG_FOLD_KEY)
-	    lowercase(STR(keybuf));
 	for (n = 0; n < map_count; n++) {
 	    if (dicts[n] == 0)
 		dicts[n] = ((map_name = split_at(maps[n], ':')) != 0 ?
-		   dict_open3(maps[n], map_name, O_RDONLY, DICT_FLAG_LOCK) :
-		dict_open3(var_db_type, maps[n], O_RDONLY, DICT_FLAG_LOCK));
+		       dict_open3(maps[n], map_name, O_RDONLY, dict_flags) :
+		    dict_open3(var_db_type, maps[n], O_RDONLY, dict_flags));
 	    if ((value = dict_get(dicts[n], STR(keybuf))) != 0) {
 		if (*value == 0) {
 		    msg_warn("table %s:%s: key %s: empty string result is not allowed",
@@ -459,12 +483,12 @@ static int postalias_queries(VSTREAM *in, char **maps, const int map_count,
 /* postalias_query - query a map and print the result to stdout */
 
 static int postalias_query(const char *map_type, const char *map_name,
-			           const char *key)
+			           const char *key, int dict_flags)
 {
     DICT   *dict;
     const char *value;
 
-    dict = dict_open3(map_type, map_name, O_RDONLY, DICT_FLAG_LOCK);
+    dict = dict_open3(map_type, map_name, O_RDONLY, dict_flags);
     if ((value = dict_get(dict, key)) != 0) {
 	if (*value == 0) {
 	    msg_warn("table %s:%s: key %s: empty string result is not allowed",
@@ -473,15 +497,16 @@ static int postalias_query(const char *map_type, const char *map_name,
 		     map_type, map_name);
 	}
 	vstream_printf("%s\n", value);
-	vstream_fflush(VSTREAM_OUT);
     }
+    vstream_fflush(VSTREAM_OUT);
     dict_close(dict);
     return (value != 0);
 }
 
 /* postalias_deletes - apply multiple requests from stdin */
 
-static int postalias_deletes(VSTREAM *in, char **maps, const int map_count)
+static int postalias_deletes(VSTREAM *in, char **maps, const int map_count,
+			             int dict_flags)
 {
     int     found = 0;
     VSTRING *keybuf = vstring_alloc(100);
@@ -501,8 +526,8 @@ static int postalias_deletes(VSTREAM *in, char **maps, const int map_count)
     dicts = (DICT **) mymalloc(sizeof(*dicts) * map_count);
     for (n = 0; n < map_count; n++)
 	dicts[n] = ((map_name = split_at(maps[n], ':')) != 0 ?
-		    dict_open3(maps[n], map_name, O_RDWR, DICT_FLAG_LOCK) :
-		  dict_open3(var_db_type, maps[n], O_RDWR, DICT_FLAG_LOCK));
+		    dict_open3(maps[n], map_name, O_RDWR, dict_flags) :
+		    dict_open3(var_db_type, maps[n], O_RDWR, dict_flags));
 
     /*
      * Perform all requests.
@@ -526,24 +551,55 @@ static int postalias_deletes(VSTREAM *in, char **maps, const int map_count)
 /* postalias_delete - delete a key value pair from a map */
 
 static int postalias_delete(const char *map_type, const char *map_name,
-			            const char *key)
+			            const char *key, int dict_flags)
 {
     DICT   *dict;
     int     status;
 
-    dict = dict_open3(map_type, map_name, O_RDWR, DICT_FLAG_LOCK);
+    dict = dict_open3(map_type, map_name, O_RDWR, dict_flags);
     status = dict_del(dict, key);
     dict_close(dict);
     return (status == 0);
+}
+
+/* postalias_seq - print all map entries to stdout */
+
+static void postalias_seq(const char *map_type, const char *map_name,
+			          int dict_flags)
+{
+    DICT   *dict;
+    const char *key;
+    const char *value;
+    int     func;
+
+    dict = dict_open3(map_type, map_name, O_RDONLY, dict_flags);
+    for (func = DICT_SEQ_FUN_FIRST; /* void */ ; func = DICT_SEQ_FUN_NEXT) {
+	if (dict_seq(dict, func, &key, &value) != 0)
+	    break;
+	if (*key == 0) {
+	    msg_warn("table %s:%s: empty lookup key value is not allowed",
+		     map_type, map_name);
+	} else if (*value == 0) {
+	    msg_warn("table %s:%s: key %s: empty string result is not allowed",
+		     map_type, map_name, key);
+	    msg_warn("table %s:%s should return NO RESULT in case of NOT FOUND",
+		     map_type, map_name);
+	}
+	vstream_printf("%s:	%s\n", key, value);
+    }
+    vstream_fflush(VSTREAM_OUT);
+    dict_close(dict);
 }
 
 /* usage - explain */
 
 static NORETURN usage(char *myname)
 {
-    msg_fatal("usage: %s [-Nfinorvw] [-c config_dir] [-d key] [-q key] [map_type:]file...",
+    msg_fatal("usage: %s [-Nfinoprsvw] [-c config_dir] [-d key] [-q key] [map_type:]file...",
 	      myname);
 }
+
+MAIL_VERSION_STAMP_DECLARE;
 
 int     main(int argc, char **argv)
 {
@@ -554,10 +610,16 @@ int     main(int argc, char **argv)
     struct stat st;
     int     postalias_flags = POSTALIAS_FLAG_AS_OWNER | POSTALIAS_FLAG_SAVE_PERM;
     int     open_flags = O_RDWR | O_CREAT | O_TRUNC;
-    int     dict_flags = DICT_FLAG_DUP_WARN | DICT_FLAG_FOLD_KEY;
+    int     dict_flags = DICT_FLAG_DUP_WARN | DICT_FLAG_FOLD_FIX;
     char   *query = 0;
     char   *delkey = 0;
+    int     sequence = 0;
     int     found;
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Be consistent with file permissions.
@@ -593,7 +655,7 @@ int     main(int argc, char **argv)
     /*
      * Parse JCL.
      */
-    while ((ch = GETOPT(argc, argv, "Nc:d:finopq:rvw")) > 0) {
+    while ((ch = GETOPT(argc, argv, "Nc:d:finopq:rsvw")) > 0) {
 	switch (ch) {
 	default:
 	    usage(argv[0]);
@@ -607,12 +669,12 @@ int     main(int argc, char **argv)
 		msg_fatal("out of memory");
 	    break;
 	case 'd':
-	    if (query || delkey)
-		msg_fatal("specify only one of -q or -d");
+	    if (sequence || query || delkey)
+		msg_fatal("specify only one of -s -q or -d");
 	    delkey = optarg;
 	    break;
 	case 'f':
-	    dict_flags &= ~DICT_FLAG_FOLD_KEY;
+	    dict_flags &= ~DICT_FLAG_FOLD_FIX;
 	    break;
 	case 'i':
 	    open_flags &= ~O_TRUNC;
@@ -628,13 +690,18 @@ int     main(int argc, char **argv)
 	    postalias_flags &= ~POSTALIAS_FLAG_SAVE_PERM;
 	    break;
 	case 'q':
-	    if (query || delkey)
-		msg_fatal("specify only one of -q or -d");
+	    if (sequence || query || delkey)
+		msg_fatal("specify only one of -s -q or -d");
 	    query = optarg;
 	    break;
 	case 'r':
 	    dict_flags &= ~(DICT_FLAG_DUP_WARN | DICT_FLAG_DUP_IGNORE);
 	    dict_flags |= DICT_FLAG_DUP_REPLACE;
+	    break;
+	case 's':
+	    if (query || delkey)
+		msg_fatal("specify only one of -s or -q or -d");
+	    sequence = 1;
 	    break;
 	case 'v':
 	    msg_verbose++;
@@ -646,6 +713,8 @@ int     main(int argc, char **argv)
 	}
     }
     mail_conf_read();
+    if (strcmp(var_syslog_name, DEF_SYSLOG_NAME) != 0)
+	msg_syslog_init(mail_task(argv[0]), LOG_PID, LOG_FACILITY);
     mail_dict_init();
 
     /*
@@ -656,13 +725,16 @@ int     main(int argc, char **argv)
 	if (optind + 1 > argc)
 	    usage(argv[0]);
 	if (strcmp(delkey, "-") == 0)
-	    exit(postalias_deletes(VSTREAM_IN, argv + optind, argc - optind) == 0);
+	    exit(postalias_deletes(VSTREAM_IN, argv + optind, argc - optind,
+				   dict_flags | DICT_FLAG_LOCK) == 0);
 	found = 0;
 	while (optind < argc) {
 	    if ((path_name = split_at(argv[optind], ':')) != 0) {
-		found |= postalias_delete(argv[optind], path_name, delkey);
+		found |= postalias_delete(argv[optind], path_name, delkey,
+					  dict_flags | DICT_FLAG_LOCK);
 	    } else {
-		found |= postalias_delete(var_db_type, argv[optind], delkey);
+		found |= postalias_delete(var_db_type, argv[optind], delkey,
+					  dict_flags | DICT_FLAG_LOCK);
 	    }
 	    optind++;
 	}
@@ -672,18 +744,30 @@ int     main(int argc, char **argv)
 	    usage(argv[0]);
 	if (strcmp(query, "-") == 0)
 	    exit(postalias_queries(VSTREAM_IN, argv + optind, argc - optind,
-				   dict_flags) == 0);
-	if (dict_flags & DICT_FLAG_FOLD_KEY)
-	    lowercase(query);
+				   dict_flags | DICT_FLAG_LOCK) == 0);
 	while (optind < argc) {
 	    if ((path_name = split_at(argv[optind], ':')) != 0) {
-		found = postalias_query(argv[optind], path_name, query);
+		found = postalias_query(argv[optind], path_name, query,
+					dict_flags | DICT_FLAG_LOCK);
 	    } else {
-		found = postalias_query(var_db_type, argv[optind], query);
+		found = postalias_query(var_db_type, argv[optind], query,
+					dict_flags | DICT_FLAG_LOCK);
 	    }
 	    if (found)
 		exit(0);
 	    optind++;
+	}
+	exit(1);
+    } else if (sequence) {
+	while (optind < argc) {
+	    if ((path_name = split_at(argv[optind], ':')) != 0) {
+		postalias_seq(argv[optind], path_name,
+			      dict_flags | DICT_FLAG_LOCK);
+	    } else {
+		postalias_seq(var_db_type, argv[optind],
+			      dict_flags | DICT_FLAG_LOCK);
+	    }
+	    exit(0);
 	}
 	exit(1);
     } else {					/* create/update map(s) */

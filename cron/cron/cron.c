@@ -17,7 +17,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/cron/cron.c,v 1.14 2001/03/09 03:14:09 babkin Exp $";
+  "$FreeBSD: src/usr.sbin/cron/cron/cron.c,v 1.18 2006/07/20 09:11:08 stefanf Exp $";
 #endif
 
 #define	MAIN_PROGRAM
@@ -46,12 +46,18 @@ static	void	usage __P((void)),
 
 static time_t	last_time = 0;
 static int	dst_enabled = 0;
+struct pidfh *pfh;
 
 static void
 usage() {
     char **dflags;
 
-	fprintf(stderr, "usage: cron [-s] [-o] [-x debugflag[,...]]\n");
+#ifdef __APPLE__
+	fprintf(stderr, "usage: cron "
+#else
+	fprintf(stderr, "usage: cron [-j jitter] [-J rootjitter] "
+#endif
+			"[-s] [-o] [-x debugflag[,...]]\n");
 	fprintf(stderr, "\ndebugflags: ");
 
         for(dflags = DebugFlagNames; *dflags; dflags++) {
@@ -62,17 +68,35 @@ usage() {
 	exit(ERROR_EXIT);
 }
 
+static void
+open_pidfile(void)
+{
+	char	pidfile[MAX_FNAME];
+	char	buf[MAX_TEMPSTR];
+	int	otherpid;
+
+	(void) snprintf(pidfile, sizeof(pidfile), PIDFILE, PIDDIR);
+	pfh = pidfile_open(pidfile, 0600, &otherpid);
+	if (pfh == NULL) {
+		if (errno == EEXIST) {
+			snprintf(buf, sizeof(buf),
+			    "cron already running, pid: %d", otherpid);
+		} else {
+			snprintf(buf, sizeof(buf),
+			    "can't open or create %s: %s", pidfile,
+			    strerror(errno));
+		}
+		log_it("CRON", getpid(), "DEATH", buf);
+		errx(ERROR_EXIT, "%s", buf);
+	}
+}
 
 int
 main(argc, argv)
 	int	argc;
 	char	*argv[];
 {
-	int running_via_launchd = 0;
 	cron_db	database;
-
-	if (getppid() == 1)
-		running_via_launchd = 1;
 
 	ProgramName = argv[0];
 
@@ -90,7 +114,7 @@ main(argc, argv)
 #endif
 	(void) signal(SIGHUP, sighup_handler);
 
-	acquire_daemonlock(0);
+	open_pidfile();
 	set_cron_uid();
 	set_cron_cwd();
 
@@ -107,13 +131,19 @@ main(argc, argv)
 # endif
 		(void) fprintf(stderr, "[%d] cron started\n", getpid());
 	} else {
-		if (running_via_launchd == 0 && daemon(1, 0) == -1) {
+#ifdef __APPLE__
+		/* Don't daemonize when run by launchd */
+		if (getppid() != 1 && daemon(1, 0) == -1) {
+#else
+		if (daemon(1, 0) == -1) {
+#endif
+			pidfile_remove(pfh);
 			log_it("CRON",getpid(),"DEATH","can't become daemon");
 			exit(0);
 		}
 	}
 
-	acquire_daemonlock(0);
+	pidfile_write(pfh);
 	database.head = NULL;
 	database.tail = NULL;
 	database.mtime = (time_t) 0;
@@ -121,14 +151,6 @@ main(argc, argv)
 	run_reboot_jobs(&database);
 	cron_sync();
 	while (TRUE) {
-		if (running_via_launchd) {
-			user *hu = database.head;
-
-			if (hu == NULL)
-				exit(0);
-			if (hu == database.tail && !strcmp(hu->name, "*system*") && hu->crontab == NULL)
-				exit(0);
-		}
 # if DEBUGGING
 	    /* if (!(DebugFlags & DTEST)) */
 # endif /*DEBUGGING*/
@@ -173,7 +195,15 @@ cron_tick(db)
 	static time_t	diff = 0, /* time difference in seconds from the last offset change */
 		difflimit = 0; /* end point for the time zone correction */
 	struct tm	otztm; /* time in the old time zone */
+#ifdef __APPLE__
+	int otzminute = 0;
+	int otzhour = 0;
+	int otzdom = 0;
+	int otzmonth = 0;
+	int otzdow = 0;
+#else
 	int		otzminute, otzhour, otzdom, otzmonth, otzdow;
+#endif
  	register struct tm	*tm = localtime(&TargetTime);
 	register int		minute, hour, dom, month, dow;
 	register user		*u;
@@ -257,9 +287,15 @@ cron_tick(db)
 	 */
 	for (u = db->head;  u != NULL;  u = u->next) {
 		for (e = u->crontab;  e != NULL;  e = e->next) {
+#ifdef __APPLE__
 			Debug(DSCH|DEXT, ("user [%s:%s:%s:...] cmd=\"%s\"\n",
 					  env_get("LOGNAME", e->envp),
 					  e->uname, e->gname, e->cmd))
+#else
+			Debug(DSCH|DEXT, ("user [%s:%d:%d:...] cmd=\"%s\"\n",
+					  env_get("LOGNAME", e->envp),
+					  e->uid, e->gid, e->cmd))
+#endif
 
 			if ( diff != 0 && (e->flags & (RUN_AT|NOT_UNTIL)) ) {
 				if (bit_test(e->minute, otzminute)
@@ -385,9 +421,14 @@ cron_clean(db)
 
 #ifdef USE_SIGCHLD
 static void
-sigchld_handler(x) {
+sigchld_handler(int x)
+{
 	WAIT_T		waiter;
 	PID_T		pid;
+
+#ifdef __APPLE__
+	x = x; // avoid unused variable warning
+#endif
 
 	for (;;) {
 #ifdef POSIX
@@ -415,7 +456,11 @@ sigchld_handler(x) {
 
 
 static void
-sighup_handler(x) {
+sighup_handler(int x)
+{
+#ifdef __APPLE__
+	x = x;	// avoid unused variable warning
+#endif
 	log_close();
 }
 
@@ -426,9 +471,29 @@ parse_args(argc, argv)
 	char	*argv[];
 {
 	int	argch;
+#ifndef __APPLE__
+	char	*endp;
+#endif
 
-	while ((argch = getopt(argc, argv, "losx:")) != -1) {
+#ifdef __APPLE__
+	while ((argch = getopt(argc, argv, "osx:")) != -1) {
 		switch (argch) {
+#else
+	while ((argch = getopt(argc, argv, "j:J:osx:")) != -1) {
+		switch (argch) {
+		case 'j':
+			Jitter = strtoul(optarg, &endp, 10);
+			if (*optarg == '\0' || *endp != '\0' || Jitter > 60)
+				errx(ERROR_EXIT,
+				     "bad value for jitter: %s", optarg);
+			break;
+		case 'J':
+			RootJitter = strtoul(optarg, &endp, 10);
+			if (*optarg == '\0' || *endp != '\0' || RootJitter > 60)
+				errx(ERROR_EXIT,
+				     "bad value for root jitter: %s", optarg);
+			break;
+#endif
 		case 'o':
 			dst_enabled = 0;
 			break;

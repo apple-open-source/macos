@@ -94,7 +94,7 @@ static errcode_t com_err_thread_init ()
 
 // ---------------------------------------------------------------------------
 
-static void com_err_thread_destroy () __attribute__((destructor));
+static void com_err_thread_destroy (void) __attribute__((destructor));
 static void com_err_thread_destroy ()
 {
     errcode_t err = 0;

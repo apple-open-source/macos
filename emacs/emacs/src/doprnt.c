@@ -1,7 +1,8 @@
 /* Output like sprintf to a buffer of specified size.
    Also takes args differently: pass one pointer to an array of strings
    in addition to the format string which is separate.
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -17,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include <config.h>
@@ -54,7 +55,7 @@ static int doprnt1 ();
    terminated at position FORMAT_END.
    Output goes in BUFFER, which has room for BUFSIZE chars.
    If the output does not fit, truncate it to fit.
-   Returns the number of characters stored into BUFFER.
+   Returns the number of bytes stored into BUFFER.
    ARGS points to the vector of arguments, and NARGS says how many.
    A double counts as two arguments.
    String arguments are passed as C strings.
@@ -105,7 +106,7 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
   char tembuf[DBL_MAX_10_EXP + 100];
 
   /* Size of sprintf_buffer.  */
-  int size_allocated = sizeof (tembuf);
+  unsigned size_allocated = sizeof (tembuf);
 
   /* Buffer to use for sprintf.  Either tembuf or same as BIG_BUFFER.  */
   char *sprintf_buffer = tembuf;
@@ -135,12 +136,12 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
     {
       if (*fmt == '%')	/* Check for a '%' character */
 	{
-	  int size_bound = 0;
+	  unsigned size_bound = 0;
 	  int width;		/* Columns occupied by STRING.  */
 
 	  fmt++;
 	  /* Copy this one %-spec into fmtcpy.  */
-	  string = (unsigned char *)fmtcpy;
+	  string = (unsigned char *) fmtcpy;
 	  *string++ = '%';
 	  while (1)
 	    {
@@ -151,11 +152,11 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 		     This might be a field width or a precision; e.g.
 		     %1.1000f and %1000.1f both might need 1000+ bytes.
 		     Parse the width or precision, checking for overflow.  */
-		  int n = *fmt - '0';
+		  unsigned n = *fmt - '0';
 		  while ('0' <= fmt[1] && fmt[1] <= '9')
 		    {
 		      if (n * 10 / 10 != n
-			  || (n = n * 10 + (fmt[1] - '0')) < 0)
+			  || (n = n * 10 + (fmt[1] - '0')) < n)
 			error ("Format width or precision too large");
 		      *string++ = *++fmt;
 		    }
@@ -163,7 +164,7 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 		  if (size_bound < n)
 		    size_bound = n;
 		}
-	      else if (*fmt == '-' || *fmt == ' ' || *fmt == '.')
+	      else if (*fmt == '-' || *fmt == ' ' || *fmt == '.' || *fmt == '+')
 		;
 	      else
 		break;
@@ -173,10 +174,9 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 
 	  /* Make the size bound large enough to handle floating point formats
 	     with large numbers.  */
-	  size_bound += DBL_MAX_10_EXP + 50;
-
-	  if (size_bound < 0)
+	  if (size_bound + DBL_MAX_10_EXP + 50 < size_bound)
 	    error ("Format width or precision too large");
+	  size_bound += DBL_MAX_10_EXP + 50;
 
 	  /* Make sure we have that much.  */
 	  if (size_bound > size_allocated)
@@ -212,7 +212,7 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 		abort ();
 	      sprintf (sprintf_buffer, fmtcpy, args[cnt++]);
 	      /* Now copy into final output, truncating as nec.  */
-	      string = (unsigned char *)sprintf_buffer;
+	      string = (unsigned char *) sprintf_buffer;
 	      goto doit;
 
 	    case 'f':
@@ -221,12 +221,12 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 	      {
 		union { double d; char *half[2]; } u;
 		if (cnt + 1 == nargs)
-		  error ("not enough arguments for format string");
+		  error ("Not enough arguments for format string");
 		u.half[0] = args[cnt++];
 		u.half[1] = args[cnt++];
 		sprintf (sprintf_buffer, fmtcpy, u.d);
 		/* Now copy into final output, truncating as nec.  */
-		string = (unsigned char *)sprintf_buffer;
+		string = (unsigned char *) sprintf_buffer;
 		goto doit;
 	      }
 
@@ -234,18 +234,18 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 	      string[-1] = 's';
 	    case 's':
 	      if (cnt == nargs)
-		error ("not enough arguments for format string");
+		error ("Not enough arguments for format string");
 	      if (fmtcpy[1] != 's')
 		minlen = atoi (&fmtcpy[1]);
 	      if (lispstrings)
 		{
-		  string = ((struct Lisp_String *)args[cnt])->data;
-		  tem = STRING_BYTES ((struct Lisp_String *)args[cnt]);
+		  string = ((struct Lisp_String *) args[cnt])->data;
+		  tem = STRING_BYTES ((struct Lisp_String *) args[cnt]);
 		  cnt++;
 		}
 	      else
 		{
-		  string = (unsigned char *)args[cnt++];
+		  string = (unsigned char *) args[cnt++];
 		  tem = strlen (string);
 		}
 	      width = strwidth (string, tem);
@@ -297,7 +297,7 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
 
 	    case 'c':
 	      if (cnt == nargs)
-		error ("not enough arguments for format string");
+		error ("Not enough arguments for format string");
 	      tem = CHAR_STRING ((int) (EMACS_INT) args[cnt], charbuf);
 	      string = charbuf;
 	      cnt++;
@@ -334,3 +334,6 @@ doprnt1 (lispstrings, buffer, bufsize, format, format_end, nargs, args)
   *bufptr = 0;		/* Make sure our string end with a '\0' */
   return bufptr - buffer;
 }
+
+/* arch-tag: aa0ab528-7c5f-4c73-894c-aa2526a1efb3
+   (do not change this comment) */

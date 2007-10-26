@@ -91,6 +91,7 @@ AWK = @AWK@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
@@ -126,9 +127,12 @@ LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
 LIB_CRYPT = @LIB_CRYPT@
 LIB_DES = @LIB_DES@
+LIB_DOOR = @LIB_DOOR@
+LIB_LDAP = @LIB_LDAP@
 LIB_MYSQL = @LIB_MYSQL@
 LIB_PGSQL = @LIB_PGSQL@
 LIB_SOCKET = @LIB_SOCKET@
+LIB_SQLITE = @LIB_SQLITE@
 LN_S = @LN_S@
 LTGETADDRINFOOBJS = @LTGETADDRINFOOBJS@
 LTGETNAMEINFOOBJS = @LTGETNAMEINFOOBJS@
@@ -149,6 +153,7 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PASSDSS_LIBS = @PASSDSS_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PLAIN_LIBS = @PLAIN_LIBS@
 PURECOV = @PURECOV@
@@ -172,6 +177,7 @@ SASL_KRB_LIB = @SASL_KRB_LIB@
 SASL_MECHS = @SASL_MECHS@
 SASL_STATIC_LIBS = @SASL_STATIC_LIBS@
 SASL_STATIC_OBJS = @SASL_STATIC_OBJS@
+SASL_STATIC_SRCS = @SASL_STATIC_SRCS@
 SASL_UTIL_HEADERS_EXTRA = @SASL_UTIL_HEADERS_EXTRA@
 SASL_UTIL_LIBS_EXTRA = @SASL_UTIL_LIBS_EXTRA@
 SET_MAKE = @SET_MAKE@
@@ -225,7 +231,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 
 all_sasl_libs = ../lib/libsasl2.la $(SASL_DB_LIB) $(LIB_SOCKET)
-all_sasl_static_libs = ../lib/.libs/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS) $(LIB_MYSQL) $(LIB_PGSQL)
+all_sasl_static_libs = ../lib/.libs/libsasl2.a $(SASL_DB_LIB) $(LIB_SOCKET) $(GSSAPIBASE_LIBS) $(GSSAPI_LIBS) $(SASL_KRB_LIB) $(LIB_DES) $(PLAIN_LIBS) $(SRP_LIBS) $(LIB_MYSQL) $(LIB_PGSQL) $(LIB_SQLITE)
 
 sbin_PROGRAMS = @SASL_DB_UTILS@ @SMTPTEST_PROGRAM@
 EXTRA_PROGRAMS = saslpasswd2 sasldblistusers2 testsuite testsuitestatic smtptest
@@ -235,9 +241,9 @@ noinst_PROGRAMS = dbconverter-2
 
 @NO_SASL_DB_MANS_TRUE@man_MANS = 
 
-saslpasswd2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+saslpasswd2_LDADD = $(all_sasl_libs) ../sasldb/libsasldb.la
 saslpasswd2_SOURCES = saslpasswd.c
-sasldblistusers2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
+sasldblistusers2_LDADD = $(all_sasl_libs) ../sasldb/libsasldb.la
 sasldblistusers2_SOURCES = sasldblistusers.c
 dbconverter_2_LDADD = ../sasldb/libsasldb.la $(all_sasl_libs)
 
@@ -289,12 +295,12 @@ dbconverter_2_DEPENDENCIES = ../sasldb/libsasldb.la ../lib/libsasl2.la
 dbconverter_2_LDFLAGS =
 am_sasldblistusers2_OBJECTS = sasldblistusers.$(OBJEXT)
 sasldblistusers2_OBJECTS = $(am_sasldblistusers2_OBJECTS)
-sasldblistusers2_DEPENDENCIES = ../sasldb/libsasldb.la \
-	../lib/libsasl2.la
+sasldblistusers2_DEPENDENCIES = ../lib/libsasl2.la \
+	../sasldb/libsasldb.la
 sasldblistusers2_LDFLAGS =
 am_saslpasswd2_OBJECTS = saslpasswd.$(OBJEXT)
 saslpasswd2_OBJECTS = $(am_saslpasswd2_OBJECTS)
-saslpasswd2_DEPENDENCIES = ../sasldb/libsasldb.la ../lib/libsasl2.la
+saslpasswd2_DEPENDENCIES = ../lib/libsasl2.la ../sasldb/libsasldb.la
 saslpasswd2_LDFLAGS =
 am_smtptest_OBJECTS =
 smtptest_OBJECTS = $(am_smtptest_OBJECTS)

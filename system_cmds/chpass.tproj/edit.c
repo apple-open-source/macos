@@ -1,29 +1,35 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
  * Copyright (c) 1990, 1993, 1994
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2002 Networks Associates Technology, Inc.
+ * All rights reserved.
+ *
+ * Portions of this software were developed for the FreeBSD Project by
+ * ThinkSec AS and NAI Labs, the Security Research Division of Network
+ * Associates, Inc.  under DARPA/SPAWAR contract N66001-01-C-8035
+ * ("CBOSS"), as part of the DARPA CHATS research program.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +41,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -54,6 +60,17 @@
  * SUCH DAMAGE.
  */
 
+#if 0
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)edit.c	8.3 (Berkeley) 4/2/94";
+#endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/chpass/edit.c,v 1.23 2003/04/09 18:18:42 des Exp $");
+#endif
+
 #include <sys/param.h>
 #include <sys/stat.h>
 
@@ -67,37 +84,69 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifndef OPEN_DIRECTORY
 #include <pw_scan.h>
-#include <pw_util.h>
+#include <libutil.h>
+#endif
 
 #include "chpass.h"
-#ifdef DIRECTORY_SERVICE
-#include "directory_service.h"
 
-extern int dswhere;
-#endif /* DIRECTORY_SERVICE */
+#ifdef OPEN_DIRECTORY
+static int display(const char *tfn, CFDictionaryRef attrs);
+static CFDictionaryRef verify(const char *tfn, CFDictionaryRef attrs);
+#else
+static int display(const char *tfn, struct passwd *pw);
+static struct passwd *verify(const char *tfn, struct passwd *pw);
+#endif
 
-extern char *tempname;
-
-void
-edit(pw)
-	struct passwd *pw;
+#ifdef OPEN_DIRECTORY
+CFDictionaryRef
+edit(const char *tfn, CFDictionaryRef pw)
+#else
+struct passwd *
+edit(const char *tfn, struct passwd *pw)
+#endif
 {
-	struct stat begin, end;
+#ifdef OPEN_DIRECTORY
+	CFDictionaryRef npw;
+#else
+	struct passwd *npw;
+#endif
+	char *line;
+	size_t len;
 
+	if (display(tfn, pw) == -1)
+		return (NULL);
 	for (;;) {
-		if (stat(tempname, &begin))
-			pw_error(tempname, 1, 1);
-		pw_edit(1);
-		if (stat(tempname, &end))
-			pw_error(tempname, 1, 1);
-		if (begin.st_mtime == end.st_mtime) {
-			warnx("no changes made");
-			pw_error(NULL, 0, 0);
-		}
-		if (verify(pw))
+#ifdef OPEN_DIRECTORY
+		switch (editfile(tfn)) {
+#else
+		switch (pw_edit(1)) {
+#endif
+		case -1:
+			return (NULL);
+		case 0:
+#ifdef OPEN_DIRECTORY
+			return (NULL);
+#else
+			return (pw_dup(pw));
+#endif
+		default:
 			break;
-		pw_prompt();
+		}
+		if ((npw = verify(tfn, pw)) != NULL)
+			return (npw);
+#ifndef OPEN_DIRECTORY
+		free(npw);
+#endif
+		printf("re-edit the password file? ");
+		fflush(stdout);
+		if ((line = fgetln(stdin, &len)) == NULL) {
+			warn("fgetln()");
+			return (NULL);
+		}
+		if (len > 0 && (*line == 'N' || *line == 'n'))
+			return (NULL);
 	}
 }
 
@@ -106,56 +155,43 @@ edit(pw)
  *	print out the file for the user to edit; strange side-effect:
  *	set conditional flag if the user gets to edit the shell.
  */
-void
-display(fd, pw)
-	int fd;
-	struct passwd *pw;
+#if OPEN_DIRECTORY
+static int
+display(const char *tfn, CFDictionaryRef attrs)
+#else
+static int
+display(const char *tfn, struct passwd *pw)
+#endif
 {
 	FILE *fp;
-	char *bp, *p, *ttoa();
-#ifdef DIRECTORY_SERVICE
-	ENTRY *ep;
-	struct display d;
-	int ndisplayed = 0;
-#endif /* DIRECTORY_SERVICE */
+#ifndef OPEN_DIRECTORY
+	char *bp, *gecos, *p;
+#endif
 
-	if (!(fp = fdopen(fd, "w")))
-		pw_error(tempname, 1, 1);
-
-	(void)fprintf(fp,
-	    "# Changing user database information for %s.\n"
-	    "#\n"
-	    "# (use \"passwd\" to change the password)\n"
-	    "##\n",
-	    pw->pw_name);
-            
-#ifdef DIRECTORY_SERVICE
-	switch (dswhere) {
-	case WHERE_FILES:
-	    (void)fprintf(fp,
-		"# Flat file: /etc/master.passwd\n"
-		"##\n");
-	    break;
-	case WHERE_LOCALNI:
-	    (void)fprintf(fp,
-		"# Local NetInfo Database\n"
-		"##\n");
-	    break;
+	if ((fp = fopen(tfn, "w")) == NULL) {
+		warn("%s", tfn);
+		return (-1);
 	}
-	d.pw = pw;
-	bp = pw->pw_gecos;
-	p = strsep(&bp, ",");
-	d.fullname =  (p ? p : "");
-	p = strsep(&bp, ",");
-	d.location = (p ? p : "");
-	p = strsep(&bp, ",");
-	d.officephone = (p ? p : "");
-	p = strsep(&bp, ",");
-	d.homephone = ( p ? p : "");
 
+#ifdef OPEN_DIRECTORY
+	CFArrayRef values = CFDictionaryGetValue(attrs, CFSTR(kDSNAttrRecordName));
+	CFStringRef username = (values && CFArrayGetCount(values)) > 0 ? CFArrayGetValueAtIndex(values, 0) : NULL;
+
+	(void)cfprintf(fp,
+		"# Changing user information for %@.\n"
+	    "# Use \"passwd\" to change the password.\n"
+	    "##\n"
+		"# Open Directory%s%@\n"
+		"##\n",
+		username,
+		DSPath ? ": " : "",
+		DSPath ? DSPath : CFSTR(""));
+
+	int ndisplayed = 0;
+	ENTRY* ep;
 	for (ep = list; ep->prompt; ep++)
 		if (!ep->restricted) {
-			ep->display(&d, fp);
+			ep->display(attrs, ep->attrName, ep->prompt, fp);
 			ndisplayed++;
 		}
 	if(!ndisplayed) {
@@ -163,23 +199,15 @@ display(fd, pw)
 		(void)fprintf(fp, "# No fields are available to change\n");
 		(void)fprintf(fp, "###################################\n");
 	}
-#else /* DIRECTORY_SERVICE */
-        (void)fprintf(fp,
-	    "##\n"
-            "# User Database\n"
-            "# \n"
-            "# Note:  This program edits the /etc/master.passwd file which is only \n"
-            "# consulted when the system is running in single-user mode.  At other times \n"
-            "# this information is handled by lookupd.  By default, lookupd gets \n"
-            "# information from NetInfo, so this file will not be consulted unless you \n"
-            "# have changed lookupd's configuration.\n"
-            "##\n");
-
-	if (!uid) {
+#else OPEN_DIRECTORY
+	(void)fprintf(fp,
+	    "#Changing user information for %s.\n", pw->pw_name);
+	if (master_mode) {
 		(void)fprintf(fp, "Login: %s\n", pw->pw_name);
 		(void)fprintf(fp, "Password: %s\n", pw->pw_passwd);
-		(void)fprintf(fp, "Uid [#]: %d\n", pw->pw_uid);
-		(void)fprintf(fp, "Gid [# or name]: %d\n", pw->pw_gid);
+		(void)fprintf(fp, "Uid [#]: %lu\n", (unsigned long)pw->pw_uid);
+		(void)fprintf(fp, "Gid [# or name]: %lu\n",
+		    (unsigned long)pw->pw_gid);
 		(void)fprintf(fp, "Change [month day year]: %s\n",
 		    ttoa(pw->pw_change));
 		(void)fprintf(fp, "Expire [month day year]: %s\n",
@@ -190,115 +218,198 @@ display(fd, pw)
 		    *pw->pw_shell ? pw->pw_shell : _PATH_BSHELL);
 	}
 	/* Only admin can change "restricted" shells. */
+#if 0
 	else if (ok_shell(pw->pw_shell))
 		/*
 		 * Make shell a restricted field.  Ugly with a
 		 * necklace, but there's not much else to do.
 		 */
+#else
+	else if ((!list[E_SHELL].restricted && ok_shell(pw->pw_shell)) ||
+	    master_mode)
+		/*
+		 * If change not restrict (table.c) and standard shell
+		 *	OR if root, then allow editing of shell.
+		 */
+#endif
 		(void)fprintf(fp, "Shell: %s\n",
 		    *pw->pw_shell ? pw->pw_shell : _PATH_BSHELL);
 	else
 		list[E_SHELL].restricted = 1;
-	bp = pw->pw_gecos;
-	p = strsep(&bp, ",");
-	(void)fprintf(fp, "Full Name: %s\n", p ? p : "");
-	p = strsep(&bp, ",");
-	(void)fprintf(fp, "Location: %s\n", p ? p : "");
-	p = strsep(&bp, ",");
-	(void)fprintf(fp, "Office Phone: %s\n", p ? p : "");
-	p = strsep(&bp, ",");
-	(void)fprintf(fp, "Home Phone: %s\n", p ? p : "");
-#endif /* DIRECTORY_SERVICE */
 
-	(void)fchown(fd, getuid(), getgid());
+	if ((bp = gecos = strdup(pw->pw_gecos)) == NULL) {
+		warn(NULL);
+		fclose(fp);
+		return (-1);
+	}
+
+	p = strsep(&bp, ",");
+	p = strdup(p ? p : "");
+	list[E_NAME].save = p;
+	if (!list[E_NAME].restricted || master_mode)
+	  (void)fprintf(fp, "Full Name: %s\n", p);
+
+	p = strsep(&bp, ",");
+	p = strdup(p ? p : "");
+	list[E_LOCATE].save = p;
+	if (!list[E_LOCATE].restricted || master_mode)
+	  (void)fprintf(fp, "Office Location: %s\n", p);
+
+	p = strsep(&bp, ",");
+	p = strdup(p ? p : "");
+	list[E_BPHONE].save = p;
+	if (!list[E_BPHONE].restricted || master_mode)
+	  (void)fprintf(fp, "Office Phone: %s\n", p);
+
+	p = strsep(&bp, ",");
+	p = strdup(p ? p : "");
+	list[E_HPHONE].save = p;
+	if (!list[E_HPHONE].restricted || master_mode)
+	  (void)fprintf(fp, "Home Phone: %s\n", p);
+
+	bp = strdup(bp ? bp : "");
+	list[E_OTHER].save = bp;
+	if (!list[E_OTHER].restricted || master_mode)
+	  (void)fprintf(fp, "Other information: %s\n", bp);
+
+	free(gecos);
+#endif /* OPEN_DIRECTORY */
+
+	(void)fchown(fileno(fp), getuid(), getgid());
 	(void)fclose(fp);
+	return (0);
 }
 
-int
-verify(pw)
-	struct passwd *pw;
+#ifdef OPEN_DIRECTORY
+static CFDictionaryRef
+verify(const char* tfn, CFDictionaryRef pw)
+#else
+static struct passwd *
+verify(const char *tfn, struct passwd *pw)
+#endif
 {
+#ifdef OPEN_DIRECTORY
+	CFMutableDictionaryRef npw;
+#else
+	struct passwd *npw;
+#endif
 	ENTRY *ep;
-	char *p;
+	char *buf, *p, *val;
 	struct stat sb;
 	FILE *fp;
-	int len;
-	char buf[LINE_MAX];
+	int line;
+	size_t len;
 
-	if (!(fp = fopen(tempname, "r")))
-		pw_error(tempname, 1, 1);
-	if (fstat(fileno(fp), &sb))
-		pw_error(tempname, 1, 1);
+#ifdef OPEN_DIRECTORY
+	if ((npw = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == NULL)
+		return (NULL);
+#else
+	if ((pw = pw_dup(pw)) == NULL)
+		return (NULL);
+#endif
+	if ((fp = fopen(tfn, "r")) == NULL ||
+	    fstat(fileno(fp), &sb) == -1) {
+		warn("%s", tfn);
+#ifndef OPEN_DIRECTORY
+		free(pw);
+#endif
+		return (NULL);
+	}
 	if (sb.st_size == 0) {
 		warnx("corrupted temporary file");
-		goto bad;
+		fclose(fp);
+#ifndef OPEN_DIRECTORY
+		free(pw);
+#endif
+		return (NULL);
 	}
-	while (fgets(buf, sizeof(buf), fp)) {
-		if (!buf[0] || buf[0] == '#')
+	val = NULL;
+	for (line = 1; (buf = fgetln(fp, &len)) != NULL; ++line) {
+		if (*buf == '\0' || *buf == '#')
 			continue;
-		if (!(p = strchr(buf, '\n'))) {
-			warnx("line too long");
-			goto bad;
-		}
-		*p = '\0';
+		while (len > 0 && isspace(buf[len - 1]))
+			--len;
 		for (ep = list;; ++ep) {
 			if (!ep->prompt) {
-				warnx("unrecognized field");
+				warnx("%s: unrecognized field on line %d",
+				    tfn, line);
 				goto bad;
 			}
-			if (!strncasecmp(buf, ep->prompt, ep->len)) {
-				if (ep->restricted && uid) {
-					warnx(
-					    "you may not change the %s field",
-						ep->prompt);
-					goto bad;
-				}
-				if (!(p = strchr(buf, ':'))) {
-					warnx("line corrupted");
-					goto bad;
-				}
-				while (isspace(*++p));
-				if (ep->except && strpbrk(p, ep->except)) {
-					warnx(
-				   "illegal character in the \"%s\" field",
-					    ep->prompt);
-					goto bad;
-				}
-				if ((ep->func)(p, pw, ep)) {
-bad:					(void)fclose(fp);
-					return (0);
-				}
-				break;
+			if (ep->len > len)
+				continue;
+			if (strncasecmp(buf, ep->prompt, ep->len) != 0)
+				continue;
+			if (ep->restricted && !master_mode) {
+				warnx("%s: you may not change the %s field",
+				    tfn, ep->prompt);
+				goto bad;
 			}
+			for (p = buf; p < buf + len && *p != ':'; ++p)
+				/* nothing */ ;
+			if (*p != ':') {
+				warnx("%s: line %d corrupted", tfn, line);
+				goto bad;
+			}
+			while (++p < buf + len && isspace(*p))
+				/* nothing */ ;
+			free(val);
+			asprintf(&val, "%.*s", (int)(buf + len - p), p);
+			if (val == NULL)
+				goto bad;
+			if (ep->except && strpbrk(val, ep->except)) {
+				warnx("%s: invalid character in \"%s\" field '%s'",
+				    tfn, ep->prompt, val);
+				goto bad;
+			}
+#ifdef OPEN_DIRECTORY
+			if ((ep->func)(val, NULL, NULL))
+				goto bad;
+			{
+				CFStringRef str = CFStringCreateWithCString(NULL, val, kCFStringEncodingUTF8);
+				if (str) {
+					CFDictionarySetValue(npw, ep->attrName, str);
+					CFRelease(str);
+				}
+			}
+#else
+			if ((ep->func)(val, pw, ep))
+				goto bad;
+#endif
+			break;
 		}
 	}
-	(void)fclose(fp);
+	free(val);
+	fclose(fp);
 
+#ifndef OPEN_DIRECTORY
 	/* Build the gecos field. */
-#ifdef DIRECTORY_SERVICE
-	if (list[E_NAME].save) {
-		if (list[E_LOCATE].save) {
-#endif /* DIRECTORY_SERVICE */
-	len = strlen(list[E_NAME].save) + strlen(list[E_BPHONE].save) +
-	    strlen(list[E_HPHONE].save) + strlen(list[E_LOCATE].save) + 4;
-	if (!(p = malloc(len)))
-		err(1, NULL);
-	(void)sprintf(pw->pw_gecos = p, "%s,%s,%s,%s", list[E_NAME].save,
-	    list[E_LOCATE].save, list[E_BPHONE].save, list[E_HPHONE].save);
-#ifdef DIRECTORY_SERVICE
-		} else
-			pw->pw_gecos = list[E_NAME].save;
-	} else
-		pw->pw_gecos = "";
-#endif /* DIRECTORY_SERVICE */
-
-	if (snprintf(buf, sizeof(buf),
-	    "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s",
-	    pw->pw_name, pw->pw_passwd, pw->pw_uid, pw->pw_gid, pw->pw_class,
-	    pw->pw_change, pw->pw_expire, pw->pw_gecos, pw->pw_dir,
-	    pw->pw_shell) >= sizeof(buf)) {
-		warnx("entries too long");
-		return (0);
+	len = asprintf(&p, "%s,%s,%s,%s,%s", list[E_NAME].save,
+	    list[E_LOCATE].save, list[E_BPHONE].save,
+	    list[E_HPHONE].save, list[E_OTHER].save);
+	if (p == NULL) {
+		warn("asprintf()");
+		free(pw);
+		return (NULL);
 	}
-	return (pw_scan(buf, pw, NULL));
+	while (len > 0 && p[len - 1] == ',')
+		p[--len] = '\0';
+	pw->pw_gecos = p;
+	buf = pw_make(pw);
+	free(pw);
+	free(p);
+	if (buf == NULL) {
+		warn("pw_make()");
+		return (NULL);
+	}
+	npw = pw_scan(buf, PWSCAN_WARN|PWSCAN_MASTER);
+#endif /* !OPEN_DIRECTORY */
+	free(buf);
+	return (npw);
+bad:
+#ifndef OPEN_DIRECTORY
+	free(pw);
+#endif
+	free(val);
+	fclose(fp);
+	return (NULL);
 }

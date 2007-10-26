@@ -1,7 +1,8 @@
+<testcase>
 #
 # Server-side
 <reply name="1">
-<data>
+<data mode="text">
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
@@ -13,7 +14,7 @@ Connection: close
 Content-Type: text/html
 Funny-head: yesyes
 
-<foo>
+-foo-
 </data>
 </reply>
 
@@ -41,8 +42,8 @@ http://%HOSTIP:%HTTPPORT/500
 <protocol>
 GET /500 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

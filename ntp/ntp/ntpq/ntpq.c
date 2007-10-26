@@ -4,27 +4,34 @@
 
 #include <stdio.h>
 
+#include <ctype.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <sys/types.h>
+#include <sys/time.h>
+
 #include "ntpq.h"
 #include "ntp_unixtime.h"
 #include "ntp_calendar.h"
 #include "ntp_io.h"
 #include "ntp_select.h"
 #include "ntp_stdlib.h"
+/* Don't include ISC's version of IPv6 variables and structures */
+#define ISC_IPV6_H 1
+#include "isc/net.h"
+#include "isc/result.h"
 
-#include <ctype.h>
-#include <signal.h>
-#include <setjmp.h>
-#include <netdb.h>
 #ifdef SYS_WINNT
+#include <Mswsock.h>
 # include <io.h>
 #else
 #define closesocket close
 #endif /* SYS_WINNT */
 
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDIT)
 # include <readline/readline.h>
 # include <readline/history.h>
-#endif /* HAVE_LIBREADLINE */
+#endif /* HAVE_LIBREADLINE || HAVE_LIBEDIT */
 
 #ifdef SYS_VXWORKS
 /* vxWorks needs mode flag -casey*/
@@ -41,14 +48,18 @@ const char *prompt = "ntpq> ";	/* prompt to ask him about */
 
 
 /*
- * Keyid used for authenticated requests.  Obtained on the fly.
+ * for get_systime()
  */
-u_long info_auth_keyid = NTP_MAXKEY;
+s_char	sys_precision;		/* local clock precision (log2 s) */
 
 /*
- * Type of key md5 or des
+ * Keyid used for authenticated requests.  Obtained on the fly.
  */
-#define	KEY_TYPE_DES	3
+u_long info_auth_keyid = 0;
+
+/*
+ * Type of key md5
+ */
 #define	KEY_TYPE_MD5	4
 
 static	int info_auth_keytype = KEY_TYPE_MD5;	/* MD5 */
@@ -151,7 +162,7 @@ struct ctl_var peer_var[] = {
 	{ CP_REC,	TS,	"rec" },	/* 19 */
 	{ CP_XMT,	TS,	"xmt" },	/* 20 */
 	{ CP_REACH,	OC,	"reach" },	/* 21 */
-	{ CP_VALID,	UI,	"valid" },	/* 22 */
+	{ CP_UNREACH,	UI,	"unreach" },	/* 22 */
 	{ CP_TIMER,	UI,	"timer" },	/* 23 */
 	{ CP_DELAY,	FS,	"delay" },	/* 24 */
 	{ CP_OFFSET,	FL,	"offset" },	/* 25 */
@@ -166,7 +177,6 @@ struct ctl_var peer_var[] = {
 	{ CP_FILTERROR,	AR,	"filtdisp" },	/* 34 */
 	{ CP_FLASH,     FX,	"flash" },	/* 35 */ 
 	{ CP_TTL,	UI,	"ttl" },	/* 36 */
-	{ CP_TTLMAX,	UI,	"ttlmax" },	/* 37 */
 	/*
 	 * These are duplicate entries so that we can
 	 * process deviant version of the ntp protocol.
@@ -205,17 +215,19 @@ struct ctl_var clock_var[] = {
  * flasher bits
  */
 static const char *tstflagnames[] = {
-	"dup_pkt",		/* TEST1 */
-	"bogus_pkt",		/* TEST2 */
-	"proto_unsync",		/* TEST3 */
-	"no_access",		/* TEST4 */
-	"bad_auth",			/* TEST5 */
-	"peer_unsync",		/* TEST6 */
-	"peer_stratum",		/* TEST7 */
-	"root_bounds",		/* TEST8 */
-	"peer_bounds",		/* TEST9 */
-	"bad_autokey",		/* TEST10 */
-	"not_proventic"		/* TEST11*/
+	"pkt_dup",		/* TEST1 */
+	"pkt_bogus",		/* TEST2 */
+	"pkt_proto",		/* TEST3 */
+	"pkt_denied",		/* TEST4 */
+	"pkt_auth",		/* TEST5 */
+	"pkt_synch",		/* TEST6 */
+	"pkt_dist",		/* TEST7 */
+	"pkt_autokey",		/* TEST8 */
+	"pkt_crypto",		/* TEST9 */
+	"peer_stratum",		/* TEST10 */
+	"peer_dist",		/* TEST11 */
+	"peer_loop",		/* TEST12 */
+	"peer_unfit"		/* TEST13 */
 };
 
 
@@ -280,31 +292,31 @@ static	int	assoccmp	P((struct association *, struct association *));
  * Built-in commands we understand
  */
 struct xcmd builtins[] = {
-	{ "?",		help,		{  OPT|STR, NO, NO, NO },
+	{ "?",		help,		{  OPT|NTP_STR, NO, NO, NO },
 	  { "command", "", "", "" },
 	  "tell the use and syntax of commands" },
-	{ "help",	help,		{  OPT|STR, NO, NO, NO },
+	{ "help",	help,		{  OPT|NTP_STR, NO, NO, NO },
 	  { "command", "", "", "" },
 	  "tell the use and syntax of commands" },
-	{ "timeout",	timeout,	{ OPT|UINT, NO, NO, NO },
+	{ "timeout",	timeout,	{ OPT|NTP_UINT, NO, NO, NO },
 	  { "msec", "", "", "" },
 	  "set the primary receive time out" },
-	{ "delay",	auth_delay,	{ OPT|INT, NO, NO, NO },
+	{ "delay",	auth_delay,	{ OPT|NTP_INT, NO, NO, NO },
 	  { "msec", "", "", "" },
 	  "set the delay added to encryption time stamps" },
-	{ "host",	host,		{ OPT|STR, NO, NO, NO },
-	  { "hostname", "", "", "" },
+	{ "host",	host,		{ OPT|NTP_STR, OPT|NTP_STR, NO, NO },
+	  { "-4|-6", "hostname", "", "" },
 	  "specify the host whose NTP server we talk to" },
-	{ "poll",	ntp_poll,	{ OPT|UINT, OPT|STR, NO, NO },
+	{ "poll",	ntp_poll,	{ OPT|NTP_UINT, OPT|NTP_STR, NO, NO },
 	  { "n", "verbose", "", "" },
 	  "poll an NTP server in client mode `n' times" },
 	{ "passwd",	passwd,		{ NO, NO, NO, NO },
 	  { "", "", "", "" },
 	  "specify a password to use for authenticated requests"},
-	{ "hostnames",	hostnames,	{ OPT|STR, NO, NO, NO },
+	{ "hostnames",	hostnames,	{ OPT|NTP_STR, NO, NO, NO },
 	  { "yes|no", "", "", "" },
 	  "specify whether hostnames or net numbers are printed"},
-	{ "debug",	setdebug,	{ OPT|STR, NO, NO, NO },
+	{ "debug",	setdebug,	{ OPT|NTP_STR, NO, NO, NO },
 	  { "no|more|less", "", "", "" },
 	  "set/change debugging level" },
 	{ "quit",	quit,		{ NO, NO, NO, NO },
@@ -313,7 +325,7 @@ struct xcmd builtins[] = {
 	{ "exit",	quit,		{ NO, NO, NO, NO },
 	  { "", "", "", "" },
 	  "exit ntpq" },
-	{ "keyid",	keyid,		{ OPT|UINT, NO, NO, NO },
+	{ "keyid",	keyid,		{ OPT|NTP_UINT, NO, NO, NO },
 	  { "key#", "", "", "" },
 	  "set keyid to use for authenticated requests" },
 	{ "version",	version,	{ NO, NO, NO, NO },
@@ -325,13 +337,13 @@ struct xcmd builtins[] = {
 	{ "cooked",	cooked,		{ NO, NO, NO, NO },
 	  { "", "", "", "" },
 	  "do cooked mode variable output" },
-	{ "authenticate", authenticate,	{ OPT|STR, NO, NO, NO },
+	{ "authenticate", authenticate,	{ OPT|NTP_STR, NO, NO, NO },
 	  { "yes|no", "", "", "" },
 	  "always authenticate requests to this server" },
-	{ "ntpversion",	ntpversion,	{ OPT|UINT, NO, NO, NO },
+	{ "ntpversion",	ntpversion,	{ OPT|NTP_UINT, NO, NO, NO },
 	  { "version number", "", "", "" },
 	  "set the NTP version number to use for requests" },
-	{ "keytype",	keytype,	{ OPT|STR, NO, NO, NO },
+	{ "keytype",	keytype,	{ OPT|NTP_STR, NO, NO, NO },
 	  { "key type (md5|des)", "", "", "" },
 	  "set key type to use for authenticated requests (des|md5)" },
 	{ 0,		0,		{ NO, NO, NO, NO },
@@ -345,7 +357,7 @@ struct xcmd builtins[] = {
 #define	DEFTIMEOUT	(5)		/* 5 second time out */
 #define	DEFSTIMEOUT	(2)		/* 2 second time out after first */
 #define	DEFDELAY	0x51EB852	/* 20 milliseconds, l_fp fraction */
-#define	DEFHOST		"127.0.0.1"	/* default host name */
+#define	DEFHOST		"localhost"	/* default host name */
 #define	LENHOSTNAME	256		/* host name is 256 characters long */
 #define	MAXCMDS		100		/* maximum commands on cmd line */
 #define	MAXHOSTS	200		/* maximum hosts on cmd line */
@@ -354,6 +366,7 @@ struct xcmd builtins[] = {
 #define	MAXVARLEN	256		/* maximum length of a variable name */
 #define	MAXVALLEN	400		/* maximum length of a variable value */
 #define	MAXOUTLINE	72		/* maximum length of an output line */
+#define SCREENWIDTH     76              /* nominal screen width in columns */
 
 /*
  * Some variables used and manipulated locally
@@ -365,13 +378,14 @@ char currenthost[LENHOSTNAME];			/* current host name */
 struct sockaddr_in hostaddr = { 0 };		/* host address */
 int showhostnames = 1;				/* show host names by default */
 
-int sockfd;					/* fd socket is opened on */
+int ai_fam_templ;				/* address family */
+int ai_fam_default;				/* default address family */
+SOCKET sockfd;					/* fd socket is opened on */
 int havehost = 0;				/* set to 1 when host open */
+int s_port = 0;
 struct servent *server_entry = NULL;		/* server entry for ntp */
 
 #ifdef SYS_WINNT
-WORD wVersionRequested;
-WSADATA wsaData;
 DWORD NumberOfBytesWritten;
 
 HANDLE	TimerThreadHandle = NULL;	/* 1998/06/03 - Used in ntplib/machines.c */
@@ -489,16 +503,37 @@ ntpqmain(
 	extern int ntp_optind;
 	extern char *ntp_optarg;
 
-#ifdef NO_MAIN_ALLOWED
-    clear_globals();
-    taskPrioritySet(taskIdSelf(), 100 );
+#ifdef SYS_VXWORKS
+	clear_globals();
+	taskPrioritySet(taskIdSelf(), 100 );
 #endif
+
 	delay_time.l_ui = 0;
 	delay_time.l_uf = DEFDELAY;
 
+#ifdef SYS_WINNT
+	if (!Win32InitSockets())
+	{
+		fprintf(stderr, "No useable winsock.dll:");
+		exit(1);
+	}
+#endif /* SYS_WINNT */
+
+	/* Check to see if we have IPv6. Otherwise force the -4 flag */
+	if (isc_net_probeipv6() != ISC_R_SUCCESS) {
+		ai_fam_default = AF_INET;
+	}
+
 	progname = argv[0];
-	while ((c = ntp_getopt(argc, argv, "c:dinp")) != EOF)
+	ai_fam_templ = ai_fam_default;
+	while ((c = ntp_getopt(argc, argv, "46c:dinp")) != EOF)
 	    switch (c) {
+		case '4':
+		    ai_fam_templ = AF_INET;
+		    break;
+		case '6':
+		    ai_fam_templ = AF_INET6;
+		    break;
 		case 'c':
 		    ADDCMD(ntp_optarg);
 		    break;
@@ -520,7 +555,7 @@ ntpqmain(
 	    }
 	if (errflg) {
 		(void) fprintf(stderr,
-			       "usage: %s [-dinp] [-c cmd] host ...\n",
+			       "usage: %s [-46dinp] [-c cmd] host ...\n",
 			       progname);
 		exit(2);
 	}
@@ -539,14 +574,6 @@ ntpqmain(
 #ifndef SYS_WINNT /* Under NT cannot handle SIGINT, WIN32 spawns a handler */
 	if (interactive)
 	    (void) signal_no_reset(SIGINT, abortcmd);
-#endif /* SYS_WINNT */
-
-#ifdef SYS_WINNT
-	wVersionRequested = MAKEWORD(1,1);
-	if (WSAStartup(wVersionRequested, &wsaData)) {
-		fprintf(stderr, "No useable winsock.dll");
-		exit(1);
-	}
 #endif /* SYS_WINNT */
 
 	if (numcmds == 0) {
@@ -577,29 +604,73 @@ openhost(
 	const char *hname
 	)
 {
-	u_int32 netnum;
 	char temphost[LENHOSTNAME];
+	int a_info, i;
+	struct addrinfo hints, *ai = NULL;
+	register const char *cp;
+	char name[LENHOSTNAME];
+	char service[5];
 
-	if (server_entry == NULL) {
-		server_entry = getservbyname("ntp", "udp");
-		if (server_entry == NULL) {
-#ifdef VMS /* UCX getservbyname() doesn't work [yet], but we do know better */
-			server_entry = (struct servent *)
-				malloc(sizeof(struct servent));
-			server_entry->s_port = htons(NTP_PORT);
-#else
-			(void) fprintf(stderr, "%s: ntp/udp: unknown service\n",
-				       progname);
-			exit(1);
-#endif /* VMS & UCX */
-		}
-		if (debug > 2)
-		    printf("Got ntp/udp service entry\n");
+	/*
+	 * We need to get by the [] if they were entered
+	 */
+	
+	cp = hname;
+	
+	if(*cp == '[') {
+		cp++;
+		for(i = 0; *cp != ']'; cp++, i++)
+			name[i] = *cp;
+	name[i] = '\0';
+	hname = name;
 	}
 
-	if (!getnetnum(hname, &netnum, temphost))
-	    return 0;
-	
+	/*
+	 * First try to resolve it as an ip address and if that fails,
+	 * do a fullblown (dns) lookup. That way we only use the dns
+	 * when it is needed and work around some implementations that
+	 * will return an "IPv4-mapped IPv6 address" address if you
+	 * give it an IPv4 address to lookup.
+	 */
+	strcpy(service, "ntp");
+	memset((char *)&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = ai_fam_templ;
+	hints.ai_protocol = IPPROTO_UDP;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_NUMERICHOST;
+
+	a_info = getaddrinfo(hname, service, &hints, &ai);
+	if (a_info == EAI_NONAME
+#ifdef EAI_NODATA
+	    || a_info == EAI_NODATA
+#endif
+	   ) {
+		hints.ai_flags = AI_CANONNAME;
+#ifdef AI_ADDRCONFIG
+		hints.ai_flags |= AI_ADDRCONFIG;
+#endif
+		a_info = getaddrinfo(hname, service, &hints, &ai);	
+	}
+	/* Some older implementations don't like AI_ADDRCONFIG. */
+	if (a_info == EAI_BADFLAGS) {
+		hints.ai_flags = AI_CANONNAME;
+		a_info = getaddrinfo(hname, service, &hints, &ai);	
+	}
+	if (a_info != 0) {
+		(void) fprintf(stderr, "%s\n", gai_strerror(a_info));
+		return 0;
+	}
+
+	if (ai->ai_canonname == NULL) {
+		strncpy(temphost, stoa((struct sockaddr_storage *)ai->ai_addr),
+		    LENHOSTNAME);
+		temphost[LENHOSTNAME-1] = '\0';
+
+	} else {
+		strncpy(temphost, ai->ai_canonname, LENHOSTNAME);
+		temphost[LENHOSTNAME-1] = '\0';
+	}
+
 	if (debug > 2)
 	    printf("Opening host %s\n", temphost);
 
@@ -611,36 +682,35 @@ openhost(
 	}
 	(void) strcpy(currenthost, temphost);
 
-	hostaddr.sin_family = AF_INET;
-#ifndef SYS_VXWORKS
-	hostaddr.sin_port = server_entry->s_port;
-#else
-    hostaddr.sin_port = htons(SERVER_PORT_NUM);
-#endif
-	hostaddr.sin_addr.s_addr = netnum;
+	/* port maps to the same location in both families */
+	s_port = ((struct sockaddr_in6 *)ai->ai_addr)->sin6_port;
+#ifdef SYS_VXWORKS
+	((struct sockaddr_in6 *)&hostaddr)->sin6_port = htons(SERVER_PORT_NUM);
+	if (ai->ai_family == AF_INET)
+		*(struct sockaddr_in *)&hostaddr=
+			*((struct sockaddr_in *)ai->ai_addr);
+	else
+		*(struct sockaddr_in6 *)&hostaddr=
+			*((struct sockaddr_in6 *)ai->ai_addr);
+#endif /* SYS_VXWORKS */
 
 #ifdef SYS_WINNT
 	{
 		int optionValue = SO_SYNCHRONOUS_NONALERT;
 		int err;
+
 		err = setsockopt(INVALID_SOCKET, SOL_SOCKET, SO_OPENTYPE, (char *)&optionValue, sizeof(optionValue));
 		if (err != NO_ERROR) {
 			(void) fprintf(stderr, "cannot open nonoverlapped sockets\n");
 			exit(1);
 		}
 	}
+#endif /* SYS_WINNT */
 
-
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	sockfd = socket(ai->ai_family, SOCK_DGRAM, 0);
 	if (sockfd == INVALID_SOCKET) {
 		error("socket", "", "");
-		exit(-1);
 	}
-#else
-	sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockfd == -1)
-	    error("socket", "", "");
-#endif /* SYS_WINNT */
 
 	
 #ifdef NEED_RCVBUF_SLOP
@@ -653,10 +723,16 @@ openhost(
 # endif
 #endif
 
+#ifdef SYS_VXWORKS
 	if (connect(sockfd, (struct sockaddr *)&hostaddr,
 		    sizeof(hostaddr)) == -1)
+#else
+	if (connect(sockfd, (struct sockaddr *)ai->ai_addr,
+		    ai->ai_addrlen) == -1)
+#endif /* SYS_VXWORKS */
 	    error("connect", "", "");
-	
+	if (a_info == 0)
+		freeaddrinfo(ai);
 	havehost = 1;
 	return 1;
 }
@@ -1069,7 +1145,7 @@ sendrequest(
 	 * Fill in the packet
 	 */
 	qpkt.li_vn_mode = PKT_LI_VN_MODE(0, pktversion, MODE_CONTROL);
-	qpkt.r_m_e_op = (u_char)opcode & CTL_OP_MASK;
+	qpkt.r_m_e_op = (u_char)(opcode & CTL_OP_MASK);
 	qpkt.sequence = htons(sequence);
 	qpkt.status = 0;
 	qpkt.associd = htons((u_short)associd);
@@ -1115,23 +1191,22 @@ sendrequest(
 		 * Get the keyid and the password if we don't have one.
 		 */
 		if (info_auth_keyid == 0) {
-			maclen = getkeyid("Keyid: ");
-			if (maclen == 0) {
+			int u_keyid = getkeyid("Keyid: ");
+			if (u_keyid == 0 || u_keyid > NTP_MAXKEY) {
 				(void) fprintf(stderr,
 				   "Invalid key identifier\n");
 				return 1;
 			}
+			info_auth_keyid = u_keyid;
 		}
 		if (!authistrusted(info_auth_keyid)) {
-			pass = getpass((info_auth_keytype == KEY_TYPE_DES)
-			    ? "DES Password: " : "MD5 Password: ");
+			pass = getpass("MD5 Password: ");
 			if (*pass == '\0') {
 				(void) fprintf(stderr,
 				  "Invalid password\n");
 				return (1);
 			}
 		}
-		info_auth_keyid = maclen;
 		authusekey(info_auth_keyid, info_auth_keytype, (const u_char *)pass);
 		authtrust(info_auth_keyid, 1);
 
@@ -1208,6 +1283,8 @@ doquery(
 			done = 1;
 			goto again;
 		}
+		if (numhosts > 1)
+			(void) fprintf(stderr, "server=%s ", currenthost);
 		switch(res) {
 		    case CERR_BADFMT:
 			(void) fprintf(stderr,
@@ -1264,7 +1341,7 @@ doquery(
 static void
 getcmds(void)
 {
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_LIBREADLINE) || defined(HAVE_LIBEDIT)
         char *line;
 
         for (;;) {
@@ -1273,7 +1350,7 @@ getcmds(void)
                 docmd(line);
                 free(line);
         }
-#else /* not HAVE_LIBREADLINE */
+#else /* not (HAVE_LIBREADLINE || HAVE_LIBEDIT) */
         char line[MAXLINE];
 
         for (;;) {
@@ -1290,10 +1367,10 @@ getcmds(void)
 
                 docmd(line);
         }
-#endif /* not HAVE_LIBREADLINE */
+#endif /* not (HAVE_LIBREADLINE || HAVE_LIBEDIT) */
 }
 
-
+#ifndef SYS_WINNT /* Under NT cannot handle SIGINT, WIN32 spawns a handler */
 /*
  * abortcmd - catch interrupts and abort the current command
  */
@@ -1308,7 +1385,7 @@ abortcmd(
 	(void) fflush(stderr);
 	if (jump) longjmp(interrupt_buf, 1);
 }
-
+#endif	/* SYS_WINNT */
 
 /*
  * docmd - decode the command line and execute a command
@@ -1517,16 +1594,16 @@ getarg(
 	static const char *digits = "0123456789";
 
 	switch (code & ~OPT) {
-	    case STR:
+	    case NTP_STR:
 		argp->string = str;
 		break;
-	    case ADD:
-		if (!getnetnum(str, &(argp->netnum), (char *)0)) {
+	    case NTP_ADD:
+		if (!getnetnum(str, &(argp->netnum), (char *)0, 0)) {
 			return 0;
 		}
 		break;
-	    case INT:
-	    case UINT:
+	    case NTP_INT:
+	    case NTP_UINT:
 		isneg = 0;
 		np = str;
 		if (*np == '&') {
@@ -1538,10 +1615,14 @@ getarg(
 				return 0;
 			}
 			if (isneg > numassoc) {
-				(void) fprintf(stderr,
-					       "***Association for `%s' unknown (max &%d)\n",
-					       str, numassoc);
-				return 0;
+				if (numassoc == 0) {
+					(void) fprintf(stderr,
+						       "***Association for `%s' unknown (max &%d)\n",
+						       str, numassoc);
+					return 0;
+				} else {
+					isneg = numassoc;
+				}
 			}
 			argp->uval = assoc_cache[isneg-1].assid;
 			break;
@@ -1565,12 +1646,23 @@ getarg(
 		} while (*(++np) != '\0');
 
 		if (isneg) {
-			if ((code & ~OPT) == UINT) {
+			if ((code & ~OPT) == NTP_UINT) {
 				(void) fprintf(stderr,
 					       "***Value %s should be unsigned\n", str);
 				return 0;
 			}
 			argp->ival = -argp->ival;
+		}
+		break;
+	     case IP_VERSION:
+		if (!strcmp("-6", str))
+			argp->ival = 6 ;
+		else if (!strcmp("-4", str))
+			argp->ival = 4 ;
+		else {
+			(void) fprintf(stderr,
+			    "***Version must be either 4 or 6\n");
+			return 0;
 		}
 		break;
 	}
@@ -1586,25 +1678,35 @@ getarg(
 int
 getnetnum(
 	const char *hname,
-	u_int32 *num,
-	char *fullhost
+	struct sockaddr_storage *num,
+	char *fullhost,
+	int af
 	)
 {
-	struct hostent *hp;
+	int sockaddr_len;
+	struct addrinfo hints, *ai = NULL;
 
+	sockaddr_len = (af == AF_INET)
+			   ? sizeof(struct sockaddr_in)
+			   : sizeof(struct sockaddr_in6);
+	memset((char *)&hints, 0, sizeof(struct addrinfo));
+	hints.ai_flags = AI_CANONNAME;
+#ifdef AI_ADDRCONFIG
+	hints.ai_flags |= AI_ADDRCONFIG;
+#endif
+	
+	/* decodenetnum works with addresses only */
 	if (decodenetnum(hname, num)) {
 		if (fullhost != 0) {
-			(void) sprintf(fullhost, "%lu.%lu.%lu.%lu",
-				       (u_long)((htonl(*num) >> 24) & 0xff),
-				       (u_long)((htonl(*num) >> 16) & 0xff),
-				       (u_long)((htonl(*num) >> 8) & 0xff),
-				       (u_long)(htonl(*num) & 0xff));
+			getnameinfo((struct sockaddr *)num, sockaddr_len,
+					fullhost, sizeof(fullhost), NULL, 0,
+					NI_NUMERICHOST);
 		}
 		return 1;
-	} else if ((hp = gethostbyname(hname)) != 0) {
-		memmove((char *)num, hp->h_addr, sizeof(u_int32));
-		if (fullhost != 0)
-		    (void) strcpy(fullhost, hp->h_name);
+	} else if (getaddrinfo(hname, "ntp", &hints, &ai) == 0) {
+		memmove((char *)num, ai->ai_addr, ai->ai_addrlen);
+		if (ai->ai_canonname != 0)
+		    (void) strcpy(fullhost, ai->ai_canonname);
 		return 1;
 	} else {
 		(void) fprintf(stderr, "***Can't find host %s\n", hname);
@@ -1619,14 +1721,14 @@ getnetnum(
  */
 char *
 nntohost(
-	u_int32 netnum
+	struct sockaddr_storage *netnum
 	)
 {
 	if (!showhostnames)
-	    return numtoa(netnum);
-	if ((ntohl(netnum) & REFCLOCK_MASK) == REFCLOCK_ADDR)
-	    return refnumtoa(netnum);
-	return numtohost(netnum);
+	    return stoa(netnum);
+	if ((netnum->ss_family == AF_INET) && ISREFCLOCKADR(netnum))
+    		return refnumtoa(netnum);
+	return socktohost(netnum);
 }
 
 
@@ -1671,10 +1773,10 @@ rtdatetolfp(
 		return 0;
 	}
 
-	cal.monthday = *cp++ - '0';	/* ascii dependent */
+	cal.monthday = (u_char) (*cp++ - '0');	/* ascii dependent */
 	if (isdigit((int)*cp)) {
-		cal.monthday = (cal.monthday << 3) + (cal.monthday << 1);
-		cal.monthday += *cp++ - '0';
+		cal.monthday = (u_char)((cal.monthday << 3) + (cal.monthday << 1));
+		cal.monthday = (u_char)(cal.monthday + *cp++ - '0');
 	}
 
 	if (*cp++ != '-')
@@ -1689,25 +1791,25 @@ rtdatetolfp(
 		break;
 	if (i == 12)
 	    return 0;
-	cal.month = i + 1;
+	cal.month = (u_char)(i + 1);
 
 	if (*cp++ != '-')
 	    return 0;
 	
 	if (!isdigit((int)*cp))
 	    return 0;
-	cal.year = *cp++ - '0';
+	cal.year = (u_short)(*cp++ - '0');
 	if (isdigit((int)*cp)) {
-		cal.year = (cal.year << 3) + (cal.year << 1);
-		cal.year += *cp++ - '0';
+		cal.year = (u_short)((cal.year << 3) + (cal.year << 1));
+		cal.year = (u_short)(*cp++ - '0');
 	}
 	if (isdigit((int)*cp)) {
-		cal.year = (cal.year << 3) + (cal.year << 1);
-		cal.year += *cp++ - '0';
+		cal.year = (u_short)((cal.year << 3) + (cal.year << 1));
+		cal.year = (u_short)(cal.year + *cp++ - '0');
 	}
 	if (isdigit((int)*cp)) {
-		cal.year = (cal.year << 3) + (cal.year << 1);
-		cal.year += *cp++ - '0';
+		cal.year = (u_short)((cal.year << 3) + (cal.year << 1));
+		cal.year = (u_short)(cal.year + *cp++ - '0');
 	}
 
 	/*
@@ -1720,26 +1822,26 @@ rtdatetolfp(
 
 	if (*cp++ != ' ' || !isdigit((int)*cp))
 	    return 0;
-	cal.hour = *cp++ - '0';
+	cal.hour = (u_char)(*cp++ - '0');
 	if (isdigit((int)*cp)) {
-		cal.hour = (cal.hour << 3) + (cal.hour << 1);
-		cal.hour += *cp++ - '0';
+		cal.hour = (u_char)((cal.hour << 3) + (cal.hour << 1));
+		cal.hour = (u_char)(cal.hour + *cp++ - '0');
 	}
 
 	if (*cp++ != ':' || !isdigit((int)*cp))
 	    return 0;
-	cal.minute = *cp++ - '0';
+	cal.minute = (u_char)(*cp++ - '0');
 	if (isdigit((int)*cp)) {
-		cal.minute = (cal.minute << 3) + (cal.minute << 1);
-		cal.minute += *cp++ - '0';
+		cal.minute = (u_char)((cal.minute << 3) + (cal.minute << 1));
+		cal.minute = (u_char)(cal.minute + *cp++ - '0');
 	}
 
 	if (*cp++ != ':' || !isdigit((int)*cp))
 	    return 0;
-	cal.second = *cp++ - '0';
+	cal.second = (u_char)(*cp++ - '0');
 	if (isdigit((int)*cp)) {
-		cal.second = (cal.second << 3) + (cal.second << 1);
-		cal.second += *cp++ - '0';
+		cal.second = (u_char)((cal.second << 3) + (cal.second << 1));
+		cal.second = (u_char)(cal.second + *cp++ - '0');
 	}
 
 	/*
@@ -1904,57 +2006,56 @@ help(
 	FILE *fp
 	)
 {
-	int i;
-	int n;
 	struct xcmd *xcp;
 	char *cmd;
-	const char *cmdsort[100];
-	int length[100];
-	int maxlength;
-	int numperline;
-	static const char *spaces = "                    ";	/* 20 spaces */
+	const char *list[100];
+        int word, words;
+        int row, rows;
+        int col, cols;
 
 	if (pcmd->nargs == 0) {
-		n = 0;
+		words = 0;
 		for (xcp = builtins; xcp->keyword != 0; xcp++) {
 			if (*(xcp->keyword) != '?')
-			    cmdsort[n++] = xcp->keyword;
+			    list[words++] = xcp->keyword;
 		}
 		for (xcp = opcmds; xcp->keyword != 0; xcp++)
-		    cmdsort[n++] = xcp->keyword;
+		    list[words++] = xcp->keyword;
 
+		qsort(
 #ifdef QSORT_USES_VOID_P
-		qsort(cmdsort, (size_t)n, sizeof(char *), helpsort);
+		    (void *)
 #else
-		qsort((char *)cmdsort, (size_t)n, sizeof(char *), helpsort);
+		    (char *)
 #endif
-
-		maxlength = 0;
-		for (i = 0; i < n; i++) {
-			length[i] = strlen(cmdsort[i]);
-			if (length[i] > maxlength)
-			    maxlength = length[i];
+			(list), (size_t)(words), sizeof(char *), helpsort);
+		col = 0;
+		for (word = 0; word < words; word++) {
+		 	int length = strlen(list[word]);
+			if (col < length) {
+			    col = length;
+                        }
 		}
-		maxlength++;
-		numperline = 76 / maxlength;
 
-		(void) fprintf(fp, "Commands available:\n");
-		for (i = 0; i < n; i++) {
-			if ((i % numperline) == (numperline-1)
-			    || i == (n-1))
-			    (void) fprintf(fp, "%s\n", cmdsort[i]);
-			else
-			    (void) fprintf(fp, "%s%s", cmdsort[i],
-					   spaces+20-maxlength+length[i]);
-		}
+		cols = SCREENWIDTH / ++col;
+                rows = (words + cols - 1) / cols;
+
+		(void) fprintf(fp, "ntpq commands:\n");
+
+		for (row = 0; row < rows; row++) {
+                        for (word = row; word < words; word += rows) {
+			        (void) fprintf(fp, "%-*.*s", col, col-1, list[word]);
+                        }
+                        (void) fprintf(fp, "\n");
+                }
 	} else {
 		cmd = pcmd->argval[0].string;
-		n = findcmd(cmd, builtins, opcmds, &xcp);
-		if (n == 0) {
+		words = findcmd(cmd, builtins, opcmds, &xcp);
+		if (words == 0) {
 			(void) fprintf(stderr,
 				       "Command `%s' is unknown\n", cmd);
 			return;
-		} else if (n >= 2) {
+		} else if (words >= 2) {
 			(void) fprintf(stderr,
 				       "Command `%s' is ambiguous\n", cmd);
 			return;
@@ -1975,8 +2076,8 @@ helpsort(
 	const void *t2
 	)
 {
-	const char **name1 = (const char **)t1;
-	const char **name2 = (const char **)t2;
+	char const * const * name1 = (char const * const *)t1;
+	char const * const * name2 = (char const * const *)t2;
 
 	return strcmp(*name1, *name2);
 }
@@ -2079,12 +2180,34 @@ host(
 	FILE *fp
 	)
 {
+	int i;
+
 	if (pcmd->nargs == 0) {
 		if (havehost)
 		    (void) fprintf(fp, "current host is %s\n", currenthost);
 		else
 		    (void) fprintf(fp, "no current host\n");
-	} else if (openhost(pcmd->argval[0].string)) {
+		return;
+	}
+
+	i = 0;
+	ai_fam_templ = ai_fam_default;
+	if (pcmd->nargs == 2) {
+		if (!strcmp("-4", pcmd->argval[i].string))
+			ai_fam_templ = AF_INET;
+		else if (!strcmp("-6", pcmd->argval[i].string))
+			ai_fam_templ = AF_INET6;
+		else {
+			if (havehost)
+				(void) fprintf(fp,
+				    "current host remains %s\n", currenthost);
+			else
+				(void) fprintf(fp, "still no current host\n");
+			return;
+		}
+		i = 1;
+	}
+	if (openhost(pcmd->argval[i].string)) {
 		(void) fprintf(fp, "current host set to %s\n", currenthost);
 		numassoc = 0;
 	} else {
@@ -2121,11 +2244,14 @@ keyid(
 	)
 {
 	if (pcmd->nargs == 0) {
-		if (info_auth_keyid > NTP_MAXKEY)
+		if (info_auth_keyid == 0)
 		    (void) fprintf(fp, "no keyid defined\n");
 		else
 		    (void) fprintf(fp, "keyid is %lu\n", (u_long)info_auth_keyid);
 	} else {
+		/* allow zero so that keyid can be cleared. */
+		if(pcmd->argval[0].uval > NTP_MAXKEY)
+		    (void) fprintf(fp, "Invalid key identifier\n");
 		info_auth_keyid = pcmd->argval[0].uval;
 	}
 }
@@ -2141,7 +2267,7 @@ keytype(
 {
 	if (pcmd->nargs == 0)
 	    fprintf(fp, "keytype is %s\n",
-		    (info_auth_keytype == KEY_TYPE_MD5) ? "MD5" : "DES");
+		    (info_auth_keytype == KEY_TYPE_MD5) ? "MD5" : "???");
 	else
 	    switch (*(pcmd->argval[0].string)) {
 		case 'm':
@@ -2149,13 +2275,8 @@ keytype(
 		    info_auth_keytype = KEY_TYPE_MD5;
 		    break;
 
-		case 'd':
-		case 'D':
-		    info_auth_keytype = KEY_TYPE_DES;
-		    break;
-
 		default:
-		    fprintf(fp, "keytype must be 'md5' or 'des'\n");
+		    fprintf(fp, "keytype must be 'md5'\n");
 	    }
 }
 
@@ -2173,21 +2294,21 @@ passwd(
 {
 	char *pass;
 
-	if (info_auth_keyid > NTP_MAXKEY) {
-		info_auth_keyid = getkeyid("Keyid: ");
-		if (info_auth_keyid > NTP_MAXKEY) {
-			(void)fprintf(fp, "Keyid must be defined\n");
+	if (info_auth_keyid == 0) {
+		int u_keyid = getkeyid("Keyid: ");
+		if (u_keyid == 0 || u_keyid > NTP_MAXKEY) {
+			(void)fprintf(fp, "Invalid key identifier\n");
 			return;
 		}
+		info_auth_keyid = u_keyid;
 	}
-	pass = getpass((info_auth_keytype == KEY_TYPE_DES)
-		       ? "DES Password: "
-		       : "MD5 Password: "
-		       );
+	pass = getpass("MD5 Password: ");
 	if (*pass == '\0')
 	    (void) fprintf(fp, "Password unchanged\n");
-	else
+	else {
 	    authusekey(info_auth_keyid, info_auth_keytype, (u_char *)pass);
+	    authtrust(info_auth_keyid, 1);
+	}
 }
 
 
@@ -2412,7 +2533,7 @@ getkeyid(
 	fprintf(stderr, "%s", keyprompt); fflush(stderr);
 	for (p=pbuf; (c = getc(fi))!='\n' && c!=EOF;) {
 		if (p < &pbuf[18])
-		    *p++ = c;
+		    *p++ = (char)c;
 	}
 	*p = '\0';
 	if (fi != stdin)
@@ -2460,7 +2581,7 @@ atoascii(
 
 		if (c < ' ') {
 			*ocp++ = '^';
-			*ocp++ = c + '@';
+			*ocp++ = (u_char)(c + '@');
 		} else if (c == 0177) {
 			*ocp++ = '^';
 			*ocp++ = '?';
@@ -2636,12 +2757,15 @@ nextvar(
 
 
 /*
- * findvar - see if this variable is known to us
+ * findvar - see if this variable is known to us.
+ * If "code" is 1, return ctl_var->code.
+ * Otherwise return the ordinal position of the found variable.
  */
 int
 findvar(
 	char *varname,
-	struct ctl_var *varlist
+	struct ctl_var *varlist,
+	int code
 	)
 {
 	register char *np;
@@ -2651,7 +2775,10 @@ findvar(
 	np = varname;
 	while (vl->fmt != EOV) {
 		if (vl->fmt != PADDING && STREQ(np, vl->text))
-		    return vl->code;
+		    return (code)
+				? vl->code
+				: (vl - varlist)
+			    ;
 		vl++;
 	}
 	return 0;
@@ -2857,7 +2984,7 @@ tstflags(
 		cb += strlen(cb);
 	} else {
 		*cb++ = ' ';
-		for (i = 0; i < 11; i++) {
+		for (i = 0; i < 14; i++) {
 			if (val & 0x1) {
 				sprintf(cb, "%s%s", sep, tstflagnames[i]);
 				sep = ", ";
@@ -2885,12 +3012,12 @@ cookedprint(
 	register int varid;
 	char *name;
 	char *value;
-	int output_raw;
+	char output_raw;
 	int fmt;
 	struct ctl_var *varlist;
 	l_fp lfp;
 	long ival;
-	u_int32 hval;
+	struct sockaddr_storage hval;
 	u_long uval;
 	l_fp lfparr[8];
 	int narr;
@@ -2915,7 +3042,7 @@ cookedprint(
 
 	startoutput();
 	while (nextvar(&length, &data, &name, &value)) {
-		varid = findvar(name, varlist);
+		varid = findvar(name, varlist, 0);
 		if (varid == 0) {
 			output_raw = '*';
 		} else {
@@ -2969,10 +3096,11 @@ cookedprint(
 			    case NA:
 				if (!decodenetnum(value, &hval))
 				    output_raw = '?';
-				else if (fmt == HA)
-				    output(fp, name, nntohost(hval));
-				else
-				    output(fp, name, numtoa(hval));
+				else if (fmt == HA){
+				    output(fp, name, nntohost(&hval));
+				} else {
+				    output(fp, name, stoa(&hval));
+				}
 				break;
 			
 			    case ST:
@@ -2980,9 +3108,14 @@ cookedprint(
 				break;
 			
 			    case RF:
-				if (decodenetnum(value, &hval))
-				    output(fp, name, nntohost(hval));
-				else if ((int)strlen(value) <= 4)
+				if (decodenetnum(value, &hval)) {
+					if ((hval.ss_family == AF_INET) &&
+					    ISREFCLOCKADR(&hval))
+    						output(fp, name,
+						    refnumtoa(&hval));
+					else
+				    		output(fp, name, stoa(&hval));
+				} else if ((int)strlen(value) <= 4)
 				    output(fp, name, value);
 				else
 				    output_raw = '?';

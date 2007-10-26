@@ -125,7 +125,7 @@ SecCmsDigestContextStartSingle(SECAlgorithmID *digestalg)
  * SecCmsDigestContextUpdate - feed more data into the digest machine
  */
 void
-SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *data, int len)
+SecCmsDigestContextUpdate(SecCmsDigestContextRef cmsdigcx, const unsigned char *data, size_t len)
 {
     CSSM_DATA dataBuf;
     int i;

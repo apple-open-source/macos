@@ -29,6 +29,11 @@
 */
 
 #include "includes.h"
+
+/* We don't care about the paranoid malloc checker in this standalone
+   program */
+#undef malloc
+
 #include <assert.h>
 
 int quiet = 0;
@@ -91,7 +96,7 @@ typedef struct {
 
 static hdr_tcp_t HDR_TCP = {139, 139, 0, 0, 0x50, 0, 0, 0, 0};
 
-void print_pcap_header(FILE *out)
+static void print_pcap_header(FILE *out)
 {
 	struct tcpdump_file_header h;
 	h.magic = TCPDUMP_MAGIC;
@@ -104,7 +109,7 @@ void print_pcap_header(FILE *out)
 	fwrite(&h, sizeof(struct tcpdump_file_header), 1, out);
 }
 
-void print_pcap_packet(FILE *out, unsigned char *data, long length, long caplen)
+static void print_pcap_packet(FILE *out, unsigned char *data, long length, long caplen)
 {
 	static int i = 0;
 	struct tcpdump_packet p;
@@ -117,7 +122,7 @@ void print_pcap_packet(FILE *out, unsigned char *data, long length, long caplen)
 	fwrite(data, sizeof(unsigned char), caplen, out);
 }
 
-void print_hex_packet(FILE *out, unsigned char *data, long length)
+static void print_hex_packet(FILE *out, unsigned char *data, long length)
 {
 	long i,cur = 0;
 	while(cur < length) {
@@ -131,13 +136,13 @@ void print_hex_packet(FILE *out, unsigned char *data, long length)
 	}
 }
 
-void print_netbios_packet(FILE *out, unsigned char *data, long length, long actual_length)
+static void print_netbios_packet(FILE *out, unsigned char *data, long length, long actual_length)
 {	
 	unsigned char *newdata; long offset = 0;
 	long newlen;
 	
 	newlen = length+sizeof(HDR_IP)+sizeof(HDR_TCP);
-	newdata = malloc(newlen);
+	newdata = (unsigned char *)malloc(newlen);
 
 	HDR_IP.packet_length = htons(newlen);
 	HDR_TCP.window = htons(0x2000);
@@ -154,13 +159,13 @@ void print_netbios_packet(FILE *out, unsigned char *data, long length, long actu
 unsigned char *curpacket = NULL;
 long curpacket_len = 0;
 
-void read_log_msg(FILE *in, unsigned char **_buffer, long *buffersize, long *data_offset, long *data_length)
+static void read_log_msg(FILE *in, unsigned char **_buffer, long *buffersize, long *data_offset, long *data_length)
 {
 	unsigned char *buffer;
 	int tmp; long i;
 	assert(fscanf(in, " size=%ld\n", buffersize));
 	*buffersize+=4; /* for netbios */
-	buffer = malloc(*buffersize);
+	buffer = (unsigned char *)malloc(*buffersize);
 	memset(buffer, 0, *buffersize);
 	/* NetBIOS */
 	buffer[0] = 0x00;
@@ -192,10 +197,10 @@ void read_log_msg(FILE *in, unsigned char **_buffer, long *buffersize, long *dat
 	*_buffer = buffer;
 }
 
-long read_log_data(FILE *in, unsigned char *buffer, long data_length)
+static long read_log_data(FILE *in, unsigned char *buffer, long data_length)
 {
 	long i, addr; char real[2][16]; int ret;
-	unsigned char tmp;
+	unsigned int tmp;
 	for(i = 0; i < data_length; i++) {
 		if(i % 16 == 0){
 			if(i != 0) { /* Read data after each line */
@@ -208,7 +213,7 @@ long read_log_data(FILE *in, unsigned char *buffer, long data_length)
 			}
 			assert(addr == i);
 		}
-		if(!fscanf(in, "%02lX", &tmp)) {
+		if(!fscanf(in, "%02X", &tmp)) {
 			if(!quiet)fprintf(stderr, "Only first %ld bytes are logged, packet trace will be incomplete\nTry a higher log level\n", i-1);
 			return i-1;
 		}
@@ -225,7 +230,7 @@ int main (int argc, char **argv)
 	poptContext pc;
 	char buffer[4096];
 	long data_offset, data_length;
-	long data_bytes_read;
+	long data_bytes_read = 0;
 	int in_packet = 0;
 	struct poptOption long_options[] = {
 		POPT_AUTOHELP

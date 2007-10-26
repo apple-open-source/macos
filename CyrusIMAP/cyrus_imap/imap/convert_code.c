@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  *
- * $Id: convert_code.c,v 1.5 2005/03/05 00:36:45 dasenbro Exp $ */
+ * $Id: convert_code.c,v 1.7 2003/02/13 20:15:23 rjs3 Exp $ */
 
 /* Same old convert_code function moved into one place instead of being
  * redundant in every file.

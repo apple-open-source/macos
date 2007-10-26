@@ -36,36 +36,55 @@
 .Dt GETHOSTBYNAME 3
 .Os
 .Sh NAME
+.Nm endhostent ,
+.Nm gethostbyaddr ,
 .Nm gethostbyname ,
 .Nm gethostbyname2 ,
-.Nm gethostbyaddr ,
 .Nm gethostent ,
-.Nm sethostent ,
-.Nm endhostent ,
 .Nm herror ,
-.Nm hstrerror
+.Nm hstrerror ,
+.Nm sethostent
 .Nd get network host entry
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .Fd #include <netdb.h>
 .Vt extern int h_errno ;
-.Ft struct hostent *
-.Fn gethostbyname "const char *name"
-.Ft struct hostent *
-.Fn gethostbyname2 "const char *name" "int af"
-.Ft struct hostent *
-.Fn gethostbyaddr "const char *addr" "socklen_t len" "int type"
-.Ft struct hostent *
-.Fn gethostent void
 .Ft void
-.Fn sethostent "int stayopen"
+.Fo endhostent
+.Fa void
+.Fc
+.Ft struct hostent *
+.Fo gethostbyaddr
+.Fa "const void *addr"
+.Fa "socklen_t len"
+.Fa "int type"
+.Fc
+.Ft struct hostent *
+.Fo gethostbyname
+.Fa "const char *name"
+.Fc
+.Ft struct hostent *
+.Fo gethostbyname2
+.Fa "const char *name"
+.Fa "int af"
+.Fc
+.Ft struct hostent *
+.Fo gethostent
+.Fa void
+.Fc
 .Ft void
-.Fn endhostent void
-.Ft void
-.Fn herror "const char *string"
+.Fo herror
+.Fa "const char *string"
+.Fc
 .Ft const char *
-.Fn hstrerror "int err"
+.Fo hstrerror
+.Fa "int err"
+.Fc
+.Ft void
+.Fo sethostent
+.Fa "int stayopen"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn gethostbyname ,
@@ -236,6 +255,22 @@ Another type of request to the name server using this domain name
 will result in an answer;
 for example, a mail-forwarder may be registered for this domain.
 .El
+.Sh LEGACY SYNOPSIS
+.Fd #include <netdb.h>
+.Pp
+.Vt extern int h_errno ;
+.Pp
+.Ft struct hostent *
+.br
+.Fo gethostbyaddr
+.Fa "const void *addr"
+.Fa "socklen_t len"
+.Fa "int type"
+.Fc ;
+.Pp
+The type of
+.Fa addr
+has changed slightly.
 .Sh SEE ALSO
 .Xr getaddrinfo 3 ,
 .Xr resolver 3 ,

@@ -1,37 +1,37 @@
-begin
-  require 'iconv'
+module REXML
+  module Encoding
+    begin
+      require 'uconv'
 
-  module REXML
-    module Encoding
-      @@__REXML_encoding_methods =<<-EOL
-      def decode(str)
-        return Iconv::iconv("utf-8", "shift_jis", str)[0]
+      def decode_sjis content
+        Uconv::sjistou8(content)
       end
 
-      def encode content
-        return Iconv::iconv("shift_jis", "utf-8", content)[0]
+      def encode_sjis(str)
+        Uconv::u8tosjis(str)
       end
-      EOL
-    end
-  end
-rescue LoadError
-  begin 
-    require 'uconv'
+    rescue LoadError
+      require 'nkf'
 
-    module REXML
-      module Encoding
-        @@__REXML_encoding_methods =<<-EOL
-        def encode(content)
-          Uconv::u8tosjis(content)
-        end
+      SJISTOU8 = '-Swm0'
+      U8TOSJIS = '-Wsm0'
 
-        def decode(str)
-          Uconv::sjistou8(str)
-        end
-        EOL
+      def decode_sjis(str)
+        NKF.nkf(SJISTOU8, str)
+      end
+
+      def encode_sjis content
+        NKF.nkf(U8TOSJIS, content)
       end
     end
-  rescue LoadError
-    raise "uconv or iconv is required for Japanese encoding support."
+
+    b = proc do |obj|
+      class << obj
+        alias decode decode_sjis
+        alias encode encode_sjis
+      end
+    end
+    register("SHIFT-JIS", &b)
+    register("SHIFT_JIS", &b)
   end
 end

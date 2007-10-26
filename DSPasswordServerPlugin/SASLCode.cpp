@@ -187,8 +187,7 @@ long getconn(const char *host, const char *port, int *outSocket)
     
     try
     {
-        strncpy(servername, host, sizeof(servername) - 1);
-        servername[sizeof(servername) - 1] = '\0';
+        strlcpy(servername, host, sizeof(servername));
         
 		/* map hostname -> IP */
 		rc = inet_aton(servername, &inetAddr);
@@ -257,6 +256,10 @@ long getconn(const char *host, const char *port, int *outSocket)
     catch( long error )
     {
         siResult = error;
+		if ( sock > 0 ) {
+			close( sock );
+			sock = -1;
+		}
     }
     
     *outSocket = sock;

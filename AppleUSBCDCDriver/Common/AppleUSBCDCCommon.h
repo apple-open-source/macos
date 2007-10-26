@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "3.1.9"
+#define VersionNumber   "3.2.6"
 
     // USB CDC Common Defintions
 		

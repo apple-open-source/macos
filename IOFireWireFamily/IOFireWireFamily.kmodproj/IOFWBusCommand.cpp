@@ -30,7 +30,6 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 

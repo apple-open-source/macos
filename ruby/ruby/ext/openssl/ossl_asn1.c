@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_asn1.c,v 1.5.2.6 2004/12/21 13:09:55 gotoyuzo Exp $
+ * $Id: ossl_asn1.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' team members
  * Copyright (C) 2003
  * All rights reserved.
@@ -42,21 +42,19 @@ asn1time_to_time(ASN1_TIME *time)
 	} else {
 	    tm.tm_year += 1900;
 	}
-	tm.tm_mon -= 1;
 	break;
     case V_ASN1_GENERALIZEDTIME:
 	if (sscanf(time->data, "%4d%2d%2d%2d%2d%2dZ", &tm.tm_year, &tm.tm_mon,
     		&tm.tm_mday, &tm.tm_hour, &tm.tm_min, &tm.tm_sec) != 6) {
 	    ossl_raise(rb_eTypeError, "bad GENERALIZEDTIME format" );
 	} 
-	tm.tm_mon -= 1;
 	break;
     default:
 	rb_warning("unknown time format");
         return Qnil;
     }
     argv[0] = INT2NUM(tm.tm_year);
-    argv[1] = INT2NUM(tm.tm_mon+1);
+    argv[1] = INT2NUM(tm.tm_mon);
     argv[2] = INT2NUM(tm.tm_mday);
     argv[3] = INT2NUM(tm.tm_hour);
     argv[4] = INT2NUM(tm.tm_min);
@@ -74,6 +72,15 @@ time_t
 time_to_time_t(VALUE time)
 {
     return (time_t)NUM2LONG(rb_Integer(time));
+}
+
+/*
+ * STRING conversion
+ */
+VALUE
+asn1str_to_str(ASN1_STRING *str)
+{
+    return rb_str_new(str->data, str->length);
 }
 
 /*
@@ -759,7 +766,7 @@ ossl_asn1_decode0(unsigned char **pp, long length, long *offset, long depth,
 	if(tag_class == sUNIVERSAL &&
 	   tag < ossl_asn1_info_size && ossl_asn1_info[tag].klass){
 	    VALUE klass = *ossl_asn1_info[tag].klass;
-	    long flag;
+	    long flag = 0;
 	    if(!rb_obj_is_kind_of(value, rb_cArray)){
 		switch(tag){
 		case V_ASN1_BOOLEAN:
@@ -1079,6 +1086,10 @@ Init_ossl_asn1()
 {
     VALUE ary;
     int i;
+
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
 
     sUNIVERSAL = rb_intern("UNIVERSAL");
     sCONTEXT_SPECIFIC = rb_intern("CONTEXT_SPECIFIC");

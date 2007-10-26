@@ -1,17 +1,6 @@
-/* $XConsortium: XCrAssoc.c,v 10.17 91/01/06 12:04:57 rws Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
+#include "copyright.h"
 
-/*
-Permission to use, copy, modify, distribute, and sell this software and its
-documentation for any purpose is hereby granted without fee, provided that
-the above copyright notice appear in all copies and that both that
-copyright notice and this permission notice appear in supporting
-documentation, and that the name of M.I.T. not be used in advertising or
-publicity pertaining to distribution of the software without specific,
-written prior permission.  M.I.T. makes no representations about the
-suitability of this software for any purpose.  It is provided "as is"
-without express or implied warranty.
-*/
 
 #include <config.h>
 #include <X11/Xlib.h>
@@ -37,14 +26,14 @@ XAssocTable *XCreateAssocTable(size)
 	register XAssocTable *table;	/* XAssocTable to be initialized. */
 	register XAssoc *buckets;	/* Pointer to the first bucket in */
 					/* the bucket array. */
-	
+
 	/* Malloc the XAssocTable. */
 	if ((table = (XAssocTable *)malloc(sizeof(XAssocTable))) == NULL) {
 		/* malloc call failed! */
 		errno = ENOMEM;
 		return(NULL);
 	}
-	
+
 	/* calloc the buckets (actually just their headers). */
 	buckets = (XAssoc *)calloc((unsigned)size, (unsigned)sizeof(XAssoc));
 	if (buckets == NULL) {
@@ -66,3 +55,6 @@ XAssocTable *XCreateAssocTable(size)
 
 	return(table);
 }
+
+/* arch-tag: 5df3237d-ada0-4345-a3ab-282cafb397aa
+   (do not change this comment) */

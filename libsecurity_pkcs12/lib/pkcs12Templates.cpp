@@ -27,7 +27,7 @@
 #include "pkcs12Templates.h"
 #include "pkcs12Utils.h"
 #include <security_asn1/nssUtils.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 #include <Security/oidsattr.h>
 
 const SecAsn1Template NSS_P12_MacDataTemplate[] = {

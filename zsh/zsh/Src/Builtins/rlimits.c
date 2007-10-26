@@ -161,7 +161,7 @@ showlimits(char *nam, int hard, int lim)
 	struct rlimit vals;
 	if (getrlimit(lim, &vals) < 0)
 	{
-	    zwarnnam(nam, "can't read limit: %e", NULL, errno);
+	    zwarnnam(nam, "can't read limit: %e", errno);
 	    return 1;
 	}
 	showlimitvalue(lim, hard ? vals.rlim_max : vals.rlim_cur);
@@ -199,7 +199,7 @@ printulimit(char *nam, int lim, int hard, int head)
 
 	if (getrlimit(lim, &vals) < 0)
 	{
-	    zwarnnam(nam, "can't read limit: %e", NULL, errno);
+	    zwarnnam(nam, "can't read limit: %e", errno);
 	    return 1;
 	}
 	limit = (hard) ? vals.rlim_max : vals.rlim_cur;
@@ -208,13 +208,9 @@ printulimit(char *nam, int lim, int hard, int head)
 	limit = (hard) ? limits[lim].rlim_max : limits[lim].rlim_cur;
     /* display the appropriate heading */
     switch (lim) {
-    case RLIMIT_CPU:
+    case RLIMIT_CORE:
 	if (head)
-	    printf("-t: cpu time (seconds)         ");
-	break;
-    case RLIMIT_FSIZE:
-	if (head)
-	    printf("-f: file size (blocks)         ");
+	    printf("-c: core file size (blocks)    ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 512;
 	break;
@@ -224,28 +220,18 @@ printulimit(char *nam, int lim, int hard, int head)
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-    case RLIMIT_STACK:
+    case RLIMIT_FSIZE:
 	if (head)
-	    printf("-s: stack size (kbytes)        ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
-	break;
-    case RLIMIT_CORE:
-	if (head)
-	    printf("-c: core file size (blocks)    ");
+	    printf("-f: file size (blocks)         ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 512;
 	break;
-/* If RLIMIT_VMEM and RLIMIT_RSS are defined and equal, avoid *
- * duplicate case statement.  Observed on QNX Neutrino 6.1.0. */
-# if defined(HAVE_RLIMIT_RSS) && !defined(RLIMIT_VMEM_IS_RSS)
-    case RLIMIT_RSS:
+# ifdef HAVE_RLIMIT_SIGPENDING
+    case RLIMIT_SIGPENDING:
 	if (head)
-	    printf("-m: resident set size (kbytes) ");
-	if (limit != RLIM_INFINITY)
-	    limit /= 1024;
+	    printf("-i: pending signals            ");
 	break;
-# endif /* HAVE_RLIMIT_RSS */
+# endif
 # ifdef HAVE_RLIMIT_MEMLOCK
     case RLIMIT_MEMLOCK:
 	if (head)
@@ -254,26 +240,56 @@ printulimit(char *nam, int lim, int hard, int head)
 	    limit /= 1024;
 	break;
 # endif /* HAVE_RLIMIT_MEMLOCK */
-# ifdef HAVE_RLIMIT_NPROC
-    case RLIMIT_NPROC:
+/* If RLIMIT_VMEM and RLIMIT_RSS are defined and equal, avoid *
+ * duplicate case statement.  Observed on QNX Neutrino 6.1.0. */
+# if defined(HAVE_RLIMIT_RSS) && !defined(RLIMIT_VMEM_IS_RSS) && !defined(RLIMIT_RSS_IS_AS)
+    case RLIMIT_RSS:
 	if (head)
-	    printf("-u: processes                  ");
+	    printf("-m: resident set size (kbytes) ");
+	if (limit != RLIM_INFINITY)
+	    limit /= 1024;
 	break;
-# endif /* HAVE_RLIMIT_NPROC */
+# endif /* HAVE_RLIMIT_RSS */
+# if defined(HAVE_RLIMIT_VMEM) && defined(HAVE_RLIMIT_RSS) && defined(RLIMIT_VMEM_IS_RSS)
+    case RLIMIT_VMEM:
+	if (head)
+	    printf("-m: memory size (kb)           ");
+	if (limit != RLIM_INFINITY)
+	    limit /= 1024;
+	break;
+# endif /* HAVE_RLIMIT_VMEM */
 # ifdef HAVE_RLIMIT_NOFILE
     case RLIMIT_NOFILE:
 	if (head)
 	    printf("-n: file descriptors           ");
 	break;
 # endif /* HAVE_RLIMIT_NOFILE */
-# ifdef HAVE_RLIMIT_VMEM
+# ifdef HAVE_RLIMIT_MSGQUEUE
+    case RLIMIT_MSGQUEUE:
+	if (head)
+	    printf("-q: bytes in POSIX msg queues  ");
+	break;
+# endif
+    case RLIMIT_STACK:
+	if (head)
+	    printf("-s: stack size (kbytes)        ");
+	if (limit != RLIM_INFINITY)
+	    limit /= 1024;
+	break;
+    case RLIMIT_CPU:
+	if (head)
+	    printf("-t: cpu time (seconds)         ");
+	break;
+# ifdef HAVE_RLIMIT_NPROC
+    case RLIMIT_NPROC:
+	if (head)
+	    printf("-u: processes                  ");
+	break;
+# endif /* HAVE_RLIMIT_NPROC */
+# if defined(HAVE_RLIMIT_VMEM) && (!defined(HAVE_RLIMIT_RSS) || !defined(RLIMIT_VMEM_IS_RSS))
     case RLIMIT_VMEM:
 	if (head)
-#  if defined(HAVE_RLIMIT_RSS) && defined(RLIMIT_VMEM_IS_RSS)
-	    printf("-m: memory size (kb)           ");
-#  else
 	    printf("-v: virtual memory size (kb)   ");
-#  endif
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
@@ -286,18 +302,12 @@ printulimit(char *nam, int lim, int hard, int head)
 	    limit /= 1024;
 	break;
 # endif /* HAVE_RLIMIT_AS */
-# ifdef HAVE_RLIMIT_TCACHE
-    case RLIMIT_TCACHE:
+# ifdef HAVE_RLIMIT_LOCKS
+    case RLIMIT_LOCKS:
 	if (head)
-	    printf("-N %2d: cached threads          ", RLIMIT_TCACHE);
+	    printf("-x: file locks                 ");
 	break;
-# endif /* HAVE_RLIMIT_TCACHE */
-# ifdef HAVE_RLIMIT_AIO_OPS
-    case RLIMIT_AIO_OPS:
-	if (head)
-	    printf("-N %2d: AIO operations          ", RLIMIT_AIO_OPS);
-	break;
-# endif /* HAVE_RLIMIT_AIO_OPS */
+# endif /* HAVE_RLIMIT_LOCKS */
 # ifdef HAVE_RLIMIT_AIO_MEM
     case RLIMIT_AIO_MEM:
 	if (head)
@@ -306,6 +316,18 @@ printulimit(char *nam, int lim, int hard, int head)
 	    limit /= 1024;
 	break;
 # endif /* HAVE_RLIMIT_AIO_MEM */
+# ifdef HAVE_RLIMIT_AIO_OPS
+    case RLIMIT_AIO_OPS:
+	if (head)
+	    printf("-N %2d: AIO operations          ", RLIMIT_AIO_OPS);
+	break;
+# endif /* HAVE_RLIMIT_AIO_OPS */
+# ifdef HAVE_RLIMIT_TCACHE
+    case RLIMIT_TCACHE:
+	if (head)
+	    printf("-N %2d: cached threads          ", RLIMIT_TCACHE);
+	break;
+# endif /* HAVE_RLIMIT_TCACHE */
 # ifdef HAVE_RLIMIT_SBSIZE
     case RLIMIT_SBSIZE:
 	if (head)
@@ -320,12 +342,18 @@ printulimit(char *nam, int lim, int hard, int head)
 	    printf("-N %2d: threads per process     ", RLIMIT_PTHREAD);
 	break;
 # endif /* HAVE_RLIMIT_PTHREAD */
-# ifdef HAVE_RLIMIT_LOCKS
-    case RLIMIT_LOCKS:
+# ifdef HAVE_RLIMIT_NICE
+    case RLIMIT_NICE:
 	if (head)
-	    printf("-N %2d: file locks              ", RLIMIT_LOCKS);
+	    printf("-e: max nice                   ");
 	break;
-# endif /* HAVE_RLIMIT_LOCKS */
+# endif /* HAVE_RLIMIT_NICE */
+# ifdef HAVE_RLIMIT_RTPRIO
+    case RLIMIT_RTPRIO:
+	if (head)
+	    printf("-r: max rt priority            ");
+	break;
+# endif /* HAVE_RLIMIT_RTPRIO */
     default:
 	if (head)
 	    printf("-N %2d:                         ", lim);
@@ -362,13 +390,13 @@ do_limit(char *nam, int lim, rlim_t val, int hard, int soft, int set)
 	if (getrlimit(lim, &vals) < 0)
 	{
 	    /* best guess about error */
-	    zwarnnam(nam, "can't read limit: %e", NULL, errno);
+	    zwarnnam(nam, "can't read limit: %e", errno);
 	    return 1;
 	}
 	if (hard)
 	{
 	    if (val > vals.rlim_max && geteuid()) {
-		zwarnnam(nam, "can't raise hard limits", NULL, 0);
+		zwarnnam(nam, "can't raise hard limits");
 		return 1;
 	    }
 	    vals.rlim_max = val;
@@ -381,7 +409,7 @@ do_limit(char *nam, int lim, rlim_t val, int hard, int soft, int set)
 	}
 	if (soft || !hard) {
 	    if (val > vals.rlim_max) {
-		zwarnnam(nam, "limit exceeds hard limit", NULL, 0);
+		zwarnnam(nam, "limit exceeds hard limit");
 		return 1;
 	    }
 	    else
@@ -391,12 +419,12 @@ do_limit(char *nam, int lim, rlim_t val, int hard, int soft, int set)
 	{
 	    zwarnnam(nam,
 		     "warning: unrecognised limit %d, use -s to set",
-		     NULL, lim);
+		     lim);
 	    return 1;
 	}
 	else if (setrlimit(lim, &vals) < 0)
 	{
-	    zwarnnam(nam, "setrlimit failed: %e", NULL, errno);
+	    zwarnnam(nam, "setrlimit failed: %e", errno);
 	    return 1;
 	}
     } else {
@@ -405,7 +433,7 @@ do_limit(char *nam, int lim, rlim_t val, int hard, int soft, int set)
 	if (hard) {
 	    /* can only raise hard limits if running as root */
 	    if (val > current_limits[lim].rlim_max && geteuid()) {
-		zwarnnam(nam, "can't raise hard limits", NULL, 0);
+		zwarnnam(nam, "can't raise hard limits");
 		return 1;
 	    } else {
 		limits[lim].rlim_max = val;
@@ -420,13 +448,13 @@ do_limit(char *nam, int lim, rlim_t val, int hard, int soft, int set)
 		{
 		    /* ulimit does this */
 		    if (val > current_limits[lim].rlim_max && geteuid()) {
-			zwarnnam(nam, "value exceeds hard limit", NULL, 0);
+			zwarnnam(nam, "value exceeds hard limit");
 			return 1;
 		    }
 		    limits[lim].rlim_max = limits[lim].rlim_cur = val;
 		} else {
 		    /* but limit does this */
-		    zwarnnam(nam, "limit exceeds hard limit", NULL, 0);
+		    zwarnnam(nam, "limit exceeds hard limit");
 		    return 1;
 		}
 	    } else
@@ -477,7 +505,7 @@ bin_limit(char *nam, char **argv, Options ops, UNUSED(int func))
 	if (lim < 0) {
 	    zwarnnam(nam,
 		     (lim == -2) ? "ambiguous resource specification: %s"
-		     : "no such resource: %s", s, 0);
+		     : "no such resource: %s", s);
 	    return 1;
 	}
 	/* without value for limit, display the current limit */
@@ -489,7 +517,7 @@ bin_limit(char *nam, char **argv, Options ops, UNUSED(int func))
 	    if (*s)
 	    {
 		/* unknown limit, no idea how to scale */
-		zwarnnam(nam, "unknown scaling factor: %s", s, 0);
+		zwarnnam(nam, "unknown scaling factor: %s", s);
 		return 1;
 	    }
 	}
@@ -507,7 +535,7 @@ bin_limit(char *nam, char **argv, Options ops, UNUSED(int func))
 		else if (*s == ':')
 		    val = val * 60 + zstrtorlimt(s + 1, &s, 10);
 		else {
-		    zwarnnam(nam, "unknown scaling factor: %s", s, 0);
+		    zwarnnam(nam, "unknown scaling factor: %s", s);
 		    return 1;
 		}
 	    }
@@ -517,7 +545,7 @@ bin_limit(char *nam, char **argv, Options ops, UNUSED(int func))
 	    char *t = s;
 	    val = zstrtorlimt(t, &s, 10);
 	    if (s == t) {
-		zwarnnam(nam, "limit must be a number", NULL, 0);
+		zwarnnam(nam, "limit must be a number");
 		return 1;
 	    }
 	} else {
@@ -530,7 +558,7 @@ bin_limit(char *nam, char **argv, Options ops, UNUSED(int func))
 	    } else if ((*s == 'M' || *s == 'm') && !s[1])
 		val *= 1024L * 1024;
 	    else {
-		zwarnnam(nam, "unknown scaling factor: %s", s, 0);
+		zwarnnam(nam, "unknown scaling factor: %s", s);
 		return 1;
 	    }
 	}
@@ -549,12 +577,12 @@ do_unlimit(char *nam, int lim, int hard, int soft, int set, int euid)
 	struct rlimit vals;
 	if (getrlimit(lim, &vals) < 0)
 	{
-	    zwarnnam(nam, "can't read limit: %e", NULL, errno);
+	    zwarnnam(nam, "can't read limit: %e", errno);
 	    return 1;
 	}
 	if (hard) {
 	    if (euid && vals.rlim_max != RLIM_INFINITY) {
-		zwarnnam(nam, "can't remove hard limits", NULL, 0);
+		zwarnnam(nam, "can't remove hard limits");
 		return 1;
 	    } else
 		vals.rlim_max = RLIM_INFINITY;
@@ -563,17 +591,16 @@ do_unlimit(char *nam, int lim, int hard, int soft, int set, int euid)
 	    vals.rlim_cur = vals.rlim_max;
 	if (!set) {
 	    zwarnnam(nam,
-		     "warning: unrecognised limit %d, use -s to set",
-		     NULL, lim);
+		     "warning: unrecognised limit %d, use -s to set", lim);
 	    return 1;
 	} else if (setrlimit(lim, &vals) < 0) {
-	    zwarnnam(nam, "setrlimit failed: %e", NULL, errno);
+	    zwarnnam(nam, "setrlimit failed: %e", errno);
 	    return 1;
 	}
     } else {
 	if (hard) {
 	    if (euid && current_limits[lim].rlim_max != RLIM_INFINITY) {
-		zwarnnam(nam, "can't remove hard limits", NULL, 0);
+		zwarnnam(nam, "can't remove hard limits");
 		return 1;
 	    } else
 		limits[lim].rlim_max = RLIM_INFINITY;
@@ -612,7 +639,7 @@ bin_unlimit(char *nam, char **argv, Options ops, UNUSED(int func))
 	if (OPT_ISSET(ops,'s'))
 	    ret += setlimits(nam);
 	if (ret)
-	    zwarnnam(nam, "can't remove hard limits", NULL, 0);
+	    zwarnnam(nam, "can't remove hard limits");
     } else {
 	for (; *argv; argv++) {
 	    /* Search for the appropriate resource name.  When a name     *
@@ -635,7 +662,7 @@ bin_unlimit(char *nam, char **argv, Options ops, UNUSED(int func))
 	    if (lim < 0) {
 		zwarnnam(nam,
 			 (lim == -2) ? "ambiguous resource specification: %s"
-			 : "no such resource: %s", *argv, 0);
+			 : "no such resource: %s", *argv);
 		return 1;
 	    }
 	    else if (do_unlimit(nam, lim, hard, !hard, OPT_ISSET(ops, 's'),
@@ -658,7 +685,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     do {
 	options = *argv;
 	if (options && *options == '-' && !options[1]) {
-	    zwarnnam(name, "missing option letter", NULL, 0);
+	    zwarnnam(name, "missing option letter");
 	    return 1;
 	}
 	res = -1;
@@ -681,8 +708,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		    } else if (*argv) {
 			res = (int)zstrtol(*argv++, NULL, 10);
 		    } else {
-			zwarnnam(name, "number required after -N",
-				 NULL, 0);
+			zwarnnam(name, "number required after -N");
 			return 1;
 		    }
 		    /*
@@ -693,8 +719,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		    break;
 		case 'a':
 		    if (resmask) {
-			zwarnnam(name, "no limits allowed with -a",
-				 NULL, 0);
+			zwarnnam(name, "no limits allowed with -a");
 			return 1;
 		    }
 		    all = 1;
@@ -745,9 +770,34 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 #  endif
 		    break;
 # endif /* HAVE_RLIMIT_VMEM */
+# ifdef HAVE_RLIMIT_LOCKS
+		case 'x':
+		    res = RLIMIT_LOCKS;
+		    break;
+# endif
+# ifdef HAVE_RLIMIT_SIGPENDING
+		case 'i':
+		    res = RLIMIT_SIGPENDING;
+		    break;
+# endif
+# ifdef HAVE_RLIMIT_MSGQUEUE
+		case 'q':
+		    res = RLIMIT_MSGQUEUE;
+		    break;
+# endif
+# ifdef HAVE_RLIMIT_NICE
+		case 'e':
+		    res = RLIMIT_NICE;
+		    break;
+# endif
+# ifdef HAVE_RLIMIT_RTPRIO
+		case 'r':
+		    res = RLIMIT_RTPRIO;
+		    break;
+# endif
 		default:
 		    /* unrecognised limit */
-		    zwarnnam(name, "bad option: -%c", NULL, *options);
+		    zwarnnam(name, "bad option: -%c", *options);
 		    return 1;
 		}
 		if (options[1]) {
@@ -755,8 +805,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		    nres++;
 		}
 		if (all && res != -1) {
-		    zwarnnam(name, "no limits allowed with -a",
-			     NULL, 0);
+		    zwarnnam(name, "no limits allowed with -a");
 		    return 1;
 		}
 	    }
@@ -773,7 +822,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    continue;
 	}
 	if (all) {
-	    zwarnnam(name, "no arguments allowed after -a", NULL, 0);
+	    zwarnnam(name, "no arguments allowed after -a");
 	    return 1;
 	}
 	if (res < 0)
@@ -803,7 +852,7 @@ bin_ulimit(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	    case RLIMIT_VMEM:
 # endif /* HAVE_RLIMIT_VMEM */
 /* ditto RLIMIT_VMEM and RLIMIT_AS */
-# if defined(HAVE_RLIMIT_AS) && !defined(RLIMIT_VMEM_IS_AS)
+# if defined(HAVE_RLIMIT_AS) && !defined(RLIMIT_VMEM_IS_AS) && !defined(RLIMIT_RSS_IS_AS)
 	    case RLIMIT_AS:
 # endif /* HAVE_RLIMIT_AS */
 # ifdef HAVE_RLIMIT_AIO_MEM

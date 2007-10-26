@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,7 +27,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)mtree.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.sbin/mtree/mtree.h,v 1.5 1999/12/09 20:38:35 joe Exp $
+ * $FreeBSD: src/usr.sbin/mtree/mtree.h,v 1.7 2005/03/29 11:44:17 tobez Exp $
  */
 
 #include <string.h>
@@ -50,6 +46,7 @@ typedef struct _node {
 	u_long	cksum;				/* check sum */
 	char	*md5digest;			/* MD5 digest */
 	char	*sha1digest;			/* SHA-1 digest */
+	char	*sha256digest;			/* SHA-256 digest */
 	char	*rmd160digest;			/* RIPEMD160 digest */
 	char	*slink;				/* symbolic link reference */
 	uid_t	st_uid;				/* uid */
@@ -80,6 +77,7 @@ typedef struct _node {
 #define	F_SHA1	0x20000				/* SHA-1 digest */
 #define	F_RMD160 0x40000			/* RIPEMD160 digest */
 #define	F_FLAGS	0x80000				/* file flags */
+#define	F_SHA256	0x100000				/* SHA-256 digest */
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */

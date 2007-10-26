@@ -62,6 +62,7 @@ extern authmech_t       *auth_mech;
 #define DETACH_TTY              (1 << 6)
 #define CACHE_ENABLED           (1 << 7)
 #define USE_PROCESS_MODEL       (1 << 8)
+#define CONCAT_LOGIN_REALM      (1 << 9)
 
 
 #endif  /* _GLOBALS_H */

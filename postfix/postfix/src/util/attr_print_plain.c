@@ -22,7 +22,7 @@
 /*	attr_scan_plain(). The stream is not flushed.
 /*
 /*	attr_vprint_plain() provides an alternate interface that is convenient
-/*	for calling from within variadoc functions.
+/*	for calling from within variadic functions.
 /*
 /*	Attributes are sent in the requested order as specified with the
 /*	attr_print_plain() argument list. This routine satisfies the formatting
@@ -44,13 +44,20 @@
 /* .IP type
 /*	The type determines the arguments that follow.
 /* .RS
-/* .IP "ATTR_TYPE_NUM (char *, int)"
+/* .IP "ATTR_TYPE_INT (char *, int)"
 /*	This argument is followed by an attribute name and an integer.
-/* .IP "ATTR_TYPE_NUM (char *, long)"
+/* .IP "ATTR_TYPE_LONG (char *, long)"
 /*	This argument is followed by an attribute name and a long integer.
 /* .IP "ATTR_TYPE_STR (char *, char *)"
 /*	This argument is followed by an attribute name and a null-terminated
 /*	string.
+/* .IP "ATTR_TYPE_DATA (char *, ssize_t, char *)"
+/*	This argument is followed by an attribute name, an attribute value
+/*	length, and a pointer to attribute value.
+/* .IP "ATTR_TYPE_FUNC (ATTR_PRINT_SLAVE_FN, void *)"
+/*	This argument is followed by a function pointer and generic data
+/*	pointer. The caller-specified function returns whatever the
+/*	specified attribute printing function returns.
 /* .IP "ATTR_TYPE_HASH (HTABLE *)"
 /* .IP "ATTR_TYPE_NAMEVAL (NVTABLE *)"
 /*	The content of the table is sent as a sequence of string-valued
@@ -88,6 +95,8 @@
 #include <mymalloc.h>
 #include <vstream.h>
 #include <htable.h>
+#include <base64_code.h>
+#include <vstring.h>
 #include <attr.h>
 
 #define STR(x)	vstring_str(x)
@@ -105,6 +114,10 @@ int     attr_vprint_plain(VSTREAM *fp, int flags, va_list ap)
     char   *str_val;
     HTABLE_INFO **ht_info_list;
     HTABLE_INFO **ht;
+    static VSTRING *base64_buf;
+    ssize_t len_val;
+    ATTR_PRINT_SLAVE_FN print_fn;
+    void   *print_arg;
 
     /*
      * Sanity check.
@@ -118,7 +131,7 @@ int     attr_vprint_plain(VSTREAM *fp, int flags, va_list ap)
      */
     while ((attr_type = va_arg(ap, int)) != ATTR_TYPE_END) {
 	switch (attr_type) {
-	case ATTR_TYPE_NUM:
+	case ATTR_TYPE_INT:
 	    attr_name = va_arg(ap, char *);
 	    int_val = va_arg(ap, int);
 	    vstream_fprintf(fp, "%s=%u\n", attr_name, (unsigned) int_val);
@@ -138,6 +151,23 @@ int     attr_vprint_plain(VSTREAM *fp, int flags, va_list ap)
 	    vstream_fprintf(fp, "%s=%s\n", attr_name, str_val);
 	    if (msg_verbose)
 		msg_info("send attr %s = %s", attr_name, str_val);
+	    break;
+	case ATTR_TYPE_DATA:
+	    attr_name = va_arg(ap, char *);
+	    len_val = va_arg(ap, ssize_t);
+	    str_val = va_arg(ap, char *);
+	    if (base64_buf == 0)
+		base64_buf = vstring_alloc(10);
+	    base64_encode(base64_buf, str_val, len_val);
+	    vstream_fprintf(fp, "%s=%s\n", attr_name, STR(base64_buf));
+	    if (msg_verbose)
+		msg_info("send attr %s = [data %ld bytes]",
+			 attr_name, (long) len_val);
+	    break;
+	case ATTR_TYPE_FUNC:
+	    print_fn = va_arg(ap, ATTR_PRINT_SLAVE_FN);
+	    print_arg = va_arg(ap, void *);
+	    print_fn(attr_print_plain, fp, flags | ATTR_FLAG_MORE, print_arg);
 	    break;
 	case ATTR_TYPE_HASH:
 	    ht_info_list = htable_list(va_arg(ap, HTABLE *));
@@ -186,15 +216,17 @@ int     main(int unused_argc, char **argv)
     htable_enter(table, "foo-name", mystrdup("foo-value"));
     htable_enter(table, "bar-name", mystrdup("bar-value"));
     attr_print_plain(VSTREAM_OUT, ATTR_FLAG_NONE,
-		     ATTR_TYPE_NUM, ATTR_NAME_NUM, 4711,
+		     ATTR_TYPE_INT, ATTR_NAME_INT, 4711,
 		     ATTR_TYPE_LONG, ATTR_NAME_LONG, 1234,
 		     ATTR_TYPE_STR, ATTR_NAME_STR, "whoopee",
+	       ATTR_TYPE_DATA, ATTR_NAME_DATA, strlen("whoopee"), "whoopee",
 		     ATTR_TYPE_HASH, table,
 		     ATTR_TYPE_END);
     attr_print_plain(VSTREAM_OUT, ATTR_FLAG_NONE,
-		     ATTR_TYPE_NUM, ATTR_NAME_NUM, 4711,
+		     ATTR_TYPE_INT, ATTR_NAME_INT, 4711,
 		     ATTR_TYPE_LONG, ATTR_NAME_LONG, 1234,
 		     ATTR_TYPE_STR, ATTR_NAME_STR, "whoopee",
+	       ATTR_TYPE_DATA, ATTR_NAME_DATA, strlen("whoopee"), "whoopee",
 		     ATTR_TYPE_END);
     if (vstream_fflush(VSTREAM_OUT) != 0)
 	msg_fatal("write error: %m");

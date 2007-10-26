@@ -3,11 +3,19 @@ Links: links.h doco-links.h
 
 <h3>Site Administrator Documentation</h3>
 
-By definition, the site administrator has shell access to the Mailman
-installation, and the proper permissions for total control over
-Mailman at the site.  The site admin can edit the
-<code>Mailman/mm_cfg.py</code> configuration file, and can run the
-various and sundry command line scripts.
+<p>The <a href="mailman-install/index.html">GNU Mailman - Installation
+Manual</a> describes how to build and install Mailman.  It contains general
+instructions, as well as specific details for various platforms, mail, and web
+servers.  It is also available in
+<a href="mailman-install.pdf">PDF format</a> (approx. 110k),
+<a href="mailman-install.ps">PostScript format</a>, (approx. 129k),
+and
+<a href="mailman-install.txt">plain text format</a> (approx. 63k).
+
+<p>By definition, the site administrator has shell access to the Mailman
+installation, and the proper permissions for total control over Mailman at the
+site.  The site admin can edit the <code>Mailman/mm_cfg.py</code>
+configuration file, and can run the various and sundry command line scripts.
 
 <h3>Command line scripts</h3>
 
@@ -93,7 +101,7 @@ web_page_url = 'http://www.mynewsite.com/mailman-relocated/'
 
 <dt><b>genaliases</b>
 <dd>Use this script to regenerate the plain text and <em>db</em> alias
-    files for Postfix (if you're using Postfix as you're MTA).
+    files for Postfix (if you're using Postfix as your MTA).
 
 <dt><b>list_admins</b>
 <dd>List all the owners of a mailing list.
@@ -111,8 +119,8 @@ web_page_url = 'http://www.mynewsite.com/mailman-relocated/'
     restart the qrunner.
 
 <dt><b>mmsitepass</b>
-<dd>Use this script to set the site password, which can be used any
-    where in the system a list or user password can be used.
+<dd>Use this script to set the site password, which can be used anywhere in
+    the system a list or user password can be used.
     Essentially, the site password trumps any other password, so
     choose wisely!
 

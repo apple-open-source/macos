@@ -1,6 +1,6 @@
-insert into institutes (id,name) values (1,'sql');
+insert into institutes (id,name) values (1,'Example');
 
-insert into persons (id,name,surname) values (1,'Mitya','Kovalev');
+insert into persons (id,name,surname,password) values (1,'Mitya','Kovalev','mit');
 insert into persons (id,name,surname) values (2,'Torvlobnor','Puzdoy');
 insert into persons (id,name,surname) values (3,'Akakiy','Zinberstein');
 
@@ -15,3 +15,4 @@ insert into authors_docs (pers_id,doc_id) values (1,1);
 insert into authors_docs (pers_id,doc_id) values (1,2);
 insert into authors_docs (pers_id,doc_id) values (2,1);
 
+insert into referrals (id,name,url) values (1,'Referral','ldap://localhost:9012/');

@@ -1,9 +1,6 @@
 #!/usr/bin/env ruby
 
-require "rss/1.0"
-require "rss/2.0"
-require "rss/dublincore"
-require "rss/maker"
+require "rss"
 
 feeds = []
 verbose = false
@@ -64,7 +61,7 @@ rss = RSS::Maker.make("1.0") do |maker|
 
   feeds.each do |feed|
     feed.items.each do |item|
-      item.setup_maker(maker)
+      item.setup_maker(maker.items)
     end
   end
   maker.items.do_sort = true

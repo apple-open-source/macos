@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Parse RFC 3464 (i.e. DSN) bounce formats.
 
@@ -52,9 +53,10 @@ def check(msg):
             #
             # Also grok out Action so we can do something with that too.
             action = msgblock.get('action', '').lower()
-            if action == 'delayed':
+            # Some MTAs have been observed that put comments on the action.
+            if action.startswith('delayed'):
                 return Stop
-            if action not in ('failed', 'failure'):
+            if not action.startswith('fail'):
                 # Some non-permanent failure, so ignore this block
                 continue
             params = []
@@ -69,6 +71,13 @@ def check(msg):
                     # Note that params should already be unquoted.
                     addrs.extend(params)
                     break
+                else:
+                    # MAS: This is a kludge, but SMTP-GATEWAY01.intra.home.dk
+                    # has a final-recipient with an angle-addr and no
+                    # address-type parameter at all. Non-compliant, but ...
+                    for param in params:
+                        if param.startswith('<') and param.endswith('>'):
+                            addrs.append(param[1:-1])
     # Uniquify
     rtnaddrs = {}
     for a in addrs:
@@ -80,9 +89,13 @@ def check(msg):
 
 
 def process(msg):
+    # A DSN has been seen wrapped with a "legal disclaimer" by an outgoing MTA
+    # in a multipart/mixed outer part.
+    if msg.is_multipart() and msg.get_content_subtype() == 'mixed':
+        msg = msg.get_payload()[0]
     # The report-type parameter should be "delivery-status", but it seems that
     # some DSN generating MTAs don't include this on the Content-Type: header,
     # so let's relax the test a bit.
-    if not msg.is_multipart() or msg.get_subtype() <> 'report':
+    if not msg.is_multipart() or msg.get_content_subtype() <> 'report':
         return None
     return check(msg)

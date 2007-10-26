@@ -8,6 +8,27 @@
  */
 /*
 	$Log: IOFireWireLibDCLCommandPool.cpp,v $
+	Revision 1.17  2007/02/15 19:42:08  ayanowit
+	For 4369537, eliminated support for legacy DCL SendPacketWithHeader, since it didn't work anyway, and NuDCL does support it.
+	
+	Revision 1.16  2007/02/07 06:35:22  collin
+	*** empty log message ***
+	
+	Revision 1.15  2007/01/08 18:47:20  ayanowit
+	More 64-bit changes for isoch.
+	
+	Revision 1.14  2007/01/02 18:14:12  ayanowit
+	Enabled building the plug-in lib 4-way FAT. Also, fixed compile problems for 64-bit.
+	
+	Revision 1.13  2006/02/09 00:21:55  niels
+	merge chardonnay branch to tot
+	
+	Revision 1.12  2005/09/24 00:55:28  niels
+	*** empty log message ***
+	
+	Revision 1.11.20.2  2006/01/31 04:49:57  collin
+	*** empty log message ***
+	
 	Revision 1.11  2003/07/21 10:01:29  niels
 	*** empty log message ***
 	
@@ -77,12 +98,15 @@ namespace IOFireWireLib {
 			
 		if ( ! mStorage )
 			throw kIOReturnVMError ;
-		
-		DebugLog( "TraditionalDCLCommandPool::TraditionalDCLCommandPool mStorage=%p, mStorageSize=%lu\n", mStorage, mStorageSize ) ;
-		
+				
 		mBytesRemaining = inSize ;
 		mStorageSize = inSize ;
 
+#ifdef __LP64__
+		DebugLog( "TraditionalDCLCommandPool::TraditionalDCLCommandPool mStorage=%p, mStorageSize=%u\n", mStorage, (UInt32)mStorageSize ) ;
+#else
+		DebugLog( "TraditionalDCLCommandPool::TraditionalDCLCommandPool mStorage=%p, mStorageSize=%lu\n", mStorage, (UInt32)mStorageSize ) ;
+#endif
 		::CFArrayAppendValue ( mFreeBlocks, mStorage ) ;
 		::CFArrayAppendValue ( mFreeBlockSizes, (const void *) inSize ) ;
 		
@@ -121,7 +145,7 @@ namespace IOFireWireLib {
 	TraditionalDCLCommandPool::Allocate(
 		IOByteCount 					inSize )
 	{
-		UInt32 				blockSize ;
+		unsigned long		blockSize ;
 		UInt32 				remainder ;
 		UInt32 				index			= 0 ;
 		const UInt8*		foundFreeBlock	= 0 ;
@@ -132,7 +156,7 @@ namespace IOFireWireLib {
 		
 		do
 		{
-			blockSize	= (UInt32) CFArrayGetValueAtIndex(mFreeBlockSizes, index) ;
+			blockSize	= (unsigned long) CFArrayGetValueAtIndex(mFreeBlockSizes, index) ;
 			remainder	= blockSize - inSize ;
 	
 			if ( blockSize >= inSize )
@@ -250,7 +274,8 @@ namespace IOFireWireLib {
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return AllocateTransferPacketDCL(inDCL, kDCLSendPacketWithHeaderStartOp, inBuffer, inSize) ;
+		return nil;	// Deprecated 
+		//return AllocateTransferPacketDCL(inDCL, kDCLSendPacketWithHeaderStartOp, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
@@ -306,7 +331,7 @@ namespace IOFireWireLib {
 	TraditionalDCLCommandPool::AllocateCallProcDCL(
 		DCLCommand* 			inDCL, 
 		DCLCallCommandProc*		inProc,
-		UInt32					inProcData)
+		DCLCallProcDataType		inProcData)
 	{
 		DCLCallProc*	newDCL = (DCLCallProc*) Allocate(sizeof(DCLCallProc)) ;
 		
@@ -437,7 +462,7 @@ namespace IOFireWireLib {
 		CFIndex	foundIndex = CFArrayGetFirstIndexOfValue(mAllocatedBlocks, searchRange, (const void*) inDCL);
 		if (foundIndex >= 0)
 		{
-			IOByteCount	foundBlockSize = (IOByteCount) CFArrayGetValueAtIndex(mAllocatedBlockSizes, foundIndex) ;
+			unsigned long foundBlockSize = (unsigned long) CFArrayGetValueAtIndex(mAllocatedBlockSizes, foundIndex) ;
 			
 			// 2. if found, return block to free list
 			
@@ -521,12 +546,12 @@ namespace IOFireWireLib {
 	{		
 		UInt32			freeBlockCount	 	= CFArrayGetCount(mFreeBlocks) ;
 		UInt32			index				= 1 ;
-		IOByteCount		preceedingBlockSize = (IOByteCount) CFArrayGetValueAtIndex(mFreeBlockSizes, 0) ;
-		IOByteCount		blockSize ;
+		unsigned long		preceedingBlockSize = (unsigned long) CFArrayGetValueAtIndex(mFreeBlockSizes, 0) ;
+		unsigned long		blockSize ;
 	
 		while (index < freeBlockCount)
 		{
-			blockSize = (IOByteCount) CFArrayGetValueAtIndex(mFreeBlockSizes, index) ;
+			blockSize = (unsigned long) CFArrayGetValueAtIndex(mFreeBlockSizes, index) ;
 			
 			if ( ((UInt8*)CFArrayGetValueAtIndex(mFreeBlocks, index - 1) + preceedingBlockSize) == (UInt8*)CFArrayGetValueAtIndex(mFreeBlocks, index) )
 			{
@@ -729,7 +754,7 @@ namespace IOFireWireLib {
 		Ref						self, 
 		DCLCommand* 			inDCL, 
 		DCLCallCommandProc*		inProc,
-		UInt32					inProcData)
+		DCLCallProcDataType		inProcData)
 	{
 		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateCallProcDCL(inDCL, inProc, inProcData) ;
 	}

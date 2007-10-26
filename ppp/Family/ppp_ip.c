@@ -50,6 +50,8 @@ Includes
 #include <netinet/in_systm.h>
 #include <netinet/in_var.h>
 #include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/bootp.h>
 
 #include "ppp_defs.h"		// public ppp values
 #include "ppp_ip.h"
@@ -209,7 +211,8 @@ errno_t ppp_ip_input(ifnet_t ifp, protocol_family_t protocol,
         return 0;
     }
 
-	proto_input(PF_INET, packet);
+	if (proto_input(PF_INET, packet))
+		mbuf_freem(packet);
 	
     return 0;
 }
@@ -272,6 +275,48 @@ int ppp_ip_af_src_in(ifnet_t ifp, char *pkt)
         
     ip = (struct ip *)pkt;
     return (ip->ip_src.s_addr != wan->ip_dst.s_addr);
+}
+
+/* -----------------------------------------------------------------------------
+Check if the packet is a bootp packet for us
+----------------------------------------------------------------------------- */
+int ppp_ip_bootp_client_in(ifnet_t ifp, char *pkt)
+{
+    struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
+    struct ip 		*ip;
+	struct udphdr	*udp;
+	
+    ip = (struct ip *)pkt;
+    if (ip->ip_dst.s_addr == wan->ip_src.s_addr && ip->ip_p == IPPROTO_UDP) {
+	
+		udp = (struct udphdr *)(pkt + sizeof(struct ip));
+		if (udp->uh_sport == htons(IPPORT_BOOTPS) && udp->uh_dport == htons(IPPORT_BOOTPC)) {
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
+/* -----------------------------------------------------------------------------
+Check if the packet is a broadcast bootp packet
+----------------------------------------------------------------------------- */
+int ppp_ip_bootp_server_in(ifnet_t ifp, char *pkt)
+{
+    //struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
+    struct ip 		*ip;
+	struct udphdr	*udp;
+	
+    ip = (struct ip *)pkt;
+    if (ip->ip_dst.s_addr == htonl(INADDR_BROADCAST) && ip->ip_p == IPPROTO_UDP) {
+	
+		udp = (struct udphdr *)(pkt + sizeof(struct ip));
+		if (udp->uh_sport == htons(IPPORT_BOOTPC) && udp->uh_dport == htons(IPPORT_BOOTPS)) {
+				return 1;
+		}
+	}
+
+	return 0;
 }
 
 

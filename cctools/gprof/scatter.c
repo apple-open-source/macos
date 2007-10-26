@@ -28,8 +28,8 @@
 #include "stuff/errors.h"
 #include "gprof.h"
 
-static unsigned long text_min = 0;
-static unsigned long text_max = 0;
+static uint64_t text_min = 0;
+static uint64_t text_max = 0;
 
 struct Edgestruct { 
     struct Edgestruct *next1;

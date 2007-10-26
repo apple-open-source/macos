@@ -6,6 +6,7 @@
  *  Copyright (C) Paul Ashton                       1997,
  *  Copyright (C) Jeremy Allison                    2001,
  *  Copyright (C) Jim McDonough <jmcd@us.ibm.com> 2002-2003.
+ *  Copyright (C) Gerald (Jerry) Carter             2005
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -393,6 +394,37 @@ static BOOL api_lsa_unk_get_connuser(pipes_struct *p)
 }
 
 /***************************************************************************
+ api_lsa_create_user
+ ***************************************************************************/
+
+static BOOL api_lsa_create_account(pipes_struct *p)
+{
+	LSA_Q_CREATEACCOUNT q_u;
+	LSA_R_CREATEACCOUNT r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_create_account("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_create_account: failed to unmarshall LSA_Q_CREATEACCOUNT.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_create_account(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_create_account("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_create_account: Failed to marshall LSA_R_CREATEACCOUNT.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
  api_lsa_open_user
  ***************************************************************************/
 
@@ -611,7 +643,436 @@ static BOOL api_lsa_query_secobj(pipes_struct *p)
 }
 
 /***************************************************************************
- api_lsa_query_dnsdomainfo
+ api_lsa_add_acct_rights
+ ***************************************************************************/
+
+static BOOL api_lsa_add_acct_rights(pipes_struct *p)
+{
+	LSA_Q_ADD_ACCT_RIGHTS q_u;
+	LSA_R_ADD_ACCT_RIGHTS r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_add_acct_rights("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_add_acct_rights: failed to unmarshall LSA_Q_ADD_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_add_acct_rights(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_add_acct_rights("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_add_acct_rights: Failed to marshall LSA_R_ADD_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_remove_acct_rights
+ ***************************************************************************/
+
+static BOOL api_lsa_remove_acct_rights(pipes_struct *p)
+{
+	LSA_Q_REMOVE_ACCT_RIGHTS q_u;
+	LSA_R_REMOVE_ACCT_RIGHTS r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_remove_acct_rights("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_remove_acct_rights: failed to unmarshall LSA_Q_REMOVE_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_remove_acct_rights(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_remove_acct_rights("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_remove_acct_rights: Failed to marshall LSA_R_REMOVE_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_enum_acct_rights
+ ***************************************************************************/
+
+static BOOL api_lsa_enum_acct_rights(pipes_struct *p)
+{
+	LSA_Q_ENUM_ACCT_RIGHTS q_u;
+	LSA_R_ENUM_ACCT_RIGHTS r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_enum_acct_rights("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_enum_acct_rights: failed to unmarshall LSA_Q_ENUM_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_enum_acct_rights(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_enum_acct_rights("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_enum_acct_rights: Failed to marshall LSA_R_ENUM_ACCT_RIGHTS.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_priv_value
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_priv_value(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_PRIV_VALUE q_u;
+	LSA_R_LOOKUP_PRIV_VALUE r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_lookup_priv_value("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_priv_value: failed to unmarshall LSA_Q_LOOKUP_PRIV_VALUE .\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_priv_value(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_lookup_priv_value("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_priv_value: Failed to marshall LSA_R_LOOKUP_PRIV_VALUE.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ ***************************************************************************/
+
+static BOOL api_lsa_open_trust_dom(pipes_struct *p)
+{
+	LSA_Q_OPEN_TRUSTED_DOMAIN q_u;
+	LSA_R_OPEN_TRUSTED_DOMAIN r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_open_trusted_domain("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_open_trust_dom: failed to unmarshall LSA_Q_OPEN_TRUSTED_DOMAIN .\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_open_trusted_domain(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_open_trusted_domain("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_open_trust_dom: Failed to marshall LSA_R_OPEN_TRUSTED_DOMAIN.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ ***************************************************************************/
+
+static BOOL api_lsa_create_trust_dom(pipes_struct *p)
+{
+	LSA_Q_CREATE_TRUSTED_DOMAIN q_u;
+	LSA_R_CREATE_TRUSTED_DOMAIN r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_create_trusted_domain("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_create_trust_dom: failed to unmarshall LSA_Q_CREATE_TRUSTED_DOMAIN .\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_create_trusted_domain(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_create_trusted_domain("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_create_trust_dom: Failed to marshall LSA_R_CREATE_TRUSTED_DOMAIN.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ ***************************************************************************/
+
+static BOOL api_lsa_create_secret(pipes_struct *p)
+{
+	LSA_Q_CREATE_SECRET q_u;
+	LSA_R_CREATE_SECRET r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_create_secret("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_create_secret: failed to unmarshall LSA_Q_CREATE_SECRET.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_create_secret(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_create_secret("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_create_secret: Failed to marshall LSA_R_CREATE_SECRET.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ ***************************************************************************/
+
+static BOOL api_lsa_set_secret(pipes_struct *p)
+{
+	LSA_Q_SET_SECRET q_u;
+	LSA_R_SET_SECRET r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_set_secret("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_set_secret: failed to unmarshall LSA_Q_SET_SECRET.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_set_secret(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_set_secret("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_set_secret: Failed to marshall LSA_R_SET_SECRET.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ ***************************************************************************/
+
+static BOOL api_lsa_delete_object(pipes_struct *p)
+{
+	LSA_Q_DELETE_OBJECT q_u;
+	LSA_R_DELETE_OBJECT r_u;
+	
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	if(!lsa_io_q_delete_object("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_delete_object: failed to unmarshall LSA_Q_DELETE_OBJECT.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_delete_object(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_delete_object("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_delete_object: Failed to marshall LSA_R_DELETE_OBJECT.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_sids2
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_sids2(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_SIDS2 q_u;
+	LSA_R_LOOKUP_SIDS2 r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the info class and policy handle */
+	if(!lsa_io_q_lookup_sids2("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_sids2: failed to unmarshall LSA_Q_LOOKUP_SIDS2.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_sids2(p, &q_u, &r_u);
+
+	if(!lsa_io_r_lookup_sids2("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_sids2: Failed to marshall LSA_R_LOOKUP_SIDS2.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_sids3
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_sids3(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_SIDS3 q_u;
+	LSA_R_LOOKUP_SIDS3 r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the info class and policy handle */
+	if(!lsa_io_q_lookup_sids3("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_sids3: failed to unmarshall LSA_Q_LOOKUP_SIDS3.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_sids3(p, &q_u, &r_u);
+
+	if(!lsa_io_r_lookup_sids3("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_sids3: Failed to marshall LSA_R_LOOKUP_SIDS3.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_names2
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_names2(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_NAMES2 q_u;
+	LSA_R_LOOKUP_NAMES2 r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the info class and policy handle */
+	if(!lsa_io_q_lookup_names2("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_names2: failed to unmarshall LSA_Q_LOOKUP_NAMES2.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_names2(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_lookup_names2("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_names2: Failed to marshall LSA_R_LOOKUP_NAMES2.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_names3
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_names3(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_NAMES3 q_u;
+	LSA_R_LOOKUP_NAMES3 r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the info class and policy handle */
+	if(!lsa_io_q_lookup_names3("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_names3: failed to unmarshall LSA_Q_LOOKUP_NAMES3.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_names3(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_lookup_names3("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_names3: Failed to marshall LSA_R_LOOKUP_NAMES3.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+/***************************************************************************
+ api_lsa_lookup_names4
+ ***************************************************************************/
+
+static BOOL api_lsa_lookup_names4(pipes_struct *p)
+{
+	LSA_Q_LOOKUP_NAMES4 q_u;
+	LSA_R_LOOKUP_NAMES4 r_u;
+	prs_struct *data = &p->in_data.data;
+	prs_struct *rdata = &p->out_data.rdata;
+
+	ZERO_STRUCT(q_u);
+	ZERO_STRUCT(r_u);
+
+	/* grab the info class and policy handle */
+	if(!lsa_io_q_lookup_names4("", &q_u, data, 0)) {
+		DEBUG(0,("api_lsa_lookup_names4: failed to unmarshall LSA_Q_LOOKUP_NAMES4.\n"));
+		return False;
+	}
+
+	r_u.status = _lsa_lookup_names4(p, &q_u, &r_u);
+
+	/* store the response in the SMB stream */
+	if(!lsa_io_r_lookup_names4("", &r_u, rdata, 0)) {
+		DEBUG(0,("api_lsa_lookup_names4: Failed to marshall LSA_R_LOOKUP_NAMES4.\n"));
+		return False;
+	}
+
+	return True;
+}
+
+#if 0	/* AD DC work in ongoing in Samba 4 */
+
+/***************************************************************************
+ api_lsa_query_info2
  ***************************************************************************/
 
 static BOOL api_lsa_query_info2(pipes_struct *p)
@@ -639,7 +1100,7 @@ static BOOL api_lsa_query_info2(pipes_struct *p)
 
 	return True;
 }
-
+#endif	/* AD DC work in ongoing in Samba 4 */
 
 /***************************************************************************
  \PIPE\ntlsa commands
@@ -659,22 +1120,41 @@ static struct api_struct api_lsa_cmds[] =
 	{ "LSA_PRIV_GET_DISPNAME",LSA_PRIV_GET_DISPNAME,api_lsa_priv_get_dispname},
 	{ "LSA_ENUM_ACCOUNTS"   , LSA_ENUM_ACCOUNTS   , api_lsa_enum_accounts    },
 	{ "LSA_UNK_GET_CONNUSER", LSA_UNK_GET_CONNUSER, api_lsa_unk_get_connuser },
+	{ "LSA_CREATEACCOUNT"   , LSA_CREATEACCOUNT   , api_lsa_create_account   },
 	{ "LSA_OPENACCOUNT"     , LSA_OPENACCOUNT     , api_lsa_open_account     },
 	{ "LSA_ENUMPRIVSACCOUNT", LSA_ENUMPRIVSACCOUNT, api_lsa_enum_privsaccount},
 	{ "LSA_GETSYSTEMACCOUNT", LSA_GETSYSTEMACCOUNT, api_lsa_getsystemaccount },
 	{ "LSA_SETSYSTEMACCOUNT", LSA_SETSYSTEMACCOUNT, api_lsa_setsystemaccount },
 	{ "LSA_ADDPRIVS"        , LSA_ADDPRIVS        , api_lsa_addprivs         },
 	{ "LSA_REMOVEPRIVS"     , LSA_REMOVEPRIVS     , api_lsa_removeprivs      },
+	{ "LSA_ADDACCTRIGHTS"   , LSA_ADDACCTRIGHTS   , api_lsa_add_acct_rights    },
+	{ "LSA_REMOVEACCTRIGHTS", LSA_REMOVEACCTRIGHTS, api_lsa_remove_acct_rights },
+	{ "LSA_ENUMACCTRIGHTS"  , LSA_ENUMACCTRIGHTS  , api_lsa_enum_acct_rights },
 	{ "LSA_QUERYSECOBJ"     , LSA_QUERYSECOBJ     , api_lsa_query_secobj     },
+	{ "LSA_LOOKUPPRIVVALUE" , LSA_LOOKUPPRIVVALUE , api_lsa_lookup_priv_value },
+	{ "LSA_OPENTRUSTDOM"    , LSA_OPENTRUSTDOM    , api_lsa_open_trust_dom },
+	{ "LSA_OPENSECRET"      , LSA_OPENSECRET      , api_lsa_open_secret },
+	{ "LSA_CREATETRUSTDOM"  , LSA_CREATETRUSTDOM  , api_lsa_create_trust_dom },
+	{ "LSA_CREATSECRET"     , LSA_CREATESECRET    , api_lsa_create_secret },
+	{ "LSA_SETSECRET"       , LSA_SETSECRET       , api_lsa_set_secret },
+	{ "LSA_DELETEOBJECT"    , LSA_DELETEOBJECT    , api_lsa_delete_object },
+	{ "LSA_LOOKUPSIDS2"     , LSA_LOOKUPSIDS2     , api_lsa_lookup_sids2 },
+	{ "LSA_LOOKUPNAMES2"	, LSA_LOOKUPNAMES2    , api_lsa_lookup_names2 },
+	{ "LSA_LOOKUPNAMES3"	, LSA_LOOKUPNAMES3    , api_lsa_lookup_names3 },
+	{ "LSA_LOOKUPSIDS3"     , LSA_LOOKUPSIDS3     , api_lsa_lookup_sids3 },
+	{ "LSA_LOOKUPNAMES4"	, LSA_LOOKUPNAMES4    , api_lsa_lookup_names4 }
+#if 0	/* AD DC work in ongoing in Samba 4 */
 	/* be careful of the adding of new RPC's.  See commentrs below about
 	   ADS DC capabilities                                               */
 	{ "LSA_QUERYINFO2"      , LSA_QUERYINFO2      , api_lsa_query_info2      }
+#endif	/* AD DC work in ongoing in Samba 4 */
 };
 
 static int count_fns(void)
 {
 	int funcs = sizeof(api_lsa_cmds) / sizeof(struct api_struct);
 	
+#if 0	/* AD DC work is on going in Samba 4 */
 	/*
 	 * NOTE: Certain calls can not be enabled if we aren't an ADS DC.  Make sure
 	 * these calls are always last and that you decrement by the amount of calls
@@ -683,6 +1163,7 @@ static int count_fns(void)
 	if (!(SEC_ADS == lp_security() && ROLE_DOMAIN_PDC == lp_server_role())) {
 		funcs -= 1;
 	}
+#endif	/* AD DC work in ongoing in Samba 4 */
 
 	return funcs;
 }

@@ -28,6 +28,7 @@
 #include <security_utilities/endian.h>
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <Security/cssm.h>
+#include "OverUnderflowCheck.h"
 
 namespace Security
 {
@@ -61,7 +62,11 @@ public:
 class ReadSection
 {
 protected:
-    ReadSection(uint8 *inAddress, size_t inLength) : mAddress(inAddress), mLength(inLength) {}
+    ReadSection(uint8 *inAddress, size_t inLength) : mAddress(inAddress), mLength(inLength)
+	{
+		if (mAddress == NULL)
+            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+	}
 public:
 	ReadSection() : mAddress(NULL), mLength(0) {}
     ReadSection(const uint8 *inAddress, size_t inLength) :
@@ -71,13 +76,16 @@ public:
 
     uint32 at(uint32 inOffset) const
     {
+		if (inOffset > mLength)
+		{
+            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+		}
+		
         return ntohl(*reinterpret_cast<const uint32 *>(mAddress + inOffset));
     }
 
     uint32 operator[](uint32 inOffset) const
     {
-        if (inOffset + sizeof(uint32) > mLength)
-            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
         return at(inOffset);
     }
 
@@ -92,7 +100,7 @@ public:
 	// Return a subsection from inOffset of inLength bytes.
     ReadSection subsection(uint32 inOffset, uint32 inLength) const
     {
-        if (inOffset + inLength > mLength)
+        if (CheckUInt32Add(inOffset, inLength) > mLength)
             CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
         return ReadSection(mAddress + inOffset, inLength);
     }
@@ -104,7 +112,7 @@ public:
 
     const uint8 *range(const Range &inRange) const
     {
-        if (inRange.mOffset + inRange.mSize > mLength)
+        if (CheckUInt32Add(inRange.mOffset, inRange.mSize) > mLength)
             CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
         return mAddress + inRange.mOffset;
     }
@@ -116,7 +124,7 @@ public:
 	        aData = NULL;
 	    else
 	    {
-	        if (inRange.mOffset + inRange.mSize > mLength)
+	        if (CheckUInt32Add(inRange.mOffset, inRange.mSize) > mLength)
 	            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
 	        aData = reinterpret_cast<uint8 *>(inAllocator.malloc(inRange.mSize));
@@ -126,7 +134,7 @@ public:
 		return aData;
 	}
 
-	static uint32 align(uint32 offset) { return (offset + AtomSize - 1) & ~(AtomSize - 1); }
+	static uint32 align(uint32 offset) { return (CheckUInt32Subtract(CheckUInt32Add(offset, AtomSize), 1)) & ~(AtomSize - 1); }
 
 protected:
     uint8 *mAddress;
@@ -170,7 +178,8 @@ public:
 private:
     void grow(size_t inNewCapacity)
     {
-        size_t aNewCapacity = max(mCapacity * 2, inNewCapacity);
+		size_t n = CheckUInt32Multiply(mCapacity, 2);
+        size_t aNewCapacity = max(n, inNewCapacity);
         mAddress = reinterpret_cast<uint8 *>(mAllocator.realloc(mAddress, aNewCapacity));
 		memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);
         mCapacity = aNewCapacity;
@@ -187,9 +196,12 @@ public:
     void size(uint32 inLength) { mLength = inLength; }
     uint32 put(uint32 inOffset, uint32 inValue)
     {
-        uint32 aLength = inOffset + sizeof(inValue);
+        uint32 aLength = CheckUInt32Add(inOffset, sizeof(inValue));
         if (aLength > mCapacity)
             grow(aLength);
+
+		if (mAddress == NULL)
+            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
         *reinterpret_cast<uint32 *>(mAddress + inOffset) = htonl(inValue);
         return aLength;
@@ -197,11 +209,15 @@ public:
 
     uint32 put(uint32 inOffset, uint32 inLength, const uint8 *inData)
     {
-        uint32 aLength = inOffset + inLength;
+        uint32 aLength = CheckUInt32Add(inOffset, inLength);
+		
         // Round up to nearest multiple of 4 bytes, to pad with zeros
         uint32 aNewOffset = align(aLength);
         if (aNewOffset > mCapacity)
             grow(aNewOffset);
+
+		if (mAddress == NULL)
+            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
         memcpy(mAddress + inOffset, inData, inLength);
 

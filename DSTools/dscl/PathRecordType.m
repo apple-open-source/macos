@@ -124,6 +124,40 @@ int compareRecordDicts(id leftDict, id rightDict, void * context)
 	return list;
 }
 
+- (NSArray*) getListWithKeys:(NSArray*)inKeys
+{
+    NSArray            *list        = nil;    
+    NSArray            *niceKeys    = nil;
+
+    NS_DURING
+        if ( [inKeys count] == 0  )
+        {
+            list = [[_node  findRecordNames:@kDSRecordsAll
+                            andAttributes:[NSArray arrayWithObject:@kDSAttributesAll]
+                            ofType:[_recordType UTF8String]
+                            matchType:eDSExact]
+                            sortedArrayUsingFunction:compareRecordDicts context:nil];
+        }
+        else
+        {
+            niceKeys = prefixedAttributeKeysWithNode(_node, inKeys);
+            list = [[_node findRecordNames:@kDSRecordsAll
+                            andAttributes:niceKeys
+                            ofType:[_recordType UTF8String] 
+                            matchType:eDSiExact]
+                        sortedArrayUsingFunction:compareRecordDicts context:nil];
+        }
+	NS_HANDLER
+		if (!DS_EXCEPTION_STATUS_IS(eDSRecordNotFound) &&
+	        !DS_EXCEPTION_STATUS_IS(eDSInvalidRecordType))
+		{
+			[localException raise];
+		}
+	NS_ENDHANDLER
+
+	return list;
+}
+
 - (tDirStatus) list:(NSString*)inPath key:(NSString*)inKey
 {
     NSArray		   *list;
@@ -198,7 +232,7 @@ int compareRecordDicts(id leftDict, id rightDict, void * context)
                 }
                 while ((value = (NSString*)[valueEnum nextObject]) != nil)
                 {
-                    printValue(value);
+                    printValue(value, NO);
                 }
                 printf("\n");
             }
@@ -354,6 +388,40 @@ int compareRecordDicts(id leftDict, id rightDict, void * context)
     return eDSNoErr;
 }
 
+- (tDirStatus) read:(NSString*)inPath keys:(NSArray*)inKeys
+{
+    NSAutoreleasePool      *pool	= [[NSAutoreleasePool alloc] init];
+    tDirStatus status = eDSRecordNotFound;
+    NSArray* niceKeys = [inKeys count] > 0 ? prefixedAttributeKeysWithNode(_node, inKeys) : [NSArray arrayWithObject:@kDSAttributesAll];
+    NSArray* foundRecords = nil;
+    NSUInteger recordIndex = 0;
+    NSUInteger recordCount = 0;
+
+    NS_DURING
+        foundRecords = [_node findRecordNames:inPath andAttributes:niceKeys 
+            ofType:[_recordType UTF8String] matchType:eDSExact];
+    NS_HANDLER
+        [localException retain];
+        [pool release];
+        [[localException autorelease] raise];
+    NS_ENDHANDLER
+    
+    recordCount = [foundRecords count];
+    for (recordIndex = 0; recordIndex < recordCount; recordIndex++)
+    {
+        NSMutableDictionary* foundRecord = [[[foundRecords objectAtIndex:recordIndex] mutableCopy] autorelease];
+        if ([inKeys count] > 0 && ![niceKeys containsObject:@kDSNAttrRecordName])
+        {
+            [foundRecord removeObjectForKey:@kDSNAttrRecordName];
+        }
+        [self printDictionary:foundRecord withRequestedKeys:inKeys];
+        status = eDSNoErr;
+    }
+    
+    [pool release];
+    return status;
+}
+
 - (tDirStatus) searchForKey:(NSString*)inKey withValue:(NSString*)inValue matchType:(NSString*)inType
 {
 	NSAutoreleasePool  *pool			= [[NSAutoreleasePool alloc] init];
@@ -388,6 +456,18 @@ int compareRecordDicts(id leftDict, id rightDict, void * context)
 		[pool release];
 		
 		return eDSNoErr;
+}
+
+-(DSoNode*) node
+{
+	// ATM - needed for PlugInManager
+	return _node;
+}
+
+-(NSString*) recordType
+{
+	// ATM - needed for PlugInManager
+	return _recordType;
 }
 
 @end

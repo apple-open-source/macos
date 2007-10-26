@@ -21,35 +21,42 @@
 
 #include "includes.h"
 
+extern struct current_user current_user;
+
 /***************************************************************************
 open a print file and setup a fsp for it. This is a wrapper around
 print_job_start().
 ***************************************************************************/
 
-files_struct *print_fsp_open(connection_struct *conn, char *fname)
+NTSTATUS print_fsp_open(connection_struct *conn, const char *fname,
+			files_struct **result)
 {
 	int jobid;
 	SMB_STRUCT_STAT sbuf;
-	extern struct current_user current_user;
-	files_struct *fsp = file_new(conn);
+	files_struct *fsp;
 	fstring name;
+	NTSTATUS status;
 
-	if(!fsp)
-		return NULL;
+	status = file_new(conn, &fsp);
+	if(!NT_STATUS_IS_OK(status)) {
+		return status;
+	}
 
 	fstrcpy( name, "Remote Downlevel Document");
 	if (fname) {
-		char *p = strrchr(fname, '/');
+		const char *p = strrchr(fname, '/');
 		fstrcat(name, " ");
-		if (!p)
+		if (!p) {
 			p = fname;
+		}
 		fstrcat(name, p);
 	}
 
 	jobid = print_job_start(&current_user, SNUM(conn), name, NULL);
 	if (jobid == -1) {
+		status = map_nt_error_from_unix(errno);
 		file_free(fsp);
-		return NULL;
+		return status;
 	}
 
 	/* Convert to RAP id. */
@@ -58,52 +65,52 @@ files_struct *print_fsp_open(connection_struct *conn, char *fname)
 		/* We need to delete the entry in the tdb. */
 		pjob_delete(lp_const_servicename(SNUM(conn)), jobid);
 		file_free(fsp);
-		return NULL;
+		return NT_STATUS_ACCESS_DENIED;	/* No errno around here */
 	}
 
 	/* setup a full fsp */
-	fsp->fd = print_job_fd(lp_const_servicename(SNUM(conn)),jobid);
+	fsp->fh->fd = print_job_fd(lp_const_servicename(SNUM(conn)),jobid);
 	GetTimeOfDay(&fsp->open_time);
 	fsp->vuid = current_user.vuid;
-	fsp->size = 0;
-	fsp->pos = -1;
+	fsp->fh->pos = -1;
 	fsp->can_lock = True;
 	fsp->can_read = False;
+	fsp->access_mask = FILE_GENERIC_WRITE;
 	fsp->can_write = True;
-	fsp->share_mode = 0;
 	fsp->print_file = True;
 	fsp->modified = False;
 	fsp->oplock_type = NO_OPLOCK;
 	fsp->sent_oplock_break = NO_BREAK_SENT;
 	fsp->is_directory = False;
-	fsp->directory_delete_on_close = False;
 	string_set(&fsp->fsp_name,print_job_fname(lp_const_servicename(SNUM(conn)),jobid));
 	fsp->wbmpx_ptr = NULL;      
 	fsp->wcp = NULL; 
-	SMB_VFS_FSTAT(fsp,fsp->fd, &sbuf);
+	SMB_VFS_FSTAT(fsp,fsp->fh->fd, &sbuf);
 	fsp->mode = sbuf.st_mode;
 	fsp->inode = sbuf.st_ino;
 	fsp->dev = sbuf.st_dev;
 
 	conn->num_files_open++;
 
-	return fsp;
+	*result = fsp;
+	return NT_STATUS_OK;
 }
 
 /****************************************************************************
-print a file - called on closing the file
+ Print a file - called on closing the file.
 ****************************************************************************/
-void print_fsp_end(files_struct *fsp, BOOL normal_close)
+
+void print_fsp_end(files_struct *fsp, enum file_close_type close_type)
 {
 	uint32 jobid;
 	fstring sharename;
 
-	if (fsp->share_mode == FILE_DELETE_ON_CLOSE) {
+	if (fsp->fh->private_options & FILE_DELETE_ON_CLOSE) {
 		/*
 		 * Truncate the job. print_job_end will take
 		 * care of deleting it for us. JRA.
 		 */
-		sys_ftruncate(fsp->fd, 0);
+		sys_ftruncate(fsp->fh->fd, 0);
 	}
 
 	if (fsp->fsp_name) {
@@ -116,5 +123,5 @@ void print_fsp_end(files_struct *fsp, BOOL normal_close)
 		return;
 	}
 
-	print_job_end(SNUM(fsp->conn),jobid, normal_close);
+	print_job_end(SNUM(fsp->conn),jobid, close_type);
 }

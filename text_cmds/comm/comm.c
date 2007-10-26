@@ -1,5 +1,3 @@
-/*	$NetBSD: comm.c,v 1.11 1997/10/18 13:04:27 lukem Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,18 +34,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)comm.c	8.4 (Berkeley) 5/4/95";
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: comm.c,v 1.11 1997/10/18 13:04:27 lukem Exp $");
-#endif /* not lint */
+
+#if 0
+#ifndef lint
+static char sccsid[] = "From: @(#)comm.c	8.4 (Berkeley) 5/4/95";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/comm/comm.c,v 1.21 2004/07/02 22:48:29 tjr Exp $");
 
 #include <err.h>
 #include <limits.h>
@@ -56,32 +56,34 @@ __RCSID("$NetBSD: comm.c,v 1.11 1997/10/18 13:04:27 lukem Exp $");
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
 #define	MAXLINELEN	(LINE_MAX + 1)
 
-char *tabs[] = { "", "\t", "\t\t" };
+const wchar_t *tabs[] = { L"", L"\t", L"\t\t" };
 
-FILE   *file __P((const char *));
-int	main __P((int, char **));
-void	show __P((FILE *, char *, char *));
-void	usage __P((void));
+FILE   *file(const char *);
+void	show(FILE *, const char *, const wchar_t *, wchar_t *);
+int     wcsicoll(const wchar_t *, const wchar_t *);
+static void	usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
-	int comp, file1done, file2done, read1, read2;
-	int ch, flag1, flag2, flag3;
+	int comp, file1done = 0, file2done = 0, read1, read2;
+	int ch, flag1, flag2, flag3, iflag;
 	FILE *fp1, *fp2;
-	char *col1, *col2, *col3;
-	char **p, line1[MAXLINELEN], line2[MAXLINELEN];
+	const wchar_t *col1, *col2, *col3;
+	wchar_t line1[MAXLINELEN], line2[MAXLINELEN];
+	const wchar_t **p;
 
-	setlocale(LC_ALL, "");
-
-	file1done = file2done = 0;
 	flag1 = flag2 = flag3 = 1;
-	while ((ch = getopt(argc, argv, "123")) != -1)
+	iflag = 0;
+
+	(void) setlocale(LC_ALL, "");
+
+	while ((ch = getopt(argc, argv, "123i")) != -1)
 		switch(ch) {
 		case '1':
 			flag1 = 0;
@@ -92,6 +94,9 @@ main(argc, argv)
 		case '3':
 			flag3 = 0;
 			break;
+		case 'i':
+			iflag = 1;
+			break;
 		case '?':
 		default:
 			usage();
@@ -99,7 +104,7 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 2)
+	if (argc != 2 || !argv[0] || !argv[1])
 		usage();
 
 	fp1 = file(argv[0]);
@@ -117,29 +122,39 @@ main(argc, argv)
 
 	for (read1 = read2 = 1;;) {
 		/* read next line, check for EOF */
-		if (read1)
-			file1done = !fgets(line1, MAXLINELEN, fp1);
-		if (read2)
-			file2done = !fgets(line2, MAXLINELEN, fp2);
+		if (read1) {
+			file1done = !fgetws(line1, MAXLINELEN, fp1);
+			if (file1done && ferror(fp1))
+				err(1, "%s", argv[0]);
+		}
+		if (read2) {
+			file2done = !fgetws(line2, MAXLINELEN, fp2);
+			if (file2done && ferror(fp2))
+				err(1, "%s", argv[1]);
+		}
 
 		/* if one file done, display the rest of the other file */
 		if (file1done) {
 			if (!file2done && col2)
-				show(fp2, col2, line2);
+				show(fp2, argv[1], col2, line2);
 			break;
 		}
 		if (file2done) {
 			if (!file1done && col1)
-				show(fp1, col1, line1);
+				show(fp1, argv[0], col1, line1);
 			break;
 		}
 
 		/* lines are the same */
-		if (!(comp = strcoll(line1, line2))) {
+		if(iflag)
+			comp = wcsicoll(line1, line2);
+		else
+			comp = wcscoll(line1, line2);
+
+		if (!comp) {
 			read1 = read2 = 1;
 			if (col3)
-				if (printf("%s%s", col3, line1) < 0)
-					break;
+				(void)printf("%ls%ls", col3, line1);
 			continue;
 		}
 
@@ -148,49 +163,58 @@ main(argc, argv)
 			read1 = 1;
 			read2 = 0;
 			if (col1)
-				if (printf("%s%s", col1, line1) < 0)
-					break;
+				(void)printf("%ls%ls", col1, line1);
 		} else {
 			read1 = 0;
 			read2 = 1;
 			if (col2)
-				if (printf("%s%s", col2, line2) < 0)
-					break;
+				(void)printf("%ls%ls", col2, line2);
 		}
 	}
-
-	if (ferror (stdout) || fclose (stdout) == EOF)
-		err(1, "stdout");
-
 	exit(0);
 }
 
 void
-show(fp, offset, buf)
-	FILE *fp;
-	char *offset, *buf;
+show(FILE *fp, const char *fn, const wchar_t *offset, wchar_t *buf)
 {
-	while (printf("%s%s", offset, buf) >= 0 && fgets(buf, MAXLINELEN, fp))
-		;
+
+	do {
+		(void)printf("%ls%ls", offset, buf);
+	} while (fgetws(buf, MAXLINELEN, fp));
+	if (ferror(fp))
+		err(1, "%s", fn);
 }
 
 FILE *
-file(name)
-	const char *name;
+file(const char *name)
 {
 	FILE *fp;
 
 	if (!strcmp(name, "-"))
 		return (stdin);
-	if ((fp = fopen(name, "r")) == NULL)
+	if ((fp = fopen(name, "r")) == NULL) {
 		err(1, "%s", name);
+	}
 	return (fp);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-
-	(void)fprintf(stderr, "usage: comm [-123] file1 file2\n");
+	(void)fprintf(stderr, "usage: comm [-123i] file1 file2\n");
 	exit(1);
+}
+
+int
+wcsicoll(const wchar_t *s1, const wchar_t *s2)
+{
+	wchar_t *p, line1[MAXLINELEN], line2[MAXLINELEN];
+
+	for (p = line1; *s1; s1++)
+		*p++ = towlower(*s1);
+	*p = '\0';
+	for (p = line2; *s2; s2++)
+		*p++ = towlower(*s2);
+	*p = '\0';
+	return (wcscoll(line1, line2));
 }

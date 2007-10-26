@@ -1,6 +1,7 @@
 ;;; userlock.el --- handle file access contention between multiple users
 
-;; Copyright (C) 1985, 1986 Free Software Foundation, inc.
+;; Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -86,9 +87,9 @@ in any way you like."
 (defun ask-user-about-lock-help ()
   (with-output-to-temp-buffer "*Help*"
     (princ "It has been detected that you want to modify a file that someone else has
-already started modifying in EMACS.
+already started modifying in Emacs.
 
-You can <s>teal the file; The other user becomes the
+You can <s>teal the file; the other user becomes the
   intruder if (s)he ever unmodifies the file and then changes it again.
 You can <p>roceed; you edit at your own (and the other user's) risk.
 You can <q>uit; don't modify this file.")
@@ -115,7 +116,7 @@ The buffer in question is current when this function is called."
 	(message "%s changed on disk; really edit the buffer? (y, n, r or C-h) "
 		 (file-name-nondirectory fn))
 	(let ((tem (downcase (let ((cursor-in-echo-area t))
-			       (read-char)))))
+			       (read-char-exclusive)))))
 	  (setq answer
 		(if (= tem help-char)
 		    'help
@@ -160,4 +161,5 @@ to get the latest version of the file, then make the change again.")
       (set-buffer standard-output)
       (help-mode))))
 
+;;; arch-tag: a61c5b60-e1c8-44fd-894a-c617f4dfc639
 ;;; userlock.el ends here

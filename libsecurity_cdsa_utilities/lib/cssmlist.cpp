@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -88,6 +88,14 @@ const CssmData &ListElement::data() const
 	return CssmData::overlay(Element.Word);
 }
 
+ListElement &ListElement::operator = (const CssmData &data)
+{
+	assert(type() == CSSM_LIST_ELEMENT_DATUM);
+	Element.Word = data;
+	return *this;
+}
+
+
 CssmList &ListElement::list()
 {
 	assert(type() == CSSM_LIST_ELEMENT_SUBLIST);
@@ -110,10 +118,25 @@ const TypedList &ListElement::typedList() const
 	return static_cast<const TypedList &>(list());
 }
 
+ListElement &ListElement::operator = (const CssmList &list)
+{
+	assert(type() == CSSM_LIST_ELEMENT_SUBLIST);
+	Element.Sublist = list;
+	return *this;
+}
+
+
 CSSM_WORDID_TYPE ListElement::word() const
 {
 	assert(type() == CSSM_LIST_ELEMENT_WORDID);
 	return WordID;
+}
+
+ListElement &ListElement::operator = (CSSM_WORDID_TYPE word)
+{
+	assert(type() == CSSM_LIST_ELEMENT_WORDID);
+	WordID = word;
+	return *this;
 }
 
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,18 @@ informCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 }
 
 
+static CFStringRef
+notifyMPCopyDescription(const void *info)
+{
+	SCDynamicStoreRef	store	= (SCDynamicStoreRef)info;
+
+	return CFStringCreateWithFormat(NULL,
+					NULL,
+					CFSTR("<SCDynamicStore notification MP> {store = %p}"),
+					store);
+}
+
+
 Boolean
 SCDynamicStoreNotifyCallback(SCDynamicStoreRef		store,
 			     CFRunLoopRef		runLoop,
@@ -115,7 +127,7 @@ SCDynamicStoreNotifyCallback(SCDynamicStoreRef		store,
 						  , (void *)store
 						  , CFRetain
 						  , CFRelease
-						  , NULL
+						  , notifyMPCopyDescription
 						  };
 
 	if (store == NULL) {
@@ -268,7 +280,7 @@ rlsSchedule(void *info, CFRunLoopRef rl, CFStringRef mode)
 						  , (void *)store
 						  , CFRetain
 						  , CFRelease
-						  , NULL
+						  , notifyMPCopyDescription
 						  };
 		mach_port_t		oldNotify;
 		mach_port_t		port;
@@ -474,6 +486,42 @@ rlsRelease(CFTypeRef cf)
 }
 
 
+static CFStringRef
+rlsCopyDescription(const void *info)
+{
+	CFMutableStringRef	result;
+	SCDynamicStoreRef	store		= (SCDynamicStoreRef)info;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+
+	result = CFStringCreateMutable(NULL, 0);
+	CFStringAppendFormat(result, NULL, CFSTR("<SCDynamicStore RLS> {"));
+	CFStringAppendFormat(result, NULL, CFSTR("store = %p"), store);
+	if (storePrivate->notifyStatus == Using_NotifierInformViaRunLoop) {
+		CFStringRef	description	= NULL;
+
+		CFStringAppendFormat(result, NULL, CFSTR(", callout = %p"), storePrivate->rlsFunction);
+
+		if ((storePrivate->rlsContext.info != NULL) && (storePrivate->rlsContext.copyDescription != NULL)) {
+			description = (*storePrivate->rlsContext.copyDescription)(storePrivate->rlsContext.info);
+		}
+		if (description == NULL) {
+			description = CFStringCreateWithFormat(NULL, NULL, CFSTR("<SCDynamicStore context %p>"), storePrivate->rlsContext.info);
+		}
+		if (description == NULL) {
+			description = CFRetain(CFSTR("<no description>"));
+		}
+		CFStringAppendFormat(result, NULL, CFSTR(", context = %@"), description);
+		CFRelease(description);
+	} else {
+		CFStringAppendFormat(result, NULL, CFSTR(", callout = %p"), storePrivate->callbackFunction);
+		CFStringAppendFormat(result, NULL, CFSTR(", info = %p"), storePrivate->callbackArgument);
+	}
+	CFStringAppendFormat(result, NULL, CFSTR("}"));
+
+	return result;
+}
+
+
 CFRunLoopSourceRef
 SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 				  SCDynamicStoreRef	store,
@@ -511,7 +559,7 @@ SCDynamicStoreCreateRunLoopSource(CFAllocatorRef	allocator,
 						  , (void *)store	// info
 						  , rlsRetain		// retain
 						  , rlsRelease		// release
-						  , CFCopyDescription	// copyDescription
+						  , rlsCopyDescription	// copyDescription
 						  , CFEqual		// equal
 						  , CFHash		// hash
 						  , rlsSchedule		// schedule

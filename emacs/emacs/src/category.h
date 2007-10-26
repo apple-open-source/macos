@@ -1,6 +1,8 @@
 /* Declarations having to do with Emacs category tables.
-   Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-     Licensed to the Free Software Foundation.
+   Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+     2005, 2006, 2007
+     National Institute of Advanced Industrial Science and Technology (AIST)
+     Registration Number H14PRO021
 
 This file is part of GNU Emacs.
 
@@ -16,8 +18,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* We introduce here three types of object: category, category set,
@@ -53,10 +55,8 @@ Boston, MA 02111-1307, USA.  */
 #define CATEGORYP(x) \
   (INTEGERP ((x)) && XFASTINT ((x)) >= 0x20 && XFASTINT ((x)) <= 0x7E)
 
-#define CHECK_CATEGORY(x, i)						\
-  do {									\
-    if (!CATEGORYP ((x))) x = wrong_type_argument (Qcategoryp, (x));	\
-  } while (0)
+#define CHECK_CATEGORY(x) \
+  CHECK_TYPE (CATEGORYP (x), Qcategoryp, x)
 
 #define XCATEGORY_SET XBOOL_VECTOR
 
@@ -71,10 +71,8 @@ Boston, MA 02111-1307, USA.  */
 #define SET_CATEGORY_SET(category_set, category, val) \
   (Faset (category_set, category, val))
 
-#define CHECK_CATEGORY_SET(x, i)					   \
-  do {									   \
-    if (!CATEGORY_SET_P ((x))) x = wrong_type_argument (Qcategorysetp, (x)); \
-  } while (0)
+#define CHECK_CATEGORY_SET(x) \
+  CHECK_TYPE (CATEGORY_SET_P (x), Qcategorysetp, x)
 
 /* Return 1 if CATEGORY_SET contains CATEGORY, else return 0.
    The faster version of `!NILP (Faref (category_set, category))'.  */
@@ -109,7 +107,7 @@ extern Lisp_Object _temp_category_set;
 #else
 #define CATEGORY_SET(c) \
   Faref (current_buffer->category_table, make_number (c))
-#endif   
+#endif
 
 /* Return the doc string of CATEGORY in category table TABLE.  */
 #define CATEGORY_DOCSTRING(table, category) \
@@ -129,3 +127,6 @@ extern Lisp_Object _temp_category_set;
    && word_boundary_p (c1, c2))
 
 extern int word_boundary_p P_ ((int, int));
+
+/* arch-tag: 309dfe83-c3e2-4d22-8e81-faae5aece0ff
+   (do not change this comment) */

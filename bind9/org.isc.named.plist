@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Disabled</key>
@@ -10,6 +10,18 @@
 	<false/>
 	<key>ProgramArguments</key>
 	<array>
+<!--
+	Un-comment the following lines to run named with a sandbox profile.
+	Sandbox profiles restrict processes from performing unauthorized
+	operations; so it may be necessary to update the profile
+	(/usr/share/sandbox/named.sb) if any changes are made to the named
+	configuration (/etc/named.conf).
+-->
+<!--
+		<string>/usr/bin/sandbox-exec</string>
+		<string>-f</string>
+		<string>/usr/share/sandbox/named.sb</string>
+-->
 		<string>/usr/sbin/named</string>
 		<string>-f</string>
 	</array>

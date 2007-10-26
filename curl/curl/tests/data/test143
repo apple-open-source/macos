@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 <data>
@@ -22,7 +23,7 @@ FTP URL with type=a
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD /tmp
 CWD moo
@@ -33,3 +34,4 @@ RETR 143
 QUIT
 </protocol>
 </verify>
+</testcase>

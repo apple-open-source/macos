@@ -1,0 +1,1 @@
+LDFLAGS="-L/usr/X11/lib -lfreetype -lz -Xlinker -framework -Xlinker CoreServices -Xlinker -framework -Xlinker ApplicationServices"

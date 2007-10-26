@@ -20,8 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "IOSystemConfiguration.h"
 #include <CoreFoundation/CoreFoundation.h> 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -64,11 +63,12 @@ static bool is_valid_repeating_dictionary(CFDictionaryRef   event)
     tmp_str = (CFStringRef)CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventTypeKey));
     if(!isA_CFString(tmp_str)) return false;    
 
-    if( (kCFCompareEqualTo != CFStringCompare(tmp_str, CFSTR(kIOPMAutoSleep), 0)) &&
-        (kCFCompareEqualTo != CFStringCompare(tmp_str, CFSTR(kIOPMAutoShutdown), 0)) &&
-        (kCFCompareEqualTo != CFStringCompare(tmp_str, CFSTR(kIOPMAutoWakeOrPowerOn), 0)) &&
-        (kCFCompareEqualTo != CFStringCompare(tmp_str, CFSTR(kIOPMAutoPowerOn), 0)) &&
-        (kCFCompareEqualTo != CFStringCompare(tmp_str, CFSTR(kIOPMAutoWake), 0)) )
+    if( (!CFEqual(tmp_str, CFSTR(kIOPMAutoSleep))) &&
+        (!CFEqual(tmp_str, CFSTR(kIOPMAutoShutdown))) &&
+        (!CFEqual(tmp_str, CFSTR(kIOPMAutoWakeOrPowerOn))) &&
+        (!CFEqual(tmp_str, CFSTR(kIOPMAutoPowerOn))) &&
+        (!CFEqual(tmp_str, CFSTR(kIOPMAutoWake))) &&
+        (!CFEqual(tmp_str, CFSTR(kIOPMAutoRestart))) )
     {
         return false;
     }
@@ -76,7 +76,7 @@ static bool is_valid_repeating_dictionary(CFDictionaryRef   event)
     return true;
 }
 
-extern IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events)
+IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events)
 {
     SCPreferencesRef            prefs = 0;
     IOReturn                    ret = kIOReturnError;
@@ -122,7 +122,7 @@ extern IOReturn IOPMScheduleRepeatingPowerEvent(CFDictionaryRef events)
 }
 
 
-extern CFDictionaryRef IOPMCopyRepeatingPowerEvents(void)
+CFDictionaryRef IOPMCopyRepeatingPowerEvents(void)
 {
     SCPreferencesRef            prefs;
     CFMutableDictionaryRef      return_dict = NULL;
@@ -162,7 +162,7 @@ extern CFDictionaryRef IOPMCopyRepeatingPowerEvents(void)
     return return_dict;
 }
 
-extern IOReturn IOPMCancelAllRepeatingPowerEvents(void)
+IOReturn IOPMCancelAllRepeatingPowerEvents(void)
 {    
     SCPreferencesRef            prefs = 0;
     IOReturn                    ret = kIOReturnError;

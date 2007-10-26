@@ -1,0 +1,18 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -1405,6 +1405,13 @@ main() {
+        ;;
+ esac
+ 
++# Check for MacOS X memberd and UUID support
++AC_CHECK_HEADERS(membership.h membershipPriv.h)
++AC_CHECK_FUNCS(mbr_uid_to_uuid mbr_gid_to_uuid mbr_check_membership)
++AC_CHECK_FUNCS(mbr_check_service_membership mbr_user_name_to_uuid)
++# membership.h should pull these functions in as well`
++AC_CHECK_FUNCS(uuid_parse uuid_unparse uuid_clear)
++
+ #
+ # stat64 family may need <sys/stat.h> on some systems, notably ReliantUNIX
+ #

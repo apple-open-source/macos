@@ -1,6 +1,6 @@
 /* MI Command Set - varobj commands.
 
-   Copyright 2000, 2002, 2004 Free Software Foundation, Inc.
+   Copyright 2000, 2002, 2004, 2005 Free Software Foundation, Inc.
 
    Contributed by Cygnus Solutions (a Red Hat company).
 
@@ -31,6 +31,13 @@
 #include <ctype.h>
 #include "gdb_string.h"
 #include "frame.h"
+#include "block.h"
+#include "linespec.h"
+#include "exceptions.h"
+
+const char mi_no_values[] = "--no-values";
+const char mi_simple_values[] = "--simple-values";
+const char mi_all_values[] = "--all-values";
 
 extern int varobjdebug;		/* defined in varobj.c */
 
@@ -38,7 +45,6 @@ extern int varobjdebug;		/* defined in varobj.c */
    a standard way.  */
 void mi_report_var_creation (struct ui_out *uiout, struct varobj *var, int is_root);
 
-static int varobj_update_one (struct varobj *var);
 static char *typecode_as_string (struct varobj* var);
 
 static struct ui_out *tmp_miout = NULL;
@@ -46,6 +52,9 @@ static struct ui_out *tmp_miout = NULL;
 static void prepare_tmp_mi_out (void);
 
 static int mi_show_protections = 1;
+
+static int varobj_update_one (struct varobj *var,
+			      enum print_values print_values);
 
 /* VAROBJ operations */
 
@@ -60,14 +69,13 @@ mi_cmd_var_create (char *command, char **argv, int argc)
   struct block *block = NULL;
   struct cleanup *old_cleanups;
   struct cleanup *mi_out_cleanup;
-  enum varobj_type var_type;
+  enum varobj_type var_type = USE_SELECTED_FRAME;
 
   if (argc != 3)
     {
-      /*      xasprintf (&mi_error_message,
-         "mi_cmd_var_create: Usage: .");
-         return MI_CMD_ERROR; */
-      error ("mi_cmd_var_create: Usage: NAME FRAME EXPRESSION.");
+      /* mi_error_message = xstrprintf ("mi_cmd_var_create: Usage:
+         ...."); return MI_CMD_ERROR; */
+      error (_("mi_cmd_var_create: Usage: NAME FRAME EXPRESSION."));
     }
 
   name = xstrdup (argv[0]);
@@ -86,7 +94,7 @@ mi_cmd_var_create (char *command, char **argv, int argc)
       name = varobj_gen_name ();
     }
   else if (!isalpha (*name))
-    error ("mi_cmd_var_create: name of object must begin with a letter");
+    error (_("mi_cmd_var_create: name of object must begin with a letter"));
 
   if (strcmp (frame, "*") == 0)
     var_type = USE_CURRENT_FRAME;
@@ -94,9 +102,123 @@ mi_cmd_var_create (char *command, char **argv, int argc)
     var_type = USE_SELECTED_FRAME;
   else if (frame[0] == '+')
     {
-      var_type = USE_BLOCK_IN_FRAME;
-      frameaddr = string_to_core_addr (frame + 1);
-      block = block_for_pc (frameaddr);
+      /* The '+' indicates the variable is to be created by associating it with 
+         a block which can be done by address (+0x11223300) or by file:line 
+         (+foo.c:12).  */
+      char *block_addr = frame + 1;
+      volatile struct gdb_exception except;
+      
+      /* Check for hex digits only in the block address string.  */
+      if (strspn (block_addr, "0x123456789abcdefABCDEF") == strlen (block_addr))
+	{
+	  /* Only hex digits made up the block address string so we should
+	     only try and convert the string to a core address.  */
+	  TRY_CATCH (except, RETURN_MASK_ALL)
+	    {
+	      var_type = USE_BLOCK_IN_FRAME;
+	      frameaddr = string_to_core_addr (block_addr);
+	      block = block_for_pc (frameaddr);
+	    }
+	  if (except.reason < 0)
+	    {
+	      error ("mi_cmd_var_create: invalid address in block expression: "
+		     "\"%s\"", frame);
+	    }
+	}
+      else
+	{
+	  /* We have characters other than hex digits in the block address
+	     description so it must be a "file.ext:line" format.  */
+	  char *colon = strrchr (block_addr, ':');
+	  
+	  if (colon)
+	    {
+	      struct symtabs_and_lines sals = { NULL, 0 };
+	      struct cleanup *old_chain = NULL;
+
+	      TRY_CATCH (except, RETURN_MASK_ALL)
+		{
+		  /* The variable 's' will be advanced by decode_line_1.  */
+		  char *s = block_addr; 
+		  /* APPLE LOCAL begin return multiple symbols  */
+		  sals = decode_line_1 (&s, 1, (struct symtab *) NULL, 0, NULL, 
+					NULL, 0);
+		  /* APPLE LOCAL end return multiple symbols  */
+		}
+
+	      if (except.reason >= 0 && sals.nelts >= 1)
+		{
+		  old_chain = make_cleanup (xfree, sals.sals);
+		  
+		  /* Default to global scope unless we find a better match.  */
+		  var_type = NO_FRAME_NEEDED;
+		  block = BLOCKVECTOR_BLOCK (BLOCKVECTOR (sals.sals[0].symtab), 
+						 GLOBAL_BLOCK);
+
+		  unsigned long line = 0;
+		  char *line_number_str = colon + 1;
+		  if (strlen (line_number_str) > 0)
+		      line = strtoul (line_number_str, NULL, 0);
+		
+		  /* Get the currently selected frame for reference.  */
+		  struct frame_info *selected_frame = get_selected_frame (NULL);
+		  if (selected_frame)
+		    {
+		      unsigned i;
+		      struct symbol *func_sym;
+		      func_sym = get_frame_function (selected_frame);
+		      if (func_sym)
+			/* Iterate through all symtab_and_line structures 
+			   returned and find the one that has the same  
+			   function symbol as our frame.  */
+			for (i = 0; i < sals.nelts; i++)
+			  {
+			    struct symbol *sal_sym = 
+			      find_pc_sect_function (sals.sals[i].pc, 
+						     sals.sals[i].section);
+
+			    if (func_sym == sal_sym)
+			      {
+				/* If the requested line is less than the line
+				   found in the matching symtab_and_line 
+				   struct then we must use a global or static 
+				   as the scope since it doesn't fall within  
+				   the symtab_and_line struct that was 
+				   returned.  */
+				if (line && line < sal_sym->line)
+				  {
+				    /* Use a global scope.  */
+				    var_type = NO_FRAME_NEEDED;
+				    block = BLOCKVECTOR_BLOCK 
+					      (BLOCKVECTOR (sals.sals[i].symtab), 
+					       GLOBAL_BLOCK);
+				  }
+				else
+				  {
+				    /* We got a valid block match.  */
+				    var_type = USE_BLOCK_IN_FRAME;
+				    block = block_for_pc (sals.sals[i].pc);
+				    break;
+				  }
+			      }
+			  }
+		    }		    
+		}
+	      else
+		{
+		  error ("mi_cmd_var_create: invalid file and line in block "
+			 "expression: \"%s\"", frame);
+		}
+		
+	      if (old_chain)
+	       do_cleanups (old_chain);
+	    }
+	  else
+	    {
+	      error ("mi_cmd_var_create: missing ':' in file and line block "
+		     "expression: \"%s\"", frame);
+	    }
+	}
     }
   else
     {
@@ -324,7 +446,7 @@ mi_cmd_var_delete (char *command, char **argv, int argc)
   struct cleanup *old_cleanups;
 
   if (argc < 1 || argc > 2)
-    error ("mi_cmd_var_delete: Usage: [-c] EXPRESSION.");
+    error (_("mi_cmd_var_delete: Usage: [-c] EXPRESSION."));
 
   name = xstrdup (argv[0]);
   /* Add cleanup for name. Must be free_current_contents as
@@ -336,9 +458,9 @@ mi_cmd_var_delete (char *command, char **argv, int argc)
   if (argc == 1)
     {
       if (strcmp (name, "-c") == 0)
-	error ("mi_cmd_var_delete: Missing required argument after '-c': variable object name");
+	error (_("mi_cmd_var_delete: Missing required argument after '-c': variable object name"));
       if (*name == '-')
-	error ("mi_cmd_var_delete: Illegal variable object name");
+	error (_("mi_cmd_var_delete: Illegal variable object name"));
     }
 
   /* If we have 2 arguments they must be '-c' followed by a string
@@ -347,7 +469,7 @@ mi_cmd_var_delete (char *command, char **argv, int argc)
     {
       expr = xstrdup (argv[1]);
       if (strcmp (name, "-c") != 0)
-	error ("mi_cmd_var_delete: Invalid option.");
+	error (_("mi_cmd_var_delete: Invalid option."));
       children_only_p = 1;
       xfree (name);
       name = xstrdup (expr);
@@ -360,7 +482,7 @@ mi_cmd_var_delete (char *command, char **argv, int argc)
   var = varobj_get_handle (name);
 
   if (var == NULL)
-    error ("mi_cmd_var_delete: Variable object not found.");
+    error (_("mi_cmd_var_delete: Variable object not found."));
 
   numdel = varobj_delete (var, NULL, children_only_p);
 
@@ -379,17 +501,17 @@ mi_cmd_var_set_format (char *command, char **argv, int argc)
   char *formspec;
 
   if (argc != 2)
-    error ("mi_cmd_var_set_format: Usage: NAME FORMAT.");
+    error (_("mi_cmd_var_set_format: Usage: NAME FORMAT."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
 
   if (var == NULL)
-    error ("mi_cmd_var_set_format: Variable object not found");
+    error (_("mi_cmd_var_set_format: Variable object not found"));
 
   formspec = xstrdup (argv[1]);
   if (formspec == NULL)
-    error ("mi_cmd_var_set_format: Must specify the format as: \"natural\", \"binary\", \"decimal\", \"hexadecimal\", \"unsigned\", or \"octal\"");
+    error (_("mi_cmd_var_set_format: Must specify the format as: \"natural\", \"binary\", \"decimal\", \"hexadecimal\", \"unsigned\", or \"octal\""));
 
   len = strlen (formspec);
 
@@ -410,7 +532,7 @@ mi_cmd_var_set_format (char *command, char **argv, int argc)
   else if (strncmp (formspec, "OSType", len) == 0)
         format = FORMAT_OSTYPE;
   else
-    error ("mi_cmd_var_set_format: Unknown display format: must be: \"natural\", \"binary\", \"decimal\", \"hexadecimal\",  \"unsigned\", or \"octal\"");
+    error (_("mi_cmd_var_set_format: Unknown display format: must be: \"natural\", \"binary\", \"decimal\", \"hexadecimal\",  \"unsigned\", or \"octal\""));
 
   /* Set the format of VAR to given format */
   varobj_set_display_format (var, format);
@@ -427,12 +549,12 @@ mi_cmd_var_show_format (char *command, char **argv, int argc)
   struct varobj *var;
 
   if (argc != 1)
-    error ("mi_cmd_var_show_format: Usage: NAME.");
+    error (_("mi_cmd_var_show_format: Usage: NAME."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_show_format: Variable object not found");
+    error (_("mi_cmd_var_show_format: Variable object not found"));
 
   format = varobj_get_display_format (var);
 
@@ -447,15 +569,58 @@ mi_cmd_var_info_num_children (char *command, char **argv, int argc)
   struct varobj *var;
 
   if (argc != 1)
-    error ("mi_cmd_var_info_num_children: Usage: NAME.");
+    error (_("mi_cmd_var_info_num_children: Usage: NAME."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_info_num_children: Variable object not found");
+    error (_("mi_cmd_var_info_num_children: Variable object not found"));
 
   ui_out_field_int (uiout, "numchild", varobj_get_num_children (var));
   return MI_CMD_DONE;
+}
+
+/* Parse a string argument into a print_values value.  */
+
+static enum print_values
+mi_parse_values_option (const char *arg)
+{
+  if (strcmp (arg, "0") == 0
+      || strcmp (arg, mi_no_values) == 0)
+    return PRINT_NO_VALUES;
+  else if (strcmp (arg, "1") == 0
+	   || strcmp (arg, mi_all_values) == 0)
+    return PRINT_ALL_VALUES;
+  else if (strcmp (arg, "2") == 0
+	   || strcmp (arg, mi_simple_values) == 0)
+    return PRINT_SIMPLE_VALUES;
+  else
+    error (_("Unknown value for PRINT_VALUES\n\
+Must be: 0 or \"%s\", 1 or \"%s\", 2 or \"%s\""),
+	   mi_no_values, mi_simple_values, mi_all_values);
+}
+
+/* Return 1 if given the argument PRINT_VALUES we should display
+   a value of type TYPE.  */
+
+static int
+mi_print_value_p (struct type *type, enum print_values print_values)
+{
+  if (type != NULL)
+    type = check_typedef (type);
+
+  if (print_values == PRINT_NO_VALUES)
+    return 0;
+
+  if (print_values == PRINT_ALL_VALUES)
+    return 1;
+
+  /* For PRINT_SIMPLE_VALUES, only print the value if it has a type
+     and that type is not a compound type.  */
+
+  return (TYPE_CODE (type) != TYPE_CODE_ARRAY
+	  && TYPE_CODE (type) != TYPE_CODE_STRUCT
+	  && TYPE_CODE (type) != TYPE_CODE_UNION);
 }
 
 enum mi_cmd_result
@@ -550,7 +715,7 @@ mi_cmd_var_list_children (char *command, char **argv, int argc)
     var = varobj_get_handle (argv[0]);
 
   if (var == NULL)
-    error ("Variable object not found");
+    error (_("Variable object not found"));
 
   numchild = varobj_list_children (var, &childlist);
 
@@ -717,12 +882,12 @@ mi_cmd_var_info_block (char *command, char **argv, int argc)
   struct symtab_and_line sal;
   
   if (argc != 1)
-    error ("mi_cmd_var_info_type: Usage: NAME.");
+    error (_("mi_cmd_var_info_type: Usage: NAME."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_info_type: Variable object not found");
+    error (_("mi_cmd_var_info_type: Variable object not found"));
   
   varobj_get_valid_block (var, &block_start, &block_end);
 
@@ -748,12 +913,12 @@ mi_cmd_var_info_expression (char *command, char **argv, int argc)
   struct varobj *var;
 
   if (argc != 1)
-    error ("mi_cmd_var_info_expression: Usage: NAME.");
+    error (_("mi_cmd_var_info_expression: Usage: NAME."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_info_expression: Variable object not found");
+    error (_("mi_cmd_var_info_expression: Variable object not found"));
 
   lang = varobj_get_language (var);
 
@@ -770,12 +935,12 @@ mi_cmd_var_show_attributes (char *command, char **argv, int argc)
   struct varobj *var;
 
   if (argc != 1)
-    error ("mi_cmd_var_show_attributes: Usage: NAME.");
+    error (_("mi_cmd_var_show_attributes: Usage: NAME."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_show_attributes: Variable object not found");
+    error (_("mi_cmd_var_show_attributes: Variable object not found"));
 
   attr = varobj_get_attributes (var);
   /* FIXME: define masks for attributes */
@@ -813,7 +978,6 @@ mi_cmd_var_evaluate_expression (char *command, char **argv, int argc)
   else
     error ("mi_cmd_var_evaluate_expression: Usage: [-u] NAME.");
 
-
   /* Get varobj handle, if a valid var obj name was specified */
   
   old_chain = make_cleanup (null_cleanup, NULL);
@@ -822,7 +986,7 @@ mi_cmd_var_evaluate_expression (char *command, char **argv, int argc)
 
   var = varobj_get_handle (expr);
   if (var == NULL)
-    error ("mi_cmd_var_evaluate_expression: Variable object not found");
+    error (_("mi_cmd_var_evaluate_expression: Variable object not found"));
 
   ui_out_field_string (uiout, "value", varobj_get_value (var));
 
@@ -838,21 +1002,21 @@ mi_cmd_var_assign (char *command, char **argv, int argc)
   char *expression;
 
   if (argc != 2)
-    error ("mi_cmd_var_assign: Usage: NAME EXPRESSION.");
+    error (_("mi_cmd_var_assign: Usage: NAME EXPRESSION."));
 
   /* Get varobj handle, if a valid var obj name was specified */
   var = varobj_get_handle (argv[0]);
   if (var == NULL)
-    error ("mi_cmd_var_assign: Variable object not found");
+    error (_("mi_cmd_var_assign: Variable object not found"));
 
   /* FIXME: define masks for attributes */
   if (!(varobj_get_attributes (var) & 0x00000001))
-    error ("mi_cmd_var_assign: Variable object is not editable");
+    error (_("mi_cmd_var_assign: Variable object is not editable"));
 
   expression = xstrdup (argv[1]);
 
   if (!varobj_set_value (var, expression))
-    error ("mi_cmd_var_assign: Could not assign expression to varible object");
+    error (_("mi_cmd_var_assign: Could not assign expression to varible object"));
 
   ui_out_field_string (uiout, "value", varobj_get_value (var));
   return MI_CMD_DONE;
@@ -873,6 +1037,8 @@ prepare_tmp_mi_out ()
     }
 }
 
+/* APPLE LOCAL: Allow multiple varobj names. */
+
 enum mi_cmd_result
 mi_cmd_var_update (char *command, char **argv, int argc)
 {
@@ -881,11 +1047,18 @@ mi_cmd_var_update (char *command, char **argv, int argc)
   struct varobj **cr;
   struct cleanup *cleanup;
   int nv;
+  enum print_values print_values = PRINT_NO_VALUES;
 
   if (argc == 0)
-    error ("mi_cmd_var_update: Usage: NAME [NAME...].");
+    error (_("mi_cmd_var_update: Usage: [PRINT_VALUES] NAME [NAME...]."));
 
- 
+  if (argv[0][0] == '-')
+    {
+      print_values = mi_parse_values_option (argv[0]);
+      argv++;
+      argc--;
+    }
+
   prepare_tmp_mi_out ();
 
  /* Check if the parameter is a "*" which means that we want
@@ -894,7 +1067,7 @@ mi_cmd_var_update (char *command, char **argv, int argc)
   if ((argc == 1) && (*argv[0] == '*') && (*(argv[0] + 1) == '\0'))
     {
       nv = varobj_list (&rootlist);
-/* APPLE LOCAL: changelist is a list, not a tuple, in our mi1 */
+      /* APPLE LOCAL: changelist is a list, not a tuple, in our mi1 */
       cleanup = make_cleanup_ui_out_list_begin_end (uiout, "changelist");
       if (nv <= 0)
 	{
@@ -904,7 +1077,7 @@ mi_cmd_var_update (char *command, char **argv, int argc)
       cr = rootlist;
       while (*cr != NULL)
 	{
-	  varobj_update_one (*cr);
+	  varobj_update_one (*cr, print_values);
 	  cr++;
 	}
       xfree (rootlist);
@@ -912,7 +1085,7 @@ mi_cmd_var_update (char *command, char **argv, int argc)
     }
   else
     {
-/* APPLE LOCAL: -var-update accepts multiple varobj names, not just one. */
+      /* APPLE LOCAL: -var-update accepts multiple varobj names, not just one. */
       int i;
       cleanup = make_cleanup_ui_out_list_begin_end (uiout, "changelist");
 
@@ -924,7 +1097,7 @@ mi_cmd_var_update (char *command, char **argv, int argc)
 	    error ("mi_cmd_var_update: Variable object \"%s\" not found.",
 		   argv[i]);
 	  
-	  varobj_update_one (var);
+	  varobj_update_one (var, print_values);
 	}
       do_cleanups (cleanup);
     }
@@ -936,7 +1109,7 @@ mi_cmd_var_update (char *command, char **argv, int argc)
    scope), and 1 if it succeeds. */
 
 static int
-varobj_update_one (struct varobj *var)
+varobj_update_one (struct varobj *var, enum print_values print_values)
 {
   struct varobj_changelist *changelist;
   struct cleanup *cleanup = NULL;
@@ -1009,6 +1182,8 @@ varobj_update_one (struct varobj *var)
         /* APPLE LOCAL: each varobj tuple is named with VAROBJ; not anonymous */
 	  cleanup = make_cleanup_ui_out_tuple_begin_end (uiout, "varobj");
 	  ui_out_field_string (uiout, "name", varobj_get_objname (var));
+	  if (mi_print_value_p (varobj_get_gdb_type (var), print_values))
+	    ui_out_field_string (uiout, "value", varobj_get_value (var));
 	  ui_out_field_string (uiout, "in_scope", "true");
 	  if (type_changed == VAROBJ_TYPE_UNCHANGED)
 	    ui_out_field_string (uiout, "type_changed", "false");
@@ -1034,12 +1209,10 @@ varobj_update_one (struct varobj *var)
 void
 _initialize_mi_cmd_var (void)
 {
-  struct cmd_list_element *cmd;
-
-  cmd = add_set_cmd ("mi-show_protections", class_obscure, var_boolean, 
-		     (char *) &mi_show_protections,
-		     "Set whether to show \"public\", \"protected\" and \"private\" nodes in variable objects.",
-		     &setlist);
-  add_show_from_set (cmd, &showlist);
-
+  add_setshow_boolean_cmd ("mi-show-protections", class_obscure, &mi_show_protections,
+			   _("Set whether to show \"public\", \"protected\" and \"private\" nodes in variable objects."),
+			   _("Show whether to show \"public\", \"protected\" and \"private\" nodes in variable objects."),
+			   NULL,
+			   NULL, NULL, 
+			   &setlist, &showlist);
 }

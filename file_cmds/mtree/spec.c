@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,13 +27,13 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)spec.c	8.1 (Berkeley) 6/6/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/spec.c,v 1.13.2.1 2000/06/28 02:33:17 joe Exp $";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/spec.c,v 1.22 2005/03/29 11:44:17 tobez Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -48,6 +44,7 @@ static const char rcsid[] =
 #include <grp.h>
 #include <pwd.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <unistd.h>
 #include <vis.h>
 #include "mtree.h"
@@ -55,14 +52,14 @@ static const char rcsid[] =
 
 int lineno;				/* Current spec line number. */
 
-static void	 set __P((char *, NODE *));
-static void	 unset __P((char *, NODE *));
+static void	 set(char *, NODE *);
+static void	 unset(char *, NODE *);
 
 NODE *
-spec()
+mtree_readspec(FILE *fi)
 {
-	register NODE *centry, *last;
-	register char *p;
+	NODE *centry, *last;
+	char *p;
 	NODE ginfo, *root;
 	int c_cur, c_next;
 	char buf[2048];
@@ -70,7 +67,7 @@ spec()
 	centry = last = root = NULL;
 	bzero(&ginfo, sizeof(ginfo));
 	c_cur = c_next = 0;
-	for (lineno = 1; fgets(buf, sizeof(buf), stdin);
+	for (lineno = 1; fgets(buf, sizeof(buf), fi);
 	    ++lineno, c_cur = c_next, c_next = 0) {
 		/* Skip empty lines. */
 		if (buf[0] == '\n')
@@ -147,11 +144,8 @@ noparent:		errx(1, "line %d: no parent node", lineno);
 #define	MAGIC	"?*["
 		if (strpbrk(p, MAGIC))
 			centry->flags |= F_MAGIC;
-		if (strunvis(centry->name, p) == -1) {
-			warnx("filename %s is ill-encoded and literally used",
-			    p);
-			strcpy(centry->name, p);
-		}
+		if (strunvis(centry->name, p) == -1)
+			errx(1, "filename %s is ill-encoded", p);
 		set(NULL, centry);
 
 		if (!root) {
@@ -170,11 +164,9 @@ noparent:		errx(1, "line %d: no parent node", lineno);
 }
 
 static void
-set(t, ip)
-	char *t;
-	NODE *ip;
+set(char *t, NODE *ip)
 {
-	register int type;
+	int type;
 	char *kw, *val = NULL;
 	struct group *gr;
 	struct passwd *pw;
@@ -195,21 +187,23 @@ set(t, ip)
 			break;
 		case F_MD5:
 			ip->md5digest = strdup(val);
-			if(!ip->md5digest) {
+			if(!ip->md5digest)
 				errx(1, "strdup");
-			}
 			break;
 		case F_SHA1:
 			ip->sha1digest = strdup(val);
-			if(!ip->sha1digest) {
+			if(!ip->sha1digest)
 				errx(1, "strdup");
-			}
+			break;
+		case F_SHA256:
+			ip->sha256digest = strdup(val);
+			if(!ip->sha256digest)
+				errx(1, "strdup");
 			break;
 		case F_RMD160:
 			ip->rmd160digest = strdup(val);
-			if(!ip->rmd160digest) {
+			if(!ip->rmd160digest)
 				errx(1, "strdup");
-			}
 			break;
 		case F_FLAGS:
 			if (strcmp("none", val) == 0)
@@ -250,8 +244,11 @@ set(t, ip)
 				lineno, val);
 			break;
 		case F_SLINK:
-			if ((ip->slink = strdup(val)) == NULL)
-				errx(1, "strdup");
+			ip->slink = malloc(strlen(val) + 1);
+			if (ip->slink == NULL)
+				errx(1, "malloc");
+			if (strunvis(ip->slink, val) == -1)
+				errx(1, "symlink %s is ill-encoded", val);
 			break;
 		case F_TIME:
 			ip->st_mtimespec.tv_sec = strtoul(val, &ep, 10);
@@ -312,11 +309,9 @@ set(t, ip)
 }
 
 static void
-unset(t, ip)
-	char *t;
-	register NODE *ip;
+unset(char *t, NODE *ip)
 {
-	register char *p;
+	char *p;
 
 	while ((p = strtok(t, "\n\t ")))
 		ip->flags &= ~parsekey(p, NULL);

@@ -26,24 +26,24 @@
 #define _LU_HOST_H_
 
 #include <sys/cdefs.h>
+#include "lu_utils.h"
 
-
-#define WANT_NOTHING 0xfeedface
-#define WANT_A4_ONLY 0
-#define WANT_A6_ONLY 1
-#define WANT_A6_PLUS_MAPPED_A4 2
-#define WANT_MAPPED_A4_ONLY 3
+#define WANT_NOTHING 0
+#define WANT_A4_ONLY 1
+#define WANT_A6_ONLY 2
+#define WANT_A6_PLUS_MAPPED_A4 3
+#define WANT_MAPPED_A4_ONLY 4
 
 /* ONLY TO BE USED BY getipv6nodebyaddr */
-#define WANT_A6_OR_MAPPED_A4_IF_NO_A6 -1
+#define WANT_A6_OR_MAPPED_A4_IF_NO_A6 5
 
 
 __BEGIN_DECLS
 
 void free_host_data(struct hostent *h);
-struct hostent * extract_host(XDR *xdr, int want, int *err);
-struct hostent * fake_hostent(const char *name, struct in_addr addr);
-struct hostent * fake_hostent6(const char *name, struct in6_addr addr);
+struct hostent *extract_host(kvarray_t *in, int want);
+struct hostent *fake_hostent(const char *name, struct in_addr addr);
+struct hostent *fake_hostent6(const char *name, struct in6_addr addr);
 int is_a4_mapped(const char *s);
 int is_a4_compat(const char *s);
 

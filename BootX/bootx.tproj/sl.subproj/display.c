@@ -28,6 +28,7 @@
  */
 
 #include <sl.h>
+#include <IOKit/IOHibernatePrivate.h>
 
 #include "clut.h"
 #include "appleboot.h"
@@ -193,6 +194,140 @@ long DrawSplashScreen(long stage)
   return 0;
 }
 
+DECLARE_IOHIBERNATEPROGRESSALPHA
+
+void SplashPreview(void *src, uint8_t * saveunder, uint32_t savelen)
+{
+  DisplayInfoPtr display;
+  uint8_t *  screen;
+  uint32_t   rowBytes, pixelShift;
+  uint32_t   x, y;
+  int32_t    blob;
+  uint32_t   alpha, in, color, result;
+  uint8_t *  out;
+  uint32_t   saveindex[kIOHibernateProgressCount] = { 0 };
+  
+  if (InitDisplays(0) != 0)  return;
+  if (gMainDisplayNum == -1) return;
+
+  display = &gDisplays[gMainDisplayNum];
+  screen = (uint8_t *) display->address;
+  rowBytes = display->linebytes;
+  if (!src || !DecompressData(src, (void *) screen, 
+                    display->width, display->height,
+                    display->depth >> 3, rowBytes))
+  {
+    // Set the screen to 75% grey.
+    CallMethod(5, 0, display->screenIH, "fill-rectangle",
+            LookUpCLUTIndex(0x01, display->depth),
+            0, 0, display->width, display->height);
+    DrawSplashScreen(0);
+  }
+
+  pixelShift = display->depth >> 4;
+  if (pixelShift < 1) return;
+
+  screen += ((display->width 
+          - kIOHibernateProgressCount * (kIOHibernateProgressWidth + kIOHibernateProgressSpacing)) << (pixelShift - 1))
+              + (display->height - kIOHibernateProgressOriginY - kIOHibernateProgressHeight) * rowBytes;
+  
+  for (y = 0; y < kIOHibernateProgressHeight; y++)
+  {
+    out = screen + y * rowBytes;
+    for (blob = 0; blob < kIOHibernateProgressCount; blob++)
+    {
+      color = blob ? kIOHibernateProgressDarkGray : kIOHibernateProgressMidGray;
+      for (x = 0; x < kIOHibernateProgressWidth; x++)
+      {
+        alpha  = gIOHibernateProgressAlpha[y][x];
+        result = color;
+        if (alpha)
+        {
+          if (0xff != alpha)
+          {
+            if (1 == pixelShift)
+            {
+              in = *((uint16_t *)out) & 0x1f;	// 16
+              in = (in << 3) | (in >> 2);
+            }
+            else
+                in = *((uint32_t *)out) & 0xff;	// 32
+            saveunder[blob * kIOHibernateProgressSaveUnderSize + saveindex[blob]++] = in;
+            result = ((255 - alpha) * in + alpha * result + 0xff) >> 8;
+          }
+          if (1 == pixelShift)
+          {
+            result >>= 3;
+            *((uint16_t *)out) = (result << 10) | (result << 5) | result;	// 16
+          }
+          else
+            *((uint32_t *)out) = (result << 16) | (result << 8) | result;	// 32
+        }
+        out += (1 << pixelShift);
+      }
+      out += (kIOHibernateProgressSpacing << pixelShift);
+    }
+  }
+}
+
+void SplashProgress(uint8_t * saveunder, int32_t firstBlob, int32_t select)
+{
+  DisplayInfoPtr display;
+  uint8_t * screen;
+  uint32_t  rowBytes, pixelShift;
+  uint32_t  x, y;
+  int32_t   blob, lastBlob;
+  uint32_t  alpha, in, color, result;
+  uint8_t * out;
+  uint32_t  saveindex[kIOHibernateProgressCount] = { 0 };
+
+  if (gMainDisplayNum == -1) return;
+
+  display = &gDisplays[gMainDisplayNum];
+  pixelShift = display->depth >> 4;
+  if (pixelShift < 1) return;
+  screen = (uint8_t *) display->address;
+  rowBytes = display->linebytes;
+
+  screen += ((display->width 
+          - kIOHibernateProgressCount * (kIOHibernateProgressWidth + kIOHibernateProgressSpacing)) << (pixelShift - 1))
+              + (display->height - kIOHibernateProgressOriginY - kIOHibernateProgressHeight) * rowBytes;
+
+  lastBlob  = (select < kIOHibernateProgressCount) ? select : (kIOHibernateProgressCount - 1);
+
+  screen += (firstBlob * (kIOHibernateProgressWidth + kIOHibernateProgressSpacing)) << pixelShift;
+
+  for (y = 0; y < kIOHibernateProgressHeight; y++)
+  {
+    out = screen + y * rowBytes;
+    for (blob = firstBlob; blob <= lastBlob; blob++)
+    {
+      color = (blob < select) ? kIOHibernateProgressLightGray : kIOHibernateProgressMidGray;
+      for (x = 0; x < kIOHibernateProgressWidth; x++)
+      {
+        alpha  = gIOHibernateProgressAlpha[y][x];
+        result = color;
+        if (alpha)
+        {
+          if (0xff != alpha)
+          {
+            in = saveunder[blob * kIOHibernateProgressSaveUnderSize + saveindex[blob]++];
+            result = ((255 - alpha) * in + alpha * result + 0xff) / 255;
+          }
+          if (1 == pixelShift)
+          {
+            result >>= 3;
+            *((uint16_t *)out) = (result << 10) | (result << 5) | result;	// 16
+          }
+          else
+            *((uint32_t *)out) = (result << 16) | (result << 8) | result;	// 32
+        }
+        out += (1 << pixelShift);
+      }
+      out += (kIOHibernateProgressSpacing << pixelShift);
+    }
+  }
+}
 
 long DrawFailedBootPicture(void)
 {

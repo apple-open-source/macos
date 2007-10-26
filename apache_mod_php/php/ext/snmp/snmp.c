@@ -1,26 +1,26 @@
 /*
-  +----------------------------------------------------------------------+
-  | PHP Version 4                                                        |
-  +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2007 The PHP Group                                |
-  +----------------------------------------------------------------------+
-  | This source file is subject to version 3.01 of the PHP license,      |
-  | that is bundled with this package in the file LICENSE, and is        |
-  | available through the world-wide-web at the following url:           |
-  | http://www.php.net/license/3_01.txt                                  |
-  | If you did not receive a copy of the PHP license and are unable to   |
-  | obtain it through the world-wide-web, please send a note to          |
-  | license@php.net so we can mail you a copy immediately.               |
-  +----------------------------------------------------------------------+
-  | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
-  |          Mike Jackson <mhjack@tscnet.com>                            |
-  |          Steven Lawrance <slawrance@technologist.com>                |
-  |          Harrie Hazewinkel <harrie@lisanza.net>                      |
-  |          Johann Hanne <jonny@nurfuerspam.de>                         |
-  +----------------------------------------------------------------------+
-*/
+   +----------------------------------------------------------------------+
+   | PHP Version 5                                                        |
+   +----------------------------------------------------------------------+
+   | Copyright (c) 1997-2007 The PHP Group                                |
+   +----------------------------------------------------------------------+
+   | This source file is subject to version 3.01 of the PHP license,      |
+   | that is bundled with this package in the file LICENSE, and is        |
+   | available through the world-wide-web at the following url:           |
+   | http://www.php.net/license/3_01.txt                                  |
+   | If you did not receive a copy of the PHP license and are unable to   |
+   | obtain it through the world-wide-web, please send a note to          |
+   | license@php.net so we can mail you a copy immediately.               |
+   +----------------------------------------------------------------------+
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Mike Jackson <mhjack@tscnet.com>                            |
+   |          Steven Lawrance <slawrance@technologist.com>                |
+   |          Harrie Hazewinkel <harrie@lisanza.net>                      |
+   |          Johann Hanne <jonny@nurfuerspam.de>                         |
+   +----------------------------------------------------------------------+
+ */
 
-/* $Id: snmp.c,v 1.70.2.22.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: snmp.c,v 1.106.2.2.2.5 2007/07/09 13:42:05 jani Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -34,24 +34,18 @@
 
 #include <sys/types.h>
 #ifdef PHP_WIN32
-#include <winsock.h>
+#include <winsock2.h>
 #include <errno.h>
 #include <process.h>
 #include "win32/time.h"
 #elif defined(NETWARE)
 #ifdef USE_WINSOCK
-/*#include <ws2nlm.h>*/
 #include <novsock2.h>
 #else
 #include <sys/socket.h>
 #endif
 #include <errno.h>
-/*#include <process.h>*/
-#ifdef NEW_LIBC
 #include <sys/timeval.h>
-#else
-#include "netware/time_nw.h"
-#endif
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -91,7 +85,11 @@
 #include "keytools.h"
 #include "parse.h"
 #include "mib.h"
-#include "version.h"
+#ifndef PHP_WIN32
+/* this doesn't appear to be needed under win32 (perhaps at all)
+ * and the header file is not present in my UCD-SNMP headers */
+# include "version.h"
+#endif
 #include "transform_oids.h"
 #endif
 /* Ugly macro, since the length of OIDs in UCD-SNMP and NET-SNMP
@@ -104,25 +102,21 @@
 #define snmp_parse_oid read_objid
 #endif
 
-/* ucd-snmp 3.3.1 changed the name of a few #defines... They've been changed back to the original ones in 3.5.3! */
-#ifndef SNMP_MSG_GET
-#define SNMP_MSG_GET GET_REQ_MSG
-#define SNMP_MSG_GETNEXT GETNEXT_REQ_MSG
-#endif
-
 #define SNMP_VALUE_LIBRARY	0
 #define SNMP_VALUE_PLAIN	1
 #define SNMP_VALUE_OBJECT	2
 
 ZEND_DECLARE_MODULE_GLOBALS(snmp)
+static PHP_GINIT_FUNCTION(snmp);
 
 /* constant - can be shared among threads */
 static oid objid_mib[] = {1, 3, 6, 1, 2, 1};
 
 /* {{{ snmp_functions[]
  */
-function_entry snmp_functions[] = {
+zend_function_entry snmp_functions[] = {
 	PHP_FE(snmpget, NULL)
+	PHP_FE(snmpgetnext, NULL)
 	PHP_FE(snmpwalk, NULL)
 	PHP_FE(snmprealwalk, NULL)
 	PHP_FALIAS(snmpwalkoid, snmprealwalk, NULL)
@@ -130,24 +124,35 @@ function_entry snmp_functions[] = {
 	PHP_FE(snmp_set_quick_print, NULL)
 #ifdef HAVE_NET_SNMP
 	PHP_FE(snmp_set_enum_print, NULL)
-	PHP_FE(snmp_set_oid_numeric_print, NULL)
+	PHP_FE(snmp_set_oid_output_format, NULL)
+	PHP_FALIAS(snmp_set_oid_numeric_print, snmp_set_oid_output_format, NULL)
 #endif
 	PHP_FE(snmpset, NULL)
 
 	PHP_FE(snmp2_get, NULL)
+	PHP_FE(snmp2_getnext, NULL)
 	PHP_FE(snmp2_walk, NULL)
 	PHP_FE(snmp2_real_walk, NULL)
 	PHP_FE(snmp2_set, NULL)
 
 	PHP_FE(snmp3_get, NULL)
+	PHP_FE(snmp3_getnext, NULL)
 	PHP_FE(snmp3_walk, NULL)
 	PHP_FE(snmp3_real_walk, NULL)
 	PHP_FE(snmp3_set, NULL)
 	PHP_FE(snmp_set_valueretrieval, NULL)
 	PHP_FE(snmp_get_valueretrieval, NULL)
+
+	PHP_FE(snmp_read_mib, NULL)
 	{NULL,NULL,NULL}
 };
 /* }}} */
+
+#define SNMP_CMD_GET		1
+#define SNMP_CMD_GETNEXT	2
+#define SNMP_CMD_WALK		3
+#define SNMP_CMD_REALWALK	4
+#define SNMP_CMD_SET		11
 
 /* {{{ snmp_module_entry
  */
@@ -156,12 +161,16 @@ zend_module_entry snmp_module_entry = {
 	"snmp",
 	snmp_functions,
 	PHP_MINIT(snmp),
-	NULL,
+	PHP_MSHUTDOWN(snmp),
 	NULL,
 	NULL,
 	PHP_MINFO(snmp),
 	NO_VERSION_YET,
-	STANDARD_MODULE_PROPERTIES
+	PHP_MODULE_GLOBALS(snmp),
+	PHP_GINIT(snmp),
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
 };
 /* }}} */
 
@@ -171,11 +180,11 @@ ZEND_GET_MODULE(snmp)
 
 /* THREAD_LS snmp_module php_snmp_module; - may need one of these at some point */
 
-/* {{{ php_snmp_init_globals
+/* {{{ PHP_GINIT_FUNCTION
  */
-static void php_snmp_init_globals(zend_snmp_globals *snmp_globals)
+static PHP_GINIT_FUNCTION(snmp)
 {
-	snmp_globals->valueretrieval = 0;
+	snmp_globals->valueretrieval = SNMP_VALUE_LIBRARY;
 }
 /* }}} */
 
@@ -185,7 +194,15 @@ PHP_MINIT_FUNCTION(snmp)
 {
 	init_snmp("snmpapp");
 
-	ZEND_INIT_MODULE_GLOBALS(snmp, php_snmp_init_globals, NULL);
+#ifdef NETSNMP_DS_LIB_DONT_PERSIST_STATE
+	/* Prevent update of the snmpapp.conf file */
+	netsnmp_ds_set_boolean(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_DONT_PERSIST_STATE, 1);
+#endif
+
+#ifdef HAVE_NET_SNMP
+	REGISTER_LONG_CONSTANT("SNMP_OID_OUTPUT_FULL", NETSNMP_OID_OUTPUT_FULL, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("SNMP_OID_OUTPUT_NUMERIC", NETSNMP_OID_OUTPUT_NUMERIC, CONST_CS | CONST_PERSISTENT);
+#endif
 
 	REGISTER_LONG_CONSTANT("SNMP_VALUE_LIBRARY", SNMP_VALUE_LIBRARY, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SNMP_VALUE_PLAIN", SNMP_VALUE_PLAIN, CONST_CS | CONST_PERSISTENT);
@@ -203,6 +220,16 @@ PHP_MINIT_FUNCTION(snmp)
 	REGISTER_LONG_CONSTANT("SNMP_UINTEGER", ASN_UINTEGER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SNMP_INTEGER", ASN_INTEGER, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("SNMP_COUNTER64", ASN_COUNTER64, CONST_CS | CONST_PERSISTENT);
+
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ PHP_MSHUTDOWN_FUNCTION
+ */
+PHP_MSHUTDOWN_FUNCTION(snmp)
+{
+	snmp_shutdown("snmpapp");
 
 	return SUCCESS;
 }
@@ -235,7 +262,7 @@ static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_D
 
 	buf[0] = 0;
 
-	if (SNMP_G(valueretrieval) == 0) {
+	if (SNMP_G(valueretrieval) == SNMP_VALUE_LIBRARY) {
 #ifdef HAVE_NET_SNMP
 		snprint_value(buf, sizeof(buf), vars->name, vars->name_length, vars);
 #else
@@ -305,7 +332,7 @@ static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_D
 		break;
 	}
 
-	if (SNMP_G(valueretrieval) == 1) {
+	if (SNMP_G(valueretrieval) == SNMP_VALUE_PLAIN) {
 		*snmpval = *val;
 		zval_copy_ctor(snmpval);
 	} else {
@@ -319,19 +346,20 @@ static void php_snmp_getvalue(struct variable_list *vars, zval *snmpval TSRMLS_D
 *
 * Generic SNMP object fetcher (for all SNMP versions)
 *
-* st=1   snmpget()  - query an agent and return a single value.
-* st=2   snmpwalk() - walk the mib and return a single dimensional array 
-*                     containing the values.
-* st=3   snmprealwalk() and snmpwalkoid() - walk the mib and return an 
-*                                           array of oid,value pairs.
-* st=5-8 ** Reserved **
-* st=11  snmpset()  - query an agent and set a single value
+* st=SNMP_CMD_GET   get - query an agent with SNMP-GET.
+* st=SNMP_CMD_GETNEXT   getnext - query an agent with SNMP-GETNEXT.
+* st=SNMP_CMD_WALK   walk - walk the mib and return a single dimensional array 
+*          containing the values.
+* st=SNMP_CMD_REALWALK   realwalk() and walkoid() - walk the mib and return an 
+*          array of oid,value pairs.
+* st=SNMP_CMD_SET  set() - query an agent and set a single value
 *
 */
-static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
-		int st,
-		struct snmp_session *session,
-		char *objid, char type, char* value) 
+static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS, int st, 
+							struct snmp_session *session,
+							char *objid,
+							char type,
+							char* value) 
 {
 	struct snmp_session *ss;
 	struct snmp_pdu *pdu=NULL, *response;
@@ -348,7 +376,7 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 	char *err;
 	zval *snmpval = NULL;
 
-	if (st >= 2) { /* walk */
+	if (st >= SNMP_CMD_WALK) { /* walk */
 		rootlen = MAX_NAME_LEN;
 		if (strlen(objid)) { /* on a walk, an empty string means top of tree - no error */
 			if (snmp_parse_oid(objid, root, &rootlen)) {
@@ -372,12 +400,12 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 		RETURN_FALSE;
 	}
 
-	if (st >= 2) {
+	if (st >= SNMP_CMD_WALK) {
 		memmove((char *)name, (char *)root, rootlen * sizeof(oid));
 		name_length = rootlen;
 		switch(st) {
-			case 2:
-			case 3:
+			case SNMP_CMD_WALK:
+			case SNMP_CMD_REALWALK:
 				array_init(return_value);
 				break;
 			default:
@@ -388,8 +416,8 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 
 	while (keepwalking) {
 		keepwalking = 0;
-		if (st == 1) {
-			pdu = snmp_pdu_create(SNMP_MSG_GET);
+		if ((st == SNMP_CMD_GET) || (st == SNMP_CMD_GETNEXT)) {
+			pdu = snmp_pdu_create((st == SNMP_CMD_GET) ? SNMP_MSG_GET : SNMP_MSG_GETNEXT);
 			name_length = MAX_OID_LEN;
 			if (!snmp_parse_oid(objid, name, &name_length)) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid object identifier: %s", objid);
@@ -397,7 +425,7 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 				RETURN_FALSE;
 			}
 			snmp_add_null_var(pdu, name, name_length);
-		} else if (st == 11) {
+		} else if (st == SNMP_CMD_SET) {
 			pdu = snmp_pdu_create(SNMP_MSG_SET);
 			if (snmp_add_var(pdu, name, name_length, type, value)) {
 #ifdef HAVE_NET_SNMP
@@ -409,8 +437,14 @@ static void php_snmp_internal(INTERNAL_FUNCTION_PARAMETERS,
 				snmp_close(ss);
 				RETURN_FALSE;
 			}
-		} else if (st >= 2) {
-			pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
+		} else if (st >= SNMP_CMD_WALK) {
+			if (session->version == SNMP_VERSION_1) {
+				pdu = snmp_pdu_create(SNMP_MSG_GETNEXT);
+			} else {
+				pdu = snmp_pdu_create(SNMP_MSG_GETBULK);
+				pdu->non_repeaters = 0;
+				pdu->max_repetitions = 20;
+			}
 			snmp_add_null_var(pdu, name, name_length);
 		}
 
@@ -419,25 +453,30 @@ retry:
 		if (status == STAT_SUCCESS) {
 			if (response->errstat == SNMP_ERR_NOERROR) {
 				for (vars = response->variables; vars; vars = vars->next_variable) {
-					if (st >= 2 && st != 11 && 
+					if (st >= SNMP_CMD_WALK && st != SNMP_CMD_SET && 
 						(vars->name_length < rootlen || memcmp(root, vars->name, rootlen * sizeof(oid)))) {
 						continue;       /* not part of this subtree */
 					}
 
-					if (st != 11) {
+					if (st != SNMP_CMD_SET) {
 						MAKE_STD_ZVAL(snmpval);
 						php_snmp_getvalue(vars, snmpval TSRMLS_CC);
 					}
 
-					if (st == 1) {
+					if (st == SNMP_CMD_GET) {
 						*return_value = *snmpval;
 						zval_copy_ctor(return_value);
 						zval_ptr_dtor(&snmpval);
 						snmp_close(ss);
 						return;
-					} else if (st == 2) {
+					} else if (st == SNMP_CMD_GETNEXT) {
+						*return_value = *snmpval;
+						zval_copy_ctor(return_value);
+						snmp_close(ss);
+						return;
+					} else if (st == SNMP_CMD_WALK) {
 						add_next_index_zval(return_value,snmpval); /* Add to returned array */
-					} else if (st == 3)  {
+					} else if (st == SNMP_CMD_REALWALK)  {
 #ifdef HAVE_NET_SNMP
 						snprint_objid(buf2, sizeof(buf2), vars->name, vars->name_length);
 #else
@@ -445,7 +484,7 @@ retry:
 #endif
 						add_assoc_zval(return_value,buf2,snmpval);
 					}
-					if (st >= 2 && st != 11) {
+					if (st >= SNMP_CMD_WALK && st != SNMP_CMD_SET) {
 						if (vars->type != SNMP_ENDOFMIBVIEW && 
 							vars->type != SNMP_NOSUCHOBJECT && vars->type != SNMP_NOSUCHINSTANCE) {
 							memmove((char *)name, (char *)vars->name,vars->name_length * sizeof(oid));
@@ -455,7 +494,7 @@ retry:
 					}
 				}	
 			} else {
-				if (st != 2 || response->errstat != SNMP_ERR_NOSUCHNAME) {
+				if (st != SNMP_CMD_WALK || response->errstat != SNMP_ERR_NOSUCHNAME) {
 					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error in packet: %s", snmp_errstring(response->errstat));
 					if (response->errstat == SNMP_ERR_NOSUCHNAME) {
 						for (count=1, vars = response->variables; vars && count != response->errindex;
@@ -469,33 +508,42 @@ retry:
 						}
 						php_error_docref(NULL TSRMLS_CC, E_WARNING, "This name does not exist: %s",buf);
 					}
-					if (st == 1) {
+					if (st == SNMP_CMD_GET) {
 						if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GET)) != NULL) {
 							goto retry;
 						}
-					} else if (st == 11) {
+					} else if (st == SNMP_CMD_SET) {
 						if ((pdu = snmp_fix_pdu(response, SNMP_MSG_SET)) != NULL) {
 							goto retry;
 						}
-					} else if (st >= 2) {
+					} else if (st == SNMP_CMD_GETNEXT) {
 						if ((pdu = snmp_fix_pdu(response, SNMP_MSG_GETNEXT)) != NULL) {
+							goto retry;
+						}
+					} else if (st >= SNMP_CMD_WALK) { /* Here we do walks. */
+						if ((pdu = snmp_fix_pdu(response, ((session->version == SNMP_VERSION_1)
+										? SNMP_MSG_GETNEXT
+										: SNMP_MSG_GETBULK))) != NULL) {
 							goto retry;
 						}
 					}
 					snmp_close(ss);
+					if (st == SNMP_CMD_WALK || st == SNMP_CMD_REALWALK) {
+						zval_dtor(return_value);
+					}
 					RETURN_FALSE;
 				}
 			}
 		} else if (status == STAT_TIMEOUT) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "No response from %s", session->peername);
-			if (st == 2 || st == 3) {
+			if (st == SNMP_CMD_WALK || st == SNMP_CMD_REALWALK) {
 				zval_dtor(return_value);
 			}
 			snmp_close(ss);
 			RETURN_FALSE;
 		} else {    /* status == STAT_ERROR */
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "An error occurred, quitting");
-			if (st == 2 || st == 3) {
+			if (st == SNMP_CMD_WALK || st == SNMP_CMD_REALWALK) {
 				zval_dtor(return_value);
 			}
 			snmp_close(ss);
@@ -515,13 +563,14 @@ retry:
 * This function makes use of the internal SNMP object fetcher.
 * The object fetcher is shared with SNMPv3.
 *
-* st=1   snmpget() - query an agent and return a single value.
-* st=2   snmpwalk() - walk the mib and return a single dimensional array 
+* st=SNMP_CMD_GET   get - query an agent with SNMP-GET.
+* st=SNMP_CMD_GETNEXT   getnext - query an agent with SNMP-GETNEXT.
+* st=SNMP_CMD_WALK   walk - walk the mib and return a single dimensional array 
 *          containing the values.
-* st=3 snmprealwalk() and snmpwalkoid() - walk the mib and return an 
+* st=SNMP_CMD_REALWALK   realwalk() and walkoid() - walk the mib and return an 
 *          array of oid,value pairs.
 * st=5-8 ** Reserved **
-* st=11  snmpset() - query an agent and set a single value
+* st=SNMP_CMD_SET  set() - query an agent and set a single value
 *
 */
 static void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st, int version) 
@@ -546,7 +595,7 @@ static void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st, int version)
 	convert_to_string_ex(a2);
 	convert_to_string_ex(a3);
 	
-	if (st == 11) {
+	if (st == SNMP_CMD_SET) {
 		if (myargc < 5) {
 			WRONG_PARAM_COUNT;
 		}
@@ -612,7 +661,15 @@ static void php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st, int version)
    Fetch a SNMP object */
 PHP_FUNCTION(snmpget)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,1, SNMP_VERSION_1);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_GET, SNMP_VERSION_1);
+}
+/* }}} */
+
+/* {{{ proto string snmpgetnext(string host, string community, string object_id [, int timeout [, int retries]]) 
+   Fetch a SNMP object */
+PHP_FUNCTION(snmpgetnext)
+{
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_GETNEXT, SNMP_VERSION_1);
 }
 /* }}} */
 
@@ -620,7 +677,7 @@ PHP_FUNCTION(snmpget)
    Return all objects under the specified object id */
 PHP_FUNCTION(snmpwalk)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,2, SNMP_VERSION_1);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_WALK, SNMP_VERSION_1);
 }
 /* }}} */
 
@@ -628,7 +685,7 @@ PHP_FUNCTION(snmpwalk)
    Return all objects including their respective object id withing the specified one */
 PHP_FUNCTION(snmprealwalk)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,3, SNMP_VERSION_1);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_REALWALK, SNMP_VERSION_1);
 }
 /* }}} */
 
@@ -683,9 +740,9 @@ PHP_FUNCTION(snmp_set_enum_print)
 } 
 /* }}} */
 
-/* {{{ proto void snmp_set_oid_numeric_print(int oid_numeric_print)
-   Return all objects including their respective object id withing the specified one */
-PHP_FUNCTION(snmp_set_oid_numeric_print)
+/* {{{ proto void snmp_set_oid_output_format(int oid_format)
+   Set the OID output format. */
+PHP_FUNCTION(snmp_set_oid_output_format)
 {
 	int argc = ZEND_NUM_ARGS();
 	long a1;
@@ -693,11 +750,20 @@ PHP_FUNCTION(snmp_set_oid_numeric_print)
 	if (zend_parse_parameters(argc TSRMLS_CC, "l", &a1) == FAILURE) {
 		return;
 	}
-	if ((int) a1 != 0) {
-		netsnmp_ds_set_int(NETSNMP_DS_LIBRARY_ID,
-			NETSNMP_DS_LIB_OID_OUTPUT_FORMAT,
-			NETSNMP_OID_OUTPUT_NUMERIC);
+
+	switch ((int) a1) {
+		case 0:
+		case NETSNMP_OID_OUTPUT_FULL:
+			a1 = NETSNMP_OID_OUTPUT_FULL;
+			break;
+
+		default:
+		case NETSNMP_OID_OUTPUT_NUMERIC:
+			a1 = NETSNMP_OID_OUTPUT_NUMERIC;
+			break;
 	}
+
+	netsnmp_ds_set_int(NETSNMP_DS_LIBRARY_ID, NETSNMP_DS_LIB_OID_OUTPUT_FORMAT, a1);
 } 
 /* }}} */
 #endif
@@ -706,7 +772,7 @@ PHP_FUNCTION(snmp_set_oid_numeric_print)
    Set the value of a SNMP object */
 PHP_FUNCTION(snmpset)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,11, SNMP_VERSION_1);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_SET, SNMP_VERSION_1);
 }
 /* }}} */
 
@@ -786,10 +852,14 @@ static int netsnmp_session_set_sec_protocol(struct snmp_session *s, char *prot T
 * 
 * As we want this extension to compile on both versions, we use the latter
 * symbol on purpose, as it's defined to be the same as the former.
+*
+* However, in 5.2 the type of usmAES128PrivProtocol is a pointer, not an
+* array, so we cannot use the OIDSIZE macro because it uses sizeof().
+*
 */
 			|| !strcasecmp(prot, "AES")) {
 			s->securityPrivProto = usmAES128PrivProtocol;
-			s->securityPrivProtoLen = OIDSIZE(usmAES128PrivProtocol);
+			s->securityPrivProtoLen = USM_PRIV_PROTO_AES128_LEN;
 			return (0);
 #else			
 		) {
@@ -879,7 +949,15 @@ static int netsnmp_session_gen_sec_key(struct snmp_session *s, u_char *pass TSRM
    Fetch a SNMP object */
 PHP_FUNCTION(snmp2_get)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,1, SNMP_VERSION_2c);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_GET, SNMP_VERSION_2c);
+}
+/* }}} */
+
+/* {{{ proto string snmp2_getnext(string host, string community, string object_id [, int timeout [, int retries]]) 
+   Fetch a SNMP object */
+PHP_FUNCTION(snmp2_getnext)
+{
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_GETNEXT, SNMP_VERSION_2c);
 }
 /* }}} */
 
@@ -887,7 +965,7 @@ PHP_FUNCTION(snmp2_get)
    Return all objects under the specified object id */
 PHP_FUNCTION(snmp2_walk)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,2, SNMP_VERSION_2c);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_WALK, SNMP_VERSION_2c);
 }
 /* }}} */
 
@@ -895,7 +973,7 @@ PHP_FUNCTION(snmp2_walk)
    Return all objects including their respective object id withing the specified one */
 PHP_FUNCTION(snmp2_real_walk)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,3, SNMP_VERSION_2c);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_REALWALK, SNMP_VERSION_2c);
 }
 /* }}} */
 
@@ -903,7 +981,7 @@ PHP_FUNCTION(snmp2_real_walk)
    Set the value of a SNMP object */
 PHP_FUNCTION(snmp2_set)
 {
-	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,11, SNMP_VERSION_2c);
+	php_snmp(INTERNAL_FUNCTION_PARAM_PASSTHRU,SNMP_CMD_SET, SNMP_VERSION_2c);
 }
 /* }}} */
 
@@ -912,12 +990,13 @@ PHP_FUNCTION(snmp2_set)
 * Generic SNMPv3 object fetcher
 * From here is passed on the the common internal object fetcher.
 *
-* st=1   snmp3_get() - query an agent and return a single value.
-* st=2   snmp3_walk() - walk the mib and return a single dimensional array 
+* st=SNMP_CMD_GET   snmp3_get() - query an agent and return a single value.
+* st=SNMP_CMD_GETNEXT   snmp3_getnext() - query an agent and return the next single value.
+* st=SNMP_CMD_WALK   snmp3_walk() - walk the mib and return a single dimensional array 
 *                       containing the values.
-* st=3   snmp3_real_walk() - walk the mib and return an 
+* st=SNMP_CMD_REALWALK   snmp3_real_walk() - walk the mib and return an 
 *                            array of oid,value pairs.
-* st=11  snmp3_set() - query an agent and set a single value
+* st=SNMP_CMD_SET  snmp3_set() - query an agent and set a single value
 *
 */
 static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
@@ -971,6 +1050,7 @@ static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid authentication protocol: %s", Z_STRVAL_PP(a4));
 		RETURN_FALSE;
 	}
+
 	/* Setting the authentication passphrase. */
 	convert_to_string_ex(a5);
 	if (netsnmp_session_gen_auth_key(&session, Z_STRVAL_PP(a5) TSRMLS_CC)) {
@@ -985,6 +1065,7 @@ static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid security protocol: %s", Z_STRVAL_PP(a6));
 		RETURN_FALSE;
 	}
+
 	/* Setting the security protocol passphrase. */
 	convert_to_string_ex(a7);
 	if (netsnmp_session_gen_sec_key(&session, Z_STRVAL_PP(a7) TSRMLS_CC) &&
@@ -993,7 +1074,7 @@ static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
 		RETURN_FALSE;
 	}
 
-	if (st == 11) {
+	if (st == SNMP_CMD_SET) {
 		if (myargc < 10) {
 			WRONG_PARAM_COUNT;
 		}
@@ -1031,7 +1112,15 @@ static void php_snmpv3(INTERNAL_FUNCTION_PARAMETERS, int st)
    Fetch the value of a SNMP object */
 PHP_FUNCTION(snmp3_get)
 {
-	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
+	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, SNMP_CMD_GET);
+}
+/* }}} */
+
+/* {{{ proto int snmp3_getnext(string host, string sec_name, string sec_level, string auth_protocol, string auth_passphrase, string priv_protocol, string priv_passphrase, string object_id [, int timeout [, int retries]])
+   Fetch the value of a SNMP object */
+PHP_FUNCTION(snmp3_getnext)
+{
+	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, SNMP_CMD_GETNEXT);
 }
 /* }}} */
 
@@ -1039,7 +1128,7 @@ PHP_FUNCTION(snmp3_get)
    Fetch the value of a SNMP object */
 PHP_FUNCTION(snmp3_walk)
 {
-	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, 2);
+	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, SNMP_CMD_WALK);
 }
 /* }}} */
 
@@ -1047,7 +1136,7 @@ PHP_FUNCTION(snmp3_walk)
    Fetch the value of a SNMP object */
 PHP_FUNCTION(snmp3_real_walk)
 {
-	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, 3);
+	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, SNMP_CMD_REALWALK);
 }
 /* }}} */
 
@@ -1055,7 +1144,7 @@ PHP_FUNCTION(snmp3_real_walk)
    Fetch the value of a SNMP object */
 PHP_FUNCTION(snmp3_set)
 {
-	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, 11);
+	php_snmpv3(INTERNAL_FUNCTION_PARAM_PASSTHRU, SNMP_CMD_SET);
 }
 /* }}} */
 
@@ -1085,6 +1174,31 @@ PHP_FUNCTION(snmp_set_valueretrieval)
 PHP_FUNCTION(snmp_get_valueretrieval)
 {
 	RETURN_LONG(SNMP_G(valueretrieval));
+}
+/* }}} */
+
+/* {{{ proto int snmp_read_mib(string filename)
+   Reads and parses a MIB file into the active MIB tree. */
+PHP_FUNCTION(snmp_read_mib)
+{
+	zval **filename;
+
+	if (ZEND_NUM_ARGS() != 1 ||
+		zend_get_parameters_ex(ZEND_NUM_ARGS(), &filename) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	convert_to_string_ex(filename);
+
+	/* Prevent read_mib() from printing any errors. */
+	snmp_disable_stderrlog();
+	
+	if (!read_mib(Z_STRVAL_PP(filename))) {
+		char *error = strerror(errno);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error while reading MIB file '%s': %s", Z_STRVAL_PP(filename), error);
+		RETURN_FALSE;
+	}
+	RETURN_TRUE;
 }
 /* }}} */
 

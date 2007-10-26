@@ -1,661 +1,897 @@
-// OBSOLETE /* Target-machine dependent code for Motorola 88000 series, for GDB.
-// OBSOLETE 
-// OBSOLETE    Copyright 1988, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998,
-// OBSOLETE    2000, 2001, 2002 Free Software Foundation, Inc.
-// OBSOLETE 
-// OBSOLETE    This file is part of GDB.
-// OBSOLETE 
-// OBSOLETE    This program is free software; you can redistribute it and/or modify
-// OBSOLETE    it under the terms of the GNU General Public License as published by
-// OBSOLETE    the Free Software Foundation; either version 2 of the License, or
-// OBSOLETE    (at your option) any later version.
-// OBSOLETE 
-// OBSOLETE    This program is distributed in the hope that it will be useful,
-// OBSOLETE    but WITHOUT ANY WARRANTY; without even the implied warranty of
-// OBSOLETE    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// OBSOLETE    GNU General Public License for more details.
-// OBSOLETE 
-// OBSOLETE    You should have received a copy of the GNU General Public License
-// OBSOLETE    along with this program; if not, write to the Free Software
-// OBSOLETE    Foundation, Inc., 59 Temple Place - Suite 330,
-// OBSOLETE    Boston, MA 02111-1307, USA.  */
-// OBSOLETE 
-// OBSOLETE #include "defs.h"
-// OBSOLETE #include "frame.h"
-// OBSOLETE #include "inferior.h"
-// OBSOLETE #include "value.h"
-// OBSOLETE #include "gdbcore.h"
-// OBSOLETE #include "symtab.h"
-// OBSOLETE #include "setjmp.h"
-// OBSOLETE #include "value.h"
-// OBSOLETE #include "regcache.h"
-// OBSOLETE 
-// OBSOLETE /* Size of an instruction */
-// OBSOLETE #define	BYTES_PER_88K_INSN	4
-// OBSOLETE 
-// OBSOLETE void frame_find_saved_regs ();
-// OBSOLETE 
-// OBSOLETE /* Is this target an m88110?  Otherwise assume m88100.  This has
-// OBSOLETE    relevance for the ways in which we screw with instruction pointers.  */
-// OBSOLETE 
-// OBSOLETE int target_is_m88110 = 0;
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE m88k_target_write_pc (CORE_ADDR pc, ptid_t ptid)
-// OBSOLETE {
-// OBSOLETE   /* According to the MC88100 RISC Microprocessor User's Manual,
-// OBSOLETE      section 6.4.3.1.2:
-// OBSOLETE 
-// OBSOLETE      ... can be made to return to a particular instruction by placing
-// OBSOLETE      a valid instruction address in the SNIP and the next sequential
-// OBSOLETE      instruction address in the SFIP (with V bits set and E bits
-// OBSOLETE      clear).  The rte resumes execution at the instruction pointed to
-// OBSOLETE      by the SNIP, then the SFIP.
-// OBSOLETE 
-// OBSOLETE      The E bit is the least significant bit (bit 0).  The V (valid)
-// OBSOLETE      bit is bit 1.  This is why we logical or 2 into the values we are
-// OBSOLETE      writing below.  It turns out that SXIP plays no role when
-// OBSOLETE      returning from an exception so nothing special has to be done
-// OBSOLETE      with it.  We could even (presumably) give it a totally bogus
-// OBSOLETE      value.
-// OBSOLETE 
-// OBSOLETE      -- Kevin Buettner */
-// OBSOLETE 
-// OBSOLETE   write_register_pid (SXIP_REGNUM, pc, ptid);
-// OBSOLETE   write_register_pid (SNIP_REGNUM, (pc | 2), ptid);
-// OBSOLETE   write_register_pid (SFIP_REGNUM, (pc | 2) + 4, ptid);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* The type of a register.  */
-// OBSOLETE struct type *
-// OBSOLETE m88k_register_type (int regnum)
-// OBSOLETE {
-// OBSOLETE   if (regnum >= XFP_REGNUM)
-// OBSOLETE     return builtin_type_m88110_ext;
-// OBSOLETE   else if (regnum == PC_REGNUM || regnum == FP_REGNUM || regnum == SP_REGNUM)
-// OBSOLETE     return builtin_type_void_func_ptr;
-// OBSOLETE   else
-// OBSOLETE     return builtin_type_int32;
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE 
-// OBSOLETE /* The m88k kernel aligns all instructions on 4-byte boundaries.  The
-// OBSOLETE    kernel also uses the least significant two bits for its own hocus
-// OBSOLETE    pocus.  When gdb receives an address from the kernel, it needs to
-// OBSOLETE    preserve those right-most two bits, but gdb also needs to be careful
-// OBSOLETE    to realize that those two bits are not really a part of the address
-// OBSOLETE    of an instruction.  Shrug.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE m88k_addr_bits_remove (CORE_ADDR addr)
-// OBSOLETE {
-// OBSOLETE   return ((addr) & ~3);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE 
-// OBSOLETE /* Given a GDB frame, determine the address of the calling function's frame.
-// OBSOLETE    This will be used to create a new GDB frame struct, and then
-// OBSOLETE    INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
-// OBSOLETE 
-// OBSOLETE    For us, the frame address is its stack pointer value, so we look up
-// OBSOLETE    the function prologue to determine the caller's sp value, and return it.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE frame_chain (struct frame_info *thisframe)
-// OBSOLETE {
-// OBSOLETE 
-// OBSOLETE   frame_find_saved_regs (thisframe, (struct frame_saved_regs *) 0);
-// OBSOLETE   /* NOTE:  this depends on frame_find_saved_regs returning the VALUE, not
-// OBSOLETE      the ADDRESS, of SP_REGNUM.  It also depends on the cache of
-// OBSOLETE      frame_find_saved_regs results.  */
-// OBSOLETE   if (thisframe->fsr->regs[SP_REGNUM])
-// OBSOLETE     return thisframe->fsr->regs[SP_REGNUM];
-// OBSOLETE   else
-// OBSOLETE     return thisframe->frame;	/* Leaf fn -- next frame up has same SP. */
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE int
-// OBSOLETE frameless_function_invocation (struct frame_info *frame)
-// OBSOLETE {
-// OBSOLETE 
-// OBSOLETE   frame_find_saved_regs (frame, (struct frame_saved_regs *) 0);
-// OBSOLETE   /* NOTE:  this depends on frame_find_saved_regs returning the VALUE, not
-// OBSOLETE      the ADDRESS, of SP_REGNUM.  It also depends on the cache of
-// OBSOLETE      frame_find_saved_regs results.  */
-// OBSOLETE   if (frame->fsr->regs[SP_REGNUM])
-// OBSOLETE     return 0;			/* Frameful -- return addr saved somewhere */
-// OBSOLETE   else
-// OBSOLETE     return 1;			/* Frameless -- no saved return address */
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE init_extra_frame_info (int fromleaf, struct frame_info *frame)
-// OBSOLETE {
-// OBSOLETE   frame->fsr = 0;		/* Not yet allocated */
-// OBSOLETE   frame->args_pointer = 0;	/* Unknown */
-// OBSOLETE   frame->locals_pointer = 0;	/* Unknown */
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Examine an m88k function prologue, recording the addresses at which
-// OBSOLETE    registers are saved explicitly by the prologue code, and returning
-// OBSOLETE    the address of the first instruction after the prologue (but not
-// OBSOLETE    after the instruction at address LIMIT, as explained below).
-// OBSOLETE 
-// OBSOLETE    LIMIT places an upper bound on addresses of the instructions to be
-// OBSOLETE    examined.  If the prologue code scan reaches LIMIT, the scan is
-// OBSOLETE    aborted and LIMIT is returned.  This is used, when examining the
-// OBSOLETE    prologue for the current frame, to keep examine_prologue () from
-// OBSOLETE    claiming that a given register has been saved when in fact the
-// OBSOLETE    instruction that saves it has not yet been executed.  LIMIT is used
-// OBSOLETE    at other times to stop the scan when we hit code after the true
-// OBSOLETE    function prologue (e.g. for the first source line) which might
-// OBSOLETE    otherwise be mistaken for function prologue.
-// OBSOLETE 
-// OBSOLETE    The format of the function prologue matched by this routine is
-// OBSOLETE    derived from examination of the source to gcc 1.95, particularly
-// OBSOLETE    the routine output_prologue () in config/out-m88k.c.
-// OBSOLETE 
-// OBSOLETE    subu r31,r31,n                       # stack pointer update
-// OBSOLETE 
-// OBSOLETE    (st rn,r31,offset)?                  # save incoming regs
-// OBSOLETE    (st.d rn,r31,offset)?
-// OBSOLETE 
-// OBSOLETE    (addu r30,r31,n)?                    # frame pointer update
-// OBSOLETE 
-// OBSOLETE    (pic sequence)?                      # PIC code prologue
-// OBSOLETE 
-// OBSOLETE    (or   rn,rm,0)?                      # Move parameters to other regs
-// OBSOLETE  */
-// OBSOLETE 
-// OBSOLETE /* Macros for extracting fields from instructions.  */
-// OBSOLETE 
-// OBSOLETE #define BITMASK(pos, width) (((0x1 << (width)) - 1) << (pos))
-// OBSOLETE #define EXTRACT_FIELD(val, pos, width) ((val) >> (pos) & BITMASK (0, width))
-// OBSOLETE #define	SUBU_OFFSET(x)	((unsigned)(x & 0xFFFF))
-// OBSOLETE #define	ST_OFFSET(x)	((unsigned)((x) & 0xFFFF))
-// OBSOLETE #define	ST_SRC(x)	EXTRACT_FIELD ((x), 21, 5)
-// OBSOLETE #define	ADDU_OFFSET(x)	((unsigned)(x & 0xFFFF))
-// OBSOLETE 
-// OBSOLETE /*
-// OBSOLETE  * prologue_insn_tbl is a table of instructions which may comprise a
-// OBSOLETE  * function prologue.  Associated with each table entry (corresponding
-// OBSOLETE  * to a single instruction or group of instructions), is an action.
-// OBSOLETE  * This action is used by examine_prologue (below) to determine
-// OBSOLETE  * the state of certain machine registers and where the stack frame lives.
-// OBSOLETE  */
-// OBSOLETE 
-// OBSOLETE enum prologue_insn_action
-// OBSOLETE {
-// OBSOLETE   PIA_SKIP,			/* don't care what the instruction does */
-// OBSOLETE   PIA_NOTE_ST,			/* note register stored and where */
-// OBSOLETE   PIA_NOTE_STD,			/* note pair of registers stored and where */
-// OBSOLETE   PIA_NOTE_SP_ADJUSTMENT,	/* note stack pointer adjustment */
-// OBSOLETE   PIA_NOTE_FP_ASSIGNMENT,	/* note frame pointer assignment */
-// OBSOLETE   PIA_NOTE_PROLOGUE_END,	/* no more prologue */
-// OBSOLETE };
-// OBSOLETE 
-// OBSOLETE struct prologue_insns
-// OBSOLETE   {
-// OBSOLETE     unsigned long insn;
-// OBSOLETE     unsigned long mask;
-// OBSOLETE     enum prologue_insn_action action;
-// OBSOLETE   };
-// OBSOLETE 
-// OBSOLETE struct prologue_insns prologue_insn_tbl[] =
-// OBSOLETE {
-// OBSOLETE   /* Various register move instructions */
-// OBSOLETE   {0x58000000, 0xf800ffff, PIA_SKIP},	/* or/or.u with immed of 0 */
-// OBSOLETE   {0xf4005800, 0xfc1fffe0, PIA_SKIP},	/* or rd, r0, rs */
-// OBSOLETE   {0xf4005800, 0xfc00ffff, PIA_SKIP},	/* or rd, rs, r0 */
-// OBSOLETE 
-// OBSOLETE   /* Stack pointer setup: "subu sp, sp, n" where n is a multiple of 8 */
-// OBSOLETE   {0x67ff0000, 0xffff0007, PIA_NOTE_SP_ADJUSTMENT},
-// OBSOLETE 
-// OBSOLETE   /* Frame pointer assignment: "addu r30, r31, n" */
-// OBSOLETE   {0x63df0000, 0xffff0000, PIA_NOTE_FP_ASSIGNMENT},
-// OBSOLETE 
-// OBSOLETE   /* Store to stack instructions; either "st rx, sp, n" or "st.d rx, sp, n" */
-// OBSOLETE   {0x241f0000, 0xfc1f0000, PIA_NOTE_ST},	/* st rx, sp, n */
-// OBSOLETE   {0x201f0000, 0xfc1f0000, PIA_NOTE_STD},	/* st.d rs, sp, n */
-// OBSOLETE 
-// OBSOLETE   /* Instructions needed for setting up r25 for pic code. */
-// OBSOLETE   {0x5f200000, 0xffff0000, PIA_SKIP},	/* or.u r25, r0, offset_high */
-// OBSOLETE   {0xcc000002, 0xffffffff, PIA_SKIP},	/* bsr.n Lab */
-// OBSOLETE   {0x5b390000, 0xffff0000, PIA_SKIP},	/* or r25, r25, offset_low */
-// OBSOLETE   {0xf7396001, 0xffffffff, PIA_SKIP},	/* Lab: addu r25, r25, r1 */
-// OBSOLETE 
-// OBSOLETE   /* Various branch or jump instructions which have a delay slot -- these
-// OBSOLETE      do not form part of the prologue, but the instruction in the delay
-// OBSOLETE      slot might be a store instruction which should be noted. */
-// OBSOLETE   {0xc4000000, 0xe4000000, PIA_NOTE_PROLOGUE_END},
-// OBSOLETE 					/* br.n, bsr.n, bb0.n, or bb1.n */
-// OBSOLETE   {0xec000000, 0xfc000000, PIA_NOTE_PROLOGUE_END},	/* bcnd.n */
-// OBSOLETE   {0xf400c400, 0xfffff7e0, PIA_NOTE_PROLOGUE_END}	/* jmp.n or jsr.n */
-// OBSOLETE 
-// OBSOLETE };
-// OBSOLETE 
-// OBSOLETE 
-// OBSOLETE /* Fetch the instruction at ADDR, returning 0 if ADDR is beyond LIM or
-// OBSOLETE    is not the address of a valid instruction, the address of the next
-// OBSOLETE    instruction beyond ADDR otherwise.  *PWORD1 receives the first word
-// OBSOLETE    of the instruction. */
-// OBSOLETE 
-// OBSOLETE #define NEXT_PROLOGUE_INSN(addr, lim, pword1) \
-// OBSOLETE   (((addr) < (lim)) ? next_insn (addr, pword1) : 0)
-// OBSOLETE 
-// OBSOLETE /* Read the m88k instruction at 'memaddr' and return the address of 
-// OBSOLETE    the next instruction after that, or 0 if 'memaddr' is not the
-// OBSOLETE    address of a valid instruction.  The instruction
-// OBSOLETE    is stored at 'pword1'.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE next_insn (CORE_ADDR memaddr, unsigned long *pword1)
-// OBSOLETE {
-// OBSOLETE   *pword1 = read_memory_integer (memaddr, BYTES_PER_88K_INSN);
-// OBSOLETE   return memaddr + BYTES_PER_88K_INSN;
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Read a register from frames called by us (or from the hardware regs).  */
-// OBSOLETE 
-// OBSOLETE static int
-// OBSOLETE read_next_frame_reg (struct frame_info *frame, int regno)
-// OBSOLETE {
-// OBSOLETE   for (; frame; frame = frame->next)
-// OBSOLETE     {
-// OBSOLETE       if (regno == SP_REGNUM)
-// OBSOLETE 	return FRAME_FP (frame);
-// OBSOLETE       else if (frame->fsr->regs[regno])
-// OBSOLETE 	return read_memory_integer (frame->fsr->regs[regno], 4);
-// OBSOLETE     }
-// OBSOLETE   return read_register (regno);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Examine the prologue of a function.  `ip' points to the first instruction.
-// OBSOLETE    `limit' is the limit of the prologue (e.g. the addr of the first 
-// OBSOLETE    linenumber, or perhaps the program counter if we're stepping through).
-// OBSOLETE    `frame_sp' is the stack pointer value in use in this frame.  
-// OBSOLETE    `fsr' is a pointer to a frame_saved_regs structure into which we put
-// OBSOLETE    info about the registers saved by this frame.  
-// OBSOLETE    `fi' is a struct frame_info pointer; we fill in various fields in it
-// OBSOLETE    to reflect the offsets of the arg pointer and the locals pointer.  */
-// OBSOLETE 
-// OBSOLETE static CORE_ADDR
-// OBSOLETE examine_prologue (register CORE_ADDR ip, register CORE_ADDR limit,
-// OBSOLETE 		  CORE_ADDR frame_sp, struct frame_saved_regs *fsr,
-// OBSOLETE 		  struct frame_info *fi)
-// OBSOLETE {
-// OBSOLETE   register CORE_ADDR next_ip;
-// OBSOLETE   register int src;
-// OBSOLETE   unsigned long insn;
-// OBSOLETE   int size, offset;
-// OBSOLETE   char must_adjust[32];		/* If set, must adjust offsets in fsr */
-// OBSOLETE   int sp_offset = -1;		/* -1 means not set (valid must be mult of 8) */
-// OBSOLETE   int fp_offset = -1;		/* -1 means not set */
-// OBSOLETE   CORE_ADDR frame_fp;
-// OBSOLETE   CORE_ADDR prologue_end = 0;
-// OBSOLETE 
-// OBSOLETE   memset (must_adjust, '\0', sizeof (must_adjust));
-// OBSOLETE   next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
-// OBSOLETE 
-// OBSOLETE   while (next_ip)
-// OBSOLETE     {
-// OBSOLETE       struct prologue_insns *pip;
-// OBSOLETE 
-// OBSOLETE       for (pip = prologue_insn_tbl; (insn & pip->mask) != pip->insn;)
-// OBSOLETE 	if (++pip >= prologue_insn_tbl + sizeof prologue_insn_tbl)
-// OBSOLETE 	  goto end_of_prologue_found;	/* not a prologue insn */
-// OBSOLETE 
-// OBSOLETE       switch (pip->action)
-// OBSOLETE 	{
-// OBSOLETE 	case PIA_NOTE_ST:
-// OBSOLETE 	case PIA_NOTE_STD:
-// OBSOLETE 	  if (sp_offset != -1)
-// OBSOLETE 	    {
-// OBSOLETE 	      src = ST_SRC (insn);
-// OBSOLETE 	      offset = ST_OFFSET (insn);
-// OBSOLETE 	      must_adjust[src] = 1;
-// OBSOLETE 	      fsr->regs[src++] = offset;	/* Will be adjusted later */
-// OBSOLETE 	      if (pip->action == PIA_NOTE_STD && src < 32)
-// OBSOLETE 		{
-// OBSOLETE 		  offset += 4;
-// OBSOLETE 		  must_adjust[src] = 1;
-// OBSOLETE 		  fsr->regs[src++] = offset;
-// OBSOLETE 		}
-// OBSOLETE 	    }
-// OBSOLETE 	  else
-// OBSOLETE 	    goto end_of_prologue_found;
-// OBSOLETE 	  break;
-// OBSOLETE 	case PIA_NOTE_SP_ADJUSTMENT:
-// OBSOLETE 	  if (sp_offset == -1)
-// OBSOLETE 	    sp_offset = -SUBU_OFFSET (insn);
-// OBSOLETE 	  else
-// OBSOLETE 	    goto end_of_prologue_found;
-// OBSOLETE 	  break;
-// OBSOLETE 	case PIA_NOTE_FP_ASSIGNMENT:
-// OBSOLETE 	  if (fp_offset == -1)
-// OBSOLETE 	    fp_offset = ADDU_OFFSET (insn);
-// OBSOLETE 	  else
-// OBSOLETE 	    goto end_of_prologue_found;
-// OBSOLETE 	  break;
-// OBSOLETE 	case PIA_NOTE_PROLOGUE_END:
-// OBSOLETE 	  if (!prologue_end)
-// OBSOLETE 	    prologue_end = ip;
-// OBSOLETE 	  break;
-// OBSOLETE 	case PIA_SKIP:
-// OBSOLETE 	default:
-// OBSOLETE 	  /* Do nothing */
-// OBSOLETE 	  break;
-// OBSOLETE 	}
-// OBSOLETE 
-// OBSOLETE       ip = next_ip;
-// OBSOLETE       next_ip = NEXT_PROLOGUE_INSN (ip, limit, &insn);
-// OBSOLETE     }
-// OBSOLETE 
-// OBSOLETE end_of_prologue_found:
-// OBSOLETE 
-// OBSOLETE   if (prologue_end)
-// OBSOLETE     ip = prologue_end;
-// OBSOLETE 
-// OBSOLETE   /* We're done with the prologue.  If we don't care about the stack
-// OBSOLETE      frame itself, just return.  (Note that fsr->regs has been trashed,
-// OBSOLETE      but the one caller who calls with fi==0 passes a dummy there.)  */
-// OBSOLETE 
-// OBSOLETE   if (fi == 0)
-// OBSOLETE     return ip;
-// OBSOLETE 
-// OBSOLETE   /*
-// OBSOLETE      OK, now we have:
-// OBSOLETE 
-// OBSOLETE      sp_offset  original (before any alloca calls) displacement of SP
-// OBSOLETE      (will be negative).
-// OBSOLETE 
-// OBSOLETE      fp_offset  displacement from original SP to the FP for this frame
-// OBSOLETE      or -1.
-// OBSOLETE 
-// OBSOLETE      fsr->regs[0..31]   displacement from original SP to the stack
-// OBSOLETE      location where reg[0..31] is stored.
-// OBSOLETE 
-// OBSOLETE      must_adjust[0..31] set if corresponding offset was set.
-// OBSOLETE 
-// OBSOLETE      If alloca has been called between the function prologue and the current
-// OBSOLETE      IP, then the current SP (frame_sp) will not be the original SP as set by
-// OBSOLETE      the function prologue.  If the current SP is not the original SP, then the
-// OBSOLETE      compiler will have allocated an FP for this frame, fp_offset will be set,
-// OBSOLETE      and we can use it to calculate the original SP.
-// OBSOLETE 
-// OBSOLETE      Then, we figure out where the arguments and locals are, and relocate the
-// OBSOLETE      offsets in fsr->regs to absolute addresses.  */
-// OBSOLETE 
-// OBSOLETE   if (fp_offset != -1)
-// OBSOLETE     {
-// OBSOLETE       /* We have a frame pointer, so get it, and base our calc's on it.  */
-// OBSOLETE       frame_fp = (CORE_ADDR) read_next_frame_reg (fi->next, ACTUAL_FP_REGNUM);
-// OBSOLETE       frame_sp = frame_fp - fp_offset;
-// OBSOLETE     }
-// OBSOLETE   else
-// OBSOLETE     {
-// OBSOLETE       /* We have no frame pointer, therefore frame_sp is still the same value
-// OBSOLETE          as set by prologue.  But where is the frame itself?  */
-// OBSOLETE       if (must_adjust[SRP_REGNUM])
-// OBSOLETE 	{
-// OBSOLETE 	  /* Function header saved SRP (r1), the return address.  Frame starts
-// OBSOLETE 	     4 bytes down from where it was saved.  */
-// OBSOLETE 	  frame_fp = frame_sp + fsr->regs[SRP_REGNUM] - 4;
-// OBSOLETE 	  fi->locals_pointer = frame_fp;
-// OBSOLETE 	}
-// OBSOLETE       else
-// OBSOLETE 	{
-// OBSOLETE 	  /* Function header didn't save SRP (r1), so we are in a leaf fn or
-// OBSOLETE 	     are otherwise confused.  */
-// OBSOLETE 	  frame_fp = -1;
-// OBSOLETE 	}
-// OBSOLETE     }
-// OBSOLETE 
-// OBSOLETE   /* The locals are relative to the FP (whether it exists as an allocated
-// OBSOLETE      register, or just as an assumed offset from the SP) */
-// OBSOLETE   fi->locals_pointer = frame_fp;
-// OBSOLETE 
-// OBSOLETE   /* The arguments are just above the SP as it was before we adjusted it
-// OBSOLETE      on entry.  */
-// OBSOLETE   fi->args_pointer = frame_sp - sp_offset;
-// OBSOLETE 
-// OBSOLETE   /* Now that we know the SP value used by the prologue, we know where
-// OBSOLETE      it saved all the registers.  */
-// OBSOLETE   for (src = 0; src < 32; src++)
-// OBSOLETE     if (must_adjust[src])
-// OBSOLETE       fsr->regs[src] += frame_sp;
-// OBSOLETE 
-// OBSOLETE   /* The saved value of the SP is always known.  */
-// OBSOLETE   /* (we hope...) */
-// OBSOLETE   if (fsr->regs[SP_REGNUM] != 0
-// OBSOLETE       && fsr->regs[SP_REGNUM] != frame_sp - sp_offset)
-// OBSOLETE     fprintf_unfiltered (gdb_stderr, "Bad saved SP value %lx != %lx, offset %x!\n",
-// OBSOLETE 			fsr->regs[SP_REGNUM],
-// OBSOLETE 			frame_sp - sp_offset, sp_offset);
-// OBSOLETE 
-// OBSOLETE   fsr->regs[SP_REGNUM] = frame_sp - sp_offset;
-// OBSOLETE 
-// OBSOLETE   return (ip);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Given an ip value corresponding to the start of a function,
-// OBSOLETE    return the ip of the first instruction after the function 
-// OBSOLETE    prologue.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE m88k_skip_prologue (CORE_ADDR ip)
-// OBSOLETE {
-// OBSOLETE   struct frame_saved_regs saved_regs_dummy;
-// OBSOLETE   struct symtab_and_line sal;
-// OBSOLETE   CORE_ADDR limit;
-// OBSOLETE 
-// OBSOLETE   sal = find_pc_line (ip, 0);
-// OBSOLETE   limit = (sal.end) ? sal.end : 0xffffffff;
-// OBSOLETE 
-// OBSOLETE   return (examine_prologue (ip, limit, (CORE_ADDR) 0, &saved_regs_dummy,
-// OBSOLETE 			    (struct frame_info *) 0));
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Put here the code to store, into a struct frame_saved_regs,
-// OBSOLETE    the addresses of the saved registers of frame described by FRAME_INFO.
-// OBSOLETE    This includes special registers such as pc and fp saved in special
-// OBSOLETE    ways in the stack frame.  sp is even more special:
-// OBSOLETE    the address we return for it IS the sp for the next frame.
-// OBSOLETE 
-// OBSOLETE    We cache the result of doing this in the frame_obstack, since it is
-// OBSOLETE    fairly expensive.  */
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE frame_find_saved_regs (struct frame_info *fi, struct frame_saved_regs *fsr)
-// OBSOLETE {
-// OBSOLETE   register struct frame_saved_regs *cache_fsr;
-// OBSOLETE   CORE_ADDR ip;
-// OBSOLETE   struct symtab_and_line sal;
-// OBSOLETE   CORE_ADDR limit;
-// OBSOLETE 
-// OBSOLETE   if (!fi->fsr)
-// OBSOLETE     {
-// OBSOLETE       cache_fsr = (struct frame_saved_regs *)
-// OBSOLETE 	frame_obstack_alloc (sizeof (struct frame_saved_regs));
-// OBSOLETE       memset (cache_fsr, '\0', sizeof (struct frame_saved_regs));
-// OBSOLETE       fi->fsr = cache_fsr;
-// OBSOLETE 
-// OBSOLETE       /* Find the start and end of the function prologue.  If the PC
-// OBSOLETE          is in the function prologue, we only consider the part that
-// OBSOLETE          has executed already.  In the case where the PC is not in
-// OBSOLETE          the function prologue, we set limit to two instructions beyond
-// OBSOLETE          where the prologue ends in case if any of the prologue instructions
-// OBSOLETE          were moved into a delay slot of a branch instruction. */
-// OBSOLETE 
-// OBSOLETE       ip = get_pc_function_start (fi->pc);
-// OBSOLETE       sal = find_pc_line (ip, 0);
-// OBSOLETE       limit = (sal.end && sal.end < fi->pc) ? sal.end + 2 * BYTES_PER_88K_INSN
-// OBSOLETE 	: fi->pc;
-// OBSOLETE 
-// OBSOLETE       /* This will fill in fields in *fi as well as in cache_fsr.  */
-// OBSOLETE #ifdef SIGTRAMP_FRAME_FIXUP
-// OBSOLETE       if (fi->signal_handler_caller)
-// OBSOLETE 	SIGTRAMP_FRAME_FIXUP (fi->frame);
-// OBSOLETE #endif
-// OBSOLETE       examine_prologue (ip, limit, fi->frame, cache_fsr, fi);
-// OBSOLETE #ifdef SIGTRAMP_SP_FIXUP
-// OBSOLETE       if (fi->signal_handler_caller && fi->fsr->regs[SP_REGNUM])
-// OBSOLETE 	SIGTRAMP_SP_FIXUP (fi->fsr->regs[SP_REGNUM]);
-// OBSOLETE #endif
-// OBSOLETE     }
-// OBSOLETE 
-// OBSOLETE   if (fsr)
-// OBSOLETE     *fsr = *fi->fsr;
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Return the address of the locals block for the frame
-// OBSOLETE    described by FI.  Returns 0 if the address is unknown.
-// OBSOLETE    NOTE!  Frame locals are referred to by negative offsets from the
-// OBSOLETE    argument pointer, so this is the same as frame_args_address().  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE frame_locals_address (struct frame_info *fi)
-// OBSOLETE {
-// OBSOLETE   struct frame_saved_regs fsr;
-// OBSOLETE 
-// OBSOLETE   if (fi->args_pointer)		/* Cached value is likely there.  */
-// OBSOLETE     return fi->args_pointer;
-// OBSOLETE 
-// OBSOLETE   /* Nope, generate it.  */
-// OBSOLETE 
-// OBSOLETE   get_frame_saved_regs (fi, &fsr);
-// OBSOLETE 
-// OBSOLETE   return fi->args_pointer;
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Return the address of the argument block for the frame
-// OBSOLETE    described by FI.  Returns 0 if the address is unknown.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE frame_args_address (struct frame_info *fi)
-// OBSOLETE {
-// OBSOLETE   struct frame_saved_regs fsr;
-// OBSOLETE 
-// OBSOLETE   if (fi->args_pointer)		/* Cached value is likely there.  */
-// OBSOLETE     return fi->args_pointer;
-// OBSOLETE 
-// OBSOLETE   /* Nope, generate it.  */
-// OBSOLETE 
-// OBSOLETE   get_frame_saved_regs (fi, &fsr);
-// OBSOLETE 
-// OBSOLETE   return fi->args_pointer;
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE /* Return the saved PC from this frame.
-// OBSOLETE 
-// OBSOLETE    If the frame has a memory copy of SRP_REGNUM, use that.  If not,
-// OBSOLETE    just use the register SRP_REGNUM itself.  */
-// OBSOLETE 
-// OBSOLETE CORE_ADDR
-// OBSOLETE frame_saved_pc (struct frame_info *frame)
-// OBSOLETE {
-// OBSOLETE   return read_next_frame_reg (frame, SRP_REGNUM);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE 
-// OBSOLETE #define DUMMY_FRAME_SIZE 192
-// OBSOLETE 
-// OBSOLETE static void
-// OBSOLETE write_word (CORE_ADDR sp, ULONGEST word)
-// OBSOLETE {
-// OBSOLETE   register int len = REGISTER_SIZE;
-// OBSOLETE   char buffer[MAX_REGISTER_RAW_SIZE];
-// OBSOLETE 
-// OBSOLETE   store_unsigned_integer (buffer, len, word);
-// OBSOLETE   write_memory (sp, buffer, len);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE m88k_push_dummy_frame (void)
-// OBSOLETE {
-// OBSOLETE   register CORE_ADDR sp = read_register (SP_REGNUM);
-// OBSOLETE   register int rn;
-// OBSOLETE   int offset;
-// OBSOLETE 
-// OBSOLETE   sp -= DUMMY_FRAME_SIZE;	/* allocate a bunch of space */
-// OBSOLETE 
-// OBSOLETE   for (rn = 0, offset = 0; rn <= SP_REGNUM; rn++, offset += 4)
-// OBSOLETE     write_word (sp + offset, read_register (rn));
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (SXIP_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (SNIP_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (SFIP_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (PSR_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (FPSR_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_word (sp + offset, read_register (FPCR_REGNUM));
-// OBSOLETE   offset += 4;
-// OBSOLETE 
-// OBSOLETE   write_register (SP_REGNUM, sp);
-// OBSOLETE   write_register (ACTUAL_FP_REGNUM, sp);
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE pop_frame (void)
-// OBSOLETE {
-// OBSOLETE   register struct frame_info *frame = get_current_frame ();
-// OBSOLETE   register int regnum;
-// OBSOLETE   struct frame_saved_regs fsr;
-// OBSOLETE 
-// OBSOLETE   get_frame_saved_regs (frame, &fsr);
-// OBSOLETE 
-// OBSOLETE   if (PC_IN_CALL_DUMMY (read_pc (), read_register (SP_REGNUM), frame->frame))
-// OBSOLETE     {
-// OBSOLETE       /* FIXME: I think get_frame_saved_regs should be handling this so
-// OBSOLETE          that we can deal with the saved registers properly (e.g. frame
-// OBSOLETE          1 is a call dummy, the user types "frame 2" and then "print $ps").  */
-// OBSOLETE       register CORE_ADDR sp = read_register (ACTUAL_FP_REGNUM);
-// OBSOLETE       int offset;
-// OBSOLETE 
-// OBSOLETE       for (regnum = 0, offset = 0; regnum <= SP_REGNUM; regnum++, offset += 4)
-// OBSOLETE 	(void) write_register (regnum, read_memory_integer (sp + offset, 4));
-// OBSOLETE 
-// OBSOLETE       write_register (SXIP_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE       write_register (SNIP_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE       write_register (SFIP_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE       write_register (PSR_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE       write_register (FPSR_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE       write_register (FPCR_REGNUM, read_memory_integer (sp + offset, 4));
-// OBSOLETE       offset += 4;
-// OBSOLETE 
-// OBSOLETE     }
-// OBSOLETE   else
-// OBSOLETE     {
-// OBSOLETE       for (regnum = FP_REGNUM; regnum > 0; regnum--)
-// OBSOLETE 	if (fsr.regs[regnum])
-// OBSOLETE 	  write_register (regnum,
-// OBSOLETE 			  read_memory_integer (fsr.regs[regnum], 4));
-// OBSOLETE       write_pc (frame_saved_pc (frame));
-// OBSOLETE     }
-// OBSOLETE   reinit_frame_cache ();
-// OBSOLETE }
-// OBSOLETE 
-// OBSOLETE void
-// OBSOLETE _initialize_m88k_tdep (void)
-// OBSOLETE {
-// OBSOLETE   tm_print_insn = print_insn_m88k;
-// OBSOLETE }
+/* Target-dependent code for the Motorola 88000 series.
+
+   Copyright 2004, 2005 Free Software Foundation, Inc.
+
+   This file is part of GDB.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
+
+#include "defs.h"
+#include "arch-utils.h"
+#include "dis-asm.h"
+#include "frame.h"
+#include "frame-base.h"
+#include "frame-unwind.h"
+#include "gdbcore.h"
+#include "gdbtypes.h"
+#include "regcache.h"
+#include "regset.h"
+#include "symtab.h"
+#include "trad-frame.h"
+#include "value.h"
+
+#include "gdb_assert.h"
+#include "gdb_string.h"
+
+#include "m88k-tdep.h"
+
+/* Fetch the instruction at PC.  */
+
+static unsigned long
+m88k_fetch_instruction (CORE_ADDR pc)
+{
+  return read_memory_unsigned_integer (pc, 4);
+}
+
+/* Register information.  */
+
+/* Return the name of register REGNUM.  */
+
+static const char *
+m88k_register_name (int regnum)
+{
+  static char *register_names[] =
+  {
+    "r0",  "r1",  "r2",  "r3",  "r4",  "r5",  "r6",  "r7",
+    "r8",  "r9",  "r10", "r11", "r12", "r13", "r14", "r15",
+    "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23",
+    "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31",
+    "epsr", "fpsr", "fpcr", "sxip", "snip", "sfip"
+  };
+
+  if (regnum >= 0 && regnum < ARRAY_SIZE (register_names))
+    return register_names[regnum];
+
+  return NULL;
+}
+
+/* Return the GDB type object for the "standard" data type of data in
+   register REGNUM. */
+
+static struct type *
+m88k_register_type (struct gdbarch *gdbarch, int regnum)
+{
+  /* SXIP, SNIP, SFIP and R1 contain code addresses.  */
+  if ((regnum >= M88K_SXIP_REGNUM && regnum <= M88K_SFIP_REGNUM)
+      || regnum == M88K_R1_REGNUM)
+    return builtin_type_void_func_ptr;
+
+  /* R30 and R31 typically contains data addresses.  */
+  if (regnum == M88K_R30_REGNUM || regnum == M88K_R31_REGNUM)
+    return builtin_type_void_data_ptr;
+
+  return builtin_type_int32;
+}
+
+
+static CORE_ADDR
+m88k_addr_bits_remove (CORE_ADDR addr)
+{
+  /* All instructures are 4-byte aligned.  The lower 2 bits of SXIP,
+     SNIP and SFIP are used for special purposes: bit 0 is the
+     exception bit and bit 1 is the valid bit.  */
+  return addr & ~0x3;
+}
+
+/* Use the program counter to determine the contents and size of a
+   breakpoint instruction.  Return a pointer to a string of bytes that
+   encode a breakpoint instruction, store the length of the string in
+   *LEN and optionally adjust *PC to point to the correct memory
+   location for inserting the breakpoint.  */
+   
+static const gdb_byte *
+m88k_breakpoint_from_pc (CORE_ADDR *pc, int *len)
+{
+  /* tb 0,r0,511 */
+  static gdb_byte break_insn[] = { 0xf0, 0x00, 0xd1, 0xff };
+
+  *len = sizeof (break_insn);
+  return break_insn;
+}
+
+static CORE_ADDR
+m88k_unwind_pc (struct gdbarch *gdbarch, struct frame_info *next_frame)
+{
+  CORE_ADDR pc;
+
+  pc = frame_unwind_register_unsigned (next_frame, M88K_SXIP_REGNUM);
+  return m88k_addr_bits_remove (pc);
+}
+
+static void
+m88k_write_pc (CORE_ADDR pc, ptid_t ptid)
+{
+  /* According to the MC88100 RISC Microprocessor User's Manual,
+     section 6.4.3.1.2:
+
+     "... can be made to return to a particular instruction by placing
+     a valid instruction address in the SNIP and the next sequential
+     instruction address in the SFIP (with V bits set and E bits
+     clear).  The rte resumes execution at the instruction pointed to
+     by the SNIP, then the SFIP."
+
+     The E bit is the least significant bit (bit 0).  The V (valid)
+     bit is bit 1.  This is why we logical or 2 into the values we are
+     writing below.  It turns out that SXIP plays no role when
+     returning from an exception so nothing special has to be done
+     with it.  We could even (presumably) give it a totally bogus
+     value.  */
+
+  write_register_pid (M88K_SXIP_REGNUM, pc, ptid);
+  write_register_pid (M88K_SNIP_REGNUM, pc | 2, ptid);
+  write_register_pid (M88K_SFIP_REGNUM, (pc + 4) | 2, ptid);
+}
+
+
+/* The functions on this page are intended to be used to classify
+   function arguments.  */
+
+/* Check whether TYPE is "Integral or Pointer".  */
+
+static int
+m88k_integral_or_pointer_p (const struct type *type)
+{
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_INT:
+    case TYPE_CODE_BOOL:
+    case TYPE_CODE_CHAR:
+    case TYPE_CODE_ENUM:
+    case TYPE_CODE_RANGE:
+      {
+	/* We have byte, half-word, word and extended-word/doubleword
+           integral types.  */
+	int len = TYPE_LENGTH (type);
+	return (len == 1 || len == 2 || len == 4 || len == 8);
+      }
+      return 1;
+    case TYPE_CODE_PTR:
+    case TYPE_CODE_REF:
+      {
+	/* Allow only 32-bit pointers.  */
+	return (TYPE_LENGTH (type) == 4);
+      }
+      return 1;
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Check whether TYPE is "Floating".  */
+
+static int
+m88k_floating_p (const struct type *type)
+{
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_FLT:
+      {
+	int len = TYPE_LENGTH (type);
+	return (len == 4 || len == 8);
+      }
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Check whether TYPE is "Structure or Union".  */
+
+static int
+m88k_structure_or_union_p (const struct type *type)
+{
+  switch (TYPE_CODE (type))
+    {
+    case TYPE_CODE_STRUCT:
+    case TYPE_CODE_UNION:
+      return 1;
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Check whether TYPE has 8-byte alignment.  */
+
+static int
+m88k_8_byte_align_p (struct type *type)
+{
+  if (m88k_structure_or_union_p (type))
+    {
+      int i;
+
+      for (i = 0; i < TYPE_NFIELDS (type); i++)
+	{
+	  struct type *subtype = check_typedef (TYPE_FIELD_TYPE (type, i));
+
+	  if (m88k_8_byte_align_p (subtype))
+	    return 1;
+	}
+    }
+
+  if (m88k_integral_or_pointer_p (type) || m88k_floating_p (type))
+    return (TYPE_LENGTH (type) == 8);
+
+  return 0;
+}
+
+/* Check whether TYPE can be passed in a register.  */
+
+static int
+m88k_in_register_p (struct type *type)
+{
+  if (m88k_integral_or_pointer_p (type) || m88k_floating_p (type))
+    return 1;
+
+  if (m88k_structure_or_union_p (type) && TYPE_LENGTH (type) == 4)
+    return 1;
+
+  return 0;
+}
+
+static CORE_ADDR
+m88k_store_arguments (struct regcache *regcache, int nargs,
+		      struct value **args, CORE_ADDR sp)
+{
+  int num_register_words = 0;
+  int num_stack_words = 0;
+  int i;
+
+  for (i = 0; i < nargs; i++)
+    {
+      struct type *type = value_type (args[i]);
+      int len = TYPE_LENGTH (type);
+
+      if (m88k_integral_or_pointer_p (type) && len < 4)
+	{
+	  args[i] = value_cast (builtin_type_int32, args[i]);
+	  type = value_type (args[i]);
+	  len = TYPE_LENGTH (type);
+	}
+
+      if (m88k_in_register_p (type))
+	{
+	  int num_words = 0;
+
+	  if (num_register_words % 2 == 1 && m88k_8_byte_align_p (type))
+	    num_words++;
+
+	  num_words += ((len + 3) / 4);
+	  if (num_register_words + num_words <= 8)
+	    {
+	      num_register_words += num_words;
+	      continue;
+	    }
+
+	  /* We've run out of available registers.  Pass the argument
+             on the stack.  */
+	}
+
+      if (num_stack_words % 2 == 1 && m88k_8_byte_align_p (type))
+	num_stack_words++;
+
+      num_stack_words += ((len + 3) / 4);
+    }
+
+  /* Allocate stack space.  */
+  sp = align_down (sp - 32 - num_stack_words * 4, 16);
+  num_stack_words = num_register_words = 0;
+
+  for (i = 0; i < nargs; i++)
+    {
+      const bfd_byte *valbuf = value_contents (args[i]);
+      struct type *type = value_type (args[i]);
+      int len = TYPE_LENGTH (type);
+      int stack_word = num_stack_words;
+
+      if (m88k_in_register_p (type))
+	{
+	  int register_word = num_register_words;
+
+	  if (register_word % 2 == 1 && m88k_8_byte_align_p (type))
+	    register_word++;
+
+	  gdb_assert (len == 4 || len == 8);
+
+	  if (register_word + len / 8 < 8)
+	    {
+	      int regnum = M88K_R2_REGNUM + register_word;
+
+	      regcache_raw_write (regcache, regnum, valbuf);
+	      if (len > 4)
+		regcache_raw_write (regcache, regnum + 1, valbuf + 4);
+
+	      num_register_words = (register_word + len / 4);
+	      continue;
+	    }
+	}
+
+      if (stack_word % 2 == -1 && m88k_8_byte_align_p (type))
+	stack_word++;
+
+      write_memory (sp + stack_word * 4, valbuf, len);
+      num_stack_words = (stack_word + (len + 3) / 4);
+    }
+
+  return sp;
+}
+
+static CORE_ADDR
+m88k_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
+		      struct regcache *regcache, CORE_ADDR bp_addr, int nargs,
+		      struct value **args, CORE_ADDR sp, int struct_return,
+		      CORE_ADDR struct_addr)
+{
+  /* Set up the function arguments.  */
+  sp = m88k_store_arguments (regcache, nargs, args, sp);
+  gdb_assert (sp % 16 == 0);
+
+  /* Store return value address.  */
+  if (struct_return)
+    regcache_raw_write_unsigned (regcache, M88K_R12_REGNUM, struct_addr);
+
+  /* Store the stack pointer and return address in the appropriate
+     registers.  */
+  regcache_raw_write_unsigned (regcache, M88K_R31_REGNUM, sp);
+  regcache_raw_write_unsigned (regcache, M88K_R1_REGNUM, bp_addr);
+
+  /* Return the stack pointer.  */
+  return sp;
+}
+
+static struct frame_id
+m88k_unwind_dummy_id (struct gdbarch *arch, struct frame_info *next_frame)
+{
+  CORE_ADDR sp;
+
+  sp = frame_unwind_register_unsigned (next_frame, M88K_R31_REGNUM);
+  return frame_id_build (sp, frame_pc_unwind (next_frame));
+}
+
+
+/* Determine, for architecture GDBARCH, how a return value of TYPE
+   should be returned.  If it is supposed to be returned in registers,
+   and READBUF is non-zero, read the appropriate value from REGCACHE,
+   and copy it into READBUF.  If WRITEBUF is non-zero, write the value
+   from WRITEBUF into REGCACHE.  */
+
+static enum return_value_convention
+m88k_return_value (struct gdbarch *gdbarch, struct type *type,
+		   struct regcache *regcache, gdb_byte *readbuf,
+		   const gdb_byte *writebuf)
+{
+  int len = TYPE_LENGTH (type);
+  gdb_byte buf[8];
+
+  if (!m88k_integral_or_pointer_p (type) && !m88k_floating_p (type))
+    return RETURN_VALUE_STRUCT_CONVENTION;
+
+  if (readbuf)
+    {
+      /* Read the contents of R2 and (if necessary) R3.  */
+      regcache_cooked_read (regcache, M88K_R2_REGNUM, buf);
+      if (len > 4)
+	{
+	  regcache_cooked_read (regcache, M88K_R3_REGNUM, buf + 4);
+	  gdb_assert (len == 8);
+	  memcpy (readbuf, buf, len);
+	}
+      else
+	{
+	  /* Just stripping off any unused bytes should preserve the
+             signed-ness just fine.  */
+	  memcpy (readbuf, buf + 4 - len, len);
+	}
+    }
+
+  if (writebuf)
+    {
+      /* Read the contents to R2 and (if necessary) R3.  */
+      if (len > 4)
+	{
+	  gdb_assert (len == 8);
+	  memcpy (buf, writebuf, 8);
+	  regcache_cooked_write (regcache, M88K_R3_REGNUM, buf + 4);
+	}
+      else
+	{
+	  /* ??? Do we need to do any sign-extension here?  */
+	  memcpy (buf + 4 - len, writebuf, len);
+	}
+      regcache_cooked_write (regcache, M88K_R2_REGNUM, buf);
+    }
+
+  return RETURN_VALUE_REGISTER_CONVENTION;
+}
+
+/* Default frame unwinder.  */
+
+struct m88k_frame_cache
+{
+  /* Base address.  */
+  CORE_ADDR base;
+  CORE_ADDR pc;
+
+  int sp_offset;
+  int fp_offset;
+
+  /* Table of saved registers.  */
+  struct trad_frame_saved_reg *saved_regs;
+};
+
+/* Prologue analysis.  */
+
+/* Macros for extracting fields from instructions.  */
+
+#define BITMASK(pos, width) (((0x1 << (width)) - 1) << (pos))
+#define EXTRACT_FIELD(val, pos, width) ((val) >> (pos) & BITMASK (0, width))
+#define	SUBU_OFFSET(x)	((unsigned)(x & 0xFFFF))
+#define	ST_OFFSET(x)	((unsigned)((x) & 0xFFFF))
+#define	ST_SRC(x)	EXTRACT_FIELD ((x), 21, 5)
+#define	ADDU_OFFSET(x)	((unsigned)(x & 0xFFFF))
+
+/* Possible actions to be taken by the prologue analyzer for the
+   instructions it encounters.  */
+
+enum m88k_prologue_insn_action
+{
+  M88K_PIA_SKIP,		/* Ignore.  */
+  M88K_PIA_NOTE_ST,		/* Note register store.  */
+  M88K_PIA_NOTE_STD,		/* Note register pair store.  */
+  M88K_PIA_NOTE_SP_ADJUSTMENT,	/* Note stack pointer adjustment.  */
+  M88K_PIA_NOTE_FP_ASSIGNMENT,	/* Note frame pointer assignment.  */
+  M88K_PIA_NOTE_BRANCH,		/* Note branch.  */
+  M88K_PIA_NOTE_PROLOGUE_END	/* Note end of prologue.  */
+};
+
+/* Table of instructions that may comprise a function prologue.  */
+
+struct m88k_prologue_insn
+{
+  unsigned long insn;
+  unsigned long mask;
+  enum m88k_prologue_insn_action action;
+};
+
+struct m88k_prologue_insn m88k_prologue_insn_table[] =
+{
+  /* Various register move instructions.  */
+  { 0x58000000, 0xf800ffff, M88K_PIA_SKIP },     /* or/or.u with immed of 0 */
+  { 0xf4005800, 0xfc1fffe0, M88K_PIA_SKIP },     /* or rd,r0,rs */
+  { 0xf4005800, 0xfc00ffff, M88K_PIA_SKIP },     /* or rd,rs,r0 */
+
+  /* Various other instructions.  */
+  { 0x58000000, 0xf8000000, M88K_PIA_SKIP },     /* or/or.u */
+
+  /* Stack pointer setup: "subu sp,sp,n" where n is a multiple of 8.  */
+  { 0x67ff0000, 0xffff0007, M88K_PIA_NOTE_SP_ADJUSTMENT },
+
+  /* Frame pointer assignment: "addu r30,r31,n".  */
+  { 0x63df0000, 0xffff0000, M88K_PIA_NOTE_FP_ASSIGNMENT },
+
+  /* Store to stack instructions; either "st rx,sp,n" or "st.d rx,sp,n".  */
+  { 0x241f0000, 0xfc1f0000, M88K_PIA_NOTE_ST },  /* st rx,sp,n */
+  { 0x201f0000, 0xfc1f0000, M88K_PIA_NOTE_STD }, /* st.d rs,sp,n */
+
+  /* Instructions needed for setting up r25 for pic code.  */
+  { 0x5f200000, 0xffff0000, M88K_PIA_SKIP },     /* or.u r25,r0,offset_high */
+  { 0xcc000002, 0xffffffff, M88K_PIA_SKIP },     /* bsr.n Lab */
+  { 0x5b390000, 0xffff0000, M88K_PIA_SKIP },     /* or r25,r25,offset_low */
+  { 0xf7396001, 0xffffffff, M88K_PIA_SKIP },     /* Lab: addu r25,r25,r1 */
+
+  /* Various branch or jump instructions which have a delay slot --
+     these do not form part of the prologue, but the instruction in
+     the delay slot might be a store instruction which should be
+     noted.  */
+  { 0xc4000000, 0xe4000000, M88K_PIA_NOTE_BRANCH },
+                                      /* br.n, bsr.n, bb0.n, or bb1.n */
+  { 0xec000000, 0xfc000000, M88K_PIA_NOTE_BRANCH }, /* bcnd.n */
+  { 0xf400c400, 0xfffff7e0, M88K_PIA_NOTE_BRANCH }, /* jmp.n or jsr.n */
+
+  /* Catch all.  Ends prologue analysis.  */
+  { 0x00000000, 0x00000000, M88K_PIA_NOTE_PROLOGUE_END }
+};
+
+/* Do a full analysis of the function prologue at PC and update CACHE
+   accordingly.  Bail out early if LIMIT is reached.  Return the
+   address where the analysis stopped.  If LIMIT points beyond the
+   function prologue, the return address should be the end of the
+   prologue.  */
+
+static CORE_ADDR
+m88k_analyze_prologue (CORE_ADDR pc, CORE_ADDR limit,
+		       struct m88k_frame_cache *cache)
+{
+  CORE_ADDR end = limit;
+
+  /* Provide a dummy cache if necessary.  */
+  if (cache == NULL)
+    {
+      size_t sizeof_saved_regs =
+	(M88K_R31_REGNUM + 1) * sizeof (struct trad_frame_saved_reg);
+
+      cache = alloca (sizeof (struct m88k_frame_cache));
+      cache->saved_regs = alloca (sizeof_saved_regs);
+
+      /* We only initialize the members we care about.  */
+      cache->saved_regs[M88K_R1_REGNUM].addr = -1;
+      cache->fp_offset = -1;
+    }
+
+  while (pc < limit)
+    {
+      struct m88k_prologue_insn *pi = m88k_prologue_insn_table;
+      unsigned long insn = m88k_fetch_instruction (pc);
+
+      while ((insn & pi->mask) != pi->insn)
+	pi++;
+
+      switch (pi->action)
+	{
+	case M88K_PIA_SKIP:
+	  /* If we have a frame pointer, and R1 has been saved,
+             consider this instruction as not being part of the
+             prologue.  */
+	  if (cache->fp_offset != -1
+	      && cache->saved_regs[M88K_R1_REGNUM].addr != -1)
+	    return min (pc, end);
+	  break;
+
+	case M88K_PIA_NOTE_ST:
+	case M88K_PIA_NOTE_STD:
+	  /* If no frame has been allocated, the stores aren't part of
+             the prologue.  */
+	  if (cache->sp_offset == 0)
+	    return min (pc, end);
+
+	  /* Record location of saved registers.  */
+	  {
+	    int regnum = ST_SRC (insn) + M88K_R0_REGNUM;
+	    ULONGEST offset = ST_OFFSET (insn);
+
+	    cache->saved_regs[regnum].addr = offset;
+	    if (pi->action == M88K_PIA_NOTE_STD && regnum < M88K_R31_REGNUM)
+	      cache->saved_regs[regnum + 1].addr = offset + 4;
+	  }
+	  break;
+
+	case M88K_PIA_NOTE_SP_ADJUSTMENT:
+	  /* A second stack pointer adjustment isn't part of the
+             prologue.  */
+	  if (cache->sp_offset != 0)
+	    return min (pc, end);
+
+	  /* Store stack pointer adjustment.  */
+	  cache->sp_offset = -SUBU_OFFSET (insn);
+	  break;
+
+	case M88K_PIA_NOTE_FP_ASSIGNMENT:
+	  /* A second frame pointer assignment isn't part of the
+             prologue.  */
+	  if (cache->fp_offset != -1)
+	    return min (pc, end);
+
+	  /* Record frame pointer assignment.  */
+	  cache->fp_offset = ADDU_OFFSET (insn);
+	  break;
+
+	case M88K_PIA_NOTE_BRANCH:
+	  /* The branch instruction isn't part of the prologue, but
+             the instruction in the delay slot might be.  Limit the
+             prologue analysis to the delay slot and record the branch
+             instruction as the end of the prologue.  */
+	  limit = min (limit, pc + 2 * M88K_INSN_SIZE);
+	  end = pc;
+	  break;
+
+	case M88K_PIA_NOTE_PROLOGUE_END:
+	  return min (pc, end);
+	}
+
+      pc += M88K_INSN_SIZE;
+    }
+
+  return end;
+}
+
+/* An upper limit to the size of the prologue.  */
+const int m88k_max_prologue_size = 128 * M88K_INSN_SIZE;
+
+/* Return the address of first real instruction of the function
+   starting at PC.  */
+
+static CORE_ADDR
+m88k_skip_prologue (CORE_ADDR pc)
+{
+  struct symtab_and_line sal;
+  CORE_ADDR func_start, func_end;
+
+  /* This is the preferred method, find the end of the prologue by
+     using the debugging information.  */
+  if (find_pc_partial_function (pc, NULL, &func_start, &func_end))
+    {
+      sal = find_pc_line (func_start, 0);
+
+      if (sal.end < func_end && pc <= sal.end)
+	return sal.end;
+    }
+
+  return m88k_analyze_prologue (pc, pc + m88k_max_prologue_size, NULL);
+}
+
+struct m88k_frame_cache *
+m88k_frame_cache (struct frame_info *next_frame, void **this_cache)
+{
+  struct m88k_frame_cache *cache;
+  CORE_ADDR frame_sp;
+
+  if (*this_cache)
+    return *this_cache;
+
+  cache = FRAME_OBSTACK_ZALLOC (struct m88k_frame_cache);
+  cache->saved_regs = trad_frame_alloc_saved_regs (next_frame);
+  cache->fp_offset = -1;
+
+  cache->pc = frame_func_unwind (next_frame);
+  if (cache->pc != 0)
+    {
+      CORE_ADDR addr_in_block = frame_unwind_address_in_block (next_frame);
+      m88k_analyze_prologue (cache->pc, addr_in_block, cache);
+    }
+
+  /* Calculate the stack pointer used in the prologue.  */
+  if (cache->fp_offset != -1)
+    {
+      CORE_ADDR fp;
+
+      fp = frame_unwind_register_unsigned (next_frame, M88K_R30_REGNUM);
+      frame_sp = fp - cache->fp_offset;
+    }
+  else
+    {
+      /* If we know where the return address is saved, we can take a
+         solid guess at what the frame pointer should be.  */
+      if (cache->saved_regs[M88K_R1_REGNUM].addr != -1)
+	cache->fp_offset = cache->saved_regs[M88K_R1_REGNUM].addr - 4;
+      frame_sp = frame_unwind_register_unsigned (next_frame, M88K_R31_REGNUM);
+    }
+
+  /* Now that we know the stack pointer, adjust the location of the
+     saved registers.  */
+  {
+    int regnum;
+
+    for (regnum = M88K_R0_REGNUM; regnum < M88K_R31_REGNUM; regnum ++)
+      if (cache->saved_regs[regnum].addr != -1)
+	cache->saved_regs[regnum].addr += frame_sp;
+  }
+
+  /* Calculate the frame's base.  */
+  cache->base = frame_sp - cache->sp_offset;
+  trad_frame_set_value (cache->saved_regs, M88K_R31_REGNUM, cache->base);
+
+  /* Identify SXIP with the return address in R1.  */
+  cache->saved_regs[M88K_SXIP_REGNUM] = cache->saved_regs[M88K_R1_REGNUM];
+
+  *this_cache = cache;
+  return cache;
+}
+
+static void
+m88k_frame_this_id (struct frame_info *next_frame, void **this_cache,
+		    struct frame_id *this_id)
+{
+  struct m88k_frame_cache *cache = m88k_frame_cache (next_frame, this_cache);
+
+  /* This marks the outermost frame.  */
+  if (cache->base == 0)
+    return;
+
+  (*this_id) = frame_id_build (cache->base, cache->pc);
+}
+
+static void
+m88k_frame_prev_register (struct frame_info *next_frame, void **this_cache,
+			  /* APPLE LOCAL variable opt states.  */
+			  int regnum, enum opt_state *optimizedp,
+			  enum lval_type *lvalp, CORE_ADDR *addrp,
+			  int *realnump, gdb_byte *valuep)
+{
+  struct m88k_frame_cache *cache = m88k_frame_cache (next_frame, this_cache);
+
+  if (regnum == M88K_SNIP_REGNUM || regnum == M88K_SFIP_REGNUM)
+    {
+      if (valuep)
+	{
+	  CORE_ADDR pc;
+
+	  trad_frame_get_prev_register (next_frame, cache->saved_regs,
+					M88K_SXIP_REGNUM, optimizedp,
+					lvalp, addrp, realnump, valuep);
+
+	  pc = extract_unsigned_integer (valuep, 4);
+	  if (regnum == M88K_SFIP_REGNUM)
+	    pc += 4;
+	  store_unsigned_integer (valuep, 4, pc + 4);
+	}
+
+      /* It's a computed value.  */
+      /* APPLE LOCAL variable opt states.  */
+      *optimizedp = opt_okay;
+      *lvalp = not_lval;
+      *addrp = 0;
+      *realnump = -1;
+      return;
+    }
+
+  trad_frame_get_prev_register (next_frame, cache->saved_regs, regnum,
+				optimizedp, lvalp, addrp, realnump, valuep);
+}
+
+static const struct frame_unwind m88k_frame_unwind =
+{
+  NORMAL_FRAME,
+  m88k_frame_this_id,
+  m88k_frame_prev_register
+};
+
+static const struct frame_unwind *
+m88k_frame_sniffer (struct frame_info *next_frame)
+{
+  return &m88k_frame_unwind;
+}
+
+
+static CORE_ADDR
+m88k_frame_base_address (struct frame_info *next_frame, void **this_cache)
+{
+  struct m88k_frame_cache *cache = m88k_frame_cache (next_frame, this_cache);
+
+  if (cache->fp_offset != -1)
+    return cache->base + cache->sp_offset + cache->fp_offset;
+
+  return 0;
+}
+
+static const struct frame_base m88k_frame_base =
+{
+  &m88k_frame_unwind,
+  m88k_frame_base_address,
+  m88k_frame_base_address,
+  m88k_frame_base_address
+};
+
+
+/* Core file support.  */
+
+/* Supply register REGNUM from the buffer specified by GREGS and LEN
+   in the general-purpose register set REGSET to register cache
+   REGCACHE.  If REGNUM is -1, do this for all registers in REGSET.  */
+
+static void
+m88k_supply_gregset (const struct regset *regset,
+		     struct regcache *regcache,
+		     int regnum, const void *gregs, size_t len)
+{
+  const gdb_byte *regs = gregs;
+  int i;
+
+  for (i = 0; i < M88K_NUM_REGS; i++)
+    {
+      if (regnum == i || regnum == -1)
+	regcache_raw_supply (regcache, i, regs + i * 4);
+    }
+}
+
+/* Motorola 88000 register set.  */
+
+static struct regset m88k_gregset =
+{
+  NULL,
+  m88k_supply_gregset
+};
+
+/* Return the appropriate register set for the core section identified
+   by SECT_NAME and SECT_SIZE.  */
+
+static const struct regset *
+m88k_regset_from_core_section (struct gdbarch *gdbarch,
+			       const char *sect_name, size_t sect_size)
+{
+  if (strcmp (sect_name, ".reg") == 0 && sect_size >= M88K_NUM_REGS * 4)
+    return &m88k_gregset;
+
+  return NULL;
+}
+
+
+static struct gdbarch *
+m88k_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
+{
+  struct gdbarch *gdbarch;
+
+  /* If there is already a candidate, use it.  */
+  arches = gdbarch_list_lookup_by_info (arches, &info);
+  if (arches != NULL)
+    return arches->gdbarch;
+
+  /* Allocate space for the new architecture.  */
+  gdbarch = gdbarch_alloc (&info, NULL);
+
+  /* There is no real `long double'.  */
+  set_gdbarch_long_double_bit (gdbarch, 64);
+  set_gdbarch_long_double_format (gdbarch, &floatformat_ieee_double_big);
+
+  set_gdbarch_num_regs (gdbarch, M88K_NUM_REGS);
+  set_gdbarch_register_name (gdbarch, m88k_register_name);
+  set_gdbarch_register_type (gdbarch, m88k_register_type);
+
+  /* Register numbers of various important registers.  */
+  set_gdbarch_sp_regnum (gdbarch, M88K_R31_REGNUM);
+  set_gdbarch_pc_regnum (gdbarch, M88K_SXIP_REGNUM);
+
+  /* Core file support.  */
+  set_gdbarch_regset_from_core_section
+    (gdbarch, m88k_regset_from_core_section);
+
+  set_gdbarch_print_insn (gdbarch, print_insn_m88k);
+
+  set_gdbarch_skip_prologue (gdbarch, m88k_skip_prologue);
+
+  /* Stack grows downward.  */
+  set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
+
+  /* Call dummy code.  */
+  set_gdbarch_push_dummy_call (gdbarch, m88k_push_dummy_call);
+  set_gdbarch_unwind_dummy_id (gdbarch, m88k_unwind_dummy_id);
+
+  /* Return value info */
+  set_gdbarch_return_value (gdbarch, m88k_return_value);
+
+  set_gdbarch_addr_bits_remove (gdbarch, m88k_addr_bits_remove);
+  set_gdbarch_breakpoint_from_pc (gdbarch, m88k_breakpoint_from_pc);
+  set_gdbarch_unwind_pc (gdbarch, m88k_unwind_pc);
+  set_gdbarch_write_pc (gdbarch, m88k_write_pc);
+
+  frame_base_set_default (gdbarch, &m88k_frame_base);
+  frame_unwind_append_sniffer (gdbarch, m88k_frame_sniffer);
+
+  return gdbarch;
+}
+
+
+/* Provide a prototype to silence -Wmissing-prototypes.  */
+void _initialize_m88k_tdep (void);
+
+void
+_initialize_m88k_tdep (void)
+{
+  gdbarch_register (bfd_arch_m88k, m88k_gdbarch_init, NULL);
+}

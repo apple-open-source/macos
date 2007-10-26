@@ -44,15 +44,17 @@ struct stab_section_info
   };
 
 /* Information is passed among various dbxread routines for accessing
-   symbol files.  A pointer to this structure is kept in the sym_stab_info
-   field of the objfile struct.  */
+   symbol files.  A pointer to this structure is kept in the
+   deprecated_sym_stab_info field of the objfile struct.  */
 
 struct dbx_symfile_info
   {
     CORE_ADDR text_addr;	/* Start of text section */
     int text_size;		/* Size of text section */
+    /* APPLE LOCAL begin coalesced symbols */
     CORE_ADDR coalesced_text_addr;	/* Start of coalesced_text section */
     int coalesced_text_size;		/* Size of coalesced_text section */
+    /* APPLE LOCAL end coalesced symbols */
     int symcount;		/* How many symbols are there in the file */
     char *stringtab;		/* The actual string table */
     int stringtab_size;		/* Its size */
@@ -66,27 +68,31 @@ struct dbx_symfile_info
     int n_header_files;
     int n_allocated_header_files;
 
-    /* Pointers to BFD sections.  These are used to speed up the building of
-       minimal symbols.  */
-    asection *text_section;
-    asection *coalesced_text_section;
-    asection *data_section;
-    asection *bss_section;
+    /* APPLE LOCAL: Pointers to struct obj_sections.
+       We need the slid addresses of these sections; FSF gdb uses BFD asections
+       which have the original file's intended load address.
+       These are used to speed up the building of minimal symbols.  */
+    struct obj_section *text_section;
+    struct obj_section *coalesced_text_section;
+    struct obj_section *data_section;
+    struct obj_section *bss_section;
 
     /* Pointer to the separate ".stab" section, if there is one.  */
     asection *stab_section;
 
-    /* APPLE LOCAL: Record the # and offset of local stab nlist records and
-       non-local stab nlist records.  If this information is not provided
-       by the static link editor, these will have 0 values. */
-
+    /* APPLE LOCAL begin local stabs */
+    /* Record the # and offset of local stab nlist records and
+       non-local stab nlist records.  If this information is not
+       provided by the static link editor, these will have 0
+       values. */
     file_ptr local_stab_offset;
     int local_stab_count;
     file_ptr nonlocal_stab_offset;
     int nonlocal_stab_count;
+    /* APPLE LOCAL end local stabs */
   };
 
-#define DBX_SYMFILE_INFO(o)	((o)->sym_stab_info)
+#define DBX_SYMFILE_INFO(o)	((o)->deprecated_sym_stab_info)
 #define DBX_TEXT_ADDR(o)	(DBX_SYMFILE_INFO(o)->text_addr)
 #define DBX_TEXT_SIZE(o)	(DBX_SYMFILE_INFO(o)->text_size)
 #define DBX_COALESCED_TEXT_ADDR(o)	(DBX_SYMFILE_INFO(o)->coalesced_text_addr)

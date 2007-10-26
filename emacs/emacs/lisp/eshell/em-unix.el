@@ -1,6 +1,7 @@
 ;;; em-unix.el --- UNIX command aliases
 
-;; Copyright (C) 1999, 2000, 2001 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,12 +19,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-unix)
 
 (eval-when-compile (require 'esh-maint))
+(require 'eshell)
 
 (defgroup eshell-unix nil
   "This module defines many of the more common UNIX utilities as
@@ -76,7 +78,7 @@ receiving side of a command pipeline."
   :type 'boolean
   :group 'eshell-unix)
 
-(defcustom eshell-plain-locate-behavior nil
+(defcustom eshell-plain-locate-behavior (eshell-under-xemacs-p)
   "*If non-nil, standalone \"locate\" commands will behave normally.
 Standalone in this context means not redirected, and not on the
 receiving side of a command pipeline."
@@ -141,9 +143,7 @@ Otherwise, Emacs will attempt to use rsh to invoke du on the remote machine."
 
 (defun eshell-unix-initialize ()
   "Initialize the UNIX support/emulation code."
-  (make-local-hook 'eshell-post-command-hook)
   (when (eshell-using-module 'eshell-cmpl)
-    (make-local-hook 'pcomplete-try-first-hook)
     (add-hook 'pcomplete-try-first-hook
 	      'eshell-complete-host-reference nil t))
   (make-local-variable 'eshell-complex-commands)
@@ -643,13 +643,12 @@ Concatenate FILE(s), or standard input, to standard output.")
 (defun eshell-occur-mode-mouse-goto (event)
   "In Occur mode, go to the occurrence whose line you click on."
   (interactive "e")
-  (let (buffer pos)
+  (let (pos)
     (save-excursion
       (set-buffer (window-buffer (posn-window (event-end event))))
       (save-excursion
 	(goto-char (posn-point (event-end event)))
-	(setq pos (occur-mode-find-occurrence))
-	(setq buffer occur-buffer)))
+	(setq pos (occur-mode-find-occurrence))))
     (pop-to-buffer (marker-buffer pos))
     (goto-char (marker-position pos))))
 
@@ -685,7 +684,6 @@ available..."
 		(if string (insert string))
 		(setq string nil
 		      files (cdr files)))))
-	  (setq occur-buffer (current-buffer))
 	  (local-set-key [mouse-2] 'eshell-occur-mode-mouse-goto)
 	  (local-set-key [(control ?c) (control ?c)]
 			 'eshell-occur-mode-goto-occurrence)
@@ -711,11 +709,7 @@ external command."
 	       (eshell-parse-command (concat "*" command)
 				     (eshell-stringify-list
 				      (eshell-flatten-list args))))
-      (let* ((compilation-process-setup-function
-	      (list 'lambda nil
-		    (list 'setq 'process-environment
-			  (list 'quote (eshell-copy-environment)))))
-	     (args (mapconcat 'identity
+      (let* ((args (mapconcat 'identity
 			      (mapcar 'shell-quote-argument
 				      (eshell-stringify-list
 				       (eshell-flatten-list args)))
@@ -806,7 +800,7 @@ external command."
 	(size 0.0))
     (while entries
       (unless (string-match "\\`\\.\\.?\\'" (caar entries))
-	(let* ((entry (concat path (char-to-string directory-sep-char)
+	(let* ((entry (concat path "/"
 			      (caar entries)))
 	       (symlink (and (stringp (cadr (car entries)))
 			     (cadr (car entries)))))
@@ -884,7 +878,7 @@ Summarize disk usage of each FILE, recursively for directories.")
        (unless by-bytes
 	 (setq block-size (or block-size 1024)))
        (if (and max-depth (stringp max-depth))
-	   (setq max-depth (string-to-int max-depth)))
+	   (setq max-depth (string-to-number max-depth)))
        ;; filesystem support means nothing under Windows
        (if (eshell-under-windows-p)
 	   (setq only-one-filesystem nil))
@@ -957,7 +951,7 @@ Show wall-clock time elapsed during execution of COMMAND.")
 		      (not eshell-in-subcommand-p))))
 	(throw 'eshell-replace-command
 	       (eshell-parse-command "*diff" orig-args))
-      (setq args (eshell-copy-list orig-args))
+      (setq args (copy-sequence orig-args))
       (if (< (length args) 2)
 	  (throw 'eshell-replace-command
 		 (eshell-parse-command "*diff" orig-args)))
@@ -1019,4 +1013,5 @@ Show wall-clock time elapsed during execution of COMMAND.")
 
 ;;; Code:
 
+;;; arch-tag: 2462edd2-a76a-4cf2-897d-92e9a82ac1c9
 ;;; em-unix.el ends here

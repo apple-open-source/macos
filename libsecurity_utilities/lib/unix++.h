@@ -52,10 +52,11 @@ namespace UnixPlusPlus {
 // Check system call return and throw on error
 //
 template <class Result>
-inline void checkError(Result result)
+inline Result checkError(Result result)
 {
 	if (result == Result(-1))
 		UnixError::throwMe();
+	return result;
 }
 
 
@@ -86,16 +87,18 @@ protected:
 
     void setFd(int fd)					{ mFd = fd; mAtEnd = false; }
     void checkSetFd(int fd)				{ checkError(fd); mFd = fd; mAtEnd = false; }
+	
+	FileDesc(int fd, bool atEnd) : mFd(fd), mAtEnd(atEnd) { }
     
 public:
     FileDesc() : mFd(invalidFd), mAtEnd(false) { }
     FileDesc(int fd) : mFd(fd), mAtEnd(false) { }
     
     // implicit file system open() construction
-    FileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666) : mFd(invalidFd)
-    { open(path, flag, mode); }
-	FileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666) : mFd(invalidFd)
-	{ open(path.c_str(), flag, mode); }
+    explicit FileDesc(const char *path, int flag = O_RDONLY, mode_t mode = 0666)
+		: mFd(invalidFd)    { this->open(path, flag, mode); }
+	explicit FileDesc(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
+		: mFd(invalidFd)	{ this->open(path.c_str(), flag, mode); }
     
     // assignment
     FileDesc &operator = (int fd)		{ mFd = fd; mAtEnd = false; return *this; }
@@ -110,39 +113,54 @@ public:
     void close();				// close and clear
     
     void open(const char *path, int flag = O_RDONLY, mode_t mode = 0666);
+	void open(const std::string &path, int flag = O_RDONLY, mode_t mode = 0666)
+	{ this->open(path.c_str(), flag, mode); }
     
     // basic I/O: this defines the "Filedescoid" pseudo-type
     size_t read(void *addr, size_t length);
     size_t write(const void *addr, size_t length);
     bool atEnd() const			{ return mAtEnd; }	// valid after zero-length read only
 	
+	// basic I/O with positioning
+	size_t read(void *addr, size_t length, off_t position);
+	size_t write(const void *addr, size_t length, off_t position);
+
+	// read/write all of a buffer, in pieces of necessary
 	size_t readAll(void *addr, size_t length);
 	size_t readAll(std::string &content);
 	void writeAll(const void *addr, size_t length);
-	void writeAll(const std::string &s) { writeAll(s.data(), s.length()); }
+	void writeAll(char *s) { writeAll(s, strlen(s)); }
+	void writeAll(const char *s) { writeAll(s, strlen(s)); }
+	template <class Data>
+	void writeAll(const Data &ds) { writeAll(ds.data(), ds.length()); }
     
     // more convenient I/O
     template <class T> size_t read(T &obj) { return read(&obj, sizeof(obj)); }
     template <class T> size_t write(const T &obj) { return write(&obj, sizeof(obj)); }
     
     // seeking
-    off_t seek(off_t position, int whence = SEEK_SET);
+    size_t seek(off_t position, int whence = SEEK_SET);
+	size_t position() const;
     
     // mapping support
-    void *mmap(int prot = PROT_READ, size_t length = 0, int flags = MAP_FILE, 
-        off_t offset = 0, void *addr = NULL);
+    void *mmap(int prot = PROT_READ, size_t length = 0,
+		int flags = MAP_FILE | MAP_PRIVATE, off_t offset = 0, void *addr = NULL);
     
     // fcntl support
-    int fcntl(int cmd, int arg = 0) const;
-    int fcntl(int cmd, void *arg) const;
-    int flags() const;
-    void flags(int flags) const;
+    int fcntl(int cmd, void *arg = NULL) const;
+	template <class T> int fcntl(int cmd, T arg) const
+		{ return fcntl(cmd, reinterpret_cast<void *>(arg)); }
+    int flags() const		{ return fcntl(F_GETFL); }
+    void flags(int flags) const { fcntl(F_SETFL, flags); }
     void setFlag(int flag, bool on = true) const;
     void clearFlag(int flag) const	{ setFlag(flag, false); }
     
     int openMode() const	{ return flags() & O_ACCMODE; }
     bool isWritable() const	{ return openMode() != O_RDONLY; }
     bool isReadable() const	{ return openMode() != O_WRONLY; }
+	
+	FileDesc dup() const;
+	FileDesc dup(int newFd) const;
 	
 	// lock support (fcntl style)
 	struct Pos {
@@ -169,11 +187,43 @@ public:
         { ioctl(cmd, &arg); }
     template <class Arg> void iocset(int cmd, const Arg &arg)
         { ioctl(cmd, const_cast<Arg *>(&arg)); }
+	
+	// xattr support
+	void setAttr(const char *name, const void *value, size_t length,
+		u_int32_t position = 0, int options = 0);
+	void setAttr(const std::string &name, const void *value, size_t length,
+		u_int32_t position = 0, int options = 0)
+	{ return setAttr(name.c_str(), value, length, position, options); }
+	ssize_t getAttr(const char *name, void *value, size_t length,
+		u_int32_t position = 0, int options = 0);
+	ssize_t getAttr(const std::string &name, void *value, size_t length,
+		u_int32_t position = 0, int options = 0)
+	{ return getAttr(name.c_str(), value, length, position, options); }
+	ssize_t getAttrLength(const char *name);
+	ssize_t getAttrLength(const std::string &name) { return getAttrLength(name.c_str()); }
+	void removeAttr(const char *name, int options = 0);
+	void removeAttr(const std::string &name, int options = 0)
+	{ return removeAttr(name.c_str(), options); }
+	size_t listAttr(char *value, size_t length, int options = 0);
+	size_t listAttr(const std::string &name, size_t length, int options = 0)
+	{ return listAttr(name.c_str(), length, options); }
+	
+	// xattrs with string values (not including trailing null bytes)
+	void setAttr(const std::string &name, const std::string &value, int options = 0);
+	std::string getAttr(const std::string &name, int options = 0);
         
     // stat-related utilities. @@@ should cache??
     typedef struct stat UnixStat;
     void fstat(UnixStat &st) const;
     size_t fileSize() const;
+	bool isA(int type) const;
+	
+	// change various permissions-related features on the open file
+	void chown(uid_t uid);
+	void chown(uid_t uid, gid_t gid);
+	void chgrp(gid_t gid);
+	void chmod(mode_t mode);
+	void chflags(u_int flags);
     
     // stdio interactions
     FILE *fdopen(const char *mode = NULL);	// fdopen(3)

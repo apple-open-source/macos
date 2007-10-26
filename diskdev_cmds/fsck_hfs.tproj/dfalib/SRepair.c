@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,8 @@ static 	OSErr   RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus);
 static	OSErr	RepairAttributes( SGlobPtr GPtr );
 static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixLinkCount( SGlobPtr GPtr, RepairOrderPtr p );
+static	OSErr	FixLinkChainNext( SGlobPtr GPtr, RepairOrderPtr p );
+static	OSErr	FixLinkChainPrev( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixBSDInfo( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	DeleteUnlinkedFile( SGlobPtr GPtr, RepairOrderPtr p );
 static	OSErr	FixOrphanedExtent( SGlobPtr GPtr );
@@ -81,6 +83,12 @@ static 	OSErr	FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID
 static 	OSErr 	FixAttrSize(SGlobPtr GPtr, RepairOrderPtr p);
 static 	OSErr 	FixOrphanAttrRecord(SGlobPtr GPtr);
 static 	OSErr 	FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p);
+static	OSErr	FixHardLinkFinderInfo(SGlobPtr, RepairOrderPtr);
+static	OSErr	FixOrphanLink(SGlobPtr GPtr, RepairOrderPtr p);
+static	OSErr	FixOrphanInode(SGlobPtr GPtr, RepairOrderPtr p);
+static 	OSErr	FixDirLinkOwnerFlags(SGlobPtr GPtr, RepairOrderPtr p);
+static  int 	DeleteCatalogRecordByID(SGlobPtr GPtr, uint32_t id, Boolean for_rename);
+static  int 	MoveCatalogRecordByID(SGlobPtr GPtr, uint32_t id, uint32_t new_parentid);
 
 /* Functions to fix overlapping extents */
 static	OSErr	FixOverlappingExtents(SGlobPtr GPtr);
@@ -98,7 +106,7 @@ static 	OSErr 	FindExtentInExtentRec (Boolean isHFSPlus, UInt32 startBlock, UInt
 
 /* Functions to copy disk blocks or data buffer to disk */
 static 	OSErr 	CopyDiskBlocks(SGlobPtr GPtr, const UInt32 startAllocationBlock, const UInt32 blockCount, const UInt32 newStartAllocationBlock );
-static 	OSErr 	WriteDiskBlocks(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int buflen);
+static 	OSErr 	WriteBufferToDisk(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int buflen);
 
 /* Functions to create file and directory by name */
 static 	OSErr 	CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *fileName, unsigned int filenameLen, u_char *data, unsigned int dataLen);
@@ -152,13 +160,34 @@ static int MRepair( SGlobPtr GPtr )
 		return( err );
 	}
  
+	/*
+	 * We do this check here because it may make set up some minor repair orders;
+	 * however, because determining the repairs to be done is expensive, we have only
+	 * checked to see if there is any sort of problem so far.
+	 * 
+	 * After it's done, DoMinorOrders() will take care of any requests that have been
+	 * set up.
+	 */
+	if (GPtr->CatStat & S_FileHardLinkChain) {
+		err = RepairHardLinkChains(GPtr, false);
+		ReturnIfError(err);
+	}
+
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+
+	if (GPtr->CatStat & S_DirHardLinkChain) {
+		err = RepairHardLinkChains(GPtr, true);
+		ReturnIfError(err);
+	}
+
+ 	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
 	//  Handle repair orders.  Note that these must be done *BEFORE* the MDB is updated.
 	err = DoMinorOrders( GPtr );
 	ReturnIfError( err );
   	err = CheckForStop( GPtr ); ReturnIfError( err );
 
 	/* Clear Catalog status for things repaired by DoMinorOrders */
-	GPtr->CatStat &= ~(S_FileAllocation | S_Permissions | S_UnlinkedFile | S_LinkCount | S_IllName | S_BadExtent);
+	GPtr->CatStat &= ~(S_FileAllocation | S_Permissions | S_UnlinkedFile | S_LinkCount | S_IllName | S_BadExtent | S_LinkErrRepair | S_FileHardLinkChain | S_DirHardLinkChain);
 
 	/*
 	 * Fix missing thread records
@@ -209,6 +238,21 @@ static int MRepair( SGlobPtr GPtr )
 		err = FixOrphanedFiles ( GPtr );							//	Orphaned file were found
 		ReturnIfError( err );
 		GPtr->CBTStat |= S_BTH;  									// leaf record count may change - 2913311
+	}
+
+	/* Some minor repairs are created by looking at file/folder record
+	 * while iterating catalog btree (independent of thread records).
+	 * If the repair for minor repair failed because of missing thread 
+	 * record, try repairing the remaining minor repairs again after 
+	 * incorrect number of thread records is repaired.  Before repair, 
+	 * clear bit for incorrect number of thread record so that we are 
+	 * not stuck in a loop forever. 
+	 */
+	if (GPtr->minorRepairAfterThreadRec) {
+		GPtr->CBTStat &= ~S_Orphan;
+		err = DoMinorOrders(GPtr);
+		GPtr->CBTStat |= S_Orphan;
+		ReturnIfError( err );
 	}
 
 	//
@@ -710,6 +754,434 @@ static	OSErr	UpdateVolumeBitMap( SGlobPtr GPtr, Boolean preAllocateOverlappedExt
 	return ( CheckVolumeBitMap(GPtr, true) );
 }
 
+/*
+Routine:	FixBadLinkChainFirst - fix the first link in a hard link chain
+
+Input:		GPtr		-- pointer to scavenger global data
+			p			-- pointer to a minor repair order
+
+Output:		funciton result:
+				0	-- no error
+				n	-- error
+*/
+
+OSErr FixBadLinkChainFirst(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	CatalogRecord rec;
+	uint16_t recsize;
+	OSErr retval = 0;
+	HFSPlusAttrData *attrRec;
+	HFSPlusAttrKey *attrKey;
+	BTreeIterator iterator;
+	FSBufferDescriptor bt_data;
+	u_int8_t	attrdata[FIRST_LINK_XATTR_REC_SIZE];
+	size_t unicode_bytes = 0;
+
+	ClearMemory(&iterator, sizeof(iterator));
+	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, (CatalogKey*)&iterator.key, &rec, &recsize);
+	if (retval != 0) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto done;
+	}
+
+	switch (rec.recordType) {
+	case kHFSPlusFolderRecord:	// directory hard link
+		attrKey = (HFSPlusAttrKey*)&iterator.key;
+		utf_decodestr((unsigned char *)FIRST_LINK_XATTR_NAME,
+			strlen(FIRST_LINK_XATTR_NAME), attrKey->attrName,
+			&unicode_bytes, sizeof(attrKey->attrName));
+		attrKey->attrNameLen = unicode_bytes / sizeof(UniChar);
+		attrKey->keyLength = kHFSPlusAttrKeyMinimumLength + unicode_bytes;
+		attrKey->pad = 0;
+		attrKey->fileID = p->parid;
+		attrKey->startBlock = 0;
+		attrRec = (HFSPlusAttrData*)&attrdata[0];
+		attrRec->recordType = kHFSPlusAttrInlineData;
+		attrRec->reserved[0] = 0;
+		attrRec->reserved[1] = 0;
+		(void)snprintf((char*)&attrRec->attrData[0],
+			sizeof(attrRec) - (4 * sizeof(uint32_t)),
+			"%lu", (unsigned long)(p->correct));
+		attrRec->attrSize = 1 + strlen((char*)&attrRec->attrData[0]);
+		bt_data.bufferAddress = attrRec;
+		recsize = sizeof(HFSPlusAttrData) - 2 + attrRec->attrSize + ((attrRec->attrSize & 1) ? 1 : 0);
+		bt_data.itemSize = recsize;
+		bt_data.itemCount = 1;
+		
+		retval = BTInsertRecord(GPtr->calculatedAttributesFCB, &iterator, &bt_data, recsize);
+		if (retval == btExists) {
+			retval = BTReplaceRecord(GPtr->calculatedAttributesFCB, &iterator, &bt_data, recsize);
+		} 
+
+		if (retval) {
+			/* If there is error on inserting a new attribute record
+			 * because attribute btree does not exists, print message. 
+			 */
+			if ((GPtr->calculatedAttributesFCB->fcbPhysicalSize == 0) &&
+			    (GPtr->calculatedAttributesFCB->fcbLogicalSize == 0) && 
+			    (GPtr->calculatedAttributesFCB->fcbClumpSize == 0) &&
+			    (GPtr->logLevel >= kDebugLog)) {
+				plog ("\tFixBadLinkChainFirst: Attribute btree does not exists.\n");
+			}
+		}
+		break;
+	case kHFSPlusFileRecord:	// file hard link
+		rec.hfsPlusFile.hl_firstLinkID = (UInt32)p->correct;
+		bt_data.bufferAddress = &rec;
+		bt_data.itemSize = recsize;
+		bt_data.itemCount = 1;
+		retval = BTReplaceRecord(GPtr->calculatedCatalogFCB, &iterator, &bt_data, recsize);
+		break;
+	default:
+		retval = IntError(GPtr, R_IntErr);
+		break;
+	}
+done:
+	return retval;
+}
+
+
+/*
+Routine:	FixPrivDirBadPerms - fix the permissions of the directory hard-link private dir
+
+Input:		GPtr		-- pointer to scavenger global data
+			p			-- poitner to a minor repair order
+
+Output:		function result:
+				0 -- no error
+				n -- error
+*/
+
+static OSErr FixPrivDirBadPerms(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	CatalogKey key;
+	CatalogRecord rec;
+	uint16_t recsize;
+	OSErr retval = 0;
+	UInt32 hint;
+
+	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, &key, &rec, &recsize);
+
+	if (retval != 0) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto done;
+	}
+	if (rec.recordType != kHFSPlusFolderRecord) {
+		retval = IntError(GPtr, R_IntErr);
+		goto done;
+	}
+	
+	rec.hfsPlusFolder.bsdInfo.ownerFlags |= UF_IMMUTABLE;
+	rec.hfsPlusFolder.bsdInfo.fileMode |= S_ISVTX;
+
+	retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint, &rec, recsize, &hint);
+
+done:
+	return retval;
+}
+
+/*------------------------------------------------------------------------------
+Routine:	FixOrphanLink
+
+Function:	Delete the orphan directory/file hard link as no corresponding 
+		directory/file inode was found.
+
+Input:		GPtr - ptr to scavenger global data
+		p    - pointer to a minor repair order
+
+Output:		function returns - 
+		0 - no error, success
+		n - error
+-------------------------------------------------------------------------------*/
+static OSErr FixOrphanLink(SGlobPtr GPtr, RepairOrderPtr p)
+{ 
+	return DeleteCatalogRecordByID(GPtr, p->parid, false);
+}
+
+/*------------------------------------------------------------------------------
+Routine:	FixOrphanInode
+
+Function:	Repair orphan file/directory inode, i.e. no hard links point 
+		to this file/directory inode by moving them to lost+found.
+
+Input:		GPtr - ptr to scavenger global data
+		p    - pointer to a minor repair order
+
+Output:		function returns - 
+		0 - no error, success
+		n - error
+-------------------------------------------------------------------------------*/
+static OSErr FixOrphanInode(SGlobPtr GPtr, RepairOrderPtr p)
+{ 
+	int retval;
+	uint32_t lost_found_id;
+	static int msg_display = 0;
+
+	/* Make sure that lost+found exists */ 
+	lost_found_id = CreateDirByName(GPtr, (u_char *)"lost+found", 
+				kHFSRootFolderID);
+	if (lost_found_id == 0) {
+		retval = ENOENT;
+		goto out;
+	}
+
+	retval = MoveCatalogRecordByID(GPtr, p->parid, lost_found_id);
+	if (msg_display == 0) {
+		PrintStatus(GPtr, M_Look, 0);
+		msg_display = 1;
+	}
+
+out:
+	return retval;
+}
+
+/*------------------------------------------------------------------------------
+Routine:	FixDirLinkOwnerFlags
+
+Function:	Fix the owner flags for directory hard link.
+
+Input:		GPtr - ptr to scavenger global data
+		p    - pointer to a minor repair order
+
+Output:		function returns - 
+		0 - no error, success
+		n - error
+-------------------------------------------------------------------------------*/
+static OSErr FixDirLinkOwnerFlags(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	CatalogKey key;
+	CatalogRecord rec;
+	uint16_t recsize;
+	OSErr retval = 0;
+	UInt32 hint;
+
+	retval = GetCatalogRecordByID(GPtr, p->parid, true, &key, &rec, &recsize);
+	if (retval != 0) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto done;
+	}
+
+	rec.hfsPlusFile.bsdInfo.ownerFlags = p->correct;
+
+	retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&rec, recsize, &hint);
+
+done:
+	return retval;
+}
+
+/*------------------------------------------------------------------------------
+Routine:	FixBadFlags
+
+Function:	Update the flags field of a directory or file node
+
+Input:		GPtr		-- ptr to scavenger global data
+			p			-- pointer to a minor repair order
+
+Output:		function result:
+				0 - no error
+				n - error
+*/
+static OSErr FixBadFlags(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	CatalogKey key;
+	CatalogRecord rec;
+	uint16_t recsize;
+	OSErr retval = 0;
+	UInt32 hint;
+
+	retval = GetCatalogRecordByID(GPtr, p->parid, true, &key, &rec, &recsize);
+	if (retval != 0) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto done;
+	}
+
+	if (p->type == E_DirInodeBadFlags) {
+		if (rec.hfsPlusFolder.flags != p->incorrect) {
+			fplog(stderr, "* * * FixBadFlags (folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		}
+		rec.hfsPlusFolder.flags = p->correct;
+	} else if (p->type == E_DirLinkAncestorFlags) {
+		if (rec.hfsPlusFolder.flags != p->incorrect) {
+			fplog(stderr, "* * * FixBadFlag (parent folder):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		}
+		rec.hfsPlusFolder.flags = p->correct;
+	} else {
+		if (rec.hfsPlusFolder.flags != p->incorrect) {
+			fplog(stderr, "* * * FixBadFlags (file):  old = %#x, incorrect = %#x, correct = %#x\n", rec.hfsPlusFolder.flags, (int)p->incorrect, (int)p->correct);
+		}
+		rec.hfsPlusFile.flags = p->correct;
+	}
+
+	retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&rec, recsize, &hint);
+
+done:
+
+	return retval;
+
+}
+
+/*------------------------------------------------------------------------------
+Routine:	UpdFolderCount
+
+Function:	Update the folder count in an HFS+ folder record
+
+Input:		GPtr		-- ptr to scavenger global data
+			p			-- pointer to minor repair order
+
+Output:		function result:
+				0 - no error
+				n - error
+
+------------------------------------------------------------------------------*/
+OSErr UpdFolderCount( SGlobPtr GPtr, RepairOrderPtr p)
+{
+	OSErr result = -1;
+	CatalogRecord record;
+	CatalogKey key, foundKey;
+	UInt16 recSize = 0;
+	UInt32 hint = 0;
+
+#define DPRINT(where, fmt, ...) \
+	if (GPtr->logLevel >= kDebugLog) \
+		fplog(where, fmt, ## __VA_ARGS__);
+
+	/*
+	 * We do the search in two stages.  First, we look for just the
+	 * catalog ID we get from the repair order; this SHOULD give us
+	 * a thread record, which we can then use to get the real record.
+	 */
+	BuildCatalogKey( p->parid, NULL, true, &key);
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&foundKey, &record, &recSize, &hint);
+
+	if (result /*== btNotFound*/) {
+		// If a thread record was deleted, it should be recreated later
+		DPRINT(stderr, "UpdFolderCount:  first SearchBTreeRecord failed, bailing out without complaint\n");
+		return 0;
+	}
+
+	if (result) {
+		DPRINT(stderr, "UpdFolderCount:  first SearchBTreeRecord failed, parid = %u, result = %d\n", p->parid, result);
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if ((record.recordType != kHFSPlusFolderThreadRecord) &&
+	    (record.recordType != kHFSPlusFileThreadRecord)) {
+		DPRINT(stderr, "UpdFolderCount:  recordType (%d) is not a thread record\n", record.recordType);
+		return IntError(GPtr, R_IntErr);
+	}
+
+	BuildCatalogKey( record.hfsPlusThread.parentID, (const CatalogName *)&record.hfsPlusThread.nodeName, true, &key);
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&foundKey, &record, &recSize, &hint);
+
+	if (result) {
+		DPRINT(stderr, "UpdFolderCount: second SearchBTreeRecord failed (thread.parentID = %u, result = %d), just returning without complaint\n", record.hfsPlusThread.parentID, result);
+		return 0;
+	}
+
+	if (record.recordType != kHFSPlusFolderRecord) {
+		DPRINT(stderr, "UpdFolderCount:  actual record type (%d) != FolderRecord\n", record.recordType);
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if ((UInt32)p->incorrect != record.hfsPlusFolder.folderCount) {
+		DPRINT(stderr, "UpdFolderCount:  incorrect (%u) != expected folderCount (%u)\n", (UInt32)p->incorrect, record.hfsPlusFolder.folderCount);
+		return IntError( GPtr, R_IntErr);
+	}
+
+	record.hfsPlusFolder.folderCount = p->correct;
+	result = ReplaceBTreeRecord( GPtr->calculatedCatalogFCB, &foundKey, hint,
+		&record, recSize, &hint);
+	if (result) {
+		DPRINT(stderr, "UpdFolderCount:  ReplaceBTreeRecord failed (%d)\n", result);
+		return IntError( GPtr, R_IntErr );
+	}
+	return noErr;
+}
+#undef DPRINT
+
+/*------------------------------------------------------------------------------
+Routine:	UpdHasFolderCount
+
+Function:	Update the HasFolderCount flag on an HFS+ folder's flags
+
+Input:		GPtr		-- ptr to scavenger global data
+			p			-- pointer to minor repair order
+
+Output:		function result:
+				0 - no error
+				n - error
+
+------------------------------------------------------------------------------*/
+OSErr UpdHasFolderCount( SGlobPtr GPtr, RepairOrderPtr p)
+{
+	OSErr result = -1;
+	CatalogRecord record;
+	CatalogKey key, foundKey;
+	UInt16 recSize = 0;
+	UInt32 hint = 0;
+
+	/*
+	 * As above, we do the search in two stages:  first to get the
+	 * thread record (based solely on the CNID); second, to get the
+	 * folder record based from the thread record.
+	 */
+	BuildCatalogKey( p->parid, NULL, true, &key);
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&foundKey, &record, &recSize, &hint);
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	/* If it's not a folder thread record, we've got a problem */
+	if (record.recordType != kHFSPlusFolderThreadRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	BuildCatalogKey( record.hfsPlusThread.parentID, (const CatalogName *)&record.hfsPlusThread.nodeName, true, &key);
+	result = SearchBTreeRecord( GPtr->calculatedCatalogFCB, &key, kNoHint,
+		&foundKey, &record, &recSize, &hint);
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if (record.recordType != kHFSPlusFolderRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	/* Verify that the kHFSHasFolderCountMask bit hasn't been set, and set if necessary */
+	if ((record.hfsPlusFolder.flags & kHFSHasFolderCountMask) == 0) {
+		record.hfsPlusFolder.flags |= kHFSHasFolderCountMask;
+		result = ReplaceBTreeRecord( GPtr->calculatedCatalogFCB, &foundKey, hint,
+			&record, recSize, &hint);
+		if (result) {
+			return IntError( GPtr, R_IntErr );
+		}
+	}
+
+	return noErr;
+}
 
 /*------------------------------------------------------------------------------
 
@@ -727,14 +1199,33 @@ Outut:		function result:
 static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 {
 	RepairOrderPtr		p;
+	RepairOrderPtr	cur;
 	OSErr				err	= noErr;						//	initialize to "no error"
+
+	/* Manipulate the list for minor repairs separately from the global 
+	 * list head because global list head will be used to store repair 
+	 * orders which returned false success in anticipation of re-repair
+	 * after other corruptioins on the disk.
+	 */
+	cur = GPtr->MinorRepairsP;
+	GPtr->MinorRepairsP = NULL;
 	
-	while( (p = GPtr->MinorRepairsP) && (err == noErr) )	//	loop over each repair order
+	while( (p = cur) && (err == noErr) )	//	loop over each repair order
 	{
-		GPtr->MinorRepairsP = p->link;						//	unlink next from list
+		cur = p->link;
+
+		GPtr->minorRepairFalseSuccess = false;
 		
 		switch( p->type )									//	branch on repair type
 		{
+			case E_FldCount:								// folderCount needs to be updated
+				err = UpdFolderCount( GPtr, p );
+				break;
+
+			case E_HsFldCount:								// HasFolderCount bit needs to be set
+				err = UpdHasFolderCount( GPtr, p );
+				break;
+
 			case E_RtDirCnt:								//	the valence errors
 			case E_RtFilCnt:								//	(of which there are several)
 			case E_DirCnt:
@@ -755,8 +1246,20 @@ static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 				err = FixLinkCount( GPtr, p );
 				break;
 			
+			case E_InvalidLinkChainPrev:
+				err = FixLinkChainPrev( GPtr, p );
+				break;
+
+			case E_InvalidLinkChainNext:
+				err = FixLinkChainNext( GPtr, p );
+				break;
+
+			case E_DirHardLinkFinderInfo:
+			case E_FileHardLinkFinderInfo:
+				err = FixHardLinkFinderInfo( GPtr, p );
+				break;
+
 			case E_InvalidPermissions:
-			case E_InvalidUID:
 				err = FixBSDInfo( GPtr, p );
 				break;
 			
@@ -783,8 +1286,8 @@ static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 				err = FixWrapperExtents(GPtr, p);
 				break;
 
-            case E_IllegalName:
-                err = FixIllegalNames( GPtr, p );
+			case E_IllegalName:
+				err = FixIllegalNames( GPtr, p );
 				break;
 
 			case E_PEOF:
@@ -801,12 +1304,58 @@ static	OSErr	DoMinorOrders( SGlobPtr GPtr )				//	the globals
 				err = FixBadExtent(GPtr, p);
 				break;
 
+			case E_DirInodeBadFlags:
+			case E_DirLinkAncestorFlags:
+			case E_FileInodeBadFlags:
+			case E_DirLinkBadFlags:
+			case E_FileLinkBadFlags:
+				err = FixBadFlags(GPtr, p);
+				break;
+
+			case E_BadPermPrivDir:
+				err = FixPrivDirBadPerms(GPtr, p);
+				break;
+
+			case E_InvalidLinkChainFirst:
+				err = FixBadLinkChainFirst(GPtr, p);
+				break;
+
+			case E_OrphanFileLink:
+			case E_OrphanDirLink:
+				err = FixOrphanLink(GPtr, p);
+				break;
+
+			case E_OrphanFileInode:
+			case E_OrphanDirInode:
+				err = FixOrphanInode(GPtr, p);
+				break;
+
+			case E_DirHardLinkOwnerFlags:
+				err = FixDirLinkOwnerFlags(GPtr, p);
+				break;
+
 			default:										//	unknown repair type
+				if (GPtr->logLevel >= kDebugLog) {
+					plog ("\tUnknown repair order found (type = %d)\n", p->type);
+				}
 				err = IntError( GPtr, R_IntErr );			//	treat as an internal error
 				break;
 		}
-		
-		DisposeMemory( p );								//	free the node
+
+		if ((err != 0) && (GPtr->logLevel >= kDebugLog)) {
+			plog ("\tDoMinorRepair: Repair for type=%d failed (err=%d).\n", p->type, err);
+		}	
+
+		/* If repair order returned false success, do not free it up.
+		 * Instead add it to global minor repair list so that we can
+		 * try to repair it again later.
+		 */
+		if (GPtr->minorRepairFalseSuccess == true) {
+			p->link = GPtr->MinorRepairsP;
+			GPtr->MinorRepairsP = p;
+		} else {
+			DisposeMemory( p );								//	free the node
+		}
 	}
 	
 	return( err );											//	return error code to our caller
@@ -1107,34 +1656,34 @@ static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p )				//	the repair 
 	if ( record.recordType == kHFSPlusFolderRecord )
 	{
 		HFSPlusCatalogFolder	*largeCatalogFolderP	= (HFSPlusCatalogFolder *) &record;	
-		if ( (UInt16) p->incorrect != SWAP_BE16(largeCatalogFolderP->userInfo.frFlags) )
+		if ( (UInt16) p->incorrect != largeCatalogFolderP->userInfo.frFlags)
 		{
-			//	Another repar order may have affected the flags
+			//	Another repair order may have affected the flags
 			if ( p->correct < p->incorrect )
-				largeCatalogFolderP->userInfo.frFlags &= SWAP_BE16(~((UInt16)p->maskBit));
+				largeCatalogFolderP->userInfo.frFlags &= ~((UInt16)p->maskBit);
 			else
-				largeCatalogFolderP->userInfo.frFlags |= SWAP_BE16((UInt16)p->maskBit);
+				largeCatalogFolderP->userInfo.frFlags |= (UInt16)p->maskBit;
 		}
 		else
 		{
-			largeCatalogFolderP->userInfo.frFlags = SWAP_BE16((UInt16)p->correct);
+			largeCatalogFolderP->userInfo.frFlags = (UInt16)p->correct;
 		}
 	//	largeCatalogFolderP->contentModDate = timeStamp;
 	}
 	else
 	{
 		HFSCatalogFolder	*smallCatalogFolderP	= (HFSCatalogFolder *) &record;	
-		if ( p->incorrect != SWAP_BE16(smallCatalogFolderP->userInfo.frFlags) )		//	do we know what we're doing?
+		if ( p->incorrect != smallCatalogFolderP->userInfo.frFlags)		//	do we know what we're doing?
 		{
-			//	Another repar order may have affected the flags
+			//	Another repair order may have affected the flags
 			if ( p->correct < p->incorrect )
-				smallCatalogFolderP->userInfo.frFlags &= SWAP_BE16(~((UInt16)p->maskBit));
+				smallCatalogFolderP->userInfo.frFlags &= ~((UInt16)p->maskBit);
 			else
-				smallCatalogFolderP->userInfo.frFlags |= SWAP_BE16((UInt16)p->maskBit);
+				smallCatalogFolderP->userInfo.frFlags |= (UInt16)p->maskBit;
 		}
 		else
 		{
-			smallCatalogFolderP->userInfo.frFlags = SWAP_BE16((UInt16)p->correct);
+			smallCatalogFolderP->userInfo.frFlags = (UInt16)p->correct;
 		}
 		
 	//	smallCatalogFolderP->modifyDate = timeStamp;						// also update the modify date! -DJB
@@ -1147,6 +1696,161 @@ static	OSErr	FixFinderFlags( SGlobPtr GPtr, RepairOrderPtr p )				//	the repair 
 	return( noErr );														//	no error
 }
 
+/*------------------------------------------------------------------------------
+FixHardLinkFinderInfo:  Set the Finder Info contents to be correct for the type
+	of hard link (directory or file).
+	(HFS+ volumes only)
+------------------------------------------------------------------------------*/
+static OSErr FixHardLinkFinderInfo(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	CatalogRecord rec;
+	CatalogKey key;
+	uint16_t recsize;
+	OSErr retval = 0;
+	UInt32 hint;
+
+	retval = GetCatalogRecordByID(GPtr, (UInt32)p->parid, true, &key, &rec, &recsize);
+	if (retval != 0) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto done;
+	}
+
+	if (rec.recordType != kHFSPlusFileRecord) {
+		retval = IntError(GPtr, R_IntErr);
+		goto done;
+	}
+
+	if (p->type == E_DirHardLinkFinderInfo) {
+		rec.hfsPlusFile.userInfo.fdType = kHFSAliasType;
+		rec.hfsPlusFile.userInfo.fdCreator = kHFSAliasCreator;
+		rec.hfsPlusFile.userInfo.fdFlags |= kIsAlias;
+	} else if (p->type == E_FileHardLinkFinderInfo) {
+		rec.hfsPlusFile.userInfo.fdType = kHardLinkFileType;
+		rec.hfsPlusFile.userInfo.fdCreator = kHFSPlusCreator;
+	} else {
+		retval = IntError(GPtr, R_IntErr);
+		goto done;
+	}
+
+	retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint, &rec, recsize, &hint);
+
+done:
+	return retval;
+}
+
+/*------------------------------------------------------------------------------
+FixLinkChainNext:  Adjust the link chain in a hard link
+               (HFS Plus volumes only)
+------------------------------------------------------------------------------*/
+static OSErr
+FixLinkChainPrev(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	SFCB *fcb;
+	CatalogRecord rec;
+	CatalogKey key, foundKey;
+	UInt16 recSize;
+	OSErr result;
+	Boolean				isHFSPlus;
+	UInt32 hint = 0;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
+		return (0);
+	fcb = GPtr->calculatedCatalogFCB;
+
+	BuildCatalogKey( p->parid, NULL, true, &key );
+	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint );
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if (rec.recordType != kHFSPlusFileThreadRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	BuildCatalogKey( rec.hfsPlusThread.parentID, (const CatalogName*)&rec.hfsPlusThread.nodeName, true, &key);
+	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint);
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if (rec.recordType != kHFSPlusFileRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if ((UInt32)p->incorrect != rec.hfsPlusFile.hl_prevLinkID) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	rec.hfsPlusFile.hl_prevLinkID = (UInt32)p->correct;
+	result = ReplaceBTreeRecord(fcb, &foundKey, hint, &rec, recSize, &hint);
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	return noErr;
+}
+
+/*------------------------------------------------------------------------------
+FixLinkChainNext:  Adjust the link chain in a hard link
+               (HFS Plus volumes only)
+------------------------------------------------------------------------------*/
+static OSErr
+FixLinkChainNext(SGlobPtr GPtr, RepairOrderPtr p)
+{
+	SFCB *fcb;
+	CatalogRecord rec;
+	CatalogKey key, foundKey;
+	UInt16 recSize;
+	OSErr result;
+	Boolean				isHFSPlus;
+	UInt32 hint = 0;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
+		return (0);
+	fcb = GPtr->calculatedCatalogFCB;
+
+	BuildCatalogKey( p->parid, NULL, true, &key );
+	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint );
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if (rec.recordType != kHFSPlusFileThreadRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	BuildCatalogKey( rec.hfsPlusThread.parentID, (const CatalogName*)&rec.hfsPlusThread.nodeName, true, &key);
+	result = SearchBTreeRecord( fcb, &key, kNoHint, &foundKey, &rec, &recSize, &hint);
+
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if (rec.recordType != kHFSPlusFileRecord) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	if ((UInt32)p->incorrect != rec.hfsPlusFile.hl_nextLinkID) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	rec.hfsPlusFile.hl_nextLinkID = (UInt32)p->correct;
+	result = ReplaceBTreeRecord(fcb, &foundKey, hint, &rec, recSize, &hint);
+	if (result) {
+		return IntError(GPtr, R_IntErr);
+	}
+
+	return noErr;
+}
 
 /*------------------------------------------------------------------------------
 FixLinkCount:  Adjust a data node link count (BSD hard link)
@@ -1155,49 +1859,43 @@ FixLinkCount:  Adjust a data node link count (BSD hard link)
 static OSErr
 FixLinkCount(SGlobPtr GPtr, RepairOrderPtr p)
 {
-	SFCB *fcb;
 	CatalogRecord rec;
-	HFSPlusCatalogKey * keyp;
-	FSBufferDescriptor btRecord;
-	BTreeIterator btIterator;
-	size_t len;
+	CatalogKey key;
 	OSErr result;
 	UInt16 recSize;
-	Boolean				isHFSPlus;
+	UInt32 hint;
+	Boolean	isHFSPlus;
+	Boolean	isdir = 0;
+	int lc;	// linkcount
 
 	isHFSPlus = VolumeObjectIsHFSPlus( );
 	if (!isHFSPlus)
 		return (0);
-	fcb = GPtr->calculatedCatalogFCB;
 
-	ClearMemory(&btIterator, sizeof(btIterator));
-	btIterator.hint.nodeNum = p->hint;
-	keyp = (HFSPlusCatalogKey*)&btIterator.key;
-	keyp->parentID = p->parid;
-	/* name was stored in UTF-8 */
-	(void) utf_decodestr(&p->name[1], p->name[0], keyp->nodeName.unicode, &len);
-	keyp->nodeName.length = len / 2;
-	keyp->keyLength = kHFSPlusCatalogKeyMinimumLength + len;
+	result = GetCatalogRecordByID(GPtr, p->parid, isHFSPlus, &key, &rec, &recSize);
+	if (result) {
+		if ((result == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			result = 0;
+		}
+		return result;
+	}
 
-	btRecord.bufferAddress = &rec;
-	btRecord.itemCount = 1;
-	btRecord.itemSize = sizeof(rec);
-	
-	result = BTSearchRecord(fcb, &btIterator, kInvalidMRUCacheKey,
-			&btRecord, &recSize, &btIterator);
-	if (result)
-		return (IntError(GPtr, result));
-
-	if (rec.recordType != kHFSPlusFileRecord)
+	if (rec.recordType != kHFSPlusFileRecord && rec.recordType != kHFSPlusFolderRecord)
 		return (noErr);
 
-	if ((UInt32)p->correct != rec.hfsPlusFile.bsdInfo.special.linkCount) {
-		if (GPtr->logLevel >= kDebugLog)
-		    printf("\t%s: fixing link count from %d to %d\n",
-		        &p->name[1], rec.hfsPlusFile.bsdInfo.special.linkCount, (int)p->correct);
+	isdir = (rec.recordType == kHFSPlusFolderRecord);
 
-		rec.hfsPlusFile.bsdInfo.special.linkCount = (UInt32)p->correct;
-		result = BTReplaceRecord(fcb, &btIterator, &btRecord, recSize);
+	lc = (isdir ? rec.hfsPlusFolder.bsdInfo.special.linkCount : rec.hfsPlusFile.bsdInfo.special.linkCount);
+	if ((UInt32)p->correct != lc) {
+		if (isdir)
+			rec.hfsPlusFolder.bsdInfo.special.linkCount = (UInt32)p->correct;
+		else
+			rec.hfsPlusFile.bsdInfo.special.linkCount = (UInt32)p->correct;
+
+		result = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key,
+				kNoHint, &rec, recSize, &hint);
 		if (result)
 			return (IntError(GPtr, result));
 	}
@@ -1257,8 +1955,8 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
 	result = SearchBTreeRecord( fcbPtr, &newKey, kNoHint, NULL, &record, &recSize, NULL );
 	if ( result == noErr ) {
 		if ( GPtr->logLevel >= kDebugLog ) {
-        	printf( "\treplacement name already exists \n" );
-			printf( "\tduplicate name is 0x" );
+        plog( "\treplacement name already exists \n" );
+		plog( "\tduplicate name is 0x" );
 			PrintName( newNamePtr->ustr.length, (UInt8 *) &newNamePtr->ustr.unicode, true );
 		}
         goto ErrorExit;
@@ -1316,7 +2014,7 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
 ErrorExit:
 	GPtr->minorRepairErrors = true;
     if ( GPtr->logLevel >= kDebugLog )
-        printf( "\t%s - repair failed for type 0x%02X %d \n", __FUNCTION__, roPtr->type, roPtr->type );
+       plog( "\t%s - repair failed for type 0x%02X %d \n", __FUNCTION__, roPtr->type, roPtr->type );
     return( noErr );  // errors in this routine should not be fatal
     
 } /* FixIllegalNames */
@@ -1362,30 +2060,16 @@ FixBSDInfo(SGlobPtr GPtr, RepairOrderPtr p)
 		return (noErr);
 
 	utf_encodestr(((HFSUniStr255 *)&p->name)->unicode,
-		((HFSUniStr255 *)&p->name)->length << 1, filename, &namelen);
+		((HFSUniStr255 *)&p->name)->length << 1, filename, &namelen, sizeof(filename));
 	filename[namelen] = '\0';
 
 	if (p->type == E_InvalidPermissions &&
 	    ((UInt16)p->incorrect == rec.hfsPlusFile.bsdInfo.fileMode)) {
 		if (GPtr->logLevel >= kDebugLog)
-		    printf("\t\"%s\": fixing mode from %07o to %07o\n",
+		   plog("\t\"%s\": fixing mode from %07o to %07o\n",
 			   filename, (int)p->incorrect, (int)p->correct);
 
 		rec.hfsPlusFile.bsdInfo.fileMode = (UInt16)p->correct;
-		result = BTReplaceRecord(fcb, &btIterator, &btRecord, recSize);
-	}
-
-	if (p->type == E_InvalidUID) {
-		if ((UInt32)p->incorrect == rec.hfsPlusFile.bsdInfo.ownerID) {
-			if (GPtr->logLevel >= kDebugLog) {
-				printf("\t\"%s\": replacing UID %d with %d\n",
-				filename, (int)p->incorrect, (int)p->correct);
-			}
-			rec.hfsPlusFile.bsdInfo.ownerID = (UInt32)p->correct;
-		}
-		/* Fix group ID if neccessary */
-		if ((UInt32)p->incorrect == rec.hfsPlusFile.bsdInfo.groupID)
-			rec.hfsPlusFile.bsdInfo.groupID = (UInt32)p->correct;
 		result = BTReplaceRecord(fcb, &btIterator, &btRecord, recSize);
 	}
 
@@ -1415,14 +2099,14 @@ DeleteUnlinkedFile(SGlobPtr GPtr, RepairOrderPtr p)
 
 	if (p->name[0] > 0) {
 		/* name was stored in UTF-8 */
-		(void) utf_decodestr(&p->name[1], p->name[0], name.ustr.unicode, &len);
+		(void) utf_decodestr(&p->name[1], p->name[0], name.ustr.unicode, &len, sizeof(name.ustr.unicode));
 		name.ustr.length = len / 2;
 		cNameP = &name;
 	} else {
 		cNameP = NULL;
 	}
 
-	(void) DeleteCatalogNode(GPtr->calculatedVCB, p->parid, cNameP, p->hint);
+	(void) DeleteCatalogNode(GPtr->calculatedVCB, p->parid, cNameP, p->hint, false);
 
 	GPtr->VIStat |= S_MDB;
 	GPtr->VIStat |= S_VBM;
@@ -1461,7 +2145,7 @@ FixFileSize(SGlobPtr GPtr, RepairOrderPtr p)
 	keyp->parentID = p->parid;
 
 	/* name was stored in UTF-8 */
-	(void) utf_decodestr(&p->name[1], p->name[0], keyp->nodeName.unicode, &len);
+	(void) utf_decodestr(&p->name[1], p->name[0], keyp->nodeName.unicode, &len, sizeof(keyp->nodeName.unicode));
 	keyp->nodeName.length = len / 2;
 	keyp->keyLength = kHFSPlusCatalogKeyMinimumLength + len;
 
@@ -2022,7 +2706,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 	
 del_overflow_extents:
 	/* Search for overflow extent records.  We should get a valid record only 
-	 * if the bad extent entry was the the first entry in the extent overflow 
+	 * if the bad extent entry was the first entry in the extent overflow 
 	 * record.  For all other cases, the search record will return an error 
 	 */
 	BuildExtentKey (isHFSPlus, forkType, fileID, extentStartBlock, &extentKey);
@@ -2093,8 +2777,8 @@ out:
  *
  *	For a file/folder record, it tries to lookup its corresponding thread
  *	record.  If the thread record does not exist, or is not correct, a new 
- *	thread record is created.  The parent ID and the name of the file/folder 
- *	are compared for correctness. 
+ *	thread record is created.  The parent ID, record type, and the name of 
+ *	the file/folder are compared for correctness. 
  *	For plain HFS, a thread record is only looked-up if kHFSThreadExistsMask is set.
  *
  *	For a thread record, it tries to lookup its corresponding file/folder 
@@ -2124,9 +2808,11 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 	OSErr				err;
 	UInt16				recordSize;
 	SInt16				recordType;
+	SInt16				foundRecType;
 	SInt16				selCode				= 0x8001;	/* Get first record */
 	Boolean				isHFSPlus;
 	BTreeControlBlock	*btcb				= GetBTreeControlBlock( kCalculatedCatalogRefNum );
+	Boolean				isDirectory;
 
 	isHFSPlus = VolumeObjectIsHFSPlus( );
 	CopyMemory( &btcb->lastIterator, &savedIterator, sizeof(BTreeIterator) );
@@ -2141,6 +2827,8 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 	
 		selCode		= 1;	//	 kNextRecord			
 		recordType	= record.recordType;
+
+		isDirectory = false; 
 		
 		switch( recordType )
 		{
@@ -2162,10 +2850,20 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				
 				switch( recordType )
 				{
-					case kHFSFolderRecord:		cNodeID		= record.hfsFolder.folderID;		break;
-					case kHFSFileRecord:		cNodeID		= record.hfsFile.fileID;			break;
-					case kHFSPlusFolderRecord:	cNodeID		= record.hfsPlusFolder.folderID;	break;
-					case kHFSPlusFileRecord:	cNodeID		= record.hfsPlusFile.fileID;		break;
+					case kHFSFolderRecord:		
+						cNodeID = record.hfsFolder.folderID; 
+						isDirectory = true;		
+						break;
+					case kHFSFileRecord:		
+						cNodeID = record.hfsFile.fileID;			
+						break;
+					case kHFSPlusFolderRecord:	
+						cNodeID = record.hfsPlusFolder.folderID; 
+						isDirectory = true;	
+						break;
+					case kHFSPlusFileRecord:	
+						cNodeID	= record.hfsPlusFile.fileID;		
+						break;
 				}
 
 				//-- Build the key for the file thread
@@ -2176,50 +2874,93 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 
 				/* We found a thread record for this file/folder record. */
 				if (err == noErr) {
-					/* Check if the parent ID and nodeName are same.  If not, we are 
-					 * missing a correct thread record.  Force btNotFound in such case.
+					/* Check if the parent ID and nodeName are same, and recordType is as 
+					 * expected.  If not, we are missing a correct thread record.  Force 
+					 * btNotFound in such case.
 					 */
 					if (isHFSPlus) {
+						/* Check thread's recordType */
+						foundRecType = threadRecord.hfsPlusThread.recordType;
+						if (isDirectory == true) {
+							if (foundRecType != kHFSPlusFolderThreadRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: Folder thread recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						} else {
+							if (foundRecType != kHFSPlusFileThreadRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: File thread recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						}
+
 						/* Compare parent ID */
 						if (parentID != threadRecord.hfsPlusThread.parentID) {
-							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
 							err = btNotFound;
 							if (GPtr->logLevel >= kDebugLog) {
-								printf ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsPlusThread.parentID);
+							plog ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsPlusThread.parentID);
 							}
 						}
 
-						/* Compare nodeName from file/folder key and thread record */
+						/* Compare nodeName from file/folder key and thread reocrd */
 						if (!((foundKey.hfsPlus.nodeName.length == threadRecord.hfsPlusThread.nodeName.length) 
 						    && (!bcmp(foundKey.hfsPlus.nodeName.unicode, 
 								      threadRecord.hfsPlusThread.nodeName.unicode,
 									  foundKey.hfsPlus.nodeName.length * 2)))) {
-							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
 							err = btNotFound;
 							if (GPtr->logLevel >= kDebugLog) {
-								printf ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
-							}
-						}
-					} else {
-						/* Compare parent ID */
-						if (parentID != threadRecord.hfsThread.parentID) {
-							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
-							err = btNotFound;
-							if (GPtr->logLevel >= kDebugLog) {
-								printf ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsThread.parentID);
+							plog ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
 							}
 						}
 
-						/* Compare nodeName from file/folder key and thread record */
+						/* If any of the above checks failed, delete the bad thread record */
+						if (err == btNotFound) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
+						}
+					} else { /* plain HFS */
+						/* Check thread's recordType */
+						foundRecType = threadRecord.hfsThread.recordType;
+						if (isDirectory == true) {
+							if (foundRecType != kHFSFolderThreadRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: Folder thread recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						} else {
+							if (foundRecType != kHFSFileThreadRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: File thread recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						}
+
+						/* Compare parent ID */
+						if (parentID != threadRecord.hfsThread.parentID) {
+							err = btNotFound;
+							if (GPtr->logLevel >= kDebugLog) {
+							plog ("\t%s: parentID for id=%u do not match (fileKey=%u threadRecord=%u)\n", __FUNCTION__, cNodeID, parentID, threadRecord.hfsThread.parentID);
+							}
+						}
+
+						/* Compare nodeName from file/folder key and thread reocrd */
 						if (!((foundKey.hfs.nodeName[0] == threadRecord.hfsThread.nodeName[0]) 
 						    && (!bcmp(&foundKey.hfs.nodeName[1], 
 								      &threadRecord.hfsThread.nodeName[1],
 									  foundKey.hfs.nodeName[0])))) {
-							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
 							err = btNotFound;
 							if (GPtr->logLevel >= kDebugLog) {
-								printf ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
+							plog ("\t%s: nodeName for id=%u do not match\n", __FUNCTION__, cNodeID);
 							}
+						}
+
+						/* If any of the above checks failed, delete the bad thread record */
+						if (err == btNotFound) {
+							(void) DeleteBTreeRecord(GPtr->calculatedCatalogFCB, &tempKey);
 						}
 					}
 				} /* err == noErr */ 
@@ -2228,7 +2969,6 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				if ( err == btNotFound )
 				{
 					//	Create the missing thread record.
-					Boolean		isDirectory;
 					
 					isDirectory = false;
 					switch( recordType )
@@ -2246,7 +2986,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 					err = InsertBTreeRecord( GPtr->calculatedCatalogFCB, &key,
 											 &threadRecord, recordSize, &threadHint );
 					if (GPtr->logLevel >= kDebugLog) {
-						printf ("\t%s: Created thread record for id=%u (err=%u)\n", __FUNCTION__, cNodeID, err);
+					plog ("\t%s: Created thread record for id=%u (err=%u)\n", __FUNCTION__, cNodeID, err);
 					}
 				}
 			
@@ -2254,8 +2994,10 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 			
 			
 			case kHFSFolderThreadRecord:
-			case kHFSFileThreadRecord:
 			case kHFSPlusFolderThreadRecord:
+				isDirectory = true;
+
+			case kHFSFileThreadRecord:
 			case kHFSPlusFileThreadRecord:
 				
 				//	Find the catalog record, if it does not exist, delete the existing thread.
@@ -2268,26 +3010,63 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 
 				/* We found a file/folder record for this thread record. */
 				if (err == noErr) {
-					/* Check if the file/folder ID are same.  If not, we are missing a 
-					 * correct file/folder record.  Delete the extra thread record
+					/* Check if the file/folder ID are same and if the recordType is as
+					 * expected.  If not, we are missing a correct file/folder record.  
+					 * Delete the extra thread record
 					 */
 					if (isHFSPlus) {
+						/* Check recordType */
+						foundRecType = record2.hfsPlusFile.recordType;
+						if (isDirectory == true) {
+							if (foundRecType != kHFSPlusFolderRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: Folder recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						} else {
+							if (foundRecType != kHFSPlusFileRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: File recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						}
+
 						/* Compare file/folder ID */
 						if (foundKey.hfsPlus.parentID != record2.hfsPlusFile.fileID) {
 							err = btNotFound;
 							if (GPtr->logLevel >= kDebugLog) {
-								printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfsPlus.parentID, record2.hfsPlusFile.fileID, record.hfsPlusThread.parentID);
+							plog ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfsPlus.parentID, record2.hfsPlusFile.fileID, record.hfsPlusThread.parentID);
 							}
 						}
-					} else {
+					} else { /* plain HFS */
+						/* Check recordType */
+						foundRecType = record2.hfsFile.recordType;
+						if (isDirectory == true) {
+							if (foundRecType != kHFSFolderRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: Folder recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						} else {
+							if (foundRecType != kHFSFileRecord) {
+								err = btNotFound;
+								if (GPtr->logLevel >= kDebugLog) {
+								plog ("\t%s: File recordType mismatch for id=%u (found=%u)\n", __FUNCTION__, cNodeID, foundRecType);
+								}
+							} 
+						}
+
 						/* Compare file/folder ID */
 						if (foundKey.hfs.parentID != record2.hfsFile.fileID) {
 							err = btNotFound;
 							if (GPtr->logLevel >= kDebugLog) {
 								if (recordType == kHFSFolderThreadRecord) {
-									printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFolder.folderID, record.hfsThread.parentID);
+								plog ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFolder.folderID, record.hfsThread.parentID);
 								} else {
-									printf ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFile.fileID, record.hfsThread.parentID);
+								plog ("\t%s: fileID do not match (threadKey=%u fileRecord=%u), parentID=%u\n", __FUNCTION__, foundKey.hfs.parentID, record2.hfsFile.fileID, record.hfsThread.parentID);
 								}
 							}
 						}
@@ -2299,9 +3078,9 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 					err = DeleteBTreeRecord( GPtr->calculatedCatalogFCB, &foundKey );
 					if (GPtr->logLevel >= kDebugLog) {
 						if (isHFSPlus) {
-							printf ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfsPlus.parentID, err);
+						plog ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfsPlus.parentID, err);
 						} else {
-							printf ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfs.parentID, err);
+						plog ("\t%s: Deleted thread record for id=%d (err=%d)\n", __FUNCTION__, foundKey.hfs.parentID, err);
 						}
 					}
 				}
@@ -2310,7 +3089,7 @@ static	OSErr	FixOrphanedFiles ( SGlobPtr GPtr )
 				
 			default:
 				if (GPtr->logLevel >= kDebugLog) {
-					printf ("\t%s: Unknown record type.\n", __FUNCTION__);
+				plog ("\t%s: Unknown record type.\n", __FUNCTION__);
 				}
 				break;
 
@@ -2349,6 +3128,7 @@ static	OSErr	RepairReservedBTreeFields ( SGlobPtr GPtr )
 		switch( record.recordType )
 		{
 			case kHFSPlusFolderRecord:
+				/* XXX -- this should not always be cleared out (but doesn't appear to being called) */
 				if ( record.hfsPlusFolder.flags != 0 )
 				{
 					record.hfsPlusFolder.flags = 0;
@@ -2517,13 +3297,13 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, &catThreadKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
 #if DEBUG_XATTR
-		printf ("%s: No matching catalog thread record found\n", __FUNCTION__);
+	plog ("%s: No matching catalog thread record found\n", __FUNCTION__);
 #endif
 		goto out;
 	}
 
 #if DEBUG_XATTR
-	printf ("%s(%s,%d):1 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
+plog ("%s(%s,%d):1 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
 				catRecord->hfsPlusFile.recordType, 
 				catRecord->hfsPlusFile.flags);
 #endif
@@ -2544,13 +3324,13 @@ static OSErr GetCatalogRecord(SGlobPtr GPtr, UInt32 fileID, Boolean isHFSPlus, C
 	err = SearchBTreeRecord(GPtr->calculatedCatalogFCB, catKey, kNoHint, catKey, catRecord, recordSize, &hint);
 	if (err) {
 #if DEBUG_XATTR	
-		printf ("%s: No matching catalog record found\n", __FUNCTION__);
+	plog ("%s: No matching catalog record found\n", __FUNCTION__);
 #endif
 		goto out;
 	}
 	
 #if DEBUG_XATTR
-	printf ("%s(%s,%d):2 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
+plog ("%s(%s,%d):2 recordType=%x, flags=%x\n", __FUNCTION__, __FILE__, __LINE__, 
 				catRecord->hfsPlusFile.recordType, 
 				catRecord->hfsPlusFile.flags);
 #endif
@@ -2614,9 +3394,9 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 	do {
 #if DEBUG_XATTR
 		/* Convert unicode attribute name to char for ACL check */
-		(void) utf_encodestr(attrKey.attrName, attrKey.attrNameLen * 2, attrName, &len);
+		(void) utf_encodestr(attrKey.attrName, attrKey.attrNameLen * 2, attrName, &len, sizeof(attrName));
 		attrName[len] = '\0';
-		printf ("%s(%s,%d): Found attrName=%s for fileID=%d\n", __FUNCTION__, __FILE__, __LINE__, attrName, attrKey.fileID);
+	plog ("%s(%s,%d): Found attrName=%s for fileID=%d\n", __FUNCTION__, __FILE__, __LINE__, attrName, attrKey.fileID);
 #endif
 	
 		if (attrKey.fileID != lastID.fileID) {
@@ -2627,7 +3407,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 				err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, catRecordSize, &hint);
 				if (err) {
 #if DEBUG_XATTR
-					printf ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
+				plog ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
 #endif		
 					goto out;
 				}
@@ -2640,7 +3420,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 			if (err) {
 				/* No catalog record was found for this fileID. */
 #if DEBUG_XATTR
-				printf ("%s: No matching catalog record found\n", __FUNCTION__);
+			plog ("%s: No matching catalog record found\n", __FUNCTION__);
 #endif
 				/* 3984119 - Do not delete extended attributes for file IDs less
 	 			 * kHFSFirstUserCatalogNodeID but not equal to kHFSRootFolderID 
@@ -2650,7 +3430,7 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 				if ((attrKey.fileID < kHFSFirstUserCatalogNodeID) && 
 	    			    (attrKey.fileID != kHFSRootFolderID)) { 
 #if DEBUG_XATTR
-					printf ("%s: Ignore catalog check for fileID=%d for attribute=%s\n", __FUNCTION__, attrKey.fileID, attrName); 
+				plog ("%s: Ignore catalog check for fileID=%d for attribute=%s\n", __FUNCTION__, attrKey.fileID, attrName); 
 #endif
 					goto getnext;
 				}
@@ -2659,12 +3439,12 @@ static OSErr RepairAttributesCheckABT(SGlobPtr GPtr, Boolean isHFSPlus)
 				err = DeleteBTreeRecord(GPtr->calculatedAttributesFCB, &attrKey);
 				if (err) {
 #if DEBUG_XATTR
-					printf ("%s: Error in deleting attribute record\n", __FUNCTION__);
+				plog ("%s: Error in deleting attribute record\n", __FUNCTION__);
 #endif
 					goto out;
 				}
 #if DEBUG_XATTR
-				printf ("%s: Deleted attribute=%s for fileID=%d\n", __FUNCTION__, attrName, attrKey.fileID);
+			plog ("%s: Deleted attribute=%s for fileID=%d\n", __FUNCTION__, attrName, attrKey.fileID);
 #endif
 				/* set flags to write back header and map */
 				GPtr->ABTStat |= S_BTH + S_BTM;	
@@ -2727,7 +3507,7 @@ getnext:
 		err = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, catRecordSize, &hint);
 		if (err) {
 #if DEBUG_XATTR
-			printf ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
+		plog ("%s: Error in replacing Catalog Record\n", __FUNCTION__);
 #endif		
 			goto out;
 		}
@@ -2817,7 +3597,7 @@ static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
 		err = BTSearchRecord(GPtr->calculatedAttributesFCB, &iterator, kInvalidMRUCacheKey, NULL, NULL, &iterator);
 		if (err && (err != btNotFound)) {
 #if DEBUG_XATTR
-			printf ("%s: No matching attribute record found\n", __FUNCTION__);
+		plog ("%s: No matching attribute record found\n", __FUNCTION__);
 #endif
 			goto out;
 		}
@@ -2857,7 +3637,7 @@ static OSErr RepairAttributesCheckCBT(SGlobPtr GPtr, Boolean isHFSPlus)
 			err = ReplaceBTreeRecord( GPtr->calculatedCatalogFCB, &catKey , kNoHint, &catRecord, recordSize, &hint );
 			if (err) {
 #if DEBUG_XATTR
-				printf ("%s: Error writing catalog record\n", __FUNCTION__);
+			plog ("%s: Error writing catalog record\n", __FUNCTION__);
 #endif
 				goto out;
 			}
@@ -3018,7 +3798,7 @@ static OSErr FixOverlappingExtents(SGlobPtr GPtr)
 	/* Print all overlapping extents structure */
 	for (i=0; i<numOverlapExtents; i++) {
 		extentInfo	= &((**extentsTableH).extentInfo[i]);
-		printf ("%d: fileID = %d, startBlock = %d, blockCount = %d\n", i, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
+	plog ("%d: fileID = %d, startBlock = %d, blockCount = %d\n", i, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
 	}
 #endif
 
@@ -3030,7 +3810,7 @@ static OSErr FixOverlappingExtents(SGlobPtr GPtr)
 			/* Not enough disk space */
 			status |= S_DISKFULL;
 #if DEBUG_OVERLAP
-			printf ("%s: Not enough disk space to allocate extent for fileID = %d (start=%d, count=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
+		plog ("%s: Not enough disk space to allocate extent for fileID = %d (start=%d, count=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->blockCount);
 #endif
 		}
 	}
@@ -3049,14 +3829,14 @@ static OSErr FixOverlappingExtents(SGlobPtr GPtr)
 		if (err != noErr) {
 			extentInfo->didRepair = false;
 #if DEBUG_OVERLAP
-			printf ("%s: Extent move failed for extent for fileID = %u (old=%u, new=%u, count=%u) (err=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount, err);
+		plog ("%s: Extent move failed for extent for fileID = %u (old=%u, new=%u, count=%u) (err=%d)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount, err);
 #endif
 		} else {
 			/* Mark the overlapping extent as repaired */
 			extentInfo->didRepair = true;
 			status |= S_MOVEEXTENT;
 #if DEBUG_OVERLAP
-			printf ("%s: Extent move success for extent for fileID = %u (old=%u, new=%u, count=%u)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
+		plog ("%s: Extent move success for extent for fileID = %u (old=%u, new=%u, count=%u)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
 #endif
 		}
 
@@ -3064,11 +3844,11 @@ static OSErr FixOverlappingExtents(SGlobPtr GPtr)
 		err = CreateCorruptFileSymlink(GPtr, extentInfo->fileID);
 		if (err != noErr) {
 #if DEBUG_OVERLAP
-			printf ("%s: Error in creating symlink for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+		plog ("%s: Error in creating symlink for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
 #endif
 		} else {
 #if DEBUG_OVERLAP
-			printf ("%s: Created symlink for fileID = %u (old=%u, new=%u, count=%u)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
+		plog ("%s: Created symlink for fileID = %u (old=%u, new=%u, count=%u)\n", __FUNCTION__, extentInfo->fileID, extentInfo->startBlock, extentInfo->newStartBlock, extentInfo->blockCount);
 #endif
 		}
 	}
@@ -3258,7 +4038,7 @@ static OSErr MoveExtent(SGlobPtr GPtr, ExtentInfo *extentInfo)
 
 	}
 	if (err != noErr) {
-		dprintf (d_error|d_overlap, "%s: Error in updating extent record for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+	        dprintf (d_error|d_overlap, "%s: Error in updating extent record for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
 		goto out;
 	}
 
@@ -3358,7 +4138,7 @@ static OSErr CreateCorruptFileSymlink(SGlobPtr GPtr, UInt32 fileID)
 								  name, &filenamelen, &status);
 		if (err != noErr) {
 #if DEBUG_OVERLAP
-			printf ("%s: Error in getting name/path for fileID = %d (err=%d)\n", __FUNCTION__, fileID, err);
+		plog ("%s: Error in getting name/path for fileID = %d (err=%d)\n", __FUNCTION__, fileID, err);
 #endif
 			goto out;
 		}
@@ -3407,7 +4187,7 @@ static OSErr CreateCorruptFileSymlink(SGlobPtr GPtr, UInt32 fileID)
 	}
 	if (err != noErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: Error in creating fileType = %d for fileID = %d (err=%d)\n", __FUNCTION__, fileType, fileID, err);	
+	plog ("%s: Error in creating fileType = %d for fileID = %d (err=%d)\n", __FUNCTION__, fileType, fileID, err);	
 #endif
 		goto out;
 	}
@@ -3532,7 +4312,7 @@ static OSErr SearchExtentInAttributeBT(SGlobPtr GPtr, ExtentInfo *extentInfo,
 			goto out;
 		}
 
-		(void) utf_encodestr(key->attrName, key->attrNameLen * 2, attrname, &attrnamelen);
+		(void) utf_encodestr(key->attrName, key->attrNameLen * 2, attrname, &attrnamelen, XATTR_MAXNAMELEN + 1);
 		attrname[attrnamelen] = '\0';
 
 		/* Check if the attribute record belongs to the same attribute */
@@ -3753,7 +4533,7 @@ static OSErr SearchExtentInCatalogBT(SGlobPtr GPtr, ExtentInfo *extentInfo, Cata
 						   recordSize);
 	if (err != noErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: No matching catalog record found for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+	plog ("%s: No matching catalog record found for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
 #endif
 		goto out;
 	}
@@ -3838,7 +4618,7 @@ static OSErr UpdateExtentInCatalogBT (SGlobPtr GPtr, ExtentInfo *extentInfo, Cat
 							  catRecord, *recordSize, &foundHint);
 	if (err != noErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: Error in replacing catalog record for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+	plog ("%s: Error in replacing catalog record for fileID = %d (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
 #endif
 	}
 	return err;
@@ -3876,7 +4656,7 @@ static OSErr SearchExtentInExtentBT(SGlobPtr GPtr, ExtentInfo *extentInfo, HFSPl
 							 extentKey, extentRecord, recordSize, &hint);
 	if ((err != noErr) && (err != btNotFound)) {
 #if DEBUG_OVERLAP
-		printf ("%s: Error on searching first record for fileID = %d in Extents Btree (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
+	plog ("%s: Error on searching first record for fileID = %d in Extents Btree (err=%d)\n", __FUNCTION__, extentInfo->fileID, err);
 #endif
 		goto out;
 	}
@@ -4133,7 +4913,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 	if (!filename) {
 		err = memFullErr;
 #if DEBUG_OVERLAP
-		printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+	plog ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
 #endif
 		goto out;
 	}
@@ -4145,7 +4925,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 								&catKey, &catRecord, &recordSize, &hint);
 		if (err) {
 #if DEBUG_OVERLAP
-			printf ("%s: Error finding thread record for fileID = %d (err=%d)\n", __FUNCTION__, fileID, err);
+		plog ("%s: Error finding thread record for fileID = %d (err=%d)\n", __FUNCTION__, fileID, err);
 #endif
 			goto out;
 		}
@@ -4157,7 +4937,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 		    (catRecord.hfsThread.recordType != kHFSFolderThreadRecord)) {
 			err = paramErr;
 #if DEBUG_OVERLAP
-			printf ("%s: Error finding valid thread record for fileID = %d\n", __FUNCTION__, fileID);
+		plog ("%s: Error finding valid thread record for fileID = %d\n", __FUNCTION__, fileID);
 #endif
 			goto out;
 		}
@@ -4166,7 +4946,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 		if (isHFSPlus) {
 			(void) utf_encodestr(catRecord.hfsPlusThread.nodeName.unicode, 
 								 catRecord.hfsPlusThread.nodeName.length * 2,
-								 filename, &namelen);
+								 filename, &namelen, kHFSPlusMaxFileNameChars * 3 + 1);
 		} else {
 			namelen = catRecord.hfsThread.nodeName[0];
 			memcpy (filename, catKey.hfs.nodeName, namelen);
@@ -4177,7 +4957,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 		if (!curPtr) {
 			err = memFullErr;
 #if DEBUG_OVERLAP
-			printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+		plog ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
 #endif
 			goto out;
 		}
@@ -4188,7 +4968,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 		if (!curPtr->name) {
 			err = memFullErr;
 #if DEBUG_OVERLAP
-			printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
+		plog ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
 #endif
 		}
 		memcpy (curPtr->name, filename, namelen); 
@@ -4302,90 +5082,32 @@ out:
  *
  * Output:
  * 	err, zero on success, non-zero on failure.
- *		memFullErr - Not enough memory
  */
 OSErr CopyDiskBlocks(SGlobPtr GPtr, const UInt32 startAllocationBlock, const UInt32 blockCount, const UInt32 newStartAllocationBlock )
 {
 	OSErr err = noErr;
-	int i;
-	int drive;
-	char *tmpBuffer = NULL;
 	SVCB *vcb;
-	UInt32 sectorsPerBlock;
-	UInt32 sectorsInBuffer;
-	UInt32 ioReqCount;
-	UInt32 oldDiskBlock;
-	UInt32 newDiskBlock;
-	UInt32 actBytes;
-	UInt32 numberOfBuffersToWrite;
+	uint64_t old_offset;
+	uint64_t new_offset;
+	uint32_t sectorsPerBlock;
 
-	tmpBuffer = malloc(DISK_IOSIZE);
-	if (!tmpBuffer) {
-		err = memFullErr;
-#if DEBUG_OVERLAP
-		printf ("%s: Not enough memory (err=%d)\n", __FUNCTION__, err);
-#endif
-		goto out;
-	}
-	
 	vcb = GPtr->calculatedVCB;
-	drive = vcb->vcbDriveNumber;
 	sectorsPerBlock = vcb->vcbBlockSize / Blk_Size;
-	ioReqCount = DISK_IOSIZE;
-	sectorsInBuffer = DISK_IOSIZE / Blk_Size;
-	numberOfBuffersToWrite = ((blockCount * sectorsPerBlock) + sectorsInBuffer - 1) / sectorsInBuffer; 
 
-	/*
-	 * Make sure all changes to the source blocks have been flushed to disk
-	 * so that we end up copying current content.  And we might as well
-	 * remove the old blocks since we'll never refer to them again.
-	 */
-	CacheFlushRange(vcb->vcbBlockCache,
-					startAllocationBlock * vcb->vcbBlockSize,
-					blockCount * vcb->vcbBlockSize,
-					true);
+	old_offset = (vcb->vcbAlBlSt + (sectorsPerBlock * startAllocationBlock)) << Log2BlkLo;
+	new_offset = (vcb->vcbAlBlSt + (sectorsPerBlock * newStartAllocationBlock)) << Log2BlkLo;
 
-
-	for (i=0; i<numberOfBuffersToWrite; i++) {
-		if (i == (numberOfBuffersToWrite - 1)) {
-			/* last buffer */	
-			ioReqCount = ((blockCount * sectorsPerBlock) - (i * sectorsInBuffer)) * Blk_Size;
-		}
-		
-		/* Calculate the old disk block offset */
-		oldDiskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * startAllocationBlock) + (i * sectorsInBuffer);
-
-		/* Read up to one buffer full */
-		err = DeviceRead(vcb->vcbDriverReadRef, drive, tmpBuffer, 
-						 (SInt64)((UInt64)oldDiskBlock << Log2BlkLo), ioReqCount, &actBytes);
-		if (err != noErr) {
-			goto out;
-		}
-		
-		/* Calculate the new disk block offset */
-		newDiskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * newStartAllocationBlock) + (i * sectorsInBuffer);
-
-		/* Write up to one buffer full */
-		err = DeviceWrite(vcb->vcbDriverWriteRef, drive, tmpBuffer, 
-						  (SInt64)((UInt64)newDiskBlock << Log2BlkLo), ioReqCount, &actBytes);
-		if (err != noErr) {
-			goto out;
-		}
-#if 0 // DEBUG_OVERLAP
-		printf ("%s: Moved %d bytes of data from block %d to %d\n", __FUNCTION__, ioReqCount, oldDiskBlock, newDiskBlock);
-#endif
-	}
-
-out:
-	if (tmpBuffer) {
-		free (tmpBuffer);
-	}
+	err = CacheCopyDiskBlocks (vcb->vcbBlockCache, old_offset, new_offset, 
+							   blockCount * vcb->vcbBlockSize);
 	return err;
 } /* CopyDiskBlocks */
 
-/* Function: WriteDiskBlocks
+/* Function: WriteBufferToDisk
  * 
- * Description: Write given buffer data to disk blocks.
+ * Description: Write given buffer data to disk blocks.  
+ * If the length of the buffer is not a multiple of allocation block size,
+ * the disk is filled with zero from the length of buffer upto the
+ * end of allocation blocks (specified by blockCount).
  *
  * Input:
  *	1. GPtr - global scavenger structure pointer
@@ -4396,70 +5118,25 @@ out:
  *
  * Output:
  * 	returns zero on success, non-zero on failure.
- *		memFullErr - Not enough memory
  */
-OSErr WriteDiskBlocks(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int bufLen) 
+OSErr WriteBufferToDisk(SGlobPtr GPtr, UInt32 startBlock, UInt32 blockCount, u_char *buffer, int bufLen) 
 {
 	OSErr err = noErr;
-	int i;
 	SVCB *vcb;
-	int drive;
-	u_char *dataBuffer;
-	UInt32 sectorsPerBlock;
-	UInt32 sectorsInBuffer;
-	UInt32 ioReqCount;
-	UInt32 diskBlock;
-	UInt32 actBytes;
-	UInt32 numberOfBuffersToWrite;
-	UInt32 bufOffset = 0;
+	uint64_t offset;
+	uint32_t write_len;
 
-	dataBuffer = buffer;
 	vcb = GPtr->calculatedVCB;
-	drive = vcb->vcbDriveNumber;
-	sectorsPerBlock = vcb->vcbBlockSize / Blk_Size;
-	ioReqCount = DISK_IOSIZE;
-	sectorsInBuffer = DISK_IOSIZE / Blk_Size;
-	numberOfBuffersToWrite = ((blockCount * sectorsPerBlock) + sectorsInBuffer - 1) / sectorsInBuffer; 
 
-	for (i=0; i<numberOfBuffersToWrite; i++) {
-		if (i == (numberOfBuffersToWrite - 1)) {
-			/* last buffer - should be Blk_Size multiple */	
-			ioReqCount = bufLen - bufOffset;
-			if (ioReqCount % Blk_Size) {
-				ioReqCount = ((ioReqCount / Blk_Size) + 1) * Blk_Size;
-			} else {
-				ioReqCount = (ioReqCount / Blk_Size) * Blk_Size;
-			}
-			
-			dataBuffer = calloc (1, ioReqCount);
-			if (!dataBuffer) {
-				err = memFullErr;
-				goto out;
-			}
+	/* Calculate offset and length */
+	offset = (vcb->vcbAlBlSt + ((vcb->vcbBlockSize / Blk_Size) * startBlock)) << Log2BlkLo;
+	write_len = blockCount * vcb->vcbBlockSize;
 
-			memcpy (dataBuffer, buffer + bufOffset, (bufLen - bufOffset));
-			bufOffset = 0;
-		}
-		
-		/* Calculate the new disk block offset */
-		diskBlock = vcb->vcbAlBlSt + (sectorsPerBlock * startBlock) + (i * sectorsInBuffer);
-		
-		/* Write up to one buffer full */
-		err = DeviceWrite(vcb->vcbDriverWriteRef, drive, dataBuffer + bufOffset, 
-						 (SInt64)((UInt64)diskBlock << Log2BlkLo), ioReqCount, &actBytes);
-		if (err != noErr) {
-			goto out;
-		}
-
-		bufOffset += ioReqCount;
-	}
-
-out:
-	if (dataBuffer != buffer) {
-		free (dataBuffer);
-	}
+	/* Write buffer to disk */
+	err = CacheWriteBufferToDisk (vcb->vcbBlockCache, offset, write_len, buffer, bufLen);
+	
 	return err;
-} /* WriteDiskBlocks */
+} /* WriteBufferToDisk */
 
 //	2210409, in System 8.1, moving file or folder would cause HFS+ thread records to be
 //	520 bytes in size.  We only shrink the threads if other repairs are needed.
@@ -4528,7 +5205,7 @@ FixMissingThreadRecords( SGlob *GPtr )
 				lostAndFoundDirID = CreateDirByName( GPtr , (u_char *)"lost+found", kHFSRootFolderID);
 			if ( lostAndFoundDirID == 0 ) {
 				if ( GPtr->logLevel >= kDebugLog )
-					printf( "\tCould not create lost+found directory \n" );
+				plog( "\tCould not create lost+found directory \n" );
 				return( R_RFail );
 			}
 			sprintf( myString, "%ld", (long)mtp->threadID );
@@ -4536,7 +5213,7 @@ FixMissingThreadRecords( SGlob *GPtr )
 			result = FixMissingDirectory( GPtr, mtp->threadID, lostAndFoundDirID );
 			if ( result != 0 ) {
 				if ( GPtr->logLevel >= kDebugLog )
-					printf( "\tCould not recreate a missing directory \n" );
+				plog( "\tCould not recreate a missing directory \n" );
 				return( R_RFail );
 			}
 			else
@@ -4734,7 +5411,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 		size_t namelen;
 
 		if (filenameLen < kHFSPlusMaxFileNameChars) {
-			(void) utf_decodestr (fileName, filenameLen, fName.ustr.unicode, &namelen);
+			(void) utf_decodestr (fileName, filenameLen, fName.ustr.unicode, &namelen, sizeof(fName.ustr.unicode));
 			namelen /= 2;
 			fName.ustr.length = namelen;
 		} else {
@@ -4748,7 +5425,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 				goto out;
 			}
 
-			(void) utf_decodestr (fileName, filenameLen, unicodename, &namelen);
+			(void) utf_decodestr (fileName, filenameLen, unicodename, &namelen, filenameLen * 4);
 			namelen /= 2;
 
 			/* Chopping unicode string based on length might affect unicode 
@@ -4776,7 +5453,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 							&catRecord, &recordSize, &hint);
 	if (err != fsBTRecordNotFoundErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: %s probably exists in dirID = %d (err=%d)\n", __FUNCTION__, fileName, parentID, err);
+	plog ("%s: %s probably exists in dirID = %d (err=%d)\n", __FUNCTION__, fileName, parentID, err);
 #endif
 		err = EEXIST;
 		goto out;
@@ -4795,16 +5472,16 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 			err = AllocateContigBitmapBits (GPtr->calculatedVCB, blockCount, &startBlock);
 			if (err != noErr) {
 #if DEBUG_OVERLAP
-				printf ("%s: Not enough disk space (err=%d)\n", __FUNCTION__, err);
+			plog ("%s: Not enough disk space (err=%d)\n", __FUNCTION__, err);
 #endif
 				goto out;
 			}
 
 			/* Write the data to the blocks */
-			err = WriteDiskBlocks(GPtr, startBlock, blockCount, data, dataLen);
+			err = WriteBufferToDisk(GPtr, startBlock, blockCount, data, dataLen);
 			if (err != noErr) {
 #if DEBUG_OVERLAP
-				printf ("%s: Error in writing data of %s to disk (err=%d)\n", __FUNCTION__, fileName, err);
+			plog ("%s: Error in writing data of %s to disk (err=%d)\n", __FUNCTION__, fileName, err);
 #endif
 				goto out;
 			}
@@ -4835,7 +5512,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 	}
 	if (err != noErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: Error inserting thread record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
+	plog ("%s: Error inserting thread record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
 #endif
 		goto out;
 	}
@@ -4844,14 +5521,14 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 	recordSize = BuildFileRec(fileType, 0666, nextCNID, isHFSPlus, &catRecord);
 	if (recordSize == 0) {
 #if DEBUG_OVERLAP
-		printf ("%s: Incorrect fileType\n", __FUNCTION__);
+	plog ("%s: Incorrect fileType\n", __FUNCTION__);
 #endif
 
 		/* Remove the thread record inserted above */
 		err = DeleteBTreeRecord (GPtr->calculatedCatalogFCB, &threadKey);
 		if (err != noErr) {
 #if DEBUG_OVERLAP
-			printf ("%s: Error in removing thread record\n", __FUNCTION__);
+		plog ("%s: Error in removing thread record\n", __FUNCTION__);
 #endif
 		}
 		err = paramErr;
@@ -4877,18 +5554,18 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 		isCatUpdated = true;
 
 #if DEBUG_OVERLAP
-	printf ("Created \"%s\" with ID = %d startBlock = %d, blockCount = %d, dataLen = %d\n", fileName, nextCNID, startBlock, blockCount, dataLen);
+plog ("Created \"%s\" with ID = %d startBlock = %d, blockCount = %d, dataLen = %d\n", fileName, nextCNID, startBlock, blockCount, dataLen);
 #endif
 	} else {
 #if DEBUG_OVERLAP
-		printf ("%s: Error in inserting file record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
+	plog ("%s: Error in inserting file record for file = %s (err=%d)\n", __FUNCTION__, fileName, err);
 #endif
 
 		/* remove the thread record inserted above */
 		err = DeleteBTreeRecord (GPtr->calculatedCatalogFCB, &threadKey);
 		if (err != noErr) {
 #if DEBUG_OVERLAP
-			printf ("%s: Error in removing thread record\n", __FUNCTION__);
+		plog ("%s: Error in removing thread record\n", __FUNCTION__);
 #endif
 		}
 		err = paramErr;
@@ -4910,7 +5587,7 @@ OSErr CreateFileByName(SGlobPtr GPtr, UInt32 parentID, UInt16 fileType, u_char *
 	err = UpdateFolderCount(GPtr->calculatedVCB, parentID, NULL, kHFSPlusFileRecord, kNoHint, 1);
 	if (err != noErr) {
 #if DEBUG_OVERLAP
-		printf ("%s: Error in updating parent folder count (err=%d)\n", __FUNCTION__, err);
+	plog ("%s: Error in updating parent folder count (err=%d)\n", __FUNCTION__, err);
 #endif
 		goto out;
 	}
@@ -5207,8 +5884,164 @@ static void BuildAttributeKey(u_int32_t fileID, u_int32_t startBlock,
 	key->startBlock = startBlock;
 
 	/* Convert UTF-8 attribute name to unicode */
-	(void) utf_decodestr(attrName, attrNameLen, key->attrName, &attrNameLenBytes);
+	(void) utf_decodestr(attrName, attrNameLen, key->attrName, &attrNameLenBytes, sizeof(key->attrName));
 	key->attrNameLen = attrNameLenBytes / 2;
 
 	key->keyLength = kHFSPlusAttrKeyMinimumLength + attrNameLenBytes;
+}
+
+/* Delete catalog record and thread record for given ID.  On successful 
+ * deletion, this function also updates the valence and folder count for 
+ * the parent directory and the file/folder count in the volume header.
+ * 
+ * Returns - zero on success, non-zero on failure.
+ */
+static int DeleteCatalogRecordByID(SGlobPtr GPtr, uint32_t id, Boolean for_rename)
+{
+	int retval;
+	CatalogRecord rec;
+	CatalogKey key;
+	UInt16 recsize;
+	Boolean isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus();
+
+	/* Lookup the catalog record to move */
+	retval = GetCatalogRecordByID(GPtr, id, isHFSPlus, &key, &rec, &recsize);
+	if (retval) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto out;
+	}
+
+	/* Delete the record */
+	if (isHFSPlus) {
+		retval = DeleteCatalogNode(GPtr->calculatedVCB, 
+				key.hfsPlus.parentID, 
+				(const CatalogName *)&key.hfsPlus.nodeName, 
+				kNoHint, for_rename);
+	} else {
+		retval = DeleteCatalogNode(GPtr->calculatedVCB, 
+				key.hfs.parentID, 
+				(const CatalogName *)&key.hfs.nodeName, 
+				kNoHint, for_rename);
+	}
+
+	if ((retval == 0) && ((rec.recordType == kHFSFileRecord) || 
+	    (rec.recordType == kHFSPlusFileRecord))) {
+	    	GPtr->VIStat |= S_VBM;
+		InvalidateCalculatedVolumeBitMap(GPtr);
+	}
+	     
+out:
+	return retval;
+}
+
+/* Move a catalog record with given ID to a new parent directory with given
+ * parentID.  This function should only be called for HFS+ volumes.  
+ * This function removes the catalog record from old parent and inserts 
+ * it back with the new parent ID.  It also takes care of updating the 
+ * parent directory counts.  Note that this function clears kHFSHasLinkChainBit
+ * from the catalog record flags.
+ *
+ * On success, returns zero.  On failure, returns non-zero.
+ */
+static int MoveCatalogRecordByID(SGlobPtr GPtr, uint32_t id, uint32_t new_parentid) 
+{
+	int retval;
+	CatalogRecord rec;
+	CatalogKey key;
+	UInt32 hint;
+	UInt16 recsize;
+	Boolean isFolder = false;
+	BTreeIterator iterator;
+
+	assert (VolumeObjectIsHFSPlus() == true);
+
+	/* Lookup the catalog record to move */
+	retval = GetCatalogRecordByID(GPtr, id, true, &key, &rec, &recsize);
+	if (retval) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			GPtr->minorRepairAfterThreadRec = true;
+		 	GPtr->minorRepairFalseSuccess = true;
+			retval = 0;
+		}
+		goto out;
+	}
+
+	/* Delete the record and its thread from original location.  
+	 * For file records, do not deallocate original extents.
+	 */
+	retval = DeleteCatalogRecordByID(GPtr, id, true);
+	if (retval) {
+		goto out;
+	}
+
+	key.hfsPlus.parentID = new_parentid;
+	/* The record being moved should not have linkChainMask set */
+	if (rec.recordType == kHFSPlusFolderRecord) {
+		rec.hfsPlusFolder.flags &= ~kHFSHasLinkChainMask;
+		isFolder = true;
+	} else if (rec.recordType == kHFSPlusFileRecord) {
+		rec.hfsPlusFile.flags &= ~kHFSHasLinkChainMask;
+		isFolder = false;
+	}
+
+	/* Insert the catalog record with new parent */
+	retval = InsertBTreeRecord(GPtr->calculatedCatalogFCB, &key, &rec,
+			recsize, &hint);
+	if (retval) {
+		goto out;
+	}
+
+	/* Insert the new thread record */
+	recsize = BuildThreadRec(&key, &rec, true, isFolder);
+	BuildCatalogKey(id, NULL, true, &key);
+	retval = InsertBTreeRecord(GPtr->calculatedCatalogFCB, &key, &rec,
+			recsize, &hint);
+	if (retval) {
+		goto out;
+	}
+
+	/* Update the counts in the new parent directory and volume header */
+	ClearMemory(&iterator, sizeof(iterator));
+	retval = GetCatalogRecordByID(GPtr, new_parentid, true, &key, &rec, &recsize);
+	if (retval) {
+		if ((retval == btNotFound) && (GPtr->CBTStat & S_Orphan)) {
+			/* No need for re-repair minor repair order because 
+			 * we are failing on updating the parent directory.
+			 */
+			retval = 0;
+		}
+		goto out;
+	}
+	if (rec.recordType != kHFSPlusFolderRecord) {
+		goto out;
+	}
+
+	rec.hfsPlusFolder.valence++;
+	if ((isFolder == true) &&
+	    (rec.hfsPlusFolder.flags & kHFSHasFolderCountMask)) {
+		rec.hfsPlusFolder.folderCount++;
+	}
+
+	retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, 
+			kNoHint, &rec, recsize, &hint);
+	if (retval) {
+		goto out;
+	}
+
+	if (isFolder == true) {
+		GPtr->calculatedVCB->vcbFolderCount++;
+	} else {
+		GPtr->calculatedVCB->vcbFileCount++;
+	}
+	GPtr->VIStat |= S_MDB;
+	GPtr->CBTStat |= S_BTH;  /* leaf record count changed */
+
+out:
+	return retval;
 }

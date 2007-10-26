@@ -177,6 +177,19 @@ void CL_freeInfoAccess(
 	CE_AuthorityInfoAccess			&cssmInfo,
 	Allocator						&alloc);
 
+void CL_cssmQualCertStatementsToNss(
+	const CE_QC_Statements	 	&cdsaObj,
+	NSS_QC_Statements 			&nssObj,
+	SecNssCoder 				&coder);
+void CL_qualCertStatementsToCssm(
+	const NSS_QC_Statements 	&nssObj,
+	CE_QC_Statements 			&cdsaObj,
+	SecNssCoder 				&coder,	// for temp decoding
+	Allocator					&alloc);
+void CL_freeQualCertStatements(
+	CE_QC_Statements			&cssmQCs,
+	Allocator					&alloc);
+
 void CL_decodeDistributionPointName(
 	const CSSM_DATA				&nssBlob,
 	CE_DistributionPointName	&cssmDpn,

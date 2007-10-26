@@ -1,7 +1,10 @@
-;;; english.el --- support for English
+;;; english.el --- support for English -*- no-byte-compile: t -*-
 
-;; Copyright (C) 1997 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multibyte character, character set, syntax, category
 
@@ -19,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -42,4 +45,5 @@ Nothing special is needed to handle English.")
 (set-language-info-alist
  "ASCII" (cdr (assoc "English" language-info-alist)))
 
+;;; arch-tag: e440bdb0-91b0-4fb4-ae38-425780f8f745
 ;;; english.el ends here

@@ -90,6 +90,19 @@
    (UNSPEC_CLRDI    17) ; Used by the intrinsic form of the iWMMXt CLRDI instruction.
    (UNSPEC_WMADDS   18) ; Used by the intrinsic form of the iWMMXt WMADDS instruction.
    (UNSPEC_WMADDU   19) ; Used by the intrinsic form of the iWMMXt WMADDU instruction.
+		        ; APPLE LOCAL begin ARM strings in code
+   (UNSPEC_CONST_POOL_ADDR  20)  ; Used to get a constant pool address.
+   (UNSPEC_CONST_POOL_ADDR_OFFSET  21)  ; Used to get a constant pool address.
+		        ; APPLE LOCAL end ARM strings in code
+   ; APPLE LOCAL ARM builtin_setjmp/longjump interworking
+   (UNSPEC_JMP_XCHG 22) ; Indirect jump with possible change in ARM/Thumb state.
+			; APPLE LOCAL begin ARM REV/UXTB support
+   (UNSPEC_REV32    23) ; The 32-bit REV instruction
+   (UNSPEC_REV16    24) ; The REV16 instruction (reverses each half of a 32-bit register)
+   (UNSPEC_REVSH    25) ; The REVSH instruction (reverses the low half, sign extends to 32 bits)
+   (UNSPEC_REV64    26) ; The 64-bit REV operation, expands to 2 32-bit REVs
+   (UNSPEC_UXTB16   27) ; The UXTB16 instruction (ARM only)
+			; APPLE LOCAL end ARM REV/UXTB support
   ]
 )
 
@@ -122,6 +135,10 @@
    (VUNSPEC_WCMP_GT  13) ; Used by the iwMMXT WCMPGT instructions
    (VUNSPEC_EH_RETURN 20); Use to override the return address for exception
 			 ; handling.
+			    ; APPLE LOCAL begin ARM strings in code
+   (VUNSPEC_POOL_STRING 21) ; `pool-entry(string)'.  An entry in the constant
+			    ;   pool for a string.
+			    ; APPLE LOCAL end ARM strings in code
   ]
 )
 
@@ -289,6 +306,31 @@
 ;; distant label.  Only applicable to Thumb code.
 (define_attr "far_jump" "yes,no" (const_string "no"))
 
+/* APPLE LOCAL begin ARM cannot_copy */
+;; The CANNOT_COPY attribute marks instructions with relocations that
+;; cannot easily be duplicated.  This includes insns with relocs that
+;; use the pool since they have to stay in 1-1 correspondence with
+;; the pool entries.
+
+(define_attr "cannot_copy" "false,true"
+  (const_string "false"))
+/* APPLE LOCAL end ARM cannot_copy */
+
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+;;---------------------------------------------------------------------------
+;; Mode macros
+
+; A list of modes that are exactly 64 bits in size.  We use this to expand
+; some splits that are the same for all modes when operating on ARM 
+; registers.
+(define_mode_macro ANY64 [DI DF V8QI V4HI V2SI V2SF])
+
+;;---------------------------------------------------------------------------
+;; Predicates
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 (include "predicates.md")
 
 ;;---------------------------------------------------------------------------
@@ -322,11 +364,12 @@
 ;; Cirrus 64bit additions should not be split because we have a native
 ;; 64bit addition instructions.
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_expand "adddi3"
  [(parallel
    [(set (match_operand:DI           0 "s_register_operand" "")
 	  (plus:DI (match_operand:DI 1 "s_register_operand" "")
-	           (match_operand:DI 2 "s_register_operand" "")))
+	           (match_operand:DI 2 "arm_add64_operand" "")))
     (clobber (reg:CC CC_REGNUM))])]
   "TARGET_EITHER"
   "
@@ -347,8 +390,19 @@
       if (GET_CODE (operands[2]) != REG)
         operands[2] = force_reg (SImode, operands[2]);
      }
+
+  if (TARGET_ARM 
+      && (GET_CODE (operands[2]) == CONST_INT
+	  || GET_CODE (operands[2]) == CONST_DOUBLE)
+      && !const64_ok_for_arm_immediate (operands[2]))
+    {
+      emit_insn (gen_subdi3 (operands[0], operands[1],
+			    negate_rtx (DImode, operands[2])));
+      DONE;
+    }
   "
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn "*thumb_adddi3"
   [(set (match_operand:DI          0 "register_operand" "=l")
@@ -361,10 +415,11 @@
   [(set_attr "length" "4")]
 )
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_insn_and_split "*arm_adddi3"
-  [(set (match_operand:DI          0 "s_register_operand" "=&r,&r")
-	(plus:DI (match_operand:DI 1 "s_register_operand" "%0, 0")
-		 (match_operand:DI 2 "s_register_operand" "r,  0")))
+  [(set (match_operand:DI          0 "s_register_operand" "=&r,&r,&r,&r")
+	(plus:DI (match_operand:DI 1 "s_register_operand" "%0, 0, r, 0")
+		 (match_operand:DI 2 "arm_rhs64_operand" "r,  0, Dd,Dd")))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM && !(TARGET_HARD_FLOAT && TARGET_MAVERICK)"
   "#"
@@ -381,12 +436,13 @@
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[4] = gen_highpart (SImode, operands[1]);
     operands[1] = gen_lowpart (SImode, operands[1]);
-    operands[5] = gen_highpart (SImode, operands[2]);
+    operands[5] = gen_highpart_mode (SImode, DImode, operands[2]);
     operands[2] = gen_lowpart (SImode, operands[2]);
   }"
   [(set_attr "conds" "clob")
    (set_attr "length" "8")]
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn_and_split "*adddi_sesidi_di"
   [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
@@ -542,6 +598,22 @@
   [(set (match_dup 0) (plus:SI (reg:SI SP_REGNUM) (match_dup 1)))]
   ""
 )
+
+;; APPLE LOCAL begin ARM peephole
+;; And sometimes greg will generate the same thing this way...
+
+(define_peephole2
+  [(set (match_operand:SI 0 "arm_general_register_operand" "")
+	(reg:SI SP_REGNUM))
+   (set (match_dup 0)
+	(plus:SI (match_dup 0) (match_operand:SI 1 "const_int_operand" "")))]
+  "TARGET_THUMB
+   && (unsigned HOST_WIDE_INT) (INTVAL (operands[1])) < 1024
+   && (INTVAL (operands[1]) & 3) == 0"
+  [(set (match_dup 0) (plus:SI (reg:SI SP_REGNUM) (match_dup 1)))]
+  ""
+)
+;; APPLE LOCAL end ARM peephole
 
 (define_insn "*addsi3_compare0"
   [(set (reg:CC_NOOV CC_REGNUM)
@@ -819,11 +891,12 @@
     operands[2] = force_reg (DFmode, operands[2]);
 ")
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_expand "subdi3"
  [(parallel
    [(set (match_operand:DI            0 "s_register_operand" "")
 	  (minus:DI (match_operand:DI 1 "s_register_operand" "")
-	            (match_operand:DI 2 "s_register_operand" "")))
+	            (match_operand:DI 2 "arm_add64_operand" "")))
     (clobber (reg:CC CC_REGNUM))])]
   "TARGET_EITHER"
   "
@@ -843,19 +916,38 @@
       if (GET_CODE (operands[2]) != REG)
         operands[2] = force_reg (SImode, operands[2]);
      }	
-  "
+
+  if (TARGET_ARM 
+      && (GET_CODE (operands[2]) == CONST_INT
+	  || GET_CODE (operands[2]) == CONST_DOUBLE)
+      && !const64_ok_for_arm_immediate (operands[2]))
+    {
+      emit_insn (gen_adddi3 (operands[0], operands[1],
+			    negate_rtx (DImode, operands[2])));
+      DONE;
+    }
+   "
 )
 
 (define_insn "*arm_subdi3"
-  [(set (match_operand:DI           0 "s_register_operand" "=&r,&r,&r")
-	(minus:DI (match_operand:DI 1 "s_register_operand" "0,r,0")
-		  (match_operand:DI 2 "s_register_operand" "r,0,0")))
+  [(set (match_operand:DI           0 "s_register_operand" "=&r,&r,&r,&r,&r")
+	(minus:DI (match_operand:DI 1 "s_register_operand"   "0, r, 0, r ,0")
+		  (match_operand:DI 2 "arm_rhs64_operand"   "r, 0, 0,Dd,Dd")))
    (clobber (reg:CC CC_REGNUM))]
   "TARGET_ARM"
-  "subs\\t%Q0, %Q1, %Q2\;sbc\\t%R0, %R1, %R2"
+  "*
+   if (which_alternative <= 2)
+     return \"subs\\t%Q0, %Q1, %Q2\;sbc\\t%R0, %R1, %R2\";
+   else
+     {
+       operands[3] = gen_lowpart (SImode, operands[2]);
+       operands[2] = gen_highpart_mode (SImode, DImode, operands[2]);
+       return \"subs\\t%Q0, %Q1, %3\;sbc\\t%R0, %R1, %2\";
+     }"
   [(set_attr "conds" "clob")
    (set_attr "length" "8")]
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn "*thumb_subdi3"
   [(set (match_operand:DI           0 "register_operand" "=l")
@@ -1325,6 +1417,60 @@
   [(set_attr "insn" "smlalxy")
    (set_attr "predicable" "yes")])
 
+;; APPLE LOCAL begin ARM 20060428 DImode multiply enhancement 
+;; No DI * DI instruction exists (except on Cirrus), but leave this in 
+;; the RTL stream through the early optimization phases
+;; to give them a chance to generate the mulsidi3, etc., patterns.
+
+(define_expand "muldi3"
+  [(parallel
+    [(set (match_operand:DI          0 "s_register_operand" "")
+	   (mult:DI (match_operand:DI 1 "s_register_operand" "")
+		    (match_operand:DI 2 "s_register_operand" "")))
+    (clobber (match_scratch:SI 3 ""))
+    (clobber (match_scratch:SI 4 ""))])]
+  "TARGET_ARM"
+  "
+    if (TARGET_HARD_FLOAT && TARGET_MAVERICK)
+      {
+	if (!cirrus_fp_register (operands[0], DImode))
+	  operands[0] = force_reg (DImode, operands[0]);
+	if (!cirrus_fp_register (operands[1], DImode))
+	  operands[1] = force_reg (DImode, operands[1]);
+	emit_insn (gen_cirrus_muldi3 (operands[0], operands[1], operands[2]));
+	DONE;
+      }
+  "
+)
+
+; Input and output registers cannot overlap in this pattern.
+
+(define_insn_and_split "*soft_muldi3"
+  [(set (match_operand:DI          0 "s_register_operand" "=&r")
+	(mult:DI (match_operand:DI 1 "s_register_operand" "%0")
+		 (match_operand:DI 2 "s_register_operand" "r")))
+   (clobber (match_scratch:SI 3 "=&r"))
+   (clobber (match_scratch:SI 4 "=&r"))]
+  "TARGET_ARM && !(TARGET_HARD_FLOAT && TARGET_MAVERICK)"
+  ""
+  "TARGET_ARM && !(TARGET_HARD_FLOAT && TARGET_MAVERICK) && reload_completed"
+  [(set (match_dup 3) (subreg:SI (match_dup 1) 0))
+   (set (match_dup 4) (subreg:SI (match_dup 1) 4))
+   (set (match_dup 0) (mult:DI (zero_extend:DI (match_dup 3))
+			       (zero_extend:DI (subreg:SI (match_dup 2) 0))))
+   (set (subreg:SI (match_dup 0) 4) (plus:SI 
+	    (mult:SI (match_dup 4) (subreg:SI (match_dup 2) 0))
+	    (subreg:SI (match_dup 0) 4)))
+   (set (subreg:SI (match_dup 0) 4) (plus:SI 
+	    (mult:SI (match_dup 3) (subreg:SI (match_dup 2) 4))
+	    (subreg:SI (match_dup 0) 4)))]
+  "
+  {
+  }"
+  [(set_attr "length" "20")]
+)
+;; APPLE LOCAL end ARM 20060428 DImode multiply enhancement 
+
 (define_expand "mulsf3"
   [(set (match_operand:SF          0 "s_register_operand" "")
 	(mult:SF (match_operand:SF 1 "s_register_operand" "")
@@ -1383,13 +1529,14 @@
 
 ;; Split up double word logical operations
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 ;; Split up simple DImode logical operations.  Simply perform the logical
 ;; operation on the upper and lower halves of the registers.
 (define_split
   [(set (match_operand:DI 0 "s_register_operand" "")
 	(match_operator:DI 6 "logical_binary_operator"
 	  [(match_operand:DI 1 "s_register_operand" "")
-	   (match_operand:DI 2 "s_register_operand" "")]))]
+	   (match_operand:DI 2 "arm_rhs64_operand" "")]))]
   "TARGET_ARM && reload_completed && ! IS_IWMMXT_REGNUM (REGNO (operands[0]))"
   [(set (match_dup 0) (match_op_dup:SI 6 [(match_dup 1) (match_dup 2)]))
    (set (match_dup 3) (match_op_dup:SI 6 [(match_dup 4) (match_dup 5)]))]
@@ -1399,10 +1546,11 @@
     operands[0] = gen_lowpart (SImode, operands[0]);
     operands[4] = gen_highpart (SImode, operands[1]);
     operands[1] = gen_lowpart (SImode, operands[1]);
-    operands[5] = gen_highpart (SImode, operands[2]);
+    operands[5] = gen_highpart_mode (SImode, DImode, operands[2]);
     operands[2] = gen_lowpart (SImode, operands[2]);
   }"
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_split
   [(set (match_operand:DI 0 "s_register_operand" "")
@@ -1463,14 +1611,17 @@
   }"
 )
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_insn "anddi3"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(and:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
-		(match_operand:DI 2 "s_register_operand"   "r,r")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r,&r,&r")
+	(and:DI (match_operand:DI 1 "s_register_operand"  "%0,r, 0, r")
+		(match_operand:DI 2 "arm_rhs64_operand"    "r,r,Dd,Dd")))]
   "TARGET_ARM && ! TARGET_IWMMXT"
   "#"
-  [(set_attr "length" "8")]
+  [(set_attr "length" "8")
+   (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn_and_split "*anddi_zesidi_di"
   [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
@@ -1565,15 +1716,15 @@
   "
 )
 
+;; APPLE LOCAL begin ARM 4673027
 (define_insn_and_split "*arm_andsi3_insn"
-  [(set (match_operand:SI         0 "s_register_operand" "=r,r,r")
-	(and:SI (match_operand:SI 1 "s_register_operand" "r,r,r")
-		(match_operand:SI 2 "reg_or_int_operand" "rI,K,?n")))]
+  [(set (match_operand:SI         0 "s_register_operand" "=r,r")
+	(and:SI (match_operand:SI 1 "s_register_operand" "r,r")
+		(match_operand:SI 2 "arm_not_operand" "rI,K")))]
   "TARGET_ARM"
   "@
    and%?\\t%0, %1, %2
-   bic%?\\t%0, %1, #%B2
-   #"
+   bic%?\\t%0, %1, #%B2"
   "TARGET_ARM
    && GET_CODE (operands[2]) == CONST_INT
    && !(const_ok_for_arm (INTVAL (operands[2]))
@@ -1584,9 +1735,10 @@
 	               INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,16")
+  [(set_attr "length" "4,4")
    (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 4673027
 
 (define_insn "*thumb_andsi3_insn"
   [(set (match_operand:SI         0 "register_operand" "=l")
@@ -1856,21 +2008,22 @@
 ;;; bit-field insert instruction, we would have to emit code here to truncate
 ;;; the value before we insert.  This loses some of the advantage of having
 ;;; this insv pattern, so this pattern needs to be reevalutated.
+;;; APPLE LOCAL begin ARM insv for Thumb
 
 (define_expand "insv"
   [(set (zero_extract:SI (match_operand:SI 0 "s_register_operand" "")
                          (match_operand:SI 1 "general_operand" "")
                          (match_operand:SI 2 "general_operand" ""))
         (match_operand:SI 3 "reg_or_int_operand" ""))]
-  "TARGET_ARM"
+  "TARGET_ARM || TARGET_THUMB"
   "
   {
     int start_bit = INTVAL (operands[2]);
     int width = INTVAL (operands[1]);
     HOST_WIDE_INT mask = (((HOST_WIDE_INT)1) << width) - 1;
-    rtx target, subtarget;
+    rtx target, subtarget, orig_target;
 
-    target = operands[0];
+    target = orig_target = operands[0];
     /* Avoid using a subreg as a subtarget, and avoid writing a paradoxical 
        subreg as the final target.  */
     if (GET_CODE (target) == SUBREG)
@@ -1900,7 +2053,8 @@
 	emit_insn (gen_iorsi3 (subtarget, op1,
 			       gen_int_mode (op3_value << start_bit, SImode)));
       }
-    else if (start_bit == 0
+    else if (TARGET_ARM
+	     && start_bit == 0
 	     && !(const_ok_for_arm (mask)
 		  || const_ok_for_arm (~mask)))
       {
@@ -1918,9 +2072,10 @@
 	emit_insn (gen_iorsi3  (op1, op1, op0));
 	emit_insn (gen_rotlsi3 (subtarget, op1, operands[1]));
       }
-    else if ((width + start_bit == 32)
-	     && !(const_ok_for_arm (mask)
-		  || const_ok_for_arm (~mask)))
+    else if (width + start_bit == 32
+	     && (TARGET_THUMB
+		 || !(const_ok_for_arm (mask)
+		      || const_ok_for_arm (~mask))))
       {
 	/* Similar trick, but slightly less efficient.  */
 
@@ -1938,7 +2093,8 @@
 	rtx op1 = gen_reg_rtx (SImode);
 	rtx op2 = gen_reg_rtx (SImode);
 
-	if (!(const_ok_for_arm (mask) || const_ok_for_arm (~mask)))
+	if (TARGET_THUMB 
+	    || !(const_ok_for_arm (mask) || const_ok_for_arm (~mask)))
 	  {
 	    rtx tmp = gen_reg_rtx (SImode);
 
@@ -1947,6 +2103,7 @@
 	  }
 
 	/* Mask out any bits in operand[3] that are not needed.  */
+	if (!TARGET_THUMB)
 	   emit_insn (gen_andsi3 (op1, operands[3], op0));
 
 	if (GET_CODE (op0) == CONST_INT
@@ -1972,8 +2129,29 @@
 	    emit_insn (gen_andsi_notsi_si (op2, operands[0], op0));
 	  }
 
-	if (start_bit != 0)
+	if (!TARGET_THUMB && start_bit != 0)
           emit_insn (gen_ashlsi3 (op1, op1, operands[2]));
+
+	/* The default code uses AND with constant which is an extra insn on thumb. */
+	if (TARGET_THUMB)
+	  {
+	    /* If we only want a low subreg, we don't need to worry about
+	       bits beyond that. */
+	    if (GET_CODE (orig_target) == SUBREG
+	        && SUBREG_BYTE (orig_target) == 0
+	        && GET_MODE_SIZE (GET_MODE (SUBREG_REG (orig_target))) 
+			< GET_MODE_SIZE (SImode)
+		&& width + start_bit 
+			>= GET_MODE_BITSIZE (GET_MODE (SUBREG_REG (orig_target))))
+	      emit_insn (gen_ashlsi3 (op1, operands[3], GEN_INT (start_bit)));
+	    else
+	      {
+		/* Mask unneeded bits in operand[3], and simultaneously move
+		   input to the right place in the word.  */
+		emit_insn (gen_ashlsi3 (op1, operands[3], GEN_INT (32 - width)));
+		emit_insn (gen_lshrsi3 (op1, op1, GEN_INT (32 - width - start_bit)));
+	      }
+	  }
 
 	emit_insn (gen_iorsi3 (subtarget, op1, op2));
       }
@@ -1991,6 +2169,7 @@
     DONE;
   }"
 )
+;;; APPLE LOCAL end ARM insv for Thumb
 
 ; constants for op 2 will never be given to these patterns.
 (define_insn_and_split "*anddi_notdi_di"
@@ -2123,15 +2302,17 @@
   [(set_attr "conds" "set")]
 )
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_insn "iordi3"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(ior:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
-		(match_operand:DI 2 "s_register_operand"   "r,r")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r,&r,&r")
+	(ior:DI (match_operand:DI 1 "s_register_operand"  "%0,r, 0, r")
+		(match_operand:DI 2 "arm_rhs64_operand"   "r,r,Dd,Dd")))]
   "TARGET_ARM && ! TARGET_IWMMXT"
   "#"
   [(set_attr "length" "8")
    (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn "*iordi_zesidi_di"
   [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
@@ -2178,14 +2359,13 @@
   "
 )
 
+;; APPLE LOCAL begin ARM 4673027
 (define_insn_and_split "*arm_iorsi3"
-  [(set (match_operand:SI         0 "s_register_operand" "=r,r")
-	(ior:SI (match_operand:SI 1 "s_register_operand" "r,r")
-		(match_operand:SI 2 "reg_or_int_operand" "rI,?n")))]
+  [(set (match_operand:SI         0 "s_register_operand" "=r")
+	(ior:SI (match_operand:SI 1 "s_register_operand" "r")
+		(match_operand:SI 2 "arm_rhs_operand" "rI")))]
   "TARGET_ARM"
-  "@
-   orr%?\\t%0, %1, %2
-   #"
+  "orr%?\\t%0, %1, %2"
   "TARGET_ARM
    && GET_CODE (operands[2]) == CONST_INT
    && !const_ok_for_arm (INTVAL (operands[2]))"
@@ -2195,9 +2375,10 @@
                       INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,16")
+  [(set_attr "length" "4")
    (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 4673027
 
 (define_insn "*thumb_iorsi3"
   [(set (match_operand:SI         0 "register_operand" "=l")
@@ -2244,15 +2425,17 @@
   [(set_attr "conds" "set")]
 )
 
+;; APPLE LOCAL begin ARM 4468410 long long constants
 (define_insn "xordi3"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(xor:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
-		(match_operand:DI 2 "s_register_operand"   "r,r")))]
+  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r,&r,&r")
+	(xor:DI (match_operand:DI 1 "s_register_operand"  "%0,r, 0, r")
+		(match_operand:DI 2 "arm_rhs64_operand"   "r,r,Dd,Dd")))]
   "TARGET_ARM && !TARGET_IWMMXT"
   "#"
   [(set_attr "length" "8")
    (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 4468410 long long constants
 
 (define_insn "*xordi_zesidi_di"
   [(set (match_operand:DI 0 "s_register_operand" "=&r,&r")
@@ -2979,14 +3162,16 @@
 (define_expand "negsf2"
   [(set (match_operand:SF         0 "s_register_operand" "")
 	(neg:SF (match_operand:SF 1 "s_register_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   ""
 )
 
 (define_expand "negdf2"
   [(set (match_operand:DF         0 "s_register_operand" "")
 	(neg:DF (match_operand:DF 1 "s_register_operand" "")))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "")
 
 ;; abssi2 doesn't really clobber the condition codes if a different register
@@ -3265,7 +3450,8 @@
   }"
 )
 
-(define_insn "*thumb_zero_extendhisi2"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_zero_extendhisi2"
   [(set (match_operand:SI 0 "register_operand" "=l")
 	(zero_extend:SI (match_operand:HI 1 "memory_operand" "m")))]
   "TARGET_THUMB && !arm_arch6"
@@ -3307,7 +3493,8 @@
    (set_attr "pool_range" "60")]
 )
 
-(define_insn "*thumb_zero_extendhisi2_v6"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_zero_extendhisi2_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))]
   "TARGET_THUMB && arm_arch6"
@@ -3648,7 +3835,8 @@
 ;; we try to verify the operands.  Fortunately, we don't really need
 ;; the early-clobber: we can always use operand 0 if operand 2
 ;; overlaps the address.
-(define_insn "*thumb_extendhisi2_insn_v6"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_extendhisi2_insn_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "l,m")))
    (clobber (match_scratch:SI 2 "=X,l"))]
@@ -3914,7 +4102,8 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "*thumb_extendqisi2"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_extendqisi2"
   [(set (match_operand:SI 0 "register_operand" "=l,l")
 	(sign_extend:SI (match_operand:QI 1 "memory_operand" "V,m")))]
   "TARGET_THUMB && !arm_arch6"
@@ -3993,7 +4182,8 @@
    (set_attr "pool_range" "32,32")]
 )
 
-(define_insn "*thumb_extendqisi2_v6"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_extendqisi2_v6"
   [(set (match_operand:SI 0 "register_operand" "=l,l,l")
 	(sign_extend:SI (match_operand:QI 1 "nonimmediate_operand" "l,V,m")))]
   "TARGET_THUMB && arm_arch6"
@@ -4017,7 +4207,8 @@
         && GET_CODE (XEXP (mem, 0)) == LABEL_REF)
       return \"ldr\\t%0, %1\";
       
-    if (which_alternative == 0)
+    /* APPLE LOCAL ARM fix obvious typo */
+    if (which_alternative == 1)
       return \"ldrsb\\t%0, %1\";
       
     ops[0] = operands[0];
@@ -4142,36 +4333,124 @@
 ;;    return \"\";
 ;;  }")
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_expand "movdi"
   [(set (match_operand:DI 0 "general_operand" "")
 	(match_operand:DI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (TARGET_THUMB)
+  if (!no_new_pseudos)
     {
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (DImode, operands[1]);
-        }
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (DImode, operands[1]);
     }
   "
 )
 
 (define_insn "*arm_movdi"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,   r, r, r, m")
-	(match_operand:DI 1 "di_operand"              "rIKDa,Db,Dc,mi,r"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r, r, r, m")
+	(match_operand:DI 1 "di_operand"              "rDa,Db,Dc,mi,r"))]
   "TARGET_ARM
-  && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
-  && !TARGET_IWMMXT"
+   && !(TARGET_HARD_FLOAT && (TARGET_MAVERICK || TARGET_VFP))
+   && !TARGET_IWMMXT
+   && (   register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "*
-  return (output_move_double (operands));
+  switch (which_alternative)
+    {
+    case 0:
+    case 1:
+    case 2:
+      return \"#\";
+    default:
+      return output_move_double (operands);
+    }
   "
   [(set_attr "length" "8,12,16,8,8")
    (set_attr "type" "*,*,*,load2,store2")
    (set_attr "pool_range" "*,*,*,1020,*")
    (set_attr "neg_pool_range" "*,*,*,1008,*")]
 )
+
+(define_split
+  [(set (match_operand:ANY64 0 "arm_general_register_operand" "")
+	(match_operand:ANY64 1 "const_double_operand" ""))]
+  "TARGET_ARM
+   && reload_completed
+   && (arm_const_double_inline_cost (operands[1])
+       <= ((optimize_size || arm_ld_sched) ? 3 : 4))"
+  [(const_int 0)]
+  "
+  arm_split_constant (SET, SImode, curr_insn,
+		      INTVAL (gen_lowpart (SImode, operands[1])),
+		      gen_lowpart (SImode, operands[0]), NULL_RTX, 0);
+  arm_split_constant (SET, SImode, curr_insn,
+		      INTVAL (gen_highpart_mode (SImode,
+						 GET_MODE (operands[0]),
+						 operands[1])),
+		      gen_highpart (SImode, operands[0]), NULL_RTX, 0);
+  DONE;
+  "
+)
+
+; If optimizing for size, or if we have load delay slots, then 
+; we want to split the constant into two separate operations. 
+; In both cases this may split a trivial part into a single data op
+; leaving a single complex constant to load.  We can also get longer
+; offsets in a LDR which means we get better chances of sharing the pool
+; entries.  Finally, we can normally do a better job of scheduling
+; LDR instructions than we can with LDM.
+;; APPLE LOCAL begin ARM split 64-bit constants on Thumb 
+; On ARM, This pattern will only match if the one above did not.
+; On Thumb, use this form always; don't try to do inline expansions.
+(define_split
+  [(set (match_operand:ANY64 0 "arm_general_register_operand" "")
+	(match_operand:ANY64 1 "const_double_operand" ""))]
+  "TARGET_EITHER && reload_completed
+   && (TARGET_THUMB || arm_const_double_by_parts (operands[1]))"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))]
+  "
+  operands[2] = gen_highpart (SImode, operands[0]);
+  operands[3] = gen_highpart_mode (SImode, GET_MODE (operands[0]),
+				   operands[1]);
+  operands[0] = gen_lowpart (SImode, operands[0]);
+  operands[1] = gen_lowpart (SImode, operands[1]);
+  "
+)
+;; APPLE LOCAL end ARM split 64-bit constants on Thumb
+
+(define_split
+  [(set (match_operand:ANY64 0 "arm_general_register_operand" "")
+	(match_operand:ANY64 1 "arm_general_register_operand" ""))]
+  "TARGET_EITHER && reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))]
+  "
+  operands[2] = gen_highpart (SImode, operands[0]);
+  operands[3] = gen_highpart (SImode, operands[1]);
+  operands[0] = gen_lowpart (SImode, operands[0]);
+  operands[1] = gen_lowpart (SImode, operands[1]);
+
+  /* Handle a partial overlap.  */
+  if (rtx_equal_p (operands[0], operands[3]))
+    {
+      rtx tmp0 = operands[0];
+      rtx tmp1 = operands[1];
+
+      operands[0] = operands[2];
+      operands[1] = operands[3];
+      operands[2] = tmp0;
+      operands[3] = tmp1;
+    }
+  "
+)
+
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; We can't actually do base+index doubleword loads if the index and
 ;; destination overlap.  Split here so that we at least have chance to
@@ -4197,7 +4476,8 @@
 ;;; ??? This was originally identical to the movdf_insn pattern.
 ;;; ??? The 'i' constraint looks funny, but it should always be replaced by
 ;;; thumb_reorg with a memory reference.
-(define_insn "*thumb_movdi_insn"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_movdi_insn"
   [(set (match_operand:DI 0 "nonimmediate_operand" "=l,l,l,l,>,l, m,*r")
 	(match_operand:DI 1 "general_operand"      "l, I,J,>,l,mi,l,*r"))]
   "TARGET_THUMB
@@ -4270,10 +4550,8 @@
         }
     }
     
-  if (flag_pic
-      && (CONSTANT_P (operands[1])
-	 || symbol_mentioned_p (operands[1])
-	 || label_mentioned_p (operands[1])))
+  /* APPLE LOCAL ARM pic support */
+  if (! LEGITIMATE_INDIRECT_OPERAND_P (operands[1]))
     operands[1] = legitimize_pic_address (operands[1], SImode,
 					  (no_new_pseudos ? operands[0] : 0));
   "
@@ -4366,6 +4644,53 @@
   }"
 )
 
+;; APPLE LOCAL begin ARM REV/UXTB support
+;; There is no easy way to represent the semantics of the byte-reversal instructions
+;; in RTL, so we use unspec's.
+
+(define_insn "arm_rev32"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "s_register_operand" "r")] UNSPEC_REV32))]
+  "TARGET_ARM"
+  "rev%?\\t%0, %1"
+  [(set_attr "predicable" "yes")]
+)
+
+(define_insn "thumb_rev32"
+  [(set (match_operand:SI 0 "register_operand" "=l")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "l")] UNSPEC_REV32))]
+  "TARGET_THUMB"
+  "rev\\t%0, %1"
+  [(set_attr "length" "2")]
+)
+
+(define_insn "arm_rev64"
+  [(set (match_operand:DI 0 "s_register_operand" "=&r")
+	(unspec:DI [(match_operand:DI 1 "s_register_operand" "r")] UNSPEC_REV64))]
+  "TARGET_ARM"
+  "rev%?\\t%Q0, %R1\;rev%?\\t%R0, %Q1"
+  [(set_attr "predicable" "yes")
+   (set_attr "length" "8")]
+)
+
+(define_insn "thumb_rev64"
+  [(set (match_operand:DI 0 "register_operand" "=&l")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "l")] UNSPEC_REV64))]
+  "TARGET_THUMB"
+  "rev\\t%Q0, %R1\;rev\\t%R0, %Q1"
+  [(set_attr "length" "4")]
+)
+
+(define_insn "uxtb16"
+  [(set (match_operand:SI 0 "s_register_operand" "=r")
+	(unspec:SI [(match_operand:SI 1 "s_register_operand" "r")
+		    (match_operand:SI 2 "const_int_operand" "M")] UNSPEC_UXTB16))]
+  "TARGET_ARM"
+  "uxtb16%?\\t%0, %1, ror %2"
+  [(set_attr "predicable" "yes")]
+)
+;; APPLE LOCAL end ARM REV/UXTB support
+
 ;; When generating pic, we need to load the symbol offset into a register.
 ;; So that the optimizer does not confuse this with a normal symbol load
 ;; we use an unspec.  The offset will be loaded from a constant pool entry,
@@ -4375,10 +4700,13 @@
 ;; the insn alone, and to force the minipool generation pass to then move
 ;; the GOT symbol to memory.
 
+;; APPLE LOCAL begin ARM pic support
 (define_insn "pic_load_addr_arm"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(unspec:SI [(match_operand:SI 1 "" "mX")] UNSPEC_PIC_SYM))]
-  "TARGET_ARM && flag_pic"
+	(unspec:SI [(match_operand:SI 1 "" "mX")
+	            (label_ref (match_operand 2 "" ""))] UNSPEC_PIC_SYM))
+   (use (label_ref (match_dup 2)))]
+  "TARGET_ARM && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
   "ldr%?\\t%0, %1"
   [(set_attr "type" "load1")
    (set (attr "pool_range")     (const_int 4096))
@@ -4387,15 +4715,20 @@
 
 (define_insn "pic_load_addr_thumb"
   [(set (match_operand:SI 0 "s_register_operand" "=l")
-	(unspec:SI [(match_operand:SI 1 "" "mX")] UNSPEC_PIC_SYM))]
-  "TARGET_THUMB && flag_pic"
+	(unspec:SI [(match_operand:SI 1 "" "mX")
+		    (label_ref (match_operand 2 "" ""))] UNSPEC_PIC_SYM))
+   (use (label_ref (match_dup 2)))]
+  "TARGET_THUMB && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
   "ldr\\t%0, %1"
   [(set_attr "type" "load1")
-   (set (attr "pool_range") (const_int 1024))]
+   (set (attr "pool_range") (const_int 1020))
+   (set_attr "length" "2")]
 )
+;; APPLE LOCAL end ARM pic support
 
 ;; This variant is used for AOF assembly, since it needs to mention the
 ;; pic register in the rtl.
+;; APPLE LOCAL begin ARM 4790140 compact switch tables 
 (define_expand "pic_load_addr_based"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(unspec:SI [(match_operand 1 "" "") (match_dup 2)] UNSPEC_PIC_SYM))]
@@ -4419,54 +4752,208 @@
   [(set_attr "type" "load1")
    (set (attr "pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
-		      (const_int 1024)
+		      (const_int 1020)
 		      (const_int 4096)))
    (set (attr "neg_pool_range")
 	(if_then_else (eq_attr "is_thumb" "yes")
 		      (const_int 0)
-		      (const_int 4084)))]
+		      (const_int 4084)))
+   (set (attr "length")
+	(if_then_else (eq_attr "is_thumb" "yes")
+		      (const_int 2)
+		      (const_int 4)))]
+)
+;; APPLE LOCAL end ARM 4790140 compact switch tables 
+
+; APPLE LOCAL begin ARM strings in code
+;; These are produced by arm_reorg to get the address of
+;; a string constant pool element into a register.
+
+;; the 'adr' pseudo is predicable on ARM, knows that the low
+;; two bits of PC are ignored by the add on Thumb, and will 
+;; generate an add or a sub depending on the sign of the constant.
+;; (Currently we do not generate negative constants.)
+;; %a was added to print_operand; there seemed to be no way to 
+;; print a constant without a preceding #, oddly enough.
+
+;; In this case operand 2 is a multiple of 4.
+(define_insn "arm_movsi_const_pool_addr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (match_operand:SI 2 "const_int_operand" "")]
+		   UNSPEC_CONST_POOL_ADDR))]
+  "TARGET_ARM"
+  "*
+    return \"adr%?\\t%0, %l1+(%a2)\";
+  "
+  [(set_attr "predicable" "yes")
+   (set (attr "pool_range") (const_int 1024))
+   (set (attr "neg_pool_range") (const_int 0))]
 )
 
+;; In this case operand 2 is not a multiple of 4.
+(define_insn "arm_movsi_const_pool_addr_offset"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (match_operand:SI 2 "const_int_operand" "")]
+		   UNSPEC_CONST_POOL_ADDR_OFFSET))]
+  "TARGET_ARM"
+  "*
+    return \"adr%?\\t%0, %l1+(%a2)\";
+  "
+  [(set_attr "predicable" "yes")
+   (set (attr "pool_range") (const_int 256))
+   (set (attr "neg_pool_range") (const_int 0))]
+)
+
+;; On Thumb offset must always be a multiple of 4.
+;;    return \"adr\\t%0, %l1+(%a2)\";
+(define_insn "thumb_movsi_const_pool_addr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (match_operand:SI 2 "const_int_operand" "")]
+		   UNSPEC_CONST_POOL_ADDR))]
+  "TARGET_THUMB"
+  "*
+    return \"add\\t%0, %|pc, %2+(%l1-.-4)\";
+  "
+  [(set_attr "length" "2")
+   (set (attr "pool_range") (const_int 1020))
+   (set (attr "neg_pool_range") (const_int 0))]
+)
+
+;; APPLE LOCAL end ARM strings in code
+
+;; APPLE LOCAL begin ARM pic support
 (define_insn "pic_add_dot_plus_four"
-  [(set (match_operand:SI 0 "register_operand" "+r")
-	(unspec:SI [(plus:SI (match_dup 0)
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(label_ref (match_operand 1 "" ""))
+		     (plus:SI (match_operand:SI 2 "register_operand" "0")
 			     (const (plus:SI (pc) (const_int 4))))]
-		   UNSPEC_PIC_BASE))
-   (use (label_ref (match_operand 1 "" "")))]
-  "TARGET_THUMB && flag_pic"
+		   UNSPEC_PIC_BASE))]
+  "TARGET_THUMB && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
   "*
   (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			     CODE_LABEL_NUMBER (operands[1]));
   return \"add\\t%0, %|pc\";
   "
-  [(set_attr "length" "2")]
+  [(set_attr "length" "2")
+   (set_attr "cannot_copy" "true")]
 )
 
 (define_insn "pic_add_dot_plus_eight"
-  [(set (match_operand:SI 0 "register_operand" "+r")
-	(unspec:SI [(plus:SI (match_dup 0)
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (plus:SI (match_operand:SI 2 "register_operand" "r")
 			     (const (plus:SI (pc) (const_int 8))))]
-		   UNSPEC_PIC_BASE))
-   (use (label_ref (match_operand 1 "" "")))]
-  "TARGET_ARM && flag_pic"
+		   UNSPEC_PIC_BASE))]
+  "TARGET_ARM && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
   "*
     (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
 			       CODE_LABEL_NUMBER (operands[1]));
-    return \"add%?\\t%0, %|pc, %0\";
+    return \"add%?\\t%0, %|pc, %2\";
   "
-  [(set_attr "predicable" "yes")]
+  [(set_attr "predicable" "yes")
+   (set_attr "cannot_copy" "true")]
 )
 
-(define_expand "builtin_setjmp_receiver"
-  [(label_ref (match_operand 0 "" ""))]
-  "flag_pic"
+;; APPLE LOCAL begin ARM 4224487
+;; These short forms work for addresses of scalar globals.  They
+;; are produced by combine.  There is no Thumb counterpart, as
+;; [Rn+PC] is not a valid addressing mode on Thumb.
+
+(define_insn "*arm_pic_ldrsi"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(mem:SI (unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (plus:SI (match_operand:SI 2 "register_operand" "r")
+			     (const (plus:SI (pc) (const_int 8))))]
+		   UNSPEC_PIC_BASE)))]
+  "TARGET_ARM && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
+  "*
+    (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
+			       CODE_LABEL_NUMBER (operands[1]));
+    return \"ldr%?\\t%0, [%|pc, %2]\";
+  "
+  [(set_attr "predicable" "yes")
+   (set_attr "cannot_copy" "true")]
+)
+
+(define_insn "*arm_pic_strsi"
+  [(set (mem:SI (unspec:SI [(label_ref (match_operand 1 "" ""))
+		    (plus:SI (match_operand:SI 2 "register_operand" "r")
+			     (const (plus:SI (pc) (const_int 8))))]
+		   UNSPEC_PIC_BASE))
+	(match_operand:SI 0 "register_operand" "r"))]
+  "TARGET_ARM && (flag_pic || (TARGET_MACHO && MACHO_DYNAMIC_NO_PIC_P))"
+  "*
+    (*targetm.asm_out.internal_label) (asm_out_file, \"L\",
+			       CODE_LABEL_NUMBER (operands[1]));
+    return \"str%?\\t%0, [%|pc, %2]\";
+  "
+  [(set_attr "predicable" "yes")
+   (set_attr "cannot_copy" "true")]
+)
+;; APPLE LOCAL end ARM 4224487
+;; APPLE LOCAL end ARM pic support
+
+;; APPLE LOCAL begin ARM builtin_setjmp/longjmp interworking
+;; If we'll be  returning to thumb code, we need to set the low-order
+;; bit of the resume address.  builtin_setjmp_setup doesn't handle all
+;; of the setup, it just augments the logic in builtins.c, to post-
+;; process the already-initialized mini-jmp_buf.
+(define_expand "builtin_setjmp_setup"
+  [(use (match_operand 0 "register_operand"))]
+  "TARGET_THUMB"
+{
+  rtx resume_addr =
+    gen_rtx_MEM (Pmode, plus_constant (operands[0],
+				       GET_MODE_SIZE (Pmode)));
+  rtx resume_reg;
+
+  /* Set low-order bit of resume address */
+  resume_reg = force_reg (Pmode, resume_addr);
+  resume_reg = gen_rtx_IOR (Pmode, resume_reg, GEN_INT (1));
+  emit_move_insn (resume_addr, resume_reg);
+})
+
+;; Very similar to the logic in builtins.c, except that we always
+;; restore both ARM_HARD_FRAME_POINTER and THUMB_HARD_FRAME_POINTER,
+;; and we emit an "indirect_jump_exchange" instead of the standard
+;; "indirect_jump".  If we're jumping back into ARM code, we will
+;; unnecessarily (but harmlessly) trash the Thumb FP register.
+(define_expand "builtin_longjmp"
+  [(use (match_operand 0 "register_operand"))]
+  ""
   "
 {
-  /* r3 is clobbered by set/longjmp, so we can use it as a scratch
-     register.  */
-  arm_load_pic_register (3);
+  rtx arm_saved_fp = gen_rtx_MEM (Pmode, operands[0]);
+  rtx lab =
+    gen_rtx_MEM (Pmode, plus_constant (operands[0],
+				       GET_MODE_SIZE (Pmode)));
+  rtx stack =
+    gen_rtx_MEM (Pmode, plus_constant (operands[0],
+				       2 * GET_MODE_SIZE (Pmode)));
+  rtx arm_fp = gen_rtx_REG (Pmode, ARM_HARD_FRAME_POINTER_REGNUM);
+
+  emit_insn (gen_rtx_CLOBBER (VOIDmode, gen_rtx_MEM (BLKmode, arm_fp)));
+
+  emit_move_insn (arm_fp, arm_saved_fp);
+
+  emit_stack_restore (SAVE_NONLOCAL, stack, NULL_RTX);
+
+  if (arm_arch4t)
+    {
+      lab = copy_to_mode_reg (Pmode, lab);
+      emit_insn (gen_rtx_USE (VOIDmode, arm_fp));
+      emit_jump_insn (gen_indirect_jump_exchange (lab));
+      emit_barrier ();
+    }
+  else
+    emit_indirect_jump (lab);
+
   DONE;
 }")
+;; APPLE LOCAL end ARM builtin_setjmp/longjmp interworking
 
 ;; If copying one reg to another we can set the condition codes according to
 ;; its value.  Such a move is common after a return from subroutine and the
@@ -4604,6 +5091,7 @@
   "
 )
 
+;; APPLE LOCAL begin ARM mainline
 (define_expand "movhi"
   [(set (match_operand:HI 0 "general_operand" "")
 	(match_operand:HI 1 "general_operand" ""))]
@@ -4721,8 +5209,13 @@
     {
       if (!no_new_pseudos)
         {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (HImode, operands[1]);
+	  if (GET_CODE (operands[1]) == CONST_INT)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_movsi (reg, operands[1]));
+	      operands[1] = gen_lowpart (HImode, reg);
+	    }
 
           /* ??? We shouldn't really get invalid addresses here, but this can
 	     happen if we are passed a SP (never OK for HImode/QImode) or 
@@ -4745,11 +5238,23 @@
 	    operands[1]
 	      = replace_equiv_address (operands[1],
 				       copy_to_reg (XEXP (operands[1], 0)));
+
+	  if (GET_CODE (operands[1]) == MEM && optimize > 0)
+	    {
+	      rtx reg = gen_reg_rtx (SImode);
+
+	      emit_insn (gen_zero_extendhisi2 (reg, operands[1]));
+	      operands[1] = gen_lowpart (HImode, reg);
+	    }
+
+          if (GET_CODE (operands[0]) == MEM)
+	    operands[1] = force_reg (HImode, operands[1]);
         }
-      /* Handle loading a large integer during reload.  */
       else if (GET_CODE (operands[1]) == CONST_INT
 	        && !CONST_OK_FOR_THUMB_LETTER (INTVAL (operands[1]), 'I'))
         {
+	  /* Handle loading a large integer during reload.  */
+
           /* Writing a constant to memory needs a scratch, which should
 	     be handled with SECONDARY_RELOADs.  */
           if (GET_CODE (operands[0]) != REG)
@@ -4762,8 +5267,10 @@
     }
   "
 )
+;; APPLE LOCAL end ARM mainline
 
-(define_insn "*thumb_movhi_insn"
+;; APPLE LOCAL ARM 4790140 compact switch tables
+(define_insn "adjustable_thumb_movhi_insn"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=l,l,m,*r,*h,l")
 	(match_operand:HI 1 "general_operand"       "l,m,l,*h,*r,I"))]
   "TARGET_THUMB
@@ -4920,42 +5427,26 @@
   DONE;
 ")
 
+;; APPLE LOCAL begin ARM mainline
+
 (define_expand "movqi"
   [(set (match_operand:QI 0 "general_operand" "")
         (match_operand:QI 1 "general_operand" ""))]
   "TARGET_EITHER"
   "
-  if (TARGET_ARM)
+  /* Everything except mem = const or mem = mem can be done easily */
+
+  if (!no_new_pseudos)
     {
-      /* Everything except mem = const or mem = mem can be done easily */
+      if (GET_CODE (operands[1]) == CONST_INT)
+	{
+	  rtx reg = gen_reg_rtx (SImode);
 
-      if (!no_new_pseudos)
+	  emit_insn (gen_movsi (reg, operands[1]));
+	  operands[1] = gen_lowpart (QImode, reg);
+	}
+      if (TARGET_THUMB)
         {
-          if (GET_CODE (operands[1]) == CONST_INT)
-	    {
-	      rtx reg = gen_reg_rtx (SImode);
-
-	      emit_insn (gen_movsi (reg, operands[1]));
-	      operands[1] = gen_lowpart (QImode, reg);
-	    }
-	  if (GET_CODE (operands[1]) == MEM && optimize > 0)
-	    {
-	      rtx reg = gen_reg_rtx (SImode);
-
-	      emit_insn (gen_zero_extendqisi2 (reg, operands[1]));
-	      operands[1] = gen_lowpart (QImode, reg);
-	    }
-          if (GET_CODE (operands[0]) == MEM)
-	    operands[1] = force_reg (QImode, operands[1]);
-        }
-    }
-  else /* TARGET_THUMB */
-    {
-      if (!no_new_pseudos)
-        {
-          if (GET_CODE (operands[0]) != REG)
-	    operands[1] = force_reg (QImode, operands[1]);
-
           /* ??? We shouldn't really get invalid addresses here, but this can
 	     happen if we are passed a SP (never OK for HImode/QImode) or
 	     virtual register (rejected by GO_IF_LEGITIMATE_ADDRESS for
@@ -4977,23 +5468,35 @@
 	       = replace_equiv_address (operands[1],
 					copy_to_reg (XEXP (operands[1], 0)));
         }
-      /* Handle loading a large integer during reload.  */
-      else if (GET_CODE (operands[1]) == CONST_INT
-	       && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
-        {
-          /* Writing a constant to memory needs a scratch, which should
-	     be handled with SECONDARY_RELOADs.  */
-          if (GET_CODE (operands[0]) != REG)
-	    abort ();
 
-          operands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
-          emit_insn (gen_movsi (operands[0], operands[1]));
-          DONE;
-       }
+      if (GET_CODE (operands[1]) == MEM && optimize > 0)
+	{
+	  rtx reg = gen_reg_rtx (SImode);
+
+	  emit_insn (gen_zero_extendqisi2 (reg, operands[1]));
+	  operands[1] = gen_lowpart (QImode, reg);
+	}
+
+      if (GET_CODE (operands[0]) == MEM)
+	operands[1] = force_reg (QImode, operands[1]);
+    }
+  else if (TARGET_THUMB
+	   && GET_CODE (operands[1]) == CONST_INT
+	   && !CONST_OK_FOR_LETTER_P (INTVAL (operands[1]), 'I'))
+    {
+      /* Handle loading a large integer during reload.  */
+
+      /* Writing a constant to memory needs a scratch, which should
+	 be handled with SECONDARY_RELOADs.  */
+      gcc_assert (GET_CODE (operands[0]) == REG);
+
+      operands[0] = gen_rtx_SUBREG (SImode, operands[0], 0);
+      emit_insn (gen_movsi (operands[0], operands[1]));
+      DONE;
     }
   "
 )
-
+;; APPLE LOCAL end ARM mainline
 
 (define_insn "*arm_movqi_insn"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,m")
@@ -5167,17 +5670,34 @@
   }"
 )
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_insn "*movdf_soft_insn"
   [(set (match_operand:DF 0 "nonimmediate_soft_df_operand" "=r,r,r,r,m")
 	(match_operand:DF 1 "soft_df_operand" "rDa,Db,Dc,mF,r"))]
   "TARGET_ARM && TARGET_SOFT_FLOAT
+   && (   register_operand (operands[0], DFmode)
+       || register_operand (operands[1], DFmode))"
+  "*
+  switch (which_alternative)
+    {
+    case 0:
+    case 1:
+    case 2:
+      return \"#\";
+    default:
+      return output_move_double (operands);
+    }
   "
-  "* return output_move_double (operands);"
   [(set_attr "length" "8,12,16,8,8")
    (set_attr "type" "*,*,*,load2,store2")
    (set_attr "pool_range" "1020")
    (set_attr "neg_pool_range" "1008")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;;; ??? This should have alternatives for constants.
 ;;; ??? This was originally identical to the movdi_insn pattern.
@@ -5301,6 +5821,7 @@
    (set_attr "predicable" "yes")]
 )
 
+;; APPLE LOCAL begin ARM 4790140 compact switch tables (length)
 (define_insn "*ldmsi_postinc4_thumb"
   [(match_parallel 0 "load_multiple_operation"
     [(set (match_operand:SI 1 "s_register_operand" "=l")
@@ -5316,8 +5837,10 @@
 	  (mem:SI (plus:SI (match_dup 2) (const_int 12))))])]
   "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
   "ldmia\\t%1!, {%3, %4, %5, %6}"
-  [(set_attr "type" "load4")]
+  [(set_attr "type" "load4")
+   (set_attr "length" "2")]
 )
+;; APPLE LOCAL end ARM 4790140 compact switch tables (length)
 
 (define_insn "*ldmsi_postinc3"
   [(match_parallel 0 "load_multiple_operation"
@@ -5440,6 +5963,7 @@
    (set_attr "type" "store4")]
 )
 
+;; APPLE LOCAL begin ARM 4790140 compact switch tables (length)
 (define_insn "*stmsi_postinc4_thumb"
   [(match_parallel 0 "store_multiple_operation"
     [(set (match_operand:SI 1 "s_register_operand" "=l")
@@ -5455,8 +5979,10 @@
 	  (match_operand:SI 6 "arm_hard_register_operand" ""))])]
   "TARGET_THUMB && XVECLEN (operands[0], 0) == 5"
   "stmia\\t%1!, {%3, %4, %5, %6}"
-  [(set_attr "type" "store4")]
+  [(set_attr "type" "store4")
+   (set_attr "length" "2")]
 )
+;; APPLE LOCAL end ARM 4790140 compact switch tables (length)
 
 (define_insn "*stmsi_postinc3"
   [(match_parallel 0 "store_multiple_operation"
@@ -5556,6 +6082,17 @@
       if (   INTVAL (operands[3]) != 4
           || INTVAL (operands[2]) > 48)
         FAIL;
+
+      /* APPLE LOCAL begin ARM 20060306 use memcpy more at -Os */
+      if (optimize_size
+	  && INTVAL (operands[2]) != 1
+	  && INTVAL (operands[2]) != 2
+	  && INTVAL (operands[2]) != 4
+	  && INTVAL (operands[2]) != 8
+	  && INTVAL (operands[2]) != 12
+	  && INTVAL (operands[2]) != 16)
+	FAIL;
+      /* APPLE LOCAL end ARM 20060306 use memcpy more at -Os */
 
       thumb_expand_movmemqi (operands);
       DONE;
@@ -5658,8 +6195,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d0\\t%l3\";
-    case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D0\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D0\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   "
   [(set (attr "far_jump")
@@ -5694,8 +6233,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d4\\t%l3\";
-    case 6:  return \"b%D4\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D4\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D4\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D4\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   "
   [(set (attr "far_jump")
@@ -5741,8 +6282,10 @@
   switch (get_attr_length (insn) - ((which_alternative > 1) ? 2 : 0))
     {
     case 4:  return \"b%d3\\t%l2\";
-    case 6:  return \"b%D3\\t.LCB%=\;b\\t%l2\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D3\\t.LCB%=\;bl\\t%l2\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D3\\t%.LCB%=\;b\\t%l2\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D3\\t%.LCB%=\;bl\\t%l2\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -5777,6 +6320,32 @@
 	   (const_int 10)))))]
 )
 
+;; APPLE LOCAL begin ARM add this peephole
+;; The above pattern is produced by combine in some cases, but not
+;; when one of the regs involved is hard, e.g. a function return value.
+;; This peephole catches that case.  Valid only for low regs.
+
+(define_peephole2
+  [(set (match_operand:SI 0 "thumb_low_register_operand" "")
+	(match_operand:SI 1 "thumb_low_register_operand" ""))
+   (set (pc) (if_then_else
+	      (match_operator 2 "arm_comparison_operator"
+	       [(match_dup 0) (const_int 0)])
+	      (label_ref (match_operand 3 "" ""))
+	      (pc)))]
+  "TARGET_THUMB"
+  [(parallel
+     [(set (pc)
+	(if_then_else
+	 (match_op_dup 2
+	  [(match_dup 1) (const_int 0)])
+	 (label_ref (match_dup 3 ))
+	 (pc)))
+     (set (match_dup 0) (match_dup 1))])]
+   ""
+)
+;; APPLE LOCAL end ARM add this peephole
+
 (define_insn "*negated_cbranchsi4"
   [(set (pc)
 	(if_then_else
@@ -5791,8 +6360,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d0\\t%l3\";
-    case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D0\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D0\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   "
   [(set (attr "far_jump")
@@ -5835,8 +6406,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d0\\t%l3\";
-    case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D0\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D0\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -5872,8 +6445,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d3\\t%l2\";
-    case 6:  return \"b%D3\\t.LCB%=\;b\\t%l2\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D3\\t.LCB%=\;bl\\t%l2\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D3\\t%.LCB%=\;b\\t%l2\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D3\\t%.LCB%=\;bl\\t%l2\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -5924,8 +6499,10 @@
   switch (get_attr_length (insn) - (which_alternative ? 2 : 0))
     {
     case 4:  return \"b%d5\\t%l4\";
-    case 6:  return \"b%D5\\t.LCB%=\;b\\t%l4\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D5\\t.LCB%=\;bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D5\\t%.LCB%=\;b\\t%l4\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D5\\t%.LCB%=\;bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -5977,8 +6554,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d4\\t%l3\";
-    case 6:  return \"b%D4\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D4\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D4\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D4\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6029,8 +6608,10 @@
   switch (get_attr_length (insn) - (which_alternative ? 2 : 0))
     {
     case 4:  return \"b%d5\\t%l4\";
-    case 6:  return \"b%D5\\t.LCB%=\;b\\t%l4\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D5\\t.LCB%=\;bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D5\\t%.LCB%=\;b\\t%l4\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D5\\t%.LCB%=\;bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6082,8 +6663,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d4\\t%l3\";
-    case 6:  return \"b%D4\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D4\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D4\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D4\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6134,8 +6717,10 @@
   switch (get_attr_length (insn) - (which_alternative ? 2 : 0))
     {
     case 4:  return \"b%d5\\t%l4\";
-    case 6:  return \"b%D5\\t.LCB%=\;b\\t%l4\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D5\\t.LCB%=\;bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D5\\t%.LCB%=\;b\\t%l4\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D5\\t%.LCB%=\;bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6187,8 +6772,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d4\\t%l3\";
-    case 6:  return \"b%D4\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D4\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D4\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D4\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6241,8 +6828,10 @@
   switch (get_attr_length (insn) - (which_alternative ? 2 : 0))
     {
     case 4:  return \"b%d5\\t%l4\";
-    case 6:  return \"b%D5\\t.LCB%=\;b\\t%l4\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D5\\t.LCB%=\;bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D5\\t%.LCB%=\;b\\t%l4\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D5\\t%.LCB%=\;bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   }"
   [(set (attr "far_jump")
@@ -6316,15 +6905,17 @@
 
      switch (get_attr_length (insn) - (which_alternative ? 2 : 0))
        {
+	 /* APPLE LOCAL begin ARM local labels */
 	 case 4:
 	   output_asm_insn (\"b%d0\\t%l1\", cond);
 	   return \"\";
 	 case 6:
-	   output_asm_insn (\"b%D0\\t.LCB%=\", cond);
-	   return \"b\\t%l4\\t%@long jump\\n.LCB%=:\";
+	   output_asm_insn (\"b%D0\\t%.LCB%=\", cond);
+	   return \"b\\t%l4\\t%@long jump\\n%.LCB%=:\";
 	 default:
-	   output_asm_insn (\"b%D0\\t.LCB%=\", cond);
-	   return \"bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+	   output_asm_insn (\"b%D0\\t%.LCB%=\", cond);
+	   return \"bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+	 /* APPLE LOCAL end ARM local labels */
        }
    }
   "
@@ -6421,12 +7012,14 @@
 
      switch (get_attr_length (insn) - ((which_alternative >= 3) ? 2 : 0))
        {
+	 /* APPLE LOCAL begin ARM local labels */
 	 case 4:
 	   return \"b%d4\\t%l5\";
 	 case 6:
-	   return \"b%D4\\t.LCB%=\;b\\t%l5\\t%@long jump\\n.LCB%=:\";
+	   return \"b%D4\\t%.LCB%=\;b\\t%l5\\t%@long jump\\n%.LCB%=:\";
 	 default:
-	   return \"b%D4\\t.LCB%=\;bl\\t%l5\\t%@far jump\\n.LCB%=:\";
+	   return \"b%D4\\t%.LCB%=\;bl\\t%l5\\t%@far jump\\n%.LCB%=:\";
+	 /* APPLE LOCAL end ARM local labels */
        }
    }
   "
@@ -6504,12 +7097,14 @@
 
      switch (get_attr_length (insn))
        {
+	 /* APPLE LOCAL begin ARM local labels */
 	 case 4:
 	   return \"b%d3\\t%l4\";
 	 case 6:
-	   return \"b%D3\\t.LCB%=\;b\\t%l4\\t%@long jump\\n.LCB%=:\";
+	   return \"b%D3\\t%.LCB%=\;b\\t%l4\\t%@long jump\\n%.LCB%=:\";
 	 default:
-	   return \"b%D3\\t.LCB%=\;bl\\t%l4\\t%@far jump\\n.LCB%=:\";
+	   return \"b%D3\\t%.LCB%=\;bl\\t%l4\\t%@far jump\\n%.LCB%=:\";
+	 /* APPLE LOCAL end ARM local labels */
        }
    }
   "
@@ -6570,12 +7165,14 @@
 
      switch (get_attr_length (insn) - ((which_alternative != 0) ? 2 : 0))
        {
+	 /* APPLE LOCAL begin ARM local labels */
 	 case 4:
 	   return \"b%d4\\t%l5\";
 	 case 6:
-	   return \"b%D4\\t.LCB%=\;b\\t%l5\\t%@long jump\\n.LCB%=:\";
+	   return \"b%D4\\t%.LCB%=\;b\\t%l5\\t%@long jump\\n%.LCB%=:\";
 	 default:
-	   return \"b%D4\\t.LCB%=\;bl\\t%l5\\t%@far jump\\n.LCB%=:\";
+	   return \"b%D4\\t%.LCB%=\;bl\\t%l5\\t%@far jump\\n%.LCB%=:\";
+	 /* APPLE LOCAL end ARM local labels */
        }
    }
   "
@@ -6630,8 +7227,10 @@
   switch (get_attr_length (insn))
     {
     case 4:  return \"b%d0\\t%l3\";
-    case 6:  return \"b%D0\\t.LCB%=\;b\\t%l3\\t%@long jump\\n.LCB%=:\";
-    default: return \"b%D0\\t.LCB%=\;bl\\t%l3\\t%@far jump\\n.LCB%=:\";
+    /* APPLE LOCAL begin ARM local labels */
+    case 6:  return \"b%D0\\t%.LCB%=\;b\\t%l3\\t%@long jump\\n%.LCB%=:\";
+    default: return \"b%D0\\t%.LCB%=\;bl\\t%l3\\t%@far jump\\n%.LCB%=:\";
+    /* APPLE LOCAL end ARM local labels */
     }
   "
   [(set (attr "far_jump")
@@ -6686,6 +7285,7 @@
   "
 )
 
+;; APPLE LOCAL begin ARM 20060217 make this predicable
 (define_insn "*arm_cmpsi_insn"
   [(set (reg:CC CC_REGNUM)
 	(compare:CC (match_operand:SI 0 "s_register_operand" "r,r")
@@ -6694,8 +7294,10 @@
   "@
    cmp%?\\t%0, %1
    cmn%?\\t%0, #%n1"
-  [(set_attr "conds" "set")]
+  [(set_attr "conds" "set")
+   (set_attr "predicable" "yes")]
 )
+;; APPLE LOCAL end ARM 20060217 make this predicable
 
 (define_insn "*cmpsi_shiftsi"
   [(set (reg:CC CC_REGNUM)
@@ -6897,7 +7499,8 @@
 	(if_then_else (unordered (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNORDERED, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -6907,7 +7510,8 @@
 	(if_then_else (ordered (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (ORDERED, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -6917,7 +7521,8 @@
 	(if_then_else (ungt (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNGT, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6926,7 +7531,8 @@
 	(if_then_else (unlt (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNLT, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6935,7 +7541,8 @@
 	(if_then_else (unge (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNGE, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6944,7 +7551,8 @@
 	(if_then_else (unle (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNLE, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6955,7 +7563,8 @@
 	(if_then_else (uneq (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNEQ, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6964,7 +7573,8 @@
 	(if_then_else (ltgt (match_dup 1) (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (LTGT, arm_compare_op0, arm_compare_op1);"
 )
 
@@ -6978,7 +7588,8 @@
 	(if_then_else (uneq (match_operand 1 "cc_register" "") (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "*
   if (arm_ccfsm_state != 0)
     abort ();
@@ -6995,7 +7606,8 @@
 	(if_then_else (ltgt (match_operand 1 "cc_register" "") (const_int 0))
 		      (label_ref (match_operand 0 "" ""))
 		      (pc)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "*
   if (arm_ccfsm_state != 0)
     abort ();
@@ -7031,7 +7643,8 @@
 	(if_then_else (uneq (match_operand 1 "cc_register" "") (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "*
   if (arm_ccfsm_state != 0)
     abort ();
@@ -7048,7 +7661,8 @@
 	(if_then_else (ltgt (match_operand 1 "cc_register" "") (const_int 0))
 		      (pc)
 		      (label_ref (match_operand 0 "" ""))))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "*
   if (arm_ccfsm_state != 0)
     abort ();
@@ -7155,7 +7769,8 @@
 (define_expand "sunordered"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(unordered:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNORDERED, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7163,7 +7778,8 @@
 (define_expand "sordered"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(ordered:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (ORDERED, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7171,7 +7787,8 @@
 (define_expand "sungt"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(ungt:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNGT, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7179,7 +7796,8 @@
 (define_expand "sunge"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(unge:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNGE, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7187,7 +7805,8 @@
 (define_expand "sunlt"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(unlt:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNLT, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7195,7 +7814,8 @@
 (define_expand "sunle"
   [(set (match_operand:SI 0 "s_register_operand" "")
 	(unle:SI (match_dup 1) (const_int 0)))]
-  "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+  ;; APPLE LOCAL ARM mainline VFP support
+  "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
   "operands[1] = arm_gen_compare_reg (UNLE, arm_compare_op0,
 				      arm_compare_op1);"
 )
@@ -7206,14 +7826,16 @@
 ; (define_expand "suneq"
 ;   [(set (match_operand:SI 0 "s_register_operand" "")
 ; 	(uneq:SI (match_dup 1) (const_int 0)))]
-;   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+;   ;; APPLE LOCAL ARM mainline VFP support
+;   "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
 ;   "abort ();"
 ; )
 ;
 ; (define_expand "sltgt"
 ;   [(set (match_operand:SI 0 "s_register_operand" "")
 ; 	(ltgt:SI (match_dup 1) (const_int 0)))]
-;   "TARGET_ARM && TARGET_HARD_FLOAT && TARGET_FPA"
+;   ;; APPLE LOCAL ARM mainline VFP support
+;   "TARGET_ARM && TARGET_HARD_FLOAT && (TARGET_FPA || TARGET_VFP)"
 ;   "abort ();"
 ; )
 
@@ -7405,6 +8027,13 @@
   "
   {
     rtx callee;
+
+/* APPLE LOCAL begin ARM dynamic */
+#if TARGET_MACHO
+  if (MACHOPIC_INDIRECT)
+    operands[0] = machopic_indirect_call_target (operands[0]);
+#endif
+/* APPLE LOCAL end ARM dynamic */
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[2] == NULL_RTX)
@@ -7428,6 +8057,7 @@
   }"
 )
 
+;; APPLE LOCAL begin ARM 20060223 make calls predicable
 (define_insn "*call_reg_armv5"
   [(call (mem:SI (match_operand:SI 0 "s_register_operand" "r"))
          (match_operand 1 "" ""))
@@ -7435,7 +8065,8 @@
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_ARM && arm_arch5"
   "blx%?\\t%0"
-  [(set_attr "type" "call")]
+  [(set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_reg_arm"
@@ -7449,7 +8080,8 @@
   "
   ;; length is worst case, normally it is only two
   [(set_attr "length" "12")
-   (set_attr "type" "call")]
+   (set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_mem"
@@ -7462,7 +8094,8 @@
   return output_call_mem (operands);
   "
   [(set_attr "length" "12")
-   (set_attr "type" "call")]
+   (set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_reg_thumb_v5"
@@ -7505,7 +8138,16 @@
   "TARGET_EITHER"
   "
   {
-    rtx callee = XEXP (operands[1], 0);
+    /* APPLE LOCAL begin ARM dynamic */
+    rtx callee;
+
+#if TARGET_MACHO
+    if (MACHOPIC_INDIRECT)
+      operands[1] = machopic_indirect_call_target (operands[1]);
+#endif
+
+    callee = XEXP (operands[1], 0);
+    /* APPLE LOCAL end ARM dynamic */
     
     /* In an untyped call, we can get NULL for operand 2.  */
     if (operands[3] == 0)
@@ -7526,7 +8168,8 @@
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_ARM && arm_arch5"
   "blx%?\\t%1"
-  [(set_attr "type" "call")]
+  [(set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_value_reg_arm"
@@ -7540,7 +8183,8 @@
   return output_call (&operands[1]);
   "
   [(set_attr "length" "12")
-   (set_attr "type" "call")]
+   (set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_value_mem"
@@ -7554,7 +8198,8 @@
   return output_call_mem (&operands[1]);
   "
   [(set_attr "length" "12")
-   (set_attr "type" "call")]
+   (set_attr "type" "call")
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*call_value_reg_thumb_v5"
@@ -7593,12 +8238,36 @@
 ;; Allow calls to SYMBOL_REFs specially as they are not valid general addresses
 ;; The 'a' causes the operand to be treated as an address, i.e. no '#' output.
 
-(define_insn "*call_symbol"
-  [(call (mem:SI (match_operand:SI 0 "" ""))
+;; APPLE LOCAL begin ARM pic support
+;; Prevent these patterns from being used with dynamic symbol_refs.  An
+;; alternate approach would be to generate a stub, but this would be
+;; of questionnable value, as these patterns are not generally used
+;; for dynamic code anyway (see rdar://4514281 for an example of what it
+;; takes to get here).
+(define_insn "*call_symbol_predicable"
+  [(call (mem:SI (match_operand:SI 0 "arm_branch_target" ""))
 	 (match_operand 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_ARM
+   && !TARGET_INTERWORK
+   && (GET_CODE (operands[0]) == SYMBOL_REF)
+   && !arm_is_longcall_p (operands[0], INTVAL (operands[2]), 1)"
+  "*
+  {
+    return NEED_PLT_RELOC ? \"bl%?\\t%a0(PLT)\" : \"bl%?\\t%a0\";
+  }"
+  [(set_attr "type" "call")
+   (set_attr "predicable" "yes")]
+)
+
+(define_insn "*call_symbol"
+  [(call (mem:SI (match_operand:SI 0 "arm_branch_target" ""))
+	 (match_operand 1 "" ""))
+   (use (match_operand 2 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_ARM
+   && TARGET_INTERWORK
    && (GET_CODE (operands[0]) == SYMBOL_REF)
    && !arm_is_longcall_p (operands[0], INTVAL (operands[2]), 1)"
   "*
@@ -7608,13 +8277,32 @@
   [(set_attr "type" "call")]
 )
 
-(define_insn "*call_value_symbol"
+(define_insn "*call_value_symbol_predicable"
   [(set (match_operand 0 "" "")
-	(call (mem:SI (match_operand:SI 1 "" ""))
+	(call (mem:SI (match_operand:SI 1 "arm_branch_target" ""))
 	(match_operand:SI 2 "" "")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_ARM
+   && !TARGET_INTERWORK
+   && (GET_CODE (operands[1]) == SYMBOL_REF)
+   && !arm_is_longcall_p (operands[1], INTVAL (operands[3]), 1)"
+  "*
+  {
+    return NEED_PLT_RELOC ? \"bl%?\\t%a1(PLT)\" : \"bl%?\\t%a1\";
+  }"
+  [(set_attr "type" "call")
+   (set_attr "predicable" "yes")]
+)
+
+(define_insn "*call_value_symbol"
+  [(set (match_operand 0 "" "")
+	(call (mem:SI (match_operand:SI 1 "arm_branch_target" ""))
+	(match_operand:SI 2 "" "")))
+   (use (match_operand 3 "" ""))
+   (clobber (reg:SI LR_REGNUM))]
+  "TARGET_ARM
+   && TARGET_INTERWORK
    && (GET_CODE (operands[1]) == SYMBOL_REF)
    && !arm_is_longcall_p (operands[1], INTVAL (operands[3]), 1)"
   "*
@@ -7623,33 +8311,53 @@
   }"
   [(set_attr "type" "call")]
 )
+;; APPLE LOCAL end ARM pic support
+;; APPLE LOCAL end ARM 20060223 make calls predicable
 
+;; APPLE LOCAL begin ARM dynamic
 (define_insn "*call_insn"
-  [(call (mem:SI (match_operand:SI 0 "" ""))
+  [(call (mem:SI (match_operand:SI 0 "arm_branch_target" ""))
 	 (match_operand:SI 1 "" ""))
    (use (match_operand 2 "" ""))
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_THUMB
    && GET_CODE (operands[0]) == SYMBOL_REF
    && !arm_is_longcall_p (operands[0], INTVAL (operands[2]), 1)"
-  "bl\\t%a0"
+  "*
+  {
+#if TARGET_MACHO
+    if (machopic_lookup_stub_or_non_lazy_ptr (XSTR (operands[0], 0)))
+      return \"blx\\t%a0\";
+    else
+#endif
+      return \"bl\\t%a0\";
+  }"
   [(set_attr "length" "4")
    (set_attr "type" "call")]
 )
 
 (define_insn "*call_value_insn"
   [(set (match_operand 0 "" "")
-	(call (mem:SI (match_operand 1 "" ""))
+	(call (mem:SI (match_operand 1 "arm_branch_target" ""))
 	      (match_operand 2 "" "")))
    (use (match_operand 3 "" ""))
    (clobber (reg:SI LR_REGNUM))]
   "TARGET_THUMB
    && GET_CODE (operands[1]) == SYMBOL_REF
    && !arm_is_longcall_p (operands[1], INTVAL (operands[3]), 1)"
-  "bl\\t%a1"
+  "*
+  {
+#if TARGET_MACHO
+    if (machopic_lookup_stub_or_non_lazy_ptr (XSTR (operands[1], 0)))
+      return \"blx\\t%a1\";
+    else
+#endif
+      return \"bl\\t%a1\";
+  }"
   [(set_attr "length" "4")
    (set_attr "type" "call")]
 )
+;; APPLE LOCAL end ARM dynamic
 
 ;; We may also be able to do sibcalls for Thumb, but it's much harder...
 (define_expand "sibcall"
@@ -7660,6 +8368,13 @@
   "TARGET_ARM"
   "
   {
+/* APPLE LOCAL begin ARM dynamic */
+#if TARGET_MACHO
+    if (MACHOPIC_INDIRECT)
+      operands[0] = machopic_indirect_call_target (operands[0]);
+#endif
+/* APPLE LOCAL end ARM dynamic */
+
     if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
   }"
@@ -7674,35 +8389,50 @@
   "TARGET_ARM"
   "
   {
+/* APPLE LOCAL begin ARM dynamic */
+#if TARGET_MACHO
+    if (MACHOPIC_INDIRECT)
+      operands[1] = machopic_indirect_call_target (operands[1]);
+#endif
+/* APPLE LOCAL end ARM dynamic */
+
     if (operands[3] == NULL_RTX)
       operands[3] = const0_rtx;
   }"
 )
 
+;; APPLE LOCAL begin ARM 20060220 indirect sibcalls
 (define_insn "*sibcall_insn"
- [(call (mem:SI (match_operand:SI 0 "" "X"))
+ [(call (mem:SI (match_operand:SI 0 "arm_branch_target" "X"))
 	(match_operand 1 "" ""))
   (return)
   (use (match_operand 2 "" ""))]
-  "TARGET_ARM && GET_CODE (operands[0]) == SYMBOL_REF"
+  "TARGET_ARM && (GET_CODE (operands[0]) == SYMBOL_REF || GET_CODE (operands[0]) == REG)"
   "*
-  return NEED_PLT_RELOC ? \"b%?\\t%a0(PLT)\" : \"b%?\\t%a0\";
+  if (GET_CODE (operands[0]) == REG)
+    return \"bx%?\\t%0\";
+  else
+    return NEED_PLT_RELOC ? \"b%?\\t%a0(PLT)\" : \"b%?\\t%a0\";
   "
   [(set_attr "type" "call")]
 )
 
 (define_insn "*sibcall_value_insn"
  [(set (match_operand 0 "" "")
-       (call (mem:SI (match_operand:SI 1 "" "X"))
+       (call (mem:SI (match_operand:SI 1 "arm_branch_target" "X"))
 	     (match_operand 2 "" "")))
   (return)
   (use (match_operand 3 "" ""))]
-  "TARGET_ARM && GET_CODE (operands[1]) == SYMBOL_REF"
+  "TARGET_ARM && (GET_CODE (operands[1]) == SYMBOL_REF || GET_CODE (operands[1]) == REG)"
   "*
-  return NEED_PLT_RELOC ? \"b%?\\t%a1(PLT)\" : \"b%?\\t%a1\";
+  if (GET_CODE (operands[1]) == REG)
+    return \"bx%?\\t%1\";
+  else
+    return NEED_PLT_RELOC ? \"b%?\\t%a1(PLT)\" : \"b%?\\t%a1\";
   "
   [(set_attr "type" "call")]
 )
+;; APPLE LOCAL end ARM 20060220 indirect sibcalls
 
 ;; Often the return insn will be the same as loading from memory, so set attr
 (define_insn "return"
@@ -7923,13 +8653,14 @@
    (set_attr "type" "block")]
 )
 
+;; APPLE LOCAL begin ARM 4790140 compact switch tables
 (define_expand "casesi"
   [(match_operand:SI 0 "s_register_operand" "")	; index to jump on
    (match_operand:SI 1 "const_int_operand" "")	; lower bound
    (match_operand:SI 2 "const_int_operand" "")	; total range
    (match_operand:SI 3 "" "")			; table label
    (match_operand:SI 4 "" "")]			; Out of range label
-  "TARGET_ARM"
+  "TARGET_EITHER"
   "
   {
     rtx reg;
@@ -7942,12 +8673,29 @@
 	operands[0] = reg;
       }
 
-    if (!const_ok_for_arm (INTVAL (operands[2])))
-      operands[2] = force_reg (SImode, operands[2]);
+    if (TARGET_ARM)
+      {
+	if (!const_ok_for_arm (INTVAL (operands[2])))
+	  operands[2] = force_reg (SImode, operands[2]);
 
-    emit_jump_insn (gen_casesi_internal (operands[0], operands[2], operands[3],
-					 operands[4]));
-    DONE;
+	emit_jump_insn (gen_casesi_internal (operands[0], operands[2], operands[3],
+					     operands[4]));
+	DONE;
+      }
+    else
+      {
+	/* Containing function must be 4-byte aligned, else we won't know what the
+	   various .align directives do, e.g. around constant tables. */
+	cfun->needs_4byte_alignment = 1;
+	/* This is a function call, but the semantics are not the same as a normal
+	   function call, so we put the parameter in R0 explicitly and hide the
+	   call as a casesi node.  The USE of R0 in the casesi_internal pattern
+	   causes the value to be retained. */
+	emit_move_insn (gen_rtx_REG (Pmode, 0), operands[0]);
+	emit_jump_insn (gen_thumb_casesi_internal (operands[0], operands[2], operands[3],
+					     operands[4]));
+	DONE;
+      }
   }"
 )
 
@@ -7972,6 +8720,112 @@
   [(set_attr "conds" "clob")
    (set_attr "length" "12")]
 )
+
+;; This pattern represents the library call for Thumb switch tables.
+;; The functions' (sparse) register usage is recorded as clobbers.
+
+(define_insn "thumb_casesi_internal"
+  [(parallel [(set (pc)
+	       (if_then_else
+		(leu (match_operand:SI 0 "s_register_operand" "l")
+		     (match_operand:SI 1 "const_int_operand" "i"))
+		(mem:SI (plus:SI (mult:SI (match_dup 0) (const_int 2))
+				 (label_ref (match_operand 2 "" ""))))
+		(label_ref (match_operand 3 "" ""))))
+	      (clobber (reg:CC CC_REGNUM))
+	      (clobber (reg:SI LR_REGNUM))
+	      (clobber (reg:SI IP_REGNUM))
+	      (use (reg:SI 0))
+	      (use (label_ref (match_dup 2)))])]
+  "TARGET_THUMB"
+  "*
+    {
+      rtx body = PATTERN (next_real_insn (insn));
+      static char buf[255];
+      gcc_assert (GET_CODE (body) == ADDR_DIFF_VEC);
+      strcpy(buf, \"bl\\t\");
+      if (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
+	  strcat(buf, \"L\");
+      if (GET_MODE (body) == QImode
+	  && ADDR_DIFF_VEC_FLAGS (body).offset_unsigned)
+	{
+	  register_switchu8_libfunc ();
+	  strcat(buf, \"___switchu8\");
+	}
+      else if (GET_MODE (body) == QImode)
+	{
+	  register_switch8_libfunc ();
+	  strcat(buf, \"___switch8\");
+	}
+      else if (GET_MODE (body) == HImode)
+	{
+	  register_switch16_libfunc ();
+	  strcat(buf, \"___switch16\");
+	}
+      else
+	{
+	  register_switch32_libfunc ();
+	  /* The table is 4-byte aligned, and the call should
+	     immediately precede the table.  To do this, align
+	     here; as it happens, 0x0000 is a NOP insn.  The
+	     insn_length is still 4 even if a NOP is inserted;
+	     however, the computation in shorten_branches
+	     comes out right because that 4 is counted against
+	     the following label, which is marked as 4-byte
+	     aligned.  I.e. the shorten_branch code thinks it's
+	     going to looks like
+		      call
+		      .align 2
+		      zero padding
+		   label:
+	     when in fact it is
+		      .align 2
+		      NOP
+		      call
+		      .align 2
+		      never any padding here
+		    label:
+	     and it gets the right address for the label.
+	     Yes, this is overly tricky. */
+	  assemble_align (32);
+	  strcat(buf, \"___switch32\");
+	}
+      if (flag_pic || MACHO_DYNAMIC_NO_PIC_P)
+	  strcat(buf, \"$stub\");
+      return buf;
+    }
+  "
+  [(set_attr "conds" "clob")
+   (set_attr "length" "4")]
+)
+;; APPLE LOCAL end ARM 4790140 compact switch tables
+
+;; APPLE LOCAL begin ARM builtin_setjmp/longjmp interworking
+;; Indirect jump with possible change between ARM/Thumb state
+(define_expand "indirect_jump_exchange"
+  [(unspec:SI [(match_operand:SI 0 "s_register_operand" "")]
+	      UNSPEC_JMP_XCHG)]
+  "TARGET_EITHER"
+  ""
+)
+
+(define_insn "*arm_indirect_jump_exchange"
+  [(unspec:SI [(match_operand:SI 0 "s_register_operand" "r")]
+	      UNSPEC_JMP_XCHG)]
+  "TARGET_ARM && (arm_arch4t)"
+  "bx\\t%0"
+  [(set_attr "predicable" "yes")]
+)
+
+(define_insn "*thumb_indirect_jump_exchange"
+  [(unspec:SI [(match_operand:SI 0 "s_register_operand" "l*r")]
+	      UNSPEC_JMP_XCHG)]
+  "TARGET_THUMB"
+  "bx\\t%0"
+  [(set_attr "conds" "clob")
+   (set_attr "length" "2")]
+)
+;; APPLE LOCAL end ARM builtin_setjmp/longjmp interworking
 
 (define_expand "indirect_jump"
   [(set (pc)
@@ -9628,6 +10482,7 @@
   [(set_attr "type" "load1")
    (set_attr "predicable" "yes")])
 
+/* APPLE LOCAL begin ARM 4800979 */
 ; It can also support extended post-inc expressions, but combine doesn't
 ; try these....
 ; It doesn't seem worth adding peepholes for anything but the most common
@@ -9640,8 +10495,8 @@
 ; we cannot use it.
 
 (define_peephole
-  [(set (mem:QI (match_operand:SI 0 "s_register_operand" "+r"))
-	(match_operand:QI 2 "s_register_operand" "r"))
+  [(set (mem:QI (match_operand:SI 0 "arm_general_register_operand" "+r"))
+	(match_operand:QI 2 "arm_general_register_operand" "r"))
    (set (match_dup 0)
 	(plus:SI (match_dup 0) (match_operand:SI 1 "index_operand" "rJ")))]
   "TARGET_ARM
@@ -9652,8 +10507,8 @@
 )
 
 (define_peephole
-  [(set (match_operand:QI 0 "s_register_operand" "=r")
-	(mem:QI (match_operand:SI 1 "s_register_operand" "+r")))
+  [(set (match_operand:QI 0 "arm_general_register_operand" "=r")
+	(mem:QI (match_operand:SI 1 "arm_general_register_operand" "+r")))
    (set (match_dup 1)
 	(plus:SI (match_dup 1) (match_operand:SI 2 "index_operand" "rJ")))]
   "TARGET_ARM
@@ -9664,8 +10519,8 @@
 )
 
 (define_peephole
-  [(set (mem:SI (match_operand:SI 0 "s_register_operand" "+r"))
-	(match_operand:SI 2 "s_register_operand" "r"))
+  [(set (mem:SI (match_operand:SI 0 "arm_general_register_operand" "+r"))
+	(match_operand:SI 2 "arm_general_register_operand" "r"))
    (set (match_dup 0)
 	(plus:SI (match_dup 0) (match_operand:SI 1 "index_operand" "rJ")))]
   "TARGET_ARM
@@ -9676,8 +10531,8 @@
 )
 
 (define_peephole
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(mem:SI (match_operand:SI 1 "s_register_operand" "+r")))
+  [(set (match_operand:SI 0 "arm_general_register_operand" "=r")
+	(mem:SI (match_operand:SI 1 "arm_general_register_operand" "+r")))
    (set (match_dup 1)
 	(plus:SI (match_dup 1) (match_operand:SI 2 "index_operand" "rJ")))]
   "TARGET_ARM
@@ -9688,9 +10543,9 @@
 )
 
 (define_peephole
-  [(set (mem:QI (plus:SI (match_operand:SI 0 "s_register_operand" "+r")
+  [(set (mem:QI (plus:SI (match_operand:SI 0 "arm_general_register_operand" "+r")
 			 (match_operand:SI 1 "index_operand" "rJ")))
-	(match_operand:QI 2 "s_register_operand" "r"))
+	(match_operand:QI 2 "arm_general_register_operand" "r"))
    (set (match_dup 0) (plus:SI (match_dup 0) (match_dup 1)))]
   "TARGET_ARM
    && (REGNO (operands[2]) != REGNO (operands[0]))
@@ -9701,10 +10556,10 @@
 
 (define_peephole
   [(set (mem:QI (plus:SI (match_operator:SI 4 "shift_operator"
-			  [(match_operand:SI 0 "s_register_operand" "r")
+			  [(match_operand:SI 0 "arm_general_register_operand" "r")
 			   (match_operand:SI 1 "const_int_operand" "n")])
-			 (match_operand:SI 2 "s_register_operand" "+r")))
-	(match_operand:QI 3 "s_register_operand" "r"))
+			 (match_operand:SI 2 "arm_general_register_operand" "+r")))
+	(match_operand:QI 3 "arm_general_register_operand" "r"))
    (set (match_dup 2) (plus:SI (match_op_dup 4 [(match_dup 0) (match_dup 1)])
 			       (match_dup 2)))]
   "TARGET_ARM
@@ -9712,6 +10567,7 @@
    && (REGNO (operands[0]) != REGNO (operands[2]))"
   "str%?b\\t%3, [%2, %0%S4]!"
 )
+/* APPLE LOCAL end ARM 4800979 */
 
 ; This pattern is never tried by combine, so do it as a peephole
 
@@ -10177,6 +11033,7 @@
 
 ;; Special patterns for dealing with the constant pool
 
+;; APPLE LOCAL begin ARM 4790140 compact switch tables (lengths)
 (define_insn "align_4"
   [(unspec_volatile [(const_int 0)] VUNSPEC_ALIGN)]
   "TARGET_EITHER"
@@ -10184,6 +11041,7 @@
   assemble_align (32);
   return \"\";
   "
+  [(set (attr "length") (const_int 0))]
 )
 
 (define_insn "align_8"
@@ -10193,6 +11051,7 @@
   assemble_align (64);
   return \"\";
   "
+  [(set (attr "length") (const_int 0))]
 )
 
 (define_insn "consttable_end"
@@ -10202,7 +11061,9 @@
   making_const_table = FALSE;
   return \"\";
   "
+  [(set_attr "length" "0")]
 )
+;; APPLE LOCAL end ARM 4790140 compact switch tables (lengths)
 
 (define_insn "consttable_1"
   [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_1)]
@@ -10275,6 +11136,25 @@
   }"
   [(set_attr "length" "8")]
 )
+
+;; APPLE LOCAL begin ARM strings in code 
+
+(define_insn "consttable_string"
+  [(unspec_volatile [(match_operand 0 "" "")] VUNSPEC_POOL_STRING)]
+  "TARGET_EITHER"
+  "*
+  {
+    int len = TREE_STRING_LENGTH (SYMBOL_REF_DECL (operands[0]));
+    making_const_table = TRUE;
+    assemble_string (TREE_STRING_POINTER (SYMBOL_REF_DECL (operands[0])), len);
+    if ((len & 3) != 0)
+      assemble_zeros (4 - (len & 3));
+  }
+  return \"\";
+  "
+)
+;; length computed by ADJUST_INSN_LENGTH
+;; APPLE LOCAL end ARM strings in code 
 
 ;; Miscellaneous Thumb patterns
 
@@ -10372,11 +11252,14 @@
   ""
 )
 
+;; APPLE LOCAL begin ARM 4790140 compact switch tables
 (define_insn "prologue_use"
   [(unspec:SI [(match_operand:SI 0 "register_operand" "")] UNSPEC_PROLOGUE_USE)]
   ""
   "%@ %0 needed for prologue"
+  [(set_attr "length" "0")]
 )
+;; APPLE LOCAL end ARM 4790140 compact switch tables
 
 
 ;; Patterns for exception handling
@@ -10424,6 +11307,69 @@
     DONE;
   }"
 )
+
+;; APPLE LOCAL begin ARM 4382996 improve assignments of NE
+(define_insn_and_split "*arm_binary_ne_0"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(ne:SI (match_operator:SI 3 "binary_cc_operator"
+		  [(match_operand:SI 1 "s_register_operand" "r,r")
+	           (match_operand:SI 2 "arm_not_operand" "rI,K")])
+	       (const_int 0)))
+   (clobber (reg:CC_NOOV CC_REGNUM))]
+  "TARGET_ARM"
+  "#"
+  "TARGET_ARM && reload_completed"
+  [(parallel [(set (reg:CC_NOOV CC_REGNUM)
+		    (compare:CC_NOOV
+		     (match_op_dup:SI 3 [(match_dup 1) (match_dup 2)])
+		     (const_int 0)))
+	       (set (match_dup 0) 
+		     (match_op_dup:SI 3 [(match_dup 1) (match_dup 2)]))])
+   (set (match_dup 0) 
+	(if_then_else:SI
+	 (ne:SI (reg:CC_NOOV CC_REGNUM) (const_int 0))
+	 (const_int 1) (match_dup 0)))]
+  ""
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")]
+)
+
+;; A special pattern for ADD, because addsi3_compare0_scratch_for_combiner
+;; gets recognized first, preventing the above form from being tried.
+;; Note that the operands have been reversed relative to that pattern,
+;; which is not in canonical form; it is probably a latent bug in combine
+;; that it is trying to match such a pattern.
+
+(define_insn_and_split "*arm_add_ne_0"
+  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
+	(ne:SI (neg:SI (match_operand:SI 1 "s_register_operand" "r,r"))
+			       (match_operand:SI 2 "arm_not_operand" "rI,K")))
+   (clobber (reg:CC CC_REGNUM))]
+  "TARGET_ARM"
+  "#"
+  "TARGET_ARM && reload_completed"
+  [(parallel [(set (reg:CC_NOOV CC_REGNUM)
+		    (compare:CC_NOOV
+		     (plus:SI (match_dup 1) (match_dup 2))
+		     (const_int 0)))
+	       (set (match_dup 0) 
+		     (plus:SI (match_dup 1) (match_dup 2)))])
+   (set (match_dup 0) 
+	(if_then_else:SI
+	 (ne:SI (reg:CC_NOOV CC_REGNUM) (const_int 0))
+	 (const_int 1) (match_dup 0)))]
+  ""
+  [(set_attr "conds" "clob")
+   (set_attr "length" "8")]
+)
+;; APPLE LOCAL end ARM 4382996 improve assignments of NE
+
+;; APPLE LOCAL begin ARM 4639731
+(define_insn "trap"
+  [(trap_if (const_int 1) (const_int 0))]
+  ""
+  "trap")
+;; APPLE LOCAL end ARM 4639731
 
 ;; Load the FPA co-processor patterns
 (include "fpa.md")

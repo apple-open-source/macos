@@ -40,48 +40,38 @@
 #define kChangePasswordAction   4
 #define kChangeActiveUserAction 5
 
+typedef enum UtilitiesControlType {
+    kUtilitiesTableCellControlType,
+    kUtilitiesSmallTableCellControlType,
+    kUtilitiesMenuItemControlType,
+    kUtilitiesPopupMenuItemControlType
+} UtilitiesControlType;
+
+typedef enum UtilitiesStringAlignment {
+    kUtilitiesNoStringAlignment,
+    kUtilitiesLeftStringAlignment,
+    kUtilitiesRightStringAlignment
+} UtilitiesStringAlignment;
+
+
 @interface Utilities : NSObject
 {
 }
 
-+ (NSString *) stringForCCVersion: (cc_uint32) version;
-
-+ (NSString *) stringForCredentialState: (int) state 
-                                 format: (int) format;
-
-+ (NSString *) stringForTimeRemaining: (cc_time_t) timeRemaining 
-                                state: (int) state 
-                               format: (int) format;
-
-+ (NSDictionary *) attributesForInfoWindowWithTicketState: (int) state;
-
-+ (NSDictionary *) attributesForDockIcon;
-
-+ (NSDictionary *) attributesForMenuItemOfFontSize: (float) fontSize 
-                                            italic: (BOOL) isItalic;
-
-+ (NSDictionary *) attributesForTicketColumnCellOfControlSize: (NSControlSize) controlSize 
-                                                         bold: (BOOL) isBold 
-                                                       italic: (BOOL) isItalic;
-
-+ (NSDictionary *) attributesForLifetimeColumnCellOfControlSize: (NSControlSize) controlSize
-                                                           bold: (BOOL) isBold 
-                                                          state: (int) state
-                                                  timeRemaining: (cc_time_t) timeRemaining;
++ (NSAttributedString *) attributedStringForControlType: (UtilitiesControlType) type
+                                                 string: (NSString *) string
+                                              alignment: (UtilitiesStringAlignment) alignment
+                                                   bold: (BOOL) isBold
+                                                 italic: (BOOL) isItalic
+                                                    red: (BOOL) isRed;
 
 + (void) synchronizeCacheMenu: (NSMenu *) menu
-                     fontSize: (float) fontSize
+                        popup: (BOOL) isPopupMenu
        staticPrefixItemsCount: (int) staticPrefixItemsCount
                    headerItem: (BOOL) headerItem
             checkDefaultCache: (BOOL) checkDefaultCache
             defaultCacheIndex: (int *) defaultCacheIndex
                      selector: (SEL) selector
-                       sender: (id) sender;
-
-+ (NSString *) stringForErrorCode: (int) error;
-
-+ (void) displayAlertForError: (KLStatus) error 
-                       action: (int) action 
                        sender: (id) sender;
 
 @end

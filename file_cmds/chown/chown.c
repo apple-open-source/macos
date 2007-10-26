@@ -58,6 +58,13 @@ __RCSID("$FreeBSD: src/usr.sbin/chown/chown.c,v 1.24 2002/07/17 16:22:24 dwmalon
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
+
+#ifdef __APPLE__
+#include <get_compat.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 
 void	a_gid(const char *);
 void	a_uid(const char *);
@@ -78,7 +85,11 @@ main(int argc, char **argv)
 	int Hflag, Lflag, Rflag, fflag, hflag, vflag;
 	int ch, fts_options, rval;
 	char *cp;
+	int unix2003_compat = 0;
+	int symlink_found = 0;
 
+	if (argc < 1)
+		usage();
 	cp = strrchr(argv[0], '/');
 	cp = (cp != NULL) ? cp + 1 : argv[0];
 	ischown = (strcmp(cp, "chown") == 0);
@@ -136,6 +147,7 @@ main(int argc, char **argv)
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
 	if (ischown) {
+		unix2003_compat = COMPAT_MODE("bin/chown", "Unix2003");
 		if ((cp = strchr(*argv, ':')) != NULL) {
 			*cp++ = '\0';
 			a_gid(cp);
@@ -148,13 +160,16 @@ main(int argc, char **argv)
 		}
 #endif
 		a_uid(*argv);
-	} else
+	} else {
+		unix2003_compat = COMPAT_MODE("bin/chgrp", "Unix2003");
 		a_gid(*argv);
+	}
 
 	if ((ftsp = fts_open(++argv, fts_options, 0)) == NULL)
 		err(1, NULL);
 
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
+		symlink_found = 0;
 		switch (p->fts_info) {
 		case FTS_D:			/* Change it at FTS_DP. */
 			if (!Rflag)
@@ -178,15 +193,33 @@ main(int argc, char **argv)
 			 */
 			if (hflag)
 				break;
-			else
+			else {
+				symlink_found = 1;
+				if (unix2003_compat) {
+					if (Hflag || Lflag) {       /* -H or -L was specified */
+						if (p->fts_errno) {
+							warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
+							rval = 1;
+							continue;
+						}
+					}
+					break; /* Otherwise symlinks keep going */
+				}
 				continue;
+			}
 		default:
 			break;
 		}
-		if ((uid == (uid_t)-1 || uid == p->fts_statp->st_uid) &&
-		    (gid == (gid_t)-1 || gid == p->fts_statp->st_gid))
-			continue;
-		if ((hflag ? lchown : chown)(p->fts_accpath, uid, gid) == -1) {
+		if (unix2003_compat) {
+			/* Can only avoid updating times if both uid and gid are -1 */
+			if ((uid == (uid_t)-1) && (gid == (gid_t)-1))
+				continue;
+		} else {
+			if ((uid == (uid_t)-1 || uid == p->fts_statp->st_uid) &&
+			    (gid == (gid_t)-1 || gid == p->fts_statp->st_gid))
+				continue;
+		}
+		if (((hflag || symlink_found) ? lchown : chown)(p->fts_accpath, uid, gid) == -1) {
 			if (!fflag) {
 				chownerr(p->fts_path);
 				rval = 1;

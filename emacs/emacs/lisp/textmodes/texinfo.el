@@ -1,11 +1,11 @@
-;;; texinfo.el --- major mode for editing Texinfo files
+;;; texinfo.el --- major mode for editing Texinfo files -*- coding: iso-2022-7bit -*-
 
-;; Copyright (C) 1985, '88, '89, '90, '91, '01,
-;;                '92, '93, '96, '97, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1988, 1989, 1990, 1991, 1992, 1993, 1996, 1997,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Robert J. Chassell
 ;; Date:   [See date below for texinfo-version]
-;; Maintainer: bug-texinfo@gnu.org
+;; Maintainer: FSF
 ;; Keywords: maint, tex, docs
 
 ;; This file is part of GNU Emacs.
@@ -22,8 +22,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
+
+;;; Todo:
+
+;; - facemenu support.
+;; - command completion.
 
 ;;; Commentary:
 
@@ -37,9 +42,11 @@
       `(defvar ,var ,value ,doc)))
 
 (eval-when-compile (require 'tex-mode) (require 'cl))
+(defvar outline-heading-alist)
 
 (defgroup texinfo nil
-  "Texinfo Mode"
+  "Texinfo Mode."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'docs)
 
 ;;;###autoload
@@ -52,6 +59,12 @@
 (defcustom texinfo-close-quote "''"
   "*String inserted by typing \\[texinfo-insert-quote] to close a quotation."
   :type 'string
+  :group 'texinfo)
+
+(defcustom texinfo-mode-hook nil
+  "Normal hook run when entering Texinfo mode."
+  :type 'hook
+  :options '(turn-on-auto-fill flyspell-mode)
   :group 'texinfo)
 
 
@@ -261,22 +274,23 @@ chapter."
 
 (defvar texinfo-section-list
   '(("top" 1)
-    ("majorheading" 2)
     ("chapter" 2)
-    ("unnumbered" 2)
-    ("appendix" 2)
-    ("chapheading" 2)
     ("section" 3)
-    ("unnumberedsec" 3)
-    ("appendixsec" 3)
-    ("heading" 3)
     ("subsection" 4)
-    ("unnumberedsubsec" 4)
-    ("appendixsubsec" 4)
-    ("subheading" 4)
     ("subsubsection" 5)
+    ("unnumbered" 2)
+    ("unnumberedsec" 3)
+    ("unnumberedsubsec" 4)
     ("unnumberedsubsubsec" 5)
+    ("appendix" 2)
+    ("appendixsec" 3)
+    ("appendixsection" 3)
+    ("appendixsubsec" 4)
     ("appendixsubsubsec" 5)
+    ("majorheading" 2)
+    ("chapheading" 2)
+    ("heading" 3)
+    ("subheading" 4)
     ("subsubheading" 5))
   "Alist of sectioning commands and their relative level.")
 
@@ -304,7 +318,7 @@ chapter."
 (defvar texinfo-imenu-generic-expression
   '((nil "^@\\(node\\|anchor\\)[ \t]+\\([^,\n]*\\)" 2)
     ("Chapters" "^@chapter[ \t]+\\(.*\\)$" 1))
-  "Imenu generic expression for TexInfo mode.  See `imenu-generic-expression'.")
+  "Imenu generic expression for Texinfo mode.  See `imenu-generic-expression'.")
 
 (defvar texinfo-font-lock-syntactic-keywords
   '(("\\(@\\)c\\(omment\\)?\\>" (1 "<"))
@@ -312,10 +326,32 @@ chapter."
     ("^@end ignore\\(\n\\)" (1 "> b")))
   "Syntactic keywords to catch comment delimiters in `texinfo-mode'.")
 
-(defface texinfo-heading-face
+(defconst texinfo-environments
+  '("cartouche" "copying" "defcv" "deffn" "defivar" "defmac"
+    "defmethod" "defop" "defopt" "defspec" "deftp" "deftypefn"
+    "deftypefun" "deftypevar" "deftypevr" "defun" "defvar"
+    "defvr" "description" "detailmenu" "direntry" "display"
+    "documentdescription" "enumerate" "example" "flushleft"
+    "flushright" "format" "ftable" "group" "ifclear" "ifset"
+    "ifhtml" "ifinfo" "ifnothtml" "ifnotinfo" "ifnotplaintext"
+    "ifnottex" "ifplaintext" "iftex" "ignore" "itemize" "lisp"
+    "macro" "menu" "multitable" "quotation" "smalldisplay"
+    "smallexample" "smallformat" "smalllisp" "table" "tex"
+    "titlepage" "verbatim" "vtable")
+  "List of Texinfo environments.")
+
+(defconst texinfo-environment-regexp
+  (concat "^@" (regexp-opt (cons "end" texinfo-environments) t) "\\>")
+  "Regexp for environment-like Texinfo list commands.
+Subexpression 1 is what goes into the corresponding `@end' statement.")
+
+(defface texinfo-heading
   '((t (:inherit font-lock-function-name-face)))
-  "Face used for section headings in `texinfo-mode'.")
-(defvar texinfo-heading-face 'texinfo-heading-face)
+  "Face used for section headings in `texinfo-mode'."
+  :group 'texinfo)
+;; backward-compatibility alias
+(put 'texinfo-heading-face 'face-alias 'texinfo-heading)
+(defvar texinfo-heading-face 'texinfo-heading)
 
 (defvar texinfo-font-lock-keywords
   `(;; All but the first had an OVERRIDE of t.
@@ -323,10 +359,10 @@ chapter."
     ;; Robert J. Chassell <bob@gnu.org> says remove this line.
     ;;("\\$\\([^$]*\\)\\$" 1 font-lock-string-face t)
     ("@\\([a-zA-Z]+\\|[^ \t\n]\\)" 1 font-lock-keyword-face) ;commands
-    ("^\\*\\(.*\\)[\t ]*$" 1 font-lock-function-name-face t) ;menu items
-    ("@\\(emph\\|strong\\|b\\|i\\|sc\\){\\([^}]+\\)" 2 font-lock-comment-face)
-    ("@\\(kbd\\|key\\|url\\|uref\\){\\([^}]+\\)"
-     2 font-lock-string-face)
+    ("^\\*\\([^\n:]*\\)" 1 font-lock-function-name-face t) ;menu items
+    ("@\\(emph\\|i\\|sc\\){\\([^}]+\\)" 2 'italic)
+    ("@\\(strong\\|b\\){\\([^}]+\\)" 2 'bold)
+    ("@\\(kbd\\|key\\|url\\|uref\\){\\([^}]+\\)" 2 font-lock-string-face)
     ;; The following two groups have an OVERRIDE of `keep' because
     ;; their arguments frequently include a @@, and we don't want that
     ;; to overwrite the normal fontification of the argument.
@@ -337,23 +373,29 @@ chapter."
      2 font-lock-constant-face)
     ("@\\(anchor\\){\\([^}]+\\)" 2 font-lock-type-face)
     ("@\\(dmn\\|acronym\\|value\\){\\([^}]+\\)" 2 font-lock-builtin-face)
-    ("@\\(end\\|itemx?\\) +\\(.+\\)" 2 font-lock-function-name-face keep)
+    ("@\\(end\\|itemx?\\) +\\(.+\\)" 2 font-lock-keyword-face keep)
+    ;; (,texinfo-environment-regexp
+    ;;  1 (texinfo-clone-environment (match-beginning 1) (match-end 1)) keep)
     (,(concat "^@" (regexp-opt (mapcar 'car texinfo-section-list) t)
 	       ".*\n") 0 texinfo-heading-face t))
-  "Additional expressions to highlight in TeXinfo mode.")
+  "Additional expressions to highlight in Texinfo mode.")
 
-(defun texinfo-outline-level ()
-  ;; Calculate level of current texinfo outline heading.
-  (save-excursion
-    (if (bobp)
-        0
-      (forward-char 1)
-      (let* ((word (buffer-substring-no-properties
-                    (point) (progn (forward-word 1) (point))))
-             (entry (assoc word texinfo-section-list)))
-        (if entry
-            (nth 1 entry)
-          5)))))
+(defun texinfo-clone-environment (start end)
+  (let ((endp nil))
+    (save-excursion
+      (ignore-errors
+	(goto-char start)
+	(when (looking-at "end\\Sw+\\(\\sw+\\)")
+	  (setq endp t start (match-beginning 1) end (match-end 1)))
+	(unless (get-char-property start 'text-clones)
+	  (if endp
+	      (texinfo-last-unended-begin)
+	    (forward-word 1)
+	    (texinfo-next-unmatched-end))
+	  (skip-syntax-forward "^w")
+	  (when (looking-at
+		 (concat (regexp-quote (buffer-substring start end)) "\\>"))
+	    (text-clone-create start end 'spread "\\w*")))))))
 
 
 ;;; Keybindings
@@ -536,7 +578,6 @@ Top node, is accompanied by some kind of section line, such as an
 If the file has a `top' node, it must be called `top' or `Top' and
 be the first node in the file.
 
-
 Entering Texinfo mode calls the value of `text-mode-hook', and then the
 value of `texinfo-mode-hook'."
   (set (make-local-variable 'page-delimiter)
@@ -545,7 +586,7 @@ value of `texinfo-mode-hook'."
 	texinfo-chapter-level-regexp
 	"\\)\\>"))
   (make-local-variable 'require-final-newline)
-  (setq require-final-newline t)
+  (setq require-final-newline mode-require-final-newline)
   (make-local-variable 'indent-tabs-mode)
   (setq indent-tabs-mode nil)
   (make-local-variable 'paragraph-separate)
@@ -553,6 +594,9 @@ value of `texinfo-mode-hook'."
 	(concat "\b\\|@[a-zA-Z]*[ \n]\\|" paragraph-separate))
   (make-local-variable 'paragraph-start)
   (setq paragraph-start (concat "\b\\|@[a-zA-Z]*[ \n]\\|" paragraph-start))
+  (make-local-variable 'sentence-end-base)
+  (setq sentence-end-base
+	"\\(@\\(end\\)?dots{}\\|[.?!]\\)[]\"'$B!I$,1r}(B)}]*")
   (make-local-variable 'adaptive-fill-mode)
   (setq adaptive-fill-mode nil)
   (make-local-variable 'fill-column)
@@ -572,11 +616,17 @@ value of `texinfo-mode-hook'."
 				     (font-lock-syntactic-keywords
 				      . texinfo-font-lock-syntactic-keywords)))
   (set (make-local-variable 'parse-sexp-lookup-properties) t)
-  (make-local-variable 'outline-regexp)
-  (setq outline-regexp
-        (concat "@" (regexp-opt (mapcar 'car texinfo-section-list) t) "\\>"))
-  (make-local-variable 'outline-level)
-  (setq outline-level 'texinfo-outline-level)
+
+  ;; Outline settings.
+  (set (make-local-variable 'outline-heading-alist)
+       ;; We should merge outline-heading-alist and texinfo-section-list
+       ;; but in the mean time, let's just generate one from the other.
+       (mapcar (lambda (x) (cons (concat "@" (car x)) (cadr x)))
+	       texinfo-section-list))
+  (set (make-local-variable 'outline-regexp)
+       (concat (regexp-opt (mapcar 'car outline-heading-alist) t)
+	       "\\>"))
+
   (make-local-variable 'tex-start-of-header)
   (setq tex-start-of-header "%\\*\\*start")
   (make-local-variable 'tex-end-of-header)
@@ -592,68 +642,11 @@ value of `texinfo-mode-hook'."
     (set (make-local-variable 'auto-fill-inhibit-regexp)
 	 (if (null auto-fill-inhibit-regexp)
 	     prevent-filling
-	   (concat "\\(" auto-fill-inhibit-regexp "\\)\\|\\("
-		   prevent-filling "\\)")))))
+	   (concat auto-fill-inhibit-regexp "\\|" prevent-filling)))))
+
 
 
 ;;; Insert string commands
-
-(defconst texinfo-environments
-  '("cartouche"
-    "defcv"
-    "deffn"
-    "defivar"
-    "defmac"
-    "defmethod"
-    "defop"
-    "defopt"
-    "defspec"
-    "deftp"
-    "deftypefn"
-    "deftypefun"
-    "deftypevar"
-    "deftypevr"
-    "defun"
-    "defvar"
-    "defvr"
-    "description"
-    "display"
-    "enumerate"
-    "example"
-    "flushleft"
-    "flushright"
-    "format"
-    "ftable"
-    "group"
-    "ifclear"
-    "ifset"
-    "ifhtml"
-    "ifinfo"
-    "ifnothtml"
-    "ifnotinfo"
-    "ifnottex"
-    "iftex"
-    "ignore"
-    "itemize"
-    "lisp"
-    "macro"
-    "multitable"
-    "quotation"
-    "smalldisplay"
-    "smallexample"
-    "smallformat"
-    "smalllisp"
-    "table"
-    "tex"
-    "titlepage"
-    "vtable")
-  "List of TeXinfo environments.")
-
-;; Keep as concatenated lists for ease of maintenance
-(defconst texinfo-environment-regexp
-  (concat "^@" (regexp-opt (cons "end" texinfo-environments) t) "\\>")
-  "Regexp for environment-like TexInfo list commands.
-   Subexpression 1 is what goes into the corresponding `@end' statement.")
 
 (defvar texinfo-block-default "example")
 
@@ -662,10 +655,9 @@ value of `texinfo-mode-hook'."
 Puts point on a blank line between them."
   (setq texinfo-block-default
 	(completing-read (format "Block name [%s]: " texinfo-block-default)
-			 (mapcar 'list texinfo-environments)
+			 texinfo-environments
 			 nil nil nil nil texinfo-block-default))
-  (unless (save-excursion (beginning-of-line) (looking-at "[ \t]*$")) '\n)
-  "@" str \n _ \n "@end " str \n)
+  \n "@" str \n _ \n "@end " str \n)
 
 (defun texinfo-inside-macro-p (macro &optional bound)
   "Non-nil if inside a macro matching the regexp MACRO."
@@ -689,8 +681,10 @@ Puts point on a blank line between them."
     (and (re-search-backward (concat "@\\(end\\s +\\)?" env) bound t)
 	 (not (match-end 1)))))
 
+(defvar texinfo-enable-quote-macros "@\\(code\\|samp\\|kbd\\)\\>")
+(defvar texinfo-enable-quote-envs '("example\\>" "lisp\\>"))
 (defun texinfo-insert-quote (&optional arg)
-  "Insert the appropriate quote mark for TeXinfo.
+  "Insert the appropriate quote mark for Texinfo.
 Usually inserts the value of `texinfo-open-quote' (normally ``) or
 `texinfo-close-quote' (normally ''), depending on the context.
 With prefix argument or inside @code or @example, inserts a plain \"."
@@ -698,34 +692,48 @@ With prefix argument or inside @code or @example, inserts a plain \"."
   (let ((top (or (save-excursion (re-search-backward "@node\\>" nil t))
 		 (point-min))))
     (if (or arg
-	    (texinfo-inside-env-p "example\\>" top)
-	    (texinfo-inside-env-p "lisp\\>" top)
-	    (texinfo-inside-macro-p "@\\(code\\|samp\\|kbd\\)\\>" top))
+	    (= (preceding-char) ?\\)
+	    (save-excursion
+	      (backward-char (length texinfo-open-quote))
+	      (when (or (looking-at texinfo-open-quote)
+			(looking-at texinfo-close-quote))
+		(delete-char (length texinfo-open-quote))
+		t))
+	    (texinfo-inside-macro-p texinfo-enable-quote-macros top)
+	    (let ((in-env nil))
+	      (dolist (env texinfo-enable-quote-envs in-env)
+		(if (texinfo-inside-env-p env top)
+		    (setq in-env t)))))
 	(self-insert-command (prefix-numeric-value arg))
       (insert
-       (cond ((= (preceding-char) ?\\) ?\")
-	     ((memq (char-syntax (preceding-char)) '(?\( ?> ?\ ))
-	      texinfo-open-quote)
-	     (t texinfo-close-quote))))))
-	
+       (if (memq (char-syntax (preceding-char)) '(?\( ?> ?\s))
+	   texinfo-open-quote
+	 texinfo-close-quote)))))
+
 ;; The following texinfo-insert-@end command not only inserts a SPC
 ;; after the @end, but tries to find out what belongs there.  It is
 ;; not very smart: it does not understand nested lists.
 
+(defun texinfo-last-unended-begin ()
+  (while (and (re-search-backward texinfo-environment-regexp)
+	      (looking-at "@end"))
+    (texinfo-last-unended-begin)))
+
+(defun texinfo-next-unmatched-end ()
+  (while (and (re-search-forward texinfo-environment-regexp)
+	      (save-excursion
+		(goto-char (match-beginning 0))
+		(not (looking-at "@end"))))
+    (texinfo-next-unmatched-end)))
+
 (defun texinfo-insert-@end ()
   "Insert the matching `@end' for the last Texinfo command that needs one."
   (interactive)
-  (let ((depth 1) string)
-    (save-excursion
-      (while (and (> depth 0)
-                  (re-search-backward texinfo-environment-regexp nil t))
-	(setq depth (if (looking-at "@end") (1+ depth) (1- depth))))
-      (when (zerop depth)
-	;; This looking-at is unnecessary since if depth==0,
-	;; (looking-at "@end") has just failed, so the match data is still
-	;; the one from re-search-backward   -sm
-	;; (looking-at texinfo-environment-regexp)
-	(setq string (match-string 1))))
+  (let ((string
+	 (ignore-errors
+	   (save-excursion
+	     (texinfo-last-unended-begin)
+	     (match-string 1)))))
     (insert "@end ")
     (if string (insert string "\n"))))
 
@@ -803,10 +811,18 @@ The default is not to surround any existing words with the braces."
   (texinfo-insert-@-with-arg "file" arg))
 
 (defun texinfo-insert-@item ()
-  "Insert the string `@item' in a Texinfo buffer."
+  "Insert the string `@item' in a Texinfo buffer.
+If in a table defined by @table, follow said string with a space.
+Otherwise, follow with a newline."
   (interactive)
-  (insert "@item")
-  (newline))
+  (insert "@item"
+	  (if (equal (ignore-errors
+		      (save-excursion
+			(texinfo-last-unended-begin)
+			(match-string 1)))
+		     "table")
+	      ?\s
+	    ?\n)))
 
 (defun texinfo-insert-@kbd (&optional arg)
   "Insert a `@kbd{...}' command in a Texinfo buffer.
@@ -817,11 +833,12 @@ The default is not to surround any existing words with the braces."
 
 (defun texinfo-insert-@node ()
   "Insert the string `@node' in a Texinfo buffer.
-This also inserts on the following line a comment indicating
-the order of arguments to @node."
+Insert a comment on the following line indicating the order of
+arguments to @node.  Insert a carriage return after the comment line.
+Leave point after `@node'."
   (interactive)
-  (insert "@node \n@comment  node-name,  next,  previous,  up")
-  (forward-line -1)
+  (insert "@node \n@comment  node-name,  next,  previous,  up\n")
+  (forward-line -2)
   (forward-char 6))
 
 (defun texinfo-insert-@noindent ()
@@ -848,9 +865,9 @@ The default is not to surround any existing words with the braces."
   (interactive "P")
   (texinfo-insert-@-with-arg "strong" arg))
 
-(defun texinfo-insert-@table (&optional arg)
+(defun texinfo-insert-@table ()
   "Insert the string `@table' in a Texinfo buffer."
-  (interactive "P")
+  (interactive)
   (insert "@table "))
 
 (defun texinfo-insert-@var (&optional arg)
@@ -881,28 +898,51 @@ with @-sign commands for @chapter, @section, and the like, and list
 
 Lines with structuring commands beginning in them are displayed in
 another buffer named `*Occur*'.  In that buffer, you can move point to
-one of those lines and then use \\<occur-mode-map>\\[occur-mode-goto-occurrence],
+one of those lines and then use
+\\<occur-mode-map>\\[occur-mode-goto-occurrence],
 to jump to the corresponding spot in the Texinfo source file."
 
   (interactive "P")
-  (save-excursion
+  ;; First, remember current location
+  (let (current-location)
+    (save-excursion
+      (end-of-line)            ; so as to find section on current line
+      (if (re-search-backward
+           ;; do not require `texinfo-section-types-regexp' in texnfo-upd.el
+           "^@\\(chapter \\|sect\\|subs\\|subh\\|unnum\\|major\\|chapheading \\|heading \\|appendix\\)"
+           nil t)
+          (setq current-location
+                (progn
+                  (beginning-of-line)
+                  (buffer-substring (point) (progn (end-of-line) (point)))))
+        ;; else point is located before any section command.
+        (setq current-location "tex")))
+    ;; Second, create and format an *Occur* buffer
+    (save-excursion
+      (goto-char (point-min))
+      (occur (concat "^\\(?:" (if nodes-too "@node\\>\\|")
+		     outline-regexp "\\)")))
+    (pop-to-buffer "*Occur*")
     (goto-char (point-min))
-    (if nodes-too
-        (occur (concat "^@node\\>\\|" outline-regexp))
-      (occur outline-regexp)))
-  (pop-to-buffer "*Occur*")
-  (goto-char (point-min))
-  (let ((inhibit-read-only t))
-    (flush-lines "-----")
-    ;; Now format the "*Occur*" buffer to show the structure.
-    ;; Thanks to ceder@signum.se (Per Cederqvist)
-    (goto-char (point-max))
-    (let (level)
-      (while (re-search-backward "^ *[0-9]*:@\\(\\sw+\\)" nil 0)
-	(goto-char (1- (match-beginning 1)))
-	(setq level (or (cadr (assoc (match-string 1) texinfo-section-list)) 2))
-	(indent-to-column (+ (current-column) (* 4 (- level 2))))
-	(beginning-of-line)))))
+    (let ((inhibit-read-only t))
+      (flush-lines "-----")
+      ;; Now format the "*Occur*" buffer to show the structure.
+      ;; Thanks to ceder@signum.se (Per Cederqvist)
+      (goto-char (point-max))
+      (let (level)
+        (while (re-search-backward "^ *[0-9]*:@\\(\\sw+\\)" nil 0)
+          (goto-char (1- (match-beginning 1)))
+          (setq level
+                (or (cadr (assoc (match-string 1) texinfo-section-list)) 2))
+          (indent-to-column (+ (current-column) (* 4 (- level 2))))
+          (beginning-of-line))))
+    ;; Third, go to line corresponding to location in source file
+    ;; potential bug: two exactly similar `current-location' lines ...
+    (goto-char (point-min))
+    (re-search-forward current-location nil t)
+    (beginning-of-line)
+    ))
+
 
 ;;; The  tex  and  print  function definitions:
 
@@ -1020,4 +1060,5 @@ You are prompted for the job number (use a number shown by a previous
 
 (provide 'texinfo)
 
+;; arch-tag: 005d7c38-43b9-4b7d-aa1d-aea69bae73e1
 ;;; texinfo.el ends here

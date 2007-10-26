@@ -1,4 +1,4 @@
-$! $Id: build_vms.com,v 1.4 2005/02/11 22:42:16 curlvms Exp $
+$! $Id: build_vms.com,v 1.7 2007-04-25 03:00:10 yangtse Exp $
 $! BUILD_VMS.COM 
 $!
 $! I've taken the original build_vms.com, supplied by Nico Baggus, if
@@ -21,11 +21,13 @@ $!
 $! Parameter(s):
 $!
 $! P1 - LISTING will create .lis files during the C compile
-$!      DEBUG will compile and link with debug
+$!      DEBUG   will compile and link with debug; also will create
+$!              compiler listings and linker map files
+$!      64      will compile and link with 64-bit pointers
 $!
 $! Revisions:
 $!
-$!  2-DEC-2003, MSK, the "original" version. <marty@barra.com>
+$!  2-DEC-2003, MSK, the "original" version.
 $!                   It works for me.  Your mileage may vary.
 $! 13-JAN-2004, MSK, moved this procedure to the [.packages.vms] directory
 $!                   and updated it to do hardware dependant builds.
@@ -43,6 +45,8 @@ $!  8-FEB-2005, MSK, merged the two config-vms.h* files into one that uses
 $!                   USE_SSLEAY to define if the target has SSL support built
 $!                   in.  Changed the cc/define parameter accordingly.
 $! 11-FEB-2005, MSK, If [--.LIB]AMIGAOS.C and NWLIB.C are there, rename them
+$! 23-MAR-2005, MSK, relocated cc_qual define so that DEBUG option would work
+$! 25-APR-2007, STL, allow compilation in 64-bit mode.
 $!
 $ on control_y then goto Common_Exit
 $ ctrl_y  = 1556 
@@ -71,30 +75,32 @@ $       @'defines'
 $    endif
 $ endif
 $ set def 'thisdir'
-$ cc_qual = "/define=HAVE_CONFIG_H=1/OBJ=OBJDIR:"
-$ link_qual = ""
-$ if p1 .eqs. "LISTING" then cc_qual = cc_qual + "/LIST/MACHINE"
-$ if p1 .eqs. "DEBUG" 
-$ then 
-$    cc_qual = cc_qual + "/LIST/MACHINE/DEBUG/NOOPT"
-$    link_qual = "/DEBUG"
-$ endif
-$ msg_qual = "/OBJ=OBJDIR:"
 $!
 $ hpssl   = 0
 $ openssl = 0
+$ cc_qual = "/define=HAVE_CONFIG_H=1"
+$ link_qual = ""
 $ if f$trnlnm( "CURL_BUILD_NOSSL") .eqs. ""
 $ then
 $    if f$trnlnm( "OPENSSL") .nes. "" 
 $    then
 $       openssl = 1
-$       cc_qual = "/define=(HAVE_CONFIG_H=1,USE_SSLEAY=1)/OBJ=OBJDIR:"
+$       cc_qual = "/define=(HAVE_CONFIG_H=1,USE_SSLEAY=1)"
 $       if ( f$trnlnm( "SSL$INCLUDE") .nes. "") .and. -
            ( f$trnlnm( "CURL_BUILD_NOHPSSL") .eqs. "")
 $       then hpssl = 1
 $       endif
 $    endif
 $ endif
+$ cc_qual = cc_qual + "/OBJ=OBJDIR:"
+$ if p1 .eqs. "64" then cc_qual = cc_qual + "/POINTER=64"
+$ if p1 .eqs. "LISTING" then cc_qual = cc_qual + "/LIST/SHOW=ALL"
+$ if p1 .eqs. "DEBUG" 
+$ then 
+$    cc_qual = cc_qual + "/LIST/SHOW=ALL/DEBUG/NOOPT"
+$    link_qual = "/DEBUG/MAP"
+$ endif
+$ msg_qual = "/OBJ=OBJDIR:"
 $!
 $! Put the right main config file in the two source directories for the build.
 $!
@@ -166,8 +172,8 @@ $! the directory passed in via P1 and put it in the object library named
 $! via P3
 $!
 $build:   subroutine
-$ on control_y then return ctrl_y ! SS$_CONTROLY
-$ set noon
+$ on control_y then goto EndLoop ! SS$_CONTROLY
+$! set noon
 $   set default 'p1'
 $   search = p2
 $   reset = f$search("reset")
@@ -200,7 +206,6 @@ $      endif
 $   goto Loop
 $EndLoop:
 $   !purge
-$   on control_y then return ctrl_y ! SS$_CONTROLY
 $   set def 'origdir'
 $   endsubroutine   ! Build
 $!
@@ -209,7 +214,7 @@ $! Only C and MSG supported.
 $!
 $compile:   subroutine
 $   on control_y then return ctrl_y ! SS$_CONTROLY
-$   set noon
+$!   set noon
 $   file = p1
 $   qual = p2+p3+p4+p5+p6+p7+p8
 $   typ = f$parse(file,,,"TYPE") - "."
@@ -218,7 +223,6 @@ $   cmd_msg = "MESSAGE "+msg_qual
 $   x = cmd_'typ'
 $   'vo_c' x," ",file
 $   'x' 'file'
-$   on control_y then return ctrl_y ! SS$_CONTROLY
 $   ENDSUBROUTINE   ! Compile
 $!
 $! Do a diff of the file specified in P1 with that in P2.  If different

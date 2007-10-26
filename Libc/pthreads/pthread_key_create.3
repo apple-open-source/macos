@@ -39,15 +39,18 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_key_create "pthread_key_t *key" "void (*destructor)(void *)"
+.Fo pthread_key_create
+.Fa "pthread_key_t *key"
+.Fa "void (*destructor)(void *)"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_key_create
-function creates a thread-specific data key visible to all threads in the
-process.
+function creates a thread-specific data key
+that is visible to all threads in the process.
 Key values provided by
 .Fn pthread_key_create
-are opaque objects used to locate thread-specific data.
+are opaque objects, used to locate thread-specific data.
 Although the same
 key value may be used by different threads, the values bound to the key
 by
@@ -82,7 +85,7 @@ If successful, the
 function will store the newly created key value at the location specified by
 .Fa key
 and returns zero.
-Otherwise an error number will be returned to indicate
+Otherwise, an error number will be returned to indicate
 the error.
 .Sh ERRORS
 .Fn pthread_key_create

@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 1999-2004, International Business Machines
+ *   Copyright (C) 1999-2005, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  *   Date        Name        Description
@@ -20,7 +20,7 @@
 #include "putilimp.h"
 
 U_CDECL_BEGIN
-static void U_EXPORT2 U_CALLCONV _deleteRule(void *rule) {
+static void U_CALLCONV _deleteRule(void *rule) {
     delete (U_NAMESPACE_QUALIFIER TransliterationRule *)rule;
 }
 U_CDECL_END
@@ -120,7 +120,7 @@ inline void _debugOut(const char* msg, TransliterationRule* rule,
     UnicodeString esc;
     _escape(buf, esc);
     CharString cbuf(esc);
-    printf("%s\n", (char*) cbuf);
+    printf("%s\n", (const char*) cbuf);
 }
 
 #else

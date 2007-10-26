@@ -1,0 +1,388 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		3E6293E707CD85E1008E6FA2 /* kern_fns.h in Headers */ = {isa = PBXBuildFile; fileRef = 3E6293E607CD85E1008E6FA2 /* kern_fns.h */; };
+		3E69212F07CE8B4400141C3D /* new_handler.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E69212E07CE8B4400141C3D /* new_handler.cc */; };
+		3E81726B07CD1C0800E32E49 /* del_opnt.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81726707CD1C0800E32E49 /* del_opnt.cc */; };
+		3E81726C07CD1C0800E32E49 /* del_opv.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81726807CD1C0800E32E49 /* del_opv.cc */; };
+		3E81726D07CD1C0800E32E49 /* del_opvnt.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81726907CD1C0800E32E49 /* del_opvnt.cc */; };
+		3E81727607CD1C2000E32E49 /* new_opnt.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81727007CD1C2000E32E49 /* new_opnt.cc */; };
+		3E81727707CD1C2000E32E49 /* new_opv.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81727107CD1C2000E32E49 /* new_opv.cc */; };
+		3E81727807CD1C2000E32E49 /* new_opvnt.cc in Sources */ = {isa = PBXBuildFile; fileRef = 3E81727207CD1C2000E32E49 /* new_opvnt.cc */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		3E28A8FC07E2191600FDC362 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.gcc.4_0;
+			fileType = sourcecode.c;
+			isEditable = 1;
+			outputFiles = (
+			);
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_ASM_KEYWORD = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				GCC_USE_GCC3_PFE_SUPPORT = NO;
+				GCC_WARN_ALLOW_INCOMPLETE_PROTOCOL = NO;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = NO;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		3E6293E607CD85E1008E6FA2 /* kern_fns.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = kern_fns.h; sourceTree = "<group>"; };
+		3E69212E07CE8B4400141C3D /* new_handler.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = new_handler.cc; sourceTree = SOURCE_ROOT; };
+		3E81726607CD1C0800E32E49 /* del_op.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = del_op.cc; sourceTree = "<group>"; };
+		3E81726707CD1C0800E32E49 /* del_opnt.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = del_opnt.cc; sourceTree = "<group>"; };
+		3E81726807CD1C0800E32E49 /* del_opv.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = del_opv.cc; sourceTree = "<group>"; };
+		3E81726907CD1C0800E32E49 /* del_opvnt.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = del_opvnt.cc; sourceTree = "<group>"; };
+		3E81726F07CD1C2000E32E49 /* new_op.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = new_op.cc; sourceTree = "<group>"; };
+		3E81727007CD1C2000E32E49 /* new_opnt.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = new_opnt.cc; sourceTree = "<group>"; };
+		3E81727107CD1C2000E32E49 /* new_opv.cc */ = {isa = PBXFileReference; explicitFileType = sourcecode.cpp.cpp; fileEncoding = 30; path = new_opv.cc; sourceTree = "<group>"; };
+		3E81727207CD1C2000E32E49 /* new_opvnt.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = new_opvnt.cc; sourceTree = "<group>"; };
+		D2AAC046055464E500DB518D /* libcpp_kext.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libcpp_kext.a; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D289987405E68DCB004EDB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* Libcpp_kext */ = {
+			isa = PBXGroup;
+			children = (
+				3E69212E07CE8B4400141C3D /* new_handler.cc */,
+				3E81726F07CD1C2000E32E49 /* new_op.cc */,
+				3E81727007CD1C2000E32E49 /* new_opnt.cc */,
+				3E81727107CD1C2000E32E49 /* new_opv.cc */,
+				3E81727207CD1C2000E32E49 /* new_opvnt.cc */,
+				3E6293E607CD85E1008E6FA2 /* kern_fns.h */,
+				3E81726607CD1C0800E32E49 /* del_op.cc */,
+				3E81726707CD1C0800E32E49 /* del_opnt.cc */,
+				3E81726807CD1C0800E32E49 /* del_opv.cc */,
+				3E81726907CD1C0800E32E49 /* del_opvnt.cc */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = Libcpp_kext;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC046055464E500DB518D /* libcpp_kext.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2AAC043055464E500DB518D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E6293E707CD85E1008E6FA2 /* kern_fns.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC045055464E500DB518D /* cpp_kext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2D69A82C089AAEE500CF0764 /* Build configuration list for PBXNativeTarget "cpp_kext" */;
+			buildPhases = (
+				D2AAC043055464E500DB518D /* Headers */,
+				D2AAC044055464E500DB518D /* Sources */,
+				D289987405E68DCB004EDB86 /* Frameworks */,
+				3E1145EA07E25A91006FA3AA /* ShellScript */,
+			);
+			buildRules = (
+				3E28A8FC07E2191600FDC362 /* PBXBuildRule */,
+			);
+			buildSettings = {
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_ASM_KEYWORD = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"-fapple-kext",
+					"-static",
+					"-DLIBCC_KEXT",
+					"-mlong-branch",
+					"-fno-common",
+					"-nostdinc",
+					"-fno-builtin",
+					"-force_cpusubtype_ALL",
+					"-msoft-float",
+					"-DKERNEL",
+					"-DKERNEL_PRIVATE",
+					"-DDRIVER_PRIVATE",
+					"-DAPPLE",
+					"-DNeXT",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fno-exceptions",
+					"-fno-rtti",
+					"-fcheck-new",
+					"-fno-weak",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = cpp_kext;
+			};
+			dependencies = (
+			);
+			name = cpp_kext;
+			productName = Libcpp_kext;
+			productReference = D2AAC046055464E500DB518D /* libcpp_kext.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 2D69A830089AAEE500CF0764 /* Build configuration list for PBXProject "Libcpp_kext" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* Libcpp_kext */;
+			projectDirPath = "";
+			targets = (
+				D2AAC045055464E500DB518D /* cpp_kext */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		3E1145EA07E25A91006FA3AA /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/nmedit -p $DSTROOT/usr/lib/libcpp_kext.a\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC044055464E500DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3E81726B07CD1C0800E32E49 /* del_opnt.cc in Sources */,
+				3E81726C07CD1C0800E32E49 /* del_opv.cc in Sources */,
+				3E81726D07CD1C0800E32E49 /* del_opvnt.cc in Sources */,
+				3E81727607CD1C2000E32E49 /* new_opnt.cc in Sources */,
+				3E81727707CD1C2000E32E49 /* new_opv.cc in Sources */,
+				3E81727807CD1C2000E32E49 /* new_opvnt.cc in Sources */,
+				3E69212F07CE8B4400141C3D /* new_handler.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2D69A82D089AAEE500CF0764 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_THREADSAFE_STATICS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"-fapple-kext",
+					"-static",
+					"-DLIBCC_KEXT",
+					"-mlong-branch",
+					"-fno-common",
+					"-nostdinc",
+					"-fno-builtin",
+					"-force_cpusubtype_ALL",
+					"-msoft-float",
+					"-DKERNEL",
+					"-DKERNEL_PRIVATE",
+					"-DDRIVER_PRIVATE",
+					"-DAPPLE",
+					"-DNeXT",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fno-exceptions",
+					"-fno-rtti",
+					"-fcheck-new",
+					"-fno-weak",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = cpp_kext;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+				);
+			};
+			name = Development;
+		};
+		2D69A82E089AAEE500CF0764 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_CW_ASM_SYNTAX = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_CPP_RTTI = NO;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PRECOMPILE_PREFIX_HEADER = NO;
+				GCC_THREADSAFE_STATICS = NO;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"-fapple-kext",
+					"-static",
+					"-DLIBCC_KEXT",
+					"-mlong-branch",
+					"-fno-common",
+					"-nostdinc",
+					"-fno-builtin",
+					"-force_cpusubtype_ALL",
+					"-msoft-float",
+					"-DKERNEL",
+					"-DKERNEL_PRIVATE",
+					"-DDRIVER_PRIVATE",
+					"-DAPPLE",
+					"-DNeXT",
+				);
+				OTHER_CPLUSPLUSFLAGS = (
+					"$(OTHER_CFLAGS)",
+					"-fno-exceptions",
+					"-fno-rtti",
+					"-fcheck-new",
+					"-fno-weak",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = cpp_kext;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-W",
+				);
+			};
+			name = Deployment;
+		};
+		2D69A831089AAEE500CF0764 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		2D69A832089AAEE500CF0764 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2D69A82C089AAEE500CF0764 /* Build configuration list for PBXNativeTarget "cpp_kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D69A82D089AAEE500CF0764 /* Development */,
+				2D69A82E089AAEE500CF0764 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		2D69A830089AAEE500CF0764 /* Build configuration list for PBXProject "Libcpp_kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2D69A831089AAEE500CF0764 /* Development */,
+				2D69A832089AAEE500CF0764 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

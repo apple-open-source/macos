@@ -1,0 +1,24 @@
+# APPLE LOCAL file ARM darwin target
+LIB1ASMSRC = arm/lib1funcs.asm
+LIB1ASMFUNCS = _udivsi3 _divsi3 _umodsi3 _modsi3 _dvmd_tls _bb_init_func \
+	_lshrdi3 _ashrdi3 _ashldi3 \
+	_negdf2 _addsubdf3 _muldivdf3 _cmpdf2 _unorddf2 _fixdfsi _fixunsdfsi \
+	_truncdfsf2 _negsf2 _addsubsf3 _muldivsf3 _cmpsf2 _unordsf2 \
+	_fixsfsi _fixunssfsi _floatdidf _floatdisf \
+	_muldf3vfp _adddf3vfp _subdf3vfp _divdf3vfp \
+	_eqdf2vfp _nedf2vfp _ltdf2vfp _gtdf2vfp _ledf2vfp _gedf2vfp _unorddf2vfp \
+	_fixdfsivfp _fixunsdfsivfp _extendsfdf2vfp _truncdfsf2vfp \
+	_floatsidfvfp _floatunssidfvfp \
+	_mulsf3vfp _addsf3vfp _subsf3vfp _divsf3vfp \
+	_eqsf2vfp _nesf2vfp _ltsf2vfp _gtsf2vfp _lesf2vfp _gesf2vfp _unordsf2vfp \
+	_fixsfsivfp _fixunssfsivfp _floatsisfvfp _floatunssisfvfp \
+	_switchu8 _switch8 _switch16 _switch32
+
+MULTILIB_OPTIONS     = march=armv6k
+MULTILIB_DIRNAMES    = v6
+MULTILIB_EXCEPTIONS  = 
+MULTILIB_MATCHES     =
+TARGET_LIBGCC2_CFLAGS = -fno-inline -mmacosx-version-min=10.4
+
+SHLIB_VERPFX = $(srcdir)/config/arm/darwin-libgcc
+

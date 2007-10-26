@@ -32,61 +32,51 @@
 #ifndef __CDSRefTable_h__
 #define	__CDSRefTable_h__		1
 
-// App
 #include "DirServicesTypes.h"
-
-// Misc
 #include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
-
-class CDSRefTable;
-
-extern DSMutexSemaphore		*gFWTableMutex;
-extern CDSRefTable			*gFWRefTable;
 
 #define		kMaxFWTableItems	512
 #define		kMaxFWTables		0x0F
 
 typedef struct sListFWInfo *sListFWInfoPtr;
 
-//note fPID defined everywhere as sInt32 to remove warnings of comparing -1 to uInt32 since failed PID is -1
+//note fPID defined everywhere as SInt32 to remove warnings of comparing -1 to UInt32 since failed PID is -1
 
 //struct to contain reference to the actual ref entry of the child ref
 typedef struct sListFWInfo {
-	uInt32			fRefNum;
-	uInt32			fType;
-	sInt32			fPID;
+	UInt32			fRefNum;
+	UInt32			fType;
+	SInt32			fPID;
 	sListFWInfoPtr	fNext;
 } sListFWInfo;
 
 //struct to contain PID of the child client process granted access to a ref from the parent client process
 typedef struct sPIDFWInfo {
-	sInt32			fPID;
+	SInt32			fPID;
 	sPIDFWInfo	   *fNext;
 } sPIDFWInfo;
 
 //struct of the main ref entry
 typedef struct sFWRefEntry {
-	uInt32			fRefNum;
-	uInt32			fType;
-    uInt32			fOffset;
-	uInt32			fBufTag;
-	uInt32			fParentID;
-	sInt32			fPID;
+	UInt32			fRefNum;
+	UInt32			fType;
+    UInt32			fOffset;
+	UInt32			fBufTag;
+	UInt32			fParentID;
+	SInt32			fPID;
 	sListFWInfo	   *fChildren;
 	sPIDFWInfo	   *fChildPID;
 } sFWRefEntry;
-
-typedef sInt32 RefFWDeallocateProc ( uInt32 inRefNum, sFWRefEntry *entry );
 
 // -------------------------------------------
 
 typedef struct sRefFWTable *sRefFWTablePtr;
 
 typedef struct sRefFWTable {
-	uInt32			fTableNum;
-	uInt32			fCurRefNum;
-	uInt32			fItemCnt;
+	UInt32			fTableNum;
+	UInt32			fCurRefNum;
+	UInt32			fItemCnt;
 	sFWRefEntry		*fTableData[ kMaxFWTableItems ];
 } sRefFWTable;
 
@@ -94,65 +84,63 @@ typedef struct sRefFWTable {
 //	* CDSRefTable
 //------------------------------------------------------------------------------------
 
-class CDSRefTable {
+class CDSRefTable
+{
 public:
-					CDSRefTable				( RefFWDeallocateProc *deallocProc );
-	virtual		   ~CDSRefTable				( void );
-
-	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, sInt32 inPID );
-	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, sInt32 inPID );
-	static tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, sInt32 inPID );
-	static tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, sInt32 inPID );
-	static tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, sInt32 inPID );
-
-	static tDirStatus	NewDirRef			( uInt32 *outNewRef, sInt32 inPID );
-	static tDirStatus	NewNodeRef			( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID );
-	static tDirStatus	NewRecordRef		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID );
-	static tDirStatus	NewAttrListRef		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID );
-	static tDirStatus	NewAttrValueRef		( uInt32 *outNewRef, uInt32 inParentID, sInt32 inPID );
-
-	static tDirStatus	RemoveDirRef		( uInt32 inDirRef, sInt32 inPID );
-	static tDirStatus	RemoveNodeRef		( uInt32 inNodeRef, sInt32 inPID );
-	static tDirStatus	RemoveRecordRef		( uInt32 inRecRef, sInt32 inPID );
-	static tDirStatus	RemoveAttrListRef	( uInt32 inAttrListRef, sInt32 inPID );
-	static tDirStatus	RemoveAttrValueRef	( uInt32 InAttrValueRef, sInt32 inPID );
-
-	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID );
+				CDSRefTable			( void );
+				~CDSRefTable		( void );
 	
-    static tDirStatus	GetOffset			( uInt32 inRefNum, uInt32 inType, uInt32* outOffset, sInt32 inPID );
-    static tDirStatus	SetOffset			( uInt32 inRefNum, uInt32 inType, uInt32 inOffset, sInt32 inPID );
-    static tDirStatus	GetBufTag			( uInt32 inRefNum, uInt32 inType, uInt32* outBufTag, sInt32 inPID );
-    static tDirStatus	SetBufTag			( uInt32 inRefNum, uInt32 inType, uInt32 inBufTag, sInt32 inPID );
+	void		ClearAllTables		( void );
+
+	tDirStatus	VerifyDirRef		( tDirReference inDirRef, SInt32 inPID );
+	tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, SInt32 inPID );
+	tDirStatus	VerifyRecordRef		( tRecordReference inRecordRef, SInt32 inPID );
+	tDirStatus	VerifyAttrListRef	( tAttributeListRef inAttributeListRef, SInt32 inPID );
+	tDirStatus	VerifyAttrValueRef	( tAttributeValueListRef inAttributeValueListRef, SInt32 inPID );
+
+	tDirStatus	NewDirRef			( UInt32 *outNewRef, SInt32 inPID );
+	tDirStatus	NewNodeRef			( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID );
+	tDirStatus	NewRecordRef		( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID );
+	tDirStatus	NewAttrListRef		( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID );
+	tDirStatus	NewAttrValueRef		( UInt32 *outNewRef, UInt32 inParentID, SInt32 inPID );
+
+	tDirStatus	RemoveDirRef		( UInt32 inDirRef, SInt32 inPID );
+	tDirStatus	RemoveNodeRef		( UInt32 inNodeRef, SInt32 inPID );
+	tDirStatus	RemoveRecordRef		( UInt32 inRecRef, SInt32 inPID );
+	tDirStatus	RemoveAttrListRef	( UInt32 inAttrListRef, SInt32 inPID );
+	tDirStatus	RemoveAttrValueRef	( UInt32 InAttrValueRef, SInt32 inPID );
+
+    tDirStatus	GetOffset			( UInt32 inRefNum, UInt32 inType, UInt32* outOffset, SInt32 inPID );
+    tDirStatus	SetOffset			( UInt32 inRefNum, UInt32 inType, UInt32 inOffset, SInt32 inPID );
+    tDirStatus	GetBufTag			( UInt32 inRefNum, UInt32 inType, UInt32* outBufTag, SInt32 inPID );
+    tDirStatus	SetBufTag			( UInt32 inRefNum, UInt32 inType, UInt32 inBufTag, SInt32 inPID );
 
 private:
-	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, sInt32 inPID );
-	tDirStatus	GetNewRef			( uInt32 *outRef, uInt32 inParentID, eRefTypes inType, sInt32 inPID );
-	tDirStatus	RemoveRef			( uInt32 inRefNum, uInt32 inType, sInt32 inPID );
+	DSMutexSemaphore	fTableMutex;
+	UInt32				fTableCount;
+	sRefFWTable			*fRefTables[ kMaxFWTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
+															//index in as kMaxFWTables ie. note array is 0-based
+	UInt32				fRefCount;
+	
+private:
+	tDirStatus	VerifyReference		( tDirReference inDirRef, UInt32 inType, SInt32 inPID );
+	tDirStatus	GetNewRef			( UInt32 *outRef, UInt32 inParentID, eRefTypes inType, SInt32 inPID );
+	tDirStatus	RemoveRef			( UInt32 inRefNum, UInt32 inType, SInt32 inPID );
 
-	tDirStatus	GetReference		( uInt32 inRefNum, sFWRefEntry **outRefData );
+	tDirStatus	GetReference		( UInt32 inRefNum, sFWRefEntry **outRefData );
 
-	tDirStatus	LinkToParent		( uInt32 inRefNum, uInt32 inType, uInt32 inParentID, sInt32 inPID );
-	tDirStatus	UnlinkFromParent	( uInt32 inRefNum );
+	tDirStatus	LinkToParent		( UInt32 inRefNum, UInt32 inType, UInt32 inParentID, SInt32 inPID );
+	tDirStatus	UnlinkFromParent	( UInt32 inRefNum );
 
-	void		RemoveChildren		( sListFWInfo *inChildList, sInt32 inPID );
+	void		RemoveChildren		( sListFWInfo *inChildList, SInt32 inPID );
 
 	sRefFWTable*	GetNextTable	( sRefFWTable *inCurTable );
-	sRefFWTable*	GetThisTable	( uInt32 inTableNum );
+	sRefFWTable*	GetThisTable	( UInt32 inTableNum );
 
-	sFWRefEntry*	GetTableRef		( uInt32 inRefNum );
+	sFWRefEntry*	GetTableRef		( UInt32 inRefNum );
 
-	uInt32			GetRefCount		( void );
-
-	uInt32		fTableCount;
-	sRefFWTable	*fRefTables[ kMaxFWTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
-													//index in as kMaxFWTables ie. note array is 0-based
-	RefFWDeallocateProc *fDeallocProc;
-	
-	time_t					fSunsetTime;
-	uInt32					fRefCount;
-
+	UInt32			GetRefCount		( void );
 };
-
 
 #endif
 

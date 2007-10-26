@@ -1,5 +1,6 @@
 /* mips.h.  Mips opcode list for GDB, the GNU debugger.
-   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003, 2004, 2005
    Free Software Foundation, Inc.
    Contributed by Ralph Campbell and OSF
    Commented and modified by Ian Lance Taylor, Cygnus Support
@@ -18,7 +19,7 @@ the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this file; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef _MIPS_H_
 #define _MIPS_H_
@@ -192,6 +193,8 @@ struct mips_opcode
      of bits describing the instruction, notably any relevant hazard
      information.  */
   unsigned long pinfo;
+  /* A collection of additional bits describing the instruction. */
+  unsigned long pinfo2;
   /* A collection of bits describing the instruction sets of which this
      instruction or macro is a member. */
   unsigned long membership;
@@ -376,10 +379,16 @@ struct mips_opcode
 #define INSN_MULT                   0x40000000
 /* Instruction synchronize shared memory.  */
 #define INSN_SYNC		    0x80000000
-/* Instruction reads MDMX accumulator.  XXX FIXME: No bits left!  */
-#define INSN_READ_MDMX_ACC	    0
-/* Instruction writes MDMX accumulator.  XXX FIXME: No bits left!  */
-#define INSN_WRITE_MDMX_ACC	    0
+
+/* These are the bits which may be set in the pinfo2 field of an
+   instruction. */
+
+/* Instruction is a simple alias (I.E. "move" for daddu/addu/or) */
+#define	INSN2_ALIAS		    0x00000001
+/* Instruction reads MDMX accumulator. */
+#define INSN2_READ_MDMX_ACC	    0x00000002
+/* Instruction writes MDMX accumulator. */
+#define INSN2_WRITE_MDMX_ACC	    0x00000004
 
 /* Instruction is actually a macro.  It should be ignored by the
    disassembler, and requires special treatment by the assembler.  */
@@ -470,6 +479,7 @@ struct mips_opcode
 #define CPU_R6000	6000
 #define CPU_RM7000	7000
 #define CPU_R8000	8000
+#define CPU_RM9000	9000
 #define CPU_R10000	10000
 #define CPU_R12000	12000
 #define CPU_MIPS16	16
@@ -489,6 +499,7 @@ struct mips_opcode
     (((insn)->membership & isa) != 0					\
      || (cpu == CPU_R4650 && ((insn)->membership & INSN_4650) != 0)	\
      || (cpu == CPU_RM7000 && ((insn)->membership & INSN_4650) != 0)	\
+     || (cpu == CPU_RM9000 && ((insn)->membership & INSN_4650) != 0)	\
      || (cpu == CPU_R4010 && ((insn)->membership & INSN_4010) != 0)	\
      || (cpu == CPU_VR4100 && ((insn)->membership & INSN_4100) != 0)	\
      || (cpu == CPU_R3900 && ((insn)->membership & INSN_3900) != 0)	\

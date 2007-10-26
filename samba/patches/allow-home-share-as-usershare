@@ -1,0 +1,161 @@
+Index: samba/source/utils/net_usershare.c
+===================================================================
+--- samba/source/utils/net_usershare.c.orig
++++ samba/source/utils/net_usershare.c
+@@ -518,6 +518,33 @@ static int count_num_usershares(void)
+  Add a single userlevel share.
+ ***************************************************************************/
+ 
++static BOOL usershare_name_is_valid(const char *sharename)
++{
++	struct passwd *pwent;
++	uid_t uid;
++
++	if (!validate_net_name(sharename, INVALID_SHARENAME_CHARS, strlen(sharename))) {
++		d_fprintf(stderr, "net usershare add: share name %s contains "
++                        "invalid characters (any of %s)\n",
++                        sharename, INVALID_SHARENAME_CHARS);
++		return False;
++	}
++
++	/* Disallow shares the same as users unless the share is being added by
++	 * root or by the user themselves.
++	 */
++	uid = getuid();
++	if (uid != 0 &&
++	    (pwent = getpwnam(sharename)) &&
++	    pwent->pw_uid != uid) {
++		d_fprintf(stderr, "net usershare add: share name %s is "
++			"already a valid system user name\n", sharename );
++		return False;
++	}
++
++	return True;
++}
++
+ static int net_usershare_add(int argc, const char **argv)
+ {
+ 	TALLOC_CTX *ctx = NULL;
+@@ -598,18 +625,7 @@ static int net_usershare_add(int argc, c
+ 		return -1;
+ 	}
+ 
+-	if (!validate_net_name(sharename, INVALID_SHARENAME_CHARS, strlen(sharename))) {
+-		d_fprintf(stderr, "net usershare add: share name %s contains "
+-                        "invalid characters (any of %s)\n",
+-                        sharename, INVALID_SHARENAME_CHARS);
+-		SAFE_FREE(sharename);
+-		return -1;
+-	}
+-
+-	/* Disallow shares the same as users. */
+-	if (getpwnam(sharename)) {
+-		d_fprintf(stderr, "net usershare add: share name %s is already a valid system user name\n",
+-			sharename );
++	if (!usershare_name_is_valid(sharename)) {
+ 		SAFE_FREE(sharename);
+ 		return -1;
+ 	}
+Index: samba/source/param/loadparm.c
+===================================================================
+--- samba/source/param/loadparm.c.orig
++++ samba/source/param/loadparm.c
+@@ -4332,8 +4332,11 @@ static void set_allowed_client_auth(void
+  get their sorry ass fired.
+ ***************************************************************************/
+ 
+-static BOOL check_usershare_stat(const char *fname, SMB_STRUCT_STAT *psbuf)
++static BOOL check_usershare_stat(const char *service_name,
++		const char *fname, SMB_STRUCT_STAT *psbuf)
+ {
++	struct passwd *pwent;
++
+ 	if (!S_ISREG(psbuf->st_mode)) {
+ 		DEBUG(0,("check_usershare_stat: file %s owned by uid %u is "
+ 			"not a regular file\n",
+@@ -4358,6 +4361,22 @@ static BOOL check_usershare_stat(const c
+ 		return False;
+ 	}
+ 
++	/* Only root and the user themselves are allowed to create a user share
++	 * named after a user. This prevents users clobbering each others'
++	 * auto-home shares.
++	 *
++	 * NOTE: this check will not be 100% because getpwnam is case-sensitive
++	 * on some systems.
++	 */
++	if ((pwent = sys_getpwnam(service_name))) {
++		if (psbuf->st_uid != 0 && psbuf->st_uid != pwent->pw_uid) {
++			DEBUG(0, ("check_usershare_stat: file %s is a home "
++			    "share for %s, but is owned by uid %u.\n",
++			    fname, service_name, (unsigned int)psbuf->st_uid));
++			return False;
++		}
++	}
++
+ 	return True;
+ }
+ 
+@@ -4568,15 +4587,17 @@ static int process_usershare_file(const 
+ 		return -1;
+ 	}
+ 
++	canonicalize_servicename(service_name);
++
+ 	/* This must be a regular file, not a symlink, directory or
+ 	   other strange filetype. */
+-	if (!check_usershare_stat(fname, &lsbuf)) {
++	if (!check_usershare_stat(service_name, fname, &lsbuf)) {
+ 		return -1;
+ 	}
+ 
+ 	/* See if there is already a servicenum for this name. */
+ 	/* tdb_fetch_int32 returns -1 if not found. */
+-	iService = (int)tdb_fetch_int32(ServiceHash, canonicalize_servicename(service_name) );
++	iService = (int)tdb_fetch_int32(ServiceHash, service_name);
+ 
+ 	if (iService != -1 && ServicePtrs[iService]->usershare_last_mod == lsbuf.st_mtime) {
+ 		/* Nothing changed - Mark valid and return. */
+@@ -4617,7 +4638,7 @@ static int process_usershare_file(const 
+ 
+ 	/* This must be a regular file, not a symlink, directory or
+ 	   other strange filetype. */
+-	if (!check_usershare_stat(fname, &sbuf)) {
++	if (!check_usershare_stat(service_name, fname, &sbuf)) {
+ 		return -1;
+ 	}
+ 
+Index: samba/source/smbd/service.c
+===================================================================
+--- samba/source/smbd/service.c.orig
++++ samba/source/smbd/service.c
+@@ -269,6 +269,15 @@ int find_service(fstring service)
+ 
+ 	iService = lp_servicenumber(service);
+ 
++	/* Is it a usershare service ? Usershares are statically configured
++	 * services, so they get priority over any implicitly created services.
++	 */
++	if (iService < 0 && *lp_usershare_path()) {
++		/* Ensure the name is canonicalized. */
++		strlower_m(service);
++		iService = load_usershare_service(service);
++	}
++
+ 	/* now handle the special case of a home directory */
+ 	if (iService < 0) {
+ 		char *phome_dir = get_user_home_dir(service);
+@@ -312,13 +321,6 @@ int find_service(fstring service)
+ 	if (iService < 0) {
+ 	}
+ 
+-	/* Is it a usershare service ? */
+-	if (iService < 0 && *lp_usershare_path()) {
+-		/* Ensure the name is canonicalized. */
+-		strlower_m(service);
+-		iService = load_usershare_service(service);
+-	}
+-
+ 	/* just possibly it's a default service? */
+ 	if (iService < 0) {
+ 		char *pdefservice = lp_defaultservice();

@@ -33,7 +33,7 @@ set testfile "split-pi"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 
-set additional_flags "additional_flags=-gused"
+set additional_flags "additional_flags=-gstabs+ -feliminate-unused-debug-symbols"
 
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable $additional_flags ] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."

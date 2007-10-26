@@ -1,0 +1,49 @@
+--- _SB/Libc/stdio/FreeBSD/fread.3	2003-05-20 15:22:42.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/fread.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -48,14 +48,16 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft size_t
+-.Fn fread "void * restrict ptr" "size_t size" "size_t nmemb" "FILE * restrict stream"
++.Fn fread "void *restrict ptr" "size_t size" "size_t nitems" \
++    "FILE *restrict stream"
+ .Ft size_t
+-.Fn fwrite "const void * restrict ptr" "size_t size" "size_t nmemb" "FILE * restrict stream"
++.Fn fwrite "const void *restrict ptr" "size_t size" "size_t nitems" \
++    "FILE *restrict stream"
+ .Sh DESCRIPTION
+ The function
+ .Fn fread
+ reads
+-.Fa nmemb
++.Fa nitems
+ objects, each
+ .Fa size
+ bytes long, from the stream pointed to by
+@@ -66,7 +68,7 @@
+ The function
+ .Fn fwrite
+ writes
+-.Fa nmemb
++.Fa nitems
+ objects, each
+ .Fa size
+ bytes long, to the stream pointed to by
+@@ -86,7 +88,7 @@
+ .Pp
+ The function
+ .Fn fread
+-does not distinguish between end-of-file and error, and callers
++does not distinguish between end-of-file and error; callers
+ must use
+ .Xr feof 3
+ and
+@@ -95,7 +97,7 @@
+ The function
+ .Fn fwrite
+ returns a value less than
+-.Fa nmemb
++.Fa nitems
+ only if a write error has occurred.
+ .Sh SEE ALSO
+ .Xr read 2 ,

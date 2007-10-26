@@ -36,6 +36,9 @@ char *scrub_last_string = NULL;
 #ifdef NeXT_MOD	/* .include feature */
 /* These are moved out of do_scrub() so save_scrub_context() can save them */
 static int state;
+#ifdef I386
+static int substate = 0;
+#endif
 static int old_state;
 static char *out_string;
 static char out_buf[20];
@@ -293,6 +296,18 @@ FILE *fp)
 		}
 		ungetc(ch, fp);
 		if(state==0 || state==2) {
+#ifdef I386
+			if(state == 2){
+			    if(substate == 0){
+				/* if in state 2 don't change to state 3
+				   the first time, and leave white space
+				   after the first two tokens */
+				substate = 1;
+				return ' ';
+			    }
+			    substate = 0;
+			}
+#endif
 			state++;
 			return ' ';
 		}

@@ -19,15 +19,6 @@
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / 256.0)
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -58,7 +49,5 @@
    ((int)(type) << VALBITS)						\
    + (((unsigned) (ptr) << (BITS_PER_INT-VALBITS)) >> (BITS_PER_INT-VALBITS)))
 
-#define XUNMARK(a)							\
-  ((a) =								\
-   (((unsigned)(a) << (BITS_PER_INT-GCTYPEBITS-VALBITS))			\
-    >> (BITS_PER_INT-GCTYPEBITS-VALBITS)))
+/* arch-tag: b9fd7b75-ba3c-46d4-8966-24381b13001b
+   (do not change this comment) */

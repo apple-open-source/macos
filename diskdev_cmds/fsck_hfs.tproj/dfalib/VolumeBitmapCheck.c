@@ -178,7 +178,7 @@ int BitMapCheckEnd(void)
 		int maxdepth = 0;
 
 		BMS_MaxDepth(gBMS_Root, 0, &maxdepth);
-		printf("   %d full segments, %d segment nodes (max depth was %d nodes)\n",
+	plog("   %d full segments, %d segment nodes (max depth was %d nodes)\n",
 		       gFullSegments, gSegmentNodes, maxdepth);
 #endif
 		free(gFullBitmapSegment);
@@ -257,7 +257,7 @@ static int GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 		
 	if (*buffer == NULL) {
 #if _VBC_DEBUG_
-		printf("GetSegmentBitmap: couldn't get a node for block %d, segment %d\n", startBit, segment);
+	plog("GetSegmentBitmap: couldn't get a node for block %d, segment %d\n", startBit, segment);
 #endif
 		return (-1); /* oops */
 	}
@@ -265,22 +265,22 @@ static int GetSegmentBitmap(UInt32 startBit, UInt32 **buffer, int bitOperation)
 #if 0
 	if (segNode) {
 		int i;
-		printf("  segment %d: L=0x%08x, R=0x%08x \n< ",
+	plog("  segment %d: L=0x%08x, R=0x%08x \n< ",
 			(int)segNode->segment, (int)segNode->left, segNode->right);
 		for (i = 0; i < kWordsPerSegment; ++i) {
-			printf("0x%08x ", segNode->bitmap[i]);
+		plog("0x%08x ", segNode->bitmap[i]);
 			if ((i & 0x3) == 0x3)
-				printf("\n  ");
+			plog("\n  ");
 		}
-		printf("\n");
+	plog("\n");
 	}
 
 	if (bitOperation == kSettingBits && *buffer && bcmp(*buffer, gFullBitmapSegment, kBytesPerSegment) == 0) {
-		printf("*** segment %d (start blk %d) is already full!\n", segment, startBit);
+	plog("*** segment %d (start blk %d) is already full!\n", segment, startBit);
 		exit(5);
 	}
 	if (bitOperation == kClearingBits && *buffer && bcmp(*buffer, gEmptyBitmapSegment, kBytesPerSegment) == 0) {
-		printf("*** segment %d (start blk %d) is already empty!\n", segment, startBit);
+	plog("*** segment %d (start blk %d) is already empty!\n", segment, startBit);
 		exit(5);
 	}
 #endif
@@ -316,13 +316,13 @@ void TestSegmentBitmap(UInt32 startBit)
 	if ((segNode = BMS_Lookup(segment)) != NULL) {
 #if 0
 		int i;
-		printf("> ");
+	plog("> ");
 		for (i = 0; i < kWordsPerSegment; ++i) {
-			printf("0x%08x ", segNode->bitmap[i]);
+		plog("0x%08x ", segNode->bitmap[i]);
 			if ((i & 0x3) == 0x3)
-				printf("\n  ");
+			plog("\n  ");
 		}
-		printf("\n");
+	plog("\n");
 #endif
 		if (segment != 0 && bcmp(&segNode->bitmap[0], gFullBitmapSegment, kBytesPerSegment) == 0) {
 			if (BMS_Delete(segment) != NULL) {
@@ -423,7 +423,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//	printf("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -455,7 +455,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//	printf("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -485,7 +485,7 @@ int CaptureBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if (SWAP_BE32(*currentWord) & bitMask) {
 			overlap = true;
 
-		//	printf("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord |= SWAP_BE32(bitMask);  /* set the bits in the bitmap */
@@ -577,7 +577,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//	printf("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(1) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
@@ -609,7 +609,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//	printf("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(2) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* clear the bits in the bitmap */
@@ -639,7 +639,7 @@ int ReleaseBitmapBits(UInt32 startBit, UInt32 bitCount)
 		if ((SWAP_BE32(*currentWord) & bitMask) != bitMask) {
 			overlap = true;
 
-		//	printf("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
+		//plog("(3) overlapping file blocks! word: 0x%08x, mask: 0x%08x\n", *currentWord, bitMask);
 		}
 		
 		*currentWord &= SWAP_BE32(~bitMask);  /* set the bits in the bitmap */
@@ -669,7 +669,7 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 {
 	UInt8 *vbmBlockP;
 	UInt32 *buffer;
-	UInt32 bit;
+	UInt64 bit;		/* 64-bit to avoid wrap around on volumes with 2^32 - 1 blocks */
 	UInt32 bitsWithinFileBlkMask;
 	UInt32 fileBlk;
 	BlockDescriptor block;
@@ -736,21 +736,48 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 			relOpt = kForceWriteBlock;
 		} else {
 #if _VBC_DEBUG_
-			int i;
+			int i, j;
+			UInt32 *disk_buffer;
+			UInt32 dummy, block_num;
 
-			printf("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
-			printf("  segment %d\nM ", bit / kBitsPerSegment);
+			/plog("  disk buffer + %d\n", (bit & bitsWithinFileBlkMask)/8);
+		plog("start block number for segment = %qu\n", bit);
+		plog("segment %qd\n", bit / kBitsPerSegment);
+
+		plog("Memory:\n");
 			for (i = 0; i < kWordsPerSegment; ++i) {
-				printf("0x%08x ", buffer[i]);
+			plog("0x%08x ", buffer[i]);
 				if ((i & 0x7) == 0x7)
-					printf("\n  ");
+				plog("\n");
 			}
-			buffer = (UInt32*) (vbmBlockP + (bit & bitsWithinFileBlkMask)/8);
-			printf("\nD ");
+
+			disk_buffer = (UInt32*) (vbmBlockP + (bit & bitsWithinFileBlkMask)/8);
+		plog("Disk:\n");
 			for (i = 0; i < kWordsPerSegment; ++i) {
-				printf("0x%08x ", buffer[i]);
+			plog("0x%08x ", disk_buffer[i]);
 				if ((i & 0x7) == 0x7)
-					printf("\n  ");
+				plog("\n");
+			}
+
+		plog ("\n");
+			for (i = 0; i < kWordsPerSegment; ++i) {
+				/* Compare each word in the segment */
+				if (buffer[i] != disk_buffer[i]) {
+					dummy = 0x80000000;
+					/* If two words are different, compare each bit in the word */
+					for (j = 0; j < kBitsPerWord; ++j) {
+						/* If two bits are different, calculate allocation block number */
+						if ((buffer[i] & dummy) != (disk_buffer[i] & dummy)) {
+							block_num = bit + (i * kBitsPerWord) + j;
+							if (buffer[i] & dummy) {
+							plog ("Allocation block %u should be marked used on disk.\n", block_num);
+							} else {
+							plog ("Allocation block %u should be marked free on disk.\n", block_num);
+							}
+						}
+						dummy = dummy >> 1;
+					}
+				}
 			}
 #endif
 			PrintError(g, E_VBMDamaged, 0);
@@ -1050,7 +1077,7 @@ static int
 BMS_DisposeTree(void)
 {
 	while(gBMS_PoolCount > 0)
-		free(gBMS_PoolList[gBMS_PoolCount--]);
+		free(gBMS_PoolList[--gBMS_PoolCount]);
 
 	gBMS_Root = gBMS_FreeNodes = 0;
 	return (0);
@@ -1241,7 +1268,7 @@ BMS_PrintTree(BMS_Node * root)
 {
 	if (root) {
 		BMS_PrintTree(root->left);
-		printf("seg %d\n", root->segment);
+	plog("seg %d\n", root->segment);
 		BMS_PrintTree(root->right);
 	}
 }

@@ -274,6 +274,12 @@ CPolicyGlobalXML::ConvertPropertyListPolicyToStruct( CFMutableDictionaryRef inPo
 	
 	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresMixedCase), &aBoolValue ) )
 		mGlobalPolicy.requiresMixedCase = aBoolValue;
+
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_requiresSymbol), &aBoolValue ) )
+		mGlobalPolicy.requiresSymbol = aBoolValue;
+	
+	if ( this->GetBooleanForKey( CFSTR(kPWPolicyStr_newPasswordRequired), &aBoolValue ) )
+		mGlobalPolicy.newPasswordRequired = aBoolValue;
 	
 	// notGuessablePattern
 	if ( CFDictionaryGetValueIfPresent( mPolicyDict, CFSTR(kPWPolicyStr_notGuessablePattern), (const void **)&valueRef ) &&
@@ -416,6 +422,12 @@ CPolicyGlobalXML::ConvertStructToPropertyListPolicy( void )
 		
 	aBoolVal = (mGlobalPolicy.requiresMixedCase != 0);
 	CFNumberRef requiresMixedCaseRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
+
+	aBoolVal = (mGlobalPolicy.requiresSymbol != 0);
+	CFNumberRef requiresSymbolRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
+
+	aBoolVal = (mGlobalPolicy.newPasswordRequired != 0);
+	CFNumberRef newPasswordRequiredRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberIntType, &aBoolVal );
 	
 	CFNumberRef notGuessablePatternRef = CFNumberCreate( kCFAllocatorDefault, kCFNumberLongType, &(mExtraGlobalPolicy.notGuessablePattern) );
 	
@@ -470,6 +482,18 @@ CPolicyGlobalXML::ConvertStructToPropertyListPolicy( void )
 	{
 		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_requiresMixedCase), requiresMixedCaseRef );
 		CFRelease( requiresMixedCaseRef );
+	}
+	
+	if ( requiresSymbolRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_requiresSymbol), requiresSymbolRef );
+		CFRelease( requiresSymbolRef );
+	}
+	
+	if ( newPasswordRequiredRef != NULL )
+	{
+		CFDictionaryAddValue( policyDict, CFSTR(kPWPolicyStr_newPasswordRequired), newPasswordRequiredRef );
+		CFRelease( newPasswordRequiredRef );
 	}
 	
 	if ( notGuessablePatternRef != NULL )

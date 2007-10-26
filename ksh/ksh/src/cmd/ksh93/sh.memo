@@ -419,7 +419,7 @@ determines that no other shell is using the history file.
 The number of commands accessible to the user is determined by the value of the
 \fB\s-1HISTSIZE\s+1\fP
 variable at the time the shell is invoked.
-The default value is 128.
+The default value is 256.
 Each command may consist of one or more lines since a compound
 command is considered one command.
 If the character

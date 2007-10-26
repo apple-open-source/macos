@@ -309,6 +309,12 @@ send_gdb "file $binfile\n"
 # But \[^\n\]* doesn't seem to work, so instead use the heuristic
 # that a filename won't contain a space and a warning message will.
 # But spaces following by backspaces aren't really spaces.
+
+# APPLE LOCAL: weird.exp has a zero-length text section/segment.  
+# An obj_section won't be created for it and so we'll get a warning
+# when we load the file.  The rest of the tests will succeed, though.
+setup_xfail "*-apple-darwin*"
+
 gdb_expect 60 {
     -re "^file (\[^ \]| +\008)*\r*\n" {
 	exp_continue
@@ -317,7 +323,7 @@ gdb_expect 60 {
 	send_gdb "y\n"
 	exp_continue
     }
-    -re "^Reading symbols from $binfile\\.\\.\\.done\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)\r\n$gdb_prompt $" {
+    -re "^Reading symbols from .*$binfile\\.\\.\\.done\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)\r\n$gdb_prompt $" {
 	pass "weirdx.o read without error"
     }
     -re ".*$gdb_prompt $" {

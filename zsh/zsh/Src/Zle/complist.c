@@ -36,7 +36,13 @@
  * type. */
 
 
+/*
+ * menu-select widget: used to test if it's already loaded.
+ */
 static Widget w_menuselect;
+/*
+ * Similarly for the menuselect and listscroll keymaps.
+ */
 static Keymap mskeymap, lskeymap;
 
 /* Indixes into the terminal string arrays. */
@@ -389,15 +395,94 @@ getcols(Listcols c)
 
 /* Information about the list shown. */
 
-static int noselect, mselect, inselect, mcol, mline, mcols, mlines, mmlen;
+/*
+ * noselect: 1 if complistmatches indicated we shouldn't do selection.
+ *           Tested in domenuselect.
+ * mselect:  Local copy of the index of the currently selected match.
+ *           Initialised to the gnum entry of the current match for
+ *           each completion.
+ * inselect: 1 if we already selecting matches; tested in complistmatches()
+ * mcol:     The column for the selected completion.  As we never scroll
+ *           horizontally this applies both the screen and the logical array.
+ * mline:    The line for the selected completion in the logical array of
+ *           all matches, not all of which may be on screen at once.
+ * mcols:    Local copy of columns used in sizing arrays. 
+ * mlines:   The number of lines in the logical array of all matches,
+ *           initialised from listdat.nlines.
+ */
+static int noselect, mselect, inselect, mcol, mline, mcols, mlines;
+/*
+ * selected: Used to signal between domenucomplete() and menuselect()
+ *           that a selected entry has been found.  Or something.
+ * mlbeg:    The first line of the logical array of all matches that
+ *           fits on screen.
+ * mlend:    The line after the last that fits on screen.
+ * mscroll:  1 if the scrolling prompt is shown on screen.
+ * mrestlines: The number of screen lines remaining to be processed.
+ */
 static int selected, mlbeg = -1, mlend = 9999999, mscroll, mrestlines;
+/*
+ * mnew: 1 if a new selection menu is being displayed.
+ * mlastcols: stored value of mcols for use in calculating mnew.
+ * mlastlines: stored value of mlines for use in calculating mnew.
+ * mhasstat: Indicates if the status line is present (but maybe not
+ *           yet printed).
+ * mfirstl: The first line of the logical array of all matches to
+ *          be shown on screen, -1 if this has not yet been determined.
+ * mlastm: The index of the selected match in some circumstances; used
+ *         if an explicit number for a match is passed to compprintfmt();
+ *         initialised from the total number of matches.  I realise this
+ *         isn't very illuminating.
+ */
 static int mnew, mlastcols, mlastlines, mhasstat, mfirstl, mlastm;
+/*
+ * mlprinted: Used to signal the number of additional lines printed
+ *            when outputting matches (as argument passing is a bit
+ *            screwy within the completion system).
+ * molbeg:    The last value of mlbeg; -1 if invalid, -42 if, er, very
+ *            invalid.  Used in calculations of how much to draw.
+ * mocol:     The last value of mcol.
+ * moline:    The last value of mline.
+ * mstatprinted: Indicates that the status line has now been printed,
+ *               c.f. mhasstat.
+ */
 static int mlprinted, molbeg = -2, mocol = 0, moline = 0, mstatprinted;
+/*
+ * mstatus: The message printed when scrolling.
+ * mlistp: The message printed when merely listing.
+ */
 static char *mstatus, *mlistp;
+/*
+ * mtab is the logical array of all matches referred to above.  It
+ * contains mcols*mlines entries.  These entries contain a pointer to
+ * the match structure which is in use at a particular point.  Note
+ * that for multiple line entries lines after the first contain NULL.
+ *
+ * mmtabp is a pointer to the selected entry in mtab.
+ */
 static Cmatch **mtab, **mmtabp;
+/*
+ * Used to indicate that the list has changed and needs redisplaying.
+ */
 static int mtab_been_reallocated;
+/*
+ * Array and pointer for the match group in exactly the same layout
+ * as mtab and mmtabp.
+ */
 static Cmgroup *mgtab, *mgtabp;
+/*
+ * Contains information about the colours to be used for entries.
+ * Sometimes mcolors is passed as an argument even though it's
+ * availabel to all the functions.
+ */
 static struct listcols mcolors;
+#ifdef DEBUG
+/*
+ * Allow us to keep track of pointer arithmetic for mgtab; could
+ * just as well have been for mtab but wasn't.
+ */
+int mgtabsize;
+#endif
 
 /* Used in mtab/mgtab, for explanations. */
 
@@ -536,7 +621,11 @@ clprintfmt(Listcols c, char *p, int ml)
 	if (ml == mlend - 1 && (cc % columns) == columns - 1)
 	    return 0;
 
-	putc(*p, shout);
+	if (*p == Meta) {
+	    p++;
+	    putc(*p ^ 32, shout);
+	} else
+	    putc(*p, shout);
 	if ((beg = !(cc % columns)))
 	    ml++;
 	if (mscroll && !(cc % columns) &&
@@ -548,44 +637,169 @@ clprintfmt(Listcols c, char *p, int ml)
     return 0;
 }
 
-/* Local version of nicezputs() with in-string colouring. */
+/*
+ * Local version of nicezputs() with in-string colouring
+ * and scrolling.
+ */
 
 static int
-clnicezputs(Listcols c, char *s, int ml)
+clnicezputs(Listcols colors, char *s, int ml)
 {
-    int cc, i = 0, col = 0, ask, oml = ml;
+    int i = 0, col = 0, ask, oml = ml;
     char *t;
+    ZLE_CHAR_T cc;
+#ifdef MULTIBYTE_SUPPORT
+    /*
+     * ums is the untokenized, unmetafied string (length umlen)
+     * uptr is a pointer into it
+     * sptr is the start of the nice character representation
+     * wptr is the point at which the wide character itself starts
+     *  (but may be the end of the string if the character was fully
+     *  prettified).
+     * ret is the return status from the conversion to a wide character
+     * umleft is the remaining length of the unmetafied string to output
+     * umlen is the full length of the unmetafied string
+     * width is the full printing width of a prettified character,
+     *  including both ASCII prettification and the wide character itself.
+     * mbs is the shift state of the conversion to wide characters.
+     */
+    char *ums, *uptr, *sptr, *wptr;
+    int umleft, umlen, eol = 0;
+    size_t width;
+    mbstate_t mbs;
 
-    initiscol(c);
+    memset(&mbs, 0, sizeof mbs);
+    ums = ztrdup(s);
+    untokenize(ums);
+    uptr = unmetafy(ums, &umlen);
+    umleft = umlen;
+
+    if (colors)
+	initiscol(colors);
+
+    mb_metacharinit();
+    while (umleft > 0) {
+	size_t cnt = eol ? MB_INVALID : mbrtowc(&cc, uptr, umleft, &mbs);
+
+	switch (cnt) {
+	case MB_INCOMPLETE:
+	    eol = 1;
+	    /* FALL THROUGH */
+	case MB_INVALID:
+	    /* This handles byte values that aren't valid wide-character
+	     * sequences. */
+	    sptr = nicechar(*uptr);
+	    /* everything here is ASCII... */
+	    width = strlen(sptr);
+	    wptr = sptr + width;
+	    cnt = 1;
+	    /* Get mbs out of its undefined state. */
+	    memset(&mbs, 0, sizeof mbs);
+	    break;
+	case 0:
+	    /* This handles a '\0' in the input (which is a real char
+	     * to us, not a terminator). */
+	    cnt = 1;
+	    /* FALL THROUGH */
+	default:
+	    sptr = wcs_nicechar(cc, &width, &wptr);
+	    break;
+	}
+
+	umleft -= cnt;
+	uptr += cnt;
+	if (colors) {
+	    /*
+	     * The code for the colo[u]ri[s/z]ation is obscure (surprised?)
+	     * but if we do it for every input character, as we do in
+	     * the simple case, we shouldn't go too far wrong.
+	     */
+	    while (cnt--)
+		doiscol(colors, i++);
+	}
+
+	/*
+	 * Loop over characters in the output of the nice
+	 * representation.  This will often correspond to one input
+	 * (possibly multibyte) character.
+	 */
+	for (t = sptr; *t; t++) {
+	    /* Input is metafied... */
+	    int nc = (*t == Meta) ? STOUC(*++t ^ 32) : STOUC(*t);
+	    /* Is the screen full? */
+	    if (ml == mlend - 1 && col == columns - 1) {
+		mlprinted = ml - oml;
+		return 0;
+	    }
+	    if (t < wptr) {
+		/* outputting ASCII, so single-width */
+		putc(nc, shout);
+		col++;
+		width--;
+	    } else {
+		/* outputting a single wide character, do the lot */
+		putc(nc, shout);
+		/* don't check column until finished */
+		if (t[1])
+		    continue;
+		/* now we've done the entire rest of the representation */
+		col += width;
+	    }
+	    /*
+	     * There might be problems with characters of printing width
+	     * greater than one here.
+	     */
+	    if (col > columns) {
+		ml++;
+		if (mscroll && !--mrestlines && (ask = asklistscroll(ml))) {
+		    mlprinted = ml - oml;
+		    return ask;
+		}
+		col -= columns;
+		if (colors)
+		    fputs(" \010", shout);
+	    }
+	}
+    }
+
+    free(ums);
+#else
+
+    if (colors)
+	initiscol(colors);
 
     while ((cc = *s++)) {
-	doiscol(c, i++);
+	if (colors)
+	    doiscol(colors, i++);
 	if (itok(cc)) {
 	    if (cc <= Comma)
 		cc = ztokens[cc - Pound];
-	    else 
+	    else
 		continue;
 	}
 	if (cc == Meta)
 	    cc = *s++ ^ 32;
 
 	for (t = nicechar(cc); *t; t++) {
+	    int nc = (*t == Meta) ? STOUC(*++t ^ 32) : STOUC(*t);
 	    if (ml == mlend - 1 && col == columns - 1) {
 		mlprinted = ml - oml;
 		return 0;
 	    }
-	    putc(*t, shout);
-	    if (++col == columns) {
+	    putc(nc, shout);
+	    if (++col > columns) {
 		ml++;
 		if (mscroll && !--mrestlines && (ask = asklistscroll(ml))) {
 		    mlprinted = ml - oml;
 		    return ask;
 		}
 		col = 0;
-                fputs(" \010", shout);
+		if (colors)
+		    fputs(" \010", shout);
 	    }
 	}
     }
+#endif
     mlprinted = ml - oml;
     return 0;
 }
@@ -601,7 +815,7 @@ putmatchcol(Listcols c, char *group, char *n)
 
     for (pc = c->pats; pc; pc = pc->next)
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
-	    pattryrefs(pc->pat, n, -1, 0, &nrefs, begpos, endpos)) {
+	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
 		patcols = pc->cols;
 
@@ -639,7 +853,7 @@ putfilecol(Listcols c, char *group, char *n, mode_t m)
 
     for (pc = c->pats; pc; pc = pc->next)
 	if ((!pc->prog || !group || pattry(pc->prog, group)) &&
-	    pattryrefs(pc->pat, n, -1, 0, &nrefs, begpos, endpos)) {
+	    pattryrefs(pc->pat, n, -1, -1, 0, &nrefs, begpos, endpos)) {
 	    if (pc->cols[1]) {
 		patcols = pc->cols;
 
@@ -713,7 +927,7 @@ asklistscroll(int ml)
     selectlocalmap(NULL);
     settyinfo(&shttyinfo);
     putc('\r', shout);
-    for (i = columns - 1; i--; )
+    for (i = columns - 1; i-- > 0; )
 	putc(' ', shout);
     putc('\r', shout);
 
@@ -760,71 +974,92 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 	} else
 	    fmt = mlistp;
     }
-    for (p = fmt; *p; p++) {
-	if (doesc && *p == '%') {
-	    if (*++p) {
+    MB_METACHARINIT();
+    for (p = fmt; *p; ) {
+	convchar_t cchar;
+	int len, width;
+
+	len = MB_METACHARLENCONV(p, &cchar);
+#ifdef MULTIBYTE_SUPPORT
+	if (cchar == WEOF) {
+	    cchar = (wchar_t)(*p == Meta ? p[1] ^ 32 : *p);
+	    width = 1;
+	}
+	else
+#endif
+	    width = WCWIDTH(cchar);
+
+	if (doesc && cchar == ZWC('%')) {
+	    p += len;
+	    if (*p) {
+		len = MB_METACHARLENCONV(p, &cchar);
+#ifdef MULTIBYTE_SUPPORT
+		if (cchar == WEOF)
+		    cchar = (wchar_t)(*p == Meta ? p[1] ^ 32 : *p);
+#endif
+		p += len;
+
 		m = 0;
-		switch (*p) {
-		case '%':
+		switch (cchar) {
+		case ZWC('%'):
 		    if (dopr == 1)
 			putc('%', shout);
 		    cc++;
 		    break;
-		case 'n':
+		case ZWC('n'):
 		    if (!stat) {
 			sprintf(nc, "%d", n);
 			if (dopr == 1)
 			    fputs(nc, shout);
+			/* everything here is ASCII... */
 			cc += strlen(nc);
 		    }
 		    break;
-		case 'B':
+		case ZWC('B'):
 		    b = 1;
 		    if (dopr)
 			tcout(TCBOLDFACEBEG);
 		    break;
-		case 'b':
+		case ZWC('b'):
 		    b = 0; m = 1;
 		    if (dopr)
 			tcout(TCALLATTRSOFF);
 		    break;
-		case 'S':
+		case ZWC('S'):
 		    s = 1;
 		    if (dopr)
 			tcout(TCSTANDOUTBEG);
 		    break;
-		case 's':
+		case ZWC('s'):
 		    s = 0; m = 1;
 		    if (dopr)
 			tcout(TCSTANDOUTEND);
 		    break;
-		case 'U':
+		case ZWC('U'):
 		    u = 1;
 		    if (dopr)
 			tcout(TCUNDERLINEBEG);
 		    break;
-		case 'u':
+		case ZWC('u'):
 		    u = 0; m = 1;
 		    if (dopr)
 			tcout(TCUNDERLINEEND);
 		    break;
-		case '{':
-		    for (p++; *p && (*p != '%' || p[1] != '}'); p++)
+		case ZWC('{'):
+		    for (; *p && (*p != '%' || p[1] != '}'); p++)
 			if (dopr)
-			    putc(*p, shout);
+			    putc(*p == Meta ? *++p ^ 32 : *p, shout);
 		    if (*p)
-			p++;
-		    else
-			p--;
+			p += 2;
 		    break;
-		case 'm':
+		case ZWC('m'):
 		    if (stat) {
 			sprintf(nc, "%d/%d", (n ? mlastm : mselect),
 				listdat.nlist);
 			m = 2;
 		    }
 		    break;
-		case 'M':
+		case ZWC('M'):
 		    if (stat) {
 			sprintf(nbuf, "%d/%d", (n ? mlastm : mselect),
 				listdat.nlist);
@@ -832,20 +1067,20 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 			m = 2;
 		    }
 		    break;
-		case 'l':
+		case ZWC('l'):
 		    if (stat) {
 			sprintf(nc, "%d/%d", ml + 1, listdat.nlines);
 			m = 2;
 		    }
 		    break;
-		case 'L':
+		case ZWC('L'):
 		    if (stat) {
 			sprintf(nbuf, "%d/%d", ml + 1, listdat.nlines);
 			sprintf(nc, "%-9s", nbuf);
 			m = 2;
 		    }
 		    break;
-		case 'p':
+		case ZWC('p'):
 		    if (stat) {
 			if (ml == listdat.nlines - 1)
 			    strcpy(nc, "Bottom");
@@ -857,7 +1092,7 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 			m = 2;
 		    }
 		    break;
-		case 'P':
+		case ZWC('P'):
 		    if (stat) {
 			if (ml == listdat.nlines - 1)
 			    strcpy(nc, "Bottom");
@@ -871,6 +1106,7 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 		    break;
 		}
 		if (m == 2 && dopr == 1) {
+		    /* nc only contains ASCII text */
 		    int l = strlen(nc);
 
 		    if (l + cc > columns - 2)
@@ -888,9 +1124,11 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 	    } else
 		break;
 	} else {
-	    if ((++cc == columns - 2 || *p == '\n') && stat)
+	    cc += width;
+
+	    if ((cc >= columns - 2 || cchar == ZWC('\n')) && stat)
 		dopr = 2;
-	    if (*p == '\n') {
+	    if (cchar == ZWC('\n')) {
 		if (dopr == 1 && mlbeg >= 0 && tccan(TCCLEAREOL))
 		    tcout(TCCLEAREOL);
 		l += 1 + ((cc - 1) / columns);
@@ -899,9 +1137,21 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 	    if (dopr == 1) {
 		if (ml == mlend - 1 && (cc % columns) == columns - 1) {
 		    dopr = 0;
+		    p += len;
 		    continue;
 		}
-		putc(*p, shout);
+		while (len--) {
+		    if (*p == Meta) {
+			len--;
+			p++;
+			putc(*p++ ^ 32, shout);
+		    } else
+			putc(*p++, shout);
+		}
+		/*
+		 * TODO: the following doesn't allow for
+		 * character widths greater than 1.
+		 */
 		if ((beg = !(cc % columns)) && !stat) {
 		    ml++;
                     fputs(" \010", shout);
@@ -910,9 +1160,12 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
 		    *stop = 1;
 		    if (stat && n)
 			mfirstl = -1;
-		    return (mlprinted = l + (cc / columns));
+		    mlprinted = l + (cc ? ((cc-1) / columns) : 0);
+		    return mlprinted;
 		}
 	    }
+	    else
+		p += len;
 	}
     }
     if (dopr) {
@@ -924,7 +1177,12 @@ compprintfmt(char *fmt, int n, int dopr, int doesc, int ml, int *stop)
     if (stat && n)
 	mfirstl = -1;
 
-    return (mlprinted = l + (cc / columns));
+    /*
+     * *Not* subtracting 1 from cc at this point appears to be
+     * correct.  C.f. printfmt in zle_tricky.c.
+     */
+    mlprinted = l + (cc / columns);
+    return mlprinted;
 }
 
 /* This is like zputs(), but allows scrolling. */
@@ -955,45 +1213,6 @@ compzputs(char const *s, int ml)
 	    col = 0;
 	}
     }
-    return 0;
-}
-
-/* This is like nicezputs(), but allows scrolling. */
-
-/**/
-static int
-compnicezputs(char *s, int ml)
-{
-    int c, col = 0, ask, oml = ml;
-    char *t;
-
-    while ((c = *s++)) {
-	if (itok(c)) {
-	    if (c <= Comma)
-		c = ztokens[c - Pound];
-	    else 
-		continue;
-	}
-	if (c == Meta)
-	    c = *s++ ^ 32;
-
-	for (t = nicechar(c); *t; t++) {
-	    if (ml == mlend - 1 && col == columns - 1) {
-		mlprinted = ml - oml;
-		return 0;
-	    }
-	    putc(*t, shout);
-	    if (++col == columns) {
-		ml++;
-		if (mscroll && !--mrestlines && (ask = asklistscroll(ml))) {
-		    mlprinted = ml - oml;
-		    return ask;
-		}
-		col = 0;
-	    }
-	}
-    }
-    mlprinted = ml - oml;
     return 0;
 }
 
@@ -1069,7 +1288,8 @@ compprintlist(int showall)
 		    if (mselect >= 0) {
 			int mm = (mcols * ml), i;
 
-			for (i = mcols; i--; ) {
+			for (i = mcols; i-- > 0; ) {
+			    DPUTS(mm+i >= mgtabsize, "BUG: invalid position");
 			    mtab[mm + i] = mtmark(NULL);
 			    mgtab[mm + i] = mgmark(NULL);
 			}
@@ -1363,6 +1583,9 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
     Cmatch m;
     int len, subcols = 0, stop = 0, ret = 0;
 
+    DPUTS2(mselect >= 0 && ml >= mlines,
+	   "clprintm called with ml too large (%d/%d)",
+	   ml, mlines);
     if (g != last_group)
         *last_cap = '\0';
 
@@ -1390,28 +1613,30 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	    int mm = (mcols * ml), i;
 
             if (m->flags & CMF_DUMMY) {
-                for (i = mcols; i--; ) {
+                for (i = mcols; i-- > 0; ) {
+		    DPUTS(mm+i >= mgtabsize, "BUG: invalid position");
                     mtab[mm + i] = mtmark(mp);
                     mgtab[mm + i] = mgmark(g);
                 }
             } else {
-                for (i = mcols; i--; ) {
+                for (i = mcols; i-- > 0; ) {
+		    DPUTS(mm+i >= mgtabsize, "BUG: invalid position");
                     mtab[mm + i] = mp;
                     mgtab[mm + i] = g;
                 }
             }
 	}
 	if (!dolist(ml)) {
-	    mlprinted = printfmt(m->disp, 0, 0, 0) / columns;
+	    mlprinted = printfmt(m->disp, 0, 0, 0);
 	    return 0;
 	}
 	if (m->gnum == mselect) {
 	    int mm = (mcols * ml);
+	    DPUTS(mm >= mgtabsize, "BUG: invalid position");
 	    mline = ml;
 	    mcol = 0;
 	    mmtabp = mtab + mm;
 	    mgtabp = mgtab + mm;
-	    mmlen = mcols;
 	    zcputs(&mcolors, g->name, COL_MA);
 	} else if ((m->flags & CMF_NOLIST) &&
                    mcolors.files[COL_HI] && mcolors.files[COL_HI]->col)
@@ -1444,29 +1669,35 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	    int mm = mcols * ml, i;
 
             if (m->flags & CMF_DUMMY) {
-                for (i = (width ? width : mcols); i--; ) {
+                for (i = (width ? width : mcols); i-- > 0; ) {
+		    DPUTS(mx+mm+i >= mgtabsize, "BUG: invalid position");
                     mtab[mx + mm + i] = mtmark(mp);
                     mgtab[mx + mm + i] = mgmark(g);
                 }
             } else {
-                for (i = (width ? width : mcols); i--; ) {
+                for (i = (width ? width : mcols); i-- > 0; ) {
+		    DPUTS(mx+mm+i >= mgtabsize, "BUG: invalid position");
                     mtab[mx + mm + i] = mp;
                     mgtab[mx + mm + i] = g;
                 }
             }
 	}
 	if (!dolist(ml)) {
-	    mlprinted = niceztrlen(m->disp ? m->disp : m->str) / columns;
+	    int nc = ZMB_nicewidth(m->disp ? m->disp : m->str);
+	    if (nc)
+		mlprinted = (nc-1) / columns;
+	    else
+		mlprinted = 0;
 	    return 0;
 	}
 	if (m->gnum == mselect) {
 	    int mm = mcols * ml;
+	    DPUTS(mx+mm >= mgtabsize, "BUG: invalid position");
 
 	    mcol = mx;
 	    mline = ml;
 	    mmtabp = mtab + mx + mm;
 	    mgtabp = mgtab + mx + mm;
-	    mmlen = width;
 	    zcputs(&mcolors, g->name, COL_MA);
 	} else if (m->flags & CMF_NOLIST)
 	    zcputs(&mcolors, g->name, COL_HI);
@@ -1477,16 +1708,14 @@ clprintm(Cmgroup g, Cmatch *mp, int mc, int ml, int lastc, int width)
 	else
 	    subcols = putmatchcol(&mcolors, g->name, (m->disp ? m->disp : m->str));
 
-	if (subcols)
-	    ret = clnicezputs(&mcolors, (m->disp ? m->disp : m->str), ml);
-	else
-	    ret = compnicezputs((m->disp ? m->disp : m->str), ml);
+	ret = clnicezputs(subcols ? &mcolors : NULL,
+			  (m->disp ? m->disp : m->str), ml);
 	if (ret) {
 	    zcoff();
 	    return 1;
 	}
-	len = niceztrlen(m->disp ? m->disp : m->str);
-	mlprinted = len / columns;
+	len = ZMB_nicewidth(m->disp ? m->disp : m->str);
+	mlprinted = len ? (len-1) / columns : 0;
 
 	if ((g->flags & CGF_FILES) && m->modec) {
 	    if (m->gnum != mselect) {
@@ -1560,18 +1789,24 @@ singledraw()
         tc_downcurs(md1);
     if (mc1)
         tcmultout(TCRIGHT, TCMULTRIGHT, mc1);
+    DPUTS(ml1 * columns + mc1 >= mgtabsize, "BUG: invalid position");
     g = mgtab[ml1 * columns + mc1];
     clprintm(g, mtab[ml1 * columns + mc1], mcc1, ml1, lc1,
              (g->widths ? g->widths[mcc1] : g->width));
+    if (mlprinted)
+	(void) tcmultout(TCUP, TCMULTUP, mlprinted);
     putc('\r', shout);
 
     if (md2 != md1)
         tc_downcurs(md2 - md1);
     if (mc2)
         tcmultout(TCRIGHT, TCMULTRIGHT, mc2);
+    DPUTS(ml2 * columns + mc2 >= mgtabsize, "BUG: invalid position");
     g = mgtab[ml2 * columns + mc2];
     clprintm(g, mtab[ml2 * columns + mc2], mcc2, ml2, lc2,
              (g->widths ? g->widths[mcc2] : g->width));
+    if (mlprinted)
+	(void) tcmultout(TCUP, TCMULTUP, mlprinted);
     putc('\r', shout);
 
     if (mstatprinted) {
@@ -1666,6 +1901,9 @@ complistmatches(UNUSED(Hookdef dummy), Chdata dat)
 	memset(mtab, 0, i * sizeof(Cmatch **));
 	free(mgtab);
 	mgtab = (Cmgroup *) zalloc(i * sizeof(Cmgroup));
+#ifdef DEBUG
+	mgtabsize = i;
+#endif
 	memset(mgtab, 0, i * sizeof(Cmgroup));
 	mlastcols = mcols = columns;
 	mlastlines = mlines = listdat.nlines;
@@ -1771,28 +2009,30 @@ setmstatus(char *status, char *sline, int sll, int scs,
     char *p, *s, *ret = NULL;
     int pl, sl, max;
 
+    METACHECK();
+
     if (csp) {
-        *csp = cs;
-        *llp = ll;
+        *csp = zlemetacs;
+        *llp = zlemetall;
         *lenp = lastend - wb;
 
-        ret = dupstring((char *) line);
+        ret = dupstring(zlemetaline);
 
-        p = (char *) zhalloc(cs - wb + 1);
-        strncpy(p, (char *) line + wb, cs - wb);
-        p[cs - wb] = '\0';
-        if (lastend < cs)
+        p = (char *) zhalloc(zlemetacs - wb + 1);
+        strncpy(p, zlemetaline + wb, zlemetacs - wb);
+        p[zlemetacs - wb] = '\0';
+        if (lastend < zlemetacs)
             s = "";
         else {
-            s = (char *) zhalloc(lastend - cs + 1);
-            strncpy(s, (char *) line + cs, lastend - cs);
-            s[lastend - cs] = '\0';
+            s = (char *) zhalloc(lastend - zlemetacs + 1);
+            strncpy(s, zlemetaline + zlemetacs, lastend - zlemetacs);
+            s[lastend - zlemetacs] = '\0';
         }
-        cs = 0;
-        foredel(ll);
+        zlemetacs = 0;
+        foredel(zlemetall);
         spaceinline(sll);
-        memcpy(line, sline, sll);
-        cs = scs;
+        memcpy(zlemetaline, sline, sll);
+        zlemetacs = scs;
     } else {
         p = complastprefix;
         s = complastsuffix;
@@ -1845,6 +2085,9 @@ msearchpop(int *backp)
 {
     Menusearch s = msearchstack;
 
+    if (!s)
+        return NULL;
+
     if (s->prev)
         msearchstack = s->prev;
 
@@ -1861,7 +2104,12 @@ msearchpop(int *backp)
 static Cmatch **
 msearch(Cmatch **ptr, int ins, int back, int rep, int *wrapp)
 {
+#ifdef MULTIBYTE_SUPPORT
+    /* MB_CUR_MAX may not be constant */
+    VARARR(char, s, MB_CUR_MAX+1);
+#else
     char s[2];
+#endif
     Cmatch **p, *l = NULL, m;
     int x = mcol, y = mline;
     int ex, ey, wrap = 0, owrap = (msearchstate & MS_WRAPPED);
@@ -1869,8 +2117,23 @@ msearch(Cmatch **ptr, int ins, int back, int rep, int *wrapp)
     msearchpush(ptr, back);
 
     if (ins) {
-        s[0] = lastchar;
-        s[1] = '\0';
+#ifdef MULTIBYTE_SUPPORT
+	if (lastchar_wide_valid)
+	{
+	    mbstate_t mbs;
+	    int len;
+
+	    memset(&mbs, 0, sizeof(mbs));
+	    len = wcrtomb(s, lastchar_wide, &mbs);
+	    if (len < 0)
+		len = 0;
+	    s[len] = '\0';
+	} else
+#endif
+	{
+	    s[0] = lastchar;
+	    s[1] = '\0';
+	}
 
         msearchstr = dyncat(msearchstr, s);
     }
@@ -1954,7 +2217,7 @@ domenuselect(Hookdef dummy, Chdata dat)
     Menustack u = NULL;
     int i = 0, acc = 0, wishcol = 0, setwish = 0, oe = onlyexpl, wasnext = 0;
     int space, lbeg = 0, step = 1, wrap, pl = nlnct, broken = 0, first = 1;
-    int nolist = 0, mode = 0, modecs, modell, modelen;
+    int nolist = 0, mode = 0, modecs, modell, modelen, wasmeta;
     char *s;
     char status[MAX_STATUS], *modeline = NULL;
 
@@ -1974,6 +2237,23 @@ domenuselect(Hookdef dummy, Chdata dat)
 	unqueue_signals();
 	return 0;
     }
+    /*
+     * Lots of the logic here doesn't really make sense if the
+     * line isn't metafied, but the evidence was that only used
+     * to be metafied locally in a couple of places.
+     * It's horrifically difficult to work out where the line
+     * is metafied, so I've resorted to the following.
+     * Unfortunately we need to unmetatfy in zrefresh() when
+     * we want to display something.  Maybe this function can
+     * be done better.
+     */
+    if (zlemetaline != NULL)
+	wasmeta = 1;
+    else {
+	wasmeta = 0;
+	metafy_line();
+    }
+    
     if ((s = getsparam("MENUSCROLL"))) {
 	if (!(step = mathevali(s)))
 	    step = (lines - nlnct) >> 1;
@@ -1994,11 +2274,11 @@ domenuselect(Hookdef dummy, Chdata dat)
 	     * was before completion started.
 	     */
             mode = MM_INTER;
-            cs = 0;
-            foredel(ll);
+            zlemetacs = 0;
+            foredel(zlemetall);
             spaceinline(l);
-            strncpy((char *) line, origline, l);
-            cs = origcs;
+            strncpy(zlemetaline, origline, l);
+            zlemetacs = origcs;
             setmstatus(status, NULL, 0 , 0, NULL, NULL, NULL);
         } else if (strpfx("search", s)) {
             mode = (strstr(s, "back") ? MM_BSEARCH : MM_FSEARCH);
@@ -2024,13 +2304,15 @@ domenuselect(Hookdef dummy, Chdata dat)
     mlbeg = 0;
     molbeg = -42;
     for (;;) {
+	METACHECK();
+
     	mtab_been_reallocated = 0;
 	if (mline < 0) {
 	    int x, y;
 	    Cmatch **p = mtab;
 
 	    for (y = 0; y < mlines; y++) {
-		for (x = mcols; x; x--, p++)
+		for (x = mcols; x > 0; x--, p++)
 		    if (*p && !mmarked(*p) && **p && mselect == (**p)->gnum)
 			break;
 		if (x) {
@@ -2041,16 +2323,22 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    if (y < mlines)
 		mline = y;
 	}
+	DPUTS(mline < 0,
+	      "BUG: mline < 0 after re-scanning mtab in domenuselect()");
 	while (mline < mlbeg)
-	    if ((mlbeg -= step) < 0)
+	    if ((mlbeg -= step) < 0) {
 		mlbeg = 0;
+		/* Crude workaround for BUG above */
+		if (mline < 0)
+		    break;
+	    }
 
 	if (mlbeg && lbeg != mlbeg) {
 	    Cmatch **p = mtab + ((mlbeg - 1) * columns), **q;
 	    int c;
 
 	    while (mlbeg) {
-		for (q = p, c = columns; c; q++, c--)
+		for (q = p, c = columns; c > 0; q++, c--)
 		    if (*q && !mmarked(*q))
 			break;
 		if (c)
@@ -2068,7 +2356,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    int c;
 
 	    while (mlbeg < mlines) {
-		for (q = p, c = columns; c; q++, c--)
+		for (q = p, c = columns; c > 0; q++, c--)
 		    if (*q)
 			break;
 		if (c)
@@ -2092,16 +2380,15 @@ domenuselect(Hookdef dummy, Chdata dat)
 	     * completion we don't want that, we always want to
 	     * be able to type the next character.
 	     */
-	    modeline = dupstring(line);
-            modecs = cs;
-            modell = ll;
+	    modeline = dupstring(zlemetaline);
+            modecs = zlemetacs;
+            modell = zlemetall;
             modelen = minfo.len;
         }
         first = 0;
-        if (mode == MM_INTER) {
-            statusline = status;
-            statusll = strlen(status);
-        } else if (mode) {
+        if (mode == MM_INTER)
+	    statusline = stringaszleline(status, 0, &statusll, NULL, NULL);
+        else if (mode) {
             int l = sprintf(status, "%s%sisearch%s: ",
                             ((msearchstate & MS_FAILED) ? "failed " : ""),
                             ((msearchstate & MS_WRAPPED) ? "wrapped " : ""),
@@ -2109,15 +2396,17 @@ domenuselect(Hookdef dummy, Chdata dat)
 
             strncat(status, msearchstr, MAX_STATUS - l - 1);
 
-            statusline = status;
-            statusll = strlen(status);
+            statusline = stringaszleline(status, 0, &statusll, NULL, NULL);
         } else {
             statusline = NULL;
             statusll = 0;
         }
         zrefresh();
-        statusline = NULL;
-        statusll = 0;
+	if (statusline) {
+	    free(statusline);
+	    statusline = NULL;
+	    statusll = 0;
+	}
         inselect = 1;
         if (noselect) {
             broken = 1;
@@ -2188,11 +2477,11 @@ domenuselect(Hookdef dummy, Chdata dat)
 		 * start.
 		 */
                 mode = MM_INTER;
-                cs = 0;
-                foredel(ll);
+                zlemetacs = 0;
+                foredel(zlemetall);
                 spaceinline(l);
-                strncpy((char *) line, origline, l);
-                cs = origcs;
+                strncpy(zlemetaline, origline, l);
+                zlemetacs = origcs;
                 setmstatus(status, NULL, 0, 0, NULL, NULL, NULL);
 
                 continue;
@@ -2207,8 +2496,8 @@ domenuselect(Hookdef dummy, Chdata dat)
 
 	    s->prev = u;
 	    u = s;
-	    s->line = dupstring((char *) line);
-	    s->cs = cs;
+	    s->line = dupstring(zlemetaline);
+	    s->cs = zlemetacs;
 	    s->mline = mline;
 	    s->mlbeg = mlbeg;
 	    memcpy(&(s->info), &minfo, sizeof(struct menuinfo));
@@ -2247,25 +2536,28 @@ domenuselect(Hookdef dummy, Chdata dat)
 		 * the command line as it is with just the
 		 * characters typed by the user.
 		 */
-                cs = 0;
-                foredel(ll);
+                zlemetacs = 0;
+                foredel(zlemetall);
                 spaceinline(l);
-                strncpy((char *) line, origline, l);
-                cs = origcs;
+                strncpy(zlemetaline, origline, l);
+                zlemetacs = origcs;
 
                 if (cmd == Th(z_selfinsert))
                     selfinsert(zlenoargs);
                 else
                     selfinsertunmeta(zlenoargs);
 
-                saveline = (char *) zhalloc(ll);
-                memcpy(saveline, line, ll);
-                savell = ll;
-                savecs = cs;
+                saveline = (char *) zhalloc(zlemetall);
+                memcpy(saveline, zlemetaline, zlemetall);
+                savell = zlemetall;
+                savecs = zlemetacs;
                 iforcemenu = -1;
             } else
                 mode = 0;
+	    /* Nested completion assumes line is unmetafied */
+	    unmetafy_line();
 	    menucomplete(zlenoargs);
+	    metafy_line();
 	    iforcemenu = 0;
 
             if (cmd != Th(z_acceptandinfernexthistory))
@@ -2275,9 +2567,13 @@ domenuselect(Hookdef dummy, Chdata dat)
 	    if (nmatches < 1 || !minfo.cur || !*(minfo.cur)) {
 		nolist = 1;
                 if (mode == MM_INTER) {
-                    statusline = status;
-                    statusll = strlen(status);
-                }
+                    statusline = stringaszleline(status, 0,
+						 &statusll, NULL, NULL);
+                } else {
+		    /* paranoia */
+		    statusline = NULL;
+		    statusll = 0;
+		}
 		if (nmessages) {
 		    showinglist = -2;
 		    zrefresh();
@@ -2294,8 +2590,11 @@ domenuselect(Hookdef dummy, Chdata dat)
 		    zrefresh();
 		    showinglist = clearlist = 0;
 		}
-                statusline = NULL;
-                statusll = 0;
+		if (statusline) {
+		    free(statusline);
+		    statusline = NULL;
+		    statusll = 0;
+		}
 
 		goto getk;
 	    }
@@ -2313,8 +2612,8 @@ domenuselect(Hookdef dummy, Chdata dat)
             mode = 0;
 	    s->prev = u;
 	    u = s;
-	    s->line = dupstring((char *) line);
-	    s->cs = cs;
+	    s->line = dupstring(zlemetaline);
+	    s->cs = zlemetacs;
 	    s->mline = mline;
 	    s->mlbeg = mlbeg;
 	    memcpy(&(s->info), &minfo, sizeof(struct menuinfo));
@@ -2368,11 +2667,11 @@ domenuselect(Hookdef dummy, Chdata dat)
 		break;
 
 	    handleundo();
-	    cs = 0;
-	    foredel(ll);
+	    zlemetacs = 0;
+	    foredel(zlemetall);
 	    spaceinline(l = strlen(u->line));
-	    strncpy((char *) line, u->line, l);
-	    cs = u->cs;
+	    strncpy(zlemetaline, u->line, l);
+	    zlemetacs = u->cs;
 	    menuacc = u->acc;
 	    memcpy(&minfo, &(u->info), sizeof(struct menuinfo));
 	    p = &(minfo.cur);
@@ -2409,12 +2708,19 @@ domenuselect(Hookdef dummy, Chdata dat)
 
             if (nolist) {
                 if (mode == MM_INTER) {
-                    statusline = status;
-                    statusll = strlen(status);
-                }
+                    statusline = stringaszleline(status, 0,
+						 &statusll, NULL, NULL);
+                } else {
+		    /* paranoia */
+		    statusline = NULL;
+		    statusll = 0;
+		}
                 zrefresh();
-                statusline = NULL;
-                statusll = 0;
+		if (statusline) {
+		    free(statusline);
+		    statusline = NULL;
+		    statusll = 0;
+		}
                 goto getk;
             }
             if (mode)
@@ -2750,11 +3056,11 @@ domenuselect(Hookdef dummy, Chdata dat)
                 origline = modeline;
                 origcs = modecs;
                 origll = modell;
-                cs = 0;
-                foredel(ll);
+                zlemetacs = 0;
+                foredel(zlemetall);
                 spaceinline(origll);
-                strncpy((char *) line, origline, origll);
-                cs = origcs;
+                strncpy(zlemetaline, origline, origll);
+                zlemetacs = origcs;
                 minfo.len = modelen;
             } else {
                 mode = 0;
@@ -2802,9 +3108,7 @@ domenuselect(Hookdef dummy, Chdata dat)
                     }
                 }
                 if (cmd == Th(z_selfinsertunmeta)) {
-                    lastchar &= 0x7f;
-                    if (lastchar == '\r')
-                        lastchar = '\n';
+		    fixunmeta();
                 }
                 wrap = 0;
                 np = msearch(p, ins, (ins ? (mode == MM_BSEARCH) : back),
@@ -2828,7 +3132,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 
         } else if ((mode == MM_FSEARCH || mode == MM_BSEARCH) &&
                    cmd == Th(z_backwarddeletechar)) {
-            int back;
+            int back = 1;
             Cmatch **np = msearchpop(&back);
 
             mode = (back ? MM_BSEARCH : MM_FSEARCH);
@@ -2849,9 +3153,7 @@ domenuselect(Hookdef dummy, Chdata dat)
 		acc = 1;
 	    break;
 	}
-	metafy_line();
 	do_single(**p);
-	unmetafy_line();
 	mselect = (**p)->gnum;
     }
     if (u)
@@ -2867,9 +3169,7 @@ domenuselect(Hookdef dummy, Chdata dat)
         clearlist = listshown = 1;
     if (acc && validlist && minfo.cur) {
 	menucmp = lastambig = hasoldlist = 0;
-	metafy_line();
 	do_single(*(minfo.cur));
-	unmetafy_line();
     }
     if (wasnext || broken) {
 	menucmp = 2;
@@ -2891,6 +3191,9 @@ domenuselect(Hookdef dummy, Chdata dat)
     }
     mlbeg = -1;
     fdat = NULL;
+
+    if (!wasmeta)
+	unmetafy_line();
 
     return (broken == 2 ? 3 :
 	    ((dat && !broken) ? (acc ? 1 : 2) : (!noselect ^ acc)));
@@ -2935,8 +3238,7 @@ boot_(Module m)
     w_menuselect = addzlefunction("menu-select", menuselect,
                                     ZLE_MENUCMP|ZLE_KEEPSUFFIX|ZLE_ISCOMP);
     if (!w_menuselect) {
-	zwarnnam(m->nam, "name clash when adding ZLE function `menu-select'",
-		 NULL, 0);
+	zwarnnam(m->nam, "name clash when adding ZLE function `menu-select'");
 	return -1;
     }
     addhookfunc("comp_list_matches", (Hookfn) complistmatches);

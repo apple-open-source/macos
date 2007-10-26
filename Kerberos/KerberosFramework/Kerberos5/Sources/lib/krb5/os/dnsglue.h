@@ -43,9 +43,9 @@
 #ifndef KRB5_DNSGLUE_H
 #define KRB5_DNSGLUE_H
 
+#include "autoconf.h"
 #ifdef KRB5_DNS_LOOKUP
 
-#define NEED_SOCKETS
 #include "k5-int.h"
 #include "os-proto.h"
 #ifdef WSHELPER

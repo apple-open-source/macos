@@ -281,8 +281,8 @@ bsdp_msgtype_names(bsdp_msgtype_t type)
  *   requests and "AAPLBSDPC" for server-generated responses.
  */
 static __inline__ boolean_t
-bsdp_parse_class_id(void * buf, int buf_len, unsigned char * arch, 
-		    unsigned char * sysid)
+bsdp_parse_class_id(void * buf, int buf_len, char * arch, 
+		    char * sysid)
 {
     int		len;
     u_char * 	scan;
@@ -303,15 +303,30 @@ bsdp_parse_class_id(void * buf, int buf_len, unsigned char * arch,
 	return (FALSE);
 
     for (scan++, buf_len--; buf_len && *scan != '/'; scan++, buf_len--) {
+	switch (*scan) {
+	case '\n':
+	case '\0':
+	    return (FALSE);
+	default:
+	    break;
+	}
 	*arch++ = *scan;
     }
     *arch = '\0';
-    if (*scan == '/') {
-	for (scan++, buf_len--; buf_len; scan++, buf_len--) {
-	    *sysid++ = *scan;
-	}
-	*sysid = '\0';
+    if (*scan != '/') {
+	return (FALSE);
     }
+    for (scan++, buf_len--; buf_len; scan++, buf_len--) {
+	switch (*scan) {
+	case '\n':
+	case '\0':
+	    return (FALSE);
+	default:
+	    break;
+	}
+	*sysid++ = *scan;
+    }
+    *sysid = '\0';
     return (TRUE);
 }
 

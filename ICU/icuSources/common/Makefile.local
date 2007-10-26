@@ -1,0 +1,17 @@
+#******************************************************************************
+#
+#   Copyright (c) 2006-2007, Apple Inc.
+#   All Rights Reserved.
+#
+#******************************************************************************
+## Makefile.local for Apple Inc.
+
+ifeq "$(WINDOWS)" "YES"
+else ifeq "$(MINIMAL)" "YES"
+else
+	OBJECTS += rbtok.o urbtok.o aaplbfct.o
+	
+	STATIC_OBJECT += rbtok.$(STATIC_O) urbtok.$(STATIC_O) aaplbfct.$(STATIC_O)
+	
+	DEPS += rbtok.d urbtok.d aaplbfct.d
+endif

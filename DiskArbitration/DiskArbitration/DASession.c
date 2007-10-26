@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,13 +25,14 @@
 
 #include "DADisk.h"
 #include "DAInternal.h"
-#include "DAServerUser.h"
+#include "DAServer.h"
 
 #include <crt_externs.h>
 #include <libgen.h>
+#include <pthread.h>
+#include <unistd.h>
 #include <mach/mach.h>
 #include <mach-o/dyld.h>
-#include <unistd.h>
 #include <servers/bootstrap.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -40,10 +41,11 @@
 struct __DASession
 {
     CFRuntimeBase      _base;
+
+    AuthorizationRef   _authorization;
     CFMachPortRef      _client;
     char *             _name;
     pid_t              _pid;
-    AuthorizationRef   _rights;
     mach_port_t        _server;
     CFRunLoopSourceRef _source;
 };
@@ -70,6 +72,8 @@ static const CFRuntimeClass __DASessionClass =
 };
 
 static CFTypeID __kDASessionTypeID = _kCFRuntimeNotATypeID;
+
+static pthread_mutex_t __gDASessionSetAuthorizationLock = PTHREAD_MUTEX_INITIALIZER;
 
 const CFStringRef kDAApprovalRunLoopMode = CFSTR( "kDAApprovalRunLoopMode" );
 
@@ -116,12 +120,12 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
 
     if ( session )
     {
-        session->_client = NULL;
-        session->_name   = NULL;
-        session->_pid    = 0;
-        session->_rights = NULL;
-        session->_server = MACH_PORT_NULL;
-        session->_source = NULL;
+        session->_authorization = NULL;
+        session->_client        = NULL;
+        session->_name          = NULL;
+        session->_pid           = 0;
+        session->_server        = MACH_PORT_NULL;
+        session->_source        = NULL;
     }
 
     return session;
@@ -131,12 +135,12 @@ static void __DASessionDeallocate( CFTypeRef object )
 {
     DASessionRef session = ( DASessionRef ) object;
 
-    if ( session->_client )  CFMachPortInvalidate( session->_client );
-    if ( session->_client )  CFRelease( session->_client );
-    if ( session->_name   )  free( session->_name );
-    if ( session->_rights )  AuthorizationFree( session->_rights, kAuthorizationFlagDefaults );
-    if ( session->_server )  mach_port_deallocate( mach_task_self( ), session->_server );
-    if ( session->_source )  CFRelease( session->_source );
+    if ( session->_authorization )  AuthorizationFree( session->_authorization, kAuthorizationFlagDefaults );
+    if ( session->_client        )  CFMachPortInvalidate( session->_client );
+    if ( session->_client        )  CFRelease( session->_client );
+    if ( session->_name          )  free( session->_name );
+    if ( session->_server        )  mach_port_deallocate( mach_task_self( ), session->_server );
+    if ( session->_source        )  CFRelease( session->_source );
 }
 
 static Boolean __DASessionEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -190,8 +194,8 @@ __private_extern__ void _DASessionCallback( CFMachPortRef port, void * message, 
                     CFTypeRef argument0;
                     CFTypeRef argument1;
 
-                    address = ( void * ) ( vm_offset_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
-                    context = ( void * ) ( vm_offset_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
+                    address = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackAddressKey );
+                    context = ( void * ) ( uintptr_t ) ___CFDictionaryGetIntegerValue( callback, _kDACallbackContextKey );
 
                     argument0 = CFDictionaryGetValue( callback, _kDACallbackArgument0Key );
                     argument1 = CFDictionaryGetValue( callback, _kDACallbackArgument1Key );
@@ -207,6 +211,54 @@ __private_extern__ void _DASessionCallback( CFMachPortRef port, void * message, 
     }
 }
 
+__private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session )
+{
+    AuthorizationRef authorization;
+
+    pthread_mutex_lock( &__gDASessionSetAuthorizationLock );
+
+    authorization = session->_authorization;
+
+    if ( authorization == NULL )
+    {
+        kern_return_t status;
+
+        /*
+         * Create the session's authorization reference.
+         */
+
+        status = AuthorizationCreate( NULL, NULL, kAuthorizationFlagDefaults, &authorization );
+
+        if ( status == errAuthorizationSuccess )
+        {
+            AuthorizationExternalForm _authorization;
+
+            /*
+             * Create the session's authorization reference representation.
+             */
+
+            status = AuthorizationMakeExternalForm( authorization, &_authorization );
+
+            if ( status == errAuthorizationSuccess )
+            {
+                _DAServerSessionSetAuthorization( session->_server, _authorization );
+
+                session->_authorization = authorization;
+            }
+            else
+            {
+                AuthorizationFree( authorization, kAuthorizationFlagDefaults );
+
+                authorization = NULL;
+            }
+        }
+    }
+
+    pthread_mutex_unlock( &__gDASessionSetAuthorizationLock );
+
+    return authorization;
+}
+
 __private_extern__ mach_port_t _DASessionGetClientPort( DASessionRef session )
 {
     return CFMachPortGetPort( session->_client );
@@ -215,11 +267,6 @@ __private_extern__ mach_port_t _DASessionGetClientPort( DASessionRef session )
 __private_extern__ mach_port_t _DASessionGetID( DASessionRef session )
 {
     return session->_server;
-}
-
-__private_extern__ AuthorizationRef _DASessionGetRights( DASessionRef session )
-{
-    return session->_rights;
 }
 
 __private_extern__ void _DASessionInitialize( void )
@@ -253,9 +300,7 @@ void DAApprovalSessionUnscheduleFromRunLoop( DAApprovalSessionRef session, CFRun
 
 DASessionRef DASessionCreate( CFAllocatorRef allocator )
 {
-    mach_port_t   bootstrapPort;
-    mach_port_t   masterPort;
-    kern_return_t status;
+    DASessionRef session;
 
     /*
      * Initialize the Disk Arbitration framework.
@@ -264,156 +309,116 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
     _DAInitialize( );
     
     /*
-     * Obtain the bootstrap port.
+     * Create the session.
      */
 
-    status = task_get_bootstrap_port( mach_task_self( ), &bootstrapPort );
+    session = __DASessionCreate( allocator );
 
-    if ( status == KERN_SUCCESS )
+    if ( session )
     {
+        CFMachPortRef     client;
+        CFMachPortContext clientContext;
+
+        clientContext.version         = 0;
+        clientContext.info            = session;
+        clientContext.retain          = NULL;
+        clientContext.release         = NULL;
+        clientContext.copyDescription = NULL;
+
         /*
-         * Obtain the Disk Arbitration master port.
+         * Create the session's client port.
          */
 
-        status = bootstrap_look_up( bootstrapPort, _kDAServiceName, &masterPort );
+        client = CFMachPortCreate( allocator, _DASessionCallback, &clientContext, NULL );
 
-        if ( status == KERN_SUCCESS )
+        if ( client )
         {
-            DASessionRef session;
+            CFRunLoopSourceRef source;
 
             /*
-             * Create the session.
+             * Create the session's client port run loop source.
              */
 
-            session = __DASessionCreate( allocator );
+            source = CFMachPortCreateRunLoopSource( allocator, client, 0 );
 
-            if ( session )
+            if ( source )
             {
-                CFMachPortRef     client;
-                CFMachPortContext clientContext;
+                mach_port_limits_t limits = { 0 };
+                kern_return_t      status;
 
-                clientContext.version         = 0;
-                clientContext.info            = session;
-                clientContext.retain          = NULL;
-                clientContext.release         = NULL;
-                clientContext.copyDescription = NULL;
+                limits.mpl_qlimit = 1;
 
                 /*
-                 * Create the session's client port.
+                 * Set up the session's client port.
                  */
 
-                client = CFMachPortCreate( allocator, _DASessionCallback, &clientContext, NULL );
+                status = mach_port_set_attributes( mach_task_self( ),
+                                                   CFMachPortGetPort( client ),
+                                                   MACH_PORT_LIMITS_INFO,
+                                                   ( mach_port_info_t ) &limits,
+                                                   MACH_PORT_LIMITS_INFO_COUNT );
 
-                if ( client )
+                if ( status == KERN_SUCCESS )
                 {
-                    CFRunLoopSourceRef source;
+                    mach_port_t bootstrapPort;
 
                     /*
-                     * Create the session's client port run loop source.
+                     * Obtain the bootstrap port.
                      */
 
-                    source = CFMachPortCreateRunLoopSource( allocator, client, 0 );
+                    status = task_get_bootstrap_port( mach_task_self( ), &bootstrapPort );
 
-                    if ( source )
+                    if ( status == KERN_SUCCESS )
                     {
-                        mach_port_limits_t limits = { 0 };
-
-                        limits.mpl_qlimit = 1;
+                        mach_port_t masterPort;
 
                         /*
-                         * Set up the session's client port.
+                         * Obtain the Disk Arbitration master port.
                          */
 
-                        status = mach_port_set_attributes( mach_task_self( ),
-                                                           CFMachPortGetPort( client ),
-                                                           MACH_PORT_LIMITS_INFO,
-                                                           ( mach_port_info_t ) &limits,
-                                                           MACH_PORT_LIMITS_INFO_COUNT );
+                        status = bootstrap_look_up( bootstrapPort, _kDAServiceName, &masterPort );
+
+                        mach_port_deallocate( mach_task_self( ), bootstrapPort );
 
                         if ( status == KERN_SUCCESS )
                         {
-                            AuthorizationRef rights;
+                            mach_port_t server;
 
                             /*
-                             * Create the session's authorization reference.
+                             * Create the session at the server.
                              */
 
-                            status = AuthorizationCreate( NULL, NULL, kAuthorizationFlagDefaults, &rights );
+                            status = _DAServerSessionCreate( masterPort,
+                                                             CFMachPortGetPort( client ),
+                                                             basename( ( char * ) _dyld_get_image_name( 0 ) ),
+                                                             getpid( ),
+                                                             &server );
 
-///w:start
-                            if ( status )
+                            mach_port_deallocate( mach_task_self( ), masterPort );
+
+                            if ( status == KERN_SUCCESS )
                             {
-                                rights = NULL;
-                                status = errAuthorizationSuccess;
-                            }
-///w:stop
-                            if ( status == errAuthorizationSuccess )
-                            {
-                                AuthorizationExternalForm _rights;
+                                session->_client = client;
+                                session->_name   = strdup( basename( ( char * ) _dyld_get_image_name( 0 ) ) );
+                                session->_pid    = getpid( );
+                                session->_server = server;
+                                session->_source = source;
 
-                                /*
-                                 * Create the session's authorization reference representation.
-                                 */
-
-///w:start
-                                if ( rights == NULL )
-                                {
-                                    bzero( &_rights, sizeof( _rights ) );
-                                }
-                                else
-///w:stop
-                                status = AuthorizationMakeExternalForm( rights, &_rights );
-
-                                if ( status == errAuthorizationSuccess )
-                                {
-                                    mach_port_t server;
-
-                                    /*
-                                     * Create the session at the server.
-                                     */
-
-                                    status = _DAServerSessionCreate( masterPort,
-                                                                     CFMachPortGetPort( client ),
-                                                                     basename( _dyld_get_image_name( 0 ) ),
-                                                                     getpid( ),
-                                                                     _rights,
-                                                                     &server );
-
-                                    if ( status == KERN_SUCCESS )
-                                    {
-                                        session->_client = client;
-                                        session->_name   = strdup( basename( _dyld_get_image_name( 0 ) ) );
-                                        session->_pid    = getpid( );
-                                        session->_rights = rights;
-                                        session->_server = server;
-                                        session->_source = source;
-
-                                        return session;
-                                    }
-                                }
-
-///w:start
-                                if ( rights )
-///w:stop
-                                AuthorizationFree( rights, kAuthorizationFlagDefaults );
+                                return session;
                             }
                         }
-
-                        CFRelease( source );
                     }
-
-                    CFMachPortInvalidate( client );
-
-                    CFRelease( client );
                 }
 
-                CFRelease( session );
+                CFRelease( source );
             }
 
-            mach_port_deallocate( mach_task_self( ), masterPort );
+            CFMachPortInvalidate( client );
+
+            CFRelease( client );
         }
 
-        mach_port_deallocate( mach_task_self( ), bootstrapPort );
+        CFRelease( session );
     }
 
     return NULL;

@@ -74,6 +74,8 @@ public:
 	uint32_t exchangeAPDU(const uint8_t *apdu, size_t apduLength,
                           uint8_t *result, size_t &resultLength);
 
+	static int usleep(int iTimeVal);
+	
 protected:
 	uint8_t pinDigit(uint8_t digit);
 	void populate();
@@ -81,6 +83,7 @@ protected:
 public:
 	const uint8_t *mCurrentDF;
 	const uint8_t *mCurrentEF;
+	unsigned char *mReturnedData;
 	uint32_t mPinStatus;
 
 	// temporary ACL cache hack - to be removed
@@ -91,4 +94,3 @@ public:
 
 #endif /* !_BELPICTOKEN_H_ */
 
-/* arch-tag: 89FAE70D-124C-11D9-B24F-000A9595DEEE */

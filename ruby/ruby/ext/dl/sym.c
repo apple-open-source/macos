@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: sym.c,v 1.24.2.2 2004/12/21 23:35:11 nobu Exp $
+ * $Id: sym.c 12039 2007-03-11 16:24:34Z knu $
  */
 
 #include <ruby.h>
@@ -268,7 +268,7 @@ rb_dlsym_inspect(VALUE self)
   str_size = RSTRING(proto)->len + 100;
   str = dlmalloc(str_size);
   snprintf(str, str_size - 1,
-	   "#<DL::Symbol:0x%p func=0x%p '%s'>",
+          "#<DL::Symbol:0x%x func=0x%x '%s'>",
 	   sym, sym->func, RSTRING(proto)->ptr);
   val = rb_tainted_str_new2(str);
   dlfree(str);
@@ -941,6 +941,7 @@ rb_dlsym_call(int argc, VALUE argv[], VALUE self)
     }
   }
 
+  FREE_ARGS;
 #undef FREE_ARGS
   return rb_assoc_new(val,dvals);
 }

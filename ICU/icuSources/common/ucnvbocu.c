@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -401,7 +401,7 @@ U_ALIGN_CODE(16)
     source=pArgs->source;
     sourceLimit=pArgs->sourceLimit;
     target=(uint8_t *)pArgs->target;
-    targetCapacity=pArgs->targetLimit-pArgs->target;
+    targetCapacity=(int32_t)(pArgs->targetLimit-pArgs->target);
     offsets=pArgs->offsets;
 
     /* get the converter state from UConverter */
@@ -423,7 +423,7 @@ U_ALIGN_CODE(16)
 fastSingle:
     /* fast loop for single-byte differences */
     /* use only one loop counter variable, targetCapacity, not also source */
-    diff=sourceLimit-source;
+    diff=(int32_t)(sourceLimit-source);
     if(targetCapacity>diff) {
         targetCapacity=diff;
     }
@@ -450,7 +450,7 @@ fastSingle:
         }
     }
     /* restore real values */
-    targetCapacity=(const uint8_t *)pArgs->targetLimit-target;
+    targetCapacity=(int32_t)((const uint8_t *)pArgs->targetLimit-target);
     sourceIndex=nextSourceIndex; /* wrong if offsets==NULL but does not matter */
 
     /* regular loop for all cases */
@@ -650,7 +650,7 @@ _Bocu1FromUnicode(UConverterFromUnicodeArgs *pArgs,
     source=pArgs->source;
     sourceLimit=pArgs->sourceLimit;
     target=(uint8_t *)pArgs->target;
-    targetCapacity=pArgs->targetLimit-pArgs->target;
+    targetCapacity=(int32_t)(pArgs->targetLimit-pArgs->target);
 
     /* get the converter state from UConverter */
     c=cnv->fromUChar32;
@@ -667,7 +667,7 @@ _Bocu1FromUnicode(UConverterFromUnicodeArgs *pArgs,
 fastSingle:
     /* fast loop for single-byte differences */
     /* use only one loop counter variable, targetCapacity, not also source */
-    diff=sourceLimit-source;
+    diff=(int32_t)(sourceLimit-source);
     if(targetCapacity>diff) {
         targetCapacity=diff;
     }
@@ -690,7 +690,7 @@ fastSingle:
         --targetCapacity;
     }
     /* restore real values */
-    targetCapacity=(const uint8_t *)pArgs->targetLimit-target;
+    targetCapacity=(int32_t)((const uint8_t *)pArgs->targetLimit-target);
 
     /* regular loop for all cases */
     while(source<sourceLimit) {
@@ -978,8 +978,8 @@ _Bocu1ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
 fastSingle:
     /* fast loop for single-byte differences */
     /* use count as the only loop counter variable */
-    diff=sourceLimit-source;
-    count=pArgs->targetLimit-target;
+    diff=(int32_t)(sourceLimit-source);
+    count=(int32_t)(pArgs->targetLimit-target);
     if(count>diff) {
         count=diff;
     }
@@ -1195,8 +1195,8 @@ U_ALIGN_CODE(16)
 fastSingle:
     /* fast loop for single-byte differences */
     /* use count as the only loop counter variable */
-    diff=sourceLimit-source;
-    count=pArgs->targetLimit-target;
+    diff=(int32_t)(sourceLimit-source);
+    count=(int32_t)(pArgs->targetLimit-target);
     if(count>diff) {
         count=diff;
     }
@@ -1374,7 +1374,7 @@ static const UConverterImpl _Bocu1Impl={
 static const UConverterStaticData _Bocu1StaticData={
     sizeof(UConverterStaticData),
     "BOCU-1",
-    0, /* CCSID for BOCU-1 */
+    1214, /* CCSID for BOCU-1 */
     UCNV_IBM, UCNV_BOCU1,
     1, 4, /* one UChar generates at least 1 byte and at most 4 bytes */
     { 0x1a, 0, 0, 0 }, 1, /* BOCU-1 never needs to write a subchar */

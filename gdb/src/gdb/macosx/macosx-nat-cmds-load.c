@@ -27,10 +27,14 @@
 #include "gdbcmd.h"
 #include "completer.h"
 #include "readline/readline.h"
+#include "filenames.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <grp.h>
 
 #include <mach-o/dyld.h>
 
@@ -53,6 +57,7 @@ load_plugin (char *arg, int from_tty)
   void (*fptr) () = NULL;
   char *init_func_name = "_init_from_gdb";
   char *p, path[PATH_MAX + 1];
+  struct stat sb;
 
   if (arg == NULL)
     {
@@ -62,6 +67,33 @@ load_plugin (char *arg, int from_tty)
 
   strcpy (path, p = tilde_expand (arg));
   xfree (p);
+
+  if (stat (path, &sb) != 0)
+    error ("GDB plugin \"%s\" not found.", path);
+
+  /* If gdb is running as setgid, check that the plugin is also setgid
+     (to the same gid) to avoid a privilege escalation.  */
+
+  if (getgid () != getegid ())
+    {
+      /* Same setgid as gdb itself?  */
+      if (getegid () != sb.st_gid || (sb.st_mode & S_ISGID) == 0)
+        {
+          struct group *gr;
+          char *grpname = "";
+          gr = getgrgid (getegid ());
+          if (gr && gr->gr_name != NULL)
+            grpname = gr->gr_name;
+          error ("GDB plugin \"%s\" must be setgid %s to be loaded.", path,
+                  grpname);
+        }
+    }
+
+  /* dyld won't let a setgid program like gdb load a plugin by relative
+     path.  */
+  if (!IS_ABSOLUTE_PATH (path))
+    error ("Usage: load-plugin FULL-PATHNAME\n"
+           "Relative pathnames ('%s') are not permitted.", path);
 
   if (debug_plugins_flag)
     {
@@ -154,11 +186,12 @@ _initialize_load_plugin (void)
   set_cmd_completer (cmd, filename_completer);
   /* cmd->completer_word_break_characters = gdb_completer_filename_word_break_characters; *//* FIXME */
 
-  cmd = add_set_cmd ("plugins", class_obscure,
-                     var_boolean, (char *) &debug_plugins_flag,
-                     "Set if tracing of plugin loading is enabled",
-                     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);
+  add_setshow_boolean_cmd ("plugins", class_obscure,
+			   &debug_plugins_flag, _("\
+Set if tracing of plugin loading is enabled"), _("\
+Show if tracing of plugin loading is enabled"), NULL,
+			   NULL, NULL,
+			   &setdebuglist, &showdebuglist);
 
   add_info ("plugins", info_plugins_command, "Show current plug-ins state.");
 }

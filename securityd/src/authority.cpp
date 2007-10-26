@@ -54,14 +54,17 @@ Mutex AuthorizationToken::authMapLock; // lock for mAuthorizations (only)
 // Create an authorization token.
 //
 AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base, 
-const audit_token_t &auditToken)
+const audit_token_t &auditToken, bool operateAsLeastPrivileged)
 	: mBaseCreds(base), mTransferCount(INT_MAX), 
-    mCreatorCode(Server::process().clientCode()),
 	mCreatorPid(Server::process().pid()), 
-	mCreatorAuditToken(auditToken)
+	mCreatorAuditToken(auditToken),
+	mOperatesAsLeastPrivileged(operateAsLeastPrivileged)
 {
 	mCreatorUid = mCreatorAuditToken.euid();
 	mCreatorGid = mCreatorAuditToken.egid();
+	
+	if (SecCodeRef code = Server::process().currentGuest())
+		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &mCreatorCode.aref()));
 		
 	// link to session
 	referent(ssn);
@@ -74,9 +77,8 @@ const audit_token_t &auditToken)
     authMap[mHandle] = this;
 	
     // all ready
-	secdebug("SSauth", "Authorization %p created using %d credentials; owner=%s",
-		this, int(mBaseCreds.size()),
-        mCreatorCode ? mCreatorCode->encode().c_str() : "unknown");
+	secdebug("SSauth", "Authorization %p created using %d credentials; owner=%p",
+		this, int(mBaseCreds.size()), mCreatorCode.get());
 }
 
 AuthorizationToken::~AuthorizationToken()
@@ -254,7 +256,7 @@ AuthorizationToken::setCredentialInfo(const Credential &inCred)
     AuthItemRef uidHint("uid", AuthValueOverlay(uid_string ? strlen(uid_string) + 1 : 0, uid_string), 0);
     dstInfoSet.insert(uidHint);
  
-    AuthItemRef userHint("username", AuthValueOverlay(inCred->username()), 0);
+    AuthItemRef userHint("username", AuthValueOverlay(inCred->name()), 0);
     dstInfoSet.insert(userHint);
  
 	setInfoSet(dstInfoSet);

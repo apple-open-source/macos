@@ -5,7 +5,7 @@
  |                                MacsBug Plugins Command                               |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -1648,7 +1648,7 @@ static void sc(char *arg, int from_tty)
  This is used around a stepi and nexti so that we may conditionally suppress the source
  line display.
  
- It is never suppressed when rhe macsbug screen is off.  When on we display the source
+ It is never suppressed when the macsbug screen is off.  When on we display the source
  lines (not repeats of the line where gdb shows the address) but that too can be
  suppressed with the show_so_si_src flag.
 */
@@ -2233,7 +2233,8 @@ static void wh(char *arg, int from_tty)
 
 void init_from_gdb(void)
 {
-    gdb_initialize();
+    if (!gdb_initialize())
+        return;   
     
     macsbug_class 	   = gdb_define_class("macsbug", "MacsBug commands");
     macsbug_internal_class = Gdb_Private;

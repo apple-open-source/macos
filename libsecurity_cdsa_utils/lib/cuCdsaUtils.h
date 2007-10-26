@@ -35,10 +35,10 @@ extern "C" {
 #endif
 
 /* common memory allocators shared by app and CSSM */
-extern void * cuAppMalloc (uint32 size, void *allocRef);
+extern void * cuAppMalloc (CSSM_SIZE size, void *allocRef);
 extern void cuAppFree (void *mem_ptr, void *allocRef);
-extern void * cuAppRealloc (void *ptr, uint32 size, void *allocRef);
-extern void * cuAppCalloc (uint32 num, uint32 size, void *allocRef);
+extern void * cuAppRealloc (void *ptr, CSSM_SIZE size, void *allocRef);
+extern void * cuAppCalloc (uint32 num, CSSM_SIZE size, void *allocRef);
 
 #define APP_MALLOC(s)		cuAppMalloc(s, NULL)
 #define APP_FREE(p)			cuAppFree(p, NULL)
@@ -151,7 +151,7 @@ CSSM_RETURN cuCrlVerify(
 	CSSM_CSP_HANDLE 		cspHand,
 	const CSSM_DATA			*crlData,
 	CSSM_DL_DB_HANDLE_PTR	certKeychain,	// intermediate certs
-	const CSSM_DATA 		*anchors,
+	const CSSM_DATA 		*anchors,		// optional - if NULL, use Trust Settings
 	uint32 					anchorCount);
 
 #ifdef	__cplusplus

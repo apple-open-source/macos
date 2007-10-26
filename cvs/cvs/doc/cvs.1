@@ -2,9 +2,9 @@
 .\" cvs.man.header, cvs.texinfo, & cvs.man.footer files.  Please make changes
 .\" there.  A full copyright & license notice may also be found in cvs.texinfo.
 .\"
-.\" Copyright 2004 The Free Software Foundation,
-.\"                Derek R. Price,
-.\"                & Ximbiot <http://ximbiot.com>
+.\" Man page autogeneration, including this header file, is
+.\" Copyright 2004-2005 The Free Software Foundation, Inc.,
+.\"                     Derek R. Price, & Ximbiot <http://ximbiot.com>.
 .\"
 .\" This documentation is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
@@ -234,8 +234,10 @@ left of \fBcvs_command\fR) are:
 .IP "" 0
 \fB--allow-root=\fIrootdir\fB\fR
 .IP "" 2
-Specify legal \fBcvsroot\fR directory.  See
-see node `Password authentication server\(aq in the CVS manual.
+May be invoked multiple times to specify one legal \fBcvsroot\fR directory with
+each invocation.  Also causes CVS to preparse the configuration file for each
+specified root, which can be useful when configuring write proxies,  See
+see node `Password authentication server\(aq in the CVS manual & see node `Write proxies\(aq in the CVS manual.
 .SP
 .IX "Authentication, stream"
 .IX "Stream authentication"
@@ -261,18 +263,39 @@ Current versions of \fBcvs\fR do not run \fBrcs\fR
 programs; for compatibility this option is accepted,
 but it does nothing.
 .SP
-.IX "TMPDIR, overriding"
-.IX "Overriding TMPDIR"
+.IX "TMPDIR, environment variable"
+.IX "temporary file directory, set via command line"
+.IX "temporary file directory, set via environment variable"
+.IX "temporary file directory, set via config"
+.IX "temporary files, location of"
 .IP "" 0
 \fB-T \fItempdir\fB\fR
 .IP "" 2
 Use \fItempdir\fR as the directory where temporary files are
-located.  Overrides the setting of the \fB$TMPDIR\fR environment
-variable and any precompiled directory.  This parameter should be
-specified as an absolute pathname.
-(When running client/server, \fB-T\fR affects only the local process;
+located.
+.SP
+The \fBcvs\fR client and server store temporary files in a temporary directory.
+The path to this temporary directory is set via, in order of precedence:
+.SP
+.IP "\(bu" 4
+The argument to the global \fB-T\fR option.
+.SP
+.IP "\(bu" 4
+The value set for \fBTmpDir\fR in the config file (server only -
+see node `config\(aq in the CVS manual).
+.SP
+.IP "\(bu" 4
+The contents of the \fB$TMPDIR\fR environment variable (\fB%TMPDIR%\fR on
+Windows - see node `Environment variables\(aq in the CVS manual).
+.SP
+.IP "\(bu" 4
+/tmp
+.SP
+.SP
+Temporary directories should always be specified as an absolute pathname.
+When running a CVS client, \fB-T\fR affects only the local process;
 specifying \fB-T\fR for the client has no effect on the server and
-vice versa.)
+vice versa.
 .SP
 .IX "CVSROOT, overriding"
 .IX "Overriding CVSROOT"
@@ -316,6 +339,18 @@ Display usage information about the specified \fBcvs_command\fR
 a command name, \fBcvs -H\fR displays overall help for
 \fBcvs\fR, including a list of other help options.
 .SP
+.IX "Read-only repository mode"
+.IP "" 0
+\fB-R\fR
+.IP "" 2
+Turns on read-only repository mode.  This allows one to check out from a
+read-only repository, such as within an anoncvs server, or from a \fBcd-rom\fR
+repository.
+.SP
+Same effect as if the \fBCVSREADONLYFS\fR environment
+variable is set. Using \fB-R\fR can also considerably
+speed up checkouts over NFS.
+.SP
 .IX "Read-only mode"
 .IP "" 0
 \fB-n\fR
@@ -335,16 +370,6 @@ have been required to produce the exact same output.
 .IP "" 2
 Cause the command to be really quiet; the command will only
 generate output for serious problems.
-.SP
-.IP "" 0
-\fB-R\fR
-.IP "" 2
-Turns on read-only repository mode.  This allows one to check out from a
-read-only repository, such as within an anoncvs server, or from a CDROM
-repository.
-Same effect as if the \fBCVSREADONLYFS\fR
-environment variable is set.  Using \fB-R\fR
-can also considerably speed up checkout's over NFS.
 .SP
 .IP "" 0
 \fB-q\fR
@@ -410,16 +435,20 @@ special configure option, \fB--enable-encryption\fR,
 when you build \fBcvs\fR.
 .SP
 .IP "" 0
-\fB-z \fIgzip-level\fB\fR
+\fB-z \fIlevel\fB\fR
 .IP "" 2
 .IX "Compression"
 .IX "Gzip"
-Set the compression level.
+Request compression \fIlevel\fR for network traffic.
+\fBcvs\fR interprets \fIlevel\fR identically to the \fBgzip\fR program.
 Valid levels are 1 (high speed, low compression) to
 9 (low speed, high compression), or 0 to disable
-compression (the default).
-Only has an effect on the \fBcvs\fR client.
-.SP
+compression (the default).  Data sent to the server will
+be compressed at the requested level and the client will request
+the server use the same compression level for data returned.  The
+server will use the closest level allowed by the server administrator to
+compress returned data.  This option only has an effect when passed to
+the \fBcvs\fR client.
 .SP
 .SH "Common options"
 .SS "Common command options"
@@ -458,65 +487,13 @@ further updates in the same directory will use the same date
 (for more information on sticky tags/dates, see node `Sticky tags\(aq in the CVS manual).
 .SP
 \fB-D\fR is available with the \fBannotate\fR, \fBcheckout\fR,
-\fBdiff\fR, \fBexport\fR, \fBhistory\fR,
-\fBrdiff\fR, \fBrtag\fR, and \fBupdate\fR commands.
+\fBdiff\fR, \fBexport\fR, \fBhistory\fR, \fBls\fR,
+\fBrdiff\fR, \fBrls\fR, \fBrtag\fR, \fBtag\fR, and \fBupdate\fR commands.
 (The \fBhistory\fR command uses this option in a
 slightly different way; see node `history options\(aq in the CVS manual).
 .SP
-.IX "Timezone, in input"
-.IX "Zone, time, in input"
-A wide variety of date formats are supported by
-\fBcvs\fR.  The most standard ones are ISO8601 (from the
-International Standards Organization) and the Internet
-e-mail standard (specified in RFC822 as amended by
-RFC1123).
-.SP
-ISO8601 dates have many variants but a few examples
-are:
-.SP
-.PD 0
-.SP
-.IP "" 4
-1972-09-24
-.IP "" 4
-1972-09-24 20:05
-
-.PD
-.IP "" 2
-.SP
-There are a lot more ISO8601 date formats, and \fBcvs\fR
-accepts many of them, but you probably don\(aqt want to
-hear the \fIwhole\fR long story :-).
-.SP
-In addition to the dates allowed in Internet e-mail
-itself, \fBcvs\fR also allows some of the fields to be
-omitted.  For example:
-.SP
-.PD 0
-.SP
-.IP "" 4
-24 Sep 1972 20:05
-.IP "" 4
-24 Sep
-
-.PD
-.IP "" 2
-.SP
-The date is interpreted as being in the
-local timezone, unless a specific timezone is
-specified.
-.SP
-These two date formats are preferred.  However,
-\fBcvs\fR currently accepts a wide variety of other date
-formats.  They are intentionally not documented here in
-any detail, and future versions of \fBcvs\fR might not
-accept all of them.
-.SP
-One such format is
-\fB\fImonth\fB/\fIday\fB/\fIyear\fB\fR.  This may
-confuse people who are accustomed to having the month
-and day in the other order; \fB1/4/96\fR is January 4,
-not April 1.
+For a complete description of the date formats accepted by \fBcvs\fR,
+see node `Date input formats\(aq in the CVS manual.
 .SP
 Remember to quote the argument to the \fB-D\fR
 flag so that your shell doesn\(aqt interpret spaces as
@@ -560,19 +537,24 @@ see node `Removing files\(aq in the CVS manual.\fR
 .IP "" 0
 \fB-k \fIkflag\fB\fR
 .IP "" 2
-Alter the default processing of keywords.
-see node `Keyword substitution\(aq in the CVS manual, for the meaning of
-\fIkflag\fR.  Your \fIkflag\fR specification is
-\fIsticky\fR when you use it to create a private copy
-of a source file; that is, when you use this option
-with the \fBcheckout\fR or \fBupdate\fR commands,
-\fBcvs\fR associates your selected \fIkflag\fR with the
-file, and continues to use it with future update
-commands on the same file until you specify otherwise.
+Override the default processing of RCS keywords other than
+\fB-kb\fR.  see node `Keyword substitution\(aq in the CVS manual, for the meaning of
+\fIkflag\fR.  Used with the \fBcheckout\fR and \fBupdate\fR
+commands, your \fIkflag\fR specification is
+\fIsticky\fR; that is, when you use this option
+with a \fBcheckout\fR or \fBupdate\fR command,
+\fBcvs\fR associates your selected \fIkflag\fR with any files
+it operates on, and continues to use that \fIkflag\fR with future
+commands on the same files until you specify otherwise.
 .SP
 The \fB-k\fR option is available with the \fBadd\fR,
-\fBcheckout\fR, \fBdiff\fR, \fBimport\fR and
-\fBupdate\fR commands.
+\fBcheckout\fR, \fBdiff\fR, \fBexport\fR, \fBimport\fR,
+\fBrdiff\fR, and \fBupdate\fR commands.
+.SP
+\fBWARNING: Prior to CVS version 1.12.2, the \fB-k\fB flag
+overrode the \fB-kb\fB indication for a binary file.  This could
+sometimes corrupt binary files.  see node `Merging and keywords\(aq in the CVS manual, for
+more.\fR
 .SP
 .IP "" 0
 \fB-l\fR
@@ -625,20 +607,25 @@ with the \fBcheckout\fR and \fBupdate\fR commands.
 .IP "" 0
 \fB-R\fR
 .IP "" 2
-Process directories recursively.  This is on by default.
+Process directories recursively.  This is the default for all \fBcvs\fR
+commands, with the exception of \fBls\fR & \fBrls\fR.
 .SP
 Available with the following commands: \fBannotate\fR, \fBcheckout\fR,
 \fBcommit\fR, \fBdiff\fR, \fBedit\fR, \fBeditors\fR, \fBexport\fR,
-\fBrdiff\fR, \fBremove\fR, \fBrtag\fR,
+\fBls\fR, \fBrdiff\fR, \fBremove\fR, \fBrls\fR, \fBrtag\fR,
 \fBstatus\fR, \fBtag\fR, \fBunedit\fR, \fBupdate\fR, \fBwatch\fR,
 and \fBwatchers\fR.
 .SP
 .IP "" 0
 \fB-r \fItag\fB\fR
 .IP "" 2
+.IP "" 0
+\fB-r \fItag\fB[:\fIdate\fB]\fR
+.IP "" 2
 .IX "HEAD, special tag"
 .IX "BASE, special tag"
-Use the revision specified by the \fItag\fR argument instead of the
+Use the revision specified by the \fItag\fR argument (and the \fIdate\fR
+argument for the commands which accept it) instead of the
 default \fIhead\fR revision.  As well as arbitrary tags defined
 with the \fBtag\fR or \fBrtag\fR command, two special tags are
 always available: \fBHEAD\fR refers to the most recent version
@@ -654,6 +641,12 @@ on sticky tags/dates, see node `Sticky tags\(aq in the CVS manual).
 The tag can be either a symbolic or numeric tag, as
 described in see node `Tags\(aq in the CVS manual, or the name of a branch, as
 described in see node `Branching and merging\(aq in the CVS manual.
+When \fItag\fR is the name of a
+branch, some commands accept the optional \fIdate\fR argument to specify
+the revision as of the given date on the branch.
+When a command expects a specific revision,
+the name of a branch is interpreted as the most recent
+revision on that branch.
 .SP
 Specifying the \fB-q\fR global option along with the
 \fB-r\fR command option is often useful, to suppress
@@ -663,9 +656,12 @@ does not contain the specified tag.
 \fBNote: this is not the same as the overall \fBcvs -r\fB option,
 which you can specify to the left of a \fBcvs\fB command!\fR
 .SP
-\fB-r\fR is available with the \fBannotate\fR, \fBcheckout\fR,
-\fBcommit\fR, \fBdiff\fR, \fBhistory\fR, \fBexport\fR, \fBrdiff\fR, 
-\fBrtag\fR, and \fBupdate\fR commands.
+\fB-r \fItag\fB\fR is available with the \fBcommit\fR and \fBhistory\fR
+commands.
+.SP
+\fB-r \fItag\fB[:\fIdate\fB]\fR is available with the \fBannotate\fR,
+\fBcheckout\fR, \fBdiff\fR, \fBexport\fR, \fBrdiff\fR, \fBrtag\fR,
+and \fBupdate\fR commands.
 .SP
 .IP "" 0
 \fB-W\fR
@@ -698,14 +694,20 @@ are likely to disappear in the future.  This command
 used.
 .SP
 .IX "cvsadmin"
+.IX "UserAdminOptions, in CVSROOT/config"
 On unix, if there is a group named \fBcvsadmin\fR,
 only members of that group can run \fBcvs admin\fR
-(except for the \fBcvs admin -k\fR command, which can
-be run by anybody).  This group should exist on the
-server, or any system running the non-client/server
-\fBcvs\fR.  To disallow \fBcvs admin\fR for all users,
-create a group with no users in it.  On NT, the
-\fBcvsadmin\fR feature does not exist and all users
+commands, except for those specified using the
+\fBUserAdminOptions\fR configuration option in the
+\fBCVSROOT/config\fR file.  Options specified using
+\fBUserAdminOptions\fR can be run by any user.  See
+see node `config\(aq in the CVS manual for more on \fBUserAdminOptions\fR.
+.SP
+The \fBcvsadmin\fR group should exist on the server,
+or any system running the non-client/server \fBcvs\fR.
+To disallow \fBcvs admin\fR for all users, create a
+group with no users in it.  On NT, the \fBcvsadmin\fR
+feature does not exist and all users
 can run \fBcvs admin\fR.
 .SP
 .SH "admin options"
@@ -994,10 +996,10 @@ it is created.  The state is visible in the output from
 \fIcvs log\fR (see node `log\(aq in the CVS manual), and in the
 \fB$\fP\fPLog$\fR and \fB$\fP\fPState$\fR keywords
 (see node `Keyword substitution\(aq in the CVS manual).  Note that \fBcvs\fR
-uses the \fBdead\fR state for its own purposes; to
+uses the \fBdead\fR state for its own purposes (see node `Attic\(aq in the CVS manual); to
 take a file to or from the \fBdead\fR state use
-commands like \fBcvs remove\fR and \fBcvs add\fR, not
-\fBcvs admin -s\fR.
+commands like \fBcvs remove\fR and \fBcvs add\fR
+(see node `Adding and removing\(aq in the CVS manual), not \fBcvs admin -s\fR.
 .SP
 .IP "" 0
 \fB-t[\fIfile\fB]\fR
@@ -1106,9 +1108,11 @@ Use head revision if tag/date not found.
 Annotate binary files.
 .SP
 .IP "" 0
-\fB-r \fIrevision\fB\fR
+\fB-r \fItag\fB[:\fIdate\fB]\fR
 .IP "" 2
-Annotate file as of specified revision/tag.
+Annotate file as of specified revision/tag or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  See see node `Common options\(aq in the CVS manual.
 .SP
 .IP "" 0
 \fB-D \fIdate\fB\fR
@@ -1237,10 +1241,8 @@ see node `Sticky tags\(aq in the CVS manual, for more information on sticky tags
 .IP "" 0
 \fB-f\fR
 .IP "" 2
-Only useful with the \fB-D \fIdate\fB\fR or \fB-r
-\fItag\fB\fR flags.  If no matching revision is found,
-retrieve the most recent revision (instead of ignoring
-the file).
+Only useful with the \fB-D\fR or \fB-r\fR flags.  If no matching revision is
+found, retrieve the most recent revision (instead of ignoring the file).
 .SP
 .IP "" 0
 \fB-k \fIkflag\fB\fR
@@ -1281,10 +1283,13 @@ Pipe files to the standard output.
 Checkout directories recursively.  This option is on by default.
 .SP
 .IP "" 0
-\fB-r \fItag\fB\fR
+\fB-r \fItag\fB[:\fIdate\fB]\fR
 .IP "" 2
-Use revision \fItag\fR.  This option is sticky, and implies \fB-P\fR.
-See see node `Sticky tags\(aq in the CVS manual, for more information on sticky tags/dates.
+Checkout the revision specified by \fItag\fR or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  This option is sticky, and implies \fB-P\fR.
+See see node `Sticky tags\(aq in the CVS manual, for more information on sticky tags/dates.  Also,
+see see node `Common options\(aq in the CVS manual.
 .SP
 In addition to those, you can use these special command
 options with \fBcheckout\fR:
@@ -1446,6 +1451,12 @@ log message on the command line with the \fB-m
 or use the \fB-F \fIfile\fB\fR option to specify
 that the argument file contains the log message.
 .SP
+At \fBcommit\fR, a unique commitid is placed in the \fBrcs\fR
+file inside the repository. All files committed at once
+get the same commitid. The commitid can be retrieved with
+the \fBlog\fR and \fBstatus\fR command; see see node `log\(aq in the CVS manual,
+see node `File status\(aq in the CVS manual.
+.SP
 .SH "commit options"
 .SP
 These standard options are supported by \fBcommit\fR
@@ -1474,6 +1485,17 @@ cannot commit to a specific revision on a branch.
 \fBcommit\fR also supports these options:
 .SP
 .IP "" 0
+\fB-c\fR
+.IP "" 2
+Refuse to commit files unless the user has registered a valid edit on the
+file via \fBcvs edit\fR.  This is most useful when \fBcommit -c\fR
+and \fBedit -c\fR have been placed in all \fB.cvsrc\fR files.
+A commit can be forced anyways by either regestering an edit retroactively
+via \fBcvs edit\fR (no changes to the file will be lost) or using the
+\fB-f\fR option to commit.  Support for \fBcommit -c\fR requires both
+client and a server versions 1.12.10 or greater.
+.SP
+.IP "" 0
 \fB-F \fIfile\fB\fR
 .IP "" 2
 Read the log message from \fIfile\fR, instead
@@ -1486,7 +1508,8 @@ Note that this is not the standard behavior of
 the \fB-f\fR option as defined in see node `Common options\(aq in the CVS manual.
 .SP
 Force \fBcvs\fR to commit a new revision even if you haven\(aqt
-made any changes to the file.  If the current revision
+made any changes to the file.  As of \fBcvs\fR version 1.12.10,
+it also causes the \fB-c\fR option to be ignored.  If the current revision
 of \fIfile\fR is 1.7, then the following two commands
 are equivalent:
 .SP
@@ -1615,7 +1638,7 @@ $ cvs checkout -r EXPR1 whatever_module
 .IX "diff (subcommand)"
 .SP
 .IP "\(bu" 2
-Synopsis: diff [-lR] [-k kflag] [format_options] [[-r rev1 | -D date1] [-r rev2 |  -D date2]] [files\&...]
+Synopsis: diff [-lR] [-k kflag] [format_options] [(-r rev1[:date1] | -D date1) [-r rev2[:date2] | -D date2]] [files\&...]
 .IP "\(bu" 2
 Requires: working directory, repository.
 .IP "\(bu" 2
@@ -1663,9 +1686,11 @@ Examine directories recursively.  This option is on by
 default.
 .SP
 .IP "" 0
-\fB-r \fItag\fB\fR
+\fB-r \fItag\fB[:\fIdate\fB]\fR
 .IP "" 2
-Compare with revision \fItag\fR.  Zero, one or two
+Compare with revision specified by \fItag\fR or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  Zero, one or two
 \fB-r\fR options can be present.  With no \fB-r\fR
 option, the working file will be compared with the
 revision it was based on.  With one \fB-r\fR, that
@@ -2465,7 +2490,7 @@ $ cvs diff -u | less
 .IX "export (subcommand)"
 .SP
 .IP "\(bu" 2
-Synopsis: export [-flNnR] [-r rev|-D date] [-k subst] [-d dir] module\&...
+Synopsis: export [-flNnR] (-r rev[:date] | -D date) [-k subst] [-d dir] module\&...
 .IP "\(bu" 2
 Requires: repository.
 .IP "\(bu" 2
@@ -2525,9 +2550,11 @@ Do not run any checkout program.
 Export directories recursively.  This is on by default.
 .SP
 .IP "" 0
-\fB-r \fItag\fB\fR
+\fB-r \fItag\fB[:\fIdate\fB]\fR
 .IP "" 2
-Use revision \fItag\fR.
+Export the revision specified by \fItag\fR or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  See see node `Common options\(aq in the CVS manual.
 .SP
 In addition, these options (that are common to
 \fBcheckout\fR and \fBexport\fR) are also supported:
@@ -2563,14 +2590,24 @@ Requires: the file \fB$CVSROOT/CVSROOT/history\fR
 .IP "\(bu" 2
 Changes: nothing.
 .SP
-\fBcvs\fR can keep a history file that tracks each use of the
-\fBcheckout\fR, \fBcommit\fR, \fBrtag\fR,
-\fBupdate\fR, and \fBrelease\fR commands.  You can
-use \fBhistory\fR to display this information in
+\fBcvs\fR can keep a history log that tracks each use of most \fBcvs\fR
+commands.  You can use \fBhistory\fR to display this information in
 various formats.
 .SP
-Logging must be enabled by creating the file
-\fB$CVSROOT/CVSROOT/history\fR.
+To enable logging, the \fBLogHistory\fR config option must be set to
+some value other than the empty string and the history file specified by
+the \fBHistoryLogPath\fR option must be writable by all users who may run
+the \fBcvs\fR executable (see node `config\(aq in the CVS manual).
+.SP
+To enable the \fBhistory\fR command, logging must be enabled as above and
+the \fBHistorySearchPath\fR config option (see node `config\(aq in the CVS manual) must be set to
+specify some number of the history logs created thereby and these files must
+be readable by each user who might run the \fBhistory\fR command.
+.SP
+Creating a repository via the \fBcvs init\fR command will enable logging of
+all possible events to a single history log file
+(\fB$CVSROOT/CVSROOT/history\fR) with read and write permissions for all
+users (see node `Creating a repository\(aq in the CVS manual).
 .SP
 \fBNote: \fBhistory\fB uses \fB-f\fB, \fB-l\fB,
 \fB-n\fB, and \fB-p\fB in ways that conflict with the
@@ -2878,6 +2915,23 @@ import.  You can use this option repeatedly.
 that you can specify in the \fB.cvswrappers\fR
 file. see node `Wrappers\(aq in the CVS manual.
 .SP
+.IP "" 0
+\fB-X\fR
+.IP "" 2
+Modify the algorithm used by \fBcvs\fR when importing new files
+so that new files do not immediately appear on the main trunk.
+.SP
+Specifically, this flag causes \fBcvs\fR to mark new files as
+if they were deleted on the main trunk, by taking the following
+steps for each file in addition to those normally taken on import:
+creating a new revision on the main trunk indicating that
+the new file is \fBdead\fR, resetting the new file\(aqs default branch,
+and placing the file in the Attic (see node `Attic\(aq in the CVS manual) directory.
+.SP
+Use of this option can be forced on a repository-wide basis
+by setting the \fBImportNewFilesToVendorBranchOnly\fR option in
+CVSROOT/config (see node `config\(aq in the CVS manual).
+.SP
 .SH "import output"
 .SP
 \fBimport\fR keeps you informed of its progress by printing a line
@@ -2913,7 +2967,7 @@ The file is being ignored (see node `cvsignore\(aq in the CVS manual).
 The file is a symbolic link; \fBcvs import\fR ignores symbolic links.
 People periodically suggest that this behavior should
 be changed, but if there is a consensus on what it
-should be changed to, it doesn\(aqt seem to be apparent.
+should be changed to, it is not apparent.
 (Various options in the \fBmodules\fR file can be used
 to recreate symbolic links on checkout, update, etc.;
 see node `modules\(aq in the CVS manual.)
@@ -2946,10 +3000,11 @@ The output includes the location of the \fBrcs\fR file,
 the \fIhead\fR revision (the latest revision on the
 trunk), all symbolic names (tags) and some other
 things.  For each revision, the revision number, the
-author, the number of lines added/deleted and the log
-message are printed.  All times are displayed in
-Coordinated Universal Time (UTC).  (Other parts of
-\fBcvs\fR print times in the local timezone).
+date, the author, the number of lines added/deleted, the commitid
+and the log message are printed.  All dates are displayed
+in local time at the client. This is typically specified in
+the \fB$TZ\fR environment variable, which can be set to
+govern how \fBlog\fR displays dates.
 .SP
 \fBNote: \fBlog\fB uses \fB-R\fB in a way that conflicts
 with the normal use inside \fBcvs\fB (see node `Common options\(aq in the CVS manual).\fR
@@ -2957,7 +3012,12 @@ with the normal use inside \fBcvs\fB (see node `Common options\(aq in the CVS ma
 .SH "log options"
 .SP
 By default, \fBlog\fR prints all information that is
-available.  All other options restrict the output.
+available.  All other options restrict the output.  Note that the revision
+selection options (\fB-d\fR, \fB-r\fR, \fB-s\fR, and \fB-w\fR) have no
+effect, other than possibly causing a search for files in Attic directories,
+when used in conjunction with the options that restrict the output to only
+\fBlog\fR header fields (\fB-b\fR, \fB-h\fR, \fB-R\fR, and \fB-t\fR)
+unless the \fB-S\fR option is also specified.
 .SP
 .IP "" 0
 \fB-b\fR
@@ -3115,7 +3175,10 @@ Suppress the header if no revisions are selected.
 .IP "" 2
 Print information about revisions whose state
 attributes match one of the states given in the
-comma-separated list \fIstates\fR.
+comma-separated list \fIstates\fR.  Individual states may
+be any text string, though \fBcvs\fR commonly only uses two
+states, \fBExp\fR and \fBdead\fR.  See see node `admin options\(aq in the CVS manual
+for more information.
 .SP
 .IP "" 0
 \fB-t\fR
@@ -3138,14 +3201,153 @@ selected by \fB-b\fR and \fB-r\fR.
 .SP
 .SH "log examples"
 .SP
-Contributed examples are gratefully accepted.
+.IX "Timezone, in output"
+.IX "Zone, time, in output"
+Since \fBlog\fR shows dates in local time,
+you might want to see them in Coordinated Universal Time (UTC) or
+some other timezone.
+To do this you can set your \fB$TZ\fR environment
+variable before invoking \fBcvs\fR:
+.SP
+.PD 0
+.SP
+.IP "" 2
+$ TZ=UTC cvs log foo.c
+.IP "" 2
+$ TZ=EST cvs log bar.c
+
+.PD
+.IP "" 0
+.SP
+(If you are using a \fBcsh\fR-style shell, like \fBtcsh\fR,
+you would need to prefix the examples above with \fBenv\fR.)
+.SP
+.SH "ls & rls"
+.IX "ls (subcommand)"
+.IX "rls (subcommand)"
+.SP
+.IP "\(bu" 2
+ls [-e | -l] [-RP] [-r tag[:date]] [-D date] [path\&...]
+.IP "\(bu" 2
+Requires: repository for \fBrls\fR, repository & working directory for
+\fBls\fR.
+.IP "\(bu" 2
+Changes: nothing.
+.IP "\(bu" 2
+Synonym: \fBdir\fR & \fBlist\fR are synonyms for \fBls\fR and \fBrdir\fR
+& \fBrlist\fR are synonyms for \fBrls\fR.
+.SP
+The \fBls\fR and \fBrls\fR commands are used to list
+files and directories in the repository.
+.SP
+By default \fBls\fR lists the files and directories
+that belong in your working directory, what would be
+there after an \fBupdate\fR.
+.SP
+By default \fBrls\fR lists the files and directories
+on the tip of the trunk in the topmost directory of the
+repository.
+.SP
+Both commands accept an optional list of file and
+directory names, relative to the working directory for
+\fBls\fR and the topmost directory of the repository
+for \fBrls\fR.  Neither is recursive by default.
+.SP
+.SH "ls & rls options"
+.SP
+These standard options are supported by \fBls\fR & \fBrls\fR:
+.SP
+.IP "" 0
+\fB-d\fR
+.IP "" 2
+Show dead revisions (with tag when specified).
+.SP
+.IP "" 0
+\fB-e\fR
+.IP "" 2
+Display in CVS/Entries format.  This format is meant to remain easily parsable
+by automation.
+.SP
+.IP "" 0
+\fB-l\fR
+.IP "" 2
+Display all details.
+.SP
+.IP "" 0
+\fB-P\fR
+.IP "" 2
+Don\(aqt list contents of empty directories when recursing.
+.SP
+.IP "" 0
+\fB-R\fR
+.IP "" 2
+List recursively.
+.SP
+.IP "" 0
+\fB-r \fItag\fB[:\fIdate\fB]\fR
+.IP "" 2
+Show files specified by \fItag\fR or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  See see node `Common options\(aq in the CVS manual.
+.SP
+.IP "" 0
+\fB-D \fIdate\fB\fR
+.IP "" 2
+Show files from date.
+.SP
+.SH "rls examples"
+.SP
+.PD 0
+.SP
+.IP "" 2
+$ cvs rls
+.IP "" 2
+cvs rls: Listing module: \`.\(aq
+.IP "" 2
+CVSROOT
+.IP "" 2
+first-dir
+
+.PD
+.IP "" 0
+.SP
+.PD 0
+.SP
+.IP "" 2
+$ cvs rls CVSROOT
+.IP "" 2
+cvs rls: Listing module: \`CVSROOT\(aq
+.IP "" 2
+checkoutlist
+.IP "" 2
+commitinfo
+.IP "" 2
+config
+.IP "" 2
+cvswrappers
+.IP "" 2
+loginfo
+.IP "" 2
+modules
+.IP "" 2
+notify
+.IP "" 2
+rcsinfo
+.IP "" 2
+taginfo
+.IP "" 2
+verifymsg
+.SP
+
+.PD
+.IP "" 0
 .SP
 .SH "rdiff"
 .SS "\(aqpatch\(aq format diffs between releases"
 .IX "rdiff (subcommand)"
 .SP
 .IP "\(bu" 2
-rdiff [-flags] [-V vn] [-r t|-D d [-r t2|-D d2]] modules\&...
+rdiff [-flags] [-V vn] (-r tag1[:date1] | -D date1) [-r tag2[:date2] | -D date2] modules\&...
 .IP "\(bu" 2
 Requires: repository.
 .IP "\(bu" 2
@@ -3192,6 +3394,12 @@ If no matching revision is found, retrieve the most
 recent revision (instead of ignoring the file).
 .SP
 .IP "" 0
+\fB-k \fIkflag\fB\fR
+.IP "" 2
+Process keywords according to \fIkflag\fR.  See
+see node `Keyword substitution\(aq in the CVS manual.
+.SP
+.IP "" 0
 \fB-l\fR
 .IP "" 2
 Local; don\(aqt descend subdirectories.
@@ -3204,7 +3412,9 @@ Examine directories recursively.  This option is on by default.
 .IP "" 0
 \fB-r \fItag\fB\fR
 .IP "" 2
-Use revision \fItag\fR.
+Use the revision specified by \fItag\fR, or when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  See see node `Common options\(aq in the CVS manual.
 .SP
 In addition to the above, these options are available:
 .SP
@@ -3409,12 +3619,124 @@ $
 .PD
 .IP "" 0
 .SP
+.SH "server & pserver"
+.SS "Act as a server for a client on stdin/stdout"
+.IX "pserver (subcommand)"
+.IX "server (subcommand)"
+.SP
+.IP "\(bu" 2
+pserver [-c path]
+.SP
+server [-c path]
+.IP "\(bu" 2
+Requires: repository, client conversation on stdin/stdout
+.IP "\(bu" 2
+Changes: Repository or, indirectly, client working directory.
+.SP
+The \fBcvs\fR \fBserver\fR and \fBpserver\fR commands are used to provide
+repository access to remote clients and expect a client conversation on
+stdin & stdout.  Typically these commands are launched from \fBinetd\fR or
+via \fBssh\fR (see node `Remote repositories\(aq in the CVS manual).
+.SP
+\fBserver\fR expects that the client has already been authenticated somehow,
+typically via \fBssh\fR, and \fBpserver\fR attempts to authenticate the client
+itself.
+.SP
+Only one option is available with the \fBserver\fR and \fBpserver\fR
+commands:
+.SP
+.IX "configuration file"
+.IP "" 0
+\fB-c path\fR
+.IP "" 2
+Load configuration from \fIpath\fR rather than the default location 
+\fB$CVSROOT/CVSROOT/config\fR (see node `config\(aq in the CVS manual).  \fIpath\fR must be
+\fB/etc/cvs.conf\fR or prefixed by \fB/etc/cvs/\fR.  This option is
+supported beginning with \fBcvs\fR release 1.12.13.
+.SP
+.SH "tag"
+.SS "Add a symbolic tag to checked out version of RCS file"
+.IX "tag (subcommand)"
+.SP
+.IP "\(bu" 2
+tag [-lQqR] [-b] [-d] symbolic_tag [files...]
+.IP "\(bu" 2
+Requires: repository, working directory.
+.IP "\(bu" 2   
+Changes: repository.
+.IP "\(bu" 2
+Synonym: freeze.
+.SP
+Use this command to assign symbolic tags to the nearest repository versions to your
+working sources.  The tags are applied immediately to the repository, as with
+\fBrtag\fR, but the versions are supplied implicitly by the CVS records of your
+working files' history rather than applied explicitly.
+.SP
+One use for tags is to record a snapshot of the current sources when the software
+freeze date of a project arrives.  As bugs are fixed after the freeze date, only
+those changed sources that are to be part of the release need be re-tagged.
+.SP
+The symbolic tags are meant to permanently record which revisions of which files were
+used in creating a software distribution.  The \fBcheckout\fR and \fBupdate\fR
+commands allow you to extract an exact copy of a tagged release at any time in the
+future, regardless of whether files have been changed, added, or removed since the
+release was tagged.
+.SP
+This command can also be used to delete a symbolic tag, or to create a branch.
+See the options section below.
+.SP
+.SH "tag options"
+.SP
+These standard options are supported by \fBtag\fR
+(see node `Common options\(aq in the CVS manual, for a complete description of
+them):
+.SP
+.IP "" 0
+\fB-l\fR
+.IP "" 2
+Local; run only in current working directory.
+.SP
+.IP "" 0
+\fB-R\fR
+.IP "" 2
+Commit directories recursively.  This is on by default.
+.SP
+.IP "" 0
+\fB-Q\fR
+.IP "" 2
+Really quiet.
+.SP
+.IP "" 0
+\fB-q\fR
+.IP "" 2
+Somewhat quiet.
+.SP
+.IP "" 0
+Two special options are available:
+.SP
+.IP "" 0
+\fB-b\fR
+.IP "" 2
+The \fB-b\fR option makes the tag a branch tag (see node `Branches\(aq in the
+CVS manual), allowing concurrent, isolated development.  This is most useful for
+creating a patch to a previously released software distribution.
+.SP
+.IP "" 0
+\fB-d\fR
+.IP "" 2
+Delete a tag.
+.SP
+If you use \fBcvs tag -d symbolic_tag\fR, the symbolic tag you specify is deleted
+instead of being added.  Warning: Be very certain of your ground before you delete
+a tag; doing this effectively discards some historical information, which may later
+turn out to have been valuable.
+.SP
 .SH "update"
 .SS "Bring work tree in sync with repository"
 .IX "update (subcommand)"
 .SP
 .IP "\(bu" 2
-update [-ACdflPpR] [-I name] [-j rev [-j rev]] [-k kflag] [-r tag|-D date] [-W spec] files\&...
+update [-ACdflPpR] [-I name] [-j rev [-j rev]] [-k kflag] [-r tag[:date] | -D date] [-W spec] files\&...
 .IP "\(bu" 2
 Requires: repository, working directory.
 .IP "\(bu" 2
@@ -3427,7 +3749,11 @@ to time, when it is convenient in your development
 process, you can use the \fBupdate\fR command from
 within your working directory to reconcile your work
 with any revisions applied to the source repository
-since your last checkout or update.
+since your last checkout or update.  Without the \fB-C\fR
+option, \fBupdate\fR will also merge any differences
+between the local copy of files and their base revisions
+into any destination revisions specified with \fB-r\fR,
+\fB-D\fR, or \fB-A\fR.
 .SP
 .SH "update options"
 .SP
@@ -3445,10 +3771,8 @@ See see node `Sticky tags\(aq in the CVS manual, for more information on sticky 
 .IP "" 0
 \fB-f\fR
 .IP "" 2
-Only useful with the \fB-D \fIdate\fB\fR or \fB-r
-\fItag\fB\fR flags.  If no matching revision is found,
-retrieve the most recent revision (instead of ignoring
-the file).
+Only useful with the \fB-D\fR or \fB-r\fR flags.  If no matching revision
+is found, retrieve the most recent revision (instead of ignoring the file).
 .SP
 .IP "" 0
 \fB-k \fIkflag\fB\fR
@@ -3483,11 +3807,13 @@ Update directories recursively (default).  see node `Recursive
 behavior\(aq in the CVS manual.
 .SP
 .IP "" 0
-\fB-r rev\fR
+\fB-r \fItag\fB[:\fIdate\fB]\fR
 .IP "" 2
-Retrieve revision/tag \fIrev\fR.  This option is sticky,
-and implies \fB-P\fR.
-See see node `Sticky tags\(aq in the CVS manual, for more information on sticky tags/dates.
+Retrieve the revisions specified by \fItag\fR or, when \fIdate\fR is specified
+and \fItag\fR is a branch tag, the version from the branch \fItag\fR as it
+existed on \fIdate\fR.  This option is sticky, and implies \fB-P\fR.
+See see node `Sticky tags\(aq in the CVS manual, for more information on sticky tags/dates. Also
+see see node `Common options\(aq in the CVS manual.
 .SP
 These special options are also available with
 \fBupdate\fR.
@@ -3584,7 +3910,7 @@ by one character indicating the status of the file:
 .IP "" 2
 The file was brought up to date with respect to the
 repository.  This is done for any file that exists in
-the repository but not in your source, and for files
+the repository but not in your working directory, and for files
 that you haven\(aqt changed but are not the most recent
 versions available in the repository.
 .SP
@@ -3702,9 +4028,7 @@ to CVS, development of CVS, and more, see:
 .SP
 .PD 0
 .IP "" 4
-.B http://cvshome.org
-.IP "" 4
-.B http://www.loria.fr/~molli/cvs-index.html
+.B http://www.nongnu.org/cvs/
 .in -1i
 .SP
 .BR ci ( 1 ),

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -364,7 +360,7 @@ restore(Proc_t* proc)
  */
 
 Proc_t*
-procopen(const char* cmd, char** argv, char** envv, long* modv, long flags)
+procopen(const char* cmd, char** argv, char** envv, long* modv, int flags)
 {
 	register Proc_t*	proc = 0;
 	register int		procfd;
@@ -429,7 +425,7 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, long flags)
 	proc->wfd = -1;
 	proc->flags = flags;
 	sfsync(NiL);
-	if (environ && (envv || (flags & PROC_PARANOID) || argv && (environ[0][0] != '_' || environ[0][1] != '=')))
+	if (environ && envv != (char**)environ && (envv || (flags & PROC_PARANOID) || argv && (environ[0][0] != '_' || environ[0][1] != '=')))
 	{
 		if (!setenviron(NiL))
 			goto bad;
@@ -513,6 +509,7 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, long flags)
 #endif
 	if (!proc->pid)
 	{
+		char*		s;
 #if _use_spawnveg
 		char**		oenviron = 0;
 		char*		oenviron0 = 0;
@@ -626,7 +623,7 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, long flags)
 				goto cleanup;
 		}
 #endif
-		if (argv)
+		if (argv && envv != (char**)environ)
 		{
 #if _use_spawnveg
 			if (!newenv && environ[0][0] == '_' && environ[0][1] == '=')
@@ -638,9 +635,9 @@ procopen(const char* cmd, char** argv, char** envv, long* modv, long flags)
 			if (!setenviron(env))
 				goto cleanup;
 		}
-		if ((flags & PROC_PARANOID) && !setenviron("PATH=:/bin:/usr/bin"))
+		if ((flags & PROC_PARANOID) && setenv("PATH", astconf("PATH", NiL, NiL), 1))
 			goto cleanup;
-		if (p = envv)
+		if ((p = envv) && p != (char**)environ)
 			while (*p)
 				if (!setenviron(*p++))
 					goto cleanup;
@@ -696,17 +693,7 @@ sfsync(sfstderr);
 			*p = path;
 			*--p = "sh";
 		}
-		if (!(flags & PROC_PARANOID))
-		{
-			strcpy(env + 2, pathshell());
-			if (forked || (flags & PROC_OVERLAY))
-				execve(env + 2, p, environ);
-#if _use_spawnveg
-			else if ((proc->pid = spawnveg(env + 2, p, environ, proc->pgrp)) != -1)
-				goto cleanup;
-#endif
-		}
-		strcpy(env + 2, "/bin/sh");
+		strcpy(env + 2, (flags & PROC_PARANOID) ? astconf("SH", NiL, NiL) : pathshell());
 		if (forked || (flags & PROC_OVERLAY))
 			execve(env + 2, p, environ);
 #if _use_spawnveg

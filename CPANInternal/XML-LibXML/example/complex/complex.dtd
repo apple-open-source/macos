@@ -1,0 +1,2 @@
+<!ENTITY % f SYSTEM "dtd/f.dtd">
+%f;

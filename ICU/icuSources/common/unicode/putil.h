@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -25,7 +25,11 @@
 #define PUTIL_H
 
 #include "unicode/utypes.h"
-
+ /**
+  * \file
+  * \brief C API: Platform Utilities
+  */
+  
 /* Define this to 1 if your platform supports IEEE 754 floating point,
    to 0 if it does not. */
 #ifndef IEEE_754
@@ -118,7 +122,7 @@ U_INTERNAL const char*  U_EXPORT2 uprv_getDefaultLocaleID(void);
 #   define U_FILE_SEP_STRING ":"
 #   define U_FILE_ALT_SEP_STRING ":"
 #   define U_PATH_SEP_STRING ";"
-#elif defined(WIN32) || defined(OS2)
+#elif defined(U_WINDOWS)
 #   define U_FILE_SEP_CHAR '\\'
 #   define U_FILE_ALT_SEP_CHAR '/'
 #   define U_PATH_SEP_CHAR ';'

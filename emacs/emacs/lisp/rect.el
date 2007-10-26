@@ -1,6 +1,7 @@
 ;;; rect.el --- rectangle functions for GNU Emacs
 
-;; Copyright (C) 1985, 1999, 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1999, 2000, 2001, 2002, 2003, 2004
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: Didier Verna <didier@xemacs.org>
 ;; Keywords: internal
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -37,21 +38,13 @@
 
 ;;;###autoload
 (defun move-to-column-force (column &optional flag)
-  "Move point to column COLUMN rigidly in the current line.
-If COLUMN is within a multi-column character, replace it by
-spaces and tab.
-
+  "If COLUMN is within a multi-column character, replace it by spaces and tab.
 As for `move-to-column', passing anything but nil or t in FLAG will move to
 the desired column only if the line is long enough."
-  (let ((col (move-to-column column (or flag t))))
-    (if (> col column)
-	(let (pos)
-	  (delete-char -1)
-	  (insert-char ?  (- column (current-column)))
-	  (setq pos (point))
-	  (indent-to col)
-	  (goto-char pos)))
-    column))
+  (move-to-column column (or flag t)))
+
+;;;###autoload
+(make-obsolete 'move-to-column-force 'move-to-column "21.2")
 
 ;; not used any more --dv
 ;; extract-rectangle-line stores lines into this list
@@ -88,12 +81,12 @@ Point is at the end of the segment of this line within the rectangle."
      (while (< (point) endlinepos)
        (let (startpos begextra endextra)
 	 (if coerce-tabs
-	     (move-to-column-force startcol)
+	     (move-to-column startcol t)
 	   (move-to-column startcol))
 	 (setq begextra (- (current-column) startcol))
 	 (setq startpos (point))
 	 (if coerce-tabs
-	     (move-to-column-force endcol)
+	     (move-to-column endcol t)
 	   (move-to-column endcol))
 	 ;; If we overshot, move back one character
 	 ;; so that endextra will be positive.
@@ -135,22 +128,20 @@ the function is called."
     ))
 
 (defun delete-rectangle-line (startcol endcol fill)
-  (let ((pt (line-end-position)))
-    (when (= (move-to-column-force startcol (or fill 'coerce)) startcol)
-      (setq pt (point))
-      (move-to-column-force endcol)
-      (delete-region pt (point)))))
+  (when (= (move-to-column startcol (if fill t 'coerce)) startcol)
+    (delete-region (point)
+		   (progn (move-to-column endcol 'coerce)
+			  (point)))))
 
 (defun delete-extract-rectangle-line (startcol endcol lines fill)
   (let ((pt (point-at-eol)))
-    (if (< (move-to-column-force startcol (or fill 'coerce)) startcol)
+    (if (< (move-to-column startcol (if fill t 'coerce)) startcol)
 	(setcdr lines (cons (spaces-string (- endcol startcol))
 			    (cdr lines)))
       ;; else
       (setq pt (point))
-      (move-to-column-force endcol)
-      (setcdr lines (cons (buffer-substring pt (point)) (cdr lines)))
-      (delete-region pt (point)))
+      (move-to-column endcol t)
+      (setcdr lines (cons (filter-buffer-substring pt (point) t) (cdr lines))))
     ))
 
 ;; ### NOTE: this is actually the only function that needs to do complicated
@@ -190,13 +181,10 @@ the function is called."
 
 ;; this one is untouched --dv
 (defun spaces-string (n)
+  "Returns a string with N spaces."
   (if (<= n 8) (aref spaces-strings n)
-    (let ((val ""))
-      (while (> n 8)
-	(setq val (concat "        " val)
-	      n (- n 8)))
-      (concat val (aref spaces-strings n)))))
-    
+    (make-string n ? )))
+
 ;;;###autoload
 (defun delete-rectangle (start end &optional fill)
   "Delete (don't save) text in the region-rectangle.
@@ -241,12 +229,22 @@ When called from a program the rectangle's corners are START and END.
 You might prefer to use `delete-extract-rectangle' from a program.
 
 With a prefix (or a FILL) argument, also fill lines where nothing has to be
-deleted."
-  (interactive "*r\nP")
-  (when buffer-read-only
-    (setq killed-rectangle (extract-rectangle start end))
-    (barf-if-buffer-read-only))
-  (setq killed-rectangle (delete-extract-rectangle start end fill)))
+deleted.
+
+If the buffer is read-only, Emacs will beep and refrain from deleting
+the rectangle, but put it in the kill ring anyway.  This means that
+you can use this command to copy text from a read-only buffer.
+\(If the variable `kill-read-only-ok' is non-nil, then this won't
+even beep.)"
+  (interactive "r\nP")
+  (condition-case nil
+      (setq killed-rectangle (delete-extract-rectangle start end fill))
+    ((buffer-read-only text-read-only)
+     (setq killed-rectangle (extract-rectangle start end))
+     (if kill-read-only-ok
+	 (progn (message "Read only text copied to kill ring") nil)
+       (barf-if-buffer-read-only)
+       (signal 'text-read-only (list (current-buffer)))))))
 
 ;; this one is untouched --dv
 ;;;###autoload
@@ -273,9 +271,9 @@ and point is at the lower right corner."
 	  (progn
 	   (forward-line 1)
 	   (or (bolp) (insert ?\n))
-	   (move-to-column-force insertcolumn)))
+	   (move-to-column insertcolumn t)))
       (setq first nil)
-      (insert (car lines))
+      (insert-for-yank (car lines))
       (setq lines (cdr lines)))))
 
 ;;;###autoload
@@ -293,17 +291,19 @@ on the right side of the rectangle."
   (goto-char start))
 
 (defun open-rectangle-line (startcol endcol fill)
-  (when (= (move-to-column-force startcol (or fill 'coerce)) startcol)
+  (when (= (move-to-column startcol (if fill t 'coerce)) startcol)
     (unless (and (not fill)
 		 (= (point) (point-at-eol)))
       (indent-to endcol))))
 
 (defun delete-whitespace-rectangle-line (startcol endcol fill)
-  (when (= (move-to-column-force startcol (or fill 'coerce)) startcol)
+  (when (= (move-to-column startcol (if fill t 'coerce)) startcol)
     (unless (= (point) (point-at-eol))
       (delete-region (point) (progn (skip-syntax-forward " ") (point))))))
 
-;;;###autoload (defalias 'close-rectangle 'delete-whitespace-rectangle) ;; Old name
+;;;###autoload
+(defalias 'close-rectangle 'delete-whitespace-rectangle) ;; Old name
+
 ;;;###autoload
 (defun delete-whitespace-rectangle (start end &optional fill)
   "Delete all whitespace following a specified column in each line.
@@ -320,9 +320,9 @@ With a prefix (or a FILL) argument, also fill too short lines."
 ;; string-rectangle uses this variable to pass the string
 ;; to string-rectangle-line.
 (defvar string-rectangle-string)
-
+(defvar string-rectangle-history nil)
 (defun string-rectangle-line (startcol endcol string delete)
-  (move-to-column-force startcol)
+  (move-to-column startcol t)
   (if delete
       (delete-rectangle-line startcol endcol nil))
   (insert string))
@@ -333,9 +333,18 @@ With a prefix (or a FILL) argument, also fill too short lines."
 The length of STRING need not be the same as the rectangle width.
 
 Called from a program, takes three args; START, END and STRING."
-  (interactive "*r\nsString rectangle: ")
+  (interactive
+   (progn (barf-if-buffer-read-only)
+	  (list
+	   (region-beginning)
+	   (region-end)
+	   (read-string (format "String rectangle (default %s): "
+				(or (car string-rectangle-history) ""))
+			nil 'string-rectangle-history
+			(car string-rectangle-history)))))
   (apply-on-rectangle 'string-rectangle-line start end string t))
 
+;;;###autoload
 (defalias 'replace-rectangle 'string-rectangle)
 
 ;;;###autoload
@@ -345,7 +354,15 @@ Called from a program, takes three args; START, END and STRING."
 When called from a program, the rectangle's corners are START and END.
 The left edge of the rectangle specifies the column for insertion.
 This command does not delete or overwrite any existing text."
-  (interactive "*r\nsString insert rectangle: ")
+  (interactive
+   (progn (barf-if-buffer-read-only)
+	  (list
+	   (region-beginning)
+	   (region-end)
+	   (read-string (format "String insert rectangle (default %s): "
+				(or (car string-rectangle-history) ""))
+			nil 'string-rectangle-history
+			(car string-rectangle-history)))))
   (apply-on-rectangle 'string-rectangle-line start end string nil))
 
 ;;;###autoload
@@ -360,19 +377,19 @@ rectangle which were empty."
   (apply-on-rectangle 'clear-rectangle-line start end fill))
 
 (defun clear-rectangle-line (startcol endcol fill)
-  (let ((pt (point-at-eol))
-	spaces)
-    (when (= (move-to-column-force startcol (or fill 'coerce)) startcol)
+  (let ((pt (point-at-eol)))
+    (when (= (move-to-column startcol (if fill t 'coerce)) startcol)
       (if (and (not fill)
 	       (<= (save-excursion (goto-char pt) (current-column)) endcol))
 	  (delete-region (point) pt)
 	;; else
 	(setq pt (point))
-	(move-to-column-force endcol)
-	(setq spaces (- (point) pt))
+	(move-to-column endcol t)
+	(setq endcol (current-column))
 	(delete-region pt (point))
-	(indent-to (+ (current-column) spaces))))))
+	(indent-to endcol)))))
 
 (provide 'rect)
 
+;;; arch-tag: 178847b3-1f50-4b03-83de-a6e911cc1d16
 ;;; rect.el ends here

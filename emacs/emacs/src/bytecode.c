@@ -1,6 +1,6 @@
 /* Execution of byte code produced by bytecomp.el.
-   Copyright (C) 1985, 1986, 1987, 1988, 1993, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1987, 1988, 1993, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,13 +16,13 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
 hacked on by jwz@lucid.com 17-jun-91
   o  added a compile-time switch to turn on simple sanity checking;
   o  put back the obsolete byte-codes for error-detection;
-  o  added a new instruction, unbind_all, which I will use for 
+  o  added a new instruction, unbind_all, which I will use for
      tail-recursion elimination;
   o  made temp_output_buffer_show be called with the right number
      of args;
@@ -39,6 +39,7 @@ by Hallvard:
 #include "buffer.h"
 #include "charset.h"
 #include "syntax.h"
+#include "window.h"
 
 #ifdef CHECK_FRAME_FONT
 #include "frame.h"
@@ -46,10 +47,10 @@ by Hallvard:
 #endif
 
 /*
- * define BYTE_CODE_SAFE to enable some minor sanity checking (useful for 
+ * define BYTE_CODE_SAFE to enable some minor sanity checking (useful for
  * debugging the byte compiler...)
  *
- * define BYTE_CODE_METER to enable generation of a byte-op usage histogram. 
+ * define BYTE_CODE_METER to enable generation of a byte-op usage histogram.
  */
 /* #define BYTE_CODE_SAFE */
 /* #define BYTE_CODE_METER */
@@ -66,16 +67,16 @@ int byte_metering_on;
 
 #define METER_1(code) METER_2 (0, (code))
 
-#define METER_CODE(last_code, this_code)			\
-{								\
-  if (byte_metering_on)						\
-    {								\
-      if (METER_1 (this_code) != ((1<<VALBITS)-1))		\
-        METER_1 (this_code)++;					\
-      if (last_code						\
-	  && METER_2 (last_code, this_code) != ((1<<VALBITS)-1))\
-        METER_2 (last_code, this_code)++;			\
-    }								\
+#define METER_CODE(last_code, this_code)				\
+{									\
+  if (byte_metering_on)							\
+    {									\
+      if (METER_1 (this_code) < MOST_POSITIVE_FIXNUM)			\
+        METER_1 (this_code)++;						\
+      if (last_code							\
+	  && METER_2 (last_code, this_code) < MOST_POSITIVE_FIXNUM)	\
+        METER_2 (last_code, this_code)++;				\
+    }									\
 }
 
 #else /* no BYTE_CODE_METER */
@@ -239,7 +240,7 @@ struct byte_stack
 {
   /* Program counter.  This points into the byte_string below
      and is relocated when that string is relocated.  */
-  unsigned char *pc;
+  const unsigned char *pc;
 
   /* Top and bottom of stack.  The bottom points to an area of memory
      allocated with alloca in Fbyte_code.  */
@@ -249,7 +250,7 @@ struct byte_stack
      Storing this here protects it from GC because mark_byte_stack
      marks it.  */
   Lisp_Object byte_string;
-  unsigned char *byte_string_start;
+  const unsigned char *byte_string_start;
 
   /* The vector of constants used during byte-code execution.  Storing
      this here protects it from GC because mark_byte_stack marks it.  */
@@ -285,27 +286,13 @@ mark_byte_stack ()
 	 The culprit is found in the frame of Fbyte_code where the
 	 address of its local variable `stack' is equal to the
 	 recorded value of `stack' here.  */
-      if (!stack->top)
-	abort ();
-      
+      eassert (stack->top);
+
       for (obj = stack->bottom; obj <= stack->top; ++obj)
-	if (!XMARKBIT (*obj))
-	  {
-	    mark_object (obj);
-	    XMARK (*obj);
-	  }
+	mark_object (*obj);
 
-      if (!XMARKBIT (stack->byte_string))
-	{
-          mark_object (&stack->byte_string);
-	  XMARK (stack->byte_string);
-	}
-
-      if (!XMARKBIT (stack->constants))
-	{
-	  mark_object (&stack->constants);
-	  XMARK (stack->constants);
-	}
+      mark_object (stack->byte_string);
+      mark_object (stack->constants);
     }
 }
 
@@ -313,24 +300,17 @@ mark_byte_stack ()
 /* Unmark objects in the stacks on byte_stack_list.  Relocate program
    counters.  Called when GC has completed.  */
 
-void 
+void
 unmark_byte_stack ()
 {
   struct byte_stack *stack;
-  Lisp_Object *obj;
 
   for (stack = byte_stack_list; stack; stack = stack->next)
     {
-      for (obj = stack->bottom; obj <= stack->top; ++obj)
-	XUNMARK (*obj);
-
-      XUNMARK (stack->byte_string);
-      XUNMARK (stack->constants);
-
-      if (stack->byte_string_start != XSTRING (stack->byte_string)->data)
+      if (stack->byte_string_start != SDATA (stack->byte_string))
 	{
 	  int offset = stack->pc - stack->byte_string_start;
-	  stack->byte_string_start = XSTRING (stack->byte_string)->data;
+	  stack->byte_string_start = SDATA (stack->byte_string);
 	  stack->pc = stack->byte_string_start + offset;
 	}
     }
@@ -375,13 +355,14 @@ unmark_byte_stack ()
 /* Garbage collect if we have consed enough since the last time.
    We do this at every branch, to avoid loops that never GC.  */
 
-#define MAYBE_GC()				\
-  if (consing_since_gc > gc_cons_threshold)	\
-    {						\
-      BEFORE_POTENTIAL_GC ();			\
-      Fgarbage_collect ();			\
-      AFTER_POTENTIAL_GC ();			\
-    }						\
+#define MAYBE_GC()					\
+  if (consing_since_gc > gc_cons_threshold		\
+      && consing_since_gc > gc_relative_threshold)	\
+    {							\
+      BEFORE_POTENTIAL_GC ();				\
+      Fgarbage_collect ();				\
+      AFTER_POTENTIAL_GC ();				\
+    }							\
   else
 
 /* Check for jumping out of range.  */
@@ -404,23 +385,27 @@ unmark_byte_stack ()
   do {							\
     if (!NILP (Vquit_flag) && NILP (Vinhibit_quit))	\
       {							\
+        Lisp_Object flag = Vquit_flag;			\
 	Vquit_flag = Qnil;				\
         BEFORE_POTENTIAL_GC ();				\
+	if (EQ (Vthrow_on_input, flag))			\
+	  Fthrow (Vthrow_on_input, Qt);			\
 	Fsignal (Qquit, Qnil);				\
+	AFTER_POTENTIAL_GC ();				\
       }							\
   } while (0)
 
 
 DEFUN ("byte-code", Fbyte_code, Sbyte_code, 3, 3, 0,
-  "Function used internally in byte-compiled code.\n\
-The first argument, BYTESTR, is a string of byte code;\n\
-the second, VECTOR, a vector of constants;\n\
-the third, MAXDEPTH, the maximum stack depth used in this function.\n\
-If the third argument is incorrect, Emacs may crash.")
-  (bytestr, vector, maxdepth)
+       doc: /* Function used internally in byte-compiled code.
+The first argument, BYTESTR, is a string of byte code;
+the second, VECTOR, a vector of constants;
+the third, MAXDEPTH, the maximum stack depth used in this function.
+If the third argument is incorrect, Emacs may crash.  */)
+     (bytestr, vector, maxdepth)
      Lisp_Object bytestr, vector, maxdepth;
 {
-  int count = specpdl_ptr - specpdl;
+  int count = SPECPDL_INDEX ();
 #ifdef BYTE_CODE_METER
   int this_op = 0;
   int prev_op;
@@ -447,26 +432,25 @@ If the third argument is incorrect, Emacs may crash.")
  }
 #endif
 
-  CHECK_STRING (bytestr, 0);
-  if (!VECTORP (vector))
-    vector = wrong_type_argument (Qvectorp, vector);
-  CHECK_NUMBER (maxdepth, 2);
+  CHECK_STRING (bytestr);
+  CHECK_VECTOR (vector);
+  CHECK_NUMBER (maxdepth);
 
   if (STRING_MULTIBYTE (bytestr))
     /* BYTESTR must have been produced by Emacs 20.2 or the earlier
        because they produced a raw 8-bit string for byte-code and now
        such a byte-code string is loaded as multibyte while raw 8-bit
        characters converted to multibyte form.  Thus, now we must
-       convert them back to the original unibyte form.  */
+       convert them back to the originally intended unibyte form.  */
     bytestr = Fstring_as_unibyte (bytestr);
 
-  bytestr_length = STRING_BYTES (XSTRING (bytestr));
+  bytestr_length = SBYTES (bytestr);
   vectorp = XVECTOR (vector)->contents;
 
   stack.byte_string = bytestr;
-  stack.pc = stack.byte_string_start = XSTRING (bytestr)->data;
+  stack.pc = stack.byte_string_start = SDATA (bytestr);
   stack.constants = vector;
-  stack.bottom = (Lisp_Object *) alloca (XFASTINT (maxdepth) 
+  stack.bottom = (Lisp_Object *) alloca (XFASTINT (maxdepth)
                                          * sizeof (Lisp_Object));
   top = stack.bottom - 1;
   stack.top = NULL;
@@ -476,7 +460,7 @@ If the third argument is incorrect, Emacs may crash.")
 #ifdef BYTE_CODE_SAFE
   stacke = stack.bottom - 1 + XFASTINT (maxdepth);
 #endif
-  
+
   while (1)
     {
 #ifdef BYTE_CODE_SAFE
@@ -500,11 +484,11 @@ If the third argument is incorrect, Emacs may crash.")
 	  op = FETCH2;
 	  goto varref;
 
-	case Bvarref: 
-	case Bvarref + 1: 
-	case Bvarref + 2: 
+	case Bvarref:
+	case Bvarref + 1:
+	case Bvarref + 2:
 	case Bvarref + 3:
-	case Bvarref + 4: 
+	case Bvarref + 4:
 	case Bvarref + 5:
 	  op = op - Bvarref;
 	  goto varref;
@@ -520,7 +504,7 @@ If the third argument is incorrect, Emacs may crash.")
 	    v1 = vectorp[op];
 	    if (SYMBOLP (v1))
 	      {
-		v2 = XSYMBOL (v1)->value;
+		v2 = SYMBOL_VALUE (v1);
 		if (MISCP (v2) || EQ (v2, Qunbound))
 		  {
 		    BEFORE_POTENTIAL_GC ();
@@ -539,30 +523,25 @@ If the third argument is incorrect, Emacs may crash.")
 	  }
 
 	case Bgotoifnil:
-	  MAYBE_GC ();
-	  op = FETCH2;
-	  if (NILP (POP))
-	    {
-	      BYTE_CODE_QUIT;
-	      CHECK_RANGE (op);
-	      stack.pc = stack.byte_string_start + op;
-	    }
-	  break;
+	  {
+	    Lisp_Object v1;
+	    MAYBE_GC ();
+	    op = FETCH2;
+	    v1 = POP;
+	    if (NILP (v1))
+	      {
+		BYTE_CODE_QUIT;
+		CHECK_RANGE (op);
+		stack.pc = stack.byte_string_start + op;
+	      }
+	    break;
+	  }
 
 	case Bcar:
 	  {
 	    Lisp_Object v1;
 	    v1 = TOP;
-	    if (CONSP (v1))
-	      TOP = XCAR (v1);
-	    else if (NILP (v1))
-	      TOP = Qnil;
-	    else
-	      {
-		BEFORE_POTENTIAL_GC ();
-		Fcar (wrong_type_argument (Qlistp, v1));
-		AFTER_POTENTIAL_GC ();
-	      }
+	    TOP = CAR (v1);
 	    break;
 	  }
 
@@ -588,16 +567,7 @@ If the third argument is incorrect, Emacs may crash.")
 	  {
 	    Lisp_Object v1;
 	    v1 = TOP;
-	    if (CONSP (v1))
-	      TOP = XCDR (v1);
-	    else if (NILP (v1))
-	      TOP = Qnil;
-	    else
-	      {
-		BEFORE_POTENTIAL_GC ();
-		Fcdr (wrong_type_argument (Qlistp, v1));
-		AFTER_POTENTIAL_GC ();
-	      }
+	    TOP = CDR (v1);
 	    break;
 	  }
 
@@ -619,23 +589,16 @@ If the third argument is incorrect, Emacs may crash.")
 	varset:
 	  {
 	    Lisp_Object sym, val;
-	      
+
 	    sym = vectorp[op];
 	    val = TOP;
 
 	    /* Inline the most common case.  */
 	    if (SYMBOLP (sym)
 		&& !EQ (val, Qunbound)
-		&& !MISCP (XSYMBOL (sym)->value)
-		/* I think this should either be checked in the byte
-		   compiler, or there should be a flag indicating that
-		   a symbol might be constant in Lisp_Symbol, instead
-		   of checking this here over and over again. --gerd.  */
-		&& !EQ (sym, Qnil)
-		&& !EQ (sym, Qt)
-		&& !(XSYMBOL (sym)->name->data[0] == ':'
-		     && EQ (XSYMBOL (sym)->obarray, initial_obarray)
-		     && !EQ (val, sym)))
+		&& !XSYMBOL (sym)->indirect_variable
+		&& !SYMBOL_CONSTANT_P (sym)
+		&& !MISCP (XSYMBOL (sym)->value))
 	      XSYMBOL (sym)->value = val;
 	    else
 	      {
@@ -644,7 +607,7 @@ If the third argument is incorrect, Emacs may crash.")
 		AFTER_POTENTIAL_GC ();
 	      }
 	  }
-	  POP;
+	  (void) POP;
 	  break;
 
 	case Bdup:
@@ -706,7 +669,7 @@ If the third argument is incorrect, Emacs may crash.")
 		v1 = TOP;
 		v2 = Fget (v1, Qbyte_code_meter);
 		if (INTEGERP (v2)
-		    && XINT (v2) != ((1<<VALBITS)-1))
+		    && XINT (v2) < MOST_POSITIVE_FIXNUM)
 		  {
 		    XSETINT (v2, XINT (v2) + 1);
 		    Fput (v1, Qbyte_code_meter, v2);
@@ -735,7 +698,7 @@ If the third argument is incorrect, Emacs may crash.")
 	  op -= Bunbind;
 	dounbind:
 	  BEFORE_POTENTIAL_GC ();
-	  unbind_to (specpdl_ptr - specpdl - op, Qnil);
+	  unbind_to (SPECPDL_INDEX () - op, Qnil);
 	  AFTER_POTENTIAL_GC ();
 	  break;
 
@@ -756,15 +719,19 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case Bgotoifnonnil:
-	  MAYBE_GC ();
-	  op = FETCH2;
-	  if (!NILP (POP))
-	    {
-	      BYTE_CODE_QUIT;
-	      CHECK_RANGE (op);
-	      stack.pc = stack.byte_string_start + op;
-	    }
-	  break;
+	  {
+	    Lisp_Object v1;
+	    MAYBE_GC ();
+	    op = FETCH2;
+	    v1 = POP;
+	    if (!NILP (v1))
+	      {
+		BYTE_CODE_QUIT;
+		CHECK_RANGE (op);
+		stack.pc = stack.byte_string_start + op;
+	      }
+	    break;
+	  }
 
 	case Bgotoifnilelsepop:
 	  MAYBE_GC ();
@@ -797,24 +764,32 @@ If the third argument is incorrect, Emacs may crash.")
 	  break;
 
 	case BRgotoifnil:
-	  MAYBE_GC ();
-	  if (NILP (POP))
-	    {
-	      BYTE_CODE_QUIT;
-	      stack.pc += (int) *stack.pc - 128;
-	    }
-	  stack.pc++;
-	  break;
+	  {
+	    Lisp_Object v1;
+	    MAYBE_GC ();
+	    v1 = POP;
+	    if (NILP (v1))
+	      {
+		BYTE_CODE_QUIT;
+		stack.pc += (int) *stack.pc - 128;
+	      }
+	    stack.pc++;
+	    break;
+	  }
 
 	case BRgotoifnonnil:
-	  MAYBE_GC ();
-	  if (!NILP (POP))
-	    {
-	      BYTE_CODE_QUIT;
-	      stack.pc += (int) *stack.pc - 128;
-	    }
-	  stack.pc++;
-	  break;
+	  {
+	    Lisp_Object v1;
+	    MAYBE_GC ();
+	    v1 = POP;
+	    if (!NILP (v1))
+	      {
+		BYTE_CODE_QUIT;
+		stack.pc += (int) *stack.pc - 128;
+	      }
+	    stack.pc++;
+	    break;
+	  }
 
 	case BRgotoifnilelsepop:
 	  MAYBE_GC ();
@@ -882,28 +857,24 @@ If the third argument is incorrect, Emacs may crash.")
 	  }
 
 	case Bunwind_protect:
-	  /* The function record_unwind_protect can GC.  */
-	  BEFORE_POTENTIAL_GC ();
-	  record_unwind_protect (0, POP);
-	  AFTER_POTENTIAL_GC ();
-	  (specpdl_ptr - 1)->symbol = Qnil;
+	  record_unwind_protect (Fprogn, POP);
 	  break;
 
 	case Bcondition_case:
 	  {
-	    Lisp_Object v1;
-	    v1 = POP;
-	    v1 = Fcons (POP, v1);
+	    Lisp_Object handlers, body;
+	    handlers = POP;
+	    body = POP;
 	    BEFORE_POTENTIAL_GC ();
-	    TOP = Fcondition_case (Fcons (TOP, v1));
+	    TOP = internal_lisp_condition_case (TOP, body, handlers);
 	    AFTER_POTENTIAL_GC ();
 	    break;
 	  }
 
 	case Btemp_output_buffer_setup:
 	  BEFORE_POTENTIAL_GC ();
-	  CHECK_STRING (TOP, 0);
-	  temp_output_buffer_setup (XSTRING (TOP)->data);
+	  CHECK_STRING (TOP);
+	  temp_output_buffer_setup (SDATA (TOP));
 	  AFTER_POTENTIAL_GC ();
 	  TOP = Vstandard_output;
 	  break;
@@ -916,7 +887,7 @@ If the third argument is incorrect, Emacs may crash.")
 	    temp_output_buffer_show (TOP);
 	    TOP = v1;
 	    /* pop binding of standard-output */
-	    unbind_to (specpdl_ptr - specpdl - 1, Qnil);
+	    unbind_to (SPECPDL_INDEX () - 1, Qnil);
 	    AFTER_POTENTIAL_GC ();
 	    break;
 	  }
@@ -927,35 +898,14 @@ If the third argument is incorrect, Emacs may crash.")
 	    BEFORE_POTENTIAL_GC ();
 	    v1 = POP;
 	    v2 = TOP;
-	    CHECK_NUMBER (v2, 0);
+	    CHECK_NUMBER (v2);
 	    AFTER_POTENTIAL_GC ();
 	    op = XINT (v2);
 	    immediate_quit = 1;
-	    while (--op >= 0)
-	      {
-		if (CONSP (v1))
-		  v1 = XCDR (v1);
-		else if (!NILP (v1))
-		  {
-		    immediate_quit = 0;
-		    BEFORE_POTENTIAL_GC ();
-		    v1 = wrong_type_argument (Qlistp, v1);
-		    AFTER_POTENTIAL_GC ();
-		    immediate_quit = 1;
-		    op++;
-		  }
-	      }
+	    while (--op >= 0 && CONSP (v1))
+	      v1 = XCDR (v1);
 	    immediate_quit = 0;
-	    if (CONSP (v1))
-	      TOP = XCAR (v1);
-	    else if (NILP (v1))
-	      TOP = Qnil;
-	    else
-	      {
-		BEFORE_POTENTIAL_GC ();
-		Fcar (wrong_type_argument (Qlistp, v1));
-		AFTER_POTENTIAL_GC ();
-	      }
+	    TOP = CAR (v1);
 	    break;
 	  }
 
@@ -1132,7 +1082,11 @@ If the third argument is incorrect, Emacs may crash.")
 		TOP = v1;
 	      }
 	    else
-	      TOP = Fsub1 (v1);
+	      {
+		BEFORE_POTENTIAL_GC ();
+		TOP = Fsub1 (v1);
+		AFTER_POTENTIAL_GC ();
+	      }
 	    break;
 	  }
 
@@ -1159,8 +1113,8 @@ If the third argument is incorrect, Emacs may crash.")
 	    Lisp_Object v1, v2;
 	    BEFORE_POTENTIAL_GC ();
 	    v2 = POP; v1 = TOP;
-	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v1, 0);
-	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v2, 0);
+	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v1);
+	    CHECK_NUMBER_OR_FLOAT_COERCE_MARKER (v2);
 	    AFTER_POTENTIAL_GC ();
 	    if (FLOATP (v1) || FLOATP (v2))
 	      {
@@ -1359,7 +1313,7 @@ If the third argument is incorrect, Emacs may crash.")
 	  {
 	    Lisp_Object v1;
 	    BEFORE_POTENTIAL_GC ();
-	    XSETFASTINT (v1, current_column ());
+	    XSETFASTINT (v1, (int) current_column ()); /* iftc */
 	    AFTER_POTENTIAL_GC ();
 	    PUSH (v1);
 	    break;
@@ -1441,7 +1395,7 @@ If the third argument is incorrect, Emacs may crash.")
 
 	case Bchar_syntax:
 	  BEFORE_POTENTIAL_GC ();
-	  CHECK_NUMBER (TOP, 0);
+	  CHECK_NUMBER (TOP);
 	  AFTER_POTENTIAL_GC ();
 	  XSETFASTINT (TOP, syntax_code_spec[(int) SYNTAX (XINT (TOP))]);
 	  break;
@@ -1570,35 +1524,14 @@ If the third argument is incorrect, Emacs may crash.")
 		BEFORE_POTENTIAL_GC ();
 		v2 = POP;
 		v1 = TOP;
-		CHECK_NUMBER (v2, 0);
+		CHECK_NUMBER (v2);
 		AFTER_POTENTIAL_GC ();
 		op = XINT (v2);
 		immediate_quit = 1;
-		while (--op >= 0)
-		  {
-		    if (CONSP (v1))
-		      v1 = XCDR (v1);
-		    else if (!NILP (v1))
-		      {
-			immediate_quit = 0;
-			BEFORE_POTENTIAL_GC ();
-			v1 = wrong_type_argument (Qlistp, v1);
-			AFTER_POTENTIAL_GC ();
-			immediate_quit = 1;
-			op++;
-		      }
-		  }
+		while (--op >= 0 && CONSP (v1))
+		  v1 = XCDR (v1);
 		immediate_quit = 0;
-		if (CONSP (v1))
-		  TOP = XCAR (v1);
-		else if (NILP (v1))
-		  TOP = Qnil;
-		else
-		  {
-		    BEFORE_POTENTIAL_GC ();
-		    Fcar (wrong_type_argument (Qlistp, v1));
-		    AFTER_POTENTIAL_GC ();
-		  }
+		TOP = CAR (v1);
 	      }
 	    else
 	      {
@@ -1660,10 +1593,7 @@ If the third argument is incorrect, Emacs may crash.")
 	  {
 	    Lisp_Object v1;
 	    v1 = TOP;
-	    if (CONSP (v1))
-	      TOP = XCAR (v1);
-	    else
-	      TOP = Qnil;
+	    TOP = CAR_SAFE (v1);
 	    break;
 	  }
 
@@ -1671,10 +1601,7 @@ If the third argument is incorrect, Emacs may crash.")
 	  {
 	    Lisp_Object v1;
 	    v1 = TOP;
-	    if (CONSP (v1))
-	      TOP = XCDR (v1);
-	    else
-	      TOP = Qnil;
+	    TOP = CDR_SAFE (v1);
 	    break;
 	  }
 
@@ -1732,13 +1659,13 @@ If the third argument is incorrect, Emacs may crash.")
   byte_stack_list = byte_stack_list->next;
 
   /* Binds and unbinds are supposed to be compiled balanced.  */
-  if (specpdl_ptr - specpdl != count)
+  if (SPECPDL_INDEX () != count)
 #ifdef BYTE_CODE_SAFE
     error ("binding stack not balanced (serious byte compiler bug)");
 #else
     abort ();
 #endif
-  
+
   return result;
 }
 
@@ -1753,17 +1680,18 @@ syms_of_bytecode ()
 #ifdef BYTE_CODE_METER
 
   DEFVAR_LISP ("byte-code-meter", &Vbyte_code_meter,
-   "A vector of vectors which holds a histogram of byte-code usage.\n\
-(aref (aref byte-code-meter 0) CODE) indicates how many times the byte\n\
-opcode CODE has been executed.\n\
-(aref (aref byte-code-meter CODE1) CODE2), where CODE1 is not 0,\n\
-indicates how many times the byte opcodes CODE1 and CODE2 have been\n\
-executed in succession.");
+	       doc: /* A vector of vectors which holds a histogram of byte-code usage.
+\(aref (aref byte-code-meter 0) CODE) indicates how many times the byte
+opcode CODE has been executed.
+\(aref (aref byte-code-meter CODE1) CODE2), where CODE1 is not 0,
+indicates how many times the byte opcodes CODE1 and CODE2 have been
+executed in succession.  */);
+
   DEFVAR_BOOL ("byte-metering-on", &byte_metering_on,
-   "If non-nil, keep profiling information on byte code usage.\n\
-The variable byte-code-meter indicates how often each byte opcode is used.\n\
-If a symbol has a property named `byte-code-meter' whose value is an\n\
-integer, it is incremented each time that symbol's function is called.");
+	       doc: /* If non-nil, keep profiling information on byte code usage.
+The variable byte-code-meter indicates how often each byte opcode is used.
+If a symbol has a property named `byte-code-meter' whose value is an
+integer, it is incremented each time that symbol's function is called.  */);
 
   byte_metering_on = 0;
   Vbyte_code_meter = Fmake_vector (make_number (256), make_number (0));
@@ -1777,3 +1705,6 @@ integer, it is incremented each time that symbol's function is called.");
   }
 #endif
 }
+
+/* arch-tag: b9803b6f-1ed6-4190-8adf-33fd3a9d10e9
+   (do not change this comment) */

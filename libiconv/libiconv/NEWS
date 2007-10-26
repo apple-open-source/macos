@@ -1,3 +1,36 @@
+New in 1.11:
+* The iconv program has new options --unicode-subst, --byte-subst,
+  --widechar-subst that allow to specify substitutions for characters that
+  cannot be converted.
+* The iconv program now understands long options:
+    long option    equivalent to
+    --from-code    -f
+    --to-code      -t
+    --list         -l
+    --silent       -s
+* The CP936 converter is now different from the GBK converter: it has changed
+  to include the Euro sign and private area characters. CP936 is no longer an
+  alias of GBK.
+* Updated GB18030 converter to include all private area characters.
+* Updated CP950 converter to include the Euro sign and private area characters.
+* Updated CP949 converter to include private area characters.
+* Updated the BIG5-HKSCS converter. The old BIG5-HKSCS converter is renamed to
+  BIG5-HKSCS:1999 and updated to Unicode 4. New converters BIG5-HKSCS:2001 and
+  BIG5-HKSCS:2004 are added. BIG5-HKSCS is now an alias for BIG5-HKSCS:2004.
+* Added a few irreversible mappings to the CP932 converter.
+* Tidy up the list of symbols exported from libiconv (assumes gcc >= 4.0).
+
+New in 1.10:
+* Added ISO-8859-11 converter.
+* Updated the ISO-8859-7 converter.
+* Added ATARIST converter, available through --enable-extra-encodings.
+* Added BIG5-2003 converter (experimental), available through
+  --enable-extra-encodings.
+* Updated EUC-TW converter to include the Euro sign.
+* The preloadable library has been renamed from libiconv_plug.so to
+  preloadable_libiconv.so.
+* Portability to mingw.
+
 New in 1.9:
 * Many more transliterations.
 * New configuration option --enable-relocatable.  See the INSTALL.generic file

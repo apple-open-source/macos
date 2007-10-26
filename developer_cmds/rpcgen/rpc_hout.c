@@ -176,7 +176,7 @@ pargdef(def)
 			}
 			f_print(fout, "};\n");
 			f_print(fout, "typedef struct %s %s;\n", name, name);
-			pxdrfuncdecl(name, NULL);
+			pxdrfuncdecl(name, 0);
 			f_print(fout, "\n");
 		}
 	}
@@ -241,7 +241,7 @@ puldefine(name, num)
 	char   *name;
 	char   *num;
 {
-	f_print(fout, "#define %s ((u_long)%s)\n", name, num);
+	f_print(fout, "#define %s ((rpc_uint)%s)\n", name, num);
 }
 
 static int

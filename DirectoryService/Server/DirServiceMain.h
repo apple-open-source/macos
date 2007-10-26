@@ -29,5 +29,9 @@
 #ifndef __DirServiceMain_h__
 #define __DirServiceMain_h__ 1
 
+__BEGIN_DECLS
+int dsPostEvent( CFStringRef inEventType, CFDictionaryRef inEventData );
+__END_DECLS
+
 #endif //  __DirServiceMain_h__
 

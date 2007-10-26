@@ -1,7 +1,29 @@
-" Vim filetype plugin file
+" Vim filetype plugin file (GUI menu and folding)
 " Language:	Debian Changelog
 " Maintainer:	Michael Piefel <piefel@informatik.hu-berlin.de>
-" Last Change:	31 October 2001
+"		Stefano Zacchiroli <zack@debian.org>
+" Last Change:	$LastChangedDate: 2006-04-28 12:15:12 -0400 (ven, 28 apr 2006) $
+" License:	GNU GPL, version 2.0 or later
+" URL:		http://svn.debian.org/wsvn/pkg-vim/trunk/runtime/ftplugin/debchangelog.vim?op=file&rev=0&sc=0
+
+if exists("b:did_ftplugin")
+  finish
+endif
+let b:did_ftplugin = 1
+
+" {{{1 Local settings (do on every load)
+setlocal foldmethod=expr
+setlocal foldexpr=GetDebChangelogFold(v:lnum)
+setlocal foldtext=DebChangelogFoldText()
+
+" Debian changelogs are not supposed to have any other text width,
+" so the user cannot override this setting
+setlocal tw=78
+setlocal comments=f:* 
+
+" Clean unloading
+let b:undo_ftplugin = "setlocal tw< comments< foldmethod< foldexpr< foldtext<"
+" }}}1
 
 if exists("g:did_changelog_ftplugin")
   finish
@@ -9,6 +31,8 @@ endif
 
 " Don't load another plugin (this is global)
 let g:did_changelog_ftplugin = 1
+
+" {{{1 GUI menu
 
 " Helper functions returning various data.
 " Returns full name, either from $DEBFULLNAME or debianfullname.
@@ -30,7 +54,7 @@ function <SID>Email()
     elseif exists("$EMAIL")
 	return $EMAIL
     elseif exists("g:debianemail")
-	return g:debianfullemail
+	return g:debianemail
     else
 	return "your@email.address"
     endif
@@ -78,7 +102,7 @@ function NewVersion()
     amenu enable Changelog.Set\ Urgency
     amenu disable Changelog.Unfinalise
     amenu enable Changelog.Finalise
-    call append(0, substitute(getline(1),'-\([[:digit:]]\+\))', '-Ü\1)', ''))
+    call append(0, substitute(getline(1), '-\([[:digit:]]\+\))', '-$$\1)', ''))
     call append(1, "")
     call append(2, "")
     call append(3, " -- ")
@@ -89,7 +113,8 @@ function NewVersion()
     call search(")")
     normal h
     normal 
-    call setline(1, substitute(getline(1),'-Ü\([[:digit:]]\+\))', '-\1)', ''))
+    call setline(1, substitute(getline(1), '-\$\$', '-', ''))
+    normal zo
     call AddEntry()
 endfunction
 
@@ -195,8 +220,46 @@ function <SID>MakeMenu()
 endfunction
 
 augroup changelogMenu
-au BufEnter * if &filetype == "debchangelog" | call <SID>MakeMenu() | setlocal tw=78 | set comments=f:* | endif
+au BufEnter * if &filetype == "debchangelog" | call <SID>MakeMenu() | endif
 au BufLeave * if &filetype == "debchangelog" | aunmenu Changelog | endif
 augroup END
 
+" }}}
+" {{{1 folding
 
+" look for an author name searching backward from a given line number
+function! s:getAuthor(lnum)
+  let line = getline(a:lnum)
+  let backsteps = 0
+  while line !~ '^ --'
+    let backsteps += 1
+    let line = getline(a:lnum - backsteps)
+  endwhile
+  let author = substitute(line, '^ --\s*\([^<]\+\)\s*.*', '\1', '')
+  return author
+endfunction
+
+function! DebChangelogFoldText()
+  if v:folddashes == '-'  " changelog entry fold
+    return foldtext() . ' -- ' . s:getAuthor(v:foldend) . ' '
+  endif
+  return foldtext()
+endfunction
+
+function! GetDebChangelogFold(lnum)
+  let line = getline(a:lnum)
+  if line =~ '^\w\+'
+    return '>1' " beginning of a changelog entry
+  endif
+  if line =~ '^\s\+\[.*\]'
+    return '>2' " beginning of an author-specific chunk
+  endif
+  if line =~ '^ --'
+    return '1'
+  endif
+  return '='
+endfunction
+
+" }}}
+
+" vim: set foldmethod=marker:

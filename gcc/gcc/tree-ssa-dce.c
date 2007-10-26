@@ -97,6 +97,15 @@ bitmap *control_dependence_map;
    processed that it is control dependent on.  */
 sbitmap visited_control_parents;
 
+/* APPLE LOCAL begin ARM mainline */
+/* TRUE if this pass alters the CFG (by removing control statements).
+   FALSE otherwise.
+
+   If this pass alters the CFG, then it will arrange for the dominators
+   to be recomputed.  */
+static bool cfg_altered;
+/* APPLE LOCAL end ARM mainline */
+
 /* Execute CODE for each edge (given number EDGE_NUMBER within the CODE)
    for which the block with index N is control dependent.  */
 #define EXECUTE_IF_CONTROL_DEPENDENT(N, EDGE_NUMBER, CODE)		      \
@@ -850,9 +859,15 @@ remove_dead_stmt (block_stmt_iterator *i, basic_block bb)
       else
 	EDGE_SUCC (bb, 0)->flags &= ~EDGE_FALLTHRU;
 
+      /* APPLE LOCAL begin ARM mainline */
+      /* Sort of, OK to replace with mainline.  */
       /* Remove the remaining the outgoing edges.  */
       while (EDGE_COUNT (bb->succs) != 1)
-        remove_edge (EDGE_SUCC (bb, 1));
+	{
+	  cfg_altered = true;
+          remove_edge (EDGE_SUCC (bb, 1));
+	}
+      /* APPLE LOCAL end ARM mainline */
     }
   
   FOR_EACH_SSA_DEF_OPERAND (def_p, t, iter, 
@@ -913,6 +928,8 @@ tree_dce_init (bool aggressive)
   sbitmap_zero (processed);
 
   VARRAY_TREE_INIT (worklist, 64, "work list");
+  /* APPLE LOCAL ARM mainline */
+  cfg_altered = false;
 }
 
 /* Cleanup after this pass.  */
@@ -980,6 +997,14 @@ perform_tree_ssa_dce (bool aggressive)
 
   if (aggressive)
     free_dominance_info (CDI_POST_DOMINATORS);
+
+  /* APPLE LOCAL begin ARM from mainline */
+  /* If we removed paths in the CFG, then we need to update
+     dominators as well.  I haven't investigated the possibility
+     of incrementally updating dominators.  */
+  if (cfg_altered)
+    free_dominance_info (CDI_DOMINATORS);
+  /* APPLE LOCAL end ARM from mainline */
 
   /* Debugging dumps.  */
   if (dump_file)

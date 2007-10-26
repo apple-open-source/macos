@@ -30,6 +30,8 @@
 
 // this is for our MIG clients so they don't have to include the framework headers
 #define		kDSStdMachPortName	"com.apple.DirectoryService"
+#define		kDSStdMachDebugPortName	"com.apple.DirectoryServiceDebug"
+#define		kDSStdMachLocalPortName	"com.apple.DirectoryService.localonly"
 
 typedef struct sComData *sComDataPtr;
 typedef char *sStringPtr;

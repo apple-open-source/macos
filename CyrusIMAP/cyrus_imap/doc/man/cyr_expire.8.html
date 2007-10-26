@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:44 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -15,12 +17,10 @@
 <a href="#SEE ALSO">SEE ALSO</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:17 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -28,30 +28,33 @@
 <p>cyr_expire &minus; expire messages and duplicate delivery
 database entries</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>cyr_expire</b> [ <b>&minus;C</b> <i>config-file</i> ]
-<b>&minus;E</b> <i>days</i> [ <b>&minus;v</b> ]</p>
+<b>&minus;E</b> <i>expire-days</i> [ <b>&minus;X</b>
+<i>expunge-days</i> ] [ <b>&minus;v</b> ]</p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><i>Cyr_expire</i> is used to expire messages and
-duplicate delivery database entries. The expiration of
-messages is controlled by the
+duplicate delivery database entries. <i>Cyr_expire</i> also
+cleanses mailboxes of partially expunged messages (when
+using the &quot;delayed&quot; expunge mode). The expiration
+of messages is controlled by the
 <b>/vendor/cmu/cyrus-imapd/expire</b> mailbox annotation
 which specifies the age (in days) of messages in the given
 mailbox that should be deleted. Any duplicate delivery
@@ -70,17 +73,17 @@ messages are expired from the mailbox.</p>
 the <i>imapd.conf</i>(5) file unless specified otherwise by
 <b>-C</b>.</p>
 </td>
-</table></p>
+</table>
 <a name="OPTIONS"></a>
 <h2>OPTIONS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;C</b> <i>config-file</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -91,13 +94,13 @@ the <i>imapd.conf</i>(5) file unless specified otherwise by
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
-<p><b>&minus;E</b> <i>days</i></p></td>
-</table></p>
+<p><b>&minus;E</b> <i>expire-days</i></p></td>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -105,14 +108,34 @@ the <i>imapd.conf</i>(5) file unless specified otherwise by
 <td width="21%"></td>
 <td width="77%">
 <p>Prune the duplicate database of entries older than
-<i>days</i>. This value is only used for entries which do
-not have a corresponding
+<i>expire-days</i>. This value is only used for entries
+which do not have a corresponding
 <b>/vendor/cmu/cyrus-imapd/expire</b> mailbox
 annotation.</p>
 </td>
 </table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;X</b> <i>expunge-days</i></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Expunge previously deleted messages older than
+<i>expunge-days</i> (when using the &quot;delayed&quot;
+expunge mode). The default is 0 (zero) days, which will
+expunge <b>all</b> previously deleted messages.</p>
+</td>
+</table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="5" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="11%"></td>
@@ -127,28 +150,28 @@ annotation.</p>
 </td>
 <td width="39%">
 </td>
-</table></p>
+</table>
 <a name="FILES"></a>
 <h2>FILES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>/etc/imapd.conf</b></p></td>
-</table></p>
+</table>
 <a name="SEE ALSO"></a>
 <h2>SEE ALSO</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imapd.conf(5)</b>, <b>master(8)</b></p>
 </td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

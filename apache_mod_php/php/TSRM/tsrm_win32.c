@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: tsrm_win32.c,v 1.14.2.4.2.2 2007/01/01 09:46:40 sebastian Exp $ */
+/* $Id: tsrm_win32.c,v 1.27.2.1.2.7 2007/04/16 08:09:54 dmitry Exp $ */
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -24,9 +24,12 @@
 #include <process.h>
 #include <time.h>
 
+#define TSRM_INCLUDE_FULL_WINDOWS_HEADERS
+
 #include "TSRM.h"
 
 #ifdef TSRM_WIN32
+
 #include "tsrm_win32.h"
 
 #ifdef ZTS
@@ -80,6 +83,27 @@ TSRM_API void tsrm_win32_shutdown(void)
 	tsrm_win32_dtor(&win32_globals TSRMLS_CC);
 #endif
 }
+
+TSRM_API int tsrm_win32_access(const char *pathname, int mode)
+{
+	if (mode == 1 /*X_OK*/) {
+#if 1
+		/* This code is not supported by Windows 98, 
+		 * but we don't support it anymore */
+		DWORD type;
+
+		return GetBinaryType(pathname, &type)?0:-1;
+#else
+		SHFILEINFO sfi;
+
+		return access(pathname, 0) == 0 && 
+			SHGetFileInfo(pathname, 0, &sfi, sizeof(SHFILEINFO), SHGFI_EXETYPE) != 0 ? 0 : -1;
+#endif
+	} else {
+		return access(pathname, mode);
+	}
+}
+
 
 static process_pair *process_get(FILE *stream TSRMLS_DC)
 {
@@ -195,7 +219,7 @@ TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, 
 
 	cmd = (char*)malloc(strlen(command)+strlen(TWG(comspec))+sizeof(" /c "));
 	sprintf(cmd, "%s /c %s", TWG(comspec), command);
-	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS, env, cwd, &startup, &process)) {
+	if (!CreateProcess(NULL, cmd, &security, &security, security.bInheritHandle, NORMAL_PRIORITY_CLASS|CREATE_NO_WINDOW, env, cwd, &startup, &process)) {
 		return NULL;
 	}
 	free(cmd);
@@ -204,10 +228,10 @@ TSRM_API FILE *popen_ex(const char *command, const char *type, const char *cwd, 
 	proc = process_get(NULL TSRMLS_CC);
 
 	if (read) {
-		fno = _open_osfhandle((long)in, _O_RDONLY | mode);
+		fno = _open_osfhandle((tsrm_intptr_t)in, _O_RDONLY | mode);
 		CloseHandle(out);
 	} else {
-		fno = _open_osfhandle((long)out, _O_WRONLY | mode);
+		fno = _open_osfhandle((tsrm_intptr_t)out, _O_WRONLY | mode);
 		CloseHandle(in);
 	}
 
@@ -256,15 +280,16 @@ TSRM_API int shmget(int key, int size, int flags)
 	info_handle = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, shm_info);
 
 	if ((!shm_handle && !info_handle)) {
-		if (flags & IPC_EXCL) {
-			return -1;
-		}
 		if (flags & IPC_CREAT) {
 			shm_handle	= CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, size, shm_segment);
 			info_handle	= CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof(shm->descriptor), shm_info);
 			created		= TRUE;
 		}
 		if ((!shm_handle || !info_handle)) {
+			return -1;
+		}
+	} else {
+		if (flags & IPC_EXCL) {
 			return -1;
 		}
 	}
@@ -368,4 +393,5 @@ TSRM_API char *realpath(char *orig_path, char *buffer)
 	}
 	return buffer;
 }
+
 #endif

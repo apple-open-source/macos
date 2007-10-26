@@ -38,7 +38,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rnmh.c,v 1.11 2005/08/08 19:42:23 abe Exp $";
+static char *rcsid = "$Id: rnmh.c,v 1.11 2005/08/08 19:42:23 abe Exp abe $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -442,7 +442,7 @@ ncache_load()
 		    continue;
 
 # if	defined(NCACHE_NMLEN)
-		if (!(len = c.NCACHE_NMLEN))
+		if ((len = c.NCACHE_NMLEN) < 1)
 		    continue;
 # else	/* !defined(NCACHE_NMLEN) */
 	    /*

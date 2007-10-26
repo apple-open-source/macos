@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mach/mach_interface.h>
-#include <IOKit/iokitmig.h>     // mig generated
 
 //---------------------------------------------------------------------------
 // IONetworkOpen - Open a connection to an IONetworkInterface object.
@@ -67,13 +66,12 @@ IOReturn IONetworkWriteData(io_connect_t  con,
     if (!srcBuf || !inSize)
         return kIOReturnBadArgument;
 
-    kr = io_connect_method_scalarI_structureI(
-                con,
-                kIONUCWriteNetworkDataIndex,         /* method index */
-                (int *) &dataHandle,                 /* input[] */
-                1,                                   /* inputCount */
-                (char *) srcBuf,                     /* inputStruct */
-                inSize);                             /* inputStructCount */
+    uint64_t data = dataHandle;
+    kr = IOConnectCallMethod(con,   kIONUCWriteNetworkDataIndex,
+			&data,  1,		// input[], inputCount
+			srcBuf, (size_t) inSize,// inputStruct, inputStructCnt
+			NULL,   NULL,		// output scalar
+			NULL,   NULL);		// output struct
 
     return kr;
 }
@@ -91,13 +89,14 @@ IOReturn IONetworkReadData(io_connect_t con,
     if (!destBuf || !inOutSizeP)
         return kIOReturnBadArgument;
 
-    kr = io_connect_method_scalarI_structureO(
-                con,
-                kIONUCReadNetworkDataIndex,          /* method index */
-                (int *) &dataHandle,                 /* input[] */
-                1,                                   /* inputCount */
-                (char *) destBuf,                    /* output */
-                (int *) inOutSizeP);                 /* outputCount */
+    uint64_t data = dataHandle;
+    size_t size = *inOutSizeP;
+    kr = IOConnectCallMethod(con,   kIONUCReadNetworkDataIndex,
+			&data,  1,	// input[], inputCount
+			NULL,   0,	// inputStruct, inputStructCnt
+			NULL,   NULL,	// output scalar
+			destBuf, &size);// output struct
+    *inOutSizeP = (UInt32) size;
 
     return kr;
 }
@@ -108,15 +107,11 @@ IOReturn IONetworkReadData(io_connect_t con,
 IOReturn IONetworkResetData(io_connect_t con, IONDHandle dataHandle)
 {
     IOReturn               kr;
-    mach_msg_type_number_t zero = 0;
 
-    kr = io_connect_method_scalarI_scalarO(
-                con,
-                kIONUCResetNetworkDataIndex,         /* method index */
-                (int *) &dataHandle,                 /* input[] */
-                1,                                   /* inputCount */
-                0,                                   /* output */
-                &zero);                              /* outputCount */
+    uint64_t data = dataHandle;
+    kr = IOConnectCallScalarMethod(con,   kIONUCResetNetworkDataIndex,
+			       &data, 1,	// input[], inputCount
+			       NULL,  NULL);
 
     return kr;
 }
@@ -129,18 +124,16 @@ IOReturn IONetworkGetDataCapacity(io_connect_t con,
                                   IONDHandle   dataHandle,
                                   UInt32 *     capacityP)
 {
-    mach_msg_type_number_t one = 1;
-
     if (!capacityP)
         return kIOReturnBadArgument;
 
-    return io_connect_method_scalarI_scalarO(
-                con,
-                kIONUCGetNetworkDataCapacityIndex,   /* method index */
-                (int *) &dataHandle,                 /* input[] */
-                1,                                   /* inputCount */
-                (int *) capacityP,                   /* output */
-                &one);                               /* outputCount */
+    uint64_t data = dataHandle;
+    uint64_t capacity = *capacityP;
+    uint32_t one = 1;
+    IOReturn kr = IOConnectCallScalarMethod(con,
+	    kIONUCGetNetworkDataCapacityIndex, &data, 1, &capacity, &one);
+    *capacityP = (UInt32) capacity;	// XXX paul?: update for 64 bit?
+    return kr;
 }
 
 //---------------------------------------------------------------------------
@@ -151,21 +144,13 @@ IOReturn IONetworkGetDataHandle(io_connect_t con,
                                 const char * dataName,
                                 IONDHandle * dataHandleP)
 {
-    UInt32                  nameSize;
-    mach_msg_type_number_t  outCount = sizeof(*dataHandleP);
-
     if (!dataName || !dataHandleP)
         return kIOReturnBadArgument;
 
-    nameSize = strlen(dataName) + 1;
-
-    return io_connect_method_structureI_structureO(
-                con,
-                kIONUCGetNetworkDataHandleIndex,     /* method index */
-                (char *) dataName,                   /* input[] */
-                nameSize,                            /* inputCount */
-                (char *) dataHandleP,                /* output */
-                &outCount);                          /* outputCount */
+    size_t handleSize = sizeof(*dataHandleP);
+    return IOConnectCallStructMethod(con,     kIONUCGetNetworkDataHandleIndex,
+				 dataName,    strlen(dataName) + 1,
+				 dataHandleP, &handleSize);
 }
 
 //---------------------------------------------------------------------------
@@ -327,7 +312,7 @@ IOReturn
 IONetworkSetPacketFiltersMask( io_connect_t    connect,
                                const io_name_t filterGroup,
                                UInt32          filtersMask,
-                               IOOptionBits    options )
+                               IOOptionBits options __unused )
 {
 	IOReturn        kr = kIOReturnNoMemory;
     CFStringRef     keys[3];

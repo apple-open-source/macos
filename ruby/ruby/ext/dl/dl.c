@@ -1,5 +1,5 @@
 /*
- * $Id: dl.c,v 1.20 2003/06/16 07:25:38 usa Exp $
+ * $Id: dl.c 12097 2007-03-19 07:43:56Z shyouhei $
  */
 
 #include <ruby.h>
@@ -147,7 +147,7 @@ dlstrdup(const char *str)
 {
   char *newstr;
 
-  newstr = (char*)dlmalloc(strlen(str));
+  newstr = (char*)dlmalloc(strlen(str)+1);
   strcpy(newstr,str);
 
   return newstr;
@@ -435,7 +435,15 @@ c_parray(VALUE v, long *size)
 	ary[i] = (void*)(pdata->ptr);
       }
       else{
-	rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
+        e = rb_funcall(e, rb_intern("to_ptr"), 0);
+        if (rb_obj_is_kind_of(e, rb_cDLPtrData)) {
+	  struct ptr_data *pdata;
+	  Data_Get_Struct(e, struct ptr_data, pdata);
+	  ary[i] = (void*)(pdata->ptr);
+	}
+	else{
+	  rb_raise(rb_eDLTypeError, "unexpected type of the element #%d", i);
+	}
       }
       break;
     }
@@ -451,7 +459,7 @@ rb_ary2cary(char t, VALUE v, long *size)
   VALUE val0;
 
   val0 = rb_check_array_type(v);
-  if(NIL_P(TYPE(val0))) {
+  if(NIL_P(val0)) {
     rb_raise(rb_eDLTypeError, "an array is expected.");
   }
   v = val0;
@@ -494,6 +502,12 @@ rb_ary2cary(char t, VALUE v, long *size)
   case T_DATA:
     if (rb_obj_is_kind_of(val0, rb_cDLPtrData)) {
       return (void*)c_parray(v,size);
+    }
+    else{
+      val0 = rb_funcall(val0, rb_intern("to_ptr"), 0);
+      if (rb_obj_is_kind_of(val0, rb_cDLPtrData)) {
+        return (void*)c_parray(v,size);
+      }
     }
     rb_raise(rb_eDLTypeError, "type mismatch");
   case T_NIL:
@@ -543,7 +557,7 @@ rb_io_to_ptr(VALUE self)
   GetOpenFile(self, fptr);
   fp = fptr->f;
 
-  return fp ? rb_dlptr_new(fp, sizeof(FILE), 0) : Qnil;
+  return fp ? rb_dlptr_new(fp, 0, 0) : Qnil;
 }
 
 VALUE

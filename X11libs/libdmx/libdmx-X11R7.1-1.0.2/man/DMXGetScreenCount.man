@@ -1,0 +1,68 @@
+.\" $XFree86$
+.\"
+.\" Copyright 2004 Red Hat Inc., Durham, North Carolina.
+.\" All Rights Reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation on the rights to use, copy, modify, merge,
+.\" publish, distribute, sublicense, and/or sell copies of the Software,
+.\" and to permit persons to whom the Software is furnished to do so,
+.\" subject to the following conditions:
+.\"
+.\" he above copyright notice and this permission notice (including the
+.\" next paragraph) shall be included in all copies or substantial
+.\" portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+.\" NON-INFRINGEMENT.  IN NO EVENT SHALL RED HAT AND/OR THEIR SUPPLIERS
+.\" BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+.\" ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+.\" CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.TH DMXGetScreenCount 3X __vendorversion__
+.SH NAME
+DMXGetScreenCount \- determine number of back-end screens
+.SH SYNOPSIS
+.B #include <X11/extensions/dmxext.h>
+.sp
+.nf
+.BI "Bool DMXGetScreenCount(Display " *dpy ,
+.BI "                       int " *screen_count );
+.fi
+.SH DESCRIPTION
+.B DMXGetScreenCount()
+returns the number of back-end screens that a
+.BR Xdmx (1)
+server controls.  Since a DMX screen usually fills all of the available
+area on a back-end server, there is usually a one-to-one correspondence
+between DMX screens and backend servers.  However, it is also possible
+for a DMX screen to cover only part of the available area on a back-end
+server, and for more than one DMX screens to occupy different parts of
+the visible area on the same back-end server.
+.PP
+A DMX screen may be managed as a regular X screen in the
+.BR Xdmx (1)
+server or may be joined with other DMX screens using Xinerama.
+.SH "RETURN VALUE"
+.B DMXGetScreenCount()
+sets
+.I screen_count
+and returns
+.B True
+unless there is a protocol error.
+.SH NOTES
+If Xinerama is active, only one logical screen will be available to
+clients of the
+.BR Xdmx (1)
+server.  However, this call will accurately reflect the number of
+composite back-end screens that the
+.BR Xdmx (1)
+server is using.
+.SH "SEE ALSO"
+.BR DMXGetScreenAttribtues "(3X), "
+.BR DMXChangeScreenAttributes "(3X), "
+.BR DMX "(3X), " Xdmx (1)

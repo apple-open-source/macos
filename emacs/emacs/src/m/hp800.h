@@ -1,5 +1,6 @@
 /* machine description file for hp9000 series 800 machines.
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="hpux"  */
 
@@ -61,31 +62,16 @@ Boston, MA 02111-1307, USA.  */
 
 /* The standard definitions of these macros would work ok,
    but these are faster because the constants are short. */
-   
+
 
 #define XUINT(a) (((unsigned)(a) << BITS_PER_INT-VALBITS) >> BITS_PER_INT-VALBITS)
 
 #define XSET(var, type, ptr) \
    ((var) = ((int)(type) << VALBITS) + (((unsigned) (ptr) << BITS_PER_INT-VALBITS) >> BITS_PER_INT-VALBITS))
-
-#define XMARKBIT(a) ((a) < 0)
-#define XSETMARKBIT(a,b) ((a) = ((b) ? (a)|MARKBIT : (a) & ~MARKBIT))
-
-#if 0  /* Loses when sign bit of type field is set.  */
-#define XUNMARK(a) ((a) = (((a) << BITS_PER_INT-GCTYPEBITS-VALBITS) >> BITS_PER_INT-GCTYPEBITS-VALBITS))
-#endif
-
-/* Define the BSTRING functions in terms of the sysV functions. */
-/* On HPUX 8.05, including types.h can include strings.h
-   which declares these as functions.  Hence the #ifndef.  */
-
-#ifndef HAVE_BCOPY
-#define bcopy(a,b,s)	memcpy (b,a,s)
-#define bzero(a,s)	memset (a,0,s)
-#define bcmp		memcmp
-#endif
 
-#ifdef __hpux
+/* Common definitions for HPUX and GNU/Linux.  */
+
+#if defined (__hpux) || defined (GNU_LINUX)
 /* Now define a symbol for the cpu type, if your compiler
    does not define it automatically:
    Ones defined so far include vax, m68000, ns16000, pyramid,
@@ -94,20 +80,38 @@ Boston, MA 02111-1307, USA.  */
 #     define hp9000s800
 #endif
 
-/* Data type of load average, as read out of kmem.  */
-
-#define LOAD_AVE_TYPE double
-
-/* Convert that into an integer that is 100 for a load average of 1.0  */
-
-#define LOAD_AVE_CVT(x) ((int) (x * 100.0))
-
-
 /* Define CANNOT_DUMP on machines where unexec does not work.
    Then the function dump-emacs will not be defined
    and temacs will do (load "loadup") automatically unless told otherwise.  */
 
 #undef CANNOT_DUMP
+
+/* Define NO_REMAP if memory segmentation makes it not work well
+   to change the boundary between the text section and data section
+   when Emacs is dumped.  If you define this, the preloaded Lisp
+   code will not be sharable; but that's better than failing completely.  */
+
+#define NO_REMAP
+
+#endif /* __hpux or GNU_LINUX */
+
+/* Stuff for just GNU/Linux.  */
+
+#ifdef GNU_LINUX
+
+/* Data type of load average, as read out of kmem.  */
+
+#define LOAD_AVE_TYPE long
+
+/* Convert that into an integer that is 100 for a load average of 1.0  */
+
+#define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
+
+#endif /* GNU_LINUX */
+
+/* Stuff for just HPUX.  */
+
+#ifdef __hpux
 
 /* Define VIRT_ADDR_VARIES if the virtual addresses of
    pure and impure space as loaded can vary, and even their
@@ -117,16 +121,6 @@ Boston, MA 02111-1307, USA.  */
    numerically.  */
 
 #define VIRT_ADDR_VARIES
-
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define C_ALLOCA
-/* #define HAVE_ALLOCA */
 
 /* the data segment on this machine always starts at address 0x40000000. */
 
@@ -134,15 +128,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define DATA_START    0x40000000
 #define TEXT_START    0x00000000
-
-#define STACK_DIRECTION 1 
-
-/* Define NO_REMAP if memory segmentation makes it not work well
-   to change the boundary between the text section and data section
-   when Emacs is dumped.  If you define this, the preloaded Lisp
-   code will not be sharable; but that's better than failing completely.  */
-
-#define NO_REMAP
 
 /* This machine requires completely different unexec code
    which lives in a separate file.  Specify the file name.  */
@@ -154,7 +139,15 @@ Boston, MA 02111-1307, USA.  */
 
 /* Include the file bsdtty.h, since this machine has job control.  */
 #define NEED_BSDTTY
-
+
+/* Data type of load average, as read out of kmem.  */
+
+#define LOAD_AVE_TYPE double
+
+/* Convert that into an integer that is 100 for a load average of 1.0  */
+
+#define LOAD_AVE_CVT(x) ((int) (x * 100.0))
+
 /* The symbol in the kernel where the load average is found
    is named _avenrun.  At this time there are two major flavors
    of hp-ux (there is the s800 and s300 (s200) flavors).  The
@@ -181,3 +174,14 @@ Boston, MA 02111-1307, USA.  */
 #define rindex strrchr
 
 #endif /* __hpux */
+
+/* Systems with GCC don't need to lose. */
+#ifdef __NetBSD__
+# ifdef __GNUC__
+#  define alloca __builtin_alloca
+#  define HAVE_ALLOCA
+# endif /* __GNUC__ */
+#endif /* __NetBSD__ */
+
+/* arch-tag: 809436e6-1645-4b92-b40d-2de5d6e7227c
+   (do not change this comment) */

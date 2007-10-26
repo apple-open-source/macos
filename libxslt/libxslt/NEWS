@@ -10,6 +10,18 @@ ChangeLog.html
 to the CVS at 
 http://cvs.gnome.org/viewcvs/libxslt/
  code base.Those are the public releases made:
+1.1.12: Oct 29 2004:
+   - build fixes: warnings removal (William).
+   - bug fixes: attribute document pointer fix (Mark Vakoc), exslt date
+    negative periods (William Brack), generated tree structure fixes,
+    namespace lookup fix, use reentrant gmtime_r (William Brack),
+    exslt:funtion namespace fix (William), potential NULL pointer reference
+    (Dennis Dams, William), force string interning on generated
+  documents.
+   - documentation: update of the second tutorial (Panagiotis Louridas), add
+    exslt doc in rpm packages, fix the xsltproc man page.
+
+
 1.1.11: Sep 29 2004:
    - bug fixes: xsl:include problems (William Brack), UTF8 number pattern
     (William), date-time validation (William), namespace fix (William),

@@ -31,8 +31,10 @@ _dsGetRecordEntry
 _dsGetRecordList
 _dsGetRecordReferenceInfo
 _dsIsDirServiceRunning
+_dsIsDirServiceLocalRunning
 _dsOpenDirNode
 _dsOpenDirService
+_dsOpenDirServiceLocal
 _dsOpenDirServiceProxy
 _dsOpenRecord
 _dsReleaseContinueData
@@ -41,13 +43,9 @@ _dsRemoveAttributeValue
 _dsSetAttributeValue
 _dsSetRecordName
 _dsSetRecordType
-_dsGetCustomAllocate
-_dsGetCustomThread
-_dsRegisterCustomMemory
-_dsRegisterCustomThread
-_dsUnRegisterCustomMemory
-_dsUnRegisterCustomThread
 _dsVerifyDirRefNum
+_dsGetNextAttributeEntry
+_dsGetNextAttributeValue
 _dsAppendStringToList
 _dsAppendStringToListAlloc
 _dsBuildFromPath
@@ -88,6 +86,9 @@ _dsDeallocAttributeValueEntry
 _dsDeallocAttributeEntry
 _dsDeallocRecordEntry
 _dsParseAuthAuthority
+_dsParseAuthAuthorityExtended
+_dsConvertAuthAuthorityToCFDict
+_dsConvertCFDictToAuthAuthority
 _dsCopyDirStatusName
 _dsDoMultipleAttributeValueSearch
 _dsDoMultipleAttributeValueSearchWithData
@@ -98,6 +99,7 @@ _dsFillAuthBuffer
 _dsAppendAuthBuffer
 _dsAppendAuthBufferWithAuthorityAttribute
 _dsAppendAuthBufferWithAuthorityStrings
+_dsServiceInformationAllocate
 _dsRegisterCustomMemory
 _dsGetCustomAllocate
 _dsUnRegisterCustomMemory

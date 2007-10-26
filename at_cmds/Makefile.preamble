@@ -1,4 +1,4 @@
-INCLUDED_ARCHS = ppc
+INCLUDED_ARCHS = ppc i386
 OTHER_RECURSIVE_VARIABLES += INCLUDED_ARCHS
 
 ###############################################################################

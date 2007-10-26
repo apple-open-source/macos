@@ -104,6 +104,7 @@ public:
 	virtual ~Session();
 
 	void open();
+	void close();
 	bool isOpen() const { return mIsOpen; }
 	
 	void listReaders(vector<string> &readers, const char *groups = NULL);
@@ -170,7 +171,7 @@ private:
 		kDisconnected
 	} mConnectedState;
 		
-	long mHandle;
+	int32_t mHandle;
 	int mTransactionNestLevel;
 	SCARD_IO_REQUEST *mIOType;
 };

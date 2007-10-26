@@ -133,7 +133,7 @@ void DSLThread::Resume ( void )
 	// Throw an exception if the thread is already running.
 	if ( fThread != NO_THREAD )
 	{
-		throw( (sInt32)errBadThreadState );
+		throw( (SInt32)errBadThreadState );
 	}
 
 	// Currently detaching so threads don't stick around.

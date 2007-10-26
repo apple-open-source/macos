@@ -1,36 +1,57 @@
 # Project info
 Project           = ncurses
-UserType          = Developer
-ToolType          = Commands
+ProjectVersion    = 5.5
+Patches           = make.diff hex.diff dynamic-no-pic.diff wgetbkgrnd.diff
 
-Configure = mkdir -p $(OBJROOT);cd $(OBJROOT); $(SRCROOT)/ncurses/configure --prefix=/usr --with-shared --without-debug --enable-termcap --without-cxx-binding --without-cxx --enable-widec --with-abi-version=5.4
+# This shouldn't change, needed for compatibility.
+ABIVersion        = 5.4
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+Configure_Flags = --with-shared --without-normal --without-debug \
+	--enable-termcap --enable-widec --with-abi-version=$(ABIVersion) \
+	--without-cxx-binding --without-cxx \
+	--mandir=$(MANDIR)
 
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 5.4
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-#AEP_Patches    = 1to3.diff 4to9.diff
-AEP_Patches    = make.diff hex.diff no-static-archives.diff
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	for patchfile in $(AEP_Patches); do                  cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile;          done
-endif
+	$(RMDIR) $(SRCROOT)/$(Project) $(SRCROOT)/$(Project)-$(ProjectVersion)
+	$(TAR) -C $(SRCROOT) -zxf $(SRCROOT)/$(Project)-$(ProjectVersion).tar.gz
+	$(MV) $(SRCROOT)/$(Project)-$(ProjectVersion) $(SRCROOT)/$(Project)
+	@for patchfile in $(Patches); do \
+		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
+	done
 
 install::
-	cd $(DSTROOT)/usr/lib && rm -f libtermcap.dylib && ln -s libncurses.5.4.dylib libtermcap.dylib
+	cd $(OBJROOT) && $(Environment) $(SRCROOT)/$(Project)/configure \
+		--prefix=/usr --disable-dependency-tracking \
+		$(Configure_Flags)
+	$(MAKE) -C $(OBJROOT)
+	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
+
+	$(MKDIR) $(OSV) $(OSL)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(TOUCH) $(OSL)/$(Project).txt
+	head -n 28 < $(SRCROOT)/$(Project)/Makefile.in | sed 1d > $(OSL)/$(Project).txt
+
+	$(RM) $(DSTROOT)/usr/lib/libtermcap.dylib
+	$(LN) -s libncurses.$(ABIVersion).dylib $(DSTROOT)/usr/lib/libtermcap.dylib
+	tar -C $(DSTROOT) -xjf $(SRCROOT)/libncurses.5.dylib.tar.bz2
+
+	$(MKDIR) $(SYMROOT)/usr/lib
+	@for library in form menu ncurses panel; do \
+		$(CP) $(DSTROOT)/usr/lib/lib$${library}.$(ABIVersion).dylib $(SYMROOT)/usr/lib; \
+		$(STRIP) -x $(DSTROOT)/usr/lib/lib$${library}.$(ABIVersion).dylib; \
+	done
+	$(MKDIR) $(SYMROOT)/usr/bin
+	@for binary in clear infocmp tack tic toe tput tset; do \
+		lipo -remove x86_64 -remove ppc64 -output $(DSTROOT)/usr/bin/$${binary} $(DSTROOT)/usr/bin/$${binary}; \
+		$(CP) $(DSTROOT)/usr/bin/$${binary} $(SYMROOT)/usr/bin; \
+		$(STRIP) -x $(DSTROOT)/usr/bin/$${binary}; \
+	done
+
+	$(MAKE) compress_man_pages
+	echo ".so man3/curs_termcap.3x.gz" > $(DSTROOT)/usr/share/man/man3/termcap.3

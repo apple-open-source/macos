@@ -42,17 +42,17 @@
 .Nm mv
 .Nd move files
 .Sh SYNOPSIS
-.Nm
+.Nm mv
 .Op Fl f | i | n
 .Op Fl v
 .Ar source target
-.Nm
+.Nm mv
 .Op Fl f | i | n
 .Op Fl v
 .Ar source ... directory
 .Sh DESCRIPTION
 In its first form, the
-.Nm
+.Nm mv
 utility renames the file named by the
 .Ar source
 operand to the destination path named by the
@@ -62,7 +62,7 @@ This form is assumed when the last operand does not name an already
 existing directory.
 .Pp
 In its second form,
-.Nm
+.Nm mv
 moves each file named by a
 .Ar source
 operand to a destination file in the existing directory named by the
@@ -86,7 +86,7 @@ or
 options.)
 .It Fl i
 Cause
-.Nm
+.Nm mv
 to write a prompt to standard error before moving a file that would
 overwrite an existing file.
 If the response from the standard input begins with the character
@@ -112,7 +112,7 @@ or
 options.)
 .It Fl v
 Cause
-.Nm
+.Nm mv
 to be verbose, showing files after they are moved.
 .El
 .Pp
@@ -121,7 +121,7 @@ It is an error for either the
 operand or the destination path to specify a directory unless both do.
 .Pp
 If the destination path does not have a mode which permits writing,
-.Nm
+.Nm mv
 prompts the user for confirmation as specified for the
 .Fl i
 option.
@@ -129,7 +129,7 @@ option.
 As the
 .Xr rename 2
 call does not work across file systems,
-.Nm
+.Nm mv
 uses
 .Xr cp 1
 and
@@ -143,6 +143,11 @@ rm -rf source_file
 .Ed
 .Sh DIAGNOSTICS
 .Ex -std
+.Pp
+The command "mv dir/afile dir" will abort with an error message.
+.Sh LEGACY DIAGNOSTICS
+In legacy mode, the command "mv dir/afile dir" will fail silently,
+returning an exit code of 0.
 .Sh SEE ALSO
 .Xr cp 1 ,
 .Xr rm 1 ,
@@ -153,14 +158,24 @@ The
 and
 .Fl v
 options are non-standard and their use in scripts is not recommended.
+.Pp
+The
+.Nm mv
+utility now supports HFS+ Finder and Extended Attributes and resource forks.  
+The
+.Nm mv
+utility will no longer strip resource forks off of HFS files.  
+For an alternative method,
+refer to
+.Xr cp 1 .
 .Sh STANDARDS
 The
-.Nm
+.Nm mv
 utility is expected to be
 .St -p1003.2
 compatible.
 .Sh HISTORY
 A
-.Nm
+.Nm mv
 command appeared in
 .At v1 .

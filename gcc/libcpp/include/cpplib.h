@@ -137,14 +137,14 @@ struct _cpp_file;
   TK(BOL,		LITERAL) /* asm bol */				\
   TK(EOL,		LITERAL) /* asm eol */				\
   /* APPLE LOCAL end CW asm blocks */					\
-  /* APPLE LOCAL begin 4133801 */                                       \
-  TK(BINCL,             LITERAL) /* File begin */                       \
-  TK(EINCL,             LITERAL) /* File end */                         \
-  /* APPLE LOCAL end 4133801 */                                       \
   TK(COMMENT,		LITERAL) /* Only if output comments.  */	\
 				 /* SPELL_LITERAL happens to DTRT.  */	\
   TK(MACRO_ARG,		NONE)	 /* Macro argument.  */			\
   TK(PRAGMA,		NONE)	 /* Only if deferring pragmas */	\
+  /* APPLE LOCAL begin 4137741 */                                       \
+  TK(BINCL,            NONE)    /* File begin */                        \
+  TK(EINCL,            NONE)    /* File end */                          \
+  /* APPLE LOCAL end 4137741 */                                         \
   TK(PADDING,		NONE)	 /* Whitespace for -E.	*/
 
 #define OP(e, s) CPP_ ## e,
@@ -497,6 +497,12 @@ struct cpp_options
   /* True means return pragmas as tokens rather than processing
      them directly. */
   bool defer_pragmas;
+  /* APPLE LOCAL begin 4137741 */
+
+  /* True means return special CPP_BINCL and CPP_EINCL tokens instead
+     of firing off debug hooks when entering and exiting headers.  */
+  bool defer_file_change_debug_hooks;
+  /* APPLE LOCAL end 4137741 */
 };
 
 /* Callback for header lookup for HEADER, which is the name of a
@@ -966,6 +972,10 @@ extern bool read_from_stdin PARAMS ((cpp_reader *));
 extern void set_stdin_option PARAMS ((cpp_reader *, int));
 /* APPLE LOCAL end predictive compilation */
 
+/* APPLE LOCAL begin radar 2996215 */
+extern bool cpp_utf8_utf16 (cpp_reader *pfile, const unsigned char *from, 
+			    size_t flen, unsigned char **to, size_t *to_len);
+/* APPLE LOCAL end radar 2996215 */
 /* In cpppch.c */
 struct save_macro_data;
 extern int cpp_save_state (cpp_reader *, FILE *);

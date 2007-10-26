@@ -1,0 +1,16 @@
+Index: lib/active_record/connection_adapters/sqlite_adapter.rb
+===================================================================
+--- lib/active_record/connection_adapters/sqlite_adapter.rb	(revision 5967)
++++ lib/active_record/connection_adapters/sqlite_adapter.rb	(working copy)
+@@ -105,6 +105,11 @@
+       def requires_reloading?
+         true
+       end
++ 
++      def disconnect!
++        super
++        @connection.close rescue nil
++      end
+ 
+       def supports_count_distinct? #:nodoc:
+         sqlite_version >= '3.2.6'

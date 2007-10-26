@@ -99,6 +99,8 @@ struct arp_session {
     FDSet_t *			readers;
     int				debug;
     struct probe_info		default_probe_info;
+    int				default_detect_count;
+    struct timeval		default_detect_retry;
     arp_our_address_func_t *	is_our_address;
     dynarray_t			if_sessions;
 #ifdef TEST_ARP_SESSION
@@ -121,18 +123,26 @@ struct arp_if_session {
 typedef struct arp_if_session arp_if_session_t;
 
 typedef enum {
-    arp_probe_result_none_e = 0,
-    arp_probe_result_not_in_use_e = 1,
-    arp_probe_result_in_use_e = 2,
-    arp_probe_result_error_e = 3,
-    arp_probe_result_unknown_e = 4,
-} arp_probe_result_t;
+    arp_client_command_none_e = 0,
+    arp_client_command_probe_e = 1,
+    arp_client_command_resolve_e = 2,
+    arp_client_command_detect_e = 3
+} arp_client_command_t;
+
+typedef enum {
+    arp_status_none_e = 0,
+    arp_status_not_in_use_e = 1,
+    arp_status_in_use_e = 2,
+    arp_status_error_e = 3,
+    arp_status_unknown_e = 4,
+} arp_status_t;
 
 struct arp_client {
 #ifdef TEST_ARP_SESSION
     int				client_index; /* unique ID */
 #endif TEST_ARP_SESSION
-    arp_probe_result_t		probe_result;
+    arp_client_command_t	command;
+    arp_status_t		command_status;
     boolean_t			fd_open;
     arp_if_session_t *		if_session;
     arp_result_func_t *		func;
@@ -142,22 +152,31 @@ struct arp_client {
     struct in_addr		target_ip;
     int				try;
     timer_callout_t *		timer_callout;
-    char			in_use_hwaddr[MAX_LINK_ADDR_LEN];
+    arp_address_info_t		in_use_addr;
     char			errmsg[128];
     struct probe_info		probe_info;
     boolean_t			probes_are_collisions;
+    uint32_t			resolve_secs;
+    arp_address_info_t *	detect_list;
+    int				detect_list_count;
+    CFRunLoopObserverRef	callback_rls;
 };
 
 #define ARP_PROBE_COUNT		3
 #define ARP_GRATUITOUS_COUNT	1
 #define ARP_RETRY_SECS		1
 #define ARP_RETRY_USECS		0
+#define ARP_DETECT_COUNT	3
+#define ARP_DETECT_RETRY_SECS	0
+#define ARP_DETECT_RETRY_USECS	15000
+
 #ifdef TEST_ARP_SESSION
 #define my_log		arp_session_log
 static void arp_session_log(int priority, const char * message, ...);
 #endif TEST_ARP_SESSION
 
 #include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCValidation.h>
 
 static Boolean
@@ -198,7 +217,10 @@ static void
 arp_client_free_element(void * arg);
 
 static void
-arp_client_retransmit(void * arg1, void * arg2, void * arg3);
+arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3);
+
+static void
+arp_client_resolve_retransmit(void * arg1, void * arg2, void * arg3);
 
 static boolean_t
 arp_client_open_fd(arp_client_t * client);
@@ -216,8 +238,7 @@ static void
 arp_if_session_read(void * arg1, void * arg2);
 
 static boolean_t
-arp_is_our_address(interface_t * if_p,
-		   int hwtype, void * hwaddr, int hwlen);
+arp_is_our_address(interface_t * if_p, int hwtype, void * hwaddr, int hwlen);
 
 static __inline__ char *
 arpop_name(u_int16_t op)
@@ -316,6 +337,33 @@ arp_client_close_fd(arp_client_t * client)
     return;
 }
 
+/* 
+ * Function: arp_client_is_active
+ * Purpose:
+ *   Returns whether the arp_client is active.
+ */
+boolean_t
+arp_client_is_active(arp_client_t * client)
+{
+    return (client->func != NULL);
+}
+
+/*
+ * Function: arp_client_cancel_callback
+ * Purpose:
+ *   Invalidate/release the callback function.
+ */
+static void
+arp_client_cancel_callback(arp_client_t * client)
+{
+    if (client->callback_rls != NULL) {
+	CFRunLoopObserverInvalidate(client->callback_rls);
+	CFRelease(client->callback_rls);
+	client->callback_rls = NULL;
+    }
+    return;
+}
+
 /*
  * Function: arp_client_callback
  *
@@ -323,14 +371,13 @@ arp_client_close_fd(arp_client_t * client)
  *   Call the supplied function with the appropriate result.
  */
 static void
-arp_client_callback(void * arg1, void * arg2, void * arg3)
+arp_client_callback(arp_client_t * client)
 {
     void *		c_arg1;
     void * 		c_arg2;
     arp_result_func_t *	func;
-    arp_client_t * 	client = (arp_client_t *)arg1;
     arp_result_t	result;
-    
+
     /* remember the client parameters, then clear them */
     c_arg1 = client->arg1;
     c_arg2 = client->arg2;
@@ -342,64 +389,104 @@ arp_client_callback(void * arg1, void * arg2, void * arg3)
 
     /* return the results */
     bzero(&result, sizeof(result));
-    switch (client->probe_result) {
+    switch (client->command_status) {
     default:
-    case arp_probe_result_none_e:
+    case arp_status_none_e:
 	/* not possible */
 	printf("No result for %s?\n", 
 	       if_name(client->if_session->if_p));
 	break;
-    case arp_probe_result_error_e:
+    case arp_status_error_e:
 	result.error = TRUE;
 	break;
-    case arp_probe_result_not_in_use_e:
+    case arp_status_not_in_use_e:
 	break;
-    case arp_probe_result_in_use_e:
+    case arp_status_in_use_e:
 	result.in_use = TRUE;
-	result.hwaddr = client->in_use_hwaddr;
+	result.addr = client->in_use_addr;
 	break;
     }
 
     /* return the results to the client */
+    result.client = client;
     (*func)(c_arg1, c_arg2, &result);
     return;
 }
 
 /*
- * Function: arp_is_our_hardware_address
+ * Function: arp_client_do_callback
+ * Purpose:
+ *   Invalidate the runloop observer then invoke arp_client_callback().
+ */
+static void
+arp_client_do_callback(CFRunLoopObserverRef observer, 
+		       CFRunLoopActivity activity,
+		       void * info)
+{
+    arp_client_t * 	client = (arp_client_t *)info;
+
+    /* de-activate the observer */
+    arp_client_cancel_callback(client);
+    arp_client_callback(client);
+    return;
+}
+
+/*
+ * Function: arp_client_schedule_callback
+ * Purpose:
+ *   Call the arp_client_callback via a runloop observer.
+ */
+static void
+arp_client_schedule_callback(arp_client_t * client)
+{
+    CFRunLoopObserverContext	context = { 0, client, NULL, NULL, NULL };
+
+    arp_client_cancel_callback(client);
+    client->callback_rls
+	= CFRunLoopObserverCreate(NULL, kCFRunLoopAllActivities,
+				  TRUE, 0, arp_client_do_callback, &context);
+    
+    CFRunLoopAddObserver(CFRunLoopGetCurrent(), client->callback_rls,
+			 kCFRunLoopDefaultMode);
+    return;
+}
+
+/*
+ * Function: arp_is_our_address
  *
  * Purpose:
  *   Returns whether the given hardware address matches the given
  *   network interface.
  */
 static boolean_t
-arp_is_our_address(interface_t * if_p,
-		   int hwtype, void * hwaddr, int hwlen)
+arp_is_our_address(interface_t * if_p, int hwtype, void * hwaddr, int hwlen)
 {
     int		link_length = if_link_length(if_p);
 
-    if (hwtype != if_link_arptype(if_p)) {
+    if (hwlen != link_length || hwtype != if_link_arptype(if_p)) {
 	return (FALSE);
-    }
-    switch (hwtype) {
-    default:
-    case ARPHRD_ETHER:
-	if (hwlen != link_length) {
-	    return (FALSE);
-	}
-	break;
-    case ARPHRD_IEEE1394:
-	if (hwlen != FIREWIRE_ADDR_LEN) {
-	    return (FALSE);
-	}
-	/* only the first 8 bytes matter */
-	link_length = FIREWIRE_EUI64_LEN;
-	break;
     }
     if (bcmp(hwaddr, if_link_address(if_p), link_length) == 0) {
 	return (TRUE);
     }
     return (FALSE);
+}
+
+static void
+arp_if_session_update_hardware_address(arp_if_session_t * if_session)
+{
+    if (if_link_type(if_session->if_p) != IFT_IEEE1394) {
+	return;
+    }
+    /* copy in the latest firewire address */
+    if (getFireWireAddress(if_name(if_session->if_p), 
+			   &if_session->fw_addr) == FALSE) {
+	my_log(LOG_NOTICE,
+	       "arp_if_session_update_hardware_address(%s):"
+	       "could not retrieve firewire address",
+	       if_name(if_session->if_p));
+    }
+    return;
 }
 
 /*
@@ -423,9 +510,9 @@ arp_if_session_read(void * arg1, void * arg2)
     arp_if_session_t * 	if_session = (arp_if_session_t *)arg1;
     int			link_header_size;
     int			link_arp_size;
+    int			link_length;
     int			n;
     char *		offset;
-    struct timeval 	t = {0, 1};
 
     errmsg[0] = '\0';
 
@@ -437,6 +524,7 @@ arp_if_session_read(void * arg1, void * arg2)
     debug = if_session->session->debug;
     client_count = dynarray_count(&if_session->clients);
 
+    link_length = if_link_length(if_session->if_p);
     hwtype = if_link_arptype(if_session->if_p);
     switch (hwtype) {
     default:
@@ -469,6 +557,7 @@ arp_if_session_read(void * arg1, void * arg2)
 	struct arphdr *		arp_p;
 	struct bpf_hdr * 	bpf = (struct bpf_hdr *)offset;
 	void *			hwaddr;
+	boolean_t		is_our_address;
 	short			op;
 	char *			pkt_start;
 	struct in_addr *	source_ip_p;
@@ -513,32 +602,79 @@ arp_if_session_read(void * arg1, void * arg2)
 	    }
 	    break;
 	}
-	/* don't report conflicts against our own h/w addresses */
-	if ((*if_session->session->is_our_address)(if_session->if_p,
-						   hwtype,
-						   hwaddr,
-						   hwlen)) {
-	    goto next_packet;
-	}
+	is_our_address 
+	    = (*if_session->session->is_our_address)(if_session->if_p,
+						     hwtype,
+						     hwaddr,
+						     link_length);
 	for (i = 0; i < client_count; i++) {
+	    int			addr_index;
 	    arp_client_t *	client;
+	    boolean_t		got_match;
 
 	    client = dynarray_element(&if_session->clients, i);
 	    if (client->func == NULL) {
 		continue;
 	    }
-	    /* IP is in use by some other host */
-	    if (client->target_ip.s_addr == source_ip_p->s_addr
-		|| (client->probes_are_collisions
-		    && op == ARPOP_REQUEST
-		    && source_ip_p->s_addr == 0
-		    && client->target_ip.s_addr == target_ip_p->s_addr)) {
-		bcopy(hwaddr, client->in_use_hwaddr, hwlen);
+	    if (client->command_status == arp_status_in_use_e) {
+		/* we already found a match for this client */
+		continue;
+	    }
+	    got_match = FALSE;
+	    switch (client->command) {
+	    case arp_client_command_probe_e:
+		if (is_our_address) {
+		    /* don't report conflicts against our own h/w addresses */
+		}
+		/* IP is in use by some other host */
+		else if (client->target_ip.s_addr == source_ip_p->s_addr
+		    || (client->probes_are_collisions
+			&& op == ARPOP_REQUEST
+			&& source_ip_p->s_addr == 0
+			&& client->target_ip.s_addr == target_ip_p->s_addr)) {
+		    client->in_use_addr.sender_ip = client->sender_ip;
+		    client->in_use_addr.target_ip = client->target_ip;
+		    bcopy(hwaddr, client->in_use_addr.target_hardware,
+			  link_length);
+		    got_match = TRUE;
+		}
+		break;
+	    case arp_client_command_resolve_e:
+		if (client->target_ip.s_addr == source_ip_p->s_addr
+		    && op == ARPOP_REPLY) {
+		    client->in_use_addr.sender_ip = client->sender_ip;
+		    client->in_use_addr.target_ip = client->target_ip;
+		    bcopy(hwaddr, client->in_use_addr.target_hardware, 
+			  link_length);
+		    got_match = TRUE;
+		}
+		break;
+	    case arp_client_command_detect_e:
+		if (op != ARPOP_REPLY) {
+		    break;
+		}
+		for (addr_index = 0; addr_index < client->detect_list_count;
+		     addr_index++) {
+		    arp_address_info_t *	info_p;
+
+		    info_p = client->detect_list + addr_index;
+		    if (info_p->sender_ip.s_addr == target_ip_p->s_addr
+			&& info_p->target_ip.s_addr == source_ip_p->s_addr
+			&& (bcmp(info_p->target_hardware, hwaddr, link_length)
+			    == 0)) {
+			client->in_use_addr = *info_p;
+			got_match = TRUE;
+			break;
+		    }
+		}
+		break;
+	    default:
+		break;
+	    }
+	    if (got_match) {
+		client->command_status = arp_status_in_use_e;
 		/* use a callback to avoid re-entrancy */
-		client->probe_result = arp_probe_result_in_use_e;
-		timer_set_relative(client->timer_callout, t, 
-				   (timer_func_t *)arp_client_callback,
-				   client, NULL, NULL);
+		arp_client_schedule_callback(client);
 	    }
 	}
     next_packet:
@@ -558,10 +694,8 @@ arp_if_session_read(void * arg1, void * arg2)
 	}
 	strncpy(client->errmsg, errmsg, sizeof(client->errmsg));
 	/* report back an error to the caller */
-	client->probe_result = arp_probe_result_error_e;
-	timer_set_relative(client->timer_callout, t, 
-			   (timer_func_t *)arp_client_callback,
-			   client, NULL, NULL);
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
     }
     return;
 }
@@ -669,8 +803,9 @@ static char			link_broadcast[8] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff 
 };
 
-static int
-arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
+static boolean_t
+arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
+		    const arp_address_info_t * info_p)
 {
     arp_if_session_t *		if_session = client->if_session;
     struct arphdr *		hdr;
@@ -689,9 +824,15 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 
 	    /* fill in the ethernet header */
 	    eh_p = (struct ether_header *)txbuf;
-	    bcopy(link_broadcast, eh_p->ether_dhost,
-		  sizeof(eh_p->ether_dhost));
 	    eh_p->ether_type = htons(ETHERTYPE_ARP);
+	    if (info_p != NULL) {
+		bcopy(info_p->target_hardware, eh_p->ether_dhost,
+		      sizeof(eh_p->ether_dhost));
+	    }
+	    else {
+		bcopy(link_broadcast, eh_p->ether_dhost,
+		      sizeof(eh_p->ether_dhost));
+	    }
 	    /* fill in the arp packet contents */
 	    earp = (struct ether_arp *)(txbuf + sizeof(*eh_p));
 	    hdr = &earp->ea_hdr;
@@ -702,14 +843,20 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 	    hdr->ar_op = htons(ARPOP_REQUEST);
 	    bcopy(if_link_address(if_session->if_p), earp->arp_sha,
 		  sizeof(earp->arp_sha));
-	    if (send_gratuitous == TRUE
-		&& client->sender_ip.s_addr == 0) {
-		*((struct in_addr *)earp->arp_spa) = client->target_ip;
+	    if (info_p != NULL) {
+		*((struct in_addr *)earp->arp_spa) = info_p->sender_ip;
+		*((struct in_addr *)earp->arp_tpa) = info_p->target_ip;
 	    }
 	    else {
-		*((struct in_addr *)earp->arp_spa) = client->sender_ip;
+		if (send_gratuitous == TRUE
+		    && client->sender_ip.s_addr == 0) {
+		    *((struct in_addr *)earp->arp_spa) = client->target_ip;
+		}
+		else {
+		    *((struct in_addr *)earp->arp_spa) = client->sender_ip;
+		}
+		*((struct in_addr *)earp->arp_tpa) = client->target_ip;
 	    }
-	    *((struct in_addr *)earp->arp_tpa) = client->target_ip;
 	    size = sizeof(*eh_p) + sizeof(*earp);
 	}
 	break;
@@ -720,9 +867,15 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 
 	    /* fill in the firewire header */
 	    fh_p = (struct firewire_header *)txbuf;
-	    bcopy(link_broadcast, fh_p->firewire_dhost,
-		  sizeof(fh_p->firewire_dhost));
 	    fh_p->firewire_type = htons(ETHERTYPE_ARP);
+	    if (info_p != NULL) {
+		bcopy(info_p->target_hardware, fh_p->firewire_dhost,
+		      sizeof(fh_p->firewire_dhost));
+	    }
+	    else {
+		bcopy(link_broadcast, fh_p->firewire_dhost,
+		      sizeof(fh_p->firewire_dhost));
+	    }
 
 	    /* fill in the arp packet contents */
 	    farp = (struct firewire_arp *)(txbuf + sizeof(*fh_p));
@@ -734,14 +887,20 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 	    hdr->ar_op = htons(ARPOP_REQUEST);
 	    bcopy(&if_session->fw_addr, farp->arp_sha,
 		  sizeof(farp->arp_sha));
-	    if (send_gratuitous == TRUE
-		&& client->sender_ip.s_addr == 0) {
-		*((struct in_addr *)farp->arp_spa) = client->target_ip;
+	    if (info_p != NULL) {
+		*((struct in_addr *)farp->arp_spa) = info_p->sender_ip;
+		*((struct in_addr *)farp->arp_tpa) = info_p->target_ip;
 	    }
 	    else {
-		*((struct in_addr *)farp->arp_spa) = client->sender_ip;
+		if (send_gratuitous == TRUE
+		    && client->sender_ip.s_addr == 0) {
+		    *((struct in_addr *)farp->arp_spa) = client->target_ip;
+		}
+		else {
+		    *((struct in_addr *)farp->arp_spa) = client->sender_ip;
+		}
+		*((struct in_addr *)farp->arp_tpa) = client->target_ip;
 	    }
-	    *((struct in_addr *)farp->arp_tpa) = client->target_ip;
 	    size = sizeof(*fh_p) + sizeof(*farp);
 	}
 	break;
@@ -750,8 +909,7 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 		 "arp_client_transmit(%s): "
 		 "interface hardware type not yet known", 
 		 if_name(if_session->if_p));
-	return (0);
-	break;
+	goto failed;
     }
 
     status = bpf_write(if_session->bpf_fd, txbuf, size);
@@ -761,13 +919,16 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
 	snprintf(client->errmsg, sizeof(client->errmsg),
 		 "arp_client_transmit(%s) failed, %s (%d)", 
 		 if_name(if_session->if_p), strerror(errno), errno);
-	return (0);
+	goto failed;
     }
-    return (1);
+    return (TRUE);
+
+ failed:
+    return (FALSE);
 }
 
 /*
- * Function: arp_client_retransmit
+ * Function: arp_client_probe_retransmit
  *
  * Purpose:
  *   Transmit an ARP packet with timeout retry.
@@ -776,36 +937,120 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous)
  *   structure indicating no errors and the IP is not in use.
  */
 static void
-arp_client_retransmit(void * arg1, void * arg2, void * arg3)
+arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
 {
     arp_client_t * 	client = (arp_client_t *)arg1;
     struct probe_info * probe_info = &client->probe_info;
-    struct timeval 	t = {0,1};
     int			tries_left;
 
     tries_left = (probe_info->probe_count + probe_info->gratuitous_count)
 	- client->try;
     if (tries_left <= 0) {
 	/* not in use */
-	client->probe_result = arp_probe_result_not_in_use_e;
-	timer_set_relative(client->timer_callout, t, 
-			   (timer_func_t *)arp_client_callback,
-			   client, NULL, NULL);
+	client->command_status = arp_status_not_in_use_e;
+	arp_client_schedule_callback(client);
 	return;
     }
     client->try++;
     if (arp_client_transmit(client, 
-			    (tries_left == probe_info->gratuitous_count))) {
-	timer_set_relative(client->timer_callout, probe_info->retry_interval,
-			   (timer_func_t *)arp_client_retransmit,
+			    (tries_left == probe_info->gratuitous_count),
+			    NULL)) {
+	timer_set_relative(client->timer_callout,
+			   probe_info->retry_interval,
+			   (timer_func_t *)arp_client_probe_retransmit,
 			   client, NULL, NULL);
     }
     else {
 	/* report back an error to the caller */
-	client->probe_result = arp_probe_result_error_e;
-	timer_set_relative(client->timer_callout, t, 
-			   (timer_func_t *)arp_client_callback,
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
+    }
+    return;
+}
+
+/*
+ * Function: arp_client_resolve_retransmit
+ *
+ * Purpose:
+ *   Transmit an ARP request packet in an attempt to resolve the IP address.
+ *   Uses callback to invoke arp_client_report_error if the transmit failed.
+ *   If we can't resolve the address, call the callback indicating the IP
+ *   address is not in use.
+ */
+static void
+arp_client_resolve_retransmit(void * arg1, void * arg2, void * arg3)
+{
+    arp_client_t * 	client = (arp_client_t *)arg1;
+    int			tries_left;
+
+    tries_left = client->resolve_secs - client->try;
+    if (tries_left <= 0) {
+	/* not in use */
+	client->command_status = arp_status_not_in_use_e;
+	arp_client_schedule_callback(client);
+	return;
+    }
+    client->try++;
+    if (arp_client_transmit(client, FALSE, NULL)) {
+	struct timeval	t;
+
+#define ONE_SECOND		1
+	t.tv_sec = ONE_SECOND;
+	t.tv_usec = 0;
+	timer_set_relative(client->timer_callout, t,
+			   (timer_func_t *)arp_client_resolve_retransmit,
 			   client, NULL, NULL);
+    }
+    else {
+	/* report back an error to the caller */
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
+    }
+    return;
+}
+
+/*
+ * Function: arp_client_detect_retransmit
+ *
+ * Purpose:
+ *   Transmit a set of ARP requests, one request for each host of interest,
+ *   in an attempt to detect which one is present.  The ARP requests are sent
+ *   using unicast to a specific hardware address and should only be visible
+ *   received/processed by that specific host.
+ */
+static void
+arp_client_detect_retransmit(void * arg1, void * arg2, void * arg3)
+{
+    arp_client_t * 	client = (arp_client_t *)arg1;
+    int			i;
+    boolean_t		keep_going = TRUE;
+    arp_session_t *	session = client->if_session->session;
+    int			tries_left;
+
+    tries_left = session->default_detect_count - client->try;
+    if (tries_left <= 0) {
+	/* not in use */
+	client->command_status = arp_status_not_in_use_e;
+	arp_client_schedule_callback(client);
+	return;
+    }
+    client->try++;
+    for (i = 0; i < client->detect_list_count; i++) {
+	if (arp_client_transmit(client, FALSE, client->detect_list + i)
+	    == FALSE) {
+	    keep_going = FALSE;
+	    break;
+	}
+    }
+    if (keep_going) {
+	timer_set_relative(client->timer_callout, session->default_detect_retry,
+			   (timer_func_t *)arp_client_detect_retransmit,
+			   client, NULL, NULL);
+    }
+    else {
+	/* report back an error to the caller */
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
     }
     return;
 }
@@ -872,6 +1117,7 @@ arp_session_find_client_with_index(arp_session_t * session, int index)
     }
     return (NULL);
 }
+
 #endif TEST_ARP_SESSION
 
 void
@@ -901,7 +1147,6 @@ arp_client_restore_default_probe_info(arp_client_t * client)
     return;
 }
 
-
 arp_client_t *
 arp_client_init(arp_session_t * session, interface_t * if_p)
 {
@@ -913,7 +1158,7 @@ arp_client_free_element(void * arg)
 {
     arp_client_t * 	client = (arp_client_t *)arg;
 
-    arp_client_cancel_probe(client);
+    arp_client_cancel(client);
     timer_callout_free(&client->timer_callout);
     free(client);
     return;
@@ -970,17 +1215,9 @@ arp_client_probe(arp_client_t * client,
 {
     
     arp_if_session_t * 	if_session = client->if_session;
-    struct timeval 	t = {0, 1};
 
-    if (if_link_type(if_session->if_p) == IFT_IEEE1394) {
-	/* copy in the latest firewire address */
-	if (getFireWireAddress(if_name(if_session->if_p), 
-			       &if_session->fw_addr) == FALSE) {
-	    my_log(LOG_INFO, 
-		   "arp_probe(%s): could not retrieve firewire address",
-		   if_name(if_session->if_p));
-	}
-    }
+    arp_client_cancel(client);
+    arp_if_session_update_hardware_address(if_session);
     client->sender_ip = sender_ip;
     client->target_ip = target_ip;
     client->func = func;
@@ -990,14 +1227,77 @@ arp_client_probe(arp_client_t * client,
     client->try = 0;
     if (!arp_client_open_fd(client)) {
 	/* report back an error to the caller */
-	client->probe_result = arp_probe_result_error_e;
-	timer_set_relative(client->timer_callout, t, 
-			   (timer_func_t *)arp_client_callback,
-			   client, NULL, NULL);
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
 	return;
     }
-    client->probe_result = arp_probe_result_unknown_e;
-    arp_client_retransmit(client, NULL, NULL);
+    client->command_status = arp_status_unknown_e;
+    client->command = arp_client_command_probe_e;
+    arp_client_probe_retransmit(client, NULL, NULL);
+    return;
+}
+
+void
+arp_client_resolve(arp_client_t * client,
+		   arp_result_func_t * func, void * arg1, void * arg2,
+		   struct in_addr sender_ip, struct in_addr target_ip,
+		   uint32_t resolve_secs)
+{
+    
+    arp_if_session_t * 	if_session = client->if_session;
+
+    arp_client_cancel(client);
+    arp_if_session_update_hardware_address(if_session);
+    client->sender_ip = sender_ip;
+    client->target_ip = target_ip;
+    client->func = func;
+    client->arg1 = arg1;
+    client->arg2 = arg2;
+    client->errmsg[0] = '\0';
+    client->try = 0;
+    if (!arp_client_open_fd(client)) {
+	/* report back an error to the caller */
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
+	return;
+    }
+    client->command_status = arp_status_unknown_e;
+#define DEFAULT_RESOLVE_SECS	16
+    client->resolve_secs 
+	= (resolve_secs > 0) ? resolve_secs : DEFAULT_RESOLVE_SECS;
+    client->command = arp_client_command_resolve_e;
+    arp_client_resolve_retransmit(client, NULL, NULL);
+    return;
+}
+
+void
+arp_client_detect(arp_client_t * client,
+		  arp_result_func_t * func, void * arg1, void * arg2,
+		  const arp_address_info_t * list, int list_count)
+{
+    arp_if_session_t * 	if_session = client->if_session;
+    int			list_size;
+
+    arp_client_cancel(client);
+    arp_if_session_update_hardware_address(if_session);
+    client->func = func;
+    client->arg1 = arg1;
+    client->arg2 = arg2;
+    client->errmsg[0] = '\0';
+    client->try = 0;
+    if (list_count == 0 || !arp_client_open_fd(client)) {
+	/* report back an error to the caller */
+	client->command_status = arp_status_error_e;
+	arp_client_schedule_callback(client);
+	return;
+    }
+    list_size = sizeof(*client->detect_list) * list_count;
+    client->detect_list = (arp_address_info_t *)malloc(list_size);
+    bcopy(list, client->detect_list, list_size);
+    client->detect_list_count = list_count;
+    client->command_status = arp_status_unknown_e;
+    client->command = arp_client_command_detect_e;
+    arp_client_detect_retransmit(client, NULL, NULL);
     return;
 }
 
@@ -1008,13 +1308,41 @@ arp_client_errmsg(arp_client_t * client)
 }
 
 void
-arp_client_cancel_probe(arp_client_t * client)
+arp_client_cancel(arp_client_t * client)
 {
     client->errmsg[0] = '\0';
     client->func = client->arg1 = client->arg2 = NULL;
-    client->probe_result = arp_probe_result_none_e;
+    client->command_status = arp_status_none_e;
     arp_client_close_fd(client);
     timer_cancel(client->timer_callout);
+    if (client->detect_list != NULL) {
+	free(client->detect_list);
+	client->detect_list = NULL;
+    }
+    arp_client_cancel_callback(client);
+    return;
+}
+
+void
+arp_client_defend(arp_client_t * client, struct in_addr our_ip)
+{
+    arp_if_session_t * 	if_session = client->if_session;
+
+    arp_client_cancel(client);
+    arp_if_session_update_hardware_address(if_session);
+
+    if (!arp_client_open_fd(client)) {
+	my_log(LOG_ERR, "arp_client_defend(%s): open fd failed",
+	       if_name(if_session->if_p));
+    }
+    else {
+	client->target_ip = client->sender_ip = our_ip;
+	if (!arp_client_transmit(client, FALSE, NULL)) {
+	    my_log(LOG_ERR, "arp_client_defend(%s): transmit failed",
+		   if_name(if_session->if_p));
+	}
+	arp_client_close_fd(client);
+    }
     return;
 }
 
@@ -1023,7 +1351,9 @@ arp_session_init(FDSet_t * readers,
 		 arp_our_address_func_t * func, 
 		 const struct timeval * tv_p,
 		 const int * probe_count, 
-		 const int * gratuitous_count)
+		 const int * gratuitous_count,
+		 const int * detect_count,
+		 const struct timeval * detect_tv_p)
 {
     arp_session_t * 	session;
 
@@ -1058,6 +1388,19 @@ arp_session_init(FDSet_t * readers,
     }
     else {
 	session->default_probe_info.gratuitous_count = ARP_GRATUITOUS_COUNT;
+    }
+    if (detect_count != NULL) {
+	session->default_detect_count = *detect_count;
+    }
+    else {
+	session->default_detect_count = ARP_DETECT_COUNT;
+    }
+    if (detect_tv_p != NULL) {
+	session->default_detect_retry = *detect_tv_p;
+    }
+    else {
+	session->default_detect_retry.tv_sec = ARP_DETECT_RETRY_SECS;
+	session->default_detect_retry.tv_usec = ARP_DETECT_RETRY_USECS;
     }
 #ifdef TEST_ARP_SESSION
     session->next_client_index = 1;
@@ -1197,6 +1540,8 @@ typedef func_t * 		funcptr_t;
 static arp_session_t *		S_arp_session;
 static boolean_t 		S_debug = FALSE;
 static func_t			S_do_probe;
+static func_t			S_do_resolve;
+static func_t			S_do_detect;
 static func_t			S_cancel_probe;
 static func_t			S_toggle_debug;
 static func_t			S_new_client;
@@ -1205,6 +1550,55 @@ static func_t			S_list;
 static func_t			S_quit;
 static func_t			S_client_params;
 static interface_list_t *	S_interfaces;
+
+#define BASE_16		16
+
+static uint8_t *
+hexstrtobin(const char * str, int * len)
+{
+    int		buf_pos;
+    uint8_t * 	buf = NULL;
+    boolean_t	done = FALSE;
+    int		max_decoded_len;
+    const char * scan = str;
+    int 	slen = strlen(str);
+
+    *len = 0;
+    /* the worst case we turn "1:2:3:4:5:6" into 6 bytes
+     * strlen("1:2:3:4:5:6") = 11
+     * so to get the approximate decoded length, 
+     * we want strlen(str) / 2 + 1
+     */
+    max_decoded_len = (slen / 2) + 1;
+    buf = (uint8_t *)malloc(max_decoded_len);
+    if (buf == NULL) {
+	return (buf);
+    }
+    for (buf_pos = 0; buf_pos < max_decoded_len && !done; buf_pos++) {
+	char		tmp[4];
+	const char *	colon;
+
+	colon = strchr(scan, ':');
+	if (colon == NULL) {
+	    done = TRUE;
+	    colon = str + slen;
+	}
+	if ((colon - scan) > (sizeof(tmp) - 1)) {
+	    goto err;
+	}
+	strncpy(tmp, scan, colon - scan);
+	tmp[colon - scan] = '\0';
+	buf[buf_pos] = (u_char)strtol(tmp, NULL, BASE_16);
+	scan = colon + 1;
+    }
+    *len = buf_pos;
+    return (buf);
+  err:
+    if (buf) {
+	 free(buf);
+    }
+    return (NULL);
+}
 
 static void
 arp_session_log(int priority, const char * message, ...)
@@ -1232,6 +1626,9 @@ static const struct command_info {
     { "new", S_new_client, 1, "<ifname>", 1 },
     { "free", S_free_client, 1, "<client_index>", 1 },
     { "probe", S_do_probe, 3, "<client_index> <sender_ip> <target_ip>", 1 },
+    { "resolve", S_do_resolve, 3, "<client_index> <sender_ip> <target_ip>", 1 },
+    { "detect", S_do_detect, 4,
+      "<client_index> [ <sender_ip> <target_ip> <target_hardware> ]+", 1 },
     { "cancel", S_cancel_probe, 1, "<client_index>", 1 },
     { "params", S_client_params, 1, "<client_index> [ default | <interval> <probes> [ <gratuitous> ] ]", 1 },
     { "debug", S_toggle_debug, 0, NULL, 1 },
@@ -1265,6 +1662,7 @@ arg_info_free(struct arg_info * args)
     return;
 }
 
+/*
 static void
 arg_info_print(struct arg_info * args)
 {
@@ -1275,6 +1673,7 @@ arg_info_print(struct arg_info * args)
     }
     return;
 }
+*/
 
 static void
 arg_info_add(struct arg_info * args, char * new_arg)
@@ -1319,10 +1718,9 @@ arp_link_length(interface_t * if_p)
 
 
 static void
-arp_test(void * arg1, void * arg2, void * arg3)
+arp_test(void * arg1, void * arg2, const arp_result_t * result)
 {
     arp_client_t *	client = (arp_client_t *)arg1;
-    arp_result_t *	result = (arp_result_t *)arg3;
 
     if (result->error) {
 	printf("ARP probe failed: '%s'\n",
@@ -1331,7 +1729,7 @@ arp_test(void * arg1, void * arg2, void * arg3)
     else if (result->in_use) {
 	int i;
 	int len = arp_link_length(client->if_session->if_p);
-	const u_char * addr = result->hwaddr;
+	const u_char * addr = result->addr.target_hardware;
 
 	printf("ip address " IP_FORMAT " in use by",
 	       IP_LIST(&client->target_ip));
@@ -1343,6 +1741,34 @@ arp_test(void * arg1, void * arg2, void * arg3)
     else {
 	printf("ip address " IP_FORMAT " is not in use\n", 
 	       IP_LIST(&client->target_ip));
+    }
+}
+
+static void
+arp_detect_callback(void * arg1, void * arg2, const arp_result_t * result)
+{
+    arp_client_t *	client = (arp_client_t *)arg1;
+
+    if (result->error) {
+	printf("ARP detect failed: '%s'\n",
+	       client->errmsg);
+    }
+    else if (result->in_use) {
+	int i;
+	int len = arp_link_length(client->if_session->if_p);
+	const u_char * addr = result->addr.target_hardware;
+
+	printf("ARP detected Sender IP " IP_FORMAT " Target IP " IP_FORMAT
+	       " Target Hardware",
+	       IP_LIST(&result->addr.sender_ip),
+	       IP_LIST(&result->addr.target_ip));
+	for (i = 0; i < len; i++) {
+	    printf("%c%02x", i == 0 ? ' ' : ':', addr[i]);
+	}
+	printf("\n");
+    }
+    else {
+	printf("Did not detect any IP\n");
     }
 }
 
@@ -1449,6 +1875,101 @@ S_do_probe(int argc, const char * * argv)
 }
 
 static boolean_t
+S_do_resolve(int argc, const char * * argv)
+{
+    arp_client_t *	client;
+    int			client_index;
+    struct in_addr 	sender_ip;
+    struct in_addr     	target_ip;
+
+    if (get_client_index(argv[1], &client_index) == FALSE) {
+	fprintf(stderr, "invalid client index\n");
+	goto done;
+    }
+    client = arp_session_find_client_with_index(S_arp_session, client_index);
+    if (client == NULL) {
+	fprintf(stderr, "no such client index\n");
+	goto done;
+    }
+    if (inet_aton(argv[2], &sender_ip) == 0) {
+	fprintf(stderr, "invalid sender ip address %s\n", argv[2]);
+	client = NULL;
+	goto done;
+    }
+    if (inet_aton(argv[3], &target_ip) == 0) {
+	fprintf(stderr, "invalid target ip address %s\n", argv[3]);
+	client = NULL;
+	goto done;
+    }
+    arp_client_resolve(client, arp_test, client, NULL, sender_ip, target_ip, 0);
+ done:
+    return (client != NULL);
+}
+
+static boolean_t
+S_do_detect(int argc, const char * * argv)
+{
+    arp_client_t *	client;
+    int			client_index;
+    uint8_t *		hwaddr = NULL;
+    int			hwaddr_len;
+    int			i;
+    arp_address_info_t *info = NULL;
+    int			info_count;
+
+    if (get_client_index(argv[1], &client_index) == FALSE) {
+	fprintf(stderr, "invalid client index\n");
+	goto done;
+    }
+    client = arp_session_find_client_with_index(S_arp_session, client_index);
+    if (client == NULL) {
+	fprintf(stderr, "no such client index\n");
+	goto done;
+    }
+    if (((argc - 2) % 3) != 0) {
+	fprintf(stderr, "incorrect number of arguments\n");
+	client = NULL;
+	goto done;
+    }
+    info_count = (argc - 2) / 3;
+    info = malloc(sizeof(*info) * info_count);
+    for (i = 0; i < info_count; i++) {
+	if (inet_aton(argv[3 * i + 2], &info[i].sender_ip) == 0) {
+	    fprintf(stderr, "invalid sender ip address %s\n", argv[3 * i + 2]);
+	    client = NULL;
+	    goto done;
+	}
+	if (inet_aton(argv[3 * i + 3], &info[i].target_ip) == 0) {
+	    fprintf(stderr, "invalid target ip address %s\n", argv[3 * i + 3]);
+	    client = NULL;
+	    goto done;
+	}
+	/* get the hardware address */
+	hwaddr = hexstrtobin(argv[3 * i + 4], &hwaddr_len);
+	if (hwaddr == NULL
+	    || (hwaddr_len != ETHER_ADDR_LEN 
+		&& hwaddr_len != FIREWIRE_EUI64_LEN)) {
+	    fprintf(stderr, "invalid hardware address %s\n", argv[3 * i + 4]);
+	    client = NULL;
+	    if (hwaddr != NULL) {
+		free(hwaddr);
+	    }
+	    goto done;
+	}
+	bcopy(hwaddr, info[i].target_hardware, hwaddr_len);
+	free(hwaddr);
+    }
+    arp_client_detect(client, 
+		      arp_detect_callback, client, NULL,
+		      info, info_count);
+ done:
+    if (info != NULL) {
+	free(info);
+    }
+    return (client != NULL);
+}
+
+static boolean_t
 S_free_client(int argc, const char * * argv)
 {
     arp_client_t *	client;
@@ -1473,7 +1994,6 @@ S_cancel_probe(int argc, const char * * argv)
 {
     arp_client_t *	client;
     int			client_index;
-    boolean_t		error = FALSE;
 
     if (get_client_index(argv[1], &client_index) == FALSE) {
 	fprintf(stderr, "invalid client index\n");
@@ -1484,7 +2004,7 @@ S_cancel_probe(int argc, const char * * argv)
 	fprintf(stderr, "no such client index\n");
 	goto done;
     }
-    arp_client_cancel_probe(client);
+    arp_client_cancel(client);
 
  done:
     return (client != NULL);
@@ -1495,7 +2015,6 @@ S_client_params(int argc, const char * * argv)
 {
     arp_client_t *	client;
     int			client_index;
-    boolean_t		error = FALSE;
     struct probe_info *	probe_info;
 
     if (get_client_index(argv[1], &client_index) == FALSE) {
@@ -1511,14 +2030,12 @@ S_client_params(int argc, const char * * argv)
 	/* display only */
     }
     else if (strcmp(argv[2], "default") == 0) {
-	struct probe_info *	probe_info;
-
 	if (argc != 3) {
 	    fprintf(stderr, "Too many parameters specified\n");
 	    client = NULL;
 	    goto done;
 	}
-	client->probe_info = client->if_session->session->default_probe_info;
+	arp_client_restore_default_probe_info(client);
     }
     else if (argc < 4) {
 	fprintf(stderr, "insufficient args\n");
@@ -1562,8 +2079,8 @@ S_client_params(int argc, const char * * argv)
     }
     probe_info = &client->probe_info;
     printf("Probe interval %d.%06d probes %d gratuitous %d\n",
-	   probe_info->retry_interval.tv_sec, 
-	   probe_info->retry_interval.tv_usec, 
+	   (int)probe_info->retry_interval.tv_sec, 
+	   (int)probe_info->retry_interval.tv_usec, 
 	   probe_info->probe_count, probe_info->gratuitous_count);
 
  done:
@@ -1602,30 +2119,41 @@ S_list(int argc, const char * * argv)
 
 	    client = dynarray_element(&if_session->clients, j);
 	    printf("%d. %s", client->client_index, if_name(if_session->if_p));
-	    switch (client->probe_result) {
-	    case arp_probe_result_none_e:
+	    switch (client->command_status) {
+	    case arp_status_none_e:
 		printf(" idle");
 		break;
-	    case arp_probe_result_unknown_e:
-		printf(" probing %s", inet_ntoa(client->target_ip));
+	    case arp_status_unknown_e:
+		switch (client->command) {
+		case arp_client_command_probe_e:
+		    printf(" probing %s", inet_ntoa(client->target_ip));
+		    break;
+		case arp_client_command_resolve_e:
+		    printf(" resolving %s", inet_ntoa(client->target_ip));
+		    break;
+		case arp_client_command_detect_e:
+		    printf(" detecting");
+		    break;
+		default:
+		    break;
+		}
 		break;
-	    case arp_probe_result_in_use_e:
+	    case arp_status_in_use_e:
 		printf(" %s in use by", 
-		       inet_ntoa(client->target_ip));
-		dump_bytes(client->in_use_hwaddr, len);
+		       inet_ntoa(client->in_use_addr.target_ip));
+		dump_bytes((unsigned char *)client->in_use_addr.target_hardware,
+			   len);
 		break;
-	    case arp_probe_result_not_in_use_e:
+	    case arp_status_not_in_use_e:
 		printf(" %s not in use", inet_ntoa(client->target_ip));
 		break;
-	    case arp_probe_result_error_e:
+	    case arp_status_error_e:
 		printf(" %s error encountered", inet_ntoa(client->target_ip));
 		break;
 	    }
 	    printf("\n");
 	}
     }
-    return (FALSE);
- done:
     return (TRUE);
 }
 
@@ -1633,7 +2161,6 @@ static void
 parse_command(char * buf, struct arg_info * args)
 {
     char *		arg_start = NULL;
-    int			i;
     char *		scan;
 
     for (scan = buf; *scan != '\0'; scan++) {
@@ -1678,7 +2205,7 @@ usage()
     return;
 }
 
-static struct command_info *
+static const struct command_info *
 S_lookup_command(char * cmd)
 {
     int i;
@@ -1695,7 +2222,7 @@ static void
 process_command(struct arg_info * args)
 {
     boolean_t			ok = TRUE;
-    struct command_info *	cmd_info;
+    const struct command_info *	cmd_info;
 
     cmd_info = S_lookup_command(args->argv[0]);
     if (cmd_info != NULL) {
@@ -1714,7 +2241,12 @@ process_command(struct arg_info * args)
     }
 
     if (ok) {
-	(*cmd_info->func)(args->argc, (const char * *)args->argv);
+	if ((*cmd_info->func)(args->argc, (const char * *)args->argv)
+	    == FALSE) {
+	    fprintf(stderr, "usage:\n\t%s %s\n", 
+		    args->argv[0],
+		    cmd_info->usage ? cmd_info->usage : "");
+	}
     }
     return;
 }
@@ -1732,7 +2264,7 @@ user_input(CFSocketRef s, CFSocketCallBackType type,
 	   CFDataRef address, const void *data, void *info)
 {
     struct arg_info	args;
-    char 		choice[128];
+    char 		choice[1024 * 10];
 
     if (fgets(choice, sizeof(choice), stdin) == NULL) {
 	exit(1);
@@ -1783,12 +2315,6 @@ main(int argc, char * argv[])
     int			gratuitous;
     FDSet_t *		readers;
 
-#if 0
-    if (argc < 4) {
-	printf("usage: arptest <ifname> <sender ip> <target ip>\n");
-	exit(1);
-    }
-#endif 0
     S_interfaces = ifl_init(FALSE);
     if (S_interfaces == NULL) {
 	fprintf(stderr, "couldn't get interface list\n");
@@ -1800,7 +2326,8 @@ main(int argc, char * argv[])
 	exit(1);
     }
     gratuitous = 0;
-    S_arp_session = arp_session_init(readers, NULL, NULL, NULL, &gratuitous);
+    S_arp_session = arp_session_init(readers, NULL, NULL, NULL, &gratuitous,
+				     NULL, NULL);
     if (S_arp_session == NULL) {
 	fprintf(stderr, "arp_session_init failed\n");
 	exit(1);

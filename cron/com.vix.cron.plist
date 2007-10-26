@@ -9,15 +9,17 @@
 	<array>
 		<string>/usr/sbin/cron</string>
 	</array>
-	<key>RunAtLoad</key>
-	<true/>
-	<key>WatchPaths</key>
-	<array>
-		<string>/etc/crontab</string>
-	</array>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/etc/crontab</key>
+			<true/>
+		</dict>
+	</dict>
 	<key>QueueDirectories</key>
 	<array>
-		<string>/var/cron/tabs</string>
+		<string>/usr/lib/cron/tabs</string>
 	</array>
 </dict>
 </plist>

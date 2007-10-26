@@ -69,23 +69,23 @@ struct _telldir;		/* forward reference */
 
 /* structure describing an open directory. */
 typedef struct {
-	int	dd_fd;		/* file descriptor associated with directory */
-	long	dd_loc;		/* offset in current buffer */
-	long	dd_size;	/* amount of data returned by getdirentries */
-	char	*dd_buf;	/* data buffer */
-	int	dd_len;		/* size of data buffer */
-	long	dd_seek;	/* magic cookie returned by getdirentries */
-	long	dd_rewind;	/* magic cookie for rewinding */
-	int	dd_flags;	/* flags for readdir */
-	__darwin_pthread_mutex_t dd_lock; /* for thread locking */
-	struct _telldir *dd_td;	/* telldir position recording */
+	int	__dd_fd;	/* file descriptor associated with directory */
+	long	__dd_loc;	/* offset in current buffer */
+	long	__dd_size;	/* amount of data returned by getdirentries */
+	char	*__dd_buf;	/* data buffer */
+	int	__dd_len;	/* size of data buffer */
+	long	__dd_seek;	/* magic cookie returned by getdirentries */
+	long	__dd_rewind;	/* magic cookie for rewinding */
+	int	__dd_flags;	/* flags for readdir */
+	__darwin_pthread_mutex_t __dd_lock; /* for thread locking */
+	struct _telldir *__dd_td; /* telldir position recording */
 } DIR;
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 /* definitions for library routines operating on directories. */
 #define	DIRBLKSIZ	1024
 
-#define	dirfd(dirp)	((dirp)->dd_fd)
+#define	dirfd(dirp)	((dirp)->__dd_fd)
 
 /* flags for opendir2 */
 #define DTF_HIDEW	0x0001	/* hide whiteout entries */
@@ -93,33 +93,81 @@ typedef struct {
 #define DTF_REWIND	0x0004	/* rewind after reading union stack */
 #define __DTF_READALL	0x0008	/* everything has been read */
 
-#endif /* ! _POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 #ifndef KERNEL
 
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-#ifndef _POSIX_C_SOURCE
-int alphasort(const void *, const void *);
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+int alphasort(const void *, const void *) __DARWIN_INODE64(alphasort);
 #endif /* not POSIX */
+//Begin-Libc
+#ifndef LIBC_ALIAS_CLOSEDIR
+//End-Libc
 int closedir(DIR *) __DARWIN_ALIAS(closedir);
-#ifndef _POSIX_C_SOURCE
+//Begin-Libc
+#else /* LIBC_ALIAS_CLOSEDIR */
+int closedir(DIR *) LIBC_ALIAS(closedir);
+#endif /* !LIBC_ALIAS_CLOSEDIR */
+//End-Libc
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 int getdirentries(int, char *, int, long *);
 #endif /* not POSIX */
-DIR *opendir(const char *) __DARWIN_ALIAS(opendir);
-#ifndef _POSIX_C_SOURCE
-DIR *__opendir2(const char *, int) __DARWIN_ALIAS(__opendir2);
+//Begin-Libc
+#ifndef LIBC_ALIAS_OPENDIR
+//End-Libc
+DIR *opendir(const char *) __DARWIN_ALIAS_I(opendir);
+//Begin-Libc
+#else /* LIBC_ALIAS_OPENDIR */
+DIR *opendir(const char *) LIBC_ALIAS_I(opendir);
+#endif /* !LIBC_ALIAS_OPENDIR */
+//End-Libc
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+//Begin-Libc
+#ifndef LIBC_ALIAS___OPENDIR2
+//End-Libc
+DIR *__opendir2(const char *, int) __DARWIN_ALIAS_I(__opendir2);
+//Begin-Libc
+#else /* LIBC_ALIAS___OPENDIR2 */
+DIR *__opendir2(const char *, int) LIBC_ALIAS_I(__opendir2);
+#endif /* !LIBC_ALIAS___OPENDIR2 */
+//End-Libc
 #endif /* not POSIX */
-struct dirent *readdir(DIR *);
-int readdir_r(DIR *, struct dirent *, struct dirent **);
-void rewinddir(DIR *) __DARWIN_ALIAS(rewinddir);
-#ifndef _POSIX_C_SOURCE
+struct dirent *readdir(DIR *) __DARWIN_INODE64(readdir);
+int readdir_r(DIR *, struct dirent *, struct dirent **) __DARWIN_INODE64(readdir_r);
+//Begin-Libc
+#ifndef LIBC_ALIAS_REWINDDIR
+//End-Libc
+void rewinddir(DIR *) __DARWIN_ALIAS_I(rewinddir);
+//Begin-Libc
+#else /* LIBC_ALIAS_REWINDDIR */
+void rewinddir(DIR *) LIBC_ALIAS_I(rewinddir);
+#endif /* !LIBC_ALIAS_REWINDDIR */
+//End-Libc
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 int scandir(const char *, struct dirent ***,
-    int (*)(struct dirent *), int (*)(const void *, const void *));
+    int (*)(struct dirent *), int (*)(const void *, const void *)) __DARWIN_INODE64(scandir);
 #endif /* not POSIX */
-void seekdir(DIR *, long) __DARWIN_ALIAS(seekdir);
-long telldir(DIR *) __DARWIN_ALIAS(telldir);
+//Begin-Libc
+#ifndef LIBC_ALIAS_SEEKDIR
+//End-Libc
+void seekdir(DIR *, long) __DARWIN_ALIAS_I(seekdir);
+//Begin-Libc
+#else /* LIBC_ALIAS_SEEKDIR */
+void seekdir(DIR *, long) LIBC_ALIAS_I(seekdir);
+#endif /* !LIBC_ALIAS_SEEKDIR */
+//End-Libc
+//Begin-Libc
+#ifndef LIBC_ALIAS_TELLDIR
+//End-Libc
+long telldir(DIR *) __DARWIN_ALIAS_I(telldir);
+//Begin-Libc
+#else /* LIBC_ALIAS_TELLDIR */
+long telldir(DIR *) LIBC_ALIAS_I(telldir);
+#endif /* !LIBC_ALIAS_TELLDIR */
+//End-Libc
 __END_DECLS
 
 #endif /* !KERNEL */

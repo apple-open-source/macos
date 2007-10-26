@@ -51,11 +51,13 @@ main(argc, argv)
 							break;
 					/*
 					 * Only accept a *tag* when it consists of valid
-					 * characters and is followed by a white character or
-					 * end-of-line.
+					 * characters, there is white space before it and is
+					 * followed by a white character or end-of-line.
 					 */
-					if (p == p2 && (p1 == line || p1[-1] != '-') &&
-							(strchr(" \t\n\r", p[1]) != NULL || p[1] == '\0'))
+					if (p == p2
+							&& (p1 == line || p1[-1] == ' ' || p1[-1] == '\t')
+								&& (strchr(" \t\n\r", p[1]) != NULL
+									|| p[1] == '\0'))
 					{
 						*p2 = '\0';
 						++p1;

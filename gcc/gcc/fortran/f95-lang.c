@@ -156,9 +156,9 @@ int disable_typechecking_for_spec_flag = 0;
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Dummies needed because we use them from cpplib, yuck.  */
-int flag_cw_asm_blocks;
-int cw_asm_state;
-int cw_asm_in_operands;
+int flag_iasm_blocks;
+int iasm_state;
+int iasm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
 /* APPLE LOCAL begin 4174833 */

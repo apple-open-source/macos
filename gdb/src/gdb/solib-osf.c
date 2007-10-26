@@ -220,7 +220,7 @@ fetch_sec_names (struct lm_info *lmi)
       target_read_string (lms->nameaddr, &name, PATH_MAX, &errcode);
       if (errcode != 0)
 	{
-	  warning ("unable to read shared sec name at 0x%lx", lms->nameaddr);
+	  warning (_("unable to read shared sec name at 0x%lx"), lms->nameaddr);
 	  name = xstrdup ("");
 	}
       lms->name = name;
@@ -554,7 +554,6 @@ osf_current_sos (void)
       tail->next = NULL;
     }
 
- done:
   close_map (&ctxt);
   return head;
 }

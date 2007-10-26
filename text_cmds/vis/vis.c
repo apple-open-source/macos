@@ -1,5 +1,3 @@
-/*	$NetBSD: vis.c,v 1.5 1997/10/20 03:06:48 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,38 +32,40 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+
+__FBSDID("$FreeBSD: src/usr.bin/vis/vis.c,v 1.10 2002/09/04 23:29:09 dwmalone Exp $");
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)vis.c	8.1 (Berkeley) 6/6/93";
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: vis.c,v 1.5 1997/10/20 03:06:48 lukem Exp $");
-#endif /* not lint */
 
+#ifndef lint
+static const char sccsid[] = "@(#)vis.c	8.1 (Berkeley) 6/6/93";
+#endif
+
+#include <err.h>
+#include <locale.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <err.h>
 #include <vis.h>
+
+#include "extern.h"
 
 int eflags, fold, foldwidth=80, none, markeol, debug;
 
-int foldit __P((char *, int, int));
-int main __P((int, char **));
-void process __P((FILE *, char *));
+void process(FILE *);
+static void usage(void);
 
 int
-main(argc, argv) 
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FILE *fp;
 	int ch;
+
+	(void) setlocale(LC_CTYPE, "");
 
 	while ((ch = getopt(argc, argv, "nwctsobfF:ld")) != -1)
 		switch((char)ch) {
@@ -91,10 +91,8 @@ main(argc, argv)
 			eflags |= VIS_NOSLASH;
 			break;
 		case 'F':
-			if ((foldwidth = atoi(optarg))<5) {
+			if ((foldwidth = atoi(optarg))<5)
 				errx(1, "can't fold lines to less than 5 cols");
-				/* NOTREACHED */
-			}
 			/*FALLTHROUGH*/
 		case 'f':
 			fold++;		/* fold output lines to 80 cols */
@@ -109,9 +107,7 @@ main(argc, argv)
 #endif
 		case '?':
 		default:
-			fprintf(stderr, 
-		"usage: vis [-nwctsobf] [-F foldwidth]\n");
-			exit(1);
+			usage();
 		}
 	argc -= optind;
 	argv += optind;
@@ -119,26 +115,37 @@ main(argc, argv)
 	if (*argv)
 		while (*argv) {
 			if ((fp=fopen(*argv, "r")) != NULL)
-				process(fp, *argv);
+				process(fp);
 			else
 				warn("%s", *argv);
 			argv++;
 		}
 	else
-		process(stdin, "<stdin>");
+		process(stdin);
 	exit(0);
 }
-	
+
+
+static void
+usage(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "usage: vis [-cbflnostwd] [-F foldwidth] [file ...]\n");
+#else
+	fprintf(stderr, "usage: vis [-cbflnostw] [-F foldwidth] [file ...]\n");
+#endif
+	exit(1);
+}
+
 void
-process(fp, filename)
-	FILE *fp;
-	char *filename;
+process(FILE *fp)
 {
 	static int col = 0;
-	char *cp = "\0"+1;	/* so *(cp-1) starts out != '\n' */
-	int c, rachar; 
+	static char dummy[] = "\0";
+	char *cp = dummy+1; /* so *(cp-1) starts out != '\n' */
+	int c, rachar;
 	char buff[5];
-	
+
 	c = getc(fp);
 	while (c != EOF) {
 		rachar = getc(fp);
@@ -155,7 +162,7 @@ process(fp, filename)
 			*cp++ = '$';
 			*cp++ = '\n';
 			*cp = '\0';
-		} else 
+		} else
 			(void) vis(buff, (char)c, eflags, (char)rachar);
 
 		cp = buff;

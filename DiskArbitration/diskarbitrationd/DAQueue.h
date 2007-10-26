@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,8 +42,6 @@ extern Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID );
 extern void DADiskAppearedCallback( DADiskRef disk );
 
 extern void DADiskClaimReleaseCallback( DADiskRef disk, DACallbackRef callback, DAResponseCallback response, void * responseContext );
-
-extern void DADiskClassicCallback( DADiskRef disk );
 
 extern void DADiskDescriptionChangedCallback( DADiskRef disk, CFTypeRef key );
 

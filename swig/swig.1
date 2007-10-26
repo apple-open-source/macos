@@ -1,0 +1,184 @@
+.\"                                      Hey, EMACS: -*- nroff -*-
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8, maybe w/ subsection
+.\" other parameters are allowed: see man(7), man(1)
+.TH SWIG 1 2004-05-22
+.\" Please adjust this date whenever revising the manpage.
+
+.SH NAME
+swig \- Simplified Wrapper and Interface Generator
+.SH SYNOPSIS
+.B swig
+.RI [ options ] " file"
+
+.SH DESCRIPTION
+
+The swig command is used to create wrapper code to connect C and
+C++ code to scripting languages like Perl, Python, etc. from the 
+definition of the interface. For detailed information on writing
+those interface definitions please refer to
+/usr/share/doc/swig-doc/Manual/index.html from the swig-doc package. 
+This manpage concentrates on explaining the invocation of the swig
+command.
+
+.SH OPTIONS
+.SS Target Language Options:
+.TP
+.B \-chicken
+Generate CHICKEN wrappers
+.TP 
+.B \-csharp
+Generate C# wrappers
+.TP
+.B \-guile
+Generate Guile wrappers
+.TP
+.B \-java
+Generate Java wrappers
+.TP
+.B \-mzscheme
+Generate Mzscheme wrappers
+.TP
+.B \-ocaml
+Generate Ocaml wrappers
+.TP
+.B \-perl
+Generate Perl wrappers.
+.TP
+.B \-php
+Generate PHP wrappers
+.TP
+.B \-pike
+Generate Pike wrappers
+.TP
+.B \-python
+Generate Python wrappers
+.TP
+.B \-ruby
+Generate Ruby wrappers
+.TP
+.B \-sexp
+Generate Lisp S-Expressions wrappers
+.TP
+.B \-tcl
+Generate Tcl wrappers
+.TP
+.B \-xml
+Generate XML wrappers.
+
+.SS General Options
+
+.TP
+.B \-c++
+Enable C++ processing
+.TP
+.B \-co
+Check a file out of the SWIG library
+.TP
+.B \-dirprot
+Turn on wrapping of protected members for director classes
+.TP
+.BI \-D symbol 
+Define a symbol \fIsymbol\fR (for conditional compilation)
+.TP
+.B \-E
+Preprocess only, does not generate wrapper code
+.TP
+.B \-fcompact
+Compile in compact mode
+.TP
+.B \-fvirtual
+Compile in virtual elimination mode
+.TP
+.B \-Fstandard
+Display error/warning messages in commonly used format
+.TP
+.B \-Fmicrosoft
+Display error/warning messages in Microsoft format
+.TP
+.B \-help
+Show a summary of supported options and especially of supported
+options for the selected language.
+.TP
+.BI \-I dir
+Look for SWIG files in \fIdir\fR
+.TP
+.B \-ignoremissing
+Ignore missing include files
+.TP
+.B \-importall
+Follow all #include statements as imports
+.TP
+.B \-includeall
+Follow all #include statements
+.TP
+.BI \-l ifile
+Include SWIG library file \fIifile\fR
+.TP
+.B \-M
+List all dependencies 
+.TP
+.B \-MM
+List dependencies, but omit files in SWIG library
+.TP
+.B \-makedefault
+Create default constructors/destructors (the default)
+.TP
+.BI "\-module " name
+Set module name to \fIname\fR
+.TP
+.B \-nocontract
+Turn off contract checking 
+.TP
+.B \-nodefault
+Do not generate constructors/destructors
+.TP
+.B \-nodirprot
+Do not wrap director protected members
+.TP
+.B \-noexcept
+Do not wrap exception specifiers
+.TP
+.B \-noextern
+Do not generate extern declarations
+.TP
+.B \-noruntime
+Do not include SWIG runtime code
+.TP
+.BI "\-o " outfile
+Set name of the output file to \fIoutfile\fR
+.TP
+.BI "\-outdir " dir
+Set language specific files output directory
+.TP
+.B \-runtime
+Make the runtime support code globally visible.
+.TP
+.B \-small
+Compile in virtual elimination & compact mode
+.TP
+.B \-swiglib
+Report location of SWIG library and exit
+.TP
+.B \-v
+Run in verbose mode
+.TP
+.B \-version
+Print SWIG version number
+.TP
+.B \-Wall
+Enable all warning messages
+.TP
+.B \-Wallkw
+Enable warning messages for all the languages keywords
+.TP
+.B \-Werror
+Force to treat the warnings as errors
+.TP
+.BI "\-w " n
+Suppress warning number \fIn\fR
+.SH AUTHOR
+SWIG was originally created by David Beazley. For up-to-date information
+about authors and contributors please check http://www.swig.org/guilty.html.
+This manual page was written by Torsten Landschoff <torsten@debian.org>
+for the Debian project (but may be used by others).

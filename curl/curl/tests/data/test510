@@ -1,7 +1,8 @@
+<testcase>
 #
 # Server-side
 <reply>
-<data>
+<data mode="text">
 HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake swsclose
@@ -36,7 +37,6 @@ http://%HOSTIP:%HTTPPORT/510
 <protocol>
 POST /510 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Transfer-Encoding: chunked
 Content-Type: application/x-www-form-urlencoded
@@ -53,3 +53,4 @@ and a final longer crap: four
 
 </protocol>
 </verify>
+</testcase>

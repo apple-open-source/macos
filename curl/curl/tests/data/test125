@@ -1,5 +1,15 @@
+<testcase>
+<info>
+<keywords>
+FTP
+FAILURE
+</keywords>
+</info>
 # Server-side
 <reply>
+<servercmd>
+REPLY CWD 314 bluah you f00l!
+</servercmd>
 </reply>
 
 # Client-side
@@ -13,9 +23,6 @@ FTP download, failed CWD
  <command>
 ftp://%HOSTIP:%FTPPORT/path/to/file/125
 </command>
-<file name="log/ftpserver.cmd">
-REPLY CWD 314 bluah you f00l!
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -25,9 +32,10 @@ REPLY CWD 314 bluah you f00l!
 </errorcode>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD path
 QUIT
 </protocol>
 </verify>
+</testcase>

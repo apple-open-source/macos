@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 2001 The PHP Group                                     |
+   | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 3.01 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_mbregex.c,v 1.18.2.11.4.1 2006/01/01 13:46:54 sniper Exp $ */
+/* $Id: php_mbregex.c,v 1.53.2.1.2.4 2007/01/11 22:23:20 tony2001 Exp $ */
 
 
 #ifdef HAVE_CONFIG_H
@@ -25,161 +25,292 @@
 
 #include "php.h"
 #include "php_ini.h"
-#include "php_mbregex.h"
-#include "mbregex.h"
-#include "mbstring.h"
 
 #if HAVE_MBREGEX
 
+#include "ext/standard/php_smart_str.h"
+#include "php_mbregex.h"
+#include "mbstring.h"
+
 ZEND_EXTERN_MODULE_GLOBALS(mbstring)
 
-/*
- * string buffer
- */
-struct strbuf {
-	unsigned char* buffer;
-	int length;
-	int pos;
-	int allocsz;
-};
-
-static void
-_php_mb_regex_strbuf_init(struct strbuf *pd)
+/* {{{ static void php_mb_regex_free_cache() */
+static void php_mb_regex_free_cache(php_mb_regex_t **pre) 
 {
-	if (pd) {
-		pd->buffer = (unsigned char*)0;
-		pd->length = 0;
-		pd->pos = 0;
-		pd->allocsz = 64;
-	}
+	onig_free(*pre);
 }
+/* }}} */
 
-static int
-_php_mb_regex_strbuf_ncat(struct strbuf *pd, const unsigned char *psrc, int len)
+/* {{{ _php_mb_regex_globals_ctor */
+void _php_mb_regex_globals_ctor(zend_mbstring_globals *pglobals TSRMLS_DC)
 {
-	if (pd == NULL || psrc == NULL) {
-		return -1;
-	}
-
-	if ((pd->pos + len) >= pd->length) {
-		/* reallocate buffer */
-		int newlen = pd->length + pd->allocsz + len;
-		unsigned char *tmp = (unsigned char*)erealloc((void*)pd->buffer, newlen);
-		if (tmp == NULL) {
-			return -1;
-		}
-		pd->length = newlen;
-		pd->buffer = tmp;
-	}
-
-	while (len > 0) {
-		pd->buffer[pd->pos++] = *psrc++;
-		len--;
-	}
-
-	return len;
+	MBSTRG(default_mbctype) = ONIG_ENCODING_EUC_JP;
+	MBSTRG(current_mbctype) = ONIG_ENCODING_EUC_JP;
+	zend_hash_init(&(MBSTRG(ht_rc)), 0, NULL, (void (*)(void *)) php_mb_regex_free_cache, 1);
+	MBSTRG(search_str) = (zval*) NULL;
+	MBSTRG(search_re) = (php_mb_regex_t*)NULL;
+	MBSTRG(search_pos) = 0;
+	MBSTRG(search_regs) = (OnigRegion*)NULL;
+	MBSTRG(regex_default_options) = ONIG_OPTION_MULTILINE | ONIG_OPTION_SINGLELINE;
+	MBSTRG(regex_default_syntax) = ONIG_SYNTAX_RUBY;
 }
+/* }}} */
 
+/* {{{ _php_mb_regex_globals_dtor */
+void _php_mb_regex_globals_dtor(zend_mbstring_globals *pglobals TSRMLS_DC) 
+{
+	zend_hash_destroy(&MBSTRG(ht_rc));
+}
+/* }}} */
+
+/* {{{ PHP_MINIT_FUNCTION(mb_regex) */
+PHP_MINIT_FUNCTION(mb_regex)
+{
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ PHP_MSHUTDOWN_FUNCTION(mb_regex) */
+PHP_MSHUTDOWN_FUNCTION(mb_regex)
+{
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ PHP_RINIT_FUNCTION(mb_regex) */
+PHP_RINIT_FUNCTION(mb_regex)
+{
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ PHP_RSHUTDOWN_FUNCTION(mb_regex) */
+PHP_RSHUTDOWN_FUNCTION(mb_regex)
+{
+	MBSTRG(current_mbctype) = MBSTRG(default_mbctype);
+
+	if (MBSTRG(search_str) != NULL) {
+		zval_ptr_dtor(&MBSTRG(search_str));
+		MBSTRG(search_str) = (zval *)NULL;
+	}
+	MBSTRG(search_pos) = 0;
+
+	if (MBSTRG(search_regs) != NULL) {
+		onig_region_free(MBSTRG(search_regs), 1);
+		MBSTRG(search_regs) = (OnigRegion *)NULL;
+	}
+	zend_hash_clean(&MBSTRG(ht_rc));
+
+	return SUCCESS;
+}
+/* }}} */
 
 /*
  * encoding name resolver
  */
-static int _php_mb_regex_name2mbctype(const char *pname)
-{
-	int mbctype;
 
-	mbctype = -1;
-	if (pname != NULL) {
-		if (strcasecmp("EUC-JP", pname) == 0
-		    || strcasecmp("X-EUC-JP", pname) == 0
-		    || strcasecmp("UJIS", pname) == 0
-		    || strcasecmp("EUCJP", pname) == 0
-		    || strcasecmp("EUC_JP", pname) == 0
-		    || strcasecmp("EUCJP-WIN", pname) == 0) {
-			mbctype = MBCTYPE_EUC;
-		} else if (strcasecmp("UTF-8", pname) == 0
-		           || strcasecmp("UTF8", pname) == 0) {
-			mbctype = MBCTYPE_UTF8;
-		} else if (strcasecmp("SJIS", pname) == 0
-		           || strcasecmp("CP932", pname) == 0
-		           || strcasecmp("MS932", pname) == 0
-		           || strcasecmp("SHIFT_JIS", pname) == 0
-		           || strcasecmp("SJIS-WIN", pname) == 0) {
-			mbctype = MBCTYPE_SJIS;
-		} else if (strcasecmp("ASCII", pname) == 0) {
-			mbctype = MBCTYPE_ASCII;
-			mbctype = MBCTYPE_EUC;
+/* {{{ encoding name map */
+typedef struct _php_mb_regex_enc_name_map_t {
+	const char *names;
+	OnigEncoding code;
+} php_mb_regex_enc_name_map_t;
+
+php_mb_regex_enc_name_map_t enc_name_map[] ={
+	{
+		"EUC-JP\0EUCJP\0X-EUC-JP\0UJIS\0EUCJP\0EUCJP-WIN\0",
+		ONIG_ENCODING_EUC_JP
+	},
+	{
+		"UTF-8\0UTF8\0",
+		ONIG_ENCODING_UTF8
+	},
+	{
+		"UTF-16\0UTF-16BE\0",
+		ONIG_ENCODING_UTF16_BE
+	},
+	{
+		"UTF-16LE\0",
+		ONIG_ENCODING_UTF16_LE
+	},
+	{
+		"UCS-4\0UTF-32\0UTF-32BE\0",
+		ONIG_ENCODING_UTF32_BE
+	},
+	{
+		"UCS-4LE\0UTF-32LE\0",
+		ONIG_ENCODING_UTF32_LE
+	},
+	{
+		"SJIS\0CP932\0MS932\0SHIFT_JIS\0SJIS-WIN\0WINDOWS-31J\0",
+		ONIG_ENCODING_SJIS
+	},
+	{
+		"BIG5\0BIG-5\0BIGFIVE\0CN-BIG5\0BIG-FIVE\0",
+		ONIG_ENCODING_BIG5
+	},
+	{
+		"EUC-CN\0EUCCN\0EUC_CN\0GB-2312\0GB2312\0",
+		ONIG_ENCODING_EUC_CN
+	},
+	{
+		"EUC-TW\0EUCTW\0EUC_TW\0",
+		ONIG_ENCODING_EUC_TW
+	},
+	{
+		"EUC-KR\0EUCKR\0EUC_KR\0",
+		ONIG_ENCODING_EUC_KR
+	},
+	{
+		"KOI8\0KOI-8\0",
+		ONIG_ENCODING_KOI8
+	},
+	{
+		"KOI8R\0KOI8-R\0KOI-8R\0",
+		ONIG_ENCODING_KOI8_R
+	},
+	{
+		"ISO-8859-1\0ISO8859-1\0ISO_8859_1\0ISO8859_1\0",
+		ONIG_ENCODING_ISO_8859_1
+	},
+	{
+		"ISO-8859-2\0ISO8859-2\0ISO_8859_2\0ISO8859_2\0",
+		ONIG_ENCODING_ISO_8859_2
+	},
+	{
+		"ISO-8859-3\0ISO8859-3\0ISO_8859_3\0ISO8859_3\0",
+		ONIG_ENCODING_ISO_8859_3
+	},
+	{
+		"ISO-8859-4\0ISO8859-4\0ISO_8859_4\0ISO8859_4\0",
+		ONIG_ENCODING_ISO_8859_4
+	},
+	{
+		"ISO-8859-5\0ISO8859-5\0ISO_8859_5\0ISO8859_5\0",
+		ONIG_ENCODING_ISO_8859_5
+	},
+	{
+		"ISO-8859-6\0ISO8859-6\0ISO_8859_6\0ISO8859_6\0",
+		ONIG_ENCODING_ISO_8859_6
+	},
+	{
+		"ISO-8859-7\0ISO8859-7\0ISO_8859_7\0ISO8859_7\0",
+		ONIG_ENCODING_ISO_8859_7
+	},
+	{
+		"ISO-8859-8\0ISO8859-8\0ISO_8859_8\0ISO8859_8\0",
+		ONIG_ENCODING_ISO_8859_8
+	},
+	{
+		"ISO-8859-9\0ISO8859-9\0ISO_8859_9\0ISO8859_9\0",
+		ONIG_ENCODING_ISO_8859_9
+	},
+	{
+		"ISO-8859-10\0ISO8859-10\0ISO_8859_10\0ISO8859_10\0",
+		ONIG_ENCODING_ISO_8859_10
+	},
+	{
+		"ISO-8859-11\0ISO8859-11\0ISO_8859_11\0ISO8859_11\0",
+		ONIG_ENCODING_ISO_8859_11
+	},
+	{
+		"ISO-8859-13\0ISO8859-13\0ISO_8859_13\0ISO8859_13\0",
+		ONIG_ENCODING_ISO_8859_13
+	},
+	{
+		"ISO-8859-14\0ISO8859-14\0ISO_8859_14\0ISO8859_14\0",
+		ONIG_ENCODING_ISO_8859_14
+	},
+	{
+		"ISO-8859-15\0ISO8859-15\0ISO_8859_15\0ISO8859_15\0",
+		ONIG_ENCODING_ISO_8859_15
+	},
+	{
+		"ISO-8859-16\0ISO8859-16\0ISO_8859_16\0ISO8859_16\0",
+		ONIG_ENCODING_ISO_8859_16
+	},
+	{
+		"ASCII\0US-ASCII\0US_ASCII\0ISO646\0",
+		ONIG_ENCODING_ASCII
+	},
+	{ NULL, ONIG_ENCODING_UNDEF }
+};
+/* }}} */
+
+/* {{{ php_mb_regex_name2mbctype */
+OnigEncoding php_mb_regex_name2mbctype(const char *pname)
+{
+	const char *p;
+	php_mb_regex_enc_name_map_t *mapping;
+
+	if (pname == NULL) {
+		return ONIG_ENCODING_UNDEF;
+	}
+
+	for (mapping = enc_name_map; mapping->names != NULL; mapping++) {
+		for (p = mapping->names; *p != '\0'; p += (strlen(p) + 1)) {
+			if (strcasecmp(p, pname) == 0) {
+				return mapping->code;
+			}
 		}
 	}
 
-	return mbctype;
+	return ONIG_ENCODING_UNDEF;
 }
+/* }}} */
 
-static const char*
-php_mbregex_mbctype2name(int mbctype)
+/* {{{ php_mbregex_mbctype2name */
+const char *php_mb_regex_mbctype2name(OnigEncoding mbctype)
 {
-	const char *p = NULL;
+	php_mb_regex_enc_name_map_t *mapping;
 
-	if (mbctype == MBCTYPE_EUC) {
-		p = "EUC-JP";
-	} else if(mbctype == MBCTYPE_UTF8) {
-		p = "UTF-8";
-	} else if(mbctype == MBCTYPE_SJIS) {
-		p = "SJIS";
-	} else if(mbctype == MBCTYPE_ASCII) {
-		p = "ascii";
+	for (mapping = enc_name_map; mapping->names != NULL; mapping++) {
+		if (mapping->code == mbctype) {
+			return mapping->names;
+		}
 	}
 
-	return p;
+	return NULL;
 }
-
+/* }}} */
 
 /*
  * regex cache
  */
-static int
-php_mbregex_compile_pattern(mb_regex_t *pre, const char *pattern, int patlen, int options, int mbctype TSRMLS_DC)
+/* {{{ php_mbregex_compile_pattern */
+static php_mb_regex_t *php_mbregex_compile_pattern(const char *pattern, int patlen, OnigOptionType options, OnigEncoding enc, OnigSyntaxType *syntax TSRMLS_DC)
 {
-	int res = 0;
-	const char *err_str = NULL;
-	mb_regex_t *rc = NULL;
+	int err_code = 0;
+	int found = 0;
+	php_mb_regex_t *retval = NULL, **rc = NULL;
+	OnigErrorInfo err_info;
+	OnigUChar err_str[ONIG_MAX_ERROR_MESSAGE_LEN];
 
-	if(zend_hash_find(&MBSTRG(ht_rc), (char *)pattern, patlen+1, (void **) &rc) == FAILURE ||
-			rc->options != options || rc->mbctype != mbctype) {
-		memset(pre, 0, sizeof(*pre));
-		pre->fastmap = (char*)safe_emalloc((1 << MBRE_BYTEWIDTH), sizeof(char), 0);
-		if (pre->fastmap) {
-			pre->options = options;
-			pre->mbctype = mbctype;
-			err_str = mbre_compile_pattern(pattern, patlen, pre);
-			if (!err_str) {
-				zend_hash_update(&MBSTRG(ht_rc), (char *) pattern, patlen+1, (void *) pre, sizeof(*pre), NULL);
-			} else {
-				efree(pre->fastmap);
-				pre->fastmap = (char*)0;
-				php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex compile err: %s", err_str);
-				res = 1;
-			}
-		} else {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to allocate memory in mbregex_compile_pattern");
-			res = 1;
+	found = zend_hash_find(&MBSTRG(ht_rc), (char *)pattern, patlen+1, (void **) &rc);
+	if (found == FAILURE || (*rc)->options != options || (*rc)->enc != enc || (*rc)->syntax != syntax) {
+		if ((err_code = onig_new(&retval, (OnigUChar *)pattern, (OnigUChar *)(pattern + patlen), options, enc, syntax, &err_info)) != ONIG_NORMAL) {
+			onig_error_code_to_str(err_str, err_code, err_info);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex compile err: %s", err_str);
+			retval = NULL;
+			goto out;
 		}
-	} else {
-		memcpy(pre, rc, sizeof(*pre));
+		zend_hash_update(&MBSTRG(ht_rc), (char *) pattern, patlen + 1, (void *) &retval, sizeof(retval), NULL);
+	} else if (found == SUCCESS) {
+		retval = *rc;
 	}
-
-	return res;
+out:
+	return retval; 
 }
+/* }}} */
 
-static size_t 
-_php_mb_regex_get_option_string(char *str, size_t len, int option)
+/* {{{ _php_mb_regex_get_option_string */
+static size_t _php_mb_regex_get_option_string(char *str, size_t len, OnigOptionType option, OnigSyntaxType *syntax)
 {
 	size_t len_left = len;
 	size_t len_req = 0;
 	char *p = str;
+	char c;
 
-
-	if ((option & MBRE_OPTION_IGNORECASE) != 0) {
+	if ((option & ONIG_OPTION_IGNORECASE) != 0) {
 		if (len_left > 0) {
 			--len_left;
 			*(p++) = 'i';
@@ -187,7 +318,7 @@ _php_mb_regex_get_option_string(char *str, size_t len, int option)
 		++len_req;	
 	}
 
-	if ((option & MBRE_OPTION_EXTENDED) != 0) {
+	if ((option & ONIG_OPTION_EXTEND) != 0) {
 		if (len_left > 0) {
 			--len_left;
 			*(p++) = 'x';
@@ -195,14 +326,15 @@ _php_mb_regex_get_option_string(char *str, size_t len, int option)
 		++len_req;	
 	}
 
-	if ((option & MBRE_OPTION_POSIXLINE) == MBRE_OPTION_POSIXLINE) {
+	if ((option & (ONIG_OPTION_MULTILINE | ONIG_OPTION_SINGLELINE)) ==
+			(ONIG_OPTION_MULTILINE | ONIG_OPTION_SINGLELINE)) {
 		if (len_left > 0) {
 			--len_left;
 			*(p++) = 'p';
 		}
 		++len_req;	
 	} else {
-		if ((option & MBRE_OPTION_MULTILINE) != 0) {
+		if ((option & ONIG_OPTION_MULTILINE) != 0) {
 			if (len_left > 0) {
 				--len_left;
 				*(p++) = 'm';
@@ -210,7 +342,7 @@ _php_mb_regex_get_option_string(char *str, size_t len, int option)
 			++len_req;	
 		}
 
-		if ((option & MBRE_OPTION_SINGLELINE) != 0) {
+		if ((option & ONIG_OPTION_SINGLELINE) != 0) {
 			if (len_left > 0) {
 				--len_left;
 				*(p++) = 's';
@@ -218,18 +350,54 @@ _php_mb_regex_get_option_string(char *str, size_t len, int option)
 			++len_req;	
 		}
 	}	
-	if ((option & MBRE_OPTION_LONGEST) != 0) {
+	if ((option & ONIG_OPTION_FIND_LONGEST) != 0) {
 		if (len_left > 0) {
 			--len_left;
 			*(p++) = 'l';
 		}
 		++len_req;	
 	}
+	if ((option & ONIG_OPTION_FIND_NOT_EMPTY) != 0) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = 'n';
+		}
+		++len_req;	
+	}
+
+	c = 0;
+
+	if (syntax == ONIG_SYNTAX_JAVA) {
+		c = 'j';
+	} else if (syntax == ONIG_SYNTAX_GNU_REGEX) {
+		c = 'u';
+	} else if (syntax == ONIG_SYNTAX_GREP) {
+		c = 'g';
+	} else if (syntax == ONIG_SYNTAX_EMACS) {
+		c = 'c';
+	} else if (syntax == ONIG_SYNTAX_RUBY) {
+		c = 'r';
+	} else if (syntax == ONIG_SYNTAX_PERL) {
+		c = 'z';
+	} else if (syntax == ONIG_SYNTAX_POSIX_BASIC) {
+		c = 'b';
+	} else if (syntax == ONIG_SYNTAX_POSIX_EXTENDED) {
+		c = 'd';
+	}
+
+	if (c != 0) {
+		if (len_left > 0) {
+			--len_left;
+			*(p++) = c;
+		}
+		++len_req;
+	}
+
+
 	if (len_left > 0) {
 		--len_left;
 		*(p++) = '\0';
 	}
-
 	++len_req;	
 	if (len < len_req) {
 		return len_req;
@@ -237,13 +405,17 @@ _php_mb_regex_get_option_string(char *str, size_t len, int option)
 
 	return 0;
 }
+/* }}} */
 
+/* {{{ _php_mb_regex_init_options */
 static void
-_php_mb_regex_init_options(const char *parg, int narg, int *option, int *eval) 
+_php_mb_regex_init_options(const char *parg, int narg, OnigOptionType *option, OnigSyntaxType **syntax, int *eval) 
 {
 	int n;
 	char c;
 	int optm = 0; 
+
+	*syntax = ONIG_SYNTAX_RUBY;
 
 	if (parg != NULL) {
 		n = 0;
@@ -251,22 +423,49 @@ _php_mb_regex_init_options(const char *parg, int narg, int *option, int *eval)
 			c = parg[n++];
 			switch (c) {
 				case 'i':
-					optm |= MBRE_OPTION_IGNORECASE;
+					optm |= ONIG_OPTION_IGNORECASE;
 					break;
 				case 'x':
-					optm |= MBRE_OPTION_EXTENDED;
+					optm |= ONIG_OPTION_EXTEND;
 					break;
 				case 'm':
-					optm |= MBRE_OPTION_MULTILINE;
+					optm |= ONIG_OPTION_MULTILINE;
 					break;
 				case 's':
-					optm |= MBRE_OPTION_SINGLELINE;
+					optm |= ONIG_OPTION_SINGLELINE;
 					break;
 				case 'p':
-					optm |= MBRE_OPTION_POSIXLINE;
+					optm |= ONIG_OPTION_MULTILINE | ONIG_OPTION_SINGLELINE;
 					break;
 				case 'l':
-					optm |= MBRE_OPTION_LONGEST;
+					optm |= ONIG_OPTION_FIND_LONGEST;
+					break;
+				case 'n':
+					optm |= ONIG_OPTION_FIND_NOT_EMPTY;
+					break;
+				case 'j':
+					*syntax = ONIG_SYNTAX_JAVA;
+					break;
+				case 'u':
+					*syntax = ONIG_SYNTAX_GNU_REGEX;
+					break;
+				case 'g':
+					*syntax = ONIG_SYNTAX_GREP;
+					break;
+				case 'c':
+					*syntax = ONIG_SYNTAX_EMACS;
+					break;
+				case 'r':
+					*syntax = ONIG_SYNTAX_RUBY;
+					break;
+				case 'z':
+					*syntax = ONIG_SYNTAX_PERL;
+					break;
+				case 'b':
+					*syntax = ONIG_SYNTAX_POSIX_BASIC;
+					break;
+				case 'd':
+					*syntax = ONIG_SYNTAX_POSIX_EXTENDED;
 					break;
 				case 'e':
 					if (eval != NULL) *eval = 1; 
@@ -278,7 +477,7 @@ _php_mb_regex_init_options(const char *parg, int narg, int *option, int *eval)
 		if (option != NULL) *option|=optm; 
 	}
 }
-
+/* }}} */
 
 /*
  * php funcions
@@ -289,10 +488,10 @@ _php_mb_regex_init_options(const char *parg, int narg, int *option, int *eval)
 PHP_FUNCTION(mb_regex_encoding)
 {
 	zval **arg1;
-	int mbctype;
+	OnigEncoding mbctype;
 
 	if (ZEND_NUM_ARGS() == 0) {
-		const char *retval = php_mbregex_mbctype2name(MBSTRG(current_mbctype));
+		const char *retval = php_mb_regex_mbctype2name(MBSTRG(current_mbctype));
 		if ( retval != NULL ) {
 			RETVAL_STRING((char *)retval, 1);
 		} else {
@@ -301,8 +500,8 @@ PHP_FUNCTION(mb_regex_encoding)
 	} else if (ZEND_NUM_ARGS() == 1 &&
 	           zend_get_parameters_ex(1, &arg1) != FAILURE) {
 		convert_to_string_ex(arg1);
-		mbctype = _php_mb_regex_name2mbctype(Z_STRVAL_PP(arg1));
-		if (mbctype < 0) {
+		mbctype = php_mb_regex_name2mbctype(Z_STRVAL_PP(arg1));
+		if (mbctype == ONIG_ENCODING_UNDEF) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown encoding \"%s\"", Z_STRVAL_PP(arg1));
 			RETVAL_FALSE;
 		} else {
@@ -315,75 +514,61 @@ PHP_FUNCTION(mb_regex_encoding)
 }
 /* }}} */
 
-
 /* {{{ _php_mb_regex_ereg_exec */
-static void
-_php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
+static void _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 {
-	zval tmp;
-	zval *arg_pattern, *array;
+	zval **arg_pattern, *array;
 	char *string;
 	int string_len;
-	mb_regex_t re;
-	struct mbre_registers regs = {0, 0, 0, 0};
-	int i, err, match_len, option, beg, end;
+	php_mb_regex_t *re;
+	OnigRegion *regs = NULL;
+	int i, match_len, beg, end;
+	OnigOptionType options;
 	char *str;
 
 	array = NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zs|z", &arg_pattern, &string, &string_len, &array) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Zs|z", &arg_pattern, &string, &string_len, &array) == FAILURE) {
 		RETURN_FALSE;
 	}
 
-	option = MBSTRG(regex_default_options);
+	options = MBSTRG(regex_default_options);
 	if (icase) {
-		option |= MBRE_OPTION_IGNORECASE;
+		options |= ONIG_OPTION_IGNORECASE;
 	}
 
 	/* compile the regular expression from the supplied regex */
-	if (Z_TYPE_P(arg_pattern) != IS_STRING) {
+	if (Z_TYPE_PP(arg_pattern) != IS_STRING) {
 		/* we convert numbers to integers and treat them as a string */
-		tmp = *arg_pattern;
-		zval_copy_ctor(&tmp);
-		if (Z_TYPE_P(&tmp) == IS_DOUBLE) {
-			convert_to_long(&tmp);	/* get rid of decimal places */
+		if (Z_TYPE_PP(arg_pattern) == IS_DOUBLE) {
+			convert_to_long_ex(arg_pattern);	/* get rid of decimal places */
 		}
-		convert_to_string(&tmp);
-		arg_pattern = &tmp;
+		convert_to_string_ex(arg_pattern);
 		/* don't bother doing an extended regex with just a number */
 	}
-	err = php_mbregex_compile_pattern(
-	     &re,
-	     Z_STRVAL_P(arg_pattern),
-	     Z_STRLEN_P(arg_pattern),
-	     option, MBSTRG(current_mbctype) TSRMLS_CC);
-	if (err) {
+	re = php_mbregex_compile_pattern(Z_STRVAL_PP(arg_pattern), Z_STRLEN_PP(arg_pattern), options, MBSTRG(current_mbctype), MBSTRG(regex_default_syntax) TSRMLS_CC);
+	if (re == NULL) {
 		RETVAL_FALSE;
 		goto out;
 	}
 
+	regs = onig_region_new();
+
 	/* actually execute the regular expression */
-	err = mbre_search(
-	     &re,
-	     string,
-	     string_len,
-	      0, string_len,
-	     &regs);
-	if (err < 0) {
-		mbre_free_registers(&regs);
+	if (onig_search(re, (OnigUChar *)string, (OnigUChar *)(string + string_len), string, (OnigUChar *)(string + string_len), regs, 0) < 0) {
 		RETVAL_FALSE;
 		goto out;
 	}
 
 	match_len = 1;
 	str = string;
-	if (array) {
-		match_len = regs.end[0] - regs.beg[0];
-		zval_dtor(array);	/* start with clean array */
+	if (array != NULL) {
+		match_len = regs->end[0] - regs->beg[0];
+		zval_dtor(array);
 		array_init(array);
-		for (i = 0; i < regs.num_regs; i++) {
-			beg = regs.beg[i];
-			end = regs.end[i];
+		for (i = 0; i < regs->num_regs; i++) {
+			beg = regs->beg[i];
+			end = regs->end[i];
 			if (beg >= 0 && beg < end && end <= string_len) {
 				add_index_stringl(array, i, (char *)&str[beg], end - beg, 1);
 			} else {
@@ -392,16 +577,16 @@ _php_mb_regex_ereg_exec(INTERNAL_FUNCTION_PARAMETERS, int icase)
 		}
 	}
 
-	mbre_free_registers(&regs);
 	if (match_len == 0) {
 		match_len = 1;
 	}
 	RETVAL_LONG(match_len);
 out:
-	if (arg_pattern == &tmp) {
-		zval_dtor(&tmp);
+	if (regs != NULL) {
+		onig_region_free(regs, 1);
 	}
 }
+/* }}} */
 
 /* {{{ proto int mb_ereg(string pattern, string string [, array registers])
    Regular expression match for multibyte string */
@@ -419,13 +604,10 @@ PHP_FUNCTION(mb_eregi)
 }
 /* }}} */
 
-
-
 /* {{{ _php_mb_regex_ereg_replace_exec */
-static void
-_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
+static void _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, OnigOptionType options)
 {
-	zval *arg_pattern_zval;
+	zval **arg_pattern_zval;
 
 	char *arg_pattern;
 	int arg_pattern_len;
@@ -437,19 +619,35 @@ _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 	int string_len;
 
 	char *p;
-	mb_regex_t re;
-	struct mbre_registers regs = {0, 0, 0, 0};
-	struct strbuf outdev, evaldev, *pdevice;
-	int i, n, err, pos, eval;
+	php_mb_regex_t *re;
+	OnigSyntaxType *syntax;
+	OnigRegion *regs = NULL;
+	smart_str out_buf = { 0 };
+	smart_str eval_buf = { 0 };
+	smart_str *pbuf;
+	int i, err, eval, n;
+	OnigUChar *pos;
+	OnigUChar *string_lim;
 	char *description = NULL;
 	char pat_buf[2];
 
+	const mbfl_encoding *enc;
+
+	{
+		const char *current_enc_name;
+		current_enc_name = php_mb_regex_mbctype2name(MBSTRG(current_mbctype));
+		if (current_enc_name == NULL ||
+			(enc = mbfl_name2encoding(current_enc_name)) == NULL) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown error");
+			RETURN_FALSE;
+		}
+	}
 	eval = 0;
 	{
 		char *option_str = NULL;
 		int option_str_len = 0;
 
-		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zss|s",
+		if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "Zss|s",
 									&arg_pattern_zval,
 									&replace, &replace_len,
 									&string, &string_len,
@@ -458,134 +656,131 @@ _php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAMETERS, int option)
 		}
 
 		if (option_str != NULL) {
-			_php_mb_regex_init_options(option_str, option_str_len, &option, &eval);
+			_php_mb_regex_init_options(option_str, option_str_len, &options, &syntax, &eval);
 		} else {
-			option |= MBSTRG(regex_default_options);
+			options |= MBSTRG(regex_default_options);
+			syntax = MBSTRG(regex_default_syntax);
 		}
 	}
-	if (Z_TYPE_P(arg_pattern_zval) == IS_STRING) {
-		arg_pattern = Z_STRVAL_P(arg_pattern_zval);
-		arg_pattern_len = Z_STRLEN_P(arg_pattern_zval);
+	if (Z_TYPE_PP(arg_pattern_zval) == IS_STRING) {
+		arg_pattern = Z_STRVAL_PP(arg_pattern_zval);
+		arg_pattern_len = Z_STRLEN_PP(arg_pattern_zval);
 	} else {
 		/* FIXME: this code is not multibyte aware! */
-		convert_to_long_ex(&arg_pattern_zval);
-		pat_buf[0] = (char)Z_LVAL_P(arg_pattern_zval);	
+		convert_to_long_ex(arg_pattern_zval);
+		pat_buf[0] = (char)Z_LVAL_PP(arg_pattern_zval);	
 		pat_buf[1] = '\0';
 
 		arg_pattern = pat_buf;
 		arg_pattern_len = 1;	
 	}
 	/* create regex pattern buffer */
-	err = php_mbregex_compile_pattern(
-	    &re,
-	    arg_pattern,
-	    arg_pattern_len,
-	    option, MBSTRG(current_mbctype) TSRMLS_CC);
-	if (err) {
+	re = php_mbregex_compile_pattern(arg_pattern, arg_pattern_len, options, MBSTRG(current_mbctype), syntax TSRMLS_CC);
+	if (re == NULL) {
 		RETURN_FALSE;
 	}
 
-	/* initialize string buffer (auto reallocate buffer) */
-	_php_mb_regex_strbuf_init(&outdev);
-	_php_mb_regex_strbuf_init(&evaldev);
-	outdev.allocsz = (string_len >> 2) + 8;
-
 	if (eval) {
-		pdevice = &evaldev;
+		pbuf = &eval_buf;
 		description = zend_make_compiled_string_description("mbregex replace" TSRMLS_CC);
 	} else {
-		pdevice = &outdev;
+		pbuf = &out_buf;
 		description = NULL;
 	}
 
 	/* do the actual work */
 	err = 0;
-	pos = 0;
+	pos = string;
+	string_lim = (OnigUChar*)(string + string_len);
+	regs = onig_region_new();
 	while (err >= 0) {
-		err = mbre_search(&re, string, string_len, pos, string_len - pos, &regs);
+		err = onig_search(re, (OnigUChar *)string, (OnigUChar *)string_lim, pos, (OnigUChar *)string_lim, regs, 0);
 		if (err <= -2) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in php_mbereg_replace_exec()");
+			OnigUChar err_str[ONIG_MAX_ERROR_MESSAGE_LEN];
+			onig_error_code_to_str(err_str, err);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in php_mbereg_replace_exec(): %s", err_str);
 			break;
 		}
 		if (err >= 0) {
 #if moriyoshi_0
-			if (regs.beg[0] == regs.end[0]) {
+			if (regs->beg[0] == regs->end[0]) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
 				break;
 			}
 #endif
 			/* copy the part of the string before the match */
-			_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], regs.beg[0] - pos);
+			smart_str_appendl(&out_buf, pos, (size_t)((OnigUChar *)(string + regs->beg[0]) - pos));
 			/* copy replacement and backrefs */
-			/* FIXME: this code (\\digit replacement) is not mbyte aware! */ 
 			i = 0;
 			p = replace;
 			while (i < replace_len) {
+				int fwd = (int) php_mb_mbchar_bytes_ex(p, enc);
 				n = -1;
-				if (p[0] == '\\' && p[1] >= '0' && p[1] <= '9') {
+				if ((replace_len - i) >= 2 && fwd == 1 &&
+					p[0] == '\\' && p[1] >= '0' && p[1] <= '9') {
 					n = p[1] - '0';
 				}
-				if (n >= 0 && n < regs.num_regs) {
-					if (regs.beg[n] >= 0 && regs.beg[n] < regs.end[n] && regs.end[n] <= string_len) {
-						_php_mb_regex_strbuf_ncat(pdevice, (const unsigned char *)&string[regs.beg[n]], regs.end[n] - regs.beg[n]);
+				if (n >= 0 && n < regs->num_regs) {
+					if (regs->beg[n] >= 0 && regs->beg[n] < regs->end[n] && regs->end[n] <= string_len) {
+						smart_str_appendl(pbuf, string + regs->beg[n], regs->end[n] - regs->beg[n]);
 					}
 					p += 2;
 					i += 2;
 				} else {
-					_php_mb_regex_strbuf_ncat(pdevice, (const unsigned char *)p, 1);
-					p++;
-					i++;
+					smart_str_appendl(pbuf, p, fwd);
+					p += fwd;
+					i += fwd;
 				}
 			}
 			if (eval) {
 				zval v;
 				/* null terminate buffer */
-				_php_mb_regex_strbuf_ncat(&evaldev, (const unsigned char *)"\0", 1);
+				smart_str_appendc(&eval_buf, '\0');
 				/* do eval */
-				zend_eval_string((char *)evaldev.buffer, &v, description TSRMLS_CC);
+				zend_eval_string(eval_buf.c, &v, description TSRMLS_CC);
 				/* result of eval */
 				convert_to_string(&v);
-				_php_mb_regex_strbuf_ncat(&outdev, Z_STRVAL(v), Z_STRLEN(v));
+				smart_str_appendl(&out_buf, Z_STRVAL(v), Z_STRLEN(v));
 				/* Clean up */
-				evaldev.pos = 0;
+				eval_buf.len = 0;
 				zval_dtor(&v);
 			}
-			n = regs.end[0];
-			if (pos < n) {
-				pos = n;
+			n = regs->end[0];
+			if ((size_t)(pos - (OnigUChar *)string) < n) {
+				pos = string + n;
 			} else {
-				if (pos < string_len) {
-					_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], 1);
+				if (pos < string_lim) {
+					smart_str_appendl(&out_buf, pos, 1); 
 				}
 				pos++;
 			}
 		} else { /* nomatch */
 			/* stick that last bit of string on our output */
-			if (pos < string_len) {
-				_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)&string[pos], string_len - pos);
+			if (string_lim - pos > 0) {
+				smart_str_appendl(&out_buf, pos, string_lim - pos);
 			}
 		}
+		onig_region_free(regs, 0);
 	}
 
 	if (description) {
 		efree(description);
 	}
-	mbre_free_registers(&regs);
-	if (evaldev.buffer) {
-		efree((void*)evaldev.buffer);
+	if (regs != NULL) {
+		onig_region_free(regs, 1);
 	}
-	n = outdev.pos;
-	_php_mb_regex_strbuf_ncat(&outdev, (const unsigned char *)"\0", 1);
+	smart_str_free(&eval_buf);
+
 	if (err <= -2) {
-		if (outdev.buffer) {
-			efree((void*)outdev.buffer);
-		}
+		smart_str_free(&out_buf);	
 		RETVAL_FALSE;
 	} else {
-		RETVAL_STRINGL((char *)outdev.buffer, n, 0);
+		smart_str_appendc(&out_buf, '\0');
+		RETVAL_STRINGL((char *)out_buf.c, out_buf.len - 1, 0);
 	}
 }
 /* }}} */
+
 /* {{{ proto string mb_ereg_replace(string pattern, string replacement, string string [, string option])
    Replace regular expression for multibyte string */
 PHP_FUNCTION(mb_ereg_replace)
@@ -598,10 +793,9 @@ PHP_FUNCTION(mb_ereg_replace)
    Case insensitive replace regular expression for multibyte string */
 PHP_FUNCTION(mb_eregi_replace)
 {
-	_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, MBRE_OPTION_IGNORECASE);
+	_php_mb_regex_ereg_replace_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, ONIG_OPTION_IGNORECASE);
 }
 /* }}} */
-
 
 /* {{{ proto array mb_split(string pattern, string string [, int limit])
    split multibyte string into array by regular expression */
@@ -609,12 +803,13 @@ PHP_FUNCTION(mb_split)
 {
 	char *arg_pattern;
 	int arg_pattern_len;
-	mb_regex_t re;
-	struct mbre_registers regs = {0, 0, 0, 0};
+	php_mb_regex_t *re;
+	OnigRegion *regs = NULL;
 	char *string;
+	OnigUChar *pos;
 	int string_len;
 
-	int n, err, pos;
+	int n, err;
 	long count = -1;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|l", &arg_pattern, &arg_pattern_len, &string, &string_len, &count) == FAILURE) {
@@ -625,67 +820,62 @@ PHP_FUNCTION(mb_split)
 		count = 1;
 	}
 
-	if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-	}
-
 	/* create regex pattern buffer */
-	err = php_mbregex_compile_pattern(
-	     &re,
-	     arg_pattern,
-	     arg_pattern_len,
-	     MBSTRG(regex_default_options), MBSTRG(current_mbctype) TSRMLS_CC);
-	if (err) {
+	if ((re = php_mbregex_compile_pattern(arg_pattern, arg_pattern_len, MBSTRG(regex_default_options), MBSTRG(current_mbctype), MBSTRG(regex_default_syntax) TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
-	pos = 0;
+	array_init(return_value);
+
+	pos = (OnigUChar *)string;
 	err = 0;
+	regs = onig_region_new();
 	/* churn through str, generating array entries as we go */
 	while ((--count != 0) &&
-		   (err = mbre_search(&re, string, string_len, pos, string_len - pos, &regs)) >= 0) {
-		if ( regs.beg[0] == regs.end[0] ) {
+		   (err = onig_search(re, (OnigUChar *)string, (OnigUChar *)(string + string_len), pos, (OnigUChar *)(string + string_len), regs, 0)) >= 0) {
+		if (regs->beg[0] == regs->end[0]) {
 			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Empty regular expression");
 			break;
 		}
 
-
 		/* add it to the array */
-		if ( regs.beg[0] < string_len && regs.beg[0] >= pos) {
-			add_next_index_stringl(return_value, (char *)&string[pos], regs.beg[0]-pos, 1);
+		if (regs->beg[0] < string_len && regs->beg[0] >= (size_t)(pos - (OnigUChar *)string)) {
+			add_next_index_stringl(return_value, pos, ((OnigUChar *)(string + regs->beg[0]) - pos), 1);
 		} else {
 			err = -2;
 			break;
 		}
 		/* point at our new starting point */
-		n = regs.end[0];
-		if (pos < n) {
-			pos = n;
+		n = regs->end[0];
+		if ((pos - (OnigUChar *)string) < n) {
+			pos = (OnigUChar *)string + n;
 		}
 		if (count < 0) {
 			count = 0;
 		}
+		onig_region_free(regs, 0);
 	}
 
-	mbre_free_registers(&regs);
+	onig_region_free(regs, 1);
 
 	/* see if we encountered an error */
 	if (err <= -2) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbsplit()");
+		OnigUChar err_str[ONIG_MAX_ERROR_MESSAGE_LEN];
+		onig_error_code_to_str(err_str, err);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbsplit(): %s", err_str);
 		zval_dtor(return_value);
 		RETURN_FALSE;
 	}
 
 	/* otherwise we just have one last element to add to the array */
-	n = string_len - pos;
+	n = ((OnigUChar *)(string + string_len) - pos);
 	if (n > 0) {
-		add_next_index_stringl(return_value, (char *)&string[pos], n, 1);
+		add_next_index_stringl(return_value, pos, n, 1);
 	} else {
-		add_next_index_stringl(return_value, (char *)empty_string, 0, 1);
+		add_next_index_stringl(return_value, "", 0, 1);
 	}
 }
 /* }}} */
-
 
 /* {{{ proto bool mb_ereg_match(string pattern, string string [,string option])
    Regular expression match for multibyte string */
@@ -697,10 +887,10 @@ PHP_FUNCTION(mb_ereg_match)
 	char *string;
 	int string_len;
 
-	mb_regex_t re;
-	int option, err;
+	php_mb_regex_t *re;
+	OnigSyntaxType *syntax;
+	int option = 0, err;
 
-	option = 0;	
 	{
 		char *option_str = NULL;
 		int option_str_len = 0;
@@ -712,24 +902,19 @@ PHP_FUNCTION(mb_ereg_match)
 		}
 
 		if (option_str != NULL) {
-			_php_mb_regex_init_options(option_str, option_str_len, &option, NULL);
+			_php_mb_regex_init_options(option_str, option_str_len, &option, &syntax, NULL);
 		} else {
 			option |= MBSTRG(regex_default_options);
+			syntax = MBSTRG(regex_default_syntax);
 		}
 	}
 
-	err = php_mbregex_compile_pattern(
-	    &re,
-	    arg_pattern,
-		arg_pattern_len,
-	    option, MBSTRG(current_mbctype) TSRMLS_CC);
-
-	if (err) {
+	if ((re = php_mbregex_compile_pattern(arg_pattern, arg_pattern_len, option, MBSTRG(current_mbctype), syntax TSRMLS_CC)) == NULL) {
 		RETURN_FALSE;
 	}
 
 	/* match */
-	err = mbre_match(&re, string, string_len, 0, NULL);
+	err = onig_match(re, (OnigUChar *)string, (OnigUChar *)(string + string_len), (OnigUChar *)string, NULL, 0);
 	if (err >= 0) {
 		RETVAL_TRUE;
 	} else {
@@ -738,14 +923,15 @@ PHP_FUNCTION(mb_ereg_match)
 }
 /* }}} */
 
-
 /* regex search */
+/* {{{ _php_mb_regex_ereg_search_exec */
 static void
 _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 {
 	zval **arg_pattern, **arg_options;
 	int n, i, err, pos, len, beg, end, option;
-	unsigned char *str;
+	OnigUChar *str;
+	OnigSyntaxType *syntax;
 
 	option = MBSTRG(regex_default_options);
 	switch (ZEND_NUM_ARGS()) {
@@ -762,7 +948,7 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 		}
 		convert_to_string_ex(arg_options);
 		option = 0;
-		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, NULL);
+		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, &syntax, NULL);
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -771,17 +957,8 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	if (ZEND_NUM_ARGS() > 0) {
 		/* create regex pattern buffer */
 		convert_to_string_ex(arg_pattern);
-		if (!MBSTRG(search_re)) {
-			MBSTRG(search_re) = (mb_regex_t*)ecalloc(1, sizeof(mb_regex_t));
-		}
-		err = php_mbregex_compile_pattern(
-		    MBSTRG(search_re),
-		    Z_STRVAL_PP(arg_pattern),
-		    Z_STRLEN_PP(arg_pattern),
-		    option, MBSTRG(current_mbctype) TSRMLS_CC);
-		if (err) {
-			efree(MBSTRG(search_re));
-			MBSTRG(search_re) = (mb_regex_t*)0;
+
+		if ((MBSTRG(search_re) = php_mbregex_compile_pattern(Z_STRVAL_PP(arg_pattern), Z_STRLEN_PP(arg_pattern), option, MBSTRG(current_mbctype), MBSTRG(regex_default_syntax) TSRMLS_CC)) == NULL) {
 			RETURN_FALSE;
 		}
 	}
@@ -789,32 +966,34 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	pos = MBSTRG(search_pos);
 	str = NULL;
 	len = 0;
-	if (MBSTRG(search_str) != NULL && Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING){
-		str = (unsigned char *)Z_STRVAL_PP(MBSTRG(search_str));
-		len = Z_STRLEN_PP(MBSTRG(search_str));
+	if (MBSTRG(search_str) != NULL && Z_TYPE_P(MBSTRG(search_str)) == IS_STRING){
+		str = (OnigUChar *)Z_STRVAL_P(MBSTRG(search_str));
+		len = Z_STRLEN_P(MBSTRG(search_str));
 	}
 
-	if (!MBSTRG(search_re)) {
+	if (MBSTRG(search_re) == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No regex given");
 		RETURN_FALSE;
 	}
-	if (!str) {
+
+	if (str == NULL) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "No string given");
 		RETURN_FALSE;
 	}
-	if (MBSTRG(search_regs)) {
-		mbre_free_registers(MBSTRG(search_regs));
-		memset(MBSTRG(search_regs), 0, sizeof(struct mbre_registers));
-	} else {
-		MBSTRG(search_regs) = (struct mbre_registers*)ecalloc(1, sizeof(struct mbre_registers));
-	}
 
-	err = mbre_search(MBSTRG(search_re), (const char *)str, len, pos, len - pos, MBSTRG(search_regs));
-	if (err <= -2) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbregex_search()");
-		RETVAL_FALSE;
-	} else if (err < 0) {
+	if (MBSTRG(search_regs)) {
+		onig_region_free(MBSTRG(search_regs), 1);
+	}
+	MBSTRG(search_regs) = onig_region_new();
+
+	err = onig_search(MBSTRG(search_re), str, str + len, str + pos, str  + len, MBSTRG(search_regs), 0);
+	if (err == ONIG_MISMATCH) {
 		MBSTRG(search_pos) = len;
+		RETVAL_FALSE;
+	} else if (err <= -2) {
+		OnigUChar err_str[ONIG_MAX_ERROR_MESSAGE_LEN];
+		onig_error_code_to_str(err_str, err);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "mbregex search failure in mbregex_search(): %s", err_str);
 		RETVAL_FALSE;
 	} else {
 		if (MBSTRG(search_regs)->beg[0] == MBSTRG(search_regs)->end[0]) {
@@ -822,29 +1001,23 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 		}
 		switch (mode) {
 		case 1:
-			if (array_init(return_value) != FAILURE) {
-				beg = MBSTRG(search_regs)->beg[0];
-				end = MBSTRG(search_regs)->end[0];
-				add_next_index_long(return_value, beg);
-				add_next_index_long(return_value, end - beg);
-			} else {
-				RETVAL_FALSE;
-			}
+			array_init(return_value);
+			beg = MBSTRG(search_regs)->beg[0];
+			end = MBSTRG(search_regs)->end[0];
+			add_next_index_long(return_value, beg);
+			add_next_index_long(return_value, end - beg);
 			break;
 		case 2:
-			if (array_init(return_value) != FAILURE) {
-				n = MBSTRG(search_regs)->num_regs;
-				for (i = 0; i < n; i++) {
-					beg = MBSTRG(search_regs)->beg[i];
-					end = MBSTRG(search_regs)->end[i];
-					if (beg >= 0 && beg <= end && end <= len) {
-						add_index_stringl(return_value, i, (char *)&str[beg], end - beg, 1);
-					} else {
-						add_index_bool(return_value, i, 0);
-					}
+			array_init(return_value);
+			n = MBSTRG(search_regs)->num_regs;
+			for (i = 0; i < n; i++) {
+				beg = MBSTRG(search_regs)->beg[i];
+				end = MBSTRG(search_regs)->end[i];
+				if (beg >= 0 && beg <= end && end <= len) {
+					add_index_stringl(return_value, i, (char *)&str[beg], end - beg, 1);
+				} else {
+					add_index_bool(return_value, i, 0);
 				}
-			} else {
-				RETVAL_FALSE;
 			}
 			break;
 		default:
@@ -860,13 +1033,11 @@ _php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAMETERS, int mode)
 	}
 
 	if (err < 0) {
-		mbre_free_registers(MBSTRG(search_regs));
-		efree(MBSTRG(search_regs));
-		MBSTRG(search_regs) = (struct mbre_registers*)0;
+		onig_region_free(MBSTRG(search_regs), 1);
+		MBSTRG(search_regs) = (OnigRegion *)NULL;
 	}
 }
 /* }}} */
-
 
 /* {{{ proto bool mb_ereg_search([string pattern[, string option]])
    Regular expression search for multibyte string */
@@ -876,7 +1047,6 @@ PHP_FUNCTION(mb_ereg_search)
 }
 /* }}} */
 
-
 /* {{{ proto array mb_ereg_search_pos([string pattern[, string option]])
    Regular expression search for multibyte string */
 PHP_FUNCTION(mb_ereg_search_pos)
@@ -884,7 +1054,6 @@ PHP_FUNCTION(mb_ereg_search_pos)
 	_php_mb_regex_ereg_search_exec(INTERNAL_FUNCTION_PARAM_PASSTHRU, 1);
 }
 /* }}} */
-
 
 /* {{{ proto array mb_ereg_search_regs([string pattern[, string option]])
    Regular expression search for multibyte string */
@@ -894,15 +1063,16 @@ PHP_FUNCTION(mb_ereg_search_regs)
 }
 /* }}} */
 
-
 /* {{{ proto bool mb_ereg_search_init(string string [, string pattern[, string option]])
    Initialize string and regular expression for search. */
 PHP_FUNCTION(mb_ereg_search_init)
 {
 	zval **arg_str, **arg_pattern, **arg_options;
-	int err, option;
+	OnigSyntaxType *syntax = NULL;
+	int option;
 
 	option = MBSTRG(regex_default_options);
+	syntax = MBSTRG(regex_default_syntax);
 	switch (ZEND_NUM_ARGS()) {
 	case 1:
 		if (zend_get_parameters_ex(1, &arg_str) == FAILURE) {
@@ -920,79 +1090,54 @@ PHP_FUNCTION(mb_ereg_search_init)
 		}
 		convert_to_string_ex(arg_options);
 		option = 0;
-		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, NULL);
+		_php_mb_regex_init_options(Z_STRVAL_PP(arg_options), Z_STRLEN_PP(arg_options), &option, &syntax, NULL);
 		break;
 	default:
 		WRONG_PARAM_COUNT;
 		break;
 	}
+	convert_to_string_ex(arg_str);
 	if (ZEND_NUM_ARGS() > 1) {
 		/* create regex pattern buffer */
 		convert_to_string_ex(arg_pattern);
-		if (!MBSTRG(search_re)) {
-			MBSTRG(search_re) = (mb_regex_t*)ecalloc(1, sizeof(mb_regex_t));
-		}
-		err = php_mbregex_compile_pattern(
-		    MBSTRG(search_re),
-		    Z_STRVAL_PP(arg_pattern),
-		    Z_STRLEN_PP(arg_pattern),
-		    option, MBSTRG(current_mbctype) TSRMLS_CC);
-		if (err) {
-			efree(MBSTRG(search_re));
-			MBSTRG(search_re) = (mb_regex_t*)0;
+
+		if ((MBSTRG(search_re) = php_mbregex_compile_pattern(Z_STRVAL_PP(arg_pattern), Z_STRLEN_PP(arg_pattern), option, MBSTRG(current_mbctype), syntax TSRMLS_CC)) == NULL) {
 			RETURN_FALSE;
 		}
 	}
 
-	if (MBSTRG(search_str)) {
-		if (ZVAL_REFCOUNT(*MBSTRG(search_str)) > 1) {
-			ZVAL_DELREF(*MBSTRG(search_str));
-		} else {
-			zval_dtor(*MBSTRG(search_str));
-			FREE_ZVAL(*MBSTRG(search_str));
-		}
-		MBSTRG(search_str) = (zval **)0;
-		MBSTRG(search_str_val) = (zval *)0;
+	if (MBSTRG(search_str) != NULL) {
+		zval_ptr_dtor(&MBSTRG(search_str));
+		MBSTRG(search_str) = (zval *)NULL;
 	}
 
-	if (PZVAL_IS_REF(*arg_str)) {
-		ZVAL_ADDREF(*arg_str);
-		MBSTRG(search_str_val) = *arg_str;
-		MBSTRG(search_str) = &MBSTRG(search_str_val);
-	} else {
-		MAKE_STD_ZVAL(MBSTRG(search_str_val));
-		*MBSTRG(search_str_val) = **arg_str;
-		zval_copy_ctor(MBSTRG(search_str_val));
-		MBSTRG(search_str_val)->refcount = 1;
-		MBSTRG(search_str_val)->is_ref = 0;
-		MBSTRG(search_str) = &MBSTRG(search_str_val);
-		convert_to_string_ex(MBSTRG(search_str));
-	}
+	MBSTRG(search_str) = *arg_str;
+	ZVAL_ADDREF(MBSTRG(search_str));
+	SEPARATE_ZVAL_IF_NOT_REF(&MBSTRG(search_str));
 
 	MBSTRG(search_pos) = 0;
 
-	if (MBSTRG(search_regs)) {
-		mbre_free_registers(MBSTRG(search_regs));
-		efree(MBSTRG(search_regs));
-		MBSTRG(search_regs) = (struct mbre_registers*)0;
+	if (MBSTRG(search_regs) != NULL) {
+		onig_region_free(MBSTRG(search_regs), 1);
+		MBSTRG(search_regs) = (OnigRegion *) NULL;
 	}
 
 	RETURN_TRUE;
 }
 /* }}} */
 
-
 /* {{{ proto array mb_ereg_search_getregs(void)
    Get matched substring of the last time */
 PHP_FUNCTION(mb_ereg_search_getregs)
 {
 	int n, i, len, beg, end;
-	unsigned char *str;
+	OnigUChar *str;
 
-	if (MBSTRG(search_regs) && Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING &&
-	    Z_STRVAL_PP(MBSTRG(search_str)) && array_init(return_value) != FAILURE) {
-		str = (unsigned char *)Z_STRVAL_PP(MBSTRG(search_str));
-		len = Z_STRLEN_PP(MBSTRG(search_str));
+	if (MBSTRG(search_regs) != NULL && Z_TYPE_P(MBSTRG(search_str)) == IS_STRING && Z_STRVAL_P(MBSTRG(search_str)) != NULL) {
+		array_init(return_value);
+
+		str = (OnigUChar *)Z_STRVAL_P(MBSTRG(search_str));
+		len = Z_STRLEN_P(MBSTRG(search_str));
 		n = MBSTRG(search_regs)->num_regs;
 		for (i = 0; i < n; i++) {
 			beg = MBSTRG(search_regs)->beg[i];
@@ -1009,7 +1154,6 @@ PHP_FUNCTION(mb_ereg_search_getregs)
 }
 /* }}} */
 
-
 /* {{{ proto int mb_ereg_search_getpos(void)
    Get search start position */
 PHP_FUNCTION(mb_ereg_search_getpos)
@@ -1017,7 +1161,6 @@ PHP_FUNCTION(mb_ereg_search_getpos)
 	RETVAL_LONG(MBSTRG(search_pos));
 }
 /* }}} */
-
 
 /* {{{ proto bool mb_ereg_search_setpos(int position)
    Set search start position */
@@ -1031,10 +1174,7 @@ PHP_FUNCTION(mb_ereg_search_setpos)
 	}
 	convert_to_long_ex(arg_pos);
 	n = Z_LVAL_PP(arg_pos);
-	if (n < 0
-	    || ( MBSTRG(search_str) != NULL && *MBSTRG(search_str) != NULL &&
-	         Z_TYPE_PP(MBSTRG(search_str)) == IS_STRING && 
-	         n >= Z_STRLEN_PP(MBSTRG(search_str)) ) ) {
+	if (n < 0 || (MBSTRG(search_str) != NULL && Z_TYPE_P(MBSTRG(search_str)) == IS_STRING && n >= Z_STRLEN_P(MBSTRG(search_str)))) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Position is out of range");
 		MBSTRG(search_pos) = 0;
 		RETVAL_FALSE;
@@ -1046,20 +1186,16 @@ PHP_FUNCTION(mb_ereg_search_setpos)
 /* }}} */
 
 /* {{{ php_mb_regex_set_options */
-int php_mb_regex_set_options( int options TSRMLS_DC) 
+void php_mb_regex_set_options(OnigOptionType options, OnigSyntaxType *syntax, OnigOptionType *prev_options, OnigSyntaxType **prev_syntax TSRMLS_DC) 
 {
-	int prev_opt = MBSTRG(regex_default_options);
+	if (prev_options != NULL) {
+		*prev_options = MBSTRG(regex_default_options);
+	}
+	if (prev_syntax != NULL) {
+		*prev_syntax = MBSTRG(regex_default_syntax);
+	}
 	MBSTRG(regex_default_options) = options;
-	return prev_opt;
-}
-/* }}} */
-
-/* {{{ php_mb_regex_set_options_by_string */
-int php_mb_regex_set_options_by_string( const char *opt_str, int len TSRMLS_DC)
-{
-	int new_opt = 0;
-	_php_mb_regex_init_options( opt_str, len, &new_opt, NULL);
-	return php_mb_regex_set_options( new_opt TSRMLS_CC);
+	MBSTRG(regex_default_syntax) = syntax;
 }
 /* }}} */
 
@@ -1067,22 +1203,26 @@ int php_mb_regex_set_options_by_string( const char *opt_str, int len TSRMLS_DC)
    Set or get the default options for mbregex functions */
 PHP_FUNCTION(mb_regex_set_options)
 {
-	int opt;
+	OnigOptionType opt;
+	OnigSyntaxType *syntax;
 	char *string = NULL;
 	int string_len;
 	char buf[16];
 
-	if ( zend_parse_parameters( ZEND_NUM_ARGS() TSRMLS_CC, "|s",
-	                            &string, &string_len ) == FAILURE ) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "|s",
+	                          &string, &string_len) == FAILURE) {
 		RETURN_FALSE;
 	}
 	if (string != NULL) {
-		opt = php_mb_regex_set_options_by_string( (const char*)string,
-		                                          string_len TSRMLS_CC );
+		opt = 0;
+		syntax = NULL;
+		_php_mb_regex_init_options(string, string_len, &opt, &syntax, NULL);
+		php_mb_regex_set_options(opt, syntax, NULL, NULL TSRMLS_CC);
 	} else {
 		opt = MBSTRG(regex_default_options);
+		syntax = MBSTRG(regex_default_syntax);
 	}
-	_php_mb_regex_get_option_string(buf, sizeof(buf), opt);
+	_php_mb_regex_get_option_string(buf, sizeof(buf), opt, syntax);
 
 	RETVAL_STRING(buf, 1);
 }

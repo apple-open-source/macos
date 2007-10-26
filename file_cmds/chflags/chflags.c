@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1992, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -31,20 +27,20 @@
  * SUCH DAMAGE.
  */
 
+#if 0
 #ifndef lint
 static const char copyright[] =
 "@(#) Copyright (c) 1992, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif
 
-#if 0
 #ifndef lint
 static char sccsid[] = "@(#)chflags.c	8.5 (Berkeley) 4/1/94";
 #endif
 #endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/chflags/chflags.c,v 1.16 2002/09/04 23:28:58 dwmalone Exp $");
+__FBSDID("$FreeBSD: src/bin/chflags/chflags.c,v 1.23 2005/05/14 23:23:10 dd Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -66,27 +62,36 @@ main(int argc, char *argv[])
 	FTSENT *p;
 	u_long clear, set;
 	long val;
-	int Hflag, Lflag, Pflag, Rflag, ch, fts_options, oct, rval;
+	int Hflag, Lflag, Rflag, hflag, ch, fts_options, oct, rval;
 	char *flags, *ep;
+	int (*change_flags)(const char *, unsigned long);
 
-	Hflag = Lflag = Pflag = Rflag = 0;
+	Hflag = Lflag = Rflag = hflag = 0;
+#ifdef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPR")) != -1)
+#else /* !__APPLE__ */
+	while ((ch = getopt(argc, argv, "HLPRh")) != -1)
+#endif /* __APPLE__ */
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
-			Lflag = Pflag = 0;
+			Lflag = 0;
 			break;
 		case 'L':
 			Lflag = 1;
-			Hflag = Pflag = 0;
+			Hflag = 0;
 			break;
 		case 'P':
-			Pflag = 1;
 			Hflag = Lflag = 0;
 			break;
 		case 'R':
 			Rflag = 1;
 			break;
+#ifndef __APPLE__
+		case 'h':
+			hflag = 1;
+			break;
+#endif /* !__APPLE__ */
 		case '?':
 		default:
 			usage();
@@ -99,6 +104,9 @@ main(int argc, char *argv[])
 
 	if (Rflag) {
 		fts_options = FTS_PHYSICAL;
+		if (hflag)
+			errx(1, "the -R and -h options "
+			        "may not be specified together");
 		if (Hflag)
 			fts_options |= FTS_COMFOLLOW;
 		if (Lflag) {
@@ -107,6 +115,14 @@ main(int argc, char *argv[])
 		}
 	} else
 		fts_options = FTS_LOGICAL;
+
+	/* XXX: Why don't chflags and lchflags have compatible prototypes? */
+#ifndef __APPLE__
+	if (hflag)
+		change_flags = (int (*)(const char *, unsigned long))lchflags;
+	else
+#endif /* !__APPLE__ */
+		change_flags = chflags;
 
 	flags = *argv;
 	if (*flags >= '0' && *flags <= '7') {
@@ -132,11 +148,10 @@ main(int argc, char *argv[])
 
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
 		switch (p->fts_info) {
-		case FTS_D:
-			if (Rflag)		/* Change it at FTS_DP. */
-				continue;
-			fts_set(ftsp, p, FTS_SKIP);
-			break;
+		case FTS_D:	/* Change it at FTS_DP if we're recursive. */
+			if (!Rflag)
+				fts_set(ftsp, p, FTS_SKIP);
+			continue;
 		case FTS_DNR:			/* Warn, chflag, continue. */
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
@@ -153,17 +168,20 @@ main(int argc, char *argv[])
 			 * don't point to anything and ones that we found
 			 * doing a physical walk.
 			 */
-			continue;
+			if (!hflag)
+				continue;
+			/* FALLTHROUGH */
 		default:
 			break;
 		}
 		if (oct) {
-			if (!chflags(p->fts_accpath, set))
+			if (!(*change_flags)(p->fts_accpath, set))
 				continue;
 		} else {
 			p->fts_statp->st_flags |= set;
 			p->fts_statp->st_flags &= clear;
-			if (!chflags(p->fts_accpath, (u_long)p->fts_statp->st_flags))
+			if (!(*change_flags)(p->fts_accpath,
+				    (u_long)p->fts_statp->st_flags))
 				continue;
 		}
 		warn("%s", p->fts_path);
@@ -178,6 +196,10 @@ void
 usage(void)
 {
 	(void)fprintf(stderr,
+#ifdef __APPLE__
 	    "usage: chflags [-R [-H | -L | -P]] flags file ...\n");
+#else /* !__APPLE__ */
+	    "usage: chflags [-h] [-R [-H | -L | -P]] flags file ...\n");
+#endif /* __APPLE__ */
 	exit(1);
 }

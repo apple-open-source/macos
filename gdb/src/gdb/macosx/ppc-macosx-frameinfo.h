@@ -41,6 +41,8 @@ struct ppc_function_properties
                                    This offset is used to get the
                                    gpr_offset right in either case. */
 
+  CORE_ADDR stack_offset_pc;     /* This is the address at which the
+				   stack pointer is incremented.  */
   int gpr_bitmap[32];
   int fpr_bitmap[32];
 
@@ -80,13 +82,25 @@ struct ppc_function_properties
 
 struct ppc_frame_cache
 {
-  /* Base address.  */
-  CORE_ADDR stack;
-  CORE_ADDR frame;
-  CORE_ADDR pc;
+  unsigned int magic;
 
-  CORE_ADDR prev_pc;
-  CORE_ADDR prev_sp;
+  CORE_ADDR sp;            /* The stack pointer for this frame */
+  CORE_ADDR fp;            /* The frame pointer for this frame (often == sp) */
+  CORE_ADDR pc;            /* The address of the function of this frame, or
+                              the current pc value if the function is 
+                              unknown. */
+
+  /* Early in the function the stack pointer (sp, r1) and frame pointer (fp)
+     have not moved to their actual frame locations -- ppc-macosx-tdep.c will
+     set the values to where they WILL be, not where they are.  Other code
+     will try to dereference the stack pointer, or the frame pointer if it's
+     in use, to find the caller's frame pointer.  So for that code we need to
+     record a valid fp that can be dereferenced, not the location of what
+     the sp/fp will eventually be set to.  */
+  CORE_ADDR sp_for_dereferencing; 
+
+  CORE_ADDR prev_pc;       /* Caller's pc value (return address) */
+  CORE_ADDR prev_sp;       /* Caller's stack pointer */
 
   CORE_ADDR *saved_regs;
   int saved_regs_valid;

@@ -14,6 +14,7 @@
 
 #include "cvs.h"
 #include "getline.h"
+#include "lstat.h"
 
 /*
  * Ignore file section.
@@ -35,7 +36,7 @@ static int ign_hold = -1;		/* Index where first "temporary" item
 
 const char *ign_default = ". .. core RCSLOG tags TAGS RCS SCCS .make.state\
  .nse_depinfo #* .#* cvslog.* ,* CVS CVS.adm .del-* *.a *.olb *.o *.obj\
- *.so *.Z *~ *.old *.elc *.ln *.bak *.BAK *.orig *.rej *.exe _$* *$";
+ *.so *.Z *~ *.old *.elc *.ln *.bak *.BAK *.orig *.rej *.exe _$* *$ ._*";
 
 #define IGN_GROW 16			/* grow the list by 16 elements at a
 					 * time */
@@ -53,7 +54,7 @@ int ign_inhibit_server;
  * variable.
  */
 void
-ign_setup ()
+ign_setup (void)
 {
     char *home_dir;
     char *tmp;
@@ -65,19 +66,15 @@ ign_setup ()
     ign_add (tmp, 0);
     free (tmp);
 
-#ifdef CLIENT_SUPPORT
     /* The client handles another way, by (after it does its own ignore file
        processing, and only if !ign_inhibit_server), letting the server
        know about the files and letting it decide whether to ignore
        them based on CVSROOOTADM_IGNORE.  */
     if (!current_parsed_root->isremote)
-#endif
     {
-	char *file = xmalloc (strlen (current_parsed_root->directory) + sizeof (CVSROOTADM)
-			      + sizeof (CVSROOTADM_IGNORE) + 10);
+	char *file = Xasprintf ("%s/%s/%s", current_parsed_root->directory,
+				CVSROOTADM, CVSROOTADM_IGNORE);
 	/* Then add entries found in repository, if it exists */
-	(void) sprintf (file, "%s/%s/%s", current_parsed_root->directory,
-			CVSROOTADM, CVSROOTADM_IGNORE);
 	ign_add_file (file, 0);
 	free (file);
     }
@@ -110,9 +107,7 @@ ign_setup ()
  * argument is set.
  */
 void
-ign_add_file (file, hold)
-    char *file;
-    int hold;
+ign_add_file (char *file, int hold)
 {
     FILE *fp;
     char *line = NULL;
@@ -173,9 +168,7 @@ ign_add_file (file, hold)
 
 /* Parse a line of space-separated wildcards and add them to the list. */
 void
-ign_add (ign, hold)
-    char *ign;
-    int hold;
+ign_add (char *ign, int hold)
 {
     if (!ign || !*ign)
 	return;
@@ -195,8 +188,7 @@ ign_add (ign, hold)
 	if (ign_count >= ign_size)
 	{
 	    ign_size += IGN_GROW;
-	    ign_list = (char **) xrealloc ((char *) ign_list,
-					   (ign_size + 1) * sizeof (char *));
+	    ign_list = xnrealloc (ign_list, ign_size + 1, sizeof (char *));
 	}
 
 	/*
@@ -216,7 +208,7 @@ ign_add (ign, hold)
 		    free (ign_list[i]);
 		ign_count = 1;
 		/* Always ignore the "CVS" directory.  */
-		ign_list[0] = xstrdup("CVS");
+		ign_list[0] = xstrdup ("CVS");
 		ign_list[1] = NULL;
 
 		/* if we are doing a '!', continue; otherwise add the '*' */
@@ -237,12 +229,27 @@ ign_add (ign, hold)
 			free (ign_list[i]);
 		    ign_hold = -1;
 		}
-		s_ign_list = (char **) xmalloc (ign_count * sizeof (char *));
-		for (i = 0; i < ign_count; i++)
-		    s_ign_list[i] = ign_list[i];
-		s_ign_count = ign_count;
+		if (s_ign_list)
+		{
+		    /* Don't save the ignore list twice - if there are two
+		     * bangs in a local .cvsignore file then we don't want to
+		     * save the new list the first bang created.
+		     *
+		     * We still need to free the "new" ignore list.
+		     */
+		    for (i = 0; i < ign_count; i++)
+			free (ign_list[i]);
+		}
+		else
+		{
+		    /* Save the ignore list for later.  */
+		    s_ign_list = xnmalloc (ign_count, sizeof (char *));
+		    for (i = 0; i < ign_count; i++)
+			s_ign_list[i] = ign_list[i];
+		    s_ign_count = ign_count;
+		}
 		ign_count = 1;
-		/* Always ignore the "CVS" directory.  */
+		    /* Always ignore the "CVS" directory.  */
 		ign_list[0] = xstrdup ("CVS");
 		ign_list[1] = NULL;
 		continue;
@@ -273,8 +280,7 @@ ign_add (ign, hold)
  * else return false.
  */
 int
-ign_name (name)
-    char *name;
+ign_name (char *name)
 {
     char **cpp = ign_list;
 
@@ -301,16 +307,14 @@ static int dir_ign_current = 0;
 
 /* Add a directory to list of dirs to ignore.  */
 void
-ign_dir_add (name)
-    char *name;
+ign_dir_add (char *name)
 {
     /* Make sure we've got the space for the entry.  */
     if (dir_ign_current <= dir_ign_max)
     {
 	dir_ign_max += IGN_GROW;
-	dir_ign_list =
-	    (char **) xrealloc (dir_ign_list,
-				(dir_ign_max + 1) * sizeof (char *));
+	dir_ign_list = xnrealloc (dir_ign_list,
+				  dir_ign_max + 1, sizeof (char *));
     }
 
     dir_ign_list[dir_ign_current++] = xstrdup (name);
@@ -320,8 +324,7 @@ ign_dir_add (name)
 /* Return nonzero if NAME is part of the list of directories to ignore.  */
 
 int
-ignore_directory (name)
-    const char *name;
+ignore_directory (const char *name)
 {
     int i;
 
@@ -349,11 +352,8 @@ ignore_directory (name)
  * directory with a CVS administration directory is known.
  */
 void
-ignore_files (ilist, entries, update_dir, proc)
-    List *ilist;
-    List *entries;
-    const char *update_dir;
-    Ignore_proc proc;
+ignore_files (List *ilist, List *entries, const char *update_dir,
+              Ignore_proc proc)
 {
     int subdirs;
     DIR *dirp;
@@ -415,8 +415,7 @@ ignore_files (ilist, entries, update_dir, proc)
 		   this directory if there is a CVS subdirectory.
 		   This will normally be the case, but the user may
 		   have messed up the working directory somehow.  */
-		p = xmalloc (strlen (file) + sizeof CVSADM + 10);
-		sprintf (p, "%s/%s", file, CVSADM);
+		p = Xasprintf ("%s/%s", file, CVSADM);
 		dir = isdir (p);
 		free (p);
 		if (dir)
@@ -431,9 +430,9 @@ ignore_files (ilist, entries, update_dir, proc)
 
 	if (
 #ifdef DT_DIR
-		dp->d_type != DT_UNKNOWN ||
+	    dp->d_type != DT_UNKNOWN ||
 #endif
-		CVS_LSTAT (file, &sb) != -1) 
+	    lstat (file, &sb) != -1)
 	{
 
 	    if (
@@ -445,12 +444,9 @@ ignore_files (ilist, entries, update_dir, proc)
 #endif
 		)
 	    {
-		if (! subdirs)
+		if (!subdirs)
 		{
-		    char *temp;
-
-		    temp = xmalloc (strlen (file) + sizeof (CVSADM) + 10);
-		    (void) sprintf (temp, "%s/%s", file, CVSADM);
+		    char *temp = Xasprintf ("%s/%s", file, CVSADM);
 		    if (isdir (temp))
 		    {
 			free (temp);
@@ -463,7 +459,7 @@ ignore_files (ilist, entries, update_dir, proc)
 	    else if (
 #ifdef DT_DIR
 		     dp->d_type == DT_LNK
-		     || (dp->d_type == DT_UNKNOWN && S_ISLNK(sb.st_mode))
+		     || (dp->d_type == DT_UNKNOWN && S_ISLNK (sb.st_mode))
 #else
 		     S_ISLNK (sb.st_mode)
 #endif

@@ -1,10 +1,10 @@
-Uw toestemming wordt gevraagd voor een verzoek tot uitschrijving:
+Uw toestemming is nodig voor een afmeldingsverzoek:
 
-    Door:   %(username)s
-    Van: %(listname)s@%(hostname)s
+    Door: %(username)s
+    Van:  %(listname)s@%(hostname)s
 
-Bezoek:
+Zodra het u schikt, bezoek:
 
     %(admindb_url)s
 
-om dit verzoek te behandelen.
+om het verzoek af te handelen.

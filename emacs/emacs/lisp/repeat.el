@@ -1,6 +1,7 @@
 ;;; repeat.el --- convenient way to repeat the previous command
 
-;; Copyright (C) 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Will Mengarini <seldon@eskimo.com>
 ;; Created: Mo 02 Mar 98
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -126,7 +127,7 @@ only occurs if the final character by which `repeat' was invoked is a
 member of that sequence.  If this variable is nil, no re-execution occurs."
   :group 'convenience
   :type 'boolean)
-  
+
 ;;;;; ****************** HACKS TO THE REST OF EMACS ******************* ;;;;;
 
 ;; The basic strategy is to use last-command, a variable built in to Emacs.
@@ -262,7 +263,7 @@ can be modified by the global variable `repeat-on-final-keystroke'."
                          (setq repeat-last-self-insert
                                (buffer-substring (car range)
                                                  (cdr range)))
-                       (error (error "%s %s %s" ;Danger, Will Robinson! 
+                       (error (error "%s %s %s" ;Danger, Will Robinson!
                                      "repeat can't intuit what you"
                                      "inserted before auto-fill"
                                      "clobbered it, sorry")))))))
@@ -284,7 +285,9 @@ can be modified by the global variable `repeat-on-final-keystroke'."
 	      ;; does not alter it.
 	      (let ((real-last-command real-last-command))
 		(execute-kbd-macro real-last-command))
-	    (call-interactively real-last-command)))))
+            (run-hooks 'pre-command-hook)
+	    (call-interactively real-last-command)
+            (run-hooks 'post-command-hook)))))
     (when repeat-repeat-char
       ;; A simple recursion here gets into trouble with max-lisp-eval-depth
       ;; on long sequences of repetitions of a command like `forward-word'
@@ -344,4 +347,5 @@ can be modified by the global variable `repeat-on-final-keystroke'."
 
 (provide 'repeat)
 
+;;; arch-tag: cd569600-a1ad-4fa7-9062-bb91dfeaf1db
 ;;; repeat.el ends here

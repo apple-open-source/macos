@@ -65,6 +65,7 @@
 #include <sys/kern_event.h>
 #include <sys/sysctl.h>
 #include <netinet/in_var.h>
+#include <sys/un.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFBundle.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -78,6 +79,8 @@
 #include "../../../Helpers/vpnd/RASSchemaDefinitions.h"
 #include "../../../Helpers/vpnd/cf_utils.h"
 #include "l2tp.h"
+
+#include "vpn_control.h"
 
 
 // ----------------------------------------------------------------------------
@@ -94,11 +97,20 @@ static struct sockaddr_in 	listen_address;
 static struct sockaddr_in 	our_address;
 static struct sockaddr_in 	any_address;
 static int			debug = 0;
+static int			racoon_sockfd = -1;
+static int			sick_timeleft = 0;
+static int			ping_timeleft = 0;
+static int			racoon_ping_seed = 0;
+#define IPSEC_SICK_TIME 60 //seconds
+#define IPSEC_PING_TIME 5 //seconds
+#define IPSEC_REPAIR_TIME 10 //seconds
 
 static CFMutableDictionaryRef	ipsec_dict = NULL;
 static CFMutableDictionaryRef	ipsec_settings = NULL;
 
 int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload);
+int l2tpvpn_health_check(int *outfd, int event);
+int l2tpvpn_lb_redirect(struct in_addr *cluster_addr, struct in_addr *redirect_addr);
 int l2tpvpn_listen(void);
 int l2tpvpn_accept(void);
 int l2tpvpn_refuse(void);
@@ -122,6 +134,8 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
 {
     char 	name[MAXPATHLEN]; 
     CFURLRef	url;
+    size_t		len; 
+	int			nb_cpu = 1, nb_threads = 0;
 
     debug = debug_mode;
     
@@ -156,6 +170,16 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
         }
     }
     
+	/* increase the number of threads for l2tp to nb cpus - 1 */
+    len = sizeof(int); 
+	sysctlbyname("hw.ncpu", &nb_cpu, &len, NULL, 0);
+    if (nb_cpu > 1) {
+		sysctlbyname("net.ppp.l2tp.nb_threads", &nb_threads, &len, 0, 0);
+		if (nb_threads < (nb_cpu - 1)) {
+			nb_threads = nb_cpu - 1;
+			sysctlbyname("net.ppp.l2tp.nb_threads", 0, 0, &nb_threads, sizeof(int));
+		}
+	}
 
     /* retain reference */
     bundle = ref;
@@ -171,6 +195,8 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     the_vpn_channel->accept = l2tpvpn_accept;
     the_vpn_channel->refuse = l2tpvpn_refuse;
     the_vpn_channel->close = l2tpvpn_close;
+    the_vpn_channel->health_check = l2tpvpn_health_check;
+    the_vpn_channel->lb_redirect = l2tpvpn_lb_redirect;
 
     return 0;
 }
@@ -198,7 +224,7 @@ int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload)
             addparam(params->exec_args, &params->next_arg_index, "l2tpnoipsec");
             opt_noipsec = 1;
         }
-
+			
 		dict = (CFMutableDictionaryRef)CFDictionaryGetValue(params->serverRef, kRASEntIPSec);
 		if (isDictionary(dict)) {
 			/* get the parameters from the IPSec dictionary */
@@ -239,6 +265,168 @@ int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload)
     return 0;
 }
 
+/* ----------------------------------------------------------------------------- 
+    l2tpvpn_health_check
+----------------------------------------------------------------------------- */
+int l2tpvpn_health_check(int *outfd, int event)
+{
+
+	size_t				size;
+	struct	sockaddr_un sun;
+	int					ret = -1, flags;
+	
+	char				data[256];
+	struct vpnctl_hdr			*hdr = (struct vpnctl_hdr *)data;
+	
+	switch (event) {
+		
+		case 0: // periodic check
+			
+			// no ipsec, no need for health check
+			if (opt_noipsec) {
+				*outfd = -1;
+				break;
+			}
+	
+			if (sick_timeleft) {
+				sick_timeleft--;
+				if (sick_timeleft == 0)
+					goto fail;
+			}
+
+			// racoon socket is already opened, just query racoon
+			if (racoon_sockfd != -1) {
+
+				if (ping_timeleft) {
+					ping_timeleft--;
+					if (ping_timeleft == 0) {
+						// error on racoon socket. racoon exited ?
+						ret = -2; // L2TP is sick, but don't die yet, give it 60 seconds to recover
+						sick_timeleft = IPSEC_SICK_TIME;				
+						goto fail;
+					}
+				}
+				else {
+					// query racoon here
+					bzero(hdr, sizeof(struct vpnctl_hdr));
+					hdr->msg_type = htons(VPNCTL_CMD_PING);
+					hdr->cookie = htonl(++racoon_ping_seed);
+					ping_timeleft = IPSEC_PING_TIME;		// give few seconds to get a reply
+					writen(racoon_sockfd, hdr, sizeof(struct vpnctl_hdr));
+				}
+				break;
+			}
+	
+			// attempt to kill and restart racoon every 10 seconds
+			if ((sick_timeleft % IPSEC_REPAIR_TIME) == 0) {
+				vpnlog(LOG_ERR, "IPSecSelfRepair\n");
+				IPSecSelfRepair();
+			}
+	
+			// racoon socket is not yet opened, so opened it
+			/* open the racoon control socket  */
+			racoon_sockfd = socket(PF_LOCAL, SOCK_STREAM, 0);
+			if (racoon_sockfd < 0) {
+				vpnlog(LOG_ERR, "Unable to create racoon control socket (errno = %d)\n", errno);
+				goto fail;
+			}
+
+			bzero(&sun, sizeof(sun));
+			sun.sun_family = AF_LOCAL;
+			strncpy(sun.sun_path, "/etc/racoon/vpncontrol.sock", sizeof(sun.sun_path));
+
+			if (connect(racoon_sockfd,  (struct sockaddr *)&sun, sizeof(sun)) < 0) {
+				vpnlog(LOG_ERR, "Unable to connect racoon control socket (errno = %d)\n", errno);
+				ret = -2;
+				goto fail;
+			}
+
+			if ((flags = fcntl(racoon_sockfd, F_GETFL)) == -1
+				|| fcntl(racoon_sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+				vpnlog(LOG_ERR, "Unable to set racoon control socket in non-blocking mode (errno = %d)\n", errno);
+				ret = -2;
+				goto fail;
+			}
+				
+			*outfd = racoon_sockfd;
+			sick_timeleft = 0;
+			ping_timeleft = 0;
+			break;
+			
+		case 1: // event on racoon fd
+			size = recvfrom (racoon_sockfd, data, sizeof(struct vpnctl_hdr), 0, 0, 0);
+			if (size == 0) {
+				// error on racoon socket. racoon exited ?
+				ret = -2; // L2TP is sick, but don't die yet, give it 60 seconds to recover
+				sick_timeleft = IPSEC_SICK_TIME;
+				ping_timeleft = 0;
+				goto fail;
+			}
+			
+			/* read end of packet */
+			if (ntohs(hdr->len)) {
+				size = recvfrom (racoon_sockfd, data + sizeof(struct vpnctl_hdr), ntohs(hdr->len), 0, 0, 0);
+				if (size == 0) {
+					// error on racoon socket. racoon exited ?
+					ret = -2; // L2TP is sick, but don't die yet, give it 60 seconds to recover
+					sick_timeleft = IPSEC_SICK_TIME;
+					ping_timeleft = 0;
+					goto fail;
+				}
+			}
+			
+			switch (ntohs(hdr->msg_type)) {
+			
+				case VPNCTL_CMD_PING:
+				
+					if (racoon_ping_seed == ntohl(hdr->cookie)) {
+						// good !
+						ping_timeleft = 0;
+					//vpnlog(LOG_DEBUG, "receive racoon PING REPLY cookie %d\n", ntohl(hdr->cookie));
+					}
+					break;
+					
+				default:	
+					/* ignore other messages */
+					//vpnlog(LOG_DEBUG, "receive racoon message type %d, result %d\n", ntohs(hdr->msg_type), ntohs(hdr->result));
+					break;
+
+			}
+			break;
+		
+	}
+
+	return 0;
+
+fail:
+	if (racoon_sockfd != -1) {
+		close(racoon_sockfd);
+		racoon_sockfd = -1;
+		*outfd = -1;
+	}
+	return ret;
+}
+
+// ----------------------------------------------------------------------------
+//	notify racoon of the new redirection
+// ----------------------------------------------------------------------------
+int l2tpvpn_lb_redirect(struct in_addr *cluster_addr, struct in_addr *redirect_addr) 
+{
+
+	if (racoon_sockfd == -1) {
+		return -1;
+	}
+	
+	struct vpnctl_cmd_redirect msg;
+	bzero(&msg, sizeof(msg));
+	msg.hdr.len = htons(sizeof(msg) - sizeof(msg.hdr));
+	msg.hdr.msg_type = htons(VPNCTL_CMD_REDIRECT);
+	msg.address = cluster_addr->s_addr;
+	msg.redirect_address = redirect_addr->s_addr;
+	msg.force = htons(1);
+	writen(racoon_sockfd, &msg, sizeof(msg));
+	return 0;
+}
 
 /* ----------------------------------------------------------------------------- 
     system call wrappers
@@ -358,6 +546,7 @@ int l2tpvpn_listen(void)
     
     //set_flag(listen_sockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
     set_flag(listen_sockfd, 1, L2TP_FLAG_CONTROL);
+    set_flag(listen_sockfd, !opt_noipsec, L2TP_FLAG_IPSEC);
 
     /* unknown src and dst addresses */
     any_address.sin_len = sizeof(any_address);
@@ -379,21 +568,38 @@ int l2tpvpn_listen(void)
 		CFStringRef				auth_method;
 		CFStringRef				string;
 		CFDataRef				data;
+		int						natt_multiple_users;
 
 		/* get authentication method from the IPSec dict */
 		auth_method = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecProposalAuthenticationMethod);
 		if (!isString(auth_method))
 			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+
+		/* get setting for nat traversal multiple user support - default is enabled for server */
+		GetIntFromDict(ipsec_settings, kRASPropIPSecNattMultipleUsersEnabled, &natt_multiple_users, 1);
 			
 		ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
 			(struct sockaddr *)&our_address, (struct sockaddr *)&any_address, NULL, 
-			auth_method, 0); 
+			auth_method, 0, natt_multiple_users, 0); 
 
 		/* set the authentication information */
 		if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
 			string = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecSharedSecret);
 			if (isString(string)) 
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, string);
+			else if (isData(string) && ((CFDataGetLength(string) % sizeof(UniChar)) == 0)) {
+				CFStringEncoding    encoding;
+
+				data = (CFDataRef)string;
+#if     __BIG_ENDIAN__
+				encoding = (*(CFDataGetBytePtr(data) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
+#else   // __LITTLE_ENDIAN__
+				encoding = (*(CFDataGetBytePtr(data)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
+#endif
+				string = CFStringCreateWithBytes(NULL, (const UInt8 *)CFDataGetBytePtr(data), CFDataGetLength(data), encoding, FALSE);
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, string);
+				CFRelease(string);
+			}
 			string = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecSharedSecretEncryption);
 			if (isString(string)) 
 				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, string);
@@ -416,6 +622,9 @@ int l2tpvpn_listen(void)
         /* set IPSec Key management to prefer most recent key */
         if (IPSecSetSecurityAssociationsPreference(&key_preference, 0))
             vpnlog(LOG_ERR, "L2TP plugin: cannot set IPSec Key management preference (error %d)\n", errno);
+		
+		sick_timeleft = IPSEC_SICK_TIME;
+		ping_timeleft = 0;
 
     }
 
@@ -499,6 +708,11 @@ void l2tpvpn_close(void)
 
 	char *errstr;
 	
+	if (racoon_sockfd != -1) {
+		close(racoon_sockfd);
+		racoon_sockfd = -1;
+	}
+
     if (listen_sockfd != -1) {
         while (close(listen_sockfd) < 0)
             if (errno == EINTR)

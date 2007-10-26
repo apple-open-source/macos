@@ -24,6 +24,9 @@
  *
  */
 //		$Log: AppleHWSensor.h,v $
+//		Revision 1.13  2007/03/16 21:40:09  raddog
+//		[5056773]IOHWMonitor::updateValue() may call callPlatformFunction with NULL key
+//		
 //		Revision 1.12  2004/07/26 16:25:20  eem
 //		Merge Strider changes from AppleHWSensor-130_1_2 to TOT. Bump version to
 //		1.3.0a2.
@@ -76,6 +79,10 @@
 #define DLOG(fmt, args...)
 #endif
 
+#ifdef __ppc__
+#	define ENABLENOTIFY
+#endif
+
 #define kNoThreshold -1
 #define kNoPolling 0xffffffff
 
@@ -94,8 +101,11 @@ protected:
 	thread_call_t			fCalloutEntry;
 	UInt32					fPollingPeriod;
 	UInt32					fPollingPeriodNS;
+	bool					fInited;
+#ifdef ENABLENOTIFY
     IORegistryEntry			*fNotifyObj;
     const OSSymbol			*fNotifySym;
+ #endif
     
     static void timerCallback(void *self);
     void setLowThreshold(OSNumber *val);

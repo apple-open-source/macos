@@ -85,6 +85,25 @@ LEAF(__adjust_sp,0)
 	subl	$0x100,%eax
 	ret
 
+#elif defined(__x86_64__)
+
+#import	<architecture/i386/asm_help.h>
+/*	
+ * void *_sp(void)
+ */
+
+LEAF(__sp,0)
+	movq	%rsp,%rax
+	ret
+
+/*
+ * void *_adjust_sp(void *sp)
+ */
+LEAF(__adjust_sp,0)
+	movq	%rdi,%rax
+	subq	$0x100,%rax
+	ret
+
 #else
 #error sp functions not defined for this architecture
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -27,19 +27,15 @@ OSDefineMetaClassAndStructors(AppleRAIDUserClient, IOUserClient);
 
     
 bool
-AppleRAIDUserClient::initWithTask(task_t owningTask,void *security_id , UInt32 type)
+AppleRAIDUserClient::initWithTask(task_t owningTask, void *security_id, UInt32 type)
 {
     IOLogUC("AppleRAIDUserClient::initWithTask()\n");
+
+    if (!super::initWithTask(owningTask, security_id, type)) return false;
     
-    if (!super::initWithTask(owningTask, security_id , type))
-        return false;
-    
-    if (!owningTask)
-	return false;
-	
-    fTask = owningTask;
-    fProvider = NULL;
-    fDead = false;
+    if (!owningTask) return false;
+    ucClient = owningTask;
+    ucController = NULL;
         
     return true;
 }
@@ -50,58 +46,12 @@ AppleRAIDUserClient::start(IOService * provider)
 {
     IOLogUC("AppleRAIDUserClient::start()\n");
     
-    if(!super::start(provider))
-        return false;
+    if (!super::start(provider)) return false;
         
-    fProvider = OSDynamicCast(AppleRAID, provider);
-    
-    if (!fProvider)
-	return false;
+    ucController = OSDynamicCast(AppleRAID, provider);
+    if (!ucController) return false;
         
     return true;
-}
-
-
-void 
-AppleRAIDUserClient::stop(IOService * provider)
-{
-    IOLogUC("AppleRAIDUserClient::stop()\n");
-    
-    super::stop(provider);
-}
-
-
-IOReturn 
-AppleRAIDUserClient::open(void)
-{
-    IOLogUC("AppleRAIDUserClient::open()\n");
-    
-    // If we don't have an fProvider, this user client isn't going to do much, so return kIOReturnNotAttached.
-    if (!fProvider)
-        return kIOReturnNotAttached;
-        
-    // Call fProvider->open, and if it fails, it means someone else has already opened the device.
-    if (!fProvider->open(this))
-	return kIOReturnExclusiveAccess;
-        
-    return kIOReturnSuccess;
-}
-
-
-IOReturn 
-AppleRAIDUserClient::close(void)
-{
-    IOLogUC("AppleRAIDUserClient::close()\n");
-            
-    // If we don't have an fProvider, then we can't really call the fProvider's close() function, so just return.
-    if (!fProvider)
-        return kIOReturnNotAttached;
-        
-    // Make sure the fProvider is open before we tell it to close.
-    if (fProvider->isOpen(this))
-        fProvider->close(this);
-    
-    return kIOReturnSuccess;
 }
 
 
@@ -110,147 +60,304 @@ AppleRAIDUserClient::clientClose(void)
 {
     IOLogUC("AppleRAIDUserClient::clientClose()\n");
     
-    // release my hold on my parent (if I have one).
-    close();
+    closeController();
     
-    if (fTask)
-	fTask = NULL;
-    
-    fProvider = NULL;
+    ucClient = NULL;
+    ucController = NULL;
+
     terminate();
     
-    // DONT call super::clientClose, which just returns notSupported
-    
+    // Do not call super::clientClose, which just returns notSupported
     return kIOReturnSuccess;
 }
 
-IOReturn 
-AppleRAIDUserClient::clientDied(void)
+
+IOReturn
+AppleRAIDUserClient::externalMethod(uint32_t                    selector, 
+				    IOExternalMethodArguments * arguments,
+				    IOExternalMethodDispatch *  dispatch, 
+				    OSObject *                  target, 
+				    void *                      reference)
 {
-    IOReturn ret = kIOReturnSuccess;
-
-    IOLogUC("AppleRAIDUserClient::clientDied()\n");
-
-    fDead = true;
+    IOLogUC("AppleRAIDUserClient::externalMethod(selector = %d)\n", (int)selector);
     
-    // this just calls clientClose
-    ret = super::clientDied();
-
-    return ret;
-}
-
-
-IOReturn 
-AppleRAIDUserClient::message(UInt32 type, IOService * provider,  void * argument)
-{
-    IOLogUC("AppleRAIDUserClient::message()\n");
-    
-    switch ( type )
-    {
-        default:
-            break;
-    }
-    
-    return super::message(type, provider, argument);
-}
-
-
-bool 
-AppleRAIDUserClient::finalize(IOOptionBits options)
-{
-    bool ret;
-    
-    IOLogUC("AppleRAIDUserClient::finalize()\n");
-    
-    ret = super::finalize(options);
-    
-    return ret;
-}
-
-
-bool 
-AppleRAIDUserClient::terminate(IOOptionBits options)
-{
-    bool ret;
-    
-    IOLogUC("AppleRAIDUserClient::terminate()\n");
-
-    ret = super::terminate(options);
-    
-    return ret;
-}
-
-
-IOExternalMethod *
-AppleRAIDUserClient::getTargetAndMethodForIndex(IOService ** target, UInt32 index)
-{
-    IOLogUC("AppleRAIDUserClient::getTargetAndMethodForIndex(index = %d)\n", (int)index);
-    
-    static const IOExternalMethod sMethods[kAppleRAIDUserClientMethodMaxCount] = 
+    static const IOExternalMethodDispatch sMethods[kAppleRAIDUserClientMethodsCount] = 
     {
         {   // 0 - kAppleRAIDClientOpen
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAIDUserClient::open,		// Method pointer.
-            kIOUCScalarIScalarO,		       		// Scalar Input, Scalar Output.
-            0,							// No scalar input values.
-            0							// No scalar output values.
+            (IOExternalMethodAction) &AppleRAIDUserClient::openShim,
+            0, 0,							// scalar in count, struct in size
+	    0, 0							// scalar out count, struct out size 
         },
         {   // 1 - kAppleRAIDClientClose 
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAIDUserClient::close,		// Method pointer.
-            kIOUCScalarIScalarO,				// Scalar Input, Scalar Output.
-            0,							// No scalar input values.
-            0							// No scalar output values.
+            (IOExternalMethodAction) &AppleRAIDUserClient::closeShim,
+            0, 0,							// scalar in count, struct in size
+	    0, 0							// scalar out count, struct out size
         },
         {   // 2 - kAppleRAIDGetListOfSets 
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAID::getListOfSets,		// Method pointer.
-            kIOUCScalarIStructO,				// Scalar Input, Struct Output.
-            1,							// flags to filter which sets to receive
-            0xffffffff						// The size of the serialized array
+            (IOExternalMethodAction) &AppleRAIDUserClient::getListOfSetsShim,
+            0, sizeof(UInt32),						// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size 
         },
-        {   // 3 - kAppleRAIDGetSetProperties
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAID::getSetProperties,		// Method pointer.
-            kIOUCStructIStructO,				// Struct Input, Struct Output.
-            kAppleRAIDMaxUUIDStringSize,			// UUID string size
-            0xffffffff						// The size of the serialized dictionary
+	{   // 3 - kAppleRAIDGetSetProperties
+            (IOExternalMethodAction) &AppleRAIDUserClient::getSetPropertiesShim,
+            0, kAppleRAIDMaxUUIDStringSize,				// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
         },
         {   // 4 - kAppleRAIDGetMemberProperties
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAID::getMemberProperties,		// Method pointer.
-            kIOUCStructIStructO,				// Struct Input, Struct Output.
-            kAppleRAIDMaxUUIDStringSize,			// UUID string size
-            0xffffffff						// The size of the serialized dictionary
+            (IOExternalMethodAction) &AppleRAIDUserClient::getMemberPropertiesShim,
+            0, kAppleRAIDMaxUUIDStringSize,				// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
         },
         {   // 5 - kAppleRAIDUpdateSet
-            NULL,						// The IOService * will be determined at runtime below.
-            (IOMethod) &AppleRAID::updateSet,			// Method pointer.
-            kIOUCStructIStructO,				// Struct Input, Struct Output.
-            0xffffffff,						// The size of serialized set info dictionary
-            0xffffffff						// dummy size.
+            (IOExternalMethodAction) &AppleRAIDUserClient::updateSetShim,
+            0, 0xffffffff,						// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
+        },
+        {   // 6 - kAppleLVMGetVolumesForGroup
+            (IOExternalMethodAction) &AppleRAIDUserClient::getVolumesForGroupShim,
+            0, kAppleRAIDMaxUUIDStringSize * 2,				// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
+        },
+        {   // 7 - kAppleLVMGetVolumeProperties
+            (IOExternalMethodAction) &AppleRAIDUserClient::getVolumePropertiesShim,
+            0, kAppleRAIDMaxUUIDStringSize,				// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
+        },
+        {   // 8 - kAppleLVMGetVolumeExtents
+            (IOExternalMethodAction) &AppleRAIDUserClient::getVolumeExtentsShim,
+            0, kAppleRAIDMaxUUIDStringSize,				// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
+        },
+        {   // 9 - kAppleLVMUpdateLogicalVolume
+            (IOExternalMethodAction) &AppleRAIDUserClient::updateLogicalVolumeShim,
+            0, 0xffffffff,						// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
+        },
+        {   // 10 - kAppleLVMDestroyLogicalVolume
+            (IOExternalMethodAction) &AppleRAIDUserClient::destroyLogicalVolumeShim,
+            0, 0xffffffff,						// scalar in count, struct in size
+	    0, 0xffffffff						// scalar out count, struct out size
         }
     };
-    
-    
+
     // Make sure that the index of the function we're calling actually exists in the function table.
-    if (index < (UInt32)kAppleRAIDUserClientMethodMaxCount) 
+    if (selector < (uint32_t)kAppleRAIDUserClientMethodsCount) 
     {
-        if (index == kAppleRAIDClientOpen || index == kAppleRAIDClientClose)
-        {
-            // These methods exist in AppleRAIDUserClient, so return a pointer to AppleRAIDUserClient.
-            *target = this;	   
-        }
-        else
-        {
-            // These methods exist in the Controller, so return a pointer to AppleRAID.
-            *target = fProvider;
-        }
-        
-        return (IOExternalMethod *) &sMethods[index];
+	dispatch = (IOExternalMethodDispatch *) &sMethods[selector];
+	target = this;	   
+	return super::externalMethod(selector, arguments, dispatch, target, reference);
     }
 
-    return NULL;
+    return kIOReturnBadArgument;
 }
 
 
+// ***********************************************************************************************************
+// ***********************************************************************************************************
+// ***********************************************************************************************************
+
+IOReturn 
+AppleRAIDUserClient::openController(void)
+{
+    IOLogUC("AppleRAIDUserClient::openController()\n");
+    
+    if (!ucController) return kIOReturnNotAttached;
+        
+    if (!ucController->open(this)) return kIOReturnExclusiveAccess;
+        
+    return kIOReturnSuccess;
+}
+
+
+IOReturn 
+AppleRAIDUserClient::closeController(void)
+{
+    IOLogUC("AppleRAIDUserClient::closeController()\n");
+            
+    if (!ucController) return kIOReturnNotAttached;
+        
+    if (ucController->isOpen(this)) {
+	ucController->close(this);
+    }
+        
+    return kIOReturnSuccess;
+}
+
+#if 0
+// XXX will need to support larger ool arguments someday
+
+IOReturn
+AppleRAIDUserClient::mapArguments(IOExternalMethodArguments * arguments, void ** in, uint32_t * inCount, void ** out, uint32_t * outCount)
+{
+    if (arguments->structureInputDescriptor) {
+
+        IOMemoryDescriptor * mem = arguments->structureInputDescriptor;
+        IOReturn ret = mem->map();  ///////////
+        if (ret != kIOReturnSuccess) return ret;
+	
+	*in = mem->virtual;  ////////////
+	*inCount = mem->getLength();
+    } else {
+        *in = arguments->structureInput;
+	*inCount = arguments->structureInputSize;
+    }
+    if (arguments->structureOutputDescriptor) {
+
+        IOMemoryDescriptor * mem = arguments->structureOutputDescriptor;
+        IOReturn ret = mem->map();  ///////////
+        if (ret != kIOReturnSuccess) return ret;
+
+	*out = 0;  ////////
+	*outCount = arguments->structureOutputSize;
+    } else {
+        *out = arguments->structureOutput;
+	*outCount = arguments->structureOutputSize;
+    }
+
+    return IOReturnSuccess;
+}
+
+IOReturn
+AppleRAIDUserClient::unmapArguments(IOExternalMethodArguments * arguments, void * out, uint32_t outCount)
+{
+}
+#endif
+
+IOReturn 
+AppleRAIDUserClient::getListOfSets(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getListOfSets()\n");
+
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    UInt32 flags = *((UInt32 *)arguments->structureInput);
+			       
+    return ucController->getListOfSets(flags, (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+
+IOReturn 
+AppleRAIDUserClient::getSetProperties(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getSetProperties()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    return ucController->getSetProperties((char *)arguments->structureInput, arguments->structureInputSize,
+					  (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+
+IOReturn 
+AppleRAIDUserClient::getMemberProperties(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getMemberProperties()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    return ucController->getMemberProperties((char *)arguments->structureInput, arguments->structureInputSize,
+					     (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+
+IOReturn 
+AppleRAIDUserClient::updateSet(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::updateSet()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    if (clientHasPrivilege(ucClient, kIOClientPrivilegeAdministrator)) return kIOReturnNotPrivileged;
+
+    return ucController->updateSet((char *)arguments->structureInput, arguments->structureInputSize,
+				   (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+IOReturn 
+AppleRAIDUserClient::getVolumesForGroup(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getVolumesForGroup()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    return ucController->getVolumesForGroup((char *)arguments->structureInput, arguments->structureInputSize,
+					    (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+IOReturn 
+AppleRAIDUserClient::getVolumeProperties(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getVolumeProperties()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    return ucController->getVolumeProperties((char *)arguments->structureInput, arguments->structureInputSize,
+					     (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+IOReturn 
+AppleRAIDUserClient::getVolumeExtents(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::getVolumeExtentss()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    return ucController->getVolumeExtents((char *)arguments->structureInput, arguments->structureInputSize,
+					  (char *)arguments->structureOutput, &arguments->structureOutputSize);
+}
+
+IOReturn 
+AppleRAIDUserClient::updateLogicalVolume(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::updateLogicalVolume()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    if (clientHasPrivilege(ucClient, kIOClientPrivilegeAdministrator)) return kIOReturnNotPrivileged;
+
+    return ucController->updateLogicalVolume((char *)arguments->structureInput, arguments->structureInputSize,
+					     (char *)arguments->structureOutput, &arguments->structureOutputSize);
+    return 0;
+}
+
+
+IOReturn 
+AppleRAIDUserClient::destroyLogicalVolume(IOExternalMethodArguments * arguments)
+{
+    IOLogUC("AppleRAIDUserClient::destroyLogicalVolume()\n");
+    
+    if (arguments->structureInputDescriptor) return kIOReturnBadArgument;
+    if (arguments->structureOutputDescriptor) return kIOReturnBadArgument;
+             
+    if (!ucController || isInactive()) return kIOReturnNotAttached;
+
+    if (clientHasPrivilege(ucClient, kIOClientPrivilegeAdministrator)) return kIOReturnNotPrivileged;
+
+    return ucController->destroyLogicalVolume((char *)arguments->structureInput, arguments->structureInputSize,
+					      (char *)arguments->structureOutput, &arguments->structureOutputSize);
+    return 0;
+}

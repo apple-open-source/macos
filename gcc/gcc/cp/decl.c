@@ -1033,6 +1033,8 @@ duplicate_decls (tree newdecl, tree olddecl)
   unsigned olddecl_uid = DECL_UID (olddecl);
   int olddecl_friend = 0, types_match = 0;
   int new_defines_function = 0;
+  /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+  tree new_template;
 
   if (newdecl == olddecl)
     return olddecl;
@@ -1210,6 +1212,10 @@ duplicate_decls (tree newdecl, tree olddecl)
     }
   else if (TREE_CODE (olddecl) != TREE_CODE (newdecl))
     {
+      /* APPLE LOCAL begin radar 4829851 */
+      if (c_dialect_objc () && DECL_P (newdecl))
+        objc_check_global_decl (newdecl);
+      /* APPLE LOCAL end radar 4829851 */
       if ((TREE_CODE (olddecl) == TYPE_DECL && DECL_ARTIFICIAL (olddecl)
 	   && TREE_CODE (newdecl) != TYPE_DECL
 	   && ! (TREE_CODE (newdecl) == TEMPLATE_DECL
@@ -1678,6 +1684,8 @@ duplicate_decls (tree newdecl, tree olddecl)
   if (! DECL_EXTERNAL (olddecl))
     DECL_EXTERNAL (newdecl) = 0;
 
+  /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+  new_template = NULL_TREE;
   if (DECL_LANG_SPECIFIC (newdecl) && DECL_LANG_SPECIFIC (olddecl))
     {
       DECL_INTERFACE_KNOWN (newdecl) |= DECL_INTERFACE_KNOWN (olddecl);
@@ -1700,6 +1708,10 @@ duplicate_decls (tree newdecl, tree olddecl)
 	DECL_LANG_SPECIFIC (olddecl)->decl_flags.u2;
       DECL_NONCONVERTING_P (newdecl) = DECL_NONCONVERTING_P (olddecl);
       DECL_REPO_AVAILABLE_P (newdecl) = DECL_REPO_AVAILABLE_P (olddecl);
+      /* APPLE LOCAL begin mainline 2005-12-02 Radar 4458276  */
+      if (DECL_TEMPLATE_INFO (newdecl))
+	new_template = DECL_TI_TEMPLATE (newdecl);
+      /* APPLE LOCAL end  mainline 2005-12-02 Radar 4458276  */
       DECL_TEMPLATE_INFO (newdecl) = DECL_TEMPLATE_INFO (olddecl);
       DECL_INITIALIZED_IN_CLASS_P (newdecl)
         |= DECL_INITIALIZED_IN_CLASS_P (olddecl);
@@ -1847,7 +1859,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	      (char *) newdecl + sizeof (struct tree_common),
 	      function_size - sizeof (struct tree_common));
 
-      if (DECL_TEMPLATE_INSTANTIATION (newdecl))
+      /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+      if (new_template)
 	/* If newdecl is a template instantiation, it is possible that
 	   the following sequence of events has occurred:
 
@@ -1870,7 +1883,8 @@ duplicate_decls (tree newdecl, tree olddecl)
 	   instantiations so that if we try to do the instantiation
 	   again we won't get the clobbered declaration.  */
 	reregister_specialization (newdecl,
-				   DECL_TI_TEMPLATE (newdecl),
+				   /* APPLE LOCAL mainline 2005-12-02 Radar 4458276  */
+				   new_template,
 				   olddecl);
     }
   else
@@ -2865,7 +2879,7 @@ initialize_predefined_identifiers (void)
 	IDENTIFIER_CTOR_OR_DTOR_P (*pid->node) = 1;
     }
   /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
-  if (flag_apple_kext)
+  if (TARGET_KEXTABI)
     {
       /* This is snarfed from the 2.95 cp-tree.h.  The mechanism is
 	 completely different from gcc3 (see cp-tree.h, and read the
@@ -2944,6 +2958,10 @@ cxx_init_decl_processing (void)
     }
   if (flag_inline_functions)
     flag_inline_trees = 2;
+  /* APPLE LOCAL begin ms tinfo compat 4230099 */
+  if (flag_visibility_ms_compat)
+    default_visibility = VISIBILITY_HIDDEN;
+  /* APPLE LOCAL end ms tinfo compat 4230099 */
 
   /* Force minimum function alignment if using the least significant
      bit of function pointers to store the virtual bit.  */
@@ -2988,7 +3006,7 @@ cxx_init_decl_processing (void)
 #endif
 
   /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
-  if (flag_apple_kext)
+  if (TARGET_KEXTABI)
     delta_type_node = short_integer_type_node;
   else
   /* APPLE LOCAL end KEXT 2.95-ptmf-compatibility --turly */
@@ -3814,6 +3832,10 @@ start_decl (const cp_declarator *declarator,
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
   cplus_decl_attributes (&decl, attributes, 0);
+  /* APPLE LOCAL begin radar 4592503 */
+  if (c_dialect_objc ())
+    objc_checkon_weak_attribute (decl);
+  /* APPLE LOCAL end radar 4592503 */
 
   /* If #pragma weak was used, mark the decl weak now.  */
   maybe_apply_pragma_weak (decl);
@@ -5693,7 +5715,14 @@ grokfndecl (tree ctype,
       if (!same_type_p (TREE_TYPE (TREE_TYPE (decl)),
 			integer_type_node))
 	{
+	  /* APPLE LOCAL begin mainline rdar 4458294*/
+	  tree oldtypeargs = TYPE_ARG_TYPES (TREE_TYPE (decl));
+	  tree newtype;
 	  error ("%<::main%> must return %<int%>");
+	  newtype = build_function_type (integer_type_node,
+	                                 oldtypeargs);
+	  TREE_TYPE (decl) = newtype;
+	  /* APPLE LOCAL end mainline rdar 4458294*/
 	  TREE_TYPE (TREE_TYPE (decl)) = integer_type_node;
 	}
       inlinep = 0;
@@ -6104,7 +6133,7 @@ build_ptrmemfunc_type (tree type)
       = build_ptrmemfunc_type (TYPE_MAIN_VARIANT (type));
 
   /* APPLE LOCAL begin KEXT 2.95-ptmf-compatibility --turly */
-  if (flag_apple_kext)
+  if (TARGET_KEXTABI)
     {
       tree u = make_aggr_type (UNION_TYPE);
       SET_IS_AGGR_TYPE (u, 0);
@@ -6634,7 +6663,7 @@ grokdeclarator (const cp_declarator *declarator,
   cp_storage_class storage_class;
   bool unsigned_p, signed_p, short_p, long_p, thread_p;
   /* APPLE LOCAL CW asm blocks */
-  bool cw_asm_p;
+  bool iasm_p;
   bool type_was_error_mark_node = false;
 
   signed_p = declspecs->specs[(int)ds_signed];
@@ -6643,7 +6672,7 @@ grokdeclarator (const cp_declarator *declarator,
   long_p = declspecs->specs[(int)ds_long];
   thread_p = declspecs->specs[(int)ds_thread];
   /* APPLE LOCAL CW asm blocks */
-  cw_asm_p = declspecs->specs[(int)ds_cw_asm];
+  iasm_p = declspecs->specs[(int)ds_iasm_asm];
 
   if (decl_context == FUNCDEF)
     funcdef_flag = 1, decl_context = NORMAL;
@@ -6697,10 +6726,7 @@ grokdeclarator (const cp_declarator *declarator,
 		else if (TREE_CODE (qualifying_scope) == NAMESPACE_DECL)
 		  in_namespace = qualifying_scope;
 	      }
-	    if (TREE_CODE (decl) == BASELINK)
-	      decl = BASELINK_FUNCTIONS (decl);
-	    if (decl == error_mark_node)
-	      return error_mark_node;
+	    /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
 	    switch (TREE_CODE (decl))
 	      {
 	      case BIT_NOT_EXPR:
@@ -6764,11 +6790,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		break;
 
-	      case TYPE_DECL:
-		dname = constructor_name (TREE_TYPE (decl));
-		name = IDENTIFIER_POINTER (dname);
-		break;
-
+              /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	      default:
 		gcc_unreachable ();
 	      }
@@ -7246,8 +7268,7 @@ grokdeclarator (const cp_declarator *declarator,
   else
     {
       unqualified_id = id_declarator->u.id.unqualified_name;
-      if (TREE_CODE (unqualified_id) == BASELINK)
-	unqualified_id = BASELINK_FUNCTIONS (unqualified_id);
+      /* APPLE LOCAL begin mainline 2005-12-27 4431091 */
       switch (TREE_CODE (unqualified_id))
 	{
 	case BIT_NOT_EXPR:
@@ -7255,11 +7276,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    = constructor_name (TREE_OPERAND (unqualified_id, 0));
 	  break;
 
-	case TYPE_DECL:
-	  unqualified_id
-	    = constructor_name (TREE_TYPE (unqualified_id));
-	  break;
-
+        /* APPLE LOCAL end mainline 2005-12-27 4431091 */
 	case IDENTIFIER_NODE:
 	case TEMPLATE_ID_EXPR:
 	  break;
@@ -8380,14 +8397,14 @@ grokdeclarator (const cp_declarator *declarator,
       DECL_THIS_STATIC (decl) = 1;
 
     /* APPLE LOCAL begin CW asm blocks */
-    if (cw_asm_p)
+    if (iasm_p)
       {
 	/* Record that this is a decl of a CW-style asm function.  */
-	if (flag_cw_asm_blocks)
+	if (flag_iasm_blocks)
 	  {
-	    DECL_CW_ASM_FUNCTION (decl) = 1;
-	    DECL_CW_ASM_NORETURN (decl) = 0;
-	    DECL_CW_ASM_FRAME_SIZE (decl) = -2;
+	    DECL_IASM_ASM_FUNCTION (decl) = 1;
+	    DECL_IASM_NORETURN (decl) = 0;
+	    DECL_IASM_FRAME_SIZE (decl) = -2;
 	  }
 	else
 	  error ("asm functions not enabled, use `-fasm-blocks'");
@@ -9769,6 +9786,10 @@ finish_enum (tree enumtype)
 
 	  /* Update the minimum and maximum values, if appropriate.  */
 	  value = DECL_INITIAL (decl);
+	  /* APPLE LOCAL begin mainline */
+	  if (value == error_mark_node)
+	    value = integer_zero_node;
+	  /* APPLE LOCAL end mainline */
 	  /* Figure out what the minimum and maximum values of the
 	     enumerators are.  */
 	  if (!minnode)
@@ -9871,10 +9892,16 @@ finish_enum (tree enumtype)
      type of the enumeration.  */
   for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
     {
+      /* APPLE LOCAL begin mainline */
+      location_t saved_location;
+
       decl = TREE_VALUE (values);
+      saved_location = input_location;
+      input_location = DECL_SOURCE_LOCATION (decl);
       value = perform_implicit_conversion (underlying_type,
 					   DECL_INITIAL (decl));
-
+      input_location = saved_location;
+      /* APPLE LOCAL end mainline */
       /* Do not clobber shared ints.  */
       value = copy_node (value);
       
@@ -9962,8 +9989,13 @@ build_enumerator (tree name, tree value, tree enumtype)
 	      value = build_int_cst_wide (TREE_TYPE (prev_value), lo, hi);
 	      overflowed |= !int_fits_type_p (value, TREE_TYPE (prev_value));
 
+	      /* APPLE LOCAL begin mainline */
 	      if (overflowed)
+		{
 		error ("overflow in enumeration values at %qD", name);
+		  value = error_mark_node;
+		}
+	      /* APPLE LOCAL end mainline */
 	    }
 	  else
 	    value = integer_zero_node;
@@ -10394,10 +10426,12 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* If this was a function declared as an assembly function, change
      the state to expect to see C++ decls, possibly followed by assembly
      code.  */
-  if (DECL_CW_ASM_FUNCTION (current_function_decl))
+  if (DECL_IASM_ASM_FUNCTION (current_function_decl))
     {
-      cw_asm_state = cw_asm_decls;
-      cw_asm_in_decl = 0;
+      iasm_state = iasm_decls;
+      iasm_in_decl = 0;
+      current_function_returns_abnormally = 1;
+      TREE_NO_WARNING (current_function_decl) = 1;
     }
   /* APPLE LOCAL end CW asm blocks */
 
@@ -10594,6 +10628,14 @@ begin_destructor_body (void)
 {
   tree if_stmt;
   tree compound_stmt;
+  /* APPLE LOCAL begin mainline 2006-01-22 4416452 */
+  /* If the CURRENT_CLASS_TYPE is incomplete, we will have already
+     issued an error message. ÊWe still want to try to process the
+     body of the function, but initialize_vtbl_ptrs will crash if
+     TYPE_BINFO is NULL. Ê*/
+  if (!COMPLETE_TYPE_P (current_class_type))
+    return;
+  /* APPLE LOCAL end mainline 2006-01-22 4416452 */
 
   /* If the dtor is empty, and we know there is not any possible
      way we could use any vtable entries, before they are possibly
@@ -11176,7 +11218,7 @@ cxx_maybe_build_cleanup (tree decl)
 			 && CLASSTYPE_VBASECLASSES (type));
       /* APPLE LOCAL begin KEXT double destructor */
       special_function_kind dtor = sfk_complete_destructor;
-      if (flag_apple_kext
+      if (TARGET_KEXTABI
 	  && has_apple_kext_compatibility_attr_p (type))
 	{
 	  /* If we have a trivial operator delete (), we can go ahead and

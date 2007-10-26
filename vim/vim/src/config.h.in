@@ -164,7 +164,6 @@
 #undef HAVE_SIGSETJMP
 #undef HAVE_SIGSTACK
 #undef HAVE_SIGVEC
-#undef HAVE_SNPRINTF
 #undef HAVE_STRCASECMP
 #undef HAVE_STRERROR
 #undef HAVE_STRFTIME
@@ -180,6 +179,7 @@
 #undef HAVE_TGETENT
 #undef HAVE_TOWLOWER
 #undef HAVE_TOWUPPER
+#undef HAVE_ISWUPPER
 #undef HAVE_USLEEP
 #undef HAVE_UTIME
 #undef HAVE_BIND_TEXTDOMAIN_CODESET
@@ -200,6 +200,7 @@
 #undef HAVE_LOCALE_H
 #undef HAVE_NDIR_H
 #undef HAVE_POLL_H
+#undef HAVE_PTHREAD_NP_H
 #undef HAVE_PWD_H
 #undef HAVE_SETJMP_H
 #undef HAVE_SGTTY_H
@@ -222,6 +223,8 @@
 #undef HAVE_SYS_SYSTEMINFO_H
 #undef HAVE_SYS_TIME_H
 #undef HAVE_SYS_UTSNAME_H
+#undef HAVE_WCHAR_H
+#undef HAVE_WCTYPE_H
 #undef HAVE_TERMCAP_H
 #undef HAVE_TERMIOS_H
 #undef HAVE_TERMIO_H
@@ -232,9 +235,17 @@
 #undef HAVE_X11_SUNKEYSYM_H
 #undef HAVE_XM_XM_H
 #undef HAVE_XM_XPMP_H
+#undef HAVE_XM_TRAITP_H
+#undef HAVE_XM_MANAGER_H
+#undef HAVE_XM_UNHIGHLIGHTT_H
+#undef HAVE_XM_JOINSIDET_H
+#undef HAVE_XM_NOTEBOOK_H
 #undef HAVE_X11_XPM_H
 #undef HAVE_X11_XMU_EDITRES_H
 #undef HAVE_X11_SM_SMLIB_H
+
+/* Define to the type of the XpmAttributes type. */
+#undef XPMATTRIBUTES_TYPE
 
 /* Define if you have <sys/wait.h> that is POSIX.1 compatible.  */
 #undef HAVE_SYS_WAIT_H
@@ -268,6 +279,9 @@
 
 /* Define if you want huge features. */
 #undef FEAT_HUGE
+
+/* Define if you want to include the MzScheme interpreter. */
+#undef FEAT_MZSCHEME
 
 /* Define if you want to include the Perl interpreter. */
 #undef FEAT_PERL
@@ -309,6 +323,9 @@
 
 /* Define if you use GTK and want GNOME support. */
 #undef FEAT_GUI_GNOME
+
+/* Define if you use KDE and want KDE Toolbar support. */
+#undef FEAT_KDETOOLBAR
 
 /* Define if GTK+ 2 is available. */
 #undef HAVE_GTK2
@@ -354,9 +371,6 @@
 
 /* Define if you want XSMP interaction as well as vanilla swapfile safety */
 #undef USE_XSMP_INTERACT
-
-/* Define if vsnprintf() works */
-#undef HAVE_VSNPRINTF
 
 /* Define if there is a copyfile() */
 #undef HAVE_COPYFILE

@@ -23,10 +23,15 @@
 #include <sys/types.h>
 #include <sys/acl.h>
 #include <errno.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+
+enum {OPENX, MKFIFOX, MKDIRX};
+
+extern int __open_extended(const char *, int, uid_t, gid_t, int, struct kauth_filesec *);
+extern int __mkfifo_extended(const char *, uid_t, gid_t, int, struct kauth_filesec *);
+extern int __mkdir_extended(const char *, uid_t, gid_t, int, struct kauth_filesec *);
 
 static int
 _mkfilex_np(int opcode, const char *path, int flags, filesec_t fsec)
@@ -92,11 +97,17 @@ _mkfilex_np(int opcode, const char *path, int flags, filesec_t fsec)
 			fsacl = NULL;
 	}
 
-	if (opcode == SYS_open_extended) {
-		return(syscall(opcode, path, flags, owner, group, mode, fsacl));
-	} else {
-		return(syscall(opcode, path, owner, group, mode, fsacl));
+	switch (opcode) {
+	case OPENX:
+		return(__open_extended(path, flags, owner, group, mode, fsacl));
+	case MKFIFOX:
+		return(__mkfifo_extended(path, owner, group, mode, fsacl));
+	case MKDIRX:
+		return(__mkdir_extended(path, owner, group, mode, fsacl));
 	}
+	/* should never get here */
+	errno = EINVAL;
+	return(-1);
 }
 
 int
@@ -105,17 +116,17 @@ openx_np(const char *path, int flags, filesec_t fsec)
 	/* optimise for the simple case */
 	if (!(flags & O_CREAT) || (fsec == NULL))
 		return(open(path, flags));
-	return(_mkfilex_np(SYS_open_extended, path, flags, fsec));
+	return(_mkfilex_np(OPENX, path, flags, fsec));
 }
 
 int
 mkfifox_np(const char *path, filesec_t fsec)
 {
-	return(_mkfilex_np(SYS_mkfifo_extended, path, 0, fsec));
+	return(_mkfilex_np(MKFIFOX, path, 0, fsec));
 }
 
 int
 mkdirx_np(const char *path, filesec_t fsec)
 {
-	return(_mkfilex_np(SYS_mkdir_extended, path, 0, fsec));
+	return(_mkfilex_np(MKDIRX, path, 0, fsec));
 }

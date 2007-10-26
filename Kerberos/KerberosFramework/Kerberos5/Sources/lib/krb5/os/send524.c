@@ -26,8 +26,6 @@
  */
 
 /* Grab socket stuff.  This might want to go away later. */
-#define NEED_SOCKETS
-#define NEED_LOWLEVEL_IO
 #include "fake-addrinfo.h" /* for custom addrinfo if needed */
 #include "k5-int.h"
 
@@ -79,10 +77,8 @@ krb5int_524_sendto_kdc (context, message, realm, reply, addr, addrlen)
     serv = getservbyname(KRB524_SERVICE, "udp");
     port = serv ? serv->s_port : htons (KRB524_PORT);
 
-    retval = krb5int_locate_server(context, realm, &al, 0,
-				   "krb524_server", "_krb524",
-				   SOCK_DGRAM, port,
-				   0, PF_INET);
+    retval = krb5int_locate_server(context, realm, &al, locate_service_krb524,
+				   SOCK_DGRAM, PF_INET);
     if (retval == KRB5_REALM_CANT_RESOLVE || retval == KRB5_REALM_UNKNOWN) {
 	/* Fallback heuristic: Assume krb524 port on every KDC might
 	   work.  */
@@ -92,9 +88,9 @@ krb5int_524_sendto_kdc (context, message, realm, reply, addr, addrlen)
 	 */
 	if (retval == 0)
 	    for (i = 0; i < al.naddrs; i++) {
-		al.addrs[i]->ai_socktype = SOCK_DGRAM;
-		if (al.addrs[i]->ai_family == AF_INET)
-		    sa2sin (al.addrs[i]->ai_addr)->sin_port = port;
+		al.addrs[i].ai->ai_socktype = SOCK_DGRAM;
+		if (al.addrs[i].ai->ai_family == AF_INET)
+		    sa2sin (al.addrs[i].ai->ai_addr)->sin_port = port;
 	    }
     }
     if (retval)
@@ -102,7 +98,7 @@ krb5int_524_sendto_kdc (context, message, realm, reply, addr, addrlen)
     if (al.naddrs == 0)
 	return KRB5_REALM_UNKNOWN;
 
-    retval = krb5int_sendto (context, message, &al, reply, addr, addrlen, NULL);
+    retval = krb5int_sendto (context, message, &al, NULL, reply, addr, addrlen, NULL, 0, NULL);
     krb5int_free_addrlist (&al);
     return retval;
 #else

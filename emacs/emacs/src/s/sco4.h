@@ -1,5 +1,6 @@
 /* System description file for SCO 3.2v4.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Contributed by Ian Lance Taylor, ian@cygnus.com.  */
 
@@ -86,7 +87,7 @@ Boston, MA 02111-1307, USA.  */
 #define LIBS_SYSTEM -lsocket -lPW
 
 /* SCO has gettimeofday in socket library */
-/* Autoconf should determine this, but for now, 
+/* Autoconf should determine this, but for now,
    play safe to avoid error rather than deleting this
    and risking the wrong result.  */
 #ifndef HAVE_GETTIMEOFDAY
@@ -128,11 +129,6 @@ Boston, MA 02111-1307, USA.  */
 #define MAIL_PROGRAM_NAME "/usr/lib/mail/execmail"
 #endif
 
-/* miano@acosta.enet.dec.com says these are needed.  */
-#define bcopy(b1,b2,len) memmove (b2, b1, len)
-#define bzero(b,len) memset (b, 0, len)
-#define bcmp(b1,b2,len) memcmp (b1, b2, len)
-
 /* Tell process_send_signal to use VSUSP instead of VSWTCH.  */
 #define PREFER_VSUSP
 
@@ -146,3 +142,6 @@ Boston, MA 02111-1307, USA.  */
 #define NO_SOCKETS_IN_FILE_SYSTEM
 
 #define NARROWPROTO 1
+
+/* arch-tag: 4dd6fe94-bcb7-4be0-942a-ff4bc3cd914e
+   (do not change this comment) */

@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,58 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
+#include "SCHelper_client.h"
+
+#include <unistd.h>
+#include <pthread.h>
+
+static Boolean
+__SCPreferencesUnlock_helper(SCPreferencesRef prefs)
+{
+	Boolean			ok;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	uint32_t		status		= kSCStatusOK;
+
+	if (prefsPrivate->helper == -1) {
+		// if no helper
+		goto fail;
+	}
+
+	// have the helper "unlock" the prefs
+//	status = kSCStatusOK;
+	ok = _SCHelperExec(prefsPrivate->helper,
+			   SCHELPER_MSG_PREFS_UNLOCK,
+			   NULL,
+			   &status,
+			   NULL);
+	if (!ok) {
+		goto fail;
+	}
+
+	if (status != kSCStatusOK) {
+		goto error;
+	}
+
+	prefsPrivate->locked = FALSE;
+	return TRUE;
+
+    fail :
+
+	// close helper
+	if (prefsPrivate->helper != -1) {
+		_SCHelperClose(prefsPrivate->helper);
+		prefsPrivate->helper = -1;
+	}
+
+	status = kSCStatusAccessError;
+
+    error :
+
+	// return error
+	_SCErrorSet(status);
+	return FALSE;
+}
+
 
 Boolean
 SCPreferencesUnlock(SCPreferencesRef prefs)
@@ -52,18 +104,22 @@ SCPreferencesUnlock(SCPreferencesRef prefs)
 		return FALSE;
 	}
 
-	if (!prefsPrivate->isRoot) {
-		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
-		goto perUser;
+	if (prefsPrivate->authorizationData != NULL) {
+		return __SCPreferencesUnlock_helper(prefs);
 	}
 
-	if (!SCDynamicStoreRemoveValue(prefsPrivate->session, prefsPrivate->sessionKeyLock)) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesUnlock SCDynamicStoreRemoveValue() failed"));
-		return FALSE;
-	}
+	pthread_mutex_lock(&prefsPrivate->lock);
 
-    perUser:
+	if (prefsPrivate->lockFD != -1)	{
+		if (prefsPrivate->lockPath != NULL) {
+			unlink(prefsPrivate->lockPath);
+		}
+		close(prefsPrivate->lockFD);
+		prefsPrivate->lockFD = -1;
+	}
 
 	prefsPrivate->locked = FALSE;
+
+	pthread_mutex_unlock(&prefsPrivate->lock);
 	return TRUE;
 }

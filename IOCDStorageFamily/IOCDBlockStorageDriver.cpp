@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -128,17 +128,11 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
             }
 
             switch (discInfo.discStatus) {
-                case 0x00: /* is disc blank? */
-                    _maxBlockNumber = 0;
-                    _writeProtected = true;
-                    break;
-                case 0x01: /* is disc appendable? */
+                case 0x01: /* is disc incomplete? */
                     checkIsWritable = true;
-                    _maxBlockNumber = CDConvertMSFToClippedLBA(discInfo.lastPossibleStartTimeOfLeadOut);
                     break;
                 case 0x02: /* is disc complete? */
                     checkIsWritable = discInfo.erasable ? true : false;
-                    _writeProtected = true;
                     break;
             }
 
@@ -146,19 +140,36 @@ IOCDBlockStorageDriver::acceptNewMedia(void)
 
             if (checkIsWritable) {
                 UInt16 trackLast = discInfo.lastTrackNumberInLastSessionLSB;
-                UInt16 trackSecondLast = max(trackLast - 1, discInfo.firstTrackNumberInLastSessionLSB);
 
-                _writeProtected = true;
+                result = reportTrackInfo(trackLast,&trackInfo);
+                if (result != kIOReturnSuccess) {
+                    break;
+                }
 
-                for (i = trackLast; i >= trackSecondLast; i--) {
-                    result = reportTrackInfo(i,&trackInfo);
-                    if (result != kIOReturnSuccess) {
-                        break;
-                    }
+                if (discInfo.discStatus == 0x01) { /* is disc incomplete? */
+                    _maxBlockNumber = CDConvertMSFToClippedLBA(discInfo.lastPossibleStartTimeOfLeadOut);
+                }
 
-                    if (trackInfo.packet) { /* is track incremental? */
-                        _writeProtected = false;
-                        break;
+                if (trackInfo.packet) { /* is track incremental? */
+                    _writeProtected = false;
+                    break;
+                }
+
+                if (discInfo.discStatus == 0x01) { /* is disc incomplete? */
+                    if (trackInfo.blank) { /* is track invisible? */
+                        UInt16 trackFirst = discInfo.firstTrackNumberInLastSessionLSB;
+
+                        if (trackFirst < trackLast) {
+                            result = reportTrackInfo(trackLast - 1,&trackInfo);
+                            if (result != kIOReturnSuccess) {
+                                break;
+                            }
+
+                            if (trackInfo.packet) { /* is track incremental? */
+                                _writeProtected = false;
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -474,9 +485,11 @@ IOCDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
 {
     IOMedia *media;
 
-    byteSize /= blockSize;
-    byteSize *= kBlockSizeCD;
-    blockSize = kBlockSizeCD;
+    if (blockSize) {
+        byteSize /= blockSize;
+        byteSize *= kBlockSizeCD;
+        blockSize = kBlockSizeCD;
+    }
 
     media = super::instantiateMediaObject(base,byteSize,blockSize,mediaName);
 

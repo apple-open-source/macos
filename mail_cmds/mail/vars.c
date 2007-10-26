@@ -69,7 +69,7 @@ assign(name, value)
 		variables[h] = vp;
 	}
 	else
-		vfree(vp->v_value);
+		v_free(vp->v_value);
 	vp->v_value = vcopy(value);
 }
 
@@ -79,7 +79,7 @@ assign(name, value)
  * Thus, we cannot free same!
  */
 void
-vfree(cp)
+v_free(cp)
 	char *cp;
 {
 	if (*cp != '\0')

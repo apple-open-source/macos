@@ -1,21 +1,25 @@
 /*
  *  dlf.c
  *
- *  $Id: dlf.c,v 1.2 2004/11/11 01:52:41 luesang Exp $
+ *  $Id: dlf.c,v 1.4 2006/02/13 16:01:41 source Exp $
  *
  *  Dynamic Library Loader (mapping to SVR4)
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,6 +75,20 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #include <dlf.h>
 #include <errno.h>
 
@@ -80,7 +98,7 @@
 
 #ifdef	DLDAPI_SVR4_DLFCN
 #define DLDAPI_DEFINED
-static char sccsid[] = "@(#)dynamic load interface -- SVR4 dlfcn";
+static char sccsid[] = "@(#)dynamic load interface -- SVR4 (dlfcn)";
 #endif
 
 /********************************* 
@@ -91,10 +109,10 @@ static char sccsid[] = "@(#)dynamic load interface -- SVR4 dlfcn";
 
 #ifdef	DLDAPI_HP_SHL
 #define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- HP/UX (shl)";
 
 #include <dl.h>
 
-static char sccsid[] = "@(#)dynamic load interface -- HP/UX dl(shl)";
 
 void *
 dlopen (char *path, int mode)
@@ -167,6 +185,7 @@ dlclose (void *hdll)
 
 #ifdef	DLDAPI_AIX_LOAD
 #define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- AIX (ldr)";
 
 #include <sys/types.h>
 #include <sys/ldr.h>
@@ -596,6 +615,7 @@ dlsym (void *hdl, char *sym)
 
 #ifdef	DLDAPI_WINDOWS
 #define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- Windows (LoadLibrary)";
 
 #include <windows.h>
 
@@ -651,6 +671,7 @@ dlclose (void * hdll)
 #ifdef VMS
 #define	DLDAPI_DEFINED
 #ifdef DLDAPI_VMS_IODBC
+static char sccsid[] = "@(#)dynamic load interface -- VMS";
 
 #include <stdio.h>
 #include <descrip.h>
@@ -856,10 +877,10 @@ iodbc_dlclose (void *hdll)
  *********************************/
 #ifdef	DLDAPI_DYLD
 #define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- Mac OS X (dyld)";
+
 #include <stdio.h>
 #include <mach-o/dyld.h>
-
-static char sccsid[] = "@(#)dynamic load interface -- MacOS X dl(dyld)";
 
 
 static void
@@ -994,12 +1015,12 @@ dlclose (void *hdll)
  *
  *********************************/
 #ifdef	DLDAPI_MACX
-static struct dlopen_handle *dlopen_handles = NULL;
-static const struct dlopen_handle main_program_handle = { NULL };
-static char *dlerror_pointer = NULL;
+#define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- Mac OS X 10.x (dyld)";
 
-  enum bool
-  { false, true };
+static struct dlopen_handle *dlopen_handles = NULL;
+static const struct dlopen_handle main_program_handle = { 0 };
+static char *dlerror_pointer = NULL;
 
 /*
  * NSMakePrivateModulePublic() is not part of the public dyld API so we define
@@ -1007,14 +1028,14 @@ static char *dlerror_pointer = NULL;
  * __dyld_NSMakePrivateModulePublic is returned so thats all that matters to get
  * the functionality need to implement the dlopen() interfaces.
  */
-static enum bool
+static int
 NSMakePrivateModulePublic (NSModule module)
 {
-  static enum bool (*p) (NSModule module) = NULL;
+  static int (*p) (NSModule module) = NULL;
 
   if (p == NULL)
     _dyld_func_lookup ("__dyld_NSMakePrivateModulePublic",
-	(unsigned long *) &p);
+	(void *) &p);
   if (p == NULL)
     {
 #ifdef DEBUG
@@ -1031,7 +1052,7 @@ NSMakePrivateModulePublic (NSModule module)
  * dlopen() the MacOS X version of the FreeBSD dlopen() interface.
  */
 void *
-dlopen (char * path, int mode)
+iodbc_dlopen (char * path, int mode)
 {
   void *retval;
   struct stat stat_buf;
@@ -1042,6 +1063,7 @@ dlopen (char * path, int mode)
   unsigned long options;
   NSSymbol NSSymbol;
   void (*init) (void);
+  static char errbuf[640];
 
   dlerror_pointer = NULL;
 
@@ -1156,7 +1178,14 @@ dlopen (char * path, int mode)
   NSDestroyObjectFileImage (objectFileImage);
   if (module == NULL)
     {
-      dlerror_pointer = "NSLinkModule() failed for dlopen()";
+      NSLinkEditErrors lerr;
+      int errNum;
+      const char *fname;
+      const char *errStr;
+      NSLinkEditError(&lerr, &errNum, &fname, &errStr);
+      sprintf(errbuf, "NSLinkModule() failed for dlopen() ([%.256s][%.256s])",
+      		fname, errStr);
+      dlerror_pointer = errbuf;
       return (NULL);
     }
 
@@ -1214,7 +1243,7 @@ dlopen (char * path, int mode)
  * dlsym() the MacOS X version of the FreeBSD dlopen() interface.
  */
 void *
-dlsym (void * handle, char * symbol)
+iodbc_dlsym (void * handle, char * symbol)
 {
   struct dlopen_handle *dlopen_handle, *p;
   char symbol2[1024];
@@ -1278,7 +1307,7 @@ dlsym (void * handle, char * symbol)
  * dlerror() the MacOS X version of the FreeBSD dlopen() interface.
  */
 char *
-dlerror (void)
+iodbc_dlerror (void)
 {
   const char *p;
 
@@ -1292,7 +1321,7 @@ dlerror (void)
  * dlclose() the MacOS X version of the FreeBSD dlopen() interface.
  */
 int
-dlclose (void * handle)
+iodbc_dlclose (void * handle)
 {
   struct dlopen_handle *p, *q;
   unsigned long options;
@@ -1345,7 +1374,6 @@ dlclose (void * handle)
   return (-1);
 }
 
-#define	DLDAPI_DEFINED
 #endif /* end of Rhapsody Section */
 
 /********************************* 
@@ -1354,6 +1382,7 @@ dlclose (void * handle)
  *
  *********************************/
 #ifdef	DLDAPI_MAC
+static char sccsid[] = "@(#)dynamic load interface -- Mac Classic";
 
 #include <CodeFragments.h>
 #include <strconv.h>
@@ -1506,6 +1535,7 @@ dlclose (void *hdll)
  *********************************/
 #ifdef	DLDAPI_BE
 #define	DLDAPI_DEFINED
+static char sccsid[] = "@(#)dynamic load interface -- BeOS";
 
 #include <kernel/image.h>
 #include <be/support/Errors.h>

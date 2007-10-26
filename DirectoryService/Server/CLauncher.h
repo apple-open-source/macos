@@ -40,13 +40,13 @@ public:
 					CLauncher			( CServerPlugin *inPlugin );
 	virtual		   ~CLauncher			( void );
 	
-	virtual	long	ThreadMain			( void );		// we manage out own thread top level
+	virtual	SInt32	ThreadMain			( void );		// we manage out own thread top level
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
 
 private:
 	CServerPlugin	   *fPlugin;
-	DSEventSemaphore   	fWaitToInti;
+	DSEventSemaphore   	fWaitToInit;
 };
 
 #endif

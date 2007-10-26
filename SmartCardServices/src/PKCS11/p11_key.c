@@ -173,7 +173,8 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     P11_Session *session = (P11_Session *)hSession;
     P11_Object *key = (P11_Object *)hUnwrappingKey;
     CK_BYTE *output = 0, *final_output = 0;
-    CK_ULONG output_len, final_output_len;
+    MSCULong32 output_len;
+	CK_ULONG final_output_len;
     CK_ULONG i;
 
     P11_LOG_START("C_UnwrapKey");
@@ -209,7 +210,7 @@ CK_DEFINE_FUNCTION(CK_RV, C_UnwrapKey)
     
             if (!CKR_ERROR(rv))
             {
-                CK_ULONG  ulValue, lenValue;
+                MSCULong32  ulValue, lenValue;
                 if (MSC_ERROR(msc_GetCapabilities(
                                 &st.slots[session->session.slotID - 1].conn,
                                 MSC_TAG_CAPABLE_RSA,

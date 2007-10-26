@@ -137,12 +137,27 @@ bool impExpImportParseFileExten(
 CFStringRef impExpImportDeleteExtension(
 	CFStringRef			fileStr)
 {
-	CFURLRef urlRef = CFURLCreateWithString(NULL, fileStr, NULL);
+	CFDataRef fileStrData = CFStringCreateExternalRepresentation(NULL, fileStr,
+		kCFStringEncodingUTF8, 0);
+	if(fileStrData == NULL) {
+		return NULL;
+	}
+	
+	CFURLRef urlRef = CFURLCreateFromFileSystemRepresentation(NULL, 
+		CFDataGetBytePtr(fileStrData), CFDataGetLength(fileStrData), false);
+	if(urlRef == NULL) {
+		CFRelease(fileStrData);
+		return NULL;
+	}
 	CFURLRef rtnUrl = CFURLCreateCopyDeletingPathExtension(NULL, urlRef);
+	CFStringRef rtnStr = NULL;
 	CFRelease(urlRef);
-	CFStringRef rtnStr = CFURLGetString(rtnUrl);
-	CFRetain(rtnStr);
-	CFRelease(rtnUrl);
+	if(rtnUrl) {
+		rtnStr = CFURLGetString(rtnUrl);
+		CFRetain(rtnStr);
+		CFRelease(rtnUrl);
+	}
+	CFRelease(fileStrData);
 	return rtnStr;
 }
 
@@ -164,6 +179,8 @@ CFStringRef impExpImportDeleteExtension(
  * kSecFormatOpenSSL	 PKCS1    X509    OPENSSL   X509     PKCS3    X509
  * kSecFormatBSAFE       PKCS8    PKCS1   FIPS186   FIPS186  PKCS8    not supported
  * kSecFormatUnknown	 PKCS1    X509    OPENSSL   X509     PKCS3    X509
+ * kSecFormatSSH		  SSH      SSH      n/s     n/s       n/s     n/s
+ * kSecFormatSSHv2        n/s     SSH2      n/s     SSH2      n/s     n/s
  */
 
 /* Arrays expressing the above table. */
@@ -198,6 +215,22 @@ static algForms bsafeAlgForms[SIE_NUM_ALGS] =
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS8,	CSSM_KEYBLOB_RAW_FORMAT_PKCS1 },	// RSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_FIPS186,  CSSM_KEYBLOB_RAW_FORMAT_FIPS186 },	// DSA
 	{ CSSM_KEYBLOB_RAW_FORMAT_PKCS8,	CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H
+};
+
+/* kSecFormatSSH (v1) */
+static algForms ssh1AlgForms[SIE_NUM_ALGS] = 
+{
+	{ CSSM_KEYBLOB_RAW_FORMAT_OPENSSH,	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH },	// RSA only
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// DSA not supported
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H not supported
+};
+
+/* kSecFormatSSHv2 */
+static algForms ssh2AlgForms[SIE_NUM_ALGS] = 
+{
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// RSA - public only
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2 },	// DSA - public only
+	{ CSSM_KEYBLOB_RAW_FORMAT_NONE,		CSSM_KEYBLOB_RAW_FORMAT_NONE },		// D-H not supported
 };
 
 /*
@@ -246,6 +279,12 @@ OSStatus impExpKeyForm(
 		case kSecFormatBSAFE:
 			forms = bsafeAlgForms;
 			break;
+		case kSecFormatSSH:
+			forms = ssh1AlgForms;
+			break;
+		case kSecFormatSSHv2:
+			forms = ssh2AlgForms;
+			break;
 		default:
 			return errSecUnsupportedFormat;
 	}
@@ -284,8 +323,8 @@ static bool impExpGuessKeyParams(
 {
 	CSSM_ALGORITHMS minAlg		 = CSSM_ALGID_RSA;			// then DSA, then...
 	CSSM_ALGORITHMS maxAlg		 = CSSM_ALGID_DH;
-	SecExternalFormat minForm    = kSecFormatOpenSSL;		// then SSH, then...
-	SecExternalFormat maxForm    = kSecFormatBSAFE;
+	SecExternalFormat minForm    = kSecFormatOpenSSL;		// then SSH, BSAFE, then...
+	SecExternalFormat maxForm    = kSecFormatSSHv2;
 	SecExternalItemType minType  = kSecItemTypePrivateKey;  // just two
 	SecExternalItemType maxType  = kSecItemTypePublicKey;
 	
@@ -294,6 +333,7 @@ static bool impExpGuessKeyParams(
 			break;								// run through all formats
 		case kSecFormatOpenSSL:
 		case kSecFormatSSH:
+		case kSecFormatSSHv2:
 		case kSecFormatBSAFE:
 			minForm = maxForm = *externForm;	// just test this one
 			break;
@@ -325,13 +365,13 @@ static bool impExpGuessKeyParams(
 	CSSM_ALGORITHMS theAlg;
 	SecExternalFormat theForm;
 	SecExternalItemType theType;
-	CSSM_CSP_HANDLE cspHand = cuCspStartup(CSSM_FALSE);
+	CSSM_CSP_HANDLE cspHand = cuCspStartup(CSSM_TRUE);
 	if(cspHand == 0) {
 		return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
 	}
 	
 	/*
-	 * Iterate through all set of enabled {alg, type, format}.
+	 * Iterate through all set of enabled {alg, type, format}.
 	 * We do not assume that any of the enums are sequential hence this
 	 * odd iteration algorithm....
 	 */
@@ -347,6 +387,7 @@ static bool impExpGuessKeyParams(
 					cspHand,
 					0,			// no flags
 					NULL,		// no key params
+					NULL,		// no printName
 					NULL);		// no returned items
 				if(ortn == noErr) {
 					SecImpInferDbg("impExpGuessKeyParams SUCCESS form %s type %s",
@@ -384,6 +425,9 @@ static bool impExpGuessKeyParams(
 				case kSecFormatSSH: 
 					theForm = kSecFormatBSAFE; 
 					break;
+				case kSecFormatBSAFE:
+					theForm = kSecFormatSSHv2;
+					break;
 				default:
 					assert(0);
 					ourRtn = false;
@@ -409,7 +453,7 @@ static bool impExpGuessKeyParams(
 		}
 	}			/* for each alg */
 done:
-	cuCspDetachUnload(cspHand, CSSM_FALSE);
+	cuCspDetachUnload(cspHand, CSSM_TRUE);
 	return ourRtn;
 }
 
@@ -455,10 +499,10 @@ bool impExpImportGuessByExamination(
 			return true;
 		}
 	}
-	/* TBD: need way to inquire of P12 lib if this i0s a valid-looking PFX */
+	/* TBD: need way to inquire of P12 lib if this is a valid-looking PFX */
 	
 	if( ( (*inputFormat == kSecFormatUnknown) ||
-	      (*inputFormat == kSecFormatPKCS12) 
+	      (*inputFormat == kSecFormatNetscapeCertSequence) 
 		) &&
 	   ( (*itemType == kSecItemTypeUnknown) ||
 		 (*itemType == kSecItemTypeAggregate) ) ) {

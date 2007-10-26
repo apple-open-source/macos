@@ -1,13 +1,15 @@
 .TH SLAPDN 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 2004 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 2004-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapdn \- Check a list of string-represented DNs based on schema syntax.
 .SH SYNOPSIS
-.B /usr/sbin/slapdn
+.B SBINDIR/slapdn
 .B [\-v]
 .B [\-d level]
 .B [\-f slapd.conf]
+.B [\-F confdir]
+.B [\-N | \-P]
 .B DN [...]
 .LP
 .SH DESCRIPTION
@@ -38,6 +40,29 @@ enable debugging messages as defined by the specified
 specify an alternative
 .BR slapd.conf (5)
 file.
+.TP
+.BI \-F " confdir"
+specify a config directory.
+If both
+.B -f
+and
+.B -F
+are specified, the config file will be read and converted to
+config directory format and written to the specified directory.
+If neither option is specified, an attempt to read the
+default config directory will be made before trying to use the default
+config file. If a valid config directory exists then the
+default config file is ignored.
+.TP
+.BI \-N
+only output a normalized form of the DN, suitable to be used
+in a normalization tool; incompatible with
+.BR \-P .
+.TP
+.BI \-P
+only output a prettified form of the DN, suitable to be used
+in a check and beautification tool; incompatible with
+.BR \-N .
 .SH EXAMPLES
 To check a
 .B DN
@@ -45,7 +70,7 @@ give the command:
 .LP
 .nf
 .ft tt
-	/usr/sbin/slapdn -f /etc/openldap/slapd.conf -v DN
+	SBINDIR/slapdn -f /ETCDIR/slapd.conf -v DN
 .ft
 .fi
 .SH "SEE ALSO"

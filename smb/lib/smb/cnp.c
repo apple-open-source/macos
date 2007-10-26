@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -51,5 +54,5 @@ GLOBAL rpc_list_desc_t          rpc_g_cn_lg_fbuf_lookaside_list;
 GLOBAL rpc_list_desc_t          rpc_g_cn_sm_fbuf_lookaside_list;
 GLOBAL rpc_list_desc_t          rpc_g_cn_call_lookaside_list;
 GLOBAL rpc_cn_assoc_grp_tbl_t   rpc_g_cn_assoc_grp_tbl;
-GLOBAL unsigned32               rpc_g_cn_call_id;
+GLOBAL unsigned32               rpc_g_cn_call_id = 0;
 GLOBAL rpc_cn_mgmt_t            rpc_g_cn_mgmt;

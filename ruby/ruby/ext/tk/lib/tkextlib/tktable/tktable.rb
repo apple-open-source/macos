@@ -17,6 +17,11 @@ TkPackage.require('Tktable')
 
 module Tk
   class TkTable < TkWindow
+    PACKAGE_NAME = 'Tktable'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('Tktable')
@@ -53,6 +58,21 @@ module Tk::TkTable::ConfigMethod
     [self.path, id].join(';')
   end
   private :__item_pathname
+
+  def __item_boolval_optkeys(id)
+    super(id) << 'multiline' << 'showtext' << 'wrap'
+  end
+  private :__item_boolval_optkeys
+
+  def __item_strval_optkeys(id)
+    super(id) << 'ellipsis'
+  end
+  private :__item_strval_optkeys
+
+  def __item_val2ruby_optkeys(id)  # { key=>method, ... }
+    super(id).update('window'=>proc{|v| window(v)})
+  end
+  private :__item_val2ruby_optkeys
 
   def tag_cget(tagOrId, option)
     itemcget(['tag', tagid(tagOrId)], option)
@@ -203,6 +223,18 @@ class Tk::TkTable
     Tk::TkTable::CelTag::CellTagID_TBL.delete(@path)
   end
 
+  def __boolval_optkeys
+    super() << 'autoclear' << 'flashmode' << 'invertselected' <<
+      'multiline' << 'selecttitle' << 'wrap'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'colseparator' << 'ellipsis' << 'rowseparator' << 'sparsearray'
+  end
+  private :__strval_optkeys
+
+
   #################################
 
   class BrowseCommand < TkValidateCommand
@@ -335,7 +367,7 @@ class Tk::TkTable
   #################################
 
   def __validation_class_list
-    super << 
+    super() << 
       BrowseCommand << CellCommand << SelectionCommand << ValidateCommand
   end
 
@@ -355,16 +387,16 @@ class Tk::TkTable
   end
 
   def border_mark(x, y)
-    simplelist(tk_send('scan', 'mark', x, y))
+    simplelist(tk_send('border', 'mark', x, y))
   end
   def border_mark_row(x, y)
-    tk_send('scan', 'mark', x, y, 'row')
+    tk_send('border', 'mark', x, y, 'row')
   end
   def border_mark_col(x, y)
-    tk_send('scan', 'mark', x, y, 'col')
+    tk_send('border', 'mark', x, y, 'col')
   end
   def border_dragto(x, y)
-    tk_send('scan', 'dragto', x, y)
+    tk_send('border', 'dragto', x, y)
   end
 
   def clear_cache(first=None, last=None)
@@ -546,6 +578,9 @@ class Tk::TkTable
   end
   def selection_include?(idx)
     bool(tk_send('selection', 'includes', tagid(idx)))
+  end
+  def selection_present
+    bool(tk_send('selection', 'present'))
   end
   def selection_set(first, last=None)
     tk_send('selection', 'set', tagid(first), tagid(last))

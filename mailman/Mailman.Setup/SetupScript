@@ -1,0 +1,49 @@
+#!/bin/sh
+
+_mm_dir=/usr/share/mailman
+
+#
+# Configure mailman to use this host name.
+#
+echo "Configuring mailman for this host..."
+_conf_file=${_mm_dir}/Mailman/mm_cfg.py
+if [ ! -e ${_conf_file} ]; then
+	cp -p ${_conf_file}.dist ${_conf_file}
+fi
+if grep -qs DEFAULT_EMAIL_HOST ${_conf_file} ; then
+	mv ${_conf_file} ${_conf_file}.bak
+	sed -e '/DEFAULT_EMAIL_HOST/d' -e '/DEFAULT_URL_HOST/d' \
+		${_conf_file}.bak > ${_conf_file}
+fi
+echo "DEFAULT_EMAIL_HOST = '`hostname`'" >> ${_conf_file}
+echo "DEFAULT_URL_HOST = '`hostname`'"  >> ${_conf_file}
+echo "done."
+
+#
+# Replace .pid file path definition in Defaults.py
+#
+
+_mm_var_run_dir=/var/run/mailman
+_mm_defaults=/usr/share/mailman/Mailman/Defaults.py
+if [ ! -d ${_mm_var_run_dir} ] ; then
+	mkdir ${_mm_var_run_dir}
+fi
+chown _mailman:_mailman ${_mm_var_run_dir}
+
+sed "/^PIDFILE/ s@DATA_DIR@\'/var/run/mailman\'@" < ${_mm_defaults} > ${_mm_defaults}.$$ && mv ${_mm_defaults}.$$ ${_mm_defaults}
+
+_mm_var_log_dir=/var/log/mailman
+if [ ! -d ${_mm_var_log_dir} ] ; then
+	mkdir ${_mm_var_log_dir}
+fi
+chown _mailman:_mailman ${_mm_var_log_dir}
+
+sed "/^LOG_DIR/ s@VAR_PREFIX, 'logs'@\'/var/log/', 'mailman\'@" < ${_mm_defaults} > ${_mm_defaults}.$$ && mv ${_mm_defaults}.$$ ${_mm_defaults}
+
+#
+# Once mailman is properly configured, compile all the scripts to
+# improve performance.
+#
+echo "Compiling mailman..."
+python -c 'from compileall import *; compile_dir("/usr/share/mailman/Mailman")'
+echo "done."

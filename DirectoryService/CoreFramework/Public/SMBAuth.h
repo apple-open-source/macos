@@ -29,7 +29,6 @@
 #ifndef __SMBAUTH_H__
 #define	__SMBAUTH_H__		1
 
-#include <openssl/des.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 /* utility functions prototypes */
@@ -56,7 +55,7 @@ extern "C" {
 			unsigned char *outSessionKey );
 	void DESEncode(const void *str, void *data);
 	void MD4Encode(unsigned char *output, const unsigned char *input, unsigned int len);
-	void str_to_key(const unsigned char *str, des_cblock key);
+	void str_to_key(unsigned char *str, unsigned char *key);
 	void LittleEndianUnicodeToUnicode(const u_int16_t *unistr, int unistrLen, u_int16_t *unicode);
 
 #ifdef __cplusplus

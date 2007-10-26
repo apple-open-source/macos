@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <dirent.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -8,6 +9,25 @@
 
 #include "srm.h"
 #include "config.h"
+
+int empty_directory(const char *path) {
+  DIR *dp;
+  struct dirent *de;
+  
+  dp = opendir(path);
+  if (dp == NULL) {
+    return -1;
+  }
+  while ((de = readdir(dp)) != NULL) {
+    if (de->d_namlen < 3 && (!strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."))) {
+      continue;
+    }
+    (void)closedir(dp);
+    return -1;
+  }
+  (void)closedir(dp);
+  return 0;
+}
 
 int rename_unlink(const char *path) {
   char *new_name, *p, c;
@@ -45,7 +65,7 @@ int rename_unlink(const char *path) {
   if (lstat(path, &statbuf) == -1)
     return -1;
 
-  if (S_ISDIR(statbuf.st_mode) && (statbuf.st_nlink > 2)) {
+  if (S_ISDIR(statbuf.st_mode) && (empty_directory(path) == -1)) {
       /* Directory isn't empty (e.g. because it contains an immutable file).
          Attempting to remove it will fail, so avoid renaming it. */
     errno = ENOTEMPTY;

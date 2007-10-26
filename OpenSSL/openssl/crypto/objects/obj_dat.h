@@ -67,7 +67,7 @@
 #define NUM_LN 669
 #define NUM_OBJ 633
 
-static unsigned char lvalues[4575]={
+const static unsigned char lvalues[4575]={
 0x00,                                        /* [  0] OBJ_undef */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,               /* [  1] OBJ_rsadsi */
 0x2A,0x86,0x48,0x86,0xF7,0x0D,0x01,          /* [  7] OBJ_pkcs */
@@ -703,7 +703,7 @@ static unsigned char lvalues[4575]={
 0x60,0x86,0x48,0x01,0x65,0x03,0x04,0x02,0x04,/* [4565] OBJ_sha224 */
 };
 
-static ASN1_OBJECT nid_objs[NUM_NID]={
+const static ASN1_OBJECT nid_objs[NUM_NID]={
 {"UNDEF","undefined",NID_undef,1,&(lvalues[0]),0},
 {"rsadsi","RSA Data Security, Inc.",NID_rsadsi,6,&(lvalues[1]),0},
 {"pkcs","RSA Data Security, Inc. PKCS",NID_pkcs,7,&(lvalues[7]),0},
@@ -1780,7 +1780,7 @@ static ASN1_OBJECT nid_objs[NUM_NID]={
 {"SHA224","sha224",NID_sha224,9,&(lvalues[4565]),0},
 };
 
-static ASN1_OBJECT *sn_objs[NUM_SN]={
+const static ASN1_OBJECT *const sn_objs[NUM_SN]={
 &(nid_objs[364]),/* "AD_DVCS" */
 &(nid_objs[419]),/* "AES-128-CBC" */
 &(nid_objs[421]),/* "AES-128-CFB" */
@@ -2452,7 +2452,7 @@ static ASN1_OBJECT *sn_objs[NUM_SN]={
 &(nid_objs[160]),/* "x509Crl" */
 };
 
-static ASN1_OBJECT *ln_objs[NUM_LN]={
+const static ASN1_OBJECT *const ln_objs[NUM_LN]={
 &(nid_objs[363]),/* "AD Time Stamping" */
 &(nid_objs[405]),/* "ANSI X9.62" */
 &(nid_objs[368]),/* "Acceptable OCSP Responses" */
@@ -3124,7 +3124,7 @@ static ASN1_OBJECT *ln_objs[NUM_LN]={
 &(nid_objs[125]),/* "zlib compression" */
 };
 
-static ASN1_OBJECT *obj_objs[NUM_OBJ]={
+const static ASN1_OBJECT *const obj_objs[NUM_OBJ]={
 &(nid_objs[ 0]),/* OBJ_undef                        0 */
 &(nid_objs[404]),/* OBJ_ccitt                        0 */
 &(nid_objs[434]),/* OBJ_data                         0 9 */

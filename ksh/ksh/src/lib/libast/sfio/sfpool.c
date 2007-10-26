@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Management of pools of streams.
@@ -124,14 +120,13 @@ int		n;	/* current position in pool	*/
 	SFLOCK(head,0);
 	rv = -1;
 
-	if(!(p->mode&SF_SHARE) )
+	if(!(p->mode&SF_SHARE) || (head->mode&SF_READ) || (f->mode&SF_READ) )
 	{	if(SFSYNC(head) < 0)
 			goto done;
 	}
-	else	/* shared pool, data can be moved among streams */
+	else	/* shared pool of write-streams, data can be moved among streams */
 	{	if(SFMODE(head,1) != SF_WRITE && _sfmode(head,SF_WRITE,1) < 0)
 			goto done;
-		/**/ASSERT((f->mode&(SF_WRITE|SF_POOL)) == (SF_WRITE|SF_POOL) );
 		/**/ASSERT(f->next == f->data);
 
 		v = head->next - head->data;	/* pending data		*/
@@ -158,7 +153,7 @@ int		n;	/* current position in pool	*/
 
 	f->mode &= ~SF_POOL;
 	head->mode |= SF_POOL;
-	head->next = head->endr = head->endw = head->data;
+	head->next = head->endr = head->endw = head->data; /* clear write buffer */
 
 	p->sf[n] = head;
 	p->sf[0] = f;

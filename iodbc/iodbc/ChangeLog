@@ -1,298 +1,1540 @@
+2007-01-05 12:52  source
+
+	* Updated version to 3.53.5 (pvk)
+
+2007-01-05 12:45  source
+
+	* Added support for RedHat FC6 64bit (pvk)
+
+2007-01-05 12:22  source
+
+	* Reverted incomplete patch (pvk)
+
+2007-01-03 14:29  source
+
+	* Fixed buffer size calculation (sm)
+
+2007-01-03 14:27  source
+
+	* Fixed problem connecting with FileDSN (sm)
+
+2007-01-03 14:26  source
+
+	* Fixed missing newline when showing parameters (sm)
+
+2006-12-21 11:28  source
+
+	* Increased limit of tracedump char and hex data to 1000 lines max (pvk)
+
+2006-12-21 11:24  source
+
+	* Limit the size of the tracefile to about 1Gb (pvk)
+
+2006-12-21 11:23  source
+
+	* Fixed problems with FileDSN in GTK build (sm)
+
+2006-12-15 14:05  source
+
+	* Updated version to 3.52.5-rc2
+
+2006-12-15 14:04  source
+
+	* Added configure option to set default FileDSN directory (pvk)
+
+2006-12-15 14:04  source
+
+	* Allow user to bypass connection check when adding a FileDSN (sm)
+
+2006-12-12 16:27  source
+
+	* Removed bogus free (pvk)
+
+2006-12-12 16:18  source
+
+	* Removed duplicate error message box (pvk)
+
+2006-12-11 16:52  source
+
+	* Incorporated diff from debian web site (pvk)
+
+2006-12-11 16:19  source
+
+	* Updated version to 3.52.5-rc1
+
+2006-12-11 15:58  source
+
+	* Fixed problem when driver has not yet been connected (pvk)
+
+2006-12-11 14:21  source
+
+	* Use SQL_SUCCEEDED macro to increase readability (pvk)
+
+2006-12-11 13:42  source
+
+	* Fixed problem always returning SQL_ERROR due to logic bug (pvk)
+
+2006-12-11 13:25  source
+
+	* Call ODBC 2.x functions in driver if application uses ODBC 2.x only
+	  (pvk)
+
+2006-11-03 14:58  source
+
+	* Added check for /Library/ODBC for Mac OS X (pvk)
+
+2006-11-02 09:47  source
+
+	* Fixed typo
+
+2006-09-25 11:36  source
+
+	* Call ODBC 2.x functions in driver if application uses ODBC 2.x only
+	  (sm)
+
+2006-08-03 17:51  source
+
+	* Added missing header to distribution
+
+2006-07-17 14:53  source
+
+	* Removed procid reference from code and simplified call mechanism (pvk)
+
+2006-07-11 12:26  source
+
+	* Simplified CALL_DRIVER and CALL_UDRIVER macros
+
+2006-07-10 13:46  source
+
+	* Merged FileDSN and ConnectionPooling support from iODBC-3_52_4-DEVEL
+
+2006-07-10 13:43  source
+
+	* Merged FileDSN support from iODBC-3_52_4-DEVEL into HEAD
+
+2006-07-10 13:24  source
+
+	* Use highlighting in overview screen (pvk)
+
+2006-07-10 13:23  source
+
+	* Rewrote bootstrap script to be more verbose about programs/versions
+	  needed (pvk)
+
+2006-06-09 13:34  source
+
+	* Fixed bug overwriting driver name (sm)
+
+2006-05-31 14:32  source
+
+	* Additional support for Connection Pooling in GTK dialogs (sm)
+
+2006-05-30 12:24  source
+
+	* Fixed connection pooling support
+
+2006-05-24 13:45  source
+
+	* Added bold titles to summary (pvk)
+
+2006-05-24 13:42  source
+
+	* Rewrote bootstrap script (pvk)
+
+2006-05-24 13:38  source
+
+	* Added  support for FileDSN in GTK based administrator (sm)
+
+2006-05-09 06:15  source
+
+	* Small FileDSN cleanup (sm)
+
+2006-04-27 15:06  source
+
+	* Skip {..}  when parsing connect string (sm)
+
+2006-04-27 13:49  source
+
+	* Fixed version information (pvk)
+
+2006-04-27 13:48  source
+
+	* Removed C++ comments (pvk)
+
+2006-04-27 13:47  source
+
+	* Default FILEDSN on Mac OS X is /Library/ODBC/ODBCDataSources (pvk)
+
+2006-04-27 13:45  source
+
+	* Skip {..}  when parsing connect string (sergei)
+
+2006-04-27 13:45  source
+
+	* Removed FAR keyword
+	* Fixed prototypes
+	  (pvk)
+
+2006-03-21 16:08  source
+
+	* Use localtime_r (pvk)
+
+2006-03-10 10:06  source
+
+	* Merged FileDSN and ConnectionPooling support (sm)
+
+2006-03-06 15:20  source
+
+	* Fixed typo in function prototype (pvk)
+
+2006-03-03 16:34  source
+
+	* Updated Info strings (pvk)
+
+2006-02-24 10:38  source
+
+	* Let the driver manager call the setup dialogs for now and then
+	  call the driver with SQL_DRIVER_NOPROMPT (sm)
+
+2006-02-13 16:03  source
+
+	* Version information is inserted by installer scripts (pvk)
+
+2006-02-13 16:01  source
+
+	* Added sccid to all sections to get string with load type into binary (pvk)
+
+2006-02-08 13:56  source
+
+	* Remove ppc64 from universal builds (pvk)
+
+2006-02-02 23:12  source
+
+	* Fixed include file problem on Mac OS X 10.3 (pvk)
+
+2006-02-02 23:11  source
+
+	* Added realclean rule (pvk)
+
+2006-01-26 15:59  source
+
+	* Finalized iODBC-3.52.4 release (pvk)
+
+2006-01-26 15:57  source
+
+	* Updated version number to 3.52.4 (pvk)
+
+2006-01-26 15:54  source
+
+	* Add -Wl,+s to HP/UX builds to enable SHLIB_PATH handling (pvk)
+
+2006-01-26 14:55  source
+
+	* Moved darwin specific -DNO_FRAMEWORKS from PORT.OpenLink to configure.in
+	* Updated build instructions for Mac OS X
+	  (pvk)
+
+2006-01-26 01:14  source
+
+	* Updated version number and build number in preparation for release (pvk)
+
+2006-01-26 00:45  source
+
+	* Fixed copyright notice (pvk)
+
+2006-01-25 23:49  source
+
+	* Added missing include directory (pvk)
+
+2006-01-25 22:50  source
+
+	* Added project files for Mac OS X 10.4 Universal builds (pvk)
+
+2006-01-25 22:05  source
+
+	* Make it easier to change buildstyles (pvk)
+
+2006-01-25 15:51  source
+
+	* Fixed order in which targets need to be installed (pvk)
+
+2006-01-25 15:34  source
+
+	* Converted Xcode project files for Mac OS X 10.4 Universal builds (pvk)
+
+2006-01-25 11:53  source
+
+	* Fixed bug in determining which version of Mac OS X we build on (pvk)
+
+2006-01-25 11:26  source
+
+	* Cleanup Mac OS X project files (pvk)
+
+2006-01-25 00:35  source
+
+	* Updated version number (pvk)
+
+2006-01-24 16:48  source
+
+	* Simplified building process (pvk)
+
+2006-01-24 16:22  source
+
+	* Fixed include paths (pvk)
+
+2006-01-24 15:02  source
+
+	* Fixed wchar_t issue on Mac OS X (pvk)
+
+2006-01-24 14:58  source
+
+	* Added new version macros for Mac OS X build (pvk)
+
+2006-01-24 14:52  source
+
+	* Fixed building and installing iodbctest and iodbctestw (pvk)
+
+2006-01-24 11:31  source
+
+	* Files to ignore (pvk)
+
+2006-01-24 11:28  source
+
+	* Added guard against including sqlext.h twice (pvk)
+
+2006-01-24 11:25  source
+
+	* Fixed include paths building on Mac OS X (pvk)
+
+2006-01-24 11:25  source
+
+	* Added proper header file for prototypes
+	* Fixed typo in function name
+	  (pvk)
+
+2006-01-24 00:09  source
+
+	* Fixed compiler warnings (pvk)
+
+2006-01-24 00:08  source
+
+	* Fixed some compiler warnings (pvk)
+
+2006-01-20 15:58  source
+
+	* Clarify which version of the LGPL license this project adheres to
+	  (pvk)
+
+2006-01-20 12:23  source
+
+	* Fixed temporary framework search paths
+	* Fixed framework version for non-standard build
+	  (pvk)
+
+2006-01-20 12:12  source
+
+	* Moved dlf.[ch] and unicode.[ch] to iodbcinst (pvk)
+
+2006-01-20 11:04  source
+
+	* Use iodbcinst_common and gtk/libdrvproxy-gtk.la convenience libraries
+	  instead of referring to individual object files
+	  (pvk)
+
+2006-01-20 11:03  source
+
+	* Use iodbcinst_common and gtk/libiodbcadm-gtk.la convenience libraries
+	  instead of referring to individual object files
+	  (pvk)
+
+2006-01-20 11:01  source
+
+	* Added more functions to export (pvk)
+
+2006-01-20 11:01  source
+
+	* Use new iodbcinst_common library so iodbc does not need to be linked
+	  against libiodbcinst. This created problems on various platforms like HP/UX
+	  with static link paths being inserted into the libiodbc.so library
+	  (pvk)
+
+2006-01-20 10:58  source
+
+	* Created convenience library with common objects that are used in more
+	  than one place (pvk)
+
+2006-01-20 10:55  source
+
+	* Moved dlf.[ch] and unicode.[ch] to iodbcinst (pvk)
+
+2006-01-20 10:52  source
+
+	* Moved confirm.c and question.xpm from drvproxy/gtk to iodbcadm/gtk (pvk)
+
+2006-01-18 16:17  source
+
+	* If towlower does not exist and we cannot use Frameworks, then just return
+	  the original character  (pvk)
+
+2006-01-18 15:44  source
+
+	* Added support for Mac OS X 10.2 (pvk)
+
+2006-01-18 14:03  source
+
+	* On AIX we prefer the cc_r7 compiler instead of the cc compiler (pvk)
+
+2006-01-18 13:27  source
+
+	* Temporarily disabled --disable-odbc3 untill all parts of iODBC DM have
+	  been fixed to compile with ODBCVER=0x0250 (pvk)
+
+2006-01-18 00:27  source
+
+	* Unicode and ANSI functions did not exist in ODBC 2.50 (pvk)
+
+2006-01-17 19:21  source
+
+	* Fixed errors when compiling iODBC for ODBC 2.50 specs (pvk)
+
+2006-01-17 19:18  source
+
+	* Fixed ODBCVER (pvk)
+
+2006-01-13 00:01  source
+
+	* Added support for SUSE Linux on AMD opteron (pvk)
+
+2006-01-13 00:00  source
+
+	* Added missing header files for function prototypes (pvk)
+
+2006-01-12 15:57  source
+
+	* Added support for building on Apple Mac OS X 10.4 ppc, ppc64 and i386
+	  all in one
+	  (pvk)
+
+2006-01-11 14:10  source
+
+	* Allow # as extra comment character on reading the odbc.ini file. (pvk)
+
+2006-01-11 13:26  source
+
+	* If subsequent SQLExecute returns SQL_ERROR, set handle state back to
+	  en_stmt_prepared and leave the prep_state as is.
+	 (pvk)
+
+2006-01-11 12:04  source
+
+	* Fixed typo in local variable decl (pvk)
+
+2005-12-12 13:04  source
+
+	* Fixed memory leak (mk)
+
+2005-11-24 09:30  source
+
+	* Added new file (mk)
+
+2005-11-24 09:29  source
+
+	* Merged branch 3.52.2-DEVEL into 3.52.3-DEVEL to continue development
+	  cycle (mk)
+
+2005-11-07 11:51  source
+
+	* Added missing file (pvk)
+
+2005-11-07 11:39  source
+
+	* Finalized iODBC-3.52.3 release (pvk)
+
+2005-11-07 09:51  source
+
+	* Fixed build issue with previously installed libraries (pvk)
+
+2005-11-04 17:34  source
+
+	* Fixed problem building on Mac OS X 64bit (pvk)
+
+2005-11-04 17:17  source
+
+	* Apple does not provide certain frameworks in 64bit mode yet (pvk)
+
+2005-11-04 16:59  source
+
+	* Added Unicode symbols (pvk)
+
+2005-11-04 16:24  source
+
+	* Added option to build in current directory (pvk)
+
+2005-11-04 16:08  source
+
+	* Updated DM build number and library version number (pvk)
+
+2005-11-04 16:06  source
+
+	* Updated version number to 3.52.3 (pvk)
+
+2005-11-04 13:48  source
+
+	* Added check for more wchar functions (pvk)
+
+2005-11-04 13:42  source
+
+	* Added support for AIX 5.x (pvk)
+
+2005-11-04 13:37  source
+
+	* Removed check for xml2 which is not needed for iODBC (pvk)
+
+2005-11-04 13:28  source
+
+	* Added support for HP/UX Itanium (pvk)
+
+2005-11-04 13:13  source
+
+	* Fixed support for building on Mac OS X 10.3 and 10.4 in Darwin mode (pvk)
+
+2005-11-04 13:11  source
+
+	* Added detection for glibtoolize for Mac OS X build (pvk)
+
+2005-11-04 13:08  source
+
+	* Apple does not provide certain frameworks in 64bit mode yet (pvk)
+
+2005-10-08 15:13  source
+
+	* Include config.h if present (pvk)
+
+2005-10-08 14:19  source
+
+	* Fixed calculating end of buffer without lvalue cast as some
+	  compilers did not like this construction
+	  (pvk)
+
+2005-10-08 14:09  source
+
+	* Ignore files from copied from autoconf/automake/libtool (pvk)
+
+2005-10-08 14:07  source
+
+	* Resurrected mkinstalldirs (pvk)
+
+2005-10-08 13:58  source
+
+	* Added timestamp to ENTER/EXIT trace lines to get better idea of
+	  where application time was spend; inside or outside of ODBC calls.
+	  (pvk)
+
+2005-10-08 13:20  source
+
+	* Removed files that are distributed by autoconf/automake/libtoolize (pvk)
+
+2005-10-08 12:48  source
+
+	* Updated build version and library version (pvk)
+
+2005-10-08 11:43  source
+
+	* Fixed problem with truncated messages in ODBC_Error function (pvk)
+
+2005-10-08 11:39  source
+
+	* C++ normally has wchar_t (pvk)
+
+2005-10-08 11:37  source
+
+	* Fixed problem with symbol hiding unicode translation functions (pvk)
+
+2005-09-21 10:14  source
+
+	 * connection attr matching implemented per "Attribute Matching"
+	 * connection attributes are properly reset when connection is taken
+	   from the pool per "Attribute Matching"
+	   (mk)
+
+2005-09-12 09:25  source
+
+	* Added initial support for connection pooling (mk)
+
+2005-09-12 08:46  source
+
+	* Merged diffs from HEAD (pvk)
+
+2005-09-12 08:35  source
+
+	* Avoid calling _iodbcdm_drvconn_dialbox twice (sm)
+
+2005-09-12 08:28  source
+
+	* Removed semicolon from end of statement block
+	* Small code cleanup
+	  (pvk)
+
+2005-09-12 08:18  source
+
+	* Set config mode before looking for driver name (sm)
+
+2005-09-12 08:18  source
+
+	* Fixed problem with ODBC_BOTH_DSN (sm)
+
+2005-08-30 12:59  source
+
+	* Reordered InfoTypes based on ODBC version
+	* Fixed problem with some types like SQL_POS_OPERATION and
+	  SQL_POSITIONED_STATEMENTS which where flagged ODBC 2.x only by mistake
+	  (pvk)
+
+2005-08-22 10:41  source
+
+	* Fixed building with filedsn code (mk)
+
+2005-08-22 10:40  source
+
+	* Removed old filedsn code (mk)
+
+2005-08-22 10:39  source
+
+	* Fixed FileDSN dialogs on GTK+ (mk)
+
+2005-08-22 08:38  source
+
+	* DRIVER in connection string should always override DRIVER from file dsn
+	  (mk)
+
+2005-08-22 08:37  source
+
+	* Fixed NUL termination problem
+	* DSN input was not disabled correctly
+	  (mk)
+
+2005-08-22 08:36  source
+
+	* Fixed NUL termination problem (mk)
+
+2005-08-16 00:07  source
+
+	* Fixed minor build problems on Mac OS X
+	* Allow both Xcode 1.5 and 2.1 style build directories
+	  (pvk)
+
+2005-08-15 22:53  source
+
+	* Disable Carbon framework in Mac OS X 64bit port (pvk)
+
+2005-08-15 22:44  source
+
+	* Fixed problem mixing framework type header files, which are prefixed
+	  with framework name, and internal header files
+	  (pvk)
+
+2005-08-15 22:41  source
+
+	* Add iodbcinst.h to install target (pvk)
+
+2005-08-15 22:40  source
+
+	* Do not distribute iodbc.h header anymore (pvk)
+
+2005-08-15 21:06  source
+
+	* Install iodbctest and iodbctestw in
+	  /Library/Application Support/iODBC/bin
+	  (pvk)
+
+2005-08-15 21:04  source
+
+	* Fixed include files for Mac OS X framework build (pvk)
+
+2005-08-11 11:01  source
+
+	* Fixed FileDSN support in GTK adminstrator (mk)
+
+2005-08-05 09:35  source
+
+	* Added initial support for FileDSN handling (mk)
+
+2005-08-03 10:18  source
+
+	* Added 'reconnect' command to iodbctest (pvk)
+
+2005-07-29 12:16  source
+
+	* Added defines for Mac OS X 10.3 and newer (sergei)
+
+2005-07-29 12:15  source
+
+	* Fixed typo (sergei)
+
+2005-07-27 10:48  source
+
+	* Improve the quality of error messages for dynamic linker problems
+	  (sergei)
+
+2005-07-26 23:16  source
+
+	* Added Max (pvk)
+
+2005-07-26 23:16  source
+
+	* Recalculate cbConnStrIn as szConnStrIn might have been changed by
+	  iodbcdm_drvconn_dialbox
+	  (mk)
+
+2005-07-19 10:19  source
+
+	* Changed SQL_DRIVER_PROMPT to SQL_DRIVER_COMPLETE which still allows
+	  drivers that have graphical setup screens to use them, but fixes a
+	  problem with the MyODBC driver which returns a very cryptic
+	  "No DSN entered".
+	  (pvk)
+
+2005-07-15 23:44  source
+
+	* Added initial support for pkg-config spec file (pvk)
+
+2005-07-15 23:23  source
+
+	* Fixed problem with SQLDriverConnect when graphical library could not
+	  be found, the driver manager automatically returned an error when
+	  performing SQLDriverConnect (....., SQL_DRIVER_PROMPT).
+	  Instead we now silently continue to call the driver and hope it either
+	  asks for the missing connection parameters, or return an error.
+	  (pvk)
+
+2005-07-15 23:10  source
+
+	* Added support for DSN-less connections (pvk)
+
+2005-05-13 09:57  source
+
+	* Renamed iodbcinst.h to odbcinst.h (pvk)
+
+2005-05-13 09:47  source
+
+	* Replaced enum bool with int (pvk)
+
+2005-05-13 09:46  source
+
+	* Use getprogname on Mac OS X 10.3 and above (pvk)
+
+2005-05-13 09:40  source
+
+	* Fixed frameworkname for iODBCinst (pvk)
+
+2005-05-13 09:39  source
+
+	* Added support for sqlucode.h (pvk)
+
+2005-05-12 12:27  source
+
+	* Renamed iodbcinst.h to odbcinst.h (pvk)
+
+2005-03-22 16:31  source
+
+	* Added missing unicode.[ch] into project file (pvk)
+
+2005-03-14 10:35  source
+
+	* Added Unicode functions to gtk graphical code
+	* Fixed small Unicode bugs
+	  (sm)
+
+2005-03-09 08:07  source
+
+	* Removed space from -D compile flag (pvk)
+
+2005-03-03 13:32  source
+
+	* Stubs for gtk code until we can fix the Unicode part (pvk)
+
+2005-03-02 17:17  source
+
+	* Build iODBCadm as a bundle rather than a Framework
+	* Fixed problems calling drvproxy code from iodbcadm
+	  (sm)
+
+2005-03-02 17:02  source
+
+	* Added support for missing wchar functions (ep+sm)
+
+2005-03-02 17:00  source
+
+	* Indented code to improve readability (pvk)
+
+2005-03-02 16:53  source
+
+	* Added support for iodbcinst Unicode functions (ep+sm)
+
+2005-03-02 15:52  source
+
+	* Updated debian build files with latest fixes from Christian (pvk)
+
+2005-03-01 16:23  source
+
+	* Ignore config.nice (pvk)
+
+2005-03-01 16:04  source
+
+	* Explain which layouts are available instead of cryptic error (pvk)
+
+2005-03-01 16:02  source
+
+	* Added extra configure flag --disable-libodbc to disable the building of
+	  the additional libodbc.so library some programs are linked against
+	  (pvk)
+
+2005-02-15 17:08  source
+
+	* Fixed problem compiling iodbctest.c with C++ compiler (pvk)
+
+2005-02-14 11:44  source
+
+	* Added initial support for building on MAC OS X 10.4 (pvk)
+
+2005-02-14 11:41  source
+
+	* Don't stop the build process if strip fails on Darwin (pvk)
+
+2005-02-14 09:56  source
+
+	* Fixed symbol clash between Oracle instant client and iODBC on Mac OS X
+	  (sergei)
+
+2005-02-08 11:29  source
+
+	* Removed static declaration from Done_iODBC (pvk)
+
+2005-02-04 17:20  source
+
+	* Finalized 3.52.2 release (pvk)
+
+2005-02-04 17:18  source
+
+	* Put in final release stamp (pvk)
+
+2005-02-04 16:34  source
+
+	* Added Mac OS X specific iodbc-config script for framework link (pvk)
+
+2005-02-01 16:00  source
+
+	* Ignore build directories (pvk)
+
+2005-02-01 15:59  source
+
+	* Updated version number to 3.52.2 (pvk)
+
+2005-02-01 15:38  source
+
+	* Added Port.OpenLink script to package distribution (pvk)
+
+2005-02-01 14:48  source
+
+	* Fixed iODBC initialization code
+	* Added global lock around SQLAllocHandleSTD (SQL_HANDLE_HENV)
+	  (pvk)
+
+2005-02-01 14:22  source
+
+	* Close tracefile after the last environment handle has been freed (pvk)
+
+2005-02-01 01:11  source
+
+	* Make sure trace_stop can be called multiple times (pvk)
+
+2005-02-01 01:09  source
+
+	* Fixed iODBC initialization code
+	* Added global lock around SQLAllocEnv/SQLAllocHandle (SQL_HANDLE_HENV)
+	  (pvk)
+
+2005-02-01 00:59  source
+
+	* Do not stop tracing prematurely (pvk)
+
+2005-01-31 14:23  source
+
+	* Fixed whitespace (pvk)
+
+2005-01-31 14:22  source
+
+	* Allow root to trace odbc sessions, but make sure we do not overwrite
+	  any existing files
+	  (pvk)
+
+2005-01-31 14:20  source
+
+	* Changed parsing of TraceFile to avoid buffer overruns (pvk)
+
+2005-01-31 14:19  source
+
+	* Added Driver Manager version to start of trace
+	* Added date/time finished to end of trace
+	* Changed date/time format
+	  (pvk)
+
+2005-01-21 13:28  source
+
+	* Build sample programs with static iODBC libraries (pvk)
+
+2005-01-21 13:13  source
+
+	* Removed generated file (pvk)
+
+2005-01-21 13:07  source
+
+	* Added script OpenLink uses to port iODBC as reference (pvk)
+
+2005-01-21 13:05  source
+
+	* Added bootstrap.sh in package distribution
+	* Added admin/gtk.m4 so target machines without GTK can still use
+	  bootstrap.sh to setup the automake/autoconf configuration
+	  (pvk)
+
+2004-12-15 15:39  source
+
+	* When a driver specific SQLSetConnectAttr fails return SQL_SUCCESS_WITH_INFO
+	  rather than failing the connection
+	  (pvk)
+
+2004-12-15 15:32  source
+
+	* Only Darwin needs this special build rule (pvk)
+
+2004-12-15 15:31  source
+
+	* Only call SQLGetDiagRec on allocated handles (pvk)
+
+2004-12-15 14:39  source
+
+	* Fixed C++ prototype problems with older code on 32bit (pvk)
+
+2004-12-15 14:38  source
+
+	* Use $DESTDIR/$libdir to make libodbc symlinks (pvk)
+
+2004-11-03 15:22  source
+
+	* Fixed argument check to be case insensitive (pvk)
+
+2004-10-23 19:38  source
+
+	* Fixed null pointer problem (pvk)
+
+2004-10-15 13:08  source
+
+	* Use returned size of buffer if possible instead of relying on SQL_NTS
+	  (pvk)
+
+2004-10-04 08:38  source
+
+	* Added DESTDIR in make install for packaging in different dir (pvk)
+
+2004-09-29 12:03  source
+
+	* Updated NEWS with highlights of new release
+	* Added tag iODBC-3_52_1 to mark final release
+	  (pvk)
+
+2004-09-29 12:00  source
+
+	* Fixed Mac OS X install problems (ep)
+
+2004-09-29 11:37  source
+
+	* Fixed RPM build/package issue on RedHat 9 (pvk)
+
+2004-09-29 10:14  source
+
+	* Keep deprecated SQLROWCOUNT,SQLROWSETSIZE,SQLTRANSID and SQLROWOFFSET
+	  types around for backward compatibility (pvk)
+
+2004-09-28 16:30  source
+
+	* Added missing files for Mac OS X build (pvk)
+
+2004-09-28 14:14  source
+
+	* Set project version to 3.52.1 (pvk)
+
+2004-09-28 14:12  source
+
+	* Added support for SQL_BINARY fields (pvk)
+
+2004-09-28 14:10  source
+
+	* Use SQL_DRIVER_PROMPT to call GUI setup if available (pvk)
+
+2004-09-28 14:06  source
+
+	* Final fixes for SQLLEN definition (pvk)
+
+2004-09-28 14:05  source
+
+	* Fixed problem with ODBCINT64 definition (pvk)
+
+2004-09-28 14:04  source
+
+	* Make sure SQLGUID structure is the same size on both 32 and 64bit
+	  platforms (pvk)
+
+2004-09-28 14:03  source
+
+	* Moved some typedefs around (pvk)
+
+2004-09-28 13:59  source
+
+	* Small fixes to align with ms header file (pvk)
+
+2004-09-28 13:57  source
+
+	* Explain prototype choice SQLColAttribute (pvk)
+
+2004-09-28 13:55  source
+
+	* Mask out old and unused windows types (pvk)
+
+2004-09-28 13:54  source
+
+	* Added compile time check for sizeof(long) (pvk)
+
+2004-09-28 13:36  source
+
+	* Added symbolic tracing for SQLColAttribute (pvk)
+
+2004-09-28 13:36  source
+
+	* Indentation + standard copyright header (pvk)
+
+2004-09-10 12:09  source
+
+	* Added new layer so drivers can be logically unloaded without being
+	  physically unloaded. This is needed to resolve an outstanding memory
+	  leak, while protecting the application from crashing if the unloaded driver
+	  registered an on_exit hook. A new flag UnloadSafe can be added to a
+	  driver to note it is safe to physically unload the driver.
+	  (pvk)
+
+2004-08-26 12:20  source
+
+	* Fixed SQLSetDescRec trace function (pvk)
+
+2004-08-26 12:12  source
+
+	* Fixed "statement not reached" warning (pvk)
+
+2004-08-26 12:10  source
+
+	* Converted SQLUINTEGER to SQLULEN for 64bit handling (pvk)
+
+2004-08-20 10:03  source
+
+	* Fixed build issue on non Mac OS X machines (pvk)
+
+2004-08-20 09:56  source
+
+	* Fix to build non-framework version of iODBC on Mac OS X (ep)
+
+2004-08-16 11:04  source
+
+	* Enhanced support for tracing SQLGetFunctions (pvk)
+
+2004-08-13 10:07  source
+
+	* Increased size of output buffer for DSN to 1024 (pvk)
+
+2004-07-13 13:47  source
+
+	* Set basic permissions (th)
+
+2004-07-13 13:43  source
+
+	* Added script to link Framework build into /usr/local/iODBC on Mac OS X
+	* Fixed problem rewriting header files for Framework build
+	  (ep)
+
+2004-07-13 13:11  source
+
+	* Allow other ini files besides odbc.ini and odbcinst.ini to support
+	  FileDSN functions
+	  (pvk)
+
+2004-07-13 13:08  source
+
+	* Added standard headers to get some basic typedefs like wchar_t
+	* Added C calling conventions for C++
+	  (pvk)
+
+2004-07-13 13:04  source
+
+	* Replaces wchar.h with stdlib.h (pvk)
+
+2004-07-13 10:23  source
+
+	* Small fixes for Mac OS X build (ep)
+
+2004-07-07 21:55  source
+
+	* Do not assume . is in PATH when reading the libiodbc.la file (pvk)
+
+2004-07-07 14:33  source
+
+	* Make sure we use shl_open on HP/UX (pvk)
+
+2004-07-07 14:29  source
+
+	* Removed INT64 and UINT64 types as they clash on various Unix versions
+	  (pvk)
+
+2004-07-06 16:33  source
+
+	* Added support for iodbcunix.h and iodbcext.h headers (pvk)
+
+2004-07-06 15:47  source
+
+	* Fixed prototypes (pvk)
+
+2004-07-06 15:36  source
+
+	* Use ssize_t and size_t for string lengths
+	* Fixed 64bit cast issues
+	  (pvk)
+
+2004-07-06 15:33  source
+
+	* Fixed 64bit cast problems (pvk)
+
+2004-07-06 15:26  source
+
+	* Initial support for ODBC 3.52 API SQLLEN (pvk)
+
+2004-07-06 15:01  source
+
+	* Initialize SQLGetPrivateProfileString return buffer to empty string (pvk)
+
+2004-07-06 13:08  source
+
+	* Perform assignment in two steps for some older compilers (pvk)
+
+2004-07-06 12:36  source
+
+	* Use _mandir macro for path to man pages (pvk)
+
+2004-07-06 10:30  source
+
+	* Enhanced method for detecting pthread support on various platforms (pvk)
+
+2004-07-06 10:19  source
+
+	* Use AC_HELP_STRING to format --help texts (pvk)
+
+2004-07-06 10:16  source
+
+	* Handle UTF-8 sequences of 5 and 6 bytes
+	* Skip bad UTF-8 sequences replacing them with a # in the trace
+	  (pvk)
+
+2004-07-04 22:59  source
+
+	* Fixed typo in HP/UX shared library name handling (pvk)
+
+2004-06-24 15:46  source
+
+	* Added project build file for iodbctestw (ep)
+
+2004-06-24 15:43  source
+
+	* Small fixes for Mac OS X build (ep)
+
+2004-06-22 11:25  source
+
+	* Small indentation fixes
+	  (pvk)
+
+2004-06-22 11:23  source
+
+	* Fixed compiler warnings
+	* Small indentation fixes
+	  (pvk)
+
+2004-06-22 11:19  source
+
+	* Removed unused functions
+	* Small indentation cleanups
+	  (pvk)
+
+2004-06-22 11:12  source
+
+	* Merged patch from main branch (pvk)
+
+2004-06-21 13:34  source
+
+	* Fixed C and C++ compiler warnings
+	* Small indentation fixes
+	  (pvk)
+
+2004-06-21 13:32  source
+
+	* Preparations for adding ODBC64 support (pvk)
+
+2004-06-18 23:53  source
+
+	* Removed obsolete FAR keyword (pvk)
+
+2004-06-18 23:15  source
+
+	* Simplified version number maintenance (pvk)
+
+2004-06-18 23:10  source
+
+	* Added initial man pages (pvk)
+
+2004-06-18 14:32  source
+
+	* Fixed problems in SQLSetScrollOption emulation when driver does not
+	  support this function (pvk)
+
+2004-06-18 14:16  source
+
+	* Added checks to make sure all stages succeed properly (pvk)
+
+2004-06-18 14:14  source
+
+	* Added extra tool needed to compile sample directory (pvk)
+
+2004-06-18 14:10  source
+
+	* Export Unicode and ANSI names of ODBC functions (pvk)
+
+2004-06-18 13:06  source
+
+	* Install sample source and Makefile in binary distributions (pvk)
+
+2004-06-18 13:04  source
+
+	* Added Unicode support
+	* Added extra datatypes
+	  (pvk)
+
+2004-05-13 13:58  source
+
+	* Added iodbcext.h (pvk)
+
+2004-05-13 13:50  source
+
+	* Added support for SQLGetEnvAttr(SQL_ATTR_WCHAR_SIZE) extension (sm)
+
+2004-04-20 12:59  source
+
+	* Fixed NULL pointer dereference when connection fails (pvk)
+
+2004-03-18 17:16  source
+
+	* Removed dependency on Carbon libraries for now so the driver manager
+	  works on non console sessions (ep)
+
+2004-03-15 14:23  source
+
+	* Increased input buffer to 4096 (pvk)
+
 2004-02-24 10:14  source
 
 	* Updated NEWS with highlights of new release
 	* Updated version and build numbers to 3.51.2
 	  (pvk)
-	
+
 2004-02-24 10:10  source
 
 	* Fixed build problem on panther (th)
-	
+
 2004-02-23 18:13  source
 
 	* Fixed build problem with older make programs (pvk)
-	
+
 2004-02-23 15:01  source
 
 	* Fixed problem building on FreeBSD
 	* Clean symbolic links
 	  (pvk)
-	
+
 2004-02-23 13:22  source
 
 	* Regenerated ChangeLog (pvk)
-	
+
 2004-02-23 13:21  source
 
 	* Remove config.nice when making distributions (pvk)
-	
+
 2004-02-23 12:51  source
 
 	* Added --include-deps
 	* Print comment on using --enable-maintainer-mode
 	  (pvk)
-	
+
 2004-02-23 12:51  source
 
 	* Updated version information in preparation of final release (pvk)
-	
+
 2004-02-23 12:50  source
 
 	* Fixed problem building iodbctest program on Mac OS X (th)
-	
+
 2004-02-23 12:50  source
 
 	* Removed Framework build (th)
-	
+
 2004-02-23 12:41  source
 
 	* Check for pbxbuild (jaguar) or xcodebuild (panther)
 	  (th)
-	
+
 2004-02-23 11:53  source
 
 	* Updated copyright string (pvk)
-	
+
 2004-02-23 11:41  source
 
 	* Added support for config.nice script (pvk)
-	
+
 2004-02-23 11:40  source
 
 	* Removed debug code (pvk)
-	
+
 2004-02-23 11:37  source
 
 	* Automatically regenerate libiodb.spec script when configure.in
 	  changes (pvk)
-	
+
 2004-02-20 17:14  source
 
 	* Added --with-layout to simplify installation layouts for different
 	  distributions like Debian, Gentoo, FreeBSD etc
 	  (pvk)
-	
+
 2004-02-20 17:13  source
 
 	* Added missing file in distcheck (pvk)
-	
+
 2004-02-20 16:41  source
 
 	* Small documentation enhancements and clarifications (pvk)
-	
+
 2004-02-20 16:39  source
 
 	* Renewed build utilities (pvk)
-	
+
 2004-02-20 11:17  source
 
 	* Fixed license explaination
 	* Fixed URL to source code on www.iodbc.org site
 	  (pvk)
-	
+
 2004-02-19 12:21  source
 
 	* Fixed problem with finding install_libodbc.sh shell script (pvk)
-	
+
 2004-02-19 11:24  source
 
 	* If the allocation of the statement handle in the drivermanager fails,
 	  also release the statement handle in the driver
 	  (pvk)
-	
+
 2004-02-19 11:21  source
 
 	* Fixed prototype problem on Linux (pvk)
-	
+
 2004-02-18 16:12  source
 
 	* Fixed typo in fprintf format (pvk)
-	
+
 2004-02-18 16:05  source
 
 	* Initialise native_error to 0 as some drivers do not set this field (pvk)
-	
+
 2004-02-18 16:04  source
 
 	* Increased size of local variables to accommodate larger input
 	* Added SQLRowCount to display number of affected rows on DDL/DML
 	  statements
 	  (ep)
-	
+
 2004-02-18 15:59  source
 
 	* Removed compiler warning (ep)
-	
+
 2004-02-18 15:58  source
 
 	* Added missing prototype (ep)
-	
+
 2004-02-18 15:57  source
 
 	* Initialise some local variables (ep)
-	
+
 2004-02-18 15:55  source
 
 	* Updated Mac OS X build project (ep)
-	
+
 2004-02-18 12:33  source
 
 	* Added support for displaying NativeError number
 	* Added support for SQLDiagRec when compiling for ODBC 3.x
 	  (pvk)
-	
+
 2004-02-18 12:11  source
 
 	* Fixed problem with SQLCloseCursor
 	* Replaced call to SQLFreeStmt (hstmt, SQL_CLOSE) with SQLCloseCursor
 	  when compiling for ODBC 3.x
 	  (pvk)
-	
+
 2004-02-18 12:07  source
 
 	* Removed call to SQLSetConnectOption(SQL_OPT_TRACEFILE) (pvk)
-	
+
 2004-02-18 11:06  source
 
 	* SQLCloseCursor should not return SQLState 24000 as this is up to the
 	  Driver not the DriverManager (pvk)
-	
+
 2004-02-17 19:58  source
 
 	* Fixed compiler warnings
 	* Fixed size calculation for variable length string and binary fields
 	  (pvk)
-	
+
 2004-02-17 19:56  source
 
 	* Fixed small compiler warnings
 	* Use snprintf when available to guard against buffer overruns
 	* Fixed problem with empty strings
 	  (pvk)
-	
+
 2004-02-17 19:53  source
 
 	* Added missing trace function for SQLSetDescRec (pvk)
-	
+
 2004-02-17 19:38  source
 
 	* Removed stale message handler (pvk)
-	
+
 2004-02-17 19:37  source
 
 	* Added support for asprintf and snprintf to guard against buffer overflows
 	  (pvk)
-	
+
 2004-02-17 19:35  source
 
 	* Create symbolic links for libodbc.a and libodbc.so for applications that
 	  need it (pvk)
-	
+
 2004-02-17 19:34  source
 
 	* Added support for snprintf (pvk)
-	
+
 2004-02-17 19:34  source
 
 	* Increased size of buf to fix potential stack overwrite (pvk)
-	
+
 2004-02-17 19:31  source
 
 	* Removed duplicate call to MEM_FREE (pvk)
-	
+
 2004-02-17 19:17  source
 
 	* Changed command line arguments for cvs2cl (pvk)
-	
+
 2004-02-17 19:10  source
 
 	* Added Tim (pvk)
-	
+
 2004-02-17 19:08  source
 
 	* Small text clarifications (th)
-	
+
 2004-02-17 19:04  source
 
 	* Added check for asnprintf and snprintf (pvk)
-	
+
 2004-02-17 19:03  source
 
 	* Added tracing to SQLSetDescRec (pvk)
-	
+
 2004-02-17 12:56  source
 
 	* Fixed double call to free (pvk)
-	
+
 2004-02-04 16:33  source
 
 	* Added missing function names (pvk)
-	
-2004-02-04 16:28  source
 
-	* Fixed length calculation SQL_C_BINARY, SQL_C_CHAR and SQL_C_WCHAR 
-	  fields (pvk)
-	
 2004-02-04 16:28  source
 
 	* Do not trace zero length binary strings (pvk)
-	
+
+2004-02-04 16:28  source
+
+	* Fixed length calculation SQL_C_BINARY, SQL_C_CHAR and SQL_C_WCHAR
+	  fields (pvk)
+
 2004-02-04 16:02  source
 
 	* Added missing sqlunix.h
 	* Rewrote comment to include BSD license option
 	  (pvk)
-	
+
 2004-02-04 16:00  source
 
 	* Added new file that automake says we need (pvk)
-	
-2004-02-04 16:00  source
 
-	file compile was initially added on branch iODBC-3_51_1-DEVEL.
-	
 2004-02-04 15:59  source
 
 	* Unify ChangeLog entries that occur within one hour (pvk)
-	
+
 2004-02-04 15:55  source
 
 	* Added support for building both Unicode and non Unicode test program (pvk)
-	
+
 2004-02-02 15:17  source
 
 	* Small code cleanups (pvk)
-	
+
 2003-12-11 15:51  source
 
 	* Make sure the script functions when the current dir is not in the PATH
 	  (pvk)
-	
+
 2003-12-11 14:09  source
 
 	* Removed unused static functions (pvk)
-	
+
 2003-12-11 14:08  source
 
 	* Reindented code (pvk)
-	
+
 2003-12-11 14:07  source
 
 	* Changed SQLColattribute(s) function so the NumericAttribute is always
 	  a pointer to a SQLLEN  (pvk)
-	
+
 2003-12-11 12:32  source
 
 	* Added Unicode API function names (pvk)
-	
+
 2003-12-10 13:23  source
 
 	* Reindented code (pvk)
-	
+
 2003-12-10 13:11  source
 
 	* Fixed small compiler warnings (pvk)
-	
+
 2003-12-10 10:07  source
 
 	* Set SQLINTEGER to be a int which on all machines should be a 32bit
@@ -302,320 +1544,304 @@
 	* Fixed signed/unsigned mismatch
 	* Minor cleanups
 	  (pvk)
-	
+
 2003-12-10 09:55  source
 
 	* Fixed small compiler warnings (pvk)
-	
+
 2003-11-27 16:19  source
 
 	* Fixed typo (pvk)
-	
+
 2003-11-27 16:19  source
 
 	* Define backward compatible SQLROWSETSIZE, SQLROWOFFSET and SQLROWCOUNT
 	  (pvk)
-	
+
 2003-11-26 16:07  source
 
 	* Added new extentions from OpenLink (pvk)
-	
-2003-11-26 14:26  source
 
-	file sqlunix.h was initially added on branch iODBC-3_51_1-DEVEL.
-	
 2003-11-26 14:26  source
 
 	* Draft of changes needed for ODBC 64 bit (pvk)
-	
+
 2003-11-26 14:06  source
 
 	* Added sqlunix.h (pvk)
-	
+
 2003-11-26 14:05  source
 
 	* Fixed problem with make distcheck (pvk)
-	
+
 2003-11-14 13:56  source
 
 	* Fixed C++ warning on tzset and localtime functions (pvk)
-	
+
 2003-11-14 13:55  source
 
 	* Fixed C++ invalid conversion error (pvk)
-	
+
 2003-11-14 13:51  source
 
 	* Fixed signed/unsigned warning (pvk)
-	
+
 2003-11-14 13:48  source
 
 	* Fixed C++ warnings (pvk)
-	
+
 2003-11-14 13:47  source
 
 	* Fixed potential buffer overflow (pvk)
-	
+
 2003-11-14 13:05  source
 
 	* Added more SQLLEN fixes (pvk)
-	
+
 2003-11-14 12:21  source
 
 	* Fixed C++ warnings and errors (pvk)
-	
+
 2003-11-14 11:48  source
 
 	* Eliminated old FAR attribute (pvk)
-	
+
 2003-11-14 11:31  source
 
 	* Fixed some potential buffer overflows (pvk)
-	
+
 2003-11-14 11:30  source
 
 	* Fixed core dump when driver could not be loaded (pvk)
-	
-2003-11-14 11:28  source
 
-	file install_libodbc.sh was initially added on branch iODBC-3_51_1-DEVEL.
-	
 2003-11-14 11:28  source
 
 	* Create symbolic links for libodbc.a and libodbc.so for applications that
 	  need it (pvk)
-	
+
 2003-11-12 18:31  source
 
 	* Fixed call to _Internal function (pvk)
-	
+
 2003-11-12 16:20  source
 
 	* Changed prototypes according to latest Microsoft ODBC specification for
 	  WIN64
 	* Added support for tracing SQLLEN and friends
 	  (pvk)
-	
+
 2003-11-12 16:19  source
 
 	* Fixed warning using C++ compiler (pvk)
-	
+
 2003-11-12 16:16  source
 
 	* Added tracing for SQLSetDescRec (pvk)
-	
-2003-11-12 16:16  source
 
-	file SetDescRec.c was initially added on branch iODBC-3_51_1-DEVEL.
-	
 2003-09-08 18:53  source
 
 	* Added README.CVS to documentation (pvk)
-	
+
 2003-09-08 18:32  source
 
 	* Merged previous Changelogs into NEWS file
 	* Use cvs2cl script to generate Changelog information from CVS
 	  (pvk)
-	
+
 2003-09-08 18:26  source
 
 	* Updated version and build numbers to 3.51.1 (pvk)
-	
+
 2003-09-08 09:00  source
 
 	* Added basic instructions for using the CVS tree (pvk)
-	
+
 2003-09-08 08:57  source
 
 	* Renamed bootstrap to bootstrap.sh and made it more developer friendly
 	  (pvk)
-	
+
 2003-09-07 16:08  source
 
 	* Upgraded to libtool-1.4.3 (pvk)
-	
+
 2003-09-07 14:54  source
 
 	* Updated package information and version/build strings (pvk)
-	
+
 2003-09-07 14:08  source
 
 	* Rewrote check for Dl_info type (pvk)
-	
+
 2003-09-07 13:29  source
 
 	* Removed symbol clash on iodbc_version between various components
 	  (pvk)
-	
+
 2003-09-07 13:11  source
 
 	* Added check for OS dependent compilers and flags for building
 	  threaded programs (pvk)
-	
+
 2003-09-07 12:59  source
 
 	* Display version number of Driver Manager (pvk)
-	
+
 2003-09-07 12:59  source
 
 	* Removed symbol clash on iodbc_version between various components
 	* Simplified getting version information from various components for
 	  iodbcadm-gtk
 	  (pvk)
-	
+
 2003-09-07 12:50  source
 
 	* Added check for const handling (pvk)
-	
+
 2003-09-05 17:10  source
 
 	* Added check for FreeBSD wchar_t define (pvk)
-	
+
 2003-09-05 17:08  source
 
 	* Do not use -static on convenience libraries (pvk)
-	
+
 2003-09-04 13:47  source
 
 	* Updated build instructions for MyODBC on Mac OS X (ep)
-	
+
 2003-09-04 13:43  source
 
 	* Use <iodbc.h> instead of <config.h> (pvk)
-	
+
 2003-09-04 13:33  source
 
 	* Moved iodbc/iodbc.h to include/iodbc.h (pvk)
-	
+
 2003-09-03 12:21  source
 
 	* Small fixes for MAC OS X (ep)
-	
+
 2003-09-03 10:33  source
 
 	* Added check for OS dependent libraries (pvk)
-	
+
 2003-09-03 10:08  source
 
 	* Small cleanups for MAC OS X build (ep)
-	
+
 2003-09-03 08:44  source
 
 	* Small changes to fix problems indicated by gcc compiler warnings (pvk)
-	
+
 2003-09-03 08:38  source
 
 	* Fixed buffer size allocation using SQLGetPrivateProfileString
 	* Always use a char buffer for SQLGetPrivateProfileString
 	  (pvk)
-	
+
 2003-09-03 08:10  source
 
 	* Use correct trace functions (pvk)
-	
+
 2003-09-02 14:44  source
 
 	* Added checks for wchar.h and wcslen, wcscpy and wcsncpy and provide
 	  our own implementation if they do not exist in the standard C library
 	  (pvk)
-	
+
 2003-08-29 13:06  source
 
 	* Fixed dependency problem between iodbc and iodbcinst (pvk)
-	
+
 2003-08-29 12:18  source
 
 	* Fixed state transition for SQLExecDirect (pvk)
-	
+
 2003-08-29 12:17  source
 
 	* Fixed state transitions for SQLFetch/SQLMoreresults (pvk)
-	
+
 2003-08-29 12:13  source
 
 	* Added libiodbcinst.la to the library dependency list (pvk)
-	
+
 2003-08-29 12:12  source
 
 	* Compile iodbcinst before iodbc (pvk)
-	
+
 2003-08-29 12:11  source
 
 	* Removed libiodbcinst.la as this is already implicit from libiodbc.la (pvk)
-	
+
 2003-08-29 12:10  source
 
 	* Added $(LIBADD_DL) to --static-libs (pvk)
-	
+
 2003-08-22 14:46  source
 
 	* Added info for new release (pvk)
-	
+
 2003-08-22 14:34  source
 
 	* Updated version number to 3.51.00 to indicate start of new development
 	  cycle (pvk)
-	
+
 2003-08-22 14:28  source
 
 	* Merged iODBC-3_0_6-DEVEL tree onto main trunk
 	  (pvk)
-	
+
 2003-08-22 14:24  source
 
 	* Small fixes for RPM spec file so iODBC can coexist with other DM (pvk)
-	
+
 2003-08-22 14:22  source
 
 	* Hook SQLSetConnectAttr (SQL_ATTR_TRACE) into new tracing library (pvk)
-	
+
 2003-08-22 08:57  source
 
 	* Handle missing DSN= from beginning of string (pvk)
-	
+
 2003-08-22 08:56  source
 
 	* Removed deprecated functions for reading ini files (pvk)
-	
+
 2003-08-21 13:33  source
 
 	* Rewrote parsing of DSN string (pvk)
-	
+
 2003-08-14 14:03  source
 
 	* Replaced absolute path in project file
 	* Changed odbctest to iodbctest
 	  (ep)
-	
-2003-08-14 13:55  source
 
-	file iodbctest.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-08-14 13:55  source
 
 	* Renamed odbctest to iodbctest (pvk)
-	
+
 2003-08-14 06:37  source
 
 	* Rewrote the way SQLDriverConnect hooks into graphical part (ep)
-	
+
 2003-08-13 23:59  source
 
 	* More files to ignore (pvk)
-	
+
 2003-08-13 23:51  source
 
 	* Make sure convenience libraries are not installed (pvk)
-	
+
 2003-08-13 23:50  source
 
 	* Generate RPM for Linux in ./distrib so we do not have to be root (pvk)
-	
+
 2003-08-13 23:45  source
 
 	* Changed --with-pthreads into --enable-pthreads (pvk)
-	
+
 2003-08-13 23:43  source
 
 	* Added missing files
@@ -623,585 +1849,253 @@
 	* Use --enable-pthreads
 	* Clean RPM_BUILD_ROOT
 	  (pvk)
-	
+
 2003-08-13 12:21  source
 
 	* Added iodbcinst library (pvk)
-	
+
 2003-08-13 12:19  source
 
 	* Added function to trace buffer lengths (pvk)
-	
+
 2003-08-13 12:18  source
 
 	* Added missing symbols
 	* Changed code for  info types that share the same symbolic mask
 	  (pvk)
-	
+
 2003-08-12 23:05  source
 
 	* Fixed dependency problem between iodbcinst and iodbcadm libraries (ep)
-	
+
 2003-08-12 23:03  source
 
 	* Delay final free of handle until after the trace, otherwise some
 	  memory checkers will think we are trying to deref a freed pointer (pvk)
-	
+
 2003-08-12 22:58  source
 
 	* If an ODBC call returns SQL_ERROR it is prudent not to dereference any
 	  pointers, ask the driver may not have initialized output arguments
 	  properly. (pvk)
-	
+
 2003-08-11 23:06  source
 
 	* Removed global lock around SQLFreeStmt
 	* Rewrote SQLFreeHandle
 	  (pvk)
-	
+
 2003-08-11 20:57  source
 
 	* Fixed NULL pointer problem in tracing strings
 	* Calculate length of Unicode string using wcslen
 	  (pvk)
-	
+
 2003-08-11 20:49  source
 
 	* Simplified trace_start code (pvk)
-	
+
 2003-08-11 20:23  source
 
 	* Fixed comment (pvk)
-	
+
 2003-08-11 20:22  source
 
 	* Aligned Unicode and non-Unicode output (pvk)
-	
+
 2003-08-11 20:18  source
 
 	* Renamed argument "leave" to "trace_leave" to avoid clash on OSF/1 (pvk)
-	
+
 2003-08-11 10:07  source
 
 	* Code cleanup on graphical setup (ep)
-	
-2003-08-11 10:07  source
 
-	file loginbox.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-08-11 08:25  source
 
 	* Save/Restore ConfigMode (ep)
-	
+
 2003-08-05 09:03  source
 
 	* Added more libraries to link in (ep)
-	
+
 2003-08-05 08:35  source
 
 	* Various GUI fixes for GTK (ep)
-	
+
 2003-08-05 08:35  source
 
 	* Added new SQLDrivers implementation (ep)
-	
+
 2003-08-04 09:28  source
 
 	* Use SQLGetPrivateProfile string in Driver Manager (ep)
-	
+
 2003-08-04 09:22  source
 
 	* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)* Small fixes for MAC build (ep)
-	
+
 2003-08-04 09:19  source
 
 	* Export iodbc_libname and iodbc_version (pvk)
-	
+
 2003-07-25 18:21  source
 
 	* Added iodbc_ prefix to version and libname symbols to make them
 	  unique to iODBC (pvk)
-	
+
 2003-07-25 13:38  source
 
 	* Get Application name on Mac OS X (ep)
-	
+
 2003-07-25 13:33  source
 
 	* Added missing trace call (pvk)
-	
+
 2003-07-25 13:30  source
 
 	* Merged second set of tracing patches (pvk)
-	
-2003-07-25 13:30  source
 
-	file SetDescField.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-07-23 16:20  source
 
 	* Added new files to build project (ep)
-	
+
 2003-07-23 16:19  source
 
 	* Added new symbols (ep)
-	
+
 2003-07-23 09:28  source
 
 	* Added convenience library for tracing (pvk)
-	
+
 2003-07-23 09:28  source
 
 	* Added missing header files (pvk)
-	
+
 2003-07-23 09:27  source
 
 	* First build trace subdirectory as a convenience library (pvk)
-	
+
 2003-07-23 09:27  source
 
 	* Added iodbcinst.h for detecting tracing (pvk)
-	
-2003-07-23 09:15  source
 
-	file .cvsignore was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-07-23 09:15  source
 
 	* Added makefile for tracing convenience library (pvk)
-	
-2003-07-23 09:15  source
 
-	file Makefile.am was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file NativeSql.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetEnvAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ProcedureColumns.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetCursorName.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetPos.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file trace.h was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file NumResultCols.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file PutData.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetDiagField.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ParamData.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetData.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetStmtOption.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file TablePrivileges.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file PrimaryKeys.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Info.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetTypeInfo.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetStmtAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file trace.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetCursorName.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ParamOptions.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetEnvAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetScrollOptions.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetStmtOption.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Tables.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file RowCount.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file proto.h was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetFunctions.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetStmtAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file NumParams.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetConnectOption.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Transact.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetDescRec.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetDiagRec.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Statistics.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Procedures.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SpecialColumns.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file MoreResults.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file SetConnectAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Prepare.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetDescField.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file DescribeParam.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file BindParameter.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Error.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file DataSources.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file BrowseConnect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file AllocEnv.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file FreeEnv.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ExtendedFetch.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetConnectAttr.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file FreeStmt.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Cancel.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file FreeHandle.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Execute.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file FreeConnect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ColAttribute.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Columns.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Disconnect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ColumnPrivileges.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ExecDirect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file BulkOperations.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Drivers.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Connect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file ForeignKeys.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file AllocHandle.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file DescribeCol.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file BindCol.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file GetConnectOption.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file AllocStmt.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file AllocConnect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file Fetch.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file CopyDesc.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file EndTran.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file DriverConnect.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file FetchScroll.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-07-23 09:13  source
-
-	file CloseCursor.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-07-23 09:13  source
 
 	* Moved thread lock to wrapper function and integrated tracing
 	* Added ODBC Tracing facility
 	  (pvk)
-	
+
 2003-07-23 08:46  source
 
 	* Disabled setting setopterr when driverload returns SQL_SUCCESS_WITH_INFO
 	  (pvk)
-	
+
 2003-07-23 08:15  source
 
 	* Fixed code dump situation when malloc returns NULL (pvk)
-	
+
 2003-07-22 12:29  source
 
 	* Resolve all undefined externals the moment the driver is loaded (pvk)
-	
+
 2003-07-22 10:58  source
 
 	* Added extra state to allow the user to retrieve warning messages after
 	  SQLExecute returns SQL_SUCCESS_WITH_INFO (pvk)
-	
+
 2003-07-22 10:50  source
 
 	* Added mapping for ODBC 2.x <--> ODBC 3.x Date/Time/Timestamp types (pvk)
-	
+
 2003-06-11 15:50  source
 
 	* Fixed paths on Mac OS X and Mac Classic (ep)
-	
+
 2003-06-11 15:42  source
 
 	* Fixed module loading on Mac OS X and Mac Classic (ep)
-	
+
 2003-06-11 15:41  source
 
 	* Fixed paths for MAC OS X and Mac classic preferences (ep)
-	
+
 2003-06-11 15:40  source
 
 	* Updated Mac OS project files (ep)
-	
+
 2003-06-03 15:23  source
 
 	* Upgraded to automake 1.7.1 (pvk)
-	
-2003-06-03 15:11  source
 
-	file iodbcext.h was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-06-03 15:11  source
-
-	file sqlucode.h was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-06-03 15:08  source
-
-	file unicode.h was initially added on branch iODBC-3_0_6-DEVEL.
-	
-2003-06-03 15:08  source
-
-	file unicode.c was initially added on branch iODBC-3_0_6-DEVEL.
-	
 2003-06-03 15:08  source
 
 	* Added Unicode support (sm)
-	
+
 2002-04-29 20:16  source
 
 	* Wrote final entries for V3.0.6 release (pvk)
-	
+
 2002-04-29 20:16  source
 
 	* Added instructions on how to build MyODBC using the Mac OS X frameworks
 	  (pvk)
-	
+
 2002-04-29 15:54  source
 
 	* Install iODBC frameworks always in /Library/Frameworks (pvk)
-	
+
 	* Fixed problems with iODBC header files when building with Mac OS X
 	  frameworks (pvk)
-	
+
 2002-04-29 12:47  source
 
 	* Added relative search path for iODBC framework (pvk)
-	
+
 2002-04-29 12:40  source
 
 	* Added packaging rules for the Debian project (ch)
-	
+
 2002-04-26 15:53  source
 
 	* Changed includes to <iODBC/sql.h> for framework builds (ep)
-	
+
 2002-04-26 15:52  source
 
 	* Added define in config.h for building GUI extentions (pvk)
-	
+
 2002-04-26 15:50  source
 
 	* Added initial build environment for Mac OS X framework (ep)
-	
+
 2002-04-26 12:35  source
 
 	* Use /Library/Preferences instead of the old /System/Library/Preferences
 	  (ep)
-	
+
 2002-04-26 11:34  source
 
 	* When using Apple Frameworks we need to provide the framework name (ep)
-	
+
 2002-04-26 11:23  source
 
 	* If we are not compiling with GUI enabled, make sure we do not
 	  have any GUI references in our library (ep)
-	
+
 2002-04-26 11:15  source
 
 	* Cleaned some unused variables (ep)
-	
+
 2002-04-26 11:14  source
 
 	* Set default version if the package has not been configured (ep)
-	
+
 	* Add default path for MacOS X preferences (ep)
-	
+
 2002-04-25 14:26  source
 
 	* Fixed GTK detection to enable GUI components
@@ -1209,845 +2103,845 @@
 	* Added check for DL_info datatype
 	* Updated library version number to 3:6:1
 	  (pvk)
-	
+
 2002-04-25 14:23  source
 
 	* Install the odbctest program with the rest of the package (pvk)
-	
+
 2002-04-25 14:21  source
 
 	* Create a new TOPLEVEL window if the user did not provide a valid
 	  window handle (ep)
-	
+
 2002-04-25 14:20  source
 
 	* Fixed detection of Dl_info structure (pvk)
-	
+
 2002-04-25 14:18  source
 
 	* Makefile cleanups (pvk)
-	
+
 2002-04-25 14:18  source
 
 	* Ignore the autom4te.cache dir (pvk)
-	
+
 2002-04-25 14:17  source
 
 	* Updated RedHat RPM spec file to latest release (pvk)
-	
+
 2002-04-25 14:15  source
 
 	* Upgraded to automake 1.6.1 (pvk)
-	
+
 2002-04-25 14:14  source
 
 	* Only build .tar.gz and .zip distributions for now (pvk)
-	
+
 2002-03-14 21:19  source
 
 	* Added support for automake 1.6, autoconf 2.53 and libtool 1.4.2 (pvk)
-	
+
 2002-03-14 20:50  source
 
 	* Updated comment to reflect dual LGPL/BSD license (pvk)
-	
+
 2002-03-14 20:45  source
 
 	* Fixed multiple definitions of CFLAGS in generated Makefile (pvk)
-	
+
 2002-03-14 20:43  source
 
 	* Added include of iodbc.h (pvk)
-	
+
 2002-01-31 13:58  source
 
 	* Added support for mapping SQLError to either SQLGetDiagRec or SQLError
 	  in the driver (epoitier)
-	
+
 2001-10-08 15:32  source
 
 	* Print the version information of the connected driver
 	* Renamed functions from DB_xxxx to ODBC_xxxx
 	  (pvk)
-	
+
 2001-09-11 12:48  source
 
 	* Updated version number to 3.0.6 (pvk)
-	
+
 2001-09-11 12:47  source
 
 	* Wrote entries for V3.0.6 (pvk)
-	
+
 2001-09-11 12:20  source
 
 	* Fixed wrong argument to SQLEndTran call (pvk)
-	
+
 2001-09-11 12:19  source
 
 	* Fixed spelling errors (pvk)
-	
+
 2001-09-11 12:15  source
 
 	* Added state transitions to SQLFetchScroll (pvk)
-	
+
 2001-09-11 12:15  source
 
 	* Fixed typo in mapping SQL_COLUMN_NAME, SQL_COLUMN_NULLABLE, or
 	  SQL_COLUMN_COUNT in SQLColumnAttributes (pvk)
-	
+
 2001-09-11 12:13  source
 
 	* Fixed bug in cleanup code for descriptors
 	* Fixed getting correct descriptor from driver
-	
+
 2001-09-11 12:11  source
 
 	* Return immediately if the arguments to SQLSetPos are wrong (pvk)
-	
+
 2001-09-11 12:08  source
 
 	* Added better support for skipping comments in string (pvk)
-	
+
 2001-09-11 12:07  source
 
 	* Added support for Driver specific connect options (pvk)
-	
+
 2001-06-12 08:49  source
 
 	* Finalized notes for 3.0.5 release (pvk)
-	
+
 2001-06-12 08:45  source
 
 	* SQLMoreResults always returned SQL_NO_DATA_FOUND (pvk)
-	
+
 2001-06-11 15:12  source
 
 	* Added new package libiodbc-admin (pvk)
-	
+
 2001-06-11 14:41  source
 
 	* Added support for multiple result sets (pvk)
-	
+
 2001-06-11 14:29  source
 
 	* Added configure flag --enable-gui to switch building the GUI parts of
 	  the iODBC administrator (pvk)
-	
+
 2001-06-11 13:29  source
 
 	* iODBC is now released under either the GNU Library General Public License
 	  or the BSD License. See files COPYING, COPYING.LGPL and COPYING.BSD for
 	  details (pvk)
-	
+
 2001-06-11 12:36  source
 
 	* Fixed portability issue with dladdr function (pvk)
-	
+
 2001-06-11 12:36  source
 
 	* Check if setenv function exists in standard libraries, otherwise use
 	  an internal copy (pvk)
-	
+
 2001-06-11 12:34  source
 
 	* Fixed typo (pvk)
-	
+
 2001-06-11 12:33  source
 
 	* Added sample odbcinst.ini file (pvk)
-	
+
 2001-06-07 00:56  source
 
 	* Wrote entries for V3.0.5 (pvk)
-	
+
 2001-06-07 00:54  source
 
 	* More files to ignore (pvk)
-	
+
 2001-06-07 00:53  source
 
 	* Added new iodbcinst, iodbcadm, drvproxy directories (pvk)
-	
+
 2001-06-07 00:52  source
 
 	* Added new contributor (pvk)
-	
+
 2001-06-07 00:51  source
 
 	* Added modified BSD license file (pvk)
-	
+
 2001-06-07 00:50  source
 
 	* Added GUI frontend (ep)
-	
+
 2001-06-07 00:49  source
 
 	* Added new iodbcadm library and iodbcadm-gtk frontend (ep)
-	
+
 2001-06-07 00:48  source
 
 	* Added new iodbcinst library (ep)
-	
+
 2001-06-06 12:36  source
 
 	* Rewrote SQLDriverConnect(..., SQL_DRIVER_PROMPT) to use GUI where
 	  appropriate (ep)
-	
+
 2001-06-06 12:34  source
 
 	* Added version and libname symbols (ep)
-	
+
 2001-06-06 12:34  source
 
 	* Fixed compiler warning on older compilers (ep)
-	
+
 2001-06-06 12:33  source
 
 	* Added support for Macintosh, Beos and MACX (ep)
-	
+
 2001-06-06 12:33  source
 
 	* Added dlopen support for Macintosh, Beos and MACX (ep)
-	
+
 2001-06-04 19:04  source
 
 	* Only top Makefile.am needs AUTOMAKE_OPTIONS setting (pvk)
-	
+
 2001-06-04 19:03  source
 
 	* Added notes (pvk)
-	
+
 2001-06-04 19:01  source
 
 	* More files to ignore (pvk)
-	
+
 2001-06-04 14:32  source
 
 	* Add -f to gzip (pvk)
-	
+
 2001-06-04 14:14  source
 
 	* More files to ignore (pvk)
-	
+
 2001-06-04 14:11  source
 
 	* Some files to ignore (pvk)
-	
+
 2001-06-04 14:07  source
 
 	* Added new config.h (generated from configure.in) (pvk)
-	
+
 	* Linux RPM spec file now automatically contains proper version number (pvk)
-	
+
 	* Set version number to 3.0.4 (pvk)
-	
+
 2001-06-04 14:05  source
 
 	* The libiodbc.spec file was moved to the admin directory (pvk)
-	
+
 2001-06-04 14:05  source
 
 	* Updated version number to 3.0.4 (pvk)
-	
+
 2001-06-04 14:04  source
 
 	* Added new config.h (generated from configure.in) (pvk)
-	
+
 2001-06-04 14:02  source
 
 	* Renamed config.h to iodbc.h (pvk)
-	
+
 	* Added new config.h (generated from configure.in) (pvk)
-	
+
 2001-06-04 14:01  source
 
 	* Renamed config.h to iodbc.h (pvk)
-	
+
 2001-06-04 13:49  source
 
 	* Linux RPM spec file now automatically contains proper version number (pvk)
-	
+
 2001-06-04 11:20  source
 
 	* Major archive restructuring in preparation of adding iodbcinst code (pvk)
-	
+
 2001-06-04 10:10  source
 
 	* Major archive restructuring in preparation of adding iodbcinst code (pvk)
-	
+
 2001-06-01 16:16  source
 
 	* Added support for automake 1.4-p2, autoconf 2.50 and libtool 1.4 (pvk)
-	
+
 2001-06-01 16:04  source
 
 	* Fixed problem with shl_unload on HP/UX (pvk)
-	
+
 2001-06-01 15:55  source
 
 	* iODBC does not need a handle to itself on HP/UX (pvk)
-	
+
 2001-06-01 15:46  source
 
 	* Added usage information when called with -? (pvk)
-	
+
 	 * Added more datatypes (pvk)
-	
+
 2001-06-01 15:44  source
 
 	* Rewrote DYLD support for MacOS X/Darwin 1.2 (pvk)
-	
+
 2001-06-01 15:40  source
 
 	* Disallow root to start a debug session as this is a security risk (pvk)
-	
+
 2001-06-01 15:36  source
 
 	* Return Driver Type name instead of DSN Description (pvk)
-	
+
 2001-06-01 15:33  source
 
 	* Removed stub for SQLGetPrivateProfileString (pvk)
-	
+
 2001-06-01 15:33  source
 
 	* Added checks for ODBC 3.x date, time and timestamp defines (pvk)
-	
+
 2000-07-05 15:37  source
 
 	* Translation of SQL_OJ_CAPABILITIES should only be done in ODBC 3.x (todd)
-	
+
 2000-07-05 15:36  source
 
 	* Fixed typo (pvk)
-	
+
 2000-06-14 10:15  source
 
 	* Fixed initialization of cip flag which resulted in function sequence
 	  errors (pvk)
-	
+
 2000-06-14 10:05  source
 
 	* Added call to SQLCloseCursor for ODBC 3.x (pvk)
-	
+
 2000-02-01 17:13  source
 
 	* Wrote ChangeLog entries for V3.0.1 and V3.0.2 distribution (pvk)
-	
+
 2000-02-01 16:59  source
 
 	* Incremented package version number to 3.0.2 (pvk)
-	
+
 2000-02-01 12:54  source
 
 	* SQLNumResult calls is also called from within iODBC, so it needs
 	  a wrapper function (pvk)
-	
+
 2000-02-01 12:51  source
 
 	* Check the pointer instead of the content (pvk)
-	
+
 2000-01-28 14:43  source
 
 	* Added extra check for ANSI C Compilers (pvk)
-	
+
 2000-01-28 14:29  source
 
 	* Forgot to update pcbDSN and pcbDesc fields (pvk)
-	
+
 2000-01-28 14:16  source
 
 	* Incremented package version number to 3.0.1 (pvk)
-	
+
 2000-01-28 14:14  source
 
 	* Added new argument --libtool-libs (pvk)
-	
+
 2000-01-28 14:13  source
 
 	* Added check for pthread library (pvk)
-	
+
 2000-01-28 14:12  source
 
 	* Added new header file for thread-safe codebase (pvk)
-	
+
 2000-01-28 14:11  source
 
 	* Added thread-safe macros to the codebase (pvk)
-	
+
 2000-01-28 14:08  source
 
 	* Added thread-safe macros and definitions (pvk)
-	
+
 2000-01-26 13:07  source
 
 	* Use $(MAKE) instead of plain make command (pvk)
-	
+
 2000-01-21 12:52  source
 
 	* Ignore generated files (pvk)
-	
+
 2000-01-21 12:51  source
 
 	* Removed generated files in favor of the bootstrap script (pvk)
-	
+
 2000-01-21 12:49  source
 
 	* Added shell script for freshly checked out CVS tree (pvk)
-	
+
 1999-12-16 15:57  source
 
 	* Refreshed generated files (pvk)
-	
+
 1999-12-16 15:56  source
 
 	* Wrote ChangeLog entries for V3.0.0 distribution (pvk)
-	
+
 1999-12-16 15:53  source
 
 	* Start using some of the ODBC 3.x API calls (pvk)
-	
+
 1999-12-16 09:31  source
 
 	* Notify a ODBC 2.x driver when the internal rowset size changes (pvk)
-	
+
 1999-12-16 09:30  source
 
 	* Added support for SQLCloseCursor (pvk)
-	
+
 1999-12-16 09:27  source
 
 	* Added backward compatibility for SQL_OJ_CAPABILITIES call to ODBC 2.x
 	  driver (pvk)
-	
+
 1999-12-16 09:26  source
 
 	* Updated RPM specification file to reflect the new build (pvk)
-	
+
 1999-12-16 09:24  source
 
 	* Set library version for ODBC 3.x interface to 3:0:1 (pvk)
-	
+
 	* Set library version for ODBC 2.x interface to 2:51:0 (pvk)
-	
+
 1999-12-15 10:49  source
 
 	* Added initial support for MacOS X aka Rhapsody (pvk)
-	
+
 1999-12-13 17:00  source
 
 	* Only use the [ODBC Data Sources] section to populate the SQLDataSources
 	  call
-	
+
 1999-12-13 16:22  source
 
 	* Simplified mapping of API calls to function pointers or text (pvk)
-	
+
 1999-12-13 16:20  source
 
 	* Removed unneeded defines (pvk)
-	
+
 1999-12-10 16:49  source
 
 	* Ignore iodbc-config generated script (pvk)
-	
+
 1999-12-10 15:01  source
 
 	* Refreshed generated files (pvk)
-	
+
 1999-12-10 14:58  source
 
 	* Added config script to get information about the installed version
 	  of iODBC. (pvk)
-	
+
 1999-12-10 14:54  source
 
 	* Set default directory for system wide odbc.ini to /etc (pvk)
-	
+
 1999-12-10 14:53  source
 
 	* Rewrote checks for dlopen checking (pvk)
-	
+
 1999-12-09 15:28  source
 
 	* Removed spurious #endif (pvk)
-	
+
 1999-12-09 15:02  source
 
 	* Added initial ODBC 3.x support (gk)
-	
+
 1999-12-09 14:54  source
 
 	* Changed to ODBC 3.x mode (pvk)
-	
+
 1999-12-09 14:20  source
 
 	* Added new contributor (pvk)
-	
+
 1999-12-09 14:13  source
 
 	* Regenerated files (pvk)
-	
+
 1999-12-09 14:12  source
 
 	* Reran libtoolize version 1.3.4 (pvk)
-	
+
 1999-12-09 14:09  source
 
 	* Added maintainer mode (pvk)
-	
+
 	* Added support for ODBC 2.x and ODBC 3.x (pvk)
-	
+
 1999-12-09 13:47  source
 
 	* Rewrote header files to support ODBC 3.5 specification (pvk)
-	
+
 1999-06-25 09:05  source
 
 	* Added latest changes to the log
-	
+
 1999-06-25 09:04  source
 
 	* Changed typedef for SQLHENV, SQLHDBC, SQLSTMT to be void * instead of
 	  SQLINTEGER. Although this is contra to the official header files, it
 	  makes life a lot easier when you have ODBC 2.0 code you want to use
-	
+
 1999-06-25 07:30  source
 
 	* Added latest changes to the log
-	
+
 1999-06-25 07:17  source
 
 	* Updated README to reflect the current state of the project (pvk)
-	
+
 1999-06-25 06:44  source
 
 	* Added sql.h, sqlext.h, sqltypes.h to the list of installable headers (pvk)
-	
+
 	* Set AutoReqProv flag to yes to allow rpm to automatically calculate
 	  dependancies (pvk)
-	
+
 1999-06-25 03:28  source
 
 	* Regenerated file (pvk)
-	
+
 1999-06-25 03:26  source
 
 	* Fixed check for default SYS_ODBC_INI when configure --prefix=/xxx is
 	  used (pvk)
-	
+
 1999-06-25 03:06  source
 
 	* Regenerated (pvk)
-	
+
 1999-06-25 03:04  source
 
 	* Added sql.h, sqlext.h and sqltypes.h to the list of installable
 	  include files (pvk)
-	
+
 1999-06-25 03:02  source
 
 	* Renamed isql.h, isqlext.h and isqltypes.h to sql.h sqlext.h and sqtypes.h
 	  and added dummy files for backward compatibility (pvk)
-	
+
 1999-06-25 03:01  source
 
 	* Use sql.h and sqlext.h instead of the nonstandard names isql.h and
 	  isqlext.h (pvk)
-	
+
 1999-06-25 02:31  source
 
 	* Return SQL_SUCCESS on setting SQL_OPT_TRACEFILE (pvk)
-	
+
 1999-06-25 02:30  source
 
 	* Removed empty line as this causes confusion to some linkers (pvk)
-	
+
 1999-06-25 02:29  source
 
 	* Added target for binary tar distribution (pvk)
-	
+
 1999-04-26 11:46  source
 
 	* Simplify building RPMS files on Linux (pvk)
-	
+
 1999-04-26 09:27  source
 
 	* Removed CVS Id tag from header so Makefile.am and the generated
 	  Makefile.in can be committed together rather than separate (pvk)
-	
+
 1999-04-26 09:14  source
 
 	* Search for odbc.ini in various places (pvk)
-	
+
 1999-04-26 09:14  source
 
 	* Checked in generated files (pvk)
-	
+
 1999-04-26 09:14  source
 
 	* Set default system wide odbc.ini to /etc/odbc.ini if not configured
 	  otherwise (pvk)
-	
+
 1999-04-26 09:13  source
 
 	* Figure out location for system wide odbc.ini (pvk)
-	
+
 1999-04-24 11:06  source
 
 	* Checked in generated files (pvk)
-	
+
 1999-04-24 11:05  source
 
 	* Use -I$(top_srcdir) to find the include files (pvk)
-	
+
 1999-04-24 11:04  source
 
 	* Added source directory path to export file iodbc.exp (pvk)
-	
+
 1999-04-24 10:51  source
 
 	* Added main.c to the list of files to be distributed. (pvk)
-	
+
 1999-04-24 10:47  source
 
 	* Checked in generated file (pvk)
-	
+
 1999-04-24 10:46  source
 
 	* Added iodbc.exp file which contains the symbol list of all symbols we
 	  want to export using libtool. (pvk)
-	
+
 1999-04-24 10:45  source
 
 	* Added isqltypes.h (pvk)
-	
+
 	* Updated library version to 2.0.50 (pvk)
-	
+
 1999-04-24 10:41  source
 
 	* Added Windows link file for iodbc.dll (pvk)
-	
+
 1999-04-24 09:57  source
 
 	* Include isqltypes.h as a global include rather than a local include
 	  file (pvk)
-	
+
 1999-04-24 09:54  source
 
 	* Small code cleanups (pvk)
-	
+
 1999-04-24 09:47  source
 
 	* Code cleanups (pvk)
-	
+
 	* Fixed errors in Windows macros (pvk)
-	
+
 1999-04-24 08:11  source
 
 	* Checked in new generated files (pvk)
-	
+
 1999-04-24 08:09  source
 
 	* Updated version number of package to 2.50.2 (pvk)
-	
+
 	* Updated version number of library to 2:50:0 (pvk)
-	
+
 1999-04-24 08:08  source
 
 	* Updated to more recent version of libtool 1.2f (pvk)
-	
+
 1999-04-24 07:42  source
 
 	* Code cleanups (pvk)
-	
+
 1999-04-24 07:41  source
 
 	* Added rudementary SQLGetPrivateProfileString call (pvk)
-	
+
 1999-04-24 07:40  source
 
 	* Close open file handle (pvk)
-	
+
 1999-04-24 07:39  source
 
 	* Fixed some typo's (pvk)
-	
+
 1999-04-24 07:39  source
 
 	* Use the libtool define to check for underscore representation (pvk)
-	
+
 1999-04-24 07:37  source
 
 	* Use the internal form of the handle instead of the external
 	  representation (pvk)
-	
+
 1999-04-24 07:33  source
 
 	* Added NEAR definition and HWND type for UNIX/VMS (pvk)
-	
+
 1999-03-22 21:16  source
 
 	* Fixed a couple of typos (pvk)
-	
+
 1999-03-17 10:03  source
 
 	* Added missing arguments to prototype (pvk)
-	
+
 1999-03-17 09:26  source
 
 	* Added support for SQL_DATE, SQL_TIME and SQL_TIMESTAMP (pvk)
-	
+
 1999-03-17 09:09  source
 
 	* Added Per Schroder who contributed the VMS patches to the iODBC project
-	
+
 1999-03-17 08:58  source
 
 	* Added support for VMS (ps)
-	
+
 1999-03-17 00:43  source
 
 	* Added support for VMS (ps)
-	
+
 1999-03-16 23:49  source
 
 	* Wrote new handle validation checks to make the driver manager more
 	  resistant to handle misuse (pvk)
-	
+
 1999-03-16 23:06  source
 
 	* Added file isqltypes.h (pvk)
-	
+
 1999-03-16 23:06  source
 
 	* Rewrote all function prototypes to conform to ODBC 2.51 standard (pvk)
-	
+
 1999-03-16 22:45  source
 
 	* Added handle type definitions (pvk)
-	
+
 1999-03-16 22:03  source
 
 	* Added new file with ODBC 2.51 types (pvk)
-	
+
 1999-03-16 22:03  source
 
 	* Added full support for ODBC 2.51 specifications (pvk)
-	
+
 1999-01-25 09:38  source
 
 	* Removed 2 copyright sccs stamps and comments as requested by Ke Jin (pvk)
-	
+
 1999-01-18 23:55  source
 
 	* Prefix should of cause be / instead of /usr if we want to install
 	  /etc/odbc.ini
-	
+
 1999-01-18 23:38  source
 
 	* Added support for automake 1.4, autoconf 2.13 and libtool 1.2a
-	
+
 1999-01-18 23:37  source
 
 	* Added sample odbc.ini file
-	
+
 1999-01-18 23:36  source
 
 	* Changed reading of tokens from .ini file. We should really rewrite all
 	  of these functions.
-	
+
 1999-01-18 23:35  source
 
 	* Added specification file for Linux RPM builds
-	
+
 1999-01-18 23:35  source
 
 	* Use NEED_USCORE to set _SQL if needed
-	
+
 1999-01-18 23:34  source
 
 	* Removed as automake/autoconf/libtool can do this portable
-	
+
 1999-01-18 23:33  source
 
 	* Added to comply to GNU standards
-	
+
 1999-01-18 23:33  source
 
 	* Set default options
-	
+
 1999-01-18 23:32  source
 
 	* Added unwanted files
-	
+
 1999-01-18 23:32  source
 
 	* Version number is now set to 2.50
-	
+
 1999-01-18 23:31  source
 
 	* Moved Changes.log into ChangeLog to comply with GNU standards
-	
+
 1999-01-18 23:31  source
 
 	* Added new files to comply with standard GNU source packages
-	
+
 1999-01-18 23:30  source
 
 	* Added missing typedefs, constants and prototypes
-	
+
 1999-01-18 23:30  source
 
 	* Moves HWND typedef to isql.h
-	
+
 1999-01-18 23:29  source
 
 	* Added proper support for SQLDataSources
 	* SQLDrivers now returns SQL_NO_MORE_DATA so applications will not
 	  go into infinite loops when trying to retrieve driver information
-	
+
 1999-01-18 23:27  source
 
 	* Removed hwnd argument from SQLBrowseConnect as this is not part of the
 	  API
-	
+
 1999-01-18 23:26  source
 
 	* Added sample directory framework
-	
+
 1999-01-18 23:25  source
 
 	* Removed as libtool does this automatically
-	
+
 1999-01-18 14:03  source
 
 	* Moved iODBC licensing to LGPL as per Ke Jin's request
-	
+
 1999-01-18 14:01  source
 
 	* Removed old build code
-	
+
 1999-01-18 14:00  source
 
 	* Added information on LGPL licensing
-	
+
 1999-01-18 13:56  source
 
 	* Re-indented code
 	* Code cleanups
 	* Added LGPL notice in all opening comments
-	
+
 1998-12-27 13:14  source
 
 	* Added new comment to beginning of file
 	* Reindented code
-	
+
 1998-12-27 12:15  source
 
 	* Checkin of initial version from Ke Jin
-	
+
 1998-12-27 12:15  source
 
 	Initial revision
-	
+

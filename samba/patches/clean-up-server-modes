@@ -1,0 +1,417 @@
+Index: samba/source/include/popt_common.h
+===================================================================
+--- samba/source/include/popt_common.h.orig
++++ samba/source/include/popt_common.h
+@@ -50,6 +50,18 @@ struct user_auth_info {
+ 	int signing_state;
+ };
+ 
++enum smb_server_mode {
++	/* Daemonize and manage our own sockets */
++	SERVER_MODE_DAEMON,
++	/* Don't daemonize or manage sockets */
++	SERVER_MODE_INETD,
++	/* Don't daemonize, but do manage sockets */
++	SERVER_MODE_FOREGROUND,
++	/* Run in the foreground, log to stdout, don't fork children */
++	SERVER_MODE_INTERACTIVE
++
++};
++
+ extern struct user_auth_info cmdline_auth_info;
+ 
+ #endif /* _POPT_COMMON_H */
+Index: samba/source/nmbd/nmbd.c
+===================================================================
+--- samba/source/nmbd/nmbd.c.orig
++++ samba/source/nmbd/nmbd.c
+@@ -33,12 +33,6 @@ extern BOOL global_in_nmbd;
+ 
+ extern BOOL override_logfile;
+ 
+-/* are we running as a daemon ? */
+-static BOOL is_daemon;
+-
+-/* fork or run in foreground ? */
+-static BOOL Fork = True;
+-
+ /* log to standard output ? */
+ static BOOL log_stdout;
+ 
+@@ -578,7 +572,7 @@ static void process(void)
+  Open the socket communication.
+  **************************************************************************** */
+ 
+-static BOOL open_sockets(BOOL isdaemon, int port)
++static BOOL open_sockets(enum smb_server_mode server_mode, int port)
+ {
+ 	/*
+ 	 * The sockets opened here will be used to receive broadcast
+@@ -588,12 +582,13 @@ static BOOL open_sockets(BOOL isdaemon, 
+ 	 * now deprecated.
+ 	 */
+ 
+-	if ( isdaemon )
++	if ( server_mode == SERVER_MODE_INETD ) {
++		ClientNMB = 0;
++	} else {
+ 		ClientNMB = open_socket_in(SOCK_DGRAM, port,
+ 					   0, interpret_addr(lp_socket_address()),
+ 					   True);
+-	else
+-		ClientNMB = 0;
++	}
+   
+ 	ClientDGRAM = open_socket_in(SOCK_DGRAM, DGRAM_PORT,
+ 					   3, interpret_addr(lp_socket_address()),
+@@ -622,15 +617,19 @@ static BOOL open_sockets(BOOL isdaemon, 
+  int main(int argc, const char *argv[])
+ {
+ 	pstring logfile;
+-	static BOOL opt_interactive;
+ 	poptContext pc;
+ 	static char *p_lmhosts = dyn_LMHOSTSFILE;
+ 	static BOOL no_process_group = False;
++	enum smb_server_mode server_mode = SERVER_MODE_DAEMON;
++
+ 	struct poptOption long_options[] = {
+ 	POPT_AUTOHELP
+-	{"daemon", 'D', POPT_ARG_VAL, &is_daemon, True, "Become a daemon(default)" },
+-	{"interactive", 'i', POPT_ARG_VAL, &opt_interactive, True, "Run interactive (not a daemon)" },
+-	{"foreground", 'F', POPT_ARG_VAL, &Fork, False, "Run daemon in foreground (for daemontools & etc)" },
++	{"daemon", 'D', POPT_ARG_VAL, &server_mode, SERVER_MODE_DAEMON,
++		"Become a daemon(default)" },
++	{"interactive", 'i', POPT_ARG_VAL, &server_mode,
++		SERVER_MODE_INTERACTIVE, "Run interactive (not a daemon)" },
++	{"foreground", 'F', POPT_ARG_VAL, &server_mode,
++		SERVER_MODE_FOREGROUND, "Run daemon in foreground (for daemontools & etc)" },
+ 	{"no-process-group", 0, POPT_ARG_VAL, &no_process_group, True, "Don't create a new process group" },
+ 	{"log-stdout", 'S', POPT_ARG_VAL, &log_stdout, True, "Log to stdout" },
+ 	{"hosts", 'H', POPT_ARG_STRING, &p_lmhosts, 'H', "Load a netbios hosts file"},
+@@ -680,12 +679,11 @@ static BOOL open_sockets(BOOL isdaemon, 
+ 	BlockSignals(True, SIGUSR2);
+ #endif
+ 
+-	if ( opt_interactive ) {
+-		Fork = False;
++	if (server_mode == SERVER_MODE_INTERACTIVE) {
+ 		log_stdout = True;
+ 	}
+ 
+-	if ( log_stdout && Fork ) {
++	if (log_stdout && server_mode == SERVER_MODE_DAEMON) {
+ 		DEBUG(0,("ERROR: Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n"));
+ 		exit(1);
+ 	}
+@@ -712,14 +710,19 @@ static BOOL open_sockets(BOOL isdaemon, 
+ 
+ 	set_samba_nb_type();
+ 
+-	if (!is_daemon && !is_a_socket(0)) {
+-		DEBUG(0,("standard input is not a socket, assuming -D option\n"));
+-		is_daemon = True;
++	if (is_a_socket(0)) {
++		if (server_mode == SERVER_MODE_DAEMON) {
++			DEBUG(0,("standard input is a socket, "
++				    "assuming -F option\n"));
++		}
++		server_mode = SERVER_MODE_INETD;
+ 	}
+-  
+-	if (is_daemon && !opt_interactive) {
++
++	if (server_mode == SERVER_MODE_DAEMON) {
+ 		DEBUG( 2, ( "Becoming a daemon.\n" ) );
+-		become_daemon(Fork, no_process_group);
++		become_daemon(True, no_process_group);
++	} else if (server_mode == SERVER_MODE_FOREGROUND) {
++		become_daemon(False, no_process_group);
+ 	}
+ 
+ #if HAVE_SETPGID
+@@ -727,7 +730,7 @@ static BOOL open_sockets(BOOL isdaemon, 
+ 	 * If we're interactive we want to set our own process group for 
+ 	 * signal management.
+ 	 */
+-	if (opt_interactive && !no_process_group)
++	if (server_mode == SERVER_MODE_INTERACTIVE && !no_process_group)
+ 		setpgid( (pid_t)0, (pid_t)0 );
+ #endif
+ 
+@@ -758,7 +761,7 @@ static BOOL open_sockets(BOOL isdaemon, 
+ 
+ 	DEBUG( 3, ( "Opening sockets %d\n", global_nmb_port ) );
+ 
+-	if ( !open_sockets( is_daemon, global_nmb_port ) ) {
++	if ( !open_sockets( server_mode, global_nmb_port ) ) {
+ 		kill_async_dns_child();
+ 		return 1;
+ 	}
+Index: samba/source/smbd/server.c
+===================================================================
+--- samba/source/smbd/server.c.orig
++++ samba/source/smbd/server.c
+@@ -328,7 +328,7 @@ static BOOL allowable_number_of_smbd_pro
+  Open the socket communication.
+ ****************************************************************************/
+ 
+-static BOOL open_sockets_smbd(BOOL is_daemon, BOOL interactive, const char *smb_ports)
++static BOOL open_sockets_smbd(enum smb_server_mode server_mode, const char *smb_ports)
+ {
+ 	int num_interfaces = iface_count();
+ 	int num_sockets = 0;
+@@ -339,11 +339,10 @@ static BOOL open_sockets_smbd(BOOL is_da
+ 	int i;
+ 	char *ports;
+ 
+-	if (!is_daemon) {
++	if (server_mode == SERVER_MODE_INETD) {
+ 		return open_sockets_inetd();
+ 	}
+ 
+-		
+ #ifdef HAVE_ATEXIT
+ 	{
+ 		static int atexit_set;
+@@ -559,8 +558,13 @@ static BOOL open_sockets_smbd(BOOL is_da
+ 			/* Ensure child is set to blocking mode */
+ 			set_blocking(smbd_server_fd(),True);
+ 
+-			if (smbd_server_fd() != -1 && interactive)
++			/* In interactive mode, return with a connected socket.
++			 * Foreground and daemon modes should fork worker
++			 * processes.
++			 */
++			if (server_mode == SERVER_MODE_INTERACTIVE) {
+ 				return True;
++			}
+ 			
+ 			if (allowable_number_of_smbd_processes() &&
+ 			    smbd_server_fd() != -1 &&
+@@ -855,9 +859,6 @@ extern void build_options(BOOL screen);
+  int main(int argc,const char *argv[])
+ {
+ 	/* shall I run as a daemon */
+-	static BOOL is_daemon = False;
+-	static BOOL interactive = False;
+-	static BOOL Fork = True;
+ 	static BOOL no_process_group = False;
+ 	static BOOL log_stdout = False;
+ 	static char *ports = NULL;
+@@ -865,11 +866,16 @@ extern void build_options(BOOL screen);
+ 	int opt;
+ 	poptContext pc;
+ 
++	enum smb_server_mode server_mode = SERVER_MODE_DAEMON;
++
+ 	struct poptOption long_options[] = {
+ 	POPT_AUTOHELP
+-	{"daemon", 'D', POPT_ARG_VAL, &is_daemon, True, "Become a daemon (default)" },
+-	{"interactive", 'i', POPT_ARG_VAL, &interactive, True, "Run interactive (not a daemon)"},
+-	{"foreground", 'F', POPT_ARG_VAL, &Fork, False, "Run daemon in foreground (for daemontools, etc.)" },
++	{"daemon", 'D', POPT_ARG_VAL, &server_mode, SERVER_MODE_DAEMON,
++		"Become a daemon (default)" },
++	{"interactive", 'i', POPT_ARG_VAL, &server_mode,
++		SERVER_MODE_INTERACTIVE, "Run interactive (not a daemon)"},
++	{"foreground", 'F', POPT_ARG_VAL, &server_mode, SERVER_MODE_FOREGROUND,
++		"Run daemon in foreground (for daemontools, etc.)" },
+ 	{"no-process-group", '\0', POPT_ARG_VAL, &no_process_group, True, "Don't create a new process group" },
+ 	{"log-stdout", 'S', POPT_ARG_VAL, &log_stdout, True, "Log to stdout" },
+ 	{"build-options", 'b', POPT_ARG_NONE, NULL, 'b', "Print build options" },
+@@ -910,16 +916,14 @@ extern void build_options(BOOL screen);
+ 
+ 	set_remote_machine_name("smbd", False);
+ 
+-	if (interactive) {
+-		Fork = False;
++	if (server_mode == SERVER_MODE_INTERACTIVE) {
+ 		log_stdout = True;
++		if (DEBUGLEVEL >= 9) {
++			talloc_enable_leak_report();
++		}
+ 	}
+ 
+-	if (interactive && (DEBUGLEVEL >= 9)) {
+-		talloc_enable_leak_report();
+-	}
+-
+-	if (log_stdout && Fork) {
++	if (log_stdout && server_mode == SERVER_MODE_DAEMON) {
+ 		DEBUG(0,("ERROR: Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n"));
+ 		exit(1);
+ 	}
+@@ -1016,21 +1020,19 @@ extern void build_options(BOOL screen);
+ 
+ 	DEBUG(3,( "loaded services\n"));
+ 
+-	if (!is_daemon && !is_a_socket(0)) {
+-		if (!interactive)
+-			DEBUG(0,("standard input is not a socket, assuming -D option\n"));
+-
+-		/*
+-		 * Setting is_daemon here prevents us from eventually calling
+-		 * the open_sockets_inetd()
+-		 */
+-
+-		is_daemon = True;
++	if (is_a_socket(0)) {
++		if (server_mode == SERVER_MODE_DAEMON) {
++			DEBUG(0,("standard input is a socket, "
++				    "assuming -F option\n"));
++		}
++		server_mode = SERVER_MODE_INETD;
+ 	}
+ 
+-	if (is_daemon && !interactive) {
++	if (server_mode == SERVER_MODE_DAEMON) {
+ 		DEBUG( 3, ( "Becoming a daemon.\n" ) );
+-		become_daemon(Fork, no_process_group);
++		become_daemon(True, no_process_group);
++	} else if (server_mode == SERVER_MODE_FOREGROUND) {
++		become_daemon(False, no_process_group);
+ 	}
+ 
+ #if HAVE_SETPGID
+@@ -1038,15 +1040,18 @@ extern void build_options(BOOL screen);
+ 	 * If we're interactive we want to set our own process group for
+ 	 * signal management.
+ 	 */
+-	if (interactive && !no_process_group)
++	if (server_mode == SERVER_MODE_INTERACTIVE && !no_process_group) {
+ 		setpgid( (pid_t)0, (pid_t)0);
++	}
+ #endif
+ 
+ 	if (!directory_exist(lp_lockdir(), NULL))
+ 		mkdir(lp_lockdir(), 0755);
+ 
+-	if (is_daemon)
++	if (server_mode != SERVER_MODE_INETD &&
++	    server_mode != SERVER_MODE_INTERACTIVE) {
+ 		pidfile_create("smbd");
++	}
+ 
+ 	/* Setup all the TDB's - including CLEAR_IF_FIRST tdb's. */
+ 	if (!message_init())
+@@ -1109,9 +1114,10 @@ extern void build_options(BOOL screen);
+ 	   running as a daemon -- bad things will happen if
+ 	   smbd is launched via inetd and we fork a copy of 
+ 	   ourselves here */
+-
+-	if ( is_daemon && !interactive )
++	if (server_mode != SERVER_MODE_INETD &&
++	    server_mode != SERVER_MODE_INTERACTIVE) {
+ 		start_background_queue(); 
++	}
+ 
+ 	/* Always attempt to initialize DMAPI. We will only use it later if
+ 	 * lp_dmapi_support is set on the share, but we need a single global
+@@ -1119,8 +1125,9 @@ extern void build_options(BOOL screen);
+ 	 */
+ 	dmapi_init_session();
+ 
+-	if (!open_sockets_smbd(is_daemon, interactive, ports))
++	if (!open_sockets_smbd(server_mode, ports)) {
+ 		exit(1);
++	}
+ 
+ 	/*
+ 	 * everything after this point is run after the fork()
+@@ -1133,7 +1140,8 @@ extern void build_options(BOOL screen);
+ 	/* Possibly reload the services file. Only worth doing in
+ 	 * daemon mode. In inetd mode, we know we only just loaded this.
+ 	 */
+-	if (is_daemon) {
++	if (server_mode != SERVER_MODE_INETD &&
++	    server_mode != SERVER_MODE_INTERACTIVE) {
+ 		reload_services(True);
+ 	}
+ 
+Index: samba/source/nsswitch/winbindd.c
+===================================================================
+--- samba/source/nsswitch/winbindd.c.orig
++++ samba/source/nsswitch/winbindd.c
+@@ -30,7 +30,6 @@
+ #define DBGC_CLASS DBGC_WINBIND
+ 
+ BOOL opt_nocache = False;
+-static BOOL interactive = False;
+ 
+ extern BOOL override_logfile;
+ 
+@@ -914,15 +913,17 @@ static void process_loop(void)
+ int main(int argc, char **argv, char **envp)
+ {
+ 	pstring logfile;
+-	static BOOL Fork = True;
+ 	static BOOL log_stdout = False;
+ 	static BOOL no_process_group = False;
++
++	enum smb_server_mode server_mode = SERVER_MODE_DAEMON;
++
+ 	struct poptOption long_options[] = {
+ 		POPT_AUTOHELP
+ 		{ "stdout", 'S', POPT_ARG_VAL, &log_stdout, True, "Log to stdout" },
+-		{ "foreground", 'F', POPT_ARG_VAL, &Fork, False, "Daemon in foreground mode" },
++		{ "foreground", 'F', POPT_ARG_VAL, &server_mode, SERVER_MODE_FOREGROUND, "Daemon in foreground mode" },
+ 		{ "no-process-group", 0, POPT_ARG_VAL, &no_process_group, True, "Don't create a new process group" },
+-		{ "interactive", 'i', POPT_ARG_NONE, NULL, 'i', "Interactive mode" },
++		{ "interactive", 'i', POPT_ARG_VAL, &server_mode, SERVER_MODE_INTERACTIVE, "Interactive mode" },
+ 		{ "no-caching", 'n', POPT_ARG_VAL, &opt_nocache, True, "Disable caching" },
+ 		POPT_COMMON_SAMBA
+ 		POPT_TABLEEND
+@@ -960,20 +961,17 @@ int main(int argc, char **argv, char **e
+ 	pc = poptGetContext("winbindd", argc, (const char **)argv, long_options,
+ 						POPT_CONTEXT_KEEP_FIRST);
+ 
+-	while ((opt = poptGetNextOpt(pc)) != -1) {
+-		switch (opt) {
+-			/* Don't become a daemon */
+-		case 'i':
+-			interactive = True;
+-			log_stdout = True;
+-			Fork = False;
+-			break;
++	while ((opt = poptGetNextOpt(pc)) != -1) {}
++
++	if (server_mode == SERVER_MODE_INTERACTIVE) {
++		log_stdout = True;
++		if (DEBUGLEVEL >= 9) {
++			talloc_enable_leak_report();
+ 		}
+ 	}
+ 
+-
+-	if (log_stdout && Fork) {
+-		printf("Can't log to stdout (-S) unless daemon is in foreground +(-F) or interactive (-i)\n");
++	if (log_stdout && server_mode == SERVER_MODE_DAEMON) {
++		printf("Can't log to stdout (-S) unless daemon is in foreground (-F) or interactive (-i)\n");
+ 		poptPrintUsage(pc, stderr, 0);
+ 		exit(1);
+ 	}
+@@ -1044,8 +1042,12 @@ int main(int argc, char **argv, char **e
+ 	CatchSignal(SIGUSR2, sigusr2_handler);         /* Debugging sigs */
+ 	CatchSignal(SIGHUP, sighup_handler);
+ 
+-	if (!interactive)
+-		become_daemon(Fork, no_process_group);
++	if (server_mode == SERVER_MODE_DAEMON) {
++		DEBUG( 3, ( "Becoming a daemon.\n" ) );
++		become_daemon(True, no_process_group);
++	} else if (server_mode == SERVER_MODE_FOREGROUND) {
++		become_daemon(False, no_process_group);
++	}
+ 
+ 	pidfile_create("winbindd");
+ 
+@@ -1054,8 +1056,9 @@ int main(int argc, char **argv, char **e
+ 	 * If we're interactive we want to set our own process group for
+ 	 * signal management.
+ 	 */
+-	if (interactive && !no_process_group)
++	if (server_mode == SERVER_MODE_INTERACTIVE && !no_process_group) {
+ 		setpgid( (pid_t)0, (pid_t)0);
++	}
+ #endif
+ 
+ 	TimeInit();

@@ -72,12 +72,11 @@ j2/
 
 ./dialects/aix/aix5/j2:
 j2_lock.h
-j2_snapshot.h
+private_j2_snapshot.h
 
 ./dialects/darwin:
 get-hdr-loc.sh*
 kmem/
-libproc/
 
 ./dialects/darwin/kmem:
 Makefile
@@ -88,19 +87,6 @@ dlsof.h
 dmnt.c
 dnode.c
 dnode1.c
-dproc.c
-dproto.h
-dsock.c
-dstore.c
-machine.h
-
-./dialects/darwin/libproc:
-Makefile
-Mksrc*
-ddev.c
-dfile.c
-dlsof.h
-dmnt.c
 dproc.c
 dproto.h
 dsock.c
@@ -257,8 +243,31 @@ dproc.c
 dproto.h
 dsock.c
 dstore.c
+get-hdr-loc.sh*
 machine.h
 solaris_kaddr_filters
+zfs/
+
+./dialects/sun/zfs:
+sys/
+zfs_vnops.c
+
+./dialects/sun/zfs/sys:
+dmu.h
+spa.h
+txg.h
+zfs_acl.h
+zfs_context.h
+zfs_ctldir.h
+zfs_debug.h
+zfs_dir.h
+zfs_ioctl.h
+zfs_rlock.h
+zfs_vfsops.h
+zfs_znode.h
+zil.h
+zio.h
+zio_impl.h
 
 ./dialects/uw:
 Makefile

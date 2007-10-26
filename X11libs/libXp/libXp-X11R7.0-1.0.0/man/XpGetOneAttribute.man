@@ -1,0 +1,97 @@
+.\" $XdotOrg: $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpGetOneAttribute 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpGetOneAttribute \-  Gets a single print attribute from the specified print 
+context.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B char *XpGetOneAttribute
+(
+.I display,
+.I context,
+.I type,
+.I attribute_name
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      XPContext \fIcontext\fP\^;
+.br
+      XPAttributes \fItype\fP\^;
+.br
+      char *\fIattribute_name\fP\^;     
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I context
+The print context from which the attribute pool is to be retrieved.
+.TP
+.I type
+Specifies the attribute pool.
+.TP
+.I attribute_name
+The name of the attribute to be returned.
+.SH DESCRIPTION
+.LP
+This request returns a COMPOUND_TEXT string attribute_value, else NULL if any 
+errors occurred.
+XpGetOneAttribute is a variation of XpGetAttributes to get a single attribute 
+value from an attribute pool. Unlike XpGetAttributes, where the reply contains 
+an entire attribute pool, XpGetOneAttribute returns just one attribute_value.
+attribute_name should not include a colon. The caller is expected to free the 
+attribute value returned using XFree.
+.SH DIAGNOSTICS
+.TP 15
+.SM BadAlloc
+Insufficient memory.
+.TP 15
+.SM BadValue
+The value specified for type is not valid.
+.TP 15
+.SM XPBadContext
+The specified print context-id is not valid.
+.SH "SEE ALSO"
+.BR XpGetAttributes (3Xp)
+

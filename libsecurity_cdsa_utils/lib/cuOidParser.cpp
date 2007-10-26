@@ -62,7 +62,7 @@ int readFileExtra(
 	*numBytes = 0;
 	*bytes = NULL;
 	fd = open(fileName, O_RDONLY, 0);
-	if(fd <= 0) {
+	if(fd < 0) {
 		return 1;
 	}
 	rtn = fstat(fd, &sb);

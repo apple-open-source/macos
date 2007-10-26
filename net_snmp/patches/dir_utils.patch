@@ -1,0 +1,203 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/include/net-snmp/library/dir_utils.h APPLE/include/net-snmp/library/dir_utils.h
+--- SVN/include/net-snmp/library/dir_utils.h
++++ APPLE/include/net-snmp/library/dir_utils.h
+@@ -0,0 +1,32 @@
++
++#ifndef NETSNMP_DIR_UTILS_H
++#define NETSNMP_DIR_UTILS_H
++
++#ifdef _cplusplus
++extern "C" {
++#endif
++
++    /*------------------------------------------------------------------
++     *
++     * Prototypes
++     */
++    netsnmp_container * netsnmp_directory_container_read(netsnmp_container *c,
++                                                         const char *dir,
++                                                         u_int flags);
++    void netsnmp_directory_container_free(netsnmp_container *c);
++
++        
++
++    /*------------------------------------------------------------------
++     *
++     * flags
++     */
++#define NETSNMP_DIR_RECURSE                           0x1
++
++    
++        
++#ifdef _cplusplus
++}
++#endif
++
++#endif /* NETSNMP_DIR_UTILS_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/snmplib/Makefile.in APPLE/snmplib/Makefile.in
+--- SVN/snmplib/Makefile.in
++++ APPLE/snmplib/Makefile.in
+@@ -55,6 +55,7 @@ INCLUDESUBDIRHEADERS=README \
+ 	factory.h \
+ 	data_list.h \
+ 	default_store.h \
++	dir_utils.h \
+ 	fd_event_manager.h \
+ 	file_utils.h \
+ 	int64.h \
+@@ -137,7 +138,7 @@ CSRCS=	snmp_client.c mib.c parse.c snmp_
+ 	snmp_auth.c asn1.c md5.c snmp_parse_args.c		\
+ 	system.c vacm.c int64.c read_config.c pkcs.c		\
+ 	snmp_debug.c tools.c  snmp_logging.c text_utils.c	\
+-	snmpv3.c lcd_time.c keytools.c file_utils.c		\
++	snmpv3.c lcd_time.c keytools.c file_utils.c dir_utils.c \
+ 	scapi.c callback.c default_store.c snmp_alarm.c		\
+ 	data_list.c oid_stash.c fd_event_manager.c 		\
+ 	mt_support.c snmp_enum.c snmp-tc.c snmp_service.c	\
+@@ -152,7 +153,7 @@ OBJS=	snmp_client.o mib.o parse.o snmp_a
+ 	snmp_auth.o asn1.o md5.o snmp_parse_args.o		\
+ 	system.o vacm.o int64.o read_config.o pkcs.o 		\
+ 	snmp_debug.o tools.o  snmp_logging.o text_utils.o	\
+-	snmpv3.o lcd_time.o keytools.o file_utils.o		\
++	snmpv3.o lcd_time.o keytools.o file_utils.o dir_utils.o \
+ 	scapi.o callback.o default_store.o snmp_alarm.o		\
+ 	data_list.o oid_stash.o fd_event_manager.o		\
+ 	mt_support.o snmp_enum.o snmp-tc.o snmp_service.o	\
+@@ -167,7 +168,7 @@ LOBJS=	snmp_client.lo mib.lo parse.lo sn
+ 	snmp_auth.lo asn1.lo md5.lo snmp_parse_args.lo		\
+ 	system.lo vacm.lo int64.lo read_config.lo pkcs.lo	\
+ 	snmp_debug.lo tools.lo  snmp_logging.lo	 text_utils.lo	\
+-	snmpv3.lo lcd_time.lo keytools.lo file_utils.lo		\
++	snmpv3.lo lcd_time.lo keytools.lo file_utils.lo dir_utils.lo \
+ 	scapi.lo callback.lo default_store.lo snmp_alarm.lo		\
+ 	data_list.lo oid_stash.lo fd_event_manager.lo		\
+ 	mt_support.lo snmp_enum.lo snmp-tc.lo snmp_service.lo	\
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/snmplib/dir_utils.c APPLE/snmplib/dir_utils.c
+--- SVN/snmplib/dir_utils.c
++++ APPLE/snmplib/dir_utils.c
+@@ -0,0 +1,125 @@
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++
++#include <stdio.h>
++#include <ctype.h>
++#if HAVE_STDLIB_H
++#   include <stdlib.h>
++#endif
++#if HAVE_UNISTD_H
++#   include <unistd.h>
++#endif
++#if HAVE_STRING_H
++#   include <string.h>
++#else
++#  include <strings.h>
++#endif
++
++#include <sys/types.h>
++#if HAVE_LIMITS_H
++#include <limits.h>
++#endif
++#if HAVE_SYS_STAT_H
++#include <sys/stat.h>
++#endif
++#ifdef HAVE_DIRENT_H
++#include <dirent.h>
++#endif
++
++#include <errno.h>
++
++#if HAVE_DMALLOC_H
++#  include <dmalloc.h>
++#endif
++
++#include <net-snmp/types.h>
++#include <net-snmp/library/container.h>
++#include <net-snmp/library/dir_utils.h>
++
++netsnmp_container *
++netsnmp_directory_container_read(netsnmp_container *user_container,
++                                 const char *dirname, u_int flags)
++{
++    DIR               *dir;
++    netsnmp_container *container = user_container, *tmp_c;
++    struct dirent     *file;
++    char               path[PATH_MAX];
++    u_char             dirname_len;
++    int                rc;
++
++    DEBUGMSGTL(("directory:container", "reading %s\n", dirname));
++
++    /*
++     * create the container, if needed
++     */
++    if (NULL == container) {
++        container = netsnmp_container_find("directory_container:cstring");
++        if (NULL == container)
++            return NULL;
++        container->container_name = strdup("directory container");
++        netsnmp_binary_array_options_set(container, 1, CONTAINER_KEY_UNSORTED);
++    }
++
++    dir = opendir(dirname);
++    if (NULL == dir) {
++        DEBUGMSGTL(("directory:container", "  not a dir\n"));
++        return NULL;
++    }
++
++    /** copy dirname into path */
++    dirname_len = strlen(dirname);
++    strncpy(path, dirname, sizeof(path));
++    if ((dirname_len + 2) > sizeof(path)) {
++        /** not enough room for files */
++        closedir(dir);
++        return NULL;
++    }
++    path[dirname_len] = '/';
++    path[++dirname_len] = 0;
++
++    /** iterate over dir */
++    while ((file = readdir(dir))) {
++
++        if ((file->d_name == NULL) || (file->d_name[0] == 0))
++            continue;
++
++        /** skip '.' and '..' */
++        if ((file->d_name[0] == '.') &&
++            ((file->d_name[1] == 0) ||
++             ((file->d_name[1] == '.') && ((file->d_name[2] == 0)))))
++            continue;
++
++        strncpy(&path[dirname_len], file->d_name, sizeof(path) - dirname_len);
++        DEBUGMSGTL(("9:directory:container", "  found %s\n", path));
++        if ((file->d_type == DT_DIR) && (flags & NETSNMP_DIR_RECURSE)) {
++            /** xxx add the dir as well? not for now.. maybe another flag? */
++            tmp_c = netsnmp_directory_container_read(container, path, flags);
++        }
++        else {
++            char *dup = strdup(path);
++            if (NULL == dup) {
++               snmp_log(LOG_ERR, "strdup failed\n");
++               break;
++            }
++            rc = CONTAINER_INSERT(container, dup);
++            if (-1 == rc ) {
++                DEBUGMSGTL(("directory:container", "  err adding %s\n", path));
++                free(dup);
++            }
++        }
++    }
++
++    closedir(dir);
++
++    DEBUGMSGTL(("directory:container", "  container now has %d items\n",
++                CONTAINER_SIZE(container)));
++    
++    return container;
++}
++
++void
++netsnmp_directory_container_free(netsnmp_container *container)
++{
++    CONTAINER_CLEAR(container, netsnmp_container_simple_free, NULL);
++    CONTAINER_FREE(container);
++}

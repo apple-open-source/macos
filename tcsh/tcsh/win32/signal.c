@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/signal.c,v 1.6 2004/10/18 02:32:17 amold Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -67,7 +68,7 @@ static ChildListNode *clist_t; // tail of list
 static CRITICAL_SECTION sigcritter;
 static HANDLE hmainthr;
 static HANDLE hsigsusp;
-static int __is_suspended;
+static int __is_suspended = 0;
 static HANDLE __halarm=0;
 
 extern HANDLE __h_con_alarm,__h_con_int;
@@ -91,7 +92,7 @@ void nt_init_signals(void) {
 		int err = GetLastError();
 		ExitProcess(0);
 	}
-	hsigsusp = CreateEvent(NULL,TRUE,FALSE,NULL);
+	hsigsusp = CreateEvent(NULL,FALSE,FALSE,NULL);
 	__h_con_alarm=CreateEvent(NULL,FALSE,FALSE,NULL);
 	__h_con_int=CreateEvent(NULL,FALSE,FALSE,NULL);
 	if (!hsigsusp)
@@ -145,8 +146,12 @@ void deliver_pending(void) {
 
 		if (temp & 0x01){
 			if (gPending[sig]){
-				gPending[sig]=0;
-				generic_handler(sig);
+				//gPending[sig]=0;
+                do {
+                    dprintf("deliver_pending for sig %d\n",sig);
+                    gPending[sig]--;
+                    generic_handler(sig);
+                }while(gPending[sig] != 0);
 			}
 		}
 		temp >>= 1;
@@ -183,17 +188,16 @@ int sigsuspend(const sigset_t *mask) {
 
 
 	EnterCriticalSection(&sigcritter);
-	__is_suspended =1;
+	__is_suspended++;
 	LeaveCriticalSection(&sigcritter);
 
 	sigprocmask(SIG_SETMASK,mask,&omask);
 
-	WaitForSingleObject(hsigsusp,INFINITE);
-	ResetEvent(hsigsusp);
+    dprintf("suspending main thread susp count %d\n",__is_suspended);
+    do {
+        WaitForSingleObject(hsigsusp,INFINITE);
+    }while(__is_suspended > 0);
 
-	EnterCriticalSection(&sigcritter);
-	__is_suspended =0;
-	LeaveCriticalSection(&sigcritter);
 
 	sigprocmask(SIG_SETMASK,&omask,0);
 	errno = EINTR;
@@ -220,74 +224,7 @@ int sigaction(int signo, const struct sigaction *act, struct sigaction *oact) {
 	return 0;
 	
 }
-#ifdef NEW_SIGNAL_HACK
-#ifndef _M_IX86
-#pragma error("Please undef NEW_SIGNAL_HACK for alphas")
-#endif _M_IX86
-static DWORD sigtodeliver;
-static CONTEXT main_ctx;
-static DWORD saved_eip;
-DWORD WINAPI rsp(void) {
-	main_ctx.Eip = saved_eip;
-	suspend_main_thread();
-	if (!SetThreadContext(hmainthr,&main_ctx)) {
-		int foo = GetLastError();
-	}
-	resume_main_thread();
-	return 0;
-
-}
-void restore_main_ctx(void) {
-	HANDLE ht;
-	DWORD tid;
-	ht = CreateThread(NULL,gdwStackSize,
-				(LPTHREAD_START_ROUTINE)rsp,NULL,0,&tid);
-	CloseHandle(ht);
-	while(1) {
-		Sleep(10);
-	}
-}
-void hack_jump(void) {
-
-	if (handlers[sigtodeliver] == SIG_IGN)
-		restore_main_ctx();
-	if (fast_sigmember(&gBlockMask,sigtodeliver) ){
-		inc_pending(sigtodeliver);
-		restore_main_ctx();
-	}
-	generic_handler(sigtodeliver);
-}
-#endif NEW_SIGNAL_HACK
 int ctrl_handler(DWORD event) {
-#ifdef NEW_SIGNAL_HACK
-
-	sigtodeliver = event+1;
-
-	if (event > CTRL_SHUTDOWN_EVENT)
-		return generic_handler(event +1);
-
-	suspend_main_thread();
-	main_ctx.ContextFlags = CONTEXT_FULL;
-	if (!GetThreadContext(hmainthr,&main_ctx)) {
-		resume_main_thread();
-		return generic_handler(event+1);
-	}
-	saved_eip  = main_ctx.Eip;
-	main_ctx.Eip = (DWORD)hack_jump;
-	if (!SetThreadContext(hmainthr,&main_ctx)) {
-		int foo = GetLastError();
-		resume_main_thread();
-		return generic_handler(event+1);
-	}
-	resume_main_thread();
-	
-	return TRUE;
-#else
-	//
-	// Special hack to prevent signal handlers from executing in their
-	// own threads as that causes havoc with longjmps.
-	//
-	// -amol 4/14/97
 
 	if (event == CTRL_C_EVENT || event == CTRL_BREAK_EVENT) {
 		SetEvent(__h_con_int);
@@ -295,7 +232,6 @@ int ctrl_handler(DWORD event) {
 	}
 
 	return generic_handler(event+1);
-#endif NEW_SIGNAL_HACK
 }
 int generic_handler(DWORD signo) {
 
@@ -383,6 +319,8 @@ int generic_handler(DWORD signo) {
 		case SIGCHLD:
 			if (handlers[signo] != SIG_IGN){
 				if (fast_sigmember(&gBlockMask,signo) ) {
+                    dprintf("inc pending for sig %d count %d\n",signo,
+                        gPending[signo]);
 					inc_pending(signo);
 					blocked=1;
 				}
@@ -394,8 +332,13 @@ int generic_handler(DWORD signo) {
 			ExitProcess(604);
 			break;
 	}
-	if (!blocked && __is_suspended)
-		SetEvent(hsigsusp);
+    if (!blocked && __is_suspended) {
+        EnterCriticalSection(&sigcritter);
+        __is_suspended--;
+        LeaveCriticalSection(&sigcritter);
+        dprintf("releasing suspension is_suspsend = %d\n",__is_suspended);
+        SetEvent(hsigsusp);
+    }
 	return TRUE;
 }
 Sigfunc *_nt_signal(int signal, Sigfunc * handler) {
@@ -547,6 +490,7 @@ void sigchild_thread(struct thread_args *args) {
 	CloseHandle(args->hproc);
 	sig_child_callback(args->pid,exitcode);
 	ffree(args);
+    dprintf("exiting sigchild thread for pid %d\n",args->pid);
 }
 void start_sigchild_thread(HANDLE hproc, DWORD pid) {
 
@@ -556,6 +500,7 @@ void start_sigchild_thread(HANDLE hproc, DWORD pid) {
 	args->hproc = hproc;
 	args->pid = pid;
 
+    dprintf("creating sigchild thread for pid %d\n",pid);
 	hthr = CreateThread(NULL,
 							gdwStackSize,
 							(LPTHREAD_START_ROUTINE)sigchild_thread,
@@ -567,45 +512,72 @@ void start_sigchild_thread(HANDLE hproc, DWORD pid) {
 	CloseHandle(hthr);
 
 }
-int kill (int pid, int sig) {
+int kill(int pid, int sig) {
 
-	HANDLE hproc;
-	int ret =0;
+    HANDLE hproc;
+    int ret =0;
+    extern DWORD gdwPlatform;
+    BOOL is_winnt = TRUE;
 
-	errno = EPERM;
+    errno = EPERM;
+    is_winnt = (gdwPlatform != VER_PLATFORM_WIN32_WINDOWS);
 
-	switch(sig) {
-		case 0:
-		case 7:
-			hproc = OpenProcess(PROCESS_ALL_ACCESS,FALSE,pid);
-			if (hproc  == NULL) {
-				errno = ESRCH;
-				ret = -1;
-			}
-			if (sig == 7) {
-				if (!TerminateProcess(hproc,0xC000013AL) ) {
-					ret = -1;
-				}
-			}
-			CloseHandle(hproc);
-			break;
-		case 1:
-			if (!GenerateConsoleCtrlEvent(CTRL_C_EVENT,pid)) 
-				ret = -1;
-			break;
-		case 2:
-			if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,pid)) 
-				ret = -1;
-			break;
-		case 3:
-			if (kill_by_wm_close(pid) <0 ) {
-				errno = ESRCH;
-				ret = -1;
-			}
-		default:
-			break;
-	}
-	return ret;
+    if(is_winnt) {
+        if(pid < 0)
+        {
+            if (pid == -1)
+                return -1;
+            pid = -pid; //no groups that we can actually do anything with.
+
+        }
+    }
+    else { //win9x has -ve pids
+        if(pid > 0)
+        {
+            if (pid == 1)
+                return -1;
+            pid = -pid; //no groups that we can actually do anything with.
+
+        }
+    }
+
+
+    switch(sig) {
+        case 0:
+        case 7:
+            hproc = OpenProcess(PROCESS_ALL_ACCESS,FALSE,pid);
+            if (hproc  == NULL) {
+                errno = ESRCH;
+                ret = -1;
+                dprintf("proc %d not found\n",pid);
+            }
+            else{
+                dprintf("proc %d found\n",pid);
+            }
+            if (sig == 7) {
+                if (!TerminateProcess(hproc,0xC000013AL) ) {
+                    ret = -1;
+                }
+            }
+            CloseHandle(hproc);
+            break;
+        case 1:
+            if (!GenerateConsoleCtrlEvent(CTRL_C_EVENT,pid)) 
+                ret = -1;
+            break;
+        case 2:
+            if (!GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT,pid)) 
+                ret = -1;
+            break;
+        case 3:
+            if (kill_by_wm_close(pid) <0 ) {
+                errno = ESRCH;
+                ret = -1;
+            }
+        default:
+            break;
+    }
+    return ret;
 }
 //
 // nice(niceness)

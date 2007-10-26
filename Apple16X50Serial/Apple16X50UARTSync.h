@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2002 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -109,6 +109,8 @@ protected:
 #ifdef DEBUG
     virtual void showRegs();
 #endif
+	virtual void restoreUART();
+	virtual void saveUART();
 
     // Static stubs for IOCommandGate::runAction()
     static IOReturn acquirePortAction(OSObject *owner, void*arg0, void*, void*, void*);
@@ -172,6 +174,7 @@ protected:
     UInt8			LCR_Image;
     UInt8			FCR_Image;
     UInt8			IER_Mask;
+    UInt8			MCR_Image;
 
     // Framing and data rate
     UInt32			SW_Special[8];
@@ -190,6 +193,24 @@ protected:
     tXO_State			RXO_State;
     UInt8			XOnChar;
     UInt8			XOffChar;
+	
+    // power management
+	bool		portOpened;
+
+	
+    bool				initForPM(IOService *policyMaker);
+    IOReturn			setPowerState(unsigned long powerStateOrdinal, IOService *whatDevice);
+    unsigned long		powerStateForDomainState(IOPMPowerFlags domainState );
+    unsigned long		maxCapabilityForDomainState(IOPMPowerFlags domainState);
+    unsigned long		initialPowerStateForDomainState(IOPMPowerFlags domainState);
+
+    static void			handleSetPowerState(thread_call_param_t param0, thread_call_param_t param1);
+    static IOReturn		setPowerStateGated(OSObject *owner, void *arg0, void *arg1, void *arg2, void *arg3);
+
+    // private power state stuff
+    thread_call_t		fPowerThreadCall;
+    bool				fWaitForGatedCmd;
+    unsigned int		fCurrentPowerState;     // current power state (0 or 1)
 };
 
 #endif /* !_APPLE16X50UARTSYNC_H */

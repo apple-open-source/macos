@@ -917,7 +917,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       /* APPLE LOCAL begin CW asm blocks. */
       /* Crude way of detecting an entry static label declaration 
-	 (See cw_asm_entry).  Make this a local symbol. */
+	 (See iasm_entry).  Make this a local symbol. */
       if (i == 0 && !TREE_CHAIN (tail) 
 	  && strcmp (TREE_STRING_POINTER (string), "%0:") == 0
 	  && GET_CODE (op) == SYMBOL_REF)
@@ -2483,9 +2483,11 @@ expand_case (tree exp)
 	       /* RANGE may be signed, and really large ranges will show up
 		  as negative numbers.  */
 	       || compare_tree_int (range, 0) < 0
-#ifndef ASM_OUTPUT_ADDR_DIFF_ELT
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+#if !defined(ASM_OUTPUT_ADDR_DIFF_ELT) && (!defined(TARGET_ARM) || !defined(ASM_OUTPUT_ADDR_DIFF_VEC))
 	       || flag_pic
 #endif
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 	       || TREE_CONSTANT (index_expr)
 	       /* If neither casesi or tablejump is available, we can
 		  only go this way.  */
@@ -2533,6 +2535,37 @@ expand_case (tree exp)
 	    = (TREE_CODE (orig_type) != ENUMERAL_TYPE
 	       && estimate_case_costs (case_list));
 	  balance_case_nodes (&case_list, NULL);
+/* APPLE LOCAL begin ARM DImode switches */
+#ifdef TARGET_ARM
+	  /* In the common (in our code) case where the index is DImode,
+	     but all case constants fit in SImode, we can do better.
+	     This doesn't have to be ARM specific. */
+	  {
+	    struct case_node *n;
+	    int unsignedp = TYPE_UNSIGNED (index_type);
+	    if (TYPE_MODE (index_type) == DImode)
+	      {
+		for (n = case_list; n; n = n->right)
+		  {
+		    if (TREE_INT_CST_HIGH (n->low) != 0
+			|| (n->high && TREE_INT_CST_HIGH (n->high) != 0))
+		      goto failed;
+		  }
+		/* Jump to default case if high part of index != 0. */
+		emit_cmp_and_jump_insns (gen_rtx_SUBREG (SImode, index, 
+							subreg_highpart_offset (SImode, DImode)),
+		      const0_rtx, NE, NULL_RTX, SImode, unsignedp, default_label);
+
+		if (unsignedp)
+		  index_type = unsigned_intSI_type_node;
+		else
+		  index_type = intSI_type_node;
+		index = convert_to_mode (SImode, index, unsignedp);
+failed:;
+	      }
+	  }
+#endif
+/* APPLE LOCAL end ARM DImode switches */
 	  emit_case_nodes (index, case_list, default_label, index_type);
 	  emit_jump (default_label);
 	}
@@ -2563,6 +2596,13 @@ expand_case (tree exp)
 	  /* Get table of labels to jump to, in order of case index.  */
 
 	  ncases = tree_low_cst (range, 0) + 1;
+/* APPLE LOCAL begin ARM 4790140 compact switch tables */
+#ifdef TARGET_ARM
+	  if (TARGET_THUMB)
+	    /* Default label goes in at the end also. */
+	    ncases++;
+#endif
+/* APPLE LOCAL end ARM 4790140 compact switch tables */
 	  labelvec = alloca (ncases * sizeof (rtx));
 	  memset (labelvec, 0, ncases * sizeof (rtx));
 
@@ -2968,6 +3008,12 @@ emit_case_nodes (rtx index, case_node_ptr node, rtx default_label,
   int unsignedp = TYPE_UNSIGNED (index_type);
   enum machine_mode mode = GET_MODE (index);
   enum machine_mode imode = TYPE_MODE (index_type);
+
+  /* APPLE LOCAL begin mainline 4561329 */
+  /* Handle indices detected as constant during RTL expansion.  */
+  if (mode == VOIDmode)
+    mode = imode;
+  /* APPLE LOCAL end mainline 4561329 */
 
   /* See if our parents have already tested everything for us.
      If they have, emit an unconditional jump for this node.  */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001, 2002, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,6 +112,10 @@ _SC_stringIsValidDNSName	(const char *name);
 
 Boolean
 _SC_CFStringIsValidDNSName	(CFStringRef name);
+
+
+Boolean
+_SC_CFStringIsValidNetBIOSName	(CFStringRef name);
 
 
 __END_DECLS

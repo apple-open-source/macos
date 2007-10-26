@@ -89,15 +89,6 @@ compact format (columns 1, 6, 10, 14, 18, 22, 26, 30, 34, 38, 42, 46,
 .It Fl f
 .Tn FORTRAN
 format (columns 1, 7, 11, 15, 19, 23).
-.It Fl p
-.Tn PL/1
-format (columns 1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53,
-57, 61).
-.It Fl s
-.Tn SNOBOL
-format (columns 1, 10, 55).
-.It Fl u
-Assembler format (columns 1, 12, 20, 44).
 .It Xo
 .Cm +m Ns Op Ar n ,
 .Cm + Ns Op Ar n
@@ -107,9 +98,18 @@ Set an
 character left margin, or 10 if
 .Ar n
 is omitted.
+.It Fl p
+.Tn PL/1
+format (columns 1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53,
+57, 61).
+.It Fl s
+.Tn SNOBOL
+format (columns 1, 10, 55).
 .It Fl T Ar type
 Output escape sequence for the terminal type
 .Ar type .
+.It Fl u
+Assembler format (columns 1, 12, 20, 44).
 .El
 .Sh ENVIRONMENT
 The

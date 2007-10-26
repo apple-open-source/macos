@@ -50,8 +50,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* APPLE LOCAL begin libcc_kext */
 #ifdef LIBCC_KEXT
 /* Make aborts into panics (kernel panics presumably) */
-#define abort() panic()
-extern void panic (void);
+extern void panic (const char *, ...);
+#define abort() panic("%s:%d: abort in %s", __FILE__, __LINE__, __FUNCTION__)
 #endif
 /* APPLE LOCAL end libcc_kext */
 
@@ -1824,7 +1824,16 @@ void
 __eprintf (const char *string, const char *expression,
 	   unsigned int line, const char *filename)
 {
+  /* APPLE LOCAL begin sdk support 4527353 */
+#ifdef __APPLE_CC__
+  extern int my_fprintf(FILE * stream, const char * format, ...);
+  extern int my_fprintf(FILE * stream, const char * format, ...) asm("_fprintf");
+
+  my_fprintf (stderr, string, expression, line, filename);
+#else
   fprintf (stderr, string, expression, line, filename);
+#endif
+  /* APPLE LOCAL end sdk support 4527353 */
   fflush (stderr);
   abort ();
 }

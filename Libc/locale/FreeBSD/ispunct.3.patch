@@ -1,12 +1,36 @@
---- ispunct.3.orig	Fri Mar 11 19:25:22 2005
-+++ ispunct.3	Fri Mar 11 19:26:38 2005
-@@ -97,7 +97,8 @@
- .Xr ctype 3 ,
- .Xr iswpunct 3 ,
- .Xr multibyte 3 ,
--.Xr ascii 7
-+.Xr ascii 7 ,
-+.Xr isalnum_l
- .Sh STANDARDS
+--- ispunct.3	2004-11-25 11:38:17.000000000 -0800
++++ ispunct.3.edit	2006-08-09 13:24:42.000000000 -0700
+@@ -51,7 +51,7 @@
+ .Sh DESCRIPTION
  The
  .Fn ispunct
+-function tests for any printing character except for space
++function tests for any printing character, except for space
+ .Pq Ql "\ "
+ or a
+ character for which
+@@ -60,14 +60,14 @@
+ For single C
+ .Va char Ns s
+ locales (see
+-.Xr multibyte 3 )
++.Xr multibyte 3 ) ,
+ the value of the argument is
+ representable as an
+ .Li unsigned char
+ or the value of
+ .Dv EOF .
+ In the ASCII character set, this includes the following characters
+-(with their numeric values shown in octal):
++(preceded by their numeric values, in octal):
+ .Pp
+ .Bl -column \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__
+ .It "\&041\ ``!'' \t042\ ``""'' \t043\ ``#'' \t044\ ``$'' \t045\ ``%''"
+@@ -95,6 +95,7 @@
+ function should be used instead.
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
++.Xr isalnum_l 3 ,
+ .Xr iswpunct 3 ,
+ .Xr multibyte 3 ,
+ .Xr ascii 7

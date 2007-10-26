@@ -1,7 +1,8 @@
 .\" Man page for man (and the former manpath)
 .\"
 .\" Copyright (c) 1990, 1991, John W. Eaton.
-.\" Traduction française René Cougnenc - Mai 1995 
+.\" Traduction franÃ§aise RenÃ© Cougnenc - Mai 1995 
+.\" Mise Ã  jour importante Alain Portal le 2 juin 2005
 .\"
 .\" You may distribute under the terms of the GNU General Public
 .\" License as specified in the README file that comes with the man 1.0
@@ -14,206 +15,412 @@
 .\" Austin, Texas  78712
 .\"
 .\" Many changes - aeb
+.\" More changes - flc
 .\"
-.TH MAN 1 "12 Mars 1995" "Manuel Linux" "Commandes utilisateur"
+.TH MAN 1 "19 septembre 2005" "Manuel Linux" "Commandes utilisateur"
 .LO 1
 .SH NOM
 man \- formate et affiche les pages du manuel en ligne
-.br
-manpath \- détermine le chemin de recherche des pages pour l'utilisateur
 .SH SYNOPSIS
-man [\-acdfhktwW] [\-m système] [\-p chaîne] [\-C fichier_config] [\-M chemin]
-[\-P visualiseur] [\-S liste_sections] [section] nom ...
+.B man 
+.RB [ \-acdfFhkKtwW ]
+.RB [ --path ]
+.RB [ \-m
+.IR systÃ¨me ]
+.RB [ \-p
+.IR chaÃ®ne ]
+.RB [ \-C
+.IR fichier_config ]
+.RB [ \-M
+.IR chemin ]
+.RB [ \-P
+.IR visualiseur ]
+.RB [ \-B
+.IR navigateur ]
+.RB [ \-H
+.IR visualiseur_html ]
+.RB [ \-S
+.IR liste_sections ]
+.RI [ section ]
+.I "nom ..."
+
 .SH DESCRIPTION
 .B man
-formate  et  affiche les  pages  du  manuel  en ligne.  Cette  version
-reconnaît les variables d'environnement
-.B MANPATH
-et
-.BR (MAN)PAGER ,
-de sorte que
-vous pouvez avoir  vos propres jeux de manuels  personnels et employer
-le programme de votre choix pour les visualiser. Si
+formate et affiche les pages du manuel en ligne. Si
 .I section
-est spécifiée,
+est spÃ©cifiÃ©e,
 .B man
-ne  recherchera  que  dans  cette section  particulière.  Vous  pouvez
-également  indiquer   l'ordre  de  recherche  des   sections  désirées
-ainsi  que les  préprocesseurs à  utiliser pour  traiter les  fichiers
-sources, par  des options de  la ligne  de commandes ou  des variables
-d'environnement. Si
+ne recherchera que dans cette section du manuel.
 .I nom
-contient le caractère /, il sera d'abord considéré en tant que nom
-de fichier, vous pouvez donc faire :
+est le nom de la page qui est gÃ©nÃ©ralement le nom d'une commande,
+d'une fonction ou d'un fichier. Toutefois, si
+.I nom
+contient une barre oblique
+.RB " Â«\ "/ \ Â»,
+il sera d'abord considÃ©rÃ© en tant que nom de fichier, vous pouvez donc faire\ :
 .B "man ./toto.5"
-ou même
+ou mÃªme
 .B "man /truc/machin/bidule.1.gz\fR.\fP"
+.PP
+Voir plus loin pour une description sur la faÃ§on dont
+.B man
+cherche les fichiers pages de manuel.
+ 
 .SH OPTIONS
 .TP
 .B \-\^C " fichier_config"
-Spécifie le fichier man.conf à utiliser; par défaut il s'agit
-de @man_config_file@. (voir man.conf(5).)  
+SpÃ©cifie le fichier de configuration Ã  utiliser\ ; par dÃ©faut il s'agit de
+.BR @man_config_file@ .
+(Voir
+.BR man.conf (5).)
 .TP
-.B \-\^M " path"
-Indique la liste des répertoires dans lesquels la recherche des pages 
-sera effectuée. Si rien n'est spécifié, c'est la variable d'environnement
-.B MANPATH
-qui sera utilisée. Si cette variable n'existe pas, la liste par défaut
-sera déterminée en consultant le fichier @man_config_file@. Si MANPATH
-contient une chaîne vide, celle-ci sera remplacée par la liste par défaut.
+.B \-\^M " chemin"
+Indique la liste des rÃ©pertoires dans lesquels la recherche des pages 
+sera effectuÃ©e. Veuillez sÃ©parer les rÃ©pertoires par le symbole deux points
+.RB " Â«\ ": \ Â».
+Une liste vide est Ã©quivalent Ã  ne pas spÃ©cifier l'option
+.BR \-M .
+Voir
+.BR "CHEMIN DE RECHERCHE POUR LES PAGES DE MANUEL" .
 .TP
 .B \-\^P " visualiseur"
-Indique le programme de visualisation des pages à employer.
-Par défaut, 
+Indique le programme de visualisation des pages Ã  employer.
+Cette option a prioritÃ© sur la variable d'environnement
+.BR MANPAGER ,
+qui, Ã  son tour, a prioritÃ© sur la variable d'environnement
+.BR PAGER .
+Par dÃ©faut,
 .B man 
 utilisera
 .B @pager@.
-Cette option a priorité sur la variable d'environnement
-.B PAGER.
+.TP
+.B \-\^B
+SpÃ©cifie quel navigateur utiliser pour les fichiers HTML.
+Cette option supplante la variable d'environnement
+.B BROWSER
+Par dÃ©faut,
+.B man
+utilise
+.BR @browser@ .
+.TP
+.B \-\^H
+SpÃ©cifie une commande qui produit un fichier texte Ã  partir du fichier HTML.
+Cette option supplante la variable d'environnement
+.B HTMLPAGER
+Par dÃ©faut,
+.B man
+utilise
+.BR @htmlpager@ .
 .TP
 .B \-\^S " liste_sections"
-Il s'agit d'une liste de sections, séparées par des deux points,
-dans lesquelles les pages seront recherchées. Elle a priorité sur
+Il s'agit d'une liste de sections, sÃ©parÃ©es par le symbole deux points
+.RB " Â«\ ": \ Â»,
+dans lesquelles les pages seront recherchÃ©es. Elle a prioritÃ© sur
 la variable d'environnement
 .B MANSECT.
 .TP
 .B \-\^a
-Par défaut, 
+Par dÃ©faut,
 .B man 
-s'arrête après avoir affiché la première page de
-manuel trouvée. Cette option permet de lui faire afficher toutes
-les pages correspondant à la requête «   
-.B nom
-» de l'utilisateur, s'il y en a plusieurs.
+s'arrÃªte aprÃ¨s avoir affichÃ© la premiÃ¨re page de
+manuel trouvÃ©e. Cette option permet de l'obliger Ã  afficher toutes
+les pages correspondant Ã  la requÃªte
+.RB " Â«\ "nom \ Â»
+de l'utilisateur, s'il y en a plusieurs, et pas seulement la premiÃ¨re trouvÃ©e.
 .TP
 .B \-\^c
-Reformate la page de manuel, même si une version préformatée à jour
-existe. Cela peut être utile si cette dernière a été prévue pour un
-écran de taille différente, par exemple.
+Reformater la page de manuel, mÃªme si une version prÃ©formatÃ©e Ã  jour
+existe. Cela peut Ãªtre utile si cette derniÃ¨re a Ã©tÃ© prÃ©vue pour un
+Ã©cran de taille diffÃ©rente ou bien si elle est abÃ®mÃ©e.
 .TP
 .B \-\^d
-N'affiche pas les pages de manuel, mais fournit une grande quantité
-d'informations de déboguage.
+Ne pas afficher les pages de manuel, mais fournir une grande quantitÃ©
+d'informations de dÃ©bogage.
 .TP
 .B \-\^D
-Affiche à la fois les pages de manuel et les informations de déboguage.
+Afficher Ã  la fois les pages de manuel et les informations de dÃ©bogage.
 .TP
 .B \-\^f
-Équivalent à
-.B whatis.
+Ã‰quivalent Ã 
+.BR whatis .
 .TP
 .B \-\^h
-Affiche un court message d'aide.
+Afficher un court message d'aide et quitter.
 .TP
 .B \-\^k
-Équivalent à
+Ã‰quivalent Ã 
 .B apropos.
 .TP
-.B \-\^m " système"
-Demande l'utilisation d'un autre jeu de pages de manuel, en fonction
-du nom de système indiqué.
+.B \-\^K
+Chercher la chaÃ®ne spÃ©cifiÃ©e dans *toutes* les pages de manuel. Attention\ :
+cela peut Ãªtre trÃ¨s long\ ! Et il peut Ãªtre utile de spÃ©cifier une section.
+(Pour donner une vague idÃ©e, sur ma machine, il faut environ une minute
+pour 500 pages de manuel.)
 .TP
-.B \-\^p " chaîne"
-Spécifie la séquence de préprocesseurs à exécuter avant nroff ou troff.
-Selon votre installation de Linux, vous ne disposerez pas forcément
+.B \-\^m " systÃ¨me"
+Demander l'utilisation d'un autre jeu de pages de manuel, en fonction
+du nom de systÃ¨me indiquÃ©.
+.TP
+.B \-\^p " chaÃ®ne"
+SpÃ©cifie la sÃ©quence de prÃ©processeurs Ã  exÃ©cuter avant
+.B nroff
+ou
+.BR troff .
+Selon votre installation de Linux, vous ne disposerez pas forcÃ©ment
 de tous les programmes possibles. Voici les  plus courants et les lettres
-qui les désignent:
+qui les dÃ©signent\ :
 eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
-Cette option a priorité sur la variable d'environnement
+Cette option a prioritÃ© sur la variable d'environnement
 .B MANROFFSEQ.
 .TP
 .B \-\^t
-Emploie
+Utiliser
 .B @troff@
 pour formater la page de manuel, la sortie se faisant sur
 .B stdout.
 La sortie de 
 .B @troff@
-peut nécessiter un passage par certains filtres avant de pouvoir
-être affichée ou imprimée.
+peut nÃ©cessiter un passage par certains filtres avant de pouvoir
+Ãªtre affichÃ©e ou imprimÃ©e.
 .TP
 .B \-\^w \fRou\fP \-\-path
-N'affiche pas les pages de manuel, mais les emplacements des fichiers
-qui auraient été formatés ou affichés. Si aucun argument n'est précisé,
-indique sur la sortie standard la liste des répertoires dans lesquels
+Ne pas afficher les pages de manuel, mais les emplacements des fichiers
+qui auraient Ã©tÃ© formatÃ©s ou affichÃ©s. Si aucun argument n'est prÃ©cisÃ©,
+indique sur la sortie standard la liste des rÃ©pertoires dans lesquels
 .B man
 recherche les pages. Si
 .B manpath
-est un lien sur le programme man, alors « manpath » est équivalent
-à la commande « man --path ».
+est un lien sur le programme man, alors Â«\ manpath\ Â» est Ã©quivalent
+Ã  la commande Â«\ man --path\ Â».
 .TP
 .B \-\^W
 Comme \-\^w, mais affiche les noms de fichiers, un par ligne, sans aucune
-autre information. Très utile dans des commandes shell du genre:
+autre information. TrÃ¨s utile dans des commandes shell du genre\ :
 .ft CW
-man -aW man | xargs ls -l
+.B man -aW man | xargs ls -l
 .ft
 
-.SH "PAGES FORMATÉES"
+.SH "PAGES FORMATÃ‰ES"
 Afin de gagner du temps, 
 .B man 
-tente de sauvegarder les pages formatées
-au lieu de les interpréter chaque fois qu'elles sont demandées.
-Traditionnellement, les versions formatées des pages de REP/manX sont
-enregistrées dans REP/catX, mais d'autres correspondances entre les
-répertoires man et les répertoires cat peuvent être indiquées dans
-le fichier  @man_config_file@. Si le répertoire « cat » correspondant
-n'existe pas, les pages formatées ne seront pas enregistrées.
-.LP
+tente de sauvegarder les pages formatÃ©es
+au lieu de les interprÃ©ter chaque fois qu'elles sont demandÃ©es.
+Traditionnellement, les versions formatÃ©es des pages de REP/manX sont
+enregistrÃ©es dans REP/catX, mais d'autres correspondances entre les
+rÃ©pertoires man et les rÃ©pertoires cat peuvent Ãªtre indiquÃ©es dans
+le fichier
+.BR @man_config_file@ .
+Aucune page formatÃ©e n'est enregistrÃ©e si le rÃ©pertoire Â«\ cat\ Â» correspondant
+n'existe pas.
+Aucune page formatÃ©e n'est enregistrÃ©e si elle est formatÃ©e avec une longueur
+de ligne diffÃ©rente de 80.
+Aucune page formatÃ©e n'est enregistrÃ©e si le fichier
+.B @man_config_file@
+contient la ligne NOCACHE.
+.PP
 Il est possible de rendre
 .B man
-suid utilisateur man. Dans ce cas, si un répertoire cat appartient
-à man et a le mode 0755 (seul man peut l'écrire), et que les fichiers
-cat appartiennent eux aussi à man et ont le mode 0644 ou 0444 (seul
-man peut les écrire, voire personne), aucun utilisateur normal ne pourra
-changer de pages formatées ou mettre d'autre fichiers dans le répertoire
+suid utilisateur man. Dans ce cas, si un rÃ©pertoire Â«\ cat\ Â» appartient
+Ã  man et a le mode 0755 (seul man peut l'Ã©crire), et que les fichiers
+formatÃ©s appartiennent eux aussi Ã  man et ont le mode 0644 ou 0444 (seul
+man peut les Ã©crire, voire personne), aucun utilisateur normal ne pourra
+modifier les pages formatÃ©es ou mettre d'autre fichiers dans le rÃ©pertoire
 correspondant. Si
 .B man
-n'est pas suid, les répertoires cat devront avoir le mode 0777 afin
-que tout utilisateur puisse y laisser le résultat des formatages lors
+n'est pas suid, les rÃ©pertoires Â« cat Â» devront avoir le mode 0777 afin
+que tout utilisateur puisse y laisser le rÃ©sultat des formatages lors
 des consultations du manuel.
-.LP
-L'option -c force le reformatage d'une page, même si un fichier cat
-plus récent que le fichier source existe.
+.PP
+L'option
+.B \-c
+force le reformatage d'une page, mÃªme si un fichier cat
+plus rÃ©cent que le fichier source existe.
 
+.SH "CHEMIN DE RECHERCHE POUR LES PAGES DE MANUEL"
+.B man
+utilise une mÃ©thode sophistiquÃ©e pour chercher les pages de manuels,
+basÃ©e sur l'invocation d'options et de variables d'environnement,
+le fichier de configuration
+.BR @man_config_file@ ,
+des heuristiques et conventions prÃ©dÃ©finies.
+.PP
+En premier lieu, lorsque l'argument
+.I nom
+de
+.B man
+contient une barre oblique
+.RB " Â«\ "/ \ Â»,
+.B man
+suppose qu'il s'agit d'un fichier et aucune recherche complexe n'est lancÃ©e.
+.PP
+Mais dans la plupart des cas oÃ¹
+.I nom
+ne contient pas de barre oblique,
+.B man
+recherche dans plusieurs rÃ©pertoires un fichier qui pourrait Ãªtre une page
+de manuel pour le sujet nommÃ©.
+.PP
+Si vous spÃ©cifiez l'option
+.B \-M
+.IR liste_chemins ,
+.I liste_chemins
+est une liste de rÃ©pertoires, sÃ©parÃ©s par le symbole deux points 
+.RB " Â«\ ": \ Â»,
+dans lesquels
+.B man
+effectuera sa recherche.
+.PP
+Si vous ne spÃ©cifiez pas
+.B -M
+mais que vous positionniez la variable d'environnement
+.BR MANPATH ,
+la valeur de cette variable est la liste des rÃ©pertoires dans lesquels
+.B man
+effectuera sa recherche.
+.PP
+Si vous ne spÃ©cifiez pas une liste de chemins explicite avec
+.B -M
+ou 
+.BR MANPATH ,
+.B man
+dÃ©veloppe sa propre liste de chemins basÃ©e sur le contenu du fichier de
+configuration 
+.BR @man_config_file@ .
+Les dÃ©clarations
+.B MANPATH
+dans le fichier de configuration identifient des rÃ©pertoires particuliers
+Ã  inclure dans le chemin de recherche.
+.PP
+Qui plus est, les dÃ©clarations
+.B MANPATH_MAP
+complÃ¨tent le chemin de recherche en fonction du chemin de recherche de vos
+commandes (autrement dit, de votre variable d'environnement
+.BR PATH ).
+La dÃ©claration
+.B MANPATH_MAP
+indique, pour chacun des rÃ©pertoires pouvant se trouver dans le chemin de
+recherche des commandes, un rÃ©pertoire qui devrait Ãªtre ajoutÃ© au chemin de
+recherche des pages de manuel.
+.B man
+scrute la variable
+.B PATH
+et ajoute au chemin de recherche des pages de manuel les rÃ©pertoires
+correspondants. Ainsi, avec une utilisation correcte de
+.BR MANPATH_MAP ,
+lorsque vous tapez la commande
+.BR "man xyz" ,
+vous obtenez la page de manuel du programme que vous lanceriez si vous
+tapiez la commande
+.BR xyz .
+.PP
+De plus, pour chacun des rÃ©pertoires situÃ©s dans le chemin de recherche des
+commandes (nous l'appellerons Â«\ rÃ©pertoire commandes\ Â») pour lequel vous
+.IR n "'avez " pas
+d'instruction
+.BR MANPATH_MAP ,
+.B man
+cherchera automatiquement un rÃ©pertoire de pages de manuel Ã  proximitÃ©,
+Ã  savoir un sous-rÃ©pertoire du Â«\ rÃ©pertoire commandes\ Â» lui-mÃªme ou dans
+le rÃ©pertoire parent du Â«\ rÃ©pertoire commandes\ Â».
+.PP
+Vous pouvez dÃ©sactiver la recherche automatique de proximitÃ© en incluant
+l'instruction
+.B NOAUTOPATH
+dans le fichier de configuration
+.BR @man_config_file@ .
+.PP
+Dans chaque rÃ©pertoire du chemin de recherche dÃ©crit plus haut,
+.B man
+cherche un fichier nommÃ©
+.IB sujet . section\fR,
+avec un suffixe optionnel sur le numÃ©ro de section et un possible suffixe
+de compression. S'il ne peut trouver un tel fichier, il regarde alors dans
+tous les sous-rÃ©pertoires nommÃ©s
+.BI man N
+ou
+.BI cat N
+oÃ¹
+.I N
+est le numÃ©ro de la section du manuel. Si le fichier se trouve dans
+le sous-rÃ©pertoire
+.B cat
+.IR N ,
+.B man
+suppose qu'il s'agit d'une page de manuel formatÃ©e (page cat). Autrement,
+.B man
+suppose qu'elle n'est pas formatÃ©e. Dans tous les cas, si le nom de
+fichier comporte une extension indiquant une compression connue (comme
+.BR .gz ),
+.B man
+suppose que le fichier est gzippÃ©.
+.PP
+Si vous vouloir savoir oÃ¹ (ou si)
+.B man
+peut trouver une page de manuel sur un sujet particulier, utilisez l'option
+.BR "--path " ( -w ).
 
 .SH ENVIRONNEMENT
 .TP
 .B MANPATH
 Si la variable
 .B MANPATH
-est positionnée, sa valeur sera utilisée comme chemin de recherche
-des pages de manuel.
+est positionnÃ©e,
+.B man
+utilisera sa valeur comme chemin de recherche des pages de manuel.
+Cette variable est prioritaire sur le fichier de configuration et le chemin
+de recherche automatique, mais cÃ¨de cette prioritÃ© si l'option
+.B -M
+est utilisÃ©e. Voir
+.BR "CHEMIN DE RECHERCHE POUR LES PAGES DE MANUEL" .
+.TP
+.B MANPL
+Si la variable
+.B MANPL
+est positionnÃ©e, sa valeur servira Ã  dÃ©finir la longueur de l'affichage de la
+page. Autrement, la page entiÃ¨re est affichÃ©e sur une seule et longue page.
 .TP
 .B MANROFFSEQ
 Si
 .B MANROFFSEQ
-est positionnée, sa valeur servira à déterminer le jeu de préprocesseurs
-à exécuter avant de lancer nroff ou troff. Par défaut, les pages sont
-passées dans le processeur de tableaux avant nroff.
+est positionnÃ©e, sa valeur servira Ã  dÃ©terminer le jeu de prÃ©processeurs
+Ã  exÃ©cuter avant de lancer
+.B nroff
+ou
+.BR troff .
+Par dÃ©faut, les pages sont passÃ©es dans le processeur de tableaux avant
+.BR nroff .
 .TP
 .B MANSECT
 Si
 .B MANSECT
-est positionnée, sa valeur déterminera les sections du manuel dans
-lesquelles les pages seront recherchées.
+est positionnÃ©e, sa valeur dÃ©terminera les sections du manuel dans
+lesquelles les pages seront recherchÃ©es.
 .TP
-.B PAGER
+.B MANWIDTH
 Si
+.B MANWIDTH
+est positionnÃ©e, sa valeur servira Ã  dÃ©finir la largeur de l'affichage de la
+page. Autrement, la page sera affichÃ©e sur toute la largeur de l'Ã©cran.
+.TP
+.B MANPAGER
+Si
+.B MANPAGER
+est positionnÃ©e, sa valeur sera considÃ©rÃ©e comme le nom du programme
+Ã  utiliser pour visualiser la page de manuel. Dans le cas contraire,
 .B PAGER
-est positionnée, sa valeur sera considérée comme le nom du programme
-à utiliser pour afficher la page de manuel. Par défaut, il s'agira de
-.B @pager@.
+sera utilisÃ©e. Si aucune des deux variables n'est positionnÃ©e,
+.B @pager@
+sera utilisÃ©.
 .TP
 .B LANG
 Si
 .B LANG
-est positionnée, sa valeur définira le nom du sous-répertoire où
+est positionnÃ©e, sa valeur dÃ©finira le nom du sous-rÃ©pertoire oÃ¹
 .B man
 commencera la recherche des pages de manuel. Ainsi, la commande
-« LANG=fr man 1 toto » aura pour effet de faire rechercher la page
+Â«\ LANG=fr man 1 toto\ Â» aura pour effet de faire rechercher la page
 toto dans .../fr/man1/toto.1, et si ce fichier n'existe pas, 
-dans .../man1/toto.1, où ... est un répertoire du chemin de recherche.
+dans .../man1/toto.1, oÃ¹ ... est un rÃ©pertoire du chemin de recherche.
 .TP
 .B "NLSPATH, LC_MESSAGES, LANG"
 Les variables d'environnement
@@ -222,30 +429,68 @@ et
 .B LC_MESSAGES
 (ou
 .B LANG
-lorsque la dernière n'existe pas)
-jouent un rôle dans la localisation du catalogue de messages.
-(Mais les messages anglais sont inclus dans le programme à la compilation,
-aucun catalogue n'est donc nécessaire pour un affichage dans la langue de
+lorsque la derniÃ¨re n'existe pas)
+jouent un rÃ´le dans la localisation du catalogue de messages.
+(Mais les messages anglais sont inclus dans le programme Ã  la compilation,
+aucun catalogue n'est donc nÃ©cessaire pour un affichage dans la langue de
 Shakespeare.)
-Notez que les programmes comme col(1) qui sont appelés par 
-.B man,
-utilisent également LC_CTYPE.
+Notez que les programmes comme
+.BR col (1)
+qui sont appelÃ©s par 
+.BR man ,
+utilisent Ã©galement LC_CTYPE.
 .TP
 .B PATH
 .B PATH
-est utilisée pour la construction du chemin de recherche par défaut.
+est utilisÃ©e pour la construction du chemin de recherche par dÃ©faut. Voir
+.BR "CHEMIN DE RECHERCHE POUR LES PAGES DE MANUEL" .
 .TP
 .B SYSTEM
 .B SYSTEM
-employée pour obtenir les systèmes alternatifs par défaut (en vue de
+est employÃ©e pour obtenir le nom du systÃ¨me alternatif par dÃ©faut (en vue de
 l'utilisation de l'option 
 .B \-m
 ). 
-.SH "VOIR AUSSI"
-apropos(1), whatis(1), less(1), groff(1).
-.SH BUGS
+.SH BOGUES
 L'option
 .B \-t
-ne fonctionne que si un programme « troff-like » est installé.
+ne fonctionne que si un programme Â«\ troff-like\ Â» est installÃ©.
+.br
+Si vous voyez clignoter \e255 ou <AD> au lieu de traits d'union,
+mettez Â«\ LESSCHARSET=latin1\ Â» dans votre environnement.
+.SH ASTUCES
+Si vous ajoutez la ligne
+
+  (global-set-key [(f1)] (lambda () (interactive) (manual-entry (current-word))))
+
+Ã  votre fichier
+.IR .emacs ,
+vous obtiendrez la page de manuel de l'appel de la bibliothÃ¨que situÃ© Ã  la
+position courante du curseur lorsque vous presserez la touche F1.
+.LP
+Pour obtenir une version texte seul d'une page de manuel, sans retour arriÃ¨re
+ni caractÃ¨re de soulignement, essayez
+
+  # man foo | col -b > foo.mantxt
+
+.SH AUTEUR
+John W. Eaton est l'auteur historique de
+.BR man .
+Federico Lucifredi <flucifredi@acm.org> en assure aujourd'hui la maintenance.
+.SH "VOIR AUSSI"
+.BR apropos (1),
+.BR whatis (1),
+.BR less (1),
+.BR groff (1),
+.BR man.conf (5).
 .SH TRADUCTION
-René Cougnenc, 1995.
+.PP
+Ce document est une traduction rÃ©alisÃ©e par RenÃ© Cougnenc en mai 1995 et mise
+Ã  jour par Alain Portal <aportal@univ-montp2.fr> le 7 novembre 2005.
+.PP
+L'Ã©quipe de traduction a fait le maximum pour rÃ©aliser une adaptation
+franÃ§aise de qualitÃ©. La version anglaise la plus Ã  jour de ce document est
+toujours consultable via la commande\ : Â«\ \fBLANG=en\ man\ 1\ man\fR\ Â».
+N'hÃ©sitez pas Ã  signaler Ã  l'auteur ou au traducteur, selon le cas, toute
+erreur dans cette page de manuel.
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -60,6 +60,8 @@
 #include "ev_ipv6.h"
 #include "ev_appletalk.h"
 
+#include <notify.h>
+
 static const char *inetEventName[] = {
 	"",
 	"INET address added",
@@ -109,10 +111,10 @@ static const char *inet6EventName[] = {
 	"KEV_INET6_NEW_LL_ADDR",
 	"KEV_INET6_NEW_RTADV_ADDR",
 	"KEV_INET6_DEFROUTER"
-
 };
 
 
+__private_extern__ Boolean		network_changed	= FALSE;
 __private_extern__ SCDynamicStoreRef	store		= NULL;
 __private_extern__ Boolean		_verbose	= FALSE;
 
@@ -133,7 +135,7 @@ ifflags_set(int s, char * name, short flags)
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
-    if (ret < 0) {
+    if (ret == -1) {
 		return (ret);
     }
     ifr.ifr_flags |= flags;
@@ -149,7 +151,7 @@ ifflags_clear(int s, char * name, short flags)
     bzero(&ifr, sizeof(ifr));
     strncpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
     ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
-    if (ret < 0) {
+    if (ret == -1) {
 		return (ret);
     }
     ifr.ifr_flags &= ~flags;
@@ -160,7 +162,7 @@ static void
 mark_if_up(char * name)
 {
 	int s = dgram_socket(AF_INET);
-	if (s < 0)
+	if (s == -1)
 		return;
 	ifflags_set(s, name, IFF_UP);
 	close(s);
@@ -170,10 +172,27 @@ static void
 mark_if_down(char * name)
 {
 	int s = dgram_socket(AF_INET);
-	if (s < 0)
+	if (s == -1)
 		return;
 	ifflags_clear(s, name, IFF_UP);
 	close(s);
+}
+
+static void
+post_network_changed(void)
+{
+	if (network_changed) {
+		uint32_t	status;
+
+		status = notify_post("com.apple.system.config.network_change");
+		if (status != NOTIFY_STATUS_OK) {
+			SCLog(TRUE, LOG_ERR, CFSTR("notify_post() failed: error=%ld"), status);
+		}
+
+		network_changed = FALSE;
+	}
+
+	return;
 }
 
 static void
@@ -197,7 +216,7 @@ logEvent(CFStringRef evStr, struct kern_event_msg *ev_msg)
 }
 
 static const char *
-inetEventNameString(u_long event_code)
+inetEventNameString(uint32_t event_code)
 {
 	if (event_code <= KEV_INET_ARPCOLLISION) {
 		return (inetEventName[event_code]);
@@ -206,7 +225,7 @@ inetEventNameString(u_long event_code)
 }
 
 static const char *
-inet6EventNameString(u_long event_code)
+inet6EventNameString(uint32_t event_code)
 {
 	if (event_code <= KEV_INET6_DEFROUTER) {
 		return (inet6EventName[event_code]);
@@ -215,7 +234,7 @@ inet6EventNameString(u_long event_code)
 }
 
 static const char *
-dlEventNameString(u_long event_code)
+dlEventNameString(uint32_t event_code)
 {
 	if (event_code <= KEV_DL_PROTO_DETACHED) {
 		return (dlEventName[event_code]);
@@ -224,7 +243,7 @@ dlEventNameString(u_long event_code)
 }
 
 static const char *
-atalkEventNameString(u_long event_code)
+atalkEventNameString(uint32_t event_code)
 {
 	if (event_code <= KEV_ATALK_ZONELISTCHANGED) {
 		return (atalkEventName[event_code]);
@@ -236,7 +255,7 @@ atalkEventNameString(u_long event_code)
 static void
 copy_if_name(struct net_event_data * ev, char * ifr_name, int ifr_len)
 {
-	snprintf(ifr_name, ifr_len, "%s%ld", ev->if_name, ev->if_unit);
+	snprintf(ifr_name, ifr_len, "%s%d", ev->if_name, ev->if_unit);
 	return;
 }
 
@@ -247,7 +266,7 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 	int				dataLen = (ev_msg->total_size - KEV_MSG_HEADER_SIZE);
 	void *				event_data = &ev_msg->event_data[0];
 	Boolean				handled = TRUE;
-	char				ifr_name[IFNAMSIZ+1];
+	char				ifr_name[IFNAMSIZ + 1];
 
 	switch (ev_msg->kev_subclass) {
 		case KEV_INET_SUBCLASS : {
@@ -284,6 +303,16 @@ processEvent_Apple_Network(struct kern_event_msg *ev_msg)
 								 ev->ia_ipaddr,
 								 ev->hw_len,
 								 ev->hw_addr);
+					break;
+				}
+				case KEV_INET_PORTINUSE : {
+					struct kev_in_portinuse	* ev;
+					ev = (struct kev_in_portinuse *)event_data;
+					if (dataLen < sizeof(*ev)) {
+						handled = FALSE;
+						break;
+					}
+					port_in_use_ipv4(ev->port, ev->req_pid);
 					break;
 				}
 				default :
@@ -527,6 +556,7 @@ eventCallback(CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const
 
 	cache_write(store);
 	cache_close();
+	post_network_changed();
 
 	return;
 
@@ -557,7 +587,7 @@ prime_KernelEventMonitor()
 		goto done;
 	}
 
-	if (getifaddrs(&ifap) < 0) {
+	if (getifaddrs(&ifap) == -1) {
 		SCLog(TRUE,
 		      LOG_ERR,
 		      CFSTR("could not get interface info, getifaddrs() failed: %s"),
@@ -596,13 +626,23 @@ prime_KernelEventMonitor()
 	freeifaddrs(ifap);
 
  done:
-	if (sock >= 0)
+	if (sock != -1)
 		close(sock);
 
 	cache_write(store);
 	cache_close();
 
+	network_changed = TRUE;
+	post_network_changed();
+
 	return;
+}
+
+
+static CFStringRef
+kevSocketCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<kernel event socket>"));
 }
 
 
@@ -614,7 +654,12 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 	int			status;
 	struct kev_request	kev_req;
 	CFSocketRef		es;
-	CFSocketContext		context = { 0, NULL, NULL, NULL, NULL };
+	CFSocketContext		context = { 0
+					  , (void *)1
+					  , NULL
+					  , NULL
+					  , kevSocketCopyDescription
+					  };
 	CFRunLoopSourceRef	rls;
 
 	if (bundleVerbose) {
@@ -629,7 +674,7 @@ load_KernelEventMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 				     CFSTR("Kernel Event Monitor plug-in"),
 				     NULL,
 				     NULL);
-	if (!store) {
+	if (store == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("SCDnamicStoreCreate() failed: %s"), SCErrorString(SCError()));
 		SCLog(TRUE, LOG_ERR, CFSTR("kernel event monitor disabled."));
 		return;

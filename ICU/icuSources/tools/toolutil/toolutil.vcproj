@@ -20,13 +20,14 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\common"
-				PreprocessorDefinitions="NDEBUG;WIN32;_WINDOWS;_USRDLL"
+				AdditionalIncludeDirectories="..\..\..\include,..\..\common"
+				PreprocessorDefinitions="WIN32;NDEBUG;U_TOOLUTIL_IMPLEMENTATION"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
+				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/toolutil.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -38,12 +39,12 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				OutputFile="..\..\..\bin\icutu32.dll"
+				OutputFile="..\..\..\bin\icutu36.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\..\..\lib"
-				ProgramDatabaseFile=".\..\..\..\lib\icutu32.pdb"
+				ProgramDatabaseFile=".\..\..\..\lib\icutu36.pdb"
+				EnableCOMDATFolding="2"
 				BaseAddress="0x4ac00000"
 				ImportLibrary="..\..\..\lib\icutu.lib"/>
 			<Tool
@@ -85,11 +86,14 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\common"
-				PreprocessorDefinitions="_DEBUG;WIN32;_WINDOWS;_USRDLL"
+				ImproveFloatingPointConsistency="TRUE"
+				AdditionalIncludeDirectories="..\..\..\include,..\..\common"
+				PreprocessorDefinitions="WIN32;_DEBUG;U_TOOLUTIL_IMPLEMENTATION"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				BufferSecurityCheck="TRUE"
+				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/toolutil.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -102,13 +106,12 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				OutputFile="..\..\..\bin\icutu32d.dll"
+				OutputFile="..\..\..\bin\icutu36d.dll"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile=".\..\..\..\lib\icutu32d.pdb"
+				ProgramDatabaseFile=".\..\..\..\lib\icutu36d.pdb"
 				BaseAddress="0x4ac00000"
 				ImportLibrary="..\..\..\lib\icutud.lib"/>
 			<Tool
@@ -147,19 +150,40 @@
 			Name="Source Files"
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
 			<File
+				RelativePath=".\filestrm.c">
+			</File>
+			<File
+				RelativePath=".\package.cpp">
+			</File>
+			<File
+				RelativePath=".\pkgitems.cpp">
+			</File>
+			<File
 				RelativePath=".\propsvec.c">
 			</File>
 			<File
+				RelativePath=".\swapimpl.cpp">
+			</File>
+			<File
 				RelativePath=".\toolutil.c">
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\ucbuf.c">
 			</File>
 			<File
 				RelativePath=".\ucm.c">
-			</File>
-			<File
-				RelativePath=".\ucmpwrit.c">
 			</File>
 			<File
 				RelativePath=".\ucmstate.c">
@@ -174,14 +198,29 @@
 				RelativePath=".\uparse.c">
 			</File>
 			<File
-				RelativePath=".\uperf.cpp">
+				RelativePath=".\writesrc.c">
+			</File>
+			<File
+				RelativePath=".\xmlparser.cpp">
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl">
 			<File
+				RelativePath=".\filestrm.h">
+			</File>
+			<File
+				RelativePath=".\package.h">
+			</File>
+			<File
+				RelativePath=".\pkg_imp.h">
+			</File>
+			<File
 				RelativePath=".\propsvec.h">
+			</File>
+			<File
+				RelativePath=".\swapimpl.h">
 			</File>
 			<File
 				RelativePath=".\toolutil.h">
@@ -193,9 +232,6 @@
 				RelativePath=".\ucm.h">
 			</File>
 			<File
-				RelativePath=".\ucmpwrit.h">
-			</File>
-			<File
 				RelativePath=".\unewdata.h">
 			</File>
 			<File
@@ -205,10 +241,10 @@
 				RelativePath=".\uparse.h">
 			</File>
 			<File
-				RelativePath=".\uperf.h">
+				RelativePath=".\writesrc.h">
 			</File>
 			<File
-				RelativePath=".\utimer.h">
+				RelativePath=".\xmlparser.h">
 			</File>
 		</Filter>
 		<Filter

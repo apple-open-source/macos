@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,9 +26,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 21 2002.
- *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: bless.h,v 1.72 2006/01/02 22:27:28 ssen Exp $
+ *  $Id: bless.h,v 1.79 2006/07/19 00:15:38 ssen Exp $
  *
  */
  
@@ -40,11 +40,10 @@
 
 #include <sys/types.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <sys/cdefs.h>
 
-#ifdef _cplusplus
-extern "C" {
-#endif
- 
+__BEGIN_DECLS 
 
 /*!
  * @header Bless Library
@@ -213,6 +212,20 @@ typedef enum {
 } BLPartitionType;
 
 typedef enum {
+    
+    kBLBootRootRole_Unknown             = 0x00000001,
+    
+    kBLBootRootRole_None                = 0x00000002,
+
+    kBLBootRootRole_AuxiliaryPartition  = 0x00000004,
+
+    kBLBootRootRole_MemberPartition     = 0x00000008,
+
+    kBLBootRootRole_BootRootDevice      = 0x00000010,
+
+} BLBootRootRole;
+
+typedef enum {
 	
     kBLPreBootEnvType_Unknown		= 0x00000001,
 	
@@ -220,11 +233,21 @@ typedef enum {
 	
     kBLPreBootEnvType_BIOS			= 0x00000004,
 	
-    kBLPreBootEnvType_EFI			= 0x00000008
+    kBLPreBootEnvType_EFI			= 0x00000008,
+    
+    kBLPreBootEnvType_iBoot			= 0x00000010,
     
 } BLPreBootEnvType;
 
-
+typedef enum {
+	
+	kBLNetBootProtocol_Unknown		= 0x00000001,
+	
+	kBLNetBootProtocol_BSDP			= 0x00000002,
+	
+	kBLNetBootProtocol_PXE			= 0x00000004
+	
+} BLNetBootProtocolType;
 
 /***** BootBlocks *****/
 
@@ -529,7 +552,8 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,
  * @function BLIsNewWorld
  * @abstract Is the machine a New World machine
  * @discussion Get the hardware type of the
- *    current machine
+ *    current machine. Deprecated, since it
+ *    only applies to OpenFirmware-based systems
  * @param context Bless Library context
  */
 int BLIsNewWorld(BLContextPtr context);
@@ -641,6 +665,12 @@ int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
 					     const char * mountpoint,
 					     char * ofstring);
 
+int BLGetOpenFirmwareBootDeviceForNetworkPath(BLContextPtr context,
+                                               const char *interface,
+                                               const char *host,
+                                               const char *path,
+											   char * ofstring);
+
 /*!
  * @function BLSetOpenFirmwareBootDevice
  * @abstract Set OF <i>boot-device</i>
@@ -684,6 +714,10 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context,
 				   char * mntfrm);
 
 
+int BLCopyOpenFirmwareNVRAMVariableAsString(BLContextPtr context,
+                                           CFStringRef  name,
+                                           CFStringRef *value);
+
 /* RAID info */
 int BLGetRAIDBootDataForDevice(BLContextPtr context, const char * device,
 							   CFTypeRef *bootData);
@@ -711,7 +745,7 @@ int BLUpdateBooter(BLContextPtr context, const char * device,
 				   BLUpdateBooterFileSpec *specs,
 				   int32_t specCount);
 
-int BLGetIOServiceForDeviceName(BLContextPtr context, char * devName,
+int BLGetIOServiceForDeviceName(BLContextPtr context, const char * devName,
 								io_service_t *service);
 
 int BLDeviceNeedsBooter(BLContextPtr context, const char * device,
@@ -731,14 +765,21 @@ bool BLIsValidNetworkInterface(BLContextPtr context,
 int BLCreateEFIXMLRepresentationForPath(BLContextPtr context,
                                           const char *path,
                                           const char *optionalData,
-                                          CFStringRef *xmlString);
+                                          CFStringRef *xmlString,
+                                          bool shortForm);
 
 int BLCreateEFIXMLRepresentationForDevice(BLContextPtr context,
                                           const char *bsdName,
                                           const char *optionalData,
+                                          CFStringRef *xmlString,
+                                          bool shortForm);
+
+int BLCreateEFIXMLRepresentationForLegacyDevice(BLContextPtr context,
+                                          const char *bsdName,
                                           CFStringRef *xmlString);
 
 int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
+                                               BLNetBootProtocolType protocol,
                                                const char *interface,
                                                const char *host,
                                                const char *path,
@@ -747,6 +788,7 @@ int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
 
 int BLInterpretEFIXMLRepresentationAsNetworkPath(BLContextPtr context,
                                                  CFStringRef xmlString,
+                                                 BLNetBootProtocolType *protocol,
                                                  char *interface,
                                                  char *host,
                                                  char *path);
@@ -755,17 +797,35 @@ int BLInterpretEFIXMLRepresentationAsDevice(BLContextPtr context,
                                             CFStringRef xmlString,
                                             char *bsdName);
 
+int BLInterpretEFIXMLRepresentationAsLegacyDevice(BLContextPtr context,
+                                            CFStringRef xmlString,
+                                            char *bsdName);
+
 int BLCopyEFINVRAMVariableAsString(BLContextPtr context,
                                    CFStringRef  name,
                                    CFStringRef *value);
+
+int BLValidateXMLBootOption(BLContextPtr context,
+							CFStringRef	 xmlName,
+							CFStringRef	 binaryName);
+
+bool BLSupportsLegacyMode(BLContextPtr context);
+
+bool BLIsEFIRecoveryAccessibleDevice(BLContextPtr context, CFStringRef bsdName);
+
 
 // filter out bad boot-args
 int BLPreserveBootArgs(BLContextPtr context,
                        const char *input,
                        char *output);
 
-#ifdef _cplusplus
-}
-#endif
+#define kBLDataPartitionsKey        CFSTR("Data Partitions")
+#define kBLAuxiliaryPartitionsKey   CFSTR("Auxiliary Partitions")
+#define kBLSystemPartitionsKey      CFSTR("System Partitions")
+
+int BLCreateBooterInformationDictionary(BLContextPtr context, const char * bsdName,
+                                        CFDictionaryRef *outDict);
+
+__END_DECLS
 
 #endif // _BLESS_H_

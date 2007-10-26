@@ -15,6 +15,11 @@ TkPackage.require('Tclx')
 
 module Tk
   module TclX
+    PACKAGE_NAME = 'Tclx'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('Tclx')
@@ -25,6 +30,16 @@ module Tk
 
     def self.infox(*args)
       Tk.tk_call('infox', *args)
+    end
+
+    def self.signal(*args)
+      warn("Warning: Don't recommend to use TclX's 'signal' command. Please use Ruby's 'Signal.trap' method")
+      Tk.tk_call('signal', *args)
+    end
+
+    def self.signal_restart(*args)
+      warn("Warning: Don't recommend to use TclX's 'signal' command. Please use Ruby's 'Signal.trap' method")
+      Tk.tk_call('signal', '-restart', *args)
     end
 
     ##############################

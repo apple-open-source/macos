@@ -29,9 +29,6 @@
 #include <security_utilities/alloc.h>
 #include "TPCertInfo.h"
 
-/* crlrefresh does this now */
-#define WRITE_FETCHED_CRLS_TO_DB	0
-
 #ifdef	__cplusplus
 extern "C" {
 #endif

@@ -1,5 +1,5 @@
 /* ppc-dis.c -- Disassemble PowerPC instructions
-   Copyright 1994, 1995, 2000, 2001, 2002, 2003
+   Copyright 1994, 1995, 2000, 2001, 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Cygnus Support
 
@@ -17,7 +17,7 @@ the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this file; see the file COPYING.  If not, write to the Free
-Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Software Foundation, 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #include <stdio.h>
 #include "sysdep.h"
@@ -44,6 +44,7 @@ struct dis_private {
 static int
 powerpc_dialect (struct disassemble_info *info)
 {
+  /* APPLE LOCAL default ppc dialect */
   int dialect = PPC_OPCODE_PPC | PPC_OPCODE_ALTIVEC | PPC_OPCODE_GPUL;
 
   if (BFD_DEFAULT_TARGET_SIZE == 64)
@@ -55,34 +56,32 @@ powerpc_dialect (struct disassemble_info *info)
   else if ((info->mach == bfd_mach_ppc_e500)
 	   || (info->disassembler_options
 	       && strstr (info->disassembler_options, "e500") != NULL))
-    {
-      dialect |= PPC_OPCODE_BOOKE
-	| PPC_OPCODE_SPE | PPC_OPCODE_ISEL
-	| PPC_OPCODE_EFS | PPC_OPCODE_BRLOCK
-	| PPC_OPCODE_PMR | PPC_OPCODE_CACHELCK
-	| PPC_OPCODE_RFMCI;
-      /* efs* and AltiVec conflict.  */
-      dialect &= ~PPC_OPCODE_ALTIVEC;
-    }
+    dialect |= (PPC_OPCODE_BOOKE
+		| PPC_OPCODE_SPE | PPC_OPCODE_ISEL
+		| PPC_OPCODE_EFS | PPC_OPCODE_BRLOCK
+		| PPC_OPCODE_PMR | PPC_OPCODE_CACHELCK
+		| PPC_OPCODE_RFMCI);
   else if (info->disassembler_options
 	   && strstr (info->disassembler_options, "efs") != NULL)
-    {
-      dialect |= PPC_OPCODE_EFS;
-      /* efs* and AltiVec conflict.  */
-      dialect &= ~PPC_OPCODE_ALTIVEC;
-    }
+    dialect |= PPC_OPCODE_EFS;
   else
     dialect |= (PPC_OPCODE_403 | PPC_OPCODE_601 | PPC_OPCODE_CLASSIC
-		| PPC_OPCODE_COMMON);
+		| PPC_OPCODE_COMMON | PPC_OPCODE_ALTIVEC);
 
   if (info->disassembler_options
       && strstr (info->disassembler_options, "power4") != NULL)
     dialect |= PPC_OPCODE_POWER4;
 
+  /* APPLE LOCAL begin gpul */
   if ((info->mach == bfd_mach_ppc_970)
       || (info->disassembler_options
 	  && strcmp (info->disassembler_options, "gpul") == 0))
     dialect |= PPC_OPCODE_GPUL;
+  /* APPLE LOCAL end gpul */
+
+  if (info->disassembler_options
+      && strstr (info->disassembler_options, "power5") != NULL)
+    dialect |= PPC_OPCODE_POWER4 | PPC_OPCODE_POWER5;
 
   if (info->disassembler_options
       && strstr (info->disassembler_options, "any") != NULL)
@@ -196,9 +195,10 @@ print_insn_powerpc (bfd_vma memaddr,
 	continue;
 
       /* The instruction is valid.  */
-      (*info->fprintf_func) (info->stream, "%s", opcode->name);
       if (opcode->operands[0] != 0)
-	(*info->fprintf_func) (info->stream, "\t");
+	(*info->fprintf_func) (info->stream, "%-7s ", opcode->name);
+      else
+	(*info->fprintf_func) (info->stream, "%s", opcode->name);
 
       /* Now extract and print the operands.  */
       need_comma = 0;
@@ -240,7 +240,8 @@ print_insn_powerpc (bfd_vma memaddr,
 	    }
 
 	  /* Print the operand as directed by the flags.  */
-	  if ((operand->flags & PPC_OPERAND_GPR) != 0)
+	  if ((operand->flags & PPC_OPERAND_GPR) != 0
+	      || ((operand->flags & PPC_OPERAND_GPR_0) != 0 && value != 0))
 	    (*info->fprintf_func) (info->stream, "r%ld", value);
 	  else if ((operand->flags & PPC_OPERAND_FPR) != 0)
 	    (*info->fprintf_func) (info->stream, "f%ld", value);
@@ -256,7 +257,7 @@ print_insn_powerpc (bfd_vma memaddr,
 	  else
 	    {
 	      if (operand->bits == 3)
-		(*info->fprintf_func) (info->stream, "cr%d", value);
+		(*info->fprintf_func) (info->stream, "cr%ld", value);
 	      else
 		{
 		  static const char *cbnames[4] = { "lt", "gt", "eq", "so" };
@@ -313,8 +314,9 @@ the -M switch:\n");
   fprintf (stream, "  e500|e500x2              Disassemble the e500 instructions\n");
   fprintf (stream, "  efs                      Disassemble the EFS instructions\n");
   fprintf (stream, "  power4                   Disassemble the Power4 instructions\n");
-  fprintf (stream, "  gpul                   Disassemble the GPUL instructions\n");
-
+  /* APPLE LOCAL gpul */
+  fprintf (stream, "  gpul                     Disassemble the GPUL instructions\n");
+  fprintf (stream, "  power5                   Disassemble the Power5 instructions\n");
   fprintf (stream, "  32                       Do not disassemble 64-bit instructions\n");
   fprintf (stream, "  64                       Allow disassembly of 64-bit instructions\n");
 }

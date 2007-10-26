@@ -206,4 +206,3 @@ const char *PKCS11Object::attributeName(uint32_t attributeId)
 
 }	// end namespace Tokend
 
-/* arch-tag: 91F38B1F-FE04-11D8-BD24-000A95C4302E */

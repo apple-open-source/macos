@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 
 #include <uuid/uuid.h>
 
-#pragma pack(8)        /* (enable 64-bit struct packing for gpt_hdr, gpt_ent) */
+#pragma pack(push, 1)                        /* (enable 8-bit struct packing) */
 
 /* Partition map. */
 
@@ -89,7 +89,7 @@ struct gpt_ent
 
 #define GPT_ENT_ATTR_PLATFORM 0x00000001
 
-#pragma options align=reset              /* (reset to default struct packing) */
+#pragma pack(pop)                        /* (reset to default struct packing) */
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -173,13 +173,13 @@ protected:
      * Attach the given media object to the device tree plane.
      */
 
-    virtual bool attachMediaObjectToDeviceTree(IOMedia * media);
+    virtual bool attachMediaObjectToDeviceTree(IOMedia * media) __attribute__ ((deprecated));
 
     /*
      * Detach the given media object from the device tree plane.
      */
 
-    virtual void detachMediaObjectFromDeviceTree(IOMedia * media);
+    virtual void detachMediaObjectFromDeviceTree(IOMedia * media) __attribute__ ((deprecated));
 
 public:
 
@@ -206,6 +206,12 @@ public:
      */
 
     virtual void stop(IOService * provider);
+
+    /*
+     * Request that the provider media be re-scanned for partitions.
+     */
+
+    virtual IOReturn requestProbe(IOOptionBits options);
 
     OSMetaClassDeclareReservedUnused(IOGUIDPartitionScheme,  0);
     OSMetaClassDeclareReservedUnused(IOGUIDPartitionScheme,  1);

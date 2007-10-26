@@ -1,5 +1,6 @@
 /* Generic code for supporting multiple C++ ABI's
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002, 2003, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -40,23 +41,36 @@ enum ctor_kinds
 is_constructor_name (const char *name)
 {
   if ((current_cp_abi.is_constructor_name) == NULL)
-    error ("ABI doesn't define required function is_constructor_name");
+    error (_("ABI doesn't define required function is_constructor_name"));
   return (*current_cp_abi.is_constructor_name) (name);
 }
 
 enum dtor_kinds
 is_destructor_name (const char *name)
 {
+
+  /* APPLE LOCAL: For gcc 4.0 DWARF, the PHYSNAME for a destructor is
+     the unmangled name.  So this test is going to fail.  Let's just
+     check for ~ here.  NOTE, this is a hack, since we really should
+     only do this for the gnu-v3 ABI, but that is_destructor_name is
+     somewhere over in libiberty, and I don't want to change that...
+     Note, also, at this point I have no idea what kind of dtor this
+     is but all our callers don't actually care.  */
+  enum dtor_kinds retval;
+
   if ((current_cp_abi.is_destructor_name) == NULL)
-    error ("ABI doesn't define required function is_destructor_name");
-  return (*current_cp_abi.is_destructor_name) (name);
+    error (_("ABI doesn't define required function is_destructor_name"));
+  retval = (*current_cp_abi.is_destructor_name) (name);
+  if (!retval && name[0] == '~')
+    retval = deleting_dtor;
+  return retval;
 }
 
 int
 is_vtable_name (const char *name)
 {
   if ((current_cp_abi.is_vtable_name) == NULL)
-    error ("ABI doesn't define required function is_vtable_name");
+    error (_("ABI doesn't define required function is_vtable_name"));
   return (*current_cp_abi.is_vtable_name) (name);
 }
 
@@ -64,16 +78,16 @@ int
 is_operator_name (const char *name)
 {
   if ((current_cp_abi.is_operator_name) == NULL)
-    error ("ABI doesn't define required function is_operator_name");
+    error (_("ABI doesn't define required function is_operator_name"));
   return (*current_cp_abi.is_operator_name) (name);
 }
 
 int
-baseclass_offset (struct type *type, int index, char *valaddr,
+baseclass_offset (struct type *type, int index, const bfd_byte *valaddr,
 		  CORE_ADDR address)
 {
   if (current_cp_abi.baseclass_offset == NULL)
-    error ("ABI doesn't define required function baseclass_offset");
+    error (_("ABI doesn't define required function baseclass_offset"));
   return (*current_cp_abi.baseclass_offset) (type, index, valaddr, address);
 }
 
@@ -116,7 +130,7 @@ register_cp_abi (struct cp_abi_ops *abi)
 {
   if (num_cp_abis == CP_ABI_MAX)
     internal_error (__FILE__, __LINE__,
-		    "Too many C++ ABIs, please increase CP_ABI_MAX in cp-abi.c");
+		    _("Too many C++ ABIs, please increase CP_ABI_MAX in cp-abi.c"));
 
   cp_abis[num_cp_abis++] = abi;
 
@@ -133,7 +147,7 @@ set_cp_abi_as_auto_default (const char *short_name)
 
   if (abi == NULL)
     internal_error (__FILE__, __LINE__,
-		    "Cannot find C++ ABI \"%s\" to set it as auto default.",
+		    _("Cannot find C++ ABI \"%s\" to set it as auto default."),
 		    short_name);
 
   if (auto_cp_abi.longname != NULL)
@@ -144,14 +158,11 @@ set_cp_abi_as_auto_default (const char *short_name)
   auto_cp_abi = *abi;
 
   auto_cp_abi.shortname = "auto";
-  new_longname = xmalloc (strlen ("currently ") + 1 + strlen (abi->shortname)
-			  + 1 + 1);
-  sprintf (new_longname, "currently \"%s\"", abi->shortname);
+  xasprintf (&new_longname, "currently \"%s\"", abi->shortname);
   auto_cp_abi.longname = new_longname;
 
-  new_doc = xmalloc (strlen ("Automatically selected; currently ")
-		     + 1 + strlen (abi->shortname) + 1 + 1);
-  sprintf (new_doc, "Automatically selected; currently \"%s\"", abi->shortname);
+  xasprintf (&new_doc, "Automatically selected; currently \"%s\"",
+	     abi->shortname);
   auto_cp_abi.doc = new_doc;
 
   /* Since we copy the current ABI into current_cp_abi instead of
@@ -229,7 +240,7 @@ set_cp_abi_cmd (char *args, int from_tty)
     }
 
   if (!switch_to_cp_abi (args))
-    error ("Could not find \"%s\" in ABI list", args);
+    error (_("Could not find \"%s\" in ABI list"), args);
 }
 
 /* Show the currently selected C++ ABI.  */
@@ -253,11 +264,11 @@ _initialize_cp_abi (void)
   register_cp_abi (&auto_cp_abi);
   switch_to_cp_abi ("auto");
 
-  add_cmd ("cp-abi", class_obscure, set_cp_abi_cmd,
-	   "Set the ABI used for inspecting C++ objects.\n"
-	   "\"set cp-abi\" with no arguments will list the available ABIs.",
+  add_cmd ("cp-abi", class_obscure, set_cp_abi_cmd, _("\
+Set the ABI used for inspecting C++ objects.\n\
+\"set cp-abi\" with no arguments will list the available ABIs."),
 	   &setlist);
 
   add_cmd ("cp-abi", class_obscure, show_cp_abi_cmd,
-	   "Show the ABI used for inspecting C++ objects.", &showlist);
+	   _("Show the ABI used for inspecting C++ objects."), &showlist);
 }

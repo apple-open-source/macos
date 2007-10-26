@@ -17,27 +17,69 @@
 /*	Where information is unavailable, the name and/or address
 /*	are set to "unknown".
 /*
+/*	This module uses the local name service via getaddrinfo()
+/*	and getnameinfo(). It does not query the DNS directly.
+/*
 /*	smtpd_peer_init() updates the following fields:
 /* .IP name
-/*	The client hostname. An unknown name is represented by the
-/*	string "unknown".
+/*	The verified client hostname. This name is represented by
+/*	the string "unknown" when 1) the address->name lookup failed,
+/*	2) the name->address mapping fails, or 3) the name->address
+/*	does not produce the client IP address.
+/* .IP reverse_name
+/*	The unverified client hostname as found with address->name
+/*	lookup; it is not verified for consistency with the client
+/*	IP address result from name->address lookup.
+/* .IP forward_name
+/*	The unverified client hostname as found with address->name
+/*	lookup followed by name->address lookup; it is not verified
+/*	for consistency with the result from address->name lookup.
+/*	For example, when the address->name lookup produces as
+/*	hostname an alias, the name->address lookup will produce
+/*	as hostname the expansion of that alias, so that the two
+/*	lookups produce different names.
 /* .IP addr
 /*	Printable representation of the client address.
 /* .IP namaddr
 /*	String of the form: "name[addr]".
-/* .IP peer_code
-/*	The peer_code result field specifies how the client name
+/* .IP rfc_addr
+/*      String of the form "ipv4addr" or "ipv6:ipv6addr" for use
+/*	in Received: message headers.
+/* .IP name_status
+/*	The name_status result field specifies how the name
 /*	information should be interpreted:
 /* .RS
 /* .IP 2
-/*	Both name lookup and name verification succeeded.
+/*	The address->name lookup and name->address lookup produced
+/*	the client IP address.
 /* .IP 4
-/*	The name lookup or name verification failed with a recoverable
-/*	error (no address->name mapping or no name->address mapping).
+/*	The address->name lookup or name->address lookup failed
+/*	with a recoverable error.
 /* .IP 5
-/*	The name lookup or verification failed with an unrecoverable
-/*	error (no address->name mapping, bad hostname syntax, no
-/*	name->address mapping, client address not listed for hostname).
+/*	The address->name lookup or name->address lookup failed
+/*	with an unrecoverable error, or the result did not match
+/*	the client IP address.
+/* .RE
+/* .IP reverse_name_status
+/*	The reverse_name_status result field specifies how the
+/*	reverse_name information should be interpreted:
+/* .RS .IP 2
+/*	The address->name lookup succeeded.
+/* .IP 4
+/*	The address->name lookup failed with a recoverable error.
+/* .IP 5
+/*	The address->name lookup failed with an unrecoverable error.
+/* .RE .IP forward_name_status
+/*	The forward_name_status result field specifies how the
+/*	forward_name information should be interpreted:
+/* .RS .IP 2
+/*	The address->name and name->address lookup succeeded.
+/* .IP 4
+/*	The address->name lookup or name->address failed with a
+/*	recoverable error.
+/* .IP 5
+/*	The address->name lookup or name->address failed with an
+/*	unrecoverable error.
 /* .RE
 /* .PP
 /*	smtpd_peer_reset() releases memory allocated by smtpd_peer_init().
@@ -63,37 +105,20 @@
 #include <netdb.h>
 #include <string.h>
 
- /*
-  * Older systems don't have h_errno. Even modern systems don't have
-  * hstrerror().
-  */
-#ifdef NO_HERRNO
-
-static int h_errno = TRY_AGAIN;
-
-#define  HSTRERROR(err) "Host not found"
-
-#else
-
-#define  HSTRERROR(err) (\
-	err == TRY_AGAIN ? "Host not found, try again" : \
-	err == HOST_NOT_FOUND ? "Host not found" : \
-	err == NO_DATA ? "Host name has no address" : \
-	err == NO_RECOVERY ? "Name server failure" : \
-	strerror(errno) \
-    )
-#endif
-
 /* Utility library. */
 
 #include <msg.h>
 #include <mymalloc.h>
-#include <valid_hostname.h>
 #include <stringops.h>
+#include <myaddrinfo.h>
+#include <sock_addr.h>
+#include <inet_proto.h>
 
 /* Global library. */
 
 #include <mail_proto.h>
+#include <valid_mailhost_addr.h>
+#include <mail_params.h>
 
 /* Application-specific. */
 
@@ -103,88 +128,226 @@ static int h_errno = TRY_AGAIN;
 
 void    smtpd_peer_init(SMTPD_STATE *state)
 {
-    struct sockaddr_in sin;
-    SOCKADDR_SIZE len = sizeof(sin);
-    struct hostent *hp;
-    int     i;
+    const char *myname = "smtpd_peer_init";
+    SOCKADDR_SIZE sa_length;
+    struct sockaddr *sa;
+    INET_PROTO_INFO *proto_info = inet_proto_info();
 
-    /*
-     * Avoid suprious complaints from Purify on Solaris.
-     */
-    memset((char *) &sin, 0, len);
+    sa = (struct sockaddr *) & (state->sockaddr);
+    sa_length = sizeof(state->sockaddr);
 
     /*
      * Look up the peer address information.
+     * 
+     * XXX If we make local endpoint (getsockname) information available to
+     * Milter applications as {if_name} and {if_addr}, then we also must be
+     * able to provide this via the XCLIENT command for Milter testing.
+     * 
+     * XXX If we make local or remote port information available to policy
+     * servers or Milter applications, then we must also make this testable
+     * with the XCLIENT command, otherwise there will be confusion.
+     * 
+     * XXX If we make local or remote port information available via logging,
+     * then we must also support these attributes with the XFORWARD command.
+     * 
+     * XXX If support were to be added for Milter applications in down-stream
+     * MTAs, then consistency demands that we propagate a lot of Sendmail
+     * macro information via the XFORWARD command. Otherwise we could end up
+     * with a very confusing situation.
      */
-    if (getpeername(vstream_fileno(state->client),
-		    (struct sockaddr *) & sin, &len) >= 0) {
+    if (getpeername(vstream_fileno(state->client), sa, &sa_length) >= 0) {
 	errno = 0;
     }
 
     /*
      * If peer went away, give up.
      */
-    if (errno == ECONNRESET || errno == ECONNABORTED) {
+    if (errno != 0 && errno != ENOTSOCK) {
 	state->name = mystrdup(CLIENT_NAME_UNKNOWN);
+	state->reverse_name = mystrdup(CLIENT_NAME_UNKNOWN);
 	state->addr = mystrdup(CLIENT_ADDR_UNKNOWN);
-	state->peer_code = SMTPD_PEER_CODE_PERM;
+	state->rfc_addr = mystrdup(CLIENT_ADDR_UNKNOWN);
+	state->addr_family = AF_UNSPEC;
+	state->name_status = SMTPD_PEER_CODE_PERM;
+	state->reverse_name_status = SMTPD_PEER_CODE_PERM;
     }
 
     /*
-     * Look up and "verify" the client hostname.
+     * Convert the client address to printable address and hostname.
+     * 
+     * XXX If we're given an IPv6 (or IPv4) connection from, e.g., inetd, while
+     * Postfix IPv6 (or IPv4) support is turned off, don't (skip to the final
+     * else clause, pretend the origin is localhost[127.0.0.1], and become an
+     * open relay).
      */
-    else if (errno == 0 && sin.sin_family == AF_INET) {
-	state->addr = mystrdup(inet_ntoa(sin.sin_addr));
-	hp = gethostbyaddr((char *) &(sin.sin_addr),
-			   sizeof(sin.sin_addr), AF_INET);
-	if (hp == 0) {
-	    state->name = mystrdup(CLIENT_NAME_UNKNOWN);
-	    state->peer_code = (h_errno == TRY_AGAIN ?
-				SMTPD_PEER_CODE_TEMP : SMTPD_PEER_CODE_PERM);
-	} else if (valid_hostaddr(hp->h_name, DONT_GRIPE)) {
-	    msg_warn("numeric result %s in address->name lookup for %s",
-		     hp->h_name, state->addr);
-	    state->name = mystrdup(CLIENT_NAME_UNKNOWN);
-	    state->peer_code = SMTPD_PEER_CODE_PERM;
-	} else if (!valid_hostname(hp->h_name, DONT_GRIPE)) {
-	    state->name = mystrdup(CLIENT_NAME_UNKNOWN);
-	    state->peer_code = SMTPD_PEER_CODE_PERM;
-	} else {
-	    state->name = mystrdup(hp->h_name);	/* hp->name is clobbered!! */
-	    state->peer_code = SMTPD_PEER_CODE_OK;
+    else if (errno == 0
+	     && (sa->sa_family == AF_INET
+#ifdef AF_INET6
+		 || sa->sa_family == AF_INET6
+#endif
+		 )) {
+	MAI_HOSTNAME_STR client_name;
+	MAI_HOSTADDR_STR client_addr;
+	int     aierr;
+	char   *colonp;
+
+	/*
+	 * Sanity check: we can't use sockets that we're not configured for.
+	 */
+	if (strchr((char *) proto_info->sa_family_list, sa->sa_family) == 0)
+	    msg_fatal("cannot handle socket type %s with \"%s = %s\"",
+#ifdef AF_INET6
+		      sa->sa_family == AF_INET6 ? "AF_INET6" :
+#endif
+		      sa->sa_family == AF_INET ? "AF_INET" :
+		      "other", VAR_INET_PROTOCOLS, var_inet_protocols);
+
+	/*
+	 * Sorry, but there are some things that we just cannot do while
+	 * connected to the network.
+	 */
+	if (geteuid() != var_owner_uid || getuid() != var_owner_uid) {
+	    msg_error("incorrect SMTP server privileges: uid=%lu euid=%lu",
+		      (unsigned long) getuid(), (unsigned long) geteuid());
+	    msg_fatal("the Postfix SMTP server must run with $%s privileges",
+		      VAR_MAIL_OWNER);
+	}
+
+	/*
+	 * Convert the client address to printable form.
+	 */
+	if ((aierr = sockaddr_to_hostaddr(sa, sa_length, &client_addr,
+					  (MAI_SERVPORT_STR *) 0, 0)) != 0)
+	    msg_fatal("%s: cannot convert client address to string: %s",
+		      myname, MAI_STRERROR(aierr));
+
+	/*
+	 * We convert IPv4-in-IPv6 address to 'true' IPv4 address early on,
+	 * but only if IPv4 support is enabled (why would anyone want to turn
+	 * it off)? With IPv4 support enabled we have no need for the IPv6
+	 * form in logging, hostname verification and access checks.
+	 */
+#ifdef HAS_IPV6
+	if (sa->sa_family == AF_INET6) {
+	    if (strchr((char *) proto_info->sa_family_list, AF_INET) != 0
+		&& IN6_IS_ADDR_V4MAPPED(&SOCK_ADDR_IN6_ADDR(sa))
+		&& (colonp = strrchr(client_addr.buf, ':')) != 0) {
+		struct addrinfo *res0;
+
+		if (msg_verbose > 1)
+		    msg_info("%s: rewriting V4-mapped address \"%s\" to \"%s\"",
+			     myname, client_addr.buf, colonp + 1);
+
+		state->addr = mystrdup(colonp + 1);
+		state->rfc_addr = mystrdup(colonp + 1);
+		state->addr_family = AF_INET;
+		aierr = hostaddr_to_sockaddr(state->addr, (char *) 0, 0, &res0);
+		if (aierr)
+		    msg_fatal("%s: cannot convert %s from string to binary: %s",
+			      myname, state->addr, MAI_STRERROR(aierr));
+		sa_length = res0->ai_addrlen;
+		if (sa_length > sizeof(state->sockaddr))
+		    sa_length = sizeof(state->sockaddr);
+		memcpy((char *) sa, res0->ai_addr, sa_length);
+		freeaddrinfo(res0);		/* 200412 */
+	    }
 
 	    /*
-	     * Reject the hostname if it does not list the peer address.
+	     * Following RFC 2821 section 4.1.3, an IPv6 address literal gets
+	     * a prefix of 'IPv6:'. We do this consistently for all IPv6
+	     * addresses that that appear in headers or envelopes. The fact
+	     * that valid_mailhost_addr() enforces the form helps of course.
+	     * We use the form without IPV6: prefix when doing access
+	     * control, or when accessing the connection cache.
 	     */
+	    else {
+		state->addr = mystrdup(client_addr.buf);
+		state->rfc_addr =
+		    concatenate(IPV6_COL, client_addr.buf, (char *) 0);
+		state->addr_family = sa->sa_family;
+	    }
+	}
+
+	/*
+	 * An IPv4 address is in dotted quad decimal form.
+	 */
+	else
+#endif
+	{
+	    state->addr = mystrdup(client_addr.buf);
+	    state->rfc_addr = mystrdup(client_addr.buf);
+	    state->addr_family = sa->sa_family;
+	}
+
+	/*
+	 * Look up and sanity check the client hostname.
+	 * 
+	 * It is unsafe to allow numeric hostnames, especially because there
+	 * exists pressure to turn off the name->addr double check. In that
+	 * case an attacker could trivally bypass access restrictions.
+	 * 
+	 * sockaddr_to_hostname() already rejects malformed or numeric names.
+	 */
+#define TEMP_AI_ERROR(e) \
+	((e) == EAI_AGAIN || (e) == EAI_MEMORY || (e) == EAI_SYSTEM)
+
 #define REJECT_PEER_NAME(state, code) { \
 	myfree(state->name); \
 	state->name = mystrdup(CLIENT_NAME_UNKNOWN); \
-	state->peer_code = code; \
+	state->name_status = code; \
     }
 
-	    hp = gethostbyname(state->name);	/* clobbers hp->name!! */
-	    if (hp == 0) {
+	if (var_smtpd_peername_lookup == 0) {
+	    state->name = mystrdup(CLIENT_NAME_UNKNOWN);
+	    state->reverse_name = mystrdup(CLIENT_NAME_UNKNOWN);
+	    state->name_status = SMTPD_PEER_CODE_PERM;
+	    state->reverse_name_status = SMTPD_PEER_CODE_PERM;
+	} else if ((aierr = sockaddr_to_hostname(sa, sa_length, &client_name,
+					 (MAI_SERVNAME_STR *) 0, 0)) != 0) {
+	    state->name = mystrdup(CLIENT_NAME_UNKNOWN);
+	    state->reverse_name = mystrdup(CLIENT_NAME_UNKNOWN);
+	    state->name_status = (TEMP_AI_ERROR(aierr) ?
+			       SMTPD_PEER_CODE_TEMP : SMTPD_PEER_CODE_PERM);
+	    state->reverse_name_status = (TEMP_AI_ERROR(aierr) ?
+			       SMTPD_PEER_CODE_TEMP : SMTPD_PEER_CODE_PERM);
+	} else {
+	    struct addrinfo *res0;
+	    struct addrinfo *res;
+
+	    state->name = mystrdup(client_name.buf);
+	    state->reverse_name = mystrdup(client_name.buf);
+	    state->name_status = SMTPD_PEER_CODE_OK;
+	    state->reverse_name_status = SMTPD_PEER_CODE_OK;
+
+	    /*
+	     * Reject the hostname if it does not list the peer address.
+	     * Without further validation or qualification, such information
+	     * must not be allowed to enter the audit trail, as people would
+	     * draw false conclusions.
+	     */
+	    aierr = hostname_to_sockaddr(state->name, (char *) 0, 0, &res0);
+	    if (aierr) {
 		msg_warn("%s: hostname %s verification failed: %s",
-			 state->addr, state->name, HSTRERROR(h_errno));
-		REJECT_PEER_NAME(state, (h_errno == TRY_AGAIN ?
-			      SMTPD_PEER_CODE_TEMP : SMTPD_PEER_CODE_PERM));
-	    } else if (hp->h_length != sizeof(sin.sin_addr)) {
-		msg_warn("%s: hostname %s verification failed: bad address size %d",
-			 state->addr, state->name, hp->h_length);
-		REJECT_PEER_NAME(state, SMTPD_PEER_CODE_PERM);
+			 state->addr, state->name, MAI_STRERROR(aierr));
+		REJECT_PEER_NAME(state, (TEMP_AI_ERROR(aierr) ?
+			    SMTPD_PEER_CODE_TEMP : SMTPD_PEER_CODE_FORGED));
 	    } else {
-		for (i = 0; /* void */ ; i++) {
-		    if (hp->h_addr_list[i] == 0) {
+		for (res = res0; /* void */ ; res = res->ai_next) {
+		    if (res == 0) {
 			msg_warn("%s: address not listed for hostname %s",
 				 state->addr, state->name);
-			REJECT_PEER_NAME(state, SMTPD_PEER_CODE_PERM);
+			REJECT_PEER_NAME(state, SMTPD_PEER_CODE_FORGED);
 			break;
 		    }
-		    if (memcmp(hp->h_addr_list[i],
-			       (char *) &sin.sin_addr,
-			       sizeof(sin.sin_addr)) == 0)
+		    if (strchr((char *) proto_info->sa_family_list, res->ai_family) == 0) {
+			msg_info("skipping address family %d for host %s",
+				 res->ai_family, state->name);
+			continue;
+		    }
+		    if (sock_addr_cmp_addr(res->ai_addr, sa) == 0)
 			break;			/* keep peer name */
 		}
+		freeaddrinfo(res0);
 	    }
 	}
     }
@@ -195,8 +358,12 @@ void    smtpd_peer_init(SMTPD_STATE *state)
      */
     else {
 	state->name = mystrdup("localhost");
+	state->reverse_name = mystrdup("localhost");
 	state->addr = mystrdup("127.0.0.1");	/* XXX bogus. */
-	state->peer_code = SMTPD_PEER_CODE_OK;
+	state->rfc_addr = mystrdup("127.0.0.1");/* XXX bogus. */
+	state->addr_family = AF_UNSPEC;
+	state->name_status = SMTPD_PEER_CODE_OK;
+	state->reverse_name_status = SMTPD_PEER_CODE_OK;
     }
 
     /*
@@ -211,6 +378,8 @@ void    smtpd_peer_init(SMTPD_STATE *state)
 void    smtpd_peer_reset(SMTPD_STATE *state)
 {
     myfree(state->name);
+    myfree(state->reverse_name);
     myfree(state->addr);
     myfree(state->namaddr);
+    myfree(state->rfc_addr);
 }

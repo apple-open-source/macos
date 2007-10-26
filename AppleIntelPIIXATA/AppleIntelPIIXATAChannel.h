@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,10 @@ public:
     virtual UInt32 getMaxDriveUnits( void ) const;
 
     virtual UInt32 getSerialATAPortForDrive( UInt32 unit ) const;
+
+    virtual void   setSerialATAPortEnableForDrive( UInt32 unit, bool enable );
+
+    virtual bool   getSerialATAPortPresentStatusForDrive( UInt32 unit );
 
     virtual bool   handleOpen( IOService *  client,
                                IOOptionBits options,

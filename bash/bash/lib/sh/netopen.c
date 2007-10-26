@@ -51,6 +51,8 @@
 #endif
 
 #include <bashansi.h>
+#include <bashintl.h>
+
 #include <errno.h>
 
 #include <shell.h>
@@ -63,6 +65,16 @@ extern int errno;
 #if !defined (HAVE_INET_ATON)
 extern int inet_aton __P((const char *, struct in_addr *));
 #endif
+
+#ifndef HAVE_GETADDRINFO
+static int _getaddr __P((char *, struct in_addr *));
+static int _getserv __P((char *, int, unsigned short *));
+static int _netopen4 __P((char *, char *, int));
+#else /* HAVE_GETADDRINFO */
+static int _netopen6 __P((char *, char *, int));
+#endif
+
+static int _netopen __P((char *, char *, int));
 
 #ifndef HAVE_GETADDRINFO
 /* Stuff the internet address corresponding to HOST into AP, in network
@@ -153,14 +165,14 @@ _netopen4(host, serv, typ)
 
   if (_getaddr(host, &ina) == 0)
     {
-      internal_error ("%s: host unknown", host);
+      internal_error (_("%s: host unknown"), host);
       errno = EINVAL;
       return -1;
     }
 
   if (_getserv(serv, typ, &p) == 0)
     {
-      internal_error("%s: invalid service", serv);
+      internal_error(_("%s: invalid service"), serv);
       errno = EINVAL;
       return -1;
     }
@@ -291,7 +303,7 @@ netopen (path)
   t = strchr (s, '/');
   if (t == 0)
     {
-      internal_error ("%s: bad network path specification", path);
+      internal_error (_("%s: bad network path specification"), path);
       return -1;
     }
   *t++ = '\0';
@@ -331,7 +343,7 @@ int
 netopen (path)
      char *path;
 {
-  internal_error ("network operations not supported");
+  internal_error (_("network operations not supported"));
   return -1;
 }
 

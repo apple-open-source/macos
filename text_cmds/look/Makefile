@@ -18,6 +18,7 @@ CFILES = look.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble look.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

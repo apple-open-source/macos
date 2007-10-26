@@ -60,7 +60,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
 #include <search.h>
 #endif
 #include <unistd.h>
@@ -599,7 +599,7 @@ get_prefix(struct rainfo *rai)
 		while (p < ep)
 			*p++ = 0x00;
 
-	        if (!inet_ntop(AF_INET6, &pp->prefix, ntopbuf,
+	        if (!inet_ntop(AF_INET6, &pp->prefix, (char *)ntopbuf,
 	            sizeof(ntopbuf))) {
 			syslog(LOG_ERR, "<%s> inet_ntop failed", __FUNCTION__);
 			exit(1);
@@ -671,7 +671,7 @@ add_prefix(struct rainfo *rai, struct in6_prefixreq *ipr)
 
 	syslog(LOG_DEBUG, "<%s> new prefix %s/%d was added on %s",
 	       __FUNCTION__, inet_ntop(AF_INET6, &ipr->ipr_prefix.sin6_addr,
-				       ntopbuf, INET6_ADDRSTRLEN),
+				       (char *)ntopbuf, INET6_ADDRSTRLEN),
 	       ipr->ipr_plen, rai->ifname);
 
 	/* free the previous packet */
@@ -703,7 +703,7 @@ delete_prefix(struct rainfo *rai, struct prefix *prefix)
 	remque(prefix);
 	syslog(LOG_DEBUG, "<%s> prefix %s/%d was deleted on %s",
 	       __FUNCTION__, inet_ntop(AF_INET6, &prefix->prefix,
-				       ntopbuf, INET6_ADDRSTRLEN),
+				       (char *)ntopbuf, INET6_ADDRSTRLEN),
 	       prefix->prefixlen, rai->ifname);
 	free(prefix);
 	rai->pfxs--;
@@ -742,7 +742,7 @@ init_prefix(struct in6_prefixreq *ipr)
 		syslog(LOG_WARNING, "<%s> Added prefix(%s)'s origin %d is"
 		       "lower than PR_ORIG_RR(router renumbering)."
 		       "This should not happen if I am router", __FUNCTION__,
-		       inet_ntop(AF_INET6, &ipr->ipr_prefix.sin6_addr, ntopbuf,
+		       inet_ntop(AF_INET6, &ipr->ipr_prefix.sin6_addr, (char *)ntopbuf,
 				 sizeof(ntopbuf)), ipr->ipr_origin);
 		close(s);
 		return 1;
@@ -831,7 +831,7 @@ make_packet(struct rainfo *rainfo)
 		free(rainfo->ra_data);
 		rainfo->ra_data = NULL;
 	}
-	rainfo->ra_data = buf;
+	rainfo->ra_data = (u_char *)buf;
 	/* XXX: what if packlen > 576? */
 	rainfo->ra_datalen = packlen;
 

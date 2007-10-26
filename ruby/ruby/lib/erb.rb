@@ -236,7 +236,7 @@
 # Rails, the web application framework, uses ERB to create views.
 #
 class ERB
-  Revision = '$Date: 2004/11/25 16:04:24 $' 	#'
+  Revision = '$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $' 	#'
 
   # Returns revision information for the erb.rb module.
   def self.version
@@ -558,7 +558,7 @@ class ERB
 		out.push(content)
 	      end
 	    when '<%='
-	      out.push("#{@put_cmd}((#{content}).to_s)")
+	      out.push("#{@insert_cmd}((#{content}).to_s)")
 	    when '<%#'
 	      # out.push("# #{content.dump}")
 	    end
@@ -607,11 +607,12 @@ class ERB
     def initialize(trim_mode)
       @percent, @trim_mode = prepare_trim_mode(trim_mode)
       @put_cmd = 'print'
+      @insert_cmd = @put_cmd
       @pre_cmd = []
       @post_cmd = []
     end
     attr_reader :percent, :trim_mode
-    attr_accessor :put_cmd, :pre_cmd, :post_cmd
+    attr_accessor :put_cmd, :insert_cmd, :pre_cmd, :post_cmd
   end
 end
 
@@ -705,6 +706,7 @@ class ERB
   #
   def set_eoutvar(compiler, eoutvar = '_erbout')
     compiler.put_cmd = "#{eoutvar}.concat"
+    compiler.insert_cmd = "#{eoutvar}.concat"
 
     cmd = []
     cmd.push "#{eoutvar} = ''"
@@ -781,6 +783,8 @@ class ERB
       s.to_s.gsub(/&/, "&amp;").gsub(/\"/, "&quot;").gsub(/>/, "&gt;").gsub(/</, "&lt;")
     end
     alias h html_escape
+    module_function :h
+    module_function :html_escape
     
     #
     # A utility method for encoding the String _s_ as a URL.
@@ -798,6 +802,8 @@ class ERB
       s.to_s.gsub(/[^a-zA-Z0-9_\-.]/n){ sprintf("%%%02X", $&.unpack("C")[0]) }
     end
     alias u url_encode
+    module_function :u
+    module_function :url_encode
   end
 end
 
@@ -818,5 +824,3 @@ class ERB
     module_function :def_erb_method
   end
 end
-
-

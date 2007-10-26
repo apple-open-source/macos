@@ -1,6 +1,6 @@
 .TH LDAPMODIFY 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.41.2.2 2004/01/01 18:16:27 kurt Exp $
-.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapmodify.1,v 1.44.2.5 2006/01/03 22:16:04 kurt Exp $
+.\" Copyright 1998-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
@@ -16,10 +16,6 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 .BR \-n ]
 [\c
 .BR \-v ]
-[\c
-.BR \-k ]
-[\c
-.BR \-K ]
 [\c
 .BR \-M[M] ]
 [\c
@@ -70,10 +66,6 @@ ldapmodify, ldapadd \- LDAP modify entry and LDAP add entry tools
 .BR \-n ]
 [\c
 .BR \-v ]
-[\c
-.BR \-k ]
-[\c
-.BR \-K ]
 [\c
 .BR \-M[M] ]
 [\c
@@ -155,16 +147,6 @@ debugging in conjunction with -v.
 .B \-v
 Use verbose mode, with many diagnostics written to standard output.
 .TP
-.B \-k
-Use Kerberos IV authentication instead of simple authentication.  It is
-assumed that you already have a valid ticket granting ticket.  You must
-compile with Kerberos support for this option to have any effect.
-.TP
-.B \-K
-Same as \-k, but only does step 1 of the Kerberos IV bind.  This is useful
-when connecting to a slapd and there is no x500dsa.hostname principal
-registered with your Kerberos Domain Controller(s).
-.TP
 .B \-F
 Force application of all changes regardless of the contents of input
 lines that begin with
@@ -204,7 +186,9 @@ Use complete contents of \fIpasswdfile\fP as the password for
 simple authentication.
 .TP
 .BI \-H \ ldapuri
-Specify URI(s) referring to the ldap server(s).
+Specify URI(s) referring to the ldap server(s); only the protocol/host/port
+fields are allowed; a list of URI, separated by whitespace or commas
+is expected.
 .TP
 .BI \-h \ ldaphost
 Specify an alternate host on which the ldap server is running.
@@ -256,7 +240,10 @@ Issue StartTLS (Transport Layer Security) extended operation. If you use
 .SH INPUT FORMAT
 The contents of \fIfile\fP (or standard input if no \-f flag is given on
 the command line) should conform to the format defined in
-.BR slapd.replog (5),
+.BR ldif (1)
+(LDIF as defined RFC 2849), or
+.BR slapd.replog (5)
+(an extended form of LDIF)
 with the exceptions noted below.
 .LP
 Lines that begin with "replica:" are matched against the LDAP server host
@@ -377,6 +364,7 @@ exit status and a diagnostic message being written to standard error.
 .BR ldap_delete (3),
 .BR ldap_modify (3),
 .BR ldap_modrdn (3),
+.BR ldif (5),
 .BR slapd.replog (5)
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>

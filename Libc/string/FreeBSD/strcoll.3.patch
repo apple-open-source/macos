@@ -1,31 +1,53 @@
---- strcoll.3.orig	Fri Mar 11 08:36:09 2005
-+++ strcoll.3	Fri Mar 11 09:43:41 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/string/FreeBSD/strcoll.3	2003-05-20 15:23:54.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strcoll.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -40,14 +40,26 @@
  .Dt STRCOLL 3
  .Os
  .Sh NAME
 -.Nm strcoll
+-.Nd compare strings according to current collation
 +.Nm strcoll ,
 +.Nm strcoll_l
- .Nd compare strings according to current collation
++.Nd compare strings, according to current collation
  .Sh LIBRARY
  .Lb libc
-@@ -48,6 +49,9 @@
+ .Sh SYNOPSIS
  .In string.h
  .Ft int
- .Fn strcoll "const char *s1" "const char *s2"
+-.Fn strcoll "const char *s1" "const char *s2"
++.Fo strcoll
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fc
++.In string.h
 +.In xlocale.h
 +.Ft int
-+.Fn strcoll_l "const char *s1" "const char *s2" "locale_t loc"
++.Fo strcoll_l
++.Fa "const char *s1"
++.Fa "const char *s2"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn strcoll
-@@ -63,11 +67,20 @@
+@@ -55,19 +67,29 @@
+ lexicographically compares the null-terminated strings
+ .Fa s1
+ and
+-.Fa s2
+-according to the current locale collation if any, otherwise call
+-.Fa strcmp ,
++.Fa s2 ,
++according to the current locale collation, if any.
++Otherwise, it calls
++.Fa strcmp
+ and returns an integer greater than, equal to, or less than 0,
+ according as
  .Fa s1
  is greater than, equal to, or less than
  .Fa s2 .
 +.Pp
-+While the
++Although the
 +.Fn strcoll
 +function uses the current locale, the
 +.Fn strcoll_l

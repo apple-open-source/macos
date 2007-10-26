@@ -5,6 +5,165 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.24 release (the cctools-667.2 release):
+- Changed get_segalign_from_flag() in arch.c so that if returns 4K for
+  CPU_TYPE_POWERPC64 and CPU_TYPE_X86_64 so that the __LINKEDIT segment after
+  codesign_allocate(1) does not end up with zerofill (and writeable) pages at
+  the end.  Radar bug #5363873.
+
+Changes for the 5.24 release (the cctools-663 release):
+- Changed get_macosx_deployment_target() in macosx_deployment_target.c so that
+  it now takes a pointer to a struct that it fills in with the major, minor and
+  name of the macosx_deployment_target.  Also changed the default to be the
+  current version of the machine it is running on.  Radar bug #5132019.
+
+Changes for the 5.24 release (the cctools-658 release):
+- Changed symbol_string_at_end() in checkout.c to also set the
+  input_indirectsym_pad field in the object structure for relocatable objects
+  just as dyld_order() does for fully linked objects.  To deal correctly with
+  the fact that 64-bit files may or may not have padding after the indirect
+  symbol table entries.  Radar bug #5054452.
+
+Changes for the 5.24 release (the cctools-657 release):
+- Fixed a problem with the fix below.  Basically what was needed was to swap
+  back the headers of a fat file when ever only some parts were processed or
+  stepped over and other parts could be processed.  The fix is the same as below
+  but in more places.  This is now done by testing headers_swapped field in the
+  ofile struct can calling the new routine swap_back_Mach_O().  Radar bug
+  #5055223.
+
+Changes for the 5.24 release (the cctools-656 release):
+- Fixed a problem with the fix to Radar bug #4970647.  That fix missed the
+  case when an architecture was swap a first time and used then stepped over a
+  second time.  The fix was in ofile_process() in ofile.c to also check
+  the headers_swapped field in the case the architecture was used to also swap
+  it back.  Radar bug #5047924.
+
+Changes for the 5.24 release (the cctools-653 release):
+- Updated ofile.c and swap_headers.c to handle the LC_REEXPORT_DYLIB load
+  command.  Radar bug #4986624.
+
+Changes for the 5.24 release (the cctools-651 release):
+- Changed check_Mach_O() in ofile.c to set the new headers_swapped field in the
+  ofile struct.  Then in ofile_process() for looping through a fat file this
+  is checked and if TRUE, cleared and the headers are swapped back.
+  Radar bug #4970647.
+
+Changes for the 5.24 release (the cctools-645 release):
+- Added support for rpath load command.  Radar bug #4822880.
+  - Added swap_rpath_command() to bytesex.c .
+  - Updated swap_object_headers() in swap_headers.c to support the LC_RPATH
+    load command.
+  - Added checks in check_Mach_O() in ofile.c to all the LC_RPATH load command.
+
+Changes for the 5.24 release (the cctools-648 release):
+- Changed the check in ofile_map_memory(1) for the nfat_arch being too large
+  so the check does not overflow and later cause a crash.  Then changed the
+  #ifdef'ed OTOOL code to simply allocate the size of the file minus the fat
+  header for swapping and printing. Radar bug #4860769.
+
+Changes for the 5.24 release (the cctools-644 release):
+- Changed ofile_map() in ofile.c to test if the size of the file attempted to
+  be mmap(2)'ed is zero and not call mmap(2).  Radar bug #4795458.
+- Added entries in arch_flags[] in arch.c for veo3 & veo4.  Added code for
+  CPU_SUBTYPE_VEO_3 and CPU_SUBTYPE_VEO_4 to cpusubtype_findbestarch() and
+  cpusubtype_combine() in best_arch.c and to get_arch_from_host() in
+  get_arch_from_host.c .  Radar bug #4799550.
+- Changed get_stack_addr_from_flag() in arch.c to return a uint64_t and added
+  case values for CPU_TYPE_POWERPC64 and CPU_TYPE_X86_64.  Radar bug #4458775.
+
+Changes for the 5.24 release (the cctools-640 release):
+- Changed arch.c, best_arch.c, ofile.c, and set_arch_flag_name.c to use
+  CPU_SUBTYPE_MASK to mask out the capability bits from the cpusubtype on
+  comparisons. Radar bug #4754462.
+
+Changes for the 5.24 release (the cctools-639 release):
+- Changed copy_new_symbol_info() in writeout.c to use the input_indirectsym_pad
+  from the object struct instead of trying to pad based on the number of
+  indirect symbol table entries. Radar bug #4759112.
+
+Changes for the 5.24 release (the cctools-638 release):
+- Changed dyld_order() in checkout.c to deal with the fact that 64-bit files may
+  or may not have padding after the indirect symbol table entries.  The padding
+  in the input file is determined and saved in the new input_indirectsym_pad
+  field in the object struct.  Also changed copy_new_symbol_info() in writeout.c
+  to pad the indirect symbol table if it has an odd number of entries for 64-bit
+  files. Radar bug #4747408.
+
+Changes for the 5.24 release (the cctools-637 release):
+- Changed dyld_order() in checkout.c to round the offset after the in indirect
+  symbol table entries to a multiple of 8 if it is a 64-bit Mach-O file and
+  their are an odd number of indirect symbol table entries.  Radar bug #4737991.
+
+Changes for the 5.24 release (the cctools-626 release):
+- Made the needed changes to support the split info.  Radar bug #4695477.
+  - Changed check_object() in checkout.c to pick up the LC_SEGMENT_SPLIT_INFO
+    command and check for duplicates.
+  - Added checks in dyld_order() in checkout.c to check the order of the split
+    info data if it is there.
+  - Changed copy_new_symbol_info() in writeout.c to copy out and or increment
+    the *size passed in for the output_split_info_data_size .
+  - Added checks in check_Mach_O() in ofile.c to check the LC_SEGMENT_SPLIT_INFO
+    command and check for duplicates.
+  - Updated swap_object_headers() in swap_headers.c to support the
+    LC_SEGMENT_SPLIT_INFO load command.
+
+Changes for the 5.24 release (the cctools-632 release):
+- Ported code the code used by libredo_prebinding.a and libsyminfo.a to be
+  compiled for 64-bit hosts.  Radar bug #4407440.
+  - Changed the Makefile and added the lib_ofiles and lib_ofiles_install targets
+    to build just the dynamic target for use with libredo_prebinding.a and
+    libsyminfo.a to be built for all architectures in RC_CFLAGS.
+  - Ported writeout.c to by not using ranlib structs since ran_un.ran_name
+    can be used when compiling for 64-bit hosts.
+    - Changed the code to use the new toc_entry struct added to
+      <stuff/breakout.h>. and changed the uses of toc_nranlibs field name to
+      ntocs.
+    - Also changed the use of SWAP_LONG to SWAP_INT for the size of ranlib
+      structs and strings in the table of contents and changed the used of
+      sizeof(long) to sizeof(uint32_t).
+    - Change the size of an indirect symbol table entries to sizeof(uint32_t)
+      from sizeof(unsigned long).
+  - Ported bytesex.c by changing SWAP_LONG to SWAP_INT and a number of local
+    struct definitions using fields to union with uint32_t instead of unsigned
+    long. Change the type of the pointer to indirect symbol table entries
+    from unsigned long * to uint32_t in swap_indirect_symbols() and changed
+    the count to a uint32_t.
+  - Ported get_toc_byte_sex.c, ofile_get_word.c, swap_headers.c and ofile.c by
+    changing SWAP_LONG to SWAP_INT and a number unsigned long uses to uint32_t.
+  - Also changed ofile.c so temporary_archive_member_warning() in also defined
+    when ALIGNMENT_CHECKS_ARCHIVE_64_BIT is defined.
+  - Also changed ofile_map() in ofile.c to use mmap() instead of map_fd().
+  - Ported dyld_order() and symbol_string_at_end() in checkout.c to change
+    a use of unsigned long to uint32_t for the size of indirect symbol table
+    entries.
+
+Changes for the 5.24 release (the cctools-627 release):
+- As part of the port to unify otool(1) and otool64(1) finished the port of
+  libstuff and removed the no longer needed libstuff64 libraries.  Radar bug
+  #3903136.
+- Fixed a number of place in ofile.c that was not setting ofile->mh64 to NULL
+  when it was setting ofile->mh to NULL.  Radar bug #4593267.
+
+Changes for the 5.24 release (the cctools-627 release):
+- Changed check_object() in checkout.c so the test for not having an LC_ID_DYLIB
+  load command if it is a MH_DYLIB_STUB and has a non-zero number of load
+  commands.  Radar bug #4511628.
+
+Changes for the 5.24 release (the cctools-626 release):
+- Made the needed changes to support the code signature.  Radar bug #4588023.
+  - Changed check_object() in checkout.c to pick up the LC_CODE_SIGNATURE
+    command and check for duplicates.
+  - Added checks in dyld_order() in checkout.c to check the order of the code
+    signature data if it is there.
+  - Changed copy_new_symbol_info() in writeout.c to copy out and or increment
+    the *size passed in for the output_code_sig_data_size .
+  - Added checks in check_Mach_O() in ofile.c to check the LC_CODE_SIGNATURE
+    command and check for duplicates.
+  - Added swap_linkedit_data_command() to bytesex.c .
+  - Updated swap_object_headers() in swap_headers.c to support the
+    LC_CODE_SIGNATURE load command.
+
 Changes for the 5.23 release (the cctools-620 release):
 - Added the routines swap_x86_float_state64(), swap_x86_state_hdr(),
   swap_x86_exception_state64(), swap_x86_debug_state32(),

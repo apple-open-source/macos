@@ -1,13 +1,11 @@
 --TEST--
 Bug #24155 (gdImageRotate270 rotation problem).
 --SKIPIF--
-<?php 
-	if (!extension_loaded('gd')) {	
+<?php
+	if (!extension_loaded('gd')) {
 		die("skip gd extension not available\n");
 	}
-	if (!GD_BUNDLED) {
-		die('skip external GD libraries may fail');
-	}
+	if (!function_exists("imagerotate")) die("skip requires bundled GD library\n");
 ?>
 --FILE--
 <?php
@@ -15,12 +13,18 @@ Bug #24155 (gdImageRotate270 rotation problem).
 	@unlink($dest);
 
 	$im = imagecreatetruecolor(30, 50);
-	imagefill($im, 0, 0, (16777215 - 255)); 
+	imagefill($im, 0, 0, (16777215 - 255));
 	$im = imagerotate($im, 270, 255);
 	imagepng($im, $dest);
 
-	echo md5_file($dest) . "\n";	
+	$im2 = imagecreatefrompng($dest);
+
+	// Uniform fill + n x 90degrees rotation , the color value does not change
+	$col = imagecolorat($im2, 20, 20);
+	// 16777215 - 255 = 16776960
+	echo "$col\n";
+
 	@unlink($dest);
 ?>
 --EXPECT--
-cc867fd65c30883463ce58d0341f0997
+16776960

@@ -1,7 +1,7 @@
 --TEST--
 Regression test
---POST--
---GET--
+--INI--
+date.timezone=UTC
 --FILE--
 PHP Regression Test
 

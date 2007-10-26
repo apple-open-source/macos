@@ -35,14 +35,87 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/param.h>
+#include <libkern/OSByteOrder.h>
 
 #include "readline.h"
+
+void check_obsolete_keychain(const char *kcName)
+{
+	if(kcName == NULL) {
+		return;
+	}
+	if(!strcmp(kcName, "/System/Library/Keychains/X509Anchors")) {
+		fprintf(stderr, "***************************************************************\n");
+		fprintf(stderr, "                         WARNING\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "The keychain you are accessing, X509Anchors, is no longer\n");
+		fprintf(stderr, "used by Mac OS X as the system root certificate store.\n");
+		fprintf(stderr, "Please read the security man page for information on the \n");
+		fprintf(stderr, "add-trusted-cert command. New system root certificates should\n");
+		fprintf(stderr, "be added to the Admin Trust Settings domain and to the \n");
+		fprintf(stderr, "System keychain in /Library/Keychains.\n");
+		fprintf(stderr, "***************************************************************\n");
+	}
+	else if(!strcmp(kcName, "/System/Library/Keychains/X509Certificates")) {
+		fprintf(stderr, "***************************************************************\n");
+		fprintf(stderr, "                         WARNING\n");
+		fprintf(stderr, "\n");
+		fprintf(stderr, "The keychain you are accessing, X509Certificates, is no longer\n");
+		fprintf(stderr, "used by Mac OS X as the system intermediate certificate\n");
+		fprintf(stderr, "store. New system intermediate certificates should be added\n");
+		fprintf(stderr, "to the System keychain in /Library/Keychains.\n");
+		fprintf(stderr, "***************************************************************\n");
+	}
+}
 
 SecKeychainRef
 keychain_open(const char *name)
 {
 	SecKeychainRef keychain = NULL;
-	OSStatus result = SecKeychainOpen(name, &keychain);
+	OSStatus result;
+
+	check_obsolete_keychain(name);
+	if (name && name[0] != '/')
+	{
+		CFArrayRef dynamic = NULL;
+		result = SecKeychainCopyDomainSearchList(
+			kSecPreferencesDomainDynamic, &dynamic);
+		if (result)
+		{
+			sec_error("SecKeychainCopyDomainSearchList %s: %s", 
+				name, sec_errstr(result));
+			return NULL;
+		}
+		else
+		{
+			uint32_t i;
+			uint32_t count = dynamic ? CFArrayGetCount(dynamic) : 0;
+
+			for (i = 0; i < count; ++i)
+			{
+				char pathName[MAXPATHLEN];
+				UInt32 ioPathLength = sizeof(pathName);
+				bzero(pathName, ioPathLength);
+				keychain = (SecKeychainRef)CFArrayGetValueAtIndex(dynamic, i);
+				result = SecKeychainGetPath(keychain, &ioPathLength, pathName);
+				if (result)
+				{
+					sec_error("SecKeychainGetPath %s: %s", 
+						name, sec_errstr(result));
+					return NULL;
+				}
+				if (!strncmp(pathName, name, ioPathLength))
+				{
+					CFRetain(keychain);
+					CFRelease(dynamic);
+					return keychain;
+				}
+			}
+			CFRelease(dynamic);
+		}
+	}
+
+	result = SecKeychainOpen(name, &keychain);
 	if (result)
 	{
 		sec_error("SecKeychainOpen %s: %s", name, sec_errstr(result));
@@ -172,7 +245,8 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 			goto loser;
 		}
 
-		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix, tagCount);
+		fprintf(stream, "    entry %lu:\n        authorizations (%lu):", aclix, 
+			(unsigned long)tagCount);
 		for (tagix = 0; tagix < tagCount; ++tagix)
 		{
 			CSSM_ACL_AUTHORIZATION_TAG tag = tags[tagix];
@@ -242,7 +316,7 @@ print_access(FILE *stream, SecAccessRef access, Boolean interactive)
 				fputs(" change_owner", stream);
 				break;
 			default:
-				fprintf(stream, " tag=%lu", tag);
+				fprintf(stream, " tag=%lu", (unsigned long)tag);
 				break;
 			}
 		}
@@ -374,7 +448,13 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 	}
 
 	fputs("class: ", stream);
-	print_buffer(stream, 4, &itemClass);
+	char buffer[4];
+	buffer[3] = itemClass & 0xFF;
+	buffer[2] = (itemClass >> 8) & 0xFF;
+	buffer[1] = (itemClass >> 16) & 0xFF;
+	buffer[0] = (itemClass >> 24) & 0xFF;
+	
+	print_buffer(stream, 4, buffer);
 	fputs("\nattributes:\n", stream);
 
 	switch (itemClass)
@@ -432,7 +512,7 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		}
 
 		fputs("    ", stream);
-		print_buffer(stream, 4, &tag);
+		print_uint32(stream, tag);
 		switch (format)
 		{
 		case CSSM_DB_ATTRIBUTE_FORMAT_STRING:
@@ -470,7 +550,34 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
 		if (!attribute->length && !attribute->data)
 			fputs("<NULL>", stream);
 		else
-			print_buffer(stream, attribute->length, attribute->data);
+		{	switch (format)
+			{
+				case CSSM_DB_ATTRIBUTE_FORMAT_SINT32: 
+				case CSSM_DB_ATTRIBUTE_FORMAT_UINT32:
+				{
+					print_uint32(stream, *(UInt32*) attribute->data);
+					break;
+				}
+				
+				case CSSM_DB_ATTRIBUTE_FORMAT_MULTI_UINT32:
+				{
+					int n = attribute->length / sizeof(UInt32);
+					UInt32* ptr = (UInt32*) attribute->data;
+					
+					while (n--)
+					{
+						print_uint32(stream, *ptr++);
+					}
+				}
+				break;
+				
+				default:
+				{
+					print_buffer(stream, attribute->length, attribute->data);
+				}
+				break;
+			}
+		}
 		fputc('\n', stream);
 	}
 
@@ -642,6 +749,13 @@ print_buffer(FILE *stream, UInt32 length, const void *data)
 		print_buffer_ascii(stream, length, data);
 		fputc('"', stream);
 	}
+}
+
+void
+print_uint32(FILE *stream, uint32 n)
+{
+	n = OSSwapHostToBigInt32 (n);
+	print_buffer(stream, sizeof(UInt32), &n);
 }
 
 /*

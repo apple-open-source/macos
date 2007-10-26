@@ -56,13 +56,13 @@
 */
 
 
-IOReturn DevaSetIoPortsConfigD(IOUSBDeviceInterface **dev, UInt32 portBits);
-IOReturn DevaReadIoPortsD(IOUSBDeviceInterface **dev, UInt32 *portBits);
-IOReturn DevaWriteIoPortsD(IOUSBDeviceInterface **dev, UInt32 portBits, UInt32 mask);
+IOReturn DevaSetIoPortsConfigD(IOUSBDeviceInterface245 **dev, UInt32 portBits);
+IOReturn DevaReadIoPortsD(IOUSBDeviceInterface245 **dev, UInt32 *portBits);
+IOReturn DevaWriteIoPortsD(IOUSBDeviceInterface245 **dev, UInt32 portBits, UInt32 mask);
 
 
 
-IOReturn DevaSetIoPortsConfig(IOUSBInterfaceInterface **intf, UInt32 portBits);
-IOReturn DevaReadIoPorts(IOUSBInterfaceInterface **intf, UInt32 *portBits);
-IOReturn DevaWriteIoPorts(IOUSBInterfaceInterface **intf, UInt32 portBits, UInt32 mask);
+IOReturn DevaSetIoPortsConfig(IOUSBInterfaceInterface245 **intf, UInt32 portBits);
+IOReturn DevaReadIoPorts(IOUSBInterfaceInterface245 **intf, UInt32 *portBits);
+IOReturn DevaWriteIoPorts(IOUSBInterfaceInterface245 **intf, UInt32 portBits, UInt32 mask);
 

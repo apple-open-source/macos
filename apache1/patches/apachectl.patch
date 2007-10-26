@@ -1,0 +1,132 @@
+--- src/support/apachectl.orig	2007-08-13 12:38:04.000000000 -0700
++++ src/support/apachectl	2007-08-13 12:38:04.000000000 -0700
+@@ -56,6 +56,9 @@
+ # --------------------                              --------------------
+ # ||||||||||||||||||||   END CONFIGURATION SECTION  ||||||||||||||||||||
+ 
++LAUNCHCTL="/bin/launchctl"
++LAUNCHD_JOB="/System/Library/LaunchDaemons/org.apache.httpd-1.3.plist"
++
+ ERROR=0
+ ARGV="$@"
+ if [ "x$ARGV" = "x" ] ; then 
+@@ -64,93 +67,20 @@
+ 
+ for ARG in $@ $ARGS
+ do
+-    # check for pidfile
+-    if [ -f $PIDFILE ] ; then
+-	PID=`cat $PIDFILE`
+-	if [ "x$PID" != "x" ] && kill -0 $PID 2>/dev/null ; then
+-	    STATUS="httpd (pid $PID) running"
+-	    RUNNING=1
+-	else
+-	    STATUS="httpd (pid $PID?) not running"
+-	    RUNNING=0
+-	fi
+-    else
+-	STATUS="httpd (no pid file) not running"
+-	RUNNING=0
+-    fi
+ 
+     case $ARG in
+     start)
+-	if [ $RUNNING -eq 1 ]; then
+-	    echo "$0 $ARG: httpd (pid $PID) already running"
+-	    continue
+-	fi
+-	if $HTTPD ; then
+-	    echo "$0 $ARG: httpd started"
+-	else
+-	    echo "$0 $ARG: httpd could not be started"
+-	    ERROR=3
+-	fi
++    	$LAUNCHCTL load -w $LAUNCHD_JOB
++   	 ERROR=$?
+ 	;;
+     stop)
+-	if [ $RUNNING -eq 0 ]; then
+-	    echo "$0 $ARG: $STATUS"
+-	    continue
+-	fi
+-	if kill $PID ; then
+-	    echo "$0 $ARG: httpd stopped"
+-	else
+-	    echo "$0 $ARG: httpd could not be stopped"
+-	    ERROR=4
+-	fi
+-	;;
+-    restart)
+-	if [ $RUNNING -eq 0 ]; then
+-	    echo "$0 $ARG: httpd not running, trying to start"
+-	    if $HTTPD ; then
+-		echo "$0 $ARG: httpd started"
+-	    else
+-		echo "$0 $ARG: httpd could not be started"
+-		ERROR=5
+-	    fi
+-	else
+-	    if $HTTPD -t >/dev/null 2>&1; then
+-		if kill -HUP $PID ; then
+-		    echo "$0 $ARG: httpd restarted"
+-		else
+-		    echo "$0 $ARG: httpd could not be restarted"
+-		    ERROR=6
+-		fi
+-	    else
+-		echo "$0 $ARG: configuration broken, ignoring restart"
+-		echo "$0 $ARG: (run 'apachectl configtest' for details)"
+-		ERROR=6
+-	    fi
+-	fi
++    	$LAUNCHCTL unload -w $LAUNCHD_JOB
++    	ERROR=$?
+ 	;;
+-    graceful)
+-	if [ $RUNNING -eq 0 ]; then
+-	    echo "$0 $ARG: httpd not running, trying to start"
+-	    if $HTTPD ; then
+-		echo "$0 $ARG: httpd started"
+-	    else
+-		echo "$0 $ARG: httpd could not be started"
+-		ERROR=5
+-	    fi
+-	else
+-	    if $HTTPD -t >/dev/null 2>&1; then
+-		if kill -USR1 $PID ; then
+-		    echo "$0 $ARG: httpd gracefully restarted"
+-		else
+-		    echo "$0 $ARG: httpd could not be restarted"
+-		    ERROR=7
+-		fi
+-	    else
+-		echo "$0 $ARG: configuration broken, ignoring restart"
+-		echo "$0 $ARG: (run 'apachectl configtest' for details)"
+-		ERROR=7
+-	    fi
+-	fi
++    restart|graceful)
++    	$LAUNCHCTL unload -w $LAUNCHD_JOB 2> /dev/null
++    	$LAUNCHCTL load -w $LAUNCHD_JOB
++    	ERROR=$?
+ 	;;
+     status)
+ 	case "`which $LYNXBIN`" in
+@@ -175,13 +105,11 @@
+ 	echo "usage: $0 (start|stop|restart|fullstatus|status|graceful|configtest|help)"
+ 	cat <<EOF
+ 
+-start      - start httpd
+-stop       - stop httpd
+-restart    - restart httpd if running by sending a SIGHUP or start if 
+-             not running
++start      - Loads the org.apache.httpd-1.3 launchd job
++stop       - Unloads the org.apache.httpd-1.3 launchd job
++restart, graceful    - Unloads, then loads the org.apache.httpd-1.3 launchd job
+ fullstatus - dump a full status screen; requires lynx and mod_status enabled
+ status     - dump a short status screen; requires lynx and mod_status enabled
+-graceful   - do a graceful restart by sending a SIGUSR1 or start if not running
+ configtest - do a configuration syntax test
+ help       - this screen
+ 
+

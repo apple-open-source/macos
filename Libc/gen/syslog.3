@@ -36,27 +36,44 @@
 .Dt SYSLOG 3
 .Os
 .Sh NAME
-.Nm syslog ,
-.Nm vsyslog ,
-.Nm openlog ,
 .Nm closelog ,
-.Nm setlogmask
+.Nm openlog ,
+.Nm setlogmask ,
+.Nm syslog ,
+.Nm vsyslog
 .Nd control system log
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In syslog.h
+.Ft void
+.Fo closelog
+.Fa void
+.Fc
+.Ft void
+.Fo openlog
+.Fa "const char *ident"
+.Fa "int logopt"
+.Fa "int facility"
+.Fc
+.Ft int
+.Fo setlogmask
+.Fa "int maskpri"
+.Fc
+.Ft void
+.Fo syslog
+.Fa "int priority"
+.Fa "const char *message"
+.Fa "..."
+.Fc
+.In syslog.h
 .In stdarg.h
 .Ft void
-.Fn syslog "int priority" "const char *message" "..."
-.Ft void
-.Fn vsyslog "int priority" "const char *message" "va_list args"
-.Ft void
-.Fn openlog "const char *ident" "int logopt" "int facility"
-.Ft void
-.Fn closelog void
-.Ft int
-.Fn setlogmask "int maskpri"
+.Fo vsyslog
+.Fa "int priority"
+.Fa "const char *message"
+.Fa "va_list args"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn syslog
@@ -80,6 +97,12 @@ message.
 see
 .Xr strerror 3 . )
 A trailing newline is added if none is present.
+.Pp
+Newlines and other non-printable characters embedded in the message string are printed in an alternate format.
+This prevents someone from using non-printable characters to construct misleading log messages in an output file.
+Newlines are printed as "\\n",
+tabs are printed as "\\t".
+Other control characters are printed using a caret ("^") representation, for example "^M" for carriage return.
 .Pp
 The
 .Fn vsyslog
@@ -177,10 +200,6 @@ The same as
 .Dv LOG_AUTH ,
 but logged to a file readable only by
 selected individuals.
-.It Dv LOG_CONSOLE
-Messages written to
-.Pa /dev/console
-by the kernel console output driver.
 .It Dv LOG_CRON
 The cron daemon:
 .Xr cron 8 .
@@ -253,7 +272,7 @@ The default allows all priorities to be logged.
 The routines
 .Fn closelog ,
 .Fn openlog ,
-.Fn syslog
+.Fn syslog ,
 and
 .Fn vsyslog
 return no value.
@@ -273,8 +292,14 @@ syslog(LOG_INFO, "Connection from host %d", CallingHost);
 
 syslog(LOG_INFO|LOG_LOCAL2, "foobar error: %m");
 .Ed
+.Sh LEGACY SYNOPSIS
+.Fd #include <syslog.h>
+.Fd #include <stdarg.h>
+.Pp
+These include files are necessary for all functions.
 .Sh SEE ALSO
 .Xr logger 1 ,
+.Xr compat 5 ,
 .Xr syslogd 8
 .Sh HISTORY
 These

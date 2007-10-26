@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Inc//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.filesystems.util.ntfs</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ntfs</string>
+	<key>CFBundlePackageType</key>
+	<string>fs  </string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.0</string>
+	<key>FSMediaTypes</key>
+	<dict>
+		<key>Windows_NTFS</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>Windows_NTFS</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ntfs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>1000</integer>
+		</dict>
+		<key>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Content Hint</key>
+				<string>EBD0A0A2-B9E5-4433-87C0-68B6B72699C7</string>
+				<key>Leaf</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ntfs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>2000</integer>
+		</dict>
+		<key>Partitionless</key>
+		<dict>
+			<key>FSMediaProperties</key>
+			<dict>
+				<key>Leaf</key>
+				<true/>
+				<key>Whole</key>
+				<true/>
+			</dict>
+			<key>FSProbeArguments</key>
+			<string>-p</string>
+			<key>FSProbeExecutable</key>
+			<string>../../ntfs.util</string>
+			<key>FSProbeOrder</key>
+			<integer>4000</integer>
+		</dict>
+	</dict>
+	<key>FSPersonalities</key>
+	<dict>
+		<key>NTFS</key>
+		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_ntfs</string>
+			<key>FSName</key>
+			<string>Windows NT File System (NTFS)</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

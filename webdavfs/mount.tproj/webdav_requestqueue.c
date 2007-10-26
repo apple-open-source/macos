@@ -22,6 +22,7 @@
  */
 
 #include "webdavd.h"
+#include "LogMessage.h"
 
 #include <sys/syslog.h>
 #include <err.h>
@@ -55,6 +56,11 @@ typedef struct webdav_requestqueue_element_tag
 			struct ReadStreamRec *readStreamRecPtr; /* the ReadStreamRec */
 		} download;								/* Struct used for download requests */
 		
+		struct serverping
+		{
+			u_int32_t delay;					/* used for backoff delay sending ping requests to the server */
+		} serverping;
+		
 	} element;
 } webdav_requestqueue_element_t;
 
@@ -70,6 +76,9 @@ typedef struct
 /* Definitions */
 #define WEBDAV_REQUEST_TYPE 1
 #define WEBDAV_DOWNLOAD_TYPE 2
+#define WEBDAV_SERVER_PING_TYPE 3
+
+#define WEBDAV_MAX_IDLE_TIME 10		/* in seconds */
 
 /* connectionstate_lock used to make connectionstate thread safe */
 static pthread_mutex_t connectionstate_lock;
@@ -84,8 +93,12 @@ static pthread_mutex_t pulse_lock;
 static pthread_cond_t pulse_condvar;
 static int purge_cache_files;	/* TRUE if closed cache files should be immediately removed from file cache */
 
-static
-int handle_request_thread(void *arg);
+static int handle_request_thread(void *arg);
+
+static int gCurrThreadCount = 0;
+static int gIdleThreadCount = 0;
+static pthread_attr_t gRequest_thread_attr;
+
 
 /*****************************************************************************/
 
@@ -118,8 +131,30 @@ void set_connectionstate(int state)
 	
 	error = pthread_mutex_lock(&connectionstate_lock);
 	require_noerr(error, pthread_mutex_lock);
+
+	switch (state) {
+		case WEBDAV_CONNECTION_DOWN:
+			if (connectionstate == WEBDAV_CONNECTION_UP) {
+			
+				syslog(LOG_ERR, "WebDAV server is no longer responding, will keep retrying...");
+				
+				/* transition to DOWN state */
+				connectionstate = WEBDAV_CONNECTION_DOWN;
+				
+				/* start pinging the server, specifying 0 delay for the 1st ping */
+				requestqueue_enqueue_server_ping(0);
+			}
+		break;
+		case WEBDAV_CONNECTION_UP:
+			if (connectionstate == WEBDAV_CONNECTION_DOWN) {
+				syslog(LOG_ERR, "WebDAV server is now responding normally");
+				connectionstate = WEBDAV_CONNECTION_UP;
+			}
+		break;
 	
-	connectionstate = state;
+		default:
+		break;
+	}
 	
 	error = pthread_mutex_unlock(&connectionstate_lock);
 	require_noerr(error, pthread_mutex_unlock);
@@ -162,13 +197,13 @@ static int get_request(int so, int *operation, void *key, size_t klen)
 	{
 		/* error from recvmsg */
 		error = errno;
-		debug_string("recvmsg failed");
+		LogMessage(kError, "get_request recvmsg failed error %d\n", error);
 	}
 	else
 	{
 		/* the message was too short */
 		error = EINVAL;
-		debug_string("short message");
+		LogMessage(kError, "get_request got short message\n");
 	}
 	
 	return ( error );
@@ -212,7 +247,7 @@ static void send_reply(int so, void *data, size_t size, int error)
 	n = sendmsg(so, &msg, 0);
 	if (n < 0)
 	{
-		debug_string("sendmsg failed");
+		LogMessage(kError, "send_reply sendmsg failed\n");
 	}
 }
 
@@ -229,10 +264,9 @@ static void handle_filesystem_request(int so)
 	
 	/* get the request from the socket */
 	error = get_request(so, &operation, key, sizeof(key));
-	if ( !error )
-	{
-#ifdef DEBUG	
-		syslog(LOG_ERR, "handle_filesystem_request: %s(%d)",
+	if ( !error ) {
+#if DEBUG	
+		LogMessage(kTrace, "handle_filesystem_request: %s(%d)\n",
 				(operation==WEBDAV_LOOKUP) ? "LOOKUP" :
 				(operation==WEBDAV_CREATE) ? "CREATE" :
 				(operation==WEBDAV_OPEN) ? "OPEN" :
@@ -256,106 +290,115 @@ static void handle_filesystem_request(int so)
 #endif
 		bzero((void *)&reply, sizeof(union webdav_reply));
 		
-		/* call the function to handle the request */
-		switch ( operation )
+		/* If the connection is down just return EBUSY, but always let UNMOUNT and INVALCACHES requests */
+		/* go through regardless of the state of the connection. */
+		if ( (get_connectionstate() == WEBDAV_CONNECTION_DOWN) && (operation != WEBDAV_UNMOUNT) &&
+			(operation != WEBDAV_INVALCACHES) )
 		{
-			case WEBDAV_LOOKUP:
-				error = filesystem_lookup((struct webdav_request_lookup *)key,
-					(struct webdav_reply_lookup *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_lookup), error);
-				break;
+			error = ETIMEDOUT;
+			send_reply(so, (void *)&reply, sizeof(union webdav_reply), error);
+		}
+		else
+		{
+			/* call the function to handle the request */
+			switch ( operation )
+			{
+				case WEBDAV_LOOKUP:
+					error = filesystem_lookup((struct webdav_request_lookup *)key,
+							(struct webdav_reply_lookup *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_lookup), error);
+					break;
 
-			case WEBDAV_CREATE:
-				error = filesystem_create((struct webdav_request_create *)key,
-					(struct webdav_reply_create *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_create), error);
-				break;
+				case WEBDAV_CREATE:
+					error = filesystem_create((struct webdav_request_create *)key,
+							(struct webdav_reply_create *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_create), error);
+					break;
 
-			case WEBDAV_OPEN:
-				error = filesystem_open((struct webdav_request_open *)key,
-					(struct webdav_reply_open *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_open), error);
-				break;
+				case WEBDAV_OPEN:
+					error = filesystem_open((struct webdav_request_open *)key,
+							(struct webdav_reply_open *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_open), error);
+					break;
 
-			case WEBDAV_CLOSE:
-				error = filesystem_close((struct webdav_request_close *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_CLOSE:
+					error = filesystem_close((struct webdav_request_close *)key);				
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_GETATTR:
-				error = filesystem_getattr((struct webdav_request_getattr *)key,
-					(struct webdav_reply_getattr *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_getattr), error);
-				break;
+				case WEBDAV_GETATTR:
+					error = filesystem_getattr((struct webdav_request_getattr *)key,
+							(struct webdav_reply_getattr *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_getattr), error);
+					break;
 
-			case WEBDAV_READ:
-				bytes = NULL;
-				num_bytes = 0;
-				error = filesystem_read((struct webdav_request_read *)key,
-					&bytes, &num_bytes);
-				send_reply(so, (void *)bytes, (int)num_bytes, error);
-				if (bytes)
-				{
-					free(bytes);
-				}
-				break;
+				case WEBDAV_READ:
+					bytes = NULL;
+					num_bytes = 0;
+					error = filesystem_read((struct webdav_request_read *)key,
+							&bytes, &num_bytes);				
+					send_reply(so, (void *)bytes, (int)num_bytes, error);
+					if (bytes)
+					{
+						free(bytes);
+					}
+					break;
 
-			case WEBDAV_FSYNC:
-				error = filesystem_fsync((struct webdav_request_fsync *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_FSYNC:
+					error = filesystem_fsync((struct webdav_request_fsync *)key);			
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_REMOVE:
-				error = filesystem_remove((struct webdav_request_remove *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_REMOVE:
+					error = filesystem_remove((struct webdav_request_remove *)key);				
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_RENAME:
-				error = filesystem_rename((struct webdav_request_rename *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_RENAME:
+					error = filesystem_rename((struct webdav_request_rename *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_MKDIR:
-				error = filesystem_mkdir((struct webdav_request_mkdir *)key,
-					(struct webdav_reply_mkdir *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_mkdir), error);
-				break;
+				case WEBDAV_MKDIR:
+					error = filesystem_mkdir((struct webdav_request_mkdir *)key,
+							(struct webdav_reply_mkdir *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_mkdir), error);
+					break;
 
-			case WEBDAV_RMDIR:
-				error = filesystem_rmdir((struct webdav_request_rmdir *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_RMDIR:
+					error = filesystem_rmdir((struct webdav_request_rmdir *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_READDIR:
-				error = filesystem_readdir((struct webdav_request_readdir *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_READDIR:
+					error = filesystem_readdir((struct webdav_request_readdir *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_STATFS:
-				error = filesystem_statfs((struct webdav_request_statfs *)key,
-					(struct webdav_reply_statfs *)&reply);
-				send_reply(so, (void *)&reply, sizeof(struct webdav_reply_statfs), error);
-				break;
+				case WEBDAV_STATFS:
+					error = filesystem_statfs((struct webdav_request_statfs *)key,
+							(struct webdav_reply_statfs *)&reply);
+					send_reply(so, (void *)&reply, sizeof(struct webdav_reply_statfs), error);
+					break;
 			
-			case WEBDAV_UNMOUNT:
-				webdav_kill(-2);	/* tell the main select loop to exit */
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_UNMOUNT:
+					webdav_kill(-2);	/* tell the main select loop to exit */
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			case WEBDAV_INVALCACHES:
-				error = filesystem_invalidate_caches((struct webdav_request_invalcaches *)key);
-				send_reply(so, (void *)0, 0, error);
-				break;
+				case WEBDAV_INVALCACHES:
+					error = filesystem_invalidate_caches((struct webdav_request_invalcaches *)key);
+					send_reply(so, (void *)0, 0, error);
+					break;
 
-			default:
-				error = ENOTSUP;
-				break;
+				default:
+					error = ENOTSUP;
+					break;
+			}
 		}
 
-#ifdef DEBUG
-		if (error)
-		{
-			syslog(LOG_ERR, "handle_filesystem_request: error %d, %s(%d)", error,
+#if DEBUG
+		LogMessage(kError, "handle_filesystem_request: error %d, %s(%d)\n", error,
 					(operation==WEBDAV_LOOKUP) ? "LOOKUP" :
 					(operation==WEBDAV_CREATE) ? "CREATE" :
 					(operation==WEBDAV_OPEN) ? "OPEN" :
@@ -376,11 +419,10 @@ static void handle_filesystem_request(int so)
 					"???",
 					operation
 					);
-		}
 #endif
 	}
-	else
-	{
+	else {
+		LogMessage(kError, "handle_filesystem_request: get_request failed %d\n", error);
 		send_reply(so, NULL, 0, error);
 	}
 
@@ -403,9 +445,7 @@ static void pulse_thread(void *arg)
 		error = pthread_mutex_lock(&pulse_lock);
 		require_noerr(error, pthread_mutex_lock);
 		
-#ifdef DEBUG
-		debug_string("Pulse thread running");
-#endif
+		LogMessage(kTrace, "pulse_thread running\n");
 		
 		node = nodecache_get_next_file_cache_node(TRUE);
 		while ( node != NULL )
@@ -459,33 +499,31 @@ pthread_mutex_unlock:
 
 /*****************************************************************************/
 
-static
-int handle_request_thread(void *arg)
+static int handle_request_thread(void *arg)
 {
 	#pragma unused(arg)
 	int error;
 	webdav_requestqueue_element_t * myrequest;
+	struct timespec timeout;
+	int idleRecheck = 0;
 
-	while (TRUE)
-	{
+	while (TRUE) {
 		error = pthread_mutex_lock(&requests_lock);
 		require_noerr(error, pthread_mutex_lock);
 
 		/* Check to see if there is a request to process */
 
-		if (waiting_requests.request_count > 0)
-		{
+		if (waiting_requests.request_count > 0) {
 			/* There is a request so dequeue it */
+			idleRecheck = 0;	/* reset this flag to indicate that we did find work to do */
 			myrequest = waiting_requests.item_head;
 			--(waiting_requests.request_count);
-			if (waiting_requests.request_count > 0)
-			{
+			if (waiting_requests.request_count > 0) {
 				/* There was more than one item on */
 				/* the queue so bump the pointers */
 				waiting_requests.item_head = myrequest->next;
 			}
-			else
-			{
+			else {
 				waiting_requests.item_head = waiting_requests.item_tail = 0;
 			}
 			
@@ -493,8 +531,7 @@ int handle_request_thread(void *arg)
 			error = pthread_mutex_unlock(&requests_lock);
 			require_noerr(error, pthread_mutex_unlock);
 
-			switch (myrequest->type)
-			{
+			switch (myrequest->type) {
 
 				case WEBDAV_REQUEST_TYPE:
 					handle_filesystem_request(myrequest->element.request.socket);
@@ -503,8 +540,7 @@ int handle_request_thread(void *arg)
 				case WEBDAV_DOWNLOAD_TYPE:
 					/* finish the download */
 					error = network_finish_download(myrequest->element.download.node, myrequest->element.download.readStreamRecPtr);
-					if (error)
-					{
+					if (error) {
 						/* Set append to indicate that our download failed. It's a hack, but
 						 * it should work.	Be sure to still mark the download as finished so
 						 * that if we were terminated early the closer will be notified
@@ -512,8 +548,7 @@ int handle_request_thread(void *arg)
 						verify_noerr(fchflags(myrequest->element.download.node->file_fd, UF_APPEND));
 						myrequest->element.download.node->file_status = WEBDAV_DOWNLOAD_ABORTED;
 					}
-					else
-					{
+					else {
 						/* Clear flags to indicate that our download is complete. It's a hack, but
 						 * it should work.	Be sure to still mark the download as finished so
 						 * that if we were terminated early the closer will be notified
@@ -524,6 +559,11 @@ int handle_request_thread(void *arg)
 					error = 0;
 					break;
 
+				case WEBDAV_SERVER_PING_TYPE:
+					/* Send an OPTIONS request to the server. */
+					network_server_ping(myrequest->element.serverping.delay);
+				break;
+				
 				default:
 					/* nothing we can do, just get the next request */
 					break;
@@ -532,13 +572,43 @@ int handle_request_thread(void *arg)
 			free(myrequest);
 
 		}
-		else
-		{
-			/* There were no requests so just wait on the condition variable */
-			error = pthread_cond_wait(&requests_condvar, &requests_lock);
-			require_noerr(error, pthread_cond_wait);
+		else {
+			/* There were no requests to handle.  If idleRecheck is set, then we just timed out waiting for work
+			and we did one more paranoid check for work and still found no work, so its time to exit the thread.
+			If idleRecheck is not set, then there is no work to do right now.  Wait on the condition variable
+			and also have a max timeout to wait.  If we timeout and there was no work to do, then set idleRecheck
+			flag and loop around one more time to look for work, just to be paranoid.
+			
+			The extra loop around with idleRecheck is for the case where a thread is waiting on condition variable,
+			and it times out.  It then gets blocked waiting to acquire the request_lock while a request is being
+			put on the work queue (and thus the idle thread count is greater than 0).  It then gets the request_lock
+			and there is not work on the queue for it to do, but the time out has also expired. To be sure that the
+			work gets picked up, we do the extra loop around to check for work. */
+			if (idleRecheck == 1) {
+				/* still no work to do after timing out and rechecking again for work, so exit thread */
+				//LogMessage (kSysLog, "handle_request_thread - thread %d exiting since no work to do\n", pthread_self());
+				gCurrThreadCount -= 1;
+				error = pthread_mutex_unlock(&requests_lock);
+				pthread_exit(NULL);
+			}
+			
+			timeout.tv_sec = time(NULL) + WEBDAV_MAX_IDLE_TIME;		/* time out in seconds */
+			timeout.tv_nsec = 0;
 
-			/* Ok, unlock so that we can restart the loop */
+			//LogMessage (kSysLog, "handle_request_thread - thread %d idle and waiting for work\n", pthread_self());
+			gIdleThreadCount += 1;				/* increment to indicate one idle thread */
+			error = pthread_cond_timedwait(&requests_condvar, &requests_lock, &timeout);
+			gIdleThreadCount -= 1;				/* decrement number of idle threads */
+			require((error == ETIMEDOUT || error == 0), pthread_cond_wait);
+
+			if (error == ETIMEDOUT) {
+				/* time out has occurred and still no work to do.  Loop around one more time just to be paranoid that
+				there is no work to do */
+				//LogMessage (kSysLog, "handle_request_thread - thread %d timeout, doing one more check\n", pthread_self());
+				idleRecheck = 1;
+			}
+			
+			/* Unlock so that we can restart the loop */
 			error = pthread_mutex_unlock(&requests_lock);
 			require_noerr(error, pthread_mutex_unlock);
 		}
@@ -549,8 +619,7 @@ pthread_mutex_unlock:
 pthread_mutex_lock:
 
 	/* errors coming out of this routine are fatal */
-	if ( error )
-	{
+	if ( error ) {
 		webdav_kill(-1);	/* tell the main select loop to force unmount */
 	}
 
@@ -565,9 +634,6 @@ int requestqueue_init()
 	pthread_mutexattr_t mutexattr;
 	pthread_t the_pulse_thread;
 	pthread_attr_t the_pulse_thread_attr;
-	pthread_t request_thread;
-	pthread_attr_t request_thread_attr;
-	int i;
 	
 	/* set up the lock for connectionstate */
 	connectionstate = WEBDAV_CONNECTION_UP;
@@ -591,18 +657,11 @@ int requestqueue_init()
 	error = pthread_mutex_init(&requests_lock, &mutexattr);
 	require_noerr(error, pthread_mutex_init);
 
-	for (i = 0; i < WEBDAV_REQUEST_THREADS; ++i)
-	{
-		error = pthread_attr_init(&request_thread_attr);
-		require_noerr(error, pthread_attr_init);
+	error = pthread_attr_init(&gRequest_thread_attr);
+	require_noerr(error, pthread_attr_init);
 
-		error = pthread_attr_setdetachstate(&request_thread_attr, PTHREAD_CREATE_DETACHED);
-		require_noerr(error, pthread_attr_setdetachstate);
-
-		error = pthread_create(&request_thread, &request_thread_attr,
-			(void *)handle_request_thread, (void *)NULL);
-		require_noerr(error, pthread_create);
-	}
+	error = pthread_attr_setdetachstate(&gRequest_thread_attr, PTHREAD_CREATE_DETACHED);
+	require_noerr(error, pthread_attr_setdetachstate);
 
 	/*
 	 * Start the pulse thread
@@ -646,6 +705,7 @@ int requestqueue_enqueue_request(int socket)
 {
 	int error, unlock_error;
 	webdav_requestqueue_element_t * request_element_ptr;
+	pthread_t request_thread;
 
 	error = pthread_mutex_lock(&requests_lock);
 	require_noerr(error, pthread_mutex_lock);
@@ -658,19 +718,31 @@ int requestqueue_enqueue_request(int socket)
 	request_element_ptr->next = 0;
 	++(waiting_requests.request_count);
 
-	if (!(waiting_requests.item_tail))
-	{
+	if (!(waiting_requests.item_tail)) {
 		waiting_requests.item_head = waiting_requests.item_tail = request_element_ptr;
 	}
-	else
-	{
+	else {
 		waiting_requests.item_tail->next = request_element_ptr;
 		waiting_requests.item_tail = request_element_ptr;
 	}
 
-	error = pthread_cond_signal(&requests_condvar);
-	require_noerr(error, pthread_cond_signal);
+	if (gIdleThreadCount > 0) {
+		/* Already have one or more threads just waiting for work to do.  Just kick the requests_condvar to wake 
+		up the threads */
+		error = pthread_cond_signal(&requests_condvar);
+		require_noerr(error, pthread_cond_signal);
+	}
+	else {
+		/* No idle threads, so try to create one if we have not reached out maximum number of threads */
+		if (gCurrThreadCount < WEBDAV_REQUEST_THREADS) {
+			error = pthread_create(&request_thread, &gRequest_thread_attr, (void *) handle_request_thread, (void *) NULL);
+			require_noerr(error, pthread_create_signal);
 
+			gCurrThreadCount += 1;
+		}
+	}
+
+pthread_create_signal:
 pthread_cond_signal:
 malloc_request_element_ptr:
 
@@ -685,12 +757,11 @@ pthread_mutex_lock:
 
 /*****************************************************************************/
 
-int requestqueue_enqueue_download(
-			struct node_entry *node,			/* the node */
-			struct ReadStreamRec *readStreamRecPtr) /* the ReadStreamRec */
+int requestqueue_enqueue_download(struct node_entry *node, struct ReadStreamRec *readStreamRecPtr)
 {
 	int error, error2;
 	webdav_requestqueue_element_t * request_element_ptr;
+	pthread_t request_thread;
 
 	error = pthread_mutex_lock(&requests_lock);
 	require_noerr_action(error, pthread_mutex_lock, webdav_kill(-1));
@@ -706,20 +777,92 @@ int requestqueue_enqueue_download(
 	request_element_ptr->next = waiting_requests.item_head;
 	++(waiting_requests.request_count);
 
-	if ( waiting_requests.item_head == NULL )
-	{
+	if ( waiting_requests.item_head == NULL ) {
 		/* request queue was empty */
 		waiting_requests.item_head = waiting_requests.item_tail = request_element_ptr;
 	}
-	else
-	{
+	else {
 		/* this request is the new head */
 		waiting_requests.item_head = request_element_ptr;
 	}
 
-	error = pthread_cond_signal(&requests_condvar);
-	require_noerr_action(error, pthread_cond_signal, error = EIO);
+	if (gIdleThreadCount > 0) {
+		/* Already have one or more threads just waiting for work to do.  Just kick the requests_condvar to wake 
+		up the threads */
+		error = pthread_cond_signal(&requests_condvar);
+		require_noerr(error, pthread_cond_signal);
+	}
+	else {
+		/* No idle threads, so try to create one if we have not reached out maximum number of threads */
+		if (gCurrThreadCount < WEBDAV_REQUEST_THREADS) {
+			error = pthread_create(&request_thread, &gRequest_thread_attr, (void *) handle_request_thread, (void *) NULL);
+			require_noerr(error, pthread_create_signal);
 
+			gCurrThreadCount += 1;
+		}
+	}
+
+pthread_create_signal:
+pthread_cond_signal:
+malloc_request_element_ptr:
+
+	error2 = pthread_mutex_unlock(&requests_lock);
+	require_noerr_action(error2, pthread_mutex_unlock, error = (error == 0) ? error2 : error; webdav_kill(-1));
+
+pthread_mutex_unlock:
+pthread_mutex_lock:
+
+	return (error);
+}
+
+/*****************************************************************************/
+
+int requestqueue_enqueue_server_ping(u_int32_t delay)
+{
+	int error, error2;
+	webdav_requestqueue_element_t * request_element_ptr;
+	pthread_t request_thread;
+
+	error = pthread_mutex_lock(&requests_lock);
+	require_noerr_action(error, pthread_mutex_lock, webdav_kill(-1));
+
+	request_element_ptr = malloc(sizeof(webdav_requestqueue_element_t));
+	require_action(request_element_ptr != NULL, malloc_request_element_ptr, error = EIO);
+
+	request_element_ptr->type = WEBDAV_SERVER_PING_TYPE;
+	request_element_ptr->element.serverping.delay = delay;
+	
+	/* Insert server pings at head of request queue. They must be executed immediately since they are */
+	/* used to detect when connectivity to the host has been restored. */
+	request_element_ptr->next = waiting_requests.item_head;
+	++(waiting_requests.request_count);
+
+	if ( waiting_requests.item_head == NULL ) {
+		/* request queue was empty */
+		waiting_requests.item_head = waiting_requests.item_tail = request_element_ptr;
+	}
+	else {
+		/* this request is the new head */
+		waiting_requests.item_head = request_element_ptr;
+	}
+
+	if (gIdleThreadCount > 0) {
+		/* Already have one or more threads just waiting for work to do.  Just kick the requests_condvar to wake 
+		up the threads */
+		error = pthread_cond_signal(&requests_condvar);
+		require_noerr(error, pthread_cond_signal);
+	}
+	else {
+		/* No idle threads, so try to create one if we have not reached out maximum number of threads */
+		if (gCurrThreadCount < WEBDAV_REQUEST_THREADS) {
+			error = pthread_create(&request_thread, &gRequest_thread_attr, (void *) handle_request_thread, (void *) NULL);
+			require_noerr(error, pthread_create_signal);
+
+			gCurrThreadCount += 1;
+		}
+	}
+
+pthread_create_signal:
 pthread_cond_signal:
 malloc_request_element_ptr:
 

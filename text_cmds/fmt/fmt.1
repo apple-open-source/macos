@@ -30,11 +30,11 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)fmt.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/fmt/fmt.1,v 1.7.2.3 2002/06/21 15:26:55 charnier Exp $
+.\" $FreeBSD: src/usr.bin/fmt/fmt.1,v 1.14 2004/08/02 11:12:13 tjr Exp $
 .\"
 .\" Modified by Gareth McCaughan to describe the new version of `fmt'
 .\" rather than the old one.
-.Dd June 25, 2000
+.Dd August 2, 2004
 .Dt FMT 1
 .Os
 .Sh NAME
@@ -154,7 +154,17 @@ the command
 .Pp
 will reformat a paragraph,
 evening the lines.
+.Sh ENVIRONMENT
+The
+.Ev LANG , LC_ALL
+and
+.Ev LC_CTYPE
+environment variables affect the execution of
+.Nm
+as described in
+.Xr environ 7 .
 .Sh SEE ALSO
+.Xr fold 1 ,
 .Xr mail 1 ,
 .Xr nroff 1
 .Sh HISTORY

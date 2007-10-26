@@ -1,6 +1,6 @@
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.h,v 1.1 2002/05/22 17:56:56 snsimon Exp $
+ * $Id: plugin_common.h,v 1.2 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -112,7 +112,7 @@ int sasl_auxprop_plug_init(const sasl_utils_t *utils, \
 #ifndef SASLINT_H
 typedef struct buffer_info 
 {
-    char *data;
+    unsigned char *data;
     unsigned curlen;   /* Current length of data in buffer */
     unsigned reallen;  /* total length of buffer (>= curlen) */
 } buffer_info_t;
@@ -122,8 +122,8 @@ int _plug_ipfromstring(const sasl_utils_t *utils, const char *addr,
 		       struct sockaddr *out, socklen_t outlen);
 int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
 		       unsigned numiov, buffer_info_t **output);
-int _plug_buf_alloc(const sasl_utils_t *utils, char **rwbuf,
-		    unsigned *curlen, unsigned newlen);
+int _plug_buf_alloc(const sasl_utils_t *utils, unsigned char **rwbuf,
+		    unsigned int *curlen, unsigned int newlen);
 int _plug_strdup(const sasl_utils_t * utils, const char *in,
 	         char **out, int *outlen);
 void _plug_free_string(const sasl_utils_t *utils, char **str);
@@ -158,11 +158,11 @@ int _plug_make_prompts(const sasl_utils_t *utils,
 
 int _plug_decode(const sasl_utils_t *utils,
 		 void *context,
-		 const char *input, unsigned inputlen,
-		 char **output, unsigned *outputsize, unsigned *outputlen,
+		 const unsigned char *input, unsigned int inputlen,
+		 unsigned char **output, unsigned int *outputsize, unsigned int *outputlen,
 		 int (*decode_pkt)(void *context,
-				   const char **input, unsigned *inputlen,
-				   char **output, unsigned *outputlen));
+				   const unsigned char **input, unsigned int *inputlen,
+				   unsigned char **output, unsigned int *outputlen));
 
 int _plug_parseuser(const sasl_utils_t *utils,
 		    char **user, char **realm, const char *user_realm, 

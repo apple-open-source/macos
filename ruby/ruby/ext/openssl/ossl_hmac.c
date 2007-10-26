@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_hmac.c,v 1.4.2.2 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_hmac.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -191,6 +191,10 @@ ossl_hmac_s_hexdigest(VALUE klass, VALUE digest, VALUE key, VALUE data)
 void
 Init_ossl_hmac()
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+
     eHMACError = rb_define_class_under(mOSSL, "HMACError", eOSSLError);
 	
     cHMAC = rb_define_class_under(mOSSL, "HMAC", rb_cObject);

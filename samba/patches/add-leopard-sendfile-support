@@ -1,0 +1,116 @@
+Index: samba/source/configure.in
+===================================================================
+--- samba/source/configure.in.orig
++++ samba/source/configure.in
+@@ -5576,6 +5576,40 @@ samba_cv_HAVE_SENDFILE=yes,samba_cv_HAVE
+ 	fi
+ 	;;
+ 
++	*darwin*)
++		AC_CACHE_CHECK([for Darwin sendfile support],
++			samba_cv_HAVE_SENDFILE,
++			[
++			AC_TRY_LINK([
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++			],
++			[
++int fromfd, tofd, ret;
++off_t offset, nwritten;
++struct sf_hdtr hdr;
++struct iovec hdtrl;
++hdr.headers = &hdtrl;
++hdr.hdr_cnt = 1;
++hdr.trailers = (void *)0;
++hdr.trl_cnt = 0;
++hdtrl.iov_base = (void *)0;
++hdtrl.iov_len = 0;
++ret = sendfile(fromfd, tofd, offset, &nwritten, &hdr, 0);
++			],
++			samba_cv_HAVE_SENDFILE=yes,
++			samba_cv_HAVE_SENDFILE=no)])
++
++	if test x"$samba_cv_HAVE_SENDFILE" = x"yes"; then
++    		AC_DEFINE(HAVE_SENDFILE,1,[Whether sendfile() support is available])
++		AC_DEFINE(DARWIN_SENDFILE_API,1,[Whether the Darwin sendfile() API is available])
++		AC_DEFINE(WITH_SENDFILE,1,[Whether sendfile() support should be included])
++	else
++		AC_MSG_RESULT(no);
++	fi
++	;;
++
+ 	*hpux*)
+ 		AC_CACHE_CHECK([for hpux sendfile64 support],samba_cv_HAVE_SENDFILE64,[
+ 		AC_TRY_LINK([\
+Index: samba/source/lib/sendfile.c
+===================================================================
+--- samba/source/lib/sendfile.c.orig
++++ samba/source/lib/sendfile.c
+@@ -395,6 +395,66 @@ ssize_t sys_sendfile(int tofd, int fromf
+ 	return count + hdr_len;
+ }
+ 
++#elif defined(DARWIN_SENDFILE_API)
++
++#include <sys/types.h>
++#include <sys/socket.h>
++#include <sys/uio.h>
++
++ssize_t sys_sendfile(int tofd, int fromfd,
++	    const DATA_BLOB *header, SMB_OFF_T offset, size_t count)
++{
++	struct sf_hdtr	sf_header = {0};
++	struct iovec	io_header = {0};
++
++	SMB_OFF_T	nwritten;
++	int		ret;
++
++	if (header) {
++		sf_header.headers = &io_header;
++		sf_header.hdr_cnt = 1;
++		io_header.iov_base = header->data;
++		io_header.iov_len = header->length;
++		sf_header.trailers = NULL;
++		sf_header.trl_cnt = 0;
++	}
++
++	while (count != 0) {
++
++		nwritten = count;
++		ret = sendfile(fromfd, tofd, offset, &nwritten, &sf_header, 0);
++		if (ret == -1 && errno != EINTR && errno != EAGAIN) {
++			/* Send failed, we are toast. */
++			return -1;
++		}
++
++		if (nwritten == 0) {
++			/* EOF of offset is after EOF. */
++			break;
++		}
++
++		if (sf_header.hdr_cnt) {
++			if (io_header.iov_len <= nwritten) {
++				/* Entire header was sent. */
++				sf_header.headers = NULL;
++				sf_header.hdr_cnt = 0;
++				nwritten -= io_header.iov_len;
++			} else {
++				/* Partial header was sent. */
++				io_header.iov_len -= nwritten;
++				io_header.iov_base =
++				    ((uint8_t *)io_header.iov_base) + nwritten;
++				nwritten = 0;
++			}
++		}
++
++		offset += nwritten;
++		count -= nwritten;
++	}
++
++	return nwritten;
++}
++
+ #elif defined(AIX_SENDFILE_API)
+ 
+ /* BEGIN AIX SEND_FILE */

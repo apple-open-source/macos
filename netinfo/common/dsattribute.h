@@ -64,4 +64,4 @@ void dsattribute_setkey(dsattribute *, dsdata *);
 dsdata *dsattribute_to_dsdata(dsattribute *a);
 dsattribute *dsdata_to_dsattribute(dsdata *d);
 
-#endif __DSATTRIBUTE_H__
+#endif /* __DSATTRIBUTE_H__ */

@@ -47,6 +47,7 @@
 #include <servers/bootstrap.h>
 #include <sys/sysctl.h>				// for struct kinfo_proc and sysctl()
 #include <syslog.h>					// for syslog()
+#include <asl.h>
 
 #define USE_SYSTEMCONFIGURATION_PUBLIC_APIS
 #include <SystemConfiguration/SystemConfiguration.h>	//required for the configd kicker operation
@@ -56,6 +57,10 @@
 #include <mach/mach_init.h>
 #include <mach/port.h>
 
+#if HAVE_CORE_SERVER
+#include <XSEventPort.h>
+#endif
+
 #include "DirServiceMain.h"
 #include "ServerControl.h"
 #include "CLog.h"
@@ -63,26 +68,49 @@
 #include "DirServicesPriv.h"
 #include "DirServicesConst.h"
 #include "CPlugInList.h"
+#include "CHandlers.h"
 
 #include "DirServicesTypes.h"
+#include "CDSLocalPlugin.h"
+#include "COSUtils.h"
+#include "buildnumber.h"
+
+#define kDSPIDFile			"/var/run/DirectoryService.pid"
+#define kDSRunningFile		"/Library/Preferences/DirectoryService/.DSIsRunning"
 
 using namespace std;
 
-dsBool	gServerOS		= false;	//indicates whether this is running on Server or not
-dsBool	gLogAPICalls	= false;
-dsBool	gDebugLogging	= false;
+dsBool	gServerOS				= false;	//indicates whether this is running on Server or not
+dsBool	gLogAPICalls			= false;
+dsBool	gDebugLogging			= false;
 dsBool	gDSFWCSBPDebugLogging   = false;
+dsBool	gIgnoreSunsetTime		= false;
+dsBool	gDSDebugMode			= false;
+dsBool	gDSLocalOnlyMode		= false;
+dsBool	gDSInstallDaemonMode	= false;
+dsBool	gProperShutdown			= false;
 CFAbsoluteTime	gSunsetTime		= 0;
+
+#if HAVE_CORE_SERVER
+XSEventPortRef	gEventPort		= NULL;
+#else
+void			*gEventPort		= NULL;
+#endif
+
 //Used for Power Management
 io_object_t			gPMDeregisterNotifier;
 io_connect_t		gPMKernelPort;
-CFRunLoopRef		gServerRunLoop = NULL;
+CFRunLoopRef		gPluginRunLoop = NULL;	// this is not our main runloop, this is our plugin runloop
 DSMutexSemaphore    *gKerberosMutex = NULL;
-mach_port_t			gServerMachPort = MACH_PORT_NULL;
+mach_port_t			gMachMIGSet = MACH_PORT_NULL;
+DSEventSemaphore	gPluginRunLoopEvent;
 
-#warning VERIFY the version string before each distinct build submission
-const char* gStrDaemonAppleVersion = "2.1";
-const char* gStrDaemonBuildVersion = "353.6";
+extern CDSLocalPlugin	*gLocalNode;
+
+#warning VERIFY the version string before each software release
+const char* gStrDaemonAppleVersion = "5.0"; //match this with x.y in 10.x.y
+
+const char* gStrDaemonBuildVersion = "unlabeled/engineering";
 
 enum
 {
@@ -170,14 +198,15 @@ static void _HandleSIGUSR2 ( ... )
 		gLogAPICalls = true;
 		gSunsetTime		= CFAbsoluteTimeGetCurrent() + 300;
 		CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	kCFAllocatorDefault,
-														gSunsetTime + 1, // set timer a little ahead
+														gSunsetTime, // set timer a little ahead
 														0,
 														0,
 														0,
 														LoggingTimerCallBack,
 														NULL );
 		
-		CFRunLoopAddTimer( gServerRunLoop, timer, kCFRunLoopDefaultMode );
+		// this does not block the runloop
+		CFRunLoopAddTimer( CFRunLoopGetMain(), timer, kCFRunLoopDefaultMode );
 		CFRelease( timer );
 		timer = NULL;
 		syslog(LOG_ALERT,"Logging of API Calls turned ON after receiving USR2 signal.");
@@ -204,7 +233,7 @@ void SignalMessageHandler(CFMachPortRef port,SignalMessage *msg,CFIndex size,voi
 	{
 		_HandleSIGTERM();
 	}
-	else if (msg->signum == SIGPIPE)
+	else if (msg->signum == SIGPIPE || msg->signum == SIGURG)
 	{
 		//don't do anything for a SIGPIPE
 	}
@@ -234,8 +263,8 @@ static void _Usage ( FILE *fp, const char *argv0 )
 static void _Version ( FILE *fp )
 {
 	static const char * const	_szpUsage =
-		"Apple Computer, Inc.  Version DirectoryService %s\n";
-	::fprintf( fp, _szpUsage, gStrDaemonAppleVersion );
+		"Version %s (build %s)\n";
+	::fprintf( fp, _szpUsage, gStrDaemonAppleVersion, gStrDaemonBuildVersion );
 
 } // _Version
 
@@ -248,7 +277,7 @@ static void _Version ( FILE *fp )
 static void _AppleVersion ( FILE *fp )
 {
 	static const char * const	_szpUsage =
-		"Apple Computer, Inc.  Version DirectoryService-%s\n";
+		"DirectoryService-%s\n";
 	::fprintf( fp, _szpUsage, gStrDaemonBuildVersion );
 
 } // _AppleVersion
@@ -265,9 +294,9 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 		"Usage:\t%s [-applexxxxx OR -v]\n"
 		"	-appledebug     	Run the daemon in debug mode as standalone.\n"
 		"	-appleoptions   	List these options.\n"
-		"	-appleperformance   Log everything and run in the foreground.\n"
 		"	-appleversion   	Display the Apple build version.\n"
-		"	-v              	Display the release version.\n";
+		"	-v              	Display the release version.\n"
+		"	-localonly			Separate daemon runs with only the local node accessible.\n";
 	::fprintf( fp, _szpUsage, argv0 );
 } // _AppleOptions
 
@@ -278,7 +307,7 @@ static void _AppleOptions ( FILE *fp, const char *argv0 )
 
 void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info )
 {
-	if ( gLogAPICalls && CFAbsoluteTimeGetCurrent() >= gSunsetTime )
+	if ( gLogAPICalls && !gIgnoreSunsetTime )
 	{
 		gLogAPICalls	= false;
 		syslog(LOG_CRIT,"Logging of API Calls automatically turned OFF at reaching sunset duration of five minutes.");
@@ -292,14 +321,27 @@ void LoggingTimerCallBack( CFRunLoopTimerRef timer, void *info )
 
 void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, void *callback_argument)
 {                       
+	bool bNotify = false;
+	
 	for( CFIndex i=0; i<CFArrayGetCount(changedKeys); i++ )
 	{
 		char		keyName[256];
+		
 		CFStringGetCString( (CFStringRef)CFArrayGetValueAtIndex( changedKeys, i ), keyName, sizeof(keyName), kCFStringEncodingUTF8 );
-		DBGLOG1( kLogApplication, "NetworkChangeCallBack key: %s", keyName );
+		
+		// we do not care about lo0 changes
+		if (strstr(keyName, "/lo0/") != NULL)
+		{
+			DbgLog( kLogApplication, "NetworkChangeCallBack key: %s - skipping loopback", keyName );
+			continue;
+		}
+
+		DbgLog( kLogApplication, "NetworkChangeCallBack key: %s", keyName );
+
+		bNotify = true;
 	}
 	
-	if ( gSrvrCntl != nil )
+	if ( gSrvrCntl != nil && bNotify )
 	{
 		gSrvrCntl->HandleNetworkTransition(); //ignore return status
 	}
@@ -312,27 +354,27 @@ void NetworkChangeCallBack(SCDynamicStoreRef aSCDStore, CFArrayRef changedKeys, 
 
 void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t messageType, void *notificationID )
 {               
-	//SRVRLOG1( kLogApplication, "dsPMNotificationHandler(): messageType=%d\n", messageType );
+	//SrvrLog( kLogApplication, "dsPMNotificationHandler(): messageType=%d\n", messageType );
         
 	switch (messageType)
 	{
-		case kIOMessageSystemHasPoweredOn:
-			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemHasPoweredOn\n" );
-			break;
 		case kIOMessageSystemWillPowerOn:      
-			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillPowerOn\n" );
+			DbgLog( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillPowerOn\n" );
 			gSrvrCntl->HandleSystemWillPowerOn();
 			break;
 
+		case kIOMessageSystemHasPoweredOn:
+			break;
+			
 		case kIOMessageSystemWillSleep:
-			DBGLOG( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillSleep\n" );
+			DbgLog( kLogApplication, "dsPMNotificationHandler(): kIOMessageSystemWillSleep\n" );
 			gSrvrCntl->HandleSystemWillSleep();
 
 		case kIOMessageSystemWillPowerOff:
 		case kIOMessageCanSystemSleep:
 		case kIOMessageCanSystemPowerOff:
 		case kIOMessageCanDevicePowerOff:
-            IOAllowPowerChange(gPMKernelPort, (long)notificationID);	// don't want to slow up machine from going to sleep
+            IOAllowPowerChange(gPMKernelPort, (SInt32)notificationID);	// don't want to slow up machine from going to sleep
 		break;
 
 		case kIOMessageSystemWillNotSleep:
@@ -351,24 +393,61 @@ void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t
 #endif
 
 		default:
-			//SRVRLOG( kLogApplication, "dsPMNotificationHandler(): called but nothing done" );
+			//SrvrLog( kLogApplication, "dsPMNotificationHandler(): called but nothing done" );
 			break;
 
 	}
 } // dsPMNotificationHandler
 
-int
-sys_server_status(char *name)
+// Workaround for CrashReporter to redirect crash reporter on DirectoryServices
+void RedirectCrashReporting( void ) 
 {
-	kern_return_t status;
-	int active;
+   // look up the correct exception port
+    mach_port_t exceptionPort = MACH_PORT_NULL;
+    bootstrap_look_up(bootstrap_port, "com.apple.ReportCrash.DirectoryService", &exceptionPort);
+    // do error handling here if bootstrap_look_up failed
 
-	status = bootstrap_status(bootstrap_port, name, &active);
-	if (status == BOOTSTRAP_UNKNOWN_SERVICE) return 0;
-	if (status != KERN_SUCCESS) return -1;
+    // get information about the original set of exception ports for the task 
+	mach_msg_type_number_t count = 0;
+    exception_mask_t originalMasks[EXC_TYPES_COUNT];
+    exception_port_t originalPorts[EXC_TYPES_COUNT];	
+    exception_behavior_t originalBehaviors[EXC_TYPES_COUNT];
+    thread_state_flavor_t originalFlavors[EXC_TYPES_COUNT];
+	
+#if defined(EXC_MASK_CRASH)
+	kern_return_t err = task_get_exception_ports(mach_task_self(), EXC_MASK_CRASH, originalMasks, &count, originalPorts, originalBehaviors, originalFlavors);
+#else
+	kern_return_t err = task_get_exception_ports(mach_task_self(), EXC_MASK_RPC_ALERT, originalMasks, &count, originalPorts, originalBehaviors, originalFlavors);
+#endif
+    if (err != KERN_SUCCESS) {
+asl_log(NULL, NULL, ASL_LEVEL_ERR, "task_get_exception_ports() failed with error (%d: %s)", err, mach_error_string(err));
+        count = 0;
+    }
+	
+    // replace with our new port
+    unsigned int i;
+    for (i = 0; i < count; i++) {
+        err = task_set_exception_ports(mach_task_self(), originalMasks[i], exceptionPort, originalBehaviors[i], originalFlavors[i]);
+        if (err != KERN_SUCCESS) {
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "task_set_exception_ports(%X, %X, %X, %X, %X) failed with error (%d: %s)", mach_task_self(), originalMasks[i], exceptionPort, originalBehaviors[i], originalFlavors[i], err, mach_error_string(err));
+        }
+    }
+}
 
-	return active;
-}	
+
+// ---------------------------------------------------------------------------
+//	* dsPostEvent ()
+//
+// ---------------------------------------------------------------------------
+
+int dsPostEvent( CFStringRef inEventType, CFDictionaryRef inEventData )
+{
+#if HAVE_CORE_SERVER
+	return ((gEventPort != NULL) ? XSEventPortPostEvent(gEventPort, inEventType, inEventData) : -1);
+#else
+	return 0;
+#endif
+}
 
 // ---------------------------------------------------------------------------
 //	* main ()
@@ -390,8 +469,9 @@ int main ( int argc, char * const *argv )
 	bool				bFound			= false;
 	struct stat			statResult;
 	pid_t				ourUID			= ::getuid();
-	bool				bDebugMode		= false;
 
+	if ( sizeof(BUILDNUMBER) > sizeof("") )
+		gStrDaemonBuildVersion = BUILDNUMBER;
 
 //	struct rlimit rlp;
 
@@ -411,18 +491,22 @@ int main ( int argc, char * const *argv )
 			if ( strstr( p, "appledebug" ) && ourUID == 0 )
 			{
 				// Turn debugging on
-				bFound		= true;
-				debugOpts	= kLogEverything;
-				gDebugLogging = true;
-				bDebugMode = true;
+				bFound			= true;
+				debugOpts		= kLogEverything;
+				gDebugLogging	= true;
+				gDSDebugMode	= true;
+			}
+			
+			if ( strstr( p, "localonly" ) && ourUID == 0 )
+			{
+				bFound				= true;
+				gDSLocalOnlyMode	= true;
 			}
 
-			if ( strstr( p, "appleperformance" ) && ourUID == 0 )
+			if ( strstr( p, "installdaemon" ) && ourUID == 0 )
 			{
-				// future capability currently not implemented
-				bFound		= true;
-				bProfiling	= true;
-				profileOpts	= kLogEverything;
+				bFound				= true;
+				gDSInstallDaemonMode= true;
 			}
 
 			if ( strstr( p, "appleversion" ) )
@@ -462,102 +546,168 @@ int main ( int argc, char * const *argv )
 		}
 	}
 		
-        if ( ourUID != 0 )
-        {
-                syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
-                ::exit( 1 );
-        }
+	if ( ourUID != 0 )
+	{
+		syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
+		exit( 1 );
+	}
 
 	syslog(LOG_ALERT,"Launched version %s (v%s)", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
 	
-	if (!bDebugMode)
-	{
-		mach_port_t			send_port			= MACH_PORT_NULL;
-		mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
+	mach_port_t			send_port			= MACH_PORT_NULL;
+	mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
+	mach_port_t			tempMachPort		= MACH_PORT_NULL;
+	int					status				= eDSNoErr;
 
-		//check if mach_init has already launched DirectoryService
-		int status = sys_server_status(kDSStdMachPortName);
-		if (status == BOOTSTRAP_STATUS_ACTIVE)
+	mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &gMachMIGSet );
+
+	if (!gDSDebugMode)
+	{
+		char* usedPortName = nil;
+	
+		if (gDSLocalOnlyMode) //set up parameters to differentiate the daemon
 		{
-			syslog(LOG_ALERT, "DirectoryService is already running!\n");
-			exit(0);
+			usedPortName = kDSStdMachLocalPortName;
+		}
+		else
+		{
+			usedPortName = kDSStdMachPortName;
 		}
 
         /*
          * See if our service name is already registered and if we have privilege to check in.
          */
-		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName, &gServerMachPort);
-		if (status == BOOTSTRAP_SUCCESS)
+		status = bootstrap_check_in(bootstrap_port, usedPortName, &tempMachPort);
+		if ( status == BOOTSTRAP_SUCCESS )
 		{
-			/*
-			* If so, we must be a followup instance of an already defined server (i.e. mach_init).  In that case,
-			* the bootstrap port we inherited from our parent is the server's privilege port, so set
-			* that in case we have to unregister later (which requires the privilege port).
-			*/
-			priv_bootstrap_port = bootstrap_port;
-		}
-		else if (status == BOOTSTRAP_NOT_PRIVILEGED)
-		{
-			syslog(LOG_ALERT, "DirectoryService instance is already starting up - exiting this instance" );
-			exit(0);
-		}
-		else if (status == BOOTSTRAP_SERVICE_ACTIVE)
-		{
-			syslog(LOG_ALERT, "DirectoryService instance is already running - exiting this instance" );
-			exit(0);
-		}
-		else if (status == BOOTSTRAP_UNKNOWN_SERVICE)
-		{
-			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init port returned BOOTSTRAP_UNKNOWN_SERVICE so we'll create our own portset" );
-			//immediate and not on demand launch
-			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
-			if (status == KERN_SUCCESS)
+			mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+			tempMachPort = MACH_PORT_NULL;
+
+			if ( !gDSLocalOnlyMode )
 			{
-				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachPortName, &send_port);
-				if (status == KERN_SUCCESS)
+				// checkin for our libinfo name
+				status = bootstrap_check_in(bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
+				if ( status == BOOTSTRAP_SUCCESS )
 				{
-					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachPortName, &gServerMachPort);
-					if (status != KERN_SUCCESS)
-					{
-						syslog(LOG_ALERT, "unable to create our own portset - exiting" );
-						exit(0);
-					}
+					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+					tempMachPort = MACH_PORT_NULL;
 				}
 			}
 		}
 
-		//we don't want to pass our priviledged bootstrap port along to any spawned helpers so...
-        status = bootstrap_unprivileged(priv_bootstrap_port, &bootstrap_port);
-        if (status != BOOTSTRAP_SUCCESS)
+		if (status == BOOTSTRAP_SERVICE_ACTIVE)
 		{
-			syslog(LOG_ALERT, "bootstrap_unprivileged() for bootstrap port did not return BOOTSTRAP_SUCCESS so forked processes may block restarts of DirectoryService" );
-        }
-        status = task_set_bootstrap_port(mach_task_self(), bootstrap_port);        
-		if (status != BOOTSTRAP_SUCCESS)
+			syslog(LOG_ALERT, "DirectoryService %s instance is already running - exiting this instance", usedPortName );
+			exit(0);
+		}
+		else if ( (status != BOOTSTRAP_SUCCESS) && gDSLocalOnlyMode )
 		{
-			syslog(LOG_ALERT, "task_set_bootstrap_port() for bootstrap port did not return BOOTSTRAP_SUCCESS so forked processes may block restarts of DirectoryService" );
-        }
-		
-		// we are the real daemon by now, let's set ourselves for delayed termination.
-		int		mib[6]		= { 0 };
-		int		oldstate	= 0;
-		size_t	oldsize		= 4;
-		int		newstate	= 1;
-		
-		mib[0] = CTL_KERN;
-		mib[1] = KERN_PROCDELAYTERM;
-		
-		if (sysctl(mib, 2, &oldstate, &oldsize, &newstate, 4) < 0)
+			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init local port returned BOOTSTRAP_UNKNOWN_SERVICE so we will create our own portset" );
+			//immediate and not on demand launch
+			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService -localonly", 0, true, &priv_bootstrap_port);
+			if (status == KERN_SUCCESS)
+			{
+				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachLocalPortName, &send_port);
+				if (status == KERN_SUCCESS)
+				{
+					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachLocalPortName, &tempMachPort);
+					if (status != KERN_SUCCESS)
+					{
+						syslog(LOG_ALERT, "unable to bootstrap_check_in our own debug portset - exiting" );
+						exit(0);
+					}
+					
+					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+					tempMachPort = MACH_PORT_NULL;
+				}
+				else
+				{
+					syslog(LOG_ALERT, "unable to bootstrap_create_service our own debug portset - exiting" );
+					exit(0);
+				}
+			}
+		}
+		else if (status != BOOTSTRAP_SUCCESS) //we should never get here
 		{
-			syslog(LOG_INFO, "cannot mark for delayed termination");
+			syslog(LOG_ALERT, "launchd has failed to launch DirectoryService %s instance - exiting this instance with error <%d>", usedPortName, status );
+			exit(0);
+		}
+	}
+	else // this is only debug mode, we don't error anything
+	{
+        /*
+         * See if our service name is already registered and if we have privilege to check in.
+		 * This should never work for debug mode. - expect to get BOOTSTRAP_UNKNOWN_SERVICE
+         */
+		status = bootstrap_check_in(bootstrap_port, kDSStdMachDebugPortName, &tempMachPort);
+		if (status == BOOTSTRAP_SUCCESS)
+		{
+			mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+			tempMachPort = MACH_PORT_NULL;
+
+			status = bootstrap_check_in(bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
+			if (status == BOOTSTRAP_SUCCESS)
+			{
+				mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+				tempMachPort = MACH_PORT_NULL;
+			}
+		}
+		
+		if (status == BOOTSTRAP_SERVICE_ACTIVE)
+		{
+			syslog(LOG_ALERT, "DirectoryService debug instance is already running - exiting this instance" );
+			exit(0);
+		}
+		else if (status == BOOTSTRAP_UNKNOWN_SERVICE)
+		{
+			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init debug port returned BOOTSTRAP_UNKNOWN_SERVICE so we will create our own portset" );
+			
+			//immediate and not on demand launch
+			status = bootstrap_create_server(bootstrap_port, "/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
+			if (status == KERN_SUCCESS)
+			{
+				status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachDebugPortName, &send_port);
+				if (status == KERN_SUCCESS)
+				{
+					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDebugPortName, &tempMachPort);
+					if (status != KERN_SUCCESS)
+					{
+						syslog(LOG_ALERT, "unable to create our own debug portset - exiting" );
+						exit(0);
+					}
+					
+					mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+					tempMachPort = MACH_PORT_NULL;
+
+					status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
+					if (status != KERN_SUCCESS)
+					{
+						status = bootstrap_create_service(priv_bootstrap_port, kDSStdMachDSLookupPortName, &send_port);
+						if (status == KERN_SUCCESS)
+						{
+							status = bootstrap_check_in(priv_bootstrap_port, kDSStdMachDSLookupPortName, &tempMachPort);
+							if (status != KERN_SUCCESS)
+							{
+								syslog(LOG_ALERT, "unable to create our own debug portset - exiting" );
+								exit(0);
+							}
+
+							mach_port_move_member( mach_task_self(), tempMachPort, gMachMIGSet );
+							tempMachPort = MACH_PORT_NULL;
+						}
+					}
+				}
+			}
 		}
 	}
 
-
 	try
 	{
-		// need to make sure this file is not present yet
-		unlink( "/var/run/.DSRunningSP4" );
+		if (!gDSLocalOnlyMode)
+		{
+			// need to make sure this file is not present yet
+			unlink( "/var/run/.DSRunningSP4" );
+		}
 
 		//global set to determine different behavior dependant on server build versus desktop
 		if (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == eDSNoErr)
@@ -565,17 +715,46 @@ int main ( int argc, char * const *argv )
 			gServerOS = true;
 		}
 
+		// if not properly shut down, the SQL index for the local node needs to be deleted
+		// we look for the pid or the special file since /var/run gets cleaned at boot
+		// and we could have crashed just as we were shutting down
+		if (gDSLocalOnlyMode || gDSInstallDaemonMode || stat(kDSPIDFile, &statResult) != 0 || 
+			stat(kDSRunningFile, &statResult) != 0)
+		{
+			// file not present, last shutdown was normal
+			gProperShutdown = true;
+			
+			if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+			{
+				// create pid file
+				char pidStr[256];
+				int fd = open( kDSPIDFile, (O_CREAT | O_TRUNC | O_WRONLY | O_EXLOCK), 0644 );
+				if ( fd != -1 )
+				{
+					snprintf( pidStr, sizeof(pidStr), "%d", getpid() );
+					write( fd, pidStr, strlen(pidStr) );
+					close( fd );
+				}
+				
+				dsTouch( kDSRunningFile );
+			}
+		}
+		
 		if (!gDebugLogging && stat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == eDSNoErr)
 		{
 			gDebugLogging = true;
 			debugOpts = kLogEverything;
 		}
 		
+		if (gDSDebugMode)
+		{
+			debugOpts |= kLogDebugHeader;
+		}
 		// Open the log files
-		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, gDebugLogging, bProfiling );
+		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, gDebugLogging, bProfiling, gDSLocalOnlyMode );
 
-		SRVRLOG( kLogApplication, "\n\n" );
-		SRVRLOG2( kLogApplication,	"DirectoryService %s (v%s) starting up...",
+		SrvrLog( kLogApplication, "\n\n" );
+		SrvrLog( kLogApplication,	"DirectoryService %s (v%s) starting up...",
                                     gStrDaemonAppleVersion,
                                     gStrDaemonBuildVersion );
 		
@@ -594,7 +773,7 @@ int main ( int argc, char * const *argv )
 									(mach_port_info_t)&limits,
 									sizeof(limits) / sizeof(natural_t));
 		
-		//handle SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGABRT, SIGINT, SIGPIPE
+		//handle SIGTERM, SIGHUP, SIGUSR1, SIGUSR2, SIGABRT, SIGINT, SIGPIPE, SIGURG
 		signal(SIGTERM,SignalHandler);
 		signal(SIGHUP,SignalHandler);
 		signal(SIGUSR1,SignalHandler);
@@ -602,47 +781,74 @@ int main ( int argc, char * const *argv )
 		signal(SIGABRT,SignalHandler);
 		signal(SIGINT,SignalHandler);
 		signal(SIGPIPE,SignalHandler);
+		signal(SIGURG,SignalHandler);
+		
+		// first thing we do is setup our plugin runloop for handling requests from plugins
+		CPluginRunLoopThread *pluginRunLoopThread = new CPluginRunLoopThread();
 
-		//set the global for the CFRunLoopRef
-		gServerRunLoop = CFRunLoopGetCurrent();
+		gPluginRunLoopEvent.ResetEvent();
+		pluginRunLoopThread->StartThread();
+		gPluginRunLoopEvent.WaitForEvent();
 		
 		//set up a mutex semaphore for all plugins using Kerberos
-		gKerberosMutex = new DSMutexSemaphore();
+		gKerberosMutex = new DSMutexSemaphore("::gKerberosMutex");
+		
+		// temporary workaround for WWDC to prevent deadlock between crash report process and DS due to libinfo
+		// dependencies
+		if( !gDSDebugMode )
+		{
+			RedirectCrashReporting();
+		}
 		
 		// Do setup after parent is removed if daemonizing
 		gSrvrCntl = new ServerControl();
-		if ( gSrvrCntl == nil ) throw( (sInt32)eMemoryAllocError );
+		if ( gSrvrCntl == nil ) throw( (SInt32)eMemoryAllocError );
 
 		if ( gDebugLogging )
 		{
 			gSrvrCntl->ResetDebugging(); //ignore return status
 		}
 
-		sInt32 startSrvr;
+		// Create an XSEventPort for the adaptive firewall
+#if HAVE_CORE_SERVER
+		gEventPort = XSEventPortCreate( NULL );
+#endif
+
+		SInt32 startSrvr;
 		startSrvr = gSrvrCntl->StartUpServer();
 		if ( startSrvr != eDSNoErr ) throw( startSrvr );
 		
-		::CFRunLoopRun();
+		CFRunLoopRun();
+		
+		// stop our plugin runloop
+		CFRunLoopStop( gPluginRunLoop );
+		
+		gLocalNode->CloseDatabases();
 		
 		if ( gSrvrCntl != NULL )
 		{
-			SRVRLOG( kLogApplication, "Shutting down DirectoryService..." );
+			SrvrLog( kLogApplication, "Shutting down DirectoryService..." );
 			gSrvrCntl->ShutDownServer();
 		}
-
+		
+		if ( !gDSLocalOnlyMode && !gDSInstallDaemonMode )
+		{
+			dsRemove( kDSRunningFile );
+			dsRemove( kDSPIDFile );
+		}
 	}
 
-	catch ( sInt32 err )
+	catch ( SInt32 err )
 	{
-		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DBGLOG1( kLogApplication, "  ***main() error = %d.", err );
+		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
+		DbgLog( kLogApplication, "  ***main() error = %d.", err );
 	}
 
 	catch( ... )
 	{
 		// if we got here we are in trouble.
-		DBGLOG2( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DBGLOG( kLogApplication, "  *** Caught an unexpected exception in main()!!!!" );
+		DbgLog( kLogApplication, "File: %s. Line: %d", __FILE__, __LINE__ );
+		DbgLog( kLogApplication, "  *** Caught an unexpected exception in main()!!!!" );
 	}
 
 	exit( 0 );

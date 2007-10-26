@@ -27,8 +27,8 @@
 #include <security_keychain/ACL.h>
 #include <security_keychain/SecCFTypes.h>
 #include <security_utilities/osxcode.h>
-#include <security_cdsa_client/osxsigner.h>
 #include <security_utilities/trackingallocator.h>
+#include <security_cdsa_utilities/walkers.h>
 #include <security_keychain/TrustedApplication.h>
 #include <Security/SecTrustedApplication.h>
 #include <security_utilities/devrandom.h>
@@ -37,6 +37,7 @@
 
 
 using namespace KeychainCore;
+using namespace DataWalkers;
 
 
 //
@@ -45,6 +46,12 @@ using namespace KeychainCore;
 const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR ACL::defaultSelector = {
 	CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION, 0
 };
+
+
+//
+// ACL static constants
+//
+const CSSM_ACL_HANDLE ACL::ownerHandle;
 
 
 //
@@ -341,9 +348,9 @@ void ACL::parse(const TypedList &subject)
 					return;
 				}
 				
-				// parse other (SIGN) elements
+				// parse other (code signing) elements
 				for (uint32 n = 0; n < count - 1; n++)
-					mAppList.push_back(new TrustedApplication(subject[n + 3]));
+					mAppList.push_back(new TrustedApplication(TypedList(subject[n + 3].list())));
 			}
 			mForm = appListForm;
 			return;
@@ -355,6 +362,7 @@ void ACL::parse(const TypedList &subject)
 	} catch (const ParseError &) {
 		secdebug("SecAccess", "acl compile failed; marking custom");
 		mForm = customForm;
+		mSubjectForm = chunkCopy(&subject);
 		mAppList.clear();
 	}
 }

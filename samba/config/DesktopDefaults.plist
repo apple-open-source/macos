@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AllowGuestAccess</key>
+	<true/>
+	<key>AllowKerberosAuth</key>
+	<true/>
+	<key>AllowLanManAuth</key>
+	<false/>
+	<key>AllowNTLM2Auth</key>
+	<true/>
+	<key>AllowNTLMAuth</key>
+	<true/>
+	<key>DOSCodePage</key>
+	<string>CP437</string>
+	<key>EnabledServices</key>
+	<array/>
+	<key>SuspendServices</key>
+	<false/>
+	<key>KerberosRealm</key>
+	<string></string>
+	<key>LocalKerberosRealm</key>
+	<string></string>
+	<key>LoggingLevel</key>
+	<integer>1</integer>
+	<key>MasterBrowser</key>
+	<string></string>
+	<key>MaxClients</key>
+	<integer>10</integer>
+	<key>NetBIOSNodeType</key>
+	<string></string>
+	<key>NetBIOSScope</key>
+	<string></string>
+	<key>PasswordServer</key>
+	<string/>
+	<key>ServerDescription</key>
+	<string>Mac OS X</string>
+	<key>ServerRole</key>
+	<string>Standalone</string>
+	<key>VirtualAdminShares</key>
+	<true/>
+	<key>VirtualHomesShares</key>
+	<true/>
+	<key>WINSServerAddressList</key>
+	<array/>
+	<key>Workgroup</key>
+	<string>WORKGROUP</string>
+</dict>
+</plist>

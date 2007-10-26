@@ -1,6 +1,6 @@
 /* glob.c -- file-name wildcard pattern matching for Bash.
 
-   Copyright (C) 1985-2002 Free Software Foundation, Inc.
+   Copyright (C) 1985-2005 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -62,8 +62,18 @@
 #  endif /* __STDC__ */
 #endif /* !NULL */
 
+#if !defined (FREE)
+#  define FREE(x)	if (x) free (x)
+#endif
+
+/* Don't try to alloca() more than this much memory for `struct globval'
+   in glob_vector() */
+#ifndef ALLOCA_MAX
+#  define ALLOCA_MAX	100000
+#endif
+
 extern void throw_to_top_level __P((void));
-extern int test_eaccess __P((char *, int));
+extern int sh_eaccess __P((char *, int));
 
 extern int extended_glob;
 
@@ -118,24 +128,22 @@ glob_pattern_p (pattern)
      const char *pattern;
 {
 #if HANDLE_MULTIBYTE
-  mbstate_t ps;
   size_t n;
   wchar_t *wpattern;
   int r;
 
   if (MB_CUR_MAX == 1)
-    return (internal_glob_pattern_p (pattern));
+    return (internal_glob_pattern_p ((unsigned char *)pattern));
 
   /* Convert strings to wide chars, and call the multibyte version. */
-  memset (&ps, '\0', sizeof (ps));
-  n = xmbsrtowcs (NULL, (const char **)&pattern, 0, &ps);
+  n = xdupmbstowcs (&wpattern, NULL, pattern);
   if (n == (size_t)-1)
     /* Oops.  Invalid multibyte sequence.  Try it as single-byte sequence. */
-    return (internal_glob_pattern_p (pattern));
-  wpattern = (wchar_t *)xmalloc ((n + 1) * sizeof (wchar_t));
-  (void) xmbsrtowcs (wpattern, (const char **)&pattern, n + 1, &ps);
+    return (internal_glob_pattern_p ((unsigned char *)pattern));
+
   r = internal_glob_wpattern_p (wpattern);
   free (wpattern);
+
   return r;
 #else
   return (internal_glob_pattern_p (pattern));
@@ -174,50 +182,36 @@ static int
 mbskipname (pat, dname)
      char *pat, *dname;
 {
-  char *pat_bak, *dn_bak;
+  int ret;
   wchar_t *pat_wc, *dn_wc;
-  mbstate_t pat_ps, dn_ps;
-  size_t pat_n, dn_n, n;
+  size_t pat_n, dn_n;
 
-  n = strlen(pat);
-  pat_bak = (char *) alloca (n + 1);
-  memcpy (pat_bak, pat, n + 1);
+  pat_n = xdupmbstowcs (&pat_wc, NULL, pat);
+  dn_n = xdupmbstowcs (&dn_wc, NULL, dname);
 
-  n = strlen(dname);
-  dn_bak = (char *) alloca (n + 1);
-  memcpy (dn_bak, dname,  n + 1);
-
-  memset(&pat_ps, '\0', sizeof(mbstate_t));
-  memset(&dn_ps, '\0', sizeof(mbstate_t));
-
-  pat_n = xmbsrtowcs (NULL, (const char **)&pat_bak, 0, &pat_ps);
-  dn_n = xmbsrtowcs (NULL, (const char **)&dn_bak, 0, &dn_ps);
-
+  ret = 0;
   if (pat_n != (size_t)-1 && dn_n !=(size_t)-1)
     {
-      pat_wc = (wchar_t *) alloca ((pat_n + 1) * sizeof(wchar_t));
-      dn_wc = (wchar_t *) alloca ((dn_n + 1) * sizeof(wchar_t));
-
-      (void) xmbsrtowcs (pat_wc, (const char **)&pat_bak, pat_n + 1, &pat_ps);
-      (void) xmbsrtowcs (dn_wc, (const char **)&dn_bak, dn_n + 1, &dn_ps);
-
       /* If a leading dot need not be explicitly matched, and the
 	 pattern doesn't start with a `.', don't match `.' or `..' */
       if (noglob_dot_filenames == 0 && pat_wc[0] != L'.' &&
 	    (pat_wc[0] != L'\\' || pat_wc[1] != L'.') &&
 	    (dn_wc[0] == L'.' &&
 	      (dn_wc[1] == L'\0' || (dn_wc[1] == L'.' && dn_wc[2] == L'\0'))))
-	return 1;
+	ret = 1;
 
       /* If a leading dot must be explicity matched, check to see if the
 	 pattern and dirname both have one. */
      else if (noglob_dot_filenames && dn_wc[0] == L'.' &&
 	   pat_wc[0] != L'.' &&
 	   (pat_wc[0] != L'\\' || pat_wc[1] != L'.'))
-	return 1;
+	ret = 1;
     }
 
-  return 0;
+  FREE (pat_wc);
+  FREE (dn_wc);
+
+  return ret;
 }
 #endif /* HANDLE_MULTIBYTE */
 
@@ -235,7 +229,7 @@ udequote_pathname (pathname)
 
       pathname[j++] = pathname[i++];
 
-      if (!pathname[i - 1])
+      if (pathname[i - 1] == 0)
 	break;
     }
   pathname[j] = '\0';
@@ -250,22 +244,16 @@ wdequote_pathname (pathname)
   mbstate_t ps;
   size_t len, n;
   wchar_t *wpathname;
-  char *pathname_bak;
   int i, j;
+  wchar_t *orig_wpathname;
 
   len = strlen (pathname);
-  pathname_bak = (char *) alloca (len + 1);
-  memcpy (pathname_bak, pathname , len + 1);
-
   /* Convert the strings into wide characters.  */
-  memset (&ps, '\0', sizeof (ps));
-  n = xmbsrtowcs (NULL, (const char **)&pathname_bak, 0, &ps);
+  n = xdupmbstowcs (&wpathname, NULL, pathname);
   if (n == (size_t) -1)
     /* Something wrong. */
     return;
-
-  wpathname = (wchar_t *) alloca ((n + 1) * sizeof (wchar_t));
-  (void) xmbsrtowcs (wpathname, (const char **)&pathname_bak, n + 1, &ps);
+  orig_wpathname = wpathname;
 
   for (i = j = 0; wpathname && wpathname[i]; )
     {
@@ -274,7 +262,7 @@ wdequote_pathname (pathname)
 
       wpathname[j++] = wpathname[i++];
 
-      if (!wpathname[i - 1])
+      if (wpathname[i - 1] == L'\0')
 	break;
     }
   wpathname[j] = L'\0';
@@ -283,6 +271,9 @@ wdequote_pathname (pathname)
   memset (&ps, '\0', sizeof(mbstate_t));
   n = wcsrtombs(pathname, (const wchar_t **)&wpathname, len, &ps);
   pathname[len] = '\0';
+
+  /* Can't just free wpathname here; wcsrtombs changes it in many cases. */
+  free (orig_wpathname);
 }
 
 static void
@@ -302,7 +293,7 @@ dequote_pathname (pathname)
 #  define GLOB_TESTNAME(name)  (lstat (name, &finfo))
 #else /* !HAVE_LSTAT */
 #  if !defined (AFS)
-#    define GLOB_TESTNAME(name)  (test_eaccess (nextname, F_OK))
+#    define GLOB_TESTNAME(name)  (sh_eaccess (nextname, F_OK))
 #  else /* AFS */
 #    define GLOB_TESTNAME(name)  (access (nextname, F_OK))
 #  endif /* AFS */
@@ -362,9 +353,14 @@ glob_vector (pat, dir, flags)
   register char **name_vector;
   register unsigned int i;
   int mflags;		/* Flags passed to strmatch (). */
+  int nalloca;
+  struct globval *firstmalloc, *tmplink;
 
   lastlink = 0;
   count = lose = skip = 0;
+
+  firstmalloc = 0;
+  nalloca = 0;
 
   /* If PAT is empty, skip the loop, but return one (empty) filename. */
   if (pat == 0 || *pat == '\0')
@@ -373,6 +369,9 @@ glob_vector (pat, dir, flags)
 	return ((char **) &glob_error_return);
 
       nextlink = (struct globval *)alloca (sizeof (struct globval));
+      if (nextlink == NULL)
+	return ((char **) NULL);
+
       nextlink->next = (struct globval *)0;
       nextname = (char *) malloc (1);
       if (nextname == 0)
@@ -418,10 +417,15 @@ glob_vector (pat, dir, flags)
 	    {
 	      free (nextname);
 	      nextlink = (struct globval *)alloca (sizeof (struct globval));
-	      nextlink->next = (struct globval *)0;
-	      lastlink = nextlink;
-	      nextlink->name = npat;
-	      count = 1;
+	      if (nextlink)
+		{
+		  nextlink->next = (struct globval *)0;
+		  lastlink = nextlink;
+		  nextlink->name = npat;
+		  count = 1;
+		}
+	      else
+		lose = 1;
 	    }
 	  else
 	    {
@@ -466,7 +470,7 @@ glob_vector (pat, dir, flags)
       while (1)
 	{
 	  /* Make globbing interruptible in the shell. */
-	  if (interrupt_state)
+	  if (interrupt_state || terminating_signal)
 	    {
 	      lose = 1;
 	      break;
@@ -480,6 +484,11 @@ glob_vector (pat, dir, flags)
 	  if (REAL_DIR_ENTRY (dp) == 0)
 	    continue;
 
+#if 0
+	  if (dp->d_name == 0 || *dp->d_name == 0)
+	    continue;
+#endif
+
 #if HANDLE_MULTIBYTE
 	  if (MB_CUR_MAX > 1 && mbskipname (pat, dp->d_name))
 	    continue;
@@ -490,14 +499,24 @@ glob_vector (pat, dir, flags)
 
 	  if (strmatch (pat, dp->d_name, mflags) != FNM_NOMATCH)
 	    {
-	      nextlink = (struct globval *) alloca (sizeof (struct globval));
-	      nextlink->next = lastlink;
+	      if (nalloca < ALLOCA_MAX)
+		{
+		  nextlink = (struct globval *) alloca (sizeof (struct globval));
+		  nalloca += sizeof (struct globval);
+		}
+	      else
+		{
+		  nextlink = (struct globval *) malloc (sizeof (struct globval));
+		  if (firstmalloc == 0)
+		    firstmalloc = nextlink;
+		}
 	      nextname = (char *) malloc (D_NAMLEN (dp) + 1);
-	      if (nextname == NULL)
+	      if (nextlink == 0 || nextname == 0)
 		{
 		  lose = 1;
 		  break;
 		}
+	      nextlink->next = lastlink;
 	      lastlink = nextlink;
 	      nextlink->name = nextname;
 	      bcopy (dp->d_name, nextname, D_NAMLEN (dp) + 1);
@@ -517,11 +536,25 @@ glob_vector (pat, dir, flags)
   /* Have we run out of memory?	 */
   if (lose)
     {
+      tmplink = 0;
+
       /* Here free the strings we have got.  */
       while (lastlink)
 	{
+	  /* Since we build the list in reverse order, the first N entries
+	     will be allocated with malloc, if firstmalloc is set, from
+	     lastlink to firstmalloc. */
+	  if (firstmalloc)
+	    {
+	      if (lastlink == firstmalloc)
+		firstmalloc = 0;
+	      tmplink = lastlink;
+	    }
+	  else
+	    tmplink = 0;
 	  free (lastlink->name);
 	  lastlink = lastlink->next;
+	  FREE (tmplink);
 	}
 
       QUIT;
@@ -530,13 +563,29 @@ glob_vector (pat, dir, flags)
     }
 
   /* Copy the name pointers from the linked list into the vector.  */
-  for (i = 0; i < count; ++i)
+  for (tmplink = lastlink, i = 0; i < count; ++i)
     {
-      name_vector[i] = lastlink->name;
-      lastlink = lastlink->next;
+      name_vector[i] = tmplink->name;
+      tmplink = tmplink->next;
     }
 
   name_vector[count] = NULL;
+
+  /* If we allocated some of the struct globvals, free them now. */
+  if (firstmalloc)
+    {
+      tmplink = 0;
+      while (lastlink)
+	{
+	  tmplink = lastlink;
+	  if (lastlink == firstmalloc)
+	    lastlink = firstmalloc = 0;
+	  else
+	    lastlink = lastlink->next;
+	  free (tmplink);
+	}
+    }
+	
   return (name_vector);
 }
 
@@ -631,6 +680,7 @@ glob_filename (pathname, flags)
   unsigned int result_size;
   char *directory_name, *filename;
   unsigned int directory_len;
+  int free_dirname;			/* flag */
 
   result = (char **) malloc (sizeof (char *));
   result_size = 1;
@@ -639,6 +689,8 @@ glob_filename (pathname, flags)
 
   result[0] = NULL;
 
+  directory_name = NULL;
+
   /* Find the filename.  */
   filename = strrchr (pathname, '/');
   if (filename == NULL)
@@ -646,15 +698,20 @@ glob_filename (pathname, flags)
       filename = pathname;
       directory_name = "";
       directory_len = 0;
+      free_dirname = 0;
     }
   else
     {
       directory_len = (filename - pathname) + 1;
-      directory_name = (char *) alloca (directory_len + 1);
+      directory_name = (char *) malloc (directory_len + 1);
+
+      if (directory_name == 0)		/* allocation failed? */
+	return (NULL);
 
       bcopy (pathname, directory_name, directory_len);
       directory_name[directory_len] = '\0';
       ++filename;
+      free_dirname = 1;
     }
 
   /* If directory_name contains globbing characters, then we
@@ -668,6 +725,12 @@ glob_filename (pathname, flags)
 	directory_name[directory_len - 1] = '\0';
 
       directories = glob_filename (directory_name, flags & ~GX_MARKDIRS);
+
+      if (free_dirname)
+	{
+	  free (directory_name);
+	  directory_name = NULL;
+	}
 
       if (directories == NULL)
 	goto memory_error;
@@ -746,6 +809,8 @@ glob_filename (pathname, flags)
       if (result[0] == NULL)
 	goto memory_error;
       bcopy (directory_name, result[0], directory_len + 1);
+      if (free_dirname)
+	free (directory_name);
       result[1] = NULL;
       return (result);
     }
@@ -770,9 +835,16 @@ glob_filename (pathname, flags)
 				  flags & ~GX_MARKDIRS);
 
       if (temp_results == NULL || temp_results == (char **)&glob_error_return)
-	return (temp_results);
+	{
+	  if (free_dirname)
+	    free (directory_name);
+	  return (temp_results);
+	}
 
-      return (glob_dir_to_array (directory_name, temp_results, flags));
+      result = glob_dir_to_array (directory_name, temp_results, flags);
+      if (free_dirname)
+	free (directory_name);
+      return (result);
     }
 
   /* We get to memory_error if the program has run out of memory, or
@@ -785,6 +857,9 @@ glob_filename (pathname, flags)
 	free (result[i]);
       free ((char *) result);
     }
+
+  if (free_dirname && directory_name)
+    free (directory_name);
 
   QUIT;
 

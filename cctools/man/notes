@@ -2,6 +2,42 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.24 release (the cctools-663 release):
+- Change the "SEE ALSO" line on the as(1) man page for the reference to the
+  assebler manual.  Radar but #5143784.
+
+Changes for the 5.24 release (the cctools-647 release):
+- Changed the Makefile to not install dyld_debug.3 if OLD_DYLD_STUFF is not
+  defined.  Radar bug #4734305.
+
+Changes for the 5.24 release (the cctools-635 release):
+- Added the -verify_arch to the lipo(1) man page.  Radar bug #4496521.
+- Updated the strings(1) man page to mention the use of the archive member
+  syntax for filenames.  Radar bug #4172811.
+
+Changes for the 5.24 release (the cctools-629 release):
+- Added a description that CPU subtypes get combined to the ld_classic(1) man
+  page.  Radar bug #3820769.
+- Added an example of how to create a stub library to the strip(1) man page.
+  Radar bug #4399175.
+- Added the -arch option to the strip(1) man page.  Radar bug #4470756.
+- Added the -arch option to the strings(1) man page.  Radar bug #4416906.
+- Fixed a typo in the ld_classic man page.  Where "When creating a output file"
+  should have been "When creating an output file".  Radar bug #4099445.
+- Updated the ld_classic(1) man page to only document the 32-bit linker.
+
+Changes for the 5.24 release (the cctools-627 release):
+- As part of the port to unify otool(1) and otool64(1) the otool64(1) man page
+  was removed and the Makefile was updated.  Radar bug #3903136.
+
+Changes for the 5.24 release (the cctools-626 release):
+- Added the man page codesign_allocate(1).  Radar bug #4588023.
+
+Changes for the 5.24 release (the cctools-623 release):
+- Changed ld.1 to be ld_classic.1 and did the needed edits in the man page
+  for the name change.  Also changed the name in the Makefile. Radar bug
+  #4606627.
+
 Changes for the 5.22 release (the cctools-590.38.3 release):
 - Add a new -arch_blank option to lipo(1). Radar bug #4473483.
 

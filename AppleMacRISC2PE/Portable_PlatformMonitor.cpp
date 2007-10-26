@@ -656,7 +656,7 @@ bool Portable_PlatformMonitor::setCPUSpeed( bool setPowerHigh )
 // **********************************************************************************
 void Portable_PlatformMonitor::slewBusSpeed (UInt32 newLevel)
 {
-    OSDictionary 		*dict;
+    OSDictionary 		*dict = NULL;
     const OSObject		*target_value[1];
     const OSSymbol		*key[1];
     
@@ -677,10 +677,13 @@ void Portable_PlatformMonitor::slewBusSpeed (UInt32 newLevel)
         }
         conSensorArray[kSlewController].conSensor->setProperties(dict);
     }
-    
-    key[0]->release();
-    target_value[0]->release();
-    dict->release();
+
+    if ( key[0] )
+		key[0]->release();
+	if ( target_value[0] )
+		target_value[0]->release();
+	if ( dict )
+		dict->release();
 }
 
 // **********************************************************************************

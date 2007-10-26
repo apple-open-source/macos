@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef PATH_OFFSET
 
@@ -39,11 +35,13 @@
 #   endif
 #endif /* !SHOPT_SPAWN */
 
-#define PATH_PATH	1
-#define PATH_FPATH	2
-#define PATH_CDPATH	4
-#define PATH_BFPATH	010
-#define PATH_SKIP	020
+#define PATH_PATH		0001
+#define PATH_FPATH		0002
+#define PATH_CDPATH		0004
+#define PATH_BFPATH		0010
+#define PATH_SKIP		0020
+#define PATH_BUILTIN_LIB	0040
+#define PATH_STD_DIR		0100	/* directory is on  $(getconf PATH) */
 
 #define PATH_OFFSET	2		/* path offset for path_join */
 #define MAXDEPTH	(sizeof(char*)==2?64:4096) /* maximum recursion depth*/
@@ -59,6 +57,8 @@ typedef struct pathcomp
 	ino_t		ino;
 	char		*name;
 	char		*lib;
+	char		*blib;
+	void		*bltin_lib;
 	unsigned short	len;
 	unsigned short	flags;
 	Shell_t		*shp;

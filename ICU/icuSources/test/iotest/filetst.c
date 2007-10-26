@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2004-2004, International Business Machines
+*   Copyright (C) 2004-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  filetst.c
@@ -16,7 +16,6 @@
 #include "unicode/ustdio.h"
 #include "unicode/ustring.h"
 #include "unicode/uloc.h"
-#include "unicode/utrans.h"
 
 #include <string.h>
 
@@ -54,8 +53,11 @@ static void TestFileFromICU(UFILE *myFile) {
         origPtr = (void *) INT64_C(0x1000200030004000);
     } else if (sizeof(void *) == 16) {
         /* iSeries */
-        int32_t massiveBigEndianPtr[] = { 0x10002000, 0x30004000, 0x50006000, 0x70008000 };
-        origPtr = *((void **)massiveBigEndianPtr);
+        union {
+            int32_t arr[4];
+            void *ptr;
+        } massiveBigEndianPtr = {{ 0x10002000, 0x30004000, 0x50006000, 0x70008000 }};
+        origPtr = massiveBigEndianPtr.ptr;
     } else {
         log_err("sizeof(void*)=%d hasn't been tested before", (int)sizeof(void*));
     }
@@ -91,8 +93,8 @@ static void TestFileFromICU(UFILE *myFile) {
     u_fprintf(myFile, "Pointer to integer Value: %d\n", *n);
     u_fprintf(myFile, "This is a long test123456789012345678901234567890123456789012345678901234567890\n");
     *n = 1;
-    fprintf(u_fgetfile(myFile), "\tNormal fprintf count: n=%d %n n=%d\n", (int)*n, (int*)n, (int)*n);
-    fprintf(u_fgetfile(myFile), "\tNormal fprintf count value: n=%d\n", (int)*n);
+    u_fprintf(myFile, "\tNormal fprintf count: n=%d %n n=%d\n", (int)*n, (int*)n, (int)*n);
+    fprintf(u_fgetfile(myFile), "\tNormal fprintf count value: n=%d\n", (int)*n); /* Should be 27 as stated later on. */
 
     u_fclose(myFile);
     myFile = u_fopen(STANDARD_TEST_FILE, "r", NULL, NULL);
@@ -164,27 +166,27 @@ static void TestFileFromICU(UFILE *myFile) {
         log_err("%%X Got: %X, Expected: %X\n", *newValuePtr, *n);
     }
     *newDoubleValuePtr = -1.0;
-    u_fscanf(myFile, "Float %%f: %f\n", newDoubleValuePtr);
+    u_fscanf(myFile, "Float %%f: %lf\n", newDoubleValuePtr);
     if (myFloat != *newDoubleValuePtr) {
         log_err("%%f Got: %f, Expected: %f\n", *newDoubleValuePtr, myFloat);
     }
     *newDoubleValuePtr = -1.0;
-    u_fscanf(myFile, "Lowercase float %%e: %e\n", newDoubleValuePtr);
+    u_fscanf(myFile, "Lowercase float %%e: %le\n", newDoubleValuePtr);
     if (myFloat != *newDoubleValuePtr) {
         log_err("%%e Got: %e, Expected: %e\n", *newDoubleValuePtr, myFloat);
     }
     *newDoubleValuePtr = -1.0;
-    u_fscanf(myFile, "Uppercase float %%E: %E\n", newDoubleValuePtr);
+    u_fscanf(myFile, "Uppercase float %%E: %lE\n", newDoubleValuePtr);
     if (myFloat != *newDoubleValuePtr) {
         log_err("%%E Got: %E, Expected: %E\n", *newDoubleValuePtr, myFloat);
     }
     *newDoubleValuePtr = -1.0;
-    u_fscanf(myFile, "Lowercase float %%g: %g\n", newDoubleValuePtr);
+    u_fscanf(myFile, "Lowercase float %%g: %lg\n", newDoubleValuePtr);
     if (myFloat != *newDoubleValuePtr) {
         log_err("%%g Got: %g, Expected: %g\n", *newDoubleValuePtr, myFloat);
     }
     *newDoubleValuePtr = -1.0;
-    u_fscanf(myFile, "Uppercase float %%G: %G\n", newDoubleValuePtr);
+    u_fscanf(myFile, "Uppercase float %%G: %lG\n", newDoubleValuePtr);
     if (myFloat != *newDoubleValuePtr) {
         log_err("%%G Got: %G, Expected: %G\n", *newDoubleValuePtr, myFloat);
     }
@@ -434,6 +436,12 @@ static void TestfgetsBuffers(void) {
     }
 
     u_fputc(0x3BC, myFile);
+    if (u_fputc(0x110000, myFile) != U_EOF) {
+        log_err("u_fputc should return U_EOF for 0x110000.\n");
+    }
+    if (u_fputc((UChar32)0xFFFFFFFFu, myFile) != U_EOF) {
+        log_err("u_fputc should return U_EOF for 0xFFFFFFFF.\n");
+    }
     u_fputc(0xFF41, myFile);
     u_memset(buffer, 0xBEEF, sizeof(buffer)/sizeof(buffer[0]));
     u_memset(expectedBuffer, 0, sizeof(expectedBuffer)/sizeof(expectedBuffer[0]));
@@ -701,6 +709,111 @@ static void TestfgetsNewLineHandling(void) {
     if (u_fgets(buffer, sizeof(buffer)/sizeof(buffer[0]), myFile) != NULL) {
         log_err("u_file_write wrote too much\n");
     }
+    u_fclose(myFile);
+}
+
+static void TestLineCount(const char *prefixLine, const char *line, int32_t numRepititions) {
+    UChar buffer[64];
+    UChar expectedBuffer[64];
+    int32_t lineLen = strlen(line);
+    UChar *returnedUCharBuffer;
+    int32_t repetitions;
+    UFILE *myFile = NULL;
+    FILE *stdFile = fopen(STANDARD_TEST_FILE, "wb");
+
+    if (stdFile == NULL) {
+        log_err("Can't write test file.\n");
+        return;
+    }
+    /* Write a prefix line and then write a bunch of lines */
+    fwrite(prefixLine, strlen(prefixLine), 1, stdFile);
+    for (repetitions = 0; repetitions < numRepititions; repetitions++) {
+        fwrite(line, lineLen, 1, stdFile);
+    }
+    fclose(stdFile);
+
+    myFile = u_fopen(STANDARD_TEST_FILE, "rb", NULL, NULL);
+    if (myFile == NULL) {
+        log_err("Can't read test file.\n");
+        return;
+    }
+
+    /* Read the prefix line. This can make sure that a Windows newline is either on a boundary or before it. */
+    u_uastrncpy(expectedBuffer, prefixLine, (int32_t)strlen(prefixLine)+1);
+    returnedUCharBuffer = u_fgets(buffer, sizeof(buffer)/sizeof(buffer[0]), myFile);
+    if (u_strcmp(returnedUCharBuffer, expectedBuffer) != 0) {
+        log_err("prefix buffer is different. prefix=\"%s\"\n", prefixLine);
+        return;
+    }
+
+    u_uastrncpy(expectedBuffer, line, (int32_t)strlen(line)+1);
+    for (repetitions = 0; ; repetitions++) {
+        u_memset(buffer, 0xBEEF, sizeof(buffer)/sizeof(buffer[0]));
+        returnedUCharBuffer = u_fgets(buffer, sizeof(buffer)/sizeof(buffer[0]), myFile);
+
+        if (!returnedUCharBuffer) {
+            /* returned NULL. stop. */
+            break;
+        }
+        if (u_strcmp(buffer, expectedBuffer) != 0) {
+            log_err("buffers are different at count %d\n", repetitions);
+        }
+        if (buffer[u_strlen(buffer)+1] != 0xBEEF) {
+            log_err("u_fgets wrote too much\n");
+        }
+    }
+    if (repetitions != numRepititions) {
+        log_err("got wrong number of lines. got=%d expected=%d\n", repetitions, numRepititions);
+    }
+    u_fclose(myFile);
+}
+
+static void TestfgetsNewLineCount(void) {
+    /* This makes sure that lines are correctly handled between buffer boundaries. */
+    TestLineCount("\n", "\n", 1024);    /* Unix newlines */
+    TestLineCount("\r\n", "\r\n", 1024);/* Windows newlines */
+    TestLineCount("a\r\n", "\r\n", 1024);/* Windows newlines offset by 1 byte */
+    TestLineCount("\r\n", "a\r\n", 1024);/* Windows newlines offset with data */
+    TestLineCount("\n", "a\n", 1024);    /* Unix newlines offset with data */
+    TestLineCount("\n", "\r\n", 1024);  /* a mixed number of lines. */
+}
+
+static void TestFgetsLineBuffering(void) {
+    UChar buffer[2003]; /* Use a non-power of 2 or 10 */
+    UChar *returnedUCharBuffer;
+    int32_t repetitions;
+    UFILE *myFile = NULL;
+    FILE *stdFile = fopen(STANDARD_TEST_FILE, "wb");
+
+    if (stdFile == NULL) {
+        log_err("Can't write test file.\n");
+        return;
+    }
+    u_memset(buffer, 0xBEEF, sizeof(buffer)/sizeof(buffer[0]));
+
+    /* Write one very long line */
+    for (repetitions = 0; repetitions < ((sizeof(buffer)/sizeof(buffer[0]))*2); repetitions++) {
+        fwrite(repetitions ? "1" : "2", 1, 1, stdFile);
+    }
+    fclose(stdFile);
+
+    myFile = u_fopen(STANDARD_TEST_FILE, "rb", NULL, NULL);
+    if (myFile == NULL) {
+        log_err("Can't read test file.\n");
+        return;
+    }
+
+    /* Read part of one very long line */
+    returnedUCharBuffer = u_fgets(buffer, (sizeof(buffer)/sizeof(buffer[0]))-1, myFile);
+    if (u_strlen(returnedUCharBuffer) != ((sizeof(buffer)/sizeof(buffer[0]))-2)) {
+        log_err("Line is wrong length. Got %d. Expected %d.\n",
+            u_strlen(returnedUCharBuffer), ((sizeof(buffer)/sizeof(buffer[0]))-2));
+    }
+    /* We better not read too much */
+    if (buffer[(sizeof(buffer)/sizeof(buffer[0]))-1] != 0xBEEF) {
+        log_err("Too much data was written\n");
+    }
+
     u_fclose(myFile);
 }
 
@@ -1282,185 +1395,39 @@ static void TestVargs(void) {
     Test_u_vfprintf("8 9 a B 8.9", "%d %u %x %X %.1f", 8, 9, 10, 11, 8.9);
 }
 #endif
-static void TestTranslitOps(void)
-{
-#if !UCONFIG_NO_TRANSLITERATION
-    UFILE *f;
-    UErrorCode err = U_ZERO_ERROR;
-    UTransliterator *a = NULL, *b = NULL, *c = NULL;
 
-    log_verbose("opening a transliterator and UFILE for testing\n");
-
-    f = u_fopen(STANDARD_TEST_FILE, "w", "en_US_POSIX", NULL);
-    if(f == NULL)
-    {
-        log_err("Couldn't open test file for writing\n");
-        return;
-    }
-
-    a = utrans_open("Latin-Greek", UTRANS_FORWARD, NULL, -1, NULL, &err);
-    if(U_FAILURE(err))
-    {
-        log_err("Error opening transliterator %s\n", u_errorName(err));
-        u_fclose(f);
-        return;
-    }
-
-
-    log_verbose("setting a transliterator\n");
-    b = u_fsettransliterator(f, U_WRITE, a, &err);
-    if(U_FAILURE(err))
-    {
-        log_err("Error setting transliterator %s\n", u_errorName(err));
-        u_fclose(f);
-        return;
-    }
-
-    if(b != NULL)
-    {
-        log_err("Error, a transliterator was already set!\n");
-    }
-
-    b = u_fsettransliterator(NULL, U_WRITE, a, &err);
-    if(err != U_ILLEGAL_ARGUMENT_ERROR)
-    {
-        log_err("Error setting transliterator on NULL file err=%s\n", u_errorName(err));
-    }
-
-    if(b != a)
-    {
-        log_err("Error getting the same transliterator was not returned on NULL file\n");
-    }
-
-    err = U_FILE_ACCESS_ERROR;
-    b = u_fsettransliterator(f, U_WRITE, a, &err);
-    if(err != U_FILE_ACCESS_ERROR)
-    {
-        log_err("Error setting transliterator on error status err=%s\n", u_errorName(err));
-    }
-
-    if(b != a)
-    {
-        log_err("Error getting the same transliterator on error status\n");
-    }
-    err = U_ZERO_ERROR;
-
-
-    log_verbose("un-setting transliterator (setting to null)\n");
-    c = u_fsettransliterator(f, U_WRITE, NULL, &err);
-    if(U_FAILURE(err))
-    {
-        log_err("Err setting transliterator %s\n", u_errorName(err));
-        u_fclose(f);
-        return;
-    }
-
-    if(c != a)
-    {
-        log_err("Err, transliterator that came back was not the original one.\n");
-    }
-
-    log_verbose("Trying to set read transliterator (should fail)\n");
-    b = u_fsettransliterator(f, U_READ, NULL, &err);
-    if(err != U_UNSUPPORTED_ERROR)
-    {
-        log_err("Should have U_UNSUPPORTED_ERROR setting  Read transliterator but got %s - REVISIT AND UPDATE TEST\n", u_errorName(err));
-        u_fclose(f);
-        return;
-    }
-    else
-    {
-        log_verbose("Got %s error (expected) setting READ transliterator.\n", u_errorName(err));
-        err = U_ZERO_ERROR;
-    }
-
-
-    utrans_close(c);
-    u_fclose(f);
-#endif
-}
-
-static void TestTranslitOut(void)
+static void TestUnicodeFormat(void)
 {
 #if !UCONFIG_NO_FORMATTING
-#if !UCONFIG_NO_TRANSLITERATION
-    UFILE *f;
-    UErrorCode err = U_ZERO_ERROR;
-    UTransliterator *a = NULL, *b = NULL, *c = NULL;
-    FILE *infile;
-    UChar compare[] = { 0xfeff, 0x03a3, 0x03c4, 0x03b5, 0x03c6, 0x1f00, 0x03bd, 0x03bf, 0x03c2, 0x0000 };
-    UChar ubuf[256];
-    int len;
+    /* Make sure that invariant conversion doesn't happen on the _u formats. */
+    UChar myUString[256];
+    UFILE *myFile;
+    static const UChar TEST_STR[] = { 0x03BC, 0x0025, 0x0024, 0};
+    static const UChar PERCENT_S[] = { 0x03BC, 0x0025, 0x0053, 0};
 
-    log_verbose("opening a transliterator and UFILE for testing\n");
+    u_memset(myUString, 0x2a, sizeof(myUString)/sizeof(*myUString));
 
-    f = u_fopen(STANDARD_TEST_FILE, "w", "en_US_POSIX", "utf-16");
-    if(f == NULL)
-    {
-        log_err("Couldn't open test file for writing\n");
+    myFile = u_fopen(STANDARD_TEST_FILE, "w", NULL, "UTF-8");
+    if (!myFile) {
+        log_err("Test file can't be opened\n");
         return;
     }
+    u_fprintf_u(myFile, PERCENT_S, TEST_STR);
+    u_fclose(myFile);
 
-    a = utrans_open("Latin-Greek", UTRANS_FORWARD, NULL, -1, NULL, &err);
-    if(U_FAILURE(err))
-    {
-        log_err("Err opening transliterator %s\n", u_errorName(err));
-        u_fclose(f);
+    myFile = u_fopen(STANDARD_TEST_FILE, "r", NULL, "UTF-8");
+    if (!myFile) {
+        log_err("Test file can't be opened\n");
         return;
     }
-
-    log_verbose("setting a transliterator\n");
-    b = u_fsettransliterator(f, U_WRITE, a, &err);
-    if(U_FAILURE(err))
-    {
-        log_err("Err setting transliterator %s\n", u_errorName(err));
-        u_fclose(f);
-        return;
+    u_fscanf_u(myFile, PERCENT_S, myUString);
+    u_fclose(myFile);
+    if (u_strcmp(TEST_STR, myUString) != 0) {
+        log_err("u_fscanf_u doesn't work.\n");
     }
-
-    if(b != NULL)
-    {
-        log_err("Err, a transliterator was already set!\n");
-    }
-
-    u_fprintf(f, "Stephanos");
-
-    u_fclose(f);
-
-    log_verbose("Re reading test file to verify transliteration\n");
-    infile = fopen(STANDARD_TEST_FILE, "rb");
-    if(infile == NULL)
-    {
-        log_err("Couldn't reopen test file\n");
-        return;
-    }
-
-    len=fread(ubuf, sizeof(UChar), u_strlen(compare), infile);
-    log_verbose("Read %d UChars\n", len);
-    if(len != u_strlen(compare))
-    {
-        log_err("Wanted %d UChars from file, got %d\n", u_strlen(compare), len);
-    }
-    ubuf[len]=0;
-
-    if(u_strlen(compare) != u_strlen(ubuf))
-    {
-        log_err("Wanted %d UChars from file, but u_strlen() returns %d\n", u_strlen(compare), len);
-    }
-
-    if(u_strcmp(compare, ubuf))
-    {
-        log_err("Read string doesn't match expected.\n");
-    }
-    else
-    {
-        log_verbose("Read string matches expected.\n");
-    }
-
-    fclose(infile);
-#endif
 #endif
 }
+
 
 U_CFUNC void
 addFileTest(TestNode** root) {
@@ -1472,6 +1439,8 @@ addFileTest(TestNode** root) {
     addTest(root, &TestFileReadBuffering, "file/TestFileReadBuffering");
     addTest(root, &TestfgetsLineCount, "file/TestfgetsLineCount");
     addTest(root, &TestfgetsNewLineHandling, "file/TestfgetsNewLineHandling");
+    addTest(root, &TestfgetsNewLineCount, "file/TestfgetsNewLineCount");
+    addTest(root, &TestFgetsLineBuffering, "file/TestFgetsLineBuffering");
     addTest(root, &TestCodepage, "file/TestCodepage");
 #if !UCONFIG_NO_FORMATTING
     addTest(root, &TestCodepageAndLocale, "file/TestCodepageAndLocale");
@@ -1480,12 +1449,6 @@ addFileTest(TestNode** root) {
     addTest(root, &TestFilePrintCompatibility, "file/TestFilePrintCompatibility");
     addTest(root, &TestBadScanfFormat, "file/TestBadScanfFormat");
     addTest(root, &TestVargs, "file/TestVargs");
-#endif
-
-#if !UCONFIG_NO_TRANSLITERATION
-    addTest(root, &TestTranslitOps, "file/translit/ops");
-#if !UCONFIG_NO_FORMATTING
-    addTest(root, &TestTranslitOut, "file/translit/out");
-#endif
+    addTest(root, &TestUnicodeFormat, "file/TestUnicodeFormat");
 #endif
 }

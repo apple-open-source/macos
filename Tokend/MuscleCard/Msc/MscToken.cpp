@@ -91,4 +91,3 @@ MscKey &MscToken::getKey(MSCUChar8 keyNum)
 	return *(keyi->second);
 }
 
-/* arch-tag: 953A36F2-BE68-11D8-9CE3-000A95C4302E */

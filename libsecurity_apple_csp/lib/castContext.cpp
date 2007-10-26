@@ -48,8 +48,8 @@ void CastContext::init(
 		return;
 	}
 
-	UInt32 		keyLen;
-	UInt8 		*keyData = NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData = NULL;
 	bool		sameKeySize = false;
 	
 	/* obtain key from context */
@@ -107,6 +107,7 @@ void CastContext::encryptBlock(
 
 void CastContext::decryptBlock(
 	const void		*cipherText,		// length implied (one block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored

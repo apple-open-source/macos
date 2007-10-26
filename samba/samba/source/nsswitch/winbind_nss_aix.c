@@ -45,13 +45,13 @@
 
 */
 
-#include <stdlib.h>
-#include <string.h>
-#include <usersec.h>
-#include <errno.h>
-#include <stdarg.h>
-
 #include "winbind_client.h"
+#include <usersec.h>
+
+/* enable this to log which entry points have not been
+  completed yet */
+#define LOG_UNIMPLEMENTED_CALLS 0
+
 
 #define WB_AIX_ENCODED '_'
 
@@ -278,13 +278,13 @@ static struct group *wb_aix_getgrgid(gid_t gid)
 	
 	request.data.gid = gid;
 
-	ret = winbindd_request(WINBINDD_GETGRGID, &request, &response);
+	ret = winbindd_request_response(WINBINDD_GETGRGID, &request, &response);
 
 	logit("getgrgid ret=%d\n", ret);
 
 	HANDLE_ERRORS(ret);
 
-	grp = fill_grent(&response.data.gr, response.extra_data);
+	grp = fill_grent(&response.data.gr, response.extra_data.data);
 
 	free_response(&response);
 
@@ -310,11 +310,11 @@ static struct group *wb_aix_getgrnam(const char *name)
 
 	STRCPY_RETNULL(request.data.groupname, name);
 
-	ret = winbindd_request(WINBINDD_GETGRNAM, &request, &response);
+	ret = winbindd_request_response(WINBINDD_GETGRNAM, &request, &response);
 	
 	HANDLE_ERRORS(ret);
 
-	grp = fill_grent(&response.data.gr, response.extra_data);
+	grp = fill_grent(&response.data.gr, response.extra_data.data);
 
 	free_response(&response);
 
@@ -360,18 +360,21 @@ static char *wb_aix_getgrset(char *user)
 
 	logit("getgrset '%s'\n", r_user);
 
+        ZERO_STRUCT(response);
+        ZERO_STRUCT(request);
+
 	STRCPY_RETNULL(request.data.username, r_user);
 
 	if (*user == WB_AIX_ENCODED) {
 		free(r_user);
 	}
 
-	ret = winbindd_request(WINBINDD_GETGROUPS, &request, &response);
+	ret = winbindd_request_response(WINBINDD_GETGROUPS, &request, &response);
 
 	HANDLE_ERRORS(ret);
 
 	num_gids = response.data.num_entries;
-	gid_list = (gid_t *)response.extra_data;
+	gid_list = (gid_t *)response.extra_data.data;
 		
 	/* allocate a space large enough to contruct the string */
 	tmpbuf = malloc(num_gids*12);
@@ -405,7 +408,7 @@ static struct passwd *wb_aix_getpwuid(uid_t uid)
 		
 	request.data.uid = uid;
 	
-	ret = winbindd_request(WINBINDD_GETPWUID, &request, &response);
+	ret = winbindd_request_response(WINBINDD_GETPWUID, &request, &response);
 
 	HANDLE_ERRORS(ret);
 
@@ -438,7 +441,7 @@ static struct passwd *wb_aix_getpwnam(const char *name)
 
 	STRCPY_RETNULL(request.data.username, name);
 
-	ret = winbindd_request(WINBINDD_GETPWNAM, &request, &response);
+	ret = winbindd_request_response(WINBINDD_GETPWNAM, &request, &response);
 
 	HANDLE_ERRORS(ret);
 	
@@ -471,13 +474,13 @@ static int wb_aix_lsuser(char *attributes[], attrval_t results[], int size)
 	ZERO_STRUCT(request);
 	ZERO_STRUCT(response);
 	
-	ret = winbindd_request(WINBINDD_LIST_USERS, &request, &response);
+	ret = winbindd_request_response(WINBINDD_LIST_USERS, &request, &response);
 	if (ret != 0) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	len = strlen(response.extra_data);
+	len = strlen(response.extra_data.data);
 
 	s = malloc(len+2);
 	if (!s) {
@@ -486,7 +489,7 @@ static int wb_aix_lsuser(char *attributes[], attrval_t results[], int size)
 		return -1;
 	}
 	
-	memcpy(s, response.extra_data, len+1);
+	memcpy(s, response.extra_data.data, len+1);
 
 	replace_commas(s);
 
@@ -519,13 +522,13 @@ static int wb_aix_lsgroup(char *attributes[], attrval_t results[], int size)
 	ZERO_STRUCT(request);
 	ZERO_STRUCT(response);
 	
-	ret = winbindd_request(WINBINDD_LIST_GROUPS, &request, &response);
+	ret = winbindd_request_response(WINBINDD_LIST_GROUPS, &request, &response);
 	if (ret != 0) {
 		errno = EINVAL;
 		return -1;
 	}
 
-	len = strlen(response.extra_data);
+	len = strlen(response.extra_data.data);
 
 	s = malloc(len+2);
 	if (!s) {
@@ -534,7 +537,7 @@ static int wb_aix_lsgroup(char *attributes[], attrval_t results[], int size)
 		return -1;
 	}
 	
-	memcpy(s, response.extra_data, len+1);
+	memcpy(s, response.extra_data.data, len+1);
 
 	replace_commas(s);
 
@@ -568,14 +571,12 @@ static attrval_t pwd_to_groupsids(struct passwd *pwd)
 	attrval_t r;
 	char *s, *p;
 
-	s = wb_aix_getgrset(pwd->pw_name);
-	if (!s) {
+	if ( (s = wb_aix_getgrset(pwd->pw_name)) == NULL ) {
 		r.attr_flag = EINVAL;
 		return r;
 	}
 
-	p = malloc(strlen(s)+2);
-	if (!p) {
+	if ( (p = malloc(strlen(s)+2)) == NULL ) {
 		r.attr_flag = ENOMEM;
 		return r;
 	}
@@ -600,7 +601,7 @@ static attrval_t pwd_to_sid(struct passwd *pwd)
 
 	request.data.uid = pwd->pw_uid;
 
-	if (winbindd_request(WINBINDD_UID_TO_SID, &request, &response) !=
+	if (winbindd_request_response(WINBINDD_UID_TO_SID, &request, &response) !=
 	    NSS_STATUS_SUCCESS) {
 		r.attr_flag = ENOENT;
 	} else {
@@ -628,23 +629,25 @@ static int wb_aix_user_attrib(const char *key, char *attributes[],
 
 		if (strcmp(attributes[i], S_ID) == 0) {
 			results[i].attr_un.au_int = pwd->pw_uid;
+#ifdef _AIXVERSION_530
+		} else if (strcmp(attributes[i], S_PGID) == 0) {
+			results[i].attr_un.au_int = pwd->pw_gid;
+#endif
 		} else if (strcmp(attributes[i], S_PWD) == 0) {
 			results[i].attr_un.au_char = strdup(pwd->pw_passwd);
 		} else if (strcmp(attributes[i], S_HOME) == 0) {
 			results[i].attr_un.au_char = strdup(pwd->pw_dir);
-		} else if (strcmp(attributes[0], S_SHELL) == 0) {
+		} else if (strcmp(attributes[i], S_SHELL) == 0) {
 			results[i].attr_un.au_char = strdup(pwd->pw_shell);
-		} else if (strcmp(attributes[0], S_REGISTRY) == 0) {
+		} else if (strcmp(attributes[i], S_REGISTRY) == 0) {
 			results[i].attr_un.au_char = strdup("WINBIND");
-		} else if (strcmp(attributes[0], S_GECOS) == 0) {
+		} else if (strcmp(attributes[i], S_GECOS) == 0) {
 			results[i].attr_un.au_char = strdup(pwd->pw_gecos);
-		} else if (strcmp(attributes[0], S_PGRP) == 0) {
+		} else if (strcmp(attributes[i], S_PGRP) == 0) {
 			results[i] = pwd_to_group(pwd);
-		} else if (strcmp(attributes[0], S_GECOS) == 0) {
-			results[i].attr_un.au_char = strdup(pwd->pw_gecos);
-		} else if (strcmp(attributes[0], S_GROUPSIDS) == 0) {
+		} else if (strcmp(attributes[i], S_GROUPS) == 0) {
 			results[i] = pwd_to_groupsids(pwd);
-		} else if (strcmp(attributes[0], "SID") == 0) {
+		} else if (strcmp(attributes[i], "SID") == 0) {
 			results[i] = pwd_to_sid(pwd);
 		} else {
 			logit("Unknown user attribute '%s'\n", attributes[i]);
@@ -748,21 +751,71 @@ static void wb_aix_close(void *token)
 */
 static attrlist_t **wb_aix_attrlist(void)
 {
-	attrlist_t **ret;
+	/* pretty confusing but we are allocating the array of pointers
+	   and the structures we'll be pointing to all at once.  So
+ 	   you need N+1 pointers and N structures. */
+
+	attrlist_t **ret = NULL;
+	attrlist_t *offset = NULL;
+	int i;
+	int n;
+	size_t size;
+
+	struct attr_types {
+		const char *name;
+		int flags;
+		int type;
+	} attr_list[] = {
+		/* user attributes */
+		{S_ID, 		AL_USERATTR, 	SEC_INT},
+		{S_PGRP, 	AL_USERATTR,	SEC_CHAR},
+		{S_HOME, 	AL_USERATTR, 	SEC_CHAR},
+		{S_SHELL, 	AL_USERATTR,	SEC_CHAR},
+#ifdef _AIXVERSION_530
+		{S_PGID, 	AL_USERATTR,	SEC_INT},
+#endif
+		{S_GECOS, 	AL_USERATTR,	SEC_CHAR},
+		{S_SHELL, 	AL_USERATTR,	SEC_CHAR},
+		{S_PGRP, 	AL_USERATTR,	SEC_CHAR},
+		{S_GROUPS, 	AL_USERATTR, 	SEC_LIST},
+		{"SID", 	AL_USERATTR,	SEC_CHAR},
+
+		/* group attributes */
+		{S_ID, 		AL_GROUPATTR,	SEC_INT}
+	};
+
 	logit("method attrlist called\n");
-	ret = malloc(2*sizeof(attrlist_t *) + sizeof(attrlist_t));
-	if (!ret) {
+
+	n = sizeof(attr_list) / sizeof(struct attr_types);
+	size = (n*sizeof(attrlist_t *));
+
+	if ( (ret = malloc( size )) == NULL ) {
 		errno = ENOMEM;
 		return NULL;
 	}
 
-	ret[0] = (attrlist_t *)(ret+2);
+	/* offset to where the structures start in the buffer */
 
-	/* just one extra attribute - the windows SID */
-	ret[0]->al_name = strdup("SID");
-	ret[0]->al_flags = AL_USERATTR;
-	ret[0]->al_type = SEC_CHAR;
-	ret[1] = NULL;
+	offset = (attrlist_t *)(ret + n);
+
+	/* now loop over the user_attr_list[] array and add
+	   all the members */
+
+	for ( i=0; i<n; i++ ) {
+		attrlist_t *a = malloc(sizeof(attrlist_t));
+
+		if ( !a ) {
+			/* this is bad.  Just bail */
+			return NULL;
+		}
+
+		a->al_name  = strdup(attr_list[i].name);
+		a->al_flags = attr_list[i].flags;
+		a->al_type  = attr_list[i].type;
+
+		ret[i] = a;
+	}
+	ret[n] = NULL;
 
 	return ret;
 }
@@ -834,7 +887,7 @@ static int wb_aix_authenticate(char *user, char *pass,
 		free(r_user);
 	}
 
-	result = winbindd_request(WINBINDD_PAM_AUTH, &request, &response);
+	result = winbindd_request_response(WINBINDD_PAM_AUTH, &request, &response);
 
 	free_response(&response);
 
@@ -883,7 +936,7 @@ static int wb_aix_chpass(char *user, char *oldpass, char *newpass, char **messag
 		free(r_user);
 	}
 
-	result = winbindd_request(WINBINDD_PAM_CHAUTHTOK, &request, &response);
+	result = winbindd_request_response(WINBINDD_PAM_CHAUTHTOK, &request, &response);
 
 	free_response(&response);
 

@@ -1,28 +1,32 @@
 /* The lwlib interface to Athena widgets.
-   Copyright (C) 1993 Chuck Thompson <cthomp@cs.uiuc.edu>
+Copyright (C) 1993 Chuck Thompson <cthomp@cs.uiuc.edu>
+Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007 Free Software Foundation, Inc.
 
 This file is part of the Lucid Widget Library.
 
-The Lucid Widget Library is free software; you can redistribute it and/or 
+The Lucid Widget Library is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 1, or (at your option)
 any later version.
 
 The Lucid Widget Library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
 
 #include <stdio.h>
+
+#include "../src/lisp.h"
 
 #include "lwlib-Xaw.h"
 
@@ -51,13 +55,13 @@ lw_xaw_widget_p (widget)
 	  XtIsSubclass (widget, dialogWidgetClass));
 }
 
+#if 0
 static void
 xaw_update_scrollbar (instance, widget, val)
      widget_instance *instance;
      Widget widget;
      widget_value *val;
 {
-#if 0
   if (val->scrollbar_data)
     {
       scrollbar_values *data = val->scrollbar_data;
@@ -113,15 +117,20 @@ xaw_update_scrollbar (instance, widget, val)
       if (new_shown != widget_shown || new_topOfThumb != widget_topOfThumb)
 	XawScrollbarSetThumb (widget, new_topOfThumb, new_shown);
     }
-#endif
 }
+#endif
 
 void
+#ifdef PROTOTYPES
+xaw_update_one_widget (widget_instance *instance, Widget widget,
+		       widget_value *val, Boolean deep_p)
+#else
 xaw_update_one_widget (instance, widget, val, deep_p)
      widget_instance *instance;
      Widget widget;
      widget_value *val;
      Boolean deep_p;
+#endif
 {
 #if 0
   if (XtIsSubclass (widget, scrollbarWidgetClass))
@@ -196,9 +205,13 @@ xaw_popup_menu (widget, event)
 }
 
 void
+#ifdef PROTOTYPES
+xaw_pop_instance (widget_instance *instance, Boolean up)
+#else
 xaw_pop_instance (instance, up)
      widget_instance *instance;
      Boolean up;
+#endif
 {
   Widget widget = instance->widget;
 
@@ -266,6 +279,9 @@ xaw_pop_instance (instance, up)
 
 static char overrideTrans[] =
 	"<Message>WM_PROTOCOLS: lwlib_delete_dialog()";
+/* Dialogs pop down on any key press */
+static char dialogOverride[] =
+       "<KeyPress>Escape:	lwlib_delete_dialog()";
 static void wm_delete_window();
 static XtActionsRec xaw_actions [] = {
   {"lwlib_delete_dialog", wm_delete_window}
@@ -322,6 +338,8 @@ make_dialog (name, parent, pop_up_p, shell_title, icon_name, text_input_slot, ra
 
   ac = 0;
   dialog = XtCreateManagedWidget (name, dialogWidgetClass, shell, av, ac);
+  override = XtParseTranslationTable (dialogOverride);
+  XtOverrideTranslations (dialog, override);
 
   bc = 0;
   button = 0;
@@ -345,7 +363,7 @@ make_dialog (name, parent, pop_up_p, shell_title, icon_name, text_input_slot, ra
 	 I want the separator to take up the slack between the buttons on
 	 the right and the buttons on the left (that is I want the buttons
 	 after the separator to be packed against the right edge of the
-	 window) but I can't seem to make it do it.  
+	 window) but I can't seem to make it do it.
        */
       ac = 0;
       XtSetArg (av [ac], XtNfromHoriz, button); ac++;
@@ -393,7 +411,7 @@ xaw_create_dialog (instance)
   Widget widget;
   Boolean pop_up_p = instance->pop_up_p;
   char *shell_name = 0;
-  char *icon_name;
+  char *icon_name = 0;
   Boolean text_input_slot = False;
   Boolean radio_box = False;
   Boolean list = False;
@@ -429,7 +447,7 @@ xaw_create_dialog (instance)
     shell_name = "Question";
     break;
   }
-  
+
   total_buttons = name [1] - '0';
 
   if (name [3] == 'T' || name [3] == 't')
@@ -439,9 +457,9 @@ xaw_create_dialog (instance)
     }
   else if (name [3])
     right_buttons = name [4] - '0';
-  
+
   left_buttons = total_buttons - right_buttons;
-  
+
   widget = make_dialog (name, parent, pop_up_p,
 			shell_name, icon_name, text_input_slot, radio_box,
 			list, left_buttons, right_buttons);
@@ -500,8 +518,8 @@ xaw_generic_callback (widget, closure, call_data)
 }
 
 static void
-wm_delete_window (shell, closure, call_data)
-     Widget shell;
+wm_delete_window (w, closure, call_data)
+     Widget w;
      XtPointer closure;
      XtPointer call_data;
 {
@@ -509,7 +527,13 @@ wm_delete_window (shell, closure, call_data)
   Cardinal nkids;
   int i;
   Widget *kids = 0;
-  Widget widget;
+  Widget widget, shell;
+
+  if (XtIsSubclass (w, dialogWidgetClass))
+    shell = XtParent (w);
+  else
+    shell = w;
+
   if (! XtIsSubclass (shell, shellWidgetClass))
     abort ();
   XtVaGetValues (shell, XtNnumChildren, &nkids, NULL);
@@ -538,13 +562,13 @@ wm_delete_window (shell, closure, call_data)
 
 /* Scrollbars */
 
+#if 0
 static void
 xaw_scrollbar_scroll (widget, closure, call_data)
      Widget widget;
      XtPointer closure;
      XtPointer call_data;
 {
-#if 0
   widget_instance *instance = (widget_instance *) closure;
   LWLIB_ID id;
   scroll_event event_data;
@@ -563,16 +587,16 @@ xaw_scrollbar_scroll (widget, closure, call_data)
 
   if (instance->info->pre_activate_cb)
     instance->info->pre_activate_cb (widget, id, (XtPointer) &event_data);
-#endif
 }
+#endif
 
+#if 0
 static void
 xaw_scrollbar_jump (widget, closure, call_data)
      Widget widget;
      XtPointer closure;
      XtPointer call_data;
 {
-#if 0
   widget_instance *instance = (widget_instance *) closure;
   LWLIB_ID id;
   scroll_event event_data;
@@ -594,8 +618,8 @@ xaw_scrollbar_jump (widget, closure, call_data)
 
   if (instance->info->pre_activate_cb)
     instance->info->pre_activate_cb (widget, id, (XtPointer) &event_data);
-#endif
 }
+#endif
 
 static Widget
 xaw_create_scrollbar (instance)
@@ -608,7 +632,7 @@ xaw_create_scrollbar (instance)
   Widget scrollbar;
 
   XtVaGetValues (instance->parent, XtNwidth, &width, NULL);
-  
+
   XtSetArg (av[ac], XtNshowGrip, 0); ac++;
   XtSetArg (av[ac], XtNresizeToPreferred, 1); ac++;
   XtSetArg (av[ac], XtNallowResize, True); ac++;
@@ -633,6 +657,8 @@ xaw_create_scrollbar (instance)
 		 (XtPointer) instance);
 
   return scrollbar;
+#else
+  return NULL;
 #endif
 }
 
@@ -657,3 +683,6 @@ xaw_creation_table [] =
   {"main",			xaw_create_main},
   {NULL, NULL}
 };
+
+/* arch-tag: fbbd3589-ae1c-41a0-9142-f628cfee6564
+   (do not change this comment) */

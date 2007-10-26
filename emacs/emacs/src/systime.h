@@ -1,5 +1,6 @@
 /* systime.h - System-dependent definitions for time manipulations.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifndef EMACS_SYSTIME_H
 #define EMACS_SYSTIME_H
@@ -81,7 +82,7 @@ extern time_t timezone;
 	result in DEST.  SRC should not be negative.
 
    EMACS_SUB_TIME (DEST, SRC1, SRC2) subtracts SRC2 from SRC1 and
-	stores the result in DEST.  SRC should not be negative. 
+	stores the result in DEST.  SRC should not be negative.
    EMACS_TIME_NEG_P (TIME) is true iff TIME is negative.
 
 */
@@ -100,16 +101,8 @@ extern time_t timezone;
 #ifdef GETTIMEOFDAY_ONE_ARGUMENT
 #define EMACS_GET_TIME(time) gettimeofday (&(time))
 #else /* not GETTIMEOFDAY_ONE_ARGUMENT */
-#ifdef HAVE_STRUCT_TIMEZONE
-#define EMACS_GET_TIME(time)			\
-  do {						\
-    struct timezone dummy;			\
-    gettimeofday (&(time), &dummy);		\
-  } while (0)
-#else
 /* Presumably the second arg is ignored.  */
 #define EMACS_GET_TIME(time) gettimeofday (&(time), NULL)
-#endif /* HAVE_STRUCT_TIMEZONE */
 #endif /* not GETTIMEOFDAY_ONE_ARGUMENT */
 
 #define EMACS_ADD_TIME(dest, src1, src2)		\
@@ -151,7 +144,18 @@ extern time_t timezone;
 #define EMACS_SET_SECS_USECS(time, secs, usecs) 		\
   (EMACS_SET_SECS (time, secs), EMACS_SET_USECS (time, usecs))
 
-extern int set_file_times __P ((char *, EMACS_TIME, EMACS_TIME));
+extern int set_file_times __P ((const char *, EMACS_TIME, EMACS_TIME));
+
+/* defined in keyboard.c */
+extern void set_waiting_for_input __P ((EMACS_TIME *));
+
+/* When lisp.h is not included Lisp_Object is not defined (this can
+   happen when this files is used outside the src directory).
+   Use GCPRO1 to determine if lisp.h was included.  */
+#ifdef GCPRO1
+/* defined in dired.c */
+extern Lisp_Object make_time __P ((time_t));
+#endif
 
 /* Compare times T1 and T2.  Value is 0 if T1 and T2 are the same.
    Value is < 0 if T1 is less than T2.  Value is > 0 otherwise.  */
@@ -172,3 +176,6 @@ extern int set_file_times __P ((char *, EMACS_TIME, EMACS_TIME));
 #define EMACS_TIME_LE(T1, T2) (EMACS_TIME_CMP (T1, T2) <= 0)
 
 #endif /* EMACS_SYSTIME_H */
+
+/* arch-tag: dcb79915-cf99-4bce-9778-aade71d07651
+   (do not change this comment) */

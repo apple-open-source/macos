@@ -31,8 +31,8 @@
 #define STDOUT      1
 #define STDERR      2
 
-static void run_add_arg PROTO((const char *s));
-static void run_init_prog PROTO((void));
+static void run_add_arg( const char *s );
+static void run_init_prog( void );
 
 extern char *strtok ();
 
@@ -57,10 +57,13 @@ static int run_argc_allocated;
 void 
 run_setup (const char *prog)
 {
-    char *cp;
     int i;
-
     char *run_prog;
+    char *buf, *d, *s;
+    size_t length;
+    size_t doff;
+    char inquotes;
+    int dolastarg;
 
     /* clean out any malloc'ed values from run_argv */
     for (i = 0; i < run_argc; i++)
@@ -75,11 +78,54 @@ run_setup (const char *prog)
 
     run_prog = xstrdup (prog);
 
+    s = run_prog;
+    d = buf = NULL;
+    length = 0;
+    dolastarg = 1;
+    inquotes = '\0';
+    doff = d - buf;
+    expand_string(&buf, &length, doff + 1);
+    d = buf + doff;
+    while (*d = *s++)
+    {
+	switch (*d)
+	{
+	    case '\\':
+		if (*s) *d = *s++;
+		d++;
+		break;
+	    case '"':
+	    case '\'':
+		if (inquotes == *d) inquotes = '\0';
+		else inquotes = *d;
+		break;
+	    case ' ':
+	    case '\t':
+		if (inquotes) d++;
+		else
+		{
+		    *d = '\0';
+		    run_add_arg (buf);
+		    d = buf;
+		    while (isspace(*s)) s++;
+		    if (!*s) dolastarg = 0;
+		}
+		break;
+	    default:
+		d++;
+		break;
+	}
+	doff = d - buf;
+	expand_string(&buf, &length, doff + 1);
+	d = buf + doff;
+    }
+    if (dolastarg) run_add_arg (buf);
     /* put each word into run_argv, allocating it as we go */
-    for (cp = strtok (run_prog, " \t"); cp; cp = strtok ((char *) NULL, " \t"))
-	run_add_arg (cp);
+    if (buf) free (buf);
+    free (run_prog);
 
-    free (run_prog)
+    free (run_prog);
+    if (buf) free (buf);
 }
 
 void
@@ -90,6 +136,9 @@ run_arg (s)
 }
 
 /* Return a malloc'd copy of s, with double quotes around it.  */
+/* FIXME - this should replace " with \" as it copies.  or something.
+ * depends where it's used, I would suppose.
+ */
 static char *
 quote (const char *s)
 {
@@ -301,13 +350,7 @@ run_popen (cmd, mode)
     const char *cmd;
     const char *mode;
 {
-    if (trace)
-#ifdef SERVER_SUPPORT
-	(void) fprintf (stderr, "%c-> run_popen(%s,%s)\n",
-			(server_active) ? 'S' : ' ', cmd, mode);
-#else
-	(void) fprintf (stderr, "-> run_popen(%s,%s)\n", cmd, mode);
-#endif
+    TRACE( TRACE_FUNCTION, "run_popen(%s,%s)", cmd, mode );
 
     if (noexec)
 	return (NULL);
@@ -316,6 +359,7 @@ run_popen (cmd, mode)
        double quotes.  */
     {
         char *requoted = requote (cmd);
+	TRACE( TRACE_DATA, "Executing popen(%s,%s)", requoted, mode );
 	FILE *result = popen (requoted, mode);
 	free (requoted);
 	return result;

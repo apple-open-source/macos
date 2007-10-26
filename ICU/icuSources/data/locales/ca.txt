@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/ca.xml
+// * Source File:<path>/common/main/ca.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/ca.xml
+ *  ICU <specials> source: <path>/xml/main/ca.xml
  */
 ca{
     Countries{
@@ -20,7 +20,7 @@ ca{
         AN{"Antilles Holandeses"}
         AO{"Angola"}
         AR{"Argentina"}
-        AT{"Âustria"}
+        AT{"Àustria"}
         AU{"Austràlia"}
         AW{"Aruba"}
         AZ{"Azerbaidjan"}
@@ -52,6 +52,7 @@ ca{
         CN{"Xina"}
         CO{"Colòmbia"}
         CR{"Costa Rica"}
+        CS{"Sèrbia i Montenegro"}
         CU{"Cuba"}
         CV{"Cap Verd"}
         CY{"Xipre"}
@@ -86,6 +87,7 @@ ca{
         GT{"Guatemala"}
         GW{"Guinea Bissau"}
         GY{"Guyana"}
+        HK{"Hong Kong"}
         HN{"Hondures"}
         HR{"Croàcia"}
         HT{"Haití"}
@@ -171,7 +173,6 @@ ca{
         SL{"Sierra Leone"}
         SN{"Senegal"}
         SO{"Somàlia"}
-        SP{"Sèrbia"}
         SR{"Surinam"}
         SV{"El Salvador"}
         SY{"Síria"}
@@ -203,12 +204,19 @@ ca{
         VU{"Vanuatu"}
         YE{"Iemen"}
         YT{"Mayotte"}
-        YU{"Iugoslàvia"}
         ZA{"Sud-àfrica"}
         ZM{"Zàmbia"}
         ZW{"Zimbabwe"}
     }
     Currencies{
+        BRL{
+            "BRL",
+            "Real brasiler",
+        }
+        CNY{
+            "CNY",
+            "Iuan renmimbi xinès",
+        }
         ESP{
             "₧",
             "ESP",
@@ -218,14 +226,38 @@ ca{
                 ".",
             }
         }
+        EUR{
+            "€",
+            "Euro",
+        }
+        GBP{
+            "£",
+            "Lliura esterlina britànica",
+        }
+        INR{
+            "=0#Rs.|1#Re.|1<Rs.",
+            "Rupia índia",
+        }
+        JPY{
+            "¥",
+            "Ien japonès",
+        }
+        RUB{
+            "RUB",
+            "Ruble rus",
+        }
+        USD{
+            "$",
+            "Dòlar EUA",
+        }
     }
-    ExemplarCharacters{"[a-z é í ó ú à è ò ï ü ŀ ç ñ]"}
+    ExemplarCharacters{"[a à b c ç d e é è f-i í ï j-n ñ o ó ò p-u ú ü v-z]"}
     Languages{
         aa{"àfar"}
         ab{"abkhaz"}
         af{"afrikaans"}
         am{"amhàric"}
-        ar{"ârab"}
+        ar{"àrab"}
         as{"assamès"}
         ay{"aimara"}
         az{"àzeri"}
@@ -375,23 +407,22 @@ ca{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
-    Version{"1.2"}
+    Scripts{
+        Latn{"Llatí"}
+    }
+    Version{"1.67"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                2,
-                1,
-            }
             DateTimePatterns{
-                "HH:mm:ss z",
-                "HH:mm:ss z",
-                "HH:mm:ss",
-                "HH:mm",
-                "EEEE dd MMMM yyyy",
-                "d MMMM yyyy",
+                "H:mm:ss z",
+                "H:mm:ss z",
+                "H:mm:ss",
+                "H:mm",
+                "EEEE d 'de' MMMM 'de' yyyy",
+                "d 'de' MMMM 'de' yyyy",
                 "dd/MM/yyyy",
                 "dd/MM/yy",
                 "{1} {0}",
@@ -418,11 +449,17 @@ ca{
                     }
                 }
             }
+            eras{
+                abbreviated{
+                    "aC",
+                    "dC",
+                }
+            }
             monthNames{
                 format{
                     abbreviated{
                         "gen.",
-                        "feb.",
+                        "febr.",
                         "març",
                         "abr.",
                         "maig",
@@ -450,7 +487,23 @@ ca{
                     }
                 }
             }
+            quarters{
+                format{
+                    abbreviated{
+                        "1T",
+                        "2T",
+                        "3T",
+                        "4T",
+                    }
+                    wide{
+                        "1r trimestre",
+                        "2n trimestre",
+                        "3r trimestre",
+                        "4t trimestre",
+                    }
+                }
+            }
         }
     }
-    localPatternChars{"GuMtkHmsSEDFwWahKzUeygAZ"}
+    localPatternChars{"GuMtkHmsSEDFwWahKzUeygAZvcL"}
 }

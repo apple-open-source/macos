@@ -20,12 +20,44 @@
 SHELL := /bin/sh
 
 # Sane defaults, which are typically overridden on the command line.
+MINIMAL=NO
+WINDOWS=NO
 SRCROOT=$(shell pwd)
 OBJROOT=$(SRCROOT)/build
 DSTROOT=$(OBJROOT)
 SYMROOT=$(OBJROOT)
 APPLE_INTERNAL_DIR=/AppleInternal
+TZDATA=$(lastword $(wildcard /usr/local/share/tz/tzdata*.tar.gz))
 RC_ARCHS=
+DISABLE_DRAFT=NO
+
+ifeq "$(DISABLE_DRAFT)" "YES"
+	DRAFT_FLAG=--disable-draft
+else
+	DRAFT_FLAG=
+endif
+
+ifeq "$(MINIMAL)" "YES"
+	THUMB_FLAG = -mthumb
+else
+	THUMB_FLAG =
+endif
+
+ifndef RC_ProjectSourceVersion
+ifdef RC_PROJECTSOURCEVERSION
+	RC_ProjectSourceVersion=$(RC_PROJECTSOURCEVERSION)
+endif
+endif
+
+ifneq "$(RC_ProjectSourceVersion)" ""
+	ifeq "$(WINDOWS)" "YES"
+		ICU_BUILD := $(shell echo $(RC_ProjectSourceVersion) | sed -r -e 's/[0-9]+.([0-9]+)(.[0-9]+)?/\1/')
+	else
+		ICU_BUILD := $(shell echo $(RC_ProjectSourceVersion) | sed -E -e 's/[0-9]+.([0-9]+)(.[0-9]+)?/\1/')
+	endif
+else
+	ICU_BUILD := 0
+endif
 
 # Disallow $(SRCROOT) == $(OBJROOT)
 ifeq ($(OBJROOT), $(SRCROOT))
@@ -45,7 +77,20 @@ endif
 
 EXTRA_HDRS =
 # EXTRA_HDRS = ./extra/ustdio/ ./layout/ 
-HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
+ifeq "$(MINIMAL)" "YES"
+    HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
+else ifeq "$(WINDOWS)" "YES"
+    HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
+else
+    HDR_MAKE_SUBDIR = ./common/ ./i18n/ ./io/ $(EXTRA_HDRS)
+endif
+ifeq "$(WINDOWS)" "YES"
+	HDR_PREFIX=$(APPLE_INTERNAL_DIR)
+	PRIVATE_HDR_PREFIX=$(APPLE_INTERNAL_DIR)
+else
+	HDR_PREFIX=/usr
+	PRIVATE_HDR_PREFIX=/usr/local
+endif
 
 #################################
 # Install
@@ -59,13 +104,22 @@ HDR_MAKE_SUBDIR = ./common/ ./i18n/ $(EXTRA_HDRS)
 INSTALL = /usr/bin/install
 COMMON_OBJ = ./common/*.o
 I18N_OBJ = ./i18n/*.o
+IO_OBJ = ./io/*.o
 STUB_DATA_OBJ = ./stubdata/*.o
-COMMON_SRC = $(OBJROOT)/common/*.c
-I18N_SRC = $(OBJROOT)/i18n/*.c
-STUB_DATA_SRC = $(OBJROOT)/stubdata/*.c
+#COMMON_SRC = $(OBJROOT)/common/*.c
+#I18N_SRC = $(OBJROOT)/i18n/*.c
+#IO_SRC = $(OBJROOT)/io/*.c
+#STUB_DATA_SRC = $(OBJROOT)/stubdata/*.c
 EXTRA_LIBS =
 #EXTRA_LIBS =./extra/ ./layout/ ./tools/ctestfw/ ./tools/toolutil/
 #DATA_OBJ = ./data/out/build/*.o
+ifeq "$(MINIMAL)" "YES"
+    DYLIB_OBJS=$(COMMON_OBJ) $(I18N_OBJ) $(STUB_DATA_OBJ)
+else ifeq "$(WINDOWS)" "YES"
+    DYLIB_OBJS=$(COMMON_OBJ) ./common/common.res $(I18N_OBJ) $(STUB_DATA_OBJ)
+else
+    DYLIB_OBJS=$(COMMON_OBJ) $(I18N_OBJ) $(IO_OBJ) $(STUB_DATA_OBJ)
+endif
 
 #################################
 # Cleaning
@@ -81,15 +135,25 @@ MANUAL_CLEAN_EXTRA = ./extra/scrptrun ./samples/layout ./extra/ustdio ./extra
 MANUAL_CLEAN_TEST = ./test/collperf ./test/iotest ./test/letest ./test/thaitest ./test/threadtest ./test/testmap ./test 
 MANUAL_CLEAN_SAMPLE = ./samples/layout ./samples
 
-CLEAN_SUBDIR = ./stubdata ./common ./i18n ./layout ./layoutex ./data ./tools ./$(MANUAL_CLEAN_TOOLS) $(MANUAL_CLEAN_EXTRA) $(MANUAL_CLEAN_TEST) $(MANUAL_CLEAN_SAMPLE) 
+CLEAN_SUBDIR = ./stubdata ./common ./i18n ./io ./layout ./layoutex ./data ./tools ./$(MANUAL_CLEAN_TOOLS) $(MANUAL_CLEAN_EXTRA) $(MANUAL_CLEAN_TEST) $(MANUAL_CLEAN_SAMPLE) 
 
 #################################
 # Config flags
 #################################
 
-CONFIG_FLAGS = --disable-renaming --disable-extras --disable-ustdio --disable-layout \
-	--disable-samples --with-data-packaging=archive --prefix=/usr/local \
-	--srcdir=$(SRCROOT)/icuSources
+ifeq "$(MINIMAL)" "YES"
+	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-icuio --disable-layout \
+		--disable-samples --with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
+		$(DRAFT_FLAG) --srcdir=$(SRCROOT)/icuSources
+else ifeq "$(WINDOWS)" "YES"
+	CONFIG_FLAGS = --disable-extras --disable-icuio --disable-layout \
+		--disable-samples --with-data-packaging=library --prefix=$(PRIVATE_HDR_PREFIX) \
+		$(DRAFT_FLAG)
+else
+	CONFIG_FLAGS = --disable-renaming --disable-extras --disable-layout \
+		--disable-samples --with-data-packaging=archive --prefix=$(PRIVATE_HDR_PREFIX) \
+		$(DRAFT_FLAG) --srcdir=$(SRCROOT)/icuSources
+endif
 
 #################################
 # Install paths
@@ -103,14 +167,39 @@ CONFIG_FLAGS = --disable-renaming --disable-extras --disable-ustdio --disable-la
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 32
+ICU_VERS = 36
 ICU_SUBVERS = 0
 CORE_VERS = A
-DYLIB_SUFF = dylib
-libdir = /usr/lib/
 
-INSTALLED_DYLIB = lib$(LIB_NAME).$(CORE_VERS).$(DYLIB_SUFF)
+ifeq "$(WINDOWS)" "YES"
+	DYLIB_SUFF = dll
+	libdir = /AppleInternal/bin/
+	winlibdir = /AppleInternal/lib/
+else
+	DYLIB_SUFF = dylib
+	libdir = /usr/lib/
+	winlibdir =
+endif
+
 DYLIB = lib$(LIB_NAME).$(DYLIB_SUFF)
+DYLIB_DEBUG = lib$(LIB_NAME)_debug.$(DYLIB_SUFF)
+DYLIB_PROFILE = lib$(LIB_NAME)_profile.$(DYLIB_SUFF)
+ifeq "$(WINDOWS)" "YES"
+	INSTALLED_DYLIB = $(LIB_NAME).$(DYLIB_SUFF)
+	INSTALLED_DYLIB_DEBUG = $(LIB_NAME)_debug.$(DYLIB_SUFF)
+	INSTALLED_DYLIB_PROFILE = $(LIB_NAME)_profile.$(DYLIB_SUFF)
+else
+	INSTALLED_DYLIB = lib$(LIB_NAME).$(CORE_VERS).$(DYLIB_SUFF)
+	INSTALLED_DYLIB_DEBUG = lib$(LIB_NAME).$(CORE_VERS)_debug.$(DYLIB_SUFF)
+	INSTALLED_DYLIB_PROFILE = lib$(LIB_NAME).$(CORE_VERS)_profile.$(DYLIB_SUFF)
+endif
+
+INSTALLED_DYLIB_icu = INSTALLED_DYLIB
+INSTALLED_DYLIB_debug = INSTALLED_DYLIB_DEBUG
+INSTALLED_DYLIB_profile = INSTALLED_DYLIB_PROFILE
+DYLIB_icu = DYLIB
+DYLIB_debug = DYLIB_DEBUG
+DYLIB_profile = DYLIB_PROFILE
 
 #################################
 # Data files
@@ -137,26 +226,54 @@ LIBOVERRIDES=LIBICUDT="-L$(OBJROOT) -l$(LIB_NAME)" \
 	LIBICUUC="-L$(OBJROOT) -l$(LIB_NAME)" \
 	LIBICUI18N="-L$(OBJROOT) -l$(LIB_NAME)"
 
-ENV=	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
-	CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions" \
-	CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fno-rtti" \
-	RC_ARCHS="$(RC_ARCHS)" \
-	DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+ifeq "$(WINDOWS)" "YES"
+	ifeq "$(ICU_BUILD)" "0"
+		CPPOPTIONS = 
+	else
+		CPPOPTIONS = CPPFLAGS="-DU_ICU_VERSION_BUILDLEVEL_NUM=$(ICU_BUILD)"
+	endif
+	ENV= CFLAGS="/O2 /Ob2 /MD /GF" CXXFLAGS="/O2 /Ob2 /MD /GF" LDFLAGS="/DEBUG"
+	ENV_CONFIGURE= $(CPPOPTIONS) CFLAGS="/O2 /Ob2 /MD /GF" CXXFLAGS="/O2 /Ob2 /MD /GF" LDFLAGS="/DEBUG"
+	ENV_DEBUG= CFLAGS="/O2 /Ob2 /MDd /GF /Zi" CXXFLAGS="/O2 /Ob2 /MDd /GF /Zi" LDFLAGS="/DEBUG"
+	ENV_PROFILE=
+else
+	ifeq "$(ICU_BUILD)" "0"
+		CPPOPTIONS = CPPFLAGS="-DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=1040"
+	else
+		CPPOPTIONS = CPPFLAGS="-DU_ICU_VERSION_BUILDLEVEL_NUM=$(ICU_BUILD) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=1040"
+	endif
+	ENV=	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fvisibility=hidden $(THUMB_FLAG)" \
+		CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -fno-exceptions -fno-rtti -fvisibility=hidden -fvisibility-inlines-hidden $(THUMB_FLAG)" \
+		RC_ARCHS="$(RC_ARCHS)" \
+		TZDATA="$(TZDATA)" \
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+		
+	ENV_CONFIGURE=	$(CPPOPTIONS) APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -g -Os -fno-exceptions -fvisibility=hidden $(THUMB_FLAG)" \
+		CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -g -Os -fno-exceptions -fno-rtti -fvisibility=hidden -fvisibility-inlines-hidden $(THUMB_FLAG)" \
+		RC_ARCHS="$(RC_ARCHS)" \
+		TZDATA="$(TZDATA)" \
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
 	
-ENV_CONFIGURE=	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
-	CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -g -Os -fno-exceptions" \
-	CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" -g -Os -fno-exceptions -fno-rtti" \
-	RC_ARCHS="$(RC_ARCHS)" \
-	DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
-
-ENV_DEBUG = APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
-	CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -O0 -g -fno-exceptions" \
-	CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -O0 -g -fno-exceptions -fno-rtti" \
-	RC_ARCHS="$(RC_ARCHS)" \
-	DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
-
+	ENV_DEBUG = APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -O0 -gfull -fno-exceptions -fvisibility=hidden $(THUMB_FLAG)" \
+		CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -O0 -gfull -fno-exceptions -fno-rtti -fvisibility=hidden -fvisibility-inlines-hidden $(THUMB_FLAG)" \
+		RC_ARCHS="$(RC_ARCHS)" \
+		TZDATA="$(TZDATA)" \
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+	
+	ENV_PROFILE = APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+		CFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -pg -fno-exceptions -fvisibility=hidden $(THUMB_FLAG)" \
+		CXXFLAGS="-DICU_DATA_DIR=\"\\\"/usr/share/icu/\\\"\" $(RC_ARCHS:%=-arch %) -g -Os -pg -fno-exceptions -fno-rtti -fvisibility=hidden -fvisibility-inlines-hidden $(THUMB_FLAG)" \
+		RC_ARCHS="$(RC_ARCHS)" \
+		TZDATA="$(TZDATA)" \
+		DYLD_LIBRARY_PATH="$(DSTROOT)/usr/local/lib"
+endif
+	
 ENV_icu = ENV
 ENV_debug = ENV_DEBUG
+ENV_profile = ENV_PROFILE
 
 ORDERFILE=/usr/local/lib/OrderFiles/libicucore.order
 ifeq "$(shell test -f $(ORDERFILE) && echo YES )" "YES"
@@ -175,29 +292,49 @@ endif
 .PHONY : icu check installsrc installhdrs clean install debug debug-install
 .DELETE_ON_ERROR :
 
-icu debug : $(OBJROOT)/Makefile
+icu debug profile : $(OBJROOT)/Makefile
 	(cd $(OBJROOT); \
 		$(MAKE) $($(ENV_$@)); \
-		$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
-			$(RC_ARCHS:%=-arch %) $(CXXFLAGS) $(LDFLAGS) -single_module $(SECTORDER_FLAGS) \
-			-install_name $(libdir)$(INSTALLED_DYLIB) -o ./$(INSTALLED_DYLIB) $(COMMON_OBJ) $(I18N_OBJ) $(STUB_DATA_OBJ); \
-		if test -f ./$(ICU_DATA_DIR)/$(B_DATA_FILE); then \
-			ln -fs ./$(ICU_DATA_DIR)/$(B_DATA_FILE); \
+		if test "$(WINDOWS)" = "YES"; then \
+			if test "$@" = "debug"; then \
+				(cd common; \
+					LINK.EXE /subsystem:console /DLL /nologo /base:"0x4a800000" /DEBUG \
+						/IMPLIB:../lib/icuuc_$@.lib /out:../lib/icuuc$(ICU_VERS)_$@.dll *.o \
+						common.res ../stubdata/icudt.lib advapi32.lib;); \
+				(cd i18n; \
+					LINK.EXE /subsystem:console /DLL /nologo /base:"0x4a900000" /DEBUG \
+						/IMPLIB:../lib/icuin_$@.lib /out:../lib/icuin$(ICU_VERS)_$@.dll *.o \
+						i18n.res ../lib/icuuc_$@.lib ../stubdata/icudt.lib advapi32.lib;); \
+			fi; \
 		else \
-			DYLD_LIBRARY_PATH="./lib:./stubdata" \
-			./bin/icuswap -tb ./$(ICU_DATA_DIR)/$(L_DATA_FILE) $(B_DATA_FILE); \
-		fi; \
-		if test -f ./$(ICU_DATA_DIR)/$(L_DATA_FILE); then \
-		    ln -fs ./$(ICU_DATA_DIR)/$(L_DATA_FILE); \
-		else \
-			DYLD_LIBRARY_PATH="./lib:./stubdata" \
-			./bin/icuswap -tl ./$(ICU_DATA_DIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
+			tmpfile=`mktemp -t weakexternal` || exit 1; \
+			nm -m $(RC_ARCHS:%=-arch %) $(DYLIB_OBJS) | fgrep "weak external" | fgrep -v "undefined" | sed -e 's/.*weak external //' | sort | uniq | cat >$$tmpfile; \
+			$($(ENV_$@)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
+				$(RC_ARCHS:%=-arch %) $(CXXFLAGS) $(LDFLAGS) -single_module $(SECTORDER_FLAGS) -unexported_symbols_list $$tmpfile -dead_strip \
+				-install_name $(libdir)$($(INSTALLED_DYLIB_$@)) -o ./$($(INSTALLED_DYLIB_$@)) $(DYLIB_OBJS); \
+			if test -f ./$(ICU_DATA_DIR)/$(B_DATA_FILE); then \
+				ln -fs ./$(ICU_DATA_DIR)/$(B_DATA_FILE); \
+			else \
+				DYLD_LIBRARY_PATH="./lib:./stubdata" \
+				./bin/icupkg -tb ./$(ICU_DATA_DIR)/$(L_DATA_FILE) $(B_DATA_FILE); \
+			fi; \
+			if test -f ./$(ICU_DATA_DIR)/$(L_DATA_FILE); then \
+				ln -fs ./$(ICU_DATA_DIR)/$(L_DATA_FILE); \
+			else \
+				DYLD_LIBRARY_PATH="./lib:./stubdata" \
+				./bin/icupkg -tl ./$(ICU_DATA_DIR)/$(B_DATA_FILE) $(L_DATA_FILE); \
+			fi; \
 		fi; \
 	);
 
 check : icu
 	(cd $(OBJROOT); \
-		$(MAKE) $(ENV) check; \
+		ICU_DATA=$(OBJROOT) $(MAKE) $(ENV) check; \
+	);
+
+check-debug: debug
+	(cd $(OBJROOT); \
+		ICU_DATA=$(OBJROOT) $(MAKE) $(ENV_DEBUG) check; \
 	);
 
 samples: icu
@@ -214,35 +351,29 @@ $(OBJROOT)/Makefile :
 	if test ! -d $(OBJROOT); then \
 		mkdir -p $(OBJROOT); \
 	fi;
-	(cd $(OBJROOT); $(ENV_CONFIGURE) $(SRCROOT)/icuSources/configure $(CONFIG_FLAGS);)
-
-debug-install:	debug installhdrs
-	if test ! -d $(DSTROOT)$(libdir)/; then \
-		$(INSTALL) -d -m 0775 $(DSTROOT)$(libdir)/; \
+	if test "$(WINDOWS)" = "YES"; then \
+		cp -Rpf $(SRCROOT)/icuSources/* $(OBJROOT); \
+		(cd $(OBJROOT)/data/unidata; mv base_unidata/*.txt .;); \
+		(cd $(OBJROOT); $(ENV_CONFIGURE) ./runConfigureICU Cygwin/MSVC $(CONFIG_FLAGS);) \
+	else \
+		(cd $(OBJROOT); $(ENV_CONFIGURE) $(SRCROOT)/icuSources/runConfigureICU MacOSX $(CONFIG_FLAGS);) \
 	fi;
-	$(INSTALL) -b -m 0664 $(OBJROOT)/$(INSTALLED_DYLIB) $(DSTROOT)$(libdir)$(INSTALLED_DYLIB)
-	(cd $(DSTROOT)$(libdir); \
-	ln -fs  $(INSTALLED_DYLIB) $(DYLIB));
-	for subdir in $(EXTRA_LIBS); do \
-		(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV_DEBUG) install-library;) \
-	done;
-	if test ! -d $(DSTROOT)$(datadir)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(datadir)/; \
-	fi;	
-	if test -f $(OBJROOT)/$(B_DATA_FILE); then \
-		$(INSTALL) -b -m 0644  $(OBJROOT)/$(B_DATA_FILE) $(DSTROOT)$(datadir)$(B_DATA_FILE); \
-	fi;
-	if test -f $(OBJROOT)/$(L_DATA_FILE); then \
-		$(INSTALL) -b -m 0644  $(OBJROOT)/$(L_DATA_FILE) $(DSTROOT)$(datadir)$(L_DATA_FILE); \
-	fi;
-	if test ! -d $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; \
-	fi;
-	$(INSTALL) -b -m 0644 $(SRCROOT)/ICU.plist $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)ICU.plist;
-	if test ! -d $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; \
-	fi;
-	$(INSTALL) -b -m 0644 $(SRCROOT)/license.html $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)ICU.html;
+	if test "$(MINIMAL)" = "YES"; then \
+		(cd $(OBJROOT)/common/unicode/; \
+			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
+			patch <$(SRCROOT)/minimalpatchconfig.txt;) \
+	elif test "$(WINDOWS)" = "YES"; then \
+		(cd $(OBJROOT)/common/unicode/; \
+			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
+			patch <$(SRCROOT)/windowspatchconfig.txt;) \
+	else \
+		(cd $(OBJROOT)/common/unicode/; \
+			cp $(SRCROOT)/icuSources/common/unicode/uconfig.h . ; \
+			patch <$(SRCROOT)/patchconfig.txt;) \
+	fi; \
+	if test -f $(SRCROOT)/icuSources/common/Makefile.local; then \
+		cp -p $(SRCROOT)/icuSources/common/Makefile.local $(OBJROOT)/common/ ; \
+	fi; 
 
 #################################
 # B&I TARGETS
@@ -256,7 +387,7 @@ debug-install:	debug installhdrs
 installsrc :
 	if test ! -d $(SRCROOT); then mkdir $(SRCROOT); fi;
 	if test -d $(SRCROOT)/icuSources ; then rm -rf $(SRCROOT)/icuSources; fi;
-	tar cf - ./makefile ./ICU.plist ./license.html ./icuSources | (cd $(SRCROOT) ; tar xfp -); \
+	tar cf - ./makefile ./ICU.plist ./license.html ./icuSources ./minimalpatchconfig.txt ./windowspatchconfig.txt ./patchconfig.txt | (cd $(SRCROOT) ; tar xfp -); \
 	for i in `find $(SRCROOT)/icuSources/ | grep "CVS$$"` ; do \
 		if test -d $$i ; then \
 			rm -rf $$i; \
@@ -274,44 +405,88 @@ installsrc :
 
 installhdrs : $(OBJROOT)/Makefile
 	(cd $(OBJROOT); \
-	for subdir in $(HDR_MAKE_SUBDIR); do \
-		(cd $$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV) install-headers); \
-	done;);
+		for subdir in $(HDR_MAKE_SUBDIR); do \
+			(cd $$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV) install-headers); \
+		done; \
+	);
 
 # We run configure and run make first. This generates the .o files. We then link them 
 # all up together into libicucore. Then we put it into its install location, create 
 # symbolic links, and then strip the main dylib. Then install the remaining libraries. 
 # We cleanup the sources folder.
-	
+
 install : installhdrs icu
 	if test ! -d $(DSTROOT)$(libdir)/; then \
 		$(INSTALL) -d -m 0775 $(DSTROOT)$(libdir)/; \
 	fi;
-	$(INSTALL) -b -m 0664 $(OBJROOT)/$(INSTALLED_DYLIB) $(DSTROOT)$(libdir)$(INSTALLED_DYLIB)
-	(cd $(DSTROOT)$(libdir); \
-	ln -fs  $(INSTALLED_DYLIB) $(DYLIB));
-	cp $(OBJROOT)/$(INSTALLED_DYLIB) $(SYMROOT)/$(INSTALLED_DYLIB);
-	strip -x -u -r -S $(DSTROOT)$(libdir)$(INSTALLED_DYLIB);
-	for subdir in $(EXTRA_LIBS); do \
-		(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV) install-library;) \
-	done;
-	if test ! -d $(DSTROOT)$(datadir)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(datadir)/; \
-	fi;	
-	if test -f $(OBJROOT)/$(B_DATA_FILE); then \
-		$(INSTALL) -b -m 0644  $(OBJROOT)/$(B_DATA_FILE) $(DSTROOT)$(datadir)$(B_DATA_FILE); \
+	if test "$(WINDOWS)" = "YES"; then \
+		if test ! -d $(DSTROOT)$(winlibdir)/; then \
+			$(INSTALL) -d -m 0775 $(DSTROOT)$(winlibdir)/; \
+		fi; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuuc.lib $(DSTROOT)$(winlibdir)icuuc.lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuuc$(ICU_VERS).pdb $(DSTROOT)$(libdir)icuuc$(ICU_VERS).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT)/lib/icuuc$(ICU_VERS).dll $(DSTROOT)$(libdir)icuuc$(ICU_VERS).dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuin.lib $(DSTROOT)$(winlibdir)icuin.lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuin$(ICU_VERS).pdb $(DSTROOT)$(libdir)icuin$(ICU_VERS).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT)/lib/icuin$(ICU_VERS).dll $(DSTROOT)$(libdir)icuin$(ICU_VERS).dll; \
+		$(INSTALL) -b -m 0755 $(OBJROOT)/lib/icudt$(ICU_VERS).dll $(DSTROOT)$(libdir)icudt$(ICU_VERS).dll; \
+	else \
+		$(INSTALL) -b -m 0664 $(OBJROOT)/$(INSTALLED_DYLIB) $(DSTROOT)$(libdir)$(INSTALLED_DYLIB); \
+		(cd $(DSTROOT)$(libdir); \
+		ln -fs  $(INSTALLED_DYLIB) $(DYLIB)); \
+		cp $(OBJROOT)/$(INSTALLED_DYLIB) $(SYMROOT)/$(INSTALLED_DYLIB); \
+		strip -x -u -r -S $(DSTROOT)$(libdir)$(INSTALLED_DYLIB); \
+		for subdir in $(EXTRA_LIBS); do \
+			(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV) install-library;) \
+		done; \
+		if test ! -d $(DSTROOT)$(datadir)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)$(datadir)/; \
+		fi;	\
+		if test -f $(OBJROOT)/$(B_DATA_FILE); then \
+			$(INSTALL) -b -m 0644  $(OBJROOT)/$(B_DATA_FILE) $(DSTROOT)$(datadir)$(B_DATA_FILE); \
+		fi; \
+		if test -f $(OBJROOT)/$(L_DATA_FILE); then \
+			$(INSTALL) -b -m 0644  $(OBJROOT)/$(L_DATA_FILE) $(DSTROOT)$(datadir)$(L_DATA_FILE); \
+		fi; \
+		if test ! -d $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; \
+		fi; \
+		$(INSTALL) -b -m 0644 $(SRCROOT)/ICU.plist $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)ICU.plist; \
+		if test ! -d $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; then \
+			$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; \
+		fi; \
+		$(INSTALL) -b -m 0644 $(SRCROOT)/license.html $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)ICU.html; \
 	fi;
-	if test -f $(OBJROOT)/$(L_DATA_FILE); then \
-		$(INSTALL) -b -m 0644  $(OBJROOT)/$(L_DATA_FILE) $(DSTROOT)$(datadir)$(L_DATA_FILE); \
+
+DEPEND_install_debug = debug
+DEPEND_install_profile = profile
+	
+.SECONDEXPANSION:
+install_debug install_profile : $$(DEPEND_$$@)
+	if test ! -d $(DSTROOT)$(libdir)/; then \
+		$(INSTALL) -d -m 0775 $(DSTROOT)$(libdir)/; \
 	fi;
-	if test ! -d $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)/; \
+	if test "$(WINDOWS)" = "YES"; then \
+		if test ! -d $(DSTROOT)$(winlibdir)/; then \
+			$(INSTALL) -d -m 0775 $(DSTROOT)$(winlibdir)/; \
+		fi; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuuc_$(DEPEND_$@).lib $(DSTROOT)$(winlibdir)icuuc_$(DEPEND_$@).lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuuc$(ICU_VERS)_$(DEPEND_$@).pdb $(DSTROOT)$(libdir)icuuc$(ICU_VERS)_$(DEPEND_$@).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT)/lib/icuuc$(ICU_VERS)_$(DEPEND_$@).dll $(DSTROOT)$(libdir)icuuc$(ICU_VERS)_$(DEPEND_$@).dll; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuin_$(DEPEND_$@).lib $(DSTROOT)$(winlibdir)icuin_$(DEPEND_$@).lib; \
+		$(INSTALL) -b -m 0644 $(OBJROOT)/lib/icuin$(ICU_VERS)_$(DEPEND_$@).pdb $(DSTROOT)$(libdir)icuin$(ICU_VERS)_$(DEPEND_$@).pdb; \
+		$(INSTALL) -b -m 0755 $(OBJROOT)/lib/icuin$(ICU_VERS)_$(DEPEND_$@).dll $(DSTROOT)$(libdir)icuin$(ICU_VERS)_$(DEPEND_$@).dll; \
+	else \
+		$(INSTALL) -b -m 0664 $(OBJROOT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(DSTROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+		(cd $(DSTROOT)$(libdir); \
+		ln -fs  $($(INSTALLED_DYLIB_$(DEPEND_$@))) $($(DYLIB_$(DEPEND_$@)))); \
+		cp $(OBJROOT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))) $(SYMROOT)/$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+		strip -x -u -r -S $(DSTROOT)$(libdir)$($(INSTALLED_DYLIB_$(DEPEND_$@))); \
+		for subdir in $(EXTRA_LIBS); do \
+			(cd $(OBJROOT)/$$subdir; $(MAKE) -e DESTDIR=$(DSTROOT) $(ENV) install-library;) \
+		done; \
 	fi;
-	$(INSTALL) -b -m 0644 $(SRCROOT)/ICU.plist $(DSTROOT)$(OPEN_SOURCE_VERSIONS_DIR)ICU.plist;
-	if test ! -d $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; then \
-		$(INSTALL) -d -m 0755 $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)/; \
-	fi;
-	$(INSTALL) -b -m 0644 $(SRCROOT)/license.html $(DSTROOT)$(OPEN_SOURCE_LICENSES_DIR)ICU.html;
 
 clean :
 	-rm -rf $(OBJROOT)
+

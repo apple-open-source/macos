@@ -37,6 +37,7 @@
 
 #include <security_asn1/secerr.h>
 #include <Security/cssmapple.h>
+#include <pthread.h>
 
 /* MISSI Mosaic Object ID space */
 #define USGOV                   0x60, 0x86, 0x48, 0x01, 0x65
@@ -424,6 +425,9 @@ CONST_OID aes256_KEY_WRAP[]			= { AES, 45 };
 CONST_OID sha256[]                              = { SHAXXX, 1 };
 CONST_OID sha384[]                              = { SHAXXX, 2 };
 CONST_OID sha512[]                              = { SHAXXX, 3 };
+
+/* a special case: always associated with a caller-specified OID */
+CONST_OID noOid[]				= { 0 };
 
 #define OI(x) { sizeof x, (uint8 *)x }
 #ifndef SECOID_NO_STRINGS
@@ -1045,6 +1049,10 @@ const static SECOidData oids[] = {
 	"AES-192 Key Wrap", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
     OD( aes256_KEY_WRAP, SEC_OID_AES_256_KEY_WRAP,
 	"AES-256 Key Wrap", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
+	
+    /* caller-specified OID for eContentType */
+    OD( noOid, SEC_OID_OTHER,
+	"Caller-specified eContentType", CSSM_ALGID_NONE, INVALID_CERT_EXTENSION),
 
 };
 
@@ -1059,6 +1067,13 @@ static int secoidDynamicTableSize = 0;
 static int secoidLastDynamicEntry = 0;
 static int secoidLastHashEntry = 0;
 
+/* 
+ * A mutex to protect creation and writing of all three hash tables in
+ * this module, and reading of the dynamic table.
+ */
+static pthread_mutex_t oid_hash_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+/* caller holds oid_hash_mutex */
 static SECStatus
 secoid_DynamicRehash(void)
 {
@@ -1095,23 +1110,27 @@ secoid_DynamicRehash(void)
 /*
  * Lookup a Dynamic OID. Dynamic OID's still change slowly, so it's
  * cheaper to rehash the table when it changes than it is to do the loop
- * each time. Worry: what about thread safety here? Global Static data with
- * no locks.... (sigh).
+ * each time.
  */
 static SECOidData *
 secoid_FindDynamic(const SECItem *key) {
     SECOidData *ret = NULL;
+
+    pthread_mutex_lock(&oid_hash_mutex);
+    /* subsequent errors to loser: */
     if (secoidDynamicTable == NULL) {
 	/* PORT_SetError! */
-	return NULL;
+	goto loser;
     }
     if (secoidLastHashEntry != secoidLastDynamicEntry) {
 	SECStatus rv = secoid_DynamicRehash();
 	if ( rv != SECSuccess ) {
-	    return NULL;
+	    goto loser;
 	}
     }
     ret = (SECOidData *)PL_HashTableLookup (oid_d_hash, key);
+loser:
+    pthread_mutex_unlock(&oid_hash_mutex);
     return ret;
 	
 }
@@ -1120,45 +1139,57 @@ static SECOidData *
 secoid_FindDynamicByTag(SECOidTag tagnum)
 {
     int tagNumDiff;
-
-    if (secoidDynamicTable == NULL) {
-	return NULL;
-    }
-
+    SECOidData *rtn = NULL;
+    
     if (tagnum < SEC_OID_TOTAL) {
 	return NULL;
     }
 
-    tagNumDiff = tagnum - SEC_OID_TOTAL;
-    if (tagNumDiff >= secoidLastDynamicEntry) {
-	return NULL;
+    pthread_mutex_lock(&oid_hash_mutex);
+    /* subsequent errors to loser: */
+    
+    if (secoidDynamicTable == NULL) {
+	goto loser;
     }
 
-    return(secoidDynamicTable[tagNumDiff]);
+    tagNumDiff = tagnum - SEC_OID_TOTAL;
+    if (tagNumDiff >= secoidLastDynamicEntry) {
+	goto loser;
+    }
+
+    rtn = secoidDynamicTable[tagNumDiff];
+loser:
+    pthread_mutex_unlock(&oid_hash_mutex);
+    return rtn;
 }
 
-/*
- * this routine is definately not thread safe. It is only called out
- * of the UI, or at init time. If we want to call it any other time,
- * we need to make it thread safe.
- */
 SECStatus
 SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) {
-    SECOidData *oiddp = (SECOidData *)PORT_Alloc(sizeof(SECOidData));
-    int last = secoidLastDynamicEntry;
-    int tableSize = secoidDynamicTableSize;
-    int next = last++;
-    SECOidData **newTable = secoidDynamicTable;
+    SECOidData *oiddp;
+    int last;
+    int tableSize;
+    int next;
+    SECOidData **newTable;
     SECOidData **oldTable = NULL;
+    SECStatus srtn = SECFailure;
 
     if (oid == NULL) {
 	return SECFailure;
     }
 
+    pthread_mutex_lock(&oid_hash_mutex);
+    /* subsequent errors to loser: */
+    
+    oiddp = (SECOidData *)PORT_Alloc(sizeof(SECOidData));
+    last = secoidLastDynamicEntry;
+    tableSize = secoidDynamicTableSize;
+    next = last++;
+    newTable = secoidDynamicTable;    
+
     /* fill in oid structure */
     if (SECITEM_CopyItem(NULL,&oiddp->oid,oid) != SECSuccess) {
 	PORT_Free(oiddp);
-	return SECFailure;
+	goto loser;
     }
     oiddp->offset = (SECOidTag)(next + SEC_OID_TOTAL);
     /* may we should just reference the copy passed to us? */
@@ -1174,7 +1205,7 @@ SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) 
 	if (newTable == NULL) {
 	   PORT_Free(oiddp->oid.Data);
 	   PORT_Free(oiddp);
-	   return SECFailure;
+	   goto loser;
 	}
 	PORT_Memcpy(newTable,oldTable,sizeof(SECOidData *)*oldTableSize);
 	PORT_Free(oldTable);
@@ -1183,22 +1214,31 @@ SECOID_AddEntry(SECItem *oid, char *description, CSSM_ALGORITHMS cssmAlgorithm) 
     newTable[next] = oiddp;
     secoidDynamicTable = newTable;
     secoidDynamicTableSize = tableSize;
-    secoidLastDynamicEntry= last;
-    return SECSuccess;
+    secoidLastDynamicEntry = last;
+    srtn = SECSuccess;
+loser:
+    pthread_mutex_unlock(&oid_hash_mutex);    
+    return srtn;
 }
 	
 
 /* normal static table processing */
+
+/* creation and writes to these hash tables is protected by oid_hash_mutex */
 static PLHashTable *oidhash     = NULL;
 static PLHashTable *oidmechhash = NULL;
 
 static PLHashNumber
 secoid_HashNumber(const void *key)
 {
-    return (PLHashNumber) key;
+	intptr_t keyint = (intptr_t)key;
+	// XXX/gh  revisit this
+	keyint ^= (keyint >> 8);
+	keyint ^= (keyint << 8);
+	return (PLHashNumber) keyint;
 }
 
-
+/* caller holds oid_hash_mutex */
 static SECStatus
 InitOIDHash(void)
 {
@@ -1230,8 +1270,9 @@ InitOIDHash(void)
 	}
 
 	if ( oid->cssmAlgorithm != CSSM_ALGID_NONE ) {
+		intptr_t algorithm = oid->cssmAlgorithm;
 	    entry = PL_HashTableAdd( oidmechhash, 
-					(void *)oid->cssmAlgorithm, (void *)oid );
+					(void *)algorithm, (void *)oid );
 	    if ( entry == NULL ) {
 	        PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
                 PORT_Assert(0); /* This function should never fail. */
@@ -1251,14 +1292,18 @@ SECOID_FindOIDByCssmAlgorithm(CSSM_ALGORITHMS cssmAlgorithm)
     SECOidData *ret;
     int rv;
 
+    pthread_mutex_lock(&oid_hash_mutex);
     if ( !oidhash ) {
         rv = InitOIDHash();
 	if ( rv != SECSuccess ) {
+	    pthread_mutex_unlock(&oid_hash_mutex);
 	    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
 	    return NULL;
 	}
     }
-    ret = PL_HashTableLookupConst ( oidmechhash, (void *)cssmAlgorithm);
+    pthread_mutex_unlock(&oid_hash_mutex);
+    intptr_t algorithm = cssmAlgorithm;
+    ret = PL_HashTableLookupConst ( oidmechhash, (void *)algorithm);
     if ( ret == NULL ) {
         PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
     }
@@ -1272,13 +1317,16 @@ SECOID_FindOID(const SECItem *oid)
     SECOidData *ret;
     int rv;
     
+    pthread_mutex_lock(&oid_hash_mutex);
     if ( !oidhash ) {
 	rv = InitOIDHash();
 	if ( rv != SECSuccess ) {
+	    pthread_mutex_unlock(&oid_hash_mutex);
 	    PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
 	    return NULL;
 	}
     }
+    pthread_mutex_unlock(&oid_hash_mutex);
     
     ret = PL_HashTableLookupConst ( oidhash, oid );
     if ( ret == NULL ) {
@@ -1343,6 +1391,7 @@ SECOID_Shutdown(void)
 {
     int i;
 
+    pthread_mutex_lock(&oid_hash_mutex);
     if (oidhash) {
 	PL_HashTableDestroy(oidhash);
 	oidhash = NULL;
@@ -1365,5 +1414,6 @@ SECOID_Shutdown(void)
 	secoidLastDynamicEntry = 0;
 	secoidLastHashEntry = 0;
     }
+    pthread_mutex_unlock(&oid_hash_mutex);
     return SECSuccess;
 }

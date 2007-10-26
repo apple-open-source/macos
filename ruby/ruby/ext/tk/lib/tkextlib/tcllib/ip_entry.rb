@@ -19,6 +19,11 @@ TkPackage.require('ipentry')
 module Tk
   module Tcllib
     class IP_Entry < TkEntry
+      PACKAGE_NAME = 'ipentry'.freeze
+      def self.package_name
+        PACKAGE_NAME
+      end
+
       def self.package_version
         begin
           TkPackage.require('ipentry')
@@ -38,12 +43,18 @@ class Tk::Tcllib::IP_Entry
 
   def create_self(keys)
     if keys and keys != None
-      tk_call_without_enc('::ipentry::ipentry', @path, *hash_kv(keys, true))
+      tk_call_without_enc(self.class::TkCommandNames[0], @path, 
+                          *hash_kv(keys, true))
     else
-      tk_call_without_enc('::ipentry::ipentry', @path)
+      tk_call_without_enc(self.class::TkCommandNames[0], @path)
     end
   end
   private :create_self
+
+  def __strval_optkeys
+    super() << 'fg' << 'bg' << 'insertbackground'
+  end
+  private :__strval_optkeys
 
   def complete?
     bool(tk_send_without_enc('complete'))

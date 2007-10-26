@@ -1,64 +1,119 @@
 /* obstack.c - subroutines used implicitly by object stack macros
-   Copyright (C) 1988, 89, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
-later version.
+   Copyright (C) 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1996, 1997,
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software
+   Foundation, Inc.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-#include "obstack.h"
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-/* This is just to get __GNU_LIBRARY__ defined.  */
-#include <stdio.h>
-
-/* Comment out all this code if we are using the GNU C Library, and are not
-   actually compiling the library itself.  This code is part of the GNU C
-   Library, but also included in many other GNU distributions.  Compiling
-   and linking in this code is a waste when using the GNU C library
-   (especially if it is a shared library).  Rather than having every GNU
-   program understand `configure --with-gnu-libc' and omit the object files,
-   it is simpler to just do this in the source for each such file.  */
-
-#if defined (_LIBC) || !defined (__GNU_LIBRARY__)
-
-
-#if defined (__STDC__) && __STDC__
-#define POINTER void *
-#else
-#define POINTER char *
+#ifdef HAVE_CONFIG_H
+# include <config.h>
 #endif
 
+#ifdef _LIBC
+# include <obstack.h>
+# include <shlib-compat.h>
+#else
+# include "obstack.h"
+#endif
+
+/* NOTE BEFORE MODIFYING THIS FILE: This version number must be
+   incremented whenever callers compiled using an old obstack.h can no
+   longer properly call the functions in this obstack.c.  */
+#define OBSTACK_INTERFACE_VERSION 1
+
+/* Comment out all this code if we are using the GNU C Library, and are not
+   actually compiling the library itself, and the installed library
+   supports the same library interface we do.  This code is part of the GNU
+   C Library, but also included in many other GNU distributions.  Compiling
+   and linking in this code is a waste when using the GNU C library
+   (especially if it is a shared library).  Rather than having every GNU
+   program understand `configure --with-gnu-libc' and omit the object
+   files, it is simpler to just do this in the source for each such file.  */
+
+#include <stdio.h>		/* Random thing to get __GNU_LIBRARY__.  */
+#if !defined _LIBC && defined __GNU_LIBRARY__ && __GNU_LIBRARY__ > 1
+# include <gnu-versions.h>
+# if _GNU_OBSTACK_INTERFACE_VERSION == OBSTACK_INTERFACE_VERSION
+#  define ELIDE_CODE
+# endif
+#endif
+
+#include <stddef.h>
+
+#ifndef ELIDE_CODE
+
+# include <stdint.h>
+
 /* Determine default alignment.  */
-struct fooalign {char x; double d;};
-#define DEFAULT_ALIGNMENT  \
-  ((PTR_INT_TYPE) ((char *)&((struct fooalign *) 0)->d - (char *)0))
+union fooround
+{
+  uintmax_t i;
+  long double d;
+  void *p;
+};
+struct fooalign
+{
+  char c;
+  union fooround u;
+};
 /* If malloc were really smart, it would round addresses to DEFAULT_ALIGNMENT.
    But in fact it might be less smart and round addresses to as much as
    DEFAULT_ROUNDING.  So we prepare for it to do that.  */
-union fooround {long x; double d;};
-#define DEFAULT_ROUNDING (sizeof (union fooround))
+enum
+  {
+    DEFAULT_ALIGNMENT = offsetof (struct fooalign, u),
+    DEFAULT_ROUNDING = sizeof (union fooround)
+  };
 
 /* When we copy a long block of data, this is the unit to do it with.
    On some machines, copying successive ints does not work;
    in such a case, redefine COPYING_UNIT to `long' (if that works)
    or `char' as a last resort.  */
-#ifndef COPYING_UNIT
-#define COPYING_UNIT int
-#endif
+# ifndef COPYING_UNIT
+#  define COPYING_UNIT int
+# endif
 
-/* The non-GNU-C macros copy the obstack into this global variable
-   to avoid multiple evaluation.  */
 
-struct obstack *_obstack;
+/* The functions allocating more room by calling `obstack_chunk_alloc'
+   jump to the handler pointed to by `obstack_alloc_failed_handler'.
+   This can be set to a user defined function which should either
+   abort gracefully or use longjump - but shouldn't return.  This
+   variable by default points to the internal function
+   `print_and_abort'.  */
+static void print_and_abort (void);
+void (*obstack_alloc_failed_handler) (void) = print_and_abort;
+
+/* Exit value used when `print_and_abort' is used.  */
+# include <stdlib.h>
+# ifdef _LIBC
+int obstack_exit_failure = EXIT_FAILURE;
+# else
+#  include "exitfail.h"
+#  define obstack_exit_failure exit_failure
+# endif
+
+# ifdef _LIBC
+#  if SHLIB_COMPAT (libc, GLIBC_2_0, GLIBC_2_3_4)
+/* A looong time ago (before 1994, anyway; we're not sure) this global variable
+   was used by non-GNU-C macros to avoid multiple evaluation.  The GNU C
+   library still exports it because somebody might use it.  */
+struct obstack *_obstack_compat;
+compat_symbol (libc, _obstack_compat, _obstack, GLIBC_2_0);
+#  endif
+# endif
 
 /* Define a macro that either calls functions with the traditional malloc/free
    calling interface, or calls functions with the mmalloc/mfree interface
@@ -66,17 +121,17 @@ struct obstack *_obstack;
    For free, do not use ?:, since some compilers, like the MIPS compilers,
    do not allow (expr) ? void : void.  */
 
-#define CALL_CHUNKFUN(h, size) \
+# define CALL_CHUNKFUN(h, size) \
   (((h) -> use_extra_arg) \
    ? (*(h)->chunkfun) ((h)->extra_arg, (size)) \
-   : (*(h)->chunkfun) ((size)))
+   : (*(struct _obstack_chunk *(*) (long)) (h)->chunkfun) ((size)))
 
-#define CALL_FREEFUN(h, old_chunk) \
+# define CALL_FREEFUN(h, old_chunk) \
   do { \
     if ((h) -> use_extra_arg) \
       (*(h)->freefun) ((h)->extra_arg, (old_chunk)); \
     else \
-      (*(h)->freefun) ((old_chunk)); \
+      (*(void (*) (void *)) (h)->freefun) ((old_chunk)); \
   } while (0)
 
 
@@ -85,19 +140,16 @@ struct obstack *_obstack;
    CHUNKFUN is the function to use to allocate chunks,
    and FREEFUN the function to free them.
 
-   Return nonzero if successful, zero if out of memory.
-   To recover from an out of memory error,
-   free up some memory, then call this again.  */
+   Return nonzero if successful, calls obstack_alloc_failed_handler if
+   allocation fails.  */
 
 int
-_obstack_begin (h, size, alignment, chunkfun, freefun)
-     struct obstack *h;
-     int size;
-     int alignment;
-     POINTER (*chunkfun) ();
-     void (*freefun) ();
+_obstack_begin (struct obstack *h,
+		int size, int alignment,
+		void *(*chunkfun) (long),
+		void (*freefun) (void *))
 {
-  register struct _obstack_chunk* chunk; /* points to new chunk */
+  register struct _obstack_chunk *chunk; /* points to new chunk */
 
   if (alignment == 0)
     alignment = DEFAULT_ALIGNMENT;
@@ -118,38 +170,33 @@ _obstack_begin (h, size, alignment, chunkfun, freefun)
       size = 4096 - extra;
     }
 
-  h->chunkfun = (struct _obstack_chunk * (*)()) chunkfun;
-  h->freefun = freefun;
+  h->chunkfun = (struct _obstack_chunk * (*)(void *, long)) chunkfun;
+  h->freefun = (void (*) (void *, struct _obstack_chunk *)) freefun;
   h->chunk_size = size;
   h->alignment_mask = alignment - 1;
   h->use_extra_arg = 0;
 
   chunk = h->chunk = CALL_CHUNKFUN (h, h -> chunk_size);
   if (!chunk)
-    {
-      h->alloc_failed = 1;
-      return 0;
-    }
-  h->alloc_failed = 0;
-  h->next_free = h->object_base = chunk->contents;
+    (*obstack_alloc_failed_handler) ();
+  h->next_free = h->object_base = __PTR_ALIGN ((char *) chunk, chunk->contents,
+					       alignment - 1);
   h->chunk_limit = chunk->limit
     = (char *) chunk + h->chunk_size;
   chunk->prev = 0;
   /* The initial chunk now contains no empty object.  */
   h->maybe_empty_object = 0;
+  h->alloc_failed = 0;
   return 1;
 }
 
 int
-_obstack_begin_1 (h, size, alignment, chunkfun, freefun, arg)
-     struct obstack *h;
-     int size;
-     int alignment;
-     POINTER (*chunkfun) ();
-     void (*freefun) ();
-     POINTER arg;
+_obstack_begin_1 (struct obstack *h, int size, int alignment,
+		  void *(*chunkfun) (void *, long),
+		  void (*freefun) (void *, void *),
+		  void *arg)
 {
-  register struct _obstack_chunk* chunk; /* points to new chunk */
+  register struct _obstack_chunk *chunk; /* points to new chunk */
 
   if (alignment == 0)
     alignment = DEFAULT_ALIGNMENT;
@@ -170,8 +217,8 @@ _obstack_begin_1 (h, size, alignment, chunkfun, freefun, arg)
       size = 4096 - extra;
     }
 
-  h->chunkfun = (struct _obstack_chunk * (*)()) chunkfun;
-  h->freefun = freefun;
+  h->chunkfun = (struct _obstack_chunk * (*)(void *,long)) chunkfun;
+  h->freefun = (void (*) (void *, struct _obstack_chunk *)) freefun;
   h->chunk_size = size;
   h->alignment_mask = alignment - 1;
   h->extra_arg = arg;
@@ -179,17 +226,15 @@ _obstack_begin_1 (h, size, alignment, chunkfun, freefun, arg)
 
   chunk = h->chunk = CALL_CHUNKFUN (h, h -> chunk_size);
   if (!chunk)
-    {
-      h->alloc_failed = 1;
-      return 0;
-    }
-  h->alloc_failed = 0;
-  h->next_free = h->object_base = chunk->contents;
+    (*obstack_alloc_failed_handler) ();
+  h->next_free = h->object_base = __PTR_ALIGN ((char *) chunk, chunk->contents,
+					       alignment - 1);
   h->chunk_limit = chunk->limit
     = (char *) chunk + h->chunk_size;
   chunk->prev = 0;
   /* The initial chunk now contains no empty object.  */
   h->maybe_empty_object = 0;
+  h->alloc_failed = 0;
   return 1;
 }
 
@@ -200,33 +245,32 @@ _obstack_begin_1 (h, size, alignment, chunkfun, freefun, arg)
    to the beginning of the new one.  */
 
 void
-_obstack_newchunk (h, length)
-     struct obstack *h;
-     int length;
+_obstack_newchunk (struct obstack *h, int length)
 {
-  register struct _obstack_chunk*	old_chunk = h->chunk;
-  register struct _obstack_chunk*	new_chunk;
+  register struct _obstack_chunk *old_chunk = h->chunk;
+  register struct _obstack_chunk *new_chunk;
   register long	new_size;
-  register int obj_size = h->next_free - h->object_base;
-  register int i;
-  int already;
+  register long obj_size = h->next_free - h->object_base;
+  register long i;
+  long already;
+  char *object_base;
 
   /* Compute size for new chunk.  */
-  new_size = (obj_size + length) + (obj_size >> 3) + 100;
+  new_size = (obj_size + length) + (obj_size >> 3) + h->alignment_mask + 100;
   if (new_size < h->chunk_size)
     new_size = h->chunk_size;
 
   /* Allocate and initialize the new chunk.  */
   new_chunk = CALL_CHUNKFUN (h, new_size);
   if (!new_chunk)
-    {
-      h->alloc_failed = 1;
-      return;
-    }
-  h->alloc_failed = 0;
+    (*obstack_alloc_failed_handler) ();
   h->chunk = new_chunk;
   new_chunk->prev = old_chunk;
   new_chunk->limit = h->chunk_limit = (char *) new_chunk + new_size;
+
+  /* Compute an aligned object_base in the new chunk */
+  object_base =
+    __PTR_ALIGN ((char *) new_chunk, new_chunk->contents, h->alignment_mask);
 
   /* Move the existing object to the new chunk.
      Word at a time is fast and is safe if the object
@@ -235,7 +279,7 @@ _obstack_newchunk (h, length)
     {
       for (i = obj_size / sizeof (COPYING_UNIT) - 1;
 	   i >= 0; i--)
-	((COPYING_UNIT *)new_chunk->contents)[i]
+	((COPYING_UNIT *)object_base)[i]
 	  = ((COPYING_UNIT *)h->object_base)[i];
       /* We used to copy the odd few remaining bytes as one extra COPYING_UNIT,
 	 but that can cross a page boundary on a machine
@@ -246,46 +290,48 @@ _obstack_newchunk (h, length)
     already = 0;
   /* Copy remaining bytes one by one.  */
   for (i = already; i < obj_size; i++)
-    new_chunk->contents[i] = h->object_base[i];
+    object_base[i] = h->object_base[i];
 
   /* If the object just copied was the only data in OLD_CHUNK,
      free that chunk and remove it from the chain.
      But not if that chunk might contain an empty object.  */
-  if (h->object_base == old_chunk->contents && ! h->maybe_empty_object)
+  if (! h->maybe_empty_object
+      && (h->object_base
+	  == __PTR_ALIGN ((char *) old_chunk, old_chunk->contents,
+			  h->alignment_mask)))
     {
       new_chunk->prev = old_chunk->prev;
       CALL_FREEFUN (h, old_chunk);
     }
 
-  h->object_base = new_chunk->contents;
+  h->object_base = object_base;
   h->next_free = h->object_base + obj_size;
   /* The new chunk certainly contains no empty object yet.  */
   h->maybe_empty_object = 0;
 }
+# ifdef _LIBC
+libc_hidden_def (_obstack_newchunk)
+# endif
 
 /* Return nonzero if object OBJ has been allocated from obstack H.
    This is here for debugging.
    If you use it in a program, you are probably losing.  */
 
-#if defined (__STDC__) && __STDC__
 /* Suppress -Wmissing-prototypes warning.  We don't want to declare this in
    obstack.h because it is just for debugging.  */
-int _obstack_allocated_p (struct obstack *h, POINTER obj);
-#endif
+int _obstack_allocated_p (struct obstack *h, void *obj);
 
 int
-_obstack_allocated_p (h, obj)
-     struct obstack *h;
-     POINTER obj;
+_obstack_allocated_p (struct obstack *h, void *obj)
 {
-  register struct _obstack_chunk*  lp;	/* below addr of any objects in this chunk */
-  register struct _obstack_chunk*  plp;	/* point to previous chunk if any */
+  register struct _obstack_chunk *lp;	/* below addr of any objects in this chunk */
+  register struct _obstack_chunk *plp;	/* point to previous chunk if any */
 
   lp = (h)->chunk;
   /* We use >= rather than > since the object cannot be exactly at
      the beginning of the chunk but might be an empty object exactly
-     at the end of an adjacent chunk. */
-  while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
+     at the end of an adjacent chunk.  */
+  while (lp != 0 && ((void *) lp >= obj || (void *) (lp)->limit < obj))
     {
       plp = lp->prev;
       lp = plp;
@@ -296,24 +342,19 @@ _obstack_allocated_p (h, obj)
 /* Free objects in obstack H, including OBJ and everything allocate
    more recently than OBJ.  If OBJ is zero, free everything in H.  */
 
-#undef obstack_free
-
-/* This function has two names with identical definitions.
-   This is the first one, called from non-ANSI code.  */
+# undef obstack_free
 
 void
-_obstack_free (h, obj)
-     struct obstack *h;
-     POINTER obj;
+obstack_free (struct obstack *h, void *obj)
 {
-  register struct _obstack_chunk*  lp;	/* below addr of any objects in this chunk */
-  register struct _obstack_chunk*  plp;	/* point to previous chunk if any */
+  register struct _obstack_chunk *lp;	/* below addr of any objects in this chunk */
+  register struct _obstack_chunk *plp;	/* point to previous chunk if any */
 
   lp = h->chunk;
   /* We use >= because there cannot be an object at the beginning of a chunk.
      But there can be an empty object at that address
      at the end of another chunk.  */
-  while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
+  while (lp != 0 && ((void *) lp >= obj || (void *) (lp)->limit < obj))
     {
       plp = lp->prev;
       CALL_FREEFUN (h, lp);
@@ -324,7 +365,7 @@ _obstack_free (h, obj)
     }
   if (lp)
     {
-      h->object_base = h->next_free = (char *)(obj);
+      h->object_base = h->next_free = (char *) (obj);
       h->chunk_limit = lp->limit;
       h->chunk = lp;
     }
@@ -333,153 +374,61 @@ _obstack_free (h, obj)
     abort ();
 }
 
-/* This function is used from ANSI code.  */
-
-void
-obstack_free (h, obj)
-     struct obstack *h;
-     POINTER obj;
+# ifdef _LIBC
+/* Older versions of libc used a function _obstack_free intended to be
+   called by non-GCC compilers.  */
+strong_alias (obstack_free, _obstack_free)
+# endif
+
+int
+_obstack_memory_used (struct obstack *h)
 {
-  register struct _obstack_chunk*  lp;	/* below addr of any objects in this chunk */
-  register struct _obstack_chunk*  plp;	/* point to previous chunk if any */
+  register struct _obstack_chunk* lp;
+  register int nbytes = 0;
 
-  lp = h->chunk;
-  /* We use >= because there cannot be an object at the beginning of a chunk.
-     But there can be an empty object at that address
-     at the end of another chunk.  */
-  while (lp != 0 && ((POINTER)lp >= obj || (POINTER)(lp)->limit < obj))
+  for (lp = h->chunk; lp != 0; lp = lp->prev)
     {
-      plp = lp->prev;
-      CALL_FREEFUN (h, lp);
-      lp = plp;
-      /* If we switch chunks, we can't tell whether the new current
-	 chunk contains an empty object, so assume that it may.  */
-      h->maybe_empty_object = 1;
+      nbytes += lp->limit - (char *) lp;
     }
-  if (lp)
-    {
-      h->object_base = h->next_free = (char *)(obj);
-      h->chunk_limit = lp->limit;
-      h->chunk = lp;
-    }
-  else if (obj != 0)
-    /* obj is not in any of the chunks! */
-    abort ();
+  return nbytes;
 }
 
-#if 0
-/* These are now turned off because the applications do not use it
-   and it uses bcopy via obstack_grow, which causes trouble on sysV.  */
+/* Define the error handler.  */
+# ifdef _LIBC
+#  include <libintl.h>
+# else
+#  include "gettext.h"
+# endif
+# ifndef _
+#  define _(msgid) gettext (msgid)
+# endif
 
-/* Now define the functional versions of the obstack macros.
-   Define them to simply use the corresponding macros to do the job.  */
+# ifdef _LIBC
+#  include <libio/iolibio.h>
+# endif
 
-#if defined (__STDC__) && __STDC__
-/* These function definitions do not work with non-ANSI preprocessors;
-   they won't pass through the macro names in parentheses.  */
+# ifndef __attribute__
+/* This feature is available in gcc versions 2.5 and later.  */
+#  if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5)
+#   define __attribute__(Spec) /* empty */
+#  endif
+# endif
 
-/* The function names appear in parentheses in order to prevent
-   the macro-definitions of the names from being expanded there.  */
-
-POINTER (obstack_base) (obstack)
-     struct obstack *obstack;
+static void
+__attribute__ ((noreturn))
+print_and_abort (void)
 {
-  return obstack_base (obstack);
+  /* Don't change any of these strings.  Yes, it would be possible to add
+     the newline to the string and use fputs or so.  But this must not
+     happen because the "memory exhausted" message appears in other places
+     like this and the translation should be reused instead of creating
+     a very similar string which requires a separate translation.  */
+# ifdef _LIBC
+  (void) __fxprintf (NULL, "%s\n", _("memory exhausted"));
+# else
+  fprintf (stderr, "%s\n", _("memory exhausted"));
+# endif
+  exit (obstack_exit_failure);
 }
 
-POINTER (obstack_next_free) (obstack)
-     struct obstack *obstack;
-{
-  return obstack_next_free (obstack);
-}
-
-int (obstack_object_size) (obstack)
-     struct obstack *obstack;
-{
-  return obstack_object_size (obstack);
-}
-
-int (obstack_room) (obstack)
-     struct obstack *obstack;
-{
-  return obstack_room (obstack);
-}
-
-void (obstack_grow) (obstack, pointer, length)
-     struct obstack *obstack;
-     POINTER pointer;
-     int length;
-{
-  obstack_grow (obstack, pointer, length);
-}
-
-void (obstack_grow0) (obstack, pointer, length)
-     struct obstack *obstack;
-     POINTER pointer;
-     int length;
-{
-  obstack_grow0 (obstack, pointer, length);
-}
-
-void (obstack_1grow) (obstack, character)
-     struct obstack *obstack;
-     int character;
-{
-  obstack_1grow (obstack, character);
-}
-
-void (obstack_blank) (obstack, length)
-     struct obstack *obstack;
-     int length;
-{
-  obstack_blank (obstack, length);
-}
-
-void (obstack_1grow_fast) (obstack, character)
-     struct obstack *obstack;
-     int character;
-{
-  obstack_1grow_fast (obstack, character);
-}
-
-void (obstack_blank_fast) (obstack, length)
-     struct obstack *obstack;
-     int length;
-{
-  obstack_blank_fast (obstack, length);
-}
-
-POINTER (obstack_finish) (obstack)
-     struct obstack *obstack;
-{
-  return obstack_finish (obstack);
-}
-
-POINTER (obstack_alloc) (obstack, length)
-     struct obstack *obstack;
-     int length;
-{
-  return obstack_alloc (obstack, length);
-}
-
-POINTER (obstack_copy) (obstack, pointer, length)
-     struct obstack *obstack;
-     POINTER pointer;
-     int length;
-{
-  return obstack_copy (obstack, pointer, length);
-}
-
-POINTER (obstack_copy0) (obstack, pointer, length)
-     struct obstack *obstack;
-     POINTER pointer;
-     int length;
-{
-  return obstack_copy0 (obstack, pointer, length);
-}
-
-#endif /* __STDC__ */
-
-#endif /* 0 */
-
-#endif	/* _LIBC or not __GNU_LIBRARY__.  */
+#endif	/* !ELIDE_CODE */

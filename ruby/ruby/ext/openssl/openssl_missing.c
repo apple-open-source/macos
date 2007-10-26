@@ -1,5 +1,5 @@
 /*
- * $Id: openssl_missing.c,v 1.2.2.1 2004/07/01 03:01:07 gotoyuzo Exp $
+ * $Id: openssl_missing.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -8,10 +8,18 @@
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
  */
+#include RUBY_EXTCONF_H
+
+#if defined(HAVE_OPENSSL_ENGINE_H) && defined(HAVE_ST_ENGINE)
+# include <openssl/engine.h>
+#endif
+#include <openssl/x509_vfy.h>
 
 #if !defined(OPENSSL_NO_HMAC)
 #include <string.h> /* memcpy() */
 #include <openssl/hmac.h>
+
+#include "openssl_missing.h"
 
 #if !defined(HAVE_HMAC_CTX_COPY)
 int
@@ -30,7 +38,6 @@ HMAC_CTX_copy(HMAC_CTX *out, HMAC_CTX *in)
 #endif /* NO_HMAC */
 
 #if !defined(HAVE_X509_STORE_SET_EX_DATA)
-#include <openssl/x509_vfy.h>
 
 int X509_STORE_set_ex_data(X509_STORE *str, int idx, void *data)
 {

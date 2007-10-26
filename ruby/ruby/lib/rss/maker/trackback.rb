@@ -11,8 +11,8 @@ module RSS
         name = "#{RSS::TRACKBACK_PREFIX}_ping"
         klass.add_need_initialize_variable(name)
         klass.add_other_element(name)
-        klass.__send__(:attr_accessor, name)
-        klass.module_eval(<<-EOC, __FILE__, __LINE__)
+        klass.module_eval(<<-EOC, __FILE__, __LINE__+1)
+          attr_accessor :#{name}
           def setup_#{name}(rss, current)
             if #{name} and current.respond_to?(:#{name}=)
               current.#{name} = #{name}
@@ -23,8 +23,8 @@ module RSS
         name = "#{RSS::TRACKBACK_PREFIX}_abouts"
         klass.add_need_initialize_variable(name, "make_#{name}")
         klass.add_other_element(name)
-        klass.__send__(:attr_accessor, name)
-        klass.module_eval(<<-EOC, __FILE__, __LINE__)
+        klass.module_eval(<<-EOC, __FILE__, __LINE__+1)
+          attr_accessor :#{name}
           def make_#{name}
             self.class::TrackBackAbouts.new(self)
           end
@@ -41,9 +41,13 @@ module RSS
         def_array_element("abouts")
         
         def new_about
-          about = self.class::About.new(@maker)
-          @abouts << about 
-          about
+          about = self.class::TrackBackAbout.new(@maker)
+          @abouts << about
+          if block_given?
+            yield about
+          else
+            about
+          end
         end
 
         def to_rss(rss, current)
@@ -52,11 +56,11 @@ module RSS
           end
         end
         
-        class AboutBase
+        class TrackBackAboutBase
           include Base
 
           attr_accessor :value
-          add_need_initialize_variable(:value)
+          add_need_initialize_variable("value")
           
           alias_method(:resource, :value)
           alias_method(:resource=, :value=)
@@ -79,10 +83,10 @@ module RSS
       class Items
         class Item
           class TrackBackAbouts < TrackBackAboutsBase
-            class About < AboutBase
+            class TrackBackAbout < TrackBackAboutBase
               def to_rss(rss, current)
                 if resource
-                  about = ::RSS::TrackBackModel10::About.new(resource)
+                  about = ::RSS::TrackBackModel10::TrackBackAbout.new(resource)
                   current.trackback_abouts << about
                 end
               end
@@ -98,7 +102,7 @@ module RSS
           class TrackBackAbouts < TrackBackAboutsBase
             def to_rss(*args)
             end
-            class About < AboutBase
+            class TrackBackAbout < TrackBackAboutBase
             end
           end
         end
@@ -109,10 +113,10 @@ module RSS
       class Items
         class Item
           class TrackBackAbouts < TrackBackAboutsBase
-            class About < AboutBase
+            class TrackBackAbout < TrackBackAboutBase
               def to_rss(rss, current)
                 if content
-                  about = ::RSS::TrackBackModel20::About.new(content)
+                  about = ::RSS::TrackBackModel20::TrackBackAbout.new(content)
                   current.trackback_abouts << about
                 end
               end

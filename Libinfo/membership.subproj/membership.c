@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,92 +22,189 @@
 
 #include "membership.h"
 #include "membershipPriv.h"
-#include "memberd.h"
-
+#include "DSmemberdMIG.h"
+#include "DSmemberdMIG_types.h"
 #include <sys/errno.h>
-#include <servers/bootstrap.h>
 #include <mach/mach.h>
+#include <servers/bootstrap.h>
 #include <stdlib.h>
 #include <libkern/OSByteOrder.h>
 
-static mach_port_t GetServerPort()
-{
-	kern_return_t result;
-	static mach_port_t bsPort = 0;
-	static mach_port_t fServerPort = 0;
 
-	if (bsPort == 0)
+extern mach_port_t _ds_port;
+extern int _ds_running(void);
+
+static const uint8_t _mbr_root_uuid[] = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
+
+#define MAX_LOOKUP_ATTEMPTS 10
+
+__private_extern__ uid_t
+audit_token_uid(audit_token_t a)
+{
+	/*
+	 * This should really call audit_token_to_au32,
+	 * but that's in libbsm, not in a Libsystem library.
+	 */
+	return (uid_t)a.val[1];
+}
+
+static int
+_mbr_MembershipCall(struct kauth_identity_extlookup *req)
+{
+	audit_token_t token;
+	kern_return_t status;
+	uint32_t i;
+
+	if (_ds_running() == 0) return EIO;
+	if (_ds_port == MACH_PORT_NULL) return EIO;
+
+	memset(&token, 0, sizeof(audit_token_t));
+
+	status = MIG_SERVER_DIED;
+	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
 	{
-		result = task_get_bootstrap_port(mach_task_self(), &bsPort);
-		result = bootstrap_look_up(bsPort, "com.apple.memberd", &fServerPort);
+		status = memberdDSmig_MembershipCall(_ds_port, req, &token);
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
+			_ds_port = MACH_PORT_NULL;
+			_ds_running();
+			status = MIG_SERVER_DIED;
+		}
 	}
 
-	return fServerPort;
+	if (status != KERN_SUCCESS) return EIO;
+	if (audit_token_uid(token) != 0) return EAUTH;
+
+	return 0;
+}
+
+static int
+_mbr_MapName(char *name, int type, guid_t *uu)
+{
+	kern_return_t status;
+	audit_token_t token;
+	uint32_t i;
+
+	if (name == NULL) return EINVAL;
+	if (strlen(name) > 255) return EINVAL;
+
+	if (_ds_running() == 0) return EIO;
+	if (_ds_port == MACH_PORT_NULL) return EIO;
+
+	memset(&token, 0, sizeof(audit_token_t));
+
+	status = MIG_SERVER_DIED;
+	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	{
+		status = memberdDSmig_MapName(_ds_port, type, name, uu, &token);
+		if (status == KERN_FAILURE) return ENOENT;
+
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
+			_ds_port = MACH_PORT_NULL;
+			_ds_running();
+			status = MIG_SERVER_DIED;
+		}
+	}
+
+	if (status != KERN_SUCCESS) return EIO;
+	if (audit_token_uid(token) != 0) return EAUTH;
+
+	return 0;
+}
+
+static int
+_mbr_ClearCache()
+{
+	kern_return_t status;
+	uint32_t i;
+
+	if (_ds_running() == 0) return EIO;
+	if (_ds_port == MACH_PORT_NULL) return EIO;
+
+	status = MIG_SERVER_DIED;
+	for (i = 0; (_ds_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	{
+		status = memberdDSmig_ClearCache(_ds_port);
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			mach_port_mod_refs(mach_task_self(), _ds_port, MACH_PORT_RIGHT_SEND, -1);
+			_ds_port = MACH_PORT_NULL;
+			_ds_running();
+			status = MIG_SERVER_DIED;
+		}
+	}
+
+	if (status != KERN_SUCCESS) return EIO;
+
+	return 0;
 }
 
 int mbr_uid_to_uuid(uid_t id, uuid_t uu)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	int result = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
+	if (id == 0)
+	{
+		memcpy(uu, _mbr_root_uuid, sizeof(uuid_t));
+		return 0;
+	}
 
+	/* used as a byte order field */
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_UID | KAUTH_EXTLOOKUP_WANT_UGUID;
 	request.el_uid = id;
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_UGUID) != 0)
-		memcpy(uu, &request.el_uguid, sizeof(guid_t));
-	else
-		result = ENOENT;
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_UGUID) == 0) return ENOENT;
 
-	return result;
+	memcpy(uu, &request.el_uguid, sizeof(guid_t));
+	return 0;
 }
 
 int mbr_gid_to_uuid(gid_t id, uuid_t uu)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
-
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_GID | KAUTH_EXTLOOKUP_WANT_GGUID;
 	request.el_gid = id;
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) != 0)
-		memcpy(uu, &request.el_gguid, sizeof(guid_t));
-	else
-		error = ENOENT;
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) == 0) return ENOENT;
 
-	return error;
+	memcpy(uu, &request.el_gguid, sizeof(guid_t));
+	return 0;
 }
 
 int mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
+	if (id == NULL) return EIO;
+	if (id_type == NULL) return EIO;
 
+	if (!memcmp(uu, _mbr_root_uuid, sizeof(uuid_t)))
+	{
+		*id = 0;
+		*id_type = ID_TYPE_UID;
+		return 0;
+	}
+
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_UID | KAUTH_EXTLOOKUP_WANT_GID;
 	memcpy(&request.el_uguid, uu, sizeof(guid_t));
 	memcpy(&request.el_gguid, uu, sizeof(guid_t));
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
+
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
 
 	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_UID) != 0)
 	{
@@ -121,189 +218,140 @@ int mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 	}
 	else
 	{
-		error = ENOENT;
+		return ENOENT;
 	}
 
-	return error;
+	return 0;
 }
 
 int mbr_sid_to_uuid(const nt_sid_t *sid, uuid_t uu)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
-
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_GSID | KAUTH_EXTLOOKUP_WANT_GGUID;
 	memset(&request.el_gsid, 0, sizeof(ntsid_t));
 	memcpy(&request.el_gsid, sid, KAUTH_NTSID_SIZE(sid));
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) != 0)
-		memcpy(uu, &request.el_gguid, sizeof(guid_t));
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) == 0) return ENOENT;
+
+	memcpy(uu, &request.el_gguid, sizeof(guid_t));
+	return 0;
+}
+
+int mbr_uuid_to_sid_type(const uuid_t uu, nt_sid_t *sid, int *id_type)
+{
+	struct kauth_identity_extlookup request;
+	int status;
+
+	request.el_seqno = 1;
+	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_USID | KAUTH_EXTLOOKUP_WANT_GSID;
+	memcpy(&request.el_uguid, uu, sizeof(guid_t));
+	memcpy(&request.el_gguid, uu, sizeof(guid_t));
+
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_USID) != 0)
+	{
+		*id_type = SID_TYPE_USER;
+		memcpy(sid, &request.el_usid, sizeof(nt_sid_t));
+	}
+	else if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GSID) != 0)
+	{
+		*id_type = SID_TYPE_GROUP;
+		memcpy(sid, &request.el_gsid, sizeof(nt_sid_t));
+	}
 	else
-		error = ENOENT;
+	{
+		return ENOENT;
+	}
 
-	return error;
+	return 0;
 }
 
 int mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 {
-	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int type, status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
+	type = 0;
 
-	request.el_flags = KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_GSID;
-	memcpy(&request.el_gguid, uu, sizeof(guid_t));
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
+	status = mbr_uuid_to_sid_type(uu, sid, &type);
+	if (status != 0) return status;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GSID) != 0)
-		memcpy(sid, &request.el_gsid, sizeof(nt_sid_t));
-	else
-		error = ENOENT;
-
-	return error;
+	return 0;
 }
 
 int mbr_check_membership(uuid_t user, uuid_t group, int *ismember)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
-
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP;
 	memcpy(&request.el_uguid, user, sizeof(guid_t));
 	memcpy(&request.el_gguid, group, sizeof(guid_t));
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0)
-		*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
-	else
-		error = ENOENT;
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) == 0) return ENOENT;
 
-	return error;
+	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
+	return 0;
 }
 
-int mbr_check_membership_refresh(uuid_t user, uuid_t group, int *ismember)
+int mbr_check_membership_refresh(const uuid_t user, uuid_t group, int *ismember)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
-
-	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP | (1 << 15);
+	request.el_seqno = 1;
+	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP | (1<<15);
 	memcpy(&request.el_uguid, user, sizeof(guid_t));
 	memcpy(&request.el_gguid, group, sizeof(guid_t));
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0)
-		*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
-	else
-		error = ENOENT;
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) == 0) return ENOENT;
 
-	return error;
+	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
+	return 0;
 }
 
 int mbr_check_membership_by_id(uuid_t user, gid_t group, int *ismember)
 {
 	struct kauth_identity_extlookup request;
-	security_token_t token;
-	kern_return_t result;
-	int error = 0;
+	int status;
 
-	token.val[0] = -1;
-	token.val[1] = -1;
-
+	request.el_seqno = 1;
 	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP;
 	memcpy(&request.el_uguid, user, sizeof(guid_t));
 	request.el_gid = group;
-	result = _mbr_DoMembershipCall(GetServerPort(), &request, &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
 
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0)
-		*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
-	else
-		error = ENOENT;
+	status = _mbr_MembershipCall(&request);
+	if (status != 0) return status;
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) == 0) return ENOENT;
 
-	return error;
+	*ismember = ((request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0);
+	return 0;
 }
 
 int mbr_reset_cache()
 {
-	security_token_t token;
-	kern_return_t result;
-
-	token.val[0] = -1;
-	token.val[1] = -1;
-
-	result = _mbr_ClearCache(GetServerPort(), &token);
-	if (result != KERN_SUCCESS) return EIO;
-	if (token.val[0] != 0) return EAUTH;
-
-	return 0;
+	return _mbr_ClearCache();
 }
 
 int mbr_user_name_to_uuid(const char *name, uuid_t uu)
 {
-	security_token_t token;
-	kern_return_t result;
-
-	if (name == NULL) return EINVAL;
-	if (strlen(name) > 255) return EINVAL;
-
-	token.val[0] = -1;
-	token.val[1] = -1;
-
-	result = _mbr_MapName(GetServerPort(), 1, (char *)name, (guid_t *)uu, &token);
-	if (result == KERN_FAILURE) return ENOENT;
-	else if (result != KERN_SUCCESS) return EIO;
-
-	if (token.val[0] != 0) return EAUTH;
-
-	return 0;
+	return _mbr_MapName((char *)name, 1, (guid_t *)uu);
 }
 
 int mbr_group_name_to_uuid(const char *name, uuid_t uu)
 {
-	security_token_t token;
-	kern_return_t result;
-
-	if (name == NULL) return EINVAL;
-	if (strlen(name) > 255) return EINVAL;
-
-	token.val[0] = -1;
-	token.val[1] = -1;
-
-	result = _mbr_MapName(GetServerPort(), 0, (char *)name, (guid_t *)uu, &token);
-	if (result == KERN_FAILURE) return ENOENT;
-	else if (result != KERN_SUCCESS) return EIO;
-
-	if (token.val[0] != 0) return EAUTH;
-
-	return 0;
+	return _mbr_MapName((char *)name, 0, (guid_t *)uu);
 }
 
 int mbr_check_service_membership(const uuid_t user, const char *servicename, int *ismember)
@@ -315,7 +363,7 @@ int mbr_check_service_membership(const uuid_t user, const char *servicename, int
 	int result, dummy;
 
 	if (servicename == NULL) return EINVAL;
-	if (strlen(servicename) > (255 - strlen(prefix))) return EINVAL;
+	if (strlen(servicename) > 255 - strlen(prefix)) return EINVAL;
 
 	/* start by checking "all services" */
 	result = mbr_group_name_to_uuid(all_services, group_uu);
@@ -354,7 +402,8 @@ static char *ConvertBytesToDecimal(char *buffer, unsigned long long value)
 	buffer[24] = '\0';
 	buffer[23] = '0';
 
-	if (value == 0) return &buffer[23];
+	if (value == 0)
+		return &buffer[23];
 
 	temp = &buffer[24];
 	while (value != 0)
@@ -388,7 +437,7 @@ int mbr_sid_to_string(const nt_sid_t *sid, char *string)
 	current++;
 	strcpy(current, ConvertBytesToDecimal(tempBuffer, temp));
 
-	for (i = 0; i < sid->sid_authcount; i++)
+	for(i=0; i < sid->sid_authcount; i++)
 	{
 		current = current + strlen(current);
 		*current = '-';
@@ -401,12 +450,14 @@ int mbr_sid_to_string(const nt_sid_t *sid, char *string)
 
 int mbr_string_to_sid(const char *string, nt_sid_t *sid)
 {
-	char *current = string+2;
+	char *current = (char *)string+2;
 	int count = 0;
 	long long temp;
 
+	if (string == NULL) return EINVAL;
+
 	memset(sid, 0, sizeof(nt_sid_t));
-	if ((string[0] != 'S') || (string[1] != '-')) return EINVAL;
+	if (string[0] != 'S' || string[1] != '-') return EINVAL;
 
 	sid->sid_kind = strtol(current, &current, 10);
 	if (*current == '\0') return EINVAL;
@@ -416,7 +467,7 @@ int mbr_string_to_sid(const char *string, nt_sid_t *sid)
 	/* convert to BigEndian before copying */
 	temp = OSSwapHostToBigInt64(temp);
 	memcpy(sid->sid_authority, ((char*)&temp)+2, 6);
-	while ((*current != '\0') && (count < NTSID_MAX_AUTHORITIES))
+	while (*current != '\0' && count < NTSID_MAX_AUTHORITIES)
 	{
 		current++;
 		sid->sid_authorities[count] = strtol(current, &current, 10);
@@ -434,7 +485,7 @@ static void ConvertBytesToHex(char **string, char **data, int numBytes)
 {
 	int i;
 
-	for (i = 0; i < numBytes; i++)
+	for (i=0; i < numBytes; i++)
 	{
 		unsigned char hi = ((**data) >> 4) & 0xf;
 		unsigned char low = (**data) & 0xf;
@@ -457,7 +508,7 @@ static void ConvertBytesToHex(char **string, char **data, int numBytes)
 
 int mbr_uuid_to_string(const uuid_t uu, char *string)
 {
-	char *guid = (char *)uu;
+	char *guid = (char*)uu;
 	char *strPtr = string;
 	ConvertBytesToHex(&strPtr, &guid, 4);
 	*strPtr = '-'; strPtr++;
@@ -478,28 +529,23 @@ int mbr_string_to_uuid(const char *string, uuid_t uu)
 	short dataIndex = 0;
 	int isFirstNibble = 1;
 
-	if (strlen(string) > MBR_UU_STRING_SIZE)
-		return EINVAL;
+	if (string == NULL) return EINVAL;
+	if (strlen(string) > MBR_UU_STRING_SIZE) return EINVAL;
 
 	while (*string != '\0' && dataIndex < 16)
 	{
 		char nibble;
 
-		if ((*string >= '0') && (*string <= '9'))
-		{
+		if (*string >= '0' && *string <= '9')
 			nibble = *string - '0';
-		}
-		else if ((*string >= 'A') && (*string <= 'F'))
-		{
+		else if (*string >= 'A' && *string <= 'F')
 			nibble = *string - 'A' + 10;
-		}
-		else if ((*string >= 'a') && (*string <= 'f'))
-		{
+		else if (*string >= 'a' && *string <= 'f')
 			nibble = *string - 'a' + 10;
-		}
 		else
 		{
-			if (*string != '-') return EINVAL;
+			if (*string != '-')
+				return EINVAL;
 			string++;
 			continue;
 		}
@@ -523,3 +569,4 @@ int mbr_string_to_uuid(const char *string, uuid_t uu)
 
 	return 0;
 }
+

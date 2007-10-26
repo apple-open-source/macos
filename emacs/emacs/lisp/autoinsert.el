@@ -1,6 +1,7 @@
 ;;; autoinsert.el --- automatic mode-dependent insertion of text into new files
 
-;; Copyright (C) 1985, 86, 87, 94, 95, 98, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1987, 1994, 1995, 1998, 2000, 2001, 2002,
+;;   2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Charlie Martin <crm@cs.duke.edu>
 ;; Adapted-By: Daniel Pfeiffer <occitan@esperanto.org>
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -33,7 +34,7 @@
 ;;  auto-mode-alist.
 ;;
 ;;  To use:
-;;     (add-hook 'find-file-hooks 'auto-insert)
+;;     (add-hook 'find-file-hook 'auto-insert)
 ;;     setq auto-insert-directory to an appropriate slash-terminated value
 ;;
 ;;  You can also customize the variable `auto-insert-mode' to load the
@@ -67,7 +68,7 @@ Insertion is possible when something appropriate is found in
 `auto-insert-alist'.  When the insertion is marked as unmodified, you can
 save it with  \\[write-file] RET.
 This variable is used when the function `auto-insert' is called, e.g.
-when you do (add-hook 'find-file-hooks 'auto-insert).
+when you do (add-hook 'find-file-hook 'auto-insert).
 With \\[auto-insert], this is always treated as if it were t."
   :type '(choice (const :tag "Insert if possible" t)
                  (const :tag "Do nothing" nil)
@@ -103,16 +104,17 @@ If this contains a %s, that will be replaced by the matching rule."
     (("\\.\\([Cc]\\|cc\\|cpp\\)\\'" . "C / C++ program")
      nil
      "#include \""
-     ;; nop without latest cc-mode
-     (and (fboundp 'c-companion-file)
-	  ;(file-readable-p (c-companion-file 'name))
-	  (file-name-nondirectory (c-companion-file 'name))) & ?\"
-     | -10)
+     (let ((stem (file-name-sans-extension buffer-file-name)))
+       (cond ((file-exists-p (concat stem ".h"))
+	      (file-name-nondirectory (concat stem ".h")))
+	     ((file-exists-p (concat stem ".hh"))
+	      (file-name-nondirectory (concat stem ".hh")))))
+     & ?\" | -10)
 
-    ("[Mm]akefile\\'" . "makefile.inc")
+    (("[Mm]akefile\\'" . "Makefile") . "makefile.inc")
 
     (html-mode . (lambda () (sgml-tag "html")))
-    
+
     (plain-tex-mode . "tex-insert.tex")
     (bibtex-mode . "tex-insert.tex")
     (latex-mode
@@ -129,15 +131,44 @@ If this contains a %s, that will be replaced by the matching rule."
      lambda ()
        (if (eq major-mode default-major-mode)
 	 (sh-mode)))
-    
+
     (ada-mode . ada-header)
+
+    (("\\.[1-9]\\'" . "Man page skeleton")
+     "Short description: "
+     ".\\\" Copyright (C), " (substring (current-time-string) -4) "  "
+     (getenv "ORGANIZATION") | (progn user-full-name)
+     "
+.\\\" You may distribute this file under the terms of the GNU Free
+.\\\" Documentation License.
+.TH " (file-name-sans-extension (file-name-nondirectory (buffer-file-name)))
+     " " (file-name-extension (buffer-file-name))
+     " " (format-time-string "%Y-%m-%d ")
+     "\n.SH NAME\n"
+     (file-name-sans-extension (file-name-nondirectory (buffer-file-name)))
+     " \\- " str
+     "\n.SH SYNOPSIS
+.B " (file-name-sans-extension (file-name-nondirectory (buffer-file-name)))
+     "\n"
+     _
+     "
+.SH DESCRIPTION
+.SH OPTIONS
+.SH FILES
+.SH \"SEE ALSO\"
+.SH BUGS
+.SH AUTHOR
+" (user-full-name)
+     '(if (search-backward "&" (line-beginning-position) t)
+	  (replace-match (capitalize (user-login-name)) t t))
+     '(end-of-line 1) " <" (progn user-mail-address) ">\n")
 
     (("\\.el\\'" . "Emacs Lisp header")
      "Short description: "
      ";;; " (file-name-nondirectory (buffer-file-name)) " --- " str "
 
 ;; Copyright (C) " (substring (current-time-string) -4) "  "
- (getenv "ORGANIZATION") | "Free Software Foundation, Inc." "
+ (getenv "ORGANIZATION") | (progn user-full-name) "
 
 ;; Author: " (user-full-name)
 '(if (search-backward "&" (line-beginning-position) t)
@@ -167,8 +198,8 @@ If this contains a %s, that will be replaced by the matching rule."
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to
-;; the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -184,7 +215,7 @@ If this contains a %s, that will be replaced by the matching rule."
 ;;; " (file-name-nondirectory (buffer-file-name)) " ends here\n"))
   "A list specifying text to insert by default into a new file.
 Elements look like (CONDITION . ACTION) or ((CONDITION . DESCRIPTION) . ACTION).
-CONDITION maybe a regexp that must match the new file's name, or it may be
+CONDITION may be a regexp that must match the new file's name, or it may be
 a symbol that must match the major mode for this element to apply.
 Only the first matching element is effective.
 Optional DESCRIPTION is a string for filling `auto-insert-prompt'.
@@ -198,7 +229,9 @@ described above, e.g. [\"header.insert\" date-and-author-update]."
 
 ;; Establish a default value for auto-insert-directory
 (defcustom auto-insert-directory "~/insert/"
-  "*Directory from which auto-inserted files are taken."
+  "*Directory from which auto-inserted files are taken.
+The value must be an absolute directory name;
+thus, on a GNU or Unix system, it must end in a slash."
   :type 'directory
   :group 'auto-insert)
 
@@ -294,9 +327,10 @@ When Auto-insert mode is enabled, when new files are created you can
 insert a template for the file depending on the mode of the buffer."
   :global t :group 'auto-insert
   (if auto-insert-mode
-      (add-hook 'find-file-hooks 'auto-insert)
-    (remove-hook 'find-file-hooks 'auto-insert)))
+      (add-hook 'find-file-hook 'auto-insert)
+    (remove-hook 'find-file-hook 'auto-insert)))
 
 (provide 'autoinsert)
 
+;; arch-tag: 5b6630ac-c735-43cf-b097-b78c622af909
 ;;; autoinsert.el ends here

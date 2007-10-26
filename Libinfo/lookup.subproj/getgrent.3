@@ -1,0 +1,260 @@
+.\" Copyright (c) 1989, 1991, 1993
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     From: @(#)getgrent.3	8.2 (Berkeley) 4/19/94
+.\" $FreeBSD: src/lib/libc/gen/getgrent.3,v 1.16 2001/10/01 16:08:51 ru Exp $
+.\"
+.Dd September 29, 1994
+.Dt GETGRENT 3
+.Os
+.Sh NAME
+.Nm endgrent ,
+.Nm getgrent ,
+.Nm getgrgid ,
+.Nm getgrgid_r ,
+.Nm getgrnam ,
+.Nm getgrnam_r ,
+.Nm setgrent ,
+.\" .Nm setgrfile ,
+.Nm setgroupent
+.Nd group database operations
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In grp.h
+.Ft void
+.Fo endgrent
+.Fa void
+.Fc
+.Ft struct group *
+.Fo getgrent
+.Fa void
+.Fc
+.Ft struct group *
+.Fo getgrgid
+.Fa "gid_t gid"
+.Fc
+.Ft int
+.Fo getgrgid_r
+.Fa "gid_t gid"
+.Fa "struct group *grp"
+.Fa "char *buffer"
+.Fa "size_t bufsize"
+.Fa "struct group **result"
+.Fc
+.Ft struct group *
+.Fo getgrnam
+.Fa "const char *name"
+.Fc
+.Ft int
+.Fo getgrnam_r
+.Fa "const char *name"
+.Fa "struct group *grp"
+.Fa "char *buffer"
+.Fa "size_t bufsize"
+.Fa "struct group **result"
+.Fc
+.Ft void
+.Fo setgrent
+.Fa void
+.Fc
+.\" .Ft void
+.\" .Fn setgrfile "const char *name"
+.Ft int
+.Fo setgroupent
+.Fa "int stayopen"
+.Fc
+.Sh DESCRIPTION
+These functions operate on the group database file
+.Pa /etc/group ,
+which is described
+in
+.Xr group 5 .
+Each line of the database is defined by the structure
+.Ar group ,
+found in the include
+file
+.Aq Pa grp.h :
+.Bd -literal -offset indent
+struct group {
+	char	*gr_name;	/* group name */
+	char	*gr_passwd;	/* group password */
+	int	gr_gid;		/* group id */
+	char	**gr_mem;	/* group members */
+};
+.Ed
+.Pp
+The functions
+.Fn getgrnam
+and
+.Fn getgrgid
+search the group database for the given group name (pointed to by
+.Ar name )
+or the group id (pointed to by
+.Ar gid ) ,
+respectively, returning the first one encountered.  Identical group
+names or group ids may result in undefined behavior.
+.Pp
+All of these routines are thread-safe.
+The
+.Fn getgrent ,
+.Fn getgrgid ,
+and
+.Fn getgrnam
+routines return a pointer to a result managed by the system library in a
+thread-specific data structure.
+Every thread has space for a pointer to a struct group and allocates its own storage for the result.
+Neither previously returned values in memory nor a previously returned pointer value should be used
+by a thread after calling any one of these three routines.
+Memory allocated by a thread is automatically released on subsequent calls by the same thread to any of these
+three routines, and when the thread exits.
+.Pp
+The functions
+.Fn getgrgid_r
+and
+.Fn getgrnam_r
+take additional arguments which supply storage space for the returned result.
+The
+.Fa grp
+parameter is a pointer to a struct group, which must be allocated by the caller.
+The 
+.Fa buffer
+parameter is a pointer to a block of memory with a size specified by
+.Pa bufsize .
+This buffer is used to hold the values which are pointed to by values filled in
+the
+.Fa grp
+structure.
+Zero is returned on success.
+If insufficient memory is supplied, these routines return ERANGE.
+.Pp
+The
+.Fn getgrent
+function
+sequentially reads the group database and is intended for programs
+that wish to step through the complete list of groups.
+.Pp
+All three routines will open the group file for reading, if necessary.
+.Pp
+The
+.Fn setgroupent
+function
+opens the file, or rewinds it if it is already open.  If
+.Fa stayopen
+is non-zero, file descriptors are left open, significantly speeding
+functions' subsequent calls.  This functionality is unnecessary for
+.Fn getgrent ,
+as it doesn't close its file descriptors by default.  It should also
+be noted that it is dangerous for long-running programs to use this
+functionality, as the group file may be updated.
+.Pp
+The
+.Fn setgrent
+function
+is identical to
+.Fn setgroupent
+with an argument of zero.
+.Pp
+The
+.Fn endgrent
+function
+closes any open files.
+.Sh RETURN VALUES
+The functions
+.Fn getgrent ,
+.Fn getgrgid ,
+and
+.Fn getgrnam 
+each return a pointer to the group entry if successful; if end-of-file
+is reached or an error occurs, a null pointer is returned.
+The function
+.Fn setgroupent
+returns the value 1 if successful;
+otherwise, the value 0 is returned.
+The functions
+.Fn endgrent ,
+.Fn setgrent ,
+and
+.Fn setgrfile
+have no return value.
+.Sh FILES
+.Bl -tag -width /etc/group -compact
+.It Pa /etc/group
+group database file
+.El
+.Sh LEGACY SYNOPSIS
+.Fd #include <grp.h>
+.Pp
+.Ft int
+.br
+.Fo setgrent
+.Fa void
+.Fc ;
+.Pp
+The function
+.Fn setgrent
+returns the value 1 if successful;
+otherwise, the value 0 is returned.
+.Sh SEE ALSO
+.Xr getpwent 3 ,
+.Xr yp 8 ,
+.Xr group 5
+.Sh HISTORY
+The functions
+.Fn endgrent ,
+.Fn getgrent ,
+.Fn getgrnam ,
+.Fn getgrgid ,
+and
+.Fn setgrent
+appeared in
+.At v7 .
+The functions
+.Fn setgrfile
+and
+.Fn setgroupent
+appeared in
+.Bx 4.3 Reno .
+.Sh COMPATIBILITY
+The historic function
+.Fn setgrfile ,
+which allowed the specification of alternate password databases, has
+been deprecated and is no longer available.
+.Sh BUGS
+The functions
+.Fn getgrent ,
+.Fn getgrnam ,
+and
+.Fn getgrgid ,
+leave their results in internal thread-specific memory and return
+a pointer to that object.
+Subsequent calls to any of these three routines by the same thread will
+release the object and return a new pointer value.

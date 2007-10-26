@@ -1,39 +1,37 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * command initialization
  */
 
-#include <cmdlib.h>
+#include <cmd.h>
 
-void
-cmdinit(char** argv, void* context, const char* catalog, int flags)
+int
+_cmd_init(int argc, char** argv, void* context, const char* catalog, int flags)
 {
 	register char*	cp;
 
+	if (argc < 0)
+		return -1;
 	if (cp = strrchr(argv[0], '/'))
 		cp++;
 	else
@@ -44,4 +42,21 @@ cmdinit(char** argv, void* context, const char* catalog, int flags)
 	opt_info.index = 0;
 	if (context)
 		error_info.flags |= flags;
+	return 0;
 }
+
+#if __OBSOLETE__ < 20080101
+
+#if defined(__EXPORT__)
+#define extern	__EXPORT__
+#endif
+
+#undef	cmdinit
+
+extern void
+cmdinit(char** argv, void* context, const char* catalog, int flags)
+{
+	_cmd_init(0, argv, context, catalog, flags);
+}
+
+#endif

@@ -114,7 +114,7 @@ CString::CString ( const CString& cs )
 	mData	= NULL;
 
 	// CString should always have a valid size.
-	if ( cs.mSize <= 0 ) throw( (sInt32)eParameterError );
+	if ( cs.mSize <= 0 ) throw( (SInt32)eParameterError );
 
 	Grow( cs.mSize );
 
@@ -141,7 +141,7 @@ CString::CString ( const char *pattern, va_list args )
 	mData	= NULL;
 
 	// let's not throw if NULL string...
-	if ( pattern == nil ) throw((sInt32)eParameterError);
+	if ( pattern == nil ) throw((SInt32)eParameterError);
 
 	// Allocate some space then vsprintf into the buffer.
 	Grow();
@@ -194,8 +194,8 @@ int CString::GetLength ( void ) const
 
 void CString::GetPascal ( unsigned char *pstr ) const
 {
-	if ( pstr == nil ) throw( (sInt32)eParameterError );
-	if ( mLength > 255 ) throw( (sInt32)eParameterError );
+	if ( pstr == nil ) throw( (SInt32)eParameterError );
+	if ( mLength > 255 ) throw( (SInt32)eParameterError );
 	*pstr++ = ( unsigned char ) mLength;
 	::memcpy( pstr, mData, mLength );
 } // GetPascal
@@ -210,7 +210,7 @@ void CString::GetPascal ( unsigned char *pstr ) const
 
 void CString::Set ( const char *str )
 {
-	if ( str == nil ) throw((sInt32)eParameterError);
+	if ( str == nil ) throw((SInt32)eParameterError);
 
 	// Clear mLength to avoid a copy during the grow.
 	mLength = 0;
@@ -237,8 +237,8 @@ void CString::Set ( const char *str )
 
 void CString::Set ( const char *str, int len )
 {
-	if ( str == nil ) throw( (sInt32)eParameterError );
-	if ( len < 0 ) throw( (sInt32)eParameterError );
+	if ( str == nil ) throw( (SInt32)eParameterError );
+	if ( len < 0 ) throw( (SInt32)eParameterError );
 
 	mLength = 0;
 
@@ -265,7 +265,7 @@ void CString::Set ( const char *str, int len )
 
 void CString::Set ( const unsigned char *pstr )
 {
-	if ( pstr == nil ) throw((sInt32)eParameterError);
+	if ( pstr == nil ) throw((SInt32)eParameterError);
 
 	register int	len = ( int ) *pstr++;
 
@@ -332,7 +332,7 @@ void CString::Append ( char inChar )
 
 void CString::Append ( const char *str )
 {
-	if ( str == nil ) throw((sInt32)eParameterError);
+	if ( str == nil ) throw((SInt32)eParameterError);
 	// Handle the corner case.
 	if ( !*str )
 		return;
@@ -352,8 +352,8 @@ void CString::Append ( const char *str )
 
 void CString::Append ( const char *str, int arglen )
 {
-	if ( str == nil ) throw( (sInt32)eParameterError );
-	if ( arglen < 0 ) throw( (sInt32)eParameterError );
+	if ( str == nil ) throw( (SInt32)eParameterError );
+	if ( arglen < 0 ) throw( (SInt32)eParameterError );
 	// Handle the corner cases.
 	if ( !arglen || !*str )
 		return;
@@ -380,7 +380,7 @@ void CString::Append ( const char *str, int arglen )
 
 void CString::Append ( const unsigned char *pstr )
 {
-	if ( pstr == nil ) throw((sInt32)eParameterError);
+	if ( pstr == nil ) throw((SInt32)eParameterError);
 
 	register int	len = ( int ) *pstr++;
 
@@ -429,7 +429,7 @@ void CString::Append ( const CString &cs )
 
 void CString::Prepend ( const char *str )
 {
-	if ( str == nil ) throw((sInt32)eParameterError);
+	if ( str == nil ) throw((SInt32)eParameterError);
 
 	// Handle the corner case.
 	if ( !*str )
@@ -451,7 +451,7 @@ void CString::Prepend ( const char *str )
 		while ( pow2 < newlen )
 			pow2 <<= 1;
 		register char	*newData = new char [pow2];
-		if ( newData == nil ) throw((sInt32)eMemoryAllocError);
+		if ( newData == nil ) throw((SInt32)eMemoryAllocError);
 		::strcpy( newData, str );
 		::strcpy( &newData[len], mData );
 		delete []mData;
@@ -517,12 +517,12 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 	// the default size.
 	char			caTemp [kCStringDefSize + 32];
 	register char  *cpTemp = caTemp;
-	uInt32			ulArg;
-	sInt32			lArg;
+	UInt32			ulArg;
+	SInt32			lArg;
 	double			dArg;
 	int				nArg;
 	char		   *szpArg;
-	StringPtr		spArg;
+	unsigned char  *spArg;
 	FourCharCode	fccArg;
 	CString		   *cspArg;
 
@@ -547,7 +547,7 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 			{
 				// non-standard ( A = IP Address )!
 				case 'A':
-					ulArg = va_arg ( args, uInt32 );
+					ulArg = va_arg ( args, UInt32 );
 					cpTemp += ::sprintf ( cpTemp, "%ld.%ld.%ld.%ld",
 											((ulArg >> 24) & 0xFF),
 											((ulArg >> 16) & 0xFF),
@@ -581,7 +581,7 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 				// non-standard ( P = Pascal string )!
 				case 'P':
 				case 'p':	// lower-case 'p' is deprecated usage
-					spArg = va_arg ( args, StringPtr );
+					spArg = va_arg ( args, unsigned char * );
 					if ( cpTemp != caTemp )
 					{
 						*cpTemp = '\0';
@@ -600,7 +600,8 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 						Append ( caTemp );
 						cpTemp = caTemp;
 					}
-					Append ( *cspArg );
+					if ( cspArg )
+						Append ( *cspArg );
 					break;
 
 				// non-standard! (T = localtime with offset, no arg)
@@ -616,21 +617,28 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 					}
 					break;
 
+				// non-standard! (G = XCode Debug Output, no arg)
+				case 'G':
+					{
+						cpTemp += ::sprintf (cpTemp, "DSDEBUG") ;
+					}
+					break;
+
 				// non-standard ( long expected )!
 				case 'X':
-					ulArg = va_arg ( args, uInt32 );
+					ulArg = va_arg ( args, UInt32 );
 					cpTemp += ::sprintf ( cpTemp, "0x%08lX", ulArg );
 					break;
 
 				// non-standard ( long expected )!
 				case 'u':
-					ulArg = va_arg ( args, uInt32 );
+					ulArg = va_arg ( args, UInt32 );
 					cpTemp += ::sprintf ( cpTemp, "%lu", ulArg );
 					break;
 
 				// non-standard ( not used as modifier )!
 				case 'l':
-					lArg = va_arg ( args, sInt32 );
+					lArg = va_arg ( args, SInt32 );
 					cpTemp += ::sprintf ( cpTemp, "%ld", lArg );
 					break;
 
@@ -651,7 +659,8 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 						Append ( caTemp );
 						cpTemp = caTemp;
 					}
-					Append ( szpArg );
+					if ( szpArg )
+						Append ( szpArg );
 					break;
 					
 				case 'f':
@@ -661,7 +670,7 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 					break;
 
 				default:
-					throw( (sInt32)(CString::kUnknownEscapeErr) );
+					cpTemp += ::sprintf ( cpTemp, "  *** bad control string ***  " );
 			}
 		}
 	}
@@ -691,7 +700,7 @@ void CString::Vsprintf ( const char *pattern, va_list args )
 
 void CString::Grow( int newSize )
 {
-	if ( newSize < 0 ) throw( (sInt32)eParameterError );
+	if ( newSize < 0 ) throw( (SInt32)eParameterError );
 
 	// Allocate the default length if requested.
 	if ( !newSize )
@@ -716,7 +725,7 @@ void CString::Grow( int newSize )
 	}
 
 	register char	*newData = new char [newSize];
-	if ( newData == nil ) throw((sInt32)eMemoryAllocError);
+	if ( newData == nil ) throw((SInt32)eMemoryAllocError);
 
 	if ( mLength )
 	{

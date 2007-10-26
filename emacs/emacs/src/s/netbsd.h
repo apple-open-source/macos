@@ -1,4 +1,25 @@
-/* s/ file for netbsd system.  */
+/* s/ file for netbsd system.
+
+   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 /* Get most of the stuff from bsd4.3 */
 #include "bsd4-3.h"
@@ -60,11 +81,19 @@
 #endif /* not NO_SHARED_LIBS and not ELF */
 
 #if !defined (NO_SHARED_LIBS) && defined (__ELF__)
-#define START_FILES pre-crt0.o /usr/lib/crt0.o /usr/lib/crtbegin.o
+#define START_FILES pre-crt0.o /usr/lib/crt0.o START_FILES_1 /usr/lib/crtbegin.o
 #define UNEXEC unexelf.o
-#define LIB_STANDARD -lgcc -lc -lgcc /usr/lib/crtend.o
+#define LIB_STANDARD -lgcc -lc -lgcc /usr/lib/crtend.o END_FILES_1
 #undef LIB_GCC
 #define LIB_GCC
+#endif
+
+#ifdef HAVE_CRTIN
+#define START_FILES_1 /usr/lib/crti.o 
+#define END_FILES_1 /usr/lib/crtn.o
+#else
+#define START_FILES_1
+#define END_FILES_1
 #endif
 
 #define HAVE_WAIT_HEADER
@@ -77,7 +106,7 @@
    says where to find X windows at run time.  We convert it to a -rpath option
    which is what OSF1 uses.  */
 #define LD_SWITCH_SYSTEM_tmp `echo LD_SWITCH_X_SITE_AUX | sed -e 's/-R/-Wl,-rpath,/'`
-#define LD_SWITCH_SYSTEM LD_SWITCH_SYSTEM_tmp -L/usr/pkg/lib -L/usr/local/lib
+#define LD_SWITCH_SYSTEM LD_SWITCH_SYSTEM_tmp -Wl,-rpath,/usr/pkg/lib -L/usr/pkg/lib -Wl,-rpath,/usr/local/lib -L/usr/local/lib
 
 /* The following is needed to make `configure' find Xpm, Xaw3d and
    image include and library files if using /usr/bin/gcc.  That
@@ -85,6 +114,13 @@
    /usr/local/include or libs in /usr/local/lib by default.  */
 
 #define C_SWITCH_SYSTEM -I/usr/X11R6/include -I/usr/pkg/include -I/usr/local/include -L/usr/pkg/lib -L/usr/local/lib
+
+/* Link temacs with -z nocombreloc so that unexec works right, whether or
+   not -z combreloc is the default.  GNU ld ignores unknown -z KEYWORD
+   switches, so this also works with older versions that don't implement
+   -z combreloc.  */
+
+#define LD_SWITCH_SYSTEM_TEMACS -Wl,-z,nocombreloc
 
 #endif /* __ELF__ */
 
@@ -112,14 +148,21 @@
    ioctl TIOCSCTTY.  */
 
 #define DONT_REOPEN_PTY
- 
+
 /* Tell that garbage collector that setjmp is known to save all
    registers relevant for conservative garbage collection in the
    jmp_buf.  */
 
 #define GC_SETJMP_WORKS 1
- 
+
 /* Use the GC_MAKE_GCPROS_NOOPS (see lisp.h) method.  */
 
 #define GC_MARK_STACK	GC_MAKE_GCPROS_NOOPS
 
+/* Use sigprocmask and friends instead of sigblock;
+   sigblock is considered obsolete on NetBSD.  */
+
+#define POSIX_SIGNALS	1
+
+/* arch-tag: e80f364a-04e9-4faf-93cb-f36a0fe95c81
+   (do not change this comment) */

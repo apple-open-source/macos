@@ -30,7 +30,7 @@
  	;;
        *) # Darwin 1.3 on
  	test -z ${LD_TWOLEVEL_NAMESPACE} && allow_undefined_flag='-flat_namespace -undefined suppress'
-+	allow_undefined_flag='-arch ppc -arch i386'
++	allow_undefined_flag='-arch ppc -arch i386 -arch ppc64 -arch x86_64'
  	;;
        esac
        # FIXME: Relying on posixy $() will cause problems for

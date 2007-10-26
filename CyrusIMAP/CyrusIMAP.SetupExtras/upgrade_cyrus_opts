@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+#
+# Copyright (c) 2007 Apple, Inc.  All Rights Reserved
+#
+# Removes cyrus-quota crontab and converts to launchd
+#
+
+require 'Foundation.pm';
+
+$quotaPlistPath = "/System/Library/LaunchDaemons/edu.cmu.andrew.cyrus.cyrus-quota.plist";
+$quotaPlistPathNS = NSString->stringWithCString_($quotaPlistPath);
+
+$otherPlistPath = "/etc/MailServicesOther.plist";
+$otherPlistPathNS = NSString->stringWithCString_($otherPlistPath);
+
+if ( ! -e "$quotaPlistPath" )
+{
+	log_message("Config file: '$quotaPlistPath' does not exist");
+	exit;
+}
+
+if ( ! -e "$otherPlistPath" )
+{
+	log_message("Config file: '$otherPlistPath' does not exist");
+	exit;
+}
+
+$quotaDict = NSMutableDictionary->dictionaryWithContentsOfFile_($quotaPlistPathNS);
+$otherDict = NSDictionary->dictionaryWithContentsOfFile_($otherPlistPathNS);
+
+if ( !$quotaDict or !$$quotaDict )
+{
+	log_message( "Error: Can't get NSDictionary for '$quotaPlistPath'");
+	exit;
+}
+
+if ( !$otherDict or !$$otherDict )
+{
+	log_message("Error: Can't get NSDictionary for '$otherPlistPath'");
+	exit;
+}
+
+$cyursDict = $otherDict->objectForKey_( "cyrus" );
+if ($cyursDict and $$cyursDict)
+{
+	$quotaDays = $cyursDict->objectForKey_("quota_warn_frequency_days") ;
+	if ($quotaDays or $$quotaDays)
+	{
+		# get log days and convert to seconds
+		$seconds = sprintf("%d", $quotaDays->description()->UTF8String());
+		$seconds = $seconds * 86400;
+
+		$quotaDict->setObject_forKey_( NSNumber->numberWithInt_($seconds), "StartInterval" );
+		$quotaDict->writeToFile_atomically_( $quotaPlistPathNS, 0 );
+
+		# enable launchd plist if cron job exits
+		if ( system( "crontab -u cyrusimap -l" ) == 0 )
+		{
+			system( "/bin/launchctl load -w /System/Library/LaunchDaemons/edu.cmu.andrew.cyrus.cyrus-quota.plist" );
+			system( "crontab -u cyrusimap /dev/null" )
+		}
+		else
+		{
+			system( "/bin/launchctl unload -w /System/Library/LaunchDaemons/edu.cmu.andrew.cyrus.cyrus-quota.plist" );
+		}
+	}
+}
+
+sub log_message
+{
+	`logger -t toggle_on_demand -p "mail.notice" "@_".`;
+}

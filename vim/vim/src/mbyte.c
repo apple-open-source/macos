@@ -100,9 +100,25 @@
 #include <X11/Xlocale.h>
 #endif
 
-#if defined(FEAT_XIM) && defined(HAVE_GTK2)
+#if defined(FEAT_GUI_GTK) && defined(FEAT_XIM) && defined(HAVE_GTK2)
 # include <gdk/gdkkeysyms.h>
-# include <gdk/gdkx.h>
+# ifdef WIN3264
+#  include <gdk/gdkwin32.h>
+# else
+#  include <gdk/gdkx.h>
+# endif
+#endif
+
+#ifdef HAVE_WCHAR_H
+# include <wchar.h>
+#endif
+
+#if 0
+/* This has been disabled, because several people reported problems with the
+ * wcwidth() and iswprint() library functions, esp. for Hebrew. */
+# ifdef __STDC_ISO_10646__
+#  define USE_WCHAR_FUNCTIONS
+# endif
 #endif
 
 #if defined(FEAT_MBYTE) || defined(PROTO)
@@ -110,7 +126,7 @@
 static int enc_canon_search __ARGS((char_u *name));
 static int dbcs_char2len __ARGS((int c));
 static int dbcs_char2bytes __ARGS((int c, char_u *buf));
-static int dbcs_ptr2len_check __ARGS((char_u *p));
+static int dbcs_ptr2len __ARGS((char_u *p));
 static int dbcs_char2cells __ARGS((int c));
 static int dbcs_ptr2char __ARGS((char_u *p));
 
@@ -128,6 +144,37 @@ static char utf8len_tab[256] =
     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
     3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,6,6,1,1,
 };
+
+/*
+ * XIM often causes trouble.  Define XIM_DEBUG to get a log of XIM callbacks
+ * in the "xim.log" file.
+ */
+/* #define XIM_DEBUG */
+#ifdef XIM_DEBUG
+    static void
+xim_log(char *s, ...)
+{
+    va_list arglist;
+    static FILE *fd = NULL;
+
+    if (fd == (FILE *)-1)
+	return;
+    if (fd == NULL)
+    {
+	fd = mch_fopen("xim.log", "w");
+	if (fd == NULL)
+	{
+	    EMSG("Cannot open xim.log");
+	    fd = (FILE *)-1;
+	    return;
+	}
+    }
+
+    va_start(arglist, s);
+    vfprintf(fd, s, arglist);
+    va_end(arglist);
+}
+#endif
 
 #endif
 
@@ -154,63 +201,117 @@ enc_canon_table[] =
     {"iso-8859-6",	ENC_8BIT,		0},
 #define IDX_ISO_7	6
     {"iso-8859-7",	ENC_8BIT,		0},
-#define IDX_CP1255	7
-    {"cp1255",		ENC_8BIT,		1255}, /* close to iso-8859-8 */
-#define IDX_ISO_8	8
+#define IDX_ISO_8	7
     {"iso-8859-8",	ENC_8BIT,		0},
-#define IDX_ISO_9	9
+#define IDX_ISO_9	8
     {"iso-8859-9",	ENC_8BIT,		0},
-#define IDX_ISO_10	10
+#define IDX_ISO_10	9
     {"iso-8859-10",	ENC_8BIT,		0},
-#define IDX_ISO_11	11
+#define IDX_ISO_11	10
     {"iso-8859-11",	ENC_8BIT,		0},
-#define IDX_ISO_13	12
+#define IDX_ISO_13	11
     {"iso-8859-13",	ENC_8BIT,		0},
-#define IDX_ISO_14	13
+#define IDX_ISO_14	12
     {"iso-8859-14",	ENC_8BIT,		0},
-#define IDX_ISO_15	14
-    {"iso-8859-15",	ENC_8BIT,		0},
-#define IDX_KOI8_R	15
+#define IDX_ISO_15	13
+    {"iso-8859-15",	ENC_8BIT + ENC_LATIN9,	0},
+#define IDX_KOI8_R	14
     {"koi8-r",		ENC_8BIT,		0},
-#define IDX_KOI8_U	16
+#define IDX_KOI8_U	15
     {"koi8-u",		ENC_8BIT,		0},
-#define IDX_UTF8	17
+#define IDX_UTF8	16
     {"utf-8",		ENC_UNICODE,		0},
-#define IDX_UCS2	18
+#define IDX_UCS2	17
     {"ucs-2",		ENC_UNICODE + ENC_ENDIAN_B + ENC_2BYTE, 0},
-#define IDX_UCS2LE	19
+#define IDX_UCS2LE	18
     {"ucs-2le",		ENC_UNICODE + ENC_ENDIAN_L + ENC_2BYTE, 0},
-#define IDX_UTF16	20
+#define IDX_UTF16	19
     {"utf-16",		ENC_UNICODE + ENC_ENDIAN_B + ENC_2WORD, 0},
-#define IDX_UTF16LE	21
+#define IDX_UTF16LE	20
     {"utf-16le",	ENC_UNICODE + ENC_ENDIAN_L + ENC_2WORD, 0},
-#define IDX_UCS4	22
+#define IDX_UCS4	21
     {"ucs-4",		ENC_UNICODE + ENC_ENDIAN_B + ENC_4BYTE, 0},
-#define IDX_UCS4LE	23
+#define IDX_UCS4LE	22
     {"ucs-4le",		ENC_UNICODE + ENC_ENDIAN_L + ENC_4BYTE, 0},
-#define IDX_DEBUG	24
+
+    /* For debugging DBCS encoding on Unix. */
+#define IDX_DEBUG	23
     {"debug",		ENC_DBCS,		DBCS_DEBUG},
-#define IDX_CP932	25
-    {"cp932",		ENC_DBCS,		DBCS_JPN},
-#define IDX_CP949	26
-    {"cp949",		ENC_DBCS,		DBCS_KOR},
-#define IDX_CP936	27
-    {"cp936",		ENC_DBCS,		DBCS_CHS},
-#define IDX_CP950	28
-    {"cp950",		ENC_DBCS,		DBCS_CHT},
-#define IDX_EUC_JP	29
+#define IDX_EUC_JP	24
     {"euc-jp",		ENC_DBCS,		DBCS_JPNU},
-#define IDX_SJIS	30
+#define IDX_SJIS	25
     {"sjis",		ENC_DBCS,		DBCS_JPN},
-#define IDX_EUC_KR	31
+#define IDX_EUC_KR	26
     {"euc-kr",		ENC_DBCS,		DBCS_KORU},
-#define IDX_EUC_CN	32
+#define IDX_EUC_CN	27
     {"euc-cn",		ENC_DBCS,		DBCS_CHSU},
-#define IDX_EUC_TW	33
+#define IDX_EUC_TW	28
     {"euc-tw",		ENC_DBCS,		DBCS_CHTU},
-#define IDX_BIG5	34
+#define IDX_BIG5	29
     {"big5",		ENC_DBCS,		DBCS_CHT},
-#define IDX_COUNT	35
+
+    /* MS-DOS and MS-Windows codepages are included here, so that they can be
+     * used on Unix too.  Most of them are similar to ISO-8859 encodings, but
+     * not exactly the same. */
+#define IDX_CP437	30
+    {"cp437",		ENC_8BIT,		437}, /* like iso-8859-1 */
+#define IDX_CP737	31
+    {"cp737",		ENC_8BIT,		737}, /* like iso-8859-7 */
+#define IDX_CP775	32
+    {"cp775",		ENC_8BIT,		775}, /* Baltic */
+#define IDX_CP850	33
+    {"cp850",		ENC_8BIT,		850}, /* like iso-8859-4 */
+#define IDX_CP852	34
+    {"cp852",		ENC_8BIT,		852}, /* like iso-8859-1 */
+#define IDX_CP855	35
+    {"cp855",		ENC_8BIT,		855}, /* like iso-8859-2 */
+#define IDX_CP857	36
+    {"cp857",		ENC_8BIT,		857}, /* like iso-8859-5 */
+#define IDX_CP860	37
+    {"cp860",		ENC_8BIT,		860}, /* like iso-8859-9 */
+#define IDX_CP861	38
+    {"cp861",		ENC_8BIT,		861}, /* like iso-8859-1 */
+#define IDX_CP862	39
+    {"cp862",		ENC_8BIT,		862}, /* like iso-8859-1 */
+#define IDX_CP863	40
+    {"cp863",		ENC_8BIT,		863}, /* like iso-8859-8 */
+#define IDX_CP865	41
+    {"cp865",		ENC_8BIT,		865}, /* like iso-8859-1 */
+#define IDX_CP866	42
+    {"cp866",		ENC_8BIT,		866}, /* like iso-8859-5 */
+#define IDX_CP869	43
+    {"cp869",		ENC_8BIT,		869}, /* like iso-8859-7 */
+#define IDX_CP874	44
+    {"cp874",		ENC_8BIT,		874}, /* Thai */
+#define IDX_CP932	45
+    {"cp932",		ENC_DBCS,		DBCS_JPN},
+#define IDX_CP936	46
+    {"cp936",		ENC_DBCS,		DBCS_CHS},
+#define IDX_CP949	47
+    {"cp949",		ENC_DBCS,		DBCS_KOR},
+#define IDX_CP950	48
+    {"cp950",		ENC_DBCS,		DBCS_CHT},
+#define IDX_CP1250	49
+    {"cp1250",		ENC_8BIT,		1250}, /* Czech, Polish, etc. */
+#define IDX_CP1251	50
+    {"cp1251",		ENC_8BIT,		1251}, /* Cyrillic */
+    /* cp1252 is considered to be equal to latin1 */
+#define IDX_CP1253	51
+    {"cp1253",		ENC_8BIT,		1253}, /* Greek */
+#define IDX_CP1254	52
+    {"cp1254",		ENC_8BIT,		1254}, /* Turkish */
+#define IDX_CP1255	53
+    {"cp1255",		ENC_8BIT,		1255}, /* Hebrew */
+#define IDX_CP1256	54
+    {"cp1256",		ENC_8BIT,		1256}, /* Arabic */
+#define IDX_CP1257	55
+    {"cp1257",		ENC_8BIT,		1257}, /* Baltic */
+#define IDX_CP1258	56
+    {"cp1258",		ENC_8BIT,		1258}, /* Vietnamese */
+
+#define IDX_MACROMAN	57
+    {"macroman",	ENC_8BIT + ENC_MACROMAN, 0},	/* Mac OS */
+#define IDX_COUNT	58
 };
 
 /*
@@ -284,6 +385,7 @@ enc_alias_table[] =
     {"cp950",		IDX_BIG5},
     {"950",		IDX_BIG5},
 #endif
+    {"mac",		IDX_MACROMAN},
     {NULL,		0}
 };
 
@@ -325,7 +427,7 @@ enc_canon_props(name)
     if (i >= 0)
 	return enc_canon_table[i].prop;
 #ifdef WIN3264
-    if (name[0] == 'c' && name[1] == 'p' && isdigit(name[2]))
+    if (name[0] == 'c' && name[1] == 'p' && VIM_ISDIGIT(name[2]))
     {
 	CPINFO	cpinfo;
 
@@ -368,6 +470,12 @@ mb_init()
     int		idx;
     int		n;
     int		enc_dbcs_new = 0;
+#if defined(USE_ICONV) && !defined(WIN3264) && !defined(WIN32UNIX) \
+	&& !defined(MACOS)
+# define LEN_FROM_CONV
+    vimconv_T	vimconv;
+    char_u	*p;
+#endif
 
     if (p_enc == NULL)
     {
@@ -381,7 +489,7 @@ mb_init()
     }
 
 #ifdef WIN3264
-    if (p_enc[0] == 'c' && p_enc[1] == 'p' && isdigit(p_enc[2]))
+    if (p_enc[0] == 'c' && p_enc[1] == 'p' && VIM_ISDIGIT(p_enc[2]))
     {
 	CPINFO	cpinfo;
 
@@ -473,14 +581,19 @@ codepage_invalid:
 
 #ifdef WIN3264
     enc_codepage = encname2codepage(p_enc);
+    enc_latin9 = (STRCMP(p_enc, "iso-8859-15") == 0);
 #endif
+
+    /* Detect an encoding that uses latin1 characters. */
+    enc_latin1like = (enc_utf8 || STRCMP(p_enc, "latin1") == 0
+					|| STRCMP(p_enc, "iso-8859-15") == 0);
 
     /*
      * Set the function pointers.
      */
     if (enc_utf8)
     {
-	mb_ptr2len_check = utfc_ptr2len_check;
+	mb_ptr2len = utfc_ptr2len;
 	mb_char2len = utf_char2len;
 	mb_char2bytes = utf_char2bytes;
 	mb_ptr2cells = utf_ptr2cells;
@@ -491,7 +604,7 @@ codepage_invalid:
     }
     else if (enc_dbcs != 0)
     {
-	mb_ptr2len_check = dbcs_ptr2len_check;
+	mb_ptr2len = dbcs_ptr2len;
 	mb_char2len = dbcs_char2len;
 	mb_char2bytes = dbcs_char2bytes;
 	mb_ptr2cells = dbcs_ptr2cells;
@@ -502,7 +615,7 @@ codepage_invalid:
     }
     else
     {
-	mb_ptr2len_check = latin_ptr2len_check;
+	mb_ptr2len = latin_ptr2len;
 	mb_char2len = latin_char2len;
 	mb_char2bytes = latin_char2bytes;
 	mb_ptr2cells = latin_ptr2cells;
@@ -515,9 +628,25 @@ codepage_invalid:
     /*
      * Fill the mb_bytelen_tab[] for MB_BYTE2LEN().
      */
+#ifdef LEN_FROM_CONV
+    /* When 'encoding' is different from the current locale mblen() won't
+     * work.  Use conversion to "utf-8" instead. */
+    vimconv.vc_type = CONV_NONE;
+    if (enc_dbcs)
+    {
+	p = enc_locale();
+	if (p == NULL || STRCMP(p, p_enc) != 0)
+	{
+	    convert_setup(&vimconv, p_enc, (char_u *)"utf-8");
+	    vimconv.vc_fail = TRUE;
+	}
+	vim_free(p);
+    }
+#endif
+
     for (i = 0; i < 256; ++i)
     {
-	/* Our own function to reliably check the lenght of UTF-8 characters,
+	/* Our own function to reliably check the length of UTF-8 characters,
 	 * independent of mblen(). */
 	if (enc_utf8)
 	    n = utf8len_tab[i];
@@ -541,7 +670,6 @@ codepage_invalid:
 # else
 	    char buf[MB_MAXBYTES];
 # ifdef X_LOCALE
-	    extern int _Xmblen __ARGS((char *, size_t));
 #  ifndef mblen
 #   define mblen _Xmblen
 #  endif
@@ -550,22 +678,39 @@ codepage_invalid:
 		n = 1;
 	    else
 	    {
-		/*
-		 * mblen() should return -1 for invalid (means the leading
-		 * multibyte) character.  However there are some platform
-		 * where mblen() returns 0 for invalid character.  Therefore,
-		 * following condition includes 0.
-		 */
 		buf[0] = i;
 		buf[1] = 0;
-#if 0
-		if (i >= 0x80)/* TESTING DBCS: 'encoding' != current locale */
-#else
-		if (mblen(buf, (size_t)1) <= 0)
-#endif
-		    n = 2;
+#ifdef LEN_FROM_CONV
+		if (vimconv.vc_type != CONV_NONE)
+		{
+		    /*
+		     * string_convert() should fail when converting the first
+		     * byte of a double-byte character.
+		     */
+		    p = string_convert(&vimconv, (char_u *)buf, NULL);
+		    if (p != NULL)
+		    {
+			vim_free(p);
+			n = 1;
+		    }
+		    else
+			n = 2;
+		}
 		else
-		    n = 1;
+#endif
+		{
+		    /*
+		     * mblen() should return -1 for invalid (means the leading
+		     * multibyte) character.  However there are some platforms
+		     * where mblen() returns 0 for invalid character.
+		     * Therefore, following condition includes 0.
+		     */
+		    (void)mblen(NULL, 0);	/* First reset the state. */
+		    if (mblen(buf, (size_t)1) <= 0)
+			n = 2;
+		    else
+			n = 1;
+		}
 	    }
 # endif
 #endif
@@ -573,6 +718,10 @@ codepage_invalid:
 
 	mb_bytelen_tab[i] = n;
     }
+
+#ifdef LEN_FROM_CONV
+    convert_setup(&vimconv, NULL, NULL);
+#endif
 
     /* The cell width depends on the type of multi-byte characters. */
     (void)init_chartab();
@@ -583,7 +732,8 @@ codepage_invalid:
     /* When using Unicode, set default for 'fileencodings'. */
     if (enc_utf8 && !option_was_set((char_u *)"fencs"))
 	set_string_option_direct((char_u *)"fencs", -1,
-				 (char_u *)"ucs-bom,utf-8,latin1", OPT_FREE);
+		       (char_u *)"ucs-bom,utf-8,default,latin1", OPT_FREE, 0);
+
 #if defined(HAVE_BIND_TEXTDOMAIN_CODESET) && defined(FEAT_GETTEXT)
     /* GNU gettext 0.10.37 supports this feature: set the codeset used for
      * translated messages independently from the current locale. */
@@ -591,10 +741,22 @@ codepage_invalid:
 					  enc_utf8 ? "utf-8" : (char *)p_enc);
 #endif
 
+#ifdef WIN32
+    /* When changing 'encoding' while starting up, then convert the command
+     * line arguments from the active codepage to 'encoding'. */
+    if (starting != 0)
+	fix_arg_enc();
+#endif
+
 #ifdef FEAT_AUTOCMD
     /* Fire an autocommand to let people do custom font setup. This must be
      * after Vim has been setup for the new encoding. */
     apply_autocmds(EVENT_ENCODINGCHANGED, NULL, (char_u *)"", FALSE, curbuf);
+#endif
+
+#ifdef FEAT_SPELL
+    /* Need to reload spell dictionaries */
+    spell_reload();
 #endif
 
     return NULL;
@@ -881,6 +1043,10 @@ dbcs_char2bytes(c, buf)
     {
 	buf[0] = (unsigned)c >> 8;
 	buf[1] = c;
+	/* Never use a NUL byte, it causes lots of trouble.  It's an invalid
+	 * character anyway. */
+	if (buf[1] == NUL)
+	    buf[1] = '\n';
 	return 2;
     }
     buf[0] = c;
@@ -888,21 +1054,21 @@ dbcs_char2bytes(c, buf)
 }
 
 /*
- * mb_ptr2len_check() function pointer.
+ * mb_ptr2len() function pointer.
  * Get byte length of character at "*p" but stop at a NUL.
  * For UTF-8 this includes following composing characters.
  * Returns 0 when *p is NUL.
  *
  */
     int
-latin_ptr2len_check(p)
+latin_ptr2len(p)
     char_u	*p;
 {
     return MB_BYTE2LEN(*p);
 }
 
     static int
-dbcs_ptr2len_check(p)
+dbcs_ptr2len(p)
     char_u	*p;
 {
     int		len;
@@ -938,7 +1104,7 @@ intable(table, size, c)
 
     /* binary search in table */
     bot = 0;
-    top = size / sizeof(struct interval) - 1;
+    top = (int)(size / sizeof(struct interval) - 1);
     while (top >= bot)
     {
 	mid = (bot + top) / 2;
@@ -1018,11 +1184,23 @@ utf_char2cells(c)
 	{0x2642, 0x2642}, {0x2660, 0x2661}, {0x2663, 0x2665},
 	{0x2667, 0x266A}, {0x266C, 0x266D}, {0x266F, 0x266F},
 	{0x273D, 0x273D}, {0x2776, 0x277F}, {0xE000, 0xF8FF},
-	{0xFFFD, 0xFFFD}
+	{0xFFFD, 0xFFFD}, /* {0xF0000, 0xFFFFD}, {0x100000, 0x10FFFD} */
     };
 
     if (c >= 0x100)
     {
+#ifdef USE_WCHAR_FUNCTIONS
+	/*
+	 * Assume the library function wcwidth() works better than our own
+	 * stuff.  It should return 1 for ambiguous width chars!
+	 */
+	int	n = wcwidth(c);
+
+	if (n < 0)
+	    return 6;		/* unprintable, displays <xxxx> */
+	if (n > 1)
+	    return n;
+#else
 	if (!utf_printable(c))
 	    return 6;		/* unprintable, displays <xxxx> */
 	if (c >= 0x1100
@@ -1037,8 +1215,10 @@ utf_char2cells(c)
 		|| (c >= 0xfe30 && c <= 0xfe6f)	/* CJK Compatibility Forms */
 		|| (c >= 0xff00 && c <= 0xff60)	/* Fullwidth Forms */
 		|| (c >= 0xffe0 && c <= 0xffe6)
-		|| (c >= 0x20000 && c <= 0x2ffff)))
+		|| (c >= 0x20000 && c <= 0x2fffd)
+		|| (c >= 0x30000 && c <= 0x3fffd)))
 	    return 2;
+#endif
     }
 
     /* Characters below 0x100 are influenced by 'isprint' option */
@@ -1075,7 +1255,7 @@ utf_ptr2cells(p)
     {
 	c = utf_ptr2char(p);
 	/* An illegal byte is displayed as <xx>. */
-	if (utf_ptr2len_check(p) == 1 || c == NUL)
+	if (utf_ptr2len(p) == 1 || c == NUL)
 	    return 4;
 	/* If the char is ASCII it must be an overlong sequence. */
 	if (c < 0x80)
@@ -1231,7 +1411,25 @@ mb_ptr2char_adv(pp)
     int		c;
 
     c = (*mb_ptr2char)(*pp);
-    *pp += (*mb_ptr2len_check)(*pp);
+    *pp += (*mb_ptr2len)(*pp);
+    return c;
+}
+
+/*
+ * Get character at **pp and advance *pp to the next character.
+ * Note: composing characters are returned as separate characters.
+ */
+    int
+mb_cptr2char_adv(pp)
+    char_u	**pp;
+{
+    int		c;
+
+    c = (*mb_ptr2char)(*pp);
+    if (enc_utf8)
+	*pp += utf_ptr2len(*pp);
+    else
+	*pp += (*mb_ptr2len)(*pp);
     return c;
 }
 
@@ -1288,78 +1486,85 @@ utf_composinglike(p1, p2)
 #endif
 
 /*
- * Convert a UTF-8 byte string to a wide chararacter.  Also get up to two
+ * Convert a UTF-8 byte string to a wide chararacter.  Also get up to MAX_MCO
  * composing characters.
  */
     int
-utfc_ptr2char(p, p1, p2)
+utfc_ptr2char(p, pcc)
     char_u	*p;
-    int		*p1;	/* return: first composing char or 0 */
-    int		*p2;	/* return: second composing char or 0 */
+    int		*pcc;	/* return: composing chars, last one is 0 */
 {
     int		len;
     int		c;
     int		cc;
+    int		i = 0;
 
     c = utf_ptr2char(p);
-    len = utf_ptr2len_check(p);
+    len = utf_ptr2len(p);
+
     /* Only accept a composing char when the first char isn't illegal. */
     if ((len > 1 || *p < 0x80)
 	    && p[len] >= 0x80
 	    && UTF_COMPOSINGLIKE(p, p + len))
     {
-	*p1 = utf_ptr2char(p + len);
-	len += utf_ptr2len_check(p + len);
-	if (p[len] >= 0x80 && utf_iscomposing(cc = utf_ptr2char(p + len)))
-	    *p2 = cc;
-	else
-	    *p2 = 0;
+	cc = utf_ptr2char(p + len);
+	for (;;)
+	{
+	    pcc[i++] = cc;
+	    if (i == MAX_MCO)
+		break;
+	    len += utf_ptr2len(p + len);
+	    if (p[len] < 0x80 || !utf_iscomposing(cc = utf_ptr2char(p + len)))
+		break;
+	}
     }
-    else
-    {
-	*p1 = 0;
-	*p2 = 0;
-    }
+
+    if (i < MAX_MCO)	/* last composing char must be 0 */
+	pcc[i] = 0;
+
     return c;
 }
 
 /*
- * Convert a UTF-8 byte string to a wide chararacter.  Also get up to two
+ * Convert a UTF-8 byte string to a wide chararacter.  Also get up to MAX_MCO
  * composing characters.  Use no more than p[maxlen].
  */
     int
-utfc_ptr2char_len(p, p1, p2, maxlen)
+utfc_ptr2char_len(p, pcc, maxlen)
     char_u	*p;
-    int		*p1;	/* return: first composing char or 0 */
-    int		*p2;	/* return: second composing char or 0 */
+    int		*pcc;	/* return: composing chars, last one is 0 */
     int		maxlen;
 {
     int		len;
     int		c;
     int		cc;
+    int		i = 0;
 
     c = utf_ptr2char(p);
-    len = utf_ptr2len_check_len(p, maxlen);
+    len = utf_ptr2len_len(p, maxlen);
     /* Only accept a composing char when the first char isn't illegal. */
     if ((len > 1 || *p < 0x80)
 	    && len < maxlen
 	    && p[len] >= 0x80
 	    && UTF_COMPOSINGLIKE(p, p + len))
     {
-	*p1 = utf_ptr2char(p + len);
-	len += utf_ptr2len_check_len(p + len, maxlen - len);
-	if (len < maxlen
-		&& p[len] >= 0x80
-		&& utf_iscomposing(cc = utf_ptr2char(p + len)))
-	    *p2 = cc;
-	else
-	    *p2 = 0;
+	cc = utf_ptr2char(p + len);
+	for (;;)
+	{
+	    pcc[i++] = cc;
+	    if (i == MAX_MCO)
+		break;
+	    len += utf_ptr2len_len(p + len, maxlen - len);
+	    if (len >= maxlen
+		    || p[len] < 0x80
+		    || !utf_iscomposing(cc = utf_ptr2char(p + len)))
+		break;
+	}
     }
-    else
-    {
-	*p1 = 0;
-	*p2 = 0;
-    }
+
+    if (i < MAX_MCO)	/* last composing char must be 0 */
+	pcc[i] = 0;
+
     return c;
 }
 
@@ -1375,13 +1580,14 @@ utfc_char2bytes(off, buf)
     char_u	*buf;
 {
     int		len;
+    int		i;
 
     len = utf_char2bytes(ScreenLinesUC[off], buf);
-    if (ScreenLinesC1[off] != 0)
+    for (i = 0; i < Screen_mco; ++i)
     {
-	len += utf_char2bytes(ScreenLinesC1[off], buf + len);
-	if (ScreenLinesC2[off] != 0)
-	    len += utf_char2bytes(ScreenLinesC2[off], buf + len);
+	if (ScreenLinesC[i][off] == 0)
+	    break;
+	len += utf_char2bytes(ScreenLinesC[i][off], buf + len);
     }
     return len;
 }
@@ -1393,7 +1599,7 @@ utfc_char2bytes(off, buf)
  * Returns 1 for an illegal byte sequence.
  */
     int
-utf_ptr2len_check(p)
+utf_ptr2len(p)
     char_u	*p;
 {
     int		len;
@@ -1427,7 +1633,7 @@ utf_byte2len(b)
  * Returns number > "size" for an incomplete byte sequence.
  */
     int
-utf_ptr2len_check_len(p, size)
+utf_ptr2len_len(p, size)
     char_u	*p;
     int		size;
 {
@@ -1437,7 +1643,9 @@ utf_ptr2len_check_len(p, size)
     if (*p == NUL)
 	return 1;
     len = utf8len_tab[*p];
-    for (i = 1; i < len && i < size; ++i)
+    if (len > size)
+	return len;	/* incomplete byte sequence. */
+    for (i = 1; i < len; ++i)
 	if ((p[i] & 0xc0) != 0x80)
 	    return 1;
     return len;
@@ -1448,24 +1656,25 @@ utf_ptr2len_check_len(p, size)
  * This includes following composing characters.
  */
     int
-utfc_ptr2len_check(p)
+utfc_ptr2len(p)
     char_u	*p;
 {
     int		len;
+    int		b0 = *p;
 #ifdef FEAT_ARABIC
     int		prevlen;
 #endif
 
-    if (*p == NUL)
+    if (b0 == NUL)
 	return 0;
-    if (p[0] < 0x80 && p[1] < 0x80)	/* be quick for ASCII */
+    if (b0 < 0x80 && p[1] < 0x80)	/* be quick for ASCII */
 	return 1;
 
     /* Skip over first UTF-8 char, stopping at a NUL byte. */
-    len = utf_ptr2len_check(p);
+    len = utf_ptr2len(p);
 
     /* Check for illegal byte. */
-    if (len == 1 && p[0] >= 0x80)
+    if (len == 1 && b0 >= 0x80)
 	return 1;
 
     /*
@@ -1484,16 +1693,17 @@ utfc_ptr2len_check(p)
 #ifdef FEAT_ARABIC
 	prevlen = len;
 #endif
-	len += utf_ptr2len_check(p + len);
+	len += utf_ptr2len(p + len);
     }
 }
 
 /*
  * Return the number of bytes the UTF-8 encoding of the character at "p[size]"
  * takes.  This includes following composing characters.
+ * Returns 1 for an illegal char or an incomplete byte sequence.
  */
     int
-utfc_ptr2len_check_len(p, size)
+utfc_ptr2len_len(p, size)
     char_u	*p;
     int		size;
 {
@@ -1508,10 +1718,10 @@ utfc_ptr2len_check_len(p, size)
 	return 1;
 
     /* Skip over first UTF-8 char, stopping at a NUL byte. */
-    len = utf_ptr2len_check_len(p, size);
+    len = utf_ptr2len_len(p, size);
 
-    /* Check for illegal byte. */
-    if (len == 1 && p[0] >= 0x80)
+    /* Check for illegal byte and incomplete byte sequence. */
+    if ((len == 1 && p[0] >= 0x80) || len > size)
 	return 1;
 
     /*
@@ -1530,7 +1740,7 @@ utfc_ptr2len_check_len(p, size)
 #ifdef FEAT_ARABIC
 	prevlen = len;
 #endif
-	len += utf_ptr2len_check_len(p + len, size - len);
+	len += utf_ptr2len_len(p + len, size - len);
     }
     return len;
 }
@@ -1665,6 +1875,12 @@ utf_iscomposing(c)
 utf_printable(c)
     int		c;
 {
+#ifdef USE_WCHAR_FUNCTIONS
+    /*
+     * Assume the iswprint() library function works better than our own stuff.
+     */
+    return iswprint(c);
+#else
     /* Sorted list of non-overlapping intervals.
      * 0xd800-0xdfff is reserved for UTF-16, actually illegal. */
     static struct interval nonprint[] =
@@ -1675,6 +1891,7 @@ utf_printable(c)
     };
 
     return !intable(nonprint, sizeof(nonprint), c);
+#endif
 }
 
 /*
@@ -1688,7 +1905,7 @@ utf_class(c)
     int		c;
 {
     /* sorted list of non-overlapping intervals */
-    static struct interval
+    static struct clinterval
     {
 	unsigned short first;
 	unsigned short last;
@@ -1757,13 +1974,13 @@ utf_class(c)
 	{0xff5b, 0xff65, 1},		/* half/fullwidth ASCII */
     };
     int bot = 0;
-    int top = sizeof(classes) / sizeof(struct interval) - 1;
+    int top = sizeof(classes) / sizeof(struct clinterval) - 1;
     int mid;
 
     /* First quick check for Latin1 characters, use 'iskeyword'. */
     if (c < 0x100)
     {
-	if (c == ' ' || c == '\t' || c == NUL)
+	if (c == ' ' || c == '\t' || c == NUL || c == 0xa0)
 	    return 0;	    /* blank */
 	if (vim_iswordc(c))
 	    return 2;	    /* word character */
@@ -1807,7 +2024,7 @@ typedef struct
     int offset;
 } convertStruct;
 
-convertStruct foldCase[] =
+static convertStruct foldCase[] =
 {
 	{0x41,0x5a,1,32}, {0xc0,0xd6,1,32}, {0xd8,0xde,1,32},
 	{0x100,0x12e,2,1}, {0x130,0x130,-1,-199}, {0x132,0x136,2,1},
@@ -1898,7 +2115,7 @@ utf_fold(a)
  * from 0x41 to 0x5a inclusive, stepping by 1, are switched to lower (for
  * example) by adding 32.
  */
-convertStruct toLower[] =
+static convertStruct toLower[] =
 {
 	{0x41,0x5a,1,32}, {0xc0,0xd6,1,32}, {0xd8,0xde,1,32},
 	{0x100,0x12e,2,1}, {0x130,0x130,-1,-199}, {0x132,0x136,2,1},
@@ -1933,7 +2150,7 @@ convertStruct toLower[] =
 	{0x212b,0x212b,-1,-8262}, {0xff21,0xff3a,1,32}, {0x10400,0x10427,1,40}
 };
 
-convertStruct toUpper[] =
+static convertStruct toUpper[] =
 {
 	{0x61,0x7a,1,-32}, {0xb5,0xb5,-1,743}, {0xe0,0xf6,1,-32},
 	{0xf8,0xfe,1,-32}, {0xff,0xff,-1,121}, {0x101,0x12f,2,-1},
@@ -1984,8 +2201,8 @@ utf_toupper(a)
     if (a < 128 && (cmp_flags & CMP_KEEPASCII))
 	return TOUPPER_ASC(a);
 
-#if defined(HAVE_TOWUPPER) && defined(__STDC__ISO_10646__)
-    /* If towupper() is availble and handles Unicode, use it. */
+#if defined(HAVE_TOWUPPER) && defined(__STDC_ISO_10646__)
+    /* If towupper() is available and handles Unicode, use it. */
     if (!(cmp_flags & CMP_INTERNAL))
 	return towupper(a);
 #endif
@@ -2017,8 +2234,8 @@ utf_tolower(a)
     if (a < 128 && (cmp_flags & CMP_KEEPASCII))
 	return TOLOWER_ASC(a);
 
-#if defined(HAVE_TOWLOWER) && defined(__STDC__ISO_10646__)
-    /* If towlower() is availble and handles Unicode, use it. */
+#if defined(HAVE_TOWLOWER) && defined(__STDC_ISO_10646__)
+    /* If towlower() is available and handles Unicode, use it. */
     if (!(cmp_flags & CMP_INTERNAL))
 	return towlower(a);
 #endif
@@ -2047,12 +2264,14 @@ utf_isupper(a)
  * two characters otherwise.
  */
     int
-mb_strnicmp(s1, s2, n)
+mb_strnicmp(s1, s2, nn)
     char_u	*s1, *s2;
-    int		n;
+    size_t	nn;
 {
     int		i, j, l;
     int		cdiff;
+    int		incomplete = FALSE;
+    int		n = (int)nn;
 
     for (i = 0; i < n; i += l)
     {
@@ -2062,7 +2281,10 @@ mb_strnicmp(s1, s2, n)
 	{
 	    l = utf_byte2len(s1[i]);
 	    if (l > n - i)
+	    {
 		l = n - i;		    /* incomplete character */
+		incomplete = TRUE;
+	    }
 	    /* Check directly first, it's faster. */
 	    for (j = 0; j < l; ++j)
 		if (s1[i + j] != s2[i + j])
@@ -2070,7 +2292,7 @@ mb_strnicmp(s1, s2, n)
 	    if (j < l)
 	    {
 		/* If one of the two characters is incomplete return -1. */
-		if (i + utf_byte2len(s1[i]) > n || i + utf_byte2len(s2[i]) > n)
+		if (incomplete || i + utf_byte2len(s2[i]) > n)
 		    return -1;
 		cdiff = utf_fold(utf_ptr2char(s1 + i))
 					     - utf_fold(utf_ptr2char(s2 + i));
@@ -2080,7 +2302,7 @@ mb_strnicmp(s1, s2, n)
 	}
 	else
 	{
-	    l = (*mb_ptr2len_check)(s1 + i);
+	    l = (*mb_ptr2len)(s1 + i);
 	    if (l <= 1)
 	    {
 		/* Single byte: first check normally, then with ignore case. */
@@ -2113,6 +2335,7 @@ mb_strnicmp(s1, s2, n)
 show_utf8()
 {
     int		len;
+    int		rlen = 0;
     char_u	*line;
     int		clen;
     int		i;
@@ -2120,14 +2343,13 @@ show_utf8()
     /* Get the byte length of the char under the cursor, including composing
      * characters. */
     line = ml_get_cursor();
-    len = utfc_ptr2len_check(line);
+    len = utfc_ptr2len(line);
     if (len == 0)
     {
 	MSG("NUL");
 	return;
     }
 
-    IObuff[0] = NUL;
     clen = 0;
     for (i = 0; i < len; ++i)
     {
@@ -2135,11 +2357,17 @@ show_utf8()
 	{
 	    /* start of (composing) character, get its length */
 	    if (i > 0)
-		STRCAT(IObuff, "+ ");
-	    clen = utf_ptr2len_check(line + i);
+	    {
+		STRCPY(IObuff + rlen, "+ ");
+		rlen += 2;
+	    }
+	    clen = utf_ptr2len(line + i);
 	}
-	sprintf((char *)IObuff + STRLEN(IObuff), "%02x ", line[i]);
+	sprintf((char *)IObuff + rlen, "%02x ", line[i]);
 	--clen;
+	rlen += (int)STRLEN(IObuff + rlen);
+	if (rlen > IOSIZE - 20)
+	    break;
     }
 
     msg(IObuff);
@@ -2175,7 +2403,7 @@ dbcs_head_off(base, p)
      * byte we are looking for.  Return 1 when we went past it, 0 otherwise. */
     q = base;
     while (q < p)
-	q += dbcs_ptr2len_check(q);
+	q += dbcs_ptr2len(q);
     return (q == p) ? 0 : 1;
 }
 
@@ -2211,7 +2439,7 @@ dbcs_screen_head_off(base, p)
 	if (enc_dbcs == DBCS_JPNU && *q == 0x8e)
 	    ++q;
 	else
-	    q += dbcs_ptr2len_check(q);
+	    q += dbcs_ptr2len(q);
     }
     return (q == p) ? 0 : 1;
 }
@@ -2273,6 +2501,23 @@ utf_head_off(base, p)
 
     return (int)(p - q);
 }
+
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Copy a character from "*fp" to "*tp" and advance the pointers.
+ */
+    void
+mb_copy_char(fp, tp)
+    char_u	**fp;
+    char_u	**tp;
+{
+    int	    l = (*mb_ptr2len)(*fp);
+
+    mch_memmove(*tp, *fp, (size_t)l);
+    *tp += l;
+    *fp += l;
+}
+#endif
 
 /*
  * Return the offset from "p" to the first byte of a character.  When "p" is
@@ -2350,6 +2595,112 @@ mb_tail_off(base, p)
     return 1 - dbcs_head_off(base, p);
 }
 
+/*
+ * Find the next illegal byte sequence.
+ */
+    void
+utf_find_illegal()
+{
+    pos_T	pos = curwin->w_cursor;
+    char_u	*p;
+    int		len;
+    vimconv_T	vimconv;
+    char_u	*tofree = NULL;
+
+    vimconv.vc_type = CONV_NONE;
+    if (enc_utf8 && (enc_canon_props(curbuf->b_p_fenc) & ENC_8BIT))
+    {
+	/* 'encoding' is "utf-8" but we are editing a 8-bit encoded file,
+	 * possibly a utf-8 file with illegal bytes.  Setup for conversion
+	 * from utf-8 to 'fileencoding'. */
+	convert_setup(&vimconv, p_enc, curbuf->b_p_fenc);
+    }
+
+#ifdef FEAT_VIRTUALEDIT
+    curwin->w_cursor.coladd = 0;
+#endif
+    for (;;)
+    {
+	p = ml_get_cursor();
+	if (vimconv.vc_type != CONV_NONE)
+	{
+	    vim_free(tofree);
+	    tofree = string_convert(&vimconv, p, NULL);
+	    if (tofree == NULL)
+		break;
+	    p = tofree;
+	}
+
+	while (*p != NUL)
+	{
+	    /* Illegal means that there are not enough trail bytes (checked by
+	     * utf_ptr2len()) or too many of them (overlong sequence). */
+	    len = utf_ptr2len(p);
+	    if (*p >= 0x80 && (len == 1
+				     || utf_char2len(utf_ptr2char(p)) != len))
+	    {
+		if (vimconv.vc_type == CONV_NONE)
+		    curwin->w_cursor.col += (colnr_T)(p - ml_get_cursor());
+		else
+		{
+		    int	    l;
+
+		    len = (int)(p - tofree);
+		    for (p = ml_get_cursor(); *p != NUL && len-- > 0; p += l)
+		    {
+			l = utf_ptr2len(p);
+			curwin->w_cursor.col += l;
+		    }
+		}
+		goto theend;
+	    }
+	    p += len;
+	}
+	if (curwin->w_cursor.lnum == curbuf->b_ml.ml_line_count)
+	    break;
+	++curwin->w_cursor.lnum;
+	curwin->w_cursor.col = 0;
+    }
+
+    /* didn't find it: don't move and beep */
+    curwin->w_cursor = pos;
+    beep_flush();
+
+theend:
+    vim_free(tofree);
+    convert_setup(&vimconv, NULL, NULL);
+}
+
+#if defined(HAVE_GTK2) || defined(PROTO)
+/*
+ * Return TRUE if string "s" is a valid utf-8 string.
+ * When "end" is NULL stop at the first NUL.
+ * When "end" is positive stop there.
+ */
+    int
+utf_valid_string(s, end)
+    char_u	*s;
+    char_u	*end;
+{
+    int		l;
+    char_u	*p = s;
+
+    while (end == NULL ? *p != NUL : p < end)
+    {
+	if ((*p & 0xc0) == 0x80)
+	    return FALSE;	/* invalid lead byte */
+	l = utf8len_tab[*p];
+	if (end != NULL && p + l > end)
+	    return FALSE;	/* incomplete byte sequence */
+	++p;
+	while (--l > 0)
+	    if ((*p++ & 0xc0) != 0x80)
+		return FALSE;	/* invalid trail byte */
+    }
+    return TRUE;
+}
+#endif
+
 #if defined(FEAT_GUI) || defined(PROTO)
 /*
  * Special version of mb_tail_off() for use in ScreenLines[].
@@ -2423,50 +2774,48 @@ mb_prevptr(line, p)
     char_u *p;
 {
     if (p > line)
-	p = p - (*mb_head_off)(line, p - 1) - 1;
+	mb_ptr_back(line, p);
     return p;
 }
 
 /*
- * Return the character length of "str".  multi-byte characters counts as one.
+ * Return the character length of "str".  Each multi-byte character (with
+ * following composing characters) counts as one.
  */
     int
 mb_charlen(str)
     char_u	*str;
 {
-    int count;
+    char_u	*p = str;
+    int		count;
 
-    if (str == NULL)
+    if (p == NULL)
 	return 0;
 
-    for (count = 0; *str != NUL; count++)
-	str += (*mb_ptr2len_check)(str);
+    for (count = 0; *p != NUL; count++)
+	p += (*mb_ptr2len)(p);
 
     return count;
 }
 
+#if defined(FEAT_SPELL) || defined(PROTO)
 /*
- * Decrement position "lp" by one character, taking care of multi-byte chars.
+ * Like mb_charlen() but for a string with specified length.
  */
     int
-mb_dec(lp)
-    pos_T	*lp;
+mb_charlen_len(str, len)
+    char_u	*str;
+    int		len;
 {
-    if (lp->col > 0)		/* still within line */
-    {
-	--lp->col;
-	mb_adjustpos(lp);
-	return 0;
-    }
-    if (lp->lnum > 1)		/* there is a prior line */
-    {
-	lp->lnum--;
-	lp->col = (colnr_T)STRLEN(ml_get(lp->lnum));
-	mb_adjustpos(lp);
-	return 1;
-    }
-    return -1;			/* at start of file */
+    char_u	*p = str;
+    int		count;
+
+    for (count = 0; *p != NUL && p < str + len; count++)
+	p += (*mb_ptr2len)(p);
+
+    return count;
 }
+#endif
 
 /*
  * Try to un-escape a multi-byte character.
@@ -2515,7 +2864,7 @@ mb_unescape(pp)
 
 	/* Return a multi-byte character if it's found.  An illegal sequence
 	 * will result in a 1 here. */
-	if ((*mb_ptr2len_check)(buf) > 1)
+	if ((*mb_ptr2len)(buf) > 1)
 	{
 	    *pp = str + n + 1;
 	    return buf;
@@ -2602,6 +2951,17 @@ enc_canonize(enc)
     char_u	*p, *s;
     int		i;
 
+# ifdef FEAT_MBYTE
+    if (STRCMP(enc, "default") == 0)
+    {
+	/* Use the default encoding as it's found by set_init_1(). */
+	r = get_encoding_default();
+	if (r == NULL)
+	    r = (char_u *)"latin1";
+	return vim_strsave(r);
+    }
+# endif
+
     /* copy "enc" to allocted memory, with room for two '-' */
     r = alloc((unsigned)(STRLEN(enc) + 3));
     if (r != NULL)
@@ -2619,6 +2979,10 @@ enc_canonize(enc)
 
 	/* Skip "2byte-" and "8bit-". */
 	p = enc_skip(r);
+
+	/* Change "microsoft-cp" to "cp".  Used in some spell files. */
+	if (STRNCMP(p, "microsoft-cp", 12) == 0)
+	    mch_memmove(p, p + 10, STRLEN(p + 10) + 1);
 
 	/* "iso8859" -> "iso-8859" */
 	if (STRNCMP(p, "iso8859", 7) == 0)
@@ -2695,7 +3059,7 @@ enc_locale()
 
     if (acp == 1200)
 	STRCPY(buf, "ucs-2le");
-    else if (acp == 1252)
+    else if (acp == 1252)	    /* cp1252 is used as latin1 */
 	STRCPY(buf, "latin1");
     else
 	sprintf(buf, "cp%ld", acp);
@@ -2703,9 +3067,9 @@ enc_locale()
 # ifdef HAVE_NL_LANGINFO_CODESET
     if ((s = nl_langinfo(CODESET)) == NULL || *s == NUL)
 # endif
-# if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
+#  if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
 	if ((s = setlocale(LC_CTYPE, NULL)) == NULL || *s == NUL)
-# endif
+#  endif
 	    if ((s = getenv("LC_ALL")) == NULL || *s == NUL)
 		if ((s = getenv("LC_CTYPE")) == NULL || *s == NUL)
 		    s = getenv("LANG");
@@ -2736,7 +3100,7 @@ enc_locale()
 	else
 	    s = p + 1;
     }
-    for (i = 0; s[i] != NUL && i < sizeof(buf) - 1; ++i)
+    for (i = 0; s[i] != NUL && s + i < buf + sizeof(buf) - 1; ++i)
     {
 	if (s[i] == '_' || s[i] == '-')
 	    buf[i] = '-';
@@ -2773,6 +3137,8 @@ encname2codepage(name)
 	cp = atoi(p + 2);
     else if ((idx = enc_canon_search(p)) >= 0)
 	cp = enc_canon_table[idx].codepage;
+    else
+	return 0;
     if (IsValidCodePage(cp))
 	return cp;
     return 0;
@@ -2781,7 +3147,7 @@ encname2codepage(name)
 
 # if defined(USE_ICONV) || defined(PROTO)
 
-static char_u *iconv_string __ARGS((iconv_t fd, char_u *str, int slen));
+static char_u *iconv_string __ARGS((vimconv_T *vcp, char_u *str, int slen, int *unconvlenp));
 
 /*
  * Call iconv_open() with a check if iconv() works properly (there are broken
@@ -2839,13 +3205,16 @@ my_iconv_open(to, from)
 
 /*
  * Convert the string "str[slen]" with iconv().
+ * If "unconvlenp" is not NULL handle the string ending in an incomplete
+ * sequence and set "*unconvlenp" to the length of it.
  * Returns the converted string in allocated memory.  NULL for an error.
  */
     static char_u *
-iconv_string(fd, str, slen)
-    iconv_t	fd;
+iconv_string(vcp, str, slen, unconvlenp)
+    vimconv_T	*vcp;
     char_u	*str;
     int		slen;
+    int		*unconvlenp;
 {
     const char	*from;
     size_t	fromlen;
@@ -2877,15 +3246,32 @@ iconv_string(fd, str, slen)
 
 	to = (char *)result + done;
 	tolen = len - done - 2;
-	if (iconv(fd, &from, &fromlen, &to, &tolen) != (size_t)-1)
+	/* Avoid a warning for systems with a wrong iconv() prototype by
+	 * casting the second argument to void *. */
+	if (iconv(vcp->vc_fd, (void *)&from, &fromlen, &to, &tolen)
+								!= (size_t)-1)
 	{
 	    /* Finished, append a NUL. */
 	    *to = NUL;
 	    break;
 	}
+
+	/* Check both ICONV_EINVAL and EINVAL, because the dynamically loaded
+	 * iconv library may use one of them. */
+	if (!vcp->vc_fail && unconvlenp != NULL
+		&& (ICONV_ERRNO == ICONV_EINVAL || ICONV_ERRNO == EINVAL))
+	{
+	    /* Handle an incomplete sequence at the end. */
+	    *to = NUL;
+	    *unconvlenp = (int)fromlen;
+	    break;
+	}
+
 	/* Check both ICONV_EILSEQ and EILSEQ, because the dynamically loaded
 	 * iconv library may use one of them. */
-	if (ICONV_ERRNO == ICONV_EILSEQ || ICONV_ERRNO == EILSEQ)
+	else if (!vcp->vc_fail
+		&& (ICONV_ERRNO == ICONV_EILSEQ || ICONV_ERRNO == EILSEQ
+		    || ICONV_ERRNO == ICONV_EINVAL || ICONV_ERRNO == EINVAL))
 	{
 	    /* Can't convert: insert a '?' and skip a character.  This assumes
 	     * conversion from 'encoding' to something else.  In other
@@ -2893,7 +3279,14 @@ iconv_string(fd, str, slen)
 	    *to++ = '?';
 	    if ((*mb_ptr2cells)((char_u *)from) > 1)
 		*to++ = '?';
-	    l = (*mb_ptr2len_check)((char_u *)from);
+	    if (enc_utf8)
+		l = utfc_ptr2len_len((char_u *)from, (int)fromlen);
+	    else
+	    {
+		l = (*mb_ptr2len)((char_u *)from);
+		if (l > (int)fromlen)
+		    l = (int)fromlen;
+	    }
 	    from += l;
 	    fromlen -= l;
 	}
@@ -2918,8 +3311,8 @@ iconv_string(fd, str, slen)
 #ifndef DYNAMIC_ICONV	    /* just generating prototypes */
 # define HINSTANCE int
 #endif
-HINSTANCE hIconvDLL = 0;
-HINSTANCE hMsvcrtDLL = 0;
+static HINSTANCE hIconvDLL = 0;
+static HINSTANCE hMsvcrtDLL = 0;
 
 #  ifndef DYNAMIC_ICONV_DLL
 #   define DYNAMIC_ICONV_DLL "iconv.dll"
@@ -2948,23 +3341,31 @@ iconv_enabled(verbose)
 	/* Only give the message when 'verbose' is set, otherwise it might be
 	 * done whenever a conversion is attempted. */
 	if (verbose && p_verbose > 0)
+	{
+	    verbose_enter();
 	    EMSG2(_(e_loadlib),
 		    hIconvDLL == 0 ? DYNAMIC_ICONV_DLL : DYNAMIC_MSVCRT_DLL);
+	    verbose_leave();
+	}
 	iconv_end();
 	return FALSE;
     }
 
-    *((FARPROC*)&iconv)		= GetProcAddress(hIconvDLL, "libiconv");
-    *((FARPROC*)&iconv_open)	= GetProcAddress(hIconvDLL, "libiconv_open");
-    *((FARPROC*)&iconv_close)	= GetProcAddress(hIconvDLL, "libiconv_close");
-    *((FARPROC*)&iconvctl)	= GetProcAddress(hIconvDLL, "libiconvctl");
-    *((FARPROC*)&iconv_errno)	= GetProcAddress(hMsvcrtDLL, "_errno");
+    iconv	= (void *)GetProcAddress(hIconvDLL, "libiconv");
+    iconv_open	= (void *)GetProcAddress(hIconvDLL, "libiconv_open");
+    iconv_close	= (void *)GetProcAddress(hIconvDLL, "libiconv_close");
+    iconvctl	= (void *)GetProcAddress(hIconvDLL, "libiconvctl");
+    iconv_errno	= (void *)GetProcAddress(hMsvcrtDLL, "_errno");
     if (iconv == NULL || iconv_open == NULL || iconv_close == NULL
 	    || iconvctl == NULL || iconv_errno == NULL)
     {
 	iconv_end();
 	if (verbose && p_verbose > 0)
+	{
+	    verbose_enter();
 	    EMSG2(_(e_loadfunc), "for libiconv");
+	    verbose_leave();
+	}
 	return FALSE;
     }
     return TRUE;
@@ -2992,6 +3393,24 @@ iconv_end()
 #endif /* FEAT_MBYTE */
 
 #if defined(FEAT_XIM) || defined(PROTO)
+
+# ifdef FEAT_GUI_GTK
+static int xim_has_preediting INIT(= FALSE);  /* IM current status */
+
+/*
+ * Set preedit_start_col to the current cursor position.
+ */
+    static void
+init_preedit_start_col(void)
+{
+    if (State & CMDLINE)
+	preedit_start_col = cmdline_getvcol_cursor();
+    else if (curwin != NULL)
+	getvcol(curwin, &curwin->w_cursor, &preedit_start_col, NULL, NULL);
+    /* Prevent that preediting marks the buffer as changed. */
+    xim_changed_while_preediting = curbuf->b_changed;
+}
+# endif
 
 # if defined(HAVE_GTK2) && !defined(PROTO)
 
@@ -3103,6 +3522,25 @@ im_correct_cursor(int num_move_back)
 	add_to_input_buf(backkey, (int)sizeof(backkey));
 }
 
+static int xim_expected_char = NUL;
+static int xim_ignored_char = FALSE;
+
+/*
+ * Update the mode and cursor while in an IM callback.
+ */
+    static void
+im_show_info(void)
+{
+    int	    old_vgetc_busy;
+
+    old_vgetc_busy = vgetc_busy;
+    vgetc_busy = TRUE;
+    showmode();
+    vgetc_busy = old_vgetc_busy;
+    setcursor();
+    out_flush();
+}
+
 /*
  * Callback invoked when the user finished preediting.
  * Put the final string into the input buffer.
@@ -3111,14 +3549,82 @@ im_correct_cursor(int num_move_back)
     static void
 im_commit_cb(GtkIMContext *context, const gchar *str, gpointer data)
 {
+    int	slen = (int)STRLEN(str);
+    int	add_to_input = TRUE;
+    int	clen;
+    int	len = slen;
+    int	commit_with_preedit = TRUE;
+    char_u	*im_str, *p;
+
+#ifdef XIM_DEBUG
+    xim_log("im_commit_cb(): %s\n", str);
+#endif
+
     /* The imhangul module doesn't reset the preedit string before
      * committing.  Call im_delete_preedit() to work around that. */
     im_delete_preedit();
 
-    /* Indicate that preediting has finished */
-    preedit_start_col = MAXCOL;
+    /* Indicate that preediting has finished. */
+    if (preedit_start_col == MAXCOL)
+    {
+	init_preedit_start_col();
+	commit_with_preedit = FALSE;
+    }
 
-    im_add_to_input((char_u *)str, (int)strlen(str));
+    /* The thing which setting "preedit_start_col" to MAXCOL means that
+     * "preedit_start_col" will be set forcely when calling
+     * preedit_changed_cb() next time.
+     * "preedit_start_col" should not reset with MAXCOL on this part. Vim
+     * is simulating the preediting by using add_to_input_str(). when
+     * preedit begin immediately before committed, the typebuf is not
+     * flushed to screen, then it can't get correct "preedit_start_col".
+     * Thus, it should calculate the cells by adding cells of the committed
+     * string. */
+    if (input_conv.vc_type != CONV_NONE)
+    {
+	im_str = string_convert(&input_conv, (char_u *)str, &len);
+	g_return_if_fail(im_str != NULL);
+    }
+    else
+	im_str = (char_u *)str;
+    clen = 0;
+    for (p = im_str; p < im_str + len; p += (*mb_ptr2len)(p))
+	clen += (*mb_ptr2cells)(p);
+    if (input_conv.vc_type != CONV_NONE)
+	vim_free(im_str);
+    preedit_start_col += clen;
+
+    /* Is this a single character that matches a keypad key that's just
+     * been pressed?  If so, we don't want it to be entered as such - let
+     * us carry on processing the raw keycode so that it may be used in
+     * mappings as <kSomething>. */
+    if (xim_expected_char != NUL)
+    {
+	/* We're currently processing a keypad or other special key */
+	if (slen == 1 && str[0] == xim_expected_char)
+	{
+	    /* It's a match - don't do it here */
+	    xim_ignored_char = TRUE;
+	    add_to_input = FALSE;
+	}
+	else
+	{
+	    /* Not a match */
+	    xim_ignored_char = FALSE;
+	}
+    }
+
+    if (add_to_input)
+	im_add_to_input((char_u *)str, slen);
+
+    /* Inserting chars while "im_is_active" is set does not cause a change of
+     * buffer.  When the chars are committed the buffer must be marked as
+     * changed. */
+    if (!commit_with_preedit)
+	preedit_start_col = MAXCOL;
+
+    /* This flag is used in changed() at next call. */
+    xim_changed_while_preediting = TRUE;
 
     if (gtk_main_level() > 0)
 	gtk_main_quit();
@@ -3131,9 +3637,14 @@ im_commit_cb(GtkIMContext *context, const gchar *str, gpointer data)
     static void
 im_preedit_start_cb(GtkIMContext *context, gpointer data)
 {
+#ifdef XIM_DEBUG
+    xim_log("im_preedit_start_cb()\n");
+#endif
+
     im_is_active = TRUE;
     gui_update_cursor(TRUE, FALSE);
 }
+
 /*
  * Callback invoked after end to the preedit.
  */
@@ -3141,8 +3652,18 @@ im_preedit_start_cb(GtkIMContext *context, gpointer data)
     static void
 im_preedit_end_cb(GtkIMContext *context, gpointer data)
 {
+#ifdef XIM_DEBUG
+    xim_log("im_preedit_end_cb()\n");
+#endif
+    im_delete_preedit();
+
+    /* Indicate that preediting has finished */
+    preedit_start_col = MAXCOL;
+    xim_has_preediting = FALSE;
+
     im_is_active = FALSE;
     gui_update_cursor(TRUE, FALSE);
+    im_show_info();
 }
 
 /*
@@ -3197,26 +3718,42 @@ im_preedit_changed_cb(GtkIMContext *context, gpointer data)
 				      &preedit_string, NULL,
 				      &cursor_index);
 
+#ifdef XIM_DEBUG
+    xim_log("im_preedit_changed_cb(): %s\n", preedit_string);
+#endif
+
     g_return_if_fail(preedit_string != NULL); /* just in case */
 
+    /* If preedit_start_col is MAXCOL set it to the current cursor position. */
     if (preedit_start_col == MAXCOL && preedit_string[0] != '\0')
     {
+	xim_has_preediting = TRUE;
+
 	/* Urgh, this breaks if the input buffer isn't empty now */
-	if (State & CMDLINE)
-	    preedit_start_col = cmdline_getvcol_cursor();
-	else if (curwin != NULL)
-	    getvcol(curwin, &curwin->w_cursor, &preedit_start_col, NULL, NULL);
+	init_preedit_start_col();
+    }
+    else if (cursor_index == 0 && preedit_string[0] == '\0')
+    {
+	if (preedit_start_col == MAXCOL)
+	    xim_has_preediting = FALSE;
+
+	/* If at the start position (after typing backspace)
+	 * preedit_start_col must be reset. */
+	preedit_start_col = MAXCOL;
     }
 
     im_delete_preedit();
 
-    str = (char_u *)preedit_string;
     /*
+     * Compute the end of the preediting area: "preedit_end_col".
      * According to the documentation of gtk_im_context_get_preedit_string(),
      * the cursor_pos output argument returns the offset in bytes.  This is
      * unfortunately not true -- real life shows the offset is in characters,
      * and the GTK+ source code agrees with me.  Will file a bug later.
      */
+    if (preedit_start_col != MAXCOL)
+	preedit_end_col = preedit_start_col;
+    str = (char_u *)preedit_string;
     for (p = str, i = 0; *p != NUL; p += utf_byte2len(*p), ++i)
     {
 	int is_composing;
@@ -3240,6 +3777,8 @@ im_preedit_changed_cb(GtkIMContext *context, gpointer data)
 	     * composing characters are not counted even if p_deco is set. */
 	    ++num_move_back;
 	}
+	if (preedit_start_col != MAXCOL)
+	    preedit_end_col += utf_ptr2cells(p);
     }
 
     if (p > str)
@@ -3315,7 +3854,7 @@ im_get_feedback_attr(int col)
 
 	/* Get the byte index as used by PangoAttrIterator */
 	for (index = 0; col > 0 && preedit_string[index] != '\0'; --col)
-	    index += utfc_ptr2len_check((char_u *)preedit_string + index);
+	    index += utfc_ptr2len((char_u *)preedit_string + index);
 
 	if (preedit_string[index] != '\0')
 	{
@@ -3349,10 +3888,15 @@ im_get_feedback_attr(int col)
     void
 xim_init(void)
 {
+#ifdef XIM_DEBUG
+    xim_log("xim_init()\n");
+#endif
+
     g_return_if_fail(gui.drawarea != NULL);
     g_return_if_fail(gui.drawarea->window != NULL);
 
     xic = gtk_im_multicontext_new();
+    g_object_ref(xic);
 
     im_commit_handler_id = g_signal_connect(G_OBJECT(xic), "commit",
 					    G_CALLBACK(&im_commit_cb), NULL);
@@ -3369,6 +3913,10 @@ xim_init(void)
     void
 im_shutdown(void)
 {
+#ifdef XIM_DEBUG
+    xim_log("im_shutdown()\n");
+#endif
+
     if (xic != NULL)
     {
 	gtk_im_context_focus_out(xic);
@@ -3378,6 +3926,7 @@ im_shutdown(void)
     im_is_active = FALSE;
     im_commit_handler_id = 0;
     preedit_start_col = MAXCOL;
+    xim_has_preediting = FALSE;
 }
 
 /*
@@ -3512,6 +4061,7 @@ xim_reset(void)
 	    im_synthesize_keypress(GDK_Escape, 0U);
 
 	gtk_im_context_reset(xic);
+
 	/*
 	 * HACK for Ami: This sequence of function calls makes Ami handle
 	 * the IM reset gratiously, without breaking loads of other stuff.
@@ -3519,29 +4069,75 @@ xim_reset(void)
 	 * want because it makes the Ami status display work reliably.
 	 */
 	gtk_im_context_set_use_preedit(xic, FALSE);
-	gtk_im_context_set_use_preedit(xic, TRUE);
-	xim_set_focus(gui.in_focus);
 
-	if (im_activatekey_keyval != GDK_VoidSymbol && im_is_active)
-	{
-	    g_signal_handler_block(xic, im_commit_handler_id);
-	    im_synthesize_keypress(im_activatekey_keyval, im_activatekey_state);
-	    g_signal_handler_unblock(xic, im_commit_handler_id);
-	}
+	if (p_imdisable)
+	    im_shutdown();
 	else
 	{
-	    im_shutdown();
-	    xim_init();
+	    gtk_im_context_set_use_preedit(xic, TRUE);
 	    xim_set_focus(gui.in_focus);
+
+	    if (im_activatekey_keyval != GDK_VoidSymbol)
+	    {
+		if (im_is_active)
+		{
+		    g_signal_handler_block(xic, im_commit_handler_id);
+		    im_synthesize_keypress(im_activatekey_keyval,
+						    im_activatekey_state);
+		    g_signal_handler_unblock(xic, im_commit_handler_id);
+		}
+	    }
+	    else
+	    {
+		im_shutdown();
+		xim_init();
+		xim_set_focus(gui.in_focus);
+	    }
 	}
     }
 
     preedit_start_col = MAXCOL;
+    xim_has_preediting = FALSE;
 }
 
     int
-xim_queue_key_press_event(GdkEventKey *event)
+xim_queue_key_press_event(GdkEventKey *event, int down)
 {
+    if (down)
+    {
+	/*
+	 * Workaround GTK2 XIM 'feature' that always converts keypad keys to
+	 * chars., even when not part of an IM sequence (ref. feature of
+	 * gdk/gdkkeyuni.c).
+	 * Flag any keypad keys that might represent a single char.
+	 * If this (on its own - i.e., not part of an IM sequence) is
+	 * committed while we're processing one of these keys, we can ignore
+	 * that commit and go ahead & process it ourselves.  That way we can
+	 * still distinguish keypad keys for use in mappings.
+	 */
+	switch (event->keyval)
+	{
+	    case GDK_KP_Add:      xim_expected_char = '+';  break;
+	    case GDK_KP_Subtract: xim_expected_char = '-';  break;
+	    case GDK_KP_Divide:   xim_expected_char = '/';  break;
+	    case GDK_KP_Multiply: xim_expected_char = '*';  break;
+	    case GDK_KP_Decimal:  xim_expected_char = '.';  break;
+	    case GDK_KP_Equal:    xim_expected_char = '=';  break;
+	    case GDK_KP_0:	  xim_expected_char = '0';  break;
+	    case GDK_KP_1:	  xim_expected_char = '1';  break;
+	    case GDK_KP_2:	  xim_expected_char = '2';  break;
+	    case GDK_KP_3:	  xim_expected_char = '3';  break;
+	    case GDK_KP_4:	  xim_expected_char = '4';  break;
+	    case GDK_KP_5:	  xim_expected_char = '5';  break;
+	    case GDK_KP_6:	  xim_expected_char = '6';  break;
+	    case GDK_KP_7:	  xim_expected_char = '7';  break;
+	    case GDK_KP_8:	  xim_expected_char = '8';  break;
+	    case GDK_KP_9:	  xim_expected_char = '9';  break;
+	    default:		  xim_expected_char = NUL;
+	}
+	xim_ignored_char = FALSE;
+    }
+
     /*
      * When typing fFtT, XIM may be activated. Thus it must pass
      * gtk_im_context_filter_keypress() in Normal mode.
@@ -3571,23 +4167,62 @@ xim_queue_key_press_event(GdkEventKey *event)
 		return FALSE;
 
 	    /* Don't send it a second time on GDK_KEY_RELEASE. */
-	    if (event->type == GDK_KEY_PRESS)
+	    if (event->type != GDK_KEY_PRESS)
+		return TRUE;
+
+	    if (map_to_exists_mode((char_u *)"", LANGMAP, FALSE))
 	    {
-		char_u ctrl_hat[] = {Ctrl_HAT};
+		im_set_active(FALSE);
 
-		add_to_input_buf(ctrl_hat, (int)sizeof(ctrl_hat));
-
-		if (gtk_main_level() > 0)
-		    gtk_main_quit();
+		/* ":lmap" mappings exists, toggle use of mappings. */
+		State ^= LANGMAP;
+		if (State & LANGMAP)
+		{
+		    curbuf->b_p_iminsert = B_IMODE_NONE;
+		    State &= ~LANGMAP;
+		}
+		else
+		{
+		    curbuf->b_p_iminsert = B_IMODE_LMAP;
+		    State |= LANGMAP;
+		}
+		return TRUE;
 	    }
-	    return TRUE;
+
+	    return gtk_im_context_filter_keypress(xic, event);
 	}
 
 	/* Don't filter events through the IM context if IM isn't active
 	 * right now.  Unlike with GTK+ 1.2 we cannot rely on the IM module
 	 * not doing anything before the activation key was sent. */
 	if (im_activatekey_keyval == GDK_VoidSymbol || im_is_active)
-	    return gtk_im_context_filter_keypress(xic, event);
+	{
+	    int imresult = gtk_im_context_filter_keypress(xic, event);
+
+	    /* Some XIM send following sequence:
+	     * 1. preedited string.
+	     * 2. committed string.
+	     * 3. line changed key.
+	     * 4. preedited string.
+	     * 5. remove preedited string.
+	     * if 3, Vim can't move back the above line for 5.
+	     * thus, this part should not parse the key. */
+	    if (!imresult && preedit_start_col != MAXCOL
+					       && event->keyval == GDK_Return)
+	    {
+		im_synthesize_keypress(GDK_Return, 0U);
+		return FALSE;
+	    }
+
+	    /* If XIM tried to commit a keypad key as a single char.,
+	     * ignore it so we can use the keypad key 'raw', for mappings. */
+	    if (xim_expected_char != NUL && xim_ignored_char)
+		/* We had a keypad key, and XIM tried to thieve it */
+		return FALSE;
+
+	    /* Normal processing */
+	    return imresult;
+	}
     }
 
     return FALSE;
@@ -3610,7 +4245,11 @@ static int	status_area_enabled = TRUE;
 #endif
 
 #ifdef FEAT_GUI_GTK
-# include <gdk/gdkx.h>
+# ifdef WIN3264
+#  include <gdk/gdkwin32.h>
+# else
+#  include <gdk/gdkx.h>
+# endif
 #else
 # ifdef PROTO
 /* Define a few things to be able to generate prototypes while not configured
@@ -3625,7 +4264,7 @@ static int	status_area_enabled = TRUE;
 
 #if defined(FEAT_GUI_GTK) || defined(PROTO)
 static int	preedit_buf_len = 0;
-static int	xim_preediting INIT(= FALSE);	/* XIM in showmode() */
+static int	xim_can_preediting INIT(= FALSE);	/* XIM in showmode() */
 static int	xim_input_style;
 #ifndef FEAT_GUI_GTK
 # define gboolean int
@@ -3759,7 +4398,7 @@ im_set_active(active)
     /* If 'imdisable' is set, XIM is never active. */
     if (p_imdisable)
 	active = FALSE;
-#ifndef FEAT_GUI_GTK
+#if !defined (FEAT_GUI_GTK)
     else if (input_style & XIMPreeditPosition)
 	/* There is a problem in switching XIM off when preediting is used,
 	 * and it is not clear how this can be solved.  For now, keep XIM on
@@ -3790,7 +4429,7 @@ im_set_active(active)
 	 */
 	if (xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS)
 	{
-	    if (xim_preediting && !active)
+	    if (xim_can_preediting && !active)
 	    {
 		/* Force turn off preedit state.  With some IM
 		 * implementations, we cannot turn off preedit state by
@@ -3802,9 +4441,9 @@ im_set_active(active)
 		xim_set_focus(FALSE);
 		gdk_ic_destroy(xic);
 		xim_init();
-		xim_preediting = FALSE;
+		xim_can_preediting = FALSE;
 	    }
-	    else if (!xim_preediting && active)
+	    else if (!xim_can_preediting && active)
 		im_xim_send_event_imactivate();
 	}
 	else
@@ -3815,7 +4454,7 @@ im_set_active(active)
 	    xim_set_focus(FALSE);
 	    gdk_ic_destroy(xic);
 	    xim_init();
-	    xim_preediting = FALSE;
+	    xim_can_preediting = FALSE;
 
 	    /* 2nd, when requested to activate IM, symulate this by sending
 	     * the event.
@@ -3823,7 +4462,7 @@ im_set_active(active)
 	    if (active)
 	    {
 		im_xim_send_event_imactivate();
-		xim_preediting = TRUE;
+		xim_can_preediting = TRUE;
 	    }
 	}
     }
@@ -3854,7 +4493,7 @@ im_set_active(active)
 				active ? XIMPreeditEnable : XIMPreeditDisable,
 				NULL);
 	    XSetICValues(pxic, XNPreeditAttributes, preedit_attr, NULL);
-	    xim_preediting = active;
+	    xim_can_preediting = active;
 	    xim_is_active = active;
 	}
 	XFree(preedit_attr);
@@ -3862,10 +4501,7 @@ im_set_active(active)
     if (xim_input_style & XIMPreeditCallbacks)
     {
 	preedit_buf_len = 0;
-	if (State & CMDLINE)
-	    preedit_start_col = cmdline_getvcol_cursor();
-	else
-	    getvcol(curwin, &curwin->w_cursor, &preedit_start_col, NULL, NULL);
+	init_preedit_start_col();
     }
 #else
 # if 0
@@ -4255,12 +4891,16 @@ xim_instantiate_cb(display, client_data, call_data)
     Window	x11_window;
     Display	*x11_display;
 
+#ifdef XIM_DEBUG
+    xim_log("xim_instantiate_cb()\n");
+#endif
+
     gui_get_x11_windis(&x11_window, &x11_display);
     if (display != x11_display)
 	return;
 
     xim_real_init(x11_window, x11_display);
-    gui_set_shellsize(FALSE, FALSE);
+    gui_set_shellsize(FALSE, FALSE, RESIZE_BOTH);
     if (xic != NULL)
 	XUnregisterIMInstantiateCallback(x11_display, NULL, NULL, NULL,
 					 xim_instantiate_cb, NULL);
@@ -4276,12 +4916,15 @@ xim_destroy_cb(im, client_data, call_data)
     Window	x11_window;
     Display	*x11_display;
 
+#ifdef XIM_DEBUG
+    xim_log("xim_destroy_cb()\n");
+#endif
     gui_get_x11_windis(&x11_window, &x11_display);
 
     xic = NULL;
     status_area_enabled = FALSE;
 
-    gui_set_shellsize(FALSE, FALSE);
+    gui_set_shellsize(FALSE, FALSE, RESIZE_BOTH);
 
     XRegisterIMInstantiateCallback(x11_display, NULL, NULL, NULL,
 				   xim_instantiate_cb, NULL);
@@ -4294,6 +4937,10 @@ xim_init()
     Window	x11_window;
     Display	*x11_display;
 
+#ifdef XIM_DEBUG
+    xim_log("xim_init()\n");
+#endif
+
     gui_get_x11_windis(&x11_window, &x11_display);
 
     xic = NULL;
@@ -4301,7 +4948,7 @@ xim_init()
     if (xim_real_init(x11_window, x11_display))
 	return;
 
-    gui_set_shellsize(FALSE, FALSE);
+    gui_set_shellsize(FALSE, FALSE, RESIZE_BOTH);
 
 #ifdef USE_X11R6_XIM
     XRegisterIMInstantiateCallback(x11_display, NULL, NULL, NULL,
@@ -4377,7 +5024,11 @@ xim_real_init(x11_window, x11_display)
 	/* Only give this message when verbose is set, because too many people
 	 * got this message when they didn't want to use a XIM. */
 	if (p_verbose > 0)
+	{
+	    verbose_enter();
 	    EMSG(_("E286: Failed to open input method"));
+	    verbose_leave();
+	}
 	return FALSE;
     }
 
@@ -4451,7 +5102,11 @@ xim_real_init(x11_window, x11_display)
 	/* Only give this message when verbose is set, because too many people
 	 * got this message when they didn't want to use a XIM. */
 	if (p_verbose > 0)
+	{
+	    verbose_enter();
 	    EMSG(_("E289: input method doesn't support my preedit type"));
+	    verbose_leave();
+	}
 	XCloseIM(xim);
 	return FALSE;
     }
@@ -4508,7 +5163,7 @@ xim_real_init(x11_window, x11_display)
 	    status_area_enabled = TRUE;
 	}
 	else
-	    gui_set_shellsize(FALSE, FALSE);
+	    gui_set_shellsize(FALSE, FALSE, RESIZE_BOTH);
     }
     else
     {
@@ -4546,6 +5201,10 @@ xim_decide_input_style()
 				 (int)GDK_IM_STATUS_NONE |
 				 (int)GDK_IM_STATUS_NOTHING;
 
+#ifdef XIM_DEBUG
+    xim_log("xim_decide_input_style()\n");
+#endif
+
     if (!gdk_im_ready())
 	xim_input_style = 0;
     else
@@ -4575,8 +5234,13 @@ xim_decide_input_style()
     static void
 preedit_start_cbproc(XIC xic, XPointer client_data, XPointer call_data)
 {
+#ifdef XIM_DEBUG
+    xim_log("xim_decide_input_style()\n");
+#endif
+
     draw_feedback = NULL;
-    xim_preediting = TRUE;
+    xim_can_preediting = TRUE;
+    xim_has_preediting = TRUE;
     gui_update_cursor(TRUE, FALSE);
     if (showmode() > 0)
     {
@@ -4609,16 +5273,17 @@ preedit_draw_cbproc(XIC xic, XPointer client_data, XPointer call_data)
     char	*src;
     GSList	*event_queue;
 
+#ifdef XIM_DEBUG
+    xim_log("preedit_draw_cbproc()\n");
+#endif
+
     draw_data = (XIMPreeditDrawCallbackStruct *) call_data;
     text = (XIMText *) draw_data->text;
 
     if ((text == NULL && draw_data->chg_length == preedit_buf_len)
-	    || preedit_buf_len == 0)
+						      || preedit_buf_len == 0)
     {
-	if (State & CMDLINE)
-	    preedit_start_col = cmdline_getvcol_cursor();
-	else
-	    getvcol(curwin, &curwin->w_cursor, &preedit_start_col, NULL, NULL);
+	init_preedit_start_col();
 	vim_free(draw_feedback);
 	draw_feedback = NULL;
     }
@@ -4683,7 +5348,7 @@ preedit_draw_cbproc(XIC xic, XPointer client_data, XPointer call_data)
 		    }
 		}
 		if (has_mbyte)
-		    ptr += mb_ptr2len_check(ptr);
+		    ptr += (*mb_ptr2len)(ptr);
 		else
 #endif
 		    ptr++;
@@ -4692,6 +5357,7 @@ preedit_draw_cbproc(XIC xic, XPointer client_data, XPointer call_data)
 #ifdef FEAT_MBYTE
 	    vim_free(buf);
 #endif
+	    preedit_end_col = MAXCOL;
 	}
     }
     if (text != NULL || draw_data->chg_length > 0)
@@ -4743,15 +5409,23 @@ im_get_feedback_attr(int col)
     static void
 preedit_caret_cbproc(XIC xic, XPointer client_data, XPointer call_data)
 {
+#ifdef XIM_DEBUG
+    xim_log("preedit_caret_cbproc()\n");
+#endif
 }
 
 /*ARGSUSED*/
     static void
 preedit_done_cbproc(XIC xic, XPointer client_data, XPointer call_data)
 {
+#ifdef XIM_DEBUG
+    xim_log("preedit_done_cbproc()\n");
+#endif
+
     vim_free(draw_feedback);
     draw_feedback = NULL;
-    xim_preediting = FALSE;
+    xim_can_preediting = FALSE;
+    xim_has_preediting = FALSE;
     gui_update_cursor(TRUE, FALSE);
     if (showmode() > 0)
     {
@@ -4765,6 +5439,10 @@ xim_reset(void)
 {
     char *text;
 
+#ifdef XIM_DEBUG
+    xim_log("xim_reset()\n");
+#endif
+
     if (xic != NULL)
     {
 	text = XmbResetIC(((GdkICPrivate *)xic)->xic);
@@ -4777,9 +5455,14 @@ xim_reset(void)
     }
 }
 
+/*ARGSUSED*/
     int
-xim_queue_key_press_event(GdkEventKey *event)
+xim_queue_key_press_event(GdkEventKey *event, int down)
 {
+#ifdef XIM_DEBUG
+    xim_log("xim_queue_key_press_event()\n");
+#endif
+
     if (preedit_buf_len <= 0)
 	return FALSE;
     if (processing_queued_event)
@@ -4830,13 +5513,21 @@ reset_state_setup(GdkIC *ic)
     void
 xim_init(void)
 {
+#ifdef XIM_DEBUG
+    xim_log("xim_init()\n");
+#endif
+
     xic = NULL;
     xic_attr = NULL;
 
     if (!gdk_im_ready())
     {
 	if (p_verbose > 0)
+	{
+	    verbose_enter();
 	    EMSG(_("E292: Input Method Server is not running"));
+	    verbose_leave();
+	}
 	return;
     }
     if ((xic_attr = gdk_ic_attr_new()) != NULL)
@@ -4933,6 +5624,10 @@ xim_init(void)
     void
 im_shutdown(void)
 {
+#ifdef XIM_DEBUG
+    xim_log("im_shutdown()\n");
+#endif
+
     if (xic != NULL)
     {
 	gdk_im_end();
@@ -4940,8 +5635,9 @@ im_shutdown(void)
 	xic = NULL;
     }
     xim_is_active = FALSE;
-    xim_preediting = FALSE;
+    xim_can_preediting = FALSE;
     preedit_start_col = MAXCOL;
+    xim_has_preediting = FALSE;
 }
 
 #endif /* FEAT_GUI_GTK */
@@ -4968,14 +5664,22 @@ xim_get_status_area_height()
     int
 im_get_status()
 {
-#ifdef FEAT_GUI_GTK
+#  ifdef FEAT_GUI_GTK
     if (xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS)
-	return xim_preediting;
-#endif
+	return xim_can_preediting;
+#  endif
     return xim_has_focus;
 }
 
 # endif /* !HAVE_GTK2 */
+
+# if defined(FEAT_GUI_GTK) || defined(PROTO)
+    int
+im_is_preediting()
+{
+    return xim_has_preediting;
+}
+# endif
 #endif /* FEAT_XIM */
 
 #if defined(FEAT_MBYTE) || defined(PROTO)
@@ -4986,6 +5690,7 @@ im_get_status()
  * vcp->vc_type must have been initialized to CONV_NONE.
  * Note: cannot be used for conversion from/to ucs-2 and ucs-4 (will use utf-8
  * instead).
+ * Afterwards invoke with "from" and "to" equal to NULL to cleanup.
  * Return FAIL when conversion is not supported, OK otherwise.
  */
     int
@@ -5004,6 +5709,7 @@ convert_setup(vcp, from, to)
 # endif
     vcp->vc_type = CONV_NONE;
     vcp->vc_factor = 1;
+    vcp->vc_fail = FALSE;
 
     /* No conversion when one of the names is empty or they are equal. */
     if (from == NULL || *from == NUL || to == NULL || *to == NUL
@@ -5018,10 +5724,21 @@ convert_setup(vcp, from, to)
 	vcp->vc_type = CONV_TO_UTF8;
 	vcp->vc_factor = 2;	/* up to twice as long */
     }
+    else if ((from_prop & ENC_LATIN9) && (to_prop & ENC_UNICODE))
+    {
+	/* Internal latin9 -> utf-8 conversion. */
+	vcp->vc_type = CONV_9_TO_UTF8;
+	vcp->vc_factor = 3;	/* up to three as long (euro sign) */
+    }
     else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_LATIN1))
     {
 	/* Internal utf-8 -> latin1 conversion. */
 	vcp->vc_type = CONV_TO_LATIN1;
+    }
+    else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_LATIN9))
+    {
+	/* Internal utf-8 -> latin9 conversion. */
+	vcp->vc_type = CONV_TO_LATIN9;
     }
 #ifdef WIN3264
     /* Win32-specific codepage <-> codepage conversion without iconv. */
@@ -5032,6 +5749,25 @@ convert_setup(vcp, from, to)
 	vcp->vc_factor = 2;	/* up to twice as long */
 	vcp->vc_cpfrom = (from_prop & ENC_UNICODE) ? 0 : encname2codepage(from);
 	vcp->vc_cpto = (to_prop & ENC_UNICODE) ? 0 : encname2codepage(to);
+    }
+#endif
+#ifdef MACOS_X
+    else if ((from_prop & ENC_MACROMAN) && (to_prop & ENC_LATIN1))
+    {
+	vcp->vc_type = CONV_MAC_LATIN1;
+    }
+    else if ((from_prop & ENC_MACROMAN) && (to_prop & ENC_UNICODE))
+    {
+	vcp->vc_type = CONV_MAC_UTF8;
+	vcp->vc_factor = 2;	/* up to twice as long */
+    }
+    else if ((from_prop & ENC_LATIN1) && (to_prop & ENC_MACROMAN))
+    {
+	vcp->vc_type = CONV_LATIN1_MAC;
+    }
+    else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_MACROMAN))
+    {
+	vcp->vc_type = CONV_UTF8_MAC;
     }
 #endif
 # ifdef USE_ICONV
@@ -5050,9 +5786,12 @@ convert_setup(vcp, from, to)
 # endif
     if (vcp->vc_type == CONV_NONE)
 	return FAIL;
+
     return OK;
 }
 
+#if defined(FEAT_GUI) || defined(AMIGA) || defined(WIN3264) \
+	|| defined(MSDOS) || defined(PROTO)
 /*
  * Do conversion on typed input characters in-place.
  * The input and output are not NUL terminated!
@@ -5064,16 +5803,47 @@ convert_input(ptr, len, maxlen)
     int		len;
     int		maxlen;
 {
+    return convert_input_safe(ptr, len, maxlen, NULL, NULL);
+}
+#endif
+
+/*
+ * Like convert_input(), but when there is an incomplete byte sequence at the
+ * end return that as an allocated string in "restp" and set "*restlenp" to
+ * the length.  If "restp" is NULL it is not used.
+ */
+    int
+convert_input_safe(ptr, len, maxlen, restp, restlenp)
+    char_u	*ptr;
+    int		len;
+    int		maxlen;
+    char_u	**restp;
+    int		*restlenp;
+{
     char_u	*d;
     int		dlen = len;
+    int		unconvertlen = 0;
 
-    d = string_convert(&input_conv, ptr, &dlen);
+    d = string_convert_ext(&input_conv, ptr, &dlen,
+					restp == NULL ? NULL : &unconvertlen);
     if (d != NULL)
     {
 	if (dlen <= maxlen)
+	{
+	    if (unconvertlen > 0)
+	    {
+		/* Move the unconverted characters to allocated memory. */
+		*restp = alloc(unconvertlen);
+		if (*restp != NULL)
+		    mch_memmove(*restp, ptr + len - unconvertlen, unconvertlen);
+		*restlenp = unconvertlen;
+	    }
 	    mch_memmove(ptr, d, dlen);
+	}
 	else
-	    dlen = len;	    /* result is too long, keep the unconverted text */
+	    /* result is too long, keep the unconverted text (the caller must
+	     * have done something wrong!) */
+	    dlen = len;
 	vim_free(d);
     }
     return dlen;
@@ -5083,6 +5853,7 @@ convert_input(ptr, len, maxlen)
  * Convert text "ptr[*lenp]" according to "vcp".
  * Returns the result in allocated memory and sets "*lenp".
  * When "lenp" is NULL, use NUL terminated strings.
+ * Illegal chars are often changed to "?", unless vcp->vc_fail is set.
  * When something goes wrong, NULL is returned and "*lenp" is unchanged.
  */
     char_u *
@@ -5090,6 +5861,21 @@ string_convert(vcp, ptr, lenp)
     vimconv_T	*vcp;
     char_u	*ptr;
     int		*lenp;
+{
+    return string_convert_ext(vcp, ptr, lenp, NULL);
+}
+
+/*
+ * Like string_convert(), but when "unconvlenp" is not NULL and there are is
+ * an incomplete sequence at the end it is not converted and "*unconvlenp" is
+ * set to the number of remaining bytes.
+ */
+    char_u *
+string_convert_ext(vcp, ptr, lenp, unconvlenp)
+    vimconv_T	*vcp;
+    char_u	*ptr;
+    int		*lenp;
+    int		*unconvlenp;
 {
     char_u	*retval = NULL;
     char_u	*d;
@@ -5114,12 +5900,13 @@ string_convert(vcp, ptr, lenp)
 	    d = retval;
 	    for (i = 0; i < len; ++i)
 	    {
-		if (ptr[i] < 0x80)
-		    *d++ = ptr[i];
+		c = ptr[i];
+		if (c < 0x80)
+		    *d++ = c;
 		else
 		{
-		    *d++ = 0xc0 + ((unsigned)ptr[i] >> 6);
-		    *d++ = 0x80 + (ptr[i] & 0x3f);
+		    *d++ = 0xc0 + ((unsigned)c >> 6);
+		    *d++ = 0x80 + (c & 0x3f);
 		}
 	    }
 	    *d = NUL;
@@ -5127,23 +5914,85 @@ string_convert(vcp, ptr, lenp)
 		*lenp = (int)(d - retval);
 	    break;
 
+	case CONV_9_TO_UTF8:	/* latin9 to utf-8 conversion */
+	    retval = alloc(len * 3 + 1);
+	    if (retval == NULL)
+		break;
+	    d = retval;
+	    for (i = 0; i < len; ++i)
+	    {
+		c = ptr[i];
+		switch (c)
+		{
+		    case 0xa4: c = 0x20ac; break;   /* euro */
+		    case 0xa6: c = 0x0160; break;   /* S hat */
+		    case 0xa8: c = 0x0161; break;   /* S -hat */
+		    case 0xb4: c = 0x017d; break;   /* Z hat */
+		    case 0xb8: c = 0x017e; break;   /* Z -hat */
+		    case 0xbc: c = 0x0152; break;   /* OE */
+		    case 0xbd: c = 0x0153; break;   /* oe */
+		    case 0xbe: c = 0x0178; break;   /* Y */
+		}
+		d += utf_char2bytes(c, d);
+	    }
+	    *d = NUL;
+	    if (lenp != NULL)
+		*lenp = (int)(d - retval);
+	    break;
+
 	case CONV_TO_LATIN1:	/* utf-8 to latin1 conversion */
+	case CONV_TO_LATIN9:	/* utf-8 to latin9 conversion */
 	    retval = alloc(len + 1);
 	    if (retval == NULL)
 		break;
 	    d = retval;
 	    for (i = 0; i < len; ++i)
 	    {
-		l = utf_ptr2len_check(ptr + i);
-		if (l <= 1)
+		l = utf_ptr2len(ptr + i);
+		if (l == 0)
+		    *d++ = NUL;
+		else if (l == 1)
+		{
+		    if (unconvlenp != NULL && utf8len_tab[ptr[i]] > len - i)
+		    {
+			/* Incomplete sequence at the end. */
+			*unconvlenp = len - i;
+			break;
+		    }
 		    *d++ = ptr[i];
+		}
 		else
 		{
 		    c = utf_ptr2char(ptr + i);
+		    if (vcp->vc_type == CONV_TO_LATIN9)
+			switch (c)
+			{
+			    case 0x20ac: c = 0xa4; break;   /* euro */
+			    case 0x0160: c = 0xa6; break;   /* S hat */
+			    case 0x0161: c = 0xa8; break;   /* S -hat */
+			    case 0x017d: c = 0xb4; break;   /* Z hat */
+			    case 0x017e: c = 0xb8; break;   /* Z -hat */
+			    case 0x0152: c = 0xbc; break;   /* OE */
+			    case 0x0153: c = 0xbd; break;   /* oe */
+			    case 0x0178: c = 0xbe; break;   /* Y */
+			    case 0xa4:
+			    case 0xa6:
+			    case 0xa8:
+			    case 0xb4:
+			    case 0xb8:
+			    case 0xbc:
+			    case 0xbd:
+			    case 0xbe: c = 0x100; break; /* not in latin9 */
+			}
 		    if (!utf_iscomposing(c))	/* skip composing chars */
 		    {
 			if (c < 0x100)
 			    *d++ = c;
+			else if (vcp->vc_fail)
+			{
+			    vim_free(retval);
+			    return NULL;
+			}
 			else
 			{
 			    *d++ = 0xbf;
@@ -5159,9 +6008,31 @@ string_convert(vcp, ptr, lenp)
 		*lenp = (int)(d - retval);
 	    break;
 
+# ifdef MACOS_CONVERT
+	case CONV_MAC_LATIN1:
+	    retval = mac_string_convert(ptr, len, lenp, vcp->vc_fail,
+					'm', 'l', unconvlenp);
+	    break;
+
+	case CONV_LATIN1_MAC:
+	    retval = mac_string_convert(ptr, len, lenp, vcp->vc_fail,
+					'l', 'm', unconvlenp);
+	    break;
+
+	case CONV_MAC_UTF8:
+	    retval = mac_string_convert(ptr, len, lenp, vcp->vc_fail,
+					'm', 'u', unconvlenp);
+	    break;
+
+	case CONV_UTF8_MAC:
+	    retval = mac_string_convert(ptr, len, lenp, vcp->vc_fail,
+					'u', 'm', unconvlenp);
+	    break;
+# endif
+
 # ifdef USE_ICONV
 	case CONV_ICONV:	/* conversion with output_conv.vc_fd */
-	    retval = iconv_string(vcp->vc_fd, ptr, len);
+	    retval = iconv_string(vcp, ptr, len, unconvlenp);
 	    if (retval != NULL && lenp != NULL)
 		*lenp = (int)STRLEN(retval);
 	    break;
@@ -5175,7 +6046,7 @@ string_convert(vcp, ptr, lenp)
 
 	    /* 1. codepage/UTF-8  ->  ucs-2. */
 	    if (vcp->vc_cpfrom == 0)
-		tmp_len = utf8_to_ucs2(ptr, len, NULL);
+		tmp_len = utf8_to_ucs2(ptr, len, NULL, NULL);
 	    else
 		tmp_len = MultiByteToWideChar(vcp->vc_cpfrom, 0,
 							      ptr, len, 0, 0);
@@ -5183,7 +6054,7 @@ string_convert(vcp, ptr, lenp)
 	    if (tmp == NULL)
 		break;
 	    if (vcp->vc_cpfrom == 0)
-		utf8_to_ucs2(ptr, len, tmp);
+		utf8_to_ucs2(ptr, len, tmp, unconvlenp);
 	    else
 		MultiByteToWideChar(vcp->vc_cpfrom, 0, ptr, len, tmp, tmp_len);
 

@@ -1,5 +1,5 @@
 # sieve_err.et -- Error codes for the Sieve subsystem
-# $Id: sieve_err.et,v 1.4 2005/03/05 00:37:38 dasenbro Exp $
+# $Id: sieve_err.et,v 1.2 2002/05/25 19:57:52 leg Exp $
 #
 # Copyright 2000 Carnegie Mellon University
 # 

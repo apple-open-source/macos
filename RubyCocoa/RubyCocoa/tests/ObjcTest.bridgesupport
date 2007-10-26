@@ -1,0 +1,52 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <class name='ObjcDataClass'>
+    <method selector='boolNo'>
+      <retval type='B'/>
+    </method>
+    <method selector='boolYes'>
+      <retval type='B'/>
+    </method>
+    <method selector='cppBoolFalse'>
+      <retval type='B'/>
+    </method>
+    <method selector='cppBoolTrue'>
+      <retval type='B'/>
+    </method>
+    <method selector='intZero'>
+      <retval type='i'/>
+    </method>
+    <method selector='intOne'>
+      <retval type='i'/>
+    </method>
+    <method selector='int42'>
+      <retval type='i'/>
+    </method>
+    <method selector='intMinusOne'>
+      <retval type='i'/>
+    </method>
+    <method selector='biguint'>
+      <retval type='I'/>
+    </method>
+    <method selector='charZero'>
+      <retval type='c'/>
+    </method>
+    <method selector='charOne'>
+      <retval type='c'/>
+    </method>
+    <method selector='floatTwo'>
+      <retval type='f'/>
+    </method>
+    <method selector='doubleTwo'>
+      <retval type='d'/>
+    </method>
+  </class>
+  <informal_protocol name='TypeConversionTest'>
+    <method type='B8@0:4' selector='testBool'/>
+    <method type='c8@0:4' selector='testChar'/>
+    <method type='i8@0:4' selector='testInt'/>
+    <method type='f8@0:4' selector='testFloat'/>
+    <method type='d8@0:4' selector='testDouble'/>
+  </informal_protocol>
+</signatures>

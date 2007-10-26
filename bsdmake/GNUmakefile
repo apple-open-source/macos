@@ -7,6 +7,9 @@ Project  = bsdmake
 UserType = Developer
 ToolType = Commands
 
+Extra_CC_Flags = -D__FBSDID=__RCSID -mdynamic-no-pic
+Extra_Environment = WARNS=1
+
 BSD_After_Install = munge_name install_mk install_plist
 
 # It's a BSD project

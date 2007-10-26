@@ -40,11 +40,11 @@
 #include "CSharedData.h"
 #include "SharedConsts.h"
 
-unsigned long DSGetLong(void* ptr, dsBool inToBig)
+UInt32 DSGetLong(void* ptr, dsBool inToBig)
 {
-	unsigned long returnVal = *(unsigned long*)(ptr);
+	UInt32 returnVal = *(UInt32*)(ptr);
 	if (!inToBig)
-		returnVal = NXSwapBigLongToHost(returnVal);
+		returnVal = NXSwapBigIntToHost(returnVal);
 		
 	return returnVal;
 }
@@ -58,13 +58,13 @@ unsigned short DSGetShort(void* ptr, dsBool inToBig)
 	return returnVal;
 }
 
-unsigned long DSGetAndSwapLong(void* ptr, dsBool inToBig)
+UInt32 DSGetAndSwapLong(void* ptr, dsBool inToBig)
 {
-	unsigned long returnVal = *(unsigned long*)(ptr);
+	UInt32 returnVal = *(UInt32*)(ptr);
 	if (inToBig)
-		*(unsigned long*)(ptr) = NXSwapHostLongToBig(returnVal);
+		*(UInt32*)(ptr) = NXSwapHostIntToBig(returnVal);
 	else
-		returnVal = *(unsigned long*)(ptr) = NXSwapBigLongToHost(returnVal);
+		returnVal = *(UInt32*)(ptr) = NXSwapBigIntToHost(returnVal);
 		
 	return returnVal;
 }
@@ -83,7 +83,7 @@ unsigned short DSGetAndSwapShort(void* ptr, dsBool inToBig)
 void DSSwapLong(void* ptr, dsBool inToBig) { DSGetAndSwapLong(ptr, inToBig); }
 void DSSwapShort(void* ptr, dsBool inToBig) { DSGetAndSwapShort(ptr, inToBig); }
 
-void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
+void DSSwapRecordEntry(char* data, UInt32 type, dsBool inToBig)
 {
 	short i = 0;
 	short j = 0;
@@ -91,8 +91,8 @@ void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
     // if at any point we see data that doesn't make sense, we just bail
     
     // start with initial length, then type and name strings (each with two byte length)
-    unsigned long entryLen = DSGetAndSwapLong(data, inToBig);
-    char* dataEnd = data + entryLen;
+    UInt32 entryLen = DSGetAndSwapLong(data, inToBig);
+    char* dataEnd = data + 4 + entryLen;
     data += 4;
     unsigned short tempLen = DSGetAndSwapShort(data, inToBig);
     data += 2 + tempLen;
@@ -108,8 +108,7 @@ void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
     // go through each attribute entry
     for (i = 0; i < attrCount; i++)
     {
-        unsigned long attrLen;
-        char* attrEnd = data;
+        UInt32 attrLen;
         if ( (type != 'StdB') || (type != 'DbgB') )
         {
             // 4 byte attribute length
@@ -123,7 +122,7 @@ void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
             data += 2;
         }
         
-        attrEnd += attrLen;
+        char* attrEnd = data + attrLen;
         if (attrEnd > dataEnd) return;
         
         // next is attr type
@@ -138,7 +137,7 @@ void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
         // go through each attribute value
         for (j = 0; j < attrValCount; j++)
         {
-            unsigned long attrValueLen;
+            UInt32 attrValueLen;
             if ( (type != 'StdB') || (type != 'DbgB') )
             {
                 // 4 byte attribute length
@@ -157,14 +156,14 @@ void DSSwapRecordEntry(char* data, unsigned long type, dsBool inToBig)
     }
 }
 
-void DSSwapStandardBuf(char* data, unsigned long size, dsBool inToBig)
+void DSSwapStandardBuf(char* data, UInt32 size, dsBool inToBig)
 {
     // check if this buffer is in one of the known formats
     // Must be at least 12 bytes big
     if (size < 12)
         return;
         
-    unsigned long type = DSGetLong(data, inToBig);
+    UInt32 type = DSGetLong(data, inToBig);
     if ((type == 'StdA') || (type == 'DbgA') || (type == 'StdB') || (type == 'DbgB') || (type == 'Gdni'))
     {
         // these buffers contain an array of offsets at the beginning, with the record data
@@ -172,13 +171,13 @@ void DSSwapStandardBuf(char* data, unsigned long size, dsBool inToBig)
         
         // swap the type
         DSSwapLong(data, inToBig);
-        unsigned long recordCount = DSGetAndSwapLong(data + 4, inToBig);
+        UInt32 recordCount = DSGetAndSwapLong(data + 4, inToBig);
         
         // now swap record entries
-		unsigned long j = 0;
+		UInt32 j = 0;
         for (j = 0; j < recordCount; j++)
         {
-            unsigned long offset = DSGetAndSwapLong(data + (j * 4) + 8, inToBig);
+            UInt32 offset = DSGetAndSwapLong(data + (j * 4) + 8, inToBig);
             if (offset > size)	return; // bad buff, so bail
             DSSwapRecordEntry(data + offset, type, inToBig);
         }
@@ -193,12 +192,12 @@ void DSSwapStandardBuf(char* data, unsigned long size, dsBool inToBig)
         
         // swap the type
         DSSwapLong(data, inToBig);
-        unsigned long nodeCount = DSGetAndSwapLong(data + 4, inToBig);
+        UInt32 nodeCount = DSGetAndSwapLong(data + 4, inToBig);
         
-		unsigned long i = 0;
+		UInt32 i = 0;
         for (i = 0; i < nodeCount; i++)
         {
-            unsigned long offset = DSGetAndSwapLong(data + size - (4 * i) - 4, inToBig);
+            UInt32 offset = DSGetAndSwapLong(data + size - (4 * i) - 4, inToBig);
             if (offset > size) return;
             char* tempPtr = data + offset;
             unsigned short numSegments = DSGetAndSwapShort(tempPtr, inToBig);
@@ -209,18 +208,18 @@ void DSSwapStandardBuf(char* data, unsigned long size, dsBool inToBig)
             {
                 unsigned short segmentLen = DSGetAndSwapShort(tempPtr, inToBig);
                 tempPtr += 2 + segmentLen;
-                if (tempPtr - data > (long)size) return;
+                if (tempPtr - data > (SInt32)size) return;
             }
         }
     }
 }
 
-void DSSwapObjectData(	unsigned long type,
+void DSSwapObjectData(	UInt32 type,
 						char* data,
-						unsigned long size,
+						UInt32 size,
 						dsBool swapAuth,
 						dsBool isCustomCall,
-						unsigned long inCustomRequestNum,
+						UInt32 inCustomRequestNum,
 						const char* inPluginName,
 						dsBool isAPICallResponse,
 						dsBool inToBig)
@@ -239,10 +238,10 @@ void DSSwapObjectData(	unsigned long type,
 					{
 						if (!isAPICallResponse)
 						{
-							unsigned long totalLen = 0;
+							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								unsigned long length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inToBig);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -253,10 +252,10 @@ void DSSwapObjectData(	unsigned long type,
 					{
 						if (isAPICallResponse)
 						{
-							unsigned long totalLen = 0;
+							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								unsigned long length = DSGetAndSwapShort(data, inToBig);
+								UInt32 length = DSGetAndSwapShort(data, inToBig);
 								totalLen += length + 2;
 								data += length + 2;
 							}
@@ -294,10 +293,10 @@ void DSSwapObjectData(	unsigned long type,
 					{
 						if (!isAPICallResponse)
 						{
-							unsigned long totalLen = 0;
+							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								unsigned long length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inToBig);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -332,10 +331,10 @@ void DSSwapObjectData(	unsigned long type,
 					{
 						if (isAPICallResponse)
 						{
-							unsigned long totalLen = 0;
+							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								unsigned long length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inToBig);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -347,10 +346,10 @@ void DSSwapObjectData(	unsigned long type,
 						if (isAPICallResponse)
 						{
 							data += sizeof( AuthorizationExternalForm );
-							unsigned long totalLen = 0;
+							UInt32 totalLen = 0;
 							while (totalLen < size)
 							{
-								unsigned long length = DSGetAndSwapLong(data, inToBig);
+								UInt32 length = DSGetAndSwapLong(data, inToBig);
 								totalLen += length + 4;
 								data += length + 4;
 							}
@@ -400,10 +399,10 @@ void DSSwapObjectData(	unsigned long type,
         case kAttrMatches:
         case kAttrValueList:
         {
-            unsigned long totalLen = 0;
+            UInt32 totalLen = 0;
             while (totalLen < size)
             {
-                unsigned long length = DSGetAndSwapLong(data, inToBig);
+                UInt32 length = DSGetAndSwapLong(data, inToBig);
                 totalLen += length + 4;
                 data += length + 4;
             }

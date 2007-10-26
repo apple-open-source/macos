@@ -180,9 +180,7 @@ VOID *realloc ();
 char *getenv ();
 #endif
 
-#if HAVE_LIMITS_H
 #include <limits.h>
-#endif
 #ifndef INT_MAX
 #define INT_MAX 2147483647
 #endif

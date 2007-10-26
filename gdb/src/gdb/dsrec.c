@@ -1,5 +1,5 @@
 /* S-record download support for GDB, the GNU debugger.
-   Copyright 1995, 1996, 1997, 1999, 2000, 2001
+   Copyright 1995, 1996, 1997, 1999, 2000, 2001, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -64,13 +64,13 @@ load_srec (struct serial *desc, const char *file, bfd_vma load_offset,
   abfd = bfd_openr (file, 0);
   if (!abfd)
     {
-      printf_filtered ("Unable to open file %s\n", file);
+      printf_filtered (_("Unable to open file %s\n"), file);
       return;
     }
 
   if (bfd_check_format (abfd, bfd_object) == 0)
     {
-      printf_filtered ("File is not an object file\n");
+      printf_filtered (_("File is not an object file\n"));
       return;
     }
 
@@ -93,7 +93,7 @@ load_srec (struct serial *desc, const char *file, bfd_vma load_offset,
       {
 	int numbytes;
 	bfd_vma addr = bfd_get_section_vma (abfd, s) + load_offset;
-	bfd_size_type size = bfd_get_section_size_before_reloc (s);
+	bfd_size_type size = bfd_get_section_size (s);
 	char *section_name = (char *) bfd_get_section_name (abfd, s);
 	/* Both GDB and BFD have mechanisms for printing addresses.
            In the below, GDB's is used so that the address is
@@ -124,9 +124,10 @@ load_srec (struct serial *desc, const char *file, bfd_vma load_offset,
 	    do
 	      {
 		serial_write (desc, srec, reclen);
-		if (ui_load_progress_hook)
-		  if (ui_load_progress_hook (section_name, (unsigned long) i))
-		    error ("Canceled the download");
+		if (deprecated_ui_load_progress_hook)
+		  if (deprecated_ui_load_progress_hook (section_name,
+							(unsigned long) i))
+		    error (_("Canceled the download"));
 	      }
 	    while (waitack != NULL && !waitack ());
 
@@ -137,9 +138,10 @@ load_srec (struct serial *desc, const char *file, bfd_vma load_offset,
 	      }
 	  }			/* Per-packet (or S-record) loop */
 
-	if (ui_load_progress_hook)
-	  if (ui_load_progress_hook (section_name, (unsigned long) i))
-	    error ("Canceled the download");
+	if (deprecated_ui_load_progress_hook)
+	  if (deprecated_ui_load_progress_hook (section_name,
+						(unsigned long) i))
+	    error (_("Canceled the download"));
 	putchar_unfiltered ('\n');
       }
 
@@ -252,7 +254,7 @@ make_srec (char *srec, CORE_ADDR targ_addr, bfd *abfd, asection *sect,
     addr_size = 4;
   else
     internal_error (__FILE__, __LINE__,
-		    "make_srec:  Bad address (0x%s), or bad flags (0x%x).",
+		    _("make_srec:  Bad address (0x%s), or bad flags (0x%x)."),
 		    paddr (targ_addr), flags);
 
   /* Now that we know the address size, we can figure out how much
@@ -261,7 +263,7 @@ make_srec (char *srec, CORE_ADDR targ_addr, bfd *abfd, asection *sect,
   if (sect && abfd)
     {
       payload_size = (*maxrecsize - (1 + 1 + 2 + addr_size * 2 + 2)) / 2;
-      payload_size = min (payload_size, sect->_raw_size - sectoff);
+      payload_size = min (payload_size, bfd_get_section_size (sect) - sectoff);
 
       bfd_get_section_contents (abfd, sect, binbuf, sectoff, payload_size);
     }

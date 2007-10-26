@@ -93,7 +93,7 @@ static const MSCUChar8 md5sigheader[] =
 void MuscleCardKeyHandle::generateSignature(const Context &context,
 	CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature)
 {
-	secdebug("crypto", "generateSignature alg: %lu signOnly: %lu", context.algorithm(), signOnly);
+	secdebug("crypto", "generateSignature alg: %u signOnly: %u", context.algorithm(), signOnly);
 	IFDUMPING("crypto", context.dump("signature context"));
 
 	if (context.type() != CSSM_ALGCLASS_SIGNATURE)
@@ -243,7 +243,7 @@ void MuscleCardKeyHandle::encrypt(const Context &context,
 void MuscleCardKeyHandle::decrypt(const Context &context,
 	const CssmData &cipher, CssmData &clear)
 {
-	secdebug("crypto", "decrypt alg: %lu", context.algorithm());
+	secdebug("crypto", "decrypt alg: %u", context.algorithm());
 	IFDUMPING("crypto", context.dump("decrypt context"));
 
 	if (context.type() != CSSM_ALGCLASS_ASYMMETRIC)
@@ -516,4 +516,3 @@ Tokend::KeyHandle *MuscleCardKeyHandleFactory::keyHandle(Tokend::TokenContext *t
 }
 
 
-/* arch-tag: 426D0873-05E0-11D9-85AD-000A9595DEEE */

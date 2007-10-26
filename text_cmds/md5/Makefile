@@ -12,18 +12,17 @@ NAME = md5
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = libmd.h
-
-CFILES = md5.c libmd.c
+CFILES = md5.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble md5.1
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /sbin
-LIBS = -lcrypto
+LIBS = -lmd -lcrypto
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

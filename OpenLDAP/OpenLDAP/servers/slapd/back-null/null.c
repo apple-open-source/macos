@@ -1,8 +1,8 @@
 /* null.c - the null backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-null/null.c,v 1.5.2.4 2004/04/12 18:20:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-null/null.c,v 1.12.2.4 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2004 The OpenLDAP Foundation.
+ * Copyright 2002-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -14,7 +14,7 @@
  * <http://www.OpenLDAP.org/license.html>.
  */
 /* ACKNOWLEDGEMENTS:
- * This work was originally developed by Howard Chu for inclusion
+ * This work was originally developed by Hallvard Furuseth for inclusion
  * in OpenLDAP Software.
  */
 
@@ -24,30 +24,33 @@
 #include <ac/string.h>
 
 #include "slap.h"
-#include "external.h"
 
 struct null_info {
-	int bind_allowed;
+	int	ni_bind_allowed;
+	ID	ni_nextid;
 };
 
-int
+
+/* LDAP operations */
+
+static int
 null_back_bind( Operation *op, SlapReply *rs )
 {
 	struct null_info *ni = (struct null_info *) op->o_bd->be_private;
 
-	if ( ni->bind_allowed ) {
+	if ( ni->ni_bind_allowed ) {
 		/* front end will send result on success (0) */
-		return 0;
+		return LDAP_SUCCESS;
 	}
 
 	rs->sr_err = LDAP_INVALID_CREDENTIALS;
 	send_ldap_result( op, rs );
 
-	return 1;
+	return rs->sr_err;
 }
 
 /* add, delete, modify, modrdn, search */
-int
+static int
 null_back_success( Operation *op, SlapReply *rs )
 {
 	rs->sr_err = LDAP_SUCCESS;
@@ -56,7 +59,7 @@ null_back_success( Operation *op, SlapReply *rs )
 }
 
 /* compare */
-int
+static int
 null_back_false( Operation *op, SlapReply *rs )
 {
 	rs->sr_err = LDAP_COMPARE_FALSE;
@@ -64,12 +67,56 @@ null_back_false( Operation *op, SlapReply *rs )
 	return 0;
 }
 
-int
+
+/* Slap tools */
+
+static int
+null_tool_entry_open( BackendDB *be, int mode )
+{
+	return 0;
+}
+
+static int
+null_tool_entry_close( BackendDB *be )
+{
+	assert( be != NULL );
+	return 0;
+}
+
+static ID
+null_tool_entry_next( BackendDB *be )
+{
+	return NOID;
+}
+
+static Entry *
+null_tool_entry_get( BackendDB *be, ID id )
+{
+	assert( slapMode & SLAP_TOOL_MODE );
+	return NULL;
+}
+
+static ID
+null_tool_entry_put( BackendDB *be, Entry *e, struct berval *text )
+{
+	assert( slapMode & SLAP_TOOL_MODE );
+	assert( text != NULL );
+	assert( text->bv_val != NULL );
+	assert( text->bv_val[0] == '\0' );	/* overconservative? */
+
+	e->e_id = ((struct null_info *) be->be_private)->ni_nextid++;
+	return e->e_id;
+}
+
+
+/* Setup */
+
+static int
 null_back_db_config(
 	BackendDB	*be,
 	const char	*fname,
-	int			lineno,
-	int			argc,
+	int		lineno,
+	int		argc,
 	char		**argv )
 {
 	struct null_info *ni = (struct null_info *) be->be_private;
@@ -88,7 +135,7 @@ null_back_db_config(
 			         fname, lineno );
 			return 1;
 		}
-		ni->bind_allowed = strcasecmp( argv[1], "off" );
+		ni->ni_bind_allowed = strcasecmp( argv[1], "off" );
 
 	/* anything else */
 	} else {
@@ -98,22 +145,18 @@ null_back_db_config(
 	return 0;
 }
 
-
-int
+static int
 null_back_db_init( BackendDB *be )
 {
-	struct null_info *ni;
-
-	ni = ch_calloc( 1, sizeof(struct null_info) );
-	ni->bind_allowed = 0;
+	struct null_info *ni = ch_calloc( 1, sizeof(struct null_info) );
+	ni->ni_bind_allowed = 0;
+	ni->ni_nextid = 1;
 	be->be_private = ni;
 	return 0;
 }
 
-int
-null_back_db_destroy(
-    Backend	*be
-)
+static int
+null_back_db_destroy( Backend *be )
 {
 	free( be->be_private );
 	return 0;
@@ -121,9 +164,7 @@ null_back_db_destroy(
 
 
 int
-null_back_initialize(
-    BackendInfo	*bi
-)
+null_back_initialize( BackendInfo *bi )
 {
 	bi->bi_open = 0;
 	bi->bi_close = 0;
@@ -153,21 +194,19 @@ null_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
+	bi->bi_tool_entry_open = null_tool_entry_open;
+	bi->bi_tool_entry_close = null_tool_entry_close;
+	bi->bi_tool_entry_first = null_tool_entry_next;
+	bi->bi_tool_entry_next = null_tool_entry_next;
+	bi->bi_tool_entry_get = null_tool_entry_get;
+	bi->bi_tool_entry_put = null_tool_entry_put;
+
 	return 0;
 }
 
 #if SLAPD_NULL == SLAPD_MOD_DYNAMIC
-int init_module(
-	int argc,
-	char *argv[] )
-{
-    BackendInfo bi;
 
-    memset( &bi, '\0', sizeof(bi) );
-    bi.bi_type = "null";
-    bi.bi_init = null_back_initialize;
+/* conditionally define the init_module() function */
+SLAP_BACKEND_INIT_MODULE( null )
 
-    backend_add(&bi);
-    return 0;
-}
-#endif /* SLAPD_NULL */
+#endif /* SLAPD_NULL == SLAPD_MOD_DYNAMIC */

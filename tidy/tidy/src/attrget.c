@@ -1,12 +1,12 @@
 /* attrget.c -- Locate attribute value by type
 
-  (c) 1998-2003 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
   
   CVS Info:
-    $Author: rbraun $ 
-    $Date: 2004/05/04 20:05:14 $ 
-    $Revision: 1.1.1.1 $ 
+    $Author: iccir $ 
+    $Date: 2007/01/30 23:46:51 $ 
+    $Revision: 1.3 $ 
 
 */
 
@@ -15,185 +15,199 @@
 #include "attrs.h"
 #include "tidy.h"
 
-TidyAttr tidyAttrGetHREF( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetById( TidyNode tnod, TidyAttrId attId )
+{
+    Node* nimp = tidyNodeToImpl(tnod);
+    return tidyImplToAttr( TY_(AttrGetById)( nimp, attId ) );
+}
+TidyAttr TIDY_CALL tidyAttrGetHREF( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetHREF( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetSRC( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetSRC( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetSRC( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetID( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetID( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetID( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetNAME( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetNAME( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetNAME( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetSUMMARY( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetSUMMARY( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetSUMMARY( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetALT( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetALT( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetALT( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetLONGDESC( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetLONGDESC( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetLONGDESC( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetUSEMAP( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetUSEMAP( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetUSEMAP( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetISMAP( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetISMAP( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetISMAP( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetLANGUAGE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetLANGUAGE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetLANGUAGE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetTYPE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetTYPE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetTYPE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetVALUE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetVALUE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetVALUE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetCONTENT( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetCONTENT( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetCONTENT( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetTITLE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetTITLE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetTITLE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetXMLNS( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetXMLNS( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetXMLNS( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetDATAFLD( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetDATAFLD( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetDATAFLD( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetWIDTH( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetWIDTH( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetWIDTH( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetHEIGHT( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetHEIGHT( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetHEIGHT( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetFOR( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetFOR( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetFOR( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetSELECTED( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetSELECTED( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetSELECTED( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetCHECKED( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetCHECKED( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetCHECKED( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetLANG( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetLANG( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetLANG( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetTARGET( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetTARGET( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetTARGET( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetHTTP_EQUIV( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetHTTP_EQUIV( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetHTTP_EQUIV( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetREL( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetREL( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetREL( tidyNodeToImpl(tnod) ) );
 }
 
-TidyAttr tidyAttrGetOnMOUSEMOVE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnMOUSEMOVE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnMOUSEMOVE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnMOUSEDOWN( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnMOUSEDOWN( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnMOUSEDOWN( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnMOUSEUP( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnMOUSEUP( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnMOUSEUP( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnCLICK( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnCLICK( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnCLICK( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnMOUSEOVER( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnMOUSEOVER( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnMOUSEOVER( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnMOUSEOUT( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnMOUSEOUT( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnMOUSEOUT( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnKEYDOWN( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnKEYDOWN( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnKEYDOWN( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnKEYUP( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnKEYUP( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnKEYUP( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnKEYPRESS( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnKEYPRESS( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnKEYPRESS( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnFOCUS( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnFOCUS( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnFOCUS( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetOnBLUR( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetOnBLUR( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetOnBLUR( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetBGCOLOR( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetBGCOLOR( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetBGCOLOR( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetLINK( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetLINK( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetLINK( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetALINK( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetALINK( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetALINK( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetVLINK( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetVLINK( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetVLINK( tidyNodeToImpl(tnod) ) );
 }
 
-TidyAttr tidyAttrGetTEXT( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetTEXT( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetTEXT( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetSTYLE( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetSTYLE( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetSTYLE( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetABBR( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetABBR( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetABBR( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetCOLSPAN( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetCOLSPAN( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetCOLSPAN( tidyNodeToImpl(tnod) ) );
 }
-TidyAttr tidyAttrGetROWSPAN( TidyNode tnod )
+TidyAttr TIDY_CALL tidyAttrGetROWSPAN( TidyNode tnod )
 {
     return tidyImplToAttr( attrGetROWSPAN( tidyNodeToImpl(tnod) ) );
 }
+
+/*
+ * local variables:
+ * mode: c
+ * indent-tabs-mode: nil
+ * c-basic-offset: 4
+ * eval: (c-set-offset 'substatement-open 0)
+ * end:
+ */

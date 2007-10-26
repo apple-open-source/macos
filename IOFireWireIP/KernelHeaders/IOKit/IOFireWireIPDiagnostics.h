@@ -37,11 +37,7 @@ public:
 	static OSObject * createDiagnostics( IOFireWireIP* );
 	virtual bool serialize( OSSerialize * s ) const;
 	
-	virtual void incrementExecutedORBCount( void );
-	
 protected:
-	
-	UInt32	fExecutedORBCount;
 	
 	static void updateNumberEntry( OSDictionary * dictionary, UInt32 value, const char * name );
 	

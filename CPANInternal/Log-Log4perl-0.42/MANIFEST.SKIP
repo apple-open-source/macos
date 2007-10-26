@@ -1,0 +1,13 @@
+blib
+^Makefile$
+^Makefile.old$
+^modules
+^Log4perl.pm
+CVS
+^t/bak
+^t/tmp/
+.cvsignore
+docs
+lib/Log/Dispatch
+MANIFEST.bak
+adm

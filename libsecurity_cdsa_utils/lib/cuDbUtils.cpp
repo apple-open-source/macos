@@ -39,6 +39,12 @@
 #include <strings.h>
 #include <security_cdsa_utilities/Schema.h>			/* private API */
 
+#ifndef	NDEBUG
+#define dprintf(args...) printf(args)
+#else
+#define dprintf(args...)
+#endif
+
 /*
  * Add a certificate to an open DLDB.
  */
@@ -165,7 +171,7 @@ static bool cuSearchNumericExtension(
 			continue;
 		}
 		if(exten->format != CSSM_X509_DATAFORMAT_PARSED) {
-			printf("***Malformed extension\n");
+			dprintf("***Malformed extension\n");
 			continue;
 		}
 		*val = *((uint32 *)exten->value.parsedValue);
@@ -193,8 +199,8 @@ CSSM_RETURN cuAddCrlToDb(
 	CSSM_DATA						printNameData;
 	CSSM_RETURN						crtn;
 	CSSM_DB_UNIQUE_RECORD_PTR		recordPtr;
-	CSSM_DATA_PTR					issuer;		// mallocd by CL
-	CSSM_DATA_PTR					crlValue;	// ditto
+	CSSM_DATA_PTR					issuer = NULL;		// mallocd by CL
+	CSSM_DATA_PTR					crlValue = NULL;	// ditto
 	uint32							numFields;
 	CSSM_HANDLE						result;
 	CSSM_CRL_ENCODING 				crlEnc = CSSM_CRL_ENCODING_DER;
@@ -203,7 +209,8 @@ CSSM_RETURN cuAddCrlToDb(
 	CSSM_CRL_TYPE 					crlType;
 	CSSM_DATA 						thisUpdateData = {0, NULL};
 	CSSM_DATA 						nextUpdateData = {0, NULL};
-	char							*thisUpdate, *nextUpdate;
+	char							*thisUpdate = NULL;
+	char							*nextUpdate = NULL;
 	unsigned						timeLen;
 	uint32							crlNumber;
 	uint32							deltaCrlNumber;
@@ -235,17 +242,19 @@ CSSM_RETURN cuAddCrlToDb(
 		&crlValue);
 	if(crtn) {
 		cuPrintError("CSSM_CL_CrlGetFirstFieldValue(Issuer)", crtn);
-		return crtn;
+		goto errOut;
 	}
 	CSSM_CL_CrlAbortQuery(clHand, result);
 	if(crlValue == NULL) {
-		printf("***CSSM_CL_CrlGetFirstFieldValue: value error (1)\n");
-		return CSSMERR_CL_INVALID_CRL_POINTER;
+		dprintf("***CSSM_CL_CrlGetFirstFieldValue: value error (1)\n");
+		crtn = CSSMERR_CL_INVALID_CRL_POINTER;
+		goto errOut;
 	}
 	if((crlValue->Data == NULL) || 
 	   (crlValue->Length != sizeof(CSSM_X509_SIGNED_CRL))) {
-		printf("***CSSM_CL_CrlGetFirstFieldValue: value error (2)\n");
-		return CSSMERR_CL_INVALID_CRL_POINTER;
+		dprintf("***CSSM_CL_CrlGetFirstFieldValue: value error (2)\n");
+		crtn = CSSMERR_CL_INVALID_CRL_POINTER;
+		goto errOut;
 	}
 	signedCrl = (const CSSM_X509_SIGNED_CRL *)crlValue->Data;
 	tbsCrl = &signedCrl->tbsCertList;
@@ -265,7 +274,7 @@ CSSM_RETURN cuAddCrlToDb(
 				crlType = CSSM_CRL_TYPE_X_509v2;
 				break;
 			default:
-				printf("***Unknown version in CRL (%u)\n", vers);
+				dprintf("***Unknown version in CRL (%u)\n", vers);
 				crlType = CSSM_CRL_TYPE_X_509v1;
 				break;
 		}
@@ -282,7 +291,7 @@ CSSM_RETURN cuAddCrlToDb(
 	/* cook up CSSM_TIMESTRING versions of this/next update */
 	thisUpdate = cuX509TimeToCssmTimestring(&tbsCrl->thisUpdate, &timeLen);
 	if(thisUpdate == NULL) {
-		printf("***Badly formatted thisUpdate\n");
+		dprintf("***Badly formatted thisUpdate\n");
 	}
 	else {
 		thisUpdateData.Data = (uint8 *)thisUpdate;
@@ -291,7 +300,7 @@ CSSM_RETURN cuAddCrlToDb(
 	if(tbsCrl->nextUpdate.time.Data != NULL) {
 		nextUpdate = cuX509TimeToCssmTimestring(&tbsCrl->nextUpdate, &timeLen);
 		if(nextUpdate == NULL) {
-			printf("***Badly formatted nextUpdate\n");
+			dprintf("***Badly formatted nextUpdate\n");
 		}
 		else {
 			nextUpdateData.Data = (uint8 *)nextUpdate;
@@ -425,11 +434,20 @@ CSSM_RETURN cuAddCrlToDb(
 		CSSM_DL_FreeUniqueRecord(dlDbHand, recordPtr);
 	}
 	
+errOut:
 	/* free all the stuff we allocated to get here */
-  	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1IssuerName, issuer);
-  	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V2CRLSignedCrlCStruct, crlValue);
-	free(thisUpdate);
-	free(nextUpdate);
+	if(issuer) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1IssuerName, issuer);
+	}
+	if(crlValue) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V2CRLSignedCrlCStruct, crlValue);
+	}
+	if(thisUpdate) {
+		free(thisUpdate);
+	}
+	if(nextUpdate) {
+		free(nextUpdate);
+	}
 	return crtn;
 }
 
@@ -508,7 +526,7 @@ CSSM_RETURN cuDumpCrlsCerts(
 	}
 
 	/* got one; print it */
-	printf("%s %u:\n", itemStr, numItems);
+	dprintf("%s %u:\n", itemStr, numItems);
 	if(isCert) {
 		printCert(certCrl.Data, certCrl.Length, verbose);
 	}
@@ -530,7 +548,7 @@ CSSM_RETURN cuDumpCrlsCerts(
 			&record);
 		switch(crtn) {
 			case CSSM_OK:
-				printf("%s %u:\n", itemStr, numItems);
+				dprintf("%s %u:\n", itemStr, numItems);
 				if(isCert) {
 					printCert(certCrl.Data, certCrl.Length, verbose);
 				}

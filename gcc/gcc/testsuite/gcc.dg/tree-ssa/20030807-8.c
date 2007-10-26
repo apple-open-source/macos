@@ -38,7 +38,8 @@ AT_loc_list (a)
   if (AT_class (a) == dw_val_class_loc_list)
     return a->dw_attr_val.v.val_loc_list;
 }
-static void
+/* APPLE LOCAL mainline 4840357 */
+void
 output_location_lists (die)
      dw_die_ref die;
 {

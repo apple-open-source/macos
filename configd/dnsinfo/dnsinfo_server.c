@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,13 +36,13 @@
 #include <servers/bootstrap.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
+#include <bsm/libbsm.h>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 #include "dnsinfo_server.h"
 #include "dnsinfo_private.h"
-
-#include "session.h"
 
 static	CFDataRef       shared_dns_info		= NULL;
 
@@ -65,11 +65,14 @@ _shared_dns_infoGet(mach_port_t server, dnsDataOut_t *dataRef, mach_msg_type_num
 
 __private_extern__
 kern_return_t
-_shared_dns_infoSet(mach_port_t server, dnsData_t dataRef, mach_msg_type_number_t dataLen)
+_shared_dns_infoSet(mach_port_t			server,
+		    dnsData_t			dataRef,
+		    mach_msg_type_number_t	dataLen,
+		    audit_token_t		audit_token)
 {
+	uid_t			euid		= 0;
 	CFDataRef		new_dns_info    = NULL;
 	const char		*notify_key;
-	serverSessionRef	mySession       = getSession(server);
 
 	if ((dataRef != NULL) && (dataLen > 0)) {
 		if (!_SCUnserializeData(&new_dns_info, (void *)dataRef, dataLen)) {
@@ -77,8 +80,24 @@ _shared_dns_infoSet(mach_port_t server, dnsData_t dataRef, mach_msg_type_number_
 		}
 	}
 
-	if (mySession->callerEUID != 0) {
+	audit_token_to_au32(audit_token,
+			    NULL,	// auidp
+			    &euid,	// euid
+			    NULL,	// egid
+			    NULL,	// ruid
+			    NULL,	// rgid
+			    NULL,	// pid
+			    NULL,	// asid
+			    NULL);	// tid
+	if (euid != 0) {
 		goto error;
+	}
+
+	if ((shared_dns_info != NULL) &&
+	    (new_dns_info    != NULL) &&
+	    CFEqual(shared_dns_info, new_dns_info)) {
+		CFRelease(new_dns_info);
+		return KERN_SUCCESS;
 	}
 
 	if (shared_dns_info != NULL) CFRelease(shared_dns_info);

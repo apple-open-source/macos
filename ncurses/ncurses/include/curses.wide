@@ -1,7 +1,7 @@
 
 #ifdef _XOPEN_SOURCE_EXTENDED
 
-/* $Id: curses.wide,v 1.28 2004/01/03 20:35:14 tom Exp $ */
+/* $Id: curses.wide,v 1.29 2005/01/28 21:11:53 tom Exp $ */
 
 extern NCURSES_EXPORT_VAR(cchar_t *) _nc_wacs;
 
@@ -148,7 +148,7 @@ extern NCURSES_EXPORT(int) wborder_set (WINDOW *,const cchar_t*,const cchar_t*,c
 extern NCURSES_EXPORT(int) wecho_wchar (WINDOW *, const cchar_t *);	/* implemented */
 extern NCURSES_EXPORT(int) wget_wch (WINDOW *, wint_t *);		/* implemented */
 extern NCURSES_EXPORT(int) wget_wstr (WINDOW *, wint_t *);		/* generated:WIDEC */
-extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *);		/* generated:WIDEC */
+extern NCURSES_EXPORT(int) wgetbkgrnd (WINDOW *, cchar_t *);		/* implemented */
 extern NCURSES_EXPORT(int) wgetn_wstr (WINDOW *,wint_t *, int);		/* implemented */
 extern NCURSES_EXPORT(int) whline_set (WINDOW *, const cchar_t *, int);	/* implemented */
 extern NCURSES_EXPORT(int) win_wch (WINDOW *, cchar_t *);		/* implemented */
@@ -188,13 +188,10 @@ extern NCURSES_EXPORT(int) wvline_set (WINDOW *, const cchar_t *, int);	/* imple
 #define ins_wch(c)			wins_wch(stdscr,c)
 #define ins_wstr(t)			wins_wstr(stdscr,t)
 #define inwstr(c)			winwstr(stdscr,c)
-#define vid_attr(a,pair,opts)		vidattr(a)
 #define vline_set(c,n)			wvline_set(stdscr,c,n)
 #define wadd_wchstr(win,str)		wadd_wchnstr(win,str,-1)
 #define waddwstr(win,wstr)		waddnwstr(win,wstr,-1)
-#define wattr_set(win,a,p,opts) ((win)->_attrs = (((a) & ~A_COLOR) | COLOR_PAIR(p)), OK)
 #define wget_wstr(w,t)			wgetn_wstr(w,t,-1)
-#define wgetbkgrnd(win,wch)		(*wch = win->_bkgrnd, OK)
 #define win_wchstr(w,c)			win_wchnstr(w,c,-1)
 #define wins_wstr(w,t)			wins_nwstr(w,t,-1)
 

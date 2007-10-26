@@ -1,8 +1,8 @@
 /* Floating point definitions for GDB.
 
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2003 Free Software Foundation,
-   Inc.
+   1996, 1997, 1998, 1999, 2000, 2001, 2003, 2005 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,6 +25,7 @@
 #define DOUBLEST_H
 
 struct type;
+struct floatformat;
 
 /* Setup definitions for host and target floating point formats.  We need to
    consider the format for `float', `double', and `long double' for both target
@@ -58,9 +59,11 @@ extern void floatformat_to_doublest (const struct floatformat *,
 extern void floatformat_from_doublest (const struct floatformat *,
 				       const DOUBLEST *in, void *out);
 
-extern int floatformat_is_negative (const struct floatformat *, char *);
-extern int floatformat_is_nan (const struct floatformat *, char *);
-extern char *floatformat_mantissa (const struct floatformat *, char *);
+extern int floatformat_is_negative (const struct floatformat *,
+				    const bfd_byte *);
+extern int floatformat_is_nan (const struct floatformat *, const bfd_byte *);
+extern const char *floatformat_mantissa (const struct floatformat *,
+					 const bfd_byte *);
 
 /* These functions have been replaced by extract_typed_floating and
    store_typed_floating.
@@ -86,5 +89,12 @@ extern void store_typed_floating (void *addr, const struct type *type,
 extern void convert_typed_floating (const void *from,
 				    const struct type *from_type,
                                     void *to, const struct type *to_type);
+
+/* Table of convenient float-formats.  */
+extern const struct floatformat *floatformat_ieee_single[BFD_ENDIAN_UNKNOWN];
+extern const struct floatformat *floatformat_ieee_double[BFD_ENDIAN_UNKNOWN];
+extern const struct floatformat *floatformat_ieee_quad[BFD_ENDIAN_UNKNOWN];
+extern const struct floatformat *floatformat_arm_ext[BFD_ENDIAN_UNKNOWN];
+extern const struct floatformat *floatformat_ia64_spill[BFD_ENDIAN_UNKNOWN];
 
 #endif

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
  */
-/* $Id: url.h,v 1.13.8.2.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: url.h,v 1.20.2.2.2.1 2007/01/01 09:36:09 sebastian Exp $ */
 
 #ifndef URL_H
 #define URL_H
@@ -36,14 +36,24 @@ PHPAPI php_url *php_url_parse(char const *str);
 PHPAPI php_url *php_url_parse_ex(char const *str, int length);
 PHPAPI int php_url_decode(char *str, int len); /* return value: length of decoded string */
 PHPAPI int php_raw_url_decode(char *str, int len); /* return value: length of decoded string */
-PHPAPI char *php_url_encode(char *s, int len, int *new_length);
-PHPAPI char *php_raw_url_encode(char *s, int len, int *new_length);
+PHPAPI char *php_url_encode(char const *s, int len, int *new_length);
+PHPAPI char *php_raw_url_encode(char const *s, int len, int *new_length);
 
 PHP_FUNCTION(parse_url);
 PHP_FUNCTION(urlencode);
 PHP_FUNCTION(urldecode);
 PHP_FUNCTION(rawurlencode);
 PHP_FUNCTION(rawurldecode);
+PHP_FUNCTION(get_headers);
+
+#define PHP_URL_SCHEME 0
+#define PHP_URL_HOST 1
+#define PHP_URL_PORT 2
+#define PHP_URL_USER 3
+#define PHP_URL_PASS 4
+#define PHP_URL_PATH 5
+#define PHP_URL_QUERY 6
+#define PHP_URL_FRAGMENT 7
 
 #endif /* URL_H */
 

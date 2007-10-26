@@ -35,6 +35,7 @@ __BEGIN_DECLS
 #include <IOKit/IOMessage.h>
 __END_DECLS
 
+#define UPSLog(fmt, args...)
 
 #define kDefaultUPSName			"UPS" 
 
@@ -395,7 +396,7 @@ HRESULT IOHIDUPSClass::queryInterface(REFIID iid, void **ppv)
     }
     else {
         *ppv = 0;
-        printf ("not found\n");
+        UPSLog ("not found\n");
     }
 
     if (!*ppv)
@@ -1370,7 +1371,7 @@ bool IOHIDUPSClass::updateElementValue(UPSHIDElement *	tempHIDElement)
         updated = true;
     }
     
-    //printf("IOHIDUPSClass::updateElementValue: usagePage=0x%2.2x usage=0x%2.2x value=%ld\n", tempHIDElement->usagePage, tempHIDElement->usage, tempHIDElement->currentValue);
+    UPSLog("IOHIDUPSClass::updateElementValue: usagePage=0x%2.2x usage=0x%2.2x value=%ld\n", tempHIDElement->usagePage, tempHIDElement->usage, tempHIDElement->currentValue);
     
     return updated;
 }

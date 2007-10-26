@@ -27,28 +27,32 @@
 .SH NAME
 kvno \- print key version numbers of Kerberos principals
 .SH SYNOPSIS
-\fBkvno\fP [\fB\-h\fP] [\fB\-4\fP | \fB\-e etype\fP]
-\fBservice1\fP \fBservice2\fP \fB...\fP
+\fBkvno\fP [\fB\-h\fP] | [\fB\-q\fP] [\fB\-c ccache\fP] [\fB\-e etype\fP] 
+[\fB\-k keytab\fP] \fBservice1\fP \fBservice2\fP \fB...\fP
 .br
 .SH DESCRIPTION
 .I Kvno
-acquires a service ticket for the specified Kerberos principals and
-prints out the key version numbers of each.
+acquires a service ticket for each of the specified Kerberos principals 
+and prints out the key version numbers of each.
 .SH OPTIONS
 .TP
-.B \-e
+.B \-h
+prints a usage statement and exits.
+.TP
+.B \-q
+suppress printing.
+.TP
+.B \-c ccache
+specifies the name of a credentials cache to use.  If this option is not
+specified then the default credentials cache is used.
+.TP
+.B \-e enctype
 specifies the enctype which will be requested for the session key of
 all the services named on the command line.  This is useful in certain
 backward compatibility situations.
 .TP
-.B \-q
-suppress printing
-.TP
-.B \-h
-prints a usage statement and exits
-.TP
-.B \-4
-specifies that Kerberos version 4 tickets should be acquired and
-described instead of Kerberos 5 tickets. Cannot be combined with \fB\-e etype\fP
+.B \-k keytab
+specifies the name of a keytab which will be used to validate the service 
+ticket.
 .SH SEE ALSO
 kinit(1), kdestroy(1)

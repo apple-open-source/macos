@@ -206,6 +206,8 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	uid_t euser_id;
 	gid_t egrp_id;
 
+	ZERO_STRUCT(D);
+
 	euser_id = geteuid();
 	egrp_id = getegid();
 
@@ -216,7 +218,9 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 
 	devno = S.st_dev ;
   
-	fp = setmntent(MOUNTED,"r");
+	if ((fp = setmntent(MOUNTED,"r")) == NULL)
+		return(False) ;
+
 	found = False ;
   
 	while ((mnt = getmntent(fp))) {
@@ -234,8 +238,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	if (!found)
 		return(False);
 
-	save_re_uid();
-	set_effective_uid(0);  
+	become_root();
 
 	if (strcmp(mnt->mnt_type, "xfs")==0) {
 		r=get_smb_linux_xfs_quota(mnt->mnt_fsname, euser_id, egrp_id, &D);
@@ -248,7 +251,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 		}
 	}
 
-	restore_re_uid();
+	unbecome_root();
 
 	/* Use softlimit to determine disk space, except when it has been exceeded */
 	*bsize = D.bsize;
@@ -414,7 +417,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 
 static int quotastat;
 
-static int xdr_getquota_args(XDR *xdrsp, struct getquota_args *args)
+static int my_xdr_getquota_args(XDR *xdrsp, struct getquota_args *args)
 {
 	if (!xdr_string(xdrsp, &args->gqa_pathp, RQ_PATHLEN ))
 		return(0);
@@ -423,7 +426,7 @@ static int xdr_getquota_args(XDR *xdrsp, struct getquota_args *args)
 	return (1);
 }
 
-static int xdr_getquota_rslt(XDR *xdrsp, struct getquota_rslt *gqr)
+static int my_xdr_getquota_rslt(XDR *xdrsp, struct getquota_rslt *gqr)
 {
 	if (!xdr_int(xdrsp, &quotastat)) {
 		DEBUG(6,("nfs_quotas: Status bad or zero\n"));
@@ -471,7 +474,7 @@ static BOOL nfs_quotas(char *nfspath, uid_t euser_id, SMB_BIG_UINT *bsize, SMB_B
 
 	len=strcspn(mnttype, ":");
 	pathname=strstr(mnttype, ":");
-	cutstr = (char *) malloc(len+1);
+	cutstr = (char *) SMB_MALLOC(len+1);
 	if (!cutstr)
 		return False;
 
@@ -493,7 +496,7 @@ static BOOL nfs_quotas(char *nfspath, uid_t euser_id, SMB_BIG_UINT *bsize, SMB_B
 	clnt->cl_auth = authunix_create_default();
 	DEBUG(9,("nfs_quotas: auth_success\n"));
 
-	clnt_stat=clnt_call(clnt, RQUOTAPROC_GETQUOTA, xdr_getquota_args, (caddr_t)&args, xdr_getquota_rslt, (caddr_t)&gqr, timeout);
+	clnt_stat=clnt_call(clnt, RQUOTAPROC_GETQUOTA, my_xdr_getquota_args, (caddr_t)&args, my_xdr_getquota_rslt, (caddr_t)&gqr, timeout);
 
 	if (clnt_stat != RPC_SUCCESS) {
 		DEBUG(9,("nfs_quotas: clnt_call fail\n"));
@@ -583,7 +586,6 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	int file;
 	static struct mnttab mnt;
 	static pstring name;
-	pstring devopt;
 #else /* SunOS4 */
 	struct mntent *mnt;
 	static pstring name;
@@ -600,7 +602,8 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 		return(False) ;
   
 	devno = sbuf.st_dev ;
-	DEBUG(5,("disk_quotas: looking for path \"%s\" devno=%x\n", path,(unsigned int)devno));
+	DEBUG(5,("disk_quotas: looking for path \"%s\" devno=%x\n",
+		path, (unsigned int)devno));
 	if ( devno != devno_cached ) {
 		devno_cached = devno ;
 #if defined(SUNOS5)
@@ -608,17 +611,19 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 			return(False) ;
     
 		found = False ;
-		slprintf(devopt, sizeof(devopt) - 1, "dev=%x", (unsigned int)devno);
+
 		while (getmntent(fd, &mnt) == 0) {
-			if( !hasmntopt(&mnt, devopt) )
+			if (sys_stat(mnt.mnt_mountp, &sbuf) == -1)
 				continue;
 
-			DEBUG(5,("disk_quotas: testing \"%s\" %s\n", mnt.mnt_mountp,devopt));
+			DEBUG(5,("disk_quotas: testing \"%s\" devno=%x\n",
+				mnt.mnt_mountp, (unsigned int)devno));
 
 			/* quotas are only on vxfs, UFS or NFS */
-			if ( strcmp( mnt.mnt_fstype, MNTTYPE_UFS ) == 0 ||
+			if ( (sbuf.st_dev == devno) && (
+				strcmp( mnt.mnt_fstype, MNTTYPE_UFS ) == 0 ||
 				strcmp( mnt.mnt_fstype, "nfs" ) == 0    ||
-				strcmp( mnt.mnt_fstype, "vxfs" ) == 0  ) { 
+				strcmp( mnt.mnt_fstype, "vxfs" ) == 0 )) { 
 					found = True ;
 					break;
 			}
@@ -650,21 +655,20 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	if ( ! found )
 		return(False) ;
 
-	save_re_uid();
-	set_effective_uid(0);
+	become_root();
 
 #if defined(SUNOS5)
 	if ( strcmp( mnt.mnt_fstype, "nfs" ) == 0) {
 		BOOL retval;
 		DEBUG(5,("disk_quotas: looking for mountpath (NFS) \"%s\"\n", mnt.mnt_special));
 		retval = nfs_quotas(mnt.mnt_special, euser_id, bsize, dfree, dsize);
-		restore_re_uid();
+		unbecome_root();
 		return retval;
 	}
 
 	DEBUG(5,("disk_quotas: looking for quotas file \"%s\"\n", name));
 	if((file=sys_open(name, O_RDONLY,0))<0) {
-		restore_re_uid();
+		unbecome_root();
 		return(False);
 	}
 	command.op = Q_GETQUOTA;
@@ -677,7 +681,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	ret = quotactl(Q_GETQUOTA, name, euser_id, &D);
 #endif
 
-	restore_re_uid();
+	unbecome_root();
 
 	if (ret < 0) {
 		DEBUG(5,("disk_quotas ioctl (Solaris) failed. Error = %s\n", strerror(errno) ));
@@ -837,8 +841,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
   }
 
   euser_id=geteuid();
-  save_re_uid();
-  set_effective_uid(0);  
+  become_root();
 
   /* Use softlimit to determine disk space, except when it has been exceeded */
 
@@ -848,7 +851,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
   {
     r=quotactl (Q_GETQUOTA, mnt->mnt_fsname, euser_id, (caddr_t) &D);
 
-    restore_re_uid();
+    unbecome_root();
 
     if (r==-1)
       return(False);
@@ -879,11 +882,20 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
   {
     r=quotactl (Q_XGETQUOTA, mnt->mnt_fsname, euser_id, (caddr_t) &F);
 
-    restore_re_uid();
+    unbecome_root();
 
     if (r==-1)
+    {
+      DEBUG(5, ("quotactl for uid=%u: %s", euser_id, strerror(errno)));
       return(False);
+    }
         
+    /* No quota for this user. */
+    if (F.d_blk_softlimit==0 && F.d_blk_hardlimit==0)
+    {
+      return(False);
+    }
+
     /* Use softlimit to determine disk space, except when it has been exceeded */
     if (
         (F.d_blk_softlimit && F.d_bcount>=F.d_blk_softlimit) ||
@@ -895,20 +907,16 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
       *dfree = 0;
       *dsize = F.d_bcount;
     }
-    else if (F.d_blk_softlimit==0 && F.d_blk_hardlimit==0)
-    {
-      return(False);
-    }
     else 
     {
       *dfree = (F.d_blk_softlimit - F.d_bcount);
-      *dsize = F.d_blk_softlimit;
+      *dsize = F.d_blk_softlimit ? F.d_blk_softlimit : F.d_blk_hardlimit;
     }
 
   }
   else
   {
-	  restore_re_uid();
+	  unbecome_root();
 	  return(False);
   }
 
@@ -918,7 +926,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 
 #else
 
-#if    defined(__FreeBSD__) || defined(__OpenBSD__)
+#if    defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
 #include <ufs/ufs/quota.h>
 #include <machine/param.h>
 #elif         AIX
@@ -928,17 +936,23 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 #define dqb_curfiles dqb_curinodes
 #define dqb_fhardlimit dqb_ihardlimit
 #define dqb_fsoftlimit dqb_isoftlimit
-#else /* !__FreeBSD__ && !AIX && !__OpenBSD__ */
+#ifdef _AIXVERSION_530 
+#include <sys/statfs.h>
+#include <sys/vmount.h>
+#endif /* AIX 5.3 */
+#else /* !__FreeBSD__ && !AIX && !__OpenBSD__ && !__DragonFly__ */
 #include <sys/quota.h>
 #include <devnm.h>
 #endif
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
 
 #include <rpc/rpc.h>
 #include <rpc/types.h>
 #include <rpcsvc/rquota.h>
+#ifdef HAVE_RPC_NETTYPE_H
 #include <rpc/nettype.h>
+#endif
 #include <rpc/xdr.h>
 
 static int quotastat;
@@ -1000,7 +1014,7 @@ static BOOL nfs_quotas(char *nfspath, uid_t euser_id, SMB_BIG_UINT *bsize, SMB_B
 
 	len=strcspn(mnttype, ":");
 	pathname=strstr(mnttype, ":");
-	cutstr = (char *) malloc(len+1);
+	cutstr = (char *) SMB_MALLOC(len+1);
 	if (!cutstr)
 		return False;
 
@@ -1112,7 +1126,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
   int r;
   struct dqblk D;
   uid_t euser_id;
-#if !defined(__FreeBSD__) && !defined(AIX) && !defined(__OpenBSD__)
+#if !defined(__FreeBSD__) && !defined(AIX) && !defined(__OpenBSD__) && !defined(__DragonFly__)
   char dev_disk[256];
   SMB_STRUCT_STAT S;
 
@@ -1129,7 +1143,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	return (False);
 #endif /* ifdef HPUX */
 
-#endif /* !defined(__FreeBSD__) && !defined(AIX) && !defined(__OpenBSD__) */
+#endif /* !defined(__FreeBSD__) && !defined(AIX) && !defined(__OpenBSD__) && !defined(__DragonFly__) */
 
   euser_id = geteuid();
 
@@ -1142,11 +1156,11 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 
   restore_re_uid();
 #else 
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   {
     /* FreeBSD patches from Marty Moll <martym@arbor.edu> */
     gid_t egrp_id;
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
     SMB_DEV_T devno;
     struct statfs *mnts;
     SMB_STRUCT_STAT st;
@@ -1170,14 +1184,13 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
         return False;
 #endif
     
-    save_re_uid();
-    set_effective_uid(0);
+    become_root();
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__DragonFly__)
     if (strcmp(mnts[i].f_fstypename,"nfs") == 0) {
         BOOL retval;
         retval = nfs_quotas(mnts[i].f_mntfromname,euser_id,bsize,dfree,dsize);
-        restore_re_uid();
+        unbecome_root();
         return retval;
     }
 #endif
@@ -1191,27 +1204,53 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
 	    r= quotactl(path,QCMD(Q_GETQUOTA,GRPQUOTA),egrp_id,(char *) &D);
     }
 
-    restore_re_uid();
+    unbecome_root();
   }
 #elif defined(AIX)
   /* AIX has both USER and GROUP quotas: 
      Get the USER quota (ohnielse@fysik.dtu.dk) */
+#ifdef _AIXVERSION_530
+  {
+    struct statfs statbuf;
+    quota64_t user_quota;
+    if (statfs(path,&statbuf) != 0)
+      return False;
+    if(statbuf.f_vfstype == MNT_J2)
+    {
+    /* For some reason we need to be root for jfs2 */
+      become_root();
+      r = quotactl(path,QCMD(Q_J2GETQUOTA,USRQUOTA),euser_id,(char *) &user_quota);
+      unbecome_root();
+    /* Copy results to old struct to let the following code work as before */
+      D.dqb_curblocks  = user_quota.bused;
+      D.dqb_bsoftlimit = user_quota.bsoft;
+      D.dqb_bhardlimit = user_quota.bhard;
+    }
+    else if(statbuf.f_vfstype == MNT_JFS)
+    {
+#endif /* AIX 5.3 */
   save_re_uid();
   if (set_re_uid() != 0) 
     return False;
   r= quotactl(path,QCMD(Q_GETQUOTA,USRQUOTA),euser_id,(char *) &D);
   restore_re_uid();
-#else /* !__FreeBSD__ && !AIX && !__OpenBSD__ */
+#ifdef _AIXVERSION_530
+    }
+    else
+      r = 1; /* Fail for other FS-types */
+  }
+#endif /* AIX 5.3 */
+#else /* !__FreeBSD__ && !AIX && !__OpenBSD__ && !__DragonFly__ */
   r=quotactl(Q_GETQUOTA, dev_disk, euser_id, &D);
-#endif /* !__FreeBSD__ && !AIX && !__OpenBSD__ */
+#endif /* !__FreeBSD__ && !AIX && !__OpenBSD__ && !__DragonFly__ */
 #endif /* HPUX */
 
   /* Use softlimit to determine disk space, except when it has been exceeded */
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
   *bsize = DEV_BSIZE;
-#else /* !__FreeBSD__ && !__OpenBSD__ */
+#else /* !__FreeBSD__ && !__OpenBSD__ && !__DragonFly__ */
   *bsize = 1024;
-#endif /*!__FreeBSD__ && !__OpenBSD__ */
+#endif /*!__FreeBSD__ && !__OpenBSD__ && !__DragonFly__ */
 
   if (r)
     {
@@ -1234,7 +1273,7 @@ BOOL disk_quotas(const char *path, SMB_BIG_UINT *bsize, SMB_BIG_UINT *dfree, SMB
     return(False);
   /* Use softlimit to determine disk space, except when it has been exceeded */
   if ((D.dqb_curblocks>D.dqb_bsoftlimit)
-#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
 ||((D.dqb_curfiles>D.dqb_fsoftlimit) && (D.dqb_fsoftlimit != 0))
 #endif
     ) {

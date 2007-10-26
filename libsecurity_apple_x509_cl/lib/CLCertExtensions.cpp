@@ -38,7 +38,7 @@
 #include <Security/certextensions.h>
 #include <security_utilities/globalizer.h>
 #include <Security/certExtensionTemplates.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 
 /***
  *** get/set/free functions called out from CertFields.cpp
@@ -946,3 +946,70 @@ void freeFieldInfoAccess (
 	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
 
 }
+
+/***
+ *** Qualfied Cert Statements
+ ***
+ *** CDSA Format:	CE_QC_Statements
+ *** NSS format:	NSS_QC_Statements
+ *** OID: 			CSSMOID_QC_Statements
+ ***/
+void setFieldQualCertStatements(		
+	DecodedItem	&cert, 
+	const CssmData &fieldValue)  
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = 
+		verifySetFreeExtension(fieldValue, false);
+	CE_QC_Statements *cdsaObj = 
+		(CE_QC_Statements *)cssmExt->value.parsedValue;
+	SecNssCoder &coder = cert.coder();
+	NSS_QC_Statements *nssObj = 
+		(NSS_QC_Statements *)coder.malloc(
+				sizeof(NSS_QC_Statements));
+		
+	CL_cssmQualCertStatementsToNss(*cdsaObj, *nssObj, coder);
+	cert.addExtension(nssObj, cssmExt->extnId, cssmExt->critical, false,
+		kSecAsn1QC_StatementsTemplate); 
+}
+
+bool getFieldQualCertStatements( 
+	DecodedItem 		&cert,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue) 
+{
+	const DecodedExten *decodedExt;
+	NSS_QC_Statements *nssObj;
+	CE_QC_Statements *cdsaObj;
+	bool brtn;
+	Allocator &alloc = fieldValue.allocator;
+
+	brtn = cert.GetExtenTop<NSS_QC_Statements, 
+			CE_QC_Statements>(
+		index,
+		numFields,
+		alloc,
+		CSSMOID_QC_Statements,
+		nssObj,
+		cdsaObj,
+		decodedExt);
+	if(!brtn) {
+		return false;
+	}
+	assert(nssObj != NULL);
+	CL_qualCertStatementsToCssm(*nssObj, *cdsaObj, cert.coder(), alloc);
+	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
+	return true;
+}
+
+void freeFieldQualCertStatements( 
+	CssmOwnedData		&fieldValue)
+{
+	CSSM_X509_EXTENSION_PTR cssmExt = verifySetFreeExtension(fieldValue, false);
+	Allocator &alloc = fieldValue.allocator;
+	CE_QC_Statements *cdsaObj = 
+		(CE_QC_Statements *)cssmExt->value.parsedValue;
+	CL_freeQualCertStatements(*cdsaObj, alloc);
+	freeFieldExtenCommon(cssmExt, alloc);		// frees extnId, parsedValue, BERvalue
+}
+

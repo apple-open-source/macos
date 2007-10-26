@@ -20,24 +20,7 @@
 #include <malloc.h>
 #include <errno.h>
 
-#ifdef HAVE_WINSOCK_H
-  #include <winsock.h>
-#else
-  #include <sys/types.h>
-  #include <sys/socket.h>
-  #include <netinet/in.h>
-  #include <netdb.h>
-  typedef int SOCKET;
-  #define closesocket close
-  #define SOCK_ERRNO errno
-  #define SOCK_STRERROR strerror
-  /* Probably would be cleaner to just use EADDRINUSE, as NT has that too.  */
-  #define WSAEADDRINUSE EADDRINUSE
-  /* Probably would be cleaner to just check for < 0.  Might want to
-     double-check that doing so would seem to work on NT.  */
-  #define SOCKET_ERROR -1
-  #define INVALID_SOCKET -1
-#endif
+#include <sys/socket.h>
 
 #include <stdio.h>
 #include <assert.h>

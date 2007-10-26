@@ -1,9 +1,9 @@
 #
 #   irb.rb - irb main module
-#   	$Release Version: 0.9 $
-#   	$Revision: 1.7 $
-#   	$Date: 2003/06/10 05:22:16 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   	$Release Version: 0.9.5 $
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #
@@ -23,7 +23,7 @@ require "irb/locale"
 STDOUT.sync = true
 
 module IRB
-  @RCS_ID='-$Id: irb.rb,v 1.7 2003/06/10 05:22:16 matz Exp $-'
+  @RCS_ID='-$Id: irb.rb 11708 2007-02-12 23:01:19Z shyouhei $-'
 
   class Abort < Exception;end
 
@@ -88,8 +88,8 @@ module IRB
   # irb interpriter main routine 
   #
   class Irb
-    def initialize(workspace = nil, input_method = nil)
-      @context = Context.new(self, workspace, input_method)
+    def initialize(workspace = nil, input_method = nil, output_method = nil)
+      @context = Context.new(self, workspace, input_method, output_method)
       @context.main.extend ExtendCommandBundle
       @signal_status = :IN_IRB
 
@@ -106,6 +106,8 @@ module IRB
 	  f = @context.prompt_s
 	elsif continue
 	  f = @context.prompt_c
+	elsif indent > 0
+	  f = @context.prompt_n
 	else @context.prompt_i
 	  f = @context.prompt_i
 	end
@@ -117,7 +119,7 @@ module IRB
 	end
 	if @context.auto_indent_mode
 	  unless ltype
-	    ind = prompt(@context.prompt_i, ltype, indent, line_no).size + 
+            ind = prompt(@context.prompt_i, ltype, indent, line_no)[/.*\z/].size +
 	      indent * 2 - p.size
 	    ind += 2 if continue
 	    @context.io.prompt = p + " " * ind if ind > 0

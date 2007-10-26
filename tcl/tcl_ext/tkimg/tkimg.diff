@@ -1380,7 +1380,14 @@ diff -u -p -r1.3 Makefile.in
  		  LIBPATH="$(EXTRA_PATH):${LIBPATH}" \
  		  SHLIB_PATH="$(EXTRA_PATH):${SHLIB_PATH}" \
  		  PATH="$(EXTRA_PATH):$(PATH)" \
-@@ -301,7 +303,7 @@ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJ
+@@ -295,13 +297,13 @@
+ 
+ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJECTS)
+ 	-rm -f $($(PACKAGE)_LIB_FILE)
+-	${MAKE_LIB}
++	${MAKE_LIB} -lz
+ 	$(RANLIB) $($(PACKAGE)_LIB_FILE)
+ 
  $($(PACKAGE)stub_LIB_FILE): $($(PACKAGE)stub_OBJECTS)
  	-rm -f $($(PACKAGE)stub_LIB_FILE)
  	${MAKE_STUB_LIB}
@@ -1646,7 +1653,27 @@ retrieving revision 1.2
 diff -u -p -r1.2 Makefile.in
 --- libz/tcl/Makefile.in	7 Dec 2002 00:11:37 -0000	1.2
 +++ libz/tcl/Makefile.in	30 Jul 2004 05:37:15 -0000
-@@ -148,6 +148,7 @@ MAKE_STATIC_LIB	= @MAKE_STATIC_LIB@
+@@ -31,19 +31,11 @@
+ 		zlibtcl.c		\
+ 		zlibtclStubInit.c	\
+ 		zlibtclStubLib.c	\
+-		$(zlib_Sources)		\
+ 		@EXTRA_SOURCES@
+ 
+ WIN_SOURCES	= 
+ UNIX_SOURCES	= 
+ 
+-zlib_Sources	=						\
+-		adler32.c	compress.c	crc32.c		\
+-		deflate.c	gzio.c		infblock.c	\
+-		infcodes.c	inffast.c	inflate.c	\
+-		inftrees.c	infutil.c	trees.c		\
+-		uncompr.c	zutil.c
+-
+ #========================================================================
+ # Identify the object files.  This replaces .c with .$(OBJEXT) for all
+ # the named source files.   These objects are created and linked into the
+@@ -148,6 +140,7 @@ MAKE_STATIC_LIB	= @MAKE_STATIC_LIB@
  MAKE_STUB_LIB	= @MAKE_STUB_LIB@
  OBJEXT		= @OBJEXT@
  RANLIB		= @RANLIB@
@@ -1654,7 +1681,7 @@ diff -u -p -r1.2 Makefile.in
  SHLIB_CFLAGS	= @SHLIB_CFLAGS@
  SHLIB_LD	= @SHLIB_LD@
  SHLIB_LDFLAGS	= @SHLIB_LDFLAGS@
-@@ -171,6 +172,7 @@ TCL_LIBS	= @TCL_LIBS@
+@@ -171,6 +164,7 @@ TCL_LIBS	= @TCL_LIBS@
  EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR)
  TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
  		  LD_LIBRARY_PATH="$(EXTRA_PATH):$(LD_LIBRARY_PATH)" \
@@ -1662,7 +1689,14 @@ diff -u -p -r1.2 Makefile.in
  		  LIBPATH="$(EXTRA_PATH):${LIBPATH}" \
  		  SHLIB_PATH="$(EXTRA_PATH):${SHLIB_PATH}" \
  		  PATH="$(EXTRA_PATH):$(PATH)" \
-@@ -295,7 +297,7 @@ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJ
+@@ -289,13 +283,13 @@
+ 
+ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJECTS)
+ 	-rm -f $($(PACKAGE)_LIB_FILE)
+-	${MAKE_LIB}
++	${MAKE_LIB} -lz
+ 	$(RANLIB) $($(PACKAGE)_LIB_FILE)
+ 
  $($(PACKAGE)stub_LIB_FILE): $($(PACKAGE)stub_OBJECTS)
  	-rm -f $($(PACKAGE)stub_LIB_FILE)
  	${MAKE_STUB_LIB}
@@ -1671,7 +1705,7 @@ diff -u -p -r1.2 Makefile.in
  
  #========================================================================
  # We need to enumerate the list of .c to .o lines here.
-@@ -431,8 +433,14 @@ install-lib-binaries:
+@@ -431,8 +425,14 @@ install-lib-binaries:
  	  if test -f $$p; then \
  	    echo " $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p"; \
  	    $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p; \
@@ -1701,15 +1735,7 @@ diff -u -p -r1.2 configure
      if test "${TEA_PLATFORM}" = "windows" ; then
  	if test "${SHARED_BUILD}" = "1" ; then
  	    # We force the unresolved linking of symbols that are really in
-@@ -5221,6 +5222,7 @@ EOF
-     
-     
-     
-+    
- 
- 
- #--------------------------------------------------------------------
-@@ -5241,7 +5243,7 @@ SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \${TCL_L
+@@ -5241,7 +5242,7 @@ SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \${TCL_L
  
  
      echo $ac_n "checking for tclsh""... $ac_c" 1>&6
@@ -1765,6 +1791,26 @@ diff -u -p -r1.2 tcl.m4
  ])
  
  #------------------------------------------------------------------------
+--- libz/tcl/zlibtclDecls.h~	Tue May  9 18:09:56 2006
++++ libz/tcl/zlibtclDecls.h	Tue May  9 18:09:56 2006
+@@ -17,7 +17,7 @@
+ 
+ #include <tcl.h>
+ #include <zlibtclDeclsMask.h>
+-#include <../zlib.h>
++#include <zlib.h>
+ #include <zlibtclDeclsUnmask.h>
+ 
+ /* !BEGIN!: Do not edit below this line. */
+@@ -109,7 +109,7 @@
+ EXTERN int		gzread _ANSI_ARGS_((gzFile file, voidp buf, 
+ 				unsigned len));
+ /* 34 */
+-EXTERN int		gzwrite _ANSI_ARGS_((gzFile file, const voidp buf, 
++EXTERN int		gzwrite _ANSI_ARGS_((gzFile file, voidpc buf, 
+ 				unsigned len));
+ /* Slot 35 is reserved */
+ /* 36 */
 Index: pcx/Makefile.in
 ===================================================================
 RCS file: /cvsroot/tkimg/tkimg/pcx/Makefile.in,v
@@ -4612,4 +4658,111 @@ diff -u -p -r1.5 configure
 +s%@RANLIB_STUB@%$RANLIB_STUB%g
  s%@TCLSH_PROG@%$TCLSH_PROG%g
  s%@WISH_PROG@%$WISH_PROG%g
+ 
+--- libtiff/tiffconf.h.orig	2005-11-10 01:02:10.000000000 -0800
++++ libtiff/tiffconf.h	2005-11-10 01:53:43.000000000 -0800
+@@ -61,8 +61,19 @@
+ #define	HOST_FILLORDER	FILLORDER_MSB2LSB
+ #endif
+ #ifndef	HOST_BIGENDIAN
++#ifdef __BIG_ENDIAN__
+ #define	HOST_BIGENDIAN	1
+-#endif
++#else /* !__BIG_ENDIAN__ */
++#define	HOST_BIGENDIAN	1
++#endif /* __BIG_ENDIAN__ */
++#endif /* HOST_BIGENDIAN */
++
++#undef	WORDS_BIGENDIAN
++#ifdef __BIG_ENDIAN__
++#define	WORDS_BIGENDIAN
++#else /* !__BIG_ENDIAN__ */
++/* #undef HOST_BIGENDIAN */
++#endif /* __BIG_ENDIAN__ */
+ 
+ #ifndef USE_64BIT_API
+ #  define USE_64BIT_API	0
+diff -u tcl.m4.orig tcl.m4
+--- base/tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ base/tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
+ 
+diff -u tcl.m4.orig tcl.m4
+--- libjpeg/tcl/tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ libjpeg/tcl/tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
+ 
+diff -u tcl.m4.orig tcl.m4
+--- libpng/tcl/tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ libpng/tcl/tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
+ 
+diff -u tcl.m4.orig tcl.m4
+--- libtiff/tcl/tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ libtiff/tcl/tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
+ 
+diff -u tcl.m4.orig tcl.m4
+--- libz/tcl/tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ libz/tcl/tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
+ 
+diff -u tcl.m4.diff.orig tcl.m4.diff
+--- config/tcl.m4.diff	2006-04-17 10:56:15.000000000 -0700
++++ configt/cl.m4.diff.new	2006-04-17 10:58:50.000000000 -0700
+@@ -126,7 +126,7 @@
+   		MAKE_SHARED_LIB="\${SHLIB_LD} \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \$(LDFLAGS) -out:\[$]@ \$(\[$]@_OBJECTS) "
+ + 	    else
+ + 		MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$]@_OBJECTS)"
+-+ 		MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ --output-lib \[$](patsubst %.dll,lib%.a,\[$]@) \$(\[$]@_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
+++ 		MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ --output-lib \[$](patsubst %.dll,lib%.a,\[$]@) \$(\[$]@_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+   	    fi
+   	    ;;
+   	*)
+diff -u tcl.m4.orig tcl.m4
+--- tclconfig/tcl.m4	2006-04-17 00:42:06.000000000 -0700
++++ tclconfig/tcl.m4	2006-04-16 00:12:51.000000000 -0700
+@@ -2582,7 +2582,7 @@
+ 	MAKE_STUB_LIB="\${STLIB_LD} -out:\[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     else
+ 	MAKE_STATIC_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)_OBJECTS)"
+-	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS}"
++	MAKE_SHARED_LIB="\${SHLIB_LD} -o \[$]@ \$(\[$](PACKAGE)_OBJECTS) \${SHLIB_LDFLAGS} \${SHLIB_LD_LIBS} \${TCL_SHLIB_LD_EXTRAS}"
+ 	MAKE_STUB_LIB="\${STLIB_LD} \[$]@ \$(\[$](PACKAGE)stub_OBJECTS)"
+     fi
  

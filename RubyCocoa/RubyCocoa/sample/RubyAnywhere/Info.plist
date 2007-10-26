@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleExecutable</key>
+    <string>${EXECUTABLE_NAME}</string>
+    <key>CFBundleName</key>
+    <string>${PRODUCT_NAME}</string>
+    <key>CFBundleIconFile</key>
+    <string></string>
+    <key>CFBundleIdentifier</key>
+    <string>com.apple.rubycocoa.simbl.rubyanywhere</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundlePackageType</key>
+    <string>BNDL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>NSPrincipalClass</key>
+    <string>RubyAnywhereLoader</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>SIMBLTargetApplications</key>
+    <array>
+      <dict>
+	<key>BundleIdentifier</key>
+	<string>com.apple.TextEdit</string>
+	<key>MaxBundleVersion</key>
+	<integer>9999</integer>
+	<key>MinBundleVersion</key>
+	<integer>200</integer>
+      </dict>
+
+      <dict>
+	<key>BundleIdentifier</key>
+	<string>com.apple.Safari</string>
+	<key>MaxBundleVersion</key>
+	<integer>9999</integer>
+	<key>MinBundleVersion</key>
+	<integer>411</integer>
+      </dict>
+
+      <dict>
+	<key>BundleIdentifier</key>
+	<string>com.flyingmeat.VoodooPad</string>
+	<key>MaxBundleVersion</key>
+	<integer>9999</integer>
+	<key>MinBundleVersion</key>
+	<integer>1122</integer>
+      </dict>
+
+    </array>
+  </dict>
+</plist>

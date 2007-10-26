@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2004, International Business Machines Corporation and
+ * Copyright (c) 2002-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -13,6 +13,7 @@
 
 #include "unicode/tstdtmod.h"
 #include "unicode/datamap.h"
+
 
  /** This is the class that abstracts one of the tests in a data file 
   *  It is usually instantiated using TestDataModule::CreateTestData method 
@@ -107,3 +108,4 @@ public:
 };
 
 #endif
+

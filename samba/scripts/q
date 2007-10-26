@@ -1,0 +1,14 @@
+#! /bin/bash
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+#
+# Trivial wrapper to run quilt. This just makes sure that $PATH is correct and
+# that we use the quiltrc from the samba source tree.
+
+BASE=/opt/local/bin
+SAMBA=$(dirname $0)/..
+PATH=$BASE:$PATH
+
+QUILT=$BASE/quilt
+QUILTRC=$SAMBA/quiltrc
+
+exec $QUILT --quiltrc=$QUILTRC "$@"

@@ -1,15 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/eo.xml
+// * Source File:<path>/common/main/eo.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/eo.xml
+ *  ICU <specials> source: <path>/xml/main/eo.xml
  */
 eo{
+    AuxExemplarCharacters{"[q w-y]"}
     Countries{
         AD{"Andoro"}
         AE{"Unuiĝintaj Arabaj Emirlandos"}
@@ -198,7 +199,6 @@ eo{
         SM{"San-Marino"}
         SN{"Senegalo"}
         SO{"Somalujo"}
-        SP{"Serbujo"}
         SR{"Surinamo"}
         ST{"Sao-Tomeo kaj Principeo"}
         SV{"Salvadoro"}
@@ -237,7 +237,7 @@ eo{
         ZM{"Zambio"}
         ZW{"Zimbabvo"}
     }
-    ExemplarCharacters{"[a-z ŭ ĉ ĝ ĥ ĵ ŝ]"}
+    ExemplarCharacters{"[a-c ĉ d-g ĝ h ĥ i j ĵ k-p r s ŝ t u ŭ v z]"}
     Languages{
         aa{"afara"}
         ab{"abĥaza"}
@@ -392,19 +392,15 @@ eo{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
-    Version{"1.2"}
+    Version{"1.52"}
     calendar{
         gregorian{
             AmPmMarkers{
                 "atm",
                 "ptm",
-            }
-            DateTimeElements:intvector{
-                2,
-                4,
             }
             DateTimePatterns{
                 "H'-a horo kaj 'm z",
@@ -477,7 +473,23 @@ eo{
                     }
                 }
             }
+            quarters{
+                format{
+                    abbreviated{
+                        "K1",
+                        "K2",
+                        "K3",
+                        "K4",
+                    }
+                    wide{
+                        "1a kvaronjaro",
+                        "2a kvaronjaro",
+                        "3a kvaronjaro",
+                        "4a kvaronjaro",
+                    }
+                }
+            }
         }
     }
-    localPatternChars{"GjMtkHmslTDUSnahKzJdugAZ"}
+    localPatternChars{"GjMtkHmslTDUSnahKzJdugAZvcL"}
 }

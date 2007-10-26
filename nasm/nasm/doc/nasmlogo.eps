@@ -1,0 +1,36 @@
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 99 45 385 111
+%%DocumentData: Clean7Bit
+%%DocumentFonts: Courier-Bold
+%%DocumentNeededFonts: Courier-Bold
+%%Title: (NASM logo)
+%%EndComments
+% $Id: nasmlogo.eps,v 1.3 2002/05/14 05:43:47 hpa Exp $
+%%Page 1 1
+%%BeginPageSetup
+save
+newpath
+%%EndPageSetup
+% x y pointsize --
+/nasmlogo {
+gsave 1 dict begin
+/sz exch def
+/Courier-Bold findfont sz scalefont setfont
+moveto
+0.85 1.22 scale
+[(-~~..~:#;L       .-:#;L,.-   .~:#:;.T  -~~.~:;. .~:;. )
+( E8+U    *T     +U'   *T#  .97     *L   E8+'  *;T'  *;, )
+( D97     `*L  .97     '*L   "T;E+:,     D9     *L    *L )
+( H7       I#  T7       I#        "*:.   H7     I#    I# )
+( U:       :8  *#+    , :8  T,      79   U:     :8    :8 )
+(,#B.     .IE,  "T;E*  .IE, J *+;#:T*"  ,#B.   .IE,  .IE,)] {
+currentpoint 3 -1 roll
+sz -0.10 mul 0 3 -1 roll ashow
+sz 0.72 mul sub moveto
+} forall
+end grestore
+} def
+0.6 setgray 100 100 12 nasmlogo
+%%PageTrailer
+restore
+%%EOF

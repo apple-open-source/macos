@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,10 +16,12 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: quot_print.h,v 1.7.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: quot_print.h,v 1.13.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef QUOT_PRINT_H
 #define QUOT_PRINT_H
+
+PHPAPI unsigned char *php_quot_print_decode(const unsigned char *str, size_t length, size_t *ret_length, int replace_us_by_ws);
 
 PHP_FUNCTION(quoted_printable_decode);
 

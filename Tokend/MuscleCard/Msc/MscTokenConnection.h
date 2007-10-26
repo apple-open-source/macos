@@ -108,4 +108,3 @@ protected:
 
 #endif /* !_MSCTOKENCONNECTION_H_ */
 
-/* arch-tag: 953F7ABC-BE68-11D8-95A5-000A95C4302E */

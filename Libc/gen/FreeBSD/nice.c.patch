@@ -1,0 +1,39 @@
+Index: nice.c
+===================================================================
+RCS file: /cvs/root/Libc/gen/FreeBSD/nice.c,v
+retrieving revision 1.2
+diff -u -d -b -w -p -r1.2 nice.c
+--- nice.c	2003/05/20 22:21:02	1.2
++++ nice.c	2005/04/06 22:28:10
+@@ -42,7 +42,9 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/nic
+ #include <sys/resource.h>
+ #include <errno.h>
+ #include <unistd.h>
+-
++#if __DARWIN_UNIX03
++#include <limits.h>
++#endif /* __DARWIN_UNIX03 */
+ /*
+  * Backwards compatible nice.
+  */
+@@ -50,11 +52,18 @@ int
+ nice(incr)
+ 	int incr;
+ {
+-	int prio;
++	int prio, rv;
+ 
+ 	errno = 0;
+ 	prio = getpriority(PRIO_PROCESS, 0);
+ 	if (prio == -1 && errno)
+ 		return (-1);
+-	return (setpriority(PRIO_PROCESS, 0, prio + incr));
++#if __DARWIN_UNIX03
++	if (prio + incr > NZERO-1)
++		incr = NZERO-1-prio;
++#endif /* __DARWIN_UNIX03 */
++	rv = setpriority(PRIO_PROCESS, 0, prio + incr);
++	if (rv == -1 && errno == EACCES)
++		errno = EPERM;
++	return (rv == -1) ? rv : getpriority(PRIO_PROCESS, 0);
+ }

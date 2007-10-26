@@ -673,7 +673,6 @@ IOSCSIParallelInterfaceProtocolTransport::InspectDevice ( IOSCSIDevice * scsiDev
 	
 	OSObject *		obj		= NULL;
 	OSDictionary *	dict	= NULL;
-	bool			created	= false;
 	
 	obj = getProperty ( kIOPropertyProtocolCharacteristicsKey, gIOServicePlane );
 	if ( obj != NULL )
@@ -697,15 +696,15 @@ IOSCSIParallelInterfaceProtocolTransport::InspectDevice ( IOSCSIDevice * scsiDev
 		
 	}
 	
-	obj = getProperty ( kIOPropertyProtocolCharacteristicsKey );
-	if ( obj == NULL )
+	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	if ( dict == NULL )
 	{
 		dict = OSDictionary::withCapacity ( 3 );
 	}
 	
 	else
 	{
-		dict = OSDictionary::withDictionary ( obj );
+		dict = OSDictionary::withDictionary ( dict );
 	}
 	
 	if ( dict != NULL )

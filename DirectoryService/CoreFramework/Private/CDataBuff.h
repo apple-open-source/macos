@@ -29,35 +29,42 @@
 #define __CDataBuff_h__	1
 
 #include <DirectoryServiceCore/PrivateTypes.h>
+#include <stdarg.h>	//for va_list
 
-const uInt32 kDefaultSize = 512;
+const UInt32 kDefaultSize = 512;
 
 // Class --------------------------------------------------------------------
 
 class CDataBuff {
 public:
-				CDataBuff		( uInt32 inSize = 0 );
+				CDataBuff		( UInt32 inSize = 0 );
 	virtual	   ~CDataBuff		( void );
 
 	void		AppendString	( const char *inStr );
-	void		AppendLong		( uInt32 inInt );
-	void		AppendShort		( uInt16 inShort );
-	void		AppendBlock		( const void *inData, uInt32 inLength );
+	void		AppendLong		( UInt32 inInt );
+	void		AppendShort		( UInt16 inShort );
+	void		AppendBlock		( const void *inData, UInt32 inLength );
 
-	void		Clear			( uInt32 inSize = 0 );
+	void		Clear			( UInt32 inSize = 0 );
 
-	uInt32		GetSize			( void );
-	uInt32		GetLength		( void );
+	UInt32		GetSize			( void );
+	UInt32		GetLength		( void );
 	char*		GetData			( void );
 
 protected:
 
 private:
-	void		GrowBuff		( uInt32 inNewSize = 0 );
+	void		GrowBuff		( UInt32 inNewSize = 0 );
 
-	uInt32		fSize;
-	uInt32		fLength;
+	UInt32		fSize;
+	UInt32		fLength;
 	char	   *fData;
 };
+
+SInt32			dsCDataBuffFromAttrTypeAndStringValue( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue );
+SInt32			dsCDataBuffFromAttrTypeAndData( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue, UInt32 inLength );
+SInt32			dsCDataBuffFromAttrTypeAndStringValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue, ... );
+SInt32			dsCDataBuffFromAttrTypeAndStringArgValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char* inAttrValue, va_list inAttrValues );
+SInt32			dsCDataBuffFromAttrTypeAndStringValues( CDataBuff* inOutAttrDataBuff, CDataBuff* inOutDataBuff, bool inbAttrInfoOnly, const char* inAttrType, const char** inAttrValues );
 
 #endif

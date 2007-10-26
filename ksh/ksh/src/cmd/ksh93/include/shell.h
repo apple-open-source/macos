@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef SH_INTERACTIVE
 /*
@@ -31,7 +27,7 @@
  *
  */
 
-#include	<cmd.h>
+#include	<ast.h>
 #include	<cdt.h>
 #ifdef _SH_PRIVATE
 #   include	"name.h"
@@ -39,15 +35,7 @@
 #   include	<nval.h>
 #endif /* _SH_PRIVATE */
 
-#define SH_VERSION	20030620
-
-/*
- *  The following will disappear in a future release so change all sh_fun
- *  calls to use three arguments and sh_waitnotify specify a function
- *  that will be called with three arguments.  The third argument to
- *  the waitnotify function will 0 for input, 1 for output.
- */
-#define sh_waitnotify	_sh_waitnotify
+#define SH_VERSION	20070511
 
 #undef NOT_USED
 #define NOT_USED(x)	(&x,1)
@@ -60,8 +48,10 @@ typedef struct
 Shopt_t;
 
 typedef void	(*Shinit_f)(int);
-typedef int     (*Shbltin_f)(int, char*[], void*);
 typedef int	(*Shwait_f)(int, long, int);
+
+union Shnode_u;
+typedef union Shnode_u Shnode_t;
 
 #define SH_CFLAG	0
 #define SH_HISTORY	1	/* used also as a state */
@@ -96,6 +86,8 @@ typedef int	(*Shwait_f)(int, long, int);
 #define SH_PIPEFAIL	32
 #define SH_GLOBSTARS	33
 #define SH_XARGS	34
+#define SH_RC		35
+#define SH_SHOWME	36
 
 /*
  * passed as flags to builtins in Nambltin_t struct when BLT_OPTIM is on
@@ -156,6 +148,8 @@ typedef struct sh_static
 #define SH_IOCOPROCESS	(-2)
 #define SH_IOHISTFILE	(-3)
 
+#include	<cmd.h>
+
 /* symbolic value for sh_fdnotify */
 #define SH_FDCLOSE	(-1)
 
@@ -177,15 +171,18 @@ extern int 		sh_fun(Namval_t*,Namval_t*, char*[]);
 extern int 		sh_funscope(int,char*[],int(*)(void*),void*,int);
 extern Sfio_t		*sh_iogetiop(int,int);
 extern int		sh_main(int, char*[], void(*)(int));
+extern int		sh_run(int, char*[]);
 extern void		sh_menu(Sfio_t*, int, char*[]);
 extern Namval_t		*sh_addbuiltin(const char*, int(*)(int, char*[],void*), void*);
 extern char		*sh_fmtq(const char*);
+extern char		*sh_fmtqf(const char*, int, int);
 extern Sfdouble_t	sh_strnum(const char*, char**, int);
 extern int		sh_access(const char*,int);
 extern int 		sh_close(int);
 extern int 		sh_dup(int);
 extern void 		sh_exit(int);
 extern int		sh_fcntl(int, int, ...);
+extern Sfio_t		*sh_fd2sfio(int);
 extern int		(*sh_fdnotify(int(*)(int,int)))(int,int);
 extern Shell_t		*sh_getinterp(void);
 extern int		sh_open(const char*, int, ...);
@@ -195,6 +192,7 @@ extern ssize_t 		sh_read(int, void*, size_t);
 extern ssize_t 		sh_write(int, const void*, size_t);
 extern off_t		sh_seek(int, off_t, int);
 extern int 		sh_pipe(int[]);
+extern mode_t 		sh_umask(mode_t);
 extern void		*sh_waitnotify(Shwait_f);
 extern Shscope_t	*sh_getscope(int,int);
 extern Shscope_t	*sh_setscope(Shscope_t*);
@@ -203,8 +201,7 @@ extern unsigned long	sh_isoption(int);
 extern unsigned long	sh_onoption(int);
 extern unsigned long	sh_offoption(int);
 extern int 		sh_waitsafe(void);
-
-
+extern int		sh_exec(const Shnode_t*,int);
 
 #if SHOPT_DYNAMIC
     extern void		**sh_getliblist(void);
@@ -231,6 +228,7 @@ extern int 		sh_waitsafe(void);
 #   define pipe(a)	sh_pipe(a)
 #   define read(a,b,c)	sh_read(a,b,c)
 #   define write(a,b,c)	sh_write(a,b,c)
+#   define umask(a)	sh_umask(a)
 #   define dup		sh_dup
 #   if _lib_lseek64
 #	define open64	sh_open

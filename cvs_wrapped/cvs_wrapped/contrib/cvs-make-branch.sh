@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##
 # Create a branch.
@@ -29,7 +29,8 @@ else
     export PATH=${PATH}:${MyPath};
 fi
 
-CVS_PROG="${0%%-*}"
+CVS_PROG="$(basename $0)"
+CVS_PROG="${CVS_PROG%%-*}"
 
 ##
 # Usage

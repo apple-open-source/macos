@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2004, International Business Machines Corporation and
+ * Copyright (c) 2004-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -40,9 +40,11 @@ log_err("Test Failure at file %s, line %d\n", __FILE__, __LINE__);}}
      UBool    success; \
      if (nulTerm) { \
          u_austrncpy(buf_inside_macro, (actual), len+1); \
+         buf_inside_macro[len+2] = 0; \
          success = (strcmp((expected), buf_inside_macro) == 0); \
      } else { \
          u_austrncpy(buf_inside_macro, (actual), len); \
+         buf_inside_macro[len+1] = 0; \
          success = (strncmp((expected), buf_inside_macro, len) == 0); \
      } \
      if (success == FALSE) { \
@@ -57,13 +59,14 @@ log_err("Test Failure at file %s, line %d\n", __FILE__, __LINE__);}}
 
 
 static void TestRegexCAPI(void);
+static void TestBug4315(void);
 
 void addURegexTest(TestNode** root);
 
 void addURegexTest(TestNode** root)
 {
     addTest(root, &TestRegexCAPI, "regex/TestRegexCAPI");
-/*  addTest(root, &TestBreakIteratorSafeClone, "tstxtbd/cbiapts/TestBreakIteratorSafeClone"); */
+    addTest(root, &TestBug4315,   "regex/TestBug4315");
 }
 
 
@@ -95,6 +98,17 @@ static void TestRegexCAPI(void) {
     TEST_ASSERT(status == U_REGEX_INVALID_FLAG);
     uregex_close(re);
 
+    /* openC with an invalid parameter */
+    status = U_ZERO_ERROR;
+    re = uregex_openC(NULL,
+        UREGEX_CASE_INSENSITIVE | UREGEX_COMMENTS | UREGEX_DOTALL | UREGEX_MULTILINE | UREGEX_UWORD, 0, &status);
+    TEST_ASSERT(status == U_ILLEGAL_ARGUMENT_ERROR && re == NULL);
+
+    /* openC with an invalid parameter */
+    status = U_USELESS_COLLATOR_ERROR;
+    re = uregex_openC(NULL,
+        UREGEX_CASE_INSENSITIVE | UREGEX_COMMENTS | UREGEX_DOTALL | UREGEX_MULTILINE | UREGEX_UWORD, 0, &status);
+    TEST_ASSERT(status == U_USELESS_COLLATOR_ERROR && re == NULL);
 
     /* openC   open from a C string */
     {
@@ -105,9 +119,13 @@ static void TestRegexCAPI(void) {
         TEST_ASSERT_SUCCESS(status);
         p = uregex_pattern(re, &len, &status);
         TEST_ASSERT_SUCCESS(status);
-        u_uastrncpy(pat, "abc*", sizeof(pat)/2);
-        TEST_ASSERT(u_strcmp(pat, p) == 0);
-        TEST_ASSERT(len==(int32_t)strlen("abc*"));
+
+        /* The TEST_ASSERT_SUCCESS above should change too... */
+        if(U_SUCCESS(status)) {
+            u_uastrncpy(pat, "abc*", sizeof(pat)/2);
+            TEST_ASSERT(u_strcmp(pat, p) == 0);
+            TEST_ASSERT(len==(int32_t)strlen("abc*"));
+        }
 
         uregex_close(re);
 
@@ -181,17 +199,28 @@ static void TestRegexCAPI(void) {
         re = uregex_open(pat, -1, 0, NULL, &status);
         resultPat = uregex_pattern(re, &resultLen, &status);
         TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(resultLen == -1);
-        TEST_ASSERT(u_strcmp(resultPat, pat) == 0);
+
+        /* The TEST_ASSERT_SUCCESS above should change too... */
+        if (U_SUCCESS(status)) {
+            TEST_ASSERT(resultLen == -1);
+            TEST_ASSERT(u_strcmp(resultPat, pat) == 0);
+        }
+
         uregex_close(re);
 
         status = U_ZERO_ERROR;
         re = uregex_open(pat, 3, 0, NULL, &status);
         resultPat = uregex_pattern(re, &resultLen, &status);
         TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(resultLen == 3);
-        TEST_ASSERT(u_strncmp(resultPat, pat, 3) == 0);
-        TEST_ASSERT(u_strlen(resultPat) == 3);
+        TEST_ASSERT_SUCCESS(status);
+
+        /* The TEST_ASSERT_SUCCESS above should change too... */
+        if (U_SUCCESS(status)) {
+            TEST_ASSERT(resultLen == 3);
+            TEST_ASSERT(u_strncmp(resultPat, pat, 3) == 0);
+            TEST_ASSERT(u_strlen(resultPat) == 3);
+        }
+
         uregex_close(re);
     }
 
@@ -740,21 +769,29 @@ static void TestRegexCAPI(void) {
         uregex_setText(re, textToSplit, -1, &status);
         TEST_ASSERT_SUCCESS(status);
 
-        memset(fields, -1, sizeof(fields));
-        numFields = 
-            uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 10, &status);
-        TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 3);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING(" second", fields[1], TRUE);
-        TEST_ASSERT_STRING("  third", fields[2], TRUE);
-        TEST_ASSERT(fields[3] == NULL);
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if (U_SUCCESS(status)) {
+            memset(fields, -1, sizeof(fields));
+            numFields = 
+                uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 10, &status);
+            TEST_ASSERT_SUCCESS(status);
 
-        spaceNeeded = u_strlen(textToSplit) -
-                      (numFields - 1)  +  /* Field delimiters do not appear in output */
-                      numFields;          /* Each field gets a NUL terminator */ 
+            /* The TEST_ASSERT_SUCCESS call above should change too... */
+            if(U_SUCCESS(status)) {
+                TEST_ASSERT(numFields == 3);
+                TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+                TEST_ASSERT_STRING(" second", fields[1], TRUE);
+                TEST_ASSERT_STRING("  third", fields[2], TRUE);
+                TEST_ASSERT(fields[3] == NULL);
 
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+                spaceNeeded = u_strlen(textToSplit) -
+                            (numFields - 1)  +  /* Field delimiters do not appear in output */
+                            numFields;          /* Each field gets a NUL terminator */ 
+
+                TEST_ASSERT(spaceNeeded == requiredCapacity);
+            }
+        }
+
         uregex_close(re);
 
     
@@ -764,43 +801,51 @@ static void TestRegexCAPI(void) {
         uregex_setText(re, textToSplit, -1, &status);
         TEST_ASSERT_SUCCESS(status);
 
-        memset(fields, -1, sizeof(fields));
-        numFields = 
-            uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 2, &status);
-        TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 2);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING(" second:  third", fields[1], TRUE);
-        TEST_ASSERT(!memcmp(&fields[2],&minus1,sizeof(UChar*)));
-
-        spaceNeeded = u_strlen(textToSplit) -
-                      (numFields - 1)  +  /* Field delimiters do not appear in output */
-                      numFields;          /* Each field gets a NUL terminator */ 
-
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
-
-        /* Split with a range of output buffer sizes.  */
-        spaceNeeded = u_strlen(textToSplit) -
-            (numFields - 1)  +  /* Field delimiters do not appear in output */
-            numFields;          /* Each field gets a NUL terminator */ 
-                
-        for (sz=0; sz < spaceNeeded+1; sz++) {
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
             memset(fields, -1, sizeof(fields));
-            status = U_ZERO_ERROR;
             numFields = 
-                uregex_split(re, buf, sz, &requiredCapacity, fields, 10, &status);
-            if (sz >= spaceNeeded) {
-                TEST_ASSERT_SUCCESS(status);
+                uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 2, &status);
+            TEST_ASSERT_SUCCESS(status);
+
+            /* The TEST_ASSERT_SUCCESS call above should change too... */
+            if(U_SUCCESS(status)) {
+                TEST_ASSERT(numFields == 2);
                 TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-                TEST_ASSERT_STRING(" second", fields[1], TRUE);
-                TEST_ASSERT_STRING("  third", fields[2], TRUE);
-            } else {
-                TEST_ASSERT(status == U_BUFFER_OVERFLOW_ERROR);
+                TEST_ASSERT_STRING(" second:  third", fields[1], TRUE);
+                TEST_ASSERT(!memcmp(&fields[2],&minus1,sizeof(UChar*)));
+
+                spaceNeeded = u_strlen(textToSplit) -
+                            (numFields - 1)  +  /* Field delimiters do not appear in output */
+                            numFields;          /* Each field gets a NUL terminator */ 
+
+                TEST_ASSERT(spaceNeeded == requiredCapacity);
+
+                /* Split with a range of output buffer sizes.  */
+                spaceNeeded = u_strlen(textToSplit) -
+                    (numFields - 1)  +  /* Field delimiters do not appear in output */
+                    numFields;          /* Each field gets a NUL terminator */ 
+                        
+                for (sz=0; sz < spaceNeeded+1; sz++) {
+                    memset(fields, -1, sizeof(fields));
+                    status = U_ZERO_ERROR;
+                    numFields = 
+                        uregex_split(re, buf, sz, &requiredCapacity, fields, 10, &status);
+                    if (sz >= spaceNeeded) {
+                        TEST_ASSERT_SUCCESS(status);
+                        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+                        TEST_ASSERT_STRING(" second", fields[1], TRUE);
+                        TEST_ASSERT_STRING("  third", fields[2], TRUE);
+                    } else {
+                        TEST_ASSERT(status == U_BUFFER_OVERFLOW_ERROR);
+                    }
+                    TEST_ASSERT(numFields == 3);
+                    TEST_ASSERT(fields[3] == NULL);
+                    TEST_ASSERT(spaceNeeded == requiredCapacity);
+                }
             }
-            TEST_ASSERT(numFields == 3);
-            TEST_ASSERT(fields[3] == NULL);
-            TEST_ASSERT(spaceNeeded == requiredCapacity);
         }
+
         uregex_close(re);
     }
 
@@ -826,20 +871,26 @@ static void TestRegexCAPI(void) {
         uregex_setText(re, textToSplit, -1, &status);
         TEST_ASSERT_SUCCESS(status);
 
-        memset(fields, -1, sizeof(fields));
-        numFields = 
-            uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 10, &status);
-        TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 5);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
-        TEST_ASSERT_STRING(" second", fields[2], TRUE);
-        TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
-        TEST_ASSERT_STRING("  third", fields[4], TRUE);
-        TEST_ASSERT(fields[5] == NULL);
-        spaceNeeded = strlen("first .tag-a. second.tag-b.  third.");  /* "." at NUL positions */
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
+            memset(fields, -1, sizeof(fields));
+            numFields = 
+                uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 10, &status);
+            TEST_ASSERT_SUCCESS(status);
 
+            /* The TEST_ASSERT_SUCCESS call above should change too... */
+            if(U_SUCCESS(status)) {
+                TEST_ASSERT(numFields == 5);
+                TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+                TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
+                TEST_ASSERT_STRING(" second", fields[2], TRUE);
+                TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
+                TEST_ASSERT_STRING("  third", fields[4], TRUE);
+                TEST_ASSERT(fields[5] == NULL);
+                spaceNeeded = strlen("first .tag-a. second.tag-b.  third.");  /* "." at NUL positions */
+                TEST_ASSERT(spaceNeeded == requiredCapacity);
+            }
+        }
     
         /*  Split with too few output strings available (2) */
         status = U_ZERO_ERROR;
@@ -847,13 +898,17 @@ static void TestRegexCAPI(void) {
         numFields = 
             uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 2, &status);
         TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 2);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING(" second<tag-b>  third", fields[1], TRUE);
-        TEST_ASSERT(!memcmp(&fields[2],&minus1,sizeof(UChar*)));
 
-        spaceNeeded = strlen("first . second<tag-b>  third.");  /* "." at NUL positions */
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
+            TEST_ASSERT(numFields == 2);
+            TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+            TEST_ASSERT_STRING(" second<tag-b>  third", fields[1], TRUE);
+            TEST_ASSERT(!memcmp(&fields[2],&minus1,sizeof(UChar*)));
+
+            spaceNeeded = strlen("first . second<tag-b>  third.");  /* "." at NUL positions */
+            TEST_ASSERT(spaceNeeded == requiredCapacity);
+        }
 
         /*  Split with too few output strings available (3) */
         status = U_ZERO_ERROR;
@@ -861,14 +916,18 @@ static void TestRegexCAPI(void) {
         numFields = 
             uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 3, &status);
         TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 3);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
-        TEST_ASSERT_STRING(" second<tag-b>  third", fields[2], TRUE);
-        TEST_ASSERT(!memcmp(&fields[3],&minus1,sizeof(UChar*)));
 
-        spaceNeeded = strlen("first .tag-a. second<tag-b>  third.");  /* "." at NUL positions */
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
+            TEST_ASSERT(numFields == 3);
+            TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+            TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
+            TEST_ASSERT_STRING(" second<tag-b>  third", fields[2], TRUE);
+            TEST_ASSERT(!memcmp(&fields[3],&minus1,sizeof(UChar*)));
+
+            spaceNeeded = strlen("first .tag-a. second<tag-b>  third.");  /* "." at NUL positions */
+            TEST_ASSERT(spaceNeeded == requiredCapacity);
+        }
 
         /*  Split with just enough output strings available (5) */
         status = U_ZERO_ERROR;
@@ -876,41 +935,103 @@ static void TestRegexCAPI(void) {
         numFields = 
             uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 5, &status);
         TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 5);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
-        TEST_ASSERT_STRING(" second", fields[2], TRUE);
-        TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
-        TEST_ASSERT_STRING("  third", fields[4], TRUE);
-        TEST_ASSERT(!memcmp(&fields[5],&minus1,sizeof(UChar*)));
 
-        spaceNeeded = strlen("first .tag-a. second.tag-b.  third.");  /* "." at NUL positions */
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
+            TEST_ASSERT(numFields == 5);
+            TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+            TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
+            TEST_ASSERT_STRING(" second", fields[2], TRUE);
+            TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
+            TEST_ASSERT_STRING("  third", fields[4], TRUE);
+            TEST_ASSERT(!memcmp(&fields[5],&minus1,sizeof(UChar*)));
 
+            spaceNeeded = strlen("first .tag-a. second.tag-b.  third.");  /* "." at NUL positions */
+            TEST_ASSERT(spaceNeeded == requiredCapacity);
+        }
 
         /* Split, end of text is a field delimiter.   */
         status = U_ZERO_ERROR;
         sz = strlen("first <tag-a> second<tag-b>");
         uregex_setText(re, textToSplit, sz, &status);
         TEST_ASSERT_SUCCESS(status);
-        memset(fields, -1, sizeof(fields));
-        numFields = 
-            uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 9, &status);
-        TEST_ASSERT_SUCCESS(status);
-        TEST_ASSERT(numFields == 4);
-        TEST_ASSERT_STRING("first ",  fields[0], TRUE);
-        TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
-        TEST_ASSERT_STRING(" second", fields[2], TRUE);
-        TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
-        TEST_ASSERT(fields[4] == NULL);
-        TEST_ASSERT(fields[8] == NULL);
-        TEST_ASSERT(!memcmp(&fields[9],&minus1,sizeof(UChar*)));
-        spaceNeeded = strlen("first .tag-a. second.tag-b.");  /* "." at NUL positions */
-        TEST_ASSERT(spaceNeeded == requiredCapacity);
+
+        /* The TEST_ASSERT_SUCCESS call above should change too... */
+        if(U_SUCCESS(status)) {
+            memset(fields, -1, sizeof(fields));
+            numFields = 
+                uregex_split(re, buf, sizeof(buf)/2, &requiredCapacity, fields, 9, &status);
+            TEST_ASSERT_SUCCESS(status);
+
+            /* The TEST_ASSERT_SUCCESS call above should change too... */
+            if(U_SUCCESS(status)) {
+                TEST_ASSERT(numFields == 4);
+                TEST_ASSERT_STRING("first ",  fields[0], TRUE);
+                TEST_ASSERT_STRING("tag-a",   fields[1], TRUE);
+                TEST_ASSERT_STRING(" second", fields[2], TRUE);
+                TEST_ASSERT_STRING("tag-b",   fields[3], TRUE);
+                TEST_ASSERT(fields[4] == NULL);
+                TEST_ASSERT(fields[8] == NULL);
+                TEST_ASSERT(!memcmp(&fields[9],&minus1,sizeof(UChar*)));
+                spaceNeeded = strlen("first .tag-a. second.tag-b.");  /* "." at NUL positions */
+                TEST_ASSERT(spaceNeeded == requiredCapacity);
+            }
+        }
 
         uregex_close(re);
     }
 
+}
+
+static void TestBug4315(void) {
+    UErrorCode      theICUError = U_ZERO_ERROR;
+    URegularExpression *theRegEx;
+    UChar           *textBuff;
+    const char      *thePattern;
+    UChar            theString[100];
+    UChar           *destFields[24];
+    int32_t         neededLength1;
+    int32_t         neededLength2;
+
+    int32_t         wordCount = 0;
+    int32_t         destFieldsSize = 24;
+
+    thePattern  = "ck ";
+    u_uastrcpy(theString, "The quick brown fox jumped over the slow black turtle.");
+
+    /* open a regex */
+    theRegEx = uregex_openC(thePattern, 0, NULL, &theICUError);
+    TEST_ASSERT_SUCCESS(theICUError);
+
+    /* set the input string */
+    uregex_setText(theRegEx, theString, u_strlen(theString), &theICUError);
+    TEST_ASSERT_SUCCESS(theICUError);
+
+    /* split */
+    /*explicitly pass NULL and 0 to force the overflow error -> this is where the
+     *  error occurs! */
+    wordCount = uregex_split(theRegEx, NULL, 0, &neededLength1, destFields,
+        destFieldsSize, &theICUError);
+
+    TEST_ASSERT(theICUError == U_BUFFER_OVERFLOW_ERROR);
+    TEST_ASSERT(wordCount==3);
+
+    if(theICUError == U_BUFFER_OVERFLOW_ERROR)
+    {
+        theICUError = U_ZERO_ERROR;
+        textBuff = (UChar *) malloc(sizeof(UChar) * (neededLength1 + 1));
+        wordCount = uregex_split(theRegEx, textBuff, neededLength1+1, &neededLength2,
+            destFields, destFieldsSize, &theICUError);
+        TEST_ASSERT(wordCount==3);
+        TEST_ASSERT_SUCCESS(theICUError);
+        TEST_ASSERT(neededLength1 == neededLength2);
+        TEST_ASSERT_STRING("The qui", destFields[0], TRUE);
+        TEST_ASSERT_STRING("brown fox jumped over the slow bla", destFields[1], TRUE);
+        TEST_ASSERT_STRING("turtle.", destFields[2], TRUE);
+        TEST_ASSERT(destFields[3] == NULL);
+        free(textBuff);
+    }
+    uregex_close(theRegEx);
 }
 
 #endif   /*  !UCONFIG_NO_REGULAR_EXPRESSIONS */

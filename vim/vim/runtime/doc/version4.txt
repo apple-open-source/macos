@@ -1,4 +1,4 @@
-*version4.txt*  For Vim version 6.2.  Last change: 2001 Dec 11
+*version4.txt*  For Vim version 7.0.  Last change: 2006 Apr 24
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -52,7 +52,7 @@ example, on MS-DOS the backup files for "longfile.c" and "longfile.h" would
 both become "longfile.bak"; now they will be "longfile.c~" and "longfile.h~".
 
 If you prefer to use ".bak", you can set the 'backupext' option: >
-	:set bex=.bak					|'backupext'|
+	:set bex=.bak
 
 
 Structure of swap file changed				*swapfile-changed*
@@ -303,7 +303,7 @@ The 'yankendofline' option has been removed.  Instead you can just use
 ----------------------------------------
 
 The 'title' option is now only set by default if the original title can be
-restored.  Avoids 'Thanks for flying Vim" titles.  If you want them anyway,
+restored.  Avoids "Thanks for flying Vim" titles.  If you want them anyway,
 put ":set title" in your vimrc.				|'title'|
 
 The default for 'icon' now depends on the possibility of restoring the

@@ -9,6 +9,7 @@
 
 struct internal_nlist;
 struct external_nlist;
+struct objfile;
 extern enum gdb_osabi osabi_seen_in_attached_dyld;
 
 void macosx_internalize_symbol (struct internal_nlist * in, int *sect_p,
@@ -20,6 +21,32 @@ CORE_ADDR dyld_symbol_stub_function_address (CORE_ADDR pc, const char **name);
 CORE_ADDR macosx_skip_trampoline_code (CORE_ADDR pc);
 int macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name);
 int macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name);
-int macosx_record_symbols_from_sect_p (bfd *abfd, unsigned char macho_type, unsigned char macho_sect);
+int macosx_record_symbols_from_sect_p (bfd *abfd, unsigned char macho_type, 
+				       unsigned char macho_sect);
+
+char *macosx_locate_dsym (struct objfile *objfile);
+struct objfile *macosx_find_objfile_matching_dsym_in_bundle (char *dsym_bundle_path, 
+							     char **out_full_path);
+
+char *macosx_kext_info (const char *filename,
+                  const char **bundle_executable_name_from_plist,
+                  const char **bundle_identifier_name_from_plist);
+
+enum gdb_osabi
+generic_mach_o_osabi_sniffer (bfd *abfd, enum bfd_architecture arch, 
+			      unsigned long mach_32,
+			      unsigned long mach_64,
+			      int (*query_64_bit_fn) ());
+
+int
+fast_show_stack_trace_prologue (unsigned int count_limit, 
+				unsigned int print_limit,
+				unsigned int wordsize,
+				CORE_ADDR *sigtramp_start_ptr,
+				CORE_ADDR *sigtramp_end_ptr,
+				unsigned int *count,
+				struct frame_info **fi,
+				void (print_fun) (struct ui_out * uiout, int frame_num,
+						  CORE_ADDR pc, CORE_ADDR fp));
 
 #endif /* __GDB_MACOSX_TDEP_H__ */

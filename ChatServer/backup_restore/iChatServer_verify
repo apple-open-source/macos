@@ -1,0 +1,324 @@
+#!/usr/bin/perl
+
+#################################   Constants  #################################
+$DIFF = "/usr/bin/diff";
+$RM = "/bin/rm";
+$PBUDDY = "/usr/libexec/sbs_backup/PBuddy";
+$TAR = "/usr/bin/tar";
+$SQLITE = "/usr/bin/sqlite3";
+$ServiceConf = "75-iChatServer.plist";
+$SBS_CONF = "/private/etc/sbs_backup";
+$tmpPath = "/private/var/jabberd/tmp";
+
+%dbinfo = {};
+%BigList = "";
+$CONF_EXT = ".conf";
+$STATUS_EXT = ".status";
+$ret = 0;
+
+if($ENV{VERBOSE} eq 1) {$VERBOSE = '1';}
+if($ENV{DEBUG} eq 1) {$DEBUG = '1';}
+if($ENV{FUNCLOG} eq 1) {$FUNCLOG = '1';}
+
+if ($VERBOSE) 
+	{ print("iChatServer_verify was called.\n"); }
+
+ParseOptions();
+if ($DEBUG) 
+	{ dumpAssociativeArray(@ARGV); }
+
+$ret = validateOptionsAndDispatch(@ARGV);
+exit($ret);
+
+################################################################################
+sub validateOptionsAndDispatch()
+{
+	$ret = 0;
+	%BigList = @_;
+	SWITCH: {
+		if (uc($BigList{"-cmd"}) eq uc("actions"))  { if($DEBUG) {print("actions\n");} Actions(); last SWITCH; }
+		if (uc($BigList{"-cmd"}) eq uc("help"))	{ if ($DEBUG) {print("help\n");} Usage(); last SWITCH; }
+		if ((uc($BigList{"-cmd"}) eq uc("verify")) && (-e ($BigList{"-path"})) ) { if ($DEBUG) {print("verify\n");} $ret = Verify(); last SWITCH; } 
+		if (uc($BigList{"-cmd"}) eq uc("version")) { if($DEBUG) {print("version\n");} Version(); last SWITCH; }
+ 		$nothing = 1;
+	}
+    if($nothing eq 1)
+  		{print("Legal options were not supplied!\n");Usage();}
+
+	return($ret);
+}
+
+################################################################################
+sub Actions() 
+{
+	if ($FUNCLOG) 
+		{ print("Start Actions-------------------------------------------------------+\n"); }
+
+	if($VERBOSE) {
+		print (qq(${PBUDDY} -c \"Print :VerifyActions\" $SBS_CONF/$ServiceConf) . "\n");
+	}
+	$Version = qx(${PBUDDY} -c \"Print :VerifyActions\" $SBS_CONF/$ServiceConf);
+	print($Version);
+
+	if ($FUNCLOG) 
+		{ print("End   Actions-------------------------------------------------------+\n"); }
+}
+
+################################################################################
+sub Verify()
+{
+	if ($FUNCLOG) 
+		{ print("Start Verify-------------------------------------------------------+\n"); }
+
+	my $successCount = 0;
+	my $failureCount = 0;
+	my $omittedCount = 0;
+	my $imagePath = $BigList{"-path"};
+	my $OPT = $BigList{"-opt"};
+	my $diffFilePath = "$tmpPath/iChatServer_verify_diff_tmp";
+	my $storedFileDir = "$tmpPath/iChatServer_restored_for_verify";
+	my $restoredSqlFile = "iChatServer_data_backup.sql";
+	my $newSqlFile = "iChatServer_data_current.sql";
+	my $sqliteDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+	my @diffLines;
+	my $cmd;
+
+	umask(077);
+
+	if ($DEBUG) {
+		print("IMAGE_PATH := $imagePath\n");
+	}
+	
+	if ($OPT ne "configuration" && $OPT ne "data" && $OPT ne "all") {
+		print "Invalid or missing -opt given.\n";
+		return 1;
+	}
+	
+	if (! -e $imagePath) {
+		print "The provided image path does not exist. Aborting.\npath was: $imagePath\n";
+		return 1;
+	}
+	
+	# Find our config file backups
+	if (! opendir(SBSDIR, "$imagePath")) {
+		print "Couldn't open the directory for reading: $imagePath\n";
+		return 1;
+	}
+
+	my @imageTarFiles = readdir(SBSDIR);
+	closedir(SBSDIR); 
+
+	mkdir($storedFileDir);
+	# should only be one conf file in imagePath. stop at first file.
+	FINDCONF: foreach my $imageTarFile (@imageTarFiles) {
+		if ($imageTarFile =~ /iChatServer.conf.tar.gz$/) {
+			my $origCWD = $ENV{PWD};
+			chdir($storedFileDir);
+			qx($TAR -xzf \"$imagePath/$imageTarFile\");
+			chdir($origCWD);
+			last FINDCONF;   
+		}
+	}
+	FINDDATA: foreach my $imageTarFile (@imageTarFiles) {
+		if ($imageTarFile =~ /iChatServer.data.tar.gz$/) {
+			my $origCWD = $ENV{PWD};
+			chdir($storedFileDir);
+			qx($TAR -xzf \"$imagePath/$imageTarFile\");
+			chdir($origCWD);
+			last FINDDATA;
+		}
+	}
+
+	# Configs
+	if ($OPT eq "configuration" || $OPT eq "all") {
+		my @configurationFiles;
+		my @configurationFilesPbuddy = qx(${PBUDDY} -c \"Print :ConfigurationFilesToTar:\" $SBS_CONF/$ServiceConf);
+		if ($#configurationFilesPbuddy > 1) {
+			for (my $i = 1; $i < $#configurationFilesPbuddy; $i++) {
+				my $configTmp = $configurationFilesPbuddy[$i];
+				chomp($configTmp); 
+				$configTmp =~ s/^\s*//;
+				push(@configurationFiles, $configTmp);
+			}	 
+		}
+
+		my $origCWD = $ENV{PWD};
+		chdir($storedFileDir);
+
+		foreach $configFile (@configurationFiles) {
+			# Allow for wildcards in the plist strings.  Expand them and push them onto the array for later processing.
+			if ($configFile =~ /\*/) {
+				if ($VERBOSE || $DEBUG) {
+					print "Found a wildcard in the plist ($configFile), expanding for later processing...\n";
+				}
+				my @expFiles = `ls -1 $configFile`;
+				chomp(@expFiles);
+				foreach my $expFile (@expFiles) {
+					if ($VERBOSE || $DEBUG) {
+						print "Adding wildcard expansion to configurationFiles array: $expFile\n";
+					}
+					push(@configurationFiles, $expFile);
+				}
+				next;
+			}
+					
+			if ($VERBOSE || $DEBUG) {
+				print "Comparing $configFile...\n";
+			}
+			my $relativeFilePath = $configFile;
+			$relativeFilePath =~ s/^\///;
+			$cmd = "$DIFF -q \"$configFile\" \"$relativeFilePath\" &> \"$diffFilePath\"";
+			if ($VERBOSE || $DEBUG) {
+				print "Executing: $cmd\n";
+			}
+			qx($cmd);
+			open(DIFF, "<$diffFilePath");
+			@diffLines = <DIFF>;
+			close(DIFF);
+			chomp(@diffLines);
+			if ($diffLines[0] eq "") {
+				$successCount++;	
+				if ($VERBOSE || $DEBUG) {
+					print "File match ($configFile)\n";
+				}
+			} else {
+				if (! -e $configFile && ! -e $relativeFilePath) {
+					# if a file was missing from backup and current system, ignore
+					$successCount++;	
+					if ($VERBOSE || $DEBUG) {
+						print "Ignoring file ($configFile), counting as a match\n";
+					}
+				} else {
+					if ($VERBOSE || $DEBUG) {
+						print "VERIFICATION FAILURE: config file $configFile does not match original\n";
+					}
+					$failureCount++;	
+				}
+			}
+		}
+		unlink($diffFilePath);
+	}
+
+	if ($OPT eq "data" || $OPT eq "all") {
+		# Data: compare restored .sql file with current sql dump
+		open(DIR, ".");
+		my @files = <DIR>;
+		closedir(DIR);
+		if (! -e "$storedFileDir/$restoredSqlFile") {
+			if ($VERBOSE || $DEBUG) {
+				print "VERIFICATION FAILURE: Could not find original .sql file for database comparison";
+			}
+			$failureCount++;
+		} else {
+			qx(echo ".dump" | $SQLITE $sqliteDbPath > $tmpPath/$newSqlFile);
+			qx($DIFF -q \"$storedFileDir/$restoredSqlFile\" \"$tmpPath/$newSqlFile\" &> \"$diffFilePath\");
+			open(DIFF, "<$diffFilePath");
+			@diffLines = <DIFF>;
+			close(DIFF); 
+			chomp(@diffLines);
+			if ($diffLines[0] eq "") {
+				$successCount++;     
+			} else {
+				if ($VERBOSE || $DEBUG) {
+					print "VERIFICATION FAILURE: Backed up database does not match current database\n";
+				}
+				$failureCount++;    
+			}
+		}
+		unlink($diffFilePath);
+		unlink("$tmpPath/$newSqlFile");
+		qx($RM -rf \"$storedFileDir\");
+		chdir($origCWD);
+	}
+
+	#print("\nVerify service := iChatServer resulted in:\nSuccessful matches := $successCount\nNumber of failures to match := $failureCount\nNumber of ommisions := $omittedCount\n"); $ret = 1;
+	print("\nVerify service := iChatServer resulted in:\nSuccessful matches := $successCount\nNumber of failures to match := $failureCount\n"); $ret = 1;
+
+	if ($FUNCLOG) 
+		{ print("End   Verify-------------------------------------------------------+\n"); }
+	return($ret);
+}
+
+################################################################################
+sub Version() 
+{
+	if ($FUNCLOG) 
+		{ print("Start Version-------------------------------------------------------+\n"); }
+
+	if($VERBOSE) {
+		print (qq(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf) . "\n");
+	}
+	$Version = qx(${PBUDDY} -c \"Print :Version\" $SBS_CONF/$ServiceConf);
+	print($Version);
+
+	if ($FUNCLOG) 
+		{ print("End   Version-------------------------------------------------------+\n"); }
+}
+
+################################################################################
+#
+# ParseOptions takes a list of possible options and a boolean indicating
+# whether the option has a value following, and sets up an associative array
+# %opt of the values of the options given on the command line. It removes all
+# the arguments it uses from @ARGV and returns them in @optArgs.
+#
+sub ParseOptions {
+	local (@optval) = @_;
+	local ($opt, @opts, %valFollows, @newargs);
+
+	while (@optval) {
+		$opt = shift(@optval);
+		push(@opts,$opt);
+		$valFollows{$opt} = shift(@optval);
+	}
+
+	@optArgs = ();
+	%opt = ();
+
+	arg: while (defined($arg = shift(@ARGV))) {
+		foreach $opt (@opts) {
+			if ($arg eq $opt) {
+				push(@optArgs, $arg);
+				if ($valFollows{$opt}) {
+					if (@ARGV == 0) {
+						Usage();
+					}
+					$opt{$opt} = shift(@ARGV);
+					push(@optArgs, $opt{$opt});
+				} else {
+					$opt{$opt} = 1;
+				}
+				next arg;
+			}
+		}
+		push(@newargs,$arg);
+	}
+	@ARGV = @newargs;
+}
+
+################################################################################
+sub Usage()
+{
+	print "Usage:\n";
+	print "iChatServer_verify supports the following options:\n";
+	print " -cmd actions :                                  Prints out the dictionary of VerifyActions from the conf file := $SBS_CONF$ServiceConf\n";
+	print " -cmd help :                                     Displays this usage.\n";
+	print " -cmd verify -path path -opt option           Verify the service data, it is verifing what's in the image with what is on the boot drive.\n";
+	print "    where path is the path to the image.\n";
+	print "    where option is one of: configuration, data, all\n";
+	print " -cmd version :                                  Prints out the version value from the property list := $SBS_CONF$ServiceConf\n";
+	exit(0);
+}
+
+################################################################################
+sub dumpAssociativeArray()
+{
+	%BigList = @_;
+	while(($theKey, $theVal) = each (%BigList))
+		{ print "$theKey is the key for value $theVal\n"; }
+	if($BigList{"-cmd"} eq "backup")
+		{ print "cmd := ", $BigList{"-cmd"}, "\n"; }
+}
+
+################################################################################
+

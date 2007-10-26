@@ -298,7 +298,7 @@ Sat May  9 14:52:57 1992  David J. MacKenzie  (djm@churchy.gnu.ai.mit.edu)
 	was given, even if not substituting for prefix.
 
 	* acgeneral.m4 (AC_INIT, AC_OUTPUT): Remove @VPATH@
-	substitution; use @srcdir@ instead. 
+	substitution; use @srcdir@ instead.
 
 Sun May  3 01:21:47 1992  David J. MacKenzie  (djm@geech.gnu.ai.mit.edu)
 
@@ -360,5 +360,5 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with autoconf; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.

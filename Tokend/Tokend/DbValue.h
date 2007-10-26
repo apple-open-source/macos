@@ -204,4 +204,3 @@ private:
 
 #endif /* !_TOKEND_DBVALUE_H_ */
 
-/* arch-tag: E95684AF-DF80-11D8-A25B-000A95C4302E */

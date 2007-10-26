@@ -1,4 +1,4 @@
-/*	$OpenBSD: tables.c,v 1.9 1997/09/01 18:30:00 deraadt Exp $	*/
+/*	$OpenBSD: tables.c,v 1.22 2004/11/29 16:23:22 otto Exp $	*/
 /*	$NetBSD: tables.c,v 1.4 1995/03/21 09:07:45 cgd Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,9 +36,9 @@
 
 #ifndef lint
 #if 0
-static char sccsid[] = "@(#)tables.c	8.1 (Berkeley) 5/31/93";
+static const char sccsid[] = "@(#)tables.c	8.1 (Berkeley) 5/31/93";
 #else
-static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tables.c,v 1.9 1997/09/01 18:30:00 deraadt Exp $";
+static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tables.c,v 1.22 2004/11/29 16:23:22 otto Exp $";
 #endif
 #endif /* not lint */
 
@@ -71,7 +67,7 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: tables.c,v 1.9 1997
  * large archives. These database routines carefully combine memory usage and
  * temporary file storage in ways which will not significantly impact runtime
  * performance while allowing the largest possible archives to be handled.
- * Trying to force the fit to the posix databases routines was not considered
+ * Trying to force the fit to the posix database routines was not considered
  * time well spent.
  */
 
@@ -80,11 +76,12 @@ static FTM **ftab = NULL;	/* file time table for updating arch */
 static NAMT **ntab = NULL;	/* interactive rename storage table */
 static DEVT **dtab = NULL;	/* device/inode mapping tables */
 static ATDIR **atab = NULL;	/* file tree directory time reset table */
-static int dirfd = -1;		/* storage for setting created dir time/mode */
-static u_long dircnt;		/* entries in dir time/mode storage */
+static DIRDATA *dirp = NULL;	/* storage for setting created dir time/mode */
+static size_t dirsize;		/* size of dirp table */
+static long dircnt = 0;		/* entries in dir time/mode storage */
 static int ffd = -1;		/* tmp file for file time table name storage */
 
-static DEVT *chk_dev __P((dev_t, int));
+static DEVT *chk_dev(dev_t, int);
 
 /*
  * hard link table routines
@@ -109,13 +106,8 @@ static DEVT *chk_dev __P((dev_t, int));
  *	0 if created, -1 if failure
  */
 
-#ifdef __STDC__
 int
 lnk_start(void)
-#else
-int
-lnk_start()
-#endif
 {
 	if (ltab != NULL)
 		return(0);
@@ -138,18 +130,12 @@ lnk_start()
  *	if found returns 1; if not found returns 0; -1 on error
  */
 
-#ifdef __STDC__
 int
-chk_lnk(register ARCHD *arcn)
-#else
-int
-chk_lnk(arcn)
-	register ARCHD *arcn;
-#endif
+chk_lnk(ARCHD *arcn)
 {
-	register HRDLNK *pt;
-	register HRDLNK **ppt;
-	register u_int indx;
+	HRDLNK *pt;
+	HRDLNK **ppt;
+	u_int indx;
 
 	if (ltab == NULL)
 		return(-1);
@@ -157,6 +143,12 @@ chk_lnk(arcn)
 	 * ignore those nodes that cannot have hard links
 	 */
 	if ((arcn->type == PAX_DIR) || (arcn->sb.st_nlink <= 1))
+		return(0);
+
+	/*
+	 * Conformance tests: ignore symlink because cannot create hard link to it 
+	 */
+	if ((arcn->type == PAX_SLK))
 		return(0);
 
 	/*
@@ -183,9 +175,8 @@ chk_lnk(arcn)
 			 * handle hardlinks to regular files differently than
 			 * other links.
 			 */
-			arcn->ln_nlen = l_strncpy(arcn->ln_name, pt->name,
-				sizeof(arcn->ln_name) - 1);
-			arcn->ln_name[arcn->ln_nlen] = '\0';
+			arcn->ln_nlen = strlcpy(arcn->ln_name, pt->name,
+				sizeof(arcn->ln_name));
 			if (arcn->type == PAX_REG)
 				arcn->type = PAX_HRG;
 			else
@@ -231,18 +222,12 @@ chk_lnk(arcn)
  *	we do not want to accidently point another file at it later on.
  */
 
-#ifdef __STDC__
 void
-purg_lnk(register ARCHD *arcn)
-#else
-void
-purg_lnk(arcn)
-	register ARCHD *arcn;
-#endif
+purg_lnk(ARCHD *arcn)
 {
-	register HRDLNK *pt;
-	register HRDLNK **ppt;
-	register u_int indx;
+	HRDLNK *pt;
+	HRDLNK **ppt;
+	u_int indx;
 
 	if (ltab == NULL)
 		return;
@@ -291,17 +276,12 @@ purg_lnk(arcn)
  *	write phase
  */
 
-#ifdef __STDC__
 void
 lnk_end(void)
-#else
-void
-lnk_end()
-#endif
 {
-	register int i;
-	register HRDLNK *pt;
-	register HRDLNK *ppt;
+	int i;
+	HRDLNK *pt;
+	HRDLNK *ppt;
 
 	if (ltab == NULL)
 		return;
@@ -336,14 +316,14 @@ lnk_end()
  * An append with an -u must read the archive and store the modification time
  * for every file on that archive before starting the write phase. It is clear
  * that this is one HUGE database. To save memory space, the actual file names
- * are stored in a scatch file and indexed by an in memory hash table. The
+ * are stored in a scratch file and indexed by an in-memory hash table. The
  * hash table is indexed by hashing the file path. The nodes in the table store
  * the length of the filename and the lseek offset within the scratch file
- * where the actual name is stored. Since there are never any deletions to this
- * table, fragmentation of the scratch file is never a issue. Lookups seem to
- * not exhibit any locality at all (files in the database are rarely
- * looked up more than once...). So caching is just a waste of memory. The
- * only limitation is the amount of scatch file space available to store the
+ * where the actual name is stored. Since there are never any deletions from
+ * this table, fragmentation of the scratch file is never a issue. Lookups 
+ * seem to not exhibit any locality at all (files in the database are rarely
+ * looked up more than once...), so caching is just a waste of memory. The
+ * only limitation is the amount of scratch file space available to store the
  * path names.
  */
 
@@ -356,15 +336,9 @@ lnk_end()
  *	0 if the table and file was created ok, -1 otherwise
  */
 
-#ifdef __STDC__
 int
 ftime_start(void)
-#else
-int
-ftime_start()
-#endif
 {
-	char *pt;
 
 	if (ftab != NULL)
 		return(0);
@@ -377,14 +351,13 @@ ftime_start()
 	 * get random name and create temporary scratch file, unlink name
 	 * so it will get removed on exit
 	 */
-	pt = strdup("/tmp/paxXXXXXX");
-	if ((ffd = mkstemp(pt)) < 0) {
-		syswarn(1, errno, "Unable to create temporary file: %s", pt);
-		free(pt);
+	memcpy(tempbase, _TFILE_BASE, sizeof(_TFILE_BASE));
+	if ((ffd = mkstemp(tempfile)) < 0) {
+		syswarn(1, errno, "Unable to create temporary file: %s",
+		    tempfile);
 		return(-1);
 	}
-	(void)unlink(pt);
-	free(pt);
+	(void)unlink(tempfile);
 
 	return(0);
 }
@@ -401,18 +374,12 @@ ftime_start()
  *	-1 on error
  */
 
-#ifdef __STDC__
 int
-chk_ftime(register ARCHD *arcn)
-#else
-int
-chk_ftime(arcn)
-	register ARCHD *arcn;
-#endif
+chk_ftime(ARCHD *arcn)
 {
-	register FTM *pt;
-	register int namelen;
-	register u_int indx;
+	FTM *pt;
+	int namelen;
+	u_int indx;
 	char ckname[PAXPATHLEN+1];
 
 	/*
@@ -511,7 +478,7 @@ chk_ftime(arcn)
  * Interactive rename table routines
  *
  * The interactive rename table keeps track of the new names that the user
- * assignes to files from tty input. Since this map is unique for each file
+ * assigns to files from tty input. Since this map is unique for each file
  * we must store it in case there is a reference to the file later in archive
  * (a link). Otherwise we will be unable to find the file we know was
  * extracted. The remapping of these files is stored in a memory based hash
@@ -526,13 +493,8 @@ chk_ftime(arcn)
  *	0 if successful, -1 otherwise
  */
 
-#ifdef __STDC__
 int
 name_start(void)
-#else
-int
-name_start()
-#endif
 {
 	if (ntab != NULL)
 		return(0);
@@ -552,25 +514,17 @@ name_start()
  *	0 if added, -1 otherwise
  */
 
-#ifdef __STDC__
 int
-add_name(register char *oname, int onamelen, char *nname)
-#else
-int
-add_name(oname, onamelen, nname)
-	register char *oname;
-	int onamelen;
-	char *nname;
-#endif
+add_name(char *oname, int onamelen, char *nname)
 {
-	register NAMT *pt;
-	register u_int indx;
+	NAMT *pt;
+	u_int indx;
 
 	if (ntab == NULL) {
 		/*
 		 * should never happen
 		 */
-		paxwarn(0, "No interactive rename table, links may fail\n");
+		paxwarn(0, "No interactive rename table, links may fail");
 		return(0);
 	}
 
@@ -628,19 +582,11 @@ add_name(oname, onamelen, nname)
  *	new name (oname is the link to name)
  */
 
-#ifdef __STDC__
 void
-sub_name(register char *oname, int *onamelen, size_t onamesize)
-#else
-void
-sub_name(oname, onamelen, onamesize)
-	register char *oname;
-	int *onamelen;
-	size_t onamesize;
-#endif
+sub_name(char *oname, int *onamelen, size_t onamesize)
 {
-	register NAMT *pt;
-	register u_int indx;
+	NAMT *pt;
+	u_int indx;
 
 	if (ntab == NULL)
 		return;
@@ -660,8 +606,7 @@ sub_name(oname, onamelen, onamesize)
 			 * found it, replace it with the new name
 			 * and return (we know that oname has enough space)
 			 */
-			*onamelen = l_strncpy(oname, pt->nname, onamesize - 1);
-			oname[*onamelen] = '\0';
+			*onamelen = strlcpy(oname, pt->nname, onamesize);
 			return;
 		}
 		pt = pt->fow;
@@ -720,13 +665,8 @@ sub_name(oname, onamelen, onamesize)
  *	0 if successful, -1 otherwise
  */
 
-#ifdef __STDC__
 int
 dev_start(void)
-#else
-int
-dev_start()
-#endif
 {
 	if (dtab != NULL)
 		return(0);
@@ -747,14 +687,8 @@ dev_start()
  *	0 if added ok, -1 otherwise
  */
 
-#ifdef __STDC__
 int
-add_dev(register ARCHD *arcn)
-#else
-int
-add_dev(arcn)
-	register ARCHD *arcn;
-#endif
+add_dev(ARCHD *arcn)
 {
 	if (chk_dev(arcn->sb.st_dev, 1) == NULL)
 		return(-1);
@@ -766,7 +700,7 @@ add_dev(arcn)
  *	check for a device value in the device table. If not found and the add
  *	flag is set, it is added. This does NOT assign any mapping values, just
  *	adds the device number as one that need to be remapped. If this device
- *	is alread mapped, just return with a pointer to that entry.
+ *	is already mapped, just return with a pointer to that entry.
  * Return:
  *	pointer to the entry for this device in the device map table. Null
  *	if the add flag is not set and the device is not in the table (it is
@@ -774,18 +708,11 @@ add_dev(arcn)
  *	is returned (indicates an error).
  */
 
-#ifdef __STDC__
 static DEVT *
 chk_dev(dev_t dev, int add)
-#else
-static DEVT *
-chk_dev(dev, add)
-	dev_t dev;
-	int add;
-#endif
 {
-	register DEVT *pt;
-	register u_int indx;
+	DEVT *pt;
+	u_int indx;
 
 	if (dtab == NULL)
 		return(NULL);
@@ -839,19 +766,11 @@ chk_dev(dev, add)
  *	0 if all ok, -1 otherwise.
  */
 
-#ifdef __STDC__
 int
-map_dev(register ARCHD *arcn, u_long dev_mask, u_long ino_mask)
-#else
-int
-map_dev(arcn, dev_mask, ino_mask)
-	register ARCHD *arcn;
-	u_long dev_mask;
-	u_long ino_mask;
-#endif
+map_dev(ARCHD *arcn, u_long dev_mask, u_long ino_mask)
 {
-	register DEVT *pt;
-	register DLIST *dpt;
+	DEVT *pt;
+	DLIST *dpt;
 	static dev_t lastdev = 0;	/* next device number to try */
 	int trc_ino = 0;
 	int trc_dev = 0;
@@ -968,14 +887,14 @@ map_dev(arcn, dev_mask, ino_mask)
 /*
  * directory access/mod time reset table routines (for directories READ by pax)
  *
- * The pax -t flag requires that access times of archive files to be the same
+ * The pax -t flag requires that access times of archive files be the same
  * before being read by pax. For regular files, access time is restored after
  * the file has been copied. This database provides the same functionality for
  * directories read during file tree traversal. Restoring directory access time
  * is more complex than files since directories may be read several times until
  * all the descendants in their subtree are visited by fts. Directory access
  * and modification times are stored during the fts pre-order visit (done
- * before any descendants in the subtree is visited) and restored after the
+ * before any descendants in the subtree are visited) and restored after the
  * fts post-order visit (after all the descendants have been visited). In the
  * case of premature exit from a subtree (like from the effects of -n), any
  * directory entries left in this database are reset during final cleanup
@@ -989,13 +908,8 @@ map_dev(arcn, dev_mask, ino_mask)
  *	0 is created ok, -1 otherwise.
  */
 
-#ifdef __STDC__
 int
 atdir_start(void)
-#else
-int
-atdir_start()
-#endif
 {
 	if (atab != NULL)
 		return(0);
@@ -1014,16 +928,11 @@ atdir_start()
  *	entries are for directories READ by pax
  */
 
-#ifdef __STDC__
 void
 atdir_end(void)
-#else
-void
-atdir_end()
-#endif
 {
-	register ATDIR *pt;
-	register int i;
+	ATDIR *pt;
+	int i;
 
 	if (atab == NULL)
 		return;
@@ -1050,21 +959,11 @@ atdir_end()
  *	and chained by inode number. This is for directories READ by pax
  */
 
-#ifdef __STDC__
 void
 add_atdir(char *fname, dev_t dev, ino_t ino, time_t mtime, time_t atime)
-#else
-void
-add_atdir(fname, dev, ino, mtime, atime)
-	char *fname;
-	dev_t dev;
-	ino_t ino;
-	time_t mtime;
-	time_t atime;
-#endif
 {
-	register ATDIR *pt;
-	register u_int indx;
+	ATDIR *pt;
+	u_int indx;
 
 	if (atab == NULL)
 		return;
@@ -1074,7 +973,7 @@ add_atdir(fname, dev, ino, mtime, atime)
 	 * return (the older entry always has the correct time). The only
 	 * way this will happen is when the same subtree can be traversed by
 	 * different args to pax and the -n option is aborting fts out of a
-	 * subtree before all the post-order visits have been made).
+	 * subtree before all the post-order visits have been made.
 	 */
 	indx = ((unsigned)ino) % A_TAB_SZ;
 	if ((pt = atab[indx]) != NULL) {
@@ -1122,21 +1021,12 @@ add_atdir(fname, dev, ino, mtime, atime)
  *	0 if found, -1 if not found.
  */
 
-#ifdef __STDC__
 int
 get_atdir(dev_t dev, ino_t ino, time_t *mtime, time_t *atime)
-#else
-int
-get_atdir(dev, ino, mtime, atime)
-	dev_t dev;
-	ino_t ino;
-	time_t *mtime;
-	time_t *atime;
-#endif
 {
-	register ATDIR *pt;
-	register ATDIR **ppt;
-	register u_int indx;
+	ATDIR *pt;
+	ATDIR **ppt;
+	u_int indx;
 
 	if (atab == NULL)
 		return(-1);
@@ -1206,31 +1096,18 @@ get_atdir(dev, ino, mtime, atime)
  *	0 if ok, -1 otherwise
  */
 
-#ifdef __STDC__
 int
 dir_start(void)
-#else
-int
-dir_start()
-#endif
 {
-	char *pt;
-
-	if (dirfd != -1)
+	if (dirp != NULL)
 		return(0);
 
-	/*
-	 * unlink the file so it goes away at termination by itself
-	 */
-	pt = strdup("/tmp/paxXXXXXX");
-	if ((dirfd = mkstemp(pt)) >= 0) {
-		(void)unlink(pt);
-		free(pt);
-		return(0);
+	dirsize = DIRP_SIZE;
+	if ((dirp = malloc(dirsize * sizeof(DIRDATA))) == NULL) {
+		paxwarn(1, "Unable to allocate memory for directory times");
+		return(-1);
 	}
-	paxwarn(1, "Unable to create temporary file for directory times: %s", pt);
-	free(pt);
-	return(-1);
+	return(0);
 }
 
 /*
@@ -1246,48 +1123,35 @@ dir_start()
  *	pax spec)
  */
 
-#ifdef __STDC__
 void
-add_dir(char *name, int nlen, struct stat *psb, int frc_mode)
-#else
-void
-add_dir(name, nlen, psb, frc_mode)
-	char *name;
-	int nlen;
-	struct stat *psb;
-	int frc_mode;
-#endif
+add_dir(char *name, struct stat *psb, int frc_mode)
 {
-	DIRDATA dblk;
+	DIRDATA *dblk;
 
-	if (dirfd < 0)
+	if (dirp == NULL)
 		return;
 
-	/*
-	 * get current position (where file name will start) so we can store it
-	 * in the trailer
-	 */
-	if ((dblk.npos = lseek(dirfd, 0L, SEEK_CUR)) < 0) {
-		paxwarn(1,"Unable to store mode and times for directory: %s",name);
+	if (dircnt == dirsize) {
+		dblk = realloc(dirp, 2 * dirsize * sizeof(DIRDATA));
+		if (dblk == NULL) {
+			paxwarn(1, "Unable to store mode and times for created"
+			    " directory: %s", name);
+			return;
+		}
+		dirp = dblk;
+		dirsize *= 2;
+	}
+	dblk = &dirp[dircnt];
+	if ((dblk->name = strdup(name)) == NULL) {
+		paxwarn(1, "Unable to store mode and times for created"
+		    " directory: %s", name);
 		return;
 	}
-
-	/*
-	 * write the file name followed by the trailer
-	 */
-	dblk.nlen = nlen + 1;
-	dblk.mode = psb->st_mode & 0xffff;
-	dblk.mtime = psb->st_mtime;
-	dblk.atime = psb->st_atime;
-	dblk.frc_mode = frc_mode;
-	if ((write(dirfd, name, dblk.nlen) == dblk.nlen) &&
-	    (write(dirfd, (char *)&dblk, sizeof(dblk)) == sizeof(dblk))) {
-		++dircnt;
-		return;
-	}
-
-	paxwarn(1,"Unable to store mode and times for created directory: %s",name);
-	return;
+	dblk->mode = psb->st_mode & 0xffff;
+	dblk->mtime = psb->st_mtime;
+	dblk->atime = psb->st_atime;
+	dblk->frc_mode = frc_mode;
+	++dircnt;
 }
 
 /*
@@ -1296,54 +1160,34 @@ add_dir(name, nlen, psb, frc_mode)
  *	by pax
  */
 
-#ifdef __STDC__
 void
 proc_dir(void)
-#else
-void
-proc_dir()
-#endif
 {
-	char name[PAXPATHLEN+1];
-	DIRDATA dblk;
-	u_long cnt;
+	DIRDATA *dblk;
+	long cnt;
 
-	if (dirfd < 0)
+	if (dirp == NULL)
 		return;
 	/*
 	 * read backwards through the file and process each directory
 	 */
-	for (cnt = 0; cnt < dircnt; ++cnt) {
-		/*
-		 * read the trailer, then the file name, if this fails
-		 * just give up.
-		 */
-		if (lseek(dirfd, -((off_t)sizeof(dblk)), SEEK_CUR) < 0)
-			break;
-		if (read(dirfd,(char *)&dblk, sizeof(dblk)) != sizeof(dblk))
-			break;
-		if (lseek(dirfd, dblk.npos, SEEK_SET) < 0)
-			break;
-		if (read(dirfd, name, dblk.nlen) != dblk.nlen)
-			break;
-		if (lseek(dirfd, dblk.npos, SEEK_SET) < 0)
-			break;
-
+	cnt = dircnt;
+	while (--cnt >= 0) {
 		/*
 		 * frc_mode set, make sure we set the file modes even if
 		 * the user didn't ask for it (see file_subs.c for more info)
 		 */
-		if (pmode || dblk.frc_mode)
-			set_pmode(name, dblk.mode);
+		dblk = &dirp[cnt];
+		if (pmode || dblk->frc_mode)
+			set_pmode(dblk->name, dblk->mode);
 		if (patime || pmtime)
-			set_ftime(name, dblk.mtime, dblk.atime, 0);
+			set_ftime(dblk->name, dblk->mtime, dblk->atime, 0);
+		free(dblk->name);
 	}
 
-	(void)close(dirfd);
-	dirfd = -1;
-	if (cnt != dircnt)
-		paxwarn(1,"Unable to set mode and times for created directories");
-	return;
+	free(dirp);
+	dirp = NULL;
+	dircnt = 0;
 }
 
 /*
@@ -1364,24 +1208,16 @@ proc_dir()
  *	the hash value of the string MOD (%) the table size.
  */
 
-#ifdef __STDC__
 u_int
 st_hash(char *name, int len, int tabsz)
-#else
-u_int
-st_hash(name, len, tabsz)
-	char *name;
-	int len;
-	int tabsz;
-#endif
 {
-	register char *pt;
-	register char *dest;
-	register char *end;
-	register int i;
-	register u_int key = 0;
-	register int steps;
-	register int res;
+	char *pt;
+	char *dest;
+	char *end;
+	int i;
+	u_int key = 0;
+	int steps;
+	int res;
 	u_int val;
 
 	/*

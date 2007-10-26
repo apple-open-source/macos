@@ -71,7 +71,7 @@ atp_getresp (fd,tid,resp)
 		UAL_ASSIGN(newbdsp[i].bdsBuffAddr, resp->resp[i].iov_base);
 		UAS_ASSIGN(newbdsp[i].bdsBuffSz, resp->resp[i].iov_len);
 	}
-	if ((status = ATPgetrsp(fd, newbdsp)) == -1)
+	if ((status = ntohs(ATPgetrsp(fd, newbdsp))) == -1)
 		return -1;
 
 	/*

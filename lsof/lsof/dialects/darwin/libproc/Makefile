@@ -1,7 +1,7 @@
 
 # Darwin libproc-based lsof Makefile
 #
-# $Id: Makefile,v 1.5 2006/03/23 21:28:26 ajn Exp $
+# $Id: Makefile,v 1.7 2007/06/05 21:11:21 ajn Exp $
 
 PROG=	lsof
 
@@ -19,7 +19,7 @@ CDEFS=	${CDEF} ${CFGF}
 INCL=	${DINC}
 override CFLAGS= ${CDEFS} ${INCL} ${DEBUG}
 
-GRP=    kmem
+GRP=    admin
 
 HDR=    lsof.h lsof_fields.h dlsof.h machine.h proto.h dproto.h
 
@@ -48,8 +48,12 @@ clean: FRC
 	(cd lib; ${MAKE} -f Makefile.skel clean)
 
 install-strip: all FRC
+	@if [ -n "${SYMROOT}" ]; then \
+	  mkdir -p ${SYMROOT}; \
+	  cp -p ${PROG} ${SYMROOT}/${PROG}; \
+	fi
 	mkdir -p ${BIN}
-	install -c -s -m 2755 -g ${GRP} ${PROG} ${BIN}
+	install -c -s -m 755 -g ${GRP} ${PROG} ${BIN}
 	mkdir -p ${DOC}
 	install -c -m 444 ${MAN} ${DOC}
 

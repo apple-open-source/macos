@@ -77,12 +77,6 @@
 #define BSDLIMIT
 
 /*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-#undef BSDNICE
-
-/*
  * TERMIO	You have struct termio instead of struct sgttyb.
  * 		This is usually the case for SYSV systems, where
  *		BSD uses sgttyb. POSIX systems should define this
@@ -100,27 +94,6 @@
 #define SYSVREL	3
 
 /*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#define UTHOST
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
-
-/*
  * ECHO_STYLE	Optionally change the behavior of the builtin echo
  *		BOTH_ECHO: Support both bsd options (-n) and sysv escapes (\nnn)
  *		BSD_ECHO:  Support only -n
@@ -134,7 +107,6 @@
 
 #define HPUXVERSION 800	/* For HP-UX version 8.00 */
 
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-#include "config_f.h"
+#define _XOPEN_SOURCE_EXTENDED
+
 #endif /* _h_config */

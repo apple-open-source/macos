@@ -74,6 +74,8 @@ typedef UInt32 SecuritySessionId;
     Here are some special values for SecuritySessionId. You may specify those
         on input to SessionAPI functions. They will never be returned from such
         functions.
+    
+    Note: -2 is reserved (see 4487137).  
 */
 enum {
     noSecuritySession                      = 0,     /* definitely not a valid SecuritySessionId */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,7 +47,7 @@ __BEGIN_DECLS
 /*
  * DNS configuration creation APIs
  */
-dns_create_config_t     _dns_configuration_create       ();
+dns_create_config_t     _dns_configuration_create       (void);
 void			_dns_configuration_add_resolver (dns_create_config_t *_config, dns_create_resolver_t _resolver);
 _Bool			_dns_configuration_store	(dns_create_config_t *_config);
 void			_dns_configuration_free		(dns_create_config_t *_config);
@@ -55,10 +55,10 @@ void			_dns_configuration_free		(dns_create_config_t *_config);
 /*
  * DNS [resolver] configuration creation APIs
  */
-dns_create_resolver_t   _dns_resolver_create();
+dns_create_resolver_t   _dns_resolver_create		(void);
 void			_dns_resolver_set_domain	(dns_create_resolver_t *_resolver, const char *domain);
 void			_dns_resolver_add_nameserver	(dns_create_resolver_t *_resolver, struct sockaddr *nameserver);
-void			_dns_resolver_set_port		(dns_create_resolver_t *_resolver, uint32_t port);	// host byte order
+void			_dns_resolver_set_port		(dns_create_resolver_t *_resolver, uint16_t port);	// host byte order
 void			_dns_resolver_add_search	(dns_create_resolver_t *_resolver, const char *search);
 void			_dns_resolver_add_sortaddr	(dns_create_resolver_t *_resolver, dns_sortaddr_t *sortaddr);
 void			_dns_resolver_set_options	(dns_create_resolver_t *_resolver, const char *options);

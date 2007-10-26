@@ -1,5 +1,6 @@
 /*
-* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2006, International Business Machines Corporation and others.
+* All Rights Reserved.
 ********************************************************************************
 *
 * File GREGOCAL.H
@@ -29,9 +30,14 @@
 
 #include "unicode/calendar.h"
 
+/**
+ * \file 
+ * \brief C++ API: Concrete class which provides the standard calendar.
+ */
+
 U_NAMESPACE_BEGIN
 
-/**
+/** 
  * Concrete class which provides the standard calendar used by most of the world.
  * <P>
  * The standard (Gregorian) calendar has 2 eras, BC and AD.
@@ -393,7 +399,7 @@ public:
      * @param field    the time field.
      * @param status   error result.
      * @return         the minimum value that this field could have, given the current date.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     int32_t getActualMinimum(UCalendarDateFields field, UErrorCode &status) const;
 

@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/tc.vers.c,v 1.1.1.3 2003/01/17 03:41:20 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/tc.vers.c,v 3.50 2004/08/04 17:12:31 christos Exp $ */
 /*
  * tc.vers.c: Version dependent stuff
  */
@@ -33,7 +33,7 @@
 #include "sh.h"
 #include "tw.h"
 
-RCSID("$Id: tc.vers.c,v 1.1.1.3 2003/01/17 03:41:20 nicolai Exp $")
+RCSID("$Id: tc.vers.c,v 3.50 2004/08/04 17:12:31 christos Exp $")
 
 #include "patchlevel.h"
 
@@ -45,7 +45,9 @@ RCSID("$Id: tc.vers.c,v 1.1.1.3 2003/01/17 03:41:20 nicolai Exp $")
 void
 fix_version()
 {
-#ifdef SHORT_STRINGS
+#ifdef WIDE_STRINGS
+# define SSSTR "wide"
+#elif defined (SHORT_STRINGS)
 # define SSSTR "8b"
 #else
 # define SSSTR "7b"

@@ -2,12 +2,13 @@
 # All rights reserved.
 
 # !!!cmolick:20000821 hardcoded tool paths because variables not set yet
+# !!!:rballard:20061219 I'm not sure which variables the above comment refers to; $(SYSTEM_DEVELOPER_DIR) et al seem to work fine
 APPLE_INTERNAL_TOOLS default = /AppleInternal/Developer/Tools ;
-SYSTEM_DEVELOPER_TOOLS default = /Developer/Tools ;
+SYSTEM_DEVELOPER_TOOLS default = "$(SYSTEM_DEVELOPER_DIR)/Tools" ;
 # Variables for invoking commands using explict paths
 # except where built in shell functions should be used
-ASM		default = /usr/bin/as ;
-BRIDGET         default = /usr/bin/bridget ;
+ASM		    default = "$(DEVELOPER_BIN_DIR)/as" ;
+BRIDGET     default = "$(DEVELOPER_BIN_DIR)/bridget" ;
 # CC defined in BeginProduct rule based on value of GCC_VERSION and other settings
 CD		default = cd ;
 CHMOD		default = /bin/chmod ;
@@ -19,42 +20,42 @@ EGREP		default = /usr/bin/egrep ;
 FASTCP		default = /usr/lib/fastcp ;
 FIXPRECOMPS	default = /usr/bin/fixPrecomps ;
 FIND		default = /usr/bin/find ;
-GATHERHEADERDOC default = /usr/bin/gatherHeaderDoc ;
-HEADERDOC2HTML	default = /usr/bin/headerdoc2html ;
+GATHERHEADERDOC default = "$(DEVELOPER_BIN_DIR)/gatherHeaderDoc" ;
+HEADERDOC2HTML	default = "$(DEVELOPER_BIN_DIR)/headerdoc2html" ;
 INTERFACER	default = $(APPLE_INTERNAL_TOOLS)/Interfacer ;
 JAR		default = /usr/bin/jar ;
 export JAVA_COMPILER	default = /usr/bin/javac ;
-export JAVACONFIG	default = /usr/bin/javaconfig ;
+export JAVACONFIG	default = "$(DEVELOPER_BIN_DIR)/javaconfig" ;
 # LD defined in BeginProduct rule based value of GCC_VERSION and other settings
-LEX		default = /usr/bin/lex ;
-LIBTOOL		default = /usr/bin/libtool ;
+LEX		    default = "$(DEVELOPER_BIN_DIR)/lex" ;
+LIBTOOL		default = "$(DEVELOPER_BIN_DIR)/libtool" ;
 LN		default = /bin/ln ;
-LNRESOLVE       default = $(SYSTEM_DEVELOPER_TOOLS)/lnresolve ;
+LNRESOLVE   default = "$(SYSTEM_DEVELOPER_TOOLS)/lnresolve" ;
 MAKEPSEUDOLIB	default = $(APPLE_INTERNAL_TOOLS)/MakePseudoLibrary ;
 MERGEINFO	default = /usr/lib/mergeInfo ;
 MKDIR		default = /bin/mkdir ;
-MIG		default = /usr/bin/mig ;
+MIG		    default = "$(DEVELOPER_BIN_DIR)/mig" ;
 MV		default = /bin/mv ;
-NMEDIT		default = /usr/bin/nmedit ;
+NMEDIT		default = "$(DEVELOPER_BIN_DIR)/nmedit" ;
 OSAC		default = /usr/bin/osacompile ;
 OSAL		default = /usr/bin/osalang ;
 OSAS		default = /usr/bin/osascript ;
-PBXCP		default = $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp ;
-RANLIB		default = /usr/bin/ranlib ;
+PBXCP		default = "$(SYSTEM_DEVELOPER_DIR)/Library/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp" ;
+RANLIB		default = "$(DEVELOPER_BIN_DIR)/ranlib" ;
 REGGEN		default = reggen ;
-RESMERGER	default = $(SYSTEM_DEVELOPER_TOOLS)/ResMerger ;
-RESOURCE_PRESERVING_CP default = $(SYSTEM_DEVELOPER_TOOLS)/CpMac ;
-REZ		default = $(SYSTEM_DEVELOPER_TOOLS)/Rez ;
+RESMERGER	default = "$(SYSTEM_DEVELOPER_TOOLS)/ResMerger" ;
+RESOURCE_PRESERVING_CP default = "$(SYSTEM_DEVELOPER_TOOLS)/CpMac" ;
+REZ		default = "$(SYSTEM_DEVELOPER_TOOLS)/Rez" ;
 RM		default = /bin/rm ;
-RPCGEN		default = /usr/bin/rpcgen ;
+RPCGEN		default = "$(DEVELOPER_BIN_DIR)/rpcgen" ;
 SED		default = /usr/bin/sed ;
-SETFILE		default = $(SYSTEM_DEVELOPER_TOOLS)/SetFile ;
+SETFILE		default = "$(SYSTEM_DEVELOPER_TOOLS)/SetFile" ;
 SH		default = /bin/sh ;
-STRIP		default = /usr/bin/strip ;
+STRIP		default = "$(DEVELOPER_BIN_DIR)/strip" ;
 TOUCH		default = /usr/bin/touch ;
 UNZIP		default = /usr/bin/unzip ;
 XARGS		default = /usr/bin/xargs ;
-YACC		default = /usr/bin/yacc ;
+YACC		default = "$(DEVELOPER_BIN_DIR)/yacc" ;
 ZIP		default = /usr/bin/zip ;
 
 # Basic operations:

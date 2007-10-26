@@ -32,6 +32,7 @@
 #include <CoreFoundation/CFString.h>
 #include <security_keychain/Item.h>
 #include <securityd_client/dictionary.h>
+#include <list>
 
 namespace Security
 {

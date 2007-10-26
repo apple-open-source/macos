@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,8 @@
 #if defined( __i386__ )
 
 #include <IOKit/IOTypes.h>
-#include <pexpert/i386/protos.h>  // x86 IN/OUT inline asm
+//#include <pexpert/i386/protos.h>  // x86 IN/OUT inline asm (obsolete file)
+#include <architecture/i386/pio.h>  // x86 IN/OUT inline asm
 #include "IOATARegI386.h"
 
 OSDefineMetaClassAndAbstractStructors( IOATAReg8,  OSObject )

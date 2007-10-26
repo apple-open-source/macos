@@ -1,0 +1,18 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>pyobjc</string>
+	<key>OpenSourceVersion</key>
+	<string>private-Leopard-branch-20070917</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://pyobjc.sourceforge.net/</string>
+	<key>OpenSourceImportDate</key>
+	<string>2007-09-17</string>
+	<key>OpenSourceSVN</key>
+	<string>svn export http://svn.pythonmac.org/wwdc/</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>pyobjc.txt</string>
+</dict>
+</plist>

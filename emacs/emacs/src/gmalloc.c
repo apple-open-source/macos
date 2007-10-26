@@ -1,27 +1,31 @@
 /* This file is no longer automatically generated from libc.  */
 
 #define _MALLOC_INTERNAL
+#ifdef HAVE_GTK_AND_PTHREAD
+#define USE_PTHREAD
+#endif
 
 /* The malloc headers and source files from the C library follow here.  */
 
 /* Declarations for `malloc' and friends.
-   Copyright 1990, 91, 92, 93, 95, 96, 99 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1991, 1992, 1993, 1995, 1996, 1999, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 		  Written May 1989 by Mike Haertel.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -70,6 +74,10 @@ Cambridge, MA 02139, USA.
 
 #ifdef	HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
+#ifdef USE_PTHREAD
+#include <pthread.h>
 #endif
 
 #endif	/* _MALLOC_INTERNAL.  */
@@ -228,6 +236,15 @@ extern __ptr_t _malloc_internal PP ((__malloc_size_t __size));
 extern __ptr_t _realloc_internal PP ((__ptr_t __ptr, __malloc_size_t __size));
 extern void _free_internal PP ((__ptr_t __ptr));
 
+#ifdef USE_PTHREAD
+extern pthread_mutex_t _malloc_mutex;
+#define LOCK()     pthread_mutex_lock (&_malloc_mutex)
+#define UNLOCK()   pthread_mutex_unlock (&_malloc_mutex)
+#else
+#define LOCK()
+#define UNLOCK()
+#endif
+
 #endif /* _MALLOC_INTERNAL.  */
 
 /* Given an address in the middle of a malloc'd object,
@@ -328,19 +345,19 @@ extern __ptr_t r_re_alloc PP ((__ptr_t *__handleptr, __malloc_size_t __size));
 		  Written May 1989 by Mike Haertel.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -352,6 +369,10 @@ Cambridge, MA 02139, USA.
 #include <errno.h>
 
 /* How to really get more memory.  */
+#if defined(CYGWIN)
+extern __ptr_t bss_sbrk PP ((ptrdiff_t __size));
+extern int bss_sbrk_did_unexec;
+#endif
 __ptr_t (*__morecore) PP ((ptrdiff_t __size)) = __default_morecore;
 
 /* Debugging hook for `malloc'.  */
@@ -420,7 +441,7 @@ protect_malloc_state (protect_p)
 
   last_state_size = _heaplimit * sizeof *_heapinfo;
   last_heapinfo   = _heapinfo;
-  
+
   if (protect_p != state_protected_p)
     {
       state_protected_p = protect_p;
@@ -531,13 +552,14 @@ register_heapinfo ()
     _heapinfo[block + blocks].busy.info.size = -blocks;
 }
 
-/* Set everything up and remember that we have.  */
-int
-__malloc_initialize ()
-{
-  if (__malloc_initialized)
-    return 0;
+#ifdef USE_PTHREAD
+static pthread_once_t malloc_init_once_control = PTHREAD_ONCE_INIT;
+pthread_mutex_t _malloc_mutex;
+#endif
 
+static void
+malloc_initialize_1 ()
+{
 #ifdef GC_MCHECK
   mcheck (NULL);
 #endif
@@ -545,10 +567,21 @@ __malloc_initialize ()
   if (__malloc_initialize_hook)
     (*__malloc_initialize_hook) ();
 
+#ifdef USE_PTHREAD
+  {
+    pthread_mutexattr_t attr;
+
+    pthread_mutexattr_init (&attr);
+    pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init (&_malloc_mutex, &attr);
+    pthread_mutexattr_destroy (&attr);
+  }
+#endif
+
   heapsize = HEAP / BLOCKSIZE;
   _heapinfo = (malloc_info *) align (heapsize * sizeof (malloc_info));
   if (_heapinfo == NULL)
-    return 0;
+    return;
   memset (_heapinfo, 0, heapsize * sizeof (malloc_info));
   _heapinfo[0].free.size = 0;
   _heapinfo[0].free.next = _heapinfo[0].free.prev = 0;
@@ -560,7 +593,23 @@ __malloc_initialize ()
 
   __malloc_initialized = 1;
   PROTECT_MALLOC_STATE (1);
-  return 1;
+  return;
+}
+
+/* Set everything up and remember that we have.  */
+int
+__malloc_initialize ()
+{
+#ifdef USE_PTHREAD
+  pthread_once (&malloc_init_once_control, malloc_initialize_1);
+#else
+  if (__malloc_initialized)
+    return 0;
+
+  malloc_initialize_1 ();
+#endif
+
+  return __malloc_initialized;
 }
 
 static int morecore_recursing;
@@ -703,6 +752,7 @@ _malloc_internal (size)
     return NULL;
 #endif
 
+  LOCK ();
   PROTECT_MALLOC_STATE (0);
 
   if (size < sizeof (struct list))
@@ -760,7 +810,7 @@ _malloc_internal (size)
 	  if (result == NULL)
 	    {
 	      PROTECT_MALLOC_STATE (1);
-	      return NULL;
+	      goto out;
 	    }
 
 	  /* Link all fragments but the first into the free list.  */
@@ -826,7 +876,7 @@ _malloc_internal (size)
 		}
 	      result = morecore (wantblocks * BLOCKSIZE);
 	      if (result == NULL)
-		return NULL;
+		goto out;
 	      block = BLOCK (result);
 	      /* Put the new block at the end of the free list.  */
 	      _heapinfo[block].free.size = wantblocks;
@@ -881,6 +931,8 @@ _malloc_internal (size)
     }
 
   PROTECT_MALLOC_STATE (1);
+ out:
+  UNLOCK ();
   return result;
 }
 
@@ -927,19 +979,19 @@ _realloc (ptr, size)
 		  Written May 1989 by Mike Haertel.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -991,8 +1043,9 @@ _free_internal (ptr)
   if (ptr == NULL)
     return;
 
+  LOCK ();
   PROTECT_MALLOC_STATE (0);
-  
+
   for (l = _aligned_blocks; l != NULL; l = l->next)
     if (l->aligned == ptr)
       {
@@ -1214,8 +1267,9 @@ _free_internal (ptr)
 	}
       break;
     }
-  
+
   PROTECT_MALLOC_STATE (1);
+  UNLOCK ();
 }
 
 /* Return memory to the heap.  */
@@ -1246,19 +1300,19 @@ cfree (ptr)
 		     Written May 1989 by Mike Haertel.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -1379,8 +1433,9 @@ _realloc_internal (ptr, size)
 
   block = BLOCK (ptr);
 
+  LOCK ();
   PROTECT_MALLOC_STATE (0);
-  
+
   type = _heapinfo[block].busy.type;
   switch (type)
     {
@@ -1393,7 +1448,7 @@ _realloc_internal (ptr, size)
 	    {
 	      memcpy (result, ptr, size);
 	      _free_internal (ptr);
-	      return result;
+	      goto out;
 	    }
 	}
 
@@ -1446,7 +1501,7 @@ _realloc_internal (ptr, size)
 		  (void) _malloc_internal (blocks * BLOCKSIZE);
 		  _free_internal (previous);
 		}
-	      return NULL;
+	      goto out;
 	    }
 	  if (ptr != result)
 	    memmove (result, ptr, blocks * BLOCKSIZE);
@@ -1466,7 +1521,7 @@ _realloc_internal (ptr, size)
 	     and copy the lesser of the new size and the old. */
 	  result = _malloc_internal (size);
 	  if (result == NULL)
-	    return NULL;
+	    goto out;
 	  memcpy (result, ptr, min (size, (__malloc_size_t) 1 << type));
 	  _free_internal (ptr);
 	}
@@ -1474,6 +1529,8 @@ _realloc_internal (ptr, size)
     }
 
   PROTECT_MALLOC_STATE (1);
+ out:
+  UNLOCK ();
   return result;
 }
 
@@ -1491,19 +1548,19 @@ realloc (ptr, size)
 /* Copyright (C) 1991, 1992, 1994 Free Software Foundation, Inc.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -1542,7 +1599,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with the GNU C Library; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor, Boston,
+MA 02110-1301, USA.  */
 
 #ifndef	_MALLOC_INTERNAL
 #define	_MALLOC_INTERNAL
@@ -1572,7 +1630,14 @@ __ptr_t
 __default_morecore (increment)
      __malloc_ptrdiff_t increment;
 {
-  __ptr_t result = (__ptr_t) __sbrk (increment);
+  __ptr_t result;
+#if defined(CYGWIN)
+  if (!bss_sbrk_did_unexec)
+    {
+      return bss_sbrk (increment);
+    }
+#endif
+  result = (__ptr_t) __sbrk (increment);
   if (result == (__ptr_t) -1)
     return NULL;
   return result;
@@ -1580,19 +1645,19 @@ __default_morecore (increment)
 /* Copyright (C) 1991, 92, 93, 94, 95, 96 Free Software Foundation, Inc.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 #ifndef	_MALLOC_INTERNAL
 #define _MALLOC_INTERNAL
@@ -1680,19 +1745,19 @@ memalign (alignment, size)
    Copyright (C) 1991, 92, 93, 94, 96 Free Software Foundation, Inc.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -1747,19 +1812,19 @@ valloc (size)
    Written May 1989 by Mike Haertel.
 
 This library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
+modify it under the terms of the GNU General Public License as
 published by the Free Software Foundation; either version 2 of the
 License, or (at your option) any later version.
 
 This library is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
+General Public License for more details.
 
-You should have received a copy of the GNU Library General Public
-License along with this library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.
+You should have received a copy of the GNU General Public
+License along with this library; see the file COPYING.  If
+not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+Fifth Floor, Boston, MA 02110-1301, USA.
 
    The author may be reached (Email) at the address mike@ai.mit.edu,
    or (US mail) as Mike Haertel c/o Free Software Foundation.  */
@@ -1843,7 +1908,7 @@ freehook (ptr)
      __ptr_t ptr;
 {
   struct hdr *hdr;
-    
+
   if (ptr)
     {
       hdr = ((struct hdr *) ptr) - 1;
@@ -1853,7 +1918,7 @@ freehook (ptr)
     }
   else
     hdr = NULL;
-  
+
   __free_hook = old_free_hook;
   free (hdr);
   __free_hook = freehook;
@@ -1887,7 +1952,7 @@ reallochook (ptr, size)
 {
   struct hdr *hdr = NULL;
   __malloc_size_t osize = 0;
-    
+
   if (ptr)
     {
       hdr = ((struct hdr *) ptr) - 1;
@@ -1897,7 +1962,7 @@ reallochook (ptr, size)
       if (size < osize)
 	flood ((char *) ptr + size, FREEFLOOD, osize - size);
     }
-  
+
   __free_hook = old_free_hook;
   __malloc_hook = old_malloc_hook;
   __realloc_hook = old_realloc_hook;
@@ -1978,3 +2043,6 @@ mprobe (__ptr_t ptr)
 }
 
 #endif /* GC_MCHECK */
+
+/* arch-tag: 93dce5c0-f49a-41b5-86b1-f91c4169c02e
+   (do not change this comment) */

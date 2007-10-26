@@ -1,0 +1,13 @@
+--- util/texindex.c.orig        2007-01-05 10:43:57.000000000 -0800
++++ util/texindex.c     2007-01-05 10:42:42.000000000 -0800
+@@ -836,8 +836,8 @@
+       if (p == end)
+         {
+           buffer = (char *) xrealloc (buffer, linebuffer->size *= 2);
+-          p += buffer - linebuffer->buffer;
+-          end += buffer - linebuffer->buffer;
++         p = buffer + (p - linebuffer->buffer);
++          end = buffer + linebuffer->size;
+           linebuffer->buffer = buffer;
+         }
+       if (c < 0 || c == '\n')

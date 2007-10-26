@@ -25,7 +25,6 @@
 
 #include <stdio.h>
 #include <semaphore.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <alloca.h>
@@ -33,6 +32,7 @@
 #include <string.h>
 
 __private_extern__ int _sem_match(const char *name);
+extern sem_t *__sem_open(const char *, int, int, unsigned int);
 
 sem_t *
 sem_open (const char *name, int flags, ...)
@@ -62,7 +62,7 @@ sem_open (const char *name, int flags, ...)
 	value = va_arg(ap, unsigned int);
 	va_end(ap);
 
-	return syscall (SYS_sem_open, name, flags, mode, value);
+	return __sem_open(name, flags, mode, value);
 }
 
 #endif /* __APPLE_PR3375657_HACK__ */

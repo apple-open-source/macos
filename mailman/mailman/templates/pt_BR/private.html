@@ -1,15 +1,15 @@
 <html>
 <head>
-    <title>%(realname)s Autenticação de Arquivos Privados</title>
+    <title>Autenticação para acesso aos arquivos privados da %(realname)s</title>
 </head>
 <body bgcolor="#ffffff">
-<FORM METHOD=POST ACTION="%(action)s/">
+<FORM METHOD=POST ACTION="%(action)s">
 %(message)s
   <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
     <TR>
       <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
-	<B><FONT COLOR="#000000" SIZE="+1">%(realname)s Autenticação
-	    de Arquivos Privados</FONT></B>
+	<B><FONT COLOR="#000000" SIZE="+1">Autenticação para acesso
+	    dos arquivos privados da %(realname)s</FONT></B>
       </TD>
     </TR>
     <tr>
@@ -27,17 +27,16 @@
       </td>
     </tr>
   </TABLE>
-      <p><strong><em>Importante:</em></strong> Deste ponto em diante,
+      <p><strong><em>Importante:</em></strong> Deste ponto em diante, 
       você deverá ter os cookies ativados em seu navegador, caso 
-      contrário nenhuma modificação administrativa terá efeito. 
- 
-      <p>Os cookies de seção são usados pela interface administrativa
-      do Mailman para não ser necessária uma nova autenticação após
-      cada operação administrativa. Este cookie expirará automaticamente
-      quando sair do seu navegador ou quando expirar o cookie explicitamente
-      clicando no link <em>Sair</em> abaixo de <em>Outras Atividades 
-      Administrativas</em> (que será visto logo que entrar com sucesso no 
-      sistema).
+      contrário você terá que re-autenticar com cada operação.
+
+      <p>Os cookies de seção são usados pela interface de arquivos
+      privados do Mailman para não precisa re-autenticar após cada
+      operação. Este cookie se expirará automaticamente quando sair
+      do seu navegador ou você poderá desativar o cookie visitando 
+      sua página de opções de membro e clicando no botão
+      <em>Sair</em>.
 </FORM>
 </body>
 </html>

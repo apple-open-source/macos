@@ -24,6 +24,8 @@
 #define _IOKIT_IOGRAPHICSPRIVATE_H
 
 #include <mach/vm_param.h>
+#include <libkern/version.h>
+#include <libkern/OSDebug.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
 
 #if 0
@@ -58,6 +60,12 @@ do { 					\
 #define DEBG(idx, fmt, args...)  {}
 #endif
 
+#define STOREINC(_ptr_, _data_, _type_)	{   \
+	*((_type_ *)(_ptr_)) = _data_;					\
+	_ptr_ = (typeof(_ptr_)) (((char *) (_ptr_)) + sizeof(_type_));	\
+    }
+
+
 #define kIOFBBootGrayValue		0x00648cc3
 // blue actual:0x00426bad gamma:0x00648cc3 bootx:0x00bfbfbf
 #define kIOFBGrayValue			0x00648cc3
@@ -81,7 +89,19 @@ do { 					\
 #define kIOFBWaitCursorPeriodKey	"IOFBWaitCursorPeriod"
 #endif
 
+#ifndef kIOUserClientSharedInstanceKey
+#define kIOUserClientSharedInstanceKey  "IOUserClientSharedInstance"
+#endif
+
+extern "C" ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
+
 extern "C" vm_map_t IOPageableMapForAddress( vm_address_t address );
+
+extern "C" IOReturn IOGetHardwareClamshellState( IOOptionBits * result );
+
+extern bool gIOGraphicsSystemPower;
+extern IOOptionBits gIOFBLastClamshellState;
+extern bool	    gIOFBSystemPower;
 
 #if __ppc__
 extern "C" void bcopy_nc( void * from, void * to, UInt32 l );
@@ -89,6 +109,10 @@ extern "C" void bzero_nc( void * p, UInt32 l );
 #else
 inline void bcopy_nc( void * from, void * to, UInt32 l)	{ bcopy( from, to, l ); }
 inline void bzero_nc( void * p, UInt32 l )		{ bzero( p, l ); }
+#endif
+
+#if VERSION_MAJOR < 9
+#define getPowerState() pm_vars->myCurrentState
 #endif
 
 #ifndef round_page_32

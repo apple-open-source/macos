@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)lam.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/lam/lam.1,v 1.12 2002/04/20 12:15:05 charnier Exp $
+.\" $FreeBSD: src/usr.bin/lam/lam.1,v 1.13 2004/08/12 11:34:34 tjr Exp $
 .\"
-.Dd September 20, 2001
+.Dd August 12, 2004
 .Dt LAM 1
 .Os
 .Sh NAME
@@ -103,28 +103,26 @@ To print files simultaneously for easy viewing use
 .Xr pr 1 .
 .Sh EXAMPLES
 The command
-.Bd -literal -offset indent
+.Bd -literal
 lam file1 file2 file3 file4
 .Ed
 .Pp
 joins 4 files together along each line.
 To merge the lines from four different files use
-.Bd -literal -offset indent
+.Bd -literal
 lam file1 \-S "\\
 " file2 file3 file4
 .Ed
 .Pp
 Every 2 lines of a file may be joined on one line with
-.Bd -literal -offset indent
+.Bd -literal
 lam \- \- < file
 .Ed
 .Pp
 and a form letter with substitutions keyed by `@' can be done with
-.Bd -literal -offset indent
+.Bd -literal
 lam \-t @ letter changes
 .Ed
-.Sh AUTHOR
-John A. Kunze <jak@ucop.edu>
 .Sh SEE ALSO
 .Xr join 1 ,
 .Xr paste 1 ,
@@ -137,3 +135,7 @@ is standardized as the
 .Xr paste 1
 utility by
 .St -p1003.2 .
+.Sh BUGS
+The
+.Nm
+utility does not recognize multibyte characters.

@@ -23,6 +23,15 @@
 
 #include "includes.h"
 
+/* Map generic permissions to file object specific permissions */
+
+struct generic_mapping file_generic_mapping = {
+	FILE_GENERIC_READ,
+	FILE_GENERIC_WRITE,
+	FILE_GENERIC_EXECUTE,
+	FILE_GENERIC_ALL
+};
+
 /*******************************************************************
  Works out the linearization size of a SEC_DESC.
 ********************************************************************/
@@ -40,8 +49,8 @@ size_t sec_desc_size(SEC_DESC *psd)
 	if (psd->owner_sid != NULL)
 		offset += sid_size(psd->owner_sid);
 
-	if (psd->grp_sid != NULL)
-		offset += sid_size(psd->grp_sid);
+	if (psd->group_sid != NULL)
+		offset += sid_size(psd->group_sid);
 
 	if (psd->sacl != NULL)
 		offset += psd->sacl->size;
@@ -62,6 +71,10 @@ BOOL sec_desc_equal(SEC_DESC *s1, SEC_DESC *s2)
 
 	if (!s1 && !s2) {
 		goto done;
+	}
+
+	if (!s1 || !s2) {
+		return False;
 	}
 
 	/* Check top level stuff */
@@ -91,11 +104,11 @@ BOOL sec_desc_equal(SEC_DESC *s1, SEC_DESC *s2)
 		return False;
 	}
 
-	if (!sid_equal(s1->grp_sid, s2->grp_sid)) {
+	if (!sid_equal(s1->group_sid, s2->group_sid)) {
 		fstring str1, str2;
 
-		sid_to_string(str1, s1->grp_sid);
-		sid_to_string(str2, s2->grp_sid);
+		sid_to_string(str1, s1->group_sid);
+		sid_to_string(str2, s2->group_sid);
 
 		DEBUG(10, ("sec_desc_equal(): group differs (%s != %s)\n",
 			   str1, str2));
@@ -144,8 +157,8 @@ SEC_DESC_BUF *sec_desc_merge(TALLOC_CTX *ctx, SEC_DESC_BUF *new_sdb, SEC_DESC_BU
 	owner_sid = new_sdb->sec->owner_sid ? new_sdb->sec->owner_sid :
 		old_sdb->sec->owner_sid;
 
-	group_sid = new_sdb->sec->grp_sid ? new_sdb->sec->grp_sid :
-		old_sdb->sec->grp_sid;
+	group_sid = new_sdb->sec->group_sid ? new_sdb->sec->group_sid :
+		old_sdb->sec->group_sid;
 	
 	secdesc_type = new_sdb->sec->type;
 
@@ -179,7 +192,7 @@ SEC_DESC_BUF *sec_desc_merge(TALLOC_CTX *ctx, SEC_DESC_BUF *new_sdb, SEC_DESC_BU
 ********************************************************************/
 
 SEC_DESC *make_sec_desc(TALLOC_CTX *ctx, uint16 revision, uint16 type,
-			DOM_SID *owner_sid, DOM_SID *grp_sid,
+			const DOM_SID *owner_sid, const DOM_SID *group_sid,
 			SEC_ACL *sacl, SEC_ACL *dacl, size_t *sd_size)
 {
 	SEC_DESC *dst;
@@ -206,7 +219,7 @@ SEC_DESC *make_sec_desc(TALLOC_CTX *ctx, uint16 revision, uint16 type,
 	if(owner_sid && ((dst->owner_sid = sid_dup_talloc(ctx,owner_sid)) == NULL))
 		goto error_exit;
 
-	if(grp_sid && ((dst->grp_sid = sid_dup_talloc(ctx,grp_sid)) == NULL))
+	if(group_sid && ((dst->group_sid = sid_dup_talloc(ctx,group_sid)) == NULL))
 		goto error_exit;
 
 	if(sacl && ((dst->sacl = dup_sec_acl(ctx, sacl)) == NULL))
@@ -235,9 +248,9 @@ SEC_DESC *make_sec_desc(TALLOC_CTX *ctx, uint16 revision, uint16 type,
 		offset += sid_size(dst->owner_sid);
 	}
 
-	if (dst->grp_sid != NULL) {
+	if (dst->group_sid != NULL) {
 		dst->off_grp_sid = offset;
-		offset += sid_size(dst->grp_sid);
+		offset += sid_size(dst->group_sid);
 	}
 
 	*sd_size = (size_t)offset;
@@ -261,7 +274,7 @@ SEC_DESC *dup_sec_desc(TALLOC_CTX *ctx, const SEC_DESC *src)
 		return NULL;
 
 	return make_sec_desc( ctx, src->revision, src->type,
-				src->owner_sid, src->grp_sid, src->sacl,
+				src->owner_sid, src->group_sid, src->sacl,
 				src->dacl, &dummy);
 }
 
@@ -269,11 +282,11 @@ SEC_DESC *dup_sec_desc(TALLOC_CTX *ctx, const SEC_DESC *src)
  Creates a SEC_DESC structure with typical defaults.
 ********************************************************************/
 
-SEC_DESC *make_standard_sec_desc(TALLOC_CTX *ctx, DOM_SID *owner_sid, DOM_SID *grp_sid,
+SEC_DESC *make_standard_sec_desc(TALLOC_CTX *ctx, const DOM_SID *owner_sid, const DOM_SID *group_sid,
 				 SEC_ACL *dacl, size_t *sd_size)
 {
 	return make_sec_desc(ctx, SEC_DESC_REVISION, SEC_DESC_SELF_RELATIVE,
-			     owner_sid, grp_sid, NULL, dacl, sd_size);
+			     owner_sid, group_sid, NULL, dacl, sd_size);
 }
 
 /*******************************************************************
@@ -323,12 +336,12 @@ NTSTATUS sec_desc_add_sid(TALLOC_CTX *ctx, SEC_DESC **psd, DOM_SID *sid, uint32 
 	SEC_ACE  *ace  = 0;
 	NTSTATUS  status;
 
-	*sd_size = 0;
-
 	if (!ctx || !psd || !sid || !sd_size)
 		return NT_STATUS_INVALID_PARAMETER;
 
-	status = sec_ace_add_sid(ctx, &ace, psd[0]->dacl->ace, &psd[0]->dacl->num_aces, sid, mask);
+	*sd_size = 0;
+
+	status = sec_ace_add_sid(ctx, &ace, psd[0]->dacl->aces, &psd[0]->dacl->num_aces, sid, mask);
 	
 	if (!NT_STATUS_IS_OK(status))
 		return status;
@@ -337,7 +350,7 @@ NTSTATUS sec_desc_add_sid(TALLOC_CTX *ctx, SEC_DESC **psd, DOM_SID *sid, uint32 
 		return NT_STATUS_UNSUCCESSFUL;
 	
 	if (!(sd = make_sec_desc(ctx, psd[0]->revision, psd[0]->type, psd[0]->owner_sid, 
-		psd[0]->grp_sid, psd[0]->sacl, dacl, sd_size)))
+		psd[0]->group_sid, psd[0]->sacl, dacl, sd_size)))
 		return NT_STATUS_UNSUCCESSFUL;
 
 	*psd = sd;
@@ -356,7 +369,7 @@ NTSTATUS sec_desc_mod_sid(SEC_DESC *sd, DOM_SID *sid, uint32 mask)
 	if (!sd || !sid)
 		return NT_STATUS_INVALID_PARAMETER;
 
-	status = sec_ace_mod_sid(sd->dacl->ace, sd->dacl->num_aces, sid, mask);
+	status = sec_ace_mod_sid(sd->dacl->aces, sd->dacl->num_aces, sid, mask);
 
 	if (!NT_STATUS_IS_OK(status))
 		return status;
@@ -375,12 +388,12 @@ NTSTATUS sec_desc_del_sid(TALLOC_CTX *ctx, SEC_DESC **psd, DOM_SID *sid, size_t 
 	SEC_ACE  *ace  = 0;
 	NTSTATUS  status;
 
-	*sd_size = 0;
-	
 	if (!ctx || !psd[0] || !sid || !sd_size)
 		return NT_STATUS_INVALID_PARAMETER;
 
-	status = sec_ace_del_sid(ctx, &ace, psd[0]->dacl->ace, &psd[0]->dacl->num_aces, sid);
+	*sd_size = 0;
+	
+	status = sec_ace_del_sid(ctx, &ace, psd[0]->dacl->aces, &psd[0]->dacl->num_aces, sid);
 
 	if (!NT_STATUS_IS_OK(status))
 		return status;
@@ -389,7 +402,7 @@ NTSTATUS sec_desc_del_sid(TALLOC_CTX *ctx, SEC_DESC **psd, DOM_SID *sid, size_t 
 		return NT_STATUS_UNSUCCESSFUL;
 	
 	if (!(sd = make_sec_desc(ctx, psd[0]->revision, psd[0]->type, psd[0]->owner_sid, 
-		psd[0]->grp_sid, psd[0]->sacl, dacl, sd_size)))
+		psd[0]->group_sid, psd[0]->sacl, dacl, sd_size)))
 		return NT_STATUS_UNSUCCESSFUL;
 
 	*psd = sd;
@@ -417,11 +430,15 @@ SEC_DESC_BUF *se_create_child_secdesc(TALLOC_CTX *ctx, SEC_DESC *parent_ctr,
 
 	the_acl = parent_ctr->dacl;
 
-	if (!(new_ace_list = TALLOC_ARRAY(ctx, SEC_ACE, the_acl->num_aces))) 
-		return NULL;
+	if (the_acl->num_aces) {
+		if (!(new_ace_list = TALLOC_ARRAY(ctx, SEC_ACE, the_acl->num_aces))) 
+			return NULL;
+	} else {
+		new_ace_list = NULL;
+	}
 
-	for (i = 0; the_acl && i < the_acl->num_aces; i++) {
-		SEC_ACE *ace = &the_acl->ace[i];
+	for (i = 0; i < the_acl->num_aces; i++) {
+		SEC_ACE *ace = &the_acl->aces[i];
 		SEC_ACE *new_ace = &new_ace_list[new_ace_list_ndx];
 		uint8 new_flags = 0;
 		BOOL inherit = False;
@@ -477,17 +494,17 @@ SEC_DESC_BUF *se_create_child_secdesc(TALLOC_CTX *ctx, SEC_DESC *parent_ctr,
 		if (!inherit)
 			continue;
 
-		init_sec_access(&new_ace->info, ace->info.mask);
+		init_sec_access(&new_ace->access_mask, ace->access_mask);
 		init_sec_ace(new_ace, &ace->trustee, ace->type,
-			     new_ace->info, new_flags);
+			     new_ace->access_mask, new_flags);
 
 		sid_to_string(sid_str, &ace->trustee);
 
 		DEBUG(5, ("se_create_child_secdesc(): %s:%d/0x%02x/0x%08x "
 			  " inherited as %s:%d/0x%02x/0x%08x\n", sid_str,
-			  ace->type, ace->flags, ace->info.mask,
+			  ace->type, ace->flags, ace->access_mask,
 			  sid_str, new_ace->type, new_ace->flags,
-			  new_ace->info.mask));
+			  new_ace->access_mask));
 
 		new_ace_list_ndx++;
 	}
@@ -502,7 +519,7 @@ SEC_DESC_BUF *se_create_child_secdesc(TALLOC_CTX *ctx, SEC_DESC *parent_ctr,
 
 	sd = make_sec_desc(ctx, SEC_DESC_REVISION, SEC_DESC_SELF_RELATIVE,
 			   parent_ctr->owner_sid,
-			   parent_ctr->grp_sid,
+			   parent_ctr->group_sid,
 			   parent_ctr->sacl,
 			   new_dacl, &size);
 
@@ -517,6 +534,5 @@ SEC_DESC_BUF *se_create_child_secdesc(TALLOC_CTX *ctx, SEC_DESC *parent_ctr,
 
 void init_sec_access(SEC_ACCESS *t, uint32 mask)
 {
-	t->mask = mask;
+	*t = mask;
 }
-

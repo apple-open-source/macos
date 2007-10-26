@@ -38,6 +38,7 @@ class   IOHIDConsumer;
 class   IOHIDElementPrivate;
 class   IOHIDEventQueue;
 class   IOHIDInterface;
+class   IOHIDDeviceShim;
 struct  IOHIDReportHandler;
 
 /*!
@@ -100,6 +101,9 @@ enum
 class IOHIDDevice : public IOService
 {
     OSDeclareDefaultStructors( IOHIDDevice )
+
+    friend class IOHIDLibUserClient;
+    friend class IOHIDDeviceShim;
     
 private:
     OSArray *                   _elementArray;
@@ -114,13 +118,15 @@ private:
     UInt32                      _maxFeatureReportSize;
 
     struct ExpansionData { 
-        OSSet *				clientSet;
-        IOService *			seizedClient;
-        AbsoluteTime		eventDeadline;
-        IONotifier *		publishNotify;
-        OSArray *			inputInterruptElementArray;
-		bool				performTickle;
-		IOHIDInterface *	interfaceNub;
+        OSSet *                 clientSet;
+        IOService *             seizedClient;
+        AbsoluteTime            eventDeadline;
+        IONotifier *            publishNotify;
+        OSArray *               inputInterruptElementArray;
+		bool                    performTickle;
+		IOHIDInterface *        interfaceNub;
+        IOHIDElementPrivate *   rollOverElement;
+        OSArray *               hierarchElements;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -648,7 +654,14 @@ public:
 	                 IOHIDReportType      reportType = kIOHIDReportTypeInput,
 	                 IOOptionBits         options    = 0);
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  9);
+/*! @function newReportInterval
+    @abstract Returns a number object that describes the actual polling
+    interval of the HID device in microseconds.  
+    @result A number object. The caller must decrement the retain count
+    on the object returned. */
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  9);
+    virtual OSNumber * newReportIntervalNumber() const;
+    
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 10);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 11);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 12);

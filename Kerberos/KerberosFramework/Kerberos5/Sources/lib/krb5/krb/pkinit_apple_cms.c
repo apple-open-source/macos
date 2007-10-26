@@ -27,62 +27,41 @@
  * Created 19 May 2004 by Doug Mitchell at Apple.
  */
 
-/* 
- * Until we redo the SPI for the SMIME lib, it's not usable for verifying messages
- * with possible cert-related errors like unknown root.
- */
-#define IGNORE_VERIFY_ERRORS    1
-
-/*
- * As of May 19 2004, the SMIME library is incapable of handling a CMS message with
- * ContentType SignedData wherein the inner EncapsulatedData has a ContentType
- * of Data. This precludes following the PKINIT spec, which specifies an eContentType
- * of pkauthdata for the SignedAuthPack type.
- *
- * Eventually the SMIME library will need something like this:
- *
- * extern OSStatus SecCmsContentInfoSetContentDataAndOid(
- *      SecCmsMessageRef cmsg, 
- *      SecCmsContentInfoRef cinfo, 
- *      CSSM_DATA_PTR data, 
- *      SECOidTag oid,		// ==> eContentType
- *      Boolean detached);
- *
- * The same is true for the ContentType of an EncryptedContentInfo - it's hard-coded
- * to be id-data. 
- *
- * I tried implementing this but ran into a host of problems internal to SMIME which 
- * result from the lack of handling anything other than the OIDs int he CMS
- * spec for this field. Radar 3665640 is tracking this enhancement request. 
- */
-#define PKINIT_VARIABLE_CONTENT_TYPE      0
-
 #include "pkinit_cms.h"
 #include "pkinit_asn1.h"
 #include "pkinit_apple_utils.h"
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/SecCmsEncoder.h>
-#include <Security/SecCmsDecoder.h>
-#include <Security/SecCmsMessage.h>
-#include <Security/SecCmsSignedData.h>
-#include <Security/SecCmsEnvelopedData.h>
-#include <Security/SecCmsSignerInfo.h>
-#include <Security/SecCmsContentInfo.h>
-#include <Security/SecCmsRecipientInfo.h>
-#include <Security/SecSMIME.h>
+#include <Security/CMSEncoder.h>
+#include <Security/CMSDecoder.h>
 #include <Security/Security.h>
-#include <Security/SecIdentityPriv.h>
-#include <Security/SecTrustPriv.h>
 #include <assert.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 
+/* 
+ * Custom OIDS to specify as eContentType 
+ */
+#define OID_PKINIT	0x2B, 6, 1, 5, 2, 3
+#define OID_PKINIT_LEN	6
+
+static const uint8	OID_PKINIT_AUTH_DATA[]	    = {OID_PKINIT, 1};
+static const uint8	OID_PKINIT_RKEY_DATA[]	    = {OID_PKINIT, 3};
+
+/* these may go public so keep these symbols private */
+static const CSSM_OID	_CSSMOID_PKINIT_AUTH_DATA = 
+	{OID_PKINIT_LEN+1, (uint8 *)OID_PKINIT_AUTH_DATA};
+static const CSSM_OID	_CSSMOID_PKINIT_RKEY_DATA = 
+	{OID_PKINIT_LEN+1, (uint8 *)OID_PKINIT_RKEY_DATA};
+
+
 #pragma mark ----- CMS utilities ----
 
+#define CFRELEASE(cf) if(cf) { CFRelease(cf); }
+
 /*
- * Convert platform-specific cert/signature status to pki_cert_sig_status.
+ * Convert platform-specific cert/signature status to krb5int_cert_sig_status.
  */
-static pki_cert_sig_status pkiCertSigStatus(
+static krb5int_cert_sig_status pkiCertSigStatus(
     OSStatus certStatus)
 {
     switch(certStatus) {
@@ -110,18 +89,47 @@ static pki_cert_sig_status pkiCertSigStatus(
 }
 
 /*
+ * Infer krb5int_cert_sig_status from CMSSignerStatus and a CSSM TO
+ * cert veriofy result code (obtained via the certVerifyResultCode argument
+ * in CMSDecoderCopySignerStatus()).
+ */
+static krb5int_cert_sig_status pkiInferSigStatus(
+    CMSSignerStatus cms_status,
+    OSStatus	    tp_status)
+{
+    switch(cms_status) {
+	case kCMSSignerUnsigned:
+	    return pki_not_signed;
+	case kCMSSignerValid:
+	    return pki_cs_good;
+	case kCMSSignerNeedsDetachedContent:
+	    return pki_bad_cms;
+	case kCMSSignerInvalidSignature:
+	    return pki_cs_sig_verify_fail;
+	case kCMSSignerInvalidCert:
+	    /* proceed with TP status */
+	    break;
+	default:
+	    return pki_cs_other_err;
+    }
+    
+    /* signature good, infer end status from TP verify */
+    return pkiCertSigStatus(tp_status);
+}
+
+/*
  * Cook up a SecCertificateRef from a krb5_data.
  */
 static OSStatus pkiKrb5DataToSecCert(
     const krb5_data *rawCert,
-    SecCertificateRef *secCert)     // RETURNED
+    SecCertificateRef *secCert)     /* RETURNED */
 {
     CSSM_DATA certData;
     OSStatus ortn;
     
     assert((rawCert != NULL) && (secCert != NULL));
     
-    certData.Data = rawCert->data;
+    certData.Data = (uint8 *)rawCert->data;
     certData.Length = rawCert->length;
     ortn = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, 
 	CSSM_CERT_ENCODING_DER, secCert);
@@ -131,599 +139,142 @@ static OSStatus pkiKrb5DataToSecCert(
     return ortn;
 }
 
-static OSStatus pkiEncodeCms(
-    SecCmsMessageRef	cmsMsg,
-    const unsigned char *inData,	// add in this
-    unsigned		inDataLen,
-    unsigned char	**outData,	// mallocd and RETURNED
-    unsigned		*outDataLen)	// RETURNED
-{
-    SecArenaPoolRef arena = NULL;
-    SecArenaPoolCreate(1024, &arena);
-    SecCmsEncoderRef cmsEnc = NULL;
-    CSSM_DATA output = { 0, NULL };
-    OSStatus ortn;
-    
-    ortn = SecCmsEncoderCreate(cmsMsg, 
-	    NULL, NULL,			// no callback 
-	    &output, arena,		// data goes here
-	    NULL, NULL,			// no password callback (right?) 
-	    NULL, NULL,			// decrypt key callback
-	    NULL, NULL,			// detached digests
-	    &cmsEnc);
-    if(ortn) {
-	pkiCssmErr("SecCmsEncoderCreate", ortn);
-	goto errOut;
-    }
-    ortn = SecCmsEncoderUpdate(cmsEnc, (char *)inData, inDataLen);
-    if(ortn) {
-	pkiCssmErr("SecCmsEncoderUpdate", ortn);
-	goto errOut;
-    }
-    ortn = SecCmsEncoderFinish(cmsEnc);
-    if(ortn) {
-	pkiCssmErr("SecCMsEncoderFinish", ortn);
-	goto errOut;
-    }
-    
-    /* Did we get any data? */
-    if(output.Length) {
-	*outData = (unsigned char *)malloc(output.Length);
-	memmove(*outData, output.Data, output.Length);
-	*outDataLen = output.Length;
-    }
-    else {
-	*outData = NULL;
-	*outDataLen = 0;
-    }
-errOut:
-    if(arena) {
-	SecArenaPoolFree(arena, false);
-    }
-    return ortn;
-}
-
-#pragma mark ----- Create SignedData ----
-
 /*
- * Create a ContentInfo, Type SignedData. 
+ * Convert CFArray of SecCertificateRefs to a mallocd array of krb5_datas.
  */
-krb5_error_code pkinit_create_signed_data(
-    const krb5_data	    *to_be_signed,	// Content
-    pkinit_signing_cert_t   signing_cert,	// to be signed by this cert
-    krb5_boolean	    include_cert,	// TRUE --> include signing_cert in 
-						//     SignerInfo
-    PKI_ContentType	    content_type,       // OID for EncapsulatedData
-    krb5_data		    *content_info)      // contents mallocd and RETURNED
-{
-    OSStatus ortn;
-    SecIdentityRef idRef = (SecIdentityRef)signing_cert;
-    SecCmsMessageRef cmsMsg = NULL;
-    SecCmsContentInfoRef contentInfo = NULL;
-    SecCmsSignedDataRef signedData = NULL;
-    SecCertificateRef ourCert = NULL;
-    SecCmsSignerInfoRef signerInfo;
-    SecKeychainRef kcRef = NULL;
-    unsigned char *outData;
-    unsigned outDataLen;
-    SecKeyRef keyRef = NULL;
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    SECOidTag whichOid;
-    #endif
-    SecCmsCertChainMode certChainMode;
-    
-    assert((to_be_signed != NULL) && 
-	   (signing_cert != NULL) &&
-	   (content_info != NULL));
-	       
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    /*
-     * FIXME: our CMS encoder can't deal with nonstandard eContentTypes.
-     * We're going to use SEC_OID_PKCS7_DATA in all cases, which is 
-     * not conforming to the PKINIT spec.
-     */
-    switch(content_type) {
-	case ECT_Data:
-	    whichOid = SEC_OID_PKCS7_DATA;
-	    break;
-	case ECT_PkAuthData:
-	    pkiDebug("**WARNING: content_type ECT_PkAuthData not supported\n");
-	    whichOid = SEC_OID_KERBEROS_PK_AUTH_DATA;
-	    break;
-	default:
-	    pkiDebug("pkinit_create_signed_data: bad content_type spec\n");
-	    ortn = paramErr;
-	    goto errOut;
-    }
-    #endif  /* PKINIT_VARIABLE_CONTENT_TYPE */
-    
-    /* Save the actual keychain-resident cert for later use */
-    ortn = SecIdentityCopyCertificate(idRef, &ourCert);
-    if(ortn) {
-	pkiCssmErr("SecIdentityCopyCertificate", ortn);
-	goto errOut;
-    }
-    
-    /*
-     * Get keychain on which the identity resides. 
-     * Due to Radar 3661602 we need to jump thru some hoops here.
-     */
-    ortn = SecIdentityCopyPrivateKey(idRef, &keyRef);
-    if(ortn) {
-	pkiCssmErr("SecIdentityCopyPrivateKey", ortn);
-	goto errOut;
-    }
-    ortn = SecKeychainItemCopyKeychain((SecKeychainItemRef)keyRef, &kcRef);
-    CFRelease(keyRef);
-    if(ortn) {
-	pkiCssmErr("SecKeychainItemCopyKeychain", ortn);
-	goto errOut;
-    }
-
-    /* build chain of objects: message->signedData->data */
-    cmsMsg = SecCmsMessageCreate(NULL);
-    if(cmsMsg == NULL) {
-	pkiDebug("***Error creating SecCmsMessageRef\n");
-	ortn = -1;
-	goto errOut;
-    }
-    signedData = SecCmsSignedDataCreate(cmsMsg);
-    if(signedData == NULL) {
-	pkiDebug("***Error creating SecCmsSignedDataRef\n");
-	ortn = -1;
-	goto errOut;
-    }
-    contentInfo = SecCmsMessageGetContentInfo(cmsMsg);
-    ortn = SecCmsContentInfoSetContentSignedData(cmsMsg, contentInfo, signedData);
-    if(ortn) {
-	pkiCssmErr("SecCmsContentInfoSetContentSignedData", ortn);
-	goto errOut;
-    }
-    contentInfo = SecCmsSignedDataGetContentInfo(signedData);
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    ortn = SecCmsContentInfoSetContentDataAndOid(cmsMsg, contentInfo, NULL /* data */, 
-	whichOid, false);
-    #else
-    ortn = SecCmsContentInfoSetContentData(cmsMsg, contentInfo, NULL, false);
-    #endif  /* PKINIT_VARIABLE_CONTENT_TYPE */
-    if(ortn) {
-	pkiCssmErr("SecCmsContentInfoSetContentData", ortn);
-	goto errOut;
-    }
-
-    /* 
-     * create & attach signer information
-     */
-    signerInfo = SecCmsSignerInfoCreate(cmsMsg, idRef, SEC_OID_SHA1);
-    if (signerInfo == NULL) {
-	pkiDebug("***Error on SecCmsSignerInfoCreate\n");
-	ortn = -1;
-	goto errOut;
-    }
-    /* we want the cert chain included for this one */
-    /* FIXME - what's the significance of the usage? */
-    if(include_cert) {
-	certChainMode = SecCmsCMCertChainWithRoot;
-    }
-    else {
-	certChainMode = SecCmsCMNone;
-    }
-    ortn = SecCmsSignerInfoIncludeCerts(signerInfo, certChainMode, certUsageEmailSigner);
-    if(ortn) {
-	pkiCssmErr("SecCmsSignerInfoIncludeCerts", ortn);
-	goto errOut;
-    }
-
-    ortn = SecCmsSignedDataAddSignerInfo(signedData, signerInfo);
-    if(ortn) {
-	pkiCssmErr("SecCmsSignedDataAddSignerInfo", ortn);
-	goto errOut;
-    }
-
-    /* go */
-    ortn = pkiEncodeCms(cmsMsg, to_be_signed->data, to_be_signed->length, 
-	&outData, &outDataLen);
-    if(ortn) {
-	goto errOut;
-    }
-    
-    /* transfer ownership of mallocd data to caller */
-    content_info->data = (char *)outData;
-    content_info->length = outDataLen;
-
-errOut:
-    if(cmsMsg) {
-	SecCmsMessageDestroy(cmsMsg);
-    }
-    if(ourCert) {
-	CFRelease(ourCert);
-    }
-    if(kcRef) {
-	CFRelease(kcRef);
-    }
-    return ortn;
-}
-
-#pragma mark ----- Create EnvelopedData ----
-
-/*
- * Create a ContentInfo, Type EnvelopedData. 
- */
-krb5_error_code pkinit_create_envel_data(
-    const krb5_data	*raw_content,	    // Content
-    const krb5_data	*recip_cert,	    // to be encrypted with this cert
-    PKI_ContentType     content_type,       // OID for EncryptedContentInfo
-    krb5_data		*content_info)      // contents mallocd and RETURNED
-{
-    SecCmsMessageRef cmsMsg = NULL;
-    SecCmsContentInfoRef contentInfo = NULL;
-    SecCmsEnvelopedDataRef envelopedData = NULL;
-    SecCmsRecipientInfoRef recipientInfo = NULL;
-    OSStatus ortn;
-    SecCertificateRef allCerts[2];
-    SECOidTag algorithmTag;
-    int keySize;
-    unsigned char *outData;
-    unsigned outDataLen;
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    SECOidTag whichOid;
-    #endif
-	
-    assert((raw_content != NULL) && (recip_cert != NULL) && (content_info != NULL));
-
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    /*
-     * FIXME: our CMS encoder can't deal with nonstandard EncryptedContentInfo.ContentTypes.
-     * We're going to use SEC_OID_PKCS7_DATA in all cases, which is 
-     * not conforming to the PKINIT spec.
-     */
-    switch(content_type) {
-	case ECT_Data:
-	    whichOid = SEC_OID_PKCS7_DATA;
-	    break;
-	case ECT_PkReplyKeyKata:
-	    pkiDebug("**WARNING: content_type ECT_PkReplyKeyKata not supported\n");
-	    goto errOut;
-    }
-    #endif  /* PKINIT_VARIABLE_CONTENT_TYPE */
-    
-    /*
-     * Set up a NULL_terminated array of recipient certs in SecCertificateRef format.
-     */
-    ortn = pkiKrb5DataToSecCert(recip_cert, &allCerts[0]);
-    if(ortn) {
-	return ortn;
-    }
-    allCerts[1] = NULL;
-    
-    /* Infer some reasonable encryption parameters */
-    ortn = SecSMIMEFindBulkAlgForRecipients(allCerts, &algorithmTag, &keySize);
-    if(ortn) {
-	pkiCssmErr("SecSMIMEFindBulkAlgForRecipients", ortn);
-	goto errOut;
-    }
-	
-    /* build chain of objects: message->envelopedData->data */
-    cmsMsg = SecCmsMessageCreate(NULL);
-    if(cmsMsg == NULL) {
-	pkiDebug("***Error creating SecCmsMessageRef\n");
-	ortn = -1;
-	goto errOut;
-    }
-    envelopedData = SecCmsEnvelopedDataCreate(cmsMsg, algorithmTag, keySize);
-    if(envelopedData == NULL) {
-	pkiDebug("***Error creating SecCmsEnvelopedDataRef\n");
-	ortn = -1;
-	goto errOut;
-    }
-    contentInfo = SecCmsMessageGetContentInfo(cmsMsg);
-    ortn = SecCmsContentInfoSetContentEnvelopedData(cmsMsg, contentInfo, envelopedData);
-    if(ortn) {
-	pkiCssmErr("SecCmsContentInfoSetContentEnvelopedData", ortn);
-	goto errOut;
-    }
-    contentInfo = SecCmsEnvelopedDataGetContentInfo(envelopedData);
-    #if     PKINIT_VARIABLE_CONTENT_TYPE
-    /* something like this: */
-    ortn = SecCmsContentInfoSetContentDataAndOid(cmsMsg, contentInfo, NULL /* data */, 
-	whichOid, false);
-    #else
-    ortn = SecCmsContentInfoSetContentData(cmsMsg, contentInfo, NULL /* data */, false);
-    #endif  /* PKINIT_VARIABLE_CONTENT_TYPE */
-    if(ortn) {
-	pkiCssmErr("SecCmsContentInfoSetContentData", ortn);
-	goto errOut;
-    }
-	
-    /* create & attach recipient information */
-    recipientInfo = SecCmsRecipientInfoCreate(cmsMsg, allCerts[0]);
-    ortn = SecCmsEnvelopedDataAddRecipient(envelopedData, recipientInfo);
-    if(ortn) {
-	pkiCssmErr("SecCmsEnvelopedDataAddRecipient", ortn);
-	goto errOut;
-    }
-
-    /* go */
-    ortn = pkiEncodeCms(cmsMsg, raw_content->data, raw_content->length, 
-	&outData, &outDataLen);
-    if(ortn) {
-	goto errOut;
-    }
-    
-    /* transfer ownership of mallocd data to caller */
-    content_info->data = (char *)outData;
-    content_info->length = outDataLen;
-
-errOut:
-    /* free resources */
-    if(cmsMsg) {
-	SecCmsMessageDestroy(cmsMsg);
-    }
-    if(allCerts[0]) {
-	CFRelease(allCerts[0]);
-    }
-    return ortn;
-}
-
-#pragma mark ----- Parse SignedData ----
-
-/*
- * Glean as much info from a SecTrust as possible, down to the TP verify code.
- * Return codes of note:
- * 
- * KRB5_KDB_UNAUTH - user-specified trust violation
- * CSSMERR_TP_INVALID_ANCHOR_CERT- Untrusted root
- * CSSMERR_TP_NOT_TRUSTED - No root cert found
- * CSSMERR_TP_CERT_EXPIRED
- * CSSMERR_TP_CERT_NOT_VALID_YET
- */
-static OSStatus pkiEvalSecTrust(
-    SecTrustRef secTrust)
-{
-    OSStatus ortn;
-    SecTrustResultType			secTrustResult;
-    
-    ortn = SecTrustEvaluate(secTrust, &secTrustResult);
-    if(ortn) {
-	/* should never happen */
-	pkiCssmErr("SecTrustEvaluate", ortn);
-	return ortn;
-    }
-    switch(secTrustResult) {
-	case kSecTrustResultUnspecified:
-	    /* cert chain valid, no special UserTrust assignments */
-	case kSecTrustResultProceed:
-	    /* cert chain valid AND user explicitly trusts this */
-	    return noErr;
-	case kSecTrustResultDeny:
-	case kSecTrustResultConfirm:
-	    /*
-	     * Cert chain may well have verified OK, but user has flagged
-	     * one of these certs as untrustable.
-	     */
-	    return KRB5_KDB_UNAUTH;
-	default:
-	{
-	    /* get low-level TP error */
-	    OSStatus tpStatus;
-	    ortn = SecTrustGetCssmResultCode(secTrust, &tpStatus);
-	    if(ortn) {
-		pkiCssmErr("SecTrustGetCssmResultCode", ortn);
-		return ortn;
-	    }
-	    return tpStatus;
-	}
-    } 	/* SecTrustEvaluate error */
-}
-
-/*
- * Parse a SignedData, assumed to be signed by ONE signer.
- * All return fields are optional. In particular passing in a NULL for
- * certVerifyStatus causes us to skip the signature and cert verify operations
- * (which are atomic at the CMS API, both are done in 
- * SecCmsSignedDataVerifySignerInfo().)
- *
- * Nonzero return means we flat out could not get to the low-level info.
- */
-static OSStatus pkiParseSignedData(
-    SecCmsSignedDataRef signedData,
-    pkinit_cert_db_t cert_db,		// required for verifying SignedData
-    OSStatus *certVerifyStatus,		// optional, RETURNED
-    SecCertificateRef *signerCert,      // optional, RETURNED
-    CSSM_DATA ***allCerts)		// optional, RETURNED
-{
-    SecTrustRef secTrust = NULL;
-    OSStatus ortn = noErr;
-    SecPolicyRef policy = NULL;
-    SecPolicySearchRef policySearch = NULL;
-    Boolean b;
-    SecCmsSignerInfoRef signerInfo = NULL;
-    
-    if(signerCert) {
-	*signerCert = NULL;
-    }
-    if(certVerifyStatus) {
-	*certVerifyStatus = -1;
-    }
-    if(allCerts) {
-	*allCerts = NULL;
-    }
-    
-    int numSigners = SecCmsSignedDataSignerInfoCount(signedData);
-    if(numSigners != 1) {
-	pkiDebug("***pkiParseSignedData: numSigners %d, expected 1\n", numSigners);
-	return internalComponentErr;
-    }
-
-    /* 
-     * We have to retrieve the cert list in two cases - caller wants to do a sig/cert
-     * verify, or caller wants the cert list or even the signing cert. 
-     */
-    if((certVerifyStatus != NULL) ||
-       (signerCert != NULL) ||
-       (allCerts != NULL)) {
-	CSSM_DATA_PTR *certList = SecCmsSignedDataGetCertificateList(signedData);
-	if(certList == NULL) {
-	    pkiDebug("***pkiParseSignedData: no certList available\n");
-	    return ASN1_BAD_FORMAT;
-	}
-	if(allCerts != NULL) {
-	    *allCerts = certList;
-	}
-	if((certVerifyStatus != NULL) ||
-	   (signerCert != NULL)) {
-	    /*
-	     * For this we have to import the certs from the CMS message into
-	     * the caller-specified keychain. Ugh. But this is how our CMS library
-	     * is "designed".
-	     */
-	    unsigned numCerts = pkiNssArraySize((const void **)certList);
-	    unsigned dex;
-	    if(numCerts == 0) {
-		pkiDebug("***pkiParseSignedData: empty certList\n");
-		return ASN1_BAD_FORMAT;
-	    }
-	    if(cert_db == NULL) {
-		pkiDebug("***pkiParseSignedData requires a cert_db to proceed\n");
-		return internalComponentErr;
-	    }
-	    for(dex=0; dex<numCerts; dex++) {
-		SecCertificateRef certRef;
-		OSStatus ortn;
-		ortn = SecCertificateCreateFromData(certList[dex], CSSM_CERT_X_509v3,
-		    CSSM_CERT_ENCODING_DER, &certRef);
-		if(ortn) {
-		    pkiCssmErr("pkiParseSignedData:SecCertificateCreateFromData", ortn);
-		    return ortn;
-		}
-		ortn = SecCertificateAddToKeychain(certRef, (SecKeychainRef)cert_db);
-		switch(ortn) {
-		    case noErr:
-			break;
-		    case errSecDuplicateItem:   // this is perfectly OK
-			ortn = noErr;
-			break;
-		    default:
-			pkiCssmErr("pkiParseSignedData:SecCertificateAddToKeychain", 
-			    ortn);
-			break;
-		}
-		CFRelease(certRef);
-		if(ortn) {
-		    return ortn;
-		}
-	    }
-	}
-    }
-    if(certVerifyStatus != NULL) {
-	ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
-	    &CSSMOID_APPLE_X509_BASIC, NULL, &policySearch);
-	if(ortn) {
-	    pkiCssmErr("SecPolicySearchCreate", ortn);
-	    return ortn;
-	}
-	ortn = SecPolicySearchCopyNext(policySearch, &policy);
-	if(ortn) {
-	    pkiCssmErr("SecPolicySearchCopyNext", ortn);
-	    CFRelease(policySearch);
-	    return ortn;
-	}
-	
-	b = SecCmsSignedDataHasDigests(signedData);
-	if(b) {
-	    ortn = SecCmsSignedDataVerifySignerInfo(signedData, 0, cert_db, 
-		    policy, &secTrust);
-	    if(ortn) {
-		/* FIXME: in this case if we have a SecTrust, we may or may not 
-		 * have actually verified the signature. We have to do that ourself
-		 * to get an accurate "unknown root but good signature" status.
-		 * This is a big TBD, the SMIME libray API just isn't written to
-		 * allow this. 
-		 */
-		pkiCssmErr(" SecCmsSignedDataVerifySignerInfo", ortn);
-		#if IGNORE_VERIFY_ERRORS
-		ortn = noErr;
-		#endif
-	    }
-	    if(secTrust == NULL) {
-		pkiDebug("***NO SecTrust available!\n");
-		#if IGNORE_VERIFY_ERRORS
-		ortn = noErr;
-		*certVerifyStatus = noErr;
-		#else
-		ortn = internalComponentErr;
-		#endif
-	    }
-	    else {
-		*certVerifyStatus = pkiEvalSecTrust(secTrust);
-	    }
-	}
-	else {
-	    pkiDebug("pkiParseSignedData: No digest attached to cms message\n");
-	}
-    }
-    if(signerCert != NULL) {
-	signerInfo = SecCmsSignedDataGetSignerInfo(signedData, 0);
-	*signerCert = SecCmsSignerInfoGetSigningCertificate(signerInfo, cert_db);
-    }
-    if(allCerts != NULL) {
-	*allCerts = SecCmsSignedDataGetCertificateList(signedData);
-    }
-    if(policySearch) {
-	CFRelease(policySearch);
-    }
-    if(policy) {
-	CFRelease(policy);
-    }
-    return ortn;
-}
-
-/*
- * Convert a NULL-terminated array of CSSM_DATAs to a mallocd array of krb5_datas.
- */
-static OSStatus pkiCertArrayToKrb5Data(
-    CSSM_DATA   **cdAllCerts,
-    unsigned    *num_all_certs,
+static krb5_error_code pkiCertArrayToKrb5Data(
+    CFArrayRef  cf_certs,
+    unsigned	*num_all_certs,
     krb5_data   **all_certs)	
 {
+    CFIndex num_certs;
     krb5_data *allCerts = NULL;
-    OSStatus ortn = noErr;
-    unsigned numCerts;
+    krb5_error_code krtn = 0;
     unsigned dex;
     
-    assert(num_all_certs != NULL);
-    assert(all_certs != NULL);
-    *num_all_certs = 0;
-    *all_certs = NULL;
-
-    if(cdAllCerts == NULL) {
+    if(cf_certs == NULL) {
+	*all_certs = NULL;
 	return 0;
     }
-    numCerts = pkiNssArraySize((const void **)cdAllCerts);
-    if(numCerts == 0) {
+    num_certs = CFArrayGetCount(cf_certs);
+    *num_all_certs = (unsigned)num_certs;
+    if(num_certs == 0) {
+	*all_certs = NULL;
 	return 0;
     }
-    allCerts = (krb5_data *)malloc(sizeof(krb5_data) * numCerts);
+    allCerts = (krb5_data *)malloc(sizeof(krb5_data) * num_certs);
     if(allCerts == NULL) {
 	return ENOMEM;
     }
-    for(dex=0; dex<numCerts; dex++) {
-	if(pkiCssmDataToKrb5Data(cdAllCerts[dex], &allCerts[dex])) {
-	    ortn = ENOMEM;
-	    goto errOut;
+    for(dex=0; dex<num_certs; dex++) {	
+	CSSM_DATA cert_data;
+	OSStatus ortn;
+	SecCertificateRef sec_cert;
+	
+	sec_cert = (SecCertificateRef)CFArrayGetValueAtIndex(cf_certs, dex);
+	ortn = SecCertificateGetData(sec_cert, &cert_data);
+	if(ortn) {
+	    pkiCssmErr("SecCertificateGetData", ortn);
+	    krtn = KRB5_PARSE_MALFORMED;
+	    break;
+	}
+	krtn = pkiCssmDataToKrb5Data(&cert_data, &allCerts[dex]);
+	if(krtn) {
+	    break;
 	}
     }
-errOut:
-    if(ortn) {
+    if(krtn) {
 	if(allCerts) {
 	    free(allCerts);
 	}
     }
     else {
 	*all_certs = allCerts;
-	*num_all_certs = (unsigned)numCerts;
     }
-    return ortn;
+    return krtn;
+}
+
+#pragma mark ----- Create CMS message -----
+
+/*
+ * Create a CMS message: either encrypted (EnvelopedData), signed 
+ * (SignedData), or both (EnvelopedData(SignedData(content)).
+ *
+ * The message is signed iff signing_cert is non-NULL.
+ * The message is encrypted iff recip_cert is non-NULL.
+ *
+ * The content_type argument specifies to the eContentType
+ * for a SignedData's EncapsulatedContentInfo. 
+ */
+krb5_error_code krb5int_pkinit_create_cms_msg(
+    const krb5_data		*content,	/* Content */
+    krb5_pkinit_signing_cert_t	signing_cert,	/* optional: signed by this cert */
+    const krb5_data		*recip_cert,	/* optional: encrypted with this cert */
+    krb5int_cms_content_type	content_type,   /* OID for EncapsulatedData */
+    krb5_ui_4			num_cms_types,	/* optional, unused here */
+    const krb5int_algorithm_id	*cms_types,	/* optional, unused here */
+    krb5_data			*content_info)  /* contents mallocd and RETURNED */
+{
+    krb5_error_code krtn;
+    OSStatus ortn;
+    SecCertificateRef sec_recip = NULL;
+    CFDataRef cf_content = NULL;
+    const CSSM_OID *eContentOid = NULL;
+    
+    if((signing_cert == NULL) && (recip_cert == NULL)) {
+	/* must have one or the other */
+	pkiDebug("krb5int_pkinit_create_cms_msg: no signer or recipient\n");
+	return KRB5_CRYPTO_INTERNAL;
+    }
+    
+    /* 
+     * Optional signer cert. Note signing_cert, if present, is 
+     * a SecIdentityRef. 
+     */
+    if(recip_cert) {
+	if(pkiKrb5DataToSecCert(recip_cert, &sec_recip)) {
+	    krtn = ASN1_BAD_FORMAT;
+	    goto errOut;
+	}
+    }
+    
+    /* optional eContentType */
+    if(signing_cert) {
+	switch(content_type) {
+	    case ECT_PkAuthData:
+		eContentOid = &_CSSMOID_PKINIT_AUTH_DATA;
+		break;
+	    case ECT_PkReplyKeyKata:
+		eContentOid = &_CSSMOID_PKINIT_RKEY_DATA;
+		break;
+	    case ECT_Data:
+		/* the only standard/default case we allow */
+		break;
+	    default:
+		/* others: no can do */
+		pkiDebug("krb5int_pkinit_create_cms_msg: bad contentType\n");
+		krtn = KRB5_CRYPTO_INTERNAL;
+		goto errOut;
+	}
+    }
+    
+    /* GO */
+    ortn = CMSEncode((SecIdentityRef)signing_cert, sec_recip,
+	eContentOid, 
+	FALSE,		/* detachedContent */
+	kCMSAttrNone,	/* no signed attributes that I know of */
+	content->data, content->length,
+	&cf_content);
+    if(ortn) {
+	pkiCssmErr("CMSEncode", ortn);
+	krtn = KRB5_CRYPTO_INTERNAL;
+	goto errOut;
+    }
+    krtn = pkiCfDataToKrb5Data(cf_content, content_info);
+errOut:
+    CFRELEASE(sec_recip);
+    CFRELEASE(cf_content);
+    return krtn;
 }
 
 #pragma mark ----- Generalized parse ContentInfo ----
@@ -733,180 +284,270 @@ errOut:
  * If signer_cert_status is NULL on entry, NO signature or cert evaluation 
  * will be performed. 
  */
-krb5_error_code pkinit_parse_content_info(
-    const krb5_data     *content_info,
-    pkinit_cert_db_t    cert_db,		// may be required for SignedData
-    krb5_boolean	*is_signed,		// RETURNED
-    krb5_boolean	*is_encrypted,		// RETURNED
-    krb5_data		*raw_data,		// RETURNED
-    PKI_ContentType     *inner_content_type,    // Returned, ContentType of
-						//    EncapsulatedData or
-						//    EncryptedContentInfo
-    krb5_data		*signer_cert,		// RETURNED
-    pki_cert_sig_status *signer_cert_status,    // RETURNED 
-    unsigned		*num_all_certs,		// size of *all_certs RETURNED
-    krb5_data		**all_certs)		// entire cert chain RETURNED
+krb5_error_code krb5int_pkinit_parse_cms_msg(
+    const krb5_data	    *content_info,
+    krb5_pkinit_cert_db_t   cert_db,		/* may be required for SignedData */
+    krb5_boolean	    is_client_msg,	/* TRUE : msg is from client */
+    krb5_boolean	    *is_signed,		/* RETURNED */
+    krb5_boolean	    *is_encrypted,	/* RETURNED */
+    krb5_data		    *raw_data,		/* RETURNED */
+    krb5int_cms_content_type *inner_content_type,/* Returned, ContentType of */
+						/*    EncapsulatedData */
+    krb5_data		    *signer_cert,	/* RETURNED */
+    krb5int_cert_sig_status *signer_cert_status,/* RETURNED */
+    unsigned		    *num_all_certs,	/* size of *all_certs RETURNED */
+    krb5_data		    **all_certs)	/* entire cert chain RETURNED */
 {
-    SecArenaPoolRef arena = NULL;
-    SecCmsMessageRef cmsMsg = NULL;
-    SecCmsDecoderRef decoder;
+    SecPolicySearchRef policy_search = NULL;
+    SecPolicyRef policy = NULL;
     OSStatus ortn;
-    Boolean b;
-    int numContentInfos;
-    CSSM_DATA_PTR odata;
-    int dex;
-    OSStatus osCertStatus;
-    OSStatus *osCertStatusP = NULL;
+    krb5_error_code krtn = 0;
+    CMSDecoderRef decoder = NULL;
+    size_t num_signers;
+    CMSSignerStatus signer_status;
+    OSStatus cert_verify_status;
+    CFArrayRef cf_all_certs = NULL;
+    int msg_is_signed = 0;
     
-    assert(content_info != NULL);
+    if(content_info == NULL) {
+	pkiDebug("krb5int_pkinit_parse_cms_msg: no ContentInfo\n");
+	return KRB5_CRYPTO_INTERNAL;
+    }
+    
+    ortn = CMSDecoderCreate(&decoder);
+    if(ortn) {
+	return ENOMEM;
+    }
+    ortn = CMSDecoderUpdateMessage(decoder, content_info->data, content_info->length);
+    if(ortn) {
+	/* no verify yet, must be bad message */
+	krtn = KRB5_PARSE_MALFORMED;
+	goto errOut;
+    }
+    ortn = CMSDecoderFinalizeMessage(decoder);
+    if(ortn) {
+	pkiCssmErr("CMSDecoderFinalizeMessage", ortn);
+	krtn = KRB5_PARSE_MALFORMED;
+	goto errOut;
+    }
 
-    if(signer_cert) {
-	signer_cert->data = NULL;
-	signer_cert->length = 0;
+    /* expect zero or one signers */
+    ortn = CMSDecoderGetNumSigners(decoder, &num_signers);
+    switch(num_signers) {
+	case 0:
+	    msg_is_signed = 0;
+	    break;
+	case 1:
+	    msg_is_signed = 1;
+	    break;
+	default:
+	    krtn = KRB5_PARSE_MALFORMED;
+	    goto errOut;
     }
-    if(raw_data) {
-	raw_data->data = NULL;
-	raw_data->length = 0;
-    }
-    if(all_certs) {
-	assert(num_all_certs != NULL);
-	*all_certs = NULL;
-	*num_all_certs = 0;
-    }
-    if(signer_cert_status) {
-	*signer_cert_status = -1;
-	osCertStatusP = &osCertStatus;
-    }
-    
-    SecArenaPoolCreate(1024, &arena);
-    ortn = SecCmsDecoderCreate(arena, NULL, NULL, NULL, NULL, NULL, NULL, &decoder);
-    if(ortn) {
-	pkiCssmErr("SecCmsDecoderCreate", ortn);
-	return ortn;
-    }
-    /* subsequent errors to errOut: */
-    
-    ortn = SecCmsDecoderUpdate(decoder, content_info->data, content_info->length);
-    if(ortn) {
-	pkiCssmErr("SecCmsDecoderUpdate", ortn);
-	goto errOut;
-    }
-    ortn = SecCmsDecoderFinish(decoder, &cmsMsg);
-    if(ortn) {
-	pkiCssmErr("SecCmsDecoderFinish", ortn);
-	goto errOut;
-    }
-    
-    if(is_signed) {
-	b = SecCmsMessageIsSigned(cmsMsg);
-	*is_signed = b ? TRUE : FALSE;
-    }
-    if(is_encrypted) {
-	b = SecCmsMessageIsEncrypted(cmsMsg);
-	*is_encrypted = b ? TRUE : FALSE;
-    }
-    
-    numContentInfos = SecCmsMessageContentLevelCount(cmsMsg);
-    if(numContentInfos == 0) {
-	pkiDebug("pkinit_parse_content_info: no ContentInfos!\n");
-	ortn = ASN1_BAD_FORMAT;
-	goto errOut;
-    }
-    
+
     /*
-     * Do we need to get signer info - either to evaluate the signature and
-     * evaluate the cert chain, or to return cert-related fields?
+     * We need a cert verify policy even if we're not actually evaluating 
+     * the cert due to requirements in libsecurity_smime.
      */
-    if((signer_cert != NULL) || (signer_cert_status != NULL) || 
-       (num_all_certs != NULL) || (all_certs != NULL)) {
-	b = TRUE;
+    ortn = SecPolicySearchCreate(CSSM_CERT_X_509v3,
+	is_client_msg ? &CSSMOID_APPLE_TP_PKINIT_CLIENT : &CSSMOID_APPLE_TP_PKINIT_SERVER, 
+	NULL, &policy_search);
+    if(ortn) {
+	pkiCssmErr("SecPolicySearchCreate", ortn);
+	krtn = KRB5_CRYPTO_INTERNAL;
+	goto errOut;
     }
-    else {
-	b = FALSE;
+    ortn = SecPolicySearchCopyNext(policy_search, &policy);
+    if(ortn) {
+	pkiCssmErr("SecPolicySearchCopyNext", ortn);
+	krtn = KRB5_CRYPTO_INTERNAL;
+	goto errOut;
     }
-    if(b) {
-	bool gotOneSignedData = false;
-	for(dex=0; dex<numContentInfos; dex++) {
-	    SecCmsContentInfoRef ci = SecCmsMessageContentLevel(cmsMsg, dex);
-	    SECOidTag tag = SecCmsContentInfoGetContentTypeTag(ci);
-	    switch(tag) {
-		case SEC_OID_PKCS7_SIGNED_DATA:
-		{
-		    /* get signer cert info and status */
-		    SecCmsSignedDataRef sd = 
-			    (SecCmsSignedDataRef) SecCmsContentInfoGetContent(ci);
-		    SecCertificateRef certRef = NULL;
-		    SecCertificateRef *certRefP = NULL;
-		    CSSM_DATA certData;
-		    CSSM_DATA **cdAllCerts = NULL;
-		    CSSM_DATA ***cdAllCertsP = NULL;
-		    
-		    if(signer_cert) {
-			/* optional */
-			certRefP = &certRef;
-		    }
-		    if(all_certs) {
-			/* optional */
-			cdAllCertsP = &cdAllCerts;
-		    }
-		    if(gotOneSignedData) {
-			pkiDebug("pkinit_parse_content_info: Multiple SignedDatas!\n");
-			ortn = ASN1_BAD_FORMAT;
-			goto errOut;
-		    }
-		    
-		    ortn = pkiParseSignedData(sd, cert_db, osCertStatusP, certRefP,
-			cdAllCertsP);
-		    if(ortn) {
-			goto errOut;
-		    }   
-		    if(certRef) {
-			ortn = SecCertificateGetData(certRef, &certData);
-			if(ortn) {
-			    pkiCssmErr("SecCertificateGetData", ortn);
-			    goto errOut;
-			}
-			pkiDataToKrb5Data(certData.Data, certData.Length, signer_cert);
-		    }
-		    if(cdAllCerts) {
-			ortn = pkiCertArrayToKrb5Data(cdAllCerts, num_all_certs,
-			    all_certs);
-			if(ortn) {
-			    goto errOut;
-			}
-		    }
-		    if(signer_cert_status) {
-			*signer_cert_status = pkiCertSigStatus(osCertStatus);
-		    }
-		    gotOneSignedData = true;
-		    break;
-		}
-		/* nothing interesting for these */
-		case SEC_OID_PKCS7_DATA:
-		case SEC_OID_PKCS7_ENVELOPED_DATA:
-		case SEC_OID_PKCS7_ENCRYPTED_DATA:
-		/* all others - right? */
-		default:
-			break;
+    
+    /* get some basic status that doesn't need heavyweight evaluation */
+    if(msg_is_signed) {
+	if(is_signed) {
+	    *is_signed = TRUE;
+	}
+	if(inner_content_type) {
+	    CSSM_OID ec_oid = {0, NULL};
+	    CFDataRef ec_data = NULL;
+	    
+	    krb5int_cms_content_type ctype;
+	    
+	    ortn = CMSDecoderCopyEncapsulatedContentType(decoder, &ec_data);
+	    if(ortn || (ec_data == NULL)) {
+		pkiCssmErr("CMSDecoderCopyEncapsulatedContentType", ortn);
+		krtn = KRB5_CRYPTO_INTERNAL;
+		goto errOut;
+	    }
+	    ec_oid.Data = (uint8 *)CFDataGetBytePtr(ec_data);
+	    ec_oid.Length = CFDataGetLength(ec_data);
+	    if(pkiCompareCssmData(&ec_oid, &CSSMOID_PKCS7_Data)) {
+		ctype = ECT_Data;
+	    }
+	    else if(pkiCompareCssmData(&ec_oid, &CSSMOID_PKCS7_SignedData)) {
+		ctype = ECT_SignedData;
+	    }
+	    else if(pkiCompareCssmData(&ec_oid, &CSSMOID_PKCS7_EnvelopedData)) {
+		ctype = ECT_EnvelopedData;
+	    }
+	    else if(pkiCompareCssmData(&ec_oid, &CSSMOID_PKCS7_EncryptedData)) {
+		ctype = ECT_EncryptedData;
+	    }
+	    else if(pkiCompareCssmData(&ec_oid, &_CSSMOID_PKINIT_AUTH_DATA)) {
+		ctype = ECT_PkAuthData;
+	    }
+	    else if(pkiCompareCssmData(&ec_oid, &_CSSMOID_PKINIT_RKEY_DATA)) {
+		ctype = ECT_PkReplyKeyKata;
+	    }
+	    else {
+		ctype = ECT_Other;
+	    }
+	    *inner_content_type = ctype;
+	    CFRelease(ec_data);
+	}
+	
+	/* 
+	 * Get SignedData's certs if the caller wants them
+	 */
+	if(all_certs) {	    
+	    ortn = CMSDecoderCopyAllCerts(decoder, &cf_all_certs);
+	    if(ortn) {
+		pkiCssmErr("CMSDecoderCopyAllCerts", ortn);
+		krtn = KRB5_CRYPTO_INTERNAL;
+		goto errOut;
+	    }
+	    krtn = pkiCertArrayToKrb5Data(cf_all_certs, num_all_certs, all_certs);
+	    if(krtn) {
+		goto errOut;
+	    }
+	}
+	
+	/* optional signer cert */
+	if(signer_cert) {
+	    SecCertificateRef sec_signer_cert = NULL;
+	    CSSM_DATA cert_data;
+
+	    ortn = CMSDecoderCopySignerCert(decoder, 0, &sec_signer_cert);
+	    if(ortn) {
+		/* should never happen if it's signed */
+		pkiCssmErr("CMSDecoderCopySignerStatus", ortn);
+		krtn = KRB5_CRYPTO_INTERNAL;
+		goto errOut;
+	    }
+	    ortn = SecCertificateGetData(sec_signer_cert, &cert_data);
+	    if(ortn) {
+		pkiCssmErr("SecCertificateGetData", ortn);
+		CFRelease(sec_signer_cert);
+		krtn = KRB5_CRYPTO_INTERNAL;
+		goto errOut;
+	    }
+	    krtn = pkiDataToKrb5Data(cert_data.Data, cert_data.Length, signer_cert);
+	    CFRelease(sec_signer_cert);
+	    if(krtn) {
+		goto errOut;
 	    }
 	}
     }
-    if(raw_data != NULL) {
-	odata = SecCmsMessageGetContent(cmsMsg);
-	if(odata == NULL) {
-	    pkiDebug("***pkinit_parse_content_info: No inner content available\n");
+    else {
+	/* not signed */
+	if(is_signed) {
+	    *is_signed = FALSE;
 	}
-	else {
-	    pkiDataToKrb5Data(odata->Data, odata->Length, raw_data);
+	if(inner_content_type) {
+	    *inner_content_type = ECT_Other;
 	}
+	if(signer_cert) {
+	    signer_cert->data = NULL;
+	    signer_cert->length = 0;
+	}
+	if(signer_cert_status) {
+	    *signer_cert_status = pki_not_signed;
+	}
+	if(num_all_certs) {
+	    *num_all_certs = 0;
+	}
+	if(all_certs) {
+	    *all_certs = NULL;
+	}
+    }
+    if(is_encrypted) {
+	Boolean bencr;
+	ortn = CMSDecoderIsContentEncrypted(decoder, &bencr);
+	if(ortn) {
+	    pkiCssmErr("CMSDecoderCopySignerStatus", ortn);
+	    krtn = KRB5_CRYPTO_INTERNAL;
+	    goto errOut;
+	}
+	*is_encrypted = bencr ? TRUE : FALSE;
     }
     
+    /* 
+     * Verify signature and cert. The actual verify operation is optional,
+     * per our signer_cert_status argument, but we do this anyway if we need
+     * to get the signer cert.
+     */
+    if((signer_cert_status != NULL) || (signer_cert != NULL)) {
+	
+	ortn = CMSDecoderCopySignerStatus(decoder, 
+	    0,					    /* signerIndex */
+	    policy,
+	    signer_cert_status ? TRUE : FALSE,	    /* evaluateSecTrust */
+	    &signer_status,
+	    NULL,				    /* secTrust - not needed */
+	    &cert_verify_status);
+	if(ortn) {
+	    /* gross error - subsequent processing impossible */
+	    pkiCssmErr("CMSDecoderCopySignerStatus", ortn);
+	    krtn = KRB5_PARSE_MALFORMED;
+	    goto errOut;
+	}
+    }
+    /* obtain & return status */
+    if(signer_cert_status) {
+	*signer_cert_status = pkiInferSigStatus(signer_status, cert_verify_status);
+    }
+    
+    /* finally, the payload */
+    if(raw_data) {
+	CFDataRef cf_content = NULL;
+	
+	ortn = CMSDecoderCopyContent(decoder, &cf_content);
+	if(ortn) {
+	    pkiCssmErr("CMSDecoderCopyContent", ortn);
+	    krtn = KRB5_PARSE_MALFORMED;
+	    goto errOut;
+	}
+	krtn = pkiCfDataToKrb5Data(cf_content, raw_data);
+	CFRELEASE(cf_content);
+    }
 errOut:
-    if(arena) {
-	SecArenaPoolFree(arena, false);
-    }
-    if(cmsMsg) {
-	SecCmsMessageDestroy(cmsMsg);
-    }
-    return ortn;
+    CFRELEASE(policy_search);
+    CFRELEASE(policy);
+    CFRELEASE(cf_all_certs);
+    CFRELEASE(decoder);
+    return krtn;
+}
+
+krb5_error_code krb5int_pkinit_get_cms_types(
+    krb5int_algorithm_id    **supported_cms_types,	/* RETURNED */
+    krb5_ui_4		    *num_supported_cms_types)	/* RETURNED */
+{
+    /* no preference */
+    *supported_cms_types = NULL;
+    *num_supported_cms_types = 0;
+    return 0;
+}
+
+krb5_error_code krb5int_pkinit_free_cms_types(
+    krb5int_algorithm_id    *supported_cms_types,
+    krb5_ui_4		    num_supported_cms_types)
+{
+    /* 
+     * We don't return anything from krb5int_pkinit_get_cms_types(), and
+     * if we did, it would be a pointer to a statically declared array,
+     * so this is a nop. 
+     */
+    return 0;
 }

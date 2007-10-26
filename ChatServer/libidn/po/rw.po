@@ -1,0 +1,219 @@
+# Kinyarwanda translations for libidn package.
+# Copyright (C) 2005 Free Software Foundation, Inc.
+# This file is distributed under the same license as the libidn package.
+# Steve Murphy <murf@e-tools.com>, 2005.
+# Steve performed initial rough translation from compendium built from translations provided by the following translators:
+# Philibert Ndandali  <ndandali@yahoo.fr>, 2005.
+# Viateur MUGENZI <muvia1@yahoo.fr>, 2005.
+# Noëlla Mupole <s24211045@tuks.co.za>, 2005.
+# Carole Karema <karemacarole@hotmail.com>, 2005.
+# JEAN BAPTISTE NGENDAHAYO <ngenda_denis@yahoo.co.uk>, 2005.
+# Augustin KIBERWA  <akiberwa@yahoo.co.uk>, 2005.
+# Donatien NSENGIYUMVA <ndonatienuk@yahoo.co.uk>, 2005.
+# Antoine Bigirimana <antoine@e-tools.com>, 2005.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.6\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2005-04-04 10:55-0700\n"
+"Last-Translator: Steven Michael Murphy <murf@e-tools.com>\n"
+"Language-Team: Kinyarwanda <translation-team-rw@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr "Ibyatunganye"
+
+#, fuzzy
+msgid "String preparation failed"
+msgstr "Byanze"
+
+#, fuzzy
+msgid "Punycode failed"
+msgstr "Byanze"
+
+#, fuzzy
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Ibaruwa... in Iyinjiza"
+
+#, fuzzy
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Nyobora Cyangwa IKIMENYETSO"
+
+#, fuzzy
+msgid "Output would be too large or too small"
+msgstr "Binini Cyangwa Gitoya"
+
+#, fuzzy
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "OYA Gutangira Na: Imbanziriza"
+
+#, fuzzy
+msgid "String not idempotent under ToASCII"
+msgstr "OYA"
+
+#, fuzzy
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Imbanziriza"
+
+#, fuzzy
+msgid "System iconv failed"
+msgstr "Byanze"
+
+#, fuzzy
+msgid "Cannot allocate memory"
+msgstr "Ububiko"
+
+#, fuzzy
+msgid "System dlopen failed"
+msgstr "Byanze"
+
+msgid "Unknown error"
+msgstr "Ikosa itazwi"
+
+#, fuzzy
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "OYA"
+
+msgid "Invalid input"
+msgstr "ibinjizwa bitemewe"
+
+#, fuzzy
+msgid "Output would exceed the buffer space provided"
+msgstr "i Umwanya"
+
+#, fuzzy
+msgid "String size limit exceeded"
+msgstr "Ingano"
+
+#, fuzzy
+msgid "Forbidden unassigned code points in input"
+msgstr "ITEGEKONGENGA Utudomo in Iyinjiza"
+
+#, fuzzy
+msgid "Prohibited code points in input"
+msgstr "ITEGEKONGENGA Utudomo in Iyinjiza"
+
+#, fuzzy
+msgid "Conflicting bidirectional properties in input"
+msgstr "Indangakintu... in Iyinjiza"
+
+#, fuzzy
+msgid "Malformed bidirectional string"
+msgstr "Ikurikiranyanyuguti"
+
+#, fuzzy
+msgid "Prohibited bidirectional code points in input"
+msgstr "ITEGEKONGENGA Utudomo in Iyinjiza"
+
+#, fuzzy
+msgid "Error in stringprep profile definition"
+msgstr "in Ibijyana Insobanuro"
+
+#, fuzzy
+msgid "Flag conflict with profile"
+msgstr "Na: Ibijyana"
+
+#, fuzzy
+msgid "Unknown profile"
+msgstr "Ibijyana"
+
+#, fuzzy
+msgid "Unicode normalization failed (internal error)"
+msgstr "Byanze By'imbere Ikosa"
+
+#, fuzzy
+msgid "Code points prohibited by top-level domain"
+msgstr "Utudomo ku Hejuru: urwego Urwego"
+
+#, fuzzy
+msgid "Missing input"
+msgstr "Iyinjiza"
+
+#, fuzzy
+msgid "No top-level domain found in input"
+msgstr "Hejuru: urwego Urwego Byabonetse in Iyinjiza"
+
+#, fuzzy
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Bya S E D a Cyangwa u"
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr ""
+
+#, fuzzy, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr "Iyinjiza Ikurikiranyanyuguti ku a Umurongo ku ku a Inyuguti"
+
+#, fuzzy
+msgid "Input error"
+msgstr "Ikosa"
+
+#, fuzzy, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "OYA GUHINDURA Bivuye Kuri 8"
+
+#, fuzzy
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "OYA GUHINDURA Bivuye 8 Kuri 4."
+
+#, fuzzy, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "Iyinjiza U"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr ""
+
+#, fuzzy, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "Ibisohoka U"
+
+#, fuzzy, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "OYA GUHINDURA Bivuye 8 Kuri"
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr ""
+
+msgid "malloc"
+msgstr ""
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr ""
+
+#, fuzzy
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "OYA GUHINDURA Bivuye 4. Kuri 8"
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr ""
+
+#, fuzzy, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "U"
+
+#, fuzzy, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "Ibirindiro"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr ""
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr ""

@@ -27,13 +27,12 @@
 #include <security_keychain/TrustedApplication.h>
 #include <security_keychain/ACL.h>
 #include <security_utilities/osxcode.h>
-#include <security_cdsa_client/osxsigner.h>
 #include <security_utilities/trackingallocator.h>
+#include <security_cdsa_utilities/acl_codesigning.h>
 #include <sys/syslimits.h>
 #include <memory>
 
 using namespace KeychainCore;
-using namespace CodeSigning;
 
 
 //
@@ -41,84 +40,116 @@ using namespace CodeSigning;
 // Throws ACL::ParseError if the subject is unexpected.
 //
 TrustedApplication::TrustedApplication(const TypedList &subject)
-	: mSignature(Allocator::standard()),
-	  mData(Allocator::standard())
 {
-	if (subject.type() != CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE)
+	try {
+		CodeSignatureAclSubject::Maker maker;
+		mForm = maker.make(subject);
+		secdebug("trustedapp", "%p created from list form", this);
+		IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from list"));
+	} catch (...) {
 		throw ACL::ParseError();
-	if (subject[1] != CSSM_ACL_CODE_SIGNATURE_OSX)
-		throw ACL::ParseError();
-	mSignature = subject[2].data();
-	mData = subject[3].data();
+	}
 }
 
 
-TrustedApplication::TrustedApplication(const CssmData &signature, const CssmData &data) :
-	mSignature(Allocator::standard(), signature),
-	mData(Allocator::standard(), data)
+//
+// Create a TrustedApplication from a path-to-object-on-disk
+//
+TrustedApplication::TrustedApplication(const std::string &path)
 {
+	RefPointer<OSXCode> code(OSXCode::at(path));
+	mForm = new CodeSignatureAclSubject(OSXVerifier(code));
+	secdebug("trustedapp", "%p created from path %s", this, path.c_str());
+	IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from path"));
 }
 
-TrustedApplication::TrustedApplication(const char *path)
-	: mSignature(Allocator::standard()),
-	  mData(Allocator::standard())
-{
-	OSXSigner signer;
-	RefPointer<OSXCode> object(OSXCode::at(path));
-	auto_ptr<OSXSigner::OSXSignature> signature(signer.sign(*object));
-	mSignature = *signature;
-	string basePath = object->canonicalPath();
-	mData = CssmData(const_cast<char *>(basePath.c_str()), basePath.length() + 1);
-}
 
+//
+// Create a TrustedAppliation for the calling process
+//
 TrustedApplication::TrustedApplication()
-	: mSignature(Allocator::standard()),
-	  mData(Allocator::standard())
 {
-	OSXSigner signer;
-	RefPointer<OSXCode> object(OSXCode::main());
-	auto_ptr<OSXSigner::OSXSignature> signature(signer.sign(*object));
-	mSignature = *signature;
-	string path = object->canonicalPath();
-	mData.copy(path.c_str(), path.length() + 1);	// including trailing null
+	//@@@@ should use CS's idea of "self"
+	RefPointer<OSXCode> me(OSXCode::main());
+	mForm = new CodeSignatureAclSubject(OSXVerifier(me));
+	secdebug("trustedapp", "%p created from self", this);
+	IFDUMPING("codesign", mForm->AclSubject::dump("STApp created from self"));
 }
 
-TrustedApplication::~TrustedApplication() throw()
+
+//
+// Create a TrustedApplication from a SecRequirementRef.
+// Note that the path argument is only stored for documentation;
+// it is NOT used to denote anything on disk.
+//
+TrustedApplication::TrustedApplication(const std::string &path, SecRequirementRef reqRef)
 {
+	CFRef<CFDataRef> reqData;
+	MacOSError::check(SecRequirementCopyData(reqRef, kSecCSDefaultFlags, &reqData.aref()));
+	mForm = new CodeSignatureAclSubject(NULL, path);
+	mForm->add((const BlobCore *)CFDataGetBytePtr(reqData));
+	secdebug("trustedapp", "%p created from path %s and requirement %p",
+		this, path.c_str(), reqRef);
+	IFDUMPING("codesign", mForm->debugDump());
 }
 
-const CssmData &
-TrustedApplication::signature() const
+
+TrustedApplication::~TrustedApplication() throw ()
+{ /* virtual */ }
+
+
+//
+// Convert from/to external data form.
+//
+// Since a TrustedApplication's data is essentially a CodeSignatureAclSubject,
+// we just use the subject's externalizer to produce the data. That requires us
+// to use the somewhat idiosyncratic linearizer used by CSSM ACL subjects, but
+// that's a small price to pay for consistency.
+//
+TrustedApplication::TrustedApplication(CFDataRef external)
 {
-	return mSignature;
+	AclSubject::Reader pubReader(CFDataGetBytePtr(external)), privReader;
+	mForm = CodeSignatureAclSubject::Maker().make(0, pubReader, privReader);
 }
 
-const char *
-TrustedApplication::path() const
+CFDataRef TrustedApplication::externalForm() const
 {
-	if (mData)
-		return mData.get().interpretedAs<const char>();
-	else
-		return NULL;
+	AclSubject::Writer::Counter pubCounter, privCounter;
+	mForm->exportBlob(pubCounter, privCounter);
+	if (privCounter > 0)	// private exported data - format violation
+		CssmError::throwMe(CSSMERR_CSSM_INTERNAL_ERROR);
+	CFRef<CFMutableDataRef> data = CFDataCreateMutable(NULL, pubCounter);
+	CFDataSetLength(data, pubCounter);
+	if (CFDataGetLength(data) < CFIndex(pubCounter))
+		CFError::throwMe();
+	AclSubject::Writer pubWriter(CFDataGetMutableBytePtr(data)), privWriter;
+	mForm->exportBlob(pubWriter, privWriter);
+	return data.yield();
 }
 
-bool
-TrustedApplication::sameSignature(const char *path)
-{
-	// return true if object at given path has same signature
-    CssmAutoData otherSignature(Allocator::standard());
-    calcSignature(path, otherSignature);
-	return (mSignature.get() == otherSignature);
-}
 
-void
-TrustedApplication::calcSignature(const char *path, CssmOwnedData &signature)
+//
+// Direct verification interface.
+// If path == NULL, we verify against the running code itself.
+//
+bool TrustedApplication::verifyToDisk(const char *path)
 {
-	// generate a signature for the given object
-    RefPointer<OSXCode> objToVerify(OSXCode::at(path));
-	CodeSigning::OSXSigner signer;
-    auto_ptr<CodeSigning::OSXSigner::OSXSignature> osxSignature(signer.sign(*objToVerify));
-    signature.copy(osxSignature->data(), osxSignature->length());
+	if (SecRequirementRef requirement = mForm->requirement()) {
+		secdebug("trustedapp", "%p validating requirement against path %s", this, path);
+		CFRef<SecStaticCodeRef> ondisk;
+		if (path)
+			MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(path),
+				kSecCSDefaultFlags, &ondisk.aref()));
+		else
+			MacOSError::check(SecCodeCopySelf(kSecCSDefaultFlags, (SecCodeRef *)&ondisk.aref()));
+		return SecStaticCodeCheckValidity(ondisk, kSecCSDefaultFlags, requirement) == noErr;
+	} else {
+		secdebug("trustedapp", "%p validating hash against path %s", this, path);
+		RefPointer<OSXCode> code = path ? OSXCode::at(path) : OSXCode::main();
+		SHA1::Digest ondiskDigest;
+		OSXVerifier::makeLegacyHash(code, ondiskDigest);
+		return memcmp(ondiskDigest, mForm->legacyHash(), sizeof(ondiskDigest)) == 0;
+	}
 }
 
 
@@ -128,13 +159,9 @@ TrustedApplication::calcSignature(const char *path, CssmOwnedData &signature)
 // Memory is allocated from the allocator given, and belongs to
 // the caller.
 //
-TypedList TrustedApplication::makeSubject(Allocator &allocator)
+CssmList TrustedApplication::makeSubject(Allocator &allocator)
 {
-	return TypedList(allocator,
-		CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE,
-		new(allocator) ListElement(CSSM_ACL_CODE_SIGNATURE_OSX),
-		new(allocator) ListElement(allocator, mSignature.get()),
-		new(allocator) ListElement(allocator, mData.get()));
+	return mForm->toList(allocator);
 }
 
 

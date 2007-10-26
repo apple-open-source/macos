@@ -1,0 +1,15 @@
+Đây là thư thăm dò nên bạn có thể bỏ qua thư này.
+
+Hộp thư chung %(listname)s đã nhận một số thư nảy về từ bạn, ngụ ý sự khó có thể khi phát thư cho địa chỉ thư %(address)s. Đính kèm thư này có một mẫu nảy về. Vui lòng xem lại thư này, để đảm bảo địa chỉ thư điện tử của bạn là hoạt động và có thể nhận thư. Để được trợ giúp, bạn có thể liên lạc với quản trị thư mình.
+
+Nếu bạn đang đọc thư này, bạn không cần làm gì để tiếp tục là thành viên hoạt động của hộp thư chung này. Nếu thư này đã nảy về, bạn không đọc nó, và trạng thái thành viên của bạn đã bị tắt. Bình thường, khi bạn đã bị tắt, bạn sẽ nhận thỉng thoảng một lá thư mời bạn bật lại sự đăng ký.
+
+Bạn cũng có thể thăm trang sự thành viên mình tại
+
+    %(optionsurl)s
+
+Trên trang này, bạn có thể thay đổi một số tùy chọn phát thư khác nhau, như địa chỉ thư điện tử của bạn và khả năng nhận bó thư.
+
+Mỗi câu hỏi hay vấn đề, vui lòng gởi thư cho người sở hữu hộp thư chung tại
+
+    %(owneraddr)s

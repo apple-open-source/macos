@@ -32,8 +32,9 @@
 #include <security_agent_client/agentclient.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/ccaudit.h>
+#include "clientid.h"
+#include "csproxy.h"
 #include "localkey.h"
-#include "codesigdb.h"
 #include "notifications.h"
 #include <string>
 
@@ -47,9 +48,25 @@ class AuthorizationToken;
 
 //
 // A Process object represents a UNIX process (and associated Mach Task) that has
-// had contact with us and may have some state associated with it.
+// had contact with us and may have some state associated with it. It primarily tracks
+// the process nature of the client. Individual threads in the client are tracked by
+// Connection objects.
 //
-class Process : public PerProcess, public CodeSignatures::Identity {
+// Code Signing-style Guest identities are managed in two of our mix-ins. The two play
+// distinct but related roles:
+// * CodeSigningHost manages the public identity of guests within the client.
+//   In this relationship, securityd provides registry and proxy services to the client.
+// * ClientIdentification tracks the identity of guests in the client *as securityd clients*.
+//   It is concerned with which guest is asking for securityd services, and whether this
+//   should be granted.
+// Often, the two form a loop: ClientIdentification uses CodeSigningHost to determine
+// the guest client identity, but it does so through public (Mach IPC) interfaces, because
+// clients may implement their own proxy (though currently not registry) services.
+// We could short-circuit the IPC leg in those cases where securityd serves itself,
+// but there's no evidence (yet) that this is worth the trouble.
+//
+class Process : public PerProcess,
+	public CodeSigningHost, public ClientIdentification {
 public:
 	Process(Port servicePort, TaskPort tPort,
 		const ClientSetupInfo *info, const char *identity,
@@ -66,8 +83,6 @@ public:
     TaskPort taskPort() const	{ return mTaskPort; }
 	bool byteFlipped() const	{ return mByteFlipped; }
 	
-	OSXCode *clientCode() const { return (mClientIdent == unknown) ? NULL : mClientCode; }
-	
 	void addAuthorization(AuthorizationToken *auth);
 	void checkAuthorization(AuthorizationToken *auth);
 	bool removeAuthorization(AuthorizationToken *auth);
@@ -76,9 +91,6 @@ public:
 	void kill();
 	
 	void changeSession(Port servicePort);	// very special indeed
-    
-    void requestNotifications(Port port, NotificationDomain domain, NotificationMask events);
-    void stopNotifications(Port port);
     
 	Session& session() const;
 	
@@ -91,11 +103,8 @@ public:
 	
 	IFDUMP(void dumpNode());
 	
-protected:
-	std::string getPath() const;
-	const CssmData getHash(CodeSigning::OSXSigner &signer) const;
-
-	void setup(const ClientSetupInfo *info, const char *identity);
+private:
+	void setup(const ClientSetupInfo *info);
 	
 private:
 	// peer state: established during connection startup; fixed thereafter
@@ -104,10 +113,6 @@ private:
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
-	
-	RefPointer<OSXCode> mClientCode; // code object for client (NULL if unknown)
-	mutable enum { deferred, known, unknown } mClientIdent; // state of client identity
-	mutable auto_ptr<CodeSigning::Signature> mCachedSignature; // cached signature (if already known)
 	
 	// authorization dictionary
 	typedef multiset<AuthorizationToken *> AuthorizationSet;

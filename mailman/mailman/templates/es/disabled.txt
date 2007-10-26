@@ -1,10 +1,10 @@
 Su subscripción a la lista de distribución %(listname)s se ha inhabilitado
 %(reason)s.  No obtendrá ningún mensaje más de esta lista hasta que rehabilite su
-subscripción.  Recibirá %(noticesleft)s recordatorios como este antes de que su
-subscripción a la lista se borre.
+subscripción.  Recibirá %(noticesleft)s recordatorios como este antes de que se
+borre su subscripción a la lista.
 
 Para volver a activar su subscripción, solo tiene que responder a este mensaje
-(dejando la línea correspondiente al asunto intacto), o visite la página de
+(dejando la línea correspondiente al asunto intacta), o visite la página de
 confirmación sita en
 
     %(confirmurl)s

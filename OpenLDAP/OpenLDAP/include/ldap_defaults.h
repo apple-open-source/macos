@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_defaults.h,v 1.24.2.4 2004/01/01 18:16:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldap_defaults.h,v 1.30.2.3 2006/01/03 22:16:06 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  * 
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -46,6 +46,7 @@
  */
 	/* location of the default slapd config file */
 #define SLAPD_DEFAULT_CONFIGFILE	LDAP_SYSCONFDIR LDAP_DIRSEP "slapd.conf"
+#define SLAPD_DEFAULT_CONFIGDIR		LDAP_SYSCONFDIR LDAP_DIRSEP "slapd.d"
 #define SLAPD_DEFAULT_DB_DIR		LDAP_RUNDIR LDAP_DIRSEP "openldap-data"
 #define SLAPD_DEFAULT_DB_MODE		0600
 #define SLAPD_DEFAULT_UCDATA		LDAP_DATADIR LDAP_DIRSEP "ucdata"

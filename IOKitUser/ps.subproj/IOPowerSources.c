@@ -25,9 +25,10 @@
  */
 
 
+#include <sys/cdefs.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
+#include "IOSystemConfiguration.h"
 #include "IOPSKeys.h"
 #include "IOPowerSources.h"
 
@@ -51,14 +52,19 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
     // Open connection to SCDynamicStore
     store = SCDynamicStoreCreate(kCFAllocatorDefault, 
                 CFSTR("IOKit Power Source Copy"), NULL, NULL);
-    if(!store) return NULL;
-     
+    if(!store) { 
+        goto exit;
+     }
     // Create regular expression to match all Power Sources
     ps_match = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@/%@"),
                 kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePathKey), kSCCompAnyRegex);
-    if(!ps_match) return NULL;
+    if(!ps_match) {
+        goto exit;
+    }
     ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if(!ps_arr) return NULL;
+    if(!ps_arr) {
+        goto exit;
+    }
     CFArrayAppendValue(ps_arr, ps_match);
     CFRelease(ps_match);
     
@@ -69,6 +75,15 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
     CFRelease(ps_arr);
     CFRelease(store);
     
+exit:
+    if(!power_sources) {
+        // On failure, we return an empty dictionary instead of NULL
+        power_sources = CFDictionaryCreate( kCFAllocatorDefault, 
+                                  NULL, NULL, 0, 
+                                  &kCFTypeDictionaryKeyCallBacks,
+                                  &kCFTypeDictionaryValueCallBacks);
+    }
+
     // Return CFDictionary as opaque CFTypeRef
     return (CFTypeRef)power_sources;
 }
@@ -85,16 +100,23 @@ CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob) {
     int                 count;
     void                **keys;
     CFArrayRef          arr;
+    bool                failure = false;
 
     // Check that the argument is actually a CFDictionary
-    if( !(blob && (CFGetTypeID(blob)==CFDictionaryGetTypeID())) ) 
-        return NULL;
-
+    if( !blob 
+        || (CFGetTypeID(blob) != CFDictionaryGetTypeID()) ) 
+    {
+        failure = true;
+        goto exit;
+    }
+    
     // allocate buffers for keys and values
     count = CFDictionaryGetCount((CFDictionaryRef)blob);    
     keys = (void **)malloc(count * sizeof(void *));
-    if(!keys)
-        return NULL;
+    if(!keys) {
+        failure = true;
+        goto exit;
+    }
 
     // Get keys and values from CFDictionary
     CFDictionaryGetKeysAndValues((CFDictionaryRef)blob, (const void **)keys, NULL);
@@ -104,7 +126,11 @@ CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob) {
     
     // free keys and values
     free(keys);
-    
+exit:
+    if(failure) {
+        // On failure, we return an empty array instead of NULL
+        arr = CFArrayCreate( 0, NULL, 0, &kCFTypeArrayCallBacks);
+    }
     // Return CFArray
     return arr;
 }
@@ -138,7 +164,7 @@ typedef struct {
     void                            *context;
 } user_callback_context;
 
-void ioCallout(SCDynamicStoreRef store, CFArrayRef keys, void *ctxt) {
+void ioCallout(SCDynamicStoreRef store __unused, CFArrayRef keys __unused, void *ctxt) {
     user_callback_context	*c;
     IOPowerSourceCallbackType cb;
 

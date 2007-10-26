@@ -1,0 +1,69 @@
+Index: stack_protector.c
+===================================================================
+--- stack_protector.c	(revision 31377)
++++ stack_protector.c	(working copy)
+@@ -32,44 +32,41 @@ static char rcsid[] = "$OpenBSD: stack_p
+ #include <sys/param.h>
+ #include <sys/sysctl.h>
+ #include <syslog.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include <fcntl.h>
++
++extern void __abort(void) __dead2;
++long __stack_chk_guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
++void __guard_setup(void) __attribute__ ((visibility ("hidden")));
++void __stack_chk_fail(void);
+ 
+-long __guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+-static void __guard_setup(void) __attribute__ ((constructor));
+-void __stack_smash_handler(char func[], int damaged __attribute__((unused)));
+-
+-static void
++void
+ __guard_setup(void)
+ {
+   int fd;
+-  if (__guard[0]!=0) return;
++  if (__stack_chk_guard[0]!=0) return;
+   fd = open ("/dev/urandom", 0);
+   if (fd != -1) {
+-    ssize_t size = read (fd, (char*)&__guard, sizeof(__guard));
++    ssize_t size = read (fd, (char*)&__stack_chk_guard,
++			 sizeof(__stack_chk_guard));
+     close (fd) ;
+-    if (size == sizeof(__guard)) return;
++    if (size == sizeof(__stack_chk_guard)
++	&& *__stack_chk_guard != 0) return;
+   }
+   /* If a random generator can't be used, the protector switches the guard
+      to the "terminator canary" */
+-  ((char*)__guard)[0] = 0; ((char*)__guard)[1] = 0;
+-  ((char*)__guard)[2] = '\n'; ((char*)__guard)[3] = 255;
++  ((char*)__stack_chk_guard)[0] = 0; ((char*)__stack_chk_guard)[1] = 0;
++  ((char*)__stack_chk_guard)[2] = '\n'; ((char*)__stack_chk_guard)[3] = 255;
+ }
+ 
+ void
+-__stack_smash_handler(char func[], int damaged)
++__stack_chk_fail()
+ {
+-  const char message[] = "stack overflow in function %s";
+-  struct sigaction sa;
++  const char message[] = "[%d] stack overflow";
+ 
+   /* this may fail on a chroot jail, though luck */
+-  syslog(LOG_CRIT, message, func);
+-
+-  bzero(&sa, sizeof(struct sigaction));
+-  sigemptyset(&sa.sa_mask);
+-  sa.sa_flags = 0;
+-  sa.sa_handler = SIG_DFL;
+-  sigaction(SIGABRT, &sa, NULL);
+-
+-  kill(getpid(), SIGABRT);
++  syslog(LOG_CRIT, message, getpid());
+ 
+-  _exit(127);
++  __abort();
+ }

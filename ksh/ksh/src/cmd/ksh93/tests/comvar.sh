@@ -1,36 +1,32 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
 #test for compound variables
-Command=$0
+Command=${0##*/}
 integer Errors=0
 Point=(
 	float x=1. y=0.
@@ -82,6 +78,7 @@ unset x
 	x.foo.bar=7
 	[[ ${x.foo.bar} == 7 ]] || err_exit '[[ ${x.foo.bar} != 7 ]]'
 	(( x.foo.bar == 7  ))|| err_exit '(( x.foo.bar != 7 ))'
+	[[ ${x.foo} == *bar=7*  ]] || err_exit '[[ ${x.foo} != *bar=7* ]]'
 )
 foo=(integer x=3)
 if	[[ ${foo} != *x=3* ]]
@@ -185,5 +182,16 @@ suitable=(
 [[ "${suitable}" == *entrylist=* ]] || err_exit 'compound variable expansion omitting fields'
 foo=( bar=foo  barbar=bar)
 [[ $foo == *bar=foo* ]] || err_exit 'no prefix elements in compound variable output'
+function localvar
+{
+	typeset point=(typeset -i x=3 y=4)
+	(( (point.x*point.x + point.y*point.y) == 25 )) || err_exit "local compound variable not working"
+}
+point=(integer x=6 y=8)
+localvar
+	(( (point.x*point.x + point.y*point.y) == 100 )) || err_exit "global compound variable not preserved"
+[[ $($SHELL -c 'foo=();foo.[x]=(y z); print ${foo.x[@]}') == 'y z' ]] 2> /dev/null || err_exit 'foo=( [x]=(y z)  not working'
+unset z
+( [[ ${z.foo.bar:-abc} == abc ]] 2> /dev/null) || err_exit ':- not working with compound variables'
 exit $((Errors))
 

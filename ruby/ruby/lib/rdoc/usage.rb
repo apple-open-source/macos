@@ -69,6 +69,7 @@
 require 'rdoc/markup/simple_markup'
 require 'rdoc/markup/simple_markup/to_flow'
 require 'rdoc/ri/ri_formatter'
+require 'rdoc/ri/ri_paths'
 require 'rdoc/ri/ri_options'
 
 module RDoc
@@ -96,7 +97,7 @@ module RDoc
 
   # Display usage
   def RDoc.usage_no_exit(*args)
-    main_program_file, = caller[-1].split(/:/, 2)
+    main_program_file = caller[-1].sub(/:\d+$/, '')
     comment = File.open(main_program_file) do |file|
       find_comment(file)
     end
@@ -128,24 +129,31 @@ module RDoc
 
   # Find the first comment in the file (that isn't a shebang line)
   # If the file doesn't start with a comment, report the fact
-  # and return nil
+  # and return empty string
+
+  def RDoc.gets(file)
+    if (line = file.gets) && (line =~ /^#!/) # shebang
+      throw :exit, find_comment(file)
+    else
+      line
+    end
+  end
 
   def RDoc.find_comment(file)
-    # skip leading blank lines and shebangs
-    while line = file.gets
-      break unless line =~ /^(#!|\s*$)/
+    catch(:exit) do
+      # skip leading blank lines
+      0 while (line = gets(file)) && (line =~ /^\s*$/)
+
+      comment = []
+      while line && line =~ /^\s*#/
+        comment << line
+        line = gets(file)
+      end
+
+      0 while line && (line = gets(file))
+      return no_comment if comment.empty?
+      return comment.join
     end
-
-    comment = []
-
-    while line && line =~ /^\s*#/
-      comment << line
-      line = file.gets
-    end
-
-    return no_comment if comment.empty?
-
-    comment.join
   end
 
 
@@ -167,7 +175,7 @@ module RDoc
           if copy_upto_level && item.level >= copy_upto_level
             copy_upto_level = nil
           else
-            if item.text[0].downcase == name
+            if item.text.downcase == name
               result << item
               copy_upto_level = item.level
             end
@@ -191,7 +199,7 @@ module RDoc
   # Report the fact that no doc comment count be found
   def RDoc.no_comment
     $stderr.puts "No usage information available for this program"
-    nil
+    ""
   end
 end
 

@@ -90,7 +90,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include "netstat.h"
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && !defined(__unused)
 #define __unused
 #endif
 /*
@@ -161,18 +161,20 @@ static const char *pfkey_msgtypenames[] = {
 	"x_spdsetidx", "x_spdexpire", "x_spddelete2"
 };
 
+static struct ipsecstat pipsecstat;
 static struct ipsecstat ipsecstat;
 
 static void print_ipsecstats (void);
 static const char *pfkey_msgtype_names (int);
-static void ipsec_hist (const u_quad_t *, size_t, const struct val2str *,
-	const char *);
+static void ipsec_hist (const u_quad_t *, const u_quad_t *, size_t,
+    const struct val2str *, const char *);
 
 /*
  * Dump IPSEC statistics structure.
  */
 static void
 ipsec_hist(const u_quad_t *hist,
+	   const u_quad_t *phist,
 	   size_t histmax,
 	   const struct val2str *name,
 	   const char *title)
@@ -183,7 +185,7 @@ ipsec_hist(const u_quad_t *hist,
 
 	first = 1;
 	for (proto = 0; proto < histmax; proto++) {
-		if (hist[proto] <= 0)
+		if ((hist[proto] - phist[proto]) <= 0)
 			continue;
 		if (first) {
 			printf("\t%s histogram:\n", title);
@@ -194,10 +196,11 @@ ipsec_hist(const u_quad_t *hist,
 				break;
 		}
 		if (p && p->str) {
-			printf("\t\t%s: " LLU "\n", p->str, (CAST)hist[proto]);
+			printf("\t\t%s: " LLU "\n", p->str,
+			    (CAST)hist[proto] - (CAST)phist[proto]);
 		} else {
 			printf("\t\t#%ld: " LLU "\n", (long)proto,
-			    (CAST)hist[proto]);
+			    (CAST)hist[proto] - (CAST)phist[proto]);
 		}
 	}
 }
@@ -205,10 +208,12 @@ ipsec_hist(const u_quad_t *hist,
 static void
 print_ipsecstats(void)
 {
-#define	p(f, m) if (ipsecstat.f || sflag <= 1) \
-    printf(m, (CAST)ipsecstat.f, plural(ipsecstat.f))
+#define	IPSECDIFF(f) (ipsecstat.f - pipsecstat.f)
+#define	p(f, m) if (IPSECDIFF(f) || sflag <= 1) \
+    printf(m, (CAST)IPSECDIFF(f), plural(IPSECDIFF(f)))
 #define hist(f, n, t) \
-    ipsec_hist((f), sizeof(f)/sizeof(f[0]), (n), (t));
+    ipsec_hist(ipsecstat.f, pipsecstat.f, \
+        sizeof(ipsecstat.f)/sizeof(ipsecstat.f[0]), (n), (t));
 
 	p(in_success, "\t" LLU " inbound packet%s processed successfully\n");
 	p(in_polvio, "\t" LLU " inbound packet%s violated process security "
@@ -221,9 +226,9 @@ print_ipsecstats(void)
 	p(in_espreplay, "\t" LLU " inbound packet%s failed on ESP replay check\n");
 	p(in_ahauthsucc, "\t" LLU " inbound packet%s considered authentic\n");
 	p(in_ahauthfail, "\t" LLU " inbound packet%s failed on authentication\n");
-	hist(ipsecstat.in_ahhist, ipsec_ahnames, "AH input");
-	hist(ipsecstat.in_esphist, ipsec_espnames, "ESP input");
-	hist(ipsecstat.in_comphist, ipsec_compnames, "IPComp input");
+	hist(in_ahhist, ipsec_ahnames, "AH input");
+	hist(in_esphist, ipsec_espnames, "ESP input");
+	hist(in_comphist, ipsec_compnames, "IPComp input");
 
 	p(out_success, "\t" LLU " outbound packet%s processed successfully\n");
 	p(out_polvio, "\t" LLU " outbound packet%s violated process security "
@@ -232,9 +237,10 @@ print_ipsecstats(void)
 	p(out_inval, "\t" LLU " invalid outbound packet%s\n");
 	p(out_nomem, "\t" LLU " outbound packet%s failed due to insufficient memory\n");
 	p(out_noroute, "\t" LLU " outbound packet%s with no route\n");
-	hist(ipsecstat.out_ahhist, ipsec_ahnames, "AH output");
-	hist(ipsecstat.out_esphist, ipsec_espnames, "ESP output");
-	hist(ipsecstat.out_comphist, ipsec_compnames, "IPComp output");
+	hist(out_ahhist, ipsec_ahnames, "AH output");
+	hist(out_esphist, ipsec_espnames, "ESP output");
+	hist(out_comphist, ipsec_compnames, "IPComp output");
+#undef IPSECDIFF
 #undef p
 #undef hist
 }
@@ -245,17 +251,20 @@ ipsec_stats(u_long off __unused, char *name, int af __unused)
 	size_t len;
 	
 	len = sizeof(struct ipsecstat);
-	if (strcmp(name, "ipsec") == 0)
+	if (strcmp(name, "ipsec") == 0) {
 		if (sysctlbyname("net.inet.ipsec.stats", &ipsecstat, &len, 0, 0) == -1)
 			return;
-	else if (strcmp(name, "ipsec6") == 0)
+	} else if (strcmp(name, "ipsec6") == 0) {
 		if (sysctlbyname("net.inet6.ipsec6.stats", &ipsecstat, &len, 0, 0) == -1)
 			return;
-	else
+	} else
 		return;
 	printf ("%s:\n", name);
 
 	print_ipsecstats();
+
+	if (interval > 0)
+		bcopy(&ipsecstat, &pipsecstat, len);
 }
 
 static const char *
@@ -274,6 +283,7 @@ pfkey_msgtype_names(int x)
 void
 pfkey_stats(u_long off __unused, char *name, int af __unused)
 {
+	static struct pfkeystat ppfkeystat;
 	struct pfkeystat pfkeystat;
 	unsigned first, type;
 	size_t len;
@@ -283,8 +293,9 @@ pfkey_stats(u_long off __unused, char *name, int af __unused)
 		return;
 	printf ("%s:\n", name);
 
-#define	p(f, m) if (pfkeystat.f || sflag <= 1) \
-    printf(m, (CAST)pfkeystat.f, plural(pfkeystat.f))
+#define	PFKEYDIFF(f) (pfkeystat.f - ppfkeystat.f)
+#define	p(f, m) if (PFKEYDIFF(f) || sflag <= 1) \
+    printf(m, (CAST)PFKEYDIFF(f), plural(PFKEYDIFF(f)))
 
 	/* kernel -> userland */
 	p(out_total, "\t" LLU " request%s sent to userland\n");
@@ -292,14 +303,14 @@ pfkey_stats(u_long off __unused, char *name, int af __unused)
 	for (first = 1, type = 0;
 	     type < sizeof(pfkeystat.out_msgtype)/sizeof(pfkeystat.out_msgtype[0]);
 	     type++) {
-		if (pfkeystat.out_msgtype[type] <= 0)
+		if (PFKEYDIFF(out_msgtype[type]) <= 0)
 			continue;
 		if (first) {
 			printf("\thistogram by message type:\n");
 			first = 0;
 		}
 		printf("\t\t%s: " LLU "\n", pfkey_msgtype_names(type),
-			(CAST)pfkeystat.out_msgtype[type]);
+			(CAST)PFKEYDIFF(out_msgtype[type]));
 	}
 	p(out_invlen, "\t" LLU " message%s with invalid length field\n");
 	p(out_invver, "\t" LLU " message%s with invalid version field\n");
@@ -317,14 +328,14 @@ pfkey_stats(u_long off __unused, char *name, int af __unused)
 	for (first = 1, type = 0;
 	     type < sizeof(pfkeystat.in_msgtype)/sizeof(pfkeystat.in_msgtype[0]);
 	     type++) {
-		if (pfkeystat.in_msgtype[type] <= 0)
+		if (PFKEYDIFF(in_msgtype[type]) <= 0)
 			continue;
 		if (first) {
 			printf("\thistogram by message type:\n");
 			first = 0;
 		}
 		printf("\t\t%s: " LLU "\n", pfkey_msgtype_names(type),
-			(CAST)pfkeystat.in_msgtype[type]);
+			(CAST)PFKEYDIFF(in_msgtype[type]));
 	}
 	p(in_msgtarget[KEY_SENDUP_ONE],
 	    "\t" LLU " message%s toward single socket\n");
@@ -333,6 +344,10 @@ pfkey_stats(u_long off __unused, char *name, int af __unused)
 	p(in_msgtarget[KEY_SENDUP_REGISTERED],
 	    "\t" LLU " message%s toward registered sockets\n");
 	p(in_nomem, "\t" LLU " message%s with memory allocation failure\n");
+
+	if (interval > 0)
+		bcopy(&pfkeystat, &ppfkeystat, len);
+#undef PFKEYDIFF
 #undef p
 }
 #endif /*IPSEC*/

@@ -22,7 +22,6 @@
 #ifndef _H_OSXCODE
 #define _H_OSXCODE
 
-#include <security_utilities/codesigning.h>
 #include <security_utilities/refcount.h>
 #include <security_utilities/cfutilities.h>
 #include <limits.h>
@@ -37,8 +36,10 @@ namespace Security {
 //
 // A Signable with OS X support calls added
 //
-class OSXCode : public RefCount, public CodeSigning::Signable {
+class OSXCode : public RefCount {
 public:
+	virtual ~OSXCode() { }
+	
 	// encoding and decoding as a UTF-8 string
 	virtual string encode() const = 0;
 	static OSXCode *decode(const char *extForm);
@@ -47,35 +48,14 @@ public:
 	// creating OSXCode objects
 	static RefPointer<OSXCode> main();
 	static RefPointer<OSXCode> at(const char *path);
-	static RefPointer<OSXCode> at(const std::string &path)
-	{ return at(path.c_str()); }
-	
-	template <class Code>
-	static RefPointer<Code> main() { return restrict<Code>(main()); }
-	template <class Code>
-	static RefPointer<Code> at(const char *path) { return restrict<Code>(at(path)); }
-	template <class Code>
-	static RefPointer<Code> at(const std::string &path)	{ return restrict<Code>(at(path)); }
-
-	// restrict (validate) to subclass or throw
-	template <class Sub>
-	static RefPointer<Sub> restrict(RefPointer<OSXCode> in)
-	{
-		if (Sub *sub = dynamic_cast<Sub *>(in.get()))
-			return sub;
-		else
-			UnixError::throwMe(ENOEXEC);
-	}
-	
+	static RefPointer<OSXCode> at(const std::string &path) { return at(path.c_str()); }
+		
 public:
-	// produce the best approximation of a path that, when handed to at(),
-	// will yield an OSXCode that's the most like this one
-	virtual string canonicalPath() const = 0;
-	virtual string executablePath() const = 0;
+	virtual string canonicalPath() const = 0;	// reverse of at()
+	virtual string executablePath() const = 0;	// path to main executable file
 
 protected:
 	OSXCode() { }	// nonpublic
-	static void scanFile(const char *pathname, CodeSigning::Signer::State &state);	// scan an entire file
 };
 
 
@@ -91,9 +71,6 @@ public:
 	string canonicalPath() const;
 	string executablePath() const;
 	
-protected:
-	void scanContents(CodeSigning::Signer::State &state) const;
-
 private:
 	string mPath;			// UTF8 pathname to executable
 };
@@ -102,11 +79,11 @@ private:
 //
 // A generic bundle
 //
-class GenericBundle : public OSXCode {
+class Bundle : public OSXCode {
 public:
-	GenericBundle(const char *path, const char *execPath = NULL);	// from root and optional exec path
-	GenericBundle(CFBundleRef bundle, const char *root = NULL);		// from existing CFBundleRef
-	~GenericBundle();
+	Bundle(const char *path, const char *execPath = NULL);	// from root and optional exec path
+	Bundle(CFBundleRef bundle, const char *root = NULL);		// from existing CFBundleRef
+	~Bundle();
 
 	string encode() const;
 	
@@ -123,7 +100,6 @@ public:
 	virtual void *lookupSymbol(const char *name);
 
 protected:
-	void scanContents(CodeSigning::Signer::State &state) const;
 	CFBundleRef cfBundle() const;
 	
 protected:
@@ -132,16 +108,11 @@ protected:
 	mutable CFBundleRef mBundle; // CF-style bundle object (lazily built)
 };
 
-class ApplicationBundle : public GenericBundle {
-public:
-	ApplicationBundle(const char *pathname) : GenericBundle(pathname) { }
-	ApplicationBundle(CFBundleRef bundle) : GenericBundle(bundle) { }
-};
 
-class LoadableBundle : public GenericBundle {
+class LoadableBundle : public Bundle {
 public:
-	LoadableBundle(const char *pathname) : GenericBundle(pathname) { }
-	LoadableBundle(CFBundleRef bundle) : GenericBundle(bundle) { }
+	LoadableBundle(const char *pathname) : Bundle(pathname) { }
+	LoadableBundle(CFBundleRef bundle) : Bundle(bundle) { }
 	
 	virtual bool isLoaded() const;
 	virtual void load();

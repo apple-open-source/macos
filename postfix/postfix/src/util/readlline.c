@@ -35,6 +35,8 @@
 /*	Warning: a continuation line that does not continue preceding text.
 /*	The invalid input is ignored, to avoid complicating caller code.
 /* SECURITY
+/* .ad
+/* .fi
 /*	readlline() imposes no logical line length limit therefore it
 /*	should be used for reading trusted information only.
 /* LICENSE
@@ -70,7 +72,7 @@ VSTRING *readlline(VSTRING *buf, VSTREAM *fp, int *lineno)
 {
     int     ch;
     int     next;
-    int     start;
+    ssize_t start;
     char   *cp;
 
     VSTRING_RESET(buf);

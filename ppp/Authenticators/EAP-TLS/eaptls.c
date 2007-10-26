@@ -273,8 +273,6 @@ int Process(void *context, struct EAP_Input *eap_in, struct EAP_Output *eap_out)
 	eaptls_ui_ctx *ui_ctx_in;
 	int do_process = 0;
 	CFDictionaryRef	publish_prop;
-	CFArrayRef	require_prop;
-	CFTypeRef	key, val;
 	
 	// by default, ignore the message
 	eap_out->action = EAP_ACTION_NONE;
@@ -294,17 +292,12 @@ int Process(void *context, struct EAP_Input *eap_in, struct EAP_Output *eap_out)
 					// add the required property to the eap config dictionary
 					publish_prop = EAPClientModulePluginPublishProperties(eapRef, &eapData);
 					if (publish_prop) {
-						require_prop = EAPClientModulePluginRequireProperties(eapRef, &eapData);
-						if (require_prop) {
-							key = CFArrayGetValueAtIndex(require_prop, 0);
-							if (key) {
-								val = CFDictionaryGetValue(publish_prop, key);
-								if (val)
-									CFDictionarySetValue(eapProperties, key, val);
-							}
-							CFRelease(require_prop);
-						}
-						CFRelease(publish_prop);
+						 CFArrayRef     chain;
+						 chain = CFDictionaryGetValue(publish_prop, kEAPClientPropTLSServerCertificateChain);
+						 if (chain) {
+							CFDictionarySetValue(eapProperties, kEAPClientPropTLSUserTrustProceedCertificateChain, chain);
+						 }
+						 CFRelease(publish_prop);
 					}
 					pkt_in = eapSavePacket;
 					do_process = 1;

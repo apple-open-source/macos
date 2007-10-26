@@ -1,15 +1,14 @@
-# $FreeBSD: src/usr.sbin/cron/crontab/Makefile,v 1.11 2001/03/26 14:39:47 ru Exp $
+# $FreeBSD: src/usr.sbin/cron/crontab/Makefile,v 1.14 2004/11/03 18:01:21 ru Exp $
+
+BINDIR= /usr/bin
 
 PROG=	crontab
-CFLAGS+=-I${.CURDIR}/../cron
-DPADD=	${LIBCRON} 
-LDADD=	${LIBCRON}
-MAN1=	crontab.1 
-MAN5=   crontab.5
-
-BINDIR=	/usr/bin
 BINOWN=	root
 BINMODE=4555
-#INSTALLFLAGS=-fschg
+CFLAGS+=-I${.CURDIR}/../cron
+DPADD=	${LIBCRON} ${LIBMD} ${LIBCRYPTO}
+LDADD=	${LIBCRON} -lmd -lcrypto
+MAN1=	crontab.1 
+MAN5=   crontab.5
 
 .include <bsd.prog.mk>

@@ -8,12 +8,12 @@
 SYSTEM_LIBRARY_DIR=$(DSTROOT)/System/Library
 SYSTEM_CORE_SERVICES_DIR=/System/Library/CoreServices
 ETC_DIR=$(DSTROOT)/private/etc
+LAUNCH_DIR=$(DSTROOT)/System/Library/LaunchDaemons
 AUTHORIZATION_LOCATION=$(ETC_DIR)
 AUTHORIZATION_PLIST=$(AUTHORIZATION_LOCATION)/authorization
 VARDB=$(DSTROOT)/private/var/db
 CANDIDATES=$(VARDB)/CodeEquivalenceCandidates
 
-DST=$(ETC_DIR)/mach_init.d
 SRC=$(SRCROOT)/etc
 
 
@@ -33,8 +33,8 @@ profile:
 # Install
 #
 install:
-	mkdir -p $(DST)
-	cp $(SRC)/securityd.plist $(SRC)/securityd-installCD.plist $(DST)
+	mkdir -p $(LAUNCH_DIR)
+	cp $(SRC)/com.apple.securityd.plist $(LAUNCH_DIR)
 	mkdir -p $(AUTHORIZATION_LOCATION)
 	cp $(SRC)/authorization.plist $(AUTHORIZATION_PLIST)
 	chown root:wheel $(AUTHORIZATION_PLIST)

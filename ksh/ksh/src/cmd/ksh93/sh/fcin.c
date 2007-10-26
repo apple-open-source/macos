@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *   Routines to implement fast character input
@@ -49,7 +45,7 @@ int	fcfopen(register Sfio_t* f)
 	_Fcin.fcbuff = _Fcin.fcptr;
 	_Fcin._fcfile = f;
 	fcsave(&save);
-	if(!(buff=(char*)sfreserve(f,SF_UNBOUND,1)))
+	if(!(buff=(char*)sfreserve(f,SF_UNBOUND,SF_LOCKR)))
 	{
 		fcrestore(&save);
 		_Fcin.fcchar = 0;
@@ -62,7 +58,7 @@ int	fcfopen(register Sfio_t* f)
 	fcrestore(&save);
 	sfread(f,buff,0);
 	_Fcin.fcoff = sftell(f);;
-	buff = (char*)sfreserve(f,SF_UNBOUND,1);
+	buff = (char*)sfreserve(f,SF_UNBOUND,SF_LOCKR);
 	_Fcin.fclast = (_Fcin.fcptr=_Fcin.fcbuff=(unsigned char*)buff)+n;
 	if(sffileno(f) >= 0)
 		*_Fcin.fclast = 0;
@@ -125,6 +121,7 @@ int fcclose(void)
 	if(_Fcin.fcchar)
 		*_Fcin.fclast = _Fcin.fcchar;
 	_Fcin.fclast = 0;
+	_Fcin.fcleft = 0;
 	return(fcfill());
 }
 
@@ -151,4 +148,64 @@ extern void fcrestore(Fcin_t *fp)
 {
 	_Fcin = *fp;
 }
+
+struct Extra
+{
+	unsigned char	buff[2*MB_LEN_MAX];
+	unsigned char	*next;
+};
+
+int fcmbstate(const char *state, int *s, int *len)
+{
+	static struct Extra	extra;
+	register int		i, c, n;
+	if(_Fcin.fcleft)
+	{
+		if((c = mbsize(extra.next)) < 0)
+			c = 1;
+		if((_Fcin.fcleft -= c) <=0)
+		{
+			_Fcin.fcptr = (unsigned char*)fcfirst() - _Fcin.fcleft; 
+			_Fcin.fcleft = 0;
+		}
+		*len = c;
+		if(c==1)
+			*s = state[*extra.next++];
+		else if(c==0)
+			_Fcin.fcleft = 0;
+		else
+		{
+			c = mbchar(extra.next);
+			*s = state['a'];
+		}
+		return(c);
+	}
+	switch(*len = mbsize(_Fcin.fcptr))
+	{
+	    case -1:
+		if(_Fcin._fcfile && (n=(_Fcin.fclast-_Fcin.fcptr)) < MB_LEN_MAX)
+		{
+			memcmp(extra.buff, _Fcin.fcptr, n);
+			_Fcin.fcptr = _Fcin.fclast;
+			for(i=n; i < MB_LEN_MAX+n; i++)
+			{
+				if((extra.buff[i] = fcgetc(c))==0)
+					break;
+			}
+			_Fcin.fcleft = n;
+			extra.next = extra.buff;
+			return(fcmbstate(state,s,len));
+		}
+		*len = 1;
+		/* fall through */
+	    case 0:
+	    case 1:
+		*s = state[c=fcget()];
+		break;
+	    default:
+		c = mbchar(_Fcin.fcptr);
+		*s = state['a'];
+	}
+	return(c);
+} 
 

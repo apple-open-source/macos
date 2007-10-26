@@ -62,8 +62,8 @@ public:
 										
     virtual void dispatchAbsolutePointerEvent(
                                 AbsoluteTime                timeStamp,
-                                Point *                     newLoc,
-                                Bounds *                    bounds,
+                                IOGPoint *                  newLoc,
+                                IOGBounds *                 bounds,
                                 UInt32                      buttonState,
                                 bool                        inRange,
                                 SInt32                      tipPressure,

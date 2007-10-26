@@ -1,5 +1,5 @@
 /* Internal interfaces for the GNU/Linux specific target code for gdbserver.
-   Copyright 2002, 2004 Free Software Foundation, Inc.
+   Copyright 2002, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -50,13 +50,23 @@ struct linux_target_ops
   int (*cannot_store_register) (int);
   CORE_ADDR (*get_pc) (void);
   void (*set_pc) (CORE_ADDR newpc);
-  const char *breakpoint;
+  const unsigned char *breakpoint;
   int breakpoint_len;
   CORE_ADDR (*breakpoint_reinsert_addr) (void);
 
 
   int decr_pc_after_break;
   int (*breakpoint_at) (CORE_ADDR pc);
+
+  /* Watchpoint related functions.  See target.h for comments.  */
+  int (*insert_watchpoint) (char type, CORE_ADDR addr, int len);
+  int (*remove_watchpoint) (char type, CORE_ADDR addr, int len);
+  int (*stopped_by_watchpoint) (void);
+  CORE_ADDR (*stopped_data_address) (void);
+
+  /* Whether to left-pad registers for PEEKUSR/POKEUSR if they are smaller
+     than an xfer unit.  */
+  int left_pad_xfer;
 };
 
 extern struct linux_target_ops the_low_target;
@@ -71,8 +81,8 @@ struct process_info
 {
   struct inferior_list_entry head;
   int thread_known;
-  int lwpid;
-  int tid;
+  unsigned long lwpid;
+  unsigned long tid;
 
   /* If this flag is set, the next SIGSTOP will be ignored (the process will
      be immediately resumed).  */
@@ -115,6 +125,6 @@ struct process_info
 
 extern struct inferior_list all_processes;
 
-void linux_attach_lwp (int pid, int tid);
+void linux_attach_lwp (unsigned long pid, unsigned long tid);
 
 int thread_db_init (void);

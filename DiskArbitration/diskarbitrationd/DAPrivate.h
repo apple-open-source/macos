@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,8 +31,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-extern DADiskRef _gDAClassic;
 
 extern DAReturn _DADiskRefresh( DADiskRef disk );
 

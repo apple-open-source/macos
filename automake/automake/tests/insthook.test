@@ -1,19 +1,79 @@
 #! /bin/sh
+# Copyright (C) 2003, 2005  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
 
-# Test to make sure install-exec-hook works.
-# Report from Tim Goodwin.
+# Make sure the install-exec-hook example we give in the manual works.
 
-. $srcdir/defs || exit 1
+. ./defs || exit 1
 
-cat > Makefile.am << 'END'
+set -e
+
+cat >>configure.in <<'EOF'
+AC_PROG_LN_S
+AC_OUTPUT
+EOF
+
+cat >Makefile.am <<'END'
+dist_bin_SCRIPTS = foo
+
 install-exec-hook:
-	@echo nothing
+	cd $(DESTDIR)$(bindir) && \
+	mv -f foo foo-$(VERSION) && \
+	$(LN_S) foo-$(VERSION) foo
+
+installcheck-local:
+	test -f $(bindir)/foo
+	test -f $(bindir)/foo-$(VERSION)
+	: > $(top_srcdir)/../ok
 END
 
-$ACLOCAL || exit 1
-$AUTOMAKE || exit 1
+echo 1 > foo
 
-test "`grep install-exec-hook Makefile.in | wc -l`" -gt 1 || exit 1
-# install-exec-hook must appear in the install-exec-am rule.
-sed -n '/^install-exec-am:/,/^[^	]/p' Makefile.in | \
-  grep install-exec-hook
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+
+./configure
+$MAKE distcheck
+# Sanity check to make sure installcheck-local was run.
+test -f ok
+
+# Make sure that installing a second version doesn't erase the first
+# one.  (This is error prone since `foo' symlinks to `foo-1.0' and the
+# second version will overwrite `foo'.   Hopefully `install' and `install-sh'
+# are smart enough to erase the `foo' symlink before installing the new
+# version.)
+./configure --bindir=`pwd`/bin
+$MAKE install
+echo 2 > foo
+VERSION=2.0 $MAKE -e install
+grep 1 bin/foo-1.0
+grep 2 bin/foo-2.0
+grep 2 bin/foo
+
+
+# install-hook is an error.
+cat >>Makefile.am <<EOF
+install-hook:
+	echo test
+EOF
+
+AUTOMAKE_fails
+grep install-data-hook stderr
+grep install-exec-hook stderr

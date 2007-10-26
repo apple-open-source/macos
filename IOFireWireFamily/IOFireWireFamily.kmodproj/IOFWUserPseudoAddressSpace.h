@@ -29,6 +29,21 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.h,v $
+	Revision 1.9  2007/02/16 19:03:44  arulchan
+	*** empty log message ***
+	
+	Revision 1.8  2007/02/14 21:58:29  collin
+	*** empty log message ***
+	
+	Revision 1.7  2007/02/07 06:35:20  collin
+	*** empty log message ***
+	
+	Revision 1.6  2006/12/21 21:17:44  ayanowit
+	More changes necessary to eventually get support for 64-bit apps working (4222965).
+	
+	Revision 1.5  2006/12/06 19:21:49  arulchan
+	*** empty log message ***
+	
 	Revision 1.4  2003/07/24 06:30:58  collin
 	*** empty log message ***
 	
@@ -78,10 +93,10 @@ typedef union IOFWPacketHeader_t
     {
         QueueTag 					type ;
         IOFWPacketHeader_t*			next ;
-        OSAsyncReference*			whichAsyncRef ;
+        OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
         
-        UInt32						args[9] ;
+        io_user_reference_t			args[9] ;
     } CommonHeader ;
 
     struct
@@ -89,20 +104,20 @@ typedef union IOFWPacketHeader_t
         // -----------------------------------------------
         QueueTag					type ;
         IOFWPacketHeader_t*			next ;
-        OSAsyncReference*			whichAsyncRef ;
+        OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
         // -----------------------------------------------
         
-        UInt32						commandID ;			//	0
-        UInt32						packetSize ;		//	1
-        UInt32						packetOffset ;		//	2
-        UInt32						nodeID ;
-        UInt32						speed ;
-        UInt32						addrHi ;
-        UInt32						addrLo ;
-        UInt32						isLock ;
-		UInt32						generation ;
-		IOFWRequestRefCon			reqrefcon ;
+        io_user_reference_t			commandID ;			//	0
+        io_user_reference_t			packetSize ;		//	1
+        io_user_reference_t			packetOffset ;		//	2
+        io_user_reference_t			nodeID ;
+        io_user_reference_t			speed ;
+        io_user_reference_t			addrHi ;
+        io_user_reference_t			addrLo ;
+        io_user_reference_t			isLock ;
+		io_user_reference_t			generation ;
+		io_user_reference_t			reqrefcon ;
 
     } IncomingPacket ;
 
@@ -111,12 +126,12 @@ typedef union IOFWPacketHeader_t
         // -----------------------------------------------
         QueueTag 					type ;
         IOFWPacketHeader_t*			next ;
-        OSAsyncReference*			whichAsyncRef ;
+        OSAsyncReference64*			whichAsyncRef ;
         UInt32						argCount ;
         // -----------------------------------------------
 
-        UInt32						commandID ;			//	0
-        UInt32						skippedPacketCount ;
+        io_user_reference_t					commandID ;			//	0
+        io_user_reference_t					skippedPacketCount ;
     } SkippedPacket ;
 
 	struct ReadPacket_t
@@ -124,19 +139,19 @@ typedef union IOFWPacketHeader_t
 	    // -----------------------------------------------
 	    QueueTag 					type ;
 		IOFWPacketHeader_t*			next ;
-		OSAsyncReference*			whichAsyncRef ;
+		OSAsyncReference64*			whichAsyncRef ;
 		UInt32						argCount ;
 		// -----------------------------------------------
 
-        UInt32						commandID ;			//	0
-        UInt32						packetSize ;		//	1
-        UInt32						packetOffset ;		//	2
-        UInt32						nodeID ;
-        UInt32						speed ;
-        UInt32						addrHi ;
-        UInt32						addrLo ;
-		IOFWRequestRefCon			reqrefcon ;
-		UInt32						generation ;
+        io_user_reference_t			commandID ;			//	0
+        io_user_reference_t			packetSize ;		//	1
+        io_user_reference_t			packetOffset ;		//	2
+        io_user_reference_t			nodeID ;
+        io_user_reference_t			speed ;
+        io_user_reference_t			addrHi ;
+        io_user_reference_t			addrLo ;
+		io_user_reference_t			reqrefcon ;
+		io_user_reference_t			generation ;
 	} ReadPacket ;
 
 public:
@@ -144,14 +159,14 @@ public:
     
 } IOFWPacketHeader ;
 
-inline IOByteCount& IOFWPacketHeaderGetSize(IOFWPacketHeader_t* hdr) ;
-inline IOByteCount& IOFWPacketHeaderGetOffset(IOFWPacketHeader_t* hdr) ;
-inline void InitIncomingPacketHeader(
+io_user_reference_t& IOFWPacketHeaderGetSize(IOFWPacketHeader_t* hdr) ;
+io_user_reference_t& IOFWPacketHeaderGetOffset(IOFWPacketHeader_t* hdr) ;
+void InitIncomingPacketHeader(
 	IOFWPacketHeader_t*				header,
 	IOFWPacketHeader_t*				next,
 	const IOByteCount				len,
 	const IOByteCount				offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	UInt16							nodeID,
 	const IOFWSpeed&   				speed,
 	const FWAddress&				addr,
@@ -160,13 +175,13 @@ inline void InitSkippedPacketHeader(
 	IOFWPacketHeader*				header,
 	const union IOFWPacketHeader_t* next,
 	const IOByteCount				offset,
-	OSAsyncReference*				ref) ;
+	OSAsyncReference64*				ref) ;
 inline void InitReadPacketHeader(
 	IOFWPacketHeader*				header,
 	IOFWPacketHeader*				next,
 	UInt32							len,
 	UInt32							offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	void*							refCon,
 	UInt16							nodeID,
 	IOFWSpeed&						speed,
@@ -177,7 +192,7 @@ inline void	InitLockPacketHeader(
 	IOFWPacketHeader*				next,
 	IOByteCount						len,
 	IOByteCount						offset,
-	OSAsyncReference*				ref,
+	OSAsyncReference64*				ref,
 	UInt16							nodeID,
 	IOFWSpeed&						speed,
 	FWAddress						addr,
@@ -203,7 +218,7 @@ public:
     virtual bool 						serialize(OSSerialize *s) const;
 #endif
 	virtual void						free() ;
-	void								exporterCleanup ();
+	static void							exporterCleanup( const OSObject * self );
 
 	// --- IOFWPseudoAddressSpace ----------
 	// override deactivate so we can delete any notification related structures...
@@ -260,11 +275,11 @@ public:
 
 	// --- async utility functions ----------
 	void							setAsyncRef_Packet(
-											OSAsyncReference		inAsyncRef) ;
+											OSAsyncReference64		inAsyncRef) ;
 	void							setAsyncRef_SkippedPacket(
-											OSAsyncReference		inAsyncRef) ;
+											OSAsyncReference64		inAsyncRef) ;
 	void							setAsyncRef_Read(
-											OSAsyncReference		inAsyncRef) ;
+											OSAsyncReference64		inAsyncRef) ;
 	void							clientCommandIsComplete(
 											FWClientCommandID		inCommandID,
 											IOReturn				inResult ) ;
@@ -274,16 +289,16 @@ private:
     IOMemoryDescriptor*			fPacketQueueBuffer ;			// the queue where incoming packets, etc., go
 	IOLock*						fLock ;							// to lock this object
 
-	UInt32						fUserRefCon ;
-	IOFireWireUserClient*					fUserClient ;
+	mach_vm_address_t			fUserRefCon ;
+	IOFireWireUserClient*		fUserClient ;
 	IOFWPacketHeader*			fLastWrittenHeader ;
 	IOFWPacketHeader*			fLastReadHeader ;
 	UInt32						fBufferAvailable ;				// amount of queue space remaining
 	FWAddress					fAddress ;						// where we are
 	
-	OSAsyncReference			fSkippedPacketAsyncNotificationRef ;
-	OSAsyncReference			fPacketAsyncNotificationRef ;
-	OSAsyncReference			fReadAsyncNotificationRef ;
+	OSAsyncReference64			fSkippedPacketAsyncNotificationRef ;
+	OSAsyncReference64			fPacketAsyncNotificationRef ;
+	OSAsyncReference64			fReadAsyncNotificationRef ;
 	bool						fWaitingForUserCompletion ;
 	bool						fUserLocks ;					// are we doing locks in user space?
 	

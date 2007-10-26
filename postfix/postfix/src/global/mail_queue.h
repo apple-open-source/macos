@@ -12,6 +12,11 @@
 /* .nf
 
  /*
+  * System library.
+  */
+#include <sys/time.h>
+
+ /*
   * Utility library.
   */
 #include <vstring.h>
@@ -33,12 +38,20 @@
 
  /*
   * Queue file modes.
+  * 
+  * 4.4BSD-like systems don't allow (sticky AND executable) together, so we use
+  * group read permission bits instead. These are more portable, but they
+  * also are more likely to be turned on by accident. It would not be the end
+  * of the world.
   */
 #define MAIL_QUEUE_STAT_READY	(S_IRUSR | S_IWUSR | S_IXUSR)
 #define MAIL_QUEUE_STAT_CORRUPT	(S_IRUSR)
+#ifndef MAIL_QUEUE_STAT_UNTHROTTLE
+#define MAIL_QUEUE_STAT_UNTHROTTLE (S_IRGRP)
+#endif
 
-extern struct VSTREAM *mail_queue_enter(const char *, int);
-extern struct VSTREAM *mail_queue_open(const char *, const char *, int, int);
+extern struct VSTREAM *mail_queue_enter(const char *, mode_t, struct timeval *);
+extern struct VSTREAM *mail_queue_open(const char *, const char *, int, mode_t);
 extern int mail_queue_rename(const char *, const char *, const char *);
 extern int mail_queue_remove(const char *, const char *);
 extern const char *mail_queue_dir(VSTRING *, const char *, const char *);

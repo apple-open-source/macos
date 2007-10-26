@@ -1,5 +1,6 @@
 /* machine description file for National Semiconductor 32000, running Genix.
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,12 +16,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2"  */
 
@@ -80,18 +81,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
-#if defined (__NetBSD__) || defined (__OpenBSD__)
-#define HAVE_ALLOCA
-#endif
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -101,8 +90,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define TEXT_START 0
 
-#define STACK_DIRECTION -1
-
 #if !defined (__NetBSD__) && !defined (__OpenBSD__)
 #define EXEC_MAGIC 0410
 
@@ -110,3 +97,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define START_FILES pre-crt0.o /lib/crt0.o
 #endif
+
+/* arch-tag: 13dde0e0-8ed5-4bc3-a0dc-5456c9db5f94
+   (do not change this comment) */

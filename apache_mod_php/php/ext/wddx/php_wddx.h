@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,14 +16,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_wddx.h,v 1.13.2.1.8.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_wddx.h,v 1.18.2.1.2.1 2007/01/01 09:36:09 sebastian Exp $ */
 
 #ifndef PHP_WDDX_H
 #define PHP_WDDX_H
 
 #if HAVE_WDDX
-
-#include <expat.h>
 
 extern zend_module_entry wddx_module_entry;
 #define wddx_module_ptr &wddx_module_entry

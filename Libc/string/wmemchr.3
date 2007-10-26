@@ -1,0 +1,214 @@
+.\"	$NetBSD: wmemchr.3,v 1.4 2001/01/02 11:26:23 itojun Exp $
+.\"
+.\" Copyright (c) 1990, 1991, 1993
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" This code is derived from software contributed to Berkeley by
+.\" Chris Torek and the American National Standards Committee X3,
+.\" on Information Processing Systems.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     from: @(#)strcpy.3	8.1 (Berkeley) 6/4/93
+.\"
+.\" $FreeBSD: src/lib/libc/string/wmemchr.3,v 1.6 2002/09/07 04:07:00 tjr Exp $
+.\"
+.Dd December 22, 2000
+.Dt WMEMCHR 3
+.Os
+.Sh NAME
+.Nm wcscat ,
+.Nm wcschr ,
+.Nm wcscmp ,
+.Nm wcscpy ,
+.Nm wcscspn ,
+.Nm wcslcat ,
+.Nm wcslcpy ,
+.Nm wcslen ,
+.Nm wcsncat ,
+.Nm wcsncmp ,
+.Nm wcsncpy ,
+.Nm wcspbrk ,
+.Nm wcsrchr ,
+.Nm wcsspn ,
+.Nm wcsstr ,
+.Nm wmemchr ,
+.Nm wmemcmp ,
+.Nm wmemcpy ,
+.Nm wmemmove ,
+.Nm wmemset
+.Nd wide character string manipulation operations
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In wchar.h
+.Ft wchar_t *
+.Fo wcscat
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fc
+.Ft wchar_t *
+.Fo wcschr
+.Fa "const wchar_t *ws"
+.Fa "wchar_t wc"
+.Fc
+.Ft int
+.Fo wcscmp
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fc
+.Ft wchar_t *
+.Fo wcscpy
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fc
+.Ft size_t
+.Fo wcscspn
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fc
+.Ft size_t
+.Fo wcslcat
+.Fa "wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "size_t n"
+.Fc
+.Ft size_t
+.Fo wcslcpy
+.Fa "wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "size_t n"
+.Fc
+.Ft size_t
+.Fo wcslen
+.Fa "const wchar_t *ws"
+.Fc
+.Ft wchar_t *
+.Fo wcsncat
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fa "size_t n"
+.Fc
+.Ft int
+.Fo wcsncmp
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "size_t n"
+.Fc
+.Ft wchar_t *
+.Fo wcsncpy
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fa "size_t n"
+.Fc
+.Ft wchar_t *
+.Fo wcspbrk
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fc
+.Ft wchar_t *
+.Fo wcsrchr
+.Fa "const wchar_t *ws"
+.Fa "wchar_t wc"
+.Fc
+.Ft size_t
+.Fo wcsspn
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fc
+.Ft wchar_t *
+.Fo wcsstr
+.Fa "const wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fc
+.Ft wchar_t *
+.Fo wmemchr
+.Fa "const wchar_t *ws"
+.Fa "wchar_t wc"
+.Fa "size_t n"
+.Fc
+.Ft int
+.Fo wmemcmp
+.Fa "const wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "size_t n"
+.Fc
+.Ft wchar_t *
+.Fo wmemcpy
+.Fa "wchar_t *restrict ws1"
+.Fa "const wchar_t *restrict ws2"
+.Fa "size_t n"
+.Fc
+.Ft wchar_t *
+.Fo wmemmove
+.Fa "wchar_t *ws1"
+.Fa "const wchar_t *ws2"
+.Fa "size_t n"
+.Fc
+.Ft wchar_t *
+.Fo wmemset
+.Fa "wchar_t *ws"
+.Fa "wchar_t wc"
+.Fa "size_t n"
+.Fc
+.Sh DESCRIPTION
+The functions implement string manipulation operations
+over wide character strings.
+For a detailed description,
+refer to documents for the respective single-byte counterpart, such as
+.Xr memchr 3 .
+.Sh SEE ALSO
+.Xr memchr 3 ,
+.Xr memcmp 3 ,
+.Xr memcpy 3 ,
+.Xr memmove 3 ,
+.Xr memset 3 ,
+.Xr strcat 3 ,
+.Xr strchr 3 ,
+.Xr strcmp 3 ,
+.Xr strcpy 3 ,
+.Xr strcspn 3 ,
+.Xr strlcat 3 ,
+.Xr strlcpy 3 ,
+.Xr strlen 3 ,
+.Xr strncat 3 ,
+.Xr strncmp 3 ,
+.Xr strncpy 3 ,
+.Xr strpbrk 3 ,
+.Xr strrchr 3 ,
+.Xr strspn 3 ,
+.Xr strstr 3
+.Sh STANDARDS
+These functions conform to
+.St -isoC-99 ,
+with the exception of
+.Fn wcslcat
+and
+.Fn wcslcpy ,
+which are extensions.

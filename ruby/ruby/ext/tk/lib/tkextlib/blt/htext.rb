@@ -9,6 +9,11 @@ require 'tkextlib/blt.rb'
 
 module Tk::BLT
   class Htext<TkWindow
+    Htext_Var = TkVarAccess.new_hash('htext')
+    Htext_Widget = TkVarAccess.new('htext(widget)', :window)
+    Htext_File = TkVarAccess.new('htext(file)')
+    Htext_Line = TkVarAccess.new('htext(line)')
+
     include TkItemConfigMethod
     include Scrollable
 
@@ -20,6 +25,11 @@ module Tk::BLT
     alias window_configure itemconfigure
     alias window_configuinfo itemconfiginfo
     alias current_window_configuinfo current_itemconfiginfo
+
+    def __strval_optkeys
+      super() << 'filename'
+    end
+  private :__strval_optkeys
 
     def append(win, keys={})
       tk_send('append', _epath(win), keys)

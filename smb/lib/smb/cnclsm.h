@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -106,7 +109,7 @@
 EXTERNAL rpc_cn_sm_state_entry_p_t rpc_g_cn_client_call_sm [];
 EXTERNAL rpc_cn_sm_action_fn_t rpc_g_cn_client_call_action_tbl [];
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 EXTERNAL char   *rpc_g_cn_call_client_events [];
 EXTERNAL char   *rpc_g_cn_call_client_states [];
 #endif
@@ -125,7 +128,7 @@ EXTERNAL char   *rpc_g_cn_call_client_states [];
 /*
  * S E R V E R   C A L L   T A B L E S
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 EXTERNAL char   *rpc_g_cn_call_server_events [];
 EXTERNAL char   *rpc_g_cn_call_server_states [];
 #endif
@@ -145,7 +148,7 @@ PRIVATE unsigned32     rpc__cn_call_sm_protocol_error(
 /*
  * R P C _ C N _ C A L L _ S M _ T R C
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_CALL_SM_TRC(crep, event_id, id)\
 {\
     if (RPC_CALL_IS_CLIENT((rpc_call_rep_t *)(crep)))\
@@ -174,7 +177,7 @@ PRIVATE unsigned32     rpc__cn_call_sm_protocol_error(
 /*
  * R P C _ C N _ C A L L _ S M _ T R C _ S T A T E
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_CALL_SM_TRC_STATE(crep, id)\
 {\
     if (RPC_CALL_IS_CLIENT((rpc_call_rep_t *)(crep)))\

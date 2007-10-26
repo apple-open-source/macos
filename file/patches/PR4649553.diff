@@ -1,6 +1,6 @@
 --- src/funcs.c.orig	2006-08-21 16:42:37.000000000 -0700
 +++ src/funcs.c	2006-08-21 16:43:20.000000000 -0700
-@@ -50,14 +50,14 @@
+@@ -56,14 +56,14 @@
  
  	if ((len = vsnprintf(ms->o.ptr, ms->o.len, fmt, ap)) >= ms->o.len) {
  		va_end(ap);

@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1996-2004, International Business Machines Corporation and   *
+* Copyright (C) 1996-2005, International Business Machines Corporation and   *
 * others. All Rights Reserved.                                               *
 ******************************************************************************
 */
@@ -46,7 +46,7 @@
 #include "ucol_imp.h"
 #include "cmemory.h"
 #include "mutex.h"
-#include "iculserv.h"
+#include "servloc.h"
 #include "ustrenum.h"
 #include "ucln_in.h"
 
@@ -100,7 +100,7 @@ CollatorFactory::getDisplayName(const Locale& objectLocale,
 
 class ICUCollatorFactory : public ICUResourceBundleFactory {
  public:
-    ICUCollatorFactory():  ICUResourceBundleFactory(UnicodeString(U_ICUDATA_COLL, (char*)NULL)) { } 
+    ICUCollatorFactory():  ICUResourceBundleFactory(UnicodeString(U_ICUDATA_COLL, -1, US_INV)) { } 
  protected:
     virtual UObject* create(const ICUServiceKey& key, const ICUService* service, UErrorCode& status) const;
 };
@@ -125,7 +125,7 @@ ICUCollatorFactory::create(const ICUServiceKey& key, const ICUService* /* servic
 class ICUCollatorService : public ICULocaleService {
 public:
     ICUCollatorService()
-        : ICULocaleService("Collator")
+        : ICULocaleService(UNICODE_STRING_SIMPLE("Collator"))
     {
         UErrorCode status = U_ZERO_ERROR;
         registerFactory(new ICUCollatorFactory(), status);
@@ -406,7 +406,9 @@ UnicodeString& U_EXPORT2 Collator::getDisplayName(const Locale& objectLocale,
 {
 #if !UCONFIG_NO_SERVICE
     if (hasService()) {
-        return gService->getDisplayName(objectLocale.getName(), name, displayLocale);
+        UnicodeString locNameStr;
+        LocaleUtility::initNameFromLocale(objectLocale, locNameStr);
+        return gService->getDisplayName(locNameStr, name, displayLocale);
     }
 #endif
     return objectLocale.getDisplayName(displayLocale, name);

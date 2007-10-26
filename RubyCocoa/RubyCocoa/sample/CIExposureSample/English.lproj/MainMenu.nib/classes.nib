@@ -1,0 +1,12 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {sliderChanged = id; }; 
+            CLASS = CIExposureView; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSView; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

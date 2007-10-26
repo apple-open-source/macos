@@ -1,28 +1,97 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/cy.xml
+// * Source File:<path>/common/main/cy.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/cy.xml
+ *  ICU <specials> source: <path>/xml/main/cy.xml
  */
 cy{
+    AuxExemplarCharacters{"[j k q v x z]"}
     Countries{
         GB{"Prydain Fawr"}
     }
-    ExemplarCharacters{"[a-z âäáàêëéèîïíìôöóòûüúùŵẅẃẁŷÿýỳ]"}
+    Currencies{
+        BRL{
+            "BRL",
+            "Real Brasil",
+        }
+        CNY{
+            "CNY",
+            "Yuan Renminbi Tseina",
+        }
+        EUR{
+            "EUR",
+            "Ewro",
+        }
+        GBP{
+            "£",
+            "Punt Sterling Prydain",
+        }
+        INR{
+            "=0#Rs.|1#Re.|1<Rs.",
+            "Rwpî India",
+        }
+        JPY{
+            "¥",
+            "Yen Siapan",
+        }
+        RUB{
+            "RUB",
+            "Rwbl Rwsia",
+        }
+        USD{
+            "$",
+            "Doler yr UDA",
+        }
+    }
+    ExemplarCharacters{
+        "[a á à â ä b c {ch} d {dd} e é è ê ë f {ff} g-i í ì î ï l {ll} m n {ng} o ó "
+        "ò ô ö p {ph} r {rh} s t {th} u ú ù û ü w ẃ ẁ ŵ ẅ y ý ỳ ŷ ÿ]"
+    }
     Languages{
+        ar{"Arabeg"}
         cy{"Cymraeg"}
+        de{"Almaeneg"}
+        en{"Saesneg"}
+        es{"Sbaeneg"}
+        fr{"Ffrangeg"}
+        hi{"Hindi"}
+        it{"Eidaleg"}
+        ja{"Siapaneeg"}
+        pt{"Portiwgaleg"}
+        ru{"Rwsieg"}
+        zh{"Tseineeg"}
     }
     LocaleScript{
         "Latn",
     }
-    Version{"1.2"}
+    NumberPatterns{
+        "#,##0.###",
+        "¤ #,##0.00",
+        "#,##0%",
+        "#E0",
+    }
+    Scripts{
+        Latn{"Lladin"}
+    }
+    Version{"1.41"}
     calendar{
         gregorian{
+            DateTimePatterns{
+                "HH:mm:ss z",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, yyyy MMMM dd",
+                "yyyy MMMM d",
+                "yyyy MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+            }
             dayNames{
                 format{
                     abbreviated{
@@ -42,6 +111,17 @@ cy{
                         "Dydd Iau",
                         "Dydd Gwener",
                         "Dydd Sadwrn",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "S",
+                        "L",
+                        "M",
+                        "M",
+                        "I",
+                        "G",
+                        "S",
                     }
                 }
             }
@@ -76,7 +156,26 @@ cy{
                         "Rhagfyr",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "I",
+                        "C",
+                        "M",
+                        "E",
+                        "M",
+                        "M",
+                        "G",
+                        "A",
+                        "M",
+                        "H",
+                        "T",
+                        "R",
+                    }
+                }
             }
         }
+    }
+    zoneStrings{
+        hourFormat{"+HHmm;-HHmm"}
     }
 }

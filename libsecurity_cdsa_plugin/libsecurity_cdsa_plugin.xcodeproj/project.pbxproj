@@ -1,0 +1,623 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		4C3440910534CC82005148B6 /* Database.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408B0534CC81005148B6 /* Database.cpp */; };
+		4C3440930534CC82005148B6 /* DatabaseSession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408D0534CC81005148B6 /* DatabaseSession.cpp */; };
+		4C3440950534CC82005148B6 /* DbContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C34408F0534CC82005148B6 /* DbContext.cpp */; };
+		4C52AC580540B0CB00536F78 /* ACsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8455E052CA23100F4D742 /* ACsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC590540B0CB00536F78 /* c++plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8455F052CA23100F4D742 /* c++plugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5A0540B0CB00536F78 /* CLsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84560052CA23100F4D742 /* CLsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5B0540B0CB00536F78 /* CSPsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84562052CA23100F4D742 /* CSPsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5C0540B0CB00536F78 /* cssmplugin.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84565052CA23100F4D742 /* cssmplugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5D0540B0CB00536F78 /* Database.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C34408C0534CC81005148B6 /* Database.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5E0540B0CB00536F78 /* DatabaseSession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C34408E0534CC81005148B6 /* DatabaseSession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC5F0540B0CB00536F78 /* DbContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C3440900534CC82005148B6 /* DbContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC600540B0CB00536F78 /* DLsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F84567052CA23100F4D742 /* DLsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC610540B0CB00536F78 /* pluginsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456C052CA23100F4D742 /* pluginsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC620540B0CB00536F78 /* pluginspi.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456D052CA23100F4D742 /* pluginspi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC630540B0CB00536F78 /* TPsession.h in Headers */ = {isa = PBXBuildFile; fileRef = C2F8456E052CA23100F4D742 /* TPsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC790540B25100536F78 /* ACabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC740540B25100536F78 /* ACabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC7A0540B25100536F78 /* CLabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC750540B25100536F78 /* CLabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC7B0540B25100536F78 /* CSPabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC760540B25100536F78 /* CSPabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC7C0540B25100536F78 /* DLabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC770540B25100536F78 /* DLabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4C52AC7D0540B25100536F78 /* TPabstractsession.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C52AC780540B25100536F78 /* TPabstractsession.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C2196BE0053B6036005808D4 /* ACabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDB053B6036005808D4 /* ACabstractsession.cpp */; };
+		C2196BE1053B6036005808D4 /* CLabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDC053B6036005808D4 /* CLabstractsession.cpp */; };
+		C2196BE2053B6036005808D4 /* CSPabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */; };
+		C2196BE3053B6036005808D4 /* DLabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDE053B6036005808D4 /* DLabstractsession.cpp */; };
+		C2196BE4053B6036005808D4 /* TPabstractsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2196BDF053B6036005808D4 /* TPabstractsession.cpp */; };
+		C2F84572052CA23100F4D742 /* CSPsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84561052CA23100F4D742 /* CSPsession.cpp */; };
+		C2F84574052CA23100F4D742 /* csputilities.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84563052CA23100F4D742 /* csputilities.cpp */; };
+		C2F84575052CA23100F4D742 /* cssmplugin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84564052CA23100F4D742 /* cssmplugin.cpp */; };
+		C2F84577052CA23100F4D742 /* DLsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F84566052CA23100F4D742 /* DLsession.cpp */; };
+		C2F84579052CA23100F4D742 /* pluginsession.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2F8456B052CA23100F4D742 /* pluginsession.cpp */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4C4C513905534259005A47CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C5634EC0540A4C300DCF0C8;
+			remoteInfo = security_cdsa_plugin;
+		};
+		4C4C513A05534259005A47CE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C2C38A530535EDE600D7421F;
+			remoteInfo = generate;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4C34408B0534CC81005148B6 /* Database.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Database.cpp; sourceTree = "<group>"; };
+		4C34408C0534CC81005148B6 /* Database.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Database.h; sourceTree = "<group>"; };
+		4C34408D0534CC81005148B6 /* DatabaseSession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DatabaseSession.cpp; sourceTree = "<group>"; };
+		4C34408E0534CC81005148B6 /* DatabaseSession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DatabaseSession.h; sourceTree = "<group>"; };
+		4C34408F0534CC82005148B6 /* DbContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbContext.cpp; sourceTree = "<group>"; };
+		4C3440900534CC82005148B6 /* DbContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbContext.h; sourceTree = "<group>"; };
+		4C52AC740540B25100536F78 /* ACabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACabstractsession.h; sourceTree = "<group>"; };
+		4C52AC750540B25100536F78 /* CLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLabstractsession.h; sourceTree = "<group>"; };
+		4C52AC760540B25100536F78 /* CSPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPabstractsession.h; sourceTree = "<group>"; };
+		4C52AC770540B25100536F78 /* DLabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DLabstractsession.h; sourceTree = "<group>"; };
+		4C52AC780540B25100536F78 /* TPabstractsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPabstractsession.h; sourceTree = "<group>"; };
+		4C5634ED0540A4C300DCF0C8 /* security_cdsa_plugin.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_cdsa_plugin.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA1FEBE052A3C8100F22E42 /* security_cdsa_plugin */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = security_cdsa_plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		C2196BDB053B6036005808D4 /* ACabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = ACabstractsession.cpp; sourceTree = "<group>"; };
+		C2196BDC053B6036005808D4 /* CLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CLabstractsession.cpp; sourceTree = "<group>"; };
+		C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CSPabstractsession.cpp; sourceTree = "<group>"; };
+		C2196BDE053B6036005808D4 /* DLabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DLabstractsession.cpp; sourceTree = "<group>"; };
+		C2196BDF053B6036005808D4 /* TPabstractsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TPabstractsession.cpp; sourceTree = "<group>"; };
+		C2F8455E052CA23100F4D742 /* ACsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ACsession.h; sourceTree = "<group>"; };
+		C2F8455F052CA23100F4D742 /* c++plugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "c++plugin.h"; sourceTree = "<group>"; };
+		C2F84560052CA23100F4D742 /* CLsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CLsession.h; sourceTree = "<group>"; };
+		C2F84561052CA23100F4D742 /* CSPsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CSPsession.cpp; sourceTree = "<group>"; };
+		C2F84562052CA23100F4D742 /* CSPsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CSPsession.h; sourceTree = "<group>"; };
+		C2F84563052CA23100F4D742 /* csputilities.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csputilities.cpp; sourceTree = "<group>"; };
+		C2F84564052CA23100F4D742 /* cssmplugin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cssmplugin.cpp; sourceTree = "<group>"; };
+		C2F84565052CA23100F4D742 /* cssmplugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmplugin.h; sourceTree = "<group>"; };
+		C2F84566052CA23100F4D742 /* DLsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DLsession.cpp; sourceTree = "<group>"; };
+		C2F84567052CA23100F4D742 /* DLsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DLsession.h; sourceTree = "<group>"; };
+		C2F84568052CA23100F4D742 /* generator.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = generator.cfg; sourceTree = "<group>"; };
+		C2F84569052CA23100F4D742 /* generator.mk */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = generator.mk; sourceTree = "<group>"; };
+		C2F8456A052CA23100F4D742 /* generator.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = generator.pl; sourceTree = "<group>"; };
+		C2F8456B052CA23100F4D742 /* pluginsession.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = pluginsession.cpp; sourceTree = "<group>"; };
+		C2F8456C052CA23100F4D742 /* pluginsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pluginsession.h; sourceTree = "<group>"; };
+		C2F8456D052CA23100F4D742 /* pluginspi.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = pluginspi.h; sourceTree = "<group>"; };
+		C2F8456E052CA23100F4D742 /* TPsession.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TPsession.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworkTarget section */
+		4C5634EC0540A4C300DCF0C8 /* security_cdsa_plugin */ = {
+			isa = PBXFrameworkTarget;
+			buildConfigurationList = C27AD2E00987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_cdsa_plugin" */;
+			buildPhases = (
+				4C5634E70540A4C300DCF0C8 /* Headers */,
+			);
+			dependencies = (
+				4C52AC4E0540B09700536F78 /* PBXTargetDependency */,
+			);
+			name = security_cdsa_plugin;
+			productInstallPath = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+			productName = security_cdsa_plugin;
+			productReference = 4C5634ED0540A4C300DCF0C8 /* security_cdsa_plugin.framework */;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict/>
+</plist>
+";
+		};
+/* End PBXFrameworkTarget section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4CA1FEA7052A3C3800F22E42 = {
+			isa = PBXGroup;
+			children = (
+				C2F8455D052CA23100F4D742 /* lib */,
+				C2196BD8053B5FFE005808D4 /* derived_src */,
+				4CA1FEBF052A3C8100F22E42 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4CA1FEBF052A3C8100F22E42 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4CA1FEBE052A3C8100F22E42 /* security_cdsa_plugin */,
+				4C5634ED0540A4C300DCF0C8 /* security_cdsa_plugin.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C2196BD8053B5FFE005808D4 /* derived_src */ = {
+			isa = PBXGroup;
+			children = (
+				C2196BDB053B6036005808D4 /* ACabstractsession.cpp */,
+				C2196BDC053B6036005808D4 /* CLabstractsession.cpp */,
+				C2196BDD053B6036005808D4 /* CSPabstractsession.cpp */,
+				C2196BDE053B6036005808D4 /* DLabstractsession.cpp */,
+				C2196BDF053B6036005808D4 /* TPabstractsession.cpp */,
+				4C52AC740540B25100536F78 /* ACabstractsession.h */,
+				4C52AC750540B25100536F78 /* CLabstractsession.h */,
+				4C52AC760540B25100536F78 /* CSPabstractsession.h */,
+				4C52AC770540B25100536F78 /* DLabstractsession.h */,
+				4C52AC780540B25100536F78 /* TPabstractsession.h */,
+			);
+			path = derived_src;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		C2F8455D052CA23100F4D742 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				C2F8455E052CA23100F4D742 /* ACsession.h */,
+				C2F8455F052CA23100F4D742 /* c++plugin.h */,
+				C2F84560052CA23100F4D742 /* CLsession.h */,
+				C2F84561052CA23100F4D742 /* CSPsession.cpp */,
+				C2F84562052CA23100F4D742 /* CSPsession.h */,
+				C2F84563052CA23100F4D742 /* csputilities.cpp */,
+				C2F84564052CA23100F4D742 /* cssmplugin.cpp */,
+				C2F84565052CA23100F4D742 /* cssmplugin.h */,
+				4C34408B0534CC81005148B6 /* Database.cpp */,
+				4C34408C0534CC81005148B6 /* Database.h */,
+				4C34408D0534CC81005148B6 /* DatabaseSession.cpp */,
+				4C34408E0534CC81005148B6 /* DatabaseSession.h */,
+				4C34408F0534CC82005148B6 /* DbContext.cpp */,
+				4C3440900534CC82005148B6 /* DbContext.h */,
+				C2F84566052CA23100F4D742 /* DLsession.cpp */,
+				C2F84567052CA23100F4D742 /* DLsession.h */,
+				C2F84568052CA23100F4D742 /* generator.cfg */,
+				C2F84569052CA23100F4D742 /* generator.mk */,
+				C2F8456A052CA23100F4D742 /* generator.pl */,
+				C2F8456B052CA23100F4D742 /* pluginsession.cpp */,
+				C2F8456C052CA23100F4D742 /* pluginsession.h */,
+				C2F8456D052CA23100F4D742 /* pluginspi.h */,
+				C2F8456E052CA23100F4D742 /* TPsession.h */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4C22DE5A055340D40032D046 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C5634E70540A4C300DCF0C8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C52AC580540B0CB00536F78 /* ACsession.h in Headers */,
+				4C52AC590540B0CB00536F78 /* c++plugin.h in Headers */,
+				4C52AC5A0540B0CB00536F78 /* CLsession.h in Headers */,
+				4C52AC5B0540B0CB00536F78 /* CSPsession.h in Headers */,
+				4C52AC5C0540B0CB00536F78 /* cssmplugin.h in Headers */,
+				4C52AC5D0540B0CB00536F78 /* Database.h in Headers */,
+				4C52AC5E0540B0CB00536F78 /* DatabaseSession.h in Headers */,
+				4C52AC5F0540B0CB00536F78 /* DbContext.h in Headers */,
+				4C52AC600540B0CB00536F78 /* DLsession.h in Headers */,
+				4C52AC610540B0CB00536F78 /* pluginsession.h in Headers */,
+				4C52AC620540B0CB00536F78 /* pluginspi.h in Headers */,
+				4C52AC630540B0CB00536F78 /* TPsession.h in Headers */,
+				4C52AC790540B25100536F78 /* ACabstractsession.h in Headers */,
+				4C52AC7A0540B25100536F78 /* CLabstractsession.h in Headers */,
+				4C52AC7B0540B25100536F78 /* CSPabstractsession.h in Headers */,
+				4C52AC7C0540B25100536F78 /* DLabstractsession.h in Headers */,
+				4C52AC7D0540B25100536F78 /* TPabstractsession.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		C2C38A530535EDE600D7421F /* generate */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "-f lib/generator.mk $ACTION";
+			buildConfigurationList = C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "generate" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = generate;
+			passBuildSettingsInEnvironment = 1;
+			productName = Generate;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXLibraryTarget section */
+		4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = C27AD2E40987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_cdsa_plugin" */;
+			buildPhases = (
+				4C22DE5A055340D40032D046 /* Headers */,
+				4CA1FEBA052A3C8100F22E42 /* Sources */,
+				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
+				4C789C52055AF81200B6FC95 /* ShellScript */,
+				4CD0D4B2055B0F4D001715CB /* ShellScript */,
+			);
+			dependencies = (
+				4C52AC500540B0A400536F78 /* PBXTargetDependency */,
+			);
+			name = libsecurity_cdsa_plugin;
+			productName = libsecurity_cdsa_plugin;
+			productReference = 4CA1FEBE052A3C8100F22E42 /* security_cdsa_plugin */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXProject section */
+		4CA1FEAB052A3C3800F22E42 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD2E80987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_plugin" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
+			targets = (
+				4CA1FEBD052A3C8100F22E42 /* libsecurity_cdsa_plugin */,
+				4C5634EC0540A4C300DCF0C8 /* security_cdsa_plugin */,
+				C2C38A530535EDE600D7421F /* generate */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4C789C52055AF81200B6FC95 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\n\tnmedit -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\n\tranlib \"${SYMROOT}/${PRODUCT_NAME}${postfix}\"\ndone";
+		};
+		4CD0D4B2055B0F4D001715CB /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\"\ndone";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C2F84572052CA23100F4D742 /* CSPsession.cpp in Sources */,
+				C2F84574052CA23100F4D742 /* csputilities.cpp in Sources */,
+				C2F84575052CA23100F4D742 /* cssmplugin.cpp in Sources */,
+				4C3440910534CC82005148B6 /* Database.cpp in Sources */,
+				4C3440930534CC82005148B6 /* DatabaseSession.cpp in Sources */,
+				4C3440950534CC82005148B6 /* DbContext.cpp in Sources */,
+				C2F84577052CA23100F4D742 /* DLsession.cpp in Sources */,
+				C2F84579052CA23100F4D742 /* pluginsession.cpp in Sources */,
+				C2196BE0053B6036005808D4 /* ACabstractsession.cpp in Sources */,
+				C2196BE1053B6036005808D4 /* CLabstractsession.cpp in Sources */,
+				C2196BE2053B6036005808D4 /* CSPabstractsession.cpp in Sources */,
+				C2196BE3053B6036005808D4 /* DLabstractsession.cpp in Sources */,
+				C2196BE4053B6036005808D4 /* TPabstractsession.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4C52AC4E0540B09700536F78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C2C38A530535EDE600D7421F /* generate */;
+			targetProxy = 4C4C513A05534259005A47CE /* PBXContainerItemProxy */;
+		};
+		4C52AC500540B0A400536F78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C5634EC0540A4C300DCF0C8 /* security_cdsa_plugin */;
+			targetProxy = 4C4C513905534259005A47CE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		C27AD2DD0987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = generate;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2DE0987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = generate;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2DF0987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				PRODUCT_NAME = generate;
+			};
+			name = Default;
+		};
+		C27AD2E10987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_plugin;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2E20987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_plugin;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2E30987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = security_cdsa_plugin;
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		C27AD2E50987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				CURRENT_PROJECT_VERSION = 29159;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_plugin;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		C27AD2E60987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security:$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:/usr/local/SecurityPieces/Headers/Security:/System/Library/Frameworks/Security.framework/Headers";
+				CURRENT_PROJECT_VERSION = 29159;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_plugin;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2E70987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 29159;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				HEADER_SEARCH_PATHS = (
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
+					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
+				);
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_cdsa_plugin;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		C27AD2E90987FCDD001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD2EA0987FCDD001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+		C27AD2EB0987FCDD001272E0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				UNSTRIPPED_PRODUCT = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		C27AD2DC0987FCDD001272E0 /* Build configuration list for PBXLegacyTarget "generate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2DD0987FCDD001272E0 /* Development */,
+				C27AD2DE0987FCDD001272E0 /* Deployment */,
+				C27AD2DF0987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2E00987FCDD001272E0 /* Build configuration list for PBXFrameworkTarget "security_cdsa_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2E10987FCDD001272E0 /* Development */,
+				C27AD2E20987FCDD001272E0 /* Deployment */,
+				C27AD2E30987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2E40987FCDD001272E0 /* Build configuration list for PBXLibraryTarget "libsecurity_cdsa_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2E50987FCDD001272E0 /* Development */,
+				C27AD2E60987FCDD001272E0 /* Deployment */,
+				C27AD2E70987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C27AD2E80987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_cdsa_plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2E90987FCDD001272E0 /* Development */,
+				C27AD2EA0987FCDD001272E0 /* Deployment */,
+				C27AD2EB0987FCDD001272E0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+}

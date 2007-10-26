@@ -2,32 +2,34 @@
 /* NAME
 /*	error 8
 /* SUMMARY
-/*	Postfix error mail delivery agent
+/*	Postfix error/retry mail delivery agent
 /* SYNOPSIS
 /*	\fBerror\fR [generic Postfix daemon options]
 /* DESCRIPTION
-/*	The Postfix error delivery agent processes delivery requests from
+/*	The Postfix \fBerror\fR(8) delivery agent processes delivery
+/*	requests from
 /*	the queue manager. Each request specifies a queue file, a sender
-/*	address, a domain or host name that is treated as the reason for
-/*	non-delivery, and recipient information.
+/*	address, the reason for non-delivery (specified as the
+/*	next-hop destination), and recipient information.
+/*	The reason may be prefixed with an RFC 3463-compatible detail code.
 /*	This program expects to be run from the \fBmaster\fR(8) process
 /*	manager.
 /*
-/*	The error delivery agent bounces all recipients in the delivery
-/*	request using the "next-hop"
-/*	domain or host information as the reason for non-delivery, updates
-/*	the queue file and marks recipients as finished or informs the
-/*	queue manager that delivery should be tried again at a later time.
+/*	Depending on the service name in master.cf, \fBerror\fR
+/*	or \fBretry\fR, the server bounces or defers all recipients
+/*	in the delivery request using the "next-hop" information
+/*	as the reason for non-delivery. The \fBretry\fR service name is
+/*	supported as of Postfix 2.4.
 /*
 /*	Delivery status reports are sent to the \fBbounce\fR(8),
 /*	\fBdefer\fR(8) or \fBtrace\fR(8) daemon as appropriate.
 /* SECURITY
 /* .ad
 /* .fi
-/*	The error mailer is not security-sensitive. It does not talk
+/*	The \fBerror\fR(8) mailer is not security-sensitive. It does not talk
 /*	to the network, and can be run chrooted at fixed low privilege.
 /* STANDARDS
-/*	None.
+/*	RFC 3463 (Enhanced Status Codes)
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /*
@@ -36,12 +38,12 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically as error(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically as \fBerror\fR(8)
 /*      processes run for only a limited amount of time. Use the command
 /*      "\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* .IP "\fB2bounce_notice_recipient (postmaster)\fR"
 /*	The recipient of undeliverable mail that cannot be returned to
 /*	the sender.
@@ -55,6 +57,9 @@
 /* .IP "\fBdaemon_timeout (18000s)\fR"
 /*	How much time a Postfix daemon process may take to handle a
 /*	request before it is terminated by a built-in watchdog timer.
+/* .IP "\fBdelay_logging_resolution_limit (2)\fR"
+/*	The maximal number of digits after the decimal point when logging
+/*	sub-second delay values.
 /* .IP "\fBdouble_bounce_sender (double-bounce)\fR"
 /*	The sender address of postmaster notifications that are generated
 /*	by the mail system.
@@ -62,11 +67,11 @@
 /*	The time limit for sending or receiving information over an internal
 /*	communication channel.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBnotify_classes (resource, software)\fR"
 /*	The list of error classes that are reported to the postmaster.
 /* .IP "\fBprocess_id (read-only)\fR"
@@ -83,7 +88,9 @@
 /* SEE ALSO
 /*	qmgr(8), queue manager
 /*	bounce(8), delivery status reports
+/*	discard(8), Postfix discard delivery agent
 /*	postconf(5), configuration parameters
+/*	master(5), generic daemon options
 /*	master(8), process manager
 /*	syslogd(8), system logging
 /* LICENSE
@@ -113,8 +120,13 @@
 #include <deliver_request.h>
 #include <mail_queue.h>
 #include <bounce.h>
+#include <defer.h>
 #include <deliver_completed.h>
 #include <flush_clnt.h>
+#include <dsn_util.h>
+#include <sys_exits.h>
+#include <mail_proto.h>
+#include <mail_version.h>
 
 /* Single server skeleton. */
 
@@ -122,14 +134,18 @@
 
 /* deliver_message - deliver message with extreme prejudice */
 
-static int deliver_message(DELIVER_REQUEST *request)
+static int deliver_message(DELIVER_REQUEST *request, const char *def_dsn,
+	         int (*append) (int, const char *, MSG_STATS *, RECIPIENT *,
+				        const char *, DSN *))
 {
-    char   *myname = "deliver_message";
+    const char *myname = "deliver_message";
     VSTREAM *src;
     int     result = 0;
     int     status;
     RECIPIENT *rcpt;
     int     nrcpt;
+    DSN_SPLIT dp;
+    DSN     dsn;
 
     if (msg_verbose)
 	msg_info("deliver_message: from %s", request->sender);
@@ -157,21 +173,19 @@ static int deliver_message(DELIVER_REQUEST *request)
 	msg_info("%s: file %s", myname, VSTREAM_PATH(src));
 
     /*
-     * Bounce all recipients.
+     * Bounce/defer/whatever all recipients.
      */
 #define BOUNCE_FLAGS(request) DEL_REQ_TRACE_FLAGS(request->flags)
 
+    dsn_split(&dp, def_dsn, request->nexthop);
+    (void) DSN_SIMPLE(&dsn, DSN_STATUS(dp.dsn), dp.text);
     for (nrcpt = 0; nrcpt < request->rcpt_list.len; nrcpt++) {
 	rcpt = request->rcpt_list.info + nrcpt;
-	if (rcpt->offset >= 0) {
-	    status = bounce_append(BOUNCE_FLAGS(request), request->queue_id,
-				   rcpt->orig_addr, rcpt->address,
-				rcpt->offset, "none", request->arrival_time,
-				   "%s", request->nexthop);
-	    if (status == 0)
-		deliver_completed(src, rcpt->offset);
-	    result |= status;
-	}
+	status = append(BOUNCE_FLAGS(request), request->queue_id,
+			&request->msg_stats, rcpt, "none", &dsn);
+	if (status == 0)
+	    deliver_completed(src, rcpt->offset);
+	result |= status;
     }
 
     /*
@@ -185,7 +199,7 @@ static int deliver_message(DELIVER_REQUEST *request)
 
 /* error_service - perform service for client */
 
-static void error_service(VSTREAM *client_stream, char *unused_service, char **argv)
+static void error_service(VSTREAM *client_stream, char *service, char **argv)
 {
     DELIVER_REQUEST *request;
     int     status;
@@ -205,7 +219,12 @@ static void error_service(VSTREAM *client_stream, char *unused_service, char **a
      * in single_server.c.
      */
     if ((request = deliver_request_read(client_stream)) != 0) {
-	status = deliver_message(request);
+	if (strcmp(service, MAIL_SERVICE_ERROR) == 0)
+	    status = deliver_message(request, "5.0.0", bounce_append);
+	else if (strcmp(service, MAIL_SERVICE_RETRY) == 0)
+	    status = deliver_message(request, "4.0.0", defer_append);
+	else
+	    msg_fatal("bad error service name: %s", service);
 	deliver_request_done(client_stream, request, status);
     }
 }
@@ -217,10 +236,18 @@ static void pre_init(char *unused_name, char **unused_argv)
     flush_init();
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the single-threaded skeleton */
 
 int     main(int argc, char **argv)
 {
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
+
     single_server_main(argc, argv, error_service,
 		       MAIL_SERVER_PRE_INIT, pre_init,
 		       0);

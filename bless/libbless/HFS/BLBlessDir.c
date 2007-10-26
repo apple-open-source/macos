@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,62 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLBlessDir.c,v 1.14 2005/08/22 20:49:23 ssen Exp $
- *
- *  $Log: BLBlessDir.c,v $
- *  Revision 1.14  2005/08/22 20:49:23  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.13  2005/06/24 16:39:50  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.12  2005/02/03 00:42:25  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.11  2004/04/20 21:40:42  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.10  2003/10/16 23:50:05  ssen
- *  Partially finish cleanup of headers to add "const" to char[] arguments
- *  that won't be modified.
- *
- *  Revision 1.9  2003/07/22 15:58:31  ssen
- *  APSL 2.0
- *
- *  Revision 1.8  2003/04/19 00:11:08  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.7  2003/04/16 23:57:31  ssen
- *  Update Copyrights
- *
- *  Revision 1.6  2003/03/19 22:57:02  ssen
- *  C99 types
- *
- *  Revision 1.5  2002/06/11 00:50:42  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.4  2002/04/27 17:54:59  ssen
- *  Rewrite output logic to format the string before sending of to logger
- *
- *  Revision 1.3  2002/04/25 07:27:27  ssen
- *  Go back to using errorprint and verboseprint inside library
- *
- *  Revision 1.2  2002/02/23 04:13:05  ssen
- *  Update to context-based API
- *
- *  Revision 1.1  2001/11/16 05:36:46  ssen
- *  Add libbless files
- *
- *  Revision 1.8  2001/10/26 04:19:40  ssen
- *  Add dollar Id and dollar Log
- *
+ *  $Id: BLBlessDir.c,v 1.15 2006/02/20 22:49:55 ssen Exp $
  *
  */
 

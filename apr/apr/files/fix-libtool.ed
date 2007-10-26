@@ -1,0 +1,2 @@
+g/RC_CFLAGS/s/\\\$RC_CFLAGS //
+w

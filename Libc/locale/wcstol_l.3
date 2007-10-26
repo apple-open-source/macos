@@ -28,9 +28,12 @@
 .Dt WCSTOL_L 3
 .Os
 .Sh NAME
-.Nm wcstol_l , wcstoul_l ,
-.Nm wcstoll_l , wcstoull_l ,
-.Nm wcstoimax_l , wcstoumax_l
+.Nm wcstoimax_l ,
+.Nm wcstol_l ,
+.Nm wcstoll_l ,
+.Nm wcstoul_l ,
+.Nm wcstoull_l ,
+.Nm wcstoumax_l
 .Nd "convert a wide character string value to a"
 .Vt long ,
 .Vt "unsigned long" ,
@@ -46,18 +49,43 @@ integer
 .In wchar.h
 .In xlocale.h
 .Ft long
-.Fn wcstol_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
-.Ft "unsigned long"
-.Fn wcstoul_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
+.Fo wcstol_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
 .Ft "long long"
-.Fn wcstoll_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
+.Fo wcstoll_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
+.Ft "unsigned long"
+.Fo wcstoul_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
 .Ft "unsigned long long"
-.Fn wcstoull_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
+.Fo wcstoull_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
 .In inttypes.h
+.In xlocale.h
 .Ft intmax_t
-.Fn wcstoimax_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
+.Fo wcstoimax_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
 .Ft uintmax_t
-.Fn wcstoumax_l "const wchar_t * restrict nptr" "wchar_t ** restrict endptr" "int base" "locale_t loc"
+.Fo wcstoumax_l
+.Fa "const wchar_t * restrict nptr"
+.Fa "wchar_t ** restrict endptr"
+.Fa "int base" "locale_t loc"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn wcstol_l ,

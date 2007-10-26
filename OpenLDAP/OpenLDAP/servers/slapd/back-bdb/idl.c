@@ -1,8 +1,8 @@
 /* idl.c - ldap id list handling routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.c,v 1.76.2.4 2004/07/16 19:51:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.c,v 1.94.2.14 2006/05/11 18:25:42 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -80,34 +80,20 @@ static void idl_check( ID *ids )
 static void idl_dump( ID *ids )
 {
 	if( BDB_IDL_IS_RANGE( ids ) ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, INFO, "IDL: range (%ld - %ld)\n",
-			(long) BDB_IDL_RANGE_FIRST( ids ),
-			(long) BDB_IDL_RANGE_LAST( ids ), 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"IDL: range ( %ld - %ld )\n",
 			(long) BDB_IDL_RANGE_FIRST( ids ),
 			(long) BDB_IDL_RANGE_LAST( ids ) );
-#endif
 
 	} else {
 		ID i;
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, INFO, "IDL: size %ld", (long) ids[0], 0, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "IDL: size %ld", (long) ids[0], 0, 0 );
-#endif
 
 		for( i=1; i<=ids[0]; i++ ) {
 			if( i % 16 == 1 ) {
 				Debug( LDAP_DEBUG_ANY, "\n", 0, 0, 0 );
 			}
-#ifdef NEW_LOGGING
-			LDAP_LOG( INDEX, INFO, "%02lx",(long)ids[i], 0, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY, "  %02lx", (long) ids[i], 0, 0 );
-#endif
 		}
 
 		Debug( LDAP_DEBUG_ANY, "\n", 0, 0, 0 );
@@ -182,12 +168,8 @@ int bdb_idl_insert( ID *ids, ID id )
 	unsigned x;
 
 #if IDL_DEBUG > 1
-#ifdef NEW_LOGGING
-	LDAP_LOG( INDEX, DETAIL1, "insert: %04lx at %d\n", (long) id, x, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY, "insert: %04lx at %d\n", (long) id, x, 0 );
 	idl_dump( ids );
-#endif
 #elif IDL_DEBUG > 0
 	idl_check( ids );
 #endif
@@ -242,22 +224,34 @@ int bdb_idl_insert( ID *ids, ID id )
 	return 0;
 }
 
-#if 0	/* unused */
-static int idl_delete( ID *ids, ID id )
+static int bdb_idl_delete( ID *ids, ID id )
 {
-	unsigned x = bdb_idl_search( ids, id );
+	unsigned x;
 
 #if IDL_DEBUG > 1
-#ifdef NEW_LOGGING
-	LDAP_LOG( INDEX, DETAIL1, "delete: %04lx at %d\n", (long) id, x, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY, "delete: %04lx at %d\n", (long) id, x, 0 );
 	idl_dump( ids );
-#endif
 #elif IDL_DEBUG > 0
 	idl_check( ids );
 #endif
 
+	if (BDB_IDL_IS_RANGE( ids )) {
+		/* If deleting a range boundary, adjust */
+		if ( ids[1] == id )
+			ids[1]++;
+		else if ( ids[2] == id )
+			ids[2]--;
+		/* deleting from inside a range is a no-op */
+
+		/* If the range has collapsed, re-adjust */
+		if ( ids[1] > ids[2] )
+			ids[0] = 0;
+		else if ( ids[1] == ids[2] )
+			ids[1] = 1;
+		return 0;
+	}
+
+	x = bdb_idl_search( ids, id );
 	assert( x > 0 );
 
 	if( x <= 0 ) {
@@ -286,14 +280,13 @@ static int idl_delete( ID *ids, ID id )
 
 	return 0;
 }
-#endif	/* unused */
 
 static char *
 bdb_show_key(
 	DBT		*key,
 	char		*buf )
 {
-	if ( key->size == sizeof( ID ) ) {
+	if ( key->size == 4 /* LUTIL_HASH_BYTES */ ) {
 		unsigned char *c = key->data;
 		sprintf( buf, "[%02x%02x%02x%02x]", c[0], c[1], c[2], c[3] );
 		return buf;
@@ -314,6 +307,7 @@ bdb_idl_cache_get(
 {
 	bdb_idl_cache_entry_t idl_tmp;
 	bdb_idl_cache_entry_t *matched_idl_entry;
+	int rc = LDAP_NO_SUCH_OBJECT;
 
 	DBT2bv( key, &idl_tmp.kstr );
 	idl_tmp.db = db;
@@ -323,19 +317,18 @@ bdb_idl_cache_get(
 	if ( matched_idl_entry != NULL ) {
 		if ( matched_idl_entry->idl && ids )
 			BDB_IDL_CPY( ids, matched_idl_entry->idl );
-		ldap_pvt_thread_rdwr_runlock( &bdb->bi_idl_tree_rwlock );
 		ldap_pvt_thread_mutex_lock( &bdb->bi_idl_tree_lrulock );
 		IDL_LRU_DELETE( bdb, matched_idl_entry );
 		IDL_LRU_ADD( bdb, matched_idl_entry );
 		ldap_pvt_thread_mutex_unlock( &bdb->bi_idl_tree_lrulock );
 		if ( matched_idl_entry->idl )
-			return LDAP_SUCCESS;
+			rc = LDAP_SUCCESS;
 		else
-			return DB_NOTFOUND;
+			rc = DB_NOTFOUND;
 	}
 	ldap_pvt_thread_rdwr_runlock( &bdb->bi_idl_tree_rwlock );
 
-	return LDAP_NO_SUCH_OBJECT;
+	return rc;
 }
 
 void
@@ -349,17 +342,17 @@ bdb_idl_cache_put(
 	bdb_idl_cache_entry_t idl_tmp;
 	bdb_idl_cache_entry_t *ee;
 
+	if ( rc == DB_NOTFOUND || BDB_IDL_IS_ZERO( ids ))
+		return;
+
 	DBT2bv( key, &idl_tmp.kstr );
 
 	ee = (bdb_idl_cache_entry_t *) ch_malloc(
 		sizeof( bdb_idl_cache_entry_t ) );
 	ee->db = db;
-	if ( rc == DB_NOTFOUND) {
-		ee->idl = NULL;
-	} else {
-		ee->idl = (ID*) ch_malloc( BDB_IDL_SIZEOF ( ids ) );
-		BDB_IDL_CPY( ee->idl, ids );
-	}
+	ee->idl = (ID*) ch_malloc( BDB_IDL_SIZEOF ( ids ) );
+	BDB_IDL_CPY( ee->idl, ids );
+
 	ee->idl_lru_prev = NULL;
 	ee->idl_lru_next = NULL;
 	ber_dupbv( &ee->kstr, &idl_tmp.kstr );
@@ -381,15 +374,9 @@ bdb_idl_cache_put(
 			ee = bdb->bi_idl_lru_tail;
 			if ( avl_delete( &bdb->bi_idl_tree, (caddr_t) ee,
 				    bdb_idl_entry_cmp ) == NULL ) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( INDEX, ERR, 
-					"bdb_idl_cache_put: AVL delete failed\n", 
-					0, 0, 0 );
-#else
 				Debug( LDAP_DEBUG_ANY, "=> bdb_idl_cache_put: "
 					"AVL delete failed\n",
 					0, 0, 0 );
-#endif
 			}
 			IDL_LRU_DELETE( bdb, ee );
 			i++;
@@ -419,15 +406,9 @@ bdb_idl_cache_del(
 	if ( matched_idl_entry != NULL ) {
 		if ( avl_delete( &bdb->bi_idl_tree, (caddr_t) matched_idl_entry,
 				    bdb_idl_entry_cmp ) == NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( INDEX, ERR, 
-				"bdb_idl_cache_del: AVL delete failed\n", 
-				0, 0, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY, "=> bdb_idl_cache_del: "
 				"AVL delete failed\n",
 				0, 0, 0 );
-#endif
 		}
 		--bdb->bi_idl_cache_size;
 		ldap_pvt_thread_mutex_lock( &bdb->bi_idl_tree_lrulock );
@@ -441,23 +422,84 @@ bdb_idl_cache_del(
 	ldap_pvt_thread_rdwr_wunlock( &bdb->bi_idl_tree_rwlock );
 }
 
+void
+bdb_idl_cache_add_id(
+	struct bdb_info	*bdb,
+	DB			*db,
+	DBT			*key,
+	ID			id )
+{
+	bdb_idl_cache_entry_t *cache_entry, idl_tmp;
+	DBT2bv( key, &idl_tmp.kstr );
+	idl_tmp.db = db;
+	ldap_pvt_thread_rdwr_wlock( &bdb->bi_idl_tree_rwlock );
+	cache_entry = avl_find( bdb->bi_idl_tree, &idl_tmp,
+				      bdb_idl_entry_cmp );
+	if ( cache_entry != NULL ) {
+		if ( !BDB_IDL_IS_RANGE( cache_entry->idl ) &&
+			cache_entry->idl[0] < BDB_IDL_DB_MAX ) {
+			size_t s = BDB_IDL_SIZEOF( cache_entry->idl ) + sizeof(ID);
+			cache_entry->idl = ch_realloc( cache_entry->idl, s );
+		}
+		bdb_idl_insert( cache_entry->idl, id );
+	}
+	ldap_pvt_thread_rdwr_wunlock( &bdb->bi_idl_tree_rwlock );
+}
+
+void
+bdb_idl_cache_del_id(
+	struct bdb_info	*bdb,
+	DB			*db,
+	DBT			*key,
+	ID			id )
+{
+	bdb_idl_cache_entry_t *cache_entry, idl_tmp;
+	DBT2bv( key, &idl_tmp.kstr );
+	idl_tmp.db = db;
+	ldap_pvt_thread_rdwr_wlock( &bdb->bi_idl_tree_rwlock );
+	cache_entry = avl_find( bdb->bi_idl_tree, &idl_tmp,
+				      bdb_idl_entry_cmp );
+	if ( cache_entry != NULL ) {
+		bdb_idl_delete( cache_entry->idl, id );
+		if ( cache_entry->idl[0] == 0 ) {
+			if ( avl_delete( &bdb->bi_idl_tree, (caddr_t) cache_entry,
+						bdb_idl_entry_cmp ) == NULL ) {
+				Debug( LDAP_DEBUG_ANY, "=> bdb_idl_cache_del: "
+					"AVL delete failed\n",
+					0, 0, 0 );
+			}
+			--bdb->bi_idl_cache_size;
+			ldap_pvt_thread_mutex_lock( &bdb->bi_idl_tree_lrulock );
+			IDL_LRU_DELETE( bdb, cache_entry );
+			ldap_pvt_thread_mutex_unlock( &bdb->bi_idl_tree_lrulock );
+			free( cache_entry->kstr.bv_val );
+			free( cache_entry->idl );
+			free( cache_entry );
+		}
+	}
+	ldap_pvt_thread_rdwr_wunlock( &bdb->bi_idl_tree_rwlock );
+}
+
 int
 bdb_idl_fetch_key(
 	BackendDB	*be,
 	DB			*db,
 	DB_TXN		*tid,
 	DBT			*key,
-	ID			*ids )
+	ID			*ids,
+	DBC                     **saved_cursor,
+	int                     get_flag )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	int rc;
-	DBT data;
+	DBT data, key2, *kptr;
 	DBC *cursor;
 	ID *i;
 	void *ptr;
 	size_t len;
 	int rc2;
 	int flags = bdb->bi_db_opflags | DB_MULTIPLE;
+	int opflag;
 
 	/* If using BerkeleyDB 4.0, the buf must be large enough to
 	 * grab the entire IDL in one get(), otherwise BDB will leak
@@ -469,28 +511,40 @@ bdb_idl_fetch_key(
 	 *
 	 * configure now requires Berkeley DB 4.1.
 	 */
-#if (DB_VERSION_MAJOR == 4) && (DB_VERSION_MINOR == 0)
+#if DB_VERSION_FULL < 0x04010000
 #	define BDB_ENOUGH 5
 #else
+	/* We sometimes test with tiny IDLs, and BDB always wants buffers
+	 * that are at least one page in size.
+	 */
+# if BDB_IDL_DB_SIZE < 4096
+#   define BDB_ENOUGH 2048
+# else
 #	define BDB_ENOUGH 1
+# endif
 #endif
 	ID buf[BDB_IDL_DB_SIZE*BDB_ENOUGH];
 
 	char keybuf[16];
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( INDEX, ARGS,
-		"bdb_idl_fetch_key: %s\n", 
-		bdb_show_key( key, keybuf ), 0, 0 );
-#else
 	Debug( LDAP_DEBUG_ARGS,
 		"bdb_idl_fetch_key: %s\n", 
 		bdb_show_key( key, keybuf ), 0, 0 );
-#endif
 
 	assert( ids != NULL );
 
-	if ( bdb->bi_idl_cache_size ) {
+	if ( saved_cursor && *saved_cursor ) {
+		opflag = DB_NEXT;
+	} else if ( get_flag == LDAP_FILTER_GE ) {
+		opflag = DB_SET_RANGE;
+	} else if ( get_flag == LDAP_FILTER_LE ) {
+		opflag = DB_FIRST;
+	} else {
+		opflag = DB_SET;
+	}
+
+	/* only non-range lookups can use the IDL cache */
+	if ( bdb->bi_idl_cache_size && opflag == DB_SET ) {
 		rc = bdb_idl_cache_get( bdb, db, key, ids );
 		if ( rc != LDAP_NO_SUCH_OBJECT ) return rc;
 	}
@@ -501,22 +555,47 @@ bdb_idl_fetch_key(
 	data.ulen = sizeof(buf);
 	data.flags = DB_DBT_USERMEM;
 
-	if ( tid ) flags |= DB_RMW;
-
-	rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
-	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_fetch_key: cursor failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
-		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
-			"cursor failed: %s (%d)\n", db_strerror(rc), rc, 0 );
-#endif
-		return rc;
+	/* If we're not reusing an existing cursor, get a new one */
+	if( opflag != DB_NEXT ) {
+		rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
+		if( rc != 0 ) {
+			Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
+				"cursor failed: %s (%d)\n", db_strerror(rc), rc, 0 );
+			return rc;
+		}
+	} else {
+		cursor = *saved_cursor;
 	}
+	
+	/* If this is a LE lookup, save original key so we can determine
+	 * when to stop. If this is a GE lookup, save the key since it
+	 * will be overwritten.
+	 */
+	if ( get_flag == LDAP_FILTER_LE || get_flag == LDAP_FILTER_GE ) {
+		DBTzero( &key2 );
+		key2.flags = DB_DBT_USERMEM;
+		key2.ulen = sizeof(keybuf);
+		key2.data = keybuf;
+		key2.size = key->size;
+		AC_MEMCPY( keybuf, key->data, key->size );
+		kptr = &key2;
+	} else {
+		kptr = key;
+	}
+	len = key->size;
+	rc = cursor->c_get( cursor, kptr, &data, flags | opflag );
 
-	rc = cursor->c_get( cursor, key, &data, flags | DB_SET );
+	/* skip presence key on range inequality lookups */
+	while (rc == 0 && kptr->size != len) {
+		rc = cursor->c_get( cursor, kptr, &data, flags | DB_NEXT_NODUP );
+	}
+	/* If we're doing a LE compare and the new key is greater than
+	 * our search key, we're done
+	 */
+	if (rc == 0 && get_flag == LDAP_FILTER_LE && memcmp( kptr->data,
+		key->data, key->size ) > 0 ) {
+		rc = DB_NOTFOUND;
+	}
 	if (rc == 0) {
 		i = ids;
 		while (rc == 0) {
@@ -527,7 +606,7 @@ bdb_idl_fetch_key(
 				DB_MULTIPLE_NEXT(ptr, &data, j, len);
 				if (j) {
 					++i;
-					AC_MEMCPY( i, j, sizeof(ID) );
+					BDB_DISK2ID( j, i );
 				}
 			}
 			rc = cursor->c_get( cursor, key, &data, flags | DB_NEXT_DUP );
@@ -537,16 +616,9 @@ bdb_idl_fetch_key(
 		/* On disk, a range is denoted by 0 in the first element */
 		if (ids[1] == 0) {
 			if (ids[0] != BDB_IDL_RANGE_SIZE) {
-#ifdef NEW_LOGGING
-				LDAP_LOG( INDEX, ERR, 
-					"=> bdb_idl_fetch_key: range size mismatch: "
-					"expected %ld, got %ld\n", 
-					BDB_IDL_RANGE_SIZE, ids[0], 0 );
-#else
 				Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 					"range size mismatch: expected %d, got %ld\n",
 					BDB_IDL_RANGE_SIZE, ids[0], 0 );
-#endif
 				cursor->c_close( cursor );
 				return -1;
 			}
@@ -555,16 +627,16 @@ bdb_idl_fetch_key(
 		data.size = BDB_IDL_SIZEOF(ids);
 	}
 
-	rc2 = cursor->c_close( cursor );
+	if ( saved_cursor && rc == 0 ) {
+		if ( !*saved_cursor )
+			*saved_cursor = cursor;
+		rc2 = 0;
+	}
+	else
+		rc2 = cursor->c_close( cursor );
 	if (rc2) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_fetch_key: close failed: %s (%d)\n", 
-			db_strerror(rc2), rc2, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 			"close failed: %s (%d)\n", db_strerror(rc2), rc2, 0 );
-#endif
 		return rc2;
 	}
 
@@ -572,41 +644,23 @@ bdb_idl_fetch_key(
 		return rc;
 
 	} else if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_fetch_key: get failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 			"get failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
-#endif
 		return rc;
 
 	} else if ( data.size == 0 || data.size % sizeof( ID ) ) {
 		/* size not multiple of ID size */
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_fetch_key: odd size: expected %ld multiple, got %ld\n", 
-			(long) sizeof( ID ), (long) data.size, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 			"odd size: expected %ld multiple, got %ld\n",
 			(long) sizeof( ID ), (long) data.size, 0 );
-#endif
 		return -1;
 
 	} else if ( data.size != BDB_IDL_SIZEOF(ids) ) {
 		/* size mismatch */
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_fetch_key: get size mismatch: expected %ld, got %ld\n", 
-			(long) ((1 + ids[0]) * sizeof( ID )), (long) data.size, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_fetch_key: "
 			"get size mismatch: expected %ld, got %ld\n",
 			(long) ((1 + ids[0]) * sizeof( ID )), (long) data.size, 0 );
-#endif
 		return -1;
 	}
 
@@ -630,20 +684,14 @@ bdb_idl_insert_key(
 	int	rc;
 	DBT data;
 	DBC *cursor;
-	ID lo, hi, tmp;
+	ID lo, hi, nlo, nhi, nid;
 	char *err;
 
 	{
 		char buf[16];
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ARGS,
-			"bdb_idl_insert_key: %lx %s\n", 
-			(long) id, bdb_show_key( key, buf ), 0 );
-#else
 		Debug( LDAP_DEBUG_ARGS,
 			"bdb_idl_insert_key: %lx %s\n", 
 			(long) id, bdb_show_key( key, buf ), 0 );
-#endif
 	}
 
 	assert( id != NOID );
@@ -657,26 +705,22 @@ bdb_idl_insert_key(
 	data.ulen = data.size;
 	data.flags = DB_DBT_USERMEM;
 
+	BDB_ID2DISK( id, &nid );
+
 	rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
 	if ( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_insert_key: cursor failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_insert_key: "
 			"cursor failed: %s (%d)\n", db_strerror(rc), rc, 0 );
-#endif
 		return rc;
 	}
-	data.data = &tmp;
+	data.data = &nlo;
 	/* Fetch the first data item for this key, to see if it
 	 * exists and if it's a range.
 	 */
-	rc = cursor->c_get( cursor, key, &data, DB_SET | DB_RMW );
+	rc = cursor->c_get( cursor, key, &data, DB_SET );
 	err = "c_get";
 	if ( rc == 0 ) {
-		if ( tmp != 0 ) {
+		if ( nlo != 0 ) {
 			/* not a range, count the number of items */
 			db_recno_t count;
 			rc = cursor->c_count( cursor, &count, 0 );
@@ -687,12 +731,14 @@ bdb_idl_insert_key(
 			if ( count >= BDB_IDL_DB_MAX ) {
 			/* No room, convert to a range */
 				DBT key2 = *key;
+				db_recno_t i;
 
 				key2.dlen = key2.ulen;
 				key2.flags |= DB_DBT_PARTIAL;
 
-				lo = tmp;
-				data.data = &hi;
+				BDB_DISK2ID( &nlo, &lo );
+				data.data = &nhi;
+
 				rc = cursor->c_get( cursor, &key2, &data, DB_NEXT_NODUP );
 				if ( rc != 0 && rc != DB_NOTFOUND ) {
 					err = "c_get next_nodup";
@@ -711,29 +757,60 @@ bdb_idl_insert_key(
 						goto fail;
 					}
 				}
-				if ( id < lo )
+				BDB_DISK2ID( &nhi, &hi );
+				/* Update hi/lo if needed, then delete all the items
+				 * between lo and hi
+				 */
+				if ( id < lo ) {
 					lo = id;
-				else if ( id > hi )
+					nlo = nid;
+				} else if ( id > hi ) {
 					hi = id;
-				rc = db->del( db, tid, key, 0 );
+					nhi = nid;
+				}
+				data.data = &nid;
+				/* Don't fetch anything, just position cursor */
+				data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
+				data.dlen = data.ulen = 0;
+				rc = cursor->c_get( cursor, key, &data, DB_SET );
 				if ( rc != 0 ) {
-					err = "del";
+					err = "c_get 2";
 					goto fail;
 				}
-				data.data = &id;
-				id = 0;
+				rc = cursor->c_del( cursor, 0 );
+				if ( rc != 0 ) {
+					err = "c_del range1";
+					goto fail;
+				}
+				/* Delete all the records */
+				for ( i=1; i<count; i++ ) {
+					rc = cursor->c_get( cursor, &key2, &data, DB_NEXT_DUP );
+					if ( rc != 0 ) {
+						err = "c_get next_dup";
+						goto fail;
+					}
+					rc = cursor->c_del( cursor, 0 );
+					if ( rc != 0 ) {
+						err = "c_del range";
+						goto fail;
+					}
+				}
+				/* Store the range marker */
+				data.size = data.ulen = sizeof(ID);
+				data.flags = DB_DBT_USERMEM;
+				nid = 0;
 				rc = cursor->c_put( cursor, key, &data, DB_KEYFIRST );
 				if ( rc != 0 ) {
-					err = "c_put 0";
+					err = "c_put range";
 					goto fail;
 				}
-				id = lo;
+				nid = nlo;
 				rc = cursor->c_put( cursor, key, &data, DB_KEYLAST );
 				if ( rc != 0 ) {
 					err = "c_put lo";
 					goto fail;
 				}
-				id = hi;
+				nid = nhi;
 				rc = cursor->c_put( cursor, key, &data, DB_KEYLAST );
 				if ( rc != 0 ) {
 					err = "c_put hi";
@@ -748,19 +825,21 @@ bdb_idl_insert_key(
 			 * the boundaries
 			 */
 			hi = id;
-			data.data = &lo;
+			data.data = &nlo;
 			rc = cursor->c_get( cursor, key, &data, DB_NEXT_DUP );
 			if ( rc != 0 ) {
 				err = "c_get lo";
 				goto fail;
 			}
+			BDB_DISK2ID( &nlo, &lo );
 			if ( id > lo ) {
-				data.data = &hi;
+				data.data = &nhi;
 				rc = cursor->c_get( cursor, key, &data, DB_NEXT_DUP );
 				if ( rc != 0 ) {
 					err = "c_get hi";
 					goto fail;
 				}
+				BDB_DISK2ID( &nhi, &hi );
 			}
 			if ( id < lo || id > hi ) {
 				/* Delete the current lo/hi */
@@ -769,7 +848,7 @@ bdb_idl_insert_key(
 					err = "c_del";
 					goto fail;
 				}
-				data.data = &id;
+				data.data = &nid;
 				rc = cursor->c_put( cursor, key, &data, DB_KEYFIRST );
 				if ( rc != 0 ) {
 					err = "c_put lo/hi";
@@ -778,7 +857,7 @@ bdb_idl_insert_key(
 			}
 		}
 	} else if ( rc == DB_NOTFOUND ) {
-put1:		data.data = &id;
+put1:		data.data = &nid;
 		rc = cursor->c_put( cursor, key, &data, DB_NODUPDATA );
 		/* Don't worry if it's already there */
 		if ( rc != 0 && rc != DB_KEYEXIST ) {
@@ -788,28 +867,16 @@ put1:		data.data = &id;
 	} else {
 		/* initial c_get failed, nothing was done */
 fail:
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_insert_key: %s failed: %s (%d)\n", 
-			err, db_strerror(rc), rc );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_insert_key: "
 			"%s failed: %s (%d)\n", err, db_strerror(rc), rc );
-#endif
 		cursor->c_close( cursor );
 		return rc;
 	}
 	rc = cursor->c_close( cursor );
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_insert_key: c_close failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_insert_key: "
 			"c_close failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
-#endif
 	}
 	return rc;
 }
@@ -826,26 +893,22 @@ bdb_idl_delete_key(
 	int	rc;
 	DBT data;
 	DBC *cursor;
-	ID lo, hi, tmp;
+	ID lo, hi, tmp, nid, nlo, nhi;
 	char *err;
 
 	{
 		char buf[16];
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ARGS,
-			"bdb_idl_delete_key: %lx %s\n", 
-			(long) id, bdb_show_key( key, buf ), 0 );
-#else
 		Debug( LDAP_DEBUG_ARGS,
 			"bdb_idl_delete_key: %lx %s\n", 
 			(long) id, bdb_show_key( key, buf ), 0 );
-#endif
 	}
 	assert( id != NOID );
 
 	if ( bdb->bi_idl_cache_max_size ) {
 		bdb_idl_cache_del( bdb, db, key );
 	}
+
+	BDB_ID2DISK( id, &nid );
 
 	DBTzero( &data );
 	data.data = &tmp;
@@ -855,29 +918,22 @@ bdb_idl_delete_key(
 
 	rc = db->cursor( db, tid, &cursor, bdb->bi_db_opflags );
 	if ( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_delete_key: cursor failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_delete_key: "
 			"cursor failed: %s (%d)\n", db_strerror(rc), rc, 0 );
-#endif
 		return rc;
 	}
 	/* Fetch the first data item for this key, to see if it
 	 * exists and if it's a range.
 	 */
-	rc = cursor->c_get( cursor, key, &data, DB_SET | DB_RMW );
+	rc = cursor->c_get( cursor, key, &data, DB_SET );
 	err = "c_get";
 	if ( rc == 0 ) {
 		if ( tmp != 0 ) {
 			/* Not a range, just delete it */
-			if (tmp != id) {
+			if (tmp != nid) {
 				/* position to correct item */
-				tmp = id;
-				rc = cursor->c_get( cursor, key, &data, 
-					DB_GET_BOTH | DB_RMW  );
+				tmp = nid;
+				rc = cursor->c_get( cursor, key, &data, DB_GET_BOTH );
 				if ( rc != 0 ) {
 					err = "c_get id";
 					goto fail;
@@ -892,18 +948,20 @@ bdb_idl_delete_key(
 			/* It's a range, see if we need to rewrite
 			 * the boundaries
 			 */
-			data.data = &lo;
+			data.data = &nlo;
 			rc = cursor->c_get( cursor, key, &data, DB_NEXT_DUP );
 			if ( rc != 0 ) {
 				err = "c_get lo";
 				goto fail;
 			}
-			data.data = &hi;
+			BDB_DISK2ID( &nlo, &lo );
+			data.data = &nhi;
 			rc = cursor->c_get( cursor, key, &data, DB_NEXT_DUP );
 			if ( rc != 0 ) {
 				err = "c_get hi";
 				goto fail;
 			}
+			BDB_DISK2ID( &nhi, &hi );
 			if ( id == lo || id == hi ) {
 				if ( id == lo ) {
 					id++;
@@ -922,9 +980,8 @@ bdb_idl_delete_key(
 				} else {
 					if ( id == lo ) {
 						/* reposition on lo slot */
-						data.data = &lo;
+						data.data = &nlo;
 						cursor->c_get( cursor, key, &data, DB_PREV );
-						lo = id;
 					}
 					rc = cursor->c_del( cursor, 0 );
 					if ( rc != 0 ) {
@@ -933,7 +990,8 @@ bdb_idl_delete_key(
 					}
 				}
 				if ( lo <= hi ) {
-					data.data = &id;
+					BDB_ID2DISK( id, &nid );
+					data.data = &nid;
 					rc = cursor->c_put( cursor, key, &data, DB_KEYFIRST );
 					if ( rc != 0 ) {
 						err = "c_put lo/hi";
@@ -946,28 +1004,17 @@ bdb_idl_delete_key(
 		/* initial c_get failed, nothing was done */
 fail:
 		if ( rc != DB_NOTFOUND ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			"bdb_idl_delete_key: %s failed: %s (%d)\n", 
-			err, db_strerror(rc), rc );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_idl_delete_key: "
 			"%s failed: %s (%d)\n", err, db_strerror(rc), rc );
-#endif
 		}
 		cursor->c_close( cursor );
 		return rc;
 	}
 	rc = cursor->c_close( cursor );
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, "bdb_idl_delete_key: c_close failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"=> bdb_idl_delete_key: c_close failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
-#endif
 	}
 
 	return rc;
@@ -1233,3 +1280,275 @@ ID bdb_idl_next( ID *ids, ID *cursor )
 	return NOID;
 }
 
+#ifdef BDB_HIER
+
+/* Add one ID to an unsorted list. We ensure that the first element is the
+ * minimum and the last element is the maximum, for fast range compaction.
+ *   this means IDLs up to length 3 are always sorted...
+ */
+int bdb_idl_append_one( ID *ids, ID id )
+{
+	if (BDB_IDL_IS_RANGE( ids )) {
+		/* if already in range, treat as a dup */
+		if (id >= BDB_IDL_FIRST(ids) && id <= BDB_IDL_LAST(ids))
+			return -1;
+		if (id < BDB_IDL_FIRST(ids))
+			ids[1] = id;
+		else if (id > BDB_IDL_LAST(ids))
+			ids[2] = id;
+		return 0;
+	}
+	if ( ids[0] ) {
+		ID tmp;
+
+		if (id < ids[1]) {
+			tmp = ids[1];
+			ids[1] = id;
+			id = tmp;
+		}
+		if ( ids[0] > 1 && id < ids[ids[0]] ) {
+			tmp = ids[ids[0]];
+			ids[ids[0]] = id;
+			id = tmp;
+		}
+	}
+	ids[0]++;
+	if ( ids[0] >= BDB_IDL_UM_MAX ) {
+		ids[0] = NOID;
+		ids[2] = id;
+	} else {
+		ids[ids[0]] = id;
+	}
+	return 0;
+}
+
+/* Append sorted list b to sorted list a. The result is unsorted but
+ * a[1] is the min of the result and a[a[0]] is the max.
+ */
+int bdb_idl_append( ID *a, ID *b )
+{
+	ID ida, idb, tmp, swap = 0;
+
+	if ( BDB_IDL_IS_ZERO( b ) ) {
+		return 0;
+	}
+
+	if ( BDB_IDL_IS_ZERO( a ) ) {
+		BDB_IDL_CPY( a, b );
+		return 0;
+	}
+
+	ida = BDB_IDL_LAST( a );
+	idb = BDB_IDL_LAST( b );
+	if ( BDB_IDL_IS_RANGE( a ) || BDB_IDL_IS_RANGE(b) ||
+		a[0] + b[0] >= BDB_IDL_UM_MAX ) {
+		a[2] = IDL_MAX( ida, idb );
+		a[1] = IDL_MIN( a[1], b[1] );
+		a[0] = NOID;
+		return 0;
+	}
+
+	if ( b[0] > 1 && ida > idb ) {
+		swap = idb;
+		a[a[0]] = idb;
+		b[b[0]] = ida;
+	}
+
+	if ( b[1] < a[1] ) {
+		tmp = a[1];
+		a[1] = b[1];
+	} else {
+		tmp = b[1];
+	}
+	a[0]++;
+	a[a[0]] = tmp;
+
+	if ( b[0] > 1 ) {
+		int i = b[0] - 1;
+		AC_MEMCPY(a+a[0]+1, b+2, i * sizeof(ID));
+		a[0] += i;
+	}
+	if ( swap ) {
+		b[b[0]] = swap;
+	}
+	return 0;
+}
+
+#if 1
+
+/* Quicksort + Insertion sort for small arrays */
+
+#define SMALL	8
+#define	SWAP(a,b)	itmp=(a);(a)=(b);(b)=itmp
+
+void
+bdb_idl_sort( ID *ids, ID *tmp )
+{
+	int *istack = (int *)tmp;
+	int i,j,k,l,ir,jstack;
+	ID a, itmp;
+
+	if ( BDB_IDL_IS_RANGE( ids ))
+		return;
+
+	ir = ids[0];
+	l = 1;
+	jstack = 0;
+	for(;;) {
+		if (ir - l < SMALL) {	/* Insertion sort */
+			for (j=l+1;j<=ir;j++) {
+				a = ids[j];
+				for (i=j-1;i>=1;i--) {
+					if (ids[i] <= a) break;
+					ids[i+1] = ids[i];
+				}
+				ids[i+1] = a;
+			}
+			if (jstack == 0) break;
+			ir = istack[jstack--];
+			l = istack[jstack--];
+		} else {
+			k = (l + ir) >> 1;	/* Choose median of left, center, right */
+			SWAP(ids[k], ids[l+1]);
+			if (ids[l] > ids[ir]) {
+				SWAP(ids[l], ids[ir]);
+			}
+			if (ids[l+1] > ids[ir]) {
+				SWAP(ids[l+1], ids[ir]);
+			}
+			if (ids[l] > ids[l+1]) {
+				SWAP(ids[l], ids[l+1]);
+			}
+			i = l+1;
+			j = ir;
+			a = ids[l+1];
+			for(;;) {
+				do i++; while(ids[i] < a);
+				do j--; while(ids[j] > a);
+				if (j < i) break;
+				SWAP(ids[i],ids[j]);
+			}
+			ids[l+1] = ids[j];
+			ids[j] = a;
+			jstack += 2;
+			if (ir-i+1 >= j-1) {
+				istack[jstack] = ir;
+				istack[jstack-1] = i;
+				ir = j-1;
+			} else {
+				istack[jstack] = j-1;
+				istack[jstack-1] = l;
+				l = i;
+			}
+		}
+	}
+}
+
+#else
+
+/* 8 bit Radix sort + insertion sort
+ * 
+ * based on code from http://www.cubic.org/docs/radix.htm
+ * with improvements by mbackes@symas.com and hyc@symas.com
+ *
+ * This code is O(n) but has a relatively high constant factor. For lists
+ * up to ~50 Quicksort is slightly faster; up to ~100 they are even.
+ * Much faster than quicksort for lists longer than ~100. Insertion
+ * sort is actually superior for lists <50.
+ */
+
+#define BUCKETS	(1<<8)
+#define SMALL	50
+
+void
+bdb_idl_sort( ID *ids, ID *tmp )
+{
+	int count, soft_limit, phase = 0, size = ids[0];
+	ID *idls[2];
+	unsigned char *maxv = (unsigned char *)&ids[size];
+
+ 	if ( BDB_IDL_IS_RANGE( ids ))
+ 		return;
+
+	/* Use insertion sort for small lists */
+	if ( size <= SMALL ) {
+		int i,j;
+		ID a;
+
+		for (j=1;j<=size;j++) {
+			a = ids[j];
+			for (i=j-1;i>=1;i--) {
+				if (ids[i] <= a) break;
+				ids[i+1] = ids[i];
+			}
+			ids[i+1] = a;
+		}
+		return;
+	}
+
+	tmp[0] = size;
+	idls[0] = ids;
+	idls[1] = tmp;
+
+#if BYTE_ORDER == BIG_ENDIAN
+    for (soft_limit = 0; !maxv[soft_limit]; soft_limit++);
+#else
+    for (soft_limit = sizeof(ID)-1; !maxv[soft_limit]; soft_limit--);
+#endif
+
+	for (
+#if BYTE_ORDER == BIG_ENDIAN
+	count = sizeof(ID)-1; count >= soft_limit; --count
+#else
+	count = 0; count <= soft_limit; ++count
+#endif
+	) {
+		unsigned int num[BUCKETS], * np, n, sum;
+		int i;
+        ID *sp, *source, *dest;
+        unsigned char *bp, *source_start;
+
+		source = idls[phase]+1;
+		dest = idls[phase^1]+1;
+		source_start =  ((unsigned char *) source) + count;
+
+        np = num;
+        for ( i = BUCKETS; i > 0; --i ) *np++ = 0;
+
+		/* count occurences of every byte value */
+		bp = source_start;
+        for ( i = size; i > 0; --i, bp += sizeof(ID) )
+				num[*bp]++;
+
+		/* transform count into index by summing elements and storing
+		 * into same array
+		 */
+        sum = 0;
+        np = num;
+        for ( i = BUCKETS; i > 0; --i ) {
+                n = *np;
+                *np++ = sum;
+                sum += n;
+        }
+
+		/* fill dest with the right values in the right place */
+		bp = source_start;
+        sp = source;
+        for ( i = size; i > 0; --i, bp += sizeof(ID) ) {
+                np = num + *bp;
+                dest[*np] = *sp++;
+                ++(*np);
+        }
+		phase ^= 1;
+	}
+
+	/* copy back from temp if needed */
+	if ( phase ) {
+		ids++; tmp++;
+		for ( count = 0; count < size; ++count ) 
+			*ids++ = *tmp++;
+	}
+}
+#endif	/* Quick vs Radix */
+
+#endif	/* BDB_HIER */

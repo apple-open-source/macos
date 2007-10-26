@@ -1,5 +1,6 @@
 /* Code for doing intervals.
-   Copyright (C) 1993, 1994, 1995, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 1997, 1998, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* NOTES:
@@ -45,13 +46,12 @@ Boston, MA 02111-1307, USA.  */
 #include "buffer.h"
 #include "puresize.h"
 #include "keyboard.h"
+#include "keymap.h"
 
 /* Test for membership, allowing for t (actually any non-cons) to mean the
    universal set.  */
 
 #define TMEM(sym, set) (CONSP (set) ? ! NILP (Fmemq (sym, set)) : ! NILP (set))
-
-#define min(x, y) ((x) < (y) ? (x) : (y))
 
 Lisp_Object merge_properties_sticky ();
 static INTERVAL reproduce_tree P_ ((INTERVAL, INTERVAL));
@@ -76,13 +76,15 @@ create_root_interval (parent)
     {
       new->total_length = (BUF_Z (XBUFFER (parent))
 			   - BUF_BEG (XBUFFER (parent)));
+      CHECK_TOTAL_LENGTH (new);
       BUF_INTERVALS (XBUFFER (parent)) = new;
-      new->position = 1;
+      new->position = BEG;
     }
   else if (STRINGP (parent))
     {
-      new->total_length = XSTRING (parent)->size;
-      XSTRING (parent)->intervals = new;
+      new->total_length = SCHARS (parent);
+      CHECK_TOTAL_LENGTH (new);
+      STRING_SET_INTERVALS (parent, new);
       new->position = 0;
     }
 
@@ -120,20 +122,27 @@ merge_properties (source, target)
   MERGE_INTERVAL_CACHE (source, target);
 
   o = source->plist;
-  while (! EQ (o, Qnil))
+  while (CONSP (o))
     {
-      sym = Fcar (o);
-      val = Fmemq (sym, target->plist);
+      sym = XCAR (o);
+      o = XCDR (o);
+      CHECK_CONS (o);
+
+      val = target->plist;
+      while (CONSP (val) && !EQ (XCAR (val), sym))
+	{
+	  val = XCDR (val);
+	  if (!CONSP (val))
+	    break;
+	  val = XCDR (val);
+	}
 
       if (NILP (val))
 	{
-	  o = Fcdr (o);
-	  val = Fcar (o);
+	  val = XCAR (o);
 	  target->plist = Fcons (sym, Fcons (val, target->plist));
-	  o = Fcdr (o);
 	}
-      else
-	o = Fcdr (Fcdr (o));
+      o = XCDR (o);
     }
 }
 
@@ -144,8 +153,8 @@ int
 intervals_equal (i0, i1)
      INTERVAL i0, i1;
 {
-  register Lisp_Object i0_cdr, i0_sym, i1_val;
-  register int i1_len;
+  register Lisp_Object i0_cdr, i0_sym;
+  register Lisp_Object i1_cdr, i1_val;
 
   if (DEFAULT_INTERVAL_P (i0) && DEFAULT_INTERVAL_P (i1))
     return 1;
@@ -153,60 +162,88 @@ intervals_equal (i0, i1)
   if (DEFAULT_INTERVAL_P (i0) || DEFAULT_INTERVAL_P (i1))
     return 0;
 
-  i1_len = XFASTINT (Flength (i1->plist));
-  if (i1_len & 0x1)		/* Paranoia -- plists are always even */
-    abort ();
-  i1_len /= 2;
   i0_cdr = i0->plist;
-  while (!NILP (i0_cdr))
+  i1_cdr = i1->plist;
+  while (CONSP (i0_cdr) && CONSP (i1_cdr))
     {
-      /* Lengths of the two plists were unequal.  */
-      if (i1_len == 0)
-	return 0;
-
-      i0_sym = Fcar (i0_cdr);
-      i1_val = Fmemq (i0_sym, i1->plist);
+      i0_sym = XCAR (i0_cdr);
+      i0_cdr = XCDR (i0_cdr);
+      if (!CONSP (i0_cdr))
+	return 0;		/* abort (); */
+      i1_val = i1->plist;
+      while (CONSP (i1_val) && !EQ (XCAR (i1_val), i0_sym))
+	{
+	  i1_val = XCDR (i1_val);
+	  if (!CONSP (i1_val))
+	    return 0;		/* abort (); */
+	  i1_val = XCDR (i1_val);
+	}
 
       /* i0 has something i1 doesn't.  */
       if (EQ (i1_val, Qnil))
 	return 0;
 
       /* i0 and i1 both have sym, but it has different values in each.  */
-      i0_cdr = Fcdr (i0_cdr);
-      if (! EQ (Fcar (Fcdr (i1_val)), Fcar (i0_cdr)))
+      if (!CONSP (i1_val)
+	  || (i1_val = XCDR (i1_val), !CONSP (i1_val))
+	  || !EQ (XCAR (i1_val), XCAR (i0_cdr)))
 	return 0;
 
-      i0_cdr = Fcdr (i0_cdr);
-      i1_len--;
+      i0_cdr = XCDR (i0_cdr);
+
+      i1_cdr = XCDR (i1_cdr);
+      if (!CONSP (i1_cdr))
+	return 0;		/* abort (); */
+      i1_cdr = XCDR (i1_cdr);
     }
 
-  /* Lengths of the two plists were unequal.  */
-  if (i1_len > 0)
-    return 0;
-
-  return 1;
+  /* Lengths of the two plists were equal.  */
+  return (NILP (i0_cdr) && NILP (i1_cdr));
 }
 
+
+/* Traverse an interval tree TREE, performing FUNCTION on each node.
+   No guarantee is made about the order of traversal.
+   Pass FUNCTION two args: an interval, and ARG.  */
+
+void
+traverse_intervals_noorder (tree, function, arg)
+     INTERVAL tree;
+     void (* function) P_ ((INTERVAL, Lisp_Object));
+     Lisp_Object arg;
+{
+  /* Minimize stack usage.  */
+  while (!NULL_INTERVAL_P (tree))
+    {
+      (*function) (tree, arg);
+      if (NULL_INTERVAL_P (tree->right))
+	tree = tree->left;
+      else
+	{
+	  traverse_intervals_noorder (tree->left, function, arg);
+	  tree = tree->right;
+	}
+    }
+}
 
 /* Traverse an interval tree TREE, performing FUNCTION on each node.
    Pass FUNCTION two args: an interval, and ARG.  */
 
 void
-traverse_intervals (tree, position, depth, function, arg)
+traverse_intervals (tree, position, function, arg)
      INTERVAL tree;
-     int position, depth;
+     int position;
      void (* function) P_ ((INTERVAL, Lisp_Object));
      Lisp_Object arg;
 {
-  if (NULL_INTERVAL_P (tree))
-    return;
-
-  traverse_intervals (tree->left, position, depth + 1, function, arg);
-  position += LEFT_TOTAL_LENGTH (tree);
-  tree->position = position;
-  (*function) (tree, arg);
-  position += LENGTH (tree);
-  traverse_intervals (tree->right, position, depth + 1,  function, arg);
+  while (!NULL_INTERVAL_P (tree))
+    {
+      traverse_intervals (tree->left, position, function, arg);
+      position += LEFT_TOTAL_LENGTH (tree);
+      tree->position = position;
+      (*function) (tree, arg);
+      position += LENGTH (tree); tree = tree->right;
+    }
 }
 
 #if 0
@@ -237,7 +274,7 @@ search_for_interval (i, tree)
   icount = 0;
   search_interval = i;
   found_interval = NULL_INTERVAL;
-  traverse_intervals (tree, 1, 0, &check_for_interval, Qnil);
+  traverse_intervals_noorder (tree, &check_for_interval, Qnil);
   return found_interval;
 }
 
@@ -259,7 +296,7 @@ count_intervals (i)
   icount = 0;
   idepth = 0;
   zero_length = 0;
-  traverse_intervals (i, 1, 0, &inc_interval_count, Qnil);
+  traverse_intervals_noorder (i, &inc_interval_count, Qnil);
 
   return icount;
 }
@@ -286,7 +323,7 @@ root_interval (interval)
      c		  c
 */
 
-static INTERVAL
+static INLINE INTERVAL
 rotate_right (interval)
      INTERVAL interval;
 {
@@ -316,23 +353,25 @@ rotate_right (interval)
 
   /* A's total length is decreased by the length of B and its left child.  */
   interval->total_length -= B->total_length - LEFT_TOTAL_LENGTH (interval);
+  CHECK_TOTAL_LENGTH (interval);
 
   /* B must have the same total length of A.  */
   B->total_length = old_total;
+  CHECK_TOTAL_LENGTH (B);
 
   return B;
 }
 
 /* Assuming that a right child exists, perform the following operation:
 
-    A               B   
-   / \	           / \  
+    A               B
+   / \	           / \
       B	   =>     A
-     / \         / \    
+     / \         / \
     c               c
 */
 
-static INTERVAL
+static INLINE INTERVAL
 rotate_left (interval)
      INTERVAL interval;
 {
@@ -362,9 +401,11 @@ rotate_left (interval)
 
   /* A's total length is decreased by the length of B and its right child.  */
   interval->total_length -= B->total_length - RIGHT_TOTAL_LENGTH (interval);
+  CHECK_TOTAL_LENGTH (interval);
 
   /* B must have the same total length of A.  */
   B->total_length = old_total;
+  CHECK_TOTAL_LENGTH (B);
 
   return B;
 }
@@ -383,6 +424,7 @@ balance_an_interval (i)
       old_diff = LEFT_TOTAL_LENGTH (i) - RIGHT_TOTAL_LENGTH (i);
       if (old_diff > 0)
 	{
+	  /* Since the left child is longer, there must be one.  */
 	  new_diff = i->total_length - i->left->total_length
 	    + RIGHT_TOTAL_LENGTH (i->left) - LEFT_TOTAL_LENGTH (i->left);
 	  if (abs (new_diff) >= old_diff)
@@ -392,6 +434,7 @@ balance_an_interval (i)
 	}
       else if (old_diff < 0)
 	{
+	  /* Since the right child is longer, there must be one.  */
 	  new_diff = i->total_length - i->right->total_length
 	    + LEFT_TOTAL_LENGTH (i->right) - RIGHT_TOTAL_LENGTH (i->right);
 	  if (abs (new_diff) >= -old_diff)
@@ -430,7 +473,7 @@ balance_possible_root_interval (interval)
       if (BUFFERP (parent))
 	BUF_INTERVALS (XBUFFER (parent)) = interval;
       else if (STRINGP (parent))
-	XSTRING (parent)->intervals = interval;
+	STRING_SET_INTERVALS (parent, interval);
     }
 
   return interval;
@@ -492,6 +535,7 @@ split_interval_right (interval, offset)
     {
       interval->right = new;
       new->total_length = new_length;
+      CHECK_TOTAL_LENGTH (new);
     }
   else
     {
@@ -500,9 +544,10 @@ split_interval_right (interval, offset)
       SET_INTERVAL_PARENT (interval->right, new);
       interval->right = new;
       new->total_length = new_length + new->right->total_length;
+      CHECK_TOTAL_LENGTH (new);
       balance_an_interval (new);
     }
-  
+
   balance_possible_root_interval (interval);
 
   return new;
@@ -537,6 +582,7 @@ split_interval_left (interval, offset)
     {
       interval->left = new;
       new->total_length = new_length;
+      CHECK_TOTAL_LENGTH (new);
     }
   else
     {
@@ -545,9 +591,10 @@ split_interval_left (interval, offset)
       SET_INTERVAL_PARENT (new->left, new);
       interval->left = new;
       new->total_length = new_length + new->left->total_length;
+      CHECK_TOTAL_LENGTH (new);
       balance_an_interval (new);
     }
-  
+
   balance_possible_root_interval (interval);
 
   return new;
@@ -632,8 +679,8 @@ find_interval (tree, position)
       else
 	{
 	  tree->position
-	    = (position - relative_position /* the left edge of *tree */
-	       + LEFT_TOTAL_LENGTH (tree)); /* the left edge of this interval */
+	    = (position - relative_position /* left edge of *tree.  */
+	       + LEFT_TOTAL_LENGTH (tree)); /* left edge of this interval.  */
 
 	  return tree;
 	}
@@ -732,39 +779,39 @@ update_interval (i, pos)
   if (NULL_INTERVAL_P (i))
     return NULL_INTERVAL;
 
-  while (1) 
+  while (1)
     {
-      if (pos < i->position) 
+      if (pos < i->position)
 	{
 	  /* Move left. */
-	  if (pos >= i->position - TOTAL_LENGTH (i->left)) 
+	  if (pos >= i->position - TOTAL_LENGTH (i->left))
 	    {
 	      i->left->position = i->position - TOTAL_LENGTH (i->left)
 		+ LEFT_TOTAL_LENGTH (i->left);
 	      i = i->left;		/* Move to the left child */
 	    }
-	  else if (NULL_PARENT (i)) 
+	  else if (NULL_PARENT (i))
 	    error ("Point before start of properties");
-	  else  
+	  else
 	      i = INTERVAL_PARENT (i);
 	  continue;
 	}
       else if (pos >= INTERVAL_LAST_POS (i))
 	{
 	  /* Move right. */
-	  if (pos < INTERVAL_LAST_POS (i) + TOTAL_LENGTH (i->right)) 
+	  if (pos < INTERVAL_LAST_POS (i) + TOTAL_LENGTH (i->right))
 	    {
-	      i->right->position = INTERVAL_LAST_POS (i) +
-		LEFT_TOTAL_LENGTH (i->right);
+	      i->right->position = INTERVAL_LAST_POS (i)
+	        + LEFT_TOTAL_LENGTH (i->right);
 	      i = i->right;		/* Move to the right child */
 	    }
-	  else if (NULL_PARENT (i)) 
-	    error ("Point after end of properties");
-	  else 
-	      i = INTERVAL_PARENT (i);
+	  else if (NULL_PARENT (i))
+	    error ("Point %d after end of properties", pos);
+	  else
+            i = INTERVAL_PARENT (i);
 	  continue;
 	}
-      else 
+      else
 	return i;
     }
 }
@@ -806,6 +853,7 @@ adjust_intervals_for_insertion (tree, position, length)
       if (relative_position <= LEFT_TOTAL_LENGTH (this))
 	{
 	  this->total_length += length;
+	  CHECK_TOTAL_LENGTH (this);
 	  this = this->left;
 	}
       else if (relative_position > (TOTAL_LENGTH (this)
@@ -814,6 +862,7 @@ adjust_intervals_for_insertion (tree, position, length)
 	  relative_position -= (TOTAL_LENGTH (this)
 				- RIGHT_TOTAL_LENGTH (this));
 	  this->total_length += length;
+	  CHECK_TOTAL_LENGTH (this);
 	  this = this->right;
 	}
       else
@@ -821,6 +870,7 @@ adjust_intervals_for_insertion (tree, position, length)
 	  /* If we are to use zero-length intervals as buffer pointers,
 	     then this code will have to change.  */
 	  this->total_length += length;
+	  CHECK_TOTAL_LENGTH (this);
 	  this->position = LEFT_TOTAL_LENGTH (this)
 	                   + position - relative_position + 1;
 	  return tree;
@@ -852,7 +902,7 @@ adjust_intervals_for_insertion (tree, position, length)
   int eobp = 0;
   Lisp_Object parent;
   int offset;
-  
+
   if (TOTAL_LENGTH (tree) == 0)	/* Paranoia */
     abort ();
 
@@ -965,9 +1015,10 @@ adjust_intervals_for_insertion (tree, position, length)
       for (temp = prev ? prev : i; temp; temp = INTERVAL_PARENT_OR_NULL (temp))
 	{
 	  temp->total_length += length;
+	  CHECK_TOTAL_LENGTH (temp);
 	  temp = balance_possible_root_interval (temp);
 	}
-      
+
       /* If at least one interval has sticky properties,
 	 we check the stickiness property by property.
 
@@ -1021,10 +1072,11 @@ adjust_intervals_for_insertion (tree, position, length)
       for (temp = i; temp; temp = INTERVAL_PARENT_OR_NULL (temp))
 	{
 	  temp->total_length += length;
+	  CHECK_TOTAL_LENGTH (temp);
 	  temp = balance_possible_root_interval (temp);
 	}
     }
-      
+
   return tree;
 }
 
@@ -1086,19 +1138,19 @@ merge_properties_sticky (pleft, pright)
   rrear  = textget (pright, Qrear_nonsticky);
 
   /* Go through each element of PRIGHT.  */
-  for (tail1 = pright; CONSP (tail1); tail1 = Fcdr (Fcdr (tail1)))
+  for (tail1 = pright; CONSP (tail1); tail1 = Fcdr (XCDR (tail1)))
     {
       Lisp_Object tmp;
 
-      sym = Fcar (tail1);
+      sym = XCAR (tail1);
 
       /* Sticky properties get special treatment.  */
       if (EQ (sym, Qrear_nonsticky) || EQ (sym, Qfront_sticky))
 	continue;
 
-      rval = Fcar (Fcdr (tail1));
-      for (tail2 = pleft; CONSP (tail2); tail2 = Fcdr (Fcdr (tail2)))
-	if (EQ (sym, Fcar (tail2)))
+      rval = Fcar (XCDR (tail1));
+      for (tail2 = pleft; CONSP (tail2); tail2 = Fcdr (XCDR (tail2)))
+	if (EQ (sym, XCAR (tail2)))
 	  break;
 
       /* Indicate whether the property is explicitly defined on the left.
@@ -1113,7 +1165,7 @@ merge_properties_sticky (pleft, pright)
       tmp = Fassq (sym, Vtext_property_default_nonsticky);
       use_left = (lpresent
 		  && ! (TMEM (sym, lrear)
-			|| CONSP (tmp) && ! NILP (XCDR (tmp))));
+			|| (CONSP (tmp) && ! NILP (XCDR (tmp)))));
       use_right = (TMEM (sym, rfront)
 		   || (CONSP (tmp) && NILP (XCDR (tmp))));
       if (use_left && use_right)
@@ -1144,24 +1196,24 @@ merge_properties_sticky (pleft, pright)
     }
 
   /* Now go through each element of PLEFT.  */
-  for (tail2 = pleft; CONSP (tail2); tail2 = Fcdr (Fcdr (tail2)))
+  for (tail2 = pleft; CONSP (tail2); tail2 = Fcdr (XCDR (tail2)))
     {
       Lisp_Object tmp;
 
-      sym = Fcar (tail2);
+      sym = XCAR (tail2);
 
       /* Sticky properties get special treatment.  */
       if (EQ (sym, Qrear_nonsticky) || EQ (sym, Qfront_sticky))
 	continue;
 
       /* If sym is in PRIGHT, we've already considered it.  */
-      for (tail1 = pright; CONSP (tail1); tail1 = Fcdr (Fcdr (tail1)))
-	if (EQ (sym, Fcar (tail1)))
+      for (tail1 = pright; CONSP (tail1); tail1 = Fcdr (XCDR (tail1)))
+	if (EQ (sym, XCAR (tail1)))
 	  break;
       if (! NILP (tail1))
 	continue;
 
-      lval = Fcar (Fcdr (tail2));
+      lval = Fcar (XCDR (tail2));
 
       /* Even if lrear or rfront say nothing about the stickiness of
 	 SYM, Vtext_property_default_nonsticky may give default
@@ -1190,7 +1242,7 @@ merge_properties_sticky (pleft, pright)
 
   cat = textget (props, Qcategory);
   if (! NILP (front)
-      && 
+      &&
       /* If we have inherited a front-stick category property that is t,
 	 we don't need to set up a detailed one.  */
       ! (! NILP (cat) && SYMBOLP (cat)
@@ -1200,7 +1252,7 @@ merge_properties_sticky (pleft, pright)
 }
 
 
-/* Delete an node I from its interval tree by merging its subtrees
+/* Delete a node I from its interval tree by merging its subtrees
    into one subtree which is then returned.  Caller is responsible for
    storing the resulting subtree into its parent.  */
 
@@ -1225,6 +1277,7 @@ delete_node (i)
       this = this->left;
       this->total_length += migrate_amt;
     }
+  CHECK_TOTAL_LENGTH (this);
   this->left = migrate;
   SET_INTERVAL_PARENT (migrate, this);
 
@@ -1258,7 +1311,7 @@ delete_interval (i)
       if (BUFFERP (owner))
 	BUF_INTERVALS (XBUFFER (owner)) = parent;
       else if (STRINGP (owner))
-	XSTRING (owner)->intervals = parent;
+	STRING_SET_INTERVALS (owner, parent);
       else
 	abort ();
 
@@ -1309,6 +1362,7 @@ interval_deletion_adjustment (tree, from, amount)
 						   relative_position,
 						   amount);
       tree->total_length -= subtract;
+      CHECK_TOTAL_LENGTH (tree);
       return subtract;
     }
   /* Right branch */
@@ -1323,13 +1377,14 @@ interval_deletion_adjustment (tree, from, amount)
 					       relative_position,
 					       amount);
       tree->total_length -= subtract;
+      CHECK_TOTAL_LENGTH (tree);
       return subtract;
     }
   /* Here -- this node.  */
   else
     {
       /* How much can we delete from this interval?  */
-      int my_amount = ((tree->total_length 
+      int my_amount = ((tree->total_length
 			- RIGHT_TOTAL_LENGTH (tree))
 		       - relative_position);
 
@@ -1337,9 +1392,10 @@ interval_deletion_adjustment (tree, from, amount)
 	amount = my_amount;
 
       tree->total_length -= amount;
+      CHECK_TOTAL_LENGTH (tree);
       if (LENGTH (tree) == 0)
 	delete_interval (tree);
-      
+
       return amount;
     }
 
@@ -1380,6 +1436,7 @@ adjust_intervals_for_deletion (buffer, start, length)
   if (ONLY_INTERVAL_P (tree))
     {
       tree->total_length -= length;
+      CHECK_TOTAL_LENGTH (tree);
       return;
     }
 
@@ -1435,6 +1492,7 @@ merge_interval_right (i)
 
   /* Zero out this interval.  */
   i->total_length -= absorb;
+  CHECK_TOTAL_LENGTH (i);
 
   /* Find the succeeding interval.  */
   if (! NULL_RIGHT_CHILD (i))      /* It's below us.  Add absorb
@@ -1444,10 +1502,12 @@ merge_interval_right (i)
       while (! NULL_LEFT_CHILD (successor))
 	{
 	  successor->total_length += absorb;
+	  CHECK_TOTAL_LENGTH (successor);
 	  successor = successor->left;
 	}
 
       successor->total_length += absorb;
+      CHECK_TOTAL_LENGTH (successor);
       delete_interval (i);
       return successor;
     }
@@ -1465,6 +1525,7 @@ merge_interval_right (i)
 
       successor = INTERVAL_PARENT (successor);
       successor->total_length -= absorb;
+      CHECK_TOTAL_LENGTH (successor);
     }
 
   /* This must be the rightmost or last interval and cannot
@@ -1488,6 +1549,7 @@ merge_interval_left (i)
 
   /* Zero out this interval.  */
   i->total_length -= absorb;
+  CHECK_TOTAL_LENGTH (i);
 
   /* Find the preceding interval.  */
   if (! NULL_LEFT_CHILD (i))	/* It's below us. Go down,
@@ -1497,10 +1559,12 @@ merge_interval_left (i)
       while (! NULL_RIGHT_CHILD (predecessor))
 	{
 	  predecessor->total_length += absorb;
+	  CHECK_TOTAL_LENGTH (predecessor);
 	  predecessor = predecessor->right;
 	}
 
       predecessor->total_length += absorb;
+      CHECK_TOTAL_LENGTH (predecessor);
       delete_interval (i);
       return predecessor;
     }
@@ -1518,6 +1582,7 @@ merge_interval_left (i)
 
       predecessor = INTERVAL_PARENT (predecessor);
       predecessor->total_length -= absorb;
+      CHECK_TOTAL_LENGTH (predecessor);
     }
 
   /* This must be the leftmost or first interval and cannot
@@ -1658,26 +1723,26 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
 {
   register INTERVAL under, over, this, prev;
   register INTERVAL tree;
-  int middle;
+  int over_used;
 
   tree = BUF_INTERVALS (buffer);
 
-  /* If the new text has no properties, it becomes part of whatever
-     interval it was inserted into.  */
+  /* If the new text has no properties, then with inheritance it
+     becomes part of whatever interval it was inserted into.
+     To prevent inheritance, we must clear out the properties
+     of the newly inserted text.  */
   if (NULL_INTERVAL_P (source))
     {
       Lisp_Object buf;
-      if (!inherit && ! NULL_INTERVAL_P (tree))
+      if (!inherit && !NULL_INTERVAL_P (tree) && length > 0)
 	{
-	  int saved_inhibit_modification_hooks = inhibit_modification_hooks;
 	  XSETBUFFER (buf, buffer);
-	  inhibit_modification_hooks = 1;
-	  Fset_text_properties (make_number (position),
-				make_number (position + length),
-				Qnil, buf);
-	  inhibit_modification_hooks = saved_inhibit_modification_hooks;
+	  set_text_properties_1 (make_number (position),
+				 make_number (position + length),
+				 Qnil, buf, 0);
 	}
       if (! NULL_INTERVAL_P (BUF_INTERVALS (buffer)))
+	/* Shouldn't be necessary.  -stef  */
 	BUF_INTERVALS (buffer) = balance_an_interval (BUF_INTERVALS (buffer));
       return;
     }
@@ -1691,7 +1756,8 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
 	  Lisp_Object buf;
 	  XSETBUFFER (buf, buffer);
 	  BUF_INTERVALS (buffer) = reproduce_tree_obj (source, buf);
-	  BUF_INTERVALS (buffer)->position = 1;
+	  BUF_INTERVALS (buffer)->position = BEG;
+	  BUF_INTERVALS (buffer)->up_obj = 1;
 
 	  /* Explicitly free the old tree here?  */
 
@@ -1713,7 +1779,8 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
        about inserting properly.  For now, just waste the old intervals.  */
     {
       BUF_INTERVALS (buffer) = reproduce_tree (source, INTERVAL_PARENT (tree));
-      BUF_INTERVALS (buffer)->position = 1;
+      BUF_INTERVALS (buffer)->position = BEG;
+      BUF_INTERVALS (buffer)->up_obj = 1;
       /* Explicitly free the old tree here.  */
 
       return;
@@ -1738,11 +1805,6 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
 	= split_interval_left (this, position - under->position);
       copy_properties (under, end_unchanged);
       under->position = position;
-#if 0
-      /* This code has no effect.  */
-      prev = 0;
-      middle = 1;
-#endif /* 0 */
     }
   else
     {
@@ -1765,22 +1827,43 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
      The properties of under are the result of
      adjust_intervals_for_insertion, so stickiness has
      already been taken care of.  */
-     
+
+  /* OVER is the interval we are copying from next.
+     OVER_USED says how many characters' worth of OVER
+     have already been copied into target intervals.
+     UNDER is the next interval in the target.  */
+  over_used = 0;
   while (! NULL_INTERVAL_P (over))
     {
-      if (LENGTH (over) < LENGTH (under))
+      /* If UNDER is longer than OVER, split it.  */
+      if (LENGTH (over) - over_used < LENGTH (under))
 	{
-	  this = split_interval_left (under, LENGTH (over));
+	  this = split_interval_left (under, LENGTH (over) - over_used);
 	  copy_properties (under, this);
 	}
       else
 	this = under;
-      copy_properties (over, this);
+
+      /* THIS is now the interval to copy or merge into.
+	 OVER covers all of it.  */
       if (inherit)
 	merge_properties (over, this);
       else
 	copy_properties (over, this);
-      over = next_interval (over);
+
+      /* If THIS and OVER end at the same place,
+	 advance OVER to a new source interval.  */
+      if (LENGTH (this) == LENGTH (over) - over_used)
+	{
+	  over = next_interval (over);
+	  over_used = 0;
+	}
+      else
+	/* Otherwise just record that more of OVER has been used.  */
+	over_used += LENGTH (this);
+
+      /* Always advance to a new target interval.  */
+      under = next_interval (this);
     }
 
   if (! NULL_INTERVAL_P (BUF_INTERVALS (buffer)))
@@ -1790,7 +1873,7 @@ graft_intervals_into_buffer (source, position, length, buffer, inherit)
 
 /* Get the value of property PROP from PLIST,
    which is the plist of an interval.
-   We check for direct properties, for categories with property PROP, 
+   We check for direct properties, for categories with property PROP,
    and for PROP appearing on the default-text-properties list.  */
 
 Lisp_Object
@@ -1798,18 +1881,26 @@ textget (plist, prop)
      Lisp_Object plist;
      register Lisp_Object prop;
 {
-  register Lisp_Object tail, fallback;
-  fallback = Qnil;
+  return lookup_char_property (plist, prop, 1);
+}
 
-  for (tail = plist; !NILP (tail); tail = Fcdr (Fcdr (tail)))
+Lisp_Object
+lookup_char_property (plist, prop, textprop)
+     Lisp_Object plist;
+     register Lisp_Object prop;
+     int textprop;
+{
+  register Lisp_Object tail, fallback = Qnil;
+
+  for (tail = plist; CONSP (tail); tail = Fcdr (XCDR (tail)))
     {
       register Lisp_Object tem;
-      tem = Fcar (tail);
+      tem = XCAR (tail);
       if (EQ (prop, tem))
-	return Fcar (Fcdr (tail));
+	return Fcar (XCDR (tail));
       if (EQ (tem, Qcategory))
 	{
-	  tem = Fcar (Fcdr (tail));
+	  tem = Fcar (XCDR (tail));
 	  if (SYMBOLP (tem))
 	    fallback = Fget (tem, prop);
 	}
@@ -1817,9 +1908,18 @@ textget (plist, prop)
 
   if (! NILP (fallback))
     return fallback;
-  if (CONSP (Vdefault_text_properties))
-    return Fplist_get (Vdefault_text_properties, prop);
-  return Qnil;
+  /* Check for alternative properties */
+  tail = Fassq (prop, Vchar_property_alias_alist);
+  if (! NILP (tail))
+    {
+      tail = XCDR (tail);
+      for (; NILP (fallback) && CONSP (tail); tail = XCDR (tail))
+	fallback = Fplist_get (plist, XCAR (tail));
+    }
+
+  if (textprop && NILP (fallback) && CONSP (Vdefault_text_properties))
+    fallback = Fplist_get (Vdefault_text_properties, prop);
+  return fallback;
 }
 
 
@@ -1857,7 +1957,7 @@ temp_set_point_both (buffer, charpos, bytepos)
   BUF_PT (buffer) = charpos;
 }
 
-/* Set point in BUFFER to CHARPOS.  If the target position is 
+/* Set point in BUFFER to CHARPOS.  If the target position is
    before an intangible character, move to an ok place.  */
 
 void
@@ -1868,8 +1968,54 @@ set_point (buffer, charpos)
   set_point_both (buffer, charpos, buf_charpos_to_bytepos (buffer, charpos));
 }
 
+/* If there's an invisible character at position POS + TEST_OFFS in the
+   current buffer, and the invisible property has a `stickiness' such that
+   inserting a character at position POS would inherit the property it,
+   return POS + ADJ, otherwise return POS.  If TEST_INTANG is non-zero,
+   then intangibility is required as well as invisibleness.
+
+   TEST_OFFS should be either 0 or -1, and ADJ should be either 1 or -1.
+
+   Note that `stickiness' is determined by overlay marker insertion types,
+   if the invisible property comes from an overlay.  */
+
+static int
+adjust_for_invis_intang (pos, test_offs, adj, test_intang)
+     int pos, test_offs, adj, test_intang;
+{
+  Lisp_Object invis_propval, invis_overlay;
+  Lisp_Object test_pos;
+
+  if ((adj < 0 && pos + adj < BEGV) || (adj > 0 && pos + adj > ZV))
+    /* POS + ADJ would be beyond the buffer bounds, so do no adjustment.  */
+    return pos;
+
+  test_pos = make_number (pos + test_offs);
+
+  invis_propval
+    = get_char_property_and_overlay (test_pos, Qinvisible, Qnil,
+				     &invis_overlay);
+
+  if ((!test_intang
+       || ! NILP (Fget_char_property (test_pos, Qintangible, Qnil)))
+      && TEXT_PROP_MEANS_INVISIBLE (invis_propval)
+      /* This next test is true if the invisible property has a stickiness
+	 such that an insertion at POS would inherit it.  */
+      && (NILP (invis_overlay)
+	  /* Invisible property is from a text-property.  */
+	  ? (text_property_stickiness (Qinvisible, make_number (pos), Qnil)
+	     == (test_offs == 0 ? 1 : -1))
+	  /* Invisible property is from an overlay.  */
+	  : (test_offs == 0
+	     ? XMARKER (OVERLAY_START (invis_overlay))->insertion_type == 0
+	     : XMARKER (OVERLAY_END (invis_overlay))->insertion_type == 1)))
+    pos += adj;
+
+  return pos;
+}
+
 /* Set point in BUFFER to CHARPOS, which corresponds to byte
-   position BYTEPOS.  If the target position is 
+   position BYTEPOS.  If the target position is
    before an intangible character, move to an ok place.  */
 
 void
@@ -1880,6 +2026,10 @@ set_point_both (buffer, charpos, bytepos)
   register INTERVAL to, from, toprev, fromprev;
   int buffer_point;
   int old_position = BUF_PT (buffer);
+  /* This ensures that we move forward past intangible text when the
+     initial position is the same as the destination, in the rare
+     instances where this is important, e.g. in line-move-finish
+     (simple.el).  */
   int backwards = (charpos < old_position ? 1 : 0);
   int have_overlays;
   int original_position;
@@ -1900,8 +2050,7 @@ set_point_both (buffer, charpos, bytepos)
   if (charpos > BUF_ZV (buffer) || charpos < BUF_BEGV (buffer))
     abort ();
 
-  have_overlays = (! NILP (buffer->overlays_before)
-		   || ! NILP (buffer->overlays_after));
+  have_overlays = (buffer->overlays_before || buffer->overlays_after);
 
   /* If we have no text properties and overlays,
      then we can do it quickly.  */
@@ -1960,41 +2109,74 @@ set_point_both (buffer, charpos, bytepos)
 	 or end of the buffer, so don't bother checking in that case.  */
       && charpos != BEGV && charpos != ZV)
     {
-      Lisp_Object intangible_propval;
       Lisp_Object pos;
-
-      XSETINT (pos, charpos);
+      Lisp_Object intangible_propval;
 
       if (backwards)
 	{
-	  intangible_propval = Fget_char_property (make_number (charpos),
-						   Qintangible, Qnil);
+	  /* If the preceding character is both intangible and invisible,
+	     and the invisible property is `rear-sticky', perturb it so
+	     that the search starts one character earlier -- this ensures
+	     that point can never move to the end of an invisible/
+	     intangible/rear-sticky region.  */
+	  charpos = adjust_for_invis_intang (charpos, -1, -1, 1);
+
+	  XSETINT (pos, charpos);
 
 	  /* If following char is intangible,
 	     skip back over all chars with matching intangible property.  */
+
+	  intangible_propval = Fget_char_property (pos, Qintangible, Qnil);
+
 	  if (! NILP (intangible_propval))
-	    while (XINT (pos) > BUF_BEGV (buffer)
-		   && EQ (Fget_char_property (make_number (XINT (pos) - 1),
-					      Qintangible, Qnil),
-			  intangible_propval))
-	      pos = Fprevious_char_property_change (pos, Qnil);
+	    {
+	      while (XINT (pos) > BUF_BEGV (buffer)
+		     && EQ (Fget_char_property (make_number (XINT (pos) - 1),
+						Qintangible, Qnil),
+			    intangible_propval))
+		pos = Fprevious_char_property_change (pos, Qnil);
+
+	      /* Set CHARPOS from POS, and if the final intangible character
+		 that we skipped over is also invisible, and the invisible
+		 property is `front-sticky', perturb it to be one character
+		 earlier -- this ensures that point can never move to the
+		 beginning of an invisible/intangible/front-sticky region.  */
+	      charpos = adjust_for_invis_intang (XINT (pos), 0, -1, 0);
+	    }
 	}
       else
 	{
+	  /* If the following character is both intangible and invisible,
+	     and the invisible property is `front-sticky', perturb it so
+	     that the search starts one character later -- this ensures
+	     that point can never move to the beginning of an
+	     invisible/intangible/front-sticky region.  */
+	  charpos = adjust_for_invis_intang (charpos, 0, 1, 1);
+
+	  XSETINT (pos, charpos);
+
+	  /* If preceding char is intangible,
+	     skip forward over all chars with matching intangible property.  */
+
 	  intangible_propval = Fget_char_property (make_number (charpos - 1),
 						   Qintangible, Qnil);
 
-	  /* If following char is intangible,
-	     skip forward over all chars with matching intangible property.  */
 	  if (! NILP (intangible_propval))
-	    while (XINT (pos) < BUF_ZV (buffer)
-		   && EQ (Fget_char_property (pos, Qintangible, Qnil),
-			  intangible_propval))
-	      pos = Fnext_char_property_change (pos, Qnil);
+	    {
+	      while (XINT (pos) < BUF_ZV (buffer)
+		     && EQ (Fget_char_property (pos, Qintangible, Qnil),
+			    intangible_propval))
+		pos = Fnext_char_property_change (pos, Qnil);
 
+	      /* Set CHARPOS from POS, and if the final intangible character
+		 that we skipped over is also invisible, and the invisible
+		 property is `rear-sticky', perturb it to be one character
+		 later -- this ensures that point can never move to the
+		 end of an invisible/intangible/rear-sticky region.  */
+	      charpos = adjust_for_invis_intang (XINT (pos), -1, 1, 0);
+	    }
 	}
 
-      charpos = XINT (pos);
       bytepos = buf_charpos_to_bytepos (buffer, charpos);
     }
 
@@ -2028,36 +2210,38 @@ set_point_both (buffer, charpos, bytepos)
       Lisp_Object leave_after, leave_before, enter_after, enter_before;
 
       if (fromprev)
-	leave_after = textget (fromprev->plist, Qpoint_left);
-      else
-	leave_after = Qnil;
-      if (from)
-	leave_before = textget (from->plist, Qpoint_left);
+	leave_before = textget (fromprev->plist, Qpoint_left);
       else
 	leave_before = Qnil;
 
-      if (toprev)
-	enter_after = textget (toprev->plist, Qpoint_entered);
+      if (from)
+	leave_after = textget (from->plist, Qpoint_left);
       else
-	enter_after = Qnil;
-      if (to)
-	enter_before = textget (to->plist, Qpoint_entered);
+	leave_after = Qnil;
+
+      if (toprev)
+	enter_before = textget (toprev->plist, Qpoint_entered);
       else
 	enter_before = Qnil;
 
+      if (to)
+	enter_after = textget (to->plist, Qpoint_entered);
+      else
+	enter_after = Qnil;
+
       if (! EQ (leave_before, enter_before) && !NILP (leave_before))
-	call2 (leave_before, make_number (old_position),
-	       make_number (charpos));
+      	call2 (leave_before, make_number (old_position),
+      	       make_number (charpos));
       if (! EQ (leave_after, enter_after) && !NILP (leave_after))
-	call2 (leave_after, make_number (old_position),
-	       make_number (charpos));
+      	call2 (leave_after, make_number (old_position),
+      	       make_number (charpos));
 
       if (! EQ (enter_before, leave_before) && !NILP (enter_before))
-	call2 (enter_before, make_number (old_position),
-	       make_number (charpos));
+      	call2 (enter_before, make_number (old_position),
+      	       make_number (charpos));
       if (! EQ (enter_after, leave_after) && !NILP (enter_after))
-	call2 (enter_after, make_number (old_position),
-	       make_number (charpos));
+      	call2 (enter_after, make_number (old_position),
+      	       make_number (charpos));
     }
 }
 
@@ -2108,8 +2292,12 @@ move_if_not_intangible (position)
 	  pos = Fnext_char_property_change (pos, Qnil);
 
     }
+  else if (position < BEGV)
+    position = BEGV;
+  else if (position > ZV)
+    position = ZV;
 
-  /* If the whole stretch between PT and POSITION isn't intangible, 
+  /* If the whole stretch between PT and POSITION isn't intangible,
      try moving to POSITION (which means we actually move farther
      if POSITION is inside of intangible text).  */
 
@@ -2138,7 +2326,7 @@ get_property_and_range (pos, prop, val, start, end, object)
   else if (BUFFERP (object))
     i = find_interval (BUF_INTERVALS (XBUFFER (object)), pos);
   else if (STRINGP (object))
-    i = find_interval (XSTRING (object)->intervals, pos);
+    i = find_interval (STRING_INTERVALS (object), pos);
   else
     abort ();
 
@@ -2156,7 +2344,7 @@ get_property_and_range (pos, prop, val, start, end, object)
   *start = i->position;
 
   next = next_interval (i);
-  while (! NULL_INTERVAL_P (next) 
+  while (! NULL_INTERVAL_P (next)
 	 && EQ (*val, textget (next->plist, prop)))
     i = next, next = next_interval (next);
   *end = i->position + LENGTH (i);
@@ -2167,7 +2355,9 @@ get_property_and_range (pos, prop, val, start, end, object)
 /* Return the proper local keymap TYPE for position POSITION in
    BUFFER; TYPE should be one of `keymap' or `local-map'.  Use the map
    specified by the PROP property, if any.  Otherwise, if TYPE is
-   `local-map' use BUFFER's local map.  */
+   `local-map' use BUFFER's local map.
+
+   POSITION must be in the accessible part of BUFFER.  */
 
 Lisp_Object
 get_local_map (position, buffer, type)
@@ -2179,7 +2369,7 @@ get_local_map (position, buffer, type)
   int old_begv, old_zv, old_begv_byte, old_zv_byte;
 
   /* Perhaps we should just change `position' to the limit.  */
-  if (position > BUF_Z (buffer) || position < BUF_BEG (buffer))
+  if (position > BUF_ZV (buffer) || position < BUF_BEGV (buffer))
     abort ();
 
   /* Ignore narrowing, so that a local map continues to be valid even if
@@ -2193,13 +2383,17 @@ get_local_map (position, buffer, type)
   BUF_BEGV_BYTE (buffer) = BUF_BEG_BYTE (buffer);
   BUF_ZV_BYTE (buffer) = BUF_Z_BYTE (buffer);
 
-  /* There are no properties at the end of the buffer, so in that case
-     check for a local map on the last character of the buffer instead.  */
-  if (position == BUF_Z (buffer) && BUF_Z (buffer) > BUF_BEG (buffer))
-    --position;
   XSETFASTINT (lispy_position, position);
   XSETBUFFER (lispy_buffer, buffer);
+  /* First check if the CHAR has any property.  This is because when
+     we click with the mouse, the mouse pointer is really pointing
+     to the CHAR after POS.  */
   prop = Fget_char_property (lispy_position, type, lispy_buffer);
+  /* If not, look at the POS's properties.  This is necessary because when
+     editing a field with a `local-map' property, we want insertion at the end
+     to obey the `local-map' property.  */
+  if (NILP (prop))
+    prop = get_pos_property (lispy_position, type, lispy_buffer);
 
   BUF_BEGV (buffer) = old_begv;
   BUF_ZV (buffer) = old_zv;
@@ -2245,6 +2439,7 @@ copy_intervals (tree, start, length)
   new->position = 0;
   got = (LENGTH (i) - (start - i->position));
   new->total_length = length;
+  CHECK_TOTAL_LENGTH (new);
   copy_properties (i, new);
 
   t = new;
@@ -2275,7 +2470,7 @@ copy_intervals_to_string (string, buffer, position, length)
     return;
 
   SET_INTERVAL_OBJECT (interval_copy, string);
-  XSTRING (string)->intervals = interval_copy;
+  STRING_SET_INTERVALS (string, interval_copy);
 }
 
 /* Return 1 if strings S1 and S2 have identical properties; 0 otherwise.
@@ -2287,10 +2482,10 @@ compare_string_intervals (s1, s2)
 {
   INTERVAL i1, i2;
   int pos = 0;
-  int end = XSTRING (s1)->size;
+  int end = SCHARS (s1);
 
-  i1 = find_interval (XSTRING (s1)->intervals, 0);
-  i2 = find_interval (XSTRING (s2)->intervals, 0);
+  i1 = find_interval (STRING_INTERVALS (s1), 0);
+  i2 = find_interval (STRING_INTERVALS (s2), 0);
 
   while (pos < end)
     {
@@ -2331,6 +2526,13 @@ set_intervals_multibyte_1 (i, multi_flag, start, start_byte, end, end_byte)
     i->total_length = end - start;
   else
     i->total_length = end_byte - start_byte;
+  CHECK_TOTAL_LENGTH (i);
+
+  if (TOTAL_LENGTH (i) == 0)
+    {
+      delete_interval (i);
+      return;
+    }
 
   /* Recursively fix the length of the subintervals.  */
   if (i->left)
@@ -2339,8 +2541,23 @@ set_intervals_multibyte_1 (i, multi_flag, start, start_byte, end, end_byte)
 
       if (multi_flag)
 	{
+	  int temp;
 	  left_end_byte = start_byte + LEFT_TOTAL_LENGTH (i);
 	  left_end = BYTE_TO_CHAR (left_end_byte);
+
+	  temp = CHAR_TO_BYTE (left_end);
+
+	  /* If LEFT_END_BYTE is in the middle of a character,
+	     adjust it and LEFT_END to a char boundary.  */
+	  if (left_end_byte > temp)
+	    {
+	      left_end_byte = temp;
+	    }
+	  if (left_end_byte < temp)
+	    {
+	      left_end--;
+	      left_end_byte = CHAR_TO_BYTE (left_end);
+	    }
 	}
       else
 	{
@@ -2357,8 +2574,24 @@ set_intervals_multibyte_1 (i, multi_flag, start, start_byte, end, end_byte)
 
       if (multi_flag)
 	{
+	  int temp;
+
 	  right_start_byte = end_byte - RIGHT_TOTAL_LENGTH (i);
 	  right_start = BYTE_TO_CHAR (right_start_byte);
+
+	  /* If RIGHT_START_BYTE is in the middle of a character,
+	     adjust it and RIGHT_START to a char boundary.  */
+	  temp = CHAR_TO_BYTE (right_start);
+
+	  if (right_start_byte < temp)
+	    {
+	      right_start_byte = temp;
+	    }
+	  if (right_start_byte > temp)
+	    {
+	      right_start++;
+	      right_start_byte = CHAR_TO_BYTE (right_start);
+	    }
 	}
       else
 	{
@@ -2369,6 +2602,25 @@ set_intervals_multibyte_1 (i, multi_flag, start, start_byte, end, end_byte)
       set_intervals_multibyte_1 (i->right, multi_flag,
 				 right_start, right_start_byte,
 				 end, end_byte);
+    }
+
+  /* Rounding to char boundaries can theoretically ake this interval
+     spurious.  If so, delete one child, and copy its property list
+     to this interval.  */
+  if (LEFT_TOTAL_LENGTH (i) + RIGHT_TOTAL_LENGTH (i) >= TOTAL_LENGTH (i))
+    {
+      if ((i)->left)
+	{
+	  (i)->plist = (i)->left->plist;
+	  (i)->left->total_length = 0;
+	  delete_interval ((i)->left);
+	}
+      else
+	{
+	  (i)->plist = (i)->right->plist;
+	  (i)->right->total_length = 0;
+	  delete_interval ((i)->right);
+	}
     }
 }
 
@@ -2384,3 +2636,6 @@ set_intervals_multibyte (multi_flag)
     set_intervals_multibyte_1 (BUF_INTERVALS (current_buffer), multi_flag,
 			       BEG, BEG_BYTE, Z, Z_BYTE);
 }
+
+/* arch-tag: 3d402b60-083c-4271-b4a3-ebd9a74bfe27
+   (do not change this comment) */

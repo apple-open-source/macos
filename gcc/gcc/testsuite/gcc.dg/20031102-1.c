@@ -1,9 +1,11 @@
+/* APPLE LOCAL file mainline */
 /* PR optimization/12799 */
 /* Origin: Pratap Subrahmanyam <pratap@vmware.com> */
 
 /* { dg-do run } */
 /* { dg-options "-O2" } */
-/* { dg-options "-O2 -march=i686" { target i686-*-* } } */
+/* APPLE LOCAL x86_64 */
+/* { dg-options "-O2 -march=i686" { target { { i686-*-* x86_64-*-* } && ilp32 } } } */
 
 /* Verify that reload_cse_move2add doesn't add unexpected CLOBBERs. */
 

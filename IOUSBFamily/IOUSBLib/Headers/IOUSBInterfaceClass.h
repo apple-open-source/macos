@@ -25,6 +25,7 @@
 
 #include <IOKit/usb/IOUSBLib.h>
 #include <IOKit/usb/USB.h>
+#include <asl.h>
 
 #include "IOUSBIUnknown.h"
 
@@ -40,13 +41,13 @@ protected:
     virtual ~IOUSBInterfaceClass();
 
     static IOCFPlugInInterface			sIOCFPlugInInterfaceV1;
-    static IOUSBInterfaceInterface220  	sUSBInterfaceInterfaceV220;
+    static IOUSBInterfaceInterface300  	sUSBInterfaceInterfaceV300;
 
     struct InterfaceMap					fUSBInterface;
     io_service_t						fService;
     io_service_t						fDevice;
     io_connect_t						fConnection;
-    mach_port_t							fAsyncPort;
+    IONotificationPortRef				fAsyncPort;
     CFRunLoopSourceRef					fCFSource;
     bool								fIsOpen;
     UInt8								fClass;
@@ -67,12 +68,14 @@ protected:
     // Support for low latency buffers
     UInt32								fNextCookie;
     LowLatencyUserBufferInfoV2			*fUserBufferInfoListHead;
-    IOUSBConfigurationDescriptorPtr		fConfigPtr;
     UInt32								fConfigLength;
     IOUSBInterfaceDescriptorPtr			fInterfaceDescriptor;
+    IOUSBConfigurationDescriptorPtr		*fConfigurations;
     bool								fConfigDescCacheValid;
+	UInt8								fCurrentConfigIndex;
 	bool								fNeedContiguousMemoryForLowLatencyIsoch;
 	bool								fNeedsToReleasefDevice;
+	aslclient							fASLClient;
 	bool								fInterfaceIsAttached;
     
 public:
@@ -142,6 +145,8 @@ public:
     virtual IOReturn					CacheConfigDescriptor();
     virtual const IOUSBDescriptorHeader *FindNextDescriptor(const void *cur, UInt8 descType);
     virtual IOUSBDescriptorHeader		*NextDescriptor(const void *desc);
+    // ----- new with 3.0.0
+    virtual IOReturn					GetBusFrameNumberWithTime(UInt64 *frame, AbsoluteTime *atTime);
 
 
 				  
@@ -220,6 +225,8 @@ protected:
     // ----------------- added in 2.2.0
     static IOUSBDescriptorHeader *interfaceFindNextAssociatedDescriptor( void *self, const void *currentDescriptor, UInt8 descriptorType);
     static IOUSBDescriptorHeader *interfaceFindNextAltInterface( void *self, const void *currentDescriptor, IOUSBFindInterfaceRequest *request);
+    // ----------------- added in 3.0.0
+    static IOReturn				interfaceGetBusFrameNumberWithTime(void *self, UInt64 *frame, AbsoluteTime *atTime);
    
 };
 

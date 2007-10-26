@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>org.net-snmp.snmpd</string>
+	<key>OnDemand</key>
+	<false/>
+	<key>Program</key>
+	<string>/usr/sbin/snmpd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>snmpd</string>
+		<string>-f</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+</dict>
+</plist>

@@ -33,6 +33,8 @@
 
 #include "cache.h"
 
+#define true 	1
+#define false 	0
 
 #define CACHE_DEBUG  0
 
@@ -73,7 +75,14 @@ int CacheRawRead (Cache_t *cache, uint64_t off, uint32_t len, void *buf);
  */
 int CacheRawWrite (Cache_t *cache, uint64_t off, uint32_t len, void *buf);
 
-
+/*
+ * CacheFlushRange
+ *
+ * Flush, and optionally remove, all cache blocks that intersect
+ * a given range.
+ */
+static int
+CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove);
 
 /*
  * LRUInit
@@ -107,14 +116,74 @@ static int LRUHit (LRU_t *lru, LRUNode_t *node, int age);
  *
  *  Chooses a buffer to release.
  *
- *  TODO: Under extreme conditions, it shoud be possible to release the buffer
+ *  TODO: Under extreme conditions, it should be possible to release the buffer
  *        of an actively referenced cache buffer, leaving the tag behind as a
  *        placeholder. This would be required for implementing 2Q-LRU
  *        replacement.
  */
 static int LRUEvict (LRU_t *lru, LRUNode_t *node);
 
+/*
+ * CalculateCacheSize
+ *
+ * Determine the cache size that should be used to initialize the cache.   
+ * If the user provided value does not validate the conditions described 
+ * below, an error is returned.
+ *
+ * If no input values are provided, use default values for cache size
+ * and cache block size.
+ *
+ * Cache size should be -
+ *		a. greater than or equal to minimum cache size
+ *		b. less than or equal to maximum cache size.  The maximum cache size
+ *		   is limited by the maximum value that can be allocated using malloc
+ *		   or mmap (maximum value for size_t)
+ *		c. multiple of cache block size (checked only if user provided cache size)
+ *
+ *	Returns: zero on success, non-zero on failure.
+ */
+int CalculateCacheSize(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, char debug)
+{
+	int err = EINVAL;
+	uint32_t blockSize = DefaultCacheBlockSize;
+	size_t	max_size_t = ~0;	/* Maximum value represented by size_t */
 
+	/* Simple case - no user cache size, use default values */
+	if (!cacheSize) {
+		*calcBlockSize = DefaultCacheBlockSize;
+		*calcTotalBlocks = DefaultCacheBlocks;
+		err = 0;
+		goto out;
+	}
+
+	/* User provided cache size - check with minimum and maximum values */
+	if ((cacheSize < MinCacheSize) || 
+		(cacheSize > max_size_t)) {
+		if (debug) {
+			printf ("\tCache size should be greater than %uM and less than %luM\n", MinCacheSize/(1024*1024), max_size_t/(1024*1024));
+		}
+		goto out;
+	}
+
+	/* Cache size should be multiple of cache block size */
+	if (cacheSize % blockSize) {
+		if (debug) {
+			printf ("\tCache size should be multiple of cache block size (currently %uK)\n", blockSize/1024);
+		}
+		goto out;
+	}
+
+	*calcBlockSize = blockSize;
+	*calcTotalBlocks = cacheSize / blockSize;
+	
+	err = 0;
+	
+out:
+	if ((err == 0) && debug) {
+		printf ("\tUsing cacheBlockSize=%uK cacheTotalBlock=%u cacheSize=%uK.\n", *calcBlockSize/1024, *calcTotalBlocks, ((*calcBlockSize/1024) * (*calcTotalBlocks)));
+	}
+	return err;
+}
 
 /*
  * CacheInit
@@ -122,7 +191,7 @@ static int LRUEvict (LRU_t *lru, LRUNode_t *node);
  *  Initializes the cache for use.
  */
 int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
-               uint32_t cacheBlockSize, uint32_t cacheSize, uint32_t hashSize)
+               uint32_t cacheBlockSize, uint32_t cacheTotalBlocks, uint32_t hashSize)
 {
 	void **		temp;
 	uint32_t	i;
@@ -140,21 +209,21 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 
 	/* Allocate the cache memory */
 	cache->FreeHead = mmap (NULL,
-	                        cacheSize * cacheBlockSize,
+	                        cacheTotalBlocks * cacheBlockSize,
 	                        PROT_READ | PROT_WRITE,
 	                        MAP_ANON | MAP_PRIVATE,
 	                        -1,
 	                        0);
-	if (cache->FreeHead == NULL) return (ENOMEM);
+	if (cache->FreeHead == (void *)-1) return (ENOMEM);
 
 	/* Initialize the cache memory free list */
 	temp = cache->FreeHead;
-	for (i = 0; i < cacheSize - 1; i++) {
+	for (i = 0; i < cacheTotalBlocks - 1; i++) {
 		*temp = ((char *)temp + cacheBlockSize);
 		temp  = (void **)((char *)temp + cacheBlockSize);
 	}
 	*temp = NULL;
-	cache->FreeSize = cacheSize;
+	cache->FreeSize = cacheTotalBlocks;
 
 	buf = (Buf_t *)malloc(sizeof(Buf_t) * MAXBUFS);
 	if (buf == NULL) return (ENOMEM);
@@ -166,9 +235,9 @@ int CacheInit (Cache_t *cache, int fdRead, int fdWrite, uint32_t devBlockSize,
 	cache->FreeBufs = &buf[0];
 
 #if CACHE_DEBUG
-	printf( "%s - cacheSize %d cacheBlockSize %d hashSize %d \n", 
-			__FUNCTION__, cacheSize, cacheBlockSize, hashSize );
-	printf( "%s - cache memory %d \n", __FUNCTION__, (cacheSize * cacheBlockSize) );
+	printf( "%s - cacheTotalBlocks %d cacheBlockSize %d hashSize %d \n", 
+			__FUNCTION__, cacheTotalBlocks, cacheBlockSize, hashSize );
+	printf( "%s - cache memory %d \n", __FUNCTION__, (cacheTotalBlocks * cacheBlockSize) );
 #endif  
 
 	return (LRUInit (&cache->LRU));
@@ -707,7 +776,6 @@ CacheFreeBlock( Cache_t *cache, Tag_t *tag )
  *
  *  Write out any blocks that are marked for lazy write.
  */
-
 int 
 CacheFlush( Cache_t *cache )
 {
@@ -771,7 +839,7 @@ RangeIntersect(uint64_t start1, uint64_t len1, uint64_t start2, uint64_t len2)
  * Flush, and optionally remove, all cache blocks that intersect
  * a given range.
  */
-int
+static int
 CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove)
 {
 	int error;
@@ -814,6 +882,251 @@ CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove)
 	return EOK;
 } /* CacheFlushRange */
 
+/* Function: CacheCopyDiskBlocks
+ *
+ * Description: Perform direct disk block copy from from_offset to to_offset
+ * of given length. 
+ *
+ * The function flushes the cache blocks intersecting with disk blocks
+ * belonging to from_offset.  Invalidating the disk blocks belonging to 
+ * to_offset from the cache would have been sufficient, but its block 
+ * start and end might not lie on cache block size boundary.  Therefore we 
+ * flush the disk blocks belonging to to_offset on the disk .
+ *
+ * The function performs raw read and write on the disk of cache block size,
+ * with exception of last operation.
+ *
+ * Note that the data written to disk does not exist in cache after
+ * this function.  This function however ensures that if the device
+ * offset being read/written on disk existed in cache, it is invalidated and
+ * written to disk before performing any read/write operation.
+ *
+ * Input:
+ *	1. cache - pointer to cache.
+ *	2. from_offset - disk offset to copy from.
+ *	3. to_offset - disk offset to copy to.
+ *	4. len - length in bytes to be copied.  Note that this length should be
+ * 		a multiple of disk block size, else read/write will return error.
+ *
+ * Output:
+ *	zero (EOK) on success.
+ *	On failure, non-zero value.
+ * 	Known error values:
+ *		ENOMEM - insufficient memory to allocate intermediate copy buffer.
+ * 		EINVAL - the length of data to read/write is not multiple of 
+ *				 device block size, or
+ *				 the device offset is not multiple of device block size, or
+ *		ENXIO  - invalid disk offset
+ */
+int CacheCopyDiskBlocks (Cache_t *cache, uint64_t from_offset, uint64_t to_offset, uint32_t len) 
+{
+	int i;
+	int error;
+	char *tmpBuffer = NULL;
+	uint32_t ioReqCount;
+	uint32_t numberOfBuffersToWrite;
+
+	/* Return error if length of data to be written on disk is
+	 * less than the length of the buffer to be written, or
+	 * disk offsets are not multiple of device block size
+	 */
+	if ((len % cache->DevBlockSize) || 
+		(from_offset % cache->DevBlockSize) ||
+		(to_offset % cache->DevBlockSize)) {
+		error = EINVAL;
+		goto out;
+	}
+
+	/* Flush contents of from_offset on the disk */
+	error = CacheFlushRange(cache, from_offset, len, 1);
+	if (error != EOK) goto out;
+
+	/* Flush contents of to_offset on the disk */
+	error = CacheFlushRange(cache, to_offset, len, 1);
+	if (error != EOK) goto out;
+	
+	/* Allocate temporary buffer for reading/writing, currently
+	 * set to block size of cache. 
+	 */
+	tmpBuffer = malloc(cache->BlockSize);
+	if (!tmpBuffer) {
+		error = ENOMEM;
+		goto out;
+	}
+	
+	ioReqCount = cache->BlockSize;
+	numberOfBuffersToWrite = (len + ioReqCount - 1) / ioReqCount;
+
+	for (i=0; i<numberOfBuffersToWrite; i++) {
+		if (i == (numberOfBuffersToWrite - 1)) {
+			/* last buffer */	
+			ioReqCount = len - (i * cache->BlockSize);
+		}
+		
+		/* Read data */
+		error = CacheRawRead (cache, from_offset, ioReqCount, tmpBuffer);
+		if (error != EOK) goto out;
+
+		/* Write data */
+		error = CacheRawWrite (cache, to_offset, ioReqCount, tmpBuffer);
+		if (error != EOK) goto out;
+
+#if 0
+		printf ("%s: Copying %d bytes from %qd to %qd\n", __FUNCTION__, ioReqCount, from_offset, to_offset);
+#endif
+
+		/* Increment offsets with data read/written */
+		from_offset += ioReqCount;
+		to_offset += ioReqCount;
+	}
+
+out:
+	if (tmpBuffer) {
+		free (tmpBuffer);
+	}
+	return error;
+}
+
+/* Function: CacheWriteBufferToDisk
+ *
+ * Description: Write data on disk starting at given offset for upto write_len.
+ * The data from given buffer upto buf_len is written to the disk starting
+ * at given offset.  If the amount of data written on disk is greater than 
+ * the length of buffer, all the remaining data is written as zeros.
+ * 
+ * If no buffer is provided or if length of buffer is zero, the function
+ * writes zeros on disk from offset upto write_len bytes.
+ * 
+ * The function requires the length of buffer is either equal to or less
+ * than the data to be written on disk.  It also requires that the length
+ * of data to be written on disk is a multiple of device block size.
+ *
+ * Note that the data written to disk does not exist in cache after
+ * this function.  This function however ensures that if the device
+ * offset being written on disk existed in cache, it is invalidated and
+ * written to disk before performing any read/write operation.
+ *
+ * Input:
+ *	1. cache - pointer to cache
+ *	2. offset - offset on disk to write data of buffer
+ *	3. buffer - pointer to data to be written on disk
+ *	4. len - length of buffer to be written on disk.
+ *
+ * Output:
+ *	zero (EOK) on success.
+ *	On failure, non-zero value.
+ * 	Known error values:
+ *		ENOMEM - insufficient memory to allocate intermediate copy buffer.
+ *		EINVAL - the length of data to read/write is not multiple of 
+ *				 device block size, or
+ *				 the device offset is not multiple of device block size, or
+ *				 the length of data to be written on disk is less than
+ *				 the length of buffer.
+ *		ENXIO  - invalid disk offset
+ */
+int CacheWriteBufferToDisk (Cache_t *cache, uint64_t offset, uint32_t write_len, u_char *buffer, uint32_t buf_len)
+{
+	int error;
+	u_char *write_buffer = NULL;
+	uint32_t io_count;
+	uint32_t buf_offset;
+	uint32_t bytes_remain;
+	uint8_t zero_fill = false;
+
+	/* Check if buffer is provided */
+	if (buffer == NULL) {
+		buf_len = 0;
+	}
+
+	/* Return error if length of data to be written on disk is,
+	 * less than the length of the buffer to be written, or
+	 * is not a multiple of device block size, or offset to write 
+	 * is not multiple of device block size
+	 */
+	if ((write_len % cache->DevBlockSize) || 
+		(offset % cache->DevBlockSize) ||
+		(write_len < buf_len)) {
+		error = EINVAL;
+		goto out;
+	}
+
+	/* Flush cache contents of offset range to be written on the disk */
+	error = CacheFlushRange(cache, offset, write_len, 1);
+	if (error != EOK) {
+		goto out;
+	}
+
+	/* Calculate correct size of buffer to be written each time */
+	io_count = (write_len < cache->BlockSize) ? write_len : cache->BlockSize;
+
+	/* Allocate temporary buffer to write data to disk */
+	write_buffer = malloc (io_count);
+	if (!write_buffer) {
+		error = ENOMEM;
+		goto out;
+	}
+
+	/* Read offset in data buffer to be written to disk */
+	buf_offset = 0;
+
+	while (write_len) {
+		/* The last buffer might be less than io_count bytes */
+		if (write_len < io_count) {
+			io_count = write_len;
+		}
+			
+		/* Check whether data buffer was written completely to disk */
+		if (buf_offset < buf_len) {
+			/* Calculate the bytes from data buffer still to be written */
+			bytes_remain = buf_len - buf_offset;
+
+			if (bytes_remain >= io_count) {
+				/* Bytes remaining is greater than bytes written in one 
+				 * IO request.  Limit bytes read from data buffer in this 
+				 * pass to the bytes written in one IO request 
+				 */
+				bytes_remain = io_count;
+
+				/* Copy data from data buffer to write buffer */
+				memcpy (write_buffer, buffer, bytes_remain);
+			} else {
+				/* Bytes remaining is less than bytes written in one 
+				 * IO request.  Zero fill the remaining write buffer.
+				 */
+
+				/* Copy data from data buffer to write buffer */
+				memcpy (write_buffer, buffer, bytes_remain);
+
+				/* Zero fill remain buffer, if any */
+				memset (write_buffer + bytes_remain, 0, io_count - bytes_remain);
+			}
+
+			buf_offset += bytes_remain;
+			buffer += bytes_remain;
+		} else {
+			/* Do not zero fill the buffer if we have already done it */
+			if (zero_fill == false) {
+				/* Zero fill entire write buffer */
+				memset (write_buffer, 0, io_count);
+				zero_fill = true;
+			}
+		}
+
+		/* Write data */
+		error = CacheRawWrite (cache, offset, io_count, write_buffer); 
+		if (error != EOK) goto out;
+
+		offset += io_count;
+		write_len -= io_count;
+	}
+
+out:
+	/* If we allocated a temporary buffer, deallocate it */
+	if (write_buffer != NULL) {
+		free (write_buffer);
+	}
+	return error;
+}
 
 /*
  * CacheLookup

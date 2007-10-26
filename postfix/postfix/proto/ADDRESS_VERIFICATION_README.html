@@ -17,11 +17,12 @@
 
 <hr>
 
-<h2>WARNING WARNING WARNING </h2>
+<h2>WARNING </h2>
 
 <p> The sender/recipient address verification feature described in this
 document is suitable only for low-traffic sites. It performs poorly
-under high load and may cause your site to be blacklisted by some
+under high load; excessive sender address verification activity may
+even cause your site to be blacklisted by some
 providers. See the "<a href="#limitations">Limitations</a>" section
 below for details. </p>
 
@@ -31,7 +32,7 @@ below for details. </p>
 server to block a sender (MAIL FROM) or recipient (RCPT TO) address
 until the address has been verified to be deliverable.  </p>
 
-<p> The technique has obvious uses in order to reject junk mail
+<p> The technique has obvious uses to reject junk mail
 with an unreplyable sender address.  </p>
 
 <p> The technique may also be useful to block mail for undeliverable
@@ -95,31 +96,33 @@ always discarded.  </p>
 	<td bgcolor="#f0f0ff" align="center" valign="middle"> <a
 	href="smtpd.8.html">Postfix<br> SMTP<br> server</a> </td>
 
-    <td align="center" valign="middle"> <tt> &lt;-&gt; </tt> </td>
+    <td colspan="2" align="center" valign="middle"> <tt> &lt;-&gt;
+    </tt> </td>
 
-	<td bgcolor="#f0f0ff" align="center" valign="middle"> <a
-	href="verify.8.html">Postfix<br> verify<br> server</a>
+	<td bgcolor="#f0f0ff" colspan="3" align="center" valign="middle">
+	<a href="verify.8.html">Postfix<br> verify<br> server</a>
 	</td>
 
-    <td align="center" valign="middle"> <tt> &lt;-&gt; </tt> </td>
+    <td colspan="2" align="center" valign="middle"> <tt> &lt;-&gt;
+    </tt> </td>
 
-    <td bgcolor="#f0f0ff" align="center" valign="middle">
-    Address<br> verification<br> database </td>
+    <td bgcolor="#f0f0ff" align="center" valign="middle"> Address<br>
+    verification<br> database </td>
 
 </tr>
 
 <tr>
 
-    <td> </td>
+    <td colspan="3"> </td>
+
+    <td> &nbsp; &nbsp; </td>
+
+    <td colspan="2" align="right" valign="middle"> <tt> |</tt><br>
+    probe<br> messages<br> <tt> v </tt> </td>
 
     <td> </td>
 
-    <td align="center" valign="middle"> <tt> |</tt><br> probe<br>
-    messages<br> <tt> v </tt> </td>
-
-    <td> </td>
-
-    <td align="center" valign="middle"> ^<br> delivery<br>
+    <td colspan="2" align="left" valign="middle"> ^<br> delivery<br>
     status<br> <tt> | </tt> </td>
 
     <td> </td>
@@ -134,17 +137,23 @@ always discarded.  </p>
 
     <td> </td>
 
-    <td  bgcolor="#f0f0ff" align="center" valign="middle"> Postfix<br>
-    queue </td>
+    <td> </td>
+
+    <td> </td>
+
+    <td colspan="2" bgcolor="#f0f0ff" align="center" valign="middle">
+    Postfix<br> queue </td>
 
     <td align="center" valign="middle"> <tt> -&gt; </tt> </td>
 
-    <td bgcolor="#f0f0ff" align="center" valign="middle"> Postfix<br>
-    delivery<br> agents </td>
+    <td colspan="2" bgcolor="#f0f0ff" align="center" valign="middle">
+    Postfix<br> delivery<br> agents </td>
 
     <td> </td>
 
     <td> </td>
+
+</tr>
 
 </table>
 
@@ -166,16 +175,17 @@ details. </p>
 
 <ul>
 
-<li> <p> Postfix probes the nearest MTA for the address that is
-being verified, without actually sending mail to that address. If
+<li> <p> When verifying a remote address, Postfix probes the nearest
+MTA for that address, without actually delivering mail to it. If
 the nearest MTA accepts the address, then Postfix assumes that the
-address is deliverable, even when the address will bounce AFTER
-that MTA accepts it. </p>
+address is deliverable. In reality, mail for a remote address can
+bounce AFTER the nearest MTA accepts the recipient address. </p>
 
-<li> <p> Sites like AOL may blacklist you when you are probing them
+<li> <p> Some sites may blacklist you when you are probing them
 too often (a probe is an SMTP session that does not deliver mail),
 or when you are probing them too often for a non-existent address.
-</p>
+This is one reason why you should use sender address verification
+sparingly, if at all, when your site receives lots of email.  </p>
 
 <li> <p> Normally, address verification probe messages follow the
 same path as regular mail.  However, some sites send mail to the
@@ -219,7 +229,14 @@ MAILER-DAEMON messages. </p>
 <p> Recipient address verification is relatively straightforward
 and there are no surprises. If a recipient probe fails, then Postfix
 rejects mail for the recipient address.  If a recipient probe
-succeeds, then Postfix accepts mail for the recipient address. </p>
+succeeds, then Postfix accepts mail for the recipient address.
+However, recipient address verification probes can increase the
+load on down-stream MTAs when you're being flooded by backscatter
+bounces, or when some spammer is mounting a dictionary attack. </p>
+
+<p> By default, address verification results are not saved. To avoid
+probing the same address repeatedly, you can store the result in a
+<a href="#caching">persistent database</a> as described later.  </p>
 
 <blockquote>
 <pre>
@@ -265,9 +282,9 @@ specific domains that often appear in forged email. </p>
 </pre>
 </blockquote>
 
-<p> A list of frequently forged MAIL FROM domains can be found at
-http://www.monkeys.com/anti-spam/filtering/sender-domain-validate.in.
-</p>
+<p> At some point in cyberspace/time, a list of frequently forged
+MAIL FROM domains could be found at
+http://www.monkeys.com/anti-spam/filtering/sender-domain-validate.in.  </p>
 
 <p> NOTE: One of the first things you might want to do is to turn
 on sender address verification for all your own domains. </p>
@@ -345,7 +362,7 @@ of positive and negative results. Refer to the verify(8) manual
 page for details. </p>
 
 <p> The address_verify_map (NOTE: singular) configuration parameter
-specifies an optional persistent database for sender address
+specifies an optional database for sender or recipient address
 verification results.  If you don't specify a file, all address
 verification information is lost after "postfix reload" or "postfix
 stop". </p>
@@ -407,7 +424,9 @@ parameters when it delivers an address verification probe message.
 
 <p> First, the address_verify_relayhost parameter allows you to
 override the relayhost setting, and the address_verify_transport_maps
-parameter allows you to override the transport_maps setting. </p>
+parameter allows you to override the transport_maps setting. 
+The address_verify_sender_dependent_relayhost_maps parameter
+does the same for sender-dependent relayhost selection. </p>
 
 <p> Second, each address class is given its own address verification
 version of the message delivery transport, as shown in the table

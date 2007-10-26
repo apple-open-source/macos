@@ -8,3 +8,4 @@ install_files:
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(SHAREDIR)/misc
 	cap_mkdb -f $(DSTROOT)$(SHAREDIR)/misc/vgrindefs vgrindefs.src
 	$(INSTALL_FILE) -c vgrindefs.src $(DSTROOT)$(SHAREDIR)/misc/vgrindefs
+	$(LN) -f $(DSTROOT)$(MAN1DIR)/vgrind.1 $(DSTROOT)$(MAN1DIR)/vfontedpr.1

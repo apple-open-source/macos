@@ -1,6 +1,6 @@
---- wcswidth.3.orig	Fri Mar 11 08:30:37 2005
-+++ wcswidth.3	Fri Mar 11 08:31:35 2005
-@@ -28,7 +28,8 @@
+--- _SB/Libc/string/FreeBSD/wcswidth.3	2003-05-20 15:23:56.000000000 -0700
++++ _SB/Libc/string/FreeBSD/wcswidth.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -28,14 +28,26 @@
  .Dt WCSWIDTH 3
  .Os
  .Sh NAME
@@ -10,22 +10,31 @@
  .Nd "number of column positions in wide-character string"
  .Sh LIBRARY
  .Lb libc
-@@ -36,6 +37,9 @@
+ .Sh SYNOPSIS
  .In wchar.h
  .Ft int
- .Fn wcswidth "const wchar_t *pwcs" "size_t n"
+-.Fn wcswidth "const wchar_t *pwcs" "size_t n"
++.Fo wcswidth
++.Fa "const wchar_t *pwcs"
++.Fa "size_t n"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft int
-+.Fn wcswidth_l "const wchar_t *pwcs" "size_t n" "locale_t loc"
++.Fo wcswidth_l
++.Fa "const wchar_t *pwcs"
++.Fa "size_t n"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wcswidth
-@@ -44,6 +48,14 @@
+@@ -44,17 +56,26 @@
  characters of
  .Fa pwcs ,
  or until a null wide character (L'\e0') is encountered.
 +.Pp
-+While the
++Although the
 +.Fn wcswidth
 +function uses the current locale, the
 +.Fn wcswidth_l
@@ -35,8 +44,13 @@
  .Sh RETURN VALUES
  The
  .Fn wcswidth
-@@ -54,7 +66,8 @@
- otherwise it returns the number of column positions occupied.
+ function returns 0 if
+ .Fa pwcs
+ is an empty string (L""),
+-\-1 if a non-printing wide character is encountered,
+-otherwise it returns the number of column positions occupied.
++\-1 if a non-printing wide character is encountered;
++otherwise, it returns the number of column positions occupied.
  .Sh SEE ALSO
  .Xr iswprint 3 ,
 -.Xr wcwidth 3

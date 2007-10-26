@@ -34,6 +34,12 @@ const char	*version = "version 20040207";
 #include "awk.h"
 #include "ytab.h"
 
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
+
 extern	char	**environ;
 extern	int	nfields;
 
@@ -50,6 +56,7 @@ int	npfile = 0;	/* number of filenames */
 int	curpfile = 0;	/* current filename */
 
 int	safe	= 0;	/* 1 => "safe" mode */
+int	Unix2003_compat;
 
 int main(int argc, char *argv[])
 {
@@ -62,6 +69,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: %s [-f programfile | 'program'] [-Ffieldsep] [-v var=value] [files]\n", cmdname);
 		exit(1);
 	}
+	Unix2003_compat = COMPAT_MODE("bin/awk", "unix2003");
 	signal(SIGFPE, fpecatch);
 	yyin = NULL;
 	symtab = makesymtab(NSYMTAB);

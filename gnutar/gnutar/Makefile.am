@@ -20,4 +20,5 @@
 
 ACLOCAL_AMFLAGS = -I m4
 EXTRA_DIST = ChangeLog.1 PORTS
-SUBDIRS = doc lib src scripts po tests
+SUBDIRS = doc lib rmt src scripts po tests
+

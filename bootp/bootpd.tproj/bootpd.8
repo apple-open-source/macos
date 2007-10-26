@@ -1,4 +1,27 @@
-.Dd September 14, 2005
+.\"
+.\"
+.\" Copyright (c) 1999, 2005-2007 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\" 
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this
+.\" file.
+.\" 
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\" 
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
+.Dd February 8, 2007
 .Dt BOOTPD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -10,7 +33,8 @@
 .Sh DESCRIPTION
 .Nm 
 implements a DHCP/BOOTP server as
-defined in RFC951, RFC1542, RFC2131, and RFC2132.  It is also a NetBoot server 
+defined in RFC951, RFC1542, RFC2131, and RFC2132, as well as a BOOTP/DHCP
+relay agent.  It is also a NetBoot server 
 implementing Apple-proprietary NetBoot 1.0 (BOOTP-based) and NetBoot 2.0
 BSDP (Boot Server Discovery Protocol).  BSDP works along with regular DHCP, 
 using DHCP-format packets with a special vendor-class identifier and 
@@ -45,25 +69,19 @@ using the
 option described below.
 .Pp
 .Nm
-reads its configuration settings from the local NetInfo domain.
+reads its configuration settings from \fI/etc/bootpd.plist\fR.
 There are also a number of command-line options to change its behavior on the
-fly.  Note in particular that options \fBBDmN\fR
+fly.  Note in particular that options \fBDmNrS\fR
 can also be controlled via service-control properties.  See
-.Xr "/config/dhcp: Global Controls and Filters"
+.Xr "Service Controls and Filters"
 below.
 .Sh "OPTIONS"
 .Bl -tag -width indent
-.It Fl a
-Enable NetInfo anonymous binding for BOOTP clients by supplying NetInfo host
-information options 112 and 113.
 .It Fl B
-Disable BOOTP service.  By default, BOOTP service is enabled.
+Disable BOOTP service.  BOOTP is now disabled by default, so specifying
+this option has no effect.
 .It Fl b
 Only respond if the client's bootfile exists: for BOOTP clients only.
-.It Fl c Ar "interval"
-How often to check that the NetInfo host cache is still valid.  
-Default interval is 30 seconds.  If the NetInfo database
-has changed since we last checked, the cache for that database is discarded.
 .It Fl D
 Enable DHCP service.  By default, DHCP service is disabled.
 .It Fl d
@@ -86,58 +104,44 @@ ethernet ports en0 and en1.  By default, all interfaces are enabled.
 Enable NetBoot 1.0 (BOOTP-based) service.
 .It Fl N
 Enable NetBoot 2.0 (BSDP/DHCP-based) service.
-.It Fl n Ar netinfo_domain
-Search for host entries in the given NetInfo domain.  This flag may 
-appear multiple times, the order of lookups is the order in which
-the flags appear.  The value "..." means search the entire NetInfo
-hierarchy (the default).  The
-.Ar netinfo_domain
-value can be
-specified as a domain path or as host/tag.  For example,
-.nf
-    bootpd -n ...
-.fi
-is the same as simply invoking bootpd without any options, and
-.nf
-    bootpd -n .. -n localhost/local
-.fi
-forces
-.Nm
-to look in the parent domain then in the local domain.
 .It Fl o Ar hop_count
 For relay agent operation, the maximum hop count, default is 4 hops.
 .It Fl q
 Be quiet as possible.  Only report serious errors to
 .It Fl r Ar server_ip
-Relay packets to the specified server_ip, not exceeding the hop count.
+Relay packets to the specified server_ip, not exceeding the hop count.  
+This option can be specified multiple times, one for each server to relay to.
+.It Fl S
+Enable BOOTP service.
 .It Fl v
 Be more verbose in messages logged to \fI/var/log/system.log\fR.
 .El
 .Sh "CONFIGURING BOOTPD"
 .Nm
-reads its configuration from NetInfo (see
-.Xr netinfo 5 ) .
-The directories that it scans are:
-.Bl -tag -width "/config/NetBootServer"
-.It "/config/dhcp"
-Global controls and filters
-.It "/config/dhcp/subnets"
-Subnet entries
-.It "/config/NetBootServer"
-NetBoot server configuration
+reads its configuration from \fI/etc/bootpd.plist\fR\fR, an XML property list.
+The root of the property list is a dictionary.  The property list has three main
+areas:
+.Bl -tag -width "Root dictionary"
+.It "Root dictionary"
+Service Controls and Filters
+.It "Subnets"
+Subnet Entries
+.It "NetBoot"
+NetBoot Server Controls
 .El
-.Ss "/config/dhcp: Global Controls and Filters"
-The directory /config/dhcp contains properties to control whether
+.Ss "Service Controls and Filters"
+The root dictionary in \fI/etc/bootpd.plist\fR contains properties to control
+whether
 .Nm
-will respond to a particular request.  There are MAC address filters 
-(allow/deny) as well as controls to enable services per interface.
+will respond to a particular request,   There are MAC address filters,
+DHCP controls, as well as controls to enable services.
+.Bl -tag -width allow
 .Pp
 The MAC address filter properties are:
-.Bl -tag -width allow
 .It Sy allow
-Enables the specified list of MAC addresses.
+(Array of String) Enables servicing a list of MAC addresses.
 .It Sy deny
-Disables the specified list of MAC addresses.
+(Array of String) Disables servicing a list of MAC addresses.
 .El
 .Pp
 When a packet arrives,
@@ -158,40 +162,86 @@ Enables DHCP on the specified list of interfaces.
 Enables NetBoot 2.0 (BSDP/DHCP-based) NetBoot on the specified list 
 of interfaces.
 .It Sy old_netboot_enabled
-Enables NetBoot 1.0 (BOOTP-based) NetBoot on the specified list of interface.
+Enables NetBoot 1.0 (BOOTP-based) NetBoot on the specified list of interfaces.
+.It Sy relay_enabled
+Enables the relay agent on the specified list of interfaces.  Note that this
+option also requires the \fBrelay_ip_list\fR property to be specified.
 .El
 .Pp
-For each of the above properties dhcp_enabled, bootp_enabled,
-old_netboot_enabled, and netboot_enabled, the absence of a value implies
-that the service is enabled on all interfaces.  To disable a service, 
-specify a single value of "".  For example (using
-.Xr nidump 8
-syntax):
+For each of the properties dhcp_enabled, bootp_enabled,
+old_netboot_enabled, netboot_enabled, and relay_enabled, the corresponding
+service can be enabled or disabled for all interfaces, or enabled for just
+a specific set of interfaces.  To enable or disable globally, use a 
+\fIboolean\fR
+value \fItrue\fR or \fIfalse\fR respectively.
+To enable just for a specific set of
+interfaces, use either a string, for a single interface, or an array of
+strings, one element for each interface.
 .Pp
+For example, to enable DHCP on interfaces en0 and en1, disable BOOTP on all
+interfaces, enable NetBoot on en1, and enable relay agent on interface en1,
+\fI/etc/bootpd.plist\fR could contain:
 .nf
-    "dhcp_enabled" = ( "en2", "en5" );
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>bootp_enabled</key>
+        <false/>
+        <key>dhcp_enabled</key>
+        <array>
+                <string>en0</string>
+                <string>en1</string>
+        </array>
+        <key>netboot_enabled</key>
+        <string>en1</string>
+        <key>relay_enabled</key>
+        <array>
+                <string>en1</string>
+        </array>
+</dict>
+</plist>
 .fi
+.Bl -tag -width detect_other_dhcp_server
 .Pp
-enables DHCP only on interfaces "en2" and "en5", whereas:
+Some additional properties are:
+.It Sy relay_ip_list
+(Array of String) If relay agent functionality is enabled
+(see \fBrelay_enabled\fR above), this
+property contains the list of IP addresses to relay the packet to.
+.It Sy detect_other_dhcp_server
+(Boolean) If this property is set to true,
+.Nm
+calls exit() if it detects that another DHCP server is present on one of the
+interfaces that DHCP is enabled on.  The default value is false.
+.It Sy reply_threshold_seconds
+(Integer)
+.Nm
+won't respond to the request until the bp_secs field is at least 
+\fIreply_theshold_seconds\fR.  The default value is 0 (zero).
+.It Sy use_open_directory
+(Boolean) If this property is set to true,
+.Nm
+will look for static IP address to ethernet address bindings in
+\fBOpen Directory\fR.  The default value is true.
+.It Sy dhcp_ignore_client_identifier
+(Boolean) If this property is set to true, the DHCP server tries to
+ignore the DHCP client identifier option (code 61) in the client's
+DHCP packet.   Instead, the DHCP server tries to use the hardware address
+fields (bp_htype, bp_hlen, bp_chaddr) of the DHCP packet to identify the
+client.  The default value of this property is false.
+.El
+.Ss "Subnet Entries"
+The "Subnets" property in \fI/etc/bootpd.plist\fR contains an array of 
+dictionaries, each dictionary corresponds to a single subnet entry.
 .Pp
-.nf
-    "dhcp_enabled" = ();
-.fi
-.Pp
-enables DHCP on every interface, and:
-.Pp
-.nf
-    "dhcp_enabled" = ( "" );
-.fi
-.Pp
-disables DHCP on all interfaces.
-.Ss "/config/dhcp/subnets: Subnet Entries"
 A subnet entry describes a range of IP addresses, and associated
 information, such as the subnet mask, router, DNS servers, and other
 option data.  A subnet entry also indicates whether the range is
 an address pool from which to allocate vs. simply an informational range
-in order to fulfill requests for option information, i.e. for answering
-DHCP Inform requests, and BOOTP requests.
+in order to fulfill requests for option information.  The informational range
+is used when the client's IP address binding is static, or the client knows its
+own IP address and simply wants relevant option information.
 .Pp
 A subnet entry is required to supply the DHCP service with
 pool(s) of IP address(es), and to inform the server of subnet-specific
@@ -205,38 +255,45 @@ to each of the values in the \fBnet_range\fR must yield the
 .Pp
 Errors in configuration are logged to \fI/var/log/system.log\fR.  There
 may be multiple entries for a given subnet, allowing different
-configuration values to be specified for a given range of IP addresses
+configuration values to be specified for a given sub-range of IP addresses
 within the subnet.  For example, part of the range might be used for
 statically bound clients, and another for a dynamic address pool.
 .Pp
-Each subnet entry appears as a sub-directory in /config/dhcp/subnets.
-A subnet entry must contain the following properties:
+Each subnet entry is encoded as a dictionary with the following
+properties:
 .Bl -tag -width client_types
 .It Sy name
-A descriptive name for the subnet, e.g. "17.202.40/22".
+(String) A descriptive name for the subnet, e.g. "17.202.40/22".
 .It Sy net_mask
-The network mask, e.g. "255.255.252.0".
+(String) The network mask, e.g. "255.255.252.0".
+This property is required.
 .It Sy net_address
-The network address, e.g. "17.202.40.0".
+(String) The network address, e.g. "17.202.40.0".
+This property is required.
 .It Sy net_range
-The network address range stored as two values: the first IP address and the
-last IP address.  For example, ( "17.202.40.2", "17.202.43.254" ).
-.It Sy client_types
-Indicates whether the range is a DHCP address pool, or just informational.  
-Must contain "dhcp" for a DHCP address pool, and "bootp" for an informational 
-range.
-.El
-.Pp
-The following properties are optional:
-.Bl -tag -width client_types
+(Array of String) The network address range stored as two values: 
+the first IP address and the last IP address.  For example:
+.nf
+	<array>
+		<string>17.202.40.2</string>
+		<string>17.202.43.254</string>
+	</array>
+.fi
+This property is required.
+.It Sy allocate
+(Boolean) Indicates whether the DHCP service should allocate IP addresses
+from the range specified by \fBnet_range\fR.  A \fItrue\fR value means
+allocate IP addresses, otherwise, the subnet entry is informational only.
 .It Sy lease_min
-The minimum allowable lease time (in seconds).  This is only required/used
-if the client_types property is set to "dhcp".
+(Integer) The minimum allowable lease time (in seconds). This property is
+ignored unless \fBallocate\fR specifies \fItrue\fR.  
+Default value is 3600 (one hour).
 .It Sy lease_max
-The maximum allowable lease time (in seconds).  This is only required/used
-if the client_types property is set to "dhcp".
+(Integer) The maximum allowable lease time (in seconds). This property is
+ignored unless \fBallocate\fR specifies \fItrue\fR.
+Default value is 3600 (one hour).
 .It Sy supernet
-This property indicates that the subnet is on the same physical
+(String) This property indicates that the subnet is on the same physical
 broadcast domain as other subnets with the same supernet value.
 .El
 .Pp
@@ -252,8 +309,11 @@ The IP address(es) of the DNS server(s) (option code 6).  If this
 property is not present, the server will supply its own DNS server 
 configuration (if available).
 .It Sy dhcp_domain_name
-The default DNS domain name (option code 15).  if this property is not
+The default DNS domain name (option code 15).  If this property is not
 present, the server will supply its own default domain name (if available).
+.It Sy dhcp_domain_search
+The domain search list (option code 119).  If this property is not
+present, the server will supply its domain search list (if available).
 .It Sy dhcp_ldap_url
 The default LDAP URL (option code 95).
 .It Sy dhcp_netinfo_server_address
@@ -286,99 +346,101 @@ The Network News Transport Protocol (NNTP) server IP address(es)
 .It Sy dhcp_proxy_auto_discovery_url
 The default Web Proxy Auto Discovery URL (option code 252).
 .El
-.Ss "/config/NetBootServer: NetBoot server configuration"
-This directory contains a number of properties that alter the NetBoot
+.Pp
+DHCP options may also be specified using the naming convention:
+.nf
+	dhcp_option_\fIoption_code\fR
+.fi
+replacing \fIoption_code\fR with a numeric value in the range of 1 through
+254.  For example, to specify option code 128, specify a property named
+\fBdhcp_option_128\fR.
+.Pp
+.Nm
+has a built-in type conversion table for many more options, mostly those
+specified in RFC 2132, and will try to convert from whatever type the
+option appears in the property list to the binary, packet format.  For example,
+if 
+.Nm
+knows that the type of the option is an IP address or list of IP addresses, it
+converts from the string form of the IP address to the binary, network
+byte order numeric value.
+.Pp
+If the type of the option is a numeric value, it converts from string,
+integer, or boolean, to the proper sized, network byte-order numeric value.
+.Pp
+Regardless of whether
+.Nm
+knows the type of the option or not, you can always specify the DHCP option
+using the \fIdata\fR property list type  e.g.:
+.nf
+	<string>dhcp_option_128</string>
+	<data>
+	AAqV1Tzo
+	</data>
+.fi
+.Ss "NetBoot Server Controls"
+The "NetBoot" property in \fI/etc/bootpd.plist\fR is encoded as a dictionary,
+and may contain a number of properties that alter the NetBoot
 server's default behavior.  The properties are:
 .Bl -tag -width machine_name_format
 .It Sy afp_uid_start
-The starting uid used when creating AFP machine users. The default is 
+(Integer) The starting uid used when creating AFP machine users. The default is 
 uid 100.
 .It Sy afp_users_max
-The number of AFP machine users to automaticaly create.  The default is 50.  
+(Integer) The number of AFP machine users to automaticaly create.
+The default is 50.  
 Note: the server will never remove a user once it is created, so decreasing
 this value once the server has read it will have no effect.
 .It Sy age_time_seconds
-The number of seconds since the client last netbooted before before the 
-client is considered "aged".  A client that has aged becomes available
-for resource reclamation.  The server will only reclaim aged
+(Integer) The number of seconds since the client last netbooted before 
+before the client is considered "aged".  A client that has aged becomes
+ available for resource reclamation.  The server will only reclaim aged
 client bindings when it runs out of free resources.
 .It Sy machine_name_format
-This property is used to generate a unique name to each NetBoot client. The
-default value is "NetBoot%03d" (without the double quotes).  The format string
-must be a 
+(String) This property is used to generate a unique name to each NetBoot
+client. The default value is "NetBoot%03d" (without the double quotes).
+The format string must be a 
 .Xr printf 3
 compatible format string that takes a single integer value as an argument.
 The server ensures that the string is valid by testing the string before 
 using it.  The only conversion specifiers that should be used are
 \fBdiouxX\fR.
 .It Sy shadow_size_meg
-The size (in megabytes) to allocate for the client shadow file.  The default is
-48 (megabytes).  See 
+(Integer) The size (in megabytes) to allocate for the client shadow file.
+The default is 48 (megabytes).  See 
 .Xr "Diskless Resources"
 below.
 .El
 .Sh "BOOTP/DHCP STATIC BINDINGS"
-Static IP address to ethernet address bindings are stored in NetInfo.  The
-bindings appear in host entries.  Each host entry is a
-subdirectory of the \fI/machines\fR directory of a NetInfo
-domain.  The server consults the default NetInfo domain hierarchy unless
-overridden by \fB\-n\fR flags (see \fBOPTIONS\fR above).
+Static IP address to ethernet address bindings are stored in the
+\fI/etc/bootptab\fR file and in \fBOpen Directory\fR.
+Bindings specified in the \fI/etc/bootptab\fR file take
+precedence over those in \fBOpen Directory\fR.
 .Pp
-The server recognizes the following properties in the host entry:
-.Bl -tag -width en_address
-.It Sy name
-The name of the host (required).
-.It Sy en_address
-Ethernet address(es) of the host stored in colon hex
-ie. "%x:%x:%x:%x:%x:%x" format (required).
-.It Sy ip_address
-The IP address(es) of the host (required).
-.It Sy bootfile
-Executable image file to be downloaded by the client via TFTP (not required).
+See
+.Xr bootptab 5
+for more information about the \fI/etc/bootptab\fR file.
+.Pp
+For \fBOpen Directory\fR,
+.Nm
+looks at the /Computers records for the following properties:
+.Bl -tag -width IPAddressAndENetAddress
+.It Sy ENetAddress
+(String) The ethernet MAC address(es) of the computer.
+Each address must be of the form xx:xx:xx:xx:xx:xx using only the
+characters 0123456789abcdef.
+Leading zeros must be specified.
+.It Sy IPAddress
+(String) The IP address(es) of the computer.
+.It Sy IPAddressAndENetAddress
+(String) Pairs of IP and Ethernet MAC addresses of the computer.  Each
+address pair consists of an single IP and MAC address separated by a
+slash character, e.g. "192.168.1.1/01:23:45:67:89:ab".
+This attribute should be provided when multiple addresses are provided
+because not all directories return attribute values in a guaranteed order.
+.It Sy BootFile
+(String) The bootfile to use for this computer.
 .El
-.Pp
-A client is identified by its unique hardware (MAC) address, and
-is stored in the \fBen_address\fR property.
-.Pp
-The server searches for a host entry containing both its hardware address
-and a relevant IP address.  A relevant IP address is one which
-is useful for the subnet on which the client is attempting to boot.
-If the request is a BOOTP request, and no static binding exists, the server
-does not respond.  If the request is DHCP, and no static binding exists,
-the server tries to find an approprate address pool.
-If none exists, it does not respond.
-.Pp
-The server supports having more than one IP address associated with a single 
-client: a single BOOTP/DHCP client can connect to multiple subnets at different
-times (e.g. a laptop that is frequently moved from one location to another).
-Multiple host entries may include the same hardware address but
-should have distinct IP addresses to avoid associating the same IP
-with more than one host.  If there is more than one relevant IP
-address for a client, the server chooses the first one that it finds.
-.Pp
-The server also supports multi-homed hosts (host with the same name
-but multiple IP addresses) by treating the \fBen_address\fR
-and \fBip_address\fR properties as parallel arrays.  For example, consider
-a host entry with the following values:
-.Pp
-.nf
-    "name" = ( "orange" );
-    "en_address" = ( "0:5:2:f:a:b", "0:5:2:1c:9e:d6" );
-    "ip_address" = ( "17.202.42.110", "17.202.21.221" );
-.fi
-.Pp
-Host "orange" has two IP addresses associated with its name.  The interface
-with ethernet address "0:5:2:f:a:b" has IP address "17.202.42.110", and
-interface "0:5:2:1c:9e:d6" has IP address "17.202.21.221".
-.Sh "BOOTP SERVICE"
-The server supplies a BOOTP client with its statically-assigned IP address,
-hostname, subnet mask, default router, domain name server(s), and domain name,
-and if the \fB\-a\fR option was specified, the NetInfo server address and 
-NetInfo server tag options.  It will not exceed the default BOOTP packet 
-size however, so it's possible that not all of the options will fit.
-The client must set the magic number field (first 4 bytes of the
-vendor extensions field) to 99.130.83.99 (dotted decimal) to have
-the server supply those options.
 .Sh "DHCP SERVICE"
 .Pp
 If DHCP service is enabled for a client, the server processes the client's
@@ -406,16 +468,10 @@ insert as many of the requested DHCP options from the client's request as it
 can into the reply.
 .Pp
 When the server allocates an address dynamically, it automatically excludes
-addresses that appear in static host entries under NetInfo.  For example, if
+addresses that appear in static host entries.  For example, if
 the address range goes from 10.0.0.2 through 10.0.0.10, but there is
-a NetInfo host entry in /machines like this:
-.Pp
-.nf
-    "name" = ( "test" );
-    "ip_address" = ( "10.0.0.3" );
-.fi
-.Pp
-the IP address 10.0.0.3 is automatically excluded from the pool.
+a static entry that specifies 10.0.0.3, that address is automatically excluded
+from the pool.
 .Pp
 The server tries to give the same address back to a client by remembering
 the binding even after it has expired.  The server removes an expired lease
@@ -717,6 +773,22 @@ rejected by a NetBoot server that doesn't understand the \fBArchitectures\fR
 property.  This is important because older NetBoot servers only serve
 "ppc" images, and they must not mistakenly serve a non-"ppc" image to a
 "ppc" client.
+.It Sy EnabledMACAddresses
+(Array of String) The exclusive list of MAC addresses for
+which this image is enabled.  A client whose MAC address is on this
+list may be offered this image, subject to any other filtering that might be
+in effect, e.g. the \fBArchitectures\fR and \fBEnabledSystemIdentifiers\fR
+properties.  If this property is not specified, image MAC
+address filtering is subject only to the \fBDisabledMACAddresses\fR property, if
+specified.  If this property is defined but the array is empty, the image is
+disabled.
+.It Sy DisabledMACAddresses
+(Array of String) The list of MAC addresses for which this image
+is disabled.  A client whose MAC address is on this list will not be
+offered this image.  Defining both this property and the
+\fBEnabledMACAddresses\fR property at the same time is not generally useful,
+but this property takes precedence.  That is, if a client's MAC
+address appears in both lists, it is disabled.
 .El
 .Ss NetBoot Image Example: Mac OS 9
 .Pp
@@ -874,12 +946,8 @@ installation image that is served over NFS.
 .Pp
 The NetBoot server creates and manages per-client AFP user logins as well as 
 per-client directories to give each client its own protected resources.
-The AFP users are created in the local NetInfo domain, and are marked with
-the property and value:
-.Pp
-.nf
-    "_creator" = ( "bsdpd" );
-.fi
+The AFP users are created on the local system with the attribute \fI_creator\fR
+set to \fIbsdpd\fR.
 .Pp
 When the server initializes, it ensures there are at least 
 \fBafp_users_max\fR users with this property.  If there are not, it allocates
@@ -918,7 +986,7 @@ Note: the server allocates shadow files for Mac OS 9 NetBoot clients
 only on local HFS volumes.
 .Sh "SEE ALSO"
 .Lp
+.Xr bootptab 5 ,
 .Xr xinetd 8 ,
 .Xr tftpd 8 ,
-.Xr netinfo 5 ,
 .Xr exports 5

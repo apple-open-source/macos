@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,9 @@
 #include "DiskArbitrationPrivate.h"
 
 #include "DAInternal.h"
-#include "DAServerUser.h"
+#include "DAServer.h"
+
+#ifndef __LP64__
 
 #include <paths.h>
 #include <unistd.h>
@@ -33,15 +35,13 @@
 #include <sys/mount.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOBDMedia.h>
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
 ///w:start
 #include <libgen.h>
-#include <mach/semaphore.h>
 #include <mach-o/dyld.h>
 
-static semaphore_t            __gDiskArbAckLock                     = SEMAPHORE_NULL;
-static Boolean                __gDiskArbClassic                     = FALSE;
 static kern_return_t          __gDiskArbStatus                      = KERN_SUCCESS;
 static Boolean                __gDiskArbStatusLock                  = FALSE;
 ///w:stop
@@ -58,6 +58,8 @@ static CFMutableSetRef        __gDiskArbReservationList             = NULL;
 static DASessionRef           __gDiskArbSession                     = NULL;
 static CFMutableSetRef        __gDiskArbUnmountList                 = NULL;
 
+#endif /* !__LP64__ */
+
 __private_extern__ DAReturn _DAAuthorize( DASessionRef session, DADiskRef disk, const char * right );
 
 __private_extern__ DADiskRef    _DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
@@ -73,9 +75,11 @@ __private_extern__ void _DARegisterCallback( DASessionRef    session,
                                              CFDictionaryRef match,
                                              CFArrayRef      watch );
 
-__private_extern__ void        _DASessionCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
-__private_extern__ mach_port_t _DASessionGetClientPort( DASessionRef session );
-__private_extern__ mach_port_t _DASessionGetID( DASessionRef session );
+#ifndef __LP64__
+
+__private_extern__ void             _DASessionCallback( CFMachPortRef port, void * message, CFIndex messageSize, void * info );
+__private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session );
+__private_extern__ mach_port_t      _DASessionGetClientPort( DASessionRef session );
 
 static unsigned __DiskArbCopyDiskDescriptionAppearanceTime( DADiskRef disk )
 {
@@ -193,6 +197,11 @@ static unsigned __DiskArbCopyDiskDescriptionFlags( DADiskRef disk )
 
                             if ( media )
                             {
+                                if ( IOObjectConformsTo( media, kIOBDMediaClass ) )
+                                {
+                                    flags |= kDiskArbDiskAppearedBDROMMask;
+                                }
+
                                 if ( IOObjectConformsTo( media, kIOCDMediaClass ) )
                                 {
                                     flags |= kDiskArbDiskAppearedCDROMMask;
@@ -453,7 +462,7 @@ static char * __DiskArbGetDiskID( DADiskRef _disk )
 
     disk = _DADiskGetID( _disk );
 
-    if ( strncmp( disk, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 )
+    if ( strncmp( disk, _PATH_DEV, strlen( _PATH_DEV ) ) == 0 )
     {
         disk += strlen( _PATH_DEV );
     }
@@ -850,37 +859,6 @@ static DADissenterRef __DiskArbDiskClaimReleaseCallback( DADiskRef disk, void * 
     }
 
     return dissenter;
-}
-
-static void __DiskArbDiskClassicCallback( DADiskRef disk, void * context )
-{
-    CFArrayRef callbacks;
-
-    callbacks = __DiskArbGetCallbackHandler( kDA_BLUE_BOX_UPDATED );
-
-    if ( callbacks )
-    {
-        CFIndex count;
-        CFIndex index;
-
-        count = CFArrayGetCount( callbacks );
-
-        for ( index = 0; index < count; index++ )
-        {
-            DiskArbCallback_BlueBoxBootVolumeUpdated_t callback;
-
-            callback = CFArrayGetValueAtIndex( callbacks, index );
-
-            if ( callback )
-            {
-                unsigned sequence;
-
-                sequence = __DiskArbCopyDiskDescriptionSequenceNumber( disk );
-
-                ( callback )( sequence );
-            }
-        }
-    }
 }
 
 static void __DiskArbDiskDescriptionChangedCallback( DADiskRef disk, CFArrayRef keys, void * context )
@@ -1316,7 +1294,11 @@ static void __DiskArbDiskPeekCallback( DADiskRef disk, void * context )
         whole      = ( flags & kDiskArbDiskAppearedWholeDiskMask ) ? TRUE : FALSE;
         writable   = ( flags & kDiskArbDiskAppearedLockedMask ) ? FALSE : TRUE;
 
-        if ( CFEqual( kind, CFSTR( kIOCDMediaClass ) ) )
+        if ( CFEqual( kind, CFSTR( kIOBDMediaClass ) ) )
+        {
+            type = size ? kDiskArbHandlesUnrecognizedBDMedia : kDiskArbHandlesUninitializedBDMedia;
+        }
+        else if ( CFEqual( kind, CFSTR( kIOCDMediaClass ) ) )
         {
             type = size ? kDiskArbHandlesUnrecognizedCDMedia : kDiskArbHandlesUninitializedCDMedia;
         }
@@ -1497,7 +1479,7 @@ static void __DiskArbDiskUnmountCallback( DADiskRef disk, DADissenterRef dissent
         }
 
 ///w:start
-if ( strcmp( basename( _dyld_get_image_name( 0 ) ), "SystemUIServer" ) )
+if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) )
 ///w:stop
         if ( ( ( ( int ) context ) & kDiskArbUnmountAndEjectFlag ) )
         {
@@ -1532,12 +1514,6 @@ static DADissenterRef __DiskArbDiskUnmountApprovalCallback( DADiskRef disk, void
 
                 ( callback )( __DiskArbGetDiskID( disk ), 0 );
 
-///w:start
-                if ( __gDiskArbClassic )
-                {
-                    semaphore_wait( __gDiskArbAckLock );
-                }
-///w:stop
                 if ( dissenter == NULL )
                 {
                     switch ( __gDiskArbAck )
@@ -1761,43 +1737,7 @@ kern_return_t DiskArbClientWillHandleUnrecognizedDisk( char * disk, int yes )
 
 kern_return_t DiskArbDiskAppearedWithMountpointPing_auto( char * disk, unsigned reserved, char * mountpoint )
 {
-    kern_return_t status;
-
-    status = KERN_FAILURE;
-
-    if ( strncmp( disk, "disk", strlen( "disk" ) ) )
-    {
-        struct statfs * fs;
-
-        fs = __DiskArbGetFileSystemStatus( mountpoint );
-
-        if ( fs )
-        {
-            CFURLRef path;
-
-            path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
-
-            if ( path )
-            {
-                DADiskRef _disk;
-
-                _disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, __gDiskArbSession, path );
-
-                if ( _disk )
-                {
-                    _DADiskRefresh( _disk );
-
-                    status = KERN_SUCCESS;
-
-                    CFRelease( _disk );
-                }
-
-                CFRelease( path );
-            }
-        }
-    }
-
-    return status;
+    return KERN_SUCCESS;
 }
 
 kern_return_t DiskArbDiskApprovedAck_auto( char * disk, int status )
@@ -1809,7 +1749,7 @@ kern_return_t DiskArbDiskApprovedAck_auto( char * disk, int status )
 
 kern_return_t DiskArbDiskDisappearedPing_auto( char * disk, unsigned reserved )
 {
-    return KERN_FAILURE;
+    return KERN_SUCCESS;
 }
 
 kern_return_t DiskArbEjectPreNotifyAck_async_auto( char * disk, int status )
@@ -1985,39 +1925,7 @@ void DiskArbNoOp( void )
 
 kern_return_t DiskArbRefresh_auto( void )
 {
-    io_iterator_t services = IO_OBJECT_NULL;
-
-    IOServiceGetMatchingServices( kIOMasterPortDefault, IOServiceMatching( kIOMediaClass ), &services );
-
-    if ( services )
-    {
-        io_service_t service;
-
-        while ( ( service = IOIteratorNext( services ) ) )
-        {
-            DADiskRef _disk;
-
-            _disk = DADiskCreateFromIOMedia( kCFAllocatorDefault, __gDiskArbSession, service );
-
-            if ( _disk )
-            {
-                _DADiskRefresh( _disk );                    
-
-                CFRelease( _disk );
-            }
-
-            IOObjectRelease( service );
-        }
-
-        IOObjectRelease( services );
-    }
-
     return KERN_SUCCESS;
-}
-
-void DiskArbRegisterCallback_BlueBoxBootVolumeUpdated( DiskArbCallback_BlueBoxBootVolumeUpdated_t callback )
-{
-    DiskArbAddCallbackHandler( kDA_BLUE_BOX_UPDATED, callback, 0 );
 }
 
 void DiskArbRegisterCallback_CallFailedNotification( DiskArbCallback_CallFailedNotification_t callback )
@@ -2163,7 +2071,7 @@ kern_return_t DiskArbRequestDiskChange_auto( char * disk, char * name, int flags
             {
                 CFURLRef path;
 
-                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
+                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
 
                 if ( path )
                 {
@@ -2303,54 +2211,6 @@ kern_return_t DiskArbSetCurrentUser_auto( int user )
     return KERN_FAILURE;
 }
 
-kern_return_t DiskArbSetBlueBoxBootVolume_async_auto( int pid, int sequence )
-{
-    kern_return_t status;
-
-    status = KERN_FAILURE;
-
-    if ( sequence > -1 )
-    {
-        struct statfs * mountList;
-        int             mountListCount;
-        int             mountListIndex;
-        dev_t           node;
-
-        node = makedev( 14, sequence );
-
-        mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
-
-        for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
-        {
-            if ( mountList[mountListIndex].f_fsid.val[0] == node )
-            {
-                DADiskRef disk;
-
-                disk = DADiskCreateFromBSDName( kCFAllocatorDefault, __gDiskArbSession, mountList[mountListIndex].f_mntfromname );
-
-                if ( disk )
-                {
-                    status = _DADiskSetClassic( disk );
-
-                    CFRelease( disk );
-                }
- 
-                break;
-            }
-        }
-    }
-
-///w:start
-    if ( __gDiskArbClassic == FALSE )
-    {
-        semaphore_create( mach_task_self( ), &__gDiskArbAckLock, SYNC_POLICY_FIFO, 0 );
-
-        __gDiskArbClassic = TRUE;
-    }
-///w:stop
-    return status;
-}
-
 kern_return_t DiskArbSetVolumeEncoding_auto( char * disk, int encoding )
 {
     kern_return_t status;
@@ -2382,6 +2242,12 @@ kern_return_t DiskArbStart( mach_port_t * port )
 
     if ( status == KERN_SUCCESS )
     {
+///w:start
+if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) == 0 )
+{
+    _DASessionGetAuthorization( __gDiskArbSession );
+}
+///w:stop
         DiskArbUpdateClientFlags( );
 
         *port = _DASessionGetClientPort( __gDiskArbSession );
@@ -2399,12 +2265,6 @@ kern_return_t DiskArbUnmountPreNotifyAck_async_auto( char * disk, int status )
 {
     __gDiskArbAck = status;
 
-///w:start
-    if ( __gDiskArbClassic )
-    {
-        semaphore_signal( __gDiskArbAckLock );
-    }
-///w:stop
     return KERN_SUCCESS;
 }
 
@@ -2430,7 +2290,7 @@ kern_return_t DiskArbUnmountRequest_async_auto( char * disk, unsigned flags )
             {
                 CFURLRef path;
 
-                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
+                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
 
                 if ( path )
                 {
@@ -2498,7 +2358,7 @@ kern_return_t DiskArbUnmountRequest_async_auto( char * disk, unsigned flags )
                     DADiskUnmount( whole, options, __DiskArbDiskUnmountCallback, ( void * ) ( flags & kDiskArbUnmountAndEjectFlag ) );
 
 ///w:start
-if ( strcmp( basename( _dyld_get_image_name( 0 ) ), "SystemUIServer" ) == 0 )
+if ( strcmp( basename( ( char * ) _dyld_get_image_name( 0 ) ), "SystemUIServer" ) == 0 )
 {
     if ( ( flags & kDiskArbUnmountAndEjectFlag ) )
     {
@@ -2548,12 +2408,6 @@ void DiskArbUpdateClientFlags( void )
 
                     switch ( type )
                     {
-                        case kDA_BLUE_BOX_UPDATED:
-                        {
-                            _DARegisterDiskClassicCallback( __gDiskArbSession, NULL, __DiskArbDiskClassicCallback, NULL );
-
-                            break;
-                        }
                         case kDA_DISK_APPEARED:
                         case kDA_DISK_APPEARED1:
                         case kDA_DISK_APPEARED_COMPLETE:
@@ -2662,26 +2516,16 @@ int DiskArbVSDBGetVolumeStatus_auto( char * disk )
 
     fs = __DiskArbGetFileSystemStatus( disk );
 
-    return fs ? ( ( fs->f_flags & MNT_UNKNOWNPERMISSIONS ) ? 2 : 1 ) : 0;
+    return fs ? ( ( fs->f_flags & MNT_IGNORE_OWNERSHIP ) ? 2 : 1 ) : 0;
 }
 
-DAReturn _DADiskRefresh( DADiskRef disk )
-{
-    return _DAServerDiskRefresh( _DADiskGetSessionID( disk ), _DADiskGetID( disk ) );
-}
+#endif /* !__LP64__ */
 
 DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
 {
     DAReturn status;
 
-    if ( adoption )
-    {
-        status = _DAAuthorize( _DADiskGetSession( disk ), NULL, _kDAAuthorizeRightAdopt );
-    }
-    else
-    {
-        status = _DAAuthorize( _DADiskGetSession( disk ), disk, _kDAAuthorizeRightAdopt );
-    }
+    status = _DAAuthorize( _DADiskGetSession( disk ), NULL, _kDAAuthorizeRightAdopt );
 
     if ( status == kDAReturnSuccess )
     {
@@ -2689,11 +2533,6 @@ DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption )
     }
 
     return status;
-}
-
-DAReturn _DADiskSetClassic( DADiskRef disk )
-{
-    return _DAServerDiskSetClassic( _DADiskGetSessionID( disk ), _DADiskGetID( disk ) );
 }
 
 DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
@@ -2708,14 +2547,6 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
     }
 
     return status;
-}
-
-void _DARegisterDiskClassicCallback( DASessionRef           session,
-                                     CFDictionaryRef        match,
-                                     _DADiskClassicCallback callback,
-                                     void *                 context )
-{
-    _DARegisterCallback( session, callback, context, _kDADiskClassicCallback, 0, match, NULL );
 }
 
 DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path )

@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
@@ -31,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: date (AT&T Labs Research) 2004-02-29 $\n]"
+"[-?\n@(#)$Id: date (AT&T Research) 2007-05-21 $\n]"
 USAGE_LICENSE
 "[+NAME?date - set/list/convert dates]"
 "[+DESCRIPTION?\bdate\b sets the current date and time (with appropriate"
@@ -68,7 +64,7 @@ USAGE_LICENSE
 "[d:date?Use \adate\a as the current date and do not set the system"
 "	clock.]:[date]"
 "[e:epoch?Output the date in seconds since the epoch."
-"	Equivalent to \b--format=%#\b.]"
+"	Equivalent to \b--format=%s\b.]"
 "[E:elapsed?Interpret pairs of arguments as start and stop dates, sum the"
 "	differences between all pairs, and list the result as a"
 "	\bfmtelapsed\b(3) elapsed time on the standard output. If there are"
@@ -78,7 +74,7 @@ USAGE_LICENSE
 "	For backwards compatibility, a first argument of the form"
 "	\b+\b\aformat\a is equivalent to \b-f\b format."
 "	\aformat\a is in \bprintf\b(3) style, where %\afield\a names"
-"	fixed size field, zero padded if necessary,"
+"	a fixed size field, zero padded if necessary,"
 "	and \\\ac\a and \\\annn\a sequences are as in C. Invalid"
 "	%\afield\a specifications and all other characters are copied"
 "	without change. \afield\a may be preceded by \b%-\b to turn off"
@@ -86,7 +82,9 @@ USAGE_LICENSE
 "	are padded with \b0\b and string fields are padded with space."
 "	\afield\a may also be preceded by \bE\b for alternate era"
 "	representation or \bO\b for alternate digit representation (if"
-"	supported by the current locale.) The fields are:]:[format]{"
+"	supported by the current locale.) Finally, an integral \awidth\a"
+"	preceding \afield\a truncates the field to \awidth\a characters."
+"	The fields are:]:[format]{"
 "		[+%?% character]"
 "		[+a?abbreviated weekday name]"
 "		[+A?full weekday name]"
@@ -98,7 +96,7 @@ USAGE_LICENSE
 "		[+e?blank padded day of month number]"
 "		[+E?unpadded day of month number]"
 "		[+f?locale default override date format]"
-"		[+F?locale default date format]"
+"		[+F?%ISO 8601:2000 standard date format; equivalent to Y-%m-%d]"
 "		[+g?\bls\b(1) \b-l\b recent date with \ahh:mm\a]"
 "		[+G?\bls\b(1) \b-l\b distant date with \ayyyy\a]"
 "		[+h?abbreviated month name]"
@@ -110,18 +108,22 @@ USAGE_LICENSE
 "		[+k?\bdate\b(1) style date]"
 "		[+K?all numeric date; equivalent to \b%Y-%m-%d+%H:%M:%S\b]"
 "		[+l?\bls\b(1) \b-l\b date; equivalent to \b%Q/%g/%G/\b]"
+"		[+L?locale default date format]"
 "		[+m?month number]"
 "		[+M?minutes]"
 "		[+n?newline character]"
-"		[+N?time zone type name]"
+"		[+N?nanoseconds 000000000-999999999]"
 "		[+p?meridian (e.g., \bAM\b or \bPM\b)]"
+"		[+q?time zone type name (nation code)]"
 "		[+Q?\a<del>recent<del>distant<del>\a: \a<del>\a is a unique"
 "			delimter character; \arecent\a format for recent"
 "			dates, \adistant\a format otherwise]"
 "		[+r?12-hour time as \ahh:mm:ss meridian\a]"
 "		[+R?24-hour time as \ahh:mm\a]"
-"		[+s?number of seconds since the epoch]"
-"		[+S?seconds]"
+"		[+s?number of seconds since the epoch; \a.prec\a preceding"
+"			\bs\b appends \aprec\a nanosecond digits, \b9\b if"
+"			\aprec\a is omitted]"
+"		[+S?seconds 00-60]"
 "		[+t?tab character]"
 "		[+T?24-hour time as \ahh:mm:ss\a]"
 "		[+u?weekday number 1(Monday)-7]"
@@ -136,12 +138,14 @@ USAGE_LICENSE
 "		[+z?time zone \aSHHMM\a west of GMT offset where S is"
 "			\b+\b or \b-\b]"
 "		[+Z?time zone name]"
-"		[++|!flag?set (+) or clear (!) \aflag\a for the remainder"
-"			of \aformat\a. \aflag\a may be:]{"
+"		[+=[=]][-+]]flag?set (default or +) or clear (-) \aflag\a"
+"			for the remainder of \aformat\a, or for the remainder"
+"			of the process if \b==\b is specified. \aflag\a may be:]{"
 "			[+l?enable leap second adjustments]"
+"			[+n?convert \b%S\b as \b%S.%N\b]"
 "			[+u?UTC time zone]"
 "		}"
-"		[+#?number of seconds since the epoch]"
+"		[+#?equivalent to %s]"
 "		[+??alternate?use \aalternate\a format if a default format"
 "			override has not been specified, e.g., \bls\b(1) uses"
 "			\"%?%l\"; export TM_OPTIONS=\"format='\aoverride\a'\""
@@ -150,31 +154,42 @@ USAGE_LICENSE
 "[i:incremental|adjust?Set the system time in incrementatl adjustments to"
 "	avoid complete time shift shock. Negative adjustments still maintain"
 "	monotonic increasing time. Not available on all systems.]"
+"[L:last?List only the last time for multiple \adate\a operands.]"
 "[l:leap-seconds?Include leap seconds in time calculations. Leap seconds"
 "	after the ast library release date are not accounted for.]"
 "[m:modify-time|mtime?List file argument modify times.]"
 "[n!:network?Set network time.]"
 "[p:parse?Add \aformat\a to the list of \bstrptime\b(3) parse conversion"
 "	formats. \aformat\a follows the same conventions as the"
-"	\b--format\b option.]:[format]"
+"	\b--format\b option, with the addition of these format"
+"	fields:]:[format]{"
+"		[+|?If the format failed before this point then restart"
+"			the parse with the remaining format.]"
+"		[+&?Call the \btmdate\b(3) heuristic parser. This is"
+"			is the default when \b--parse\b is omitted.]"
+"}"
 "[s:show?Show the date without setting the system time.]"
 "[u:utc|gmt|zulu?Output dates in \acoordinated universal time\a (UTC).]"
+"[U:unelapsed?Interpret each argument as \bfmtelapsed\b(3) elapsed"
+"	time and list the \bstrelapsed\b(3) 1/\ascale\a seconds.]#[scale]"
+"[z:list-zones?List the known time zone table and exit. The table columns"
+"	are: country code, standard zone name, savings time zone name,"
+"	minutes west of \bUTC\b, and savings time minutes offset. Blank"
+"	or empty entries are listed as \b-\b.]"
 
 "\n"
 "\n[ +format | date ... | file ... ]\n"
 "\n"
 
 "[+SEE ALSO?\bcrontab\b(1), \bls\b(1), \btouch\b(1), \bfmtelapsed\b(3),"
-"	\bstrftime\b(3), \bstrptime\b(3)]"
+"	\bstrftime\b(3), \bstrptime\b(3), \btm\b(3)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <ls.h>
 #include <proc.h>
-#include <tm.h>
+#include <tmx.h>
 #include <times.h>
-
-#include "FEATURE/time"
 
 typedef struct Fmt
 {
@@ -192,46 +207,29 @@ typedef struct Fmt
  */
 
 static int
-settime(const char* cmd, time_t clock, int adjust, int network)
+settime(void* context, const char* cmd, Time_t now, int adjust, int network)
 {
 	char*		s;
 	char**		argv;
 	char*		args[5];
 	char		buf[128];
 
-#if _lib_stime || _lib_settimeofday
 	if (!adjust && !network)
-	{
-#if _lib_stime
-		return stime(&clock);
-#else
-#if _lib_settimeofday
-		struct timeval	tv;
-		memset(&tv, 0, sizeof(tv));
-		tv.tv_sec = clock;
-#if _lib_2_timeofday
-		return settimeofday(&tv, NiL);
-#else
-		return settimeofday(&tv);
-#endif
-#endif
-#endif
-	}
-#endif
+		return tmxsettime(now);
 	argv = args;
 	s = "/usr/bin/date";
-	if (!streq(cmd, s) && (!access(s, X_OK) || !access(s+=4, X_OK)))
+	if (!streq(cmd, s) && (!eaccess(s, X_OK) || !eaccess(s+=4, X_OK)))
 	{
 		*argv++ = s;
 		if (streq(astconf("UNIVERSE", NiL, NiL), "att"))
 		{
-			tmfmt(buf, sizeof(buf), "%m%d%H%M%Y.%S", &clock);
+			tmxfmt(buf, sizeof(buf), "%m%d%H" "%M%Y.%S", now);
 			if (adjust)
 				*argv++ = "-a";
 		}
 		else
 		{
-			tmfmt(buf, sizeof(buf), "%Y%m%d%H%M.%S", &clock);
+			tmxfmt(buf, sizeof(buf), "%Y%m%d%H" "%M.%S", now);
 			if (network)
 				*argv++ = "-n";
 			if (tm_info.flags & TM_UTC)
@@ -239,25 +237,25 @@ settime(const char* cmd, time_t clock, int adjust, int network)
 		}
 		*argv++ = buf;
 		*argv = 0;
-		if (!procrun(s, args))
+		if (!sh_run(context, argv - args, args))
 			return 0;
 	}
 	return -1;
 }
 
 /*
- * convert s to time_t with error checking
+ * convert s to Time_t with error checking
  */
 
-static time_t
-convert(register Fmt_t* f, char* s, time_t now)
+static Time_t
+convert(register Fmt_t* f, char* s, Time_t now)
 {
 	char*	t;
 	char*	u;
 
 	do
 	{
-		now = tmscan(s, &t, f->format, &u, now ? &now : (time_t*)0, 0L);
+		now = tmxscan(s, &t, f->format, &u, now, 0);
 		if (!*t && (!f->format || !*u))
 			break;
 	} while (f = f->next);
@@ -273,29 +271,31 @@ b_date(int argc, register char** argv, void* context)
 	register char*	s;
 	register Fmt_t*	f;
 	char*		t;
-	time_t		now;
-	unsigned long	ts;
-	unsigned long	te;
-	unsigned long	e;
+	unsigned long	u;
+	Time_t		now;
+	Time_t		ts;
+	Time_t		te;
+	Time_t		e;
 	char		buf[128];
 	Fmt_t*		fmts;
 	Fmt_t		fmt;
 	struct stat	st;
 
-	time_t*		clock = 0;	/* use this time		*/
-	time_t*		filetime = 0;	/* use this st_ time field	*/
 	char*		cmd = argv[0];	/* original command path	*/
-	char*		format = 0;	/* tmfmt() format		*/
+	char*		format = 0;	/* tmxfmt() format		*/
 	char*		string = 0;	/* date string			*/
 	int		elapsed = 0;	/* args are start/stop pairs	*/
+	int		filetime = 0;	/* use this st_ time field	*/
 	int		increment = 0;	/* incrementally adjust time	*/
+	int		last = 0;	/* display the last time arg	*/
+	Tm_zone_t*	listzones = 0;	/* known time zone table	*/
 	int		network = 0;	/* don't set network time	*/
 	int		show = 0;	/* show date and don't set	*/
+	int		unelapsed = 0;	/* fmtelapsed() => strelapsed	*/
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	setlocale(LC_ALL, "");
-	tm_info.flags |= TM_DATESTYLE;
+	tm_info.flags = TM_DATESTYLE;
 	fmts = &fmt;
 	fmt.format = "";
 	fmt.next = 0;
@@ -304,10 +304,9 @@ b_date(int argc, register char** argv, void* context)
 		switch (optget(argv, usage))
 		{
 		case 'a':
-			filetime = &st.st_atime;
-			continue;
 		case 'c':
-			filetime = &st.st_ctime;
+		case 'm':
+			filetime = opt_info.option[1];
 			continue;
 		case 'd':
 			string = opt_info.arg;
@@ -328,8 +327,8 @@ b_date(int argc, register char** argv, void* context)
 		case 'l':
 			tm_info.flags |= TM_LEAP;
 			continue;
-		case 'm':
-			filetime = &st.st_mtime;
+		case 'L':
+			last = 1;
 			continue;
 		case 'n':
 			network = 1;
@@ -347,6 +346,12 @@ b_date(int argc, register char** argv, void* context)
 		case 'u':
 			tm_info.flags |= TM_UTC;
 			continue;
+		case 'U':
+			unelapsed = (int)opt_info.num;
+			continue;
+		case 'z':
+			listzones = tm_data.zone;
+			continue;
 		case '?':
 			error(ERROR_USAGE|4, "%s", opt_info.arg);
 			continue;
@@ -359,7 +364,20 @@ b_date(int argc, register char** argv, void* context)
 	argv += opt_info.index;
 	if (error_info.errors)
 		error(ERROR_USAGE|4, "%s", optusage(NiL));
-	if (elapsed)
+	now = tmxgettime();
+	if (listzones)
+	{
+		s = "-";
+		while (listzones->standard)
+		{
+			if (listzones->type)
+				s = listzones->type;
+			sfprintf(sfstdout, "%3s %4s %4s %4d %4d\n", s, *listzones->standard ? listzones->standard : "-", listzones->daylight ? listzones->daylight : "-", listzones->west, listzones->dst);
+			listzones++;
+			show = 1;
+		}
+	}
+	else if (elapsed)
 	{
 		e = 0;
 		while (s = *argv++)
@@ -369,14 +387,26 @@ b_date(int argc, register char** argv, void* context)
 				argv--;
 				t = "now";
 			}
-			ts = convert(fmts, s, 0);
-			te = convert(fmts, t, 0);
+			ts = convert(fmts, s, now);
+			te = convert(fmts, t, now);
 			if (te > ts)
 				e += te - ts;
 			else
 				e += ts - te;
 		}
-		sfputr(sfstdout, fmtelapsed(e, 1), '\n');
+		sfputr(sfstdout, fmtelapsed((unsigned long)tmxsec(e), 1), '\n');
+		show = 1;
+	}
+	else if (unelapsed)
+	{
+		while (s = *argv++)
+		{
+			u = strelapsed(s, &t, unelapsed);
+			if (*t)
+				error(3, "%s: invalid elapsed time", s);
+			sfprintf(sfstdout, "%lu\n", u);
+		}
+		show = 1;
 	}
 	else if (filetime)
 	{
@@ -389,11 +419,24 @@ b_date(int argc, register char** argv, void* context)
 				error(2, "%s: not found", s);
 			else
 			{
-				tmfmt(buf, sizeof(buf), format, filetime);
+				switch (filetime)
+				{
+				case 'a':
+					now = tmxgetatime(&st);
+					break;
+				case 'c':
+					now = tmxgetctime(&st);
+					break;
+				default:
+					now = tmxgetmtime(&st);
+					break;
+				}
+				tmxfmt(buf, sizeof(buf), format, now);
 				if (n)
 					sfprintf(sfstdout, "%s: %s\n", s, buf);
 				else
 					sfprintf(sfstdout, "%s\n", buf);
+				show = 1;
 			}
 		}
 	}
@@ -409,15 +452,17 @@ b_date(int argc, register char** argv, void* context)
 		{
 			if (*argv && string)
 				error(ERROR_USAGE|4, "%s", optusage(NiL));
-			now = convert(fmts, s, 0);
-			clock = &now;
+			now = convert(fmts, s, now);
 			if (*argv && (s = *++argv))
 			{
 				show = 1;
 				do
 				{
-					tmfmt(buf, sizeof(buf), format, clock);
-					sfprintf(sfstdout, "%s\n", buf);
+					if (!last)
+					{
+						tmxfmt(buf, sizeof(buf), format, now);
+						sfprintf(sfstdout, "%s\n", buf);
+					}
 					now = convert(fmts, s, now);
 				} while (s = *++argv);
 			}
@@ -426,10 +471,10 @@ b_date(int argc, register char** argv, void* context)
 			show = 1;
 		if (format || show)
 		{
-			tmfmt(buf, sizeof(buf), format, clock);
+			tmxfmt(buf, sizeof(buf), format, now);
 			sfprintf(sfstdout, "%s\n", buf);
 		}
-		else if (settime(cmd, *clock, increment, network))
+		else if (settime(context, cmd, now, increment, network))
 			error(ERROR_SYSTEM|3, "cannot set system time");
 	}
 	while (fmts != &fmt)
@@ -438,5 +483,8 @@ b_date(int argc, register char** argv, void* context)
 		fmts = fmts->next;
 		free(f);
 	}
+	tm_info.flags = 0;
+	if (show && sfsync(sfstdout))
+		error(ERROR_system(0), "write error");
 	return error_info.errors != 0;
 }

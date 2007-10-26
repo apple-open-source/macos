@@ -1,3 +1,27 @@
+2007-01-23  Jason Molenda  (jmolenda@apple.com)
+
+	* configure: Regenerated with autoconf-2.61.
+
+2006-02-02  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in: Set host_configargs for darwin hosts.  When
+	setting host_configargs, preserve any previous settings in that
+	var.  Comment out the AS_FOR_TARGET settings as they are upsetting
+	autoconf for reasons beyond my ken.
+	* configure: Regenerated.
+
+2005-12-16  Jason Molenda  (jmolenda@apple.com)
+
+	* configure.in: Remove duplicated apple local config.
+	* configure: Updated by hand - autoconf is barfing on configure.in
+	and I don't have time to look at what it is whining about right now.
+
+2005-06-15  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Restore the stamp-framework-* section.
+	* configure.in: Restore processing for '-arch <x>'.  Cleanup serdep.tmp.
+	* configure: Re-generate.
+
 2004-09-09  Jason Molenda  (jmolenda@apple.com)
 
 	* configure.in (target==*darwin*): Don't configure/build tcl/expect;

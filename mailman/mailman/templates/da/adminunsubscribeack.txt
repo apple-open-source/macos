@@ -1,2 +1,2 @@
-%(member)s er nu taget ud af listen %(listname)s.
+%(member)s er nu fjernet fra listen %(listname)s.
 

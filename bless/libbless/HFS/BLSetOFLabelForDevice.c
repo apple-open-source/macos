@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,11 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen on Wed Apr 16 2003.
- *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLSetOFLabelForDevice.c,v 1.17 2005/08/22 20:49:23 ssen Exp $
- *
- *
+ *  $Id: BLSetOFLabelForDevice.c,v 1.18 2006/02/20 22:49:55 ssen Exp $
  *
  */
 

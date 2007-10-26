@@ -3,7 +3,7 @@
 # Copyright (c) 1996-2002
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: recd020.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: recd020.tcl,v 1.1 2003/02/15 04:56:15 zarzycki Exp $
 #
 # TEST	recd020
 # TEST	Test recovery after checksum error.

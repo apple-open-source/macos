@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>03/14/2007</string>
+	<key>OpenSourceLicense</key>
+	<string>Other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>CyrusIMAP.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>modifications to allow for integration with Open Directory</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>Cyrus IMAP Server</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.andrew.cmu.edu/pub/cyrus/cyrus-imapd-2.3.8.tar.gz</string>
+	<key>OpenSourceVersion</key>
+	<string>cyrus_imap_2.3.8</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://asg.web.cmu.edu/cyrus</string>
+</dict>
+</plist>

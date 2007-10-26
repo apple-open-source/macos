@@ -1,0 +1,38 @@
+2006-05-15  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 1.0.2
+
+2006-02-06  Donnie Berkholz  <spyderous@gentoo.org>
+
+	* Makefile.am:
+	RM needed some more quoting.
+
+2006-02-06  Donnie Berkholz  <spyderous@gentoo.org>
+
+	* Makefile.am:
+	RM should be 'rm -f' for monolithic compatibility.
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-08  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	* configure.ac:
+	Add man page processing.
+
+2005-12-08  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	* Makefile.am:
+	* cpprules.in:
+	* ChangeLog:
+	Bug #4807: Modularized gccmakedep (Joshua Baergen)

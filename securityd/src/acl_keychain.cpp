@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,28 +37,9 @@
 // On-disk (flattened) representation:
 // In order to accommodate legacy formats nicely, we use the binary-versioning feature
 // of the ACL machinery. Version 0 is the legacy format (storing only the description
-// string), while Version 1 contains both selector and description. To allow for
-// maximum backward compatibility, legacy-compatible forms are written out as version 0.
-// See isLegacyCompatible().
-//
-// Some notes on Acl Update Triggers:
-// When the user checks the "don't ask me again" checkbox in the access confirmation
-// dialog, we respond by returning the informational error code
-// CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT, and setting a count-down trigger
-// in the connection. The caller is entitled to bypass our dialog (it succeeds
-// automatically) within the next few (Connection::aclUpdateTriggerLimit == 3)
-// requests, in order to update the object's ACL as requested. It must then retry
-// the original access operation (which will presumably pass because of that edit).
-// These are the rules: for the trigger to apply, the access must be to the same
-// object, from the same connection, and within the next aclUpdateTriggerLimit accesses.
-// (Currently, these are for a "get acl", "get owner", and the "change acl" calls.)
-// Damage Control Department: The worst this mechanism could do, if subverted, is
-// to bypass our confirmation dialog (making it appear to succeed to the ACL validation).
-// But that is exactly what the "don't ask me again" checkbox is meant to do, so any
-// subversion would be based on a (perhaps intentional) miscommunication between user 
-// and client process as to what the user consents not to be asked about (any more).
-// The user can always examine the resulting ACL (in Keychain Access or elsewhere), and
-// edit it to suit her needs.
+// string), while Version 1 contains both selector and description. We are now always
+// writing version-1 data, but will continue to recognize version-0 data indefinitely
+// for really, really old keychain items.
 //
 #include "acl_keychain.h"
 #include "agentquery.h"
@@ -66,12 +47,14 @@
 #include "connection.h"
 #include "database.h"
 #include "server.h"
+#include "osxcodewrap.h"
 #include <security_utilities/debugging.h>
+#include <security_utilities/logging.h>
+#include <security_cdsa_utilities/osxverifier.h>
 #include <algorithm>
 
 
 #define ACCEPT_LEGACY_FORM 1
-#define FECKLESS_KEYCHAIN_ACCESS_EXCEPTION 1
 
 
 //
@@ -90,42 +73,76 @@ bool KeychainPromptAclSubject::validate(const AclValidationContext &context,
     const TypedList &sample) const
 {
     if (SecurityServerEnvironment *env = context.environment<SecurityServerEnvironment>()) {
-		// check for special ACL-update override
-		if (context.authorization() == CSSM_ACL_AUTHORIZATION_CHANGE_ACL
-				&& Server::connection().aclWasSetForUpdateTrigger(env->acl)) {
-			secdebug("kcacl", "honoring acl update trigger for %p(%s)", 
-                &env->acl, description.c_str());
-			return true;
+		Process &process = Server::process();
+		secdebug("kcacl", "Keychain query for process %d (UID %d)", process.pid(), process.uid());
+
+		// assemble the effective validity mode mask
+		uint32_t mode = Maker::defaultMode;
+		const uint16_t &flags = selector.flags;
+		if (flags & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED_ACT)
+			mode = (mode & ~CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED) | (flags & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED);
+		if (flags & CSSM_ACL_KEYCHAIN_PROMPT_INVALID_ACT)
+			mode = (mode & ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID) | (flags & CSSM_ACL_KEYCHAIN_PROMPT_INVALID);
+		
+		// determine signed/validity status of client, without reference to any particular Code Requirement
+		SecCodeRef clientCode = process.currentGuest();
+		Server::active().longTermActivity();
+		OSStatus validation = clientCode ? SecCodeCheckValidity(clientCode, kSecCSDefaultFlags, NULL) : errSecCSStaticCodeNotFound;
+		switch (validation) {
+		case noErr:							// client is signed and valid
+			secdebug("kcacl", "client is valid, proceeding");
+			break;
+		case errSecCSUnsigned:				// client is not signed
+			if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED)) {
+				secdebug("kcacl", "client is unsigned, suppressing prompt");
+				return false;
+			}
+			break;
+		case errSecCSSignatureFailed:		// client signed but signature is broken
+		case errSecCSGuestInvalid:			// client signed but dynamically invalid
+		case errSecCSStaticCodeNotFound:	// client not on disk (or unreadable)
+			if (!(mode & CSSM_ACL_KEYCHAIN_PROMPT_INVALID)) {
+				secdebug("kcacl", "client is invalid, suppressing prompt");
+				Syslog::info("suppressing keychain prompt for invalidly signed client %s(%d)",
+					process.getPath().c_str(), process.pid());
+				return false;
+			}
+			Syslog::info("attempting keychain prompt for invalidly signed client %s(%d)",
+				process.getPath().c_str(), process.pid());
+			break;
+		default:							// something else went wrong
+			secdebug("kcacl", "client validation failed rc=%ld, suppressing prompt", validation);
+			return false;
 		}
+		
+		// At this point, we're committed to try to Pop The Question. Now, how?
 		
 		// does the user need to type in the passphrase?
         const Database *db = env->database;
         bool needPassphrase = db && (selector.flags & CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE);
 
-		// ask the user
-#if FECKLESS_KEYCHAIN_ACCESS_EXCEPTION
-		Process &process = Server::process();
-		secdebug("kcacl", "Keychain query from process %d (UID %d)", process.pid(), process.uid());
-		if (process.clientCode())
-			needPassphrase |=
-				process.clientCode()->canonicalPath() == "/Applications/Utilities/Keychain Access.app";
-#endif
+		// an application (i.e. Keychain Access.app :-) can force this option
+		if (clientCode) {
+			CFRef<CFDictionaryRef> dict;
+			if (!SecCodeCopySigningInformation(clientCode, kSecCSDefaultFlags, &dict.aref()))
+				if (CFDictionaryRef info = CFDictionaryRef(CFDictionaryGetValue(dict, kSecCodeInfoPList)))
+					needPassphrase |=
+						(CFDictionaryGetValue(info, CFSTR("SecForcePassphrasePrompt")) != NULL);
+		}
+
+		// pop The Question
 		QueryKeychainUse query(needPassphrase, db);
         query.inferHints(Server::process());
-		
+		query.addHint(AGENT_HINT_CLIENT_VALIDITY, &validation, sizeof(validation));
         if (query.queryUser(db ? db->dbName() : NULL, 
-                            description.c_str(), context.authorization())
-            != SecurityAgent::noReason)
-                return false;
+			description.c_str(), context.authorization()) != SecurityAgent::noReason)
+			return false;
 
-		// process "always allow..." response
-		if (query.remember) {
-			// mark for special ACL-update override (really soon) later
-			Server::connection().setAclUpdateTrigger(env->acl);
-			secdebug("kcacl", "setting acl update trigger for %p(%s)", 
-				&env->acl, description.c_str());
-			// fail with prejudice (caller will retry)
-			CssmError::throwMe(CSSMERR_CSP_APPLE_ADD_APPLICATION_ACL_SUBJECT);
+		// process an "always allow..." response
+		if (query.remember && clientCode) {
+			RefPointer<OSXCode> clientXCode = new OSXCodeWrap(clientCode);
+			RefPointer<AclSubject> subject = new CodeSignatureAclSubject(OSXVerifier(clientXCode));
+			SecurityServerAcl::addToStandardACL(context, subject);
 		}
 
 		// finally, return the actual user response
@@ -150,6 +167,8 @@ CssmList KeychainPromptAclSubject::toList(Allocator &alloc) const
 //
 // Create a KeychainPromptAclSubject
 //
+uint32_t KeychainPromptAclSubject::Maker::defaultMode;
+
 KeychainPromptAclSubject *KeychainPromptAclSubject::Maker::make(const TypedList &list) const
 {
 	switch (list.length()) {
@@ -189,6 +208,8 @@ KeychainPromptAclSubject *KeychainPromptAclSubject::Maker::make(Version version,
 		selector.flags = n2h(selector.flags);
 		pub(description);
 		break;
+	default:
+		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 	}
 	return new KeychainPromptAclSubject(description, selector);
 }
@@ -202,11 +223,8 @@ KeychainPromptAclSubject::KeychainPromptAclSubject(string descr,
 	if (selector.version != CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION)
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 
-	// determine binary compatibility version
-	if (selector.flags == 0)	// compatible with old form
-		version(pumaVersion);
-	else
-		version(jaguarVersion);
+	// always use the latest binary version
+	version(currentVersion);
 }
 
 
@@ -232,16 +250,6 @@ void KeychainPromptAclSubject::exportBlob(Writer &pub, Writer &priv)
 		pub(selector);
 	}
     pub(description.c_str());
-}
-
-
-//
-// Determine whether this ACL subject is in "legacy compatible" form.
-// Legacy (<10.2) form contained no selector.
-//
-bool KeychainPromptAclSubject::isLegacyCompatible() const
-{
-	return selector.flags == 0;
 }
 
 

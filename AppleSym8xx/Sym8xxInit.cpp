@@ -319,14 +319,17 @@ bool Sym8xxSCSIController::Sym8xxInitPCI()
     /*
      * Attach interrupt
      */
+    // fix specification of interrupt routine to use OSMemberFunctionCast()
+    // [rdar://problem/4092008]
     interruptEvent = IOInterruptEventSource::interruptEventSource(
             (OSObject *)             this,
-            (IOInterruptEventAction) &Sym8xxSCSIController::interruptOccurred,
+	    OSMemberFunctionCast(IOInterruptEventAction, this, &Sym8xxSCSIController::interruptOccurred),
             (IOService *)            provider,
             (int)                    0 );
 
     if ( interruptEvent == NULL )
     {
+	kprintf( "Sym8xxSCSIController::Sym8xxInitPCI - unable to register for interrupt - exiting\n" );
         return false;
     }
 

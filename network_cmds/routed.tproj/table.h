@@ -127,5 +127,13 @@ struct rt_entry {
 
 EXTERN struct	rthash nethash[ROUTEHASHSIZ];
 EXTERN struct	rthash hosthash[ROUTEHASHSIZ];
-struct	rt_entry *rtlookup();
-struct	rt_entry *rtfind();
+
+struct rt_entry *rtlookup(struct sockaddr *);
+struct rt_entry *rtfind(struct sockaddr *);
+void rtadd(struct sockaddr *, struct sockaddr *, int, int);
+void rtchange(struct rt_entry *, struct sockaddr *, short);
+void rtdelete(struct rt_entry *);
+void rtdeleteall(int);
+void rtdefault(void);
+void rtinit(void);
+int rtioctl(int, struct rtuentry *);

@@ -33,11 +33,14 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlockattr_setpshared "pthread_rwlockattr_t *attr" "int pshared"
+.Fo pthread_rwlockattr_setpshared
+.Fa "pthread_rwlockattr_t *attr"
+.Fa "int pshared"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlockattr_setpshared
-function sets the process shared attribute of
+function sets the process-shared attribute of
 .Fa attr
 to the value referenced by
 .Fa pshared .
@@ -55,12 +58,12 @@ the default value.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlockattr_setpshared
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
+.Xr pthread_rwlock_init 3 ,
 .Xr pthread_rwlockattr_init 3 ,
-.Xr pthread_rwlockattr_setpshared 3 ,
-.Xr pthread_rwlock_init 3
+.Xr pthread_rwlockattr_setpshared 3
 .Sh STANDARDS
 The
 .Fn pthread_rwlockattr_setpshared

@@ -37,6 +37,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
 #include <sys/proc.h>
 #include <sys/malloc.h>
@@ -48,21 +49,25 @@
 #include <sys/mount.h>
 #include <sys/ioccom.h>
 #include <libkern/libkern.h>
+#include <libkern/OSAtomic.h>
 #include <kern/debug.h>
 
 #include "webdav.h"
+#include "webdav_utils.h"
+
+extern lck_grp_t *webdav_rwlock_group;
+extern lck_mtx_t *webdav_node_hash_mutex;
 
 /*****************************************************************************/
 
-#ifdef DEBUG
+#if 0
 
 static int webdav_print(vnode_t vp)
 {
 	struct webdavnode *pt = VTOWEBDAV(vp);
 	
 	/* print a few things from the webdavnode */ 
-	printf("tag VT_WEBDAV, webdav, id=%ld, obj_ref=%ld, cache_vnode=%ld\n",
-		pt->pt_fileid, pt->pt_obj_ref, pt->pt_cache_vnode);
+	printf("tag VT_WEBDAV, webdav, id=%ld, obj_ref=%ld, cache_vnode=%ld\n", pt->pt_fileid, pt->pt_obj_ref, pt->pt_cache_vnode);
 	return (0);
 	(void)webdav_print(vp); /* stop complaining if we don't call this function */
 }
@@ -118,15 +123,19 @@ void webdav_copy_creds(vfs_context_t context, struct webdav_cred *dest)
  */
 static
 void webdav_dead(struct webdavmount *fmp)
-{
+{	
 	if ( fmp != NULL )
 	{
+		lck_mtx_lock(&fmp->pm_mutex);
 		if ( !(fmp->pm_status & WEBDAV_MOUNT_DEAD) )
 		{
+			fmp->pm_status |= WEBDAV_MOUNT_DEAD;
+			lck_mtx_unlock(&fmp->pm_mutex);
 			printf("webdav server: %s: connection is dead\n", vfs_statfs(fmp->pm_mountp)->f_mntfromname);
 			vfs_event_signal(&vfs_statfs(fmp->pm_mountp)->f_fsid, VQ_DEAD, 0);
-			fmp->pm_status |= WEBDAV_MOUNT_DEAD;
 		}
+		else
+			lck_mtx_unlock(&fmp->pm_mutex);
 	}
 }
 
@@ -142,12 +151,16 @@ void webdav_down(struct webdavmount *fmp)
 {
 	if ( fmp != NULL )
 	{
+		lck_mtx_lock(&fmp->pm_mutex);
 		if ( !(fmp->pm_status & (WEBDAV_MOUNT_TIMEO | WEBDAV_MOUNT_DEAD)) )
 		{
+			fmp->pm_status |= WEBDAV_MOUNT_TIMEO;
+			lck_mtx_unlock(&fmp->pm_mutex);
 			printf("webdav server: %s: not responding\n", vfs_statfs(fmp->pm_mountp)->f_mntfromname);
 			vfs_event_signal(&vfs_statfs(fmp->pm_mountp)->f_fsid, VQ_NOTRESP, 0);
-			fmp->pm_status |= WEBDAV_MOUNT_TIMEO;
 		}
+		else
+			lck_mtx_unlock(&fmp->pm_mutex);
 	}
 }
 
@@ -163,12 +176,16 @@ void webdav_up(struct webdavmount *fmp)
 {
 	if ( fmp != NULL )
 	{
+		lck_mtx_lock(&fmp->pm_mutex);
         if ( (fmp->pm_status & WEBDAV_MOUNT_TIMEO) )
 		{
-			printf("webdav server: %s: is alive again\n", vfs_statfs(fmp->pm_mountp)->f_mntfromname);
 			fmp->pm_status &= ~WEBDAV_MOUNT_TIMEO;
+			lck_mtx_unlock(&fmp->pm_mutex);
+			printf("webdav server: %s: is alive again\n", vfs_statfs(fmp->pm_mountp)->f_mntfromname);
 			vfs_event_signal(&vfs_statfs(fmp->pm_mountp)->f_fsid, VQ_NOTRESP, 1);
         }
+		else
+			lck_mtx_unlock(&fmp->pm_mutex);
 	}
 }
 
@@ -225,16 +242,22 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 		}
 		
 		/* don't open more connections than the user-land server can handle */
-		while (fmp->pm_open_connections >= WEBDAV_MAX_KEXT_CONNECTIONS)
+		lck_mtx_lock(&fmp->pm_mutex);
+again:
+		if (fmp->pm_open_connections >= WEBDAV_MAX_KEXT_CONNECTIONS)
 		{
 			fmp->pm_status |= WEBDAV_MOUNT_CONNECTION_WANTED;
-			error = msleep((caddr_t)&fmp->pm_open_connections, NULL, PCATCH, "webdav_sendmsg - pm_open_connections", NULL);
+			error = msleep((caddr_t)&fmp->pm_open_connections, &fmp->pm_mutex, PCATCH, "webdav_sendmsg - pm_open_connections", NULL);
 			if ( error )
 			{
+				lck_mtx_unlock(&fmp->pm_mutex);
 				break;
 			}
+			goto again;
 		}
+
 		++fmp->pm_open_connections;
+		lck_mtx_unlock(&fmp->pm_mutex);
 		
 		/* create a new socket */
 		error = sock_socket(PF_LOCAL, SOCK_STREAM, 0, NULL, NULL, &so);
@@ -242,7 +265,10 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 		{
 			printf("webdav_sendmsg: sock_socket() = %d\n", error);
 			so_open = FALSE;
+			
+			lck_mtx_lock(&fmp->pm_mutex);
 			--fmp->pm_open_connections;
+			lck_mtx_unlock(&fmp->pm_mutex);
 			break;
 		}
 		else
@@ -414,6 +440,8 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 		(void) sock_shutdown(so, SHUT_RDWR); /* ignore failures - nothing can be done */
 		sock_close(so);
 		so_open = FALSE;
+		
+		lck_mtx_lock(&fmp->pm_mutex);
 		--fmp->pm_open_connections;
 		
 		/* if anyone else is waiting for a connection, wake them up */
@@ -423,6 +451,8 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 			wakeup((caddr_t)&fmp->pm_open_connections);
 		}
 		
+		lck_mtx_unlock(&fmp->pm_mutex);
+		
 		/* ... and retry */
 	}
 	
@@ -431,15 +461,20 @@ int webdav_sendmsg(int vnop, struct webdavmount *fmp,
 		(void) sock_shutdown(so, SHUT_RDWR); /* ignore failures - nothing can be done */
 		sock_close(so);
 		so_open = FALSE;
+		
+		lck_mtx_lock(&fmp->pm_mutex);
 		--fmp->pm_open_connections;
+		lck_mtx_unlock(&fmp->pm_mutex);
 	}
 	
 	/* if anyone else is waiting for a connection, wake them up */
+	lck_mtx_lock(&fmp->pm_mutex);
 	if ( fmp->pm_status & WEBDAV_MOUNT_CONNECTION_WANTED )
 	{
 		fmp->pm_status &= ~WEBDAV_MOUNT_CONNECTION_WANTED;
 		wakeup((caddr_t)&fmp->pm_open_connections);
 	}
+	lck_mtx_unlock(&fmp->pm_mutex);
 	
 	/* translate all unexpected errors to EIO. Leave ENXIO (unmounting) alone. */
 	if ( (error != 0) && (error != ENXIO) )
@@ -529,104 +564,120 @@ int webdav_get(
 	vnode_t *vpp)				/* vnode returned here */
 {
 	int error;
+	uint32_t inserted;
 	struct vnode_fsparam vfsp;
 	vnode_t vp;
-	struct webdavnode *new_pt;
+	struct webdavnode *new_pt, *found_pt;
 
-	/*
-	 * Allocate a webdavnode before looking in the hash.  This is
-	 * because the allocation could block, during which time
-	 * a vnode could be added to or removed from the hash.
+	/* 
+	 * Create a partially initialized webdavnode 'new_pt' and pass it 
+	 * to webdav_hashget().  If webdav_hashget() doesn't find
+	 * the node in the hash table, it will stick 'new_pt' into
+	 * the hash table and return.  Any other webdav_hashget() searching
+	 * for the same node will wait until we are done here, since we settting
+	 * the WEBDAV_INIT flag.
+	 *
+	 * If webdav_hashget() finds the node, then we simply free 'new_pt'.
 	 */
 	MALLOC(new_pt, void *, sizeof(struct webdavnode), M_TEMP, M_WAITOK);
-
-	/*
-	 * See if the vnode is already in our hash.  If so,
-	 * just return it (and free up the webdavnode we just allocated).
-	 */
-	vp = webdav_hashget(mp, obj_fileid);
-	if (vp != NULLVP)
+	if (new_pt == NULL)
 	{
-		*vpp = vp;
-		if ( cnp->cn_flags & MAKEENTRY )
-		{
-			cache_enter(dvp, vp, cnp);
-		}
+#if DEBUG
+		panic("webdav_get: MALLOC failed for new webdavnode");
+#endif
+		return ENOMEM;
+	}
+	
+	bzero(new_pt, sizeof(struct webdavnode));
+	new_pt->pt_mountp = mp;
+	new_pt->pt_fileid = obj_fileid;
+	SET(new_pt->pt_status, WEBDAV_INIT);
+	lck_rw_init(&new_pt->pt_rwlock, webdav_rwlock_group, LCK_ATTR_NULL);
+		
+	/* search the hashtable for the webdavnode */
+	found_pt = webdav_hashget(mp, obj_fileid, new_pt, &inserted);
+		
+	if (!inserted)
+	{
+		/* Found the node in our hash.
+		* Free the webdavnode we just allocated
+		* and just return the vnode.
+		*/
+		lck_rw_destroy(&new_pt->pt_rwlock, webdav_rwlock_group);
 		FREE((caddr_t)new_pt, M_TEMP);
-		error = 0;
+			 
+		vp = WEBDAVTOV(found_pt);
+
+		if ( cnp->cn_flags & MAKEENTRY )
+			cache_enter(dvp, vp, cnp);
+		*vpp = vp;
+		return (0);
+	}
+
+	/* Didn't find the node, and 'new_pt' was inserted into
+	 * the hash table. Now finish initializing the new webdavnode 'new_pt'.
+	 */
+	new_pt->pt_parent = dvp;
+	new_pt->pt_vnode = NULLVP;
+	new_pt->pt_cache_vnode = NULLVP;
+	new_pt->pt_obj_id = obj_id;
+	new_pt->pt_atime = obj_atime;
+	new_pt->pt_mtime = obj_mtime;
+	new_pt->pt_ctime = obj_ctime;
+	new_pt->pt_filesize = obj_filesize;
+	new_pt->pt_opencount = 0;
+		
+	/* Create the vnode */
+	vfsp.vnfs_mp = mp;
+	vfsp.vnfs_vtype = obj_vtype;
+	vfsp.vnfs_str = webdav_name;
+	vfsp.vnfs_dvp = dvp;
+	vfsp.vnfs_fsnode = new_pt;
+	vfsp.vnfs_vops = webdav_vnodeop_p;
+	vfsp.vnfs_markroot = markroot;
+	vfsp.vnfs_marksystem = 0;	/* webdavfs has no "system" vnodes */
+	vfsp.vnfs_rdev = 0;		/* webdavfs doesn't support block devices */
+	vfsp.vnfs_filesize = obj_filesize;
+	vfsp.vnfs_cnp = cnp;
+	vfsp.vnfs_flags = (dvp && cnp && (cnp->cn_flags & MAKEENTRY)) ? 0 : VNFS_NOCACHE;
+		
+	error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &new_pt->pt_vnode);
+	
+	if ( error == 0 )
+	{
+		/* Make the webdavnode reference the new vnode */
+		vp = new_pt->pt_vnode;
+		vnode_addfsref(vp);
+		vnode_settag(vp, VT_WEBDAV);
+			
+		/* Return it.  We're done. */
+		*vpp = vp;
+						
+		/* wake up anyone waiting */
+		lck_mtx_lock(webdav_node_hash_mutex);
+		CLR(new_pt->pt_status, WEBDAV_INIT);
+		if (ISSET(new_pt->pt_status, WEBDAV_WAITINIT))
+		{
+			CLR(new_pt->pt_status, WEBDAV_WAITINIT);
+			wakeup(new_pt);
+		}
+		lck_mtx_unlock(webdav_node_hash_mutex);
 	}
 	else
 	{
-		/*
-		 * There was nothing in the hash.  Before we block on I/O,
-		 * we need to insert a matching webdavnode marked as being
-		 * initialized.  Any other webdav_get() will block until we're
-		 * finished here, and either find the fully initialized
-		 * denode, or none at all.
-		 */
-		bzero(new_pt, sizeof(struct webdavnode));
-		new_pt->pt_mountp = mp;
-		new_pt->pt_parent = dvp;
-		new_pt->pt_vnode = NULLVP;
-		new_pt->pt_cache_vnode = NULLVP;
-		new_pt->pt_obj_id = obj_id;
-		new_pt->pt_fileid = obj_fileid;
-		new_pt->pt_atime = obj_atime;
-		new_pt->pt_mtime = obj_mtime;
-		new_pt->pt_ctime = obj_ctime;
-		new_pt->pt_filesize = obj_filesize;
-		SET(new_pt->pt_status, WEBDAV_INIT);
-		new_pt->pt_opencount = 0;
-		webdav_hashins(new_pt);
+		/* remove the partially inited webdavnode from the hash */
+		webdav_unlock(new_pt);
+		webdav_hashrem(new_pt);
 		
-		/* Create the vnode */
-		vfsp.vnfs_mp = mp;
-		vfsp.vnfs_vtype = obj_vtype;
-		vfsp.vnfs_str = webdav_name;
-		vfsp.vnfs_dvp = dvp;
-		vfsp.vnfs_fsnode = new_pt;
-		vfsp.vnfs_vops = webdav_vnodeop_p;
-		vfsp.vnfs_markroot = markroot;
-		vfsp.vnfs_marksystem = 0;	/* webdavfs has no "system" vnodes */
-		vfsp.vnfs_rdev = 0;		/* webdavfs doesn't support block devices */
-		vfsp.vnfs_filesize = obj_filesize;
-		vfsp.vnfs_cnp = cnp;
-		vfsp.vnfs_flags = (dvp && cnp && (cnp->cn_flags & MAKEENTRY)) ? 0 : VNFS_NOCACHE;
-		
-		error = vnode_create(VNCREATE_FLAVOR, VCREATESIZE, &vfsp, &vp);
-		if ( error == 0 )
-		{
-			/* Make the webdavnode reference the new vnode */
-			new_pt->pt_vnode = vp;
-			vnode_addfsref(vp);
-			vnode_settag(vp, VT_WEBDAV);
+		/* wake up anyone waiting */
+		if (ISSET(new_pt->pt_status, WEBDAV_WAITINIT))
+			wakeup(new_pt);
 			
-			/* Return it.  We're done. */
-			*vpp = vp;
-			
-			/* wake up anyone waiting */
-			CLR(new_pt->pt_status, WEBDAV_INIT);
-			if (ISSET(new_pt->pt_status, WEBDAV_WAITINIT))
-			{
-				wakeup(new_pt);
-			}
-		}
-		else
-		{
-			/* remove the partially inited webdavnode from the hash */
-			webdav_hashrem(new_pt);
-			
-			/* wake up anyone waiting */
-			if (ISSET(new_pt->pt_status, WEBDAV_WAITINIT))
-			{
-				wakeup(new_pt);
-			}
-			
-			/* and free up the memory */
-			FREE((caddr_t)new_pt, M_TEMP);
-		}
+		/* and free up the memory */
+		lck_rw_destroy(&new_pt->pt_rwlock, webdav_rwlock_group);
+		FREE((caddr_t)new_pt, M_TEMP);
 	}
-	
+
 	return ( error );
 }
 
@@ -651,6 +702,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 	vnode_t *vpp;
 	struct componentname *cnp;
 	struct webdavmount *fmp;
+	struct webdavnode *pt_dvp;
 	int islastcn;
 	int isdotdot;
 	int isdot;
@@ -667,7 +719,8 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 	nameiop = cnp->cn_nameiop;
 	
 	fmp = VFSTOWEBDAV(vnode_mount(dvp));
-	
+	pt_dvp = VTOWEBDAV(dvp);
+		
 	*vpp = NULLVP;
 	islastcn = cnp->cn_flags & ISLASTCN;
 	
@@ -724,7 +777,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				if ( isdot || isdotdot )
 				{
 					/* synthesize the lookup reply for dot and dotdot */
-					pt = isdot ? VTOWEBDAV(dvp) : VTOWEBDAV(VTOWEBDAV(dvp)->pt_parent);
+					pt = isdot ? pt_dvp : VTOWEBDAV(pt_dvp->pt_parent);
 					reply_lookup.obj_id = pt->pt_obj_id;
 					reply_lookup.obj_fileid = pt->pt_fileid;
 					reply_lookup.obj_type = WEBDAV_DIR_TYPE;
@@ -735,7 +788,14 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				}
 				else
 				{
+					/* lock parent node */
+					webdav_lock(pt_dvp, WEBDAV_EXCLUSIVE_LOCK);
+					pt_dvp->pt_lastvop = webdav_vnop_lookup;
+					
 					error = webdav_lookup(ap, &reply_lookup);
+				
+					webdav_unlock(pt_dvp);
+					
 					if ( error != 0 )
 					{
 						if ( error != ERESTART )
@@ -775,7 +835,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 					}
 					else if ( isdotdot )
 					{
-						vp = VTOWEBDAV(dvp)->pt_parent;
+						vp = pt_dvp->pt_parent;
 						error = vnode_get(vp);
 						if ( error == 0 )
 						{
@@ -794,7 +854,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 					}
 					else if ( isdotdot )
 					{
-						vp = VTOWEBDAV(dvp)->pt_parent;
+						vp = pt_dvp->pt_parent;
 						error = vnode_get(vp);
 						if ( error == 0 )
 						{
@@ -814,7 +874,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				}
 				else if ( isdotdot )
 				{
-					vp = VTOWEBDAV(dvp)->pt_parent;
+					vp = pt_dvp->pt_parent;
 					error = vnode_get(vp);
 					if ( error == 0 )
 					{
@@ -823,10 +883,19 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				}
 				else
 				{
+					/* lock parent node */
+					webdav_lock(pt_dvp, WEBDAV_EXCLUSIVE_LOCK);
+					pt_dvp->pt_lastvop = webdav_vnop_lookup;
+					
 					error = webdav_get(vnode_mount(dvp), dvp, 0, cnp, reply_lookup.obj_id, reply_lookup.obj_fileid,
 						(reply_lookup.obj_type == WEBDAV_FILE_TYPE) ? VREG : VDIR,
 						reply_lookup.obj_atime, reply_lookup.obj_mtime, reply_lookup.obj_ctime,
 						reply_lookup.obj_filesize, vpp);
+						
+					if ( error == 0)
+						webdav_unlock(VTOWEBDAV(*vpp));
+						
+					webdav_unlock(pt_dvp);
 				}
 				break;
 				
@@ -839,8 +908,7 @@ static int webdav_vnop_lookup(struct vnop_lookup_args *ap)
 				printf("webdav_vnop_lookup: unexpected response from cache_lookup: %d\n", error);
 				break;
 		}
-	}
-		
+	}		
 	RET_ERR("webdav_vnop_lookup", error);
 }
 
@@ -869,9 +937,11 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 	vp = ap->a_vp;
 	pt = VTOWEBDAV(vp);
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
-
 	error = server_error = 0;
 
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_open;
+	
 	/* If it is already open then just ref the node
 	 * and go on about our business. Make sure to set
 	 * the write status if this is read/write open
@@ -884,6 +954,7 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 		{
 			/* don't wrap -- return an error */
 			--pt->pt_opencount;
+			webdav_unlock(pt);
 			return ( ENFILE );
 		}
 		/* Set the "dir not loaded" bit if this is a directory, that way
@@ -895,6 +966,7 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 		{
 			pt->pt_status |= WEBDAV_DIR_NOT_LOADED;
 		}
+		webdav_unlock(pt);
 		return (0);
 	}
 	
@@ -973,6 +1045,7 @@ static int webdav_vnop_open(struct vnop_open_args *ap)
 dealloc_done:
 
 	webdav_release_ref(request_open.ref);
+	webdav_unlock(pt);
 		
 	RET_ERR("webdav_vnop_open", error);
 }
@@ -985,8 +1058,8 @@ dealloc_done:
  * webdav_fsync flushes dirty pages (if any) to the cache file and then if
  * the file is dirty, pushes it up to the server.
  *
- * Callers of this routine must ensure the file is a regular file and that
- * there's a cache vnode.
+ * Callers of this routine must ensure (1) the webdavnode is locked exclusively,
+ * (2) the file is a regular file, and (3) there's a cache vnode.
  *
  * results:
  *	0		Success.
@@ -1017,7 +1090,7 @@ static int webdav_fsync(struct vnop_fsync_args *ap)
 	cachevp = pt->pt_cache_vnode;
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	error = server_error = 0;
-
+	
 	if ( !(pt->pt_status & WEBDAV_DIRTY) ||
 		 (pt->pt_status & WEBDAV_DELETED) )
 	{
@@ -1108,7 +1181,7 @@ static int webdav_fsync(struct vnop_fsync_args *ap)
 		{
 			if ( ubc_sync_range(vp, (off_t)0, current_size, UBC_PUSHDIRTY | UBC_SYNC) == 0 )
 			{
-#ifdef DEBUG
+#if DEBUG
 				printf("webdav_fsync: ubc_sync_range failed\n");
 #endif
 				error = EIO;
@@ -1187,11 +1260,17 @@ static int webdav_vnop_fsync(struct vnop_fsync_args *ap)
 	};
 */
 {
+	struct webdavnode *pt;
 	int error;
 	
 	START_MARKER("webdav_vnop_fsync");
 	
-	if ( (VTOWEBDAV(ap->a_vp)->pt_cache_vnode != NULLVP) && vnode_isreg(ap->a_vp) )
+	pt = VTOWEBDAV(ap->a_vp);
+	
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_fsync;
+	
+	if ( (pt->pt_cache_vnode != NULLVP) && vnode_isreg(ap->a_vp) )
 	{
 		error = webdav_fsync(ap);
 	}
@@ -1199,7 +1278,7 @@ static int webdav_vnop_fsync(struct vnop_fsync_args *ap)
 	{
 		error = 0;
 	}
-
+	webdav_unlock(pt);
 	
 	RET_ERR("webdav_vnop_fsync", error);
 }
@@ -1210,6 +1289,9 @@ static int webdav_vnop_fsync(struct vnop_fsync_args *ap)
 	webdav_close_mnomap is the common subroutine used by webdav_vnop_close and
 	webdav_vnop_mnomap to synchronize the file with the server if needed, and
 	release the cache vnode if needed.
+	
+	Note: It is assumed that the webdavnode has been locked by caller
+	
 	results
 		0		no error
 		EIO		an I/O error occurred
@@ -1224,7 +1306,7 @@ int webdav_close_mnomap(vnode_t vp, vfs_context_t context, int force_fsync)
 	struct webdavnode *pt;
 
 	pt = VTOWEBDAV(vp);
-	
+		
 	/* no errors yet */
 	error = server_error = fsync_error = 0;
 	
@@ -1310,7 +1392,7 @@ done:
 			error = fsync_error;
 		}
 	}
-	
+		
 	RET_ERR("webdav_close_mnomap", error);
 }
 
@@ -1331,10 +1413,13 @@ static int webdav_vnop_close(struct vnop_close_args *ap)
 {
 	struct webdavnode *pt;
 	int force_fsync;
+	int error = 0;
 
 	START_MARKER("webdav_vnop_close");
 	
 	pt = VTOWEBDAV(ap->a_vp);
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_close;
 	/*
 	 * If this is a file and the corresponding open had write access,
 	 * synchronize the file with the server (if needed). This must be done from
@@ -1346,7 +1431,10 @@ static int webdav_vnop_close(struct vnop_close_args *ap)
 	/* decrement the open count */
 	--pt->pt_opencount;
 	
-	RET_ERR("webdav_vnop_close", webdav_close_mnomap(ap->a_vp, ap->a_context, force_fsync));
+	error = webdav_close_mnomap(ap->a_vp, ap->a_context, force_fsync);
+	webdav_unlock(pt);
+	
+	RET_ERR("webdav_vnop_close", error);
 }
 
 /*****************************************************************************/
@@ -1361,10 +1449,16 @@ static int webdav_vnop_mmap(struct vnop_mmap_args *ap)
 	};
 */
 {
+	struct webdavnode *pt;
+	
 	/* mark this file as mapped */
 	START_MARKER("webdav_vnop_mmap");
 
-	VTOWEBDAV(ap->a_vp)->pt_status |= (WEBDAV_ISMAPPED | WEBDAV_WASMAPPED);
+	pt = VTOWEBDAV(ap->a_vp);
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_mmap;
+	pt->pt_status |= (WEBDAV_ISMAPPED | WEBDAV_WASMAPPED);
+	webdav_unlock(pt);
 	
 	RET_ERR("webdav_vnop_mmap", 0);
 }
@@ -1380,13 +1474,23 @@ static int webdav_vnop_mnomap(struct vnop_mnomap_args *ap)
 	};
 */
 {
+	struct webdavnode *pt;
+	int error;
+	
 	START_MARKER("webdav_vnop_mnomap");
 	
+	pt = VTOWEBDAV(ap->a_vp);
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_mnomap;
+	
 	/* mark this file as unmapped */
-	VTOWEBDAV(ap->a_vp)->pt_status &= ~WEBDAV_ISMAPPED;
+	pt->pt_status &= ~WEBDAV_ISMAPPED;
 	
 	/* if the file is not open, this will fsync it and close it in user-land */
-	RET_ERR("webdav_vnop_mnomap", webdav_close_mnomap(ap->a_vp, ap->a_context, FALSE));
+	error = webdav_close_mnomap(ap->a_vp, ap->a_context, FALSE);
+	webdav_unlock(pt);
+	
+	RET_ERR("webdav_vnop_mnomap", error);
 }
 
 /*****************************************************************************/
@@ -1437,7 +1541,15 @@ static int webdav_read_bytes(vnode_t vp, uio_t a_uio, vfs_context_t context)
 	 */
 	request_read.count = uio_resid(a_uio); /* this won't overflow because we've already checked uio_resid's size */
 	MALLOC(buffer, void *, request_read.count, M_TEMP, M_WAITOK);
-
+	if (buffer == NULL)
+	{
+#if DEBUG
+		panic("webdav_read_bytes: MALLOC failed for data buffer");
+#endif
+		error = ENOMEM;
+		goto done;
+	}
+	
 	webdav_copy_creds(context, &request_read.pcr);
 	request_read.obj_id = pt->pt_obj_id;
 	request_read.offset = uio_offset(a_uio);
@@ -1519,6 +1631,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 	int file_changed;
 	int reading;
 	int tried_bytes;
+	int ioflag;
 
 	vp = ap->a_vp;
 	pt = VTOWEBDAV(vp);
@@ -1528,6 +1641,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 	file_changed = FALSE;
 	total_xfersize = 0;
 	tried_bytes = FALSE;
+	ioflag = ap->a_ioflag;
 
 	/* make sure this is not a directory */
 	if ( vnode_isdir(vp) )
@@ -1539,7 +1653,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 	/* make sure there's a cache file vnode associated with the webdav vnode */
 	if ( cachevp == NULLVP )
 	{
-#ifdef DEBUG
+#if DEBUG
 		printf("webdav_rdwr: about to %s a uncached vnode\n", (reading ? "read from" : "write to"));
 #endif
 		error = EIO;
@@ -1578,7 +1692,8 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 		 */
 		rounded_iolength = (off_t)round_page_64(uio_offset(in_uio) + uio_resid(in_uio));
 
-		if ( (attrbuf.va_flags & UF_NODUMP) && (rounded_iolength > (off_t)attrbuf.va_data_size) )
+		if ( (attrbuf.va_flags & UF_NODUMP) &&
+			 ( (!(reading) && (ioflag & IO_APPEND)) || (rounded_iolength > (off_t)attrbuf.va_data_size) ) ) 
 		{
 			struct timespec ts;
 			
@@ -1719,7 +1834,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 				UPL_FLAGS_NONE);
             if ( kret != KERN_SUCCESS )
 			{
-#ifdef DEBUG
+#if DEBUG
 				printf("webdav_rdwr: ubc_create_upl failed %d\n", kret);
 #endif
                 error = EIO;
@@ -1763,7 +1878,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 						kret = ubc_upl_map(upl, &addr);
 						if ( kret != KERN_SUCCESS )
 						{
-#ifdef DEBUG
+#if DEBUG
 							printf("webdav_rdwr: ubc_upl_map failed %d\n", kret);
 #endif
 							error = EIO;
@@ -1842,7 +1957,7 @@ static int webdav_rdwr(struct vnop_read_args *ap)
 			kret = ubc_upl_abort(upl, 0);
 			if ( kret != KERN_SUCCESS )
 			{
-#ifdef DEBUG
+#if DEBUG
 				printf("webdav_rdwr: ubc_upl_map failed %d\n", kret);
 #endif
 				error = EIO;
@@ -1916,7 +2031,7 @@ unmap_unlock_exit:
 	kret = ubc_upl_abort(upl, UPL_ABORT_ERROR);
 	if ( kret != KERN_SUCCESS )
 	{
-#ifdef DEBUG
+#if DEBUG
 		printf("webdav_rdwr: ubc_upl_abort failed %d\n", kret);
 #endif
 		if (!error)
@@ -1946,9 +2061,19 @@ static int webdav_vnop_read(struct vnop_read_args *ap)
 	};
 */
 {
+	struct webdavnode *pt;
+	int error;
+	
 	START_MARKER("webdav_vnop_read");
 	
-	RET_ERR("webdav_vnop_read", webdav_rdwr(ap));
+	pt = VTOWEBDAV(ap->a_vp);
+	webdav_lock(pt, WEBDAV_SHARED_LOCK);
+	pt->pt_lastvop = webdav_vnop_read;
+	
+	error = webdav_rdwr(ap);
+	webdav_unlock(pt);
+	
+	RET_ERR("webdav_vnop_read", error);
 }
 
 /*****************************************************************************/
@@ -1969,9 +2094,18 @@ static int webdav_vnop_write(struct vnop_write_args *ap)
 	};
 */
 {
-	START_MARKER("webdav_vnop_write");
+	struct webdavnode *pt;
+	int error;
 	
-	RET_ERR("webdav_vnop_write", webdav_rdwr((struct vnop_read_args *)ap));
+	START_MARKER("webdav_vnop_write");
+	pt = VTOWEBDAV(ap->a_vp);	
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_write;
+	
+	error = webdav_rdwr((struct vnop_read_args *)ap);
+	webdav_unlock(pt);
+	
+	RET_ERR("webdav_vnop_write", error);
 }
 
 /*****************************************************************************/
@@ -2015,16 +2149,17 @@ static int webdav_vnop_getattr(struct vnop_getattr_args *ap)
 	vap = ap->a_vap;
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	pt = VTOWEBDAV(vp);
+	
+	webdav_lock(pt, WEBDAV_SHARED_LOCK);
+	pt->pt_lastvop = webdav_vnop_getattr;
 	cachevp = pt->pt_cache_vnode;
 	error = server_error = 0;
 	
 	/* get everything we need out of vp and related structures before
 	 * making any blocking calls where vp could go away.
 	 */
-	/* full access for everyone - let the server decide what can really be done */
-	VATTR_RETURN(vap, va_mode, S_IRUSR | S_IWUSR | S_IXUSR |	/* owner */
-				   S_IRGRP | S_IWGRP | S_IXGRP |	/* group */
-				   S_IROTH | S_IWOTH | S_IXOTH |	/* other */
+	/* full access for owner only - the server decides what can really be done */
+	VATTR_RETURN(vap, va_mode, S_IRWXU |	/* owner */
 				   (vnode_isdir(vp) ? S_IFDIR : S_IFREG));
 	/* Why 1 for va_nlink?
 	 * Getting the real link count for directories is expensive.
@@ -2168,6 +2303,7 @@ static int webdav_vnop_getattr(struct vnop_getattr_args *ap)
 	}
 
 bad:
+	webdav_unlock(pt);
 
 	RET_ERR("webdav_vnop_getattr", error);
 }
@@ -2212,7 +2348,14 @@ static int webdav_vnop_remove(struct vnop_remove_args *ap)
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	pt = VTOWEBDAV(vp);
 	error = server_error = 0;
-
+	
+	/* lock parent node, then child */
+	webdav_lock(VTOWEBDAV(dvp), WEBDAV_EXCLUSIVE_LOCK);
+	if (pt != VTOWEBDAV(dvp))
+		webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_remove;
+	VTOWEBDAV(dvp)->pt_lastvop = webdav_vnop_remove;
+	
     if (vnode_isdir(vp))
     {
         error = EPERM;
@@ -2251,7 +2394,14 @@ static int webdav_vnop_remove(struct vnop_remove_args *ap)
 			error = server_error;
 		}
 	}
-	if (error)
+	
+	/*
+	 *	When connected to a Mac OS X Server, I can delete the main file (ie blah.dmg), but when I try
+	 *	to delete the ._ file (ie ._blah.dmg), I get a file not found error since the vfs layer on the
+	 *	server already deleted the ._ file.  Since I am deleting the ._ anyways, the ENOENT is ok and I
+	 *	should still clean up.
+	 */
+	if ((error) && (error != ENOENT))
 	{
 		goto bad;
 	}
@@ -2263,7 +2413,11 @@ static int webdav_vnop_remove(struct vnop_remove_args *ap)
 	(void) vnode_recycle(vp); /* we don't care if the recycle was done or not */
 
 bad:
-
+	/* unlock child node, then parent */
+	webdav_unlock(pt);
+	if (VTOWEBDAV(dvp) != pt)
+		webdav_unlock(VTOWEBDAV(dvp));
+		
 	RET_ERR("webdav_vnop_remove", error);
 }
 
@@ -2306,6 +2460,13 @@ static int webdav_vnop_rmdir(struct vnop_rmdir_args *ap)
 	pt = VTOWEBDAV(vp);
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	error = server_error = 0;
+	
+	/* lock parent node, then child */
+	webdav_lock(VTOWEBDAV(dvp), WEBDAV_EXCLUSIVE_LOCK);
+	if (pt != VTOWEBDAV(dvp))
+		webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_rmdir;
+	VTOWEBDAV(dvp)->pt_lastvop = webdav_vnop_rmdir;
 	
 	/* No rmdir "." please. */
 	if ( pt == VTOWEBDAV(dvp) )
@@ -2350,9 +2511,12 @@ static int webdav_vnop_rmdir(struct vnop_rmdir_args *ap)
 	pt->pt_status |= WEBDAV_DELETED;
 	(void) vnode_recycle(vp); /* we don't care if the recycle was done or not */
 
-
 bad:
-
+	/* unlock child node, then parent */
+	webdav_unlock(pt);
+	if (VTOWEBDAV(dvp) != pt)
+		webdav_unlock(VTOWEBDAV(dvp));
+		
 	RET_ERR("webdav_vnop_rmdir", error);
 }
 
@@ -2374,6 +2538,7 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 	vnode_t *vpp = ap->a_vpp;
 	vnode_t dvp = ap->a_dvp;
 	struct webdavmount *fmp;
+	struct webdavnode *pt_dvp;
 	int error = 0;
 	int server_error = 0;
 	struct timeval tv;
@@ -2384,6 +2549,11 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 	START_MARKER("webdav_vnop_create");
 
 	fmp = VFSTOWEBDAV(vnode_mount(dvp));
+	pt_dvp =  VTOWEBDAV(dvp);
+	
+	/* lock the parent webdavnode */
+	webdav_lock(pt_dvp, WEBDAV_EXCLUSIVE_LOCK);
+	pt_dvp->pt_lastvop = webdav_vnop_create;
 
 	/* Set *vpp to Null for error checking purposes */
 	*vpp = NULL;
@@ -2396,7 +2566,7 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 	}
 
 	webdav_copy_creds(ap->a_context, &request_create.pcr);
-	request_create.dir_id = VTOWEBDAV(dvp)->pt_obj_id;
+	request_create.dir_id = pt_dvp->pt_obj_id;
 	request_create.mode = ap->a_vap->va_mode;
 	request_create.name_length = cnp->cn_namelen;
 
@@ -2440,8 +2610,11 @@ static int webdav_vnop_create(struct vnop_create_args *ap)
 		/* nothing we can do except complain */
 		printf("webdav_vnop_create: webdav_get failed\n");
 	}
+	else
+		webdav_unlock(VTOWEBDAV(*vpp));
 	
 bad:
+	webdav_unlock(pt_dvp);
 
 	RET_ERR("webdav_vnop_create", error);
 }
@@ -2466,17 +2639,90 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	vnode_t tvp = ap->a_tvp;
 	vnode_t tdvp = ap->a_tdvp;
 	vnode_t fdvp = ap->a_fdvp;
+	struct webdavnode *fdpt, *fpt, *tdpt, *tpt;
+	struct webdavnode *lock_arr[4];
+	int i;
 	struct componentname *tcnp;
 	int error = 0, server_error = 0;
 	struct webdav_request_rename request_rename;
 
 	START_MARKER("webdav_vnop_rename");
 
-	fvp = ap->a_fvp;
-	tvp = ap->a_tvp;
-	tdvp = ap->a_tdvp;
-	fdvp = ap->a_fdvp;
 	tcnp = ap->a_tcnp;
+	fdpt = VTOWEBDAV(fdvp);
+	fpt = VTOWEBDAV(fvp);
+	tdpt = VTOWEBDAV(tdvp);
+	if (tvp)
+		tpt = VTOWEBDAV(tvp);
+	else
+		tpt = NULL;
+
+	/*
+	 * Determine parent-child locking order and store in lock_arr.
+	 */
+	bzero(lock_arr, sizeof(lock_arr));
+	i = 0;
+	
+	if (fdvp == tdpt->pt_parent) {
+		/* fdvp is the parent of tdvp, lock fdpt first */
+		lock_arr[i++] = fdpt;
+		lock_arr[i++] = fpt;
+		if (tdpt != fpt)
+			lock_arr[i++] = tdpt;
+		if ( (tpt != NULL) && (tpt != fpt) )
+			lock_arr[i++] = tpt;
+	} else if (tdvp == fdpt->pt_parent) {
+		/* tdvp is the parent of fdvp, lock tdpt first */
+		lock_arr[i++] = tdpt;
+		if (tpt != NULL)
+			lock_arr[i++] = tpt;
+		if (fdpt != tpt)
+			lock_arr[i++] = fdpt;
+		if (fpt != tpt)
+			lock_arr[i++] = fpt;
+	} else {
+		/* no immediate parent-child relationship, */
+		/* fallback to node address order (lower address first) */
+		if (fdpt < tdpt) {
+			/* lock fdvp first */
+			lock_arr[i++] = fdpt;
+			lock_arr[i++] = fpt;
+			lock_arr[i++] = tdpt;
+			if ( (tpt != NULL) && (tpt != fpt) )
+				lock_arr[i++] = tpt;
+		} else if(tdpt < fdpt) {
+			/* lock tdvp first */
+			lock_arr[i++] = tdpt;
+			if (tpt != NULL)
+				lock_arr[i++] = tpt;
+			lock_arr[i++] = fdpt;
+			if (fpt != tpt)
+				lock_arr[i++] = fpt;
+		} else {
+			/* 'from' and 'to' directories are the same. */
+			/* Lock child nodes in node address order. */
+			lock_arr[i++] = fdpt;
+			if (fpt < tpt) {
+				lock_arr[i++] = fpt;
+				if (tpt != NULL)
+					lock_arr[i++] = tpt;
+			} else {
+				if (tpt != NULL)
+					lock_arr[i++] = tpt;
+				lock_arr[i++] = fpt;
+			}
+		}
+	}
+
+	/* lock all the nodes in order */
+	for (i = 0; i < 4; i++) {
+		if (lock_arr[i]) {
+			webdav_lock(lock_arr[i], WEBDAV_EXCLUSIVE_LOCK);
+			lock_arr[i]->pt_lastvop = webdav_vnop_rename;
+		}
+		else
+			break;
+	}
 	
 	cache_purge(fvp);
 	
@@ -2536,6 +2782,10 @@ static int webdav_vnop_rename(struct vnop_rename_args *ap)
 	VTOWEBDAV(tdvp)->pt_status |= WEBDAV_DIR_NOT_LOADED;
 
 done:
+	/* Unlock all nodes in reverse order */
+	for ( i = 3; i >= 0; i--)
+		if (lock_arr[i])
+			webdav_unlock(lock_arr[i]);
 
 	RET_ERR("webdav_vnop_rename", error);
 }
@@ -2558,6 +2808,7 @@ static int webdav_vnop_mkdir(struct vnop_mkdir_args *ap)
 	vnode_t *vpp = ap->a_vpp;
 	vnode_t dvp = ap->a_dvp;
 	struct webdavmount *fmp;
+	struct webdavnode *pt_dvp;
 	int error = 0;
 	int server_error = 0;
 	struct timeval tv;
@@ -2568,6 +2819,11 @@ static int webdav_vnop_mkdir(struct vnop_mkdir_args *ap)
 	START_MARKER("webdav_vnop_mkdir");
 
 	fmp = VFSTOWEBDAV(vnode_mount(dvp));
+	pt_dvp =  VTOWEBDAV(dvp);
+	
+	/* lock parent vnode */
+	webdav_lock(pt_dvp, WEBDAV_EXCLUSIVE_LOCK);
+	pt_dvp->pt_lastvop = webdav_vnop_mkdir;
 	
 	/* Set *vpp to Null for error checking purposes */
 	*vpp = NULL;
@@ -2625,8 +2881,14 @@ static int webdav_vnop_mkdir(struct vnop_mkdir_args *ap)
 		/* nothing we can do except complain */
 		printf("webdav_vnop_mkdir: webdav_get failed\n");
 	}
+	else
+	{
+		/* webdav_get() returns the node locked */
+		webdav_unlock(VTOWEBDAV(*vpp));
+	}
 
 bad:
+	webdav_unlock(pt_dvp);
 
 	RET_ERR("webdav_vnop_mkdir", error);
 }
@@ -2667,6 +2929,10 @@ static int webdav_vnop_setattr(struct vnop_setattr_args *ap)
 	error = 0;
 	vp = ap->a_vp;
 	pt = VTOWEBDAV(vp);
+	
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_setattr;
+	
 	cachevp = pt->pt_cache_vnode;
 	
 	/* Can't mess with the root vnode */
@@ -2779,6 +3045,7 @@ static int webdav_vnop_setattr(struct vnop_setattr_args *ap)
 	}
 
 exit:
+	webdav_unlock(pt);
 
 	RET_ERR("webdav_vnop_setattr", error);
 }
@@ -2828,6 +3095,9 @@ static int webdav_vnop_readdir(struct vnop_readdir_args *ap)
 	pt = VTOWEBDAV(vp);
 	fmp = VFSTOWEBDAV(vnode_mount(vp));
 	error = 0;
+	
+	webdav_lock(pt, WEBDAV_EXCLUSIVE_LOCK);
+	pt->pt_lastvop = webdav_vnop_readdir;
 	
 	/* First make sure it is a directory we are dealing with */
 	if ( !vnode_isdir(vp))
@@ -2939,6 +3209,8 @@ static int webdav_vnop_readdir(struct vnop_readdir_args *ap)
 
 done:
 
+	webdav_unlock(pt);
+	
 	RET_ERR("webdav_vnop_readdir", error);
 }
 
@@ -3001,6 +3273,7 @@ static int webdav_vnop_reclaim(struct vnop_reclaim_args *ap)
 	vnode_clearfsnode(vp);
 
 	/* free the webdavnode */
+	lck_rw_destroy(&pt->pt_rwlock, webdav_rwlock_group);
 	FREE(pt, M_TEMP);
 	
 	RET_ERR("webdav_vnop_reclaim", 0);
@@ -3106,6 +3379,10 @@ static int webdav_vnop_pathconf(struct vnop_pathconf_args *ap)
  *
  * Page in (read) a page of a file into memory.
  *
+ * Note:
+ *		To aovid deadlock, the webdavnode lock is not taken here. The lock is already held
+ *		by the originating webdav vnop (calling into the ubc).
+ *
  * To do:
  *		If UBC ever supports an efficient way to move pages from the cache file's
  *		UPL to the webdav UPL (a_pl), use that method instead of calling VOP_READ.
@@ -3139,8 +3416,8 @@ static int webdav_vnop_pagein(struct vnop_pagein_args *ap)
 
 	vp = ap->a_vp;
 	pt = VTOWEBDAV(vp);
-	cachevp = pt->pt_cache_vnode;
 	error = 0;
+	cachevp = pt->pt_cache_vnode;
 
 	auio = uio_create(1, ap->a_f_offset, UIO_SYSSPACE, UIO_READ);
 	if ( auio == NULL )
@@ -3326,7 +3603,7 @@ exit:
 			kret = ubc_upl_abort_range(ap->a_pl, ap->a_pl_offset, ap->a_size, UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY);
 		}
 	}
-
+	
 	RET_ERR("webdav_vnop_pagein", error);
 }
 
@@ -3336,6 +3613,14 @@ exit:
  * webdav_vnop_pageout
  *
  * Page out (write) a page of a file from memory.
+ *
+ * Note:
+ *		To aovid deadlock, the webdavnode lock is not taken here. The lock is already held
+ *		by the originating webdav vnop.
+ *
+ *		For example, if were to lock the node in this pageout vnop,
+ *		the ubc_setsize() call below could end up calling this very
+ *		same vnop, resulting in deadlock.  See Radar 4749124.
  *
  * To do:
  *		If UBC ever supports an efficient way to move pages from the webdav
@@ -3368,6 +3653,7 @@ static int webdav_vnop_pageout(struct vnop_pageout_args *ap)
 
 	vp = ap->a_vp;
 	pt = VTOWEBDAV(vp);
+	
 	cachevp = pt->pt_cache_vnode;
 	error = 0;
 	auio = NULL;
@@ -3513,7 +3799,7 @@ exit:
 			kret = ubc_upl_abort_range(ap->a_pl, ap->a_pl_offset, ap->a_size, UPL_ABORT_ERROR | UPL_ABORT_FREE_ON_EMPTY);
 		}
 	}
-
+	
 	RET_ERR("webdav_vnop_pageout", error);
 }
 

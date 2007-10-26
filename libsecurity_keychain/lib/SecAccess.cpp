@@ -63,7 +63,7 @@ OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef trustedList, SecAcce
 		access = new Access(cfString(descriptor));
 	}
 	Required(accessRef) = access->handle();
-	END_SECAPI
+	END_SECAPI2("SecAccessCreate")
 }
 
 
@@ -77,7 +77,7 @@ OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner,
 	Required(accessRef);	// preflight
 	SecPointer<Access> access = new Access(Required(owner), aclCount, &Required(acls));
 	*accessRef = access->handle();
-	END_SECAPI
+	END_SECAPI2("SecAccessCreateFromOwnerAndACL")
 }
 
 
@@ -90,7 +90,7 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef,
 	BEGIN_SECAPI
 	Access::required(accessRef)->copyOwnerAndAcl(
 		Required(owner), Required(aclCount), Required(acls));
-	END_SECAPI
+	END_SECAPI2("SecAccessGetOwnerAndACL")
 }
 
 
@@ -101,7 +101,7 @@ OSStatus SecAccessCopyACLList(SecAccessRef accessRef,
 {
 	BEGIN_SECAPI
 	Required(aclList) = Access::required(accessRef)->copySecACLs();
-	END_SECAPI
+	END_SECAPI2("SecAccessCopyACLList")
 }
 
 
@@ -113,7 +113,7 @@ OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef,
 {
 	BEGIN_SECAPI
 	Required(aclList) = Access::required(accessRef)->copySecACLs(action);
-	END_SECAPI
+	END_SECAPI2("SecAccessCopySelectedACLList")
 }
 
 CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trustedAppListFileName)

@@ -1,5 +1,8 @@
 /* include/config.h.in.  Generated from configure.in by autoheader.  */
 
+/* Default location for FILEDSN data sources */
+#undef DEFAULT_FILEDSNPATH
+
 /* Define if we detected a GUI library we can use */
 #undef GUI
 
@@ -30,11 +33,17 @@
 /* Define if you have the DYLD library */
 #undef HAVE_DYLD
 
+/* Define to 1 if you have the `gettimeofday' function. */
+#undef HAVE_GETTIMEOFDAY
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
 /* Define if you have the -ldl library */
 #undef HAVE_LIBDL
+
+/* Define to 1 if you have the `localtime_r' function. */
+#undef HAVE_LOCALTIME_R
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -69,17 +78,32 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
+/* Define to 1 if you have the `towlower' function. */
+#undef HAVE_TOWLOWER
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
 /* Define to 1 if you have the <wchar.h> header file. */
 #undef HAVE_WCHAR_H
 
+/* Define to 1 if you have the `wcscat' function. */
+#undef HAVE_WCSCAT
+
+/* Define to 1 if you have the `wcschr' function. */
+#undef HAVE_WCSCHR
+
+/* Define to 1 if you have the `wcscmp' function. */
+#undef HAVE_WCSCMP
+
 /* Define to 1 if you have the `wcscpy' function. */
 #undef HAVE_WCSCPY
 
 /* Define to 1 if you have the `wcslen' function. */
 #undef HAVE_WCSLEN
+
+/* Define to 1 if you have the `wcsncasecmp' function. */
+#undef HAVE_WCSNCASECMP
 
 /* Define to 1 if you have the `wcsncpy' function. */
 #undef HAVE_WCSNCPY
@@ -115,10 +139,13 @@
 #undef STDC_HEADERS
 
 /* Define path to systemwide odbcinst.ini file */
-/*#undef SYS_ODBCINST_INI*/
+#undef SYS_ODBCINST_INI
 
 /* Define path to systemwide odbc.ini file */
-/*#undef SYS_ODBC_INI*/
+#undef SYS_ODBC_INI
+
+/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
+#undef TIME_WITH_SYS_TIME
 
 /* Version number of package */
 #undef VERSION

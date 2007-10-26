@@ -48,6 +48,12 @@ extern "C" {
 	This is the private extension of <Security/Authorization.h>, a public header file.
 */
 
+/*!
+	@enum Private (for now) AuthorizationFlags
+*/
+enum {
+	kAuthorizationFlagLeastPrivileged		= (1 << 5)
+};
 
 /*!
     @function AuthorizationBindPrivilegedPort

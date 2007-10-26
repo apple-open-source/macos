@@ -41,9 +41,10 @@
 #include "ip6config_utils.h"
 
 typedef struct {
-    timer_callout_t *	timer;
-    struct in6_addr	our_ip;
-    int			our_prefixLen;
+	struct in6_addr	our_addr;
+	int			our_prefixlen;
+	int			our_flags;
+	timer_callout_t *timer;
 } Service_manual_t;
 
 static void
@@ -62,7 +63,7 @@ manual_cancel_pending_events(Service_t * service_p)
 static void
 manual_inactive(Service_t * service_p)
 {
-    service_remove_address(service_p);
+    service_remove_addresses(service_p);
     service_publish_failure(service_p, ip6config_status_media_inactive_e,
 			    NULL);
     return;
@@ -111,9 +112,9 @@ manual_start(Service_t * service_p)
         return;
     }
 
-    /* set the new address */
-    (void)service_set_address(service_p, &manual->our_ip,
-                                manual->our_prefixLen);
+    (void)service_set_address(service_p, &manual->our_addr, 
+									   manual->our_prefixlen, 
+									   manual->our_flags);
 
     return;
 }
@@ -155,12 +156,17 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             }
         
             service_p->private = manual;
-            memcpy(&manual->our_ip, &(ipcfg->ip6[0].addr), sizeof(struct in6_addr));
-            manual->our_prefixLen = ipcfg->ip6[0].prefixLen;
+            
+		/* only one manual address per service */
+		memcpy(&manual->our_addr, &ipcfg->ip6[0].addr, sizeof(struct in6_addr));
+		manual->our_prefixlen = ipcfg->ip6[0].prefixLen;
+		manual->our_flags = ipcfg->ip6[0].flags;
+		
             if (if_flags(if_p) & IFF_LOOPBACK) {
                 /* set the new address */
-                (void)service_set_address(service_p, &manual->our_ip,
-                        manual->our_prefixLen);
+                (void)service_set_address(service_p, &manual->our_addr, 
+											manual->our_prefixlen, 
+											manual->our_flags);
                 service_publish_success(service_p);
                 break;
             }
@@ -189,12 +195,11 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             }
 
             /* remove IP6 address */
-            service_remove_address(service_p);
+            service_remove_addresses(service_p);
 
             /* clean-up resources */
-            if (manual->timer) {
+            if (manual->timer) 
                 timer_callout_free(&manual->timer);
-            }
 
             free(manual);
             service_p->private = NULL;
@@ -218,18 +223,19 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             if (status != ip6config_status_success_e)
                 break;
 
-            evdata->needs_stop = FALSE;
+		evdata->needs_stop = FALSE;
 
-            if (!IN6_ARE_ADDR_EQUAL(&ipcfg->ip6[0].addr, &manual->our_ip)
-                    || (ipcfg->ip6[0].prefixLen - manual->our_prefixLen != 0)) {
-                evdata->needs_stop = TRUE;
-            }
-            break;
-        }
+		if (!IN6_ARE_ADDR_EQUAL(&ipcfg->ip6[0].addr, &manual->our_addr) || 
+				(ipcfg->ip6[0].prefixLen - manual->our_prefixlen != 0)) {
+			evdata->needs_stop = TRUE;
+			break;
+		}
+		break;
+       }
         case IFEventID_state_change_e: {
-            int	i;
+            int	i, j;
             ip6_addrinfo_list_t * 	ip6_addrs = ((ip6_addrinfo_list_t *)event_data);
-            inet6_addrinfo_t *		info_p = &service_p->info;
+            ip6_addrinfo_list_t *	addrslist_p = &service_p->info.addrs;
 
             my_log(LOG_DEBUG, "MANUAL_THREAD %s: STATE CHANGE", if_name(if_p));
 
@@ -240,36 +246,43 @@ manual_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
                 break;
             }
                 
-            /* go through the address list; if addr is not autoconf and
-             * not linklocal then deal with it
-             */
-            for (i = 0; i < ip6_addrs->n_addrs; i++) {
-                ip6_addrinfo_t	new_addr = ip6_addrs->addr_list[i];
+		/* go through the address lists; autoconf or linklocal addrs are invalid */
+		for (i = 0; i < ip6_addrs->n_addrs; i++) {
+			int	done = 0;
+			ip6_addrinfo_t	*new_addr = ip6_addrs->addr_list + i;
+			
+			if (IN6_IS_ADDR_LINKLOCAL(&new_addr->addr) 
+				|| (new_addr->flags & IN6_IFF_AUTOCONF)) {
+				continue;
+			}
 
-                if (!IN6_IS_ADDR_LINKLOCAL(&new_addr.addr) 
-                        && !(new_addr.flags & IN6_IFF_AUTOCONF)
-                        && IN6_ARE_ADDR_EQUAL(&new_addr.addr, &info_p->addr)) {
-                    /* check for duplicate */
-                    if (new_addr.flags & IN6_IFF_DUPLICATED) {
-                        char	msg[128];
-
-                        snprintf(msg, sizeof(msg),
-                                    IP6_FORMAT " is a duplicate address on interface %s",
-                                    IP6_LIST(&manual->our_ip), if_name(if_p));
-                        service_report_conflict(service_p, &manual->our_ip);
-                        my_log(LOG_ERR, "MANUAL %s: %s",
-                                if_name(if_p), msg);
-                        service_remove_address(service_p);
-                        service_publish_failure(service_p,
-                                ip6config_status_address_in_use_e,
-                                msg);
-                        break;
-                    }
-
-                    service_publish_success(service_p);
-                    break;
-                }
-            }
+			for (j = 0; j < addrslist_p->n_addrs; j++) {
+				if (IN6_ARE_ADDR_EQUAL(&new_addr->addr, &addrslist_p->addr_list[j].addr)) {
+					/* check for duplicate */
+					if (new_addr->flags & IN6_IFF_DUPLICATED) {
+						char	msg[128];
+						
+						snprintf(msg, sizeof(msg),
+								 IP6_FORMAT " is a duplicate address on interface %s",
+								 IP6_LIST(&addrslist_p->addr_list[j].addr), if_name(if_p));
+						my_log(LOG_ERR, "MANUAL %s: %s", if_name(if_p), msg);
+						
+						service_report_conflict(service_p, &addrslist_p->addr_list[j].addr);
+						service_remove_addresses(service_p);
+						service_publish_failure(service_p,
+											ip6config_status_address_in_use_e,
+											msg);
+						break;
+					}
+					
+					service_publish_success(service_p);
+					done++;
+					break;
+				}
+			}
+			if (done)
+				break;
+		}
                 
             break;
         }

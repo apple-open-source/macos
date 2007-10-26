@@ -2,6 +2,7 @@
    Unix SMB/CIFS implementation.
    return a list of network interfaces
    Copyright (C) Andrew Tridgell 1998
+   Copyright (C) 2007 Apple Inc. All rights reserved.
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -30,27 +31,21 @@
 
 */
 
+#ifndef AUTOCONF_TEST
+#include "config.h"
+#endif
+
 #include <unistd.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/ioctl.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
 #include <sys/time.h>
-#include <net/if.h>
-
-#ifdef AUTOCONF_TEST
-struct iface_struct {
-	char name[16];
-	struct in_addr ip;
-	struct in_addr netmask;
-};
-#else
-#include "config.h"
-#include "interfaces.h"
-#endif
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
@@ -82,6 +77,68 @@ struct iface_struct {
 #define QSORT_CAST (int (*)(const void *, const void *))
 #endif
 
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
+
+#include "interfaces.h"
+
+#ifdef HAVE_IFACE_GETIFADDRS
+
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
+
+/* This works for modern BSD systems, including Mac OS X. */
+static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
+{
+	struct ifaddrs *addrlist;
+	struct ifaddrs *addr;
+	int count = 0;
+
+	if (getifaddrs(&addrlist) == -1) {
+		return -1;
+	}
+
+	for (addr = addrlist; addr; addr = addr->ifa_next) {
+
+		if (addr->ifa_addr == NULL ||
+		    addr->ifa_netmask == NULL) {
+			continue;
+		}
+
+		if (addr->ifa_addr->sa_family != AF_INET) {
+			continue;
+		}
+
+		if (!(addr->ifa_flags & IFF_UP)) {
+			continue;
+		}
+
+#define SOCKADDR_TO_INADDR(sa) (((struct sockaddr_in *)sa)->sin_addr)
+
+		ifaces[count].ip = SOCKADDR_TO_INADDR(addr->ifa_addr);
+		ifaces[count].netmask = SOCKADDR_TO_INADDR(addr->ifa_netmask);
+
+#undef SOCKADDR_TO_INADDR(sa)
+
+		strncpy(ifaces[count].name, addr->ifa_name,
+			sizeof(ifaces[count].name) - 1);
+		ifaces[count].name[sizeof(ifaces[count].name) - 1] = 0;
+
+		if (++count >= max_interfaces) {
+			break;
+		}
+	}
+
+	freeifaddrs(addrlist);
+	return count;
+}
+
+#define _FOUND_IFACE_ANY
+#endif /* HAVE_IFACE_GETIFADDRS */
+
+
 #if HAVE_IFACE_IFCONF
 
 /* this works for Linux 2.2, Solaris 2.5, SunOS4, HPUX 10.20, OSF1
@@ -96,8 +153,8 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 {  
 	struct ifconf ifc;
 	char buff[8192];
-	int fd, i, n;
-	struct ifreq *ifr=NULL;
+	char current;
+	int fd;
 	int total = 0;
 	struct in_addr ipaddr;
 	struct in_addr nmask;
@@ -114,33 +171,52 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 		close(fd);
 		return -1;
 	} 
-
-	ifr = ifc.ifc_req;
   
-	n = ifc.ifc_len / sizeof(struct ifreq);
-
 	/* Loop through interfaces, looking for given IP address */
-	for (i=n-1;i>=0 && total < max_interfaces;i--) {
-		if (ioctl(fd, SIOCGIFADDR, &ifr[i]) != 0) {
+	for (current = buf;
+	     current < ifc.ifc_len && total < max_interfaces;) {
+		struct ifreq *ifr = (struct ifref *)current;
+
+		/* Point current to the next ifreq. The ifreq list is not
+		 * actually an array. The structures are packed in the buffer
+		 * and their size varies depending on the type of address, so
+		 * we have to look as the sockaddr length to figure it out.
+		 */
+#ifdef _SIZEOF_ADDR_IFREQ(ifr)
+		/* 4.4 BSD introduced sockaddr.sa_len which lets us figure out
+		 * the real size.
+		 */
+		current += _SIZEOF_ADDR_IFREQ(ifr);
+#else
+		/* Earlier systems should have a fixed size sockaddr. */
+		current += sizeof(struct ifreq);
+#endif
+
+		/* We only support IPv4. */
+		if (ifr->ifr_addr.sa_family != AF_INET) {
 			continue;
 		}
 
-		iname = ifr[i].ifr_name;
-		ipaddr = (*(struct sockaddr_in *)&ifr[i].ifr_addr).sin_addr;
-
-		if (ioctl(fd, SIOCGIFFLAGS, &ifr[i]) != 0) {
-			continue;
-		}  
-
-		if (!(ifr[i].ifr_flags & IFF_UP)) {
+		if (ioctl(fd, SIOCGIFADDR, ifr) != 0) {
 			continue;
 		}
 
-		if (ioctl(fd, SIOCGIFNETMASK, &ifr[i]) != 0) {
+		iname = ifr->ifr_name;
+		ipaddr = (*(struct sockaddr_in *)ifr->ifr_addr).sin_addr;
+
+		if (ioctl(fd, SIOCGIFFLAGS, ifr) != 0) {
 			continue;
 		}  
 
-		nmask = ((struct sockaddr_in *)&ifr[i].ifr_addr)->sin_addr;
+		if (!(ifr->fr_flags & IFF_UP)) {
+			continue;
+		}
+
+		if (ioctl(fd, SIOCGIFNETMASK, ifr) != 0) {
+			continue;
+		}  
+
+		nmask = ((struct sockaddr_in *)ifr->fr_addr)->sin_addr;
 
 		strncpy(ifaces[total].name, iname, sizeof(ifaces[total].name)-1);
 		ifaces[total].name[sizeof(ifaces[total].name)-1] = 0;
@@ -154,7 +230,9 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 	return total;
 }  
 
-#elif HAVE_IFACE_IFREQ
+#define _FOUND_IFACE_ANY
+#endif /* HAVE_IFACE_IFCONF */
+#ifdef HAVE_IFACE_IFREQ
 
 #ifndef I_STR
 #include <sys/stropts.h>
@@ -249,7 +327,9 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 	return total;
 }
 
-#elif HAVE_IFACE_AIX
+#define _FOUND_IFACE_ANY
+#endif /* HAVE_IFACE_IFREQ */
+#ifdef HAVE_IFACE_AIX
 
 /****************************************************************************
 this one is for AIX (tested on 4.2)
@@ -284,7 +364,7 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 	i = ifc.ifc_len;
 
 	while (i > 0 && total < max_interfaces) {
-		unsigned inc;
+		uint_t inc;
 
 		inc = ifr->ifr_addr.sa_len;
 
@@ -337,7 +417,9 @@ static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 	return total;
 }
 
-#else /* a dummy version */
+#define _FOUND_IFACE_ANY
+#endif /* HAVE_IFACE_AIX */
+#ifndef _FOUND_IFACE_ANY
 static int _get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 {
 	return -1;
@@ -356,6 +438,7 @@ static int iface_comp(struct iface_struct *i1, struct iface_struct *i2)
 	return r;
 }
 
+int get_interfaces(struct iface_struct *ifaces, int max_interfaces);
 /* this wrapper is used to remove duplicates from the interface list generated
    above */
 int get_interfaces(struct iface_struct *ifaces, int max_interfaces)
@@ -385,8 +468,6 @@ int get_interfaces(struct iface_struct *ifaces, int max_interfaces)
 
 #ifdef AUTOCONF_TEST
 /* this is the autoconf driver to test get_interfaces() */
-
-#define MAX_INTERFACES 128
 
  int main()
 {

@@ -1,5 +1,5 @@
 /* -*- C -*-
- * $Id: dl.h,v 1.9 2003/12/01 23:02:44 ttate Exp $
+ * $Id: dl.h 11708 2007-02-12 23:01:19Z shyouhei $
  */
 
 #ifndef RUBY_DL_H

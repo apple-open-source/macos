@@ -1,6 +1,6 @@
 /* Lock files for editing.
-   Copyright (C) 1985, 86, 87, 93, 94, 96, 98, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1987, 1993, 1994, 1996, 1998, 1999, 2000, 2001,
+                 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include <config.h>
@@ -26,11 +26,9 @@ Boston, MA 02111-1307, USA.  */
 #include <signal.h>
 #include <stdio.h>
 
-#ifdef VMS
-#include "vms-pwd.h"
-#else
+#ifdef HAVE_PWD_H
 #include <pwd.h>
-#endif /* not VMS */
+#endif
 
 #include <sys/file.h>
 #ifdef HAVE_FCNTL_H
@@ -67,6 +65,10 @@ Lisp_Object Vtemporary_file_directory;
 
 #include <utmp.h>
 
+#if !defined (S_ISLNK) && defined (S_IFLNK)
+#define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
+#endif
+
 /* A file whose last-modified time is just after the most recent boot.
    Define this to be NULL to disable checking for this file.  */
 #ifndef BOOT_TIME_FILE
@@ -76,14 +78,14 @@ Lisp_Object Vtemporary_file_directory;
 #ifndef WTMP_FILE
 #define WTMP_FILE "/var/log/wtmp"
 #endif
-  
+
 /* The strategy: to lock a file FN, create a symlink .#FN in FN's
    directory, with link data `user@host.pid'.  This avoids a single
    mount (== failure) point for lock files.
 
    When the host in the lock data is the current host, we can check if
    the pid is valid with kill.
-   
+
    Otherwise, we could look at a separate file that maps hostnames to
    reboot times to see if the remote pid can possibly be valid, since we
    don't want Emacs to have to communicate via pipes or sockets or
@@ -101,15 +103,15 @@ Lisp_Object Vtemporary_file_directory;
    files to be useful on old systems lacking symlinks, nowadays
    virtually all such systems are probably single-user anyway, so it
    didn't seem worth the complication.
-   
+
    Similarly, we don't worry about a possible 14-character limit on
    file names, because those are all the same systems that don't have
    symlinks.
-   
+
    This is compatible with the locking scheme used by Interleaf (which
    has contributed this implementation for Emacs), and was designed by
    Ethan Jacobson, Kimbo Mundy, and others.
-   
+
    --karl@cs.umb.edu/karl@hq.ileaf.com.  */
 
 
@@ -218,7 +220,7 @@ get_boot_time ()
 	      args[3] = Qnil;
 	      args[4] = build_string ("-c");
 	      sprintf (cmd_string, "gunzip < %s.%d.gz > %s",
-		       WTMP_FILE, counter, XSTRING (tempname)->data);
+		       WTMP_FILE, counter, SDATA (tempname));
 	      args[5] = build_string (cmd_string);
 	      Fcall_process (6, args);
 	      filename = tempname;
@@ -228,9 +230,9 @@ get_boot_time ()
 
       if (! NILP (filename))
 	{
-	  get_boot_time_1 (XSTRING (filename)->data, 1);
+	  get_boot_time_1 (SDATA (filename), 1);
 	  if (delete_flag)
-	    unlink (XSTRING (filename)->data);
+	    unlink (SDATA (filename));
 	}
     }
 
@@ -321,7 +323,7 @@ typedef struct
    trailing period plus one for the digit after it plus one for the
    null.  */
 #define MAKE_LOCK_NAME(lock, file) \
-  (lock = (char *) alloca (STRING_BYTES (XSTRING (file)) + 2 + 1 + 1 + 1), \
+  (lock = (char *) alloca (SBYTES (file) + 2 + 1 + 1 + 1), \
    fill_in_lock_file_name (lock, (file)))
 
 static void
@@ -333,14 +335,14 @@ fill_in_lock_file_name (lockfile, fn)
   struct stat st;
   int count = 0;
 
-  strcpy (lockfile, XSTRING (fn)->data);
+  strcpy (lockfile, SDATA (fn));
 
   /* Shift the nondirectory part of the file name (including the null)
      right two characters.  Here is one of the places where we'd have to
      do something to support 14-character-max file names.  */
   for (p = lockfile + strlen (lockfile); p != lockfile && *p != '/'; p--)
     p[2] = *p;
-  
+
   /* Insert the `.#'.  */
   p[1] = '.';
   p[2] = '#';
@@ -364,7 +366,7 @@ fill_in_lock_file_name (lockfile, fn)
 
 static int
 lock_file_1 (lfname, force)
-     char *lfname; 
+     char *lfname;
      int force;
 {
   register int err;
@@ -373,24 +375,26 @@ lock_file_1 (lfname, force)
   char *host_name;
   char *lock_info_str;
 
+  /* Call this first because it can GC.  */
+  boot_time = get_boot_time ();
+
   if (STRINGP (Fuser_login_name (Qnil)))
-    user_name = (char *)XSTRING (Fuser_login_name (Qnil))->data;
+    user_name = (char *)SDATA (Fuser_login_name (Qnil));
   else
     user_name = "";
   if (STRINGP (Fsystem_name ()))
-    host_name = (char *)XSTRING (Fsystem_name ())->data;
+    host_name = (char *)SDATA (Fsystem_name ());
   else
     host_name = "";
   lock_info_str = (char *)alloca (strlen (user_name) + strlen (host_name)
-				  + LOCK_PID_MAX + 5);
+				  + LOCK_PID_MAX + 30);
 
-  boot_time = get_boot_time ();
   if (boot_time)
     sprintf (lock_info_str, "%s@%s.%lu:%lu", user_name, host_name,
 	     (unsigned long) getpid (), (unsigned long) boot_time);
   else
     sprintf (lock_info_str, "%s@%s.%lu", user_name, host_name,
-	     (unsigned long) getpid ());    
+	     (unsigned long) getpid ());
 
   err = symlink (lock_info_str, lfname);
   if (errno == EEXIST && force)
@@ -444,7 +448,7 @@ current_lock_owner (owner, lfname)
 #endif
     }
   while (len >= bufsize);
-  
+
   /* If nonexistent lock file, all is well; otherwise, got strange error. */
   if (len == -1)
     {
@@ -454,7 +458,7 @@ current_lock_owner (owner, lfname)
 
   /* Link info exists, so `len' is its length.  Null terminate.  */
   lfinfo[len] = 0;
-  
+
   /* Even if the caller doesn't want the owner info, we still have to
      read it to determine return value, so allocate it.  */
   if (!owner)
@@ -462,7 +466,7 @@ current_lock_owner (owner, lfname)
       owner = (lock_info_type *) alloca (sizeof (lock_info_type));
       local_owner = 1;
     }
-  
+
   /* Parse USER@HOST.PID:BOOT_TIME.  If can't parse, return -1.  */
   /* The USER is everything before the first @.  */
   at = index (lfinfo, '@');
@@ -476,7 +480,7 @@ current_lock_owner (owner, lfname)
   owner->user = (char *) xmalloc (len + 1);
   strncpy (owner->user, lfinfo, len);
   owner->user[len] = 0;
-  
+
   /* The PID is everything from the last `.' to the `:'.  */
   owner->pid = atoi (dot + 1);
   colon = dot;
@@ -496,10 +500,10 @@ current_lock_owner (owner, lfname)
 
   /* We're done looking at the link info.  */
   xfree (lfinfo);
-  
+
   /* On current host?  */
   if (STRINGP (Fsystem_name ())
-      && strcmp (owner->host, XSTRING (Fsystem_name ())->data) == 0)
+      && strcmp (owner->host, SDATA (Fsystem_name ())) == 0)
     {
       if (owner->pid == getpid ())
         ret = 2; /* We own it.  */
@@ -520,7 +524,7 @@ current_lock_owner (owner, lfname)
          here's where we'd do it.  */
       ret = 1;
     }
-  
+
   /* Avoid garbage.  */
   if (local_owner || ret <= 0)
     {
@@ -539,7 +543,7 @@ current_lock_owner (owner, lfname)
 static int
 lock_if_free (clasher, lfname)
      lock_info_type *clasher;
-     register char *lfname; 
+     register char *lfname;
 {
   while (lock_file_1 (lfname, 0) == 0)
     {
@@ -547,7 +551,7 @@ lock_if_free (clasher, lfname)
 
       if (errno != EEXIST)
 	return -1;
-      
+
       locker = current_lock_owner (clasher, lfname);
       if (locker == 2)
         {
@@ -630,7 +634,7 @@ lock_file (fn)
   sprintf (locker, "%s@%s (pid %lu)", lock_info.user, lock_info.host,
            lock_info.pid);
   FREE_LOCK_INFO (lock_info);
-  
+
   attack = call2 (intern ("ask-user-about-lock"), fn, build_string (locker));
   if (!NILP (attack))
     /* User says take the lock */
@@ -673,28 +677,29 @@ unlock_all_files ()
 }
 
 DEFUN ("lock-buffer", Flock_buffer, Slock_buffer,
-  0, 1, 0,
-  "Lock FILE, if current buffer is modified.\n\
-FILE defaults to current buffer's visited file,\n\
-or else nothing is done if current buffer isn't visiting a file.")
-  (file)
+       0, 1, 0,
+       doc: /* Lock FILE, if current buffer is modified.
+FILE defaults to current buffer's visited file,
+or else nothing is done if current buffer isn't visiting a file.  */)
+     (file)
      Lisp_Object file;
 {
   if (NILP (file))
     file = current_buffer->file_truename;
   else
-    CHECK_STRING (file, 0);
+    CHECK_STRING (file);
   if (SAVE_MODIFF < MODIFF
       && !NILP (file))
     lock_file (file);
-  return Qnil;    
+  return Qnil;
 }
 
 DEFUN ("unlock-buffer", Funlock_buffer, Sunlock_buffer,
-  0, 0, 0,
- "Unlock the file visited in the current buffer,\n\
-if it should normally be locked.")
-  ()
+       0, 0, 0,
+       doc: /* Unlock the file visited in the current buffer.
+If the buffer is not modified, this does nothing because the file
+should not be locked in that case.  */)
+     ()
 {
   if (SAVE_MODIFF < MODIFF
       && STRINGP (current_buffer->file_truename))
@@ -714,10 +719,11 @@ unlock_buffer (buffer)
 }
 
 DEFUN ("file-locked-p", Ffile_locked_p, Sfile_locked_p, 1, 1, 0,
-  "Return nil if the FILENAME is not locked,\n\
-t if it is locked by you, else a string of the name of the locker.")
-  (filename)
-  Lisp_Object filename;
+       doc: /* Return a value indicating whether FILENAME is locked.
+The value is nil if the FILENAME is not locked,
+t if it is locked by you, else a string saying which user has locked it.  */)
+     (filename)
+     Lisp_Object filename;
 {
   Lisp_Object ret;
   register char *lfname;
@@ -755,7 +761,7 @@ void
 syms_of_filelock ()
 {
   DEFVAR_LISP ("temporary-file-directory", &Vtemporary_file_directory,
-    "The directory for writing temporary files.");
+	       doc: /* The directory for writing temporary files.  */);
   Vtemporary_file_directory = Qnil;
 
   defsubr (&Sunlock_buffer);
@@ -764,3 +770,6 @@ syms_of_filelock ()
 }
 
 #endif /* CLASH_DETECTION */
+
+/* arch-tag: e062676d-50b2-4be0-ab96-197c81b181a1
+   (do not change this comment) */

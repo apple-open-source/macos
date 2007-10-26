@@ -1,6 +1,7 @@
 /* machine description file for Silicon Graphics Iris 2500 Turbos;
    also possibly for non-turbo Irises with system release 2.5.
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,11 +17,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 NOTE-START
@@ -49,7 +50,7 @@ NOTE-END */
       /* Eric - May 4, 1987 */
       report_file_error ("Worked just find\n", Qnil);
 
-  Without any sort of debugger that works on emacs (I know... but I don't have
+  Without any sort of debugger that works on emacs (I know... but I dont have
   *time* right now to start with gdb), it was quite time consuming to track
   it down to this.
 
@@ -118,16 +119,6 @@ NOTE-END */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
-#define HAVE_ALLOCA
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -140,3 +131,6 @@ NOTE-END */
 
 #define internal_with_output_to_temp_buffer	stupid_long_name1
 #define Finsert_abbrev_table_description	stupid_long_name2
+
+/* arch-tag: 4076b26c-1fe6-4c28-94f3-3c863f074767
+   (do not change this comment) */

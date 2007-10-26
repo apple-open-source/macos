@@ -5,10 +5,10 @@
  *
  */
  
-subsystem KerberosAgentIPC 128;
- 
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
+
+import "KLMachIPC.h";
 
 type	DataBlob              = array [] of char;
 
@@ -31,13 +31,13 @@ type	KLIPCFlags            = int32;
 type	KLIPCDialogIdentifier = unsigned32;
 
 
-import "KLMachIPC.h";
-
 // These are the bottleneck routines which have UI.
 
 // We do these via Mach IPC so we can support client-side idling and killing the
 // server if the user cancels all dialogs.  
 
+subsystem KerberosAgentIPC 128;
+ 
 serverprefix KAIPC;
 userprefix KLIPC;
 

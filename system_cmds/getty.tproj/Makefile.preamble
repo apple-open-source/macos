@@ -17,7 +17,7 @@
 ## (e.g. change -O to -O2), see Makefile.postamble.
 
 # Flags passed to compiler (in addition to -g, -O, etc)
-OTHER_CFLAGS = 
+OTHER_CFLAGS = -fno-builtin-puts
 # Flags passed to ld (in addition to -ObjC, etc.)
 OTHER_LDFLAGS = 
 # Flags passed to libtool when building libraries

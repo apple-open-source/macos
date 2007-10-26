@@ -66,21 +66,21 @@ public:
 	/**** Instance methods. ****/
 	// ctor and dtor.
    					DSEncryptedEndpoint	(	const DSTCPEndpoint *inEndpoint,
-											const uInt32 inSessionID );
+											const UInt32 inSessionID );
 					DSEncryptedEndpoint	(	int inConnectFD,
-										uInt32 inOpenTimeOut = kTCPOpenTimeout,
- 										uInt32 inRdWrTimeOut = kTCPRWTimeout );
+										UInt32 inOpenTimeOut = kTCPOpenTimeout,
+ 										UInt32 inRdWrTimeOut = kTCPRWTimeout );
     virtual			~DSEncryptedEndpoint	( void );
 
 	// Required specialization of pure virtual base class methods.
 
 	// Specialized versions of base class methods.
-	virtual void	EncryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize );
-	virtual void	DecryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize );
+	virtual void	EncryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
+	virtual void	DecryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize );
 
 	// New public methods.
-	sInt32			ClientNegotiateKey ( void );
-	sInt32			ServerNegotiateKey ( void );
+	SInt32			ClientNegotiateKey ( void );
+	SInt32			ServerNegotiateKey ( void );
 
 protected:
 	/**** Typedefs, enums, and constants. ****/

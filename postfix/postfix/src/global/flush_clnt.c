@@ -12,8 +12,11 @@
 /*	const char *site;
 /*	const char *queue_id;
 /*
-/*	int	flush_send(site)
+/*	int	flush_send_site(site)
 /*	const char *site;
+/*
+/*	int	flush_send_file(queue_id)
+/*	const char *queue_id;
 /*
 /*	int	flush_refresh()
 /*
@@ -30,8 +33,11 @@
 /*	flush_add() informs the "fast flush" cache manager that mail is
 /*	queued for the specified site with the specified queue ID.
 /*
-/*	flush_send() requests delivery of all mail that is queued for
+/*	flush_send_site() requests delivery of all mail that is queued for
 /*	the specified destination.
+/*
+/*	flush_send_file() requests delivery of mail with the specified
+/*	queue ID.
 /*
 /*	flush_refresh() requests the "fast flush" cache manager to refresh
 /*	cached information that was not used for some configurable amount
@@ -105,7 +111,7 @@ void    flush_init(void)
 
 int     flush_purge(void)
 {
-    char   *myname = "flush_purge";
+    const char *myname = "flush_purge";
     int     status;
 
     if (msg_verbose)
@@ -131,7 +137,7 @@ int     flush_purge(void)
 
 int     flush_refresh(void)
 {
-    char   *myname = "flush_refresh";
+    const char *myname = "flush_refresh";
     int     status;
 
     if (msg_verbose)
@@ -153,11 +159,11 @@ int     flush_refresh(void)
     return (status);
 }
 
-/* flush_send - deliver mail queued for site */
+/* flush_send_site - deliver mail queued for site */
 
-int     flush_send(const char *site)
+int     flush_send_site(const char *site)
 {
-    char   *myname = "flush_send";
+    const char *myname = "flush_send_site";
     int     status;
 
     if (msg_verbose)
@@ -173,7 +179,7 @@ int     flush_send(const char *site)
 	status = FLUSH_STAT_DENY;
     else
 	status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
-			       ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_SEND,
+			  ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_SEND_SITE,
 				     ATTR_TYPE_STR, MAIL_ATTR_SITE, site,
 				     ATTR_TYPE_END);
 
@@ -183,11 +189,35 @@ int     flush_send(const char *site)
     return (status);
 }
 
+/* flush_send_file - deliver specific message */
+
+int     flush_send_file(const char *queue_id)
+{
+    const char *myname = "flush_send_file";
+    int     status;
+
+    if (msg_verbose)
+	msg_info("%s: queue_id %s", myname, queue_id);
+
+    /*
+     * Require that the service is turned on.
+     */
+    status = mail_command_client(MAIL_CLASS_PUBLIC, var_flush_service,
+			  ATTR_TYPE_STR, MAIL_ATTR_REQ, FLUSH_REQ_SEND_FILE,
+				 ATTR_TYPE_STR, MAIL_ATTR_QUEUEID, queue_id,
+				 ATTR_TYPE_END);
+
+    if (msg_verbose)
+	msg_info("%s: queue_id %s status %d", myname, queue_id, status);
+
+    return (status);
+}
+
 /* flush_add - inform "fast flush" cache manager */
 
 int     flush_add(const char *site, const char *queue_id)
 {
-    char   *myname = "flush_add";
+    const char *myname = "flush_add";
     int     status;
 
     if (msg_verbose)

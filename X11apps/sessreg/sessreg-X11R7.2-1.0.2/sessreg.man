@@ -1,0 +1,128 @@
+.\" $Xorg: sessreg.man,v 1.4 2001/02/09 02:05:40 xorgcvs Exp $
+.\" Copyright 1994, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/xdm/sessreg.man,v 1.7 2001/04/23 20:31:09 dawes Exp $
+.\"
+.TH SESSREG __appmansuffix__ __xorgversion__
+.SH NAME
+sessreg \- manage utmp/wtmp entries for non-init clients
+.SH SYNOPSIS
+.B sessreg
+[-w \fIwtmp-file\fP]
+[-u \fIutmp-file\fP]
+[-l \fIline-name\fP]
+[-h \fIhost-name\fP]
+[-s \fIslot-number\fP]
+[-x \fIXservers-file\fP]
+[-t \fIttys-file\fP]
+[-a]
+[-d]
+\fIuser-name\fP
+.SH DESCRIPTION
+.PP
+\fISessreg\fP is a simple program for managing utmp/wtmp
+entries for xdm sessions.
+.PP
+System V has a better interface to utmp than BSD; it
+dynamically allocates entries in the file, instead of writing them at fixed
+positions indexed by position in 
+.BR __ttys_file__ .
+.PP
+To manage BSD-style utmp files, \fIsessreg\fP has two strategies.  In
+conjunction with xdm, the -x option counts the number of lines in 
+.B __ttys_file__
+and then adds to that the number of the line in the Xservers file which
+specifies the display.  The display name must be specified as the
+"line-name" using the -l option.  This sum is used as the "slot-number" in
+the utmp file that this entry will be written at.  In the more general case, 
+the -s option specifies the slot-number directly.  If for some strange reason
+your system uses a file other than
+.B __ttys_file__ 
+to manage init, the -t option can direct
+\fIsessreg\fP to look elsewhere for a count of terminal sessions.
+.PP
+Conversely, System V managers will not ever need to use these options (-x,
+-s and -t).  To make the program easier to document and explain,
+\fIsessreg\fP accepts the BSD-specific flags in the System V
+environment and ignores them.
+.PP
+BSD and Linux also have a host-name field in the utmp file which doesn't
+exist in System V.  This option is also ignored by the System V version of
+\fIsessreg\fP.
+.SH USAGE
+.PP
+In Xstartup, place a call like:
+.nf
+
+       sessreg -a -l $DISPLAY -x /etc/X11/xdm/Xservers $USER
+
+.fi
+and in Xreset:
+.nf
+
+       sessreg -d -l $DISPLAY -x /etc/X11/xdm/Xservers $USER
+.fi
+.SH OPTIONS
+.IP "\fB-w\fP \fIwtmp-file\fP"
+This specifies an alternate wtmp file, instead of 
+.BR __wtmp_file__ .
+The special name "none" disables writing records to the wtmp file.
+.IP "\fB-u\fP \fIutmp-file\fP"
+This specifies an alternate utmp file, instead of 
+.BR __utmp_file__ .
+The special name "none" disables writing records to the utmp file.
+.IP "\fB-l\fP \fIline-name\fP"
+This describes the "line" name of the entry.  For terminal sessions,
+this is the final pathname segment of the terminal device filename
+(e.g. ttyd0).  For X sessions, it should probably be the local display name
+given to the users session (e.g. :0).  If none is specified, the
+terminal name will be determined with ttyname(3) and stripped of leading
+components.
+.IP "\fB-h\fP \fIhost-name\fP"
+This is set for BSD hosts to indicate that the session was initiated from
+a remote host.  In typical xdm usage, this options is not used.
+.IP "\fB-s\fP \fIslot-number\fP"
+Each potential session has a unique slot number in BSD systems, most are
+identified by the position of the \fIline-name\fP in the 
+.BR __ttys_file__ file.
+This option overrides the default position determined with ttyslot(3).
+This option is inappropriate for use with xdm, the -x option is more useful.
+.IP "\fB-x\fP \fIXservers-file\fP"
+As X sessions are one-per-display, and each display is entered in this file,
+this options sets the \fIslot-number\fP to be the number of lines in
+the \fIttys-file\fP plus the index into this file that the \fIline-name\fP
+is found.
+.IP "\fB-t\fP \fIttys-file\fP"
+This specifies an alternate file which the \fI-x\fP option will use to count
+the number of terminal sessions on a host.
+.IP "\fB-a\fP"
+This session should be added to utmp/wtmp.
+.IP "\fB-d\fP"
+This session should be deleted from utmp/wtmp.  One of -a/-d must
+be specified.
+.SH "SEE ALSO"
+xdm(__appmansuffix__)
+.SH AUTHOR
+Keith Packard, MIT X Consortium

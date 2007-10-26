@@ -1,0 +1,49 @@
+--- strerror.c.orig	2004-11-25 11:38:47.000000000 -0800
++++ strerror.c	2005-04-30 01:26:56.000000000 -0700
+@@ -50,12 +50,13 @@
+  */
+ #define	EBUFSIZE	(20 + sizeof(UPREFIX))
+ 
++#ifndef BUILDING_VARIANT
+ /*
+  * Doing this by hand instead of linking with stdio(3) avoids bloat for
+  * statically linked binaries.
+  */
+-static void
+-errstr(int num, char *buf, size_t len)
++__private_extern__ void
++__errstr(int num, char *buf, size_t len)
+ {
+ 	char *t;
+ 	unsigned int uerr;
+@@ -77,14 +78,17 @@
+ strerror_r(int errnum, char *strerrbuf, size_t buflen)
+ {
+ 
+-	if (errnum < 1 || errnum >= sys_nerr) {
+-		errstr(errnum, strerrbuf, buflen);
++	if (errnum < 0 || errnum >= sys_nerr) {
++		__errstr(errnum, strerrbuf, buflen);
+ 		return (EINVAL);
+ 	}
+ 	if (strlcpy(strerrbuf, sys_errlist[errnum], buflen) >= buflen)
+ 		return (ERANGE);
+ 	return (0);
+ }
++#else /* BUILDING_VARIANT */
++__private_extern__ void __errstr(int, char *, size_t);
++#endif /* !BUILDING_VARIANT */
+ 
+ char *
+ strerror(int num)
+@@ -93,7 +97,9 @@
+ 
+ 	if (num > 0 && num < sys_nerr)
+ 		return ((char *)sys_errlist[num]);
++#if !__DARWIN_UNIX03
+ 	errno = EINVAL;
+-	errstr(num, ebuf, sizeof(ebuf));
++#endif /* !__DARWIN_UNIX03 */
++	__errstr(num, ebuf, sizeof(ebuf));
+ 	return (ebuf);
+ }

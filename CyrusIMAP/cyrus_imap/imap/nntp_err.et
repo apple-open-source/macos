@@ -1,5 +1,5 @@
 # nntp_err.et -- Error codes for the Cyrus NNTP server
-# $Id: nntp_err.et,v 1.4 2005/03/05 00:37:01 dasenbro Exp $
+# $Id: nntp_err.et,v 1.2 2003/10/22 18:02:58 rjs3 Exp $
 #
 # Copyright 2002 Carnegie Mellon University
 # 

@@ -1,7 +1,0 @@
-dnl ../doc/m4.texinfo:1808: Origin of test
-changequote([[, ]])
-dnl @result{}
-define([[foo]], [[Macro [[[foo]]].]])
-dnl @result{}
-foo
-dnl @result{}Macro [foo].

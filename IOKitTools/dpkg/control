@@ -1,4 +1,0 @@
-Package: iokittools
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Build-Depends: build-base, corefoundation, iokituser, libcurses-hdrs, carbonheaders, project-makefiles
-Description: IOKit Tools

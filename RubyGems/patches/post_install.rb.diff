@@ -1,0 +1,31 @@
+--- post-install.rb.old	2007-01-17 17:51:55.000000000 +0100
++++ post-install.rb	2007-01-17 19:11:04.000000000 +0100
+@@ -85,7 +85,9 @@
+     load "sources.gemspec"
+     spec = Gem.sources_spec
+     gem_file = Gem::Builder.new(spec).build
+-    Gem::Installer.new(gem_file).install(true, Gem.dir, false)
++    path = File.join(@config['prefix'], 'lib', 'ruby', 'gems', Config::CONFIG['ruby_version'])
++    FileUtils.mkdir_p path
++    Gem::Installer.new(gem_file).install(true, path, false)
+   end
+ end
+ 
+@@ -105,7 +107,7 @@
+ 
+   rubygems_name = "rubygems-#{Gem::RubyGemsVersion}"
+ 
+-  doc_dir = File.join Gem.dir, 'doc', rubygems_name
++  doc_dir = File.join File.join(@config['prefix'], 'lib', 'ruby', 'gems', Config::CONFIG['ruby_version']), 'doc', rubygems_name
+ 
+   puts "Installing #{rubygems_name} ri..."
+   run_rdoc '--ri', '--op', File.join(doc_dir, 'ri')
+@@ -114,8 +116,5 @@
+ end
+ 
+ install_sources
+-remove_old_rdoc
+ install_rdoc
+-install_windows_batch_files
+-remove_stubs
+ 

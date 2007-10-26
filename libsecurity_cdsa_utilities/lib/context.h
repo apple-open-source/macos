@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -244,7 +244,7 @@ void walk(Action &operate, CSSM_CONTEXT_ATTRIBUTE &attr)
 		case CSSM_ATTRIBUTE_DATA_UINT32:
 			break;
 		default:
-			secdebug("walkers", "invalid attribute (%lx) in context", attr.AttributeType);
+			secdebug("walkers", "invalid attribute (%ux) in context", (unsigned)attr.AttributeType);
 			break;
 		}
 }
@@ -309,6 +309,14 @@ public:
     }
 
 	void setup(uint32 n, CSSM_RETURN invalidError = CSSM_OK)
+	{
+		if (n)
+			slotCount++;
+		else if (invalidError)
+			CssmError::throwMe(invalidError);
+	}
+
+	void setup(CSSM_SIZE n, CSSM_RETURN invalidError = CSSM_OK)
 	{
 		if (n)
 			slotCount++;

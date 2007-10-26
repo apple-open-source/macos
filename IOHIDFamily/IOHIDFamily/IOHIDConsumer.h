@@ -88,6 +88,5 @@ public:
     virtual void                    setNumLock(bool val);
     virtual bool                    numLock();
     virtual bool                    alphaLock();
-    virtual UInt32                  deviceType();
 };
 #endif /* !_IOKIT_HID_IOHIDCONSUMER_H */

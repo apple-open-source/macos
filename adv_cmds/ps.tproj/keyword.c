@@ -59,7 +59,7 @@ static const char rcsid[] =
 
 #include "ps.h"
 
-static VAR *findvar __P((char *));
+VAR *findvar __P((char *));
 static int  vcmp __P((const void *, const void *));
 
 #ifdef NOTINUSE
@@ -77,7 +77,11 @@ int	utime(), stime(), ixrss(), idrss(), isrss();
 #define	UOFF(x)	offsetof(struct usave, x)
 #define	ROFF(x)	offsetof(struct rusage, x)
 
+#ifdef __APPLE__
+#define	UIDFMT	"d"
+#else
 #define	UIDFMT	"u"
+#endif
 #define	UIDLEN	5
 #define	PIDFMT	"d"
 #define	PIDLEN	5
@@ -89,15 +93,19 @@ VAR var[] = {
 	{"acflag", "ACFLG",
 		NULL, 0, pvar, NULL, 3, POFF(p_acflag), USHORT, "x"},
 	{"acflg", "", "acflag"},
+	{"args", "ARGS", NULL, COMM|LJUST|USER|DSIZ, args, s_args, 64},
 	{"blocked", "", "sigmask"},
 	{"caught", "", "sigcatch"},
-	{"command", "COMMAND", NULL, COMM|LJUST|USER, command, NULL, 16},
+	{"comm", "COMM", NULL, COMM|LJUST|USER|DSIZ, just_command, s_just_command, 16},
+	{"command", "COMMAND", NULL, COMM|LJUST|USER|DSIZ, command, s_command, 16},
 	{"cpu", "CPU", NULL, 0, pvar, NULL, 3, POFF(p_estcpu), UINT, "d"},
 	{"cputime", "", "time"},
+	{"etime", "ELAPSED", NULL, USER|DSIZ, p_etime, s_etime, 20},
 	{"f", "F", NULL, 0, pvar, NULL, 7, POFF(p_flag), INT, "x"},
 	{"flags", "", "f"},
 	{"gid", "GID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_ucred.cr_gid),
 		UINT, UIDFMT},
+	{"group", "GROUP", "gid"},
 	{"ignored", "", "sigignore"},
 	{"inblk", "INBLK",
 		NULL, USER, rvar, NULL, 4, ROFF(ru_inblock), LONG, "ld"},
@@ -151,6 +159,7 @@ VAR var[] = {
 	{"re", "RE", NULL, 0, pvar, NULL, 3, POFF(p_swtime), UINT, "d"},
 	{"rgid", "RGID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_pcred.p_rgid),
 		UINT, UIDFMT},
+	{"rgroup", "RGROUP", "rgid"},
 #if FIXME
 	{"rlink", "RLINK",
 		NULL, 0, pvar, NULL, 8, POFF(p_procq.tqe_prev), KPTR, "lx"},
@@ -189,7 +198,7 @@ VAR var[] = {
 		NULL, 0, evar, NULL, 4, EOFF(e_tpgid), UINT, PIDFMT},
 	{"tsess", "TSESS", NULL, 0, evar, NULL, 6, EOFF(e_tsess), KPTR, "lx"},
 	{"tsiz", "TSIZ", NULL, 0, tsize, NULL, 8},
-	{"tt", "TT ", NULL, 0, tname, NULL, 4},
+	{"tt", "TT ", NULL, 0, tname, NULL, 5},
 	{"tty", "TTY", NULL, LJUST, longtname, NULL, 8},
 	{"ucomm", "UCOMM", NULL, LJUST, ucomm, NULL, MAXCOMLEN},
 	{"uid", "UID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_ucred.cr_uid),
@@ -240,13 +249,14 @@ top:	while (p && *p) {
 
 		while ((cp = strsep(&p, FMTSEP)) != NULL && *cp == '\0')
 			/* void */;
-		if (!(v = findvar(cp)))
+		if (cp == NULL || !(v = findvar(cp)))
 			continue;
 		/* Make sure that no duplicate items are inserted into the
 		   list */
 		temp = vhead;
 		while (temp) {
-		  if (!strcmp(temp->var->header,v->header)) {
+		  if (temp->var == v) {
+		    /* was: !strcmp(temp->var->header,v->header) */
 		    goto top;
 		  }
 
@@ -268,7 +278,7 @@ top:	while (p && *p) {
 		errx(1, "no valid keywords");
 }
 
-static VAR *
+VAR *
 findvar(p)
 	char *p;
 {
@@ -284,11 +294,25 @@ findvar(p)
 	v = bsearch(&key, var, sizeof(var)/sizeof(VAR) - 1, sizeof(VAR), vcmp);
 
 	if (v && v->alias) {
-		if (hp) {
-			warnx("%s: illegal keyword specification", p);
-			eval = 1;
+		char *fmt = v->alias;
+		if (hp == NULL && v->header && v->header[0]) {
+			hp = v->header;
 		}
-		parsefmt(v->alias);
+		if (hp) {
+			/* XXX: this is never freed, which is fine as long as ps
+			  continues to be a "run & exit" kind of thing.  If it ever
+			  is changed to loop, or this is extracted into a long
+			  running thing this will have ot be reworked */
+			fmt = malloc(strlen(hp) + strlen(v->alias) + 2);
+			if (!fmt) {
+				warnx("ran out of memory attempting to format %s", v->alias);
+				eval = 1;
+				fmt = v->alias;
+			} else {
+				sprintf(fmt, "%s=%s", v->alias, hp);
+			}
+		}
+		parsefmt(fmt);
 		return ((VAR *)NULL);
 	}
 	if (!v) {

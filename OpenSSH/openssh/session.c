@@ -1846,8 +1846,10 @@ session_pty_req(Session *s)
 		n_bytes = packet_remaining();
 	tty_parse_modes(s->ttyfd, &n_bytes);
 
+#ifndef __APPLE_PRIVPTY__
 	if (!use_privsep)
 		pty_setowner(s->pw, s->tty);
+#endif
 
 	/* Set window size from the packet. */
 	pty_change_window_size(s->ptyfd, s->row, s->col, s->xpixel, s->ypixel);
@@ -2085,9 +2087,11 @@ session_pty_cleanup2(Session *s)
 	if (s->pid != 0)
 		record_logout(s->pid, s->tty, s->pw->pw_name);
 
+#ifndef __APPLE_PRIVPTY__
 	/* Release the pseudo-tty. */
 	if (getuid() == 0)
 		pty_release(s->tty);
+#endif
 
 	/*
 	 * Close the server side of the socket pairs.  We must do this after

@@ -1915,6 +1915,8 @@ IOPCCardInterruptController::initInterruptController(IOService *provider)
 {
     int cnt;
   
+    if (!super::init()) return kIOReturnError;
+
     IOPCIDevice *bridgeDevice = OSDynamicCast(IOPCIDevice, provider);
     if (!bridgeDevice) {
 	IOLog("IOPCCardInterruptController::initInterruptController failed\n");

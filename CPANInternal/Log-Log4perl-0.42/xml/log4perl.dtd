@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!-- This adds some functionality onto the log4j.dtd -->
+<!-- Authors: Kevin Goess -->
+<!-- Version: 1.0 -->
+
+
+<!-- include the log4j dtd -->
+<!ENTITY % log4j.dtd SYSTEM "log4j-1.2.dtd">  
+%log4j.dtd;  
+
+
+<!-- overriding log4j:configuration with log4perl:configuration
+     so that we can use a log4perl:appender -->
+<!ELEMENT log4perl:configuration (renderer*, log4perl:appender*, appender*,
+                                  (log4perl:filter)*,(category|logger)*,root?, PatternLayout?)>
+
+<!ATTLIST log4perl:configuration
+  xmlns:log4perl              CDATA #FIXED "http://log4perl.sourceforge.net/" 
+  threshold                (all|debug|info|warn|error|fatal|off|null) "null"
+  debug                    (true|false|null)  "null"
+  oneMessagePerAppender    (true|false|null) "null"
+>
+
+
+<!-- overriding log4j's appender with log4perl:appender so can include
+     other kinds of param structures -->
+<!ELEMENT log4perl:appender     (errorHandler?, (param|param-nested|param-text)*, 
+                                 (layout|log4perl:layout)?, filter*, filter-ref*, appender-ref*)>
+<!ATTLIST log4perl:appender
+   xmlns:log4perl CDATA #FIXED "http://log4perl.sourceforge.net/"
+  name 		ID 	#REQUIRED
+  class 	CDATA	#REQUIRED
+>
+
+<!-- a complex param type -->
+<!ELEMENT param-nested ((param|param-nested|param-text)+)>
+<!ATTLIST param-nested
+  name          CDATA   #REQUIRED
+>
+
+
+<!-- so you can put the value in the text instead of always having to 
+     put it in the attribute -->
+<!ELEMENT param-text (#PCDATA)>
+<!ATTLIST param-text
+  name          CDATA #REQUIRED
+>
+
+<!-- a top-level PatternLayout to handle global cspecs -->
+<!ELEMENT PatternLayout (cspec+)>
+
+<!-- custom conversion specifiers -->
+<!ELEMENT cspec (#PCDATA)>
+<!ATTLIST cspec
+  name          CDATA #REQUIRED
+>
+
+
+<!ELEMENT log4perl:layout ((param|cspec)*)>
+<!ATTLIST log4perl:layout
+  class		CDATA	#REQUIRED
+>
+
+<!-- This is the filter at the document root, as opposed to the appender
+       children filters.  This implement the log4perl-specific boolean appenders
+-->
+<!ELEMENT log4perl:filter (#PCDATA|param|param-nested|param-text)*>
+<!ATTLIST log4perl:filter 
+      class		CDATA	 #IMPLIED
+      name     CDATA    #IMPLIED
+      value     CDATA    #IMPLIED
+>
+
+<!ELEMENT filter-ref EMPTY>
+<!ATTLIST filter-ref id  NMTOKEN #REQUIRED>
+

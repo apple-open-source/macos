@@ -2,8 +2,8 @@
 
   re.h -
 
-  $Author: nobu $
-  $Date: 2003/03/04 14:12:19 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Thu Sep 30 14:18:32 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto

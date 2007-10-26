@@ -129,7 +129,7 @@ newsyntax(int argc, char ***argvp)
 
 	if (!fshead) {
 		add("\"%07.7_Ax\n\"");
-		add("\"%07.7_ax \" 8/2 \"%04x \" \"\\n\"");
+		add("\"%07.7_ax \" 16/1 \"%02x \" \"\\n\"");
 	}
 
 	*argvp += optind;

@@ -1,0 +1,83 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <class name='SFAuthorizationPluginView'>
+    <method comment='fixme' selector='callbacks'>
+      <retval type='r^{AuthorizationCallbacks=I^?^?^?^?^?^?^?^?^?}' />
+    </method>
+    <method selector='engineRef'>
+      <retval type='^{__OpaqueAuthorizationEngine=}' />
+    </method>
+    <method comment='fixme' selector='initWithCallbacks:andEngineRef:'>
+      <arg index='0' type='r^{AuthorizationCallbacks=I^?^?^?^?^?^?^?^?^?}' />
+      <arg index='1' type='^{__OpaqueAuthorizationEngine=}' />
+    </method>
+  </class>
+  <class comment='fixme' name='SFAuthorizationView'>
+    <method selector='authorizationRights'>
+      <retval type='r^{?=I^{?}}' />
+    </method>
+    <method comment='fixme' selector='setAuthorizationRights:'>
+      <arg index='0' type='r^{?=I^{?}}' />
+    </method>
+    <method selector='setString:'>
+      <arg index='0' type='*' />
+    </method>
+  </class>
+  <class name='SFCertificatePanel'>
+    <method selector='beginSheetForWindow:modalDelegate:didEndSelector:contextInfo:certificates:showGroup:'>
+      <arg comment='context' index='3' type='^v' />
+    </method>
+    <method selector='beginSheetForWindow:modalDelegate:didEndSelector:contextInfo:trust:showGroup:'>
+      <arg comment='context' index='3' type='^v' />
+      <arg index='4' type='^{OpaqueSecTrustRef=}' />
+    </method>
+    <method selector='runModalForTrust:showGroup:'>
+      <arg index='0' type='^{OpaqueSecTrustRef=}' />
+    </method>
+  </class>
+  <class name='SFCertificateTrustPanel'>
+    <method selector='beginSheetForWindow:modalDelegate:didEndSelector:contextInfo:trust:message:'>
+      <arg comment='context' index='3' type='^v' />
+      <arg index='4' type='^{OpaqueSecTrustRef=}' />
+    </method>
+    <method selector='runModalForTrust:message:'>
+      <arg index='0' type='^{OpaqueSecTrustRef=}' />
+    </method>
+  </class>
+  <class name='SFCertificateView'>
+    <method selector='certificate'>
+      <retval type='^{OpaqueSecCertificateRef=}' />
+    </method>
+    <method selector='setCertificate:'>
+      <arg index='0' type='^{OpaqueSecCertificateRef=}' />
+    </method>
+  </class>
+  <class name='SFChooseIdentityPanel'>
+    <method selector='beginSheetForWindow:modalDelegate:didEndSelector:contextInfo:identities:message:'>
+      <arg comment='context' index='3' type='^v' />
+    </method>
+    <method selector='identity'>
+      <retval type='^{OpaqueSecIdentityRef=}' />
+    </method>
+  </class>
+  <class name='SFKeychainSavePanel'>
+    <method selector='beginSheetForDirectory:file:modalForWindow:modalDelegate:didEndSelector:contextInfo:'>
+      <arg comment='context' index='5' type='^v' />
+    </method>
+    <method selector='keychain'>
+      <retval type='^{OpaqueSecKeychainRef=}' />
+    </method>
+  </class>
+  <class name='SFKeychainSettingsPanel'>
+    <method selector='beginSheetForWindow:modalDelegate:didEndSelector:contextInfo:settings:keychain:'>
+      <arg comment='context' index='3' type='^v' />
+      <arg index='4' type='^{SecKeychainSettings=ICCI}' />
+      <arg index='5' type='^{OpaqueSecKeychainRef=}' />
+    </method>
+    <method selector='runModalForSettings:keychain:'>
+      <arg index='0' type='^{SecKeychainSettings=ICCI}' />
+      <arg index='1' type='^{OpaqueSecKeychainRef=}' />
+    </method>
+  </class>
+</signatures>

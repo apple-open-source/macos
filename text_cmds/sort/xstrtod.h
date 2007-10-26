@@ -1,15 +1,29 @@
+/* Error-checking interface to strtod-like functions.
+
+   Copyright (C) 1996, 1998, 2003, 2004 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+/* Written by Jim Meyering.  */
+
 #ifndef XSTRTOD_H
-#define XSTRTOD_H 1
+# define XSTRTOD_H 1
 
-#ifndef __P
-# if defined (__GNUC__) || (defined (__STDC__) && __STDC__)
-#  define __P(args) args
-# else
-#  define __P(args) ()
-# endif  /* GCC.  */
-#endif  /* Not __P.  */
+# include <stdbool.h>
 
-int
-  xstrtod __P ((const char *str, const char **ptr, double *result));
+bool xstrtod (const char *str, const char **ptr, double *result,
+	      double (*convert) (char const *, char **));
 
-#endif /* XSTRTOD_H */
+#endif /* not XSTRTOD_H */

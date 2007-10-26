@@ -2,8 +2,8 @@
 
   time.c -
 
-  $Author: matz $
-  $Date: 2004/05/14 12:26:15 $
+  $Author: knu $
+  $Date: 2007-03-06 19:12:12 +0900 (Tue, 06 Mar 2007) $
   created at: Tue Dec 28 14:31:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -33,6 +33,7 @@ struct time_object {
     Data_Get_Struct(obj, struct time_object, tobj)
 
 static void time_free _((void *));
+static VALUE time_utc_offset _((VALUE));
 
 static void
 time_free(tobj)
@@ -109,7 +110,7 @@ time_init(time)
 #define NDIV(x,y) (-(-((x)+1)/(y))-1)
 #define NMOD(x,y) ((y)-(-((x)+1)%(y))-1)
 
-void
+static void
 time_overflow_p(secp, usecp)
     time_t *secp, *usecp;
 {
@@ -139,6 +140,7 @@ time_overflow_p(secp, usecp)
     *usecp = usec;
 }
 
+static VALUE time_new_internal _((VALUE, time_t, time_t));
 static VALUE
 time_new_internal(klass, sec, usec)
     VALUE klass;
@@ -193,7 +195,7 @@ time_timeval(time, interval)
 	    if (f != t.tv_sec) {
 		rb_raise(rb_eRangeError, "%f out of Time range", RFLOAT(time)->value);
 	    }
-	    t.tv_usec = (time_t)(d*1e6);
+	    t.tv_usec = (time_t)(d*1e6+0.5);
 	}
 	break;
 
@@ -486,6 +488,16 @@ tmcmp(a, b)
         return 0;
 }
 
+#if SIZEOF_TIME_T == SIZEOF_LONG
+typedef unsigned long unsigned_time_t;
+#elif SIZEOF_TIME_T == SIZEOF_INT
+typedef unsigned int unsigned_time_t;
+#elif SIZEOF_TIME_T == SIZEOF_LONG_LONG
+typedef unsigned LONG_LONG unsigned_time_t;
+#else
+# error cannot find integer type which size is same as time_t.
+#endif
+
 static time_t
 search_time_t(tptr, utc_p)
     struct tm *tptr;
@@ -499,12 +511,12 @@ search_time_t(tptr, utc_p)
     find_dst = 0 < tptr->tm_isdst;
 
 #ifdef NEGATIVE_TIME_T
-    guess_lo = 1L << (8 * sizeof(time_t) - 1);
+    guess_lo = (time_t)~((unsigned_time_t)~(time_t)0 >> 1);
 #else
     guess_lo = 0;
 #endif
     guess_hi = ((time_t)-1) < ((time_t)0) ?
-               (1UL << (8 * sizeof(time_t) - 1)) - 1 :
+	       (time_t)((unsigned_time_t)~(time_t)0 >> 1) :
 	       ~(time_t)0;
 
     guess = timegm_noleapsecond(tptr);
@@ -1031,6 +1043,7 @@ time_hash(time)
     return LONG2FIX(hash);
 }
 
+/* :nodoc: */
 static VALUE
 time_init_copy(copy, time)
     VALUE copy, time;
@@ -1053,7 +1066,7 @@ static VALUE
 time_dup(time)
     VALUE time;
 {
-    VALUE dup = time_s_alloc(rb_cTime);
+    VALUE dup = time_s_alloc(CLASS_OF(time));
     time_init_copy(dup, time);
     return dup;
 }
@@ -1249,20 +1262,25 @@ time_to_s(time)
 	len = strftime(buf, 128, "%a %b %d %H:%M:%S UTC %Y", &tobj->tm);
     }
     else {
-	len = strftime(buf, 128, "%a %b %d %H:%M:%S %Z %Y", &tobj->tm);
+	time_t off;
+	char buf2[32];
+	char sign = '+';
+#if defined(HAVE_STRUCT_TM_TM_GMTOFF)
+	off = tobj->tm.tm_gmtoff;
+#else
+	VALUE tmp = time_utc_offset(time);
+	off = NUM2INT(tmp);
+#endif
+	if (off < 0) {
+	    sign = '-';
+	    off = -off;
+	}
+	sprintf(buf2, "%%a %%b %%d %%H:%%M:%%S %c%02d%02d %%Y",
+		sign, (int)(off/3600), (int)(off%3600/60));
+	len = strftime(buf, 128, buf2, &tobj->tm);
     }
     return rb_str_new(buf, len);
 }
-
-#if SIZEOF_TIME_T == SIZEOF_LONG
-typedef unsigned long unsigned_time_t;
-#elif SIZEOF_TIME_T == SIZEOF_INT
-typedef unsigned int unsigned_time_t;
-#elif SIZEOF_TIME_T == SIZEOF_LONG_LONG
-typedef unsigned long long unsigned_time_t;
-#else
-# error cannot find integer type which size is same as time_t.
-#endif
 
 static VALUE
 time_add(tobj, offset, sign)
@@ -1285,7 +1303,7 @@ time_add(tobj, offset, sign)
     if (f != (double)sec_off)
         rb_raise(rb_eRangeError, "time %s %f out of Time range",
             sign < 0 ? "-" : "+", v);
-    usec_off = (time_t)(d*1e6);
+    usec_off = (time_t)(d*1e6+0.5);
 
     if (sign < 0) {
         sec = tobj->tv.tv_sec - sec_off;
@@ -1742,12 +1760,11 @@ time_to_a(time)
 #define SMALLBUF 100
 static int
 rb_strftime(buf, format, time)
-    char ** volatile buf;
-    char * volatile format;
-    struct tm * volatile time;
+    char **buf;
+    const char *format;
+    struct tm *time;
 {
-    volatile int size;
-    int len, flen;
+    int size, len, flen;
 
     (*buf)[0] = '\0';
     flen = strlen(format);
@@ -1819,8 +1836,8 @@ time_strftime(time, format)
     VALUE time, format;
 {
     struct time_object *tobj;
-    char buffer[SMALLBUF];
-    char *fmt, *buf = buffer;
+    char buffer[SMALLBUF], *buf = buffer;
+    const char *fmt;
     long len;
     VALUE str;
 
@@ -1829,6 +1846,7 @@ time_strftime(time, format)
 	time_get_tm(time, tobj->gmt);
     }
     StringValue(format);
+    format = rb_str_new4(format);
     fmt = RSTRING(format)->ptr;
     len = RSTRING(format)->len;
     if (len == 0) {
@@ -1836,19 +1854,19 @@ time_strftime(time, format)
     }
     else if (strlen(fmt) < len) {
 	/* Ruby string may contain \0's. */
-	char *p = fmt, *pe = fmt + len;
+	const char *p = fmt, *pe = fmt + len;
 
 	str = rb_str_new(0, 0);
 	while (p < pe) {
 	    len = rb_strftime(&buf, p, &tobj->tm);
 	    rb_str_cat(str, buf, len);
-	    p += strlen(p) + 1;
-	    if (p <= pe)
-		rb_str_cat(str, "\0", 1);
+	    p += strlen(p);
 	    if (buf != buffer) {
 		free(buf);
 		buf = buffer;
 	    }
+	    for (fmt = p; p < pe && !*p; ++p);
+	    if (p > fmt) rb_str_cat(str, fmt, p - fmt);
 	}
 	return str;
     }
@@ -1898,7 +1916,7 @@ time_mdump(time)
     if ((tm->tm_year & 0xffff) != tm->tm_year)
 	rb_raise(rb_eArgError, "year too big to marshal");
 
-    p = 0x1          << 31 | /*  1 */
+    p = 0x1UL        << 31 | /*  1 */
 	tm->tm_year  << 14 | /* 16 */
 	tm->tm_mon   << 10 | /*  4 */
 	tm->tm_mday  <<  5 | /*  5 */
@@ -1974,12 +1992,12 @@ time_mload(time, str)
 	s |= buf[i]<<(8*(i-4));
     }
 
-    if ((p & (1<<31)) == 0) {
+    if ((p & (1UL<<31)) == 0) {
 	sec = p;
 	usec = s;
     }
     else {
-	p &= ~(1<<31);
+       p &= ~(1UL<<31);
 	tm.tm_year = (p >> 14) & 0xffff;
 	tm.tm_mon  = (p >> 10) & 0xf;
 	tm.tm_mday = (p >>  5) & 0x1f;

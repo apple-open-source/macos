@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@ extern boolean_t		shared_dns_info_server(mach_msg_header_t *, mach_msg_header_t 
 /* configd server port (for new session requests) */
 static CFMachPortRef		configd_port		= NULL;
 
-/* priviledged bootstrap port (for registering/unregistering w/mach_init) */
+/* priviledged bootstrap port (for registering/unregistering w/launchd) */
 static mach_port_t		priv_bootstrap_port	= MACH_PORT_NULL;
 
 __private_extern__
@@ -66,32 +66,6 @@ boolean_t
 config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 {
 	Boolean				processed = FALSE;
-	serverSessionRef		thisSession;
-	mach_msg_format_0_trailer_t	*trailer;
-
-	thisSession = getSession(request->msgh_local_port);
-	if (thisSession) {
-		/*
-		 * Get the caller's credentials (eUID/eGID) from the message trailer.
-		 */
-		trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
-							  round_msg(request->msgh_size));
-
-		if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
-		    (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-			thisSession->callerEUID = trailer->msgh_sender.val[0];
-			thisSession->callerEGID = trailer->msgh_sender.val[1];
-		} else {
-			static Boolean warned	= FALSE;
-
-			if (!warned) {
-				SCLog(TRUE, LOG_WARNING, CFSTR("caller's credentials not available."));
-				warned = TRUE;
-			}
-			thisSession->callerEUID = 0;
-			thisSession->callerEGID = 0;
-		}
-	}
 
 	/*
 	 * (attempt to) process SCDynamicStore requests.
@@ -246,7 +220,7 @@ server_active(mach_port_t *restart_service_port)
 	status = bootstrap_check_in(bootstrap_port, service_name, restart_service_port);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
-			/* if we are being restarted by mach_init */
+			/* if we are being restarted by launchd */
 			priv_bootstrap_port = bootstrap_port;
 			break;
 		case BOOTSTRAP_SERVICE_ACTIVE :
@@ -260,7 +234,9 @@ server_active(mach_port_t *restart_service_port)
 			*restart_service_port = MACH_PORT_NULL;
 			break;
 		default :
-			fprintf(stderr, "bootstrap_check_in() failed: status=%d\n", status);
+			fprintf(stderr,
+				"bootstrap_check_in() failed: %s\n",
+				bootstrap_strerror(status));
 			exit (EX_UNAVAILABLE);
 	}
 
@@ -268,10 +244,25 @@ server_active(mach_port_t *restart_service_port)
 }
 
 
+static CFStringRef
+serverMPCopyDescription(const void *info)
+{
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<main DynamicStore MP>"));
+}
+
+
 __private_extern__
 void
-server_init(mach_port_t	restart_service_port, Boolean enableRestart)
+server_init(mach_port_t		restart_service_port,
+	    Boolean		enableRestart)
 {
+	CFMachPortContext	context		= { 0
+						  , (void *)1
+						  , NULL
+						  , NULL
+						  , serverMPCopyDescription
+						  };
+
 	CFRunLoopSourceRef	rls;
 	char			*service_name;
 	mach_port_t		service_port	= restart_service_port;
@@ -290,7 +281,7 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 		status = bootstrap_check_in(bootstrap_port, service_name, &service_port);
 		switch (status) {
 			case BOOTSTRAP_SUCCESS :
-				/* if we are being restarted by mach_init */
+				/* if we are being restarted by launchd */
 				priv_bootstrap_port = bootstrap_port;
 				break;
 			case BOOTSTRAP_NOT_PRIVILEGED :
@@ -306,7 +297,9 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 									 FALSE,		/* not onDemand == restart now */
 									 &priv_bootstrap_port);
 					if (status != BOOTSTRAP_SUCCESS) {
-						SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_create_server() failed: status=%d"), status);
+						SCLog(TRUE, LOG_ERR,
+						      CFSTR("server_init bootstrap_create_server() failed: %s"),
+						      bootstrap_strerror(status));
 						exit (EX_UNAVAILABLE);
 					}
 				} else {
@@ -315,13 +308,17 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 
 				status = bootstrap_create_service(priv_bootstrap_port, service_name, &service_send_port);
 				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_create_service() failed: status=%d"), status);
+					SCLog(TRUE, LOG_ERR,
+					      CFSTR("server_init bootstrap_create_service() failed: %s"),
+					      bootstrap_strerror(status));
 					exit (EX_UNAVAILABLE);
 				}
 
 				status = bootstrap_check_in(priv_bootstrap_port, service_name, &service_port);
 				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_check_in() failed: status=%d"), status);
+					SCLog(TRUE, LOG_ERR,
+					      CFSTR("server_init bootstrap_check_in() failed: %s"),
+					      bootstrap_strerror(status));
 					exit (EX_UNAVAILABLE);
 				}
 				break;
@@ -330,8 +327,10 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
 				exit (EX_UNAVAILABLE);
 			default :
-				SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_check_in() failed: status=%d"), status);
-				exit (EX_UNAVAILABLE);
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("server_init bootstrap_check_in() failed: %s"),
+			      bootstrap_strerror(status));
+			exit (EX_UNAVAILABLE);
 		}
 
 	}
@@ -339,19 +338,25 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 	/* we don't want to pass our priviledged bootstrap port along to any spawned helpers so... */
 	status = bootstrap_unprivileged(priv_bootstrap_port, &unpriv_bootstrap_port);
 	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_unprivileged() failed: status=%d"), status);
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("server_init bootstrap_unprivileged() failed: %s"),
+		      bootstrap_strerror(status));
 		exit (EX_UNAVAILABLE);
 	}
 
 	status = task_set_bootstrap_port(mach_task_self(), unpriv_bootstrap_port);
 	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("server_init task_set_bootstrap_port(): %s"),
-			mach_error_string(status));
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("server_init task_set_bootstrap_port(): %s"),
+		      mach_error_string(status));
 		exit (EX_UNAVAILABLE);
 	}
 
+	/* ... and make sure that the global "bootstrap_port" is also unpriviledged */
+	bootstrap_port = unpriv_bootstrap_port;
+
 	/* Create the primary / new connection port */
-	configd_port = CFMachPortCreateWithPort(NULL, service_port, configdCallback, NULL, NULL);
+	configd_port = CFMachPortCreateWithPort(NULL, service_port, configdCallback, &context, NULL);
 
 	/*
 	 * Create and add a run loop source for the port and add this source
@@ -404,15 +409,12 @@ server_shutdown()
 			break;
 		case MACH_SEND_INVALID_DEST :
 		case MIG_SERVER_DIED :
-			/* something happened to mach_init */
+			/* something happened to launchd */
 			break;
 		default :
-			if (_configd_verbose) {
-				syslog (LOG_ERR, "bootstrap_register() failed: status=%d"  , status);
-			} else {
-				fprintf(stderr,  "bootstrap_register() failed: status=%d\n", status);
-				fflush (stderr);
-			}
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("server_shutdown bootstrap_register(): %s"),
+			      bootstrap_strerror(status));
 			return EX_UNAVAILABLE;
 	}
 

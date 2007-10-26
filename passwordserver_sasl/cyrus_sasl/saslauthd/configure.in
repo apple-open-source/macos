@@ -15,7 +15,7 @@ AC_ARG_WITH(saslauthd, [  --with-saslauthd=DIR    enable use of the saslauth dae
   AC_DEFINE_UNQUOTED(PATH_SASLAUTHD_RUNDIR, "$with_saslauthd",[Location of saslauthd socket])
 AM_CONDITIONAL(SASLAUTHD, test "$with_saslauthd" != no)
 
-AM_INIT_AUTOMAKE(saslauthd,2.1.18)
+AM_INIT_AUTOMAKE(saslauthd,2.1.22)
 CMU_INIT_AUTOMAKE
 
 dnl Checks for programs.
@@ -151,6 +151,9 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST  
 AC_TYPE_PID_T
 
+LTLIBOBJS=`echo "$LIB@&t@OBJS" | sed 's,\.[[^.]]* ,.lo ,g;s,\.[[^.]]*$,.lo,'`
+AC_SUBST(LTLIBOBJS)
+
 dnl Checks for which function macros exist
 AC_MSG_CHECKING(whether $CC implements __func__)
 AC_CACHE_VAL(have_func,
@@ -277,6 +280,13 @@ struct iovec {
 #define getnameinfo     sasl_getnameinfo
 #define gai_strerror    sasl_gai_strerror
 #include "gai.h"
+#endif
+
+#ifndef AI_NUMERICHOST   /* support glibc 2.0.x */
+#define	AI_NUMERICHOST	4
+#define NI_NUMERICHOST	2
+#define NI_NAMEREQD	4
+#define NI_NUMERICSERV	8
 #endif
 
 /* handy string manipulation functions */

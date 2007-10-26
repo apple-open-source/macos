@@ -42,7 +42,7 @@
 .Nm chgrp
 .Nd change group
 .Sh SYNOPSIS
-.Nm
+.Nm chgrp
 .Op Fl fhv
 .Oo
 .Fl R
@@ -52,7 +52,7 @@
 .Ar
 .Sh DESCRIPTION
 The
-.Nm
+.Nm chgrp
 utility sets the group ID of the file named by each
 .Ar file
 operand to the
@@ -61,32 +61,39 @@ ID specified by the group operand.
 .Pp
 The following options are available:
 .Bl -tag -width indent
+.\" ==========
+.It Fl f
+The force option ignores errors, except for usage errors and doesn't
+query about strange modes (unless the user does not have proper permissions).
+.\" ==========
 .It Fl H
 If the
 .Fl R
 option is specified, symbolic links on the command line are followed.
 (Symbolic links encountered in the tree traversal are not followed).
+.\" ==========
+.It Fl h
+If the file is a symbolic link, the group ID of the link itself is changed
+rather than the file that is pointed to.
+.\" ==========
 .It Fl L
 If the
 .Fl R
 option is specified, all symbolic links are followed.
+.\" ==========
 .It Fl P
 If the
 .Fl R
 option is specified, no symbolic links are followed.
 This is the default.
+.\" ==========
 .It Fl R
 Change the group ID for the file hierarchies rooted
 in the files instead of just the files themselves.
-.It Fl f
-The force option ignores errors, except for usage errors and doesn't
-query about strange modes (unless the user does not have proper permissions).
-.It Fl h
-If the file is a symbolic link, the group ID of the link itself is changed
-rather than the file that is pointed to.
+.\" ==========
 .It Fl v
 Cause
-.Nm
+.Nm chgrp
 to be verbose, showing files as the group is modified.
 .El
 .Pp
@@ -109,7 +116,7 @@ If a group name is also a numeric group ID, the operand is used as a
 group name.
 .Pp
 The user invoking
-.Nm
+.Nm chgrp
 must belong to the specified group and be the owner of the file,
 or be the super-user.
 .Sh DIAGNOSTICS
@@ -134,7 +141,7 @@ group ID file
 .Xr chown 8
 .Sh STANDARDS
 The
-.Nm
+.Nm chgrp
 utility is expected to be
 .St -p1003.2
 compatible.

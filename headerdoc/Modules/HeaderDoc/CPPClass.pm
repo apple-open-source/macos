@@ -5,7 +5,7 @@
 # from a C++ header
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:12 $
+# Last Updated: $Date: 2005/10/15 01:26:29 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -41,7 +41,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.13.2.14.2.28 $';
+$VERSION = '$Revision: 1.13.2.14.2.33 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -102,7 +102,7 @@ sub isCOMInterface {
 }
 
 
-sub _getCompositePageString { 
+sub _old_getCompositePageString { 
     my $self = shift;
     my $name = $self->name();
     my $compositePageString;
@@ -222,7 +222,7 @@ sub _getCompositePageString {
 
 
 # overriding inherited method to add access type on line above declaration
-sub _getFunctionDetailString {
+sub _old__getFunctionDetailString {
     my $self = shift;
     my $composite = shift;
     my @funcObjs = $self->functions();
@@ -271,7 +271,7 @@ sub _getFunctionDetailString {
 	$contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
 	$contentString .= "<tr>";
 	$contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-	my $urlname = sanitize($name);
+	my $urlname = sanitize($name, 1);
 	$contentString .= "<h2><a name=\"$urlname\">$parentclass$name</a></h2>\n";
 	$contentString .= "</td>";
 	$contentString .= "</tr></table>";
@@ -303,11 +303,11 @@ sub _getFunctionDetailString {
 	            my $pDesc = $element->discussion();
 	            if (length ($pName)) {
 	                # $paramContentString .= "<tr><td align=\"center\"><tt>$pName</tt></td><td>$pDesc</td></tr>\n";
-	                $paramContentString .= "<dt><tt><em>$pName</em></tt></dt><dd>$pDesc</dd>\n";
+	                $paramContentString .= "<dt><tt>$pName</tt></dt><dd>$pDesc</dd>\n";
 	            }
 	        }
 	        if (length ($paramContentString)){
-		        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Parameter Descriptions</font></h5>\n";
+		        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Parameters</font></h5>\n";
 		        $contentString .= "<blockquote>\n";
 		        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
 		        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
@@ -326,7 +326,7 @@ sub _getFunctionDetailString {
     return $contentString;
 }
 
-sub _getVarDetailString {
+sub _old__getVarDetailString {
     my $self = shift;
     my $composite = shift;
     my @varObjs = $self->vars();
@@ -350,14 +350,14 @@ sub _getVarDetailString {
         my $fieldHeading;
         if ($obj->can('fields')) { # for Structs, Unions, and Typedefs
             @fields = $obj->fields();
-            $fieldHeading = "Field Descriptions";
+            $fieldHeading = "Fields";
         } elsif ($obj->can('constants')) { # for enums
             @fields = $obj->constants();
             $fieldHeading = "Constants";
         }
         if ($obj->can('isFunctionPointer')) {
         	if ($obj->isFunctionPointer()) {
-            	$fieldHeading = "Parameter Descriptions";
+            	$fieldHeading = "Parameters";
         	}
         }
 
@@ -378,7 +378,7 @@ sub _getVarDetailString {
 	$contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
 	$contentString .= "<tr>";
 	$contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-	my $urlname = sanitize($name);
+	my $urlname = sanitize($name, 1);
 	$contentString .= "<h2><a name=\"$urlname\">$name</a></h2>\n";
 	$contentString .= "</td>";
 	$contentString .= "</tr></table>";
@@ -431,7 +431,7 @@ sub getMethodType {
 	}
 	if ($self->sublang() eq "C") {
 		# COM interfaces, C pseudoclasses
-		$methodType = "func";
+		$methodType = "intfm";
 	}
 	return $methodType;
 }

@@ -1,7 +1,7 @@
 ;;; gnus-soup.el --- SOUP packet writing support for Gnus
 
-;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
-;;	Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Per Abrahamsen <abraham@iesd.auc.dk>
 ;;	Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -36,36 +36,64 @@
 (require 'gnus-start)
 (require 'gnus-range)
 
+(defgroup gnus-soup nil
+  "SOUP packet writing support for Gnus."
+  :group 'gnus)
+
 ;;; User Variables:
 
-(defvar gnus-soup-directory (nnheader-concat gnus-home-directory "SoupBrew/")
-  "*Directory containing an unpacked SOUP packet.")
+(defcustom gnus-soup-directory (nnheader-concat gnus-home-directory "SoupBrew/")
+  "Directory containing an unpacked SOUP packet."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'directory
+  :group 'gnus-soup)
 
-(defvar gnus-soup-replies-directory
+(defcustom gnus-soup-replies-directory
   (nnheader-concat gnus-soup-directory "SoupReplies/")
-  "*Directory where Gnus will do processing of replies.")
+  "Directory where Gnus will do processing of replies."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'directory
+  :group 'gnus-soup)
 
-(defvar gnus-soup-prefix-file "gnus-prefix"
-  "*Name of the file where Gnus stores the last used prefix.")
+(defcustom gnus-soup-prefix-file "gnus-prefix"
+  "Name of the file where Gnus stores the last used prefix."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'file
+  :group 'gnus-soup)
 
-(defvar gnus-soup-packer "tar cf - %s | gzip > $HOME/Soupout%d.tgz"
+(defcustom gnus-soup-packer "tar cf - %s | gzip > $HOME/Soupout%d.tgz"
   "Format string command for packing a SOUP packet.
 The SOUP files will be inserted where the %s is in the string.
 This string MUST contain both %s and %d.  The file number will be
-inserted where %d appears.")
+inserted where %d appears."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'string
+  :group 'gnus-soup)
 
-(defvar gnus-soup-unpacker "gunzip -c %s | tar xvf -"
-  "*Format string command for unpacking a SOUP packet.
-The SOUP packet file name will be inserted at the %s.")
+(defcustom gnus-soup-unpacker "gunzip -c %s | tar xvf -"
+  "Format string command for unpacking a SOUP packet.
+The SOUP packet file name will be inserted at the %s."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'string
+  :group 'gnus-soup)
 
-(defvar gnus-soup-packet-directory gnus-home-directory
-  "*Where gnus-soup will look for REPLIES packets.")
+(defcustom gnus-soup-packet-directory gnus-home-directory
+  "Where gnus-soup will look for REPLIES packets."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'directory
+  :group 'gnus-soup)
 
-(defvar gnus-soup-packet-regexp "Soupin"
-  "*Regular expression matching SOUP REPLIES packets in `gnus-soup-packet-directory'.")
+(defcustom gnus-soup-packet-regexp "Soupin"
+  "Regular expression matching SOUP REPLIES packets in `gnus-soup-packet-directory'."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'regexp
+  :group 'gnus-soup)
 
-(defvar gnus-soup-ignored-headers "^Xref:"
-  "*Regexp to match headers to be removed when brewing SOUP packets.")
+(defcustom gnus-soup-ignored-headers "^Xref:"
+  "Regexp to match headers to be removed when brewing SOUP packets."
+  :version "22.1" ;; Gnus 5.10.9
+  :type 'regexp
+  :group 'gnus-soup)
 
 ;;; Internal Variables:
 
@@ -154,11 +182,11 @@ move those articles instead."
 			   gnus-soup-encoding-type
 			   gnus-soup-index-type)
 	  (gnus-soup-area-set-number
-	   area (1+ (or (gnus-soup-area-number area) 0))))
-	;; Mark article as read.
-	(set-buffer gnus-summary-buffer)
+	   area (1+ (or (gnus-soup-area-number area) 0)))
+	  ;; Mark article as read.
+	  (set-buffer gnus-summary-buffer)
+	  (gnus-summary-mark-as-read (car articles) gnus-souped-mark))
 	(gnus-summary-remove-process-mark (car articles))
-	(gnus-summary-mark-as-read (car articles) gnus-souped-mark)
 	(setq articles (cdr articles)))
       (kill-buffer tmp-buf))
     (gnus-soup-save-areas)
@@ -349,17 +377,17 @@ If NOT-ALL, don't pack ticked articles."
 	 (packer (if (< (string-match "%s" packer)
 			(string-match "%d" packer))
 		     (format packer files
-			     (string-to-int (gnus-soup-unique-prefix dir)))
+			     (string-to-number (gnus-soup-unique-prefix dir)))
 		   (format packer
-			   (string-to-int (gnus-soup-unique-prefix dir))
+			   (string-to-number (gnus-soup-unique-prefix dir))
 			   files)))
 	 (dir (expand-file-name dir)))
     (gnus-make-directory dir)
     (setq gnus-soup-areas nil)
     (gnus-message 4 "Packing %s..." packer)
-    (if (zerop (call-process shell-file-name
-			     nil nil nil shell-command-switch
-			     (concat "cd " dir " ; " packer)))
+    (if (eq 0 (call-process shell-file-name
+			    nil nil nil shell-command-switch
+			    (concat "cd " dir " ; " packer)))
 	(progn
 	  (call-process shell-file-name nil nil nil shell-command-switch
 			(concat "cd " dir " ; rm " files))
@@ -385,7 +413,7 @@ though the two last may be nil if they are missing."
 			(and (eq (preceding-char) ?\t)
 			     (gnus-soup-field))
 			(and (eq (preceding-char) ?\t)
-			     (string-to-int (gnus-soup-field))))
+			     (string-to-number (gnus-soup-field))))
 		areas)
 	  (when (eq (preceding-char) ?\t)
 	    (beginning-of-line 2)))
@@ -496,10 +524,10 @@ Return whether the unpacking was successful."
   (gnus-make-directory dir)
   (gnus-message 4 "Unpacking: %s" (format unpacker packet))
   (prog1
-      (zerop (call-process
-	      shell-file-name nil nil nil shell-command-switch
-	      (format "cd %s ; %s" (expand-file-name dir)
-		      (format unpacker packet))))
+      (eq 0 (call-process
+	     shell-file-name nil nil nil shell-command-switch
+	     (format "cd %s ; %s" (expand-file-name dir)
+		     (format unpacker packet))))
     (gnus-message 4 "Unpacking...done")))
 
 (defun gnus-soup-send-packet (packet)
@@ -535,31 +563,40 @@ Return whether the unpacking was successful."
 		(error "Bad header"))
 	      (forward-line 1)
 	      (setq beg (point)
-		    end (+ (point) (string-to-int
+		    end (+ (point) (string-to-number
 				    (buffer-substring
 				     (match-beginning 1) (match-end 1)))))
 	      (switch-to-buffer tmp-buf)
 	      (erase-buffer)
+	      (mm-disable-multibyte)
 	      (insert-buffer-substring msg-buf beg end)
-	      (goto-char (point-min))
-	      (search-forward "\n\n")
-	      (forward-char -1)
-	      (insert mail-header-separator)
-	      (setq message-newsreader (setq message-mailer
-					     (gnus-extended-version)))
 	      (cond
 	       ((string= (gnus-soup-reply-kind (car replies)) "news")
 		(gnus-message 5 "Sending news message to %s..."
 			      (mail-fetch-field "newsgroups"))
 		(sit-for 1)
 		(let ((message-syntax-checks
-		       'dont-check-for-anything-just-trust-me))
-		  (funcall message-send-news-function)))
+		       'dont-check-for-anything-just-trust-me)
+		      (method (if (functionp message-post-method)
+				  (funcall message-post-method)
+				message-post-method))
+		      result)
+		  (run-hooks 'message-send-news-hook)
+		  (gnus-open-server method)
+		  (message "Sending news via %s..."
+			   (gnus-server-string method))
+		  (unless (let ((mail-header-separator ""))
+			    (gnus-request-post method))
+		    (message "Couldn't send message via news: %s"
+			     (nnheader-get-report (car method))))))
 	       ((string= (gnus-soup-reply-kind (car replies)) "mail")
 		(gnus-message 5 "Sending mail to %s..."
 			      (mail-fetch-field "to"))
 		(sit-for 1)
-		(message-send-mail))
+		(let ((mail-header-separator ""))
+		  (mm-with-unibyte-current-buffer
+		    (funcall (or message-send-mail-real-function
+				 message-send-mail-function)))))
 	       (t
 		(error "Unknown reply kind")))
 	      (set-buffer msg-buf)
@@ -573,4 +610,5 @@ Return whether the unpacking was successful."
 
 (provide 'gnus-soup)
 
+;;; arch-tag: eddfa69d-13e8-4aea-84ef-62a526ef185c
 ;;; gnus-soup.el ends here

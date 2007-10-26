@@ -1,8 +1,8 @@
 /* bind.c - monitor backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.8.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.14.2.3 2006/01/03 22:16:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -33,28 +33,19 @@
 int
 monitor_back_bind( Operation *op, SlapReply *rs )
 {
-#if 0	/* not used yet */
-	struct monitorinfo	*mi
-		= (struct monitorinfo *) op->o_bd->be_private;
-#endif
-
-#ifdef NEW_LOGGING
-	LDAP_LOG( BACK_MON, ENTRY, "monitor_back_bind: dn: %s.\n",
-			op->o_req_dn.bv_val, 0, 0 );
-#else
 	Debug(LDAP_DEBUG_ARGS, "==> monitor_back_bind: dn: %s\n", 
 			op->o_req_dn.bv_val, 0, 0 );
-#endif
 	
 	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE 
-			&& be_isroot_pw( op ) ) {
+			&& be_isroot_pw( op ) )
+	{
 		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
-		return( 0 );
+		return LDAP_SUCCESS;
 	}
 
 	rs->sr_err = LDAP_INVALID_CREDENTIALS;
 	send_ldap_result( op, rs );
 
-	return( 1 );
+	return rs->sr_err;
 }
 

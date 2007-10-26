@@ -26,8 +26,8 @@
 
 
 #include <IOKit/ps/IOUPSPlugIn.h>
+#include <IOKit/hid/IOHIDLib.h>
 #include "IOHIDIUnknown.h"
-#include "IOHIDLib.h"
 
 //---------------------------------------------------------------------------
 // UPSElementStruct

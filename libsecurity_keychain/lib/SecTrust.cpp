@@ -21,10 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Security/SecTrust.h>
-#include <Security/SecTrustPriv.h>
-#include <security_keychain/Trust.h>
+#include "SecTrust.h"
+#include "SecTrustPriv.h"
+#include "Trust.h"
+#include <security_keychain/SecTrustSettingsPriv.h>
 #include "SecBridge.h"
+#include "SecTrustSettings.h"
+#include "SecCertificatePriv.h"
+#include <security_utilities/cfutilities.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 //
 // CF boilerplate
@@ -50,7 +55,7 @@ OSStatus SecTrustCreateWithCertificates(
     BEGIN_SECAPI
 	Required(trustRef);
     *trustRef = (new Trust(certificates, policies))->handle();
-    END_SECAPI
+    END_SECAPI2("SecTrustCreateWithCertificates")
 }
 
 
@@ -59,7 +64,7 @@ SecTrustSetPolicies(SecTrustRef trustRef, CFTypeRef policies)
 {
 	BEGIN_SECAPI
 	Trust::required(trustRef)->policies(policies);
-	END_SECAPI
+	END_SECAPI2("SecTrustSetPolicies")
 }
 
 
@@ -72,7 +77,7 @@ OSStatus SecTrustSetParameters(
     Trust *trust = Trust::required(trustRef);
     trust->action(action);
     trust->actionData(actionData);
-    END_SECAPI
+    END_SECAPI2("SecTrustSetParameters")
 }
 
 
@@ -80,7 +85,7 @@ OSStatus SecTrustSetAnchorCertificates(SecTrustRef trust, CFArrayRef anchorCerti
 {
     BEGIN_SECAPI
     Trust::required(trust)->anchors(anchorCertificates);
-    END_SECAPI
+    END_SECAPI2("SecTrustSetAnchorCertificates")
 }
 
 
@@ -90,7 +95,7 @@ OSStatus SecTrustSetKeychains(SecTrustRef trust, CFTypeRef keychainOrArray)
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
     Trust::required(trust)->searchLibs() = keychains;
-    END_SECAPI
+    END_SECAPI2("SecTrustSetKeychains")
 }
 
 
@@ -98,7 +103,7 @@ OSStatus SecTrustSetVerifyDate(SecTrustRef trust, CFDateRef verifyDate)
 {
     BEGIN_SECAPI
     Trust::required(trust)->time(verifyDate);
-    END_SECAPI
+    END_SECAPI2("SecTrustSetVerifyDate")
 }
 
 
@@ -107,9 +112,11 @@ OSStatus SecTrustEvaluate(SecTrustRef trustRef, SecTrustResultType *resultP)
     BEGIN_SECAPI
     Trust *trust = Trust::required(trustRef);
     trust->evaluate();
-    if (resultP)
+    if (resultP) {
         *resultP = trust->result();
-    END_SECAPI
+        secdebug("SecTrustEvaluate", "SecTrustEvaluate trust result = %d", (int)*resultP);
+    }
+    END_SECAPI2("SecTrustEvaluate")
 }
 
 
@@ -127,7 +134,7 @@ OSStatus SecTrustGetResult(
         *result = trust->result();
     if (certChain && statusChain)
         trust->buildEvidence(*certChain, TPEvidenceInfo::overlayVar(*statusChain));
-    END_SECAPI
+    END_SECAPI2("SecTrustGetResult")
 }
 
 
@@ -138,7 +145,7 @@ OSStatus SecTrustGetCssmResult(SecTrustRef trust, CSSM_TP_VERIFY_CONTEXT_RESULT_
 {
     BEGIN_SECAPI
     Required(result) = Trust::required(trust)->cssmResult();
-    END_SECAPI
+    END_SECAPI2("SecTrustGetCssmResult")
 }
 
 //
@@ -152,27 +159,49 @@ OSStatus SecTrustGetCssmResultCode(SecTrustRef trustRef, OSStatus *result)
 		return paramErr; 
 	else
 		Required(result) = trust->cssmResultCode();
-    END_SECAPI
+    END_SECAPI2("SecTrustGetCssmResultCode")
 }
 
 OSStatus SecTrustGetTPHandle(SecTrustRef trust, CSSM_TP_HANDLE *handle)
 {
     BEGIN_SECAPI
     Required(handle) = Trust::required(trust)->getTPHandle();
-    END_SECAPI
+    END_SECAPI2("SecTrustGetTPHandle")
 }
 
+OSStatus SecTrustCopyPolicies(SecTrustRef trust, CFArrayRef *policies)
+{
+    BEGIN_SECAPI
+    CFRef<CFArrayRef> currentPolicies(Trust::required(trust)->policies());
+    Required(policies) =  (currentPolicies) ?
+        (const CFArrayRef) CFRetain(currentPolicies) : (const CFArrayRef) NULL;
+    END_SECAPI2("SecTrustCopyPolicies")
+}
+
+OSStatus SecTrustCopyCustomAnchorCertificates(SecTrustRef trust, CFArrayRef *anchorCertificates)
+{
+    BEGIN_SECAPI
+    CFRef<CFArrayRef> customAnchors(Trust::required(trust)->anchors());
+    Required(anchorCertificates) = (customAnchors) ?
+        (const CFArrayRef)CFRetain(customAnchors) : (const CFArrayRef)NULL;
+    END_SECAPI2("SecTrustCopyCustomAnchorCertificates")
+}
 
 //
 // Get the user's default anchor certificate set
 //
-OSStatus SecTrustCopyAnchorCertificates(CFArrayRef* anchorCertificates)
+OSStatus SecTrustCopyAnchorCertificates(CFArrayRef *anchorCertificates)
 {
     BEGIN_SECAPI
-	Required(anchorCertificates) = Trust::gStore().copyRootCertificates();
-    END_SECAPI
+
+	return SecTrustSettingsCopyUnrestrictedRoots(
+		true, true, true,		/* all domains */
+		anchorCertificates);
+
+    END_SECAPI2("SecTrustCopyAnchorCertificates")
 }
 
+/* deprecated in 10.5 */
 OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 	uint32 *cssmAnchorCount)
 {
@@ -181,24 +210,81 @@ OSStatus SecTrustGetCSSMAnchorCertificates(const CSSM_DATA **cssmAnchors,
 	Trust::gStore().getCssmRootCertificates(certs);
 	Required(cssmAnchors) = certs.blobCerts();
 	Required(cssmAnchorCount) = certs.count();
-	END_SECAPI
+	END_SECAPI2("SecTrustGetCSSMAnchorCertificates")
 }
 
 
 //
-// Get and set user trust settings
+// Get and set user trust settings. Deprecated in 10.5. 
+// User Trust getter, deprecated, works as it always has. 
 //
 OSStatus SecTrustGetUserTrust(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting *trustSetting)
 {
 	BEGIN_SECAPI
+	StorageManager::KeychainList searchList;
+	globals().storageManager.getSearchList(searchList);
 	Required(trustSetting) = Trust::gStore().find(
 		Certificate::required(certificate),
-		Policy::required(policy));
-	END_SECAPI
+		Policy::required(policy),
+		searchList);
+	END_SECAPI2("SecTrustGetUserTrust")
 }
 
+//
+// The public setter, also deprecated; it maps to the appropriate 
+// Trust Settings call if possible, else throws unimpErr. 
+//
 OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
+    SecPolicyRef policy, SecTrustUserSetting trustSetting)
+{
+	SecTrustSettingsResult tsResult = kSecTrustSettingsResultInvalid;
+	OSStatus ortn;
+	Boolean isRoot;
+
+	Policy::required(policy);
+	switch(trustSetting) {
+		case kSecTrustResultProceed:
+			/* different SecTrustSettingsResult depending in root-ness */
+			ortn = SecCertificateIsSelfSigned(certificate, &isRoot);
+			if(ortn) {
+				return ortn;
+			}
+			if(isRoot) {
+				tsResult = kSecTrustSettingsResultTrustRoot;
+			}
+			else {
+				tsResult = kSecTrustSettingsResultTrustAsRoot;
+			}
+			break;
+		case kSecTrustResultDeny:
+			tsResult = kSecTrustSettingsResultDeny;
+			break;
+		default:
+			return unimpErr;
+	}
+
+	/* make a usage constraints dictionary */
+	CFRef<CFMutableDictionaryRef> usageDict(CFDictionaryCreateMutable(NULL,
+		0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+	CFDictionaryAddValue(usageDict, kSecTrustSettingsPolicy, policy);
+	if(tsResult != kSecTrustSettingsResultTrustRoot) {
+		/* skip if we're specifying the default */
+		SInt32 result = tsResult;
+		CFNumberRef cfNum = CFNumberCreate(NULL, kCFNumberSInt32Type, &result);
+		CFDictionarySetValue(usageDict, kSecTrustSettingsResult, cfNum);
+		CFRelease(cfNum);
+	}
+	return SecTrustSettingsSetTrustSettings(certificate, kSecTrustSettingsDomainUser, 
+		usageDict);
+}
+
+//
+// This one is the now-private version of what SecTrustSetUserTrust() used to 
+// be. The public API can no longer manipulate User Trust settings, only 
+// view them. 
+//
+OSStatus SecTrustSetUserTrustLegacy(SecCertificateRef certificate,
     SecPolicyRef policy, SecTrustUserSetting trustSetting)
 {
 	BEGIN_SECAPI
@@ -215,7 +301,7 @@ OSStatus SecTrustSetUserTrust(SecCertificateRef certificate,
 		Certificate::required(certificate),
 		Policy::required(policy),
 		trustSetting);
-	END_SECAPI
+	END_SECAPI2("SecTrustSetUserTrustLegacy")
 }
 
 /*   SecGetAppleTPHandle - @@@NOT EXPORTED YET; copied from SecurityInterface, 

@@ -37,7 +37,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dfile.c,v 1.7 2006/03/23 21:28:26 ajn Exp $";
+static char *rcsid = "$Id: dfile.c,v 1.8 2007/05/14 23:03:14 lindak Exp $";
 #endif
 
 
@@ -94,7 +94,7 @@ enter_vnode_info(vip)
 /*
  * Derive file type.
  */
-	switch ((int)(vip->vip_vi.vi_stat.st_mode & S_IFMT)) {
+	switch ((int)(vip->vip_vi.vi_stat.vst_mode & S_IFMT)) {
 	case S_IFIFO:
 	    cp = "FIFO";
 	    Ntype = N_FIFO;
@@ -117,7 +117,7 @@ enter_vnode_info(vip)
 	    break;
 	default:
 	    (void) snpf(buf, sizeof(buf), "%04o",
-		(((vip->vip_vi.vi_stat.st_mode & S_IFMT) >> 12) & 0xfff));
+		(((vip->vip_vi.vi_stat.vst_mode & S_IFMT) >> 12) & 0xfff));
 	    cp = buf;
 	    Ntype = N_REGLR;
 	}
@@ -132,11 +132,11 @@ enter_vnode_info(vip)
 	    break;
 	case N_CHR:
 	case N_BLK:
-	    Lf->rdev = vip->vip_vi.vi_stat.st_rdev;
+	    Lf->rdev = vip->vip_vi.vi_stat.vst_rdev;
 	    Lf->rdev_def = 1;
 	    /* fall through */
 	default:
-	    Lf->dev = dev = vip->vip_vi.vi_stat.st_dev;
+	    Lf->dev = dev = vip->vip_vi.vi_stat.vst_dev;
 	    Lf->dev_def = devs = 1;
 	}
 /*
@@ -149,13 +149,13 @@ enter_vnode_info(vip)
 /*
  * Save node number.
  */
-	Lf->inode = (INODETYPE)vip->vip_vi.vi_stat.st_ino;
+	Lf->inode = (INODETYPE)vip->vip_vi.vi_stat.vst_ino;
 	Lf->inp_ty = 1;
 /*
  * Save link count, as requested.
  */
 	if (Fnlink) {
-	    Lf->nlink = vip->vip_vi.vi_stat.st_nlink;
+	    Lf->nlink = vip->vip_vi.vi_stat.vst_nlink;
 	    Lf->nlink_def = 1;
 	}
 /*
@@ -179,7 +179,7 @@ enter_vnode_info(vip)
 	    Lf->off_def = 1;
 	    break;
 	default:
-	    Lf->sz = (SZOFFTYPE)vip->vip_vi.vi_stat.st_size;
+	    Lf->sz = (SZOFFTYPE)vip->vip_vi.vi_stat.vst_size;
 	    Lf->sz_def = 1;
 	}
 /*
@@ -316,7 +316,7 @@ process_kqueue(pid, fd)
  */
 	(void) snpf(Namech, Namechl,
 	    "count=%" SZOFFPSPEC "u, state=%#x",
-	    (SZOFFTYPE)kq.kqueueinfo.kq_stat.st_size,
+	    (SZOFFTYPE)kq.kqueueinfo.kq_stat.vst_size,
 	    kq.kqueueinfo.kq_state);
 	enter_nm(Namech);
 }
@@ -364,7 +364,7 @@ process_pipe(pid, fd)
 	if (Foffset)
 	    Lf->off_def = 1;
 	else {
-	    Lf->sz = (SZOFFTYPE)pi.pipeinfo.pipe_stat.st_blksize;
+	    Lf->sz = (SZOFFTYPE)pi.pipeinfo.pipe_stat.vst_blksize;
 	    Lf->sz_def = 1;
 	}
 /*
@@ -378,10 +378,10 @@ process_pipe(pid, fd)
 /*
  * If the pipe has a count, add it to the NAME column.
  */
-	if (pi.pipeinfo.pipe_stat.st_size) {
+	if (pi.pipeinfo.pipe_stat.vst_size) {
 	    ep = endnm(&sz);
 	    (void) snpf(ep, sz, ", cnt=%" SZOFFPSPEC "u",
-		(SZOFFTYPE)pi.pipeinfo.pipe_stat.st_size);
+		(SZOFFTYPE)pi.pipeinfo.pipe_stat.vst_size);
 	}
 }
 
@@ -486,7 +486,7 @@ process_pshm(pid, fd)
 	if (Foffset)
 	    Lf->off_def = 1;
 	else {
-	    Lf->sz = (SZOFFTYPE)ps.pshminfo.pshm_stat.st_size;
+	    Lf->sz = (SZOFFTYPE)ps.pshminfo.pshm_stat.vst_size;
 	    Lf->sz_def = 1;
 	}
 }

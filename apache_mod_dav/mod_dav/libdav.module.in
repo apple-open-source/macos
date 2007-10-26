@@ -1,5 +1,0 @@
-Name: dav_module
-ConfigStart
-	LIBS="@LIBS@ $LIBS"
-	RULE_EXPAT=yes
-ConfigEnd

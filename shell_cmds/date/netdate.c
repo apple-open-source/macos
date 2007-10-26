@@ -1,5 +1,3 @@
-/*	$NetBSD: netdate.c,v 1.16 1998/07/28 03:47:15 mycroft Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -12,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,14 +27,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)netdate.c	8.2 (Berkeley) 4/28/95";
-#else
-__RCSID("$NetBSD: netdate.c,v 1.16 1998/07/28 03:47:15 mycroft Exp $");
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)netdate.c	8.1 (Berkeley) 5/31/93";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/date/netdate.c,v 1.18 2004/04/06 20:06:45 markm Exp $");
 
 #include <sys/param.h>
 #include <sys/time.h>
@@ -53,7 +47,6 @@ __RCSID("$NetBSD: netdate.c,v 1.16 1998/07/28 03:47:15 mycroft Exp $");
 
 #include <err.h>
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -72,31 +65,26 @@ extern int retval;
  * Returns 0 on success.  Returns > 0 on failure, setting retval to 2;
  */
 int
-netsettime(tval)
-	time_t tval;
+netsettime(time_t tval)
 {
 	struct timeval tout;
 	struct servent *sp;
 	struct tsp msg;
-	struct sockaddr_in sin, dest, from;
+	struct sockaddr_in lsin, dest, from;
 	fd_set ready;
 	long waittime;
-	int s, length, timed_ack, found, error;
-#ifdef IP_PORTRANGE
-	int on;
-#endif
-	char hostname[MAXHOSTNAMELEN + 1];
+	int s, port, timed_ack, found, lerr;
+	socklen_t length;
+	char hostname[MAXHOSTNAMELEN];
 
 	if ((sp = getservbyname("timed", "udp")) == NULL) {
-		warnx("udp/timed: unknown service");
+		warnx("timed/udp: unknown service");
 		return (retval = 2);
 	}
 
-	(void)memset(&dest, 0, sizeof(dest));
-	dest.sin_len = sizeof(struct sockaddr_in);
-	dest.sin_family = AF_INET;
 	dest.sin_port = sp->s_port;
-	dest.sin_addr.s_addr = htonl(INADDR_ANY);
+	dest.sin_family = AF_INET;
+	dest.sin_addr.s_addr = htonl((u_long)INADDR_ANY);
 	s = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s < 0) {
 		if (errno != EPROTONOSUPPORT)
@@ -104,30 +92,30 @@ netsettime(tval)
 		return (retval = 2);
 	}
 
-#ifdef IP_PORTRANGE
-	on = IP_PORTRANGE_LOW;
-	if (setsockopt(s, IPPROTO_IP, IP_PORTRANGE, &on, sizeof(on)) < 0) {
-		warn("setsockopt");
+	memset(&lsin, 0, sizeof(lsin));
+	lsin.sin_family = AF_INET;
+	for (port = IPPORT_RESERVED - 1; port > IPPORT_RESERVED / 2; port--) {
+		lsin.sin_port = htons((u_short)port);
+		if (bind(s, (struct sockaddr *)&lsin, sizeof(lsin)) >= 0)
+			break;
+		if (errno == EADDRINUSE)
+			continue;
+		if (errno != EADDRNOTAVAIL)
+			warn("bind");
 		goto bad;
 	}
-#endif
-
-	(void)memset(&sin, 0, sizeof(sin));
-	sin.sin_len = sizeof(struct sockaddr_in);
-	sin.sin_family = AF_INET;
-	if (bind(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-		warn("bind");
+	if (port == IPPORT_RESERVED / 2) {
+		warnx("all ports in use");
 		goto bad;
 	}
-
 	msg.tsp_type = TSP_SETDATE;
 	msg.tsp_vers = TSPVERSION;
 	if (gethostname(hostname, sizeof(hostname))) {
 		warn("gethostname");
 		goto bad;
 	}
-	hostname[sizeof(hostname) - 1] = '\0';
-	(void)strncpy(msg.tsp_name, hostname, sizeof(hostname));
+	(void)strncpy(msg.tsp_name, hostname, sizeof(msg.tsp_name) - 1);
+	msg.tsp_name[sizeof(msg.tsp_name) - 1] = '\0';
 	msg.tsp_seq = htons((u_short)0);
 	msg.tsp_time.tv_sec = htonl((u_long)tval);
 	msg.tsp_time.tv_usec = htonl((u_long)0);
@@ -152,11 +140,11 @@ loop:
 	FD_SET(s, &ready);
 	found = select(FD_SETSIZE, &ready, (fd_set *)0, (fd_set *)0, &tout);
 
-	length = sizeof(error);
+	length = sizeof(lerr);
 	if (!getsockopt(s,
-	    SOL_SOCKET, SO_ERROR, (char *)&error, &length) && error) {
-		if (error != ECONNREFUSED)
-			warn("send (delayed error)");
+	    SOL_SOCKET, SO_ERROR, (char *)&lerr, &length) && lerr) {
+		if (lerr != ECONNREFUSED)
+			warnc(lerr, "send (delayed error)");
 		goto bad;
 	}
 
@@ -180,7 +168,7 @@ loop:
 			(void)close(s);
 			return (0);
 		default:
-			warnx("wrong ack received from timed: %s", 
+			warnx("wrong ack received from timed: %s",
 			    tsptype[msg.tsp_type]);
 			timed_ack = -1;
 			break;

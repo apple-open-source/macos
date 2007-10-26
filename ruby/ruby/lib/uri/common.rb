@@ -1,7 +1,7 @@
 # = uri/common.rb
 #
 # Author:: Akira Yamada <akira@ruby-lang.org>
-# Revision:: $Id: common.rb,v 1.11.2.4 2004/07/17 13:07:46 akira Exp $
+# Revision:: $Id: common.rb 11747 2007-02-15 02:41:45Z knu $
 # License:: 
 #   You can redistribute it and/or modify it under the same term as Ruby.
 #
@@ -88,7 +88,7 @@ module URI
       # host          = hostname | IPv4address | IPv6reference (RFC 2732)
       HOST = "(?:#{HOSTNAME}|#{IPV4ADDR}|#{IPV6REF})"
       # port          = *digit
-      PORT = "\d*"
+      PORT = '\d*'
       # hostport      = host [ ":" port ]
       HOSTPORT = "#{HOST}(?::#{PORT})?"
 
@@ -261,6 +261,7 @@ module URI
     # +unsafe+::
     #   Regexp that matches all symbols that must be replaced with codes.
     #   By default uses <tt>REGEXP::UNSAFE</tt>.
+    #   When this argument is a String, it represents a character set.
     #
     # == Description
     #
@@ -270,17 +271,20 @@ module URI
     #
     #   require 'uri'
     #
-    #   enc_uri = URI.escape("http://foobar.com/?a=\11\15")
+    #   enc_uri = URI.escape("http://example.com/?a=\11\15")
     #   p enc_uri
-    #   # => "http://foobar.com/?a=%09%0D"
+    #   # => "http://example.com/?a=%09%0D"
     #
     #   p URI.unescape(enc_uri)
-    #   # => "http://foobar.com/?a=\t\r"
+    #   # => "http://example.com/?a=\t\r"
+    #
+    #   p URI.escape("@?@!", "!?")
+    #   # => "@%3F@%21"
     #
     def escape(str, unsafe = UNSAFE)
       unless unsafe.kind_of?(Regexp)
         # perhaps unsafe is String object
-        unsafe = Regexp.new(Regexp.quote(unsafe), false, 'N')
+        unsafe = Regexp.new("[#{Regexp.quote(unsafe)}]", false, 'N')
       end
       str.gsub(unsafe) do |us|
         tmp = ''
@@ -305,12 +309,12 @@ module URI
     #
     #   require 'uri'
     #
-    #   enc_uri = URI.escape("http://foobar.com/?a=\11\15")
+    #   enc_uri = URI.escape("http://example.com/?a=\11\15")
     #   p enc_uri
-    #   # => "http://foobar.com/?a=%09%0D"
+    #   # => "http://example.com/?a=%09%0D"
     #
     #   p URI.unescape(enc_uri)
-    #   # => "http://foobar.com/?a=\t\r"
+    #   # => "http://example.com/?a=\t\r"
     #
     def unescape(str)
       str.gsub(ESCAPED) do
@@ -509,8 +513,8 @@ module URI
   #
   #   require 'uri'
   #
-  #   p URI.join("http:/localhost/","main.rbx")
-  #   # => #<URI::HTTP:0x2022ac02 URL:http:/localhost/main.php>
+  #   p URI.join("http://localhost/","main.rbx")
+  #   # => #<URI::HTTP:0x2022ac02 URL:http://localhost/main.rbx>
   #
   def self.join(*str)
     u = self.parse(str[0])
@@ -541,8 +545,8 @@ module URI
   #
   #   require "uri"
   #
-  #   URI.extract("text here http://foo.bar.org/bla and here mailto:test@ruby.com and here also.")
-  #   # => ["http://foo.bar.com/foobar", "mailto:foo@bar.com"]
+  #   URI.extract("text here http://foo.example.org/bla and here mailto:test@example.com and here also.")
+  #   # => ["http://foo.example.com/bla", "mailto:test@example.com"]
   #
   def self.extract(str, schemes = nil, &block)
     if block_given?

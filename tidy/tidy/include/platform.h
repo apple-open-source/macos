@@ -3,18 +3,14 @@
 
 /* platform.h -- Platform specifics
 
-  (c) 1998-2004 (W3C) MIT, ERCIM, Keio University
+  (c) 1998-2006 (W3C) MIT, ERCIM, Keio University
   See tidy.h for the copyright notice.
-
-  Changelog: The following changes were made by Apple to the original source.
-  12/21/04 sw Added "#define HAS_VSNPRINTF 1" for Mac OS X
-  05/10/04 sw Added "#define DFLT_REPL_CHARENC WIN1252" for Mac OS X
 
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2005/01/13 17:30:51 $ 
-    $Revision: 1.4 $ 
+    $Author: iccir $ 
+    $Date: 2007/02/08 05:55:18 $ 
+    $Revision: 1.8 $ 
 
 */
 
@@ -70,6 +66,11 @@ extern "C" {
 #define SUPPORT_ACCESSIBILITY_CHECKS 1
 #endif
 
+/* Enable/disable changes by Apple Inc. */
+#ifndef TIDY_APPLE_CHANGES
+#define TIDY_APPLE_CHANGES 1
+#endif
+
 
 /* Convenience defines for Mac platforms */
 
@@ -97,23 +98,26 @@ extern "C" {
 #endif
 #endif
 
+/* Apple Inc. Changes:
+   2004-12-21 swilkin Added "#define HAS_VSNPRINTF 1" for Mac OS X
+   2004-10-05 swilkin Added "#define DFLT_REPL_CHARENC WIN1252" for Mac OS X
+*/
+#if defined(TIDY_APPLE_CHANGES)
+#if defined(MAC_OS_X)
+#define HAS_VSNPRINTF 1
+#ifndef DFLT_REPL_CHARENC
+#define DFLT_REPL_CHARENC WIN1252
+#endif
+#endif
+#endif
+
 #if defined(MAC_OS_CLASSIC) || defined(MAC_OS_X)
 /* Any OS on Mac platform */
 #define MAC_OS
 #define FILENAMES_CASE_SENSITIVE 0
 #define strcasecmp strcmp
-#endif
-
-#if defined(MAC_OS_CLASSIC)
 #ifndef DFLT_REPL_CHARENC
 #define DFLT_REPL_CHARENC MACROMAN
-#endif
-#endif
-
-#if defined(MAC_OS_X)
-#define HAS_VSNPRINTF 1
-#ifndef DFLT_REPL_CHARENC
-#define DFLT_REPL_CHARENC WIN1252
 #endif
 #endif
 
@@ -174,6 +178,10 @@ extern "C" {
 
 #define strcasecmp _stricmp
 
+#endif
+
+#if defined(__BORLANDC__)
+#define strcasecmp stricmp
 #endif
 
 #define FILENAMES_CASE_SENSITIVE 0
@@ -490,7 +498,6 @@ extern "C" {
 #pragma warning( disable : 4189 ) /* local variable is initialized but not referenced */
 #pragma warning( disable : 4100 ) /* unreferenced formal parameter */
 #pragma warning( disable : 4706 ) /* assignment within conditional expression */
-#pragma warning( disable : 4068 ) /* unknown #pragma unused(...) */
 #endif
 
 #endif /* _WIN32 */
@@ -499,6 +506,14 @@ extern "C" {
 
 #if (defined(_USRDLL) || defined(_WINDLL)) && !defined(TIDY_EXPORT)
 #define TIDY_EXPORT __declspec( dllexport ) 
+#endif
+
+#ifndef TIDY_CALL
+#ifdef _WIN64
+#  define TIDY_CALL __fastcall
+#else
+#  define TIDY_CALL __stdcall
+#endif
 #endif
 
 #endif /* _WIN32 */
@@ -515,8 +530,18 @@ typedef unsigned int uint;
 typedef unsigned long ulong;
 #endif
 
+/*
+With GCC 4,  __attribute__ ((visibility("default"))) can be used along compiling with tidylib 
+with "-fvisibility=hidden". See http://gcc.gnu.org/wiki/Visibility and build/gmake/Makefile.
+*/
+/*
+#if defined(__GNUC__) && __GNUC__ >= 4
+#define TIDY_EXPORT __attribute__ ((visibility("default")))
+#endif
+*/
+
 #ifndef TIDY_EXPORT /* Define it away for most builds */
-#define TIDY_EXPORT
+#define TIDY_EXPORT 
 #endif
 
 #ifndef TIDY_STRUCT
@@ -534,12 +559,33 @@ typedef const tmbchar* ctmbstr; /* Ditto, but const */
 #define TMBSTR_DEFINED
 #endif
 
-           
+#ifndef TIDY_CALL
+#define TIDY_CALL
+#endif
+
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+# define ARG_UNUSED(x) x __attribute__((unused))
+#else
+# define ARG_UNUSED(x) x
+#endif
+
+/* HAS_VSNPRINTF triggers the use of "vsnprintf", which is safe related to
+   buffer overflow. Therefore, we make it the default unless HAS_VSNPRINTF
+   has been defined. */
+#ifndef HAS_VSNPRINTF
+# define HAS_VSNPRINTF 1
+#endif
+
 /*
   bool is a reserved word in some but
   not all C++ compilers depending on age
   work around is to avoid bool altogether
   by introducing a new enum called Bool
+*/
+/* We could use the C99 definition where supported
+typedef _Bool Bool;
+#define no (_Bool)0
+#define yes (_Bool)1
 */
 typedef enum
 {
@@ -567,9 +613,6 @@ void FatalError( ctmbstr msg );
 *  This will reduce inter-dependencies/conflicts w/ application code.
 */
 #if 1
-/*
-*  Please note - this definition assumes your compiler uses 'int' for enums.
-*/
 #define opaque_type( typenam )\
 struct _##typenam { int _opaque; };\
 typedef struct _##typenam* typenam

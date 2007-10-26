@@ -27,8 +27,6 @@
 #include <machine/cpu_capabilities.h>
 #undef	_APPLE_API_PRIVATE
 
-extern int _get_cpu_capabilities(void);
-
 int _cpu_has_altivec = 0;     // DEPRECATED
 int _cpu_capabilities = 0;
 

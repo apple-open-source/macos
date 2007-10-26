@@ -1,7 +1,7 @@
 ;;; sh-script.el --- shell-script editing commands for Emacs
 
-;; Copyright (C) 1993, 94, 95, 96, 97, 1999, 2001
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 1995, 1996, 1997, 1999, 2001, 2002,
+;;  2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
 
 ;; Author: Daniel Pfeiffer <occitan@esperanto.org>
 ;; Version: 2.0f
@@ -22,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -43,35 +43,35 @@
 ;;	 	===========
 ;; Indentation for rc and es modes is very limited, but for Bourne shells
 ;; and its derivatives it is quite customizable.
-;; 
+;;
 ;; The following description applies to sh and derived shells (bash,
 ;; zsh, ...).
-;; 
+;;
 ;; There are various customization variables which allow tailoring to
 ;; a wide variety of styles.  Most of these variables are named
 ;; sh-indent-for-XXX and sh-indent-after-XXX.  For example.
 ;; sh-indent-after-if controls the indenting of a line following
 ;; an if statement, and sh-indent-for-fi controls the indentation
 ;; of the line containing the fi.
-;; 
+;;
 ;; You can set each to a numeric value, but it is often more convenient
 ;; to a symbol such as `+' which uses the value of variable `sh-basic-offset'.
 ;; By changing this one variable you can increase or decrease how much
 ;; indentation there is.  Valid symbols:
-;; 
+;;
 ;; 	+   Indent right by sh-basic-offset
 ;; 	-   Indent left  by sh-basic-offset
 ;; 	++  Indent right twice sh-basic-offset
 ;; 	--  Indent left  twice sh-basic-offset
 ;; 	*   Indent right half sh-basic-offset
 ;; 	/   Indent left  half sh-basic-offset.
-;; 
+;;
 ;; There are 4 commands to help set the indentation variables:
-;; 
+;;
 ;; `sh-show-indent'
 ;;    This shows what variable controls the indentation of the current
 ;;    line and its value.
-;; 
+;;
 ;; `sh-set-indent'
 ;;    This allows you to set the value of the variable controlling the
 ;;    current line's indentation.  You can enter a number or one of a
@@ -79,13 +79,13 @@
 ;;    or its negative, or half it, or twice it, etc.  If you've used
 ;;    cc-mode this should be familiar.  If you forget which symbols are
 ;;    valid simply press C-h at the prompt.
-;; 
+;;
 ;; `sh-learn-line-indent'
 ;;    Simply make the line look the way you want it, then invoke this
 ;;    command.  It will set the variable to the value that makes the line
 ;;    indent like that.  If called with a prefix argument then it will set
 ;;    the value to one of the symbols if applicable.
-;;    
+;;
 ;; `sh-learn-buffer-indent'
 ;;    This is the deluxe function!  It "learns" the whole buffer (use
 ;;    narrowing if you want it to process only part).  It outputs to a
@@ -98,7 +98,7 @@
 ;;    pattern;  if they don't it will be set to nil.
 ;;    Whether `sh-basic-offset' is set is determined by variable
 ;;    `sh-learn-basic-offset'.
-;; 
+;;
 ;;    Unfortunately, `sh-learn-buffer-indent' can take a long time to run
 ;;    (e.g. if there are large case statements).  Perhaps it does not make
 ;;    sense to run it on large buffers: if lots of lines have different
@@ -106,7 +106,7 @@
 ;;    *indent* buffer; if there is a consistent style then running
 ;;    `sh-learn-buffer-indent' on a small region of the buffer should
 ;;    suffice.
-;;   
+;;
 ;; 	Saving indentation values
 ;; 	-------------------------
 ;; After you've learned the values in a buffer, how to you remember
@@ -115,14 +115,14 @@
 ;; the buffer.
 ;; You can do this automatically like this:
 ;;   (add-hook 'sh-set-shell-hook 'sh-learn-buffer-indent)
-;; 
-;; However...   `sh-learn-buffer-indent' is extremely slow,
+;;
+;; However...  `sh-learn-buffer-indent' is extremely slow,
 ;; especially on large-ish buffer.  Also, if there are conflicts the
 ;; "last one wins" which may not produce the desired setting.
-;; 
+;;
 ;; So...There is a minimal way of being able to save indentation values and
 ;; to reload them in another buffer or at another point in time.
-;; 
+;;
 ;; Use `sh-name-style' to give a name to the indentation settings of
 ;; 	the current buffer.
 ;; Use `sh-load-style' to load indentation settings for the current
@@ -130,30 +130,30 @@
 ;; Use `sh-save-styles-to-buffer' to write all the styles to a buffer
 ;; 	in lisp code.  You can then store it in a file and later use
 ;; 	`load-file' to load it.
-;; 
+;;
 ;; 	Indentation variables - buffer local or global?
 ;; 	----------------------------------------------
 ;; I think that often having them buffer-local makes sense,
 ;; especially if one is using `sh-learn-buffer-indent'.  However, if
 ;; a user sets values using customization, these changes won't appear
 ;; to work if the variables are already local!
-;; 
+;;
 ;; To get round this, there is a variable `sh-make-vars-local' and 2
 ;; functions: `sh-make-vars-local' and `sh-reset-indent-vars-to-global-values'.
-;; 
+;;
 ;; If `sh-make-vars-local' is non-nil, then these variables become
 ;; buffer local when the mode is established.
 ;; If this is nil, then the variables are global.  At any time you
 ;; can make them local with the command `sh-make-vars-local'.
 ;; Conversely, to update with the global values you can use the
 ;; command `sh-reset-indent-vars-to-global-values'.
-;; 
+;;
 ;; This may be awkward, but the intent is to cover all cases.
-;; 
+;;
 ;; 	Awkward things, pitfalls
 ;; 	------------------------
 ;; Indentation for a sh script is complicated for a number of reasons:
-;; 
+;;
 ;; 1. You can't format by simply looking at symbols, you need to look
 ;;    at keywords.  [This is not the case for rc and es shells.]
 ;; 2. The character ")" is used both as a matched pair "(" ... ")" and
@@ -165,7 +165,7 @@
 ;; 4. A line may be continued using the "\".
 ;; 5. The character "#" (outside a string) normally starts a comment,
 ;;    but it doesn't in the sequence "$#"!
-;; 
+;;
 ;; To try and address points 2 3 and 5 I used a feature that cperl mode
 ;; uses, that of a text's syntax property.  This, however, has 2
 ;; disadvantages:
@@ -175,14 +175,14 @@
 ;;    buffer is read-only buffer we have to cheat and bypass the read-only
 ;;    status.  This is for cases where the buffer started read-only buffer
 ;;    but the user issued `toggle-read-only'.
-;; 
+;;
 ;; 	Bugs
 ;; 	----
 ;; - Indenting many lines is slow.  It currently does each line
 ;;   independently, rather than saving state information.
-;; 
+;;
 ;; - `sh-learn-buffer-indent' is extremely slow.
-;; 
+;;
 ;; Richard Sharman <rsharman@pobox.com>  June 1999.
 
 ;;; Code:
@@ -195,18 +195,23 @@
 
 (eval-when-compile
   (require 'skeleton)
+  (require 'cl)
   (require 'comint))
 (require 'executable)
 
+(defvar font-lock-comment-face)
+(defvar font-lock-set-defaults)
+(defvar font-lock-string-face)
 
 
 (defgroup sh nil
-  "Shell programming utilities"
+  "Shell programming utilities."
   :group 'unix
   :group 'languages)
 
 (defgroup sh-script nil
-  "Shell script mode"
+  "Shell script mode."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'sh
   :prefix "sh-")
 
@@ -236,8 +241,8 @@ By default we have the following three hierarchies:
 
 csh		C Shell
   jcsh		C Shell with Job Control
-  tcsh		Toronto C Shell
-    itcsh	? Toronto C Shell
+  tcsh		Turbo C Shell
+    itcsh	? Turbo C Shell
 rc		Plan 9 Shell
   es		Extensible Shell
 sh		Bourne Shell
@@ -258,7 +263,7 @@ sh		Bourne Shell
 
 
 (defcustom sh-alias-alist
-  (nconc (if (eq system-type 'gnu/linux)
+  (append (if (eq system-type 'gnu/linux)
 	     '((csh . tcsh)
 	       (ksh . pdksh)))
 	 ;; for the time being
@@ -314,9 +319,7 @@ shell it really is."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice (const :tag "No Arguments" nil)
 			       (string :tag "Arguments")
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 (defcustom sh-imenu-generic-expression
@@ -353,62 +356,88 @@ the car and cdr are the same symbol.")
 
 (defvar sh-shell (sh-canonicalize-shell (file-name-nondirectory sh-shell-file))
   "The shell being programmed.  This is set by \\[sh-set-shell].")
+;;;###autoload(put 'sh-shell 'safe-local-variable 'symbolp)
 
-;;; I turned off this feature because it doesn't permit typing commands
-;;; in the usual way without help.
-;;;(defvar sh-abbrevs
-;;;  '((csh eval sh-abbrevs shell
-;;;	 "switch" 'sh-case
-;;;	 "getopts" 'sh-while-getopts)
+(defvar sh-mode-abbrev-table nil)
 
-;;;    (es eval sh-abbrevs shell
-;;;	"function" 'sh-function)
+(define-abbrev-table 'sh-mode-abbrev-table ())
 
-;;;    (ksh88 eval sh-abbrevs sh
-;;;	   "select" 'sh-select)
 
-;;;    (rc eval sh-abbrevs shell
-;;;	"case" 'sh-case
-;;;	"function" 'sh-function)
+;; I turned off this feature because it doesn't permit typing commands
+;; in the usual way without help.
+;;(defvar sh-abbrevs
+;;  '((csh sh-abbrevs shell
+;;	 "switch" 'sh-case
+;;	 "getopts" 'sh-while-getopts)
 
-;;;    (sh eval sh-abbrevs shell
-;;;	"case" 'sh-case
-;;;	"function" 'sh-function
-;;;	"until" 'sh-until
-;;;	"getopts" 'sh-while-getopts)
+;;    (es sh-abbrevs shell
+;;	"function" 'sh-function)
 
-;;;    ;; The next entry is only used for defining the others
-;;;    (shell "for" sh-for
-;;;	   "loop" sh-indexed-loop
-;;;	   "if" sh-if
-;;;	   "tmpfile" sh-tmp-file
-;;;	   "while" sh-while)
+;;    (ksh88 sh-abbrevs sh
+;;	   "select" 'sh-select)
 
-;;;    (zsh eval sh-abbrevs ksh88
-;;;	 "repeat" 'sh-repeat))
-;;;  "Abbrev-table used in Shell-Script mode.  See `sh-feature'.
+;;    (rc sh-abbrevs shell
+;;	"case" 'sh-case
+;;	"function" 'sh-function)
+
+;;    (sh sh-abbrevs shell
+;;	"case" 'sh-case
+;;	"function" 'sh-function
+;;	"until" 'sh-until
+;;	"getopts" 'sh-while-getopts)
+
+;;    ;; The next entry is only used for defining the others
+;;    (shell "for" sh-for
+;;	   "loop" sh-indexed-loop
+;;	   "if" sh-if
+;;	   "tmpfile" sh-tmp-file
+;;	   "while" sh-while)
+
+;;    (zsh sh-abbrevs ksh88
+;;	 "repeat" 'sh-repeat))
+;;  "Abbrev-table used in Shell-Script mode.  See `sh-feature'.
 ;;;Due to the internal workings of abbrev tables, the shell name symbol is
 ;;;actually defined as the table for the like of \\[edit-abbrevs].")
 
 
 
-(easy-mmode-defsyntax sh-mode-syntax-table
-  '((?\# . "<")
-   (?\^l . ">#")
-   (?\n . ">#")
-   (?\" . "\"\"")
-   (?\' . "\"'")
-   (?\` . "\"`")
-   (?! . "_")
-   (?% . "_")
-   (?: . "_")
-   (?. . "_")
-   (?^ . "_")
-   (?~ . "_")
-   (?< . ".")
-   (?> . "."))
-  "Syntax-table used in Shell-Script mode.")
+(defun sh-mode-syntax-table (table &rest list)
+  "Copy TABLE and set syntax for successive CHARs according to strings S."
+  (setq table (copy-syntax-table table))
+  (while list
+    (modify-syntax-entry (pop list) (pop list) table))
+  table)
 
+(defvar sh-mode-syntax-table nil
+  "The syntax table to use for Shell-Script mode.
+This is buffer-local in every such buffer.")
+
+(defvar sh-mode-default-syntax-table
+  (sh-mode-syntax-table ()
+	?\# "<"
+	?\n ">#"
+	?\" "\"\""
+	?\' "\"'"
+	?\` "\"`"
+	;; ?$ might also have a ". p" syntax. Both "'" and ". p" seem
+	;; to work fine. This is needed so that dabbrev-expand
+	;; $VARNAME works.
+	?$ "'"
+	?! "_"
+	?% "_"
+	?: "_"
+	?. "_"
+	?^ "_"
+	?~ "_"
+	?, "_"
+	?= "."
+	?< "."
+	?> ".")
+  "Default syntax table for shell mode.")
+
+(defvar sh-mode-syntax-table-input
+  '((sh . nil))
+  "Syntax-table used in Shell-Script mode.  See `sh-feature'.")
 
 (defvar sh-mode-map
   (let ((map (make-sparse-keymap))
@@ -428,6 +457,7 @@ the car and cdr are the same symbol.")
     (define-key map "\C-c=" 'sh-set-indent)
     (define-key map "\C-c<" 'sh-learn-line-indent)
     (define-key map "\C-c>" 'sh-learn-buffer-indent)
+    (define-key map "\C-c\C-\\" 'sh-backslash-region)
 
     (define-key map "=" 'sh-assignment)
     (define-key map "\C-c+" 'sh-add)
@@ -441,21 +471,13 @@ the car and cdr are the same symbol.")
     (define-key map "`" 'skeleton-pair-insert-maybe)
     (define-key map "\"" 'skeleton-pair-insert-maybe)
 
-    (substitute-key-definition 'complete-tag 'comint-dynamic-complete
-			       map (current-global-map))
-    (substitute-key-definition 'newline-and-indent 'sh-newline-and-indent
-			       map (current-global-map))
-    (substitute-key-definition 'delete-backward-char
-			       'backward-delete-char-untabify
-			       map (current-global-map))
+    (define-key map [remap complete-tag] 'comint-dynamic-complete)
+    (define-key map [remap newline-and-indent] 'sh-newline-and-indent)
+    (define-key map [remap delete-backward-char]
+      'backward-delete-char-untabify)
     (define-key map "\C-c:" 'sh-set-shell)
-    (substitute-key-definition 'beginning-of-defun
-			       'sh-beginning-of-compound-command
-			       map (current-global-map))
-    (substitute-key-definition 'backward-sentence 'sh-beginning-of-command
-			       map (current-global-map))
-    (substitute-key-definition 'forward-sentence 'sh-end-of-command
-			       map (current-global-map))
+    (define-key map [remap backward-sentence] 'sh-beginning-of-command)
+    (define-key map [remap forward-sentence] 'sh-end-of-command)
     (define-key map [menu-bar insert] (cons "Insert" menu-map))
     (define-key menu-map [sh-while]	'("While Loop" . sh-while))
     (define-key menu-map [sh-until]	'("Until Loop" . sh-until))
@@ -470,7 +492,10 @@ the car and cdr are the same symbol.")
     map)
   "Keymap used in Shell-Script mode.")
 
-
+(defvar sh-skeleton-pair-default-alist '((?( _ ?)) (?\))
+				      (?[ ?\s _ ?\s ?]) (?\])
+				      (?{ _ ?}) (?\}))
+  "Value to use for `skeleton-pair-default-alist' in Shell-Script mode.")
 
 (defcustom sh-dynamic-complete-functions
   '(shell-dynamic-complete-environment-variable
@@ -483,16 +508,13 @@ the car and cdr are the same symbol.")
 
 (defcustom sh-require-final-newline
   '((csh . t)
-    (pdksh . t)
-    (rc eval . require-final-newline)
-    (sh eval . require-final-newline))
+    (pdksh . t))
   "*Value of `require-final-newline' in Shell-Script mode buffers.
+\(SHELL . t) means use the value of `mode-require-final-newline' for SHELL.
 See `sh-feature'."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice (const :tag "require" t)
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 
@@ -507,9 +529,7 @@ First grouping matches the variable name.  This is upto and including the `='
 sign.  See `sh-feature'."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice regexp
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 
@@ -547,8 +567,24 @@ The actual command ends at the end of the first \\(grouping\\)."
 
 
 
-(defvar sh-here-document-word "EOF"
-  "Word to delimit here documents.")
+(defcustom sh-here-document-word "EOF"
+  "Word to delimit here documents.
+If the first character of this string is \"-\", this is taken as
+part of the redirection operator, rather than part of the
+word (that is, \"<<-\" instead of \"<<\").  This is a feature
+used by some shells (for example Bash) to indicate that leading
+tabs inside the here document should be ignored.  In this case,
+Emacs indents the initial body and end of the here document with
+tabs, to the same level as the start (note that apart from this
+there is no support for indentation of here documents).  This
+will only work correctly if `sh-basic-offset' is a multiple of
+`tab-width'.
+
+Any quote characters or leading whitespace in the word are
+removed when closing the here document."
+  :type 'string
+  :group 'sh-script)
+
 
 (defvar sh-test
   '((sh "[  ]" . 3)
@@ -559,60 +595,61 @@ The actual command ends at the end of the first \\(grouping\\)."
 ;; customized this out of sheer bravado.  not for the faint of heart.
 ;; but it *did* have an asterisk in the docstring!
 (defcustom sh-builtins
-  '((bash eval sh-append posix
-	  "alias" "bg" "bind" "builtin" "declare" "dirs" "enable" "fc" "fg"
-	  "help" "history" "jobs" "kill" "let" "local" "popd" "pushd" "source"
-	  "suspend" "typeset" "unalias")
+  '((bash sh-append posix
+	  "." "alias" "bg" "bind" "builtin" "caller" "compgen" "complete"
+          "declare" "dirs" "disown" "enable" "fc" "fg" "help" "history"
+          "jobs" "kill" "let" "local" "popd" "printf" "pushd" "shopt"
+          "source" "suspend" "typeset" "unalias")
 
     ;; The next entry is only used for defining the others
-    (bourne eval sh-append shell
+    (bourne sh-append shell
 	    "eval" "export" "getopts" "newgrp" "pwd" "read" "readonly"
 	    "times" "ulimit")
 
-    (csh eval sh-append shell
+    (csh sh-append shell
 	 "alias" "chdir" "glob" "history" "limit" "nice" "nohup" "rehash"
 	 "setenv" "source" "time" "unalias" "unhash")
 
-    (dtksh eval identity wksh)
+    (dtksh sh-append wksh)
 
     (es "access" "apids" "cd" "echo" "eval" "false" "let" "limit" "local"
 	"newpgrp" "result" "time" "umask" "var" "vars" "wait" "whatis")
 
-    (jsh eval sh-append sh
+    (jsh sh-append sh
 	 "bg" "fg" "jobs" "kill" "stop" "suspend")
 
-    (jcsh eval sh-append csh
+    (jcsh sh-append csh
 	  "bg" "fg" "jobs" "kill" "notify" "stop" "suspend")
 
-    (ksh88 eval sh-append bourne
+    (ksh88 sh-append bourne
 	   "alias" "bg" "false" "fc" "fg" "jobs" "kill" "let" "print" "time"
 	   "typeset" "unalias" "whence")
 
-    (oash eval sh-append sh
+    (oash sh-append sh
 	  "checkwin" "dateline" "error" "form" "menu" "newwin" "oadeinit"
 	  "oaed" "oahelp" "oainit" "pp" "ppfile" "scan" "scrollok" "wattr"
 	  "wclear" "werase" "win" "wmclose" "wmmessage" "wmopen" "wmove"
 	  "wmtitle" "wrefresh")
 
-    (pdksh eval sh-append ksh88
+    (pdksh sh-append ksh88
 	   "bind")
 
-    (posix eval sh-append sh
+    (posix sh-append sh
 	   "command")
 
     (rc "builtin" "cd" "echo" "eval" "limit" "newpgrp" "shift" "umask" "wait"
 	"whatis")
 
-    (sh eval sh-append bourne
+    (sh sh-append bourne
 	"hash" "test" "type")
 
     ;; The next entry is only used for defining the others
     (shell "cd" "echo" "eval" "set" "shift" "umask" "unset" "wait")
 
-    (wksh eval sh-append ksh88
+    (wksh sh-append ksh88
 	  "Xt[A-Z][A-Za-z]*")
 
-    (zsh eval sh-append ksh88
+    (zsh sh-append ksh88
 	 "autoload" "bindkey" "builtin" "chdir" "compctl" "declare" "dirs"
 	 "disable" "disown" "echotc" "enable" "functions" "getln" "hash"
 	 "history" "integer" "limit" "local" "log" "popd" "pushd" "r"
@@ -624,109 +661,112 @@ Note that on some systems not all builtins are available or some are
 implemented as aliases.  See `sh-feature'."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice (repeat string)
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 
 
 (defcustom sh-leading-keywords
-  '((csh "else")
+  '((bash sh-append sh
+          "time")
+
+    (csh "else")
 
     (es "true" "unwind-protect" "whatis")
 
     (rc "else")
 
-    (sh "do" "elif" "else" "if" "then" "trap" "type" "until" "while"))
+    (sh "!" "do" "elif" "else" "if" "then" "trap" "type" "until" "while"))
   "*List of keywords that may be immediately followed by a builtin or keyword.
 Given some confusion between keywords and builtins depending on shell and
 system, the distinction here has been based on whether they influence the
 flow of control or syntax.  See `sh-feature'."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice (repeat string)
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 
 (defcustom sh-other-keywords
-  '((bash eval sh-append bourne
-	  "bye" "logout")
+  '((bash sh-append bourne
+	  "bye" "logout" "select")
 
     ;; The next entry is only used for defining the others
-    (bourne eval sh-append sh
+    (bourne sh-append sh
 	    "function")
 
-    (csh eval sh-append shell
+    (csh sh-append shell
 	 "breaksw" "default" "end" "endif" "endsw" "foreach" "goto"
 	 "if" "logout" "onintr" "repeat" "switch" "then" "while")
 
     (es "break" "catch" "exec" "exit" "fn" "for" "forever" "fork" "if"
 	"return" "throw" "while")
 
-    (ksh88 eval sh-append bourne
+    (ksh88 sh-append bourne
 	   "select")
 
     (rc "break" "case" "exec" "exit" "fn" "for" "if" "in" "return" "switch"
 	"while")
 
-    (sh eval sh-append shell
+    (sh sh-append shell
 	"done" "esac" "fi" "for" "in" "return")
 
     ;; The next entry is only used for defining the others
     (shell "break" "case" "continue" "exec" "exit")
 
-    (zsh eval sh-append bash
+    (zsh sh-append bash
 	 "select"))
   "*List of keywords not in `sh-leading-keywords'.
 See `sh-feature'."
   :type '(repeat (cons (symbol :tag "Shell")
 		       (choice (repeat string)
-			       (cons :format "Evaluate: %v"
-				     (const :format "" eval)
-				     sexp))))
+			       (sexp :format "Evaluate: %v"))))
   :group 'sh-script)
 
 
 
 (defvar sh-variables
-  '((bash eval sh-append sh
-	  "allow_null_glob_expansion" "auto_resume" "BASH" "BASH_VERSION"
-	  "cdable_vars" "ENV" "EUID" "FCEDIT" "FIGNORE" "glob_dot_filenames"
-	  "histchars" "HISTFILE" "HISTFILESIZE" "history_control" "HISTSIZE"
-	  "hostname_completion_file" "HOSTTYPE" "IGNOREEOF" "ignoreeof"
-	  "LINENO" "MAIL_WARNING" "noclobber" "nolinks" "notify"
-	  "no_exit_on_failed_exec" "NO_PROMPT_VARS" "OLDPWD" "OPTERR" "PPID"
-	  "PROMPT_COMMAND" "PS4" "pushd_silent" "PWD" "RANDOM" "REPLY"
-	  "SECONDS" "SHLVL" "TMOUT" "UID")
+  '((bash sh-append sh
+	  "allow_null_glob_expansion" "auto_resume" "BASH" "BASH_ENV"
+	  "BASH_VERSINFO" "BASH_VERSION" "cdable_vars" "COMP_CWORD"
+	  "COMP_LINE" "COMP_POINT" "COMP_WORDS" "COMPREPLY" "DIRSTACK"
+	  "ENV" "EUID" "FCEDIT" "FIGNORE" "FUNCNAME"
+	  "glob_dot_filenames" "GLOBIGNORE" "GROUPS" "histchars"
+	  "HISTCMD" "HISTCONTROL" "HISTFILE" "HISTFILESIZE"
+	  "HISTIGNORE" "history_control" "HISTSIZE"
+	  "hostname_completion_file" "HOSTFILE" "HOSTTYPE" "IGNOREEOF"
+	  "ignoreeof" "INPUTRC" "LINENO" "MACHTYPE" "MAIL_WARNING"
+	  "noclobber" "nolinks" "notify" "no_exit_on_failed_exec"
+	  "NO_PROMPT_VARS" "OLDPWD" "OPTERR" "OSTYPE" "PIPESTATUS"
+	  "PPID" "POSIXLY_CORRECT" "PROMPT_COMMAND" "PS3" "PS4"
+	  "pushd_silent" "PWD" "RANDOM" "REPLY" "SECONDS" "SHELLOPTS"
+	  "SHLVL" "TIMEFORMAT" "TMOUT" "UID")
 
-    (csh eval sh-append shell
+    (csh sh-append shell
 	 "argv" "cdpath" "child" "echo" "histchars" "history" "home"
 	 "ignoreeof" "mail" "noclobber" "noglob" "nonomatch" "path" "prompt"
 	 "shell" "status" "time" "verbose")
 
-    (es eval sh-append shell
+    (es sh-append shell
 	"apid" "cdpath" "CDPATH" "history" "home" "ifs" "noexport" "path"
 	"pid" "prompt" "signals")
 
-    (jcsh eval sh-append csh
+    (jcsh sh-append csh
 	  "notify")
 
-    (ksh88 eval sh-append sh
+    (ksh88 sh-append sh
 	   "ENV" "ERRNO" "FCEDIT" "FPATH" "HISTFILE" "HISTSIZE" "LINENO"
 	   "OLDPWD" "PPID" "PS3" "PS4" "PWD" "RANDOM" "REPLY" "SECONDS"
 	   "TMOUT")
 
-    (oash eval sh-append sh
+    (oash sh-append sh
 	  "FIELD" "FIELD_MAX" "LAST_KEY" "OALIB" "PP_ITEM" "PP_NUM")
 
-    (rc eval sh-append shell
+    (rc sh-append shell
 	"apid" "apids" "cdpath" "CDPATH" "history" "home" "ifs" "path" "pid"
 	"prompt" "status")
 
-    (sh eval sh-append shell
+    (sh sh-append shell
 	"CDPATH" "IFS" "OPTARG" "OPTIND" "PS1" "PS2")
 
     ;; The next entry is only used for defining the others
@@ -735,7 +775,7 @@ See `sh-feature'."
 	   "LINES" "LOGNAME" "MAIL" "MAILCHECK" "MAILPATH" "PAGER" "PATH"
 	   "SHELL" "TERM" "TERMCAP" "TERMINFO" "VISUAL")
 
-    (tcsh eval sh-append csh
+    (tcsh sh-append csh
 	  "addsuffix" "ampm" "autocorrect" "autoexpand" "autolist"
 	  "autologout" "chase_symlinks" "correct" "dextract" "edit" "el"
 	  "fignore" "gid" "histlit" "HOST" "HOSTTYPE" "HPATH"
@@ -746,7 +786,7 @@ See `sh-feature'."
 	  "tperiod" "tty" "uid" "version" "visiblebell" "watch" "who"
 	  "wordchars")
 
-    (zsh eval sh-append ksh88
+    (zsh sh-append ksh88
 	 "BAUD" "bindcmds" "cdpath" "DIRSTACKSIZE" "fignore" "FIGNORE" "fpath"
 	 "HISTCHARS" "hostcmds" "hosts" "HOSTS" "LISTMAX" "LITHISTSIZE"
 	 "LOGCHECK" "mailpath" "manpath" "NULLCMD" "optcmds" "path" "POSTEDIT"
@@ -758,58 +798,83 @@ See `sh-feature'."
 See `sh-feature'.")
 
 
-;;; Font-Lock support
+;; Font-Lock support
 
-(defface sh-heredoc-face
-  '((((class color)
+(defface sh-heredoc
+  '((((min-colors 88) (class color)
       (background dark))
-     (:foreground "yellow" :bold t))
+     (:foreground "yellow1" :weight bold))
+    (((class color)
+      (background dark))
+     (:foreground "yellow" :weight bold))
     (((class color)
       (background light))
      (:foreground "tan" ))
     (t
-     (:bold t)))
+     (:weight bold)))
   "Face to show a here-document"
   :group 'sh-indentation)
-(defvar sh-heredoc-face 'sh-heredoc-face)
 
+;; These colours are probably icky.  It's just a placeholder though.
+(defface sh-quoted-exec
+  '((((class color) (background dark))
+     (:foreground "salmon"))
+    (((class color) (background light))
+     (:foreground "magenta"))
+    (t
+     (:weight bold)))
+  "Face to show quoted execs like ``"
+  :group 'sh-indentation)
 
-(defvar sh-font-lock-keywords
-  '((csh eval sh-append shell
-	 '("\\${?[#?]?\\([A-Za-z_][A-Za-z0-9_]*\\|0\\)" 1
-	   font-lock-variable-name-face))
+;; backward-compatibility alias
+(put 'sh-heredoc-face 'face-alias 'sh-heredoc)
+(defvar sh-heredoc-face 'sh-heredoc)
 
-    (es eval sh-append executable-font-lock-keywords
-	'("\\$#?\\([A-Za-z_][A-Za-z0-9_]*\\|[0-9]+\\)" 1
-	  font-lock-variable-name-face))
+(defface sh-escaped-newline '((t :inherit font-lock-string-face))
+  "Face used for (non-escaped) backslash at end of a line in Shell-script mode."
+  :group 'sh-script
+  :version "22.1")
 
-    (rc eval identity es)
+(defvar sh-font-lock-keywords-var
+  '((csh sh-append shell
+	 ("\\${?[#?]?\\([A-Za-z_][A-Za-z0-9_]*\\|0\\)" 1
+          font-lock-variable-name-face))
 
-    (sh eval sh-append shell
+    (es sh-append executable-font-lock-keywords
+	("\\$#?\\([A-Za-z_][A-Za-z0-9_]*\\|[0-9]+\\)" 1
+         font-lock-variable-name-face))
+
+    (rc sh-append es)
+    (bash sh-append shell ("\\$(\\(\\sw+\\)" (1 'sh-quoted-exec t) ))
+    (sh sh-append shell
 	;; Variable names.
-	'("\\$\\({#?\\)?\\([A-Za-z_][A-Za-z0-9_]*\\|[-#?@!]\\)" 2
+	("\\$\\({#?\\)?\\([A-Za-z_][A-Za-z0-9_]*\\|[-#?@!]\\)" 2
 	  font-lock-variable-name-face)
 	;; Function names.
-	'("^\\(\\sw+\\)[ \t]*(" 1 font-lock-function-name-face)
-	'("\\<\\(function\\)\\>[ \t]*\\(\\sw+\\)?"
-	  (1 font-lock-keyword-face) (2 font-lock-function-name-face nil t)))
+	("^\\(\\sw+\\)[ \t]*(" 1 font-lock-function-name-face)
+	("\\<\\(function\\)\\>[ \t]*\\(\\sw+\\)?"
+	  (1 font-lock-keyword-face) (2 font-lock-function-name-face nil t))
+	("\\(?:^\\s *\\|[[();&|]\\s *\\|\\(?:\\s +-[ao]\\|if\\|else\\|then\\|while\\|do\\)\\s +\\)\\(!\\)"
+	 1 font-lock-negation-char-face))
 
     ;; The next entry is only used for defining the others
-    (shell eval sh-append executable-font-lock-keywords
-	   '("\\\\[^A-Za-z0-9]" 0 font-lock-string-face)
-	   '("\\${?\\([A-Za-z_][A-Za-z0-9_]*\\|[0-9]+\\|[$*_]\\)" 1
+    (shell
+           ;; Using font-lock-string-face here confuses sh-get-indent-info.
+           ("\\(^\\|[^\\]\\)\\(\\\\\\\\\\)*\\(\\\\\\)$" 3 'sh-escaped-newline)
+	   ("\\\\[^A-Za-z0-9]" 0 font-lock-string-face)
+	   ("\\${?\\([A-Za-z_][A-Za-z0-9_]*\\|[0-9]+\\|[$*_]\\)" 1
 	     font-lock-variable-name-face))
-    (rpm eval sh-append rpm2
-	 '("%{?\\(\\sw+\\)"  1 font-lock-keyword-face))
-    (rpm2 eval sh-append shell
-	  '("^\\(\\sw+\\):"  1 font-lock-variable-name-face)))
+    (rpm sh-append rpm2
+	 ("%{?\\(\\sw+\\)"  1 font-lock-keyword-face))
+    (rpm2 sh-append shell
+	  ("^\\(\\sw+\\):"  1 font-lock-variable-name-face)))
   "Default expressions to highlight in Shell Script modes.  See `sh-feature'.")
 
-(defvar sh-font-lock-keywords-1
+(defvar sh-font-lock-keywords-var-1
   '((sh "[ \t]in\\>"))
   "Subdued level highlighting for Shell Script modes.")
 
-(defvar sh-font-lock-keywords-2 ()
+(defvar sh-font-lock-keywords-var-2 ()
   "Gaudy level highlighting for Shell Script modes.")
 
 ;; These are used for the syntax table stuff (derived from cperl-mode).
@@ -818,35 +883,158 @@ See `sh-feature'.")
 (defconst sh-st-symbol (string-to-syntax "_"))
 (defconst sh-here-doc-syntax (string-to-syntax "|")) ;; generic string
 
-(defun sh-font-lock-heredoc (start string quoted)
-  "Determine the syntax of the \\n after a <<HEREDOC."
-  (unless (sh-in-comment-or-string start)
+(defconst sh-escaped-line-re
+  ;; Should match until the real end-of-continued line, but if that is not
+  ;; possible (because we bump into EOB or the search bound), then we should
+  ;; match until the search bound.
+  "\\(?:\\(?:.*[^\\\n]\\)?\\(?:\\\\\\\\\\)*\\\\\n\\)*.*")
+
+(defconst sh-here-doc-open-re
+  (concat "<<-?\\s-*\\\\?\\(\\(?:['\"][^'\"]+['\"]\\|\\sw\\)+\\)"
+          sh-escaped-line-re "\\(\n\\)"))
+
+(defvar sh-here-doc-markers nil)
+(make-variable-buffer-local 'sh-here-doc-markers)
+(defvar sh-here-doc-re sh-here-doc-open-re)
+(make-variable-buffer-local 'sh-here-doc-re)
+
+(defun sh-font-lock-close-heredoc (bol eof indented)
+  "Determine the syntax of the \\n after an EOF.
+If non-nil INDENTED indicates that the EOF was indented."
+  (let* ((eof-re (if eof (regexp-quote eof) ""))
+         ;; A rough regexp that should find the opening <<EOF back.
+	 (sre (concat "<<\\(-?\\)\\s-*['\"\\]?"
+		      ;; Use \s| to cheaply check it's an open-heredoc.
+		      eof-re "['\"]?\\([ \t|;&)<>]"
+                      sh-escaped-line-re
+                      "\\)?\\s|"))
+	 ;; A regexp that will find other EOFs.
+	 (ere (concat "^" (if indented "[ \t]*") eof-re "\n"))
+	 (start (save-excursion
+		  (goto-char bol)
+		  (re-search-backward (concat sre "\\|" ere) nil t))))
+    ;; If subgroup 1 matched, we found an open-heredoc, otherwise we first
+    ;; found a close-heredoc which makes the current close-heredoc inoperant.
+    (cond
+     ((when (and start (match-end 1)
+		 (not (and indented (= (match-beginning 1) (match-end 1))))
+		 (not (sh-in-comment-or-string (match-beginning 0))))
+	;; Make sure our `<<' is not the EOF1 of a `cat <<EOF1 <<EOF2'.
+	(save-excursion
+	  (goto-char start)
+	  (setq start (line-beginning-position 2))
+	  (while
+	      (progn
+		(re-search-forward "<<") ; Skip ourselves.
+		(and (re-search-forward sh-here-doc-open-re start 'move)
+		     (goto-char (match-beginning 0))
+		     (sh-in-comment-or-string (point)))))
+	  ;; No <<EOF2 found after our <<.
+	  (= (point) start)))
+      sh-here-doc-syntax)
+     ((not (or start (save-excursion (re-search-forward sre nil t))))
+      ;; There's no <<EOF either before or after us,
+      ;; so we should remove ourselves from font-lock's keywords.
+      (setq sh-here-doc-markers (delete eof sh-here-doc-markers))
+      (setq sh-here-doc-re
+	    (concat sh-here-doc-open-re "\\|^\\([ \t]*\\)"
+		    (regexp-opt sh-here-doc-markers t) "\\(\n\\)"))
+      nil))))
+
+(defun sh-font-lock-open-heredoc (start string)
+  "Determine the syntax of the \\n after a <<EOF.
+START is the position of <<.
+STRING is the actual word used as delimiter (f.ex. \"EOF\").
+INDENTED is non-nil if the here document's content (and the EOF mark) can
+be indented (i.e. a <<- was used rather than just <<).
+Point is at the beginning of the next line."
+  (unless (or (memq (char-before start) '(?< ?>))
+	      (sh-in-comment-or-string start))
     ;; We're looking at <<STRING, so we add "^STRING$" to the syntactic
     ;; font-lock keywords to detect the end of this here document.
-    (let ((ere (concat
-		"^" (if quoted "[ \t]*")
-		(regexp-quote (replace-regexp-in-string "['\"]" "" string))
-		"\\(\n\\)")))
-      (unless (assoc ere font-lock-syntactic-keywords)
-	(let* (	;; A rough regexp that should find us back.
-	       (sre (concat "<<\\(-\\)?\\s-*\\\\?['\"]?"
-			    (regexp-quote string) "['\"]?[ \t\n]"))
-	       (code `(cond
-		       ((save-excursion (re-search-backward ,sre nil t))
-			;; This ^STRING$ is indeed following a <<STRING
-			sh-here-doc-syntax)
-		       ((not (save-excursion (re-search-forward ,sre nil t)))
-			;; There's no <<STRING either before or after us,
-			;; so we should remove this now obsolete entry.
-			(setq font-lock-syntactic-keywords
-			      (delq (assoc ,ere font-lock-syntactic-keywords)
-				    font-lock-syntactic-keywords))
-			nil))))
-	  ;; Use destructive update so the new keyword gets used right away.
-	  (setq font-lock-syntactic-keywords
-		(nconc font-lock-syntactic-keywords
-		       (list (font-lock-compile-keyword `(,ere 1 ,code))))))))
+    (let ((str (replace-regexp-in-string "['\"]" "" string)))
+      (unless (member str sh-here-doc-markers)
+	(push str sh-here-doc-markers)
+	(setq sh-here-doc-re
+	      (concat sh-here-doc-open-re "\\|^\\([ \t]*\\)"
+		      (regexp-opt sh-here-doc-markers t) "\\(\n\\)"))))
+    (let ((ppss (save-excursion (syntax-ppss (1- (point))))))
+      (if (nth 4 ppss)
+          ;; The \n not only starts the heredoc but also closes a comment.
+          ;; Let's close the comment just before the \n.
+          (put-text-property (1- (point)) (point) 'syntax-table '(12))) ;">"
+      (if (or (nth 5 ppss) (> (count-lines start (point)) 1))
+          ;; If the sh-escaped-line-re part of sh-here-doc-re has matched
+          ;; several lines, make sure we refontify them together.
+          ;; Furthermore, if (nth 5 ppss) is non-nil (i.e. the \n is
+          ;; escaped), it means the right \n is actually further down.
+          ;; Don't bother fixing it now, but place a multiline property so
+          ;; that when jit-lock-context-* refontifies the rest of the
+          ;; buffer, it also refontifies the current line with it.
+          (put-text-property start (point) 'font-lock-multiline t)))
     sh-here-doc-syntax))
+
+(defun sh-font-lock-here-doc (limit)
+  "Search for a heredoc marker."
+  ;; This looks silly, but it's because `sh-here-doc-re' keeps changing.
+  (re-search-forward sh-here-doc-re limit t))
+
+(defun sh-quoted-subshell (limit)
+  "Search for a subshell embedded in a string.
+Find all the unescaped \" characters within said subshell, remembering that
+subshells can nest."
+  ;; FIXME: This can (and often does) match multiple lines, yet it makes no
+  ;; effort to handle multiline cases correctly, so it ends up being
+  ;; rather flakey.
+  (when (and (re-search-forward "\"\\(?:\\(?:.\\|\n\\)*?[^\\]\\(?:\\\\\\\\\\)*\\)??\\(\\$(\\|`\\)" limit t)
+             ;; Make sure the " we matched is an opening quote.
+	     (eq ?\" (nth 3 (syntax-ppss))))
+    ;; bingo we have a $( or a ` inside a ""
+    (let ((char (char-after (point)))
+          (continue t)
+          (pos (point))
+          (data nil)      ;; value to put into match-data (and return)
+          (last nil)      ;; last char seen
+          (bq  (equal (match-string 1) "`")) ;; ` state flip-flop
+          (seen nil)                         ;; list of important positions
+          (nest 1))                          ;; subshell nesting level
+      (while (and continue char (<= pos limit))
+        ;; unescaped " inside a $( ... ) construct.
+        ;; state machine time...
+        ;; \ => ignore next char;
+        ;; ` => increase or decrease nesting level based on bq flag
+        ;; ) [where nesting > 0] => decrease nesting
+        ;; ( [where nesting > 0] => increase nesting
+        ;; ( [preceeded by $ ]   => increase nesting
+        ;; " [nesting <= 0 ]     => terminate, we're done.
+        ;; " [nesting >  0 ]     => remember this, it's not a proper "
+        ;; FIXME: don't count parens that appear within quotes.
+        (cond
+         ((eq ?\\ last) nil)
+         ((eq ?\` char) (setq nest (+ nest (if bq -1 1)) bq (not bq)))
+         ((and (> nest 0) (eq ?\) char))   (setq nest (1- nest)))
+         ((and (eq ?$ last) (eq ?\( char)) (setq nest (1+ nest)))
+         ((and (> nest 0) (eq ?\( char))   (setq nest (1+ nest)))
+         ((eq char ?\")
+          (if (>= 0 nest) (setq continue nil) (push pos seen))))
+        ;;(message "POS: %d [%d]" pos nest)
+        (setq last char
+              pos  (1+ pos)
+              char (char-after pos)) )
+      ;; FIXME: why construct a costly match data to pass to
+      ;; sh-apply-quoted-subshell rather than apply the highlight
+      ;; directly here?  -- Stef
+      (when seen
+        ;;(message "SEEN: %S" seen)
+        (setq data (list (current-buffer)))
+        (dolist(P seen)
+          (setq data (cons P (cons (1+ P) data))))
+        (store-match-data data))
+      data) ))
+
+(defun sh-is-quoted-p (pos)
+  (and (eq (char-before pos) ?\\)
+       (not (sh-is-quoted-p (1- pos)))))
 
 (defun sh-font-lock-paren (start)
   (save-excursion
@@ -858,15 +1046,32 @@ See `sh-feature'.")
 	  ;; Skip through one pattern
 	  (while
 	      (or (/= 0 (skip-syntax-backward "w_"))
-		  (/= 0 (skip-chars-backward "?*/"))
+		  (/= 0 (skip-chars-backward "?[]*@/\\"))
+		  (and (sh-is-quoted-p (1- (point)))
+		       (goto-char (- (point) 2)))
 		  (when (memq (char-before) '(?\" ?\'))
 		    (condition-case nil (progn (backward-sexp 1) t)
 		      (error nil)))))
-	  (forward-comment (- (point-max)))
+          (while (progn
+                   (forward-comment (- (point-max)))
+                   ;; Maybe we've bumped into an escaped newline.
+                   (sh-is-quoted-p (point)))
+            (backward-char 1))
 	  (when (eq (char-before) ?|)
 	    (backward-char 1) t)))
     (when (save-excursion (backward-char 2) (looking-at ";;\\|in"))
       sh-st-punc)))
+
+(defun sh-apply-quoted-subshell ()
+  "Apply the `sh-st-punc' syntax to all the matches in `match-data'.
+This is used to flag quote characters in subshell constructs inside strings
+\(which should therefore not be treated as normal quote characters\)"
+  (let ((m (match-data)) a b)
+    (while m
+      (setq a (car  m)
+            b (cadr m)
+            m (cddr m))
+      (put-text-property a b 'syntax-table sh-st-punc))) sh-st-punc)
 
 (defconst sh-font-lock-syntactic-keywords
   ;; A `#' begins a comment when it is unquoted and at the beginning of a
@@ -874,19 +1079,32 @@ See `sh-feature'.")
   ;; The list of special chars is taken from the single-unix spec
   ;; of the shell command language (under `quoting') but with `$' removed.
   `(("[^|&;<>()`\\\"' \t\n]\\(#+\\)" 1 ,sh-st-symbol)
+    ;; In a '...' the backslash is not escaping.
+    ("\\(\\\\\\)'" 1 ,sh-st-punc)
+    ;; Make sure $@ and @? are correctly recognized as sexps.
+    ("\\$\\([?@]\\)" 1 ,sh-st-symbol)
     ;; Find HEREDOC starters and add a corresponding rule for the ender.
-    ("[^<>]<<\\(-\\)?\\s-*\\\\?\\(\\(['\"][^'\"]+['\"]\\|\\sw\\|\\s_\\)+\\).*\\(\n\\)"
-     4 (sh-font-lock-heredoc
-	(match-beginning 0) (match-string 2) (match-end 1)))
+    (sh-font-lock-here-doc
+     (2 (sh-font-lock-open-heredoc
+	 (match-beginning 0) (match-string 1)) nil t)
+     (5 (sh-font-lock-close-heredoc
+	 (match-beginning 0) (match-string 4)
+         (and (match-beginning 3) (/= (match-beginning 3) (match-end 3))))
+      nil t))
     ;; Distinguish the special close-paren in `case'.
-    (")" 0 (sh-font-lock-paren (match-beginning 0)))))
+    (")" 0 (sh-font-lock-paren (match-beginning 0)))
+    ;; highlight (possibly nested) subshells inside "" quoted regions correctly.
+    ;; This should be at the very end because it uses syntax-ppss.
+    (sh-quoted-subshell
+     (1 (sh-apply-quoted-subshell) t t))))
 
 (defun sh-font-lock-syntactic-face-function (state)
-  (if (nth 3 state)
-      (if (char-valid-p (nth 3 state))
-	  font-lock-string-face
-	sh-heredoc-face)
-    font-lock-comment-face))
+  (let ((q (nth 3 state)))
+    (if q
+        (if (char-valid-p q)
+            (if (eq q ?\`) 'sh-quoted-exec font-lock-string-face)
+          sh-heredoc-face)
+      font-lock-comment-face)))
 
 (defgroup sh-indentation nil
   "Variables controlling indentation in shell scripts.
@@ -921,7 +1139,7 @@ Anything else means:   whenever we have a \"good guess\" as to the value."
   :group 'sh-indentation)
 
 (defcustom sh-popup-occur-buffer nil
-  "*Controls when  `sh-learn-buffer-indent' pops the *indent* buffer.
+  "*Controls when  `sh-learn-buffer-indent' pops the `*indent*' buffer.
 If t it is always shown.  If nil, it is shown only when there
 are conflicts."
   :type '(choice
@@ -950,7 +1168,7 @@ Can be set to a number, or to nil which means leave it as is."
 
 (defcustom sh-basic-offset 4
   "*The default indentation increment.
-This value is used for the + and - symbols in an indentation variable."
+This value is used for the `+' and `-' symbols in an indentation variable."
   :type 'integer
   :group 'sh-indentation)
 
@@ -994,7 +1212,7 @@ a number means align to that column, e.g. 0 means fist column."
 	   :menu-tag "/   Indent left  half sh-basic-offset")))
 
 (defcustom sh-indent-for-else 0
-  "*How much to indent an else relative to an if.  Usually 0."
+  "*How much to indent an `else' relative to its `if'.  Usually 0."
   :type `(choice
 	  (integer :menu-tag "A number (positive=>indent right)"
 		   :tag "A number")
@@ -1010,75 +1228,75 @@ a number means align to that column, e.g. 0 means fist column."
 	  sh-symbol-list))
 
 (defcustom sh-indent-for-fi 0
-  "*How much to indent a fi relative to an if.   Usually 0."
+  "*How much to indent a `fi' relative to its `if'.  Usually 0."
   :type `(choice ,@ sh-number-or-symbol-list )
   :group 'sh-indentation)
 
-(defcustom sh-indent-for-done '0
-  "*How much to indent a done relative to its matching stmt.   Usually 0."
+(defcustom sh-indent-for-done 0
+  "*How much to indent a `done' relative to its matching stmt.  Usually 0."
   :type `(choice ,@ sh-number-or-symbol-list )
   :group 'sh-indentation)
 
 (defcustom sh-indent-after-else '+
-  "*How much to indent a statement after an else statement."
+  "*How much to indent a statement after an `else' statement."
   :type `(choice ,@ sh-number-or-symbol-list )
   :group 'sh-indentation)
 
 (defcustom sh-indent-after-if '+
-  "*How much to indent a statement after an if statement.
-This includes lines after else and elif statements, too, but
-does not affect then else elif or fi statements themselves."
+  "*How much to indent a statement after an `if' statement.
+This includes lines after `else' and `elif' statements, too, but
+does not affect the `else', `elif' or `fi' statements themselves."
   :type `(choice ,@ sh-number-or-symbol-list )
   :group 'sh-indentation)
 
-(defcustom sh-indent-for-then '+
-  "*How much to indent an then relative to an if."
+(defcustom sh-indent-for-then 0
+  "*How much to indent a `then' relative to its `if'."
   :type `(choice ,@ sh-number-or-symbol-list )
   :group 'sh-indentation)
 
-(defcustom sh-indent-for-do '*
-  "*How much to indent a do statement.
-This is relative to the statement before the do, i.e. the
-while until or for statement."
+(defcustom sh-indent-for-do 0
+  "*How much to indent a `do' statement.
+This is relative to the statement before the `do', typically a
+`while', `until', `for', `repeat' or `select' statement."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
-(defcustom sh-indent-after-do '*
-  "*How much to indent a line after a do statement.
-This is used when the do is the first word of the line.
-This is relative to the statement before the do, e.g. a
-while for repeat or select statement."
+(defcustom sh-indent-after-do '+
+  "*How much to indent a line after a `do' statement.
+This is used when the `do' is the first word of the line.
+This is relative to the statement before the `do', typically a
+`while', `until', `for', `repeat' or `select' statement."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
 (defcustom sh-indent-after-loop-construct '+
   "*How much to indent a statement after a loop construct.
 
-This variable is used when the keyword \"do\" is on the same line as the
-loop statement (e.g.  \"until\", \"while\" or \"for\").
-If the do is on a line by itself, then `sh-indent-after-do' is used instead."
+This variable is used when the keyword `do' is on the same line as the
+loop statement (e.g., `until', `while' or `for').
+If the `do' is on a line by itself, then `sh-indent-after-do' is used instead."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
 
 (defcustom sh-indent-after-done 0
-  "*How much to indent a statement after a \"done\" keyword.
-Normally this is 0, which aligns the \"done\" to the matching
+  "*How much to indent a statement after a `done' keyword.
+Normally this is 0, which aligns the `done' to the matching
 looping construct line.
-Setting it non-zero allows you to have the \"do\" statement on a line
+Setting it non-zero allows you to have the `do' statement on a line
 by itself and align the done under to do."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
 (defcustom sh-indent-for-case-label '+
   "*How much to indent a case label statement.
-This is relative to the line containing the case statement."
+This is relative to the line containing the `case' statement."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
 (defcustom sh-indent-for-case-alt '++
   "*How much to indent statements after the case label.
-This is relative to the line containing the case statement."
+This is relative to the line containing the `case' statement."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
@@ -1090,7 +1308,7 @@ This is relative to the line containing the case statement."
 
 (defcustom sh-indent-after-open '+
   "*How much to indent after a line with an opening parenthesis or brace.
-For an open paren after a function `sh-indent-after-function' is used."
+For an open paren after a function, `sh-indent-after-function' is used."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
@@ -1102,16 +1320,26 @@ For an open paren after a function `sh-indent-after-function' is used."
 ;; These 2 are for the rc shell:
 
 (defcustom sh-indent-after-switch '+
-  "*How much to indent a case statement relative to the switch statement.
+  "*How much to indent a `case' statement relative to the `switch' statement.
 This is for the rc shell."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
 
 (defcustom sh-indent-after-case '+
-  "*How much to indent a statement relative to the case statement.
+  "*How much to indent a statement relative to the `case' statement.
 This is for the rc shell."
   :type `(choice ,@ sh-number-or-symbol-list)
   :group 'sh-indentation)
+
+(defcustom sh-backslash-column 48
+  "*Column in which `sh-backslash-region' inserts backslashes."
+  :type 'integer
+  :group 'sh)
+
+(defcustom sh-backslash-align t
+  "*If non-nil, `sh-backslash-region' will align backslashes."
+  :type 'boolean
+  :group 'sh)
 
 ;; Internal use - not designed to be changed by the user:
 
@@ -1140,10 +1368,6 @@ punctuation characters like '-'."
 
 (defvar sh-indent-supported-here nil
   "Non-nil if we support indentation for the current buffer's shell type.")
-
-(defconst sh-electric-rparen-needed
-  '((sh . t))
-  "Non-nil if the shell type needs an electric handling of case alternatives.")
 
 (defconst sh-var-list
   '(
@@ -1179,10 +1403,7 @@ frequently editing existing scripts with different styles.")
 ;; mode-command and utility functions
 
 ;;;###autoload
-(put 'sh-mode 'mode-class 'special)
-
-;;;###autoload
-(define-derived-mode sh-mode nil "Shell-script"
+(defun sh-mode ()
   "Major mode for editing shell scripts.
 This mode works for many shells, since they all have roughly the same syntax,
 as far as commands, arguments, variables, pipes, comments etc. are concerned.
@@ -1197,7 +1418,7 @@ shell-specific features.
 The default style of this mode is that of Rosenblatt's Korn shell book.
 The syntax of the statements varies with the shell being used.  The
 following commands are available, based on the current shell's syntax:
-
+\\<sh-mode-map>
 \\[sh-case]	 case statement
 \\[sh-for]	 for loop
 \\[sh-function]	 function definition
@@ -1226,7 +1447,7 @@ buffer indents as it currently is indented.
 \\[sh-execute-region]	 Have optional header and region be executed in a subshell.
 
 \\[sh-maybe-here-document]	 Without prefix, following an unquoted < inserts here document.
-{, (, [, ', \", `
+\{, (, [, ', \", `
 	Unless quoted with \\, insert the pairs {}, (), [], or '', \"\", ``.
 
 If you generally program a shell different from your login shell you can
@@ -1235,6 +1456,11 @@ indicate what shell it is use `sh-alias-alist' to translate.
 
 If your shell gives error messages with line numbers, you can use \\[executable-interpret]
 with your script for an edit-interpret-debug cycle."
+  (interactive)
+  (kill-all-local-variables)
+  (setq major-mode 'sh-mode
+	mode-name "Shell-script")
+  (use-local-map sh-mode-map)
   (make-local-variable 'skeleton-end-hook)
   (make-local-variable 'paragraph-start)
   (make-local-variable 'paragraph-separate)
@@ -1245,53 +1471,71 @@ with your script for an edit-interpret-debug cycle."
   (make-local-variable 'sh-shell-file)
   (make-local-variable 'sh-shell)
   (make-local-variable 'skeleton-pair-alist)
-  (make-local-variable 'skeleton-pair-filter)
+  (make-local-variable 'skeleton-pair-filter-function)
   (make-local-variable 'comint-dynamic-complete-functions)
   (make-local-variable 'comint-prompt-regexp)
   (make-local-variable 'font-lock-defaults)
-  (make-local-variable 'skeleton-filter)
+  (make-local-variable 'skeleton-filter-function)
   (make-local-variable 'skeleton-newline-indent-rigidly)
   (make-local-variable 'sh-shell-variables)
   (make-local-variable 'sh-shell-variables-initialized)
   (make-local-variable 'imenu-generic-expression)
   (make-local-variable 'sh-indent-supported-here)
+  (make-local-variable 'skeleton-pair-default-alist)
+  (setq skeleton-pair-default-alist sh-skeleton-pair-default-alist)
   (setq skeleton-end-hook (lambda ()
 			    (or (eolp) (newline) (indent-relative)))
 	paragraph-start (concat page-delimiter "\\|$")
 	paragraph-separate paragraph-start
 	comment-start "# "
+	comment-start-skip "#+[\t ]*"
+	local-abbrev-table sh-mode-abbrev-table
 	comint-dynamic-complete-functions sh-dynamic-complete-functions
 	;; we can't look if previous line ended with `\'
 	comint-prompt-regexp "^[ \t]*"
+	imenu-case-fold-search nil
 	font-lock-defaults
 	`((sh-font-lock-keywords
 	   sh-font-lock-keywords-1 sh-font-lock-keywords-2)
 	  nil nil
 	  ((?/ . "w") (?~ . "w") (?. . "w") (?- . "w") (?_ . "w")) nil
-	  (font-lock-syntactic-keywords
-	   ;; Copy so we can use destructive update in `sh-font-lock-heredoc'.
-	   . ,(copy-sequence sh-font-lock-syntactic-keywords))
+	  (font-lock-syntactic-keywords . sh-font-lock-syntactic-keywords)
 	  (font-lock-syntactic-face-function
 	   . sh-font-lock-syntactic-face-function))
 	skeleton-pair-alist '((?` _ ?`))
-	skeleton-pair-filter 'sh-quoted-p
+	skeleton-pair-filter-function 'sh-quoted-p
 	skeleton-further-elements '((< '(- (min sh-indentation
 						(current-column)))))
-	skeleton-filter 'sh-feature
+	skeleton-filter-function 'sh-feature
 	skeleton-newline-indent-rigidly t
 	sh-indent-supported-here nil)
   (set (make-local-variable 'parse-sexp-ignore-comments) t)
   ;; Parse or insert magic number for exec, and set all variables depending
   ;; on the shell thus determined.
-  (let ((interpreter
-	 (save-excursion
-	   (goto-char (point-min))
-	   (cond ((looking-at "#![ \t]?\\([^ \t\n]*/bin/env[ \t]\\)?\\([^ \t\n]+\\)")
-		  (match-string 2))
-		 ((and buffer-file-name
-		       (string-match "\\.m?spec$" buffer-file-name))
-		  "rpm")))))
-    (sh-set-shell (or interpreter sh-shell-file) nil nil)))
+  (sh-set-shell
+   (cond ((save-excursion
+            (goto-char (point-min))
+            (looking-at "#![ \t]?\\([^ \t\n]*/bin/env[ \t]\\)?\\([^ \t\n]+\\)"))
+          (match-string 2))
+         ((not buffer-file-name)
+          sh-shell-file)
+         ;; Checks that use `buffer-file-name' follow.
+         ((string-match "\\.m?spec\\'" buffer-file-name)
+          "rpm")
+         ((string-match "[.]sh\\>" buffer-file-name)
+          "sh")
+         ((string-match "[.]bash\\>" buffer-file-name)
+          "bash")
+         ((string-match "[.]ksh\\>" buffer-file-name)
+          "ksh")
+         ((string-match "[.]csh\\>" buffer-file-name)
+          "csh")
+	 ((equal (file-name-nondirectory buffer-file-name) ".profile")
+          "sh")
+         (t
+          sh-shell-file))
+   nil nil)
+  (run-mode-hooks 'sh-mode-hook))
 
 ;;;###autoload
 (defalias 'shell-script-mode 'sh-mode)
@@ -1300,37 +1544,34 @@ with your script for an edit-interpret-debug cycle."
 (defun sh-font-lock-keywords (&optional keywords)
   "Function to get simple fontification based on `sh-font-lock-keywords'.
 This adds rules for comments and assignments."
-  (sh-feature sh-font-lock-keywords
+  (sh-feature sh-font-lock-keywords-var
 	      (when (stringp (sh-feature sh-assignment-regexp))
 		(lambda (list)
 		  `((,(sh-feature sh-assignment-regexp)
 		     1 font-lock-variable-name-face)
 		    ,@keywords
-		    ,@list)))))
+		    ,@list
+		    ,@executable-font-lock-keywords)))))
 
 (defun sh-font-lock-keywords-1 (&optional builtins)
   "Function to get better fontification including keywords."
-  (let ((keywords (concat "\\([;(){}`|&]\\|^\\)[ \t]*\\(\\(\\("
-			  (mapconcat 'identity
-				     (sh-feature sh-leading-keywords)
-				     "\\|")
-			  "\\)[ \t]+\\)?\\("
-			  (mapconcat 'identity
-				     (append (sh-feature sh-leading-keywords)
-					     (sh-feature sh-other-keywords))
-				     "\\|")
-			  "\\)")))
+  (let ((keywords (concat "\\([;(){}`|&]\\|^\\)[ \t]*\\(\\("
+			  (regexp-opt (sh-feature sh-leading-keywords) t)
+			  "[ \t]+\\)?"
+			  (regexp-opt (append (sh-feature sh-leading-keywords)
+					      (sh-feature sh-other-keywords))
+				      t))))
     (sh-font-lock-keywords
      `(,@(if builtins
-	     `((,(concat keywords "[ \t]+\\)?\\("
-			 (mapconcat 'identity (sh-feature sh-builtins) "\\|")
-			 "\\)\\>")
+	     `((,(concat keywords "[ \t]+\\)?"
+			 (regexp-opt (sh-feature sh-builtins) t)
+			 "\\>")
 		(2 font-lock-keyword-face nil t)
 		(6 font-lock-builtin-face))
-	       ,@(sh-feature sh-font-lock-keywords-2)))
+	       ,@(sh-feature sh-font-lock-keywords-var-2)))
 	 (,(concat keywords "\\)\\>")
 	  2 font-lock-keyword-face)
-	 ,@(sh-feature sh-font-lock-keywords-1)))))
+	 ,@(sh-feature sh-font-lock-keywords-var-1)))))
 
 (defun sh-font-lock-keywords-2 ()
   "Function to get better fontification including keywords and builtins."
@@ -1392,14 +1633,24 @@ This adds rules for comments and assignments."
      ("case" sh-handle-this-rc-case sh-handle-prev-rc-case))))
 
 
+
 (defun sh-set-shell (shell &optional no-query-flag insert-flag)
   "Set this buffer's shell to SHELL (a string).
-Makes this script executable via `executable-set-magic', and sets up the
-proper starting #!-line, if INSERT-FLAG is non-nil.
+When used interactively, insert the proper starting #!-line,
+and make the visited file executable via `executable-set-magic',
+perhaps querying depending on the value of `executable-query'.
+
+When this function is called noninteractively, INSERT-FLAG (the third
+argument) controls whether to insert a #!-line and think about making
+the visited file executable, and NO-QUERY-FLAG (the second argument)
+controls whether to query about making the visited file executable.
+
 Calls the value of `sh-set-shell-hook' if set."
-  (interactive (list (completing-read "Name or path of shell: "
-				      interpreter-mode-alist
-				      (lambda (x) (eq (cdr x) 'sh-mode)))
+  (interactive (list (completing-read (format "Shell \(default %s\): "
+ 					      sh-shell-file)
+  				      interpreter-mode-alist
+ 				      (lambda (x) (eq (cdr x) 'sh-mode))
+ 				      nil nil nil sh-shell-file)
 		     (eq executable-query 'function)
 		     t))
   (if (string-match "\\.exe\\'" shell)
@@ -1411,14 +1662,20 @@ Calls the value of `sh-set-shell-hook' if set."
       (setq sh-shell-file
 	    (executable-set-magic shell (sh-feature sh-shell-arg)
 				  no-query-flag insert-flag)))
-  (setq require-final-newline (sh-feature sh-require-final-newline)
-;;;	local-abbrev-table (sh-feature sh-abbrevs)
-	comment-start-skip "#+[\t ]*"
+  (let ((tem (sh-feature sh-require-final-newline)))
+    (if (eq tem t)
+	(setq require-final-newline mode-require-final-newline)))
+  (setq
 	mode-line-process (format "[%s]" sh-shell)
 	sh-shell-variables nil
 	sh-shell-variables-initialized nil
-	imenu-generic-expression (sh-feature sh-imenu-generic-expression)
-	imenu-case-fold-search nil)
+	imenu-generic-expression (sh-feature sh-imenu-generic-expression))
+  (make-local-variable 'sh-mode-syntax-table)
+  (let ((tem (sh-feature sh-mode-syntax-table-input)))
+    (setq sh-mode-syntax-table
+	  (if tem (apply 'sh-mode-syntax-table tem)
+	    sh-mode-default-syntax-table)))
+  (set-syntax-table sh-mode-syntax-table)
   (dolist (var (sh-feature sh-variables))
     (sh-remember-variable var))
   (make-local-variable 'indent-line-function)
@@ -1440,11 +1697,14 @@ Calls the value of `sh-set-shell-hook' if set."
 	(message "Indentation setup for shell type %s" sh-shell))
     (message "No indentation for this shell type.")
     (setq indent-line-function 'sh-basic-indent-line))
+  (when font-lock-mode
+    (setq font-lock-set-defaults nil)
+    (font-lock-set-defaults)
+    (font-lock-fontify-buffer))
   (run-hooks 'sh-set-shell-hook))
 
 
-
-(defun sh-feature (list &optional function)
+(defun sh-feature (alist &optional function)
   "Index ALIST by the current shell.
 If ALIST isn't a list where every element is a cons, it is returned as is.
 Else indexing follows an inheritance logic which works in two ways:
@@ -1453,84 +1713,80 @@ Else indexing follows an inheritance logic which works in two ways:
     the alist contains no value for the current shell.
     The ultimate default is always `sh'.
 
-  - If the value thus looked up is a list starting with `eval' its `cdr' is
-    first evaluated.  If that is also a list and the first argument is a
-    symbol in ALIST it is not evaluated, but rather recursively looked up in
-    ALIST to allow the function called to define the value for one shell to be
-    derived from another shell.  While calling the function, is the car of the
-    alist element is the current shell.
+  - If the value thus looked up is a list starting with `sh-append',
+    we call the function `sh-append' with the rest of the list as
+    arguments, and use the value.  However, the next element of the
+    list is not used as-is; instead, we look it up recursively
+    in ALIST to allow the function called to define the value for
+    one shell to be derived from another shell.
     The value thus determined is physically replaced into the alist.
 
-Optional FUNCTION is applied to the determined value and the result is cached
-in ALIST."
-  (or (if (consp list)
-	  (let ((l list))
+If FUNCTION is non-nil, it is called with one argument,
+the value thus obtained, and the result is used instead."
+  (or (if (consp alist)
+	  ;; Check for something that isn't a valid alist.
+	  (let ((l alist))
 	    (while (and l (consp (car l)))
 	      (setq l (cdr l)))
-	    (if l list)))
-      (if function
-	  (cdr (assoc (setq function (cons sh-shell function)) list)))
-      (let ((sh-shell sh-shell)
-	    elt val)
-	(while (and sh-shell
-		    (not (setq elt (assq sh-shell list))))
-	  (setq sh-shell (cdr (assq sh-shell sh-ancestor-alist))))
-	;; If the shell is not known, treat it as sh.
-	(unless elt
-	  (setq elt (assq 'sh list)))
-	(if (and (consp (setq val (cdr elt)))
-		 (eq (car val) 'eval))
-	    (setcdr elt
-		    (setq val
-			  (eval (if (consp (setq val (cdr val)))
-				    (let ((sh-shell (car (cdr val)))
-					  function)
-				      (if (assq sh-shell list)
-					  (setcar (cdr val)
-						  (list 'quote
-							(sh-feature list))))
-				      val)
-				  val)))))
-	(if function
-	    (nconc list
-		   (list (cons function
-			       (setq sh-shell (car function)
-				     val (funcall (cdr function) val))))))
-	val)))
+	    (if l alist)))
+
+      (let ((orig-sh-shell sh-shell))
+	(let ((sh-shell sh-shell)
+	      elt val)
+	  (while (and sh-shell
+		      (not (setq elt (assq sh-shell alist))))
+	    (setq sh-shell (cdr (assq sh-shell sh-ancestor-alist))))
+	  ;; If the shell is not known, treat it as sh.
+	  (unless elt
+	    (setq elt (assq 'sh alist)))
+	  (setq val (cdr elt))
+	  (if (and (consp val)
+		   (memq (car val) '(sh-append sh-modify)))
+	      (setq val
+		    (apply (car val)
+			   ;; Refer to the value for a different shell,
+			   ;; as a kind of inheritance.
+			   (let ((sh-shell (car (cdr val))))
+			     (sh-feature alist))
+			   (cddr val))))
+	  (if function
+	      (setq sh-shell orig-sh-shell
+		    val (funcall function val)))
+	  val))))
 
 
 
-;;; I commented this out because nobody calls it -- rms.
-;;;(defun sh-abbrevs (ancestor &rest list)
-;;;  "Iff it isn't, define the current shell as abbrev table and fill that.
-;;;Abbrev table will inherit all abbrevs from ANCESTOR, which is either an abbrev
-;;;table or a list of (NAME1 EXPANSION1 ...).  In addition it will define abbrevs
-;;;according to the remaining arguments NAMEi EXPANSIONi ...
-;;;EXPANSION may be either a string or a skeleton command."
-;;;  (or (if (boundp sh-shell)
-;;;	  (symbol-value sh-shell))
-;;;      (progn
-;;;	(if (listp ancestor)
-;;;	    (nconc list ancestor))
-;;;	(define-abbrev-table sh-shell ())
-;;;	(if (vectorp ancestor)
-;;;	    (mapatoms (lambda (atom)
-;;;			(or (eq atom 0)
-;;;			    (define-abbrev (symbol-value sh-shell)
-;;;			      (symbol-name atom)
-;;;			      (symbol-value atom)
-;;;			      (symbol-function atom))))
-;;;		      ancestor))
-;;;	(while list
-;;;	  (define-abbrev (symbol-value sh-shell)
-;;;	    (car list)
-;;;	    (if (stringp (car (cdr list)))
-;;;		(car (cdr list))
-;;;	      "")
-;;;	    (if (symbolp (car (cdr list)))
-;;;		(car (cdr list))))
-;;;	  (setq list (cdr (cdr list)))))
-;;;      (symbol-value sh-shell)))
+;; I commented this out because nobody calls it -- rms.
+;;(defun sh-abbrevs (ancestor &rest list)
+;;  "Iff it isn't, define the current shell as abbrev table and fill that.
+;;Abbrev table will inherit all abbrevs from ANCESTOR, which is either an abbrev
+;;table or a list of (NAME1 EXPANSION1 ...).  In addition it will define abbrevs
+;;according to the remaining arguments NAMEi EXPANSIONi ...
+;;EXPANSION may be either a string or a skeleton command."
+;;  (or (if (boundp sh-shell)
+;;	  (symbol-value sh-shell))
+;;      (progn
+;;	(if (listp ancestor)
+;;	    (nconc list ancestor))
+;;	(define-abbrev-table sh-shell ())
+;;	(if (vectorp ancestor)
+;;	    (mapatoms (lambda (atom)
+;;			(or (eq atom 0)
+;;			    (define-abbrev (symbol-value sh-shell)
+;;			      (symbol-name atom)
+;;			      (symbol-value atom)
+;;			      (symbol-function atom))))
+;;		      ancestor))
+;;	(while list
+;;	  (define-abbrev (symbol-value sh-shell)
+;;	    (car list)
+;;	    (if (stringp (car (cdr list)))
+;;		(car (cdr list))
+;;	      "")
+;;	    (if (symbolp (car (cdr list)))
+;;		(car (cdr list))))
+;;	  (setq list (cdr (cdr list)))))
+;;      (symbol-value sh-shell)))
 
 
 (defun sh-append (ancestor &rest list)
@@ -1621,17 +1877,11 @@ region, clear header."
   (eq -1 (% (save-excursion (skip-chars-backward "\\\\")) 2)))
 
 ;; Indentation stuff.
-(defun sh-must-be-shell-mode ()
-  "Signal an error if not in Shell-script mode."
-  (unless (eq major-mode 'sh-mode)
-    (error "This buffer is not in Shell-script mode")))
-
 (defun sh-must-support-indent ()
   "*Signal an error if the shell type for this buffer is not supported.
 Also, the buffer must be in Shell-script mode."
-  (sh-must-be-shell-mode)
   (unless sh-indent-supported-here
-    (error "This buffer's shell type is not supported for this command")))
+    (error "This buffer's shell does not support indentation through Emacs")))
 
 (defun sh-make-vars-local ()
   "Make the indentation variables local to this buffer.
@@ -1641,15 +1891,13 @@ variable `sh-make-vars-local' has been set to nil.
 To revert all these variables to the global values, use
 command `sh-reset-indent-vars-to-global-values'."
   (interactive)
-  (sh-must-be-shell-mode)
   (mapcar 'make-local-variable sh-var-list)
-  (message "Indentation variable are now local."))
+  (message "Indentation variables are now local."))
 
 (defun sh-reset-indent-vars-to-global-values ()
   "Reset local indentation variables to the global values.
 Then, if variable `sh-make-vars-local' is non-nil, make them local."
   (interactive)
-  (sh-must-be-shell-mode)
   (mapcar 'kill-local-variable sh-var-list)
   (if sh-make-vars-local
       (mapcar 'make-local-variable sh-var-list)))
@@ -1675,9 +1923,9 @@ which in this buffer is currently %s.
 
 \t%s."
 		    sh-basic-offset
-		    (mapconcat  (lambda (x)
-				  (nth (1- (length x)) x))
-				sh-symbol-list  "\n\t"))))
+		    (mapconcat (lambda (x)
+				 (nth (1- (length x)) x))
+			       sh-symbol-list  "\n\t"))))
     (concat
      ;; The following shows the global not the local value!
      ;; (format "Current value of %s is %s\n\n" var (symbol-value var))
@@ -1701,10 +1949,8 @@ which in this buffer is currently %s.
 (defun sh-in-comment-or-string (start)
   "Return non-nil if START is in a comment or string."
   (save-excursion
-    (let (state)
-      (beginning-of-line)
-      (setq state (parse-partial-sexp (point) start nil nil nil t))
-      (or (nth 3 state)(nth 4 state)))))
+    (let ((state (syntax-ppss start)))
+      (or (nth 3 state) (nth 4 state)))))
 
 (defun sh-goto-matching-if ()
   "Go to the matching if for a fi.
@@ -1897,28 +2143,20 @@ STRING	     This is ignored for the purposes of calculating
 	     what the indentation is based on."
   ;; See comments before `sh-kw'.
   (save-excursion
-    (let ((prev-kw nil)
-	  (prev-stmt nil)
-	  (have-result nil)
-	  depth-bol depth-eol
+    (let ((have-result nil)
 	  this-kw
-	  (state nil)
-	  state-bol
-	  (depth-prev-bol nil)
 	  start
-	  func val
+	  val
 	  (result nil)
-	  prev-lines-indent
-	  (prev-list nil)
-	  (this-list nil)
 	  (align-point nil)
 	  prev-line-end x)
       (beginning-of-line)
       ;; Note: setting result to t means we are done and will return nil.
       ;;(This function never returns just t.)
       (cond
-       ((or (and (boundp 'font-lock-string-face)
-		 (eq (get-text-property (point) 'face) font-lock-string-face))
+       ((or (and (boundp 'font-lock-string-face) (not (bobp))
+		 (eq (get-text-property (1- (point)) 'face)
+		     font-lock-string-face))
 	    (eq (get-text-property (point) 'face) sh-heredoc-face))
 	(setq result t)
 	(setq have-result t))
@@ -1932,16 +2170,25 @@ STRING	     This is ignored for the purposes of calculating
 	  (setq have-result nil)
 	  ))
        ) ;; cond
-      
+
       (unless have-result
 	;; Continuation lines are handled specially
 	(if (sh-this-is-a-continuation)
 	    (progn
-	      ;; We assume the line being continued is already
-	      ;; properly indented...
-	      ;; (setq prev-line-end (sh-prev-line))
-	      (setq align-point (sh-prev-line nil))
-	      (setq result (list '(+ sh-indent-for-continuation)))
+              (setq result
+                    (if (save-excursion
+                          (beginning-of-line)
+                          (not (memq (char-before (- (point) 2)) '(?\s ?\t))))
+                        ;; By convention, if the continuation \ is not
+                        ;; preceded by a SPC or a TAB it means that the line
+                        ;; is cut at a place where spaces cannot be freely
+                        ;; added/removed.  I.e. do not indent the line.
+                        (list '(= nil))
+                      ;; We assume the line being continued is already
+                      ;; properly indented...
+                      ;; (setq prev-line-end (sh-prev-line))
+                      (setq align-point (sh-prev-line nil))
+                      (list '(+ sh-indent-for-continuation))))
 	      (setq have-result t))
 	  (beginning-of-line)
 	  (skip-chars-forward " \t")
@@ -1985,7 +2232,8 @@ STRING	     This is ignored for the purposes of calculating
 		    (progn
 		      (setq result (append result val))
 		      (setq align-point (point))))
-		(forward-char -1)
+		(or (bobp)
+		    (forward-char -1))
 		(skip-chars-forward "[a-z0-9]*?")
 		)
 	       ((string-match "[])}]" x)
@@ -2025,19 +2273,18 @@ STRING	     This is ignored for the purposes of calculating
 	(sh-debug "No prev line!")
 	(sh-debug "result: %s  align-point: %s" result align-point)
 	)
-      
+
       (if align-point
 	  ;; was: (setq result (append result (list (list t align-point))))
 	  (setq result (append  (list (list t align-point)) result))
 	)
       (sh-debug "result is now: %s" result)
-       
+
       (or result
-	  (if prev-line-end
-	      (setq result (list (list t prev-line-end)))
-	    (setq result (list (list '= 'sh-first-lines-indent)))
-	    ))
-       
+	  (setq result (list (if prev-line-end
+                                 (list t prev-line-end)
+                               (list '= 'sh-first-lines-indent)))))
+
       (if (eq result t)
 	  (setq result nil))
       (sh-debug  "result is: %s" result)
@@ -2110,7 +2357,6 @@ If INFO is supplied it is used, else it is calculated."
   "Back to end of previous non-comment non-empty line.
 Go to beginning of logical line unless END is non-nil, in which case
 we go to the end of the previous line and do not check for continuations."
-  (sh-must-be-shell-mode)
   (save-excursion
     (beginning-of-line)
     (forward-comment (- (point-max)))
@@ -2196,7 +2442,7 @@ we go to the end of the previous line and do not check for continuations."
 	(if (looking-at "[\"'`]")
 	    (sh-safe-forward-sexp)
 	  ;; (> (skip-chars-forward "^ \t\n\"'`") 0)
-	  (> (skip-chars-forward "-_a-zA-Z\$0-9") 0)
+	  (> (skip-chars-forward "-_a-zA-Z$0-9") 0)
 	  ))
     (buffer-substring start (point))
     ))
@@ -2213,52 +2459,48 @@ we go to the end of the previous line and do not check for continuations."
   ;; Possible return values:
   ;;  nil  -  nothing
   ;; a string - possibly a keyword
-  ;; 
+  ;;
   (if (bolp)
       nil
-    (let ((going t)
-	  c n
-	  min-point
-	  (start (point))
-	  (found nil))
-      (save-restriction
-	(narrow-to-region
-	(if (sh-this-is-a-continuation)
-	    (setq min-point (sh-prev-line nil))
-	  (save-excursion
-	    (beginning-of-line)
-	    (setq min-point (point))))
-	(point))
-	(skip-chars-backward " \t;")
-	(unless (looking-at "\\s-*;;")
-	(skip-chars-backward "^)}];\"'`({[")
-	(setq c (char-before))))
-      (sh-debug "stopping at %d c is %s  start=%d min-point=%d"
-		(point) c start min-point)
-      (if (< (point) min-point)
-	  (error "point %d < min-point %d" (point) min-point))
-      (cond
-       ((looking-at "\\s-*;;")
-	;; (message "Found ;; !")
-       ";;")
-       ((or (eq c ?\n)
-	    (eq c nil)
-	    (eq c ?\;))
-       (save-excursion
-	 ;; skip forward over white space newline and \ at eol
-	 (skip-chars-forward " \t\n\\\\")
-	 (sh-debug "Now at %d   start=%d" (point) start)
-	 (if (>= (point) start)
-	     (progn
-	       (sh-debug "point: %d >= start: %d" (point) start)
-	       nil)
-	   (sh-get-word))
-	 ))
-       (t
-	;; c	-- return a string
-       (char-to-string c)
-       ))
-      )))
+    (let ((start (point))
+          (min-point (if (sh-this-is-a-continuation)
+                         (sh-prev-line nil)
+                       (line-beginning-position))))
+      (skip-chars-backward " \t;" min-point)
+      (if (looking-at "\\s-*;;")
+          ;; (message "Found ;; !")
+          ";;"
+        (skip-chars-backward "^)}];\"'`({[" min-point)
+        (let ((c (if (> (point) min-point) (char-before))))
+          (sh-debug "stopping at %d c is %s  start=%d min-point=%d"
+                    (point) c start min-point)
+          (if (not (memq c '(?\n nil ?\;)))
+              ;; c	-- return a string
+              (char-to-string c)
+            ;; Return the leading keyword of the "command" we supposedly
+            ;; skipped over.  Maybe we skipped too far (e.g. past a `do' or
+            ;; `then' that precedes the actual command), so check whether
+            ;; we're looking at such a keyword and if so, move back forward.
+            (let ((boundary (point))
+                  kwd next)
+              (while
+                  (progn
+                    ;; Skip forward over white space newline and \ at eol.
+                    (skip-chars-forward " \t\n\\\\" start)
+                    (if (>= (point) start)
+                        (progn
+                          (sh-debug "point: %d >= start: %d" (point) start)
+                          nil)
+                      (if next (setq boundary next))
+                      (sh-debug "Now at %d   start=%d" (point) start)
+                      (setq kwd (sh-get-word))
+                      (if (member kwd (sh-feature sh-leading-keywords))
+                          (progn
+                            (setq next (point))
+                            t)
+                        nil))))
+              (goto-char boundary)
+              kwd)))))))
 
 
 (defun sh-this-is-a-continuation ()
@@ -2277,7 +2519,7 @@ If AND-MOVE is non-nil then move to end of word."
 	(goto-char where))
     (prog1
 	(buffer-substring (point)
-			  (progn (skip-chars-forward "^ \t\n;")(point)))
+			  (progn (skip-chars-forward "^ \t\n;&|()")(point)))
       (unless and-move
 	(goto-char start)))))
 
@@ -2320,7 +2562,7 @@ Optional parameter DEPTH (usually 1) says how many to look for."
 (defun sh-var-value (var &optional ignore-error)
   "Return the value of variable VAR, interpreting symbols.
 It can also return t or nil.
-If an illegal value is found, throw an error unless Optional argument
+If an invalid value is found, throw an error unless Optional argument
 IGNORE-ERROR is non-nil."
   (let ((val (symbol-value var)))
     (cond
@@ -2438,20 +2680,15 @@ If INFO is supplied it is used, else it is calculated from current line."
 	nil)))))
 
 
-(defun sh-indent-line (&optional prefix-arg)
+(defun sh-indent-line ()
   "Indent the current line."
   (interactive)
-  (sh-must-be-shell-mode)
-  (let ((indent (sh-calculate-indent)) shift-amt beg end
+  (let ((indent (sh-calculate-indent))
 	(pos (- (point-max) (point))))
     (when indent
       (beginning-of-line)
-      (setq beg (point))
       (skip-chars-forward " \t")
-      (setq shift-amt (- indent (current-column)))
-      (unless (zerop shift-amt)
-	(delete-region beg (point))
-	(indent-to indent))
+      (indent-line-to indent)
       ;; If initial point was within line's indentation,
       ;; position after the indentation.  Else stay at same point in text.
       (if (> (- (point-max) pos) (point))
@@ -2464,9 +2701,9 @@ If INFO is supplied it is used, else it is calculated from current line."
   (if (numberp blinkpos)
       (save-excursion
 	(goto-char blinkpos)
-	(message msg)
+	(if msg (message "%s" msg) (message nil))
 	(sit-for blink-matching-delay))
-    (message msg)))
+    (if msg (message "%s" msg) (message nil))))
 
 (defun sh-show-indent (arg)
   "Show the how the currently line would be indented.
@@ -2483,7 +2720,7 @@ we are indenting relative to, if applicable."
 	 (curr-indent (current-indentation))
 	 val msg)
     (if (stringp var)
-	(message (setq msg var))
+	(message "%s" (setq msg var))
       (setq val (sh-calculate-indent info))
 
       (if (eq curr-indent val)
@@ -2502,8 +2739,8 @@ we are indenting relative to, if applicable."
 	  (if (and info (listp (car info))
 		   (eq (car (car info)) t))
 	      (sh-blink (nth 1 (car info))  msg)
-	    (message msg)))
-      (message msg))
+	    (message "%s" msg)))
+      (message "%s" msg))
     ))
 
 (defun sh-set-indent ()
@@ -2514,9 +2751,9 @@ for a new value for it."
   (sh-must-support-indent)
   (let* ((info (sh-get-indent-info))
 	 (var (sh-get-indent-var-for-line info))
-	 val val0 new-val old-val indent-val)
+	 val old-val indent-val)
     (if (stringp var)
-	(message (format "Cannot set indent - %s" var))
+	(message "Cannot set indent - %s" var)
       (setq old-val (symbol-value var))
       (setq val (sh-read-variable var))
       (condition-case nil
@@ -2567,7 +2804,7 @@ unless optional argument ARG (the prefix when interactive) is non-nil."
 	   (curr-indent (current-indentation)))
       (cond
        ((stringp var)
-	(message (format "Cannot learn line - %s" var)))
+	(message "Cannot learn line - %s" var))
        ((eq var 'sh-indent-comment)
 	;; This is arbitrary...
 	;; - if curr-indent is 0, set to curr-indent
@@ -2587,7 +2824,7 @@ unless optional argument ARG (the prefix when interactive) is non-nil."
        ((numberp (setq sval (sh-var-value var)))
 	(setq ival (sh-calculate-indent info))
 	(setq diff (- curr-indent ival))
-      
+
 	(sh-debug "curr-indent: %d   ival: %d  diff: %d  var:%s  sval %s"
 		  curr-indent ival diff  var sval)
 	(setq new-val (+ sval diff))
@@ -2607,13 +2844,9 @@ unless optional argument ARG (the prefix when interactive) is non-nil."
 
 (defun sh-mark-init (buffer)
   "Initialize a BUFFER to be used by `sh-mark-line'."
-  (let ((main-buffer (current-buffer)))
-    (save-excursion
-      (set-buffer (get-buffer-create buffer))
-      (erase-buffer)
-      (occur-mode)
-      (setq occur-buffer main-buffer)
-      )))
+  (with-current-buffer (get-buffer-create buffer)
+    (erase-buffer)
+    (occur-mode)))
 
 
 (defun sh-mark-line (message point buffer &optional add-linenum occur-point)
@@ -2623,7 +2856,6 @@ If ADD-LINENUM is non-nil the message is preceded by the line number.
 If OCCUR-POINT is non-nil then the line is marked as a new occurrence
 so that `occur-next' and `occur-prev' will work."
   (let ((m1 (make-marker))
-	(main-buffer (current-buffer))
 	start
 	(line ""))
     (when point
@@ -2635,7 +2867,6 @@ so that `occur-next' and `occur-prev' will work."
 	  (set-buffer (get-buffer buffer))
 	(set-buffer (get-buffer-create buffer))
 	(occur-mode)
-	(setq occur-buffer main-buffer)
 	)
       (goto-char (point-max))
       (setq start (point))
@@ -2651,10 +2882,10 @@ so that `occur-next' and `occur-prev' will work."
       (insert "\n")
       (if point
 	  (progn
-	    (put-text-property start (point) 'occur m1)
+	    (put-text-property start (point) 'occur-target m1)
 	    (if occur-point
-		(put-text-property occur-point (1+ occur-point)
-				   'occur-point t))
+		(put-text-property start occur-point
+				   'occur-match t))
 	    ))
       )))
 
@@ -2663,8 +2894,8 @@ so that `occur-next' and `occur-prev' will work."
 ;; Is this really worth having?
 (defvar sh-learned-buffer-hook nil
   "*An abnormal hook, called with an alist of learned variables.")
-;;; Example of how to use sh-learned-buffer-hook
-;; 
+;; Example of how to use sh-learned-buffer-hook
+;;
 ;; (defun what-i-learned (list)
 ;;   (let ((p list))
 ;;     (save-excursion
@@ -2677,7 +2908,7 @@ so that `occur-next' and `occur-prev' will work."
 ;; 	(setq p (cdr p)))
 ;;       (insert ")\n")
 ;;       )))
-;; 
+;;
 ;; (add-hook 'sh-learned-buffer-hook 'what-i-learned)
 
 
@@ -2713,7 +2944,6 @@ This command can often take a long time to run."
     (let ((learned-var-list nil)
 	  (out-buffer "*indent*")
 	  (num-diffs 0)
-	  last-pos
 	  previous-set-info
 	  (max 17)
 	  vec
@@ -2869,19 +3099,12 @@ This command can often take a long time to run."
 		 (format "Suggested sh-basic-offset:  %d" suggested))
 	       nil out-buffer))))
 
-      
+
       (setq learned-var-list
 	    (append (list (list 'sh-indent-comment comment-col (point-max)))
 		    learned-var-list))
       (setq sh-indent-comment comment-col)
-      (let ((name (buffer-name))
-	    (lines (if (and (eq (point-min) 1)
-			    (eq (point-max) (1+ (buffer-size))))
-		       ""
-		     (format "lines %d to %d of "
-			     (1+ (count-lines 1 (point-min)))
-			     (1+ (count-lines 1 (point-max))))))
-	    )
+      (let ((name (buffer-name)))
 	(sh-mark-line  "\nLearned variable settings:" nil out-buffer)
 	(if arg
 	    ;; Set learned variables to symbolic rather than numeric
@@ -2896,8 +3119,7 @@ This command can often take a long time to run."
 	  (let ((var (car learned-var)))
 	    (sh-mark-line (format "  %s %s" var (symbol-value var))
 			  (nth 2 learned-var) out-buffer)))
-	(save-excursion
-	  (set-buffer out-buffer)
+	(with-current-buffer out-buffer
 	  (goto-char (point-min))
 	  (insert
 	   (format "Indentation values for buffer %s.\n" name)
@@ -2926,12 +3148,9 @@ Return values:
   nil		  - we couldn't find a reasonable one."
   (let* ((max (1- (length vec)))
 	 (i 1)
-	 (totals (make-vector max 0))
-	 (return nil)
-	 j)
+	 (totals (make-vector max 0)))
     (while (< i max)
       (aset totals i (+ (aref totals i) (* 4 (aref vec i))))
-      (setq j (/ i 2))
       (if (zerop (% i 2))
 	  (aset totals i (+ (aref totals i) (aref vec (/ i 2)))))
       (if (< (* i 2) max)
@@ -3040,6 +3259,11 @@ This is always added to the end of the buffer."
 ;; You are welcome to add the syntax or even completely new statements as
 ;; appropriate for your favorite shell.
 
+(defconst sh-non-closing-paren
+  ;; If we leave it rear-sticky, calling `newline' ends up inserting a \n
+  ;; that inherits this property, which then confuses the indentation.
+  (propertize ")" 'syntax-table sh-st-punc 'rear-nonsticky t))
+
 (define-skeleton sh-case
   "Insert a case/switch statement.  See `sh-feature'."
   (csh "expression: "
@@ -3054,7 +3278,7 @@ This is always added to the end of the buffer."
        < "default:" \n
        > _ \n
        resume:
-       < < "endsw")
+       < < "endsw" \n)
   (es)
   (rc "expression: "
       > "switch( " str " ) {" \n
@@ -3066,55 +3290,50 @@ This is always added to the end of the buffer."
       "case *" > \n
       > _ \n
       resume:
-      ?} > )
+      ?\} > \n)
   (sh "expression: "
       > "case " str " in" \n
-      > (read-string "pattern: ")
-      (propertize ")" 'syntax-table sh-st-punc)
-      \n
-      > _ \n
-      ";;" \n
-      ( "other pattern, %s: "
-	> str (propertize ")" 'syntax-table sh-st-punc) \n
+      ( "pattern, %s: "
+	> str sh-non-closing-paren \n
 	> _ \n
 	";;" \n)
-      > "*" (propertize ")" 'syntax-table sh-st-punc) \n
+      > "*" sh-non-closing-paren \n
       > _ \n
       resume:
-      "esac" > ))
+      "esac" > \n))
 
 (define-skeleton sh-for
   "Insert a for loop.  See `sh-feature'."
-  (csh eval sh-modify sh
+  (csh sh-modify sh
        1 ""
        2 "foreach "
        4 " ( "
        6 " )"
        15 '<
        16 "end")
-  (es eval sh-modify rc
+  (es sh-modify rc
       4 " = ")
-  (rc eval sh-modify sh
+  (rc sh-modify sh
       2 "for( "
       6 " ) {"
-      15 ?} )
+      15 ?\} )
   (sh "Index variable: "
       > "for " str " in " _ "; do" \n
       > _ | ?$ & (sh-remember-variable str) \n
-      "done" > ))
+      "done" > \n))
 
 
 
 (define-skeleton sh-indexed-loop
   "Insert an indexed loop from 1 to n.  See `sh-feature'."
-  (bash eval identity posix)
+  (bash sh-modify posix)
   (csh "Index variable: "
        "@ " str " = 1" \n
        "while( $" str " <= " (read-string "upper limit: ") " )" \n
        > _ ?$ str \n
        "@ " str "++" \n
-       < "end")
-  (es eval sh-modify rc
+       < "end" \n)
+  (es sh-modify rc
       4 " =")
   (ksh88 "Index variable: "
 	 > "integer " str "=0" \n
@@ -3122,7 +3341,7 @@ This is always added to the end of the buffer."
 	 (read-string "upper limit: ")
 	 " )); do" \n
 	 > _ ?$ (sh-remember-variable str) > \n
-	 "done" > )
+	 "done" > \n)
   (posix "Index variable: "
 	 > str "=1" \n
 	 "while [ $" str " -le "
@@ -3130,19 +3349,19 @@ This is always added to the end of the buffer."
 	 " ]; do" \n
 	 > _ ?$ str \n
 	 str ?= (sh-add (sh-remember-variable str) 1) \n
-	 "done" > )
+	 "done" > \n)
   (rc "Index variable: "
       > "for( " str " in" " `{awk 'BEGIN { for( i=1; i<="
       (read-string "upper limit: ")
       "; i++ ) print i }'`}) {" \n
       > _ ?$ (sh-remember-variable str) \n
-      ?} >)
+      ?\} > \n)
   (sh "Index variable: "
       > "for " str " in `awk 'BEGIN { for( i=1; i<="
       (read-string "upper limit: ")
       "; i++ ) print i }'`; do" \n
       > _ ?$ (sh-remember-variable str) \n
-      "done" > ))
+      "done" > \n))
 
 
 (defun sh-shell-initialize-variables ()
@@ -3171,8 +3390,7 @@ nil means to return the best completion of STRING, or nil if there is none.
 t means to return a list of all possible completions of STRING.
 `lambda' means to return t if STRING is a valid completion as it stands."
   (let ((sh-shell-variables
-	 (save-excursion
-	   (set-buffer sh-add-buffer)
+	 (with-current-buffer sh-add-buffer
 	   (or sh-shell-variables-initialized
 	       (sh-shell-initialize-variables))
 	   (nconc (mapcar (lambda (var)
@@ -3181,12 +3399,10 @@ t means to return a list of all possible completions of STRING.
 			      (cons name name)))
 			  process-environment)
 		  sh-shell-variables))))
-    (cond ((null code)
-	   (try-completion string sh-shell-variables predicate))
-	  ((eq code t)
-	   (all-completions string sh-shell-variables predicate))
-	  ((eq code 'lambda)
-	   (assoc string sh-shell-variables)))))
+    (case code
+      ((nil) (try-completion string sh-shell-variables predicate))
+      (lambda (test-completion string sh-shell-variables predicate))
+      (t (all-completions string sh-shell-variables predicate)))))
 
 (defun sh-add (var delta)
   "Insert an addition of VAR and prefix DELTA for Bourne (type) shell."
@@ -3194,7 +3410,7 @@ t means to return a list of all possible completions of STRING.
    (let ((sh-add-buffer (current-buffer)))
      (list (completing-read "Variable: " 'sh-add-completer)
 	   (prefix-numeric-value current-prefix-arg))))
-  (insert (sh-feature '((bash . "$[ ")
+  (insert (sh-feature '((bash . "$(( ")
 			(ksh88 . "$(( ")
 			(posix . "$(( ")
 			(rc . "`{expr $")
@@ -3203,7 +3419,7 @@ t means to return a list of all possible completions of STRING.
 	  (sh-remember-variable var)
 	  (if (< delta 0) " - " " + ")
 	  (number-to-string (abs delta))
-	  (sh-feature '((bash . " ]")
+	  (sh-feature '((bash . " ))")
 			(ksh88 . " ))")
 			(posix . " ))")
 			(rc . "}")
@@ -3214,18 +3430,18 @@ t means to return a list of all possible completions of STRING.
 
 (define-skeleton sh-function
   "Insert a function definition.  See `sh-feature'."
-  (bash eval sh-modify ksh88
+  (bash sh-modify ksh88
 	3 "() {")
   (ksh88 "name: "
 	 "function " str " {" \n
 	 > _ \n
-	 < "}")
-  (rc eval sh-modify ksh88
+	 < "}" \n)
+  (rc sh-modify ksh88
       1 "fn ")
   (sh ()
       "() {" \n
       > _ \n
-      < "}"))
+      < "}" \n))
 
 
 
@@ -3240,7 +3456,7 @@ t means to return a list of all possible completions of STRING.
        < "else" \n
        > _ \n
        resume:
-       < "endif")
+       < "endif" \n)
   (es "condition: "
       > "if { " str " } {" \n
       > _ \n
@@ -3250,7 +3466,7 @@ t means to return a list of all possible completions of STRING.
       "} {" > \n
       > _ \n
       resume:
-      ?} > )
+      ?\} > \n)
   (rc "condition: "
       > "if( " str " ) {" \n
       > _ \n
@@ -3260,8 +3476,7 @@ t means to return a list of all possible completions of STRING.
       "} else {" > \n
       > _ \n
       resume:
-      ?} >
-      )
+      ?\} > \n)
   (sh "condition: "
       '(setq input (sh-feature sh-test))
       > "if " str "; then" \n
@@ -3272,7 +3487,7 @@ t means to return a list of all possible completions of STRING.
       "else" > \n
       > \n
       resume:
-      "fi" > ))
+      "fi" > \n))
 
 
 
@@ -3281,11 +3496,11 @@ t means to return a list of all possible completions of STRING.
   (es nil
       > "forever {" \n
       > _ \n
-      ?} > )
+      ?\} > \n)
   (zsh "factor: "
        > "repeat " str "; do" > \n
        >  \n
-       "done" > ))
+       "done" > \n))
 
 ;;;(put 'sh-repeat 'menu-enable '(sh-feature sh-repeat))
 
@@ -3296,41 +3511,41 @@ t means to return a list of all possible completions of STRING.
   (ksh88 "Index variable: "
 	 > "select " str " in " _ "; do" \n
 	 > ?$ str \n
-	 "done" > )
-  (bash eval sh-append ksh88))
+	 "done" > \n)
+  (bash sh-append ksh88))
 ;;;(put 'sh-select 'menu-enable '(sh-feature sh-select))
 
 
 
 (define-skeleton sh-tmp-file
   "Insert code to setup temporary file handling.  See `sh-feature'."
-  (bash eval identity ksh88)
+  (bash sh-append ksh88)
   (csh (file-name-nondirectory (buffer-file-name))
-       "set tmp = /tmp/" str ".$$" \n
+       "set tmp = `mktemp -t " str ".XXXXXX`" \n
        "onintr exit" \n _
        (and (goto-char (point-max))
 	    (not (bolp))
 	    ?\n)
        "exit:\n"
-       "rm $tmp* >&/dev/null" >)
+       "rm $tmp* >&/dev/null" > \n)
   (es (file-name-nondirectory (buffer-file-name))
-      > "local( signals = $signals sighup sigint; tmp = /tmp/" str
-      ".$pid ) {" \n
+      > "local( signals = $signals sighup sigint;" \n
+      > "tmp = `{ mktemp -t " str ".XXXXXX } ) {" \n
       > "catch @ e {" \n
       > "rm $tmp^* >[2]/dev/null" \n
       "throw $e" \n
       "} {" > \n
       _ \n
-      ?} > \n
-      ?} > )
-  (ksh88 eval sh-modify sh
+      ?\} > \n
+      ?\} > \n)
+  (ksh88 sh-modify sh
 	 7 "EXIT")
   (rc (file-name-nondirectory (buffer-file-name))
-      > "tmp = /tmp/" str ".$pid" \n
-      "fn sigexit { rm $tmp^* >[2]/dev/null }")
+      > "tmp = `{ mktemp -t " str ".XXXXXX }" \n
+      "fn sigexit { rm $tmp^* >[2]/dev/null }" \n)
   (sh (file-name-nondirectory (buffer-file-name))
-      > "TMP=${TMPDIR:-/tmp}/" str ".$$" \n
-      "trap \"rm $TMP* 2>/dev/null\" " ?0))
+      > "TMP=`mktemp -t " str ".XXXXXX`" \n
+      "trap \"rm $TMP* 2>/dev/null\" " ?0 \n))
 
 
 
@@ -3340,32 +3555,32 @@ t means to return a list of all possible completions of STRING.
       '(setq input (sh-feature sh-test))
       > "until " str "; do" \n
       > _ \n
-      "done" > ))
+      "done" > \n))
 ;;;(put 'sh-until 'menu-enable '(sh-feature sh-until))
 
 
 
 (define-skeleton sh-while
   "Insert a while loop.  See `sh-feature'."
-  (csh eval sh-modify sh
+  (csh sh-modify sh
        2 ""
        3 "while( "
        5 " )"
        10 '<
        11 "end")
-  (es eval sh-modify sh
+  (es sh-modify sh
       3 "while { "
       5 " } {"
-      10 ?} )
-  (rc eval sh-modify sh
+      10 ?\} )
+  (rc sh-modify sh
       3 "while( "
       5 " ) {"
-      10 ?} )
+      10 ?\} )
   (sh "condition: "
       '(setq input (sh-feature sh-test))
       > "while " str "; do" \n
       > _ \n
-      "done" > ))
+      "done" > \n))
 
 
 
@@ -3373,7 +3588,7 @@ t means to return a list of all possible completions of STRING.
   "Insert a while getopts loop.  See `sh-feature'.
 Prompts for an options string which consists of letters for each recognized
 option followed by a colon `:' if the option accepts an argument."
-  (bash eval sh-modify sh
+  (bash sh-modify sh
 	18 "${0##*/}")
   (csh nil
        "while( 1 )" \n
@@ -3397,12 +3612,12 @@ option followed by a colon `:' if the option accepts an argument."
        resume:
        < < "endsw" \n
        "shift" \n
-       < "end")
-  (ksh88 eval sh-modify sh
+       < "end" \n)
+  (ksh88 sh-modify sh
 	 16 "print"
 	 18 "${0##*/}"
-	 36 "OPTIND-1")
-  (posix eval sh-modify sh
+	 37 "OPTIND-1")
+  (posix sh-modify sh
 	 18 "$(basename $0)")
   (sh "optstring: "
       > "while getopts :" str " OPT; do" \n
@@ -3414,10 +3629,10 @@ option followed by a colon `:' if the option accepts an argument."
 		    v2 "\"$OPTARG\"")
 	    (setq v1 (cdr v1)
 		  v2 nil)))
-	> str "|+" str (propertize ")" 'syntax-table sh-st-punc) \n
+	> str "|+" str sh-non-closing-paren \n
 	> _ v2 \n
 	> ";;" \n)
-      > "*" (propertize ")" 'syntax-table sh-st-punc) \n
+      > "*" sh-non-closing-paren \n
       > "echo" " \"usage: " "`basename $0`"
       " [+-" '(setq v1 (point)) str
       '(save-excursion
@@ -3430,7 +3645,8 @@ option followed by a colon `:' if the option accepts an argument."
       "esac" >
       \n "done"
       > \n
-      "shift " (sh-add "OPTIND" -1)))
+      "shift " (sh-add "OPTIND" -1) \n
+      "OPTIND=1" \n))
 
 
 
@@ -3448,7 +3664,6 @@ option followed by a colon `:' if the option accepts an argument."
 	     (match-string 1))))))
 
 
-
 (defun sh-maybe-here-document (arg)
   "Insert self.  Without prefix, following unquoted `<' inserts here document.
 The document is bounded by `sh-here-document-word'."
@@ -3459,15 +3674,21 @@ The document is bounded by `sh-here-document-word'."
       (save-excursion
 	(backward-char 2)
 	(sh-quoted-p))
-      (progn
+      (let ((tabs (if (string-match "\\`-" sh-here-document-word)
+                      (make-string (/ (current-indentation) tab-width) ?\t)
+                    ""))
+            (delim (replace-regexp-in-string "['\"]" ""
+                                            sh-here-document-word)))
 	(insert sh-here-document-word)
-	(or (eolp) (looking-at "[ \t]") (insert ? ))
+	(or (eolp) (looking-at "[ \t]") (insert ?\s))
 	(end-of-line 1)
 	(while
 	    (sh-quoted-p)
 	  (end-of-line 2))
-	(newline)
-	(save-excursion (insert ?\n sh-here-document-word)))))
+	(insert ?\n tabs)
+	(save-excursion
+          (insert ?\n tabs (replace-regexp-in-string
+                            "\\`-?[ \t]*" "" delim))))))
 
 
 ;; various other commands
@@ -3510,6 +3731,78 @@ The document is bounded by `sh-here-document-word'."
   (if (re-search-forward sh-end-of-command nil t)
       (goto-char (match-end 1))))
 
+;; Backslashification.  Stolen from make-mode.el.
+
+(defun sh-backslash-region (from to delete-flag)
+  "Insert, align, or delete end-of-line backslashes on the lines in the region.
+With no argument, inserts backslashes and aligns existing backslashes.
+With an argument, deletes the backslashes.
+
+This function does not modify the last line of the region if the region ends
+right at the start of the following line; it does not modify blank lines
+at the start of the region.  So you can put the region around an entire
+shell command and conveniently use this command."
+  (interactive "r\nP")
+  (save-excursion
+    (goto-char from)
+    (let ((column sh-backslash-column)
+          (endmark (make-marker)))
+      (move-marker endmark to)
+      ;; Compute the smallest column number past the ends of all the lines.
+      (if sh-backslash-align
+	  (progn
+	    (if (not delete-flag)
+		(while (< (point) to)
+		  (end-of-line)
+		  (if (= (preceding-char) ?\\)
+		      (progn (forward-char -1)
+			     (skip-chars-backward " \t")))
+		  (setq column (max column (1+ (current-column))))
+		  (forward-line 1)))
+	    ;; Adjust upward to a tab column, if that doesn't push
+	    ;; past the margin.
+	    (if (> (% column tab-width) 0)
+		(let ((adjusted (* (/ (+ column tab-width -1) tab-width)
+				   tab-width)))
+		  (if (< adjusted (window-width))
+		      (setq column adjusted))))))
+      ;; Don't modify blank lines at start of region.
+      (goto-char from)
+      (while (and (< (point) endmark) (eolp))
+        (forward-line 1))
+      ;; Add or remove backslashes on all the lines.
+      (while (and (< (point) endmark)
+                  ;; Don't backslashify the last line
+                  ;; if the region ends right at the start of the next line.
+                  (save-excursion
+                    (forward-line 1)
+                    (< (point) endmark)))
+        (if (not delete-flag)
+            (sh-append-backslash column)
+          (sh-delete-backslash))
+        (forward-line 1))
+      (move-marker endmark nil))))
+
+(defun sh-append-backslash (column)
+  (end-of-line)
+  ;; Note that "\\\\" is needed to get one backslash.
+  (if (= (preceding-char) ?\\)
+      (progn (forward-char -1)
+             (delete-horizontal-space)
+             (indent-to column (if sh-backslash-align nil 1)))
+    (indent-to column (if sh-backslash-align nil 1))
+    (insert "\\")))
+
+(defun sh-delete-backslash ()
+  (end-of-line)
+  (or (bolp)
+      (progn
+ 	(forward-char -1)
+ 	(if (looking-at "\\\\")
+ 	    (delete-region (1+ (point))
+ 			   (progn (skip-chars-backward " \t") (point)))))))
+
 (provide 'sh-script)
 
+;; arch-tag: eccd8b72-f337-4fc2-ae86-18155a69d937
 ;;; sh-script.el ends here

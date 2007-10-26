@@ -47,7 +47,7 @@ public:
 							DSTCPConnection		( DSTCPListener  *inParent );
 	virtual				   ~DSTCPConnection		( void );
 
-	virtual	sInt32			ThreadMain			( void ); // we manage our own thread top level
+	virtual	SInt32			ThreadMain			( void ); // we manage our own thread top level
 	virtual	void			StartThread			( void );
 	virtual	void			StopThread			( void );
 
@@ -58,12 +58,12 @@ protected:
 
 private:
 			bool			ListenForMessage	( void );
-			sInt32			QueueMessage		( void );
+			SInt32			QueueMessage		( void );
 
 			sComData	   *fMsgBlock;
 			
 			int				mCurrentState;
-			uInt32			mConnectionType;
+			UInt32			mConnectionType;
 			DSTCPListener  *fParent;
 			bool			bFirstMsg;
 

@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #include	<ast.h>
 #include	<signal.h>
@@ -41,21 +37,22 @@ const struct shtable2 shtab_aliases[] =
 	"autoload",	NV_NOFREE,	"typeset -fu",
 	"command",	NV_NOFREE,	"command ",
 	"fc",		NV_NOFREE,	"hist",
-	"float",	NV_NOFREE,	"typeset -E",
+	"float",	NV_NOFREE,	"typeset -lE",
 	"functions",	NV_NOFREE,	"typeset -f",
 	"hash",		NV_NOFREE,	"alias -t --",
 	"history",	NV_NOFREE,	"hist -l",
-	"integer",	NV_NOFREE,	"typeset -i",
+	"integer",	NV_NOFREE,	"typeset -li",
 	"nameref",	NV_NOFREE,	"typeset -n",
 	"nohup",	NV_NOFREE,	"nohup ",
 	"r",		NV_NOFREE,	"hist -s",
 	"redirect",	NV_NOFREE,	"command exec",
-	"times",	NV_NOFREE,	"{ { time;} 2>&1;}",
-	"type",		NV_NOFREE,	"whence -v",
+	"source",	NV_NOFREE,	"command .",
 #ifdef SIGTSTP
 	"stop",		NV_NOFREE,	"kill -s STOP",
 	"suspend", 	NV_NOFREE,	"kill -s STOP $$",
 #endif /*SIGTSTP */
+	"times",	NV_NOFREE,	"{ { time;} 2>&1;}",
+	"type",		NV_NOFREE,	"whence -v",
 	"",		0,		(char*)0
 };
 

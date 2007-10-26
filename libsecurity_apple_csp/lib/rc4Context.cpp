@@ -17,11 +17,10 @@
 
 
 /*
- * rc4Context.cpp - glue between BlockCrytpor and ssleay RC4 implementation
+ * rc4Context.cpp - glue between AppleCSPContext and ssleay RC4 implementation
  * Written by Doug Mitchell 04/03/2001
  */
  
-#include <openssl/rc4.h>
 #include "rc4Context.h"
 
 RC4Context::~RC4Context()
@@ -37,8 +36,8 @@ void RC4Context::init(
 	const Context &context, 
 	bool encrypting)
 {
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
 	
 	/* obtain key from context */
 	symmetricKeyBits(context, session(), CSSM_ALGID_RC4, 

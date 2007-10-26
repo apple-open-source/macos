@@ -1,0 +1,26 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>mod_fastcgi</string>
+        <key>OpenSourceVersion</key>
+        <string>2.4.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.fastcgi.com/</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.fastcgi.com/dist/mod_fastcgi-2.4.2.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+        <string>75fc3513dee820f6410dbf8f31bdac039bbdab2e</string>
+        <key>OpenSourceImportDate</key>
+        <string>2006-05-12</string>
+        <key>OpenSourceLicense</key>
+        <string>OTHER</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>mod_fastcgi.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>build against apache 2.2.x (patch got from http://www.fastcgi.com/archives/fastcgi-developers/2005-December/004055.html)</string>
+	</array>
+</dict>
+</array>
+</plist>

@@ -1,5 +1,7 @@
-/* mkrmdir.c -- BSD compatible directory functions for System V
-   Copyright (C) 1988, 1990 Free Software Foundation, Inc.
+/* On some systems, mkdir ("foo/", 0700) fails because of the trailing
+   slash.  On those systems, this wrapper removes the trailing slash.
+
+   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -9,117 +11,55 @@
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.  */
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+/* written by Jim Meyering */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+# include <config.h>
 #endif
+
+/* Disable the definition of mkdir to rpl_mkdir (from config.h) in this
+   file.  Otherwise, we'd get conflicting prototypes for rpl_mkdir on
+   most systems.  */
+#undef mkdir
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <errno.h>
-#ifndef STDC_HEADERS
-extern int errno;
-#endif
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-/* mkdir and rmdir adapted from GNU tar. */
+#include "dirname.h"
+#include "xalloc.h"
 
-/* Make directory DPATH, with permission mode DMODE.
-
-   Written by Robert Rother, Mariah Corporation, August 1985
-   (sdcsvax!rmr or rmr@uscd).  If you want it, it's yours.
-
-   Severely hacked over by John Gilmore to make a 4.2BSD compatible
-   subroutine.	11Mar86; hoptoad!gnu
-
-   Modified by rmtodd@uokmax 6-28-87 -- when making an already existing dir,
-   subroutine didn't return EEXIST.  It does now. */
+/* This function is required at least for NetBSD 1.5.2.  */
 
 int
-mkdir (dpath, dmode)
-     const char *dpath;
-     int dmode;
+rpl_mkdir (char const *dir, mode_t mode)
 {
-  int cpid, status;
-  struct stat statbuf;
+  int ret_val;
+  char *tmp_dir;
+  size_t len = strlen (dir);
 
-  if (stat (dpath, &statbuf) == 0)
+  if (len && dir[len - 1] == '/')
     {
-      errno = EEXIST;		/* stat worked, so it already exists. */
-      return -1;
+      tmp_dir = xstrdup (dir);
+      strip_trailing_slashes (tmp_dir);
+    }
+  else
+    {
+      tmp_dir = (char *) dir;
     }
 
-  /* If stat fails for a reason other than non-existence, return error. */
-  if (! existence_error (errno))
-    return -1;
+  ret_val = mkdir (tmp_dir, mode);
 
-  cpid = fork ();
-  switch (cpid)
-    {
-    case -1:			/* Cannot fork. */
-      return -1;		/* errno is set already. */
+  if (tmp_dir != dir)
+    free (tmp_dir);
 
-    case 0:			/* Child process. */
-      /* Cheap hack to set mode of new directory.  Since this child
-	 process is going away anyway, we zap its umask.
-	 This won't suffice to set SUID, SGID, etc. on this
-	 directory, so the parent process calls chmod afterward. */
-      status = umask (0);	/* Get current umask. */
-      umask (status | (0777 & ~dmode));	/* Set for mkdir. */
-      execl ("/bin/mkdir", "mkdir", dpath, (char *) 0);
-      _exit (1);
-
-    default:			/* Parent process. */
-      while (wait (&status) != cpid) /* Wait for kid to finish. */
-	/* Do nothing. */ ;
-
-      if (status & 0xFFFF)
-	{
-	  errno = EIO;		/* /bin/mkdir failed. */
-	  return -1;
-	}
-      return chmod (dpath, dmode);
-    }
-}
-
-/* Remove directory DPATH.
-   Return 0 if successful, -1 if not. */
-
-int
-rmdir (dpath)
-     char *dpath;
-{
-  int cpid, status;
-  struct stat statbuf;
-
-  if (stat (dpath, &statbuf) != 0)
-    return -1;			/* stat set errno. */
-
-  if ((statbuf.st_mode & S_IFMT) != S_IFDIR)
-    {
-      errno = ENOTDIR;
-      return -1;
-    }
-
-  cpid = fork ();
-  switch (cpid)
-    {
-    case -1:			/* Cannot fork. */
-      return -1;		/* errno is set already. */
-
-    case 0:			/* Child process. */
-      execl ("/bin/rmdir", "rmdir", dpath, (char *) 0);
-      _exit (1);
-
-    default:			/* Parent process. */
-      while (wait (&status) != cpid) /* Wait for kid to finish. */
-	/* Do nothing. */ ;
-
-      if (status & 0xFFFF)
-	{
-	  errno = EIO;		/* /bin/rmdir failed. */
-	  return -1;
-	}
-      return 0;
-    }
+  return ret_val;
 }

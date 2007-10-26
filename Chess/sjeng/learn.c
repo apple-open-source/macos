@@ -24,15 +24,16 @@
 #include "sjeng.h"
 #include "protos.h"
 #include "extvars.h"
+#include <inttypes.h>
 
 typedef struct 
 {
   signed Depth:7;
   unsigned OnMove:1;  
   unsigned char Bestmove;
-  unsigned long Hash;
-  unsigned long Hold_hash;
-  signed long Bound;
+  uint32_t 		Hash;
+  uint32_t 		Hold_hash;
+  int32_t		Bound;
 }
 LearnType;
 
@@ -42,7 +43,7 @@ void Learn(int score, int best, int depth)
   LearnType draft;
   FILE **lrnfile;
 
-  printf("Learning score: %d  best: %d  depth:%d  hash: %X\n", score, best, depth, hash);
+  printf("Learning score: %d  best: %d  depth:%d  hash: %lX\n", score, best, depth, hash);
   
   if (Variant == Normal)
     {

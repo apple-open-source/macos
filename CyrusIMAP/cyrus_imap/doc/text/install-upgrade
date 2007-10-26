@@ -1,5 +1,36 @@
 Upgrading From Previous Versions
 
+Upgrading from 2.3.3 or later (64-bit machines)
+
+      * Due to byte alignment issues in cyrus.index, all mailboxes will
+        have to be reconstructed. 
+
+Upgrading from 2.3.4 or 2.3.5
+
+      * Any mailboxes which had messages appended/delivered/copied with a
+        2.3.4 service or copied with a 2.3.5 imapd MUST be reconstructed in
+        order for the new messages to be displayed by clients. 
+
+Upgrading from 2.2.x or earlier
+
+      * If you wish to use separate metadata partition(s), you MUST first
+        shut down Cyrus and then perform the following: 
+
+         1. Set the metapartition-* and metapartition_files options to suit
+            your configuration. For a full description of these options,
+            see the imapd.conf(5) man page. 
+         2. Create the metadata partition directory(s) listed in the
+            metapartition-* option(s), setting the ownership and
+            permissions in same fashion as step 6 of install-configure. 
+         3. Run the tools/migrate-metadata script (as the cyrus user) to
+            move the metadata files listed in the metapartition_files
+            option from the spool partition(s) to the new metadata
+            partition(s). This script may take a long time to run depending
+            on the number of mailboxes on the server, but presumably the
+            metadata partitions are located on high speed storage, so the
+            writes should be relatively fast. 
+         4. Restart Cyrus. 
+
 Upgrading from 2.2.2 or earlier
 
       * The Cyrus database backend configuration is now handled at runtime
@@ -174,7 +205,7 @@ Upgrading from 2.0.16 or earlier
 
       * You must install and configure Cyrus SASL version 2 to use Cyrus
         IMAP 2.1 and later. You can download SASL at
-        http://asg.web.cmu.edu/cyrus/download/. 
+        http://cyrusimap.web.cmu.edu/downloads.html#sasl. 
       * If you use timsieved to manage Sieve scripts, and have enabled the
         alternate namespace and/or the Unix hierarchy separator, run the
         script "tools/translatesieve". This script will translate the

@@ -1,0 +1,1351 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXFileReference section */
+		5D02CAF30A6340F7004067C0 /* ltmain.sh.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ltmain.sh.patch; sourceTree = SOURCE_ROOT; };
+		5D13B2D00AE553D400784B90 /* mu-conference-0.6.0.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "mu-conference-0.6.0.tgz"; sourceTree = SOURCE_ROOT; };
+		5D13B2D10AE553D400784B90 /* mu-conference.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = "mu-conference.plist"; sourceTree = SOURCE_ROOT; };
+		5D13B2D20AE553D400784B90 /* mu-conference.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "mu-conference.txt"; sourceTree = SOURCE_ROOT; };
+		5D13B2FB0AE59E0000784B90 /* jcr-0.2.4.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "jcr-0.2.4.tgz"; sourceTree = SOURCE_ROOT; };
+		5D13B2FC0AE59E2A00784B90 /* jcr.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = jcr.plist; sourceTree = SOURCE_ROOT; };
+		5D13B2FD0AE59E2A00784B90 /* jcr.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = jcr.txt; sourceTree = SOURCE_ROOT; };
+		5D1BFABC0A40AB4E001540ED /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = SOURCE_ROOT; };
+		5D1C469C0A55E533007B3713 /* jabber_autobuddy.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jabber_autobuddy.8; path = jabber_autobuddy/jabber_autobuddy.8; sourceTree = SOURCE_ROOT; };
+		5D1C46A10A55E5DF007B3713 /* 75-iChatServer.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "75-iChatServer.plist"; path = "backup_restore/75-iChatServer.plist"; sourceTree = SOURCE_ROOT; };
+		5D1C46A20A55E5DF007B3713 /* iChatServer_backup */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = iChatServer_backup; path = backup_restore/iChatServer_backup; sourceTree = SOURCE_ROOT; };
+		5D1C46A30A55E5DF007B3713 /* iChatServer_restore */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = iChatServer_restore; path = backup_restore/iChatServer_restore; sourceTree = SOURCE_ROOT; };
+		5D1C46A40A55E5DF007B3713 /* iChatServer_verify */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = iChatServer_verify; path = backup_restore/iChatServer_verify; sourceTree = SOURCE_ROOT; };
+		5D37F0580ADD987D009CC04A /* config.cache */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.cache; path = config_cache/glib/i386/config.cache; sourceTree = SOURCE_ROOT; };
+		5D37F05A0ADD987E009CC04A /* config.cache */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.cache; path = config_cache/glib/ppc/config.cache; sourceTree = SOURCE_ROOT; };
+		5D4F9BE40A5B184100AAC80D /* apple_authenticate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = apple_authenticate.c; path = jabber_od_auth/apple_authenticate.c; sourceTree = SOURCE_ROOT; };
+		5D4F9BE50A5B184100AAC80D /* apple_authenticate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = apple_authenticate.h; path = jabber_od_auth/apple_authenticate.h; sourceTree = SOURCE_ROOT; };
+		5D4F9BE60A5B184100AAC80D /* apple_authorize.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = apple_authorize.c; path = jabber_od_auth/apple_authorize.c; sourceTree = SOURCE_ROOT; };
+		5D4F9BE70A5B184100AAC80D /* apple_authorize.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = apple_authorize.h; path = jabber_od_auth/apple_authorize.h; sourceTree = SOURCE_ROOT; };
+		5D51F23F0A56F51600DC64DB /* config_h.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = config_h.patch; sourceTree = SOURCE_ROOT; };
+		5D578AE40ABF1E7700CD29D5 /* pkg-config.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = "pkg-config.plist"; sourceTree = SOURCE_ROOT; };
+		5D578AE50ABF1E7700CD29D5 /* pkg-config.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = "pkg-config.txt"; sourceTree = SOURCE_ROOT; };
+		5D578AF70AC09AA700CD29D5 /* gettext-0.15.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "gettext-0.15.tgz"; sourceTree = "<group>"; };
+		5D578AF80AC09AA700CD29D5 /* gettext.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = gettext.plist; sourceTree = SOURCE_ROOT; };
+		5D578AF90AC09AA700CD29D5 /* gettext.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = gettext.txt; sourceTree = SOURCE_ROOT; };
+		5D5799930AC0AC8800CD29D5 /* Makefile.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.patch; path = "mfpatch/gettext/gettext-tools/examples/Makefile.patch"; sourceTree = SOURCE_ROOT; };
+		5D5D91BC0A52FD8C005089F1 /* c2s.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = c2s.xml; path = "cfg-apple/c2s.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D91BD0A52FD8C005089F1 /* jabberd.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jabberd.cfg; path = "cfg-apple/jabberd.cfg"; sourceTree = SOURCE_ROOT; };
+		5D5D91BE0A52FD8C005089F1 /* resolver.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = resolver.xml; path = "cfg-apple/resolver.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D91BF0A52FD8C005089F1 /* router-users.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "router-users.xml"; path = "cfg-apple/router-users.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D91C00A52FD8C005089F1 /* router.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = router.xml; path = "cfg-apple/router.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D91C10A52FD8C005089F1 /* s2s.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = s2s.xml; path = "cfg-apple/s2s.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D91C20A52FD8C005089F1 /* sm.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = sm.xml; path = "cfg-apple/sm.xml"; sourceTree = SOURCE_ROOT; };
+		5D5D92030A531D86005089F1 /* jabber_autobuddy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = jabber_autobuddy.c; path = jabber_autobuddy/jabber_autobuddy.c; sourceTree = SOURCE_ROOT; };
+		5DA68C680ABB2BAC009A3F93 /* pkg-config-0.21.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "pkg-config-0.21.tgz"; sourceTree = "<group>"; };
+		5DBB227B0A5ED69C00F81D11 /* Makefile.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.patch; path = mfpatch/jabberd2/c2s/Makefile.patch; sourceTree = SOURCE_ROOT; };
+		5DCB1DA10ACC8947002AC9A7 /* makeargtap */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = makeargtap; path = modules/filetransfer/makeargtap; sourceTree = SOURCE_ROOT; };
+		5DCB1DA30ACC8947002AC9A7 /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = README; path = modules/filetransfer/proxy65/README; sourceTree = SOURCE_ROOT; };
+		5DCB1DA50ACC8947002AC9A7 /* __init__.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = __init__.py; path = modules/filetransfer/proxy65/proxy65/__init__.py; sourceTree = SOURCE_ROOT; };
+		5DCB1DA60ACC8947002AC9A7 /* __init__.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; name = __init__.pyc; path = modules/filetransfer/proxy65/proxy65/__init__.pyc; sourceTree = SOURCE_ROOT; };
+		5DCB1DA70ACC8947002AC9A7 /* plugins.tml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = plugins.tml; path = modules/filetransfer/proxy65/proxy65/plugins.tml; sourceTree = SOURCE_ROOT; };
+		5DCB1DA80ACC8947002AC9A7 /* proxy65.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = proxy65.py; path = modules/filetransfer/proxy65/proxy65/proxy65.py; sourceTree = SOURCE_ROOT; };
+		5DCB1DA90ACC8947002AC9A7 /* proxy65.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; name = proxy65.pyc; path = modules/filetransfer/proxy65/proxy65/proxy65.pyc; sourceTree = SOURCE_ROOT; };
+		5DCB1DAA0ACC8947002AC9A7 /* socks5.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = socks5.py; path = modules/filetransfer/proxy65/proxy65/socks5.py; sourceTree = SOURCE_ROOT; };
+		5DCB1DAB0ACC8947002AC9A7 /* socks5.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; name = socks5.pyc; path = modules/filetransfer/proxy65/proxy65/socks5.pyc; sourceTree = SOURCE_ROOT; };
+		5DCB1DAC0ACC8947002AC9A7 /* setup.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = setup.py; path = modules/filetransfer/proxy65/setup.py; sourceTree = SOURCE_ROOT; };
+		5DCB1DB30ACD96F4002AC9A7 /* glib.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = glib.plist; sourceTree = SOURCE_ROOT; };
+		5DCB1DB40ACD96F4002AC9A7 /* glib.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = glib.txt; sourceTree = SOURCE_ROOT; };
+		5DCB1DB50ACD96F4002AC9A7 /* glib-2.10.0.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "glib-2.10.0.tgz"; sourceTree = SOURCE_ROOT; };
+		5DE0D2730AE955F30061E05F /* muc-jcr.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "muc-jcr.xml"; path = "cfg-apple/muc-jcr.xml"; sourceTree = SOURCE_ROOT; };
+		5DEECA880A3A0FD500903B38 /* ichatserverdbctl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; path = ichatserverdbctl; sourceTree = SOURCE_ROOT; };
+		5DEECA890A3A0FD600903B38 /* ichatserverdbctl.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = ichatserverdbctl.8; sourceTree = SOURCE_ROOT; };
+		5DEECA8A0A3A0FD600903B38 /* jabberd.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = jabberd.patch; sourceTree = SOURCE_ROOT; };
+		5DEECA8C0A3A0FD600903B38 /* AUTHORS */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = AUTHORS; path = jabberd2/AUTHORS; sourceTree = SOURCE_ROOT; };
+		5DEECA8D0A3A0FD600903B38 /* COPYING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = COPYING; path = jabberd2/COPYING; sourceTree = SOURCE_ROOT; };
+		5DEECA8E0A3A0FD600903B38 /* ChangeLog */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ChangeLog; path = jabberd2/ChangeLog; sourceTree = SOURCE_ROOT; };
+		5DEECA8F0A3A0FD600903B38 /* Doxyfile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Doxyfile; path = jabberd2/Doxyfile; sourceTree = SOURCE_ROOT; };
+		5DEECA900A3A0FD600903B38 /* Doxyfile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Doxyfile.in; path = jabberd2/Doxyfile.in; sourceTree = SOURCE_ROOT; };
+		5DEECA910A3A0FD600903B38 /* INSTALL */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = INSTALL; path = jabberd2/INSTALL; sourceTree = SOURCE_ROOT; };
+		5DEECA920A3A0FD600903B38 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; name = Makefile; path = jabberd2/Makefile; sourceTree = SOURCE_ROOT; };
+		5DEECA930A3A0FD600903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECA940A3A0FD600903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECA950A3A0FD600903B38 /* NEWS */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = NEWS; path = jabberd2/NEWS; sourceTree = SOURCE_ROOT; };
+		5DEECA960A3A0FD600903B38 /* PROTOCOL */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = PROTOCOL; path = jabberd2/PROTOCOL; sourceTree = SOURCE_ROOT; };
+		5DEECA970A3A0FD600903B38 /* README */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = README; path = jabberd2/README; sourceTree = SOURCE_ROOT; };
+		5DEECA980A3A0FD600903B38 /* README.win32 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = README.win32; path = jabberd2/README.win32; sourceTree = SOURCE_ROOT; };
+		5DEECA990A3A0FD600903B38 /* TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = TODO; path = jabberd2/TODO; sourceTree = SOURCE_ROOT; };
+		5DEECA9A0A3A0FD600903B38 /* ac-stdint.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = "ac-stdint.h"; path = "jabberd2/ac-stdint.h"; sourceTree = SOURCE_ROOT; };
+		5DEECA9B0A3A0FD600903B38 /* acinclude.m4 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = acinclude.m4; path = jabberd2/acinclude.m4; sourceTree = SOURCE_ROOT; };
+		5DEECA9C0A3A0FD700903B38 /* aclocal.m4 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = aclocal.m4; path = jabberd2/aclocal.m4; sourceTree = SOURCE_ROOT; };
+		5DEECA9E0A3A0FD700903B38 /* output.0 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = output.0; path = jabberd2/autom4te.cache/output.0; sourceTree = SOURCE_ROOT; };
+		5DEECA9F0A3A0FD700903B38 /* requests */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = requests; path = jabberd2/autom4te.cache/requests; sourceTree = SOURCE_ROOT; };
+		5DEECAA00A3A0FD700903B38 /* traces.0 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = traces.0; path = jabberd2/autom4te.cache/traces.0; sourceTree = SOURCE_ROOT; };
+		5DEECAA30A3A0FD700903B38 /* authreg.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg.Po; path = jabberd2/c2s/.deps/authreg.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA40A3A0FD700903B38 /* authreg_anon.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_anon.Po; path = jabberd2/c2s/.deps/authreg_anon.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA50A3A0FD700903B38 /* authreg_db.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_db.Po; path = jabberd2/c2s/.deps/authreg_db.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA60A3A0FD700903B38 /* authreg_ldap.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_ldap.Po; path = jabberd2/c2s/.deps/authreg_ldap.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA70A3A0FD800903B38 /* authreg_mysql.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_mysql.Po; path = jabberd2/c2s/.deps/authreg_mysql.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA80A3A0FD800903B38 /* authreg_pam.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_pam.Po; path = jabberd2/c2s/.deps/authreg_pam.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAA90A3A0FD800903B38 /* authreg_pgsql.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_pgsql.Po; path = jabberd2/c2s/.deps/authreg_pgsql.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAA0A3A0FD800903B38 /* authreg_pipe.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = authreg_pipe.Po; path = jabberd2/c2s/.deps/authreg_pipe.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAB0A3A0FD800903B38 /* bind.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = bind.Po; path = jabberd2/c2s/.deps/bind.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAC0A3A0FD800903B38 /* c2s.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = c2s.Po; path = jabberd2/c2s/.deps/c2s.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAD0A3A0FD900903B38 /* main.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = main.Po; path = jabberd2/c2s/.deps/main.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAE0A3A0FDA00903B38 /* sm.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sm.Po; path = jabberd2/c2s/.deps/sm.Po; sourceTree = SOURCE_ROOT; };
+		5DEECAAF0A3A0FDA00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/c2s/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECAB00A3A0FDA00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/c2s/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECAB10A3A0FDA00903B38 /* authreg.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg.c; path = jabberd2/c2s/authreg.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB20A3A0FDA00903B38 /* authreg_anon.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_anon.c; path = jabberd2/c2s/authreg_anon.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB30A3A0FDA00903B38 /* authreg_db.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_db.c; path = jabberd2/c2s/authreg_db.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB40A3A0FDA00903B38 /* authreg_ldap.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_ldap.c; path = jabberd2/c2s/authreg_ldap.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB50A3A0FDA00903B38 /* authreg_mysql.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_mysql.c; path = jabberd2/c2s/authreg_mysql.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB60A3A0FDA00903B38 /* authreg_pam.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_pam.c; path = jabberd2/c2s/authreg_pam.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB70A3A0FDA00903B38 /* authreg_pgsql.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_pgsql.c; path = jabberd2/c2s/authreg_pgsql.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB80A3A0FDA00903B38 /* authreg_pipe.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = authreg_pipe.c; path = jabberd2/c2s/authreg_pipe.c; sourceTree = SOURCE_ROOT; };
+		5DEECAB90A3A0FDA00903B38 /* bind.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bind.c; path = jabberd2/c2s/bind.c; sourceTree = SOURCE_ROOT; };
+		5DEECABA0A3A0FDA00903B38 /* c2s.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = c2s.c; path = jabberd2/c2s/c2s.c; sourceTree = SOURCE_ROOT; };
+		5DEECABB0A3A0FDA00903B38 /* c2s.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = c2s.h; path = jabberd2/c2s/c2s.h; sourceTree = SOURCE_ROOT; };
+		5DEECABC0A3A0FDA00903B38 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = main.c; path = jabberd2/c2s/main.c; sourceTree = SOURCE_ROOT; };
+		5DEECABD0A3A0FDA00903B38 /* sm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sm.c; path = jabberd2/c2s/sm.c; sourceTree = SOURCE_ROOT; };
+		5DEECABE0A3A0FDA00903B38 /* config.guess */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = config.guess; path = jabberd2/config.guess; sourceTree = SOURCE_ROOT; };
+		5DEECABF0A3A0FDA00903B38 /* config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = config.h; path = jabberd2/config.h; sourceTree = SOURCE_ROOT; };
+		5DEECAC00A3A0FDA00903B38 /* config.h.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.h.in; path = jabberd2/config.h.in; sourceTree = SOURCE_ROOT; };
+		5DEECAC10A3A0FDA00903B38 /* config.rpath */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = config.rpath; path = jabberd2/config.rpath; sourceTree = SOURCE_ROOT; };
+		5DEECAC20A3A0FDA00903B38 /* config.sub */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = config.sub; path = jabberd2/config.sub; sourceTree = SOURCE_ROOT; };
+		5DEECAC30A3A0FDA00903B38 /* configure */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = configure; path = jabberd2/configure; sourceTree = SOURCE_ROOT; };
+		5DEECAC40A3A0FDB00903B38 /* configure.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = configure.in; path = jabberd2/configure.in; sourceTree = SOURCE_ROOT; };
+		5DEECAC60A3A0FDB00903B38 /* patch-flash-v3rc1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "patch-flash-v3rc1"; path = "jabberd2/contrib/patch-flash-v3rc1"; sourceTree = SOURCE_ROOT; };
+		5DEECAC70A3A0FDB00903B38 /* depcomp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = depcomp; path = jabberd2/depcomp; sourceTree = SOURCE_ROOT; };
+		5DEECAC90A3A0FDB00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/etc/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECACA0A3A0FDB00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/etc/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECACB0A3A0FDB00903B38 /* c2s.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = c2s.xml.dist.in; path = jabberd2/etc/c2s.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECACC0A3A0FDB00903B38 /* jabberd.cfg.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jabberd.cfg.dist.in; path = jabberd2/etc/jabberd.cfg.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECACD0A3A0FDB00903B38 /* resolver.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = resolver.xml.dist.in; path = jabberd2/etc/resolver.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECACE0A3A0FDB00903B38 /* router-users.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "router-users.xml.dist.in"; path = "jabberd2/etc/router-users.xml.dist.in"; sourceTree = SOURCE_ROOT; };
+		5DEECACF0A3A0FDB00903B38 /* router.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = router.xml.dist.in; path = jabberd2/etc/router.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECAD00A3A0FDB00903B38 /* s2s.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = s2s.xml.dist.in; path = jabberd2/etc/s2s.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECAD10A3A0FDB00903B38 /* sm.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sm.xml.dist.in; path = jabberd2/etc/sm.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECAD30A3A0FDB00903B38 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; name = Makefile; path = jabberd2/etc/templates/Makefile; sourceTree = SOURCE_ROOT; };
+		5DEECAD40A3A0FDB00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/etc/templates/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECAD50A3A0FDB00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/etc/templates/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECAD60A3A0FDB00903B38 /* roster.xml.dist.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = roster.xml.dist.in; path = jabberd2/etc/templates/roster.xml.dist.in; sourceTree = SOURCE_ROOT; };
+		5DEECAD90A3A0FDC00903B38 /* xmlparse.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xmlparse.Plo; path = jabberd2/expat/.deps/xmlparse.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECADA0A3A0FDC00903B38 /* xmlrole.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xmlrole.Plo; path = jabberd2/expat/.deps/xmlrole.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECADB0A3A0FDC00903B38 /* xmltok.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xmltok.Plo; path = jabberd2/expat/.deps/xmltok.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECADC0A3A0FDC00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/expat/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECADD0A3A0FDC00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/expat/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECADE0A3A0FDC00903B38 /* ascii.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ascii.h; path = jabberd2/expat/ascii.h; sourceTree = SOURCE_ROOT; };
+		5DEECADF0A3A0FDC00903B38 /* asciitab.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = asciitab.h; path = jabberd2/expat/asciitab.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE00A3A0FDC00903B38 /* expat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = expat.h; path = jabberd2/expat/expat.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE10A3A0FDC00903B38 /* expat_config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = expat_config.h; path = jabberd2/expat/expat_config.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE20A3A0FDC00903B38 /* iasciitab.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = iasciitab.h; path = jabberd2/expat/iasciitab.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE30A3A0FDC00903B38 /* internal.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = internal.h; path = jabberd2/expat/internal.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE40A3A0FDC00903B38 /* latin1tab.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = latin1tab.h; path = jabberd2/expat/latin1tab.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE50A3A0FDC00903B38 /* nametab.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = nametab.h; path = jabberd2/expat/nametab.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE60A3A0FDC00903B38 /* utf8tab.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = utf8tab.h; path = jabberd2/expat/utf8tab.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE70A3A0FDC00903B38 /* winconfig.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = winconfig.h; path = jabberd2/expat/winconfig.h; sourceTree = SOURCE_ROOT; };
+		5DEECAE80A3A0FDC00903B38 /* xmlparse.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xmlparse.c; path = jabberd2/expat/xmlparse.c; sourceTree = SOURCE_ROOT; };
+		5DEECAE90A3A0FDC00903B38 /* xmlrole.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xmlrole.c; path = jabberd2/expat/xmlrole.c; sourceTree = SOURCE_ROOT; };
+		5DEECAEA0A3A0FDC00903B38 /* xmlrole.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xmlrole.h; path = jabberd2/expat/xmlrole.h; sourceTree = SOURCE_ROOT; };
+		5DEECAEB0A3A0FDC00903B38 /* xmltok.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xmltok.c; path = jabberd2/expat/xmltok.c; sourceTree = SOURCE_ROOT; };
+		5DEECAEC0A3A0FDC00903B38 /* xmltok.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xmltok.h; path = jabberd2/expat/xmltok.h; sourceTree = SOURCE_ROOT; };
+		5DEECAED0A3A0FDC00903B38 /* xmltok_impl.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xmltok_impl.c; path = jabberd2/expat/xmltok_impl.c; sourceTree = SOURCE_ROOT; };
+		5DEECAEE0A3A0FDC00903B38 /* xmltok_impl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xmltok_impl.h; path = jabberd2/expat/xmltok_impl.h; sourceTree = SOURCE_ROOT; };
+		5DEECAEF0A3A0FDC00903B38 /* xmltok_ns.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xmltok_ns.c; path = jabberd2/expat/xmltok_ns.c; sourceTree = SOURCE_ROOT; };
+		5DEECAF00A3A0FDC00903B38 /* install-sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = "install-sh"; path = "jabberd2/install-sh"; sourceTree = SOURCE_ROOT; };
+		5DEECAF10A3A0FDC00903B38 /* ltmain.sh */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = ltmain.sh; path = jabberd2/ltmain.sh; sourceTree = SOURCE_ROOT; };
+		5DEECAF30A3A0FDC00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/man/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECAF40A3A0FDC00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/man/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECAF50A3A0FDC00903B38 /* c2s.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = c2s.8.in; path = jabberd2/man/c2s.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAF60A3A0FDC00903B38 /* jabberd.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jabberd.8.in; path = jabberd2/man/jabberd.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAF70A3A0FDC00903B38 /* resolver.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = resolver.8.in; path = jabberd2/man/resolver.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAF80A3A0FDC00903B38 /* router.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = router.8.in; path = jabberd2/man/router.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAF90A3A0FDC00903B38 /* s2s.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = s2s.8.in; path = jabberd2/man/s2s.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAFA0A3A0FDC00903B38 /* sm.8.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sm.8.in; path = jabberd2/man/sm.8.in; sourceTree = SOURCE_ROOT; };
+		5DEECAFD0A3A0FDC00903B38 /* mio.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mio.Plo; path = jabberd2/mio/.deps/mio.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECAFE0A3A0FDC00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/mio/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECAFF0A3A0FDC00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/mio/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB000A3A0FDC00903B38 /* mio.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mio.c; path = jabberd2/mio/mio.c; sourceTree = SOURCE_ROOT; };
+		5DEECB010A3A0FDC00903B38 /* mio.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = mio.h; path = jabberd2/mio/mio.h; sourceTree = SOURCE_ROOT; };
+		5DEECB020A3A0FDC00903B38 /* mio_poll.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = mio_poll.h; path = jabberd2/mio/mio_poll.h; sourceTree = SOURCE_ROOT; };
+		5DEECB030A3A0FDC00903B38 /* mio_select.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = mio_select.h; path = jabberd2/mio/mio_select.h; sourceTree = SOURCE_ROOT; };
+		5DEECB040A3A0FDC00903B38 /* missing */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = missing; path = jabberd2/missing; sourceTree = SOURCE_ROOT; };
+		5DEECB070A3A0FDC00903B38 /* dns.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = dns.Po; path = jabberd2/resolver/.deps/dns.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB080A3A0FDC00903B38 /* resolver.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = resolver.Po; path = jabberd2/resolver/.deps/resolver.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB090A3A0FDD00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/resolver/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB0A0A3A0FDD00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/resolver/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB0B0A3A0FDD00903B38 /* TODO */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = TODO; path = jabberd2/resolver/TODO; sourceTree = SOURCE_ROOT; };
+		5DEECB0C0A3A0FDD00903B38 /* dns.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dns.c; path = jabberd2/resolver/dns.c; sourceTree = SOURCE_ROOT; };
+		5DEECB0D0A3A0FDD00903B38 /* dns.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dns.h; path = jabberd2/resolver/dns.h; sourceTree = SOURCE_ROOT; };
+		5DEECB0E0A3A0FDD00903B38 /* resolver.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = resolver.c; path = jabberd2/resolver/resolver.c; sourceTree = SOURCE_ROOT; };
+		5DEECB0F0A3A0FDD00903B38 /* resolver.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = resolver.h; path = jabberd2/resolver/resolver.h; sourceTree = SOURCE_ROOT; };
+		5DEECB120A3A0FDD00903B38 /* aci.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = aci.Po; path = jabberd2/router/.deps/aci.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB130A3A0FDD00903B38 /* main.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = main.Po; path = jabberd2/router/.deps/main.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB140A3A0FDD00903B38 /* router.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = router.Po; path = jabberd2/router/.deps/router.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB150A3A0FDD00903B38 /* user.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = user.Po; path = jabberd2/router/.deps/user.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB160A3A0FDD00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/router/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB170A3A0FDD00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/router/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB180A3A0FDD00903B38 /* aci.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = aci.c; path = jabberd2/router/aci.c; sourceTree = SOURCE_ROOT; };
+		5DEECB190A3A0FDD00903B38 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = main.c; path = jabberd2/router/main.c; sourceTree = SOURCE_ROOT; };
+		5DEECB1A0A3A0FDD00903B38 /* router.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = router.c; path = jabberd2/router/router.c; sourceTree = SOURCE_ROOT; };
+		5DEECB1B0A3A0FDD00903B38 /* router.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = router.h; path = jabberd2/router/router.h; sourceTree = SOURCE_ROOT; };
+		5DEECB1C0A3A0FDD00903B38 /* user.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = user.c; path = jabberd2/router/user.c; sourceTree = SOURCE_ROOT; };
+		5DEECB1F0A3A0FDD00903B38 /* in.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = in.Po; path = jabberd2/s2s/.deps/in.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB200A3A0FDD00903B38 /* main.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = main.Po; path = jabberd2/s2s/.deps/main.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB210A3A0FDD00903B38 /* out.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = out.Po; path = jabberd2/s2s/.deps/out.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB220A3A0FDD00903B38 /* router.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = router.Po; path = jabberd2/s2s/.deps/router.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB230A3A0FDD00903B38 /* sx.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sx.Po; path = jabberd2/s2s/.deps/sx.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB240A3A0FDD00903B38 /* util.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = util.Po; path = jabberd2/s2s/.deps/util.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB250A3A0FDD00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/s2s/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB260A3A0FDD00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/s2s/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB270A3A0FDD00903B38 /* in.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = in.c; path = jabberd2/s2s/in.c; sourceTree = SOURCE_ROOT; };
+		5DEECB280A3A0FDD00903B38 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = main.c; path = jabberd2/s2s/main.c; sourceTree = SOURCE_ROOT; };
+		5DEECB290A3A0FDD00903B38 /* out.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = out.c; path = jabberd2/s2s/out.c; sourceTree = SOURCE_ROOT; };
+		5DEECB2A0A3A0FDD00903B38 /* router.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = router.c; path = jabberd2/s2s/router.c; sourceTree = SOURCE_ROOT; };
+		5DEECB2B0A3A0FDD00903B38 /* s2s.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = s2s.h; path = jabberd2/s2s/s2s.h; sourceTree = SOURCE_ROOT; };
+		5DEECB2C0A3A0FDD00903B38 /* sx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sx.c; path = jabberd2/s2s/sx.c; sourceTree = SOURCE_ROOT; };
+		5DEECB2D0A3A0FDD00903B38 /* util.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = util.c; path = jabberd2/s2s/util.c; sourceTree = SOURCE_ROOT; };
+		5DEECB300A3A0FDE00903B38 /* mech_anonymous.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mech_anonymous.Plo; path = jabberd2/scod/.deps/mech_anonymous.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB310A3A0FDE00903B38 /* mech_digest_md5.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mech_digest_md5.Plo; path = jabberd2/scod/.deps/mech_digest_md5.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB320A3A0FDE00903B38 /* mech_plain.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mech_plain.Plo; path = jabberd2/scod/.deps/mech_plain.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB330A3A0FDE00903B38 /* scod.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = scod.Plo; path = jabberd2/scod/.deps/scod.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB340A3A0FDE00903B38 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.make; name = Makefile; path = jabberd2/scod/Makefile; sourceTree = SOURCE_ROOT; };
+		5DEECB350A3A0FDE00903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/scod/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB360A3A0FDE00903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/scod/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB370A3A0FDE00903B38 /* mech_anonymous.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mech_anonymous.c; path = jabberd2/scod/mech_anonymous.c; sourceTree = SOURCE_ROOT; };
+		5DEECB380A3A0FDE00903B38 /* mech_digest_md5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mech_digest_md5.c; path = jabberd2/scod/mech_digest_md5.c; sourceTree = SOURCE_ROOT; };
+		5DEECB390A3A0FDE00903B38 /* mech_plain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mech_plain.c; path = jabberd2/scod/mech_plain.c; sourceTree = SOURCE_ROOT; };
+		5DEECB3A0A3A0FDE00903B38 /* scod.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = scod.c; path = jabberd2/scod/scod.c; sourceTree = SOURCE_ROOT; };
+		5DEECB3B0A3A0FDE00903B38 /* scod.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = scod.h; path = jabberd2/scod/scod.h; sourceTree = SOURCE_ROOT; };
+		5DEECB3E0A3A0FDE00903B38 /* aci.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = aci.Po; path = jabberd2/sm/.deps/aci.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB3F0A3A0FDE00903B38 /* dispatch.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = dispatch.Po; path = jabberd2/sm/.deps/dispatch.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB400A3A0FDE00903B38 /* feature.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = feature.Po; path = jabberd2/sm/.deps/feature.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB410A3A0FDE00903B38 /* main.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = main.Po; path = jabberd2/sm/.deps/main.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB420A3A0FDE00903B38 /* mm.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mm.Po; path = jabberd2/sm/.deps/mm.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB430A3A0FDE00903B38 /* mod_active.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_active.Po; path = jabberd2/sm/.deps/mod_active.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB440A3A0FDF00903B38 /* mod_announce.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_announce.Po; path = jabberd2/sm/.deps/mod_announce.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB450A3A0FDF00903B38 /* mod_deliver.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_deliver.Po; path = jabberd2/sm/.deps/mod_deliver.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB460A3A0FDF00903B38 /* mod_disco.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_disco.Po; path = jabberd2/sm/.deps/mod_disco.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB470A3A0FDF00903B38 /* mod_disco_publish.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_disco_publish.Po; path = jabberd2/sm/.deps/mod_disco_publish.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB480A3A0FDF00903B38 /* mod_echo.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_echo.Po; path = jabberd2/sm/.deps/mod_echo.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB490A3A0FDF00903B38 /* mod_help.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_help.Po; path = jabberd2/sm/.deps/mod_help.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4A0A3A0FDF00903B38 /* mod_iq_last.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_iq_last.Po; path = jabberd2/sm/.deps/mod_iq_last.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4B0A3A0FDF00903B38 /* mod_iq_private.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_iq_private.Po; path = jabberd2/sm/.deps/mod_iq_private.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4C0A3A0FDF00903B38 /* mod_iq_time.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_iq_time.Po; path = jabberd2/sm/.deps/mod_iq_time.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4D0A3A0FDF00903B38 /* mod_iq_vcard.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_iq_vcard.Po; path = jabberd2/sm/.deps/mod_iq_vcard.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4E0A3A0FDF00903B38 /* mod_iq_version.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_iq_version.Po; path = jabberd2/sm/.deps/mod_iq_version.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB4F0A3A0FDF00903B38 /* mod_offline.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_offline.Po; path = jabberd2/sm/.deps/mod_offline.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB500A3A0FDF00903B38 /* mod_presence.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_presence.Po; path = jabberd2/sm/.deps/mod_presence.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB510A3A0FDF00903B38 /* mod_privacy.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_privacy.Po; path = jabberd2/sm/.deps/mod_privacy.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB520A3A0FDF00903B38 /* mod_roster.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_roster.Po; path = jabberd2/sm/.deps/mod_roster.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB530A3A0FDF00903B38 /* mod_session.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_session.Po; path = jabberd2/sm/.deps/mod_session.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB540A3A0FDF00903B38 /* mod_template_roster.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_template_roster.Po; path = jabberd2/sm/.deps/mod_template_roster.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB550A3A0FE000903B38 /* mod_vacation.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_vacation.Po; path = jabberd2/sm/.deps/mod_vacation.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB560A3A0FE000903B38 /* mod_validate.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = mod_validate.Po; path = jabberd2/sm/.deps/mod_validate.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB570A3A0FE000903B38 /* object.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = object.Po; path = jabberd2/sm/.deps/object.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB580A3A0FE000903B38 /* pkt.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = pkt.Po; path = jabberd2/sm/.deps/pkt.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB590A3A0FE000903B38 /* pres.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = pres.Po; path = jabberd2/sm/.deps/pres.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5A0A3A0FE000903B38 /* sess.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sess.Po; path = jabberd2/sm/.deps/sess.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5B0A3A0FE000903B38 /* sm.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sm.Po; path = jabberd2/sm/.deps/sm.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5C0A3A0FE000903B38 /* storage.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage.Po; path = jabberd2/sm/.deps/storage.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5D0A3A0FE000903B38 /* storage_db.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_db.Po; path = jabberd2/sm/.deps/storage_db.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5E0A3A0FE000903B38 /* storage_fs.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_fs.Po; path = jabberd2/sm/.deps/storage_fs.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB5F0A3A0FE000903B38 /* storage_mysql.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_mysql.Po; path = jabberd2/sm/.deps/storage_mysql.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB600A3A0FE000903B38 /* storage_oracle.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_oracle.Po; path = jabberd2/sm/.deps/storage_oracle.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB610A3A0FE000903B38 /* storage_pgsql.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_pgsql.Po; path = jabberd2/sm/.deps/storage_pgsql.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB620A3A0FE000903B38 /* storage_sqlite.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = storage_sqlite.Po; path = jabberd2/sm/.deps/storage_sqlite.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB630A3A0FE000903B38 /* user.Po */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = user.Po; path = jabberd2/sm/.deps/user.Po; sourceTree = SOURCE_ROOT; };
+		5DEECB640A3A0FE000903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/sm/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB650A3A0FE000903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/sm/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB660A3A0FE000903B38 /* aci.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = aci.c; path = jabberd2/sm/aci.c; sourceTree = SOURCE_ROOT; };
+		5DEECB670A3A0FE000903B38 /* dispatch.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dispatch.c; path = jabberd2/sm/dispatch.c; sourceTree = SOURCE_ROOT; };
+		5DEECB680A3A0FE000903B38 /* feature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = feature.c; path = jabberd2/sm/feature.c; sourceTree = SOURCE_ROOT; };
+		5DEECB690A3A0FE000903B38 /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = main.c; path = jabberd2/sm/main.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6A0A3A0FE000903B38 /* mm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mm.c; path = jabberd2/sm/mm.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6B0A3A0FE000903B38 /* mod_active.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_active.c; path = jabberd2/sm/mod_active.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6C0A3A0FE000903B38 /* mod_announce.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_announce.c; path = jabberd2/sm/mod_announce.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6D0A3A0FE000903B38 /* mod_deliver.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_deliver.c; path = jabberd2/sm/mod_deliver.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6E0A3A0FE000903B38 /* mod_disco.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_disco.c; path = jabberd2/sm/mod_disco.c; sourceTree = SOURCE_ROOT; };
+		5DEECB6F0A3A0FE000903B38 /* mod_disco_publish.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_disco_publish.c; path = jabberd2/sm/mod_disco_publish.c; sourceTree = SOURCE_ROOT; };
+		5DEECB700A3A0FE000903B38 /* mod_echo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_echo.c; path = jabberd2/sm/mod_echo.c; sourceTree = SOURCE_ROOT; };
+		5DEECB710A3A0FE000903B38 /* mod_help.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_help.c; path = jabberd2/sm/mod_help.c; sourceTree = SOURCE_ROOT; };
+		5DEECB720A3A0FE000903B38 /* mod_iq_last.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_iq_last.c; path = jabberd2/sm/mod_iq_last.c; sourceTree = SOURCE_ROOT; };
+		5DEECB730A3A0FE000903B38 /* mod_iq_private.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_iq_private.c; path = jabberd2/sm/mod_iq_private.c; sourceTree = SOURCE_ROOT; };
+		5DEECB740A3A0FE000903B38 /* mod_iq_time.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_iq_time.c; path = jabberd2/sm/mod_iq_time.c; sourceTree = SOURCE_ROOT; };
+		5DEECB750A3A0FE000903B38 /* mod_iq_vcard.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_iq_vcard.c; path = jabberd2/sm/mod_iq_vcard.c; sourceTree = SOURCE_ROOT; };
+		5DEECB760A3A0FE000903B38 /* mod_iq_version.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_iq_version.c; path = jabberd2/sm/mod_iq_version.c; sourceTree = SOURCE_ROOT; };
+		5DEECB770A3A0FE000903B38 /* mod_offline.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_offline.c; path = jabberd2/sm/mod_offline.c; sourceTree = SOURCE_ROOT; };
+		5DEECB780A3A0FE000903B38 /* mod_presence.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_presence.c; path = jabberd2/sm/mod_presence.c; sourceTree = SOURCE_ROOT; };
+		5DEECB790A3A0FE100903B38 /* mod_privacy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_privacy.c; path = jabberd2/sm/mod_privacy.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7A0A3A0FE100903B38 /* mod_roster.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_roster.c; path = jabberd2/sm/mod_roster.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7B0A3A0FE100903B38 /* mod_session.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_session.c; path = jabberd2/sm/mod_session.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7C0A3A0FE100903B38 /* mod_template_roster.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_template_roster.c; path = jabberd2/sm/mod_template_roster.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7D0A3A0FE100903B38 /* mod_vacation.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_vacation.c; path = jabberd2/sm/mod_vacation.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7E0A3A0FE100903B38 /* mod_validate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = mod_validate.c; path = jabberd2/sm/mod_validate.c; sourceTree = SOURCE_ROOT; };
+		5DEECB7F0A3A0FE100903B38 /* object.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = object.c; path = jabberd2/sm/object.c; sourceTree = SOURCE_ROOT; };
+		5DEECB800A3A0FE100903B38 /* pkt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pkt.c; path = jabberd2/sm/pkt.c; sourceTree = SOURCE_ROOT; };
+		5DEECB810A3A0FE100903B38 /* pres.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pres.c; path = jabberd2/sm/pres.c; sourceTree = SOURCE_ROOT; };
+		5DEECB820A3A0FE100903B38 /* sess.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sess.c; path = jabberd2/sm/sess.c; sourceTree = SOURCE_ROOT; };
+		5DEECB830A3A0FE100903B38 /* sm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sm.c; path = jabberd2/sm/sm.c; sourceTree = SOURCE_ROOT; };
+		5DEECB840A3A0FE100903B38 /* sm.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sm.h; path = jabberd2/sm/sm.h; sourceTree = SOURCE_ROOT; };
+		5DEECB850A3A0FE100903B38 /* storage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage.c; path = jabberd2/sm/storage.c; sourceTree = SOURCE_ROOT; };
+		5DEECB860A3A0FE100903B38 /* storage_db.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_db.c; path = jabberd2/sm/storage_db.c; sourceTree = SOURCE_ROOT; };
+		5DEECB870A3A0FE100903B38 /* storage_fs.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_fs.c; path = jabberd2/sm/storage_fs.c; sourceTree = SOURCE_ROOT; };
+		5DEECB880A3A0FE100903B38 /* storage_mysql.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_mysql.c; path = jabberd2/sm/storage_mysql.c; sourceTree = SOURCE_ROOT; };
+		5DEECB890A3A0FE100903B38 /* storage_oracle.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_oracle.c; path = jabberd2/sm/storage_oracle.c; sourceTree = SOURCE_ROOT; };
+		5DEECB8A0A3A0FE100903B38 /* storage_pgsql.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_pgsql.c; path = jabberd2/sm/storage_pgsql.c; sourceTree = SOURCE_ROOT; };
+		5DEECB8B0A3A0FE100903B38 /* storage_sqlite.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = storage_sqlite.c; path = jabberd2/sm/storage_sqlite.c; sourceTree = SOURCE_ROOT; };
+		5DEECB8C0A3A0FE100903B38 /* user.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = user.c; path = jabberd2/sm/user.c; sourceTree = SOURCE_ROOT; };
+		5DEECB8D0A3A0FE100903B38 /* stamp-h1 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "stamp-h1"; path = "jabberd2/stamp-h1"; sourceTree = SOURCE_ROOT; };
+		5DEECB900A3A0FE100903B38 /* dirent.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = dirent.Plo; path = jabberd2/subst/.deps/dirent.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB910A3A0FE100903B38 /* getopt.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = getopt.Plo; path = jabberd2/subst/.deps/getopt.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB920A3A0FE100903B38 /* gettimeofday.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = gettimeofday.Plo; path = jabberd2/subst/.deps/gettimeofday.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB930A3A0FE100903B38 /* inet_aton.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = inet_aton.Plo; path = jabberd2/subst/.deps/inet_aton.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB940A3A0FE100903B38 /* inet_ntop.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = inet_ntop.Plo; path = jabberd2/subst/.deps/inet_ntop.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB950A3A0FE100903B38 /* inet_pton.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = inet_pton.Plo; path = jabberd2/subst/.deps/inet_pton.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB960A3A0FE100903B38 /* snprintf.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = snprintf.Plo; path = jabberd2/subst/.deps/snprintf.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB970A3A0FE100903B38 /* syslog.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = syslog.Plo; path = jabberd2/subst/.deps/syslog.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECB980A3A0FE100903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/subst/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECB990A3A0FE100903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/subst/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECB9A0A3A0FE100903B38 /* dirent.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dirent.c; path = jabberd2/subst/dirent.c; sourceTree = SOURCE_ROOT; };
+		5DEECB9B0A3A0FE100903B38 /* dirent.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dirent.h; path = jabberd2/subst/dirent.h; sourceTree = SOURCE_ROOT; };
+		5DEECB9C0A3A0FE100903B38 /* getopt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = getopt.c; path = jabberd2/subst/getopt.c; sourceTree = SOURCE_ROOT; };
+		5DEECB9D0A3A0FE100903B38 /* getopt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = getopt.h; path = jabberd2/subst/getopt.h; sourceTree = SOURCE_ROOT; };
+		5DEECB9E0A3A0FE100903B38 /* gettimeofday.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = gettimeofday.c; path = jabberd2/subst/gettimeofday.c; sourceTree = SOURCE_ROOT; };
+		5DEECB9F0A3A0FE100903B38 /* inet_aton.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inet_aton.c; path = jabberd2/subst/inet_aton.c; sourceTree = SOURCE_ROOT; };
+		5DEECBA00A3A0FE100903B38 /* inet_ntop.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inet_ntop.c; path = jabberd2/subst/inet_ntop.c; sourceTree = SOURCE_ROOT; };
+		5DEECBA10A3A0FE100903B38 /* inet_pton.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inet_pton.c; path = jabberd2/subst/inet_pton.c; sourceTree = SOURCE_ROOT; };
+		5DEECBA20A3A0FE100903B38 /* ip6_misc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ip6_misc.h; path = jabberd2/subst/ip6_misc.h; sourceTree = SOURCE_ROOT; };
+		5DEECBA30A3A0FE100903B38 /* snprintf.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = snprintf.c; path = jabberd2/subst/snprintf.c; sourceTree = SOURCE_ROOT; };
+		5DEECBA40A3A0FE100903B38 /* subst.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = subst.h; path = jabberd2/subst/subst.h; sourceTree = SOURCE_ROOT; };
+		5DEECBA50A3A0FE100903B38 /* syslog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = syslog.c; path = jabberd2/subst/syslog.c; sourceTree = SOURCE_ROOT; };
+		5DEECBA60A3A0FE100903B38 /* syslog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = syslog.h; path = jabberd2/subst/syslog.h; sourceTree = SOURCE_ROOT; };
+		5DEECBA90A3A0FE100903B38 /* callback.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = callback.Plo; path = jabberd2/sx/.deps/callback.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAA0A3A0FE100903B38 /* chain.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = chain.Plo; path = jabberd2/sx/.deps/chain.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAB0A3A0FE100903B38 /* client.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = client.Plo; path = jabberd2/sx/.deps/client.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAC0A3A0FE100903B38 /* env.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = env.Plo; path = jabberd2/sx/.deps/env.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAD0A3A0FE100903B38 /* error.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = error.Plo; path = jabberd2/sx/.deps/error.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAE0A3A0FE100903B38 /* io.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = io.Plo; path = jabberd2/sx/.deps/io.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBAF0A3A0FE100903B38 /* sasl.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sasl.Plo; path = jabberd2/sx/.deps/sasl.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBB00A3A0FE100903B38 /* server.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = server.Plo; path = jabberd2/sx/.deps/server.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBB10A3A0FE100903B38 /* ssl.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = ssl.Plo; path = jabberd2/sx/.deps/ssl.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBB20A3A0FE100903B38 /* sx.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sx.Plo; path = jabberd2/sx/.deps/sx.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBB30A3A0FE200903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/sx/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECBB40A3A0FE200903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/sx/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECBB50A3A0FE200903B38 /* callback.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = callback.c; path = jabberd2/sx/callback.c; sourceTree = SOURCE_ROOT; };
+		5DEECBB60A3A0FE200903B38 /* chain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = chain.c; path = jabberd2/sx/chain.c; sourceTree = SOURCE_ROOT; };
+		5DEECBB70A3A0FE200903B38 /* client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = client.c; path = jabberd2/sx/client.c; sourceTree = SOURCE_ROOT; };
+		5DEECBB80A3A0FE200903B38 /* env.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = env.c; path = jabberd2/sx/env.c; sourceTree = SOURCE_ROOT; };
+		5DEECBB90A3A0FE200903B38 /* error.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = error.c; path = jabberd2/sx/error.c; sourceTree = SOURCE_ROOT; };
+		5DEECBBA0A3A0FE200903B38 /* io.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = io.c; path = jabberd2/sx/io.c; sourceTree = SOURCE_ROOT; };
+		5DEECBBB0A3A0FE200903B38 /* sasl.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sasl.c; path = jabberd2/sx/sasl.c; sourceTree = SOURCE_ROOT; };
+		5DEECBBC0A3A0FE200903B38 /* sasl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sasl.h; path = jabberd2/sx/sasl.h; sourceTree = SOURCE_ROOT; };
+		5DEECBBD0A3A0FE200903B38 /* server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = server.c; path = jabberd2/sx/server.c; sourceTree = SOURCE_ROOT; };
+		5DEECBBE0A3A0FE200903B38 /* ssl.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ssl.c; path = jabberd2/sx/ssl.c; sourceTree = SOURCE_ROOT; };
+		5DEECBBF0A3A0FE200903B38 /* ssl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ssl.h; path = jabberd2/sx/ssl.h; sourceTree = SOURCE_ROOT; };
+		5DEECBC00A3A0FE200903B38 /* sx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sx.c; path = jabberd2/sx/sx.c; sourceTree = SOURCE_ROOT; };
+		5DEECBC10A3A0FE200903B38 /* sx.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sx.h; path = jabberd2/sx/sx.h; sourceTree = SOURCE_ROOT; };
+		5DEECBC30A3A0FE200903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/tools/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECBC40A3A0FE200903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/tools/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECBC50A3A0FE200903B38 /* db-setup.mysql */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "db-setup.mysql"; path = "jabberd2/tools/db-setup.mysql"; sourceTree = SOURCE_ROOT; };
+		5DEECBC60A3A0FE200903B38 /* db-setup.oracle */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "db-setup.oracle"; path = "jabberd2/tools/db-setup.oracle"; sourceTree = SOURCE_ROOT; };
+		5DEECBC70A3A0FE200903B38 /* db-setup.pgsql */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "db-setup.pgsql"; path = "jabberd2/tools/db-setup.pgsql"; sourceTree = SOURCE_ROOT; };
+		5DEECBC80A3A0FE200903B38 /* db-update.mysql */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = "db-update.mysql"; path = "jabberd2/tools/db-update.mysql"; sourceTree = SOURCE_ROOT; };
+		5DEECBC90A3A0FE200903B38 /* jabberd.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = jabberd.in; path = jabberd2/tools/jabberd.in; sourceTree = SOURCE_ROOT; };
+		5DEECBCA0A3A0FE200903B38 /* jabberd.rc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = jabberd.rc; path = jabberd2/tools/jabberd.rc; sourceTree = SOURCE_ROOT; };
+		5DEECBCB0A3A0FE200903B38 /* migrate.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = migrate.pl; path = jabberd2/tools/migrate.pl; sourceTree = SOURCE_ROOT; };
+		5DEECBCC0A3A0FE200903B38 /* pipe-auth.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = "pipe-auth.pl"; path = "jabberd2/tools/pipe-auth.pl"; sourceTree = SOURCE_ROOT; };
+		5DEECBCF0A3A0FE200903B38 /* access.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = access.Plo; path = jabberd2/util/.deps/access.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD00A3A0FE200903B38 /* base64.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = base64.Plo; path = jabberd2/util/.deps/base64.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD10A3A0FE300903B38 /* config.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.Plo; path = jabberd2/util/.deps/config.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD20A3A0FE300903B38 /* datetime.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = datetime.Plo; path = jabberd2/util/.deps/datetime.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD30A3A0FE300903B38 /* hex.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = hex.Plo; path = jabberd2/util/.deps/hex.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD40A3A0FE300903B38 /* inaddr.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = inaddr.Plo; path = jabberd2/util/.deps/inaddr.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD50A3A0FE300903B38 /* jid.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jid.Plo; path = jabberd2/util/.deps/jid.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD60A3A0FE300903B38 /* jqueue.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jqueue.Plo; path = jabberd2/util/.deps/jqueue.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD70A3A0FE300903B38 /* jsignal.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jsignal.Plo; path = jabberd2/util/.deps/jsignal.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD80A3A0FE300903B38 /* log.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = log.Plo; path = jabberd2/util/.deps/log.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBD90A3A0FE300903B38 /* md5.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = md5.Plo; path = jabberd2/util/.deps/md5.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDA0A3A0FE300903B38 /* nad.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = nad.Plo; path = jabberd2/util/.deps/nad.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDB0A3A0FE300903B38 /* pool.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = pool.Plo; path = jabberd2/util/.deps/pool.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDC0A3A0FE300903B38 /* rate.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = rate.Plo; path = jabberd2/util/.deps/rate.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDD0A3A0FE300903B38 /* serial.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = serial.Plo; path = jabberd2/util/.deps/serial.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDE0A3A0FE300903B38 /* sha1.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sha1.Plo; path = jabberd2/util/.deps/sha1.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBDF0A3A0FE300903B38 /* stanza.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = stanza.Plo; path = jabberd2/util/.deps/stanza.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBE00A3A0FE300903B38 /* str.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = str.Plo; path = jabberd2/util/.deps/str.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBE10A3A0FE300903B38 /* xdata.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xdata.Plo; path = jabberd2/util/.deps/xdata.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBE20A3A0FE300903B38 /* xhash.Plo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = xhash.Plo; path = jabberd2/util/.deps/xhash.Plo; sourceTree = SOURCE_ROOT; };
+		5DEECBE30A3A0FE300903B38 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.am; path = jabberd2/util/Makefile.am; sourceTree = SOURCE_ROOT; };
+		5DEECBE40A3A0FE300903B38 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.in; path = jabberd2/util/Makefile.in; sourceTree = SOURCE_ROOT; };
+		5DEECBE50A3A0FE300903B38 /* access.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = access.c; path = jabberd2/util/access.c; sourceTree = SOURCE_ROOT; };
+		5DEECBE60A3A0FE300903B38 /* base64.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = base64.c; path = jabberd2/util/base64.c; sourceTree = SOURCE_ROOT; };
+		5DEECBE70A3A0FE300903B38 /* config.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = config.c; path = jabberd2/util/config.c; sourceTree = SOURCE_ROOT; };
+		5DEECBE80A3A0FE300903B38 /* datetime.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = datetime.c; path = jabberd2/util/datetime.c; sourceTree = SOURCE_ROOT; };
+		5DEECBE90A3A0FE300903B38 /* hex.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = hex.c; path = jabberd2/util/hex.c; sourceTree = SOURCE_ROOT; };
+		5DEECBEA0A3A0FE300903B38 /* inaddr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = inaddr.c; path = jabberd2/util/inaddr.c; sourceTree = SOURCE_ROOT; };
+		5DEECBEB0A3A0FE300903B38 /* inaddr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = inaddr.h; path = jabberd2/util/inaddr.h; sourceTree = SOURCE_ROOT; };
+		5DEECBEC0A3A0FE300903B38 /* jid.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = jid.c; path = jabberd2/util/jid.c; sourceTree = SOURCE_ROOT; };
+		5DEECBED0A3A0FE300903B38 /* jqueue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = jqueue.c; path = jabberd2/util/jqueue.c; sourceTree = SOURCE_ROOT; };
+		5DEECBEE0A3A0FE300903B38 /* jsignal.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = jsignal.c; path = jabberd2/util/jsignal.c; sourceTree = SOURCE_ROOT; };
+		5DEECBEF0A3A0FE300903B38 /* log.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = log.c; path = jabberd2/util/log.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF00A3A0FE300903B38 /* md5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = md5.c; path = jabberd2/util/md5.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF10A3A0FE300903B38 /* md5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = md5.h; path = jabberd2/util/md5.h; sourceTree = SOURCE_ROOT; };
+		5DEECBF20A3A0FE300903B38 /* nad.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = nad.c; path = jabberd2/util/nad.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF30A3A0FE300903B38 /* pool.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pool.c; path = jabberd2/util/pool.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF40A3A0FE300903B38 /* rate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = rate.c; path = jabberd2/util/rate.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF50A3A0FE300903B38 /* serial.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = serial.c; path = jabberd2/util/serial.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF60A3A0FE300903B38 /* sha1.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sha1.c; path = jabberd2/util/sha1.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF70A3A0FE300903B38 /* sha1.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sha1.h; path = jabberd2/util/sha1.h; sourceTree = SOURCE_ROOT; };
+		5DEECBF80A3A0FE300903B38 /* stanza.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = stanza.c; path = jabberd2/util/stanza.c; sourceTree = SOURCE_ROOT; };
+		5DEECBF90A3A0FE300903B38 /* str.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = str.c; path = jabberd2/util/str.c; sourceTree = SOURCE_ROOT; };
+		5DEECBFA0A3A0FE300903B38 /* util.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = util.h; path = jabberd2/util/util.h; sourceTree = SOURCE_ROOT; };
+		5DEECBFB0A3A0FE300903B38 /* util_compat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = util_compat.h; path = jabberd2/util/util_compat.h; sourceTree = SOURCE_ROOT; };
+		5DEECBFC0A3A0FE300903B38 /* xdata.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xdata.c; path = jabberd2/util/xdata.c; sourceTree = SOURCE_ROOT; };
+		5DEECBFD0A3A0FE300903B38 /* xdata.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xdata.h; path = jabberd2/util/xdata.h; sourceTree = SOURCE_ROOT; };
+		5DEECBFE0A3A0FE300903B38 /* xhash.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xhash.c; path = jabberd2/util/xhash.c; sourceTree = SOURCE_ROOT; };
+		5DEECBFF0A3A0FE300903B38 /* jabberd2.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = jabberd2.plist; sourceTree = SOURCE_ROOT; };
+		5DEECC000A3A0FE300903B38 /* jabberd2.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = jabberd2.txt; sourceTree = SOURCE_ROOT; };
+		5DEECC010A3A0FE300903B38 /* libidn.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = libidn.plist; sourceTree = SOURCE_ROOT; };
+		5DEECC020A3A0FE300903B38 /* libidn.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libidn.txt; sourceTree = SOURCE_ROOT; };
+		5DEECC170A3A0FE500903B38 /* Makefile.patch */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Makefile.patch; path = mfpatch/jabberd2/Makefile.patch; sourceTree = SOURCE_ROOT; };
+		5DEECC4D0A3A117800903B38 /* libidn-0.6.0.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "libidn-0.6.0.tgz"; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* ChatServer2 */ = {
+			isa = PBXGroup;
+			children = (
+				5D1BFABC0A40AB4E001540ED /* Makefile */,
+				5DEECA880A3A0FD500903B38 /* ichatserverdbctl */,
+				5DEECA890A3A0FD600903B38 /* ichatserverdbctl.8 */,
+				5D51F23F0A56F51600DC64DB /* config_h.patch */,
+				5DEECA8A0A3A0FD600903B38 /* jabberd.patch */,
+				5D02CAF30A6340F7004067C0 /* ltmain.sh.patch */,
+				5D37F0550ADD987D009CC04A /* config_cache */,
+				5DEECC040A3A0FE300903B38 /* mfpatch */,
+				5D5D91BB0A52FD8C005089F1 /* cfg-apple */,
+				5D1C46A00A55E5DF007B3713 /* backup_restore */,
+				5D5D92020A531D86005089F1 /* jabber_autobuddy */,
+				5D4F9BE30A5B184100AAC80D /* jabber_od_auth */,
+				5DCB1D9F0ACC8947002AC9A7 /* modules */,
+				5DEECC010A3A0FE300903B38 /* libidn.plist */,
+				5DEECC020A3A0FE300903B38 /* libidn.txt */,
+				5DEECC4D0A3A117800903B38 /* libidn-0.6.0.tgz */,
+				5DEECBFF0A3A0FE300903B38 /* jabberd2.plist */,
+				5DEECC000A3A0FE300903B38 /* jabberd2.txt */,
+				5DA68C680ABB2BAC009A3F93 /* pkg-config-0.21.tgz */,
+				5D578AE40ABF1E7700CD29D5 /* pkg-config.plist */,
+				5D578AE50ABF1E7700CD29D5 /* pkg-config.txt */,
+				5D578AF70AC09AA700CD29D5 /* gettext-0.15.tgz */,
+				5D578AF80AC09AA700CD29D5 /* gettext.plist */,
+				5D578AF90AC09AA700CD29D5 /* gettext.txt */,
+				5DCB1DB50ACD96F4002AC9A7 /* glib-2.10.0.tgz */,
+				5DCB1DB30ACD96F4002AC9A7 /* glib.plist */,
+				5DCB1DB40ACD96F4002AC9A7 /* glib.txt */,
+				5D13B2D00AE553D400784B90 /* mu-conference-0.6.0.tgz */,
+				5D13B2D10AE553D400784B90 /* mu-conference.plist */,
+				5D13B2D20AE553D400784B90 /* mu-conference.txt */,
+				5D13B2FB0AE59E0000784B90 /* jcr-0.2.4.tgz */,
+				5D13B2FC0AE59E2A00784B90 /* jcr.plist */,
+				5D13B2FD0AE59E2A00784B90 /* jcr.txt */,
+				5DEECA8B0A3A0FD600903B38 /* jabberd2 */,
+			);
+			name = ChatServer2;
+			sourceTree = "<group>";
+		};
+		5D1C46A00A55E5DF007B3713 /* backup_restore */ = {
+			isa = PBXGroup;
+			children = (
+				5D1C46A10A55E5DF007B3713 /* 75-iChatServer.plist */,
+				5D1C46A20A55E5DF007B3713 /* iChatServer_backup */,
+				5D1C46A30A55E5DF007B3713 /* iChatServer_restore */,
+				5D1C46A40A55E5DF007B3713 /* iChatServer_verify */,
+			);
+			path = backup_restore;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D37F0550ADD987D009CC04A /* config_cache */ = {
+			isa = PBXGroup;
+			children = (
+				5D37F0560ADD987D009CC04A /* glib */,
+			);
+			path = config_cache;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D37F0560ADD987D009CC04A /* glib */ = {
+			isa = PBXGroup;
+			children = (
+				5D37F0570ADD987D009CC04A /* i386 */,
+				5D37F0590ADD987E009CC04A /* ppc */,
+			);
+			name = glib;
+			path = config_cache/glib;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D37F0570ADD987D009CC04A /* i386 */ = {
+			isa = PBXGroup;
+			children = (
+				5D37F0580ADD987D009CC04A /* config.cache */,
+			);
+			name = i386;
+			path = config_cache/glib/i386;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D37F0590ADD987E009CC04A /* ppc */ = {
+			isa = PBXGroup;
+			children = (
+				5D37F05A0ADD987E009CC04A /* config.cache */,
+			);
+			name = ppc;
+			path = config_cache/glib/ppc;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D4F9BE30A5B184100AAC80D /* jabber_od_auth */ = {
+			isa = PBXGroup;
+			children = (
+				5D4F9BE40A5B184100AAC80D /* apple_authenticate.c */,
+				5D4F9BE50A5B184100AAC80D /* apple_authenticate.h */,
+				5D4F9BE60A5B184100AAC80D /* apple_authorize.c */,
+				5D4F9BE70A5B184100AAC80D /* apple_authorize.h */,
+			);
+			path = jabber_od_auth;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D57998F0AC0AC8800CD29D5 /* gettext */ = {
+			isa = PBXGroup;
+			children = (
+				5D5799900AC0AC8800CD29D5 /* gettext-tools */,
+			);
+			name = gettext;
+			path = mfpatch/gettext;
+			sourceTree = SOURCE_ROOT;
+		};
+		5D5799900AC0AC8800CD29D5 /* gettext-tools */ = {
+			isa = PBXGroup;
+			children = (
+				5D5799910AC0AC8800CD29D5 /* examples */,
+			);
+			name = "gettext-tools";
+			path = "mfpatch/gettext/gettext-tools";
+			sourceTree = SOURCE_ROOT;
+		};
+		5D5799910AC0AC8800CD29D5 /* examples */ = {
+			isa = PBXGroup;
+			children = (
+				5D5799930AC0AC8800CD29D5 /* Makefile.patch */,
+			);
+			name = examples;
+			path = "mfpatch/gettext/gettext-tools/examples";
+			sourceTree = SOURCE_ROOT;
+		};
+		5D5D91BB0A52FD8C005089F1 /* cfg-apple */ = {
+			isa = PBXGroup;
+			children = (
+				5D5D91BC0A52FD8C005089F1 /* c2s.xml */,
+				5D5D91BD0A52FD8C005089F1 /* jabberd.cfg */,
+				5DE0D2730AE955F30061E05F /* muc-jcr.xml */,
+				5D5D91BE0A52FD8C005089F1 /* resolver.xml */,
+				5D5D91BF0A52FD8C005089F1 /* router-users.xml */,
+				5D5D91C00A52FD8C005089F1 /* router.xml */,
+				5D5D91C10A52FD8C005089F1 /* s2s.xml */,
+				5D5D91C20A52FD8C005089F1 /* sm.xml */,
+			);
+			path = "cfg-apple";
+			sourceTree = SOURCE_ROOT;
+		};
+		5D5D92020A531D86005089F1 /* jabber_autobuddy */ = {
+			isa = PBXGroup;
+			children = (
+				5D1C469C0A55E533007B3713 /* jabber_autobuddy.8 */,
+				5D5D92030A531D86005089F1 /* jabber_autobuddy.c */,
+			);
+			path = jabber_autobuddy;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DBB22780A5ED69C00F81D11 /* c2s */ = {
+			isa = PBXGroup;
+			children = (
+				5DBB227B0A5ED69C00F81D11 /* Makefile.patch */,
+			);
+			name = c2s;
+			path = mfpatch/jabberd2/c2s;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DCB1D9F0ACC8947002AC9A7 /* modules */ = {
+			isa = PBXGroup;
+			children = (
+				5DCB1DA00ACC8947002AC9A7 /* filetransfer */,
+			);
+			path = modules;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DCB1DA00ACC8947002AC9A7 /* filetransfer */ = {
+			isa = PBXGroup;
+			children = (
+				5DCB1DA10ACC8947002AC9A7 /* makeargtap */,
+				5DCB1DA20ACC8947002AC9A7 /* proxy65 */,
+			);
+			name = filetransfer;
+			path = modules/filetransfer;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DCB1DA20ACC8947002AC9A7 /* proxy65 */ = {
+			isa = PBXGroup;
+			children = (
+				5DCB1DA30ACC8947002AC9A7 /* README */,
+				5DCB1DA40ACC8947002AC9A7 /* proxy65 */,
+				5DCB1DAC0ACC8947002AC9A7 /* setup.py */,
+			);
+			name = proxy65;
+			path = modules/filetransfer/proxy65;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DCB1DA40ACC8947002AC9A7 /* proxy65 */ = {
+			isa = PBXGroup;
+			children = (
+				5DCB1DA50ACC8947002AC9A7 /* __init__.py */,
+				5DCB1DA60ACC8947002AC9A7 /* __init__.pyc */,
+				5DCB1DA70ACC8947002AC9A7 /* plugins.tml */,
+				5DCB1DA80ACC8947002AC9A7 /* proxy65.py */,
+				5DCB1DA90ACC8947002AC9A7 /* proxy65.pyc */,
+				5DCB1DAA0ACC8947002AC9A7 /* socks5.py */,
+				5DCB1DAB0ACC8947002AC9A7 /* socks5.pyc */,
+			);
+			name = proxy65;
+			path = modules/filetransfer/proxy65/proxy65;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECA8B0A3A0FD600903B38 /* jabberd2 */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECA8C0A3A0FD600903B38 /* AUTHORS */,
+				5DEECA8D0A3A0FD600903B38 /* COPYING */,
+				5DEECA8E0A3A0FD600903B38 /* ChangeLog */,
+				5DEECA8F0A3A0FD600903B38 /* Doxyfile */,
+				5DEECA900A3A0FD600903B38 /* Doxyfile.in */,
+				5DEECA910A3A0FD600903B38 /* INSTALL */,
+				5DEECA920A3A0FD600903B38 /* Makefile */,
+				5DEECA930A3A0FD600903B38 /* Makefile.am */,
+				5DEECA940A3A0FD600903B38 /* Makefile.in */,
+				5DEECA950A3A0FD600903B38 /* NEWS */,
+				5DEECA960A3A0FD600903B38 /* PROTOCOL */,
+				5DEECA970A3A0FD600903B38 /* README */,
+				5DEECA980A3A0FD600903B38 /* README.win32 */,
+				5DEECA990A3A0FD600903B38 /* TODO */,
+				5DEECA9A0A3A0FD600903B38 /* ac-stdint.h */,
+				5DEECA9B0A3A0FD600903B38 /* acinclude.m4 */,
+				5DEECA9C0A3A0FD700903B38 /* aclocal.m4 */,
+				5DEECA9D0A3A0FD700903B38 /* autom4te.cache */,
+				5DEECAA10A3A0FD700903B38 /* c2s */,
+				5DEECABE0A3A0FDA00903B38 /* config.guess */,
+				5DEECABF0A3A0FDA00903B38 /* config.h */,
+				5DEECAC00A3A0FDA00903B38 /* config.h.in */,
+				5DEECAC10A3A0FDA00903B38 /* config.rpath */,
+				5DEECAC20A3A0FDA00903B38 /* config.sub */,
+				5DEECAC30A3A0FDA00903B38 /* configure */,
+				5DEECAC40A3A0FDB00903B38 /* configure.in */,
+				5DEECAC50A3A0FDB00903B38 /* contrib */,
+				5DEECAC70A3A0FDB00903B38 /* depcomp */,
+				5DEECAC80A3A0FDB00903B38 /* etc */,
+				5DEECAD70A3A0FDB00903B38 /* expat */,
+				5DEECAF00A3A0FDC00903B38 /* install-sh */,
+				5DEECAF10A3A0FDC00903B38 /* ltmain.sh */,
+				5DEECAF20A3A0FDC00903B38 /* man */,
+				5DEECAFB0A3A0FDC00903B38 /* mio */,
+				5DEECB040A3A0FDC00903B38 /* missing */,
+				5DEECB050A3A0FDC00903B38 /* resolver */,
+				5DEECB100A3A0FDD00903B38 /* router */,
+				5DEECB1D0A3A0FDD00903B38 /* s2s */,
+				5DEECB2E0A3A0FDD00903B38 /* scod */,
+				5DEECB3C0A3A0FDE00903B38 /* sm */,
+				5DEECB8D0A3A0FE100903B38 /* stamp-h1 */,
+				5DEECB8E0A3A0FE100903B38 /* subst */,
+				5DEECBA70A3A0FE100903B38 /* sx */,
+				5DEECBC20A3A0FE200903B38 /* tools */,
+				5DEECBCD0A3A0FE200903B38 /* util */,
+			);
+			path = jabberd2;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECA9D0A3A0FD700903B38 /* autom4te.cache */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECA9E0A3A0FD700903B38 /* output.0 */,
+				5DEECA9F0A3A0FD700903B38 /* requests */,
+				5DEECAA00A3A0FD700903B38 /* traces.0 */,
+			);
+			name = autom4te.cache;
+			path = jabberd2/autom4te.cache;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAA10A3A0FD700903B38 /* c2s */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAA20A3A0FD700903B38 /* .deps */,
+				5DEECAAF0A3A0FDA00903B38 /* Makefile.am */,
+				5DEECAB00A3A0FDA00903B38 /* Makefile.in */,
+				5DEECAB10A3A0FDA00903B38 /* authreg.c */,
+				5DEECAB20A3A0FDA00903B38 /* authreg_anon.c */,
+				5DEECAB30A3A0FDA00903B38 /* authreg_db.c */,
+				5DEECAB40A3A0FDA00903B38 /* authreg_ldap.c */,
+				5DEECAB50A3A0FDA00903B38 /* authreg_mysql.c */,
+				5DEECAB60A3A0FDA00903B38 /* authreg_pam.c */,
+				5DEECAB70A3A0FDA00903B38 /* authreg_pgsql.c */,
+				5DEECAB80A3A0FDA00903B38 /* authreg_pipe.c */,
+				5DEECAB90A3A0FDA00903B38 /* bind.c */,
+				5DEECABA0A3A0FDA00903B38 /* c2s.c */,
+				5DEECABB0A3A0FDA00903B38 /* c2s.h */,
+				5DEECABC0A3A0FDA00903B38 /* main.c */,
+				5DEECABD0A3A0FDA00903B38 /* sm.c */,
+			);
+			name = c2s;
+			path = jabberd2/c2s;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAA20A3A0FD700903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAA30A3A0FD700903B38 /* authreg.Po */,
+				5DEECAA40A3A0FD700903B38 /* authreg_anon.Po */,
+				5DEECAA50A3A0FD700903B38 /* authreg_db.Po */,
+				5DEECAA60A3A0FD700903B38 /* authreg_ldap.Po */,
+				5DEECAA70A3A0FD800903B38 /* authreg_mysql.Po */,
+				5DEECAA80A3A0FD800903B38 /* authreg_pam.Po */,
+				5DEECAA90A3A0FD800903B38 /* authreg_pgsql.Po */,
+				5DEECAAA0A3A0FD800903B38 /* authreg_pipe.Po */,
+				5DEECAAB0A3A0FD800903B38 /* bind.Po */,
+				5DEECAAC0A3A0FD800903B38 /* c2s.Po */,
+				5DEECAAD0A3A0FD900903B38 /* main.Po */,
+				5DEECAAE0A3A0FDA00903B38 /* sm.Po */,
+			);
+			name = .deps;
+			path = jabberd2/c2s/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAC50A3A0FDB00903B38 /* contrib */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAC60A3A0FDB00903B38 /* patch-flash-v3rc1 */,
+			);
+			name = contrib;
+			path = jabberd2/contrib;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAC80A3A0FDB00903B38 /* etc */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAC90A3A0FDB00903B38 /* Makefile.am */,
+				5DEECACA0A3A0FDB00903B38 /* Makefile.in */,
+				5DEECACB0A3A0FDB00903B38 /* c2s.xml.dist.in */,
+				5DEECACC0A3A0FDB00903B38 /* jabberd.cfg.dist.in */,
+				5DEECACD0A3A0FDB00903B38 /* resolver.xml.dist.in */,
+				5DEECACE0A3A0FDB00903B38 /* router-users.xml.dist.in */,
+				5DEECACF0A3A0FDB00903B38 /* router.xml.dist.in */,
+				5DEECAD00A3A0FDB00903B38 /* s2s.xml.dist.in */,
+				5DEECAD10A3A0FDB00903B38 /* sm.xml.dist.in */,
+				5DEECAD20A3A0FDB00903B38 /* templates */,
+			);
+			name = etc;
+			path = jabberd2/etc;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAD20A3A0FDB00903B38 /* templates */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAD30A3A0FDB00903B38 /* Makefile */,
+				5DEECAD40A3A0FDB00903B38 /* Makefile.am */,
+				5DEECAD50A3A0FDB00903B38 /* Makefile.in */,
+				5DEECAD60A3A0FDB00903B38 /* roster.xml.dist.in */,
+			);
+			name = templates;
+			path = jabberd2/etc/templates;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAD70A3A0FDB00903B38 /* expat */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAD80A3A0FDC00903B38 /* .deps */,
+				5DEECADC0A3A0FDC00903B38 /* Makefile.am */,
+				5DEECADD0A3A0FDC00903B38 /* Makefile.in */,
+				5DEECADE0A3A0FDC00903B38 /* ascii.h */,
+				5DEECADF0A3A0FDC00903B38 /* asciitab.h */,
+				5DEECAE00A3A0FDC00903B38 /* expat.h */,
+				5DEECAE10A3A0FDC00903B38 /* expat_config.h */,
+				5DEECAE20A3A0FDC00903B38 /* iasciitab.h */,
+				5DEECAE30A3A0FDC00903B38 /* internal.h */,
+				5DEECAE40A3A0FDC00903B38 /* latin1tab.h */,
+				5DEECAE50A3A0FDC00903B38 /* nametab.h */,
+				5DEECAE60A3A0FDC00903B38 /* utf8tab.h */,
+				5DEECAE70A3A0FDC00903B38 /* winconfig.h */,
+				5DEECAE80A3A0FDC00903B38 /* xmlparse.c */,
+				5DEECAE90A3A0FDC00903B38 /* xmlrole.c */,
+				5DEECAEA0A3A0FDC00903B38 /* xmlrole.h */,
+				5DEECAEB0A3A0FDC00903B38 /* xmltok.c */,
+				5DEECAEC0A3A0FDC00903B38 /* xmltok.h */,
+				5DEECAED0A3A0FDC00903B38 /* xmltok_impl.c */,
+				5DEECAEE0A3A0FDC00903B38 /* xmltok_impl.h */,
+				5DEECAEF0A3A0FDC00903B38 /* xmltok_ns.c */,
+			);
+			name = expat;
+			path = jabberd2/expat;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAD80A3A0FDC00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAD90A3A0FDC00903B38 /* xmlparse.Plo */,
+				5DEECADA0A3A0FDC00903B38 /* xmlrole.Plo */,
+				5DEECADB0A3A0FDC00903B38 /* xmltok.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/expat/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAF20A3A0FDC00903B38 /* man */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAF30A3A0FDC00903B38 /* Makefile.am */,
+				5DEECAF40A3A0FDC00903B38 /* Makefile.in */,
+				5DEECAF50A3A0FDC00903B38 /* c2s.8.in */,
+				5DEECAF60A3A0FDC00903B38 /* jabberd.8.in */,
+				5DEECAF70A3A0FDC00903B38 /* resolver.8.in */,
+				5DEECAF80A3A0FDC00903B38 /* router.8.in */,
+				5DEECAF90A3A0FDC00903B38 /* s2s.8.in */,
+				5DEECAFA0A3A0FDC00903B38 /* sm.8.in */,
+			);
+			name = man;
+			path = jabberd2/man;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAFB0A3A0FDC00903B38 /* mio */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAFC0A3A0FDC00903B38 /* .deps */,
+				5DEECAFE0A3A0FDC00903B38 /* Makefile.am */,
+				5DEECAFF0A3A0FDC00903B38 /* Makefile.in */,
+				5DEECB000A3A0FDC00903B38 /* mio.c */,
+				5DEECB010A3A0FDC00903B38 /* mio.h */,
+				5DEECB020A3A0FDC00903B38 /* mio_poll.h */,
+				5DEECB030A3A0FDC00903B38 /* mio_select.h */,
+			);
+			name = mio;
+			path = jabberd2/mio;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECAFC0A3A0FDC00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECAFD0A3A0FDC00903B38 /* mio.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/mio/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB050A3A0FDC00903B38 /* resolver */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB060A3A0FDC00903B38 /* .deps */,
+				5DEECB090A3A0FDD00903B38 /* Makefile.am */,
+				5DEECB0A0A3A0FDD00903B38 /* Makefile.in */,
+				5DEECB0B0A3A0FDD00903B38 /* TODO */,
+				5DEECB0C0A3A0FDD00903B38 /* dns.c */,
+				5DEECB0D0A3A0FDD00903B38 /* dns.h */,
+				5DEECB0E0A3A0FDD00903B38 /* resolver.c */,
+				5DEECB0F0A3A0FDD00903B38 /* resolver.h */,
+			);
+			name = resolver;
+			path = jabberd2/resolver;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB060A3A0FDC00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB070A3A0FDC00903B38 /* dns.Po */,
+				5DEECB080A3A0FDC00903B38 /* resolver.Po */,
+			);
+			name = .deps;
+			path = jabberd2/resolver/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB100A3A0FDD00903B38 /* router */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB110A3A0FDD00903B38 /* .deps */,
+				5DEECB160A3A0FDD00903B38 /* Makefile.am */,
+				5DEECB170A3A0FDD00903B38 /* Makefile.in */,
+				5DEECB180A3A0FDD00903B38 /* aci.c */,
+				5DEECB190A3A0FDD00903B38 /* main.c */,
+				5DEECB1A0A3A0FDD00903B38 /* router.c */,
+				5DEECB1B0A3A0FDD00903B38 /* router.h */,
+				5DEECB1C0A3A0FDD00903B38 /* user.c */,
+			);
+			name = router;
+			path = jabberd2/router;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB110A3A0FDD00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB120A3A0FDD00903B38 /* aci.Po */,
+				5DEECB130A3A0FDD00903B38 /* main.Po */,
+				5DEECB140A3A0FDD00903B38 /* router.Po */,
+				5DEECB150A3A0FDD00903B38 /* user.Po */,
+			);
+			name = .deps;
+			path = jabberd2/router/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB1D0A3A0FDD00903B38 /* s2s */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB1E0A3A0FDD00903B38 /* .deps */,
+				5DEECB250A3A0FDD00903B38 /* Makefile.am */,
+				5DEECB260A3A0FDD00903B38 /* Makefile.in */,
+				5DEECB270A3A0FDD00903B38 /* in.c */,
+				5DEECB280A3A0FDD00903B38 /* main.c */,
+				5DEECB290A3A0FDD00903B38 /* out.c */,
+				5DEECB2A0A3A0FDD00903B38 /* router.c */,
+				5DEECB2B0A3A0FDD00903B38 /* s2s.h */,
+				5DEECB2C0A3A0FDD00903B38 /* sx.c */,
+				5DEECB2D0A3A0FDD00903B38 /* util.c */,
+			);
+			name = s2s;
+			path = jabberd2/s2s;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB1E0A3A0FDD00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB1F0A3A0FDD00903B38 /* in.Po */,
+				5DEECB200A3A0FDD00903B38 /* main.Po */,
+				5DEECB210A3A0FDD00903B38 /* out.Po */,
+				5DEECB220A3A0FDD00903B38 /* router.Po */,
+				5DEECB230A3A0FDD00903B38 /* sx.Po */,
+				5DEECB240A3A0FDD00903B38 /* util.Po */,
+			);
+			name = .deps;
+			path = jabberd2/s2s/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB2E0A3A0FDD00903B38 /* scod */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB2F0A3A0FDD00903B38 /* .deps */,
+				5DEECB340A3A0FDE00903B38 /* Makefile */,
+				5DEECB350A3A0FDE00903B38 /* Makefile.am */,
+				5DEECB360A3A0FDE00903B38 /* Makefile.in */,
+				5DEECB370A3A0FDE00903B38 /* mech_anonymous.c */,
+				5DEECB380A3A0FDE00903B38 /* mech_digest_md5.c */,
+				5DEECB390A3A0FDE00903B38 /* mech_plain.c */,
+				5DEECB3A0A3A0FDE00903B38 /* scod.c */,
+				5DEECB3B0A3A0FDE00903B38 /* scod.h */,
+			);
+			name = scod;
+			path = jabberd2/scod;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB2F0A3A0FDD00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB300A3A0FDE00903B38 /* mech_anonymous.Plo */,
+				5DEECB310A3A0FDE00903B38 /* mech_digest_md5.Plo */,
+				5DEECB320A3A0FDE00903B38 /* mech_plain.Plo */,
+				5DEECB330A3A0FDE00903B38 /* scod.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/scod/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB3C0A3A0FDE00903B38 /* sm */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB3D0A3A0FDE00903B38 /* .deps */,
+				5DEECB640A3A0FE000903B38 /* Makefile.am */,
+				5DEECB650A3A0FE000903B38 /* Makefile.in */,
+				5DEECB660A3A0FE000903B38 /* aci.c */,
+				5DEECB670A3A0FE000903B38 /* dispatch.c */,
+				5DEECB680A3A0FE000903B38 /* feature.c */,
+				5DEECB690A3A0FE000903B38 /* main.c */,
+				5DEECB6A0A3A0FE000903B38 /* mm.c */,
+				5DEECB6B0A3A0FE000903B38 /* mod_active.c */,
+				5DEECB6C0A3A0FE000903B38 /* mod_announce.c */,
+				5DEECB6D0A3A0FE000903B38 /* mod_deliver.c */,
+				5DEECB6E0A3A0FE000903B38 /* mod_disco.c */,
+				5DEECB6F0A3A0FE000903B38 /* mod_disco_publish.c */,
+				5DEECB700A3A0FE000903B38 /* mod_echo.c */,
+				5DEECB710A3A0FE000903B38 /* mod_help.c */,
+				5DEECB720A3A0FE000903B38 /* mod_iq_last.c */,
+				5DEECB730A3A0FE000903B38 /* mod_iq_private.c */,
+				5DEECB740A3A0FE000903B38 /* mod_iq_time.c */,
+				5DEECB750A3A0FE000903B38 /* mod_iq_vcard.c */,
+				5DEECB760A3A0FE000903B38 /* mod_iq_version.c */,
+				5DEECB770A3A0FE000903B38 /* mod_offline.c */,
+				5DEECB780A3A0FE000903B38 /* mod_presence.c */,
+				5DEECB790A3A0FE100903B38 /* mod_privacy.c */,
+				5DEECB7A0A3A0FE100903B38 /* mod_roster.c */,
+				5DEECB7B0A3A0FE100903B38 /* mod_session.c */,
+				5DEECB7C0A3A0FE100903B38 /* mod_template_roster.c */,
+				5DEECB7D0A3A0FE100903B38 /* mod_vacation.c */,
+				5DEECB7E0A3A0FE100903B38 /* mod_validate.c */,
+				5DEECB7F0A3A0FE100903B38 /* object.c */,
+				5DEECB800A3A0FE100903B38 /* pkt.c */,
+				5DEECB810A3A0FE100903B38 /* pres.c */,
+				5DEECB820A3A0FE100903B38 /* sess.c */,
+				5DEECB830A3A0FE100903B38 /* sm.c */,
+				5DEECB840A3A0FE100903B38 /* sm.h */,
+				5DEECB850A3A0FE100903B38 /* storage.c */,
+				5DEECB860A3A0FE100903B38 /* storage_db.c */,
+				5DEECB870A3A0FE100903B38 /* storage_fs.c */,
+				5DEECB880A3A0FE100903B38 /* storage_mysql.c */,
+				5DEECB890A3A0FE100903B38 /* storage_oracle.c */,
+				5DEECB8A0A3A0FE100903B38 /* storage_pgsql.c */,
+				5DEECB8B0A3A0FE100903B38 /* storage_sqlite.c */,
+				5DEECB8C0A3A0FE100903B38 /* user.c */,
+			);
+			name = sm;
+			path = jabberd2/sm;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB3D0A3A0FDE00903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB3E0A3A0FDE00903B38 /* aci.Po */,
+				5DEECB3F0A3A0FDE00903B38 /* dispatch.Po */,
+				5DEECB400A3A0FDE00903B38 /* feature.Po */,
+				5DEECB410A3A0FDE00903B38 /* main.Po */,
+				5DEECB420A3A0FDE00903B38 /* mm.Po */,
+				5DEECB430A3A0FDE00903B38 /* mod_active.Po */,
+				5DEECB440A3A0FDF00903B38 /* mod_announce.Po */,
+				5DEECB450A3A0FDF00903B38 /* mod_deliver.Po */,
+				5DEECB460A3A0FDF00903B38 /* mod_disco.Po */,
+				5DEECB470A3A0FDF00903B38 /* mod_disco_publish.Po */,
+				5DEECB480A3A0FDF00903B38 /* mod_echo.Po */,
+				5DEECB490A3A0FDF00903B38 /* mod_help.Po */,
+				5DEECB4A0A3A0FDF00903B38 /* mod_iq_last.Po */,
+				5DEECB4B0A3A0FDF00903B38 /* mod_iq_private.Po */,
+				5DEECB4C0A3A0FDF00903B38 /* mod_iq_time.Po */,
+				5DEECB4D0A3A0FDF00903B38 /* mod_iq_vcard.Po */,
+				5DEECB4E0A3A0FDF00903B38 /* mod_iq_version.Po */,
+				5DEECB4F0A3A0FDF00903B38 /* mod_offline.Po */,
+				5DEECB500A3A0FDF00903B38 /* mod_presence.Po */,
+				5DEECB510A3A0FDF00903B38 /* mod_privacy.Po */,
+				5DEECB520A3A0FDF00903B38 /* mod_roster.Po */,
+				5DEECB530A3A0FDF00903B38 /* mod_session.Po */,
+				5DEECB540A3A0FDF00903B38 /* mod_template_roster.Po */,
+				5DEECB550A3A0FE000903B38 /* mod_vacation.Po */,
+				5DEECB560A3A0FE000903B38 /* mod_validate.Po */,
+				5DEECB570A3A0FE000903B38 /* object.Po */,
+				5DEECB580A3A0FE000903B38 /* pkt.Po */,
+				5DEECB590A3A0FE000903B38 /* pres.Po */,
+				5DEECB5A0A3A0FE000903B38 /* sess.Po */,
+				5DEECB5B0A3A0FE000903B38 /* sm.Po */,
+				5DEECB5C0A3A0FE000903B38 /* storage.Po */,
+				5DEECB5D0A3A0FE000903B38 /* storage_db.Po */,
+				5DEECB5E0A3A0FE000903B38 /* storage_fs.Po */,
+				5DEECB5F0A3A0FE000903B38 /* storage_mysql.Po */,
+				5DEECB600A3A0FE000903B38 /* storage_oracle.Po */,
+				5DEECB610A3A0FE000903B38 /* storage_pgsql.Po */,
+				5DEECB620A3A0FE000903B38 /* storage_sqlite.Po */,
+				5DEECB630A3A0FE000903B38 /* user.Po */,
+			);
+			name = .deps;
+			path = jabberd2/sm/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB8E0A3A0FE100903B38 /* subst */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB8F0A3A0FE100903B38 /* .deps */,
+				5DEECB980A3A0FE100903B38 /* Makefile.am */,
+				5DEECB990A3A0FE100903B38 /* Makefile.in */,
+				5DEECB9A0A3A0FE100903B38 /* dirent.c */,
+				5DEECB9B0A3A0FE100903B38 /* dirent.h */,
+				5DEECB9C0A3A0FE100903B38 /* getopt.c */,
+				5DEECB9D0A3A0FE100903B38 /* getopt.h */,
+				5DEECB9E0A3A0FE100903B38 /* gettimeofday.c */,
+				5DEECB9F0A3A0FE100903B38 /* inet_aton.c */,
+				5DEECBA00A3A0FE100903B38 /* inet_ntop.c */,
+				5DEECBA10A3A0FE100903B38 /* inet_pton.c */,
+				5DEECBA20A3A0FE100903B38 /* ip6_misc.h */,
+				5DEECBA30A3A0FE100903B38 /* snprintf.c */,
+				5DEECBA40A3A0FE100903B38 /* subst.h */,
+				5DEECBA50A3A0FE100903B38 /* syslog.c */,
+				5DEECBA60A3A0FE100903B38 /* syslog.h */,
+			);
+			name = subst;
+			path = jabberd2/subst;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECB8F0A3A0FE100903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECB900A3A0FE100903B38 /* dirent.Plo */,
+				5DEECB910A3A0FE100903B38 /* getopt.Plo */,
+				5DEECB920A3A0FE100903B38 /* gettimeofday.Plo */,
+				5DEECB930A3A0FE100903B38 /* inet_aton.Plo */,
+				5DEECB940A3A0FE100903B38 /* inet_ntop.Plo */,
+				5DEECB950A3A0FE100903B38 /* inet_pton.Plo */,
+				5DEECB960A3A0FE100903B38 /* snprintf.Plo */,
+				5DEECB970A3A0FE100903B38 /* syslog.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/subst/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECBA70A3A0FE100903B38 /* sx */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECBA80A3A0FE100903B38 /* .deps */,
+				5DEECBB30A3A0FE200903B38 /* Makefile.am */,
+				5DEECBB40A3A0FE200903B38 /* Makefile.in */,
+				5DEECBB50A3A0FE200903B38 /* callback.c */,
+				5DEECBB60A3A0FE200903B38 /* chain.c */,
+				5DEECBB70A3A0FE200903B38 /* client.c */,
+				5DEECBB80A3A0FE200903B38 /* env.c */,
+				5DEECBB90A3A0FE200903B38 /* error.c */,
+				5DEECBBA0A3A0FE200903B38 /* io.c */,
+				5DEECBBB0A3A0FE200903B38 /* sasl.c */,
+				5DEECBBC0A3A0FE200903B38 /* sasl.h */,
+				5DEECBBD0A3A0FE200903B38 /* server.c */,
+				5DEECBBE0A3A0FE200903B38 /* ssl.c */,
+				5DEECBBF0A3A0FE200903B38 /* ssl.h */,
+				5DEECBC00A3A0FE200903B38 /* sx.c */,
+				5DEECBC10A3A0FE200903B38 /* sx.h */,
+			);
+			name = sx;
+			path = jabberd2/sx;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECBA80A3A0FE100903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECBA90A3A0FE100903B38 /* callback.Plo */,
+				5DEECBAA0A3A0FE100903B38 /* chain.Plo */,
+				5DEECBAB0A3A0FE100903B38 /* client.Plo */,
+				5DEECBAC0A3A0FE100903B38 /* env.Plo */,
+				5DEECBAD0A3A0FE100903B38 /* error.Plo */,
+				5DEECBAE0A3A0FE100903B38 /* io.Plo */,
+				5DEECBAF0A3A0FE100903B38 /* sasl.Plo */,
+				5DEECBB00A3A0FE100903B38 /* server.Plo */,
+				5DEECBB10A3A0FE100903B38 /* ssl.Plo */,
+				5DEECBB20A3A0FE100903B38 /* sx.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/sx/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECBC20A3A0FE200903B38 /* tools */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECBC30A3A0FE200903B38 /* Makefile.am */,
+				5DEECBC40A3A0FE200903B38 /* Makefile.in */,
+				5DEECBC50A3A0FE200903B38 /* db-setup.mysql */,
+				5DEECBC60A3A0FE200903B38 /* db-setup.oracle */,
+				5DEECBC70A3A0FE200903B38 /* db-setup.pgsql */,
+				5DEECBC80A3A0FE200903B38 /* db-update.mysql */,
+				5DEECBC90A3A0FE200903B38 /* jabberd.in */,
+				5DEECBCA0A3A0FE200903B38 /* jabberd.rc */,
+				5DEECBCB0A3A0FE200903B38 /* migrate.pl */,
+				5DEECBCC0A3A0FE200903B38 /* pipe-auth.pl */,
+			);
+			name = tools;
+			path = jabberd2/tools;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECBCD0A3A0FE200903B38 /* util */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECBCE0A3A0FE200903B38 /* .deps */,
+				5DEECBE30A3A0FE300903B38 /* Makefile.am */,
+				5DEECBE40A3A0FE300903B38 /* Makefile.in */,
+				5DEECBE50A3A0FE300903B38 /* access.c */,
+				5DEECBE60A3A0FE300903B38 /* base64.c */,
+				5DEECBE70A3A0FE300903B38 /* config.c */,
+				5DEECBE80A3A0FE300903B38 /* datetime.c */,
+				5DEECBE90A3A0FE300903B38 /* hex.c */,
+				5DEECBEA0A3A0FE300903B38 /* inaddr.c */,
+				5DEECBEB0A3A0FE300903B38 /* inaddr.h */,
+				5DEECBEC0A3A0FE300903B38 /* jid.c */,
+				5DEECBED0A3A0FE300903B38 /* jqueue.c */,
+				5DEECBEE0A3A0FE300903B38 /* jsignal.c */,
+				5DEECBEF0A3A0FE300903B38 /* log.c */,
+				5DEECBF00A3A0FE300903B38 /* md5.c */,
+				5DEECBF10A3A0FE300903B38 /* md5.h */,
+				5DEECBF20A3A0FE300903B38 /* nad.c */,
+				5DEECBF30A3A0FE300903B38 /* pool.c */,
+				5DEECBF40A3A0FE300903B38 /* rate.c */,
+				5DEECBF50A3A0FE300903B38 /* serial.c */,
+				5DEECBF60A3A0FE300903B38 /* sha1.c */,
+				5DEECBF70A3A0FE300903B38 /* sha1.h */,
+				5DEECBF80A3A0FE300903B38 /* stanza.c */,
+				5DEECBF90A3A0FE300903B38 /* str.c */,
+				5DEECBFA0A3A0FE300903B38 /* util.h */,
+				5DEECBFB0A3A0FE300903B38 /* util_compat.h */,
+				5DEECBFC0A3A0FE300903B38 /* xdata.c */,
+				5DEECBFD0A3A0FE300903B38 /* xdata.h */,
+				5DEECBFE0A3A0FE300903B38 /* xhash.c */,
+			);
+			name = util;
+			path = jabberd2/util;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECBCE0A3A0FE200903B38 /* .deps */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECBCF0A3A0FE200903B38 /* access.Plo */,
+				5DEECBD00A3A0FE200903B38 /* base64.Plo */,
+				5DEECBD10A3A0FE300903B38 /* config.Plo */,
+				5DEECBD20A3A0FE300903B38 /* datetime.Plo */,
+				5DEECBD30A3A0FE300903B38 /* hex.Plo */,
+				5DEECBD40A3A0FE300903B38 /* inaddr.Plo */,
+				5DEECBD50A3A0FE300903B38 /* jid.Plo */,
+				5DEECBD60A3A0FE300903B38 /* jqueue.Plo */,
+				5DEECBD70A3A0FE300903B38 /* jsignal.Plo */,
+				5DEECBD80A3A0FE300903B38 /* log.Plo */,
+				5DEECBD90A3A0FE300903B38 /* md5.Plo */,
+				5DEECBDA0A3A0FE300903B38 /* nad.Plo */,
+				5DEECBDB0A3A0FE300903B38 /* pool.Plo */,
+				5DEECBDC0A3A0FE300903B38 /* rate.Plo */,
+				5DEECBDD0A3A0FE300903B38 /* serial.Plo */,
+				5DEECBDE0A3A0FE300903B38 /* sha1.Plo */,
+				5DEECBDF0A3A0FE300903B38 /* stanza.Plo */,
+				5DEECBE00A3A0FE300903B38 /* str.Plo */,
+				5DEECBE10A3A0FE300903B38 /* xdata.Plo */,
+				5DEECBE20A3A0FE300903B38 /* xhash.Plo */,
+			);
+			name = .deps;
+			path = jabberd2/util/.deps;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECC040A3A0FE300903B38 /* mfpatch */ = {
+			isa = PBXGroup;
+			children = (
+				5D57998F0AC0AC8800CD29D5 /* gettext */,
+				5DEECC140A3A0FE500903B38 /* jabberd2 */,
+			);
+			path = mfpatch;
+			sourceTree = SOURCE_ROOT;
+		};
+		5DEECC140A3A0FE500903B38 /* jabberd2 */ = {
+			isa = PBXGroup;
+			children = (
+				5DEECC170A3A0FE500903B38 /* Makefile.patch */,
+				5DBB22780A5ED69C00F81D11 /* c2s */,
+			);
+			name = jabberd2;
+			path = mfpatch/jabberd2;
+			sourceTree = SOURCE_ROOT;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXLegacyTarget section */
+		D28A88AD04BDD90700651E21 /* ChatServer2 */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "$(ACTION)";
+			buildConfigurationList = 1DEB918F08733D9F0010E9CD /* Build configuration list for PBXLegacyTarget "ChatServer2" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/make;
+			buildWorkingDirectory = "";
+			dependencies = (
+			);
+			name = ChatServer2;
+			passBuildSettingsInEnvironment = 1;
+			productName = ChatServer2;
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB919308733D9F0010E9CD /* Build configuration list for PBXProject "ChatServer2" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* ChatServer2 */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D28A88AD04BDD90700651E21 /* ChatServer2 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB919008733D9F0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUGGING_SYMBOLS = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = ChatServer2;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		1DEB919108733D9F0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = ChatServer2;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		1DEB919408733D9F0010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Debug;
+		};
+		1DEB919508733D9F0010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB918F08733D9F0010E9CD /* Build configuration list for PBXLegacyTarget "ChatServer2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB919008733D9F0010E9CD /* Debug */,
+				1DEB919108733D9F0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB919308733D9F0010E9CD /* Build configuration list for PBXProject "ChatServer2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB919408733D9F0010E9CD /* Debug */,
+				1DEB919508733D9F0010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

@@ -1,6 +1,6 @@
---- strxfrm.3.orig	Fri Mar 11 08:32:37 2005
-+++ strxfrm.3	Fri Mar 11 09:46:23 2005
-@@ -40,7 +40,8 @@
+--- _SB/Libc/string/FreeBSD/strxfrm.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strxfrm.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -40,34 +40,48 @@
  .Dt STRXFRM 3
  .Os
  .Sh NAME
@@ -10,22 +10,57 @@
  .Nd transform a string under locale
  .Sh LIBRARY
  .Lb libc
-@@ -48,6 +49,9 @@
+ .Sh SYNOPSIS
  .In string.h
  .Ft size_t
- .Fn strxfrm "char * restrict dst" "const char * restrict src" "size_t n"
+-.Fn strxfrm "char * restrict dst" "const char * restrict src" "size_t n"
++.Fo strxfrm
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fa "size_t n"
++.Fc
++.In string.h
 +.In xlocale.h
 +.Ft size_t
-+.Fn strxfrm_l "char * restrict dst" "const char * restrict src" "size_t n" "locale_t loc"
++.Fo strxfrm_l
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fa "size_t n"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn strxfrm
-@@ -77,6 +81,14 @@
+ function transforms a null-terminated string pointed to by
+-.Fa src
++.Fa s2
+ according to the current locale collation if any,
+ then copies the transformed string
+ into
+-.Fa dst .
++.Fa s1 .
+ Not more than
+ .Fa n
+ characters are copied into
+-.Fa dst ,
++.Fa s1 ,
+ including the terminating null character added.
+ If
+ .Fa n
+ is set to 0
+ (it helps to determine an actual size needed
+ for transformation),
+-.Fa dst
++.Fa s1
+ is permitted to be a NULL pointer.
+ .Pp
+ Comparing two strings using
+@@ -77,6 +91,14 @@
  is equal to comparing
  two original strings with
  .Fn strcoll .
 +.Pp
-+While the
++Although the
 +.Fn strxfrm
 +function uses the current locale, the
 +.Fn strxfrm_l
@@ -35,7 +70,14 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn strxfrm
-@@ -91,7 +103,8 @@
+@@ -85,13 +107,14 @@
+ If this value is
+ .Fa n
+ or more, the contents of
+-.Fa dst
++.Fa s1
+ are indeterminate.
+ .Sh SEE ALSO
  .Xr setlocale 3 ,
  .Xr strcmp 3 ,
  .Xr strcoll 3 ,

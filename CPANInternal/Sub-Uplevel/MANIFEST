@@ -1,0 +1,15 @@
+Build.PL
+Changes
+examples/uplevel-demo.pl
+lib/Sub/Uplevel.pm
+Makefile.PL
+MANIFEST
+MANIFEST.SKIP
+META.yml			Module meta-data (added by MakeMaker)
+README
+t/01_die_check.t
+t/02_uplevel.t
+t/03_nested_uplevels.t
+t/98_pod.t
+t/99_pod_coverage.t
+t/lib/Foo.pm

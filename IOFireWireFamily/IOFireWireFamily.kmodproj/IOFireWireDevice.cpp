@@ -46,6 +46,7 @@
 #import <IOKit/firewire/IOConfigDirectory.h>
 #import "IORemoteConfigDirectory.h"
 #import "IOFireWireROMCache.h"
+#import <IOKit/firewire/IOFWSimpleContiguousPhysicalAddressSpace.h>
 
 OSDefineMetaClassAndStructors(IOFireWireDeviceAux, IOFireWireNubAux);
 OSMetaClassDefineReservedUnused(IOFireWireDeviceAux, 0);
@@ -72,6 +73,7 @@ bool IOFireWireDeviceAux::init( IOFireWireDevice * primary )
 	{
 		fUnitCount = 0;
 		fMaxSpeed = kFWSpeedMaximum;
+		fOpenUnitSet = OSSet::withCapacity( 2 );
 	}
 	
 	return success;
@@ -168,15 +170,98 @@ UInt32 IOFireWireDeviceAux::getUnitCount( void )
 	return fUnitCount;
 }
 
+// isPhysicalAccessEnabled
+//
+//
+
+bool IOFireWireDeviceAux::isPhysicalAccessEnabled( void )
+{
+	IOFireWireDevice * device = (IOFireWireDevice*)fPrimary;
+	
+	bool enabled = false;
+	
+	if( device->fNodeID != kFWBadNodeID )
+    {
+		enabled = device->fControl->isPhysicalAccessEnabledForNodeID( device->fNodeID & 0x3f );
+    }
+
+	return enabled;
+}
+
+// createSimpleContiguousPhysicalAddressSpace
+//
+//
+
+IOFWSimpleContiguousPhysicalAddressSpace * IOFireWireDeviceAux::createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+    IOFWSimpleContiguousPhysicalAddressSpace * space = IOFireWireNubAux::createSimpleContiguousPhysicalAddressSpace( size, direction );
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( (IOFireWireDevice*)fPrimary );
+	}
+	
+	return space;
+}
+
+// createSimplePhysicalAddressSpace
+//
+//
+
+IOFWSimplePhysicalAddressSpace * IOFireWireDeviceAux::createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction )
+{
+    IOFWSimplePhysicalAddressSpace * space = IOFireWireNubAux::createSimplePhysicalAddressSpace( size, direction );
+	
+	if( space != NULL )
+	{
+		space->addTrustedNode( (IOFireWireDevice*)fPrimary );
+	}
+	
+	return space;
+}
+
 // free
 //
 //
 
 void IOFireWireDeviceAux::free()
 {	    
+	if( fOpenUnitSet )
+	{
+		fOpenUnitSet->release();
+		fOpenUnitSet = NULL;
+	}
+	
 	IOFireWireNubAux::free();
 }
 
+// getOpenUnitSet
+//
+//
+
+OSSet * IOFireWireDeviceAux::getOpenUnitSet() const
+{
+	return fOpenUnitSet;
+}
+
+// latchResumeTime
+//
+//
+
+void  IOFireWireDeviceAux::latchResumeTime()
+{
+	clock_get_uptime( &fResumeTime );	// remember when we were resumed
+}
+
+// getResumeTime 
+//
+//
+
+AbsoluteTime IOFireWireDeviceAux::getResumeTime( void )
+{
+	return fResumeTime;
+}
+	
 #pragma mark -
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -210,7 +295,11 @@ class IOFireWireUnitInfo : public OSObject
 private:
     OSDictionary * fPropTable;
     IOConfigDirectory * fDirectory;
-    
+
+	UInt32		fSBP2LUN;
+	UInt32		fSBP2MAO;
+	UInt32		fSBP2Revision;
+	
 protected:
     virtual void free();
     
@@ -223,7 +312,15 @@ public:
 	
 	void setDirectory( IOConfigDirectory * directory );
 	IOConfigDirectory * getDirectory( void );
+
+	void setSBP2LUN( UInt32 sbp2_lun );
+	UInt32 getSBP2LUN( void );
 	
+	void setSBP2MAO( UInt32 sbp2_mao );
+	UInt32 getSBP2MAO( void );
+	
+	void setSBP2Revision( UInt32 sbp2_revision );
+	UInt32 getSBP2Revision( void );
 };
 
 OSDefineMetaClassAndStructors(IOFireWireUnitInfo, OSObject);
@@ -310,6 +407,60 @@ IOConfigDirectory * IOFireWireUnitInfo::getDirectory( void )
 	return fDirectory;
 }
 
+// setSBP2LUN
+//
+//
+
+void IOFireWireUnitInfo::setSBP2LUN( UInt32 sbp2_lun )
+{
+	fSBP2LUN = sbp2_lun;
+}
+
+// getSBP2LUN
+//
+//
+
+UInt32 IOFireWireUnitInfo::getSBP2LUN( void )
+{
+	return fSBP2LUN;
+}
+
+// setSBP2MAO
+//
+//
+
+void IOFireWireUnitInfo::setSBP2MAO( UInt32 sbp2_mao )
+{
+	fSBP2MAO = sbp2_mao;
+}
+
+// getSBP2MAO
+//
+//
+
+UInt32 IOFireWireUnitInfo::getSBP2MAO( void )
+{
+	return fSBP2MAO;
+}
+
+// setSBP2Revision
+//
+//
+
+void IOFireWireUnitInfo::setSBP2Revision( UInt32 sbp2_revision )
+{
+	fSBP2Revision = sbp2_revision;
+}
+
+// getSBP2Revision
+//
+//
+
+UInt32 IOFireWireUnitInfo::getSBP2Revision( void )
+{
+	return fSBP2Revision;
+}
+
 #pragma mark -
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -318,21 +469,26 @@ bool IOFireWireDevice::init(OSDictionary *propTable, const IOFWNodeScan *info)
 {
     if(!IOFireWireNub::init(propTable))
        return false;
+
+	fROMReadRetry = 4;
        
     // Terminator...
     // fUniqueID = (UInt64)this;
     
-    
-    if(info->fROMSize > 8) {
-        UInt32 maxPackLog =
-        ((info->fBuf[2] & kFWBIBMaxRec) >> kFWBIBMaxRecPhase) + 1;
-        if(maxPackLog == 1) {
+    if(info->fROMSize > 8) 
+	{
+		UInt32 bib_quad = OSSwapBigToHostInt32( info->fBuf[2] );
+        UInt32 maxPackLog = ((bib_quad & kFWBIBMaxRec) >> kFWBIBMaxRecPhase) + 1;
+        if( maxPackLog == 1 ) 
+		{
             IOLog("Illegal maxrec, using 512 bytes\n");
             maxPackLog = 9;
         }
+		
         // if 1394A bus info block, respect maxROM
-        if(info->fBuf[2] & kFWBIBGeneration) {
-            if(((info->fBuf[2] & kFWBIBMaxROM) >> kFWBIBMaxROMPhase) == 2)
+        if( bib_quad & kFWBIBGeneration ) 
+		{
+            if(((bib_quad & kFWBIBMaxROM) >> kFWBIBMaxROMPhase) == 2)
                 fMaxReadROMPackLog = 10;	// 1024 bytes max.
             else
                 fMaxReadROMPackLog = 2; // Just quads for ROM reads
@@ -436,7 +592,7 @@ bool IOFireWireDevice::attach(IOService *provider)
     fControl = (IOFireWireController *)provider;
     fControl->retain();
 
-    sprintf(location, "%lx%08lx", (UInt32)(fUniqueID >> 32), (UInt32)(fUniqueID & 0xffffffff));
+    snprintf(location, sizeof(location), "%lx%08lx", (UInt32)(fUniqueID >> 32), (UInt32)(fUniqueID & 0xffffffff));
     setLocation(location);
     // Stick device in DeviceTree plane for OpenFirmware
     IOService *parent = provider;
@@ -473,7 +629,7 @@ bool IOFireWireDevice::finalize( IOOptionBits options )
 }
 
 #pragma mark -
-
+	
 // setNodeROM
 //
 //
@@ -504,7 +660,13 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
     }
     else 
 	{
-        fNodeID = kFWBadNodeID;
+        if( fNodeID != kFWBadNodeID )
+		{
+			// remember the last time we saw him alive
+			latchResumeTime();
+		}
+		
+		fNodeID = kFWBadNodeID;
     }
 
 	
@@ -599,7 +761,8 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 	
     if( newROMSize > 12 ) 
 	{
-        UInt32 vendorID = info->fBuf[3] >> 8;
+		UInt32 bib_quad = OSSwapBigToHostInt32( info->fBuf[3] );
+        UInt32 vendorID = bib_quad >> 8;
         prop = OSNumber::withNumber( vendorID, 32 );
         setProperty( gFireWireVendor_ID, prop );
         prop->release();
@@ -818,25 +981,37 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 		
 		fControl->openGate();
 	}
-	else if( status != kIOFireWireConfigROMInvalid )
+
+	// if we've got a non-bus reset error reading the rom
+	// cause a bus reset and try again
+
+	if( (status != kIOReturnSuccess) && (status != kIOFireWireBusReset) )
 	{
+		// use workloop lock to serial accesses to the retry count
 		fControl->closeGate();
-		
-		// if there was an error reading the ROM then we need to reset our busy state
-		// to stay consistent
-		
-		// if the read failed because the ROM went invalid, then we don't need to do this
-		// because we will come back to the ROM reading code on a new thread
-		
-		if( fRegistrationState == kDeviceNeedsRegisterService )
+
+		if( fROMReadRetry > 0 )
 		{
-			setRegistrationState( kDeviceNotRegistered );
-			adjustBusy( -1 );
+			fROMReadRetry--;
+			
+			// something's a miss let's try it all again
+			fControl->resetBus();
+		}
+		else
+		{
+			// if there was an error reading the ROM then we need to reset our busy state
+			// to stay consistent
+			
+			if( fRegistrationState == kDeviceNeedsRegisterService )
+			{
+				setRegistrationState( kDeviceNotRegistered );
+				adjustBusy( -1 );
+			}
 		}
 		
 		fControl->openGate();
 	}
-	
+		
 	//
 	// clean up
 	//
@@ -902,6 +1077,166 @@ void IOFireWireDevice::preprocessDirectories( OSDictionary * rootPropTable, OSSe
 		if( vendorNameProperty )
 		{
 			propTable->setObject( gFireWireVendor_Name, vendorNameProperty );
+		}
+		
+		// if no device model or vendor string and an IIDC unit exists,
+		// take model string from IIDC unit dependent info unit-dir
+		if ( vendorNameProperty == NULL || modelIDProperty == NULL )
+		{
+			IOConfigDirectory * unit = info->getDirectory();
+			
+			IOReturn error = kIOReturnSuccess;
+			
+			// check if unit is IIDC and if so, get unit-dependent directory
+			UInt32 unitSpecID = 0;
+			UInt32 unitSWVers = 0;
+			IOConfigDirectory * unitdep;
+			
+			error = unit->getKeyValue( kConfigUnitSpecIdKey, unitSpecID );
+			error |= unit->getKeyValue( kConfigUnitSwVersionKey, unitSWVers );
+			error |= unit->getKeyValue( kConfigUnitDependentInfoKey, unitdep );
+			
+			if( error == kIOReturnSuccess && unitSpecID == kConfigUnitSpec1394TA1 )
+			{	
+				if ( unitSWVers == kConfigUnitSWVersIIDC100
+					|| unitSWVers == kConfigUnitSWVersIIDC101
+					|| unitSWVers == kConfigUnitSWVersIIDC102 )
+				{
+					if ( vendorNameProperty == NULL )
+					{
+						// Get vendor name string from IIDC Unit_Depedant_Info directory
+						// Get entry as data because leaf may not have text descriptor key
+						OSData * iidcVendorData = NULL;
+						error = unitdep->getKeyValue( 1, iidcVendorData, NULL);	
+						
+						OSString * iidcVendorString = NULL;
+						if ( !error && iidcVendorData )
+						{
+							// append a byte to ensure null termination, increments length
+							iidcVendorData->appendBytes( 0, 1 );
+							
+							UInt32 * leaf = (UInt32 *)(iidcVendorData->getBytesNoCopy()); // get data pointer
+							
+							UInt32 len = iidcVendorData->getLength() - 8; // subtract header bytes of text leaf descriptor
+							
+							if ( len <= 256 && leaf ) // defend against a bad ROM
+							{
+								// IIDC 1.31 specifies that char 0 is at 9th byte
+								char * text = (char *)(&leaf[2]);
+								
+								// Even though IIDC 1.31 and IEEE 1212 say the string should be zero-padded at the end,
+								// some are zero padded at beginning. So, skip over leading zeros in string JIC.
+								while( len && !*text)
+								{
+									len--;
+									text++;
+								}
+								
+								// Because IIDC 1.31 & 1212 don't require text within a text leaf descriptor to be
+								// null terminated, we must check that our attempt to ensure null termination, by
+								// using appendBytes, succeeded before using it as a c-string.
+								// if appendBytes succeeded, the last char should be null
+								// if appendBytes failed, len doesn't increment and we check the last orginal char if null
+								// if appendBytes fails and the last orginal char isn't null, we give up
+								if ( len > 0 && text[len] == 0 )	
+									iidcVendorString = OSString::withCString( text );
+							}
+							
+							if( iidcVendorString )
+							{
+								rootPropTable->setObject( gFireWireVendor_Name, iidcVendorString );
+								iidcVendorString->release();
+							}
+							
+							iidcVendorData->release();
+						}
+						
+					}
+					
+					if ( modelIDProperty == NULL )
+					{
+						// Get model name string from IIDC Unit_Depedant_Info directory
+						// Get entry as data because leaf may not have text descriptor key
+						OSData * iidcModelData = NULL;
+						error = unitdep->getKeyValue( 2, iidcModelData, NULL);
+						
+						OSString * iidcModelString = NULL;
+						if ( !error && iidcModelData )
+						{
+							// append a byte to ensure null termination, increments length
+							iidcModelData->appendBytes( 0, 1 );
+							
+							UInt32 * leaf = (UInt32 *)(iidcModelData->getBytesNoCopy()); // get data pointer
+							
+							UInt32 len = iidcModelData->getLength() - 8; // subtract header bytes of text leaf descriptor
+							
+							if ( len <= 256 ) // defend against a bad ROM
+							{
+								// IIDC 1.31 specifies that char 0 is at 9th byte
+								char * text = (char *)(&leaf[2]);
+								
+								// Even though IIDC 1.31 and IEEE 1212 say the string should be zero-padded at the end,
+								// some are zero padded at beginning. So, skip over leading zeros in string JIC.
+								while( len && !*text)
+								{
+									len--;
+									text++;
+								}
+								
+								// Because IIDC 1.31 & 1212 don't require text within a text leaf descriptor to be
+								// null terminated, we must check that our attempt to ensure null termination, by
+								// using appendBytes, succeeded before using it as a c-string.
+								// if appendBytes succeeded, the last char should be null
+								// if appendBytes failed, len doesn't increment and we check the last orginal char if null
+								// if appendBytes fails and the last orginal char isn't null, we give up
+								if ( len > 0 && text[len] == 0 )
+									iidcModelString = OSString::withCString( text );
+							}
+							
+							if( iidcModelString )
+							{
+								rootPropTable->setObject( gFireWireProduct_Name, iidcModelString );
+								iidcModelString->release();
+							}
+							
+							iidcModelData->release();
+						}
+					}
+				}
+			}
+		}
+
+		
+		UInt32 modelID = 0;
+		UInt32 modelVendorID = 0;
+		
+		{
+			OSNumber * prop = (OSNumber*)rootPropTable->getObject( gFireWireModel_ID );
+			if( prop )
+			{
+				modelID = prop->unsigned32BitValue();				
+			}
+		}
+		
+		{
+			OSNumber * prop = (OSNumber*)rootPropTable->getObject( gFireWireVendor_ID );
+			if( prop )
+			{
+				modelVendorID = prop->unsigned32BitValue();				
+			}
+		}
+		
+		UInt32 sbp2_revision = info->getSBP2Revision();
+		UInt32 sbp2_lun = info->getSBP2LUN();
+		UInt32 sbp2_mao = info->getSBP2MAO();
+		
+		if( (modelVendorID == 0x000a27) && (modelID == 0x54444d) )
+		{	
+			if( ((sbp2_lun & 0x0000ffff) == 0) && (sbp2_revision == 0xffffffff) && 
+				((sbp2_mao == 0x004000) || (sbp2_mao == 0x00c000)) )
+			{
+				rootPropTable->setObject( gFireWireTDM, OSString::withCString("PPC") );
+			}
 		}
 	}
 	
@@ -1110,6 +1445,10 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 				bool		modelIDPresent = false;
 				OSString *	t = NULL;
 		
+				UInt32		sbp2_revision = 0xffffffff;
+				UInt32		sbp2_lun = 0xffffffff;
+				UInt32		sbp2_mao = 0xffffffff;
+				
                 result = unit->getKeyValue(kConfigUnitSpecIdKey, unitSpecID);
 				if( result == kIOReturnSuccess )
 					result = unit->getKeyValue(kConfigUnitSwVersionKey, unitSoftwareVersion);
@@ -1130,6 +1469,27 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
                     modelName = t;
                     t = NULL;
                 }
+
+				if( status == kIOReturnSuccess )
+				{
+					result = unit->getKeyValue( kConfigSBP2LUN, sbp2_lun );
+					if( result == kIOFireWireConfigROMInvalid )
+						status = result;
+				}
+				
+				if( status == kIOReturnSuccess )
+				{
+					result = unit->getKeyValue( kConfigSBP2Revision, sbp2_revision );
+					if( result == kIOFireWireConfigROMInvalid )
+						status = result;
+				}
+				
+				if( status == kIOReturnSuccess )
+				{
+					result = unit->getKeyValue( kConfigSBP2MAO, sbp2_mao );
+					if( result == kIOFireWireConfigROMInvalid )
+						status = result;
+				}
 				
 				if( status == kIOReturnSuccess )
 				{
@@ -1180,8 +1540,13 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 							propTable->setObject(gFireWire_GUID, prop);
 						
 						IOFireWireUnitInfo * info = IOFireWireUnitInfo::create();
+						
 						info->setDirectory( unit );
 						info->setPropTable( propTable );
+						info->setSBP2Revision( sbp2_revision );
+						info->setSBP2LUN( sbp2_lun );
+						info->setSBP2MAO( sbp2_mao );
+
 						unitInfo->setObject( info );
 						info->release();
 					
@@ -1492,24 +1857,26 @@ bool IOFireWireDevice::handleOpen( IOService * forClient, IOOptionBits options, 
         // bail if we're already open from the device
         if( fOpenFromDevice )
             return false;
-        
-        if( fOpenFromUnitCount == 0 )
-        {
-            // if this is the first open call, actually do the open
-            ok = IOService::handleOpen( this, options, arg );
-            if( ok )
-                fOpenFromUnitCount++;
-        }
-        else
-        {
-            // otherwise just increase the reference count
-            fOpenFromUnitCount++;
-        }
+		
+		OSSet * open_set = getOpenUnitSet();
+		if( !open_set->containsObject( forClient ) )
+		{
+			if( open_set->getCount() == 0 )
+			{
+				ok = IOService::handleOpen( this, options, arg );
+			}
+			
+			if( ok )
+			{
+				open_set->setObject( forClient );
+			}
+		}
     }
     else
     {
         // bail if we're open from a unit
-        if( fOpenFromUnitCount != 0 )
+		OSSet * open_set = getOpenUnitSet();	
+        if( open_set->getCount() != 0 )
             return false;
             
         // try to open
@@ -1541,22 +1908,23 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
     IOFireWireUnit * unitClient = OSDynamicCast( IOFireWireUnit, forClient );
     if( unitClient != NULL )
     {
-        if( fOpenFromUnitCount != 0 )
-        {
-            fOpenFromUnitCount--;
-            
-            if( fOpenFromUnitCount == 0 ) // close if we're down to zero
-            {
-                IOService::handleClose( this, options );
-                
-                // terminate if we're no longer on the bus and haven't already been terminated.
+		OSSet * open_set = getOpenUnitSet();
+		if( open_set->containsObject( forClient ) )
+		{
+			open_set->removeObject( forClient );
+			
+			if( open_set->getCount() == 0 )
+			{
+				IOService::handleClose( this, options );
+			
+				// terminate if we're no longer on the bus and haven't already been terminated.
                 if( getTerminationState() == kNeedsTermination ) 
 				{
 					setTerminationState( kTerminated );
                     IOCreateThread( terminateDevice, this );
                 }
-            }
-        }
+			}
+		}
     }
     else
     {
@@ -1582,24 +1950,24 @@ void IOFireWireDevice::handleClose( IOService * forClient, IOOptionBits options 
 bool IOFireWireDevice::handleIsOpen( const IOService * forClient ) const
 {
 	// arbitration lock is held
-
-    if( forClient == NULL )
+	
+	OSSet * open_set = getOpenUnitSet();
+		
+	if( forClient == NULL )
     {
-        return (fOpenFromUnitCount != 0 || fOpenFromDevice);
+        return ((open_set->getCount() != 0) || fOpenFromDevice);
     }
     
     // are we open from one or more units?
-    if( fOpenFromUnitCount != 0 )
+    if( open_set->getCount() != 0 )
     {
-        // is the client really a unit?
-        IOFireWireUnit * unitClient = OSDynamicCast( IOFireWireUnit, forClient );
-        return (unitClient != NULL);
+		return open_set->containsObject( forClient );
     }
     
     // are we open from the device?
     if( fOpenFromDevice )
     {
-        // is the clien tthe one who opened us?
+        // is the client the one who opened us?
         return IOService::handleIsOpen( forClient );
     }
     
@@ -1701,6 +2069,36 @@ IOReturn IOFireWireDevice::configureNode( void )
 		}
 		
 		//
+		// tell controller to make this node root
+		//
+		
+		if( fNodeFlags & kIOFWMustBeRoot )
+		{
+			fControl->nodeMustBeRoot( fNodeID );
+		}
+		
+		//
+		// tell controller not to make this node root
+		//
+		
+		if( fNodeFlags & kIOFWMustNotBeRoot )
+		{
+			fControl->nodeMustNotBeRoot( fNodeID );
+		}
+		
+		//
+		// Tell contoller to set the gap count to 63. Gap 63 reduces bus performance 
+		// significantly, so this flag should be used only when absolutely necessary.
+		// There is no guarantee Mac OS X will succeed in forcing the gap count to 63.
+		//
+		
+		if( fNodeFlags & kIOFWMustHaveGap63	)
+		{
+			fControl->setGapCount(63);
+		}
+		
+		
+		//
 		// tell controller to disable this phy port on sleep
 		//
 		
@@ -1736,7 +2134,7 @@ void IOFireWireDevice::configurePhysicalFilter( void )
 			
 			fControl->setPhysicalAccessMode( kIOFWPhysicalAccessDisabledForGeneration );
         }
-		
+
         if( (fNodeFlags & kIOFWDisablePhysicalAccess) )
         {
 			fControl->setNodeIDPhysicalFilter( fNodeID & 0x3f, false );

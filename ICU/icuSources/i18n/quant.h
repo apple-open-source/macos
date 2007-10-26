@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2001-2004, International Business Machines Corporation
+ * Copyright (C) 2001-2006, International Business Machines Corporation
  * and others. All Rights Reserved.
  **********************************************************************
  *   Date        Name        Description
@@ -18,7 +18,7 @@
 
 U_NAMESPACE_BEGIN
 
-class Quantifier : public UnicodeFunctor, public UnicodeMatcher {
+class U_I18N_API Quantifier : public UnicodeFunctor, public UnicodeMatcher {
 
  public:
 
@@ -112,8 +112,6 @@ class Quantifier : public UnicodeFunctor, public UnicodeMatcher {
     static UClassID U_EXPORT2 getStaticClassID();
 
  private:
-
-    static void appendNumber(UnicodeString& result, int32_t n);
 
     UnicodeFunctor* matcher; // owned
 

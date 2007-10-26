@@ -41,15 +41,10 @@
     IBOutlet NSTabViewItem *settingsTabViewItem;
     IBOutlet NSTextField *realmHeaderTextField;
     IBOutlet NSTextField *realmTextField;
-    IBOutlet NSTextField *alternateV4RealmHeaderTextField;
-    IBOutlet NSTextField *alternateV4RealmTextField;
-    IBOutlet NSTextField *notCommonTextField;
     IBOutlet NSButton *displayInDialogPopupCheckbox;
     
     IBOutlet NSTabViewItem *serversTabViewItem;
     IBOutlet NSTableView *serversTableView;
-    IBOutlet NSTableColumn *serverVersionColumn;
-    IBOutlet NSMenu *serverVersionMenu;
     IBOutlet NSTableColumn *serverTypeColumn;
     IBOutlet NSMenu *serverTypeMenu;
     IBOutlet NSTableColumn *serverColumn;
@@ -69,30 +64,6 @@
     IBOutlet NSButton *applyButton;
     IBOutlet NSButton *cancelButton;
     IBOutlet NSButton *okButton;
-    
-    
-    IBOutlet NSWindow *addServerWindow;
-
-    IBOutlet NSMatrix *versionMatrix;
-    IBOutlet NSButtonCell *v4RadioButtonCell;
-    IBOutlet NSButtonCell *v5RadioButtonCell;
-    
-    IBOutlet NSMatrix *typeMatrix;
-    IBOutlet NSButtonCell *kdcRadioButtonCell;
-    IBOutlet NSButtonCell *adminRadioButtonCell;
-    IBOutlet NSButtonCell *krb524RadioButtonCell;
-    IBOutlet NSButtonCell *kpasswdRadioButtonCell;
-    
-    IBOutlet NSTextField *hostTextField;
-    
-    IBOutlet NSMatrix *portMatrix;
-    IBOutlet NSButtonCell *defaultPortRadioButtonCell;
-    IBOutlet NSButtonCell *customPortRadioButtonCell;
-    IBOutlet NSTextField *customPortTextField;
-  
-    IBOutlet NSButton *addServerOKButton;
-    IBOutlet NSButton *addServerCancelButton;
-    
     
     RealmsConfiguration *realmsConfiguration;
     NSString *errorMessageString;
@@ -118,12 +89,6 @@
 - (IBAction) apply: (id) sender;
 - (IBAction) cancel: (id) sender;
 - (IBAction) ok: (id) sender;
-
-- (IBAction) versionRadioButtonWasHit: (id) sender;
-- (IBAction) typeRadioButtonWasHit: (id) sender;
-- (IBAction) portRadioButtonWasHit: (id) sender;
-- (IBAction) addServerCancel: (id) sender;
-- (IBAction) addServerOK: (id) sender;
 
 - (int) numberOfRowsInTableView: (NSTableView *) tableView;
 - (id) tableView: (NSTableView *) tableView objectValueForTableColumn: (NSTableColumn *) tableColumn row: (int) rowIndex;

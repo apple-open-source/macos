@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <errno.h>
+#include <string.h>
 #include "stringops.h"
 
 #define TEMP_FILE "/tmp/.pwtmp"
@@ -36,8 +37,6 @@
 #define BUFSIZE 8192
 
 extern void checkpasswd(char *, char *);
-
-static int do_compat = 1;
 
 char *
 getline(FILE *fp)
@@ -197,7 +196,7 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 			continue;
 		}
 
-		fprintf(tfp, "%s:%s:%d:%d:%s:%d:%d:%s:%s:%s\n",
+		fprintf(tfp, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
 			newpw->pw_name, newpw->pw_passwd, newpw->pw_uid, newpw->pw_gid,
 			newpw->pw_class, newpw->pw_change, newpw->pw_expire,
 			newpw->pw_gecos, newpw->pw_dir, newpw->pw_shell);
@@ -253,8 +252,7 @@ file_check_passwd(char *uname, char *locn)
 	fname = _PASSWD_FILE;
 	if (locn != NULL) fname = locn;
 
-	fp = fopen(fname, "r");
-	if (fp == NULL)
+	if (access(fname,R_OK) || (fp = fopen(fname, "r")) == NULL)
 	{
 		fprintf(stderr, "can't read file \"%s\": ", fname);
 		perror("");

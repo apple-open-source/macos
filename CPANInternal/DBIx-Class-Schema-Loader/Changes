@@ -1,0 +1,184 @@
+Revision history for Perl extension DBIx::Class::Schema::Loader
+
+0.03009 Wed Nov 15 14:03:37 UTC 2006
+	- fix for rt.cpan.org #22425 (use File::Spec where appropriate)
+	- use full instead of short classnames in relationships (from victori)
+
+0.03008 Fri Oct 20 18:08:20 UTC 2006
+        - fix for rt.cpan.org #21084 (dump_overwrite pathological output recursion)
+        - fix for rt.cpan.org #21758 (mysql reserved words as table names)
+        - fix for rt.cpan.org #21025 (SQLite FK parsing)
+        - workaround for rt.cpan.org #21746 ($Class::Accessor::Fast::VERSION issues)
+
+0.03007 Thu Jul 27 16:19:59 UTC 2006
+        - Kill erroneous warning about connect/loader_options order (the real
+          case is warned about elsewhere)
+        - Fix t/22dump to work around ActiveState issues
+
+0.03006 Wed Jul 26 00:14:58 UTC 2006
+        - Fixed column-case issue w/ columns_info_for
+
+0.03005 Wed Jul 19 15:09:30 UTC 2006
+        [ Pretty much everything in this release originates from nilsonsfj patches ]
+        - bugfix: mysql unique constraint code had an
+          obvious but longstanding error
+        - bugfix: columns were being specified out-of-order,
+          bug was introduced in the 0.03004 column metadata
+          dumping feature
+        - dump code now skips+warns instead of dies when
+          dump_overwrite not set
+
+0.03004 Tue Jul 11 04:38:09 UTC 2006
+        - make_schema_at efficiency improvements
+        - improved debugging output
+        - column metadata now included in dumped schemas
+        - Carp::Clan added, and some dies converted to croaks
+        - no longer overwrites files when dumping, unless asked
+          to do so via the dump_overwrite option
+        - loader_options can now be embedded in the connection info
+        - Documentation improvements
+        - Deprecation notices updated, most things that became
+          "deprecated" in 0.03 are now marked for death in 0.04000
+        - All deprecated usage patterns should now generate annoying
+          warnings (most did before).
+        - Somewhat improved test coverage
+
+0.03003 Tue Jun  6 02:22:49 UTC 2006
+        - Fix inclusion of external add-on class definitions
+          in dump_to_dir output.
+
+0.03002 Tue Jun  6 01:27:25 UTC 2006
+        - rethrow exceptions that occur during make_schema_at
+
+0.03001 Mon Jun  5 23:17:57 UTC 2006
+        - load_from_connection deprecation notice now mentions
+          upgrading Catalyst::Model::DBIC::Schema if that module
+          seems to be in use.
+        - DBIx::Class required version number fixed
+        - Loader statement caching for better load-time performance
+        - Improved Pg unique index loader, based on RDBO
+
+0.03000 Tue May 23 12:56:05 UTC 2006
+        - weakened the circular schema reference
+
+0.02999_10 Mon May 22 18:58:20 UTC 2006
+        - a few more small bugfixes
+        - more dump/debug improvements
+        - new exportable function "make_schema_at"
+
+0.02999_09 Sun May 21 23:26:58 UTC 2006
+        - More docs improvements
+        - default uniq_info just warns and returns nothing now,
+          instead of dying.  In theory, this allows unsupported
+          DBD drivers to potentially work with this module, if
+          the generic methods happen to work for that vendor.
+        - New tests for the various current and legacy/deprecated
+          methods of connecting a Schema::Loader class/object.
+        - Bugfix to the new runtime object connect/load code.
+
+0.02999_08 Sat May 20 22:36:45 UTC 2006
+        - support for dumping to a directory for
+          conversion to manual DBIx::Class::Schema
+        - improved debugging output
+        - more documentation updates
+        - more backwards compatibility fixes
+        - runtime connection definitions (and cloning) work fine now.
+        - A couple of bugfixes related to db vendor "schemas", including
+          a fix for http://rt.cpan.org/Public/Bug/Display.html?id=19164
+
+0.02999_06 Thu May 18 16:32:41 UTC 2006
+        - backwards compat with all earlier versions
+        - no longer requires schema class to have a connection
+        - correctly determine source class names in the rel code generator
+        - fixed mysql testing w/o InnoDB
+        - Writing guide updated
+        - docs updated
+        - various trivial updates / fixes
+
+0.02999_05 Sun Mar 26 06:46:09 UTC 2006
+        - bugfixes to constraint/exclude code
+        - friendly warnings if we don't find any tables
+        - inflect_map becomes inflect_plural and inflect_singular
+        - Singularize relationship names where appropriate
+        - Test updates
+        - Supports multiple rels between the same pair of tables
+
+0.02007 Wed Mar 22 06:03:53 UTC 2006
+        - Backported Class::C3::reinitialize changes from -refactor
+	  branch, resulting in significantly reduced load time
+
+0.02006 Fri Mar 17 04:55:55 UTC 2006
+        - Fix long-standing table/col-name case bugs
+
+0.02999_04 Fri Mar 17 03:55:09 UTC 2006
+        - Fixed case-sensitivity issues for table/col names
+        - Punt columns_info_for to ->storage
+        - Large loading speedup (get rid of redundant C3 reinits)
+        - Removed TEST_POD checks
+        - Removed unneccesary storage->disconnect
+
+0.02999_03 Mon Mar 13 15:01:11 UTC 2006
+        - Added EXAMPLE section to pod [Kieren Diment]
+        - Invasive heavy changes to the DBI- and vendor-specific code
+          (expect some breakage in some cases until this settles down)
+        - Support for loading UNIQUE constraints
+        - Tests cleaned up a bit
+        - Relationship building seperated out into it's own file for
+          the changes that are coming, but still does basically what
+          it did before (this work is the next step).
+
+0.02999_02 Sat Mar  4 16:53:21 UTC 2006
+        - Merged in relevant changes from trunk since the split
+
+0.02005 Mon Feb 27 23:53:17 UTC 2006
+        - Move the external file loading to after everything else
+	  loader does, in case people want to define, override, or
+	  build on top of the rels.
+
+0.02004 Mon Feb 27 23:53:17 UTC 2006
+        - Minor fix to debugging message for loading external files
+
+0.02999_01 Sun Feb 28 00:24:00 UTC 2006
+        - Shuffle the modules around
+        - Make ourselves theoretically storage_type-agnostic
+        - Remove the _db_classes stuff, bump PK::Auto to Base
+        - Change default inflections to Lingua::EN::Inflect::Number::to_PL()
+
+0.02003 Sun Feb 19 20:42:01 UTC 2006
+        - Deprecated arguments: dsn, user, password, options
+        - New argument: connect_info
+
+0.02002 Sat Feb 18 19:53:12 UTC 2006
+        - Added moniker_map and inflect_map
+
+0.02001 Fri Feb 17 20:25:40 UTC 2006
+        - tests fixed up a bit
+        - auto-loading of on-disk class definitions layered on top
+          of the generated definitions (create Foo::Schema::Bar, then
+          also try to ->require it if it exists on disk).
+        - new parameters components and resultset_components, which do
+          the obvious for the generated table classes.
+        - DBIx::Class pre-req bumped to 0.05006, since Schema::Loader
+          is virtually gauranteed to cause subtle mod_perl problems
+          without those fixes.
+
+0.02000 Sun Feb 12 22:43:47 UTC 2006
+        - Just docs/version update, 0.01004 code released as 0.02000
+
+0.01004 Tue Feb  7 03:58:01 UTC 2006
+        - No longer tries to parse out the table name from the dsn for mysql,
+          was unneccesary vestigial code from previous method.
+
+0.01003 Mon Feb  6 14:57:56 UTC 2006
+        - Fixed the has_many side of _make_cond_rel
+
+0.01002 Fri Feb  3 23:14:38 UTC 2006
+        - Email address typo :(
+
+0.01001 Fri Feb  3 05:15:41 UTC 2006
+        - Fixed up some documentation issues
+        - Load C3 at the right time
+
+0.01  Fri Feb  3 01:53:46 UTC 2006
+        - original release
+        - created from DBIx::Class::Loader 0.14

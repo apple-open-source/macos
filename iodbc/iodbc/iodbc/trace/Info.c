@@ -1,20 +1,24 @@
 /*
  *  Info.c
  *
- *  $Id: Info.c,v 1.2 2004/11/11 01:52:38 luesang Exp $
+ *  $Id: Info.c,v 1.7 2006/01/20 15:58:35 source Exp $
  *
  *  Decode the SQLGetInfo responses and dump them to the trace log
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "trace.h"
 
 
@@ -850,7 +855,6 @@ MASK (SQL_PARAM_ARRAY_SELECTS) =
 };
 
 
-#if (ODBCVER < 0x0300)
 static
 MASK (SQL_POSITIONED_STATEMENTS) =
 {
@@ -859,10 +863,8 @@ MASK (SQL_POSITIONED_STATEMENTS) =
   "SQL_PS_POSITIONED_UPDATE",
   "SQL_PS_SELECT_FOR_UPDATE"
 };
-#endif
 
 
-#if (ODBCVER < 0x0300)
 static
 MASK (SQL_POS_OPERATIONS) =
 {
@@ -873,7 +875,6 @@ MASK (SQL_POS_OPERATIONS) =
   "SQL_POS_DELETE",
   "SQL_POS_ADD"
 };
-#endif
 
 
 #if (ODBCVER < 0x0300)
@@ -913,7 +914,6 @@ MASK (SQL_SCHEMA_USAGE) =
 };
 
 
-#if (ODBCVER < 0x0300)
 static
 MASK (SQL_SCROLL_CONCURRENCY) =
 {
@@ -923,7 +923,6 @@ MASK (SQL_SCROLL_CONCURRENCY) =
   "SQL_SCCO_OPT_ROWVER",
   "SQL_SCCO_OPT_VALUES"
 };
-#endif
 
 
 static
@@ -1119,7 +1118,7 @@ MASK (SQL_STANDARD_CLI_CONFORMANCE) =
   "SQL_SCC_ISO92_CLI",
 };
 
-#if (ODBCVER < 0x0300)
+
 static
 MASK (SQL_STATIC_SENSITIVITY) =
 {
@@ -1128,7 +1127,6 @@ MASK (SQL_STATIC_SENSITIVITY) =
   "SQL_SS_DELETIONS",
   "SQL_SS_UPDATES"
 };
-#endif
 
 
 static
@@ -1278,45 +1276,25 @@ _trace_getinfo (
 
   switch (fInfoType)
     {
-      I_STR (SQL_ACCESSIBLE_PROCEDURES);
+
+      /*
+       *  ODBC 1.0
+       */
       I_STR (SQL_ACCESSIBLE_TABLES);
 
-#if (ODBCVER >= 0x0300)
-      I_INT16 (SQL_ACTIVE_ENVIRONMENTS);
-#else
-      I_INT16 (SQL_ACTIVE_CONNECTIONS);
-      I_INT16 (SQL_ACTIVE_STATEMENTS);
+      I_STR (SQL_ACCESSIBLE_PROCEDURES);
+
+#if (ODBCVER < 0x0300)
+      I_INT16 (SQL_ACTIVE_CONNECTIONS);	/* 3.0: SQL_MAX_DRIVER_CONNECTIONS */
 #endif
 
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_AGGREGATE_FUNCTIONS);
-
-      I_MASK (SQL_ALTER_DOMAIN);
-      I_MASK (SQL_ALTER_TABLE);
-
-      I_SVAL (SQL_ASYNC_MODE);
-
-      I_MASK (SQL_BATCH_ROW_COUNT);
-      I_MASK (SQL_BATCH_SUPPORT);
+#if (ODBCVER < 0x0300)
+      I_INT16 (SQL_ACTIVE_STATEMENTS);  /* 3.0: SQL_MAX_CONCURRENT_ACTIVITIES */
 #endif
-
-      I_MASK (SQL_BOOKMARK_PERSISTENCE);
-
-#if (ODBCVER >= 0x0300)
-      I_SVAL (SQL_CATALOG_LOCATION);
-      I_STR (SQL_CATALOG_NAME);
-      I_STR (SQL_CATALOG_NAME_SEPARATOR);
-      I_STR (SQL_CATALOG_TERM);
-      I_MASK (SQL_CATALOG_USAGE);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_STR (SQL_COLLATION_SEQ);
-#endif
-
-      I_STR (SQL_COLUMN_ALIAS);
 
       I_SVAL (SQL_CONCAT_NULL_BEHAVIOR);
+
+      I_MASK (SQL_CONVERT_FUNCTIONS);
 
       I_MASK1 (SQL_CONVERT_BIGINT, CONVERT);
       I_MASK1 (SQL_CONVERT_BINARY, CONVERT);
@@ -1327,10 +1305,6 @@ _trace_getinfo (
       I_MASK1 (SQL_CONVERT_DOUBLE, CONVERT);
       I_MASK1 (SQL_CONVERT_FLOAT, CONVERT);
       I_MASK1 (SQL_CONVERT_INTEGER, CONVERT);
-#if (ODBCVER >= 0x0300)
-      I_MASK1 (SQL_CONVERT_INTERVAL_YEAR_MONTH, CONVERT);
-      I_MASK1 (SQL_CONVERT_INTERVAL_DAY_TIME, CONVERT);
-#endif
       I_MASK1 (SQL_CONVERT_LONGVARBINARY, CONVERT);
       I_MASK1 (SQL_CONVERT_LONGVARCHAR, CONVERT);
       I_MASK1 (SQL_CONVERT_NUMERIC, CONVERT);
@@ -1341,234 +1315,96 @@ _trace_getinfo (
       I_MASK1 (SQL_CONVERT_TINYINT, CONVERT);
       I_MASK1 (SQL_CONVERT_VARBINARY, CONVERT);
       I_MASK1 (SQL_CONVERT_VARCHAR, CONVERT);
-#if (ODBCVER >= 0x0300)
-      I_MASK1 (SQL_CONVERT_WCHAR, CONVERT);
-      I_MASK1 (SQL_CONVERT_WLONGVARCHAR, CONVERT);
-      I_MASK1 (SQL_CONVERT_WVARCHAR, CONVERT);
-#endif
-
-      I_MASK (SQL_CONVERT_FUNCTIONS);
-
-      I_SVAL (SQL_CORRELATION_NAME);
-
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_CREATE_ASSERTION);
-      I_MASK (SQL_CREATE_CHARACTER_SET);
-      I_MASK (SQL_CREATE_COLLATION);
-      I_MASK (SQL_CREATE_DOMAIN);
-      I_MASK (SQL_CREATE_SCHEMA);
-      I_MASK (SQL_CREATE_TABLE);
-      I_MASK (SQL_CREATE_TRANSLATION);
-      I_MASK (SQL_CREATE_VIEW);
-#endif
 
       I_SVAL1 (SQL_CURSOR_COMMIT_BEHAVIOR, CURSOR_BEHAVIOR);
+
       I_SVAL1 (SQL_CURSOR_ROLLBACK_BEHAVIOR, CURSOR_BEHAVIOR);
 
-#if (ODBCVER >= 0x0300)
-      I_SVAL (SQL_CURSOR_SENSITIVITY);
-#endif
-
       I_STR (SQL_DATA_SOURCE_NAME);
+
       I_STR (SQL_DATA_SOURCE_READ_ONLY);
 
       I_STR (SQL_DATABASE_NAME);
 
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_DATETIME_LITERALS);
-#endif
-
       I_STR (SQL_DBMS_NAME);
-      I_STR (SQL_DBMS_VER);
 
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_DDL_INDEX);
-#endif
+      I_STR (SQL_DBMS_VER);
 
       I_MASK1 (SQL_DEFAULT_TXN_ISOLATION, TXN_ISOLATION);
 
-#if (ODBCVER >= 0x0300)
-      I_STR (SQL_DESCRIBE_PARAMETER);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_STR (SQL_DM_VER);
-#endif
-
       I_INT32 (SQL_DRIVER_HDBC);
+
       I_INT32 (SQL_DRIVER_HENV);
-      I_INT32 (SQL_DRIVER_HLIB);
+
       I_INT32 (SQL_DRIVER_HSTMT);
 
       I_STR (SQL_DRIVER_NAME);
-      I_STR (SQL_DRIVER_ODBC_VER);
+
       I_STR (SQL_DRIVER_VER);
-
-      I_MASK (SQL_DTC_TRANSITION_COST);
-
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_DROP_ASSERTION);
-      I_MASK (SQL_DROP_CHARACTER_SET);
-      I_MASK (SQL_DROP_COLLATION);
-      I_MASK (SQL_DROP_DOMAIN);
-      I_MASK (SQL_DROP_SCHEMA);
-      I_MASK (SQL_DROP_TABLE);
-      I_MASK (SQL_DROP_TRANSLATION);
-      I_MASK (SQL_DROP_VIEW);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_MASK1 (SQL_DYNAMIC_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
-      I_MASK1 (SQL_DYNAMIC_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
-#endif
 
       I_STR (SQL_EXPRESSIONS_IN_ORDERBY);
 
       I_MASK (SQL_FETCH_DIRECTION);
 
-      I_SVAL (SQL_FILE_USAGE);
-
-#if (ODBCVER >= 0x0300)
-      I_MASK1 (SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
-      I_MASK1 (SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
-#endif
-
-      I_MASK (SQL_GETDATA_EXTENSIONS);
-
-      I_SVAL (SQL_GROUP_BY);
-
       I_SVAL1 (SQL_IDENTIFIER_CASE, IDENTIFIER_CASE);
+
       I_STR (SQL_IDENTIFIER_QUOTE_CHAR);
 
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_INDEX_KEYWORDS);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_INFO_SCHEMA_VIEWS);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_MASK (SQL_INSERT_STATEMENT);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_STR (SQL_INTEGRITY);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_MASK1 (SQL_KEYSET_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
-      I_MASK1 (SQL_KEYSET_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
-#endif
-
-      I_STR (SQL_KEYWORDS);
-
-      I_STR (SQL_LIKE_ESCAPE_CLAUSE);
-
-      I_MASK (SQL_LOCK_TYPES);
-
-#if (ODBCVER >= 0x0300)
-      I_INT32 (SQL_MAX_ASYNC_CONCURRENT_STATEMENTS);
-#endif
-      I_INT32 (SQL_MAX_BINARY_LITERAL_LEN);
-      I_INT16 (SQL_MAX_CATALOG_NAME_LEN);
-      I_INT32 (SQL_MAX_CHAR_LITERAL_LEN);
       I_INT16 (SQL_MAX_COLUMN_NAME_LEN);
-      I_INT16 (SQL_MAX_COLUMNS_IN_GROUP_BY);
-      I_INT16 (SQL_MAX_COLUMNS_IN_INDEX);
-      I_INT16 (SQL_MAX_COLUMNS_IN_ORDER_BY);
-      I_INT16 (SQL_MAX_COLUMNS_IN_SELECT);
-      I_INT16 (SQL_MAX_COLUMNS_IN_TABLE);
-#if (ODBCVER >= 0x0300)
-      I_INT16 (SQL_MAX_CONCURRENT_ACTIVITIES);
-#endif
+
       I_INT16 (SQL_MAX_CURSOR_NAME_LEN);
-#if (ODBCVER >= 0x0300)
-      I_INT16 (SQL_MAX_DRIVER_CONNECTIONS);
-      I_INT16 (SQL_MAX_IDENTIFIER_LEN);
+
+#if (ODBCVER < 0x0300)
+      I_INT16 (SQL_MAX_OWNER_NAME_LEN); /* 3.0: SQL_MAX_SCHEMA_NAME_LEN */
 #endif
-      I_INT32 (SQL_MAX_INDEX_SIZE);
+
       I_INT16 (SQL_MAX_PROCEDURE_NAME_LEN);
-      I_INT32 (SQL_MAX_ROW_SIZE);
-      I_STR (SQL_MAX_ROW_SIZE_INCLUDES_LONG);
-      I_INT16 (SQL_MAX_SCHEMA_NAME_LEN);
-      I_INT32 (SQL_MAX_STATEMENT_LEN);
+
+#if (ODBCVER < 0x0300)
+      I_INT16 (SQL_MAX_QUALIFIER_NAME_LEN); /* 3.0: SQL_MAX_CATALOG_NAME_LEN */
+#endif
+
       I_INT16 (SQL_MAX_TABLE_NAME_LEN);
-      I_INT16 (SQL_MAX_TABLES_IN_SELECT);
-      I_INT16 (SQL_MAX_USER_NAME_LEN);
 
       I_STR (SQL_MULT_RESULT_SETS);
 
       I_STR (SQL_MULTIPLE_ACTIVE_TXN);
 
-      I_STR (SQL_NEED_LONG_DATA_LEN);
-
-      I_SVAL (SQL_NON_NULLABLE_COLUMNS);
-
-      I_SVAL (SQL_NULL_COLLATION);
-
       I_MASK (SQL_NUMERIC_FUNCTIONS);
 
       I_SVAL (SQL_ODBC_API_CONFORMANCE);
-#if (ODBCVER >= 0x0300)
-      I_SVAL (SQL_ODBC_INTERFACE_CONFORMANCE);
-#endif
-      I_SVAL (SQL_ODBC_SAG_CLI_CONFORMANCE);
-      I_SVAL (SQL_ODBC_SQL_CONFORMANCE);
 
-#if (ODBCVER < 0x0300)
-      I_STR (SQL_ODBC_SQL_OPT_IEF);
-#endif
+      I_SVAL (SQL_ODBC_SAG_CLI_CONFORMANCE);
+
+      I_SVAL (SQL_ODBC_SQL_CONFORMANCE);
 
       I_STR (SQL_ODBC_VER);
 
-#if (ODBCVER > 0x0200)
-      I_MASK (SQL_OJ_CAPABILITIES);
+#if (ODBCVER < 0x0300)
+      I_STR (SQL_ODBC_SQL_OPT_IEF); /* 3.0: SQL_INTEGRITY */
 #endif
 
-      I_STR (SQL_ORDER_BY_COLUMNS_IN_SELECT);
+#if (ODBCVER < 0x0300)
+      I_STR (SQL_OWNER_TERM); /* 3.0: SQL_SCHEMA_TERM */
+#endif
 
       I_STR (SQL_OUTER_JOINS);
 
-#if (ODBCVER < 0x0300)
-      I_STR (SQL_OWNER_TERM);
-      I_MASK (SQL_OWNER_USAGE);
-#endif
-
-#if (ODBCVER >= 0x0300)
-      I_SVAL (SQL_PARAM_ARRAY_ROW_COUNTS);
-      I_SVAL (SQL_PARAM_ARRAY_SELECTS);
-#endif
-
-#if (ODBCVER < 0x0300)
-      I_MASK (SQL_POSITIONED_STATEMENTS);
-
-      I_MASK (SQL_POS_OPERATIONS);
-#endif
-
       I_STR (SQL_PROCEDURE_TERM);
+
       I_STR (SQL_PROCEDURES);
 
 #if (ODBCVER < 0x0300)
-      I_SVAL (SQL_QUALIFIER_LOCATION);
-      I_STR (SQL_QUALIFIER_NAME_SEPARATOR);
-      I_STR (SQL_QUALIFIER_TERM);
-      I_MASK (SQL_QUALIFIER_USAGE);
-#endif
-
-      I_SVAL1 (SQL_QUOTED_IDENTIFIER_CASE, IDENTIFIER_CASE);
-
-      I_STR (SQL_ROW_UPDATES);
-
-
-#if (ODBCVER >= 0x0300)
-      I_STR (SQL_SCHEMA_TERM);
-      I_MASK (SQL_SCHEMA_USAGE);
+      I_STR (SQL_QUALIFIER_NAME_SEPARATOR); /* 3.0: SQL_CATALOG_NAME_SEPARATOR */
 #endif
 
 #if (ODBCVER < 0x0300)
-      I_MASK (SQL_SCROLL_CONCURRENCY);
+      I_STR (SQL_QUALIFIER_TERM); /* 3.0: SQL_CATALOG_TERM */
 #endif
+
+      I_STR (SQL_ROW_UPDATES);
+
+      I_MASK (SQL_SCROLL_CONCURRENCY);
 
       I_MASK (SQL_SCROLL_OPTIONS);
 
@@ -1576,53 +1412,275 @@ _trace_getinfo (
 
       I_STR (SQL_SERVER_NAME);
 
-      I_STR (SQL_SPECIAL_CHARACTERS);
-
-#if (ODBCVER >= 0x0300)
-      I_SVAL (SQL_SQL_CONFORMANCE);
-
-      I_MASK (SQL_SQL92_DATETIME_FUNCTIONS);
-      I_MASK (SQL_SQL92_FOREIGN_KEY_DELETE_RULE);
-      I_MASK (SQL_SQL92_FOREIGN_KEY_UPDATE_RULE);
-      I_MASK (SQL_SQL92_GRANT);
-      I_MASK (SQL_SQL92_NUMERIC_VALUE_FUNCTIONS);
-      I_MASK (SQL_SQL92_PREDICATES);
-      I_MASK (SQL_SQL92_RELATIONAL_JOIN_OPERATORS);
-      I_MASK (SQL_SQL92_REVOKE);
-      I_MASK (SQL_SQL92_ROW_VALUE_CONSTRUCTOR);
-      I_MASK (SQL_SQL92_STRING_FUNCTIONS);
-      I_MASK (SQL_SQL92_VALUE_EXPRESSIONS);
-
-      I_MASK (SQL_STANDARD_CLI_CONFORMANCE);
-
-      I_MASK1 (SQL_STATIC_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
-      I_MASK1 (SQL_STATIC_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
-#endif
-
-#if (ODBCVER < 0x0300)
-      I_MASK (SQL_STATIC_SENSITIVITY);
-#endif
-
       I_MASK (SQL_STRING_FUNCTIONS);
-
-      I_MASK (SQL_SUBQUERIES);
 
       I_MASK (SQL_SYSTEM_FUNCTIONS);
 
       I_STR (SQL_TABLE_TERM);
 
-      I_MASK1 (SQL_TIMEDATE_ADD_INTERVALS, TIMEDATE_INTERVALS);
-      I_MASK1 (SQL_TIMEDATE_DIFF_INTERVALS, TIMEDATE_INTERVALS);
       I_MASK (SQL_TIMEDATE_FUNCTIONS);
 
       I_SVAL (SQL_TXN_CAPABLE);
-      I_MASK1 (SQL_TXN_ISOLATION_OPTION, TXN_ISOLATION);
 
-      I_MASK (SQL_UNION);
+      I_MASK1 (SQL_TXN_ISOLATION_OPTION, TXN_ISOLATION);
 
       I_STR (SQL_USER_NAME);
 
+
+      /*
+       * ODBC 1.0 Additions
+       */
+      I_SVAL (SQL_CORRELATION_NAME);
+
+      I_SVAL (SQL_NON_NULLABLE_COLUMNS);
+
+
+      /*
+       *  ODBC 2.0 Additions
+       */
+      I_MASK (SQL_ALTER_TABLE);
+
+      I_MASK (SQL_BOOKMARK_PERSISTENCE);
+
+      I_STR (SQL_COLUMN_ALIAS);
+
+      I_INT32 (SQL_DRIVER_HLIB);
+
+      I_STR (SQL_DRIVER_ODBC_VER);
+
+      I_MASK (SQL_GETDATA_EXTENSIONS);
+
+      I_SVAL (SQL_GROUP_BY);
+
+      I_SVAL (SQL_FILE_USAGE);
+
+      I_STR (SQL_KEYWORDS);
+
+      I_STR (SQL_LIKE_ESCAPE_CLAUSE);
+
+      I_MASK (SQL_LOCK_TYPES);
+
+      I_INT32 (SQL_MAX_BINARY_LITERAL_LEN);
+
+      I_INT32 (SQL_MAX_CHAR_LITERAL_LEN);
+
+      I_INT16 (SQL_MAX_COLUMNS_IN_GROUP_BY);
+
+      I_INT16 (SQL_MAX_COLUMNS_IN_INDEX);
+
+      I_INT16 (SQL_MAX_COLUMNS_IN_ORDER_BY);
+
+      I_INT16 (SQL_MAX_COLUMNS_IN_SELECT);
+
+      I_INT16 (SQL_MAX_COLUMNS_IN_TABLE);
+
+      I_INT32 (SQL_MAX_INDEX_SIZE);
+
+      I_STR (SQL_MAX_ROW_SIZE_INCLUDES_LONG);
+
+      I_INT32 (SQL_MAX_ROW_SIZE);
+
+      I_INT32 (SQL_MAX_STATEMENT_LEN);
+
+      I_INT16 (SQL_MAX_TABLES_IN_SELECT);
+
+      I_INT16 (SQL_MAX_USER_NAME_LEN);
+
+      I_STR (SQL_NEED_LONG_DATA_LEN);
+
+      I_SVAL (SQL_NULL_COLLATION);
+
+      I_STR (SQL_ORDER_BY_COLUMNS_IN_SELECT);
+
+#if (ODBCVER < 0x0300)
+      I_MASK (SQL_OWNER_USAGE);  /* 3.0: SQL_SCHEMA_USAGE */
+#endif
+
+      I_MASK (SQL_OJ_CAPABILITIES);
+
+      I_MASK (SQL_POS_OPERATIONS);
+
+      I_MASK (SQL_POSITIONED_STATEMENTS);
+
+#if (ODBCVER < 0x0300)
+      I_SVAL (SQL_QUALIFIER_LOCATION); /* 3.0: SQL_CATALOG_LOCATION */
+#endif
+
+#if (ODBCVER < 0x0300)
+      I_MASK (SQL_QUALIFIER_USAGE); /* 3.0: SQL_CATALOG_USAGE */
+#endif
+
+      I_SVAL1 (SQL_QUOTED_IDENTIFIER_CASE, IDENTIFIER_CASE);
+
+      I_STR (SQL_SPECIAL_CHARACTERS);
+
+      I_MASK (SQL_STATIC_SENSITIVITY);
+
+      I_MASK (SQL_SUBQUERIES);
+
+      I_MASK1 (SQL_TIMEDATE_ADD_INTERVALS, TIMEDATE_INTERVALS);
+
+      I_MASK1 (SQL_TIMEDATE_DIFF_INTERVALS, TIMEDATE_INTERVALS);
+
+      I_MASK (SQL_UNION);
+
+
+      /*
+       *  ODBC 3.0
+       */
+#if (ODBCVER >= 0x0300)
+      I_INT16 (SQL_ACTIVE_ENVIRONMENTS);
+
+      I_MASK (SQL_AGGREGATE_FUNCTIONS);
+
+      I_MASK (SQL_ALTER_DOMAIN);
+
+      I_SVAL (SQL_ASYNC_MODE);
+
+      I_MASK (SQL_BATCH_ROW_COUNT);
+
+      I_MASK (SQL_BATCH_SUPPORT);
+
+      I_SVAL (SQL_CATALOG_LOCATION);
+
+      I_STR (SQL_CATALOG_NAME);
+
+      I_STR (SQL_CATALOG_NAME_SEPARATOR);
+
+      I_STR (SQL_CATALOG_TERM);
+
+      I_MASK (SQL_CATALOG_USAGE);
+
+      I_STR (SQL_COLLATION_SEQ);
+
+      I_MASK1 (SQL_CONVERT_INTERVAL_YEAR_MONTH, CONVERT);
+
+      I_MASK1 (SQL_CONVERT_INTERVAL_DAY_TIME, CONVERT);
+
+      I_MASK1 (SQL_CONVERT_WCHAR, CONVERT);
+
+      I_MASK1 (SQL_CONVERT_WLONGVARCHAR, CONVERT);
+
+      I_MASK1 (SQL_CONVERT_WVARCHAR, CONVERT);
+
+      I_MASK (SQL_CREATE_ASSERTION);
+
+      I_MASK (SQL_CREATE_CHARACTER_SET);
+
+      I_MASK (SQL_CREATE_COLLATION);
+
+      I_MASK (SQL_CREATE_DOMAIN);
+
+      I_MASK (SQL_CREATE_SCHEMA);
+
+      I_MASK (SQL_CREATE_TABLE);
+
+      I_MASK (SQL_CREATE_TRANSLATION);
+
+      I_MASK (SQL_CREATE_VIEW);
+
+      I_SVAL (SQL_CURSOR_SENSITIVITY);
+
+      I_MASK (SQL_DATETIME_LITERALS);
+
+      I_MASK (SQL_DDL_INDEX);
+
+      I_STR (SQL_DESCRIBE_PARAMETER);
+
+      I_STR (SQL_DM_VER);
+
+      I_MASK (SQL_DTC_TRANSITION_COST);
+
+      I_MASK (SQL_DROP_ASSERTION);
+
+      I_MASK (SQL_DROP_CHARACTER_SET);
+
+      I_MASK (SQL_DROP_COLLATION);
+
+      I_MASK (SQL_DROP_DOMAIN);
+
+      I_MASK (SQL_DROP_SCHEMA);
+
+      I_MASK (SQL_DROP_TABLE);
+
+      I_MASK (SQL_DROP_TRANSLATION);
+
+      I_MASK (SQL_DROP_VIEW);
+
+      I_MASK1 (SQL_DYNAMIC_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
+
+      I_MASK1 (SQL_DYNAMIC_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
+
+      I_MASK1 (SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
+
+      I_MASK1 (SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
+
+      I_MASK (SQL_INDEX_KEYWORDS);
+
+      I_MASK (SQL_INFO_SCHEMA_VIEWS);
+
+      I_MASK (SQL_INSERT_STATEMENT);
+
+      I_STR (SQL_INTEGRITY);
+
+      I_MASK1 (SQL_KEYSET_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
+
+      I_MASK1 (SQL_KEYSET_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
+
+      I_INT32 (SQL_MAX_ASYNC_CONCURRENT_STATEMENTS);
+
+      I_INT16 (SQL_MAX_CATALOG_NAME_LEN);
+
+      I_INT16 (SQL_MAX_CONCURRENT_ACTIVITIES);
+
+      I_INT16 (SQL_MAX_DRIVER_CONNECTIONS);
+
+      I_INT16 (SQL_MAX_IDENTIFIER_LEN);
+
+      I_INT16 (SQL_MAX_SCHEMA_NAME_LEN);
+
+      I_SVAL (SQL_ODBC_INTERFACE_CONFORMANCE);
+
+      I_SVAL (SQL_PARAM_ARRAY_ROW_COUNTS);
+
+      I_SVAL (SQL_PARAM_ARRAY_SELECTS);
+
+      I_STR (SQL_SCHEMA_TERM);
+
+      I_MASK (SQL_SCHEMA_USAGE);
+
+      I_SVAL (SQL_SQL_CONFORMANCE);
+
+      I_MASK (SQL_SQL92_DATETIME_FUNCTIONS);
+
+      I_MASK (SQL_SQL92_FOREIGN_KEY_DELETE_RULE);
+
+      I_MASK (SQL_SQL92_FOREIGN_KEY_UPDATE_RULE);
+
+      I_MASK (SQL_SQL92_GRANT);
+
+      I_MASK (SQL_SQL92_NUMERIC_VALUE_FUNCTIONS);
+
+      I_MASK (SQL_SQL92_PREDICATES);
+
+      I_MASK (SQL_SQL92_RELATIONAL_JOIN_OPERATORS);
+
+      I_MASK (SQL_SQL92_REVOKE);
+
+      I_MASK (SQL_SQL92_ROW_VALUE_CONSTRUCTOR);
+
+      I_MASK (SQL_SQL92_STRING_FUNCTIONS);
+
+      I_MASK (SQL_SQL92_VALUE_EXPRESSIONS);
+
+      I_MASK (SQL_STANDARD_CLI_CONFORMANCE);
+
+      I_MASK1 (SQL_STATIC_CURSOR_ATTRIBUTES1, CURSOR_ATTRIBUTES1);
+
+      I_MASK1 (SQL_STATIC_CURSOR_ATTRIBUTES2, CURSOR_ATTRIBUTES2);
+
       I_STR (SQL_XOPEN_CLI_YEAR);
+#endif
 
     default:
       infoname = "unknown or driver specific";
@@ -1664,10 +1722,10 @@ print_string:
   trace_emit ("\t\t%-15.15s   %p\n",
   	"SQLPOINTER", rgbInfoValue);
   if (waMode == 'A')
-    trace_emit_string ((SQLCHAR *) rgbInfoValue, SQL_NTS, 0);
+    trace_emit_string ((SQLCHAR *) rgbInfoValue, pcbInfoValue ? *pcbInfoValue : SQL_NTS, 0);
   else
     {
-      SQLCHAR *str_u8 = dm_SQL_W2A ((SQLWCHAR *) rgbInfoValue, SQL_NTS);
+      SQLCHAR *str_u8 = dm_SQL_W2A ((SQLWCHAR *) rgbInfoValue, pcbInfoValue ? *pcbInfoValue : SQL_NTS);
       trace_emit_string (str_u8, SQL_NTS, 1);
       free (str_u8);
     }
@@ -1678,7 +1736,7 @@ print_mask:
   trace_emit ("\t\t%-15.15s   %d (%s)\n",
   	"SQLUSMALLINT", fInfoType, infoname);
   trace_emit ("\t\t%-15.15s   %p (0x%lX)\n",
-	"SQLPOINTER", rgbInfoValue, 
+	"SQLPOINTER", rgbInfoValue,
 	(unsigned long) *((unsigned int *) rgbInfoValue));
 
   if (*(int *) rgbInfoValue == 0)
@@ -1733,13 +1791,14 @@ trace_SQLGetInfo (int trace_leave, int retcode,
 
   /* Trace Arguments */
   _trace_handle (SQL_HANDLE_DBC, hdbc);
-  _trace_getinfo (fInfoType, rgbInfoValue, cbInfoValueMax, pcbInfoValue, 
+  _trace_getinfo (fInfoType, rgbInfoValue, cbInfoValueMax, pcbInfoValue,
   	TRACE_OUTPUT_SUCCESS, 'A');
   _trace_smallint (cbInfoValueMax);
   _trace_smallint_p (pcbInfoValue, TRACE_OUTPUT_SUCCESS);
 }
 
 
+#if ODBCVER >= 0x0300
 void
 trace_SQLGetInfoW (int trace_leave, int retcode,
   SQLHDBC		  hdbc,
@@ -1758,3 +1817,4 @@ trace_SQLGetInfoW (int trace_leave, int retcode,
   _trace_smallint (cbInfoValueMax);
   _trace_smallint_p (pcbInfoValue, TRACE_OUTPUT_SUCCESS);
 }
+#endif

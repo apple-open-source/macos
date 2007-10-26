@@ -232,7 +232,7 @@ extern int target_flags;
 #define TARGET_ALTIVEC		(target_flags & MASK_ALTIVEC)
 #define TARGET_AIX_STRUCT_RET	(target_flags & MASK_AIX_STRUCT_RET)
 /* APPLE LOCAL long-branch  */
-#define TARGET_LONG_BRANCH	(target_flags & MASK_LONG_BRANCH)
+#define TARGET_LONG_BRANCH	(rs6000_default_long_calls)
 
 /* Define TARGET_MFCRF if the target assembler supports the optional
    field operand for mfcr and the target processor supports the
@@ -858,14 +858,15 @@ extern const char *rs6000_altivec_pim_switch;
    really represent the memory location used.  It is represented here as
    a register, in order to work around problems in allocating stack storage
    in inline functions.  */
-
-#define FIRST_PSEUDO_REGISTER 113
+/* APPLE LOCAL mainline */
+#define FIRST_PSEUDO_REGISTER 114
 
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
 
 /* Add 32 dwarf columns for synthetic SPE registers.  */
-#define DWARF_FRAME_REGISTERS (FIRST_PSEUDO_REGISTER + 32)
+/* APPLE LOCAL mainline */
+#define DWARF_FRAME_REGISTERS ((FIRST_PSEUDO_REGISTER - 1) + 32)
 
 /* The SPE has an additional 32 synthetic registers, with DWARF debug
    info numbering for these registers starting at 1200.  While eh_frame
@@ -880,8 +881,10 @@ extern const char *rs6000_altivec_pim_switch;
 
    We must map them here to avoid huge unwinder tables mostly consisting
    of unused space.  */
+/* APPLE LOCAL begin mainline */
 #define DWARF_REG_TO_UNWIND_COLUMN(r) \
-  ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER) : (r))
+  ((r) > 1200 ? ((r) - 1200 + FIRST_PSEUDO_REGISTER - 1) : (r))
+/* APPLE LOCAL end mainline */
 
 /* Use gcc hard register numbering for eh_frame.  */
 #define DWARF_FRAME_REGNUM(REGNO) (REGNO)
@@ -906,7 +909,8 @@ extern const char *rs6000_altivec_pim_switch;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1						   \
-   , 1, 1                                          \
+   /* APPLE LOCAL mainline */                      \
+   , 1, 1, 1					   \
 }
 
 /* 1 for registers not available across function calls.
@@ -926,7 +930,8 @@ extern const char *rs6000_altivec_pim_switch;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1						   \
-   , 1, 1                                          \
+   /* APPLE LOCAL mainline */                      \
+   , 1, 1, 1					   \
 }
 
 /* Like `CALL_USED_REGISTERS' except this macro doesn't require that
@@ -945,7 +950,8 @@ extern const char *rs6000_altivec_pim_switch;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0						   \
-   , 0, 0                                          \
+   /* APPLE LOCAL mainline */                      \
+   , 0, 0, 0					   \
 }
 
 #define MQ_REGNO     64
@@ -991,6 +997,8 @@ extern const char *rs6000_altivec_pim_switch;
 	lr		(saved)
         cr5, r1, r2, ap, xer, vrsave, vscr (fixed)
 	spe_acc, spefscr (fixed)
+	APPLE LOCAL mainline
+	sfp             (fixed)
 
 	AltiVec registers:
 	v0 - v1         (not saved or used for anything)
@@ -1029,7 +1037,8 @@ extern const char *rs6000_altivec_pim_switch;
    96, 95, 94, 93, 92, 91,				\
    108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98,	\
    97, 109, 110						\
-   , 111, 112                                              \
+   /* APPLE LOCAL mainline */                           \
+   , 111, 112, 113					\
 }
 
 /* True if register is floating-point.  */
@@ -1042,7 +1051,10 @@ extern const char *rs6000_altivec_pim_switch;
 #define CR_REGNO_NOT_CR0_P(N) ((N) >= 69 && (N) <= 75)
 
 /* True if register is an integer register.  */
-#define INT_REGNO_P(N) ((N) <= 31 || (N) == ARG_POINTER_REGNUM)
+/* APPLE LOCAL begin mainline */
+#define INT_REGNO_P(N) \
+  ((N) <= 31 || (N) == ARG_POINTER_REGNUM || (N) == FRAME_POINTER_REGNUM)
+/* APPLE LOCAL end mainline */
 
 /* SPE SIMD registers are just the GPRs.  */
 #define SPE_SIMD_REGNO_P(N) ((N) <= 31)
@@ -1163,7 +1175,10 @@ extern const char *rs6000_altivec_pim_switch;
 #define STACK_POINTER_REGNUM 1
 
 /* Base register for access to local variables of the function.  */
-#define FRAME_POINTER_REGNUM 31
+/* APPLE LOCAL begin mainline */
+#define HARD_FRAME_POINTER_REGNUM 31
+#define FRAME_POINTER_REGNUM 113
+/* APPLE LOCAL end mainline */
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms
@@ -1271,30 +1286,30 @@ enum reg_class
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
    of length N_REG_CLASSES.  */
-
+/* APPLE LOCAL begin mainline */
 #define REG_CLASS_CONTENTS						     \
 {									     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000 }, /* NO_REGS */	     \
-  { 0xfffffffe, 0x00000000, 0x00000008, 0x00000000 }, /* BASE_REGS */	     \
-  { 0xffffffff, 0x00000000, 0x00000008, 0x00000000 }, /* GENERAL_REGS */     \
+  { 0xfffffffe, 0x00000000, 0x00000008, 0x00020000 }, /* BASE_REGS */	     \
+  { 0xffffffff, 0x00000000, 0x00000008, 0x00020000 }, /* GENERAL_REGS */     \
   { 0x00000000, 0xffffffff, 0x00000000, 0x00000000 }, /* FLOAT_REGS */       \
   { 0x00000000, 0x00000000, 0xffffe000, 0x00001fff }, /* ALTIVEC_REGS */     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00002000 }, /* VRSAVE_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00010000 }, /* SPEFSCR_REGS */     \
-  { 0xffffffff, 0xffffffff, 0x00000008, 0x00000000 }, /* NON_SPECIAL_REGS */ \
+  { 0xffffffff, 0xffffffff, 0x00000008, 0x00020000 }, /* NON_SPECIAL_REGS */ \
   { 0x00000000, 0x00000000, 0x00000001, 0x00000000 }, /* MQ_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000002, 0x00000000 }, /* LINK_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000004, 0x00000000 }, /* CTR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000006, 0x00000000 }, /* LINK_OR_CTR_REGS */ \
   { 0x00000000, 0x00000000, 0x00000007, 0x00002000 }, /* SPECIAL_REGS */     \
-  { 0xffffffff, 0x00000000, 0x0000000f, 0x00000000 }, /* SPEC_OR_GEN_REGS */ \
+  { 0xffffffff, 0x00000000, 0x0000000f, 0x00022000 }, /* SPEC_OR_GEN_REGS */ \
   { 0x00000000, 0x00000000, 0x00000010, 0x00000000 }, /* CR0_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
   { 0xffffffff, 0x00000000, 0x0000efff, 0x00000000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* XER_REGS */	     \
-  { 0xffffffff, 0xffffffff, 0xffffffff, 0x00003fff }  /* ALL_REGS */	     \
+  { 0xffffffff, 0xffffffff, 0xffffffff, 0x0003ffff }  /* ALL_REGS */	     \
 }
 
 /* The same information, inverted:
@@ -1318,8 +1333,10 @@ enum reg_class
   : (REGNO) == VSCR_REGNO ? VRSAVE_REGS	\
   : (REGNO) == SPE_ACC_REGNO ? SPE_ACC_REGS	\
   : (REGNO) == SPEFSCR_REGNO ? SPEFSCR_REGS	\
+  : (REGNO) == FRAME_POINTER_REGNUM ? BASE_REGS \
   : NO_REGS)
 
+/* APPLE LOCAL end mainline */
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
@@ -1511,7 +1528,8 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
 
    On the RS/6000, we grow upwards, from the area after the outgoing
    arguments.  */
-/* #define FRAME_GROWS_DOWNWARD */
+/* APPLE LOCAL mainline */
+#define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0)
 
 /* Size of the outgoing register save area */
 #define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
@@ -1547,13 +1565,16 @@ extern enum rs6000_abi rs6000_current_abi;	/* available for use by subtarget */
    On the RS/6000, the frame pointer is the same as the stack pointer,
    except for dynamic allocations.  So we start after the fixed area and
    outgoing parameter area.  */
-
+/* APPLE LOCAL begin mainline */
 #define STARTING_FRAME_OFFSET						\
-  (RS6000_ALIGN (current_function_outgoing_args_size,			\
+  (FRAME_GROWS_DOWNWARD                                                 \
+   ? 0                                                                  \
+   : (RS6000_ALIGN (current_function_outgoing_args_size,                \
 		 TARGET_ALTIVEC ? 16 : 8)				\
    + RS6000_VARARGS_AREA						\
-   + RS6000_SAVE_AREA)
+      + RS6000_SAVE_AREA))
 
+/* APPLE LOCAL end mainline */
 /* Offset from the stack pointer register to an item dynamically
    allocated on the stack, e.g., by `alloca'.
 
@@ -1898,11 +1919,15 @@ typedef struct rs6000_args
    of eliminable registers.  The "from" register number is given first,
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.  */
+/* APPLE LOCAL begin mainline */
 #define ELIMINABLE_REGS				\
-{{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
+{{ HARD_FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},	 \
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},		 \
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	 \
  { ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},	\
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	 \
  { RS6000_PIC_OFFSET_TABLE_REGNUM, RS6000_PIC_OFFSET_TABLE_REGNUM } }
+/* APPLE LOCAL end mainline */
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
@@ -1937,18 +1962,23 @@ typedef struct rs6000_args
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
    has been allocated, which happens in local-alloc.c.  */
-
+/* APPLE LOCAL begin mainline */
 #define REGNO_OK_FOR_INDEX_P(REGNO)				\
 ((REGNO) < FIRST_PSEUDO_REGISTER				\
  ? (REGNO) <= 31 || (REGNO) == 67				\
+   || (REGNO) == FRAME_POINTER_REGNUM				  \
  : (reg_renumber[REGNO] >= 0					\
-    && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67)))
+      && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67  \
+	  || reg_renumber[REGNO] == FRAME_POINTER_REGNUM)))
 
 #define REGNO_OK_FOR_BASE_P(REGNO)				\
 ((REGNO) < FIRST_PSEUDO_REGISTER				\
  ? ((REGNO) > 0 && (REGNO) <= 31) || (REGNO) == 67		\
+   || (REGNO) == FRAME_POINTER_REGNUM				  \
  : (reg_renumber[REGNO] > 0					\
-    && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67)))
+      && (reg_renumber[REGNO] <= 31 || reg_renumber[REGNO] == 67  \
+	  || reg_renumber[REGNO] == FRAME_POINTER_REGNUM)))
+/* APPLE LOCAL end mainline */
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -1998,12 +2028,15 @@ typedef struct rs6000_args
 
 /* Nonzero if X is a hard reg that can be used as an index
    or if it is a pseudo reg in the non-strict case.  */
+/* APPLE LOCAL begin mainline */
 #define INT_REG_OK_FOR_INDEX_P(X, STRICT)			\
   ((! (STRICT)							\
     && (REGNO (X) <= 31						\
 	|| REGNO (X) == ARG_POINTER_REGNUM			\
+	|| REGNO (X) == FRAME_POINTER_REGNUM			\
 	|| REGNO (X) >= FIRST_PSEUDO_REGISTER))			\
    || ((STRICT) && REGNO_OK_FOR_INDEX_P (REGNO (X))))
+/* APPLE LOCAL end mainline */
 
 /* Nonzero if X is a hard reg that can be used as a base reg
    or if it is a pseudo reg in the non-strict case.  */
@@ -2497,6 +2530,8 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   &rs6000_reg_names[110][0],	/* vscr  */				\
   &rs6000_reg_names[111][0],	/* spe_acc */				\
   &rs6000_reg_names[112][0],	/* spefscr */				\
+  /* APPLE LOCAL mainline */						\
+  &rs6000_reg_names[113][0],    /* sfp  */				\
 }
 
 /* Table of additional register names to use in user input.  */
@@ -2559,7 +2594,7 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
     fprintf (FILE, "\t.align %d\n", (LOG))
 
 /* APPLE LOCAL begin CW asm blocks */
-#define CW_ASM_REGISTER_NAME(STR, BUF) rs6000_cw_asm_register_name (STR, BUF)
+#define IASM_REGISTER_NAME(STR, BUF) rs6000_iasm_register_name (STR, BUF)
 /* APPLE LOCAL end CW asm blocks */
 
 /* Pick up the return address upon entry to a procedure. Used for
@@ -3567,8 +3602,8 @@ enum rs6000_builtins
 
 /* APPLE LOCAL begin CW asm blocks */
 /* Table of instructions that need extra constraints.  */
-#undef TARGET_CW_OP_CONSTRAINT
-#define TARGET_CW_OP_CONSTRAINT \
+#undef TARGET_IASM_OP_CONSTRAINT
+#define TARGET_IASM_OP_CONSTRAINT \
   { "la", 2, "m" },	\
   { "lbz", 2, "m" },	\
   { "lbzu", 2, "m" },	\
@@ -3600,6 +3635,6 @@ enum rs6000_builtins
   { "stw", 2, "m" },	\
   { "stwu", 2, "m" },
 
-#define CW_FUNCTION_MODIFIER "z"
+#define IASM_FUNCTION_MODIFIER "z"
 
 /* APPLE LOCAL end CW asm blocks */

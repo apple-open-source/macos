@@ -134,6 +134,159 @@ add_minsym_to_demangled_hash_table (struct minimal_symbol *sym,
     }
 }
 
+/* APPLE LOCAL begin return multiple symbols  */
+
+/* This function is very similar to lookup_minimal_symbol, except that it attempts
+   to find and return all minimal symbols that match rather than just the first one.
+   The list of minimal symbols found is returned through the parameter SYM_LIST>  */
+
+struct minimal_symbol *
+lookup_minimal_symbol_all (const char *name, const char *sfile,
+			   struct objfile *objf, struct symbol_search **sym_list)
+{
+  struct symbol_search *node;
+  struct symbol_search *current;
+  struct objfile *objfile;
+  struct minimal_symbol *msymbol;
+  struct minimal_symbol *found_symbol = NULL;
+  struct minimal_symbol *found_file_symbol = NULL;
+  struct minimal_symbol *trampoline_symbol = NULL;
+  struct minimal_symbol *ret_symbol;
+
+  unsigned int hash = msymbol_hash (name) % MINIMAL_SYMBOL_HASH_SIZE;
+  unsigned int dem_hash = msymbol_hash_iw (name) % MINIMAL_SYMBOL_HASH_SIZE;
+
+#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+  if (sfile != NULL)
+    {
+      char *p = strrchr (sfile, '/');
+      if (p != NULL)
+	sfile = p + 1;
+    }
+#endif
+
+  for (objfile = objfile_get_first ();
+       objfile != NULL;
+       objfile = objfile_get_next (objfile))
+    {
+      if (objf == NULL || objf == objfile)
+	{
+	  /* Do two passes: the first over the ordinary hash table,
+	     and the second over the demangled hash table.  */
+	  int pass;
+
+	  for (pass = 1; 
+	       pass <= 2 && found_symbol == NULL && found_file_symbol == NULL; 
+	       pass++)
+	    {
+	      /* Select hash list according to pass.  */
+	      if (pass == 1)
+		msymbol = objfile->msymbol_hash[hash];
+	      else
+		msymbol = objfile->msymbol_demangled_hash[dem_hash];
+
+	      while (msymbol != NULL 
+		     && found_symbol == NULL
+		     && found_file_symbol == NULL)
+		{
+		  if ((strcmp (DEPRECATED_SYMBOL_NAME (msymbol), (name)) == 0
+		      || (SYMBOL_DEMANGLED_NAME (msymbol) != NULL
+			  && strcmp_iw (SYMBOL_DEMANGLED_NAME (msymbol),
+					(name)) == 0))
+		      && (!MSYMBOL_OBSOLETED (msymbol)))
+		    {
+		      switch (MSYMBOL_TYPE (msymbol))
+			{
+			case mst_file_text:
+			case mst_file_data:
+			case mst_file_bss:
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
+			  if (sfile == NULL
+			      || ((msymbol->filename != NULL) && (strcmp (msymbol->filename, sfile) == 0)))
+			    found_file_symbol = msymbol;
+#else
+			  /* We have neither the ability nor the need to
+			     deal with the SFILE parameter.  If we find
+			     more than one symbol, just return the latest
+			     one (the user can't expect useful behavior in
+			     that case).  */
+			  found_file_symbol = msymbol;
+#endif
+			  break;
+
+			case mst_solib_trampoline:
+
+			  /* If a trampoline symbol is found, we prefer to
+			     keep looking for the *real* symbol. If the
+			     actual symbol is not found, then we'll use the
+			     trampoline entry. */
+			  if (trampoline_symbol == NULL)
+			    trampoline_symbol = msymbol;
+			  break;
+
+			case mst_unknown:
+			default:
+			  found_symbol = msymbol;
+			  break;
+			}
+		    }
+
+		  /* Find the next symbol on the hash chain.  */
+		  if (pass == 1)
+		    msymbol = msymbol->hash_next;
+		  else
+		    msymbol = msymbol->demangled_hash_next;
+		}
+
+	    }
+
+	  if (found_symbol || found_file_symbol)
+	    {
+	      struct minimal_symbol *msym;
+
+	      if (found_symbol)
+		msym = found_symbol;
+	      else
+		msym = found_file_symbol;
+
+	      while (msym)
+		{
+		  if ((strcmp (DEPRECATED_SYMBOL_NAME (msym), (name)) == 0
+		      || (SYMBOL_DEMANGLED_NAME (msym) != NULL
+			  && strcmp_iw (SYMBOL_DEMANGLED_NAME (msym),
+					(name)) == 0))
+		      && (!MSYMBOL_OBSOLETED (msym)))
+		    {
+
+		      node = (struct symbol_search *) xmalloc 
+			                                 (sizeof (struct symbol_search));
+		      node->block = 0;
+		      node->symtab = NULL;
+		      node->symbol = NULL;
+		      node->msymbol = msym;
+		      node->next = *sym_list;
+		      *sym_list = node;
+		    }
+
+		  if (pass == 1)
+		    msym = msym->hash_next;
+		  else
+		    msym = msym->demangled_hash_next;
+		}
+	      found_symbol = NULL;
+	      found_file_symbol = NULL;
+	    }
+	}
+    }
+
+  if (*sym_list)
+    ret_symbol = (*sym_list)->msymbol;
+  else
+    ret_symbol = NULL;
+
+  return ret_symbol;
+}
+/* APPLE LOCAL end return multiple symbols  */
 
 /* Look through all the current minimal symbol tables and find the
    first minimal symbol that matches NAME.  If OBJF is non-NULL, limit
@@ -145,7 +298,15 @@ add_minsym_to_demangled_hash_table (struct minimal_symbol *sym,
    Note:  One instance where there may be duplicate minimal symbols with
    the same name is when the symbol tables for a shared library and the
    symbol tables for an executable contain global symbols with the same
-   names (the dynamic linker deals with the duplication).  */
+   names (the dynamic linker deals with the duplication).
+
+   It's also possible to have minimal symbols with different mangled
+   names, but identical demangled names.  For example, the GNU C++ v3
+   ABI requires the generation of two (or perhaps three) copies of
+   constructor functions --- "in-charge", "not-in-charge", and
+   "allocate" copies; destructors may be duplicated as well.
+   Obviously, there must be distinct mangled names for each of these,
+   but the demangled names are all the same: S::S or S::~S.  */
 
 struct minimal_symbol *
 lookup_minimal_symbol (const char *name, const char *sfile,
@@ -207,7 +368,8 @@ lookup_minimal_symbol (const char *name, const char *sfile,
 			case mst_file_text:
 			case mst_file_data:
 			case mst_file_bss:
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
+/* APPLE LOCAL: We don't need the struct minimal_symbol member filename.  */
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
 			  /* APPLE LOCAL: If the minsym doesn't have a
 			     filename set, don't allow it to match
 			     anything.  This isn't perhaps optimal,
@@ -650,26 +812,32 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
   struct msym_bunch *new;
   struct minimal_symbol *msymbol;
 
+  /* APPLE LOCAL: Re-factor the mst_file_text check up one level.
+     Don't modify the symbol name when checking it against
+     __gcc_compiled. */
+
   if (ms_type == mst_file_text)
     {
       /* Don't put gcc_compiled, __gnu_compiled_cplus, and friends into
-         the minimal symbols, because if there is also another symbol
-         at the same address (e.g. the first function of the file),
-         lookup_minimal_symbol_by_pc would have no way of getting the
-         right one.  */
+	 the minimal symbols, because if there is also another symbol
+	 at the same address (e.g. the first function of the file),
+	 lookup_minimal_symbol_by_pc would have no way of getting the
+	 right one.  */
       if (name[0] == 'g'
 	  && (strcmp (name, GCC_COMPILED_FLAG_SYMBOL) == 0
 	      || strcmp (name, GCC2_COMPILED_FLAG_SYMBOL) == 0))
 	return (NULL);
 
       {
-	const char *tempstring = name;
-	if (tempstring[0] == get_symbol_leading_char (objfile->obfd))
-	  ++tempstring;
-	if (strncmp (tempstring, "__gnu_compiled", 14) == 0)
-	  return (NULL);
+        const char *tempstring = name;
+        if (tempstring[0] == get_symbol_leading_char (objfile->obfd))
+          ++tempstring;
+        if (strncmp (tempstring, "__gnu_compiled", 14) == 0)
+          return (NULL);
       }
     }
+ 
+  /* END APPLE LOCAL */
 
   if (msym_bunch_index == BUNCH_SIZE)
     {
@@ -679,6 +847,10 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
       msym_bunch = new;
     }
   msymbol = &msym_bunch->contents[msym_bunch_index];
+/* APPLE LOCAL: Initialize the msymbol->filename to NULL.  */
+#if defined(SOFUN_ADDRESS_MAYBE_MISSING) && !defined(TM_NEXTSTEP)
+  msymbol->filename = NULL;
+#endif
   SYMBOL_INIT_LANGUAGE_SPECIFIC (msymbol, language_unknown);
   SYMBOL_LANGUAGE (msymbol) = language_auto;
   SYMBOL_SET_NAMES (msymbol, (char *)name, strlen (name), objfile);
@@ -691,7 +863,7 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
   /* FIXME:  This info, if it remains, needs its own field.  */
   MSYMBOL_INFO (msymbol) = info;	/* FIXME! */
   MSYMBOL_SIZE (msymbol) = 0;
-  /* APPLE LOCAL fix-and-continue */
+  /* APPLE LOCAL: fix-and-continue */
   MSYMBOL_OBSOLETED (msymbol) = 0;
 
   /* The hash pointers must be cleared! If they're not,
@@ -868,7 +1040,7 @@ build_minimal_symbol_hash_tables (struct objfile *objfile)
       add_minsym_to_hash_table (msym, objfile->msymbol_hash);
 
       msym->demangled_hash_next = 0;
-      if (SYMBOL_DEMANGLED_NAME (msym) != NULL)
+      if (SYMBOL_SEARCH_NAME (msym) != SYMBOL_LINKAGE_NAME (msym))
 	add_minsym_to_demangled_hash_table (msym,
                                             objfile->msymbol_demangled_hash);
     }

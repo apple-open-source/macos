@@ -37,10 +37,11 @@
 
 }
 
-- initWithDir:(DSoDirectory*)inDir;
+- (DSoNodeConfig*) initWithDir:(DSoDirectory*)inDir;
 - (NSArray*) getPluginList;
 - (NSDictionary*)getAttributesAndValuesForPlugin:(NSString*)inPluginName;
 - (BOOL)pluginEnabled:(NSString*)inPluginName;
 - (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled;
+- (void)setPlugin:(NSString*)inPluginName enabled:(BOOL)enabled withAuthorization:(void*)inAuthExtForm;
 
 @end

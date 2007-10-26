@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1996-2004, International Business Machines                 *
+*   Copyright (C) 1996-2006, International Business Machines                 *
 *   Corporation and others.  All Rights Reserved.                            *
 ******************************************************************************
 */
@@ -46,6 +46,11 @@
 
 #include "unicode/utypes.h"
 
+/**
+ * \file 
+ * \brief C++ API: Collation Service.
+ */
+ 
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/uobject.h"
@@ -53,17 +58,13 @@
 #include "unicode/normlzr.h"
 #include "unicode/locid.h"
 #include "unicode/uniset.h"
+#include "unicode/umisc.h"
 
 U_NAMESPACE_BEGIN
 
 class StringEnumeration;
 
 #if !UCONFIG_NO_SERVICE
-/**
- * @stable ICU 2.6
- */
-typedef const void* URegistryKey;
-
 /**
  * @stable ICU 2.6
  */
@@ -83,7 +84,7 @@ class CollationKey;
 * <em>Important: </em>The ICU collation service has been reimplemented
 * in order to achieve better performance and UCA compliance.
 * For details, see the
-* <a href="http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
+* <a href="http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/collation/ICU_collation_design.htm">
 * collation design document</a>.
 * <p>
 * <code>Collator</code> is an abstract base class. Subclasses implement
@@ -185,7 +186,7 @@ public:
      * Diacritical differences on the same base letter represent a secondary
      * difference. Set comparison level to SECONDARY to ignore tertiary
      * differences. Use this to set the strength of a Collator object.<br>
-     * Example of secondary difference, "ä" >> "a".
+     * Example of secondary difference, "&auml;" >> "a".
      *
      * Uppercase and lowercase versions of the same character represents a
      * tertiary difference.  Set comparison level to TERTIARY to include all
@@ -195,7 +196,7 @@ public:
      *
      * Two characters are considered "identical" when they have the same unicode
      * spellings.<br>
-     * For example, "ä" == "ä".
+     * For example, "&auml;" == "&auml;".
      *
      * UCollationStrength is also used to determine the strength of sort keys
      * generated from Collator objects.
@@ -618,7 +619,7 @@ public:
      * @param status input-output error code
      * @return a string enumeration over locale strings. The caller is
      * responsible for closing the result.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     static StringEnumeration* U_EXPORT2 getKeywords(UErrorCode& status);
 
@@ -631,7 +632,7 @@ public:
      * @param status input-output error code
      * @return a string enumeration over collation keyword values, or NULL
      * upon error. The caller is responsible for deleting the result.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     static StringEnumeration* U_EXPORT2 getKeywordValues(const char *keyword, UErrorCode& status);
 
@@ -648,7 +649,7 @@ public:
      * applications who wish to cache collators, or otherwise reuse
      * collators when possible.  The functional equivalent may change
      * over time.  For more information, please see the <a
-     * href="http://oss.software.ibm.com/icu/userguide/locale.html#services">
+     * href="http://icu.sourceforge.net/userguide/locale.html#services">
      * Locales and Services</a> section of the ICU User Guide.
      * @param keyword a particular keyword as enumerated by
      * ucol_getKeywords.
@@ -660,7 +661,7 @@ public:
      * @param status reference to input-output error code
      * @return the functionally equivalent collation locale, or the root
      * locale upon error.
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     static Locale U_EXPORT2 getFunctionalEquivalent(const char* keyword, const Locale& locale,
                                           UBool& isAvailable, UErrorCode& status);
@@ -978,7 +979,7 @@ public:
 
     /**
      * Destructor
-     * @draft ICU 3.0
+     * @stable ICU 3.0
      */
     virtual ~CollatorFactory();
 

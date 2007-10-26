@@ -26,11 +26,10 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-
+#include <AvailabilityMacros.h>
 #include <libkern/OSTypes.h>
-#include <IOKit/IOReturn.h>
 #include <mach/port.h>
-
+#include <IOKit/IOReturn.h>
 #include <IOKit/IODataQueueShared.h>
 
 /*!
@@ -57,9 +56,9 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue);
  * @param dataQueue The IODataQueueMemory region mapped from the kernel.
  * @param data A pointer to the data memory region in which to copy the next entry data on the queue.  If this parameter is 0 (NULL), it will simply move to the next entry.
  * @param dataSize A pointer to the size of the data parameter.  On return, this contains the size of the actual entry data - even if the original size was not large enough.
- * @result Returns kIOReturnSuccess on success.  Other return values possible are: kIOReturnUnderrun - queue is full, kIOReturnBadArgument - no dataQueue or no dataSize, kIOReturnNoSpace - dataSize is too small for entry.
+ * @result Returns kIOReturnSuccess on success.  Other return values possible are: kIOReturnUnderrun - queue is empty, kIOReturnBadArgument - no dataQueue or no dataSize, kIOReturnNoSpace - dataSize is too small for entry.
  */
-IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, UInt32 *dataSize);
+IOReturn IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize);
 
 /*!
  * @function IODataQueueWaitForAvailableData
@@ -78,6 +77,27 @@ IOReturn IODataQueueWaitForAvailableData(IODataQueueMemory *dataQueue, mach_port
  * @result Returns a newly allocated mach port on success.  On failure, it returns MACH_PORT_NULL.
  */
 mach_port_t IODataQueueAllocateNotificationPort();
+
+/*!
+ * @function IODataQueueEnqueue
+ * @abstract Enqueues a new entry on the queue.
+ * @discussion This method adds a new data entry of dataSize to the queue.  It sets the size parameter of the entry pointed to by the tail value and copies the memory pointed to by the data parameter in place in the queue.  Once that is done, it moves the tail to the next available location.  When attempting to add a new entry towards the end of the queue and there isn't enough space at the end, it wraps back to the beginning.<br>  If the queue is empty when a new entry is added, the port specified in IODataQueueSetNotificationPort will be used to send a message to the client process that data is now available. <br> <b>Please note that using this method without mapped memory create from an IOSharedDataQueue will result in undefined behavior. </b>
+ * @param dataQueue The IODataQueueMemory region mapped from the kernel created from an IOSharedDataQueue.
+ * @param data Pointer to the data to be added to the queue.
+ * @param dataSize Size of the data pointed to by data.
+ * @result Returns kIOReturnSuccess on success.  Other return values possible are: kIOReturnOverrun - queue is full.
+ */
+IOReturn IODataQueueEnqueue(IODataQueueMemory *dataQueue, void *data, uint32_t dataSize) AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+ * @function IODataQueueSetNotificationPort
+ * @abstract Creates a simple mach message targeting the mach port specified in port.
+ * @discussion This message is sent when data is added to an empty queue.  It is to notify another user process that new data has become available.  <b>Please note that using this method without mapped memory create from an IOSharedDataQueue will result in undefined behavior. </b>
+ * @param dataQueue The IODataQueueMemory region mapped from the kernel created from an IOSharedDataQueue.
+ * @param notifyPort The mach port to target with the notification message.
+ * @result Returns kIOReturnSuccess on success.  Returns kIOReturnBadArgument if either dataQueue is 0 (NULL).
+ */
+IOReturn IODataQueueSetNotificationPort(IODataQueueMemory *dataQueue, mach_port_t notifyPort) AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 __END_DECLS
 

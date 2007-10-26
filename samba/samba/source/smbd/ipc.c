@@ -29,8 +29,6 @@
 
 extern int max_send;
 
-extern fstring local_machine;
-
 #define NERR_notsupported 50
 
 extern int smb_read_error;
@@ -117,7 +115,7 @@ void send_trans_reply(char *outbuf,
 
 	show_msg(outbuf);
 	if (!send_smb(smbd_server_fd(),outbuf))
-		exit_server("send_trans_reply: send_smb failed.");
+		exit_server_cleanly("send_trans_reply: send_smb failed.");
 
 	tot_data_sent = this_ldata;
 	tot_param_sent = this_lparam;
@@ -151,7 +149,7 @@ void send_trans_reply(char *outbuf,
 
 		show_msg(outbuf);
 		if (!send_smb(smbd_server_fd(),outbuf))
-			exit_server("send_trans_reply: send_smb failed.");
+			exit_server_cleanly("send_trans_reply: send_smb failed.");
 
 		tot_data_sent  += this_ldata;
 		tot_param_sent += this_lparam;
@@ -165,7 +163,7 @@ void send_trans_reply(char *outbuf,
 static BOOL api_rpc_trans_reply(char *outbuf, smb_np_struct *p)
 {
 	BOOL is_data_outstanding;
-	char *rdata = SMB_MALLOC(p->max_trans_reply);
+	char *rdata = (char *)SMB_MALLOC(p->max_trans_reply);
 	int data_len;
 
 	if(rdata == NULL) {
@@ -269,7 +267,7 @@ static int api_fd_reply(connection_struct *conn,uint16 vuid,char *outbuf,
 	/* First find out the name of this file. */
 	if (suwcnt != 2) {
 		DEBUG(0,("Unexpected named pipe transaction.\n"));
-		return(-1);
+		return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
 	}
 
 	/* Get the file handle and hence the file name. */
@@ -290,7 +288,13 @@ static int api_fd_reply(connection_struct *conn,uint16 vuid,char *outbuf,
 		}
 
 		DEBUG(1,("api_fd_reply: INVALID PIPE HANDLE: %x\n", pnum));
-		return api_no_reply(outbuf, mdrcnt);
+		return ERROR_NT(NT_STATUS_INVALID_HANDLE);
+	}
+
+	if (vuid != p->vuid) {
+		DEBUG(1, ("Got pipe request (pnum %x) using invalid VUID %d, "
+			  "expected %d\n", pnum, vuid, p->vuid));
+		return ERROR_NT(NT_STATUS_INVALID_HANDLE);
 	}
 
 	DEBUG(3,("Got API command 0x%x on pipe \"%s\" (pnum %x)\n", subcommand, p->name, pnum));
@@ -315,6 +319,8 @@ static int api_fd_reply(connection_struct *conn,uint16 vuid,char *outbuf,
 		/* Set Named Pipe Handle state */
 		reply = api_SNPHS(outbuf, p, params, tpscnt);
 		break;
+	default:
+		return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
 	}
 
 	if (!reply)
@@ -355,245 +361,354 @@ static int named_pipe(connection_struct *conn,uint16 vuid, char *outbuf,char *na
 	return 0;
 }
 
-
-/****************************************************************************
- Reply to a SMBtrans.
- ****************************************************************************/
-
-int reply_trans(connection_struct *conn, char *inbuf,char *outbuf, int size, int bufsize)
+static NTSTATUS handle_trans(connection_struct *conn,
+			     struct trans_state *state,
+			     char *outbuf, int *outsize)
 {
-	fstring name;
+	char *local_machine_name;
 	int name_offset = 0;
-	char *data=NULL,*params=NULL;
-	uint16 *setup=NULL;
-	int outsize = 0;
-	uint16 vuid = SVAL(inbuf,smb_uid);
-	unsigned int tpscnt = SVAL(inbuf,smb_vwv0);
-	unsigned int tdscnt = SVAL(inbuf,smb_vwv1);
-	unsigned int mprcnt = SVAL(inbuf,smb_vwv2);
-	unsigned int mdrcnt = SVAL(inbuf,smb_vwv3);
-	unsigned int msrcnt = CVAL(inbuf,smb_vwv4);
-	BOOL close_on_completion = BITSETW(inbuf+smb_vwv5,0);
-	BOOL one_way = BITSETW(inbuf+smb_vwv5,1);
-	unsigned int pscnt = SVAL(inbuf,smb_vwv9);
-	unsigned int psoff = SVAL(inbuf,smb_vwv10);
-	unsigned int dscnt = SVAL(inbuf,smb_vwv11);
-	unsigned int dsoff = SVAL(inbuf,smb_vwv12);
-	unsigned int suwcnt = CVAL(inbuf,smb_vwv13);
-	START_PROFILE(SMBtrans);
-
-	memset(name, '\0',sizeof(name));
-	srvstr_pull_buf(inbuf, name, smb_buf(inbuf), sizeof(name), STR_TERMINATE);
-
-	if (dscnt > tdscnt || pscnt > tpscnt)
-		goto bad_param;
-  
-	if (tdscnt)  {
-		if((data = (char *)SMB_MALLOC(tdscnt)) == NULL) {
-			DEBUG(0,("reply_trans: data malloc fail for %u bytes !\n", tdscnt));
-			END_PROFILE(SMBtrans);
-			return(ERROR_DOS(ERRDOS,ERRnomem));
-		} 
-		if ((dsoff+dscnt < dsoff) || (dsoff+dscnt < dscnt))
-			goto bad_param;
-		if ((smb_base(inbuf)+dsoff+dscnt > inbuf + size) ||
-				(smb_base(inbuf)+dsoff+dscnt < smb_base(inbuf)))
-			goto bad_param;
-
-		memcpy(data,smb_base(inbuf)+dsoff,dscnt);
-	}
-
-	if (tpscnt) {
-		if((params = (char *)SMB_MALLOC(tpscnt)) == NULL) {
-			DEBUG(0,("reply_trans: param malloc fail for %u bytes !\n", tpscnt));
-			SAFE_FREE(data);
-			END_PROFILE(SMBtrans);
-			return(ERROR_DOS(ERRDOS,ERRnomem));
-		} 
-		if ((psoff+pscnt < psoff) || (psoff+pscnt < pscnt))
-			goto bad_param;
-		if ((smb_base(inbuf)+psoff+pscnt > inbuf + size) ||
-				(smb_base(inbuf)+psoff+pscnt < smb_base(inbuf)))
-			goto bad_param;
-
-		memcpy(params,smb_base(inbuf)+psoff,pscnt);
-	}
-
-	if (suwcnt) {
-		unsigned int i;
-		if((setup = SMB_MALLOC_ARRAY(uint16,suwcnt)) == NULL) {
-			DEBUG(0,("reply_trans: setup malloc fail for %u bytes !\n", (unsigned int)(suwcnt * sizeof(uint16))));
-			SAFE_FREE(data);
-			SAFE_FREE(params);
-			END_PROFILE(SMBtrans);
-			return(ERROR_DOS(ERRDOS,ERRnomem));
-		} 
-		if (inbuf+smb_vwv14+(suwcnt*SIZEOFWORD) > inbuf + size)
-			goto bad_param;
-		if ((smb_vwv14+(suwcnt*SIZEOFWORD) < smb_vwv14) || (smb_vwv14+(suwcnt*SIZEOFWORD) < (suwcnt*SIZEOFWORD)))
-			goto bad_param;
-
-		for (i=0;i<suwcnt;i++)
-			setup[i] = SVAL(inbuf,smb_vwv14+i*SIZEOFWORD);
-	}
-
-
-	srv_signing_trans_start(SVAL(inbuf,smb_mid));
-
-	if (pscnt < tpscnt || dscnt < tdscnt) {
-		/* We need to send an interim response then receive the rest
-		   of the parameter/data bytes */
-		outsize = set_message(outbuf,0,0,True);
-		show_msg(outbuf);
-		srv_signing_trans_stop();
-		if (!send_smb(smbd_server_fd(),outbuf))
-			exit_server("reply_trans: send_smb failed.");
-	}
-
-	/* receive the rest of the trans packet */
-	while (pscnt < tpscnt || dscnt < tdscnt) {
-		BOOL ret;
-		unsigned int pcnt,poff,dcnt,doff,pdisp,ddisp;
-      
-		ret = receive_next_smb(inbuf,bufsize,SMB_SECONDARY_WAIT);
-
-		/*
-		 * The sequence number for the trans reply is always
-		 * based on the last secondary received.
-		 */
-
-		srv_signing_trans_start(SVAL(inbuf,smb_mid));
-
-		if ((ret && (CVAL(inbuf, smb_com) != SMBtranss)) || !ret) {
-			if(ret) {
-				DEBUG(0,("reply_trans: Invalid secondary trans packet\n"));
-			} else {
-				DEBUG(0,("reply_trans: %s in getting secondary trans response.\n",
-					 (smb_read_error == READ_ERROR) ? "error" : "timeout" ));
-			}
-			SAFE_FREE(params);
-			SAFE_FREE(data);
-			SAFE_FREE(setup);
-			END_PROFILE(SMBtrans);
-			srv_signing_trans_stop();
-			return(ERROR_DOS(ERRSRV,ERRerror));
-		}
-
-		show_msg(inbuf);
-      
-		/* Revise total_params and total_data in case they have changed downwards */
-		if (SVAL(inbuf,smb_vwv0) < tpscnt)
-			tpscnt = SVAL(inbuf,smb_vwv0);
-		if (SVAL(inbuf,smb_vwv1) < tdscnt)
-			tdscnt = SVAL(inbuf,smb_vwv1);
-
-		pcnt = SVAL(inbuf,smb_vwv2);
-		poff = SVAL(inbuf,smb_vwv3);
-		pdisp = SVAL(inbuf,smb_vwv4);
-		
-		dcnt = SVAL(inbuf,smb_vwv5);
-		doff = SVAL(inbuf,smb_vwv6);
-		ddisp = SVAL(inbuf,smb_vwv7);
-		
-		pscnt += pcnt;
-		dscnt += dcnt;
-		
-		if (dscnt > tdscnt || pscnt > tpscnt)
-			goto bad_param;
-		
-		if (pcnt) {
-			if (pdisp+pcnt >= tpscnt)
-				goto bad_param;
-			if ((pdisp+pcnt < pdisp) || (pdisp+pcnt < pcnt))
-				goto bad_param;
-			if (pdisp > tpscnt)
-				goto bad_param;
-			if ((smb_base(inbuf) + poff + pcnt >= inbuf + bufsize) ||
-					(smb_base(inbuf) + poff + pcnt < smb_base(inbuf)))
-				goto bad_param;
-			if (params + pdisp < params)
-				goto bad_param;
-
-			memcpy(params+pdisp,smb_base(inbuf)+poff,pcnt);
-		}
-
-		if (dcnt) {
-			if (ddisp+dcnt >= tdscnt)
-				goto bad_param;
-			if ((ddisp+dcnt < ddisp) || (ddisp+dcnt < dcnt))
-				goto bad_param;
-			if (ddisp > tdscnt)
-				goto bad_param;
-			if ((smb_base(inbuf) + doff + dcnt >= inbuf + bufsize) ||
-					(smb_base(inbuf) + doff + dcnt < smb_base(inbuf)))
-				goto bad_param;
-			if (data + ddisp < data)
-				goto bad_param;
-
-			memcpy(data+ddisp,smb_base(inbuf)+doff,dcnt);      
-		}
-	}
 
 	DEBUG(3,("trans <%s> data=%u params=%u setup=%u\n",
-		 name,tdscnt,tpscnt,suwcnt));
+		 state->name,(unsigned int)state->total_data,(unsigned int)state->total_param,
+		 (unsigned int)state->setup_count));
 
 	/*
 	 * WinCE wierdness....
 	 */
 
-	if (name[0] == '\\' && (StrnCaseCmp(&name[1],local_machine, strlen(local_machine)) == 0) &&
-			(name[strlen(local_machine)+1] == '\\'))
-		name_offset = strlen(local_machine)+1;
+	local_machine_name = talloc_asprintf(state, "\\%s\\",
+					     get_local_machine_name());
 
-	if (strnequal(&name[name_offset], "\\PIPE", strlen("\\PIPE"))) {
-		name_offset += strlen("\\PIPE");
-
-		/* Win9x weirdness.  When talking to a unicode server Win9x
-		   only sends \PIPE instead of \PIPE\ */
-
-		if (name[name_offset] == '\\')
-			name_offset++;
-
-		DEBUG(5,("calling named_pipe\n"));
-		outsize = named_pipe(conn,vuid,outbuf,
-				     name+name_offset,setup,data,params,
-				     suwcnt,tdscnt,tpscnt,msrcnt,mdrcnt,mprcnt);
-	} else {
-		DEBUG(3,("invalid pipe name\n"));
-		outsize = 0;
+	if (local_machine_name == NULL) {
+		return NT_STATUS_NO_MEMORY;
 	}
 
-	
-	SAFE_FREE(data);
-	SAFE_FREE(params);
-	SAFE_FREE(setup);
-	
-	srv_signing_trans_stop();
+	if (strnequal(state->name, local_machine_name,
+		      strlen(local_machine_name))) {
+		name_offset = strlen(local_machine_name)-1;
+	}
 
-	if (close_on_completion)
-		close_cnum(conn,vuid);
+	if (!strnequal(&state->name[name_offset], "\\PIPE",
+		       strlen("\\PIPE"))) {
+		return NT_STATUS_NOT_SUPPORTED;
+	}
+	
+	name_offset += strlen("\\PIPE");
 
-	if (one_way) {
+	/* Win9x weirdness.  When talking to a unicode server Win9x
+	   only sends \PIPE instead of \PIPE\ */
+
+	if (state->name[name_offset] == '\\')
+		name_offset++;
+
+	DEBUG(5,("calling named_pipe\n"));
+	*outsize = named_pipe(conn, state->vuid, outbuf,
+			      state->name+name_offset,
+			      state->setup,state->data,
+			      state->param,
+			      state->setup_count,state->total_data,
+			      state->total_param,
+			      state->max_setup_return,
+			      state->max_data_return,
+			      state->max_param_return);
+
+	if (*outsize == 0) {
+		return NT_STATUS_NOT_SUPPORTED;
+	}
+
+	if (state->close_on_completion)
+		close_cnum(conn,state->vuid);
+
+	return NT_STATUS_OK;
+}
+
+/****************************************************************************
+ Reply to a SMBtrans.
+ ****************************************************************************/
+
+int reply_trans(connection_struct *conn, char *inbuf,char *outbuf,
+		int size, int bufsize)
+{
+	int outsize = 0;
+	unsigned int dsoff = SVAL(inbuf, smb_dsoff);
+	unsigned int dscnt = SVAL(inbuf, smb_dscnt);
+	unsigned int psoff = SVAL(inbuf, smb_psoff);
+	unsigned int pscnt = SVAL(inbuf, smb_pscnt);
+	struct trans_state *state;
+	NTSTATUS result;
+
+	START_PROFILE(SMBtrans);
+
+	result = allow_new_trans(conn->pending_trans, SVAL(inbuf, smb_mid));
+	if (!NT_STATUS_IS_OK(result)) {
+		DEBUG(2, ("Got invalid trans request: %s\n",
+			  nt_errstr(result)));
 		END_PROFILE(SMBtrans);
-		return(-1);
+		return ERROR_NT(result);
 	}
-	
-	if (outsize == 0) {
+
+	if ((state = TALLOC_P(conn->mem_ctx, struct trans_state)) == NULL) {
+		DEBUG(0, ("talloc failed\n"));
 		END_PROFILE(SMBtrans);
-		return(ERROR_DOS(ERRSRV,ERRnosupport));
+		return ERROR_NT(NT_STATUS_NO_MEMORY);
 	}
+
+	state->cmd = SMBtrans;
+
+	state->mid = SVAL(inbuf, smb_mid);
+	state->vuid = SVAL(inbuf, smb_uid);
+	state->setup_count = CVAL(inbuf, smb_suwcnt);
+	state->setup = NULL;
+	state->total_param = SVAL(inbuf, smb_tpscnt);
+	state->param = NULL;
+	state->total_data = SVAL(inbuf, smb_tdscnt);
+	state->data = NULL;
+	state->max_param_return = SVAL(inbuf, smb_mprcnt);
+	state->max_data_return = SVAL(inbuf, smb_mdrcnt);
+	state->max_setup_return = CVAL(inbuf, smb_msrcnt);
+	state->close_on_completion = BITSETW(inbuf+smb_vwv5,0);
+	state->one_way = BITSETW(inbuf+smb_vwv5,1);
+
+	memset(state->name, '\0',sizeof(state->name));
+	srvstr_pull_buf(inbuf, state->name, smb_buf(inbuf),
+			sizeof(state->name), STR_TERMINATE);
 	
+	if ((dscnt > state->total_data) || (pscnt > state->total_param))
+		goto bad_param;
+
+	if (state->total_data)  {
+		/* Can't use talloc here, the core routines do realloc on the
+		 * params and data. Out of paranoia, 100 bytes too many. */
+		state->data = (char *)SMB_MALLOC(state->total_data+100);
+		if (state->data == NULL) {
+			DEBUG(0,("reply_trans: data malloc fail for %u "
+				 "bytes !\n", (unsigned int)state->total_data));
+			TALLOC_FREE(state);
+			END_PROFILE(SMBtrans);
+			return(ERROR_DOS(ERRDOS,ERRnomem));
+		} 
+		/* null-terminate the slack space */
+		memset(&state->data[state->total_data], 0, 100);
+		if ((dsoff+dscnt < dsoff) || (dsoff+dscnt < dscnt))
+			goto bad_param;
+		if ((smb_base(inbuf)+dsoff+dscnt > inbuf + size) ||
+		    (smb_base(inbuf)+dsoff+dscnt < smb_base(inbuf)))
+			goto bad_param;
+
+		memcpy(state->data,smb_base(inbuf)+dsoff,dscnt);
+	}
+
+	if (state->total_param) {
+		/* Can't use talloc here, the core routines do realloc on the
+		 * params and data. Out of paranoia, 100 bytes too many */
+		state->param = (char *)SMB_MALLOC(state->total_param+100);
+		if (state->param == NULL) {
+			DEBUG(0,("reply_trans: param malloc fail for %u "
+				 "bytes !\n", (unsigned int)state->total_param));
+			SAFE_FREE(state->data);
+			TALLOC_FREE(state);
+			END_PROFILE(SMBtrans);
+			return(ERROR_DOS(ERRDOS,ERRnomem));
+		} 
+		/* null-terminate the slack space */
+		memset(&state->param[state->total_param], 0, 100);
+		if ((psoff+pscnt < psoff) || (psoff+pscnt < pscnt))
+			goto bad_param;
+		if ((smb_base(inbuf)+psoff+pscnt > inbuf + size) ||
+		    (smb_base(inbuf)+psoff+pscnt < smb_base(inbuf)))
+			goto bad_param;
+
+		memcpy(state->param,smb_base(inbuf)+psoff,pscnt);
+	}
+
+	state->received_data  = dscnt;
+	state->received_param = pscnt;
+
+	if (state->setup_count) {
+		unsigned int i;
+		if((state->setup = TALLOC_ARRAY(
+			    state, uint16, state->setup_count)) == NULL) {
+			DEBUG(0,("reply_trans: setup malloc fail for %u "
+				 "bytes !\n", (unsigned int)
+				 (state->setup_count * sizeof(uint16))));
+			TALLOC_FREE(state);
+			END_PROFILE(SMBtrans);
+			return(ERROR_DOS(ERRDOS,ERRnomem));
+		} 
+		if (inbuf+smb_vwv14+(state->setup_count*SIZEOFWORD) >
+		    inbuf + size)
+			goto bad_param;
+		if ((smb_vwv14+(state->setup_count*SIZEOFWORD) < smb_vwv14) ||
+		    (smb_vwv14+(state->setup_count*SIZEOFWORD) <
+		     (state->setup_count*SIZEOFWORD)))
+			goto bad_param;
+
+		for (i=0;i<state->setup_count;i++)
+			state->setup[i] = SVAL(inbuf,smb_vwv14+i*SIZEOFWORD);
+	}
+
+	state->received_param = pscnt;
+
+	if ((state->received_param == state->total_param) &&
+	    (state->received_data == state->total_data)) {
+
+		result = handle_trans(conn, state, outbuf, &outsize);
+
+		SAFE_FREE(state->data);
+		SAFE_FREE(state->param);
+		TALLOC_FREE(state);
+
+		if (!NT_STATUS_IS_OK(result)) {
+			END_PROFILE(SMBtrans);
+			return ERROR_NT(result);
+		}
+
+		if (outsize == 0) {
+			END_PROFILE(SMBtrans);
+			return ERROR_NT(NT_STATUS_INTERNAL_ERROR);
+		}
+
+		END_PROFILE(SMBtrans);
+		return outsize;
+	}
+
+	DLIST_ADD(conn->pending_trans, state);
+
+	/* We need to send an interim response then receive the rest
+	   of the parameter/data bytes */
+	outsize = set_message(outbuf,0,0,True);
+	show_msg(outbuf);
 	END_PROFILE(SMBtrans);
-	return(outsize);
-
+	return outsize;
 
   bad_param:
 
-	srv_signing_trans_stop();
 	DEBUG(0,("reply_trans: invalid trans parameters\n"));
-	SAFE_FREE(data);
-	SAFE_FREE(params);
-	SAFE_FREE(setup);
+	SAFE_FREE(state->data);
+	SAFE_FREE(state->param);
+	TALLOC_FREE(state);
 	END_PROFILE(SMBtrans);
+	return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+}
+
+/****************************************************************************
+ Reply to a secondary SMBtrans.
+ ****************************************************************************/
+
+int reply_transs(connection_struct *conn, char *inbuf,char *outbuf,
+		 int size, int bufsize)
+{
+	int outsize = 0;
+	unsigned int pcnt,poff,dcnt,doff,pdisp,ddisp;
+	struct trans_state *state;
+	NTSTATUS result;
+
+	START_PROFILE(SMBtranss);
+
+	show_msg(inbuf);
+
+	for (state = conn->pending_trans; state != NULL;
+	     state = state->next) {
+		if (state->mid == SVAL(inbuf,smb_mid)) {
+			break;
+		}
+	}
+
+	if ((state == NULL) || (state->cmd != SMBtrans)) {
+		END_PROFILE(SMBtranss);
+		return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
+	}
+
+	/* Revise total_params and total_data in case they have changed
+	 * downwards */
+
+	if (SVAL(inbuf, smb_vwv0) < state->total_param)
+		state->total_param = SVAL(inbuf,smb_vwv0);
+	if (SVAL(inbuf, smb_vwv1) < state->total_data)
+		state->total_data = SVAL(inbuf,smb_vwv1);
+
+	pcnt = SVAL(inbuf, smb_spscnt);
+	poff = SVAL(inbuf, smb_spsoff);
+	pdisp = SVAL(inbuf, smb_spsdisp);
+
+	dcnt = SVAL(inbuf, smb_sdscnt);
+	doff = SVAL(inbuf, smb_sdsoff);
+	ddisp = SVAL(inbuf, smb_sdsdisp);
+
+	state->received_param += pcnt;
+	state->received_data += dcnt;
+		
+	if ((state->received_data > state->total_data) ||
+	    (state->received_param > state->total_param))
+		goto bad_param;
+		
+	if (pcnt) {
+		if (pdisp+pcnt > state->total_param)
+			goto bad_param;
+		if ((pdisp+pcnt < pdisp) || (pdisp+pcnt < pcnt))
+			goto bad_param;
+		if (pdisp > state->total_param)
+			goto bad_param;
+		if ((smb_base(inbuf) + poff + pcnt > inbuf + size) ||
+		    (smb_base(inbuf) + poff + pcnt < smb_base(inbuf)))
+			goto bad_param;
+		if (state->param + pdisp < state->param)
+			goto bad_param;
+
+		memcpy(state->param+pdisp,smb_base(inbuf)+poff,
+		       pcnt);
+	}
+
+	if (dcnt) {
+		if (ddisp+dcnt > state->total_data)
+			goto bad_param;
+		if ((ddisp+dcnt < ddisp) || (ddisp+dcnt < dcnt))
+			goto bad_param;
+		if (ddisp > state->total_data)
+			goto bad_param;
+		if ((smb_base(inbuf) + doff + dcnt > inbuf + size) ||
+		    (smb_base(inbuf) + doff + dcnt < smb_base(inbuf)))
+			goto bad_param;
+		if (state->data + ddisp < state->data)
+			goto bad_param;
+
+		memcpy(state->data+ddisp, smb_base(inbuf)+doff,
+		       dcnt);      
+	}
+
+	if ((state->received_param < state->total_param) ||
+	    (state->received_data < state->total_data)) {
+		END_PROFILE(SMBtranss);
+		return -1;
+	}
+
+	/* construct_reply_common has done us the favor to pre-fill the
+	 * command field with SMBtranss which is wrong :-)
+	 */
+	SCVAL(outbuf,smb_com,SMBtrans);
+
+	result = handle_trans(conn, state, outbuf, &outsize);
+
+	DLIST_REMOVE(conn->pending_trans, state);
+	SAFE_FREE(state->data);
+	SAFE_FREE(state->param);
+	TALLOC_FREE(state);
+
+	if ((outsize == 0) || !NT_STATUS_IS_OK(result)) {
+		END_PROFILE(SMBtranss);
+		return(ERROR_DOS(ERRSRV,ERRnosupport));
+	}
+	
+	END_PROFILE(SMBtranss);
+	return(outsize);
+
+  bad_param:
+
+	DEBUG(0,("reply_transs: invalid trans parameters\n"));
+	DLIST_REMOVE(conn->pending_trans, state);
+	SAFE_FREE(state->data);
+	SAFE_FREE(state->param);
+	TALLOC_FREE(state);
+	END_PROFILE(SMBtranss);
 	return ERROR_NT(NT_STATUS_INVALID_PARAMETER);
 }

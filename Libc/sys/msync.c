@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,21 +23,17 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
-#include <sys/syscall.h>
+
+int __msync_nocancel(void *, size_t, int);
 
 /*
- * Stub function to account for the differences in standard compliance
- * while maintaining binary backward compatibility.
+ * Stub function for legacy version
  */
 int
 msync(void *addr, size_t len, int flags)
 {
-#if __DARWIN_UNIX03
-	return syscall(SYS_msync, addr, len, flags);
-#else	/* !__DARWIN_UNIX03 */
 	int	page_mask;
 	size_t	offset;
-	int	rv;
 
 	/*
 	 * Page-align "addr" since the system now requires it
@@ -48,7 +44,5 @@ msync(void *addr, size_t len, int flags)
 	offset = ((uintptr_t) addr) & page_mask;
 	addr = (void *) (((uintptr_t) addr) & ~page_mask);
 	len += offset;
-	rv = syscall(SYS_msync, addr, len, flags);
-	return rv;
-#endif	/* !__DARWIN_UNIX03 */
+	return __msync_nocancel(addr, len, flags);
 }

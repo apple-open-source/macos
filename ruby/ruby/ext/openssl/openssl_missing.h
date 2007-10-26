@@ -1,5 +1,5 @@
 /*
- * $Id: openssl_missing.h,v 1.2.2.1 2004/07/01 03:01:07 gotoyuzo Exp $
+ * $Id: openssl_missing.h 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -101,6 +101,10 @@ int EVP_CIPHER_CTX_copy(EVP_CIPHER_CTX *out, EVP_CIPHER_CTX *in);
 
 #if !defined(PKCS7_type_is_encrypted)
 #  define PKCS7_type_is_encrypted(a) (OBJ_obj2nid((a)->type) == NID_pkcs7_encrypted)
+#endif
+
+#if !defined(HAVE_OPENSSL_CLEANSE)
+#define OPENSSL_cleanse(p, l) memset(p, 0, l)
 #endif
 
 void *X509_STORE_get_ex_data(X509_STORE *str, int idx);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,15 +57,27 @@ static struct
 {
 	int  created;    /* Set TRUE if 'create_key' used this slot */
 	void (*destructor)(void *);
-} _pthread_keys[_POSIX_THREAD_KEYS_MAX];
+} _pthread_keys[_INTERNAL_POSIX_THREAD_KEYS_END];
 static pthread_lock_t tds_lock = LOCK_INITIALIZER;
+
 /*
  * Partition _pthread_keys in a lower part that dyld can use, and an upper
  * part for libSystem.  The libSystem part starts at __pthread_tsd_first = 4.
  * dyld will set this value to 1.
+ * LEFT OVER TILL DYLD changes to using static (1-3) numbers
  */
-__private_extern__ int __pthread_tsd_first = 4;
 
+#ifdef DYLD_STATIC_LIBC_BUILD
+__private_extern__ int __pthread_tsd_first = 1;
+__private_extern__ int __pthread_tsd_start = 5;
+__private_extern__ int __pthread_tsd_end = 10;
+__private_extern__ int __pthread_tsd_max = 10;
+#else
+__private_extern__ int __pthread_tsd_first = 10;
+__private_extern__ int __pthread_tsd_start = _INTERNAL_POSIX_THREAD_KEYS_MAX;
+__private_extern__ int __pthread_tsd_end = _INTERNAL_POSIX_THREAD_KEYS_END;
+__private_extern__ int __pthread_tsd_max = 10;
+#endif
 /*
  * Create a new key for thread specific data
  */
@@ -75,16 +87,16 @@ pthread_key_create(pthread_key_t *key,
 {
 	int res, i;
 	LOCK(tds_lock);
-	res = ENOMEM;  /* No 'free' keys */
+	res = EAGAIN;  /* No 'free' keys, return EAGAIN (as per standard) */
 	/* The first slot is reserved for pthread_self() */
-	for (i = __pthread_tsd_first;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+	for (i = __pthread_tsd_start;  i < __pthread_tsd_end;  i++)
 	{
 		if (_pthread_keys[i].created == FALSE)
 		{
 			_pthread_keys[i].created = TRUE;
 			_pthread_keys[i].destructor = destructor;
 			*key = i;
-			res = ESUCCESS;
+			res = 0;
 			break;
 		}
 	}
@@ -101,7 +113,7 @@ pthread_key_delete(pthread_key_t key)
 	int res;
 	LOCK(tds_lock);
 	/* The first slot is reserved for pthread_self() */
-	if ((key >= __pthread_tsd_first) && (key < _POSIX_THREAD_KEYS_MAX))
+	if ((key >= __pthread_tsd_start) && (key < __pthread_tsd_end))
 	{
 		if (_pthread_keys[key].created)
 		{
@@ -109,12 +121,12 @@ pthread_key_delete(pthread_key_t key)
 
 			_pthread_keys[key].created = FALSE;
 			LOCK(_pthread_list_lock);
-			LIST_FOREACH(p, &__pthread_head, plist) {
+			TAILQ_FOREACH(p, &__pthread_head, plist) {
 				/* It is  an 32bit value no lock needed */
 				p->tsd[key] = 0;
 			}
 			UNLOCK(_pthread_list_lock);	
-			res = ESUCCESS;
+			res = 0;
 		} else
 		{
 			res = EINVAL;
@@ -143,13 +155,18 @@ pthread_setspecific(pthread_key_t key,
 	int res;
 	pthread_t self;
 	/* The first slot is reserved for pthread_self() */
-	if ((key >= __pthread_tsd_first) && (key < _POSIX_THREAD_KEYS_MAX))
+	if ((key >= __pthread_tsd_first) && (key < __pthread_tsd_end))
 	{
-		if (_pthread_keys[key].created)
+		if ((key < __pthread_tsd_start) || _pthread_keys[key].created)
 		{
 			self = pthread_self();
 			self->tsd[key] = (void *) value;
-			res = ESUCCESS;
+			res = 0;
+			if ((key < __pthread_tsd_start) && (_pthread_keys[key].created == FALSE))
+				_pthread_keys[key].created = TRUE;
+
+			if (key > self->max_tsd_key)
+			        self->max_tsd_key = key;
 		} else
 		{
 			res = EINVAL;
@@ -169,10 +186,23 @@ _pthread_tsd_cleanup(pthread_t self)
 {
 	int i, j;
 	void *param;
+
 	for (j = 0;  j < PTHREAD_DESTRUCTOR_ITERATIONS;  j++)
 	{
 		/* The first slot is reserved for pthread_self() */
-		for (i = __pthread_tsd_first;  i < _POSIX_THREAD_KEYS_MAX;  i++)
+
+		for (i = __pthread_tsd_first;  i <= __pthread_tsd_max;  i++)
+		{
+			if (_pthread_keys[i].created && (param = self->tsd[i]))
+			{
+				self->tsd[i] = (void *)NULL;
+				if (_pthread_keys[i].destructor)
+				{
+					(_pthread_keys[i].destructor)(param);
+				}
+			}
+		}
+		for (i = __pthread_tsd_start;  i <= self->max_tsd_key;  i++)
 		{
 			if (_pthread_keys[i].created && (param = self->tsd[i]))
 			{
@@ -184,4 +214,34 @@ _pthread_tsd_cleanup(pthread_t self)
 			}
 		}
 	}
+	self->max_tsd_key = 0;
 }
+
+int
+pthread_key_init_np(int key, void (*destructor)(void *))
+{
+	if ((key >= __pthread_tsd_first) && (key < __pthread_tsd_start)) {
+		LOCK(tds_lock);
+		_pthread_keys[key].created = TRUE;
+		_pthread_keys[key].destructor = destructor;
+
+		if (key > __pthread_tsd_max)
+		        __pthread_tsd_max = key;
+		UNLOCK(tds_lock);
+        	return (0);
+	} else 
+		return(EINVAL);
+}
+
+/* we need this till the switchover happens for the dyld. It get 1- 10 slot */
+void
+_pthread_keys_init()
+{
+	if (__pthread_tsd_first == 1)  {
+		__pthread_tsd_start = 5;		
+		__pthread_tsd_end = 10;
+		__pthread_tsd_max = 10;
+	}
+
+}
+

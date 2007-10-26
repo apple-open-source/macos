@@ -1,4 +1,4 @@
-;;; forms-pass.el --- passwd file demo for forms-mode
+;;; forms-pass.el --- passwd file demo for forms-mode -*- no-byte-compile: t -*-
 
 ;; This file is part of GNU Emacs.
 
@@ -30,4 +30,5 @@
        "Shell: "	7
        "\n"))
 
+;;; arch-tag: 74801012-1a2d-4173-b9e4-fcfa241e2305
 ;;; forms-pass.el ends here

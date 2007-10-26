@@ -1,5 +1,6 @@
 /* GNU Emacs routines to deal with case tables.
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* Written by Howard Gayle.  See chartab.c for details. */
+/* Written by Howard Gayle.  */
 
 #include <config.h>
 #include "lisp.h"
@@ -39,9 +40,9 @@ static void set_identity ();
 static void shuffle ();
 
 DEFUN ("case-table-p", Fcase_table_p, Scase_table_p, 1, 1, 0,
-  "Return t iff OBJECT is a case table.\n\
-See `set-case-table' for more information on these data structures.")
-  (object)
+       doc: /* Return t iff OBJECT is a case table.
+See `set-case-table' for more information on these data structures.  */)
+     (object)
      Lisp_Object object;
 {
   Lisp_Object up, canon, eqv;
@@ -66,24 +67,21 @@ static Lisp_Object
 check_case_table (obj)
      Lisp_Object obj;
 {
-  register Lisp_Object tem;
-
-  while (tem = Fcase_table_p (obj), NILP (tem))
-    obj = wrong_type_argument (Qcase_table_p, obj);
+  CHECK_TYPE (!NILP (Fcase_table_p (obj)), Qcase_table_p, obj);
   return (obj);
-}   
+}
 
 DEFUN ("current-case-table", Fcurrent_case_table, Scurrent_case_table, 0, 0, 0,
-  "Return the case table of the current buffer.")
-  ()
+       doc: /* Return the case table of the current buffer.  */)
+     ()
 {
   return current_buffer->downcase_table;
 }
 
 DEFUN ("standard-case-table", Fstandard_case_table, Sstandard_case_table, 0, 0, 0,
-  "Return the standard case table.\n\
-This is the one used for new buffers.")
-  ()
+       doc: /* Return the standard case table.
+This is the one used for new buffers.  */)
+     ()
 {
   return Vascii_downcase_table;
 }
@@ -91,31 +89,32 @@ This is the one used for new buffers.")
 static Lisp_Object set_case_table ();
 
 DEFUN ("set-case-table", Fset_case_table, Sset_case_table, 1, 1, 0,
-  "Select a new case table for the current buffer.\n\
-A case table is a char-table which maps characters\n\
-to their lower-case equivalents.  It also has three \"extra\" slots\n\
-which may be additional char-tables or nil.\n\
-These slots are called UPCASE, CANONICALIZE and EQUIVALENCES.\n\
-UPCASE maps each character to its upper-case equivalent;\n\
- if lower and upper case characters are in 1-1 correspondence,\n\
- you may use nil and the upcase table will be deduced from DOWNCASE.\n\
-CANONICALIZE maps each character to a canonical equivalent;\n\
- any two characters that are related by case-conversion have the same\n\
- canonical equivalent character; it may be nil, in which case it is\n\
- deduced from DOWNCASE and UPCASE.\n\
-EQUIVALENCES is a map that cyclicly permutes each equivalence class\n\
- (of characters with the same canonical equivalent); it may be nil,\n\
- in which case it is deduced from CANONICALIZE.")
-  (table)
+       doc: /* Select a new case table for the current buffer.
+A case table is a char-table which maps characters
+to their lower-case equivalents.  It also has three \"extra\" slots
+which may be additional char-tables or nil.
+These slots are called UPCASE, CANONICALIZE and EQUIVALENCES.
+UPCASE maps each non-upper-case character to its upper-case equivalent.
+ (The value in UPCASE for an upper-case character is never used.)
+ If lower and upper case characters are in 1-1 correspondence,
+ you may use nil and the upcase table will be deduced from DOWNCASE.
+CANONICALIZE maps each character to a canonical equivalent;
+ any two characters that are related by case-conversion have the same
+ canonical equivalent character; it may be nil, in which case it is
+ deduced from DOWNCASE and UPCASE.
+EQUIVALENCES is a map that cyclicly permutes each equivalence class
+ (of characters with the same canonical equivalent); it may be nil,
+ in which case it is deduced from CANONICALIZE.  */)
+     (table)
      Lisp_Object table;
 {
   return set_case_table (table, 0);
 }
 
 DEFUN ("set-standard-case-table", Fset_standard_case_table, Sset_standard_case_table, 1, 1, 0,
-  "Select a new standard case table for new buffers.\n\
-See `set-case-table' for more info on case tables.")
-  (table)
+       doc: /* Select a new standard case table for new buffers.
+See `set-case-table' for more info on case tables.  */)
+     (table)
      Lisp_Object table;
 {
   return set_case_table (table, 1);
@@ -138,8 +137,8 @@ set_case_table (table, standard)
   if (NILP (up))
     {
       up = Fmake_char_table (Qcase_table, Qnil);
-      map_char_table (set_identity, Qnil, table, up, 0, indices);
-      map_char_table (shuffle, Qnil, table, up, 0, indices);
+      map_char_table (set_identity, Qnil, table, table, up, 0, indices);
+      map_char_table (shuffle, Qnil, table, table, up, 0, indices);
       XCHAR_TABLE (table)->extras[0] = up;
     }
 
@@ -147,19 +146,27 @@ set_case_table (table, standard)
     {
       canon = Fmake_char_table (Qcase_table, Qnil);
       XCHAR_TABLE (table)->extras[1] = canon;
-      map_char_table (set_canon, Qnil, table, table, 0, indices);
+      map_char_table (set_canon, Qnil, table, table, table, 0, indices);
     }
 
   if (NILP (eqv))
     {
       eqv = Fmake_char_table (Qcase_table, Qnil);
-      map_char_table (set_identity, Qnil, canon, eqv, 0, indices);
-      map_char_table (shuffle, Qnil, canon, eqv, 0, indices);
+      map_char_table (set_identity, Qnil, canon, canon, eqv, 0, indices);
+      map_char_table (shuffle, Qnil, canon, canon, eqv, 0, indices);
       XCHAR_TABLE (table)->extras[2] = eqv;
     }
 
+  /* This is so set_image_of_range_1 in regex.c can find the EQV table.  */
+  XCHAR_TABLE (canon)->extras[2] = eqv;
+
   if (standard)
-    Vascii_downcase_table = table;
+    {
+      Vascii_downcase_table = table;
+      Vascii_upcase_table = up;
+      Vascii_canon_table = canon;
+      Vascii_eqv_table = eqv;
+    }
   else
     {
       current_buffer->downcase_table = table;
@@ -255,6 +262,9 @@ init_casetab_once ()
 		     : i)));
 
   XCHAR_TABLE (down)->extras[2] = Fcopy_sequence (up);
+
+  /* Fill in what isn't filled in.  */
+  set_case_table (down, 1);
 }
 
 void
@@ -274,3 +284,6 @@ syms_of_casetab ()
   defsubr (&Sset_case_table);
   defsubr (&Sset_standard_case_table);
 }
+
+/* arch-tag: e06388ad-99fe-40ec-ba67-9d010fcc4916
+   (do not change this comment) */

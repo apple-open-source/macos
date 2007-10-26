@@ -1,0 +1,122 @@
+# Copyright 2005 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This tests the "add-dsym" command.
+
+if $tracelevel then {
+    strace $tracelevel
+}
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+if {$gdb_test_apple_dsym != 0} {
+    gdb_suppress_entire_file "This test doesn't work when forcing dsym testing"
+    return 0
+}
+    
+set testfile "add-dsym"
+set srcfile $testfile.c
+set binfile $objdir/$subdir/$testfile
+
+set libfile "add-dylib-dsym"
+set lib_srcfile $libfile.c
+set lib_binfile $objdir/$subdir/lib$libfile.dylib
+
+set dummyfile "dummy"
+set dummy_srcfile $dummyfile.c
+set dummy_binfile $objdir/$subdir/dummyfile.dylib
+
+# This is a hack a bit, but it's most convenient to get gdb_compile to
+# produce the dsym's for us.  So I save and restore the value of this
+# global variable which controls making the dSYM.  I set it to "2"
+# since then the executable will be stripped, and we'll be able to
+# tell whether loading the dsym made any difference.
+
+set old_gdb_test_apple_dsym $gdb_test_apple_dsym
+set gdb_test_apple_dsym 2
+if {[catch {
+    set additional_flags "additional_flags=-dynamiclib"
+    if  { [gdb_compile "$srcdir/$subdir/$lib_srcfile" "$lib_binfile" executable [list debug $additional_flags]] != "" } {
+	gdb_suppress_entire_file "Testcase compile of $lib_srcfile failed, so all tests in this file will automatically fail."
+    }
+}] != 0} {
+    set $gdb_test_apple_dsym $old_gdb_test_apple_dsym
+    return
+}
+
+file delete -force $lib_binfile.dSYM.hidden
+file rename -force $lib_binfile.dSYM $lib_binfile.dSYM.hidden
+
+if {[catch {
+    set additional_flags "additional_flags=-dynamiclib"
+    if  { [gdb_compile "$srcdir/$subdir/$dummy_srcfile" "$dummy_binfile" executable [list debug $additional_flags]] != "" } {
+	gdb_suppress_entire_file "Testcase compile of $dummy_srcfile failed, so all tests in this file will automatically fail."
+    }
+}] != 0} {
+    set $gdb_test_apple_dsym $old_gdb_test_apple_dsym
+    return
+}
+
+if {[catch {
+    set additional_flags "additional_flags=-L$objdir/$subdir -l$libfile"
+    if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable [list debug $additional_flags] ] != "" } {
+	gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+    }
+}] != 0} {
+    set $gdb_test_apple_dsym $old_gdb_test_apple_dsym
+    return
+}
+
+file delete -force $binfile.dSYM.hidden
+file rename -force $binfile.dSYM $binfile.dSYM.hidden
+
+set gdb_test_apple_dsym $old_gdb_test_apple_dsym
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+gdb_test "add-dsym" "Wrong number of args, should be \"add-dsym <DSYM PATH>\"\\." "add-dsym no argument"
+gdb_test "add-dsym do_not_make_a_dsym_file_called_this.dSYM" "Error \"No such file or directory\" accessing dSYM file \"do_not_make_a_dsym_file_called_this.dSYM\"\\." "add-dsym with non-existant file"
+gdb_test "add-dsym $lib_binfile.dSYM.hidden" "Added dsym \".*lib$libfile.dylib.dSYM.hidden\" to \".*lib$libfile.dylib\"\\." "added dSYM to library."
+gdb_test "add-dsym $binfile.dSYM.hidden" "Added dsym \".*$binfile.dSYM.hidden\" to \".*$binfile\"\\." "added dSYM to main executable"
+gdb_test "add-dsym $dummy_binfile.dSYM" "warning: Could not find binary to match \"$dummy_binfile.dSYM\"\\." "failed adding non-matching dSYM"
+
+gdb_test "break [gdb_get_line_number {good stopping point in main}]" "Breakpoint 1 at $hex: file.*, line.*\\." "Set breakpoint on line  'good stopping point in main'"
+
+gdb_test "break bar" "Breakpoint 2 at $hex: file.*, line.*\\." "Set breakpoint in bar'"
+
+gdb_test "break $lib_srcfile:4" "Breakpoint 3 at $hex: file.*, line.*\\." "Set breakpoint on $lib_srcfile:4"
+
+gdb_test "run" "Starting program: $binfile *\r\n\.*Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 3 at $hex\\: file .*add-dylib-dsym.c\\:4.*" "run to first breakpoint in foo"
+
+gdb_test "continue" "Continuing\\.\[\r\n\]+Breakpoint 1, main.* at .*add-dsym.c\\:$decimal.*" "continue to second breakpoint in main()"
+
+gdb_test "continue" "Continuing\\.\[\r\n\]+Breakpoint 2, $hex in bar.* at .*add-dsym.c\\:8.*" "continue to second breakpoint in bar"
+
+gdb_exit
+
+return 0

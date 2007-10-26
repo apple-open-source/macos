@@ -163,9 +163,9 @@ static const char *sAuditControlStr[ kAuditControlStrConsts ] =
 //  Caller must free <outTextStr>
 //------------------------------------------------------------------------------------
 
-uInt32 AuditForThisEvent( uInt32 inType, void *inData, char **outTextStr )
+UInt32 AuditForThisEvent( UInt32 inType, void *inData, char **outTextStr )
 {
-	uInt32				eventCode					= 0;
+	UInt32				eventCode					= 0;
 	tDataNodePtr		recType						= NULL;
 	tRecordReference	recRef						= 0;
 	bool				typeIsAudited				= false;
@@ -502,7 +502,7 @@ uInt32 AuditForThisEvent( uInt32 inType, void *inData, char **outTextStr )
 //  RETURNS: DS status
 //------------------------------------------------------------------------------------
 
-tDirStatus AuditUserOrGroupRecord( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, uInt32 *outEventCode )
+tDirStatus AuditUserOrGroupRecord( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, UInt32 *outEventCode )
 {
 	tDirStatus			siResult			= eDSNoErr;
 	
@@ -570,7 +570,7 @@ tDirStatus AuditGetNameFromAuthBuffer( tDataNodePtr inAuthMethod, tDataBufferPtr
 	tDirStatus siResult = eDSNoErr;
 	tDataListPtr dataList = NULL;
     tDataNodePtr dataNode = NULL;
-	uInt32 len = 0;
+	UInt32 len = 0;
 	
 	if ( outUserNameStr == NULL )
 		return eParameterError;
@@ -582,8 +582,7 @@ tDirStatus AuditGetNameFromAuthBuffer( tDataNodePtr inAuthMethod, tDataBufferPtr
 		if ( *outUserNameStr == NULL )
 			return eMemoryError;
 		
-		strncpy( *outUserNameStr, inAuthBuffer->fBufferData, inAuthBuffer->fBufferLength );
-		(*outUserNameStr)[inAuthBuffer->fBufferLength] = '\0';
+		strlcpy( *outUserNameStr, inAuthBuffer->fBufferData, inAuthBuffer->fBufferLength + 1 );
 	}
 	else
 	if ( strncmp( inAuthMethod->fBufferData, kDSStdAuthMethodPrefix, sizeof(kDSStdAuthMethodPrefix)-1 ) == 0 )

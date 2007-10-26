@@ -39,10 +39,10 @@ push(@args, $prev) if $prev;
 
 # now make all unique combinations
 my %combos;
-foreach my $variant (@args) {
+foreach my $variant (sort(@args)) {
     my($v, $defines) = split('/', $variant, 2);
     my %new;
-    @new{$v, map("$_-$v", keys %combos)} = ($defines, map("$_\@$defines", values %combos));
+    @new{$v, map("$_-$v", sort(keys %combos))} = ($defines, map("$_\@$defines", sort(values %combos)));
     %combos = (%combos, %new);
 }
 for(sort keys(%combos)) {

@@ -34,7 +34,6 @@ void prs_dump(char *name, int v, prs_struct *ps)
 	prs_dump_region(name, v, ps, ps->data_offset, ps->buffer_size);
 }
 
-
 /**
  * Dump from the start of the prs to the current location.
  **/
@@ -42,7 +41,6 @@ void prs_dump_before(char *name, int v, prs_struct *ps)
 {
 	prs_dump_region(name, v, ps, 0, ps->data_offset);
 }
-
 
 /**
  * Dump everything from the start of the prs up to the current location.
@@ -52,7 +50,8 @@ void prs_dump_region(char *name, int v, prs_struct *ps,
 {
 	int fd, i;
 	pstring fname;
-	if (SAMBA_DEBUGLEVEL < 50) return;
+	ssize_t sz;
+	if (DEBUGLEVEL < 50) return;
 	for (i=1;i<100;i++) {
 		if (v != -1) {
 			slprintf(fname,sizeof(fname)-1, "/tmp/%s_%d.%d.prs", name, v, i);
@@ -63,25 +62,27 @@ void prs_dump_region(char *name, int v, prs_struct *ps,
 		if (fd != -1 || errno != EEXIST) break;
 	}
 	if (fd != -1) {
-		write(fd, ps->data_p + from_off, to_off - from_off);
-		close(fd);
-		DEBUG(0,("created %s\n", fname));
+		sz = write(fd, ps->data_p + from_off, to_off - from_off);
+		i = close(fd);
+		if ( (sz != to_off-from_off) || (i != 0) ) {
+			DEBUG(0,("Error writing/closing %s: %ld!=%ld %d\n", fname, (unsigned long)sz, (unsigned long)to_off-from_off, i ));
+		} else {
+			DEBUG(0,("created %s\n", fname));
+		}
 	}
 }
 
-
-
 /*******************************************************************
- debug output for parsing info.
+ Debug output for parsing info
 
- XXXX side-effect of this function is to increase the debug depth XXXX
+ XXXX side-effect of this function is to increase the debug depth XXXX.
 
- ********************************************************************/
+********************************************************************/
+
 void prs_debug(prs_struct *ps, int depth, const char *desc, const char *fn_name)
 {
 	DEBUG(5+depth, ("%s%06x %s %s\n", tab_depth(depth), ps->data_offset, fn_name, desc));
 }
-
 
 /**
  * Initialise an expandable parse structure.
@@ -91,6 +92,7 @@ void prs_debug(prs_struct *ps, int depth, const char *desc, const char *fn_name)
  *
  * @return False if allocation fails, otherwise True.
  **/
+
 BOOL prs_init(prs_struct *ps, uint32 size, TALLOC_CTX *ctx, BOOL io)
 {
 	ZERO_STRUCTP(ps);
@@ -111,6 +113,9 @@ BOOL prs_init(prs_struct *ps, uint32 size, TALLOC_CTX *ctx, BOOL io)
 		}
 		memset(ps->data_p, '\0', (size_t)size);
 		ps->is_dynamic = True; /* We own this memory. */
+	} else if (MARSHALLING(ps)) {
+		/* If size is zero and we're marshalling we should allocate memory on demand. */
+		ps->is_dynamic = True;
 	}
 
 	return True;
@@ -153,11 +158,8 @@ char *prs_alloc_mem(prs_struct *ps, size_t size, unsigned int count)
 
 	if (size && count) {
 		/* We can't call the type-safe version here. */
-#if defined(PARANOID_MALLOC_CHECKER)
-		ret = talloc_zero_array_(ps->mem_ctx, size, count);
-#else
-		ret = talloc_zero_array(ps->mem_ctx, size, count);
-#endif
+		ret = (char *)_talloc_zero_array_zeronull(ps->mem_ctx, size, count,
+						 "parse_prs");
 	}
 	return ret;
 }
@@ -206,16 +208,21 @@ BOOL prs_set_buffer_size(prs_struct *ps, uint32 newsize)
 		return prs_force_grow(ps, newsize - ps->buffer_size);
 
 	if (newsize < ps->buffer_size) {
-		char *new_data_p = SMB_REALLOC(ps->data_p, newsize);
-		/* if newsize is zero, Realloc acts like free() & returns NULL*/
-		if (new_data_p == NULL && newsize != 0) {
-			DEBUG(0,("prs_set_buffer_size: Realloc failure for size %u.\n",
-				(unsigned int)newsize));
-			DEBUG(0,("prs_set_buffer_size: Reason %s\n",strerror(errno)));
-			return False;
-		}
-		ps->data_p = new_data_p;
 		ps->buffer_size = newsize;
+
+		/* newsize == 0 acts as a free and set pointer to NULL */
+		if (newsize == 0) {
+			SAFE_FREE(ps->data_p);
+		} else {
+			ps->data_p = (char *)SMB_REALLOC(ps->data_p, newsize);
+
+			if (ps->data_p == NULL) {
+				DEBUG(0,("prs_set_buffer_size: Realloc failure for size %u.\n",
+					(unsigned int)newsize));
+				DEBUG(0,("prs_set_buffer_size: Reason %s\n",strerror(errno)));
+				return False;
+			}
+		}
 	}
 
 	return True;
@@ -229,7 +236,6 @@ BOOL prs_set_buffer_size(prs_struct *ps, uint32 newsize)
 BOOL prs_grow(prs_struct *ps, uint32 extra_space)
 {
 	uint32 new_size;
-	char *new_data;
 
 	ps->grow_size = MAX(ps->grow_size, ps->data_offset + extra_space);
 
@@ -258,13 +264,13 @@ BOOL prs_grow(prs_struct *ps, uint32 extra_space)
 		 * is greater.
 		 */
 
-		new_size = MAX(MAX_PDU_FRAG_LEN,extra_space);
+		new_size = MAX(RPC_MAX_PDU_FRAG_LEN,extra_space);
 
-		if((new_data = SMB_MALLOC(new_size)) == NULL) {
+		if((ps->data_p = (char *)SMB_MALLOC(new_size)) == NULL) {
 			DEBUG(0,("prs_grow: Malloc failure for size %u.\n", (unsigned int)new_size));
 			return False;
 		}
-		memset(new_data, '\0', (size_t)new_size );
+		memset(ps->data_p, '\0', (size_t)new_size );
 	} else {
 		/*
 		 * If the current buffer size is bigger than the space needed, just 
@@ -272,16 +278,15 @@ BOOL prs_grow(prs_struct *ps, uint32 extra_space)
 		 */
 		new_size = MAX(ps->buffer_size*2, ps->buffer_size + extra_space);		
 
-		if ((new_data = SMB_REALLOC(ps->data_p, new_size)) == NULL) {
+		if ((ps->data_p = (char *)SMB_REALLOC(ps->data_p, new_size)) == NULL) {
 			DEBUG(0,("prs_grow: Realloc failure for size %u.\n",
 				(unsigned int)new_size));
 			return False;
 		}
 
-		memset(&new_data[ps->buffer_size], '\0', (size_t)(new_size - ps->buffer_size));
+		memset(&ps->data_p[ps->buffer_size], '\0', (size_t)(new_size - ps->buffer_size));
 	}
 	ps->buffer_size = new_size;
-	ps->data_p = new_data;
 
 	return True;
 }
@@ -295,7 +300,6 @@ BOOL prs_grow(prs_struct *ps, uint32 extra_space)
 BOOL prs_force_grow(prs_struct *ps, uint32 extra_space)
 {
 	uint32 new_size = ps->buffer_size + extra_space;
-	char *new_data;
 
 	if(!UNMARSHALLING(ps) || !ps->is_dynamic) {
 		DEBUG(0,("prs_force_grow: Buffer overflow - unable to expand buffer by %u bytes.\n",
@@ -303,16 +307,15 @@ BOOL prs_force_grow(prs_struct *ps, uint32 extra_space)
 		return False;
 	}
 
-	if((new_data = SMB_REALLOC(ps->data_p, new_size)) == NULL) {
+	if((ps->data_p = (char *)SMB_REALLOC(ps->data_p, new_size)) == NULL) {
 		DEBUG(0,("prs_force_grow: Realloc failure for size %u.\n",
 			(unsigned int)new_size));
 		return False;
 	}
 
-	memset(&new_data[ps->buffer_size], '\0', (size_t)(new_size - ps->buffer_size));
+	memset(&ps->data_p[ps->buffer_size], '\0', (size_t)(new_size - ps->buffer_size));
 
 	ps->buffer_size = new_size;
-	ps->data_p = new_data;
 
 	return True;
 }
@@ -402,7 +405,7 @@ BOOL prs_append_some_prs_data(prs_struct *dst, prs_struct *src, int32 start, uin
  Append the data from a buffer into a parse_struct.
  ********************************************************************/
 
-BOOL prs_copy_data_in(prs_struct *dst, char *src, uint32 len)
+BOOL prs_copy_data_in(prs_struct *dst, const char *src, uint32 len)
 {
 	if (len == 0)
 		return True;
@@ -510,6 +513,24 @@ BOOL prs_align_uint64(prs_struct *ps)
 	return ret;
 }
 
+/******************************************************************
+ Align on a specific byte boundary
+ *****************************************************************/
+ 
+BOOL prs_align_custom(prs_struct *ps, uint8 boundary)
+{
+	BOOL ret;
+	uint8 old_align = ps->align;
+
+	ps->align = boundary;
+	ret = prs_align(ps);
+	ps->align = old_align;
+	
+	return ret;
+}
+
+
+
 /*******************************************************************
  Align only if required (for the unistr2 string mainly)
  ********************************************************************/
@@ -533,8 +554,10 @@ char *prs_mem_get(prs_struct *ps, uint32 extra_size)
 		 * If reading, ensure that we can read the requested size item.
 		 */
 		if (ps->data_offset + extra_size > ps->buffer_size) {
-			DEBUG(0,("prs_mem_get: reading data of size %u would overrun buffer.\n",
-					(unsigned int)extra_size ));
+			DEBUG(0,("prs_mem_get: reading data of size %u would overrun "
+				"buffer by %u bytes.\n",
+				(unsigned int)extra_size,
+				(unsigned int)(ps->data_offset + extra_size - ps->buffer_size) ));
 			return NULL;
 		}
 	} else {
@@ -567,6 +590,15 @@ void prs_force_dynamic(prs_struct *ps)
 }
 
 /*******************************************************************
+ Associate a session key with a parse struct.
+ ********************************************************************/
+
+void prs_set_session_key(prs_struct *ps, const char sess_key[16])
+{
+	ps->sess_key = sess_key;
+}
+
+/*******************************************************************
  Stream a uint8.
  ********************************************************************/
 
@@ -576,17 +608,53 @@ BOOL prs_uint8(const char *name, prs_struct *ps, int depth, uint8 *data8)
 	if (q == NULL)
 		return False;
 
-    if (UNMARSHALLING(ps))
+	if (UNMARSHALLING(ps))
 		*data8 = CVAL(q,0);
 	else
 		SCVAL(q,0,*data8);
 
-    DEBUG(5,("%s%04x %s: %02x\n", tab_depth(depth), ps->data_offset, name, *data8));
+	DEBUG(5,("%s%04x %s: %02x\n", tab_depth(depth), ps->data_offset, name, *data8));
 
 	ps->data_offset += 1;
 
 	return True;
 }
+
+/*******************************************************************
+ Stream a uint16* (allocate memory if unmarshalling)
+ ********************************************************************/
+
+BOOL prs_pointer( const char *name, prs_struct *ps, int depth, 
+                 void *dta, size_t data_size,
+                 BOOL(*prs_fn)(const char*, prs_struct*, int, void*) )
+{
+	void ** data = (void **)dta;
+	uint32 data_p;
+
+	/* output f000baaa to stream if the pointer is non-zero. */
+
+	data_p = *data ? 0xf000baaa : 0;
+
+	if ( !prs_uint32("ptr", ps, depth, &data_p ))
+		return False;
+
+	/* we're done if there is no data */
+
+	if ( !data_p )
+		return True;
+
+	if (UNMARSHALLING(ps)) {
+		if (data_size) {
+			if ( !(*data = PRS_ALLOC_MEM(ps, char, data_size)) )
+				return False;
+		} else {
+			*data = NULL;
+		}
+	}
+
+	return prs_fn(name, ps, depth, *data);
+}
+
 
 /*******************************************************************
  Stream a uint16.
@@ -598,12 +666,12 @@ BOOL prs_uint16(const char *name, prs_struct *ps, int depth, uint16 *data16)
 	if (q == NULL)
 		return False;
 
-    if (UNMARSHALLING(ps)) {
+	if (UNMARSHALLING(ps)) {
 		if (ps->bigendian_data)
 			*data16 = RSVAL(q,0);
 		else
 			*data16 = SVAL(q,0);
-    } else {
+	} else {
 		if (ps->bigendian_data)
 			RSSVAL(q,0,*data16);
 		else
@@ -647,6 +715,35 @@ BOOL prs_uint32(const char *name, prs_struct *ps, int depth, uint32 *data32)
 }
 
 /*******************************************************************
+ Stream an int32.
+ ********************************************************************/
+
+BOOL prs_int32(const char *name, prs_struct *ps, int depth, int32 *data32)
+{
+	char *q = prs_mem_get(ps, sizeof(int32));
+	if (q == NULL)
+		return False;
+
+	if (UNMARSHALLING(ps)) {
+		if (ps->bigendian_data)
+			*data32 = RIVALS(q,0);
+		else
+			*data32 = IVALS(q,0);
+	} else {
+		if (ps->bigendian_data)
+			RSIVALS(q,0,*data32);
+		else
+			SIVALS(q,0,*data32);
+	}
+
+	DEBUG(5,("%s%04x %s: %08x\n", tab_depth(depth), ps->data_offset, name, *data32));
+
+	ps->data_offset += sizeof(int32);
+
+	return True;
+}
+
+/*******************************************************************
  Stream a NTSTATUS
  ********************************************************************/
 
@@ -675,6 +772,37 @@ BOOL prs_ntstatus(const char *name, prs_struct *ps, int depth, NTSTATUS *status)
 
 	return True;
 }
+
+/*******************************************************************
+ Stream a DCE error code
+ ********************************************************************/
+
+BOOL prs_dcerpc_status(const char *name, prs_struct *ps, int depth, NTSTATUS *status)
+{
+	char *q = prs_mem_get(ps, sizeof(uint32));
+	if (q == NULL)
+		return False;
+
+	if (UNMARSHALLING(ps)) {
+		if (ps->bigendian_data)
+			*status = NT_STATUS(RIVAL(q,0));
+		else
+			*status = NT_STATUS(IVAL(q,0));
+	} else {
+		if (ps->bigendian_data)
+			RSIVAL(q,0,NT_STATUS_V(*status));
+		else
+			SIVAL(q,0,NT_STATUS_V(*status));
+	}
+
+	DEBUG(5,("%s%04x %s: %s\n", tab_depth(depth), ps->data_offset, name, 
+		 dcerpc_errstr(NT_STATUS_V(*status))));
+
+	ps->data_offset += sizeof(uint32);
+
+	return True;
+}
+
 
 /*******************************************************************
  Stream a WERROR
@@ -726,14 +854,14 @@ BOOL prs_uint8s(BOOL charmode, const char *name, prs_struct *ps, int depth, uint
 			SCVAL(q, i, data8s[i]);
 	}
 
-    DEBUG(5,("%s%04x %s: ", tab_depth(depth), ps->data_offset ,name));
-    if (charmode)
+	DEBUG(5,("%s%04x %s: ", tab_depth(depth), ps->data_offset ,name));
+	if (charmode)
 		print_asc(5, (unsigned char*)data8s, len);
 	else {
-    	for (i = 0; i < len; i++)
+		for (i = 0; i < len; i++)
 			DEBUG(5,("%02x ", data8s[i]));
 	}
-    DEBUG(5,("\n"));
+	DEBUG(5,("\n"));
 
 	ps->data_offset += len;
 
@@ -776,7 +904,7 @@ BOOL prs_uint16s(BOOL charmode, const char *name, prs_struct *ps, int depth, uin
 		for (i = 0; i < len; i++)
 			DEBUG(5,("%04x ", data16s[i]));
 	}
-    DEBUG(5,("\n"));
+	DEBUG(5,("\n"));
 
 	ps->data_offset += (len * sizeof(uint16));
 
@@ -818,7 +946,7 @@ static void dbg_rw_punival(BOOL charmode, const char *name, int depth, prs_struc
 		for (i = 0; i < len; i++)
 			DEBUG(5,("%04x ", out_buf[i]));
 	}
-    DEBUG(5,("\n"));
+	DEBUG(5,("\n"));
 }
 
 /******************************************************************
@@ -873,7 +1001,7 @@ BOOL prs_uint32s(BOOL charmode, const char *name, prs_struct *ps, int depth, uin
 		for (i = 0; i < len; i++)
 			DEBUG(5,("%08x ", data32s[i]));
 	}
-    DEBUG(5,("\n"));
+	DEBUG(5,("\n"));
 
 	ps->data_offset += (len * sizeof(uint32));
 
@@ -916,27 +1044,30 @@ BOOL prs_buffer5(BOOL charmode, const char *name, prs_struct *ps, int depth, BUF
  in byte chars. String is in little-endian format.
  ********************************************************************/
 
-BOOL prs_buffer2(BOOL charmode, const char *name, prs_struct *ps, int depth, BUFFER2 *str)
+BOOL prs_regval_buffer(BOOL charmode, const char *name, prs_struct *ps, int depth, REGVAL_BUFFER *buf)
 {
 	char *p;
-	char *q = prs_mem_get(ps, str->buf_len);
+	char *q = prs_mem_get(ps, buf->buf_len);
 	if (q == NULL)
 		return False;
 
 	if (UNMARSHALLING(ps)) {
-		if ( str->buf_len ) {
-			str->buffer = PRS_ALLOC_MEM(ps, uint16, str->buf_len);
-			if ( str->buffer == NULL )
+		if (buf->buf_len > buf->buf_max_len) {
+			return False;
+		}
+		if ( buf->buf_max_len ) {
+			buf->buffer = PRS_ALLOC_MEM(ps, uint16, buf->buf_max_len);
+			if ( buf->buffer == NULL )
 				return False;
 		} else {
-			str->buffer = NULL;
+			buf->buffer = NULL;
 		}
 	}
 
-	p = (char *)str->buffer;
+	p = (char *)buf->buffer;
 
-	dbg_rw_punival(charmode, name, depth, ps, q, p, str->buf_len/2);
-	ps->data_offset += str->buf_len;
+	dbg_rw_punival(charmode, name, depth, ps, q, p, buf->buf_len/2);
+	ps->data_offset += buf->buf_len;
 
 	return True;
 }
@@ -949,17 +1080,23 @@ BOOL prs_buffer2(BOOL charmode, const char *name, prs_struct *ps, int depth, BUF
 BOOL prs_string2(BOOL charmode, const char *name, prs_struct *ps, int depth, STRING2 *str)
 {
 	unsigned int i;
-	char *q = prs_mem_get(ps, str->str_max_len);
+	char *q = prs_mem_get(ps, str->str_str_len);
 	if (q == NULL)
 		return False;
 
 	if (UNMARSHALLING(ps)) {
+		if (str->str_str_len > str->str_max_len) {
+			return False;
+		}
 		if (str->str_max_len) {
 			str->buffer = PRS_ALLOC_MEM(ps,unsigned char, str->str_max_len);
 			if (str->buffer == NULL)
 				return False;
 		} else {
 			str->buffer = NULL;
+			/* Return early to ensure Coverity isn't confused. */
+			DEBUG(5,("%s%04x %s: \n", tab_depth(depth), ps->data_offset, name));
+			return True;
 		}
 	}
 
@@ -971,14 +1108,14 @@ BOOL prs_string2(BOOL charmode, const char *name, prs_struct *ps, int depth, STR
 			SCVAL(q, i, str->buffer[i]);
 	}
 
-    DEBUG(5,("%s%04x %s: ", tab_depth(depth), ps->data_offset, name));
-    if (charmode)
+	DEBUG(5,("%s%04x %s: ", tab_depth(depth), ps->data_offset, name));
+	if (charmode)
 		print_asc(5, (unsigned char*)str->buffer, str->str_str_len);
 	else {
-    	for (i = 0; i < str->str_str_len; i++)
+		for (i = 0; i < str->str_str_len; i++)
 			DEBUG(5,("%02x ", str->buffer[i]));
 	}
-    DEBUG(5,("\n"));
+	DEBUG(5,("\n"));
 
 	ps->data_offset += str->str_str_len;
 
@@ -1002,6 +1139,9 @@ BOOL prs_unistr2(BOOL charmode, const char *name, prs_struct *ps, int depth, UNI
 		return True;
 
 	if (UNMARSHALLING(ps)) {
+		if (str->uni_str_len > str->uni_max_len) {
+			return False;
+		}
 		if (str->uni_max_len) {
 			str->buffer = PRS_ALLOC_MEM(ps,uint16,str->uni_max_len);
 			if (str->buffer == NULL)
@@ -1075,10 +1215,8 @@ BOOL prs_unistr(const char *name, prs_struct *ps, int depth, UNISTR *str)
 
 		start = (uint8*)q;
 
-		for(len = 0; str->buffer[len] != 0; len++) 
-		{
-			if(ps->bigendian_data) 
-			{
+		for(len = 0; str->buffer[len] != 0; len++) {
+			if(ps->bigendian_data) {
 				/* swap bytes - p is little endian, q is big endian. */
 				q[0] = (char)p[1];
 				q[1] = (char)p[0];
@@ -1140,8 +1278,7 @@ BOOL prs_unistr(const char *name, prs_struct *ps, int depth, UNISTR *str)
 		/* the (len < alloc_len) test is to prevent us from overwriting
 		   memory that is not ours...if we get that far, we have a non-null
 		   terminated string in the buffer and have messed up somewhere */
-		while ((len < alloc_len) && (*(uint16 *)q != 0))
-		{
+		while ((len < alloc_len) && (*(uint16 *)q != 0)) {
 			if(ps->bigendian_data) 
 			{
 				/* swap bytes - q is big endian, p is little endian. */
@@ -1159,8 +1296,7 @@ BOOL prs_unistr(const char *name, prs_struct *ps, int depth, UNISTR *str)
 
 			len++;
 		} 
-		if (len < alloc_len)
-		{
+		if (len < alloc_len) {
 			/* NULL terminate the UNISTR */
 			str->buffer[len++] = '\0';
 		}
@@ -1219,6 +1355,35 @@ BOOL prs_string(const char *name, prs_struct *ps, int depth, char *str, int max_
 
 	dump_data(5+depth, q, len);
 
+	return True;
+}
+
+BOOL prs_string_alloc(const char *name, prs_struct *ps, int depth, const char **str)
+{
+	size_t len;
+	char *tmp_str;
+
+	if (UNMARSHALLING(ps)) {
+		len = strlen(&ps->data_p[ps->data_offset]);
+	} else {
+		len = strlen(*str);
+	}
+
+	tmp_str = PRS_ALLOC_MEM(ps, char, len+1);
+
+	if (tmp_str == NULL) {
+		return False;
+	}
+
+	if (MARSHALLING(ps)) {
+		strncpy(tmp_str, *str, len);
+	}
+
+	if (!prs_string(name, ps, depth, tmp_str, len+1)) {
+		return False;
+	}
+
+	*str = tmp_str;
 	return True;
 }
 
@@ -1312,35 +1477,37 @@ BOOL prs_uint32_post(const char *name, prs_struct *ps, int depth, uint32 *data32
 /* useful function to store a structure in rpc wire format */
 int tdb_prs_store(TDB_CONTEXT *tdb, char *keystr, prs_struct *ps)
 {
-    TDB_DATA kbuf, dbuf;
-    kbuf.dptr = keystr;
-    kbuf.dsize = strlen(keystr)+1;
-    dbuf.dptr = ps->data_p;
-    dbuf.dsize = prs_offset(ps);
-    return tdb_store(tdb, kbuf, dbuf, TDB_REPLACE);
+	TDB_DATA kbuf, dbuf;
+	kbuf.dptr = keystr;
+	kbuf.dsize = strlen(keystr)+1;
+	dbuf.dptr = ps->data_p;
+	dbuf.dsize = prs_offset(ps);
+	return tdb_trans_store(tdb, kbuf, dbuf, TDB_REPLACE);
 }
 
 /* useful function to fetch a structure into rpc wire format */
 int tdb_prs_fetch(TDB_CONTEXT *tdb, char *keystr, prs_struct *ps, TALLOC_CTX *mem_ctx)
 {
-    TDB_DATA kbuf, dbuf;
-    kbuf.dptr = keystr;
-    kbuf.dsize = strlen(keystr)+1;
+	TDB_DATA kbuf, dbuf;
+	kbuf.dptr = keystr;
+	kbuf.dsize = strlen(keystr)+1;
 
-    dbuf = tdb_fetch(tdb, kbuf);
-    if (!dbuf.dptr)
-	    return -1;
+	prs_init(ps, 0, mem_ctx, UNMARSHALL);
 
-    prs_init(ps, 0, mem_ctx, UNMARSHALL);
-    prs_give_memory(ps, dbuf.dptr, dbuf.dsize, True);
+	dbuf = tdb_fetch(tdb, kbuf);
+	if (!dbuf.dptr)
+		return -1;
 
-    return 0;
-} 
+	prs_give_memory(ps, dbuf.dptr, dbuf.dsize, True);
+
+	return 0;
+}
 
 /*******************************************************************
  hash a stream.
  ********************************************************************/
-BOOL prs_hash1(prs_struct *ps, uint32 offset, uint8 sess_key[16], int len)
+
+BOOL prs_hash1(prs_struct *ps, uint32 offset, int len)
 {
 	char *q;
 
@@ -1349,10 +1516,10 @@ BOOL prs_hash1(prs_struct *ps, uint32 offset, uint8 sess_key[16], int len)
 
 #ifdef DEBUG_PASSWORD
 	DEBUG(100, ("prs_hash1\n"));
-	dump_data(100, sess_key, 16);
+	dump_data(100, ps->sess_key, 16);
 	dump_data(100, q, len);
 #endif
-	SamOEMhash((uchar *) q, sess_key, len);
+	SamOEMhash((uchar *) q, (const unsigned char *)ps->sess_key, len);
 
 #ifdef DEBUG_PASSWORD
 	dump_data(100, q, len);
@@ -1361,14 +1528,14 @@ BOOL prs_hash1(prs_struct *ps, uint32 offset, uint8 sess_key[16], int len)
 	return True;
 }
 
-
 /*******************************************************************
  Create a digest over the entire packet (including the data), and 
  MD5 it with the session key.
  ********************************************************************/
-static void netsec_digest(struct netsec_auth_struct *a,
-			  int auth_flags,
-			  RPC_AUTH_NETSEC_CHK * verf,
+
+static void schannel_digest(struct schannel_auth_struct *a,
+			  enum pipe_auth_level auth_level,
+			  RPC_AUTH_SCHANNEL_CHK * verf,
 			  char *data, size_t data_len,
 			  uchar digest_final[16]) 
 {
@@ -1382,7 +1549,7 @@ static void netsec_digest(struct netsec_auth_struct *a,
 	   out of order */
 	MD5Update(&ctx3, zeros, sizeof(zeros));
 	MD5Update(&ctx3, verf->sig, sizeof(verf->sig));
-	if (auth_flags & AUTH_PIPE_SEAL) {
+	if (auth_level == PIPE_AUTH_LEVEL_PRIVACY) {
 		MD5Update(&ctx3, verf->confounder, sizeof(verf->confounder));
 	}
 	MD5Update(&ctx3, (const unsigned char *)data, data_len);
@@ -1397,8 +1564,9 @@ static void netsec_digest(struct netsec_auth_struct *a,
 /*******************************************************************
  Calculate the key with which to encode the data payload 
  ********************************************************************/
-static void netsec_get_sealing_key(struct netsec_auth_struct *a,
-				   RPC_AUTH_NETSEC_CHK *verf,
+
+static void schannel_get_sealing_key(struct schannel_auth_struct *a,
+				   RPC_AUTH_SCHANNEL_CHK *verf,
 				   uchar sealing_key[16]) 
 {
 	static uchar zeros[4];
@@ -1424,8 +1592,9 @@ static void netsec_get_sealing_key(struct netsec_auth_struct *a,
 /*******************************************************************
  Encode or Decode the sequence number (which is symmetric)
  ********************************************************************/
-static void netsec_deal_with_seq_num(struct netsec_auth_struct *a,
-				     RPC_AUTH_NETSEC_CHK *verf)
+
+static void schannel_deal_with_seq_num(struct schannel_auth_struct *a,
+				     RPC_AUTH_SCHANNEL_CHK *verf)
 {
 	static uchar zeros[4];
 	uchar sequence_key[16];
@@ -1444,9 +1613,10 @@ static void netsec_deal_with_seq_num(struct netsec_auth_struct *a,
 }
 
 /*******************************************************************
-creates an RPC_AUTH_NETSEC_CHK structure.
+creates an RPC_AUTH_SCHANNEL_CHK structure.
 ********************************************************************/
-static BOOL init_rpc_auth_netsec_chk(RPC_AUTH_NETSEC_CHK * chk,
+
+static BOOL init_rpc_auth_schannel_chk(RPC_AUTH_SCHANNEL_CHK * chk,
 			      const uchar sig[8],
 			      const uchar packet_digest[8],
 			      const uchar seq_num[8], const uchar confounder[8])
@@ -1462,33 +1632,33 @@ static BOOL init_rpc_auth_netsec_chk(RPC_AUTH_NETSEC_CHK * chk,
 	return True;
 }
 
-
 /*******************************************************************
- Encode a blob of data using the netsec (schannel) alogrithm, also produceing
+ Encode a blob of data using the schannel alogrithm, also produceing
  a checksum over the original data.  We currently only support
  signing and sealing togeather - the signing-only code is close, but not
  quite compatible with what MS does.
  ********************************************************************/
-void netsec_encode(struct netsec_auth_struct *a, int auth_flags, 
-		   enum netsec_direction direction,
-		   RPC_AUTH_NETSEC_CHK * verf,
+
+void schannel_encode(struct schannel_auth_struct *a, enum pipe_auth_level auth_level,
+		   enum schannel_direction direction,
+		   RPC_AUTH_SCHANNEL_CHK * verf,
 		   char *data, size_t data_len)
 {
 	uchar digest_final[16];
 	uchar confounder[8];
 	uchar seq_num[8];
-	static const uchar nullbytes[8];
+	static const uchar nullbytes[8] = { 0, };
 
-	static const uchar netsec_seal_sig[8] = NETSEC_SEAL_SIGNATURE;
-	static const uchar netsec_sign_sig[8] = NETSEC_SIGN_SIGNATURE;
-	const uchar *netsec_sig = NULL;
+	static const uchar schannel_seal_sig[8] = SCHANNEL_SEAL_SIGNATURE;
+	static const uchar schannel_sign_sig[8] = SCHANNEL_SIGN_SIGNATURE;
+	const uchar *schannel_sig = NULL;
 
-	DEBUG(10,("SCHANNEL: netsec_encode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
+	DEBUG(10,("SCHANNEL: schannel_encode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
 	
-	if (auth_flags & AUTH_PIPE_SEAL) {
-		netsec_sig = netsec_seal_sig;
-	} else if (auth_flags & AUTH_PIPE_SIGN) {
-		netsec_sig = netsec_sign_sig;
+	if (auth_level == PIPE_AUTH_LEVEL_PRIVACY) {
+		schannel_sig = schannel_seal_sig;
+	} else {
+		schannel_sig = schannel_sign_sig;
 	}
 
 	/* fill the 'confounder' with random data */
@@ -1509,18 +1679,18 @@ void netsec_encode(struct netsec_auth_struct *a, int auth_flags,
 
 	dump_data_pw("verf->seq_num:\n", seq_num, sizeof(verf->seq_num));
 
-	init_rpc_auth_netsec_chk(verf, netsec_sig, nullbytes,
+	init_rpc_auth_schannel_chk(verf, schannel_sig, nullbytes,
 				 seq_num, confounder);
 				
 	/* produce a digest of the packet to prove it's legit (before we seal it) */
-	netsec_digest(a, auth_flags, verf, data, data_len, digest_final);
+	schannel_digest(a, auth_level, verf, data, data_len, digest_final);
 	memcpy(verf->packet_digest, digest_final, sizeof(verf->packet_digest));
 
-	if (auth_flags & AUTH_PIPE_SEAL) {
+	if (auth_level == PIPE_AUTH_LEVEL_PRIVACY) {
 		uchar sealing_key[16];
 
 		/* get the key to encode the data with */
-		netsec_get_sealing_key(a, verf, sealing_key);
+		schannel_get_sealing_key(a, verf, sealing_key);
 
 		/* encode the verification data */
 		dump_data_pw("verf->confounder:\n", verf->confounder, sizeof(verf->confounder));
@@ -1537,35 +1707,35 @@ void netsec_encode(struct netsec_auth_struct *a, int auth_flags,
 	/* encode the sequence number (key based on packet digest) */
 	/* needs to be done after the sealing, as the original version 
 	   is used in the sealing stuff... */
-	netsec_deal_with_seq_num(a, verf);
+	schannel_deal_with_seq_num(a, verf);
 
 	return;
 }
 
 /*******************************************************************
- Decode a blob of data using the netsec (schannel) alogrithm, also verifiying
+ Decode a blob of data using the schannel alogrithm, also verifiying
  a checksum over the original data.  We currently can verify signed messages,
  as well as decode sealed messages
  ********************************************************************/
 
-BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
-		   enum netsec_direction direction, 
-		   RPC_AUTH_NETSEC_CHK * verf, char *data, size_t data_len)
+BOOL schannel_decode(struct schannel_auth_struct *a, enum pipe_auth_level auth_level,
+		   enum schannel_direction direction, 
+		   RPC_AUTH_SCHANNEL_CHK * verf, char *data, size_t data_len)
 {
 	uchar digest_final[16];
 
-	static const uchar netsec_seal_sig[8] = NETSEC_SEAL_SIGNATURE;
-	static const uchar netsec_sign_sig[8] = NETSEC_SIGN_SIGNATURE;
-	const uchar *netsec_sig = NULL;
+	static const uchar schannel_seal_sig[8] = SCHANNEL_SEAL_SIGNATURE;
+	static const uchar schannel_sign_sig[8] = SCHANNEL_SIGN_SIGNATURE;
+	const uchar *schannel_sig = NULL;
 
 	uchar seq_num[8];
 
-	DEBUG(10,("SCHANNEL: netsec_encode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
+	DEBUG(10,("SCHANNEL: schannel_decode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
 	
-	if (auth_flags & AUTH_PIPE_SEAL) {
-		netsec_sig = netsec_seal_sig;
-	} else if (auth_flags & AUTH_PIPE_SIGN) {
-		netsec_sig = netsec_sign_sig;
+	if (auth_level == PIPE_AUTH_LEVEL_PRIVACY) {
+		schannel_sig = schannel_seal_sig;
+	} else {
+		schannel_sig = schannel_sign_sig;
 	}
 
 	/* Create the expected sequence number for comparison */
@@ -1580,7 +1750,7 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 		break;
 	}
 
-	DEBUG(10,("SCHANNEL: netsec_decode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
+	DEBUG(10,("SCHANNEL: schannel_decode seq_num=%d data_len=%lu\n", a->seq_num, (unsigned long)data_len));
 	dump_data_pw("a->sess_key:\n", a->sess_key, sizeof(a->sess_key));
 
 	dump_data_pw("seq_num:\n", seq_num, sizeof(seq_num));
@@ -1588,7 +1758,7 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 	/* extract the sequence number (key based on supplied packet digest) */
 	/* needs to be done before the sealing, as the original version 
 	   is used in the sealing stuff... */
-	netsec_deal_with_seq_num(a, verf);
+	schannel_deal_with_seq_num(a, verf);
 
 	if (memcmp(verf->seq_num, seq_num, sizeof(seq_num))) {
 		/* don't even bother with the below if the sequence number is out */
@@ -1596,7 +1766,7 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 		   digest, as supplied by the client.  We check that it's a valid 
 		   checksum after the decode, below
 		*/
-		DEBUG(2, ("netsec_decode: FAILED: packet sequence number:\n"));
+		DEBUG(2, ("schannel_decode: FAILED: packet sequence number:\n"));
 		dump_data(2, (const char*)verf->seq_num, sizeof(verf->seq_num));
 		DEBUG(2, ("should be:\n"));
 		dump_data(2, (const char*)seq_num, sizeof(seq_num));
@@ -1604,20 +1774,20 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 		return False;
 	}
 
-	if (memcmp(verf->sig, netsec_sig, sizeof(verf->sig))) {
+	if (memcmp(verf->sig, schannel_sig, sizeof(verf->sig))) {
 		/* Validate that the other end sent the expected header */
-		DEBUG(2, ("netsec_decode: FAILED: packet header:\n"));
+		DEBUG(2, ("schannel_decode: FAILED: packet header:\n"));
 		dump_data(2, (const char*)verf->sig, sizeof(verf->sig));
 		DEBUG(2, ("should be:\n"));
-		dump_data(2, (const char*)netsec_sig, sizeof(netsec_sig));
+		dump_data(2, (const char*)schannel_sig, sizeof(schannel_sig));
 		return False;
 	}
 
-	if (auth_flags & AUTH_PIPE_SEAL) {
+	if (auth_level == PIPE_AUTH_LEVEL_PRIVACY) {
 		uchar sealing_key[16];
 		
 		/* get the key to extract the data with */
-		netsec_get_sealing_key(a, verf, sealing_key);
+		schannel_get_sealing_key(a, verf, sealing_key);
 
 		/* extract the verification data */
 		dump_data_pw("verf->confounder:\n", verf->confounder, 
@@ -1634,7 +1804,7 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 	}
 
 	/* digest includes 'data' after unsealing */
-	netsec_digest(a, auth_flags, verf, data, data_len, digest_final);
+	schannel_digest(a, auth_level, verf, data, data_len, digest_final);
 
 	dump_data_pw("Calculated digest:\n", digest_final, 
 		     sizeof(digest_final));
@@ -1645,4 +1815,36 @@ BOOL netsec_decode(struct netsec_auth_struct *a, int auth_flags,
 	   it must know the session key */
 	return (memcmp(digest_final, verf->packet_digest, 
 		       sizeof(verf->packet_digest)) == 0);
+}
+
+/*******************************************************************
+creates a new prs_struct containing a DATA_BLOB
+********************************************************************/
+BOOL prs_init_data_blob(prs_struct *prs, DATA_BLOB *blob, TALLOC_CTX *mem_ctx)
+{
+	if (!prs_init( prs, RPC_MAX_PDU_FRAG_LEN, mem_ctx, MARSHALL ))
+		return False;
+
+
+	if (!prs_copy_data_in(prs, (char *)blob->data, blob->length))
+		return False;
+
+	return True;
+}
+
+/*******************************************************************
+return the contents of a prs_struct in a DATA_BLOB
+********************************************************************/
+BOOL prs_data_blob(prs_struct *prs, DATA_BLOB *blob, TALLOC_CTX *mem_ctx)
+{
+	blob->length = prs_data_size(prs);
+	blob->data = (uint8 *)TALLOC_ZERO_SIZE(mem_ctx, blob->length);
+	
+	/* set the pointer at the end of the buffer */
+	prs_set_offset( prs, prs_data_size(prs) );
+
+	if (!prs_copy_all_data_out((char *)blob->data, prs))
+		return False;
+	
+	return True;
 }

@@ -1,0 +1,10 @@
+下面的邮件列表订阅请求需经由您核准：
+
+	订阅者： %(username)s
+	列表：   %(listname)s@%(hostname)s
+
+您可以访问
+	
+	%(admindb_url)s
+
+来处理此请求。

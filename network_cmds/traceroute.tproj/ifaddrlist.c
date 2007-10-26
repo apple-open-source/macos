@@ -33,7 +33,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Id: ifaddrlist.c,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL)";
+    "@(#) $Id: ifaddrlist.c,v 1.3 2006/02/07 06:22:57 lindak Exp $ (LBL)";
 #endif
 
 #include <sys/param.h>
@@ -100,7 +100,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 		if (errno == EINVAL)
 			(void)sprintf(errbuf,
 			    "SIOCGIFCONF: ifreq struct too small (%d bytes)",
-			    sizeof(ibuf));
+			    (int)sizeof(ibuf));
 		else
 			(void)sprintf(errbuf, "SIOCGIFCONF: %s",
 			    strerror(errno));
@@ -163,7 +163,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 
 		if (nipaddr >= MAX_IPADDR) {
 			(void)sprintf(errbuf, "Too many interfaces (%d)",
-			    MAX_IPADDR);
+			    (int)MAX_IPADDR);
 			(void)close(fd);
 			return (-1);
 		}

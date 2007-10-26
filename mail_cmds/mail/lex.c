@@ -52,7 +52,7 @@ static const char rcsid[] =
  * Lexical processing of commands.
  */
 
-const char	*prompt = "& ";
+const char	*prompt = "? "; /* Unix standard prompt */
 
 extern const struct cmd cmdtab[];
 extern const char *version;	
@@ -207,7 +207,7 @@ void
 commands()
 {
 	int n, eofloop = 0;
-	char linebuf[LINESIZE];
+	char linebuf[PATHSIZE+LINESIZE]; /* make very large to handle maximum pathname in commands */
 
 	if (!sourcing) {
 		if (signal(SIGINT, SIG_IGN) != SIG_IGN)
@@ -225,10 +225,13 @@ commands()
 		 * string space, and flush the output.
 		 */
 		if (!sourcing && value("interactive") != NULL) {
+			char * current_prompt;
 			if ((value("autoinc") != NULL) && (incfile() > 0))
 				printf("New mail has arrived.\n");
 			reset_on_stop = 1;
-			printf("%s", prompt);
+			if ((current_prompt = value("prompt")) != NULL) {
+				printf("%s", current_prompt);
+			}
 		}
 		(void)fflush(stdout);
 		sreset();
@@ -238,7 +241,7 @@ commands()
 		 */
 		n = 0;
 		for (;;) {
-			if (readline(input, &linebuf[n], LINESIZE - n) < 0) {
+			if (readline(input, &linebuf[n], sizeof(linebuf) - n) < 0) {
 				if (n == 0)
 					n = -1;
 				break;
@@ -331,6 +334,16 @@ execute(linebuf, contxt)
 		printf("Unknown command: \"%s\"\n", word);
 		goto out;
 	}
+
+	if (debug != 1) {
+		if (value("debug") == NULL) {
+			debug = 0;
+		} else {
+			debug = 2;
+		}
+	} /* else  ignore debug env var */
+	if (debug)
+		fprintf(stderr, "debug mode: cmd is %s\n", com->c_name);
 
 	/*
 	 * See if we should execute the command -- if a conditional
@@ -614,7 +627,7 @@ announce()
 	vec[0] = mdot;
 	vec[1] = 0;
 	dot = &message[mdot - 1];
-	if (msgCount > 0 && value("noheader") == NULL) {
+	if (msgCount > 0 && value("header") != NULL) {
 		inithdr++;
 		headers(vec);
 		inithdr = 0;
@@ -644,6 +657,9 @@ newfileinfo(omsgCount)
 		mdot = mp - &message[0] + 1;
 	else
 		mdot = omsgCount + 1;
+	if (value("header") == NULL) {
+		return (mdot);
+	}
 	s = d = 0;
 	for (mp = &message[0], n = 0, u = 0; mp < &message[msgCount]; mp++) {
 		if (mp->m_flag & MNEW)

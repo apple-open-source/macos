@@ -34,20 +34,23 @@
 #include "CPluginConfig.h"
 #include "CLog.h"
 #include "CNodeList.h"
+#include "CLDAPPlugInPrefs.h"
+#include "DSLDAPUtils.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 
-#include <CoreFoundation/CoreFoundation.h>
-
-extern CFRunLoopRef			gServerRunLoop;
+extern CFRunLoopRef			gPluginRunLoop;
 extern DSMutexSemaphore    *gKerberosMutex;
 extern CPluginConfig	   *gPluginConfig;
 extern DSMutexSemaphore	   *gLazyPluginLoadingLock;
 extern CPlugInList		   *gPlugins;
 extern CNodeList		   *gNodeList;
+
+UInt32 gMaxLazyLoaders = 20;
+char* gLazyLoadAttemptedList[20] = {nil};
 
 //Use of the table entries directly will need a Mutex if the order can change
 //but likely will continue only to add on to the end of the table and
@@ -58,11 +61,12 @@ extern CNodeList		   *gNodeList;
 //
 // ---------------------------------------------------------------------------
 
-CPlugInList::CPlugInList ( void )
+CPlugInList::CPlugInList ( void ) : fMutex("CPlugInList::fMutex")
 {
 	fPICount	= 0;
 	fTable		= nil;
 	fTableTail  = nil;
+	fCFRecordTypeRestrictions = NULL;
 
 } // CPlugInList
 
@@ -82,20 +86,21 @@ CPlugInList::~CPlugInList ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 CPlugInList::AddPlugIn ( const char		*inName,
+SInt32 CPlugInList::AddPlugIn ( const char		*inName,
 								const char		*inVersion,
 								const char		*inConfigAvail,
 								const char		*inConfigFile,
+								eDSPluginLevel	 inLevel,
 								FourCharCode	 inKey,
 								CServerPlugin	*inPluginPtr,
 								CFPlugInRef		 inPluginRef,
 								CFUUIDRef		 inCFuuidFactory,
-								uInt32			 inULVers )
+								UInt32			 inULVers )
 {
-	sInt32			siResult	= eDSInvalidPlugInConfigData;
+	SInt32			siResult	= eDSInvalidPlugInConfigData;
 	sTableData     *aTableEntry = nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	try
 	{
@@ -121,6 +126,8 @@ sInt32 CPlugInList::AddPlugIn ( const char		*inName,
 		fTableTail->fConfigAvail	= inConfigAvail;
 		fTableTail->fConfigFile		= inConfigFile;
 		fTableTail->fPluginPtr		= inPluginPtr;
+		fTableTail->fValidDataStamp	= 0;
+		fTableTail->fLevel			= inLevel;
 		
 		if ( inPluginRef )
 		{
@@ -147,12 +154,12 @@ sInt32 CPlugInList::AddPlugIn ( const char		*inName,
 		siResult = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -162,16 +169,32 @@ sInt32 CPlugInList::AddPlugIn ( const char		*inName,
 void CPlugInList::LoadPlugin( sTableData *inTableEntry )
 {
 	bool			done		= false;
-	sInt32			siResult 	= eDSNoErr;
-	uInt32			uiCntr		= 0;
-	uInt32			uiAttempts	= 100;
-	uInt32			uiWaitTime 	= 1;
+	SInt32			siResult 	= eDSNoErr;
+	UInt32			uiCntr		= 0;
+	UInt32			uiAttempts	= 100;
+	UInt32			uiWaitTime 	= 1;
 	sHeader			aHeader;
-	ePluginState	pluginState	= kUnknownState;
 	CServerPlugin  *ourPluginPtr= nil;
+	UInt32			listCount	= 0;
 	
-	gLazyPluginLoadingLock->Wait();
-	
+	gLazyPluginLoadingLock->WaitLock();
+
+	// check the list of already attempted lazy loads before continuing ie. eliminate race possibility
+	while( (gLazyLoadAttemptedList[listCount] != nil) && (listCount < gMaxLazyLoaders) )
+	{
+		if (strcmp(gLazyLoadAttemptedList[listCount],inTableEntry->fName) == 0)
+		{
+			gLazyPluginLoadingLock->SignalLock();
+			return;
+		}
+		listCount++;
+	}
+	if (listCount != gMaxLazyLoaders)
+	{
+		// add to the list since we attempt to load this one
+		gLazyLoadAttemptedList[listCount] = strdup(inTableEntry->fName);
+	}
+
 	try
 	{
 		if ( inTableEntry->fPluginPtr == nil)
@@ -180,111 +203,76 @@ void CPlugInList::LoadPlugin( sTableData *inTableEntry )
 			
 			ourPluginPtr = (CServerPlugin *)inTableEntry->fPluginPtr;
 
-			if ( ourPluginPtr == NULL ) throw( (sInt32)eMemoryError );
+			if ( ourPluginPtr == NULL ) throw( (SInt32)eMemoryError );
 			
 			ourPluginPtr->Validate( inTableEntry->fVersion, inTableEntry->fKey );
 			
-			if ( gPlugins != nil )
+			while ( !done )
 			{
-				while ( !done )
+				uiCntr++;
+		
+				// Attempt to initialize it
+				siResult = ourPluginPtr->Initialize();
+				if ( ( siResult != eDSNoErr ) && ( uiCntr == 1 ) )
 				{
-					uiCntr++;
-		
-					// Attempt to initialize it
-					siResult = ourPluginPtr->Initialize();
-					if ( ( siResult != eDSNoErr ) && ( uiCntr == 1 ) )
-					{
-						ERRORLOG3( kLogApplication, "Attempt #%l to initialize plug-in %s failed.\n  Will retry initialization at most 100 times every %l second.", uiCntr, ourPluginPtr->GetPluginName(), uiWaitTime );
-					}
+					ErrLog( kLogApplication, "Attempt #%l to initialize plug-in %s failed.\n  Will retry initialization at most 100 times every %l second.", uiCntr, ourPluginPtr->GetPluginName(), uiWaitTime );
+				}
 					
-					if ( siResult == eDSNoErr )
+				if ( siResult == eDSNoErr )
+				{
+					DbgLog( kLogApplication, "Initialization of plug-in %s succeeded with #%l attempt.", ourPluginPtr->GetPluginName(), uiCntr );
+		
+					// we start initialized but inactive, we set our active flag later
+					inTableEntry->fState = kInitialized | kInactive;
+		
+					//provide the CFRunLoop to the plugins that need it
+					if (gPluginRunLoop != NULL)
 					{
-						DBGLOG2( kLogApplication, "Initialization of plug-in %s succeeded with #%l attempt.", ourPluginPtr->GetPluginName(), uiCntr );
+						aHeader.fType			= kServerRunLoop;
+						aHeader.fResult			= eDSNoErr;
+						aHeader.fContextData	= (void *)gPluginRunLoop;
+						siResult = ourPluginPtr->ProcessRequest( (void*)&aHeader ); //don't handle return
+					}
 		
-						gPlugins->SetState( ourPluginPtr->GetPluginName(), kInitialized );
-		
-						//provide the CFRunLoop to the plugins that need it
-						if (gServerRunLoop != NULL)
-						{
-							aHeader.fType			= kServerRunLoop;
-							aHeader.fResult			= eDSNoErr;
-							aHeader.fContextData	= (void *)gServerRunLoop;
-							siResult = ourPluginPtr->ProcessRequest( (void*)&aHeader ); //don't handle return
-						}
-		
-						// provide the Kerberos Mutex to plugins that need it
-						if (gKerberosMutex != NULL)
-						{
-							aHeader.fType			= kKerberosMutex;
-							aHeader.fResult			= eDSNoErr;
-							aHeader.fContextData	= (void *)gKerberosMutex;
-							ourPluginPtr->ProcessRequest( (void*)&aHeader ); // don't handle return
-						}
-
-						pluginState = gPluginConfig->GetPluginState( ourPluginPtr->GetPluginName() );
-						if ( pluginState == kInactive )
-						{
-							siResult = ourPluginPtr->SetPluginState( kInactive );
-							if ( siResult == eDSNoErr )
-							{
-								SRVRLOG1( kLogApplication, "Plug-in %s state is now inactive.", ourPluginPtr->GetPluginName() );
+					// provide the Kerberos Mutex to plugins that need it
+					if (gKerberosMutex != NULL)
+					{
+						aHeader.fType			= kKerberosMutex;
+						aHeader.fResult			= eDSNoErr;
+						aHeader.fContextData	= (void *)gKerberosMutex;
+						ourPluginPtr->ProcessRequest( (void*)&aHeader ); // don't handle return
+					}
 						
-								gPlugins->SetState( ourPluginPtr->GetPluginName(), kInactive );
-							}
-							else
-							{
-								ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to inactive.  Received error %l.", ourPluginPtr->GetPluginName(), siResult );
-							}
-						}
-						else
-						{
-							siResult = ourPluginPtr->SetPluginState( kActive );
-							if ( siResult == eDSNoErr )
-							{
-								SRVRLOG1( kLogApplication, "Plug-in %s state is now active.", ourPluginPtr->GetPluginName() );
-			
-								gPlugins->SetState( ourPluginPtr->GetPluginName(), kActive );
-							}
-							else
-							{
-								ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to active.  Received error %l.", ourPluginPtr->GetPluginName(), siResult );
-							}
-						}
-						
+					done = true;
+				}
+		
+				if ( !done )
+				{
+					// We will try this 100 times before we bail
+					if ( uiCntr == uiAttempts )
+					{
+						ErrLog( kLogApplication, "%l attempts to initialize plug-in %s failed.\n  Setting plug-in state to inactive.", uiCntr, ourPluginPtr->GetPluginName() );
+	
+						inTableEntry->fState = kInactive | kFailedToInit;
 						done = true;
 					}
-		
-					if ( !done )
+					else
 					{
-						// We will try this 100 times before we bail
-						if ( uiCntr == uiAttempts )
-						{
-							ERRORLOG2( kLogApplication, "%l attempts to initialize plug-in %s failed.\n  Setting plug-in state to inactive.", uiCntr, ourPluginPtr->GetPluginName() );
-		
-							gPlugins->SetState( ourPluginPtr->GetPluginName(), kInactive | kFailedToInit );
-		
-							siResult = ourPluginPtr->SetPluginState( kInactive );
-		
-							done = true;
-						}
-						else
-						{
-							fWaitToInit.Wait( uiWaitTime * kMilliSecsPerSec );
-						}
+						fWaitToInit.WaitForEvent( uiWaitTime * kMilliSecsPerSec );
 					}
 				}
 			}
 
-			SRVRLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", loaded on demand successfully.", inTableEntry->fName, inTableEntry->fVersion );
+			SrvrLog( kLogApplication, "Plugin \"%s\", Version \"%s\", loaded on demand successfully.", inTableEntry->fName, inTableEntry->fVersion );
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
-		SRVRLOG3( kLogApplication, "Plugin \"%s\", Version \"%s\", failed to load on demand (%d).", inTableEntry->fName, inTableEntry->fVersion, err );
+		SrvrLog( kLogApplication, "Plugin \"%s\", Version \"%s\", failed to load on demand (%d).", inTableEntry->fName, inTableEntry->fVersion, err );
 	}
 	
-	gLazyPluginLoadingLock->Signal();
+	gLazyPluginLoadingLock->SignalLock();
 	
 }
 
@@ -294,46 +282,49 @@ void CPlugInList::LoadPlugin( sTableData *inTableEntry )
 //
 // ---------------------------------------------------------------------------
 
-void CPlugInList::InitPlugIns ( void )
+void CPlugInList::InitPlugIns ( eDSPluginLevel inLevel )
 {
 	sTableData     *aTableEntry = nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
 	{
-		if ( (aTableEntry->fName != nil) && (aTableEntry->fPluginPtr != nil) )
+		if ( ( aTableEntry->fLevel == inLevel) && ( ( aTableEntry->fState & kUninitialized ) || ( aTableEntry->fState == 0 ) ) )
 		{
-			try
+			if ( (aTableEntry->fName != nil) && (aTableEntry->fPluginPtr != nil) )
 			{
-				//this constructor could throw
-				CLauncher *cpLaunch = new CLauncher( (CServerPlugin *)aTableEntry->fPluginPtr );
-				if ( cpLaunch != nil )
+				try
 				{
-					//this call could throw
-					cpLaunch->StartThread();
+					//this constructor could throw
+					CLauncher *cpLaunch = new CLauncher( (CServerPlugin *)aTableEntry->fPluginPtr );
+					if ( cpLaunch != nil )
+					{
+						//this call could throw
+						cpLaunch->StartThread();
+					}
+					DbgLog( kLogApplication, "Plugin \"%s\", Version \"%s\", activated successfully.", aTableEntry->fName, aTableEntry->fVersion );
 				}
-				DBGLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", activated successfully.", aTableEntry->fName, aTableEntry->fVersion );
+			
+				catch( SInt32 err )
+				{
+					DbgLog( kLogApplication, "Plugin \"%s\", Version \"%s\", failed to launch initialization thread.", aTableEntry->fName, aTableEntry->fVersion );
+				}
 			}
-		
-			catch( sInt32 err )
+			else if ( aTableEntry->fName != nil )
 			{
-				DBGLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", failed to launch initialization thread.", aTableEntry->fName, aTableEntry->fVersion );
-			}
-		}
-		else if ( aTableEntry->fName != nil )
-		{
-			// if this plugin is supposed to be active, we should mark it as such, it still should be uninitialized.
-			ePluginState		pluginState = gPluginConfig->GetPluginState( aTableEntry->fName );
+				// if this plugin is supposed to be active, we should mark it as such, it still should be uninitialized.
+				ePluginState		pluginState = gPluginConfig->GetPluginState( aTableEntry->fName );
 
-			aTableEntry->fState = pluginState | kUninitialized;
-			DBGLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", referenced to be loaded on demand successfully.", aTableEntry->fName, aTableEntry->fVersion );
+				aTableEntry->fState = pluginState | kUninitialized;
+				DbgLog( kLogApplication, "Plugin \"%s\", Version \"%s\", referenced to be loaded on demand successfully.", aTableEntry->fName, aTableEntry->fVersion );
+			}
 		}
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 } // InitPlugIns
 
@@ -343,12 +334,12 @@ void CPlugInList::InitPlugIns ( void )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 CPlugInList::IsPresent ( const char *inName )
+SInt32 CPlugInList::IsPresent ( const char *inName )
 {
-	sInt32			siResult	= ePluginNameNotFound;
+	SInt32			siResult	= ePluginNameNotFound;
 	sTableData     *aTableEntry = nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( inName == nil )
 	{
@@ -370,7 +361,7 @@ sInt32 CPlugInList::IsPresent ( const char *inName )
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -382,13 +373,15 @@ sInt32 CPlugInList::IsPresent ( const char *inName )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 CPlugInList::SetState ( const char *inName, const uInt32 inState )
+SInt32 CPlugInList::SetState ( const char *inName, const UInt32 inState )
 {
-	sInt32			siResult		= ePluginNameNotFound;
+	SInt32			siResult		= ePluginNameNotFound;
 	sTableData     *aTableEntry		= nil;
-	uInt32			curState		= kUnknownState;
+	sTableData     *tmpTableEntry	= nil;
+	UInt32			curState		= kUnknownState;
+	sTableData	   *pluginEntry		= NULL;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( inName == nil )
 	{
@@ -404,31 +397,52 @@ sInt32 CPlugInList::SetState ( const char *inName, const uInt32 inState )
 			{
 				curState = aTableEntry->fState;
 				
+				// this means we will try to load the plugin below
 				if ( (inState & kActive) && aTableEntry->fPluginPtr == NULL )
-				{
-					// This plugin has just been set to active but we haven't loaded it yet.
-					//need to acquire mutexes in proper order
-					fMutex.Signal();
-					gNodeList->Lock();
-					fMutex.Wait();
-					LoadPlugin( aTableEntry );
-					gNodeList->Unlock();
-				}
+					tmpTableEntry = MakeTableEntryCopy( aTableEntry );
 
-				aTableEntry->fState = inState;
-
-				if ( !( curState & inState ) && ( aTableEntry->fPluginPtr ) )
-					aTableEntry->fPluginPtr->SetPluginState(inState);
-				
-				siResult = eDSNoErr;
-
+				pluginEntry = aTableEntry;
 				break;
 			}
 		}
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
+	
+	if (tmpTableEntry != nil)
+	{
+		// This plugin has just been set to active but we haven't loaded it yet.
+		// should NOT hold the table mutex for this
+		gNodeList->Lock();
+		LoadPlugin( tmpTableEntry );
+		gNodeList->Unlock();
+
+		if (tmpTableEntry->fPluginPtr != NULL)
+		{
+			// we actually loaded the plugin so go ahead and update the table
+			fMutex.WaitLock();
+			
+			// now use the tmpTableEntry pluginPtr
+			if ( pluginEntry->fPluginPtr == NULL )
+				pluginEntry->fPluginPtr = tmpTableEntry->fPluginPtr;
+
+			fMutex.SignalLock();
+		}
+		DSFree(tmpTableEntry);
+	}
+	
+	fMutex.WaitLock();
+
+	if ( (curState & inState) != inState && pluginEntry != NULL && pluginEntry->fPluginPtr != NULL )
+	{
+		pluginEntry->fState = inState;
+		pluginEntry->fPluginPtr->SetPluginState( inState );
+		
+		siResult = eDSNoErr;
+	}	
+	
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -440,12 +454,12 @@ sInt32 CPlugInList::SetState ( const char *inName, const uInt32 inState )
 //
 // ---------------------------------------------------------------------------
 
-sInt32 CPlugInList::GetState ( const char *inName, uInt32 *outState )
+SInt32 CPlugInList::GetState ( const char *inName, UInt32 *outState )
 {
-	sInt32			siResult		= ePluginNameNotFound;
+	SInt32			siResult		= ePluginNameNotFound;
 	sTableData     *aTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( inName == nil )
 	{
@@ -469,7 +483,7 @@ sInt32 CPlugInList::GetState ( const char *inName, uInt32 *outState )
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( siResult );
 
@@ -477,11 +491,91 @@ sInt32 CPlugInList::GetState ( const char *inName, uInt32 *outState )
 
 
 // ---------------------------------------------------------------------------
+//	* UpdateValidDataStamp ()
+//
+// ---------------------------------------------------------------------------
+
+SInt32 CPlugInList::UpdateValidDataStamp ( const char *inName )
+{
+	SInt32			siResult		= ePluginNameNotFound;
+	sTableData     *aTableEntry		= nil;
+
+	fMutex.WaitLock();
+
+	if ( inName == nil )
+	{
+		return( eDSNullParameter );
+	}
+
+	aTableEntry = fTable;
+	while ( aTableEntry != nil )
+	{
+		if ( aTableEntry->fName != nil )
+		{
+			if ( ::strcmp( aTableEntry->fName, inName ) == 0 )
+			{
+				aTableEntry->fValidDataStamp++;
+
+				siResult = eDSNoErr;
+
+				break;
+			}
+		}
+		aTableEntry = aTableEntry->pNext;
+	}
+
+	fMutex.SignalLock();
+
+	return( siResult );
+
+} // UpdateValidDataStamp
+
+
+// ---------------------------------------------------------------------------
+//	* GetValidDataStamp ()
+//
+// ---------------------------------------------------------------------------
+
+UInt32 CPlugInList::GetValidDataStamp ( const char *inName )
+{
+	UInt32			outStamp		= 0;
+	sTableData     *aTableEntry		= nil;
+
+	fMutex.WaitLock();
+
+	if ( inName == nil )
+	{
+		return( eDSNullParameter );
+	}
+
+	aTableEntry = fTable;
+	while ( aTableEntry != nil )
+	{
+		if ( aTableEntry->fName != nil )
+		{
+			if ( ::strcmp( aTableEntry->fName, inName ) == 0 )
+			{
+				outStamp = aTableEntry->fValidDataStamp;
+
+				break;
+			}
+		}
+		aTableEntry = aTableEntry->pNext;
+	}
+
+	fMutex.SignalLock();
+
+	return( outStamp );
+
+} // GetValidDataStamp
+
+
+// ---------------------------------------------------------------------------
 //	* GetPlugInCount ()
 //
 // ---------------------------------------------------------------------------
 
-uInt32 CPlugInList::GetPlugInCount ( void )
+UInt32 CPlugInList::GetPlugInCount ( void )
 {
 	return( fPICount );
 } // GetPlugInCount
@@ -493,12 +587,12 @@ uInt32 CPlugInList::GetPlugInCount ( void )
 //
 // ---------------------------------------------------------------------------
 
-uInt32 CPlugInList::GetActiveCount ( void )
+UInt32 CPlugInList::GetActiveCount ( void )
 {
-	uInt32			activeCount		= 0;
+	UInt32			activeCount		= 0;
 	sTableData     *aTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -513,12 +607,35 @@ uInt32 CPlugInList::GetActiveCount ( void )
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( activeCount );
 
 } // GetActiveCount
 
+// ---------------------------------------------------------------------------
+//	* SetPluginState ()
+//
+// ---------------------------------------------------------------------------
+
+void CPlugInList::SetPluginState( sTableData *inTableEntry )
+{
+	if ( inTableEntry == NULL || inTableEntry->fPluginPtr == NULL )
+		return;
+	
+	CServerPlugin	*pluginPtr	= inTableEntry->fPluginPtr;
+	char			*pluginName = pluginPtr->GetPluginName();
+	ePluginState	pluginState = gPluginConfig->GetPluginState( pluginName );
+	SInt32			siResult	= pluginPtr->SetPluginState( pluginState );
+
+	if ( siResult == eDSNoErr )
+		SrvrLog( kLogApplication, "Plug-in %s state is now %s.", pluginName, (pluginState == kActive ? "active" : "inactive") );
+	else
+		SrvrLog( kLogApplication, "Unable to set %s plug-in state to %s.  Received error %l.", pluginName, (pluginState == kActive ? "active" : "inactive"),
+				 siResult );
+	
+	inTableEntry->fState = pluginState;
+}
 
 // ---------------------------------------------------------------------------
 //	* GetPlugInPtr ()
@@ -529,8 +646,9 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 {
 	CServerPlugin  *pResult			= nil;
 	sTableData     *aTableEntry		= nil;
+	sTableData     *tmpTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	if ( inName == nil )
 	{
@@ -548,13 +666,9 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 				// this can be for configure nodes, otherwise inactive nodes cannot be configured
 				if ( (aTableEntry->fPluginPtr == NULL) && loadIfNeeded )
 				{
-					// This plugin hasn't been loaded it yet.  Load it if loadIfNeeded set
-					//need to acquire mutexes in proper order
-					fMutex.Signal();
-					gNodeList->Lock();
-					fMutex.Wait();
-					LoadPlugin( aTableEntry );
-					gNodeList->Unlock();
+					// this means we will try to load the plugin below
+					tmpTableEntry = MakeTableEntryCopy( aTableEntry );
+					break;
 				}	
 
 				pResult = aTableEntry->fPluginPtr;
@@ -565,7 +679,44 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
+
+	if (tmpTableEntry != nil)
+	{
+		// This plugin has just been set to active but we haven't loaded it yet.
+		// should NOT hold the table mutex for this
+		gNodeList->Lock();
+		LoadPlugin( tmpTableEntry );
+		gNodeList->Unlock();
+
+		// we actually loaded the plugin so go ahead and update the table
+		fMutex.WaitLock();
+		aTableEntry = fTable;
+		while ( aTableEntry != nil )
+		{
+			if ( aTableEntry->fName != nil )
+			{
+				if ( ::strcmp( aTableEntry->fName, inName ) == 0 )
+				{
+					if ( loadIfNeeded && aTableEntry->fPluginPtr == NULL )
+					{
+						// now use the tmpTableEntry
+						aTableEntry->fPluginPtr = tmpTableEntry->fPluginPtr;
+						aTableEntry->fState = tmpTableEntry->fState;
+
+						SetPluginState( aTableEntry );
+					}
+						
+					pResult = aTableEntry->fPluginPtr;
+					break;
+				}
+			}
+			aTableEntry = aTableEntry->pNext;
+		}
+		
+		fMutex.SignalLock();
+		DSFree(tmpTableEntry);
+	}
 
 	return( pResult );
 
@@ -577,12 +728,13 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 //
 // ---------------------------------------------------------------------------
 
-CServerPlugin* CPlugInList::GetPlugInPtr ( const uInt32 inKey, bool loadIfNeeded )
+CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded )
 {
 	CServerPlugin  *pResult			= nil;
 	sTableData     *aTableEntry		= nil;
+	sTableData     *tmpTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -595,13 +747,9 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const uInt32 inKey, bool loadIfNeeded
 					&&	(gPluginConfig->GetPluginState(aTableEntry->fName) & kActive)
 					&&	loadIfNeeded )
 				{
-					// This plugin hasn't been loaded it yet.  Don't load unless it is set as active
-					//need to acquire mutexes in proper order
-					fMutex.Signal();
-					gNodeList->Lock();
-					fMutex.Wait();
-					LoadPlugin( aTableEntry );
-					gNodeList->Unlock();
+					// this means we will try to load the plugin below
+					tmpTableEntry = MakeTableEntryCopy( aTableEntry );
+					break;
 				}	
 
 				pResult = aTableEntry->fPluginPtr;
@@ -612,7 +760,46 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const uInt32 inKey, bool loadIfNeeded
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
+
+	if (tmpTableEntry != nil)
+	{
+		// This plugin has just been set to active but we haven't loaded it yet.
+		// should NOT hold the table mutex for this
+		gNodeList->Lock();
+		LoadPlugin( tmpTableEntry );
+		gNodeList->Unlock();
+
+		// we actually loaded the plugin so go ahead and update the table
+		fMutex.WaitLock();
+		aTableEntry = fTable;
+		while ( aTableEntry != nil )
+		{
+			if ( aTableEntry->fName != nil )
+			{
+				if ( aTableEntry->fKey == inKey )
+				{
+					if (	aTableEntry->fPluginPtr == NULL
+						&&	(gPluginConfig->GetPluginState(aTableEntry->fName) & kActive)
+						&&	loadIfNeeded )
+					{
+						// now use the tmpTableEntry
+						aTableEntry->fPluginPtr = tmpTableEntry->fPluginPtr;
+						aTableEntry->fState = tmpTableEntry->fState;
+						
+						SetPluginState( aTableEntry );
+					}
+	
+					pResult = aTableEntry->fPluginPtr;
+	
+					break;
+				}
+			}
+			aTableEntry = aTableEntry->pNext;
+		}
+		fMutex.SignalLock();
+		DSFree(tmpTableEntry);
+	}
 
 	return( pResult );
 
@@ -625,13 +812,13 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const uInt32 inKey, bool loadIfNeeded
 //
 // ---------------------------------------------------------------------------
 
-CServerPlugin* CPlugInList::Next ( uInt32 *inIndex )
+CServerPlugin* CPlugInList::Next ( UInt32 *inIndex )
 {
 	CServerPlugin	   *pResult			= nil;
-	uInt32				tableIndex		= 0;
+	UInt32				tableIndex		= 0;
 	sTableData		   *aTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -655,11 +842,11 @@ CServerPlugin* CPlugInList::Next ( uInt32 *inIndex )
 
 	*inIndex = tableIndex;
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( pResult );
 
-} // GetPlugInPtr
+} // Next
 
 
 // ---------------------------------------------------------------------------
@@ -667,12 +854,12 @@ CServerPlugin* CPlugInList::Next ( uInt32 *inIndex )
 //
 // ---------------------------------------------------------------------------
 
-CPlugInList::sTableData* CPlugInList::GetPlugInInfo ( uInt32 inIndex )
+CPlugInList::sTableData* CPlugInList::GetPlugInInfo ( UInt32 inIndex )
 {
-	uInt32				tableIndex		= 0;
+	UInt32				tableIndex		= 0;
 	sTableData		   *aTableEntry		= nil;
 
-	fMutex.Wait();
+	fMutex.WaitLock();
 
 	aTableEntry = fTable;
 	while ( aTableEntry != nil )
@@ -685,12 +872,412 @@ CPlugInList::sTableData* CPlugInList::GetPlugInInfo ( uInt32 inIndex )
 		aTableEntry = aTableEntry->pNext;
 	}
 
-	fMutex.Signal();
+	fMutex.SignalLock();
 
 	return( aTableEntry );
 
 } // GetPlugInInfo
 
 
+// ---------------------------------------------------------------------------
+//	* CopyRecordTypeRestrictionsDictionary( void )
+//
+// ---------------------------------------------------------------------------
+CFMutableDictionaryRef CPlugInList::CopyRecordTypeRestrictionsDictionary( void )
+{
+	CFMutableDictionaryRef	restrictions = NULL;
+	
+	fMutex.WaitLock();
+	if( fCFRecordTypeRestrictions )
+		restrictions = CFDictionaryCreateMutableCopy( kCFAllocatorDefault, NULL, fCFRecordTypeRestrictions );
+	else
+		restrictions = CFDictionaryCreateMutable( kCFAllocatorDefault, NULL, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+	fMutex.SignalLock();
+	
+	return(restrictions);
+} // CopyRecordTypeRestrictionsDictionary
 
 
+// ---------------------------------------------------------------------------
+//	* SetRecordTypeRestrictionsDictionary( CFMutableDictionaryRef inDictionary )
+//
+// ---------------------------------------------------------------------------
+void CPlugInList::SetRecordTypeRestrictionsDictionary( CFMutableDictionaryRef inDictionary )
+{
+	CFURLRef				configFileURL			= NULL;
+	CFDataRef				xmlData				= NULL;
+	CFStringRef			sPath				= NULL;
+	SInt32				errorCode				= 0;
+	SInt32				siResult				= 0;
+
+	if (inDictionary != NULL)
+	{
+		fMutex.WaitLock();
+		
+		DSCFRelease(fCFRecordTypeRestrictions);
+		
+		CFRetain( inDictionary );
+		fCFRecordTypeRestrictions = inDictionary;
+		
+		sPath = CFStringCreateWithCString( kCFAllocatorDefault, kRecTypeRestrictionsFilePath, kCFStringEncodingUTF8 );
+		if (sPath != NULL)
+		{
+			configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
+			DSCFRelease( sPath );
+
+			xmlData = CFPropertyListCreateXMLData(NULL, inDictionary);
+			if ( (configFileURL != NULL) && (xmlData != NULL) )
+			{
+				//write the XML to the config file
+				siResult = CFURLWriteDataAndPropertiesToResource( configFileURL, xmlData, NULL, &errorCode);
+				if (siResult == eDSNoErr)
+				{
+					chmod( kRecTypeRestrictionsFilePath, S_IRUSR | S_IWUSR );
+				}
+			}
+			DSCFRelease(configFileURL);
+			DSCFRelease(xmlData);
+		}
+
+		fMutex.SignalLock();
+	}
+} // SetRecordTypeRestrictionsDictionary
+
+
+// ---------------------------------------------------------------------------
+//	* ReadRecordTypeRestrictions ()
+//
+// ---------------------------------------------------------------------------
+
+SInt32 CPlugInList::ReadRecordTypeRestrictions( void )
+{
+	SInt32					siResult				= eDSNoErr;
+	CFURLRef				configFileURL			= NULL;
+	CFURLRef				configFileCorruptedURL	= NULL;
+	CFDataRef				xmlData					= NULL;
+	struct stat				statResult;
+	bool					bReadFile				= false;
+	bool					bCorruptedFile			= false;
+	bool					bWroteFile				= false;
+	SInt32					errorCode				= 0;
+	CFStringRef				sCorruptedPath			= NULL;
+	CFStringRef				sPath					= NULL;
+
+	fMutex.WaitLock();
+
+//Config data is read from a plist file
+//Steps in the process:
+//1- see if the file exists
+//2- if it exists then try to read it
+//3- if existing file is corrupted then rename it and save it while creating a new default file
+//4- if file doesn't exist then create a new default file - make sure directories exist/if not create them
+	
+	//step 1- see if the file exists
+	//if not then make sure the directories exist or create them
+	//then write the file
+	siResult = ::stat( kRecTypeRestrictionsFilePath, &statResult );
+	
+	sPath = CFStringCreateWithCString( kCFAllocatorDefault, kRecTypeRestrictionsFilePath, kCFStringEncodingUTF8 );
+	if (sPath != NULL)
+	{
+		//create URL always
+		configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
+		DSCFRelease( sPath );
+		
+		//if file does not exist, let's make sure the directories are there
+		if (siResult != eDSNoErr)
+		{
+			// file does not exist so checking directory path to enable write of a new file
+			CreatePrefDirectory();
+			
+			//create XML data from the default config
+			UInt32 uiDataSize = ::strlen( kDefaultRecTypeRestrictionsConfig );
+			xmlData = ::CFDataCreate( nil, (const UInt8 *)kDefaultRecTypeRestrictionsConfig, uiDataSize );
+
+			DbgLog( kLogPlugin, "CPlugInList: Created a new Record Type Restrictions config file since it did not exist" );
+			
+			if ( (configFileURL != NULL) && (xmlData != NULL) )
+			{
+				//write the XML to the config file
+				siResult = CFURLWriteDataAndPropertiesToResource(	configFileURL,
+																	xmlData,
+																	NULL,
+																	&errorCode);
+			}
+			
+			DSCFRelease(xmlData);
+			
+		} // file does not exist so creating one
+		
+		if ( (siResult == eDSNoErr) && (configFileURL != NULL) ) //either stat or new write was successful
+		{
+			chmod( kRecTypeRestrictionsFilePath, S_IRUSR | S_IWUSR );
+			// Read the XML property list file
+			bReadFile = CFURLCreateDataAndPropertiesFromResource(	kCFAllocatorDefault,
+																	configFileURL,
+																	&xmlData,          // place to put file data
+																	NULL,           
+																	NULL,
+																	&siResult);
+		}
+	} // if (sPath != NULL)
+	
+
+	if (bReadFile)
+	{
+		CFPropertyListRef configPropertyList = NULL;
+		if (xmlData != nil)
+		{
+			// extract the config dictionary from the XML data.
+			configPropertyList =	CFPropertyListCreateFromXMLData( kCFAllocatorDefault,
+									xmlData,
+									kCFPropertyListImmutable, 
+									NULL);
+			if (configPropertyList != nil )
+			{
+				//make the propertylist a dict
+				if ( CFDictionaryGetTypeID() == CFGetTypeID( configPropertyList ) )
+				{
+					DSCFRelease(fCFRecordTypeRestrictions);
+					fCFRecordTypeRestrictions = (CFDictionaryRef) configPropertyList;
+				}
+			}
+		}
+		//check if this XML blob is a property list and can be made into a dictionary
+		if (fCFRecordTypeRestrictions == NULL)
+		{			
+			//if it is not then say the file is corrupted and save off the corrupted file
+			DbgLog( kLogPlugin, "CPlugInList: Record Type Restrictions config file is corrupted" );
+			bCorruptedFile = true;
+			//here we need to make a backup of the file - why? - because
+
+			// Append the subpath.
+			sCorruptedPath = ::CFStringCreateWithCString( kCFAllocatorDefault, kRecTypeRestrictionsCorruptedFilePath, kCFStringEncodingUTF8 );
+
+			if (sCorruptedPath != NULL)
+			{
+				// Convert it into a CFURL.
+				configFileCorruptedURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sCorruptedPath, kCFURLPOSIXPathStyle, false );
+				DSCFRelease( sCorruptedPath ); // build with Create so okay to dealloac here
+				if (configFileCorruptedURL != NULL)
+				{
+					//write the XML to the corrupted copy of the config file
+					bWroteFile = CFURLWriteDataAndPropertiesToResource( configFileCorruptedURL,
+																		xmlData,
+																		NULL,
+																		&errorCode);
+					if (bWroteFile)
+					{
+						chmod( kRecTypeRestrictionsCorruptedFilePath, S_IRUSR | S_IWUSR );
+					}
+				}
+			}
+		}
+		DSCFRelease(xmlData);
+	}
+	else //existing file is unreadable
+	{
+		DbgLog( kLogPlugin, "CPlugInList: Record Type Restrictions config file is unreadable" );
+		bCorruptedFile = true;
+	}
+        
+	if (bCorruptedFile)
+	{
+		//create XML data from the default config
+		UInt32 uiDataSize = ::strlen( kDefaultRecTypeRestrictionsConfig );
+		xmlData = ::CFDataCreate( nil, (const UInt8 *)kDefaultRecTypeRestrictionsConfig, uiDataSize );
+
+		DbgLog( kLogPlugin, "CPlugInList: Created a new Record Type Restrictions config file since existing one was corrupted" );
+		
+		DSCFRelease(fCFRecordTypeRestrictions);
+		//assume that the XML blob is good since we created it here
+		fCFRecordTypeRestrictions =	(CFDictionaryRef)CFPropertyListCreateFromXMLData( kCFAllocatorDefault,
+									xmlData,
+									kCFPropertyListImmutable, 
+									NULL);
+
+		if ( (configFileURL != NULL) && (xmlData != NULL) )
+		{
+			//write the XML to the config file
+			siResult = CFURLWriteDataAndPropertiesToResource( configFileURL,
+																xmlData,
+																NULL,
+																&errorCode);
+			if (siResult == eDSNoErr)
+			{
+				chmod( kRecTypeRestrictionsFilePath, S_IRUSR | S_IWUSR );
+			}
+		}
+		DSCFRelease(xmlData);
+	}
+	
+	DSCFRelease(configFileURL); // seems okay to dealloc since Create used and done with it now
+    
+	DSCFRelease(configFileCorruptedURL); // seems okay to dealloc since Create used and done with it now
+	
+	fMutex.SignalLock();
+
+    return( siResult );
+
+} // ReadRecordTypeRestrictions
+
+// ---------------------------------------------------------------------------
+//	* CreatePrefDirectory
+// ---------------------------------------------------------------------------
+
+bool CPlugInList::CreatePrefDirectory( void )
+{
+	int			siResult			= eDSNoErr;
+    struct stat statResult;
+	
+	DbgLog( kLogPlugin, "CPlugInList: Checking for Record Type Restrictions config file:" );
+	DbgLog( kLogPlugin, "CPlugInList: %s", kRecTypeRestrictionsFilePath );
+	
+	//step 1- see if the file exists
+	//if not then make sure the directories exist or create them
+	//then create a new file if necessary
+	siResult = ::stat( kRecTypeRestrictionsFilePath, &statResult );
+	
+	//if file does not exist
+	if (siResult != eDSNoErr)
+		siResult = dsCreatePrefsDirectory();
+		
+	return (siResult == 0);
+	
+} //CreatePrefDirectory
+
+    
+// ---------------------------------------------------------------------------
+//	* IsOKToServiceQuery
+// ---------------------------------------------------------------------------
+
+bool CPlugInList::IsOKToServiceQuery( const char *inPluginName, const char *inNodeName, const char *inRecordTypeList, UInt32 inNumberRecordTypes )
+{
+	bool isOK = true;
+	
+	if (inRecordTypeList == NULL) //can't see this ever happening as we check before calling this routine
+		return(isOK);
+	
+	fMutex.WaitLock();
+	
+	if (fCFRecordTypeRestrictions != NULL && inPluginName != NULL)
+	{
+		CFStringRef cfPluginName = NULL;
+		cfPluginName = CFStringCreateWithCString( kCFAllocatorDefault, inPluginName, kCFStringEncodingUTF8 );
+		if ( CFDictionaryContainsKey( fCFRecordTypeRestrictions, cfPluginName ) ) //plugin entry is in the dictionary
+		{
+			CFDictionaryRef cfPluginRestrictions = NULL;
+			cfPluginRestrictions = (CFDictionaryRef)CFDictionaryGetValue( fCFRecordTypeRestrictions, cfPluginName );
+			if (inNodeName != NULL) //we have a node name that we can check for
+			{
+				CFStringRef cfNodeName = NULL;
+				cfNodeName = CFStringCreateWithCString( kCFAllocatorDefault, inNodeName, kCFStringEncodingUTF8 );
+				bool useRestrictions = false;
+				if ( CFDictionaryContainsKey( cfPluginRestrictions, cfNodeName ) ) //nodename entry is in the dictionary
+				{
+					useRestrictions = true;
+				}
+				else if ( CFDictionaryContainsKey( cfPluginRestrictions, CFSTR("General") ) ) //General entry is in the dictionary
+				{
+					DSCFRelease(cfNodeName);
+					cfNodeName = CFStringCreateWithCString( kCFAllocatorDefault, "General", kCFStringEncodingUTF8 );
+					useRestrictions = true;
+				}
+				
+				if (useRestrictions)
+				{
+					//the record type list requested
+					CFStringRef cfRecordTypeList = NULL;
+					cfRecordTypeList = CFStringCreateWithCString( kCFAllocatorDefault, inRecordTypeList, kCFStringEncodingUTF8 );
+
+					//get the restrictions dictionary
+					CFDictionaryRef cfRestrictions = NULL;
+					cfRestrictions = (CFDictionaryRef)CFDictionaryGetValue( cfPluginRestrictions, cfNodeName );
+
+					if ( CFDictionaryContainsKey( cfRestrictions, CFSTR(kRTRAllowKey) ) ) //Allow record type entry is in the dictionary
+					{
+						isOK = false; //init to false since we look over allowed record types
+						
+						//get the allow record type array
+						CFArrayRef cfAllowRecordTypes = NULL;
+						cfAllowRecordTypes = (CFArrayRef)CFDictionaryGetValue( cfRestrictions, CFSTR(kRTRAllowKey) );
+						
+						CFIndex cfNumberRecordTypesInArray = CFArrayGetCount( cfAllowRecordTypes );
+						UInt32 countMatchesFound = 0;
+						for( CFIndex i = 0; i<cfNumberRecordTypesInArray; i++ )
+						{
+							CFStringRef cfRecordType = (CFStringRef)CFArrayGetValueAtIndex( cfAllowRecordTypes, i );
+							//if cfRecordType is contained within cfRecordTypeList
+							if (CFStringFindWithOptions(cfRecordTypeList, cfRecordType, CFRangeMake( 0, CFStringGetLength( cfRecordTypeList )), kCFCompareCaseInsensitive, NULL))
+							{
+								countMatchesFound++;
+								//confirm that inNumberRecordTypes is equal to countMatchesFound
+								if (inNumberRecordTypes == countMatchesFound)
+								{
+									isOK = true;
+									break;
+								}
+							}
+						}
+					}
+					//check for Deny list ONLY if Allow list is NOT present
+					else if ( CFDictionaryContainsKey( cfRestrictions, CFSTR(kRTRDenyKey) ) ) //Deny record type entry is in the dictionary
+					{
+						//get the deny record type array
+						CFArrayRef cfDenyRecordTypes = NULL;
+						cfDenyRecordTypes = (CFArrayRef)CFDictionaryGetValue( cfRestrictions, CFSTR(kRTRDenyKey) );
+						
+						CFIndex cfNumberRecordTypesInArray = CFArrayGetCount( cfDenyRecordTypes );
+						for( CFIndex i = 0; i<cfNumberRecordTypesInArray; i++ )
+						{
+							CFStringRef cfRecordType = (CFStringRef)CFArrayGetValueAtIndex( cfDenyRecordTypes, i );
+							//if cfRecordType is contained within cfRecordTypeList
+							if (CFStringFindWithOptions(cfRecordTypeList, cfRecordType, CFRangeMake( 0, CFStringGetLength( cfRecordTypeList )), kCFCompareCaseInsensitive, NULL))
+							{
+								isOK = false; //first match we break out
+								break;
+							}
+						}
+					}
+					
+					DSCFRelease(cfRecordTypeList);
+				}
+				DSCFRelease(cfNodeName);
+			}
+		}
+		DSCFRelease(cfPluginName);
+	}
+	
+	fMutex.SignalLock();
+
+	return(isOK);
+	
+} // IsOKToServiceQuery
+
+
+CPlugInList::sTableData* CPlugInList::MakeTableEntryCopy( sTableData *inEntry )
+{
+	//to be used only for lazy loading
+	sTableData* outEntry = nil;
+
+	if (inEntry == nil )
+		return(nil);
+
+	outEntry = (sTableData*)calloc(1, sizeof(sTableData));
+
+	//next four const char do not change so no need to strdup
+	outEntry->fName = inEntry->fName;
+	outEntry->fVersion = inEntry->fVersion;
+	outEntry->fConfigAvail = inEntry->fConfigAvail;
+	outEntry->fConfigFile = inEntry->fConfigFile;
+	outEntry->fPluginPtr = inEntry->fPluginPtr;
+	outEntry->fPluginRef = inEntry->fPluginRef;
+	outEntry->fCFuuidFactory = inEntry->fCFuuidFactory;
+	outEntry->fULVers = inEntry->fULVers;
+	outEntry->fKey = inEntry->fKey;
+	outEntry->fState = inEntry->fState;
+	outEntry->fValidDataStamp = inEntry->fValidDataStamp;
+	outEntry->pNext = nil;
+
+	return(outEntry);
+}

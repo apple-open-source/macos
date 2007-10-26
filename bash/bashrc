@@ -1,4 +1,8 @@
 # System-wide .bashrc file for interactive bash(1) shells.
-if [ -n "$PS1" ]; then PS1='\h:\w \u\$ '; fi
-# Make bash check it's window size after a process completes
+if [ -z "$PS1" ]; then
+   return
+fi
+
+PS1='\h:\W \u\$ '
+# Make bash check its window size after a process completes
 shopt -s checkwinsize

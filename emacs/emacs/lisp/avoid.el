@@ -1,6 +1,7 @@
 ;;; avoid.el --- make mouse pointer stay out of the way of editing
 
-;;; Copyright (C) 1993, 1994, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 1994, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Boris Goldowsky <boris@gnu.org>
 ;; Keywords: mouse
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -52,7 +53,7 @@
 ;;
 ;; Bugs / Warnings / To-Do:
 ;;
-;; - Using this code does slow emacs down.  "banish" mode shouldn't
+;; - Using this code does slow Emacs down.  "banish" mode shouldn't
 ;;   be too bad, and on my workstation even "animate" is reasonable.
 ;;
 ;; - It ought to find out where any overlapping frames are and avoid them,
@@ -96,7 +97,7 @@ use either \\[customize] or the function `mouse-avoidance-mode'."
 
 (defcustom mouse-avoidance-nudge-dist 15
   "*Average distance that mouse will be moved when approached by cursor.
-Only applies in mouse-avoidance-mode `jump' and its derivatives.
+Only applies in Mouse-Avoidance mode `jump' and its derivatives.
 For best results make this larger than `mouse-avoidance-threshold'."
   :type 'integer
   :group 'avoid)
@@ -123,6 +124,7 @@ Only applies in mouse-avoidance-modes `animate' and `jump'."
 (defvar mouse-avoidance-pointer-shapes nil)
 (defvar mouse-avoidance-n-pointer-shapes 0)
 (defvar mouse-avoidance-old-pointer-shape nil)
+(defvar mouse-avoidance-animating-pointer nil)
 
 ;; This timer is used to run something when Emacs is idle.
 (defvar mouse-avoidance-timer nil)
@@ -137,24 +139,14 @@ Only applies in mouse-avoidance-modes `animate' and `jump'."
 
 (defun mouse-avoidance-point-position ()
   "Return the position of point as (FRAME X . Y).
-Analogous to mouse-position."
-  (let* ((w (selected-window))
-	 (edges (window-edges w))
-	 (list
-	  (compute-motion (max (window-start w) (point-min))   ; start pos
-			  ;; window-start can be < point-min if the
-			  ;; latter has changed since the last redisplay
-			  '(0 . 0)	                       ; start XY
-			  (point)	                       ; stop pos
-			  (cons (window-width) (window-height)); stop XY: none
-			  (1- (window-width))                  ; width
-			  (cons (window-hscroll w) 0)          ; 0 may not be right?
-			  (selected-window))))
-    ;; compute-motion returns (pos HPOS VPOS prevhpos contin)
-    ;; we want:               (frame hpos . vpos)
+Analogous to `mouse-position'."
+  (let ((edges (window-inside-edges))
+	(x-y (posn-x-y (posn-at-point))))
     (cons (selected-frame)
-	  (cons (+ (car edges)       (car (cdr list)))
-		(+ (car (cdr edges)) (car (cdr (cdr list))))))))
+	  (cons (+ (car edges)
+		   (/ (car x-y) (frame-char-width)))
+		(+ (car (cdr edges))
+		   (/ (cdr x-y) (frame-char-height)))))))
 
 ;(defun mouse-avoidance-point-position-test ()
 ;  (interactive)
@@ -194,10 +186,11 @@ Acceptable distance is defined by `mouse-avoidance-threshold'."
 		mouse-avoidance-threshold))))))
 
 (defun mouse-avoidance-banish-destination ()
-  "The position to which mouse-avoidance-mode `banish' moves the mouse.
+  "The position to which Mouse-Avoidance mode `banish' moves the mouse.
 You can redefine this if you want the mouse banished to a different corner."
- (cons (1- (frame-width))
-       0))
+  (let* ((pos (window-edges)))
+    (cons (- (nth 2 pos) 2)
+	  (nth 1 pos))))
 
 (defun mouse-avoidance-banish-mouse ()
   ;; Put the mouse pointer in the upper-right corner of the current frame.
@@ -225,37 +218,45 @@ You can redefine this if you want the mouse banished to a different corner."
 	  (t 0))))
 
 (defun mouse-avoidance-nudge-mouse ()
-  ;; Push the mouse a little way away, possibly animating the move
+  ;; Push the mouse a little way away, possibly animating the move.
   ;; For these modes, state keeps track of the total offset that we've
   ;; accumulated, and tries to keep it close to zero.
   (let* ((cur (mouse-position))
 	 (cur-frame (car cur))
 	 (cur-pos (cdr cur))
+ 	 (pos (window-edges))
+ 	 (wleft (pop pos))
+ 	 (wtop (pop pos))
+ 	 (wright (pop pos))
+ 	 (wbot (pop pos))
 	 (deltax (mouse-avoidance-delta
 		  (car cur-pos) (- (random mouse-avoidance-nudge-var)
 				   (car mouse-avoidance-state))
 		  mouse-avoidance-nudge-dist mouse-avoidance-nudge-var
-		  0 (frame-width)))
+		  wleft (1- wright)))
 	 (deltay (mouse-avoidance-delta
 		  (cdr cur-pos) (- (random mouse-avoidance-nudge-var)
 				   (cdr mouse-avoidance-state))
 		  mouse-avoidance-nudge-dist mouse-avoidance-nudge-var
-		  0 (frame-height))))
+		  wtop (1- wbot))))
     (setq mouse-avoidance-state
 	  (cons (+ (car mouse-avoidance-state) deltax)
 		(+ (cdr mouse-avoidance-state) deltay)))
     (if (or (eq mouse-avoidance-mode 'animate)
 	    (eq mouse-avoidance-mode 'proteus))
-	(let ((i 0.0))
+	(let ((i 0.0)
+	      (incr (max .1 (/ 1.0 mouse-avoidance-nudge-dist))))
+	  (setq mouse-avoidance-animating-pointer t)
 	  (while (<= i 1)
 	    (mouse-avoidance-set-mouse-position
 	     (cons (+ (car cur-pos) (round (* i deltax)))
 		   (+ (cdr cur-pos) (round (* i deltay)))))
-    	    (setq i (+ i (max .1 (/ 1.0 mouse-avoidance-nudge-dist))))
+    	    (setq i (+ i incr))
 	    (if (eq mouse-avoidance-mode 'proteus)
 		(mouse-avoidance-set-pointer-shape
 		 (mouse-avoidance-random-shape)))
-	    (sit-for mouse-avoidance-animation-delay)))
+	    (sit-for mouse-avoidance-animation-delay))
+	  (setq mouse-avoidance-animating-pointer nil))
       (mouse-avoidance-set-mouse-position (cons (+ (car (cdr cur)) deltax)
 						(+ (cdr (cdr cur)) deltay))))))
 
@@ -277,33 +278,34 @@ redefine this function to suit your own tastes."
   (nth (random mouse-avoidance-n-pointer-shapes)
        mouse-avoidance-pointer-shapes))
 
-(defun mouse-avoidance-banish-hook ()
-  (if (and (not executing-kbd-macro)	; don't check inside macro
-	   (cadr (mouse-position))      ; don't move unless in an Emacs frame
-	   ;; Don't do anything if last event was a mouse event.
-	   (not (and (consp last-input-event)
-		     (symbolp (car last-input-event))
-		     (let ((modifiers (event-modifiers (car last-input-event))))
-		       (or (memq (car last-input-event)
-				 '(mouse-movement scroll-bar-movement))
-			   (memq 'click modifiers)
-			   (memq 'drag modifiers)
-			   (memq 'down modifiers))))))
+(defun mouse-avoidance-ignore-p ()
+  (let ((mp (mouse-position)))
+    (or executing-kbd-macro	       ; don't check inside macro
+	(null (cadr mp))	       ; don't move unless in an Emacs frame
+	(not (eq (car mp) (selected-frame)))
+	;; Don't do anything if last event was a mouse event.
+	;; FIXME: this code fails in the case where the mouse was moved
+	;; since the last key-press but without generating any event.
+	(and (consp last-input-event)
+	     (symbolp (car last-input-event))
+	     (let ((modifiers (event-modifiers (car last-input-event))))
+	       (or (memq (car last-input-event)
+			 '(mouse-movement scroll-bar-movement
+			   select-window switch-frame))
+		   (memq 'click modifiers)
+		   (memq 'double modifiers)
+		   (memq 'triple modifiers)
+		   (memq 'drag modifiers)
+		   (memq 'down modifiers)))))))
+
+(defun mouse-avoidance-banish ()
+  (if (not (mouse-avoidance-ignore-p))
       (mouse-avoidance-banish-mouse)))
 
-(defun mouse-avoidance-exile-hook ()
+(defun mouse-avoidance-exile ()
   ;; For exile mode, the state is nil when the mouse is in its normal
   ;; position, and set to the old mouse-position when the mouse is in exile.
-  (if (and (not executing-kbd-macro)
-	   ;; Don't do anything if last event was a mouse event.
-	   (not (and (consp last-input-event)
-		     (symbolp (car last-input-event))
-		     (let ((modifiers (event-modifiers (car last-input-event))))
-		       (or (memq (car last-input-event)
-				 '(mouse-movement scroll-bar-movement))
-			   (memq 'click modifiers)
-			   (memq 'drag modifiers)
-			   (memq 'down modifiers))))))
+  (if (not (mouse-avoidance-ignore-p))
       (let ((mp (mouse-position)))
 	(cond ((and (not mouse-avoidance-state)
 		    (mouse-avoidance-too-close-p mp))
@@ -319,18 +321,10 @@ redefine this function to suit your own tastes."
 	       ;; but clear state anyway, to be ready for another move
 	       (setq mouse-avoidance-state nil))))))
 
-(defun mouse-avoidance-fancy-hook ()
+(defun mouse-avoidance-fancy ()
   ;; Used for the "fancy" modes, ie jump et al.
-  (if (and (not executing-kbd-macro)	; don't check inside macro
-	   ;; Don't do anything if last event was a mouse event.
-	   (not (and (consp last-input-event)
-		     (symbolp (car last-input-event))
-		     (let ((modifiers (event-modifiers (car last-input-event))))
-		       (or (memq (car last-input-event)
-				 '(mouse-movement scroll-bar-movement))
-			   (memq 'click modifiers)
-			   (memq 'drag modifiers)
-			   (memq 'down modifiers)))))
+  (if (and (not mouse-avoidance-animating-pointer)
+	   (not (mouse-avoidance-ignore-p))
 	   (mouse-avoidance-too-close-p (mouse-position)))
       (let ((old-pos (mouse-position)))
 	(mouse-avoidance-nudge-mouse)
@@ -386,14 +380,14 @@ definition of \"random distance\".)"
 	     (eq mode 'animate)
 	     (eq mode 'proteus))
 	 (setq mouse-avoidance-timer
-	       (run-with-idle-timer 0.1 t 'mouse-avoidance-fancy-hook))
+	       (run-with-idle-timer 0.1 t 'mouse-avoidance-fancy))
 	 (setq mouse-avoidance-mode mode
 	       mouse-avoidance-state (cons 0 0)
 	       mouse-avoidance-old-pointer-shape
 	       (and (boundp 'x-pointer-shape) x-pointer-shape)))
 	((eq mode 'exile)
 	 (setq mouse-avoidance-timer
-	       (run-with-idle-timer 0.1 t 'mouse-avoidance-exile-hook))
+	       (run-with-idle-timer 0.1 t 'mouse-avoidance-exile))
 	 (setq mouse-avoidance-mode mode
 	       mouse-avoidance-state nil))
 	((or (eq mode 'banish)
@@ -401,7 +395,7 @@ definition of \"random distance\".)"
 	     (and (null mode) (null mouse-avoidance-mode))
 	     (and mode (> (prefix-numeric-value mode) 0)))
 	 (setq mouse-avoidance-timer
-	       (run-with-idle-timer 0.1 t 'mouse-avoidance-banish-hook))
+	       (run-with-idle-timer 0.1 t 'mouse-avoidance-banish))
 	 (setq mouse-avoidance-mode 'banish))
 	(t (setq mouse-avoidance-mode nil)))
   (force-mode-line-update))
@@ -416,4 +410,5 @@ definition of \"random distance\".)"
 (if mouse-avoidance-mode
     (mouse-avoidance-mode mouse-avoidance-mode))
 
+;; arch-tag: 64ad4ef8-a870-4183-8d96-3aa93b7a6800
 ;;; avoid.el ends here

@@ -47,9 +47,14 @@ void stat_cache_add( const char *full_orig_name, const char *orig_translated_pat
 	TDB_DATA data_val;
 	char *original_path;
 	size_t original_path_length;
+	size_t sc_size = lp_max_stat_cache_size();
 
 	if (!lp_stat_cache())
 		return;
+
+	if (sc_size && (tdb_map_size(tdb_stat_cache) > sc_size*1024)) {
+		reset_stat_cache();
+	}
 
 	ZERO_STRUCT(data_val);
 
@@ -59,7 +64,7 @@ void stat_cache_add( const char *full_orig_name, const char *orig_translated_pat
 
 	if((*full_orig_name == '\0') || (full_orig_name[0] == '.' && 
 				((full_orig_name[1] == '\0') ||
-				 (full_orig_name[1] == '.' && full_orig_name[1] == '\0'))))
+				 (full_orig_name[1] == '.' && full_orig_name[2] == '\0'))))
 		return;
 
 	/*
@@ -131,8 +136,8 @@ void stat_cache_add( const char *full_orig_name, const char *orig_translated_pat
 	if (tdb_store_bystring(tdb_stat_cache, original_path, data_val, TDB_REPLACE) != 0) {
 		DEBUG(0,("stat_cache_add: Error storing entry %s -> %s\n", original_path, translated_path));
 	} else {
-		DEBUG(5,("stat_cache_add: Added entry (%x:size%x) %s -> %s\n",
-			(unsigned int)data_val.dptr, data_val.dsize, original_path, translated_path));
+		DEBUG(5,("stat_cache_add: Added entry (%lx:size%x) %s -> %s\n",
+			(unsigned long)data_val.dptr, (unsigned int)data_val.dsize, original_path, translated_path));
 	}
 
 	SAFE_FREE(original_path);
@@ -280,18 +285,52 @@ BOOL stat_cache_lookup(connection_struct *conn, pstring name, pstring dirpath,
 	}
 }
 
+/***************************************************************************
+ Tell all smbd's to delete an entry.
+**************************************************************************/
+
+void send_stat_cache_delete_message(const char *name)
+{
+#ifdef DEVELOPER
+	message_send_all(conn_tdb_ctx(),
+			MSG_SMB_STAT_CACHE_DELETE,
+			name,
+			strlen(name)+1,
+			True,
+			NULL);
+#endif
+}
+
+/***************************************************************************
+ Delete an entry.
+**************************************************************************/
+
+void stat_cache_delete(const char *name)
+{
+	char *lname = strdup_upper(name);
+
+	if (!lname) {
+		return;
+	}
+	DEBUG(10,("stat_cache_delete: deleting name [%s] -> %s\n",
+			lname, name ));
+
+	tdb_delete_bystring(tdb_stat_cache, lname);
+	SAFE_FREE(lname);
+}
+
 /***************************************************************
  Compute a hash value based on a string key value.
  The function returns the bucket index number for the hashed key.
  JRA. Use a djb-algorithm hash for speed.
 ***************************************************************/
                                                                                                      
-u32 fast_string_hash(TDB_DATA *key)
+unsigned int fast_string_hash(TDB_DATA *key)
 {
-        u32 n = 0;
+        unsigned int n = 0;
         const char *p;
         for (p = key->dptr; *p != '\0'; p++) {
-                n = ((n << 5) + n) ^ (u32)(*p);
+                n = ((n << 5) + n) ^ (unsigned int)(*p);
         }
         return n;
 }

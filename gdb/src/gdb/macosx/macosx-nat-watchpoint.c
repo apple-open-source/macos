@@ -21,14 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-watchpoint.h"
-#include "macosx-nat-dyld.h"
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-mutils.h"
-#include "macosx-nat-sigthread.h"
-#include "macosx-nat-threads.h"
-#include "macosx-xdep.h"
-
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
@@ -39,26 +31,17 @@
 #include "gdbcore.h"
 #include "gdbthread.h"
 
+#include "macosx-nat-watchpoint.h"
+#include "macosx-nat-dyld.h"
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-mutils.h"
+#include "macosx-nat-sigthread.h"
+#include "macosx-nat-threads.h"
+#include "macosx-xdep.h"
+
 #include <AvailabilityMacros.h>
 
-#define MACH64 (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
-
-#if MACH64
-
 #include <mach/mach_vm.h>
-
-#else /* ! MACH64 */
-
-#define mach_vm_size_t vm_size_t
-#define mach_vm_address_t vm_address_t
-#define mach_vm_read vm_read
-#define mach_vm_write vm_write
-#define mach_vm_region vm_region
-#define mach_vm_protect vm_protect
-#define VM_REGION_BASIC_INFO_COUNT_64 VM_REGION_BASIC_INFO_COUNT
-#define VM_REGION_BASIC_INFO_64 VM_REGION_BASIC_INFO
-
-#endif /* MACH64 */
 
 extern macosx_inferior_status *macosx_status;
 
@@ -138,7 +121,7 @@ write_protect_page (int pid, CORE_ADDR page_start)
 {
   mach_vm_address_t r_start;
   mach_vm_size_t r_size;
-  port_t r_object_name;
+  mach_port_t r_object_name;
 
   vm_region_basic_info_data_t r_data;
   mach_msg_type_number_t r_info_size;

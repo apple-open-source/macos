@@ -277,7 +277,10 @@ struct sjlj_lp_info;
 static bool sjlj_find_directly_reachable_regions (struct sjlj_lp_info *);
 static void sjlj_assign_call_site_values (rtx, struct sjlj_lp_info *);
 static void sjlj_mark_call_sites (struct sjlj_lp_info *);
-static void sjlj_emit_function_enter (rtx);
+/* APPLE LOCAL begin ARM 5051776 */
+static rtx  sjlj_generate_setjmp_sequence (rtx, bool);
+static void sjlj_emit_function_setjmps (rtx);
+/* APPLE LOCAL end ARM 5051776 */
 static void sjlj_emit_function_exit (void);
 static void sjlj_emit_dispatch_table (rtx, struct sjlj_lp_info *);
 static void sjlj_build_landing_pads (void);
@@ -1572,14 +1575,20 @@ sjlj_mark_call_sites (struct sjlj_lp_info *lp_info)
 
 /* Construct the SjLj_Function_Context.  */
 
-static void
-sjlj_emit_function_enter (rtx dispatch_label)
+/* APPLE LOCAL begin ARM 5051776 */
+static rtx
+sjlj_generate_setjmp_sequence (rtx dispatch_label, bool unregister_first)
 {
-  rtx fn_begin, fc, mem, seq;
+  rtx fc, mem, seq;
 
   fc = cfun->eh->sjlj_fc;
 
   start_sequence ();
+
+  /* We're reusing the old context, unregister it.  */
+  if (unregister_first == true)
+    emit_library_call (unwind_sjlj_unregister_libfunc, LCT_NORMAL, VOIDmode,
+		       1, XEXP (fc, 0), Pmode);
 
   /* We're storing this libcall's address into memory instead of
      calling it directly.  Thus, we must call assemble_external_libcall
@@ -1626,6 +1635,19 @@ sjlj_emit_function_enter (rtx dispatch_label)
 
   seq = get_insns ();
   end_sequence ();
+  return seq;
+}
+
+/* Insert SjLj_Function_Context at the start of the current function,
+   and following any calls to alloca().  */
+
+static void
+sjlj_emit_function_setjmps (rtx dispatch_label)
+{
+  rtx seq, fn_begin;
+
+  /* Create a new context for this function.  */
+  seq = sjlj_generate_setjmp_sequence (dispatch_label, false);
 
   /* ??? Instead of doing this at the beginning of the function,
      do this in a block that is at loop level 0 and dominates all
@@ -1648,7 +1670,26 @@ sjlj_emit_function_enter (rtx dispatch_label)
 	  break;
       emit_insn_after (seq, fn_begin);
     }
+
+#ifdef TARGET_ARM
+  /* Any time we call alloca(), we need to re-calculate our stack context.
+     Ideally, we would only update a minimal context (i.e., stack pointer),
+     but that is a riskier solution to an uncommon problem.  Someday...  */
+  if (current_function_calls_alloca)
+    {
+      for (fn_begin = get_insns ();
+	   fn_begin;
+	   fn_begin = NEXT_INSN (fn_begin))
+	if (NOTE_P (fn_begin)
+	    && NOTE_LINE_NUMBER (fn_begin) == NOTE_INSN_ALLOCA)
+	  {
+	    seq = sjlj_generate_setjmp_sequence (dispatch_label, true);
+	    emit_insn_after (seq, fn_begin);
+	  }
+    }
+#endif /* defined(TARGET_ARM) */
 }
+/* APPLE LOCAL end ARM 5051776 */
 
 /* Call back from expand_function_end to know where we should put
    the call to unwind_sjlj_unregister_libfunc if needed.  */
@@ -1795,7 +1836,8 @@ sjlj_build_landing_pads (void)
       sjlj_assign_call_site_values (dispatch_label, lp_info);
       sjlj_mark_call_sites (lp_info);
 
-      sjlj_emit_function_enter (dispatch_label);
+      /* APPLE LOCAL ARM 5051776 */
+      sjlj_emit_function_setjmps (dispatch_label);
       sjlj_emit_dispatch_table (dispatch_label, lp_info);
       sjlj_emit_function_exit ();
     }
@@ -3258,6 +3300,11 @@ output_function_exception_table (void)
   targetm.asm_out.exception_section ();
 #endif
 
+  /* APPLE LOCAL begin mainline */
+  /* If the target wants a label to begin the table, emit it here.  */
+  targetm.asm_out.except_table_label (asm_out_file);
+
+  /* APPLE LOCAL end mainline */
   have_tt_data = (VARRAY_ACTIVE_SIZE (cfun->eh->ttype_data) > 0
 		  || VARRAY_ACTIVE_SIZE (cfun->eh->ehspec_data) > 0);
 

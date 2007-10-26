@@ -1,6 +1,6 @@
 dnl checking for kerberos 4 libraries (and DES)
 
-AC_DEFUN(SASL_DES_CHK, [
+AC_DEFUN([SASL_DES_CHK], [
 AC_ARG_WITH(des, [  --with-des=DIR          with DES (look in DIR) [yes] ],
 	with_des=$withval,
 	with_des=yes)
@@ -12,21 +12,38 @@ if test "$with_des" != no; then
     LDFLAGS="$LDFLAGS -L${with_des}/lib"
   fi
 
-  dnl check for openssl installing -lcrypto, then make vanilla check
-  AC_CHECK_LIB(crypto, des_pcbc_encrypt,
-      AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES)
-                                     LIB_DES="-lcrypto";
-                                     with_des=yes],
-                     with_des=no),
-      with_des=no, $LIB_RSAREF)
+  if test "$with_openssl" != no; then
+    dnl check for openssl installing -lcrypto, then make vanilla check
+    AC_CHECK_LIB(crypto, des_cbc_encrypt, [
+        AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
+                                       LIB_DES="-lcrypto";
+                                       with_des=yes],
+                       with_des=no)],
+        with_des=no, $LIB_RSAREF)
+
+    dnl same test again, different symbol name
+    if test "$with_des" = no; then
+      AC_CHECK_LIB(crypto, DES_cbc_encrypt, [
+        AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
+                                       LIB_DES="-lcrypto";
+                                       with_des=yes],
+                       with_des=no)],
+        with_des=no, $LIB_RSAREF)
+    fi
+  fi
 
   if test "$with_des" = no; then
-    AC_CHECK_LIB(des, des_pcbc_encrypt, [LIB_DES="-ldes";
+    AC_CHECK_LIB(des, des_cbc_encrypt, [LIB_DES="-ldes";
                                         with_des=yes], with_des=no)
   fi
 
   if test "$with_des" = no; then
-     AC_CHECK_LIB(des524, des_pcbc_encrypt, [LIB_DES="-ldes524";
+     AC_CHECK_LIB(des425, des_cbc_encrypt, [LIB_DES="-ldes425";
+                                       with_des=yes], with_des=no)
+  fi
+
+  if test "$with_des" = no; then
+     AC_CHECK_LIB(des524, des_cbc_encrypt, [LIB_DES="-ldes524";
                                        with_des=yes], with_des=no)
   fi
 
@@ -40,28 +57,28 @@ if test "$with_des" != no; then
                  LIB_RSAREF="-lRSAglue -lrsaref"; cmu_have_rsaref=yes,
                  cmu_have_rsaref=no)
 
-    AC_CHECK_LIB(crypto, des_pcbc_encrypt, 
-	AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES)
+    AC_CHECK_LIB(crypto, des_cbc_encrypt, [
+	AC_CHECK_HEADER(openssl/des.h, [AC_DEFINE(WITH_SSL_DES,[],[Use OpenSSL DES Implementation])
 					LIB_DES="-lcrypto";
 					with_des=yes],
-			with_des=no), 
+			with_des=no)], 
         with_des=no, $LIB_RSAREF)
   fi
 fi
 
 if test "$with_des" != no; then
-  AC_DEFINE(WITH_DES)
+  AC_DEFINE(WITH_DES,[],[Use DES])
 fi
 
 AC_SUBST(LIB_DES)
 ])
 
-AC_DEFUN(SASL_KERBEROS_V4_CHK, [
+AC_DEFUN([SASL_KERBEROS_V4_CHK], [
   AC_REQUIRE([SASL_DES_CHK])
 
-  AC_ARG_ENABLE(krb4, [  --enable-krb4           enable KERBEROS_V4 authentication [yes] ],
+  AC_ARG_ENABLE(krb4, [  --enable-krb4           enable KERBEROS_V4 authentication [[no]] ],
     krb4=$enableval,
-    krb4=yes)
+    krb4=no)
 
   if test "$krb4" != no; then
     dnl In order to compile kerberos4, we need libkrb and libdes.
@@ -89,23 +106,22 @@ AC_DEFUN(SASL_KERBEROS_V4_CHK, [
     fi
 
     if test "$with_des" != no; then
-      AC_CHECK_HEADER(krb.h,
-        AC_CHECK_LIB(com_err, com_err,
+      AC_CHECK_HEADER(krb.h, [
+        AC_CHECK_LIB(com_err, com_err, [
 	  AC_CHECK_LIB(krb, krb_mk_priv,
-                     [COM_ERR="-lcom_err"; SASL_KRB_LIB="-lkrb"],
-                     krb4=no, $LIB_DES -lcom_err), 
+                     [COM_ERR="-lcom_err"; SASL_KRB_LIB="-lkrb"; krb4lib="yes"],
+                     krb4lib=no, $LIB_DES -lcom_err)], [
     	  AC_CHECK_LIB(krb, krb_mk_priv,
-                     [COM_ERR=""; SASL_KRB_LIB="-lkrb"],
-                     krb4=no, $LIB_DES)))
+                     [COM_ERR=""; SASL_KRB_LIB="-lkrb"; krb4lib="yes"],
+                     krb4lib=no, $LIB_DES)])], krb4="no")
 
-      if test "$krb4" = no; then
-        AC_CHECK_HEADER(krb.h,
-	  AC_CHECK_LIB(krb4, krb_mk_priv,
+      if test "$krb4" != "no" -a "$krb4lib" = "no"; then
+	AC_CHECK_LIB(krb4, krb_mk_priv,
                      [COM_ERR=""; SASL_KRB_LIB="-lkrb4"; krb4=yes],
-                     krb4=no, $LIB_DES))
-        if test "$krb4" = no; then
+                     krb4=no, $LIB_DES)
+      fi
+      if test "$krb4" = no; then
           AC_WARN(No Kerberos V4 found)
-        fi
       fi
     else
       AC_WARN(No DES library found for Kerberos V4 support)
@@ -124,9 +140,10 @@ AC_DEFUN(SASL_KERBEROS_V4_CHK, [
   if test "$krb4" != no; then
     AC_MSG_RESULT(enabled)
     SASL_MECHS="$SASL_MECHS libkerberos4.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/kerberos4.o"
-    AC_DEFINE(STATIC_KERBEROS4)
-    AC_DEFINE(HAVE_KRB)
+    SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/kerberos4.c"
+    SASL_STATIC_OBJS="$SASL_STATIC_OBJS kerberos4.o"
+    AC_DEFINE(STATIC_KERBEROS4,[],[User KERBEROS_V4 Staticly])
+    AC_DEFINE(HAVE_KRB,[],[Do we have Kerberos 4 Support?])
     SASL_KRB_LIB="$SASL_KRB_LIB $LIB_DES $COM_ERR"
   else
     AC_MSG_RESULT(disabled)

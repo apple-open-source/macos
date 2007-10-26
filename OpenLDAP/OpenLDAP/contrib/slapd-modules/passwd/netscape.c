@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/passwd/netscape.c,v 1.1.2.2 2004/07/25 21:52:01 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/contrib/slapd-modules/passwd/netscape.c,v 1.2.2.3 2006/01/03 22:16:02 kurt Exp $ */
 /*
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -12,13 +12,13 @@
  * <http://www.OpenLDAP.org/license.html>.
  */
 
-#include <string.h>
 #include <unistd.h>
 
 #include <lber.h>
 #include <lber_pvt.h>
 #include "lutil.h"
 #include "lutil_md5.h"
+#include <ac/string.h>
 
 static LUTIL_PASSWD_CHK_FUNC chk_ns_mta_md5;
 static const struct berval scheme = BER_BVC("{NS-MTA-MD5}");

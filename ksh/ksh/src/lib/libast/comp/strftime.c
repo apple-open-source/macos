@@ -1,52 +1,37 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * strftime implementation
  */
 
-#define _def_map_ast	1
-
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:hide strftime
-#else
 #define strftime	______strftime
-#endif
 
 #include <ast.h>
 #include <tm.h>
 
-#if defined(__STDPP__directive) && defined(__STDPP__hide)
-__STDPP__directive pragma pp:nohide strftime
-#else
 #undef	strftime
-#endif
 
 #undef	_def_map_ast
-
 #include <ast_map.h>
 
 #undef	_lib_strftime	/* we can pass X/Open */
@@ -68,6 +53,8 @@ strftime(char* buf, size_t len, const char* format, const struct tm* tm)
 	time_t		t;
 	Tm_t		tl;
 
+	memset(&tl, 0, sizeof(tl));
+
 	/*
 	 * nl_langinfo() may call strftime() with bogus tm except for
 	 * one value -- what a way to go
@@ -81,7 +68,6 @@ strftime(char* buf, size_t len, const char* format, const struct tm* tm)
 	    tm->tm_mon < 0 || tm->tm_mon > 11 ||
 	    tm->tm_year < 0 || tm->tm_year > (2138 - 1900))
 	{
-		memset(&tl, 0, sizeof(tl));
 		if (tm->tm_sec >= 0 && tm->tm_sec <= 60)
 			tl.tm_sec = tm->tm_sec;
 		if (tm->tm_min >= 0 && tm->tm_min <= 59)
@@ -96,9 +82,20 @@ strftime(char* buf, size_t len, const char* format, const struct tm* tm)
 			tl.tm_mon = tm->tm_mon;
 		if (tm->tm_year >= 0 && tm->tm_year <= (2138 - 1900))
 			tl.tm_year = tm->tm_year;
-		tm = (const struct tm*)&tl;
 	}
-	t = tmtime((struct tm*)tm, TM_LOCALZONE);
+	else
+	{
+		tl.tm_sec = tm->tm_sec;
+		tl.tm_min = tm->tm_min;
+		tl.tm_hour = tm->tm_hour;
+		tl.tm_mday = tm->tm_mday;
+		tl.tm_mon = tm->tm_mon;
+		tl.tm_year = tm->tm_year;
+		tl.tm_wday = tm->tm_wday;
+		tl.tm_yday = tm->tm_yday;
+		tl.tm_isdst = tm->tm_isdst;
+	}
+	t = tmtime(&tl, TM_LOCALZONE);
 	if (!(s = tmfmt(buf, len, format, &t)))
 		return 0;
 	return s - buf;

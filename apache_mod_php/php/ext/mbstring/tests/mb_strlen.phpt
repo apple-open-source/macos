@@ -93,6 +93,10 @@ echo $r."\n";
 == WRONG PARAMETERS ==
 ERR: Notice
 5
+ERR: Catchable fatal error
 ERR: Notice
 6
 ERR: Warning
+
+
+

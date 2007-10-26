@@ -1,11 +1,11 @@
 /*
  * Compatibility shims with RELENG_4
  *
- * $Id: smb_compat4.c,v 1.18 2004/10/12 23:03:56 lindak Exp $
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
  */
 #include <sys/param.h>
 #include <sys/systm.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/lock.h>
 
 #include <sys/resourcevar.h>
@@ -21,6 +21,25 @@
 #include <netsmb/smb_compat4.h>
 
 /*
+ * The only way to get min cluster size is to make a 
+ * mbuf_stat call. We really only need to do this once
+ * since minclsize is a compile time option.
+ */
+static int minclsize = 0;
+
+static u_long mbuf_minclsize() 
+{
+	struct mbuf_stat stats;
+	
+	if (! minclsize) {
+		mbuf_stats(&stats);
+		minclsize = stats.minclsize;
+	}
+	return minclsize;
+}
+#define MINCLSIZE mbuf_minclsize()
+		
+/*
  * This will allocate len-worth of mbufs and/or mbuf clusters (whatever fits
  * best) and return a pointer to the top of the allocated chain. If m is
  * non-null, then we assume that it is a single mbuf or an mbuf chain to
@@ -31,54 +50,51 @@
  * up everything we have already allocated and return NULL.
  *
  */
-PRIVSYM struct mbuf *
-m_getm(struct mbuf *m, int len, int how, int type)
+PRIVSYM mbuf_t
+smb_mbuf_getm(mbuf_t m, int len, int how, int type)
 {
-	struct mbuf *top, *tail, *mp, *mtail = NULL;
+	mbuf_t top, tail, mp, mtail = NULL;
 
-	KASSERT(len >= 0, ("len is < 0 in m_getm"));
+	KASSERT(len >= 0, ("len is < 0 in smb_mbuf_getm"));
 
-	MGET(mp, how, type);
-	if (mp == NULL)
+	if (mbuf_get(how, type, &mp))
 		return (NULL);
 	else if (len > (int)MINCLSIZE) {
-		MCLGET(mp, how);
-		if ((mp->m_flags & M_EXT) == 0) {
-			m_free(mp);
+		if ((mbuf_mclget(how, type, &mp)) ||
+			((mbuf_flags(mp) & MBUF_EXT) == 0)) {
+			mbuf_free(mp);			
 			return (NULL);
 		}
 	}
-	mp->m_len = 0;
-	len -= M_TRAILINGSPACE(mp);
+	mbuf_setlen(mp, 0);
+	len -= mbuf_trailingspace(mp);
 
 	if (m != NULL)
-		for (mtail = m; mtail->m_next != NULL; mtail = mtail->m_next);
+		for (mtail = m; mbuf_next(mtail) != NULL; mtail = mbuf_next(mtail));
 	else
 		m = mp;
 
 	top = tail = mp;
 	while (len > 0) {
-		MGET(mp, how, type);
-		if (mp == NULL)
+		if (mbuf_get(how, type, &mp))
 			goto failed;
 
-		tail->m_next = mp;
+		mbuf_setnext(tail, mp);
 		tail = mp;
 		if (len > (int)MINCLSIZE) {
-			MCLGET(mp, how);
-			if ((mp->m_flags & M_EXT) == 0)
+			if ((mbuf_mclget(how, type, &mp)) ||
+				((mbuf_flags(mp) & MBUF_EXT) == 0))
 				goto failed;
 		}
-
-		mp->m_len = 0;
-		len -= M_TRAILINGSPACE(mp);
+		mbuf_setlen(mp, 0);
+		len -= mbuf_trailingspace(mp);
 	}
 
 	if (mtail != NULL)
-		mtail->m_next = top;
+		mbuf_setnext(mtail, top);
 	return (m);
 
 failed:
-	m_freem(top);
+	mbuf_freem(top);
 	return (NULL);
 }

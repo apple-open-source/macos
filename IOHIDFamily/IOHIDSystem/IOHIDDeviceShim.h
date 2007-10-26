@@ -64,6 +64,8 @@ public:
     virtual OSNumber * newProductIDNumber() const;
     virtual OSNumber * newLocationIDNumber() const;
     virtual OSString * newSerialNumberString() const;
+    
+    virtual bool       isSeized();
 };
 
 #endif /* !_IOKIT_HID_IOHIDDEVICESHIM_H */

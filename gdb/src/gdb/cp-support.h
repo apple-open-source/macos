@@ -1,5 +1,5 @@
 /* Helper routines for C++ support in GDB.
-   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    Contributed by MontaVista Software.
    Namespace support contributed by David Carlton.
@@ -35,6 +35,7 @@ struct obstack;
 struct block;
 struct objfile;
 struct type;
+struct demangle_component;
 
 /* This struct is designed to store data from using directives.  It
    says that names from namespace INNER should be visible within
@@ -52,7 +53,9 @@ struct using_direct
 
 /* Functions from cp-support.c.  */
 
-extern char *class_name_from_physname (const char *physname);
+extern char *cp_canonicalize_string (const char *string);
+
+extern char *cp_class_name_from_physname (const char *physname);
 
 extern char *method_name_from_physname (const char *physname);
 
@@ -113,8 +116,24 @@ extern void cp_check_possible_namespace_symbols (const char *name,
 
 struct type *cp_lookup_transparent_type (const char *name);
 
+/* Functions from cp-names.y.  */
+
+extern struct demangle_component *cp_demangled_name_to_comp
+  (const char *demangled_name, void **memory_p, const char **errmsg);
+
+extern char *cp_comp_to_string (struct demangle_component *result,
+				int estimated_len);
+
 /* The list of "maint cplus" commands.  */
 
 extern struct cmd_list_element *maint_cplus_cmd_list;
+
+/* Pointer to member function.  Depends on compiler implementation.  */
+
+#if 0 /* should junk this */
+#define METHOD_PTR_IS_VIRTUAL(ADDR)  ((ADDR) & 0x80000000)
+#define METHOD_PTR_FROM_VOFFSET(OFFSET) (0x80000000 + (OFFSET))
+#define METHOD_PTR_TO_VOFFSET(ADDR) (~0x80000000 & (ADDR))
+#endif
 
 #endif /* CP_SUPPORT_H */

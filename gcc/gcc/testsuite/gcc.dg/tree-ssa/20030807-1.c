@@ -23,7 +23,8 @@ struct rtx_def
 static int *uid_cuid;
 static int max_uid_cuid;
 
-static rtx
+/* APPLE LOCAL mainline 4840357 */
+rtx
 bar (rtx r)
 {
   rtx place = r;

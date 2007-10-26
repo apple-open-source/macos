@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -69,7 +69,7 @@ public:
 
     UVector32(int32_t initialCapacity, UErrorCode &status);
 
-    ~UVector32();
+    virtual ~UVector32();
 
     /**
      * Assign this object to another (make this a copy of 'other').
@@ -163,15 +163,11 @@ public:
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
-     *
-     * @draft ICU 2.2
      */
     static UClassID U_EXPORT2 getStaticClassID();
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
-     *
-     * @draft ICU 2.2
      */
     virtual UClassID getDynamicClassID() const;
 
@@ -264,7 +260,7 @@ inline UBool UVector32::operator!=(const UVector32& other) {
 
 inline int32_t *UVector32::getBuffer() const {
     return elements;
-};
+}
 
 
 // UStack inlines

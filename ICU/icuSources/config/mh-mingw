@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 ## Cygwin/MinGW specific setup
-## Copyright (c) 2001-2004, International Business Machines Corporation and
+## Copyright (c) 2001-2006, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 # TODO: Finish the rest of this port. This platform port is incomplete.
@@ -29,8 +29,9 @@ SHAREDLIBCXXFLAGS =
 SHAREDLIBCPPFLAGS = -DPIC
 
 ## Additional flags when building libraries and with threads
-LIBCPPFLAGS = -D_REENTRANT
-THREADSCPPFLAGS = -D_REENTRANT
+THREADSCFLAGS = -mthreads
+THREADSCXXFLAGS = -mthreads
+LIBCPPFLAGS =
 
 # Commands to link. Link with C++ in case static libraries are used.
 LINK.c=       $(CXX) $(CXXFLAGS) $(LDFLAGS)
@@ -58,7 +59,7 @@ LIBSICU = $(STATIC_PREFIX)$(ICUPREFIX)
 A = lib
 
 ## An import library is needed for z/OS and MSVC
-IMPORT_LIB_EXT = .lib
+#IMPORT_LIB_EXT = .lib
 
 LIBPREFIX=
 
@@ -70,9 +71,9 @@ LIBICU = $(STATIC_PREFIX_WHEN_USED)$(ICUPREFIX)
 
 # The #M# is used to delete lines for icu-config
 # Current full path directory.
-CURR_FULL_DIR=$(shell cygpath -dma .)#M#
+CURR_FULL_DIR=$(shell pwd -W)#M#
 # Current full path directory for use in source code in a -D compiler option.
-CURR_SRCCODE_FULL_DIR=$(subst \,\\\\,$(shell cygpath -da .))#M#
+CURR_SRCCODE_FULL_DIR=$(subst /,\\\\,$(shell pwd -W))#M#
 
 ## Compilation rules
 %.$(STATIC_O): $(srcdir)/%.c
@@ -90,12 +91,12 @@ CURR_SRCCODE_FULL_DIR=$(subst \,\\\\,$(shell cygpath -da .))#M#
 %.d: $(srcdir)/%.c
 	@echo "generating dependency information for $<"
 	@echo -n "$@ " > $@
-	@$(SHELL) -ec '$(GEN_DEPS.c) $< >> $@; [ -s $@ ] || rm -f $@'
+	@$(GEN_DEPS.c) $< >> $@ || (rm -f $@ && FALSE)
 
 %.d: $(srcdir)/%.cpp
 	@echo "generating dependency information for $<"
 	@echo -n "$@ " > $@
-	@$(SHELL) -ec '$(GEN_DEPS.cc) $< >> $@; [ -s $@ ] || rm -f $@'
+	@$(GEN_DEPS.cc) $< >> $@ || (rm -f $@ && FALSE)
 
 ## Versioned target for a shared library.
 ## Since symbolic links don't work the same way on Windows,
@@ -106,8 +107,8 @@ MIDDLE_SO_TARGET=$(FINAL_SO_TARGET)
 
 ## Special pkgdata information that is needed
 PKGDATA_VERSIONING = -r $(SO_TARGET_VERSION_MAJOR)
-ICUPKGDATA_INSTALL_DIR = $(shell cygpath -dma $(DESTDIR)$(ICUPKGDATA_DIR))#M#
-ICUPKGDATA_INSTALL_LIBDIR = $(shell cygpath -dma $(DESTDIR)$(libdir))#M#
+#ICUPKGDATA_INSTALL_DIR = $(shell cygpath -dma $(DESTDIR)$(ICUPKGDATA_DIR))#M#
+#ICUPKGDATA_INSTALL_LIBDIR = $(shell cygpath -dma $(DESTDIR)$(libdir))#M#
 
 ## Versioned libraries rules
 #%$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)

@@ -319,9 +319,9 @@ ssh_connect(const char *host, struct sockaddr_storage * hostaddr,
 	hints.ai_family = family;
 	hints.ai_socktype = SOCK_STREAM;
 	snprintf(strport, sizeof strport, "%u", port);
-	if ((gaierr = getaddrinfo(host, strport, &hints, &aitop)) != 0)
-		fatal("%s: %.100s: %s", __progname, host,
-		    gai_strerror(gaierr));
+	if ((gaierr = getaddrinfo(host, strport, &hints, &aitop)) != 0) {
+		fatal("%s: Error resolving hostname %.100s: %s", __progname, host, (EAI_SYSTEM == gaierr) ? strerror(errno) : gai_strerror(gaierr));
+	}
 
 	for (attempt = 0; attempt < connection_attempts; attempt++) {
 		if (attempt > 0) {

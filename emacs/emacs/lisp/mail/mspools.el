@@ -1,9 +1,10 @@
 ;;; mspools.el --- show mail spools waiting to be read
 
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stephen Eglen <stephen@anc.ed.ac.uk>
-;; Maintainer: Stephen Eglen <stephen@anc.ed.ac.uk>
+;; Author: Stephen Eglen <stephen@gnu.org>
+;; Maintainer: Stephen Eglen <stephen@gnu.org>
 ;; Created: 22 Jan 1997
 ;; Keywords: mail
 ;; location: http://www.anc.ed.ac.uk/~stephen/emacs/
@@ -22,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -109,6 +110,14 @@
 ;; Shrink wrap the buffer to remove excess white-space?
 
 ;;; Code:
+
+(defvar rmail-inbox-list)
+(defvar vm-crash-box)
+(defvar vm-folder-directory)
+(defvar vm-init-file)
+(defvar vm-init-file-loaded)
+(defvar vm-primary-inbox)
+(defvar vm-spool-files)
 
 ;;; User Variables
 
@@ -196,7 +205,7 @@ your primary spool is.  If this fails, set it to something like
 	   mspools-vm-system-mail	; your mailbox
 	   vm-crash-box			;crash for mailbox
 	   ))
-    
+
     ;; Mailing list inboxes
     ;; must have VM already loaded to get vm-folder-directory.
     (mapcar '(lambda (s)
@@ -206,8 +215,8 @@ your primary spool is.  If this fails, set it to something like
 		(concat mspools-folder-directory s "." mspools-suffix)
 		(concat mspools-folder-directory s ".crash")))
 	    ;; So I create a vm-spool-files entry for each of those mail drops
-	    (mapcar 'file-name-sans-extension 
-		    (directory-files mspools-folder-directory nil 
+	    (mapcar 'file-name-sans-extension
+		    (directory-files mspools-folder-directory nil
 				     (format "^[^.]+\\.%s" mspools-suffix)))
 	    ))
    ))
@@ -225,14 +234,14 @@ Buffer is not displayed if SHOW is non-nil."
 	(delete-region (point-min) (point-max)))
     ;; else buffer doesn't exist so create it
     (get-buffer-create mspools-buffer))
-  
+
   ;; generate the list of spool files
   (if mspools-using-vm
       (mspools-set-vm-spool-files))
-  
+
   (mspools-get-spool-files)
   (if (not noshow) (pop-to-buffer mspools-buffer))
-  
+
   (setq buffer-read-only t)
   (mspools-mode)
   )
@@ -244,9 +253,9 @@ Buffer is not displayed if SHOW is non-nil."
     (setq spool-name (mspools-get-spool-name))
     (if (null spool-name)
 	(message "No spool on current line")
-      
+
       (setq folder-name (mspools-get-folder-from-spool spool-name))
-      
+
       ;; put in a little "*" to indicate spool file has been read.
       (if (not mspools-update)
 	  (save-excursion
@@ -266,7 +275,7 @@ Buffer is not displayed if SHOW is non-nil."
 	  (next-line (- 1 mspools-files-len)) ;back to top of list
 	;; else just on to next line
 	(next-line 1))
-      
+
       ;; Choose whether to use VM or RMAIL for reading folder.
       (if mspools-using-vm
 	  (vm-visit-folder (concat mspools-folder-directory folder-name))
@@ -275,8 +284,8 @@ Buffer is not displayed if SHOW is non-nil."
 	(setq rmail-inbox-list
 	      (list (concat mspools-folder-directory spool-name)))
 	(rmail-get-new-mail))
-      
-      
+
+
       (if mspools-update
 	  ;; generate new list of spools.
 	  (save-excursion
@@ -313,7 +322,7 @@ Buffer is not displayed if SHOW is non-nil."
 (if mspools-mode-map
     ()
   (setq mspools-mode-map (make-sparse-keymap))
-  
+
   (define-key mspools-mode-map "\C-c\C-c" 'mspools-visit-spool)
   (define-key mspools-mode-map "\C-m" 'mspools-visit-spool)
   (define-key mspools-mode-map " " 'mspools-visit-spool)
@@ -334,7 +343,7 @@ Buffer is not displayed if SHOW is non-nil."
 nil."
   (interactive)
   (mspools-show noshow))
-  
+
 (defun mspools-help ()
   "Show help for `mspools-mode'."
   (interactive)
@@ -357,7 +366,7 @@ nil."
   (use-local-map mspools-mode-map)
   (setq major-mode 'mspools-mode)
   (setq mode-name "MSpools")
-  )
+  (run-mode-hooks 'mspools-mode-hook))
 
 (defun mspools-get-spool-files ()
   "Find the list of spool files and display them in *spools* buffer."
@@ -404,4 +413,5 @@ nil."
 
 (provide 'mspools)
 
+;;; arch-tag: 8990b3ee-68c8-4892-98f1-51a735c8bac6
 ;;; mspools.el ends here

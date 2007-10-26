@@ -40,6 +40,13 @@
 
 #define MAX_USERNAME 65
 
+#if defined(__APPLE__) && defined(__MACH__)
+#include <hfs/hfs_mount.h>	/* XXX */
+#define FILE_OWNER_OK(UID)  ((UID) == 0 || (UID) == UNKNOWNUID)
+#else
+#define FILE_OWNER_OK(UID)  ((UID) == 0)
+#endif
+
 /*
  * Given a Kerberos principal "principal", and a local username "luser",
  * determine whether user is authorized to login according to the
@@ -74,21 +81,9 @@ krb5_kuserok(krb5_context context, krb5_principal principal, const char *luser)
     int gobble;
 
     /* no account => no access */
-#ifdef HAVE_GETPWNAM_R
     char pwbuf[BUFSIZ];
     struct passwd pwx;
-#if !defined(GETPWNAM_R_4_ARGS)
-    /* POSIX */
-    if (getpwnam_r(luser, &pwx, pwbuf, sizeof(pwbuf), &pwd) != 0)
-	pwd = NULL;
-#else
-    /* draft POSIX */
-    pwd = getpwnam_r(luser, &pwx, pwbuf, sizeof(pwbuf));
-#endif
-#else
-    pwd = getpwnam(luser);
-#endif
-    if (pwd == NULL)
+    if (k5_getpwnam_r(luser, &pwx, pwbuf, sizeof(pwbuf), &pwd) != 0)
 	return(FALSE);
     (void) strncpy(pbuf, pwd->pw_dir, sizeof(pbuf) - 1);
     pbuf[sizeof(pbuf) - 1] = '\0';
@@ -124,7 +119,7 @@ krb5_kuserok(krb5_context context, krb5_principal principal, const char *luser)
 	free(princname);
 	return(FALSE);
     }
-    if ((sbuf.st_uid != pwd->pw_uid) && sbuf.st_uid) {
+    if (sbuf.st_uid != pwd->pw_uid && !FILE_OWNER_OK(sbuf.st_uid)) {
 	fclose(fp);
 	free(princname);
 	return(FALSE);

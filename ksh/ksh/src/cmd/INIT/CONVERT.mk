@@ -1,15 +1,16 @@
 /*
  * {automake|configure} => {nmake|iffe} conversion support
  *
- * The first command line target overrides the default original
- * source directory name $(MAKEFILE:D:B:S=.old) (usually a symlink.)
- * The hard work is in the makefile using these assertions, since it
- * must (manually) provide the nmake makefiles and config equivalent
- * iffe scripts. The conversion makefile is typically named
- * lib/package/PACKAGE.cvt in an ast package $PACKAGEROOT directory,
+ * The first command line target overrides the default original source
+ * directory name $(MAKEFILE:D). The hard work is in the makefile using
+ * these assertions, since it must (manually) provide the nmake makefiles
+ * and config equivalent iffe scripts. The conversion makefile is typically
+ * named lib/package/PACKAGE.cvt in an ast package $PACKAGEROOT directory,
  * and the conversion is run from the $PACKAGEROOT directory, e.g.:
  *
- *	nmake -f lib/package/PACKAGE.cvt
+ *	nmake -I lib/package -f PACKAGE-VERSION/PACKAGE.cvt
+ *
+ * The conversion requires the ast nmake, pax and tw commands.
  *
  * After the conversion you will be liberated from ./configure, *.in,
  * *.am, automake, autom4te, libtool, make depend, and makefile
@@ -86,7 +87,7 @@
  *	    variable expansion
  */
 
-.CONVERT.ID. = "@(#)$Id: CONVERT (AT&T Research) 2004-02-26 $"
+.CONVERT.ID. = "@(#)$Id: CONVERT (AT&T Research) 2004-03-19 $"
 
 set nojobs noscan nowriteobject writestate=$$(MAKEFILE).ms
 
@@ -94,12 +95,12 @@ package = $(PWD:B)
 here = !-=-=-=-=-!
 hierarchy = src src/cmd src/lib
 omit = .*|*.?(l)[ao]
-original = $(MAKEFILE:D:B:S=.old)
+original = $(MAKEFILE:D)
 showedit = $(-debug:?p??)
 
 CPFLAGS = -u
 PAXFLAGS = -u -v
-STDEDFLAGS = -h
+STDEDFLAGS = -
 TW = tw
 TWFLAGS = -CP
 

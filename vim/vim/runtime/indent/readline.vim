@@ -1,47 +1,35 @@
-" Maintainer	: Nikolai 'pcp' Weibull <da.box@home.se>
-" URL		: http://www.pcppopper.org/
-" Revised on	: Tue, 28 Aug 2001 14:38:52 +0200
-" Language	: readline configuration file
+" Vim indent file
+" Language:	    readline configuration file
+" Maintainer:       Nikolai Weibull <now@bitwi.se>
+" Latest Revision:  2006-04-19
 
-" Only load this indent file when no other was loaded.
 if exists("b:did_indent")
-    finish
+  finish
 endif
-
 let b:did_indent = 1
 
 setlocal indentexpr=GetReadlineIndent()
 setlocal indentkeys=!^F,o,O,=$else,=$endif
 
-" Only define the function once.
 if exists("*GetReadlineIndent")
-    finish
+  finish
 endif
 
 function GetReadlineIndent()
-    let lnum = prevnonblank(v:lnum - 1)
+  let lnum = prevnonblank(v:lnum - 1)
+  if lnum == 0
+    return 0
+  endif
 
-    if lnum == 0
-	return 0
-    endif
+  let ind = indent(lnum)
 
-    let line	= getline(lnum)
-    let ind	= indent(lnum)
+  if getline(lnum) =~ '^\s*$\(if\|else\)\>'
+    let ind = ind + &sw
+  endif
 
-    " increase indent if previous line started with $if or $else
-    if  line =~ '^\s*$\(if\|else\)\>'
-	let ind = ind + &sw
-    endif
+  if getline(v:lnum) =~ '^\s*$\(else\|endif\)\>'
+    let ind = ind - &sw
+  endif
 
-    let line	= getline(v:lnum)
-
-    " decrease indent if this line starts with $else or $endif
-    if line =~ '^\s*$\(else\|endif\)\>'
-	let ind = ind - &sw
-    endif
-
-    return ind
+  return ind
 endfunction
-
-" vim: set sw=4 sts=4:
-

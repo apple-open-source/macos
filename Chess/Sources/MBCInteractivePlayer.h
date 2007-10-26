@@ -2,7 +2,7 @@
 	File:		MBCInteractivePlayer.h
 	Contains:	An agent representing a local human player
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCInteractivePlayer.h,v $
+		Revision 1.9  2007/01/17 06:10:13  neerache
+		Make last move / hint speakable <rdar://problem/4510483>
+		
 		Revision 1.8  2004/08/16 07:50:55  neerache
 		Support accessibility
 		
@@ -82,6 +85,12 @@
 // If we recognize a move, we have to broadcast it
 //
 - (void) recognized:(SRRecognitionResult)result;
+
+//
+// Announce hint / last move
+//
+- (void) announceHint:(MBCMove *) move;
+- (void) announceLastMove:(MBCMove *) move;
 
 @end
 

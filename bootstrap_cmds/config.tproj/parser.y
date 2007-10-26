@@ -126,11 +126,28 @@ char	*temp_id;
 char	*val_id;
 /* char	*malloc(); */
 
+int yylex(void);
+
+int finddev(dev_t dev);
+int alreadychecked(dev_t dev, dev_t list[], dev_t *last);
+void deverror(const char *systemname, const char *devtype);
+void mkconf(char *sysname);
+struct file_list *newswap(void);
+void mkswap(struct file_list *syslist, struct file_list *fl, int size);
+struct device *huhcon(const char *dev);
+void check_nexus(struct device *dev, int num);
+void check_slot(struct device *dev, int num);
+void checksystemspec(struct file_list *fl);
+void verifysystemspecs(void);
+dev_t *verifyswap(struct file_list *fl, dev_t checked[], dev_t *pchecked);
+struct device *dconnect(const char *dev, int num);
+void bus_encode(u_int addr, struct device *dp);
+
 %}
 %%
 Configuration:
 	Many_specs
-		= { verifysystemspecs(); }
+		{ verifysystemspecs(); }
 		;
 
 Many_specs:
@@ -141,11 +158,11 @@ Many_specs:
 
 Spec:
 	Device_spec SEMICOLON
-	      = { newdev(&cur); } |
+	      { newdev(&cur); } |
 	Config_spec SEMICOLON
 		|
 	TRACE SEMICOLON
-	      = { do_trace = !do_trace; } |
+	      { do_trace = !do_trace; } |
 	SEMICOLON
 		|
 	error SEMICOLON
@@ -153,7 +170,7 @@ Spec:
 
 Config_spec:
 	MACHINE Save_id
-	    = {
+	    {
 		if (!strcmp($2, "vax")) {
 			machine = MACHINE_VAX;
 			machinename = "vax";
@@ -218,11 +235,14 @@ Config_spec:
 		} else if (!strcmp($2, "ppc")) {
 			machine = MACHINE_PPC;
 			machinename = "ppc";
+		} else if (!strcmp($2, "arm")) {
+			machine = MACHINE_ARM;
+			machinename = "arm";
 		} else
 			yyerror("Unknown machine type");
 	      } |
 	CPU Save_id
-	      = {
+	      {
 		struct cputype *cp =
 		    (struct cputype *)malloc(sizeof (struct cputype));
 		cp->cpu_name = ns($2);
@@ -235,39 +255,39 @@ Config_spec:
 	MAKEOPTIONS Mkopt_list
 		|
 	IDENT ID
-	      = { ident = ns($2); }
+	      { ident = ns($2); }
 		|
 	System_spec
 		|
 	MAXUSERS NUMBER
-	      = { maxusers = $2; }
+	      { maxusers = $2; }
 		|
 	BUILDDIR Save_id
-		= { build_directory = ns($2); }
+		{ build_directory = ns($2); }
 		|
 	CONFIGDIR Save_id
-		= { config_directory = ns($2); }
+		{ config_directory = ns($2); }
 		|
 	OBJECTDIR Save_id
-		= { object_directory = ns($2); }
+		{ object_directory = ns($2); }
 		|
 	SOURCEDIR Save_id
-		= { source_directory = ns($2); }
+		{ source_directory = ns($2); }
 		|
 	PROFILE
-		= { profiling++; }
+		{ profiling++; }
 		;
 
 System_spec:
 	  System_id
-		= { checksystemspec(*confp); }
+		{ checksystemspec(*confp); }
 	| System_id System_parameter_list
-		= { checksystemspec(*confp); }
+		{ checksystemspec(*confp); }
 	;
 
 System_id:
 	  CONFIG Save_id
-		= { mkconf($2); }
+		{ mkconf($2); }
 	;
 
 System_parameter_list:
@@ -293,12 +313,12 @@ swap_device_list:
 
 swap_device:
 	  swap_device_spec optional_size
-	      = { mkswap(*confp, $1, $2); }
+	      { mkswap(*confp, $1, $2); }
 	;
 
 swap_device_spec:
 	  device_name
-		= {
+		{
 			struct file_list *fl = newswap();
 
 			if (eq($1, "generic"))
@@ -310,7 +330,7 @@ swap_device_spec:
 			$$ = fl;
 		}
 	| major_minor
-		= {
+		{
 			struct file_list *fl = newswap();
 
 			fl->f_swapdev = $1;
@@ -321,7 +341,7 @@ swap_device_spec:
 
 root_spec:
 	  ROOT optional_on root_device_spec
-		= {
+		{
 			struct file_list *fl = *confp;
 
 			if (fl && fl->f_rootdev != NODEV)
@@ -333,13 +353,13 @@ root_spec:
 
 root_device_spec:
 	  device_name
-		= { $$ = nametodev($1, 0, 'a'); }
+		{ $$ = nametodev($1, 0, 'a'); }
 	| major_minor
 	;
 
 dump_spec:
 	  DUMPS optional_on dump_device_spec
-		= {
+		{
 			struct file_list *fl = *confp;
 
 			if (fl && fl->f_dumpdev != NODEV)
@@ -352,13 +372,13 @@ dump_spec:
 
 dump_device_spec:
 	  device_name
-		= { $$ = nametodev($1, 0, 'b'); }
+		{ $$ = nametodev($1, 0, 'b'); }
 	| major_minor
 	;
 
 arg_spec:
 	  ARGS optional_on arg_device_spec
-		= {
+		{
 			struct file_list *fl = *confp;
 
 			if (fl && fl->f_argdev != NODEV)
@@ -370,13 +390,13 @@ arg_spec:
 
 arg_device_spec:
 	  device_name
-		= { $$ = nametodev($1, 0, 'b'); }
+		{ $$ = nametodev($1, 0, 'b'); }
 	| major_minor
 	;
 
 major_minor:
 	  MAJOR NUMBER MINOR NUMBER
-		= { $$ = makedev($2, $4); }
+		{ $$ = makedev($2, $4); }
 	;
 
 optional_on:
@@ -386,23 +406,23 @@ optional_on:
 
 optional_size:
 	  SIZE NUMBER
-	      = { $$ = $2; }
+	      { $$ = $2; }
 	| /* empty */
-	      = { $$ = 0; }
+	      { $$ = 0; }
 	;
 
 device_name:
 	  Save_id
-		= { $$ = $1; }
+		{ $$ = $1; }
 	| Save_id NUMBER
-		= {
+		{
 			char buf[80];
 
 			(void) sprintf(buf, "%s%d", $1, $2);
 			$$ = ns(buf); free($1);
 		}
 	| Save_id NUMBER ID
-		= {
+		{
 			char buf[80];
 
 			(void) sprintf(buf, "%s%d%s", $1, $2, $3);
@@ -418,7 +438,7 @@ Opt_list:
 
 Option:
 	Save_id
-	      = {
+	      {
 		struct opt *op = (struct opt *)malloc(sizeof (struct opt));
 		op->op_name = ns($1);
 		op->op_next = (struct opt *) 0;
@@ -431,7 +451,7 @@ Option:
 		free(temp_id);
 	      } |
 	Save_id EQUALS Opt_value
-	      = {
+	      {
 		struct opt *op = (struct opt *)malloc(sizeof (struct opt));
 		op->op_name = ns($1);
 		op->op_next = (struct opt *) 0;
@@ -448,19 +468,19 @@ Option:
 
 Opt_value:
 	ID
-	      = { $$ = val_id = ns($1); } |
+	      { $$ = val_id = ns($1); } |
 	NUMBER
-	      = { char nb[16];
+	      { char nb[16];
 	          (void) sprintf(nb, "%u", $1);
 	      	  $$ = val_id = ns(nb);
 	      } |
 	/* lambda from MIPS -- WHY */
-	      = { $$ = val_id = ns(""); }
+	      { $$ = val_id = ns(""); }
 	      ;
 
 Save_id:
 	ID
-	      = { $$ = temp_id = ns($1); }
+	      { $$ = temp_id = ns($1); }
 	;
 
 Mkopt_list:
@@ -471,7 +491,7 @@ Mkopt_list:
 
 Mkoption:
 	Save_id
-	      = {
+	      {
 		struct opt *op = (struct opt *)malloc(sizeof (struct opt));
 		op->op_name = ns($1);
 		op->op_next =  (struct opt *) 0;
@@ -480,7 +500,7 @@ Mkoption:
 		free(temp_id);
 	      } |
 	Save_id EQUALS Opt_value
-	      = {
+	      {
 		struct opt *op = (struct opt *)malloc(sizeof (struct opt));
 		op->op_name = ns($1);
 		op->op_next =  (struct opt *) 0;
@@ -497,95 +517,95 @@ Mkoption:
 
 Dev:
 	UBA
-	      = { $$ = ns("uba"); } |
+	      { $$ = ns("uba"); } |
 	MBA
-	      = { $$ = ns("mba"); } |
+	      { $$ = ns("mba"); } |
         VME16D16
-	      = {
+	      {
 		if (machine != MACHINE_SUN2 && machine != MACHINE_SUN3
 		    && machine != MACHINE_SUN4)
 			yyerror("wrong machine type for vme16d16");
 		$$ = ns("vme16d16");
 		} |
 	VME24D16
-	      = {
+	      {
 		if (machine != MACHINE_SUN2 && machine != MACHINE_SUN3
 		    && machine != MACHINE_SUN4)
 			yyerror("wrong machine type for vme24d16");
 			$$ = ns("vme24d16");
 		} |
 	VME32D16
-	      = {
+	      {
 		if (machine != MACHINE_SUN3 && machine != MACHINE_SUN4)
 
                         yyerror("wrong machine type for vme32d16");
                 $$ = ns("vme32d16");
                 } |
         VME16D32
-              = {
+              {
                 if (machine != MACHINE_SUN3  && machine != MACHINE_SUN4)
                         yyerror("wrong machine type for vme16d32");
                 $$ = ns("vme16d32");
                 } |
         VME24D32
-              = {
+              {
 		if (machine != MACHINE_SUN3 && machine != MACHINE_SUN4)
 			yyerror("wrong machine type for vme24d32");
 		$$ = ns("vme24d32");
 		} |
         VME32D32
-	      = {
+	      {
 		if (machine != MACHINE_SUN3 && machine != MACHINE_SUN4)
 			yyerror("wrong machine type for vme32d32");
 		$$ = ns("vme32d32");
 		} |
 	VME
-	      = {
+	      {
 		if (machine != MACHINE_MIPSY && machine != MACHINE_MIPS)
 			yyerror("wrong machine type for vme");
 			$$ = ns("vme");
 		} |
 	MBII
-	      = {
+	      {
 		if (machine != MACHINE_MIPSY && machine != MACHINE_MIPS)
 			yyerror("wrong machine type for mbii");
 			$$ = ns("mbii");
 		} |
 	ID
-	      = { $$ = ns($1); }
+	      { $$ = ns($1); }
 	;
 
 Device_spec:
 	DEVICE Dev_name Dev_info Int_spec
-	      = { cur.d_type = DEVICE; } |
+	      { cur.d_type = DEVICE; } |
 	MASTER Dev_name Dev_info Int_spec
-	      = { cur.d_type = MASTER; } |
+	      { cur.d_type = MASTER; } |
 	DISK Dev_name Dev_info Int_spec
-	      = { cur.d_dk = 1; cur.d_type = DEVICE; } |
+	      { cur.d_dk = 1; cur.d_type = DEVICE; } |
 /* TAPE rule is unique to CMU */
 	TAPE Dev_name Dev_info Int_spec
-	      = { cur.d_type = DEVICE; } |
+	      { cur.d_type = DEVICE; } |
 	CONTROLLER Dev_name Dev_info Int_spec
-	      = { cur.d_type = CONTROLLER; } |
+	      { cur.d_type = CONTROLLER; } |
 	PSEUDO_DEVICE Init_dev Dev
-	      = {
+	      {
 		cur.d_name = $3;
 		cur.d_type = PSEUDO_DEVICE;
 		} |
 	PSEUDO_DEVICE Init_dev Dev NUMBER
-	      = {
+	      {
 		cur.d_name = $3;
 		cur.d_type = PSEUDO_DEVICE;
 		cur.d_slave = $4;
 		} |
 	PSEUDO_DEVICE Init_dev Dev INIT ID
-	      = {
+	      {
 		cur.d_name = $3;
 		cur.d_type = PSEUDO_DEVICE;
 		cur.d_init = ns($5);
 		} |
 	PSEUDO_DEVICE Init_dev Dev NUMBER INIT ID
-	      = {
+	      {
 		cur.d_name = $3;
 		cur.d_type = PSEUDO_DEVICE;
 		cur.d_slave = $4;
@@ -594,7 +614,7 @@ Device_spec:
 
 Dev_name:
 	Init_dev Dev NUMBER
-	      = {
+	      {
 		cur.d_name = $2;
 		if (eq($2, "mba"))
 			seen_mba = 1;
@@ -609,7 +629,7 @@ Dev_name:
 
 Init_dev:
 	/* lambda */
-	      = { init_dev(&cur); };
+	      { init_dev(&cur); };
 
 Dev_info:
 	Con_info Info_list
@@ -619,7 +639,7 @@ Dev_info:
 
 Con_info:
 	AT Dev NUMBER
-	      = {
+	      {
 		if (eq(cur.d_name, "mba") || eq(cur.d_name, "uba")
 		    || eq(cur.d_name, "mbii") || eq(cur.d_name, "vme")) {
 			(void) sprintf(errbuf,
@@ -632,13 +652,13 @@ Con_info:
 		} |
 /* AT SLOT NUMBER rule is unique to CMU */
 	AT SLOT NUMBER
-	      = { 
+	      { 
 		check_slot(&cur, $3);
 		cur.d_addr = $3;
 		cur.d_conn = TO_SLOT; 
 		 } |
 	AT NEXUS NUMBER
-	      = { check_nexus(&cur, $3); cur.d_conn = TO_NEXUS; };
+	      { check_nexus(&cur, $3); cur.d_conn = TO_NEXUS; };
 
 Info_list:
 	Info_list Info
@@ -648,7 +668,7 @@ Info_list:
 
 Info:
 	CSR NUMBER
-	      = {
+	      {
 		cur.d_addr = $2;
                 if (machine == MACHINE_SUN2 || machine == MACHINE_SUN3
 		    || machine == MACHINE_SUN4)
@@ -658,14 +678,14 @@ Info:
 		}
 		} |
 	DRIVE NUMBER
-	      = {
+	      {
 			cur.d_drive = $2;
 			if (machine == MACHINE_SQT) {
 				dev_param(&cur, "drive", $2);
 			}
 		} |
 	SLAVE NUMBER
-	      = {
+	      {
 		if (cur.d_conn != 0 && cur.d_conn != TO_NEXUS &&
 		    cur.d_conn->d_type == MASTER)
 			cur.d_slave = $2;
@@ -674,10 +694,10 @@ Info:
 		} |
 /* MIPS */
 	ADDRMOD NUMBER
-	      = { cur.d_addrmod = $2; } |
+	      { cur.d_addrmod = $2; } |
 /* LUN NUMBER rule is unique to CMU */
 	LUN NUMBER
-	      = {
+	      {
 		if ((cur.d_conn != 0) && (cur.d_conn != TO_SLOT) &&
 			(cur.d_conn->d_type == CONTROLLER)) {
 			cur.d_addr = $2; 
@@ -687,14 +707,14 @@ Info:
 		    }
 		} |
 	FLAGS NUMBER
-	      = {
+	      {
 		cur.d_flags = $2;
 		if (machine == MACHINE_SQT) {
 			dev_param(&cur, "flags", $2);
 		}
 	      } |
 	BIN NUMBER
-	      = { 
+	      { 
 		 if (machine != MACHINE_SQT)
 			yyerror("bin specification only valid on Sequent Balance");
 		 if ($2 < 1 || $2 > 7)  
@@ -705,7 +725,7 @@ Info:
 		}
 	       } |
 	Dev Value
-	      = {
+	      {
 		if (machine != MACHINE_SQT)
 			yyerror("bad device spec");
 		dev_param(&cur, $1, $2);
@@ -715,47 +735,47 @@ Value:
 	NUMBER
 	      |
 	MINUS NUMBER
-	      = { $$ = -($2); }
+	      { $$ = -($2); }
 	;
 
 Int_spec:
         Vec_spec
-	      = { cur.d_pri = 0; } |
+	      { cur.d_pri = 0; } |
 	PRIORITY NUMBER
-	      = { cur.d_pri = $2; } |
+	      { cur.d_pri = $2; } |
         PRIORITY NUMBER Vec_spec
-	      = { cur.d_pri = $2; } |
+	      { cur.d_pri = $2; } |
         Vec_spec PRIORITY NUMBER
-	      = { cur.d_pri = $3; } |
+	      { cur.d_pri = $3; } |
 	/* lambda */
 		;
 
 Vec_spec:
         VECTOR Id_list
-	      = { cur.d_vec = $2; };
+	      { cur.d_vec = $2; };
 
 
 Id_list:
 	Save_id
-	      = {
+	      {
 		struct idlst *a = (struct idlst *)malloc(sizeof(struct idlst));
 		a->id = $1; a->id_next = 0; $$ = a;
 		a->id_vec = 0;
 		} |
-	Save_id Id_list =
+	Save_id Id_list
 		{
 		struct idlst *a = (struct idlst *)malloc(sizeof(struct idlst));
 	        a->id = $1; a->id_next = $2; $$ = a;
 		a->id_vec = 0;
 		} |
         Save_id NUMBER
-	      = {
+	      {
 		struct idlst *a = (struct idlst *)malloc(sizeof(struct idlst));
 		a->id_next = 0; a->id = $1; $$ = a;
 		a->id_vec = $2;
 		} |
         Save_id NUMBER Id_list
-	      = {
+	      {
 		struct idlst *a = (struct idlst *)malloc(sizeof(struct idlst));
 		a->id_next = $3; a->id = $1; $$ = a;
 		a->id_vec = $2;
@@ -763,8 +783,8 @@ Id_list:
 
 %%
 
-yyerror(s)
-	char *s;
+void
+yyerror(const char *s)
 {
 	fprintf(stderr, "config: line %d: %s\n", yyline, s);
 }
@@ -773,8 +793,7 @@ yyerror(s)
  * return the passed string in a new space
  */
 char *
-ns(str)
-	register char *str;
+ns(const char *str)
 {
 	register char *cp;
 
@@ -786,8 +805,8 @@ ns(str)
 /*
  * add a device to the list of devices
  */
-newdev(dp)
-	register struct device *dp;
+void
+newdev(struct device *dp)
 {
 	register struct device *np;
 
@@ -804,8 +823,8 @@ newdev(dp)
 /*
  * note that a configuration should be made
  */
-mkconf(sysname)
-	char *sysname;
+void
+mkconf(char *sysname)
 {
 	register struct file_list *fl, **flp;
 
@@ -824,7 +843,7 @@ mkconf(sysname)
 }
 
 struct file_list *
-newswap()
+newswap(void)
 {
 	struct file_list *fl = (struct file_list *)malloc(sizeof (*fl));
 
@@ -840,14 +859,12 @@ newswap()
 /*
  * Add a swap device to the system's configuration
  */
-mkswap(system, fl, size)
-	struct file_list *system, *fl;
-	int size;
+void
+mkswap(struct file_list *syslist, struct file_list *fl, int size)
 {
 	register struct file_list **flp;
-	char name[80];
 
-	if (system == 0 || system->f_type != SYSTEMSPEC) {
+	if (syslist == 0 || syslist->f_type != SYSTEMSPEC) {
 		yyerror("\"swap\" spec precedes \"config\" specification");
 		return;
 	}
@@ -858,7 +875,7 @@ mkswap(system, fl, size)
 	/*
 	 * Append swap description to the end of the list.
 	 */
-	flp = &system->f_next;
+	flp = &syslist->f_next;
 	for (; *flp && (*flp)->f_type == SWAPSPEC; flp = &(*flp)->f_next)
 		;
 	fl->f_next = *flp;
@@ -869,12 +886,12 @@ mkswap(system, fl, size)
 	 * set up f_fn field to insure swap
 	 * files are created with unique names.
 	 */
-	if (system->f_fn)
+	if (syslist->f_fn)
 		return;
 	if (eq(fl->f_fn, "generic"))
-		system->f_fn = ns(fl->f_fn);
+		syslist->f_fn = ns(fl->f_fn);
 	else
-		system->f_fn = ns(system->f_needs);
+		syslist->f_fn = ns(syslist->f_needs);
 }
 
 /*
@@ -882,12 +899,9 @@ mkswap(system, fl, size)
  * returns 0 if no such device and prints an error message
  */
 struct device *
-dconnect(dev, num)
-	register char *dev;
-	register int num;
+dconnect(const char *dev, int num)
 {
 	register struct device *dp;
-	struct device *huhcon();
 
 	if (num == QUES)
 		return (huhcon(dev));
@@ -911,12 +925,13 @@ dconnect(dev, num)
  * connect to an unspecific thing
  */
 struct device *
-huhcon(dev)
-	register char *dev;
+huhcon(const char *dev)
 {
 	register struct device *dp, *dcp;
-	struct device rdev;
+	struct device rdev;	/* only used if dp is NULL */
 	int oldtype;
+
+	memset(&rdev, 0, sizeof rdev);
 
 	/*
 	 * First make certain that there are some of these to wildcard on
@@ -967,8 +982,8 @@ huhcon(dev)
 	return (dp);
 }
 
-init_dev(dp)
-	register struct device *dp;
+void
+init_dev(struct device *dp)
 {
 
 	dp->d_name = "OHNO!!!";
@@ -991,9 +1006,8 @@ init_dev(dp)
 /*
  * make certain that this is a reasonable type of thing to connect to a nexus
  */
-check_nexus(dev, num)
-	register struct device *dev;
-	int num;
+void
+check_nexus(struct device *dev, int num)
 {
 
 	switch (machine) {
@@ -1064,9 +1078,8 @@ check_nexus(dev, num)
  * make certain that this is a reasonable type of thing to connect to a slot
  */
 
-check_slot(dev, num)
-	register struct device *dev;
-	int num;
+void
+check_slot(struct device *dev, int num)
 {
 
 	switch (machine) {
@@ -1099,8 +1112,8 @@ check_slot(dev, num)
  * Check system specification and apply defaulting
  * rules on root, argument, dump, and swap devices.
  */
-checksystemspec(fl)
-	register struct file_list *fl;
+void
+checksystemspec(struct file_list *fl)
 {
 	char buf[BUFSIZ];
 	register struct file_list *swap;
@@ -1179,10 +1192,11 @@ checksystemspec(fl)
  * Verify all devices specified in the system specification
  * are present in the device specifications.
  */
-verifysystemspecs()
+void
+verifysystemspecs(void)
 {
 	register struct file_list *fl;
-	dev_t checked[50], *verifyswap();
+	dev_t checked[50];
 	register dev_t *pchecked = checked;
 
 	for (fl = conf_list; fl; fl = fl->f_next) {
@@ -1211,10 +1225,7 @@ verifysystemspecs()
  * Do as above, but for swap devices.
  */
 dev_t *
-verifyswap(fl, checked, pchecked)
-	register struct file_list *fl;
-	dev_t checked[];
-	register dev_t *pchecked;
+verifyswap(struct file_list *fl, dev_t checked[], dev_t *pchecked)
 {
 
 	for (;fl && fl->f_type == SWAPSPEC; fl = fl->f_next) {
@@ -1234,9 +1245,8 @@ verifyswap(fl, checked, pchecked)
  * Has a device already been checked
  * for it's existence in the configuration?
  */
-alreadychecked(dev, list, last)
-	dev_t dev, list[];
-	register dev_t *last;
+int
+alreadychecked(dev_t dev, dev_t list[], dev_t *last)
 {
 	register dev_t *p;
 
@@ -1246,8 +1256,8 @@ alreadychecked(dev, list, last)
 	return (0);
 }
 
-deverror(systemname, devtype)
-	char *systemname, *devtype;
+void
+deverror(const char *systemname, const char *devtype)
 {
 
 	fprintf(stderr, "config: %s: %s device not configured\n",
@@ -1260,8 +1270,8 @@ deverror(systemname, devtype)
  * take into account stuff wildcarded.
  */
 /*ARGSUSED*/
-finddev(dev)
-	dev_t dev;
+int
+finddev(__unused dev_t dev)
 {
 
 	/* punt on this right now */
@@ -1275,7 +1285,7 @@ finddev(dev)
  * type" can legally have.
  */
 struct bus_info {
-	char    *bi_name;
+	const char    *bi_name;
 	u_short bi_info;
 	u_int   bi_max;
 };
@@ -1317,11 +1327,10 @@ struct bus_info sun4_info[] = {
 	{ (char *)0,    0,      0 }
 };
 
-bus_encode(addr, dp)
-        u_int addr;
-	register struct device *dp;
+void
+bus_encode(u_int addr, struct device *dp)
 {
-	register char *busname;
+	const char *busname;
 	register struct bus_info *bip;
 	register int num;
 

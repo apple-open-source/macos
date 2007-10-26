@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2003-02-08</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>COPYING</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Add fax receive notifications</string>
+			<string>Use launchd to control the fax receive service</string>
+			<string>Use an IOKit notifier to notice when the modem is plugged in or removed</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>efax</string>
+		<key>OpenSourceSHA1</key>
+		<string>ec8090eb38a827c69d37bf97a3acdd581c2a5781</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.cce.com/efax/download/efax-0.9a-001114.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>0.9a-001114</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.cce.com/efax/</string>
+	</dict>
+</array>
+</plist>

@@ -1,0 +1,57 @@
+PR-4949394 SACL : smbd's checks always reject computer trust accounts
+
+The fundamental problem is that on OS X, trust accounts are not
+user accounts so you can't add them to SACLs. Since we moved the
+SACL check to the pam_sacl PAM module, trust accounts are always
+allow in without checking the SACL. This is (arguably) a security
+hole, so this patch makes sure that trust accounts don't get access
+to disk or print shares.
+
+Index: samba/source/smbd/service.c
+===================================================================
+--- samba/source/smbd/service.c.orig
++++ samba/source/smbd/service.c
+@@ -540,6 +540,19 @@ static NTSTATUS find_forced_group(BOOL f
+ 	return result;
+ }
+ 
++static BOOL vuser_is_trust_account(const user_struct *vuser)
++{
++	const char *pos;
++
++	/* Trust account names end in '$'. */
++	pos = strrchr(vuser->user.smb_name, '$');
++	if (pos && *(pos + 1) == '\0') {
++		return True;
++	}
++
++	return False;
++}
++
+ /****************************************************************************
+   Make a connection, given the snum to connect to, and the vuser of the
+   connecting user if appropriate.
+@@ -682,6 +695,23 @@ static connection_struct *make_connectio
+ 		      ( lp_enable_asu_support() && strequal(dev,"ADMIN$")) );
+ 	conn->dirptr = NULL;
+ 
++	/* Trust accounts should not be poking around in disk or print shares.
++	 * This is a little bit of paranoia and works around the fact that the
++	 * Apple pam_sacl module cannot exclude trust accounts.
++	 *
++	 * This is only parameterised on "com.apple:trustacct disk access" for
++	 * Leoaprd becuse I'm paranoid.
++	 */
++	if (!IS_IPC(conn) &&
++	    !lp_parm_bool(snum, "com.apple", "trustacct disk access", False) &&
++	    vuser_is_trust_account(vuser)) {
++		DEBUG(0, ("trust account '%s' denied access to non-IPC share %s\n",
++			vuser->user.smb_name, lp_servicename(SNUM(conn))));
++		conn_free(conn);
++		*status = NT_STATUS_ACCESS_DENIED;
++		return NULL;
++	}
++
+ 	/* Case options for the share. */
+ 	if (lp_casesensitive(snum) == Auto) {
+ 		/* We will be setting this per packet. Set to be case

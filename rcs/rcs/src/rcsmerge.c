@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcsmerge.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:39  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:39  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:33  wsanchez
  * Import of RCS 5.7
@@ -124,7 +124,7 @@ Report problems and direct all questions to:
 
 static char const co[] = CO;
 
-mainProg(rcsmergeId, "rcsmerge", "$Id: rcsmerge.c,v 1.1.1.1 1999/04/23 01:43:39 wsanchez Exp $")
+mainProg(rcsmergeId, "rcsmerge", "$Id: rcsmerge.c,v 1.1 1999/04/23 01:43:39 wsanchez Exp $")
 {
 	static char const cmdusage[] =
 		"\nrcsmerge usage: rcsmerge -rrev1 [-rrev2] -ksubst -{pq}[rev] -Vn -xsuff -zzone file";

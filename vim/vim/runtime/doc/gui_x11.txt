@@ -1,4 +1,4 @@
-*gui_x11.txt*   For Vim version 6.2.  Last change: 2003 Apr 25
+*gui_x11.txt*   For Vim version 7.0.  Last change: 2006 Apr 30
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -12,8 +12,9 @@ Vim's Graphical User Interface				*gui-x11* *GUI-X11*
 4. Various			|gui-x11-various|
 5. GTK version			|gui-gtk|
 6. GNOME version		|gui-gnome|
-7. Compiling			|gui-x11-compiling|
-8. X11 selection mechanism	|x11-selection|
+7. KDE version			|gui-kde|
+8. Compiling			|gui-x11-compiling|
+9. X11 selection mechanism	|x11-selection|
 
 Other relevant documentation:
 |gui.txt|	For generic items of the GUI.
@@ -21,7 +22,7 @@ Other relevant documentation:
 {Vi does not have any of these commands}
 
 ==============================================================================
-1. Starting the X11 GUI					*gui-x11-start*
+1. Starting the X11 GUI					*gui-x11-start* *E665*
 
 Then you can run the GUI version of Vim in either of these ways:
     gvim [options] [files...]
@@ -59,7 +60,7 @@ flag in 'guioptions'.  |-f|.
 ==============================================================================
 2. GUI Resources			*gui-resources* *.Xdefaults*
 
-If using the Motif or Athena version of the GUI (not for the GTK+ or Win32
+If using the Motif or Athena version of the GUI (not for the KDE, GTK+ or Win32
 version), a number of X resources are available.  You should use Vim's class
 "Vim" when setting these.  They are as follows:
 
@@ -95,7 +96,7 @@ version), a number of X resources are available.  You should use Vim's class
 
 A special font for italic, bold, and italic-bold text will only be used if
 the user has specified one via a resource.  No attempt is made to guess what
-fonts should be used for these based on the normal text font at the moment.
+fonts should be used for these based on the normal text font.
 
 Note that the colors can also be set with the ":highlight" command, using the
 "Normal", "Menu", "Tooltip", and "Scrollbar" groups.  Example: >
@@ -112,7 +113,7 @@ same.  Note that some fonts that have the same point size don't have the same
 pixel size!  Additionally, the positioning of the fonts must be the same
 (ascent and descent).  You can check this with "xlsfonts -l {fontname}".
 
-If any of these things are also set with Vim commands, eg with
+If any of these things are also set with Vim commands, e.g. with
 ":set guifont=Screen15", then this will override the X resources (currently
 'guifont' is the only option that is supported).
 
@@ -149,7 +150,7 @@ try adding this to your Vim resources (change the colors to your liking): >
 	Vim*scrollBackground:		Black
 	Vim*scrollForeground:		Blue
 
-The resources can also be set with arguments to vim:
+The resources can also be set with arguments to Vim:
 
     argument		meaning	~
 							*-gui*
@@ -263,10 +264,12 @@ your .fvwm2rc configuration file: >
   Style "vim"		Icon vim32x32.xpm
 
 Make sure the icon file's location is consistent with the window manager's
-IconPath statement.  Either modify the IconPath from within your .fvwm2rc or
-drop the icon into one the pre-defined directories:
+ImagePath statement.  Either modify the ImagePath from within your .fvwm2rc or
+drop the icon into one the pre-defined directories: >
 
-  IconPath /usr/X11R6/include/X11/pixmaps:/usr/X11R6/include/X11/bitmaps >
+  ImagePath /usr/X11R6/include/X11/pixmaps:/usr/X11R6/include/X11/bitmaps
+
+Note: older versions of fvwm use "IconPath" instead of "ImagePath".
 
 For CDE "dtwm" (a derivative of Motif) add this line in the .Xdefaults: >
    Dtwm*Vim*iconImage: /usr/local/share/vim/vim32x32.xpm
@@ -277,7 +280,7 @@ For "mwm" (Motif window manager) the line would be: >
 Mouse Pointers Available in X11				*X11_mouse_shapes*
 
 By using the |'mouseshape'| option, the mouse pointer can be automatically
-changed whenever vim enters one of its various modes (e.g., Insert or
+changed whenever Vim enters one of its various modes (e.g., Insert or
 Command).  Currently, the available pointers are:
 
 	arrow			an arrow pointing northwest
@@ -339,12 +342,12 @@ These arguments are ignored when the |+netbeans_intg| feature is used:
 	-xrm
 	-mf
 
-As for colors, vim's color settings (for syntax highlighting) is still
-done the traditional vim way.  See |:highlight| for more help.
+As for colors, Vim's color settings (for syntax highlighting) is still
+done the traditional Vim way.  See |:highlight| for more help.
 
 If you want to set the colors of remaining gui components (e.g., the
 menubar, scrollbar, whatever), those are GTK specific settings and you
-need to set those up in some sort of gtkrc file.  you'll have to refer
+need to set those up in some sort of gtkrc file.  You'll have to refer
 to the GTK documentation, however little there is, on how to do this.
 See http://developer.gnome.org/doc/API/2.0/gtk/gtk-Resource-Files.html
 for more information.
@@ -432,7 +435,14 @@ the WM to identify the window by restoring the window role (using the |--role|
 command line argument).
 
 ==============================================================================
-7. Compiling						*gui-x11-compiling*
+7. KDE version					*gui-kde* *kde* *KDE* *KVim*
+
+There is no KDE version of Vim.  There has been some work on a port using the
+Qt toolkit, but it never worked properly and it has been abandoned.  Work
+continues on Yzis: www.yzis.org.
+
+==============================================================================
+8. Compiling						*gui-x11-compiling*
 
 If using X11, Vim's Makefile will by default first try to find the necessary
 GTK+ files on your system.  If the GTK+ files cannot be found, then the Motif
@@ -487,6 +497,12 @@ menus look a bit better.  Edit the Makefile and look for "XAW_LIB".  The
 scrollbars will remain the same, because Vim has its own, which are already
 3D (in fact, they look more like Motif).
 
+							*gui-x11-kde*
+For Vim-KDE, you need at least Qt(>=2.x) and the corresponding kdelibs.
+To compile, you must use the --with-qt-dir configure flag because QTDIR is not
+automatically detected yet. Giving KDE's directories to the configure script
+may also help in some cases.
+
 							*gui-x11-neXtaw*
 The neXtaw version is mostly like Athena, but uses different widgets.
 
@@ -497,7 +513,7 @@ X11R5 with a library for X11R6 probably doesn't work (although the linking
 won't give an error message, Vim will crash later).
 
 ==============================================================================
-8. X11 selection mechanism				*x11-selection*
+9. X11 selection mechanism				*x11-selection*
 
 If using X11, in either the GUI or an xterm with an X11-aware Vim, then Vim
 provides varied access to the X11 selection and clipboard.  These are accessed

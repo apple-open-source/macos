@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcskeep.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:39  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:39  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:33  wsanchez
  * Import of RCS 5.7
@@ -105,7 +105,7 @@ Report problems and direct all questions to:
 
 #include  "rcsbase.h"
 
-libId(keepId, "$Id: rcskeep.c,v 1.1.1.1 1999/04/23 01:43:39 wsanchez Exp $")
+libId(keepId, "$Id: rcskeep.c,v 1.1 1999/04/23 01:43:39 wsanchez Exp $")
 
 static int badly_terminated P((void));
 static int checknum P((char const*));

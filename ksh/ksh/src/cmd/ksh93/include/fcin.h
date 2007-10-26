@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef fcgetc
 /*
@@ -41,6 +37,7 @@ typedef struct _fcin
 	unsigned char	*fcptr;		/* pointer to next input char */
 	unsigned char	fcchar;		/* saved character */
 	void (*fcfun)(Sfio_t*,const char*,int);	/* advance function */
+	int		fcleft;		/* for multibyte boundary */
 	Sfoff_t		fcoff;		/* offset for last read */
 } Fcin_t;
 
@@ -58,6 +55,7 @@ extern int		fcfill(void);
 extern int		fcfopen(Sfio_t*);
 extern int		fcclose(void);
 void			fcnotify(void(*)(Sfio_t*,const char*,int));
+extern int		fcmbstate(const char*,int*,int*);
 
 extern Fcin_t		_Fcin;		/* used by macros */
 

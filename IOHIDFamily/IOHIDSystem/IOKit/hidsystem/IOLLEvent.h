@@ -117,6 +117,9 @@ typedef struct _NXSize {	/* size */
 
 #define NX_SCROLLWHEELMOVED	22
 
+/* Zoom events */
+#define NX_ZOOM             28
+
 /* tablet events */
 
 #define NX_TABLETPOINTER	23	/* for non-mousing transducers */
@@ -125,30 +128,31 @@ typedef struct _NXSize {	/* size */
 /* event range */
 
 #define NX_FIRSTEVENT		0
-#define NX_LASTEVENT		27
+#define NX_LASTEVENT		28
 #define NX_NUMPROCS		(NX_LASTEVENT-NX_FIRSTEVENT+1)
 
 /* Event masks */
-#define NX_NULLEVENTMASK	(1 << NX_NULLEVENT)	/* NULL event */
-#define NX_LMOUSEDOWNMASK	(1 << NX_LMOUSEDOWN)	/* left mouse-down */
-#define NX_LMOUSEUPMASK		(1 << NX_LMOUSEUP)	/* left mouse-up */
-#define NX_RMOUSEDOWNMASK	(1 << NX_RMOUSEDOWN)	/* right mouse-down */
-#define NX_RMOUSEUPMASK		(1 << NX_RMOUSEUP)	/* right mouse-up */
-#define NX_OMOUSEDOWNMASK	(1 << NX_OMOUSEDOWN)	/* other mouse-down */
-#define NX_OMOUSEUPMASK		(1 << NX_OMOUSEUP)	/* other mouse-up  */
-#define NX_MOUSEMOVEDMASK	(1 << NX_MOUSEMOVED)	/* mouse-moved */
+#define NX_NULLEVENTMASK        (1 << NX_NULLEVENT)     /* NULL event */
+#define NX_LMOUSEDOWNMASK       (1 << NX_LMOUSEDOWN)	/* left mouse-down */
+#define NX_LMOUSEUPMASK         (1 << NX_LMOUSEUP)      /* left mouse-up */
+#define NX_RMOUSEDOWNMASK       (1 << NX_RMOUSEDOWN)	/* right mouse-down */
+#define NX_RMOUSEUPMASK         (1 << NX_RMOUSEUP)      /* right mouse-up */
+#define NX_OMOUSEDOWNMASK       (1 << NX_OMOUSEDOWN)	/* other mouse-down */
+#define NX_OMOUSEUPMASK         (1 << NX_OMOUSEUP)      /* other mouse-up  */
+#define NX_MOUSEMOVEDMASK       (1 << NX_MOUSEMOVED)	/* mouse-moved */
 #define NX_LMOUSEDRAGGEDMASK	(1 << NX_LMOUSEDRAGGED)	/* left-dragged */
 #define NX_RMOUSEDRAGGEDMASK	(1 << NX_RMOUSEDRAGGED)	/* right-dragged */
 #define NX_OMOUSEDRAGGEDMASK	(1 << NX_OMOUSEDRAGGED)	/* other-dragged */
-#define NX_MOUSEENTEREDMASK	(1 << NX_MOUSEENTERED)	/* mouse-entered */
-#define NX_MOUSEEXITEDMASK	(1 << NX_MOUSEEXITED)	/* mouse-exited */
-#define NX_KEYDOWNMASK		(1 << NX_KEYDOWN)	/* key-down */
-#define NX_KEYUPMASK		(1 << NX_KEYUP)		/* key-up */
-#define NX_FLAGSCHANGEDMASK	(1 << NX_FLAGSCHANGED)	/* flags-changed */
-#define NX_KITDEFINEDMASK 	(1 << NX_KITDEFINED)	/* kit-defined */
-#define NX_SYSDEFINEDMASK 	(1 << NX_SYSDEFINED)	/* system-defined */
-#define NX_APPDEFINEDMASK 	(1 << NX_APPDEFINED)	/* app-defined */
+#define NX_MOUSEENTEREDMASK     (1 << NX_MOUSEENTERED)	/* mouse-entered */
+#define NX_MOUSEEXITEDMASK      (1 << NX_MOUSEEXITED)	/* mouse-exited */
+#define NX_KEYDOWNMASK          (1 << NX_KEYDOWN)       /* key-down */
+#define NX_KEYUPMASK            (1 << NX_KEYUP)         /* key-up */
+#define NX_FLAGSCHANGEDMASK     (1 << NX_FLAGSCHANGED)	/* flags-changed */
+#define NX_KITDEFINEDMASK       (1 << NX_KITDEFINED)	/* kit-defined */
+#define NX_SYSDEFINEDMASK       (1 << NX_SYSDEFINED)	/* system-defined */
+#define NX_APPDEFINEDMASK       (1 << NX_APPDEFINED)	/* app-defined */
 #define NX_SCROLLWHEELMOVEDMASK	(1 << NX_SCROLLWHEELMOVED)	/* scroll wheel moved */
+#define NX_ZOOMMASK             (1 << NX_ZOOM)          /* Zoom */
 #define NX_TABLETPOINTERMASK	(1 << NX_TABLETPOINTER)	/* tablet pointer moved */
 #define NX_TABLETPROXIMITYMASK	(1 << NX_TABLETPROXIMITY)	/* tablet pointer proximity */
 
@@ -436,14 +440,14 @@ typedef	union {
         SInt32  pointDeltaAxis2;
         SInt32  pointDeltaAxis3;
         SInt32  reserved8[4];
-    } scrollWheel;
+    } scrollWheel, zoom;
     struct {    /* For window-changed, sys-defined, and app-defined events */
         SInt16  reserved;
         SInt16  subType;    /* event subtype for compound events */
         union {
             float   F[11];  /* for use in compound events */
-            long    L[11];  /* for use in compound events */
-            short   S[22];  /* for use in compound events */
+            SInt32  L[11];  /* for use in compound events */
+            SInt16  S[22];  /* for use in compound events */
             char    C[44];  /* for use in compound events */
         } misc;
     } compound;
@@ -489,31 +493,31 @@ typedef	union {
 /* Finally! The event record! */
 #ifndef __ppc__
 typedef struct _NXEvent {
-	int					type;		/* An event type from above */
+	SInt32              type;		/* An event type from above */
     struct {
-        int	x, y;					/* Base coordinates in window, */
+        SInt32	x, y;					/* Base coordinates in window, */
     } 					location;	/* from bottom left */
-    unsigned long long	time;		/* time since launch */
-    int					flags;		/* key state flags */
-    unsigned int		window;		/* window number of assigned window */
+    UInt64              time;		/* time since launch */
+    SInt32              flags;		/* key state flags */
+    UInt32              window;		/* window number of assigned window */
     UInt64              service_id; /* service id */
-    int                 ext_pid;    /* external pid */
+    SInt32              ext_pid;    /* external pid */
     NXEventData			data;		/* type-dependent data */
 } NXEvent, *NXEventPtr;
 
 #else
 
 typedef struct _NXEvent {
-	int					type;		/* An event type from above */
+	SInt32              type;		/* An event type from above */
     struct {
-        int	x, y;					/* Base coordinates in window, */
+        SInt32	x, y;					/* Base coordinates in window, */
     } 					location;	/* from bottom left */
-    unsigned long long	time;		/* time since launch */
-    int					flags;		/* key state flags */
-    unsigned int		window;		/* window number of assigned window */
+    UInt64              time;		/* time since launch */
+    SInt32              flags;		/* key state flags */
+    UInt32              window;		/* window number of assigned window */
     NXEventData			data;		/* type-dependent data */
     UInt64              service_id; /* service id */
-    int                 ext_pid;    /* external pid */
+    SInt32              ext_pid;    /* external pid */
 } NXEvent, *NXEventPtr;
 #endif
 

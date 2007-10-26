@@ -27,10 +27,13 @@
 #include "KCExceptions.h"
 
 
-using namespace KeychainCore;
+namespace Security {
+namespace KeychainCore {
+
 using namespace CssmClient;
 
-ModuleNexus<Globals> KeychainCore::globals;
+ModuleNexus<Globals> globals;
+bool gServerMode;
 
 #pragma mark ÑÑÑÑ Constructor/Destructor ÑÑÑÑ
 
@@ -42,5 +45,9 @@ mUI(true)
 
 const AccessCredentials * Globals::credentials() 
 {
-	return (mUI ? mACLFactory.promptCred() : mACLFactory.nullCred()); 
+	return (mUI ? mACLFactory.promptCred() : mACLFactory.cancelCred()); 
 }
+
+
+}	// namespace KeychainCore
+}	// namespace Security

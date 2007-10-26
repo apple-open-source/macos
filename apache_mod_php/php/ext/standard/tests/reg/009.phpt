@@ -1,10 +1,9 @@
 --TEST--
 Test split()
---POST--
---GET--
 --FILE--
 <?php
-	$a=split("[[:space:]]","this is	a\ntest");
+	$a=split("[[:space:]]","this is	a
+test");
 	echo count($a) . "\n";
 	for ($i = 0; $i < count($a); $i++) {
           echo $a[$i] . "\n";

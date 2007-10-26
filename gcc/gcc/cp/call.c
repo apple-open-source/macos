@@ -686,9 +686,14 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	       && !TYPE_PTRMEM_P (from)
 	       && TREE_CODE (TREE_TYPE (from)) != FUNCTION_TYPE)
 	{
+	  /* APPLE LOCAL begin radar 4451818 */
+	  tree nfrom = TREE_TYPE (from);
+	  if (c_dialect_objc ())
+	    nfrom = objc_non_volatilized_type (nfrom);
 	  from = build_pointer_type
 	    (cp_build_qualified_type (void_type_node, 
-				      cp_type_quals (TREE_TYPE (from))));
+			              cp_type_quals (nfrom)));
+	  /* APPLE LOCAL end radar 4451818 */
 	  conv = build_conv (ck_ptr, from, conv);
 	}
       else if (TYPE_PTRMEM_P (from))
@@ -723,9 +728,14 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	          access or uniqueness.  */
 	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
+	  /* APPLE LOCAL begin radar 4668465 */
+	  tree fr = c_dialect_objc () ? 
+		   objc_non_volatilized_type (TREE_TYPE (from)) 
+		   : TREE_TYPE (from);
 	  from = 
 	    cp_build_qualified_type (TREE_TYPE (to),
-				     cp_type_quals (TREE_TYPE (from)));
+				     cp_type_quals (fr));
+	  /* APPLE LOCAL end radar 4668465 */
 	  from = build_pointer_type (from);
 	  conv = build_conv (ck_ptr, from, conv);
 	  conv->base_p = true;
@@ -1250,6 +1260,11 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if (from == error_mark_node || to == error_mark_node
       || expr == error_mark_node)
     return NULL;
+
+  /* APPLE LOCAL begin radar 4451818 */
+  if (c_dialect_objc ())
+    from = objc_non_volatilized_type (from);
+  /* APPLE LOCAL end radar 4451818 */
 
   if (TREE_CODE (to) == REFERENCE_TYPE)
     conv = reference_binding (to, from, expr, flags);
@@ -4239,8 +4254,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     {
       tree t = non_reference (totype);
 
+      /* APPLE LOCAL begin mainline */
       /* Issue warnings about peculiar, but valid, uses of NULL.  */
-      if (ARITHMETIC_TYPE_P (t) && expr == null_node)
+      if (ARITHMETIC_TYPE_P (t) && expr == null_node
+	  && warn_conversion)
 	{
 	  if (fn)
 	    warning ("passing NULL to non-pointer argument %P of %qD",
@@ -4251,7 +4268,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
       /* Warn about assigning a floating-point type to an integer type.  */
       if (TREE_CODE (TREE_TYPE (expr)) == REAL_TYPE
-	  && TREE_CODE (t) == INTEGER_TYPE)
+	  && TREE_CODE (t) == INTEGER_TYPE
+	  && warn_conversion)
 	{
 	  if (fn)
 	    warning ("passing %qT for argument %P to %qD",
@@ -4268,13 +4286,14 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	      if (fn)
 		warning ("passing negative value %qE for argument %P to %qD",
 			 expr, argnum, fn);
-	      else
+	      else if (warn_conversion)
 		warning ("converting negative value %qE to %qT", expr, t);
 	    }
 	  
 	  overflow_warning (expr);
 	}
     }
+  /* APPLE LOCAL end mainline */
 
   switch (convs->kind)
     {
@@ -4360,11 +4379,12 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     default:
       break;
     };
-
+  /* APPLE LOCAL begin mainline */
   expr = convert_like_real (convs->u.next, expr, fn, argnum,
 			    convs->kind == ck_ref_bind ? -1 : 1,
-			    /*issue_conversion_warnings=*/false,
+			    convs->kind == ck_ref_bind ? issue_conversion_warnings : false,
 			    c_cast_p);
+  /* APPLE LOCAL end mainline */
   if (expr == error_mark_node)
     return error_mark_node;
 
@@ -4475,8 +4495,15 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
     default:
       break;
     }
-  return ocp_convert (totype, expr, CONV_IMPLICIT,
-		      LOOKUP_NORMAL|LOOKUP_NO_CONVERSION);
+
+  /* APPLE LOCAL begin mainline */
+  if (issue_conversion_warnings)
+    expr = cp_convert_and_check (totype, expr);
+  else
+    expr = convert (totype, expr);
+
+  return expr;
+  /* APPLE LOCAL end mainline */
 }
 
 /* Build a call to __builtin_trap.  */
@@ -4845,6 +4872,14 @@ build_over_call (struct z_candidate *cand, int flags)
       tree type = TREE_VALUE (parm);
 
       conv = convs[i];
+
+      /* APPLE LOCAL begin mainline 4.0.4 08-25-2006 4658012 */
+      /* Don't make a copy here if build_call is going to.  */
+      if (conv->kind == ck_rvalue
+	  && !TREE_ADDRESSABLE (complete_type (type)))
+	conv = conv->u.next;
+      /* APPLE LOCAL end mainline 4.0.4 08-25-2006 4658012 */
+
       val = convert_like_with_context
 	(conv, TREE_VALUE (arg), fn, i - is_method);
 
@@ -4976,7 +5011,7 @@ build_over_call (struct z_candidate *cand, int flags)
 
   /* APPLE LOCAL begin KEXT indirect-virtual-calls --sts */
   if (DECL_VINDEX (fn)
-      && (flag_apple_kext
+      && (TARGET_KEXTABI
           || (flags & LOOKUP_NONVIRTUAL) == 0))
     /* APPLE LOCAL end KEXT indirect-virtual-calls --sts */
     {

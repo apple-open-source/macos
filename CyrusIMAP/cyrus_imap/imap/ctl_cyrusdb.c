@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: ctl_cyrusdb.c,v 1.6 2005/03/05 00:36:46 dasenbro Exp $
+ * $Id: ctl_cyrusdb.c,v 1.28 2006/11/30 17:11:17 murch Exp $
  */
 
 #include <config.h>
@@ -99,9 +99,7 @@ struct cyrusdb {
     { FNAME_ANNOTATIONS,	&config_annotation_db,	1 },
     { FNAME_DELIVERDB,		&config_duplicate_db,	0 },
     { FNAME_TLSSESSIONS,	&config_tlscache_db,	0 },
-#ifdef WITH_PTS
     { FNAME_PTSDB,              &config_ptscache_db,    0 },
-#endif
     { NULL,			NULL,			0 }
 };
 
@@ -128,10 +126,9 @@ static int fixmbox(char *name,
 {
     int mbtype;
     int r;
-    char *path, *part, *acl;
 
     /* Do an mboxlist_detail on the mailbox */
-    r = mboxlist_detail(name, &mbtype, &path, &part, &acl, NULL);
+    r = mboxlist_detail(name, &mbtype, NULL, NULL, NULL, NULL, NULL);
 
     /* if it is MBTYPE_RESERVED, unset it & call mboxlist_delete */
     if(!r && (mbtype & MBTYPE_RESERVE)) {
@@ -198,7 +195,11 @@ int main(int argc, char *argv[])
 
 	case 'r':
 	    libcyrus_config_setint(CYRUSOPT_DB_INIT_FLAGS, CYRUSDB_RECOVER);
+#ifdef APPLE_OS_X_SERVER
 	    msg = "verifying cyrus databases";
+#else
+	    msg = "recovering cyrus databases";
+#endif
 	    if (op == NONE) op = RECOVER;
 	    else usage();
 	    break;

@@ -1,7 +1,7 @@
 //
 //  file:  rbbirb.cpp
 //
-//  Copyright (C) 2002-2004, International Business Machines Corporation and others.
+//  Copyright (C) 2002-2005, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains the RBBIRuleBuilder class implementation.  This is the main class for
@@ -143,7 +143,7 @@ RBBIDataHeader *RBBIRuleBuilder::flattenData() {
     }
 
     // Remove comments and whitespace from the rules to make it smaller.
-    UnicodeString strippedRules(RBBIRuleScanner::stripRules(fRules));
+    UnicodeString strippedRules((const UnicodeString&)RBBIRuleScanner::stripRules(fRules));
 
     // Calculate the size of each section in the data.
     //   Sizes here are padded up to a multiple of 8 for better memory alignment.
@@ -171,10 +171,13 @@ RBBIDataHeader *RBBIRuleBuilder::flattenData() {
     uprv_memset(data, 0, totalSize);
 
 
-    data->fMagic         = 0xb1a0;
-    data->fVersion       = 1;
-    data->fLength        = totalSize;
-    data->fCatCount      = fSetBuilder->getNumCharCategories();
+    data->fMagic            = 0xb1a0;
+    data->fFormatVersion[0] = 3;
+    data->fFormatVersion[1] = 1;
+    data->fFormatVersion[2] = 0;
+    data->fFormatVersion[3] = 0;
+    data->fLength           = totalSize;
+    data->fCatCount         = fSetBuilder->getNumCharCategories();
 
     data->fFTable        = headerSize;
     data->fFTableLen     = forwardTableSize;

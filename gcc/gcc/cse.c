@@ -1525,6 +1525,16 @@ insert (rtx x, struct table_elt *classp, unsigned int hash, enum machine_mode mo
   elt->mode = mode;
   elt->is_const = (CONSTANT_P (x) || fixed_base_plus_p (x));
 
+/* APPLE LOCAL begin ARM propagate stack addresses better */
+#ifdef TARGET_ARM
+  /* Adjust cost of SP+const addresses lower; generally, we want to propagate the addition
+     rather than use a register if these are equally cheap.  This attempts to compensate
+     for forcing the cost of a reg to 0. */
+  if (fixed_base_plus_p (x)) 
+    elt->cost -= 2 * COSTS_N_INSNS (1);
+#endif
+/* APPLE LOCAL end ARM propagate stack addresses better */
+
   if (table[hash])
     table[hash]->prev_same_hash = elt;
   table[hash] = elt;
@@ -2784,6 +2794,12 @@ canon_reg (rtx x, rtx insn)
 	    || ! REGNO_QTY_VALID_P (REGNO (x)))
 	  return x;
 
+	/* APPLE LOCAL begin ARM rerun cse after combine */
+	/* Do not replace a register that's used in a REG_INC note. */
+        if (insn && FIND_REG_INC_NOTE (insn, x))
+	  return x;
+	/* APPLE LOCAL end ARM rerun cse after combine */
+
 	q = REG_QTY (REGNO (x));
 	ent = &qty_table[q];
 	first = ent->first_reg;
@@ -2913,6 +2929,8 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
 	  int best_addr_cost = address_cost (*loc, mode);
 	  int best_rtx_cost = (elt->cost + 1) >> 1;
 	  int exp_cost;
+	  /* APPLE LOCAL ARM propagate stack addresses better */
+	  bool best_fixed_base_plus_p = fixed_base_plus_p (elt->exp);
 	  struct table_elt *best_elt = elt;
 
 	  found_better = 0;
@@ -2923,11 +2941,24 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
 		     || exp_equiv_p (p->exp, p->exp, 1, false))
 		    && ((exp_cost = address_cost (p->exp, mode)) < best_addr_cost
 			|| (exp_cost == best_addr_cost
+/* APPLE LOCAL begin ARM propagate stack addresses better */
+#ifdef TARGET_ARM
+			    /* Prefer a stack address if possible.  Thus, prefer a new
+			       stack address to an old non-stack address, and do not replace
+			       an old stack address with a new non-stack address. */
+			    && ((!best_fixed_base_plus_p && fixed_base_plus_p (p->exp))
+				|| (!(best_fixed_base_plus_p && !fixed_base_plus_p (p->exp))
+			            && ((p->cost + 1) >> 1) > best_rtx_cost)))))
+#else
 			    && ((p->cost + 1) >> 1) > best_rtx_cost)))
+#endif
+/* APPLE LOCAL end ARM propagate stack addresses better */
 		  {
 		    found_better = 1;
 		    best_addr_cost = exp_cost;
 		    best_rtx_cost = (p->cost + 1) >> 1;
+		    /* APPLE LOCAL ARM propagate stack addresses better */
+		    best_fixed_base_plus_p = fixed_base_plus_p (p->exp);
 		    best_elt = p;
 		  }
 	      }
@@ -2996,7 +3027,10 @@ find_best_addr (rtx insn, rtx *loc, enum machine_mode mode)
 	       p = p->next_same_value, count++)
 	    if (! p->flag
 		&& (REG_P (p->exp)
-		    || exp_equiv_p (p->exp, p->exp, 1, false)))
+		    /* APPLE LOCAL begin mainline */
+		    || (GET_CODE (p->exp) != EXPR_LIST
+			&& exp_equiv_p (p->exp, p->exp, 1, false))))
+	      /* APPLE LOCAL end mainline */
 	      {
 		rtx new = simplify_gen_binary (GET_CODE (*loc), Pmode,
 					       p->exp, op1);
@@ -4000,6 +4034,8 @@ fold_rtx (rtx x, rtx insn)
 				  && rtx_equal_p (ent->comparison_const,
 						  const_arg1))
 			      || (REG_P (folded_arg1)
+				  /* APPLE LOCAL ARM 4587904 */
+				  && (REGNO_QTY_VALID_P (REGNO (folded_arg1)))
 				  && (REG_QTY (REGNO (folded_arg1)) == ent->comparison_qty))))
 			return (comparison_dominates_p (ent->comparison_code, code)
 				? true_rtx : false_rtx);
@@ -4703,7 +4739,8 @@ cse_insn (rtx insn, rtx libcall_insn)
 {
   rtx x = PATTERN (insn);
   int i;
-  rtx tem;
+  /* APPLE LOCAL ARM rerun cse after combine */
+  rtx tem, tem2;
   int n_sets = 0;
 
 #ifdef HAVE_cc0
@@ -4736,6 +4773,12 @@ cse_insn (rtx insn, rtx libcall_insn)
 	  XEXP (tem, 0) = canon_reg (XEXP (tem, 0), insn);
 	}
     }
+
+  /* APPLE LOCAL begin ARM rerun cse after combine */
+  /* Do not propagate across a postincrement.  */
+  if ((tem = find_reg_note (insn, REG_INC, NULL_RTX)))
+    invalidate (XEXP (tem, 0), GET_MODE (XEXP (tem, 0)));
+  /* APPLE LOCAL end ARM rerun cse after combine */
 
   if (GET_CODE (x) == SET)
     {
@@ -4870,6 +4913,13 @@ cse_insn (rtx insn, rtx libcall_insn)
      be no equivalence for the destination.  */
   if (n_sets == 1 && REG_NOTES (insn) != 0
       && (tem = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0
+      /* APPLE LOCAL begin ARM rerun cse after combine */
+      /* Do not substitute a REG_EQUAL value if the insn contains a REG_INC
+	 that changes something in that value.  This would have the effect
+         of removing the increment.  */
+       && !((tem2 = find_reg_note (insn, REG_INC, NULL_RTX)) != 0
+	    && reg_mentioned_p (XEXP (tem2, 0), tem))
+      /* APPLE LOCAL end ARM rerun cse after combine */
       && (! rtx_equal_p (XEXP (tem, 0), SET_SRC (sets[0].rtl))
 	  || GET_CODE (SET_DEST (sets[0].rtl)) == STRICT_LOW_PART))
     {

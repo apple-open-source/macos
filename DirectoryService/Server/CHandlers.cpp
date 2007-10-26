@@ -43,6 +43,7 @@
 #include "CRefTable.h"
 #include "CSharedData.h"
 #include "CAuditUtils.h"
+#include "Mbrd_MembershipResolver.h"
 
 #include <servers/bootstrap.h>
 #include <stdlib.h>
@@ -52,12 +53,23 @@
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 #include <mach/mach.h>	// for mach destroy of client port
 
+typedef enum CheckpwResult {
+	DS_CHECKPW_SUCCESS = 0,
+	DS_CHECKPW_UNKNOWNUSER = -1,
+	DS_CHECKPW_BADPASSWORD = -2,
+	DS_CHECKPW_FAILURE = -3,
+	DS_CHECKPW_LOCKOUT = -4
+} CheckpwResult;
+
 // This is for MIG
 extern "C" {
 	#include "DirectoryServiceMIGServer.h"
+	#include "DSlibinfoMIGServer.h"
+	#include "DSmemberdMIGServer.h"
+	#include "DSlibinfoMIGAsyncReply.h"
 }
 
-static const char *sServerMsgType[ 13 ] =
+static const char *sServerMsgType[ 14 ] =
 {
 	/* 00 */	"*** Start of list ***",
 	/* 01 */	"dsOpenDirService()",
@@ -71,7 +83,8 @@ static const char *sServerMsgType[ 13 ] =
 	/*    */	"checkpw()",
 	/* 10 */	"dsAddChildPIDToReference()",
 	/*    */	"dsOpenDirServiceProxy()",
-	/* 12 */	"*** End of list ***"
+	/*    */	"dsOpenDirServiceLocal()",
+	/* 13 */	"*** End of list ***"
 };
 
 static const char *sPlugInMsgType[ 41 ] =
@@ -133,27 +146,36 @@ static tDirNodeReference		gCheckPasswordSearchNodeRef	= 0;
 extern dsBool					gLogAPICalls;
 extern dsBool					gDebugLogging;
 extern dsBool					gDSFWCSBPDebugLogging;
-
-//PFIXextern dsBool					gLocalNodeNotAvailable;
+extern dsBool					gDSLocalOnlyMode;
 
 //API Call Count
-extern uInt32					gAPICallCount;
+extern UInt32					gAPICallCount;
 
-extern uInt32					gDaemonPID;
+extern UInt32					gDaemonPID;
 
-extern uInt32					gDaemonIPAddress;
-
-extern uInt32					gMaxHandlerThreadCount;
+extern UInt32					gDaemonIPAddress;
 
 extern DSMutexSemaphore		   *gMachThreadLock;
-extern uInt32					gActiveMachThreads;
-extern uInt32					gActiveLongRequests;
-extern mach_port_t				gMachAPISet;
-extern mach_port_t				gServerMachPort;
+extern UInt32					gActiveMachThreads;
+extern UInt32					gActiveLongRequests;
+extern mach_port_t				gMachMIGSet;
 extern map<mach_port_t, pid_t>	gPIDMachMap;
 
-extern void mig_spawnonceifnecessary( void );
+extern DSMutexSemaphore		   *gLibinfoQueueLock;
+extern char					   *gDSLocalFilePath;
+extern UInt32					gLocalSessionCount;
+extern CCachePlugin			   *gCacheNode;
 
+extern CMsgQueue               *gLibinfoQueue;
+extern CCachePlugin            *gCacheNode;
+extern const char              *lookupProcedures[];
+
+extern CFRunLoopRef				gPluginRunLoop;
+extern DSEventSemaphore			gPluginRunLoopEvent;
+
+extern void	mig_spawnonceifnecessary( void );
+
+extern	CPlugInList			   *gPlugins;
 // ---------------------------------------------------------------------------
 //	* MIG routines
 //
@@ -162,59 +184,79 @@ extern void mig_spawnonceifnecessary( void );
 // used to process the notify messages to clean up the pid list...
 static boolean_t dsmig_demux_notify( mach_msg_header_t *request, mach_msg_header_t *reply )
 {
+	if (request->msgh_id >= 60000 ) // 60000 are memberd requests
+	{
+		return DSmemberdMIG_server( request, reply );
+	}
+	else if( request->msgh_id >= 50000 ) // 50000 are libinfo requests
+	{
+		return DSlibinfoMIG_server( request, reply );
+	}
+
+	// all other requests are API calls
+	boolean_t returnValue = DirectoryServiceMIG_server(request, reply);
+
 	if( request->msgh_id == MACH_NOTIFY_NO_SENDERS )
 	{
 		// let's spawn another thread to handle requests while this is working, since we do not know how long this will go
-		gMachThreadLock->Wait();
+		gMachThreadLock->WaitLock();
 		gActiveLongRequests++;
-		gMachThreadLock->Signal();
-		
+		gMachThreadLock->SignalLock();
+
 		// we should spawn the thread after we've incremented the number of requests active, otherwise thread will spawn and exit too soon
 		mig_spawnonceifnecessary();
-		
-		gMachThreadLock->Wait();
+
+		gMachThreadLock->WaitLock();
 		pid_t aPID = gPIDMachMap[request->msgh_local_port];
 		gPIDMachMap.erase( request->msgh_local_port );
-		gMachThreadLock->Signal();
+		
+		// before we erase the refs, lets see if there is a mach port already here for the same PID
+		map<mach_port_t, pid_t>::const_iterator iter;
+		
+		for ( iter = gPIDMachMap.begin(); iter != gPIDMachMap.end() && iter->second != aPID; iter++ )
+		{
+			// we're looking to see if the map has a pid with another mach port
+		}
+		gMachThreadLock->SignalLock();
 
-		// don't use timeout, just clean up cause it is gone
-		DBGLOG1( kLogHandler, "dsmig_demux_notify:: Client PID: %d has exited", aPID );
-				
-		CRefTable::CleanClientRefs( gDaemonIPAddress, aPID );
-		
-		gMachThreadLock->Wait();
+		// TODO: should we have to keep our lock?
+		if ( iter == gPIDMachMap.end() )
+		{
+			DbgLog( kLogHandler, "dsmig_demux_notify:: Client PID: %d has exited and/or closed its mach port", aPID );
+			CRefTable::CleanClientRefs( gDaemonIPAddress, aPID );				
+		}
+		else
+		{
+			DbgLog( kLogHandler, "dsmig_demux_notify:: Client PID: %d closed and re-opened another mach port", aPID );
+		}
+
+		gMachThreadLock->WaitLock();
 		gActiveLongRequests--;
-		gMachThreadLock->Signal();
-		
+		gMachThreadLock->SignalLock();
+
 		// clean up the mach message port
 		mach_port_mod_refs( mach_task_self(), request->msgh_local_port, MACH_PORT_RIGHT_RECEIVE, -1 );
 	}
-	// if not our local server port or if it is our server port and not an API request
-	else if( request->msgh_local_port != gServerMachPort 
-			 || (request->msgh_id != 40002 && request->msgh_local_port == gServerMachPort) )
-	{
-		return DirectoryServiceMIG_server(request, reply);
-	}
-	return 1;
-}
 
+	return returnValue;
+}
 
 #pragma mark -
 #pragma mark Main Handler Routines
 #pragma mark -
 
 //--------------------------------------------------------------------------------------------------
-//	* CHandlerThread(const FourCharCode inThreadSignature)
+//	* CHandlerThread(const UInt32 inThreadSignature)
 //
 //--------------------------------------------------------------------------------------------------
 
-CHandlerThread::CHandlerThread ( const FourCharCode inThreadSignature, uInt32 iThread ) : CInternalDispatchThread(inThreadSignature)
+CHandlerThread::CHandlerThread ( const UInt32 inThreadSignature, UInt32 iThread ) : CInternalDispatchThread(inThreadSignature)
 {
 	fThreadSignature = inThreadSignature;
 
 	fThreadIndex	= iThread;
 	fTCPEndPt		= nil;
-} // CHandlerThread ( FourCharCode inThreadSignature )
+} // CHandlerThread ( UInt32 inThreadSignature )
 
 //--------------------------------------------------------------------------------------------------
 //	* ~CHandlerThread()
@@ -223,20 +265,6 @@ CHandlerThread::CHandlerThread ( const FourCharCode inThreadSignature, uInt32 iT
 
 CHandlerThread::~CHandlerThread()
 {
-	if (fThreadSignature == kTSTCPHandlerThread)
-	{
-		if ( fTCPEndPt != nil )
-		{
-			// this is actually owned by the DSTCPConnection
-			//delete( fTCPEndPt );
-			//fTCPEndPt = nil;
-		}
-	}
-	
-	if ( fThreadSignature == kTSTCPHandlerThread )
-	{
-		fThreadIndex   	= gMaxHandlerThreadCount;  //not to be used with StopAHandler call
-	}
 } // ~CHandlerThread
 
 //--------------------------------------------------------------------------------------------------
@@ -246,7 +274,7 @@ CHandlerThread::~CHandlerThread()
 
 void CHandlerThread::StartThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil ) throw((SInt32)eMemoryError);
 
 	this->Resume();
 } // StartThread
@@ -262,14 +290,13 @@ void CHandlerThread:: LastChance ( void )
 	//StopAHandler needs to be done atomically within MainThread!
 	//ie. this is only a safety net in case of an unknown throw
 
-	if (fThreadSignature == kTSTCPHandlerThread)
+    if (fThreadSignature == kTSLibinfoQueueThread)
 	{
-		// we stop our own thread after notifying the ServerControl
-		gTCPHandlerLock->Wait();
+		gLibinfoQueueLock->WaitLock();
 		gSrvrCntl->StopAHandler(fThreadSignature, fThreadIndex, (CHandlerThread *)this);
-		gTCPHandlerLock->Signal();
+		gLibinfoQueueLock->SignalLock();
 	}
-
+	
 } // LastChance
 
 
@@ -280,8 +307,6 @@ void CHandlerThread:: LastChance ( void )
 
 void CHandlerThread::StopThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
-
 	SetThreadRunState( kThreadStop );		// Tell our thread to stop
 
 } // StopThread
@@ -294,10 +319,6 @@ void CHandlerThread::StopThread ( void )
 
 void CHandlerThread::LogQueueDepth ( void )
 {
-	if ( gTCPMsgQueue != nil )
-	{
-		DBGLOG1( kLogHandler, "TCP message queue depth is: %d", gTCPMsgQueue->GetMsgCount());
-	}
 } // LogQueueDepth
 
 //--------------------------------------------------------------------------------------------------
@@ -305,90 +326,42 @@ void CHandlerThread::LogQueueDepth ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long CHandlerThread::ThreadMain ( void )
+SInt32 CHandlerThread::ThreadMain ( void )
 {
-	volatile	uInt32			msgCount	= 0;
-	volatile	uInt32			loopAgain	= 2 + fThreadIndex;		// each thread has different count here
-	volatile	uInt32			aWaitTime	= 8; 					// this is controlled by fThreadIndex used in the loopAgain var
-																	// 8 secs
-	//we already have a TCP endpoint given to us from the DSConnection
-	if( fThreadSignature == kTSTCPHandlerThread )
+    if (fThreadSignature == kTSLibinfoQueueThread)
 	{
 		while ( GetThreadRunState() != kThreadStop )
 		{
 			try
 			{
-            	while ( GetThreadRunState() != kThreadStop )
+                while ( GetThreadRunState() != kThreadStop )
             	{
-                	//run the loop within the Try unless there is an actual Throw
-                	msgCount = 0;
-
-					gSrvrCntl->SleepAHandler( fThreadSignature, aWaitTime * kMilliSecsPerSec );
-
-                	// Check for work to do
-                	if ( gTCPMsgQueue != nil )
-                	{
-						msgCount = gTCPMsgQueue->GetMsgCount();
-                	}
-
-                	// Do the work
-                	if ( msgCount != 0 )
-                	{
-                    	HandleMessage();
-						if ( gAPICallCount & 1023 == 1023 ) // every 1023 calls so we can do bit-wise check
-						{
-							if (gLogAPICalls)
-							{
-								syslog(LOG_CRIT,"API clients have called APIs %d times", gAPICallCount);
-							}
-							LogQueueDepth();
-						}
-						loopAgain = 2 + fThreadIndex;
-                	}
-                	else
-					{
-                 	   // try again?
-						loopAgain--;
-					}
-					
-					if (loopAgain == 0) //try to shutdown path
-					{
-                    	// we stop our own thread after notifying the ServerControl
-						gTCPHandlerLock->Wait();
-					
-						if ( gTCPMsgQueue != nil )
-						{
-							msgCount = 0;
-							msgCount = gTCPMsgQueue->GetMsgCount();
-							if ( msgCount != 0 )
-							{
-								loopAgain = 2 + fThreadIndex;
-								gTCPHandlerLock->Signal();
-							}
-							else
-							{
-                    			gSrvrCntl->StopAHandler(fThreadSignature, fThreadIndex, (CHandlerThread *)this);
-								StopThread();
-								gTCPHandlerLock->Signal();
-							}
-						}
-						else
-						{
-							gTCPHandlerLock->Signal();
-						}
-					}
-				
+                    // when we come up we immediately attempt to handle a message
+                    HandleMessage();
+                    
+                    // if we got false, we timed out waiting on messages
+                    // double check if there is no queue to prevent race condition
+                    DbgLog( kLogHandler, "CHandlerThread::LibinfoHandler %d sleeping for 2 secs", fThreadIndex );
+                    if( gLibinfoQueue->WaitOnMessage(2 * kMilliSecsPerSec) == false )
+                    {
+                        DbgLog( kLogHandler, "CHandlerThread::LibinfoHandler %d timed out", fThreadIndex );
+                        
+                        // timer gave up, let's quit this thread
+                        gLibinfoQueueLock->WaitLock();
+						gSrvrCntl->StopAHandler(fThreadSignature, fThreadIndex, (CHandlerThread *)this);
+                        StopThread();
+						gLibinfoQueueLock->SignalLock();
+                    }
 				} // while thread not stopped state
 			} // try
-
-			catch( sInt32 err1 )
+			
+			catch( SInt32 err1 )
 			{
-				gTCPHandlerLock->Signal();
-				DBGLOG2( kLogHandler, "File: %s. Line: %d", __FILE__, __LINE__ );
-				DBGLOG1( kLogHandler, "  *** Caught exception (#2).  Error = %d", err1 );
+                DbgLog( kLogHandler, "File: %s. Line: %d", __FILE__, __LINE__ );
+                DbgLog( kLogHandler, "  *** Caught exception (#2).  Error = %d", err1 );
 			}
-		} //while loop over run state
-	} //else (fThreadSignature == kTSTCPHandlerThread)
+		} //while loop over run state        
+	}
 	
 	return( 0 );
 
@@ -402,45 +375,85 @@ long CHandlerThread::ThreadMain ( void )
 
 void CHandlerThread::HandleMessage ( void )
 {
-	sInt32			siResult	= eDSNoErr;
-	sComData	   *pRequest	= nil;
 	void		   *reqMsg		= nil;
 	CRequestHandler handler;
 
-	if (fThreadSignature == kTSTCPHandlerThread)
+    if (fThreadSignature == kTSLibinfoQueueThread)
 	{
-		if ( gTCPMsgQueue != nil )
+		if (gLibinfoQueue != nil)
 		{
-			siResult = gTCPMsgQueue->DequeueMessage( &reqMsg );
-			pRequest = (sComData *)reqMsg;
-			//now this method owns the pRequest data
-			if ( (siResult == eDSNoErr) && (pRequest != nil) )
-			{
-				handler.HandleRequest(&pRequest);
-				
-				//send back reply using TCP endpoint from the data message itself
-				fTCPEndPt = (DSTCPEndpoint *)pRequest->fPort;
-				if (fTCPEndPt != nil )
-				{
-					(void)fTCPEndPt->SendClientReply( pRequest );
-					//endpoint is owned by DSTCPConnection parent
-					//delete (fTCPEndPt);
-					//fTCPEndPt = nil;
-				}
-				else
-				{
-					ERRORLOG( kLogTCPEndpoint, "TCPHandlerThread not provided correct TCP Endpoint through the data message fPort member");
-				}
+			while( gLibinfoQueue->DequeueMessage( &reqMsg ) )
+            {
+                sLibinfoRequest *pRequest = (sLibinfoRequest *)reqMsg;
+                
+                //now this method owns the pRequest data
+                if ( pRequest != nil )
+                {
+                    char    *debugDataTag = NULL;
+                    pid_t   aPID;
+                    
+                    audit_token_to_au32( pRequest->fToken, NULL, NULL, NULL, NULL, NULL, &aPID, NULL, NULL );
+                    
+                    if ( (gDebugLogging) || (gLogAPICalls) )
+                    {
+                        debugDataTag = handler.BuildAPICallDebugDataTag( gDaemonIPAddress, aPID, "libinfo", "Server" );
+                        DbgLog( kLogHandler, "%s : libinfomig DAC : Async Procedure = %s (%d) : Handle request %X", debugDataTag, lookupProcedures[pRequest->fProcedure], pRequest->fProcedure, pRequest );
+                    }                    
+                    
+                    // now process the request
+                    kvbuf_t *pResponse = gCacheNode->ProcessLookupRequest( pRequest->fProcedure, pRequest->fBuffer, pRequest->fBufferLen, aPID );
+                    
+                    if ( pResponse != NULL )
+                    {
+                        if( pResponse->datalen <= MAX_MIG_INLINE_DATA )
+                        {
+                            if ( libinfoDSmig_Response_async( pRequest->fReplyPort, pResponse->databuf, pResponse->datalen, 0, 0, pRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+                            {
+                                // need to clean up mach port if we got any error, we can't recover
+								mach_port_destroy( mach_task_self(), pRequest->fReplyPort );
+                            }
+                        }
+                        else
+                        {
+                            vm_offset_t data = 0;
+                            mach_msg_type_number_t dataCnt = 0;
+                            
+                            vm_read( mach_task_self(), (vm_address_t) pResponse->databuf, pResponse->datalen, &data, &dataCnt );
+                            
+                            if ( libinfoDSmig_Response_async( pRequest->fReplyPort, "", 0, data, dataCnt, pRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+                            {
+                                // if we get any error, then we need to clean up the vm_dealloc
+                                vm_deallocate( mach_task_self(), data, dataCnt );
+								mach_port_destroy( mach_task_self(), pRequest->fReplyPort );
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if ( libinfoDSmig_Response_async( pRequest->fReplyPort, "", 0, 0, 0, pRequest->fCallbackAddr ) != MACH_MSG_SUCCESS )
+                        {
+							// need to clean up mach port if we got any error, we can't recover
+							mach_port_destroy( mach_task_self(), pRequest->fReplyPort );
+                        }
+                    }
+					
+					kvbuf_free( pResponse );
+					pResponse = NULL;
 
-				//TODO the connection is to go away since call was to close DS
-				//DSTCPConnection will know this but also need to cleanup any lingering refs in the ref table?
-				
-				if ( pRequest != nil )
-				{
-					free( pRequest );
-					pRequest = nil;
-				}
-			}
+                    if( debugDataTag )
+                    {
+                        DbgLog( kLogHandler, "%s : libinfomig DAR : Async Procedure = %s (%d)", debugDataTag, lookupProcedures[pRequest->fProcedure], pRequest->fProcedure );
+                        free( debugDataTag );
+                        debugDataTag = NULL;
+                    }
+                    
+                    free( pRequest->fBuffer );
+                    pRequest->fBuffer = NULL;
+                    
+                    free( pRequest );
+                    pRequest = NULL;
+                }
+			}            
 		}
 	}
 
@@ -452,7 +465,7 @@ void CHandlerThread::HandleMessage ( void )
 //
 // ----------------------------------------------------------------------------
 
-OSType CHandlerThread::GetOurThreadRunState ( void )
+UInt32 CHandlerThread::GetOurThreadRunState ( void )
 {
 	return( GetThreadRunState() );
 } // GetOurThreadRunState
@@ -463,9 +476,9 @@ OSType CHandlerThread::GetOurThreadRunState ( void )
 //    used to clean up plug-in specific data for a reference
 // ----------------------------------------------------------------------------
 
-sInt32 CHandlerThread::RefDeallocProc ( uInt32 inRefNum, uInt32 inRefType, CServerPlugin *inPluginPtr )
+SInt32 CHandlerThread::RefDeallocProc ( UInt32 inRefNum, UInt32 inRefType, CServerPlugin *inPluginPtr )
 {
-	sInt32	dsResult	= eDSNoErr;
+	SInt32	dsResult	= eDSNoErr;
 	double	inTime		= 0;
 	double	outTime		= 0;
 
@@ -518,33 +531,116 @@ sInt32 CHandlerThread::RefDeallocProc ( uInt32 inRefNum, uInt32 inRefType, CServ
 	return( dsResult );
 } // RefDeallocProc
 
-
 #pragma mark -
-#pragma mark Specifc MIG Handler Routines
+#pragma mark Plugin Runloop Thread
 #pragma mark -
 
 //--------------------------------------------------------------------------------------------------
-//	* CMigHandlerThread()
+//	* CPluginRunLoopThread()
 //
 //--------------------------------------------------------------------------------------------------
 
-CMigHandlerThread::CMigHandlerThread ( void ) : CInternalDispatchThread(kTSMigHandlerThread)
+CPluginRunLoopThread::CPluginRunLoopThread ( void ) : CInternalDispatchThread(kTSPluginRunloopThread)
 {
 	fThreadSignature	= kTSMigHandlerThread;
-	bMigHelperThread	= false;
 } // CMigHandlerThread
 
 
 //--------------------------------------------------------------------------------------------------
-//	* CMigHandlerThread(const FourCharCode inThreadSignature, bool bMigHelper)
+//	* ~CPluginRunLoopThread()
 //
 //--------------------------------------------------------------------------------------------------
 
-CMigHandlerThread::CMigHandlerThread ( const FourCharCode inThreadSignature, bool bMigHelper ) : CInternalDispatchThread(inThreadSignature)
+CPluginRunLoopThread::~CMigHandlerThread()
+{
+} // ~CMigHandlerThread
+
+//--------------------------------------------------------------------------------------------------
+//	* StartThread()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CPluginRunLoopThread::StartThread ( void )
+{
+	Resume();
+} // StartThread
+
+
+//--------------------------------------------------------------------------------------------------
+//	* LastChance()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CPluginRunLoopThread:: LastChance ( void )
+{
+	//nothing to do here
+} // LastChance
+
+
+//--------------------------------------------------------------------------------------------------
+//	* StopThread()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CPluginRunLoopThread::StopThread ( void )
+{
+	SetThreadRunState( kThreadStop );		// Tell our thread to stop
+} // StopThread
+
+static CFDataRef BogusHandler ( CFMessagePortRef local, SInt32 msgid, CFDataRef data, void *info )
+{
+	// this function serves no purpose other than to have a source on the CPluginRunLoopThread runloop
+	return NULL;
+}
+
+//--------------------------------------------------------------------------------------------------
+//	* ThreadMain()
+//
+//--------------------------------------------------------------------------------------------------
+
+SInt32 CPluginRunLoopThread::ThreadMain ( void )
+{
+	CFMessagePortRef myPort;
+	CFRunLoopSourceRef rlSource;
+	CFMessagePortContext context = {1, NULL, NULL, NULL, NULL};
+	CFStringRef cfName = CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR("DirectoryService::CPluginRunLoopThread.%d"), getpid() );
+	
+	gPluginRunLoop = CFRunLoopGetCurrent();
+
+	myPort = CFMessagePortCreateLocal( NULL, cfName, &BogusHandler, &context, NULL);
+	rlSource = CFMessagePortCreateRunLoopSource(NULL, myPort, 0);
+	
+	if (rlSource)
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), rlSource, kCFRunLoopCommonModes);
+
+	CFRelease( cfName );
+	
+	gPluginRunLoopEvent.PostEvent();
+	
+	CFRunLoopRun();
+	
+	//not really needed
+	StopThread();
+	
+	return( 0 );
+	
+} // ThreadMain
+
+
+#pragma mark -
+#pragma mark Specific MIG Handler Routines
+#pragma mark -
+
+//--------------------------------------------------------------------------------------------------
+//	* CMigHandlerThread(const UInt32 inThreadSignature, bool bMigHelper)
+//
+//--------------------------------------------------------------------------------------------------
+
+CMigHandlerThread::CMigHandlerThread ( const UInt32 inThreadSignature, bool bMigHelper ) : CInternalDispatchThread(inThreadSignature)
 {
 	fThreadSignature	= inThreadSignature;
 	bMigHelperThread	= bMigHelper;
-} // CMigHandlerThread ( FourCharCode inThreadSignature, bool bMigHelper )
+} // CMigHandlerThread ( UInt32 inThreadSignature, bool bMigHelper )
 
 //--------------------------------------------------------------------------------------------------
 //	* ~CMigHandlerThread()
@@ -562,7 +658,7 @@ CMigHandlerThread::~CMigHandlerThread()
 
 void CMigHandlerThread::StartThread ( void )
 {
-	if ( this == nil ) throw((sInt32)eMemoryError);
+	if ( this == nil ) throw((SInt32)eMemoryError);
 
 	this->Resume();
 } // StartThread
@@ -596,30 +692,42 @@ void CMigHandlerThread::StopThread ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long CMigHandlerThread::ThreadMain ( void )
+SInt32 CMigHandlerThread::ThreadMain ( void )
 {
 	kern_return_t kr;
 	
 	if (bMigHelperThread) //secondary mig handler threads spawned as worker threads up to a maximum
 	{
-		gMachThreadLock->Wait();
+		gMachThreadLock->WaitLock();
 		gActiveMachThreads++;
-		gMachThreadLock->Signal();
+		gMachThreadLock->SignalLock();
 		
 		// we loop while our threads are less than or equal to the number of active long requests
-		while( gActiveMachThreads <= gActiveLongRequests )
+		while( 1 )
 		{
-			(void) mach_msg_server_once( dsmig_demux_notify, kMaxMIGMsg, gMachAPISet, MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) );
+			gMachThreadLock->WaitLock();
+			if( gActiveMachThreads <= gActiveLongRequests )
+			{
+				gMachThreadLock->SignalLock();
+				
+				(void) mach_msg_server_once( dsmig_demux_notify, 
+											 kMaxMIGMsg, // see SharedConsts.h for notes
+											 gMachMIGSet,
+											 MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) );
+			}
+			else
+			{
+				gActiveMachThreads--;
+				gMachThreadLock->SignalLock();
+				break;
+			}
 		};
-
-		gMachThreadLock->Wait();
-		gActiveMachThreads--;
-		gMachThreadLock->Signal();
 	}
 	else //main mig listener thread
 	{
-		(void) mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &gMachAPISet );
-		(void) mach_port_move_member( mach_task_self(), gServerMachPort, gMachAPISet );
+		// here we initialize memberd because we need to be on an internal thread to do it and before our listeners go live..
+		if (!gDSLocalOnlyMode)
+			Mbrd_Initialize();
 
 		// if someone sends us the wrong size..
 		do
@@ -627,18 +735,143 @@ long CMigHandlerThread::ThreadMain ( void )
 			//mach_msg_server only returns if port set removed or for the MACH_RCV_TOO_LARGE error
 			kr = mach_msg_server( dsmig_demux_notify,
 								  kMaxMIGMsg, // see SharedConsts.h for notes
-								  gMachAPISet,
-								  MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT)|
-								  MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) );
+								  gMachMIGSet,
+								  MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) );
 			if( kr == MACH_RCV_TOO_LARGE )
 			{
 				syslog( LOG_ALERT, "mig_server received a message that was too large, someone sending bad data?" );
 			}
 		} while ( kr == MACH_RCV_TOO_LARGE );
 
-		(void) mach_port_destroy( mach_task_self(), gMachAPISet );
-		gMachAPISet = MACH_PORT_NULL;
+		(void) mach_port_destroy( mach_task_self(), gMachMIGSet );
+		gMachMIGSet = MACH_PORT_NULL;
 	}
+	
+	//not really needed
+	StopThread();
+	
+	return( 0 );
+
+} // ThreadMain
+
+#pragma mark -
+#pragma mark Specific memberd kernel Handler Routines
+#pragma mark -
+
+//--------------------------------------------------------------------------------------------------
+//	* CMemberdKernelHandlerThread(const UInt32 inThreadSignature)
+//
+//--------------------------------------------------------------------------------------------------
+
+CMemberdKernelHandlerThread::CMemberdKernelHandlerThread ( const UInt32 inThreadSignature ) : CInternalDispatchThread(inThreadSignature)
+{
+	fThreadSignature	= inThreadSignature;
+} // CMemberdKernelHandlerThread ( UInt32 inThreadSignature )
+
+//--------------------------------------------------------------------------------------------------
+//	* ~CMemberdKernelHandlerThread()
+//
+//--------------------------------------------------------------------------------------------------
+
+CMemberdKernelHandlerThread::~CMemberdKernelHandlerThread()
+{
+} // ~CMemberdKernelHandlerThread
+
+//--------------------------------------------------------------------------------------------------
+//	* StartThread()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CMemberdKernelHandlerThread::StartThread ( void )
+{
+	if ( this == nil ) throw((SInt32)eMemoryError);
+
+	this->Resume();
+} // StartThread
+
+
+//--------------------------------------------------------------------------------------------------
+//	* LastChance()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CMemberdKernelHandlerThread:: LastChance ( void )
+{
+	//nothing to do here
+} // LastChance
+
+
+//--------------------------------------------------------------------------------------------------
+//	* StopThread()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CMemberdKernelHandlerThread::StopThread ( void )
+{
+	SetThreadRunState( kThreadStop );		// Tell our thread to stop
+
+} // StopThread
+
+
+//--------------------------------------------------------------------------------------------------
+//	* ThreadMain()
+//
+//--------------------------------------------------------------------------------------------------
+
+SInt32 CMemberdKernelHandlerThread::ThreadMain ( void )
+{
+	static pthread_mutex_t		localMutex		= PTHREAD_MUTEX_INITIALIZER;
+	static int					threadWaiting	= 1; // we start with one
+	kauth_identity_extlookup	request;
+	int							result;
+	int							workresult		= 0;
+	int							loop			= 1;
+
+	do
+	{
+		result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER | (workresult ? KAUTH_EXTLOOKUP_RESULT : 0), &request);
+		if (result != 0)
+		{
+			syslog(LOG_CRIT, "Fatal error %d submitting to kernel (%d: %s)\n", result, errno, strerror(errno));
+			exit(1);
+		}
+
+		pthread_mutex_lock( &localMutex );
+		threadWaiting--;
+		if (threadWaiting <= 0)
+		{
+			// This thread was the only thread waiting, so fire off another one
+			threadWaiting++;
+			CMemberdKernelHandlerThread *aThread = new CMemberdKernelHandlerThread(kTSMemberdKernelHndlrThread);
+			aThread->StartThread();
+		}
+		pthread_mutex_unlock( &localMutex );
+		
+		if ( (gDebugLogging) || (gLogAPICalls) )
+		{
+			DbgLog( kLogAPICalls, "Client: kernel, PID: 0, API: mbrd_syscall, Server Used : DAC : Handling Kernel lookup request" );
+		}                    
+
+		Mbrd_ProcessLookup( &request );
+		
+		if ( (gDebugLogging) || (gLogAPICalls) )
+		{
+			DbgLog( kLogAPICalls, "Client: kernel, PID: 0, API: mbrd_syscall, Server Used : DAC : Kernel lookup result" );
+		}
+
+		// we only want 1 thread waiting at any given time, no way to time them out, so we have to spawn them on demand
+		pthread_mutex_lock( &localMutex );
+		if (threadWaiting >= 1)
+			loop = 0;
+		else
+			threadWaiting++;
+		pthread_mutex_unlock( &localMutex );
+
+		workresult = 1;
+	} while( loop );
+	
+	// send the last reply
+	result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, &request);
 	
 	//not really needed
 	StopThread();
@@ -659,8 +892,8 @@ CRequestHandler::CRequestHandler( void )
 
 bool CRequestHandler::HandleRequest ( sComData **inMsg )
 {
-	sInt32			siResult	= eDSNoErr;
-	uInt32			uiMsgType	= 0;
+	SInt32			siResult	= eDSNoErr;
+	UInt32			uiMsgType	= 0;
 
 	if ( IsServerRequest( *inMsg ) == true )
 	{
@@ -680,11 +913,10 @@ bool CRequestHandler::HandleRequest ( sComData **inMsg )
 		(void)SetRequestResult( *inMsg, siResult );
 	
 		uiMsgType = GetMsgType( *inMsg );
-	
-		DBGLOG3(	kLogMsgTrans, "Port: %l Call: %s == %l",
-					(*inMsg)->head.msgh_remote_port,
-					GetCallName( uiMsgType ),
-					siResult );
+		if (siResult != eDSRecordTypeDisabled)
+		{
+			DbgLog(	kLogMsgTrans, "Port: %l Call: %s == %l", (*inMsg)->head.msgh_remote_port, GetCallName( uiMsgType ), siResult );
+		}
 	}
     
     bool result = bClosePort;
@@ -702,7 +934,7 @@ bool CRequestHandler::HandleRequest ( sComData **inMsg )
 bool CRequestHandler::IsServerRequest ( sComData *inMsg )
 {
 	bool				bResult		= false;
-	uInt32				uiMsgType	= 0;
+	UInt32				uiMsgType	= 0;
 
 	uiMsgType = GetMsgType( inMsg );
 
@@ -724,7 +956,7 @@ bool CRequestHandler::IsServerRequest ( sComData *inMsg )
 bool CRequestHandler::IsPluginRequest ( sComData *inMsg )
 {
 	bool				bResult		= false;
-	uInt32				uiMsgType	= 0;
+	UInt32				uiMsgType	= 0;
 
 	uiMsgType = GetMsgType( inMsg );
 
@@ -743,20 +975,20 @@ bool CRequestHandler::IsPluginRequest ( sComData *inMsg )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
+SInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 {
-	sInt32			siResult		= eDSNoErr;
-	uInt32			uiMsgType		= 0;
-	uInt32			count			= 0;
-	uInt32			changeToken		= 0;
-	uInt32			uiDirRef		= 0;
-	uInt32			uiGenericRef   	= 0;
-	uInt32			uiChildPID		= 0;
+	SInt32			siResult		= eDSNoErr;
+	UInt32			uiMsgType		= 0;
+	UInt32			count			= 0;
+	UInt32			changeToken		= 0;
+	UInt32			uiDirRef		= 0;
+	UInt32			uiGenericRef   	= 0;
+	UInt32			uiChildPID		= 0;
 	tDataBuffer*	dataBuff		= NULL;
 	tDataBuffer*	versDataBuff	= NULL;
 	CSrvrMessaging	cMsg;
-	sInt32			aClientPID		= -1;
-	uInt32			anIPAddress		= 0;
+	SInt32			aClientPID		= -1;
+	UInt32			anIPAddress		= 0;
 	char		   *aMsgName		= nil;
 	char		   *debugDataTag	= nil;
 	double			inTime			= 0;
@@ -785,7 +1017,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 		{
             siResult = CRefTable::NewDirRef( &uiDirRef, aClientPID, anIPAddress );
 
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			siResult = SetRequestResult( (*inMsg), siResult );
 			if ( siResult == eDSNoErr )
 			{
@@ -808,8 +1040,8 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 					siResult = cMsg.Get_tDataBuff_FromMsg( (*inMsg), &dataBuff, kAuthStepBuff );
 					if ( siResult == eDSNoErr )
 					{
-						sInt32 curr = 0;
-						unsigned long len = 0;
+						SInt32 curr = 0;
+						UInt32 len = 0;
 						
 						char* userName = NULL;
 						char* password = NULL;
@@ -821,31 +1053,33 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 						if ( dataBuff->fBufferLength >= 8 )
 						{ // need at least 8 bytes for lengths
 							// User Name
-							::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( unsigned long ) );
-							curr += sizeof( unsigned long );
+							::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( UInt32 ) );
+							curr += sizeof( UInt32 );
 							if ( len <= dataBuff->fBufferLength - curr )
 							{
 								userName = (char*)::calloc( len + 1, sizeof( char ) );
 								::memcpy( userName, &(dataBuff->fBufferData[ curr ]), len );
 								curr += len;
-								DBGLOG2( kLogHandler, "%s : DAC : 1 : Username = %s", debugDataTag, userName );
+								DbgLog( kLogAPICalls, "%s : DAC : 1 : Username = %s", debugDataTag, userName );
 		
 								// Password
-								::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( unsigned long ) );
-								curr += sizeof ( unsigned long );
+								::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( UInt32 ) );
+								curr += sizeof ( UInt32 );
 								if ( len <= dataBuff->fBufferLength - curr )
 								{
 									password = (char*)::calloc( len + 1, sizeof( char ) );
 									::memcpy( password, &(dataBuff->fBufferData[ curr ]), len );
 									curr += len;
-									DBGLOG1( kLogHandler, "%s : DAC : 2 : A password was received", debugDataTag );
+									DbgLog( kLogAPICalls, "%s : DAC : 2 : A password was received", debugDataTag );
 		
 									//case insensitivity of username allowed for DSProxy
 									siResult = DoCheckUserNameAndPassword( userName, password, eDSiExact, &localUID, &shortName );
 									// now we need to check that the user is in the admin group
-									if ( (siResult == 0) && (localUID != 0) && !UserIsAdmin( shortName ) )
+									if ( (siResult == 0) && (localUID != 0) && !UserInGivenGroup(shortName, "admin") &&
+										 !UserInGivenGroup(shortName, "com.apple.access_dsproxy") &&
+										 !UserInGivenGroup(shortName, "com.apple.admin_dsproxy") )
 									{
-										DBGLOG2( kLogHandler, "%s : DAC : 3 : Username = %s is not an ADMIN user", debugDataTag, userName );
+										DbgLog( kLogAPICalls, "%s : DAC : 3 : Username = %s is not an ADMIN user nor DSProxy SACL member", debugDataTag, userName );
 										siResult = -3;
 									}
 								}
@@ -872,9 +1106,9 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 					if (siResult == eDSNoErr) //if auth succeeded
 					{
 						siResult = CRefTable::NewDirRef( &uiDirRef, aClientPID, anIPAddress );
-						uInt32 serverVersion = 1;
+						UInt32 serverVersion = 1;
 		
-						DBGLOG4( kLogHandler, "%s : DAR : Dir Ref %u : Server version = %u : Result code = %d", debugDataTag, uiDirRef, serverVersion, siResult );
+						DbgLog( kLogAPICalls, "%s : DAR : Dir Ref %u : Server version = %u : Result code = %d", debugDataTag, uiDirRef, serverVersion, siResult );
 						siResult = SetRequestResult( (*inMsg), siResult );
 						if ( siResult == eDSNoErr )
 						{
@@ -909,15 +1143,88 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 			break;
 		}
 
+		case kOpenDirServiceLocal:
+		{
+			if (gDSLocalOnlyMode)
+			{
+				siResult = cMsg.Get_tDataBuff_FromMsg( (*inMsg), &versDataBuff, ktDataBuff );
+				if ( siResult == eDSNoErr )
+				{
+					if ( strncmp(versDataBuff->fBufferData, "Default", 7) == 0 )
+					{
+						//gDSLocalFilePath stays NULL?
+					}
+					else if ( versDataBuff->fBufferLength > 0 ) //assume file path provided
+					{
+						if (gDSLocalFilePath != NULL)
+						{
+							if (gLocalSessionCount == 0) //let us in new since we have closed all previous sessions
+							{
+								DSFreeString(gDSLocalFilePath);
+								gDSLocalFilePath = strdup(versDataBuff->fBufferData);
+							}
+							else //let us in again if we ask for the same node
+							{
+								if (strcmp(gDSLocalFilePath, versDataBuff->fBufferData) != 0)
+								{
+									siResult = eDSCannotAccessSession;
+								}
+							}
+						}
+						else
+						{
+							gDSLocalFilePath = strdup(versDataBuff->fBufferData);
+						}
+					}
+					else
+					{
+						siResult = eDSCannotAccessSession;
+					}
+				}
+				if ( versDataBuff != NULL )
+				{
+					dsDataBufferDeallocatePriv( versDataBuff );
+					versDataBuff = NULL;
+				}
+				
+				if (siResult == eDSNoErr)
+				{
+					siResult = CRefTable::NewDirRef( &uiDirRef, aClientPID, anIPAddress );
+
+					DbgLog( kLogAPICalls, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+					siResult = SetRequestResult( (*inMsg), siResult );
+					if ( siResult == eDSNoErr )
+					{
+						// Add the dir reference
+						siResult = cMsg.Add_Value_ToMsg( (*inMsg), uiDirRef, ktDirRef );
+						gLocalSessionCount++;
+					}
+				}
+			}
+			else
+			{
+				siResult = eDSCannotAccessSession;
+			}
+			break;
+		}
+
 		case kCloseDirService:
 		{
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
-			DBGLOG2( kLogHandler, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &count, kNodeCount );
 
 			siResult = CRefTable::RemoveDirRef( uiDirRef, aClientPID, anIPAddress );
+			if ( gDSLocalOnlyMode && (siResult == eDSNoErr) )
+			{
+				gLocalSessionCount--;
+				if (gLocalSessionCount < 1)
+				{
+					gLocalSessionCount = 0; //periodic task will check to see if we can exit this localonly daemon
+				}
+			}
 
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			siResult = SetRequestResult( (*inMsg), siResult );
 			if ( count == 1 )
 			{
@@ -930,7 +1237,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 		case kGetDirNodeCount:
 		{
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
-			DBGLOG2( kLogHandler, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
 			if ( siResult == eDSNoErr )
 			{
 				siResult = CRefTable::VerifyDirRef( uiDirRef, nil, aClientPID, anIPAddress );
@@ -940,7 +1247,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				if ( siResult == eDSNoErr )
 				{
 					count = gNodeList->GetNodeCount();
-					DBGLOG4( kLogHandler, "%s : DAR : Dir Ref = %u : Node Count = %u : Result code = %d", debugDataTag, uiDirRef, count, siResult );
+					DbgLog( kLogAPICalls, "%s : DAR : Dir Ref = %u : Node Count = %u : Result code = %d", debugDataTag, uiDirRef, count, siResult );
 					siResult = SetRequestResult( (*inMsg), siResult );
 					if ( siResult == eDSNoErr )
 					{
@@ -959,7 +1266,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 		case kGetDirNodeChangeToken:
 		{
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
-			DBGLOG2( kLogHandler, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u ", debugDataTag, uiDirRef );
 			if ( siResult == eDSNoErr )
 			{
 				siResult = CRefTable::VerifyDirRef( uiDirRef, nil, aClientPID, anIPAddress );
@@ -968,7 +1275,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 
 				if ( siResult == eDSNoErr )
 				{
-					DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+					DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 					siResult = SetRequestResult( (*inMsg), siResult );
 					if ( siResult == eDSNoErr )
 					{
@@ -979,7 +1286,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 						changeToken = gNodeList->GetNodeChangeToken();
 						// Add the changeToken
 						siResult = cMsg.Add_Value_ToMsg( (*inMsg), changeToken, kNodeChangeToken );
-						DBGLOG4( kLogHandler, "%s : DAR : 2 : Dir Ref = %u : Node Count = %u : Change Token = %u", debugDataTag, uiDirRef, count, changeToken );
+						DbgLog( kLogAPICalls, "%s : DAR : 2 : Dir Ref = %u : Node Count = %u : Change Token = %u", debugDataTag, uiDirRef, count, changeToken );
 					}
 				}
 				else
@@ -996,10 +1303,10 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 
 			if (gDebugLogging)
 			{
-				uInt32 aLength = 0;
+				UInt32 aLength = 0;
 				cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
 				cMsg.Get_Value_FromMsg( (*inMsg), &aLength, kOutBuffLen ); //no need to check return
-				DBGLOG3( kLogHandler, "%s : DAC : Dir Ref %u : Data buffer size = %u", debugDataTag, uiDirRef, aLength );
+				DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u : Data buffer size = %u", debugDataTag, uiDirRef, aLength );
 			}
 			
 			newData = GetNodeList( (*inMsg), &siResult );
@@ -1021,7 +1328,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				cMsg.ClearDataBlock( (*inMsg) );
 				SetRequestResult( (*inMsg), siResult );
 			}
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			break;
 		}
 
@@ -1031,10 +1338,10 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 
 			if (gDebugLogging)
 			{
-				uInt32 aLength	= 0;
+				UInt32 aLength	= 0;
 				cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
 				cMsg.Get_Value_FromMsg( (*inMsg), &aLength, kOutBuffLen ); //no need to check return
-				DBGLOG3( kLogHandler, "%s : DAC : Dir Ref %u : Data buffer size = %u", debugDataTag, uiDirRef, aLength );
+				DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u : Data buffer size = %u", debugDataTag, uiDirRef, aLength );
 			}
 			
 			newData = FindDirNodes( (*inMsg), &siResult, debugDataTag );
@@ -1056,7 +1363,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				cMsg.ClearDataBlock( (*inMsg) );
 				SetRequestResult( (*inMsg), siResult );
 			}
-			DBGLOG3( kLogHandler, "%s : DAR : 2 : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : 2 : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			break;
 		}
 
@@ -1070,7 +1377,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 		case kVerifyDirRefNum:
 		{
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
-			DBGLOG2( kLogHandler, "%s : DAC : Dir Ref %u", debugDataTag, uiDirRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Dir Ref %u", debugDataTag, uiDirRef );
 			if ( siResult == eDSNoErr )
 			{
 				if ( uiDirRef == 0x00F0F0F0 )
@@ -1085,7 +1392,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				cMsg.ClearDataBlock( (*inMsg) );
 			}
 
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			siResult = SetRequestResult( (*inMsg), siResult );
 			break;
 		}
@@ -1098,7 +1405,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 
 			siResult = CRefTable::AddChildPIDToRef( uiGenericRef, aClientPID, uiChildPID, anIPAddress );
 
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			siResult = SetRequestResult( (*inMsg), siResult );
 			break;
 		}
@@ -1107,7 +1414,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 		{
 		#if USE_BSM_AUDIT
 			char *textStr = nil;
-			uInt32 bsmEventCode = 0;
+			UInt32 bsmEventCode = 0;
 		#endif
 		
 			siResult = cMsg.Get_Value_FromMsg( (*inMsg), &uiDirRef, ktDirRef );
@@ -1115,7 +1422,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 			if ( siResult == eDSNoErr )
 			{
 				SInt32 curr = 0;
-				unsigned long len = 0;
+				UInt32 len = 0;
 				
 				char* userName = NULL;
 				char* password = NULL;
@@ -1125,14 +1432,14 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
                 if ( dataBuff->fBufferLength >= 8 )
                 { // sanity check, need at least 8 bytes for lengths
 					// User Name
-					::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( unsigned long ) );
-					curr += sizeof( unsigned long );
+					::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( UInt32 ) );
+					curr += sizeof( UInt32 );
 					if ( len <= dataBuff->fBufferLength - curr )
                     { // sanity check
 						userName = (char*)::calloc( len + 1, sizeof( char ) );
 						::memcpy( userName, &(dataBuff->fBufferData[ curr ]), len );
 						curr += len;
-						DBGLOG3( kLogHandler, "%s : DAC : 1 : Dir Ref = %u : Username = %s", debugDataTag, uiDirRef, userName );
+						DbgLog( kLogAPICalls, "%s : DAC : 1 : Dir Ref = %u : Username = %s", debugDataTag, uiDirRef, userName );
 
 					#if USE_BSM_AUDIT
 						// need to evaluate the event
@@ -1140,14 +1447,14 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 					#endif
 
 						// Password
-						::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( unsigned long ) );
-						curr += sizeof ( unsigned long );
+						::memcpy( &len, &(dataBuff->fBufferData[ curr ]), sizeof( UInt32 ) );
+						curr += sizeof ( UInt32 );
 						if ( len <= dataBuff->fBufferLength - curr )
                         { // sanity check
 							password = (char*)::calloc( len + 1, sizeof( char ) );
 							::memcpy( password, &(dataBuff->fBufferData[ curr ]), len );
 							curr += len;
-							DBGLOG2( kLogHandler, "%s : DAC : 2 : Dir Ref = %u : A password was received", debugDataTag, uiDirRef );
+							DbgLog( kLogAPICalls, "%s : DAC : 2 : Dir Ref = %u : A password was received", debugDataTag, uiDirRef );
 
 							//username must be exact match for kCheckUserNameAndPassword
 							siResult = DoCheckUserNameAndPassword( userName, password, eDSExact, NULL, NULL );
@@ -1173,7 +1480,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 				}
 			}
 
-			DBGLOG3( kLogHandler, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref = %u : Result code = %d", debugDataTag, uiDirRef, siResult );
 			siResult = SetRequestResult( (*inMsg), siResult );
 
 		#if USE_BSM_AUDIT
@@ -1241,7 +1548,7 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 	
 	if ( siResult != eDSNoErr )
 	{
-		DBGLOG2( kLogHandler, "%s : HandleServerCall failed with error = %l", debugDataTag, siResult );
+		DbgLog( kLogHandler, "%s : HandleServerCall failed with error = %l", debugDataTag, siResult );
 	}
 	
 	if (debugDataTag != nil)
@@ -1260,22 +1567,22 @@ sInt32 CRequestHandler::HandleServerCall ( sComData **inMsg )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
+SInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 {
-	sInt32			siResult		= eDSNoErr;
+	SInt32			siResult		= eDSNoErr;
 	void		   *pData			= nil;
 	bool			shouldProcess   = true;
 	bool			found			= false;
-	uInt32			uiState			= 0;
-	sInt32			aClientPID		= -1;
-	uInt32			anIPAddress		= 0;
+	UInt32			uiState			= 0;
+	SInt32			aClientPID		= -1;
+	UInt32			anIPAddress		= 0;
 	char		   *aMsgName		= nil;
 	char		   *debugDataTag	= nil;
 	double			inTime			= 0;
 	double			outTime			= 0;
 	bool			performanceStatGatheringActive = gSrvrCntl->IsPeformanceStatGatheringActive();
-	sInt32			pluginResult	= eDSNoErr;
-	uInt32			type			= 0;
+	SInt32			pluginResult	= eDSNoErr;
+	UInt32			type			= 0;
 	char		   *textStr			= nil;
 	
 	// Set this to nil, it will get set in next call
@@ -1308,8 +1615,8 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 						((fPluginPtr->GetPluginName()) != nil) && (strcmp(fPluginPtr->GetPluginName(),"Search") == 0 ) )
 					{
 						//wait to overcome race condition on setting search node to active?
-						DSSemaphore	initWait;
-						time_t		waitForIt = ::time( nil ) + 2;
+						DSEventSemaphore    initWait;
+						time_t              waitForIt = ::time( nil ) + 2;
 
 						while (!( uiState & kActive ))
 						{
@@ -1317,7 +1624,7 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 							if ( siResult == eDSNoErr )
 							{
 								// Wait for .2 seconds
-								initWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+								initWait.WaitForEvent( (UInt32)(.2 * kMilliSecsPerSec) );
 
 								// Let's give it a couple of seconds, then we bail
 								if ( ::time( nil ) > waitForIt )
@@ -1344,7 +1651,7 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 							#if USE_BSM_AUDIT
 								// need to evaluate the event before calling the dispatch in case the
 								// event is a DeleteRecord event. 
-								uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+								UInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
 							#endif
 							
 							siResult = fPluginPtr->ProcessRequest( pData );
@@ -1431,13 +1738,13 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 					}
 					else if ( uiState & kUninitialized )
 					{
-						DBGLOG( kLogHandler, "Plugin state is uninitialized so retrying" );
+						DbgLog( kLogHandler, "Plugin state is uninitialized so retrying" );
 						// If the plugin is not finished initializing, let's hang out
 						//	for a while and see if it finishes sucessefully
 						if ( uiState & kUninitialized )
 						{
-							DSSemaphore	initWait;
-							time_t		waitForIt = ::time( nil ) + 120;
+							DSEventSemaphore	initWait;
+							time_t              waitForIt = ::time( nil ) + 120;
 
 							while ( uiState & kUninitialized )
 							{
@@ -1445,7 +1752,7 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 								if ( siResult == eDSNoErr )
 								{
 									// Wait for .5 seconds
-									initWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
+									initWait.WaitForEvent( (UInt32)(.5 * kMilliSecsPerSec) );
 
 									// Let's give it a couple of minutes, then we bail
 									if ( ::time( nil ) > waitForIt )
@@ -1462,7 +1769,7 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 
 						if ( uiState & kActive )
 						{
-							DBGLOG( kLogHandler, "Plugin state became active" );
+							DbgLog( kLogHandler, "Plugin state became active" );
 							if ( gLogAPICalls || performanceStatGatheringActive )
 							{
 								inTime = dsTimestamp();
@@ -1473,7 +1780,7 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 								#if USE_BSM_AUDIT
 									// need to evaluate the event before calling the dispatch in case the
 									// event is a DeleteRecord event. 
-									uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+									UInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
 								#endif
 								
 								siResult = fPluginPtr->ProcessRequest( pData );
@@ -1558,96 +1865,60 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 						}
 						else
 						{
-							DBGLOG( kLogHandler, "Plugin state did not become active" );
+							DbgLog( kLogHandler, "Plugin state did not become active" );
 						}
 					}
 					else if ( uiState & kInactive )
 					{
-						DBGLOG( kLogHandler, "Plugin state is inactive" );
+						DbgLog( kLogHandler, "Plugin state is inactive" );
 						siResult = ePlugInNotActive;
 					}
 					else if ( uiState & kFailedToInit )
 					{
-						DBGLOG( kLogHandler, "Plugin state failed to init" );
+						DbgLog( kLogHandler, "Plugin state failed to init" );
 						siResult = ePlugInInitError;
 					}
 					else
 					{
-						DBGLOG1( kLogHandler, "Plugin state is indeterminate as %d", uiState );
+						DbgLog( kLogHandler, "Plugin state is indeterminate as %d", uiState );
 						siResult = ePlugInInitError;
 					}
 				}
 				else
 				{
-					DBGLOG( kLogHandler, "Unable to retrieve plugin state" );
+					DbgLog( kLogHandler, "Unable to retrieve plugin state" );
 					siResult = ePlugInInitError;
 				}
 			}
 			else
 			{
-				//this path is to handle likely opendirnode calls that have not been registered
-				DBGLOG( kLogHandler, "Unable to determine fPluginPtr from node table" );
-				sHeader		   *p			= (sHeader *)pData;
-				CServerPlugin	*pPlugin	= nil;
-				tDataNode	   *aNodePtr	= nil;
-				tDataBufferPriv	   *pPrivData	= nil;
-
+				sHeader				*p			= (sHeader *)pData;
+				sOpenDirNode		*pDataMask	= (sOpenDirNode *)pData;
+				CServerPlugin		*pPlugin	= nil;
+				tDataNode			*aNodePtr	= nil;
+				tDataBufferPriv		*pPrivData	= nil;
+				char				*nodePrefix = nil;
+				
+				// this path is to handle likely opendirnode calls that have not been registered
+				DbgLog( kLogDebug, "Unable to determine fPluginPtr from node table" );
+				
 				if ( (p->fType == kOpenDirNode) && shouldProcess )
 				{
-					sOpenDirNode *pDataMask = (sOpenDirNode *)pData;
 					if ( gPlugins != nil )
 					{
-						char *nodePrefix = nil;
 						//retrieve the node Prefix out of the tDataList pDataMask->fInDirNodeName
 						aNodePtr = ::dsGetThisNodePriv( pDataMask->fInDirNodeName->fDataListHead, 1 );
 						if (aNodePtr != nil)
 						{
 							pPrivData = (tDataBufferPriv *)aNodePtr;
-							nodePrefix = (char *)calloc(1, pPrivData->fBufferLength + 1);
-							strncpy(nodePrefix, pPrivData->fBufferData, pPrivData->fBufferLength);
+							nodePrefix = dsCStrFromCharacters( pPrivData->fBufferData, pPrivData->fBufferLength );
 						}
-						//stop loading Inactive plugin unless call is directly to nodePrefix or nodePrefix/Configure
-						bool loadIfNeeded = true;
-						uInt32 tmpState = 0;
-						sInt32 tmpResult = gPlugins->GetState( nodePrefix, &tmpState );
-						if ( ( tmpResult == eDSNoErr ) && (tmpState & kInactive) )
-						{
-							loadIfNeeded = false;
-							if (pDataMask->fInDirNodeName->fDataNodeCount == 1)
-							{
-								loadIfNeeded = true;
-							}
-							else if (pDataMask->fInDirNodeName->fDataNodeCount == 2) //check for case of Configure node
-							{
-								char *nodeSuffix = nil;
-								//retrieve the node Suffix out of the tDataList pDataMask->fInDirNodeName
-								aNodePtr = ::dsGetThisNodePriv( pDataMask->fInDirNodeName->fDataListHead, 2 );
-								if (aNodePtr != nil)
-								{
-									pPrivData = (tDataBufferPriv *)aNodePtr;
-									nodeSuffix = (char *)calloc(1, pPrivData->fBufferLength + 1);
-									strncpy(nodeSuffix, pPrivData->fBufferData, pPrivData->fBufferLength);
-									if (strcasecmp(nodeSuffix, "Configure") == 0)
-									{
-										loadIfNeeded = true;
-									}
-									free(nodeSuffix);
-									nodeSuffix = nil;
-								}
-							}
-						}
+						
 						//try to get correct plugin to handle this request					
-						pPlugin = gPlugins->GetPlugInPtr(nodePrefix, loadIfNeeded);
-						//cleanup the temp string
-						if (nodePrefix != nil)
-						{
-							free(nodePrefix);
-							nodePrefix = nil;
-						}
-
+						pPlugin = gPlugins->GetPlugInPtr(nodePrefix, true);
 						if ( pPlugin != nil )
 						{
-							DBGLOG( kLogHandler, "Determined plugin ptr for call" );
+							DbgLog( kLogDebug, "Determined plugin ptr for call" );
 							if ( (gDebugLogging) || (gLogAPICalls) )
 							{
 								debugDataTag = BuildAPICallDebugDataTag(anIPAddress, aClientPID, aMsgName, pPlugin->GetPluginName());
@@ -1662,11 +1933,11 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 							#if USE_BSM_AUDIT
 								// need to evaluate the event before calling the dispatch in case the
 								// event is a DeleteRecord event. 
-								uInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
+								UInt32 bsmEventCode = AuditForThisEvent( type, pData, &textStr );
 							#endif
 							
 							siResult = pPlugin->ProcessRequest( pData );
-							DBGLOG1( kLogHandler, "Determined plugin ptr used and returns result %d", siResult );
+							DbgLog( kLogDebug, "Determined plugin ptr used and returns result %d", siResult );
 							
 							#if USE_BSM_AUDIT
 								// BSM Audit
@@ -1754,28 +2025,36 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 					siResult = ePlugInNotFound;
 				}
 
-				if ( (p->fType == kOpenDirNode) && !found )
+				if ( (p->fType == kOpenDirNode) && shouldProcess && !found )
 				{
-					DBGLOG1( kLogHandler, "*** Error NULL plug-in pointer.  Returning error = %l.", eMemoryError );
 					siResult = eDSNodeNotFound;
+					char *nodeName = dsGetPathFromList(	0, pDataMask->fInDirNodeName, "/" );
+					DbgLog( kLogDebug, "*** Error NULL plug-in pointer for node %s. Returning error = %l.",
+							nodeName ? nodeName : "(null)", siResult );
+					DSFreeString( nodeName );
 				}
+				
+				DSFreeString( nodePrefix );
 			}
 		}
 		else
 		{
-			DBGLOG1( kLogHandler, "*** Error NULL data ub plug-in handler.  Returning error = %l.", eMemoryError );
 			siResult = eMemoryError;
+			DbgLog( kLogHandler, "*** Error NULL plug-in data. Returning error = %l.", siResult );
 		}
 	}
 	else if ( siResult == -1212 )
 	{
-		DBGLOG1( kLogHandler, "GetRequestData error returned %d", siResult );
+		DbgLog( kLogHandler, "GetRequestData error returned %d", siResult );
 		//KW this -1212 only possible from DoReleaseContinueData()
 		siResult = eDSNoErr;
 	}
 	else
 	{
-		DBGLOG1( kLogHandler, "GetRequestData error returned %d", siResult );
+		if ( siResult != eDSRecordTypeDisabled )
+		{
+			DbgLog( kLogHandler, "GetRequestData error returned %d", siResult );
+		}
 	}
 
 	if ( siResult == eDSBufferTooSmall )
@@ -1787,7 +2066,14 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 	{
 		if ( (debugDataTag == nil) && ( gDebugLogging || gLogAPICalls ) ) //early reference error caused failure
 		{
-			debugDataTag = BuildAPICallDebugDataTag(anIPAddress, aClientPID, aMsgName, (char *)"No Plugin");
+			if (fPluginPtr != NULL)
+			{
+				debugDataTag = BuildAPICallDebugDataTag(anIPAddress, aClientPID, aMsgName, fPluginPtr->GetPluginName() ? fPluginPtr->GetPluginName() : (char *)"No Plugin");
+			}
+			else
+			{
+				debugDataTag = BuildAPICallDebugDataTag(anIPAddress, aClientPID, aMsgName, (char *)"No Plugin");
+			}
 			DebugAPIPluginCall(nil, debugDataTag);
 		}
 
@@ -1798,18 +2084,18 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 			char *pType = GetCallName( p->fType );
 			if ( pType != nil )
 			{
-				sInt32 cleanUpResult = eDSNoErr;
+				SInt32 cleanUpResult = eDSNoErr;
 				cleanUpResult = FailedCallRefCleanUp( pData, aClientPID, p->fType, anIPAddress );
-				DBGLOG2( kLogHandler, "Plug-in call \"%s\" failed with error = %l.", pType, siResult );
+				DbgLog( kLogHandler, "Plug-in call \"%s\" failed with error = %l.", pType, siResult );
 			}
 			else
 			{
-				DBGLOG2( kLogHandler, "Plug-in call failed with error = %l, type = %d.", siResult, p->fType );
+				DbgLog( kLogHandler, "Plug-in call failed with error = %l, type = %d.", siResult, p->fType );
 			}
 		}
 		else
 		{
-			DBGLOG1( kLogHandler, "Plug-in call failed with error = %l (NULL data).", siResult );
+			DbgLog( kLogHandler, "Plug-in call failed with error = %l (NULL data).", siResult );
 		}
 
 		CSrvrMessaging		cMsg;
@@ -1841,9 +2127,9 @@ sInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::HandleUnknownCall ( sComData *inMsg )
+SInt32 CRequestHandler::HandleUnknownCall ( sComData *inMsg )
 {
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 
 	siResult = SetRequestResult( inMsg, eUnknownAPICall );
 
@@ -1857,10 +2143,10 @@ sInt32 CRequestHandler::HandleUnknownCall ( sComData *inMsg )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::GetRequestData ( sComData *inMsg, sInt32 *outResult, bool *outShouldProcess )
+void* CRequestHandler::GetRequestData ( sComData *inMsg, SInt32 *outResult, bool *outShouldProcess )
 {
 	void			   *outData			= nil;
-	uInt32				uiMsgType		= 0;
+	UInt32				uiMsgType		= 0;
 
 	if (outShouldProcess != nil)
 	{
@@ -2038,9 +2324,9 @@ void* CRequestHandler::GetRequestData ( sComData *inMsg, sInt32 *outResult, bool
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::SetRequestResult ( sComData *inMsg, sInt32 inResult )
+SInt32 CRequestHandler::SetRequestResult ( sComData *inMsg, SInt32 inResult )
 {
-	sInt32			siResult	= -8088;
+	SInt32			siResult	= -8088;
 	CSrvrMessaging		cMsg;
 
 	if ( inMsg != nil )
@@ -2063,7 +2349,7 @@ sInt32 CRequestHandler::SetRequestResult ( sComData *inMsg, sInt32 inResult )
 
 void CRequestHandler::DebugAPIPluginResponse (	void		   *inData,
 												char		   *inDebugDataTag,
-												sInt32			inResult)
+												SInt32			inResult)
 {
 	sHeader		   *pMsgHdr		= nil;
 
@@ -2079,196 +2365,217 @@ void CRequestHandler::DebugAPIPluginResponse (	void		   *inData,
 		case kOpenDirNode:
 		{
 			sOpenDirNode *p = (sOpenDirNode *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Dir Ref = %u : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInDirRef, p->fOutNodeRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Dir Ref = %u : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInDirRef, p->fOutNodeRef, inResult );
 			break;
 		}
 
 		case kCloseDirNode:
 		{
 			sCloseDirNode *p = (sCloseDirNode *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
 			break;
 		}
 
 		case kOpenRecord:
 		{
 			sOpenRecord *p = (sOpenRecord *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
 			break;
 		}
 
 		case kCreateRecord:
 		{
 			sCreateRecord *p = (sCreateRecord *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
 			break;
 		}
 
 		case kCreateRecordAndOpen:
 		{
 			sCreateRecord *p = (sCreateRecord *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Record Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecRef, inResult );
 			break;
 		}
 
 		case kCloseRecord:
 		{
 			sCloseRecord *p = (sCloseRecord *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 		
 		case kDeleteRecord:
 		{
 			sDeleteRecord *p = (sDeleteRecord *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 		
 		case kGetRecordReferenceInfo:
 		{
 			sGetRecRefInfo *p = (sGetRecRefInfo *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetRecordAttributeInfo:
 		{
 			sGetRecAttribInfo *p = (sGetRecAttribInfo *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetRecordAttributeValueByID:
 		{
 			sGetRecordAttributeValueByID *p = (sGetRecordAttributeValueByID *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetRecordAttributeValueByIndex:
 		{
 			sGetRecordAttributeValueByIndex *p = (sGetRecordAttributeValueByIndex *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetRecordAttributeValueByValue:
 		{
 			sGetRecordAttributeValueByValue *p = (sGetRecordAttributeValueByValue *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetDirNodeInfo:
 		{
 			sGetDirNodeInfo *p = (sGetDirNodeInfo *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
+			break;
+		}
+
+		case kGetRecordEntry:
+		{
+			sGetRecordEntry *p = (sGetRecordEntry *)inData;
+			DbgLog( kLogAPICalls, "%s : DAR : No Std Buffer : Node Ref = %u : Attr List Ref = %u", inDebugDataTag, p->fInNodeRef, p->fOutAttrListRef );
+			break;
+		}
+
+		case kGetAttributeEntry:
+		{
+			sGetAttributeEntry *p = (sGetAttributeEntry *)inData;
+			DbgLog( kLogAPICalls, "%s : DAR : No Std Buffer : Node Ref = %u : Attr List Ref = %u : Attr Value List Ref = %u", inDebugDataTag, p->fInNodeRef, p->fInAttrListRef, p->fOutAttrValueListRef );
+			break;
+		}
+
+		case kGetAttributeValue:
+		{
+			sGetAttributeValue *p = (sGetAttributeValue *)inData;
+			DbgLog( kLogAPICalls, "%s : DAR : No Std Buffer : Node Ref = %u : Attr Value Index = %u : Attr Value List Ref = %u", inDebugDataTag, p->fInNodeRef, p->fInAttrValueIndex, p->fInAttrValueListRef );
 			break;
 		}
 
 		case kSetRecordName:
 		{
 			sSetRecordName *p = (sSetRecordName *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kAddAttribute:
 		{
 			sAddAttribute *p = (sAddAttribute *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kRemoveAttribute:
 		{
 			sRemoveAttribute *p = (sRemoveAttribute *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kAddAttributeValue:
 		{
 			sAddAttributeValue *p = (sAddAttributeValue *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kRemoveAttributeValue:
 		{
 			sRemoveAttributeValue *p = (sRemoveAttributeValue *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kSetAttributeValue:
 		{
 			sSetAttributeValue *p = (sSetAttributeValue *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kSetAttributeValues:
 		{
 			sSetAttributeValues *p = (sSetAttributeValues *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Rec Ref = %u : Result code = %d", inDebugDataTag, p->fInRecRef, inResult );
 			break;
 		}
 
 		case kGetRecordList:
 		{
 			sGetRecordList *p = (sGetRecordList *)inData;
-			DBGLOG5( kLogHandler, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecEntryCount, p->fIOContinueData, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutRecEntryCount, p->fIOContinueData, inResult );
 			break;
 		}
 
 		case kDoAttributeValueSearch:
 		{
 			sDoAttrValueSearch *p = (sDoAttrValueSearch *)inData;
-			DBGLOG5( kLogHandler, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
 			break;
 		}
 
 		case kDoMultipleAttributeValueSearch:
 		{
 			sDoMultiAttrValueSearch *p = (sDoMultiAttrValueSearch *)inData;
-			DBGLOG5( kLogHandler, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u  : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
 			break;
 		}
 
 		case kDoAttributeValueSearchWithData:
 		{
 			sDoAttrValueSearchWithData *p = (sDoAttrValueSearchWithData *)inData;
-			DBGLOG5( kLogHandler, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
 			break;
 		}
 
 		case kDoMultipleAttributeValueSearchWithData:
 		{
 			sDoMultiAttrValueSearchWithData *p = (sDoMultiAttrValueSearchWithData *)inData;
-			DBGLOG5( kLogHandler, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Number of Found Records = %u : Continue Data = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData, inResult );
 			break;
 		}
 
 		case kDoDirNodeAuth:
 		{
 			sDoDirNodeAuth *p = (sDoDirNodeAuth *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
 			break;
 		}
 		
 		case kDoDirNodeAuthOnRecordType:
 		{
 			sDoDirNodeAuthOnRecordType *p = (sDoDirNodeAuthOnRecordType *)inData;
-			DBGLOG3( kLogHandler, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, inResult );
 			break;
 		}
 		
 		case kDoPlugInCustomCall:
 		{
 			sDoPlugInCustomCall *p = (sDoPlugInCustomCall *)inData;
-			DBGLOG4( kLogHandler, "%s : DAR : Node Ref = %u : Request Code = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fInRequestCode, inResult );
+			DbgLog( kLogAPICalls, "%s : DAR : Node Ref = %u : Request Code = %u : Result code = %d", inDebugDataTag, p->fInNodeRef, p->fInRequestCode, inResult );
 			break;
 		}
 
@@ -2291,7 +2598,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 
 	if ( gDebugLogging && (inData == nil) && (inDebugDataTag != nil) ) //error before data parsing
 	{
-		DBGLOG1( kLogHandler, "%s : DAC : Failed during argument validity checking", inDebugDataTag );
+		DbgLog( kLogAPICalls, "%s : DAC : Failed during argument validity or record search restriction checking", inDebugDataTag );
 		return;
 	}
 	
@@ -2310,7 +2617,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			char* aNodeName = dsGetPathFromListPriv( p->fInDirNodeName, (const char *)"/" );
 			if (aNodeName != nil)
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Dir Ref = %u : Node Name = %s", inDebugDataTag, p->fInDirRef, aNodeName );
+				DbgLog( kLogAPICalls, "%s : DAC : Dir Ref = %u : Node Name = %s", inDebugDataTag, p->fInDirRef, aNodeName );
 				free(aNodeName);
 				aNodeName = nil;
 			}
@@ -2320,7 +2627,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 		case kCloseDirNode:
 		{
 			sCloseDirNode *p = (sCloseDirNode *)inData;
-			DBGLOG2( kLogHandler, "%s : DAC : Node Ref = %u", inDebugDataTag, p->fInNodeRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u", inDebugDataTag, p->fInNodeRef );
 			break;
 		}
 
@@ -2329,7 +2636,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sOpenRecord *p = (sOpenRecord *)inData;
 			if ( (p->fInRecType != nil) && (p->fInRecName != nil) && (p->fInRecType->fBufferData != nil) && (p->fInRecName->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData );
 			}
 			break;
 		}
@@ -2339,7 +2646,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sCreateRecord *p = (sCreateRecord *)inData;
 			if ( (p->fInRecType != nil) && (p->fInRecName != nil) && (p->fInRecType->fBufferData != nil) && (p->fInRecName->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData );
 			}
 			break;
 		}
@@ -2349,7 +2656,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sCreateRecord *p = (sCreateRecord *)inData;
 			if ( (p->fInRecType != nil) && (p->fInRecName != nil) && (p->fInRecType->fBufferData != nil) && (p->fInRecName->fBufferData != nil) )
 			{
-				DBGLOG5( kLogHandler, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s : Open Rec Flag = %u", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData, p->fInOpen );
+				DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : Rec Type = %s : Rec Name = %s : Open Rec Flag = %u", inDebugDataTag, p->fInNodeRef, p->fInRecType->fBufferData,  p->fInRecName->fBufferData, p->fInOpen );
 			}
 			break;
 		}
@@ -2357,21 +2664,21 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 		case kCloseRecord:
 		{
 			sCloseRecord *p = (sCloseRecord *)inData;
-			DBGLOG2( kLogHandler, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
 			break;
 		}
 		
 		case kDeleteRecord:
 		{
 			sDeleteRecord *p = (sDeleteRecord *)inData;
-			DBGLOG2( kLogHandler, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
 			break;
 		}
 		
 		case kGetRecordReferenceInfo:
 		{
 			sGetRecRefInfo *p = (sGetRecRefInfo *)inData;
-			DBGLOG2( kLogHandler, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
+			DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u", inDebugDataTag, p->fInRecRef );
 			break;
 		}
 
@@ -2380,7 +2687,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sGetRecAttribInfo *p = (sGetRecAttribInfo *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
 			}
 			break;
 		}
@@ -2390,7 +2697,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sGetRecordAttributeValueByID *p = (sGetRecordAttributeValueByID *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr ID = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInValueID );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr ID = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInValueID );
 			}
 			break;
 		}
@@ -2400,7 +2707,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sGetRecordAttributeValueByIndex *p = (sGetRecordAttributeValueByIndex *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Index = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValueIndex );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Index = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValueIndex );
 			}
 			break;
 		}
@@ -2411,7 +2718,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			if (	(p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) &&
 					(p->fInAttrValue != nil)  && (p->fInAttrValue->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValue->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValue->fBufferData );
 			}
 			break;
 		}
@@ -2422,10 +2729,31 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			char* requestedAttrs = dsGetPathFromListPriv( p->fInDirNodeInfoTypeList, (const char *)";" );
 			if (requestedAttrs != nil)
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly );
+				DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly );
 				free(requestedAttrs);
 				requestedAttrs = nil;
 			}
+			break;
+		}
+		
+		case kGetRecordEntry:
+		{
+			sGetRecordEntry *p = (sGetRecordEntry *)inData;
+			DbgLog( kLogAPICalls, "%s : DAC : No Std Buffer : Node Ref = %u : Rec Entry Index = %u", inDebugDataTag, p->fInNodeRef, p->fInRecEntryIndex );
+			break;
+		}
+
+		case kGetAttributeEntry:
+		{
+			sGetAttributeEntry *p = (sGetAttributeEntry *)inData;
+			DbgLog( kLogAPICalls, "%s : DAC : No Std Buffer : Node Ref = %u : Attr List Ref = %u : Attr Info Index = %u", inDebugDataTag, p->fInNodeRef, p->fInAttrListRef, p->fInAttrInfoIndex );
+			break;
+		}
+
+		case kGetAttributeValue:
+		{
+			sGetAttributeValue *p = (sGetAttributeValue *)inData;
+			DbgLog( kLogAPICalls, "%s : DAC : No Std Buffer : Node Ref = %u : Attr Value Index = %u : Attr Value List Ref = %u", inDebugDataTag, p->fInNodeRef, p->fInAttrValueIndex, p->fInAttrValueListRef );
 			break;
 		}
 
@@ -2434,7 +2762,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sSetRecordName *p = (sSetRecordName *)inData;
 			if ( (p->fInNewRecName != nil)  && (p->fInNewRecName->fBufferData != nil) )
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInNewRecName->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInNewRecName->fBufferData );
 			}
 			break;
 		}
@@ -2444,7 +2772,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sAddAttribute *p = (sAddAttribute *)inData;
 			if ( (p->fInNewAttr != nil) && (p->fInFirstAttrValue != nil) && (p->fInNewAttr->fBufferData != nil) && (p->fInFirstAttrValue->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInNewAttr->fBufferData,  p->fInFirstAttrValue->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInNewAttr->fBufferData,  p->fInFirstAttrValue->fBufferData );
 			}
 			break;
 		}
@@ -2454,7 +2782,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sRemoveAttribute *p = (sRemoveAttribute *)inData;
 			if ( (p->fInAttribute != nil)  && (p->fInAttribute->fBufferData != nil) )
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttribute->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttribute->fBufferData );
 			}
 			break;
 		}
@@ -2464,7 +2792,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sAddAttributeValue *p = (sAddAttributeValue *)inData;
 			if ( (p->fInAttrType != nil) && (p->fInAttrValue != nil) && (p->fInAttrType->fBufferData != nil) && (p->fInAttrValue->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData,  p->fInAttrValue->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr Value = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData,  p->fInAttrValue->fBufferData );
 			}
 			break;
 		}
@@ -2474,7 +2802,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sRemoveAttributeValue *p = (sRemoveAttributeValue *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG4( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr ID = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValueID );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s : Attr ID = %u", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData, p->fInAttrValueID );
 			}
 			break;
 		}
@@ -2484,7 +2812,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sSetAttributeValue *p = (sSetAttributeValue *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
 			}
 			break;
 		}
@@ -2494,7 +2822,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			sSetAttributeValues *p = (sSetAttributeValues *)inData;
 			if ( (p->fInAttrType != nil)  && (p->fInAttrType->fBufferData != nil) )
 			{
-				DBGLOG3( kLogHandler, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : Rec Ref = %u : Attr Type = %s", inDebugDataTag, p->fInRecRef, p->fInAttrType->fBufferData );
 			}
 			break;
 		}
@@ -2507,8 +2835,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			char* requestedAttrs = dsGetPathFromListPriv( p->fInAttribTypeList, (const char *)";" );
 			if ( (requestedRecNames != nil) && (requestedRecTypes != nil) && (requestedAttrs != nil) )
 			{
-				DBGLOG6( kLogHandler, "%s : DAC : 1 : Node Ref = %u : Requested Rec Names = %s : Rec Name Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, requestedRecNames+1, p->fInPatternMatch, dsGetPatternMatchName(p->fInPatternMatch), requestedRecTypes+1 );
-				DBGLOG6( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttribInfoOnly, p->fOutRecEntryCount, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : Requested Rec Names = %s : Rec Name Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, requestedRecNames+1, p->fInPatternMatch, dsGetPatternMatchName(p->fInPatternMatch), requestedRecTypes+1 );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttribInfoOnly, p->fOutRecEntryCount, p->fIOContinueData );
 				free(requestedRecNames);
 				requestedRecNames = nil;
 				free(requestedRecTypes);
@@ -2528,8 +2856,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 					(p->fInPatt2Match != nil) && (p->fInPatt2Match->fBufferData != nil) &&
 					(requestedRecTypes != nil) )
 			{
-				DBGLOG7( kLogHandler, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match String = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, p->fInPatt2Match->fBufferData, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
-				DBGLOG4( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match String = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, p->fInPatt2Match->fBufferData, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData );
 				free(requestedRecTypes);
 				requestedRecTypes = nil;
 			}
@@ -2545,8 +2873,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			if ( 	(p->fInAttrType != nil) && (p->fInAttrType->fBufferData != nil) &&
 					(requestedRecTypes != nil) && (requestedAttrValues != nil) )
 			{
-				DBGLOG7( kLogHandler, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match Strings = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, requestedAttrValues+1, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
-				DBGLOG4( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match Strings = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, requestedAttrValues+1, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, p->fOutMatchRecordCount, p->fIOContinueData );
 				free(requestedRecTypes);
 				requestedRecTypes = nil;
 				free(requestedAttrValues);
@@ -2565,8 +2893,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 					(p->fInPatt2Match != nil) && (p->fInPatt2Match->fBufferData != nil) &&
 					(requestedRecTypes != nil) && (requestedAttrs != nil) )
 			{
-				DBGLOG7( kLogHandler, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match String = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, p->fInPatt2Match->fBufferData, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
-				DBGLOG6( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly, p->fOutMatchRecordCount, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match String = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, p->fInPatt2Match->fBufferData, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly, p->fOutMatchRecordCount, p->fIOContinueData );
 				free(requestedRecTypes);
 				requestedRecTypes = nil;
 				free(requestedAttrs);
@@ -2585,8 +2913,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 			if ( 	(p->fInAttrType != nil) && (p->fInAttrType->fBufferData != nil) &&
 					(requestedRecTypes != nil) && (requestedAttrs != nil) && (requestedAttrValues != nil) )
 			{
-				DBGLOG7( kLogHandler, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match Strings = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, requestedAttrValues+1, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
-				DBGLOG6( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly, p->fOutMatchRecordCount, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : Requested Attr Type = %s : Attr Match Strings = %s : Attr Pattern Match:%u = %s : Requested Rec Types = %s", inDebugDataTag, p->fInNodeRef, p->fInAttrType->fBufferData, requestedAttrValues+1, p->fInPattMatchType, dsGetPatternMatchName(p->fInPattMatchType), requestedRecTypes+1 );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Requested Attrs = %s : Attr Type Only Flag = %u : Record Count Limit = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, requestedAttrs+1, p->fInAttrInfoOnly, p->fOutMatchRecordCount, p->fIOContinueData );
 				free(requestedRecTypes);
 				requestedRecTypes = nil;
 				free(requestedAttrs);
@@ -2621,7 +2949,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 				{
 					userName = strdup("");
 				}
-				DBGLOG6( kLogHandler, "%s : DAC : Node Ref = %u : User Name = %s : Auth Method = %s : Auth Only Flag = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, userName, p->fInAuthMethod->fBufferData, p->fInDirNodeAuthOnlyFlag, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : User Name = %s : Auth Method = %s : Auth Only Flag = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, userName, p->fInAuthMethod->fBufferData, p->fInDirNodeAuthOnlyFlag, p->fIOContinueData );
 				free(userName);
 				userName = nil;
 			}
@@ -2652,8 +2980,8 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 				{
 					userName = strdup("");
 				}
-				DBGLOG6( kLogHandler, "%s : DAC : 1 : Node Ref = %u : User Name = %s : Auth Method = %s : Auth Only Flag = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, userName, p->fInAuthMethod->fBufferData, p->fInDirNodeAuthOnlyFlag, p->fIOContinueData );
-				DBGLOG3( kLogHandler, "%s : DAC : 2 : Node Ref = %u : Record Type = %s", inDebugDataTag, p->fInNodeRef, p->fInRecordType->fBufferData );
+				DbgLog( kLogAPICalls, "%s : DAC : 1 : Node Ref = %u : User Name = %s : Auth Method = %s : Auth Only Flag = %u : Continue Data = %u", inDebugDataTag, p->fInNodeRef, userName, p->fInAuthMethod->fBufferData, p->fInDirNodeAuthOnlyFlag, p->fIOContinueData );
+				DbgLog( kLogAPICalls, "%s : DAC : 2 : Node Ref = %u : Record Type = %s", inDebugDataTag, p->fInNodeRef, p->fInRecordType->fBufferData );
 				free(userName);
 				userName = nil;
 			}
@@ -2663,7 +2991,7 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 		case kDoPlugInCustomCall:
 		{
 			sDoPlugInCustomCall *p = (sDoPlugInCustomCall *)inData;
-			DBGLOG3( kLogHandler, "%s : DAC : Node Ref = %u : Request Code = %u", inDebugDataTag, p->fInNodeRef, p->fInRequestCode );
+			DbgLog( kLogAPICalls, "%s : DAC : Node Ref = %u : Request Code = %u", inDebugDataTag, p->fInNodeRef, p->fInRequestCode );
 			break;
 		}
 
@@ -2681,16 +3009,16 @@ void CRequestHandler::DebugAPIPluginCall ( void *inData, char *inDebugDataTag )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
+SInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 {
-	sInt32			siResult	= -8088;
-	uInt32			uiMsgType	= 0;
+	SInt32			siResult	= -8088;
+	UInt32			uiMsgType	= 0;
 	sHeader		   *pMsgHdr		= nil;
 	CSrvrMessaging		cMsg;
-	sInt32			aClientPID	= -1;
-	uInt32			anIPAddress	= 0;
-	uInt32			aContinue	= 0;
-	sInt32			aContextReq	= eDSNoErr;
+	SInt32			aClientPID	= -1;
+	UInt32			anIPAddress	= 0;
+	UInt32			aContinue	= 0;
+	SInt32			aContextReq	= eDSNoErr;
 
 	try
 	{
@@ -2727,16 +3055,16 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				{
 					// Add the data buffer
 					siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutRequestResponse, ktDataBuff );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 				}
 
 				//need these back in to determine possible endian byte swapping
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInNodeRef, ktNodeRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInNodeRefMap, ktNodeRefMap );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 3 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 3 );
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fInRequestCode, kCustomRequestCode );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 4 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 4 );
 
 				break;
 			}
@@ -2747,7 +3075,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the record count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutMatchRecordCount, kMatchRecCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				if (gDSFWCSBPDebugLogging)
 				{
@@ -2765,13 +3093,13 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -2799,7 +3127,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the record count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutMatchRecordCount, kMatchRecCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				if (gDSFWCSBPDebugLogging)
 				{
@@ -2817,13 +3145,13 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -2851,7 +3179,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the record count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutMatchRecordCount, kMatchRecCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				if (gDSFWCSBPDebugLogging)
 				{
@@ -2869,13 +3197,13 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -2903,7 +3231,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the record count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutMatchRecordCount, kMatchRecCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				if (gDSFWCSBPDebugLogging)
 				{
@@ -2921,13 +3249,13 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -2955,16 +3283,16 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the node count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutNodeCount, kNodeCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if (aContextReq == eDSNoErr)
 				{
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				siResult = eDSNoErr;
 
@@ -2977,16 +3305,16 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the node reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutDirNodeCount, kNodeCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				if (aContextReq == eDSNoErr)
 				{
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fOutContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fOutContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				siResult = eDSNoErr;
 
@@ -2999,7 +3327,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the node reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutNodeRef, ktNodeRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3008,23 +3336,37 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 			{
 				sGetDirNodeInfo *p = (sGetDirNodeInfo *)inData;
 
+				if (gDSFWCSBPDebugLogging)
+				{
+					//adjust the buffer tag to allow DS FW debugging
+					//offset by size and length ie. 8 bytes into the tDataBuffer
+					if (memcmp((p->fOutDataBuff)+8, "StdA", 4) == 0)
+					{
+						memcpy((p->fOutDataBuff)+8, "DbgA", 4 );
+					}
+					else if (memcmp((p->fOutDataBuff)+8, "StdB", 4) == 0)
+					{
+						memcpy((p->fOutDataBuff)+8, "DbgB", 4 );
+					}
+				}
+				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the attribute info count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutAttrInfoCount, kAttrInfoCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				// Add the attribute list reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutAttrListRef, ktAttrListRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fOutContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 3 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fOutContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 3 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -3066,17 +3408,17 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fInDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the record entry count
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutRecEntryCount, kAttrRecEntryCount );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 2 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 2 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -3104,15 +3446,15 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute list reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutAttrListRef, ktAttrListRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fInOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the record entry
 				siResult = cMsg.Add_tRecordEntry_ToMsg( inMsg, p->fOutRecEntryPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				break;
 			}
@@ -3123,15 +3465,15 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute value list reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutAttrValueListRef, ktAttrValueListRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fInOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the attribute info
 				siResult = cMsg.Add_tAttrEntry_ToMsg( inMsg, p->fOutAttrInfoPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 
 				break;
 			}
@@ -3142,11 +3484,11 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute value
 				siResult = cMsg.Add_tAttrValueEntry_ToMsg( inMsg, p->fOutAttrValue );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				// Add the data buffer
 				siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fInOutDataBuff, ktDataBuff );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3157,7 +3499,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the recrod reference
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutRecRef, ktRecRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3177,7 +3519,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the record info
 				siResult = cMsg.Add_tRecordEntry_ToMsg( inMsg, p->fOutRecInfo );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3188,7 +3530,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute info
 				siResult = cMsg.Add_tAttrEntry_ToMsg( inMsg, p->fOutAttrInfoPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3199,7 +3541,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute info
 				siResult = cMsg.Add_tAttrValueEntry_ToMsg( inMsg, p->fOutEntryPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3210,7 +3552,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute info
 				siResult = cMsg.Add_tAttrValueEntry_ToMsg( inMsg, p->fOutEntryPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3221,7 +3563,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute info
 				siResult = cMsg.Add_tAttrValueEntry_ToMsg( inMsg, p->fOutEntryPtr );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3232,7 +3574,7 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 
 				// Add the attribute info
 				siResult = cMsg.Add_Value_ToMsg( (*inMsg), p->fOutRecRef, ktRecRef );
-				if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+				if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 
 				break;
 			}
@@ -3245,14 +3587,14 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				{
 					// Add the record entry count
 					siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutAuthStepDataResponse, kAuthStepDataResponse );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 				}
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -3282,14 +3624,14 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 				{
 					// Add the record entry count
 					siResult = cMsg.Add_tDataBuff_ToMsg( inMsg, p->fOutAuthStepDataResponse, kAuthStepDataResponse );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError );
 				}
 
 				if ( aContextReq == eDSNoErr )
 				{
 					// Add the context data
-					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (uInt32)p->fIOContinueData, kContextData );
-					if ( siResult != eDSNoErr ) throw( (sInt32)eServerSendError - 1 );
+					siResult = cMsg.Add_Value_ToMsg( (*inMsg), (UInt32)p->fIOContinueData, kContextData );
+					if ( siResult != eDSNoErr ) throw( (SInt32)eServerSendError - 1 );
 				}
 				else //clean up continue data if client does not want it
 				{
@@ -3313,9 +3655,36 @@ sInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 			default:
 				break;
 		}
+
+		//here we update the ValidDataStamp for the plugin
+		//and here we empty the entire negative cache if something is added anywhere
+		switch ( uiMsgType )
+		{
+			case kFlushRecord:
+			case kSetRecordName:
+			case kSetRecordType:
+			case kCreateRecord:
+			case kCreateRecordAndOpen:
+			case kAddAttribute:
+			case kAddAttributeValue:
+			case kSetAttributeValue:
+			case kSetAttributeValues:
+				if (gCacheNode != NULL)
+					gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_NEGATIVE );
+			case kDeleteRecord:
+//				if (gCacheNode != NULL)
+//					gCacheNode->EmptyCacheEntriesForNode( fPluginPtr->GetPluginName() );
+			case kRemoveAttribute:
+			case kRemoveAttributeValue:
+				if ( ( gPlugins != NULL ) && ( fPluginPtr != NULL ) )
+					gPlugins->UpdateValidDataStamp( fPluginPtr->GetPluginName() );
+				break;
+			default:
+				break;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -3982,7 +4351,7 @@ void CRequestHandler::DoFreeMemory ( void *inData )
 //
 //--------------------------------------------------------------------------------------------------
 
-uInt32 CRequestHandler::GetMsgType ( sComData *inMsg )
+UInt32 CRequestHandler::GetMsgType ( sComData *inMsg )
 {
 	return( inMsg->type.msgt_name );
 } // GetMsgType
@@ -3997,13 +4366,13 @@ uInt32 CRequestHandler::GetMsgType ( sComData *inMsg )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoReleaseContinueData ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoReleaseContinueData ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32					siResult	= eServerReceiveError;
+	SInt32					siResult	= eServerReceiveError;
 	sReleaseContinueData   *p			= nil;
 	CSrvrMessaging			cMsg;
-	sInt32					aClientPID	= -1;
-	uInt32					anIPAddress	= 0;
+	SInt32					aClientPID	= -1;
+	UInt32					anIPAddress	= 0;
 
 	try
 	{
@@ -4035,14 +4404,14 @@ void* CRequestHandler::DoReleaseContinueData ( sComData *inMsg, sInt32 *outStatu
 					}
 					else
 					{
-						*outStatus = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInContinueData, kContextData );
+						*outStatus = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInContinueData, kContextData );
 					}
 				}
 			}
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4062,18 +4431,18 @@ void* CRequestHandler::DoReleaseContinueData ( sComData *inMsg, sInt32 *outStatu
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoFlushRecord ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoFlushRecord ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sFlushRecord	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sFlushRecord *) ::calloc(sizeof(sFlushRecord), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4081,7 +4450,7 @@ void* CRequestHandler::DoFlushRecord ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -4090,7 +4459,7 @@ void* CRequestHandler::DoFlushRecord ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4110,19 +4479,19 @@ void* CRequestHandler::DoFlushRecord ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoPlugInCustomCall ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoPlugInCustomCall ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32					siResult	= -8088;
+	SInt32					siResult	= -8088;
 	sDoPlugInCustomCall	   *p			= nil;
-	uInt32					uiBuffSize	= 0;
+	UInt32					uiBuffSize	= 0;
 	CSrvrMessaging			cMsg;
-	sInt32					aClientPID	= -1;
-	uInt32					anIPAddress	= 0;
+	SInt32					aClientPID	= -1;
+	UInt32					anIPAddress	= 0;
 
 	try
 	{
 		p = (sDoPlugInCustomCall *) ::calloc(sizeof(sDoPlugInCustomCall), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4130,32 +4499,32 @@ void* CRequestHandler::DoPlugInCustomCall ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRequestCode, kCustomRequestCode );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRequestData, ktDataBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		p->fOutRequestResponse = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutRequestResponse == nil ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( p->fOutRequestResponse == nil ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRefMap, ktNodeRefMap );
 		//no error check here since only required for endian issues
-		//if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		//if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4175,19 +4544,19 @@ void* CRequestHandler::DoPlugInCustomCall ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAttributeValueSearch ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAttributeValueSearch ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sDoAttrValueSearch *p				= nil;
-	uInt32				uiBuffSize		= 0;
+	UInt32				uiBuffSize		= 0;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sDoAttrValueSearch *) ::calloc(sizeof(sDoAttrValueSearch), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4195,44 +4564,62 @@ void* CRequestHandler::DoAttributeValueSearch ( sComData *inMsg, sInt32 *outStat
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrType );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPattMatchType, kAttrPattMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 5 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPattMatchType, kAttrPattMatch );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 5 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInPatt2Match, kAttrMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 6 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 6 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
 			siResult = eDSNoErr;
 		}
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 7 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 7 );
 
-		*outStatus = eDSNoErr;
+		//Record Type Restrictions Checking
+		//might be performance impact to do this here wrt nodenames?
+		if (fPluginPtr != NULL)
+		{
+			char* requestedRecTypes = dsGetPathFromListPriv( p->fInRecTypeList, (const char *)";" );
+			if ( gPlugins->IsOKToServiceQuery( fPluginPtr->GetPluginName(), CRefTable::GetNodeRefName(p->fInNodeRef), requestedRecTypes, p->fInRecTypeList->fDataNodeCount ) )
+			{
+				*outStatus = eDSNoErr;
+			}
+			else
+			{
+				*outStatus = eDSRecordTypeDisabled;
+			}
+			DSFreeString(requestedRecTypes);
+		}
+		else
+		{
+			*outStatus = eDSNoErr;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4252,19 +4639,19 @@ void* CRequestHandler::DoAttributeValueSearch ( sComData *inMsg, sInt32 *outStat
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoMultipleAttributeValueSearch ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoMultipleAttributeValueSearch ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32						siResult		= -8088;
+	SInt32						siResult		= -8088;
 	sDoMultiAttrValueSearch    *p				= nil;
-	uInt32						uiBuffSize		= 0;
+	UInt32						uiBuffSize		= 0;
 	CSrvrMessaging				cMsg;
-	sInt32						aClientPID		= -1;
-	uInt32						anIPAddress		= 0;
+	SInt32						aClientPID		= -1;
+	UInt32						anIPAddress		= 0;
 
 	try
 	{
 		p = (sDoMultiAttrValueSearch *) ::calloc(sizeof(sDoMultiAttrValueSearch), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4272,44 +4659,62 @@ void* CRequestHandler::DoMultipleAttributeValueSearch ( sComData *inMsg, sInt32 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrType );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPattMatchType, kAttrPattMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 5 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPattMatchType, kAttrPattMatch );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 5 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInPatterns2MatchList, kAttrMatches );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 6 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 6 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
 			siResult = eDSNoErr;
 		}
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 7 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 7 );
 
-		*outStatus = eDSNoErr;
+		//Record Type Restrictions Checking
+		//might be performance impact to do this here wrt nodenames
+		if (fPluginPtr != NULL)
+		{
+			char* requestedRecTypes = dsGetPathFromListPriv( p->fInRecTypeList, (const char *)";" );
+			if ( gPlugins->IsOKToServiceQuery( fPluginPtr->GetPluginName(), CRefTable::GetNodeRefName(p->fInNodeRef), requestedRecTypes, p->fInRecTypeList->fDataNodeCount ) )
+			{
+				*outStatus = eDSNoErr;
+			}
+			else
+			{
+				*outStatus = eDSRecordTypeDisabled;
+			}
+			DSFreeString(requestedRecTypes);
+		}
+		else
+		{
+			*outStatus = eDSNoErr;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4329,20 +4734,20 @@ void* CRequestHandler::DoMultipleAttributeValueSearch ( sComData *inMsg, sInt32 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAttributeValueSearchWithData ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAttributeValueSearchWithData ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32						siResult		= -8088;
+	SInt32						siResult		= -8088;
 	sDoAttrValueSearchWithData *p				= nil;
-	uInt32						uiBuffSize		= 0;
+	UInt32						uiBuffSize		= 0;
 	CSrvrMessaging				cMsg;
-	sInt32						aClientPID		= -1;
-	uInt32						anIPAddress		= 0;
-	uInt32						aBoolValue		= 0;
+	SInt32						aClientPID		= -1;
+	UInt32						anIPAddress		= 0;
+	UInt32						aBoolValue		= 0;
 
 	try
 	{
 		p = (sDoAttrValueSearchWithData *) ::calloc(sizeof(sDoAttrValueSearchWithData), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4350,51 +4755,69 @@ void* CRequestHandler::DoAttributeValueSearchWithData ( sComData *inMsg, sInt32 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrType );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPattMatchType, kAttrPattMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 5 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPattMatchType, kAttrPattMatch );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 5 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInPatt2Match, kAttrMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 6 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 6 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInAttrTypeRequestList, kAttrTypeRequestList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 7 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 7 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAttrInfoOnly );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 8 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 8 );
 		p->fInAttrInfoOnly = (bool)aBoolValue;
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
 			siResult = eDSNoErr;
 		}
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 9 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 9 );
 
-		*outStatus = eDSNoErr;
+		//Record Type Restrictions Checking
+		//might be performance impact to do this here wrt nodenames
+		if (fPluginPtr != NULL)
+		{
+			char* requestedRecTypes = dsGetPathFromListPriv( p->fInRecTypeList, (const char *)";" );
+			if ( gPlugins->IsOKToServiceQuery( fPluginPtr->GetPluginName(), CRefTable::GetNodeRefName(p->fInNodeRef), requestedRecTypes, p->fInRecTypeList->fDataNodeCount ) )
+			{
+				*outStatus = eDSNoErr;
+			}
+			else
+			{
+				*outStatus = eDSRecordTypeDisabled;
+			}
+			DSFreeString(requestedRecTypes);
+		}
+		else
+		{
+			*outStatus = eDSNoErr;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4420,20 +4843,20 @@ void* CRequestHandler::DoAttributeValueSearchWithData ( sComData *inMsg, sInt32 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoMultipleAttributeValueSearchWithData ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoMultipleAttributeValueSearchWithData ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32									siResult		= -8088;
+	SInt32									siResult		= -8088;
 	sDoMultiAttrValueSearchWithData		   *p				= nil;
-	uInt32									uiBuffSize		= 0;
+	UInt32									uiBuffSize		= 0;
 	CSrvrMessaging							cMsg;
-	sInt32									aClientPID		= -1;
-	uInt32									anIPAddress		= 0;
-	uInt32									aBoolValue		= 0;
+	SInt32									aClientPID		= -1;
+	UInt32									anIPAddress		= 0;
+	UInt32									aBoolValue		= 0;
 
 	try
 	{
 		p = (sDoMultiAttrValueSearchWithData *) ::calloc(sizeof(sDoMultiAttrValueSearchWithData), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4441,51 +4864,69 @@ void* CRequestHandler::DoMultipleAttributeValueSearchWithData ( sComData *inMsg,
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrType );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPattMatchType, kAttrPattMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 5 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPattMatchType, kAttrPattMatch );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 5 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInPatterns2MatchList, kAttrMatches );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 6 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 6 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInAttrTypeRequestList, kAttrTypeRequestList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 7 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 7 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAttrInfoOnly );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 8 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 8 );
 		p->fInAttrInfoOnly = (bool)aBoolValue;
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
 			siResult = eDSNoErr;
 		}
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 9 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutMatchRecordCount, kMatchRecCount );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 9 );
 
-		*outStatus = eDSNoErr;
+		//Record Type Restrictions Checking
+		//might be performance impact to do this here wrt nodenames
+		if (fPluginPtr != NULL)
+		{
+			char* requestedRecTypes = dsGetPathFromListPriv( p->fInRecTypeList, (const char *)";" );
+			if ( gPlugins->IsOKToServiceQuery( fPluginPtr->GetPluginName(), CRefTable::GetNodeRefName(p->fInNodeRef), requestedRecTypes, p->fInRecTypeList->fDataNodeCount ) )
+			{
+				*outStatus = eDSNoErr;
+			}
+			else
+			{
+				*outStatus = eDSRecordTypeDisabled;
+			}
+			DSFreeString(requestedRecTypes);
+		}
+		else
+		{
+			*outStatus = eDSNoErr;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4511,33 +4952,33 @@ void* CRequestHandler::DoMultipleAttributeValueSearchWithData ( sComData *inMsg,
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32			siResult		= eDSNoErr;
+	SInt32			siResult		= eDSNoErr;
 	sOpenDirNode   *p				= nil;
 	CSrvrMessaging	cMsg;
 
 	try
 	{
 		p = (sOpenDirNode *) ::calloc(sizeof(sOpenDirNode), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInDirRef, ktDirRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the directory reference
 		siResult = CRefTable::VerifyDirRef( p->fInDirRef, nil, inMsg->fPID, inMsg->fIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInDirNodeName, kDirNodeName );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
         
 		p->fInUID = inMsg->fUID;
 		p->fInEffectiveUID = inMsg->fEffectiveUID;
 		
-		DBGLOG3( kLogApplication, "Client: Requesting dsOpenDirNode with PID = %d, UID = %d, and EUID = %d", inMsg->fPID, inMsg->fUID, inMsg->fEffectiveUID );
+		DbgLog( kLogApplication, "Client: Requesting dsOpenDirNode with PID = %d, UID = %d, and EUID = %d", inMsg->fPID, inMsg->fUID, inMsg->fEffectiveUID );
 
 		if ( gNodeList != nil )
 		{
@@ -4547,19 +4988,19 @@ void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, sInt32 *outStatus )
 			if ( pNodeName != nil )
 			{
 				//wait on ALL calls if local node is not yet available
-				if ( strcmp(pNodeName, "~NetInfo~DefaultLocalNode") == 0 )
+				if ( ( strcmp(pNodeName, "/Local/Default") == 0 ) || ( strcmp(pNodeName, "/Local/Target") == 0 ) )
 				{
 					gNodeList->WaitForLocalNode();
 				}
 				
 				//wait on ALL calls if configure node is not yet available
-				if ( strcmp(pNodeName, "~Configure") == 0 )
+				if ( strcmp(pNodeName, "/Configure") == 0 )
 				{
 					gNodeList->WaitForConfigureNode();
 				}
 				
 				//wait on ALL calls if DHCPLDAPv3 node is not yet ascertained
-				if ( strcmp(pNodeName, "~LDAPv3") == 0 )
+				if ( strcmp(pNodeName, "/LDAPv3") == 0 )
 				{
 					gNodeList->WaitForDHCPLDAPv3Init();
 				}
@@ -4578,13 +5019,16 @@ void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, sInt32 *outStatus )
 			}
 		}
 
-		siResult = CRefTable::NewNodeRef( &p->fOutNodeRef, fPluginPtr, p->fInDirRef, inMsg->fPID, inMsg->fIPAddress );
+		char *aNodeName = nil;
+		aNodeName = ::dsGetPathFromListPriv( p->fInDirNodeName, "/" );
+		siResult = CRefTable::NewNodeRef( &p->fOutNodeRef, fPluginPtr, p->fInDirRef, inMsg->fPID, inMsg->fIPAddress, aNodeName );
+		DSFreeString(aNodeName);
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4604,18 +5048,18 @@ void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoCloseDirNode ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoCloseDirNode ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32			siResult		= -8088;
+	SInt32			siResult		= -8088;
 	sCloseDirNode  *p				= nil;
 	CSrvrMessaging	cMsg;
-	sInt32			aClientPID		= -1;
-	uInt32			anIPAddress		= 0;
+	SInt32			aClientPID		= -1;
+	UInt32			anIPAddress		= 0;
 	
 	try
 	{
 		p = (sCloseDirNode *) ::calloc(sizeof(sCloseDirNode), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4623,7 +5067,7 @@ void* CRequestHandler::DoCloseDirNode ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -4639,7 +5083,7 @@ void* CRequestHandler::DoCloseDirNode ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4659,20 +5103,20 @@ void* CRequestHandler::DoCloseDirNode ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sGetDirNodeInfo	   *p				= nil;
-	uInt32				uiBuffSize		= 0;
+	UInt32				uiBuffSize		= 0;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
-	uInt32				aBoolValue		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
+	UInt32				aBoolValue		= 0;
 
 	try
 	{
 		p = (sGetDirNodeInfo *) ::calloc(sizeof(sGetDirNodeInfo), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4680,26 +5124,26 @@ void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInDirNodeInfoTypeList, kNodeInfoTypeList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAttrInfoOnly );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 		p->fInAttrInfoOnly = (bool)aBoolValue;
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fOutContinueData = nil;
@@ -4713,7 +5157,7 @@ void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4733,20 +5177,20 @@ void* CRequestHandler::DoGetDirNodeInfo ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecordList ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
-	uInt32				uiBuffSize	= 0;
+	SInt32				siResult	= -8088;
+	UInt32				uiBuffSize	= 0;
 	sGetRecordList	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
-	uInt32				aBoolValue	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
+	UInt32				aBoolValue	= 0;
 
 	try
 	{
 		p = (sGetRecordList *)::calloc( sizeof( sGetRecordList ), sizeof( char ) );
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		if ( p != nil )
 		{
@@ -4784,7 +5228,7 @@ void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 						siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecNameList, kRecNameList );
 						if ( siResult == eDSNoErr )
 						{
-							siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPatternMatch, ktDirPattMatch );
+							siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPatternMatch, ktDirPattMatch );
 							if ( siResult == eDSNoErr )
 							{
 								siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInRecTypeList, kRecTypeList );
@@ -4797,10 +5241,10 @@ void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 										p->fInAttribInfoOnly = (bool)aBoolValue;
 										if ( siResult == eDSNoErr )
 										{
-											siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutRecEntryCount, kAttrRecEntryCount );
+											siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutRecEntryCount, kAttrRecEntryCount );
 											if ( siResult == eDSNoErr )
 											{
-												siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+												siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 												if ( siResult != eDSNoErr )
 												{
 													p->fIOContinueData = nil;
@@ -4816,10 +5260,29 @@ void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 				}
 			}
 		}
-		*outStatus = siResult;
+
+		//Record Type Restrictions Checking
+		//might be performance impact to do this here wrt nodenames
+		if (fPluginPtr != NULL)
+		{
+			char* requestedRecTypes = dsGetPathFromListPriv( p->fInRecTypeList, (const char *)";" );
+			if ( gPlugins->IsOKToServiceQuery( fPluginPtr->GetPluginName(), CRefTable::GetNodeRefName(p->fInNodeRef), requestedRecTypes, p->fInRecTypeList->fDataNodeCount ) )
+			{
+				*outStatus = eDSNoErr;
+			}
+			else
+			{
+				*outStatus = eDSRecordTypeDisabled;
+			}
+			DSFreeString(requestedRecTypes);
+		}
+		else
+		{
+			*outStatus = eDSNoErr;
+		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4839,18 +5302,18 @@ void* CRequestHandler::DoGetRecordList ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecordEntry ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecordEntry ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sGetRecordEntry	   *p				= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sGetRecordEntry *) ::calloc(sizeof(sGetRecordEntry), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4858,17 +5321,17 @@ void* CRequestHandler::DoGetRecordEntry ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Make sure that this is a valid node reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInOutDataBuff, ktDataBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecEntryIndex, kRecEntryIndex );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		// Create a new attribute list reference
 		siResult = CRefTable::NewAttrListRef( &p->fOutAttrListRef, fPluginPtr, p->fInNodeRef, aClientPID, anIPAddress );
@@ -4877,7 +5340,7 @@ void* CRequestHandler::DoGetRecordEntry ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4897,18 +5360,18 @@ void* CRequestHandler::DoGetRecordEntry ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetAttributeEntry ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetAttributeEntry ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sGetAttributeEntry *p				= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sGetAttributeEntry *) ::calloc(sizeof(sGetAttributeEntry), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4916,24 +5379,24 @@ void* CRequestHandler::DoGetAttributeEntry ( sComData *inMsg, sInt32 *outStatus 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInOutDataBuff, ktDataBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrListRef, ktAttrListRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		// Verify the Attribute List Reference
 		siResult = CRefTable::VerifyAttrListRef( p->fInAttrListRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrInfoIndex, kAttrInfoIndex );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		// Create a new Attribute Value List Reference
 		siResult = CRefTable::NewAttrValueRef( &p->fOutAttrValueListRef, fPluginPtr, p->fInNodeRef, aClientPID, anIPAddress );
@@ -4942,7 +5405,7 @@ void* CRequestHandler::DoGetAttributeEntry ( sComData *inMsg, sInt32 *outStatus 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -4962,18 +5425,18 @@ void* CRequestHandler::DoGetAttributeEntry ( sComData *inMsg, sInt32 *outStatus 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetAttributeValue ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetAttributeValue ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sGetAttributeValue *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetAttributeValue *) ::calloc(sizeof(sGetAttributeValue), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -4981,20 +5444,20 @@ void* CRequestHandler::DoGetAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInOutDataBuff, ktDataBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrValueIndex, kAttrValueIndex );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrValueListRef, ktAttrValueListRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		// Verify the Attribute Value List Reference
 		siResult = CRefTable::VerifyAttrValueRef( p->fInAttrValueListRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -5003,7 +5466,7 @@ void* CRequestHandler::DoGetAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5023,18 +5486,18 @@ void* CRequestHandler::DoGetAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler:: DoCloseAttributeList ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler:: DoCloseAttributeList ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32					siResult		= -8088;
+	SInt32					siResult		= -8088;
 	sCloseAttributeList	   *p				= nil;
 	CSrvrMessaging			cMsg;
-	sInt32					aClientPID		= -1;
-	uInt32					anIPAddress		= 0;
+	SInt32					aClientPID		= -1;
+	UInt32					anIPAddress		= 0;
 
 	try
 	{
 		p = (sCloseAttributeList *) ::calloc(sizeof(sCloseAttributeList), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5042,7 +5505,7 @@ void* CRequestHandler:: DoCloseAttributeList ( sComData *inMsg, sInt32 *outStatu
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttributeListRef, ktAttrListRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Attr List Reference
 		siResult = CRefTable::VerifyAttrListRef( p->fInAttributeListRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -5058,7 +5521,7 @@ void* CRequestHandler:: DoCloseAttributeList ( sComData *inMsg, sInt32 *outStatu
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5078,18 +5541,18 @@ void* CRequestHandler:: DoCloseAttributeList ( sComData *inMsg, sInt32 *outStatu
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler:: DoCloseAttributeValueList ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler:: DoCloseAttributeValueList ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32						siResult		= -8088;
+	SInt32						siResult		= -8088;
 	sCloseAttributeValueList   *p				= nil;
 	CSrvrMessaging				cMsg;
-	sInt32						aClientPID		= -1;
-	uInt32						anIPAddress		= 0;
+	SInt32						aClientPID		= -1;
+	UInt32						anIPAddress		= 0;
 
 	try
 	{
 		p = (sCloseAttributeValueList *) ::calloc(sizeof(sCloseAttributeValueList), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5097,7 +5560,7 @@ void* CRequestHandler:: DoCloseAttributeValueList ( sComData *inMsg, sInt32 *out
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttributeValueListRef, ktAttrValueListRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Attr Value List Reference
 		siResult = CRefTable::VerifyAttrValueRef( p->fInAttributeValueListRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -5113,7 +5576,7 @@ void* CRequestHandler:: DoCloseAttributeValueList ( sComData *inMsg, sInt32 *out
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5133,18 +5596,18 @@ void* CRequestHandler:: DoCloseAttributeValueList ( sComData *inMsg, sInt32 *out
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoOpenRecord ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoOpenRecord ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sOpenRecord		   *p				= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sOpenRecord *) ::calloc(sizeof(sOpenRecord), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5152,17 +5615,17 @@ void* CRequestHandler::DoOpenRecord ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRecType, kRecTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRecName, kRecNameBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		// Create a new Attribute List Reference
 		siResult = CRefTable::NewRecordRef( &p->fOutRecRef, fPluginPtr, p->fInNodeRef, aClientPID, anIPAddress );
@@ -5171,7 +5634,7 @@ void* CRequestHandler::DoOpenRecord ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5191,18 +5654,18 @@ void* CRequestHandler::DoOpenRecord ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sGetRecRefInfo	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetRecRefInfo *) ::calloc(sizeof(sGetRecRefInfo), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5210,7 +5673,7 @@ void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 		
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress, true );
@@ -5219,7 +5682,7 @@ void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5239,18 +5702,18 @@ void* CRequestHandler::DoGetRecRefInfo ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecAttribInfo ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecAttribInfo ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sGetRecAttribInfo  *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetRecAttribInfo *) ::calloc(sizeof(sGetRecAttribInfo), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5258,19 +5721,19 @@ void* CRequestHandler::DoGetRecAttribInfo ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5290,18 +5753,18 @@ void* CRequestHandler::DoGetRecAttribInfo ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecordAttributeValueByID ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecordAttributeValueByID ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32							siResult	= -8088;
+	SInt32							siResult	= -8088;
 	sGetRecordAttributeValueByID   *p			= nil;
 	CSrvrMessaging					cMsg;
-	sInt32							aClientPID	= -1;
-	uInt32							anIPAddress	= 0;
+	SInt32							aClientPID	= -1;
+	UInt32							anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetRecordAttributeValueByID *) ::calloc(sizeof(sGetRecordAttributeValueByID), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5309,22 +5772,22 @@ void* CRequestHandler::DoGetRecordAttributeValueByID ( sComData *inMsg, sInt32 *
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInValueID, kAttrValueID );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5344,18 +5807,18 @@ void* CRequestHandler::DoGetRecordAttributeValueByID ( sComData *inMsg, sInt32 *
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecordAttributeValueByIndex ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecordAttributeValueByIndex ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32								siResult	= -8088;
+	SInt32								siResult	= -8088;
 	sGetRecordAttributeValueByIndex	   *p			= nil;
 	CSrvrMessaging						cMsg;
-	sInt32								aClientPID	= -1;
-	uInt32								anIPAddress	= 0;
+	SInt32								aClientPID	= -1;
+	UInt32								anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetRecordAttributeValueByIndex *) ::calloc(sizeof(sGetRecordAttributeValueByIndex), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5363,22 +5826,22 @@ void* CRequestHandler::DoGetRecordAttributeValueByIndex ( sComData *inMsg, sInt3
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrValueIndex, kAttrValueIndex );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5398,18 +5861,18 @@ void* CRequestHandler::DoGetRecordAttributeValueByIndex ( sComData *inMsg, sInt3
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoGetRecordAttributeValueByValue ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoGetRecordAttributeValueByValue ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32								siResult	= -8088;
+	SInt32								siResult	= -8088;
 	sGetRecordAttributeValueByValue	   *p			= nil;
 	CSrvrMessaging						cMsg;
-	sInt32								aClientPID	= -1;
-	uInt32								anIPAddress	= 0;
+	SInt32								aClientPID	= -1;
+	UInt32								anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetRecordAttributeValueByValue *) ::calloc(sizeof(sGetRecordAttributeValueByValue), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5417,22 +5880,22 @@ void* CRequestHandler::DoGetRecordAttributeValueByValue ( sComData *inMsg, sInt3
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrValue, kAttrValueBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5452,18 +5915,18 @@ void* CRequestHandler::DoGetRecordAttributeValueByValue ( sComData *inMsg, sInt3
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoCloseRecord ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoCloseRecord ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sCloseRecord	   *p				= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sCloseRecord *) ::calloc(sizeof(sCloseRecord), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5471,7 +5934,7 @@ void* CRequestHandler::DoCloseRecord ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -5487,7 +5950,7 @@ void* CRequestHandler::DoCloseRecord ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5507,18 +5970,18 @@ void* CRequestHandler::DoCloseRecord ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoSetRecordName ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoSetRecordName ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sSetRecordName	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sSetRecordName *) ::calloc(sizeof(sSetRecordName), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5526,19 +5989,19 @@ void* CRequestHandler::DoSetRecordName ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInNewRecName, kRecNameBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5558,18 +6021,18 @@ void* CRequestHandler::DoSetRecordName ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoSetRecordType ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoSetRecordType ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sSetRecordType	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sSetRecordType *) ::calloc(sizeof(sSetRecordType), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5577,19 +6040,19 @@ void* CRequestHandler::DoSetRecordType ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInNewRecType, kRecTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5609,18 +6072,18 @@ void* CRequestHandler::DoSetRecordType ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoDeleteRecord ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoDeleteRecord ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult		= -8088;
+	SInt32				siResult		= -8088;
 	sDeleteRecord	   *p				= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID		= -1;
-	uInt32				anIPAddress		= 0;
+	SInt32				aClientPID		= -1;
+	UInt32				anIPAddress		= 0;
 
 	try
 	{
 		p = (sDeleteRecord *) ::calloc(sizeof(sDeleteRecord), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5628,7 +6091,7 @@ void* CRequestHandler::DoDeleteRecord ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
@@ -5639,7 +6102,7 @@ void* CRequestHandler::DoDeleteRecord ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5659,19 +6122,19 @@ void* CRequestHandler::DoDeleteRecord ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoCreateRecord ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoCreateRecord ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sCreateRecord	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
-	uInt32				aBoolValue	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
+	UInt32				aBoolValue	= 0;
 
 	try
 	{
 		p = (sCreateRecord *) ::calloc(sizeof(sCreateRecord), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5679,20 +6142,20 @@ void* CRequestHandler::DoCreateRecord ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRecType, kRecTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRecName, kRecNameBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kOpenRecBool );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		p->fInOpen = (bool)aBoolValue;
 		if ( p->fInOpen == true )
@@ -5704,7 +6167,7 @@ void* CRequestHandler::DoCreateRecord ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5724,18 +6187,18 @@ void* CRequestHandler::DoCreateRecord ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAddAttribute ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAddAttribute ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sAddAttribute	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sAddAttribute *) ::calloc(sizeof(sAddAttribute), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5743,23 +6206,23 @@ void* CRequestHandler::DoAddAttribute ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInNewAttr, kNewAttrBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInFirstAttrValue, kFirstAttrBuff );
 		//allow no intial value to be added
-		//if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		//if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5779,18 +6242,18 @@ void* CRequestHandler::DoAddAttribute ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoRemoveAttribute ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoRemoveAttribute ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sRemoveAttribute   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sRemoveAttribute *) ::calloc(sizeof(sRemoveAttribute), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5798,19 +6261,19 @@ void* CRequestHandler::DoRemoveAttribute ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttribute, kAttrBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5830,18 +6293,18 @@ void* CRequestHandler::DoRemoveAttribute ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAddAttributeValue ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAddAttributeValue ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sAddAttributeValue *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sAddAttributeValue *) ::calloc(sizeof(sAddAttributeValue), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5849,22 +6312,22 @@ void* CRequestHandler::DoAddAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrValue, kAttrValueBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5884,18 +6347,18 @@ void* CRequestHandler::DoAddAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoRemoveAttributeValue ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoRemoveAttributeValue ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32					siResult	= -8088;
+	SInt32					siResult	= -8088;
 	sRemoveAttributeValue   *p			= nil;
 	CSrvrMessaging			cMsg;
-	sInt32					aClientPID	= -1;
-	uInt32					anIPAddress	= 0;
+	SInt32					aClientPID	= -1;
+	UInt32					anIPAddress	= 0;
 
 	try
 	{
 		p = (sRemoveAttributeValue *) ::calloc(sizeof(sRemoveAttributeValue), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5903,22 +6366,22 @@ void* CRequestHandler::DoRemoveAttributeValue ( sComData *inMsg, sInt32 *outStat
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInAttrValueID, kAttrValueID );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5938,18 +6401,18 @@ void* CRequestHandler::DoRemoveAttributeValue ( sComData *inMsg, sInt32 *outStat
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoSetAttributeValue ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoSetAttributeValue ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sSetAttributeValue *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sSetAttributeValue *) ::calloc(sizeof(sSetAttributeValue), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -5957,22 +6420,22 @@ void* CRequestHandler::DoSetAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tAttrValueEntry_FromMsg( inMsg, &p->fInAttrValueEntry, ktAttrValueEntry );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -5992,18 +6455,18 @@ void* CRequestHandler::DoSetAttributeValue ( sComData *inMsg, sInt32 *outStatus 
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoSetAttributeValues ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoSetAttributeValues ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sSetAttributeValues *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sSetAttributeValues *) ::calloc(sizeof(sSetAttributeValues), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -6011,22 +6474,22 @@ void* CRequestHandler::DoSetAttributeValues ( sComData *inMsg, sInt32 *outStatus
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInRecRef, ktRecRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Record Reference
 		siResult = CRefTable::VerifyRecordRef( p->fInRecRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAttrType, kAttrTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInAttrValueList, kAttrValueList );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -6046,19 +6509,19 @@ void* CRequestHandler::DoSetAttributeValues ( sComData *inMsg, sInt32 *outStatus
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAuthentication ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAuthentication ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sDoDirNodeAuth	   *p			= nil;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
-	uInt32				aBoolValue	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
+	UInt32				aBoolValue	= 0;
 
 	try
 	{
 		p = (sDoDirNodeAuth *) ::calloc(sizeof(sDoDirNodeAuth), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -6066,26 +6529,26 @@ void* CRequestHandler::DoAuthentication ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAuthMethod, kAuthMethod );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAuthOnlyBool );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 		p->fInDirNodeAuthOnlyFlag = (bool)aBoolValue;
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAuthStepData, kAuthStepBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fOutAuthStepDataResponse, kAuthResponseBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
@@ -6095,7 +6558,7 @@ void* CRequestHandler::DoAuthentication ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -6115,19 +6578,19 @@ void* CRequestHandler::DoAuthentication ( sComData *inMsg, sInt32 *outStatus )
 //
 //--------------------------------------------------------------------------------------------------
 
-void* CRequestHandler::DoAuthenticationOnRecordType ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::DoAuthenticationOnRecordType ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32							siResult	= -8088;
+	SInt32							siResult	= -8088;
 	sDoDirNodeAuthOnRecordType	   *p			= nil;
 	CSrvrMessaging					cMsg;
-	sInt32							aClientPID	= -1;
-	uInt32							anIPAddress	= 0;
-	uInt32							aBoolValue	= 0;
+	SInt32							aClientPID	= -1;
+	UInt32							anIPAddress	= 0;
+	UInt32							aBoolValue	= 0;
 
 	try
 	{
 		p = (sDoDirNodeAuthOnRecordType *) ::calloc(sizeof(sDoDirNodeAuthOnRecordType), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -6135,29 +6598,29 @@ void* CRequestHandler::DoAuthenticationOnRecordType ( sComData *inMsg, sInt32 *o
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInNodeRef, ktNodeRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Node Reference
 		siResult = CRefTable::VerifyNodeRef( p->fInNodeRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAuthMethod, kAuthMethod );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &aBoolValue, kAuthOnlyBool );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 		p->fInDirNodeAuthOnlyFlag = (bool)aBoolValue;
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInAuthStepData, kAuthStepBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fOutAuthStepDataResponse, kAuthResponseBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 4 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 4 );
 
 		siResult = cMsg.Get_tDataBuff_FromMsg( inMsg, &p->fInRecordType, kRecTypeBuff );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 5 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 5 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if ( siResult != eDSNoErr )
 		{
 			p->fIOContinueData = nil;
@@ -6167,7 +6630,7 @@ void* CRequestHandler::DoAuthenticationOnRecordType ( sComData *inMsg, sInt32 *o
 		*outStatus = eDSNoErr;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -6186,20 +6649,20 @@ void* CRequestHandler::DoAuthenticationOnRecordType ( sComData *inMsg, sInt32 *o
 //	* FindDirNodes
 //------------------------------------------------------------------------------------
   
-void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *inDebugDataTag )
+void* CRequestHandler::FindDirNodes ( sComData *inMsg, SInt32 *outStatus, char *inDebugDataTag )
 {
-	sInt32					siResult	= -8088;
+	SInt32					siResult	= -8088;
 	sFindDirNodes		   *p			= nil;
-	uInt32					uiBuffSize	= 0;
+	UInt32					uiBuffSize	= 0;
 	CSrvrMessaging			cMsg;
 	char				   *nodeName	= nil;
-	sInt32					aClientPID	= -1;
-	uInt32					anIPAddress	= 0;
+	SInt32					aClientPID	= -1;
+	UInt32					anIPAddress	= 0;
 
 	try
 	{
 		p = (sFindDirNodes *)::calloc(sizeof(sFindDirNodes), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -6207,22 +6670,22 @@ void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInDirRef, ktDirRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Directory Reference
 		siResult = CRefTable::VerifyDirRef( p->fInDirRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 2 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 2 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fInPatternMatchType, ktDirPattMatch );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 3 );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fInPatternMatchType, ktDirPattMatch );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 3 );
 
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fOutContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fOutContinueData, kContextData );
 		if (siResult != eDSNoErr)
 		{
 			p->fOutContinueData = nil;
@@ -6240,13 +6703,13 @@ void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *
 			 (p->fInPatternMatchType != eDSConfigNodeName) )
 		{
 			siResult = cMsg.Get_tDataList_FromMsg( inMsg, &p->fInNodeNamePattern, kNodeNamePatt );
-			if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 2 );
+			if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 2 );
 
 			nodeName = ::dsGetPathFromListPriv( p->fInNodeNamePattern, gNodeList->GetDelimiter() );
 			if ( (nodeName != nil) && (::strlen( nodeName ) > 1) )
 			{
 	
-				DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, nodeName );
+				DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, nodeName );
 				siResult = gNodeList->GetNodes( nodeName, p->fInPatternMatchType, p->fOutDataBuff );
 				if (siResult == eDSNoErr)
 				{
@@ -6272,51 +6735,31 @@ void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *
 				switch (p->fInPatternMatchType)
 				{
 					case eDSLocalNodeNames:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrDefaultLocalNodeName );
-//PFIX						if (gLocalNodeNotAvailable)
-//PFIX						{
-//PFIX							throw((sInt32)eDSNodeNotFound);
-//PFIX						}
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrDefaultLocalNodeName );
 						break;
 					
 					case eDSAuthenticationSearchNodeName:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrAuthenticationNodeName );
-//PFIX						if (gLocalNodeNotAvailable)
-//PFIX						{
-//PFIX							throw((sInt32)eDSNodeNotFound);
-//PFIX						}
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrAuthenticationNodeName );
 						break;
 					
 					case eDSContactsSearchNodeName:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrContactsNodeName );
-//PFIX						if (gLocalNodeNotAvailable)
-//PFIX						{
-//PFIX							throw((sInt32)eDSNodeNotFound);
-//PFIX						}
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrContactsNodeName );
 						break;
 					
 					case eDSNetworkSearchNodeName:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrNetworkNodeName );
-//PFIX						if (gLocalNodeNotAvailable)
-//PFIX						{
-//PFIX							throw((sInt32)eDSNodeNotFound);
-//PFIX						}
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, kstrNetworkNodeName );
 						break;
 					
 					case eDSLocalHostedNodes:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "LocalHostedNodes" );
-//PFIX						if (gLocalNodeNotAvailable)
-//PFIX						{
-//PFIX							throw((sInt32)eDSNodeNotFound);
-//PFIX						}
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "LocalHostedNodes" );
 						break;
 					
 					case eDSDefaultNetworkNodes:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "DefaultNetworkNodes" );
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "DefaultNetworkNodes" );
 						break;
 					
 					case eDSConfigNodeName:
-						DBGLOG3( kLogHandler, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "ConfigNode" );
+						DbgLog( kLogAPICalls, "%s : DAR : 1 : Dir Ref = %u : Requested nodename = %s", inDebugDataTag, p->fInDirRef, "ConfigNode" );
 						break;
 					
 					default:
@@ -6338,7 +6781,7 @@ void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *
 		*outStatus = siResult;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -6357,19 +6800,19 @@ void* CRequestHandler::FindDirNodes ( sComData *inMsg, sInt32 *outStatus, char *
 //	* GetNodeList
 //------------------------------------------------------------------------------------
 
-void* CRequestHandler::GetNodeList ( sComData *inMsg, sInt32 *outStatus )
+void* CRequestHandler::GetNodeList ( sComData *inMsg, SInt32 *outStatus )
 {
-	sInt32				siResult	= -8088;
+	SInt32				siResult	= -8088;
 	sGetDirNodeList	   *p			= nil;
-	uInt32				uiBuffSize	= 0;
+	UInt32				uiBuffSize	= 0;
 	CSrvrMessaging		cMsg;
-	sInt32				aClientPID	= -1;
-	uInt32				anIPAddress	= 0;
+	SInt32				aClientPID	= -1;
+	UInt32				anIPAddress	= 0;
 
 	try
 	{
 		p = (sGetDirNodeList *)::calloc(sizeof(sGetDirNodeList), sizeof(char));
-		if ( p == nil ) throw( (sInt32)eMemoryError );
+		if ( p == nil ) throw( (SInt32)eMemoryError );
 
 		p->fType = GetMsgType( inMsg );
 
@@ -6377,19 +6820,19 @@ void* CRequestHandler::GetNodeList ( sComData *inMsg, sInt32 *outStatus )
 		anIPAddress	= inMsg->fIPAddress;
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &p->fInDirRef, ktDirRef );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError );
 
 		// Verify the Directory Reference
 		siResult = CRefTable::VerifyDirRef( p->fInDirRef, &fPluginPtr, aClientPID, anIPAddress );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		siResult = cMsg.Get_Value_FromMsg( inMsg, &uiBuffSize, kOutBuffLen );
-		if ( siResult != eDSNoErr ) throw( (sInt32)eServerReceiveError - 1 );
+		if ( siResult != eDSNoErr ) throw( (SInt32)eServerReceiveError - 1 );
 
 		p->fOutDataBuff = ::dsDataBufferAllocatePriv( uiBuffSize );
-		if ( p->fOutDataBuff == nil ) throw( (sInt32)eServerReceiveError - 3 );
+		if ( p->fOutDataBuff == nil ) throw( (SInt32)eServerReceiveError - 3 );
 		
-		siResult = cMsg.Get_Value_FromMsg( inMsg, (uInt32 *)&p->fIOContinueData, kContextData );
+		siResult = cMsg.Get_Value_FromMsg( inMsg, (UInt32 *)&p->fIOContinueData, kContextData );
 		if (siResult != eDSNoErr)
 		{
 			p->fIOContinueData = nil;
@@ -6401,7 +6844,7 @@ void* CRequestHandler::GetNodeList ( sComData *inMsg, sInt32 *outStatus )
 		*outStatus = gNodeList->BuildNodeListBuff( p );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if ( p != nil )
 		{
@@ -6420,18 +6863,16 @@ void* CRequestHandler::GetNodeList ( sComData *inMsg, sInt32 *outStatus )
 //	* DoCheckUserNameAndPassword
 //------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
+SInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 														const char *password,
 														tDirPatternMatch inPatternMatch,
 														uid_t *outUID,
 														char **outShortName )
 {
-	sInt32					siResult		= eDSNoErr;
-	sInt32					returnVal		= -3;
-	unsigned long			nodeCount		= 0;
-	unsigned long			recCount		= 0;
-	unsigned long			length			= 0;
-	char*					ptr				= NULL;
+	SInt32					siResult		= eDSNoErr;
+	SInt32					returnVal		= DS_CHECKPW_FAILURE;
+	UInt32					nodeCount		= 0;
+	UInt32					recCount		= 0;
 	tContextData			context			= NULL;
 	tDataListPtr			nodeName		= NULL;
 	char*					authName		= NULL;
@@ -6451,22 +6892,15 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 	tDirReference			aDSRef			= 0;
 	tDirNodeReference		aSearchNodeRef	= 0;
 	
-	//included definition of the returnVal possibilities from the checkpw.h file in the security FW
-	//enum {
-		//CHECKPW_SUCCESS = 0,
-		//CHECKPW_UNKNOWNUSER = -1,
-		//CHECKPW_BADPASSWORD = -2,
-		//CHECKPW_FAILURE = -3
-	//};
+	if (inPatternMatch == eDSExact) //true checkpw call
+	{
+		aDSRef = gCheckPasswordDSRef;
+		aSearchNodeRef = gCheckPasswordSearchNodeRef;
+	}
+	//KW27 syslog(LOG_CRIT,"chkpasswd username %s\n", userName );
 	
 	try
 	{
-		if (inPatternMatch == eDSExact) //true checkpw call
-		{
-			aDSRef = gCheckPasswordDSRef;
-			aSearchNodeRef = gCheckPasswordSearchNodeRef;
-		}
-		//KW27 syslog(LOG_CRIT,"chkpasswd username %s\n", userName );
 		if ( aDSRef == 0 )
 		{
 			//dsFindDirNodes below already blocks on the search node
@@ -6474,21 +6908,21 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 			//gNodeList->WaitForAuthenticationSearchNode();
 			
 			siResult = dsOpenDirService( &aDSRef );
-			if ( siResult != eDSNoErr ) throw( -3 );
-	
+			if ( siResult != eDSNoErr ) return( DS_CHECKPW_FAILURE );
+			
 			dataBuff = dsDataBufferAllocate( aDSRef, 2048 );
-			if ( dataBuff == nil ) throw( -3 );
+			if ( dataBuff == nil ) throw( DS_CHECKPW_FAILURE );
 			
 			siResult = dsFindDirNodes( aDSRef, dataBuff, nil, 
 										eDSAuthenticationSearchNodeName, &nodeCount, &context );
-			if ( siResult != eDSNoErr ) throw( -3 );
-			if ( nodeCount < 1 ) throw( -3 );
+			if ( siResult != eDSNoErr ) throw( DS_CHECKPW_FAILURE );
+			if ( nodeCount < 1 ) throw( DS_CHECKPW_FAILURE );
 	
 			siResult = dsGetDirNodeName( aDSRef, dataBuff, 1, &nodeName );
-			if ( siResult != eDSNoErr ) throw( -3 );
+			if ( siResult != eDSNoErr ) throw( DS_CHECKPW_FAILURE );
 	
 			siResult = dsOpenDirNode( aDSRef, nodeName, &aSearchNodeRef );
-			if ( siResult != eDSNoErr ) throw( -3 );
+			if ( siResult != eDSNoErr ) throw( DS_CHECKPW_FAILURE );
 			if ( nodeName != NULL )
 			{
 				dsDataListDeallocate( aDSRef, nodeName );
@@ -6521,10 +6955,14 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 										attrTypes, false, &recCount, &context);
 			if (siResult == eDSBufferTooSmall)
 			{
-				uInt32 bufSize = dataBuff->fBufferSize;
+				UInt32 bufSize = dataBuff->fBufferSize;
 				dsDataBufferDeallocatePriv( dataBuff );
 				dataBuff = nil;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
+			}
+			else if ( siResult != eDSNoErr )
+			{
+				DbgLog( kLogHandler, "DoCheckUsernameAndPassword:: dsGetRecordList error <%d>", siResult );
 			}
 		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != nil) ) );
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
@@ -6550,13 +6988,11 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 						}
 						else if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDSNAttrRecordName ) == 0 )
 						{
-							authName = (char*)calloc( 1, pValueEntry->fAttributeValueData.fBufferLength + 1 );
-							strncpy( authName, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+							authName = dsCStrFromCharacters( pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
 						}
 						else if ( ::strcmp( pAttrEntry->fAttributeSignature.fBufferData, kDS1AttrUniqueID ) == 0 )
 						{
-							uidString = (char*)calloc( 1, pValueEntry->fAttributeValueData.fBufferLength + 1 );
-							strncpy( uidString, pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
+							uidString = dsCStrFromCharacters( pValueEntry->fAttributeValueData.fBufferData, pValueEntry->fAttributeValueData.fBufferLength );
 							if ( outUID != NULL )
 							{
 								char *endPtr = nil;
@@ -6586,36 +7022,22 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 		}// got records returned
 		else
 		{
-			returnVal = -1;
+			returnVal = DS_CHECKPW_UNKNOWNUSER;
 		}
 		
 		if ( (nodeName != NULL) && (authName != NULL) )
 		{
 			siResult = dsOpenDirNode( aDSRef, nodeName, &nodeRef );
-			if ( siResult != eDSNoErr ) throw( -3 );
+			if ( siResult != eDSNoErr ) throw( DS_CHECKPW_FAILURE );
 			
 			authMethod = dsDataNodeAllocateString( aDSRef, kDSStdAuthNodeNativeClearTextOK );
-			authBuff = dsDataBufferAllocate( aDSRef, strlen( authName ) + strlen( password ) + 10 );
-			// 4 byte length + username + null byte + 4 byte length + password + null byte
-			if ( authBuff == nil ) throw( -3 );
-			length = strlen( authName ) + 1;
-			ptr = authBuff->fBufferData;
-			::memcpy( ptr, &length, 4 );
-			ptr += 4;
-			authBuff->fBufferLength += 4;
+			authBuff = dsDataBufferAllocate( aDSRef, strlen(authName) + strlen(password) + 16 );
+			if ( authBuff == NULL )
+				throw( DS_CHECKPW_FAILURE );
 			
-			::memcpy( ptr, authName, length );
-			ptr += length;
-			authBuff->fBufferLength += length;
-			
-			length = strlen( password ) + 1;
-			::memcpy( ptr, &length, 4 );
-			ptr += 4;
-			authBuff->fBufferLength += 4;
-			
-			::memcpy( ptr, password, length );
-			ptr += length;
-			authBuff->fBufferLength += length;
+			siResult = dsFillAuthBuffer( authBuff, 2, strlen(authName), authName, strlen(password), password );
+			if ( siResult != eDSNoErr )
+				throw( DS_CHECKPW_FAILURE );
 			
 			siResult = dsDoDirNodeAuth( nodeRef, authMethod, true, authBuff, dataBuff, NULL );
 			if (gLogAPICalls)
@@ -6626,23 +7048,23 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 			switch (siResult)
 			{
 				case eDSNoErr:
-					returnVal = 0;
+					returnVal = DS_CHECKPW_SUCCESS;
 					break;
 				case eDSAuthNewPasswordRequired:
 				case eDSAuthPasswordExpired:
 				case eDSAuthAccountInactive:
 				case eDSAuthAccountExpired:
 				case eDSAuthAccountDisabled:
-					returnVal = -4;
+					returnVal = DS_CHECKPW_LOCKOUT;
 					break;
 				default:
-					returnVal = -2;
+					returnVal = DS_CHECKPW_BADPASSWORD;
 					break;
 			}
 		}
 	}
 	
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		returnVal = err;
 	}	
@@ -6741,216 +7163,35 @@ sInt32 CRequestHandler::DoCheckUserNameAndPassword (	const char *userName,
 #pragma mark Utility Handler Routines
 #pragma mark -
 
-bool CRequestHandler::UserIsAdmin( const char* shortName )
+bool CRequestHandler::UserInGivenGroup( const char* shortName, const char* groupName )
 {
-	sInt32				siResult	= eDSNoErr;
-	bool				returnVal	= false;
-	unsigned long		nodeCount	= 0;
-	tContextData		context		= NULL;
-	tDataListPtr		nodeName	= NULL;
-	tDataBufferPtr		dataBuff	= NULL;
-	tDirReference		aDSRef		= 0;
-	tDirNodeReference	localNodeRef= 0;
+	//check if user is in the groupName group
+	bool returnVal = false;
+	guid_t user_uuid;
+	guid_t group_uuid;
+	kauth_identity_extlookup	request;
 
-	try
-	{
-		siResult = dsOpenDirService( &aDSRef );
-		if ( siResult != eDSNoErr ) throw( -3 );
+	Mbrd_ProcessMapName( true, (char *)shortName, &user_uuid );
+	Mbrd_ProcessMapName( false, (char *)groupName, &group_uuid );
 	
-		dataBuff = dsDataBufferAllocate( aDSRef, 8192 );
-		if ( dataBuff == nil ) throw( -3 );
-
-		siResult = dsFindDirNodes( aDSRef, dataBuff, nil,
-								   eDSLocalNodeNames, &nodeCount, &context );
-		if ( siResult != eDSNoErr ) throw( -3 );
-		if ( nodeCount < 1 ) throw( -3 );
-
-		siResult = dsGetDirNodeName( aDSRef, dataBuff, 1, &nodeName );
-		if ( siResult != eDSNoErr ) throw( -3 );
-
-		siResult = dsOpenDirNode( aDSRef, nodeName, &localNodeRef );
-		if ( siResult != eDSNoErr ) throw( -3 );
-
-		returnVal = UserIsMemberOfGroup( aDSRef, localNodeRef, shortName, "admin" );
-	}
-	catch( sInt32 err )
-	{
-		returnVal = false;
-	}
-
-	if ( dataBuff != NULL )
-	{
-		dsDataBufferDeAllocate( aDSRef, dataBuff );
-		dataBuff = NULL;
-	}
-
-	if ( nodeName != NULL )
-	{
-		dsDataListDeallocate( aDSRef, nodeName );
-		free( nodeName );
-		nodeName = NULL;
-	}
-	if ( localNodeRef != 0 )
-	{
-		dsCloseDirNode( localNodeRef );
-		localNodeRef = 0;
-	}
-
-	if ( aDSRef != 0 )
-	{
-		dsCloseDirService( aDSRef );
-		aDSRef = 0;
-	}
+	// we formulate the request ourself here so no need to dispatch to ourself..
+	request.el_seqno = 1;  // used as byte order field
+	request.el_flags = KAUTH_EXTLOOKUP_VALID_UGUID | KAUTH_EXTLOOKUP_VALID_GGUID | KAUTH_EXTLOOKUP_WANT_MEMBERSHIP;
+	memcpy( &request.el_uguid, &user_uuid, sizeof(guid_t) );
+	memcpy( &request.el_gguid, &group_uuid, sizeof(guid_t) );
 	
+	Mbrd_ProcessLookup( &request );
+	
+	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_MEMBERSHIP) != 0 && (request.el_flags & KAUTH_EXTLOOKUP_ISMEMBER) != 0)
+	{
+		returnVal = true;
+	}
+		
 	return returnVal;
 }
 
 
-bool CRequestHandler::UserIsMemberOfGroup( tDirReference inDirRef, tDirNodeReference inDirNodeRef, const char* shortName, const char* groupName )
-{
-	bool						isInGroup 			= false;
-	tDirStatus					dsStatus			= eDSNoErr;
-	tAttributeEntryPtr			attrPtr				= nil;
-	tAttributeValueEntryPtr		pValueEntry			= nil;
-	UInt32						i;
-	tDataListPtr				attrTypeList		= NULL;
-	tDataListPtr				recNames			= NULL;
-	tDataListPtr				recTypes			= NULL;
-	tDataBufferPtr				dataBuff			= NULL;
-	UInt32						curRecCount			= 1;
-	tContextData				context				= NULL;
-	tAttributeListRef			attrListRef			= 0;
-	tAttributeValueListRef		attrValueListRef	= 0;
-	tRecordEntryPtr				recEntry			= NULL;
-
-	if ( groupName == NULL || shortName == NULL )
-	{
-		return false;
-	}
-
-	attrTypeList = dsBuildListFromStringsPriv( kDSNAttrGroupMembership, nil );
-	recNames = dsBuildListFromStringsPriv( groupName, nil );
-	recTypes = dsBuildListFromStringsPriv( kDSStdRecordTypeGroups, nil );
-	dataBuff = dsDataBufferAllocatePriv( 4096 );
-
-	do
-	{
-		dsStatus = dsGetRecordList( inDirNodeRef, dataBuff, recNames, eDSExact,
-							  recTypes, attrTypeList, false, &curRecCount, &context );
-		if ( dsStatus == eDSBufferTooSmall )
-		{
-			UInt32 buffSize = dataBuff->fBufferSize;
-			dsDataBufferDeAllocate( inDirRef, dataBuff );
-			dataBuff = NULL;
-			dataBuff = dsDataBufferAllocate( inDirRef, buffSize * 2 );
-		}
-	} while (((dsStatus == eDSNoErr) && (curRecCount == 0) && (context != NULL)) || (dsStatus == eDSBufferTooSmall));
-
-	if ( ( dsStatus == eDSNoErr ) && ( curRecCount > 0 ) )
-	{
-		// now walk through the list of users in this group and look for a match
-		dsStatus = dsGetRecordEntry( inDirNodeRef, dataBuff, 1, &attrListRef, &recEntry );
-		if (dsStatus == eDSNoErr )
-		{
-			dsStatus = dsGetAttributeEntry( inDirNodeRef, dataBuff, attrListRef, 1, &attrValueListRef,
-								   &attrPtr );
-		}
-
-		if ( dsStatus == eDSNoErr )
-		{
-			for ( i = 1; i <= attrPtr->fAttributeValueCount && (dsStatus == eDSNoErr) && (isInGroup == false); i++ )
-			{
-				// note that since we only asked for one attribute type (group membership)
-				// we can assume that if we got this far that is what we're looking at
-				dsStatus = dsGetAttributeValue( inDirNodeRef, dataBuff, i, attrValueListRef, &pValueEntry );
-
-				// now compare the member of the group against the user name we were given
-				if ( dsStatus == eDSNoErr && ::strcmp( pValueEntry->fAttributeValueData.fBufferData, shortName ) == 0 )
-					isInGroup = true;
-				if ( pValueEntry != nil )
-				{
-					dsStatus = dsDeallocAttributeValueEntry( inDirRef, pValueEntry );
-					pValueEntry = nil;
-				}
-			}
-		}
-		if ( attrPtr != NULL ) {
-			dsDeallocAttributeEntry( inDirRef, attrPtr );
-			attrPtr = NULL;
-		}
-		if ( attrValueListRef != 0 ) {
-			dsCloseAttributeValueList( attrValueListRef );
-			attrValueListRef = 0;
-		}
-		if ( recEntry != NULL ) {
-			dsDeallocRecordEntry( inDirRef, recEntry );
-			recEntry = NULL;
-		}
-		if ( attrListRef != 0 ) {
-			dsCloseAttributeList( attrListRef );
-			attrListRef = 0;
-		}
-	}
-	if ( dataBuff != NULL )
-	{
-		dsDataBufferDeAllocate( inDirRef, dataBuff );
-		dataBuff = NULL;
-	}
-	if ( context != NULL )
-	{
-		dsReleaseContinueData( inDirNodeRef, context );
-		context = NULL;
-	}
-	if ( attrTypeList != NULL)
-	{
-		dsDataListDeallocate( inDirRef, attrTypeList );
-		free( attrTypeList );
-		attrTypeList = NULL;
-	}
-	if ( recNames != NULL)
-	{
-		dsDataListDeallocate( inDirRef, recNames );
-		free( recNames );
-		recNames = NULL;
-	}
-	if ( recTypes != NULL)
-	{
-		dsDataListDeallocate( inDirRef, recTypes );
-		free( recTypes );
-		recTypes = NULL;
-	}
-
-	return isInGroup;
-
-}
-
-
-char* CRequestHandler::GetNameForProcessID ( pid_t inPID )
-{
-	int mib []		= { CTL_KERN, KERN_PROC, KERN_PROC_PID, (int)inPID };
-	size_t ulSize	= 0;
-	char *procName	= nil;
-
-	// Look for a given pid
-	if (inPID > 1) {
-		struct kinfo_proc kpsInfo;
-		ulSize = sizeof (kpsInfo);
-		if (!::sysctl (mib, 4, &kpsInfo, &ulSize, NULL, 0)
-			&& (kpsInfo.kp_proc.p_pid == inPID))
-		{
-			if (kpsInfo.kp_proc.p_comm != NULL)
-			{
-				procName = (char *)calloc(1, 1+strlen(kpsInfo.kp_proc.p_comm));
-				strcpy(procName,kpsInfo.kp_proc.p_comm);
-			}
-		}
-	}
-
-	return( procName );
-}
-
-
-char* CRequestHandler::GetCallName ( sInt32 inType )
+char* CRequestHandler::GetCallName ( SInt32 inType )
 {
 	char *outName	= nil;
 
@@ -6972,7 +7213,7 @@ char* CRequestHandler::GetCallName ( sInt32 inType )
 
 void CRequestHandler::LogAPICall (	double			inTime,
 									char		   *inDebugDataTag,
-									sInt32			inResult)
+									SInt32			inResult)
 {
 	double	outTime	= 0;
 	
@@ -6988,19 +7229,19 @@ void CRequestHandler::LogAPICall (	double			inTime,
 			
 } //Log API Call
 
-char* CRequestHandler::BuildAPICallDebugDataTag (uInt32			inIPAddress,
-												sInt32			inClientPID,
+char* CRequestHandler::BuildAPICallDebugDataTag (UInt32			inIPAddress,
+												SInt32			inClientPID,
 												char		   *inCallName,
 												char		   *inName)
 {
 	char	   *outTag = nil;
-	uInt32		suffixLen	= strlen(inCallName) + strlen(inName);
+	UInt32		suffixLen	= strlen(inCallName) + strlen(inName);
 	
 	if (inIPAddress == 0)
 	{
 		//this is locally from this machine
 		char *pName = nil;
-		pName = GetNameForProcessID(inClientPID);
+		pName = dsGetNameForProcessID(inClientPID);
 		if (pName != nil)
 		{
 			outTag = (char *)calloc(1, 38 + strlen(pName) + 6 + suffixLen); //needs to match string being built here
@@ -7047,9 +7288,9 @@ char* CRequestHandler::BuildAPICallDebugDataTag (uInt32			inIPAddress,
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CRequestHandler:: FailedCallRefCleanUp ( void *inData, sInt32 inClientPID, uInt32 inMsgType, uInt32 inIPAddress  )
+SInt32 CRequestHandler:: FailedCallRefCleanUp ( void *inData, SInt32 inClientPID, UInt32 inMsgType, UInt32 inIPAddress  )
 {
-	sInt32			siResult	= eDSNoErr;
+	SInt32			siResult	= eDSNoErr;
 
 	try
 	{
@@ -7119,7 +7360,7 @@ sInt32 CRequestHandler:: FailedCallRefCleanUp ( void *inData, sInt32 inClientPID
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}

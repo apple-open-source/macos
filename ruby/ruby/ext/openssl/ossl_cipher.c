@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_cipher.c,v 1.4.2.3 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_cipher.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -94,7 +94,7 @@ ossl_cipher_initialize(VALUE self, VALUE str)
     name = StringValuePtr(str);
     GetCipher(self, ctx);
     if (!(cipher = EVP_get_cipherbyname(name))) {
-	ossl_raise(rb_eRuntimeError, "Unsupported cipher algorithm (%s).", name);
+	ossl_raise(rb_eRuntimeError, "unsupported cipher algorithm (%s)", name);
     }
     if (EVP_CipherInit_ex(ctx, cipher, NULL, NULL, NULL, -1) != 1)
 	ossl_raise(eCipherError, NULL);
@@ -115,6 +115,30 @@ ossl_cipher_copy(VALUE self, VALUE other)
 	ossl_raise(eCipherError, NULL);
 
     return self;
+}
+
+static void*
+add_cipher_name_to_ary(const OBJ_NAME *name, VALUE ary)
+{
+    rb_ary_push(ary, rb_str_new2(name->name));
+    return NULL;
+}
+
+static VALUE
+ossl_s_ciphers(VALUE self)
+{
+#ifdef HAVE_OBJ_NAME_DO_ALL_SORTED
+    VALUE ary;
+
+    ary = rb_ary_new();
+    OBJ_NAME_do_all_sorted(OBJ_NAME_TYPE_CIPHER_METH,
+                    (void(*)(const OBJ_NAME*,void*))add_cipher_name_to_ary,
+                    (void*)ary);
+
+    return ary;
+#else
+    rb_notimplement();
+#endif
 }
 
 static VALUE
@@ -198,7 +222,7 @@ ossl_cipher_pkcs5_keyivgen(int argc, VALUE *argv, VALUE self)
     if(!NIL_P(vsalt)){
 	StringValue(vsalt);
 	if(RSTRING(vsalt)->len != PKCS5_SALT_LEN)
-	    rb_raise(eCipherError, "salt must be an 8-octet string.");
+	    rb_raise(eCipherError, "salt must be an 8-octet string");
 	salt = RSTRING(vsalt)->ptr;
     }
     iter = NIL_P(viter) ? 2048 : NUM2INT(viter);
@@ -224,7 +248,8 @@ ossl_cipher_update(VALUE self, VALUE data)
 
     StringValue(data);
     in = RSTRING(data)->ptr;
-    in_len = RSTRING(data)->len;
+    if ((in_len = RSTRING(data)->len) == 0)
+        rb_raise(rb_eArgError, "data must not be empty");
     GetCipher(self, ctx);
     str = rb_str_new(0, in_len+EVP_CIPHER_CTX_block_size(ctx));
     if (!EVP_CipherUpdate(ctx, RSTRING(str)->ptr, &out_len, in, in_len))
@@ -355,12 +380,17 @@ CIPHER_0ARG_INT(block_size)
 void 
 Init_ossl_cipher(void)
 {
+#if 0 /* let rdoc know about mOSSL */
+    mOSSL = rb_define_module("OpenSSL");
+#endif
+
     mCipher = rb_define_module_under(mOSSL, "Cipher");
     eCipherError = rb_define_class_under(mOSSL, "CipherError", eOSSLError);
     cCipher = rb_define_class_under(mCipher, "Cipher", rb_cObject);
 
     rb_define_alloc_func(cCipher, ossl_cipher_alloc);
     rb_define_copy_func(cCipher, ossl_cipher_copy);
+    rb_define_module_function(mCipher, "ciphers", ossl_s_ciphers, 0);
     rb_define_method(cCipher, "initialize", ossl_cipher_initialize, 1);
     rb_define_method(cCipher, "reset", ossl_cipher_reset, 0);
     rb_define_method(cCipher, "encrypt", ossl_cipher_encrypt, -1);

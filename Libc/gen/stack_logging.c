@@ -24,6 +24,7 @@
 /*	Bertrand from vmutils -> CF -> System */
 
 #import "stack_logging.h"
+#import "malloc_printf.h"
 
 #import <libc.h>
 #import <pthread.h>
@@ -33,6 +34,8 @@
 #import <stdlib.h>
 
 extern void spin_lock(int *);
+extern void spin_unlock(int *);
+extern void thread_stack_pcs(vm_address_t *, unsigned, unsigned *);
 
 static inline void *allocate_pages(unsigned) __attribute__((always_inline));
 static inline void *allocate_pages(unsigned bytes) {
@@ -53,68 +56,6 @@ static inline void deallocate_pages(void *ptr, unsigned bytes) {
 static inline void copy_pages(const void *, void *, unsigned) __attribute__((always_inline));
 static inline void copy_pages(const void *source, void *dest, unsigned bytes) {
     if (vm_copy(mach_task_self(), (vm_address_t)source, bytes, (vm_address_t)dest)) memmove(dest, source, bytes);
-}
-
-/***************	Recording stack		***********/
-
-static void *first_frame_address(void) {
-#if defined(__i386__)
-    return __builtin_frame_address(1);
-#elif defined(__ppc__) || defined(__ppc64__)
-    void *addr;
-#warning __builtin_frame_address IS BROKEN IN BEAKER: RADAR #2340421
-    __asm__ volatile("mr %0, r1" : "=r" (addr));
-    return addr;
-#else
-#warning first_frame_address WILL NOT BE FUNCTIONAL ON THIS ARCHITECTURE
-    return NULL;
-#endif
-}
-
-static void *next_frame_address(void *addr) {
-    void *ret;
-#if defined(__MACH__) && defined(__i386__)
-    __asm__ volatile("movl (%1),%0" : "=r" (ret) : "r" (addr));
-#elif defined(__MACH__) && (defined(__ppc__) || defined(__ppc64__))
-    __asm__ volatile("lwz %0,0x0(%1)" : "=r" (ret) : "b" (addr));
-#elif defined(__hpux__)
-    __asm__ volatile("ldw 0x0(%1),%0" : "=r" (ret) : "r" (addr));
-#elif defined(__svr4__)
-    __asm__ volatile("ta 0x3");
-    __asm__ volatile("ld [%1 + 56],%0" : "=r" (ret) : "r" (addr));
-#else
-#error Unknown architecture
-#endif
-    return ret;
-}
-
-#if defined(__i386__) || defined (__m68k__)
-#define FP_LINK_OFFSET 1
-#elif defined(__ppc__) || defined(__ppc64__)
-#define FP_LINK_OFFSET 2
-#elif defined(__hppa__)
-#define FP_LINK_OFFSET -5
-#elif defined(__sparc__)
-#define FP_LINK_OFFSET 14
-#else
-#error  ********** Unimplemented architecture
-#endif
-
-void thread_stack_pcs(vm_address_t *buffer, unsigned max, unsigned *nb) {
-    void *addr;
-    addr = first_frame_address();
-    *nb = 0;
-    while ((addr >= (void *)0x800) && (max--)) {
-        vm_address_t	fp_link = (vm_address_t)(((unsigned *)addr)+FP_LINK_OFFSET);
-        void	*addr2;
-        buffer[*nb] = *((vm_address_t *)fp_link);
-        (*nb)++;
-        addr2 = next_frame_address(addr);
-#if defined(__ppc__) || defined(__ppc64__)
-        if ((unsigned)addr2 <= (unsigned)addr) break; // catch bozo frames
-#endif
-        addr = addr2;
-    }
 }
 
 /***************	Uniquing stack		***********/
@@ -178,6 +119,8 @@ int stack_logging_enable_logging = 0;
 
 int stack_logging_dontcompact = 0;
 
+static int stack_logging_spin_lock = 0;
+
 static stack_logging_record_list_t *GrowLogRecords(stack_logging_record_list_t *records, unsigned desiredNumRecords) {
     stack_logging_record_list_t	*new_records;
     unsigned	old_size = records->overall_num_bytes;
@@ -233,7 +176,7 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
             stack_logging_log_stack(stack_logging_type_dealloc, arg1, 0, 0, 0, num_hot_to_skip+1);
             return;
         }
-        printf("*** Unknown logging type: 0x%x\n", type);
+        fprintf(stderr, "*** Unknown logging type: 0x%x\n", type);
     }
     if (type == stack_logging_flag_set_handle_size) {
         if (!arg1) return;
@@ -260,8 +203,7 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
         if (!arg1) return; // free(nil)
     }
     prepare_to_log_stack();
-    spin_lock(&stack_logging_the_record_list->lock);
-    stack_logging_enable_logging = 0;
+    spin_lock(&stack_logging_spin_lock);
     stack_logging_the_record_list = GrowLogRecords(stack_logging_the_record_list, stack_logging_the_record_list->num_records + 1);
     rec = stack_logging_the_record_list->records + stack_logging_the_record_list->num_records;
     // We take care of the common case of alloc-dealloc
@@ -291,8 +233,7 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
         rec->uniqued_stack = stack_logging_get_unique_stack(&stack_logging_the_record_list->uniquing_table, &stack_logging_the_record_list->uniquing_table_num_pages, stack_entries, count, num_hot_to_skip+2); // we additionally skip the warmest 2 entries that are an artefact of the code
         stack_logging_the_record_list->num_records++;
     }
-    stack_logging_enable_logging = 1;
-    stack_logging_the_record_list->lock = 0;
+    spin_unlock(&stack_logging_spin_lock);
 }
 
 static kern_return_t default_reader(task_t task, vm_address_t address, vm_size_t size, void **ptr) {

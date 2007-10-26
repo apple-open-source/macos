@@ -18,6 +18,7 @@
 /*	BSD TCP/IP network software.
 /*
 /*	find_inet_addr() translates a symbolic or numerical hostname.
+/*	This function is deprecated. Use hostname_to_hostaddr() instead.
 /*
 /*	find_inet_port() translates a symbolic or numerical port name.
 /* BUGS
@@ -84,6 +85,8 @@ int     find_inet_port(const char *service, const char *protocol)
     int     port;
 
     if (alldig(service) && (port = atoi(service)) != 0) {
+	if (port < 0 || port > 65535)
+	    msg_fatal("bad port number: %s", service);
 	return (htons(port));
     } else {
 	if ((sp = getservbyname(service, protocol)) == 0)

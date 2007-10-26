@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -31,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: fold (AT&T Labs Research) 2003-08-11 $\n]"
+"[-?\n@(#)$Id: fold (AT&T Research) 2004-11-18 $\n]"
 USAGE_LICENSE
 "[+NAME?fold - fold lines]"
 "[+DESCRIPTION?\bfold\b is a filter that folds lines from its input, "
@@ -59,6 +55,7 @@ USAGE_LICENSE
 
 "[b:bytes?Count bytes rather than columns so that each carriage-return, "
 	"backspace, and tab counts as 1.]"
+"[c:continue?Emit \atext\a at line splits.]:[text:='\\n']"
 "[d:delimiter?Break at \adelim\a boundaries.]:[delim]"
 "[s:spaces?Break at word boundaries.  If the line contains any blanks, "
 	"(spaces or tabs), within the first \awidth\a column positions or "
@@ -77,7 +74,7 @@ USAGE_LICENSE
 ;
 
 
-#include <cmdlib.h>
+#include <cmd.h>
 
 #define WIDTH	80
 #define TABSIZE	8
@@ -89,9 +86,7 @@ USAGE_LICENSE
 #define T_SP	5
 #define T_RET	6
 
-static char cols[1<<CHAR_BIT];
-
-static void fold(Sfio_t *in, Sfio_t *out, register int width)
+static void fold(Sfio_t *in, Sfio_t *out, register int width, const char *cont, size_t contsize, char *cols)
 {
 	register char *cp, *first;
 	register int n, col=0, x=0;
@@ -129,7 +124,7 @@ static void fold(Sfio_t *in, Sfio_t *out, register int width)
 				col = 0;
 				last_space = 0;
 				if(cp>first+1 || (n!=T_NL && n!=T_BS))
-					sfputc(out,'\n');
+					sfwrite(out, cont, contsize);
 			}
 			switch(n)
 			{
@@ -150,7 +145,7 @@ static void fold(Sfio_t *in, Sfio_t *out, register int width)
 				if((cp-first) > (width-col))
 				{
 					sfwrite(out,first,(--cp)-first);
-					sfputc(out,'\n');
+					sfwrite(out, cont, contsize);
 					first = cp;
 					col =  TABSIZE-1;
 					last_space = 0;
@@ -177,8 +172,12 @@ b_fold(int argc, char *argv[], void* context)
 	register int n, width=WIDTH;
 	register Sfio_t *fp;
 	register char *cp;
+	char *cont="\n";
+	size_t contsize = 1;
+	char cols[1<<CHAR_BIT];
 
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
+	memset(cols, 0, sizeof(cols));
 	cols['\t'] = T_TAB;
 	cols['\b'] = T_BS;
 	cols['\n'] = T_NL;
@@ -192,6 +191,9 @@ b_fold(int argc, char *argv[], void* context)
 		case 'b':
 			cols['\r'] = cols['\b'] = 0;
 			cols['\t'] = cols[' '];
+			continue;
+		case 'c':
+			contsize = stresc(cont = strdup(opt_info.arg));
 			continue;
 		case 'd':
 			if (n = *opt_info.arg)
@@ -231,7 +233,7 @@ b_fold(int argc, char *argv[], void* context)
 			error_info.errors = 1;
 			continue;
 		}
-		fold(fp,sfstdout,width);
+		fold(fp,sfstdout,width,cont,contsize,cols);
 		if(fp!=sfstdin)
 			sfclose(fp);
 	}

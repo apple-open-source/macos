@@ -67,9 +67,11 @@ struct gdbarch_tdep
   struct regset *fpregset;
   size_t sizeof_fpregset;
 
-  /* APPLE LOCAL: This cpu family is only 32 bit, but we use wordsize to 
-     distinguish between ppc32 and ppc64 -- so to allow for generic code,
-     we have wordsize over here, too.  */
+  /* APPLE LOCAL: We use the wordsize to be the size of the 
+     GPR registers that are actually passed in the ABI.  This isn't
+     an issue for Intel, where we always pass the full size of
+     the register that the ABI allows, but this is here to
+     match PowerPC. */
   int wordsize;           /* size in bytes of fixed-point word */
 
   /* Register number for %st(0).  The register numbers for the other
@@ -94,6 +96,9 @@ struct gdbarch_tdep
   CORE_ADDR sigtramp_start;
   CORE_ADDR sigtramp_end;
 
+  /* Detect sigtramp.  */
+  int (*sigtramp_p) (struct frame_info *);
+
   /* Get address of sigcontext for sigtramp.  */
   CORE_ADDR (*sigcontext_addr) (struct frame_info *);
 
@@ -113,47 +118,10 @@ struct gdbarch_tdep
    (at most) in the FPU, but are zero-extended to 32 bits in GDB's
    register cache.  */
 
-/* "Generic" floating point control register.  */
-#define FPC_REGNUM	(FP0_REGNUM + 8)
-
-/* FPU control word.  */
-#define FCTRL_REGNUM	FPC_REGNUM
-
-/* FPU status word.  */
-#define FSTAT_REGNUM	(FPC_REGNUM + 1)
-
-/* FPU register tag word.  */
-#define FTAG_REGNUM	(FPC_REGNUM + 2)
-
-/* FPU instruction's code segment selector, called "FPU Instruction
-   Pointer Selector" in the IA-32 manuals.  */
-#define FISEG_REGNUM	(FPC_REGNUM + 3)
-
-/* FPU instruction's offset within segment.  */
-#define FIOFF_REGNUM	(FPC_REGNUM + 4)
-
-/* FPU operand's data segment.  */
-#define FOSEG_REGNUM	(FPC_REGNUM + 5)
-
-/* FPU operand's offset within segment */
-#define FOOFF_REGNUM	(FPC_REGNUM + 6)
-
-/* FPU opcode, bottom eleven bits.  */
-#define FOP_REGNUM	(FPC_REGNUM + 7)
-
 /* Return non-zero if REGNUM matches the FP register and the FP
    register set is active.  */
 extern int i386_fp_regnum_p (int regnum);
 extern int i386_fpc_regnum_p (int regnum);
-
-/* SSE registers.  */
-
-/* First SSE data register.  */
-#define XMM0_REGNUM	(FPC_REGNUM + 8)
-
-/* SSE control/status register.  */
-#define MXCSR_REGNUM \
-  (XMM0_REGNUM + gdbarch_tdep (current_gdbarch)->num_xmm_regs)
 
 /* Register numbers of various important registers.  */
 
@@ -190,10 +158,9 @@ enum i386_regnum
 
 /* Functions exported from i386-tdep.c.  */
 extern CORE_ADDR i386_pe_skip_trampoline_code (CORE_ADDR pc, char *name);
-extern int i386_frameless_signal_p (struct frame_info *frame);
 
-/* Return the name of register REG.  */
-extern char const *i386_register_name (int reg);
+/* Return the name of register REGNUM.  */
+extern char const *i386_register_name (int regnum);
 
 /* Return non-zero if REGNUM is a member of the specified group.  */
 extern int i386_register_reggroup_p (struct gdbarch *gdbarch, int regnum,
@@ -205,6 +172,14 @@ extern int i386_register_reggroup_p (struct gdbarch *gdbarch, int regnum,
 extern void i386_supply_gregset (const struct regset *regset,
 				 struct regcache *regcache, int regnum,
 				 const void *gregs, size_t len);
+
+/* Collect register REGNUM from the register cache REGCACHE and store
+   it in the buffer specified by GREGS and LEN as described by the
+   general-purpose register set REGSET.  If REGNUM is -1, do this for
+   all registers in REGSET.  */
+extern void i386_collect_gregset (const struct regset *regset,
+				  const struct regcache *regcache,
+				  int regnum, void *gregs, size_t len);
 
 /* Return the appropriate register set for the core section identified
    by SECT_NAME and SECT_SIZE.  */
@@ -225,9 +200,6 @@ int i386_find_picbase_setup (CORE_ADDR, CORE_ADDR *, enum i386_regnum *);
 /* Functions and variables exported from i386bsd-tdep.c.  */
 
 extern void i386bsd_init_abi (struct gdbarch_info, struct gdbarch *);
-extern int i386bsd_pc_in_sigtramp (CORE_ADDR pc, char *name);
-extern CORE_ADDR i386bsd_sigtramp_start (CORE_ADDR pc);
-extern CORE_ADDR i386bsd_sigtramp_end (CORE_ADDR pc);
 extern CORE_ADDR i386fbsd_sigtramp_start_addr;
 extern CORE_ADDR i386fbsd_sigtramp_end_addr;
 extern CORE_ADDR i386obsd_sigtramp_start_addr;

@@ -1,6 +1,7 @@
 ;;; blackbox.el --- blackbox game in Emacs Lisp
 
-;; Copyright (C) 1985, 1986, 1987, 1992 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1987, 1992, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: F. Thomas May <uw-nsr!uw-warp!tom@beaver.cs.washington.edu>
 ;; Adapted-By: ESR
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -34,27 +35,27 @@
 ;; pass thru the box undisturbed, 2) it will hit a ball and be absorbed,
 ;; 3) it will be deflected and exit the box, or 4) be deflected immediately,
 ;; not even being allowed entry into the box.
-;; 
+;;
 ;; The strange part is the method of deflection.  It seems that rays will
 ;; not pass next to a ball, and change direction at right angles to avoid it.
-;; 
-;; 		             R   3   
-;; 		 1 - - - - - - - - 1 
-;; 		   - - - - - - - -   
-;; 		   - O - - - - - - 3 
-;; 		 2 - - - - O - O -   
-;; 		 4 - - - - - - - - 
-;; 		 5 - - - - - - - - 5 
-;; 		   - - - - - - - - R 
-;; 		 H - - - - - - - O   
-;; 		   2   H 4       H   
-;; 
+;;
+;; 		             R   3
+;; 		 1 - - - - - - - - 1
+;; 		   - - - - - - - -
+;; 		   - O - - - - - - 3
+;; 		 2 - - - - O - O -
+;; 		 4 - - - - - - - -
+;; 		 5 - - - - - - - - 5
+;; 		   - - - - - - - - R
+;; 		 H - - - - - - - O
+;; 		   2   H 4       H
+;;
 ;; Rays which enter and exit are numbered.  You can see that rays 1 & 5 pass
-;; thru the box undisturbed. Ray 2 is deflected by the northwesternmost
+;; thru the box undisturbed.  Ray 2 is deflected by the northwesternmost
 ;; ball.  Likewise rays 3 and 4. Rays which hit balls and are absorbed are
 ;; marked with H.  The bottom of the left and the right of the bottom hit
 ;; the southeastern ball directly.  Rays may also hit balls after being
-;; reflected. Consider the H on the bottom next to the 4.  It bounces off
+;; reflected.  Consider the H on the bottom next to the 4.  It bounces off
 ;; the NW-ern most ball and hits the central ball.  A ray shot from above
 ;; the right side 5 would hit the SE-ern most ball.  The R beneath the 5
 ;; is because the ball is returned instantly.  It is not allowed into
@@ -68,51 +69,71 @@
 
 ;;; Code:
 
-(defvar blackbox-mode-map nil "")
+(defvar bb-board nil
+  "Blackbox board.")
 
-(if blackbox-mode-map
-    ()
-  (setq blackbox-mode-map (make-keymap))
-  (suppress-keymap blackbox-mode-map t)
-  (define-key blackbox-mode-map "\C-f" 'bb-right)
-  (define-key blackbox-mode-map [right] 'bb-right)
-  (define-key blackbox-mode-map "\C-b" 'bb-left)
-  (define-key blackbox-mode-map [left] 'bb-left)
-  (define-key blackbox-mode-map "\C-p" 'bb-up)
-  (define-key blackbox-mode-map [up] 'bb-up)
-  (define-key blackbox-mode-map "\C-n" 'bb-down)
-  (define-key blackbox-mode-map [down] 'bb-down)
-  (define-key blackbox-mode-map "\C-e" 'bb-eol)
-  (define-key blackbox-mode-map "\C-a" 'bb-bol)
-  (define-key blackbox-mode-map " " 'bb-romp)
-  (define-key blackbox-mode-map [insert] 'bb-romp)
-  (define-key blackbox-mode-map "\C-m" 'bb-done)
-  (define-key blackbox-mode-map [kp-enter] 'bb-done))
+(defvar bb-x -1
+  "Current x-position.")
+
+(defvar bb-y -1
+  "Current y-position.")
+
+(defvar bb-score 0
+  "Current score.")
+
+(defvar bb-detour-count 0
+  "Number of detours.")
+
+(defvar bb-balls-placed nil
+  "List of already placed balls.")
+
+;; This is used below to remap existing bindings for cursor motion to
+;; blackbox-specific bindings in blackbox-mode-map.  This is so that
+;; users who prefer non-default key bindings for cursor motion don't
+;; lose that when they play Blackbox.
+(defun blackbox-redefine-key (map oldfun newfun)
+  "Redefine keys that run the function OLDFUN to run NEWFUN instead."
+  (define-key map (vector 'remap oldfun) newfun))
+
+
+(defvar blackbox-mode-map 
+  (let ((map (make-keymap)))
+    (suppress-keymap map t)
+    (blackbox-redefine-key map 'backward-char 'bb-left)
+    (blackbox-redefine-key map 'forward-char 'bb-right)
+    (blackbox-redefine-key map 'previous-line 'bb-up)
+    (blackbox-redefine-key map 'next-line 'bb-down)
+    (blackbox-redefine-key map 'move-end-of-line 'bb-eol)
+    (blackbox-redefine-key map 'move-beginning-of-line 'bb-bol)
+    (define-key map " " 'bb-romp)
+    (define-key map [insert] 'bb-romp)
+    (blackbox-redefine-key map 'newline 'bb-done)
+    map))
 
 ;; Blackbox mode is suitable only for specially formatted data.
 (put 'blackbox-mode 'mode-class 'special)
 
 (defun blackbox-mode ()
-  "Major mode for playing blackbox.  To learn how to play blackbox,
-see the documentation for function `blackbox'.
+  "Major mode for playing blackbox.
+To learn how to play blackbox, see the documentation for function `blackbox'.
 
 The usual mnemonic keys move the cursor around the box.
 \\<blackbox-mode-map>\\[bb-bol] and \\[bb-eol] move to the beginning and end of line, respectively.
 
 \\[bb-romp] -- send in a ray from point, or toggle a ball at point
-\\[bb-done] -- end game and get score
-"
+\\[bb-done] -- end game and get score"
   (interactive)
   (kill-all-local-variables)
   (use-local-map blackbox-mode-map)
   (setq truncate-lines t)
   (setq major-mode 'blackbox-mode)
-  (setq mode-name "Blackbox"))
+  (setq mode-name "Blackbox")
+  (run-mode-hooks 'blackbox-mode-hook))
 
 ;;;###autoload
 (defun blackbox (num)
-  "Play blackbox.  Optional prefix argument is the number of balls;
-the default is 4.
+  "Play blackbox.
+Optional prefix argument is the number of balls; the default is 4.
 
 What is blackbox?
 
@@ -177,21 +198,21 @@ ray.
 Note carefully the relative positions of the ball and the ninety
 degree deflection it causes.
 
-    1                                            
-  - * - - - - - -         - - - - - - - -         - - - - - - - -       
-  - * - - - - - -         - - - - - - - -         - - - - - - - -       
-1 * * - - - - - -         - - - - - - - -         - O - - - - O -       
+    1
+  - * - - - - - -         - - - - - - - -         - - - - - - - -
+  - * - - - - - -         - - - - - - - -         - - - - - - - -
+1 * * - - - - - -         - - - - - - - -         - O - - - - O -
   - - O - - - - -         - - O - - - - -         - - * * * * - -
   - - - - - - - -         - - - * * * * * 2     3 * * * - - * - -
-  - - - - - - - -         - - - * - - - -         - - - O - * - -      
-  - - - - - - - -         - - - * - - - -         - - - - * * - -       
-  - - - - - - - -         - - - * - - - -         - - - - * - O -       
+  - - - - - - - -         - - - * - - - -         - - - O - * - -
+  - - - - - - - -         - - - * - - - -         - - - - * * - -
+  - - - - - - - -         - - - * - - - -         - - - - * - O -
                                 2                         3
 
 As mentioned above, a reflection occurs when a ray emerges from the same point
 it was sent in.  This can happen in several ways:
 
-                                                                           
+
   - - - - - - - -         - - - - - - - -          - - - - - - - -
   - - - - O - - -         - - O - O - - -          - - - - - - - -
 R * * * * - - - -         - - - * - - - -          O - - - - - - -
@@ -243,7 +264,7 @@ a reflection."
       (while
 	  (progn
 	    (setq pos (cons (random 8) (random 8)))
-	    (bb-member pos board)))
+	    (member pos board)))
       (setq board (cons pos board)))
     board))
 
@@ -258,33 +279,33 @@ a reflection."
     (insert (format "\nThere are %d balls in the box" (length bb-board)))
     ))
 
-(defun bb-right ()
-  (interactive)
-  (if (= bb-x 8)
-      ()
+(defun bb-right (count)
+  (interactive "p")
+  (while (and (> count 0) (< bb-x 8))
     (forward-char 2)
-    (setq bb-x (1+ bb-x))))
+    (setq bb-x (1+ bb-x))
+    (setq count (1- count))))
 
-(defun bb-left ()
-  (interactive)
-  (if (= bb-x -1)
-      ()
+(defun bb-left (count)
+  (interactive "p")
+  (while (and (> count 0) (> bb-x -1))
     (backward-char 2)
-    (setq bb-x (1- bb-x))))
+    (setq bb-x (1- bb-x))
+    (setq count (1- count))))
 
-(defun bb-up ()
-  (interactive)
-  (if (= bb-y -1)
-      ()
+(defun bb-up (count)
+  (interactive "p")
+  (while (and (> count 0) (> bb-y -1))
     (previous-line 1)
-    (setq bb-y (1- bb-y))))
+    (setq bb-y (1- bb-y))
+    (setq count (1- count))))
 
-(defun bb-down ()
-  (interactive)
-  (if (= bb-y 8)
-      ()
+(defun bb-down (count)
+  (interactive "p")
+  (while (and (> count 0) (< bb-y 8))
     (next-line 1)
-    (setq bb-y (1+ bb-y))))
+    (setq bb-y (1+ bb-y))
+    (setq count (1- count))))
 
 (defun bb-eol ()
   (interactive)
@@ -310,51 +331,54 @@ a reflection."
 (defun bb-place-ball (x y)
   (let ((coord (cons x y)))
     (cond
-     ((bb-member coord bb-balls-placed)
-      (setq bb-balls-placed (bb-delete coord bb-balls-placed))
+     ((member coord bb-balls-placed)
+      (setq bb-balls-placed (delete coord bb-balls-placed))
       (bb-update-board "-"))
      (t
       (setq bb-balls-placed (cons coord bb-balls-placed))
-      (bb-update-board "O")))))
+      (bb-update-board (propertize "O" 'help-echo "Placed ball"))))))
 
 (defun bb-trace-ray (x y)
-  (let ((result (bb-trace-ray-2
-		 t
-		 x
-		 (cond
-		  ((= x -1) 1)
-		  ((= x 8) -1)
-		  (t 0))
-		 y
-		 (cond
-		  ((= y -1) 1)
-		  ((= y 8) -1)
-		  (t 0)))))
-    (cond
-     ((eq result 'hit)
-      (bb-update-board "H")
-      (setq bb-score (1+ bb-score)))
-     ((equal result (cons x y))
-      (bb-update-board "R")
-      (setq bb-score (1+ bb-score)))
-     (t
-      (setq bb-detour-count (1+ bb-detour-count))
-      (bb-update-board (format "%d" bb-detour-count))
-      (save-excursion
-	(bb-goto result)
-	(bb-update-board (format "%d" bb-detour-count)))
-      (setq bb-score (+ bb-score 2))))))
+  (when (= (following-char) 32)
+    (let ((result (bb-trace-ray-2
+                   t
+                   x
+                   (cond
+                    ((= x -1) 1)
+                    ((= x 8) -1)
+                    (t 0))
+                   y
+                   (cond
+                    ((= y -1) 1)
+                    ((= y 8) -1)
+                    (t 0)))))
+      (cond
+       ((eq result 'hit)
+        (bb-update-board (propertize "H" 'help-echo "Hit"))
+        (setq bb-score (1+ bb-score)))
+       ((equal result (cons x y))
+        (bb-update-board (propertize "R" 'help-echo "Reflection"))
+        (setq bb-score (1+ bb-score)))
+       (t
+        (setq bb-detour-count (1+ bb-detour-count))
+        (bb-update-board (propertize (format "%d" bb-detour-count)
+                                     'help-echo "Detour"))
+        (save-excursion
+          (bb-goto result)
+          (bb-update-board (propertize (format "%d" bb-detour-count)
+                                       'help-echo "Detour")))
+        (setq bb-score (+ bb-score 2)))))))
 
 (defun bb-trace-ray-2 (first x dx y dy)
   (cond
    ((and (not first)
 	 (bb-outside-box x y))
     (cons x y))
-   ((bb-member (cons (+ x dx) (+ y dy)) bb-board)
+   ((member (cons (+ x dx) (+ y dy)) bb-board)
     'hit)
-   ((bb-member (cons (+ x dx dy) (+ y dy dx)) bb-board)
+   ((member (cons (+ x dx dy) (+ y dy dx)) bb-board)
     (bb-trace-ray-2 nil x (- dy) y (- dx)))
-   ((bb-member (cons (+ x dx (- dy)) (+ y dy (- dx))) bb-board)
+   ((member (cons (+ x dx (- dy)) (+ y dy (- dx))) bb-board)
     (bb-trace-ray-2 nil x dy y dx))
    (t
     (bb-trace-ray-2 nil (+ x dx) dx (+ y dy) dy))))
@@ -388,7 +412,7 @@ a reflection."
   (cond
    ((null list-1)
     0)
-   ((bb-member (car list-1) list-2)
+   ((member (car list-1) list-2)
     (bb-show-bogus-balls-2 (cdr list-1) list-2 c))
    (t
     (bb-goto (car list-1))
@@ -407,17 +431,8 @@ a reflection."
     (delete-char (length c))
     (insert c)
     (backward-char 1)))
-  
-(defun bb-member (elt list)
-  "Returns non-nil if ELT is an element of LIST."
-  (eval (cons 'or (mapcar (function (lambda (x) (equal x elt))) list))))
-
-(defun bb-delete (item list)
-  "Deletes ITEM from LIST and returns a copy."
-  (cond
-   ((equal item (car list)) (cdr list))
-   (t (cons (car list) (bb-delete item (cdr list))))))
 
 (provide 'blackbox)
 
+;; arch-tag: 6c474c62-5617-4b10-9b44-ac430168c0e2
 ;;; blackbox.el ends here

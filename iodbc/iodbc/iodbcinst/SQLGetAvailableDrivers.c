@@ -1,20 +1,24 @@
 /*
  *  SQLGetAvailableDrivers.c
  *
- *  $Id: SQLGetAvailableDrivers.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
+ *  $Id: SQLGetAvailableDrivers.c,v 1.10 2006/01/20 15:58:35 source Exp $
  *
  *  Get a list of all available drivers
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,8 +74,10 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
+#include <unicode.h>
 
 #include "misc.h"
 #include "inifile.h"
@@ -79,7 +85,7 @@
 
 BOOL
 GetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
-    WORD *pcbBufOut, BOOL infFile)
+    WORD * pcbBufOut, BOOL infFile)
 {
   int sect_len = 0;
   WORD curr = 0;
@@ -163,7 +169,7 @@ quit:
 
 BOOL INSTAPI
 SQLGetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
-    WORD *pcbBufOut)
+    WORD * pcbBufOut)
 {
   BOOL retcode = FALSE;
   WORD lenBufOut;
@@ -181,7 +187,7 @@ SQLGetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
     case ODBC_SYSTEM_DSN:
       wSystemDSN = SYSTEMDSN_ONLY;
       break;
-    };
+    }
 
   retcode =
       GetAvailableDrivers (lpszInfFile, lpszBuf, cbBufMax, &lenBufOut, FALSE);
@@ -191,5 +197,59 @@ SQLGetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
 
   wSystemDSN = USERDSN_ONLY;
   configMode = ODBC_BOTH_DSN;
+  return retcode;
+}
+
+BOOL INSTAPI
+SQLGetAvailableDriversW (LPCWSTR lpszInfFile, LPWSTR lpszBuf, WORD cbBufMax,
+    WORD FAR * pcbBufOut)
+{
+  BOOL retcode = FALSE;
+  char *_inf_u8 = NULL;
+  char *_buffer_u8 = NULL;
+  SQLCHAR *ptr;
+  SQLWCHAR *ptrW;
+  WORD len = 0, length;
+
+  _inf_u8 = (char *) dm_SQL_WtoU8 ((SQLWCHAR *) lpszInfFile, SQL_NTS);
+  if (_inf_u8 == NULL && lpszInfFile)
+    {
+      PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+      goto done;
+    }
+
+  if (cbBufMax > 0)
+    {
+      if ((_buffer_u8 = malloc (cbBufMax * UTF8_MAX_CHAR_LEN + 1)) == NULL)
+	{
+	  PUSH_ERROR (ODBC_ERROR_OUT_OF_MEM);
+	  goto done;
+	}
+    }
+
+  retcode =
+      SQLGetAvailableDrivers (_inf_u8, _buffer_u8,
+      cbBufMax * UTF8_MAX_CHAR_LEN, pcbBufOut);
+
+  if (retcode == TRUE)
+    {
+      length = 0;
+
+      for (ptr = _buffer_u8, ptrW = lpszBuf; *ptr;
+	  ptr += STRLEN (ptr) + 1, ptrW += WCSLEN (ptrW) + 1)
+	{
+	  dm_StrCopyOut2_U8toW (ptr, ptrW, cbBufMax - 1, &len);
+	  length += len;
+	}
+
+      *ptrW = L'\0';
+      if (pcbBufOut)
+	*pcbBufOut = length + 1;
+    }
+
+done:
+  MEM_FREE (_inf_u8);
+  MEM_FREE (_buffer_u8);
+
   return retcode;
 }

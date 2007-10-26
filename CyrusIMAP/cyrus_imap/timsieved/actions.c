@@ -1,6 +1,6 @@
 /* actions.c -- executes the commands for timsieved
  * Tim Martin
- * $Id: actions.c,v 1.6 2005/06/17 20:16:29 dasenbro Exp $
+ * $Id: actions.c,v 1.40 2006/11/30 17:11:25 murch Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -61,6 +61,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <string.h>
+#include <retry.h>
 
 #include "prot.h"
 #include "tls.h"
@@ -74,10 +75,15 @@
 #include "actions.h"
 #include "scripttest.h"
 
+#include "sync_log.h"
+
 /* after a user has authentication, our current directory is their Sieve 
    directory! */
 
+extern int sieved_userisadmin;
 char *sieve_dir = NULL;
+
+const static char *sieved_userid = NULL;
 
 int actions_init(void)
 {
@@ -99,25 +105,36 @@ int actions_init(void)
 
 int actions_setuser(const char *userid)
 {
-  char hash, *domain;
-  char *foo=sieve_dir;
+  char userbuf[1024], *user, *domain = NULL;
+  char *foo = sieve_dir;
+  size_t size = 1024, len;
   int result;  
 
-  sieve_dir=(char *) xmalloc(1024);
+  sieve_dir = (char *) xzmalloc(size+1);
   
-  if (config_virtdomains && (domain = strchr(userid, '@'))) {
-      char d = (char) dir_hash_c(domain+1);
-      *domain = '\0';  /* split user@domain */
-      hash = (char) dir_hash_c(userid);
-      snprintf(sieve_dir, 1023, "%s%s%c/%s/%c/%s",
-	       foo, FNAME_DOMAINDIR, d, domain+1,
-	       hash, userid);
-      *domain = '@';  /* reassemble user@domain */
+  sieved_userid = xstrdup(userid);
+  user = (char *) userid;
+  if (config_virtdomains && strchr(user, '@')) {
+      /* split the user and domain */
+      strlcpy(userbuf, userid, sizeof(userbuf));
+      user = userbuf;
+      if ((domain = strrchr(user, '@'))) *domain++ = '\0';
+  }
+
+  len = strlcpy(sieve_dir, foo, size);
+
+  if (domain) {
+      char dhash = (char) dir_hash_c(domain);
+      len += snprintf(sieve_dir+len, size-len, "%s%c/%s",
+		      FNAME_DOMAINDIR, dhash, domain);
+  }
+
+  if (sieved_userisadmin) {
+      strlcat(sieve_dir, "/global", size);
   }
   else {
-      hash = (char) dir_hash_c(userid);
-    
-      snprintf(sieve_dir, 1023, "%s/%c/%s", foo, hash,userid);
+      char hash = (char) dir_hash_c(user);
+      snprintf(sieve_dir+len, size-len, "/%c/%s", hash, user);
   }
 
   result = chdir(sieve_dir);
@@ -163,23 +180,27 @@ int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
 		 int starttls_done, int authenticated)
 {
     const char *sasllist;
-    unsigned mechcount;
+    int mechcount;
 
     /* implementation */
-    prot_printf(conn, "\"IMPLEMENTATION\" \"Cyrus timsieved %s\"\r\n",
-		CYRUS_VERSION);
+    prot_printf(conn,
+		"\"IMPLEMENTATION\" \"Cyrus timsieved%s %s\"\r\n",
+		config_mupdate_server ? " (Murder)" : "", CYRUS_VERSION);
     
     /* SASL */
+#ifdef APPLE_OS_X_SERVER
 	if ( config_getswitch( IMAPOPT_APPLE_AUTH ) == 0 )
 	{
-		if (!authenticated &&
-		sasl_listmech(saslconn, NULL, 
-				"\"SASL\" \"", " ", "\"\r\n",
-				&sasllist,
-				NULL, &mechcount) == SASL_OK && mechcount > 0)
-		{
-		  prot_printf(conn,"%s",sasllist);
-		}
+#endif
+    if (!authenticated &&
+	sasl_listmech(saslconn, NULL, 
+		    "\"SASL\" \"", " ", "\"\r\n",
+		    &sasllist,
+		    NULL, &mechcount) == SASL_OK && mechcount > 0)
+    {
+      prot_printf(conn,"%s",sasllist);
+    }
+#ifdef APPLE_OS_X_SERVER
 	}
 	else
 	{
@@ -227,9 +248,10 @@ int capabilities(struct protstream *conn, sasl_conn_t *saslconn,
 
 		prot_printf( conn,"%s", str );
 	}
+#endif
     
     /* Sieve capabilities */
-    prot_printf(conn,"\"SIEVE\" \"%s\"\r\n",sieve_listextensions());
+    prot_printf(conn,"\"SIEVE\" \"%s\"\r\n",sieve_listextensions(interp));
 
     if (tls_enabled() && !starttls_done && !authenticated) {
 	prot_printf(conn, "\"STARTTLS\"\r\n");
@@ -464,6 +486,7 @@ int putscript(struct protstream *conn, mystring_t *name, mystring_t *data,
   }
 
   prot_printf(conn, "OK\r\n");
+  sync_log_sieve(sieved_userid);
 
   return TIMSIEVE_OK;
 }
@@ -476,6 +499,7 @@ static int deleteactive(struct protstream *conn)
 	prot_printf(conn,"NO \"Unable to unlink active script\"\r\n");
 	return TIMSIEVE_FAIL;
     }
+    sync_log_sieve(sieved_userid);
 
     return TIMSIEVE_OK;
 }
@@ -537,6 +561,7 @@ int deletescript(struct protstream *conn, mystring_t *name)
       prot_printf(conn,"NO \"Error deleting bytecode\"\r\n");
       return TIMSIEVE_FAIL;
   }
+  sync_log_sieve(sieved_userid);
 
   prot_printf(conn,"OK\r\n");
   return TIMSIEVE_OK;
@@ -660,6 +685,7 @@ int setactive(struct protstream *conn, mystring_t *name)
 	prot_printf(conn,"NO \"Error renaming\"\r\n");
 	return TIMSIEVE_FAIL;
     }
+    sync_log_sieve(sieved_userid);
 
     prot_printf(conn,"OK\r\n");
     return TIMSIEVE_OK;

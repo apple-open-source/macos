@@ -1,11 +1,11 @@
-;;; filecache.el --- Find files using a pre-loaded cache
+;;; filecache.el --- find files using a pre-loaded cache
 ;;
 ;; Author:  Peter Breton <pbreton@cs.umb.edu>
 ;; Created: Sun Nov 10 1996
 ;; Keywords: convenience
-;; Time-stamp: <2000-08-31 19:44:13 pbreton>
 ;;
-;; Copyright (C) 1996, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; This file is part of GNU Emacs.
 
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -63,6 +63,9 @@
 ;;
 ;;   * `file-cache-add-directory-using-locate': Uses the `locate' command to
 ;;     add files matching a pattern to the cache.
+;;
+;;   * `file-cache-add-directory-recursively': Uses the find-lisp package to
+;;     add all files matching a pattern to the cache.
 ;;
 ;; Use the function `file-cache-clear-cache' to remove all items from the
 ;; cache. There are a number of `file-cache-delete' functions provided
@@ -139,6 +142,9 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'find-lisp))
+
 (defgroup file-cache nil
   "Find files using a pre-loaded cache."
   :group 'files
@@ -165,6 +171,19 @@ do not use this variable."
   :type 'string
   :group 'file-cache)
 
+(defcustom file-cache-find-command-posix-flag 'not-defined
+  "*Set to t, if `file-cache-find-command' handles wildcards POSIX style.
+This variable is automatically set to nil or non-nil
+if it has the initial value `not-defined' whenever you first
+call the `file-cache-add-directory-using-find'.
+
+Under Windows operating system where Cygwin is available, this value
+should be t."
+  :type  '(choice (const :tag "Yes" t)
+		  (const :tag "No" nil)
+		  (const :tag "Unknown" not-defined))
+  :group 'file-cache)
+
 (defcustom file-cache-locate-command "locate"
   "*External program used by `file-cache-add-directory-using-locate'."
   :type 'string
@@ -188,7 +207,7 @@ do not use this variable."
   :group 'file-cache)
 
 (defcustom file-cache-completion-ignore-case
-   (if (memq system-type (list 'ms-dos 'windows-nt))
+   (if (memq system-type (list 'ms-dos 'windows-nt 'cygwin))
       t
      completion-ignore-case)
   "If non-nil, file-cache completion should ignore case.
@@ -198,7 +217,7 @@ Defaults to the value of `completion-ignore-case'."
   )
 
 (defcustom file-cache-case-fold-search
-  (if (memq system-type (list 'ms-dos 'windows-nt))
+  (if (memq system-type (list 'ms-dos 'windows-nt 'cygwin))
       t
     case-fold-search)
   "If non-nil, file-cache completion should ignore case.
@@ -207,13 +226,10 @@ Defaults to the value of `case-fold-search'."
   :group 'file-cache
   )
 
-(defcustom file-cache-assoc-function
-  (if (memq system-type (list 'ms-dos 'windows-nt))
-      'assoc-ignore-case
-    'assoc)
-  "Function to use to check completions in the file cache.
-Defaults to `assoc-ignore-case' on DOS and Windows, and `assoc' on
-other systems."
+(defcustom file-cache-ignore-case
+  (memq system-type (list 'ms-dos 'windows-nt 'cygwin))
+  "Non-nil means ignore case when checking completions in the file cache.
+Defaults to nil on DOS and Windows, and t on other systems."
   :type 'sexp
   :group 'file-cache
   )
@@ -250,6 +266,7 @@ other systems."
 ;; Functions to add files to the cache
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;;###autoload
 (defun file-cache-add-directory (directory &optional regexp)
   "Add DIRECTORY to the file cache.
 If the optional REGEXP argument is non-nil, only files which match it will
@@ -265,14 +282,17 @@ be added to the cache."
       ;; Filter out files we don't want to see
       (mapcar
        '(lambda (file)
-	(mapcar
-	 '(lambda (regexp)
-	    (if (string-match regexp file)
-		(setq dir-files (delq file dir-files))))
-	 file-cache-filter-regexps))
+          (if (file-directory-p file)
+              (setq dir-files (delq file dir-files))
+	    (mapcar
+	     '(lambda (regexp)
+		(if (string-match regexp file)
+		    (setq dir-files (delq file dir-files))))
+	     file-cache-filter-regexps)))
        dir-files)
       (file-cache-add-file-list dir-files))))
 
+;;;###autoload
 (defun file-cache-add-directory-list (directory-list &optional regexp)
   "Add DIRECTORY-LIST (a list of directory names) to the file cache.
 If the optional REGEXP argument is non-nil, only files which match it
@@ -289,15 +309,18 @@ in each directory, not to the directory list itself."
   (mapcar 'file-cache-add-file file-list))
 
 ;; Workhorse function
+
+;;;###autoload
 (defun file-cache-add-file (file)
   "Add FILE to the file cache."
   (interactive "fAdd File: ")
   (if (not (file-exists-p file))
-      (message "File %s does not exist" file)
+      (message "Filecache: file %s does not exist" file)
     (let* ((file-name (file-name-nondirectory file))
 	   (dir-name  (file-name-directory    file))
-	   (the-entry (funcall file-cache-assoc-function
-			       file-name file-cache-alist))
+	   (the-entry (assoc-string
+		       file-name file-cache-alist
+		       file-cache-ignore-case))
 	   )
       ;; Does the entry exist already?
       (if the-entry
@@ -314,20 +337,30 @@ in each directory, not to the directory list itself."
 		    file-cache-alist)))
       )))
 
+;;;###autoload
 (defun file-cache-add-directory-using-find (directory)
   "Use the `find' command to add files to the file cache.
 Find is run in DIRECTORY."
   (interactive "DAdd files under directory: ")
   (let ((dir (expand-file-name directory)))
+    (when (memq system-type '(windows-nt cygwin))
+      (if (eq file-cache-find-command-posix-flag 'not-defined)
+	  (setq file-cache-find-command-posix-flag
+		(executable-command-find-posix-p file-cache-find-command))))
     (set-buffer (get-buffer-create file-cache-buffer))
     (erase-buffer)
     (call-process file-cache-find-command nil
 		  (get-buffer file-cache-buffer) nil
 		  dir "-name"
-		  (if (eq system-type 'windows-nt) "'*'" "*")
+		  (if (memq system-type '(windows-nt cygwin))
+		      (if file-cache-find-command-posix-flag
+			  "\\*"
+			"'*'")
+		    "*")
 		  "-print")
     (file-cache-add-from-file-cache-buffer)))
 
+;;;###autoload
 (defun file-cache-add-directory-using-locate (string)
   "Use the `locate' command to add files to the file cache.
 STRING is passed as an argument to the locate command."
@@ -338,6 +371,31 @@ STRING is passed as an argument to the locate command."
 		(get-buffer file-cache-buffer) nil
 		string)
   (file-cache-add-from-file-cache-buffer))
+
+;;;###autoload
+(defun file-cache-add-directory-recursively  (dir &optional regexp)
+  "Adds DIR and any subdirectories to the file-cache.
+This function does not use any external programs
+If the optional REGEXP argument is non-nil, only files which match it
+will be added to the cache. Note that the REGEXP is applied to the files
+in each directory, not to the directory list itself."
+  (interactive "DAdd directory: ")
+  (require 'find-lisp)
+  (mapcar
+   (function
+    (lambda(file)
+      (or (file-directory-p file)
+	  (let (filtered)
+	    (mapcar
+	     (function
+	      (lambda(regexp)
+		(and (string-match regexp file)
+		     (setq filtered t))
+		))
+	     file-cache-filter-regexps)
+	    filtered)
+	  (file-cache-add-file file))))
+   (find-lisp-find-files dir (if regexp regexp "^"))))
 
 (defun file-cache-add-from-file-cache-buffer (&optional regexp)
   "Add any entries found in the file cache buffer.
@@ -373,7 +431,7 @@ or the optional REGEXP argument."
   (interactive
    (list (completing-read "Delete file from cache: " file-cache-alist)))
   (setq file-cache-alist
-	(delq (funcall file-cache-assoc-function file file-cache-alist)
+	(delq (assoc-string file file-cache-alist file-cache-ignore-case)
 	      file-cache-alist)))
 
 (defun file-cache-delete-file-list (file-list)
@@ -390,7 +448,8 @@ or the optional REGEXP argument."
 		    (setq delete-list (cons (car elt) delete-list))))
 	    file-cache-alist)
     (file-cache-delete-file-list delete-list)
-    (message "Deleted %d files from file cache" (length delete-list))))
+    (message "Filecache: deleted %d files from file cache"
+             (length delete-list))))
 
 (defun file-cache-delete-directory (directory)
   "Delete DIRECTORY from the file cache."
@@ -403,8 +462,8 @@ or the optional REGEXP argument."
 	    (setq result (1+ result))))
      file-cache-alist)
     (if (zerop result)
-	(error "No entries containing %s found in cache" directory)
-      (message "Deleted %d entries" result))))
+	(error "Filecache: no entries containing %s found in cache" directory)
+      (message "Filecache: deleted %d entries" result))))
 
 (defun file-cache-do-delete-directory (dir entry)
   (let ((directory-list (cdr entry))
@@ -429,21 +488,22 @@ or the optional REGEXP argument."
 
 ;; Returns the name of a directory for a file in the cache
 (defun file-cache-directory-name  (file)
-  (let* ((directory-list (cdr (funcall file-cache-assoc-function
-				       file file-cache-alist)))
+  (let* ((directory-list (cdr (assoc-string
+			       file file-cache-alist
+			       file-cache-ignore-case)))
 	 (len            (length directory-list))
 	 (directory)
 	 (num)
 	 )
     (if (not (listp directory-list))
-	(error "Unknown type in file-cache-alist for key %s" file))
+	(error "Filecache: unknown type in file-cache-alist for key %s" file))
     (cond
      ;; Single element
      ((eq 1 len)
       (setq directory (elt directory-list 0)))
      ;; No elements
      ((eq 0 len)
-      (error "No directory found for key %s" file))
+      (error "Filecache: no directory found for key %s" file))
      ;; Multiple elements
      (t
       (let* ((minibuffer-dir (file-name-directory (minibuffer-contents)))
@@ -516,7 +576,7 @@ the name is considered already unique; only the second substitution
       (if (string= file-cache-string (minibuffer-contents))
 	  (file-cache-temp-minibuffer-message file-cache-sole-match-message)
 	(delete-minibuffer-contents)
-	(insert-string file-cache-string)
+	(insert file-cache-string)
 	(if file-cache-multiple-directory-message
 	    (file-cache-temp-minibuffer-message
 	     file-cache-multiple-directory-message))
@@ -527,12 +587,13 @@ the name is considered already unique; only the second substitution
       ;; If we've already inserted a unique string, see if the user
       ;; wants to use that one
       (if (and (string= string completion-string)
-	       (funcall file-cache-assoc-function string file-cache-alist))
+	       (assoc-string string file-cache-alist
+			     file-cache-ignore-case))
 	  (if (and (eq last-command this-command)
 		   (string= file-cache-last-completion completion-string))
 	      (progn
 		(delete-minibuffer-contents)
-		(insert-string (file-cache-file-name completion-string))
+		(insert (file-cache-file-name completion-string))
 		(setq file-cache-last-completion nil)
 		)
 	    (file-cache-temp-minibuffer-message file-cache-non-unique-message)
@@ -544,7 +605,7 @@ the name is considered already unique; only the second substitution
 	(if (> len 1)
 	    (progn
 	      (goto-char (point-max))
-	      (insert-string
+	      (insert
 	       (substring completion-string (length string)))
 	      ;; Add our own setup function to the Completions Buffer
 	      (let ((completion-setup-hook
@@ -553,7 +614,7 @@ the name is considered already unique; only the second substitution
 			    completion-setup-hook)))
 		    )
 		(with-output-to-temp-buffer file-cache-completions-buffer
-		  (display-completion-list completion-list))
+		  (display-completion-list completion-list string))
 		)
 	      )
 	  (setq file-cache-string (file-cache-file-name completion-string))
@@ -561,7 +622,7 @@ the name is considered already unique; only the second substitution
 	      (file-cache-temp-minibuffer-message
 	       file-cache-sole-match-message)
 	    (delete-minibuffer-contents)
-	    (insert-string file-cache-string)
+	    (insert file-cache-string)
 	    (if file-cache-multiple-directory-message
 		(file-cache-temp-minibuffer-message
 		 file-cache-multiple-directory-message)))
@@ -626,6 +687,30 @@ the name is considered already unique; only the second substitution
     )
   )
 
+(defun file-cache-complete  ()
+  "Complete the word at point, using the filecache."
+  (interactive)
+  (let (start pattern completion all)
+    (save-excursion
+      (skip-syntax-backward "^\"")
+      (setq start (point)))
+    (setq pattern    (buffer-substring-no-properties start (point)))
+    (setq completion (try-completion  pattern file-cache-alist))
+    (setq all        (all-completions pattern file-cache-alist nil))
+    (cond ((eq completion t))
+	  ((null completion)
+	   (message "Can't find completion for \"%s\"" pattern)
+	   (ding))
+	  ((not (string= pattern completion))
+	   (delete-region start (point))
+	   (insert completion)
+	   )
+	  (t
+	   (with-output-to-temp-buffer "*Completions*"
+	     (display-completion-list all pattern))
+	   ))
+    ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Show parts of the cache
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -672,8 +757,24 @@ match REGEXP."
   "Debugging function."
   (interactive
    (list (completing-read "File Cache: " file-cache-alist)))
-  (message "%s" (funcall file-cache-assoc-function file file-cache-alist))
+  (message "%s" (assoc-string file file-cache-alist
+			      file-cache-ignore-case))
   )
+
+(defun file-cache-display  ()
+  "Display the file cache."
+  (interactive)
+  (let ((buf "*File Cache Contents*"))
+    (with-current-buffer
+	(get-buffer-create buf)
+      (erase-buffer)
+      (mapcar
+       (function
+      (lambda(item)
+	(insert (nth 1 item) (nth 0 item) "\n")))
+    file-cache-alist)
+      (pop-to-buffer buf)
+    )))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Keybindings
@@ -685,4 +786,5 @@ match REGEXP."
 
 (provide 'filecache)
 
+;;; arch-tag: 433d3ca4-4af2-47ce-b2cf-1f727460f538
 ;;; filecache.el ends here

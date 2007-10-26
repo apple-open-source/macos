@@ -18,10 +18,10 @@ install: ${OUTFILES}
 	done
 
 praudit: praudit.c
-	$(GCC) $(BINCFLAGS) $(BSMLIBPATH) -lbsm praudit.c -o praudit 
+	$(GCC) $(BINCFLAGS) -mdynamic-no-pic $(BSMLIBPATH) -lbsm praudit.c -o praudit 
 
 auditreduce: auditreduce.c
-	$(GCC) $(BINCFLAGS) $(BSMLIBPATH) -lbsm auditreduce.c -o auditreduce 
+	$(GCC) $(BINCFLAGS) -mdynamic-no-pic $(BSMLIBPATH) -lbsm auditreduce.c -o auditreduce 
 
 clean: 
 	rm -f *.o ${OUTFILES}

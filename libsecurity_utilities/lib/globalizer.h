@@ -30,6 +30,7 @@
 
 #include <security_utilities/threading.h>
 #include <memory>
+#include <set>
 
 namespace Security {
 
@@ -60,16 +61,14 @@ public:
 // IMPORTANT notes on this class can be found in globalizer.cpp.
 // DO NOT change anything here before carefully reading them.
 //
-#if defined(_HAVE_ATOMIC_OPERATIONS)
-
 class ModuleNexusCommon : public GlobalNexus {
 protected:
-    AtomicWord create(void *(*make)());
+    void *create(void *(*make)());
     
 protected:
     // both of these will be statically initialized to zero
-    AtomicWord pointer;
-    StaticAtomicCounter<UInt32> sync;
+	void *pointer;
+    StaticAtomicCounter<uint32_t> sync;
 };
 
 template <class Type>
@@ -77,10 +76,10 @@ class ModuleNexus : public ModuleNexusCommon {
 public:
     Type &operator () ()
     {
-        AtomicWord p = pointer;	// latch pointer
-		if (!p || (p & 0x1)) {
+        void *p = Atomic<void *>::load(pointer);	// latch pointer
+		if (!p || (uintptr_t(p) & 0x1)) {
 			p = create(make);
-			secdebug("nexus", "module %s 0x%x", Debug::typeName<Type>().c_str(), pointer);
+			secdebug("nexus", "module %s 0x%p", Debug::typeName<Type>().c_str(), pointer);
 		}
 		return *reinterpret_cast<Type *>(p);
     }
@@ -88,15 +87,15 @@ public:
 	// does the object DEFINITELY exist already?
 	bool exists() const
 	{
-		return pointer != NULL;
+		return Atomic<void *>::load(pointer) != NULL;
 	}
     
-	// destroy the object (if any) and start over
+	// destroy the object (if any) and start over - not really thread-safe
     void reset()
     {
-        if (pointer && !(pointer & 0x1)) {
+        if (pointer && !(uintptr_t(pointer) & 0x1)) {
             delete reinterpret_cast<Type *>(pointer);
-            pointer = 0;
+            Atomic<void *>::store(0, pointer);
         }
     }
     
@@ -115,42 +114,14 @@ public:
     }
 };
 
-#else	// !_HAVE_ATOMIC_OPERATIONS
+typedef std::set<void*> RetentionSet;
 
-template <class Type>
-class ModuleNexus : public GlobalNexus {
-public:
-    Type &operator () ()
-    {
-#if !defined(PTHREAD_STRICT)
-        // not strictly kosher POSIX, but pointers are usually atomic types
-        if (mSingleton)
-            return *mSingleton;
-#endif
-        StLock<Mutex> _(mLock);
-        if (mSingleton == NULL)
-            mSingleton = new Type;
-        return *mSingleton;
-    }
-    
-    void reset()		{ delete mSingleton; mSingleton = NULL; }
-    
+class ThreadNexusBase {
 protected:
-    Type *mSingleton;		// pointer to singleton static initialized to NULL
-    Mutex mLock;			// construction lock
+	static ModuleNexus<Mutex> mInstanceLock;
+	static ModuleNexus<RetentionSet> mInstances;
 };
 
-template <class Type>
-class CleanModuleNexus : public ModuleNexus<Type> {
-public:
-    ~CleanModuleNexus()
-    {
-        secdebug("nexus", "ModuleNexus %p destroyed object 0x%x", this, ModuleNexus<Type>::mSingleton);
-        delete ModuleNexus<Type>::mSingleton;
-    }
-};
-
-#endif // _HAVE_ATOMIC_OPERATIONS
 
 
 //
@@ -162,15 +133,20 @@ public:
 // zero-initialization ThreadNexi, put them inside a ModuleNexus.
 //
 template <class Type>
-class ThreadNexus : public GlobalNexus {
+class ThreadNexus : public GlobalNexus, private ThreadNexusBase {
 public:
     ThreadNexus() : mSlot(true) { }
+
     Type &operator () ()
     {
         // no thread contention here!
         if (Type *p = mSlot)
             return *p;
         mSlot = new Type;
+		{
+			StLock<Mutex> _(mInstanceLock ());
+			mInstances ().insert(mSlot);
+		}
         return *mSlot;
     }
 

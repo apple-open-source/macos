@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/candidates.c,v 1.8.2.4 2004/03/17 20:59:58 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/candidates.c,v 1.12.2.13 2006/04/04 22:34:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -23,6 +23,7 @@
 #include "portable.h"
 
 #include <stdio.h>
+#include "ac/string.h"
 
 #include "slap.h"
 #include "../back-ldap/back-ldap.h"
@@ -50,6 +51,7 @@
  * A possible extension will include the handling of multiple suffixes
  */
 
+
 /*
  * returns 1 if suffix is candidate for dn, otherwise 0
  *
@@ -57,13 +59,61 @@
  */
 int 
 meta_back_is_candidate(
-		struct berval	*nsuffix,
-		struct berval	*ndn
-)
+	struct berval	*nsuffix,
+	int		suffixscope,
+	BerVarray	subtree_exclude,
+	struct berval	*ndn,
+	int		scope )
 {
-	if ( dnIsSuffix( nsuffix, ndn ) || dnIsSuffix( ndn, nsuffix ) ) {
+	if ( dnIsSuffix( ndn, nsuffix ) ) {
+		if ( subtree_exclude ) {
+			int	i;
+
+			for ( i = 0; !BER_BVISNULL( &subtree_exclude[ i ] ); i++ ) {
+				if ( dnIsSuffix( ndn, &subtree_exclude[ i ] ) ) {
+					return META_NOT_CANDIDATE;
+				}
+			}
+		}
+
+		switch ( suffixscope ) {
+		case LDAP_SCOPE_SUBTREE:
+		default:
+			return META_CANDIDATE;
+
+		case LDAP_SCOPE_SUBORDINATE:
+			if ( ndn->bv_len > nsuffix->bv_len ) {
+				return META_CANDIDATE;
+			}
+			break;
+
+		/* nearly useless; not allowed by config */
+		case LDAP_SCOPE_ONELEVEL:
+			if ( ndn->bv_len > nsuffix->bv_len ) {
+				struct berval	rdn = *ndn;
+
+				rdn.bv_len -= nsuffix->bv_len
+					+ STRLENOF( "," );
+				if ( dnIsOneLevelRDN( &rdn ) ) {
+					return META_CANDIDATE;
+				}
+			}
+			break;
+
+		/* nearly useless; not allowed by config */
+		case LDAP_SCOPE_BASE:
+			if ( ndn->bv_len == nsuffix->bv_len ) {
+				return META_CANDIDATE;
+			}
+			break;
+		}
+
+		return META_NOT_CANDIDATE;
+	}
+
+	if ( scope == LDAP_SCOPE_SUBTREE && dnIsSuffix( nsuffix, ndn ) ) {
 		/*
-		 * suffix longer than dn
+		 * suffix longer than dn, but common part matches
 		 */
 		return META_CANDIDATE;
 	}
@@ -72,83 +122,36 @@ meta_back_is_candidate(
 }
 
 /*
- * meta_back_count_candidates
- *
- * returns a count of the possible candidate targets
- * Note: dn MUST be normalized
- */
-
-int
-meta_back_count_candidates(
-		struct metainfo		*li,
-		struct berval		*ndn
-)
-{
-	int i, cnt = 0;
-
-	/*
-	 * I know assertions should not check run-time values;
-	 * at present I didn't find a place for such checks
-	 * after config.c
-	 */
-	assert( li->targets != NULL );
-	assert( li->ntargets != 0 );
-
-	for ( i = 0; i < li->ntargets; ++i ) {
-		if ( meta_back_is_candidate( &li->targets[ i ]->suffix, ndn ) ) {
-			++cnt;
-		}
-	}
-
-	return cnt;
-}
-
-/*
- * meta_back_is_candidate_unique
- *
- * checks whether a candidate is unique
- * Note: dn MUST be normalized
- */
-int
-meta_back_is_candidate_unique(
-		struct metainfo		*li,
-		struct berval		*ndn
-)
-{
-	return ( meta_back_count_candidates( li, ndn ) == 1 );
-}
-
-/*
  * meta_back_select_unique_candidate
  *
- * returns the index of the candidate in case it is unique, otherwise -1
- * Note: dn MUST be normalized.
- * Note: if defined, the default candidate is returned in case of no match.
+ * returns the index of the candidate in case it is unique, otherwise
+ * META_TARGET_NONE if none matches, or
+ * META_TARGET_MULTIPLE if more than one matches
+ * Note: ndn MUST be normalized.
  */
 int
 meta_back_select_unique_candidate(
-		struct metainfo		*li,
-		struct berval		*ndn
-)
+	metainfo_t	*mi,
+	struct berval	*ndn )
 {
-	int i;
-	
-	switch ( meta_back_count_candidates( li, ndn ) ) {
-	case 1:
-		break;
-	case 0:
-	default:
-		return ( li->defaulttarget == META_DEFAULT_TARGET_NONE
-			       	? -1 : li->defaulttarget );
-	}
+	int	i, candidate = META_TARGET_NONE;
 
-	for ( i = 0; i < li->ntargets; ++i ) {
-		if ( meta_back_is_candidate( &li->targets[ i ]->suffix, ndn ) ) {
-			return i;
+	for ( i = 0; i < mi->mi_ntargets; ++i ) {
+		if ( meta_back_is_candidate( &mi->mi_targets[ i ].mt_nsuffix,
+				mi->mi_targets[ i ].mt_scope,
+				mi->mi_targets[ i ].mt_subtree_exclude,
+				ndn, LDAP_SCOPE_BASE ) )
+		{
+			if ( candidate == META_TARGET_NONE ) {
+				candidate = i;
+
+			} else {
+				return META_TARGET_MULTIPLE;
+			}
 		}
 	}
 
-	return -1;
+	return candidate;
 }
 
 /*
@@ -158,19 +161,18 @@ meta_back_select_unique_candidate(
  */
 int
 meta_clear_unused_candidates(
-		struct metainfo		*li,
-		struct metaconn		*lc,
-		int			candidate,
-		int			reallyclean
-)
+	Operation	*op,
+	int		candidate )
 {
-	int i;
+	metainfo_t	*mi = ( metainfo_t * )op->o_bd->be_private;
+	int		i;
+	SlapReply	*candidates = meta_back_candidates_get( op );
 	
-	for ( i = 0; i < li->ntargets; ++i ) {
+	for ( i = 0; i < mi->mi_ntargets; ++i ) {
 		if ( i == candidate ) {
 			continue;
 		}
-		meta_clear_one_candidate( &lc->conns[ i ], reallyclean );
+		candidates[ i ].sr_tag = META_NOT_CANDIDATE;
 	}
 
 	return 0;
@@ -183,33 +185,43 @@ meta_clear_unused_candidates(
  */
 int
 meta_clear_one_candidate(
-		struct metasingleconn	*lsc,
-		int			reallyclean
-)
+	metasingleconn_t	*msc )
 {
-	lsc->candidate = META_NOT_CANDIDATE;
-
-	if ( !reallyclean ) {
-		return 0;
+	if ( msc->msc_ld ) {
+		ldap_unbind_ext( msc->msc_ld, NULL, NULL );
+		msc->msc_ld = NULL;
 	}
 
-	if ( lsc->ld ) {
-		ldap_unbind( lsc->ld );
-		lsc->ld = NULL;
+	if ( !BER_BVISNULL( &msc->msc_bound_ndn ) ) {
+		ber_memfree_x( msc->msc_bound_ndn.bv_val, NULL );
+		BER_BVZERO( &msc->msc_bound_ndn );
 	}
 
-	if ( lsc->bound_dn.bv_val != NULL ) {
-		ber_memfree( lsc->bound_dn.bv_val );
-		lsc->bound_dn.bv_val = NULL;
-		lsc->bound_dn.bv_len = 0;
-	}
-
-	if ( lsc->cred.bv_val != NULL ) {
-		ber_memfree( lsc->cred.bv_val );
-		lsc->cred.bv_val = NULL;
-		lsc->cred.bv_len = 0;
+	if ( !BER_BVISNULL( &msc->msc_cred ) ) {
+		memset( msc->msc_cred.bv_val, 0, msc->msc_cred.bv_len );
+		ber_memfree_x( msc->msc_cred.bv_val, NULL );
+		BER_BVZERO( &msc->msc_cred );
 	}
 
 	return 0;
 }
 
+/*
+ * meta_clear_candidates
+ *
+ * clears all candidates
+ */
+int
+meta_clear_candidates( Operation *op, metaconn_t *mc )
+{
+	metainfo_t	*mi = ( metainfo_t * )op->o_bd->be_private;
+	int		c;
+
+	for ( c = 0; c < mi->mi_ntargets; c++ ) {
+		if ( mc->mc_conns[ c ].msc_ld != NULL ) {
+			meta_clear_one_candidate( &mc->mc_conns[ c ] );
+		}
+	}
+
+	return 0;
+}

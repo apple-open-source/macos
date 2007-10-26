@@ -24,6 +24,7 @@
 #define _IOKIT_IOFWPHYSICALADDRESSSPACE_H
 
 #include <IOKit/firewire/IOFWAddressSpace.h>
+#include <IOKit/IODMACommand.h>
 
 /*
  * Direct physical memory <-> FireWire address.
@@ -34,6 +35,12 @@
  */
 
 class IOFWPhysicalAddressSpace;
+
+struct FWSegment
+{
+	FWAddress	address;
+	UInt32		length;
+};
 
 #pragma mark -
 
@@ -64,6 +71,25 @@ protected:
     
 	ExpansionData *reserved;
 	
+	IODMACommand *	fDMACommand;
+	bool			fDMACommandPrepared;
+	
+public:
+    virtual bool init( IOFWAddressSpace * primary );
+	virtual	void free();
+
+	void setDMACommand( IODMACommand * dma_command );
+	IODMACommand * getDMACommand( void ); 
+	UInt64 getPhysicalSegment( UInt64 offset, UInt64 * length );
+	
+	IOReturn prepare( void );
+	IOReturn synchronize( IOOptionBits options );
+	IOReturn complete( void );
+
+	bool isPrepared( void );
+
+	IOReturn getSegments( UInt64 * offset, FWSegment * fw_segments, UInt32 * num_segments );
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFWPhysicalAddressSpaceAux, 0);
     OSMetaClassDeclareReservedUnused(IOFWPhysicalAddressSpaceAux, 1);
@@ -88,23 +114,144 @@ class IOFWPhysicalAddressSpace : public IOFWAddressSpace
 
 protected:
     
-	IOMemoryDescriptor *	fMem;
-    vm_size_t				fLen;
+	IOMemoryDescriptor *	fMem;	// unused
+    vm_size_t				fLen;	// unused
 	
     virtual	void 					free();
 
 public:
+
+/*!	@function	init
+	@abstract	Initialize physical address space.
+	@param		bus	Points to IOFireWireBus object.
+	@result		returns true if success, else false */
+	virtual bool init( IOFireWireBus * bus );
+	
+/*!	@function	initWithDesc
+	@abstract	Initialize physical address space with IOMemoryDescriptor.
+	@param		bus	Points to IOFireWireBus object.
+	@param		mem	Points to IOMemoryDescriptor.
+	@result		returns true if success, else false */
     virtual bool initWithDesc(IOFireWireBus *bus,
                                         IOMemoryDescriptor *mem);
 
+/*!	@function	doRead
+	@abstract	A method for processing an address space read request
+	@param		nodeID	FireWire Read from nodeID.
+	@param		speed	at this 'speed'.
+	@param		addr	with FireWire address 'addr'.
+	@param		len		read 'len' bytes from nodeID.
+	@param		buf		points to a memory descriptor containing the packet data.
+	@param		offset	start from this 'offset' in 'buf'.
+	@param		refcon  Can be queried for extra info about the request.
+	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
-					IOMemoryDescriptor **buf, IOByteCount * offset,
-                          IOFWRequestRefCon refcon);
+							IOMemoryDescriptor **buf, IOByteCount * offset,
+							IOFWRequestRefCon refcon);
+
+/*!	@function	doWrite
+	@abstract	A method for processing an address space write request
+	@param		nodeID	FireWire Write to nodeID.
+	@param		speed	at this 'speed'.
+	@param		addr	with FireWire address 'addr'.
+	@param		len		write 'len' bytes to nodeID.
+	@param		buf		obtain bytes from location given by 'buf'.
+	@param		reqrefcon  Can be queried for extra info about the request.
+	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                            const void *buf, IOFWRequestRefCon refcon);
 
-protected:
+/*!	@function	getMemoryDescriptor
+	@abstract	Gets the memory descriptor, which is associated to this 
+				PhysicalAddressSpace.
+	@param		none.
+	@result		returns the IOMemoryDescriptor */
+	IOMemoryDescriptor * getMemoryDescriptor( void );
+
+/*!	@function	setMemoryDescriptor
+	@abstract	Sets the memory descriptor, which will be associated to this 
+				PhysicalAddressSpace.
+	@param		none.
+	@result		returns the IOMemoryDescriptor */
+	IOReturn setMemoryDescriptor( IOMemoryDescriptor * descriptor );
+
+/*!	@function	getLength
+	@abstract	Get the length of the memory backed by PhysicalAddressSpace.
+	@param		none.
+	@result		returns the length */
+	UInt64 getLength( void );
+
+/*!	@function	setDMACommand
+	@abstract	Set the DMACommand for this PhysicalAddressSpace.
+	@param		dma_command	Points to IODMACommand object.
+	@result		none */
+	inline void setDMACommand( IODMACommand * dma_command )
+		{ ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->setDMACommand( dma_command ); };
+		
+/*!	@function	getDMACommand
+	@abstract	Get the DMACommand from this PhysicalAddressSpace.
+	@param		none.
+	@result		return previously assigned IODMACommand, null if not initialized */
+	inline IODMACommand * getDMACommand( void )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->getDMACommand(); };
+
+/*!	@function	initWithDMACommand
+	@abstract	Initialize physical address space with IODMACommand.
+	@param		bus	Points to IOFireWireBus object.
+	@param		command	Points to IODMACommand.
+	@result		returns true if success, else false */
+	virtual bool initWithDMACommand( IOFireWireBus * control, IODMACommand * command );
 	
+/*!	@function	prepare
+	@abstract	Prepare the IODMACommand used by this PhysicalAddressSpace.
+	@param		none.
+	@result		returns kIOReturnSuccess on success */
+	inline IOReturn prepare( void )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->prepare(); };
+
+/*!	@function	synchronize
+	@abstract	synchronize the IODMACommand used by this PhysicalAddressSpace.
+	@param		none.
+	@result		returns kIOReturnSuccess on success */
+	inline IOReturn synchronize( IOOptionBits options )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->synchronize( options ); };
+		 
+/*!	@function	complete
+	@abstract	complete the IODMACommand used by this PhysicalAddressSpace.
+	@param		none.
+	@result		returns kIOReturnSuccess on success */
+	inline IOReturn complete( void )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->complete(); };
+
+/*!	@function	isPrepared
+	@abstract	Inspects whether the IODMACommand was prepared in this PhysicalAddressSpace.
+	@param		none.
+	@result		returns true if prepared, else false */
+	inline bool isPrepared( void )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->isPrepared(); };
+
+/*!	@function	getSegments
+	@abstract	Returns the scatter gather list of memory segments from the IODMACommand
+				used in this PhysicalAddressSpace.
+	@param		offset		input/output parameter, defines the starting and ending offset in the memory 
+							descriptor, relative to any offset passed to the prepare() method.
+				FWSegment 	Points to an array of memory segments.
+				num_segments Size of the FWSegment array.   
+	@result		returns kIOReturnSuccess on success */
+	inline IOReturn getSegments( UInt64 * offset, FWSegment * fw_segments, UInt32 * num_segments )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->getSegments( offset, fw_segments, num_segments ); };
+
+/*!	@function	checkMemoryInRange
+	@abstract	Validates the IOMemoryDescriptor, which is used to initialize the PhysicalAddressSpace.
+	@param		memory	Points to a valid IOMemoryDescriptor.
+	@result		returns kIOReturnSuccess on success */
+	IOReturn checkMemoryInRange( IOMemoryDescriptor * memory );
+		
+protected:
+
+	UInt64 getPhysicalSegment( UInt64 offset, UInt64 * length )
+		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->getPhysicalSegment( offset, length); };
+			
 	virtual IOFWAddressSpaceAux * createAuxiliary( void );
     	
 };

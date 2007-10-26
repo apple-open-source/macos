@@ -36,6 +36,7 @@
 
 #include <sys/cdefs.h>
 
+__FBSDID("$FreeBSD: src/usr.bin/tail/read.c,v 1.11 2004/11/03 15:23:11 paul Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
@@ -65,9 +66,7 @@ static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
  * the end.
  */
 int
-bytes(fp, off)
-	FILE *fp;
-	off_t off;
+bytes(FILE *fp, off_t off)
 {
 	int ch, len, tlen;
 	char *ep, *p, *t;
@@ -134,9 +133,7 @@ bytes(fp, off)
  * the end.
  */
 int
-lines(fp, off)
-	FILE *fp;
-	off_t off;
+lines(FILE *fp, off_t off)
 {
 	struct {
 		int blen;

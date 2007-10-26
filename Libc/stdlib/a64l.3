@@ -37,7 +37,7 @@
 .Ft long
 .Fn a64l "const char *s"
 .Ft char *
-.Fn l64a "long l"
+.Fn l64a "long value"
 .Sh DESCRIPTION
 The
 .Fn a64l
@@ -86,7 +86,7 @@ larger than 32 bits, the return value will be sign-extended.
 .Pp
 .Fn l64a
 takes a long integer argument
-.Fa l
+.Fa value
 and returns a pointer to the corresponding radix-64 representation.
 .Sh RETURN VALUES
 On success,
@@ -105,14 +105,14 @@ to
 On success,
 .Fn l64a
 returns a pointer to a string containing the radix-64 representation of
-.Fa l .
+.Fa value .
 If
-.Fa l
+.Fa value
 is 0,
 .Fn l64a
 returns a pointer to the empty string.
 If
-.Fa l
+.Fa value
 is negative,
 .Fn l64a
 returns a null pointer and sets the global variable

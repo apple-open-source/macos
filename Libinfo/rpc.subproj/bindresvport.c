@@ -84,7 +84,7 @@ bindresvport_sa(sd, sa)
 	struct sockaddr_in6 *sin6;
 	int proto, portrange, portlow;
 	u_int16_t port;
-	int salen;
+	u_int32_t salen;
 
 	if (sa == NULL) {
 		salen = sizeof(myaddr);
@@ -120,7 +120,7 @@ bindresvport_sa(sd, sa)
 	sa->sa_len = salen;
 
 	if (port == 0) {
-		int oldlen = sizeof(old);
+		u_int32_t oldlen = sizeof(old);
 
 		error = getsockopt(sd, proto, portrange, &old, &oldlen);
 		if (error < 0)

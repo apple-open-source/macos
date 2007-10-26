@@ -23,7 +23,7 @@ OPTIMFLAGS = /optimize
 CFLAGS = $(ABIFLAGS) $(WARN_CFLAGS) $(OPTIMFLAGS)
 DEFS = "VMS=1","HAVE_CONFIG_H=1","ENABLE_NLS=1","DEPENDS_ON_LIBICONV=1","DEPENDS_ON_LIBINTL=1"
 
-INCLUDES = /include=([],$(includedir)])
+INCLUDES = /include=([],[-],$(includedir)])
 
 AR = library
 AR_FLAGS = /create
@@ -39,18 +39,23 @@ INSTALL_DATA = copy
 #### End of system configuration section. ####
 
 OBJECTS = \
+  allocsa.obj, \
   error.obj, \
   progname.obj, progreloc.obj, \
-  strtoul.obj, \
   xmalloc.obj, xstrdup.obj, \
   xreadlink.obj, \
   \
   canonicalize.obj, \
-  relocatable.obj, \
-  setenv.obj, unsetenv.obj
+  relocatable.obj
 
 all : icrt.olb
 	write sys$output "Nothing else to be done for 'all'."
+
+alloca.h : alloca_.h
+	$(LN) alloca_.h alloca.h
+
+allocsa.obj : allocsa.c,alloca.h
+	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) allocsa.c
 
 error.obj : error.c
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) error.c
@@ -61,9 +66,6 @@ progname.obj : progname.c
 progreloc.obj : progreloc.c
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) progreloc.c
 
-strtoul.obj : strtoul.c
-	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) strtoul.c
-
 xmalloc.obj : xmalloc.c
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) xmalloc.c
 
@@ -73,17 +75,11 @@ xstrdup.obj : xstrdup.c
 xreadlink.obj : xreadlink.c
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) xreadlink.c
 
-canonicalize.obj : canonicalize.c
+canonicalize.obj : canonicalize.c,alloca.h
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) canonicalize.c
 
 relocatable.obj : relocatable.c
 	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) relocatable.c
-
-setenv.obj : setenv.c
-	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) setenv.c
-
-unsetenv.obj : unsetenv.c
-	$(CC) $(INCLUDES) $(CFLAGS) /define=($(DEFS)) unsetenv.c
 
 icrt.olb : $(OBJECTS)
 	$(AR) $(AR_FLAGS) icrt.olb $(OBJECTS)
@@ -104,6 +100,7 @@ mostlyclean : clean
 	write sys$output "Nothing else to be done for 'mostlyclean'."
 
 clean :
+	$(RM) alloca.h;*
 	$(RM) *.obj;*
 	$(RM) *.olb;*
 

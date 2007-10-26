@@ -30,7 +30,6 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
@@ -276,7 +275,9 @@ bool IOFWWriteQuadCommand::createMemoryDescriptor( void )
 
 void IOFWWriteQuadCommand::destroyMemoryDescriptor()
 {
-	if( ((MemberVariables*)fMembers->fSubclassMembers)->fMemory != NULL )
+	if( (fMembers != NULL) &&
+		(fMembers->fSubclassMembers != NULL) &&
+		((MemberVariables*)fMembers->fSubclassMembers)->fMemory != NULL )
 	{
 		((MemberVariables*)fMembers->fSubclassMembers)->fMemory->complete( kIODirectionOutIn );
 		((MemberVariables*)fMembers->fSubclassMembers)->fMemory->release();
@@ -421,15 +422,21 @@ IOReturn IOFWWriteQuadCommand::execute()
     fTrans = fControl->allocTrans( this );
     if( fTrans ) 
 	{
-		IOFWWriteFlags flags = kIOFWWriteFlagsNone;
-		
-		if( fMembers && 
-			fMembers->fSubclassMembers &&
-			((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+		UInt32 flags = kIOFWWriteFlagsNone;
+
+		if( fMembers && fMembers->fSubclassMembers )
 		{
-			flags = kIOFWWriteFlagsDeferredNotify;
+			if( ((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify )
+			{
+				flags |= kIOFWWriteFlagsDeferredNotify;
+			}
+			
+			if( ((IOFWAsyncCommand::MemberVariables*)fMembers)->fForceBlockRequests )
+			{
+				flags |= kIOFWWriteBlockRequest;
+			}
 		}
-		
+				
 //		IOLog( "IOFWWriteQuadCommand::execute - fControl->asyncWrite()\n" );		
         result = fControl->asyncWrite(	fGeneration, 
 										fNodeID, 
@@ -441,7 +448,7 @@ IOReturn IOFWWriteQuadCommand::execute()
 										0,
 										fPackSize, 
 										this,
-										flags );
+										(IOFWWriteFlags)flags );
     }
     else 
 	{

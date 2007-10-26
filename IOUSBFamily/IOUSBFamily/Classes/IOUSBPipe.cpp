@@ -29,7 +29,6 @@
 //
 //================================================================================================
 //
-#include <IOKit/usb/IOUSBInterfaceUserClient.h>
 #include <IOKit/IOKitKeys.h>
 
 #include <libkern/OSByteOrder.h>
@@ -43,6 +42,8 @@
 #include <IOKit/usb/IOUSBPipe.h>
 #include <IOKit/usb/IOUSBNub.h>
 #include <IOKit/usb/IOUSBLog.h>
+
+#include "IOUSBInterfaceUserClient.h"
 
 //================================================================================================
 //
@@ -118,42 +119,32 @@ IOUSBPipe::InitToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDev
 }
 
 
+
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, UInt8 speed, USBDeviceAddress address, IOUSBController *controller)
 {
-    IOUSBPipe *me = new IOUSBPipe;
-    USBLog(1, "IOUSBPipe[%p]::ToEndpoint, obsolete method called", me);
-
-    if ( me && !me->InitToEndpoint(ed, speed, address, (IOUSBController *) controller) ) 
-    {
-        me->release();
-        return NULL;
-    }
-
-    return me;
+	// Deprecated method
+    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 1 called");
+    return NULL;
 }
+
+
 
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller)
 {
-    IOUSBPipe *me = new IOUSBPipe;
-    USBLog(7, "IOUSBPipe[%p]::ToEndpoint, new method called for device %p", me, device);
-
-    if ( me && !me->InitToEndpoint(ed, device->GetSpeed(), device->GetAddress(), controller) ) 
-    {
-        me->release();
-        return NULL;
-    }
-    me->_device = device;
-
-    return me;
+	// Deprecated method
+    USBLog(1, "IOUSBPipe::ToEndpoint, obsolete method 2 called");
+    return NULL;
 }
+
+
 
 IOUSBPipe *
 IOUSBPipe::ToEndpoint(const IOUSBEndpointDescriptor *ed, IOUSBDevice * device, IOUSBController *controller, IOUSBInterface * interface)
 {
     IOUSBPipe *me = new IOUSBPipe;
-    USBLog(6, "IOUSBPipe[%p]::ToEndpoint, new 2 method called for device %p", me, device);
+    USBLog(6, "IOUSBPipe[%p]::ToEndpoint device %p", me, device);
 	
     if ( me && !me->InitToEndpoint(ed, device->GetSpeed(), device->GetAddress(), controller) ) 
     {
@@ -215,7 +206,9 @@ IOUSBPipe::Abort(void)
 {
     USBLog(5,"IOUSBPipe[%p]::AbortPipe",this);
     if (_correctStatus != 0)
+	{
         USBLog(2, "IOUSBPipe[%p]::Abort setting status to 0", this);
+	}
     _correctStatus = 0;
     return _controller->AbortPipe(_address, &_endpoint);
 }
@@ -227,7 +220,9 @@ IOUSBPipe::Reset(void)
 {
     USBLog(5,"+IOUSBPipe[%p]::ResetPipe",this);
     if (_correctStatus != 0)
+	{
         USBLog(2, "IOUSBPipe[%p]::ResetPipe setting status to 0", this);
+	}
     _correctStatus = 0;
     return _controller->ResetPipe(_address, &_endpoint);
 }
@@ -284,7 +279,7 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
 	if ( _crossEndianCompatible )
 		_endpoint.direction |= 0x80;
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -301,11 +296,15 @@ IOUSBPipe::Read(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrames
     }
     else
     {
-        err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames,
-                _address, &_endpoint, completion);
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
+		err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion);
     }
 
-    return(err);
+    return err;
 }
 
 
@@ -332,7 +331,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 	if ( _crossEndianCompatible )
 		_endpoint.direction |= 0x80;
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -349,8 +348,12 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion);
-
     }
 
     return(err);
@@ -452,7 +455,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     if (!buffer)
     {
         USBLog(5, "IOUSBPipe[%p]::Read - NULL buffer!", this);
-	return kIOReturnBadArgument;
+		return kIOReturnBadArgument;
     }
     
     return Read(buffer, noDataTimeout, completionTimeout, buffer->getLength(), completion, bytesRead);
@@ -493,7 +496,7 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
              (UInt32)request->pData);
 #endif
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -512,6 +515,11 @@ IOUSBPipe::ControlRequest(IOUSBDevRequestDesc *request, UInt32 noDataTimeout, UI
  }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::ControlRequest - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->DeviceRequest(request, completion, _address, _endpoint.number, noDataTimeout, completionTimeout);
     }
 
@@ -536,7 +544,7 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
              (UInt32)request->pData);
 #endif
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -555,6 +563,11 @@ IOUSBPipe::ControlRequest(IOUSBDevRequest *request, UInt32 noDataTimeout, UInt32
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::ControlRequest - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->DeviceRequest(request, completion, _address, _endpoint.number, noDataTimeout, completionTimeout);
     }
 
@@ -572,7 +585,7 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
         USBLog(5, "IOUSBPipe[%p]::Read - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
-	return kIOReturnBadArgument;
+		return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
@@ -615,6 +628,11 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->Read(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
     }
 
@@ -639,13 +657,13 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
     if ((_endpoint.transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
     {
         USBLog(5, "IOUSBPipe[%p]::Write - bad arguments:  (EP type: %d != kUSBBulk(%d)) && ( dataTimeout: %ld || completionTimeout: %ld)", this, _endpoint.transferType, kUSBBulk, noDataTimeout, completionTimeout);
-	return kIOReturnBadArgument;
+		return kIOReturnBadArgument;
     }
 
     if (!buffer || (buffer->getLength() < reqCount))
     {
         USBLog(5, "IOUSBPipe[%p]::Write - bad buffer: (buffer %p) || ( length %ld < reqCount %ld)", this, buffer, buffer->getLength(), reqCount);
-	return kIOReturnBadArgument;
+		return kIOReturnBadArgument;
     }
 
     if (_correctStatus == kIOUSBPipeStalled)
@@ -654,7 +672,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         return kIOUSBPipeStalled;
     }
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -679,6 +697,11 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->Write(buffer, _address, &_endpoint, completion, noDataTimeout, completionTimeout, reqCount);
     }
 
@@ -688,7 +711,7 @@ IOUSBPipe::Write(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 comple
         _correctStatus = kIOUSBPipeStalled;
     }
 
-    return(err);
+    return err;
 }
 
 // 5-16-02 JRH
@@ -711,6 +734,8 @@ IOUSBPipe::GetPipeStatus(void)
     return _correctStatus;
 }
 
+
+
 OSMetaClassDefineReservedUsed(IOUSBPipe,  7);
 IOReturn 
 IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
@@ -719,7 +744,10 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
     
     USBLog(5,"IOUSBPipe[%p]::ClearPipeStall",this);
     if (_correctStatus != 0)
+	{
         USBLog(2, "IOUSBPipe[%p]::ClearPipeStall setting status to 0", this);
+	}
+
     _correctStatus = 0;
     
     if ( _endpoint.transferType == kUSBIsoc )
@@ -732,60 +760,60 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
 
     if (_device->GetSpeed() == kUSBDeviceSpeedHigh)
     {
-	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
+		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall - High Speed Device, no clear TT needed",this);
     }
     else if(!err && ( (_endpoint.transferType == kUSBBulk) || (_endpoint.transferType == kUSBControl) ) )
     {
-	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
-	// Now, we need to tell our parent to issue a port reset to our port.  Our parent is an IOUSBDevice
-	// that has a hub driver attached to it.  However, we don't know what kind of driver that is, so we
-	// just send a message to all the clients of our parent.  The hub driver will be the only one that
-	// should do anything with that message.
-	//
-	if( (_device != NULL) && (_device->_expansionData->_usbPlaneParent ) )
-	{
-	    IOUSBHubPortClearTTParam params;
-	    UInt8 	 deviceAddress;  //<<0
-	    UInt8	 endpointNum;    //<<8
-	    UInt8 	 endpointType;	 //<<16 // As split transaction. 00 Control, 10 Bulk
-	    UInt8 	 in;		 //<<24 // Direction, 1 = IN, 0 = OUT};
-	
-	    params.portNumber = _device->_expansionData->_portNumber;
-	    deviceAddress = _device->GetAddress();
-	    endpointNum = _endpoint.number;
-	    if(_endpoint.transferType == kUSBControl)
-	    {
-		endpointType = 0;	// As split transaction. 00 Control, 10 Bulk
-		in = 0;			// Direction, 1 = IN, 0 = OUT, not used for control
-	    }
-	    else
-	    {
-		endpointType = 2;		// As split transaction. 00 Control, 10 Bulk
-		if(_endpoint.direction == kUSBIn)
+		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Bulk or Control endpoint, clear TT",this);
+		// Now, we need to tell our parent to issue a port reset to our port.  Our parent is an IOUSBDevice
+		// that has a hub driver attached to it.  However, we don't know what kind of driver that is, so we
+		// just send a message to all the clients of our parent.  The hub driver will be the only one that
+		// should do anything with that message.
+		//
+		if( (_device != NULL) && (_device->_expansionData->_usbPlaneParent ) )
 		{
-		    in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
+			IOUSBHubPortClearTTParam	params;
+			UInt8						deviceAddress;		//<<0
+			UInt8						endpointNum;		//<<8
+			UInt8						endpointType;		//<<16 // As split transaction. 00 Control, 10 Bulk
+			UInt8						in;					//<<24 // Direction, 1 = IN, 0 = OUT};
+		
+			params.portNumber = _device->_expansionData->_portNumber;
+			deviceAddress = _device->GetAddress();
+			endpointNum = _endpoint.number;
+			if(_endpoint.transferType == kUSBControl)
+			{
+				endpointType = 0;	// As split transaction. 00 Control, 10 Bulk
+				in = 0;				// Direction, 1 = IN, 0 = OUT, not used for control
+			}
+			else
+			{
+				endpointType = 2;		// As split transaction. 00 Control, 10 Bulk
+				if(_endpoint.direction == kUSBIn)
+				{
+					in = 1;			// Direction, 1 = IN, 0 = OUT, not used for control
+				}
+				else
+				{
+					in = 0;
+				}
+			}
+			params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
+			
+			USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%lx", this, params.options);
+			_device->_expansionData->_usbPlaneParent->retain();
+			(void) _device->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
+			_device->_expansionData->_usbPlaneParent->release();
 		}
-		else
-		{
-		    in = 0;
-		}
-	    }
-	    params.options = deviceAddress + (endpointNum <<8) + (endpointType << 16) + (in << 24);
-	    
-	    USBLog(5, "[%p] ClearPipeStall, calling device messageClients (kIOUSBMessageHubPortClearTT) with options: 0x%lx", this, params.options);
-	    _device->_expansionData->_usbPlaneParent->retain();
-	    (void) _device->_expansionData->_usbPlaneParent->messageClients(kIOUSBMessageHubPortClearTT, &params, sizeof(params));
-	    _device->_expansionData->_usbPlaneParent->release();
-	}
     }
     else
     {
-	USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err: 0x%x)",this, err);
+		USBLog(5,"IOUSBPipe[%p]::ClearPipeStall Int or Isoc endpoint, don't clear TT (or err: 0x%x)",this, err);
     }
     
     if (!err && withDeviceRequest)
     {
-	IOUSBDevRequest	request;
+		IOUSBDevRequest	request;
         IOUSBCompletion	tap;
 
 		// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
@@ -794,16 +822,16 @@ IOUSBPipe::ClearPipeStall(bool withDeviceRequest)
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = &request.wLenDone;
 
-        USBLog(2,"IOUSBPipe[%p]::ClearPipeStall - sending request to the device", this);
-	request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBEndpoint);
-	request.bRequest = kUSBRqClearFeature;
-	request.wValue = kUSBFeatureEndpointStall;
-	request.wIndex = _endpoint.number | ((_endpoint.direction == kUSBIn) ? 0x80 : 0);
-	request.wLenDone = request.wLength = 0;
-	request.pData = NULL;
+        USBLog(7,"IOUSBPipe[%p]::ClearPipeStall - sending request to the device", this);
+		request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBEndpoint);
+		request.bRequest = kUSBRqClearFeature;
+		request.wValue = kUSBFeatureEndpointStall;
+		request.wIndex = _endpoint.number | ((_endpoint.direction == kUSBIn) ? 0x80 : 0);
+		request.wLenDone = request.wLength = 0;
+		request.pData = NULL;
 
-	// send the request to pipe zero
-	err = _controller->DeviceRequest(&request, &tap, _address, 0, kUSBDefaultControlNoDataTimeoutMS, kUSBDefaultControlCompletionTimeoutMS);
+		// send the request to pipe zero
+		err = _controller->DeviceRequest(&request, &tap, _address, 0, kUSBDefaultControlNoDataTimeoutMS, kUSBDefaultControlCompletionTimeoutMS);
 
     }
     return err;
@@ -872,9 +900,9 @@ OSMetaClassDefineReservedUsed(IOUSBPipe,  9);
 // Isochronous read with frame list updated at hardware interrupt time
 //
 IOReturn 
-IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
-                 UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *pFrames,
-                          IOUSBLowLatencyIsocCompletion *	completion, UInt32 updateFrequency)
+IOUSBPipe::Read(IOMemoryDescriptor *	buffer,
+				UInt64 frameStart, UInt32 numFrames, IOUSBLowLatencyIsocFrame *pFrames,
+				IOUSBLowLatencyIsocCompletion *	completion, UInt32 updateFrequency)
 {
     IOReturn	err = kIOReturnSuccess;
 
@@ -896,7 +924,7 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
 	if ( _crossEndianCompatible )
 		_endpoint.direction |= 0x80;
 	
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -913,6 +941,11 @@ IOUSBPipe::Read( IOMemoryDescriptor *	buffer,
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Read - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
     }
 
@@ -944,7 +977,7 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
 	if ( _crossEndianCompatible )
 		_endpoint.direction |= 0x80;
 
-    if (completion == 0)
+    if (completion == NULL)
     {
         // put in our own completion routine if none was specified to
         // fake synchronous operation
@@ -961,8 +994,12 @@ IOUSBPipe::Write(IOMemoryDescriptor * buffer, UInt64 frameStart, UInt32 numFrame
     }
     else
     {
+		if (completion->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Write - completion has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = _controller->IsocIO(buffer, frameStart, numFrames, pFrames, _address, &_endpoint, completion, updateFrequency);
-
     }
 
     return err;
@@ -1031,6 +1068,11 @@ IOUSBPipe::Read(IOMemoryDescriptor *buffer, UInt32 noDataTimeout, UInt32 complet
     }
     else
     {
+		if (completionWithTimeStamp->action == NULL)
+		{
+			USBLog(1, "IOUSBPipe[%p]::Read - completionWithTimeStamp has NULL action - returning kIOReturnBadArgument(%p)", this, (void*)kIOReturnBadArgument);
+			return kIOReturnBadArgument;
+		}
         err = controllerV2->ReadV2(buffer, _address, &_endpoint, completionWithTimeStamp, noDataTimeout, completionTimeout, reqCount);
     }
 

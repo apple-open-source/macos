@@ -1,0 +1,1719 @@
+2001-12-21  Tom Tromey  <tromey@redhat.com>
+
+	* generic/gdbtk-cmds.h (full_lookup_symtab): Don't declare.
+	* generic/gdbtk-cmds.c (gdb_find_file_command): Use
+	lookup_symtab.
+	(gdb_listfuncs): Likewise.
+	(gdb_loadfile): Likewise.
+	(full_lookup_symtab): Removed.
+	* generic/gdbtk-bp.c (gdb_find_bp_at_line): Use lookup_symtab.
+	(gdb_set_bp): Likewise.
+
+2001-12-21  Keith Seitz  <keiths@redhat.com>
+
+	* library/bpwin.ith (_select_and_popup): New private method.
+	* library/bpwin.itb (bp_select): Don't bind to Button-3.
+	(build_win): Bind Button-3 to _select_and_popup.
+	(_select_and_popup): New private method.
+
+2001-12-18  Keith Seitz  <keiths@redhat.com>
+
+	* library/memwin.itb (incr_addr): Fix typo.
+
+2001-12-16  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-cmds.c (hex2bin): Replace LITTLE_ENDIAN with
+	BFD_ENDIAN_LITTLE.
+
+2001-12-10  Ian Roxborough  <irox@redhat.com>
+
+	* library/interface.tcl (set_target_name): Call "pref getd"
+	instead of "pref get" to avoid undefined preference error
+	message for default-hostname.
+
+2001-12-07  Keith Seitz  <keiths@redhat.com>
+
+	* library/managedwin.itb (shutdown): Don't save geometry for
+	plugins, either.
+
+2001-12-05  Keith Seitz  <keiths@redhat.com>
+
+	* library/console.itb (busy): Set the cursor to the watch.
+	(idle): Reset cursor to normal.
+
+2001-11-30  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/interface.tcl (gdbtk_eval): Remove
+	undocumented debug function.
+
+2001-11-21  Tom Tromey  <tromey@redhat.com>
+
+	* library/interface.tcl (gdbtk_tcl_preloop): Override session's
+	command-line arguments if required.
+
+2001-11-20  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): If DISPLAY is not set on Unix,
+	clear the init_ui_hook so that gdb will properly initialize
+	the cli.
+
+2001-11-08  Martin M. Hunt  <hunt@redhat.com>
+	* generic/gdbtk-cmds.c (gdb_eval): Add an optional
+	format argument.
+	(hex2bin): Swap bytes around if target is little endian.
+	Fix loop count.
+	(gdb_incr_addr): New function to do address arithmetic.
+	Needed because some addresses are 64-bits and tcl can't
+	deal with them, except as strings.
+
+	* library/memwin.itb (MemWin::build_win): Add a label
+	to indicate the target endianess.
+	(MemWin::edit): Use gdb_incr_addr.
+	(MemWin::busy): The constructor calls gdbtk_busy which
+	calls this before the window has finished drawing, so
+	don't disable items that don't exist yet.
+	(MemWin::update_address): Set a flag, bad_expr, if the
+	expression does not evaluate. Call gdb_eval with 'x' flag
+	to force the result to be hex.
+	(MemWin::BadExpr): Set bad_expr.
+	(MemWin::incr_addr): Use gdb_incr_addr.
+	(MemWin::update_addr): Return is bad_expr is set. Use
+	gdb_incr_addr.
+	(MemWin::goto): Call update_address.
+	* library/memwin.itb: Declare private variable bad_expr.
+	
+	* library/util.tcl (gdbtk_endian): New procedure. Returns
+	BIG or LITTLE to indicate target endianess.
+
+2001-11-08  Martin M. Hunt  <hunt@redhat.com>	
+	* library/managedwin.itb (ManagedWin::shutdown): Fix
+	typo in class name DebugWinDOpts.
+
+	* library/debugwin.itb: Add MemWin to _classes.
+
+2001-11-05  Martin M. Hunt  <hunt@redhat.com>
+	* generic/gdbtk-cmds.h (gdbtk_set_result): Declare.
+	A printf-like function to return error messages.
+	* generic/gdbtk-cmds.c (gdbtk_set_result): New
+	function.
+	(gdb_cmd): Use gdbtk_set_result.
+	(gdb_immediate_command): Ditto.
+	(gdb_load_info): Ditto.
+	(gdb_find_file_command): Ditto.
+	(gdb_listfuncs): Ditto.
+	(gdb_load_disassembly): Ditto.
+	(gdb_loc): Ditto.
+	(gdb_set_mem): Ditto.
+	(gdb_get_mem): Ditto.
+	(gdb_loadfile): Ditto.
+	* generic/gdbtk-varobj.c (variable_format): Ditto.
+	(variable_value): Ditto.
+	* generic/gdbtk-stack.c (gdb_get_vars_command): Ditto.
+	* generic/gdbtk-bp.c (gdb_get_breakpoint_info): Ditto.
+	(gdb_set_bp): Ditto.
+	(gdb_set_bp_addr): Ditto.
+	(gdb_get_tracepoint_info): Ditto.
+
+2001-11-05  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/stackwin.itb (StcakWin::reconfig): Destroy sbox 
+	if it exists.
+
+	* library/process.itb (ProcessWin::reconfig): Destroy sbox 
+	if it exists. This fixes reconfig failures on Windows. Also 
+	destroy slbox.
+
+	* library/bpwin.itb (BpWin::reconfig): Destroy sbox if 
+	it exists.This fixes reconfig failures on Windows. Also 
+	destroy sf
+	
+	* library/tdump.tcl (TdumpWin::reconfig): Delete sbox
+	and stext then rebuild window.
+
+2001-11-05  Martin M. Hunt  <hunt@redhat.com>	
+
+	* library/debugwin.itb (DebugWin::build_win): 
+	Initialize gdbtk_de(ERRORS_ONLY) and gdbtk_de(filter_var)
+	(DebugWin::puts): Rewrite filter to handle new options.
+	(DebugWinDOpts::build_win): Update list of classes. Change 
+	filter dialog so we can not display only errors and warnings
+	or choose between displaying ALL classes except those selected
+	or only selected classes. Fix "OK" button to apply
+	changes before closing dialog.
+	DebugWinOpts::_apply): Now takes an agrument that
+	indicates if dialog should exit after applying filter.
+	
+	* library/debugwin.ith (_apply): Now takes an arg.
+
+	* library/main.tcl: If GDBTK_DEBUGFILE is not set,
+	use "insight.log" as the default. If GDBTK_DEBUG is set
+	and nonzero, start logging debug messages to
+	GDBTK_DEBUGFILE immediately. Never open the debug window
+	automatically.
+
+	* library/managedwin.itb (ManagedWin::shutdown): Don't 
+	save debug window options dialog on active list
+	
+	* library/srcwin.itb: Remove troublesome debug line.
+
+2001-11-05  Martin M. Hunt  <hunt@redhat.com>
+	* library/globalpref.itb (GlobalPref::_init_var):
+	New method to initialize _saved and _new arrays.
+	(GlobalPref::constructor): Call _init_var.
+	(GlobalPref::_buildwin): Use _new array for prefs
+	variables. Font optimizations. Remove troublesome
+	fonts and sort the list.
+	(GlobalPref::toggle_tracing_mode): Removed.  Some
+	functionality moved to _apply and _cancel.
+	(GlobalPref::_apply): Set prefs with values from the
+	_new array.
+	(SrcPref::_cancel): Reset prefs with values from _saved.
+	* library/globalpref.ith: Changed private variables
+	and methods to start with underscore.
+	(tracing_cb): Removed.
+	(_init): Changed from proc to method.
+
+2001-11-01  Keith Seitz  <keiths@redhat.com>
+
+	* library/memwin.itb (update_addr): Evaluate the address
+	to be sent to gdb_get_mem to prevent passing error strings
+	to string_to_coreaddr in gdb_get_mem.
+
+2001-10-29  Martin M. Hunt  <hunt@redhat.com>	
+
+	* library/debugwin.itb: Don't increment number of
+	TopLevelWins. 
+
+	* library/managedwin.itb: Don't save DebugWins to
+	active list.
+
+2001-10-29  Martin M. Hunt  <hunt@redhat.com>		
+
+	* generic/gdbtk-bp.c (gdb_set_bp_addr): When setting
+	the bp addr_string, use the string the function was called
+	with instead of using sprintf to write a new one. This
+	avoids a problem with truncating 64-bit addresses.
+
+	* library/srcbar.itcl (SrcBar::create_buttons) Don't
+	set width of address label.
+	(SrcBar::address) When the address changes, recompute
+	width of address label.  If it is more than 10, force it
+	to 18, otherwise use 10.
+	
+2001-10-29  Martin M. Hunt  <hunt@redhat.com>	
+
+	* generic/gdbtk-bp.c (gdb_find_bp_at_addr): Use
+	string_to_core_addr to read address so 64 bits will work.
+	(gdb_set_bp): Set error message with Tcl_SetObjResult()
+	so it will be displayed.
+	(gdb_set_bp_addr):Use string_to_core_addr to read address.
+	Set error message with Tcl_SetObjResult().
+
+	* generic/gdbtk-cmds.c (gdb_get_mem): :Use string_to_core_addr 
+	to read address. Set error message with Tcl_SetObjResult() or
+	Tcl_WrongNumArgs.
+	
+2001-10-27  Tom Tromey  <tromey@redhat.com>
+
+	* tclIndex: Updated.
+	* library/main.tcl: Add session_notice_file_change to
+	file_changed_hook.
+	* library/session.tcl (session_load): Only load the executable.
+	(session_notice_file_change): New proc.
+	(SESSION_exe_name): New proc.
+	(session_save): Use it.
+	(session_notice_file_change): Likewise.
+	* library/interface.tcl (gdbtk_tcl_exec_file_display): Don't call
+	session_save.
+	(gdbtk_tcl_preloop): Don't set executable name or try to find
+	main.  Notice a new session if required.
+	
+2001-10-18  Martin M. Hunt  <hunt@redhat.com>
+	
+	* library/srcpref.itb (SrcPref::contructor): Move array
+	initialization to _init_var.
+	(SrcPref::_init_var): New method to initialize _saved and 
+	_new arrays.
+	(SrcPref::buildwin): Rename to _buildwin. Have widgets use 
+	_new instead of [pref varname ...].  Set initial value of
+	tab size spinint.
+	(SrcPref::_apply): Set prefs with values from the _new array.
+	(SrcPref::_cancel): Reset disassembly flavor and don't call 
+	_save because nothing is saved unless OK is selected.
+	(SrcPref::set_flavor): Rename to _set_flavor.
+	(SrcPref::_pick): Just set _new, not prefs.
+	
+	* library/srcpref.ith: Add private variable _new and
+	private method cancel. Rename others with leading underscore.
+
+2001-10-16  Andrew Cagney  <ac131313@redhat.com>
+
+	From 2001-08-29 John Moore <jmoore@redhat.com>:
+	* gdbtk/generic/gdbtk-cmds.c (gdb_disassemble): Replaced
+	parse_and_eval_address() with string_to_core_addr().
+	(gdb_load_disassembly): Same.
+	(gdb_set_mem): Ditto.
+	* gdbtk/generic/gdbtk-stack.c (gdb_block_vars): Ditto.
+	* gdbtk/generic/gdbtk-varobj.c (variable_create): Same.
+
+2001-10-17  Tom Tromey  <tromey@cygnus.com>
+
+	* console.itb (Console::_build_win): Handle bindings which
+	are ";".  Also, completely override underlying Text binding.
+
+2001-10-12  Tom Tromey  <tromey@redhat.com>
+
+	* library/console.itb (Console::_build_win): Bind Control-m and
+	Control-j.
+
+2001-10-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* generic/gdbtk-cmds.c (gdb_listfuncs): Use ALL_BLOCK_SYMBOLS.
+	* generic/gdbtk-stack.c (gdb_block_vars): Likewise.
+	(gdb_get_blocks): Likewise.
+	(gdb_get_vars_command): Likewise.
+
+2001-10-10  Ian Roxborough  <irox@redhat.com>
+
+	* library/gdbtoolbar.itcl (GDBToolBar::add): Add option
+	for "custom" type. 
+	(GDBToolBar::toolbar_add_custom): new method.
+
+2001-10-06  Tom Tromey  <tromey@redhat.com>
+
+	* library/session.tcl (SESSION_recreate_bps): Use
+	gdb_run_readline_command_no_output to recreate breakpoints.
+	* library/interface.tcl (gdb_run_readline_command): Set
+	readlineShowUser element of gdbtk_state.
+	(gdb_run_readline_command_no_output): New proc.
+	(initialize_gdbtk): Initialize readlineShowUser element.
+	(gdbtk_tcl_readline_begin): Use readlineShowUser element.
+	(gdbtk_tcl_readline): Likewise.
+
+2001-10-05  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-bp.c (get_breakpoint_commands): New function.
+	(gdb_get_breakpoint_info): Use gdb_breakpoint_commands to
+	assemble breakpoint commands information.
+
+2001-10-02  Tom Tromey  <tromey@redhat.com>
+
+	* library/tclIndex: Updated.
+	* library/prefs.tcl (pref_set_defaults): Define gdb/editor
+	preference.
+	* library/srcpref.itb (SrcPref::constructor): Save gdb/editor
+	preference.
+	(SrcPref::build_win): Added external editor control.
+	* library/srctextwin.itb (SrcTextWin::do_source_popup): Always
+	enable external editor.  Use `code' instead of `list'.
+	* library/srcwin.itb (SrcWin::edit): Use Editor::edit.
+	* library/editor.tcl: New file.
+	* generic/gdbtk.c (enable_external_editor): Removed.
+	(external_editor_command): Default to NULL.
+	(gdbtk_init): Don't set enable_external_editor.  Free external
+	editor command when finished with it.
+
+2001-09-28  Tom Tromey  <tromey@redhat.com>
+
+	* library/console.itb (Console::_operate_and_get_next): New method.
+	(Console::_setprompt): Insert next history element if requested.
+	(Console::_build_win): Bind C-o to _operate_and_get_next.
+	* library/console.ith (_operate_and_get_next): Declare.
+	(_pendingHistElement): New variable.
+
+2001-09-27  Elena Zannoni  <ezannoni@redhat.com>
+
+	* library/targetselection.itb (build_win, default_port): Handle
+        hpux 11.00.
+
+2001-09-27  Keith Seitz  <keiths@redhat.com>
+
+        * library/prefs.tcl (escape_value): Update to work
+        with Tcl's new and old syntax.
+
+2001-09-19  Keith Seitz  <keiths@redhat.com>
+
+	* library/main.tcl: Append iwidgets library path, if needed.
+	* generic/gdbtk.c (gdbtk_init): Add TCLLIBPATH to iwidgets
+	package index.
+	Define IWIDGETS_LIBRARY in interpreter so that we can add
+	this path to the auto_path at the right time later.
+
+2001-09-10  Ian Roxborough <irox@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Set IWIDGETS_LIBRARY if
+	Insight is launched from within the build directory.
+	* library/util.tcl (find_iwidgets_library): Removed.
+	* library/main.tcl: Don't call find_iwidgets_library, do a 
+	package require instead.
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/bpwin.itb (bp_select): Use standard preferences
+	for selection fg & bg, not tixOption database.
+
+	* process.itb, tracedlg.tcl: Remove all traces of those
+	three evil little letters, "t", "i", "x".
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/tracedlg.tcl (build_win): Use libgui's
+	Labelledframe instead of tixLabelFrame.
+	Use iwidgets::scrolledlistbox instead of tixScrolledListbox.
+	(edit): Check if there is a selection in the listbox
+	before proceeding.
+	Escape method callbacks before passing to ActionDlg.
+
+	* library/actiondlg.tcl (constructor): Use "gdb_reginfo"
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/tdump.tcl (class TdumpWin): Inherit from GDBWin
+	and ManagedWin.
+	(constructor): Remove old itcl2 handling code and name the
+	window.
+	(build_win): Use iwidgets::scrolledtext instead of
+	tixScrolledText.
+	(twin): Remove unused variable. Use itk_component(stext)
+	instead.
+	(maxwidth): Remove unused variable.
+	(destructor): Remove unused method.
+	(config): Ditto.
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/srcpref.itb (build_win): Use iwidgets::spinint
+	instead of tixControl.
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/process.ith (top): Remove unused protected variable.
+	Use GDBWin::_top instead.
+	(lb): Remove unused variable.
+	(change_context): Remove parameter. It's not needed.
+	* library/process.itb (constructor): Don't set the variable
+	"top". It isn't needed. GDBWin has this information.
+	(buildwin): Get rid of tixScrolledListbox. Use
+	iwidgets::scrolledlistbox instead.
+	Loose the balloon help. It annoys more than helps.
+	(update): Use new scrolledlistbox component.
+	Split the list of threads BEFORE doing llength. Someone
+	shoot me if this has to be fixed one more time...
+	(change_context): Update definition and usage.
+	(cursor): Use GDBWin::_top instead of our own private copy.
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_disassemble_driver): We should be
+	looking for "thread", not "threads" to determine if we have
+	a multi-threaded child process.
+
+2001-08-28  Keith Seitz  <keiths@redhat.com>
+
+	* library/bpwin.itb (build_win): Get rid of tixScrolledWindow
+	and use iwidgets::scrolledframe until something better comes
+	along.
+
+2001-08-23  Tom Tromey  <tromey@redhat.com>
+
+	* library/srcwin.itb (SrcWin::fillFuncCB): Sort function names.
+
+2001-08-23  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/targetselection.itb: Added PMON and DDB targets.
+
+2001-08-22  Tom Tromey  <tromey@redhat.com>
+
+	* library/prefs.tcl (pref_read): Version number appears in
+	comment.
+
+2001-08-21  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Gdb just fixed this. No
+	need for the workaround I just checked in anymore.
+
+2001-08-21  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Reinitialize disassemle info's
+	stream parameter: we just deleted the one it saved when we
+	re-routed gdb_stdout to our own gdb_stdout.
+
+2001-08-20  Keith Seitz  <keiths@redhat.com>
+
+	* library/stackwin.itb (build_win): Use iwidget's scrolled listbox
+	instead of tix scrolled list box.
+	(update): Update to use iwidget's scrolled list box.
+	(change_frame): Ditto.
+	Remove parameters.
+	* library/stackwin.ith (change_frame): Remove all parameters.
+
+2001-08-20  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_load_disassembly): Save the original
+	address from parse_and_eval_address: if find_pc_partial_function
+	errors, we will lose our original address.
+	If find_pc_partial_function does error, print out both
+	the address we thought we were disassembling at AND the address
+	we actually did disassemble at. This should help elide address-
+	to-pointer and pointer-to-address problems.
+	* library/srctextwin.itb (FillAssembly): When gdb_load_disassembly
+	fails, use its error message instead of the cooked "Unable to
+	Read insturctions..." message.
+	(UnLoadFromCache): If oldpane is empty, don't try show it,
+	don't try to set our view to it, don't do anything but
+	erase the given pane.
+
+2001-08-17  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-varobj.c (variable_obj_command): Pass pointer
+	to varobj* when calling variable_update (API changed).
+	(variable_create): Don't pass varobj* to install_variable. It's
+	not used.
+	(variable_children): Likewise.
+	(variable_update): Change parameters to accept pointer to
+	varobj*. Matches API change in varobj_update.
+	(install_variable): Remove unused "var" parameter.
+
+2001-08-16  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Revert change from earlier.
+	It is insufficient. We must get the absolute pathname
+	from autoconf.
+	Don't bother setting TCL_LIBRARY: it must be set already
+	in order for us to execute a script.
+
+2001-08-16  Keith Seitz  <keiths@redhat.com>
+
+	* library/globalpref.ith (_change_font, _change_size): New
+	private methods.
+	(_size): New private variable.
+	(font_changed, wfont_changed): Removed.
+	* library/globalpref.itb (make_font_item): Change combobox
+	callback to use _change_font.
+	Replace tixControl with iwidgets::spinint.
+	(font_changed, wfont_changed): Removed.
+	(_change_font, _change_size): New private methods.
+	* tclIndex: Regenerate.
+
+2001-08-16  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Make sure we're working with
+	absolute pathnames in the *_LIBRAY variables.
+
+2001-08-16  Keith Seitz  <keiths@redhat.com>
+
+	From Ian Roxborough  <irox@redhat.com>
+	* generic/gdbtk-hooks.c (x_event): Deal with Tcl API insanity
+	for Tcl_ObjGetVar2 or Tcl_GetObjVar2.
+	(gdbtk_trace_find): Likewise for Tcl_GlobalEvalObj
+	or Tcl_EvalObj (TCL_EVAL_GLOBAL).
+
+2001-08-15  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk.c (gdbtk_init): Don't assume a particular
+	layout for the source directory, let the Makefile tell us
+	where the real source directory is.
+	When compiling under Cygwin, convert the (posix) path to a
+	win32 path, which is what tcl really wants.
+
+2001-08-15  Ian Roxborough  <irox@redhat.com>
+
+        * generic/gdbtk.c (gdbtk_init): If Insight isn't
+        executed from inside a directory called "bin",
+        assume that we are being running from the build
+        directory and set the *_LIBRARY variables to point
+        to (hopefully) the correct source directory.
+
+2001-08-13  Keith Seitz  <keiths@redhat.com>
+
+	* library/regwin.ith: Rewrite.
+	* library/regwin.itb: Rewrite.
+	* library/tclIndex: Regenerate.
+
+2001-08-13  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-register.c (gdb_register_info): New function.
+	Consolidates all register handling.
+	(get_register_size): New function.
+	(gdb_changed_register_list, gdb_fetch_registers,
+	gdb_regnames): Deprecate.
+	(setup_architecture_data): Free old register cache
+	when necessary.
+
+2001-08-13  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): Register
+	architecture_changed event handler.
+	(gdbtk_architecture_changed): New function.
+	* library/gdbevent.ith (class ArchChangdEvent): New event.
+	* library/ehandler.ith (arch_changed): New method. Handler
+	for ArchChangedEvents.
+	* library/interface.tcl (gdbtk_tcl_architecture_changed): New
+	proc to handle architecture change events.
+
+2001-08-09  Keith Seitz  <keiths@redhat.com>
+
+	* library/prefs.tcl (pref_set_defaults): Add new font
+	color defaults for highlighting, headers, selecting, and "normal".
+	Get rid of gdb/variable/highlight_fg and gdb/reg/highlight_fg.
+	* library/variables.tcl (build_win): Use gdb/font/highlight_fg
+	and gdb/font/highilght_bg to set highlight style.
+	* library/memwin.itb (build_win): Use header_fg and header_bg.
+
+2001-08-03  Keith Seitz  <keiths@redhat.com>
+
+	* library/srcbar.itcl (_post): New method.
+	(_update_file_menu): New method.
+	(create_file_menu): Move the guts to _update_file_menu.
+	Add a post command to the menu.
+	* library/interface.tcl (gdbtk_tcl_file_changed): Catch the
+	call to run_hooks.
+	(gdbtk_tcl_exec_file_display): Save the new session, too.
+	(set_exe_name): Don't bother saving the session here.
+	(_close_file): Save the session here, too.
+	(gdbtk_clear_file): Catch the call to run_hooks, too.
+	* library/gdbmenubar.itcl (menubar_new_menu): Allow caller
+	to specify optional arguments to be passed to Tk when
+	creating the menu.
+	Tk's "menu add" command returns an empty string. Save the
+	menu's index in the parent instead. This is what all
+	the menu subcommands want.
+
+2001-08-02  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-bp.c (gdb_get_breakpoint_info): Update
+	with recent breakpoint structure changes in gdb.
+	(gdb_set_bp_addr): Likewise.
+	(gdb_get_tracepoint_info): Update with recent tracepoint
+	structure changes in gdb.
+
+2001-07-31  Elena Zannoni  <ezannoni@redhat.com>
+
+	* generic/gdbtk-cmds.c: Don't include regcache.h.
+	* generic/gdbtk-register.c: Include regcache.h.
+	
+2001-07-26  Jonathan Larmour  <jlarmour@redhat.com>
+
+	* library/prefs.tcl (pref_set_defaults): Add additional entry
+	points for eCos if main is not present.
+
+2001-07-21  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/interface.tcl (gdbtk_locate_main): Fix function 
+	so that it returns either a null string or a valid location,
+	as documented.
+
+	* library/variables.tcl (build_menu_helper): Set
+	the Format menu option to "disabled" initially.
+
+2001-07-20  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/managedwin.itb: Revert to global to properly
+	initialize geometry with some window managers.
+	* library/managedwin.ith (shutdown): Remove _geometry.
+
+	* library/memwin.itb: Fix syntax to open a new window
+	using the "-force" flag.
+
+	* generic/gdbtk-register.c (gdb_regnames): Fix 'if'
+	statement so count is decremented only if "-numbers"
+	is the first arg.
+
+2001-07-18  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/util.tcl (find_iwidgets_library): Look
+	for iwidgets3* so we don't accidently find iwidgets2.x.
+
+2001-07-16  Nick Duffek  <nsd@redhat.com>
+
+	* library/regwin.itb (RegWin::build_win): Add radio button
+	for unsigned register format.
+	(RegWin::reg_select): Iterate through 8 rather than 7 formats.
+	(RegWin::but3): Add menu option for unsigned register format.
+
+2001-07-13  Keith Seitz  <keiths@redhat.com>
+
+	* library/download.itb (constructor): Use the iwidgets
+	feedback widget instead of tixMeter.
+	Pack all the topmost widgets together -- don't use grid.
+	(update_download): Support the feedback widget.
+	(done): Ditto.
+
+	* library/download.ith (steps): New private variable.
+	(num_steps): New common.
+
+2001-07-12  Keith Seitz  <keiths@redhat.com>
+
+	* library/srcbar.itcl (create_trace_buttons): Fix
+	syntax errors.
+
+	* library/tracedlg.tcl: Update to work with Itcl3.0
+	and ManagedWin.
+
+	* library/actiondlg.tcl: Update to work with Itcl3.0
+	and ManagedWin.
+	(build_win): Use iwidgets scrolled listbox instead
+	of the tix one.
+
+2001-07-05  Keith Seitz  <keiths@redhat.com>
+
+	* library/managedwin.itb (_create): Don't pass "-over"
+	to center_window unless we really are asked to put the
+	window over another!
+
+2001-06-18  Keith Seitz  <keiths@redhat.com>
+
+	* library/managedwin.itb (_create): When creating a
+	window over another, be sure to center on the window,
+	not the object.
+
+2001-06-13  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-bp.c (gdbtk_tracepoint_create): Change
+	parameter to int to match breakpoint notifications.
+	(gdbtk_tracepoint_modify): Ditto.
+	(gdbtk_tracepoint_delete): Ditto.
+	(tracepoint_notify): Ditto.
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): Remove
+	tracepoint hooks and install tracepoint event handlers.
+
+2001-06-11  Tom Tromey  <tromey@redhat.com>
+
+	* library/help/session.html: New file.
+	* library/help/index.html: Added link.
+
+	* library/session.tcl (session_save): Save breakpoints.
+	(SESSION_serialize_bps): New proc.
+	(SESSION_recreate_bps): New proc.
+	(session_load): Recreate breakpoints.
+	* library/util.tcl (bp_exists): Expect user specification in
+	breakpoint info.
+	* library/srctextwin.itb (SrcTextWin::showBPBalloon): Expect user
+	specification in breakpoint info.
+	* library/gdbevent.itb (BreakpointEvent::_init): Initialize
+	_user_specification.
+	(BreakpointEvent::get): Handle user_specification.
+	* library/gdbevent.ith (BreakpointEvent): Added
+	_user_specification field.
+	* library/bpwin.itb (BpWin::bp_store): Expect user specification
+	and use it when saving.
+	(BpWin::bp_type): Expect user specification.
+	* generic/gdbtk-bp.c (BREAKPOINT_IS_WATCHPOINT): New macro.
+	(gdb_get_breakpoint_info): Added `user specification' to result.
+
+2001-06-11  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-stack.c (gdb_stack): Return TCL_ERROR if
+	we are unable to get the current frame. get_current_frame
+	may have output an error message.
+
+2001-06-07  Keith Seitz  <keiths@redhat.com>
+
+	* generic/gdbtk-hooks.c (x_event): Remove unused variable "count".
+	(tracepoint_notify): Remove superfluous declaration. This funtion
+	was moved to gdbtk-bp.c.
+
+	* generic/gdbtk-bp.c (gdb_find_bp_at_addr): Remove unused variable
+	"b".
+	(gdb_set_bp): Remove unused variable "cmd".
+	(gdb_set_bp_addr): Remove unused variables "cmd" and "filename".
+
+	* generic/gdbtk.c (gdbtk_init): Remove unused variables
+	"auto_path_name", "auto_path_elem", and "found_main".
+
+2001-06-05  Martin Hunt  <hunt@redhat.com>                                    
+
+	* generic/gdbtk.c (_initialize_gdbtk): Don't close console yet.
+	(gdbtk_init): Wait until after tcl/tk stuff is all initialized
+	to close console (on Windows) and redirect ouput.
+	
+2001-06-05  Martin Hunt  <hunt@redhat.com>
+
+	* library/globalpref.itb(build_win): Don't change directory
+	before building icon combobox.  Add debug lines.
+
+2001-06-04  Keith Seitz  <keiths@redhat.com>
+
+	* library/srcbar.itcl (constructor): Set the toolbar's initial
+	state.
+
+2001-06-04  Keith Seitz  <keiths@redhat.com>
+
+	* library/interface.tcl (gdb_update_hook): Mark as deprecated.
+	(gdbtk_update): Dispatch and UpdateEvent, too.
+	* library/ehandler.ith (update): New event handler.
+	* library/gdbevent.ith (UpdateEvent): New event.
+	* library/gdbevent.itb (UpdateEvent::constructor): New method.
+	(UpdateEvent::get): New method.
+	* library/kod.ith (udpate): Match event handler definition.
+	* library/kod.itb (update): Ditto.
+	(build_win): Pass dummy argument to update method.
+	(top): Ditto.
+	(up): Ditto.
+	(set_variable): Ditto.
+	* library/memwin.ith (update): Match event handler definition.
+	* library/memwin.itb (update): Ditto.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	* library/process.ith (update): Match event handler definition.
+	* library/process.itb (update): Ditto.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	(build_win): Pass dummy argument to update method.
+	* library/regwin.ith (update): Match event handler definition.
+	* library/regwin.itb (update): Ditto.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	(build_win): Pass dummy argument to update method.
+	(but3): Ditto.
+	(unedit): Ditto.
+	* library/stackwin.ith (update): Match event handler definition.
+	* library/stackwin.itb (update): Ditto.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	(build_win): Pass dummy argument to update method.
+	* library/tdump.tcl (update): Match event handler definition.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	(build_win): Pass dummy argument to update method.
+	* library/variables.tcl (update): Match event handler definition.
+	(build_win): Pass dummy argument to update method.
+	* library/locals.tcl (update): Match event handler definition.
+	(constructor): Pass dummy argument to update method.
+	* library/watch.tcl (update): Match event handler definition.
+	Pass dummy argument to VariableWin::update.
+	(add): Pass dummy argument to update method.
+	* library/srcwin.ith (update): New method.
+	(update_hook_init): Remove.
+	* library/srcwin.itb (update): New method.
+	(constructor): Remove gdb_update_hook.
+	(destructor): Ditto.
+	* tclIndex: Regenerate.
+
+2001-06-01  Keith Seitz  <keiths@redhat.com>
+
+	* library/console.itb (constructor): Pass dummy argument
+	to idle method.
+	(destructor): Ditto.
+
+2001-05-31  Keith Seitz  <keiths@redhat.com>
+
+	* library/interface.tcl (gdbtk_idle): Run hooks, too,
+	until they're all gone.
+
+2001-05-31  Keith Seitz  <keiths@redhat.com>
+
+	* library/interface.tcl (gdb_idle_hook): Mark as deprecated.
+	(gdbtk_idle): Dispatch an IdleEvent. gdb_idle_hook is gone.
+	* library/ehandler.ith (idle): New event handler.
+	* library/gdbevent.ith (IdleEvent): New event.
+	* library/console.ith (idle): Match event handler definition.
+	* library/console.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/kod.ith (idle): Match event handler definition.
+	* library/kod.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/memwin.ith (idle): Match event handler definition.
+	* library/memwin.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/pluginwin.itcl (stopped): Rename to "idle" and
+	match event handler definition.
+	Fix misleading comments.
+	* library/process.ith (idle): Match event handler definition.
+	* library/process.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/regwin.ith (idle): Match event handler definition.
+	* library/regwin.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/srcbar.itcl (idle): New method.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/srcwin.ith (idle): Match event handler definition.
+	* library/srcwin.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/stackwin.ith (idle): Match event handler definition.
+	* library/stackwin.itb (idle): Ditto.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/variables.tcl (idle): Match event handler definition.
+	(constructor): Remove gdb_idle_hook.
+	(destructor): Ditto.
+	* library/plugins/rhabout/rhabout.itcl (stopped): Rename
+	to "idle" and match new event handler definition.
+	* library/tclIndex: Regenerated.
+
+2001-05-31  Keith Seitz  <keiths@redhat.com>
+
+	* library/interface.tcl (gdb_busy_hook): Deprecate.
+	(gdbtk_busy): Create and dispatch a BusyEvent instead
+	of running hooks.
+	* library/ehandler.ith (busy): New event handler.
+	* library/gdbevent.ith (BusyEvent): New event class.
+	* library/console.ith: Inherit from GDBEventHandler.
+	(busy): Match event handler definition.
+	* library/console.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_event.
+	(destructor): Ditto.
+	* library/kod.ith (busy): Match event handler definition.
+	* library/kod.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/memwin.ith (busy): Match event handler definition.
+	* library/memwin.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/pluginwin.itcl (running): Rename to "busy" and
+	match event handler definition.
+	(consturctor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/process.ith (busy): Match event handler definition.
+	* library/process.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/regwin.ith (busy): Match event handler definition.
+	* library/regwin.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/srcbar.itcl (constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	(busy): New method.
+	* library/srcwin.ith (busy): Match event handler definition.
+	* library/srcwin.itb (busy): Ditto.
+	Only do the "busy" stuff if do_updates is set.
+	(toggle_updates): Remove gdb_busy_hook.
+	(constructor): Ditto.
+	(destructor): Ditto.
+	* library/stackwin.ith (busy): Match event handler definition.
+	* library/stackwin.itb (busy): Ditto.
+	(constructor): Remove gdb_busy_hook.
+	(destructor): Ditto.
+	* library/variables.tcl (constructor): Ditto.
+	(destructor): Ditto.
+	(disable_ui): Rename to "busy" and match event handler
+	definition.
+	* library/plugins/rhabout/rhabout.itcl (running): Rename
+	to "busy" and match new event handler definition.
+	* library/tclIndex: Regenerated.
+
+2001-05-25  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-cmds.c (bin2hex): New function.
+	(fromhex): New function.
+	(gdb_set_mem): New function.
+	(Gdbtk_Init): Add new command, "gdb_set_mem".
+	* library/memwin.itb (edit): Use "gdb_set_mem" to set
+	memory, not some gdb_cmd contrivance.
+	When sending data to gdb_set_mem, make sure that it
+	is properly zero-padded.
+
+2001-05-22  Keith Seitz  <keiths@cygnus.com>
+
+	* memwin.ith (error_dialog): Declare public method.
+	* memwin.itb (error_dialog): Define.
+	(edit): When attempting to set memory, post an error dialog
+	if gdb told us an error occurred while writing the memory.
+
+2001-05-22  Keith Seitz  <keiths@cygnus.com>
+
+	* library/interface.tcl (gdbtk_tcl_file_changed): Handle
+	the case of empty-string files, sent by gdb when the
+	user requests to reset the file.
+	(_close_file): New proc to deal with closing an exe.
+	* library/srcbar.itcl (create_file_menu): Add "Close" menu
+	option.
+	(create_view_menu): Change key binding for Watch Window to
+	Ctrl+T to accomodate "Close" going to Ctrl+W.
+	* library/srctextwin.itb (config_win): Update key binding
+	for Watch Window.
+	Add key binding for Close.
+	(do_key): Add "close".
+	(_clear_cache): Finally implement. I think this works now.
+
+2001-05-22  Keith Seitz  <keiths@cygnus.com>
+
+	* library/variables.tcl (postMenu): Add mysterious workaround
+	for popup menu bug in Tk for windows.
+	Highlight the selection, too.
+
+2001-05-21  Keith Seitz  <keiths@cygnus.com>
+
+	* library/managedwin.itb (_create): Check the geometry of
+	any window we create. Don't create a window that is
+	bigger than the screen.
+
+2001-05-18  Keith Seitz  <keiths@cygnus.com>
+
+	* library/managedwin.ith (_geometry): Use a protected variable
+	instead of a global from ManagedWin::reveal.
+	(open): Make arg list reflect managedwin.itb.
+	* library/managedwin.itb (window_name): Use class variable
+	_top instead of recomputing the toplevel every time.
+	(reveal): Ditto.
+	Use class variable "_geometry" instead of global variable.
+	(shutdown): Do not save ModalDialogs.
+	(_create): If centering the new window, use libgui's
+	center_window to do it.
+
+2001-05-18  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-hooks.c (gdbtk_wait): Change integer pid
+	argument to match gdb's new "ptid_t" pids.
+
+2001-05-14  Keith Seitz  <keiths@cygnus.com>
+
+	* library/interface.tcl (gdbtk_quit_check): Don't save sessions
+	here. It doesn't work for the Console Window.
+	(gdbtk_cleanup): Save session information here.
+	(gdbtk_tcl_exec_file_display): When files are loaded,
+	get the full pathname to the exe.
+
+2001-05-11  Tom Tromey  <tromey@redhat.com>
+
+	* library/prefs.tcl (pref_save): Fix bug when key in gdb space has
+	extra `/' in it.
+
+2001-05-11  Kevin Buettner  <kevinb@redhat.com>
+
+	* generic/gdbtk-bp.c (set_raw_breakpoint): Revise declaration
+	to match the recently changed declaration in breakpoint.c. 
+	Update all callers.
+
+2001-05-11  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-bp.c (gdbtk_create_breakpoint): Safe guard
+	against "invalid" (internal) breakpoint numbers.
+	(gdbtk_modify_breakpoint): Ditto.
+	(gdbtk_delete_breakpoint): Ditto.
+
+2001-05-10  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-bp.c (gdb_set_bp): Generate a breakpoint event
+	when we create a breakpoint. The hook is no longer used.
+	(gdb_set_bp_addr): Ditto.
+
+2001-05-10  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-bp.c (breakpoint_list, breakpoint_list_size): New
+	variables. Gdb is forcing us to maintain our own breakpoint
+	database.
+	(Gdbtk_Breakpoint_Init): Initialize our breakpoint database.
+	(gdb_find_bp_at_addr): Use our breakpoint database.
+	(gdb_find_bp_at_line): Ditto.
+	(gdb_get_breakpoint_list): Ditto.
+	(gdb_get_breakpoint_info): Remove deleted breakpoint hack.
+	(gdbtk_create_breakpoint): Moved here from gdbtk-hooks.c.
+	Add breakpoint to our breakpoint database.
+	(gdbtk_modify_breakpoint): Ditto the move.
+	(gdbtk_delete_breakpoint): Ditto the move.
+	Remove breakpoint from our database.
+	(gdb_get_tracepoint_info): Remove delete tracepoint hack.
+	It's not needed for tracepoints: they were implemented properly.
+	(gdbtk_create_tracepoint): Moved here from gdbtk-hooks.c.
+	(gdbtk_modify_tracepoint): Ditto.
+	(gdbtk_delete_tracepoint): Ditto.
+	* generic/gdbtk-hooks.c: Include "gdb-events.h".
+	(gdbtk_create_breakpoint): Moved to gdbtk-bp.c
+	(gdbtk_modify_breakpoint): Ditto.
+	(gdbtk_delete_breakpoint): Ditto.
+	(breakpoint_notify): Ditto.
+	(gdbtk_create_tracepoint): Ditto.
+	(gdbtk_modify_tracepoint): Ditto.
+	(gdbtk_delete_tracepoint): Ditto.
+	(tracepoint_notify): Ditto.
+	(report_error): No longer static.
+	(gdbtk_add_hooks): Create our own event handler
+	vector and register breakpoint_create, breakpoint_modify,
+	and breakpoint_delete handlers in gdbtk-bp.c.
+
+2001-05-10  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-cmds.c: Put on diet. All breakpoint-,
+	tracepoint-, register-, and stack-related functions moved
+	into separate files.
+	(call_wrapper): Renamed to "gdbtk_call_wrapper" and export.
+	Update all callers.
+	* generic/gdbtk.h: Move all breakpoint-related stuff into
+	gdbtk-bp.c.
+	Remove declaration for "call_wrapper". Now in gdbtk-cmds.h
+	(and called "gdbtk_call_wrapper").
+	* generic/gdbtk-varobj.c: Include "gdbtk-cmds.h".
+	* generic/gdbtk-cmds.h: New file.
+	* generic/gdbtk-bp.c: New file.
+	* generic/gdbtk-register.c: New file.
+	* generic/gdbtk-stack.c: New file.
+
+2001-05-09  Keith Seitz  <keiths@cygnus.com>
+
+	* library/interface.tcl (gdb_quit_hook): Remove. It's unused.
+	(gdbtk_quit): Do no shutdown window manager and save
+	preferences here.
+	(gdbtk_cleanup): This is the proper place to do those
+	things.
+
+2001-05-07  Keith Seitz  <keiths@cygnus.com>
+
+	* library/globalpref.itb (build_win): Preserve the
+	current working directory.
+
+2001-05-06  Kevin Buettner  <kevinb@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_target_has_execution_command)
+	(get_clear_file): Use ptid_equal() for comparing ptid values. 
+	Use ``null_ptid'' instead of 0 in comparisons against
+	``inferior_ptid''.
+
+	From Phil Edwards <pedwards@disaster.jaj.com>:
+	* generic/gdbtk-cmds.c (gdb_target_has_execution_command)
+	(get_clear_file): Rename ``inferior_pid'' to ``inferior_ptid''.
+
+2001-05-01  Keith Seitz  <keiths@cygnus.com>
+
+        * gdbtk.c (gdbtk_init): Include the command "warp_pointer"
+        for all platforms. Used for testing ONLY.
+
+        * util.tcl (gdbtk_read_defs): If there is an error reading
+        the testsuite definition file, print the error message to
+        stderr, not stdout. This will allow tcl to know that an error
+        has occurred.
+        (find_iwidgets_library): Make it work for running testsuites
+        from installed directory.
+
+        * main.tcl: If we failed to find iwidgets, check if the
+        testsuite is running. If it is running, do not pop up
+        a dialog box: just print out the error and exit.
+        Initialize _test(verbose) for the testsuite.
+
+2001-04-23  Keith Seitz  <keiths@cygnus.com>
+
+	* generic/gdbtk-cmds.c (gdb_get_breakpoint_info): If unable
+	to find the requested breakpoint for lookup, check if
+	it is about to be deleted and return information about
+	that breakpoint.
+	(gdb_get_tracepoint_info): Ditto for tracepoints.
+	* generic/gdbtk-hooks.c (gdbtk_deleted_bp): New global.
+	(gdbtk_delete_breakpoint): Remember the deleted breakpoint
+	for gdb_get_breakpoint_info, in case it is called during
+	the event notification.
+	(gdbtk_delete_tracepoints): Ditto for tracepoints.
+
+	* generic/gdbtk-cmds.c (gdb_entry_point): Return an empty
+	string when there is no active target (i.e., there is no
+	entry point to return yet).
+
+2001-04-20  Keith Seitz  <keiths@cygnus.com>
+
+	* library/srctextwin.ith (handle_set_hook): Rename to set_variable.
+	* library/srctextwin.itb (set_variable): Handle SetVariableEvent.
+	(constructor): Remove gdb_set_hook.
+	(destructor): Ditto.
+	* library/srcbar.itcl: Inherit from GDBEventHandler.
+	(set_hook): Rename to set_variable and handle SetVariableEvent.
+	(constructor): Remove gdb_set_hook.
+	(destructor): Ditto.
+	* library/regwin.ith (handle_set_hook): Renamed to set_variable.
+	* library/regwin.itb (set_variable): Handle SetVariableEvent.
+	(constructor): Remove gdb_set_hook.
+	(destructor): Ditto.
+	* library/kod.ith (set_os): Renamed to "set_variable".
+	* library/kod.itb (set_variable): Handle SetVariableEvent.
+	(constructor): Remove gdb_set_hook.
+	(destructor): Ditto.
+	* library/tclIndex: Regenerated.
+
+2001-04-20  Keith Seitz  <keiths@cygnus.com>
+
+	* library/interface.tcl (gdbtk_tcl_set_variable): New proc.
+	* library/gdbevent.ith (SetVariableEvent): New event.
+	* library/gdbevent.itb (SetVariableEvent::get): Override
+	GDBEvent::get.
+	* library/ehandler.ith (set_variable): New public method.
+	* generic/gdbtk-hooks.c (gdbtk_set_hook): Let inteface function
+	gdbtk_tcl_set_variable do all the work.
+	* tclIndex: Regenerated.
+
+2001-04-19  Keith Seitz  <keiths@cygnus.com>
+
+	* library/gdbevent.ith: New file. Defines new event model.
+	* library/gdbevent.itb: New file. Implements new event
+	model.
+	* library/ehandler.ith: New file. Defines new event model.
+	* library/ehandler.itb: New file. Implements new event
+	model.
+	* library/gdbwin.ith: Inherit from GDBEventHandler.
+	(update): Delete unused method.
+	(_state): Delete unused variable.
+	* library/tclIndex: Regenerated.
+
+	* generic/gdbtk-cmds.c (gdb_set_bp): Use create_breakpoint_hook
+	to notify gui of changes.
+	(gdb_set_bp_addr): Ditto.
+	(gdb_get_breakpoint_info): Update comments to match reality.
+	* generic/gdbtk-hooks.c (breakpoint_notify): Only pass the
+	breakpoint number which generated the event.
+	(tracepoint_notify): Ditto for tracepoints.
+	* library/interface.tcl (gdb_breakpoint_change_hook): Mark
+	as deprecated and comment out definition.
+	(gdbtk_tcl_breakpoint): Use new GDBEvent event "breakpoint"
+	to notify rest of UI about breakpoint event.
+	(gdbtk_tcl_tracepoint): Ditto for "tracepoint" event.
+	* library/bpwin.ith (update): Renamed to "breakpoint".
+	(breakpoint): New public method.
+	(tracepoint): New public method.
+	(bp_add): Take event as argument instead of number.
+	(bp_modify): Ditto.
+	(bp_delete): Ditto.
+	* library/bpwin.itb (constructor): Remove
+	gdb_breakpoint_changed_hook.
+	(destructor): Ditto.
+	(build_win): Insert any existing breakpoints by
+	making BreakpointEvents for them.
+	(breakpoint): Renamed from "update" to handle
+	breakpoint events.
+	Remove code to deal with tracepoints.
+	(tracepoint): New method to handle tracepoint
+	events.
+	(bp_add): Deal with breakpoint events, not breakpoint
+	numbers.
+	(bp_modify): Ditto.
+	(bp_delete): Ditto.
+	* library/srctextwin.ith: Inherit from GDBWin.
+	(breakpoint): New public method.
+	(tracepoint): New public method.
+	* library/srctextwin.itb (constructor): Remove
+	gdb_breakpoint_changed_hook.
+	(destructor): Ditto.
+	(breakpoint): New method to handle breakpoint event.
+	(tracepoint): New method to handle tracepoint event.
+	(do_bp): Handle duplicate breakpoints for asm, too.
+	(remove_bp_at_line): Delete breakpoints by number, not
+	linespec. clear_command removes breakpoints from the
+	breakpoint_chain BEFORE deleting the breakpoint. delete_command
+	does this afterward (so we can call gdb_get_breakpoint_info on
+	an about-to-be-deleted breakpoint).
+
+2001-04-18  Martin M. Hunt  <hunt@redhat.com>
+	
+	* generic/gdbtk.c (gdbtk_init): Initialize uiout.
+
+2001-04-18  Tom Tromey  <tromey@redhat.com>
+
+	* library/interface.tcl (run_executable): Use
+	gdb_set_inferior_args.
+	* library/session.tcl (session_load): Use gdb_set_inferior_args.
+	* generic/gdbtk-cmds.c (Gdbtk_Init): Register
+	gdb_set_inferior_args.
+	(gdb_get_inferior_args): New function.
+
+2001-04-17  Tom Tromey  <tromey@redhat.com>
+
+	* library/session.tcl (session_save): Use gdb_get_inferior_args.
+	* generic/gdbtk-cmds.c (inferior_args): Removed.
+	(Gdbtk_Init): Don't register gdb_inferior_args variable.  Do
+	register gdb_get_inferior_args function.
+	(gdb_get_inferior_args): New function.
+
+2001-04-17  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/variables.tcl (update): Temporary fix to the detection of
+	"type_changed" condition.  Proper fix will require that this condition
+	is properly reported by the underlying code.
+
+2001-04-12  Nicholas Duffek  <nsd@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_entry_point): New TCL command.
+	* library/interface.tcl (gdbtk_locate_main): Try the program's
+	entry point if no main function is found.
+
+2001-04-10  Keith Seitz  <keiths@cygnus.com>
+
+	From Tom Tromey (tromey@redhat.com):
+	* library/managedwin.itb (reveal): We actually do want to force
+	the focus for Windows.
+
+2001-04-09  Martin M. Hunt  <hunt@redhat.com>
+
+	* library/managedwin.itb (ManagedWin::reveal): After
+	deiconifying window for the first time, set its geometry
+	again, if the platform is unix. This fixes a problem with kde.
+	(ManagedWin::_create): Set a variable with the initial
+	geometry.
+
+2001-04-04  Christopher Faylor  <cgf@redhat.com>
+
+	* generic/gdbtk.c: Add __CYGWIN__ conditional to WIN32 test.
+
+2001-04-04  Martin M. Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-hooks.c (gdbtk_fileopen): New function.
+	Initialize ui_file stuff for gdbtk.
+	(gdbtk_fputs): Don't print if gdbtk_disable_fputs. Send
+	stdlog and stdtarg to their handler functions.
+
+	* generic/gdbtk.c (Gdbtk_Init): Don't set gdb_stdlog 
+	and gdb_stdtarg to gdb_stdout, 
+	(gdbtk_init): Unset gdbtk_disable_fputs
+	when ready to accept output from gdb. Remove references to
+	fputs_unfiltered_hook.
+	
+	* generic/gdbtk.h: Declare new flag gdbtk_disable_fputs.
+
+	* generic/gdbtk-cmds.c (gdb_restore_fputs): Instead of setting
+	fputs_unfiltered_hook, set the new flag gdbtk_disable_fputs.
+
+	* library/prefs.tcl (pref_set_defaults): Add defaults
+	for log_fg and target_fg.
+
+	* library/interface.tcl (gdbtk_tcl_fputs_error): Use
+	err_tag.
+	(gdbtk_tcl_fputs_log): New function. Write log messages
+	to console.
+	(gdbtk_tcl_fputs_target): New function.	Write target
+	IO to console.
+
+	* library/console.ith (einsert): Add tag parameter.
+	
+	* library/console.itb (_build_win): Add new tags for log 
+	and target IO.
+	(einsert): Add tag parameter.
+
+2001-04-02  Martin M. Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_loadfile): Adjust size of text_argv
+	array to prevent writing out of range. Remove unused variables.
+	Fix formatting.
+	(gdb_get_tracepoint_info): Remove unused variable "fname".
+	(gdb_load_disassembly): Remove unused variable "widget".
+	(gdb_loc): Remove unused variable "sym".
+	(gdb_set_bp_addr): Remove unused variable "line".
+	(gdb_get_breakpoint_info): Remove unused variable "sym".
+	(get_frame_name): Remove unused variable "name".
+
+2001-03-29  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/variables.tcl (update): Cope with varobj type changes.
+
+2001-03-29  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/variables.tcl (destructor): Remove file_changed_hook hook.
+
+2001-03-29  Fernando Nasser  <fnasser@redhat.com>
+
+	* generic/gdbtk-varobj.c (variable_obj_command): Do not cache varobj
+	handles as they may change -- use varobj_get_handle() instead.
+
+2001-03-15  Martin Hunt  <hunt@redhat.com>
+	* library/browserwin.itb: Change all references to freeze_me,
+	thaw_me and Top to _freeze_me, _thaw_me, and _top to match 
+	changes to managedwin.
+	
+	* library/kod.itb: Ditto.  
+
+2001-03-15  Tom Tromey  <tromey@redhat.com>
+
+	* library/mempref.itb (MemPref::build_win): Correctly set initial
+	value of combobox.
+	* library/memwin.itb: Added copyright header.
+	(MemWin::constructor): Set defaults from preference database.
+	(MemWin::reconfig): Update preference database.
+	* library/prefs.tcl (pref_save): Save `mem' preferences.
+	(pref_set_defaults): Define default memory preferences.
+
+2001-03-08  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-cmds.c (map_arg_registers): Use REG_NUM instead of
+	ARCH_REG_NUM.
+
+2001-03-01  Nicholas Duffek  <nsd@redhat.com>
+
+	* README.GDBTK: Minor spelling, grammar, and formatting fixes.
+
+2001-03-01  Keith Seitz  <keiths@cygnus.com>
+
+	* library/managedwin.ith: Move all implementations into
+	managedwin.itb.
+	(public variable nosize): Delete.
+	(freeze_me, thaw_me, make_icon_window): Prepend with
+	underscore to remind people these are not public
+	methods/procs.
+	(protected variable Top, screenwidth, screenheight): Ditto
+	for these variables.
+	(protected common manage_active, mainwindow): Delete.
+	(enable): Delete.
+	(reconfig): Add empty body.
+	* library/managedwin.itb: Move all implementations from
+	header here.
+	Update all references to renamed variables/methods/procs.
+	(destructor, restart, shutdown, _open, find) Let
+	Itcl tell us which ManagedWins we have lying around.
+	(enable): Delete.
+	(reconfig): It's empty. Moved empty body to header.
+
+2001-03-01  Nicholas Duffek  <nsd@redhat.com>
+
+	* library/managedwin.itb (ManagedWin::shutdown): Save each
+	managed window's geometry as a preference.
+	* library/managedwin.ith (ManagedWin::destructor): Don't save
+	managed windows' geometries as preferences.
+
+2001-03-01  Nicholas Duffek  <nsd@redhat.com>
+
+	* library/srctextwin.itb (SrcTextWin::location): Clear previous
+	pane's cursor after switching panes.
+
+2001-03-01  Nicholas Duffek  <nsd@redhat.com>
+
+	* library/srctextwin.itb (config_win): Give focus to $win.
+
+Tue Feb 27 23:56:23 2001  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-cmds.c: Include recently created "regcache.h"
+
+2001-02-27  Keith Seitz  <kseitz@nwlink.com>
+
+	* generic/gdbtk-cmds.c (gdb_fetch_registers): Mark
+	the result as generating a list only if it really does
+	generate a list.
+
+2001-02-21  Fernando Nasser  <fnasser@redhat.com>
+
+	* TODO: New file.  Initial version of the TODO file, as posted to the
+	insight list circa October 2000.
+
+2001-02-14  Fernando Nasser  <fnasser@redhat.com>
+
+	From 2001-02-09  Martin Hunt  <hunt@redhat.com>
+	* generic/gdbtk-cmds.c (gdb_load_disassembly): In mixed
+	mode, source lines should be tagged with source_tag2.
+
+2001-02-08  Fernando Nasser  <fnasser@redhat.com>
+
+	From 2001-02-06  Martin Hunt  <hunt@redhat.com>
+	* library/debugwin.itb: Change window name to "Insight Debug"
+	* library/embeddedwin.ith: Fix debug messages.
+	* library/locals.tcl: Ditto.
+	* library/watch.tcl (postMenu): Ditto.
+	* library/variables.tcl: Ditto.
+	* library/interface.tcl: Ditto.
+	* library/regwin.itb: Ditto.
+	* library/gdbwin.ith: Ditto.
+	* library/srcbar.itcl: Ditto.
+
+2001-02-06  Fernando Nasser  <fnasser@redhat.com>
+
+	Originally from Martin Hunt <hunt@redhat.com>, with modifications
+	* library/srcwin.itb (_name): Check for errors when invoking
+	gdb_find_file.
+	* library/srctextwin.itb (_mtime_changed, location): Ditto.
+	* generic/gdbtk-cmds.c (gdb_find_file_command): Better error checking.
+	(full_lookup_symtab): Fix misleading comment.
+
+2001-02-04  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/plugins/plugins.tcl: Fix typos and remove "-transient"
+	parameter from open command.
+	* library/plugins/HOW-TO: New file.  Describes how to add a plug-in
+	window to Insight.
+
+2001-02-01  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/images/insight.gif: New splash screen/about graphics.
+	* library/images2/insight.gif: New splash screen/about graphics.
+	* library/about.tcl: Update copyright, window title and change colors
+	to match new splash screen/about images.
+
+2001-02-01  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbtoolbar.itcl (add): New method.  Emulate the style of the
+	toolbar iwidget commands.
+	(toolbar_show): Old name.
+        (show): New name.
+	(toolbar_create_button): Old name.
+        (create): New name.
+	(toolbar_configure_button): Old name.
+        (itemconfigure): New name.
+        (toolbar_bind_button): Old name.
+        (itembind): New name.
+        (toolbar_set_button_balloon): Old name.
+        (itemballoon): New name.
+        (toolbar_add_button): Make private.
+        (toolbar_add_label): Ditto.
+        (toolbar_add_button_separator): Ditto.
+	(toolbar_remove_button): Ditto.
+	(tollbar_insert_button): Ditto.
+	* library/srcbar.itcl: Adjust to the above syntax.
+	* library/plugins/rhabout/rhabout.itcl: Ditto.
+
+2001-02-01  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl (constructor): Remove unused code.
+	(add): New method.  Emulate the style of the menubar iwidget commands.
+	(menubar_show): Old name.
+	(show): New name.
+	(menubar_menu_exists): Old name.
+	(exists): New name.
+	(menubar_clear_menu): Old name.
+	(clear): New name.
+	(menubar_delete_menu): Old name.
+        (delete): New name.
+	(menubar_new_menu): Make private.  Does not return anything.
+	(menubar_add_menu_command): Make private.
+	(menubar_add_menu_separator): Ditto.
+	(menubar_change_menu_state): Ditto.
+	* library/srcbar.itcl: Adjust to the above syntax.
+	* library/plugins/plugins.tcl: Ditto.
+	* library/plugins/rhabout/rhabout.itcl: Ditto.
+
+2001-02-01  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/pluginwin.itcl (contrucdtor, destructor): Use "code" to
+	specify callbacks.
+	(running, stopped, no_inferior): Make it a protected method.
+	(childsite): Explicitly mark as a public method.
+	* library/plugins/rhabout/rhabout.itcl (constructor): Add a label
+	widget to show status messages.
+	(running, stopped): Overload versions of the base class; display
+	status messages as an example.
+
+2001-01-31  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/pluginwin.itcl: New file.  Implements the PluginWindow
+	class that provides some basic functionality for plug-ins.
+	* library/plugins/rhabout/rhabout.itcl: Inherit from the new
+	PluginWindow class.  Remove code dependent on ModalDlg.
+	(constructor): Creates menus and a toolbar to show how these
+	PluginWindow components are used.
+	* library/tclIndex: Regenerate.
+
+2001-01-31  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/plugins/rhabout.tcl: Add load for optional sample C command 
+	procedure.
+	* library/plugins/rhabout/rhabout.itcl (constructor): Try calling
+	optional sample C command procedure rhabout_extra_text.
+	* library/plugins/rhabout/rhabout.c: New file. Implement an example
+	plug-in shared library with a sample C command procedure.
+	* library/plugins/rhabout/Makefile: New file. Makefile for the sample
+	shared library above (Linux only).
+
+2001-01-28  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/plugins: New directory.  Sample plug-in directory to help
+	developers of Insight plug-ins.  See README file in that directory.
+	* library/plugins/plugins.tcl: New file. Sample version of a code
+	fragment file which adds entries to the PlugIn menu of the Source
+	Window to activate custom plug-in windows.
+	* library/plugins/pkgIndex.tcl: New file.  Sample version of a file
+	with package information for the installed plug-ins.
+	* library/plugins/rhabout.tcl: New file. Sample file providing a
+	plug-in package.
+	* library/plugins/rhabout: New directory.  Sample plug-in.
+	* library/plugins/rhabout/rhabout.itcl: New file.  Sample class
+	implementing a plug-in window.
+	* library/plugins/rhabout/tclIndex: New file.  Tcl index for the sample
+	plug-in implementation.
+
+2001-01-28  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/main.tcl: Add plugin subdirectory, if existent, to auto_path.
+	* library/srcbar.itcl (create_plugin_menu): New method.  Create a pull
+	down menu for plugins if there are any for this target configuration.
+	(create_menu_items): Invoke the new method above.
+
+2001-01-28  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl (menubar_new_menu): Save lable of a menu to
+	use as index.
+	(menubar_delete_menu): New function.  Delete a menu.
+
+2001-01-28  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl (menu_list): Add missing declararion for
+	global variable.
+
+2001-01-28  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl (set_class_state): Turn off verbose debug
+	messages.
+	* library/gdbtoolbar.itcl (set_class_state): Ditto.
+
+2001-01-26  Fernando Nasser  <fnasser@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_clear_file): Call exec_file_clear() and
+	symbol_file_clear() instead of exec_file_command() and
+	symbol_file_command().
+	(gdb_find_file_command): Return the proper error text.
+
+2001-01-25  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/srcbar.itcl: New file. Implement SrcBar, a menu and toolbar
+	for the Source Window (code previously in srcmenubar.itcl and
+	srctoolbar.itcl).
+	* library/srcmenubar.itcl: Remove obsolete file.
+	* library/srctoolbar.itcl: Remove obsolete file.
+	* library/srcbar.tcl: Remove obsolete file.
+	* library/gdbmenubar.itcl (menubar_show): New method. Associate the
+	menu with the toplevel window.
+        * library/srcwin.itb (_build_win): Use SrcBar.
+	* library/tclIndex: Regenerate.
+
+2001-01-24  Fernando Nasser  <fnasser@redhat.com>
+
+	From  Martin Hunt  <hunt@cygnus.com>
+	* generic/gdbtk-cmds.c (gdb_set_bp_addr, gdb_set_bp): Change
+	strsave() to xstrdup().
+
+2001-01-24  Fernando Nasser  <fnasser@redhat.com>
+
+	From  Martin Hunt  <hunt@cygnus.com>
+	* generic/gdbtk-cmds.c (gdbtk_dis_asm_read_memory): Fix call
+	to xfer_memory().
+
+2001-01-19  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/prefs.tcl (pref_set_defaults): Set default value of
+	gdb/src/top_control to place the source window controls at the top.
+
+2001-01-18  Fernando Nasser  <fnasser@redhat.com>
+
+        * library/srctextwin.itb (_highlightAsmLine): Add missing FUNCNAME
+	parameter.
+        (FillAssembly, FillMixed): Pass the FUNCNAME parameter that is
+        needed by the above method.
+        * library/srctextwin.ith (_highlightAsmLine): Add FUNCNAME parameter
+	to method definition.
+
+2001-01-17  Fernando Nasser  <fnasser@redhat.com>
+
+        * library/srctextwin.itb (_highlightAsmLine): Add missing FILENAME
+	parameter.
+        (FillAssembly, FillMixed): Pass the FILENAME parameter that is
+        needed by the above method.
+        * library/srctextwin.ith (_highlightAsmLine): Add FILENAME parameter
+	to method definition.
+
+2001-01-15  Fernando Nasser  <fnasser@redhat.com>
+
+	* srcwin.itb (clear_file): Pass the appropriate value to the GO 
+	argument of mode() so it does not try to read a source file when
+	no executable is loaded.
+
+2001-01-09  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/srcmenubar.itcl (create_file_menu): Add missing incr for
+	session numbers.
+
+2001-01-04  Fernando Nasser  <fnasser@redhat.com>
+
+	The following changes fix the problem of having to click on a splash
+	window to make it disapear.
+	* modal.tcl (post): Take as an argument "expire", the time a modal
+	window is displayed.
+	* managedwin.itb (open): Check for an "expire" argument and pass the
+	value down to modal post method.
+
+2001-01-04  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl (set_class_state): New public method.
+	Standard method to control state by class.
+	(menubar_menu_class_find): Delete public accessor method.
+	(menubar_change_menu_state): Change the state of a menu item
+	not of a whole class list.
+	* library/srcmenubar.itcl (enable_ui): Use set_class_state instead
+	of prying into base class internal data.
+        * library/gdbtoolbar.itcl (set_class_state): New public method.
+        Standard method to control state by class.
+        (toolbar_button_class_find): Delete public accessor method.
+	* library/srctoolbar.itcl (enable_ui): Use set_class_state instead
+	of prying into base class internal data.
+
+2001-01-04  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/interface.tcl (gdbtk_connect): New proc. Connects to ai
+	 remote target (code previously at library/gdbmenubar.itcl).
+	(disconnect): Rename to...
+	(gdbtk_disconnect): New name for proc disconnect.
+	* library/srcmenubar.itcl (do_connect): Remove the code mentioned
+	above and call the new interface proc gdbtk_connect.
+	Also, call ::update idletasks after changing the state of the
+	menu entries.
+	(do_detach): Call gdbtk_disconnect, not ::disconnect (old name).
+	(do_disconnect): Call gdbtk_disconnect, not disconnect (old name).
+
+2001-01-03  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/prefs.tcl (pref_set_defaults): Define gdb/src/top_control
+	to allow the source window controls to be placed at the top.
+	* library/srcwin.itb (_build_win): Test for gdb/src/top_control
+	and place the controls accordingly.
+
+2001-01-02  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/gdbmenubar.itcl: New file. Define the GDBMenuBar class,
+	a generic menubar building facility for Insight windows (WIP).
+	* library/gdbtoolbar.itcl: New file. Define the GDBToolBar class,
+	a generic toolbar building facility for Insight windows (WIP).
+	* library/srcmenubar.itcl: New file. Define the SrcMenuBar class,
+	which implements the Source Window menubar (inherits GDBMenuBar).
+	* library/srctoolbar.itcl: New file. Define the SrcToolBar class,
+	which implements the Source Window toolbar (inherits GDBToolBar).
+	* library/srcwin.itb (_build_win): Use SrcMenuBar and SrcToolBar
+	instead of the obsolete GDBSrcBar.
+	* library/srcbar.tcl: Mark as OBSOLETE.
+	* library/toolbar.tcl: Mark as OBSOLETE. Rename class GDBToolBar
+	to avoid conflict with new class with the same name.
+	* library/Makefile (TCL): Include .itcl files.
+	* library/tclIndex: Regenerate.
+
+2001-01-02  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/srcwin.itb (_build_win): If gdb is running a program, load
+	the window with source for that location (if available).
+	(download_progress): Calls to "update" must refer to the global
+	namespace.
+
+2001-01-02  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/interface.tcl (gdbtk_quit_check): Save session whenever
+	possible.
+
+2001-01-01  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/ChangeLog-2000: New file. Entries dated 2000 moved here
+        from library/ChangeLog.
+        * library/ChangeLog: Removed. 
+        * generic/ChangeLog-2000: New file. Entries dated 2000 moved here
+        from library/ChangeLog.
+        * generic/ChangeLog: Removed.
+
+2000-12-14  Fernando Nasser  <fnasser@redhat.com>
+
+	* library/ChangeLog-1999: New file. Entries dated 1999 moved here
+	from library/ChangeLog.
+	* library/ChangeLog-1998: New file.  Similar change for 1998.
+	* library/ChangeLog-1997: New file.  Similar change for 1997.
+	* library/ChangeLog: Removed entries previous to 2000.
+	* generic/ChangeLog-1999: New file. Entries dated 1999 moved here
+	from library/ChangeLog.
+	* generic/ChangeLog-1998: New file.  Similar change for 1998.
+	* generic/ChangeLog-1997: New file.  Similar change for 1997.
+	* generic/ChangeLog: Removed entries previous to 2000.
+
+2000-04-17  Jonathan Larmour  <jlarmour@redhat.co.uk>
+
+	* ChangeLog-gdbtk: Renamed to ChangeLog
+	* ChangeLog: New file
+	* README.GDBTK: No need for changelog-default-name hint for Emacs now
+
+Sat Feb  5 00:14:30 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdb.rc, gdbtool.ico, README.GDBTK: To here from top level GDB
+ 	directory.
+	* gdb/gdbtcl2: Directory moved to gdbtk/library.
+	* gdb/gdbtk/generic: New directory.
+	

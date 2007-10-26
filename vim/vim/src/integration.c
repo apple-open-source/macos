@@ -25,7 +25,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <fcntl.h>
 
 #ifdef INET_SOCKETS
@@ -182,7 +181,8 @@ messageFromEserve(XtPointer clientData, int *NOTUSED1, XtInputId *NOTUSED2)
 			char buf[20];
 
 			ackNum = atoi(&cmd[4]);
-			sprintf(buf, NOCATGETS("ack %d\n"), ackNum);
+			vim_snprintf(buf, sizeof(buf),
+					       NOCATGETS("ack %d\n"), ackNum);
 			write(sd, buf, strlen(buf));
 		} else if (strncmp(cmd,
 		    NOCATGETS("addMarkType "), 12) == 0) {
@@ -277,7 +277,8 @@ messageFromEserve(XtPointer clientData, int *NOTUSED1, XtInputId *NOTUSED2)
 			file  = strtok(&cmd[12], " ");
 			markid = atoi(strtok(NULL, " "));
 			line = workshop_get_mark_lineno(file, markid);
-			sprintf(buf, NOCATGETS("markLine %s %d %d\n"),
+			vim_snprintf(buf, sizeof(buf),
+					     NOCATGETS("markLine %s %d %d\n"),
 			    file, markid, line);
 			write(sd, buf, strlen(buf));
 		} else if (cmd[1] == 'o' && cmd[4] == 'L' &&
@@ -302,29 +303,34 @@ messageFromEserve(XtPointer clientData, int *NOTUSED1, XtInputId *NOTUSED2)
 		} else if (strcmp(cmd, NOCATGETS("getCurrentFile")) == 0) {
 			char *f = workshop_test_getcurrentfile();
 			char buffer[2*MAXPATHLEN];
-			sprintf(buffer, NOCATGETS("currentFile %d %s"),
+			vim_snprintf(buffer, sizeof(buffer),
+					NOCATGETS("currentFile %d %s"),
 				f ? strlen(f) : 0, f ? f : "");
 			workshop_send_message(buffer);
 		} else if (strcmp(cmd, NOCATGETS("getCursorRow")) == 0) {
 			int row = workshop_test_getcursorrow();
 			char buffer[2*MAXPATHLEN];
-			sprintf(buffer, NOCATGETS("cursorRow %d"), row);
+			vim_snprintf(buffer, sizeof(buffer),
+					NOCATGETS("cursorRow %d"), row);
 			workshop_send_message(buffer);
 		} else if (strcmp(cmd, NOCATGETS("getCursorCol")) == 0) {
 			int col = workshop_test_getcursorcol();
 			char buffer[2*MAXPATHLEN];
-			sprintf(buffer, NOCATGETS("cursorCol %d"), col);
+			vim_snprintf(buffer, sizeof(buffer),
+					NOCATGETS("cursorCol %d"), col);
 			workshop_send_message(buffer);
 		} else if (strcmp(cmd, NOCATGETS("getCursorRowText")) == 0) {
 			char *t = workshop_test_getcursorrowtext();
 			char buffer[2*MAXPATHLEN];
-			sprintf(buffer, NOCATGETS("cursorRowText %d %s"),
+			vim_snprintf(buffer, sizeof(buffer),
+					NOCATGETS("cursorRowText %d %s"),
 				t ? strlen(t) : 0, t ? t : "");
 			workshop_send_message(buffer);
 		} else if (strcmp(cmd, NOCATGETS("getSelectedText")) == 0) {
 			char *t = workshop_test_getselectedtext();
 			char buffer[2*MAXPATHLEN];
-			sprintf(buffer, NOCATGETS("selectedText %d %s"),
+			vim_snprintf(buffer, sizeof(buffer),
+					NOCATGETS("selectedText %d %s"),
 				t ? strlen(t) : 0, t ? t : "");
 			workshop_send_message(buffer);
 #endif
@@ -648,7 +654,7 @@ void	workshop_connect(XtAppContext context)
 	port = atoi(address);
 
 	if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-		perror(NOCATGETS("workshop_connect"));
+		PERROR(NOCATGETS("workshop_connect"));
 		return;
 	}
 
@@ -658,14 +664,14 @@ void	workshop_connect(XtAppContext context)
 	server.sin_family = AF_INET;
 	server.sin_port = port;
 	if ((host = gethostbyname(NOCATGETS("localhost"))) == NULL) {
-		perror(NOCATGETS("gethostbyname"));
+		PERROR(NOCATGETS("gethostbyname"));
 		sd = -1;
 		return;
 	}
 	memcpy((char *)&server.sin_addr, host->h_addr, host->h_length);
 #else
 	if ((sd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		perror(NOCATGETS("workshop_connect"));
+		PERROR(NOCATGETS("workshop_connect"));
 		return;
 	}
 
@@ -678,23 +684,23 @@ void	workshop_connect(XtAppContext context)
 			close(sd);
 #ifdef INET_SOCKETS
 			if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-				perror(NOCATGETS("workshop_connect"));
+				PERROR(NOCATGETS("workshop_connect"));
 				return;
 			}
 #else
 			if ((sd = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-				perror(NOCATGETS("workshop_connect"));
+				PERROR(NOCATGETS("workshop_connect"));
 				return;
 			}
 #endif
 			if (connect(sd, (struct sockaddr *)&server,
 						sizeof(server))) {
-				perror(NOCATGETS("workshop_connect"));
+				PERROR(NOCATGETS("workshop_connect"));
 				return;
 			}
 
 		} else {
-			perror(NOCATGETS("workshop_connect"));
+			PERROR(NOCATGETS("workshop_connect"));
 			return;
 		}
 	}
@@ -709,7 +715,7 @@ void	workshop_connect(XtAppContext context)
 		char buf[BUFSIZ];
 
 		unlink(file);
-		sprintf(buf, "date > %s", file);
+		vim_snprintf(buf, sizeof(buf), "date > %s", file);
 		system(buf);
 		dfd = fopen(file, "a");
 	} else {
@@ -717,13 +723,13 @@ void	workshop_connect(XtAppContext context)
 	}
 #endif
 
-	sprintf(buf, NOCATGETS("connected %s %s %s\n"),
+	vim_snprintf(buf, sizeof(buf), NOCATGETS("connected %s %s %s\n"),
 		workshop_get_editor_name(),
 		PROTOCOL_VERSION,
 		workshop_get_editor_version());
 	write(sd, buf, strlen(buf));
 
-	sprintf(buf, NOCATGETS("ack 1\n"));
+	vim_snprintf(buf, sizeof(buf), NOCATGETS("ack 1\n"));
 	write(sd, buf, strlen(buf));
 }
 
@@ -890,48 +896,6 @@ void workshop_maximize_shell(Widget shell)
 	}
 }
 
-/*
- *	This function fills in the XRectangle object with the current
- *	x,y coordinates and height, width so that an XtVaSetValues to
- *	the same shell of those resources will restore the window to its
- *	formar position and dimensions.
- *
- *	Note: This function may fail, in which case the XRectangle will
- *	be unchanged.  Be sure to have the XRectangle set with the
- *	proper values for a failed condition prior to calling this
- *	function.
- *
- * THIS FUNCTION IS LIFTED FROM libutil/src/Session.cc
- */
-void	shellRectangle(Widget shell, XRectangle *r)
-{
-	Window		rootw, shellw, child, parentw;
-	int		absx, absy;
-	XWindowAttributes	a;
-	Window		*children;
-	unsigned int	childrenCount;
-
-	shellw = XtWindow(shell);
-	if (shellw == 0)
-		return;
-	for (;;){
-		XQueryTree(XtDisplay(shell), shellw, &rootw, &parentw,
-					&children, &childrenCount);
-		XFree(children);
-		if (parentw == rootw)
-			break;
-		shellw = parentw;
-	}
-	XGetWindowAttributes(XtDisplay(shell), shellw, &a);
-	XTranslateCoordinates(XtDisplay(shell), shellw, a.root, 0, 0,
-				&absx, &absy, &child);
-	r->x = absx;
-	r->y = absy;
-	XtVaGetValues(shell, XmNheight, &r->height,
-				XmNwidth, &r->width,
-				NULL);
-}
-
 
 Boolean workshop_get_width_height(int *width, int *height)
 {
@@ -1089,21 +1053,24 @@ void workshop_set_option_first(char *name, char *value)
 void workshop_file_closed(char *filename)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("deletedFile %s\n"), filename);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("deletedFile %s\n"), filename);
 	write(sd, buffer, strlen(buffer));
 }
 
 void workshop_file_closed_lineno(char *filename, int lineno)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("deletedFile %s %d\n"), filename, lineno);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("deletedFile %s %d\n"), filename, lineno);
 	write(sd, buffer, strlen(buffer));
 }
 
 void workshop_file_opened(char *filename, int readOnly)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("loadedFile %s %d\n"), filename, readOnly);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("loadedFile %s %d\n"), filename, readOnly);
 	write(sd, buffer, strlen(buffer));
 }
 
@@ -1111,7 +1078,8 @@ void workshop_file_opened(char *filename, int readOnly)
 void workshop_file_saved(char *filename)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("savedFile %s\n"), filename);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("savedFile %s\n"), filename);
 	write(sd, buffer, strlen(buffer));
 
 	/* Let editor report any moved marks that the eserve client
@@ -1122,14 +1090,16 @@ void workshop_file_saved(char *filename)
 void workshop_move_mark(char *filename, int markId, int newLineno)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("moveMark %s %d %d\n"), filename, markId, newLineno);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("moveMark %s %d %d\n"), filename, markId, newLineno);
 	write(sd, buffer, strlen(buffer));
 }
 
 void workshop_file_modified(char *filename)
 {
 	char buffer[2*MAXPATHLEN];
-	sprintf(buffer, NOCATGETS("modifiedFile %s\n"), filename);
+	vim_snprintf(buffer, sizeof(buffer),
+			NOCATGETS("modifiedFile %s\n"), filename);
 	write(sd, buffer, strlen(buffer));
 }
 
@@ -1139,7 +1109,8 @@ void workshop_frame_moved(int new_x, int new_y, int new_w, int new_h)
 
 	if (sd >= 0)
 	{
-		sprintf(buffer, NOCATGETS("frameAt %d %d %d %d\n"),
+		vim_snprintf(buffer, sizeof(buffer),
+				NOCATGETS("frameAt %d %d %d %d\n"),
 				new_x, new_y, new_w, new_h);
 		write(sd, buffer, strlen(buffer));
 	}
@@ -1192,7 +1163,8 @@ void workshop_perform_verb(char *verb, void *clientData)
 			}
 		}
 
-		sprintf(buf, NOCATGETS("toolVerb %s %s %d,%d %d,%d %d,%d %d %s\n"),
+		vim_snprintf(buf, sizeof(buf),
+			NOCATGETS("toolVerb %s %s %d,%d %d,%d %d,%d %d %s\n"),
 			verb,
 			filename,
 			curLine, curCol,

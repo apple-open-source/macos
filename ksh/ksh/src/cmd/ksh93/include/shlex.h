@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef NOTSYM
 /*
@@ -48,6 +44,7 @@ struct shlex_t
 	char		assignok;	/* on when name=value is legal */
 	int		inlineno;	/* saved value of sh.inlineno */
 	int		firstline;	/* saved value of sh.st.firstline */
+	int		comsub;		/* parsing command substitution */
 #if SHOPT_KIA
 	Sfio_t		*kiafile;	/* kia output file */
 	Sfio_t		*kiatmp;	/* kia reference file */
@@ -98,6 +95,9 @@ struct shlex_t
 #define SYMLPAR		020000	/* trailing LPAREN */
 #define SYMAMP		040000	/* trailing '&' */
 #define SYMGT		0100000	/* trailing '>' */
+#define SYMSEMI		0110000	/* trailing ';' */
+#define SYMSHARP	0120000	/* trailing '#' */
+#define IOSEEKSYM	(SYMSHARP|'<')
 #define IOMOV0SYM	(SYMAMP|'<')
 #define IOMOV1SYM	(SYMAMP|'>')
 #define FALLTHRUSYM	(SYMAMP|';')
@@ -110,6 +110,7 @@ struct shlex_t
 #define TESTUNOP	04001
 #define TESTBINOP	04002
 #define LABLSYM		04003
+#define IOVNAME		04004
 
 /* additional parser flag, others in <shell.h> */
 #define SH_EMPTY	04
@@ -117,6 +118,9 @@ struct shlex_t
 #define	SH_ASSIGN	020
 #define	SH_FUNDEF	040
 #define SH_ARRAY	0100
+#define SH_SEMI		0200	/* semi-colon after NL ok */
+
+#define SH_COMPASSIGN	010	/* allow compound assignments only */
 
 typedef struct  _shlex_
 {

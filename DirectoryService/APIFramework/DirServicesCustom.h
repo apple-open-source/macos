@@ -29,7 +29,7 @@
 #ifndef __DirServicesCustom_h__
 #define __DirServicesCustom_h__	1
 
-#include "DirServicesTypes.h"
+#include <DirectoryService/DirServicesTypes.h>
 
 #ifdef __cplusplus
 extern "C" {

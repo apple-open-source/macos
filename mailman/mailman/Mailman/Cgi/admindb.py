@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Produce and process the pending-approval items for a list."""
 
@@ -179,7 +180,7 @@ def main():
         admindburl = mlist.GetScriptURL('admindb', absolute=1)
         form = Form(admindburl)
         # Add the instructions template
-        if details:
+        if details == 'instructions':
             doc.AddItem(Header(
                 2, _('Detailed instructions for the administrative database')))
         else:
@@ -187,13 +188,14 @@ def main():
                 2,
                 _('Administrative requests for mailing list:')
                 + ' <em>%s</em>' % mlist.real_name))
-        if not details:
+        if details <> 'instructions':
             form.AddItem(Center(SubmitButton('submit', _('Submit All Data'))))
-        form.AddItem(Center(
-            CheckBox('discardalldefersp', 0).Format() +
-            '&nbsp;' +
-            _('Discard all messages marked <em>Defer</em>')
-            ))
+        if not (sender or msgid):
+            form.AddItem(Center(
+                CheckBox('discardalldefersp', 0).Format() +
+                '&nbsp;' +
+                _('Discard all messages marked <em>Defer</em>')
+                ))
         # Add a link back to the overview, if we're not viewing the overview!
         adminurl = mlist.GetScriptURL('admin', absolute=1)
         d = {'listname'  : mlist.real_name,
@@ -236,11 +238,12 @@ def main():
         if addform:
             doc.AddItem(form)
             form.AddItem('<hr>')
-            form.AddItem(Center(
-                CheckBox('discardalldefersp', 0).Format() +
-                '&nbsp;' +
-                _('Discard all messages marked <em>Defer</em>')
-                ))
+            if not (sender or msgid):
+                form.AddItem(Center(
+                    CheckBox('discardalldefersp', 0).Format() +
+                    '&nbsp;' +
+                    _('Discard all messages marked <em>Defer</em>')
+                    ))
             form.AddItem(Center(SubmitButton('submit', _('Submit All Data'))))
         doc.AddItem(mlist.GetMailmanFooter())
         print doc.Format()
@@ -310,7 +313,7 @@ def show_pending_subs(mlist, form):
                      '&nbsp;' + _('Permanently ban from this list')
         # While the address may be a unicode, it must be ascii
         paddr = addr.encode('us-ascii', 'replace')
-        table.AddRow(['%s<br><em>%s</em>' % (paddr, fullname),
+        table.AddRow(['%s<br><em>%s</em>' % (paddr, Utils.websafe(fullname)),
                       radio,
                       TextBox('comment-%d' % id, size=40)
                       ])
@@ -354,7 +357,7 @@ def show_pending_unsubs(mlist, form):
             mlist.HandleRequest(id, mm_cfg.DISCARD)
             continue
         num += 1
-        table.AddRow(['%s<br><em>%s</em>' % (addr, fullname),
+        table.AddRow(['%s<br><em>%s</em>' % (addr, Utils.websafe(fullname)),
                       RadioButtonArray(id, (_('Defer'),
                                             _('Approve'),
                                             _('Reject'),
@@ -609,7 +612,7 @@ def show_post_requests(mlist, id, info, total, count, form):
     if mcset <> lcset:
         try:
             body = unicode(body, mcset).encode(lcset)
-        except (LookupError, UnicodeError):
+        except (LookupError, UnicodeError, ValueError):
             pass
     hdrtxt = NL.join(['%s: %s' % (k, v) for k, v in msg.items()])
     hdrtxt = Utils.websafe(hdrtxt)
@@ -686,9 +689,9 @@ def process_form(mlist, doc, cgidata):
                 senderactions.setdefault(sender, {})[action] = value
     # discard-all-defers
     try:
-	discardalldefersp = cgidata.getvalue('discardalldefersp', 0)
+        discardalldefersp = cgidata.getvalue('discardalldefersp', 0)
     except ValueError:
-	discardalldefersp = 0
+        discardalldefersp = 0
     for sender in senderactions.keys():
         actions = senderactions[sender]
         # Handle what to do about all this sender's held messages
@@ -696,8 +699,8 @@ def process_form(mlist, doc, cgidata):
             action = int(actions.get('senderaction', mm_cfg.DEFER))
         except ValueError:
             action = mm_cfg.DEFER
-	if action == mm_cfg.DEFER and discardalldefersp:
-	    action = mm_cfg.DISCARD
+        if action == mm_cfg.DEFER and discardalldefersp:
+            action = mm_cfg.DISCARD
         if action in (mm_cfg.DEFER, mm_cfg.APPROVE,
                       mm_cfg.REJECT, mm_cfg.DISCARD):
             preserve = actions.get('senderpreserve', 0)
@@ -743,6 +746,7 @@ def process_form(mlist, doc, cgidata):
             if sender not in mlist.ban_list:
                 mlist.ban_list.append(sender)
     # Now, do message specific actions
+    banaddrs = []
     erroraddrs = []
     for k in cgidata.keys():
         formv = cgidata[k]
@@ -792,8 +796,14 @@ def process_form(mlist, doc, cgidata):
             continue
         except Errors.MMAlreadyAMember, v:
             erroraddrs.append(v)
+        except Errors.MembershipIsBanned, pattern:
+            sender = mlist.GetRecord(request_id)[1]
+            banaddrs.append((sender, pattern))
     # save the list and print the results
     doc.AddItem(Header(2, _('Database Updated...')))
     if erroraddrs:
         for addr in erroraddrs:
             doc.AddItem(`addr` + _(' is already a member') + '<br>')
+    if banaddrs:
+        for addr, patt in banaddrs:
+            doc.AddItem(_('%(addr)s is banned (matched: %(patt)s)') + '<br>')

@@ -1,6 +1,0 @@
-#else /* _NO_PROTO */
-
-#if defined(__cplusplus) || defined(c_plusplus)
-extern "C" {
-#endif
-

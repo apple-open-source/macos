@@ -27,168 +27,72 @@
  */
 
 #import "Utilities.h"
-#import "CacheCollection.h"
-#import "Credential.h"
-#import "LifetimeFormatter.h"
+#import "KerberosCacheCollection.h"
+#import "KerberosCache.h"
 
-#define kItalicObliqueness       0.3
+#define kItalicObliqueness 0.3
 
 @implementation Utilities
 
 // ---------------------------------------------------------------------------
 
-+ (NSString *) stringForCCVersion: (cc_uint32) version
++ (NSAttributedString *) attributedStringForControlType: (UtilitiesControlType) type
+                                                 string: (NSString *) string
+                                              alignment: (UtilitiesStringAlignment) alignment
+                                                   bold: (BOOL) isBold
+                                                 italic: (BOOL) isItalic
+                                                    red: (BOOL) isRed
 {
-    NSString *key = @"KAppStringCredentialsVersionNone";
-    
-    if (version == cc_credentials_v5) {
-        key = @"KAppStringCredentialsVersionV5";
-    } else if (version == cc_credentials_v4) {
-        key = @"KAppStringCredentialsVersionV4";        
-    } else if (version == cc_credentials_v4_v5) {
-        key = @"KAppStringCredentialsVersionV4V5";        
+    NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
+
+    if (alignment != kUtilitiesNoStringAlignment) {
+        NSMutableParagraphStyle *style = [[NSParagraphStyle defaultParagraphStyle] mutableCopy];
+        [style setAlignment: (alignment == kUtilitiesLeftStringAlignment ?
+                              NSLeftTextAlignment : NSRightTextAlignment)];
+        [style setLineBreakMode: (alignment == kUtilitiesLeftStringAlignment ?
+                                  NSLineBreakByTruncatingTail : NSLineBreakByTruncatingHead)];
+        [attributes setObject: style forKey: NSParagraphStyleAttributeName];
+        [style release];
     }
     
-    return NSLocalizedString (key, NULL);
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSString *) stringForCredentialState: (int) state format: (int) format
-{
-    NSMutableString *string = [NSMutableString string];
-    
-    if (state == CredentialValid) {
-        [string setString: NSLocalizedString (@"KAppStringValid", NULL)];
-    } else {
-        NSString *key = (state & CredentialExpired) ? @"KAppStringExpired" : @"KAppStringNotValid";
-        [string setString: NSLocalizedString (key, NULL)];
-        
-        if (format == kLongFormat) {
-            NSString *longStateString = NULL;
-            
-            if (state & CredentialBeforeStartTime) {
-                longStateString = NSLocalizedString (@"KAppStringBeforeStartTime", NULL);
-            } else if (state & CredentialNeedsValidation) {
-                longStateString = NSLocalizedString (@"KAppStringNeedsValidation", NULL);            
-            } else if (state & CredentialBadAddress) {
-                longStateString = NSLocalizedString (@"KAppStringBadAddress", NULL);                            
-            }
-            
-            if (longStateString != NULL) {
-                NSString *longStateFormat = NSLocalizedString (@"KAppStringLongStateFormat", NULL);
-                [string appendFormat: longStateFormat, longStateString];
-            }
+    NSFont *font = NULL;
+    if (type == kUtilitiesTableCellControlType) {
+        font = [NSFont systemFontOfSize: 12];
+    } else if (type == kUtilitiesSmallTableCellControlType) {
+        font = [NSFont systemFontOfSize: 11];
+    } else if (type == kUtilitiesMenuItemControlType) {
+        font = [NSFont menuFontOfSize: 0];
+    } else if (type == kUtilitiesPopupMenuItemControlType) {
+        font = [NSFont menuFontOfSize: 11];
+    }
+    if (font) {
+        if (isBold) {
+            font = [[NSFontManager sharedFontManager] convertFont: font
+                                                      toHaveTrait: NSBoldFontMask];
         }
+        [attributes setObject: font forKey: NSFontAttributeName];
     }
     
-    return [NSString stringWithString: string];
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSString *) stringForTimeRemaining: (cc_time_t) timeRemaining state: (int) state format: (int) format
-{
-    if (state == CredentialValid) {
-        LifetimeFormatter *lifetimeFormatter = [[LifetimeFormatter alloc] initWithDisplaySeconds: NO
-                                                                                     shortFormat: (format == kShortFormat)];
-        NSString *string = [lifetimeFormatter stringForLifetime: timeRemaining];
-        [lifetimeFormatter release];
-
-        return string;
-    } else {
-        return [Utilities stringForCredentialState: state format: format];
+    
+    if (isItalic) {
+        // Most of the system fonts don't have an italic version
+        [attributes setObject: [NSNumber numberWithFloat: kItalicObliqueness]
+                       forKey: NSObliquenessAttributeName];
     }
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSDictionary *) attributesForInfoWindowWithTicketState: (int) state
-{
-    if (state == CredentialValid) {
-        return [NSDictionary dictionary];
-    } else {
-        return [NSDictionary dictionaryWithObjectsAndKeys: 
-            [NSColor redColor], NSForegroundColorAttributeName, NULL];
+        
+    if (isRed) {
+        [attributes setObject: [NSColor redColor]
+                       forKey: NSForegroundColorAttributeName];
     }
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSDictionary *) attributesForDockIcon
-{
-    NSMutableParagraphStyle *alignment = [[[NSMutableParagraphStyle alloc] init] autorelease];
-    [alignment setParagraphStyle: [NSParagraphStyle defaultParagraphStyle]];
-    [alignment setAlignment: NSLeftTextAlignment];
     
-    return [NSDictionary dictionaryWithObjectsAndKeys: 
-        [NSFont boldSystemFontOfSize: 22], NSFontAttributeName, 
-        alignment, NSParagraphStyleAttributeName, NULL];
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSDictionary *) attributesForMenuItemOfFontSize: (float) fontSize italic: (BOOL) isItalic
-{
-    NSFont *font = [NSFont menuFontOfSize: fontSize];
-    NSNumber *obliqueness = [NSNumber numberWithFloat: isItalic ? kItalicObliqueness : 0.0];
-    
-    return [NSDictionary dictionaryWithObjectsAndKeys: 
-        font, NSFontAttributeName, 
-        obliqueness, NSObliquenessAttributeName, NULL];
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSDictionary *) attributesForTicketColumnCellOfControlSize: (NSControlSize) controlSize 
-                                                         bold: (BOOL) isBold 
-                                                       italic: (BOOL) isItalic
-{
-    float fontSize = (controlSize == NSRegularControlSize) ? 12 : 11;
-    NSFont *font = isBold ? [NSFont boldSystemFontOfSize: fontSize] : [NSFont systemFontOfSize: fontSize];
-
-    NSMutableParagraphStyle *alignment = [[[NSMutableParagraphStyle alloc] init] autorelease];
-    [alignment setParagraphStyle: [NSParagraphStyle defaultParagraphStyle]];
-    [alignment setAlignment: NSLeftTextAlignment];
-    
-    NSNumber *obliqueness = [NSNumber numberWithFloat: isItalic ? kItalicObliqueness : 0.0];
-    
-    return [NSDictionary dictionaryWithObjectsAndKeys: 
-        font, NSFontAttributeName, 
-        alignment, NSParagraphStyleAttributeName,
-        obliqueness, NSObliquenessAttributeName, NULL];
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSDictionary *) attributesForLifetimeColumnCellOfControlSize: (NSControlSize) controlSize
-                                                           bold: (BOOL) isBold 
-                                                          state: (int) state
-                                                  timeRemaining: (cc_time_t) timeRemaining
-{
-    NSColor *color = ((state == CredentialValid) && 
-                      (timeRemaining > kFiveMinutes)) ? [NSColor blackColor] : [NSColor redColor];
-    
-    NSNumber *obliqueness = [NSNumber numberWithFloat: (state == CredentialValid) ? 0.0 : kItalicObliqueness];
-
-    float fontSize = (controlSize == NSRegularControlSize) ? 12 : 11;
-    NSFont *font = isBold ? [NSFont boldSystemFontOfSize: fontSize] : [NSFont systemFontOfSize: fontSize];
-    
-    NSMutableParagraphStyle *alignment = [[[NSMutableParagraphStyle alloc] init] autorelease];
-    [alignment setParagraphStyle: [NSParagraphStyle defaultParagraphStyle]];
-    [alignment setAlignment: NSRightTextAlignment];
-    
-    return [NSDictionary dictionaryWithObjectsAndKeys: 
-        color, NSForegroundColorAttributeName,
-        obliqueness, NSObliquenessAttributeName,
-        font, NSFontAttributeName, 
-        alignment, NSParagraphStyleAttributeName, NULL];
+    return [[[NSAttributedString alloc] initWithString: string
+                                           attributes: attributes] autorelease];
 }
 
 // ---------------------------------------------------------------------------
 
 + (void) synchronizeCacheMenu: (NSMenu *) menu
-                     fontSize: (float) fontSize
+                        popup: (BOOL) isPopupMenu
        staticPrefixItemsCount: (int) staticPrefixItemsCount
                    headerItem: (BOOL) headerItem
             checkDefaultCache: (BOOL) checkDefaultCache
@@ -196,7 +100,7 @@
                      selector: (SEL) selector
                        sender: (id) sender
 {
-    int cacheCount = [[CacheCollection sharedCacheCollection] numberOfCaches];
+    int cacheCount = [[KerberosCacheCollection sharedCacheCollection] numberOfCaches];
     int headerItemCount = (cacheCount <= 0 || headerItem) ? 1 : 0;
     int dynamicItemCount = (cacheCount > 0) ? cacheCount : 0;
     int totalItemCount = staticPrefixItemsCount + headerItemCount + dynamicItemCount;
@@ -220,12 +124,15 @@
 
     if (headerItemCount > 0) {
         NSString *key = (cacheCount > 0) ? @"KAppStringAvailableTickets" : @"KAppStringNoTicketsAvailable" ;
-        NSDictionary *attributes = [Utilities attributesForMenuItemOfFontSize: fontSize italic: NO];
-        NSAttributedString *title = [[[NSAttributedString alloc] initWithString: NSLocalizedString (key, NULL)
-                                                                     attributes: attributes] autorelease];
-        
         NSMenuItem *item = [menu itemAtIndex: headerItemIndex];
-        [item setAttributedTitle: title];
+        [item setAttributedTitle: [Utilities attributedStringForControlType: (isPopupMenu ?
+                                                                              kUtilitiesPopupMenuItemControlType :
+                                                                              kUtilitiesMenuItemControlType)
+                                                                     string: NSLocalizedString (key, NULL)
+                                                                  alignment: kUtilitiesNoStringAlignment
+                                                                       bold: NO
+                                                                     italic: NO
+                                                                        red: NO]];
         [item setEnabled: NO];
         [item setState: NSOffState];
     }
@@ -235,17 +142,22 @@
 
         for (i = firstDynamicItemIndex; i < (firstDynamicItemIndex + dynamicItemCount); i++) {
             NSMenuItem *item = [menu itemAtIndex: i];            
-            Cache *cache = [[CacheCollection sharedCacheCollection] cacheAtIndex: (i - firstDynamicItemIndex)];
-            if (cache != NULL) {
+            KerberosCache *cache = [[KerberosCacheCollection sharedCacheCollection] cacheAtIndex: (i - firstDynamicItemIndex)];
+            if (cache) {
                 BOOL isDefaultCache = [cache isDefault];
                 int itemState = (checkDefaultCache && isDefaultCache) ? NSOnState : NSOffState;
-                NSAttributedString *title = [cache stringValueForMenuWithFontSize: fontSize];
-
                 if (isDefaultCache && (defaultCacheIndex != NULL)) {
                     *defaultCacheIndex = i;  // remember for caller
                 }
                     
-                [item setAttributedTitle: title];
+                [item setAttributedTitle: [Utilities attributedStringForControlType: (isPopupMenu ?
+                                                                                      kUtilitiesPopupMenuItemControlType :
+                                                                                      kUtilitiesMenuItemControlType)
+                                                                             string: [cache principalString]
+                                                                          alignment: kUtilitiesNoStringAlignment
+                                                                               bold: NO
+                                                                             italic: ([cache state] != CredentialValid)
+                                                                                red: NO]];
                 [item setState: itemState];
                 [item setEnabled: YES];
             } else {
@@ -253,70 +165,6 @@
                 [item setEnabled: NO];
             }
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-
-+ (NSString *) stringForErrorCode: (KLStatus) error
-{
-    NSString *string = NULL;
-    char *errorText;
-    
-    if (KLGetErrorString (error, &errorText) == klNoErr) { 
-        string = [NSString stringWithUTF8String: errorText]; 
-        KLDisposeString (errorText);
-    } else {
-        string = [NSString stringWithFormat: NSLocalizedString (@"KAppStringUnknownErrorFormat", NULL), error];
-    }
-    
-    return string;
-}
-
-// ---------------------------------------------------------------------------
-
-+ (void) displayAlertForError: (KLStatus) error 
-                       action: (int) action 
-                       sender: (id) sender
-{
-    NSWindow *parentWindow = NULL;
-    if ([sender isMemberOfClass: [NSWindowController class]]) { parentWindow = [sender window]; }
-    if ([sender isMemberOfClass: [NSWindow class]])           { parentWindow = sender; }
-    
-    NSString *key = @"KAppStringGenericError";
-    
-    switch (action) {
-        case kGetTicketsAction:
-            key = @"KAppStringGetTicketsError";
-            break;
-        case kRenewTicketsAction:
-            key = @"KAppStringRenewTicketsError";
-            break;
-        case kDestroyTicketsAction:
-            key = @"KAppStringDestroyTicketsError";
-            break;
-        case kChangePasswordAction:
-            key = @"KAppStringChangePasswordError";
-            break;
-        case kChangeActiveUserAction:
-            key = @"KAppStringChangeActiveUserError";
-            break;
-    }
-        
-    NSAlert *alert = [[[NSAlert alloc] init] autorelease];
-    [alert addButtonWithTitle: NSLocalizedString (@"KAppStringOK", NULL)];
-    [alert setMessageText: NSLocalizedString (key, NULL)];
-    [alert setInformativeText: [Utilities stringForErrorCode: error]];
-    [alert setAlertStyle: NSWarningAlertStyle];
-    
-    
-    if (parentWindow != NULL) {
-        [alert beginSheetModalForWindow: parentWindow 
-                          modalDelegate: sender 
-                         didEndSelector: @selector(errorSheetDidEnd:returnCode:contextInfo:) 
-                            contextInfo: NULL];
-    } else {
-        [alert runModal];
     }
 }
 

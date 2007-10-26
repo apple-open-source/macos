@@ -1,0 +1,101 @@
+2006-06-02  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/hashtab.c (xpmHashTableInit): 
+	Always initialize atomTable to NULL, so xpmHashTableFree() doesn't
+	try to free a random value from the stack if xpmHashTableInit returns
+	an error.
+
+	* src/create.c (xpmParseDataAndCreate): 
+	Coverity #1432: Returned without freeing storage "hints_cmt"
+	(in error case when xpmHashTableInit failed)
+	
+	* src/parse.c (xpmParseData): 
+	Coverity #1415: Returned without freeing storage "hints_cmt"
+	(in error case when xpmHashTableInit failed)
+	
+2006-04-26  Adam Jackson  <ajax@freedesktop.org>
+
+	* configure.ac:
+	Bump to 3.5.5
+
+2006-03-18  Matthieu Herrb <matthieu.herrb@laas.fr>
+
+	* src/Attrib.c: XpmFreeExtensions
+	doublecheck that a pointer is not NULL before dereferencing it.
+	(Coverity CID 121).
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* cxpm/Makefile.am:
+	* sxpm/Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xpm.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-11-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac:
+	* cxpm/Makefile.am: 
+	* sxpm/Makefile.am: 
+	Use sed to substitute variables in man pages
+	
+2005-11-09  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC2 release.
+
+2005-10-28  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac: 
+	Add --enable-stat-zfile (on by default) to replace Imake's
+	ZFILEDEF = -DSTAT_ZFILE to enable automatically searching
+	for file.xpm.Z & file.xpm.gz when file.xpm is requested.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-05  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* Makefile.am:
+	* src/Makefile.am:
+	Add missing files to EXTRA_DIST
+
+	* cxpm/Makefile.am:
+	* sxpm/Makefile.am:
+	Fix man page installation
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* cxpm/.cvsignore:
+	* src/.cvsignore:
+	* sxpm/.cvsignore:
+	Add .cvsignore files
+
+2005-06-09  Alexander Gottwald  <ago@freedesktop.org>
+
+	* cxpm/Makefile.am: Use $(top_srcdir)/src instead of $(top_builddir)/src
+	in INCLUDES
+
+2005-05-19  Soren Sandmann <ssp@aware-of-vacuity.boston.redhat.com>
+
+	* sxpm/Makefile.am: Add $(top_builddir)/include to INCLUDES
+

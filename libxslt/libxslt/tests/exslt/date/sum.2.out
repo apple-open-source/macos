@@ -2,9 +2,9 @@
 sum    : 
 result : 
 sum    : P1M + -P1D
-result : -P1M1D
+result : 
 sum    : P1M + -P1D + P1D
-result : P1M
+result : 
 sum    : P1M + P1D + -P1D
 result : P1M
 sum    : 

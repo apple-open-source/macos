@@ -1,6 +1,6 @@
---- wcrtomb.3.orig	Fri Mar 11 19:44:47 2005
-+++ wcrtomb.3	Fri Mar 11 19:49:35 2005
-@@ -28,7 +28,8 @@
+--- _SB/Libc/locale/FreeBSD/wcrtomb.3	2004-11-25 11:38:20.000000000 -0800
++++ _SB/Libc/locale/FreeBSD/wcrtomb.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -28,14 +28,28 @@
  .Dt WCRTOMB 3
  .Os
  .Sh NAME
@@ -10,17 +10,51 @@
  .Nd "convert a wide-character code to a character (restartable)"
  .Sh LIBRARY
  .Lb libc
-@@ -36,6 +37,9 @@
+ .Sh SYNOPSIS
  .In wchar.h
  .Ft size_t
- .Fn wcrtomb "char * restrict s" "wchar_t wc" "mbstate_t * restrict ps"
+-.Fn wcrtomb "char * restrict s" "wchar_t wc" "mbstate_t * restrict ps"
++.Fo wcrtomb
++.Fa "char *restrict s"
++.Fa "wchar_t wc"
++.Fa "mbstate_t *restrict ps"
++.Fc
++.In wchar.h
 +.In xlocale.h
 +.Ft size_t
-+.Fn wcrtomb_l "char * restrict s" "wchar_t wc" "mbstate_t * restrict ps" "locale_t loc"
++.Fo wcrtomb_l
++.Fa "char *restrict s"
++.Fa "wchar_t wc"
++.Fa "mbstate_t *restrict ps"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn wcrtomb
-@@ -72,6 +76,14 @@
+@@ -44,10 +58,10 @@
+ .Fa wc ,
+ including any necessary shift sequences, to the
+ character array
+-.Fa s ,
+-storing a maximum of
++.Fa s .
++A maximum of
+ .Dv MB_CUR_MAX
+-bytes.
++bytes will be stored.
+ .Pp
+ If
+ .Fa s
+@@ -58,7 +72,7 @@
+ .Fa s
+ pointed to an internal buffer and
+ .Fa wc
+-was a null wide character (L'\e0').
++were a null wide character (L'\e0').
+ .Pp
+ The
+ .Ft mbstate_t
+@@ -72,6 +86,14 @@
  .Vt mbstate_t
  object, which is initialized to the initial conversion state
  at program startup.
@@ -35,7 +69,7 @@
  .Sh RETURN VALUES
  The
  .Fn wcrtomb
-@@ -97,7 +109,8 @@
+@@ -97,7 +119,8 @@
  .Xr mbrtowc 3 ,
  .Xr multibyte 3 ,
  .Xr setlocale 3 ,

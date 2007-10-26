@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2003 GOTOU Yuuzou All rights reserved.
 # 
-# $Id: ssl.rb,v 1.2 2003/11/01 17:30:40 gotoyuzo Exp $
+# $Id: ssl.rb 11708 2007-02-12 23:01:19Z shyouhei $
 
 require 'webrick'
 require 'openssl'
@@ -14,7 +14,7 @@ module WEBrick
     osslv = ::OpenSSL::OPENSSL_VERSION.split[1]
     SSL = {
       :ServerSoftware       => "#{svrsoft} OpenSSL/#{osslv}",
-      :SSLEnable            => true,
+      :SSLEnable            => false,
       :SSLCertificate       => nil,
       :SSLPrivateKey        => nil,
       :SSLClientCA          => nil,

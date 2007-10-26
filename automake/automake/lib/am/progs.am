@@ -1,5 +1,5 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2001
+## Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2003, 2004, 2006
 ##  Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
@@ -14,8 +14,8 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 
 ## ------------ ##
@@ -23,14 +23,14 @@
 ## ------------ ##
 
 if %?INSTALL%
-_am_installdirs += $(DESTDIR)$(%NDIR%dir)
+am__installdirs += "$(DESTDIR)$(%NDIR%dir)"
 ?BASE?%DIR%PROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 ?!BASE?%DIR%PROGRAMS_INSTALL = $(install_sh_PROGRAM)
 ?EXEC?.PHONY install-exec-am: install-%DIR%PROGRAMS
 ?!EXEC?.PHONY install-data-am: install-%DIR%PROGRAMS
 install-%DIR%PROGRAMS: $(%DIR%_PROGRAMS)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(%NDIR%dir)
+	test -z "$(%NDIR%dir)" || $(MKDIR_P) "$(DESTDIR)$(%NDIR%dir)"
 ## Funny invocation because Makefile variable can be empty, leading to
 ## a syntax error in sh.
 	@list='$(%DIR%_PROGRAMS)'; for p in $$list; do \
@@ -51,10 +51,10 @@ install-%DIR%PROGRAMS: $(%DIR%_PROGRAMS)
 ## Note that we explicitly set the libtool mode.  This avoids any
 ## lossage if the install program doesn't have a name that libtool
 ## expects.
-?LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f"; \
-?LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f; \
-?!LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f"; \
-?!LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f; \
+?LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(%NDIR%dir)/$$f'"; \
+?LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(%DIR%PROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(%NDIR%dir)/$$f" || exit 1; \
+?!LIBTOOL?	   echo " $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(%NDIR%dir)/$$f'"; \
+?!LIBTOOL?	   $(INSTALL_PROGRAM_ENV) $(%DIR%PROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(%NDIR%dir)/$$f" || exit 1; \
 	  else :; fi; \
 	done
 endif %?INSTALL%
@@ -73,8 +73,8 @@ uninstall-%DIR%PROGRAMS:
 	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
 ## Prepend the directory part if nobase_ is used.
 ?!BASE?	  f=`echo "$$p" | sed 's|[^/]*$$||'`"$$f"; \
-	  echo " rm -f $(DESTDIR)$(%NDIR%dir)/$$f"; \
-	  rm -f $(DESTDIR)$(%NDIR%dir)/$$f; \
+	  echo " rm -f '$(DESTDIR)$(%NDIR%dir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(%NDIR%dir)/$$f"; \
 	done
 endif %?INSTALL%
 
@@ -99,3 +99,32 @@ clean-%DIR%PROGRAMS:
 ?LIBTOOL?	  echo " rm -f $$p $$f"; \
 ?LIBTOOL?	  rm -f $$p $$f ; \
 ?LIBTOOL?	done
+
+
+## ---------- ##
+## Checking.  ##
+## ---------- ##
+
+if %?CK-OPTS%
+.PHONY installcheck-am: installcheck-%DIR%PROGRAMS
+installcheck-%DIR%PROGRAMS: $(%DIR%_PROGRAMS)
+	bad=0; pid=$$$$; list="$(%DIR%_PROGRAMS)"; for p in $$list; do \
+	  case ' $(AM_INSTALLCHECK_STD_OPTIONS_EXEMPT) ' in \
+## Match $(srcdir)/$$p in addition to $$p because Sun make might rewrite
+## filenames in AM_INSTALLCHECK_STD_OPTIONS_EXEMPT during VPATH builds.
+	   *" $$p "* | *" $(srcdir)/$$p "*) continue;; \
+	  esac; \
+## Strip the directory and $(EXEEXT) before applying $(transform).
+	  f=`echo "$$p" | \
+	     sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+## Insert the directory back if nobase_ is used.
+?!BASE?	  f=`echo "$$p" | sed 's|[^/]*$$||'`"$$f"; \
+	  for opt in --help --version; do \
+	    if "$(DESTDIR)$(%NDIR%dir)/$$f" $$opt >c$${pid}_.out \
+	         2>c$${pid}_.err </dev/null \
+		 && test -n "`cat c$${pid}_.out`" \
+		 && test -z "`cat c$${pid}_.err`"; then :; \
+	    else echo "$$f does not support $$opt" 1>&2; bad=1; fi; \
+	  done; \
+	done; rm -f c$${pid}_.???; exit $$bad
+endif %?CK-OPTS%

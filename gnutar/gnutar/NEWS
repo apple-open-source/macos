@@ -5,7 +5,74 @@ See the end for copying conditions.
 
 Please send GNU tar bug reports to <bug-tar@gnu.org>
 
+version 1.15.1 - Sergey Poznyakoff, 2004-12-21
 
+This version fixes a bug introduced in 1.15 which caused 
+tar to refuse to extract files from standard input.
+
+
+version 1.15 - Sergey Poznyakoff, 2004-12-20
+
+* Compressed archives are recognised automatically, it is no longer
+necessary to specify -Z, -z, or -j options to read them. Thus, you can
+now run `tar tf archive.tar.gz'.
+
+* When restoring incremental dumps, --one-file-system option
+prevents directory hierarchies residing on different devices
+from being purged.
+
+With the previous versions of tar it was dangerous to create
+incremental dumps with --one-file-system option, since they
+would recursively remove mount points when restoring from the
+back up. This change fixes the bug.
+
+* Renamed --strip-path to --strip-components for consistency with
+the GNU convention.
+
+* Skipping archive members is sped up if the archive media supports
+seeks.
+
+* Restore script starts restoring only if it is given --all (-a) option,
+or some patterns. This is to prevent accidental restores.
+
+* `tar --verify' prints a warning if during archive creation some of
+the file names had their prefixes stripped off.
+
+* New option --exclude-caches instructs tar to exclude cache directories
+automatically on archive creation. Cache directories are those
+containing a standardized tag file, as specified at:
+
+	http://www.brynosaurus.com/cachedir/spec.html	
+
+* New configure option --with-rmt allows to specify full path name to
+the `rmt' utility. This supercedes DEFAULT_RMT_COMMAND variable
+introduced in version 1.14
+
+* New configure variable DEFAULT_RMT_DIR allows to specify the directory
+where to install `rmt' utility. This is necessary since modifying
+--libexecdir as was suggested for version 1.14 produced a side effect: it
+also modified installation prefix for backup scripts (if
+--enable-backup-scripts was given).
+
+* Bugfixes:
+** Fixed flow in recognizing files to be included in incremental dumps.
+** Correctly recognize sparse archive members when used with -T option.
+** GNU multivolume headers cannot store filenames longer than 100 characters.
+Do not allow multivolume archives to begin with such filenames.
+** If a member with link count > 2 was stored in the archive twice,
+previous versions of tar were not able to extract it, since they
+were trying to link the file to itself, which always failed and
+lead to removing the already extracted copy. Preserve the first
+extracted copy in such cases.
+** Restore script was passing improper argument to tar --listed option (which
+didn't affect the functionality, but was logically incorrect).
+** Fixed verification of created archives. 
+** Fixed unquoting of file names containing backslash escapes (previous
+versions failed to recognize \a and \v).
+** When attempting to delete a non-existing member from the archive, previous
+versions of tar used to overwrite last archive block with zeroes.
+  
+
 version 1.14 - Sergey Poznyakoff, 2004-05-11
 
 * Added support for POSIX.1-2001 and ustar archive formats.
@@ -81,28 +148,34 @@ tar.
 
 * Bug fixes.
 
+
 version 1.13.25 - Paul Eggert, 2001-09-26
 
 * Bug fixes.
 
+
 version 1.13.24 - Paul Eggert, 2001-09-22
 
 * New option --overwrite-dir.
 * Fixes for buffer overrun, porting, and copyright notice problems.
 * The message translations for Korean are available again.
 
+
 version 1.13.23 - Paul Eggert, 2001-09-13
 
 * Bug, porting, and copyright notice fixes.
 
+
 version 1.13.22 - Paul Eggert, 2001-08-29
 
 * Bug fixes.
 
+
 version 1.13.21 - Paul Eggert, 2001-08-28
 
 * Porting and copyright notice fixes.
 
+
 version 1.13.20 - Paul Eggert, 2001-08-27
 
 * Some bugs were fixed:
@@ -129,6 +202,7 @@ version 1.13.20 - Paul Eggert, 2001-08-27
   The translation for Korean has been withdrawn due to encoding errors.
   It will be reissued once those are fixed.
 
+  
 version 1.13.19 - Paul Eggert, 2001-01-13
 
 * The -I option has been withdrawn, as it was buggy and confusing.
@@ -137,6 +211,7 @@ version 1.13.19 - Paul Eggert, 2001-01-13
 * With an option like -N DATE, if DATE starts with "/" or ".", it is taken
   to be a file name; the last-modified time of that file is used as the date.
 
+  
 version 1.13.18 - Paul Eggert, 2000-10-29
 
 * Some security problems have been fixed.  `tar -x' now modifies only
@@ -167,11 +242,13 @@ version 1.13.18 - Paul Eggert, 2000-10-29
   
 * `tar --delete -f -' now works again.
 
+
 version 1.13.17 - Paul Eggert, 2000-01-07.
 
 * `tar --delete -f -' is no longer allowed; it was too buggy.
 * Diagnostic messages have been made more regular and consistent.
 
+
 version 1.13.16 - Paul Eggert, 1999-12-13.
 
 * By default, tar now refuses to overwrite an existing file when
@@ -215,17 +292,20 @@ version 1.13.16 - Paul Eggert, 1999-12-13.
 * tar now ignores socket files when creating an archive.
   Previously tar archived sockets as fifos, which caused problems.
 
+  
 version 1.13.15 - Paul Eggert, 1999-12-03.
 
 * If a file's ctime changes when being archived, report an error.
   Previously tar looked at mtime, which missed some errors.
 
+  
 version 1.13.14 - Paul Eggert, 1999-11-07.
 
 * New translations ja, pt_BR.
 * New options --help and --version for rmt.
 * Ignore Solaris door files when creating an archive.
 
+
 version 1.13.13 - Paul Eggert, 1999-10-11.
 
 * Invalid headers in tar files now elicit errors, not just warnings.
@@ -233,6 +313,7 @@ version 1.13.13 - Paul Eggert, 1999-10-11.
 * If you specify an invalid date, `tar' now substitutes (time_t) -1.
 * `configure --with-dmalloc' is no longer available.
 
+
 version 1.13.12 - Paul Eggert, 1999-09-24.
 
 * `tar' now supports hard links to symbolic links.
@@ -263,7 +344,7 @@ version 1.13.12 - Paul Eggert, 1999-09-24.
 
 * Some diagnostics have been reworded for consistency.
 
-
+
 version 1.13.11 - Paul Eggert, 1999-08-23.
 
 * The short name of the --bzip option has been changed to -I,
@@ -283,14 +364,14 @@ version 1.13.11 - Paul Eggert, 1999-08-23.
   numeric UTC offsets like `-0500' instead of abbreviations like
   `EST', as abbreviations are not standardized and are ambiguous.
 
-
+
 version 1.13.10 - Paul Eggert, 1999-08-20.
 
 * `tar' now uses signed base-64 when outputting header values that are
   out of the range of the standard unsigned base-8 format.  [This
   change was superseded in 1.13.12, described above.]
 
-
+
 version 1.13.9 - Paul Eggert, 1999-08-18.
 
 * `tar' now writes two zero blocks at end-of-archive instead of just one.
@@ -302,14 +383,14 @@ version 1.13.9 - Paul Eggert, 1999-08-18.
 * `tar' now reads buggy tar files that have a null byte at the start of a
   numeric header field.
 
-
+
 version 1.13.8 - Paul Eggert, 1999-08-16.
 
 * For compatibility with traditional `tar', intermediate directories
   created automatically by root are no longer given the uid and gid of
   the original file or directory.
 
-
+
 version 1.13.7 - Paul Eggert, 1999-08-14.
 
 * --listed-incremental and --newer are now incompatible options.
@@ -319,7 +400,7 @@ version 1.13.7 - Paul Eggert, 1999-08-14.
 
 * --diff without --absolute-names no longer falls back on absolute names.
 
-
+
 version 1.13.6 - Paul Eggert, 1999-08-11.
 
 * An --exclude pattern containing / now excludes a file only if it matches an
@@ -346,30 +427,30 @@ version 1.13.6 - Paul Eggert, 1999-08-11.
 
 * New option -y or --bzip2 for bzip2 compression, by popular request.
 
-
+
 version 1.13.5 - Paul Eggert, 1999-07-20.
 
 * Do the delayed updates of file metadata even after a fatal error.
 
-
+
 version 1.13.4 - Paul Eggert, 1999-07-20.
 
 * Do not chmod unless we are root or the -p option was given;
   this matches historical practice.
 
-
+
 version 1.13.3 - Paul Eggert, 1999-07-16.
 
 * A path name is excluded if any of its file name components matches an
   excluded pattern, even if the path name was specified on the command line.
   Also see 1.13.6 for later changes in this area.
 
-
+
 version 1.13.2 - Paul Eggert, 1999-07-14.
 
 * Bug reporting address changed to <bug-tar@gnu.org>.
 
-
+
 version 1.13.1 - Paul Eggert, 1999-07-12.
 
 * Bug fixes only.

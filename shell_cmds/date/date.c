@@ -1,6 +1,4 @@
-/*	$NetBSD: date.c,v 1.25 1998/07/28 11:41:47 mycroft Exp $	*/
-
-/*
+/*-
  * Copyright (c) 1985, 1987, 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,76 +27,118 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT(
+static char const copyright[] =
 "@(#) Copyright (c) 1985, 1987, 1988, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)date.c	8.2 (Berkeley) 4/28/95";
-#else
-__RCSID("$NetBSD: date.c,v 1.25 1998/07/28 11:41:47 mycroft Exp $");
-#endif
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/date/date.c,v 1.47 2005/01/10 08:39:21 imp Exp $");
 
 #include <sys/param.h>
 #include <sys/time.h>
 
 #include <ctype.h>
 #include <err.h>
-#include <fcntl.h>
+#include <locale.h>
+#ifndef __APPLE__
+#include <libutil.h>
+#endif /* !__APPLE__ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <locale.h>
 #include <syslog.h>
-#include <time.h>
-#include <tzfile.h>
 #include <unistd.h>
-#include <util.h>
+#include <utmpx.h>
 
-#include "get_compat.h"
+#ifdef __APPLE__
+#include <get_compat.h>
+#include <util.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 
 #include "extern.h"
+#include "vary.h"
 
-time_t tval;
-int nflag;
-int retval = 0;
-int  unix2003_std = 0;		/* to determine legacy vs std mode */
+#ifndef	TM_YEAR_BASE
+#define	TM_YEAR_BASE	1900
+#endif
 
-int main __P((int, char *[]));
-static void setthetime __P((const char *));
-static void badformat __P((void));
-static void badtime __P((void));
-static void usage __P((void));
+static time_t tval;
+int retval;
+int unix2003_std = 0;	/* to determine legacy vs std mode */
+
+static void setthetime(const char *, const char *, int, int);
+static void badformat(void);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	extern int optind;
-	extern char *optarg;
+	struct timezone tz;
 	int ch, rflag;
-	char *format, buf[1024];
+	int jflag, nflag;
+	const char *format;
+	char buf[1024];
+	char *endptr, *fmt;
+	char *tmp;
+	int set_timezone;
+	struct vary *v;
+	const struct vary *badv;
+	struct tm lt;
 
-	(void)setlocale(LC_ALL, "");
+	unix2003_std = COMPAT_MODE("bin/date", "unix2003");	/* Determine the STD */
 
+	v = NULL;
+	fmt = NULL;
+	(void) setlocale(LC_TIME, "");
+	tz.tz_dsttime = tz.tz_minuteswest = 0;
 	rflag = 0;
-	while ((ch = getopt(argc, argv, "nr:u")) != -1)
+	jflag = nflag = 0;
+	set_timezone = 0;
+	while ((ch = getopt(argc, argv, "d:f:jnr:t:uv:")) != -1)
 		switch((char)ch) {
+		case 'd':		/* daylight savings time */
+			tz.tz_dsttime = strtol(optarg, &endptr, 10) ? 1 : 0;
+			if (endptr == optarg || *endptr != '\0')
+				usage();
+			set_timezone = 1;
+			break;
+		case 'f':
+			fmt = optarg;
+			break;
+		case 'j':
+			jflag = 1;	/* don't set time */
+			break;
 		case 'n':		/* don't set network */
 			nflag = 1;
 			break;
 		case 'r':		/* user specified seconds */
 			rflag = 1;
-			tval = atol(optarg);
+			tval = strtoq(optarg, &tmp, 0);
+			if (*tmp != 0)
+				usage();
 			break;
-		case 'u':		/* do everything in GMT */
-			(void)setenv("TZ", "GMT0", 1);
+		case 't':		/* minutes west of UTC */
+					/* error check; don't allow "PST" */
+			tz.tz_minuteswest = strtol(optarg, &endptr, 10);
+			if (endptr == optarg || *endptr != '\0')
+				usage();
+			set_timezone = 1;
+			break;
+		case 'u':		/* do everything in UTC */
+			(void)setenv("TZ", "UTC0", 1);
+			break;
+		case 'v':
+			v = vary_append(v, optarg);
 			break;
 		default:
 			usage();
@@ -110,10 +146,17 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
+	/*
+	 * If -d or -t, set the timezone or daylight savings time; this
+	 * doesn't belong here; the kernel should not know about either.
+	 */
+	if (set_timezone && settimeofday((struct timeval *)NULL, &tz))
+		err(1, "settimeofday (timezone)");
+
 	if (!rflag && time(&tval) == -1)
 		err(1, "time");
 
-	format = "%a %b %e %H:%M:%S %Z %Y";
+	format = "%+";
 
 	/* allow the operands in any order */
 	if (*argv && **argv == '+') {
@@ -122,172 +165,171 @@ main(argc, argv)
 	}
 
 	if (*argv) {
-		setthetime(*argv);
+		setthetime(fmt, *argv, jflag, nflag);
 		++argv;
-	}
+	} else if (fmt != NULL)
+		usage();
 
 	if (*argv && **argv == '+')
 		format = *argv + 1;
 
-	(void)strftime(buf, sizeof(buf), format, localtime(&tval));
+	lt = *localtime(&tval);
+	badv = vary_apply(v, &lt);
+	if (badv) {
+		fprintf(stderr, "%s: Cannot apply date adjustment\n",
+			badv->arg);
+		vary_destroy(v);
+		usage();
+	}
+	vary_destroy(v);
+	(void)strftime(buf, sizeof(buf), format, &lt);
 	(void)printf("%s\n", buf);
-
-	/* if date/time could not be set/notified in the other hosts as
-	   determined by netsetval() a return value 2 is set, which is
-	   to be propogated back to shell in the legacy mode.
-	*/
-	if( unix2003_std )
-		exit(0);	/* set/notify time thru NTPD isn't stds */
-	else
-		exit(retval);	/* Propogate the error condition set, if any */
+	if (fflush(stdout))
+		err(1, "stdout");
+	/*
+	 * If date/time could not be set/notified in the other hosts as
+	 * determined by netsetval(), a return value 2 is set, which is
+	 * only propagated back to shell in legacy mode.
+	 */
+	if (unix2003_std)
+		exit(0);
+	exit(retval);
 }
 
 #define	ATOI2(s)	((s) += 2, ((s)[-2] - '0') * 10 + ((s)[-1] - '0'))
+#define	ATOI2_OFFSET(s, o)	(((s)[o] - '0') * 10 + ((s)[o + 1] - '0'))
 
-void
-setthetime(p)
-	const char *p;
+static void
+setthetime(const char *fmt, const char *p, int jflag, int nflag)
 {
-
 	struct tm *lt;
-	struct timeval tv;
 	const char *dot, *t;
-	int yearset, len;
+	int century;
+	size_t length;
 
-	char tmp1_p[5] = "";		/* to hold ccyy and reformat */
-	char tmp2_p[16] = "";		/* ccyyMMddhhmm.ss is 15 chars */
-
-	for (t = p, dot = NULL; *t; ++t) {
-		if (isdigit(*t))
-			continue;
-		if (*t == '.' && dot == NULL) {
-			dot = t;
-			continue;
-		}
-		badformat();
-	}
-
-	lt = localtime(&tval);
-
-	if (dot != NULL) {			/* .ss */
-		len = strlen(dot);
-		if (len != 3)
+	if (fmt != NULL) {
+		lt = localtime(&tval);
+		t = strptime(p, fmt, lt);
+		if (t == NULL) {
+			fprintf(stderr, "Failed conversion of ``%s''"
+				" using format ``%s''\n", p, fmt);
 			badformat();
-		++dot;
-		lt->tm_sec = ATOI2(dot);
+		} else if (*t != '\0')
+			fprintf(stderr, "Warning: Ignoring %ld extraneous"
+				" characters in date string (%s)\n",
+				(long) strlen(t), t);
 	} else {
-		len = 0;
-		lt->tm_sec = 0;
+		for (t = p, dot = NULL; *t; ++t) {
+			if (isdigit(*t))
+				continue;
+			if (*t == '.' && dot == NULL) {
+				dot = t;
+				continue;
+			}
+			badformat();
+		}
+
+		lt = localtime(&tval);
+
+		if (dot != NULL) {			/* .ss */
+			dot++; /* *dot++ = '\0'; */
+			if (strlen(dot) != 2)
+				badformat();
+			lt->tm_sec = ATOI2(dot);
+			if (lt->tm_sec > 61)
+				badformat();
+		} else
+			lt->tm_sec = 0;
+
+		century = 0;
+		/* if p has a ".ss" field then let's pretend it's not there */
+		switch (length = strlen(p) - ((dot != NULL) ? 3 : 0)) {
+		case 12:				/* cc */
+			lt->tm_year = (unix2003_std ? ATOI2_OFFSET(p, length - 4) : ATOI2(p)) * 100 - TM_YEAR_BASE;
+			century = 1;
+			/* FALLTHROUGH */
+		case 10:				/* yy */
+			if (century)
+				lt->tm_year += (unix2003_std ? ATOI2_OFFSET(p, length - 2) : ATOI2(p));
+			else {
+				lt->tm_year = (unix2003_std ? ATOI2_OFFSET(p, length - 2) : ATOI2(p));
+				if (lt->tm_year < 69)	/* hack for 2000 ;-} */
+					lt->tm_year += 2000 - TM_YEAR_BASE;
+				else
+					lt->tm_year += 1900 - TM_YEAR_BASE;
+			}
+			/* FALLTHROUGH */
+		case 8:					/* mm */
+			lt->tm_mon = ATOI2(p);
+			if (lt->tm_mon > 12)
+				badformat();
+			--lt->tm_mon;		/* time struct is 0 - 11 */
+			/* FALLTHROUGH */
+		case 6:					/* dd */
+			lt->tm_mday = ATOI2(p);
+			if (lt->tm_mday > 31)
+				badformat();
+			/* FALLTHROUGH */
+		case 4:					/* HH */
+			lt->tm_hour = ATOI2(p);
+			if (lt->tm_hour > 23)
+				badformat();
+			/* FALLTHROUGH */
+		case 2:					/* MM */
+			lt->tm_min = ATOI2(p);
+			if (lt->tm_min > 59)
+				badformat();
+			break;
+		default:
+			badformat();
+		}
 	}
 
-	yearset = 0;
-
-	if (compat_mode("bin/date", "unix2003"))	/* Determine the STD */
-		unix2003_std = 1;
-	else
-		unix2003_std = 0;
-
-	switch (strlen(p) - len) {
-	case 12:				/* cc */
-		if(unix2003_std) {
-			/* The last 4 chars are ccyy;
-			   reformat it to be in the first */
-			strncpy(tmp1_p, &p[8], 4);
-			tmp1_p[4] = '\0';
-			p[8] = '\0';	/* .ss already processed; so no harm */
-			strcpy(tmp2_p, p);
-			strcpy(p, tmp1_p);
-			strcat(p, tmp2_p);
-		}
-
-		lt->tm_year = ATOI2(p) * 100 - TM_YEAR_BASE;
-		yearset = 1;
-		/* FALLTHROUGH */
-	case 10:				/* yy */
-		if(unix2003_std) {
-			/* The last 2 chars are yy; reformat it to be in the
-			   first, only if already not done. */
-			if (tmp1_p[0] == '\0') {
-				strncpy(tmp1_p, &p[8], 2);
-				tmp1_p[2] = '\0';
-				p[8] = '\0';	/* .ss done; so no harm */
-				strcpy(tmp2_p, p);
-				strcpy(p, tmp1_p);
-				strcat(p, tmp2_p);
-			} else
-				;  /* do nothing, already reformatted */
-		}
-
-		if (yearset) {
-			lt->tm_year += ATOI2(p);
-		} else {
-			yearset = ATOI2(p);
-			if (yearset < 69)
-				lt->tm_year = yearset + 2000 - TM_YEAR_BASE;
-			else
-				lt->tm_year = yearset + 1900 - TM_YEAR_BASE;
-		}
-		/* FALLTHROUGH */
-	case 8:					/* mm */
-		lt->tm_mon = ATOI2(p);
-		--lt->tm_mon;			/* time struct is 0 - 11 */
-		/* FALLTHROUGH */
-	case 6:					/* dd */
-		lt->tm_mday = ATOI2(p);
-		/* FALLTHROUGH */
-	case 4:					/* hh */
-		lt->tm_hour = ATOI2(p);
-		/* FALLTHROUGH */
-	case 2:					/* mm */
-		lt->tm_min = ATOI2(p);
-		break;
-	default:
-		badformat();
-	}
+	/* Let mktime() decide whether summer time is in effect. */
+	lt->tm_isdst = -1;
 
 	/* convert broken-down time to GMT clock time */
 	if ((tval = mktime(lt)) == -1)
-		badtime();
+		errx(1, "nonexistent time");
 
-	/* set the time */
-	if (nflag || netsettime(tval)) {
-		logwtmp("|", "date", "");
-		tv.tv_sec = tval;
-		tv.tv_usec = 0;
-		if (settimeofday(&tv, NULL)) {
-			perror("date: settimeofday");
-			exit(1);
+	if (!jflag) {
+		/* set the time */
+		if (nflag || netsettime(tval)) {
+			struct utmpx ut;
+			bzero(&ut, sizeof(ut));
+			ut.ut_type = OLD_TIME;
+			(void)gettimeofday(&ut.ut_tv, NULL);
+			pututxline(&ut);
+			ut.ut_tv.tv_sec = tval;
+			ut.ut_tv.tv_usec = 0;
+			if (settimeofday(&ut.ut_tv, NULL))
+				err(1, "settimeofday (timeval)");
+			ut.ut_type = NEW_TIME;
+			pututxline(&ut);
 		}
-		logwtmp("{", "date", "");
-	}
 
-	if ((p = getlogin()) == NULL)
-		p = "???";
-	syslog(LOG_AUTH | LOG_NOTICE, "date set by %s", p);
+		if ((p = getlogin()) == NULL)
+			p = "???";
+		syslog(LOG_AUTH | LOG_NOTICE, "date set by %s", p);
+	}
 }
 
 static void
-badformat()
+badformat(void)
 {
 	warnx("illegal time format");
 	usage();
 }
 
 static void
-badtime()
+usage(void)
 {
-	errx(1, "illegal time");
-}
-
-static void
-usage()
-{
-	(void)fprintf(stderr,
-	    "usage: date [-nu] [-r seconds] [+format]\n");
-	if (unix2003_std)
-		(void)fprintf(stderr, "       date [-u] mmddhhmm[[cc]yy]\n");
-	else
-		(void)fprintf(stderr, "       date [[[[[cc]yy]mm]dd]hh]mm[.ss]\n");
+	(void)fprintf(stderr, "%s\n%s\n",
+	    "usage: date [-jnu] [-d dst] [-r seconds] [-t west] "
+	    "[-v[+|-]val[ymwdHMS]] ... ",
+		unix2003_std ? "            "
+	    "[-f fmt date | [[[mm]dd]HH]MM[[cc]yy][.ss]] [+format]" :
+	    "            "
+	    "[-f fmt date | [[[[[cc]yy]mm]dd]HH]MM[.ss]] [+format]");
 	exit(1);
-	/* NOTREACHED */
 }

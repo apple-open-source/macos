@@ -42,13 +42,13 @@ public:
     
     void SwapMessage(void);
     
-	void AddIPAndPort( uInt32 inIPAddress, uInt32 inPort);
+	void AddIPAndPort( UInt32 inIPAddress, UInt32 inPort);
 
 private:
     sComProxyData* fMessage;
     bool toBig;
-	uInt32 fIPAddress;
-	uInt32 fPort;
+	UInt32 fIPAddress;
+	UInt32 fPort;
 };
 
 #endif

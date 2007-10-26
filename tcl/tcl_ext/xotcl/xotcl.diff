@@ -77,3 +77,20 @@ diff -rupN xotcl-1.2.0/unix/pkgIndex.unix.in xotcl/unix/pkgIndex.unix.in
 +    [file join $dir @xotcl_LIB_FILE@] XOTcl]
  
  
+diff -u -rupN generic/xotcl.c /tmp/generic/xotcl.c
+--- generic/xotcl.c	2004-02-20 01:27:38.000000000 -0800
++++ generic/xotcl.c	2005-06-20 09:15:55.000000000 -0700
+@@ -9092,11 +9092,12 @@ ExitHandler(ClientData cd) {
+ /*
+  * Gets activated at thread-exit
+  */
++static void XOTcl_ExitProc(ClientData cd);
++
+ static void
+ XOTcl_ThreadExitProc(ClientData cd) {
+   /*fprintf(stderr,"+++ XOTcl_ThreadExitProc\n");*/
+ #if !defined(PRE83)
+-  static void XOTcl_ExitProc(ClientData cd);
+   Tcl_DeleteExitHandler(XOTcl_ExitProc, cd);
+ #endif
+   ExitHandler(cd);

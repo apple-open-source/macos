@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,28 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen on Sat Apr 19 2003.
- *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLMiscUtilities.c,v 1.6 2005/07/29 18:42:41 ssen Exp $
- *
- *  $Log: BLMiscUtilities.c,v $
- *  Revision 1.6  2005/07/29 18:42:41  ssen
- *  Give sustatfs() a better home
- *
- *  Revision 1.5  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.4  2004/05/28 03:42:52  ssen
- *  Add newline to end of file for gcc 3.5
- *
- *  Revision 1.3  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.2  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.1  2003/04/23 00:08:30  ssen
- *  misc functions, including blostype2string
+ *  $Id: BLMiscUtilities.c,v 1.7 2006/02/20 22:49:56 ssen Exp $
  *
  */
 
@@ -82,6 +63,7 @@ int blsustatfs(const char *path, struct statfs *buf)
     ret = statfs(path, buf);    
     if(ret)
         return ret;
+	
 	
     ret = stat(path, &sb);
     if(ret) 

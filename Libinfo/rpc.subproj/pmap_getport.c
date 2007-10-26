@@ -70,48 +70,75 @@ static char *rcsid = "$Id: pmap_getport.c,v 1.4 2004/12/19 22:45:44 zarzycki Exp
 #include <sys/socket.h>
 #include <net/if.h>
 
-#include "pmap_wakeup.h"
-
-static struct timeval timeout = { 5, 0 };
-static struct timeval tottimeout = { 60, 0 };
+static struct timeval default_timeout = { 5, 0 };
+static struct timeval default_tottimeout = { 60, 0 };
 
 /*
  * Find the mapped port for program,version.
  * Calls the pmap service remotely to do the lookup.
  * Returns 0 if no map exists.
  */
-u_short
-pmap_getport(address, program, version, protocol)
-	struct sockaddr_in *address;
-	u_long program;
-	u_long version;
-	u_int protocol;
+__private_extern__ u_short
+pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout)
 {
-	u_short port = 0;
-	int socket = -1;
+	u_short port;
+	int socket;
 	register CLIENT *client;
 	struct pmap parms;
+	enum clnt_stat status;
+	struct timeval real_t, real_tt;
 
-	pmap_wakeup();
+	real_t = default_timeout;
+	if (timeout != NULL) real_t = *timeout;
 
+	real_tt = default_timeout;
+	if (totaltimeout != NULL) real_tt = *totaltimeout;
+
+	port = 0;
+	socket = -1;
 	address->sin_port = htons(PMAPPORT);
-	client = clntudp_bufcreate(address, PMAPPROG,
-	    PMAPVERS, timeout, &socket, RPCSMALLMSGSIZE, RPCSMALLMSGSIZE);
-	if (client != (CLIENT *)NULL) {
+	client = clntudp_bufcreate(address, PMAPPROG, PMAPVERS, real_t, &socket, RPCSMALLMSGSIZE, RPCSMALLMSGSIZE);
+	if (client != NULL)
+	{
 		parms.pm_prog = program;
 		parms.pm_vers = version;
 		parms.pm_prot = protocol;
-		parms.pm_port = 0;  /* not needed or used */
-		if (CLNT_CALL(client, PMAPPROC_GETPORT, xdr_pmap, &parms,
-		    xdr_u_short, &port, tottimeout) != RPC_SUCCESS){
+		/* not needed or used */
+		parms.pm_port = 0;
+
+		status = CLNT_CALL(client, PMAPPROC_GETPORT, (xdrproc_t)xdr_pmap, &parms, (xdrproc_t)xdr_u_short, &port, real_tt);
+		if (status != RPC_SUCCESS)
+		{
 			rpc_createerr.cf_stat = RPC_PMAPFAILURE;
 			clnt_geterr(client, &rpc_createerr.cf_error);
-		} else if (port == 0) {
+		}
+		else if (port == 0)
+		{
 			rpc_createerr.cf_stat = RPC_PROGNOTREGISTERED;
 		}
+
 		CLNT_DESTROY(client);
 	}
-	(void)close(socket);
+
+	close(socket);
 	address->sin_port = 0;
-	return (port);
+	return port;
 }
+
+u_short
+pmap_getport(address, program, version, protocol)
+#ifdef __LP64__
+struct sockaddr_in *address;
+uint32_t program;
+uint32_t version;
+uint32_t protocol;
+#else
+struct sockaddr_in *address;
+u_long program;
+u_long version;
+u_int protocol;
+#endif
+{
+	return pmap_getport_timeout(address, (uint32_t)program, (uint32_t)version, (uint32_t)protocol, NULL, NULL);
+}
+

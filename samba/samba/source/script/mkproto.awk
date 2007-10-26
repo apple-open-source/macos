@@ -48,6 +48,16 @@ END {
   printf "BOOL %s(int );\n", a[2]
 }
 
+/^FN_LOCAL_PARM_BOOL/ {
+  split($0,a,"[,()]")
+  printf "BOOL %s(const struct share_params *p );\n", a[2]
+}
+
+/^FN_LOCAL_PARM_INTEGER/ {
+  split($0,a,"[,()]")
+  printf "int %s(const struct share_params *p );\n", a[2]
+}
+
 /^FN_LOCAL_LIST/ {
   split($0,a,"[,()]")
   printf "const char **%s(int );\n", a[2]
@@ -56,6 +66,11 @@ END {
 /^FN_LOCAL_STRING/ {
   split($0,a,"[,()]")
   printf "char *%s(int );\n", a[2]
+}
+
+/^FN_LOCAL_PARM_STRING/ {
+  split($0,a,"[,()]")
+  printf "char *%s(const struct share_params *p );\n", a[2]
 }
 
 /^FN_LOCAL_CONST_STRING/ {
@@ -70,7 +85,7 @@ END {
 
 /^FN_LOCAL_CHAR/ {
   split($0,a,"[,()]")
-  printf "char %s(int );\n", a[2]
+  printf "char %s(const struct share_params *p );\n", a[2]
 }
 
 /^FN_GLOBAL_BOOL/ {
@@ -128,11 +143,15 @@ END {
     gotstart = 1;
   }
 
-  if( $0 ~ /^SAM_ACCT_INFO_NODE|^SMB_ACL_T|^ADS_MODLIST|^PyObject|^SORTED_TREE|^REGISTRY_HOOK|^REGISTRY_VALUE|^DEVICEMODE|^PAC_DATA|^NET_USER_INFO_3|^smb_event_id_t/ ) {
+  if( $0 ~ /^SAM_ACCT_INFO_NODE|^SMB_ACL_T|^ADS_MODLIST|^PyObject|^SORTED_TREE|^REGISTRY_HOOK|^REGISTRY_VALUE|^REGVAL_CTR|^DEVICEMODE|^PAC_DATA|^NET_USER_INFO_3|^smb_event_id_t/ ) {
     gotstart = 1;
   }
 
-  if( $0 ~ /^WINBINDD_PW|^WINBINDD_GR|^NT_PRINTER_INFO_LEVEL_2|^LOGIN_CACHE|^krb5_error_code|^LDAP|^u32/ ) {
+  if( $0 ~ /^WINBINDD_PW|^WINBINDD_GR|^NT_PRINTER_INFO_LEVEL_2|^LOGIN_CACHE|^krb5_error_code|^LDAP|^u32|^LUID_ATTR|^NSS_STATUS/ ) {
+    gotstart = 1;
+  }
+
+  if( $0 ~ /^NODE_STATUS_STRUCT|SMB_STRUCT_DIR|ELOG_TDB|codepoint_t/ ) {
     gotstart = 1;
   }
 

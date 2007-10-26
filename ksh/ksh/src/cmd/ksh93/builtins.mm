@@ -1,11 +1,11 @@
 .ds DT July 9, 1993  \" use troff -mm
-.PM BP
 .nr C 3
 .nr N 2
 .SA 1  \"  right justified
 .TL "311466-6713" "49059-6"  \" charging case filing case
 Guidelines for writing \f5ksh-93\fP built-in commands
 .AU "David G. Korn" DGK FP 11267 8062 D-237 "(research!dgk)"
+.AF
 .TM  11267-930???-93  \"  technical memo + TM numbers
 .MT 4
 .AS 2   \" abstract start for TM

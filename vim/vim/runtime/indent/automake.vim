@@ -1,8 +1,11 @@
-" Maintainer	: Nikolai 'pcp' Weibull <da.box@home.se>
-" URL		: http://www.pcppopper.org/
-" Revised on	: Sun, 26 Aug 2001 15:12:40 +0200
+" Vim indent file
+" Language:	    automake
+" Maintainer:       Nikolai Weibull <now@bitwi.se>
+" Latest Revision:  2006-04-19
+
+if exists("b:did_indent")
+  finish
+endif
 
 " same as makefile indenting for now.
-source <sfile>:p:h/make.vim
-
-" vim: set sw=4 sts=4:
+runtime! indent/make.vim

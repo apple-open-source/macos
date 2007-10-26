@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCDocument.h,v $
+		Revision 1.1.2.1  2007/03/31 03:47:35  neerache
+		Make document/save system work without UI changes <rdar://problem/4186113>
+		
 		Revision 1.1  2003/04/02 18:41:01  neeri
 		Support saving games
 		
@@ -32,7 +35,7 @@
 - (id) init;
 - (id) initWithController:(MBCController *)controller;
 - (BOOL) loadDataRepresentation:(NSData *)docData ofType:(NSString *)docType;
-- (BOOL)writeToFile:(NSString *)fileName ofType:(NSString *)docType;
+- (BOOL)writeToURL:(NSURL *)fileURL ofType:(NSString *)docType error:(NSError **)outError;
 - (NSData *)dataRepresentationOfType:(NSString *)aType;
 
 @end

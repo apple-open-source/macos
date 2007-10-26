@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,12 +65,21 @@
 #define	TSPVERSION	1
 #define ANYADDR 	NULL
 
+#ifdef __LP64__
+#define __need_struct_timeval32
+#include <sys/_structs.h>
+#endif /* __LP64__ */
+
 struct tsp {
 	unsigned char	tsp_type;
 	unsigned char	tsp_vers;
 	unsigned short	tsp_seq;
 	union {
+#ifdef __LP64__
+		struct timeval32 tspu_time;
+#else /* !__LP64__ */
 		struct timeval tspu_time;
+#endif /* __LP64__ */
 		char tspu_hopcnt;
 	} tsp_u;
 	char 		tsp_name[MAXHOSTNAMELEN];

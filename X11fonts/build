@@ -1,0 +1,148 @@
+#!/usr/bin/perl
+$prefix="/usr/X11";
+$target=shift @ARGV;
+
+$ENV{DESTDIR}=$ENV{DSTROOT};
+$ENV{LD_LIBRARY_PATH}="$prefix/lib:$ENV{LD_LIBRARY_PATH}" unless $ENV{LD_LIBRARY_PATH} =~ /$prefix/;
+$ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}" unless $ENV{PATH} =~ /$prefix/;
+$ENV{FREETYPE_LIBS}="-L$prefix/lib -lfreetype -lz -Xlinker -framework -Xlinker CoreServices -Xlinker -framework -Xlinker ApplicationServices";
+$ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+$ENV{FONTCONFIG_FILE}="$ENV{OBJROOT}/build-fonts.conf";
+
+if($target eq 'installsrc') {
+    sys_print("ditto . $ENV{SRCROOT}");
+    chdir($ENV{SRCROOT});
+    foreach $module (glob('*')) {
+        next if $module =~ /build/;
+        next if $module =~ /Make/;
+        next if $module =~ /uvn/;
+        next if $module =~ /\./;
+        print "installing source for $module\n";
+        chdir($module);
+        sys_print("../uvn extract; ../uvn patch");
+        chdir('..');
+    }
+    exit();
+}
+
+if($target eq 'clean') {
+    print "Cleaning out directory $ENV{SRCROOT}\n";
+    chdir($ENV{SRCROOT});
+    sys_print("find . -name .svn | xargs rm -rf");
+    sys_print("find . -name .uvn | xargs rm -rf");
+    sys_print("find . -name \"*.gz\" | xargs rm");
+    sys_print("find . -name \"*.bz2\" | xargs rm");
+    sys_print("find . -name patches | xargs rm -rf");
+    exit();
+}
+
+if($target eq 'install') {
+    print "Install phase: \n";
+    print "SRCROOT = $ENV{SRCROOT}\n";
+    print "DSTROOT = $ENV{DSTROOT}\n";
+    print "OBJROOT = $ENV{OBJROOT}/\n";
+    print "SYMROOT = $ENV{SYMROOT}\n";
+
+    sys_print("ditto $ENV{SRCROOT} $ENV{OBJROOT}");
+# All fonts require mkfontscale and mkfontdir to be available
+#
+# The following fonts require bdftopcf to be available:
+#   adobe-100dpi, adobe-75dpi, adobe-utopia-100dpi, adobe-utopia-75dpi,
+#   arabic-misc, bh-100dpi, bh-75dpi, bh-lucidatypewriter-100dpi,
+#   bh-lucidatypewriter-75dpi, bitstream-100dpi, bitstream-75dpi,
+#   cronyx-cyrillic, cursor-misc, daewoo-misc, dec-misc, isas-misc,
+#   jis-misc, micro-misc, misc-cyrillic, misc-misc, mutt-misc,
+#   schumacher-misc, screen-cyrillic, sony-misc, sun-misc and
+#   winitzki-cyrillic
+#
+# Within the font module, the util component must be built before the
+# following fonts:
+#   adobe-100dpi, adobe-75dpi, adobe-utopia-100dpi, adobe-utopia-75dpi,
+#   bh-100dpi, bh-75dpi, bh-lucidatypewriter-100dpi, bh-lucidatypewriter-75dpi,
+#   misc-misc and schumacher-misc
+#
+
+# The alias component is recommended to be installed after the other fonts
+# since the fonts.alias files reference specific fonts installed from the
+# other font components
+    chdir($ENV{OBJROOT});
+    while(<font-*>) {
+	next if /util/;
+	next if /alias/;
+	push @font_packages, $_;
+    }
+
+    build("font-util");
+    build("encodings");
+    sys_print("sed -i.bak 's_^prefix=.*_prefix=$ENV{DSTROOT}$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
+    foreach (@font_packages) {
+	build($_);
+    }
+    sys_print("sed -i.bak 's_^prefix=.*_prefix=$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/pkgconfig/*.bak");
+    build("font-alias");
+    unlink("$ENV{DSTROOT}$prefix/bin/ucs2any");
+}
+
+sub build {
+    ($module)=@_;
+    $m1=$module;
+
+    print("build($module): ");
+    
+    die "$module not found" unless -e "$ENV{SRCROOT}/$module";
+    chdir ("$ENV{SRCROOT}/$module");
+    $full_path="/$module/".get_workdir();
+    print "full_path=$full_path\n";
+    sys_print("mkdir -p $ENV{OBJROOT}/$full_path");
+    sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
+    sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
+
+    chdir("$ENV{OBJROOT}/$full_path");
+
+    print "Configuring...\n";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls  ";
+
+    $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
+    $post_config_path=$ENV{OBJROOT}."/$module/post-config";
+
+    if(-e $conf_flags_path) {
+	$conf_flags .= `cat $conf_flags_path`;
+	chomp $conf_flags;
+    }
+
+    sys_print("./configure $conf_flags");
+    if(-e $post_config_path) {
+	sys_print("cd .. && $post_config_path");
+    }
+    sys_print("make install");
+    chdir('../..');
+}
+
+sub get_workdir {
+    system "pwd";
+    system "ls -l";
+    foreach (glob('*')) {
+	if(-e "$_/configure") {
+	    return $_;
+	}
+    }
+    die "Unable to determine workdir";
+}
+
+sub sys_print {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    die "returned code $retval" if $retval;
+}
+
+sub sys_print_nodie {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    print "returned code $retval\n" if $retval;
+}
+

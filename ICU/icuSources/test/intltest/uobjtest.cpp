@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2004, International Business Machines Corporation and
+ * Copyright (c) 2002-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -121,11 +121,6 @@ UObject *UObjectTest::testClass(UObject *obj,
 
 #include "unicode/utypes.h"
 
-// Things we Patch
-#define protected public   /* to access private factory function */
-#include "iculserv.h"
-#undef protected
-
 // Internal Things (woo)
 #include "cpdtrans.h"
 #include "rbt.h"
@@ -135,8 +130,9 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "digitlst.h"
 #include "esctrn.h"
 #include "funcrepl.h"
-#include "icunotif.h"
-#include "icuserv.h"
+#include "servnotf.h"
+#include "serv.h"
+#include "servloc.h"
 #include "name2uni.h"
 #include "nfsubs.h"
 #include "nortrans.h"
@@ -150,7 +146,13 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "unesctrn.h"
 #include "uni2name.h"
 #include "uvector.h"
+#include "uvectr32.h"
+#include "currfmt.h"
+#include "buddhcal.h"
 #include "islamcal.h"
+#include "japancal.h"
+#include "hebrwcal.h"
+#include "ustrenum.h"
 
 // External Things
 #include "unicode/brkiter.h"
@@ -160,6 +162,7 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "unicode/choicfmt.h"
 #include "unicode/coleitr.h"
 #include "unicode/coll.h"
+#include "unicode/curramt.h"
 #include "unicode/datefmt.h"
 #include "unicode/dbbi.h"
 #include "unicode/dcfmtsym.h"
@@ -200,14 +203,23 @@ UObject *UObjectTest::testClass(UObject *obj,
 
 #define UOBJTEST_TEST_INTERNALS 0   /* do NOT test Internal things - their functions aren't exported on Win32 */
 
+#if !UCONFIG_NO_SERVICE
+/* The whole purpose of this class is to expose the constructor, and gain access to the superclasses RTTI. */
+class TestLocaleKeyFactory : public LocaleKeyFactory {
+public:
+    TestLocaleKeyFactory(int32_t coverage) : LocaleKeyFactory(coverage) {}
+};
+#endif
+
 void UObjectTest::testIDs()
 {
     ids_count = 0;
+    UErrorCode status = U_ZERO_ERROR;
+    static const UChar SMALL_STR[] = {0x51, 0x51, 0x51, 0}; // "QQQ"
 
-#if !UCONFIG_NO_TRANSLITERATION
+#if !UCONFIG_NO_TRANSLITERATION || !UCONFIG_NO_FORMATTING
     UParseError parseError;
 #endif
-    UErrorCode status = U_ZERO_ERROR;
    
 
     
@@ -221,6 +233,7 @@ void UObjectTest::testIDs()
     //TESTCLASSID_DEFAULT(CollationElementIterator);
 #if !UCONFIG_NO_COLLATION
     TESTCLASSID_DEFAULT(CollationKey);
+    TESTCLASSID_FACTORY(UStringEnumeration, Collator::getKeywords(status));
 #endif
     //TESTCLASSID_FACTORY(CompoundTransliterator, Transliterator::createInstance(UnicodeString("Any-Jex;Hangul-Jamo"), UTRANS_FORWARD, parseError, status));
     
@@ -228,21 +241,27 @@ void UObjectTest::testIDs()
     /* TESTCLASSID_FACTORY(NFSubstitution,  NFSubstitution::makeSubstitution(8, */
     /* TESTCLASSID_DEFAULT(DigitList);  UMemory but not UObject*/
     TESTCLASSID_ABSTRACT(NumberFormat);
+    TESTCLASSID_CTOR(RuleBasedNumberFormat, (UnicodeString("%default: -x: minus >>;"), parseError, status));
+    TESTCLASSID_CTOR(ChoiceFormat, (UNICODE_STRING_SIMPLE("0#are no files|1#is one file|1<are many files"), status));
+    TESTCLASSID_CTOR(MessageFormat, (UnicodeString(), status));
     TESTCLASSID_CTOR(DateFormatSymbols, (status));
     TESTCLASSID_CTOR(DecimalFormatSymbols, (status));
-#if UOBJTEST_TEST_INTERNALS
-    TESTCLASSID_CTOR(FunctionReplacer, (NULL,NULL) ); /* don't care */
-#endif
     TESTCLASSID_DEFAULT(FieldPosition);
     TESTCLASSID_DEFAULT(Formattable);
+    TESTCLASSID_CTOR(CurrencyAmount, (1.0, SMALL_STR, status));
+    TESTCLASSID_CTOR(CurrencyUnit, (SMALL_STR, status));
+    TESTCLASSID_CTOR(CurrencyFormat, (Locale::getUS(), status));
     TESTCLASSID_CTOR(GregorianCalendar, (status));
+    TESTCLASSID_CTOR(BuddhistCalendar, (Locale::getUS(), status));
     TESTCLASSID_CTOR(IslamicCalendar, (Locale::getUS(), status));
+    TESTCLASSID_CTOR(JapaneseCalendar, (Locale::getUS(), status));
+    TESTCLASSID_CTOR(HebrewCalendar, (Locale::getUS(), status));
 #endif
 
 #if !UCONFIG_NO_BREAK_ITERATION
     /* TESTCLASSID_ABSTRACT(BreakIterator); No staticID!  */
     TESTCLASSID_FACTORY(RuleBasedBreakIterator, BreakIterator::createLineInstance("mt",status));
-    TESTCLASSID_FACTORY(DictionaryBasedBreakIterator, BreakIterator::createLineInstance("th",status));
+    //TESTCLASSID_FACTORY(DictionaryBasedBreakIterator, BreakIterator::createLineInstance("th",status));
 #endif
     
     //TESTCLASSID_DEFAULT(EscapeTransliterator);
@@ -251,7 +270,6 @@ void UObjectTest::testIDs()
     
 #if !UCONFIG_NO_TRANSLITERATION
 
-    
     TESTCLASSID_TRANSLIT(AnyTransliterator, "Any-Latin");
     TESTCLASSID_TRANSLIT(CompoundTransliterator, "Latin-Greek");
     TESTCLASSID_TRANSLIT(EscapeTransliterator, "Any-Hex");
@@ -265,6 +283,11 @@ void UObjectTest::testIDs()
     TESTCLASSID_TRANSLIT(UnescapeTransliterator, "Hex-Any");
     TESTCLASSID_TRANSLIT(UnicodeNameTransliterator, "Any-Name");
     TESTCLASSID_TRANSLIT(UppercaseTransliterator, "Upper");
+    TESTCLASSID_CTOR(CaseMapTransliterator, (UnicodeString(), NULL));
+    TESTCLASSID_CTOR(Quantifier, (NULL, 0, 0));
+#if UOBJTEST_TEST_INTERNALS
+    TESTCLASSID_CTOR(FunctionReplacer, (NULL,NULL) ); /* don't care */
+#endif
 #endif
         
     TESTCLASSID_FACTORY(Locale, new Locale("123"));
@@ -317,17 +340,21 @@ void UObjectTest::testIDs()
     TESTCLASSID_CTOR(UnicodeSetIterator,(UnicodeSet(0,1)));
     TESTCLASSID_CTOR(UStack, (status));
     TESTCLASSID_CTOR(UVector, (status));
+    TESTCLASSID_CTOR(UVector32, (status));
 
 #if !UCONFIG_NO_SERVICE
     TESTCLASSID_CTOR(SimpleFactory, (NULL, UnicodeString("foo")));
     TESTCLASSID_DEFAULT(EventListener);
-#if UOBJTEST_TEST_INTERNALS
     TESTCLASSID_DEFAULT(ICUResourceBundleFactory);
-    //TESTCLASSID_DEFAULT(Key); // does ont exist?
-    TESTCLASSID_CTOR(LocaleKey, (UnicodeString("baz"), UnicodeString("bat"), NULL, 92));
-    TESTCLASSID_CTOR(LocaleKeyFactory, (42));
+    //TESTCLASSID_DEFAULT(Key); // does not exist?
+    UnicodeString baz("baz");
+    UnicodeString bat("bat");
+    TESTCLASSID_FACTORY(LocaleKey, LocaleKey::createWithCanonicalFallback(&baz, &bat, LocaleKey::KIND_ANY, status));
     TESTCLASSID_CTOR(SimpleLocaleKeyFactory, (NULL, UnicodeString("bar"), 8, 12) );
-#endif
+    TESTCLASSID_CTOR(TestLocaleKeyFactory, (42));   // Test replacement for LocaleKeyFactory
+//#if UOBJTEST_TEST_INTERNALS
+//    TESTCLASSID_CTOR(LocaleKeyFactory, (42));
+//#endif
 #endif
 
 #if UOBJTEST_DUMP_IDS
@@ -387,11 +414,30 @@ void UObjectTest::testUMemory() {
     // destroy object and delete space manually
     p->~UnicodeString(); 
     UnicodeString::operator delete(p, stackMemory); 
+
+    // Jitterbug 4452, for coverage
+    UnicodeString *pa = new UnicodeString[2];
+    if ( !pa[0].isEmpty() || !pa[1].isEmpty()){
+        errln("constructor used with array new did not work right");
+    }
+    delete [] pa;
 #endif
 
     // try to call the compiler-generated UMemory::operator=(class UMemory const &)
     UMemory m, n;
     m=n;
+}
+
+void UObjectTest::TestMFCCompatibility() {
+#if U_HAVE_DEBUG_LOCATION_NEW
+    /* Make sure that it compiles with MFC's debuggable new usage. */
+    UnicodeString *str = new(__FILE__, __LINE__) UnicodeString();
+    str->append((UChar)0x0040); // Is it usable?
+    if(str->charAt(0) != 0x0040) {
+        errln("debug new doesn't work.");
+    }
+    UnicodeString::operator delete(str, __FILE__, __LINE__);
+#endif
 }
 
 /* --------------- */
@@ -405,6 +451,7 @@ void UObjectTest::runIndexedTest( int32_t index, UBool exec, const char* &name, 
 
     CASE(0, testIDs);
     CASE(1, testUMemory);
+    CASE(2, TestMFCCompatibility);
 
     default: name = ""; break; //needed to end loop
     }

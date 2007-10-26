@@ -1,5 +1,6 @@
 /* Cursor motion subroutines for GNU Emacs.
-   Copyright (C) 1985, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1995, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
     based primarily on public domain code written by Chris Torek
 
 This file is part of GNU Emacs.
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include <config.h>
@@ -188,6 +189,7 @@ cmcostinit ()
 
 static int
 calccost (srcy, srcx, dsty, dstx, doit)
+     int srcy, srcx, dsty, dstx, doit;
 {
     register int    deltay,
                     deltax,
@@ -223,7 +225,7 @@ calccost (srcy, srcx, dsty, dstx, doit)
     if (doit)
 	while (--deltay >= 0)
 	    tputs (p, 1, cmputc);
-x: 
+x:
     if ((deltax = dstx - srcx) == 0)
 	goto done;
     if (deltax < 0) {
@@ -234,7 +236,7 @@ x:
     if (Wcm.cc_tab >= BIG || !Wcm.cm_usetabs)
 	goto olddelta;		/* forget it! */
 
-    /* 
+    /*
      * ntabs is # tabs towards but not past dstx; n2tabs is one more
      * (ie past dstx), but this is only valid if that is not past the
      * right edge of the screen.  We can check that at the same time
@@ -250,7 +252,7 @@ x:
     if (tab2x >= Wcm.cm_cols)	/* too far (past edge) */
 	n2tabs = 0;
 
-    /* 
+    /*
      * Now set tabcost to the cost for using ntabs, and c to the cost
      * for using n2tabs, then pick the minimum.
      */
@@ -269,7 +271,7 @@ x:
     if (tabcost >= BIG)		/* caint use tabs */
 	goto newdelta;
 
-    /* 
+    /*
      * See if tabcost is less than just moving right
      */
 
@@ -281,20 +283,20 @@ x:
 	srcx = tabx;
     }
 
-    /* 
+    /*
      * Now might as well just recompute the delta.
      */
 
-newdelta: 
+newdelta:
     if ((deltax = dstx - srcx) == 0)
 	goto done;
-olddelta: 
+olddelta:
     if (deltax > 0)
 	p = Wcm.cm_right, c = Wcm.cc_right;
     else
 	p = Wcm.cm_left, c = Wcm.cc_left, deltax = -deltax;
 
-dodelta: 
+dodelta:
     if (c == BIG) {		/* caint get thar from here */
 fail:
 	if (doit)
@@ -305,7 +307,7 @@ fail:
     if (doit)
 	while (--deltax >= 0)
 	    tputs (p, 1, cmputc);
-done: 
+done:
     return totalcost;
 }
 
@@ -323,6 +325,7 @@ losecursor ()
 
 void
 cmgoto (row, col)
+     int row, col;
 {
     int     homecost,
             crcost,
@@ -377,7 +380,7 @@ cmgoto (row, col)
       dcm = Wcm.cm_abs;
     }
 
-  /* 
+  /*
    * In the following comparison, the = in <= is because when the costs
    * are the same, it looks nicer (I think) to move directly there.
    */
@@ -398,17 +401,17 @@ cmgoto (row, col)
 
   switch (use)
     {
-    case USEHOME: 
+    case USEHOME:
       tputs (Wcm.cm_home, 1, cmputc);
       curY = 0, curX = 0;
       break;
 
-    case USELL: 
+    case USELL:
       tputs (Wcm.cm_ll, 1, cmputc);
       curY = Wcm.cm_rows - 1, curX = 0;
       break;
 
-    case USECR: 
+    case USECR:
       tputs (Wcm.cm_cr, 1, cmputc);
       if (Wcm.cm_autolf)
 	curY++;
@@ -458,3 +461,6 @@ Wcm_init ()
     return - 2;
   return 0;
 }
+
+/* arch-tag: bcf64c02-00f6-44ef-94b6-c56eab5b3dc4
+   (do not change this comment) */

@@ -15,7 +15,7 @@ bin_PROGRAMS = xmllint xmlcatalog
 bin_SCRIPTS=xml2-config
 
 lib_LTLIBRARIES = libxml2.la
-libxml2_la_LIBADD = @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
+libxml2_la_LIBADD = @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) $(ICU_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
 
 libxml2_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -version-info @LIBXML_VERSION_INFO@
 
@@ -40,7 +40,7 @@ libxml2_la_SOURCES = SAX.c entities.c encoding.c error.c parserInternals.c  \
 endif
 
 DEPS = $(top_builddir)/libxml2.la
-LDADDS = @STATIC_BINARIES@ $(top_builddir)/libxml2.la @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
+LDADDS = @STATIC_BINARIES@ $(top_builddir)/libxml2.la @THREAD_LIBS@ @Z_LIBS@ $(ICONV_LIBS) $(ICU_LIBS) @M_LIBS@ @WIN32_EXTRA_LIBADD@
 
 
 man_MANS = xml2-config.1 libxml.3

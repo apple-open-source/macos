@@ -1,0 +1,12 @@
+flavor:dir:host:target:target_board:short_flavor:is_cross_flavor
+#------------------------ stabs ------------------------- 
+i386:testsuite-i386:i386-apple-darwin:i386-apple-darwin:macosx_stabs_gfull:i386_stabs_gfull:0
+i386:testsuite-i386_gused:i386-apple-darwin:i386-apple-darwin:macosx_stabs:i386_stabs:0
+i386:testsuite-i386_es:i386-apple-darwin:i386-apple-darwin:macosx_es:i386_stabs_es:0
+#------------------------ dwarf ------------------------- 
+i386:testsuite-i386_dwarf:i386-apple-darwin:i386-apple-darwin:macosx_dwarf:i386_dwarf:0
+i386:testsuite-i386_dsym:i386-apple-darwin:i386-apple-darwin:macosx_dsym:i386_dsym:0
+#i386:testsuite-i386_rep:i386-apple-darwin:i386-apple-darwin:macosx_repository:i386_rep:0
+#------------------------- icc -------------------------- 
+# Won't work until intel does something about it.  
+#i386:testsuite-i386_icc:i386-apple-darwin:i386-apple-darwin:macosx_icc:i386_icc:0

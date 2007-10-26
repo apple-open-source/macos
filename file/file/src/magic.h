@@ -11,8 +11,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
  *  
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -42,6 +40,8 @@
 #define	MAGIC_PRESERVE_ATIME	0x080	/* Restore access time on exit */
 #define	MAGIC_RAW		0x100	/* Don't translate unprintable chars */
 #define	MAGIC_ERROR		0x200	/* Handle ENOENT etc as real errors */
+#define	MAGIC_NOASCII		0x400	/* Suppress internal magic */
+#define	MAGIC_REGULAR		0x800	/* Report as regular file */
 
 #ifdef __cplusplus
 extern "C" {

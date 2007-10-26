@@ -1,5 +1,5 @@
---- fputws.3.orig	Fri Mar 11 11:53:01 2005
-+++ fputws.3	Fri Mar 11 11:53:53 2005
+--- _SB/Libc/stdio/FreeBSD/fputws.3	2003-07-24 12:42:14.000000000 -0700
++++ _SB/Libc/stdio/FreeBSD/fputws.3.edit	2006-06-28 16:55:52.000000000 -0700
 @@ -41,7 +41,8 @@
  .Dt FPUTWS 3
  .Os
@@ -10,22 +10,34 @@
  .Nd output a line of wide characters to a stream
  .Sh LIBRARY
  .Lb libc
-@@ -50,6 +51,9 @@
+@@ -49,14 +50,34 @@
+ .In stdio.h
  .In wchar.h
  .Ft int
- .Fn fputws "const wchar_t * restrict ws" "FILE * restrict fp"
+-.Fn fputws "const wchar_t * restrict ws" "FILE * restrict fp"
++.Fo fputws
++.Fa "const wchar_t *restrict ws"
++.Fa "FILE *restrict stream"
++.Fc
++.In stdio.h
++.In wchar.h
 +.In xlocale.h
 +.Ft int
-+.Fn fputws_l "const wchar_t * restrict ws" "FILE * restrict fp" "locale_t loc"
++.Fo fputws_l
++.Fa "const wchar_t *restrict ws"
++.Fa "FILE *restrict stream"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn fputws
-@@ -57,6 +61,14 @@
+ function writes the wide character string pointed to by
  .Fa ws
  to the stream pointed to by
- .Fa fp .
+-.Fa fp .
++.Fa stream .
 +.Pp
-+While the
++Although the
 +.Fn fputws
 +function uses the current locale, the
 +.Fn fputws_l
@@ -35,7 +47,16 @@
  .Sh RETURN VALUES
  The
  .Fn fputws
-@@ -84,7 +96,8 @@
+@@ -69,7 +90,7 @@
+ .Bl -tag -width Er
+ .It Bq Er EBADF
+ The
+-.Fa fp
++.Fa stream
+ argument supplied
+ is not a writable stream.
+ .El
+@@ -84,7 +105,8 @@
  .Xr ferror 3 ,
  .Xr fputs 3 ,
  .Xr putwc 3 ,

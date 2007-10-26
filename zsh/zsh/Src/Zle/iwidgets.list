@@ -13,6 +13,9 @@
 "accept-and-menu-complete", acceptandmenucomplete, ZLE_MENUCMP | ZLE_KEEPSUFFIX
 "accept-line", acceptline, 0
 "accept-line-and-down-history", acceptlineanddownhistory, 0
+"argument-base", argumentbase, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL | ZLE_NOTCOMMAND
+"auto-suffix-remove", handlesuffix, ZLE_NOTCOMMAND
+"auto-suffix-retain", handlesuffix, ZLE_KEEPSUFFIX | ZLE_NOTCOMMAND
 "backward-char", backwardchar, 0
 "backward-delete-char", backwarddeletechar, ZLE_KEEPSUFFIX
 "backward-delete-word", backwarddeleteword, ZLE_KEEPSUFFIX
@@ -73,7 +76,7 @@
 "kill-word", killword, ZLE_KILL | ZLE_KEEPSUFFIX
 "list-choices", listchoices, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL | ZLE_ISCOMP
 "list-expand", listexpand, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
-"magic-space", magicspace, 0
+"magic-space", magicspace, ZLE_KEEPSUFFIX | ZLE_MENUCMP
 "menu-complete", menucomplete, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_ISCOMP
 "menu-expand-or-complete", menuexpandorcomplete, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_ISCOMP
 "neg-argument", negargument, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL | ZLE_NOTCOMMAND
@@ -85,6 +88,7 @@
 "quoted-insert", quotedinsert, ZLE_MENUCMP | ZLE_KEEPSUFFIX
 "quote-line", quoteline, 0
 "quote-region", quoteregion, 0
+"read-command", readcommand, 0
 "recursive-edit", recursiveedit, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "redisplay", redisplay, ZLE_MENUCMP | ZLE_KEEPSUFFIX | ZLE_LASTCOL
 "redo", redo, ZLE_KEEPSUFFIX

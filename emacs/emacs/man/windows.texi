@@ -1,5 +1,6 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985,86,87,93,94,95,97,2000,2001 Free Software Foundation, Inc.
+@c Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1997, 2000, 2001,
+@c   2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
 @node Windows, Frames, Buffers, Top
 @chapter Multiple Windows
@@ -28,24 +29,24 @@ one frame.
 
   Each Emacs window displays one Emacs buffer at any time.  A single
 buffer may appear in more than one window; if it does, any changes in
-its text are displayed in all the windows where it appears.  But the
-windows showing the same buffer can show different parts of it, because
-each window has its own value of point.
+its text are displayed in all the windows where it appears.  But these
+windows can show different parts of the buffer, because each window
+has its own value of point.
 
 @cindex selected window
-  At any time, one of the windows is the @dfn{selected window}; the
+  At any time, one Emacs window is the @dfn{selected window}; the
 buffer this window is displaying is the current buffer.  The terminal's
 cursor shows the location of point in this window.  Each other window
-has a location of point as well, but since the terminal has only one
-cursor there is no way to show where those locations are.  When multiple
-frames are visible in X, each frame has a cursor which appears in the
-frame's selected window.  The cursor in the selected frame is solid; the
-cursor in other frames is a hollow box.
+has a location of point as well.  On text-only terminals, there is no
+way to show where those locations are, since the terminal has only one
+cursor.  On a graphical display, the location of point in a
+non-selected window is indicated by a hollow box; the cursor in the
+selected window is blinking or solid.
 
   Commands to move point affect the value of point for the selected Emacs
-window only.  They do not change the value of point in any other Emacs
-window, even one showing the same buffer.  The same is true for commands
-such as @kbd{C-x b} to change the current buffer in the selected window;
+window only.  They do not change the value of point in other Emacs
+windows, even those showing the same buffer.  The same is true for commands
+such as @kbd{C-x b} to switch buffers in the selected window;
 they do not affect other windows at all.  However, there are other commands
 such as @kbd{C-x 4 b} that select a different window and switch buffers in
 it.  Also, all commands that display information in a window, including
@@ -60,12 +61,8 @@ only one mark position.
 
   Each window has its own mode line, which displays the buffer name,
 modification status and major and minor modes of the buffer that is
-displayed in the window.  @xref{Mode Line}, for full details on the mode
-line.
-
-@iftex
-@break
-@end iftex
+displayed in the window.  The selected window's mode line appears in a
+different color.  @xref{Mode Line}, for full details on the mode line.
 
 @node Split Window
 @section Splitting Windows
@@ -93,31 +90,32 @@ numeric argument specifies how many lines to give to the top window.
 @findex split-window-horizontally
   @kbd{C-x 3} (@code{split-window-horizontally}) breaks the selected
 window into two side-by-side windows.  A numeric argument specifies how
-many columns to give the one on the left.  A line of vertical bars
-separates the two windows.  Windows that are not the full width of the
-screen have mode lines, but they are truncated.  On terminals where
-Emacs does not support highlighting, truncated mode lines sometimes do
-not appear in inverse video.
+many columns to give the one on the left.  If you are not using
+scrollbars, a vertical line separates the two windows.
+You can customize its color with the face @code{vertical-border}.
+Windows that are not the full width of the screen have mode lines, but
+they are truncated.  On terminals where Emacs does not support
+highlighting, truncated mode lines sometimes do not appear in inverse
+video.
 
 @kindex C-Mouse-2 @r{(scroll bar)}
   You can split a window horizontally or vertically by clicking
-@kbd{C-Mouse-2} in the mode line or the scroll bar.  (This does not
-work in scroll bars implemented by X toolkits.)  The line of splitting
-goes through the place where you click: if you click on the mode line,
-the new scroll bar goes above the spot; if you click in the scroll
-bar, the mode line of the split window is side by side with your
-click.
+@kbd{C-Mouse-2} in the mode line or the scroll bar.  The line of
+splitting goes through the place where you click: if you click on the
+mode line, the new scroll bar goes above the spot; if you click in the
+scroll bar, the mode line of the split window is side by side with
+your click.
 
 @vindex truncate-partial-width-windows
-  When a window is less than the full width, text lines too long to fit are
-frequent.  Continuing all those lines might be confusing.  The variable
-@code{truncate-partial-width-windows} can be set non-@code{nil} to force
-truncation in all windows less than the full width of the screen,
-independent of the buffer being displayed and its value for
-@code{truncate-lines}.  @xref{Continuation Lines}.@refill
+  When a window is less than the full width, text lines too long to
+fit are frequent.  Continuing all those lines might be confusing, so
+if the variable @code{truncate-partial-width-windows} is
+non-@code{nil}, that forces truncation in all windows less than the
+full width of the screen, independent of the buffer being displayed
+and its value for @code{truncate-lines}.  @xref{Line Truncation}.
 
   Horizontal scrolling is often used in side-by-side windows.
-@xref{Display}.
+@xref{Horizontal Scrolling}.
 
 @vindex split-window-keep-point
   If @code{split-window-keep-point} is non-@code{nil}, the default,
@@ -126,9 +124,8 @@ point from the window that was split.  This means that scrolling is
 inevitable.  If this variable is @code{nil}, then @kbd{C-x 2} tries to
 avoid scrolling the text currently visible on the screen, by putting
 point in each window at a position already visible in the window.  It
-also selects whichever window contain the screen line that the cursor
-was previously on.  Some users prefer the latter mode on slow
-terminals.
+also selects whichever window contains the screen line that the cursor
+was previously on.  Some users prefer that mode on slow terminals.
 
 @node Other Window
 @section Using Other Windows
@@ -176,6 +173,11 @@ next window in the standard cyclic order.)
 buffers visible in two windows, by moving through them to the next
 mismatch.  @xref{Comparing Files}, for details.
 
+@vindex mouse-autoselect-window
+  If you set @code{mouse-autoselect-window} to a non-@code{nil} value,
+moving the mouse into a different window selects that window.  This
+feature is off by default.
+
 @node Pop Up Window
 @section Displaying in Another Window
 
@@ -219,7 +221,7 @@ window.  This runs @code{find-file-read-only-other-window}.
 
   Certain Emacs commands switch to a specific buffer with special
 contents.  For example, @kbd{M-x shell} switches to a buffer named
-@samp{*Shell*}.  By convention, all these commands are written to pop up
+@samp{*shell*}.  By convention, all these commands are written to pop up
 the buffer in a separate window.  But you can specify that certain of
 these buffers should appear in the selected window.
 
@@ -276,17 +278,6 @@ Shrink this window if its buffer doesn't need so many lines
 (@code{shrink-window-if-larger-than-buffer}).
 @item C-x +
 Make all windows the same height (@code{balance-windows}).
-@item Drag-Mouse-1
-Dragging a window's mode line up or down with @kbd{Mouse-1} changes
-window heights.
-@item Mouse-2
-@kbd{Mouse-2} in a window's mode line deletes all other windows in the frame
-(@code{mouse-delete-other-windows}).
-@item Mouse-3
-@kbd{Mouse-3} in a window's mode line deletes that window
-(@code{mouse-delete-window}), unless the frame has only one window, in
-which case it buries the current buffer instead and switches to another
-buffer.
 @end table
 
 @kindex C-x 0
@@ -313,14 +304,6 @@ different way; it deletes all the windows except the selected one (and
 the minibuffer); the selected window expands to use the whole frame
 except for the echo area.
 
-  You can also delete a window by clicking on its mode line with
-@kbd{Mouse-2}, and delete all the windows in a frame except one window
-by clicking on that window's mode line with @kbd{Mouse-3}.
-
-  The easiest way to adjust window heights is with a mouse.  If you
-press @kbd{Mouse-1} on a mode line, you can drag that mode line up or
-down, changing the heights of the windows above and below it.
-
 @kindex C-x ^
 @findex enlarge-window
 @kindex C-x @}
@@ -329,7 +312,7 @@ down, changing the heights of the windows above and below it.
 @vindex window-min-width
   To readjust the division of space among vertically adjacent windows,
 use @kbd{C-x ^} (@code{enlarge-window}).  It makes the currently
-selected window get one line bigger, or as many lines as is specified
+selected window one line bigger, or as many lines as is specified
 with a numeric argument.  With a negative argument, it makes the
 selected window smaller.  @kbd{C-x @}}
 (@code{enlarge-window-horizontally}) makes the selected window wider by
@@ -337,10 +320,10 @@ the specified number of columns.  @kbd{C-x @{}
 (@code{shrink-window-horizontally}) makes the selected window narrower
 by the specified number of columns.
 
-  When you make a window bigger, the space comes from one of its
-neighbors.  If this makes any window too small, it is deleted and its
-space is given to an adjacent window.  The minimum size is specified by
-the variables @code{window-min-height} and @code{window-min-width}.
+  When you make a window bigger, the space comes from its peers.  If
+this makes any window too small, it is deleted and its space is given
+to an adjacent window.  The minimum size is specified by the variables
+@code{window-min-height} and @code{window-min-width}.
 
 @kindex C-x -
 @findex shrink-window-if-larger-than-buffer
@@ -354,6 +337,9 @@ gives the extra lines to other windows in the frame.
   You can also use @kbd{C-x +} (@code{balance-windows}) to even out the
 heights of all the windows in the selected frame.
 
+  Mouse clicks on the mode line provide another way to change window
+heights and to delete windows.  @xref{Mode Line Mouse}.
+
 @node Window Convenience
 @section Window Handling Convenience Features and Customization
 
@@ -365,8 +351,8 @@ heights of all the windows in the selected frame.
   @kbd{M-x winner-mode} is a global minor mode that records the
 changes in the window configuration (i.e. how the frames are
 partitioned into windows), so that you can ``undo'' them.  To undo,
-use @kbd{C-x left} (@code{winner-undo}).  If you change your mind
-while undoing, you can redo the changes you had undone using @kbd{C-x
+use @kbd{C-c left} (@code{winner-undo}).  If you change your mind
+while undoing, you can redo the changes you had undone using @kbd{C-c
 right} (@code{M-x winner-redo}).  Another way to enable Winner mode is
 by customizing the variable @code{winner-mode}.
 
@@ -395,3 +381,7 @@ windows together.  You can also turn it on by customizing the variable
 scroll-all-scroll-down-all}, @kbd{M-x scroll-all-page-down-all} and
 their corresponding ``up'' equivalents.  To make this mode useful,
 you should bind these commands to appropriate keys.
+
+@ignore
+   arch-tag: 8bea7453-d4b1-49b1-9bf4-cfe4383e1113
+@end ignore

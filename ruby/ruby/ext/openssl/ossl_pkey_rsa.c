@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkey_rsa.c,v 1.5.2.3 2004/12/05 16:43:26 gotoyuzo Exp $
+ * $Id: ossl_pkey_rsa.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -20,12 +20,7 @@
 } while (0)
 
 #define RSA_HAS_PRIVATE(rsa) ((rsa)->p && (rsa)->q)
-
-#ifdef OSSL_ENGINE_ENABLED
-#  define RSA_PRIVATE(rsa) (RSA_HAS_PRIVATE(rsa) || (rsa)->engine)
-#else
-#  define RSA_PRIVATE(rsa) RSA_HAS_PRIVATE(rsa)
-#endif
+#define RSA_PRIVATE(obj,rsa) (RSA_HAS_PRIVATE(rsa)||OSSL_PKEY_IS_PRIVATE(obj))
 
 /*
  * Classes
@@ -181,8 +176,8 @@ ossl_rsa_is_private(VALUE self)
     EVP_PKEY *pkey;
 	
     GetPKeyRSA(self, pkey);
-	
-    return (RSA_PRIVATE(pkey->pkey.rsa)) ? Qtrue : Qfalse;
+    
+    return (RSA_PRIVATE(self, pkey->pkey.rsa)) ? Qtrue : Qfalse;
 }
 
 static VALUE
@@ -303,7 +298,7 @@ ossl_rsa_private_encrypt(int argc, VALUE *argv, VALUE self)
     VALUE str, buffer, padding;
 
     GetPKeyRSA(self, pkey);
-    if (!RSA_PRIVATE(pkey->pkey.rsa)) {
+    if (!RSA_PRIVATE(self, pkey->pkey.rsa)) {
 	ossl_raise(eRSAError, "private key needed.");
     }	
     rb_scan_args(argc, argv, "11", &buffer, &padding);
@@ -328,7 +323,7 @@ ossl_rsa_private_decrypt(int argc, VALUE *argv, VALUE self)
     VALUE str, buffer, padding;
 
     GetPKeyRSA(self, pkey);
-    if (!RSA_PRIVATE(pkey->pkey.rsa)) {
+    if (!RSA_PRIVATE(self, pkey->pkey.rsa)) {
 	ossl_raise(eRSAError, "private key needed.");
     }
     rb_scan_args(argc, argv, "11", &buffer, &padding);
@@ -464,6 +459,11 @@ OSSL_PKEY_BN(rsa, iqmp);
 void
 Init_ossl_rsa()
 {
+#if 0 /* let rdoc know about mOSSL and mPKey */
+    mOSSL = rb_define_module("OpenSSL");
+    mPKey = rb_define_module_under(mOSSL, "PKey");
+#endif
+
     eRSAError = rb_define_class_under(mPKey, "RSAError", ePKeyError);
 
     cRSA = rb_define_class_under(mPKey, "RSA", cPKey);

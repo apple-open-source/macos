@@ -1,0 +1,6 @@
+# @configure_input@                                     -*- shell-script -*-
+# Configurable variable values for tar test suite.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+
+PATH=@abs_builddir@:@abs_top_builddir@/src:$top_srcdir:$srcdir:$PATH
+

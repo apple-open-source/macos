@@ -34,27 +34,25 @@
 extern	"C" {
 #endif /* __cplusplus */
 
-/* 
- * Private CSSM_APPLE_TP_ACTION_FLAGS value to enable implicit 
- * root certs.
- */
-#define	CSSM_TP_USE_INTERNAL_ROOT_CERTS		0x80000000
-
 /*
  * Enumerated certificate policies enforced by this module.
  */
 typedef enum {
 	kTPDefault,			/* no extension parsing, just sig and expiration */
-	kTPx509Basic,		/* basic X.509/RFC2459 */
-	kTPiSign,			/* Apple code signing */
+	kTPx509Basic,		/* basic X.509/RFC3280 */
+	kTPiSign,			/* (obsolete) Apple code signing */
 	kTP_SSL,			/* SecureTransport/SSL */
 	kCrlPolicy,			/* cert chain verification via CRL */
 	kTP_SMIME,			/* S/MIME */		
 	kTP_EAP,
-	kTP_CodeSign,		/* Apple Code Signing */
+	kTP_SWUpdateSign,	/* Apple SW Update signing (was Apple Code Signing) */
 	kTP_ResourceSign,	/* Apple Resource Signing */
 	kTP_IPSec,			/* IPSEC */
-	kTP_iChat			/* iChat */
+	kTP_iChat,			/* iChat */
+	kTP_PKINIT_Client,	/* PKINIT client cert */
+	kTP_PKINIT_Server,	/* PKINIT server cert */
+	kTP_CodeSigning,	/* new Apple Code Signing (Leopard/10.5) */
+	kTP_PackageSigning	/* Package Signing */
 } TPPolicy;
 
 /*
@@ -67,10 +65,22 @@ CSSM_RETURN tp_policyVerify(
 	CSSM_CSP_HANDLE					cspHand,
 	TPCertGroup 					*certGroup,
 	CSSM_BOOL						verifiedToRoot,		// last cert is good root
+	CSSM_BOOL						verifiedViaTrustSetting,// last cert has valid user trust
 	CSSM_APPLE_TP_ACTION_FLAGS		actionFlags,
 	const CSSM_DATA					*policyFieldData,	// optional
     void 							*policyControl);	// future use
 
+/* 
+ * Obtain policy-specific User Trust parameters
+ */
+void tp_policyTrustSettingParams(
+	TPPolicy				policy,
+	const CSSM_DATA			*policyFieldData,		// optional
+	/* returned values - not mallocd */
+	const char				**policyStr,
+	uint32					*policyStrLen,
+	SecTrustSettingsKeyUsage	*keyUse);
+	
 #ifdef __cplusplus
 }
 #endif

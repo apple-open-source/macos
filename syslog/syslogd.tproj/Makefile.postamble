@@ -113,7 +113,13 @@ STRIPFLAGS = -x
 install-man-page:
 	install -d $(DSTROOT)/usr/share/man/man5
 	install -d $(DSTROOT)/usr/share/man/man8
+	install -c -m 444 asl.conf.5 $(DSTROOT)/usr/share/man/man5/asl.conf.5
 	install -c -m 444 syslog.conf.5 $(DSTROOT)/usr/share/man/man5/syslog.conf.5
 	install -c -m 444 syslogd.8 $(DSTROOT)/usr/share/man/man8/syslogd.8
+
+after_install:
+	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
 	install -d $(DSTROOT)/System/Library/LaunchDaemons
 	install -c -m 444 com.apple.syslogd.plist $(DSTROOT)/System/Library/LaunchDaemons
+	mkdir -p $(DSTROOT)/usr/share/sandbox
+	install -m 644 syslogd.sb $(DSTROOT)/usr/share/sandbox

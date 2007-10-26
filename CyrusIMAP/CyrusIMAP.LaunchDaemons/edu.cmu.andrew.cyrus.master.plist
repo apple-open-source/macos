@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>edu.cmu.andrew.cyrus.master</string>
+	<key>OnDemand</key>
+	<false/>
+	<key>Program</key>
+	<string>/usr/bin/cyrus/bin/master</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>master</string>
+		<string>-l</string>
+		<string>256</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+</dict>
+</plist>

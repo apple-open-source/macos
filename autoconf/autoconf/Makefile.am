@@ -1,7 +1,9 @@
 ## Process this file with automake to create Makefile.in. -*-Makefile-*-
 
 ## Makefile for Autoconf.
-## Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+
+## Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2006 Free
+## Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -15,20 +17,21 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
-# bin/ and tests/ must be run first, as they build the tests executables
-# (tests/autom4te etc.), that we happen to use here.
-SUBDIRS = bin tests . lib config man doc
+# bin/ must be run first, as it builds executables needed for tests.
+# autom4te uses autotest.m4f to generate `testsuite', so build tests last.
+SUBDIRS = bin . lib man doc tests
 
-ACLOCAL_AMFLAGS = -I config
+ACLOCAL_AMFLAGS = -I m4
 
 EXTRA_DIST = ChangeLog.0 ChangeLog.1 ChangeLog.2 \
 	     BUGS \
-	     GNUmakefile Makefile.maint Makefile.cfg
+	     GNUmakefile Makefile.maint Makefile.cfg \
+	     config/announce-gen config/prev-version.txt
 
-MAINTAINERCLEANFILES = INSTALL
+MAINTAINERCLEANFILES = $(srcdir)/INSTALL
 
 ## -------------------- ##
 ## Forwarding targets.  ##
@@ -44,10 +47,10 @@ html:
 ## INSTALL.  ##
 ## --------- ##
 
-pkgdata_DATA = INSTALL
+pkgdata_DATA = $(srcdir)/INSTALL
 AM_MAKEINFOFLAGS = --no-headers --no-validate --no-split
-INSTALL: $(top_srcdir)/doc/install.texi
-	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -o $(srcdir)/INSTALL \
+$(srcdir)/INSTALL: $(top_srcdir)/doc/install.texi
+	$(MAKEINFO) $(AM_MAKEINFOFLAGS) $(MAKEINFOFLAGS) -o $@ \
 	  $(top_srcdir)/doc/install.texi
 
 ## maintainer-check ##
@@ -59,6 +62,9 @@ maintainer-check-tests:
 ## ----------------------------------- ##
 ## Updating Perl files from Automake.  ##
 ## ----------------------------------- ##
+
+WGET = wget
+WGETFLAGS = -C off
 
 ## Fetch the latest versions of files we care about.
 automake_cvsweb = \
@@ -73,17 +79,14 @@ autom4te_files = \
   Autom4te/XFile.pm
 
 autom4te-update:
-	rm -rf Fetchdir > /dev/null 2>&1
-	mkdir Fetchdir; mkdir Fetchdir/Autom4te
-## If a get fails then that is a problem.
-	(cd Fetchdir && \
-	$(WGET) $(automake_cvsweb)/lib/Automake/Configure_ac.pm?$(automake_cvsargs) -O Autom4te/Configure_ac.pm; \
-	$(WGET) $(automake_cvsweb)/lib/Automake/Channels.pm?$(automake_cvsargs) -O Autom4te/Channels.pm; \
-	$(WGET) $(automake_cvsweb)/lib/Automake/FileUtils.pm?$(automake_cvsargs) -O Autom4te/FileUtils.pm; \
-	$(WGET) $(automake_cvsweb)/lib/Automake/Struct.pm?$(automake_cvsargs) -O Autom4te/Struct.pm; \
-	$(WGET) $(automake_cvsweb)/lib/Automake/XFile.pm?$(automake_cvsargs) -O Autom4te/XFile.pm; \
-	:)
+	rm -f -r Fetchdir > /dev/null 2>&1
+	mkdir -p Fetchdir/Autom4te
+	for file in $(autom4te_files); do \
+	  $(WGET) $(WGET_FLAGS) \
+	    "$(automake_cvsweb)/lib/$file?$(automake_cvsargs)" \
+	    -O "Fetchdir/$$file" || exit; \
+	done
 	perl -pi -e 's/Automake::/Autom4te::/g' Fetchdir/Autom4te/*.pm
 	for file in $(autom4te_files); do \
-	  $(move_if_change) Fetchdir/$$file $(srcdir)/lib/$$file; \
+	  $(move_if_change) Fetchdir/$$file $(srcdir)/lib/$$file || exit; \
 	done

@@ -29,6 +29,8 @@ int IPSecValidateConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecApplyConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecRemoveConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 
+int IPSecSelfRepair();
+
 /* Kernel Policies */
 int IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
 int IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
@@ -40,7 +42,7 @@ int IPSecSetSecurityAssociationsPreference(int *oldval, int newval);
 /* Functions to manipulate well known configurations */
 CFMutableDictionaryRef 
 IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, char *dst_hostName, 
-		CFStringRef authenticationMethod, int isClient);
+		CFStringRef authenticationMethod, int isClient, int natt_multiple_users, CFStringRef identifierVerification);
 
 /* Miscellaneous */
 int get_src_address(struct sockaddr *src, const struct sockaddr *dst, char *if_name);

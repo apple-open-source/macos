@@ -3,12 +3,15 @@
 .\"
 .Dd November 4, 2003
 .Dt SCUTIL 8
-.Os Mac OS X
+.Os "Mac OS X"
 .Sh NAME
 .Nm scutil
 .Nd Manage system configuration parameters
 .Sh SYNOPSIS
 .Nm
+.Br
+.Nm
+.Fl -prefs Op preference-file
 .Br
 .Nm
 .Fl r Bro "" Ar nodename | Ar address | Ar local-address remote-address "" Brc
@@ -21,6 +24,12 @@
 .Br
 .Nm
 .Fl -set Ar pref Op Ar newval
+.Br
+.Nm
+.Fl -dns
+.Br
+.Nm
+.Fl -proxy
 .\".Br
 .\".Nm
 .\".Fl -net
@@ -35,6 +44,17 @@ Interaction with this data (using the SystemConfiguration.framework
 SCDynamicStore APIs) is handled with a set of commands read from
 standard input.
 A list of the available commands is available by entering the
+.Ar help
+directive.
+.Pp
+The
+.Fl -prefs
+option provides a command line interface to the [raw] stored
+preference data.
+Interaction with this data (using the SystemConfiguration.framework
+SCPreferences APIs) is handled with a set of commands read from
+standard input.
+A list of the available commands is availble by entering the
 .Ar help
 directive.
 .Pp
@@ -58,6 +78,27 @@ and
 .Fl -set
 options provide a means of reporting and updating a select group of
 persistent system preferences.
+.Pp
+The
+.Fl -dns
+option reports the current DNS configuration.
+The first listed
+.Xr resolver 5 
+configuration is considered to be the
+.Qq default
+configuration.
+Additional
+.Qq supplemental
+configurations follow.  Those containing a
+.Qq domain
+name will be used for queries matching the specified domain.
+Those without will be used as a
+.Qq default
+configuration in addition to the first listed.
+.Pp
+The
+.Fl -proxy
+option reports the current system proxy configuration.
 .\".Pp
 .\"Lastly, the
 .\".Fl -net
@@ -120,8 +161,17 @@ The default timeout is 15 seconds.
 Retrieves the specified preference.  The current value will be reported on standard output.
 .Pp
 Supported preferences include:
-ComputerName
-LocalHostName
+.Bl -tag -width "LocalHostName" -offset indent
+.It ComputerName
+The user-friendly name for the system.
+.It LocalHostName
+The local (Bonjour) host name.
+.It HostName
+The name associated with
+.Xr hostname 1 
+and
+.Xr gethostname 3 .
+.El
 .It Fl -set Ar pref Op Ar newval
 Updates the specified preference with the new value.
 If the new value is not specified on the command line then it will be read from standard input.
@@ -129,10 +179,15 @@ If the new value is not specified on the command line then it will be read from 
 Supported preferences include:
 ComputerName
 LocalHostName
+HostName
 .Pp
 The
 .Fl -set
 option requires super-user access.
+.It Fl -dns
+Reports the current DNS configuration.
+.It Fl -proxy
+Reports the current proxy configuration.
 .\".It Fl -net
 .\"Provides a command line interface to the
 .\".Qq network configuration .

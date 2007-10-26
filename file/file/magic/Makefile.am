@@ -15,11 +15,17 @@ magic: Header Localstuff $(magic_FRAGMENTS)
           cat $$f; \
 	done >> $@
 
+if IS_CROSS_COMPILE
+FILE_COMPILE = file
+else
+FILE_COMPILE = $(top_builddir)/src/file
+endif
+
 magic.mgc: magic
-	$(top_builddir)/src/file -C -m magic
+	$(FILE_COMPILE) -C -m magic
 
 magic.mime.mgc: magic.mime
-	$(top_builddir)/src/file -C -m $(srcdir)/magic.mime
+	$(FILE_COMPILE) -C -m $(srcdir)/magic.mime
 
 magic_FRAGMENTS = \
 Magdir/acorn \
@@ -38,21 +44,23 @@ Magdir/archive \
 Magdir/asterix \
 Magdir/att3b \
 Magdir/audio \
-Magdir/bFLT \
+Magdir/basis \
+Magdir/bflt \
 Magdir/blender \
 Magdir/blit \
 Magdir/bout \
 Magdir/bsdi \
+Magdir/btsnoop \
 Magdir/cad \
 Magdir/c-lang \
 Magdir/c64 \
 Magdir/cddb \
-Magdir/chi \
 Magdir/chord \
 Magdir/cisco \
 Magdir/citrus \
 Magdir/claris \
 Magdir/clipper \
+Magdir/cracklib \
 Magdir/spec \
 Magdir/commands \
 Magdir/communications \
@@ -67,11 +75,11 @@ Magdir/diff \
 Magdir/digital \
 Magdir/dolby \
 Magdir/dump \
-Magdir/dyadic \
 Magdir/editors \
 Magdir/elf \
 Magdir/encore \
 Magdir/epoc \
+Magdir/esri \
 Magdir/fcs \
 Magdir/filesystems \
 Magdir/flash \
@@ -86,7 +94,6 @@ Magdir/gimp \
 Magdir/gnu \
 Magdir/grace \
 Magdir/gringotts \
-Magdir/hdf \
 Magdir/hitachi-sh \
 Magdir/hp \
 Magdir/human68k \
@@ -125,6 +132,7 @@ Magdir/modem \
 Magdir/motorola \
 Magdir/msdos \
 Magdir/msvc \
+Magdir/mup \
 Magdir/natinst \
 Magdir/ncr \
 Magdir/netbsd \
@@ -169,6 +177,8 @@ Magdir/sinclair \
 Magdir/sketch \
 Magdir/smalltalk \
 Magdir/sniffer \
+Magdir/dyadic \
+Magdir/scientific \
 Magdir/softquad \
 Magdir/spectrum \
 Magdir/sql \
@@ -189,6 +199,7 @@ Magdir/varied.out \
 Magdir/varied.script \
 Magdir/vax \
 Magdir/vicar \
+Magdir/virtutech \
 Magdir/visx \
 Magdir/vms \
 Magdir/vmware \
@@ -197,6 +208,7 @@ Magdir/vxl \
 Magdir/wordprocessors \
 Magdir/xdelta \
 Magdir/xenix \
+Magdir/xo65 \
 Magdir/xwindows \
 Magdir/zilog \
 Magdir/zyxel

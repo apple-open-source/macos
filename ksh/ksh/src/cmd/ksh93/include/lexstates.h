@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 #ifndef S_BREAK
 #define S_BREAK	1	/* end of token */
@@ -61,12 +57,13 @@
 #define S_SPACE	S_BREAK	/* IFS space characters */
 #define S_DELIM	S_RES	/* IFS delimter characters */
 #define S_MBYTE S_NAME	/* IFS first byte of multi-byte char */
+#define S_BLNK	36	/* space or tab */
 /* The following must be the highest numbered states */
-#define S_QUOTE	36	/* double quote character */
-#define S_GRAVE	37	/* old comsub character */
-#define S_ESC	38	/* escape character */
-#define S_DOL	39	/* $ subsitution character */
-#define S_ESC2	40	/* escape character inside '...' */
+#define S_QUOTE	37	/* double quote character */
+#define S_GRAVE	38	/* old comsub character */
+#define S_ESC	39	/* escape character */
+#define S_DOL	40	/* $ subsitution character */
+#define S_ESC2	41	/* escape character inside '...' */
 
 /* These are the lexical state table names */
 #define ST_BEGIN	0
@@ -82,13 +79,44 @@
 #define ST_QNEST	10
 #define ST_NONE		11
 
+#include "FEATURE/locale"
+
+#if _hdr_wchar
+#   include <wchar.h>
+#   if _hdr_wctype
+#       include <wctype.h>
+#       undef  isalpha
+#       define isalpha(x)      iswalpha(x)
+#       if defined(iswblank) || _lib_iswblank
+#           undef  isblank
+#           define isblank(x)      iswblank(x)
+#       else
+#           if _lib_wctype && _lib_iswctype
+#               define _lib_iswblank	-1
+#               undef  isblank
+#	        define isblank(x)	local_iswblank(x)
+	        extern int		local_iswblank(wchar_t);
+#           endif
+#       endif
+#   endif
+#endif
+#ifndef isblank
+#   define isblank(x)      ((x)==' '||(x)=='\t')
+#endif
+
+#undef LEN
 #if SHOPT_MULTIBYTE
-#   define isaname(c)	(((c)>=0x200) ||  sh_lexstates[ST_NAME][c]==0)
-#   define isaletter(c)	(((c)>=0x200) || sh_lexstates[ST_DOL][c]==S_ALP && (c)!='.')
+    static int NXT, LEN;
+#   define isaname(c)	((c)>0xff?isalpha(c): sh_lexstates[ST_NAME][(c)]==0)
+#   define isaletter(c)	((c)>0xff?isalpha(c): sh_lexstates[ST_DOL][(c)]==S_ALP && (c)!='.')
 #else
+#   undef mbwide
+#   define mbwide()	(0)
+#   define LEN		1
 #   define isaname(c)	(sh_lexstates[ST_NAME][c]==0)
 #   define isaletter(c)	(sh_lexstates[ST_DOL][c]==S_ALP && (c)!='.')
 #endif
+#define STATE(s,c)  	(mbwide()?(c=fcmbstate(s,&NXT,&LEN),NXT):s[c=fcget()])
 #define isadigit(c)	(sh_lexstates[ST_DOL][c]==S_DIG)
 #define isastchar(c)	((c)=='@' || (c)=='*')
 #define isexp(c)	(sh_lexstates[ST_MACRO][c]==S_PAT||(c)=='$'||(c)=='`')

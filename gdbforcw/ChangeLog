@@ -1,0 +1,203 @@
+2007-03-05  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (check): Use the new check command from TOT.
+
+2007-03-05  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (install-chmod-macosx): Don't error out if chgrp procmod 
+	fails.
+
+2007-03-05  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (install-chmod-macosx): Fix typeo in last change.
+
+2007-03-02  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (install-chmod-macosx): Don't check whoami(1) output before
+	doing chmod.  This file is run as root.
+
+2006-04-13  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Take out all the cross debugger building, the
+	framework creation, the installhdrs phase and only install
+	a fat /usr/libexec/gdb/gdb-for-codewarrior binary.
+
+2005-12-01  Ronnie Misra (rgmisra@apple.com)
+
+	* gdb.sh: Update to recognize new translate program path/command
+	line parameter.
+
+2005-11-16  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Add command line parameter when invoking Rosetta.
+
+2005-10-19  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Copy DYLD_* into GDB_DYLD_* to get past the setgid barrier.
+
+2005-09-30  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: make the gdb binaries setgid procmod.
+
+2005-05-28  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Update --help text.
+
+2005-05-18  Jason Molenda  (jmolenda@apple.com)
+
+	* cache-symfiles.sh: Remove.
+	* Makefile: Don't install cache-symfiles.sh.
+
+2005-05-03  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Add --oah750 command line option.
+
+2005-04-14  Jason Molenda  (jmolenda@apple.com)
+
+	* gdb.sh: Add a -arch command line option.
+
+2005-01-18  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (GDB_VERSION): Update to the last merge.
+
+2004-12-06  Jason Molenda  (jmolenda@apple.com)
+
+	* Info-template.plist: It looks like CFBundleDevelopmentRegion needs
+	to be defined; whatever.  Looking at two installed frameworks I see 
+	English is an acceptable setting, so there we go.  These are just 
+	private framework header files used for building gdb plug-ins anyway.
+
+2004-08-09  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Post-process the man page to refer to
+	$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR) instead of hard-coding (see
+	change to gdb/gdb.1).
+
+2004-06-16  Jason Molenda  (jmolenda@apple.com)
+
+	* ntbuild.sh, ntconfig.sh: Removed.
+	* dpkg/control: Removed.
+	* ChangeLog.binutils: Removed.
+
+2004-06-16  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Don't install binutils, unnecessary frameworks.
+	Don't create /usr/lib, /usr/libexec/binutils directories.
+
+2004-06-11  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Quote documentation directory pathnames in case
+	a space character is added.
+
+2004-06-08  Jim Ingham  <jingham@apple.com>
+
+        * cache-symfiles.sh: For now, don't emit cached symfiles
+        if the original library has any stabs.  gdb crashes when
+        these are present (Radar 3418798)
+        Also deleted the setting of "name" in the second (library)
+        search, since we don't actually use it.
+	Also, run the script far enough to delete the old symfile
+	directory, since then gdb won't bother to look at a bunch
+	of symfiles which it surely can't use.
+	
+2004-06-08  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (SYSTEM_DEVELOPER_TOOLS_DOC_DIR): Set from
+	pb_makefiles' plaform-variables.make if possible. 
+
+2004-06-07  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Move GDB_RC_VERSION up where I can see it.
+	(SYSTEM_DEVELOPER_TOOLS_DOC_DIR): New variable to hold the location
+	of the installed documentation, cf r. 3678942.
+	(install-binutils-common): Don't install binutils docs.
+	(install-binutils-macosx): Don't install binutils docs.
+	(install-chmod-macosx): Update chmod call to avoid deprecation warning.
+
+2004-05-17  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile: Bump GDB_RC_VERSION to new range.
+
+2004-05-13  Jason Molenda  (jmolenda@apple.com)
+
+	* cached-symfiles.sh: Suppress cacheing of symfiles until Klee
+	has a chance to make it work again in the newly merged sources.
+
+2003-10-03  Jason Molenda  (jmolenda@apple.com)
+
+        * cache-symfiles.sh: Run nm on dylibs to ensure they're well formed
+        before feeding them to gdb.
+
+2003-07-24  Klee Dienes <kdienes@apple.com>
+
+	* cache-symfiles.sh: Use the proper prefix for dyld; no longer
+	remove the dyld.syms from the cached symfile directory.
+
+2003-05-04  Klee Dienes <kdienes@apple.com>
+
+	* Makefile: Use GDB_RC_VERSION instead of APPLE_VERSION in the
+	gdb.sh target.  Use GDB_FRAMEWORKS and BINUTILS_FRAMEWORKS instead
+	of FRAMEWORKS in the install target.
+
+2003-05-04  Klee Dienes <kdienes@apple.com>
+
+	* cache-symfiles.sh: Use the correct path to GDB.  Don't read the
+	user's .gdbinit.  Check for dangling symlinks in /usr/lib.
+
+2003-04-24  Jim Ingham  <jingham@apple.com>
+
+	* Makefile: Don't chmod the dylds if you aren't doing 
+	--enable-shared.
+	Also change the version string to 268.
+	
+2003-04-25  Klee Dienes  <kdienes@apple.com>
+
+	* cache-symfiles.sh: Update to use the new cached-symfile
+	creation commands.
+
+2003-03-18  Jason Molenda  (jmolenda@apple.com)
+
+	* Makefile (GDB_VERSION): Updated date string to most recent
+	merge.
+	(CONFIG_OTHER_OPTIONS): Add --disable-serial-configure.  Not
+	exactly sure what is up with this, but buildit fails without
+	it -- somehow configure-liberty is being triggered from the
+	"configure-gdb" target and the build fails because libiberty
+	isn't included in the sources.
+
+2003-01-14  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Update to use the top-level configure, and then run
+	make configure-gdb.  Build intl and readline for each
+	cross-compiled platform, rather than re-using the native build.
+	
+2002-12-12  Klee Dienes  <kdienes@apple.com>
+
+	* cache-symfiles.sh: Test each potential framework for validity,
+	rather than by using an explicit list of invalid framework.
+	* configure: Update to configure the needed subdirectories (they
+	are no longer automatically configured by the top-level
+	configure).  Remove __objcInit removal code (it's removed by the
+	GDB makefile).
+	
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Remove PDO support.  Convert "rhapsody" to "macosx".
+	Remove obsolete Mac OS X release names.  Use *-apple-darwin
+	instead of *-apple-macos10 as the primary build string.  Remove
+	WITH_CFM and WITH_PTHREADS options.  Pass location for
+	libintl.dylib.
+	* gdb.sh: Convert *-apple-macos10 to *-apple-darwin.
+	* template.h: Convert *-apple-macos10 to *-apple-darwin.  Remove
+	Rhapsody support.
+	* macsbug/Makefile: Convert *-apple-macos10 to *-apple-darwin.
+	* macsbug/build.sh: Remove.
+	
+2002-09-24  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile: Update version number.
+	* Makefile: Add *-macosx-darwin to the list of recognized arch strings.
+	* Makefile: Strip trailing and leading spaces from CFLAGS.
+
+	* template.h: include machine/sys--sys/file, not sys--sys/file.
+

@@ -193,7 +193,7 @@ struct info {
     unsigned long overflow_mask;
 
     /* The MACOSX_DEPLOYMENT_TARGET */
-    enum macosx_deployment_target_value macosx_deployment_target;
+    struct macosx_deployment_target macosx_deployment_target;
 };
 
 static void usage(
@@ -297,8 +297,7 @@ char **envp)
     enum bool operation_specified, from_dylib_table, create_dylib_table;
     char *install_name, *has_suffix;
     struct stat stat_buf;
-    enum macosx_deployment_target_value macosx_deployment_target;
-    const char *macosx_deployment_target_name;
+    struct macosx_deployment_target macosx_deployment_target;
 
 	progname = argv[0];
 
@@ -339,21 +338,19 @@ char **envp)
 	 * Pick up the Mac OS X deployment target and set the defaults based
 	 * on it.
 	 */
-	get_macosx_deployment_target(&macosx_deployment_target,
-				     &macosx_deployment_target_name,
-				     CPU_TYPE_ANY);
+	get_macosx_deployment_target(&macosx_deployment_target);
 	/*
 	 * In 10.4 and later we now only round to the nearest page and
 	 * allow the entire 256 mb split region to be used.
 	 */
-	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4) {
+	if(macosx_deployment_target.major >= 4) {
 	    info.round = DEFAULT_ROUND_X10_4;
 	    info.overflow_mask = SPLIT_OVERFLOW_MASK_X10_4;
 	} else {
             info.round = DEFAULT_ROUND_X10_3;
             info.overflow_mask = SPLIT_OVERFLOW_MASK_X10_3;
 	}
-	if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_2){
+	if(macosx_deployment_target.major >= 2){
 	    info.allocate_flat_increasing = FALSE;
 	    info.seg1addr = DEFAULT_SEG1ADDR_X10_2;
 	    info.segs_read_only_addr  = DEFAULT_READ_ONLY_ADDR_X10_2;
@@ -795,15 +792,13 @@ char **envp)
                         info.debug_seg1addr = entry->seg1addr;
 		}
 	    }
-	    if(next_flat == FALSE && 
-                  macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4)
+	    if(next_flat == FALSE && macosx_deployment_target.major < 4)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_FLAT_ADDRESS_TO_ASSIGN);
 	    if(next_split == FALSE)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_SPLIT_ADDRESS_TO_ASSIGN);
-	    if(next_debug == FALSE && 
-                  macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4)
+	    if(next_debug == FALSE && macosx_deployment_target.major < 4)
 		error("segment address table: %s does not have an entry for %s",
 		      info.seg_addr_table_name, NEXT_DEBUG_ADDRESS_TO_ASSIGN);
 	    if(errors != 0)
@@ -1288,7 +1283,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
 			info.overflow_mask) !=
-	  	       (info.default_read_only_addr & info.overflow_mask))
+		       (info.start_segs_read_only_addr & info.overflow_mask))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1297,7 +1292,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
 			info.overflow_mask) !=
-		       (info.default_read_write_addr & info.overflow_mask))
+		       (info.start_segs_read_write_addr & info.overflow_mask))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1359,7 +1354,7 @@ char **envp)
                 *    instead of the 128mb region
                 */
                 
-               if(macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4) {
+               if(macosx_deployment_target.major >= 4) {
                    if(info.segs_read_only_addr >
                            info.start_segs_read_only_addr + 0x10000000)
                        error("segs_read_only_addr over flow (more than 256meg's"
@@ -1487,7 +1482,7 @@ char **envp)
 		    info.segs_read_write_addr += size;
 		    if((info.layout_info[i]->segs_read_only_addr &
                        info.overflow_mask) !=
-                      (info.default_read_only_addr & info.overflow_mask))
+		      (info.start_segs_read_only_addr & info.overflow_mask))
 			error("read-only address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1496,7 +1491,7 @@ char **envp)
 			      entry->install_name);
 		    if((info.layout_info[i]->segs_read_write_addr &
                        info.overflow_mask) !=
-                      (info.default_read_write_addr & info.overflow_mask))
+		      (info.start_segs_read_write_addr & info.overflow_mask))
 			error("read-write address assignment: 0x%x plus size "
 			      "0x%x for %s overflows area to be allocated",
 			      (unsigned int)
@@ -1538,7 +1533,7 @@ char **envp)
 	     * Output the next flat and next debug addresses to assign only
  	     * if the deployment target is less than 10.4.
 	     */
-	    if(macosx_deployment_target < MACOSX_DEPLOYMENT_TARGET_10_4) {
+	    if(macosx_deployment_target.major < 4) {
 		fprintf(out_fp, "#%s: Do not remove the following line, "
 		    "it is used by the %s tool\n", progname, progname);
 		fprintf(out_fp, "0x%08x\t%s\n",
@@ -2002,8 +1997,7 @@ void *cookie)
 	 * Skip non-split entries when MACOSX_DEPLOYMENT_TARGET is 10.4 or
 	 * greater.
 	 */
-	if(info->macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_4 &&
-                  entry->split != TRUE)
+	if(info->macosx_deployment_target.major >= 4 && entry->split != TRUE)
 	    return;
 
 	/*
@@ -2029,8 +2023,7 @@ void *cookie)
 		      "seg_addr_table for: %s\n", entry->install_name);
 	    if(entry->split == TRUE){
 		if(info->layout_info[f - info->seg_addr_table]->split != TRUE &&
-		   info->macosx_deployment_target >=
-		   MACOSX_DEPLOYMENT_TARGET_10_4)
+		   info->macosx_deployment_target.major >= 4)
 		    return;
 		fprintf(out_fp, "0x%08x\t0x%08x\t%s\n",
 		       (unsigned int)info->layout_info[

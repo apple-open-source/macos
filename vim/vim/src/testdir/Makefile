@@ -13,7 +13,9 @@ SCRIPTS = test1.out test2.out test3.out test4.out test5.out test6.out \
 		test33.out test34.out test35.out test36.out test37.out \
 		test38.out test39.out test40.out test41.out test42.out \
 		test43.out test44.out test45.out test46.out test47.out \
-		test48.out test49.out
+		test48.out test49.out test51.out test52.out test53.out \
+		test54.out test55.out test56.out test57.out test58.out \
+		test59.out test60.out test61.out test62.out
 
 SCRIPTS_GUI = test16.out
 
@@ -32,27 +34,32 @@ gui:	nolog $(SCRIPTS) $(SCRIPTS_GUI)
 $(SCRIPTS) $(SCRIPTS_GUI): $(VIMPROG)
 
 clean:
-	-rm -rf *.out test.log tiny.vim small.vim mbyte.vim test.ok X*
+	-rm -rf *.out *.failed *.rej *.orig test.log tiny.vim small.vim mbyte.vim test.ok X* viminfo
 
 test1.out: test1.in
-	-rm -f $*.failed tiny.vim small.vim mbyte.vim
+	-rm -f $*.failed tiny.vim small.vim mbyte.vim test.ok X* viminfo
 	$(VIMPROG) -u unix.vim -U NONE --noplugin -s dotest.in $*.in
 	@/bin/sh -c "if diff test.out $*.ok; \
 		then mv -f test.out $*.out; \
 		else echo; \
 		echo test1 FAILED - Something basic is wrong; \
 		echo; exit 1; fi"
-	-rm -rf X*
+	-rm -rf X* viminfo
 
 .in.out:
-	-rm -f $*.failed test.ok
+	-rm -rf $*.failed test.ok test.out X* viminfo
 	cp $*.ok test.ok
-	$(VIMPROG) -u unix.vim -U NONE --noplugin -s dotest.in $*.in
-	@/bin/sh -c "if diff test.out $*.ok; \
-		then mv -f test.out $*.out; \
-		else echo $* FAILED >>test.log; mv -f test.out $*.failed; \
+	# Sleep a moment to avoid that the xterm title is messed up
+	@-sleep .2
+	-$(VIMPROG) -u unix.vim -U NONE --noplugin -s dotest.in $*.in
+	@/bin/sh -c "if test -f test.out; then\
+		  if diff test.out $*.ok; \
+		  then mv -f test.out $*.out; \
+		  else echo $* FAILED >>test.log; mv -f test.out $*.failed; \
+		  fi \
+		else echo $* NO OUTPUT >>test.log; \
 		fi"
-	-rm -rf X* test.ok
+	-rm -rf X* test.ok viminfo
 
 nolog:
 	-echo Test results: >test.log

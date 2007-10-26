@@ -1,8 +1,8 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.43.2.13 2004/11/17 21:53:54 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.79.2.11 2006/01/03 22:16:18 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2003-2004 The OpenLDAP Foundation.
+ * Copyright 2003-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -31,34 +31,15 @@
 #include "slap.h"
 #include "back-ldap.h"
 
-#if SLAPD_LDAP == SLAPD_MOD_DYNAMIC
-
-int init_module(int argc, char *argv[]) {
-    BackendInfo bi;
-
-    memset( &bi, '\0', sizeof(bi) );
-    bi.bi_type = "ldap";
-    bi.bi_init = ldap_back_initialize;
-
-    backend_add(&bi);
-    return 0;
-}
-
-#endif /* SLAPD_LDAP */
-
 int
-ldap_back_open(
-	BackendInfo *bi
-)
+ldap_back_open( BackendInfo	*bi )
 {
 	bi->bi_controls = slap_known_controls;
 	return 0;
 }
 
 int
-ldap_back_initialize(
-    BackendInfo	*bi
-)
+ldap_back_initialize( BackendInfo *bi )
 {
 	bi->bi_open = ldap_back_open;
 	bi->bi_config = 0;
@@ -66,8 +47,8 @@ ldap_back_initialize(
 	bi->bi_destroy = 0;
 
 	bi->bi_db_init = ldap_back_db_init;
-	bi->bi_db_config = ldap_back_db_config;
-	bi->bi_db_open = 0;
+	bi->bi_db_config = config_generic_wrapper;
+	bi->bi_db_open = ldap_back_db_open;
 	bi->bi_db_close = 0;
 	bi->bi_db_destroy = ldap_back_db_destroy;
 
@@ -89,104 +70,150 @@ ldap_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = ldap_back_conn_destroy;
 
-	ldap_chain_setup();
+	if ( chain_init() ) {
+		return -1;
+	}
+
+	return ldap_back_init_cf( bi );
+}
+
+int
+ldap_back_db_init( Backend *be )
+{
+	ldapinfo_t	*li;
+
+	li = (ldapinfo_t *)ch_calloc( 1, sizeof( ldapinfo_t ) );
+	if ( li == NULL ) {
+ 		return -1;
+ 	}
+
+	BER_BVZERO( &li->li_acl_authcID );
+	BER_BVZERO( &li->li_acl_authcDN );
+	BER_BVZERO( &li->li_acl_passwd );
+
+	li->li_acl_authmethod = LDAP_AUTH_NONE;
+	BER_BVZERO( &li->li_acl_sasl_mech );
+	li->li_acl.sb_tls = SB_TLS_DEFAULT;
+
+	li->li_idassert_mode = LDAP_BACK_IDASSERT_LEGACY;
+
+	BER_BVZERO( &li->li_idassert_authcID );
+	BER_BVZERO( &li->li_idassert_authcDN );
+	BER_BVZERO( &li->li_idassert_passwd );
+
+	BER_BVZERO( &li->li_idassert_authzID );
+
+	li->li_idassert_authmethod = LDAP_AUTH_NONE;
+	BER_BVZERO( &li->li_idassert_sasl_mech );
+	li->li_idassert.sb_tls = SB_TLS_DEFAULT;
+
+	/* by default, use proxyAuthz control on each operation */
+	li->li_idassert_flags = LDAP_BACK_AUTH_PRESCRIPTIVE;
+
+	li->li_idassert_authz = NULL;
+
+	/* initialize flags */
+	li->li_flags = LDAP_BACK_F_CHASE_REFERRALS;
+
+	/* initialize version */
+	li->li_version = LDAP_VERSION3;
+
+	ldap_pvt_thread_mutex_init( &li->li_conninfo.lai_mutex );
+
+	be->be_private = li;
+	SLAP_DBFLAGS( be ) |= SLAP_DBFLAG_NOLASTMOD;
+
+	be->be_cf_ocs = be->bd_info->bi_cf_ocs;
 
 	return 0;
 }
 
 int
-ldap_back_db_init(
-    Backend	*be
-)
+ldap_back_db_open( BackendDB *be )
 {
-	struct ldapinfo	*li;
-	struct ldapmapping *mapping;
+	ldapinfo_t	*li = (ldapinfo_t *)be->be_private;
 
-	li = (struct ldapinfo *) ch_calloc( 1, sizeof(struct ldapinfo) );
-	if ( li == NULL ) {
- 		return -1;
- 	}
+	Debug( LDAP_DEBUG_TRACE,
+		"ldap_back_db_open: URI=%s\n",
+		li->li_uri != NULL ? li->li_uri : "", 0, 0 );
 
-	li->binddn.bv_val = NULL;
-	li->binddn.bv_len = 0;
-	li->bindpw.bv_val = NULL;
-	li->bindpw.bv_len = 0;
+	/* by default, use proxyAuthz control on each operation */
+	switch ( li->li_idassert_mode ) {
+	case LDAP_BACK_IDASSERT_LEGACY:
+	case LDAP_BACK_IDASSERT_SELF:
+		/* however, since admin connections are pooled and shared,
+		 * only static authzIDs can be native */
+		li->li_idassert_flags &= ~LDAP_BACK_AUTH_NATIVE_AUTHZ;
+		break;
 
-#ifdef LDAP_BACK_PROXY_AUTHZ
-	li->proxyauthzdn.bv_val = NULL;
-	li->proxyauthzdn.bv_len = 0;
-	li->proxyauthzpw.bv_val = NULL;
-	li->proxyauthzpw.bv_len = 0;
-#endif /* LDAP_BACK_PROXY_AUTHZ */
-
-#ifdef ENABLE_REWRITE
- 	li->rwmap.rwm_rw = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
-	if ( li->rwmap.rwm_rw == NULL ) {
- 		ch_free( li );
- 		return -1;
- 	}
-
-	{
-		char	*rargv[3];
-
-		/*
-		 * the filter rewrite as a string must be disabled
-		 * by default; it can be re-enabled by adding rules;
-		 * this creates an empty rewriteContext
-		 */
-		rargv[ 0 ] = "rewriteContext";
-		rargv[ 1 ] = "searchFilter";
-		rargv[ 2 ] = NULL;
-		rewrite_parse( li->rwmap.rwm_rw, "<suffix massage>", 
-				1, 2, rargv );
-
-		rargv[ 0 ] = "rewriteContext";
-		rargv[ 1 ] = "default";
-		rargv[ 2 ] = NULL;
-		rewrite_parse( li->rwmap.rwm_rw, "<suffix massage>", 
-				1, 2, rargv );
+	default:
+		break;
 	}
-#endif /* ENABLE_REWRITE */
 
-	ldap_pvt_thread_mutex_init( &li->conn_mutex );
+#if 0 && defined(SLAPD_MONITOR)
+	{
+		/* FIXME: disabled because namingContexts doesn't have
+		 * a matching rule, and using an MRA filter doesn't work
+		 * because the normalized assertion is compared to the 
+		 * non-normalized value, which in general differs from
+		 * the normalized one.  See ITS#3406 */
+		struct berval	filter,
+				base = BER_BVC( "cn=Databases," SLAPD_MONITOR );
+		Attribute	a = { 0 };
 
-	ldap_back_map_init( &li->rwmap.rwm_oc, &mapping );
-	ldap_back_map_init( &li->rwmap.rwm_at, &mapping );
+		filter.bv_len = STRLENOF( "(&(namingContexts:distinguishedNameMatch:=)(monitoredInfo=ldap))" )
+			+ be->be_nsuffix[ 0 ].bv_len;
+		filter.bv_val = ch_malloc( filter.bv_len + 1 );
+		snprintf( filter.bv_val, filter.bv_len + 1,
+				"(&(namingContexts:distinguishedNameMatch:=%s)(monitoredInfo=ldap))",
+				be->be_nsuffix[ 0 ].bv_val );
 
-	be->be_private = li;
-	SLAP_DBFLAGS(be) |= SLAP_DBFLAG_NOLASTMOD;
+		a.a_desc = slap_schema.si_ad_labeledURI;
+		a.a_vals = li->li_bvuri;
+		a.a_nvals = li->li_bvuri;
+		if ( monitor_back_register_entry_attrs( NULL, &a, NULL, &base, LDAP_SCOPE_SUBTREE, &filter ) ) {
+			/* error */
+		}
+
+		ch_free( filter.bv_val );
+	}
+#endif /* SLAPD_MONITOR */
+
+	if ( li->li_flags & LDAP_BACK_F_SUPPORT_T_F_DISCOVER ) {
+		int		rc;
+
+		li->li_flags &= ~LDAP_BACK_F_SUPPORT_T_F_DISCOVER;
+
+		rc = slap_discover_feature( li->li_uri, li->li_version,
+				slap_schema.si_ad_supportedFeatures->ad_cname.bv_val,
+				LDAP_FEATURE_ABSOLUTE_FILTERS );
+		if ( rc == LDAP_COMPARE_TRUE ) {
+			li->li_flags |= LDAP_BACK_F_SUPPORT_T_F;
+		}
+	}
 
 	return 0;
 }
 
 void
-ldap_back_conn_free( 
-	void *v_lc
-)
+ldap_back_conn_free( void *v_lc )
 {
-	struct ldapconn *lc = v_lc;
-	ldap_unbind( lc->ld );
-	if ( lc->bound_dn.bv_val ) {
-		ch_free( lc->bound_dn.bv_val );
-	}
-	if ( lc->cred.bv_val ) {
-		memset( lc->cred.bv_val, 0, lc->cred.bv_len );
-		ch_free( lc->cred.bv_val );
-	}
-	if ( lc->local_dn.bv_val ) {
-		ch_free( lc->local_dn.bv_val );
-	}
-	ldap_pvt_thread_mutex_destroy( &lc->lc_mutex );
-	ch_free( lc );
-}
+	ldapconn_t	*lc = v_lc;
 
-void
-mapping_free( void *v_mapping )
-{
-	struct ldapmapping *mapping = v_mapping;
-	ch_free( mapping->src.bv_val );
-	ch_free( mapping->dst.bv_val );
-	ch_free( mapping );
+	if ( lc->lc_ld != NULL ) {	
+		ldap_unbind_ext( lc->lc_ld, NULL, NULL );
+	}
+	if ( !BER_BVISNULL( &lc->lc_bound_ndn ) ) {
+		ch_free( lc->lc_bound_ndn.bv_val );
+	}
+	if ( !BER_BVISNULL( &lc->lc_cred ) ) {
+		memset( lc->lc_cred.bv_val, 0, lc->lc_cred.bv_len );
+		ch_free( lc->lc_cred.bv_val );
+	}
+	if ( !BER_BVISNULL( &lc->lc_local_ndn ) ) {
+		ch_free( lc->lc_local_ndn.bv_val );
+	}
+	ch_free( lc );
 }
 
 int
@@ -194,61 +221,84 @@ ldap_back_db_destroy(
     Backend	*be
 )
 {
-	struct ldapinfo	*li;
+	if ( be->be_private ) {
+		ldapinfo_t	*li = ( ldapinfo_t * )be->be_private;
 
-	if (be->be_private) {
-		li = (struct ldapinfo *)be->be_private;
+		ldap_pvt_thread_mutex_lock( &li->li_conninfo.lai_mutex );
 
-		ldap_pvt_thread_mutex_lock( &li->conn_mutex );
+		if ( li->li_uri != NULL ) {
+			ch_free( li->li_uri );
+			li->li_uri = NULL;
 
-		if (li->url) {
-			ch_free(li->url);
-			li->url = NULL;
+			assert( li->li_bvuri != NULL );
+			ber_bvarray_free( li->li_bvuri );
+			li->li_bvuri = NULL;
 		}
-		if ( li->lud ) {
-			ldap_free_urldesc( li->lud );
-			li->lud = NULL;
+		if ( !BER_BVISNULL( &li->li_acl_authcID ) ) {
+			ch_free( li->li_acl_authcID.bv_val );
+			BER_BVZERO( &li->li_acl_authcID );
 		}
-		if (li->binddn.bv_val) {
-			ch_free(li->binddn.bv_val);
-			li->binddn.bv_val = NULL;
+		if ( !BER_BVISNULL( &li->li_acl_authcDN ) ) {
+			ch_free( li->li_acl_authcDN.bv_val );
+			BER_BVZERO( &li->li_acl_authcDN );
 		}
-		if (li->bindpw.bv_val) {
-			ch_free(li->bindpw.bv_val);
-			li->bindpw.bv_val = NULL;
+		if ( !BER_BVISNULL( &li->li_acl_passwd ) ) {
+			ch_free( li->li_acl_passwd.bv_val );
+			BER_BVZERO( &li->li_acl_passwd );
 		}
-#ifdef LDAP_BACK_PROXY_AUTHZ
-		if (li->proxyauthzdn.bv_val) {
-			ch_free(li->proxyauthzdn.bv_val);
-			li->proxyauthzdn.bv_val = NULL;
+		if ( !BER_BVISNULL( &li->li_acl_sasl_mech ) ) {
+			ch_free( li->li_acl_sasl_mech.bv_val );
+			BER_BVZERO( &li->li_acl_sasl_mech );
 		}
-		if (li->proxyauthzpw.bv_val) {
-			ch_free(li->proxyauthzpw.bv_val);
-			li->proxyauthzpw.bv_val = NULL;
+		if ( !BER_BVISNULL( &li->li_acl_sasl_realm ) ) {
+			ch_free( li->li_acl_sasl_realm.bv_val );
+			BER_BVZERO( &li->li_acl_sasl_realm );
 		}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
-                if (li->conntree) {
-			avl_free( li->conntree, ldap_back_conn_free );
+		if ( !BER_BVISNULL( &li->li_idassert_authcID ) ) {
+			ch_free( li->li_idassert_authcID.bv_val );
+			BER_BVZERO( &li->li_idassert_authcID );
 		}
-#ifdef ENABLE_REWRITE
-		if (li->rwmap.rwm_rw) {
-			rewrite_info_delete( &li->rwmap.rwm_rw );
+		if ( !BER_BVISNULL( &li->li_idassert_authcDN ) ) {
+			ch_free( li->li_idassert_authcDN.bv_val );
+			BER_BVZERO( &li->li_idassert_authcDN );
 		}
-#else /* !ENABLE_REWRITE */
-		if (li->rwmap.rwm_suffix_massage) {
-  			ber_bvarray_free( li->rwmap.rwm_suffix_massage );
- 		}
-#endif /* !ENABLE_REWRITE */
+		if ( !BER_BVISNULL( &li->li_idassert_passwd ) ) {
+			ch_free( li->li_idassert_passwd.bv_val );
+			BER_BVZERO( &li->li_idassert_passwd );
+		}
+		if ( !BER_BVISNULL( &li->li_idassert_authzID ) ) {
+			ch_free( li->li_idassert_authzID.bv_val );
+			BER_BVZERO( &li->li_idassert_authzID );
+		}
+		if ( !BER_BVISNULL( &li->li_idassert_sasl_mech ) ) {
+			ch_free( li->li_idassert_sasl_mech.bv_val );
+			BER_BVZERO( &li->li_idassert_sasl_mech );
+		}
+		if ( !BER_BVISNULL( &li->li_idassert_sasl_realm ) ) {
+			ch_free( li->li_idassert_sasl_realm.bv_val );
+			BER_BVZERO( &li->li_idassert_sasl_realm );
+		}
+		if ( li->li_idassert_authz != NULL ) {
+			ber_bvarray_free( li->li_idassert_authz );
+			li->li_idassert_authz = NULL;
+		}
+               	if ( li->li_conninfo.lai_tree ) {
+			avl_free( li->li_conninfo.lai_tree, ldap_back_conn_free );
+		}
 
-		avl_free( li->rwmap.rwm_oc.remap, NULL );
-		avl_free( li->rwmap.rwm_oc.map, mapping_free );
-		avl_free( li->rwmap.rwm_at.remap, NULL );
-		avl_free( li->rwmap.rwm_at.map, mapping_free );
-		
-		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
-		ldap_pvt_thread_mutex_destroy( &li->conn_mutex );
+		ldap_pvt_thread_mutex_unlock( &li->li_conninfo.lai_mutex );
+		ldap_pvt_thread_mutex_destroy( &li->li_conninfo.lai_mutex );
 	}
 
 	ch_free( be->be_private );
+
 	return 0;
 }
+
+#if SLAPD_LDAP == SLAPD_MOD_DYNAMIC
+
+/* conditionally define the init_module() function */
+SLAP_BACKEND_INIT_MODULE( ldap )
+
+#endif /* SLAPD_LDAP == SLAPD_MOD_DYNAMIC */
+

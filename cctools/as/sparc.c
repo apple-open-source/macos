@@ -37,7 +37,6 @@
 
 /* careful, this file includes data *declarations* */
 #include "sparc-opcode.h"
-#include "stuff/target_arch.h"
 #include <mach-o/sparc/reloc.h>
 
 /* From GNU ansidecl.h */

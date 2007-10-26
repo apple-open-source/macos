@@ -1,5 +1,6 @@
 /* sendmail-like interface to /bin/mail for system V,
-   Copyright (C) 1985, 1994, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1994, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,15 +16,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
-
-
-/* This is needed to get the declaration of cuserid in GNU libc.  */
-/* #define _XOPEN_SOURCE 1 */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #define NO_SHORTNAMES
-#include <../src/config.h>
+#define _XOPEN_SOURCE 500	/* for cuserid */
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #if defined (BSD_SYSTEM) && !defined (BSD4_1) && !defined (USE_FAKEMAIL)
 /* This program isnot used in BSD, so just avoid loader complaints.  */
@@ -69,6 +70,15 @@ main ()
 #define true 1
 #define false 0
 
+#define TM_YEAR_BASE 1900
+
+/* Nonzero if TM_YEAR is a struct tm's tm_year value that causes
+   asctime to have well-defined behavior.  */
+#ifndef TM_YEAR_IN_ASCTIME_RANGE
+# define TM_YEAR_IN_ASCTIME_RANGE(tm_year) \
+    (1000 - TM_YEAR_BASE <= (tm_year) && (tm_year) <= 9999 - TM_YEAR_BASE)
+#endif
+
 /* Various lists */
 
 struct line_record
@@ -85,7 +95,7 @@ struct header_record
   struct header_record *previous;
 };
 typedef struct header_record *header;
-			
+
 struct stream_record
 {
   FILE *handle;
@@ -165,11 +175,11 @@ error (s1, s2)
 /* Print error message and exit.  */
 
 static void
-fatal (s1, s2)
-     char *s1, *s2;
+fatal (s1)
+     char *s1;
 {
-  error (s1, s2);
-  exit (1);
+  error ("%s", s1);
+  exit (EXIT_FAILURE);
 }
 
 /* Like malloc but get fatal error if memory is exhausted.  */
@@ -180,7 +190,7 @@ xmalloc (size)
 {
   long *result = (long *) malloc (((unsigned) size));
   if (result == ((long *) NULL))
-    fatal ("virtual memory exhausted", 0);
+    fatal ("virtual memory exhausted");
   return result;
 }
 
@@ -206,8 +216,7 @@ init_linebuffer (linebuffer)
 }
 
 /* Read a line of text from `stream' into `linebuffer'.
- * Return the length of the line.  
- */
+   Return the length of the line.  */
 
 long
 readline (linebuffer, stream)
@@ -354,6 +363,7 @@ make_file_preface ()
 {
   char *the_string, *temp;
   long idiotic_interface;
+  struct tm *tm;
   long prefix_length;
   long user_length;
   long date_length;
@@ -361,7 +371,13 @@ make_file_preface ()
 
   prefix_length = strlen (FROM_PREFIX);
   time (&idiotic_interface);
-  the_date = ctime (&idiotic_interface);
+  /* Convert to a string, checking for out-of-range time stamps.
+     Don't use 'ctime', as that might dump core if the hardware clock
+     is set to a bizarre value.  */
+  tm = localtime (&idiotic_interface);
+  if (! (tm && TM_YEAR_IN_ASCTIME_RANGE (tm->tm_year)
+	 && (the_date = asctime (tm))))
+    fatal ("current time is out of range");
   /* the_date has an unwanted newline at the end */
   date_length = strlen (the_date) - 1;
   the_date[date_length] = '\0';
@@ -411,7 +427,7 @@ close_the_streams ()
     no_problems = (no_problems &&
 		   ((*rem->action) (rem->handle) == 0));
   the_streams = ((stream_list) NULL);
-  return (no_problems ? 0 : 1);
+  return (no_problems ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
 void
@@ -622,13 +638,13 @@ parse_header (the_header, where)
   *where = '\0';
   return;
 }
-    
+
 /* Read lines from the input until we get a blank line.
    Create a list of `header' objects, one for each header field,
    each of which points to a list of `line_list' objects,
    one for each line in that field.
    Continuation lines are grouped in the headers they continue.  */
-   
+
 header
 read_header ()
 {
@@ -668,7 +684,7 @@ read_header ()
       if (next_line == ((line_list *) NULL))
 	{
 	  /* Not a valid header */
-	  exit (1);
+	  exit (EXIT_FAILURE);
 	}
       *next_line = new_list ();
       (*next_line)->string = alloc_string (length);
@@ -678,6 +694,8 @@ read_header ()
 
     } while (true);
 
+  if (! the_header)
+    fatal ("input message has no header");
   return the_header->next;
 }
 
@@ -728,7 +746,7 @@ main (argc, argv)
   command_line = alloc_string (name_length + args_size (the_header));
   strcpy (command_line, mail_program_name);
   parse_header (the_header, &command_line[name_length]);
-  
+
   the_pipe = popen (command_line, "w");
   if (the_pipe == ((FILE *) NULL))
     fatal ("cannot open pipe to real mailer");
@@ -751,3 +769,8 @@ main (argc, argv)
 
 #endif /* not MSDOS */
 #endif /* not BSD 4.2 (or newer) */
+
+/* arch-tag: acb0afa6-315a-4c5b-b9e3-def5725c8783
+   (do not change this comment) */
+
+/* fakemail.c ends here */

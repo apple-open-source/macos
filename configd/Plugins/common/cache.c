@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,7 @@ static	CFMutableArrayRef	cached_notifys	= NULL;
 
 __private_extern__
 void
-cache_open()
+cache_open(void)
 {
 	cached_keys     = CFDictionaryCreateMutable(NULL,
 						    0,
@@ -172,7 +172,7 @@ cache_write(SCDynamicStoreRef store)
 
 __private_extern__
 void
-cache_close()
+cache_close(void)
 {
 	CFRelease(cached_keys);
 	CFRelease(cached_set);

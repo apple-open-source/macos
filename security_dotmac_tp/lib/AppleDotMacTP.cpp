@@ -34,7 +34,6 @@
 //
 AppleDotMacTP::AppleDotMacTP()
 {
-		printf("creating docMacTP plugin\n");
 }
 
 AppleDotMacTP::~AppleDotMacTP()

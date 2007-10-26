@@ -74,9 +74,11 @@
 #include "buffer.h"
 #include "key.h"
 #include "authfd.h"
+#include "authfile.h"
 #include "compat.h"
 #include "log.h"
 #include "misc.h"
+#include "keychain.h"
 
 #ifdef SMARTCARD
 #include "scard.h"
@@ -693,6 +695,61 @@ send:
 }
 #endif /* SMARTCARD */
 
+static int
+add_identity_callback(const char *filename, const char *passphrase)
+{
+	Key *k;
+	int version;
+	Idtab *tab;
+
+	if ((k = key_load_private(filename, passphrase, NULL)) == NULL)
+		return 1;
+	switch (k->type) {
+	case KEY_RSA:
+	case KEY_RSA1:
+		if (RSA_blinding_on(k->rsa, NULL) != 1) {
+			key_free(k);
+			return 1;
+		}
+		break;
+	}
+	version = k->type == KEY_RSA1 ? 1 : 2;
+	tab = idtab_lookup(version);
+	if (lookup_identity(k, version) == NULL) {
+		Identity *id = xmalloc(sizeof(Identity));
+		id->key = k;
+		id->comment = xstrdup(filename);
+		if (id->comment == NULL) {
+			key_free(k);
+			return 1;
+		}
+		id->death = 0;
+		id->confirm = 0;
+		TAILQ_INSERT_TAIL(&tab->idlist, id, next);
+		tab->nentries++;
+	} else {
+		key_free(k);
+		return 1;
+	}
+
+	return 0;
+}
+
+static void
+process_add_from_keychain(SocketEntry *e)
+{
+	int result;
+
+	result = add_identities_using_keychain(&add_identity_callback);
+
+	/* e will be NULL when ssh-agent adds keys on its own at startup */
+	if (e) {
+		buffer_put_int(&e->output, 1);
+		buffer_put_char(&e->output,
+		    result ? SSH_AGENT_FAILURE : SSH_AGENT_SUCCESS);
+	}
+}
+
 /* dispatch incoming messages */
 
 static void
@@ -788,6 +845,9 @@ process_message(SocketEntry *e)
 		process_remove_smartcard_key(e);
 		break;
 #endif /* SMARTCARD */
+	case SSH_AGENTC_ADD_FROM_KEYCHAIN:
+		process_add_from_keychain(e);
+		break;
 	default:
 		/* Unknown message.  Respond with failure. */
 		error("Unknown message %d", type);
@@ -1018,7 +1078,11 @@ usage(void)
 int
 main(int ac, char **av)
 {
+#ifdef __APPLE_LAUNCHD__
 	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0, l_flag = 0;
+#else
+	int c_flag = 0, d_flag = 0, k_flag = 0, s_flag = 0;
+#endif
 	int sock, fd, ch;
 	u_int nalloc;
 	char *shell, *format, *pidstr, *agentsocket = NULL;
@@ -1051,7 +1115,11 @@ main(int ac, char **av)
 	init_rng();
 	seed_rng();
 
+#ifdef __APPLE_LAUNCHD__
 	while ((ch = getopt(ac, av, "cdklsa:t:")) != -1) {
+#else
+	while ((ch = getopt(ac, av, "cdksa:t:")) != -1) {
+#endif
 		switch (ch) {
 		case 'c':
 			if (s_flag)
@@ -1061,9 +1129,11 @@ main(int ac, char **av)
 		case 'k':
 			k_flag++;
 			break;
+#ifdef __APPLE_LAUNCHD__
 		case 'l':
 			l_flag++;
 			break;
+#endif
 		case 's':
 			if (c_flag)
 				usage();
@@ -1090,7 +1160,11 @@ main(int ac, char **av)
 	ac -= optind;
 	av += optind;
 
+#ifdef __APPPLE_LAUNCHD__
 	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag || l_flag))
+#else
+	if (ac > 0 && (c_flag || k_flag || s_flag || d_flag))
+#endif
 		usage();
 
 	if (ac == 0 && !c_flag && !s_flag) {
@@ -1222,7 +1296,6 @@ main(int ac, char **av)
 	 * Fork, and have the parent execute the command, if any, or present
 	 * the socket data.  The child continues as the authentication agent.
 	 */
-
 	if (d_flag) {
 		log_init(__progname, SYSLOG_LEVEL_DEBUG1, SYSLOG_FACILITY_AUTH, 1);
 		format = c_flag ? "setenv %s %s;\n" : "%s=%s; export %s;\n";
@@ -1232,15 +1305,16 @@ main(int ac, char **av)
 		goto skip;
 	}
 
+#ifdef __APPLE_LAUNCHD__
 	if (l_flag)
 	goto skip2;
+#endif
 
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
 		cleanup_exit(1);
 	}
-
 	if (pid != 0) {		/* Parent - execute the given command. */
 		close(sock);
 		snprintf(pidstrbuf, sizeof pidstrbuf, "%ld", (long)pid);
@@ -1303,6 +1377,10 @@ skip2:
 	signal(SIGHUP, cleanup_handler);
 	signal(SIGTERM, cleanup_handler);
 	nalloc = 0;
+
+#ifdef KEYCHAIN
+	process_add_from_keychain(NULL);
+#endif
 
 	while (1) {
 		prepare_select(&readsetp, &writesetp, &max_fd, &nalloc);

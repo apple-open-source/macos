@@ -16,10 +16,10 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #include "common.h"
-#include "rmt.h"
+#include <rmt.h>
 #include <signal.h>
 
 void
@@ -116,11 +116,6 @@ int
 sys_truncate (int fd)
 {
   return write (fd, "", 0);
-}
-
-void
-sys_reset_uid_gid (void)
-{
 }
 
 size_t
@@ -279,13 +274,6 @@ sys_truncate (int fd)
 {
   off_t pos = lseek (fd, (off_t) 0, SEEK_CUR);
   return pos < 0 ? -1 : ftruncate (fd, pos);
-}
-
-void
-sys_reset_uid_gid (void)
-{
-  setuid (getuid ());
-  setgid (getgid ());
 }
 
 /* Return nonzero if NAME is the name of a regular file, or if the file
@@ -517,7 +505,6 @@ sys_child_open_for_uncompress (void)
     {
       /* The parent tar is still here!  Just clean up.  */
 
-      read_full_records_option = true;
       archive = parent_pipe[PREAD];
       xclose (parent_pipe[PWRITE]);
       return child_pid;

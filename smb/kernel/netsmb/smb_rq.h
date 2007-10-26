@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_rq.h,v 1.9 2005/01/22 22:20:58 lindak Exp $
  */
 #ifndef _NETSMB_SMB_RQ_H_
 #define	_NETSMB_SMB_RQ_H_
@@ -39,35 +40,34 @@
 #endif
 
 #define	SMBR_ALLOCED		0x0001	/* structure was malloced */
-#define	SMBR_SENT		0x0002	/* request successfully transmitted */
-#define	SMBR_REXMIT		0x0004	/* request should be retransmitted */
-#define	SMBR_INTR		0x0008	/* request interrupted */
-#define	SMBR_RESTART		0x0010	/* request should be repeated if possible */
-#define	SMBR_NORESTART		0x0020	/* request is not restartable */
+#define	SMBR_SENT			0x0002	/* request successfully transmitted */
+#define	SMBR_REXMIT			0x0004	/* Request was retransmitted during a reconnect*/
+#define	SMBR_INTR			0x0008	/* request interrupted */
+#define	SMBR_RECONNECTED	0x0010	/* The message was handled during a reconnect */
+#define	SMBR_DEAD			0x0020	/* Network down nothing we can do with it. */
 #define	SMBR_MULTIPACKET	0x0040	/* multiple packets can be sent and received */
-#define	SMBR_INTERNAL		0x0080	/* request is internal to smbrqd */
-#define	SMBR_XLOCK		0x0100	/* request locked and can't be moved */
+#define	SMBR_INTERNAL		0x0080	/* request is internal to smbrqd runs off the main thread. */
+#define	SMBR_XLOCK			0x0100	/* request locked and can't be moved */
 #define	SMBR_XLOCKWANT		0x0200	/* waiter on XLOCK */
-#define	SMBR_VCREF		0x4000	/* took vc reference */
+#define	SMBR_VCREF			0x4000	/* took vc reference */
 #define	SMBR_MOREDATA		0x8000	/* our buffer was too small */
 
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
 #define SMBT2_ALLRECV		0x0002	/* all data and params are received */
 #define	SMBT2_ALLOCED		0x0004
-#define	SMBT2_RESTART		0x0008
-#define	SMBT2_NORESTART		0x0010
+#define SMBT2_SECONDARY		0x0020
 #define	SMBT2_MOREDATA		0x8000	/* our buffer was too small */
 
-#define SMBRQ_SLOCK(rqp)	smb_sl_lock(&(rqp)->sr_slock)
-#define SMBRQ_SUNLOCK(rqp)	smb_sl_unlock(&(rqp)->sr_slock)
+#define SMBRQ_SLOCK(rqp)	lck_mtx_lock(&(rqp)->sr_slock)
+#define SMBRQ_SUNLOCK(rqp)	lck_mtx_unlock(&(rqp)->sr_slock)
 #define SMBRQ_SLOCKPTR(rqp)	(&(rqp)->sr_slock)
 
-
+/* Need to look at this and see why SMBRQ_NOTSENT must be zero? */
 enum smbrq_state {
-	SMBRQ_NOTSENT,		/* rq have data to send */
-	SMBRQ_SENT,		/* send procedure completed */
-	SMBRQ_REPLYRECEIVED,
-	SMBRQ_NOTIFIED		/* owner notified about completion */
+	SMBRQ_NOTSENT = 0x00,		/* rq have data to send */
+	SMBRQ_SENT = 0x01,		/* send procedure completed */
+	SMBRQ_NOTIFIED = 0x04,		/* owner notified about completion */
+	SMBRQ_RECONNECT = 0x08		/* Reconnect hold till done */
 };
 
 struct smb_vc;
@@ -77,6 +77,8 @@ struct smb_rq {
 	struct smb_vc * 	sr_vc;
 	struct smb_share*	sr_share;
 	u_short			sr_mid;
+	u_int32_t		sr_seqno;
+	u_int32_t		sr_rseqno;
 	struct mbchain		sr_rq;
 	u_char			sr_cmd;
 	u_int8_t		sr_rqflags;
@@ -86,14 +88,13 @@ struct smb_rq {
 	struct mdchain		sr_rp;
 	int			sr_rpgen;
 	int			sr_rplast;
-	int			sr_flags;	/* SMBR_* */
+	u_int32_t	sr_flags;	/* SMBR_* */
 	int			sr_rpsize;
 	struct smb_cred *	sr_cred;
 	int			sr_timo;
-	int			sr_rexmit; /* how many more retries.  dflt 0 */
-	int			sr_sendcnt;
 	struct timespec 	sr_timesent;
 	int			sr_lerror;
+	u_int8_t *		sr_rqsig;
 	u_int16_t *		sr_rqtid;
 	u_int16_t *		sr_rquid;
 	u_int8_t		sr_errclass;
@@ -105,7 +106,8 @@ struct smb_rq {
 	u_int16_t		sr_rppid;
 	u_int16_t		sr_rpuid;
 	u_int16_t		sr_rpmid;
-	smb_slock	sr_slock;	/* short term locks */
+	lck_mtx_t		sr_slock;	/* short term locks */
+	struct smb_t2rq *       sr_t2;
 	TAILQ_ENTRY(smb_rq)	sr_link;
 };
 
@@ -116,8 +118,8 @@ struct smb_t2rq {
 	u_int8_t	t2_maxscount;	/* max setup words to return */
 	u_int16_t	t2_maxpcount;	/* max param bytes to return */
 	u_int16_t	t2_maxdcount;	/* max data bytes to return */
-	u_int16_t       t2_fid;         /* for T2 request */
-	char *          t_name;         /* for T, should be zero for T2 */
+	u_int16_t       t2_fid;		/* for T2 request */
+	char *		t_name;		/* for T, should be zero for T2 */
 	int		t2_flags;	/* SMBT2_ */
 	struct mbchain	t2_tparam;	/* parameters to transmit */
 	struct mbchain	t2_tdata;	/* data to transmit */
@@ -156,6 +158,7 @@ struct smb_ntrq {
 	u_int16_t	nt_sr_rpflags2;
 };
 
+void mbuf_cat_internal(mbuf_t md_top, mbuf_t m0);
 int  smb_rq_alloc(struct smb_connobj *layer, u_char cmd,
 	struct smb_cred *scred, struct smb_rq **rqpp);
 int  smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd,

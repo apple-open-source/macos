@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -132,6 +132,7 @@ fstabscan()
 			if (cp != NULL)
 				_fs_fstab.fs_passno = atoi(cp);
 		}
+		_fs_fstab.fs_type = "??";
 		strcpy(subline, _fs_fstab.fs_mntops);
 		p = subline;
 		for (typexx = 0, cp = strsep(&p, ","); cp;
@@ -162,8 +163,7 @@ fstabscan()
 		}
 		if (typexx)
 			continue;
-		if (cp != NULL)
-			return(1);
+		return(1);
 
 bad:		/* no way to distinguish between EOF and syntax error */
 		error(EFTYPE);

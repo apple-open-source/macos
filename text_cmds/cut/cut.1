@@ -33,7 +33,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)cut.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/cut/cut.1,v 1.29 2004/07/07 19:57:15 ru Exp $
+.\" $FreeBSD: src/usr.bin/cut/cut.1,v 1.31 2005/01/18 13:43:48 ru Exp $
 .\"
 .Dd June 28, 2004
 .Dt CUT 1
@@ -134,6 +134,8 @@ environment variables affect the execution of the
 utility.
 Their effect is described in
 .Xr environ 7 .
+.Sh EXIT STATUS
+.Ex -std
 .Sh EXAMPLES
 Extract users' login names and shells from the system
 .Xr passwd 5
@@ -146,8 +148,6 @@ pairs:
 Show the names and login times of the currently logged in users:
 .Pp
 .Dl "who | cut -c 1-16,26-38"
-.Sh DIAGNOSTICS
-.Ex -std
 .Sh SEE ALSO
 .Xr colrm 1 ,
 .Xr paste 1

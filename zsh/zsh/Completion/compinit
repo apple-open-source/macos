@@ -128,24 +128,27 @@ fi
 # The standard options set in completion functions.
 
 _comp_options=(
-       glob
        bareglobqual
+       extendedglob
+       glob
+       multibyte
        nullglob
        rcexpandparam
-       extendedglob
        unset
-    NO_markdirs
+    NO_allexport
+    NO_aliases
+    NO_cshnullglob
+    NO_errexit
     NO_globsubst
-    NO_shwordsplit
-    NO_shglob
+    NO_histsubstpattern
     NO_kshglob
     NO_ksharrays
     NO_kshtypeset
-    NO_cshnullglob
-    NO_allexport
-    NO_aliases
-    NO_errexit
+    NO_markdirs
     NO_octalzeroes
+    NO_shwordsplit
+    NO_shglob
+    NO_warncreateglobal
 )
 
 # And this one should be `eval'ed at the beginning of every entry point
@@ -155,6 +158,7 @@ _comp_options=(
 # and don't get confused by user's ZERR trap handlers.
 
 _comp_setup='setopt localoptions localtraps ${_comp_options[@]};
+             local IFS=$'\'\ \\t\\r\\n\\0\''
              exec </dev/null;
              trap - ZERR'
 

@@ -26,10 +26,19 @@ class ComplexContent < Info
     @derivetype = nil
     @content = nil
     @attributes = XSD::NamedElements.new
+    @basetype = nil
   end
 
   def targetnamespace
     parent.targetnamespace
+  end
+
+  def elementformdefault
+    parent.elementformdefault
+  end
+
+  def basetype
+    @basetype ||= root.collect_complextypes[@base]
   end
 
   def parse_element(element)

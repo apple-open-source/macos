@@ -1,0 +1,70 @@
+Index: samba/source/smbd/trans2.c
+===================================================================
+--- samba/source/smbd/trans2.c.orig
++++ samba/source/smbd/trans2.c
+@@ -4820,6 +4820,7 @@ static NTSTATUS smb_set_info_standard(co
+ 					const SMB_STRUCT_STAT *psbuf)
+ {
+ 	struct timespec ts[2];
++	time_t create_time;
+ 
+ 	if (total_data < 12) {
+ 		return NT_STATUS_INVALID_PARAMETER;
+@@ -4830,6 +4831,14 @@ static NTSTATUS smb_set_info_standard(co
+ 	/* write time */
+ 	ts[1] = convert_time_t_to_timespec(srv_make_unix_date2(pdata+l1_fdateLastWrite));
+ 
++	/* create time */
++	/* XXX: this code should be int smb_set_file_time() -- jpeach */
++	create_time = srv_make_unix_date2(pdata+l1_fdateCreation);
++	/* They want to set the create time and the share is writable */
++	if ((!null_mtime(create_time)) && (CAN_WRITE(conn)) && !fsp) {
++		SMB_VFS_SET_CREATE_TIME(conn, fname, create_time);
++	}
++
+ 	DEBUG(10,("smb_set_info_standard: file %s\n",
+ 		fname ? fname : fsp->fsp_name ));
+ 
+@@ -4851,6 +4860,7 @@ static NTSTATUS smb_set_file_basic_info(
+ 					const char *fname,
+ 					SMB_STRUCT_STAT *psbuf)
+ {
++	time_t create_time;
+ 	/* Patch to do this correctly from Paul Eggert <eggert@twinsun.com>. */
+ 	struct timespec write_time;
+ 	struct timespec changed_time;
+@@ -4872,7 +4882,12 @@ static NTSTATUS smb_set_file_basic_info(
+ 		return status;
+ 	}
+ 
+-	/* Ignore create time at offset pdata. */
++	/* create time */
++	create_time = convert_timespec_to_time_t(interpret_long_date(pdata+0));
++	/* They want to set the create time and the share is writable */
++	if ((!null_mtime(create_time)) && (CAN_WRITE(conn)) && !fsp) {
++		SMB_VFS_SET_CREATE_TIME(conn, fname, create_time);
++	}
+ 
+ 	/* access time */
+ 	ts[0] = interpret_long_date(pdata+8);
+@@ -5287,6 +5302,7 @@ static NTSTATUS smb_set_file_unix_info2(
+ 					const char *fname,
+ 					SMB_STRUCT_STAT *psbuf)
+ {
++	time_t create_time;
+ 	NTSTATUS status;
+ 	uint32 smb_fflags;
+ 	uint32 smb_fmask;
+@@ -5304,6 +5320,12 @@ static NTSTATUS smb_set_file_unix_info2(
+ 		return status;
+ 	}
+ 
++	create_time = convert_timespec_to_time_t(interpret_long_date(pdata+100)); /* create_time */
++	/* They want to set the create time and the share is writable */
++	if ((!null_mtime(create_time)) && (CAN_WRITE(conn)) && !fsp) {
++		SMB_VFS_SET_CREATE_TIME(conn, fname, create_time);
++	}
++
+ 	smb_fflags = IVAL(pdata, 108);
+ 	smb_fmask = IVAL(pdata, 112);
+ 

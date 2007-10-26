@@ -58,13 +58,14 @@ outfd (or discard it if outfd is NULL).
 static int smbrun_internal(const char *cmd, int *outfd, BOOL sanitize)
 {
 	pid_t pid;
-	uid_t uid = current_user.uid;
-	gid_t gid = current_user.gid;
+	uid_t uid = current_user.ut.uid;
+	gid_t gid = current_user.ut.gid;
 	
 	/*
-	 * Lose any kernel oplock capabilities we may have.
+	 * Lose any elevated privileges.
 	 */
-	oplock_set_capability(False, False);
+	drop_effective_capability(KERNEL_OPLOCK_CAPABILITY);
+	drop_effective_capability(DMAPI_ACCESS_CAPABILITY);
 
 	/* point our stdout at the file we want output to go into */
 
@@ -209,17 +210,18 @@ outfd (or discard it if outfd is NULL).
 sends the provided secret to the child stdin.
 ****************************************************************************/
 
-int smbrunsecret(char *cmd, char *secret)
+int smbrunsecret(const char *cmd, const char *secret)
 {
 	pid_t pid;
-	uid_t uid = current_user.uid;
-	gid_t gid = current_user.gid;
+	uid_t uid = current_user.ut.uid;
+	gid_t gid = current_user.ut.gid;
 	int ifd[2];
 	
 	/*
-	 * Lose any kernel oplock capabilities we may have.
+	 * Lose any elevated privileges.
 	 */
-	oplock_set_capability(False, False);
+	drop_effective_capability(KERNEL_OPLOCK_CAPABILITY);
+	drop_effective_capability(DMAPI_ACCESS_CAPABILITY);
 
 	/* build up an input pipe */
 	if(pipe(ifd)) {
@@ -248,10 +250,16 @@ int smbrunsecret(char *cmd, char *secret)
 		 */
 		int status = 0;
 		pid_t wpid;
+		size_t towrite;
+		ssize_t wrote;
 		
 		close(ifd[0]);
 		/* send the secret */
-		write(ifd[1], secret, strlen(secret));
+		towrite = strlen(secret);
+		wrote = write(ifd[1], secret, towrite);
+		if ( wrote != towrite ) {
+		    DEBUG(0,("smbrunsecret: wrote %ld of %lu bytes\n",(long)wrote,(unsigned long)towrite));
+		}
 		fsync(ifd[1]);
 		close(ifd[1]);
 

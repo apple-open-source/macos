@@ -1,6 +1,7 @@
 ;;; tabify.el --- tab conversion commands for Emacs
 
-;; Copyright (C) 1985, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1994, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -49,10 +50,10 @@ The variable `tab-width' controls the spacing of tab stops."
 	  (delete-region tab-beg (point))
 	  (indent-to column))))))
 
-(defvar tabify-regexp "[ \t][ \t]+"
+(defvar tabify-regexp " [ \t]+"
   "Regexp matching whitespace that tabify should consider.
-Usually this will be \"[ \\t][ \\t]+\" to match two or more spaces or tabs.
-\"^[ \\t]+\" is also useful, for tabifying only initial whitespace.")
+Usually this will be \" [ \\t]+\" to match a space followed by whitespace.
+\"^\\t* [ \\t]+\" is also useful, for tabifying only initial whitespace.")
 
 ;;;###autoload
 (defun tabify (start end)
@@ -71,12 +72,24 @@ The variable `tab-width' controls the spacing of tab stops."
       (beginning-of-line)
       (narrow-to-region (point) end)
       (goto-char start)
-      (while (re-search-forward tabify-regexp nil t)
-	(let ((column (current-column))
-	      (indent-tabs-mode t))
-	  (delete-region (match-beginning 0) (point))
-	  (indent-to column))))))
+      (let ((indent-tabs-mode t))
+        (while (re-search-forward tabify-regexp nil t)
+          ;; The region between (match-beginning 0) and (match-end 0) is just
+          ;; spacing which we want to adjust to use TABs where possible.
+          (let ((end-col (current-column))
+                (beg-col (save-excursion (goto-char (match-beginning 0))
+                                         (skip-chars-forward "\t")
+                                         (current-column))))
+            (if (= (/ end-col tab-width) (/ beg-col tab-width))
+                ;; The spacing (after some leading TABs which we wouldn't
+                ;; want to touch anyway) does not straddle a TAB boundary,
+                ;; so it neither contains a TAB, nor will we be able to use
+                ;; a TAB here anyway: there's nothing to do.
+                nil
+              (delete-region (match-beginning 0) (point))
+              (indent-to end-col))))))))
 
 (provide 'tabify)
 
+;; arch-tag: c83893b1-e0cc-4e57-8a09-73fd03466416
 ;;; tabify.el ends here

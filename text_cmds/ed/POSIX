@@ -1,4 +1,4 @@
-$NetBSD: POSIX,v 1.9 1995/03/21 09:04:32 cgd Exp $
+$FreeBSD: src/bin/ed/POSIX,v 1.8 2000/07/17 10:40:48 sheldonh Exp $
 
 This version of ed(1) is not strictly POSIX compliant, as described in
 the POSIX 1003.2 document.  The following is a summary of the omissions,
@@ -6,13 +6,11 @@ extensions and possible deviations from POSIX 1003.2.
 
 OMISSIONS
 ---------
-1) Locale(3) is not supported yet.
-
-2) For backwards compatibility, the POSIX rule that says a range of
+1) For backwards compatibility, the POSIX rule that says a range of
    addresses cannot be used where only a single address is expected has
    been relaxed.
 
-3) To support the BSD `s' command (see extension [1] below),
+2) To support the BSD `s' command (see extension [1] below),
    substitution patterns cannot be delimited by numbers or the characters
    `r', `g' and `p'.  In contrast, POSIX specifies any character expect
    space or newline can used as a delimiter.

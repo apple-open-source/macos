@@ -55,14 +55,13 @@ The normal_interval and save_energy_interval can be used to set the
 .Xr sync 2 interval in seconds of the normal case and the case where the computer is trying to save energy.
 .Pp
 .Nm Update
-is commonly invoked at startup time by
-.Xr rc 8
+is invoked at startup time by
+.Xr launchd 8
 when the system goes multi-user.
 .Sh SEE ALSO
 .Xr sync 2 ,
 .Xr fsck 8 ,
-.Xr init 8 ,
-.Xr rc 8 ,
+.Xr launchd 8 ,
 .Xr sync 8
 .Sh BUGS
 It is possible on some systems that a

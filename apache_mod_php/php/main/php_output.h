@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,18 +16,21 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_output.h,v 1.47.2.1.8.3 2007/02/12 17:13:22 tony2001 Exp $ */
+/* $Id: php_output.h,v 1.53.2.1.2.1 2007/01/01 09:36:11 sebastian Exp $ */
 
 #ifndef PHP_OUTPUT_H
 #define PHP_OUTPUT_H
 
 typedef void (*php_output_handler_func_t)(char *output, uint output_len, char **handled_output, uint *handled_output_len, int mode TSRMLS_DC);
 
+BEGIN_EXTERN_C()
 PHPAPI void php_output_startup(void);
 PHPAPI void php_output_activate(TSRMLS_D);
 PHPAPI void php_output_set_status(zend_bool status TSRMLS_DC);
 PHPAPI void php_output_register_constants(TSRMLS_D);
 PHPAPI int  php_default_output_func(const char *str, uint str_len TSRMLS_DC);
+PHPAPI int  php_ub_body_write(const char *str, uint str_length TSRMLS_DC);
+PHPAPI int  php_ub_body_write_no_header(const char *str, uint str_length TSRMLS_DC);
 PHPAPI int  php_body_write(const char *str, uint str_length TSRMLS_DC);
 PHPAPI int  php_header_write(const char *str, uint str_length TSRMLS_DC);
 PHPAPI int php_start_ob_buffer(zval *output_handler, uint chunk_size, zend_bool erase TSRMLS_DC);
@@ -45,6 +48,7 @@ PHPAPI int php_ob_handler_used(char *handler_name TSRMLS_DC);
 PHPAPI int php_ob_init_conflict(char *handler_new, char *handler_set TSRMLS_DC);
 PHPAPI int php_ob_get_buffer(zval *p TSRMLS_DC);
 PHPAPI int php_ob_get_length(zval *p TSRMLS_DC);
+END_EXTERN_C()
 
 PHP_FUNCTION(ob_start);
 PHP_FUNCTION(ob_flush);

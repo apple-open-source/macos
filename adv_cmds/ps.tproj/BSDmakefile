@@ -1,6 +1,8 @@
 PROG= ps
 SRCS= fmt.c      keyword.c  nlist.c    print.c    ps.c       tasks.c
 
+CFLAGS+=	-D__FBSDID=__RCSID
+
 # I thought BINDIR was set for me but bsd.prog.mk, or bsd.obj.mk, but that 
 # doens't seem to be the case.
 BINDIR= /bin

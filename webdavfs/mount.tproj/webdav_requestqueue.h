@@ -43,6 +43,7 @@ extern int requestqueue_enqueue_request(int socket);
 extern int requestqueue_enqueue_download(
 			struct node_entry *node,			/* the node */
 			struct ReadStreamRec *readStreamRecPtr); /* the ReadStreamRec */
+extern int requestqueue_enqueue_server_ping(u_int32_t delay);
 extern int requestqueue_purge_cache_files(void);
 
 #endif

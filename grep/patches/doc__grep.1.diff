@@ -1,5 +1,16 @@
---- doc/grep.1.orig	2004-09-03 19:50:01.000000000 -0700
-+++ doc/grep.1	2004-09-03 19:51:46.000000000 -0700
+--- doc/grep.1.orig      2002-01-22 22:20:04.000000000 +0900
++++ doc/grep.1  2006-06-22 21:25:06.000000000 +0900
+@@ -302,8 +302,8 @@
+ This is especially useful for tools like zgrep, e.g.
+ .B "gzip -cd foo.gz |grep --label=foo something"
+ .TP
+-.BR \-\^\-line-buffering
+-Use line buffering, it can be a performance penality.
++.BR \-\^\-line-buffered
++Turns on line buffering. However, this can be a performance penalty.
+ .TP
+ .BR \-q ", " \-\^\-quiet ", " \-\^\-silent
+ Quiet; do not write anything to standard output.
 @@ -649,6 +649,10 @@
  instead of reporting a syntax error in the regular expression.
  \s-1POSIX.2\s0 allows this behavior as an extension, but portable scripts
@@ -11,3 +22,4 @@
  .SH "ENVIRONMENT VARIABLES"
  Grep's behavior is affected by the following environment variables.
  .PP
+

@@ -1,6 +1,6 @@
 #
 #               tk/canvas.rb - Tk canvas classes
-#                       $Date: 2004/12/16 07:12:44 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
 #
 require 'tk'
@@ -11,10 +11,24 @@ require 'tk/scrollable'
 module TkCanvasItemConfig
   include TkItemConfigMethod
 
+  def __item_strval_optkeys(id)
+    # maybe need to override
+    super(id) + [
+      'fill', 'activefill', 'disabledfill', 
+      'outline', 'activeoutline', 'disabledoutline'
+    ]
+  end
+  private :__item_strval_optkeys
+
   def __item_methodcall_optkeys(id)
     {'coords'=>'coords'}
   end
   private :__item_methodcall_optkeys
+
+  def __item_val2ruby_optkeys(id)  # { key=>proc, ... }
+    super(id).update('window'=>proc{|i, v| window(v)})
+  end
+  private :__item_val2ruby_optkeys
 
   def __item_pathname(tagOrId)
     if tagOrId.kind_of?(TkcItem) || tagOrId.kind_of?(TkcTag)
@@ -28,7 +42,7 @@ end
 
 class TkCanvas<TkWindow
   include TkCanvasItemConfig
-  include Scrollable
+  include Tk::Scrollable
 
   TkCommandNames = ['canvas'.freeze].freeze
   WidgetClassName = 'Canvas'.freeze
@@ -47,6 +61,16 @@ class TkCanvas<TkWindow
   #end
   #private :create_self
 
+  def __numval_optkeys
+    super() + ['closeenough']
+  end
+  private :__numval_optkeys
+
+  def __boolval_optkeys
+    super() + ['confine']
+  end
+  private :__boolval_optkeys
+
   def tagid(tag)
     if tag.kind_of?(TkcItem) || tag.kind_of?(TkcTag)
       tag.id
@@ -64,6 +88,10 @@ class TkCanvas<TkWindow
 
 
   def addtag(tag, mode, *args)
+    mode = mode.to_s
+    if args[0] && mode =~ /^(above|below|with(tag)?)$/
+      args[0] = tagid(args[0])
+    end
     tk_send_without_enc('addtag', tagid(tag), mode, *args)
     self
   end
@@ -100,7 +128,7 @@ class TkCanvas<TkWindow
   #end
   def itembind(tag, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -115,7 +143,7 @@ class TkCanvas<TkWindow
   #end
   def itembind_append(tag, context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -159,8 +187,12 @@ class TkCanvas<TkWindow
 
   def delete(*args)
     if TkcItem::CItemID_TBL[self.path]
-      find('withtag', *args).each{|item| 
-        TkcItem::CItemID_TBL[self.path].delete(item.id)
+      args.each{|tag|
+        find('withtag', tag).each{|item|
+          if item.kind_of?(TkcItem)
+            TkcItem::CItemID_TBL[self.path].delete(item.id)
+          end
+        }
       }
     end
     tk_send_without_enc('delete', *args.collect{|t| tagid(t)})
@@ -169,9 +201,10 @@ class TkCanvas<TkWindow
   alias remove delete
 
   def dtag(tag, tag_to_del=None)
-    tk_send_without_enc('dtag', tagid(tag), tag_to_del)
+    tk_send_without_enc('dtag', tagid(tag), tagid(tag_to_del))
     self
   end
+  alias deltag dtag
 
   def find(mode, *args)
     list(tk_send_without_enc('find', mode, *args)).collect!{|id| 
@@ -225,8 +258,8 @@ class TkCanvas<TkWindow
     self
   end
 
-  def index(tagOrId, index)
-    number(tk_send_without_enc('index', tagid(tagOrId), index))
+  def index(tagOrId, idx)
+    number(tk_send_without_enc('index', tagid(tagOrId), idx))
   end
 
   def insert(tagOrId, index, string)
@@ -510,8 +543,8 @@ class TkCanvas<TkWindow
     tk_send_without_enc('scan', 'mark', x, y)
     self
   end
-  def scan_dragto(x, y)
-    tk_send_without_enc('scan', 'dragto', x, y)
+  def scan_dragto(x, y, gain=None)
+    tk_send_without_enc('scan', 'dragto', x, y, gain)
     self
   end
 
@@ -597,6 +630,11 @@ class TkcItem<TkObject
         methodkeys[key] = keys.delete(key) if keys.key?(key)
       }
 
+      __item_ruby2val_optkeys(nil).each{|key, method|
+        key = key.to_s
+        keys[key] = method.call(keys[key]) if keys.has_key?(key)
+      }
+
       #args = args.flatten.concat(hash_kv(keys))
       args = args.flatten.concat(itemconfig_hash_kv(nil, keys))
     else
@@ -621,7 +659,7 @@ class TkcItem<TkObject
 
   def initialize(parent, *args)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @parent = @c = parent
     @path = parent.path

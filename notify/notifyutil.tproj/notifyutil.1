@@ -1,0 +1,104 @@
+.Dd September 5, 2006
+.Dt notifyutil 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm notifyutil
+.Nd notification command line utility
+.Sh SYNOPSIS
+.Nm
+.Op Fl q
+.Op Fl v
+.Op Fl t
+.Op Fl p Ar key
+.Op Fl w Ar key
+.Op Fl Ar # Ar key
+.Op Fl g Ar key
+.Op Fl s Ar key Ar val
+.Li ...
+.Pp
+.Sh DESCRIPTION
+.Nm
+is a command-line utility for interacting with the
+.Xr notifyd 8
+notification server.
+It may be used to post notifications, detect and report notifications,
+and to examine and set the state value associated with a notification key.
+.Pp
+The following table summarizes the actions that may be performed.
+.Pp
+.Bl -tag -width "-s key val" -compact -offset indent
+.It Fl p Ar key
+Post a notification for
+.Ar key .
+.It Fl w Ar key
+Register for
+.Ar key
+and wait for notifications.
+.It Fl Ar # Ar key
+Register for
+.Ar key
+and wait for
+.Ar #
+(an integer) notifications.
+.Li E.g.
+.Fl 1 Ar key
+waits for a single notification.
+.It Fl g Ar key
+Get state value for
+.Ar key .
+.It Fl s Ar key Ar val
+Set state value for
+.Ar key .
+.El
+.Pp
+When invoked with any combination of
+.Fl w
+and
+.Fl Ar #
+actions,
+.Nm
+registers for notification for the specified key(s).
+If any key is given with a
+.Fl w
+action,
+.Nm
+runs until interrupted with Control-C.
+If all registrations are invoked with
+.Fl Ar # ,
+the program continues to run until the corresponding number of notifications for each key have been received.
+.Pp
+When a notification for any key that is being monitored is received,
+.Nm
+prints the key on a single line on its standard output.
+The
+.Fl v
+(verbose),
+.Fl t
+(time stamp), and
+.Fl q
+(quiet) flags, if specified, modify the output behavior.
+The 
+.Fl v
+flag causes
+.Nm
+to print both the key and the current state value for that key.
+The
+.Fl t
+flag causes
+.Nm
+to print a time stamp preceeding the notification key.
+The
+.Fl q
+flag causes
+.Nm
+to operate silently.
+.Pp
+.Nm
+processes its command-line arguments from left to right.
+For example, the following will register for a single notification for the key 
+.Dq test.abc
+and then post a notification for that key.
+.Pp
+.Dl notifyutil -1 test.abc -p test.abc
+.Sh SEE ALSO
+notify(3), notifyd(8)

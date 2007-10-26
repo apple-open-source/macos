@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #if defined(_UWIN) && defined(_BLD_ast)
 
 void _STUB_vmdebug(){}
@@ -57,6 +53,8 @@ static Void_t*	Dbwatch[S_WATCH];
 #define DB_RESIZE	3
 #define DB_WATCH	4
 #define DB_RESIZED	5
+
+#define LONGV(x)	((Vmulong_t)(x))
 
 static int Dbinit = 0;
 #define DBINIT()	(Dbinit ? 0 : (dbinit(), Dbinit=1) )
@@ -163,11 +161,11 @@ int		type;	/* operation being done		*/
 	}
 	else if(type == DB_CHECK)
 	{	bufp = (*_Vmstrcpy)(bufp, "bad byte at", '=');
-		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(VLONG(where),-1), ':');
+		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(LONGV(where),-1), ':');
 		if((s = DBFILE(data)) && (bufp + strlen(s) + SLOP) < endbuf)
 		{	bufp = (*_Vmstrcpy)(bufp,"allocated at", '=');
 			bufp = (*_Vmstrcpy)(bufp, s, ',');
-			bufp = (*_Vmstrcpy)(bufp,(*_Vmitoa)(VLONG(DBLINE(data)),-1),':');
+			bufp = (*_Vmstrcpy)(bufp,(*_Vmitoa)(LONGV(DBLINE(data)),-1),':');
 		}
 	}
 
@@ -175,7 +173,7 @@ int		type;	/* operation being done		*/
 	if(file && file[0] && line > 0 && (bufp + strlen(file) + SLOP) < endbuf)
 	{	bufp = (*_Vmstrcpy)(bufp, "detected at", '=');
 		bufp = (*_Vmstrcpy)(bufp, file, ',');
-		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(VLONG(line),-1), ',');
+		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(LONGV(line),-1), ',');
 		bufp = (*_Vmstrcpy)(bufp, (*_Vmitoa)(VLONG(func),-1), ':');
 	}
 
@@ -374,9 +372,9 @@ size_t		size;
 {
 	reg size_t		s;
 	reg Vmuchar_t*		data;
-	reg const char*		file;
+	reg char*		file;
 	reg int			line;
-	reg const Void_t*	func;
+	reg Void_t*		func;
 	reg Vmdata_t*		vd = vm->data;
 
 	VMFLF(vm,file,line,func);
@@ -425,9 +423,9 @@ Vmalloc_t*	vm;
 Void_t*		data;
 #endif
 {
-	const char*	file;
+	char*		file;
 	int		line;
-	const Void_t*	func;
+	Void_t*		func;
 	reg long	offset;
 	reg int		rv, *ip, *endip;
 	reg Vmdata_t*	vd = vm->data;
@@ -488,9 +486,9 @@ int		type;		/* !=0 for movable, >0 for copy	*/
 	reg Vmuchar_t*	data;
 	reg size_t	s, oldsize;
 	reg long	offset;
-	const char	*file, *oldfile;
+	char		*file, *oldfile;
 	int		line, oldline;
-	const Void_t*	func;
+	Void_t*		func;
 	reg Vmdata_t*	vd = vm->data;
 
 	if(!addr)
@@ -679,9 +677,9 @@ size_t		align;
 {
 	reg Vmuchar_t*		data;
 	reg size_t		s;
-	reg const char*		file;
+	reg char*		file;
 	reg int			line;
-	reg const Void_t*	func;
+	reg Void_t*		func;
 	reg Vmdata_t*		vd = vm->data;
 
 	VMFLF(vm,file,line,func);

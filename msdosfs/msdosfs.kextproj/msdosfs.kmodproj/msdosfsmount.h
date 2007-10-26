@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -77,6 +77,9 @@
 
 #ifdef KERNEL
 
+#include <libkern/OSTypes.h>
+#include <kern/thread_call.h>
+
 #ifdef MALLOC_DECLARE
 MALLOC_DECLARE(M_MSDOSFSMNT);
 #endif
@@ -94,7 +97,6 @@ struct msdosfsmount {
 	struct bpb50 pm_bpb;	/* BIOS parameter blk for this fs */
 	u_int32_t pm_BlockSize;	/* device's block size */
 	u_long pm_BlocksPerSec;	/* pm_BytesPerSec divided by pm_BlockSize (device blocks per DOS sector) */
-	u_long pm_FATsecs;	/* number of sectors per FAT */
 	u_long pm_rootdirblk;	/* block # (cluster # for FAT32) of root directory number */
 	u_long pm_rootdirsize;	/* number of physical (device) blocks in root directory (FAT12 and FAT16 only) */
 	u_long pm_firstcluster;	/* sector number of first cluster (relative to start of volume) */
@@ -104,9 +106,7 @@ struct msdosfsmount {
 	u_long pm_crbomask;	/* and a file offset with this mask to get cluster rel offset */
 	u_long pm_bnshift;	/* shift amount to convert between bytes and physical (device) blocks */
 	u_long pm_bpcluster;	/* bytes per cluster */
-	u_long pm_fmod;		/* ~0 if fs is modified, this can rollover to 0	*/
 	u_long pm_fatblocksize;	/* size of fat blocks in bytes */
-	u_long pm_fatblocksec;	/* size of fat blocks in sectors */
 	u_long pm_fatmask;	/* mask to use for fat numbers */
 	u_long pm_fsinfo;	/* fsinfo block number */
 	u_long pm_nxtfree;	/* next free cluster in fsinfo block */
@@ -115,17 +115,27 @@ struct msdosfsmount {
 	u_int pm_curfat;	/* current fat for FAT32 (0 otherwise) */
 	u_int *pm_inusemap;	/* ptr to bitmap of in-use clusters */
 	u_int pm_flags;		/* see below */
-	u_int16_t pm_u2w[128];  /* Local->Unicode table */
-	u_int8_t  pm_ul[128];   /* Local upper->lower table */
-	u_int8_t  pm_lu[128];   /* Local lower->upper table */
-	u_int8_t  pm_d2u[128];  /* DOS->local table */
-	u_int8_t  pm_u2d[128];  /* Local->DOS table */
 	u_int8_t pm_label[64];	/* Volume name/label */
 	u_long pm_label_cluster; /* logical cluster within root that contains the label */
 	u_long pm_label_offset;	/* byte offset of label within above cluster */
-	lck_attr_t	*pm_fat_lock_attr;
-	lck_mtx_t	*pm_fat_lock;
+	lck_mtx_t	*pm_fat_lock;	/* Protects the File Allocation Table (in memory, and on disk) */
+	lck_mtx_t	*pm_rename_lock;
+	vnode_t pm_fat_active_vp;	/* vnode for accessing the active FAT */
+	vnode_t pm_fat_mirror_vp;	/* vnode for accessing FAT mirrors */
+	void *pm_fat_cache;	/* most recently used block of the FAT */
+	u_int32_t pm_fat_bytes;	/* size of one copy of the FAT, in bytes */
+	u_int32_t pm_fat_cache_offset;	/* which block is being cached; relative to start of active FAT */
+	int pm_fat_flags;	/* Flags about state of the FAT; see constants below */
+	SInt32		pm_sync_count;	/* Number of msdosfs_meta_sync_callback's waiting to complete. */
+	thread_call_t	pm_sync_timer;
 };
+
+/* Flag bits for pm_fat_flags */
+enum {
+	FAT_CACHE_DIRTY = 1,
+	FSINFO_DIRTY = 2
+};
+
 /* Byte offset in FAT on filesystem pmp, cluster cn */
 #define	FATOFS(pmp, cn)	((cn) * (pmp)->pm_fatmult / (pmp)->pm_fatdiv)
 
@@ -215,8 +225,14 @@ struct msdosfsmount {
 	 ? roottobn((pmp), (dirofs)) \
 	 : cntobn((pmp), (dirclu)))
 
-int msdosfs_mountroot __P((void));
+int msdosfs_mountroot(mount_t mp, vnode_t devvp, vfs_context_t context);
 uid_t get_pmuid(struct msdosfsmount *pmp, uid_t current_user);
+
+__private_extern__ lck_grp_attr_t *msdosfs_lck_grp_attr;
+__private_extern__ lck_grp_t *msdosfs_lck_grp;
+__private_extern__ lck_attr_t *msdosfs_lck_attr;
+
+__private_extern__ OSMallocTag msdosfs_malloc_tag;
 
 #endif /* KERNEL */
 
@@ -251,11 +267,11 @@ struct msdosfs_args {
 #define MSDOSFSMNT_LABEL		0x80	/* UTF-8 volume label in label[]; deprecated */
 
 /* All flags above: */
-#define MSDOSFSMNT_MNTOPT MSDOSFSMNT_SECONDSWEST | MSDOSFSMNT_LABEL
-#define	MSDOSFSMNT_RONLY	0x80000000	/* mounted read-only	*/
+#define MSDOSFSMNT_MNTOPT		(MSDOSFSMNT_SECONDSWEST | MSDOSFSMNT_LABEL)
+#define	MSDOSFSMNT_RONLY		0x80000000	/* mounted read-only	*/
 #define	MSDOSFSMNT_WAITONFAT	0x40000000	/* mounted synchronous	*/
-#define	MSDOSFS_FATMIRROR	0x20000000	/* FAT is mirrored */
+#define	MSDOSFS_FATMIRROR		0x20000000	/* FAT is mirrored */
 
-#define MSDOSFS_ARGSMAGIC	0xe4eff301
+#define MSDOSFS_ARGSMAGIC		0xe4eff301
 
 #endif /* !_MSDOSFS_MSDOSFSMOUNT_H_ */

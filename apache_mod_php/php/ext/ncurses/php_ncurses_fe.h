@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Hartmut Holzgraefe <hartmut@six.de>                         |
+   | Authors: Hartmut Holzgraefe <hholzgra@php.net>                       |
    |          Georg Richter <georg.richter@php-ev.de>                     |
    +----------------------------------------------------------------------+
  */

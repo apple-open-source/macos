@@ -1,7 +1,26 @@
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/Create.c,v 1.1.1.4 2002/09/10 23:34:41 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
 
 #include "copyright.h"
+
+/*
+Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007 Free Software Foundation, Inc.
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA. */
+
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -98,7 +117,7 @@ char *x_get_resource_string ();
 
 
 
-static Status 
+static Status
 XAllocDisplayColor(display, map, colorName, color, junk)
     Display *display;
     Colormap map;
@@ -189,7 +208,7 @@ XMenuCreate(display, parent, def_env)
   Pixmap stipple_pixmap;	/* Stipple mask for half-tone text. */
   unsigned long valuemask;
   XGCValues *values;
-    
+
   Window root = RootWindow (display, DefaultScreen (display));
 
   /*
@@ -205,8 +224,8 @@ XMenuCreate(display, parent, def_env)
     _XMErrorCode = XME_CALLOC;
     return(NULL);
   }
-    
-  /* 
+
+  /*
    * Create the XAssocTable
    */
   assoc_tab = (XAssocTable *)XCreateAssocTable(XASSOC_TABLE_SIZE);
@@ -266,14 +285,14 @@ XMenuCreate(display, parent, def_env)
     if (strcmp(def_val, "box") == 0) menu_mode = BOX;
     else if (strcmp(def_val, "invert") == 0) menu_mode = INVERT;
   }
-    
+
   def_val = x_get_resource_string ("menuMouse", "MenuMouse");
   if (
       def_val != NULL &&
       DisplayCells(display, DefaultScreen(display)) > 2 &&
-      XAllocDisplayColor(display, 
-			 DefaultColormap(display, DefaultScreen(display)), 
-			 def_val, 
+      XAllocDisplayColor(display,
+			 DefaultColormap(display, DefaultScreen(display)),
+			 def_val,
 			 &mouse_color, &color_def)
       );
   else if (reverse &&
@@ -282,13 +301,13 @@ XMenuCreate(display, parent, def_env)
 			      "white",
 			      &mouse_color, &color_def)
 	   );
-    
+
   else if (XAllocDisplayColor(display,
 			      DefaultColormap(display, DefaultScreen(display)),
-			      "black", 
+			      "black",
 			      &mouse_color, &color_def)
 	   );
-    
+
   else ;
 
   def_val = x_get_resource_string ("menuBackground", "MenuBackground");
@@ -335,15 +354,15 @@ XMenuCreate(display, parent, def_env)
   def_val = x_get_resource_string ("paneForeground", "PaneForeground");
   if (
       def_val != NULL &&
-      DisplayCells(display, DefaultScreen(display)) > 2 
+      DisplayCells(display, DefaultScreen(display)) > 2
       )
     XAllocDisplayColor(display, DefaultColormap(display,
 						DefaultScreen(display)),
 		       def_val,
 		       &p_frg_color, &color_def);
-	  
+
   else if (reverse) XAllocDisplayColor(display,
-				       DefaultColormap(display, 
+				       DefaultColormap(display,
 						       DefaultScreen(display)),
 				       "white",
 				       &p_frg_color, &color_def);
@@ -362,19 +381,19 @@ XMenuCreate(display, parent, def_env)
 			 &p_bdr_color, &color_def)
       );
   else if (reverse &&
-	   XAllocDisplayColor(display, 
+	   XAllocDisplayColor(display,
 			      DefaultColormap(display, DefaultScreen(display)),
 			      "white",
 			      &p_bdr_color, &color_def)
 	   );
-  else XAllocDisplayColor(display, 
+  else XAllocDisplayColor(display,
 			  DefaultColormap(display, DefaultScreen(display)),
 			  "black",
 			  &p_bdr_color, &color_def);
-    
+
   def_val = x_get_resource_string ("paneBorderWidth", "PaneBorderWidth");
   if (def_val != NULL) p_bdr_width = atoi(def_val);
-    
+
   def_val = x_get_resource_string ("paneSpread", "PaneSpread");
   if (def_val != NULL) p_spread = atof(def_val);
 
@@ -396,7 +415,7 @@ XMenuCreate(display, parent, def_env)
 			 DefaultColormap(display, DefaultScreen(display)),
 			 def_val,
 			 &s_frg_color, &color_def)
-      ); 
+      );
   else if (reverse &&
 	   XAllocDisplayColor(display,
 			      DefaultColormap(display, DefaultScreen(display)),
@@ -409,7 +428,7 @@ XMenuCreate(display, parent, def_env)
 			      &s_frg_color, &color_def)
 	   ) ;
   else ;
-    
+
 
   def_val = x_get_resource_string ("selectionBorder", "SelectionBorder");
   if (
@@ -421,7 +440,7 @@ XMenuCreate(display, parent, def_env)
 			 &s_bdr_color, &color_def)
       ) ;
   else if (reverse &&
-	   XAllocDisplayColor(display, 
+	   XAllocDisplayColor(display,
 			      DefaultColormap(display, DefaultScreen(display)),
 			      "white",
 			      &s_bdr_color, &color_def)
@@ -435,7 +454,7 @@ XMenuCreate(display, parent, def_env)
 
   def_val = x_get_resource_string ("selectionBorderWidth", "SelectionBorderWidth");
   if (def_val != NULL) s_bdr_width = atoi(def_val);
-    
+
   def_val = x_get_resource_string ("selectionSpread", "SelectionSpread");
   if (def_val != NULL) s_spread = atof(def_val);
 
@@ -446,7 +465,7 @@ XMenuCreate(display, parent, def_env)
     char *data = NULL;
     int width, height;
 
-    switch (inact_pnum) 
+    switch (inact_pnum)
       {
       case 0:
 	data = (char *)dimple1_bits;
@@ -495,7 +514,7 @@ XMenuCreate(display, parent, def_env)
   /*
    * Load the mouse cursor.
    */
-	  
+
   switch (menu_style) {
   case LEFT:
     cursor = XCreateBitmapFromData(display,
@@ -510,13 +529,13 @@ XMenuCreate(display, parent, def_env)
 					left_ptrmsk_height);
     mouse_cursor = XCreatePixmapCursor(
 				       display,
-				       cursor, cursor_mask, 
+				       cursor, cursor_mask,
 				       &mouse_color, &bkgnd_color,
 				       left_ptr_x_hot,
 				       left_ptr_y_hot
 				       );
     XFreePixmap(display, cursor);
-    XFreePixmap(display, cursor_mask);	    
+    XFreePixmap(display, cursor_mask);
     break;
   case RIGHT:
     cursor = XCreateBitmapFromData(display,
@@ -537,7 +556,7 @@ XMenuCreate(display, parent, def_env)
 				       right_ptr_y_hot
 				       );
     XFreePixmap(display, cursor);
-    XFreePixmap(display, cursor_mask);	    
+    XFreePixmap(display, cursor_mask);
     break;
   case CENTER:
     cursor = XCreateBitmapFromData(display,
@@ -558,7 +577,7 @@ XMenuCreate(display, parent, def_env)
 				       cntr_ptr_y_hot
 				       );
     XFreePixmap(display, cursor);
-    XFreePixmap(display, cursor_mask);	    
+    XFreePixmap(display, cursor_mask);
     break;
   default:
     /* Error! Invalid style parameter. */
@@ -573,12 +592,12 @@ XMenuCreate(display, parent, def_env)
   /*
    * Open the pane and selection fonts.
    */
-    
+
   p_fnt_info = XLoadQueryFont(display, p_fnt_name);
   if (p_fnt_info == NULL) {
     _XMErrorCode = XME_OPEN_FONT;
     return(NULL);
-	
+
   }
 
   s_fnt_info = XLoadQueryFont(display, s_fnt_name);
@@ -619,7 +638,7 @@ XMenuCreate(display, parent, def_env)
    * Initialize the internal pane and selection creation queues.
    */
   _XMWinQueInit();
-    
+
   /*
    * Create pane, active, and inactive GC's.
    */
@@ -634,9 +653,9 @@ XMenuCreate(display, parent, def_env)
   values->background = bkgnd_color.pixel;
   values->font = p_fnt_info->fid;
   values->line_width = p_bdr_width;
-    
+
   pane_GC = XCreateGC(
-		      display, 
+		      display,
 		      root,
 		      valuemask,
 		      values);
@@ -648,7 +667,7 @@ XMenuCreate(display, parent, def_env)
   values->background = bkgnd_color.pixel;
   values->font = s_fnt_info->fid;
   values->line_width = s_bdr_width;
-  normal_select_GC = XCreateGC(display, 
+  normal_select_GC = XCreateGC(display,
 			       root,
 			       valuemask,
 			       values);
@@ -656,20 +675,20 @@ XMenuCreate(display, parent, def_env)
    * Inverse video selection.
    */
 
-  values->foreground = bkgnd_color.pixel;		
+  values->foreground = bkgnd_color.pixel;
   values->background = s_frg_color.pixel;
   values->font = s_fnt_info->fid;
   values->line_width = s_bdr_width;
-  inverse_select_GC = XCreateGC(display, 
+  inverse_select_GC = XCreateGC(display,
 				root,
 				valuemask,
 				values);
   stipple_pixmap = XCreateBitmapFromData(display,
 					 root,
-					 stipple_bits,		
-					 stipple_width,		
-					 stipple_height);	
-    
+					 stipple_bits,
+					 stipple_width,
+					 stipple_height);
+
   /*
    * Finally, inactive pane header and selections
    */
@@ -680,15 +699,15 @@ XMenuCreate(display, parent, def_env)
   values->line_width = s_bdr_width;
   values->fill_style = FillStippled;
   values->stipple = stipple_pixmap;
-	
-  inact_GC = XCreateGC(display, 
+
+  inact_GC = XCreateGC(display,
 		       root,
 		       valuemask,
 		       values);
 
   valuemask |= (GCGraphicsExposures);
   values->graphics_exposures = False;
-  inact_GC_noexpose = XCreateGC (display, 
+  inact_GC_noexpose = XCreateGC (display,
 				 root,
 				 valuemask, values);
 
@@ -759,3 +778,6 @@ XMenuCreate(display, parent, def_env)
   _XMErrorCode = XME_NO_ERROR;
   return(menu);
 }
+
+/* arch-tag: 6945b7d2-3b13-40b9-8b6e-56b1b20f3463
+   (do not change this comment) */

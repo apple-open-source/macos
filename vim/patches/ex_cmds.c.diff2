@@ -1,0 +1,13 @@
+diff -up -r /SourceCache/vim/vim-32/vim/src/ex_cmds.c src/ex_cmds.c
+--- /SourceCache/vim/vim-32/vim/src/ex_cmds.c	2006-11-17 23:49:57.000000000 -0800
++++ src/ex_cmds.c	2007-01-04 15:34:56.000000000 -0800
+@@ -4886,6 +4886,8 @@ skip:
+ 			prev_matchcol = (colnr_T)STRLEN(sub_firstline)
+ 							      - prev_matchcol;
+ 
++			if (Unix2003_compat)
++			    beginline(BL_WHITE | BL_FIX);
+ 			if (u_savesub(lnum) != OK)
+ 			    break;
+ 			ml_replace(lnum, new_start, TRUE);
+Only in ./src: ex_cmds.c~

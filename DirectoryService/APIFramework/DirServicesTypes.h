@@ -28,6 +28,33 @@
 #ifndef __DirServicesTypesH__
 #define	__DirServicesTypesH__	1
 
+// the following are already part of MacTypes.h and causes warnings for other plugins
+// need this to support Darwin compiles which do not include MacTypes.h
+
+#ifndef __MACTYPES__
+#ifndef __DS_MACTYPES__
+#define __DS_MACTYPES__ 1
+
+typedef unsigned char                   UInt8;
+typedef signed char                     SInt8;
+typedef unsigned short                  UInt16;
+typedef signed short                    SInt16;
+
+#if __LP64__
+typedef unsigned int                    UInt32;
+typedef signed int                      SInt32;
+#else
+typedef unsigned long                   UInt32;
+typedef signed long                     SInt32;
+#endif
+
+typedef unsigned char                   Boolean;
+typedef UInt32                          OptionBits;
+typedef UInt32                          FourCharCode;
+
+#endif
+#endif
+
 #ifndef dsBool
 	#define	dsBool	int
 #endif
@@ -91,6 +118,9 @@ typedef	enum
 	eDSGetCustomFailed			=	-14011,
 	eDSUnRegisterFailed			=	-14012,
 	
+	eDSLocalDSDaemonInUse		=	-14015,
+	eDSNormalDSDaemonInUse		=	-14016,
+	
 	eDSAllocationFailed			=	-14050,
 	eDSDeAllocateFailed			=	-14051,
 	eDSCustomBlockFailed		=	-14052,
@@ -151,6 +181,7 @@ typedef	enum
 	eDSRecordAlreadyExists		=	-14135,
 	eDSRecordNotFound			=	-14136,
 	eDSAttributeDoesNotExist	=	-14137,
+	eDSRecordTypeDisabled		=	-14138,
 
 	eDSNoStdMappingAvailable	=	-14140,
 	eDSInvalidNativeMapping		=	-14141,
@@ -293,6 +324,7 @@ typedef	enum
 	eDSNetInfoError				=	-14485,
 	eDSContactMaster			=	-14486,
 	eDSServiceUnavailable		=	-14487,
+	eDSInvalidFilePath			=	-14488,
 
 	eFWGetDirNodeNameErr1		=	-14501,
 	eFWGetDirNodeNameErr2		=	-14502,
@@ -389,6 +421,7 @@ typedef enum
 	eDSContactsSearchNodeName			=	0x2204,
 	eDSNetworkSearchNodeName			=	0x2205,
 	eDSDefaultNetworkNodes			=	0x2206,
+	eDSCacheNodeName		=	0x2207,
 	
 	dDSBeginPlugInCustom	=	0x3000,
 	eDSEndPlugInCustom		=	0x4fff,
@@ -399,12 +432,17 @@ typedef enum
 	eDSNoMatch2		=	0xffff
 } tDirPatternMatch;
 
-typedef	unsigned long	tDirReference;
-typedef	unsigned long	tDirNodeReference;
+typedef	UInt32	tDirReference;
+typedef	UInt32	tDirNodeReference;
 
 typedef	void *			tClientData;
 typedef void *			tBuffer;
+
+#ifdef __LP64__
+typedef	UInt32			tContextData;
+#else
 typedef	void *			tContextData;
+#endif
 
 //-----------------------------------------------
 //-----------------------------------------------
@@ -413,9 +451,9 @@ typedef	void *			tContextData;
 
 typedef struct
 {
-	unsigned long	fBufferSize;
-	unsigned long	fBufferLength;
-	char			fBufferData[1];
+	UInt32		fBufferSize;
+	UInt32		fBufferLength;
+	char		fBufferData[1];
 } tDataBuffer;
 typedef tDataBuffer *tDataBufferPtr;
 
@@ -424,8 +462,8 @@ typedef tDataNode	*tDataNodePtr;
 
 typedef struct
 {
-	unsigned long	fDataNodeCount;
-	tDataNodePtr	fDataListHead;
+	UInt32				fDataNodeCount;
+	tDataNodePtr		fDataListHead;
 } tDataList;
 typedef tDataList *tDataListPtr;
 
@@ -436,11 +474,11 @@ typedef tDataList *tDataListPtr;
 
 typedef struct
 {
-	unsigned long	fGuestAccessFlags;
-	unsigned long	fDirMemberFlags;
-	unsigned long	fDirNodeMemberFlags;
-	unsigned long	fOwnerFlags;
-	unsigned long	fAdministratorFlags;
+	UInt32	fGuestAccessFlags;
+	UInt32	fDirMemberFlags;
+	UInt32	fDirNodeMemberFlags;
+	UInt32	fOwnerFlags;
+	UInt32	fAdministratorFlags;
 }	tAccessControlEntry;
 typedef tAccessControlEntry *tAccessControlEntryPtr;
 
@@ -451,40 +489,40 @@ typedef tAccessControlEntry *tAccessControlEntryPtr;
 
 typedef struct
 {
-	unsigned long	fAttributeValueID;		// unique ID of this data value
-	tDataNode		fAttributeValueData;	// the actual data contents of this value...
+	UInt32		fAttributeValueID;		// unique ID of this data value
+	tDataNode	fAttributeValueData;	// the actual data contents of this value...
 } tAttributeValueEntry;
 typedef tAttributeValueEntry *tAttributeValueEntryPtr;
-typedef unsigned long tAttributeValueListRef;
+typedef UInt32 tAttributeValueListRef;
 
 
 //-----------------------------------------------
 
 typedef struct
 {
-	unsigned long		fReserved1;
+	UInt32				fReserved1;
 	tAccessControlEntry	fReserved2;
-	unsigned long		fAttributeValueCount;		// number of values associated with this attribute..
-	unsigned long		fAttributeDataSize;			// total byte count of all attribute values...
-	unsigned long		fAttributeValueMaxSize;		// maximum size of a value of this attribute type
+	UInt32				fAttributeValueCount;		// number of values associated with this attribute..
+	UInt32				fAttributeDataSize;			// total byte count of all attribute values...
+	UInt32				fAttributeValueMaxSize;		// maximum size of a value of this attribute type
 	tDataNode			fAttributeSignature;		// a Unique byte-sequence representing this attribute type
 													// most likely a collection of Uni-code characters..
 }	tAttributeEntry;
 typedef tAttributeEntry *tAttributeEntryPtr;
-typedef unsigned long	tAttributeListRef;
+typedef UInt32	tAttributeListRef;
 
 
 //-----------------------------------------------
 
 typedef struct
 {
-	unsigned long		fReserved1;
+	UInt32				fReserved1;
 	tAccessControlEntry	fReserved2;
-	unsigned long		fRecordAttributeCount;
+	UInt32				fRecordAttributeCount;
 	tDataNode			fRecordNameAndType;
 }	tRecordEntry;
 typedef tRecordEntry *tRecordEntryPtr;
-typedef unsigned long	tRecordReference;
+typedef UInt32 tRecordReference;
 
 
 //-----------------------------------------------
@@ -500,10 +538,10 @@ extern "C" {
 // Function Pointers for allocation & deallocation routines...
 // these routines only need to be set if some reason the standard OS routines won't do..
 // otherwise standard OS routines will be used if nothing is registered...
-typedef	tDirStatus	(*fpCustomAllocate) 		(	tDirReference	inDirReference,
-													tClientData		inClientData,
-													unsigned long	inAllocationRequest,
-													tBuffer			*outAllocationPtr	);
+typedef	tDirStatus	(*fpCustomAllocate) 		(	tDirReference		inDirReference,
+													tClientData			inClientData,
+													UInt32				inAllocationRequest,
+													tBuffer				*outAllocationPtr	);
 
 
 typedef tDirStatus	(*fpCustomDeAllocate) 		(	tDirReference	inDirReference,

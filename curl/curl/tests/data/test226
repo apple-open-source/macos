@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+FAILURE
+compressed
+</keywords>
+</info>
 # Client-side
 <client>
 <server>
@@ -18,3 +26,4 @@ ftp://%HOSTIP:%FTPPORT/226%0d
 3
 </errorcode>
 </verify>
+</testcase>

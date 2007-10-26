@@ -39,6 +39,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <mach/mach.h>
 #include <mach_debug/mach_debug.h>
@@ -71,6 +72,7 @@ usage()
 	exit(1);
 }
 
+int
 main(argc, argv)
 	int	argc;
 	char	*argv[];
@@ -83,7 +85,7 @@ main(argc, argv)
 	unsigned int infoCnt = sizeof info_buf/sizeof info_buf[0];
 
 	char		*zname = NULL;
-	int		znamelen;
+	int		znamelen = 0;
 
 	kern_return_t	kr;
 	int		i, j;
@@ -249,7 +251,7 @@ printzone(name, info)
 {
 	unsigned int used, size;
 
-	printf("%.*s zone:\n", sizeof name->zn_name, name->zn_name);
+	printf("%.*s zone:\n", (int)sizeof name->zn_name, name->zn_name);
 	printf("\tcur_size:    %dK bytes (%d elements)\n",
 	       info->zi_cur_size/1024,
 	       info->zi_cur_size/info->zi_elem_size);
@@ -290,7 +292,7 @@ colprintzone(zone_name, info)
 	zone_info_t *info;
 {
 	char *name = zone_name->zn_name;
-	int j, namewidth, retval;
+	int j, namewidth;
 	unsigned int used, size;
 
 	namewidth = 25;

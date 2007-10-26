@@ -72,10 +72,17 @@ static char *rcsid = "$Id: clnt_generic.c,v 1.3 2002/02/19 20:36:22 epeyton Exp 
  */
 CLIENT *
 clnt_create(hostname, prog, vers, proto)
+#ifdef __LP64__
+	char *hostname;
+	uint32_t prog;
+	uint32_t vers;
+	char *proto;
+#else
 	char *hostname;
 	u_long prog;
 	u_long vers;
 	char *proto;
+#endif
 {
 	struct hostent *h;
 	struct protoent *p;

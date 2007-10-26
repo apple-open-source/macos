@@ -39,17 +39,18 @@ class CPlugInRef {
 
 public:
 					CPlugInRef		( DeallocateProc *inProcPtr );
-					CPlugInRef		( DeallocateProc *inProcPtr, uInt32 inHashArrayLength );
+					CPlugInRef		( DeallocateProc *inProcPtr, UInt32 inHashArrayLength );
 	virtual		   ~CPlugInRef		( void );
 
-	sInt32			AddItem			( uInt32 inRefNum, void *inData );
-	sInt32			RemoveItem		( uInt32 inRefNum );
-	void*			GetItemData		( uInt32 inRefNum );
+	SInt32			AddItem			( UInt32 inRefNum, void *inData );
+	SInt32			RemoveItem		( UInt32 inRefNum );
+	void*			GetItemData		( UInt32 inRefNum );
 	void			DoOnAllItems	( OperationProc *inProcPtr );
 
 private:
 			sDSTableEntry		  **fLookupTable;
-			uInt32				fHashArrayLength;
+			UInt32				fHashArrayLength;
+			UInt32				fRefNumCount;
 			DeallocateProc     *fDeallocProcPtr;
 
 			DSMutexSemaphore	fMutex;

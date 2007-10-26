@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2004 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/remove.c,v 1.3 2004/10/25 03:44:10 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/remove.c,v 1.4.2.3 2006/10/07 18:35:48 marcel Exp $");
 
 #include <sys/types.h>
 
@@ -42,6 +39,7 @@ __FBSDID("$FreeBSD: src/sbin/gpt/remove.c,v 1.3 2004/10/25 03:44:10 marcel Exp $
 #include "map.h"
 #include "gpt.h"
 
+static int all;
 static uuid_t type;
 static off_t block, size;
 static unsigned int entry;
@@ -51,8 +49,9 @@ usage_remove(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s [-b lba] [-i index] [-s lba] [-t uuid] device\n",
-	    getprogname());
+	    "usage: %s -a device ...\n"
+	    "       %s [-b lba] [-i index] [-s lba] [-t uuid] device ...\n",
+	    getprogname(), getprogname());
 	exit(1);
 }
 
@@ -65,7 +64,7 @@ rem(int fd)
 	map_t *m;
 	struct gpt_hdr *hdr;
 	struct gpt_ent *ent;
-	unsigned int i, removed;
+	unsigned int i;
 
 	gpt = map_find(MAP_TYPE_PRI_GPT_HDR);
 	if (gpt == NULL) {
@@ -88,8 +87,6 @@ rem(int fd)
 		return;
 	}
 
-	removed = 0;
-
 	/* Remove all matching entries in the map. */
 	for (m = map_first(); m != NULL; m = m->map_next) {
 		if (m->map_type != MAP_TYPE_GPT_PART || m->map_index < 1)
@@ -106,19 +103,13 @@ rem(int fd)
 		hdr = gpt->map_data;
 		ent = (void*)((char*)tbl->map_data + i *
 		    le32toh(hdr->hdr_entsz));
-#ifdef __APPLE__
-		le_uuid_dec(ent->ent_type, uuid);
-		if (!uuid_is_null(type) &&
-		    uuid_compare(type, uuid))
-			continue;
-		uuid_copy(ent->ent_type, GPT_ENT_TYPE_UNUSED);
-#else
 		le_uuid_dec(&ent->ent_type, &uuid);
 		if (!uuid_is_nil(&type, NULL) &&
 		    !uuid_equal(&type, &uuid, NULL))
 			continue;
+
+		/* Remove the primary entry by clearing the partition type. */
 		uuid_create_nil(&ent->ent_type, NULL);
-#endif
 
 		hdr->hdr_crc_table = htole32(crc32(tbl->map_data,
 		    le32toh(hdr->hdr_entries) * le32toh(hdr->hdr_entsz)));
@@ -131,11 +122,9 @@ rem(int fd)
 		hdr = tpg->map_data;
 		ent = (void*)((char*)lbt->map_data + i *
 		    le32toh(hdr->hdr_entsz));
-#ifdef __APPLE__
-		uuid_copy(ent->ent_type, GPT_ENT_TYPE_UNUSED);
-#else
+
+		/* Remove the secundary entry. */
 		uuid_create_nil(&ent->ent_type, NULL);
-#endif
 
 		hdr->hdr_crc_table = htole32(crc32(lbt->map_data,
 		    le32toh(hdr->hdr_entries) * le32toh(hdr->hdr_entsz)));
@@ -145,10 +134,12 @@ rem(int fd)
 		gpt_write(fd, lbt);
 		gpt_write(fd, tpg);
 
-		removed++;
+#ifdef __APPLE__
+		printf("%ss%u removed\n", device_name, m->map_index);
+#else
+		printf("%sp%u removed\n", device_name, m->map_index);
+#endif
 	}
-
-	warnx("%s: %d partition(s) removed", device_name, removed);
 }
 
 int
@@ -156,15 +147,19 @@ cmd_remove(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
-	uint32_t status;
 
 	/* Get the remove options */
-	while ((ch = getopt(argc, argv, "b:i:s:t:")) != -1) {
+	while ((ch = getopt(argc, argv, "ab:i:s:t:")) != -1) {
 		switch(ch) {
+		case 'a':
+			if (all > 0)
+				usage_remove();
+			all = 1;
+			break;
 		case 'b':
 			if (block > 0)
 				usage_remove();
-			block = strtol(optarg, &p, 10);
+			block = strtoll(optarg, &p, 10);
 			if (*p != 0 || block < 1)
 				usage_remove();
 			break;
@@ -178,56 +173,24 @@ cmd_remove(int argc, char *argv[])
 		case 's':
 			if (size > 0)
 				usage_remove();
-			size = strtol(optarg, &p, 10);
+			size = strtoll(optarg, &p, 10);
 			if (*p != 0 || size < 1)
 				usage_remove();
 			break;
 		case 't':
-#ifdef __APPLE__
-			if (!uuid_is_null(type))
-				usage_remove();
-			status = uuid_parse(optarg, type);
-			if (status) {
-				if (strcmp(optarg, "efi") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_EFI);
-				else if (strcmp(optarg, "hfs") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_APPLE_HFS);
-				else if (strcmp(optarg, "ufs") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_APPLE_UFS);
-				else if (strcmp(optarg, "linux") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_MS_BASIC_DATA);
-				else if (strcmp(optarg, "windows") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_MS_BASIC_DATA);
-				else
-					usage_remove();
-			}
-#else
 			if (!uuid_is_nil(&type, NULL))
 				usage_remove();
-			uuid_from_string(optarg, &type, &status);
-			if (status != uuid_s_ok) {
-				if (strcmp(optarg, "efi") == 0) {
-					uuid_t efi = GPT_ENT_TYPE_EFI;
-					type = efi;
-				} else if (strcmp(optarg, "swap") == 0) {
-					uuid_t sw = GPT_ENT_TYPE_FREEBSD_SWAP;
-					type = sw;
-				} else if (strcmp(optarg, "ufs") == 0) {
-					uuid_t ufs = GPT_ENT_TYPE_FREEBSD_UFS;
-					type = ufs;
-				} else if (strcmp(optarg, "linux") == 0 ||
-				    strcmp(optarg, "windows") == 0) {
-					uuid_t m = GPT_ENT_TYPE_MS_BASIC_DATA;
-					type = m;
-				} else
-					usage_remove();
-			}
-#endif
+			if (parse_uuid(optarg, &type) != 0)
+				usage_remove();
 			break;
 		default:
 			usage_remove();
 		}
 	}
+
+	if (!all ^
+	    (block > 0 || entry > 0 || size > 0 || !uuid_is_nil(&type, NULL)))
+		usage_remove();
 
 	if (argc == optind)
 		usage_remove();

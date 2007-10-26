@@ -93,6 +93,7 @@ enum {
 //---------------------------------------------------------------------------
 // Macros
 #define _altMTU _reserved->altMTU
+#define _publishedFeatureID _reserved->publishedFeatureID
 
 #ifdef  DEBUG
 #define DLOG(fmt, args...)  IOLog(fmt, ## args)
@@ -208,6 +209,8 @@ bool IOEthernetInterface::init(IONetworkController * controller)
     {
          return false;
     }
+
+    _publishedFeatureID = 0;
 
     // Publish filter dictionaries to property table.
 
@@ -332,7 +335,9 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
              kIOEthernetWakeOnMagicPacket )
         {
             IOPMrootDomain * root = getPMRootDomain();
-            if ( root ) root->publishFeature( "WakeOnMagicPacket" );
+            if ( root ) root->publishFeature( "WakeOnMagicPacket",
+                             kIOPMSupportedOnAC | kIOPMSupportedOnUPS, 
+                             (uint32_t *)&_publishedFeatureID);
         }
 
         // Get the controller's MAC/Ethernet address.
@@ -377,6 +382,14 @@ bool IOEthernetInterface::controllerDidOpen(IONetworkController * ctr)
 
 void IOEthernetInterface::controllerWillClose(IONetworkController * ctr)
 {
+    if ( GET_SUPPORTED_FILTERS( gIOEthernetWakeOnLANFilterGroup ) &
+         kIOEthernetWakeOnMagicPacket )
+    {
+        IOPMrootDomain * root = getPMRootDomain();
+        if ( root ) root->removePublishedFeature( _publishedFeatureID );
+        _publishedFeatureID = 0;
+    }
+    
     super::controllerWillClose(ctr);
 }
 

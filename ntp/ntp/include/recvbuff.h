@@ -9,6 +9,9 @@
 #include "ntp_fp.h"
 #include "ntp_types.h"
 
+#include <isc/list.h>
+#include <isc/result.h>
+
 /*
  * recvbuf memory management
  */
@@ -39,16 +42,19 @@ extern HANDLE	get_recv_buff_event P((void));
  */
 
 /*
- *  the maximum length NTP packet is a full length NTP control message with
- *  the maximum length message authenticator.  I hate to hard-code 468 and 12,
- *  but only a few modules include ntp_control.h...
+ *  the maximum length NTP packet contains the NTP header, one Autokey
+ *  request, one Autokey response and the MAC. Assuming certificates don't
+ *  get too big, the maximum packet length is set arbitrarily at 1000.
  */   
-#define	RX_BUFF_SIZE	(468+12+MAX_MAC_LEN)
+#define	RX_BUFF_SIZE	1000		/* hail Mary */
+
+
+typedef struct recvbuf recvbuf_t;
 
 struct recvbuf {
-	struct recvbuf *next;		/* next buffer in chain */
+	ISC_LINK(recvbuf_t)	link;
 	union {
-		struct sockaddr_in X_recv_srcadr;
+		struct sockaddr_storage X_recv_srcadr;
 		caddr_t X_recv_srcclock;
 		struct peer *X_recv_peer;
 	} X_from_where;
@@ -56,14 +62,13 @@ struct recvbuf {
 #define	recv_srcclock	X_from_where.X_recv_srcclock
 #define recv_peer	X_from_where.X_recv_peer
 #if defined HAVE_IO_COMPLETION_PORT
-        IoCompletionInfo	iocompletioninfo;
 	WSABUF		wsabuff;
-	DWORD		AddressLength;
 #else
-	struct sockaddr_in srcadr;	/* where packet came from */
+	struct sockaddr_storage srcadr;	/* where packet came from */
 #endif
 	struct interface *dstadr;	/* interface datagram arrived thru */
-	int fd;				/* fd on which it was received */
+	SOCKET	fd;			/* fd on which it was received */
+	int msg_flags;			/* Flags received about the packet */
 	l_fp recv_time;			/* time of arrival */
 	void (*receiver) P((struct recvbuf *)); /* routine to receive buffer */
 	int recv_length;		/* number of octets received */
@@ -80,9 +85,6 @@ extern	void	init_recvbuff	P((int));
 /* freerecvbuf - make a single recvbuf available for reuse
  */
 extern	void	freerecvbuf P((struct recvbuf *));
-
-	
-extern	struct recvbuf * getrecvbufs P((void));
 
 /*  Get a free buffer (typically used so an async
  *  read can directly place data into the buffer
@@ -108,6 +110,11 @@ extern u_long lowater_additions P((void));
  *
  */
 extern	struct recvbuf *get_full_recv_buffer P((void));
+
+/*
+ * Checks to see if there are buffers to process
+ */
+extern isc_boolean_t has_full_recv_buffer P((void));
 
 #endif /* defined __recvbuff_h */
 

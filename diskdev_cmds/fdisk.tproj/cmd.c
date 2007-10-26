@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -383,7 +383,7 @@ Xwrite(cmd, disk, mbr, tt, offset)
 	printf("Writing MBR at offset %d.\n", offset);
 
 	MBR_make(mbr);
-	MBR_write(fd, mbr);
+	MBR_write(disk, fd, mbr);
 	close(fd);
 	return (CMD_CLEAN);
 }
@@ -503,21 +503,6 @@ Xmanual(cmd, disk, mbr, tt, offset)
 	mbr_t *tt;
 	int offset;
 {
-	char *pager = "/usr/bin/less";
-	char *p;
-	sig_t opipe;
-	extern char manpage[];
-	FILE *f;
-
-	opipe = signal(SIGPIPE, SIG_IGN);
-	if ((p = getenv("PAGER")) != NULL && (*p != '\0'))
-		pager = p;
-	f = popen(pager, "w");
-	if (f) {
-		(void) fwrite(manpage, strlen(manpage), 1, f);
-		pclose(f);
-	}
-
-	(void)signal(SIGPIPE, opipe);
+	system("man 8 fdisk");
 	return (CMD_CONT);
 }

@@ -1,5 +1,5 @@
---- atoi.3.orig	Fri Mar 11 10:13:22 2005
-+++ atoi.3	Fri Mar 11 10:14:49 2005
+--- atoi.3.orig	2007-04-08 18:49:34.000000000 -0700
++++ atoi.3	2007-04-08 19:19:59.000000000 -0700
 @@ -40,7 +40,8 @@
  .Dt ATOI 3
  .Os
@@ -10,19 +10,29 @@
  .Nd convert
  .Tn ASCII
  string to integer
-@@ -50,6 +51,9 @@
+@@ -49,20 +50,31 @@
+ .Sh SYNOPSIS
  .In stdlib.h
  .Ft int
- .Fn atoi "const char *nptr"
+-.Fn atoi "const char *nptr"
++.Fn atoi "const char *str"
 +.In xlocale.h
 +.Ft int
-+.Fn atoi_l "const char *nptr" "locale_t loc"
++.Fn atoi_l "const char *str" "locale_t loc"
  .Sh DESCRIPTION
  The
  .Fn atoi
-@@ -63,6 +67,14 @@
+ function converts the initial portion of the string pointed to by
+-.Fa nptr
++.Fa str
+ to
+ .Vt int
+ representation.
+ .Pp
+ It is equivalent to:
  .Bd -literal -offset indent
- (int)strtol(nptr, (char **)NULL, 10);
+-(int)strtol(nptr, (char **)NULL, 10);
++(int)strtol(str, (char **)NULL, 10);
  .Ed
 +.Pp
 +While the

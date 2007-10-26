@@ -1,5 +1,5 @@
 # SOAP4R - SOAP WSDL driver
-# Copyright (C) 2002, 2003  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
+# Copyright (C) 2002, 2003, 2005  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
 
 # This program is copyrighted free software by NAKAMURA, Hiroshi.  You can
 # redistribute it and/or modify it under the same terms of Ruby's license;
@@ -9,19 +9,11 @@
 require 'wsdl/parser'
 require 'wsdl/importer'
 require 'xsd/qname'
-require 'soap/element'
-require 'soap/baseData'
-require 'soap/streamHandler'
-require 'soap/mimemessage'
-require 'soap/mapping'
+require 'xsd/codegen/gensupport'
 require 'soap/mapping/wsdlencodedregistry'
 require 'soap/mapping/wsdlliteralregistry'
-require 'soap/rpc/rpc'
-require 'soap/rpc/element'
-require 'soap/rpc/proxy'
-require 'soap/processor'
-require 'soap/header/handlerset'
-require 'xsd/codegen/gensupport'
+require 'soap/rpc/driver'
+require 'wsdl/soap/methodDefCreator'
 
 
 module SOAP
@@ -32,60 +24,170 @@ class WSDLDriverFactory
 
   attr_reader :wsdl
 
-  def initialize(wsdl, logdev = nil)
-    @logdev = logdev
+  def initialize(wsdl)
     @wsdl = import(wsdl)
+    @methoddefcreator = WSDL::SOAP::MethodDefCreator.new(@wsdl)
   end
   
   def inspect
     "#<#{self.class}:#{@wsdl.name}>"
   end
 
+  def create_rpc_driver(servicename = nil, portname = nil)
+    port = find_port(servicename, portname)
+    drv = SOAP::RPC::Driver.new(port.soap_address.location)
+    init_driver(drv, port)
+    add_operation(drv, port)
+    drv
+  end
+
+  # depricated old interface
   def create_driver(servicename = nil, portname = nil)
-    service = if servicename
-	@wsdl.service(XSD::QName.new(@wsdl.targetnamespace, servicename))
-      else
-	@wsdl.services[0]
-      end
-    if service.nil?
-      raise FactoryError.new("Service #{ servicename } not found in WSDL.")
-    end
-    port = if portname
-	service.ports[XSD::QName.new(@wsdl.targetnamespace, portname)]
-      else
-	service.ports[0]
-      end
-    if port.nil?
-      raise FactoryError.new("Port #{ portname } not found in WSDL.")
-    end
-    if port.soap_address.nil?
-      raise FactoryError.new("soap:address element not found in WSDL.")
-    end
-    WSDLDriver.new(@wsdl, port, @logdev)
+    warn("WSDLDriverFactory#create_driver is depricated.  Use create_rpc_driver instead.")
+    port = find_port(servicename, portname)
+    WSDLDriver.new(@wsdl, port, nil)
   end
 
   # Backward compatibility.
   alias createDriver create_driver
 
 private
-  
+
+  def find_port(servicename = nil, portname = nil)
+    service = port = nil
+    if servicename
+      service = @wsdl.service(
+        XSD::QName.new(@wsdl.targetnamespace, servicename))
+    else
+      service = @wsdl.services[0]
+    end
+    if service.nil?
+      raise FactoryError.new("service #{servicename} not found in WSDL")
+    end
+    if portname
+      port = service.ports[XSD::QName.new(@wsdl.targetnamespace, portname)]
+      if port.nil?
+        raise FactoryError.new("port #{portname} not found in WSDL")
+      end
+    else
+      port = service.ports.find { |port| !port.soap_address.nil? }
+      if port.nil?
+        raise FactoryError.new("no ports have soap:address")
+      end
+    end
+    if port.soap_address.nil?
+      raise FactoryError.new("soap:address element not found in WSDL")
+    end
+    port
+  end
+
+  def init_driver(drv, port)
+    wsdl_elements = @wsdl.collect_elements
+    wsdl_types = @wsdl.collect_complextypes + @wsdl.collect_simpletypes
+    rpc_decode_typemap = wsdl_types +
+      @wsdl.soap_rpc_complextypes(port.find_binding)
+    drv.proxy.mapping_registry =
+      Mapping::WSDLEncodedRegistry.new(rpc_decode_typemap)
+    drv.proxy.literal_mapping_registry =
+      Mapping::WSDLLiteralRegistry.new(wsdl_types, wsdl_elements)
+  end
+
+  def add_operation(drv, port)
+    port.find_binding.operations.each do |op_bind|
+      op_name = op_bind.soapoperation_name
+      soapaction = op_bind.soapaction || ''
+      orgname = op_name.name
+      name = XSD::CodeGen::GenSupport.safemethodname(orgname)
+      param_def = create_param_def(op_bind)
+      opt = {
+        :request_style => op_bind.soapoperation_style,
+        :response_style => op_bind.soapoperation_style,
+        :request_use => op_bind.input.soapbody_use,
+        :response_use => op_bind.output.soapbody_use,
+        :elementformdefault => false,
+        :attributeformdefault => false
+      }
+      if op_bind.soapoperation_style == :rpc
+        drv.add_rpc_operation(op_name, soapaction, name, param_def, opt)
+      else
+        drv.add_document_operation(soapaction, name, param_def, opt)
+      end
+      if orgname != name and orgname.capitalize == name.capitalize
+        ::SOAP::Mapping.define_singleton_method(drv, orgname) do |*arg|
+          __send__(name, *arg)
+        end
+      end
+    end
+  end
+
   def import(location)
     WSDL::Importer.import(location)
+  end
+
+  def create_param_def(op_bind)
+    op = op_bind.find_operation
+    if op_bind.soapoperation_style == :rpc
+      param_def = @methoddefcreator.collect_rpcparameter(op)
+    else
+      param_def = @methoddefcreator.collect_documentparameter(op)
+    end
+    # the first element of typedef in param_def is a String like
+    # "::SOAP::SOAPStruct".  turn this String to a class.
+    param_def.collect { |io, name, typedef|
+      typedef[0] = Mapping.class_from_name(typedef[0])
+      [io, name, typedef]
+    }
+  end
+
+  def partqname(part)
+    if part.type
+      part.type
+    else
+      part.element
+    end
+  end
+
+  def param_def(type, name, klass, partqname)
+    [type, name, [klass, partqname.namespace, partqname.name]]
+  end
+
+  def filter_parts(partsdef, partssource)
+    parts = partsdef.split(/\s+/)
+    partssource.find_all { |part| parts.include?(part.name) }
   end
 end
 
 
 class WSDLDriver
   class << self
-    def __attr_proxy(symbol, assignable = false)
-      name = symbol.to_s
-      self.__send__(:define_method, name, proc {
-        @servant.__send__(name)
-      })
-      if assignable
-        self.__send__(:define_method, name + '=', proc { |rhs|
-          @servant.__send__(name + '=', rhs)
-        })
+    if RUBY_VERSION >= "1.7.0"
+      def __attr_proxy(symbol, assignable = false)
+        name = symbol.to_s
+        define_method(name) {
+          @servant.__send__(name)
+        }
+        if assignable
+          aname = name + '='
+          define_method(aname) { |rhs|
+            @servant.__send__(aname, rhs)
+          }
+        end
+      end
+    else
+      def __attr_proxy(symbol, assignable = false)
+        name = symbol.to_s
+        module_eval <<-EOS
+          def #{name}
+            @servant.#{name}
+          end
+        EOS
+        if assignable
+          module_eval <<-EOS
+            def #{name}=(value)
+              @servant.#{name} = value
+            end
+          EOS
+        end
       end
     end
   end
@@ -179,13 +281,17 @@ class WSDLDriver
       @wsdl_types = @wsdl.collect_complextypes + @wsdl.collect_simpletypes
       @rpc_decode_typemap = @wsdl_types +
 	@wsdl.soap_rpc_complextypes(port.find_binding)
-      @wsdl_mapping_registry = Mapping::WSDLEncodedRegistry.new(@rpc_decode_typemap)
-      @doc_mapper = Mapping::WSDLLiteralRegistry.new(@wsdl_elements, @wsdl_types)
+      @wsdl_mapping_registry = Mapping::WSDLEncodedRegistry.new(
+        @rpc_decode_typemap)
+      @doc_mapper = Mapping::WSDLLiteralRegistry.new(
+        @wsdl_types, @wsdl_elements)
       endpoint_url = @port.soap_address.location
       # Convert a map which key is QName, to a Hash which key is String.
       @operation = {}
       @port.inputoperation_map.each do |op_name, op_info|
-	@operation[op_name.name] = op_info
+        orgname = op_name.name
+        name = XSD::CodeGen::GenSupport.safemethodname(orgname)
+	@operation[name] = @operation[orgname] = op_info
 	add_method_interface(op_info)
       end
       @proxy = ::SOAP::RPC::Proxy.new(endpoint_url, @soapaction, @options)
@@ -222,15 +328,16 @@ class WSDLDriver
     def rpc_call(name, *values)
       set_wiredump_file_base(name)
       unless op_info = @operation[name]
-        raise MethodDefinitionError, "Method: #{name} not defined."
+        raise RuntimeError, "method: #{name} not defined"
       end
       req_header = create_request_header
       req_body = create_request_body(op_info, *values)
-      opt = create_options({
-        :soapaction => op_info.soapaction || @soapaction,
+      reqopt = create_options({
+        :soapaction => op_info.soapaction || @soapaction})
+      resopt = create_options({
         :decode_typemap => @rpc_decode_typemap})
-      env = @proxy.invoke(req_header, req_body, opt)
-      raise EmptyResponseError.new("Empty response.") unless env
+      env = @proxy.route(req_header, req_body, reqopt, resopt)
+      raise EmptyResponseError unless env
       receive_headers(env.header)
       begin
         @proxy.check_fault(env.body)
@@ -249,33 +356,20 @@ class WSDLDriver
       end
     end
 
-    def document_call(name, param)
-      set_wiredump_file_base(name)
-      op_info = @operation[name]
-      req_header = header_from_obj(header_obj, op_info)
-      req_body = body_from_obj(body_obj, op_info)
-      env = @proxy.invoke(req_header, req_body, op_info.soapaction || @soapaction, @wsdl_types)
-      raise EmptyResponseError.new("Empty response.") unless env
-      if env.body.fault
-	raise ::SOAP::FaultError.new(env.body.fault)
-      end
-      res_body_obj = env.body.response ?
-	Mapping.soap2obj(env.body.response, @mapping_registry) : nil
-      return env.header, res_body_obj
-    end
-
     # req_header: [[element, mustunderstand, encodingstyle(QName/String)], ...]
     # req_body: SOAPBasetype/SOAPCompoundtype
     def document_send(name, header_obj, body_obj)
       set_wiredump_file_base(name)
-      op_info = @operation[name]
-      req_header = header_from_obj(header_obj, op_info)
+      unless op_info = @operation[name]
+        raise RuntimeError, "method: #{name} not defined"
+      end
+      req_header = header_obj ? header_from_obj(header_obj, op_info) : nil
       req_body = body_from_obj(body_obj, op_info)
       opt = create_options({
         :soapaction => op_info.soapaction || @soapaction,
         :decode_typemap => @wsdl_types})
       env = @proxy.invoke(req_header, req_body, opt)
-      raise EmptyResponseError.new("Empty response.") unless env
+      raise EmptyResponseError unless env
       if env.body.fault
 	raise ::SOAP::FaultError.new(env.body.fault)
       end
@@ -297,7 +391,7 @@ class WSDLDriver
 
     def set_wiredump_file_base(name)
       if @wiredump_file_base
-      	@proxy.set_wiredump_file_base(@wiredump_file_base + "_#{ name }")
+      	@proxy.set_wiredump_file_base(@wiredump_file_base + "_#{name}")
       end
     end
 
@@ -326,7 +420,7 @@ class WSDLDriver
     def create_method_struct(op_info, *params)
       parts_names = op_info.bodyparts.collect { |part| part.name }
       obj = create_method_obj(parts_names, params)
-      method = Mapping.obj2soap(obj, @wsdl_mapping_registry, op_info.optype_name)
+      method = Mapping.obj2soap(obj, @wsdl_mapping_registry, op_info.op_name)
       if method.members.size != parts_names.size
 	new_method = SOAPStruct.new
 	method.each do |key, value|
@@ -343,8 +437,10 @@ class WSDLDriver
 
     def create_method_obj(names, params)
       o = Object.new
-      for idx in 0 ... params.length
+      idx = 0
+      while idx < params.length
         o.instance_variable_set('@' + names[idx], params[idx])
+        idx += 1
       end
       o
     end
@@ -356,7 +452,7 @@ class WSDLDriver
 	if obj.nil?
 	  nil
 	else
-	  raise RuntimeError.new("No header definition in schema.")
+	  raise RuntimeError.new("no header definition in schema: #{obj}")
 	end
       elsif op_info.headerparts.size == 1
        	part = op_info.headerparts[0]
@@ -366,7 +462,7 @@ class WSDLDriver
       else
 	header = SOAPHeader.new()
 	op_info.headerparts.each do |part|
-	  child = Mapping.find_attribute(obj, part.name)
+	  child = Mapping.get_attribute(obj, part.name)
 	  ele = headeritem_from_obj(child, part.element || part.eletype)
 	  header.add(part.name, ele)
 	end
@@ -380,7 +476,7 @@ class WSDLDriver
       elsif obj.is_a?(SOAPHeaderItem)
 	obj
       else
-	@doc_mapper.obj2soap(obj, name)
+        Mapping.obj2soap(obj, @doc_mapper, name)
       end
     end
 
@@ -391,7 +487,7 @@ class WSDLDriver
 	if obj.nil?
 	  nil
 	else
-	  raise RuntimeError.new("No body found in schema.")
+	  raise RuntimeError.new("no body found in schema")
 	end
       elsif op_info.bodyparts.size == 1
        	part = op_info.bodyparts[0]
@@ -400,7 +496,7 @@ class WSDLDriver
       else
 	body = SOAPBody.new
 	op_info.bodyparts.each do |part|
-	  child = Mapping.find_attribute(obj, part.name)
+	  child = Mapping.get_attribute(obj, part.name)
 	  ele = bodyitem_from_obj(child, part.element || part.type)
 	  body.add(ele.elename.name, ele)
 	end
@@ -414,40 +510,45 @@ class WSDLDriver
       elsif obj.is_a?(SOAPElement)
 	obj
       else
-	@doc_mapper.obj2soap(obj, name)
+        Mapping.obj2soap(obj, @doc_mapper, name)
       end
     end
 
     def add_method_interface(op_info)
-      name = ::XSD::CodeGen::GenSupport.safemethodname(op_info.op_name.name)
+      name = XSD::CodeGen::GenSupport.safemethodname(op_info.op_name.name)
+      orgname = op_info.op_name.name
+      parts_names = op_info.bodyparts.collect { |part| part.name }
       case op_info.style
       when :document
-	add_document_method_interface(name)
+        if orgname != name and orgname.capitalize == name.capitalize
+          add_document_method_interface(orgname, parts_names)
+        end
+	add_document_method_interface(name, parts_names)
       when :rpc
-	parts_names = op_info.bodyparts.collect { |part| part.name }
+        if orgname != name and orgname.capitalize == name.capitalize
+          add_rpc_method_interface(orgname, parts_names)
+        end
 	add_rpc_method_interface(name, parts_names)
       else
-	raise RuntimeError.new("Unknown style: #{op_info.style}")
+	raise RuntimeError.new("unknown style: #{op_info.style}")
       end
     end
 
     def add_rpc_method_interface(name, parts_names)
-      sclass = class << @host; self; end
-      sclass.__send__(:define_method, name, proc { |*arg|
+      ::SOAP::Mapping.define_singleton_method(@host, name) do |*arg|
         unless arg.size == parts_names.size
           raise ArgumentError.new(
             "wrong number of arguments (#{arg.size} for #{parts_names.size})")
         end
         @servant.rpc_call(name, *arg)
-      })
+      end
       @host.method(name)
     end
 
-    def add_document_method_interface(name)
-      sclass = class << @host; self; end
-      sclass.__send__(:define_method, name, proc { |h, b|
+    def add_document_method_interface(name, parts_names)
+      ::SOAP::Mapping.define_singleton_method(@host, name) do |h, b|
         @servant.document_send(name, h, b)
-      })
+      end
       @host.method(name)
     end
 
@@ -462,7 +563,7 @@ class WSDLDriver
       opt.add_hook("protocol.wiredump_file_base") do |key, value|
 	@wiredump_file_base = value
       end
-      opt["protocol.http.charset"] ||= XSD::Charset.encoding_label
+      opt["protocol.http.charset"] ||= XSD::Charset.xml_encoding_label
       opt["protocol.http.proxy"] ||= Env::HTTP_PROXY
       opt["protocol.http.no_proxy"] ||= Env::NO_PROXY
       opt
@@ -472,5 +573,3 @@ end
 
 
 end
-
-

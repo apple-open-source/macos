@@ -67,7 +67,7 @@ shell(str)
 	if (bangexp(cmd, sizeof(cmd)) < 0)
 		return (1);
 	if ((sh = value("SHELL")) == NULL)
-		sh = _PATH_CSHELL;
+		sh = _PATH_BSHELL;
 	(void)run_command(sh, 0, -1, -1, "-c", cmd, NULL);
 	(void)signal(SIGINT, sigint);
 	printf("!\n");
@@ -86,7 +86,7 @@ dosh(str)
 	char *sh;
 
 	if ((sh = value("SHELL")) == NULL)
-		sh = _PATH_CSHELL;
+		sh = _PATH_BSHELL;
 	(void)run_command(sh, 0, -1, -1, NULL, NULL, NULL);
 	(void)signal(SIGINT, sigint);
 	printf("\n");
@@ -107,6 +107,8 @@ bangexp(str, strsize)
 	char *cp, *cp2;
 	int n, changed = 0;
 
+	if (value("bang") == NULL)
+		return (0);
 	cp = str;
 	cp2 = bangbuf;
 	n = sizeof(bangbuf);
@@ -190,6 +192,66 @@ schdir(arglist)
 		return (1);
 	}
 	return (0);
+}
+
+char *
+getauthor(str)
+	char * str;
+{
+	char *atsign;
+	if (str == NULL) {
+		return(NULL);
+	}
+	atsign = strchr(str,'@');
+	if (atsign != NULL) {
+		str = savestr(str);	/* copy to modify */
+		atsign = strchr(str,'@');
+		*atsign = '\0';
+	}
+/*
+printf("file name=%s\n", str);
+*/
+	return (str);
+}
+
+int
+followup(msgvec)
+	int *msgvec;
+{
+	int res;
+	int reset = 0;
+	if (value("recordrecip") == NULL) {
+		assign("recordrecip", "");
+		reset = 1;
+	} 
+	res = respond(msgvec);
+	if (reset) {
+		char *alist[2];
+		alist[0] = "recordrecip";
+		alist[1] = NULL;
+		unset(alist);
+	}
+	return (res);
+}
+
+int
+Capfollowup(msgvec)
+	int *msgvec;
+{
+	int res;
+	int reset = 0;
+	if (value("recordrecip") == NULL) {
+		assign("recordrecip", "");
+		reset = 1;
+	} 
+	res = Respond(msgvec);
+	if (reset) {
+		char *alist[2];
+		alist[0] = "recordrecip";
+		alist[1] = NULL;
+		unset(alist);
+	}
+	return (res);
 }
 
 int
@@ -375,8 +437,10 @@ set(arglist)
 	char *cp, *cp2;
 	char varbuf[BUFSIZ], **ap, **p;
 	int errs, h, s;
+	int stringlength;
 
 	if (*arglist == NULL) {
+		char * printval;
 		for (h = 0, s = 1; h < HSHSIZE; h++)
 			for (vp = variables[h]; vp != NULL; vp = vp->v_link)
 				s++;
@@ -386,13 +450,32 @@ set(arglist)
 				*p++ = vp->v_name;
 		*p = NULL;
 		sort(ap);
-		for (p = ap; *p != NULL; p++)
-			printf("%s\t%s\n", *p, value(*p));
+		for (p = ap; *p != NULL; p++) {
+			printf("%s", *p);
+			printval = value(*p);
+			if (printval) {
+				if (printval[0]!='\0') printf("\t\"%s\"", printval);
+			}
+			printf("\n");
+		}
 		return (0);
 	}
 	errs = 0;
 	for (ap = arglist; *ap != NULL; ap++) {
 		cp = *ap;
+		stringlength = strlen(cp);
+		if (stringlength > 2 && cp[0]=='n' && cp[1]=='o') {
+			/* set no<var> means unset <var> */
+			char *alist[2];
+			alist[0] = cp+2;
+			alist[1] = NULL;
+			errs += unset(alist);
+			continue;
+		}
+		if (stringlength == 3 && cp[0]=='a' && cp[1]=='s' && cp[2]=='k') {
+			/* synonym: must convert into "asksub" */
+			cp = "asksub";
+		}
 		cp2 = varbuf;
 		while (cp2 < varbuf + sizeof(varbuf) - 1 && *cp != '=' && *cp != '\0')
 			*cp2++ = *cp++;
@@ -421,13 +504,27 @@ unset(arglist)
 	struct var *vp, *vp2;
 	int errs, h;
 	char **ap;
+	int stringlength;
 
 	errs = 0;
 	for (ap = arglist; *ap != NULL; ap++) {
+		stringlength = strlen(*ap);
+		if (stringlength > 2 && (*ap)[0]=='n' && (*ap)[1]=='o') {
+			/* no<var> is not in db - only <var> can be in table */
+			printf("\"%s\": variable cannot be unset\n", *ap);
+			errs++;
+			continue;
+		}
+		if (stringlength == 3 && (*ap)[0]=='a' && (*ap)[1]=='s' && (*ap)[2]=='k') {
+			/* synonym: must convert into "asksub" */
+			*ap = "asksub";
+		}
 		if ((vp2 = lookup(*ap)) == NULL) {
-			if (getenv(*ap)) 
+			if (getenv(*ap)) {
 				unsetenv(*ap);
-			else if (!sourcing) {
+				if (debug)
+					fprintf(stderr,"WARNING:  unsetting environment variable: %s\n", *ap);
+			} else if (!sourcing) {
 				printf("\"%s\": undefined variable\n", *ap);
 				errs++;
 			}
@@ -436,16 +533,16 @@ unset(arglist)
 		h = hash(*ap);
 		if (vp2 == variables[h]) {
 			variables[h] = variables[h]->v_link;
-			vfree(vp2->v_name);
-			vfree(vp2->v_value);
+			v_free(vp2->v_name);
+			v_free(vp2->v_value);
 			(void)free(vp2);
 			continue;
 		}
 		for (vp = variables[h]; vp->v_link != vp2; vp = vp->v_link)
 			;
 		vp->v_link = vp2->v_link;
-		vfree(vp2->v_name);
-		vfree(vp2->v_value);
+		v_free(vp2->v_name);
+		v_free(vp2->v_value);
 		(void)free(vp2);
 	}
 	return (errs);
@@ -608,7 +705,7 @@ doRespond(msgvec)
 	struct header head;
 	struct message *mp;
 	int *ap;
-	char *cp, *mid;
+	char *cp, *mid = NULL;
 
 	head.h_to = NULL;
 	for (ap = msgvec; *ap != 0; ap++) {

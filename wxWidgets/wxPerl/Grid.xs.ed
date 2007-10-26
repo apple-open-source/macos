@@ -1,2 +1,0 @@
-g/^#if WXPERL_W_VERSION_GE( 2, 5, 2 )/s//#ifdef notdef/
-w

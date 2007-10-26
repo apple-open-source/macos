@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = accton.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble accton.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2002 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2002, 2005 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /*
@@ -41,9 +41,25 @@
  *    0x8192  0x00A3 # POUND SIGN            0xFFE1 # FULLWIDTH POUND SIGN
  *    0x81CA  0x00AC # NOT SIGN              0xFFE2 # FULLWIDTH NOT SIGN
  *
- *    We don't implement these changes. SHIFTJIS.TXT makes more sense.
+ *    We don't implement the latter 6 of these changes, only the first one.
+ *    SHIFTJIS.TXT makes more sense. However, as a compromise with user
+ *    expectation, we implement the middle 5 of these changes in the
+ *    Unicode to CP932 direction. We don't implement the last one at all,
+ *    because it would collide with the mapping of 0xFA54.
  *
  * 3. A few new rows. See cp932ext.h.
+ *
+ * Many variants of CP932 (in GNU libc, JDK, OSF/1, Windows-2000, ICU) also
+ * add:
+ *
+ * 4. Private area mappings:
+ *
+ *              code                 Unicode
+ *    0x{F0..F9}{40..7E,80..FC}  U+E000..U+E757
+ *
+ * We add them too because, although there are backward compatibility problems
+ * when a character from a private area is moved to an official Unicode code
+ * point, they are useful for some people in practice.
  */
 
 #include "cp932ext.h"
@@ -180,6 +196,43 @@ cp932_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
     c2 = (unsigned int) (wc - 0xe000) % 188;
     r[0] = c1+0xf0;
     r[1] = (c2 < 0x3f ? c2+0x40 : c2+0x41);
+    return 2;
+  }
+
+  /* Irreversible mappings.  */
+  if (wc == 0xff5e) {
+    if (n < 2)
+      return RET_TOOSMALL;
+    r[0] = 0x81;
+    r[1] = 0x60;
+    return 2;
+  }
+  if (wc == 0x2225) {
+    if (n < 2)
+      return RET_TOOSMALL;
+    r[0] = 0x81;
+    r[1] = 0x61;
+    return 2;
+  }
+  if (wc == 0xff0d) {
+    if (n < 2)
+      return RET_TOOSMALL;
+    r[0] = 0x81;
+    r[1] = 0x7c;
+    return 2;
+  }
+  if (wc == 0xffe0) {
+    if (n < 2)
+      return RET_TOOSMALL;
+    r[0] = 0x81;
+    r[1] = 0x91;
+    return 2;
+  }
+  if (wc == 0xffe1) {
+    if (n < 2)
+      return RET_TOOSMALL;
+    r[0] = 0x81;
+    r[1] = 0x92;
     return 2;
   }
 

@@ -6,13 +6,15 @@ exec_prefix="`eval echo @exec_prefix@`"
 phpdir="`eval echo @libdir@`/build"
 includedir="`eval echo @includedir@`/php"
 builddir="`pwd`"
+SED="@SED@"
 
 FILES_BUILD="mkdep.awk scan_makefile_in.awk shtool libtool.m4"
-FILES="acinclude.m4 Makefile.global config.sub config.guess ltmain.sh"
+FILES="acinclude.m4 Makefile.global config.sub config.guess ltmain.sh run-tests*.php"
 CLEAN_FILES="$FILES *.o *.lo *.la .deps .libs/ build/ include/ modules/ install-sh \
-    mkinstalldirs missing config.nice config.sub config.guess configure configure.in \
+	mkinstalldirs missing config.nice config.sub config.guess configure configure.in \
 	aclocal.m4 config.h config.h.in conftest* ltmain.sh libtool config.cache autom4te.cache/ \
-	config.log config.status Makefile Makefile.fragments Makefile.objects confdefs.h"
+	config.log config.status Makefile Makefile.fragments Makefile.objects confdefs.h \
+	run-tests*.php tests/*.diff tests/*.exp tests/*.log tests/*.out tests/*.php"
 
 # function declaration
 phpize_usage()
@@ -35,7 +37,11 @@ phpize_clean()
 {
   echo "Cleaning.."
   for i in $CLEAN_FILES; do
-    test -e $i && rm -rf $i
+    if test -f "$i"; then
+      rm -f $i
+    elif test -d "$i"; then
+      rm -rf $i
+    fi
   done
 }
 
@@ -51,9 +57,9 @@ phpize_check_configm4()
 phpize_get_api_numbers()
 {
   # extracting API NOs:
-  PHP_API_VERSION=`grep '#define PHP_API_VERSION' $includedir/main/php.h|sed 's/#define PHP_API_VERSION//'`
-  ZEND_MODULE_API_NO=`grep '#define ZEND_MODULE_API_NO' $includedir/Zend/zend_modules.h|sed 's/#define ZEND_MODULE_API_NO//'`
-  ZEND_EXTENSION_API_NO=`grep '#define ZEND_EXTENSION_API_NO' $includedir/Zend/zend_extensions.h|sed 's/#define ZEND_EXTENSION_API_NO//'`
+  PHP_API_VERSION=`grep '#define PHP_API_VERSION' $includedir/main/php.h|$SED 's/#define PHP_API_VERSION//'`
+  ZEND_MODULE_API_NO=`grep '#define ZEND_MODULE_API_NO' $includedir/Zend/zend_modules.h|$SED 's/#define ZEND_MODULE_API_NO//'`
+  ZEND_EXTENSION_API_NO=`grep '#define ZEND_EXTENSION_API_NO' $includedir/Zend/zend_extensions.h|$SED 's/#define ZEND_EXTENSION_API_NO//'`
 }
 
 phpize_print_api_numbers()
@@ -126,7 +132,7 @@ phpize_copy_files()
 
 phpize_replace_prefix()
 {
-  sed \
+  $SED \
   -e "s#@prefix@#$prefix#" \
   < "$phpdir/phpize.m4" > configure.in
 }

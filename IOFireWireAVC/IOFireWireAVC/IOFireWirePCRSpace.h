@@ -63,6 +63,7 @@ protected:
     Client fClients[64];
     UInt32 fActivations;
 	IOFireWireAVCTargetSpace *	fAVCTargetSpace;
+	IONotifier *fNotifier;
     
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.

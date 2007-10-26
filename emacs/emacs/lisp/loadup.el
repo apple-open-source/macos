@@ -1,6 +1,7 @@
 ;;; loadup.el --- load up standardly loaded Lisp files for Emacs
 
-;; Copyright (C) 1985, 1986, 1992, 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1992, 1994, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: internal
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -34,17 +35,23 @@
 	(equal (nth 4 command-line-args) "bootstrap")
 	;; in case CANNOT_DUMP
 	(equal (nth 0 command-line-args) "../src/bootstrap-emacs"))
-    (let ((path (car load-path)))
-      (setq load-path (list path
-			    (expand-file-name "emacs-lisp" path)
-			    (expand-file-name "international" path)))))
+    (let ((dir (car load-path)))
+      ;; We'll probably overflow the pure space.
+      (setq purify-flag nil)
+      (setq load-path (list dir
+			    (expand-file-name "emacs-lisp" dir)
+			    (expand-file-name "language" dir)
+			    (expand-file-name "international" dir)
+			    (expand-file-name "textmodes" dir)))))
 
 (message "Using load-path %s" load-path)
 
-;;; We don't want to have any undo records in the dumped Emacs.
-(buffer-disable-undo "*scratch*")
+;; We don't want to have any undo records in the dumped Emacs.
+(set-buffer "*scratch*")
+(setq buffer-undo-list t)
 
-(load "byte-run")
+(load "emacs-lisp/byte-run")
+(load "emacs-lisp/backquote")
 (load "subr")
 
 ;; We specify .el in case someone compiled version.el by mistake.
@@ -52,8 +59,7 @@
 
 (load "widget")
 (load "custom")
-(load "emacs-lisp/backquote")
-(load "map-ynp")
+(load "emacs-lisp/map-ynp")
 (load "env")
 (load "cus-start")
 (load "international/mule")
@@ -61,22 +67,28 @@
 (load "format")
 (load "bindings")
 (setq load-source-file-function 'load-with-code-conversion)
-(load "simple")
 (load "files")
+
+(load "cus-face")
+(load "faces")  ; after here, `defface' may be used.
 
 (message "Lists of integers (garbage collection statistics) are normal output")
 (message "while building Emacs; they do not indicate a problem.")
 (message "%s" (garbage-collect))
 (load "loaddefs.el")  ;Don't get confused if someone compiled this by mistake.
 (message "%s" (garbage-collect))
+(load "simple")
 
 (load "help")
+
+(load "jka-cmpr-hook")
 ;; Any Emacs Lisp source file (*.el) loaded here after can contain
 ;; multilingual text.
 (load "international/mule-cmds")
 (load "case-table")
-(load "international/characters")
 (load "international/utf-8")
+(load "international/utf-16")
+(load "international/characters")
 
 (let ((set-case-syntax-set-multibyte t))
   (load "international/latin-1")
@@ -90,7 +102,10 @@
 (load "language/chinese")
 (load "language/cyrillic")
 (load "language/indian")
-(load "language/devanagari")		; This should be loaded after indian.
+(load "language/devanagari")	 ; This should be loaded after indian.
+(load "language/malayalam")	 ; This should be loaded after indian.
+(load "language/tamil")		 ; This should be loaded after indian.
+(load "language/kannada")	 ; This should be loaded after indian.
 (load "language/english")
 (load "language/ethiopic")
 (load "language/european")
@@ -106,23 +121,34 @@
 (load "language/tibetan")
 (load "language/vietnamese")
 (load "language/misc-lang")
+(load "language/utf-8-lang")
+(load "language/georgian")
+
+(load "international/ucs-tables")
+
 (update-coding-systems-internal)
 
 (load "indent")
 (load "window")
 (load "frame")
 (load "term/tty-colors")
-(load "faces")
-(if (fboundp 'frame-face-alist)
-    (progn
-      (load "facemenu")))
+(load "font-core")
+;; facemenu must be loaded before font-lock, because `facemenu-keymap'
+;; needs to be defined when font-lock is loaded.
+(load "facemenu")
+(load "emacs-lisp/syntax")
+(load "font-lock")
+(load "jit-lock")
+
 (if (fboundp 'track-mouse)
     (progn
       (load "mouse")
       (and (boundp 'x-toolkit-scroll-bars)
 	   (load "scroll-bar"))
       (load "select")))
+(load "emacs-lisp/timer")
 (load "isearch")
+(load "rfn-eshadow")
 
 (message "%s" (garbage-collect))
 (load "menu-bar")
@@ -143,6 +169,19 @@
       (load "vmsproc")))
 (load "abbrev")
 (load "buff-menu")
+
+(if (fboundp 'x-create-frame)
+    (progn
+      (load "fringe")
+      (load "image")
+      (load "international/fontset")
+      (load "dnd")
+      (load "mwheel")
+      (load "tool-bar")))
+(if (featurep 'x)
+    (load "x-dnd"))
+(message "%s" (garbage-collect))
+
 (if (eq system-type 'vax-vms)
     (progn
       (load "vms-patch")))
@@ -151,6 +190,7 @@
       (load "ls-lisp")
       (load "disp-table") ; needed to setup ibm-pc char set, see internal.el
       (load "dos-w32")
+      (load "w32-vars")
       (load "w32-fns")))
 (if (eq system-type 'ms-dos)
     (progn
@@ -166,11 +206,13 @@
       (load "ls-lisp")))
 (if (fboundp 'atan)	; preload some constants and
     (progn		; floating pt. functions if we have float support.
-      (load "float-sup")))
+      (load "emacs-lisp/float-sup")))
 (message "%s" (garbage-collect))
 
 (load "vc-hooks")
 (load "ediff-hook")
+(if (fboundp 'x-show-tip) (load "tooltip"))
+
 (message "%s" (garbage-collect))
 
 ;If you want additional libraries to be preloaded and their
@@ -198,11 +240,10 @@
 	   (versions (mapcar (function (lambda (name)
 					 (string-to-int (substring name (length base)))))
 			     files)))
-      (setq emacs-version (format "%s.%d"
-				  emacs-version
-				  (if versions
-				      (1+ (apply 'max versions))
-				    1)))))
+      ;; `emacs-version' is a constant, so we shouldn't change it with `setq'.
+      (defconst emacs-version
+	(format "%s.%d"
+		emacs-version (if versions (1+ (apply 'max versions)) 1)))))
 
 ;; Note: all compiled Lisp files loaded above this point
 ;; must be among the ones parsed by make-docfile
@@ -238,33 +279,39 @@
 
 ;; Write the value of load-history into fns-VERSION.el,
 ;; then clear out load-history.
-(if (or (equal (nth 3 command-line-args) "dump")
-	(equal (nth 4 command-line-args) "dump"))
-    (let ((buffer-undo-list t))
-      (princ "(setq load-history\n" (current-buffer))
-      (princ "      (nconc load-history\n" (current-buffer))
-      (princ "             '(" (current-buffer))
-      (let ((tem load-history))
-	(while tem
-	  (prin1 (car tem) (current-buffer))
-	  (terpri (current-buffer))
-	  (if (cdr tem)
-	      (princ "               " (current-buffer)))
-	  (setq tem (cdr tem))))
-      (princ ")))\n" (current-buffer))
-      (write-region (point-min) (point-max)
-		    (expand-file-name
-		     (cond
-		      ((eq system-type 'ms-dos)
-		       "../lib-src/fns.el")
-		      ((eq system-type 'windows-nt)
-		       (format "../../../lib-src/fns-%s.el" emacs-version))
-		      (t
-		       (format "../lib-src/fns-%s.el" emacs-version)))
-		     invocation-directory))
-      (erase-buffer)
-      (setq load-history nil))
-  (setq symbol-file-load-history-loaded t))
+;; (if (or (equal (nth 3 command-line-args) "dump")
+;; 	(equal (nth 4 command-line-args) "dump"))
+;;     (let ((buffer-undo-list t))
+;;       (princ "(setq load-history\n" (current-buffer))
+;;       (princ "      (nconc load-history\n" (current-buffer))
+;;       (princ "             '(" (current-buffer))
+;;       (let ((tem load-history))
+;; 	(while tem
+;; 	  (prin1 (car tem) (current-buffer))
+;; 	  (terpri (current-buffer))
+;; 	  (if (cdr tem)
+;; 	      (princ "               " (current-buffer)))
+;; 	  (setq tem (cdr tem))))
+;;       (princ ")))\n" (current-buffer))
+;;       (write-region (point-min) (point-max)
+;; 		    (expand-file-name
+;; 		     (cond
+;; 		      ((eq system-type 'ms-dos)
+;; 		       "../lib-src/fns.el")
+;; 		      ((eq system-type 'windows-nt)
+;; 		       (format "../../../lib-src/fns-%s.el" emacs-version))
+;; 		      (t
+;; 		       (format "../lib-src/fns-%s.el" emacs-version)))
+;; 		     invocation-directory))
+;;       (erase-buffer)
+;;       (setq load-history nil))
+;;   (setq symbol-file-load-history-loaded t))
+;; We don't use this fns-*.el file.  Instead we keep the data in PURE space.
+;; Make sure that the spine of the list is not in pure space because it can
+;; be destructively mutated in lread.c:build_load_history.
+(setq load-history (mapcar 'purecopy load-history))
+(setq symbol-file-load-history-loaded t)
+
 (set-buffer-modified-p nil)
 
 ;; reset the load-path.  See lread.c:init_lread why.
@@ -276,6 +323,9 @@
 
 ;;; At this point, we're ready to resume undo recording for scratch.
 (buffer-enable-undo "*scratch*")
+
+(if (null (garbage-collect))
+    (setq pure-space-overflow t))
 
 (if (or (member (nth 3 command-line-args) '("dump" "bootstrap"))
 	(member (nth 4 command-line-args) '("dump" "bootstrap")))
@@ -289,7 +339,7 @@
 	  (setq name (concat (downcase (substring name 0 (match-beginning 0)))
 			     "-"
 			     (substring name (match-end 0)))))
-	(if (eq system-type 'ms-dos)
+	(if (memq system-type '(ms-dos windows-nt cygwin))
 	    (message "Dumping under the name emacs")
 	  (message "Dumping under names emacs and %s" name)))
       (condition-case ()
@@ -302,7 +352,7 @@
       (dump-emacs "emacs" "temacs")
       (message "%d pure bytes used" pure-bytes-used)
       ;; Recompute NAME now, so that it isn't set when we dump.
-      (if (not (memq system-type '(ms-dos windows-nt)))
+      (if (not (memq system-type '(ms-dos windows-nt cygwin)))
 	  (let ((name (concat "emacs-" emacs-version)))
 	    (while (string-match "[^-+_.a-zA-Z0-9]+" name)
 	      (setq name (concat (downcase (substring name 0 (match-beginning 0)))
@@ -324,4 +374,11 @@
 
 (eval top-level)
 
+
+;;; Local Variables:
+;;; no-byte-compile: t
+;;; no-update-autoloads: t
+;;; End:
+
+;;; arch-tag: 121e1dd4-36e1-45ac-860e-239f577a6335
 ;;; loadup.el ends here

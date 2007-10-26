@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -36,11 +36,8 @@
 #define DELIM_LS 0x2028
 #define DELIM_PS 0x2029
 
-/* Leave this copyright notice here! */
-static const char copyright[] = U_COPYRIGHT_STRING;
-
 /* TODO: is this correct for all codepages? Should we just use \n and let the converter handle it? */
-#ifdef WIN32
+#ifdef U_WINDOWS
 static const UChar DELIMITERS [] = { DELIM_CR, DELIM_LF, 0x0000 };
 static const uint32_t DELIMITERS_LEN = 2;
 /* TODO: Default newline writing should be detected based upon the converter being used. */
@@ -233,7 +230,7 @@ ufile_flush_translit(UFILE *f)
         return;
 #endif
 
-    u_file_write_flush(NULL, 0, f, TRUE);
+    u_file_write_flush(NULL, 0, f, FALSE, TRUE);
 }
 
 
@@ -283,58 +280,57 @@ u_fputc(UChar32      uc,
 
     U16_APPEND(buf, idx, sizeof(buf)/sizeof(*buf), uc, isError);
     if (isError) {
-        return EOF;
+        return U_EOF;
     }
-    return u_file_write(buf, idx, f) == idx ? uc : EOF;
+    return u_file_write(buf, idx, f) == idx ? uc : U_EOF;
 }
 
 
 U_CAPI int32_t U_EXPORT2
-u_file_write_flush(    const UChar     *chars,
-                   int32_t        count,
-                   UFILE         *f,
-                   UBool         flush)
+u_file_write_flush(const UChar *chars,
+                   int32_t     count,
+                   UFILE       *f,
+                   UBool       flushIO,
+                   UBool       flushTranslit)
 {
     /* Set up conversion parameters */
     UErrorCode  status       = U_ZERO_ERROR;
     const UChar *mySource    = chars;
-    const UChar *sourceAlias = chars;
     const UChar *mySourceEnd;
     char        charBuffer[UFILE_CHARBUFFER_SIZE];
     char        *myTarget   = charBuffer;
     int32_t     written      = 0;
     int32_t     numConverted = 0;
 
-    if (!f->fFile) {
-        int32_t charsLeft = f->str.fLimit - f->str.fPos;
-        if (flush && charsLeft > count) {
-            count++;
-        }
-        written = ufmt_min(count, charsLeft);
-        u_strncpy(f->str.fPos, chars, written);
-        f->str.fPos += written;
-        return written;
-    }
-
     if (count < 0) {
         count = u_strlen(chars);
     }
-    mySourceEnd     = chars + count;
 
 #if !UCONFIG_NO_TRANSLITERATION
     if((f->fTranslit) && (f->fTranslit->translit))
     {
         /* Do the transliteration */
-        mySource = u_file_translit(f, chars, &count, flush);
-        sourceAlias = mySource;
-        mySourceEnd = mySource + count;
+        mySource = u_file_translit(f, chars, &count, flushTranslit);
     }
 #endif
+
+    /* Write to a string. */
+    if (!f->fFile) {
+        int32_t charsLeft = (int32_t)(f->str.fLimit - f->str.fPos);
+        if (flushIO && charsLeft > count) {
+            count++;
+        }
+        written = ufmt_min(count, charsLeft);
+        u_strncpy(f->str.fPos, mySource, written);
+        f->str.fPos += written;
+        return written;
+    }
+
+    mySourceEnd = mySource + count;
 
     /* Perform the conversion in a loop */
     do {
         status     = U_ZERO_ERROR;
-        sourceAlias = mySource;
         if(f->fConverter != NULL) { /* We have a valid converter */
             ucnv_fromUnicode(f->fConverter,
                 &myTarget,
@@ -342,7 +338,7 @@ u_file_write_flush(    const UChar     *chars,
                 &mySource,
                 mySourceEnd,
                 NULL,
-                flush,
+                flushIO,
                 &status);
         } else { /*weiv: do the invariant conversion */
             u_UCharsToChars(mySource, myTarget, count);
@@ -372,7 +368,7 @@ u_file_write(    const UChar     *chars,
              int32_t        count,
              UFILE         *f)
 {
-    return u_file_write_flush(chars,count,f,FALSE);
+    return u_file_write_flush(chars,count,f,FALSE,FALSE);
 }
 
 
@@ -421,7 +417,7 @@ ufile_fill_uchar_buffer(UFILE *f)
     if (f->fFileno == 0) {
         /* Special case. Read from stdin one line at a time. */
         char *retStr = fgets(charBuffer, ufmt_min(maxCPBytes, UFILE_CHARBUFFER_SIZE), f->fFile);
-        bytesRead = (retStr ? uprv_strlen(charBuffer) : 0);
+        bytesRead = (int32_t)(retStr ? uprv_strlen(charBuffer) : 0);
     }
     else {
         /* A normal file */
@@ -501,11 +497,11 @@ u_fgets(UChar        *s,
         alias = str->fPos;
 
         /* Find how much to copy */
-        if (dataSize < n) {
+        if (dataSize < (n - count)) {
             limit = str->fLimit;
         }
         else {
-            limit = alias + n;
+            limit = alias + (n - count);
         }
 
         if (!currDelim) {
@@ -518,6 +514,12 @@ u_fgets(UChar        *s,
             if (alias < limit && IS_FIRST_STRING_DELIMITER(*alias)) {
                 if (CAN_HAVE_COMBINED_STRING_DELIMITER(*alias)) {
                     currDelim = *alias;
+                }
+                else {
+                    currDelim = 1;  /* This isn't a newline, but it's used to say
+                                    that we should break later. We've checked all
+                                    possible newline combinations even across buffer
+                                    boundaries. */
                 }
                 count++;
                 *(sItr++) = *(alias++);

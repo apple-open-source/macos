@@ -259,6 +259,31 @@ int writen(int ref, void *data, int len)
     return len;
 }        
 
+typedef void (*msg_function)(struct client *client, struct msg *msg, void **reply);
+
+msg_function requests[] = {
+    NULL,			/* */
+    socket_version, 		/* PPP_VERSION */
+    socket_status, 		/* PPP_STATUS */
+    socket_connect, 		/* PPP_CONNECT */
+    NULL,			/* */
+    socket_disconnect, 		/* PPP_DISCONNECT */
+    socket_getoption, 		/* PPP_GETOPTION */
+    socket_setoption, 		/* PPP_SETOPTION */
+    socket_enable_event, 		/* PPP_ENABLE_EVENT */
+    socket_disable_event,		/* PPP_DISABLE_EVENT */
+    NULL,	 		/* PPP_EVENT */
+    socket_getnblinks, 		/* PPP_GETNBLINKS */
+    socket_getlinkbyindex, 	/* PPP_GETLINKBYINDEX */
+    socket_getlinkbyserviceid, 	/* PPP_GETLINKBYSERVICEID */
+    socket_getlinkbyifname, 	/* PPP_GETLINKBYIFNAME */
+    socket_suspend, 		/* PPP_SUSPEND */
+    socket_resume, 		/* PPP_RESUME */
+    socket_extendedstatus, 	/* PPP_EXTENDEDSTATUS */
+    socket_getconnectdata 		/* PPP_GETCONNECTDATA */
+};
+#define LAST_REQUEST PPP_GETCONNECTDATA
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
@@ -284,6 +309,20 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
             default:
                 client->msglen += n;
                 if (client->msglen == sizeof(struct ppp_msg_hdr)) {
+				
+					/* check if message bytes are in network order */
+					if (!(client->flags & CLIENT_FLAG_PRIVILEDGED) && (client->msghdr.m_type > LAST_REQUEST)) {
+						client->flags |= CLIENT_FLAG_SWAP_BYTES;
+						client->msghdr.m_flags = htons(client->msghdr.m_flags);
+						client->msghdr.m_type = htons(client->msghdr.m_type);
+						client->msghdr.m_result = htonl(client->msghdr.m_result);
+						client->msghdr.m_cookie = htonl(client->msghdr.m_cookie);
+						client->msghdr.m_link = htonl(client->msghdr.m_link);
+						client->msghdr.m_len = htonl(client->msghdr.m_len);
+					}
+					else 
+						client->flags &= ~CLIENT_FLAG_SWAP_BYTES;
+
                     client->msgtotallen = client->msglen
                         + client->msghdr.m_len
                         + (client->msghdr.m_flags & USE_SERVICEID ? client->msghdr.m_link : 0);
@@ -336,31 +375,6 @@ void clientCallBack(CFSocketRef inref, CFSocketCallBackType type,
     }
 }
 
-typedef void (*msg_function)(struct client *client, struct msg *msg, void **reply);
-
-msg_function requests[] = {
-    NULL,			/* */
-    socket_version, 		/* PPP_VERSION */
-    socket_status, 		/* PPP_STATUS */
-    socket_connect, 		/* PPP_CONNECT */
-    NULL,			/* */
-    socket_disconnect, 		/* PPP_DISCONNECT */
-    socket_getoption, 		/* PPP_GETOPTION */
-    socket_setoption, 		/* PPP_SETOPTION */
-    socket_enable_event, 		/* PPP_ENABLE_EVENT */
-    socket_disable_event,		/* PPP_DISABLE_EVENT */
-    NULL,	 		/* PPP_EVENT */
-    socket_getnblinks, 		/* PPP_GETNBLINKS */
-    socket_getlinkbyindex, 	/* PPP_GETLINKBYINDEX */
-    socket_getlinkbyserviceid, 	/* PPP_GETLINKBYSERVICEID */
-    socket_getlinkbyifname, 	/* PPP_GETLINKBYIFNAME */
-    socket_suspend, 		/* PPP_SUSPEND */
-    socket_resume, 		/* PPP_RESUME */
-    socket_extendedstatus, 	/* PPP_EXTENDEDSTATUS */
-    socket_getconnectdata 		/* PPP_GETCONNECTDATA */
-};
-#define LAST_REQUEST PPP_GETCONNECTDATA
-
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
@@ -368,6 +382,7 @@ void processRequest (struct client *client, struct msg *msg)
 {
     void		*reply = 0;
     msg_function	func; 
+	struct ppp_msg_hdr	hdr;
     
     PRINTF(("process_request : type = %x, len = %d\n", msg->hdr.m_type, msg->hdr.m_len));
     //printf("process_request : type = %x, len = %d\n", msg->hdr.m_type, msg->hdr.m_len);
@@ -396,19 +411,32 @@ void processRequest (struct client *client, struct msg *msg)
         }
     }
 
-    if (msg->hdr.m_len != 0xFFFFFFFF) {
+	/* save header before swapping bytes */
+	bcopy(msg, &hdr, sizeof(hdr));
+	
+	/* swap back bytes in the message header */
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES) {
+		msg->hdr.m_flags = htons(msg->hdr.m_flags);
+		msg->hdr.m_type = htons(msg->hdr.m_type);
+		msg->hdr.m_result = htonl(msg->hdr.m_result);
+		msg->hdr.m_cookie = htonl(msg->hdr.m_cookie);
+		msg->hdr.m_link = htonl(msg->hdr.m_link);
+		msg->hdr.m_len = htonl(msg->hdr.m_len);
+	}
+
+    if (hdr.m_len != 0xFFFFFFFF) {
 
         writen(CFSocketGetNative(client->socketRef), msg, sizeof(struct ppp_msg_hdr) + 
-            (msg->hdr.m_flags & USE_SERVICEID ? msg->hdr.m_link : 0));
+            (hdr.m_flags & USE_SERVICEID ? hdr.m_link : 0));
 
-       if (msg->hdr.m_len) {
-            writen(CFSocketGetNative(client->socketRef), reply, msg->hdr.m_len);
-            my_Deallocate(reply, msg->hdr.m_len);
+       if (hdr.m_len) {
+            writen(CFSocketGetNative(client->socketRef), reply, hdr.m_len);
+            my_Deallocate(reply, hdr.m_len);
         }
         PRINTF(("process_request : m_type = 0x%x, result = 0x%x, cookie = 0x%x, link = 0x%x, len = 0x%x\n",
-                msg->hdr.m_type, msg->hdr.m_result, msg->hdr.m_cookie, msg->hdr.m_link, msg->hdr.m_len));
+                hdr.m_type, hdr.m_result, hdr.m_cookie, hdr.m_link, hdr.m_len));
 #if 0
-        if (msg->hdr.m_type == PPP_STATUS) {
+        if (hdr.m_type == PPP_STATUS) {
             struct ppp_status *stat = (struct ppp_status *)&msg->data[0];
             PRINTF(("     ----- status = 0x%x", stat->status));
             if (stat->status != PPP_RUNNING) {
@@ -454,6 +482,19 @@ void socket_status(struct client *client, struct msg *msg, void **reply)
 		msg->hdr.m_result = err;
 		msg->hdr.m_len = 0;
         return;
+	}
+	
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES) {
+		struct ppp_status *stat = (struct ppp_status *)*reply;
+		stat->status = htonl(stat->status);
+		stat->s.run.timeElapsed = htonl(stat->s.run.timeElapsed);
+		stat->s.run.timeRemaining = htonl(stat->s.run.timeRemaining);
+		stat->s.run.inBytes = htonl(stat->s.run.inBytes);
+		stat->s.run.inPackets = htonl(stat->s.run.inPackets);
+		stat->s.run.inErrors = htonl(stat->s.run.inErrors);
+		stat->s.run.outBytes = htonl(stat->s.run.outBytes);
+		stat->s.run.outPackets = htonl(stat->s.run.outPackets);
+		stat->s.run.outErrors = htonl(stat->s.run.outErrors);
 	}
 
     msg->hdr.m_result = 0;
@@ -616,6 +657,8 @@ void socket_enable_event(struct client *client, struct msg *msg, void **reply)
     
     if (msg->hdr.m_len == 4) {
         notification = *(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
+		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+			notification = htonl(notification);
         if (notification < 1 || notification > 3) {
             msg->hdr.m_result = EINVAL;
             msg->hdr.m_len = 0;
@@ -657,6 +700,8 @@ void socket_disable_event(struct client *client, struct msg *msg, void **reply)
     
     if (msg->hdr.m_len == 4) {
         notification = *(u_int32_t *)&msg->data[MSG_DATAOFF(msg)];
+		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+			notification = htonl(notification);
         if (notification < 1 || notification > 3) {
             msg->hdr.m_result = EINVAL;
             msg->hdr.m_len = 0;
@@ -695,6 +740,8 @@ void socket_version(struct client *client, struct msg *msg, void **reply)
         msg->hdr.m_result = 0;
         msg->hdr.m_len = sizeof(u_int32_t);
         *(u_int32_t*)*reply = CURRENT_VERSION;
+		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+			*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
     }
 }
 
@@ -723,6 +770,8 @@ void socket_getnblinks(struct client *client, struct msg *msg, void **reply)
         msg->hdr.m_result = 0;
         msg->hdr.m_len = sizeof(u_int32_t);
         *(u_int32_t*)*reply = nb;
+		if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+			*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
     }
 }
 
@@ -738,6 +787,8 @@ void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
     u_short		subtype = msg->hdr.m_link >> 16;
 
     index = *(u_long *)&msg->data[0];
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+		index = htonl(index);
 
     TAILQ_FOREACH(ppp, &ppp_head, next) {
         if ((subtype == 0xFFFF)
@@ -750,6 +801,8 @@ void socket_getlinkbyindex(struct client *client, struct msg *msg, void **reply)
                     err = 0;
                     len = sizeof(u_int32_t);
                     *(u_int32_t*)*reply = ppp_makeref(ppp);
+					if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+						*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
                 }
                 break;
             }
@@ -782,6 +835,8 @@ void socket_getlinkbyserviceid(struct client *client, struct msg *msg, void **re
                 err = 0;
                 len = sizeof(u_int32_t);
                 *(u_int32_t*)*reply = ppp_makeref(ppp);
+				if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+					*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
             }
         }
         CFRelease(ref);
@@ -822,6 +877,8 @@ void socket_getlinkbyifname(struct client *client, struct msg *msg, void **reply
                     err = 0;
                     len = sizeof(u_int32_t);
                     *(u_int32_t*)*reply = ppp_makeref(ppp);
+					if (client->flags & CLIENT_FLAG_SWAP_BYTES) 
+						*(u_int32_t*)*reply = htonl(*(u_int32_t*)*reply);
                 }
             }
             break;
@@ -1037,6 +1094,11 @@ void socket_setoption(struct client *client, struct msg *msg, void **reply)
         return;
     }
 
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES) {
+		opt->o_type = htonl(opt->o_type);
+		optint = htonl(optint);
+	}
+	
     // not connected, set the client options that will be used.
     opts = client_findoptset(client, ppp->serviceID);
     if (!opts) {
@@ -1226,6 +1288,9 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
         msg->hdr.m_result = ENODEV;
         return;
     }
+	
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES)
+		opt->o_type = htonl(opt->o_type);
 
     if (ppp->phase != PPP_IDLE)
         // take the active user options
@@ -1247,6 +1312,35 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
         return;
     }
 
+	if (client->flags & CLIENT_FLAG_SWAP_BYTES) {
+		switch(opt->o_type) {
+			// all 4 bytes options
+			case PPP_OPT_DEV_SPEED:
+			case PPP_OPT_COMM_IDLETIMER:
+			case PPP_OPT_AUTH_PROTO:
+			case PPP_OPT_LCP_HDRCOMP:
+			case PPP_OPT_LCP_MRU:
+			case PPP_OPT_LCP_MTU:
+			case PPP_OPT_LCP_RCACCM:
+			case PPP_OPT_LCP_TXACCM:
+			case PPP_OPT_IPCP_HDRCOMP:
+			case PPP_OPT_IPCP_LOCALADDR:
+			case PPP_OPT_IPCP_REMOTEADDR:
+			case PPP_OPT_RESERVED:
+			case PPP_OPT_COMM_REMINDERTIMER:
+			case PPP_OPT_ALERTENABLE:
+			case PPP_OPT_COMM_CONNECTDELAY:
+			case PPP_OPT_COMM_SESSIONTIMER:
+			case PPP_OPT_COMM_TERMINALMODE:
+			case PPP_OPT_DEV_CONNECTSPEED:
+			case PPP_OPT_DEV_DIALMODE:
+			case PPP_OPT_DIALONDEMAND:
+			case PPP_OPT_LCP_ECHO:
+				*(u_int32_t*)optdata = htonl(*(u_int32_t*)optdata);
+				break;
+		}
+	}
+
     bcopy(opt, *reply, sizeof(struct ppp_opt_hdr));
     bcopy(optdata, (*reply) + sizeof(struct ppp_opt_hdr), optlen);
     
@@ -1256,10 +1350,11 @@ void socket_getoption (struct client *client, struct msg *msg, void **reply)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long event, u_long error)
+void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long event, u_long error, u_int32_t flags)
 {
     struct ppp_msg_hdr	msg;    
-
+	int link_len;
+	
 	bzero(&msg, sizeof(msg));
 	msg.m_type = PPP_EVENT;
 	msg.m_link = link;
@@ -1268,13 +1363,24 @@ void socket_client_notify (CFSocketRef ref, u_char *sid, u_int32_t link, u_long 
 	if (sid) {
 		msg.m_flags |= USE_SERVICEID;
 		msg.m_link = strlen(sid);
+		link_len = msg.m_link; /* save len */
 	}
 	
+	/* swap back bytes that have been assigned by internal processing functions */
+	if (flags & CLIENT_FLAG_SWAP_BYTES) {
+		msg.m_flags = htons(msg.m_flags);
+		msg.m_type = htons(msg.m_type);
+		msg.m_result = htonl(msg.m_result);
+		msg.m_cookie = htonl(msg.m_cookie);
+		msg.m_link = htonl(msg.m_link);
+		msg.m_len = htonl(msg.m_len);
+	}
+
 	if (writen(CFSocketGetNative(ref), &msg, sizeof(msg)) != sizeof(msg))
 		return;
 
 	if (sid) {
-		if (writen(CFSocketGetNative(ref), sid, msg.m_link) != msg.m_link)
+		if (writen(CFSocketGetNative(ref), sid, link_len) != link_len)
 			return;
 	}
 }

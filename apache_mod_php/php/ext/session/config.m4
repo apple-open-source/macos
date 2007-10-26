@@ -1,18 +1,19 @@
 dnl
-dnl $Id: config.m4,v 1.23.2.2 2003/10/01 02:54:06 sniper Exp $
+dnl $Id: config.m4,v 1.28 2005/05/29 23:16:44 sniper Exp $
 dnl
 
 PHP_ARG_ENABLE(session, whether to enable PHP sessions,
 [  --disable-session       Disable session support], yes)
 
 PHP_ARG_WITH(mm,for mm support,
-[  --with-mm[=DIR]         Include mm support for session storage], no, no)
+[  --with-mm[=DIR]           SESSION: Include mm support for session storage], no, no)
 
 if test "$PHP_SESSION" != "no"; then
   PHP_PWRITE_TEST
   PHP_PREAD_TEST
   PHP_NEW_EXTENSION(session, session.c mod_files.c mod_mm.c mod_user.c, $ext_shared)
   PHP_SUBST(SESSION_SHARED_LIBADD)
+  PHP_INSTALL_HEADERS(ext/session, [php_session.h mod_files.h mod_user.h])
   AC_DEFINE(HAVE_PHP_SESSION,1,[ ])
 fi
 
@@ -25,7 +26,8 @@ if test "$PHP_MM" != "no"; then
     AC_MSG_ERROR(cannot find mm library)
   fi
   
-  PHP_ADD_LIBRARY_WITH_PATH(mm, $MM_DIR/lib, SESSION_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(mm, $MM_DIR/$PHP_LIBDIR, SESSION_SHARED_LIBADD)
   PHP_ADD_INCLUDE($MM_DIR/include)
+  PHP_INSTALL_HEADERS([ext/session/mod_mm.h])
   AC_DEFINE(HAVE_LIBMM, 1, [Whether you have libmm])
 fi

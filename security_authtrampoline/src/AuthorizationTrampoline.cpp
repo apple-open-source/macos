@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <Security/Authorization.h>
+#include <security_utilities/endian.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/logging.h>
 
@@ -101,6 +102,7 @@ int main(int argc, const char *argv[])
 	
 	// put the external authorization form into the environment
 	setenv("__AUTHORIZATION", mboxFdText, true);
+	setenv("_BASH_IMPLICIT_DASH_PEE", "-p", true);
 
 	// shuffle file descriptors
 	int notify = dup(1);		// save notify port
@@ -117,7 +119,7 @@ int main(int argc, const char *argv[])
 	secdebug("authexec", "exec(%s) failed (errno=%d)", pathToTool, errno);
 	
 	// report failure
-	OSStatus error = errAuthorizationToolExecuteFailure;
+	OSStatus error = h2n(OSStatus(errAuthorizationToolExecuteFailure));
 	write(notify, &error, sizeof(error));
 	exit(1);
 }
@@ -125,7 +127,8 @@ int main(int argc, const char *argv[])
 
 void fail(OSStatus cause)
 {
-	write(1, &cause, sizeof(cause));	// ignore error - can't do anything if error
+	OSStatus tmp = h2n(cause);
+	write(1, &tmp, sizeof(tmp));	// ignore error - can't do anything if error
 	secdebug("authtramp", "trampoline aborting with status %ld", cause);
 	exit(1);
 }

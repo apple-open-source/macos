@@ -62,9 +62,9 @@
     //
     // Currently defined functions are:
     // 
-    //    IOReturn DevaSetIoPortsConfig(IOUSBDeviceInterface **dev, UInt32 portBits);
-    //    IOReturn DevaReadIoPorts(IOUSBDeviceInterface **dev, UInt32 *portBits);
-    //    IOReturn DevaWriteIoPorts(IOUSBDeviceInterface **dev, UInt32 portBits, UInt32 mask);
+    //    IOReturn DevaSetIoPortsConfig(IOUSBDeviceInterface245 **dev, UInt32 portBits);
+    //    IOReturn DevaReadIoPorts(IOUSBDeviceInterface245 **dev, UInt32 *portBits);
+    //    IOReturn DevaWriteIoPorts(IOUSBDeviceInterface245 **dev, UInt32 portBits, UInt32 mask);
     // 
     // The operate on the 20 programmable IO bits which appear on the IO connector.
     // The port bits are mapped as 0x000CBBAA (with the 4 C bits shifted down 4 bits)
@@ -91,7 +91,7 @@
 
 #define NARRATEIO 0
 
-IOReturn DevaSetIoPortsConfig(IOUSBInterfaceInterface **intf, UInt32 portBits)
+IOReturn DevaSetIoPortsConfig(IOUSBInterfaceInterface245 **intf, UInt32 portBits)
 {
 IOUSBDevRequest req;
 IOReturn err;
@@ -121,7 +121,7 @@ printf("Doing SetIoPortsConfig with portbits %08lx\n", USBToHostLong(portBits));
     return(err);
 }
 
-IOReturn DevaReadIoPorts(IOUSBInterfaceInterface **intf, UInt32 *portBits)
+IOReturn DevaReadIoPorts(IOUSBInterfaceInterface245 **intf, UInt32 *portBits)
 {
 IOUSBDevRequest req;
 IOReturn err;
@@ -156,7 +156,7 @@ printf("Doing ReadIoPorts with portbits %08lx\n", USBToHostLong(*portBits));
 }
 
 
-IOReturn DevaWriteIoPorts(IOUSBInterfaceInterface **intf, UInt32 portBits, UInt32 mask)
+IOReturn DevaWriteIoPorts(IOUSBInterfaceInterface245 **intf, UInt32 portBits, UInt32 mask)
 {
 
 struct {
@@ -193,7 +193,7 @@ printf("Doing WriteIoPorts with portbits %08lx, %08lx\n", USBToHostLong(writeBit
 }
 
 
-IOReturn DevaSetIoPortsConfigD(IOUSBDeviceInterface **dev, UInt32 portBits)
+IOReturn DevaSetIoPortsConfigD(IOUSBDeviceInterface245 **dev, UInt32 portBits)
 {
 IOUSBDevRequest req;
 IOReturn err;
@@ -222,7 +222,7 @@ printf("Doing SetIoPortsConfigD with portbits %08lx\n", USBToHostLong(portBits))
     return(err);
 }
 
-IOReturn DevaReadIoPortsD(IOUSBDeviceInterface **dev, UInt32 *portBits)
+IOReturn DevaReadIoPortsD(IOUSBDeviceInterface245 **dev, UInt32 *portBits)
 {
 IOUSBDevRequest req;
 IOReturn err;
@@ -257,7 +257,7 @@ printf("Doing ReadIoPortsD with portbits %08lx\n", USBToHostLong(*portBits));
 }
 
 
-IOReturn DevaWriteIoPortsD(IOUSBDeviceInterface **dev, UInt32 portBits, UInt32 mask)
+IOReturn DevaWriteIoPortsD(IOUSBDeviceInterface245 **dev, UInt32 portBits, UInt32 mask)
 {
 
 struct {

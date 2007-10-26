@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCLanguageModel.mm,v $
+		Revision 1.4  2006/06/03 00:56:28  neerache
+		Fix up SRefCon casat for 32 bit mode
+		
+		Revision 1.3  2006/05/19 21:09:33  neerache
+		Fix 64 bit compilation errors
+		
 		Revision 1.2  2003/09/06 04:15:03  neerache
 		Fixed wrong length for 'queen'
 		
@@ -32,6 +38,11 @@ static const char sUndo[]     = "undo";
 static const char * sPieceName[] = {
 	"", "king", "queen", "bishop", "knight", "rook", "pawn"
 };
+
+inline SRefCon SR(MBCCompactMove move)
+{
+	return SRefCon(move); 
+}
 
 @implementation MBCLanguageModel
 
@@ -57,11 +68,11 @@ static const char * sPieceName[] = {
 
 	SRLanguageModel promoPieces;
 	SRNewLanguageModel(fSystem, &promoPieces, "promotion", 9);
-	SRAddText(promoPieces, "queen", 5, 	MBCEncodeMove("a1a1q", 0));
-	SRAddText(promoPieces, "bishop", 6, MBCEncodeMove("a1a1b", 0)); 
-	SRAddText(promoPieces, "knight", 6, MBCEncodeMove("a1a1n", 0)); 
-	SRAddText(promoPieces, "rook", 4, 	MBCEncodeMove("a1a1r", 0)); 
-	SRAddText(promoPieces, "king", 4, 	MBCEncodeMove("a1a1k", 0)); // Suicide
+	SRAddText(promoPieces, "queen", 5, 	SR(MBCEncodeMove("a1a1q", 0)));
+	SRAddText(promoPieces, "bishop", 6, SR(MBCEncodeMove("a1a1b", 0))); 
+	SRAddText(promoPieces, "knight", 6, SR(MBCEncodeMove("a1a1n", 0))); 
+	SRAddText(promoPieces, "rook", 4, 	SR(MBCEncodeMove("a1a1r", 0))); 
+	SRAddText(promoPieces, "king", 4, 	SR(MBCEncodeMove("a1a1k", 0))); // Suicide
 	[self addTo:fPromotionModel languageObject:promoPieces];
 
 	Boolean opt = true;
@@ -107,11 +118,11 @@ static const char * sPieceName[] = {
 			if (pawn && (Row(to)==1 || Row(to)==8)) {
 				SRPath	path;
 				SRNewPath(fSystem, &path);
-				SRAddText(path, move+2, 2, MBCEncodeMove(move, 0));
+				SRAddText(path, move+2, 2, SR(MBCEncodeMove(move, 0)));
 				SRAddLanguageObject(path, fPromotionModel);
 				[self addTo:destinations languageObject:path];
 			} else {
-				SRAddText(destinations, move+2, 2, MBCEncodeMove(move, 0));
+				SRAddText(destinations, move+2, 2, SR(MBCEncodeMove(move, 0)));
 			}
 		}
 	[self addTo:model languageObject:destinations];
@@ -174,11 +185,11 @@ static const char * sPieceName[] = {
 
 	if (fMoves->fCastleKingside) {
 		move[2]	= 'g';
-		SRAddText(sides, "king", 4, MBCEncodeMove(move, 0));
+		SRAddText(sides, "king", 4, SR(MBCEncodeMove(move, 0)));
 	}
 	if (fMoves->fCastleQueenside) {
 		move[2]	= 'c';
-		SRAddText(sides, "queen", 5, MBCEncodeMove(move, 0));
+		SRAddText(sides, "queen", 5, SR(MBCEncodeMove(move, 0)));
 	}
    
 	[self addTo:model languageObject:sides];
@@ -217,7 +228,7 @@ static const char * sPieceName[] = {
 		if (fMoves->fPawnDrops & (1llu << to)) {
 			drop[2]	= Col(to);
 			drop[3]	= '0'+Row(to);
-			SRAddText(destinations, drop+2, 2, MBCEncodeDrop(drop, 0));
+			SRAddText(destinations, drop+2, 2, SR(MBCEncodeDrop(drop, 0)));
 		}
 	[self addTo:model languageObject:destinations];
 
@@ -261,7 +272,7 @@ static const char * sPieceName[] = {
 		if (fMoves->fDroppablePieces & (1 << piece)) {
 			drop[0] = pieceSym[piece | color];
 			SRAddText(pieces, sPieceName[piece], strlen(sPieceName[piece]),
-					  MBCEncodeDrop(drop, 0));
+					  SR(MBCEncodeDrop(drop, 0)));
 		}
 
 	SRLanguageModel	destinations;
@@ -272,7 +283,7 @@ static const char * sPieceName[] = {
 		if (fMoves->fPawnDrops & (1llu << to)) {
 			drop[2]	= Col(to);
 			drop[3]	= '0'+Row(to);
-			SRAddText(destinations, drop+2, 2, MBCEncodeDrop(drop, 0));
+			SRAddText(destinations, drop+2, 2, SR(MBCEncodeDrop(drop, 0)));
 		}
 
 	[self addTo:model languageObject:pieces];
@@ -321,8 +332,8 @@ static const char * sPieceName[] = {
 	if (takeback) {
 		MBCCompactMove takeback = MBCEncodeTakeback();
 
-		SRAddText(model, sTakeback, strlen(sTakeback), 	takeback);
-		SRAddText(model, sUndo, 	strlen(sUndo), 		takeback);
+		SRAddText(model, sTakeback, strlen(sTakeback), 	SR(takeback));
+		SRAddText(model, sUndo, 	strlen(sUndo), 		SR(takeback));
 	}
 }
 

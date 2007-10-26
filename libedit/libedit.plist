@@ -4,19 +4,24 @@
         <key>OpenSourceProject</key>
         <string>libedit</string>
         <key>OpenSourceVersion</key>
-        <string>2.6.9</string>
+        <string>2.9</string>
         <key>OpenSourceWebsiteURL</key>
-        <string>ftp://ftp.astron.com/pub/libedit/</string>
+        <string>http://www.thrysoee.dk/editline/</string>
         <key>OpenSourceURL</key>
-        <string>ftp://ftp.astron.com/pub/libedit/libedit-2.6.9.tar.gz</string>
+        <string>http://www.thrysoee.dk/editline/libedit-20060829-2.9.tar.gz</string>
         <key>OpenSourceMD5</key>
-        <string>a007a8134d9daf4340c985085441ca6d</string>
+        <string>97935f8fbd67d63b1d311f247405cd3b</string>
         <key>OpenSourceImportDate</key>
-        <string>2004-10-27</string>
+        <string>2006-09-03</string>
         <key>OpenSourceLicense</key>
         <string>BSD</string>
         <key>OpenSourceLicenseFile</key>
         <string>libedit.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Better readline support (for python); added replace_history_entry(), history_truncate_file(), rl_insert_text(), rl_cleanup_after_signal(), rl_free_line_state() and history_get_history_state()</string>
+                <string>Added rl_readline_version </string>
+	</array>	
 </dict>
 </array>
 </plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,9 +25,11 @@
 
 #define kAppleRAIDUserClassName		"AppleRAID"
 #define kAppleRAIDSetClassName		"AppleRAIDSet"
+#define kAppleLogicalVolumeClassName	"AppleLVMVolume"
 
 // extras in IOMedia object for raid sets
 #define kAppleRAIDIsRAIDKey		"RAID"				// CFBoolean - true
+#define kAppleLVMIsLogicalVolumeKey	"LVM"				// CFBoolean - true
 
 // header defines
 
@@ -44,12 +46,18 @@
 
 // capabilities
 #define kAppleRAIDSetAutoRebuildKey	"AppleRAID-AutoRebuild"		// CFBoolean
-#define kAppleRAIDSetTimeoutKey		"AppleRAID-SetTimeout"		// CFNumber 32bit
 #define kAppleRAIDSetContentHintKey	"AppleRAID-ContentHint"		// CFString
+
+#define kAppleRAIDNoMediaExport			"RAIDNoMedia"		// CFString - for LVG
+#define kAppleRAIDNoFileSystem			"RAIDNoFS"		// CFString - for stacked raid sets 
+
+#define kAppleRAIDSetQuickRebuildKey	"AppleRAID-QuickRebuild"	// CFBoolean       (faked, not in header)
+#define kAppleRAIDSetTimeoutKey		"AppleRAID-SetTimeout"		// CFNumber 32bit
+#define kAppleRAIDPrimaryMetaDataUsedKey "AppleRAID-MetaData1Used"	// CFNumber 64bit  (freespace, lvg toc)
 
 #define kAppleRAIDCanAddMembersKey	"AppleRAID-CanAddMembers"	// CFBoolean
 #define kAppleRAIDCanAddSparesKey	"AppleRAID-CanAddSpares"	// CFBoolean
-#define kAppleRAIDSizesCanVaryKey	"AppleRAID-SizesCanVary"	// CFBoolean - true for concat
+#define kAppleRAIDSizesCanVaryKey	"AppleRAID-SizesCanVary"	// CFBoolean - true for concat, lvg
 #define kAppleRAIDRemovalAllowedKey	"AppleRAID-RemovalAllowed"	// CFString
 
 #define kAppleRAIDRemovalNone			"None"			// stripe
@@ -59,12 +67,47 @@
 
 #define kAppleRAIDCanBeConvertedToKey	"AppleRAID-CanBeConvertedTo"	// CFBoolean
 
+#define kAppleRAIDLVGExtentsKey		"AppleRAID-LVGExtents"		// CFNumber 64bit  (faked, lvg only)
+#define kAppleRAIDLVGVolumeCountKey	"AppleRAID-LVGVolumeCount"	// CFNumber 32bit  (faked, lvg only)
+#define kAppleRAIDLVGFreeSpaceKey	"AppleRAID-LVGFreeSpace"	// CFNumber 64bit  (faked, lvg only)
+
 // member defines (varies per member)
 
 #define kAppleRAIDMemberTypeKey		"AppleRAID-MemberType"		// CFStrings
 #define kAppleRAIDMemberUUIDKey		"AppleRAID-MemberUUID"		// CFString
 #define kAppleRAIDMemberIndexKey	"AppleRAID-MemberIndex"		// CFNumber 32bit
 #define kAppleRAIDChunkCountKey		"AppleRAID-ChunkCount"		// CFNumber 64bit
+#define kAppleRAIDMemberStartKey	"AppleRAID-MemberStart"		// CFNumber 64bit  (faked, lvg only)
+#define kAppleRAIDSecondaryMetaDataSizeKey "AppleRAID-MetaData2Size"	// CFNumber 64bit  (lve data, varies per member)
+
+// logical volume defines
+
+#define kAppleLVMVolumeVersionKey	"AppleLVM-Version"		// CFNumber 32bit "0xMMMMmmmm" 
+#define kAppleLVMVolumeUUIDKey		"AppleLVM-VolumeUUID"		// CFString
+#define kAppleLVMGroupUUIDKey		"AppleLVM-GroupUUID"		// CFString
+//#define kAppleLVMSnapShotUUIDKey	"AppleLVM-SnapUUID"		// CFString
+//#define kAppleLVMBitMapUUIDKey	"AppleLVM-BitMapUUID"		// CFString
+#define kAppleLVMParentUUIDKey		"AppleLVM-ParentUUID"		// CFString
+#define kAppleLVMVolumeSequenceKey	"AppleLVM-Sequence"		// CFNumber 32bit
+#define kAppleLVMVolumeSizeKey		"AppleLVM-VolumeSize"		// CFNumber 64bit  (faked)
+#define kAppleLVMVolumeExtentCountKey	"AppleLVM-ExtentCount"		// CFNumber 64bit
+#define kAppleLVMVolumeTypeKey		"AppleLVM-Type"			// CFString
+#define kAppleLVMVolumeTypeConcat		"concat"
+#define kAppleLVMVolumeTypeStripe		"stripe"
+#define kAppleLVMVolumeTypeMirror		"mirror"
+#define kAppleLVMVolumeTypeSnapRO		"snap ro"		// AppleLVMSnapShotVolume only
+#define kAppleLVMVolumeTypeSnapRW		"snap rw"		// AppleLVMSnapShotVolume only
+#define kAppleLVMVolumeTypeBitMap		"bitmap"		// internal use only
+#define kAppleLVMVolumeTypeMaster		"master"		// internal use only
+#define kAppleLVMVolumeLocationKey	"AppleLVM-Location"		// CFString
+#define kAppleLVMVolumeLocationFast		"fast"	
+#define kAppleLVMVolumeLocationMedium		"medium"	
+#define kAppleLVMVolumeLocationSlow		"slow"	
+#define kAppleLVMVolumeContentHintKey	"AppleLVM-ContentHint"		// CFString
+#define kAppleLVMVolumeStatusKey	"AppleLVM-Status"		// CFString
+#define kAppleLVMVolumeNameKey		"AppleLVM-Name"			// CFString
+
+// XXXSNAP remaining free space for snap
 
 // status defines
 
@@ -80,11 +123,15 @@
 #define kAppleRAIDStatusSpare		"Standby"	// member only
 #define kAppleRAIDStatusRebuilding	"Rebuilding"	// member only
 
-#define kAppleRAIDRebuildStatus		"AppleRAID-Rebuild-Progress"
+#define kAppleRAIDRebuildStatus		"AppleRAID-Rebuild-Progress"	// CFNumber 64bit (bytes completed)
 
 // dummy string for deleted members
 #define kAppleRAIDDeletedUUID   "00000000-0000-0000-0000-000000000000"
 #define kAppleRAIDMissingUUID   "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"
+
+enum {
+    kAppleRAIDDummySpareIndex	= 9999
+};
 
 // Get List of Sets Flags
 enum {
@@ -114,9 +161,13 @@ typedef CFStringRef AppleRAIDMemberRef;
 // ********************************************************************************************
 // ********************************************************************************************
 
-#define kAppleRAIDNotificationSetDiscovered	"kAppleRAIDNotificationSetDiscovered"
-#define kAppleRAIDNotificationSetChanged	"kAppleRAIDNotificationSetChanged"
-#define kAppleRAIDNotificationSetTerminated	"kAppleRAIDNotificationSetTerminated"
+#define kAppleRAIDNotificationSetDiscovered	"AppleRAIDNotificationSetDiscovered"
+#define kAppleRAIDNotificationSetChanged	"AppleRAIDNotificationSetChanged"
+#define kAppleRAIDNotificationSetTerminated	"AppleRAIDNotificationSetTerminated"
+
+#define kAppleLVMNotificationVolumeDiscovered	"AppleLVMNotificationVolumeDiscovered"
+#define kAppleLVMNotificationVolumeChanged	"AppleLVMNotificationVolumeChanged"
+#define kAppleLVMNotificationVolumeTerminated	"AppleLVMNotificationVolumeTerminated"
 
 CF_EXPORT
 kern_return_t AppleRAIDEnableNotifications(void);
@@ -132,7 +183,7 @@ kern_return_t AppleRAIDDisableNotifications(void);
 /*!
 	@function AppleRAIDGetListOfSets
 	@discussion Returns a "filtered" list of the RAID sets on system, as a CFArray of AppleRAIDSetRefs.
-	@param Flags - Used to determine which RAID sets to return.
+	@param filter - Used to determine which types RAID sets to return.
 */
 CF_EXPORT
 CFMutableArrayRef AppleRAIDGetListOfSets(UInt32 filter);
@@ -141,7 +192,7 @@ CFMutableArrayRef AppleRAIDGetListOfSets(UInt32 filter);
 /*!
 	@function AppleRAIDGetSetProperties
 	@discussion Returns CFMutableDictionaryRef - a dict with information on this set - type of set, ...
-	@param AppleRAIDSetRef A handle for finding the RAID set.
+	@param setRef A handle for finding the RAID set.
 */
 CF_EXPORT
 CFMutableDictionaryRef AppleRAIDGetSetProperties(AppleRAIDSetRef setRef);
@@ -151,10 +202,10 @@ CFMutableDictionaryRef AppleRAIDGetSetProperties(AppleRAIDSetRef setRef);
 	@function AppleRAIDGetMemberProperties
 	@discussion Returns CFMutableDictionaryRef - a dict with information on this member of the set
 	Mostly useful for find out the member's status, like online, offline, missing, spare, % rebuild. 
-	@param AppleRAIDMemberRef A handle for finding the RAID set's member.
+	@param memberRef A handle for finding the RAID set's member.
 */
 CF_EXPORT
-CFMutableDictionaryRef AppleRAIDGetMemberProperties(AppleRAIDMemberRef setRef);
+CFMutableDictionaryRef AppleRAIDGetMemberProperties(AppleRAIDMemberRef memberRef);
 
 
 // ********************************************************************************************
@@ -162,18 +213,24 @@ CFMutableDictionaryRef AppleRAIDGetMemberProperties(AppleRAIDMemberRef setRef);
 /*!
 	@function AppleRAIDGetUsableSize
 	@discussion Returns the amount of space available to for use after RAID headers have been added.
-	The primary use would be for converting a regular volume into a mirrored volume.
-	The returned value is the size the current filesystem needs to be shrunk to to fit.
+	The primary use would be for converting a regular volume into a mirrored or JBOD volume.
+	The returned value is the size the current filesystem needs to be shrunk to in order to fit.
 	@param partitionSize - size of the partition in bytes
 	@param chunkSize - size of the chunkSize in bytes.
+	@param options - options that this set will support that require additional disk space
 */	
 CF_EXPORT
-UInt64 AppleRAIDGetUsableSize(UInt64 partitionSize, UInt64 chunkSize);
+UInt64 AppleRAIDGetUsableSize(UInt64 partitionSize, UInt64 chunkSize, UInt32 options);
 
+// XXX use raid type strings here instead?  there is no mirror with quickrebuild string
+
+#define kAppleRAIDUsableSizeOptionNone			0x0
+#define kAppleRAIDUsableSizeOptionQuickRebuild		0x1
+#define kAppleRAIDUsableSizeOptionLVG			0x2	// for enable
 
 /*!
 	@function AppleRAIDGetSetDescriptions
-	@discussion Returns an array of dictionaries.  each dictionary contains an list of capabilites for that raid type
+	@discussion Returns an array of dictionaries. Each dictionary contains an list of capabilites for that raid type:
 	
 		- raid type name
 		- features: supports spares, members can vary in size
@@ -189,8 +246,8 @@ CFMutableArrayRef AppleRAIDGetSetDescriptions(void);
 	@function AppleRAIDCreateSet
 	@discussion Returns an AppleRAIDSetInfo dict, picks the set's UUID, sets up default values for set.
 	This just creates the dictionary representing the RAID to be created, nothing sent to kernel.
-	@param CFString raidType Get valid types from AppleRAIDGetSetDescriptions().
-	@param CFString setName The RAID set name in UTF-8 format.
+	@param raidType Get valid types from AppleRAIDGetSetDescriptions().
+	@param setName The RAID set name in UTF-8 format.
 */
 CF_EXPORT
 CFMutableDictionaryRef AppleRAIDCreateSet(CFStringRef raidType, CFStringRef setName);
@@ -202,10 +259,10 @@ CFMutableDictionaryRef AppleRAIDCreateSet(CFStringRef raidType, CFStringRef setN
 	This can be used both for creating new sets and adding to current sets.
 	@param setInfo The dictionary returned from either GetSetProperties or CreateSet.
 	@param partitionName Path to disk partition or raid set.
-	@param typeOfMember - kAppleRAIDMembersKey, kAppleRAIDSparesKey
+	@param memberType - kAppleRAIDMembersKey, kAppleRAIDSparesKey
 */
 CF_EXPORT
-AppleRAIDMemberRef AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CFStringRef typeOfMember);
+AppleRAIDMemberRef AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CFStringRef memberType);
 
 
 /*!
@@ -213,14 +270,14 @@ AppleRAIDMemberRef AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRe
 	@discussion Removes a member from a live RAID volume.  The disk partition is not changed.
 	This call can be used both for removing set members and spares.
 	@param setInfo The dictionary returned from either GetSetProperties.
-	@param member The member or spare to be removed.
+	@param memberRef The member or spare to be removed.
 */
 CF_EXPORT
-bool AppleRAIDRemoveMember(CFMutableDictionaryRef setInfo, AppleRAIDMemberRef member);
+bool AppleRAIDRemoveMember(CFMutableDictionaryRef setInfo, AppleRAIDMemberRef memberRef);
 
 
 /*!
-	@function AppleRAIDModifySetProperty
+	@function AppleRAIDModifySet
 	@discussion Modifies the RAID set dictionary while doing some sanity checks.  Returns true on success.
 	@param setInfo The dictionary returned from either GetSetProperties or CreateSet.
 	@param key Must a key that is specified by AppleRAIDGetSetDescriptions()
@@ -243,10 +300,10 @@ AppleRAIDSetRef AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo);
 /*!
 	@function AppleRAIDDestroySet
 	@discussion Shutdown a raid set and zero out it's headers.
-	@param AppleRAIDSetRef The handle for the RAID set.
+	@param setRef The handle for the RAID set.
 */
 CF_EXPORT
-bool AppleRAIDDestroySet(AppleRAIDSetRef set);
+bool AppleRAIDDestroySet(AppleRAIDSetRef setRef);
 
 
 // ********************************************************************************************
@@ -269,20 +326,190 @@ bool AppleRAIDRemoveHeaders(CFStringRef partitionName);
 CF_EXPORT
 CFDataRef AppleRAIDDumpHeader(CFStringRef partitionName);
 
+
+// ********************************************************************************************
+// ********************************************************************************************
+//
+//                                     L V M
+//
 // ********************************************************************************************
 // ********************************************************************************************
 
-// NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT
-// NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT
 
-// startups a verify scan on a set for mirrors/raid 5
-// also checks raid headers on all set types
-// could return status via notifications (like rebuilding)
+// CFString that contains the Logical Volume's UUID string
+typedef CFStringRef AppleLVMVolumeRef;
+
+
+
+// ********************************************************************************************
+// Logical Volume state 
+// ********************************************************************************************
+
+/*!
+	@function AppleLVMGetVolumesForGroup
+	@discussion Returns the list of logical volumes contained (whole or partial) in the
+	the specied logical volume group's member.  If the member is not specified this function
+	returns all logical volumes in the logical volume group.  This call should work if the
+	member is missing, allowing volumes on a dead disk to be removed.
+	@param setRef The handle for the logical volume group returned from AppleRAIDCreateSet().
+	@param memberRef A member from the logical volume group or nil.
+*/
 CF_EXPORT
-kern_return_t AppleRAIDVerifySet(AppleRAIDSetRef set);
+CFMutableArrayRef AppleLVMGetVolumesForGroup(AppleRAIDSetRef setRef, AppleRAIDMemberRef member);
 
-// NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT
-// NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT YET NOT
+/*!
+	@function AppleLVMGetVolumeProperties
+	@discussion Returns a dictionary of properties for this logical volume.
+
+		- size of logical volume
+		- location of logical volume 
+		- snapshot of (UUID of snapshoted volume)
+		- ...
+	
+	@param volRef The handle to the logical volume.
+*/
+CF_EXPORT
+CFMutableDictionaryRef AppleLVMGetVolumeProperties(AppleLVMVolumeRef volRef);
+
+/*!
+	@function AppleLVMGetVolumeExtents
+	@discussion Returns an C array of extents for this logical volume.
+	@param volRef The handle to the logical volume.
+*/
+CF_EXPORT
+CFDataRef AppleLVMGetVolumeExtents(AppleLVMVolumeRef volRef);
+
+/*!
+	@function AppleLVMGetVolumeDescription(void);
+	@discussion Returns a dictionary contains an list of supported keys
+	for each type of logical volume.
+	
+		- content hint
+		- location of logical volume (fast, average, slow)
+*/
+CF_EXPORT
+CFMutableArrayRef AppleLVMGetVolumeDescription(void);
+
+
+// ********************************************************************************************
+// Logical Volume creation and deletion
+// ********************************************************************************************
+
+
+/*!
+	@function AppleLVMCreateVolume
+	@discussion Creates a new logical volume dictionary for an existing logical volume group.
+	It does not write any information to disk, use AppleLVMUpdateVolume() for that.
+	Returns a dictionary for the new logical volume on success.
+	@param setRef The handle for the logical volume group returned from AppleRAIDCreateSet().
+	@param volumeType Type of logical volume, concat, mirror, stripe, ...
+	@param volumeSize Requested size for the new logical volume. Will be rounded up to the nearest volume allocation multiple.
+	@param volumeLocation Where on the disk, fast section, slow section, ..
+*/
+CF_EXPORT
+CFMutableDictionaryRef AppleLVMCreateVolume(AppleRAIDSetRef setRef, CFStringRef volumeType, UInt64 volumeSize, CFStringRef volumeLocation);
+
+
+/*!
+	@function AppleLVMModifyVolume
+	@discussion Modifies the properties of a logical volume while doing some sanity checks.  Returns true on success.
+	@param volumeProperties The dictionary for the logical volume, either from AppleLVMCreateVolume() or AppleLVMGetVolumeProperties(),
+	@param key Must a key that is specified by AppleLVMGetVolumeDescriptions()
+	@param value Must be valid for this key as specified by AppleLVMGetVolumeDescriptions and IOCFSerialize-able.
+*/
+CF_EXPORT
+bool AppleLVMModifyVolume(CFMutableDictionaryRef volumeProperties, CFStringRef key, void * value);
+
+
+/*!
+	@function AppleLVMUpdateVolume
+	@discussion Write logical volume while doing some sanity checks.
+	Returns the handle to the new or updated logical volume.
+	@param volumeProperties The dictionary for the logical volume, either from AppleLVMCreateVolume() or AppleLVMGetVolumeProperties(),
+*/
+CF_EXPORT
+AppleLVMVolumeRef AppleLVMUpdateVolume(CFMutableDictionaryRef volumeProperties);
+
+
+/*!
+	@function AppleLVMDestroyVolume
+	@discussion Destroys a logical volume and frees up the space it was using.
+	This call is supported on logical volumes that are missing.
+	@param volRef The handle to the logical volume.
+*/
+CF_EXPORT
+bool AppleLVMDestroyVolume(AppleLVMVolumeRef volRef);
+
+
+// ********************************************************************************************
+// Logical Volume level manipulations
+// ********************************************************************************************
+
+
+/*!
+	@function AppleLVMResizeVolume
+	@discussion Used to resize a volume up or down in size.  May cause a logical volume to start
+	spaning logical volume group members or stop spanning them if reducing the size. The size
+	returned will be rounded up to the nearest allocation multiple.
+	@param volumeProperties The dictionary for the logical volume, either from AppleLVMCreateVolume() or AppleLVMGetVolumeProperties(),
+	@param size The new size for the volume. 
+*/
+CF_EXPORT
+UInt64 AppleLVMResizeVolume(CFMutableDictionaryRef volumeProperties, UInt64 size);
+
+
+/*!
+	@function AppleLVMSnapShotVolume
+	@discussion Returns a new logical volume that is a snapshot of the specified volume.
+	Snapshots of snapshots are allowed. If the changes to the original volume are larger than
+	than the snapshot can track then the snapshot will fail.  As will any snapshots of it.
+	@param volumeProperties The dictionary for the logical volume from AppleLVMGetVolumeProperties(),
+	@param type The handle to the original logical volume.
+	@param snapshotSize The maximum size of the snapshot.
+*/
+CF_EXPORT
+CFMutableDictionaryRef AppleLVMSnapShotVolume(CFMutableDictionaryRef volumeProperties, CFStringRef type, UInt64 snapshotSize);
+
+
+/*!
+	@function AppleLVMMigrateVolume
+	@discussion Used to do a live move of a logical volume from one disk member to another disk member or
+	from one location to another location on the same member.
+	@param volRef The handle to the logical volume.
+	@param toRef A member from the logical volume group (can be same as fromRef)
+	@param volumeLocation Where on the disk, fast section, slow section, ..
+*/
+CF_EXPORT
+bool AppleLVMMigrateVolume(AppleLVMVolumeRef volRef, AppleRAIDMemberRef toRef, CFStringRef volumeLocation);
+
+
+// ********************************************************************************************
+// Logical Group Member level manipulations
+// ********************************************************************************************
+
+/*!
+	@function AppleLVMRemoveMember
+	@discussion Used to remove a member disk from a logical volume group.  Works for members
+	that do or do not have logical volumes on them.  If the member is not empty, a new logical
+	volume group will be created if possible.  The logical volumes on the member must be closed (unmounted).
+	@param volRef The handle to the logical volume.
+	@param memberRef A member from the logical volume group.
+*/
+CF_EXPORT
+AppleLVMVolumeRef AppleLVMRemoveMember(AppleLVMVolumeRef volRef, AppleRAIDMemberRef memberRef);
+
+
+/*!
+	@function AppleLVMMergeGroups
+	@discussion Used to merge two logical volume groups together into one.  The logical volume
+	is deleted the it's volumes are added to the other.  The logical volumes on the donor
+	must be closed (unmounted).
+	@param setRef A handle for the logical volume group being added to.
+	@param donorSetRef The handle for the logical volume group being added.
+*/
+CF_EXPORT
+AppleLVMVolumeRef AppleLVMMergeGroups(AppleRAIDSetRef setRef, AppleRAIDSetRef donorSetRef);
+
 
 #endif !KERNEL
 

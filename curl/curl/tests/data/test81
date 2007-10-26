@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+HTTP proxy NTLM auth
+</keywords>
+</info>
 # Server-side
 <reply>
 
@@ -19,6 +27,7 @@ This is not the real page either!
 HTTP/1.1 200 Things are fine in server land swsclose
 Server: Microsoft-IIS/5.0
 Content-Type: text/html; charset=iso-8859-1
+Content-Length: 32
 
 Finally, this is the real page!
 </data1002>
@@ -33,6 +42,7 @@ Proxy-Authenticate: NTLM TlRMTVNTUAACAAAAAgACADAAAAAGgoEAc51AYVDgyNcAAAAAAAAAAG4
 HTTP/1.1 200 Things are fine in server land swsclose
 Server: Microsoft-IIS/5.0
 Content-Type: text/html; charset=iso-8859-1
+Content-Length: 32
 
 Finally, this is the real page!
 </datacheck>
@@ -41,9 +51,8 @@ Finally, this is the real page!
 
 # Client-side
 <client>
-# NTLM only works if SSL-support is present
 <features>
-SSL
+NTLM
 </features>
 <server>
 http
@@ -61,20 +70,28 @@ http://%HOSTIP:%HTTPPORT/81 --proxy-user testuser:testpass -x http://%HOSTIP:%HT
 <strip>
 ^User-Agent:.*
 </strip>
+# We strip off a large chunk of the type-2 NTLM message since it depends on
+# the local host name and thus differs on different machines!
+<strippart>
+s/(Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEAAAAAYABgAWAAAAAAAAABwAAAACAAIAHAAAAA).*/$1/
+</strippart>
 <protocol>
 GET http://127.0.0.1:%HTTPPORT/81 HTTP/1.1
-Proxy-Authorization: NTLM TlRMTVNTUAABAAAAAgIAAAAAAAAgAAAAAAAAACAAAAA=
+Proxy-Authorization: NTLM TlRMTVNTUAABAAAABoIIAAAAAAAAAAAAAAAAAAAAAAA=
 User-Agent: curl/7.10.6-pre1 (i686-pc-linux-gnu) libcurl/7.10.6-pre1 OpenSSL/0.9.7a ipv6 zlib/1.1.3
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 GET http://127.0.0.1:%HTTPPORT/81 HTTP/1.1
-Proxy-Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEgAAAAYABgAYAAAAAAAAABAAAAACAAIAEAAAAAAAAAASAAAAAAAAAB4AAAAAYIAAHRlc3R1c2VyWmRDApEJkUyGOPS3DjvASModEeW/N/FBqYVyF4y6/y/7F6qmEQ7lXjXFF3tH1145
+Proxy-Authorization: NTLM TlRMTVNTUAADAAAAGAAYAEAAAAAYABgAWAAAAAAAAABwAAAACAAIAHAAAAA
 User-Agent: curl/7.10.6-pre1 (i686-pc-linux-gnu) libcurl/7.10.6-pre1 OpenSSL/0.9.7a ipv6 zlib/1.1.3
 Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
 Accept: */*
+Proxy-Connection: Keep-Alive
 
 </protocol>
 </verify>
+</testcase>

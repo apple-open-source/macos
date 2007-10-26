@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,9 +32,12 @@
 #include <assert.h>
 #include <syslog.h>
 
+
 typedef struct {
-    long       			idrefCount;
+    long       			idrefNumRefs;
     CFMutableDictionaryRef	idrefDict;
+    CFMutableDictionaryRef	idrefCountDict;
+    CFMutableDictionaryRef	defined;  // whether original def'n output
     CFMutableDataRef		data;
 } IOCFSerializeState;
 
@@ -45,7 +48,7 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state);
 static Boolean
 addChar(char chr, IOCFSerializeState * state)
 {
-	CFDataAppendBytes(state->data, &chr, 1);
+	CFDataAppendBytes(state->data, (UInt8 *) &chr, 1);
 
 	return true;
 }
@@ -54,8 +57,7 @@ static Boolean
 addString(const char * str, IOCFSerializeState * state)
 {
 	CFIndex	len = strlen(str);
-
-	CFDataAppendBytes(state->data, str, len);
+	CFDataAppendBytes(state->data, (UInt8 *) str, len);
 
 	return true;
 }
@@ -79,26 +81,74 @@ getTagString(CFTypeRef object)
 	return "internal error";
 }
 
+static void
+recordIdref(CFTypeRef object,
+	    IOCFSerializeState * state)
+{
+	CFNumberRef idref;
+	CFTypeID typeID;
+	CFNumberRef refCount;
+	int32_t count;
+
+	idref = CFDictionaryGetValue(state->idrefDict, object);
+	if (idref) {
+		refCount = CFDictionaryGetValue(state->idrefCountDict, object);
+		if (refCount) {
+			assert(CFNumberGetValue(refCount, kCFNumberLongType, &count));
+			count++;
+		} else {
+			count = 1;
+		}
+		// ok to lose original refCount, we are replacing it
+		refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &count);
+		assert(refCount);
+		CFDictionarySetValue(state->idrefCountDict, object, refCount);
+                CFRelease(refCount);
+		return;
+	}
+
+	idref = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &state->idrefNumRefs);
+	CFDictionaryAddValue(state->idrefDict, object, idref);
+	CFRelease(idref);
+	state->idrefNumRefs++;
+	count = 0;
+	refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &count);
+	assert(refCount);
+	CFDictionarySetValue(state->idrefCountDict, object, refCount);
+	CFRelease(refCount);
+	return;
+}
+
 static Boolean 
 previouslySerialized(CFTypeRef object,
 		     IOCFSerializeState * state)
 {
+	CFBooleanRef defined;
+	CFNumberRef refCount;
+	int32_t count = 0;
 	CFNumberRef idref;
 
+	defined = CFDictionaryGetValue(state->defined, object);
+	if (!defined || !CFBooleanGetValue(defined)) {
+		return false;
+	}
+	refCount = CFDictionaryGetValue(state->idrefCountDict, object);
+	if (!refCount) {
+		return false;
+	}
+	CFNumberGetValue(refCount, kCFNumberLongType, &count);
+	if (!count) {
+		return false;
+	}
 	idref = CFDictionaryGetValue(state->idrefDict, object);
 	if (idref) {
 		char temp[64];
 		long id = -1;
 		CFNumberGetValue(idref, kCFNumberLongType, &id);
-		sprintf(temp, "<%s IDREF=\"%ld\"/>", getTagString(object), id);
+		snprintf(temp, sizeof(temp), "<%s IDREF=\"%ld\"/>", getTagString(object), id);
 		return addString(temp, state);
 	}
 
-	idref = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &state->idrefCount);
-	CFDictionaryAddValue(state->idrefDict, object, idref);
-        CFRelease(idref);
-	state->idrefCount++;
-    
 	return false;
 }
 
@@ -108,19 +158,36 @@ addStartTag(CFTypeRef object,
 	    IOCFSerializeState * state)
 {
 	CFNumberRef idref;
+	CFNumberRef refCount;
 	char temp[128];
 	long id = -1;
+	int32_t count = 0;
 
 	idref = CFDictionaryGetValue(state->idrefDict, object);
-	assert(idref);
-	CFNumberGetValue(idref, kCFNumberLongType, &id);
-
-	if (additionalTags) {
-		snprintf(temp, 128, "<%s ID=\"%ld\" %s>", getTagString(object), id, additionalTags);
-	} else {
-		snprintf(temp, 128, "<%s ID=\"%ld\">", getTagString(object), id);
+	refCount = CFDictionaryGetValue(state->idrefCountDict, object);
+	if (refCount) {
+		CFNumberGetValue(refCount, kCFNumberLongType, &count);
 	}
+	if (idref && count) {
+		CFNumberGetValue(idref, kCFNumberLongType, &id);
 
+		if (additionalTags) {
+			snprintf(temp, sizeof(temp) * sizeof(char),
+                        	"<%s ID=\"%ld\" %s>", getTagString(object), id, additionalTags);
+		} else {
+			snprintf(temp, sizeof(temp) * sizeof(char),
+                        	"<%s ID=\"%ld\">", getTagString(object), id);
+		}
+	} else {
+		if (additionalTags) {
+			snprintf(temp, sizeof(temp) * sizeof(char),
+                        	"<%s %s>", getTagString(object), additionalTags);
+		} else {
+			snprintf(temp, sizeof(temp) * sizeof(char),
+                        	"<%s>", getTagString(object));
+		}
+	}
+        CFDictionarySetValue(state->defined, object, kCFBooleanTrue);
 	return addString(temp, state);
 }
 
@@ -131,7 +198,7 @@ addEndTag(CFTypeRef object,
 {
 	char temp[128];
 
-	snprintf(temp, 128, "</%s>", getTagString(object));
+	snprintf(temp, sizeof(temp) * sizeof(char), "</%s>", getTagString(object));
 
 	return addString(temp, state);
 }
@@ -172,13 +239,13 @@ DoCFSerializeNumber(CFNumberRef object, IOCFSerializeState * state)
 		break;
 	}
 
-	sprintf(temp, "size=\"%d\"", size);
+	snprintf(temp, sizeof(temp), "size=\"%d\"", size);
 	if (!addStartTag(object, temp, state)) return false;
 
 	if (size <= 32)
-		sprintf(temp, "0x%lx", (unsigned long int) value);
+		snprintf(temp, sizeof(temp), "0x%lx", (unsigned long int) value);
 	else
-		sprintf(temp, "0x%qx", value);
+		snprintf(temp, sizeof(temp), "0x%qx", value);
 
 	if (!addString(temp, state)) return false;
 
@@ -213,7 +280,7 @@ DoCFSerializeString(CFStringRef object, IOCFSerializeState * state)
 
 	if (dataBuffer) {
 		length = CFDataGetLength(dataBuffer);
-		buffer = CFDataGetBytePtr(dataBuffer);
+		buffer = (char *) CFDataGetBytePtr(dataBuffer);
 	} else {
 		length = 0;
 		buffer = "";
@@ -271,7 +338,7 @@ DoCFSerializeKey(CFStringRef object, IOCFSerializeState * state)
 
 	if (dataBuffer) {
 		length = CFDataGetLength(dataBuffer);
-		buffer = CFDataGetBytePtr(dataBuffer);
+		buffer = (char *) CFDataGetBytePtr(dataBuffer);
 	} else {
 		length = 0;
 		buffer = "";
@@ -317,7 +384,7 @@ DoCFSerializeData(CFDataRef object, IOCFSerializeState * state)
 {
 	CFIndex	  length;
 	const UInt8 * bytes;
-        unsigned int i;
+        CFIndex i;
         const unsigned char *p;
         unsigned char c = 0;
 
@@ -445,7 +512,8 @@ DoCFSerializeDictionary(CFDictionaryRef object,
 	}
 
 	for (i = 0; ok && (i < count); i++) {
-		if (!(ok = DoCFSerializeKey((CFTypeRef) keys[i], state)))
+		ok = DoCFSerializeKey((CFTypeRef) keys[i], state);
+                if (!ok)
 			break;
 		if (!(ok = DoCFSerialize((CFTypeRef) values[i], state)))
 			break;
@@ -455,6 +523,75 @@ DoCFSerializeDictionary(CFDictionaryRef object,
 		free(values);
 
 	return ok && addEndTag(object, state);
+}
+
+static Boolean
+DoIdrefScan(CFTypeRef object, IOCFSerializeState * state)
+{
+	CFTypeID type;
+	Boolean	ok = true;  // such an optimist
+	CFIndex count, i;
+	const void ** keys;
+	const void ** values;
+
+	assert(object);
+
+	recordIdref(object, state);
+
+	type = CFGetTypeID(object);
+
+	if (type == CFArrayGetTypeID()) {
+		CFArrayRef array = (CFArrayRef)object;
+		count = CFArrayGetCount(array);
+		for (i = 0; i < count; i++) {
+			CFTypeRef element = CFArrayGetValueAtIndex(array, i);
+			ok = DoIdrefScan(element, state);
+			if (!ok) {
+				return ok;
+			}
+		}
+	} else if (type == CFSetGetTypeID()) {
+		CFSetRef set = (CFSetRef)object;
+		count = CFSetGetCount(set);
+		if (count) {
+			values = (const void **)malloc(count * sizeof(void *));
+			if (!values) {
+				return false;
+			}
+			CFSetGetValues(set, values);
+			for (i = 0; ok && (i < count); i++) {
+				ok = DoIdrefScan((CFTypeRef)values[i], state);
+			}
+
+			free(values);
+			if (!ok) {
+				return ok;
+			}
+                }
+	} else if (type == CFDictionaryGetTypeID()) {
+		CFDictionaryRef dict = (CFDictionaryRef)object;
+		count = CFDictionaryGetCount(dict);
+		if (count) {
+			keys = (const void **)malloc(count * sizeof(void *));
+			values = (const void **)malloc(count * sizeof(void *));
+			if (!keys || !values) {
+				return false;
+			}
+			CFDictionaryGetKeysAndValues(dict, keys, values);
+			for (i = 0; ok && (i < count); i++) {
+				// don't record dictionary keys
+				ok &= DoIdrefScan((CFTypeRef)values[i], state);
+			}
+
+			free(keys);
+			free(values);
+			if (!ok) {
+				return ok;
+			}
+		}
+	}
+
+	return ok;
 }
 
 static Boolean
@@ -483,7 +620,7 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state)
 	ok = DoCFSerializeDictionary((CFDictionaryRef) object, state);
     else {
         char temp[ 64 ];
-	sprintf(temp, "\"typeID 0x%x not serializable\"", (int) type);
+	snprintf(temp, sizeof(temp), "\"typeID 0x%x not serializable\"", (int) type);
 	ok = addString(temp, state);
     }
 
@@ -496,6 +633,8 @@ IOCFSerialize(CFTypeRef object, CFOptionFlags options)
     IOCFSerializeState		state;
     CFMutableDataRef		data;
     CFMutableDictionaryRef	idrefDict;
+    CFMutableDictionaryRef	idrefCountDict;
+    CFMutableDictionaryRef	defined;
     Boolean			ok;
     CFDictionaryKeyCallBacks	idrefCallbacks;
 
@@ -507,23 +646,43 @@ IOCFSerialize(CFTypeRef object, CFOptionFlags options)
     idrefDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                               &idrefCallbacks,
                               &kCFTypeDictionaryValueCallBacks);
+    idrefCountDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                              &idrefCallbacks,
+                              &kCFTypeDictionaryValueCallBacks);
+    defined = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                              &idrefCallbacks,
+                              &kCFTypeDictionaryValueCallBacks);
     data = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    assert(data && idrefDict);
+    assert(data && idrefDict && idrefCountDict);
 
     state.data = data;
-    state.idrefCount = 0;
+    state.idrefNumRefs = 0;
     state.idrefDict = idrefDict;
+    state.idrefCountDict = idrefCountDict;
+    state.defined = defined;
+
+    ok = DoIdrefScan(object, &state);
+    if (!ok) {
+        goto finish;
+    }
 
     ok = DoCFSerialize(object, &state);
 
-    if (ok)
+    if (ok) {
 	ok = addChar(0, &state);
+    }
     if (!ok) {
-	CFRelease(data);
-	data = 0;
+        goto finish;
     }
 
-    CFRelease(idrefDict);
+finish:
+    if (!ok && data) {
+        CFRelease(data);
+        data = 0;
+    }
+    if (idrefDict) CFRelease(idrefDict);
+    if (idrefCountDict) CFRelease(idrefCountDict);
+    if (defined) CFRelease(defined);
 
     return data;
 }

@@ -25,6 +25,11 @@
  */
 /*
 	$Log: IOFireWireLocalNode.cpp,v $
+	Revision 1.9  2006/11/08 22:33:38  ayanowit
+	Changed the SetProperty(...) function on the IOFireWireLocalNode, which is used to instantiate objects with the IOFireWireMatchingNub, to add a new way
+	of instantiating IOFireWireMatchingNub matched objects, where we ensure that only one of those objects gets instantiated on the LocalNode (SummonNubExclusive).
+	This is part of the changes needed to get AppleFWAudio to start using the IOFireWireMatchingNub instead of directly matching on IOFireWireLocalNode.
+	
 	Revision 1.8  2005/02/18 22:56:53  gecko1
 	3958781 Q45C EVT: FireWire ASP reporter says port speed is 800 Mb/sec
 	
@@ -243,30 +248,108 @@ bool IOFireWireLocalNode::handleIsOpen( const IOService * forClient ) const
 
 IOReturn IOFireWireLocalNode::setProperties( OSObject * properties )
 {
+	IOFireWireMagicMatchingNub *nub = NULL;
+    IOReturn ret = kIOReturnBadArgument;
+	bool doSummon = false;
+	OSIterator *localNodeChildIterator;
+	OSIterator *magicMatchingNubChildIterator;
+	OSObject *localNodeChild;
+	OSObject *matchingNubChild;
+	OSObject *desiredChild;
+	OSString *desiredChildString;
+	
     OSDictionary *dict = OSDynamicCast(OSDictionary, properties);
     OSDictionary *summon;
     if(!dict)
         return kIOReturnUnsupported;
-    summon = OSDynamicCast(OSDictionary, dict->getObject("SummonNub"));
-    if(!summon) {
-        return kIOReturnBadArgument;
-    }
-    IOFireWireMagicMatchingNub *nub = NULL;
-    IOReturn ret = kIOReturnBadArgument;
-    do {
-        nub = new IOFireWireMagicMatchingNub;
-        if(!nub->init(summon))
-            break;
-        if (!nub->attach(this))	
-            break;
-        nub->registerService(kIOServiceSynchronous);
-        // Kill nub if nothing matched
-        if(!nub->getClient()) {
-            nub->detach(this);
-        }
-        ret = kIOReturnSuccess;
-    } while (0);
-    if(nub)
-        nub->release();
+	
+	// Take the FireWire workloop lock, to prevent multi-thread issues
+	if (fControl)
+		fControl->closeGate();
+	else
+		return kIOReturnNoDevice;
+
+	summon = OSDynamicCast(OSDictionary, dict->getObject("SummonNubExclusive"));
+    if(summon)
+	{
+		//IOLog("SummonNubExclusive\n");
+		
+		// For now, assume we'll need to summon the object
+		doSummon = true;
+		
+		localNodeChildIterator = getClientIterator();
+		if( localNodeChildIterator ) 
+		{
+			while( (localNodeChild = localNodeChildIterator->getNextObject()) ) 
+			{
+				//IOLog("found a localNodeChild\n");
+				
+				IOFireWireMagicMatchingNub * matchingNub = OSDynamicCast(IOFireWireMagicMatchingNub, localNodeChild);
+				if(matchingNub)
+				{
+					//IOLog("found a matchingNub\n");
+
+					desiredChild = matchingNub->getProperty( "IODesiredChild" );
+					if (desiredChild)
+					{
+						desiredChildString = OSDynamicCast(OSString,desiredChild);
+						if (desiredChildString)
+						{
+							//IOLog("desiredChildString = %s\n",desiredChildString->getCStringNoCopy());
+							
+							magicMatchingNubChildIterator = matchingNub->getClientIterator();
+							if( magicMatchingNubChildIterator ) 
+							{
+								while( (matchingNubChild = magicMatchingNubChildIterator->getNextObject()) ) 
+								{
+									//IOLog("found a matchingNubChild\n");
+									
+									// See if this matching nub's child is of the IODesiredChild class
+									if (matchingNubChild->metaCast(desiredChildString))
+									{
+										//IOLog("matchingNubChild is IODesiredChild\n");
+										doSummon = false;
+									}
+								}
+								magicMatchingNubChildIterator->release();
+							}
+						}
+					}
+				}
+			}
+			localNodeChildIterator->release();
+		}
+	}
+	else
+	{
+		summon = OSDynamicCast(OSDictionary, dict->getObject("SummonNub"));
+		if(!summon) 
+			ret = kIOReturnBadArgument;
+		else
+			doSummon = true;
+	}
+
+    if (doSummon)
+	{
+		do {
+			nub = new IOFireWireMagicMatchingNub;
+			if(!nub->init(summon))
+				break;
+			if (!nub->attach(this))	
+				break;
+			nub->registerService(kIOServiceSynchronous);
+			// Kill nub if nothing matched
+			if(!nub->getClient()) {
+				nub->detach(this);
+			}
+			ret = kIOReturnSuccess;
+		} while (0);
+		if(nub)
+			nub->release();
+	}
+	
+	if (fControl)
+		fControl->openGate();
+
     return ret;
 }

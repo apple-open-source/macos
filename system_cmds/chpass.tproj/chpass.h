@@ -1,29 +1,35 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  * Copyright (c) 1988, 1993, 1994
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
+ * Copyright (c) 2002 Networks Associates Technology, Inc.
+ * All rights reserved.
+ *
+ * Portions of this software were developed for the FreeBSD Project by
+ * ThinkSec AS and NAI Labs, the Security Research Division of Network
+ * Associates, Inc.  under DARPA/SPAWAR contract N66001-01-C-8035
+ * ("CBOSS"), as part of the DARPA CHATS research program.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,8 +41,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -53,90 +59,74 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *      @(#)chpass.h    8.4 (Berkeley) 4/2/94
+ *	@(#)chpass.h	8.4 (Berkeley) 4/2/94
+ * $FreeBSD: src/usr.bin/chpass/chpass.h,v 1.7 2004/01/18 21:46:39 charnier Exp $
  */
 
-#ifdef DIRECTORY_SERVICE
-#include <stdio.h>
-#include <sys/types.h>
+#ifdef OPEN_DIRECTORY
+#include "open_directory.h"
 
-struct display {
-	struct passwd *pw;
-	char *fullname;
-	char *location;
-	char *officephone;
-	char *homephone;
-};
-
-int LaunchTaskWithPipes(const char *path, char *const argv[], int *outPipe0, int *outPipe1);
-#endif /* DIRECTORY_SERVICE */
+extern char* progname;
+extern CFStringRef DSPath;
+#endif /* OPEN_DIRECTORY */
 
 struct passwd;
 
 typedef struct _entry {
-	char *prompt;
-#ifdef DIRECTORY_SERVICE
+	const char *prompt;
+#ifdef OPEN_DIRECTORY
 	void (*display)();
-#endif /* DIRECTORY_SERVICE */
-	int (*func)(), restricted, len;
+#endif
+	int (*func)(char *, struct passwd *, struct _entry *);
+	int restricted;
+	size_t len;
+#if OPEN_DIRECTORY
+	char *except;
+	CFStringRef attrName;
+#else /* OPEN_DIRECTORY */
 	char *except, *save;
+#endif /* OPEN_DIRECTORY */
 } ENTRY;
 
 /* Field numbers. */
-#ifdef DIRECTORY_SERVICE
-#define	E_LOGIN		0
-#define	E_PASSWD	1
-#define	E_UID		2
-#define	E_GID		3
-#define	E_CHANGE	4
-#define	E_EXPIRE	5
-#define	E_CLASS		6
-#define	E_HOME		7
-#define	E_SHELL		8
-#define	E_NAME		9
-#define	E_LOCATE	10
-#define	E_BPHONE	11
-#define	E_HPHONE	12
-#else /* DIRECTORY_SERVICE */
 #define	E_BPHONE	8
 #define	E_HPHONE	9
 #define	E_LOCATE	10
 #define	E_NAME		7
-#define	E_SHELL		12
-#endif /* DIRECTORY_SERVICE */
+#define	E_OTHER		11
+#define	E_SHELL		13
 
 extern ENTRY list[];
-extern uid_t uid;
+extern int master_mode;
 
-int	 atot __P((char *, time_t *));
-#ifdef DIRECTORY_SERVICE
-void	 d_change __P((struct display *, FILE *));
-void	 d_class __P((struct display *, FILE *));
-void	 d_expire __P((struct display *, FILE *));
-void	 d_fullname __P((struct display *, FILE *));
-void	 d_gid __P((struct display *, FILE *));
-void	 d_hdir __P((struct display *, FILE *));
-void	 d_homephone __P((struct display *, FILE *));
-void	 d_login __P((struct display *, FILE *));
-void	 d_location __P((struct display *, FILE *));
-void	 d_officephone __P((struct display *, FILE *));
-void	 d_passwd __P((struct display *, FILE *));
-void	 d_shell __P((struct display *, FILE *));
-void	 d_uid __P((struct display *, FILE *));
-#endif /* DIRECTORY_SERVICE */
-void	 display __P((int, struct passwd *));
-void	 edit __P((struct passwd *));
-char    *ok_shell __P((char *));
-int	 p_change __P((char *, struct passwd *, ENTRY *));
-int	 p_class __P((char *, struct passwd *, ENTRY *));
-int	 p_expire __P((char *, struct passwd *, ENTRY *));
-int	 p_gecos __P((char *, struct passwd *, ENTRY *));
-int	 p_gid __P((char *, struct passwd *, ENTRY *));
-int	 p_hdir __P((char *, struct passwd *, ENTRY *));
-int	 p_login __P((char *, struct passwd *, ENTRY *));
-int	 p_login __P((char *, struct passwd *, ENTRY *));
-int	 p_passwd __P((char *, struct passwd *, ENTRY *));
-int	 p_shell __P((char *, struct passwd *, ENTRY *));
-int	 p_uid __P((char *, struct passwd *, ENTRY *));
-char    *ttoa __P((time_t));
-int	 verify __P((struct passwd *));
+#ifdef OPEN_DIRECTORY
+/* edit.c */
+void	display_time(CFDictionaryRef, CFStringRef, const char*, FILE *);
+void	display_string(CFDictionaryRef, CFStringRef, const char*, FILE *);
+CFDictionaryRef edit(const char *tfn, CFDictionaryRef pw);
+
+/* util.c */
+int	cfprintf(FILE* file, const char* format, ...);
+int	editfile(const char* tfn);
+#endif /* OPEN_DIRECTORY */
+
+int	 atot(char *, time_t *);
+#ifndef OPEN_DIRECTORY
+struct passwd *edit(const char *, struct passwd *);
+#endif /* OPEN_DIRECTORY */
+int      ok_shell(char *);
+char    *dup_shell(char *);
+int	 p_change(char *, struct passwd *, ENTRY *);
+int	 p_class(char *, struct passwd *, ENTRY *);
+int	 p_expire(char *, struct passwd *, ENTRY *);
+int	 p_gecos(char *, struct passwd *, ENTRY *);
+int	 p_gid(char *, struct passwd *, ENTRY *);
+int	 p_hdir(char *, struct passwd *, ENTRY *);
+int	 p_login(char *, struct passwd *, ENTRY *);
+int	 p_passwd(char *, struct passwd *, ENTRY *);
+int	 p_shell(char *, struct passwd *, ENTRY *);
+int	 p_uid(char *, struct passwd *, ENTRY *);
+#ifdef OPEN_DIRECTORY
+int	 p_uuid(char *, struct passwd *, ENTRY *);
+#endif /* OPEN_DIRECTORY */
+char    *ttoa(time_t);

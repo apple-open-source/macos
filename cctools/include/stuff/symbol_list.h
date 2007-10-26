@@ -20,7 +20,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include "stuff/target_arch.h"
 #include <mach-o/nlist.h>
 #include <stuff/bool.h>
 

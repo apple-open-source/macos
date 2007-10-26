@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/tc.h,v 1.1.1.3 2003/01/17 03:41:18 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/tc.h,v 3.6 2004/08/04 17:12:31 christos Exp $ */
 /*
  * tc.h: Tcsh includes
  */
@@ -40,6 +40,8 @@
 #include "tc.os.h"
 #include "tc.sig.h"
 #include "tc.decls.h"
+
+extern int tlength;
 
 #define FMT_PROMPT	0
 #define FMT_WHO		1

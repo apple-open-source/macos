@@ -598,12 +598,10 @@ bool XMLTokenizer::write(const SegmentedString& s, bool /*appendData*/)
                 String version = attrs.get("version");
                 String encoding = attrs.get("encoding");
                 ExceptionCode ec = 0;
-                if (!m_parsingFragment) {
-                    if (!version.isEmpty())
-                        m_doc->setXMLVersion(version, ec);
-                    if (!encoding.isEmpty())
-                        m_doc->setXMLEncoding(encoding);
-                }
+                if (!version.isEmpty())
+                    m_doc->setXMLVersion(version, ec);
+                if (!encoding.isEmpty())
+                    m_doc->setXMLEncoding(encoding);
             }
         }
         m_stream.addData(data);
@@ -929,7 +927,7 @@ void XMLTokenizer::comment(const xmlChar* s)
 void XMLTokenizer::startDocument(const xmlChar* version, const xmlChar* encoding, int standalone)
 {
     ExceptionCode ec = 0;
-
+    
     if (version)
         m_doc->setXMLVersion(toString(version), ec);
     m_doc->setXMLStandalone(standalone == 1, ec); // possible values are 0, 1, and -1
@@ -1243,8 +1241,7 @@ void XMLTokenizer::end()
     }
     
     setCurrentNode(0);
-    if (!m_parsingFragment)
-        m_doc->finishedParsing();    
+    m_doc->finishedParsing();    
 }
 
 void XMLTokenizer::finish()
@@ -1387,7 +1384,7 @@ void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const Depre
 int XMLTokenizer::lineNumber() const
 {
 #ifndef USE_QXMLSTREAM
-    return m_context ? m_context->input->line : 1;
+    return m_context->input->line;
 #else
     return m_stream.lineNumber();
 #endif
@@ -1396,7 +1393,7 @@ int XMLTokenizer::lineNumber() const
 int XMLTokenizer::columnNumber() const
 {
 #ifndef USE_QXMLSTREAM
-    return m_context ? m_context->input->col : 1;
+    return m_context->input->col;
 #else
     return m_stream.columnNumber();
 #endif
@@ -1718,8 +1715,7 @@ void XMLTokenizer::startDocument()
     initializeParserContext();
     ExceptionCode ec = 0;
 
-    if (!m_parsingFragment)
-        m_doc->setXMLStandalone(m_stream.isStandaloneDocument(), ec);
+    m_doc->setXMLStandalone(m_stream.isStandaloneDocument(), ec);
 }
 
 void XMLTokenizer::parseStartElement()
@@ -1981,8 +1977,7 @@ void XMLTokenizer::parseDtd()
         || (publicId == "-//WAPFORUM//DTD XHTML Mobile 1.0//EN")) {
         setIsXHTMLDocument(true); // controls if we replace entities or not.
     }
-    if (!m_parsingFragment)
-        m_doc->setDocType(new DocumentType(m_doc, name, publicId, systemId));
+    m_doc->setDocType(new DocumentType(m_doc, name, publicId, systemId));
     
 }
 #endif

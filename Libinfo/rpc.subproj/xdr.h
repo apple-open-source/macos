@@ -121,10 +121,17 @@ enum xdr_op {
 typedef struct __rpc_xdr {
 	enum xdr_op	x_op;		/* operation; fast additional param */
 	const struct xdr_ops {
+#ifdef __LP64__
+		/* get an int from underlying stream */
+		bool_t	(*x_getlong)(struct __rpc_xdr *, int *);
+		/* put an int to " */
+		bool_t	(*x_putlong)(struct __rpc_xdr *, const int *);
+#else
 		/* get a long from underlying stream */
 		bool_t	(*x_getlong)(struct __rpc_xdr *, long *);
 		/* put a long to " */
 		bool_t	(*x_putlong)(struct __rpc_xdr *, const long *);
+#endif
 		/* get some bytes from " */
 		bool_t	(*x_getbytes)(struct __rpc_xdr *, char *, unsigned int);
 		/* put some bytes to " */
@@ -181,25 +188,48 @@ typedef	bool_t (*xdrproc_t)(XDR *, ...);
 #define xdr_putlong(xdrs, longp)			\
 	(*(xdrs)->x_ops->x_putlong)(xdrs, longp)
 
+
+#ifdef __LP64__
 static __inline int
 xdr_getint32(XDR *xdrs, int32_t *ip)
 {
-	long l;
+	int32_t l;
 
 	if (!xdr_getlong(xdrs, &l))
 		return (FALSE);
-	*ip = (int32_t)l;
+	*ip = l;
 	return (TRUE);
 }
 
 static __inline int
 xdr_putint32(XDR *xdrs, int32_t *ip)
 {
-	long l;
+	int32_t l;
 
-	l = (long)*ip;
+	l = *ip;
 	return xdr_putlong(xdrs, &l);
 }
+#else
+static __inline int
+xdr_getint32(XDR *xdrs, int32_t *ip)
+{
+	int32_t l;
+
+	if (!xdr_getlong(xdrs, (long *)&l))
+		return (FALSE);
+	*ip = l;
+	return (TRUE);
+}
+
+static __inline int
+xdr_putint32(XDR *xdrs, int32_t *ip)
+{
+	int32_t l;
+
+	l = *ip;
+	return xdr_putlong(xdrs, (long *)&l);
+}
+#endif
 
 #define XDR_GETINT32(xdrs, int32p)	xdr_getint32(xdrs, int32p)
 #define XDR_PUTINT32(xdrs, int32p)	xdr_putint32(xdrs, int32p)
@@ -287,12 +317,21 @@ struct xdr_discrim {
 #define IXDR_GET_U_INT32(buf)		((u_int32_t)IXDR_GET_INT32(buf))
 #define IXDR_PUT_U_INT32(buf, v)	IXDR_PUT_INT32((buf), ((int32_t)(v)))
 
+#ifdef __LP64__
+#define IXDR_GET_LONG(buf)		(ntohl((u_int32_t)*(buf)++))
+#define IXDR_PUT_LONG(buf, v)		(*(buf)++ = htonl((u_int32_t)v))
+#else
 #define IXDR_GET_LONG(buf)		((long)ntohl((u_int32_t)*(buf)++))
 #define IXDR_PUT_LONG(buf, v)		(*(buf)++ =(int32_t)htonl((u_int32_t)v))
+#endif
 
 #define IXDR_GET_BOOL(buf)		((bool_t)IXDR_GET_LONG(buf))
 #define IXDR_GET_ENUM(buf, t)		((t)IXDR_GET_LONG(buf))
+#ifdef __LP64__
+#define IXDR_GET_U_LONG(buf)		((unsigned int)IXDR_GET_LONG(buf))
+#else
 #define IXDR_GET_U_LONG(buf)		((unsigned long)IXDR_GET_LONG(buf))
+#endif
 #define IXDR_GET_SHORT(buf)		((short)IXDR_GET_LONG(buf))
 #define IXDR_GET_U_SHORT(buf)		((unsigned short)IXDR_GET_LONG(buf))
 
@@ -309,8 +348,13 @@ __BEGIN_DECLS
 extern bool_t	xdr_void(void);
 extern bool_t	xdr_int(XDR *, int *);
 extern bool_t	xdr_u_int(XDR *, unsigned int *);
+#ifdef __LP64__
+extern bool_t	xdr_long(XDR *, int *);
+extern bool_t	xdr_u_long(XDR *, unsigned int *);
+#else
 extern bool_t	xdr_long(XDR *, long *);
 extern bool_t	xdr_u_long(XDR *, unsigned long *);
+#endif
 extern bool_t	xdr_short(XDR *, short *);
 extern bool_t	xdr_u_short(XDR *, unsigned short *);
 extern bool_t	xdr_int16_t(XDR *, int16_t *);

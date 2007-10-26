@@ -41,12 +41,14 @@
 
 /* $OrigId: md5.h,v 1.2 2001/03/26 08:57:14 matz Exp $ */
 /* $RoughId: md5.h,v 1.3 2002/02/24 08:14:31 knu Exp $ */
-/* $Id: md5.h,v 1.2 2002/02/24 08:20:22 knu Exp $ */
+/* $Id: md5.h 11708 2007-02-12 23:01:19Z shyouhei $ */
 
 #ifndef MD5_INCLUDED
 #  define MD5_INCLUDED
 
 #include "defs.h"
+
+#include <CommonCrypto/CommonDigest.h>
 
 /*
  * This code has some adaptations for the Ghostscript environment, but it
@@ -63,18 +65,15 @@ typedef struct md5_state_s {
 } MD5_CTX;
 
 #ifdef RUBY
+/* avoid name clash */
 #define MD5_Init	rb_Digest_MD5_Init
 #define MD5_Update	rb_Digest_MD5_Update
-#define MD5_Final	rb_Digest_MD5_Final
-#define MD5_End		rb_Digest_MD5_End
-#define MD5_Equal	rb_Digest_MD5_Equal
+#define MD5_Finish	rb_Digest_MD5_Finish
 #endif
 
 void	MD5_Init _((MD5_CTX *pms));
 void	MD5_Update _((MD5_CTX *pms, const uint8_t *data, size_t nbytes));
-void	MD5_Final _((uint8_t *digest, MD5_CTX *pms));
-void	MD5_End _((MD5_CTX *pctx, uint8_t *hexdigest));
-int	MD5_Equal _((MD5_CTX *pctx1, MD5_CTX *pctx2));
+void	MD5_Finish _((MD5_CTX *pms, uint8_t *digest));
 
 #define MD5_BLOCK_LENGTH		64
 #define MD5_DIGEST_LENGTH		16

@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: netbios.h,v 1.5 2004/03/19 01:49:45 lindak Exp $
  */
 #ifndef _NETSMB_NETBIOS_H_
 #define	_NETSMB_NETBIOS_H_
@@ -41,16 +42,9 @@
 #include <netinet/in.h>
 #endif
 
-#if IPX
-#ifndef _NETIPX_IPX_H_
-#include <netipx/ipx.h>
-#endif
-#endif
-
 #define PF_NETBIOS	AF_NETBIOS
 
 #define	NBPROTO_TCPSSN	1		/* NETBIOS session over TCP */
-#define	NBPROTO_IPXSSN	11		/* NETBIOS over IPX */
 
 #define NB_NAMELEN	16
 #define	NB_ENCNAMELEN	NB_NAMELEN * 2
@@ -123,13 +117,6 @@
 /*
  * NETBIOS addressing
  */
-union nb_tran {
-	struct sockaddr_in	x_in;
-#if IPX
-	struct sockaddr_ipx	x_ipx;
-#endif
-};
-
 struct nb_name {
 	u_int		nn_type;
 	u_char		nn_name[NB_NAMELEN + 1];
@@ -140,12 +127,14 @@ struct nb_name {
  * Socket address
  */
 struct sockaddr_nb {
-	u_char		snb_len;
-	u_char		snb_family;
-	union nb_tran	snb_tran;		/* transport */
-	u_char		snb_name[1 + NB_ENCNAMELEN + 1];	/* encoded */
+	u_char				snb_len;
+	u_char				snb_family;
+	struct sockaddr_in	snb_addrin;
+	u_char				snb_name[1 + NB_ENCNAMELEN + 1];	/* encoded */
 };
 
-#define	snb_addrin	snb_tran.x_in
+/*
+ * Some day I would like to fix/clean this up, but that will have to way for IP6 */
+#define GET_IP_ADDRESS_FROM_NB(a) (((struct sockaddr_nb *)a)->snb_addrin)
 
 #endif /* !_NETSMB_NETBIOS_H_ */

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2002-2004, International Business Machines
+* Copyright (c) 2002-2005, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -18,6 +18,7 @@ static void TestAPI(void);
 static void Testj2269(void);
 static void TestSerialized(void);
 static void TestNonInvariantPattern(void);
+static void TestBadPattern(void);
 
 void addUSetTest(TestNode** root);
 
@@ -38,6 +39,7 @@ addUSetTest(TestNode** root) {
     TEST(Testj2269);
     TEST(TestSerialized);
     TEST(TestNonInvariantPattern);
+    TEST(TestBadPattern);
 }
 
 /*------------------------------------------------------------------
@@ -92,11 +94,11 @@ static void TestAPI() {
     ec = U_ZERO_ERROR;
     set = uset_openPattern(PAT, PAT_LEN, &ec);
     if(U_FAILURE(ec)) {
-        log_data_err("uset_openPattern([a-c{ab}]) failed - %s\n", u_errorName(ec));
+        log_err("uset_openPattern([a-c{ab}]) failed - %s\n", u_errorName(ec));
         return;
     }
     if(!uset_resemblesPattern(PAT, PAT_LEN, 0)) {
-        log_data_err("uset_resemblesPattern of PAT failed\n");
+        log_err("uset_resemblesPattern of PAT failed\n");
     }
     expect(set, "abc{ab}", "def{bc}", &ec);
 
@@ -131,11 +133,11 @@ static void TestAPI() {
     expect(set, "ghijkl", "de{bc}", NULL);
 
     if (uset_indexOf(set, 0x0067) != 0) {
-        log_data_err("uset_indexOf failed finding correct index of 'g'\n");
+        log_err("uset_indexOf failed finding correct index of 'g'\n");
     }
 
     if (uset_charAt(set, 0) != 0x0067) {
-        log_data_err("uset_charAt failed finding correct char 'g' at index 0\n");
+        log_err("uset_charAt failed finding correct char 'g' at index 0\n");
     }
 
     /* How to test this one...? */
@@ -148,10 +150,18 @@ static void TestAPI() {
     /* UCHAR_ASCII_HEX_DIGIT */
     uset_applyIntPropertyValue(set, UCHAR_ASCII_HEX_DIGIT, 1, &ec);
     if(U_FAILURE(ec)) {
-        log_data_err("uset_applyIntPropertyValue([UCHAR_ASCII_HEX_DIGIT]) failed - %s\n", u_errorName(ec));
+        log_err("uset_applyIntPropertyValue([UCHAR_ASCII_HEX_DIGIT]) failed - %s\n", u_errorName(ec));
         return;
     }
     expect(set, "0123456789ABCDEFabcdef", "GHIjkl{bc}", NULL);
+
+    /* [ab] */
+    uset_clear(set);
+    uset_addAllCodePoints(set, STR_ab, STR_ab_LEN);
+    expect(set, "ab", "def{ab}", NULL);
+    if (uset_containsAllCodePoints(set, STR_bc, STR_bc_LEN)){
+        log_err("set should not conatin all characters of \"bc\" \n");
+    }
 
     /* [] */
     set2 = uset_open(1, 1);
@@ -167,7 +177,13 @@ static void TestAPI() {
     uset_set(set, 0x0067, 0x0069);
 
     /* [a-c g-i] */
+    if (uset_containsSome(set, set2)) {
+        log_err("set should not contain some of set2 yet\n");
+    }
     uset_complementAll(set, set2);
+    if (!uset_containsSome(set, set2)) {
+        log_err("set should contain some of set2\n");
+    }
     expect(set, "abcghi", "def{bc}", NULL);
 
     /* [g-i] */
@@ -460,7 +476,7 @@ TestSerialized() {
     errorCode=U_ZERO_ERROR;
     set=uset_openPattern(pattern, -1, &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_data_err("uset_openPattern([:Cf:]) failed - %s\n", u_errorName(errorCode));
+        log_err("uset_openPattern([:Cf:]) failed - %s\n", u_errorName(errorCode));
         return;
     }
 
@@ -500,6 +516,17 @@ TestNonInvariantPattern() {
        assertion failure. */
     USet *set = uset_openPattern(buf, len, &ec);
     uset_close(set);
+}
+
+static void TestBadPattern(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    USet *pat;
+    U_STRING_DECL(pattern, "[", 1);
+    U_STRING_INIT(pattern, "[", 1);
+    pat = uset_openPatternOptions(pattern, u_strlen(pattern), 0, &status);
+    if (pat != NULL || U_SUCCESS(status)) {
+        log_err("uset_openPatternOptions did not fail as expected %s\n", u_errorName(status));
+    }
 }
 
 /*eof*/

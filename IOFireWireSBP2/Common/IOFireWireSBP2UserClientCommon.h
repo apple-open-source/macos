@@ -65,10 +65,6 @@ enum IOFWSBP2UserClientCommandCodes {
 	kIOFWSBP2UserClientSetBusyTimeoutRegisterValue,   // kIOUCScalarIScalarO 2, 0
 	kIOFWSBP2UserClientSetORBRefCon, 				// kIOUCScalarIScalarO 2, 0
 	kIOFWSBP2UserClientSetPassword,					// kIOUCScalarIScalarO 3, 0
-	kIOFWSBP2UserClientNumCommands
-};
-
-enum IOCDBUserClientAsyncCommandCodes {
     kIOFWSBP2UserClientSetMessageCallback,   		// kIOUCScalarIScalarO 2, 0
     kIOFWSBP2UserClientSetLoginCallback,			// kIOUCScalarIScalarO 2, 0
     kIOFWSBP2UserClientSetLogoutCallback,			// kIOUCScalarIScalarO 2, 0
@@ -77,7 +73,7 @@ enum IOCDBUserClientAsyncCommandCodes {
 	kIOFWSBP2UserClientSetMgmtORBCallback,  		// kIOUCScalarIScalarO 3, 0
 	kIOFWSBP2UserClientSubmitFetchAgentReset,  		// kIOUCScalarIScalarO 3, 0
 	kIOFWSBP2UserClientSetFetchAgentWriteCompletion, // kIOUCScalarIScalaO 2, 0
-    kIOFWSBP2UserClientNumAsyncCommands
+    kIOFWSBP2UserClientNumCommands
 };
 
 #endif

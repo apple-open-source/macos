@@ -26,6 +26,16 @@
 #  include <sys/select.h>
 # endif
 
+# ifndef HAVE_SELECT
+#  ifdef HAVE_SYS_POLL_H
+#   include <sys/poll.h>
+#  else
+#   ifdef HAVE_POLL_H
+#    include <poll.h>
+#   endif
+#  endif
+# endif
+
 /*
  * This file provides procedures that implement the command server functionality
  * of Vim when in contact with an X11 server.
@@ -93,10 +103,14 @@ static PendingCommand *pendingCommands = NULL;
  *
  * Each command and each result takes the form of ASCII text.  For a
  * command, the text consists of a nul character followed by several
- * nul-terminated ASCII strings.  The first string consists of the
- * single letter "c" for an expression, or "k" for keystrokes.  Subsequent
- * strings have the form "option value" where the following options are
- * supported:
+ * nul-terminated ASCII strings.  The first string consists of a
+ * single letter:
+ * "c" for an expression
+ * "k" for keystrokes
+ * "r" for reply
+ * "n" for notification.
+ * Subsequent strings have the form "option value" where the following options
+ * are supported:
  *
  * -r commWindow serial
  *
@@ -109,6 +123,10 @@ static PendingCommand *pendingCommands = NULL;
  * -n name
  *	"Name" gives the name of the application for which the command is
  *	intended.  This option must be present.
+ *
+ * -E encoding
+ *	Encoding name used for the text.  This is the 'encoding' of the
+ *	sender.  The receiver may want to do conversion to his 'encoding'.
  *
  * -s script
  *	"Script" is the script to be executed.  This option must be
@@ -388,9 +406,7 @@ serverSendToVim(dpy, name, cmd,  result, server, asExpr, localLoop, silent)
 	{
 	    char_u *ret;
 
-	    ++emsg_skip;
-	    ret = eval_to_string(cmd, NULL);
-	    --emsg_skip;
+	    ret = eval_client_expr_to_string(cmd);
 	    if (result != NULL)
 	    {
 		if (ret == NULL)
@@ -444,18 +460,29 @@ serverSendToVim(dpy, name, cmd,  result, server, asExpr, localLoop, silent)
     /*
      * Send the command to target interpreter by appending it to the
      * comm window in the communication window.
+     * Length must be computed exactly!
      */
+#ifdef FEAT_MBYTE
+    length = STRLEN(name) + STRLEN(p_enc) + STRLEN(cmd) + 14;
+#else
     length = STRLEN(name) + STRLEN(cmd) + 10;
-    property = (char_u *)alloc((unsigned) length + 30);
+#endif
+    property = (char_u *)alloc((unsigned)length + 30);
 
+#ifdef FEAT_MBYTE
+    sprintf((char *)property, "%c%c%c-n %s%c-E %s%c-s %s",
+		      0, asExpr ? 'c' : 'k', 0, name, 0, p_enc, 0, cmd);
+#else
     sprintf((char *)property, "%c%c%c-n %s%c-s %s",
 		      0, asExpr ? 'c' : 'k', 0, name, 0, cmd);
+#endif
     if (name == loosename)
 	vim_free(loosename);
     /* Add a back reference to our comm window */
     serial++;
     sprintf((char *)property + length, "%c-r %x %d",
 						0, (int_u)commWindow, serial);
+    /* Add length of what "-r %x %d" resulted in, skipping the NUL. */
     length += STRLEN(property + length + 1) + 1;
 
     res = AppendPropCarefully(dpy, w, commProperty, property, length + 1);
@@ -538,7 +565,11 @@ WindowValid(dpy, w)
 
     for (i = 0; i < numProp; i++)
 	if (plist[i] == vimProperty)
+	{
+	    XFree(plist);
 	    return TRUE;
+	}
+    XFree(plist);
     return FALSE;
 }
 
@@ -671,6 +702,7 @@ serverGetVimNames(dpy)
     }
     if (regProp != empty_prop)
 	XFree(regProp);
+    ga_append(&ga, NUL);
     return ga.ga_data;
 }
 
@@ -706,7 +738,6 @@ ServerReplyFind(w, op)
 	    ga_init2(&e.strings, 1, 100);
 	    memcpy(p, &e, sizeof(e));
 	    serverReply.ga_len++;
-	    serverReply.ga_room--;
 	}
     }
     else if (p != NULL && op == SROP_Delete)
@@ -714,7 +745,6 @@ ServerReplyFind(w, op)
 	ga_clear(&p->strings);
 	mch_memmove(p, p + 1, (serverReply.ga_len - i - 1) * sizeof(*p));
 	serverReply.ga_len--;
-	serverReply.ga_room++;
     }
 
     return p;
@@ -738,7 +768,7 @@ serverStrToWin(str)
 }
 
 /*
- * Send a reply string to client with id "name".
+ * Send a reply string (notification) to client with id "name".
  * Return -1 if the window is invalid.
  */
     int
@@ -760,11 +790,21 @@ serverSendReply(name, str)
     if (!WindowValid(dpy, win))
 	return -1;
 
-    length = STRLEN(str) + 7;
-    if ((property = (char_u *)alloc((unsigned) length + 30)) != NULL)
+#ifdef FEAT_MBYTE
+    length = STRLEN(p_enc) + STRLEN(str) + 14;
+#else
+    length = STRLEN(str) + 10;
+#endif
+    if ((property = (char_u *)alloc((unsigned)length + 30)) != NULL)
     {
-	sprintf((char *)property, "%c%c%c-n %s%c-w %x",
-			  0, 'n', 0, str, 0, (unsigned int)commWindow);
+#ifdef FEAT_MBYTE
+	sprintf((char *)property, "%cn%c-E %s%c-n %s%c-w %x",
+			    0, 0, p_enc, 0, str, 0, (unsigned int)commWindow);
+#else
+	sprintf((char *)property, "%cn%c-n %s%c-w %x",
+			    0, 0, str, 0, (unsigned int)commWindow);
+#endif
+	/* Add length of what "%x" resulted in. */
 	length += STRLEN(property + length);
 	res = AppendPropCarefully(dpy, win, commProperty, property, length + 1);
 	vim_free(property);
@@ -807,7 +847,6 @@ serverReadReply(dpy, win, str, localLoop)
 	{
 	    s = (char_u *) p->strings.ga_data;
 	    mch_memmove(s, s + len, p->strings.ga_len - len);
-	    p->strings.ga_room += len;
 	    p->strings.ga_len -= len;
 	}
 	else
@@ -1008,7 +1047,7 @@ DeleteAnyLingerer(dpy, win)
     char_u	*regProp, *entry = NULL;
     char_u	*p;
     long_u	numItems;
-    Window	wwin;
+    int_u	wwin;
 
     /*
      * Read the registry property.
@@ -1021,8 +1060,8 @@ DeleteAnyLingerer(dpy, win)
     {
 	if (*p != 0)
 	{
-	    sscanf((char *)p, "%x", (int_u *)&wwin);
-	    if (wwin == win)
+	    sscanf((char *)p, "%x", &wwin);
+	    if ((Window)wwin == win)
 	    {
 		int lastHalf;
 
@@ -1072,13 +1111,22 @@ GetRegProp(dpy, regPropp, numItemsp, domsg)
     int		result, actualFormat;
     long_u	bytesAfter;
     Atom	actualType;
+    XErrorHandler old_handler;
 
     *regPropp = NULL;
+    old_handler = XSetErrorHandler(x_error_check);
+    got_x_error = FALSE;
+
     result = XGetWindowProperty(dpy, RootWindow(dpy, 0), registryProperty, 0L,
 				(long)MAX_PROP_WORDS, False,
 				XA_STRING, &actualType,
 				&actualFormat, numItemsp, &bytesAfter,
 				regPropp);
+
+    XSync(dpy, FALSE);
+    (void)XSetErrorHandler(old_handler);
+    if (got_x_error)
+	return FAIL;
 
     if (actualType == None)
     {
@@ -1116,6 +1164,7 @@ serverEventProc(dpy, eventPtr)
     int		result, actualFormat, code;
     long_u	numItems, bytesAfter;
     Atom	actualType;
+    char_u	*tofree;
 
     if (eventPtr != NULL)
     {
@@ -1167,6 +1216,7 @@ serverEventProc(dpy, eventPtr)
 	    char_u	*name, *script, *serial, *end, *res;
 	    Bool	asKeys = *p == 'k';
 	    garray_T	reply;
+	    char_u	*enc;
 
 	    /*
 	     * This is an incoming command from some other application.
@@ -1179,6 +1229,7 @@ serverEventProc(dpy, eventPtr)
 	    resWindow = None;
 	    serial = (char_u *)"";
 	    script = NULL;
+	    enc = NULL;
 	    while (p - propInfo < numItems && *p == '-')
 	    {
 		switch (p[1])
@@ -1186,7 +1237,7 @@ serverEventProc(dpy, eventPtr)
 		    case 'r':
 			end = skipwhite(p + 2);
 			resWindow = 0;
-			while (isxdigit(*end))
+			while (vim_isxdigit(*end))
 			{
 			    resWindow = 16 * resWindow + (long_u)hex2nr(*end);
 			    ++end;
@@ -1207,6 +1258,10 @@ serverEventProc(dpy, eventPtr)
 			if (p[2] == ' ')
 			    script = p + 3;
 			break;
+		    case 'E':
+			if (p[2] == ' ')
+			    enc = p + 3;
+			break;
 		}
 		while (*p != 0)
 		    p++;
@@ -1223,22 +1278,26 @@ serverEventProc(dpy, eventPtr)
 	    if (resWindow != None)
 	    {
 		ga_init2(&reply, 1, 100);
+#ifdef FEAT_MBYTE
+		ga_grow(&reply, 50 + STRLEN(p_enc));
+		sprintf(reply.ga_data, "%cr%c-E %s%c-s %s%c-r ",
+						   0, 0, p_enc, 0, serial, 0);
+		reply.ga_len = 14 + STRLEN(p_enc) + STRLEN(serial);
+#else
 		ga_grow(&reply, 50);
 		sprintf(reply.ga_data, "%cr%c-s %s%c-r ", 0, 0, serial, 0);
 		reply.ga_len = 10 + STRLEN(serial);
-		reply.ga_room -= reply.ga_len;
+#endif
 	    }
 	    res = NULL;
 	    if (serverName != NULL && STRICMP(name, serverName) == 0)
 	    {
+		script = serverConvert(enc, script, &tofree);
 		if (asKeys)
 		    server_to_input_buf(script);
 		else
-		{
-		    ++emsg_skip;
-		    res = eval_to_string(script, NULL);
-		    --emsg_skip;
-		}
+		    res = eval_client_expr_to_string(script);
+		vim_free(tofree);
 	    }
 	    if (resWindow != None)
 	    {
@@ -1250,17 +1309,19 @@ serverEventProc(dpy, eventPtr)
 		    ga_append(&reply, 0);
 		    ga_concat(&reply, (char_u *)"-c 1");
 		}
-		ga_append(&reply, 0);
+		ga_append(&reply, NUL);
 		(void)AppendPropCarefully(dpy, resWindow, commProperty,
 					   reply.ga_data, reply.ga_len);
+		ga_clear(&reply);
 	    }
 	    vim_free(res);
 	}
 	else if (*p == 'r' && p[1] == 0)
 	{
-	    int	    serial, gotSerial;
-	    char_u  *res;
-	    PendingCommand *pcPtr;
+	    int		    serial, gotSerial;
+	    char_u	    *res;
+	    PendingCommand  *pcPtr;
+	    char_u	    *enc;
 
 	    /*
 	     * This is a reply to some command that we sent out.  Iterate
@@ -1271,6 +1332,7 @@ serverEventProc(dpy, eventPtr)
 	    gotSerial = 0;
 	    res = (char_u *)"";
 	    code = 0;
+	    enc = NULL;
 	    while ((p-propInfo) < numItems && *p == '-')
 	    {
 		switch (p[1])
@@ -1278,6 +1340,10 @@ serverEventProc(dpy, eventPtr)
 		    case 'r':
 			if (p[2] == ' ')
 			    res = p + 3;
+			break;
+		    case 'E':
+			if (p[2] == ' ')
+			    enc = p + 3;
 			break;
 		    case 's':
 			if (sscanf((char *)p + 2, " %d", &serial) == 1)
@@ -1307,7 +1373,12 @@ serverEventProc(dpy, eventPtr)
 
 		pcPtr->code = code;
 		if (res != NULL)
-		    pcPtr->result = vim_strsave(res);
+		{
+		    res = serverConvert(enc, res, &tofree);
+		    if (tofree == NULL)
+			res = vim_strsave(res);
+		    pcPtr->result = res;
+		}
 		else
 		    pcPtr->result = vim_strsave((char_u *)"");
 		break;
@@ -1321,6 +1392,7 @@ serverEventProc(dpy, eventPtr)
 	    char_u	*str;
 	    char_u	winstr[30];
 	    struct	ServerReply *r;
+	    char_u	*enc;
 
 	    /*
 	     * This is a (n)otification.  Sent with serverreply_send in VimL.
@@ -1329,6 +1401,7 @@ serverEventProc(dpy, eventPtr)
 	    p += 2;
 	    gotWindow = 0;
 	    str = (char_u *)"";
+	    enc = NULL;
 	    while ((p-propInfo) < numItems && *p == '-')
 	    {
 		switch (p[1])
@@ -1336,6 +1409,10 @@ serverEventProc(dpy, eventPtr)
 		    case 'n':
 			if (p[2] == ' ')
 			    str = p + 3;
+			break;
+		    case 'E':
+			if (p[2] == ' ')
+			    enc = p + 3;
 			break;
 		    case 'w':
 			if (sscanf((char *)p + 2, " %x", &u) == 1)
@@ -1352,16 +1429,17 @@ serverEventProc(dpy, eventPtr)
 
 	    if (!gotWindow)
 		continue;
+	    str = serverConvert(enc, str, &tofree);
 	    if ((r = ServerReplyFind(win, SROP_Add)) != NULL)
 	    {
 		ga_concat(&(r->strings), str);
-		ga_append(&(r->strings), 0);
+		ga_append(&(r->strings), NUL);
 	    }
 #ifdef FEAT_AUTOCMD
 	    sprintf((char *)winstr, "0x%x", (unsigned int)win);
 	    apply_autocmds(EVENT_REMOTEREPLY, winstr, str, TRUE, curbuf);
 #endif
-
+	    vim_free(tofree);
 	}
 	else
 	{
@@ -1428,6 +1506,6 @@ IsSerialName(str)
 {
     int len = STRLEN(str);
 
-    return (len > 1 && isdigit(str[len - 1]));
+    return (len > 1 && vim_isdigit(str[len - 1]));
 }
 #endif	/* FEAT_CLIENTSERVER */

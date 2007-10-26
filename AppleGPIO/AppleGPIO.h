@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,6 +129,7 @@ class AppleGPIO : public IOService
 
 		AppleGPIOCallbackInfo	*fClients;	// holds list of interrupt notification clients
 		IOSimpleLock			*fClientsLock;
+		IOLock					*fPFLock;
 
 		bool performFunction(IOPlatformFunction *func, void *pfParam1,
 			void *pfParam2, void *pfParam3, void *pfParam4);

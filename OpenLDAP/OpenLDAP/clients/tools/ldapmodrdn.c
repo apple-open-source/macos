@@ -1,8 +1,8 @@
 /* ldapmodrdn.c - generic program to modify an entry's RDN using LDAP */
-/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.99.2.7 2004/03/17 19:54:53 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/clients/tools/ldapmodrdn.c,v 1.106.2.5 2006/01/03 22:16:01 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * Portions Copyright 1998-2001 Net Boolean Incorporated.
  * Portions Copyright 2001-2003 IBM Corporation.
@@ -52,6 +52,7 @@
 #include <ac/ctype.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
+#include <ac/time.h>
 
 #include <ldap.h>
 #include "lutil.h"
@@ -89,7 +90,7 @@ usage( void )
 
 
 const char options[] = "rs:"
-	"cd:D:e:f:h:H:IkKMnO:p:P:QR:U:vVw:WxX:y:Y:Z";
+	"cd:D:e:f:h:H:IkKMnNO:p:P:QR:U:vVw:WxX:y:Y:Z";
 
 int
 handle_private_option( int i )
@@ -205,7 +206,7 @@ main(int argc, char **argv)
     if (havedn)
 	retval = domodrdn( ld, entrydn, rdn, newSuperior, remove_old_RDN );
     else while ((rc == 0 || contoper) && fgets(buf, sizeof(buf), fp) != NULL) {
-	if ( *buf != '\0' ) {	/* blank lines optional, skip */
+	if ( *buf != '\n' ) {	/* blank lines optional, skip */
 	    buf[ strlen( buf ) - 1 ] = '\0';	/* remove nl */
 
 	    if ( havedn ) {	/* have DN, get RDN */
@@ -227,8 +228,8 @@ main(int argc, char **argv)
 	}
     }
 
-	ldap_unbind_ext( ld, NULL, NULL );
-
+	tool_unbind( ld );
+	tool_destroy();
     return( retval );
 }
 
@@ -263,10 +264,25 @@ static int domodrdn(
 		return rc;
 	}
 
-	rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, NULL, &res );
-	if ( rc < 0 ) {
-		ldap_perror( ld, "ldapmodrdn: ldap_result" );
-		return rc;
+	for ( ; ; ) {
+		struct timeval	tv = { 0, 0 };
+
+		if ( tool_check_abandon( ld, id ) ) {
+			return LDAP_CANCELLED;
+		}
+
+		tv.tv_sec = 0;
+		tv.tv_usec = 100000;
+
+		rc = ldap_result( ld, LDAP_RES_ANY, LDAP_MSG_ALL, &tv, &res );
+		if ( rc < 0 ) {
+			ldap_perror( ld, "ldapmodrdn: ldap_result" );
+			return rc;
+		}
+
+		if ( rc != 0 ) {
+			break;
+		}
 	}
 
 	rc = ldap_parse_result( ld, res, &code, &matcheddn, &text, &refs, NULL, 1 );

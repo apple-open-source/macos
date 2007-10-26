@@ -1,8 +1,9 @@
 ;;; viper-cmd.el --- Vi command support for Viper
 
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Michael Kifer <kifer@cs.sunysb.edu>
+;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 
 ;; This file is part of GNU Emacs.
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -36,11 +37,17 @@
 (defvar viper-always)
 (defvar viper-mode-string)
 (defvar viper-custom-file-name)
+(defvar viper--key-maps)
+(defvar viper--intercept-key-maps)
 (defvar iso-accents-mode)
 (defvar quail-mode)
 (defvar quail-current-str)
 (defvar zmacs-region-stays)
 (defvar mark-even-if-inactive)
+(defvar init-message)
+(defvar initial)
+(defvar undo-beg-posn)
+(defvar undo-end-posn)
 
 ;; loading happens only in non-interactive compilation
 ;; in order to spare non-viperized emacs from being viperized
@@ -90,7 +97,7 @@
 ;; Variables for defining VI commands
 
 ;; Modifying commands that can be prefixes to movement commands
-(defconst viper-prefix-commands '(?c ?d ?y ?! ?= ?# ?< ?> ?\"))
+(defvar viper-prefix-commands '(?c ?d ?y ?! ?= ?# ?< ?> ?\"))
 ;; define viper-prefix-command-p
 (viper-test-com-defun viper-prefix-command)
 
@@ -145,6 +152,10 @@
 ;; Where viper saves mark. This mark is resurrected by m^
 (defvar viper-saved-mark nil)
 
+;; Contains user settings for vars affected by viper-set-expert-level function.
+;; Not a user option.
+(defvar viper-saved-user-settings nil)
+
 
 
 ;;; CODE
@@ -160,7 +171,9 @@
   (run-hook-with-args 'viper-before-change-functions beg end))
 
 (defsubst viper-post-command-sentinel ()
-  (run-hooks 'viper-post-command-hooks)
+  (condition-case conds
+      (run-hooks 'viper-post-command-hooks)
+    (error (viper-message-conditions conds)))
   (if (eq viper-current-state 'vi-state)
       (viper-restore-cursor-color 'after-insert-mode)))
 
@@ -187,6 +200,15 @@
 	    (viper-save-cursor-color 'before-insert-mode))
 	;; set insert mode cursor color
 	(viper-change-cursor-color viper-insert-state-cursor-color)))
+  (if (and viper-emacs-state-cursor-color (eq viper-current-state 'emacs-state))
+      (let ((has-saved-cursor-color-in-emacs-mode
+	     (stringp (viper-get-saved-cursor-color-in-emacs-mode))))
+	(or has-saved-cursor-color-in-emacs-mode
+	    (string= (viper-get-cursor-color) viper-emacs-state-cursor-color)
+	    ;; save current color, if not already saved
+	    (viper-save-cursor-color 'before-emacs-mode))
+	;; set emacs mode cursor color
+	(viper-change-cursor-color viper-emacs-state-cursor-color)))
 
   (if (and (memq this-command '(dabbrev-expand hippie-expand))
 	   (integerp viper-pre-command-point)
@@ -298,10 +320,15 @@
   ;; desirable that viper-pre-command-sentinel is the last hook and
   ;; viper-post-command-sentinel is the first hook.
 
-  (make-local-hook 'viper-after-change-functions)
-  (make-local-hook 'viper-before-change-functions)
-  (make-local-hook 'viper-post-command-hooks)
-  (make-local-hook 'viper-pre-command-hooks)
+  (viper-cond-compile-for-xemacs-or-emacs
+   ;; xemacs
+   (progn
+     (make-local-hook 'viper-after-change-functions)
+     (make-local-hook 'viper-before-change-functions)
+     (make-local-hook 'viper-post-command-hooks)
+     (make-local-hook 'viper-pre-command-hooks))
+   nil ; emacs
+   )
 
   (remove-hook 'post-command-hook 'viper-post-command-sentinel)
   (add-hook 'post-command-hook 'viper-post-command-sentinel)
@@ -344,7 +371,7 @@
 					  'viper-insertion-ring))
 
 		(if viper-ESC-moves-cursor-back
-		    (or (bolp) (backward-char 1))))
+		    (or (bolp) (viper-beginning-of-field) (backward-char 1))))
 	       ))
 
 	;; insert or replace
@@ -381,7 +408,6 @@
   (viper-set-mode-vars-for new-state)
   (viper-refresh-mode-line)
   )
-
 
 
 (defun viper-adjust-keys-for (state)
@@ -429,23 +455,24 @@
 ;; This ensures that Viper bindings are in effect, regardless of which minor
 ;; modes were turned on by the user or by other packages.
 (defun viper-normalize-minor-mode-map-alist ()
-  (setq minor-mode-map-alist
-	(viper-append-filter-alist
-	 (list (cons 'viper-vi-intercept-minor-mode viper-vi-intercept-map)
-	       (cons 'viper-vi-minibuffer-minor-mode viper-minibuffer-map)
-	       (cons 'viper-vi-local-user-minor-mode viper-vi-local-user-map)
-	       (cons 'viper-vi-kbd-minor-mode viper-vi-kbd-map)
-	       (cons 'viper-vi-global-user-minor-mode viper-vi-global-user-map)
-	       (cons 'viper-vi-state-modifier-minor-mode
-		     (if (keymapp
-			  (cdr (assoc major-mode
-				      viper-vi-state-modifier-alist)))
-			 (cdr (assoc major-mode viper-vi-state-modifier-alist))
-		       viper-empty-keymap))
-	       (cons 'viper-vi-diehard-minor-mode  viper-vi-diehard-map)
-	       (cons 'viper-vi-basic-minor-mode     viper-vi-basic-map)
-	       (cons 'viper-insert-intercept-minor-mode
-		     viper-insert-intercept-map)
+  (setq viper--intercept-key-maps
+	(list
+	 (cons 'viper-vi-intercept-minor-mode viper-vi-intercept-map)
+	 (cons 'viper-insert-intercept-minor-mode viper-insert-intercept-map)
+	 (cons 'viper-emacs-intercept-minor-mode viper-emacs-intercept-map)
+	 ))
+  (setq viper--key-maps
+	(list (cons 'viper-vi-minibuffer-minor-mode viper-minibuffer-map)
+	      (cons 'viper-vi-local-user-minor-mode viper-vi-local-user-map)
+	      (cons 'viper-vi-kbd-minor-mode viper-vi-kbd-map)
+	      (cons 'viper-vi-global-user-minor-mode viper-vi-global-user-map)
+	      (cons 'viper-vi-state-modifier-minor-mode
+		    (if (keymapp
+			 (cdr (assoc major-mode viper-vi-state-modifier-alist)))
+			(cdr (assoc major-mode viper-vi-state-modifier-alist))
+		      viper-empty-keymap))
+	      (cons 'viper-vi-diehard-minor-mode  viper-vi-diehard-map)
+	      (cons 'viper-vi-basic-minor-mode     viper-vi-basic-map)
 	       (cons 'viper-replace-minor-mode  viper-replace-map)
 	       ;; viper-insert-minibuffer-minor-mode must come after
 	       ;; viper-replace-minor-mode
@@ -465,8 +492,6 @@
 		       viper-empty-keymap))
 	       (cons 'viper-insert-diehard-minor-mode viper-insert-diehard-map)
 	       (cons 'viper-insert-basic-minor-mode viper-insert-basic-map)
-	       (cons 'viper-emacs-intercept-minor-mode
-		     viper-emacs-intercept-map)
 	       (cons 'viper-emacs-local-user-minor-mode
 		     viper-emacs-local-user-map)
 	       (cons 'viper-emacs-kbd-minor-mode viper-emacs-kbd-map)
@@ -479,8 +504,23 @@
 			 (cdr
 			  (assoc major-mode viper-emacs-state-modifier-alist))
 		       viper-empty-keymap))
-	       )
-	 minor-mode-map-alist)))
+	       ))
+	
+  ;; This var is not local in Emacs, so we make it local.  It must be local
+  ;; because although the stack of minor modes can be the same for all buffers,
+  ;; the associated *keymaps* can be different.  In Viper,
+  ;; viper-vi-local-user-map, viper-insert-local-user-map, and others can have
+  ;; different keymaps for different buffers.  Also, the keymaps associated
+  ;; with viper-vi/insert-state-modifier-minor-mode can be different.
+  ;; ***This is needed only in case emulation-mode-map-alists is not defined.
+  ;; In emacs with emulation-mode-map-alists, nothing needs to be done
+  (unless
+      (and (fboundp 'add-to-ordered-list) (boundp 'emulation-mode-map-alists))
+    (set (make-local-variable 'minor-mode-map-alist)
+         (viper-append-filter-alist
+          (append viper--intercept-key-maps viper--key-maps)
+          minor-mode-map-alist)))
+  )
 
 
 
@@ -488,7 +528,7 @@
 
 ;; Modifies mode-line-buffer-identification.
 (defun viper-refresh-mode-line ()
-  (setq viper-mode-string
+  (set (make-local-variable 'viper-mode-string)
 	(cond ((eq viper-current-state 'emacs-state) viper-emacs-state-id)
 	      ((eq viper-current-state 'vi-state) viper-vi-state-id)
 	      ((eq viper-current-state 'replace-state) viper-replace-state-id)
@@ -615,9 +655,12 @@
 	(indent-to-left-margin))
     (viper-add-newline-at-eob-if-necessary)
     (viper-adjust-undo)
-    (viper-change-state 'vi-state)
 
-    (viper-restore-cursor-color 'after-insert-mode)
+    (if (eq viper-current-state 'emacs-state)
+	(viper-restore-cursor-color 'after-emacs-mode)
+      (viper-restore-cursor-color 'after-insert-mode))
+
+    (viper-change-state 'vi-state)
 
     ;; Protect against user errors in hooks
     (condition-case conds
@@ -681,9 +724,18 @@
   (or (viper-overlay-p viper-replace-overlay)
       (viper-set-replace-overlay (point-min) (point-min)))
   (viper-hide-replace-overlay)
+
+  (if viper-emacs-state-cursor-color
+      (let ((has-saved-cursor-color-in-emacs-mode
+	     (stringp (viper-get-saved-cursor-color-in-emacs-mode))))
+	(or has-saved-cursor-color-in-emacs-mode
+	    (string= (viper-get-cursor-color) viper-emacs-state-cursor-color)
+	    (viper-save-cursor-color 'before-emacs-mode))
+	(viper-change-cursor-color viper-emacs-state-cursor-color)))
+
   (viper-change-state 'emacs-state)
 
-  ;; Protect agains user errors in hooks
+  ;; Protect against user errors in hooks
   (condition-case conds
       (run-hooks 'viper-emacs-state-hook)
     (error
@@ -742,17 +794,20 @@ Vi's prefix argument will be used.  Otherwise, the prefix argument passed to
 
 	  ;; this-command, last-command-char, last-command-event
 	  (setq this-command com)
-	  (if viper-xemacs-p ; XEmacs represents key sequences as vectors
-	      (setq last-command-event
-		    (viper-copy-event (viper-seq-last-elt key))
-		    last-command-char (event-to-character last-command-event))
-	    ;; Emacs represents them as sequences (str or vec)
-	    (setq last-command-event
-		  (viper-copy-event (viper-seq-last-elt key))
-		  last-command-char last-command-event))
+	  (viper-cond-compile-for-xemacs-or-emacs
+	   ;; XEmacs represents key sequences as vectors
+	   (setq last-command-event
+		 (viper-copy-event (viper-seq-last-elt key))
+		 last-command-char (event-to-character last-command-event))
+	   ;; Emacs represents them as sequences (str or vec)
+	   (setq last-command-event
+		 (viper-copy-event (viper-seq-last-elt key))
+		 last-command-char last-command-event)
+	   )
 
 	  (if (commandp com)
-	      (progn
+	      ;; pretend that current state is the state we excaped to
+	      (let ((viper-current-state state))
 		(setq prefix-arg (or prefix-arg arg))
 		(command-execute com)))
 	  )
@@ -786,9 +841,15 @@ Vi's prefix argument will be used.  Otherwise, the prefix argument passed to
 	       ;; key translation. (Such left-overs are possible if the user
 	       ;; types a regular key.)
 	       (let (unread-command-events)
-		 ;; The next 2 cmds are intended to prevent the input method
+		 ;; The next cmd  and viper-set-unread-command-events
+		 ;; are intended to prevent the input method
 		 ;; from swallowing ^M, ^Q and other special characters
-		 (setq ch (read-char))
+		 (setq ch (read-char-exclusive))
+		 ;; replace ^M with the newline
+		 (if (eq ch ?\C-m) (setq ch ?\n))
+		 ;; Make sure ^V and ^Q work as quotation chars
+		 (if (memq ch '(?\C-v ?\C-q))
+		     (setq ch (read-char-exclusive)))
 		 (viper-set-unread-command-events ch)
 		 (quail-input-method nil)
 
@@ -805,7 +866,12 @@ Vi's prefix argument will be used.  Otherwise, the prefix argument passed to
 	       ;; same as above but for XEmacs, which doesn't have
 	       ;; quail-input-method
 	       (let (unread-command-events)
-		 (setq ch (read-char))
+		 (setq ch (read-char-exclusive))
+		 ;; replace ^M with the newline
+		 (if (eq ch ?\C-m) (setq ch ?\n))
+		 ;; Make sure ^V and ^Q work as quotation chars
+		 (if (memq ch '(?\C-v ?\C-q))
+		     (setq ch (read-char-exclusive)))
 		 (viper-set-unread-command-events ch)
 		 (quail-start-translation nil)
 
@@ -818,18 +884,36 @@ Vi's prefix argument will be used.  Otherwise, the prefix argument passed to
 		 ))
 	      ((and (boundp 'iso-accents-mode) iso-accents-mode)
 	       (setq ch (aref (read-key-sequence nil) 0))
+	       ;; replace ^M with the newline
+	       (if (eq ch ?\C-m) (setq ch ?\n))
+	       ;; Make sure ^V and ^Q work as quotation chars
+	       (if (memq ch '(?\C-v ?\C-q))
+		   (setq ch (aref (read-key-sequence nil) 0)))
 	       (insert ch))
 	      (t
-	       (setq ch (read-char))
+	       ;;(setq ch (read-char-exclusive))
+	       (setq ch (aref (read-key-sequence nil) 0))
+	       (if viper-xemacs-p
+		   (setq ch (event-to-character ch)))
+	       ;; replace ^M with the newline
+	       (if (eq ch ?\C-m) (setq ch ?\n))
+	       ;; Make sure ^V and ^Q work as quotation chars
+	       (if (memq ch '(?\C-v ?\C-q))
+		   (progn
+		     ;;(setq ch (read-char-exclusive))
+		     (setq ch (aref (read-key-sequence nil) 0))
+		     (if viper-xemacs-p
+			 (setq ch (event-to-character ch))))
+		 )
 	       (insert ch))
 	      )
 	(setq last-command-event
 	      (viper-copy-event (if viper-xemacs-p
 				    (character-to-event ch) ch)))
 	) ; let
-    (error)
+    (error nil)
     ) ; condition-case
-      
+
   (viper-set-input-method nil)
   (viper-set-iso-accents-mode nil)
   (viper-set-mode-vars-for viper-current-state)
@@ -844,8 +928,7 @@ Vi's prefix argument will be used.  Otherwise, the prefix argument passed to
 
     (condition-case nil
 	(let (viper-vi-kbd-minor-mode) ; execute without kbd macros
-	  (setq result (eval form))
-	  )
+	  (setq result (eval form)))
       (error
        (signal 'quit nil)))
 
@@ -897,8 +980,10 @@ Suffixes such as .el or .elc should be stripped."
 
   ;; Change the default for minor-mode-map-alist each time a harnessed minor
   ;; mode adds its own keymap to the a-list.
-  (eval-after-load
-   load-file '(setq-default minor-mode-map-alist minor-mode-map-alist))
+  (unless
+      (and (fboundp 'add-to-ordered-list) (boundp 'emulation-mode-map-alists))
+    (eval-after-load
+	load-file '(setq-default minor-mode-map-alist minor-mode-map-alist)))
   )
 
 
@@ -953,9 +1038,15 @@ as a Meta key and any number of multiple escapes is allowed."
 	(inhibit-quit t))
     (if (viper-ESC-event-p event)
 	(progn
-	  (if (viper-fast-keysequence-p)
+	  ;; Some versions of Emacs (eg., 22.50.8 have a bug, which makes even
+	  ;; a single ESC into ;; a fast keyseq. To guard against this, we
+	  ;; added a check if there are other events as well. Keep the next
+	  ;; line for the next time the bug reappears, so that will remember to
+	  ;; report it.
+	  ;;(if (and (viper-fast-keysequence-p) unread-command-events)
+	  (if (viper-fast-keysequence-p) ;; for Emacsen without the above bug
 	      (progn
-		(let (minor-mode-map-alist)
+		(let (minor-mode-map-alist emulation-mode-map-alists)
 		  (viper-set-unread-command-events event)
 		  (setq keyseq (read-key-sequence nil 'continue-echo))
 		  ) ; let
@@ -987,7 +1078,7 @@ as a Meta key and any number of multiple escapes is allowed."
 			      (not viper-translate-all-ESC-keysequences))
 			 ;; put keys following ESC on the unread list
 			 ;; and return ESC as the key-sequence
-			 (viper-set-unread-command-events (subseq keyseq 1))
+			 (viper-set-unread-command-events (viper-subseq keyseq 1))
 			 (setq last-input-event event
 			       keyseq (if viper-emacs-p
 					  "\e"
@@ -998,7 +1089,7 @@ as a Meta key and any number of multiple escapes is allowed."
 			 (viper-set-unread-command-events
 			  (vconcat (vector
 				    (character-to-event (event-key first-key)))
-				   (subseq keyseq 1)))
+				   (viper-subseq keyseq 1)))
 			 (setq last-input-event event
 			       keyseq (vector (character-to-event ?\e))))
 			((eventp first-key)
@@ -1029,7 +1120,7 @@ as a Meta key and any number of multiple escapes is allowed."
 
     ;; call the actual function to execute ESC (if no other symbols followed)
     ;; or the key bound to the ESC sequence (if the sequence was issued
-    ;; with very short delay between characters.
+    ;; with very short delay between characters).
     (if (eq cmd 'viper-intercept-ESC-key)
 	(setq cmd
 	      (cond ((eq viper-current-state 'vi-state)
@@ -1172,65 +1263,69 @@ as a Meta key and any number of multiple escapes is allowed."
 	       (setq com char)
 	       (setq char (read-char))))))
 
-  (if (atom com)
-      ;; `com' is a single char, so we construct the command argument
-      ;; and if `char' is `?', we describe the arg; otherwise 
-      ;; we prepare the command that will be executed at the end.
-      (progn
-	(setq cmd-info (cons value com))
-	(while (viper= char ?U)
-	  (viper-describe-arg cmd-info)
-	  (setq char (read-char)))
-	;; `char' is a movement cmd, a digit arg cmd, or a register cmd---so we
-	;; execute it at the very end 
-	(or (viper-movement-command-p char)
-	    (viper-digit-command-p char)
-	    (viper-regsuffix-command-p char)
-	    (viper= char ?!) ; bang command
-	    (error ""))
-	(setq cmd-to-exec-at-end
-	      (viper-exec-form-in-vi 
-	       `(key-binding (char-to-string ,char)))))
+    (if (atom com)
+	;; `com' is a single char, so we construct the command argument
+	;; and if `char' is `?', we describe the arg; otherwise
+	;; we prepare the command that will be executed at the end.
+	(progn
+	  (setq cmd-info (cons value com))
+	  (while (viper= char ?U)
+	    (viper-describe-arg cmd-info)
+	    (setq char (read-char)))
+	  ;; `char' is a movement cmd, a digit arg cmd, or a register cmd---so
+	  ;; we execute it at the very end
+	  (or (viper-movement-command-p char)
+	      (viper-digit-command-p char)
+	      (viper-regsuffix-command-p char)
+	      (viper= char ?!) ; bang command
+	      (viper= char ?g) ; the gg command (like G0)
+	      (error ""))
+	  (setq cmd-to-exec-at-end
+		(viper-exec-form-in-vi
+		 `(key-binding (char-to-string ,char)))))
+
+      ;; as com is non-nil, this means that we have a command to execute
+      (if (viper-memq-char (car com) '(?r ?R))
+	  ;; execute apropriate region command.
+	  (let ((char (car com)) (com (cdr com)))
+	    (setq prefix-arg (cons value com))
+	    (if (viper= char ?r)
+		(viper-region prefix-arg)
+	      (viper-Region prefix-arg))
+	    ;; reset prefix-arg
+	    (setq prefix-arg nil))
+	;; otherwise, reset prefix arg and call appropriate command
+	(setq value (if (null value) 1 value))
+	(setq prefix-arg nil)
+	(cond
+	 ;; If we change ?C to ?c here, then cc will enter replacement mode
+	 ;; rather than deleting lines.  However, it will affect 1 less line
+	 ;; than normal.  We decided to not use replacement mode here and
+	 ;; follow Vi, since replacement mode on n full lines can be achieved
+	 ;; with nC.
+	 ((equal com '(?c . ?c)) (viper-line (cons value ?C)))
+	 ((equal com '(?d . ?d)) (viper-line (cons value ?D)))
+	 ((equal com '(?d . ?y)) (viper-yank-defun))
+	 ((equal com '(?y . ?y)) (viper-line (cons value ?Y)))
+	 ((equal com '(?< . ?<)) (viper-line (cons value ?<)))
+	 ((equal com '(?> . ?>)) (viper-line (cons value ?>)))
+	 ((equal com '(?! . ?!)) (viper-line (cons value ?!)))
+	 ((equal com '(?= . ?=)) (viper-line (cons value ?=)))
+	 ;; gg  acts as G0
+	 ((equal (car com) ?g)   (viper-goto-line 0))
+	 (t (error "")))))
     
-    ;; as com is non-nil, this means that we have a command to execute
-    (if (viper-memq-char (car com) '(?r ?R))
-	;; execute apropriate region command.
-	(let ((char (car com)) (com (cdr com)))
-	  (setq prefix-arg (cons value com))
-	  (if (viper= char ?r)
-	      (viper-region prefix-arg)
-	    (viper-Region prefix-arg))
-	  ;; reset prefix-arg
-	  (setq prefix-arg nil))
-      ;; otherwise, reset prefix arg and call appropriate command
-      (setq value (if (null value) 1 value))
-      (setq prefix-arg nil)
-      (cond 
-       ;; If we change ?C to ?c here, then cc will enter replacement mode
-       ;; rather than deleting lines.  However, it will affect 1 less line than
-       ;; normal.  We decided to not use replacement mode here and follow Vi,
-       ;; since replacement mode on n full lines can be achieved with nC.
-       ((equal com '(?c . ?c)) (viper-line (cons value ?C)))
-       ((equal com '(?d . ?d)) (viper-line (cons value ?D)))
-       ((equal com '(?d . ?y)) (viper-yank-defun))
-       ((equal com '(?y . ?y)) (viper-line (cons value ?Y)))
-       ((equal com '(?< . ?<)) (viper-line (cons value ?<)))
-       ((equal com '(?> . ?>)) (viper-line (cons value ?>)))
-       ((equal com '(?! . ?!)) (viper-line (cons value ?!)))
-       ((equal com '(?= . ?=)) (viper-line (cons value ?=)))
-       (t (error "")))))
-  
-  (if cmd-to-exec-at-end
-      (progn
-	(setq last-command-char char)
-	(setq last-command-event 
-	      (viper-copy-event
-	       (if viper-xemacs-p (character-to-event char) char)))
-	(condition-case nil
-	    (funcall cmd-to-exec-at-end cmd-info)
-	  (error
-	   (error "")))))
-  ))
+    (if cmd-to-exec-at-end
+	(progn
+	  (setq last-command-char char)
+	  (setq last-command-event
+		(viper-copy-event
+		 (if viper-xemacs-p (character-to-event char) char)))
+	  (condition-case nil
+	      (funcall cmd-to-exec-at-end cmd-info)
+	    (error
+	     (error "")))))
+    ))
 
 (defun viper-describe-arg (arg)
   (let (val com)
@@ -1373,7 +1468,8 @@ as a Meta key and any number of multiple escapes is allowed."
 	  (if (eq last-command 'd-command) 'kill-region nil))
     (setq chars-deleted (abs (- (point) viper-com-point)))
     (if (> chars-deleted viper-change-notification-threshold)
-	(message "Deleted %d characters" chars-deleted))
+	(unless (viper-is-in-minibuffer)
+	  (message "Deleted %d characters" chars-deleted)))
     (kill-region viper-com-point (point))
     (setq this-command 'd-command)
     (if viper-ex-style-motion
@@ -1399,7 +1495,8 @@ as a Meta key and any number of multiple escapes is allowed."
 	    (if (eq last-command 'D-command) 'kill-region nil))
       (setq lines-deleted (count-lines (point) viper-com-point))
       (if (> lines-deleted viper-change-notification-threshold)
-	  (message "Deleted %d lines" lines-deleted))
+	  (unless (viper-is-in-minibuffer)
+	    (message "Deleted %d lines" lines-deleted)))
       (kill-region (mark t) (point))
       (if (eq m-com 'viper-line) (setq this-command 'D-command)))
     (back-to-indentation)))
@@ -1424,7 +1521,8 @@ as a Meta key and any number of multiple escapes is allowed."
     (copy-region-as-kill viper-com-point (point))
     (setq chars-saved (abs (- (point) viper-com-point)))
     (if (> chars-saved viper-change-notification-threshold)
-	(message "Saved %d characters" chars-saved))
+	(unless (viper-is-in-minibuffer)
+	  (message "Saved %d characters" chars-saved)))
     (goto-char viper-com-point)))
 
 ;; save lines
@@ -1448,7 +1546,8 @@ as a Meta key and any number of multiple escapes is allowed."
       (copy-region-as-kill (mark t) (point))
       (setq lines-saved (count-lines (mark t) (point)))
       (if (> lines-saved viper-change-notification-threshold)
-	  (message "Saved %d lines" lines-saved))))
+	  (unless (viper-is-in-minibuffer)
+	    (message "Saved %d lines" lines-saved)))))
   (viper-deactivate-mark)
   (goto-char viper-com-point))
 
@@ -1495,7 +1594,8 @@ as a Meta key and any number of multiple escapes is allowed."
   nil)
 
 (defun viper-exec-buffer-search (m-com com)
-  (setq viper-s-string (buffer-substring (point) viper-com-point))
+  (setq viper-s-string
+	(regexp-quote (buffer-substring (point) viper-com-point)))
   (setq viper-s-forward t)
   (setq viper-search-history (cons viper-s-string viper-search-history))
   (setq viper-intermediate-command 'viper-exec-buffer-search)
@@ -1637,6 +1737,7 @@ invokes the command before that, etc."
 			(max viper-com-point (point))))
 	((viper= char ?g)
 	 (push-mark viper-com-point t)
+	 ;; execute the last emacs kbd macro on each line of the region
 	 (viper-global-execute))
 	((viper= char ?q)
 	 (push-mark viper-com-point t)
@@ -1648,42 +1749,63 @@ invokes the command before that, etc."
 
 ;; undoing
 
+;; hook used inside undo
+(defvar viper-undo-functions nil)
+
+;; Runs viper-before-change-functions inside before-change-functions
+(defun viper-undo-sentinel (beg end length)
+  (run-hook-with-args 'viper-undo-functions beg end length))
+
+(add-hook 'after-change-functions 'viper-undo-sentinel)
+
+;; Hook used in viper-undo
+(defun viper-after-change-undo-hook (beg end len)
+  (if (and (boundp 'undo-in-progress) undo-in-progress)
+      (setq undo-beg-posn beg
+	    undo-end-posn (or end beg))
+    ;; some other hooks may be changing various text properties in
+    ;; the buffer in response to 'undo'; so remove this hook to avoid
+    ;; its repeated invocation
+    (remove-hook 'viper-undo-functions 'viper-after-change-undo-hook 'local)
+  ))
+
 (defun viper-undo ()
   "Undo previous change."
   (interactive)
   (message "undo!")
   (let ((modified (buffer-modified-p))
         (before-undo-pt (point-marker))
-	(after-change-functions after-change-functions)
 	undo-beg-posn undo-end-posn)
 
-    ;; no need to remove this hook, since this var has scope inside a let.
-    (add-hook 'after-change-functions
-	      '(lambda (beg end len)
-		 (setq undo-beg-posn beg
-		       undo-end-posn (or end beg))))
+    ;; the viper-after-change-undo-hook removes itself after the 1st invocation
+    (add-hook 'viper-undo-functions 'viper-after-change-undo-hook nil 'local)
 
     (undo-start)
     (undo-more 2)
-    (setq undo-beg-posn (or undo-beg-posn before-undo-pt)
-	  undo-end-posn (or undo-end-posn undo-beg-posn))
+    ;;(setq undo-beg-posn (or undo-beg-posn (point))
+    ;;    undo-end-posn (or undo-end-posn (point)))
+    ;;(setq undo-beg-posn (or undo-beg-posn before-undo-pt)
+    ;;      undo-end-posn (or undo-end-posn undo-beg-posn))
 
-    (goto-char undo-beg-posn)
-    (sit-for 0)
-    (if (and viper-keep-point-on-undo
-	     (pos-visible-in-window-p before-undo-pt))
+    (if (and undo-beg-posn undo-end-posn)
 	(progn
-	  (push-mark (point-marker) t)
-	  (viper-sit-for-short 300)
-	  (goto-char undo-end-posn)
-	  (viper-sit-for-short 300)
-	  (if (and (> (viper-chars-in-region undo-beg-posn before-undo-pt) 1)
-		   (> (viper-chars-in-region undo-end-posn before-undo-pt) 1))
-	      (goto-char before-undo-pt)
-	    (goto-char undo-beg-posn)))
-      (push-mark before-undo-pt t))
+	  (goto-char undo-beg-posn)
+	  (sit-for 0)
+	  (if (and viper-keep-point-on-undo
+		   (pos-visible-in-window-p before-undo-pt))
+	      (progn
+		(push-mark (point-marker) t)
+		(viper-sit-for-short 300)
+		(goto-char undo-end-posn)
+		(viper-sit-for-short 300)
+		(if (pos-visible-in-window-p undo-beg-posn)
+		    (goto-char before-undo-pt)
+		  (goto-char undo-beg-posn)))
+	    (push-mark before-undo-pt t))
+	  ))
+
     (if (and (eolp) (not (bolp))) (backward-char 1))
-    (if (not modified) (set-buffer-modified-p t)))
+    )
   (setq this-command 'viper-undo))
 
 ;; Continue undoing previous changes.
@@ -1731,7 +1853,7 @@ invokes the command before that, etc."
 	    (setq viper-undo-needs-adjustment t)))))
 
 
-
+;;; Viper's destructive Command ring utilities
 
 (defun viper-display-current-destructive-command ()
   (let ((text (nth 4 viper-d-com))
@@ -1743,13 +1865,14 @@ invokes the command before that, etc."
     (message " `.' runs  %s%s"
 	     (concat "`" (viper-array-to-string keys) "'")
 	     (viper-abbreviate-string
-	      (if viper-xemacs-p
-		  (replace-in-string
-		   (cond ((characterp text) (char-to-string text))
-			 ((stringp text) text)
-			 (t ""))
-		   "\n" "^J")
-		text)
+	      (viper-cond-compile-for-xemacs-or-emacs
+	       (replace-in-string ; xemacs
+		(cond ((characterp text) (char-to-string text))
+		      ((stringp text) text)
+		      (t ""))
+		"\n" "^J")
+	       text ; emacs
+	       )
 	      max-text-len
 	      "  inserting  `" "'" "    ......."))
     ))
@@ -1844,12 +1967,22 @@ Undo previous insertion and inserts new."
       (end-of-line)
       ;; make sure all lines end with newline, unless in the minibuffer or
       ;; when requested otherwise (require-final-newline is nil)
-      (if (and (eobp)
-	       (not (bolp))
-	       require-final-newline
-	       (not (viper-is-in-minibuffer))
-	       (not buffer-read-only))
-	  (insert "\n"))))
+      (save-restriction
+	(widen)
+	(if (and (eobp)
+		 (not (bolp))
+		 require-final-newline
+		 ;; add newline only if we actually edited buffer. otherwise it
+		 ;; might unintentionally modify binary buffers
+		 (buffer-modified-p) 
+		 (not (viper-is-in-minibuffer))
+		 (not buffer-read-only))
+	    ;; text property may be read-only
+	    (condition-case nil
+		(insert "\n")
+	      (error nil))
+	  ))
+      ))
 
 (defun viper-yank-defun ()
   (mark-defun)
@@ -1940,19 +2073,30 @@ Undo previous insertion and inserts new."
 ;;; Minibuffer business
 
 (defsubst viper-set-minibuffer-style ()
-  (add-hook 'minibuffer-setup-hook 'viper-minibuffer-setup-sentinel))
+  (add-hook 'minibuffer-setup-hook 'viper-minibuffer-setup-sentinel)
+  (add-hook 'post-command-hook 'viper-minibuffer-post-command-hook))
 
 
 (defun viper-minibuffer-setup-sentinel ()
   (let ((hook (if viper-vi-style-in-minibuffer
 		  'viper-change-state-to-insert
 		'viper-change-state-to-emacs)))
+    ;; making buffer-local variables so that normal buffers won't affect the
+    ;; minibuffer and vice versa. Otherwise, command arguments will affect
+    ;; minibuffer ops and insertions from the minibuffer will change those in
+    ;; the normal buffers
+    (make-local-variable 'viper-d-com)
+    (make-local-variable 'viper-last-insertion)
+    (make-local-variable 'viper-command-ring)
+    (setq viper-d-com nil
+	  viper-last-insertion nil
+	  viper-command-ring nil)
     (funcall hook)
     ))
 
 ;; Thie is a temp hook that uses free variables init-message and initial.
 ;; A dirty feature, but it is the simplest way to have it do the right thing.
-;; The INIT-MESSAGE and INITIAL vars come from the scope set by 
+;; The INIT-MESSAGE and INITIAL vars come from the scope set by
 ;; viper-read-string-with-history
 (defun viper-minibuffer-standard-hook ()
   (if (stringp init-message)
@@ -1973,6 +2117,11 @@ Undo previous insertion and inserts new."
       (minibuffer-prompt-end)
     (point-min)))
 
+(defun viper-minibuffer-post-command-hook()
+  (when (active-minibuffer-window)
+    (when (< (point) (viper-minibuffer-real-start))
+      (goto-char (viper-minibuffer-real-start)))))
+
 
 ;; Interpret last event in the local map first; if fails, use exit-minibuffer.
 ;; Run viper-minibuffer-exit-hook before exiting.
@@ -1991,7 +2140,7 @@ Undo previous insertion and inserts new."
   '("" "tex" "c" "cc" "C" "java" "el" "html" "htm" "xml"
     "pl" "flr" "P" "p" "h" "H")
   "*List of suffixes that Viper tries to append to filenames ending with a `.'.
-This is useful when you the current directory contains files with the same
+This is useful when the current directory contains files with the same
 prefix and many different suffixes.  Usually, only one of the suffixes
 represents an editable file.  However, file completion will stop at the `.'
 The smart suffix feature lets you hit RET in such a case, and Viper will
@@ -2036,9 +2185,10 @@ To turn this feature off, set this variable to nil."
 		  (setq cmd
 			(key-binding (setq key (read-key-sequence nil))))
 		  (cond ((eq cmd 'self-insert-command)
-			 (if viper-xemacs-p
-			     (insert (events-to-keys key))
-			   (insert key)))
+			 (viper-cond-compile-for-xemacs-or-emacs
+			  (insert (events-to-keys key)) ; xemacs
+			  (insert key) ; emacs
+			  ))
 			((memq cmd '(exit-minibuffer viper-exit-minibuffer))
 			 nil)
 			(t (command-execute cmd)))
@@ -2051,7 +2201,7 @@ To turn this feature off, set this variable to nil."
 Remove this function from `viper-minibuffer-exit-hook', if this causes
 problems."
   (if (viper-is-in-minibuffer)
-      (progn
+      (let ((inhibit-field-text-motion t))
 	(goto-char (viper-minibuffer-real-start))
 	(end-of-line)
 	(delete-region (point) (point-max)))))
@@ -2087,7 +2237,7 @@ problems."
     (setq keymap (or keymap minibuffer-local-map)
 	  initial (or initial "")
 	  temp-msg (if default
-		       (format "(default: %s) " default)
+		       (format "(default %s) " default)
 		     ""))
 
     (setq viper-incomplete-ex-cmd nil)
@@ -2503,7 +2653,7 @@ These keys are ESC, RET, and LineFeed"
     ;; last line of buffer when this line has no \n.
     (viper-add-newline-at-eob-if-necessary)
     (viper-execute-com 'viper-line val com))
-  (if (and (eobp) (not (bobp))) (forward-line -1))
+  (if (and (eobp) (bolp) (not (bobp))) (forward-line -1))
   )
 
 (defun viper-yank-line (arg)
@@ -2554,22 +2704,20 @@ These keys are ESC, RET, and LineFeed"
     (or (eq viper-intermediate-command 'viper-repeat)
 	(viper-special-read-and-insert-char))
 
-      (if (eq char ?\C-m) (setq char ?\n))
+    (delete-char 1 t)
+    (setq char (if com viper-d-char (viper-char-at-pos 'backward)))
 
-      (delete-char 1 t)
+    (if com (insert char))
 
-      (setq char (if com viper-d-char (viper-char-at-pos 'backward)))
-      (if com (insert char))
+    (setq viper-d-char char)
 
-      (setq viper-d-char char)
+    (viper-loop (1- (if (> arg 0) arg (- arg)))
+		(delete-char 1 t)
+		(insert char))
 
-      (viper-loop (1- (if (> arg 0) arg (- arg)))
-		  (delete-char 1 t)
-		  (insert char))
-
-      (viper-adjust-undo)
-      (backward-char arg)
-      ))
+    (viper-adjust-undo)
+    (backward-char arg)
+    ))
 
 
 ;; basic cursor movement.  j, k, l, h commands.
@@ -2621,7 +2769,7 @@ On reaching beginning of line, stop and signal error."
   (let ((pt (point)))
     (condition-case nil
 	(forward-char arg)
-      (error))
+      (error nil))
     (if (< (point) pt) ; arg was negative
 	(- (viper-chars-in-region pt (point)))
       (viper-chars-in-region pt (point)))))
@@ -2635,7 +2783,7 @@ On reaching beginning of line, stop and signal error."
   (let ((pt (point)))
     (condition-case nil
 	(backward-char arg)
-      (error))
+      (error nil))
     (if (> (point) pt) ; arg was negative
 	(viper-chars-in-region pt (point))
       (- (viper-chars-in-region pt (point))))))
@@ -2673,7 +2821,7 @@ On reaching beginning of line, stop and signal error."
     (viper-backward-char-carefully)
     (if (looking-at "\n")
 	(viper-skip-all-separators-backward 'within-line)
-      (or (bobp) (forward-char)))))
+      (or (viper-looking-at-separator) (forward-char)))))
 
 
 (defun viper-forward-word-kernel (val)
@@ -2947,19 +3095,34 @@ On reaching beginning of line, stop and signal error."
     (setq this-command 'next-line)
     (if com (viper-execute-com 'viper-next-line val com))))
 
+
 (defun viper-next-line-at-bol (arg)
-  "Next line at beginning of line."
+  "Next line at beginning of line.
+If point is on a widget or a button, simulate clicking on that widget/button."
   (interactive "P")
-  (viper-leave-region-active)
-  (save-excursion
-    (end-of-line)
-    (if (eobp) (error "Last line in buffer")))
-  (let ((val (viper-p-val arg))
-	(com (viper-getCom arg)))
-    (if com (viper-move-marker-locally 'viper-com-point (point)))
-    (forward-line val)
-    (back-to-indentation)
-    (if com (viper-execute-com 'viper-next-line-at-bol val com))))
+  (let* ((field (get-char-property (point) 'field))
+	 (button (get-char-property (point) 'button))
+	 (doc (get-char-property (point) 'widget-doc))
+	 (widget (or field button doc)))
+    (if (and widget
+             (if (symbolp widget)
+                 (get widget 'widget-type)
+               (and (consp widget)
+                    (get (widget-type widget) 'widget-type))))
+        (widget-button-press (point))
+      (if (and (fboundp 'button-at) (fboundp 'push-button) (button-at (point)))
+          (push-button)
+	;; not a widget or a button
+        (viper-leave-region-active)
+        (save-excursion
+          (end-of-line)
+          (if (eobp) (error "Last line in buffer")))
+        (let ((val (viper-p-val arg))
+              (com (viper-getCom arg)))
+          (if com (viper-move-marker-locally 'viper-com-point (point)))
+          (forward-line val)
+          (back-to-indentation)
+          (if com (viper-execute-com 'viper-next-line-at-bol val com)))))))
 
 
 (defun viper-previous-line (arg)
@@ -3086,7 +3249,7 @@ On reaching beginning of line, stop and signal error."
 (defun viper-find-char-forward (arg)
   "Find char on the line.
 If called interactively read the char to find from the terminal, and if
-called from viper-repeat, the char last used is used.  This behaviour is
+called from viper-repeat, the char last used is used.  This behavior is
 controlled by the sign of prefix numeric value."
   (interactive "P")
   (let ((val (viper-p-val arg))
@@ -3302,9 +3465,11 @@ controlled by the sign of prefix numeric value."
 ;; (which is called from viper-search-forward/backward/next).  If the value of
 ;; viper-search-scroll-threshold is negative - don't scroll.
 (defun viper-adjust-window ()
-  (let ((win-height (if viper-emacs-p
-			(1- (window-height)) ; adjust for modeline
-		      (window-displayed-height)))
+  (let ((win-height (viper-cond-compile-for-xemacs-or-emacs
+		     (window-displayed-height) ; xemacs
+		     ;; emacs
+		     (1- (window-height)) ; adjust for modeline
+		     ))
 	(pt (point))
 	at-top-p at-bottom-p
 	min-scroll direction)
@@ -3594,31 +3759,37 @@ the Emacs binding of `/'."
 	   (setq msg "Search style remains unchanged")))
     (princ msg t)))
 
-(defun viper-set-searchstyle-toggling-macros (unset)
+(defun viper-set-searchstyle-toggling-macros (unset &optional major-mode)
   "Set the macros for toggling the search style in Viper's vi-state.
 The macro that toggles case sensitivity is bound to `//', and the one that
 toggles regexp search is bound to `///'.
-With a prefix argument, this function unsets the macros. "
+With a prefix argument, this function unsets the macros.
+If MAJOR-MODE is set, set the macros only in that major mode."
   (interactive "P")
-  (or noninteractive
-      (if (not unset)
-	  (progn
-	    ;; toggle case sensitivity in search
-	    (viper-record-kbd-macro
-	     "//" 'vi-state
-	     [1 (meta x) v i p e r - t o g g l e - s e a r c h - s t y l e return]
-	     't)
-	    ;; toggle regexp/vanila search
-	    (viper-record-kbd-macro
-	     "///" 'vi-state
-	     [2 (meta x) v i p e r - t o g g l e - s e a r c h - s t y l e return]
-	     't)
-	    (if (interactive-p)
-		(message
-		 "// and /// now toggle case-sensitivity and regexp search")))
-	(viper-unrecord-kbd-macro "//" 'vi-state)
-	(sit-for 2)
-	(viper-unrecord-kbd-macro "///" 'vi-state))))
+  (let (scope)
+    (if (and major-mode (symbolp major-mode))
+	(setq scope major-mode)
+      (setq scope 't))
+    (or noninteractive
+	(if (not unset)
+	    (progn
+	      ;; toggle case sensitivity in search
+	      (viper-record-kbd-macro
+	       "//" 'vi-state
+	       [1 (meta x) v i p e r - t o g g l e - s e a r c h - s t y l e return]
+	       scope)
+	      ;; toggle regexp/vanila search
+	      (viper-record-kbd-macro
+	       "///" 'vi-state
+	       [2 (meta x) v i p e r - t o g g l e - s e a r c h - s t y l e return]
+	       scope)
+	      (if (interactive-p)
+		  (message
+		   "// and /// now toggle case-sensitivity and regexp search")))
+	  (viper-unrecord-kbd-macro "//" 'vi-state)
+	  (sit-for 2)
+	  (viper-unrecord-kbd-macro "///" 'vi-state)))
+    ))
 
 
 (defun viper-set-parsing-style-toggling-macro (unset)
@@ -3679,7 +3850,8 @@ Null string will repeat previous search."
   (interactive "P")
   (let ((val (viper-P-val arg))
 	(com (viper-getcom arg))
-	(old-str viper-s-string))
+	(old-str viper-s-string)
+	debug-on-error)
     (setq viper-s-forward t)
     (viper-if-string "/")
     ;; this is not used at present, but may be used later
@@ -3691,7 +3863,8 @@ Null string will repeat previous search."
     (if com
 	(progn
 	  (viper-move-marker-locally 'viper-com-point (mark t))
-	  (viper-execute-com 'viper-search-next val com)))))
+	  (viper-execute-com 'viper-search-next val com)))
+    ))
 
 (defun viper-search-backward (arg)
   "Search a string backward.
@@ -3700,7 +3873,8 @@ Null string will repeat previous search."
   (interactive "P")
   (let ((val (viper-P-val arg))
 	(com (viper-getcom arg))
-	(old-str viper-s-string))
+	(old-str viper-s-string)
+	debug-on-error)
     (setq viper-s-forward nil)
     (viper-if-string "?")
     ;; this is not used at present, but may be used later
@@ -3805,8 +3979,10 @@ Null string will repeat previous search."
   "Repeat previous search."
   (interactive "P")
   (let ((val (viper-p-val arg))
-	(com (viper-getcom arg)))
-    (if (null viper-s-string) (error viper-NoPrevSearch))
+	(com (viper-getcom arg))
+	debug-on-error)
+    (if (or (null viper-s-string) (string= viper-s-string ""))
+	(error viper-NoPrevSearch))
     (viper-search viper-s-string viper-s-forward arg)
     (if com
 	(progn
@@ -3817,7 +3993,8 @@ Null string will repeat previous search."
   "Repeat previous search in the reverse direction."
   (interactive "P")
   (let ((val (viper-p-val arg))
-	(com (viper-getcom arg)))
+	(com (viper-getcom arg))
+	debug-on-error)
     (if (null viper-s-string) (error viper-NoPrevSearch))
     (viper-search viper-s-string (not viper-s-forward) arg)
     (if com
@@ -3831,11 +4008,12 @@ Null string will repeat previous search."
 (defun viper-buffer-search-enable (&optional c)
   (cond (c (setq viper-buffer-search-char c))
 	((null viper-buffer-search-char)
+	 ;; ?g acts as a default value for viper-buffer-search-char
 	 (setq viper-buffer-search-char ?g)))
   (define-key viper-vi-basic-map
     (cond ((viper-characterp viper-buffer-search-char)
 	   (char-to-string viper-buffer-search-char))
-	  (t (error "viper-buffer-search-char: wrong value type, %s"
+	  (t (error "viper-buffer-search-char: wrong value type, %S"
 		    viper-buffer-search-char)))
     'viper-command-argument)
   (aset viper-exec-array viper-buffer-search-char 'viper-exec-buffer-search)
@@ -3948,8 +4126,9 @@ Null string will repeat previous search."
 	  lines-inserted (abs (count-lines (point) sv-point)))
     (if (or (> chars-inserted viper-change-notification-threshold)
 	    (> lines-inserted viper-change-notification-threshold))
-	(message "Inserted %d character(s), %d line(s)"
-		 chars-inserted lines-inserted)))
+	(unless (viper-is-in-minibuffer)
+	  (message "Inserted %d character(s), %d line(s)"
+		   chars-inserted lines-inserted))))
   ;; Vi puts cursor on the last char when the yanked text doesn't contain a
   ;; newline; it leaves the cursor at the beginning when the text contains
   ;; a newline
@@ -3990,8 +4169,9 @@ Null string will repeat previous search."
 	  lines-inserted (abs (count-lines (point) sv-point)))
     (if (or (> chars-inserted viper-change-notification-threshold)
 	    (> lines-inserted viper-change-notification-threshold))
-	(message "Inserted %d character(s), %d line(s)"
-		 chars-inserted lines-inserted)))
+	(unless (viper-is-in-minibuffer)
+	  (message "Inserted %d character(s), %d line(s)"
+		   chars-inserted lines-inserted))))
   ;; Vi puts cursor on the last char when the yanked text doesn't contain a
   ;; newline; it leaves the cursor at the beginning when the text contains
   ;; a newline
@@ -4076,7 +4256,8 @@ Null string will repeat previous search."
   (interactive)
   (if (and viper-ex-style-editing (bolp))
       (beep 1)
-    (delete-backward-char 1 t)))
+    ;; don't put on kill ring
+    (delete-backward-char 1 nil)))
 
 
 (defun viper-del-backward-char-in-replace ()
@@ -4088,13 +4269,15 @@ cursor move past the beginning of line."
   (interactive)
   (cond (viper-delete-backwards-in-replace
 	 (cond ((not (bolp))
-		(delete-backward-char 1 t))
+		;; don't put on kill ring
+		(delete-backward-char 1 nil))
 	       (viper-ex-style-editing
 		(beep 1))
 	       ((bobp)
 		(beep 1))
 	       (t
-		(delete-backward-char 1 t))))
+		;; don't put on kill ring
+		(delete-backward-char 1 nil))))
 	(viper-ex-style-editing
 	 (if (bolp)
 	     (beep 1)
@@ -4554,8 +4737,6 @@ One can use `` and '' to temporarily jump 1 step back."
 	  (t (error viper-InvalidTextmarker reg)))))
 
 
-
-;; commands in insertion mode
 
 (defun viper-delete-backward-word (arg)
   "Delete previous word."
@@ -4565,6 +4746,17 @@ One can use `` and '' to temporarily jump 1 step back."
     (backward-word arg)
     (delete-region (point) (mark t))
     (pop-mark)))
+
+
+
+;; Get viper standard value of SYMBOL.  If symbol is customized, get its
+;; standard value.  Otherwise, get the value saved in the alist STORAGE.  If
+;; STORAGE is nil, use viper-saved-user-settings.
+(defun viper-standard-value (symbol &optional storage)
+  (or (eval (car (get symbol 'customized-value)))
+      (eval (car (get symbol 'saved-value)))
+      (nth 1 (assoc symbol (or storage viper-saved-user-settings)))))
+
 
 
 (defun viper-set-expert-level (&optional dont-change-unless)
@@ -4683,7 +4875,7 @@ sensitive for VI-style look-and-feel."
 	      level-changed t)
 	(insert "
 Please specify your level of familiarity with the venomous VI PERil
-(and the VI Plan for Emacs Rescue).
+\(and the VI Plan for Emacs Rescue).
 You can change it at any time by typing `M-x viper-set-expert-level RET'
 
  1 -- BEGINNER: Almost all Emacs features are suppressed.
@@ -4693,7 +4885,7 @@ You can change it at any time by typing `M-x viper-set-expert-level RET'
  2 -- MASTER: C-c now has its standard Emacs meaning in Vi command state,
        so most Emacs commands can be used when Viper is in Vi state.
        Good progress---you are well on the way to level 3!
- 3 -- GRAND MASTER: Like 3, but most Emacs commands are available also
+ 3 -- GRAND MASTER: Like 2, but most Emacs commands are available also
        in Viper's insert state.
  4 -- GURU: Like 3, but user settings are respected for viper-no-multiple-ESC,
        viper-ex-style-motion, viper-ex-style-editing, and
@@ -4892,7 +5084,7 @@ Mail anyway (y or n)? ")
 	  (require 'reporter)
 	  (set-window-configuration window-config)
 
-	  (reporter-submit-bug-report "kifer@cs.sunysb.edu"
+	  (reporter-submit-bug-report "kifer@cs.stonybrook.edu"
 				      (viper-version)
 				      varlist
 				      nil 'delete-other-windows
@@ -4901,53 +5093,6 @@ Mail anyway (y or n)? ")
 
 
 
-;; Smoothes out the difference between Emacs' unread-command-events
-;; and XEmacs unread-command-event.  Arg is a character, an event, a list of
-;; events or a sequence of keys.
-;;
-;; Due to the way unread-command-events in Emacs (not XEmacs), a non-event
-;; symbol in unread-command-events list may cause Emacs to turn this symbol
-;; into an event.  Below, we delete nil from event lists, since nil is the most
-;; common symbol that might appear in this wrong context.
-(defun viper-set-unread-command-events (arg)
-  (if viper-emacs-p
-      (setq
-       unread-command-events
-       (let ((new-events
-	      (cond ((eventp arg) (list arg))
-		    ((listp arg) arg)
-		    ((sequencep arg)
-		     (listify-key-sequence arg))
-		    (t (error
-			"viper-set-unread-command-events: Invalid argument, %S"
-			arg)))))
-	 (if (not (eventp nil))
-	     (setq new-events (delq nil new-events)))
-	 (append new-events unread-command-events)))
-    ;; XEmacs
-    (setq
-     unread-command-events
-     (append
-      (cond ((viper-characterp arg) (list (character-to-event arg)))
-	    ((eventp arg)  (list arg))
-	    ((stringp arg) (mapcar 'character-to-event arg))
-	    ((vectorp arg) (append arg nil)) ; turn into list
-	    ((listp arg) (viper-eventify-list-xemacs arg))
-	    (t (error
-		"viper-set-unread-command-events: Invalid argument, %S" arg)))
-      unread-command-events))))
 
-;; list is assumed to be a list of events of characters
-(defun viper-eventify-list-xemacs (lis)
-  (mapcar
-   (lambda (elt)
-     (cond ((viper-characterp elt) (character-to-event elt))
-	   ((eventp elt)  elt)
-	   (t (error
-	       "viper-eventify-list-xemacs: can't convert to event, %S"
-	       elt))))
-   lis))
-  
-  
-
+;; arch-tag: 739a6450-5fda-44d0-88b0-325053d888c2
 ;;; viper-cmd.el ends here

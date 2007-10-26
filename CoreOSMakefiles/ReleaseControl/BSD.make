@@ -61,7 +61,7 @@ Install_Target = install
 
 .PHONY: bsd_install
 
-BSD_Install_Targets = $(BSD_Before_Install) BSD_install_dirs BSD_install BSD_clean_dirs $(BSD_After_Install)
+BSD_Install_Targets = $(BSD_Before_Install) BSD_install_dirs BSD_install BSD_clean_dirs $(BSD_After_Install) compress_man_pages
 
 install:: $(BSD_Install_Targets)
 
@@ -76,7 +76,7 @@ BSD_install:: build
 	$(_v) umask $(Install_Mask) ; $(Environment) $(BSDMAKE) $(Install_Environment) $(Install_Target)
 
 BSD_clean_dirs::
-	-$(_v) $(FIND) -d $(DSTROOT) -type d -print0 | $(XARGS) -0 rmdir 2> /dev/null
+	-$(_v) $(FIND) -d $(DSTROOT) -type d -exec rmdir "{}" \; 2> /dev/null
 
 BSD_Build_Targets = $(BSD_Before_Build) BSD_build $(BSD_After_Build)
 

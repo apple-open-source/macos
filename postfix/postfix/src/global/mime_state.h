@@ -26,14 +26,13 @@
   */
 typedef struct MIME_STATE MIME_STATE;
 typedef void (*MIME_STATE_HEAD_OUT) (void *, int, HEADER_OPTS *, VSTRING *, off_t);
-typedef void (*MIME_STATE_BODY_OUT) (void *, int, const char *, int, off_t);
+typedef void (*MIME_STATE_BODY_OUT) (void *, int, const char *, ssize_t, off_t);
 typedef void (*MIME_STATE_ANY_END) (void *);
-typedef void (*MIME_STATE_ERR_PRINT) (void *, int, const char *);
+typedef void (*MIME_STATE_ERR_PRINT) (void *, int, const char *, ssize_t);
 
 extern MIME_STATE *mime_state_alloc(int, MIME_STATE_HEAD_OUT, MIME_STATE_ANY_END, MIME_STATE_BODY_OUT, MIME_STATE_ANY_END, MIME_STATE_ERR_PRINT, void *);
-extern int mime_state_update(MIME_STATE *, int, const char *, int);
+extern int mime_state_update(MIME_STATE *, int, const char *, ssize_t);
 extern MIME_STATE *mime_state_free(MIME_STATE *);
-extern const char *mime_state_error(int);
 
  /*
   * Processing options.
@@ -58,11 +57,20 @@ extern const char *mime_state_error(int);
  /*
   * Processing errors, not necessarily lethal.
   */
+typedef struct {
+    const int code;			/* internal error code */
+    const char *dsn;			/* RFC 3463 */
+    const char *text;			/* descriptive text */
+} MIME_STATE_DETAIL;
+
 #define MIME_ERR_NESTING		(1<<0)
 #define MIME_ERR_TRUNC_HEADER		(1<<1)
 #define MIME_ERR_8BIT_IN_HEADER		(1<<2)
 #define MIME_ERR_8BIT_IN_7BIT_BODY	(1<<3)
 #define MIME_ERR_ENCODING_DOMAIN	(1<<4)
+
+extern MIME_STATE_DETAIL *mime_state_detail(int);
+extern const char *mime_state_error(int);
 
  /*
   * Header classes. Look at the header_opts argument to find out if something

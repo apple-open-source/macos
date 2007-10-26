@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -49,11 +49,11 @@ bool AppleRAIDEventSource::initWithAppleRAIDSet(AppleRAIDSet *appleRAID, Action 
     return true;
 }
 
-void AppleRAIDEventSource::memberCompleteRequest(AppleRAIDMemoryDescriptor *memoryDescriptor,
-                                                IOReturn status, UInt64 actualByteCount)
+void AppleRAIDEventSource::completeRequest(AppleRAIDMemoryDescriptor * memoryDescriptor,
+					   IOReturn status, UInt64 actualByteCount)
 {
     UInt32			memberIndex = memoryDescriptor->mdMemberIndex;
-    AppleRAIDStorageRequest	*storageRequest = memoryDescriptor->mdStorageRequest;
+    AppleRAIDStorageRequest *	storageRequest = memoryDescriptor->mdStorageRequest;
     
     closeGate();
 
@@ -61,10 +61,10 @@ void AppleRAIDEventSource::memberCompleteRequest(AppleRAIDMemoryDescriptor *memo
     storageRequest->srCompletedCount++;
     
     // Save the members results.
-    storageRequest->srMemberStatus[memberIndex] = status;
-    storageRequest->srMemberByteCounts[memberIndex] = actualByteCount;
+    storageRequest->srRequestStatus[memberIndex] = status;
+    storageRequest->srRequestByteCounts[memberIndex] = actualByteCount;
     
-    if (storageRequest->srCompletedCount == storageRequest->srMemberCount) {
+    if (storageRequest->srCompletedCount == storageRequest->srRequestCount) {
         queue_enter(&fCompletedHead, storageRequest, AppleRAIDStorageRequest *, fCommandChain);
         
 	signalWorkAvailable();
@@ -72,6 +72,32 @@ void AppleRAIDEventSource::memberCompleteRequest(AppleRAIDMemoryDescriptor *memo
     
     openGate();
 }
+
+
+void AppleRAIDEventSource::completeRequestLVG(AppleLVMMemoryDescriptor * memoryDescriptor,
+					      IOReturn status, UInt64 actualByteCount)
+{
+    UInt32			requestIndex = memoryDescriptor->mdRequestIndex;
+    AppleRAIDStorageRequest *	storageRequest = memoryDescriptor->mdStorageRequest;
+    
+    closeGate();
+
+    // Count the member as completed.
+    storageRequest->srCompletedCount++;
+    
+    // Save the members results.
+    storageRequest->srRequestStatus[requestIndex] = status;
+    storageRequest->srRequestByteCounts[requestIndex] = actualByteCount;
+    
+    if (storageRequest->srCompletedCount == storageRequest->srRequestCount) {
+        queue_enter(&fCompletedHead, storageRequest, AppleRAIDStorageRequest *, fCommandChain);
+        
+	signalWorkAvailable();
+    }
+    
+    openGate();
+}
+
 
 bool AppleRAIDEventSource::checkForWork(void)
 {
@@ -89,5 +115,10 @@ bool AppleRAIDEventSource::checkForWork(void)
 
 IOStorageCompletionAction AppleRAIDEventSource::getStorageCompletionAction(void)
 {
-    return OSMemberFunctionCast(IOStorageCompletionAction, this, &AppleRAIDEventSource::memberCompleteRequest);
+    return OSMemberFunctionCast(IOStorageCompletionAction, this, &AppleRAIDEventSource::completeRequest);
+}
+
+IOStorageCompletionAction AppleRAIDEventSource::getStorageCompletionActionLVG(void)
+{
+    return OSMemberFunctionCast(IOStorageCompletionAction, this, &AppleRAIDEventSource::completeRequestLVG);
 }

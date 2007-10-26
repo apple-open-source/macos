@@ -1,20 +1,24 @@
 /*
  *  sqlucode.h
  *
- *  $Id: sqlucode.h,v 1.2 2004/11/11 01:52:36 luesang Exp $
+ *  $Id: sqlucode.h,v 1.5 2006/01/24 11:28:34 source Exp $
  *
  *  ODBC Unicode defines
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -68,19 +72,21 @@
  *  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
+
 #ifndef _SQLUCODE_H
 #define _SQLUCODE_H
 
+#ifndef _SQLEXT_H
 #include <sqlext.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-/* 
+/*
  *  SQL datatypes - Unicode
  */
 #define SQL_WCHAR				(-8)
@@ -100,11 +106,11 @@ extern "C" {
 #define SQL_ALL_CATALOGSW			L"%"
 #define SQL_ALL_SCHEMASW			L"%"
 #define SQL_ALL_TABLE_TYPESW			L"%"
-#endif				/* ODBCVER >= 0x0300 */
+#endif /* ODBCVER >= 0x0300 */
 
 
-/* 
- *  Size of SQLSTATE - Unicode 
+/*
+ *  Size of SQLSTATE - Unicode
  */
 #define SQL_SQLSTATE_SIZEW			10
 
@@ -112,8 +118,8 @@ extern "C" {
 /*
  *  Function Prototypes - Unicode
  */
-SQLRETURN SQL_API SQLColAttributeW(
-    SQLHSTMT		hstmt,
+SQLRETURN SQL_API SQLColAttributeW (
+    SQLHSTMT		  hstmt,
     SQLUSMALLINT	  iCol,
     SQLUSMALLINT	  iField,
     SQLPOINTER		  pCharAttr,
@@ -126,7 +132,7 @@ SQLRETURN SQL_API SQLColAttributesW (
     SQLUSMALLINT	  icol,
     SQLUSMALLINT	  fDescType,
     SQLPOINTER		  rgbDesc,
-    SQLSMALLINT	 	cbDescMax,
+    SQLSMALLINT		  cbDescMax,
     SQLSMALLINT		* pcbDesc,
     SQLLEN		* pfDesc);
 
@@ -241,7 +247,7 @@ SQLRETURN SQL_API SQLSetConnectAttrW (
 SQLRETURN SQL_API SQLSetCursorNameW (
     SQLHSTMT		  hstmt,
     SQLWCHAR		* szCursor,
-    SQLSMALLINT	 	cbCursor);
+    SQLSMALLINT		  cbCursor);
 
 SQLRETURN SQL_API SQLColumnsW (
     SQLHSTMT		  hstmt,
@@ -250,7 +256,7 @@ SQLRETURN SQL_API SQLColumnsW (
     SQLWCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLWCHAR		* szTableName,
-    SQLSMALLINT		cbTableName,
+    SQLSMALLINT		  cbTableName,
     SQLWCHAR		* szColumnName,
     SQLSMALLINT		  cbColumnName);
 
@@ -283,7 +289,7 @@ SQLRETURN SQL_API SQLSpecialColumnsW (
     SQLWCHAR		* szSchemaName,
     SQLSMALLINT		  cbSchemaName,
     SQLWCHAR		* szTableName,
-    SQLSMALLINT	 	cbTableName,
+    SQLSMALLINT		  cbTableName,
     SQLUSMALLINT	  fScope,
     SQLUSMALLINT	  fNullable);
 
@@ -762,7 +768,7 @@ SQLRETURN SQL_API SQLDriversA (
  *  Mapping macros for Unicode
  */
 #ifndef SQL_NOUNICODEMAP 	/* define this to disable the mapping */
-#ifdef 	UNICODE
+#ifdef  UNICODE
 
 #define SQLColAttribute		SQLColAttributeW
 #define SQLColAttributes	SQLColAttributesW

@@ -28,6 +28,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <security_utilities/debugging.h>
 #include <CoreServices/CoreServices.h>
+#include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
 
 /*
 	int mNumberOfValues;
@@ -137,7 +138,7 @@ DotMacTuple* DotMacUniqueIdentifier::GetTuple ()
 
 
 
-static void * appMalloc (uint32 size, void *allocRef) {
+static void * appMalloc (CSSM_SIZE size, void *allocRef) {
 	return (malloc (size));
 }
 
@@ -150,13 +151,13 @@ static void appFree (void *mem_ptr, void *allocRef) {
 
 
 
-static void * appRealloc (void *ptr, uint32 size, void *allocRef) {
+static void * appRealloc (void *ptr, CSSM_SIZE size, void *allocRef) {
 	return (realloc (ptr, size));
 }
 
 
 
-static void * appCalloc (uint32 num, uint32 size, void *allocRef) {
+static void * appCalloc (uint32 num, CSSM_SIZE size, void *allocRef) {
 	return (calloc (num, size));
 }
 
@@ -280,7 +281,8 @@ char* DotMacQuery::ReadStream (CFURLRef url, size_t &responseLength)
 {
 	SInt32 ito;
 	CFNumberRef cfnTo = NULL;
-
+	CFDictionaryRef proxyDict = NULL;
+	
 	// make a connection to the provided URL
 	CFHTTPMessageRef httpRequestRef = CFHTTPMessageCreateRequest (kCFAllocatorDefault, CFSTR("GET"), url, kCFHTTPVersion1_1);
 	if (httpRequestRef == NULL)
@@ -302,11 +304,20 @@ char* DotMacQuery::ReadStream (CFURLRef url, size_t &responseLength)
 		// oh well - keep going 
 	}
 	
+	/* set up possible proxy info */
+	proxyDict = SCDynamicStoreCopyProxies(NULL);
+	if(proxyDict) {
+		CFReadStreamSetProperty(httpStreamRef, kCFStreamPropertyHTTPProxy, proxyDict);
+	}
+
 	if (CFReadStreamOpen (httpStreamRef) == false)
 	{
 		CFRelease(httpRequestRef);
 		CFRelease(httpStreamRef);
 		CFRelease(cfnTo);
+		if(proxyDict) {
+			CFRelease(proxyDict);
+		}
 		CSSMError::ThrowCSSMError (CSSMERR_DL_RECORD_NOT_FOUND);
 	}
 	
@@ -328,6 +339,9 @@ char* DotMacQuery::ReadStream (CFURLRef url, size_t &responseLength)
 	CFRelease (httpRequestRef);
 	CFRelease (httpStreamRef);
 	CFRelease(cfnTo);
+	if(proxyDict) {
+		CFRelease(proxyDict);
+	}
 
 	// check for error
 	if (bytesRead < 0)
@@ -445,6 +459,8 @@ void DotMacQuery::ReadCertificatesFromURL (CFURLRef url)
 	mBufferPos = mBuffer;
 	mTarget = mBuffer + mBufferSize;
 	
+	secdebug ("dotmacdl", "Read %lu bytes", (unsigned long)mBufferSize);
+	
 	std::string userName;
 	while (mBufferPos < mTarget)
 	{
@@ -462,27 +478,27 @@ void DotMacQuery::ReadCertificatesFromURL (CFURLRef url)
 	
 	if (mBufferPos >= mTarget) // out of data so soon?
 	{
+		secdebug ("dotmacdl", "unexpected end of data");
 		CSSMError::ThrowCSSMError (CSSMERR_DL_ENDOFDATA);
 	}
 
 	// parse the data
 	while (mBufferPos < mTarget)
 	{
-		// the next line should be all dashes, and can be ignored
+		// skip everything until PEM header marker
 		std::string line = ReadLine ();
-		
 		if (mBufferPos >= mTarget)
 		{
 			// we are done
 			goto Exit;
 		}
-		
-		line = ReadLine ();
-
-		// the next line should include the magic words BEGIN CERTIFICATE
+		if (line.length () == 0) 
+		{
+			continue;
+		}
 		if (line.find ("BEGIN CERTIFICATE", 0) == std::string::npos)
 		{
-			CSSMError::ThrowCSSMError (CSSMERR_DL_DATABASE_CORRUPT);
+			continue;
 		}
 		
 		// what follows is the certificate data, make a big string that concatenates it together
@@ -504,9 +520,11 @@ void DotMacQuery::ReadCertificatesFromURL (CFURLRef url)
 		
 		if (mBufferPos >= mTarget)
 		{
+			secdebug ("dotmacdl", "no END");
 			CSSMError::ThrowCSSMError (CSSMERR_DL_DATABASE_CORRUPT);
 		}
 		
+		secdebug ("dotmacdl", "found cert length %lu", (unsigned long)certLen);
 		CSSM_DATA cert;
 		cert.Data = (uint8*) certData;
 		cert.Length = certLen;
@@ -546,7 +564,7 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 	
 	bool found = false;
 	
-	CSSM_DATA name;
+	CSSM_DATA name = {0, NULL};
 
 	// look for a selection predicate we'e comfortable with
 	for (i = 0; i < mNumSelectionPredicates; ++i)
@@ -600,7 +618,7 @@ DotMacQuery::DotMacQuery (DotMacRelation* relation, const CSSM_QUERY *queryBase)
 	CFMutableStringRef queryString = CFStringCreateMutable (kCFAllocatorDefault, 0);
 	
 	// set to the beginning of the query
-	CFStringAppendCString (queryString, "http://certinfo.mac.com/lookup?", kCFStringEncodingMacRoman);
+	CFStringAppendCString (queryString, "http://certinfo.mac.com/locate?", kCFStringEncodingMacRoman);
 	
 	// append the user name
 	CFStringAppend (queryString, userName);

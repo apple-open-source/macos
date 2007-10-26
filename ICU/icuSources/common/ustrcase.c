@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -121,18 +121,18 @@ UCaseMapFull(const UCaseProps *csp, UChar32 c,
              const char *locale, int32_t *locCache);
 
 /*
- * Lowercases [srcStart..srcLimit[ but takes
+ * Case-maps [srcStart..srcLimit[ but takes
  * context [0..srcLength[ into account.
  */
 static int32_t
-_caseMap(UCaseProps *csp, UCaseMapFull *map,
+_caseMap(const UCaseProps *csp, UCaseMapFull *map,
          UChar *dest, int32_t destCapacity,
          const UChar *src, UCaseContext *csc,
          int32_t srcStart, int32_t srcLimit,
          const char *locale, int32_t *locCache,
          UErrorCode *pErrorCode) {
     const UChar *s;
-    UChar32 c;
+    UChar32 c, c2;
     int32_t srcIndex, destIndex;
 
     /* case mapping loop */
@@ -143,7 +143,12 @@ _caseMap(UCaseProps *csp, UCaseMapFull *map,
         U16_NEXT(src, srcIndex, srcLimit, c);
         csc->cpLimit=srcIndex;
         c=map(csp, c, utf16_caseContextIterator, csc, &s, locale, locCache);
-        destIndex=appendResult(dest, destIndex, destCapacity, c, s);
+        if((destIndex<destCapacity) && (c<0 ? (c2=~c)<=0xffff : UCASE_MAX_STRING_LENGTH<c && (c2=c)<=0xffff)) {
+            /* fast path version of appendResult() for BMP results */
+            dest[destIndex++]=(UChar)c2;
+        } else {
+            destIndex=appendResult(dest, destIndex, destCapacity, c, s);
+        }
     }
 
     if(destIndex>destCapacity) {
@@ -160,7 +165,7 @@ _caseMap(UCaseProps *csp, UCaseMapFull *map,
  * Must get titleIter!=NULL.
  */
 static int32_t
-_toTitle(UCaseProps *csp,
+_toTitle(const UCaseProps *csp,
          UChar *dest, int32_t destCapacity,
          const UChar *src, UCaseContext *csc,
          int32_t srcLength,
@@ -169,7 +174,7 @@ _toTitle(UCaseProps *csp,
          UErrorCode *pErrorCode) {
     const UChar *s;
     UChar32 c;
-    int32_t prev, index, destIndex;
+    int32_t prev, titleStart, titleLimit, index, destIndex, length;
     UBool isFirstIndex;
 
     /* set up local variables */
@@ -190,28 +195,64 @@ _toTitle(UCaseProps *csp,
             index=srcLength;
         }
 
-        /* lowercase [prev..index[ */
+        /*
+         * Unicode 4 & 5 section 3.13 Default Case Operations:
+         *
+         * R3  toTitlecase(X): Find the word boundaries based on Unicode Standard Annex
+         * #29, "Text Boundaries." Between each pair of word boundaries, find the first
+         * cased character F. If F exists, map F to default_title(F); then map each
+         * subsequent character C to default_lower(C).
+         *
+         * In this implementation, segment [prev..index[ into 3 parts:
+         * a) uncased characters (copy as-is) [prev..titleStart[
+         * b) first case letter (titlecase)         [titleStart..titleLimit[
+         * c) subsequent characters (lowercase)                 [titleLimit..index[
+         */
         if(prev<index) {
-            destIndex+=
-                _caseMap(
-                    csp, ucase_toFullLower,
-                    dest+destIndex, destCapacity-destIndex,
-                    src, csc,
-                    prev, index,
-                    locale, locCache,
-                    pErrorCode);
-        }
+            /* find and copy uncased characters [prev..titleStart[ */
+            titleStart=titleLimit=prev;
+            for(;;) {
+                U16_NEXT(src, titleLimit, srcLength, c);
+                if(UCASE_NONE!=ucase_getType(csp, c)) {
+                    break; /* cased letter at [titleStart..titleLimit[ */
+                }
+                titleStart=titleLimit;
+                if(titleLimit==index) {
+                    /*
+                     * only uncased characters in [prev..index[
+                     * stop with titleStart==titleLimit==index
+                     */
+                    break;
+                }
+            }
+            length=titleStart-prev;
+            if(length>0) {
+                if((destIndex+length)<=destCapacity) {
+                    uprv_memcpy(dest+destIndex, src+prev, length*U_SIZEOF_UCHAR);
+                }
+                destIndex+=length;
+            }
 
-        if(index>=srcLength) {
-            break;
-        }
+            if(titleStart<titleLimit) {
+                /* titlecase c which is from [titleStart..titleLimit[ */
+                csc->cpStart=titleStart;
+                csc->cpLimit=titleLimit;
+                c=ucase_toFullTitle(csp, c, utf16_caseContextIterator, csc, &s, locale, locCache);
+                destIndex=appendResult(dest, destIndex, destCapacity, c, s);
 
-        /* titlecase the character at the found index */
-        csc->cpStart=index;
-        U16_NEXT(src, index, srcLength, c);
-        csc->cpLimit=index;
-        c=ucase_toFullTitle(csp, c, utf16_caseContextIterator, csc, &s, locale, locCache);
-        destIndex=appendResult(dest, destIndex, destCapacity, c, s);
+                /* lowercase [titleLimit..index[ */
+                if(titleLimit<index) {
+                    destIndex+=
+                        _caseMap(
+                            csp, ucase_toFullLower,
+                            dest+destIndex, destCapacity-destIndex,
+                            src, csc,
+                            titleLimit, index,
+                            locale, locCache,
+                            pErrorCode);
+                }
+            }
+        }
 
         prev=index;
     }
@@ -223,7 +264,7 @@ _toTitle(UCaseProps *csp,
 }
 
 U_CFUNC int32_t
-ustr_toTitle(UCaseProps *csp,
+ustr_toTitle(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              UBreakIterator *titleIter,
@@ -247,7 +288,7 @@ ustr_toTitle(UCaseProps *csp,
 /* functions available in the common library (for unistr_case.cpp) */
 
 U_CFUNC int32_t
-ustr_toLower(UCaseProps *csp,
+ustr_toLower(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              const char *locale,
@@ -266,7 +307,7 @@ ustr_toLower(UCaseProps *csp,
 }
 
 U_CFUNC int32_t
-ustr_toUpper(UCaseProps *csp,
+ustr_toUpper(const UCaseProps *csp,
              UChar *dest, int32_t destCapacity,
              const UChar *src, int32_t srcLength,
              const char *locale,
@@ -285,7 +326,7 @@ ustr_toUpper(UCaseProps *csp,
 }
 
 U_CFUNC int32_t
-ustr_foldCase(UCaseProps *csp,
+ustr_foldCase(const UCaseProps *csp,
               UChar *dest, int32_t destCapacity,
               const UChar *src, int32_t srcLength,
               uint32_t options,
@@ -293,14 +334,19 @@ ustr_foldCase(UCaseProps *csp,
     int32_t srcIndex, destIndex;
 
     const UChar *s;
-    UChar32 c;
+    UChar32 c, c2;
 
     /* case mapping loop */
     srcIndex=destIndex=0;
     while(srcIndex<srcLength) {
         U16_NEXT(src, srcIndex, srcLength, c);
         c=ucase_toFullFolding(csp, c, &s, options);
-        destIndex=appendResult(dest, destIndex, destCapacity, c, s);
+        if((destIndex<destCapacity) && (c<0 ? (c2=~c)<=0xffff : UCASE_MAX_STRING_LENGTH<c && (c2=c)<=0xffff)) {
+            /* fast path version of appendResult() for BMP results */
+            dest[destIndex++]=(UChar)c2;
+        } else {
+            destIndex=appendResult(dest, destIndex, destCapacity, c, s);
+        }
     }
 
     if(destIndex>destCapacity) {
@@ -333,7 +379,7 @@ caseMap(UChar *dest, int32_t destCapacity,
     UChar buffer[300];
     UChar *temp;
 
-    UCaseProps *csp;
+    const UCaseProps *csp;
 
     int32_t destLength;
     UBool ownTitleIter;
@@ -527,7 +573,7 @@ u_strcmpFold(const UChar *s1, int32_t length1,
              const UChar *s2, int32_t length2,
              uint32_t options,
              UErrorCode *pErrorCode) {
-    UCaseProps *csp;
+    const UCaseProps *csp;
 
     /* current-level start/limit - s1/s2 as current */
     const UChar *start1, *start2, *limit1, *limit2;

@@ -4,12 +4,12 @@
 
 
 /*
- * Portions Copyright 2005 Apple Computer, Inc.  All rights reserved.
+ * Portions Copyright 2005-2007 Apple Inc.  All rights reserved.
  *
  * Copyright 2005 Purdue Research Foundation, West Lafayette, Indiana
  * 47907.  All rights reserved.
  *
- * Written by Allan Nathanson, Apple Computer, Inc., and Victor A.
+ * Written by Allan Nathanson, Apple Inc., and Victor A.
  * Abell, Purdue University.
  *
  * This software is not subject to any license of the American Telephone
@@ -19,12 +19,12 @@
  * any computer system, and to alter it and redistribute it freely, subject
  * to the following restrictions:
  *
- * 1. Neither the authors, nor Apple Computer, Inc. nor Purdue University
+ * 1. Neither the authors, nor Apple Inc. nor Purdue University
  *    are responsible for any consequences of the use of this software.
  *
  * 2. The origin of this software must not be misrepresented, either
  *    by explicit claim or by omission.  Credit to the authors, Apple
- *    Computer, Inc. and Purdue University must appear in documentation
+ *    Inc. and Purdue University must appear in documentation
  *    and sources.
  *
  * 3. Altered versions must be plainly marked as such, and must not be
@@ -36,8 +36,8 @@
 
 #ifndef lint
 static char copyright[] =
-"@(#) Copyright 2005 Apple Computer, Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dproc.c,v 1.6 2006/03/23 21:28:26 ajn Exp $";
+"@(#) Copyright 2005-2007 Apple Inc. and Purdue Research Foundation.\nAll rights reserved.\n";
+static char *rcsid = "$Id: dproc.c,v 1.11 2007/06/05 21:11:22 ajn Exp $";
 #endif
 
 #include "lsof.h"
@@ -48,9 +48,10 @@ static char *rcsid = "$Id: dproc.c,v 1.6 2006/03/23 21:28:26 ajn Exp $";
  */
 
 #define	PIDS_INCR	(sizeof(int) * 32)	/* PID space increment */
-#define	FDS_INCR	(sizeof(struct proc_fdinfo) * 32)
-						/* FD space increment */
 #define	VIPS_INCR	16			/* Vips space increment */
+#if DARWINV>=900
+#define	THREADS_INCR	(sizeof(uint64_t) * 32)	/* Threads space increment */
+#endif	/* DARWINV>=900 */
 
 
 /*
@@ -62,6 +63,10 @@ static struct proc_fdinfo *Fds = (struct proc_fdinfo *)NULL;
 static int NbPids = 0;				/* bytes allocated to Pids */
 static int NbFds = 0;				/* bytes allocated to FDs */
 static int *Pids = (int *)NULL;			/* PID buffer */
+#if DARWINV>=900
+static int NbThreads = 0;			/* bytes allocated to Threads */
+static uint64_t *Threads = (uint64_t *)NULL;	/* Thread buffer */
+#endif	/* DARWINV>=900 */
 
 
 /*
@@ -80,8 +85,11 @@ static int NVips = 0;				/* entries allocated to Vips */
  * Local function prototypes
  */
 _PROTOTYPE(static void enter_vn_text,(struct vnode_info_path *vip, int *n));
-_PROTOTYPE(static void process_fds,(int pid));
+_PROTOTYPE(static void process_fds,(int pid, uint32_t n));
 _PROTOTYPE(static void process_text,(int pid));
+#if DARWINV>=900
+_PROTOTYPE(static void process_threads,(int pid, uint32_t n));
+#endif	/* DARWINV>=900 */
 
 
 /*
@@ -98,8 +106,8 @@ enter_vn_text(vip, n)
  * Ignore the request if the vnode information has already been entered.
  */
 	for (i = 0; i < *n; i++) {
-	    if ((vip->vip_vi.vi_stat.st_dev == Vips[i].dev)
-	    &&  (vip->vip_vi.vi_stat.st_ino == Vips[i].ino))
+	    if ((vip->vip_vi.vi_stat.vst_dev == Vips[i].dev)
+	    &&  (vip->vip_vi.vi_stat.vst_ino == Vips[i].ino))
 	    {
 		return;
 	    }
@@ -136,8 +144,8 @@ enter_vn_text(vip, n)
 /*
  * Record the vnode information.
  */
-	Vips[*n].dev = vip->vip_vi.vi_stat.st_dev;
-	Vips[*n].ino = vip->vip_vi.vi_stat.st_ino;
+	Vips[*n].dev = vip->vip_vi.vi_stat.vst_dev;
+	Vips[*n].ino = vip->vip_vi.vi_stat.vst_ino;
 	(*n)++;
 }
 
@@ -151,7 +159,7 @@ gather_proc_info()
 {
 	int cre, cres, ef, i, nb, np, pid;
 	short pss, sf;
-	struct proc_taskallinfo ti;
+	struct proc_taskallinfo tai;
 	struct proc_vnodepathinfo vpi;
 /*
  * Determine how many bytes are needed to contain the PIDs on the system;
@@ -216,7 +224,7 @@ gather_proc_info()
 	for (i = 0; i < np; i++) {
 	    if (!(pid = Pids[i]))
 		continue;
-	    nb = proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &ti, sizeof(ti));
+	    nb = proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &tai, sizeof(tai));
 	    if (nb <= 0) {
 		if (errno == ESRCH)
 		    continue;
@@ -225,29 +233,29 @@ gather_proc_info()
 			Pn, pid, strerror(errno));
 		}
 		continue;
-	    } else if (nb < sizeof(ti)) {
+	    } else if (nb < sizeof(tai)) {
 		(void) fprintf(stderr,
 		    "%s: PID %d: proc_pidinfo(PROC_PIDTASKALLINFO);\n",
 		    Pn, pid);
 		(void) fprintf(stderr,
 		    "      too few bytes; expected %ld, got %d\n",
-		    sizeof(ti), nb);
+		    sizeof(tai), nb);
 		Exit(1);
 	    }
 	/*
 	 * Check for process or command exclusion.
 	 */
-	    if (is_proc_excl((int)pid, (int)ti.pbsd.pbi_rgid,
-			     (UID_ARG)ti.pbsd.pbi_uid, &pss, &sf))
+	    if (is_proc_excl((int)pid, (int)tai.pbsd.pbi_rgid,
+			     (UID_ARG)tai.pbsd.pbi_uid, &pss, &sf))
 	    {
 		continue;
 	    }
-	    ti.pbsd.pbi_comm[sizeof(ti.pbsd.pbi_comm) - 1] = '\0';
-	    if (is_cmd_excl(ti.pbsd.pbi_comm, &pss, &sf))
+	    tai.pbsd.pbi_comm[sizeof(tai.pbsd.pbi_comm) - 1] = '\0';
+	    if (is_cmd_excl(tai.pbsd.pbi_comm, &pss, &sf))
 		continue;
-	    if (ti.pbsd.pbi_name[0]) {
-		ti.pbsd.pbi_name[sizeof(ti.pbsd.pbi_name) - 1] = '\0';
-		if (is_cmd_excl(ti.pbsd.pbi_name, &pss, &sf))
+	    if (tai.pbsd.pbi_name[0]) {
+		tai.pbsd.pbi_name[sizeof(tai.pbsd.pbi_name) - 1] = '\0';
+		if (is_cmd_excl(tai.pbsd.pbi_name, &pss, &sf))
 		    continue;
 	    }
 	/*
@@ -270,10 +278,10 @@ gather_proc_info()
 	/*
 	 * Allocate local process space.
 	 */
-	    alloc_lproc((int)pid, (int)ti.pbsd.pbi_rgid, (int)ti.pbsd.pbi_ppid,
-		(UID_ARG)ti.pbsd.pbi_uid,
-		(ti.pbsd.pbi_name[0] != '\0') ? ti.pbsd.pbi_name
-					      : ti.pbsd.pbi_comm,
+	    alloc_lproc((int)pid, (int)tai.pbsd.pbi_rgid, (int)tai.pbsd.pbi_ppid,
+		(UID_ARG)tai.pbsd.pbi_uid,
+		(tai.pbsd.pbi_name[0] != '\0') ? tai.pbsd.pbi_name
+					 : tai.pbsd.pbi_comm,
 		(int)pss, (int)sf);
 	    Plf = (struct lfile *)NULL;
 	/*
@@ -313,6 +321,14 @@ gather_proc_info()
 		if (Lf->sf)
 		    link_lfile();
 	    }
+#if DARWINV>=900
+	/*
+	 * Check for per-thread current working directories
+	 */
+	    if (tai.pbsd.pbi_flags & PROC_FLAG_THCWD) {
+	    	(void) process_threads(pid, tai.ptinfo.pti_threadnum);
+	    }
+#endif	/* DARWINV>=900 */
 	/*
 	 * Print text file information.
 	 */
@@ -320,7 +336,7 @@ gather_proc_info()
 	/*
 	 * Loop through the file descriptors.
 	 */
-	    (void) process_fds(pid);
+	    (void) process_fds(pid, tai.pbsd.pbi_nfiles);
 	/*
 	 * Examine results.
 	 */
@@ -345,68 +361,59 @@ initialize()
  */
 
 static void
-process_fds(pid)
+process_fds(pid, n)
 	int pid;			/* PID of interest */
+	uint32_t n;			/* max FDs */
 {
-	int ef, i, nb, nf;
+	int i, nb, nf;
 	struct proc_fdinfo *fdp;
 /*
  * Make sure an FD buffer has been allocated.
  */
 	if (!Fds) {
-	    NbFds = FDS_INCR;
-	    if (!(Fds = (struct proc_fdinfo *)malloc((MALLOC_S)NbFds))) {
-		(void) fprintf(stderr,
-		    "%s: can't allocate %d FD entries\n", Pn,
-		    (int)(NbFds / sizeof(struct proc_fdinfo)));
-		Exit(1);
-	    }
+	    NbFds = sizeof(struct proc_fdinfo) * n;
+	    Fds = (struct proc_fdinfo *)malloc((MALLOC_S)NbFds);
+	} else if (NbFds < sizeof(struct proc_fdinfo) * n) {
+	    /*
+	     * More proc_fdinfo space is required.  Allocate it.
+	     */
+	    NbFds = sizeof(struct proc_fdinfo) * n;
+	    Fds = (struct proc_fdinfo *)realloc((MALLOC_P *)Fds,
+						(MALLOC_S)NbFds);
+	}
+	if (!Fds) {
+	    (void) fprintf(stderr,
+			"%s: PID %d: can't allocate space for %d FDs\n",
+			Pn, pid, (int)(NbFds / sizeof(struct proc_fdinfo)));
+	    Exit(1);
 	}
 /*
  * Get FD information for the process.
  */
-	for (ef = 0; !ef;) {
-	    nb = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, Fds, NbFds);
-	    if (nb <= 0) {
-		if (errno == ESRCH)
-		    continue;
+	nb = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, Fds, NbFds);
+	if (nb <= 0) {
+	    if (errno == ESRCH) {
+
 	    /*
-	     * Make a dummy file entry with an error message in its NAME
-	     * column.
+	     * Quit if no FD information is available for the
+	     * process.
 	     */
-	        alloc_lfile(" err", -1);
-		(void) snpf(Namech, Namechl, "FD info error: %s",
-		    strerror(errno));
-		Namech[Namechl - 1] = '\0';
-		enter_nm(Namech);
-		if (Lf->sf)
-		    link_lfile();
 		return;
 	    }
-	    if ((nb + sizeof(struct proc_fdinfo)) < NbFds) {
-
-	    /*
-	     * There is room in the FD buffer for one more proc_fdinfo
-	     * structure.
-	     */
-		nf = (int)(nb / sizeof(struct proc_fdinfo));
-		ef = 1;
-	    } else {
-
-	    /*
-	     * More proc_fdinfo space is required.  Allocate it.
-	     */
-		NbFds += FDS_INCR;
-		Fds = (struct proc_fdinfo *)realloc((MALLOC_P *)Fds,
-						    (MALLOC_S)NbFds);
-		if (!Fds) {
-		    (void) fprintf(stderr,
-			"%s: PID %d: can't allocate space for %d FDs\n",
-			Pn, pid, (int)(NbFds / sizeof(struct proc_fdinfo)));
-		    Exit(1);
-		}
-	    }
+	/*
+	 * Make a dummy file entry with an error message in its NAME
+	 * column.
+	 */
+	    alloc_lfile(" err", -1);
+	    (void) snpf(Namech, Namechl, "FD info error: %s",
+			strerror(errno));
+	    Namech[Namechl - 1] = '\0';
+	    enter_nm(Namech);
+	    if (Lf->sf)
+		link_lfile();
+	    return;
 	}
+	nf = (int)(nb / sizeof(struct proc_fdinfo));
 /*
  * Loop through the file descriptors.
  */
@@ -466,7 +473,7 @@ process_text(pid)
 	int i, n, nb;
 	struct proc_regionwithpathinfo rwpi;
 
-	for (a = (uint64_t)0, i = n = 0; i < 10000;) {
+	for (a = (uint64_t)0, i = n = 0; i < 10000; i++) {
 	    nb = proc_pidinfo(pid, PROC_PIDREGIONPATHINFO, a, &rwpi,
 			      sizeof(rwpi));
 	    if (nb <= 0) {
@@ -504,3 +511,101 @@ process_text(pid)
 	    a = rwpi.prp_prinfo.pri_address + rwpi.prp_prinfo.pri_size;
 	}
 }
+
+
+#if DARWINV>=900
+/*
+ * process_threads() -- process thread information
+ */
+
+#define TWD		" twd"          /* per-thread current working directory fd name */
+	
+static void
+process_threads(pid, n)
+	int pid;			/* PID */
+	uint32_t n;			/* number of threads */
+{
+	int i, nb, nt;
+/*
+ * Make sure an thread buffer has been allocated.
+ */
+	n += 10;
+	if (n > NbThreads) {
+	    while (n > NbThreads) {
+		NbThreads += THREADS_INCR;
+	    }
+	    if (!Threads)
+		Threads = (uint64_t *)malloc((MALLOC_S)NbThreads);
+	    else
+		Threads = (uint64_t *)realloc((MALLOC_P *)Threads, (MALLOC_S)NbThreads);
+	    if (!Threads) {
+		(void) fprintf(stderr,
+		    "%s: can't allocate space for %d Threads\n", Pn,
+		    (int)(NbThreads / sizeof(int *)));
+		Exit(1);
+	    }
+	}
+/*
+ * Get thread information for the process.
+ */
+	nb = proc_pidinfo(pid, PROC_PIDLISTTHREADS, 0, Threads, NbThreads);
+	if (nb <= 0) {
+	    if (errno == ESRCH) {
+
+	    /*
+	     * Quit if no thread information is available for the
+	     * process.
+	     */
+		return;
+	    }
+	}
+	nt = (int)(nb / sizeof(uint64_t));
+/*
+ * Loop through the threads.
+ */
+	for (i = 0; i < nt; i++) {
+	    uint64_t t;
+	    struct proc_threadwithpathinfo tpi;
+
+	    t = Threads[i];
+	    nb = proc_pidinfo(pid, PROC_PIDTHREADPATHINFO, t, &tpi, sizeof(tpi));
+	    if (nb <= 0) {
+		if ((errno == ESRCH) || (errno == EINVAL)) {
+
+		/*
+		 * Quit if no more thread information is available for the
+		 * process.
+		 */
+		    return;
+		}
+	    /*
+	     * Warn about all other errors via a NAME column message.
+	     */
+		alloc_lfile(TWD, -1);
+		Cfp = (struct file *)NULL;
+		(void) snpf(Namech, Namechl,
+		    "thread info error: %s", strerror(errno));
+		Namech[Namechl - 1] = '\0';
+		enter_nm(Namech);
+		if (Lf->sf)
+		    link_lfile();
+		return;
+	    } else if (nb < sizeof(tpi)) {
+		(void) fprintf(stderr,
+		    "%s: PID %d: proc_pidinfo(PROC_PIDTHREADPATHINFO);\n",
+		    Pn, pid);
+		(void) fprintf(stderr,
+		    "      too few bytes; expected %ld, got %d\n",
+		    sizeof(tpi), nb);
+		Exit(1);
+	    }
+	    if (tpi.pvip.vip_path[0]) {
+		alloc_lfile(TWD, -1);
+		Cfp = (struct file *)NULL;
+		(void) enter_vnode_info(&tpi.pvip);
+		if (Lf->sf)
+		    link_lfile();
+	    }
+	}
+}
+#endif	/* DARWINV>=900 */

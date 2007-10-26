@@ -12,15 +12,26 @@
 .\" The University of Texas at Austin
 .\" Austin, Texas  78712
 .\"
-.TH apropos 1 "Jan 15, 1991"
+.\" Translated by Dimitar Zhekov <jimmy@is-vn.bg>, 2002.
+.\" Translated by Alexander Shopov <ash@contact.bg>, 2005.
+.TH apropos 1 "15 януари 1991"
 .LO 1
 .SH ИМЕ
-apropos \- търсене на текстове в базата данни на whatis
+apropos \- търсене на низ в базата от данни на whatis
 .SH СИНТАКСИС
 .BI apropos
 ключова_дума ...
 .SH ОПИСАНИЕ
-apropos търси ключови думи в база данни от файлове, съдържащи кратки описания
-на системните команди, и извежда резултата на стандартния изход.
+apropos търси ключови думи във файловете на базата от данни,
+съдържащи кратки описания на системните команди, и извежда резултата
+на стандартния изход.
+.SH "АВТОР/ПОДДРЪЖКА"
+Първоначалният автор на
+.BR man 
+е John W. Eaton.  Federico Lucifredi <flucifredi@acm.org>
+осъществява текущо поддръжката на пакета.
+.SH ПРЕВОД
+Димитър Жеков, Александър Шопов <ash@contact.bg>
 .SH "ВИЖТЕ СЪЩО"
-whatis(1), man(1).
+.BR whatis(1),
+.BR man(1).

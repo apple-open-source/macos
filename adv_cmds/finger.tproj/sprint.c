@@ -41,6 +41,7 @@ static char sccsid[] = "@(#)sprint.c	8.3 (Berkeley) 4/28/95";
 #endif
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/finger/sprint.c,v 1.22 2003/04/02 20:22:29 rwatson Exp $");
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -51,7 +52,7 @@ static char sccsid[] = "@(#)sprint.c	8.3 (Berkeley) 4/28/95";
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <utmp.h>
+#include <utmpx.h>
 #include "finger.h"
 
 static void	  stimeprint(WHERE *);
@@ -104,7 +105,7 @@ sflag_print(void)
 			namelen = MAXREALNAME;
 			if (w->info == LOGGEDIN && !w->writable)
 				--namelen;	/* leave space before `*' */
-			(void)printf("%-*.*s %-*.*s", UT_NAMESIZE, UT_NAMESIZE,
+			(void)printf("%-*.*s %-*.*s", UT_NAMESIZE, _UTX_USERSIZE,
 				pn->name, MAXREALNAME, namelen,
 				pn->realname ? pn->realname : "");
 			if (!w->loginat) {
@@ -165,6 +166,11 @@ static void
 stimeprint(WHERE *w)
 {
 	struct tm *delta;
+
+	if (w->idletime == -1) {
+		(void)printf("     ");
+		return;
+	}
 
 	delta = gmtime(&w->idletime);
 	if (!delta->tm_yday)

@@ -1,8 +1,13 @@
+<testcase>
 # Server-side
 <reply>
 <data>
 foo
 </data>
+<servercmd>
+REPLY CWD 550 I won't allow this on my server
+COUNT CWD 1
+</servercmd>
 </reply>
 
 # Client-side
@@ -16,10 +21,6 @@ FTP with --ftp-create-dirs (failing CWD)
  <command>
 ftp://%HOSTIP:%FTPPORT/first/dir/here/147 --ftp-create-dirs
 </command>
-<file name="log/ftpserver.cmd">
-REPLY CWD 550 I won't allow this on my server
-COUNT CWD 1
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -32,7 +33,7 @@ COUNT CWD 1
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 CWD first
 MKD first
@@ -46,3 +47,4 @@ RETR 147
 QUIT
 </protocol>
 </verify>
+</testcase>

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = kdumpd.c kdumpsubs.c
 HFILES = kdump.h kdumpsubs.h
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble kdumpd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble kdumpd.8 com.apple.kdumpd.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

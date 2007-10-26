@@ -1,45 +1,63 @@
-
-/* 
- * Copyright 1999 Apple Computer, Inc.
- *
- * ufsutil.c
- * - program to probe for the existence of a UFS filesystem
- *   and return its name
- */
-
 /*
- * Modification History:
+ * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * Dieter Siegmund (dieter@apple.com)	Fri Nov  5 12:48:55 PST 1999
- * - created
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <sys/loadable_fs.h>
-#include <servers/netname.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
 #include <sys/errno.h>
+#include <sys/stat.h>
+#include <sys/time.h> 
+#include <sys/mount.h>
+#include <sys/param.h>
 
+#include <servers/netname.h>
 
+#include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h> 
 #include <string.h> 
 #include <stdlib.h> 
-#include <sys/stat.h>
-#include <sys/time.h> 
-#include <sys/mount.h>
 
 #include <ufs/ufs/dinode.h>
 #include <ufs/ufs/dir.h>
-#include <sys/param.h>
-
 #include <ufs/ffs/fs.h>
+
+/*
+ * CommonCrypto is meant to be a more stable API than OpenSSL.
+ * Defining COMMON_DIGEST_FOR_OPENSSL gives API-compatibility
+ * with OpenSSL, so we don't have to change the code.
+ */
+#define COMMON_DIGEST_FOR_OPENSSL
+#include <CommonCrypto/CommonDigest.h>
+
+#include <System/uuid/uuid.h>
+#include <System/uuid/namespace.h>
 
 #include "ufslabel.h"
 
 #define UFS_FS_NAME		"ufs"
 #define UFS_FS_NAME_FILE	"UFS"
+
+static void uuid_create_md5_from_name(uuid_t result_uuid, const uuid_t namespace, const void *name, int namelen);
 
 static void 
 usage(const char * progname)
@@ -110,7 +128,7 @@ main(int argc, const char *argv[])
 	exit(FSUR_INVAL);
     }
 
-    sprintf(dev, "/dev/r%s", argv[2]);
+    snprintf(dev, sizeof(dev), "/dev/r%s", argv[2]);
     if (stat(dev, &sb) != 0) {
 	fprintf(stderr, "%s: stat %s failed, %s\n", argv[0], dev,
 		strerror(errno));
@@ -244,6 +262,9 @@ main(int argc, const char *argv[])
 	int 		fd;
 	char		uuid[UFS_MAX_LABEL_UUID + 1];
 	struct ufslabel	ul;
+	uuid_t		newuuid;
+	char		uuidline[40];
+	char		name[8];
 
 	fd = open(dev, O_RDONLY, 0);
 	if (fd <= 0) {
@@ -261,9 +282,14 @@ main(int argc, const char *argv[])
 	}
 	close(fd);
 	ufslabel_get_uuid(&ul, uuid);
+	sscanf(uuid, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
+	    &name[0], &name[1], &name[2], &name[3],
+	    &name[4], &name[5], &name[6], &name[7]);
+	uuid_create_md5_from_name(newuuid, kFSUUIDNamespaceSHA1, &name, 8);
+	uuid_unparse(newuuid, uuidline);
 
 	/* dump the uuid to stdout */
-	write(1, uuid, strlen(uuid));
+	write(1, uuidline, strlen(uuidline));
 
 	exit (FSUR_IO_SUCCESS);
 	break;
@@ -274,3 +300,18 @@ main(int argc, const char *argv[])
     exit (FSUR_RECOGNIZED);
     return (0);
 }
+
+static void
+uuid_create_md5_from_name(uuid_t result_uuid, const uuid_t namespace, const void *name, int namelen)
+{
+	MD5_CTX c;
+
+	MD5_Init(&c);
+	MD5_Update(&c, namespace, sizeof(uuid_t));
+	MD5_Update(&c, name, namelen);
+	MD5_Final(result_uuid, &c);
+
+	result_uuid[6] = (result_uuid[6] & 0x0F) | 0x30;
+	result_uuid[8] = (result_uuid[8] & 0x3F) | 0x80;
+}
+

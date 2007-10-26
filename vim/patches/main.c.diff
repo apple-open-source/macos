@@ -1,0 +1,62 @@
+--- src/main.c.orig	2005-05-13 12:41:15.000000000 -0700
++++ src/main.c	2005-05-13 11:34:27.000000000 -0700
+@@ -136,6 +136,12 @@
+ static FILE *time_fd = NULL;
+ #endif
+ 
++#ifdef __APPLE__
++#include <get_compat.h>
++#else
++#define COMPAT_MODE(a,b) (1)
++#endif /* __APPLE__ */
++
+ /*
+  * Different types of error messages.
+  */
+@@ -176,6 +182,13 @@
+     mparm_T	params;			/* various parameters passed between
+ 					 * main() and other functions. */
+ 
++    Unix2003_compat = 0;
++    if (strncmp(argv[0],"vi",2)==0) {
++	Unix2003_compat = COMPAT_MODE("bin/vi", "Unix2003");
++    } else if (strncmp(argv[0],"ex",2)==0) {
++	Unix2003_compat = COMPAT_MODE("bin/ex", "Unix2003");
++    }
++
+     /*
+      * Do any system-specific initialisations.  These can NOT use IObuff or
+      * NameBuff.  Thus emsg2() cannot be called!
+@@ -1181,7 +1196,7 @@
+     /* When running in Ex mode an error causes us to exit with a non-zero exit
+      * code.  POSIX requires this, although it's not 100% clear from the
+      * standard. */
+-    if (exmode_active)
++    if (exmode_active || Unix2003_compat )
+ 	exitval += ex_exitval;
+ 
+     /* Position the cursor on the last screen line, below all the text */
+@@ -1889,6 +1902,7 @@
+ 		{
+ 		    n = get_number_arg((char_u *)argv[0], &argv_idx, 10);
+ 		    set_option_value((char_u *)"window", n, NULL, 0);
++		    p_window = p_window_unix2003;
+ 		    break;
+ 		}
+ 		want_argument = TRUE;
+@@ -2071,6 +2085,7 @@
+ 			argv_idx = 0;
+ 			n = get_number_arg((char_u *)argv[0], &argv_idx, 10);
+ 			set_option_value((char_u *)"window", n, NULL, 0);
++			p_window = p_window_unix2003;
+ 			argv_idx = -1;
+ 			break;
+ 		    }
+@@ -3030,6 +3045,7 @@
+     static void
+ check_swap_exists_action()
+ {
++    did_emsg = FALSE;
+     if (swap_exists_action == SEA_QUIT)
+ 	getout(1);
+     handle_swap_exists(NULL);

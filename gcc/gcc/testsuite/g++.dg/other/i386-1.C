@@ -1,5 +1,6 @@
 /* APPLE LOCAL begin mainline 2005-09-16 */
 /* { dg-do run { target i?86-*-* } } */
+/* { dg-require-effective-target ilp32 } */
 /* { dg-options "-march=pentium4" } */
 
 #include <xmmintrin.h>

@@ -1,8 +1,8 @@
 /* search.c - ldap backend search function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/search.c,v 1.113.2.16 2004/07/22 21:02:20 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/search.c,v 1.148.2.30 2006/05/16 20:38:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -38,132 +38,218 @@
 
 static int
 ldap_build_entry( Operation *op, LDAPMessage *e, Entry *ent,
-	 struct berval *bdn, int flags );
-#define LDAP_BUILD_ENTRY_PRIVATE	0x01
+	 struct berval *bdn );
 
-static struct berval dummy = BER_BVNULL;
+/*
+ * Quick'n'dirty rewrite of filter in case of error, to deal with
+ * <draft-zeilenga-ldap-t-f>.
+ */
+static int
+ldap_back_munge_filter(
+	Operation	*op,
+	struct berval	*filter )
+{
+	ldapinfo_t	*li = (ldapinfo_t *) op->o_bd->be_private;
+
+	char		*ptr;
+	int		gotit = 0;
+
+	Debug( LDAP_DEBUG_ARGS, "=> ldap_back_munge_filter \"%s\"\n",
+			filter->bv_val, 0, 0 );
+
+	for ( ptr = strstr( filter->bv_val, "(?=" ); 
+			ptr;
+			ptr = strstr( ptr, "(?=" ) )
+	{
+		static struct berval
+			bv_true = BER_BVC( "(?=true)" ),
+			bv_false = BER_BVC( "(?=false)" ),
+			bv_undefined = BER_BVC( "(?=undefined)" ),
+			bv_t = BER_BVC( "(&)" ),
+			bv_f = BER_BVC( "(|)" ),
+			bv_T = BER_BVC( "(objectClass=*)" ),
+			bv_F = BER_BVC( "(!(objectClass=*))" );
+		struct berval	*oldbv = NULL,
+				*newbv = NULL,
+				oldfilter = BER_BVNULL;
+
+		if ( strncmp( ptr, bv_true.bv_val, bv_true.bv_len ) == 0 ) {
+			oldbv = &bv_true;
+			if ( li->li_flags & LDAP_BACK_F_SUPPORT_T_F ) {
+				newbv = &bv_t;
+
+			} else {
+				newbv = &bv_T;
+			}
+
+		} else if ( strncmp( ptr, bv_false.bv_val, bv_false.bv_len ) == 0 )
+		{
+			oldbv = &bv_false;
+			if ( li->li_flags & LDAP_BACK_F_SUPPORT_T_F ) {
+				newbv = &bv_f;
+
+			} else {
+				newbv = &bv_F;
+			}
+
+		} else if ( strncmp( ptr, bv_undefined.bv_val, bv_undefined.bv_len ) == 0 )
+		{
+			oldbv = &bv_undefined;
+			newbv = &bv_F;
+
+		} else {
+			gotit = 0;
+			goto done;
+		}
+
+		oldfilter = *filter;
+		if ( newbv->bv_len > oldbv->bv_len ) {
+			filter->bv_len += newbv->bv_len - oldbv->bv_len;
+			if ( filter->bv_val == op->ors_filterstr.bv_val ) {
+				filter->bv_val = op->o_tmpalloc( filter->bv_len + 1,
+						op->o_tmpmemctx );
+
+				AC_MEMCPY( filter->bv_val, op->ors_filterstr.bv_val,
+						op->ors_filterstr.bv_len + 1 );
+
+			} else {
+				filter->bv_val = op->o_tmprealloc( filter->bv_val,
+						filter->bv_len + 1, op->o_tmpmemctx );
+			}
+
+			ptr = filter->bv_val + ( ptr - oldfilter.bv_val );
+		}
+
+		AC_MEMCPY( &ptr[ newbv->bv_len ],
+				&ptr[ oldbv->bv_len ], 
+				oldfilter.bv_len - ( ptr - filter->bv_val ) - oldbv->bv_len + 1 );
+		AC_MEMCPY( ptr, newbv->bv_val, newbv->bv_len );
+
+		ptr += newbv->bv_len;
+		gotit = 1;
+	}
+
+done:;
+	Debug( LDAP_DEBUG_ARGS, "<= ldap_back_munge_filter \"%s\" (%d)\n",
+			filter->bv_val, gotit, 0 );
+
+	return gotit;
+}
 
 int
 ldap_back_search(
-    Operation	*op,
-    SlapReply *rs )
+		Operation	*op,
+		SlapReply	*rs )
 {
-	struct ldapinfo	*li = (struct ldapinfo *) op->o_bd->be_private;
-	struct ldapconn *lc;
+	ldapconn_t	*lc;
 	struct timeval	tv;
-	LDAPMessage		*res, *e;
-	int	rc = 0, msgid; 
-	struct berval match = BER_BVNULL;
-	char **mapped_attrs = NULL;
-	struct berval mbase;
-	struct berval mfilter = BER_BVNULL;
-	int dontfreetext = 0;
-	int freeconn = 0;
-	dncookie dc;
-#ifdef LDAP_BACK_PROXY_AUTHZ
-	LDAPControl **ctrls = NULL;
-#endif /* LDAP_BACK_PROXY_AUTHZ */
+	time_t		stoptime = (time_t)-1;
+	LDAPMessage	*res,
+			*e;
+	int		rc = 0,
+			msgid; 
+	struct berval	match = BER_BVNULL,
+			filter = BER_BVNULL;
+	int		i;
+	char		**attrs = NULL;
+	int		freetext = 0;
+	int		do_retry = 1, dont_retry = 0;
+	LDAPControl	**ctrls = NULL;
+	/* FIXME: shouldn't this be null? */
+	const char	*save_matched = rs->sr_matched;
 
-	lc = ldap_back_getconn(op, rs);
-	if ( !lc ) {
-		return( -1 );
+	lc = ldap_back_getconn( op, rs, LDAP_BACK_SENDERR );
+	if ( !lc || !ldap_back_dobind( lc, op, rs, LDAP_BACK_SENDERR ) ) {
+		return rs->sr_err;
 	}
 
 	/*
 	 * FIXME: in case of values return filter, we might want
 	 * to map attrs and maybe rewrite value
 	 */
-	if ( !ldap_back_dobind( lc, op, rs ) ) {
-		return( -1 );
-	}
 
 	/* should we check return values? */
 	if ( op->ors_deref != -1 ) {
-		ldap_set_option( lc->ld, LDAP_OPT_DEREF, (void *)&op->ors_deref );
+		ldap_set_option( lc->lc_ld, LDAP_OPT_DEREF,
+				(void *)&op->ors_deref );
 	}
 
 	if ( op->ors_tlimit != SLAP_NO_LIMIT ) {
 		tv.tv_sec = op->ors_tlimit;
 		tv.tv_usec = 0;
+		stoptime = op->o_time + op->ors_tlimit;
 
 	} else {
-		tv.tv_sec = 0;
+		LDAP_BACK_TV_SET( &tv );
 	}
 
-	/*
-	 * Rewrite the search base, if required
-	 */
-	dc.rwmap = &li->rwmap;
-#ifdef ENABLE_REWRITE
-	dc.conn = op->o_conn;
-	dc.rs = rs;
-	dc.ctx = "searchBase";
-#else
-	dc.tofrom = 1;
-	dc.normalized = 0;
-#endif
-	if ( ldap_back_dn_massage( &dc, &op->o_req_ndn, &mbase ) ) {
-		send_ldap_result( op, rs );
-		return -1;
+	if ( op->ors_attrs ) {
+		for ( i = 0; !BER_BVISNULL( &op->ors_attrs[i].an_name ); i++ )
+			/* just count attrs */ ;
+
+		attrs = ch_malloc( ( i + 1 )*sizeof( char * ) );
+		if ( attrs == NULL ) {
+			rs->sr_err = LDAP_NO_MEMORY;
+			rc = -1;
+			goto finish;
+		}
+	
+		for ( i = 0; !BER_BVISNULL( &op->ors_attrs[i].an_name ); i++ ) {
+			attrs[ i ] = op->ors_attrs[i].an_name.bv_val;
+		}
+		attrs[ i ] = NULL;
 	}
 
-	rc = ldap_back_filter_map_rewrite( &dc, op->ors_filter,
-			&mfilter, BACKLDAP_MAP );
-
-	switch ( rc ) {
-	case LDAP_SUCCESS:
-		break;
-
-	case LDAP_COMPARE_FALSE:
-		rs->sr_err = LDAP_SUCCESS;
-		rs->sr_text = NULL;
-		rc = 0;
-		goto finish;
-
-	default:
-		rs->sr_err = LDAP_OTHER;
-		rs->sr_text = "Rewrite error";
-		dontfreetext = 1;
-		rc = -1;
-		goto finish;
-	}
-
-	rs->sr_err = ldap_back_map_attrs( &li->rwmap.rwm_at,
-			op->ors_attrs,
-			BACKLDAP_MAP, &mapped_attrs );
-	if ( rs->sr_err != LDAP_SUCCESS ) {
-		rc = -1;
-		goto finish;
-	}
-
-#ifdef LDAP_BACK_PROXY_AUTHZ
+	ctrls = op->o_ctrls;
 	rc = ldap_back_proxy_authz_ctrl( lc, op, rs, &ctrls );
 	if ( rc != LDAP_SUCCESS ) {
-		dontfreetext = 1;
 		goto finish;
 	}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
-	
-	rs->sr_err = ldap_search_ext( lc->ld, mbase.bv_val,
-			op->ors_scope, mfilter.bv_val,
-			mapped_attrs, op->ors_attrsonly,
-#ifdef LDAP_BACK_PROXY_AUTHZ
-			ctrls,
-#else /* ! LDAP_BACK_PROXY_AUTHZ */
-			op->o_ctrls,
-#endif /* ! LDAP_BACK_PROXY_AUTHZ */
-			NULL,
-			tv.tv_sec ? &tv : NULL, op->ors_slimit,
-			&msgid );
+
+	/* deal with <draft-zeilenga-ldap-t-f> filters */
+	filter = op->ors_filterstr;
+retry:
+	rs->sr_err = ldap_search_ext( lc->lc_ld, op->o_req_dn.bv_val,
+			op->ors_scope, filter.bv_val,
+			attrs, op->ors_attrsonly, ctrls, NULL,
+			tv.tv_sec ? &tv : NULL,
+			op->ors_slimit, &msgid );
 
 	if ( rs->sr_err != LDAP_SUCCESS ) {
-fail:;
-		rc = ldap_back_op_result( lc, op, rs, msgid, 0 );
-		if ( freeconn ) {
-			ldap_back_freeconn( op, lc );
-			lc = NULL;
+		switch ( rs->sr_err ) {
+		case LDAP_SERVER_DOWN:
+			if ( do_retry ) {
+				do_retry = 0;
+				if ( ldap_back_retry( &lc, op, rs, LDAP_BACK_DONTSEND ) ) {
+					goto retry;
+				}
+			}
+
+			if ( lc == NULL ) {
+				/* reset by ldap_back_retry ... */
+				rs->sr_err = slap_map_api2result( rs );
+
+			} else {
+				rc = ldap_back_op_result( lc, op, rs, msgid, 0, LDAP_BACK_DONTSEND );
+			}
+				
+			goto finish;
+
+		case LDAP_FILTER_ERROR:
+			if ( ldap_back_munge_filter( op, &filter ) ) {
+				goto retry;
+			}
+
+			/* invalid filters return success with no data */
+			rs->sr_err = LDAP_SUCCESS;
+			rs->sr_text = NULL;
+			goto finish;
+		
+		default:
+			rs->sr_err = slap_map_api2result( rs );
+			rs->sr_text = NULL;
+			goto finish;
 		}
-		goto finish;
 	}
 
 	/* We pull apart the ber result, stuff it into a slapd entry, and
@@ -171,91 +257,114 @@ fail:;
 	 * but this is necessary for version matching, and for ACL processing.
 	 */
 
-	for ( rc = 0; rc != -1; rc = ldap_result( lc->ld, msgid, 0, &tv, &res ) )
+	for ( rc = 0; rc != -1; rc = ldap_result( lc->lc_ld, msgid, LDAP_MSG_ONE, &tv, &res ) )
 	{
 		/* check for abandon */
 		if ( op->o_abandon ) {
-			ldap_abandon( lc->ld, msgid );
-			rc = 0;
+			if ( rc > 0 ) {
+				ldap_msgfree( res );
+			}
+			ldap_abandon_ext( lc->lc_ld, msgid, NULL, NULL );
+			rc = SLAPD_ABANDON;
 			goto finish;
 		}
 
 		if ( rc == 0 ) {
-			tv.tv_sec = 0;
-			tv.tv_usec = 100000;
+			LDAP_BACK_TV_SET( &tv );
 			ldap_pvt_thread_yield();
 
-		} else if ( rc == LDAP_RES_SEARCH_ENTRY ) {
-			Entry ent = {0};
-			struct berval bdn;
-			int abort = 0;
-			e = ldap_first_entry( lc->ld, res );
-			rc = ldap_build_entry( op, e, &ent, &bdn,
-					LDAP_BUILD_ENTRY_PRIVATE );
-		       if ( rc == LDAP_SUCCESS ) {
+			/* check time limit */
+			if ( op->ors_tlimit != SLAP_NO_LIMIT
+					&& slap_get_time() > stoptime )
+			{
+				ldap_abandon_ext( lc->lc_ld, msgid, NULL, NULL );
+				rc = rs->sr_err = LDAP_TIMELIMIT_EXCEEDED;
+				goto finish;
+			}
+			continue;
+
+		} else {
+			/* don't retry any more */
+			dont_retry = 1;
+		}
+
+
+		if ( rc == LDAP_RES_SEARCH_ENTRY ) {
+			Entry		ent = { 0 };
+			struct berval	bdn = BER_BVNULL;
+
+			do_retry = 0;
+
+			e = ldap_first_entry( lc->lc_ld, res );
+			rc = ldap_build_entry( op, e, &ent, &bdn );
+			if ( rc == LDAP_SUCCESS ) {
 				rs->sr_entry = &ent;
 				rs->sr_attrs = op->ors_attrs;
+				rs->sr_operational_attrs = NULL;
 				rs->sr_flags = 0;
-				abort = send_search_entry( op, rs );
-				while (ent.e_attrs) {
-					Attribute *a;
-					BerVarray v;
-
-					a = ent.e_attrs;
-					ent.e_attrs = a->a_next;
-
-					v = a->a_vals;
-					if ( a->a_vals != &dummy ) {
-						ber_bvarray_free(a->a_vals);
-					}
-					if ( a->a_nvals != v ) {
-						ber_bvarray_free(a->a_nvals);
-					}
-					ch_free(a);
+				rs->sr_err = LDAP_SUCCESS;
+				rc = rs->sr_err = send_search_entry( op, rs );
+				if ( !BER_BVISNULL( &ent.e_name ) ) {
+					assert( ent.e_name.bv_val != bdn.bv_val );
+					op->o_tmpfree( ent.e_name.bv_val, op->o_tmpmemctx );
+					BER_BVZERO( &ent.e_name );
 				}
-				
-				if ( ent.e_dn && ( ent.e_dn != bdn.bv_val ) )
-					free( ent.e_dn );
-				if ( ent.e_ndn )
-					free( ent.e_ndn );
+				if ( !BER_BVISNULL( &ent.e_nname ) ) {
+					op->o_tmpfree( ent.e_nname.bv_val, op->o_tmpmemctx );
+					BER_BVZERO( &ent.e_nname );
+				}
+				entry_clean( &ent );
 			}
 			ldap_msgfree( res );
-			if ( abort ) {
-				ldap_abandon( lc->ld, msgid );
+			if ( rc != LDAP_SUCCESS ) {
+				if ( rc == LDAP_UNAVAILABLE ) {
+					rc = rs->sr_err = LDAP_OTHER;
+				} else {
+					ldap_abandon_ext( lc->lc_ld, msgid, NULL, NULL );
+				}
 				goto finish;
 			}
 
 		} else if ( rc == LDAP_RES_SEARCH_REFERENCE ) {
 			char		**references = NULL;
-			int		cnt;
 
-			rc = ldap_parse_reference( lc->ld, res,
+			do_retry = 0;
+			rc = ldap_parse_reference( lc->lc_ld, res,
 					&references, &rs->sr_ctrls, 1 );
 
 			if ( rc != LDAP_SUCCESS ) {
 				continue;
 			}
 
-			if ( references == NULL ) {
-				continue;
+			/* FIXME: there MUST be at least one */
+			if ( references && references[ 0 ] && references[ 0 ][ 0 ] ) {
+				int		cnt;
+
+				for ( cnt = 0; references[ cnt ]; cnt++ )
+					/* NO OP */ ;
+
+				/* FIXME: there MUST be at least one */
+				rs->sr_ref = ch_malloc( ( cnt + 1 ) * sizeof( struct berval ) );
+
+				for ( cnt = 0; references[ cnt ]; cnt++ ) {
+					ber_str2bv( references[ cnt ], 0, 0, &rs->sr_ref[ cnt ] );
+				}
+				BER_BVZERO( &rs->sr_ref[ cnt ] );
+
+				/* ignore return value by now */
+				( void )send_search_reference( op, rs );
+
+			} else {
+				Debug( LDAP_DEBUG_ANY,
+					"%s ldap_back_search: "
+					"got SEARCH_REFERENCE "
+					"with no referrals\n",
+					op->o_log_prefix, 0, 0 );
 			}
-
-			for ( cnt = 0; references[ cnt ]; cnt++ )
-				/* NO OP */ ;
-				
-			rs->sr_ref = ch_calloc( cnt + 1, sizeof( struct berval ) );
-
-			for ( cnt = 0; references[ cnt ]; cnt++ ) {
-				rs->sr_ref[ cnt ].bv_val = references[ cnt ];
-				rs->sr_ref[ cnt ].bv_len = strlen( references[ cnt ] );
-			}
-
-			/* ignore return value by now */
-			( void )send_search_reference( op, rs );
 
 			/* cleanup */
 			if ( references ) {
-				ldap_value_free( references );
+				ber_memvfree( (void **)references );
 				ch_free( rs->sr_ref );
 				rs->sr_ref = NULL;
 			}
@@ -266,122 +375,172 @@ fail:;
 			}
 
 		} else {
-			rc = ldap_parse_result( lc->ld, res, &rs->sr_err,
-					&match.bv_val, (char **)&rs->sr_text,
-					NULL, NULL, 1 );
-			if (rc != LDAP_SUCCESS ) {
+			char		**references = NULL, *err = NULL;
+
+			rc = ldap_parse_result( lc->lc_ld, res, &rs->sr_err,
+					&match.bv_val, &err,
+					&references, &rs->sr_ctrls, 1 );
+			if ( rc != LDAP_SUCCESS ) {
 				rs->sr_err = rc;
 			}
 			rs->sr_err = slap_map_api2result( rs );
+			if ( err ) {
+				rs->sr_text = err;
+				freetext = 1;
+			}
+
+			if ( references && references[ 0 ] && references[ 0 ][ 0 ] ) {
+				int	cnt;
+
+				if ( rs->sr_err != LDAP_REFERRAL ) {
+					/* FIXME: error */
+					Debug( LDAP_DEBUG_ANY,
+						"%s ldap_back_search: "
+						"got referrals with %d\n",
+						op->o_log_prefix,
+						rs->sr_err, 0 );
+					rs->sr_err = LDAP_REFERRAL;
+				}
+
+				for ( cnt = 0; references[ cnt ]; cnt++ )
+					/* NO OP */ ;
+				
+				rs->sr_ref = ch_malloc( ( cnt + 1 ) * sizeof( struct berval ) );
+
+				for ( cnt = 0; references[ cnt ]; cnt++ ) {
+					/* duplicating ...*/
+					ber_str2bv( references[ cnt ], 0, 1, &rs->sr_ref[ cnt ] );
+				}
+				BER_BVZERO( &rs->sr_ref[ cnt ] );
+			}
+
+			if ( match.bv_val != NULL ) {
+#ifndef LDAP_NULL_IS_NULL
+				if ( match.bv_val[ 0 ] == '\0' ) {
+					LDAP_FREE( match.bv_val );
+					BER_BVZERO( &match );
+				} else
+#endif /* LDAP_NULL_IS_NULL */
+				{
+					match.bv_len = strlen( match.bv_val );
+				}
+			}
+#ifndef LDAP_NULL_IS_NULL
+			if ( rs->sr_text != NULL && rs->sr_text[ 0 ] == '\0' ) {
+				LDAP_FREE( (char *)rs->sr_text );
+				rs->sr_text = NULL;
+			}
+#endif /* LDAP_NULL_IS_NULL */
+
+			/* cleanup */
+			if ( references ) {
+				ber_memvfree( (void **)references );
+			}
+
 			rc = 0;
 			break;
 		}
 	}
 
-	if ( rc == -1 ) {
-		/* FIXME: invalidate the connection? */
+ 	if ( rc == -1 && dont_retry == 0 ) {
+		if ( do_retry ) {
+			do_retry = 0;
+			if ( ldap_back_retry( &lc, op, rs, LDAP_BACK_DONTSEND ) ) {
+				goto retry;
+			}
+		}
 		rs->sr_err = LDAP_SERVER_DOWN;
-		freeconn = 1;
-		goto fail;
+		rs->sr_err = slap_map_api2result( rs );
+		goto finish;
 	}
 
 	/*
 	 * Rewrite the matched portion of the search base, if required
 	 */
-	if ( match.bv_val && *match.bv_val ) {
-		struct berval mdn;
+	if ( !BER_BVISNULL( &match ) && !BER_BVISEMPTY( &match ) ) {
+		struct berval	pmatch;
 
-#ifdef ENABLE_REWRITE
-		dc.ctx = "matchedDN";
-#else
-		dc.tofrom = 0;
-		dc.normalized = 0;
-#endif
-		match.bv_len = strlen( match.bv_val );
-		ldap_back_dn_massage( &dc, &match, &mdn );
-		rs->sr_matched = mdn.bv_val;
+		if ( dnPretty( NULL, &match, &pmatch, op->o_tmpmemctx ) == LDAP_SUCCESS ) {
+			rs->sr_matched = pmatch.bv_val;
+			LDAP_FREE( match.bv_val );
+
+		} else {
+			rs->sr_matched = match.bv_val;
+		}
 	}
+
 	if ( rs->sr_v2ref ) {
 		rs->sr_err = LDAP_REFERRAL;
 	}
 
 finish:;
-	send_ldap_result( op, rs );
-
-#ifdef LDAP_BACK_PROXY_AUTHZ
-	if ( ctrls && ctrls != op->o_ctrls ) {
-		free( ctrls[ 0 ] );
-		free( ctrls );
+	if ( rc != SLAPD_ABANDON ) {
+		send_ldap_result( op, rs );
 	}
-#endif /* LDAP_BACK_PROXY_AUTHZ */
 
-	if ( match.bv_val ) {
+	(void)ldap_back_proxy_authz_ctrl_free( op, &ctrls );
+
+	if ( rs->sr_ctrls ) {
+		ldap_controls_free( rs->sr_ctrls );
+		rs->sr_ctrls = NULL;
+	}
+
+	if ( rs->sr_matched != NULL && rs->sr_matched != save_matched ) {
 		if ( rs->sr_matched != match.bv_val ) {
-			free( (char *)rs->sr_matched );
+			ber_memfree_x( (char *)rs->sr_matched, op->o_tmpmemctx );
+
+		} else {
+			LDAP_FREE( match.bv_val );
 		}
-		rs->sr_matched = NULL;
-		LDAP_FREE( match.bv_val );
+		rs->sr_matched = save_matched;
 	}
+
+	if ( !BER_BVISNULL( &filter ) && filter.bv_val != op->ors_filterstr.bv_val ) {
+		op->o_tmpfree( filter.bv_val, op->o_tmpmemctx );
+	}
+
 	if ( rs->sr_text ) {
-		if ( !dontfreetext ) {
+		if ( freetext ) {
 			LDAP_FREE( (char *)rs->sr_text );
 		}
 		rs->sr_text = NULL;
 	}
-	if ( mapped_attrs ) {
-		ch_free( mapped_attrs );
+
+	if ( rs->sr_ref ) {
+		ber_bvarray_free( rs->sr_ref );
+		rs->sr_ref = NULL;
 	}
-	if ( mfilter.bv_val != op->ors_filterstr.bv_val ) {
-		ch_free( mfilter.bv_val );
+
+	if ( attrs ) {
+		ch_free( attrs );
 	}
-	if ( mbase.bv_val != op->o_req_ndn.bv_val ) {
-		free( mbase.bv_val );
+
+	if ( lc != NULL ) {
+		ldap_back_release_conn( op, rs, lc );
 	}
-	
-	return rc;
+
+	return rs->sr_err;
 }
 
 static int
 ldap_build_entry(
-	Operation *op,
-	LDAPMessage *e,
-	Entry *ent,
-	struct berval *bdn,
-	int flags
-)
+		Operation	*op,
+		LDAPMessage	*e,
+		Entry		*ent,
+		struct berval	*bdn )
 {
-	struct ldapinfo *li = (struct ldapinfo *) op->o_bd->be_private;
-	struct berval a, mapped;
-	BerElement ber = *e->lm_ber;
-	Attribute *attr, **attrp;
-	struct berval *bv;
-	const char *text;
-	int last;
-	int private = flags & LDAP_BUILD_ENTRY_PRIVATE;
-	dncookie dc;
+	struct berval	a;
+	BerElement	ber = *e->lm_ber;
+	Attribute	*attr, **attrp;
+	const char	*text;
+	int		last;
 
 	/* safe assumptions ... */
-	assert( ent );
-	ent->e_bv.bv_val = NULL;
+	assert( ent != NULL );
+	BER_BVZERO( &ent->e_bv );
 
 	if ( ber_scanf( &ber, "{m{", bdn ) == LBER_ERROR ) {
 		return LDAP_DECODING_ERROR;
-	}
-
-	/*
-	 * Rewrite the dn of the result, if needed
-	 */
-	dc.rwmap = &li->rwmap;
-#ifdef ENABLE_REWRITE
-	dc.conn = op->o_conn;
-	dc.rs = NULL;
-	dc.ctx = "searchResult";
-#else
-	dc.tofrom = 0;
-	dc.normalized = 0;
-#endif
-	if ( ldap_back_dn_massage( &dc, bdn, &ent->e_name ) ) {
-		return LDAP_OTHER;
 	}
 
 	/*
@@ -391,49 +550,48 @@ ldap_build_entry(
 	 * 
 	 * FIXME: should we log anything, or delegate to dnNormalize?
 	 */
-	if ( dnNormalize( 0, NULL, NULL, &ent->e_name, &ent->e_nname,
+	/* Note: if the distinguished values or the naming attributes
+	 * change, should we massage them as well?
+	 */
+	if ( dnPrettyNormal( NULL, bdn, &ent->e_name, &ent->e_nname,
 		op->o_tmpmemctx ) != LDAP_SUCCESS )
 	{
 		return LDAP_INVALID_DN_SYNTAX;
 	}
-	
+
 	attrp = &ent->e_attrs;
 
-#ifdef ENABLE_REWRITE
-	dc.ctx = "searchAttrDN";
-#endif
 	while ( ber_scanf( &ber, "{m", &a ) != LBER_ERROR ) {
 		int				i;
 		slap_syntax_validate_func	*validate;
 		slap_syntax_transform_func	*pretty;
 
-		ldap_back_map( &li->rwmap.rwm_at, &a, &mapped, BACKLDAP_REMAP );
-		if ( BER_BVISNULL( &mapped ) || BER_BVISEMPTY( &mapped ) )
-			continue;
 		attr = (Attribute *)ch_malloc( sizeof( Attribute ) );
-		if ( attr == NULL )
+		if ( attr == NULL ) {
 			continue;
+		}
 		attr->a_flags = 0;
 		attr->a_next = 0;
 		attr->a_desc = NULL;
-		if ( slap_bv2ad( &mapped, &attr->a_desc, &text ) != LDAP_SUCCESS ) {
-			if ( slap_bv2undef_ad( &mapped, &attr->a_desc, &text ) 
-					!= LDAP_SUCCESS )
+		if ( slap_bv2ad( &a, &attr->a_desc, &text ) 
+				!= LDAP_SUCCESS )
+		{
+			if ( slap_bv2undef_ad( &a, &attr->a_desc, &text,
+				SLAP_AD_PROXIED ) != LDAP_SUCCESS )
 			{
-#ifdef NEW_LOGGING
-				LDAP_LOG( BACK_LDAP, DETAIL1, 
-					"slap_bv2undef_ad(%s):	%s\n", mapped.bv_val, text, 0 );
-#else /* !NEW_LOGGING */
 				Debug( LDAP_DEBUG_ANY, 
-					"slap_bv2undef_ad(%s):	%s\n", mapped.bv_val, text, 0 );
-#endif /* !NEW_LOGGING */
+					"%s ldap_build_entry: "
+					"slap_bv2undef_ad(%s): %s\n",
+					op->o_log_prefix, a.bv_val, text );
 				ch_free( attr );
 				continue;
 			}
 		}
 
 		/* no subschemaSubentry */
-		if ( attr->a_desc == slap_schema.si_ad_subschemaSubentry ) {
+		if ( attr->a_desc == slap_schema.si_ad_subschemaSubentry
+			|| attr->a_desc == slap_schema.si_ad_entryDN )
+		{
 
 			/* 
 			 * We eat target's subschemaSubentry because
@@ -441,10 +599,14 @@ ldap_build_entry(
 			 * to resolve to the appropriate backend;
 			 * later, the local subschemaSubentry is
 			 * added.
+			 *
+			 * We also eat entryDN because the frontend
+			 * will reattach it without checking if already
+			 * present...
 			 */
 			( void )ber_scanf( &ber, "x" /* [W] */ );
 
-			ch_free(attr);
+			ch_free( attr );
 			continue;
 		}
 		
@@ -455,61 +617,12 @@ ldap_build_entry(
 			 * Note: attr->a_vals can be null when using
 			 * values result filter
 			 */
-			if ( private ) {
-				attr->a_vals = &dummy;
-			} else {
-				attr->a_vals = ch_malloc( sizeof( struct berval ) );
-				BER_BVZERO( &attr->a_vals[0] );
-			}
+			attr->a_vals = (struct berval *)&slap_dummy_bv;
 			last = 0;
 
 		} else {
-			for ( last = 0; !BER_BVISNULL( &attr->a_vals[last] ); last++ );
-		}
-
-		if ( last == 0 ) {
-			/* empty */
-		} else if ( attr->a_desc == slap_schema.si_ad_objectClass
-				|| attr->a_desc == slap_schema.si_ad_structuralObjectClass )
-		{
-			for ( bv = attr->a_vals; !BER_BVISNULL( bv ); bv++ ) {
-				ldap_back_map( &li->rwmap.rwm_oc, bv, &mapped,
-						BACKLDAP_REMAP );
-				if ( BER_BVISNULL( &mapped ) || BER_BVISEMPTY( &mapped ) ) {
-					LBER_FREE( bv->bv_val );
-					BER_BVZERO( bv );
-					if (--last < 0)
-						break;
-					*bv = attr->a_vals[last];
-					BER_BVZERO( &attr->a_vals[last] );
-					bv--;
-
-				} else if ( mapped.bv_val != bv->bv_val ) {
-					/*
-					 * FIXME: after LBER_FREEing
-					 * the value is replaced by
-					 * ch_alloc'ed memory
-					 */
-					LBER_FREE( bv->bv_val );
-					ber_dupbv( bv, &mapped );
-				}
-			}
-
-		/*
-		 * It is necessary to try to rewrite attributes with
-		 * dn syntax because they might be used in ACLs as
-		 * members of groups; since ACLs are applied to the
-		 * rewritten stuff, no dn-based subject clause could
-		 * be used at the ldap backend side (see
-		 * http://www.OpenLDAP.org/faq/data/cache/452.html)
-		 * The problem can be overcome by moving the dn-based
-		 * ACLs to the target directory server, and letting
-		 * everything pass thru the ldap backend.
-		 */
-		} else if ( attr->a_desc->ad_type->sat_syntax ==
-				slap_schema.si_syn_distinguishedName )
-		{
-			ldap_dnattr_result_rewrite( &dc, attr->a_vals );
+			for ( last = 0; !BER_BVISNULL( &attr->a_vals[ last ] ); last++ )
+				/* just count vals */ ;
 		}
 
 		validate = attr->a_desc->ad_type->sat_syntax->ssyn_validate;
@@ -528,15 +641,24 @@ ldap_build_entry(
 			if ( pretty ) {
 				rc = pretty( attr->a_desc->ad_type->sat_syntax,
 					&attr->a_vals[i], &pval, NULL );
+
 			} else {
 				rc = validate( attr->a_desc->ad_type->sat_syntax,
 					&attr->a_vals[i] );
 			}
 
 			if ( rc != LDAP_SUCCESS ) {
-				attr->a_nvals = NULL;
-				attr_free( attr );
-				goto next_attr;
+				/* check if, by chance, it's an undefined objectClass */
+				if ( attr->a_desc == slap_schema.si_ad_objectClass &&
+						oc_bvfind_undef( &attr->a_vals[i] ) != NULL )
+				{
+					ber_dupbv( &pval, &attr->a_vals[i] );
+
+				} else {
+					attr->a_nvals = NULL;
+					attr_free( attr );
+					goto next_attr;
+				}
 			}
 
 			if ( pretty ) {
@@ -561,7 +683,7 @@ ldap_build_entry(
 					attr->a_desc->ad_type->sat_syntax,
 					attr->a_desc->ad_type->sat_equality,
 					&attr->a_vals[i], &attr->a_nvals[i],
-					NULL /* op->o_tmpmemctx */ );
+					NULL );
 
 				if ( rc != LDAP_SUCCESS ) {
 					BER_BVZERO( &attr->a_nvals[i] );
@@ -580,10 +702,6 @@ ldap_build_entry(
 next_attr:;
 	}
 
-	/* make sure it's free'able */
-	if ( !private && ent->e_name.bv_val == bdn->bv_val ) {
-		ber_dupbv( &ent->e_name, bdn );
-	}
 	return LDAP_SUCCESS;
 }
 
@@ -591,116 +709,116 @@ next_attr:;
  */
 int
 ldap_back_entry_get(
-	Operation *op,
-	struct berval	*ndn,
-	ObjectClass *oc,
-	AttributeDescription *at,
-	int rw,
-	Entry **ent
+		Operation		*op,
+		struct berval		*ndn,
+		ObjectClass		*oc,
+		AttributeDescription	*at,
+		int			rw,
+		Entry			**ent
 )
 {
-	struct ldapinfo *li = (struct ldapinfo *) op->o_bd->be_private;    
-	struct ldapconn *lc;
-	int rc = 1, is_oc;
-	struct berval mapped = BER_BVNULL, bdn, mdn;
-	LDAPMessage	*result = NULL, *e = NULL;
-	char *gattr[3];
-	char *filter = NULL;
-	Connection *oconn;
-	SlapReply rs;
-	dncookie dc;
+	ldapconn_t	*lc;
+	int		rc = 1,
+			do_not_cache;
+	struct berval	bdn;
+	LDAPMessage	*result = NULL,
+			*e = NULL;
+	char		*attr[3], **attrp = NULL;
+	char		*filter = NULL;
+	SlapReply	rs;
+	int		do_retry = 1;
+	LDAPControl	**ctrls = NULL;
+
+	*ent = NULL;
 
 	/* Tell getconn this is a privileged op */
-	is_oc = op->o_do_not_cache;
+	do_not_cache = op->o_do_not_cache;
 	op->o_do_not_cache = 1;
-	lc = ldap_back_getconn(op, &rs);
-	oconn = op->o_conn;
-	op->o_conn = NULL;
-	if ( !lc || !ldap_back_dobind(lc, op, &rs) ) {
-		op->o_do_not_cache = is_oc;
-		op->o_conn = oconn;
-		return 1;
+	lc = ldap_back_getconn( op, &rs, LDAP_BACK_DONTSEND );
+	if ( !lc || !ldap_back_dobind( lc, op, &rs, LDAP_BACK_DONTSEND ) ) {
+		op->o_do_not_cache = do_not_cache;
+		return rs.sr_err;
 	}
-	op->o_do_not_cache = is_oc;
-	op->o_conn = oconn;
-
-	/*
-	 * Rewrite the search base, if required
-	 */
-	dc.rwmap = &li->rwmap;
-#ifdef ENABLE_REWRITE
-	dc.conn = op->o_conn;
-	dc.rs = &rs;
-	dc.ctx = "searchBase";
-#else
-	dc.tofrom = 1;
-	dc.normalized = 1;
-#endif
-	if ( ldap_back_dn_massage( &dc, ndn, &mdn ) ) {
-		return 1;
-	}
+	op->o_do_not_cache = do_not_cache;
 
 	if ( at ) {
-		ldap_back_map(&li->rwmap.rwm_at, &at->ad_cname, &mapped, BACKLDAP_MAP);
-		if (mapped.bv_val == NULL || mapped.bv_val[0] == '\0') {
-			rc = 1;
-			goto cleanup;
+		attrp = attr;
+		if ( oc && at != slap_schema.si_ad_objectClass ) {
+			attr[0] = slap_schema.si_ad_objectClass->ad_cname.bv_val;
+			attr[1] = at->ad_cname.bv_val;
+			attr[2] = NULL;
+
+		} else {
+			attr[0] = at->ad_cname.bv_val;
+			attr[1] = NULL;
 		}
 	}
 
-	is_oc = (strcasecmp("objectclass", mapped.bv_val) == 0);
-	if (oc && !is_oc) {
-		gattr[0] = "objectclass";
-		gattr[1] = mapped.bv_val;
-		gattr[2] = NULL;
-	} else {
-		gattr[0] = mapped.bv_val;
-		gattr[1] = NULL;
-	}
-	if (oc) {
-		char *ptr;
-		ldap_back_map(&li->rwmap.rwm_oc, &oc->soc_cname, &mapped,
-						BACKLDAP_MAP);
-		filter = ch_malloc(sizeof("(objectclass=)") + mapped.bv_len);
-		ptr = lutil_strcopy(filter, "(objectclass=");
-		ptr = lutil_strcopy(ptr, mapped.bv_val);
+	if ( oc ) {
+		char	*ptr;
+
+		filter = ch_malloc( STRLENOF( "(objectclass=)" ) 
+				+ oc->soc_cname.bv_len + 1 );
+		ptr = lutil_strcopy( filter, "(objectclass=" );
+		ptr = lutil_strcopy( ptr, oc->soc_cname.bv_val );
 		*ptr++ = ')';
 		*ptr++ = '\0';
 	}
 
-	if (ldap_search_ext_s(lc->ld, mdn.bv_val, LDAP_SCOPE_BASE, filter,
-				gattr, 0, NULL, NULL, LDAP_NO_LIMIT,
-				LDAP_NO_LIMIT, &result) != LDAP_SUCCESS)
-	{
+	ctrls = op->o_ctrls;
+	rc = ldap_back_proxy_authz_ctrl( lc, op, &rs, &ctrls );
+	if ( rc != LDAP_SUCCESS ) {
+		goto cleanup;
+	}
+	
+retry:
+	rc = ldap_search_ext_s( lc->lc_ld, ndn->bv_val, LDAP_SCOPE_BASE, filter,
+				attrp, 0, ctrls, NULL,
+				NULL, LDAP_NO_LIMIT, &result );
+	if ( rc != LDAP_SUCCESS ) {
+		if ( rc == LDAP_SERVER_DOWN && do_retry ) {
+			do_retry = 0;
+			if ( ldap_back_retry( &lc, op, &rs, LDAP_BACK_DONTSEND ) ) {
+				goto retry;
+			}
+		}
 		goto cleanup;
 	}
 
-	if ((e = ldap_first_entry(lc->ld, result)) == NULL) {
+	e = ldap_first_entry( lc->lc_ld, result );
+	if ( e == NULL ) {
+		/* the entry exists, but it doesn't match the filter? */
 		goto cleanup;
 	}
 
-	*ent = ch_calloc(1,sizeof(Entry));
+	*ent = ch_calloc( 1, sizeof( Entry ) );
+	if ( *ent == NULL ) {
+		rc = LDAP_NO_MEMORY;
+		goto cleanup;
+	}
 
-	rc = ldap_build_entry(op, e, *ent, &bdn, 0);
+	rc = ldap_build_entry( op, e, *ent, &bdn );
 
-	if (rc != LDAP_SUCCESS) {
-		ch_free(*ent);
+	if ( rc != LDAP_SUCCESS ) {
+		ch_free( *ent );
 		*ent = NULL;
 	}
 
 cleanup:
-	if (result) {
-		ldap_msgfree(result);
+	(void)ldap_back_proxy_authz_ctrl_free( op, &ctrls );
+
+	if ( result ) {
+		ldap_msgfree( result );
 	}
 
 	if ( filter ) {
 		ch_free( filter );
 	}
 
-	if ( mdn.bv_val != ndn->bv_val ) {
-		ch_free( mdn.bv_val );
+	if ( lc != NULL ) {
+		ldap_back_release_conn( op, &rs, lc );
 	}
 
-	return(rc);
+	return rc;
 }
 

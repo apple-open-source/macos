@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@ extern "C" {
 extern void DADialogInitialize( void );
 extern void DADialogShowDeviceRemoval( void );
 extern void DADialogShowDeviceUnreadable( DADiskRef disk );
+extern void DADialogShowDeviceUnrepairable( DADiskRef disk );
 
 #ifdef __cplusplus
 }

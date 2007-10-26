@@ -26,37 +26,26 @@
 
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
+#include <Security/x509defs.h>
 #include <CoreFoundation/CFArray.h>
 
 #if defined(__cplusplus)
 extern "C" {
 #endif
 
-/*!
-	@function SecCertificateCopyPublicKey
-	@abstract Retrieves the public key for a given certificate.
-    @param certificate A reference to the certificate from which to retrieve the data.
-    @param data On return, a pointer to the data for the certificate specified.  The caller must allocate the space for a CSSM_DATA structure before calling this function.  This data pointer is only guaranteed to remain valid as long as the certificate remains unchanged and valid.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
-*/
-OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key);
-
-OSStatus SecCertificateGetAlgorithmID(SecCertificateRef certificate,const CSSM_X509_ALGORITHM_IDENTIFIER **algid);
-
+/* Deprecated; use SecCertificateCopyCommonName() instead. */
 OSStatus SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName);
 
-/* @@@ Obsoleted by SecCertificateCopyEmailAddresses(), also really should of been named
-   SecCertificateCopyEmailAddress() since the returned address is not autoreleased. */
+/* Deprecated; use SecCertificateCopyEmailAddresses() instead. */
+/* This should have been Copy instead of Get since the returned address is not autoreleased. */
 OSStatus SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailAddress);
-
-OSStatus SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emailAddresses);
 
 /*
  * Private API to infer a display name for a SecCertificateRef which
  * may or may not be in a keychain.
+ * This is a candidate for deprecation; use SecItemCopyDisplayNames() instead.
  */
 OSStatus SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *label);
-
 
 /*
  * Subset of the above, useful for both certs and CRLs.
@@ -115,7 +104,20 @@ OSStatus SecCertificateCopyFirstFieldValue(SecCertificateRef certificate, const 
 */
 OSStatus SecCertificateReleaseFirstFieldValue(SecCertificateRef certificate, const CSSM_OID *field, CSSM_DATA_PTR fieldValue);
 
-/*	Convenience functions for searching
+/*!
+    @function SecCertificateCopySubjectComponent
+    @abstract Retrieves a component of the subject distinguished name of a given certificate.
+    @param certificate A reference to the certificate from which to retrieve the common name.
+	@param component A component oid naming the component desired. See <Security/oidsattr.h>.
+    @param result On return, a reference to the string form of the component, if present in the subject.
+		Your code must release this reference by calling the CFRelease function.
+    @result A result code. See "Security Error Codes" (SecBase.h).
+ */
+OSStatus SecCertificateCopySubjectComponent(SecCertificateRef certificate, const CSSM_OID *component,
+	CFStringRef *result);
+
+
+/*	Convenience functions for searching.
 */
 
 OSStatus SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray, const CSSM_DATA *issuer,
@@ -138,12 +140,19 @@ OSStatus SecKeychainSearchCreateForCertificateBySubjectKeyID(CFTypeRef keychainO
 OSStatus SecKeychainSearchCreateForCertificateByEmail(CFTypeRef keychainOrArray, const char *emailAddress,
 	SecKeychainSearchRef *searchRef);
 
+/* Convenience function for generating digests; should be moved elsewhere. */
 CSSM_RETURN SecDigestGetData(CSSM_ALGORITHMS alg, CSSM_DATA* digest, const CSSM_DATA* data);
 
 /* NOT EXPORTED YET; copied from SecurityInterface but could be useful in the future.
 CSSM_CSP_HANDLE	SecGetAppleCSPHandle();
 CSSM_CL_HANDLE SecGetAppleCLHandle();
 */
+
+/* determine whether a cert is self-signed */
+OSStatus SecCertificateIsSelfSigned(
+	SecCertificateRef certRef,
+	Boolean *isSelfSigned);		/* RETURNED */
+
 
 #if defined(__cplusplus)
 }

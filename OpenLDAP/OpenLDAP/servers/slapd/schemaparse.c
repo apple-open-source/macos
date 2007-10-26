@@ -1,8 +1,8 @@
 /* schemaparse.c - routines to parse config file objectclass definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.64.2.4 2004/01/01 18:16:35 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.71.2.6 2006/01/23 19:09:56 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,8 +25,6 @@
 #include "slap.h"
 #include "ldap_schema.h"
 
-int	global_schemacheck = 1; /* schemacheck ON is default */
-
 static void		oc_usage(void); 
 static void		at_usage(void);
 
@@ -37,12 +35,14 @@ static char *const err2text[] = {
 	"user-defined ObjectClass includes operational attributes",
 	"user-defined ObjectClass has inappropriate SUPerior",
 	"Duplicate objectClass",
+	"Inconsistent duplicate objectClass",
 	"AttributeType not found",
 	"AttributeType inappropriate matching rule",
 	"AttributeType inappropriate USAGE",
 	"AttributeType inappropriate SUPerior",
 	"AttributeType SYNTAX or SUPerior required",
 	"Duplicate attributeType",
+	"Inconsistent duplicate attributeType",
 	"MatchingRule not found",
 	"MatchingRule incomplete",
 	"Duplicate matchingRule",
@@ -55,7 +55,8 @@ static char *const err2text[] = {
 	"Duplicate Content Rule",
 	"Content Rule not for STRUCTURAL object class",
 	"Content Rule AUX contains inappropriate object class",
-	"Content Rule attribute type list contains duplicate"
+	"Content Rule attribute type list contains duplicate",
+	NULL
 };
 
 char *
@@ -123,17 +124,17 @@ cr_usage( void )
 
 int
 parse_cr(
-    const char	*fname,
-    int		lineno,
-    char	*line,
-    char	**argv
-)
+	const char	*fname,
+	int		lineno,
+	char		*line,
+	char		**argv,
+	ContentRule	**scr )
 {
 	LDAPContentRule *cr;
 	int		code;
 	const char	*err;
 
-	cr = ldap_str2contentrule(line, &code, &err, LDAP_SCHEMA_ALLOW_ALL );
+	cr = ldap_str2contentrule( line, &code, &err, LDAP_SCHEMA_ALLOW_ALL );
 	if ( !cr ) {
 		fprintf( stderr, "%s: line %d: %s before %s\n",
 			 fname, lineno, ldap_scherr2str(code), err );
@@ -146,28 +147,36 @@ parse_cr(
 			"%s: line %d: Content rule has no OID\n",
 			fname, lineno );
 		cr_usage();
-		return 1;
+		code = 1;
+		goto done;
 	}
 
-	code = cr_add(cr,1,&err);
+	code = cr_add( cr, 1, scr, &err );
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
-			 fname, lineno, scherr2str(code), err);
-		return 1;
+			 fname, lineno, scherr2str( code ), err );
+		code = 1;
+		goto done;
 	}
 
-	ldap_memfree(cr);
-	return 0;
+done:;
+	if ( code ) {
+		ldap_contentrule_free( cr );
+
+	} else {
+		ldap_memfree( cr );
+	}
+
+	return code;
 }
 
 int
 parse_oc(
-    const char	*fname,
-    int		lineno,
-    char	*line,
-    char	**argv,
-	int		ignore_duplicates
-)
+	const char	*fname,
+	int		lineno,
+	char		*line,
+	char		**argv,
+	ObjectClass	**soc )
 {
 	LDAPObjectClass *oc;
 	int		code;
@@ -176,7 +185,7 @@ parse_oc(
 	oc = ldap_str2objectclass(line, &code, &err, LDAP_SCHEMA_ALLOW_ALL );
 	if ( !oc ) {
 		fprintf( stderr, "%s: line %d: %s before %s\n",
-			 fname, lineno, ldap_scherr2str(code), err );
+			 fname, lineno, ldap_scherr2str( code ), err );
 		oc_usage();
 		return 1;
 	}
@@ -186,21 +195,27 @@ parse_oc(
 			"%s: line %d: objectclass has no OID\n",
 			fname, lineno );
 		oc_usage();
-		return 1;
+		code = 1;
+		goto done;
 	}
 
-	if ( ignore_duplicates && oc_find(oc->oc_oid) )
-		return 0;
-		
-	code = oc_add(oc,1,&err);
+	code = oc_add( oc, 1, soc, &err );
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
-			 fname, lineno, scherr2str(code), err);
-		return 1;
+			 fname, lineno, scherr2str( code ), err );
+		code = 1;
+		goto done;
 	}
 
-	ldap_memfree(oc);
-	return 0;
+done:;
+	if ( code ) {
+		ldap_objectclass_free( oc );
+
+	} else {
+		ldap_memfree( oc );
+	}
+
+	return code;
 }
 
 static void
@@ -248,12 +263,11 @@ at_usage( void )
 
 int
 parse_at(
-    const char	*fname,
-    int		lineno,
-    char	*line,
-    char	**argv,
-	int		ignore_duplicates
-)
+	const char	*fname,
+	int		lineno,
+	char		*line,
+	char		**argv,
+	AttributeType	**sat )
 {
 	LDAPAttributeType *at;
 	int		code;
@@ -272,25 +286,33 @@ parse_at(
 			"%s: line %d: attributeType has no OID\n",
 			fname, lineno );
 		at_usage();
-		return 1;
+		code = 1;
+		goto done;
 	}
 
 	/* operational attributes should be defined internally */
 	if ( at->at_usage ) {
 		fprintf( stderr, "%s: line %d: attribute type \"%s\" is operational\n",
 			 fname, lineno, at->at_oid );
-		return 1;
+		code = 1;
+		goto done;
 	}
 
-	if ( ignore_duplicates && at_find(at->at_oid) )
-		return 0;
-		
-	code = at_add(at,&err);
+	code = at_add( at, 1, sat, &err);
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
 			 fname, lineno, scherr2str(code), err);
-		return 1;
+		code = 1;
+		goto done;
 	}
-	ldap_memfree(at);
-	return 0;
+
+done:;
+	if ( code ) {
+		ldap_attributetype_free( at );
+
+	} else {
+		ldap_memfree( at );
+	}
+
+	return code;
 }

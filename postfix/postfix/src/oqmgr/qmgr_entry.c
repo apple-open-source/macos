@@ -20,6 +20,10 @@
 /*	void	qmgr_entry_unselect(queue, entry)
 /*	QMGR_QUEUE *queue;
 /*	QMGR_ENTRY *entry;
+/*
+/*	void	qmgr_entry_move_todo(dst, entry)
+/*	QMGR_QUEUE *dst;
+/*	QMGR_ENTRY *entry;
 /* DESCRIPTION
 /*	These routines add/delete/manipulate per-site message
 /*	delivery requests.
@@ -55,6 +59,9 @@
 /*	qmgr_entry_unselect() takes the named entry off the named
 /*	per-site queue's `busy' list and moves it to the queue's
 /*	`todo' list.
+/*
+/*	qmgr_entry_move_todo() moves the specified "todo" queue entry
+/*	to the specified "todo" queue.
 /* DIAGNOSTICS
 /*	Panic: interface violations, internal inconsistencies.
 /* LICENSE
@@ -84,6 +91,7 @@
 /* Global library. */
 
 #include <mail_params.h>
+#include <deliver_request.h>		/* opportunistic session caching */
 
 /* Application-specific. */
 
@@ -93,6 +101,7 @@
 
 QMGR_ENTRY *qmgr_entry_select(QMGR_QUEUE *queue)
 {
+    const char *myname = "qmgr_entry_select";
     QMGR_ENTRY *entry;
 
     if ((entry = queue->todo.prev) != 0) {
@@ -100,6 +109,59 @@ QMGR_ENTRY *qmgr_entry_select(QMGR_QUEUE *queue)
 	queue->todo_refcount--;
 	QMGR_LIST_APPEND(queue->busy, entry);
 	queue->busy_refcount++;
+
+	/*
+	 * With opportunistic session caching, the delivery agent must not
+	 * only 1) save a session upon completion, but also 2) reuse a cached
+	 * session upon the next delivery request. In order to not miss out
+	 * on 2), we have to make caching sticky or else we get silly
+	 * behavior when the in-memory queue drains. Specifically, new
+	 * connections must not be made as long as cached connections exist.
+	 * 
+	 * Safety: don't enable opportunistic session caching unless the queue
+	 * manager is able to schedule concurrent or back-to-back deliveries
+	 * (we need to recognize back-to-back deliveries for transports with
+	 * concurrency 1).
+	 * 
+	 * XXX It would be nice if we could say "try to reuse a cached
+	 * connection, but don't bother saving it when you're done". As long
+	 * as we can't, we must not turn off session caching too early.
+	 */
+#define CONCURRENT_OR_BACK_TO_BACK_DELIVERY() \
+	    (queue->busy_refcount > 1 || BACK_TO_BACK_DELIVERY())
+
+#define BACK_TO_BACK_DELIVERY() \
+		(queue->last_done + 1 >= event_time())
+
+	/*
+	 * Turn on session caching after we get up to speed. Don't enable
+	 * session caching just because we have concurrent deliveries. This
+	 * prevents unnecessary session caching when we have a burst of mail
+	 * <= the initial concurrency limit.
+	 */
+	if ((queue->dflags & DEL_REQ_FLAG_SCACHE) == 0) {
+	    if (BACK_TO_BACK_DELIVERY()) {
+		if (msg_verbose)
+		    msg_info("%s: allowing on-demand session caching for %s",
+			     myname, queue->name);
+		queue->dflags |= DEL_REQ_FLAG_SCACHE;
+	    }
+	}
+
+	/*
+	 * Turn off session caching when concurrency drops and we're running
+	 * out of steam. This is what prevents from turning off session
+	 * caching too early, and from making new connections while old ones
+	 * are still cached.
+	 */
+	else {
+	    if (!CONCURRENT_OR_BACK_TO_BACK_DELIVERY()) {
+		if (msg_verbose)
+		    msg_info("%s: disallowing on-demand session caching for %s",
+			     myname, queue->name);
+		queue->dflags &= ~DEL_REQ_FLAG_SCACHE;
+	    }
+	}
     }
     return (entry);
 }
@@ -112,6 +174,38 @@ void    qmgr_entry_unselect(QMGR_QUEUE *queue, QMGR_ENTRY *entry)
     queue->busy_refcount--;
     QMGR_LIST_APPEND(queue->todo, entry);
     queue->todo_refcount++;
+}
+
+/* qmgr_entry_move_todo - move entry between todo queues */
+
+void    qmgr_entry_move_todo(QMGR_QUEUE *dst, QMGR_ENTRY *entry)
+{
+    const char *myname = "qmgr_entry_move_todo";
+    QMGR_MESSAGE *message = entry->message;
+    QMGR_QUEUE *src = entry->queue;
+    QMGR_ENTRY *new_entry;
+
+    if (entry->stream != 0)
+	msg_panic("%s: queue %s entry is busy", myname, src->name);
+    if (QMGR_QUEUE_THROTTLED(dst))
+	msg_panic("%s: destination queue %s is throttled", myname, dst->name);
+    if (QMGR_TRANSPORT_THROTTLED(dst->transport))
+	msg_panic("%s: destination transport %s is throttled",
+		  myname, dst->transport->name);
+
+    /*
+     * Create new entry, swap the recipients between the old and new entries,
+     * then dispose of the old entry. This gives us any end-game actions that
+     * are implemented by qmgr_entry_done(), so we don't have to duplicate
+     * those actions here.
+     * 
+     * XXX This does not enforce the per-entry recipient limit, but that is not
+     * a problem as long as qmgr_entry_move_todo() is called only to bounce
+     * or defer mail.
+     */
+    new_entry = qmgr_entry_create(dst, message);
+    recipient_list_swap(&entry->rcpt_list, &new_entry->rcpt_list);
+    qmgr_entry_done(entry, QMGR_QUEUE_TODO);
 }
 
 /* qmgr_entry_done - dispose of queue entry */
@@ -141,15 +235,22 @@ void    qmgr_entry_done(QMGR_ENTRY *entry, int which)
      * accordingly.
      */
     qmgr_recipient_count -= entry->rcpt_list.len;
-    qmgr_rcpt_list_free(&entry->rcpt_list);
+    recipient_list_free(&entry->rcpt_list);
 
     myfree((char *) entry);
+
+    /*
+     * Maintain back-to-back delivery status.
+     */
+    queue->last_done = event_time();
 
     /*
      * When the in-core queue for this site is empty and when this site is
      * not dead, discard the in-core queue. When this site is dead, but the
      * number of in-core queues exceeds some threshold, get rid of this
      * in-core queue anyway, in order to avoid running out of memory.
+     * 
+     * See also: qmgr_entry_move_todo().
      */
     if (queue->todo.next == 0 && queue->busy.next == 0) {
 	if (queue->window == 0 && qmgr_queue_count > 2 * var_qmgr_rcpt_limit)
@@ -177,7 +278,7 @@ void    qmgr_entry_done(QMGR_ENTRY *entry, int which)
 #define FUDGE(x)	((x) * (var_qmgr_fudge / 100.0))
     message->refcount--;
     if (message->rcpt_offset > 0
-	&& qmgr_recipient_count < FUDGE(var_qmgr_rcpt_limit))
+	&& qmgr_recipient_count < FUDGE(var_qmgr_rcpt_limit) - 100)
 	qmgr_message_realloc(message);
     if (message->refcount == 0)
 	qmgr_active_done(message);
@@ -201,7 +302,7 @@ QMGR_ENTRY *qmgr_entry_create(QMGR_QUEUE *queue, QMGR_MESSAGE *message)
     entry = (QMGR_ENTRY *) mymalloc(sizeof(QMGR_ENTRY));
     entry->stream = 0;
     entry->message = message;
-    qmgr_rcpt_list_init(&entry->rcpt_list);
+    recipient_list_init(&entry->rcpt_list, RCPT_LIST_INIT_QUEUE);
     message->refcount++;
     entry->queue = queue;
     QMGR_LIST_APPEND(queue->todo, entry);

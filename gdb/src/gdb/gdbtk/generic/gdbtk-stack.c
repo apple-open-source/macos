@@ -107,7 +107,9 @@ gdb_block_vars (ClientData clientData, Tcl_Interp *interp,
 
   while (block != 0)
     {
-      if (BLOCK_START (block) == start && BLOCK_END (block) == end)
+      /* APPLE LOCAL begin address ranges  */
+      if (block_starts_and_ends (block, start, end))
+      /* APPLE LOCAL end address ranges  */
 	{
 	  ALL_BLOCK_SYMBOLS (block, iter, sym)
 	    {
@@ -213,20 +215,45 @@ gdb_get_blocks (ClientData clientData, Tcl_Interp *interp,
 	     Note that the ranges of start and end address for blocks
 	     are exclusive, so double-check against the PC */
 	  
-	  if (!junk && pc < BLOCK_END (block))
+	  /* APPLE LOCAL begin address ranges  */
+	  if (!junk && block_contains_pc (block, pc))
 	    {
 	      char *addr;
 
-	      Tcl_Obj *elt = Tcl_NewListObj (0, NULL);
-	      xasprintf (&addr, "0x%s", paddr_nz (BLOCK_START (block)));
-	      Tcl_ListObjAppendElement (interp, elt,
-					Tcl_NewStringObj (addr, -1));
-	      free(addr);
-	      xasprintf (&addr, "0x%s", paddr_nz (BLOCK_END (block)));
-	      Tcl_ListObjAppendElement (interp, elt,
-					Tcl_NewStringObj (addr, -1));
-	      Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, elt);
-	      free(addr);
+	      if (!BLOCK_RANGES (block))
+		{
+		  Tcl_Obj *elt = Tcl_NewListObj (0, NULL);
+		  xasprintf (&addr, "0x%s", paddr_nz (BLOCK_START (block)));
+		  Tcl_ListObjAppendElement (interp, elt,
+					    Tcl_NewStringObj (addr, -1));
+		  free(addr);
+		  xasprintf (&addr, "0x%s", paddr_nz (BLOCK_END (block)));
+		  Tcl_ListObjAppendElement (interp, elt,
+					    Tcl_NewStringObj (addr, -1));
+		  Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, elt);
+		  free(addr);
+		}
+	      else
+		{
+		  int i;
+		  Tcl_Obj *elt = Tcl_NewListObj (0, NULL);
+
+		  for (i = 0; i < BLOCK_RANGES (block)->nelts; i++)
+		    {
+		      xasprintf (&addr, "0x%s", 
+				 paddr_nz (BLOCK_RANGE_START (block, i)));
+		      Tcl_ListObjAppendElement (interp, elt,
+						Tcl_NewStringObj (addr, -1));
+		      free(addr);
+		      xasprintf (&addr, "0x%s", 
+				 paddr_nz (BLOCK_RANGE_END (block, i)));
+		      Tcl_ListObjAppendElement (interp, elt,
+					    Tcl_NewStringObj (addr, -1));
+		      Tcl_ListObjAppendElement (interp, result_ptr->obj_ptr, elt);
+		      free(addr);
+		    }
+		}
+	      /* APPLE LOCAL end address ranges  */
 	    }
 
 	  if (BLOCK_FUNCTION (block))
@@ -396,6 +423,10 @@ gdb_selected_block (ClientData clientData, Tcl_Interp *interp,
     {
       struct block *block;
       block = get_frame_block (deprecated_selected_frame, 0);
+      /* APPLE LOCAL begin address ranges  */
+      if (BLOCK_RANGES (block))
+	return TCL_ERROR;
+      /* APPLE LOCAL end address ranges  */
       xasprintf (&start, "0x%s", paddr_nz (BLOCK_START (block)));
       xasprintf (&end, "0x%s", paddr_nz (BLOCK_END (block)));
     }
@@ -556,9 +587,11 @@ get_frame_name (Tcl_Interp *interp, Tcl_Obj *list, struct frame_info *fi)
   if (func)
     {
       struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (get_frame_pc (fi));
+      /* APPLE LOCAL begin address ranges  */
       if (msymbol != NULL
 	  && (SYMBOL_VALUE_ADDRESS (msymbol)
-	      > BLOCK_START (SYMBOL_BLOCK_VALUE (func))))
+	      > BLOCK_LOWEST_PC (SYMBOL_BLOCK_VALUE (func))))
+	/* APPLE LOCAL end address ranges  */
 	{
 	  func = 0;
 	  funname = GDBTK_SYMBOL_SOURCE_NAME (msymbol);
@@ -591,7 +624,7 @@ get_frame_name (Tcl_Interp *interp, Tcl_Obj *list, struct frame_info *fi)
       /* we have no convenient way to deal with this yet... */
       if (fi->pc != sal.pc || !sal.symtab)
 	{
-	  print_address_numeric (fi->pc, 1, gdb_stdout);
+	  deprecated_print_address_numeric (fi->pc, 1, gdb_stdout);
 	  printf_filtered (" in ");
 	}
       printf_symbol_filtered (gdb_stdout, funname ? funname : "??", funlang,

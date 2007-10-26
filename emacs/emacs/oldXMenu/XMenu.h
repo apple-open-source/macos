@@ -1,14 +1,14 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/XMenu.h,v 1.1.1.4 2002/09/10 23:34:47 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
  *
  *	XMenu.h -	Include file for the MIT Project Athena
  *			XMenu X window system menu package.
- *			
+ *
  *	Author:		Tony Della Fera, DEC
  *			August, 1984
  */
@@ -169,8 +169,8 @@ typedef enum _xmmode {
 } XMMode;
 
 
-/* 
- * Define the XMenu datatype. 
+/*
+ * Define the XMenu datatype.
  *
  * All dimensions are in pixels unless otherwise noted.
  */
@@ -216,7 +216,7 @@ typedef struct _xmenu {
     int s_y_off;		/* Selection window Y offset. */
     int s_count;		/* Maximum number of selections per pane. */
     GC normal_select_GC;	/* GC used for inactive selections. */
-    GC inverse_select_GC;	/* GC used for active (current) selection. */  
+    GC inverse_select_GC;	/* GC used for active (current) selection. */
     GC inact_GC;		/* GC used for inactive selections and */
 				/* panes headers. */
     /* -------------------- Color data -------------------- */
@@ -252,6 +252,7 @@ int XMenuRecompute();
 int XMenuEventHandler();	/* No value actually returned. */
 int XMenuLocate();
 int XMenuSetFreeze();		/* No value actually returned. */
+void XMenuActivateSetWaitFunction();
 int XMenuActivate();
 char *XMenuPost();
 int XMenuDeletePane();
@@ -261,3 +262,6 @@ char *XMenuError();
 
 #endif
 /* Don't add after this point. */
+
+/* arch-tag: 7e57b5ac-9355-4057-9385-afbe6912d60f
+   (do not change this comment) */

@@ -130,6 +130,7 @@ kern_return_t ocsp_server_ocspdFetch (
 	Data *ocspd_rep,
 	mach_msg_type_number_t *ocspd_repCnt)
 {
+	ServerActivity();
 	ocspdDebug("ocsp_server_ocspFetch top");
 	*ocspd_rep = NULL;
 	*ocspd_repCnt = 0;
@@ -167,6 +168,9 @@ kern_return_t ocsp_server_ocspdFetch (
 	replies.version.Data = &version;
 	replies.version.Length = 1;
 	
+	/* preparing for net fetch: enable another thread */
+	OcspdServer::active().longTermActivity();
+
 	/* This may need to be threaded, one thread per request */
 	for(unsigned dex=0; dex<numRequests; dex++) {
 		SecAsn1OCSPDReply *reply = ocspdHandleReq(coder, *(requests.requests[dex]));
@@ -208,6 +212,7 @@ kern_return_t ocsp_server_ocspdCacheFlush (
 	Data certID,
 	mach_msg_type_number_t certIDCnt)
 {
+	ServerActivity();
 	ocspdDebug("ocsp_client_ocspdCacheFlush");
 	CSSM_DATA certIDData = {certIDCnt, (uint8 *)certID};
 	ocspdDbCacheFlush(certIDData);
@@ -217,6 +222,7 @@ kern_return_t ocsp_server_ocspdCacheFlush (
 kern_return_t ocsp_server_ocspdCacheFlushStale (
 	mach_port_t serverport)
 {
+	ServerActivity();
 	ocspdDebug("ocsp_server_ocspdCacheFlushStale");
 	ocspdDbCacheFlushStale();
 	return 0;
@@ -228,7 +234,7 @@ kern_return_t ocsp_server_ocspdCacheFlushStale (
  * pass referent data back to caller and schedule a dealloc after the RPC
  * completes with MachServer.
  */
-static void passDataToCaller(
+void passDataToCaller(
 	CSSM_DATA		&srcData,		// allocd in our server's alloc space
 	Data			*outData,
 	mach_msg_type_number_t *outDataCnt)
@@ -261,10 +267,14 @@ kern_return_t ocsp_server_certFetch (
 	Data *cert_data,
 	mach_msg_type_number_t *cert_dataCnt)
 {
+	ServerActivity();
 	CSSM_DATA urlData = { cert_urlCnt, (uint8 *)cert_url};
 	CSSM_DATA certData = {0, NULL};
 	kern_return_t krtn;
 	
+	/* preparing for net fetch: enable another thread */
+	OcspdServer::active().longTermActivity();
+
 	krtn = ocspdNetFetch(OcspdServer::active().alloc(), urlData, LT_Cert, certData);
 	/* if we got any data, sent it back to client */
 	if(krtn == 0) {
@@ -288,6 +298,8 @@ kern_return_t ocsp_server_crlFetch (
 	mach_port_t serverport,
 	Data crl_url,
 	mach_msg_type_number_t crl_urlCnt,
+	Data crl_issuer,					// optional
+	mach_msg_type_number_t crl_issuerCnt,
 	boolean_t cache_read,
 	boolean_t cache_write,
 	Data verifyTime,
@@ -295,17 +307,38 @@ kern_return_t ocsp_server_crlFetch (
 	Data *crl_data,
 	mach_msg_type_number_t *crl_dataCnt)
 {
+	ServerActivity();
 	const CSSM_DATA urlData = {crl_urlCnt, (uint8 *)crl_url};
 	CSSM_DATA crlData = {0, NULL};
 	Allocator &alloc = OcspdServer::active().alloc();
 	
 	/*
-	 * 1. Read from cache if enabled 
+	 * 1. Read from cache if enabled. Look up by issuer if we have it, else
+	 *    look up by URL. Per Radar 4565280, the same CRL might be
+	 *    vended from different URLs; we don't care where we got it 
+	 *    from at this point as long as the client knew - by the absence
+	 *    of a crlIssuer field in the crlDistributionPoints extension - 
+	 *    that the issuer of the CRL is the same as the issuer of the cert
+	 *    being verified. 
 	 */
 	if(cache_read) {
 		const CSSM_DATA vfyTimeData = {verifyTimeCnt, (uint8 *)verifyTime};
+		const CSSM_DATA issuerData  = {crl_issuerCnt, (uint8 *)crl_issuer};
+		const CSSM_DATA *issuerPtr;
+		const CSSM_DATA *urlPtr;
 		bool brtn;
-		brtn = crlCacheLookup(alloc, urlData, vfyTimeData, crlData);
+		
+		if(crl_issuerCnt) {
+			/* look up by issuer */
+			issuerPtr = &issuerData;
+			urlPtr    = NULL;
+		}
+		else {
+			/* look up by URL */
+			issuerPtr = NULL;
+			urlPtr    = &urlData;
+		}
+		brtn = crlCacheLookup(alloc, urlPtr, issuerPtr, vfyTimeData, crlData);
 		if(brtn) {
 			/* Cache hit: Pass CRL back to caller & dealloc */
 			assert((crlData.Data != NULL) && (crlData.Length != 0));
@@ -318,6 +351,10 @@ kern_return_t ocsp_server_crlFetch (
 	 * 2. Obtain from net
 	 */
 	CSSM_RETURN crtn;
+
+	/* preparing for net fetch: enable another thread */
+	OcspdServer::active().longTermActivity();
+
 	crtn = ocspdNetFetch(alloc, urlData, LT_Crl, crlData);
 	if(crtn) {
 		ocspdErrorLog("server_crlFetch: CRL not found on net");
@@ -353,8 +390,12 @@ kern_return_t ocsp_server_crlRefresh
 	boolean_t purge_all,
 	boolean_t full_crypto_verify)
 {
+	/* preparing for possible CRL verify, requiring an RPC to ourself
+     * for Trust Settings fetch. enable another thread. */
+	ServerActivity();
+	OcspdServer::active().longTermActivity();
 	crlCacheRefresh(stale_days, expire_overlap_seconds, purge_all, 
-		full_crypto_verify);
+		full_crypto_verify, true);
 	return 0;
 }
 
@@ -363,18 +404,52 @@ kern_return_t ocsp_server_crlFlush(
 	Data cert_url,
 	mach_msg_type_number_t cert_urlCnt)
 {
+	ServerActivity();
 	CSSM_DATA urlData = {cert_urlCnt, (uint8 *)cert_url};
 	crlCacheFlush(urlData);
 	return 0;
+}
+
+#pragma mark ----- MachServer::Timer subclass to handle periodic flushes of DB caches -----
+
+#define OCSPD_REFRESH_DEBUG		0
+
+#if		!OCSPD_REFRESH_DEBUG
+/* fire a minute after we launch, then once a week */
+#define OCSPD_TIMER_FIRST		(60.0)
+#define OCSPD_TIMER_INTERVAL	(60.0 * 60.0 * 24.0 * 7.0)
+
+#else
+#define OCSPD_TIMER_FIRST		(10.0)
+#define OCSPD_TIMER_INTERVAL	(60.0)
+#endif
+
+void OcspdServer::OcspdTimer::action()
+{
+	secdebug("ocspdRefresh", "OcspdTimer firing");
+	ocspdDbCacheFlushStale();
+	crlCacheRefresh(0,		// stale_days
+					0,		// expire_overlap_seconds, 
+					false,	// purge_all
+					false,	// full_crypto_verify
+					false);	// do Refresh
+	Time::Interval nextFire = OCSPD_TIMER_INTERVAL;
+	secdebug("ocspdRefresh", "OcspdTimer scheduling");
+	mServer.setTimer(this, nextFire);
 }
 
 #pragma mark ----- OcspdServer, trivial subclass of MachPlusPlus::MachServer -----
 
 OcspdServer::OcspdServer(const char *bootstrapName) 
 	: MachServer(bootstrapName),
-	  mAlloc(Allocator::standard())
+	  mAlloc(Allocator::standard()),
+	  mTimer(*this)
 {
-	/* TBD */
+	maxThreads(MAX_OCSPD_THREADS);
+	
+	/* schedule a refresh */
+	Time::Interval nextFire = OCSPD_TIMER_FIRST;
+	setTimer(&mTimer, nextFire);
 }
 
 OcspdServer::~OcspdServer()

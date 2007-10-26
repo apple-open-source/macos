@@ -1,5 +1,5 @@
---- atol.3.orig	Fri Mar 11 10:15:17 2005
-+++ atol.3	Fri Mar 11 10:53:10 2005
+--- atol.3.orig	2007-04-08 18:49:34.000000000 -0700
++++ atol.3	2007-04-08 19:21:38.000000000 -0700
 @@ -40,7 +40,8 @@
  .Dt ATOL 3
  .Os
@@ -10,22 +10,50 @@
  .Nd convert
  .Tn ASCII
  string to
-@@ -56,6 +57,11 @@
- .Fn atol "const char *nptr"
+@@ -53,14 +54,19 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft long
+-.Fn atol "const char *nptr"
++.Fn atol "const char *str"
  .Ft "long long"
- .Fn atoll "const char *nptr"
+-.Fn atoll "const char *nptr"
++.Fn atoll "const char *str"
 +.In xlocale.h
 +.Ft long
-+.Fn atol_l "const char *nptr" "locale_t loc"
++.Fn atol_l "const char *str" "locale_t loc"
 +.Ft "long long"
-+.Fn atoll_l "const char *nptr" "locale_t loc"
++.Fn atoll_l "const char *str" "locale_t loc"
  .Sh DESCRIPTION
  The
  .Fn atol
-@@ -82,6 +88,18 @@
+ function converts the initial portion of the string pointed to by
+-.Fa nptr
++.Fa str
+ to
+ .Vt long
+ integer
+@@ -68,12 +74,12 @@
+ .Pp
  It is equivalent to:
  .Pp
- .Dl "strtoll(nptr, (char **)NULL, 10);"
+-.Dl "strtol(nptr, (char **)NULL, 10);"
++.Dl "strtol(str, (char **)NULL, 10);"
+ .Pp
+ The
+ .Fn atoll
+ function converts the initial portion of the string pointed to by
+-.Fa nptr
++.Fa str
+ to
+ .Vt "long long"
+ integer
+@@ -81,7 +87,19 @@
+ .Pp
+ It is equivalent to:
+ .Pp
+-.Dl "strtoll(nptr, (char **)NULL, 10);"
++.Dl "strtoll(str, (char **)NULL, 10);"
 +.Pp
 +While the
 +.Fn atol

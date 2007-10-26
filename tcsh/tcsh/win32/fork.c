@@ -1,3 +1,4 @@
+/*$Header: /src/pub/tcsh/win32/fork.c,v 1.6 2004/05/19 18:22:27 christos Exp $*/
 /*-
  * Copyright (c) 1980, 1991 The Regents of the University of California.
  * All rights reserved.
@@ -28,8 +29,7 @@
  */
  
 /* 
- * The fork() implementation borrows heavily from the cygnus gnu-win32
- * project's implementation. Check out www.cygnus.com for more information.
+ * The fork() here is based on the ideas used by cygwin
  * -amol
  *
  */
@@ -424,6 +424,7 @@ int fork(void) {
 	rc = ResumeThread(hThread);
 
 	__forked=0;
+    dprintf("forked process %d\n",pi.dwProcessId);
 	start_sigchild_thread(hProc,pi.dwProcessId);
 	close_copied_fds();
 

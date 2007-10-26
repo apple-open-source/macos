@@ -1,45 +1,35 @@
-"  vim: set sw=4 sts=4:
-"  Maintainer	: Nikolai 'pcp' Weibull <da.box@home.se>
-"  Revised on	: Tue, 24 Jul 2001 18:45:00 CEST
-"  Language	: Eterm configuration file
+" Vim indent file
+" Language:	    Eterm configuration file
+" Maintainer:       Nikolai Weibull <now@bitwi.se>
+" Latest Revision:  2006-04-19
 
-" Only load this indent file when no other was loaded.
 if exists("b:did_indent")
-    finish
+  finish
 endif
-
 let b:did_indent = 1
 
 setlocal indentexpr=GetEtermIndent()
 setlocal indentkeys=!^F,o,O,=end
 
-" Only define the function once.
 if exists("*GetEtermIndent")
-    finish
+  finish
 endif
 
 function GetEtermIndent()
-    " Find a non-blank line above the current line.
-    let lnum = prevnonblank(v:lnum - 1)
+  let lnum = prevnonblank(v:lnum - 1)
+  if lnum == 0
+    return 0
+  endif
 
-    " Hit the start of the file, use zero indent.
-    if lnum == 0
-       return 0
-    endif
+  let ind = indent(lnum)
 
-    let line	= getline(lnum)
-    let ind	= indent(lnum)
+  if getline(lnum) =~ '^\s*begin\>'
+    let ind = ind + &sw
+  endif
 
-    if line =~ '^\s*begin\>'
-	let ind	= ind + &sw
-    endif
+  if getline(v:lnum) =~ '^\s*end\>'
+    let ind = ind - &sw
+  endif
 
-    let line	= getline(v:lnum)
-
-    " Check for closing brace on current line
-    if line =~ '^\s*end\>'
-	let ind	= ind - &sw
-    endif
-
-    return ind
+  return ind
 endfunction

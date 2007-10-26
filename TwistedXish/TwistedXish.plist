@@ -1,0 +1,22 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>TwistedXish</string>
+	<key>OpenSourceVersion</key>
+	<string>0.1.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://twistedmatrix.com/</string>
+	<key>OpenSourceURL</key>
+	<string>http://tmrc.mit.edu/mirror/twisted/Xish/0.1/TwistedXish-0.1.0.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>7b1f88640517a6bf3524ddab279996f4</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-06-14</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>TwistedXish.txt</string>
+</dict>
+</plist>

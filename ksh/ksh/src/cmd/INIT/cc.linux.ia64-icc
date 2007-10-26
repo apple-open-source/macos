@@ -1,0 +1,14 @@
+: linux.ia64 icc wrapper : 2006-02-14 :
+
+HOSTTYPE=linux.ia64-icc
+
+case $* in
+-dumpmachine) echo $HOSTTYPE; exit ;;
+esac
+
+root=/opt/intel_cc_80
+
+PATH=$PATH:$root/bin \
+LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$root/lib \
+INTEL_LICENSE_FILE=/opt/intel/licenses \
+$root/bin/icc "$@"

@@ -36,7 +36,7 @@
    In reality, this module talks to a debug monitor called 'STDEBUG', which
    runs in a phone switch.  We communicate with STDEBUG via either a direct
    serial line, or a TCP (or possibly TELNET) stream to a terminal multiplexor,
-   which in turn talks to the phone switch. */
+   which in turn talks to the phone switch.  */
 
 #include "defs.h"
 #include "gdbcore.h"
@@ -105,10 +105,10 @@ readchar (int timeout)
       if (timeout == 0)
 	return c;		/* Polls shouldn't generate timeout errors */
 
-      error ("Timeout reading from remote system.");
+      error (_("Timeout reading from remote system."));
     }
 
-  perror_with_name ("remote-st2000");
+  perror_with_name (_("remote-st2000"));
 }
 
 /* Scan input from the remote system, until STRING is found.  If DISCARD is
@@ -190,7 +190,7 @@ get_hex_digit (int ignore_space)
       else
 	{
 	  expect_prompt (1);
-	  error ("Invalid hex digit from remote system.");
+	  error (_("Invalid hex digit from remote system."));
 	}
     }
 }
@@ -222,22 +222,23 @@ get_hex_regs (int n, int regno)
       val = 0;
       for (j = 0; j < 8; j++)
 	val = (val << 4) + get_hex_digit (j == 0);
-      supply_register (regno++, (char *) &val);
+      regcache_raw_supply (current_regcache, regno++, (char *) &val);
     }
 }
 
 /* This is called not only when we first attach, but also when the
    user types "run" after having attached.  */
 static void
-st2000_create_inferior (char *execfile, char *args, char **env)
+st2000_create_inferior (char *execfile, char *args, char **env,
+			int from_tty)
 {
   int entry_pt;
 
   if (args && *args)
-    error ("Can't pass arguments to remote STDEBUG process");
+    error (_("Can't pass arguments to remote STDEBUG process"));
 
   if (execfile == 0 || exec_bfd == 0)
-    error ("No executable file specified");
+    error (_("No executable file specified"));
 
   entry_pt = (int) bfd_get_start_address (exec_bfd);
 
@@ -278,8 +279,8 @@ st2000_open (char *args, int from_tty)
   n = sscanf (args, " %s %d %s", dev_name, &baudrate, junk);
 
   if (n != 2)
-    error ("Bad arguments.  Usage: target st2000 <device> <speed>\n\
-or target st2000 <host> <port>\n");
+    error (_("Bad arguments.  Usage: target st2000 <device> <speed>\n\
+or target st2000 <host> <port>\n"));
 
   st2000_close (0);
 
@@ -301,7 +302,7 @@ or target st2000 <host> <port>\n");
 #if defined (LOG_FILE)
   log_file = fopen (LOG_FILE, "w");
   if (log_file == NULL)
-    perror_with_name (LOG_FILE);
+    perror_with_name ((LOG_FILE));
 #endif
 
   /* Hello?  Are you there?  */
@@ -650,10 +651,10 @@ static void
 st2000_command (char *args, int fromtty)
 {
   if (!st2000_desc)
-    error ("st2000 target not open.");
+    error (_("st2000 target not open."));
 
   if (!args)
-    error ("Missing command.");
+    error (_("Missing command."));
 
   printf_stdebug ("%s\r", args);
   expect_prompt (0);
@@ -685,7 +686,7 @@ connect_command (char *args, int fromtty)
   dont_repeat ();
 
   if (st2000_desc < 0)
-    error ("st2000 target not open.");
+    error (_("st2000 target not open."));
 
   if (args)
     fprintf ("This command takes no args.  They have been ignored.\n");
@@ -709,13 +710,13 @@ connect_command (char *args, int fromtty)
       while (numfds == 0);
 
       if (numfds < 0)
-	perror_with_name ("select");
+	perror_with_name (("select"));
 
       if (FD_ISSET (0, &readfds))
 	{			/* tty input, send to stdebug */
 	  c = getchar ();
 	  if (c < 0)
-	    perror_with_name ("connect");
+	    perror_with_name (("connect"));
 
 	  printf_stdebug ("%c", c);
 	  switch (cur_esc)
@@ -774,7 +775,7 @@ the speed to connect at in bits per second.";
   st2000_ops.to_fetch_registers = st2000_fetch_register;
   st2000_ops.to_store_registers = st2000_store_register;
   st2000_ops.to_prepare_to_store = st2000_prepare_to_store;
-  st2000_ops.to_xfer_memory = st2000_xfer_inferior_memory;
+  st2000_ops.deprecated_xfer_memory = st2000_xfer_inferior_memory;
   st2000_ops.to_files_info = st2000_files_info;
   st2000_ops.to_insert_breakpoint = st2000_insert_breakpoint;
   st2000_ops.to_remove_breakpoint = st2000_remove_breakpoint;	/* Breakpoints */
@@ -795,9 +796,9 @@ _initialize_remote_st2000 (void)
 {
   init_st2000_ops ();
   add_target (&st2000_ops);
-  add_com ("st2000 <command>", class_obscure, st2000_command,
-	   "Send a command to the STDBUG monitor.");
-  add_com ("connect", class_obscure, connect_command,
-	   "Connect the terminal directly up to the STDBUG command monitor.\n\
-Use <CR>~. or <CR>~^D to break out.");
+  add_com ("st2000", class_obscure, st2000_command,
+	   _("Send a command to the STDBUG monitor."));
+  add_com ("connect", class_obscure, connect_command, _("\
+Connect the terminal directly up to the STDBUG command monitor.\n\
+Use <CR>~. or <CR>~^D to break out."));
 }

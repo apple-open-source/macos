@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -49,19 +50,14 @@
 #define FWA_CH(e, i) 	((u_char)((u_char *)(e))[(i)])
 #define FWA_LIST(ea) 	FWA_CH(ea,0),FWA_CH(ea,1),FWA_CH(ea,2),FWA_CH(ea,3),FWA_CH(ea,4),FWA_CH(ea,5),FWA_CH(ea,6),FWA_CH(ea,7)
 
-typedef struct {
-	struct in_addr	start;
-	struct in_addr	end;
-} ip_range_t;
-
-static __inline__ u_long 
+static __inline__ in_addr_t 
 iptohl(struct in_addr ip)
 {
     return (ntohl(ip.s_addr));
 }
 
 static __inline__ struct in_addr 
-hltoip(u_long l)
+hltoip(in_addr_t l)
 {
     struct in_addr ip;
 
@@ -108,11 +104,9 @@ ip_is_private(struct in_addr iaddr)
 }
 
 
-int 	ipRangeCmp(ip_range_t * a_p, ip_range_t * b_p, boolean_t * overlap);
-
 int	nbits_host(struct in_addr mask);
 
-u_char *inet_nettoa(struct in_addr addr, struct in_addr mask);
+char *	inet_nettoa(struct in_addr addr, struct in_addr mask);
 
 long	random_range(long bottom, long top);
 
@@ -125,14 +119,17 @@ void	timeval_add(struct timeval tv1, struct timeval tv2,
 
 int	timeval_compare(struct timeval tv1, struct timeval tv2);
 
-void	print_data(u_char * data_p, int n_bytes);
-void	fprint_data(FILE * f, u_char * data_p, int n_bytes);
+void	print_data(const uint8_t * data_p, int n_bytes);
+void	fprint_data(FILE * f, const uint8_t * data_p, int n_bytes);
 
+void	print_bytes(u_char * data, int len);
+void	fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes);
 
-int	create_path(u_char * dirname, mode_t mode);
+int	create_path(const char * dirname, mode_t mode);
 
 char *  tagtext_get(char * data, char * data_end, char * tag, char * * end_p);
 
 int	ether_cmp(struct ether_addr * e1, struct ether_addr * e2);
+
 
 #endif _S_UTIL_H

@@ -1,0 +1,215 @@
+.\" $XdotOrg: xc/doc/man/Xp/XpGetDocumentData.man,v 1.1 2004/05/22 06:27:25 alanc Exp $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpGetDocumentData 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpGetDocumentData \- Creates and initializes a new print context.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B Status XpGetDocumentData
+(
+.I data_display, 
+.I context,
+.I save_proc,
+.I finish_proc,
+.I client_data
+)
+.br
+      Display *\fIdata_display\fP\^;
+.br
+      XPContext \fIcontext\fP\^;
+.br
+      XPSaveProc \fIsave_proc\fP\^;
+.br
+      XPFinishProc \fIfinish_proc\fP\^;
+.br
+      XPointer \fIclient_data\fP\^;           
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I data_display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I context
+The print context from which document data is to be retrieved.
+.TP
+.I save_proc
+A procedure to be registered and called repeatedly to save blocks of document 
+data.
+.TP
+.I finish_proc
+A procedure to be registered and called once when the print job has completed 
+and 
+all document data has been sent to save_proc.
+.TP
+.I client_data
+Specifies client data to be passed to save_proc and finish_proc when called.
+.SH DESCRIPTION
+.LP
+XpGetDocumentData registers callbacks that allow a "consumer" to continuously 
+retrieve document data generated in the 
+.I X Print Server 
+by a separate "producer", 
+where both are referencing the same print context by way of 
+.I different 
+display 
+connections. Though XpGetDocumentData retrieves document data, its effect is 
+bounded by XpStartJob and XpEndJob. XpGetDocumentData always returns 
+immediately; 
+if an error occurs and the callbacks cannot be registered, the return status is 
+0, 
+else the return status is non-zero and the callbacks will be called sometime 
+after 
+the return from XpGetDocumentData. This producer/consumer exchange is set up 
+when 
+XpStartJob is called by the producer with output_mode equal XPGetData, and is 
+subsequently initiated when XpGetDocumentData is called by the consumer. Though 
+XpStartJob will return immediately, further attempts to use the producer's 
+display 
+connection may be blocked by the 
+.I X Print Server 
+until XpGetDocumentData is called on the consumer's display connection.
+
+Following a successful call to 
+.I XpGetDocumentData, 
+the consumer must enter a loop to process events from the server, for example, 
+by calling XNextEvent. The event processing code will invoke save_proc and 
+finish_proc as needed to consume incoming data. To avoid blocking indefinitely 
+in XNextEvent, the consumer should select for XPPrintNotify events, and watch 
+for XPEndJobNotify. This event will be sent following the call to finish_proc 
+and the consumer can safely exit the loop at this point. Aside from this 
+processing of XPrintNotify events, data_display must not be used for any 
+additional X requests until finish_proc is called and returns.
+
+.SH STRUCTURES
+The save_proc is defined in <X11/extensions/Print.h> as:
+.LP
+.nf
+typedef void (*XPSaveProc)( Display *data_display,
+                           XPContext context,
+                           unsigned char *data,
+                           unsigned int data_len,
+                           XPointer client_data);
+.fi
+
+.LP                        
+The save_proc is repeatedly called on each chunk of document data sent by the X 
+Print Server until either XpEndJob or XpCancelJob is called. data_len specifies 
+the number of bytes in data. The memory for data itself is owned by the library, 
+so save_proc should copy data to another location before returning. After the 
+last block of data has been delivered to save_proc, finish_proc is called with 
+final status.
+
+The finish_proc is defined in <X11/extensions/Print.h> as:
+.LP
+.nf
+typedef void (*XPFinishProc)( Display *data_display,
+                             XPContext context,
+                             XPGetDocStatus status,
+                             XPointer client_data);
+.fi
+.LP
+After XpGetDocumentData successfully registers the callbacks, any generated X 
+errors (for example, BadAlloc) or Xp errors (for example, XPBadContext or 
+XPBadSequence) that are the result of XpGetDocumentData will cause the Xlib 
+error handler to be invoked, and then will cause finish_proc to be called with a 
+status of XPGetDocError. Any other activities (for example, a separate process 
+destroying the print context) that prove fatal to the progress of 
+XpGetDocumentData will also cause finish_proc to be called with a status of 
+XPGetDocError.
+
+If XpGetDocumentData is called prior to XpStartJob, then an XPBadSequence error 
+is generated and finish_proc is called with XPGetDocError. If XpGetDocumentData 
+is called after XpStartJob and output_mode was specified as XPSpool, then an 
+XPBadSequence error is generated and finish_proc is called with XPGetDocError. 
+If the producer starts generating data and the consumer cannot consume data 
+quickly enough, then the producer's display connection will be blocked by the 
+.I X Print Server.
+
+Until XpEndJob or XpCancelJob is called, it is possible that various 
+XPPrintNotify events will be generated (for example, a page has been canceled). 
+The data passed to save_proc is not necessarily organized according to the 
+consumer's requests or any generated events, and its consistency is guaranteed 
+only if the entire job completes successfully (i.e. without being canceled or 
+generating an error). 
+
+When finish_proc is called, sometime after XpGetDocumentData is called and 
+returns, status gives the completion status of the job and is defined in 
+<X11/extensions/Print.h> as:
+.LP
+.nf
+	#define XPGetDocFinished        0       /\(** normal termination */
+	#define XPGetDocSecondConsumer  1       /\(** setup error */
+	#define XPGetDocError           2       /\(** progress error */
+.fi
+.LP
+XPGetDocFinished indicates that all intended document data has been delivered by 
+way of save_proc. All cancellation events are guaranteed to have arrived by the 
+time finished_proc is called, and they should be taken into consideration for 
+evaluating the validity of the document data returned.
+
+XPGetDocSecondConsumer indicates that a consumer had already been established 
+for the print context. The 
+.I X Print Server 
+only supports one consumer per print context.
+
+XPGetDocError indicates that an error has been generated (for example, 
+XPBadContext or XPBadSequence) and that no further document data will be 
+delivered by the 
+.I X Print Server 
+to save_proc. 
+
+After finish_proc returns, save_proc and finish_proc are unregistered and will 
+no longer be called.    
+.SH DIAGNOSTICS
+.TP 15
+.SM XPBadContext
+A valid print context-id has not been set prior to making this call.
+.TP 15
+.SM XPBadSequence
+The function was not called in the proper order with respect to the other X 
+Print Service Extension calls (for example, XpGetDocumentData prior to 
+XpStartJob).
+.SH "SEE ALSO"
+.BR XpCancelJob (3Xp),
+.BR XpEndJob (3Xp),
+.BR XpStartJob (3Xp)
+
+

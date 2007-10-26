@@ -1,5 +1,5 @@
 --TEST--
-Bug #31754: (dbase_open() fails for mode = 1)
+Bug #31754 (dbase_open() fails for mode = 1)
 --SKIPIF--
 <?php
 if (!extension_loaded('dbase')) {
@@ -23,4 +23,4 @@ unlink('/tmp/bug31754.dbf');
 
 ?>
 --EXPECTF--
-Warning: dbase_open() [/phpmanual/function.dbase-open.html]: Cannot open /tmp/bug31754.dbf in write-only mode in %sbug31754.php on line %d
+Warning: dbase_open(): Cannot open /tmp/bug31754.dbf in write-only mode in %sbug31754.php on line %d

@@ -28,7 +28,11 @@
 			 * to; SPOOL_DIR, ALLOW_FILE, DENY_FILE, and LOG_FILE
 			 * are all relative to this directory.
 			 */
+#ifdef __APPLE__
+#define CRONDIR		"/usr/lib/cron"
+#else
 #define CRONDIR		"/var/cron"
+#endif
 #endif
 
 			/* SPOOLDIR is where the crontabs live.
@@ -40,6 +44,7 @@
 			 * didn't exist last time around...)
 			 */
 #define SPOOL_DIR	"tabs"
+#define TMP_SPOOL_DIR	"tmp"
 
 			/* undefining these turns off their features.  note
 			 * that ALLOW_FILE and DENY_FILE must both be defined
@@ -47,8 +52,13 @@
 			 * LOG_FILE or SYSLOG is defined, we don't log.  If
 			 * both are defined, we log both ways.
 			 */
+#ifdef __APPLE__
+#define	ALLOW_FILE	"cron.allow"		/*-*/
+#define DENY_FILE	"cron.deny"		/*-*/
+#else
 #define	ALLOW_FILE	"allow"		/*-*/
 #define DENY_FILE	"deny"		/*-*/
+#endif
 /*#define LOG_FILE        "log"*/           /*-*/
 
 			/* where should the daemon stick its PID?

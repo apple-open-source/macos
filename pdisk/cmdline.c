@@ -45,10 +45,10 @@
 typedef int (*funcPtr_t)();
 
 typedef struct {
-    unsigned char *	name;
+    char *		name;
     funcPtr_t		func;
     int			nargs;
-    unsigned char *	description;
+    char *		description;
 } cmdline_option_t;
 
 
@@ -193,7 +193,7 @@ split_partition(char * name, int argc, char * * argv)
 	return (CMD_FAIL);
     }
     part = atoi(argv[1]);
-    new_size = atoi(argv[2]);
+    new_size = strtoul(argv[2], NULL, 10);
     split_name = argv[3];
     split_type = argv[4];
     entry = find_entry_by_disk_address(part, map);
@@ -262,8 +262,8 @@ create_partition(char * name, int argc, char * * argv)
     }
     part_name = argv[1];
     part_type = argv[2];
-    part_base = atoi(argv[3]);
-    part_size = atoi(argv[4]);
+    part_base = strtoul(argv[3], NULL, 10);
+    part_size = strtoul(argv[4], NULL, 10);
     rv = CMD_FAIL;
     if (add_partition_to_map(part_name, part_type, part_base, part_size, map) 
 	== 1) {
@@ -327,7 +327,7 @@ do_command_help()
 int
 do_command_line(int argc, char * argv[])
 {
-    unsigned char * 	devName = *argv;
+    char * 		devName = *argv;
     cmdline_option_t * 	options_p;
 
     argv++;

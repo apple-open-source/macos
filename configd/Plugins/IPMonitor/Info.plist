@@ -15,7 +15,7 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.8.3</string>
+	<string>1.9.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
@@ -27,5 +27,7 @@
 	</array>
 	<key>Builtin</key>
 	<true/>
+	<key>pdns_timeout</key>
+	<integer>5</integer>
 </dict>
 </plist>

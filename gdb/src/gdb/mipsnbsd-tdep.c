@@ -1,5 +1,6 @@
-/* Target-dependent code for MIPS systems running NetBSD.
-   Copyright 2002, 2003 Free Software Foundation, Inc.
+/* Target-dependent code for NetBSD/mips.
+
+   Copyright 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
    This file is part of GDB.
@@ -22,14 +23,119 @@
 #include "defs.h"
 #include "gdbcore.h"
 #include "regcache.h"
+#include "regset.h"
 #include "target.h"
 #include "value.h"
 #include "osabi.h"
 
+#include "gdb_assert.h"
+#include "gdb_string.h"
+
 #include "nbsd-tdep.h"
 #include "mipsnbsd-tdep.h"
+#include "mips-tdep.h"
 
 #include "solib-svr4.h"
+
+/* Shorthand for some register numbers used below.  */
+#define MIPS_PC_REGNUM  MIPS_EMBED_PC_REGNUM
+#define MIPS_FP0_REGNUM MIPS_EMBED_FP0_REGNUM
+#define MIPS_FSR_REGNUM MIPS_EMBED_FP0_REGNUM + 32
+
+/* Core file support.  */
+
+/* Number of registers in `struct reg' from <machine/reg.h>.  */
+#define MIPSNBSD_NUM_GREGS	38
+
+/* Number of registers in `struct fpreg' from <machine/reg.h>.  */
+#define MIPSNBSD_NUM_FPREGS	33
+
+/* Supply register REGNUM from the buffer specified by FPREGS and LEN
+   in the floating-point register set REGSET to register cache
+   REGCACHE.  If REGNUM is -1, do this for all registers in REGSET.  */
+
+static void
+mipsnbsd_supply_fpregset (const struct regset *regset,
+			  struct regcache *regcache,
+			  int regnum, const void *fpregs, size_t len)
+{
+  size_t regsize = mips_isa_regsize (get_regcache_arch (regcache));
+  const char *regs = fpregs;
+  int i;
+
+  gdb_assert (len >= MIPSNBSD_NUM_FPREGS * regsize);
+
+  for (i = MIPS_FP0_REGNUM; i <= MIPS_FSR_REGNUM; i++)
+    {
+      if (regnum == i || regnum == -1)
+	regcache_raw_supply (regcache, i,
+			     regs + (i - MIPS_FP0_REGNUM) * regsize);
+    }
+}
+
+/* Supply register REGNUM from the buffer specified by GREGS and LEN
+   in the general-purpose register set REGSET to register cache
+   REGCACHE.  If REGNUM is -1, do this for all registers in REGSET.  */
+
+static void
+mipsnbsd_supply_gregset (const struct regset *regset,
+			 struct regcache *regcache, int regnum,
+			 const void *gregs, size_t len)
+{
+  size_t regsize = mips_isa_regsize (get_regcache_arch (regcache));
+  const char *regs = gregs;
+  int i;
+
+  gdb_assert (len >= MIPSNBSD_NUM_GREGS * regsize);
+
+  for (i = 0; i <= MIPS_PC_REGNUM; i++)
+    {
+      if (regnum == i || regnum == -1)
+	regcache_raw_supply (regcache, i, regs + i * regsize);
+    }
+
+  if (len >= (MIPSNBSD_NUM_GREGS + MIPSNBSD_NUM_FPREGS) * regsize)
+    {
+      regs += MIPSNBSD_NUM_GREGS * regsize;
+      len -= MIPSNBSD_NUM_GREGS * regsize;
+      mipsnbsd_supply_fpregset (regset, regcache, regnum, regs, len);
+    }
+}
+
+/* NetBSD/mips register sets.  */
+
+static struct regset mipsnbsd_gregset =
+{
+  NULL,
+  mipsnbsd_supply_gregset
+};
+
+static struct regset mipsnbsd_fpregset =
+{
+  NULL,
+  mipsnbsd_supply_fpregset
+};
+
+/* Return the appropriate register set for the core section identified
+   by SECT_NAME and SECT_SIZE.  */
+
+static const struct regset *
+mipsnbsd_regset_from_core_section (struct gdbarch *gdbarch,
+				   const char *sect_name, size_t sect_size)
+{
+  size_t regsize = mips_isa_regsize (gdbarch);
+  
+  if (strcmp (sect_name, ".reg") == 0
+      && sect_size >= MIPSNBSD_NUM_GREGS * regsize)
+    return &mipsnbsd_gregset;
+
+  if (strcmp (sect_name, ".reg2") == 0
+      && sect_size >= MIPSNBSD_NUM_FPREGS * regsize)
+    return &mipsnbsd_fpregset;
+
+  return NULL;
+}
+
 
 /* Conveniently, GDB uses the same register numbering as the
    ptrace register structure used by NetBSD/mips.  */
@@ -44,9 +150,10 @@ mipsnbsd_supply_reg (char *regs, int regno)
       if (regno == i || regno == -1)
 	{
 	  if (CANNOT_FETCH_REGISTER (i))
-	    supply_register (i, NULL);
+	    regcache_raw_supply (current_regcache, i, NULL);
 	  else
-            supply_register (i, regs + (i * mips_regsize (current_gdbarch)));
+            regcache_raw_supply (current_regcache, i,
+				 regs + (i * mips_isa_regsize (current_gdbarch)));
         }
     }
 }
@@ -58,7 +165,8 @@ mipsnbsd_fill_reg (char *regs, int regno)
 
   for (i = 0; i <= PC_REGNUM; i++)
     if ((regno == i || regno == -1) && ! CANNOT_STORE_REGISTER (i))
-      regcache_collect (i, regs + (i * mips_regsize (current_gdbarch)));
+      regcache_raw_collect (current_regcache, i,
+			    regs + (i * mips_isa_regsize (current_gdbarch)));
 }
 
 void
@@ -73,9 +181,10 @@ mipsnbsd_supply_fpreg (char *fpregs, int regno)
       if (regno == i || regno == -1)
 	{
 	  if (CANNOT_FETCH_REGISTER (i))
-	    supply_register (i, NULL);
+	    regcache_raw_supply (current_regcache, i, NULL);
 	  else
-            supply_register (i, fpregs + ((i - FP0_REGNUM) * mips_regsize (current_gdbarch)));
+            regcache_raw_supply (current_regcache, i,
+				 fpregs + ((i - FP0_REGNUM) * mips_isa_regsize (current_gdbarch)));
 	}
     }
 }
@@ -88,72 +197,9 @@ mipsnbsd_fill_fpreg (char *fpregs, int regno)
   for (i = FP0_REGNUM; i <= mips_regnum (current_gdbarch)->fp_control_status;
        i++)
     if ((regno == i || regno == -1) && ! CANNOT_STORE_REGISTER (i))
-      regcache_collect (i, fpregs + ((i - FP0_REGNUM) * mips_regsize (current_gdbarch)));
+      regcache_raw_collect (current_regcache, i,
+			    fpregs + ((i - FP0_REGNUM) * mips_isa_regsize (current_gdbarch)));
 }
-
-static void
-fetch_core_registers (char *core_reg_sect, unsigned core_reg_size, int which,
-                      CORE_ADDR ignore)
-{
-  char *regs, *fpregs;
-
-  /* We get everything from one section.  */
-  if (which != 0)
-    return;
-
-  regs = core_reg_sect;
-  fpregs = core_reg_sect + SIZEOF_STRUCT_REG;
-
-  /* Integer registers.  */
-  mipsnbsd_supply_reg (regs, -1);
-
-  /* Floating point registers.  */
-  mipsnbsd_supply_fpreg (fpregs, -1);
-}
-
-static void
-fetch_elfcore_registers (char *core_reg_sect, unsigned core_reg_size, int which,
-                         CORE_ADDR ignore)
-{
-  switch (which)
-    {
-    case 0:  /* Integer registers.  */
-      if (core_reg_size != SIZEOF_STRUCT_REG)
-	warning ("Wrong size register set in core file.");
-      else
-	mipsnbsd_supply_reg (core_reg_sect, -1);
-      break;
-
-    case 2:  /* Floating point registers.  */
-      if (core_reg_size != SIZEOF_STRUCT_FPREG)
-	warning ("Wrong size register set in core file.");
-      else
-	mipsnbsd_supply_fpreg (core_reg_sect, -1);
-      break;
-
-    default:
-      /* Don't know what kind of register request this is; just ignore it.  */
-      break;
-    }
-}
-
-static struct core_fns mipsnbsd_core_fns =
-{
-  bfd_target_unknown_flavour,		/* core_flavour */
-  default_check_format,			/* check_format */
-  default_core_sniffer,			/* core_sniffer */
-  fetch_core_registers,			/* core_read_registers */
-  NULL					/* next */
-};
-
-static struct core_fns mipsnbsd_elfcore_fns =
-{
-  bfd_target_elf_flavour,		/* core_flavour */
-  default_check_format,			/* check_format */
-  default_core_sniffer,			/* core_sniffer */
-  fetch_elfcore_registers,		/* core_read_registers */
-  NULL					/* next */
-};
 
 /* Under NetBSD/mips, signal handler invocations can be identified by the
    designated code sequence that is used to return from a signal handler.
@@ -189,15 +235,16 @@ static const unsigned char sigtramp_retcode_mipseb[RETCODE_SIZE] =
 };
 
 static LONGEST
-mipsnbsd_sigtramp_offset (CORE_ADDR pc)
+mipsnbsd_sigtramp_offset (struct frame_info *next_frame)
 {
+  CORE_ADDR pc = frame_pc_unwind (next_frame);
   const char *retcode = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG
   	? sigtramp_retcode_mipseb : sigtramp_retcode_mipsel;
   unsigned char ret[RETCODE_SIZE], w[4];
   LONGEST off;
   int i;
 
-  if (read_memory_nobpt (pc, (char *) w, sizeof (w)) != 0)
+  if (!safe_frame_unwind_memory (next_frame, pc, w, sizeof (w)))
     return -1;
 
   for (i = 0; i < RETCODE_NWORDS; i++)
@@ -211,7 +258,7 @@ mipsnbsd_sigtramp_offset (CORE_ADDR pc)
   off = i * 4;
   pc -= off;
 
-  if (read_memory_nobpt (pc, (char *) ret, sizeof (ret)) != 0)
+  if (!safe_frame_unwind_memory (next_frame, pc, ret, sizeof (ret)))
     return -1;
 
   if (memcmp (ret, retcode, RETCODE_SIZE) == 0)
@@ -220,22 +267,15 @@ mipsnbsd_sigtramp_offset (CORE_ADDR pc)
   return -1;
 }
 
-static int
-mipsnbsd_pc_in_sigtramp (CORE_ADDR pc, char *func_name)
-{
-  return (nbsd_pc_in_sigtramp (pc, func_name)
-	  || mipsnbsd_sigtramp_offset (pc) >= 0);
-}
-
 /* Figure out where the longjmp will land.  We expect that we have
-   just entered longjmp and haven't yet setup the stack frame, so
-   the args are still in the argument regs.  A0_REGNUM points at the
+   just entered longjmp and haven't yet setup the stack frame, so the
+   args are still in the argument regs.  MIPS_A0_REGNUM points at the
    jmp_buf structure from which we extract the PC that we will land
    at.  The PC is copied into *pc.  This routine returns true on
    success.  */
 
 #define NBSD_MIPS_JB_PC			(2 * 4)
-#define NBSD_MIPS_JB_ELEMENT_SIZE	mips_regsize (current_gdbarch)
+#define NBSD_MIPS_JB_ELEMENT_SIZE	mips_isa_regsize (current_gdbarch)
 #define NBSD_MIPS_JB_OFFSET		(NBSD_MIPS_JB_PC * \
 					 NBSD_MIPS_JB_ELEMENT_SIZE)
 
@@ -247,7 +287,7 @@ mipsnbsd_get_longjmp_target (CORE_ADDR *pc)
 
   buf = alloca (NBSD_MIPS_JB_ELEMENT_SIZE);
 
-  jb_addr = read_register (A0_REGNUM);
+  jb_addr = read_register (MIPS_A0_REGNUM);
 
   if (target_read_memory (jb_addr + NBSD_MIPS_JB_OFFSET, buf,
   			  NBSD_MIPS_JB_ELEMENT_SIZE))
@@ -261,21 +301,24 @@ mipsnbsd_get_longjmp_target (CORE_ADDR *pc)
 static int
 mipsnbsd_cannot_fetch_register (int regno)
 {
-  return (regno == ZERO_REGNUM
+  return (regno == MIPS_ZERO_REGNUM
 	  || regno == mips_regnum (current_gdbarch)->fp_implementation_revision);
 }
 
 static int
 mipsnbsd_cannot_store_register (int regno)
 {
-  return (regno == ZERO_REGNUM
+  return (regno == MIPS_ZERO_REGNUM
 	  || regno == mips_regnum (current_gdbarch)->fp_implementation_revision);
 }
 
-/* NetBSD/mips uses a slightly different link_map structure from the
+/* Shared library support.  */
+
+/* NetBSD/mips uses a slightly different `struct link_map' than the
    other NetBSD platforms.  */
+
 static struct link_map_offsets *
-mipsnbsd_ilp32_solib_svr4_fetch_link_map_offsets (void)
+mipsnbsd_ilp32_fetch_link_map_offsets (void)
 {
   static struct link_map_offsets lmo;
   static struct link_map_offsets *lmp = NULL;
@@ -284,22 +327,19 @@ mipsnbsd_ilp32_solib_svr4_fetch_link_map_offsets (void)
     {
       lmp = &lmo;
 
-      lmo.r_debug_size = 16;
-
+      /* Everything we need is in the first 8 bytes.  */
+      lmo.r_debug_size = 8;
       lmo.r_map_offset = 4;
       lmo.r_map_size   = 4;
 
+      /* Everything we need is in the first 24 bytes.  */
       lmo.link_map_size = 24;
-
-      lmo.l_addr_offset = 0;
+      lmo.l_addr_offset = 4;
       lmo.l_addr_size   = 4;
-
       lmo.l_name_offset = 8;
       lmo.l_name_size   = 4;
-
       lmo.l_next_offset = 16;
       lmo.l_next_size   = 4;
-
       lmo.l_prev_offset = 20;
       lmo.l_prev_size   = 4;
     }
@@ -308,7 +348,7 @@ mipsnbsd_ilp32_solib_svr4_fetch_link_map_offsets (void)
 }
 
 static struct link_map_offsets *
-mipsnbsd_lp64_solib_svr4_fetch_link_map_offsets (void)
+mipsnbsd_lp64_fetch_link_map_offsets (void)
 {
   static struct link_map_offsets lmo;
   static struct link_map_offsets *lmp = NULL;
@@ -317,34 +357,33 @@ mipsnbsd_lp64_solib_svr4_fetch_link_map_offsets (void)
     {
       lmp = &lmo;
 
-      lmo.r_debug_size = 32;
-
+      /* Everything we need is in the first 16 bytes.  */
+      lmo.r_debug_size = 16;
       lmo.r_map_offset = 8;  
       lmo.r_map_size   = 8;
 
+      /* Everything we need is in the first 40 bytes.  */
       lmo.link_map_size = 48;
-
       lmo.l_addr_offset = 0;
       lmo.l_addr_size   = 8;
-
       lmo.l_name_offset = 16; 
       lmo.l_name_size   = 8;
-
       lmo.l_next_offset = 32;
       lmo.l_next_size   = 8;
-
       lmo.l_prev_offset = 40;
       lmo.l_prev_size   = 8;
     }
 
   return lmp;
 }
+
 
 static void
 mipsnbsd_init_abi (struct gdbarch_info info,
                    struct gdbarch *gdbarch)
 {
-  set_gdbarch_pc_in_sigtramp (gdbarch, mipsnbsd_pc_in_sigtramp);
+  set_gdbarch_regset_from_core_section
+    (gdbarch, mipsnbsd_regset_from_core_section);
 
   set_gdbarch_get_longjmp_target (gdbarch, mipsnbsd_get_longjmp_target);
 
@@ -353,10 +392,21 @@ mipsnbsd_init_abi (struct gdbarch_info info,
 
   set_gdbarch_software_single_step (gdbarch, mips_software_single_step);
 
-  set_solib_svr4_fetch_link_map_offsets (gdbarch,
-					 gdbarch_ptr_bit (gdbarch) == 32 ?
-                            mipsnbsd_ilp32_solib_svr4_fetch_link_map_offsets :
-			    mipsnbsd_lp64_solib_svr4_fetch_link_map_offsets);
+  /* NetBSD/mips has SVR4-style shared libraries.  */
+  set_solib_svr4_fetch_link_map_offsets
+    (gdbarch, (gdbarch_ptr_bit (gdbarch) == 32 ?
+	       mipsnbsd_ilp32_fetch_link_map_offsets :
+	       mipsnbsd_lp64_fetch_link_map_offsets));
+}
+
+
+static enum gdb_osabi
+mipsnbsd_core_osabi_sniffer (bfd *abfd)
+{
+  if (strcmp (bfd_get_target (abfd), "netbsd-core") == 0)
+    return GDB_OSABI_NETBSD_ELF;
+
+  return GDB_OSABI_UNKNOWN;
 }
 
 void
@@ -364,7 +414,4 @@ _initialize_mipsnbsd_tdep (void)
 {
   gdbarch_register_osabi (bfd_arch_mips, 0, GDB_OSABI_NETBSD_ELF,
 			  mipsnbsd_init_abi);
-
-  add_core_fns (&mipsnbsd_core_fns);
-  add_core_fns (&mipsnbsd_elfcore_fns);
 }

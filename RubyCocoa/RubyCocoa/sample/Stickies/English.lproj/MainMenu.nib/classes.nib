@@ -1,0 +1,13 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {saveAction = id; }; 
+            CLASS = StickiesAppDelegate; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {stickiesController = NSArrayController; }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

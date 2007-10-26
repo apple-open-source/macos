@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,8 +31,10 @@
 #ifndef _H_SSCOMMON
 #define _H_SSCOMMON
 
-
 #include <Security/cssm.h>
+
+#ifdef __cplusplus
+
 #include <security_utilities/alloc.h>
 #include <security_utilities/mach++.h>
 #include <security_cdsa_utilities/cssmdata.h>
@@ -48,6 +50,8 @@ namespace SecurityServer {
 
 using MachPlusPlus::Port;
 using MachPlusPlus::ReceivePort;
+
+#endif //__cplusplus
 
 
 //
@@ -83,7 +87,10 @@ static const SearchHandle noSearch = 0;
 //
 // Types of ACL bearers
 //
-enum AclKind { dbAcl, keyAcl, objectAcl, loginAcl };
+typedef enum { dbAcl, keyAcl, objectAcl, loginAcl } AclKind;
+
+
+#ifdef __cplusplus
 
 
 //
@@ -107,6 +114,8 @@ public:
 
 } // end namespace SecurityServer
 } // end namespace Security
+
+#endif //__cplusplus
 
 
 #endif //_H_SSCOMMON

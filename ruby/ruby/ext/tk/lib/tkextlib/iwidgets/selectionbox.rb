@@ -18,6 +18,16 @@ class Tk::Iwidgets::Selectionbox
   WidgetClassName = 'Selectionbox'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __boolval_optkeys
+    super() << 'itemson' << 'selectionon'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'itemslabel' << 'selectionlabel'
+  end
+  private :__strval_optkeys
+
   def child_site
     window(tk_call(@path, 'childsite'))
   end
@@ -57,8 +67,8 @@ class Tk::Iwidgets::Selectionbox
     tk_send_without_enc('delete', first, last)
     self
   end
-  def index(index)
-    tk_send_without_enc('index', index).to_i
+  def index(idx)
+    tk_send_without_enc('index', idx).to_i
   end
   def nearest(y)
     tk_send_without_enc('nearest', y).to_i

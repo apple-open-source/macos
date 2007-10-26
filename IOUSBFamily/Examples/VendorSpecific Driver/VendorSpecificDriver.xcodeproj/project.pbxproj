@@ -10,31 +10,6 @@
 		EE19EF3D07B2D66E0083E1AA /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C167DFE841241C02AAC07 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		06AA1265FFB2107B11CA28AA /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
-			};
-			name = Development;
-		};
-		06AA1266FFB2107B11CA28AA /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXFileReference section */
 		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EE19EF4007B2D66E0083E1AA /* VendorSpecificDriver.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = VendorSpecificDriver.plist; sourceTree = "<group>"; };
@@ -93,32 +68,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "";
-				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = VendorSpecificDriver.plist;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.MySoftwareCompany.iokit.VendorSpecificDriver;
-				MODULE_VERSION = 1.0.0;
-				OTHER_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused",
-				);
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = VendorSpecificDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WRAPPER_EXTENSION = kext;
-			};
 			dependencies = (
 			);
 			name = VendorSpecificDriver;
@@ -133,15 +82,12 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 3EEA308708D71E4B002CBB49 /* Build configuration list for PBXProject "VendorSpecificDriver" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				06AA1265FFB2107B11CA28AA /* Development */,
-				06AA1266FFB2107B11CA28AA /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* NanosMouse */;
 			projectDirPath = "";
+			projectRoot = "";
+			shouldCheckCompatibility = 1;
 			targets = (
 				EE19EF3907B2D66E0083E1AA /* VendorSpecificDriver */,
 			);

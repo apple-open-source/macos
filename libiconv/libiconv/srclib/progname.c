@@ -1,5 +1,5 @@
 /* Program name management.
-   Copyright (C) 2001-2003 Free Software Foundation, Inc.
+   Copyright (C) 2001-2003, 2005 Free Software Foundation, Inc.
    Written by Bruno Haible <haible@clisp.cons.org>, 2001.
 
    This program is free software; you can redistribute it and/or modify
@@ -14,7 +14,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 
 #ifdef HAVE_CONFIG_H
@@ -24,7 +24,6 @@
 /* Specification.  */
 #include "progname.h"
 
-#include <stdio.h>
 #include <string.h>
 
 #undef set_program_name
@@ -32,40 +31,23 @@
 
 /* String containing name the program is called with.
    To be initialized by main().  */
-const char *program_name;
+const char *program_name = NULL;
 
 /* Set program_name, based on argv[0].  */
 void
 set_program_name (const char *argv0)
 {
-  /* libtool creates a temporary executable whose name is prefixed with
-     "lt-".  Remove this prefix here.  */
-#ifdef __BEOS__
-  /* BeOS also makes argv[0] absolute.  Remove a leading "<dirname>/lt-".  */
+  /* libtool creates a temporary executable whose name is sometimes prefixed
+     with "lt-" (depends on the platform).  It also makes argv[0] absolute.
+     Remove this "<dirname>/.libs/" or "<dirname>/.libs/lt-" prefix here.  */
   const char *slash;
   const char *base;
 
   slash = strrchr (argv0, '/');
   base = (slash != NULL ? slash + 1 : argv0);
+  if (base - argv0 >= 7 && memcmp (base - 7, "/.libs/", 7) == 0)
+    argv0 = base;
   if (strncmp (base, "lt-", 3) == 0)
     argv0 = base + 3;
-#else
-  if (strncmp (argv0, "lt-", 3) == 0)
-    argv0 += 3;
-#endif
   program_name = argv0;
-}
-
-
-/* Indicates whether errors and warnings get prefixed with program_name.
-   Default is true.  */
-bool error_with_progname = true;
-
-/* Print program_name prefix on stderr if and only if error_with_progname
-   is true.  */
-void
-maybe_print_progname ()
-{
-  if (error_with_progname)
-    fprintf (stderr, "%s: ", program_name);
 }

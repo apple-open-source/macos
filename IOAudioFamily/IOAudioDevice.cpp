@@ -247,7 +247,7 @@ bool IOAudioDevice::init(OSDictionary *properties)
     pendingPowerState = kIOAudioDeviceIdle;
     
     numRunningAudioEngines = 0;
-    
+    duringStartup = true;
     return true;
 }
 
@@ -320,6 +320,7 @@ bool IOAudioDevice::initHardware(IOService *provider)
 
 bool IOAudioDevice::start(IOService *provider)
 {
+	bool	result = false;
     static IOPMPowerState powerStates[2] = {
         {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {1, IOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -355,10 +356,10 @@ bool IOAudioDevice::start(IOService *provider)
         provider->joinPMtree(this);
         
         if (pm_vars != NULL) {
-            duringStartup = true;
+//            duringStartup = true;
             registerPowerDriver(this, powerStates, NUM_POWER_STATES);
             changePowerStateTo(1);
-            duringStartup = false;
+  //          duringStartup = false;
         }
     }
 
@@ -438,30 +439,33 @@ void IOAudioDevice::setFamilyManagePower(bool manage)
 
 IOReturn IOAudioDevice::setPowerState(unsigned long powerStateOrdinal, IOService *device)
 {
-    IOReturn result = IOPMCannotRaisePower;
+    IOReturn result = IOPMAckImplied;
     
     audioDebugIOLog(3, "IOAudioDevice[%p]::setPowerState(%lu, %p)", this, powerStateOrdinal, device);
-    
-    if (!duringStartup) {
-        if (powerStateOrdinal >= NUM_POWER_STATES) {
+    if (!duringStartup) 
+	{
+        if (powerStateOrdinal >= NUM_POWER_STATES) 
+		{
             result = IOPMNoSuchState;
-        } else {
+        } else 
+		{
             IOCommandGate *cg;
             
             cg = getCommandGate();
             
-            if (cg) {
+            if (cg) 
+			{
                 result = cg->runAction(setPowerStateAction, (void *)powerStateOrdinal, (void *)device);
             }
         }
     }
-    
-    return result;
+	duringStartup = false;
+	return result;
 }
 
 IOReturn IOAudioDevice::setPowerStateAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
-    IOReturn result = kIOReturnBadArgument;
+    IOReturn result = IOPMAckImplied;
     
     if (owner) {
         IOAudioDevice *audioDevice = OSDynamicCast(IOAudioDevice, owner);
@@ -748,16 +752,18 @@ void IOAudioDevice::setDeviceName(const char *deviceName)
     if (deviceName) {
         setProperty(kIOAudioDeviceNameKey, deviceName);
 		if (NULL == getProperty (kIOAudioDeviceModelIDKey)) {
-			int			stringLen;
+			int			stringLen, tempLength;
 			char *		string;
 
 			stringLen = 1;
 			stringLen += strlen (deviceName) + 1;
 			stringLen += strlen (getName ());
 			string = (char *)IOMalloc (stringLen);
-			strcpy (string, getName ());
-			strcat (string, ":");
-			strcat (string, deviceName);
+			strncpy (string, getName (), stringLen);
+			tempLength = strlen (string);
+			strncat (string, ":", tempLength);
+			tempLength = strlen (string);
+			strncat (string, deviceName, tempLength);
 			setDeviceModelName (string);
 			IOFree (string, stringLen);
 		}

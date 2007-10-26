@@ -1,10 +1,14 @@
 " Vim compiler file
 " Compiler:     TeX
 " Maintainer:   Artem Chuprina <ran@ran.pp.ru>
-" Last Change:  2003 May 30
+" Last Change:  2004 Mar 27
 
 if exists("current_compiler")
 	finish
+endif
+
+if exists(":CompilerSet") != 2		" older Vim always used :setlocal
+  command -nargs=* CompilerSet setlocal <args>
 endif
 
 " If makefile exists and we are not asked to ignore it, we use standard make
@@ -31,7 +35,7 @@ set cpo-=C
 
 " Value errorformat are taken from vim help, see :help errorformat-LaTeX, with
 " addition from Srinath Avadhanula <srinath@fastmail.fm>
-setlocal errorformat=%E!\ LaTeX\ %trror:\ %m,
+CompilerSet errorformat=%E!\ LaTeX\ %trror:\ %m,
 	\%E!\ %m,
 	\%+WLaTeX\ %.%#Warning:\ %.%#line\ %l%.%#,
 	\%+W%.%#\ at\ lines\ %l--%*\\d,

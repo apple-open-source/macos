@@ -1,0 +1,85 @@
+XCOMM $XFree86: xc/config/cf/lnxdoc.tmpl,v 3.11tsi Exp $
+XCOMM
+
+#ifndef HasSgmlFmt
+#define HasSgmlFmt	  NO
+#endif
+
+#ifndef HasLinuxDoc
+#define HasLinuxDoc	  NO
+#endif
+
+#ifndef DoSgmlDocs
+#define DoSgmlDocs	  (HasLinuxDoc || HasSgmlFmt)
+#endif
+
+#ifndef XFree86IdentFix
+#define XFree86IdentFix	  sed -e '/\$$\XFree86:/s/....\/..\/.. ..:..:.. *//' \
+			      -e '/\$$\XFree86:/s/\$$/Generated from /'
+#endif
+
+#ifndef XorgIdentFix
+#define XorgIdentFix	  sed -e '/\$$\XdotOrg:/s/....\/..\/.. ..:..:.. *//' \
+			      -e '/\$$\XdotOrg:/s/\$$/Generated from /'
+#endif
+
+#ifndef CVSIdentFix
+#define CVSIdentFix	  sed -e '/\$$\Id:/s/....\/..\/.. ..:..:.. *//' \
+			      -e '/\$$\Id:/s/\$$/Generated from /'
+#endif
+
+#ifndef HasLatex
+#define HasLatex	  NO
+#endif
+
+#ifndef SgmlFmtCmd
+#define SgmlFmtCmd	  sgmlfmt
+#endif
+
+#ifndef HasDvips
+#define HasDvips	  NO
+#endif
+
+#ifndef DvipsOptions
+#define DvipsOptions	  /**/
+#endif
+
+#ifndef DvipsCmd
+#define DvipsCmd	  dvips
+#endif
+
+#ifndef BuildLinuxDocText
+#define BuildLinuxDocText DoSgmlDocs
+#endif
+
+#ifndef BuildLinuxDocHtml
+#define BuildLinuxDocHtml DoSgmlDocs
+#endif
+
+#ifndef BuildLinuxDocPS
+#define BuildLinuxDocPS	  DoSgmlDocs
+#endif
+
+#ifndef BuildSgmlDocs
+#define BuildSgmlDocs	  DoSgmlDocs
+#endif
+
+#ifndef ReadmeFile
+#define ReadmeFile(base)  README.base     
+#endif
+
+
+  XFREE86IDENTFIX = XFree86IdentFix
+     XORGIDENTFIX = XorgIdentFix
+      CVSIDENTFIX = CVSIdentFix
+            DVIPS = DvipsCmd
+     DVIPSOPTIONS = DvipsOptions
+       SGMLFMTCMD = SgmlFmtCmd
+
+XCOMM Some extra things to clean
+
+#ifdef ExtraFilesToClean
+#undef ExtraFilesToClean
+#endif
+#define ExtraFilesToClean *.aux *.dvi *.log *.tex *.toc *.html *.ps *.latin1
+

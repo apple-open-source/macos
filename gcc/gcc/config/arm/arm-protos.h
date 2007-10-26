@@ -24,6 +24,23 @@
 #ifndef GCC_ARM_PROTOS_H
 #define GCC_ARM_PROTOS_H
 
+/* APPLE LOCAL ARM darwin optimization defaults */
+extern void optimization_options (int, int);
+/* APPLE LOCAL begin ARM compact switch tables */
+extern void arm_adjust_insn_length (rtx, int *);
+extern void register_switch8_libfunc (void);
+extern void register_switchu8_libfunc (void);
+extern void register_switch16_libfunc (void);
+extern void register_switch32_libfunc (void);
+extern int count_thumb_unexpanded_prologue (void);
+extern int arm_label_align (rtx);
+/* APPLE LOCAL end ARM compact switch tables */
+/* APPLE LOCAL ARM strings in code */
+extern bool arm_string_in_code_p (rtx);
+/* APPLE LOCAL ARM REV/UXTB support */
+extern rtx look_for_bytemanip (tree, rtx);
+/* APPLE LOCAL ARM prefer SP to FP */
+extern HOST_WIDE_INT arm_local_debug_offset (rtx);
 extern void arm_override_options (void);
 extern int use_return_insn (int, rtx);
 extern int arm_regno_class (int);
@@ -47,6 +64,10 @@ extern void arm_encode_call_attribute (tree, int);
 extern bool arm_vector_mode_supported_p (enum machine_mode);
 extern int arm_hard_regno_mode_ok (unsigned int, enum machine_mode);
 extern int const_ok_for_arm (HOST_WIDE_INT);
+/* APPLE LOCAL begin ARM 4468410 long long constants */
+extern bool const64_ok_for_arm_immediate (rtx);
+extern bool const64_ok_for_arm_add (rtx);
+/* APPLE LOCAL end ARM 4468410 long long constants */
 extern int arm_split_constant (RTX_CODE, enum machine_mode, rtx,
 			       HOST_WIDE_INT, rtx, rtx, int);
 extern RTX_CODE arm_canonicalize_comparison (RTX_CODE, rtx *);
@@ -69,6 +90,10 @@ extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
 extern int arm_no_early_mul_dep (rtx, rtx);
 
 extern int symbol_mentioned_p (rtx);
+/* APPLE LOCAL begin ARM -mdynamic-no-pic support */
+extern int non_local_symbol_mentioned_p (rtx);
+extern int symbol_mentioned_with_filter (rtx, int);
+/* APPLE LOCAL end ARM -mdynamic-no-pic support */
 extern int label_mentioned_p (rtx);
 extern RTX_CODE minmax_code (rtx);
 extern int adjacent_mem_locations (rtx, rtx);
@@ -90,6 +115,11 @@ extern rtx arm_gen_return_addr_mask (void);
 extern void arm_reload_in_hi (rtx *);
 extern void arm_reload_out_hi (rtx *);
 extern int arm_const_double_inline_cost (rtx);
+/* APPLE LOCAL begin ARM 20060306 merge these from mainline 
+http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html */
+extern bool arm_const_double_by_parts (rtx);
 extern const char *fp_immediate_constant (rtx);
 extern const char *output_call (rtx *);
 extern const char *output_call_mem (rtx *);
@@ -99,7 +129,7 @@ extern const char *output_mov_long_double_arm_from_arm (rtx *);
 extern const char *output_mov_double_fpa_from_arm (rtx *);
 extern const char *output_mov_double_arm_from_fpa (rtx *);
 extern const char *output_move_double (rtx *);
-extern const char *output_mov_immediate (rtx *);
+/* APPLE LOCAL end ARM 20060306 merge these from mainline */
 extern const char *output_add_immediate (rtx *);
 extern const char *arithmetic_instr (rtx, int);
 extern void output_ascii_pseudo_op (FILE *, const unsigned char *, int);
@@ -161,6 +191,12 @@ extern void thumb_reload_out_hi (rtx *);
 extern void thumb_reload_in_hi (rtx *);
 extern void thumb_set_return_address (rtx, rtx);
 #endif
+
+/* APPLE LOCAL begin ARM enhance conditional insn generation */
+#ifdef BB_HEAD
+extern void arm_ifcvt_modify_multiple_tests (ce_if_block_t *, basic_block, rtx *, rtx*);
+#endif
+/* APPLE LOCAL end ARM enhance conditional insn generation */
 
 /* Defined in pe.c.  */
 extern int arm_dllexport_name_p (const char *);

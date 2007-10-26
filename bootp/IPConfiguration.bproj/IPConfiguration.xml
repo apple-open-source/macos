@@ -1,17 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ARPDetectCount</key>
+	<integer>3</integer>
+	<key>ARPDetectRetryTimeSeconds</key>
+	<real>0.015</real>
 	<key>ARPGratuitousCount</key>
 	<integer>1</integer>
 	<key>ARPProbeCount</key>
-	<integer>4</integer>
+	<integer>3</integer>
 	<key>ARPRetryTimeSeconds</key>
-	<real>0.29999999999999999</real>
+	<real>0.4</real>
 	<key>DHCPAcceptsBOOTP</key>
 	<false/>
 	<key>DHCPAllocateLinkLocalAtRetryCount</key>
 	<integer>2</integer>
+	<key>DHCPDefendIPAddressCount</key>
+	<integer>3</integer>
+	<key>DHCPDefendIPAddressIntervalSeconds</key>
+	<integer>30</integer>
 	<key>DHCPFailureConfiguresLinkLocal</key>
 	<true/>
 	<key>DHCPInitRebootRetryCount</key>
@@ -24,19 +32,23 @@
 		<integer>3</integer>
 		<integer>6</integer>
 		<integer>15</integer>
-		<integer>112</integer>
-		<integer>113</integer>
-		<integer>78</integer>
-		<integer>79</integer>
+		<integer>119</integer>
 		<integer>95</integer>
 		<integer>252</integer>
+		<integer>44</integer>
+		<integer>46</integer>
+		<integer>47</integer>
 	</array>
 	<key>DHCPRouterARPAtRetryCount</key>
-	<integer>6</integer>
+	<integer>0</integer>
 	<key>DHCPSelectRetryCount</key>
 	<integer>3</integer>
 	<key>DHCPSuccessDeconfiguresLinkLocal</key>
 	<true/>
+	<key>DiscoverAndPublishRouterMACAddress</key>
+	<true/>
+	<key>DiscoverRouterMACAddressTimeSeconds</key>
+	<integer>60</integer>
 	<key>GatherTimeSeconds</key>
 	<integer>1</integer>
 	<key>InitialRetryTimeSeconds</key>
@@ -51,6 +63,10 @@
 	<integer>9</integer>
 	<key>RouterARPEnabled</key>
 	<true/>
+	<key>RouterARPExcludedSSIDs</key>
+	<array>
+		<string>tmobile</string>
+	</array>
 	<key>Verbose</key>
 	<false/>
 </dict>

@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"無法讀出檔案 %s 的意義\n"
+CONFIG_OPEN_ERROR
+	"警告：無法開啟設定檔 %s\n"
+PARSE_ERROR_IN_CONFIG
+	"解析設定檔時發生錯誤\n"
+INCOMPAT
+	"選項 %s 與 %s 不相容\n"
+NO_ALTERNATE
+	"抱歉 － 不支援在其他系統中編譯者\n"
+NO_COMPRESS
+	"Man 於編譯時已加入 cat page 壓縮功能，\n\
+但是設定檔中未定義 COMPRESS。\n"
+NO_NAME_FROM_SECTION
+	"你要從區段 %s 中讀取什麼使用手冊？\n"
+NO_NAME_NO_SECTION
+	"\你要讀取什麼使用手冊？\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"%s 的使用手冊並不在區段 %s 之中\n"
+NO_SUCH_ENTRY
+	"不存在 %s 的使用手冊\n"
+PAGER_IS
+	"\n使用 %s 做為分頁程式\n"
+SYSTEM_FAILED
+	"執行排列或顯示命令時發生錯誤。\n\
+系統命令 %s 以 %d 狀態結束。\n"
+VERSION
+	"%s，版本 %s\n\n"
+OUT_OF_MEMORY
+	"記憶體耗盡 － 無法取得 %d 位元組\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"從檔案 %s 解析 *roff 命令時發生錯誤\n"
+MANROFFSEQ_ERROR
+	"解析 MANROFFSEQ 時發生錯誤。使用系統預設值。\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"從命令列解析 *roff 命令時發生錯誤\n"
+UNRECOGNIZED_LINE
+	"設定檔中無法辨識此列 (忽略)\n%s\n"
+GETVAL_ERROR
+	"man-config.c：內部錯誤：字串 %s 找不到\n"
+FOUND_MANDIR
+	"找到 man 目錄 %s\n"
+FOUND_MAP
+	"找到 manpath 的對應 %s --> %s\n"
+FOUND_CATDIR
+	"相對應的 catdir 是 %s\n"
+LINE_TOO_LONG
+	"設定檔中單列過長\n"
+SECTION
+	"\n區段：%s\n"
+UNLINKED
+	"未連結的 %s\n"
+GLOBBING
+	"展開萬用字元 %s\n"
+EXPANSION_FAILED
+	"嘗試以 [%s] 擴展使用手冊失敗\n"
+OPEN_ERROR
+	"無法開啟使用手冊 %s\n"
+READ_ERROR
+	"讀取使用手冊 %s 時發生錯誤\n"
+FOUND_EQN
+	"找到 eqn(1) 指令\n"
+FOUND_GRAP
+	"找到 grap(1) 指令\n"
+FOUND_PIC
+	"找到 pic(1) 指令\n"
+FOUND_TBL
+	"找到 tbl(1) 指令\n"
+FOUND_VGRIND
+	"找到 vgrind(1) 指令\n"
+FOUND_REFER
+	"找到 refer(1) 指令\n"
+ROFF_FROM_COMMAND_LINE
+	"從命令列解析指令\n"
+ROFF_FROM_FILE
+	"從檔案 %s 解析指令\n"
+ROFF_FROM_ENV
+	"從執行環境解析指令\n"
+USING_DEFAULT
+	"使用預設的前置處理序列\n"
+PLEASE_WAIT
+	"排列頁面中，請稍待...\n"
+CHANGED_MODE
+	"將 %s 模式改為 %o\n"
+CAT_OPEN_ERROR
+	"寫入時無法開啟 %s\n"
+PROPOSED_CATFILE
+	"需要時將會寫入 %s\n"
+IS_NEWER_RESULT
+	"is_newer() 的狀態是 %d\n"
+TRYING_SECTION
+	"嘗試讀取區段 %s\n"
+SEARCHING
+	"\n在區段 %s 中搜尋\n"
+ALREADY_IN_MANPATH
+	"在 manpath 中已含有 %s\n"
+CANNOT_STAT
+	"警告：無法取得檔案 %s 的狀態！\n"
+IS_NO_DIR
+	"警告：%s 不是一個目錄！\n"
+ADDING_TO_MANPATH
+	"將 %s 加入 manpath\n"
+PATH_DIR
+	"\n目錄 %s 的路徑"
+IS_IN_CONFIG
+	"存在於設定檔之中\n"
+IS_NOT_IN_CONFIG
+	"不存在於設定檔之中\n"
+MAN_NEARBY
+	"但是附近有使用手冊的目錄\n"
+NO_MAN_NEARBY
+	"而附近找不到使用手冊的目錄\n"
+ADDING_MANDIRS
+	"\n正在加入指定的使用手冊目錄\n\n"
+CATNAME_IS
+	"在 convert_to_cat() 中的 cat_name 是：%s\n"
+NO_EXEC
+	"\n並未執行命令：\n  %s\n"
+USAGE1
+	"用法：%s [-adfhktwW] [區段] [-M 路徑] [-P 分頁程式] [-S 清單]\n\t"
+USAGE2
+	"[-m 系統] "
+USAGE3
+	"[-p 字串] 名稱 ...\n\n"
+USAGE4
+	"  a：找出所有符合的項目\n\
+  c：不要使用 cat 檔案\n\
+  d：列出除錯資訊\n\
+  D：與 -d 類似，但是也列出各頁\n\
+  f：與 whatis(1) 相同\n\
+  h：列出本輔助訊息\n\
+  k：與 apropos(1) 相同\n\
+  K：在所有頁中搜尋字串\n"
+USAGE5
+	"  t：列印時使用 troff 來排列頁面\n"
+USAGE6
+	"\
+  w：列出將要顯示的使用手冊位置\n\
+     (如果未提供名稱，就列出將要搜尋的目錄\n\
+  W：與 -w 類似，但是只顯示檔名\n\
+  C file  ：以 `file' 做為設定檔\n\
+  M path  ：設定使用手冊的搜尋路徑為 `path'\n\
+  P pager ：使用程式 `pager' 來顯示各頁\n\
+  S list  ：`list' 表示以冒號分隔的區段串列\n"
+USAGE7
+	"  m system：搜尋其他系統的使用手冊\n"
+USAGE8
+	"  p string：`string' 指示要執行何種前置處理程式\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"而真實使用者也無法開啟 cat 檔案\n"
+USER_CAN_OPEN_CAT
+	"而真實使用者可以開啟 cat 檔案\n"
+CANNOT_FORK
+	"分叉執行命令 _%s_ 時失敗\n"
+WAIT_FAILED
+	"等待子命令 _%s_ 時發生錯誤\n"
+GOT_WRONG_PID
+	"非常奇怪...，在等待自己的子命令時得到錯誤的 pid\n"
+CHILD_TERMINATED_ABNORMALLY
+	"嚴重錯誤：命令 _%s_ 不正常結束\n"
+IDENTICAL
+	"使用手冊 %s 與 %s 完全相同\n"
+MAN_FOUND
+	"找到使用手冊：\n"
+NO_TROFF
+	"錯誤：在 %s 中未指定 TROFF 命令\n"
+NO_CAT_FOR_NONSTD_LL
+	"由於非標準列寬使得 cat 頁面未儲存\n"

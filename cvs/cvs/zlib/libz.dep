@@ -11,8 +11,10 @@
 	
 
 .\crc32.c : \
+	".\crc32.h"\
 	".\zconf.h"\
 	".\zlib.h"\
+	".\zutil.h"\
 	
 
 .\deflate.c : \
@@ -28,58 +30,27 @@
 	".\zutil.h"\
 	
 
-.\infblock.c : \
-	".\infblock.h"\
-	".\infcodes.h"\
-	".\inftrees.h"\
-	".\infutil.h"\
-	".\zconf.h"\
-	".\zlib.h"\
-	".\zutil.h"\
-	
-
-.\infcodes.c : \
-	".\infblock.h"\
-	".\infcodes.h"\
-	".\inffast.h"\
-	".\inftrees.h"\
-	".\infutil.h"\
-	".\zconf.h"\
-	".\zlib.h"\
-	".\zutil.h"\
-	
-
 .\inffast.c : \
-	".\infblock.h"\
-	".\infcodes.h"\
 	".\inffast.h"\
+	".\inflate.h"\
 	".\inftrees.h"\
-	".\infutil.h"\
 	".\zconf.h"\
 	".\zlib.h"\
 	".\zutil.h"\
 	
 
 .\inflate.c : \
-	".\infblock.h"\
+	".\inffast.h"\
+	".\inffixed.h"\
+	".\inflate.h"\
+	".\inftrees.h"\
 	".\zconf.h"\
 	".\zlib.h"\
 	".\zutil.h"\
 	
 
 .\inftrees.c : \
-	".\inffixed.h"\
 	".\inftrees.h"\
-	".\zconf.h"\
-	".\zlib.h"\
-	".\zutil.h"\
-	
-
-.\infutil.c : \
-	".\infblock.h"\
-	".\infcodes.h"\
-	".\inftrees.h"\
-	".\infutil.h"\
 	".\zconf.h"\
 	".\zlib.h"\
 	".\zutil.h"\

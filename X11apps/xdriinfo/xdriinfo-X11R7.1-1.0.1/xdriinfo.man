@@ -1,0 +1,33 @@
+.\" $XFree86$
+.TH xdriinfo 1 __vendorversion__
+.SH NAME
+xdriinfo \- query configuration information of DRI drivers
+.SH SYNOPSIS
+.B xdriinfo
+[\-display \fIdisplayname\fP] [command]
+.SH DESCRIPTION
+\fIxdriinfo\fP can be used to query configuration information of
+direct rendering drivers. If no command argument is specified it lists
+the names of the direct rendering drivers for all screens.
+.PP
+Valid commands are:
+.TP
+.B nscreens
+Print the number of screens.
+.TP
+.B driver \fIscreen\fP
+Print the name of the direct rendering driver for \fIscreen\fP.
+.TP
+.B options \fIscreen|driver\fP
+Print the XML document describing the configuration options of a
+driver. The driver can be specified directly by \fIdriver\fP name or
+indirectly by \fIscreen\fP number. If the driver name is specified
+directly then no X connection is needed.
+.SH ENVIRONMENT
+.TP
+.B DISPLAY
+The default display.
+.SH "SEE ALSO"
+.IR glxinfo (1x)
+.SH AUTHOR
+Felix Kuehling

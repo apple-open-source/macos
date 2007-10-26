@@ -1,19 +1,34 @@
+/*
+ * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #ifdef KERNEL
 #define _KERNEL
 
 #include <sys/buf.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/mount.h>
 #include <sys/namei.h>
 #include <sys/ubc.h>
-#ifdef   __APPLE_API_PRIVATE
-#undef   __APPLE_API_PRIVATE
-#define  SMB_RESTORE_API_PRIVATE
-#endif
 #include <miscfs/specfs/specdev.h>
-#ifdef	  SMB_RESTORE_API_PRIVATE
-#define  __APPLE_API_PRIVATE
-#endif
 #include <miscfs/devfs/devfs.h>
 #include <machine/spl.h>
 #include <kern/thread.h>
@@ -26,12 +41,6 @@
 
 #undef KASSERT
 #define KASSERT(exp,msg)	do { if (!(exp)) panic msg; } while (0)
-
-#define VFS_SET(a, b, c)
-#define vnop_defaultop vn_default_error
-#define VNODEOP_SET(a)
-
-#define _kern_iconv	_net_smb_fs_iconv
 
 /* restore iconv.h stuff which vanished with 1.4.1 */
 typedef u_int32_t       ucs_t;
@@ -63,7 +72,6 @@ extern void iconv_ces_noreset __P((struct iconv_ces *));
 
 #define free(a, b) (FREE((a), (b)))
 
-#define M_USE_RESERVE M_WAITOK
 #define M_SMBFSMNT M_TEMP /* HACK XXX CSM */
 #define M_SMBNODE M_TEMP /* HACK XXX CSM */
 #define M_SMBNODENAME M_TEMP /* HACK XXX CSM */
@@ -87,13 +95,17 @@ typedef enum modeventtype {
 	MOD_UNLOAD,
 	MOD_SHUTDOWN
 } modeventtype_t;
+
 typedef struct kmod_info *module_t;
+
 typedef int (*modeventhand_t)(module_t mod, int what, void *arg);
+
 typedef struct moduledata {
 	char		*name;  /* module name */
 	modeventhand_t  evhand; /* event handler */
 	void		*priv;  /* extra data */
 } moduledata_t;
+
 #define DECLARE_MODULE(name, data, sub, order)				\
 	moduledata_t * _smb_md_##name = &data;
 #define SEND_EVENT(name, event)						\
@@ -110,12 +122,9 @@ typedef struct moduledata {
 		arg				\
 	};					\
 	DECLARE_MODULE(name, name##_mod, SI_SUB_DRIVERS, SI_ORDER_ANY);
-#define CDEV_MODULE(a, b, c, d, e) DEV_MODULE(a, d, e)
-#define MODULE_DEPEND(a, b, c, d, e)
 
 struct smbnode;
 struct smb_cred;
-extern int	smbfs_smb_flush __P((struct smbnode *, struct smb_cred *));
 extern int	smb_smb_flush __P((struct smbnode *, struct smb_cred *));
 extern int	smbfs_0extend __P((vnode_t, u_int16_t, u_quad_t, u_quad_t,
 				 struct smb_cred *, int));
@@ -124,13 +133,10 @@ extern unsigned		splbio __P((void));
 extern void		splx __P((unsigned));
 extern char *		strchr __P((const char *, int));
 #define index strchr
-extern int		groupmember __P((gid_t, struct ucred *));
+extern int		groupmember __P((gid_t, kauth_cred_t));
 extern void		wakeup_one __P((caddr_t chan));
 extern int selwait;
-extern void		m_cat __P((struct mbuf *, struct mbuf *));
 extern int		tvtohz __P((struct timeval *));
-
-extern void		smb_vhashrem __P((struct smbnode *));
 
 typedef int	 vnop_t __P((void *));
 
@@ -166,49 +172,5 @@ void timevalsub(struct timeval *, struct timeval *);
 			(vvp)->tv_nsec += 1000000000;		   \
 		}						   \
 	} while (0)
-
-#if SMB_TRACE_ENABLED
-
-extern int smbtraceindx;
-#define SMBTBUFSIZ 8912 
-struct smbtracerec { uint i1, i2, i3, i4; };
-extern struct smbtracerec smbtracebuf[SMBTBUFSIZ];
-extern uint smbtracemask; /* 32 bits - trace points over 31 are unconditional */
-
-#define SMBTRC_LKP_LOOKUP	0	/* smbfs_lookup */
-#define SMBTRC_CRT_ENTER	1	/* smbfs_create */
-#define SMBTRC_LKP_ENTER	2	/* smbfs_lookup */
-#define SMBTRC_LKP_PURGE	17	/* smbfs_lookup */
-#define SMBTRC_RCLM_PURGE	18	/* smbfs_reclaim */
-#define SMBTRC_RMV_PURGE	19	/* smbfs_remove */
-#define SMBTRC_RNM_TD_PURGE	20	/* smbfs_rename */
-#define SMBTRC_RNM_FD_PURGE	21	/* smbfs_rename */
-#define SMBTRC_RMD_PURGE	22	/* smbfs_rmdir */
-#define SMBTRC_SIZE_WV		24	/* smb_writevnode */
-#define SMBTRC_SIZE_ACE		25	/* smb_attr cache enter */
-#define SMBTRC_SIZE_ACL		26	/* smb_attr cache lookup */
-#define SMBTRC_SIZE_GA		27	/* smbfs_getattr */
-#define SMBTRC_SIZE_SA		28	/* smbfs_setattr */
-#define SMBTRC_SIZE_SAE		29	/* smbfs_setattr error */
-#define SMBTRC_CONTINUE		0xff
-#define SMBTRACEX(a1, a2, a3, a4) \
-( \
-	smbtracebuf[smbtraceindx].i1 = (uint)(a1), \
-	smbtracebuf[smbtraceindx].i2 = (uint)(a2), \
-	smbtracebuf[smbtraceindx].i3 = (uint)(a3), \
-	smbtracebuf[smbtraceindx].i4 = (uint)(a4), \
-	smbtraceindx = (smbtraceindx + 1) % SMBTBUFSIZ, \
-	1 \
-)
-#define SMBTRACE(cnst, a1, a2, a3, a4) \
-( \
-	(smbtracemask && ((cnst) > 31 || smbtracemask & 1<<(cnst))) ? \
-		(SMBTRACEX((cnst), current_thread(), \
-			   clock_get_system_value().tv_nsec, (a1)), \
-		 SMBTRACEX(SMBTRC_CONTINUE, (a2), (a3), (a4))) : \
-		0 \
-)
-
-# endif
 
 #endif /* KERNEL */

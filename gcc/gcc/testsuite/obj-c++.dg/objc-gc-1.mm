@@ -8,7 +8,8 @@
 #error Missing __OBJC_GC__ manifest constant
 #endif
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 
 @class Underspecified;
 @class MyClass;

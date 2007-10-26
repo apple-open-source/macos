@@ -1610,7 +1610,7 @@ MSC_RV CACLoadCertificate(MSCLPTokenConnection pConnection, MSCPUChar8 cert,
 
   if (cacCompBuffer[0] == 0x01) { /* this is compressed */
     defLength = CAC_MAXSIZE_CERT;
-    rv = uncompress(cert, &defLength, &cacCompBuffer[1], 
+    rv = uncompress(cert, (uLongf *)&defLength, &cacCompBuffer[1], 
   		    dataPosition - 1);
     if ( rv != 0 ) {
       return MSC_INTERNAL_ERROR;

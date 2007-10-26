@@ -39,41 +39,6 @@
 
 __BEGIN_DECLS
 
-/*
- * Private asynchronous lookup API
- */
-
-/*
- * Cancel an outstanding call and free its resources.
- */
-extern void lu_async_call_cancel(mach_port_t p);
-
-/*
- * Make an asynchronous lookupd call.
- * Sends data buffer to lookupd and returns a port.
- * The buffer must be encoded for lookupd.
- */
-extern kern_return_t lu_async_start(mach_port_t *p, uint32_t proc, const char *buf, uint32_t len, void *callback, void *context);
-extern kern_return_t lu_async_send(mach_port_t *p, uint32_t proc, const char *buf, uint32_t len);
-
-/*
- * Receive a reply for an asynchronous lookupd call.
- * Receives the reply message and gets a raw (undecoded) data buffer.
- */
-extern kern_return_t lu_async_receive(mach_port_t p, char **buf, uint32_t *len);
-
-/*
- * Takes a reply message and provides the callback, context, and raw data buffers.
- * This routine does not invoke the callback.  Type-specific asynchronous 
- * routines built on top of this API will decode the data buffer and invoke
- * the callback routine.
- */
-extern int lu_async_handle_reply(void *msg, char **buf, uint32_t *len, void **callback, void **context);
-
-
-/*
- * Type-specific routines.
- */
  
 /*
  * getaddrinfo
@@ -83,6 +48,7 @@ int32_t getaddrinfo_async_start(mach_port_t *p, const char *nodename, const char
 int32_t getaddrinfo_async_send(mach_port_t *p, const char *nodename, const char *servname, const struct addrinfo *hints);
 int32_t getaddrinfo_async_receive(mach_port_t p, struct addrinfo **res);
 int32_t getaddrinfo_async_handle_reply(void *msg);
+void getaddrinfo_async_cancel(mach_port_t p);
 
  
 /*
@@ -93,6 +59,7 @@ int32_t getnameinfo_async_start(mach_port_t *p, const struct sockaddr *sa, size_
 int32_t getnameinfo_async_send(mach_port_t *p, const struct sockaddr *sa, size_t salen, int flags);
 int32_t getnameinfo_async_receive(mach_port_t p, char **host, char **serv);
 int32_t getnameinfo_async_handle_reply(void *msg);
+void getnameinfo_async_cancel(mach_port_t p);
 
 /*
  * DNS
@@ -102,12 +69,10 @@ int32_t dns_async_start(mach_port_t *p, const char *name, uint16_t dnsclass, uin
 int32_t dns_async_send(mach_port_t *p, const char *name, uint16_t dnsclass, uint16_t dnstype, uint32_t do_search);
 int32_t dns_async_receive(mach_port_t p, char **buf, uint32_t *len, struct sockaddr **from, uint32_t *fromlen);
 int32_t dns_async_handle_reply(void *msg);
+void dns_async_cancel(mach_port_t p);
 
 /*
- * Host lookup asynchronous API
- * These routines don't use the asynchronous lookupd access support
- * described above.  There will eventually be converted.
- * The API is syntactically similar.
+ * Host lookup
  */
 
 /*

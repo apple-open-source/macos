@@ -1,0 +1,20 @@
+/^#include/a
+#include <arpa/inet.h>
+.
+/^%}$/i
+/*
+ * This helper function creates a python object corresponding to a pointer to
+ * a DNSServiceRef.  It relies on SWIG-generated routines, and so may not
+ * work on different versions of SWIG.
+ */
+static PyObject *
+make_p_DNSServiceRef(DNSServiceRef *ptr)
+{
+    return SWIG_NewPointerObj(SWIG_as_voidptr(ptr), SWIGTYPE_p_DNSServiceRef, 0);
+}
+
+.
+g/(O\([^"]*",\)sdRef/s//(N\1make_p_DNSServiceRef(\&sdRef)/
+/host, port,/s/port/htons(port)/
+/port,txtLen/s/port/ntohs(port)/
+w

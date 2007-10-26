@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: urlglob.c,v 1.39 2005/01/29 23:46:27 bagder Exp $
+ * $Id: urlglob.c,v 1.47 2007-03-15 22:05:01 bagder Exp $
  ***************************************************************************/
 
 /* client-local setup.h */
@@ -61,6 +61,7 @@ static GlobCode glob_set(URLGlob *glob, char *pattern,
   /* processes a set expression with the point behind the opening '{'
      ','-separated elements are collected until the next closing '}'
   */
+  bool done = FALSE;
   char* buf = glob->glob_buffer;
   URLPattern *pat;
 
@@ -72,7 +73,7 @@ static GlobCode glob_set(URLGlob *glob, char *pattern,
   pat->content.Set.elements = (char**)malloc(0);
   ++glob->size;
 
-  while (1) {
+  while (!done) {
     bool skip;
 
     switch (*pattern) {
@@ -110,7 +111,8 @@ static GlobCode glob_set(URLGlob *glob, char *pattern,
           wordamount=1;
         *amount = pat->content.Set.size * wordamount;
 
-        return GLOB_OK;
+        done = TRUE;
+        continue;
       }
 
       buf = glob->glob_buffer;
@@ -151,7 +153,7 @@ static GlobCode glob_set(URLGlob *glob, char *pattern,
       ++pos;
     }
   }
-  /* we never reach this point */
+  return GLOB_OK;
 }
 
 static GlobCode glob_range(URLGlob *glob, char *pattern,
@@ -166,78 +168,103 @@ static GlobCode glob_range(URLGlob *glob, char *pattern,
   URLPattern *pat;
   char *c;
   int wordamount=1;
+  char sep;
+  char sep2;
+  int step;
+  int rc;
 
   pat = (URLPattern*)&glob->pattern[glob->size / 2];
   /* patterns 0,1,2,... correspond to size=1,3,5,... */
   ++glob->size;
 
-  if (isalpha((int)*pattern)) {         /* character range detected */
+  if (ISALPHA(*pattern)) {         /* character range detected */
+    char min_c;
+    char max_c;
+
     pat->type = UPTCharRange;
-    if (sscanf(pattern, "%c-%c]", &pat->content.CharRange.min_c,
-               &pat->content.CharRange.max_c) != 2 ||
-        pat->content.CharRange.min_c >= pat->content.CharRange.max_c ||
-        pat->content.CharRange.max_c - pat->content.CharRange.min_c > 'z' - 'a') {
+    rc = sscanf(pattern, "%c-%c%c%d%c", &min_c, &max_c, &sep, &step, &sep2);
+    if ((rc < 3) || (min_c >= max_c) || ((max_c - min_c) > ('z' - 'a'))) {
       /* the pattern is not well-formed */
       snprintf(glob->errormsg, sizeof(glob->errormsg),
-               "illegal pattern or range specification after pos %d\n", pos);
+               "errpr: bad range specification after pos %d\n", pos);
       return GLOB_ERROR;
     }
-    pat->content.CharRange.ptr_c = pat->content.CharRange.min_c;
-    /* always check for a literal (may be "") between patterns */
 
-    if(GLOB_ERROR == glob_word(glob, pattern + 4, pos + 4, &wordamount))
-      wordamount=1;
+    /* check the (first) separating character */
+    if((sep != ']') && (sep != ':')) {
+      snprintf(glob->errormsg, sizeof(glob->errormsg),
+               "error: unsupported character (%c) after range at pos %d\n",
+               sep, pos);
+      return GLOB_ERROR;
+    }
 
-    *amount = (pat->content.CharRange.max_c -
-               pat->content.CharRange.min_c + 1) *
-      wordamount;
+    /* if there was a ":[num]" thing, use that as step or else use 1 */
+    pat->content.CharRange.step =
+      ((sep == ':') && (rc == 5) && (sep2 == ']'))?step:1;
 
-    return GLOB_OK;
+    pat->content.CharRange.ptr_c = pat->content.CharRange.min_c = min_c;
+    pat->content.CharRange.max_c = max_c;
   }
-
-  if (isdigit((int)*pattern)) { /* numeric range detected */
+  else if (ISDIGIT(*pattern)) { /* numeric range detected */
+    int min_n;
+    int max_n;
 
     pat->type = UPTNumRange;
     pat->content.NumRange.padlength = 0;
-    if (sscanf(pattern, "%d-%d]",
-               &pat->content.NumRange.min_n,
-               &pat->content.NumRange.max_n) != 2 ||
-        pat->content.NumRange.min_n >= pat->content.NumRange.max_n) {
+
+    rc = sscanf(pattern, "%d-%d%c%d%c", &min_n, &max_n, &sep, &step, &sep2);
+
+    if ((rc < 2) || (min_n > max_n)) {
       /* the pattern is not well-formed */
       snprintf(glob->errormsg, sizeof(glob->errormsg),
-               "error: illegal pattern or range specification after pos %d\n",
-               pos);
+               "error: bad range specification after pos %d\n", pos);
       return GLOB_ERROR;
     }
+    pat->content.NumRange.ptr_n =  pat->content.NumRange.min_n = min_n;
+    pat->content.NumRange.max_n = max_n;
+
+    /* if there was a ":[num]" thing, use that as step or else use 1 */
+    pat->content.NumRange.step =
+      ((sep == ':') && (rc == 5) && (sep2 == ']'))?step:1;
+
     if (*pattern == '0') {              /* leading zero specified */
       c = pattern;
-      while (isdigit((int)*c++))
+      while (ISDIGIT(*c)) {
+        c++;
         ++pat->content.NumRange.padlength; /* padding length is set for all
                                               instances of this pattern */
-    }
-    pat->content.NumRange.ptr_n = pat->content.NumRange.min_n;
-    c = (char*)strchr(pattern, ']'); /* continue after next ']' */
-    if(c)
-      c++;
-    else {
-      snprintf(glob->errormsg, sizeof(glob->errormsg), "missing ']'");
-      return GLOB_ERROR; /* missing ']' */
+      }
     }
 
-    /* always check for a literal (may be "") between patterns */
-
-    if(GLOB_ERROR == glob_word(glob, c, pos + (c - pattern), &wordamount))
-      wordamount = 1;
-
-    *amount = (pat->content.NumRange.max_n -
-               pat->content.NumRange.min_n + 1) *
-      wordamount;
-
-    return GLOB_OK;
   }
-  snprintf(glob->errormsg, sizeof(glob->errormsg),
-           "illegal character in range specification at pos %d\n", pos);
-  return GLOB_ERROR;
+  else {
+    snprintf(glob->errormsg, sizeof(glob->errormsg),
+             "illegal character in range specification at pos %d\n", pos);
+    return GLOB_ERROR;
+  }
+
+  c = (char*)strchr(pattern, ']'); /* continue after next ']' */
+  if(c)
+    c++;
+  else {
+    snprintf(glob->errormsg, sizeof(glob->errormsg), "missing ']'");
+    return GLOB_ERROR; /* missing ']' */
+  }
+
+  /* always check for a literal (may be "") between patterns */
+
+  if(GLOB_ERROR == glob_word(glob, c, pos + (c - pattern), &wordamount))
+    wordamount = 1;
+
+  if(pat->type == UPTCharRange)
+    *amount = (pat->content.CharRange.max_c -
+               pat->content.CharRange.min_c + 1) *
+      wordamount;
+  else
+    *amount = (pat->content.NumRange.max_n -
+               pat->content.NumRange.min_n + 1) * wordamount;
+
+  return GLOB_OK;
 }
 
 static GlobCode glob_word(URLGlob *glob, char *pattern,
@@ -374,35 +401,39 @@ char *glob_next_url(URLGlob *glob)
   char *lit;
   size_t i;
   size_t j;
-  int carry;
+  size_t buflen = glob->urllen+1;
+  size_t len;
 
   if (!glob->beenhere)
     glob->beenhere = 1;
   else {
-    carry = 1;
+    bool carry = TRUE;
 
     /* implement a counter over the index ranges of all patterns,
        starting with the rightmost pattern */
     for (i = glob->size / 2 - 1; carry && i < glob->size; --i) {
-      carry = 0;
+      carry = FALSE;
       pat = &glob->pattern[i];
       switch (pat->type) {
       case UPTSet:
         if (++pat->content.Set.ptr_s == pat->content.Set.size) {
           pat->content.Set.ptr_s = 0;
-          carry = 1;
+          carry = TRUE;
         }
         break;
       case UPTCharRange:
-        if (++pat->content.CharRange.ptr_c > pat->content.CharRange.max_c) {
+        pat->content.CharRange.ptr_c = (char)(pat->content.CharRange.step +
+                           (int)((unsigned char)pat->content.CharRange.ptr_c));
+        if (pat->content.CharRange.ptr_c > pat->content.CharRange.max_c) {
           pat->content.CharRange.ptr_c = pat->content.CharRange.min_c;
-          carry = 1;
+          carry = TRUE;
         }
         break;
       case UPTNumRange:
-        if (++pat->content.NumRange.ptr_n > pat->content.NumRange.max_n) {
+        pat->content.NumRange.ptr_n += pat->content.NumRange.step;
+        if (pat->content.NumRange.ptr_n > pat->content.NumRange.max_n) {
           pat->content.NumRange.ptr_n = pat->content.NumRange.min_n;
-          carry = 1;
+          carry = TRUE;
         }
         break;
       default:
@@ -417,23 +448,29 @@ char *glob_next_url(URLGlob *glob)
   for (j = 0; j < glob->size; ++j) {
     if (!(j&1)) {              /* every other term (j even) is a literal */
       lit = glob->literal[j/2];
-      strcpy(buf, lit);
-      buf += strlen(lit);
+      len = snprintf(buf, buflen, "%s", lit);
+      buf += len;
+      buflen -= len;
     }
     else {                              /* the rest (i odd) are patterns */
       pat = &glob->pattern[j/2];
       switch(pat->type) {
       case UPTSet:
-        strcpy(buf, pat->content.Set.elements[pat->content.Set.ptr_s]);
-        buf += strlen(pat->content.Set.elements[pat->content.Set.ptr_s]);
+        len = strlen(pat->content.Set.elements[pat->content.Set.ptr_s]);
+        snprintf(buf, buflen, "%s",
+                 pat->content.Set.elements[pat->content.Set.ptr_s]);
+        buf += len;
+        buflen -= len;
         break;
       case UPTCharRange:
         *buf++ = pat->content.CharRange.ptr_c;
         break;
       case UPTNumRange:
-        sprintf(buf, "%0*d",
-                pat->content.NumRange.padlength, pat->content.NumRange.ptr_n);
-        buf += strlen(buf); /* make no sprint() return code assumptions */
+        len = snprintf(buf, buflen, "%0*d",
+                       pat->content.NumRange.padlength,
+                       pat->content.NumRange.ptr_n);
+        buf += len;
+        buflen -= len;
         break;
       default:
         printf("internal error: invalid pattern type (%d)\n", (int)pat->type);
@@ -464,7 +501,7 @@ char *glob_match_url(char *filename, URLGlob *glob)
     return NULL; /* major failure */
 
   while (*filename) {
-    if (*filename == '#' && isdigit((int)filename[1])) {
+    if (*filename == '#' && ISDIGIT(filename[1])) {
       unsigned long i;
       char *ptr = filename;
       unsigned long num = strtoul(&filename[1], &filename, 10);
@@ -484,9 +521,9 @@ char *glob_match_url(char *filename, URLGlob *glob)
           appendlen=1;
           break;
         case UPTNumRange:
-          sprintf(numbuf, "%0*d",
-                  pat.content.NumRange.padlength,
-                  pat.content.NumRange.ptr_n);
+          snprintf(numbuf, sizeof(numbuf), "%0*d",
+                   pat.content.NumRange.padlength,
+                   pat.content.NumRange.ptr_n);
           appendthis = numbuf;
           appendlen = strlen(numbuf);
           break;

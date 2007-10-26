@@ -308,7 +308,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os SASLAUTHD_TRUE SASLAUTHD_FALSE INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM AWK SET_MAKE CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CPP LN_S LIB_SOCKET EGREP LIB_DES SASL_KRB_LIB LIB_CRYPT GSSAPI_LIBS GSSAPIBASE_LIBS LIB_SIA SASL_DB_UTILS SASL_DB_MANS SASL_DB_BACKEND SASL_DB_BACKEND_STATIC SASL_DB_INC SASL_DB_LIB MAIN_COMPAT_OBJ LIB_PAM LDAP_LIBS LIBOBJS LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os SASLAUTHD_TRUE SASLAUTHD_FALSE INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA CYGPATH_W PACKAGE VERSION ACLOCAL AUTOCONF AUTOMAKE AUTOHEADER MAKEINFO AMTAR install_sh STRIP ac_ct_STRIP INSTALL_STRIP_PROGRAM AWK SET_MAKE CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT DEPDIR am__include am__quote AMDEP_TRUE AMDEP_FALSE AMDEPBACKSLASH CCDEPMODE am__fastdepCC_TRUE am__fastdepCC_FALSE CPP LN_S LIB_SOCKET EGREP CMU_LIB_SUBDIR LIB_DES SASL_KRB_LIB LIB_CRYPT GSSAPI_LIBS GSSAPIBASE_LIBS LIB_SIA SASL_DB_UTILS SASL_DB_MANS SASL_DB_BACKEND SASL_DB_BACKEND_STATIC SASL_DB_INC SASL_DB_LIB MAIN_COMPAT_OBJ LIB_PAM LDAP_LIBS LTLIBOBJS LIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -851,7 +851,7 @@ Optional Features:
   --disable-dependency-tracking Speeds up one-time builds
   --enable-dependency-tracking  Do not reject slow dependency extractors
   --enable-krb4           enable KERBEROS_V4 authentication [no]
-  --enable-gssapi=<DIR>   enable GSSAPI authentication yes
+  --enable-gssapi=<DIR>   enable GSSAPI authentication [yes]
   --enable-sia            enable SIA authentication no
   --enable-auth-sasldb    enable experimental SASLdb authentication module no
 
@@ -859,9 +859,11 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-saslauthd=DIR    enable use of the saslauth daemon using state dir DIR
+  --with-lib-subdir=DIR   Find libraries in DIR instead of lib
   --with-openssl=PATH     use OpenSSL from PATH
   --with-des=DIR          with DES (look in DIR) yes
-  --with-gss_impl={heimdal|mit|cybersafe|seam|auto}                                                       choose specific GSSAPI implementation [auto]
+  --with-gss_impl={heimdal|mit|cybersafe|seam|auto}
+                          choose specific GSSAPI implementation [[auto]]
   --with-dbpath=PATH      set the DB path to use /etc/sasldb2
   --with-dblib=DBLIB      set the DB library to use berkeley
   --with-bdb-libdir=DIR   Berkeley DB lib files are in DIR
@@ -1639,7 +1641,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=saslauthd
- VERSION=2.1.18
+ VERSION=2.1.22
 
 
 cat >>confdefs.h <<_ACEOF
@@ -3614,14 +3616,8 @@ echo "${ECHO_T}$ac_cv_func_res_search" >&6
 if test $ac_cv_func_res_search = yes; then
   :
 else
-  echo "$as_me:$LINENO: checking for res_search in -lresolv" >&5
-echo $ECHO_N "checking for res_search in -lresolv... $ECHO_C" >&6
-if test "${ac_cv_lib_resolv_res_search+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lresolv  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+  LIBS="-lresolv $LIB_SOCKET $save_LIBS"
+		cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -3629,17 +3625,22 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#ifdef HAVE_ARPA_NAMESER_COMPAT_H
+#include <arpa/nameser_compat.h>
 #endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char res_search ();
+#include <resolv.h>
 int
 main ()
 {
-res_search ();
+
+const char host[12]="openafs.org";
+u_char ans[1024];
+res_search( host, C_IN, T_MX, (u_char *)&ans, sizeof(ans));
+return 0;
+
   ;
   return 0;
 }
@@ -3656,22 +3657,13 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_resolv_res_search=yes
+  LIB_SOCKET="-lresolv $LIB_SOCKET"
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_resolv_res_search=no
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_resolv_res_search" >&5
-echo "${ECHO_T}$ac_cv_lib_resolv_res_search" >&6
-if test $ac_cv_lib_resolv_res_search = yes; then
-  LIB_SOCKET="-lresolv $LIB_SOCKET"
-fi
-
 
 fi
 
@@ -4005,6 +3997,398 @@ done
 
 
 
+# Check whether --with-lib-subdir or --without-lib-subdir was given.
+if test "${with_lib_subdir+set}" = set; then
+  withval="$with_lib_subdir"
+
+fi;
+echo "$as_me:$LINENO: checking for long" >&5
+echo $ECHO_N "checking for long... $ECHO_C" >&6
+if test "${ac_cv_type_long+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+if ((long *) 0)
+  return 0;
+if (sizeof (long))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_long=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_long=no
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_long" >&5
+echo "${ECHO_T}$ac_cv_type_long" >&6
+
+echo "$as_me:$LINENO: checking size of long" >&5
+echo $ECHO_N "checking size of long... $ECHO_C" >&6
+if test "${ac_cv_sizeof_long+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test "$ac_cv_type_long" = yes; then
+  # The cast to unsigned long works around a bug in the HP C Compiler
+  # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+  # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+  # This bug is HP SR number 8606223364.
+  if test "$cross_compiling" = yes; then
+  # Depending upon the size, compute the lo and hi bounds.
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (long))) >= 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=0 ac_mid=0
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (long))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr $ac_mid + 1`
+                    if test $ac_lo -le $ac_mid; then
+                      ac_lo= ac_hi=
+                      break
+                    fi
+                    ac_mid=`expr 2 '*' $ac_mid + 1`
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (long))) < 0)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=-1 ac_mid=-1
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (long))) >= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_hi=`expr '(' $ac_mid ')' - 1`
+                       if test $ac_mid -le $ac_hi; then
+                         ac_lo= ac_hi=
+                         break
+                       fi
+                       ac_mid=`expr 2 '*' $ac_mid`
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo= ac_hi=
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+# Binary search between lo and hi bounds.
+while test "x$ac_lo" != "x$ac_hi"; do
+  ac_mid=`expr '(' $ac_hi - $ac_lo ')' / 2 + $ac_lo`
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+static int test_array [1 - 2 * !(((long) (sizeof (long))) <= $ac_mid)];
+test_array [0] = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr '(' $ac_mid ')' + 1`
+fi
+rm -f conftest.$ac_objext conftest.$ac_ext
+done
+case $ac_lo in
+?*) ac_cv_sizeof_long=$ac_lo;;
+'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (long), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (long), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+else
+  if test "$cross_compiling" = yes; then
+  { { echo "$as_me:$LINENO: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot run test program while cross compiling
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+else
+  cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+long longval () { return (long) (sizeof (long)); }
+unsigned long ulongval () { return (long) (sizeof (long)); }
+#include <stdio.h>
+#include <stdlib.h>
+int
+main ()
+{
+
+  FILE *f = fopen ("conftest.val", "w");
+  if (! f)
+    exit (1);
+  if (((long) (sizeof (long))) < 0)
+    {
+      long i = longval ();
+      if (i != ((long) (sizeof (long))))
+	exit (1);
+      fprintf (f, "%ld\n", i);
+    }
+  else
+    {
+      unsigned long i = ulongval ();
+      if (i != ((long) (sizeof (long))))
+	exit (1);
+      fprintf (f, "%lu\n", i);
+    }
+  exit (ferror (f) || fclose (f) != 0);
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_sizeof_long=`cat conftest.val`
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (long), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (long), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+rm -f core core.* *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+fi
+rm -f conftest.val
+else
+  ac_cv_sizeof_long=0
+fi
+fi
+echo "$as_me:$LINENO: result: $ac_cv_sizeof_long" >&5
+echo "${ECHO_T}$ac_cv_sizeof_long" >&6
+cat >>confdefs.h <<_ACEOF
+#define SIZEOF_LONG $ac_cv_sizeof_long
+_ACEOF
+
+
+echo "$as_me:$LINENO: checking what directory libraries are found in" >&5
+echo $ECHO_N "checking what directory libraries are found in... $ECHO_C" >&6
+if test "${ac_cv_cmu_lib_subdir+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "X$with_lib_subdir" = "Xyes" && with_lib_subdir=
+test "X$with_lib_subdir" = "Xno" && with_lib_subdir=
+if test "X$with_lib_subdir" = "X" ; then
+  ac_cv_cmu_lib_subdir=lib
+  if test $ac_cv_sizeof_long -eq 4 ; then
+    test -d /usr/lib32 && ac_cv_cmu_lib_subdir=lib32
+  fi
+  if test $ac_cv_sizeof_long -eq 8 ; then
+    test -d /usr/lib64 && ac_cv_cmu_lib_subdir=lib64
+  fi
+else
+  ac_cv_cmu_lib_subdir=$with_lib_subdir
+fi
+fi
+echo "$as_me:$LINENO: result: $ac_cv_cmu_lib_subdir" >&5
+echo "${ECHO_T}$ac_cv_cmu_lib_subdir" >&6
+CMU_LIB_SUBDIR=$ac_cv_cmu_lib_subdir
+
+
+
+
 
 # Check whether --with-openssl or --without-openssl was given.
 if test "${with_openssl+set}" = set; then
@@ -4022,9 +4406,9 @@ fi;
 
   # this is CMU ADD LIBPATH
   if test "$andrew_runpath_switch" = "none" ; then
-	LDFLAGS="-L${with_openssl}/lib ${LDFLAGS}"
+	LDFLAGS="-L${with_openssl}/$CMU_LIB_SUBDIR ${LDFLAGS}"
   else
-	LDFLAGS="-L${with_openssl}/lib $andrew_runpath_switch${with_openssl}/lib ${LDFLAGS}"
+	LDFLAGS="-L${with_openssl}/$CMU_LIB_SUBDIR $andrew_runpath_switch${with_openssl}/$CMU_LIB_SUBDIR ${LDFLAGS}"
   fi
 
 	fi
@@ -5798,7 +6182,8 @@ echo $ECHO_N "checking KERBEROS_V4... $ECHO_C" >&6
     echo "$as_me:$LINENO: result: enabled" >&5
 echo "${ECHO_T}enabled" >&6
     SASL_MECHS="$SASL_MECHS libkerberos4.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/kerberos4.o"
+    SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/kerberos4.c"
+    SASL_STATIC_OBJS="$SASL_STATIC_OBJS kerberos4.o"
 
 cat >>confdefs.h <<\_ACEOF
 #define STATIC_KERBEROS4
@@ -5816,8 +6201,7 @@ echo "${ECHO_T}disabled" >&6
   fi
 
 
-
- echo "$as_me:$LINENO: checking for crypt" >&5
+echo "$as_me:$LINENO: checking for crypt" >&5
 echo $ECHO_N "checking for crypt... $ECHO_C" >&6
 if test "${ac_cv_func_crypt+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -5892,7 +6276,6 @@ echo "${ECHO_T}$ac_cv_func_crypt" >&6
 if test $ac_cv_func_crypt = yes; then
   cmu_have_crypt=yes
 else
-
   echo "$as_me:$LINENO: checking for crypt in -lcrypt" >&5
 echo $ECHO_N "checking for crypt in -lcrypt... $ECHO_C" >&6
 if test "${ac_cv_lib_crypt_crypt+set}" = set; then
@@ -5958,7 +6341,8 @@ fi
 
 
 
- # Check whether --enable-gssapi or --disable-gssapi was given.
+
+# Check whether --enable-gssapi or --disable-gssapi was given.
 if test "${enable_gssapi+set}" = set; then
   enableval="$enable_gssapi"
   gssapi=$enableval
@@ -5974,49 +6358,54 @@ else
   gss_impl=auto
 fi;
 
-
-
- if test "$gssapi" != no; then
-    platform=
-    case "${host}" in
-      *-*-linux*)
-        platform=__linux
-        ;;
-      *-*-hpux*)
-        platform=__hpux
-        ;;
-      *-*-irix*)
-        platform=__irix
-        ;;
-      *-*-solaris2*)
+if test "$gssapi" != no; then
+  platform=
+  case "${host}" in
+    *-*-linux*)
+      platform=__linux
+      ;;
+    *-*-hpux*)
+      platform=__hpux
+      ;;
+    *-*-irix*)
+      platform=__irix
+      ;;
+    *-*-solaris2*)
 # When should we use __sunos?
-        platform=__solaris
-        ;;
-      *-*-aix*)
-        platform=__aix
-        ;;
-      *)
-        { echo "$as_me:$LINENO: WARNING: The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script" >&5
+      platform=__solaris
+      ;;
+    *-*-aix*)
+      platform=__aix
+      ;;
+    *)
+      { echo "$as_me:$LINENO: WARNING: The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script" >&5
 echo "$as_me: WARNING: The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script" >&2;}
-        ;;
-    esac
+      if test "$gss_impl" = "cybersafe"; then
+        { { echo "$as_me:$LINENO: error: CyberSafe was forced, cannot continue as platform is not supported" >&5
+echo "$as_me: error: CyberSafe was forced, cannot continue as platform is not supported" >&2;}
+   { (exit 1); exit 1; }; }
+      fi
+      ;;
+  esac
 
-    cmu_saved_CPPFLAGS=$CPPFLAGS
+  cmu_saved_CPPFLAGS=$CPPFLAGS
 
-    if test -d ${gssapi}; then
-       CPPFLAGS="$CPPFLAGS -I$gssapi/include"
+  if test -d ${gssapi}; then
+    CPPFLAGS="$CPPFLAGS -I$gssapi/include"
 # We want to keep -I in our CPPFLAGS, but only if we succeed
-       cmu_saved_CPPFLAGS=$CPPFLAGS
-       LDFLAGS="$LDFLAGS -L$gssapi/lib"
+    cmu_saved_CPPFLAGS=$CPPFLAGS
+    LDFLAGS="$LDFLAGS -L$gssapi/lib"
 
-       if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
-         CPPFLAGS="$CPPFLAGS -D$platform"
-         if test -d "${gssapi}/appsec-sdk/include"; then
-           CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
-         fi
-       fi
+    if test -n "$platform"; then
+      if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
+        CPPFLAGS="$CPPFLAGS -D$platform"
+        if test -d "${gssapi}/appsec-sdk/include"; then
+          CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
+        fi
+      fi
     fi
-    if test "${ac_cv_header_gssapi_h+set}" = set; then
+  fi
+  if test "${ac_cv_header_gssapi_h+set}" = set; then
   echo "$as_me:$LINENO: checking for gssapi.h" >&5
 echo $ECHO_N "checking for gssapi.h... $ECHO_C" >&6
 if test "${ac_cv_header_gssapi_h+set}" = set; then
@@ -6152,8 +6541,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 else
-
-      if test "${ac_cv_header_gssapi_gssapi_h+set}" = set; then
+  if test "${ac_cv_header_gssapi_gssapi_h+set}" = set; then
   echo "$as_me:$LINENO: checking for gssapi/gssapi.h" >&5
 echo $ECHO_N "checking for gssapi/gssapi.h... $ECHO_C" >&6
 if test "${ac_cv_header_gssapi_gssapi_h+set}" = set; then
@@ -6294,11 +6682,18 @@ fi
 
 
 
-    CPPFLAGS=$cmu_saved_CPPFLAGS
+  CPPFLAGS=$cmu_saved_CPPFLAGS
 
- fi
+fi
 
- if test "$gssapi" != no; then
+if test "$gssapi" != no; then
+  # We need to find out which gssapi implementation we are
+  # using. Supported alternatives are: MIT Kerberos 5,
+  # Heimdal Kerberos 5 (http://www.pdc.kth.se/heimdal),
+  # CyberSafe Kerberos 5 (http://www.cybersafe.com/)
+  # and Sun SEAM (http://wwws.sun.com/software/security/kerberos/)
+  #
+  # The choice is reflected in GSSAPIBASE_LIBS
 
 
 echo "$as_me:$LINENO: checking for res_search in -lresolv" >&5
@@ -6369,7 +6764,9 @@ fi
      GSSAPIBASE_LIBS="-L$gssapi_dir"
      GSSAPIBASE_STATIC_LIBS="-L$gssapi_dir"
   else
-               gssapi_dir="/usr/local/lib"
+     # FIXME: This is only used for building cyrus, and then only as
+     # a real hack.  it needs to be fixed.
+     gssapi_dir="/usr/local/lib"
   fi
 
   # Check a full link against the Heimdal libraries.
@@ -6385,7 +6782,7 @@ if test "${ac_cv_lib_gssapi_gss_unwrap+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lgssapi $GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err ${LIB_SOCKET} $LIBS"
+LIBS="-lgssapi ${GSSAPIBASE_LIBS} -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err ${LIB_SOCKET} $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
@@ -6452,7 +6849,7 @@ if test "${ac_cv_lib_gssapi_krb5_gss_unwrap+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lgssapi_krb5 $GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err ${LIB_SOCKET} $LIBS"
+LIBS="-lgssapi_krb5 ${GSSAPIBASE_LIBS} -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err ${LIB_SOCKET} $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
@@ -6516,7 +6913,7 @@ fi
 
     cmu_saved_CPPFLAGS=$CPPFLAGS
     cmu_saved_GSSAPIBASE_LIBS=$GSSAPIBASE_LIBS
-# FIX ME - Note that the libraries are in .../lib/64 for 64bit kernels
+# FIXME - Note that the libraries are in .../lib64 for 64bit kernels
     if test -d "${gssapi}/appsec-rt/lib"; then
       GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -L${gssapi}/appsec-rt/lib"
     fi
@@ -6537,7 +6934,7 @@ if test "${ac_cv_lib_gss_csf_gss_acq_user+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lgss $GSSAPIBASE_LIBS -lgss -lcstbk5 $LIBS"
+LIBS="-lgss ${GSSAPIBASE_LIBS} -lgss -lcstbk5 $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
@@ -6588,8 +6985,8 @@ echo "${ECHO_T}$ac_cv_lib_gss_csf_gss_acq_user" >&6
 if test $ac_cv_lib_gss_csf_gss_acq_user = yes; then
   gss_impl="cybersafe03"
 else
-
-      unset ac_cv_lib_gss_csf_gss_acq_user;echo "$as_me:$LINENO: checking for csf_gss_acq_user in -lgss" >&5
+  unset ac_cv_lib_gss_csf_gss_acq_user;
+                  echo "$as_me:$LINENO: checking for csf_gss_acq_user in -lgss" >&5
 echo $ECHO_N "checking for csf_gss_acq_user in -lgss... $ECHO_C" >&6
 if test "${ac_cv_lib_gss_csf_gss_acq_user+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -6734,6 +7131,7 @@ fi
     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_LIBS $gssapi_dir/libgssapi_krb5.a $gssapi_dir/libkrb5.a $gssapi_dir/libk5crypto.a $gssapi_dir/libcom_err.a"
   elif test "$gss_impl" = "heimdal"; then
+    CPPFLAGS="$CPPFLAGS -DKRB5_HEIMDAL"
     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err"
     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_STATIC_LIBS $gssapi_dir/libgssapi.a $gssapi_dir/libkrb5.a $gssapi_dir/libasn1.a $gssapi_dir/libroken.a $gssapi_dir/libcom_err.a ${LIB_CRYPT}"
   elif test "$gss_impl" = "cybersafe03"; then
@@ -6764,14 +7162,15 @@ echo "$as_me: WARNING: Disabling GSSAPI - specified library not found" >&2;}
     { echo "$as_me:$LINENO: WARNING: Disabling GSSAPI - no library" >&5
 echo "$as_me: WARNING: Disabling GSSAPI - no library" >&2;}
   fi
- fi
+fi
 
 #
-# Cybersafe defines both GSS_C_NT_HOSTBASED_SERVICE and GSS_C_NT_USER_NAME in gssapi\rfckrb5.h
+# Cybersafe defines both GSS_C_NT_HOSTBASED_SERVICE and GSS_C_NT_USER_NAME
+# in gssapi\rfckrb5.h
 #
- if test "$gssapi" != "no"; then
+if test "$gssapi" != "no"; then
   if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6779,10 +7178,9 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <gssapi/gssapi.h>
-     #ifdef GSS_C_NT_HOSTBASED_SERVICE
-      hostbased_service_gss_nt_yes
-     #endif
-
+                  #ifdef GSS_C_NT_HOSTBASED_SERVICE
+                    hostbased_service_gss_nt_yes
+                  #endif
 _ACEOF
 if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
   $EGREP "hostbased_service_gss_nt_yes" >/dev/null 2>&1; then
@@ -6799,7 +7197,7 @@ rm -f conftest*
 
 
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6820,8 +7218,7 @@ fi
 rm -f conftest*
 
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
-
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6844,7 +7241,7 @@ rm -f conftest*
   fi
 
   if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6852,10 +7249,9 @@ cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
 #include <gssapi/gssapi.h>
-     #ifdef GSS_C_NT_USER_NAME
-      user_name_yes_gss_nt
-     #endif
-
+                  #ifdef GSS_C_NT_USER_NAME
+                   user_name_yes_gss_nt
+                  #endif
 _ACEOF
 if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
   $EGREP "user_name_yes_gss_nt" >/dev/null 2>&1; then
@@ -6871,7 +7267,7 @@ fi
 rm -f conftest*
 
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6892,7 +7288,7 @@ fi
 rm -f conftest*
 
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
-   cat >conftest.$ac_ext <<_ACEOF
+    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
@@ -6913,12 +7309,12 @@ fi
 rm -f conftest*
 
   fi
- fi
+fi
 
- GSSAPI_LIBS=""
- echo "$as_me:$LINENO: checking GSSAPI" >&5
+GSSAPI_LIBS=""
+echo "$as_me:$LINENO: checking GSSAPI" >&5
 echo $ECHO_N "checking GSSAPI... $ECHO_C" >&6
- if test "$gssapi" != no; then
+if test "$gssapi" != no; then
   echo "$as_me:$LINENO: result: with implementation ${gss_impl}" >&5
 echo "${ECHO_T}with implementation ${gss_impl}" >&6
   echo "$as_me:$LINENO: checking for res_search in -lresolv" >&5
@@ -6980,7 +7376,8 @@ if test $ac_cv_lib_resolv_res_search = yes; then
 fi
 
   SASL_MECHS="$SASL_MECHS libgssapiv2.la"
-  SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/gssapi.o"
+  SASL_STATIC_OBJS="$SASL_STATIC_OBJS gssapi.o"
+  SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/gssapi.c"
 
   cmu_save_LIBS="$LIBS"
   LIBS="$LIBS $GSSAPIBASE_LIBS"
@@ -7092,8 +7489,7 @@ _ACEOF
 
 fi
 
-
- echo "$as_me:$LINENO: checking for crypt" >&5
+echo "$as_me:$LINENO: checking for crypt" >&5
 echo $ECHO_N "checking for crypt... $ECHO_C" >&6
 if test "${ac_cv_func_crypt+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -7168,7 +7564,6 @@ echo "${ECHO_T}$ac_cv_func_crypt" >&6
 if test $ac_cv_func_crypt = yes; then
   cmu_have_crypt=yes
 else
-
   echo "$as_me:$LINENO: checking for crypt in -lcrypt" >&5
 echo $ECHO_N "checking for crypt in -lcrypt... $ECHO_C" >&6
 if test "${ac_cv_lib_crypt_crypt+set}" = set; then
@@ -7470,15 +7865,15 @@ echo "${ECHO_T}$ac_cv_header_db_h" >&6
 fi
 if test $ac_cv_header_db_h = yes; then
 
-	BDB_SAVE_LIBS=$LIBS
+	BDB_SAVE_LDFLAGS=$LDFLAGS
 
 	if test -d $with_bdb_lib; then
 
   # this is CMU ADD LIBPATH TO
   if test "$andrew_runpath_switch" = "none" ; then
-	LIBS="-L$with_bdb_lib ${LIBS}"
+	LDFLAGS="-L$with_bdb_lib ${LDFLAGS}"
   else
-	LIBS="-L$with_bdb_lib ${LIBS} $andrew_runpath_switch$with_bdb_lib"
+	LDFLAGS="-L$with_bdb_lib ${LDFLAGS} $andrew_runpath_switch$with_bdb_lib"
   fi
 
 
@@ -7493,35 +7888,22 @@ if test $ac_cv_header_db_h = yes; then
 	    BDB_LIBADD=""
 	fi
 
-        for dbname in db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
+	saved_LIBS=$LIBS
+        for dbname in db-4.4 db4.4 db44 db-4.3 db4.3 db43 db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
           do
-            as_ac_Lib=`echo "ac_cv_lib_$dbname''_db_create" | $as_tr_sh`
-echo "$as_me:$LINENO: checking for db_create in -l$dbname" >&5
-echo $ECHO_N "checking for db_create in -l$dbname... $ECHO_C" >&6
-if eval "test \"\${$as_ac_Lib+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-l$dbname  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+	    LIBS="$saved_LIBS -l$dbname"
+	    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char db_create ();
+#include <db.h>
 int
 main ()
 {
-db_create ();
+db_create(NULL, NULL, 0);
   ;
   return 0;
 }
@@ -7538,53 +7920,30 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  eval "$as_ac_Lib=yes"
+  BDB_LIBADD="$BDB_LIBADD -l$dbname"; dblib="berkeley"; dbname=db
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-eval "$as_ac_Lib=no"
+dblib="no"
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
-if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  BDB_LIBADD="$BDB_LIBADD -l$dbname";
-              dblib="berkeley"; break
-else
-  dblib="no"
-fi
-
+	    if test "$dblib" = "berkeley"; then break; fi
           done
         if test "$dblib" = "no"; then
-          echo "$as_me:$LINENO: checking for db_open in -ldb" >&5
-echo $ECHO_N "checking for db_open in -ldb... $ECHO_C" >&6
-if test "${ac_cv_lib_db_db_open+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ldb  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+	    LIBS="$saved_LIBS -ldb"
+	    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char db_open ();
+#include <db.h>
 int
 main ()
 {
-db_open ();
+db_open(NULL, 0, 0, 0, NULL, NULL, NULL);
   ;
   return 0;
 }
@@ -7601,28 +7960,18 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_db_db_open=yes
+  BDB_LIBADD="$BDB_LIBADD -ldb"; dblib="berkeley"; dbname=db
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_db_db_open=no
+dblib="no"
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_db_db_open" >&5
-echo "${ECHO_T}$ac_cv_lib_db_db_open" >&6
-if test $ac_cv_lib_db_db_open = yes; then
-  BDB_LIBADD="$BDB_LIBADD -ldb";
-            dblib="berkeley"; dbname=db
-else
-  dblib="no"
-fi
-
         fi
+	LIBS=$saved_LIBS
 
-	LIBS=$BDB_SAVE_LIBS
+	LDFLAGS=$BDB_SAVE_LDFLAGS
 
 else
   dblib="no"
@@ -8273,15 +8622,15 @@ echo "${ECHO_T}$ac_cv_header_db_h" >&6
 fi
 if test $ac_cv_header_db_h = yes; then
 
-	BDB_SAVE_LIBS=$LIBS
+	BDB_SAVE_LDFLAGS=$LDFLAGS
 
 	if test -d $with_bdb_lib; then
 
   # this is CMU ADD LIBPATH TO
   if test "$andrew_runpath_switch" = "none" ; then
-	LIBS="-L$with_bdb_lib ${LIBS}"
+	LDFLAGS="-L$with_bdb_lib ${LDFLAGS}"
   else
-	LIBS="-L$with_bdb_lib ${LIBS} $andrew_runpath_switch$with_bdb_lib"
+	LDFLAGS="-L$with_bdb_lib ${LDFLAGS} $andrew_runpath_switch$with_bdb_lib"
   fi
 
 
@@ -8296,35 +8645,22 @@ if test $ac_cv_header_db_h = yes; then
 	    BDB_LIBADD=""
 	fi
 
-        for dbname in db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
+	saved_LIBS=$LIBS
+        for dbname in db-4.4 db4.4 db44 db-4.3 db4.3 db43 db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
           do
-            as_ac_Lib=`echo "ac_cv_lib_$dbname''_db_create" | $as_tr_sh`
-echo "$as_me:$LINENO: checking for db_create in -l$dbname" >&5
-echo $ECHO_N "checking for db_create in -l$dbname... $ECHO_C" >&6
-if eval "test \"\${$as_ac_Lib+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-l$dbname  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+	    LIBS="$saved_LIBS -l$dbname"
+	    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char db_create ();
+#include <db.h>
 int
 main ()
 {
-db_create ();
+db_create(NULL, NULL, 0);
   ;
   return 0;
 }
@@ -8341,53 +8677,30 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  eval "$as_ac_Lib=yes"
+  BDB_LIBADD="$BDB_LIBADD -l$dbname"; dblib="berkeley"; dbname=db
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-eval "$as_ac_Lib=no"
+dblib="no"
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
-if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  BDB_LIBADD="$BDB_LIBADD -l$dbname";
-              dblib="berkeley"; break
-else
-  dblib="no"
-fi
-
+	    if test "$dblib" = "berkeley"; then break; fi
           done
         if test "$dblib" = "no"; then
-          echo "$as_me:$LINENO: checking for db_open in -ldb" >&5
-echo $ECHO_N "checking for db_open in -ldb... $ECHO_C" >&6
-if test "${ac_cv_lib_db_db_open+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ldb  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+	    LIBS="$saved_LIBS -ldb"
+	    cat >conftest.$ac_ext <<_ACEOF
 #line $LINENO "configure"
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char db_open ();
+#include <db.h>
 int
 main ()
 {
-db_open ();
+db_open(NULL, 0, 0, 0, NULL, NULL, NULL);
   ;
   return 0;
 }
@@ -8404,28 +8717,18 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_db_db_open=yes
+  BDB_LIBADD="$BDB_LIBADD -ldb"; dblib="berkeley"; dbname=db
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_db_db_open=no
+dblib="no"
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_db_db_open" >&5
-echo "${ECHO_T}$ac_cv_lib_db_db_open" >&6
-if test $ac_cv_lib_db_db_open = yes; then
-  BDB_LIBADD="$BDB_LIBADD -ldb";
-            dblib="berkeley"; dbname=db
-else
-  dblib="no"
-fi
-
         fi
+	LIBS=$saved_LIBS
 
-	LIBS=$BDB_SAVE_LIBS
+	LDFLAGS=$BDB_SAVE_LDFLAGS
 
 else
   dblib="no"
@@ -8939,7 +9242,8 @@ echo "$as_me:$LINENO: result: $dblib" >&5
 echo "${ECHO_T}$dblib" >&6
 
 SASL_DB_BACKEND="db_${dblib}.lo"
-SASL_DB_BACKEND_STATIC="../sasldb/db_${dblib}.o ../sasldb/allockey.o"
+SASL_DB_BACKEND_STATIC="db_${dblib}.o allockey.o"
+SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_${dblib}.c ../sasldb/allockey.c"
 SASL_DB_UTILS="saslpasswd2 sasldblistusers2"
 SASL_DB_MANS="saslpasswd2.8 sasldblistusers2.8"
 
@@ -8972,7 +9276,8 @@ _ACEOF
     { echo "$as_me:$LINENO: WARNING: Disabling SASL authentication database support" >&5
 echo "$as_me: WARNING: Disabling SASL authentication database support" >&2;}
             SASL_DB_BACKEND="db_none.lo"
-    SASL_DB_BACKEND_STATIC="../sasldb/db_none.o"
+    SASL_DB_BACKEND_STATIC="db_none.o"
+    SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_none.c"
     SASL_DB_UTILS=""
     SASL_DB_MANS=""
     SASL_DB_LIB=""
@@ -8981,7 +9286,8 @@ esac
 
 if test "$enable_static" = yes; then
     if test "$dblib" != "none"; then
-      SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o $SASL_DB_BACKEND_STATIC"
+      SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/sasldb.c $SASL_DB_BACKEND_STATIC_SRCS"
+      SASL_STATIC_OBJS="$SASL_STATIC_OBJS sasldb.o $SASL_DB_BACKEND_STATIC"
 
 cat >>confdefs.h <<\_ACEOF
 #define STATIC_SASLDB
@@ -8989,8 +9295,10 @@ _ACEOF
 
     else
       SASL_STATIC_OBJS="$SASL_STATIC_OBJS $SASL_DB_BACKEND_STATIC"
+      SASL_STATIC_SRCS="$SASL_STATIC_SRCS $SASL_DB_BACKEND_STATIC_SRCS"
     fi
 fi
+
 
 
 
@@ -9998,6 +10306,9 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 fi
+
+
+LTLIBOBJS=`echo "$LIBOBJS" | sed 's,\.[^.]* ,.lo ,g;s,\.[^.]*$,.lo,'`
 
 
 echo "$as_me:$LINENO: checking whether $CC implements __func__" >&5
@@ -12065,6 +12376,7 @@ s,@CPP@,$CPP,;t t
 s,@LN_S@,$LN_S,;t t
 s,@LIB_SOCKET@,$LIB_SOCKET,;t t
 s,@EGREP@,$EGREP,;t t
+s,@CMU_LIB_SUBDIR@,$CMU_LIB_SUBDIR,;t t
 s,@LIB_DES@,$LIB_DES,;t t
 s,@SASL_KRB_LIB@,$SASL_KRB_LIB,;t t
 s,@LIB_CRYPT@,$LIB_CRYPT,;t t
@@ -12080,8 +12392,8 @@ s,@SASL_DB_LIB@,$SASL_DB_LIB,;t t
 s,@MAIN_COMPAT_OBJ@,$MAIN_COMPAT_OBJ,;t t
 s,@LIB_PAM@,$LIB_PAM,;t t
 s,@LDAP_LIBS@,$LDAP_LIBS,;t t
-s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
+s,@LIBOBJS@,$LIBOBJS,;t t
 CEOF
 
 _ACEOF

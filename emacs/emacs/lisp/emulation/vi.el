@@ -1,7 +1,7 @@
 ;;; vi.el --- major mode for emulating "vi" editor under GNU Emacs
 
-; This file is in the public domain because the authors distributed it
-; without a copyright notice before the US signed the Bern Convention.
+;; This file is in the public domain because the authors distributed it
+;; without a copyright notice before the US signed the Bern Convention.
 
 ;; This file is part of GNU Emacs.
 
@@ -11,32 +11,32 @@
 
 ;;; Commentary:
 
-; Originally written by : seismo!wucs!nz@rsch.wisc.edu (Neal Ziring)
-; Extensively redesigned and rewritten by wu@crys.wisc.edu (Felix S.T. Wu)
-; Last revision: 01/07/87 Wed (for GNU Emacs 18.33)
+;; Originally written by : seismo!wucs!nz@rsch.wisc.edu (Neal Ziring)
+;; Extensively redesigned and rewritten by wu@crys.wisc.edu (Felix S.T. Wu)
+;; Last revision: 01/07/87 Wed (for GNU Emacs 18.33)
 
-; INSTALLATION PROCEDURE:
-; 1) Add a global key binding for command "vi-mode" (I use ESC ESC instead of
-;    the single ESC used in real "vi", so I can access other ESC prefixed emacs
-;    commands while I'm in "vi"), say, by putting the following line in your
-;    ".emacs" file:
-;    (define-key global-map "\e\e" 'vi-mode) ;quick switch into vi-mode
-; 2) If you wish you can define "find-file-hooks" to enter "vi" automatically
-;    after a file is loaded into the buffer. For example, I defined it as:
-;    (setq find-file-hooks (list
-;                            (function (lambda ()
-;                                (if (not (or (eq major-mode 'Info-mode)
-;	                                      (eq major-mode 'vi-mode)))
-;                                    (vi-mode))))))
-; 3) In your .emacs file you can define the command "vi-mode" to be "autoload"
-;    or you can execute the "load" command to load "vi" directly.
-; 4) Read the comments for command "vi-mode" before you start using it.   
-;
-; COULD DO
-; 1). A general 'define-operator' function to replace current hack
-; 2). In operator handling, should allow other point moving Emacs commands
-;     (such as ESC <, ESC >) to be used as arguments.
-;
+;; INSTALLATION PROCEDURE:
+;; 1) Add a global key binding for command "vi-mode" (I use ESC ESC instead of
+;;    the single ESC used in real "vi", so I can access other ESC prefixed emacs
+;;    commands while I'm in "vi"), say, by putting the following line in your
+;;    ".emacs" file:
+;;    (define-key global-map "\e\e" 'vi-mode) ;quick switch into vi-mode
+;; 2) If you wish you can define "find-file-hook" to enter "vi" automatically
+;;    after a file is loaded into the buffer. For example, I defined it as:
+;;    (setq find-file-hook (list
+;;                           (function (lambda ()
+;;                               (if (not (or (eq major-mode 'Info-mode)
+;; 	                                     (eq major-mode 'vi-mode)))
+;;                                   (vi-mode))))))
+;; 3) In your .emacs file you can define the command "vi-mode" to be "autoload"
+;;    or you can execute the "load" command to load "vi" directly.
+;; 4) Read the comments for command "vi-mode" before you start using it.
+
+;; COULD DO
+;; 1). A general 'define-operator' function to replace current hack
+;; 2). In operator handling, should allow other point moving Emacs commands
+;;     (such as ESC <, ESC >) to be used as arguments.
+
 ;;; Code:
 
 (defvar vi-mode-old-major-mode)
@@ -153,7 +153,7 @@ command extensions.")
   (define-key vi-com-map "\C-\\" 'vi-unimplemented)
   (define-key vi-com-map "\C-]" 'find-tag)
   (define-key vi-com-map "\C-^" 'vi-locate-def)  ; extension
-  (define-key vi-com-map "\C-_" 'vi-undefined) 
+  (define-key vi-com-map "\C-_" 'vi-undefined)
 
   (define-key vi-com-map " " 'forward-char)
   (define-key vi-com-map "!"  'vi-operator)
@@ -201,7 +201,7 @@ command extensions.")
   (define-key vi-com-map "H"  'vi-home-window-line)
   (define-key vi-com-map "I"  'vi-insert-before-first-nonwhite)
   (define-key vi-com-map "J"  'vi-join-lines)
-  (define-key vi-com-map "K"  'vi-undefined) 
+  (define-key vi-com-map "K"  'vi-undefined)
   (define-key vi-com-map "L"  'vi-last-window-line)
   (define-key vi-com-map "M"  'vi-middle-window-line)
   (define-key vi-com-map "N"  'vi-reverse-last-search)
@@ -212,7 +212,7 @@ command extensions.")
   (define-key vi-com-map "S"  'vi-substitute-lines)
   (define-key vi-com-map "T"  'vi-backward-upto-char)
   (define-key vi-com-map "U"  'vi-unimplemented)
-  (define-key vi-com-map "V"  'vi-undefined) 
+  (define-key vi-com-map "V"  'vi-undefined)
   (define-key vi-com-map "W"  'vi-forward-blank-delimited-word)
   (define-key vi-com-map "X"  'call-last-kbd-macro) ; modification/extension
   (define-key vi-com-map "Y"  'vi-yank-line)
@@ -247,7 +247,7 @@ command extensions.")
   (define-key vi-com-map "s"  'vi-substitute-chars)
   (define-key vi-com-map "t"  'vi-forward-upto-char)
   (define-key vi-com-map "u"  'undo)
-  (define-key vi-com-map "v"  'vi-verify-spelling) 
+  (define-key vi-com-map "v"  'vi-verify-spelling)
   (define-key vi-com-map "w"  'vi-forward-word)
   (define-key vi-com-map "x"  'vi-kill-char)
   (define-key vi-com-map "y"  'vi-operator)
@@ -314,7 +314,7 @@ command extensions.")
 (put 'mark-defun 'point-moving-unit 'region)
 (put 'mark-whole-buffer 'point-moving-unit 'region)
 (put 'mark-end-of-sentence 'point-moving-unit 'region)
-(put 'mark-c-function 'point-moving-unit 'region)
+(put 'c-mark-function 'point-moving-unit 'region)
 ;;;
 
 (defvar vi-mark-alist nil
@@ -355,7 +355,7 @@ form that is ready to be `apply'ed.")
   "Non-nil if it is in insert state.")
 
 ; in "loaddefs.el"
-;(defvar search-last-string "" 
+;(defvar search-last-string ""
 ;  "Last string search for by a search command.")
 
 (defvar vi-search-last-command nil	; (re-)search-forward(backward)
@@ -366,12 +366,12 @@ form that is ready to be `apply'ed.")
 
 (defvar vi-mode-old-mode-name nil
   "Save the mode-name before entering vi-mode.")
-  
+
 (defvar vi-mode-old-major-mode nil
   "Save the major-mode before entering vi-mode.")
 
 (defvar vi-mode-old-case-fold nil)
-  
+
 ;(defconst vi-add-to-mode-line-1
 ;  '(overwrite-mode nil " Insert"))
 
@@ -403,8 +403,8 @@ form that is ready to be `apply'ed.")
   (make-local-variable 'vi-mode-old-mode-name)
   (make-local-variable 'vi-mode-old-major-mode)
   (make-local-variable 'vi-mode-old-case-fold)
-  (run-hooks 'vi-mode-hook))
-      
+  (run-mode-hooks 'vi-mode-hook))
+
 ;;;###autoload
 (defun vi-mode ()
   "Major mode that acts like the `vi' editor.
@@ -448,14 +448,14 @@ Major differences between this mode and real vi :
     `vi-name-last-change-or-macro', `vi-verify-spelling', `vi-locate-def',
     `vi-mark-region', and 'vi-quote-words'.  Some of them are quite handy.
   - Use \\[vi-switch-mode] to switch among different modes quickly.
-  
+
 Syntax table and abbrevs while in vi mode remain as they were in Emacs."
    (interactive)
    (if (null vi-mode-old-major-mode)	; very first call for current buffer
        (vi-mode-setup))
 
    (if (eq major-mode 'vi-mode)
-       (message "Already in vi-mode." (ding))
+       (progn (ding) (message "Already in vi-mode."))
      (setq vi-mode-old-local-map (current-local-map))
      (setq vi-mode-old-mode-name mode-name)
      (setq vi-mode-old-major-mode major-mode)
@@ -520,7 +520,7 @@ set sw=n     M-x set-variable vi-shift-width n "
   "Go into insert state, the text entered will be repeated if REPETITION > 1.
 If PREFIX-CODE is given, do it before insertion begins if DO-IT-NOW-P is T.
 In any case, the prefix-code will be done before each 'redo-insert'.
-This function expects 'overwrite-mode' being set properly beforehand."
+This function expects `overwrite-mode' being set properly beforehand."
   (if do-it-now-p (apply (car prefix-code) (cdr prefix-code)))
   (setq vi-ins-point (point))
   (setq vi-ins-repetition repetition)
@@ -539,7 +539,7 @@ This function expects 'overwrite-mode' being set properly beforehand."
 	  (<= vi-ins-repetition 0))
       (vi-goto-command-state t)
     (if (> vi-ins-repetition 1)
-	(progn 
+	(progn
 	  (let ((str (buffer-substring vi-ins-point (point))))
 	    (while (> vi-ins-repetition 1)
 	      (insert str)
@@ -585,7 +585,7 @@ insert state."
   (interactive "*r")
   (kill-region start end)
   (vi-set-last-change-command 'kill-region))
-  
+
 (defun vi-append-at-end-of-line (arg)
    "go to end of line and then go into vi insert state."
    (interactive "*p")
@@ -637,7 +637,8 @@ insert state."
    "Go to ARGth line."
    (interactive "P")
    (if (null (vi-raw-numeric-prefix arg))
-       (end-of-buffer)
+       (with-no-warnings
+	 (end-of-buffer))
      (goto-line (vi-prefix-numeric-value arg))))
 
 (defun vi-beginning-of-buffer ()
@@ -651,7 +652,7 @@ insert state."
 ;;;;;
 
 (defun vi-isearch-forward (arg)
-  "Incremental search forward.  Use regexp version if ARG is non-nil." 
+  "Incremental search forward.  Use regexp version if ARG is non-nil."
   (interactive "P")
   (let ((scmd (if arg 'isearch-forward-regexp 'isearch-forward))
 	(opoint (point)))
@@ -703,7 +704,7 @@ use those instead of the ones saved."
 		     regexp-search-ring
 		   search-ring))))
   (if (null search-command)
-      (message "No last search command to repeat." (ding))
+      (progn (ding) (message "No last search command to repeat."))
     (funcall search-command search-string nil nil arg)))
 
 (defun vi-reverse-last-search (arg &optional search-command search-string)
@@ -718,13 +719,13 @@ If the optional search args are given, use those instead of the ones saved."
 		     regexp-search-ring
 		   search-ring))))
   (if (null search-command)
-      (message "No last search command to repeat." (ding))
+      (progn (ding) (message "No last search command to repeat."))
     (funcall (cond ((eq search-command 're-search-forward) 're-search-backward)
 		   ((eq search-command 're-search-backward) 're-search-forward)
 		   ((eq search-command 'search-forward) 'search-backward)
 		   ((eq search-command 'search-backward) 'search-forward))
 	     search-string nil nil arg)))
-       
+
 (defun vi-join-lines (arg)
    "join ARG lines from current line (default 2), cleaning up white space."
    (interactive "P")
@@ -819,7 +820,7 @@ The given COUNT is remembered for future scrollings."
 
 (defun vi-char-argument (arg)
   "Get following character (could be any CHAR) as part of the prefix argument.
-Possible prefix-arg cases are NIL, INTEGER, (NIL . CHAR) or (INTEGER . CHAR)."
+Possible prefix-arg cases are nil, INTEGER, (nil . CHAR) or (INTEGER . CHAR)."
   (interactive "P")
   (let ((char (read-char)))
     (cond ((null arg) (setq prefix-arg (cons nil char)))
@@ -838,11 +839,11 @@ Goto mark '@' means jump into and pop the top mark on the mark ring."
 	(t
 	 (let ((mark (vi-get-mark mark-char)))
 	   (if (null mark)
-	       (message "Mark register undefined." (vi-ding))
+	       (progn (vi-ding) (message "Mark register undefined."))
 	     (set-mark-command nil)
 	     (goto-char mark)
 	     (if line-flag (back-to-indentation)))))))
-		     
+
 (defun vi-goto-line-mark (char)
   "Go to the line (at first non-white) marked by next char."
   (interactive "c")
@@ -881,7 +882,7 @@ is given, it is used instead of the saved one."
   (interactive "p")
   (if (null find-arg) (setq find-arg vi-last-find-char))
   (if (null find-arg)
-      (message "No last find char to repeat." (ding))
+      (progn (ding) (message "No last find char to repeat."))
     (vi-find-char (cons (* (car find-arg) -1) (cdr find-arg)) count))) ;6/13/86
 
 (defun vi-find-char (arg count)
@@ -909,7 +910,7 @@ it is used instead of the saved one."
   (interactive "p")
   (if (null find-arg) (setq find-arg vi-last-find-char))
   (if (null find-arg)
-      (message "No last find char to repeat." (ding))
+      (progn (ding) (message "No last find char to repeat."))
     (vi-find-char find-arg count)))
 
 (defun vi-backward-find-char (count char)
@@ -1062,7 +1063,7 @@ MOTION-COMMAND with ARG.
 	      ((eq moving-unit 'line)
 	       (goto-char begin) (beginning-of-line) (setq begin (point))
 	       (goto-char end) (next-line 1) (beginning-of-line) (setq end (point))))
-	(if (> end (point-max)) (setq end (point-max))) ; force in buffer region 
+	(if (> end (point-max)) (setq end (point-max))) ; force in buffer region
 	(cons begin end)))))
 
 (defun vi-delete-op (motion-command arg)
@@ -1106,7 +1107,7 @@ Used in checking whether the yanked text should be put back as lines or not."
   (= (aref string (1- (length string))) ?\n))
 
 (defun vi-put-before (arg &optional after-p)
-  "Put yanked (in vi sense) text back before/above cursor.  
+  "Put yanked (in vi sense) text back before/above cursor.
 If a numeric prefix value (currently it should be >1) is given, put back
 text as lines.  If the optional after-p is given, put after/below the cursor."
   (interactive "P")
@@ -1302,7 +1303,7 @@ For the use of the prefix-arg, refer to individual functions called."
   (interactive "*P")
   (let ((rcmd (if arg 'replace-regexp 'replace-string)))
     (call-interactively rcmd nil)))
-       
+
 (defun vi-adjust-window (arg position)
   "Move current line to the top/center/bottom of the window."
   (interactive "p\nc")
@@ -1329,7 +1330,7 @@ For the use of the prefix-arg, refer to individual functions called."
       (ding))))
 
 (defun vi-name-last-change-or-macro (arg char)
-  "Give name to the last change command or just defined kbd macro.  
+  "Give name to the last change command or just defined kbd macro.
 If prefix ARG is given, name last macro, otherwise name last change command.
 The following CHAR will be the name for the command or macro."
   (interactive "P\nc")
@@ -1343,7 +1344,7 @@ The following CHAR will be the name for the command or macro."
 	  (vi-set-last-change-command 'vi-more-redo-insertion str
 				   overwrite-p prefix-code)))
     (fset (intern (char-to-string char)) vi-last-change-command)))
-  
+
 (defun vi-call-named-change-or-macro (count char)
   "Execute COUNT times the keyboard macro definition named by the following CHAR."
   (interactive "p\nc")
@@ -1384,7 +1385,7 @@ l(ines)."
 	((char-equal region ?b) (mark-whole-buffer))
 	((char-equal region ?p) (mark-paragraph))
 	((char-equal region ?P) (mark-page arg))
-	((char-equal region ?f) (mark-c-function))
+	((char-equal region ?f) (c-mark-function))
 	((char-equal region ?w) (mark-word arg))
 	((char-equal region ?e) (mark-end-of-sentence arg))
 	((char-equal region ?l) (vi-mark-lines arg))
@@ -1465,7 +1466,8 @@ It assumes a `(def..' always starts at the beginning of a line."
     (goto-char (point-min))
     (if (re-search-forward (concat "^(def[unvarconst ]*" name) nil t)
 	nil
-      (message "No definition for \"%s\" in current file." name (ding))
+      (ding)
+      (message "No definition for \"%s\" in current file." name)
       (set-mark-command t))))
 
 (defun vi-split-open-line (arg)
@@ -1486,4 +1488,5 @@ With ARG, inserts that many newlines."
 
 (provide 'vi)
 
+;; arch-tag: ac9bdac3-8acb-4ddd-bdae-c6dd873153b3
 ;;; vi.el ends here

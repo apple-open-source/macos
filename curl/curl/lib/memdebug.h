@@ -8,7 +8,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: memdebug.h,v 1.28 2004/11/09 14:00:56 giva Exp $
+ * $Id: memdebug.h,v 1.33 2006-10-27 03:47:58 yangtse Exp $
  ***************************************************************************/
 
 /*
@@ -85,11 +85,26 @@ CURL_EXTERN int curl_fclose(FILE *file, int line, const char *source);
 #define accept(sock,addr,len)\
  curl_accept(sock,addr,len,__LINE__,__FILE__)
 
+#if defined(getaddrinfo) && defined(__osf__)
+/* OSF/1 and Tru64 have getaddrinfo as a define already, so we cannot define
+   our macro as for other platforms. Instead, we redefine the new name they
+   define getaddrinfo to become! */
+#define ogetaddrinfo(host,serv,hint,res) \
+  curl_dogetaddrinfo(host,serv,hint,res,__LINE__,__FILE__)
+#else
+#undef getaddrinfo
 #define getaddrinfo(host,serv,hint,res) \
   curl_dogetaddrinfo(host,serv,hint,res,__LINE__,__FILE__)
+#endif
+
+#ifdef HAVE_GETNAMEINFO
+#undef getnameinfo
 #define getnameinfo(sa,salen,host,hostlen,serv,servlen,flags) \
   curl_dogetnameinfo(sa,salen,host,hostlen,serv,servlen,flags, __LINE__, \
   __FILE__)
+#endif
+
+#undef freeaddrinfo
 #define freeaddrinfo(data) \
   curl_dofreeaddrinfo(data,__LINE__,__FILE__)
 

@@ -1,0 +1,16 @@
+TYPEMAP
+BIGNUM*      T_PTR
+HV*          RSA_HV
+
+INPUT
+RSA_HV
+    if (! ( SvROK( $arg ) && sv_derived_from( $arg, PACKAGE_NAME ) ) )
+    {
+        croak( \"scalar is not a \" PACKAGE_NAME \" object\" );
+    }
+    if ( SvTYPE( $var = (HV *) SvRV($arg) ) != SVt_PVHV )
+    {
+        croak( \"Passed scalar is not a hash reference\" );
+    }
+
+OUTPUT

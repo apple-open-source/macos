@@ -1,0 +1,53 @@
+Open MPI Authors
+================
+
+The following list contains the names and Subversion IDs of
+individuals who have committed code to the Open MPI repository.  Those
+marked with (*) are no longer active in the project.
+
+Username    Name                        Affiliation(s)
+----------- --------------------------- -------------------------
+afriedle    Andrew Friedley             IU, SNL
+angskun     Thara Angskun               UTK
+bosilca     George Bosilca              UTK
+brbarret    Brian Barrett               IU, LANL
+casswell    Laura Casswell (*)          LANL
+ddd         David Daniel                LANL
+dgdimick    Denis Dimick (*)            LANL
+edgar       Edgar Gabriel               HLRS, UH, UTK
+gef         Graham Fagg                 UTK
+gingery     Ginger Young (*)            LANL
+gleb        Gleb Natapov                Voltaire
+gshipman    Galen Shipman               LANL
+gwatson     Greg Watson                 LANL
+hpcstork    Sven Stork                  HLRS
+jjhursey    Josh Hursey                 IU, LANL
+jsquyres    Jeff Squyres                Cisco, IU
+mitch       Mitch Sukalski (*)          SNL
+mschaara    Mohamad Chaarawi            UH
+mt          Mark Taylor (*)             LANL
+pkambadu    Prabhanjan Kambadur (*)     IU
+rasmussn    Craig Rasmussen             LANL
+rhc         Ralph Castain               LANL
+rlgraham    Rich Graham                 LANL
+rta         Rob Awles (*)               LANL
+rusraink    Rainer Keller               HLRS
+santhana    Gopal Santhanaraman (*)     OSU
+surs        Sayantan Sur (*)            OSU
+sushant     Sushant Sharma              LANL
+tprins      Tim Prins (*)               LANL
+twoodall    Tim Woodall                 LANL
+vsahay      Vishal Sahay (*)            IU
+yuw         Weikuan Yu (*)              LANL, OSU
+
+Affiliaion abbreviations:
+-------------------------
+
+Cisco = Cisco Systems, Inc.
+HLRS = High Performance Computing Center, Stuttgart
+IU = Indiana University
+LANL = Los Alamos National Laboratory
+OSU = The Ohio State University
+SNL = Sandia National Laboratory
+UTK = University of Tennessee, Knoxville
+Voltaire = Voltaire

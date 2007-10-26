@@ -56,6 +56,8 @@ ServerChild::ServerChild()
 //
 ServerChild::~ServerChild()
 {
+	mServicePort.destroy();
+	
 	if (state() == alive) {
 		this->kill(SIGTERM);		// shoot it once
 		checkChildren();			// check for quick death

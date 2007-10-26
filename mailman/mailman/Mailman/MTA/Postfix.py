@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Creation/deletion hooks for the Postfix MTA.
-"""
+"""Creation/deletion hooks for the Postfix MTA."""
 
 import os
 import pwd
@@ -339,12 +339,21 @@ def checkperms(state):
                 owner = pwd.getpwuid(stat[ST_UID])[0]
             except KeyError:
                 owner = 'uid %d' % stat[ST_UID]
-            print _('%(dbfile)s owned by %(owner)s (must be owned by %(user)s')
+            print _('%(dbfile)s owned by %(owner)s (must be owned by %(user)s'),
             state.ERRORS += 1
             if state.FIX:
                 print _('(fixing)')
                 uid = pwd.getpwnam(user)[2]
                 gid = grp.getgrnam(mm_cfg.MAILMAN_GROUP)[2]
                 os.chown(dbfile, uid, gid)
+            else:
+                print
+        if stat and (stat[ST_MODE] & targetmode) <> targetmode:
+            state.ERRORS += 1
+            octmode = oct(stat[ST_MODE])
+            print _('%(dbfile)s permissions must be 066x (got %(octmode)s)'),
+            if state.FIX:
+                print _('(fixing)')
+                os.chmod(dbfile, stat[ST_MODE] | targetmode)
             else:
                 print

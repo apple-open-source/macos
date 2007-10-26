@@ -13,10 +13,11 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 CFILES = reboot.c
+DEFSFILES = kextmanager.defs
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist\
             boot_hp300.8 boot_i386.8 boot_sparc.8 boot_tahoe.8\
-            boot_vax.8 reboot.8
+            boot_vax.8 reboot.8 $(DEFSFILES)
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

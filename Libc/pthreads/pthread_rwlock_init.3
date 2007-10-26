@@ -33,7 +33,10 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlock_init "pthread_rwlock_t *lock" "const pthread_rwlockattr_t *attr"
+.Fo pthread_rwlock_init
+.Fa "pthread_rwlock_t *restrict rwlock"
+.Fa "const pthread_rwlockattr_t *restrict attr"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_init
@@ -50,12 +53,12 @@ with an already initialized lock are undefined.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlock_init
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
+.Xr pthread_rwlock_destroy 3 ,
 .Xr pthread_rwlockattr_init 3 ,
-.Xr pthread_rwlockattr_setpshared 3 ,
-.Xr pthread_rwlock_destroy 3
+.Xr pthread_rwlockattr_setpshared 3
 .Sh STANDARDS
 The
 .Fn pthread_rwlock_init
@@ -83,7 +86,7 @@ function may fail if:
 .It Bq Er EBUSY
 The system has detected an attempt to re-initialize the object
 referenced by
-.Fa lock ,
+.Fa rwlock ,
 a previously initialized but not yet destroyed read/write lock.
 .It Bq Er EINVAL
 The value specified by

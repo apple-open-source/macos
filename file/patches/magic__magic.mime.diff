@@ -1,6 +1,6 @@
 --- magic/magic.mime.orig	2004-09-03 11:10:53.000000000 -0700
 +++ magic/magic.mime	2004-09-03 11:11:22.000000000 -0700
-@@ -482,6 +482,9 @@
+@@ -487,6 +487,9 @@
  # CDROM Filesystems
  32769    string    CD001     application/x-iso9660
  

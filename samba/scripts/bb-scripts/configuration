@@ -1,0 +1,7 @@
+default=coreos
+
+coreos:server=coreos-bb.apple.com
+coreos:port=5555
+coreos:description=SambaFileServer
+coreos:owner=com.apple.netfs
+coreos:results=Logs

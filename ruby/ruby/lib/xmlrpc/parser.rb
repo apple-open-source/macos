@@ -3,7 +3,7 @@
 # 
 # Copyright (C) 2001, 2002, 2003 by Michael Neumann (mneumann@ntecs.de)
 #
-# $Id: parser.rb,v 1.3.2.1 2004/04/05 07:45:32 matz Exp $
+# $Id: parser.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 
 
@@ -51,8 +51,10 @@ end # module NQXML
 
 module XMLRPC
 
-  class FaultException < Exception
+  class FaultException < StandardError
     attr_reader :faultCode, :faultString
+
+    alias message faultString
 
     def initialize(faultCode, faultString)
       @faultCode   = faultCode
@@ -84,18 +86,32 @@ module XMLRPC
     end
 
     def self.dateTime(str)
-      if str =~ /^(-?\d\d\d\d)(\d\d)(\d\d)T(\d\d):(\d\d):(\d\d)$/ then
-        # TODO: Time.gm ??? .local ??? 
+      case str
+      when /^(-?\d\d\d\d)-?(\d\d)-?(\d\d)T(\d\d):(\d\d):(\d\d)(?:Z|([+-])(\d\d):?(\d\d))?$/
         a = [$1, $2, $3, $4, $5, $6].collect{|i| i.to_i}
-	  
+        if $7
+          ofs = $8.to_i*3600 + $9.to_i*60
+          ofs = -ofs if $7=='+'
+          utc = Time.utc(a.reverse) + ofs
+          a = [ utc.year, utc.month, utc.day, utc.hour, utc.min, utc.sec ]
+        end
         XMLRPC::DateTime.new(*a)
-        #if a[0] >= 1970 then
-        #  Time.gm(*a)
-        #else
-        #  Date.new(*a[0,3])
-        #end
+      when /^(-?\d\d)-?(\d\d)-?(\d\d)T(\d\d):(\d\d):(\d\d)(Z|([+-]\d\d):(\d\d))?$/
+        a = [$1, $2, $3, $4, $5, $6].collect{|i| i.to_i}
+        if a[0] < 70
+          a[0] += 2000
+        else
+          a[0] += 1900
+        end
+        if $7
+          ofs = $8.to_i*3600 + $9.to_i*60
+          ofs = -ofs if $7=='+'
+          utc = Time.utc(a.reverse) + ofs
+          a = [ utc.year, utc.month, utc.day, utc.hour, utc.min, utc.sec ]
+        end
+        XMLRPC::DateTime.new(*a)
       else
-        raise "wrong dateTime.iso8601 format"
+        raise "wrong dateTime.iso8601 format " + str
       end
     end
 
@@ -112,31 +128,13 @@ module XMLRPC
         begin
           mod = Module
           klass.split("::").each {|const| mod = mod.const_get(const.strip)}
+
+          obj = mod.allocate
           
-          Thread.critical = true
-          # let initialize take 0 parameters
-          mod.module_eval %{
-            begin
-              alias __initialize initialize
-            rescue NameError
-            end
-            def initialize; end
-          }
-
-          obj = mod.new
-
-          # restore old initialize
-          mod.module_eval %{
-            undef initialize
-            begin
-              alias initialize __initialize
-            rescue NameError
-            end
-          }
-          Thread.critical = false
-
           hash.delete "___class___"
-          hash.each {|k,v| obj.__set_instance_variable(k, v) } 
+          hash.each {|key, value| 
+            obj.instance_variable_set("@#{ key }", value) if key =~ /^([\w_][\w_0-9]*)$/
+          }
           obj
         rescue
           hash
@@ -582,12 +580,9 @@ module XMLRPC
     class XMLStreamParser < AbstractStreamParser
       def initialize
         require "xmlparser"
-        eval %{
-          class XMLRPCParser < ::XMLParser
-            include StreamParserMixin
-          end
+        @parser_class = Class.new(::XMLParser) {
+          include StreamParserMixin
         }
-        @parser_class = XMLRPCParser
       end
     end # class XMLStreamParser
     # ---------------------------------------------------------------------------
@@ -800,6 +795,16 @@ module XMLRPC
     Classes = [XMLStreamParser, XMLTreeParser, 
                NQXMLStreamParser, NQXMLTreeParser, 
                REXMLStreamParser, XMLScanStreamParser]
+
+    # yields an instance of each installed parser
+    def self.each_installed_parser
+      XMLRPC::XMLParser::Classes.each do |klass|
+        begin
+          yield klass.new
+        rescue LoadError
+        end
+      end
+    end
 
   end # module XMLParser
 

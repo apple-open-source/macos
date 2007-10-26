@@ -1,0 +1,578 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN" 
+               "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd">
+<refentry id="libidn-idna">
+<refmeta>
+<refentrytitle>idna</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>LIBIDN Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>idna</refname><refpurpose></refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+
+
+enum        <link linkend="Idna-rc">Idna_rc</link>;
+enum        <link linkend="Idna-flags">Idna_flags</link>;
+#define     <link linkend="IDNA-ACE-PREFIX:CAPS">IDNA_ACE_PREFIX</link>
+const <link linkend="char">char</link>* <link linkend="idna-strerror">idna_strerror</link>                   (<link linkend="Idna-rc">Idna_rc</link> rc);
+<link linkend="int">int</link>         <link linkend="idna-to-ascii-4i">idna_to_ascii_4i</link>                (const <link linkend="uint32-t">uint32_t</link> *in,
+                                             <link linkend="size-t">size_t</link> inlen,
+                                             <link linkend="char">char</link> *out,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-44i">idna_to_unicode_44i</link>             (const <link linkend="uint32-t">uint32_t</link> *in,
+                                             <link linkend="size-t">size_t</link> inlen,
+                                             <link linkend="uint32-t">uint32_t</link> *out,
+                                             <link linkend="size-t">size_t</link> *outlen,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-ascii-4z">idna_to_ascii_4z</link>                (const <link linkend="uint32-t">uint32_t</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-ascii-8z">idna_to_ascii_8z</link>                (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-ascii-lz">idna_to_ascii_lz</link>                (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-4z4z">idna_to_unicode_4z4z</link>            (const <link linkend="uint32-t">uint32_t</link> *input,
+                                             <link linkend="uint32-t">uint32_t</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-8z4z">idna_to_unicode_8z4z</link>            (const <link linkend="char">char</link> *input,
+                                             <link linkend="uint32-t">uint32_t</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-8z8z">idna_to_unicode_8z8z</link>            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-8zlz">idna_to_unicode_8zlz</link>            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+<link linkend="int">int</link>         <link linkend="idna-to-unicode-lzlz">idna_to_unicode_lzlz</link>            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="Idna-rc"/>enum Idna_rc</title>
+<indexterm><primary>Idna_rc</primary></indexterm><programlisting>  typedef enum
+  {
+    IDNA_SUCCESS = 0,
+    IDNA_STRINGPREP_ERROR = 1,
+    IDNA_PUNYCODE_ERROR = 2,
+    IDNA_CONTAINS_NON_LDH = 3,
+    /* Workaround typo in earlier versions. */
+    IDNA_CONTAINS_LDH = IDNA_CONTAINS_NON_LDH,
+    IDNA_CONTAINS_MINUS = 4,
+    IDNA_INVALID_LENGTH = 5,
+    IDNA_NO_ACE_PREFIX = 6,
+    IDNA_ROUNDTRIP_VERIFY_ERROR = 7,
+    IDNA_CONTAINS_ACE_PREFIX = 8,
+    IDNA_ICONV_ERROR = 9,
+    /* Internal errors. */
+    IDNA_MALLOC_ERROR = 201,
+    IDNA_DLOPEN_ERROR = 202
+  } Idna_rc;
+</programlisting>
+<para>
+Enumerated return codes of <link linkend="idna-to-ascii-4i"><function>idna_to_ascii_4i()</function></link>,
+<link linkend="idna-to-unicode-44i"><function>idna_to_unicode_44i()</function></link> functions (and functions derived from those
+functions).  The value 0 is guaranteed to always correspond to
+success.</para>
+<para>
+
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>IDNA_SUCCESS</literal></term>
+<listitem><simpara> Successful operation.  This value is guaranteed to
+  always be zero, the remaining ones are only guaranteed to hold
+  non-zero values, for logical comparison purposes.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_STRINGPREP_ERROR</literal></term>
+<listitem><simpara>  Error during string preparation.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_PUNYCODE_ERROR</literal></term>
+<listitem><simpara> Error during punycode operation.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_CONTAINS_NON_LDH</literal></term>
+<listitem><simpara> For IDNA_USE_STD3_ASCII_RULES, indicate that
+  the string contains non-LDH ASCII characters.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_CONTAINS_LDH</literal></term>
+<listitem><simpara>
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_CONTAINS_MINUS</literal></term>
+<listitem><simpara> For IDNA_USE_STD3_ASCII_RULES, indicate that
+  the string contains a leading or trailing hyphen-minus (U+002D).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_INVALID_LENGTH</literal></term>
+<listitem><simpara> The final output string is not within the
+  (inclusive) range 1 to 63 characters.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_NO_ACE_PREFIX</literal></term>
+<listitem><simpara> The string does not contain the ACE prefix
+  (for ToUnicode).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_ROUNDTRIP_VERIFY_ERROR</literal></term>
+<listitem><simpara> The ToASCII operation on output
+  string does not equal the input.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_CONTAINS_ACE_PREFIX</literal></term>
+<listitem><simpara> The input contains the ACE prefix (for
+  ToASCII).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_ICONV_ERROR</literal></term>
+<listitem><simpara> Could not convert string in locale encoding.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_MALLOC_ERROR</literal></term>
+<listitem><simpara> Could not allocate buffer (this is typically a
+  fatal error).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_DLOPEN_ERROR</literal></term>
+<listitem><simpara> Could not dlopen the libcidn DSO (only used
+  internally in libc).
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="Idna-flags"/>enum Idna_flags</title>
+<indexterm><primary>Idna_flags</primary></indexterm><programlisting>  typedef enum
+  {
+    IDNA_ALLOW_UNASSIGNED = 0x0001,
+    IDNA_USE_STD3_ASCII_RULES = 0x0002
+  } Idna_flags;
+</programlisting>
+<para>
+Flags to pass to <link linkend="idna-to-ascii-4i"><function>idna_to_ascii_4i()</function></link>, <link linkend="idna-to-unicode-44i"><function>idna_to_unicode_44i()</function></link> etc.</para>
+<para>
+
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>IDNA_ALLOW_UNASSIGNED</literal></term>
+<listitem><simpara> Don't reject strings containing unassigned
+  Unicode code points.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>IDNA_USE_STD3_ASCII_RULES</literal></term>
+<listitem><simpara> Validate strings according to STD3
+  rules (i.e., normal host name rules).
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="IDNA-ACE-PREFIX:CAPS"/>IDNA_ACE_PREFIX</title>
+<indexterm><primary>IDNA_ACE_PREFIX</primary></indexterm><programlisting>#  define IDNA_ACE_PREFIX "xn--"
+</programlisting>
+<para>
+The IANA allocated prefix to use for IDNA. "xn--"</para>
+<para>
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="idna-strerror"/>idna_strerror ()</title>
+<indexterm><primary>idna_strerror</primary></indexterm><programlisting>const <link linkend="char">char</link>* idna_strerror                   (<link linkend="Idna-rc">Idna_rc</link> rc);</programlisting>
+<para>
+Convert a return code integer to a text string.  This string can be
+used to output a diagnostic message to the user.
+</para>
+<para>
+IDNA_SUCCESS: Successful operation.  This value is guaranteed to
+  always be zero, the remaining ones are only guaranteed to hold
+  non-zero values, for logical comparison purposes.
+IDNA_STRINGPREP_ERROR:  Error during string preparation.
+IDNA_PUNYCODE_ERROR: Error during punycode operation.
+IDNA_CONTAINS_NON_LDH: For IDNA_USE_STD3_ASCII_RULES, indicate that
+  the string contains non-LDH ASCII characters.
+IDNA_CONTAINS_MINUS: For IDNA_USE_STD3_ASCII_RULES, indicate that
+  the string contains a leading or trailing hyphen-minus (U+002D).
+IDNA_INVALID_LENGTH: The final output string is not within the
+  (inclusive) range 1 to 63 characters.
+IDNA_NO_ACE_PREFIX: The string does not contain the ACE prefix
+  (for ToUnicode).
+IDNA_ROUNDTRIP_VERIFY_ERROR: The ToASCII operation on output
+  string does not equal the input.
+IDNA_CONTAINS_ACE_PREFIX: The input contains the ACE prefix (for
+  ToASCII).
+IDNA_ICONV_ERROR: Could not convert string in locale encoding.
+IDNA_MALLOC_ERROR: Could not allocate buffer (this is typically a
+  fatal error).
+IDNA_DLOPEN_ERROR: Could not dlopen the libcidn DSO (only used
+  internally in libc).</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>rc</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-rc"><type>Idna_rc</type></link> return code.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns a pointer to a statically allocated string
+containing a description of the error with the return code <parameter>rc</parameter>.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-ascii-4i"/>idna_to_ascii_4i ()</title>
+<indexterm><primary>idna_to_ascii_4i</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_4i                (const <link linkend="uint32-t">uint32_t</link> *in,
+                                             <link linkend="size-t">size_t</link> inlen,
+                                             <link linkend="char">char</link> *out,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+The ToASCII operation takes a sequence of Unicode code points that make
+up one label and transforms it into a sequence of code points in the
+ASCII range (0..7F). If ToASCII succeeds, the original sequence and the
+resulting sequence are equivalent labels.
+</para>
+<para>
+It is important to note that the ToASCII operation can fail. ToASCII
+fails if any step of it fails. If any step of the ToASCII operation
+fails on any label in a domain name, that domain name MUST NOT be used
+as an internationalized domain name. The method for deadling with this
+failure is application-specific.
+</para>
+<para>
+The inputs to ToASCII are a sequence of code points, the AllowUnassigned
+flag, and the UseSTD3ASCIIRules flag. The output of ToASCII is either a
+sequence of ASCII code points or a failure condition.
+</para>
+<para>
+ToASCII never alters a sequence of code points that are all in the ASCII
+range to begin with (although it could fail). Applying the ToASCII
+operation multiple times has exactly the same effect as applying it just
+once.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>in</parameter>&nbsp;:</term>
+<listitem><simpara> input array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>inlen</parameter>&nbsp;:</term>
+<listitem><simpara> length of input array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>out</parameter>&nbsp;:</term>
+<listitem><simpara> output zero terminated string that must have room for at
+      least 63 characters plus the terminating zero.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns 0 on success, or an <link linkend="Idna-rc"><type>Idna_rc</type></link> error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-44i"/>idna_to_unicode_44i ()</title>
+<indexterm><primary>idna_to_unicode_44i</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_44i             (const <link linkend="uint32-t">uint32_t</link> *in,
+                                             <link linkend="size-t">size_t</link> inlen,
+                                             <link linkend="uint32-t">uint32_t</link> *out,
+                                             <link linkend="size-t">size_t</link> *outlen,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+The ToUnicode operation takes a sequence of Unicode code points
+that make up one label and returns a sequence of Unicode code
+points. If the input sequence is a label in ACE form, then the
+result is an equivalent internationalized label that is not in ACE
+form, otherwise the original sequence is returned unaltered.
+</para>
+<para>
+ToUnicode never fails. If any step fails, then the original input
+sequence is returned immediately in that step.
+</para>
+<para>
+The Punycode decoder can never output more code points than it
+inputs, but Nameprep can, and therefore ToUnicode can.  Note that
+the number of octets needed to represent a sequence of code points
+depends on the particular character encoding used.
+</para>
+<para>
+The inputs to ToUnicode are a sequence of code points, the
+AllowUnassigned flag, and the UseSTD3ASCIIRules flag. The output of
+ToUnicode is always a sequence of Unicode code points.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>in</parameter>&nbsp;:</term>
+<listitem><simpara> input array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>inlen</parameter>&nbsp;:</term>
+<listitem><simpara> length of input array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>out</parameter>&nbsp;:</term>
+<listitem><simpara> output array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>outlen</parameter>&nbsp;:</term>
+<listitem><simpara> on input, maximum size of output array with unicode code points,
+         on exit, actual size of output array with unicode code points.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <link linkend="Idna-rc"><type>Idna_rc</type></link> error condition, but it must only be
+  used for debugging purposes.  The output buffer is always
+  guaranteed to contain the correct data according to the
+  specification (sans malloc induced errors).  NB!  This means that
+  you normally ignore the return code from this function, as
+  checking it means breaking the standard.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-ascii-4z"/>idna_to_ascii_4z ()</title>
+<indexterm><primary>idna_to_ascii_4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_4z                (const <link linkend="uint32-t">uint32_t</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert UCS-4 domain name to ASCII string.  The domain name may
+contain several labels, separated by dots.  The output buffer must
+be deallocated by the caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero terminated input Unicode string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-ascii-8z"/>idna_to_ascii_8z ()</title>
+<indexterm><primary>idna_to_ascii_8z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_8z                (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert UTF-8 domain name to ASCII string.  The domain name may
+contain several labels, separated by dots.  The output buffer must
+be deallocated by the caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero terminated input UTF-8 string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-ascii-lz"/>idna_to_ascii_lz ()</title>
+<indexterm><primary>idna_to_ascii_lz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_ascii_lz                (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert domain name in the locale's encoding to ASCII string.  The
+domain name may contain several labels, separated by dots.  The
+output buffer must be deallocated by the caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero terminated input string encoded in the current locale's
+  character set.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-4z4z"/>idna_to_unicode_4z4z ()</title>
+<indexterm><primary>idna_to_unicode_4z4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_4z4z            (const <link linkend="uint32-t">uint32_t</link> *input,
+                                             <link linkend="uint32-t">uint32_t</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert possibly ACE encoded domain name in UCS-4 format into a
+UCS-4 string.  The domain name may contain several labels,
+separated by dots.  The output buffer must be deallocated by the
+caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero-terminated Unicode string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output Unicode string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-8z4z"/>idna_to_unicode_8z4z ()</title>
+<indexterm><primary>idna_to_unicode_8z4z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8z4z            (const <link linkend="char">char</link> *input,
+                                             <link linkend="uint32-t">uint32_t</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert possibly ACE encoded domain name in UTF-8 format into a
+UCS-4 string.  The domain name may contain several labels,
+separated by dots.  The output buffer must be deallocated by the
+caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero-terminated UTF-8 string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output Unicode string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-8z8z"/>idna_to_unicode_8z8z ()</title>
+<indexterm><primary>idna_to_unicode_8z8z</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8z8z            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert possibly ACE encoded domain name in UTF-8 format into a
+UTF-8 string.  The domain name may contain several labels,
+separated by dots.  The output buffer must be deallocated by the
+caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero-terminated UTF-8 string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output UTF-8 string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-8zlz"/>idna_to_unicode_8zlz ()</title>
+<indexterm><primary>idna_to_unicode_8zlz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_8zlz            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert possibly ACE encoded domain name in UTF-8 format into a
+string encoded in the current locale's character set.  The domain
+name may contain several labels, separated by dots.  The output
+buffer must be deallocated by the caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero-terminated UTF-8 string.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output string encoded in the
+  current locale's character set.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="idna-to-unicode-lzlz"/>idna_to_unicode_lzlz ()</title>
+<indexterm><primary>idna_to_unicode_lzlz</primary></indexterm><programlisting><link linkend="int">int</link>         idna_to_unicode_lzlz            (const <link linkend="char">char</link> *input,
+                                             <link linkend="char">char</link> **output,
+                                             <link linkend="int">int</link> flags);</programlisting>
+<para>
+Convert possibly ACE encoded domain name in the locale's character
+set into a string encoded in the current locale's character set.
+The domain name may contain several labels, separated by dots.  The
+output buffer must be deallocated by the caller.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>input</parameter>&nbsp;:</term>
+<listitem><simpara> zero-terminated string encoded in the current locale's
+  character set.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>output</parameter>&nbsp;:</term>
+<listitem><simpara> pointer to newly allocated output string encoded in the
+  current locale's character set.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> an <link linkend="Idna-flags"><type>Idna_flags</type></link> value, e.g., <literal>IDNA_ALLOW_UNASSIGNED</literal> or
+  <literal>IDNA_USE_STD3_ASCII_RULES</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis>&nbsp;:</term><listitem><simpara> Returns <literal>IDNA_SUCCESS</literal> on success, or error code.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

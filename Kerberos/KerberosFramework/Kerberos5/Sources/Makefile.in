@@ -3,7 +3,10 @@ datadir=@datadir@
 thisconfigdir=.
 myfulldir=.
 mydir=.
-SUBDIRS=util include lib @krb524@ kdc kadmin slave clients appl tests \
+# Don't build sample by default: plugins/locate/python plugins/preauth/wpse plugins/preauth/cksum_body
+SUBDIRS=util include lib @krb524@ kdc kadmin @ldap_plugin_dir@ slave clients \
+	plugins/kdb/db2 \
+	appl tests \
 	config-files gen-manpages
 BUILDTOP=$(REL)$(C)
 LOCALINCLUDES = -I$(srcdir) 
@@ -19,16 +22,21 @@ all-unix:: krb5-config
 # needs autoconf.h, but building "all" in include requires that util/et
 # have been built first.  Until we can untangle this, let's just check
 # that autoconf.h is up to date before going into any of the subdirectories.
-all-prerecurse: update-autoconf-h
+all-prerecurse generate-files-mac-prerecurse: update-autoconf-h
 update-autoconf-h:
-	(cd include && $(MAKE) krb5/autoconf.h)
+	(cd include && $(MAKE) autoconf.h osconf.h)
+
+##DOS##!if 0
+# This makefile doesn't use lib.in, but we still need shlib.conf here.
+config.status: $(SRCTOP)/config/shlib.conf
+##DOS##!endif
 
 all-windows:: maybe-awk Makefile-windows
-	@echo Making autoconf.h in include\krb5
-	cd include\krb5
+	@echo Making autoconf.h in include
+	cd include
 	$(MAKE) -$(MFLAGS) autoconf.h
 	@echo Making in util
-	cd ..\..\util
+	cd ..\util
 	$(MAKE) -$(MFLAGS)
 	@echo Making in include
 	cd ..\include
@@ -59,6 +67,9 @@ INSTALLMKDIRS = $(KRB5ROOT) $(KRB5MANROOT) $(KRB5OTHERMKDIRS) \
 		$(ADMIN_BINDIR) $(SERVER_BINDIR) $(CLIENT_BINDIR) \
 		$(ADMIN_MANDIR) $(SERVER_MANDIR) $(CLIENT_MANDIR) \
 		$(FILE_MANDIR) $(KRB5_LIBDIR) $(KRB5_INCDIR) \
+		$(KRB5_DB_MODULE_DIR) \
+		$(KRB5_LIBKRB5_MODULE_DIR) \
+		@localstatedir@ @localstatedir@/krb5kdc \
 		$(KRB5_INCSUBDIRS) $(datadir) $(EXAMPLEDIR)
 
 install-strip:
@@ -81,12 +92,24 @@ install-headers-prerecurse: install-headers-mkdirs
 # install::
 #	$(MAKE) $(MFLAGS) install.man
 
+fake-install:
+	$(RM) -r $(FAKEPREFIX)
+	@for i in $(INSTALLMKDIRS); do \
+		$(srcdir)/config/mkinstalldirs util/fakedest$$i; \
+	done
+	(w=`pwd`; cd util && $(MAKE) install DESTDIR="$$w/util/fakedest")
+	(w=`pwd`; cd lib && $(MAKE) install DESTDIR="$$w/util/fakedest")
+	(w=`pwd`; cd plugins/kdb/db2 && $(MAKE) install DESTDIR="$$w/util/fakedest")
+
+#	(w=`pwd`; cd plugins/locate/python && $(MAKE) install DESTDIR="$$w/util/fakedest")
+
 TAGS: $(SRCS)
 	etags $(SRCS)
 
 clean-:: clean-windows
 clean-unix::
 	$(RM) *.o core krb5-config
+	$(RM) -r util/fakedest
 
 mostlyclean: clean
 
@@ -136,7 +159,8 @@ config-windows:: Makefile-windows
 # try to build wconfig on a config-windows.
 #
 ##DOS##$(WCONFIG_EXE): outpre-dir wconfig.c
-##DOS##	$(CC) -Fe$@ -Fo$*.obj wconfig.c
+##DOS##	$(CC) -Fe$@ -Fo$*.obj wconfig.c $(CCLINKOPTION)
+##DOS## $(_VC_MANIFEST_EMBED_EXE)
 
 ##DOS##MKFDEP=$(WCONFIG_EXE) config\win-pre.in config\win-post.in
 
@@ -147,7 +171,7 @@ WINMAKEFILES=Makefile \
 	clients\kinit\Makefile clients\klist\Makefile \
 	clients\kpasswd\Makefile clients\kvno\Makefile \
 	clients\kcpytkt\Makefile clients\kdeltkt\Makefile \
-	include\Makefile include\krb5\Makefile \
+	include\Makefile \
 	krb524\Makefile \
 	lib\Makefile lib\crypto\Makefile \
 	lib\crypto\crc32\Makefile lib\crypto\des\Makefile \
@@ -161,6 +185,7 @@ WINMAKEFILES=Makefile \
 	lib\des425\Makefile \
 	lib\gssapi\Makefile lib\gssapi\generic\Makefile \
 	lib\gssapi\krb5\Makefile lib\gssapi\mechglue\Makefile \
+	lib\gssapi\spnego\Makefile \
 	lib\krb4\Makefile lib\krb5\Makefile \
 	lib\krb5\asn.1\Makefile lib\krb5\ccache\Makefile \
 	lib\krb5\ccache\ccapi\Makefile \
@@ -176,7 +201,7 @@ WINMAKEFILES=Makefile \
 	windows\Makefile windows\lib\Makefile \
 	windows\cns\Makefile windows\gina\Makefile \
 	windows\gss\Makefile windows\ms2mit\Makefile \
-	windows\wintel\Makefile
+	windows\wintel\Makefile windows\kfwlogon\Makefile
 
 ##DOS##Makefile-windows:: $(MKFDEP) $(WINMAKEFILES)
 
@@ -203,8 +228,6 @@ WINMAKEFILES=Makefile \
 ##DOS##clients\kdeltkt\Makefile: clients\kdeltkt\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##include\Makefile: include\Makefile.in $(MKFDEP)
-##DOS##	$(WCONFIG) config < $@.in > $@
-##DOS##include\krb5\Makefile: include\krb5\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##krb524\Makefile: krb524\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
@@ -247,6 +270,8 @@ WINMAKEFILES=Makefile \
 ##DOS##lib\gssapi\generic\Makefile: lib\gssapi\generic\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##lib\gssapi\mechglue\Makefile: lib\gssapi\mechglue\Makefile.in $(MKFDEP)
+##DOS##	$(WCONFIG) config < $@.in > $@
+##DOS##lib\gssapi\spnego\Makefile: lib\gssapi\spnego\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##lib\gssapi\krb5\Makefile: lib\gssapi\krb5\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
@@ -296,6 +321,8 @@ WINMAKEFILES=Makefile \
 ##DOS##	$(WCONFIG) config < $@.in > $@
 ##DOS##windows\wintel\Makefile: windows\wintel\Makefile.in $(MKFDEP)
 ##DOS##	$(WCONFIG) config < $@.in > $@
+##DOS##windows\kfwlogon\Makefile: windows\kfwlogon\Makefile.in $(MKFDEP)
+##DOS##	$(WCONFIG) config < $@.in > $@
 
 clean-windows:: Makefile-windows
 	@echo Making clean in util
@@ -344,7 +371,7 @@ FILES= ./* \
 	lib/crypto/sha1/* lib/crypto/arcfour/* lib/crypto/md4/* \
 	lib/crypto/md5/* lib/crypto/yarrow/* \
 	lib/des425/* lib/gssapi/* lib/gssapi/generic/* lib/gssapi/krb5/* \
-	lib/gssapi/mechglue/* lib/krb4/* \
+	lib/gssapi/mechglue/* lib/gssapi/spnego/* lib/krb4/* \
 	lib/krb5/* lib/krb5/asn.1/* lib/krb5/krb/* \
 	lib/krb5/ccache/* lib/krb5/ccache/ccapi/* \
 	lib/krb5/error_tables/* \
@@ -353,7 +380,8 @@ FILES= ./* \
 	util/* util/et/* util/profile/*
 
 WINFILES= util/windows/* windows/* windows/lib/* windows/cns/* \
-	windows/wintel/* windows/gss/* windows/gina/* windows/ms2mit/*
+	windows/wintel/* windows/gss/* windows/gina/* windows/ms2mit/* \
+	windows/kfwlogon/*
 
 WINBINARYFILES=	windows/*/*.ico windows/*/*.doc windows/*/*.hlp \
 	windows/*/*.hpj windows/lib/*.lib
@@ -385,10 +413,10 @@ ETOUT =	\
 	$(GK)gssapi_err_krb5.h $(GK)gssapi_err_krb5.c \
 	lib/krb4/krb_err_txt.c
 
-HOUT =	$(INC)krb5.h $(GG)gssapi.h $(PR)profile.h
+HOUT =	$(INC)krb5\krb5.h $(GG)gssapi.h $(PR)profile.h
 
 CLEANUP= Makefile $(ETOUT) $(HOUT) \
-	include/profile.h include/krb5/osconf.h \
+	include/profile.h include/osconf.h \
 	winfile.list
 
 
@@ -482,10 +510,10 @@ lib/krb4/krb_err_txt.c: lib/krb4/krb_err.et
 	$(AWK) -f lib/krb4/et_errtxt.awk outfile=$@ \
 		lib/krb4/krb_err.et
 
-KRBHDEP = $(INC)krb5.hin $(INC)krb5_err.h $(INC)kdb5_err.h \
+KRBHDEP = $(INC)krb5\krb5.hin $(INC)krb5_err.h $(INC)kdb5_err.h \
 	$(INC)kv5m_err.h $(INC)krb524_err.h $(INC)asn1_err.h
 
-$(INC)krb5.h: $(KRBHDEP)
+$(INC)krb5\krb5.h: $(KRBHDEP)
 	rm -f $@
 	cat $(KRBHDEP) > $@
 $(PR)profile.h: $(PR)profile.hin $(PR)prof_err.h
@@ -523,10 +551,12 @@ install-windows::
 	@if not exist "$(KRB_INSTALL_DIR)\$(NULL)" @echo The directory $(KRB_INSTALL_DIR) does not exist.  Please create it.
 	@if not exist "$(KRB_INSTALL_DIR)\$(NULL)" @dir /b $(KRB_INSTALL_DIR)\nul
 	@if not exist "$(KRB_INSTALL_DIR)\include\$(NULL)" @mkdir "$(KRB_INSTALL_DIR)\include"
+	@if not exist "$(KRB_INSTALL_DIR)\include\krb5\$(NULL)" @mkdir "$(KRB_INSTALL_DIR)\include\krb5"
 	@if not exist "$(KRB_INSTALL_DIR)\include\gssapi\$(NULL)" @mkdir "$(KRB_INSTALL_DIR)\include\gssapi"
 	@if not exist "$(KRB_INSTALL_DIR)\lib\$(NULL)" @mkdir "$(KRB_INSTALL_DIR)\lib"
 	@if not exist "$(KRB_INSTALL_DIR)\bin\$(NULL)" @mkdir "$(KRB_INSTALL_DIR)\bin"
 	$(CP) include\krb5.h "$(KRB_INSTALL_DIR)\include\."
+	$(CP) include\krb5\krb5.h "$(KRB_INSTALL_DIR)\include\krb5\."
 	$(CP) include\win-mac.h "$(KRB_INSTALL_DIR)\include\."
 	$(CP) include\profile.h "$(KRB_INSTALL_DIR)\include\."
 	$(CP) include\com_err.h "$(KRB_INSTALL_DIR)\include\."
@@ -563,3 +593,4 @@ krb5-config: $(srcdir)/krb5-config.in $(thisconfigdir)/config.status
 # $(PURE) or $(LDFLAGS) in case someone changes config/shlib.conf
 check-unix:: krb5-config
 	$(SHELL) $(srcdir)/t_krbconf
+check-prerecurse: fake-install

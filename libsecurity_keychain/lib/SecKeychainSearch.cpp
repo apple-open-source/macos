@@ -54,7 +54,7 @@ SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass it
 	KCCursor cursor(keychains, itemClass, attrList);
 	*searchRef = cursor->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCreateFromAttributes")
 }
 
 
@@ -73,7 +73,7 @@ SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItem
 	
 	*searchRef = cursor->handle();
 	
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCreateFromAttributesExtended")
 }
 
 
@@ -91,5 +91,5 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 
 	*itemRef=item->handle();
 
-	END_SECAPI
+	END_SECAPI2("SecKeychainSearchCopyNext")
 }

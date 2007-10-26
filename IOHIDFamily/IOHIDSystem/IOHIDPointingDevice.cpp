@@ -194,7 +194,7 @@ IOHIDPointingDevice::newPointingDeviceAndStart(IOService *owner, UInt8 numButton
         device->_numButtons = numButtons;
         device->_resolution = resolution;
         device->_isScrollPresent = scroll;
-                
+        
         if ( device->attach(owner) )
         {
             if (!device->start(owner))

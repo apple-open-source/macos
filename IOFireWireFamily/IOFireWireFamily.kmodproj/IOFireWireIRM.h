@@ -29,6 +29,9 @@
  *
  * HISTORY
  * $Log: IOFireWireIRM.h,v $
+ * Revision 1.4  2006/11/13 23:19:38  ayanowit
+ * Changes for the kernel side of the new IRMAllocations Leopard APIs.
+ *
  * Revision 1.3  2003/07/21 06:52:59  niels
  * merge isoch to TOT
  *
@@ -52,7 +55,7 @@
 
 class IOFireWireIRM : public OSObject
 {
-    OSDeclareAbstractStructors(IOFireWireIRM)
+	OSDeclareAbstractStructors(IOFireWireIRM)
 
 protected:
 	

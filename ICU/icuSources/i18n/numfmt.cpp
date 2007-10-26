@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2004, International Business Machines Corporation and    *
+* Copyright (C) 1997-2006, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -28,15 +28,16 @@
 
 #include "unicode/numfmt.h"
 #include "unicode/locid.h"
-#include "unicode/ures.h"
 #include "unicode/dcfmtsym.h"
 #include "unicode/decimfmt.h"
 #include "unicode/ustring.h"
 #include "unicode/ucurr.h"
 #include "unicode/curramt.h"
+#include "winnmfmt.h"
+#include "uresimp.h"
 #include "uhash.h"
 #include "cmemory.h"
-#include "iculserv.h"
+#include "servloc.h"
 #include "ucln_in.h"
 #include "cstring.h"
 #include "putilimp.h"
@@ -71,21 +72,13 @@ static const UChar gLastResortPercentPat[] = {
 static const UChar gLastResortScientificPat[] = {
     0x23, 0x45, 0x30, 0 /* "#E0" */
 };
-// *****************************************************************************
-// class NumberFormat
-// *****************************************************************************
 
-U_NAMESPACE_BEGIN
-
-UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(NumberFormat)
 // If the maximum base 10 exponent were 4, then the largest number would
 // be 99,999 which has 5 digits.
-const int32_t NumberFormat::fgMaxIntegerDigits = DBL_MAX_10_EXP + 1; // Should be ~40 ? --srl
-const int32_t NumberFormat::fgMinIntegerDigits = 127;
+static const int32_t gMaxIntegerDigits = DBL_MAX_10_EXP + 1; // Should be ~40 ? --srl
+static const int32_t gMinIntegerDigits = 127;
 
-const int32_t NumberFormat::fgNumberPatternsCount = 3;
-
-const UChar * const NumberFormat::fgLastResortNumberPatterns[] =
+static const UChar * const gLastResortNumberPatterns[] =
 {
     gLastResortDecimalPat,
     gLastResortCurrencyPat,
@@ -93,14 +86,22 @@ const UChar * const NumberFormat::fgLastResortNumberPatterns[] =
     gLastResortScientificPat
 };
 
+// *****************************************************************************
+// class NumberFormat
+// *****************************************************************************
+
+U_NAMESPACE_BEGIN
+
+UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(NumberFormat)
+
 #if !UCONFIG_NO_SERVICE
 // -------------------------------------
 // SimpleNumberFormatFactory implementation
 NumberFormatFactory::~NumberFormatFactory() {}
 SimpleNumberFormatFactory::SimpleNumberFormatFactory(const Locale& locale, UBool visible)
     : _visible(visible)
-    , _id(locale.getName())
 {
+    LocaleUtility::initNameFromLocale(locale, _id);
 }
 
 SimpleNumberFormatFactory::~SimpleNumberFormatFactory() {}
@@ -125,7 +126,7 @@ SimpleNumberFormatFactory::getSupportedIDs(int32_t &count, UErrorCode& status) c
 // default constructor
 NumberFormat::NumberFormat()
 :   fGroupingUsed(TRUE),
-    fMaxIntegerDigits(fgMaxIntegerDigits),
+    fMaxIntegerDigits(gMaxIntegerDigits),
     fMinIntegerDigits(1),
     fMaxFractionDigits(3), // invariant, >= minFractionDigits
     fMinFractionDigits(0),
@@ -555,7 +556,7 @@ protected:
 class ICUNumberFormatService : public ICULocaleService {
 public:
     ICUNumberFormatService()
-        : ICULocaleService("Number Format")
+        : ICULocaleService(UNICODE_STRING_SIMPLE("Number Format"))
     {
         UErrorCode status = U_ZERO_ERROR;
         registerFactory(new ICUNumberFormatFactory(), status);
@@ -706,7 +707,7 @@ int32_t NumberFormat::getMaximumIntegerDigits() const
 void
 NumberFormat::setMaximumIntegerDigits(int32_t newValue)
 {
-    fMaxIntegerDigits = uprv_max(0, uprv_min(newValue, fgMaxIntegerDigits));
+    fMaxIntegerDigits = uprv_max(0, uprv_min(newValue, gMaxIntegerDigits));
     if(fMinIntegerDigits > fMaxIntegerDigits)
         fMinIntegerDigits = fMaxIntegerDigits;
 }
@@ -728,7 +729,7 @@ NumberFormat::getMinimumIntegerDigits() const
 void
 NumberFormat::setMinimumIntegerDigits(int32_t newValue)
 {
-    fMinIntegerDigits = uprv_max(0, uprv_min(newValue, fgMinIntegerDigits));
+    fMinIntegerDigits = uprv_max(0, uprv_min(newValue, gMinIntegerDigits));
     if(fMinIntegerDigits > fMaxIntegerDigits)
         fMaxIntegerDigits = fMinIntegerDigits;
 }
@@ -750,7 +751,7 @@ NumberFormat::getMaximumFractionDigits() const
 void
 NumberFormat::setMaximumFractionDigits(int32_t newValue)
 {
-    fMaxFractionDigits = uprv_max(0, uprv_min(newValue, fgMaxIntegerDigits));
+    fMaxFractionDigits = uprv_max(0, uprv_min(newValue, gMaxIntegerDigits));
     if(fMaxFractionDigits < fMinFractionDigits)
         fMinFractionDigits = fMaxFractionDigits;
 }
@@ -772,7 +773,7 @@ NumberFormat::getMinimumFractionDigits() const
 void
 NumberFormat::setMinimumFractionDigits(int32_t newValue)
 {
-    fMinFractionDigits = uprv_max(0, uprv_min(newValue, fgMinIntegerDigits));
+    fMinFractionDigits = uprv_max(0, uprv_min(newValue, gMinIntegerDigits));
     if (fMaxFractionDigits < fMinFractionDigits)
         fMaxFractionDigits = fMinFractionDigits;
 }
@@ -825,6 +826,36 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
         return NULL;
     }
 
+#ifdef U_WINDOWS
+    char buffer[8];
+    int32_t count = desiredLocale.getKeywordValue("compat", buffer, sizeof(buffer), status);
+
+    // if the locale has "@compat=host", create a host-specific NumberFormat
+    if (count > 0 && uprv_strcmp(buffer, "host") == 0) {
+        Win32NumberFormat *f = NULL;
+        UBool curr = TRUE;
+
+        switch (style) {
+        case kNumberStyle:
+            curr = FALSE;
+            // fall-through
+
+        case kCurrencyStyle:
+            f = new Win32NumberFormat(desiredLocale, curr, status);
+
+            if (U_SUCCESS(status)) {
+                return f;
+            }
+
+            delete f;
+            break;
+            
+        default:
+            break;
+        }
+    }
+#endif
+
     NumberFormat* f = NULL;
     DecimalFormatSymbols* symbolsToAdopt = NULL;
     UnicodeString pattern;
@@ -838,12 +869,12 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
         symbolsToAdopt = new DecimalFormatSymbols(status);
 
         // Creates a DecimalFormat instance with the last resort number patterns.
-        pattern.setTo(TRUE, fgLastResortNumberPatterns[style], -1);
+        pattern.setTo(TRUE, gLastResortNumberPatterns[style], -1);
     }
     else {
         // If not all the styled patterns exists for the NumberFormat in this locale,
         // sets the status code to failure and returns nil.
-        if (ures_getSize(numberPatterns) < fgNumberPatternsCount) {
+        if (ures_getSize(numberPatterns) < (int32_t)(sizeof(gLastResortNumberPatterns)/sizeof(gLastResortNumberPatterns[0]))) {
             status = U_INVALID_FORMAT_ERROR;
             goto cleanup;
         }
@@ -859,37 +890,11 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
     if (U_FAILURE(status) || symbolsToAdopt == NULL) {
         goto cleanup;
     }
-
-    // Here we assume that the locale passed in is in the canonical
-    // form, e.g: pt_PT_@currency=PTE not pt_PT_PREEURO
     if(style==kCurrencyStyle){
-        char currencyCode[8]={0};
-        int32_t currencyCodeCap = sizeof(currencyCode);
-        const char* locName = desiredLocale.getName();
-        currencyCodeCap = uloc_getKeywordValue(locName, "currency", currencyCode, currencyCodeCap, &status);
-        if(U_SUCCESS(status) && currencyCodeCap > 0) {
-            /* An explicit currency was requested */
-            UErrorCode localStatus = U_ZERO_ERROR;
-            UResourceBundle *currency = ures_getByKeyWithFallback(resource, "Currencies", NULL, &localStatus);
-            currency = ures_getByKeyWithFallback(currency, currencyCode, currency, &localStatus);
-            if(U_SUCCESS(localStatus) && ures_getSize(currency)>2) {
-                currency = ures_getByIndex(currency, 2, currency, &localStatus);
-                int32_t currPatternLen = 0;
-                const UChar *currPattern = ures_getStringByIndex(currency, (int32_t)0, &currPatternLen, &localStatus);
-                UnicodeString decimalSep = ures_getStringByIndex(currency, (int32_t)1, NULL, &localStatus);
-                UnicodeString groupingSep = ures_getStringByIndex(currency, (int32_t)2, NULL, &localStatus);
-                if(U_SUCCESS(localStatus)){
-                    symbolsToAdopt->setSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol, groupingSep);
-                    symbolsToAdopt->setSymbol(DecimalFormatSymbols::kMonetarySeparatorSymbol, decimalSep);
-                    pattern.setTo(TRUE, currPattern, currPatternLen);
-                    status = localStatus;
-                }
-            }
-            ures_close(currency);
-            /* else An explicit currency was requested and is unknown or locale data is malformed. */
-            /* ucurr_* API will get the correct value later on. */
+        const UChar* currPattern = symbolsToAdopt->getCurrencyPattern();
+        if(currPattern!=NULL){
+            pattern.setTo(currPattern, u_strlen(currPattern));
         }
-        /* else no currency keyword used. */
     }
     f = new DecimalFormat(pattern, symbolsToAdopt, status);
     if (U_FAILURE(status) || f == NULL) {

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: driver.h,v 1.5.206.1 2004/03/06 10:21:45 marka Exp $ */
+/* $Id: driver.h,v 1.6 2004/03/05 04:59:00 marka Exp $ */
 
 /*
  * PASSED and FAILED mean the particular test passed or failed.

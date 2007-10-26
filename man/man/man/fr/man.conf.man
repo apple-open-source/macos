@@ -1,20 +1,20 @@
 .\" @(#)man.conf
-.\" Traduction franÁaise RenÈ Cougnenc - Mai 1995
+.\" Traduction fran√ßaise Ren√© Cougnenc - Mai 1995
 .\"
-.TH MAN.CONF 5 "30 Mars 1994" "Manuel Linux" "Commandes utilisateur" 
+.TH MAN.CONF 5 "19 septembre 2005" "Manuel Linux" "Commandes utilisateur"
 .SH NOM
 man.conf \- fichier de configuration de la commande man
 .SH DESCRIPTION
 .LP
 Ce fichier est lu par
 .BR man (1)
-et  contient: (a)  des informations  sur la  maniËre de  construire le
-chemin  de recherche  des pages  de  manuel, (b)  les chemins  d'accËs
-complets de divers programmes de  formatage tels nroff, eqn, tbl, etc.
-utilisÈs par man,  et (c) une liste des dÈcompacteurs  ‡ employer pour
-traiter  les  pages prÈformatÈes  selon  l'extension  de leur  nom  de
-fichier. Il est possible de spÈcifier un autre fichier que celui-ci en
-prÈcisant:
+et contient\ : (a) des informations sur la mani√®re de construire le
+chemin de recherche des pages de manuel, (b) les chemins d'acc√®s
+complets de divers programmes de formatage tels nroff, eqn, tbl, etc.
+utilis√©s par man, et (c) une liste des d√©compacteurs √† employer pour
+traiter les pages pr√©format√©es selon l'extension de leur nom de
+fichier. Il est possible de sp√©cifier un autre fichier que celui-ci en
+pr√©cisant\ :
 .LP
 .RS
 man -C man.conf_personnel ...
@@ -22,7 +22,7 @@ man -C man.conf_personnel ...
 .LP
 Les noms de commandes peuvent comporter des options.
 Les options utiles pour nroff se trouvent dans grotty(1).
-Par exemple, au lieu de la ligne par dÈfaut:
+Par exemple, au lieu de la ligne par d√©faut\ :
 .LP
 .RS
 .nf
@@ -30,7 +30,7 @@ NROFF /usr/bin/groff -mandoc -Tlatin1
 .fi
 .RE
 .LP
-vous pouvez mettre:
+vous pouvez mettre\ :
 .LP
 .RS
 .nf
@@ -38,13 +38,40 @@ NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
 .fi
 .RE
 .LP
-afin de supprimer le soulignement et les caractËres gras.
+afin de supprimer le soulignement et les caract√®res gras.
 
-Notez que l'option -Tlatin1 passÈe  ‡ la commande groff est importante
-pour  nous  autres, francophones;  associÈe  ‡  un visualiseur  et  un
-terminal supportant ce  jeu de caractËres (comme less  et xterm), elle
-permet de conserver nos prÈcieux accents dans les pages de manuel.
+Notez que l'option -Tlatin1 pass√©e √† la commande groff est importante
+pour nous autres, francophones\ ; associ√©e √† un visualiseur et un
+terminal supportant ce jeu de caract√®res (comme less et xterm), elle
+permet de conserver nos pr√©cieux accents dans les pages de manuel.
+.SH FICHIERS
+.I "@man_config_file@"
+.SH AUTEUR
+John W. Eaton est l'auteur historique de
+.BR man .
+Federico Lucifredi <flucifredi@acm.org> en assure aujourd'hui la maintenance.
 .SH "VOIR AUSSI"
-col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
-less(1), man (1) et compress(1), gzip(1).
+.BR col (1),
+.BR (g)eqn (1),
+.BR (g)pic (1),
+.BR groff (1),
+.BR grotty (1),
+.BR (g)refer (1),
+.BR (g)tbl (1),
+.BR less (1),
+.BR man (1)
+et
+.BR compress (1),
+.BR gzip (1).
+
+.SH TRADUCTION
+.PP
+Ce document est une traduction r√©alis√©e par Ren√© Cougnenc en mai 1995 et mise
+√† jour par Alain Portal <aportal AT univ-montp2 DOT fr> le 7 novembre 2005.
+.PP
+L'√©quipe de traduction a fait le maximum pour r√©aliser une adaptation
+fran√ßaise de qualit√©. La version anglaise la plus √† jour de ce document est
+toujours consultable via la commande\ : ¬´\ \fBLANG=en\ man\ 5\ man.conf\fR\ ¬ª.
+N'h√©sitez pas √† signaler √† l'auteur ou au traducteur, selon le cas, toute
+erreur dans cette page de manuel.
 

@@ -15,7 +15,7 @@
 # NOTE: You can find Japanese version of this document in
 # the doc/net directory of the standard ruby interpreter package.
 # 
-# $Id: smtp.rb,v 1.69.2.2 2004/05/09 13:42:04 gsinclair Exp $
+# $Id: smtp.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 # See Net::SMTP for documentation. 
 # 
@@ -163,7 +163,7 @@ module Net
   #
   class SMTP
 
-    Revision = %q$Revision: 1.69.2.2 $.split[1]
+    Revision = %q$Revision: 11708 $.split[1]
 
     # The default SMTP port, port 25.
     def SMTP.default_port
@@ -390,7 +390,7 @@ module Net
       raise IOError, 'SMTP session already started' if @started
       check_auth_args user, secret, authtype if user or secret
 
-      @socket = InternetMessageIO.open(@address, @port,
+      @socket = InternetMessageIO.old_open(@address, @port,
                                        @open_timeout, @read_timeout,
                                        @debug_output)
       check_response(critical { recv_response() })

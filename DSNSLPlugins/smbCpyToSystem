@@ -1,3 +1,0 @@
-sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/SMB.dsplug
-sudo cp -r ./build/SMB.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
-

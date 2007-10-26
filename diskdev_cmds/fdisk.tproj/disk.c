@@ -84,7 +84,8 @@ DISK_open(disk, mode)
 		err(1, "%s", disk);
 	if (fstat(fd, &st) == -1)
 		err(1, "%s", disk);
-	if (!S_ISCHR(st.st_mode) && !S_ISREG(st.st_mode))
+	/* Don't be so picky about needing a character device */
+	if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode) && !S_ISREG(st.st_mode))
 		errx(1, "%s is not a character device or a regular file", disk);
 	return (fd);
 }
@@ -112,7 +113,8 @@ DISK_openshared(disk, mode, shared)
 
 	if (fstat(fd, &st) == -1)
 		err(1, "%s", disk);
-	if (!S_ISCHR(st.st_mode) && !S_ISREG(st.st_mode))
+	/* Don't be so picky about needing a character device */
+	if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode) && !S_ISREG(st.st_mode))
 		errx(1, "%s is not a character device or a regular file", disk);
 	return (fd);
 }
@@ -159,6 +161,7 @@ DISK_getlabelmetrics(name)
 {
 	DISK_metrics *lm = NULL;
 	long long size;
+	uint32_t sector_size;
 	int fd;
 	struct stat st;
 
@@ -168,16 +171,23 @@ DISK_getlabelmetrics(name)
 
 		if (fstat(fd, &st) == -1)
 		  err(1, "%s", name);
-		if (S_ISCHR(st.st_mode)) {
+		if (!S_ISREG(st.st_mode) || S_ISBLK(st.st_mode)) {
 		  if (ioctl(fd, DKIOCGETBLOCKCOUNT, &size) == -1) {
-		    err(1, "Could not get disk metrics");
+		    err(1, "Could not get disk block count");
+		    free(lm);
+		    return NULL;
+		  }
+		  if (ioctl(fd, DKIOCGETBLOCKSIZE, &sector_size) == -1) {
+		    err(1, "Could not get disk block size");
 		    free(lm);
 		    return NULL;
 		  }
 		} else {
-		  size = st.st_size;
+		  sector_size = 512;
+		  size = st.st_size / sector_size;
 		}
 
+		lm->sector_size = sector_size;
 		lm->size = size;
 		DISK_fake_CHS(lm);
 		DISK_close(fd);
@@ -249,17 +259,50 @@ DISK_getmetrics(disk, user)
 	return (1);
 }
 
+/* Get the disk's native sector size, updating the metrics' sector_size field.
+ */
+ int
+DISK_get_sector_size(disk, user)
+       disk_t *disk;
+       DISK_metrics *user;
+{
+    int ret;
+    int fd;
+    uint32_t sector_size;
+    
+    /* Default to 512 bytes per sector, in case of failure. */
+    user->sector_size = 512;
+    ret = 1;
+    
+    fd = DISK_open(disk->name, O_RDONLY);
+    if (fd == -1) {
+	err(1, "Could not open %s", disk->name);
+    } else {
+       if (ioctl(fd, DKIOCGETBLOCKSIZE, &sector_size) == -1) {
+           err(1, "Could not get disk block size");
+       } else {
+           user->sector_size = sector_size;
+           ret = 0;
+       }
+    }
+    
+    return ret;
+}
+
 int
 DISK_printmetrics(disk)
 	disk_t *disk;
 {
 
 	printf("Disk: %s\t", disk->name);
-	if (disk->real)
+	if (disk->real) {
 		printf("geometry: %d/%d/%d [%d sectors]\n", disk->real->cylinders,
 		    disk->real->heads, disk->real->sectors, disk->real->size);
-	else
+		if (disk->real->sector_size != 512)
+			printf("Sector size: %d bytes\n", disk->real->sector_size);
+	} else {
 		printf("geometry: <none>\n");
+	}
 
 	return (0);
 }

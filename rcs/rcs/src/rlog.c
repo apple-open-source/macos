@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rlog.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:39  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:39  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:34  wsanchez
  * Import of RCS 5.7
@@ -225,7 +225,7 @@ static struct rcslockers *lockerlist;
 static struct stateattri *statelist;
 
 
-mainProg(rlogId, "rlog", "$Id: rlog.c,v 1.1.1.1 1999/04/23 01:43:39 wsanchez Exp $")
+mainProg(rlogId, "rlog", "$Id: rlog.c,v 1.1 1999/04/23 01:43:39 wsanchez Exp $")
 {
 	static char const cmdusage[] =
 		"\nrlog usage: rlog -{bhLNRt} -ddates -l[lockers] -r[revs] -sstates -Vn -w[logins] -xsuff -zzone file ...";

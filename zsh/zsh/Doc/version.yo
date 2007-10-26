@@ -1,4 +1,4 @@
-STARTDEF()
-def(version)(0)(4.2.3)
-def(date)(0)(January 13, 2005)
-ENDDEF()\
+IFDEF(INCWSLEVEL)(INCWSLEVEL())(STARTDEF())
+def(version)(0)(4.3.4)
+def(date)(0)(April 19, 2006)
+IFDEF(DECWSLEVEL)(DECWSLEVEL())(ENDDEF())\

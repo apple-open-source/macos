@@ -738,10 +738,10 @@ OSDictionary * IOHIDElementPrivate::createProperties() const
 		entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
 		entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
 		entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
-		entry->setProperty( kIOHIDElementValueLocationKey, (UInt32) _elementValueLocation, 32 );
                             
         if ( _isInterruptReportHandler ) break;
 
+        entry->setProperty( kIOHIDElementFlagsKey, _flags, 32 );
         entry->setProperty( kIOHIDElementHasNullStateKey, _flags & kHIDDataNullState );
         entry->setProperty( kIOHIDElementHasPreferredStateKey, !(_flags & kHIDDataNoPreferred) );
         entry->setProperty( kIOHIDElementIsNonLinearKey, _flags & kHIDDataNonlinear );
@@ -754,18 +754,8 @@ OSDictionary * IOHIDElementPrivate::createProperties() const
         entry->setProperty( kIOHIDElementScaledMinKey, _physicalMin, 32 );
         entry->setProperty( kIOHIDElementUnitKey, _units, 32 );
         entry->setProperty( kIOHIDElementUnitExponentKey, _unitExponent, 32 );
-                
-        if ( !IsDuplicateElement(this) ) break;
 
-        if (IsDuplicateReportHandler(this))
-        {
-            IOHIDElementPrivate * dupElement;
-            if (_duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
-            {
-                entry->setProperty( kIOHIDElementDuplicateValueSizeKey, dupElement->getElementValueSize(), 32);
-            }
-        }
-        else
+        if ( IsDuplicateElement(this) && !IsDuplicateReportHandler(this))
         {
             entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
         }
@@ -800,6 +790,56 @@ bool IOHIDElementPrivate::serialize( OSSerialize * s ) const
 	}
 	
     return ret;
+}
+
+//---------------------------------------------------------------------------
+// 
+
+bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
+{	 
+    if ( (_usageMin != _usageMax) && (_rangeIndex >= 1) )
+        return false;
+        
+    if ( IsDuplicateElement(this) )
+    {
+        if ( !IsDuplicateReportHandler(this) )
+            return false;
+        
+        IOHIDElementPrivate * dupElement;
+        if (element && _duplicateElements && ( dupElement = (IOHIDElementPrivate *)_duplicateElements->getObject(0)))
+        {
+            element->duplicateValueSize = dupElement->getElementValueSize();
+            element->duplicateIndex = 0xffffffff;
+        }
+    }
+    
+    if ( !element )
+        return true;
+
+    element->cookieMin      = (UInt32)_cookie;
+    element->cookieMax      = element->cookieMin + getRangeCount() - getStartingRangeIndex();
+    element->parentCookie   = _parent ? (UInt32)_parent->_cookie : 0;
+    element->type           = _type;
+    element->collectionType = _collectionType;
+    element->flags          = _flags;
+    element->usagePage      = _usagePage;
+    element->usageMin       = _usageMin;
+    element->usageMax       = _usageMax;
+    element->min            = _logicalMin;
+    element->max            = _logicalMax;
+    element->scaledMin      = _physicalMin;
+    element->scaledMax      = _physicalMax;
+    element->size           = _reportBits * _reportCount;
+    element->reportSize     = _reportBits;
+    element->reportCount    = _reportCount;
+    element->reportID       = _reportID;
+    element->unit           = _units;
+    element->unitExponent   = _unitExponent;
+    element->bytes          = getByteSize();
+    element->valueLocation  = (UInt32)_elementValueLocation;
+    element->valueSize      = getElementValueSize();
+    
+    return true;
 }
 
 //---------------------------------------------------------------------------
@@ -1021,9 +1061,16 @@ bool IOHIDElementPrivate::processReport(
     if (next)
     {
         *next = _nextReportHandler;
-        
+
         if ( _reportID != reportID )
         {
+            return false;
+        }
+
+        // Verify incoming report size.
+        if ( _reportSize && ( reportBits < _reportSize ) )
+        {
+            *next = 0;
             return false;
         }
         
@@ -1038,14 +1085,6 @@ bool IOHIDElementPrivate::processReport(
             return false;
         }
         
-        // Verify incoming report size.
-
-        if ( _reportSize && ( reportBits < _reportSize ) )
-        {
-            *next = 0;
-            return false;
-        }
-
     }
 
     do {
@@ -1053,6 +1092,18 @@ bool IOHIDElementPrivate::processReport(
 
         if ( _reportID != reportID )
             break;
+            
+        if ( ( _usagePage == kHIDPage_KeyboardOrKeypad )
+             && ( getUsage() >= kHIDUsage_KeyboardLeftControl )
+             && ( getUsage() <= kHIDUsage_KeyboardRightGUI )
+             && _rollOverElementPtr
+             && *_rollOverElementPtr
+             && (*_rollOverElementPtr)->getValue())
+        {
+            AbsoluteTime rollOverTS = (*_rollOverElementPtr)->getTimeStamp();
+            if ( CMP_ABSOLUTETIME(&rollOverTS, timestamp) == 0 )
+                break;
+        }
         
         // The generation is incremented before and after
         // processing the report.  An odd value tells us
@@ -1077,33 +1128,24 @@ bool IOHIDElementPrivate::processReport(
         // changed.  This will insure that an initial value of 0 will have the correct
         // timestamp
         do {
-            if (!changed && ((_flags & kHIDDataRelativeBit) == 0) && !_isInterruptReportHandler) break;
-
-            if (!((_flags & kHIDDataRelativeBit) 
-                && (_reportBits <= 32) 
-                && (previousValue == 0)
-                && (_elementValue->value[0] == 0)))
-            {
-                _elementValue->timestamp = *timestamp;
-            }
-                
-            if (IsArrayElement(this))
-            {
-                if (IsArrayReportHandler(this))
-                {
+            bool shouldProcess = (changed || _isInterruptReportHandler || (_flags & kHIDDataRelativeBit));
+            
+            if ( shouldProcess ) {
+                // Let's not update the timestamp in the case where the element is relative, the value is 0, and there is no change
+                if (((_flags & kHIDDataRelativeBit) == 0) || (_reportBits > 32) || changed || previousValue)
+                    _elementValue->timestamp = *timestamp;
+                    
+                if (IsArrayElement(this) && IsArrayReportHandler(this))
                     processArrayReport(reportID, reportData, reportBits, &(_elementValue->timestamp));
-                }
             }
     
             if ( !_queueArray )
                 break;
                 
-            for ( UInt32 i = 0;
-                  (queue = (IOHIDEventQueue *) _queueArray->getObject(i));
-                  i++ )
+            for ( UInt32 i = 0; (queue = (IOHIDEventQueue *) _queueArray->getObject(i)); i++ )
             {
-                queue->enqueue( (void *) _elementValue,
-                                _elementValue->totalSize );
+                if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll))
+                    queue->enqueue( (void *) _elementValue, _elementValue->totalSize );
             }
         } while ( 0 );
 
@@ -1272,6 +1314,16 @@ IOHIDElementPrivate::setNextReportHandler( IOHIDElementPrivate * element )
     _nextReportHandler  = element;
     return prev;
 }
+
+
+//---------------------------------------------------------------------------
+// 
+
+void IOHIDElementPrivate::setRollOverElementPtr( IOHIDElementPrivate ** elementPtr )
+{
+    _rollOverElementPtr = elementPtr;
+}
+
 
 //---------------------------------------------------------------------------
 // 

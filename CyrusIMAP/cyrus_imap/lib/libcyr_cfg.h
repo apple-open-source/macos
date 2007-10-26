@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: libcyr_cfg.h,v 1.4 2005/03/05 00:37:16 dasenbro Exp $
+ * $Id: libcyr_cfg.h,v 1.10 2006/11/30 17:11:22 murch Exp $
  */
 
 #ifndef INCLUDED_LIBCYR_CFG_H
@@ -93,10 +93,14 @@ enum cyrus_opt {
     CYRUSOPT_VIRTDOMAINS,
     /* BDB cache size (512KB) */
     CYRUSOPT_BERKELEY_CACHESIZE,
+    /* authorization mechanism (unix) */
+    CYRUSOPT_AUTH_MECH,
     /* BDB max locks (50000) */
     CYRUSOPT_BERKELEY_LOCKS_MAX,
     /* BDB max txns (100) */
     CYRUSOPT_BERKELEY_TXNS_MAX,
+    /* RFC 2086 right which allows DELETE ("c") */
+    CYRUSOPT_DELETERIGHT,
 
     CYRUSOPT_LAST
     
@@ -104,8 +108,8 @@ enum cyrus_opt {
 
 union cyrus_config_value {
     const char *s; /* string */
-    int i; /* int */
-    int b; /* switch */
+    long i; /* int */
+    long b; /* switch */
 };
 
 struct cyrusopt_s {

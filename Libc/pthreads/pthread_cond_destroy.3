@@ -45,20 +45,21 @@ function frees the resources allocated by the condition variable
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_destroy
-function will return zero, otherwise an error number will be returned
+function will return zero.
+Otherwise, an error number will be returned
 to indicate the error.
 .Sh ERRORS
 .Fn pthread_cond_destroy
 will fail if:
 .Bl -tag -width Er
-.It Bq Er EINVAL
-The value specified by
-.Fa cond
-is invalid.
 .It Bq Er EBUSY
 The variable
 .Fa cond
 is locked by another thread.
+.It Bq Er EINVAL
+The value specified by
+.Fa cond
+is invalid.
 .El
 .Sh SEE ALSO
 .Xr pthread_cond_broadcast 3 ,

@@ -31,9 +31,9 @@
 
 #include <mach/message.h>
 
-#include "PrivateTypes.h"
-#include "SharedConsts.h"
-#include "DirServicesTypesPriv.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/SharedConsts.h>
+#include <DirectoryService/DirServicesTypesPriv.h>
 
 
 //------------------------------------------------------------------------------
@@ -46,13 +46,12 @@ public:
 					CClientEndPoint			( const char *inSrvrName );
 	virtual		   ~CClientEndPoint			( void );
 
-	static	uInt32	fMessageID;
-	static	uInt32	GetMessageID		( void );
+	static	UInt32	fMessageID;
+	static	UInt32	GetMessageID		( void );
 
-	sInt32			Initialize			( void );
-	sInt32			CheckForServer		( void );
-	sInt32			SendServerMessage	( sComData *inMsg );
-	sInt32			GetServerReply		( sComData **outMsg );
+	SInt32			Initialize			( void );
+	SInt32			SendServerMessage	( sComData *inMsg );
+	SInt32			GetServerReply		( sComData **outMsg );
 
 private:
 	char		   *fSrvrName;

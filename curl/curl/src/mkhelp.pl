@@ -129,14 +129,14 @@ static const unsigned char hugehelpgz[] = {
 HEAD
 ;
     my $c=0;
-    print "  ";
+    print " ";
     for(@gzip) {
         my @all=split(//, $_);
         for(@all) {
             my $num=ord($_);
-            printf("0x%02x, ", 0+$num);
+            printf(" 0x%02x,", 0+$num);
             if(++$c>11) {
-                print "\n  ";
+                print "\n ";
                 $c=0;
             }
         }
@@ -156,7 +156,7 @@ void hugehelp(void)
     return;
 
   headerlen = 10;
-  z.avail_in = sizeof(hugehelpgz) - headerlen;
+  z.avail_in = (unsigned int)(sizeof(hugehelpgz) - headerlen);
   z.next_in = (unsigned char *)hugehelpgz + headerlen;
   z.zalloc = (alloc_func)Z_NULL;
   z.zfree = (free_func)Z_NULL;

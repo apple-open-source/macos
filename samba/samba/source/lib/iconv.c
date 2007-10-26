@@ -51,6 +51,8 @@
  * @sa Samba Developers Guide
  **/
 
+static_decl_charset;
+
 static size_t ascii_pull(void *,const char **, size_t *, char **, size_t *);
 static size_t ascii_push(void *,const char **, size_t *, char **, size_t *);
 static size_t latin1_push(void *,const char **, size_t *, char **, size_t *);
@@ -126,6 +128,7 @@ static void lazy_initialize_iconv(void)
 	}
 }
 
+#ifdef HAVE_NATIVE_ICONV
 /* if there was an error then reset the internal state,
    this ensures that we don't have a shift state remaining for
    character sets like SJIS */
@@ -133,7 +136,6 @@ static size_t sys_iconv(void *cd,
 			const char **inbuf, size_t *inbytesleft,
 			char **outbuf, size_t *outbytesleft)
 {
-#ifdef HAVE_NATIVE_ICONV
 	size_t ret = iconv((iconv_t)cd, 
 			   (char **)inbuf, inbytesleft, 
 			   outbuf, outbytesleft);
@@ -143,11 +145,8 @@ static size_t sys_iconv(void *cd,
 		errno = saved_errno;
 	}
 	return ret;
-#else
-	errno = EINVAL;
-	return -1;
-#endif
 }
+#endif
 
 /**
  * This is a simple portable iconv() implementaion.
@@ -642,15 +641,15 @@ static size_t utf8_pull(void *cd, const char **inbuf, size_t *inbytesleft,
 
 	*inbytesleft = in_left;
 	*outbytesleft = out_left;
-	*inbuf = c;
-	*outbuf = uc;	
+	*inbuf = (char *)c;
+	*outbuf = (char *)uc;	
 	return 0;
 
 error:
 	*inbytesleft = in_left;
 	*outbytesleft = out_left;
-	*inbuf = c;
-	*outbuf = uc;
+	*inbuf = (char *)c;
+	*outbuf = (char *)uc;
 	return -1;
 }
 
@@ -755,16 +754,16 @@ static size_t utf8_push(void *cd, const char **inbuf, size_t *inbytesleft,
 
 	*inbytesleft = in_left;
 	*outbytesleft = out_left;
-	*inbuf  = uc;
-	*outbuf = c;
+	*inbuf  = (char *)uc;
+	*outbuf = (char *)c;
 	
 	return 0;
 
 error:
 	*inbytesleft = in_left;
 	*outbytesleft = out_left;
-	*inbuf  = uc;
-	*outbuf = c;
+	*inbuf  = (char *)uc;
+	*outbuf = (char *)c;
 	return -1;
 }
 

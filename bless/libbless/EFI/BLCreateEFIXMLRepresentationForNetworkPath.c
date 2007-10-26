@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless
  *
  *  Created by Shantonu Sen on 11/15/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
  */
 
@@ -46,6 +46,7 @@
 #include "bless_private.h"
 
 int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
+                                               BLNetBootProtocolType protocol,
                                                const char *interface,
                                                const char *host,
                                                const char *path,
@@ -98,7 +99,8 @@ int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
                                                  kCFAllocatorDefault,
                                                  kIORegistryIterateRecursively|kIORegistryIterateParents);
     if(macAddress) {
-        contextprintf(context, kBLLogLevelVerbose, "MAC address found for %s\n", interface);
+        contextprintf(context, kBLLogLevelVerbose, "MAC address %s found for %s\n",
+					  BLGetCStringDescription(macAddress), interface);
         
         CFDictionaryAddValue(dict, CFSTR("BLMACAddress"), macAddress);
         CFRelease(macAddress);
@@ -143,8 +145,18 @@ int BLCreateEFIXMLRepresentationForNetworkPath(BLContextPtr context,
         }
         
     }
-    
-    
+
+    contextprintf(context, kBLLogLevelVerbose, "Netboot protocol %d\n", protocol);        
+    if (protocol == kBLNetBootProtocol_PXE) {
+        dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
+                                         &kCFTypeDictionaryValueCallBacks);
+        CFDictionaryAddValue(dict, CFSTR("IOEFIDevicePathType"),
+                             CFSTR("MessagingNetbootProtocol"));
+        CFDictionaryAddValue(dict, CFSTR("Protocol"),
+                             CFSTR("FE3913DB-9AEE-4E40-A294-ABBE93A1A4B7"));
+        CFArrayAppendValue(array, dict);
+        CFRelease(dict);
+    }
     
     if(optionalData) {
         CFStringRef optString = CFStringCreateWithCString(kCFAllocatorDefault, optionalData, kCFStringEncodingUTF8);

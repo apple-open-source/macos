@@ -34,8 +34,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)finger.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/finger/finger.h,v 1.4 1999/08/28 01:01:14 peter Exp $
+ * $FreeBSD: src/usr.bin/finger/finger.h,v 1.5 2004/03/14 06:43:34 jmallett Exp $
  */
+
+#ifndef	_FINGER_H_
+#define	_FINGER_H_
 
 typedef struct person {
 	uid_t uid;			/* user id */
@@ -59,8 +62,8 @@ typedef struct where {
 	short writable;			/* tty is writable */
 	time_t loginat;			/* time of (last) login */
 	time_t idletime;		/* how long idle (if logged in) */
-	char tty[UT_LINESIZE+1];	/* null terminated tty line */
-	char host[UT_HOSTSIZE+1];	/* null terminated remote host name */
+	char tty[_UTX_LINESIZE+1];	/* null terminated tty line */
+	char host[_UTX_HOSTSIZE+1];	/* null terminated remote host name */
 } WHERE;
 
 #define UNPRIV_NAME	"nobody"	/* Preferred privilege level */
@@ -68,4 +71,8 @@ typedef struct where {
 #define OUTPUT_MAX	100000		/* Do not keep listinging forever */
 #define TIME_LIMIT	360		/* Do not keep listinging forever */
 
+#define UT_NAMESIZE	8		/* old utmp.h value */
+
 #include "extern.h"
+
+#endif /* !_FINGER_H_ */

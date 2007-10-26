@@ -23,7 +23,8 @@
 
 #include <Security/SecTrustedApplicationPriv.h>
 #include <security_keychain/TrustedApplication.h>
-#include <securityd_client/ssclient.h>
+#include <security_keychain/Certificate.h>
+#include <securityd_client/ssclient.h>		// for code equivalence SPIs
 
 #include "SecBridge.h"
 
@@ -54,26 +55,25 @@ SecTrustedApplicationCreateFromPath(const char *path, SecTrustedApplicationRef *
 	SecPointer<TrustedApplication> app =
 		path ? new TrustedApplication(path) : new TrustedApplication;
 	Required(appRef) = app->handle();
-	END_SECAPI
+	END_SECAPI2("SecTrustedApplicationCreateFromPath")
 }
 
-/*!
- */
 OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef,
 	CFDataRef *dataRef)
 {
 	BEGIN_SECAPI
-	const CssmData &data = TrustedApplication::required(appRef)->data();
-	Required(dataRef) = CFDataCreate(NULL, (const UInt8 *)data.data(), data.length());
-	END_SECAPI
+	const char *path = TrustedApplication::required(appRef)->path();
+	Required(dataRef) = CFDataCreate(NULL, (const UInt8 *)path, strlen(path) + 1);
+	END_SECAPI2("SecTrustedApplicationCopyData")
 }
 
 OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef,
 	CFDataRef dataRef)
 {
 	BEGIN_SECAPI
-	TrustedApplication::required(appRef)->data(cfData(dataRef));
-	END_SECAPI
+	secdebug("UNIMP", "legacy SecTrustedApplicationSetData not re-implemented");
+//	TrustedApplication::required(appRef)->data(cfData(dataRef));
+	END_SECAPI2("SecTrustedApplicationSetData")
 }
 
 
@@ -82,9 +82,32 @@ SecTrustedApplicationValidateWithPath(SecTrustedApplicationRef appRef, const cha
 {
 	BEGIN_SECAPI
 	TrustedApplication &app = *TrustedApplication::required(appRef);
-	if (!app.sameSignature(path ? path : app.path()))
+	if (!app.verifyToDisk(path))
 		return CSSMERR_CSP_VERIFY_FAILED;
-	END_SECAPI
+	END_SECAPI2("SecTrustedApplicationValidateWithPath")
+}
+
+
+//
+// Convert from/to external data representation
+//
+OSStatus SecTrustedApplicationCopyExternalRepresentation(
+	SecTrustedApplicationRef appRef, 
+	CFDataRef *externalRef)
+{
+	BEGIN_SECAPI
+	TrustedApplication &app = *TrustedApplication::required(appRef);
+	Required(externalRef) = app.externalForm();
+	END_SECAPI2("SecTrustedApplicationCopyExternalRepresentation")
+}
+
+OSStatus SecTrustedApplicationCreateWithExternalRepresentation(
+	CFDataRef externalRef,
+	SecTrustedApplicationRef *appRef)
+{
+	BEGIN_SECAPI
+	Required(appRef) = (new TrustedApplication(externalRef))->handle();
+	END_SECAPI2("SecTrustedApplicationCreateWithExternalRepresentation")
 }
 
 
@@ -98,9 +121,9 @@ SecTrustedApplicationMakeEquivalent(SecTrustedApplicationRef oldRef,
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	TrustedApplication *oldApp = TrustedApplication::required(oldRef);
 	TrustedApplication *newApp = TrustedApplication::required(newRef);
-	ss.addCodeEquivalence(oldApp->signature(), newApp->signature(), oldApp->path(),
+	ss.addCodeEquivalence(oldApp->legacyHash(), newApp->legacyHash(), oldApp->path(),
 		flags & kSecApplicationFlagSystemwide);
-	END_SECAPI
+	END_SECAPI2("SecTrustedApplicationMakeEquivalent")
 }
 
 OSStatus
@@ -111,9 +134,9 @@ SecTrustedApplicationRemoveEquivalence(SecTrustedApplicationRef appRef, UInt32 f
 		return paramErr;
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	TrustedApplication *app = TrustedApplication::required(appRef);
-	ss.removeCodeEquivalence(app->signature(), app->path(),
+	ss.removeCodeEquivalence(app->legacyHash(), app->path(),
 		flags & kSecApplicationFlagSystemwide);
-	END_SECAPI
+	END_SECAPI2("SecTrustedApplicationRemoveEquivalence")
 }
 
 
@@ -137,7 +160,7 @@ SecTrustedApplicationIsUpdateCandidate(const char *installroot, const char *path
 	static ModuleNexus<PathDatabase> paths;
 	if (!paths()[path])
 		return CSSMERR_DL_RECORD_NOT_FOUND;	// whatever
-    END_SECAPI
+    END_SECAPI2("SecTrustedApplicationIsUpdateCandidate")
 }
 
 
@@ -152,5 +175,59 @@ SecTrustedApplicationUseAlternateSystem(const char *systemRoot)
 	Required(systemRoot);
 	SecurityServer::ClientSession ss(Allocator::standard(), Allocator::standard());
 	ss.setAlternateSystemRoot(systemRoot);
-	END_SECAPI
+	END_SECAPI2("SecTrustedApplicationUseAlternateSystem")
+}
+
+
+/*
+ * Gateway between traditional SecTrustedApplicationRefs and the Code Signing
+ * subsystem. Invisible to the naked eye, as of 10.5 (Leopard), these reference
+ * may contain Cod e Signing Requirement objects (SecRequirementRefs). For backward
+ * compatibility, these are handled implicitly at the SecAccess/SecACL layer.
+ * However, Those Who Know can bridge the gap for additional functionality.
+ */
+OSStatus SecTrustedApplicationCreateFromRequirement(const char *description,
+	SecRequirementRef requirement, SecTrustedApplicationRef *appRef)
+{
+	BEGIN_SECAPI
+	if (description == NULL)
+		description = "csreq://";	// default to "generic requirement"
+	SecPointer<TrustedApplication> app = new TrustedApplication(description, requirement);
+	Required(appRef) = app->handle();	
+	END_SECAPI2("SecTrustedApplicationCreateFromRequirement")
+}
+
+OSStatus SecTrustedApplicationCopyRequirement(SecTrustedApplicationRef appRef,
+	SecRequirementRef *requirement)
+{
+	BEGIN_SECAPI
+	Required(requirement) = TrustedApplication::required(appRef)->requirement();
+	if (*requirement)
+		CFRetain(*requirement);
+	END_SECAPI2("SecTrustedApplicationCopyRequirement")
+}
+
+
+/*
+ * Create an application group reference.
+ */
+OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
+	SecCertificateRef anchor, SecTrustedApplicationRef *appRef)
+{
+	BEGIN_SECAPI
+
+	CFRef<SecRequirementRef> req;
+	MacOSError::check(SecRequirementCreateGroup(CFTempString(groupName), anchor,
+		kSecCSDefaultFlags, &req.aref()));
+	string description = string("group://") + groupName;
+	if (anchor) {
+		Certificate *cert = Certificate::required(anchor);
+		const CssmData &hash = cert->publicKeyHash();
+		description = description + "?cert=" + cfString(cert->commonName())
+			+ "&hash=" + hash.toHex();
+	}
+	SecPointer<TrustedApplication> app = new TrustedApplication(description, req);
+	Required(appRef) = app->handle();
+
+	END_SECAPI2("SecTrustedApplicationCreateApplicationGroup")
 }

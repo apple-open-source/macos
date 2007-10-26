@@ -44,10 +44,14 @@ const struct gcc_debug_hooks do_nothing_debug_hooks =
   debug_nothing_tree_int,		 /* type_decl */
   debug_nothing_tree_tree,               /* imported_module_or_decl */
   debug_nothing_tree,		         /* deferred_inline_function */
-  debug_nothing_tree,		         /* outlining_inline_function */
+  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+  debug_nothing_tree_loc,	         /* outlining_inline_function */
+  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
   debug_nothing_rtx,		         /* label */
   debug_nothing_int,		         /* handle_pch */
   debug_nothing_rtx,		         /* var_location */
+  /* APPLE LOCAL opt diary */
+  debug_nothing_od_msg_loc,		 /* od message */
   0                                      /* start_end_main_source_file */
 };
 
@@ -63,6 +67,14 @@ void
 debug_nothing_tree (tree decl ATTRIBUTE_UNUSED)
 {
 }
+
+/* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+void
+debug_nothing_tree_loc (tree decl ATTRIBUTE_UNUSED,
+			source_locus loc ATTRIBUTE_UNUSED)
+{
+}
+/* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 
 void
 debug_nothing_tree_tree (tree t1 ATTRIBUTE_UNUSED,
@@ -108,3 +120,10 @@ debug_nothing_tree_int (tree decl ATTRIBUTE_UNUSED,
 			int local ATTRIBUTE_UNUSED)
 {
 }
+ /* APPLE LOCAL begin opt diary */
+void
+debug_nothing_od_msg_loc (enum debug_od_msg m ATTRIBUTE_UNUSED,
+			  expanded_location l ATTRIBUTE_UNUSED)
+{
+}
+/* APPLE LOCAL end opt diary */

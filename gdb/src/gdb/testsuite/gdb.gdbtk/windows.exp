@@ -1,4 +1,4 @@
-# Copyright 2001 Red Hat, Inc.
+# Copyright 2001, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -10,7 +10,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-load_lib insight-support.exp
+load_lib ../gdb.gdbtk/insight-support.exp
 
 if {[gdbtk_initialize_display]} {
   if {$tracelevel} {

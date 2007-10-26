@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,478 +33,508 @@
 
 #include "RTL8139.h"
 
-//---------------------------------------------------------------------------
-// Check the transmit status register. Inform the NIC to resend the aborted
-// packet. And change the status of device->send_table, device->ack_index,
-// device->send_count.
+	//---------------------------------------------------------------------------
+	// Check the transmit status register. Inform the NIC to resend the aborted
+	// packet. And change the status of device->send_table, device->ack_index,
+	// device->send_count.
 
-void RTL8139::transmitterInterrupt( bool * reclaimed )
+void RTL8139::transmitterInterrupt( bool *reclaimed )
 {
-    UInt32  tx_status;
-    UInt8   collisions;
-    UInt32  tcr;
+	UInt32	txStatus;
+	UInt8	collisions;
+	UInt32	tcr;			// Transmit Control Register 0x40
 
-    while ( tx_send_count )
+    while ( fTxSendCount )
     {
-        tx_status = csrRead32( RTL_TSD0 + tx_ack_index * 4 );
+        txStatus = csrRead32( RTL_TSD0 + fTxAckIndex * sizeof( UInt32 ) );
 
-        if ( (tx_status & (R_TSD_TABT | R_TSD_TOK | R_TSD_TUN)) == 0 )
-            break; // not owned by host (check OWN bit instead?)
+        if ( (txStatus & (R_TSD_TABT | R_TSD_TOK | R_TSD_TUN)) == 0 )
+            break; /// ??? not owned by host (check OWN bit instead?)
 
-        collisions = ( tx_status & R_TSD_NCC ) >> 24;
+		ELG( fTxAckIndex, txStatus, ' Tx+', "RTL8139::transmitterInterrupt" );
+        collisions = (txStatus & R_TSD_NCC) >> 24;
 
-        if ( tx_status & R_TSD_TABT ) // transmit abort
+        if ( txStatus & R_TSD_TABT ) // transmit abort
         {
+			ALRT( fTxAckIndex, txStatus, 'TxA-', "RTL8139::transmitterInterrupt - transmit abort" );
             BUMP_NET_COUNTER( outputErrors );
 
             tcr = csrRead32( RTL_TCR );
-            tcr |= R_TCR_CLRABT;   // resend packet 
+            tcr |= R_TCR_CLRABT;		// resend packet 
             csrWrite32( RTL_TCR, tcr );
 
-            // Record reason for the transmit abort.
+				// Record reason for the transmit abort.
 
-            if ( collisions == 0xF )
-                BUMP_ETHER_COUNTER( excessiveCollisions );
-            if ( tx_status & R_TSD_OWC )
-                BUMP_ETHER_COUNTER( lateCollisions );
-            if ( tx_status & R_TSD_CRS )
-                BUMP_ETHER_COUNTER( carrierSenseErrors );
+            if ( collisions == 0xF )	BUMP_ETHER_COUNTER( excessiveCollisions );
+            if ( txStatus & R_TSD_OWC )	BUMP_ETHER_COUNTER( lateCollisions );
+            if ( txStatus & R_TSD_CRS )	BUMP_ETHER_COUNTER( carrierSenseErrors );
             break;  // wait for retransmission
         }
 
-        // The chip will retry if the FIFO was exhausted during the
-        // transmission of a packet. The TSD<TUN> bit will be set.
+			// The chip will retry if the FIFO was exhausted during the
+			// transmission of a packet. The R_TSD_TUN bit will be set.
 
-        if ( tx_status & R_TSD_TUN )
+        if ( txStatus & R_TSD_TUN )
         {
+			ALRT( fTxAckIndex, txStatus, 'TxU-', "RTL8139::transmitterInterrupt - transmit underrun" );
             BUMP_ETHER_TX_COUNTER( underruns );
         }
 
         if ( collisions )
         {
+			ALRT( fTxAckIndex, txStatus, 'TxC-', "RTL8139::transmitterInterrupt - transmit collisions" );
             netStats->collisions += collisions;
             if ( collisions > 1 )
-                BUMP_ETHER_COUNTER( multipleCollisionFrames );
-            else
-                BUMP_ETHER_COUNTER( singleCollisionFrames );
+                 BUMP_ETHER_COUNTER( multipleCollisionFrames );
+            else BUMP_ETHER_COUNTER( singleCollisionFrames );
         }
 
-        tx_send_count--;
-        tx_buf_ownership[tx_ack_index] = kOwnedByHost;
+        fTxSendCount--;
+        fTxBufOwnership[ fTxAckIndex ] = kOwnedByHost;
 
-        if ( 4 == ++tx_ack_index ) tx_ack_index = 0;
-        
+        if ( ++fTxAckIndex >= kTxBufferCount )
+			 fTxAckIndex = 0;
+
         *reclaimed = true;
-    }
+    }/* end WHILE */
     
     BUMP_ETHER_TX_COUNTER( interrupts );
-}
+	return;
+}/* end transmitterInterrupt */
 
-//---------------------------------------------------------------------------
+	//---------------------------------------------------------------------------
 
-void RTL8139::receiverInterrupt( bool * queued )
+void RTL8139::receiverInterrupt( bool *queued )
 {
-	rbuf_hdr_t    rbh;     // 4 byte rx packet packet
-    UInt16        offset;
-	UInt16        tmp_capr;
-    mbuf_t        pkt;
-	UInt16        pkt_len;
+	rbuf_hdr_t    rbh;		// 4 byte Rx packet header
+	mbuf_t        pkt;
+	UInt16        pktLen;
+	UInt32		totalBytes = 0;
 
-    while ( ( csrRead8( RTL_CM ) & R_CM_BUFE ) == 0 )
+//	ELG( fRxOffset, OSReadLittleInt32( fpRxBuffer, fRxOffset ), 'Rx I', "RTL8139::receiverInterrupt" );
+    while ( (csrRead8( RTL_CM ) & R_CM_BUFE) == 0 )
     {
-        *((UInt32 *)&rbh) = OSReadLittleInt32( rx_buf_ptr, 0 );
+		if ( totalBytes > 0x10000 )		// protect against flood of small packets.
+		{
+			ELG( 0, totalBytes, 'RxLm', "RTL8139::receiverInterrupt - reached loop limit." );
+			break;
+		}
 
-        pkt_len = rbh.rb_count;  // get received frame length
+        *(UInt32*)&rbh = OSReadLittleInt32( fpRxBuffer, fRxOffset );
+        pktLen = rbh.rb_count - 4;  // get Rx'd frame length deducting 4 FCS bytes
+		fRxOffset += sizeof( rbh );
+		totalBytes += pktLen;
 
-        // Update receiver error counters.
+			// Update receiver error counters:
 
-        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG |
-                              R_RSR_RUNT | R_RSR_ISE) )
+        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
         {
+			ALRT( fRxOffset, *(UInt32*)&rbh, ' Rx-', "RTL8139::receiverInterrupt" );
             BUMP_NET_COUNTER( inputErrors );
 
-            if ( rbh.rb_status & R_RSR_FAE )
-                BUMP_ETHER_COUNTER( alignmentErrors );
-            if ( rbh.rb_status & R_RSR_CRC )
-                BUMP_ETHER_COUNTER( fcsErrors );
-            if ( rbh.rb_status & R_RSR_LONG )
-                BUMP_ETHER_COUNTER( frameTooLongs );
-            if ( rbh.rb_status & R_RSR_RUNT )
-                BUMP_ETHER_RX_COUNTER( frameTooShorts );
-            if ( rbh.rb_status & R_RSR_ISE )
-                BUMP_ETHER_RX_COUNTER( phyErrors );
+            if ( rbh.rb_status & R_RSR_FAE )	BUMP_ETHER_COUNTER( alignmentErrors );
+            if ( rbh.rb_status & R_RSR_CRC )	BUMP_ETHER_COUNTER( fcsErrors );
+            if ( rbh.rb_status & R_RSR_LONG )	BUMP_ETHER_COUNTER( frameTooLongs );
+            if ( rbh.rb_status & R_RSR_RUNT )	BUMP_ETHER_RX_COUNTER( frameTooShorts );
+            if ( rbh.rb_status & R_RSR_ISE )	BUMP_ETHER_RX_COUNTER( phyErrors );
 
-            // Will the assertion of any error bits clear the
-            // R_RSR_ROK bit? We make it so.
+				// Will the assertion of any error bits clear the
+				// R_RSR_ROK bit? We make it so.
 
             rbh.rb_status &= ~R_RSR_ROK;
         }
 
         if ( (rbh.rb_status & R_RSR_ROK) == 0 )
         {
-            // Restart the receiver when an error is encountered.
+			ALRT( fRxOffset, *(UInt32*)&rbh, 'Rok-', "RTL8139::receiverInterrupt - not OK" );
+				// Restart the receiver when an error is encountered.
             restartReceiver();
             BUMP_ETHER_RX_COUNTER( resets );
-            DEBUG_LOG("%s: restarted receiver\n", getName());
+            DEBUG_LOG( "%s: restarted receiver\n", getName() );
             break;
         }
 
-        if ( (pkt_len < MINPACK + 4) || (pkt_len > MAXPACK + 4) ) 
+        if ( (pktLen < MINPACK - 4) || (pktLen > MAXPACK - 4) )
         {
-            // Invalid received frame length, skip it.
+				// Invalid Rx'd frame length, skip it:
 
-            DEBUG_LOG("%s: bad packet length (%d)\n", getName(), pkt_len);
+			ALRT( fRxOffset, *(UInt32*)&rbh, 'RxL-', "RTL8139::receiverInterrupt - length bad" );
+            DEBUG_LOG( "%s: bad packet length (%d)\n", getName(), pktLen );
             BUMP_NET_COUNTER( inputErrors );
-            if ( pkt_len < MINPACK + 4 )
-                BUMP_ETHER_RX_COUNTER( frameTooShorts );
-            else
-                BUMP_ETHER_COUNTER( frameTooLongs );
+            if ( pktLen < MINPACK )
+                 BUMP_ETHER_RX_COUNTER( frameTooShorts );
+            else BUMP_ETHER_COUNTER(    frameTooLongs  );
         }
-        else
+        else		/*** Good frame, pass it up:	***/
         {
-            // Good frame, pass it up.
-
-            pkt = allocatePacket( pkt_len );
-            if ( 0 == pkt )
+            pkt = allocatePacket( pktLen );
+            if ( !pkt )
             {
+				ALRT( 0, pktLen, 'RxP-', "RTL8139::receiverInterrupt - packet not allocated" );
                 BUMP_ETHER_RX_COUNTER( resourceErrors );
             }
             else
             {
+				ELG( fRxOffset, pktLen, 'RxP+', "RTL8139::receiverInterrupt - goodness" );
                 assert ( netif );
-                bcopy( rx_buf_ptr + sizeof(rbh), mbuf_data(pkt), pkt_len );
-                netif->inputPacket( pkt, pkt_len, IONetworkInterface::
-                                    kInputOptionQueuePacket );
+
+				if ( fRxOffset < RX_BUF_SIZE - pktLen )
+				{
+					bcopy( fpRxBuffer + fRxOffset, mbuf_data( pkt ), pktLen );
+				}
+				else
+				{
+					ELG( fRxOffset, pktLen, 'Wrap', "RTL8139::receiverInterrupt - Rx buffer wrapped" );
+					bcopy( fpRxBuffer + fRxOffset, mbuf_data( pkt ), RX_BUF_SIZE - fRxOffset );
+					bcopy( fpRxBuffer, (UInt8*)(mbuf_data( pkt )) + (RX_BUF_SIZE - fRxOffset), pktLen - (RX_BUF_SIZE - fRxOffset) );
+				}
+
+                netif->inputPacket( pkt, pktLen, IONetworkInterface:: kInputOptionQueuePacket );
                 BUMP_NET_COUNTER( inputPackets );
                 *queued = true;
             }
-        }
+        }/* end if/ELSE good frame */
 
-        // Advance the receive ring buffer to the start of the next packet.
+			// Advance Rx offset to start of the next packet:
 
-        offset = IORound(pkt_len, 4) + sizeof(rbh);
-        rx_buf_ptr += offset;
-
-        if (rx_buf_ptr >= (rx_buf_end - 1))
-            rx_buf_ptr -= RX_BUF_SIZE;
-
-        tmp_capr = csrRead16( RTL_CAPR );
-        tmp_capr += offset;
-        csrWrite16Slow( RTL_CAPR, tmp_capr );        
-    }
+        fRxOffset += IORound( pktLen + 4, 4 );			// account for 4 FCS bytes
+	///	csrWrite16Slow( RTL_CAPR, fRxOffset - 0x10 );	// leave a gap
+        csrWrite16( RTL_CAPR, fRxOffset - 0x10 );		// leave a gap
+    }/* end WHILE buffer not empty */
 
     BUMP_ETHER_RX_COUNTER( interrupts );
-}
+	return;
+}/* end receiverInterrupt */
 
-//---------------------------------------------------------------------------
+	//---------------------------------------------------------------------------
 
-void RTL8139::restartReceiver( void )
+void RTL8139::restartReceiver()
 {
-    UInt8 tmp_cm = csrRead8( RTL_CM );
+    UInt8	tmp_cm;
+
+	tmp_cm = csrRead8( RTL_CM );
+	ELG( 0000, tmp_cm, 'ReRx', "RTL8139::restartReceiver" );
 
     tmp_cm &= ~R_CM_RE;
     csrWrite8( RTL_CM, tmp_cm );
-    IOSleep(10);
+    IOSleep( 10 );
 
-    /* any timing specifications on stopping the engine? */
+		/* any timing specifications on stopping the engine? */
 
-    rx_buf_ptr = rx_buf_start;
+    fRxOffset = 0;
 
-    csrWrite32( RTL_RBSTART, rx_buf_phys );
+    csrWrite32( RTL_RBSTART, fRxBufferPhys );
 
     tmp_cm |= R_CM_RE;
     csrWrite8( RTL_CM, tmp_cm );
 
 	csrWrite32( RTL_RCR, reg_rcr );
-}
+	return;
+}/* end restartReceiver */
 
-//---------------------------------------------------------------------------
 
-void RTL8139::enableHardwareInterrupts( void )
+void RTL8139::enableHardwareInterrupts()
 {
-    csrWrite16( RTL_IMR, R_ISR_ALL );
+	UInt16	imr;	// always use the Tx interrupt
+
+	ELG( 0, fSpeed100, 'eHWI', "RTL8139::enableHardwareInterrupts" );
+
+	if ( fSpeed100 )
+	{		// Use Tx interrupts; poll for Rx frames on the Realtek timer:
+		csrWrite32( RTL_TIMER_INT, 32768 );	// set about 1 ms in the timer value
+		csrWrite32( RTL_TCTR, 0 );			// start the timer
+		imr = R_ISR_TMOUT | R_ISR_TOK | R_ISR_TER;
+	}
+	else	// 10 Mbps:
+	{
+		imr = R_ISR_ALL;
+		csrWrite32( RTL_TIMER_INT, 0 );	// turn off the timer
+	}
+
+	csrWrite16( RTL_IMR, imr );
     interruptEnabled = true;
-}
+	return;
+}/* end enableHardwareInterrupts */
 
-void RTL8139::disableHardwareInterrupts( void )
+
+void RTL8139::disableHardwareInterrupts()
 {
+	ELG( 0, 0, 'dHWI', "RTL8139::disableHardwareInterrupts" );
     csrWrite16( RTL_IMR, R_ISR_NONE ); 
     interruptEnabled = false;
-}
+	return;
+}/* end disableHardwareInterrupts */
 
-//---------------------------------------------------------------------------
 
-bool RTL8139::allocateDescriptorMemory( void )
+bool RTL8139::allocateDescriptorMemory()
 {
-    IOByteCount len;
+    IOByteCount		len;
+	int				size;
 
-    // Allocate receiver memory.
+		// Allocate Tx and Rx memory:
 
-    rx_md = IOBufferMemoryDescriptor::withOptions( 
-                      /* options   */ kIOMemoryPhysicallyContiguous,
-                      /* capacity  */ RX_BUF_SIZE + (4 * 1024),
-                      /* alignment */ PAGE_SIZE );
+	size = (TX_BUF_SIZE * kTxBufferCount) + (RX_BUF_SIZE + PAGE_SIZE);
 
-    if ( 0 == rx_md || rx_md->prepare() != kIOReturnSuccess )
+	ELG( 0, size, 'AlDM', "RTL8139::allocateDescriptorMemory" );
+
+    fpTxRxMD = IOBufferMemoryDescriptor::withOptions( 
+								/* options   */	kIOMemoryPhysicallyContiguous,
+								/* capacity  */	size,
+								/* alignment */	PAGE_SIZE );
+
+    if ( !fpTxRxMD || fpTxRxMD->prepare() != kIOReturnSuccess )
     {
-        IOLog("%s: Can't allocate %d contiguous bytes\n",
-              getName(), RX_BUF_SIZE + (4 * 1024));
+        IOLog("%s: Can't allocate %d contiguous bytes\n", getName(), size ); 
         return false;
     }
+    fpTxRxBuffers	= (UInt8*)fpTxRxMD->getBytesNoCopy();
+    fTxRxPhysical	= fpTxRxMD->getPhysicalSegment( 0, &len );
 
-    rx_buf_start = (UInt8 *) rx_md->getBytesNoCopy();
-    rx_buf_end   = rx_buf_start + RX_BUF_SIZE;
-    rx_buf_phys  = rx_md->getPhysicalSegment( 0, &len );
+	ELG( fTxRxPhysical, fpTxRxBuffers, 'TxRx', "allocateDescriptorMemory - Tx and Rx buffers" );
 
-    DEBUG_LOG("Rx Buffer len = %d virt = %p phys = 0x%lx\n",
-              rx_md->getCapacity(), rx_buf_start, rx_buf_phys);
+		// Put the Rx buffer after the 4 Tx buffers:
 
-    // Allocate transmitter memory.
+    fpRxBuffer		= fpTxRxBuffers   + TX_BUF_SIZE * kTxBufferCount;
+    fRxBufferPhys	= fTxRxPhysical   + TX_BUF_SIZE * kTxBufferCount;
 
-    for ( int i = 0; i < kTxBufferCount; i++ )
-    {
-        tx_md[i] = IOBufferMemoryDescriptor::withOptions(
-                             /* options   */ 0,
-                             /* capacity  */ PAGE_SIZE,
-                             /* alignment */ PAGE_SIZE );
-
-        if ( 0 == tx_md[i] || tx_md[i]->prepare() != kIOReturnSuccess )
-        {
-            IOLog("%s: Can't allocate %dth Tx buffer\n", getName(), i);
-            return false;
-        }
-
-        tx_buf_ptr[i]  = (UInt8 *) tx_md[i]->getBytesNoCopy();
-        tx_buf_phys[i] = tx_md[i]->getPhysicalSegment( 0, &len );
-        
-        DEBUG_LOG("Tx Buffer %d len = %d virt = %p phys = 0x%lx\n",
-                  i, PAGE_SIZE, tx_buf_ptr[i], tx_buf_phys[i]);
-    }
-    
     return true;
-}
+}/* end allocateDescriptorMemory */
 
-//---------------------------------------------------------------------------
+	//---------------------------------------------------------------------------
 
 bool RTL8139::initAdapter( IOOptionBits options )
 {
-    DEBUG_LOG("initAdapter() ===>\n");
+	ELG( 0, options, 'i Ad', "RTL8139::initAdapter" );
+    DEBUG_LOG( "initAdapter() ===>\n");
 
-    disableHardwareInterrupts();
+///	disableHardwareInterrupts();
 
-    // Issue a software reset.
+    csrWrite8( RTL_CM, R_CM_RST );	// Issue a software reset.
 
-    csrWrite8( RTL_CM, R_CM_RST );
-
-    disableHardwareInterrupts();
+///	disableHardwareInterrupts();
     IOSleep(10);
 
     if ( csrRead8( RTL_CM ) & R_CM_RST )
     {
-        // FIXME: need more robust recovery (retry?)
-        IOLog("%s: chip reset timed out\n", getName());
+			// FIXME: need more robust recovery (retry?)
+        IOLog( "%s: chip reset timed out\n", getName() );
         return false;
     }
 
-    // If all thats needed is a chip reset, then we're done.
+		// If all that's needed is a chip reset, then we're done.
 
-    if ( options & kResetChip ) return true;
+    if ( options & kResetChip )
+		return true;
 
-    // Clear the multicast hash.
+		// Clear the multicast hash:
 
     reg_mar0 = reg_mar4 = 0;
     csrWrite32( RTL_MAR0, reg_mar0 );
     csrWrite32( RTL_MAR4, reg_mar4 );
 
-    // Save config1 register (not used).
+		// Save config1 register (not used).
 
     reg_config1 = csrRead8( RTL_CONFIG1 );	
 
-    // Update the physical address of the receiver buffer.
+		// Update the physical address of the Rx buffer:
 
-    rx_buf_ptr = rx_buf_start;
-    rx_buf_ptr[0x1001] = 0x9f; // why? for debugging?
+    csrWrite32( RTL_RBSTART, fRxBufferPhys );
+    fRxOffset = 0;
 
-    csrWrite32( RTL_RBSTART, rx_buf_phys );
-
-    // Update the physical address of the transmit buffers.
+		// Update the physical address of the Tx buffers:
 
     for ( int i = 0; i < kTxBufferCount; i++ )
     {
-        csrWrite32( RTL_TSAD0 + i * 4, tx_buf_phys[i] );
-        tx_buf_ownership[i] = kOwnedByHost;
+        csrWrite32( RTL_TSAD0 + i * sizeof( UInt32 ), fTxRxPhysical + i * TX_BUF_SIZE );
+		fTxBufOwnership[i] = kOwnedByHost;
     }
+	fTxSendIndex = fTxSendCount = fTxAckIndex = 0;
 
-    tx_send_index = 0;
-    tx_send_count = 0;
-    tx_ack_index  = 0;
-
-    // Enable transmitter and receiver. Seems odd to do this before
-    // configuring the transmitter and receiver, but this is how it
-    // was in the Realtek source.
+		// Enable transmitter and receiver. Seems odd to do this before
+		// configuring the transmitter and receiver, but this is how it
+		// was in the Realtek source.
 
     csrWrite8( RTL_CM, R_CM_RE | R_CM_TE );
 
-    // TCR - transmit configuration register.
+		// TCR - transmit configuration register.
 
     csrWrite32( RTL_TCR, R_TCR_MXDMA | R_TCR_IFG );
 
-    // RCR - receive configuration register. Save the value to be used
-    // later if the receiver is restarted, or multicast/promiscuous mode
-    // changes.
+		// RCR - receive configuration register. Save the value to be used
+		// later if the receiver is restarted, or multicast/promiscuous mode
+		// changes.
 
-    reg_rcr = R_RCR_RBLEN_16K | R_RCR_AB | R_RCR_APM | R_RCR_AM |
-              R_RCR_ERTH + R_RCR_RXFTH + R_RCR_MXDMA + R_RCR_WRAP;
-
+    reg_rcr = R_RCR_RBLEN_64K | R_RCR_AB    | R_RCR_APM   | R_RCR_AM
+							  | R_RCR_ERTH  | R_RCR_RXFTH | R_RCR_MXDMA;
     csrWrite32( RTL_RCR, reg_rcr );
 
-    DEBUG_LOG("initAdapter() <===\n");
+    DEBUG_LOG( "initAdapter() <===\n");
 
     return true;
-}
+}/* end initAdapter */
 
-//---------------------------------------------------------------------------
+	/* interruptOccurred is called by real Tx interrupts and	*/
+	/* by invocations from timeoutOccurred for Rx.				*/
 
-void RTL8139::interruptOccurred( IOInterruptEventSource * src, int count )
+void RTL8139::interruptOccurred( IOInterruptEventSource *src, int count )
 {
-    bool    flushInputQ    = false;
-    bool	serviceOutputQ = false;
-    UInt16  isr;
-    IODebuggerLockState lockState;
+	bool				flushInputQ    = false;
+	bool				serviceOutputQ = false;
+	UInt16				isr;
+	IODebuggerLockState lockState;
 
-    // PCI drivers must be prepared to handle spurious interrupts when the
-    // interrupt line is shared with other devices. The interruptEnabled
-    // flag prevents the driver from touching hardware before it is ready. 
+		// PCI drivers must be prepared to handle spurious interrupts when the
+		// interrupt line is shared with other devices. The interruptEnabled
+		// flag prevents the driver from touching hardware before it is ready. 
 
-    if ( false == interruptEnabled ) return;
+    if ( !interruptEnabled )
+	{
+		ELG( 0, 0, 'Int-', "RTL8139::interruptOccurred - not ready" );
+		return;
+	}
 
-    lockState = IODebuggerLock( this );
+    lockState = IODebuggerLock( this );		// Keep KDP out
 
-    while ( 1 )
-    {
-        isr = csrRead16( RTL_ISR );
-        if ( ( isr & R_ISR_ALL ) == 0 )
-        {
-            // May want to consider a filter interrupt source when
-            // sharing interrupts to avoid scheduling the work loop.
-            break;  // exit interrupt loop...
-        }
+	isr = csrRead16( RTL_ISR );
+	ELG( 0, isr, 'Int+', "RTL8139::interruptOccurred" );
 
-        if ( isr & ( R_ISR_FOVW | R_ISR_RXOVW) )
-            isr |= ( R_ISR_FOVW | R_ISR_RXOVW);
+	if ( isr )
+	{
+		if ( isr & R_ISR_TMOUT )
+			csrWrite32( RTL_TCTR, 0 );	// reset the timer.
 
-        // Acknowledge pending interrupt sources.
+		if ( isr &  (R_ISR_FOVW | R_ISR_RXOVW) )	// If either FIFO overflow or Buffer overflow,
+			 isr |= (R_ISR_FOVW | R_ISR_RXOVW);		// ack both. /// mlj - I don't know why.
 
-        csrWrite16( RTL_ISR, isr );
+		csrWrite16( RTL_ISR, isr );		// Acknowledge pending interrupt sources
 
-        // Transmitter OK, or error due to excessive collisions.
+		if ( isr & (R_ISR_TOK | R_ISR_TER) )
+		{
+			BUMP_ETHER_TX_COUNTER( interrupts );
+			transmitterInterrupt( &serviceOutputQ );
+		}
+	}
 
-        if ( isr & (R_ISR_TOK | R_ISR_TER) )
-        {
-            transmitterInterrupt( &serviceOutputQ );
-        }
+	receiverInterrupt( &flushInputQ );	// Always check for Rx frames.
 
 #if NOT_YET
-        // Packet underrun or link change interrupt.
-    
-        if ( isr & R_ISR_PUN )
-        {
-            UInt16 tmp_rtl74 = csrRead16( RTL_74 );
-            if ( tmp_rtl74 & SIZE16_BIT11 ) // link change
-            {
-                if ( tmp_rtl74 & SIZE16_BIT10 ) // link ok
-                {
-                }
-                else // link down
-                {
-                }
-            }
-            else
-            {
-            }
-        }
+		// Packet underrun or link change interrupt:
+
+	if ( isr & R_ISR_PUN )
+	{
+		UInt16 tmp_rtl74 = csrRead16( RTL_74 );
+		if ( tmp_rtl74 & SIZE16_BIT11 ) // link change
+		{
+			if ( tmp_rtl74 & SIZE16_BIT10 ) // link ok
+			{
+			}
+			else // link down
+			{
+			}
+		}
+		else
+		{
+		}
+	}
 #endif
 
-        if ( isr & (R_ISR_ROK | R_ISR_RER | R_ISR_RXOVW | R_ISR_FOVW) ) 
-        {
-            receiverInterrupt( &flushInputQ );
-        }
-    }
+		// If debugger reclaimed the Tx buffer, then we will still expect a
+		// hardware interrupt after returning from the debugger, but the Tx
+		// interrupt handler will not reclaim any buffer space. If the output
+		// queue was previously stalled, then that could spell trouble. To
+		// prevent this, service the output queue when this condition exists.
 
-    // If debugger reclaimed the tx buffer, then we will still expect a
-    // hardware interrupt after returning from the debugger, but the tx
-    // interrupt handler will not reclaim any buffer space. If the output
-    // queue was previously stalled, then that could spell trouble. To
-    // prevent this, service the output queue when this condition exists.
-
-    if ( tx_buf_reclaimed )
+    if ( fTxBufReclaimed )
     {
-        serviceOutputQ = true;
-        tx_buf_reclaimed = false;
+        serviceOutputQ	= true;
+        fTxBufReclaimed	= false;
     }
 
     IODebuggerUnlock( lockState );
 
-    // Flush all inbound packets and pass them to the network stack.
-    // Interrupts are not enabled until the network interface is enabled
-    // by BSD, so netif must be valid.
+		// Flush all inbound packets and pass them to the network stack.
+		// Interrupts are not enabled until the network interface is enabled
+		// by BSD, so netif must be valid.
 
     assert( netif );
-    if ( flushInputQ ) netif->flushInputQueue();
+    if ( flushInputQ )
+	{
+		BUMP_ETHER_RX_COUNTER( interrupts );
+		netif->flushInputQueue();
+	}
 
-    // Call service() without holding the debugger lock to prevent a
-    // deadlock when service() calls our outputPacket() function.
+		// Call service() without holding the debugger lock to prevent a
+		// deadlock when service() calls our outputPacket() function.
 
-    if ( serviceOutputQ ) transmitQueue->service();
-}
+    if ( serviceOutputQ )
+		fTransmitQueue->service();
+	return;
+}/* end interruptOccurred */
 
-//---------------------------------------------------------------------------
-// Note: This function must not block. Otherwise it may expose
-// re-entrancy issues in the BSD networking stack.
+	//---------------------------------------------------------------------------
+	// Note: This function must not block. Otherwise it may expose
+	// re-entrancy issues in the BSD networking stack.
+	// Note also that this method is usually called on the clien'ts thread not
+	// the workloop.
 
-UInt32 RTL8139::outputPacket( mbuf_t pkt, void * param )
+UInt32 RTL8139::outputPacket( mbuf_t pkt, void *param )
 {
-    UInt8 *             des_ptr_ub;
-    long		        pkt_len;
     mbuf_t              mn;
+    long		        pktLen;
+	UInt32				tsd;	// Tx Status of Descriptor
+    UInt8				*pDest;
     IODebuggerLockState lockState;
 
-    DEBUG_LOG("outputPacket() ===>\n");
+    DEBUG_LOG( "outputPacket() ===>\n" );
 
     lockState = IODebuggerLock( this );
 
-    if ( kOwnedByChip == tx_buf_ownership[tx_send_index] )
+	tsd = csrRead32( RTL_TSD0 + fTxSendIndex * sizeof( UInt32 ) );
+
+    if ( kOwnedByChip == fTxBufOwnership[ fTxSendIndex ] )
     {
-        // Stall the output queue until the ack by the interrupt handler.
-        DEBUG_LOG("outputPacket() <===\n");
+		ELG( fTxSendIndex, tsd, 'Stal', "RTL8139::outputPacket - Tx stall" );
+			// Stall the output queue until the ack by the interrupt handler.
+        DEBUG_LOG( "outputPacket() <===\n" );
         IODebuggerUnlock( lockState );
         return kIOReturnOutputStall;
     }
 
-    des_ptr_ub = tx_buf_ptr[tx_send_index];
+	ELG( fTxSendIndex, mbuf_pkthdr_len( pkt ), 'outP', "RTL8139::outputPacket" );
 
-    pkt_len = mbuf_pkthdr_len(pkt);
+///	if ( tsd & (R_TSD_CRS | R_TSD_TABT | R_TSD_OWC | R_TSD_CDH | R_TSD_TUN) )
+	if ( tsd & (R_TSD_CRS | R_TSD_TABT | R_TSD_OWC			   | R_TSD_TUN) )
+	{
+		BUMP_NET_COUNTER( outputErrors );
+		ALRT( fTxSendIndex, tsd, ' Tx-', "RTL8139::outputPacket - Tx Error" );
+	}
 
-    for ( mn = pkt; mn; mn = mbuf_next(mn) )
+    pDest = fpTxRxBuffers + TX_BUF_SIZE * fTxSendIndex;
+
+    pktLen = mbuf_pkthdr_len( pkt );
+
+    for ( mn = pkt; mn; mn = mbuf_next( mn ) )
     {
-        bcopy( mbuf_data(mn), des_ptr_ub, mbuf_len(mn) );
-        des_ptr_ub += mbuf_len(mn);
+        bcopy( mbuf_data( mn ), pDest, mbuf_len( mn ) );
+        pDest += mbuf_len( mn );
     }
 
-    // Software padding of small frames. Hardware doesn't do this.
+		// Software padding of small frames. Hardware doesn't do this.
 
-    if ( pkt_len < MINPACK )
+    if ( pktLen < MINPACK - 4 )				// account for 4 FCS bytes
     {
-        memset( des_ptr_ub, 0x55, MINPACK - pkt_len );
-        pkt_len = MINPACK;
+        memset( pDest, 0x55, MINPACK - 4 - pktLen );
+        pktLen = MINPACK - 4;
     }
+		// Start the Tx by setting the frame length and clearing ownership:
 
-    csrWrite32( RTL_TSD0 + (4 * tx_send_index), pkt_len | R_TSD_ERTXTH );
+    csrWrite32( RTL_TSD0 + fTxSendIndex * sizeof( UInt32 ), pktLen | fTSD_ERTXTH );
 
-    tx_send_count++;
-    tx_buf_ownership[tx_send_index] = kOwnedByChip;
+	fTxSendCount++;
+	fTxBufOwnership[ fTxSendIndex ] = kOwnedByChip;
 
-    if ( 4 == ++tx_send_index ) tx_send_index = 0;
+    if ( ++fTxSendIndex >= kTxBufferCount )
+		fTxSendIndex = 0;
 
 	IODebuggerUnlock( lockState );
 
@@ -512,117 +542,116 @@ UInt32 RTL8139::outputPacket( mbuf_t pkt, void * param )
 
     BUMP_NET_COUNTER( outputPackets );
 
-	DEBUG_LOG("outputPacket() <===\n");
+	DEBUG_LOG( "outputPacket() <===\n" );
 
     return kIOReturnOutputSuccess;
-}
+}/* end outputPacket */
 
-//---------------------------------------------------------------------------
-// Send KDP packets in polled mode.
 
-void RTL8139::sendPacket( void * pkt, UInt32 pkt_len )
+	//---------------------------------------------------------------------------
+	// Send KDP packets in polled mode.
+
+void RTL8139::sendPacket( void *pkt, UInt32 pktLen )	// KDP
 {
-    UInt8 * dest_ptr;
+	UInt8	*pDest;
 
-    if ( pkt_len > MAXPACK ) return;
+    if ( pktLen > MAXPACK - 4 )	// account for 4 FCS bytes
+		return;
 
-    // Poll until a transmit buffer becomes available.
+		// Poll until a transmit buffer becomes available.
 
-    while ( kOwnedByChip == tx_buf_ownership[tx_send_index] )
-    {
+	while ( kOwnedByChip == fTxBufOwnership[ fTxSendIndex ] )
         reclaimTransmitBuffer();
-        // kprintf("RTL8139: transmitterInterrupt poll\n");
-    }
 
-    dest_ptr = tx_buf_ptr[ tx_send_index ];
+    pDest = fpTxRxBuffers + fTxSendIndex * TX_BUF_SIZE;
 
-    // Copy the debugger packet to the transmit buffer.
-    
-    bcopy( pkt, dest_ptr, pkt_len );
+    bcopy( pkt, pDest, pktLen );	// Copy debugger packet to the Tx buffer
 
-    // Pad small frames.
+		// Pad small frames:
 
-    if ( pkt_len < MINPACK )
+    if ( pktLen < MINPACK - 4 )		// account for 4 FCS bytes
     {
-        memset( dest_ptr + pkt_len, 0x55, MINPACK - pkt_len );
-        pkt_len = MINPACK;
+        memset( pDest + pktLen, 0x55, MINPACK - 4 - pktLen );
+        pktLen = MINPACK - 4;
     }
+		// Start the Tx by setting the frame length and clearing ownership:
 
-    csrWrite32( RTL_TSD0 + (4 * tx_send_index), pkt_len | R_TSD_ERTXTH );
+    csrWrite32( RTL_TSD0 + fTxSendIndex * sizeof( UInt32 ), pktLen | fTSD_ERTXTH );
 
-    tx_send_count++;
-    tx_buf_ownership[tx_send_index] = kOwnedByChip;
+	fTxSendCount++;
+	fTxBufOwnership[ fTxSendIndex ] = kOwnedByChip;
 
-    if ( 4 == ++tx_send_index ) tx_send_index = 0;
-    
-    // kprintf("RTL8139: sendPacket len %d\n", pkt_len);
-}
+    if ( ++fTxSendIndex >= kTxBufferCount )
+		fTxSendIndex = 0;
 
-void RTL8139::reclaimTransmitBuffer( void )
+//	kprintf( "RTL8139: sendPacket len %d\n", pktLen );
+	return;
+}/* end sendPacket KDP */
+
+
+void RTL8139::reclaimTransmitBuffer()	// KDP only
 {
-    UInt32  tx_status;
-    UInt32  tmp_ul;
+    UInt32  txStatus;
+    UInt32  u32;
 
-    tx_buf_reclaimed = true;
+    fTxBufReclaimed = true;
 
-    while ( tx_send_count )
+	while ( fTxSendCount )
     {
-        tx_status = csrRead32( RTL_TSD0 + tx_ack_index * 4 );
+        txStatus = csrRead32( RTL_TSD0 + fTxAckIndex * sizeof( UInt32 ) );
 
-        if ( (tx_status & (R_TSD_TABT | R_TSD_TOK | R_TSD_TUN)) == 0 )
+        if ( (txStatus & (R_TSD_TABT | R_TSD_TOK | R_TSD_TUN)) == 0 )
             break;  // not owned by host (check OWN bit instead?)
 
-        if ( tx_status & R_TSD_TABT ) // transmit abort
+        if ( txStatus & R_TSD_TABT )		// Tx abort
         {
-            tmp_ul = csrRead32( RTL_TCR );
-            tmp_ul |= R_TCR_CLRABT;   // resend packet 
-            csrWrite32( RTL_TCR, tmp_ul );
-            break;  // wait for retransmission
+			ALRT( fTxAckIndex, txStatus, 'TxA-', "RTL8139::reclaimTransmitBuffer - abort" );
+            u32 = csrRead32( RTL_TCR );
+            u32 |= R_TCR_CLRABT;			// resend packet 
+            csrWrite32( RTL_TCR, u32 );
+            break;							// wait for retransmission
         }
 
-        tx_send_count--;
-        tx_buf_ownership[tx_ack_index] = kOwnedByHost;
+        fTxSendCount--;
+        fTxBufOwnership[ fTxAckIndex ] = kOwnedByHost;
 
-        if ( 4 == ++tx_ack_index ) tx_ack_index = 0;
-    }
-}
+        if ( ++fTxAckIndex >= kTxBufferCount )
+			fTxAckIndex = 0;
+    }/* end WHILE */
 
-//---------------------------------------------------------------------------
-// Receive (KDP) packets in polled mode. This is essentially a simplified
-// version of the receiverInterrupt() function.
+	return;
+}/* end reclaimTransmitBuffer */
 
-void RTL8139::receivePacket( void * pkt, UInt32 * pkt_len, UInt32 timeout )
+
+	//---------------------------------------------------------------------------
+	// Receive (KDP) packets in polled mode. This is essentially a simplified
+	// version of the receiverInterrupt() function.
+
+void RTL8139::receivePacket( void *pkt, UInt32 *pktLen, UInt32 timeout )	// KDP
 {
-	rbuf_hdr_t  rbh;     // 4 byte rx packet packet
-    UInt16      offset;
-	UInt16	    capr;
-	UInt16	    rcv_len;
+	rbuf_hdr_t  rbh;     // 4 byte Rx packet header
+	UInt16	    rxLen;
 
-    *pkt_len = 0;
+    *pktLen = 0;
     timeout *= 1000;  // convert ms to us
 
-    while ( timeout && *pkt_len == 0 )
+    while ( timeout && *pktLen == 0 )
     {
         if ( (csrRead8( RTL_CM ) & R_CM_BUFE) == R_CM_BUFE )
-        {
-            // Receive buffer empty, wait and retry.
+        {		// Receive buffer empty, wait and retry.
             IODelay( 50 );
             timeout -= 50;
             continue;
         }
 
-        *((UInt32 *)&rbh) = OSReadLittleInt32( rx_buf_ptr, 0 );
+        *(UInt32*)&rbh	= OSReadLittleInt32( fpRxBuffer, fRxOffset );
+        rxLen			= rbh.rb_count;		// includes 4 bytes of FCS
+		fRxOffset	   += sizeof( rbh );
 
-        rcv_len = rbh.rb_count;
+	//	kprintf( "RTL8139::receivePacket status %x len %d\n", rbh.rb_status, rxLen );
 
-        //kprintf("RTL8139::receivePacket status %x len %d\n",
-        //        rbh.rb_status, rcv_len);
-
-        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG |
-                              R_RSR_RUNT | R_RSR_ISE) )
-        {
-            rbh.rb_status &= ~R_RSR_ROK;
-        }
+        if ( rbh.rb_status & (R_RSR_FAE | R_RSR_CRC | R_RSR_LONG | R_RSR_RUNT | R_RSR_ISE) )
+             rbh.rb_status &= ~R_RSR_ROK;
 
         if ( (rbh.rb_status & R_RSR_ROK) == 0 )
         {
@@ -630,22 +659,229 @@ void RTL8139::receivePacket( void * pkt, UInt32 * pkt_len, UInt32 timeout )
             continue;
         }
 
-        if ( (rcv_len >= MINPACK + 4) && (rcv_len <= MAXPACK + 4) ) 
+        if ( rxLen >= MINPACK && rxLen <= MAXPACK ) 
         {
-            bcopy( rx_buf_ptr + sizeof(rbh), pkt, rcv_len );
-            *pkt_len = rcv_len;
+            bcopy( fpRxBuffer + fRxOffset, pkt, rxLen );
+            *pktLen = rxLen;
         }
 
-        // Advance the receive ring buffer to the start of the next packet.
+			// Advance the Rx ring buffer to the start of the next packet:
 
-        offset = IORound(rcv_len, 4) + sizeof(rbh);
-        rx_buf_ptr += offset;
+        fRxOffset += IORound( rxLen, 4 );
+        csrWrite16( RTL_CAPR, fRxOffset - 0x10 );	// leave a small gap
+    }/* end WHILE */
+	return;
+}/* end receivePacket KDP */
 
-        if (rx_buf_ptr >= (rx_buf_end - 1))
-            rx_buf_ptr -= RX_BUF_SIZE;
+#pragma mark -
+#pragma mark еее Put EEPROM contents in IORegistry еее
+#pragma mark -
 
-        capr = csrRead16( RTL_CAPR );
-        capr += offset;
-        csrWrite16Slow( RTL_CAPR, capr );
-    }
-}
+
+	/*  register 0x50 RTL_9346CR bits: */
+
+#define RTL_9346CR_PROGRAM	0x80
+
+#define RTL_9346CR_EECS		0x08	/* EEPROM Chip Select							*/
+#define RTL_9346CR_EESK		0x04	/* EEPROM Shift Clock							*/
+#define RTL_9346CR_EEDI		0x02	/* EEPROM Data In  from EEPROM's perspective	*/
+#define RTL_9346CR_EEDO		0x01	/* EEPROM Data Out from EEPROM's perspective	*/
+
+	/* These EEPROM commands include the Start bit 0x4 and	*/
+	/* are shifted left 6 for the address field:			*/
+
+#define OP_9346_EWDS	0x100	// Erase/Write Disable
+#define OP_9346_EWEN	0x130	// Erase/Write ENable
+#define OP_9346_WRITE	0x140
+#define OP_9346_READ	0x180
+#define OP_9346_ERASE	0x1C0
+
+#define kEEPROM_SIZE	0X80
+
+
+void RTL8139::registerEEPROM()
+{
+	OSArray			*arrayStrings;
+	OSString		*tmpString;
+	char			printBuffer[ 100 ];
+	UInt16			contents[ kEEPROM_SIZE / sizeof( UInt16 ) ];
+	UInt16			i, x, checksum;
+
+	ELG( 0, 0, 'PROM', "RTL8139::registerEEPROM" );
+#if USE_ELG
+	UInt32	flag = fpELG->evLogFlag;	// Temporarily disable event logging
+	fpELG->evLogFlag = 0;				// because bit bashing floods it.
+#endif // USE_ELG
+
+	checksum = 0;
+
+	for ( i = 0; i < kEEPROM_SIZE / sizeof( UInt16 ); ++i )	// For each Word
+	{
+		x = inEEPROM16( i );
+		checksum += x;
+		contents[ i ] = x;
+	}/* end For each Word */
+
+//	if ( checksum != 0 )
+	//	IOLog( "RTL8139::fixEnetFlowControl *** Checksum is incorrect. %04x, %04x\n", contents[ 0x32 / 2 ], checksum );
+
+	if ( (contents[ 6 ] & 0x0002) != 0 )	// Check Flow Control bit
+		IOLog( "RTL8139::fixEnetFlowControl - Flow Control is disabled\n" );
+
+		/* put the contents in the IORegistry:	*/
+
+	arrayStrings = OSArray::withCapacity( kEEPROM_SIZE / 0x10 );	// 8 rows of data
+
+	for ( i = 0 ; i < (kEEPROM_SIZE / sizeof( UInt16 )); i += 8 )	// 16 bytes per row
+	{
+		sprintf( printBuffer, "%04x %04x %04x %04x   %04x %04x %04x %04x",
+			contents[ i+0 ], contents[i+1], contents[i+2], contents[i+3],
+			contents[ i+4 ], contents[i+5], contents[i+6], contents[i+7] );
+				///	IOLog( "RTL8139::registerEEPROM: %s\n", printBuffer );
+		tmpString = OSString::withCString( printBuffer );
+		arrayStrings->setObject( tmpString );
+		tmpString->release();
+	}
+
+	setProperty( "EEPROM words", arrayStrings );
+	arrayStrings->release();
+
+#ifdef CRAP
+	contents[ 6 ] &= ~0x0002;					// Turn off the disable Flow Control bit
+	contents[ 0x32 / 2 ] = 0;					// init the new checksum
+	checksum = 0;
+
+	for ( i = 0; i < kEEPROM_SIZE / 2; ++i )		// recalc the checksum
+		checksum += contents[ i ];
+
+	outEEPROM16( 6, contents[ 6 ] );				// do it.
+	outEEPROM16( 0x32 / 2, 0x10000 - checksum );	// adjust the checksum
+	
+	IOLog( "RTL8139::fixEnetFlowControl - Ethernet Flow Control is now enabled.\n" );
+#endif // CRAP
+
+#if USE_ELG
+	fpELG->evLogFlag = flag;			// Reenable event logging if it was on.
+#endif // USE_ELG
+
+	return;
+}/* end fixEnetFlowControl */
+
+
+void RTL8139::write9346CR( UInt8 value )
+{
+	csrWrite8( RTL_9346CR, value );
+	IOSleep( 1 );
+
+	return;
+}/* end write9346CR */
+
+
+#ifdef CRAP
+void RTL8139::outEEPROM16( int location, UInt16 value )
+{
+	int			i;
+	UInt16		outData16 = value;
+
+	write9346CR( RTL_9346CR_PROGRAM );
+
+	outCommand( OP_9346_EWEN );								// enable Erase/Write
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Clk Lo
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// CS
+	outCommand( OP_9346_ERASE | location );					// Erase the location
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Clk Lo
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	outCommand( OP_9346_WRITE | location );					// start the Write
+
+	for ( i = 16; i > 0; i-- )
+	{
+		outBit( outData16 );
+		outData16 <<= 1;
+	}
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Clk Lo
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// CS
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	outCommand( OP_9346_EWDS );								// disable Erase/Write
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Clk Lo
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	return;
+}/* end outEEPROM16 */
+#endif // CRAP
+
+
+int RTL8139::inEEPROM16( int location )
+{
+	int			i;
+	UInt16		inData16 = 0;
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// CS Hi
+
+	outCommand( OP_9346_READ | location );					// Issue the command
+
+		/* Get 16 data bits:	*/
+
+	for ( i = 16; i > 0; i-- )
+	{
+		inData16 <<= 1;
+		inData16 |= inBit();
+	}
+
+	write9346CR( RTL_9346CR_PROGRAM );						// CS Lo
+
+	return inData16;
+}/* end inEEPROM16 */
+
+
+void RTL8139::outCommand( UInt16 cmd )
+{
+	int		i;
+
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Chip Select, Clk Lo
+
+		// output the 10 bit command: 1 Zero, 1 Start, 2 OP, 6 Address:
+
+	cmd <<= 6;
+	for ( i = 10; i > 0; --i )
+	{
+		outBit( cmd );
+		cmd <<= 1;
+	}
+	write9346CR( RTL_9346CR_PROGRAM | RTL_9346CR_EECS );	// Chip Select, Clk Lo
+	return;
+}/* end outCommand */
+
+
+void RTL8139::outBit( UInt16 bit )
+{
+	UInt8	u8 = RTL_9346CR_PROGRAM | RTL_9346CR_EECS;
+
+	u8 |= (bit & 0x8000) ? RTL_9346CR_EEDI : 0;
+
+	write9346CR( u8 );						// toggle clock Lo
+	write9346CR( u8 | RTL_9346CR_EESK );	// toggle clock Hi
+	return;
+}/* end outBit */
+
+
+int RTL8139::inBit()
+{
+	UInt8	u8 = RTL_9346CR_PROGRAM | RTL_9346CR_EECS;
+
+	write9346CR( u8 | RTL_9346CR_EESK );		// clock Hi
+	write9346CR( u8 );							// clock Lo
+
+	u8 = csrRead8( RTL_9346CR );
+
+	return (u8 & RTL_9346CR_EEDO) ? 1 : 0;
+}/* end inBit */

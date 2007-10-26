@@ -1,14 +1,14 @@
 /*
  *  sqltypes.h
  *
- *  $Id: sqltypes.h,v 1.5 2004/11/18 23:23:46 luesang Exp $
+ *  $Id: sqltypes.h,v 1.20 2006/01/24 15:02:23 source Exp $
  *
  *  ODBC typedefs
  *
  *  The iODBC driver manager.
  *
  *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
@@ -16,6 +16,10 @@
  *
  *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,6 +74,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef _SQLTYPES_H
 #define _SQLTYPES_H
 
@@ -106,8 +111,13 @@ extern "C" {
 typedef unsigned char		SQLCHAR;
 typedef signed short		SQLSMALLINT;
 typedef unsigned short		SQLUSMALLINT;
+#if (SIZEOF_LONG == 8)
 typedef signed int		SQLINTEGER;
 typedef unsigned int		SQLUINTEGER;
+#else
+typedef signed long		SQLINTEGER;
+typedef unsigned long		SQLUINTEGER;
+#endif
 typedef void *              	SQLPOINTER;
 
 #if (ODBCVER >= 0x0300)
@@ -229,7 +239,7 @@ typedef struct tagDATE_STRUCT
 DATE_STRUCT;
 
 #if (ODBCVER >= 0x0300)
-typedef DATE_STRUCT	SQL_DATE_STRUCT;
+typedef DATE_STRUCT		SQL_DATE_STRUCT;
 #endif	/* ODBCVER >= 0x0300 */
 
 
@@ -242,7 +252,7 @@ typedef struct tagTIME_STRUCT
 TIME_STRUCT;
 
 #if (ODBCVER >= 0x0300)
-typedef TIME_STRUCT	SQL_TIME_STRUCT;
+typedef TIME_STRUCT		SQL_TIME_STRUCT;
 #endif	/* ODBCVER >= 0x0300 */
 
 
@@ -328,14 +338,14 @@ SQL_INTERVAL_STRUCT;
 #if (ODBCVER >= 0x0300)
 
 #if (_MSC_VER >= 900)
-#  define ODBCINT64 	__int64
+#  define ODBCINT64 		__int64
 #endif
 
 #ifndef ODBCINT64
 # if (SIZEOF_LONG == 8)
 #   define ODBCINT64		long
 # else
-#  define ODBCINT64	long long
+#   define ODBCINT64		long long
 # endif
 #endif /* ODBCINT64 */
 
@@ -365,7 +375,7 @@ SQL_NUMERIC_STRUCT;
 
 #if (ODBCVER >= 0x0350)
 #ifdef GUID_DEFINED
-typedef GUID SQLGUID;
+typedef GUID 			SQLGUID;
 #else
 typedef struct tagSQLGUID
   {
@@ -384,34 +394,23 @@ typedef unsigned short SQLWCHAR;
 #else
 #  include <stdlib.h>
 
-// RDLS changed to add __cplusplus because of radar# 3779905
-#  if defined(__cplusplus) || \
-      defined(_WCHAR_T) || \
+#  if defined(__cplusplus)		|| \
+      defined(_WCHAR_T)			|| \
       defined(_WCHAR_T_DEFINED)		|| \
-      defined(_WCHAR_T_DECLARED)	|| \
-      defined(_BSD_WCHAR_T_DEFINED_)
+      defined(_WCHAR_T_DECLARED)        || \
+      defined(_BSD_WCHAR_T_DEFINED_)    || \
+      defined(_BSD_WCHAR_T_)
 typedef wchar_t SQLWCHAR;
 #  else
 #    error Please make sure your system supports the wchar_t type
 #  endif
 #endif /* WIN32 */
 
-      /* RDLS original
-#  if defined(_WCHAR_T)			|| \
-      defined(_WCHAR_T_DEFINED)		|| \
-          defined(_WCHAR_T_DECLARED)	|| \
-          defined(_BSD_WCHAR_T_DEFINED_)
-          typedef wchar_t SQLWCHAR;
-#  else
-#    error Please make sure your system supports the wchar_t type
-#  endif*/
-/*#endif*/ /* WIN32 */
-      
 
 #ifdef UNICODE
-typedef SQLWCHAR        SQLTCHAR;
+typedef SQLWCHAR        	SQLTCHAR;
 #else
-typedef SQLCHAR         SQLTCHAR;
+typedef SQLCHAR         	SQLTCHAR;
 #endif  /* UNICODE */
 
 #ifdef __cplusplus

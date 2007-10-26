@@ -1,7 +1,7 @@
 #
 #   tk/timer.rb : methods for Tcl/Tk after command
 #
-#   $Id: timer.rb,v 1.1.2.9 2004/12/16 07:12:44 nagai Exp $
+#   $Id: timer.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 require 'tk'
 
@@ -249,7 +249,7 @@ class TkTimer
     #  && !interval.kind_of?(Integer) && !interval.kind_of?(Proc)
     if interval != 'idle' && interval != :idle \
       && !interval.kind_of?(Integer) && !TkComm._callback_entry?(interval)
-      fail ArguemntError, "expect Integer or Proc"
+      fail ArgumentError, "expect Integer or Proc"
     end
     @sleep_time = interval
   end
@@ -259,7 +259,7 @@ class TkTimer
     #   && !interval.kind_of?(Integer) && !interval.kind_of?(Proc)
     if interval != 'idle' && interval != :idle \
       && !interval.kind_of?(Integer) && !TkComm._callback_entry?(interval)
-      fail ArguemntError, "expect Integer or Proc for 1st argument"
+      fail ArgumentError, "expect Integer or Proc for 1st argument"
     end
     @sleep_time = interval
 
@@ -283,7 +283,7 @@ class TkTimer
       @loop_exec = 0
     else
       if not loop_exec.kind_of?(Integer)
-        fail ArguemntError, "expect Integer for 2nd argument"
+        fail ArgumentError, "expect Integer for 2nd argument"
       end
       @loop_exec = loop_exec
     end
@@ -334,7 +334,7 @@ class TkTimer
     sleep = @init_sleep unless sleep
 
     if sleep != 'idle' && sleep != :idle && !sleep.kind_of?(Integer)
-      fail ArguemntError, "expect Integer or 'idle' for 1st argument"
+      fail ArgumentError, "expect Integer or 'idle' for 1st argument"
     end
 
     @init_sleep = sleep
@@ -353,6 +353,7 @@ class TkTimer
     Tk_CBTBL[@id] = self
     @do_loop = @loop_exec
     @current_pos = 0
+    @return_value = nil
     @after_id = nil
 
     @init_sleep = 0
@@ -363,7 +364,7 @@ class TkTimer
     if argc > 0
       sleep = init_args.shift
       if sleep != 'idle' && sleep != :idle && !sleep.kind_of?(Integer)
-        fail ArguemntError, "expect Integer or 'idle' for 1st argument"
+        fail ArgumentError, "expect Integer or 'idle' for 1st argument"
       end
       @init_sleep = sleep
     end
@@ -401,6 +402,8 @@ class TkTimer
 
     @current_pos   = 0
     @current_args  = @init_args
+    @current_script = []
+
     @set_next = false if @in_callback
 
     self
@@ -420,6 +423,7 @@ class TkTimer
     @wait_var.value = 0
     tk_call 'after', 'cancel', @after_id if @after_id
     @after_id = nil
+
     Tk_CBTBL.delete(@id) ;# for GC
     self
   end
@@ -427,11 +431,12 @@ class TkTimer
 
   def continue(wait=nil)
     fail RuntimeError, "is already running" if @running
+    return restart() if @current_script.empty?
     sleep, cmd = @current_script
     fail RuntimeError, "no procedure to continue" unless cmd
     if wait
       unless wait.kind_of?(Integer)
-        fail ArguemntError, "expect Integer for 1st argument"
+        fail ArgumentError, "expect Integer for 1st argument"
       end
       sleep = wait
     end
@@ -497,3 +502,133 @@ class TkTimer
 end
 
 TkAfter = TkTimer
+
+
+class TkRTTimer < TkTimer
+  DEFAULT_OFFSET_LIST_SIZE = 5
+
+  def initialize(*args, &b)
+    super(*args, &b)
+
+    @offset_list = Array.new(DEFAULT_OFFSET_LIST_SIZE){ [0, 0] }
+    @offset_s = 0
+    @offset_u = 0
+    @est_time = nil
+  end
+
+  def start(*args, &b)
+    return nil if @running
+    @est_time = nil
+    @cb_start_time = Time.now
+    super(*args, &b)
+  end
+
+  def cancel
+    super()
+    @est_time = nil
+    @cb_start_time = Time.now
+    self
+  end
+  alias stop cancel
+
+  def continue(wait=nil)
+    fail RuntimeError, "is already running" if @running
+    @cb_start_time = Time.now
+    super(wait)
+  end
+
+  def set_interval(interval)
+    super(interval)
+    @est_time = nil
+  end
+
+  def _offset_ave
+    size = 0
+    d_sec = 0; d_usec = 0
+    @offset_list.each_with_index{|offset, idx|
+      # weight = 1
+      weight = idx + 1
+      size += weight
+      d_sec += offset[0] * weight
+      d_usec += offset[1] * weight
+    }
+    offset_s, mod = d_sec.divmod(size)
+    offset_u = ((mod * 1000000 + d_usec) / size.to_f).round
+    [offset_s, offset_u]
+  end
+  private :_offset_ave
+
+  def set_next_callback(args)
+    if @running == false || @proc_max == 0 || @do_loop == 0
+      Tk_CBTBL.delete(@id) ;# for GC
+      @running = false
+      @wait_var.value = 0
+      return
+    end
+    if @current_pos >= @proc_max
+      if @do_loop < 0 || (@do_loop -= 1) > 0
+        @current_pos = 0
+      else
+        Tk_CBTBL.delete(@id) ;# for GC
+        @running = false
+        @wait_var.value = 0
+        return
+      end
+    end
+
+    @current_args = args
+
+    cmd, *cmd_args = @loop_proc[@current_pos]
+    @current_pos += 1
+    @current_proc = cmd
+
+    @offset_s, @offset_u = _offset_ave
+
+    if TkComm._callback_entry?(@sleep_time)
+      sleep = @sleep_time.call(self)
+    else
+      sleep = @sleep_time
+    end
+
+    if @est_time
+      @est_time = Time.at(@est_time.to_i, @est_time.usec + sleep*1000)
+    else
+      @est_time = Time.at(@cb_start_time.to_i, 
+                          @cb_start_time.usec + sleep*1000)
+    end
+
+    now = Time.now
+    real_sleep = ((@est_time.to_i - now.to_i + @offset_s)*1000.0 + 
+                  (@est_time.usec - now.usec + @offset_u)/1000.0).round
+    if real_sleep <= 0
+      real_sleep = 0
+      @offset_s = now.to_i
+      @offset_u = now.usec
+    end
+    @current_sleep = real_sleep
+
+    set_callback(real_sleep, cmd_args)
+  end
+
+  def cb_call
+    if @est_time
+      @offset_list.shift
+
+      @cb_start_time = Time.now
+
+      if @current_sleep == 0
+        @offset_list.push([
+                            @offset_s - @cb_start_time.to_i, 
+                            @offset_u - @cb_start_time.usec
+                          ])
+      else
+        @offset_list.push([
+                            @offset_s + (@est_time.to_i - @cb_start_time.to_i),
+                            @offset_u + (@est_time.usec - @cb_start_time.usec)
+                          ])
+      end
+    end
+
+    @cb_cmd.call
+  end
+end

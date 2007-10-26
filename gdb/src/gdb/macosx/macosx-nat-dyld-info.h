@@ -41,6 +41,7 @@ struct dyld_objfile_entry
   CORE_ADDR dyld_addr;
   CORE_ADDR dyld_slide;
   CORE_ADDR dyld_length;
+  struct section_offsets *dyld_section_offsets;
 
   /* This boolean seems to indicate that dyld has told us about this particular
       dyld_objfile_entry.  I guess that's distinguished from load
@@ -48,10 +49,13 @@ struct dyld_objfile_entry
 
   int dyld_valid;
 
+#if WITH_CFM
   unsigned long cfm_container;  /* it really is 32 bits - CFM won't go 64bit */
+#endif
 
   /* Names names names.
-     Why oh why lord are there all these names? What use can they possibly have? */
+     Why oh why lord are there all these names? 
+     What use can they possibly have? */
 
   /* USER_NAME is a name coming from the user.  This can happen with
      a DYLD_INSERT_LIBRARY name, or it can happen with a 
@@ -70,6 +74,12 @@ struct dyld_objfile_entry
   CORE_ADDR image_addr;
   int image_addr_valid;
 
+  /* We attempt to slide all the dylibs etc we see before executing the
+     program so they don't overlap.  This is the arbitrarily chosen address
+     for this dylib, if any.  */
+  CORE_ADDR pre_run_slide_addr;
+  int pre_run_slide_addr_valid;
+
   /* We got this name from the executable's mach_header load commands,
      or we copied it from the bfd of the specified executable file.  */
   char *text_name;
@@ -81,8 +91,8 @@ struct dyld_objfile_entry
   struct bfd *abfd;
   struct objfile *objfile;
 
-  struct bfd *commpage_bfd;             /* The BFD for the commpage symbol info */
-  struct objfile *commpage_objfile;     /* The corresponding objfile */
+  struct bfd *commpage_bfd;           /* The BFD for the commpage symbol info */
+  struct objfile *commpage_objfile;   /* The corresponding objfile */
 
   CORE_ADDR loaded_memaddr;
   CORE_ADDR loaded_addr;
@@ -105,6 +115,13 @@ struct dyld_objfile_entry
   int load_flag;
 
   enum dyld_objfile_reason reason;
+
+  /* As of Leopard, dyld makes up a "shared cache" of commonly used dylibs.
+     All the dylibs in this shared cache are "prebound" into the cache, so 
+     the copy in memory looks like it's loaded at it's intended address.
+     But that address is NOT the same as the load address of the disk file.  
+     This tells us whether the library is in the cache  */
+  int in_shared_cache;
 
   /* The array of dyld_objfile_entry's for the inferior process is a little
      sparse -- some of the entries will be used, others will be allocated but
@@ -191,8 +208,8 @@ void dyld_convert_entry (struct objfile *o, struct dyld_objfile_entry *e);
 
 void dyld_entry_info (struct dyld_objfile_entry *e, int print_basenames,
                       char **in_name, char **in_objname, char **in_symname,
-                      char **in_auxobjname, char **in_auxsymname, char **addr,
-                      char **slide, char **prefix);
+                      char **in_auxobjname, char **in_auxsymname, char **in_dsymobjname,
+		      char **addr, char **slide, char **prefix);
 
 void dyld_print_entry_info (struct dyld_objfile_entry *j, int shlibnum, int baselen);
 

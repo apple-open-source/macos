@@ -103,7 +103,6 @@ struct pyconv py_PRINTER_INFO_2[] = {
 };	
 
 struct pyconv py_PRINTER_INFO_3[] = {
-	{ "flags", PY_UINT32, offsetof(PRINTER_INFO_3, flags) },
 	{ NULL }
 };	
 
@@ -154,7 +153,7 @@ BOOL py_from_DEVICEMODE(PyObject **dict, DEVICEMODE *devmode)
 
 	PyDict_SetItemString(*dict, "private",
 			     PyString_FromStringAndSize(
-				     devmode->private, devmode->driverextra));
+				     devmode->dev_private, devmode->driverextra));
 
 	return True;
 }
@@ -170,7 +169,7 @@ BOOL py_to_DEVICEMODE(DEVICEMODE *devmode, PyObject *dict)
 	if (!PyString_Check(obj))
 		goto done;
 
-	devmode->private = PyString_AsString(obj);
+	devmode->dev_private = PyString_AsString(obj);
 	devmode->driverextra = PyString_Size(obj);
 
 	PyDict_DelItemString(dict_copy, "private");
@@ -291,7 +290,7 @@ BOOL py_to_PRINTER_INFO_2(PRINTER_INFO_2 *info, PyObject *dict,
 	    || !PyDict_Check(obj))
 		goto done;
 
-	info->devmode = talloc(mem_ctx, sizeof(DEVICEMODE));
+	info->devmode = _talloc(mem_ctx, sizeof(DEVICEMODE));
 
 	if (!py_to_DEVICEMODE(info->devmode, obj))
 		goto done;

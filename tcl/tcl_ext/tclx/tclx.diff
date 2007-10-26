@@ -1,0 +1,38 @@
+diff -c /Network/Servers/hills/Volumes/tienda/bbyer/work/tcl/tcl_ext/tclx/tclx/configure\~ /Network/Servers/hills/Volumes/tienda/bbyer/work/tcl/tcl_ext/tclx/tclx/configure
+--- configure~	2003-04-04 13:22:34.000000000 -0800
++++ configure	2007-01-30 16:40:17.000000000 -0800
+@@ -1416,32 +1416,6 @@
+ 
+     
+ 
+-echo $ac_n "checking for executable suffix""... $ac_c" 1>&6
+-echo "configure:1421: checking for executable suffix" >&5
+-if eval "test \"`echo '$''{'ac_cv_exeext'+set}'`\" = set"; then
+-  echo $ac_n "(cached) $ac_c" 1>&6
+-else
+-  if test "$CYGWIN" = yes || test "$MINGW32" = yes; then
+-  ac_cv_exeext=.exe
+-else
+-  rm -f conftest*
+-  echo 'int main () { return 0; }' > conftest.$ac_ext
+-  ac_cv_exeext=
+-  if { (eval echo configure:1431: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; }; then
+-    for file in conftest.*; do
+-      case $file in
+-      *.c | *.o | *.obj) ;;
+-      *) ac_cv_exeext=`echo $file | sed -e s/conftest//` ;;
+-      esac
+-    done
+-  else
+-    { echo "configure: error: installation or configuration problem: compiler cannot create executables." 1>&2; exit 1; }
+-  fi
+-  rm -f conftest*
+-  test x"${ac_cv_exeext}" = x && ac_cv_exeext=no
+-fi
+-fi
+-
+ EXEEXT=""
+ test x"${ac_cv_exeext}" != xno && EXEEXT=${ac_cv_exeext}
+ echo "$ac_t""${ac_cv_exeext}" 1>&6
+
+Diff finished.  Tue Jan 30 16:39:49 2007

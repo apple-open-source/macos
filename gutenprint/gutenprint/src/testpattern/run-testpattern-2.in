@@ -1,0 +1,284 @@
+#!@PERL@
+
+use Getopt::Long;
+Getopt::Long::Configure("bundling", "no_ignore_case", "pass_through");
+
+use strict;
+
+my $valgrind = 0;
+my $cachegrind = 0;
+my $gdb_attach = 0;
+my $calc_md5 = 0;
+my $dontrun = 0;
+my $retval = 0;
+my $testpattern_command;
+my @printer_list = ();
+my @special_options = ();
+my @standard_options = qw(InkType);
+my $global_status = 1;
+
+my @extras = ();
+my @messages = ();
+my %stpdata = ();
+my %models_found = ();
+my %models;
+my %families;
+my $skip_duplicate_printers = 0;
+
+GetOptions("v+"  => \$valgrind,
+	   "c"   => \$cachegrind,
+	   "g"   => \$gdb_attach,
+	   "n"   => \$dontrun,
+	   "s!"  => \$skip_duplicate_printers,
+	   "o=s" => \@special_options,
+	   "m"   => \$calc_md5);
+
+if (! @special_options) {
+    @special_options = @standard_options;
+}
+
+my $pwd = `pwd`;
+chomp $pwd;
+
+if (! defined $ENV{"STP_DATA_PATH"}) {
+    $ENV{"STP_DATA_PATH"} = "${pwd}/../main";
+}
+
+if (! defined $ENV{"STP_MODULE_PATH"}) {
+    $ENV{"STP_MODULE_PATH"} = "${pwd}/../main:${pwd}/../main/.libs";
+}
+
+sub set_opt($$) {
+    my ($opt, $val) = @_;
+    push @extras, "parameter \"$opt\" \"$val\";\n";
+}
+
+sub set_message($) {
+    my ($message) = @_;
+    push @messages, "message \"$message\";\n";
+}
+
+sub print_one_testpattern($) {
+    my ($printer) = @_;
+    my $stuff = "printer \"$printer\";\n";
+    $stuff .= join "", @extras, @messages;
+    $stuff .= << 'EOF';
+hsize 0.1;
+vsize 0.1;
+left 0.15;
+top 0.15;
+blackline 0;
+steps 16;
+mode rgb 8;
+pattern 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0 ;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 -2.0 1.0 0.0 -2.0 1.0 0.0 -2.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+end;
+EOF
+    return $stuff;
+}
+
+my $extra_arg = "";
+if ($#ARGV >= 0) {
+    @printer_list = @ARGV;
+    $extra_arg = join " ", @printer_list;
+} else {
+    open PIPE, "./printers|" or die "Cannot run printers: $!\n";
+    while(<PIPE>) {
+	next if m!^#!;
+	chomp;
+	push @printer_list, $_;
+    }
+    close PIPE;
+}
+
+open PIPE, "./printer_options $extra_arg|" or die "Cannot run printer_options: $!\n";
+while(<PIPE>) {
+    next if m!^#!;
+    eval $_;
+}
+close PIPE or die "Cannot run printer_options: $!\n";
+
+sub do_print {
+    my ($output, $fh) = @_;
+    if ($dontrun) {
+	print $output;
+    } elsif ($calc_md5) {
+	open TESTPATTERN, "|$testpattern_command" or
+		die "Can't run $testpattern_command: $!\n";
+	print TESTPATTERN $output;
+	my $status = close TESTPATTERN;
+	if (! $status) {
+	    $global_status = 0;
+	}
+    } else {
+	print $fh $output;
+    }
+}
+
+
+sub do_printer {
+    my ($printer, $fh) = @_;
+    my $tmp;
+    my $min_res_name;
+    my $min_res_value = 0;
+    my $first_time = 1;
+    my $model_id = $models{$printer};
+    my $family_id = $families{$printer};
+    my $key;
+    my %opt_vals = {};
+    if ($skip_duplicate_printers && $models_found{$family_id}{$model_id}) {
+	return;
+    } else {
+	$models_found{$family_id}{$model_id} = 1;
+    }
+    $tmp = $stpdata{$printer}{'Resolution'};
+    my (@resolutions) = grep {$_ ne 'None' } keys %$tmp;
+    $tmp = $stpdata{$printer}{'PrintingMode'};
+    my (@printing_modes) = grep {$_ ne 'None' } keys %$tmp;
+    foreach $key (@special_options) {
+	$tmp = $stpdata{$printer}{$key};
+	my (@tmp) = grep {$_ ne 'None' } keys %$tmp;
+	$opt_vals{$key} = \@tmp;
+    }
+    foreach $tmp (sort @resolutions) {
+	my $res_value = ($stpdata{$printer}{'x_resolution'}{$tmp} *
+			 $stpdata{$printer}{'y_resolution'}{$tmp});
+	if ($min_res_value == 0 || $res_value < $min_res_value) {
+	    $min_res_value = $res_value;
+	    $min_res_name = $tmp;
+	}
+    }
+    # We want to do all resolutions and all ink types in both color modes.
+    # We don't need to do both resolutions and ink types.
+    my $pmode;
+    foreach $pmode (@printing_modes) {
+	my ($resolution);
+	foreach $resolution (@resolutions) {
+	    @extras = ();
+	    @messages = ();
+	    if ($first_time) {
+		set_message("$printer\n");
+		$first_time = 0;
+	    }
+	    set_opt("PrintingMode", $pmode);
+	    set_opt("Resolution", $resolution);
+	    set_opt("DitherAlgorithm", "Fast");
+	    set_opt("ColorCorrection", "Raw");
+	    set_message("    ${pmode}+${resolution}");
+	    my $output = print_one_testpattern($printer);
+	    do_print( $output, $fh );
+	}
+	foreach $key (@special_options) {
+	    $tmp = $opt_vals{$key};
+	    my (@opts) = @$tmp;
+	    if ($#opts >= 1) {
+		my $opt;
+		foreach $opt (@opts) {
+		    @extras = ();
+		    @messages = ();
+		    if ($first_time) {
+			set_message("$printer\n");
+			$first_time = 0;
+		    }
+		    set_opt("PrintingMode", $pmode);
+		    set_opt("Resolution", $min_res_name);
+		    set_opt($key, $opt);
+		    set_opt("DitherAlgorithm", "Fast");
+		    set_opt("ColorCorrection", "Raw");
+		    set_message("    ${key}=${opt}+${pmode}+${min_res_name}");
+		    my $output = print_one_testpattern($printer);
+		    do_print( $output, $fh );
+		}
+	    }
+	}
+    }
+}
+
+if ($dontrun) {
+    map { do_printer($_, \*STDOUT) } @printer_list;
+    exit 0;
+} else {
+    my $valgrind_command;
+    my $valopts;
+    if ($cachegrind) {
+	$valopts = '--tool=cachegrind';
+	$valgrind = 4;
+    } elsif ($valgrind) {
+	$valopts = '--tool=memcheck';
+    }
+    if ($gdb_attach) {
+	$valopts .= ' --db-attach=yes';
+    }
+    if ($valgrind == 1) {
+	$valgrind_command = "valgrind $valopts -q --num-callers=100 --error-limit=no --leak-check=yes";
+    } elsif ($valgrind == 2) {
+	$valgrind_command = "valgrind $valopts --num-callers=100 --error-limit=no --leak-resolution=high --leak-check=yes";
+    } elsif ($valgrind == 3) {
+	$valgrind_command = "valgrind $valopts --error-limit=no --num-callers=100 --show-reachable=yes --leak-resolution=high --leak-check=yes";
+    } elsif ($valgrind == 4) {
+	$valgrind_command = "valgrind $valopts";
+    }
+
+    my $status = 1;
+    if ($calc_md5) {
+	$testpattern_command = "./testpattern > out.prn; a=\$? ; md5sum out.prn; exit \$a";
+	map { do_printer($_) } @printer_list;
+	$status = $global_status;
+    } else {
+	$testpattern_command = "$valgrind_command ./testpattern -n";
+	open TESTPATTERN, "|$testpattern_command" or
+	    die "Can't run $testpattern_command: $!\n";
+	$testpattern_command = "$valgrind_command ./testpattern -n";
+	map { do_printer($_, \*TESTPATTERN) } @printer_list;
+	$status = close TESTPATTERN;
+    }
+    if ($status) {
+	exit 0;
+    } else {
+	exit 1;
+    }
+}

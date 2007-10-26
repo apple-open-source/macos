@@ -1,4 +1,4 @@
-/* #ident  "@(#)g_exp_sec_context.c 1.2     96/01/18 SMI" */
+/* #pragma ident	"@(#)g_exp_sec_context.c	1.14	04/02/23 SMI" */
 
 /*
  * Copyright 1996 by Sun Microsystems, Inc.
@@ -34,6 +34,38 @@
 #endif
 #include <string.h>
 
+static OM_uint32
+val_exp_sec_ctx_args(
+    OM_uint32 *minor_status,
+    gss_ctx_id_t *context_handle,
+    gss_buffer_t interprocess_token)
+{
+
+    /* Initialize outputs. */
+
+    if (minor_status != NULL)
+	*minor_status = 0;
+
+    if (interprocess_token != GSS_C_NO_BUFFER) {
+	interprocess_token->length = 0;
+	interprocess_token->value = NULL;
+    }
+
+    /* Validate arguments. */
+
+    if (minor_status == NULL)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+
+    if (context_handle == NULL || *context_handle == GSS_C_NO_CONTEXT)
+	return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_NO_CONTEXT);
+
+    if (interprocess_token == GSS_C_NO_BUFFER)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+
+    return (GSS_S_COMPLETE);
+}
+
+
 OM_uint32 KRB5_CALLCONV
 gss_export_sec_context(minor_status,
                        context_handle,
@@ -45,16 +77,16 @@ gss_buffer_t		interprocess_token;
 
 {
     OM_uint32		status;
-    size_t		length;
+    OM_uint32 		length;
     gss_union_ctx_id_t	ctx;
     gss_mechanism	mech;
     gss_buffer_desc	token;
     char		*buf;
-    
-    gss_initialize();
 
-    if (context_handle == NULL || *context_handle == GSS_C_NO_CONTEXT)
-	return GSS_S_NO_CONTEXT;
+    status = val_exp_sec_ctx_args(minor_status,
+				  context_handle, interprocess_token);
+    if (status != GSS_S_COMPLETE)
+	return (status);
 
     /*
      * select the approprate underlying mechanism routine and
@@ -62,11 +94,11 @@ gss_buffer_t		interprocess_token;
      */
     
     ctx = (gss_union_ctx_id_t) *context_handle;
-    mech = __gss_get_mechanism (ctx->mech_type);
+    mech = gssint_get_mechanism (ctx->mech_type);
     if (!mech)
 	return GSS_S_BAD_MECH;
     if (!mech->gss_export_sec_context)
-	return GSS_S_BAD_BINDINGS;
+	return (GSS_S_UNAVAILABLE);
     
     status = mech->gss_export_sec_context(mech->context, minor_status,
 					  &ctx->internal_ctx_id, &token);
@@ -78,7 +110,6 @@ gss_buffer_t		interprocess_token;
     interprocess_token->value = malloc(length);
     if (interprocess_token->value == 0) {
 	(void) gss_release_buffer(minor_status, &token);
-	*minor_status = ENOMEM;
 	return (GSS_S_FAILURE);
     }
     buf = interprocess_token->value;

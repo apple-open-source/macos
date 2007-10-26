@@ -1,8 +1,8 @@
 /* attr.c - routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.88.2.6 2004/08/30 15:52:51 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.100.2.10 2006/01/03 22:16:13 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,16 +38,57 @@
 #include <ac/string.h>
 #include <ac/time.h>
 
-#include "ldap_pvt.h"
 #include "slap.h"
+
+Attribute *
+attr_alloc( AttributeDescription *ad )
+{
+	Attribute *a = ch_malloc( sizeof(Attribute) );
+
+	a->a_desc = ad;
+	a->a_next = NULL;
+	a->a_flags = 0;
+	a->a_vals = NULL;
+	a->a_nvals = NULL;
+#ifdef LDAP_COMP_MATCH
+	a->a_comp_data = NULL;
+#endif
+
+	return a;
+}
 
 void
 attr_free( Attribute *a )
 {
-	ber_bvarray_free( a->a_vals );
-	if (a->a_nvals != a->a_vals) ber_bvarray_free( a->a_nvals );
+	if ( a->a_nvals && a->a_nvals != a->a_vals ) {
+		ber_bvarray_free( a->a_nvals );
+	}
+	/* a_vals may be equal to slap_dummy_bv, a static empty berval;
+	 * this is used as a placeholder for attributes that do not carry
+	 * values, e.g. when proxying search entries with the "attrsonly"
+	 * bit set. */
+	if ( a->a_vals != &slap_dummy_bv ) {
+		ber_bvarray_free( a->a_vals );
+	}
 	free( a );
 }
+
+#ifdef LDAP_COMP_MATCH
+void
+comp_tree_free( Attribute *a )
+{
+	Attribute *next;
+
+	for( ; a != NULL ; a = next ) {
+		next = a->a_next;
+		if ( component_destructor && a->a_comp_data ) {
+			if ( a->a_comp_data->cd_mem_op )
+				component_destructor( a->a_comp_data->cd_mem_op );
+			free ( a->a_comp_data );
+		}
+	}
+}
+#endif
 
 void
 attrs_free( Attribute *a )
@@ -67,10 +108,10 @@ attr_dup( Attribute *a )
 
 	if ( a == NULL) return NULL;
 
-	tmp = ch_malloc( sizeof(Attribute) );
+	tmp = attr_alloc( a->a_desc );
 
 	if ( a->a_vals != NULL ) {
-		int i;
+		int	i;
 
 		for ( i = 0; !BER_BVISNULL( &a->a_vals[i] ); i++ ) {
 			/* EMPTY */ ;
@@ -82,19 +123,23 @@ attr_dup( Attribute *a )
 			if ( BER_BVISNULL( &tmp->a_vals[i] ) ) break;
 			/* FIXME: error? */
 		}
-		tmp->a_vals[i].bv_val = NULL;
+		BER_BVZERO( &tmp->a_vals[i] );
 
 		/* a_nvals must be non null; it may be equal to a_vals */
-		assert( a->a_nvals );
+		assert( a->a_nvals != NULL );
 
 		if ( a->a_nvals != a->a_vals ) {
+			int	j;
+
 			tmp->a_nvals = ch_malloc( (i + 1) * sizeof(struct berval) );
-			for ( i = 0; !BER_BVISNULL( &a->a_nvals[i] ); i++ ) {
-				ber_dupbv( &tmp->a_nvals[i], &a->a_nvals[i] );
-				if ( BER_BVISNULL( &tmp->a_nvals[i] ) ) break;
+			for ( j = 0; !BER_BVISNULL( &a->a_nvals[j] ); j++ ) {
+				assert( j < i );
+				ber_dupbv( &tmp->a_nvals[j], &a->a_nvals[j] );
+				if ( BER_BVISNULL( &tmp->a_nvals[j] ) ) break;
 				/* FIXME: error? */
 			}
-			tmp->a_nvals[i].bv_val = NULL;
+			assert( j == i );
+			BER_BVZERO( &tmp->a_nvals[j] );
 
 		} else {
 			tmp->a_nvals = tmp->a_vals;
@@ -104,11 +149,6 @@ attr_dup( Attribute *a )
 		tmp->a_vals = NULL;
 		tmp->a_nvals = NULL;
 	}
-
-	tmp->a_desc = a->a_desc;
-	tmp->a_next = NULL;
-	tmp->a_flags = 0;
-
 	return tmp;
 }
 
@@ -130,7 +170,6 @@ attrs_dup( Attribute *a )
 
 	return tmp;
 }
-
 
 
 /*
@@ -156,18 +195,20 @@ attr_merge(
 	Attribute	**a;
 
 	for ( a = &e->e_attrs; *a != NULL; a = &(*a)->a_next ) {
-		if ( ad_cmp( (*a)->a_desc, desc ) == 0 ) {
+		if (  (*a)->a_desc == desc ) {
 			break;
 		}
 	}
 
 	if ( *a == NULL ) {
-		*a = (Attribute *) ch_malloc( sizeof(Attribute) );
-		(*a)->a_desc = desc;
-		(*a)->a_vals = NULL;
-		(*a)->a_nvals = NULL;
-		(*a)->a_next = NULL;
-		(*a)->a_flags = 0;
+		*a = attr_alloc( desc );
+	} else {
+		/*
+		 * FIXME: if the attribute already exists, the presence
+		 * of nvals and the value of (*a)->a_nvals must be consistent
+		 */
+		assert( ( nvals == NULL && (*a)->a_nvals == (*a)->a_vals )
+				|| ( nvals != NULL && (*a)->a_nvals != (*a)->a_vals ) );
 	}
 
 	rc = value_add( &(*a)->a_vals, vals );
@@ -201,7 +242,7 @@ attr_merge_normalize(
 		
 		for ( i = 0; !BER_BVISNULL( &vals[i] ); i++ );
 
-		nvals = sl_calloc( sizeof(struct berval), i + 1, memctx );
+		nvals = slap_sl_calloc( sizeof(struct berval), i + 1, memctx );
 		for ( i = 0; !BER_BVISNULL( &vals[i] ); i++ ) {
 			rc = (*desc->ad_type->sat_equality->smr_normalize)(
 					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
@@ -214,7 +255,7 @@ attr_merge_normalize(
 				goto error_return;
 			}
 		}
-		nvals[i].bv_val = NULL;
+		BER_BVZERO( &nvals[i] );
 	}
 
 	rc = attr_merge( e, desc, vals, nvals );
@@ -237,18 +278,13 @@ attr_merge_one(
 	Attribute	**a;
 
 	for ( a = &e->e_attrs; *a != NULL; a = &(*a)->a_next ) {
-		if ( ad_cmp( (*a)->a_desc, desc ) == 0 ) {
+		if ( (*a)->a_desc == desc ) {
 			break;
 		}
 	}
 
 	if ( *a == NULL ) {
-		*a = (Attribute *) ch_malloc( sizeof(Attribute) );
-		(*a)->a_desc = desc;
-		(*a)->a_vals = NULL;
-		(*a)->a_nvals = NULL;
-		(*a)->a_next = NULL;
-		(*a)->a_flags = 0;
+		*a = attr_alloc( desc );
 	}
 
 	rc = value_add_one( &(*a)->a_vals, val );
@@ -292,7 +328,7 @@ attr_merge_normalize_one(
 
 	rc = attr_merge_one( e, desc, val, nvalp );
 	if ( nvalp != NULL ) {
-		sl_free( nval.bv_val, memctx );
+		slap_sl_free( nval.bv_val, memctx );
 	}
 	return rc;
 }
@@ -326,7 +362,7 @@ attr_find(
 	AttributeDescription *desc )
 {
 	for ( ; a != NULL; a = a->a_next ) {
-		if ( ad_cmp( a->a_desc, desc ) == 0 ) {
+		if ( a->a_desc == desc ) {
 			return( a );
 		}
 	}
@@ -349,7 +385,7 @@ attr_delete(
 	Attribute	**a;
 
 	for ( a = attrs; *a != NULL; a = &(*a)->a_next ) {
-		if ( ad_cmp( (*a)->a_desc, desc ) == 0 ) {
+		if ( (*a)->a_desc == desc ) {
 			Attribute	*save = *a;
 			*a = (*a)->a_next;
 			attr_free( save );

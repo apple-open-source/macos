@@ -41,23 +41,25 @@
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.In sys/types.h
 .In unistd.h
 .Ft int
-.Fn tcsetpgrp "int fd" "pid_t pgrp_id"
+.Fo tcsetpgrp
+.Fa "int fildes"
+.Fa "pid_t pgid_id"
+.Fc
 .Sh DESCRIPTION
 If the process has a controlling terminal, the
 .Fn tcsetpgrp
 function sets the foreground process group ID associated with the
 terminal device to
-.Fa pgrp_id .
+.Fa pgid_id .
 The terminal device associated with
-.Fa fd
+.Fa fildes
 must be the controlling terminal of the calling process and the
 controlling terminal must be currently associated with the session
 of the calling process.
 The value of
-.Fa pgrp_id
+.Fa pgid_id
 must be the same as the process group ID of a process in the same
 session as the calling process.
 .Sh RETURN VALUES
@@ -69,28 +71,36 @@ function will fail if:
 .Bl -tag -width Er
 .It Bq Er EBADF
 The
-.Fa fd
+.Fa fildes
 argument is not a valid file descriptor.
 .It Bq Er EINVAL
 An invalid value of
-.Fa pgrp_id
+.Fa pgid_id
 was specified.
 .It Bq Er ENOTTY
 The calling process does not have a controlling terminal, or the file
 represented by
-.Fa fd
+.Fa fildes
 is not the controlling terminal, or the controlling terminal is no
 longer associated with the session of the calling process.
 .It Bq Er EPERM
 The
-.Fa pgrp_id
+.Fa pgid_id
 argument does not match the process group ID of a process in the same
 session as the calling process.
 .El
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <unistd.h>
+.Pp
+The include file
+.In sys/types.h
+is necessary.
 .Sh SEE ALSO
 .Xr setpgid 2 ,
 .Xr setsid 2 ,
-.Xr tcgetpgrp 3
+.Xr tcgetpgrp 3 ,
+.Xr compat 5
 .Sh STANDARDS
 The
 .Fn tcsetpgrp

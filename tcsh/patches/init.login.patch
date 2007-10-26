@@ -1,0 +1,40 @@
+--- init/login.old	2007-02-23 16:12:21.000000000 -0800
++++ init/login	2007-02-19 23:58:17.000000000 -0800
+@@ -0,0 +1,37 @@
++##
++# LOGIN FILE
++#
++# Wilfredo Sanchez Jr. | tritan@mit.edu
++# Dec. 5, 1990
++#
++# MIT Project Athena
++#
++# ORIGINAL SOURCES: /usr/athena/lib/login
++#		and /usr/prototype_user/.login (ATHENA REL 7.2)
++##
++
++##
++# Set paths
++##
++set path = (							\
++		~/bin						\
++		/usr/local/bin /usr/bin /bin			\
++		/usr/local/sbin /usr/sbin /sbin			\
++	   )
++
++if ($?version) then
++  if ("$version" =~ tcsh*) then
++    set path = ( "~/bin/${MACHTYPE}-${VENDOR}-${OSTYPE}" $path )
++  endif
++endif
++
++setenv MANPATH "${HOME}/man:/usr/local/share/man:/usr/share/man"
++
++if (-r "${tcsh_initdir}/path") source "${tcsh_initdir}/path"
++
++##
++# Read user's login
++##
++if (-r "${tcsh_initdir}/login.mine") then
++  source "${tcsh_initdir}/login.mine"
++endif

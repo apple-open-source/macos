@@ -165,6 +165,7 @@ class DbImpl;
 class DbMaker
 {
 public:
+	virtual ~DbMaker();
 	virtual DbImpl *newDb(const char *inDbName, const CSSM_NET_ADDRESS *inDbLocation) = 0;
 };
 
@@ -173,6 +174,7 @@ class DbCursorImpl;
 class DbCursorMaker
 {
 public:
+	virtual ~DbCursorMaker();
 	virtual DbCursorImpl *newDbCursor(const CSSM_QUERY &query, Allocator &allocator) = 0;
 	virtual DbCursorImpl *newDbCursor(uint32 capacity, Allocator &allocator) = 0;
 };
@@ -182,6 +184,7 @@ class DbUniqueRecordImpl;
 class DbUniqueRecordMaker
 {
 public:
+	virtual ~DbUniqueRecordMaker();
 	virtual DbUniqueRecordImpl *newDbUniqueRecord() = 0;
 };
 
@@ -315,6 +318,7 @@ public:
 	virtual void changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred);
 	virtual void recode(const CSSM_DATA &data, const CSSM_DATA &extraData);
 	virtual void copyBlob(CssmData &data);
+	virtual void setBatchMode(Boolean mode, Boolean rollback);
 
 	// Utility methods
 
@@ -342,6 +346,7 @@ public:
 	// default-credential hook
 	class DefaultCredentialsMaker {
 	public:
+		virtual ~DefaultCredentialsMaker();
 		virtual const AccessCredentials *makeCredentials() = 0;
 	};
 	

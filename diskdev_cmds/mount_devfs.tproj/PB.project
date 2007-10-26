@@ -3,7 +3,7 @@
     FILESTABLE = {
         FRAMEWORKS = (); 
         H_FILES = (); 
-        OTHER_LIBS = (disk); 
+        OTHER_LIBS = (util); 
         OTHER_LINKED = (mount_devfs.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile); 
     }; 

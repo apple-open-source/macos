@@ -49,6 +49,9 @@ MAKE_FINI_FUNCTION(profile_library_finalizer);
 
 int profile_library_initializer(void)
 {
+#ifdef SHOW_INITFINI_FUNCS
+    printf("profile_library_initializer\n");
+#endif
 #if !USE_BUNDLE_ERROR_STRINGS
     add_error_table(&et_prof_error_table);
 #endif
@@ -56,8 +59,15 @@ int profile_library_initializer(void)
 }
 void profile_library_finalizer(void)
 {
-    if (! INITIALIZER_RAN(profile_library_initializer) || PROGRAM_EXITING())
+    if (! INITIALIZER_RAN(profile_library_initializer) || PROGRAM_EXITING()) {
+#ifdef SHOW_INITFINI_FUNCS
+	printf("profile_library_finalizer: skipping\n");
+#endif
 	return;
+    }
+#ifdef SHOW_INITFINI_FUNCS
+    printf("profile_library_finalizer\n");
+#endif
     k5_mutex_destroy(&g_shared_trees_mutex);
 #if !USE_BUNDLE_ERROR_STRINGS
     remove_error_table(&et_prof_error_table);
@@ -203,25 +213,12 @@ errcode_t profile_open_file(const_profile_filespec_t filespec,
 #ifdef HAVE_PWD_H
 		if (home_env == NULL) {
 		    uid_t uid;
-		    struct passwd *pw;
-#ifdef HAVE_GETPWUID_R
-		    struct passwd pwx;
+		    struct passwd *pw, pwx;
 		    char pwbuf[BUFSIZ];
-#endif
 
 		    uid = getuid();
-#ifndef HAVE_GETPWUID_R
-		    pw = getpwuid(uid);
-#elif defined(GETPWUID_R_4_ARGS)
-		    /* earlier POSIX drafts */
-		    pw = getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf));
-#else
-		    /* POSIX */
-		    if (getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf), &pw) != 0)
-			/* Probably already null, but let's make sure.  */
-			pw = NULL;
-#endif /* getpwuid variants */
-		    if (pw != NULL && pw->pw_dir[0] != 0)
+		    if (!k5_getpwuid_r(uid, &pwx, pwbuf, sizeof(pwbuf), &pw)
+			&& pw != NULL && pw->pw_dir[0] != 0)
 			home_env = pw->pw_dir;
 		}
 #endif
@@ -306,9 +303,8 @@ errcode_t profile_update_file_data(prf_data_t data)
 	errcode_t retval;
 #ifdef HAVE_STAT
 	struct stat st;
-#ifdef STAT_ONCE_PER_SECOND
+	unsigned long frac;
 	time_t now;
-#endif
 #endif
 	FILE *f;
 
@@ -317,22 +313,29 @@ errcode_t profile_update_file_data(prf_data_t data)
 	    return retval;
 
 #ifdef HAVE_STAT
-#ifdef STAT_ONCE_PER_SECOND
 	now = time(0);
 	if (now == data->last_stat && data->root != NULL) {
 	    k5_mutex_unlock(&data->lock);
 	    return 0;
 	}
-#endif
 	if (stat(data->filespec, &st)) {
 	    retval = errno;
 	    k5_mutex_unlock(&data->lock);
 	    return retval;
 	}
-#ifdef STAT_ONCE_PER_SECOND
 	data->last_stat = now;
+#if defined HAVE_STRUCT_STAT_ST_MTIMENSEC
+	frac = st.st_mtimensec;
+#elif defined HAVE_STRUCT_STAT_ST_MTIMESPEC_TV_NSEC
+	frac = st.st_mtimespec.tv_nsec;
+#elif defined HAVE_STRUCT_STAT_ST_MTIM_TV_NSEC
+	frac = st.st_mtim.tv_nsec;
+#else
+	frac = 0;
 #endif
-	if (st.st_mtime == data->timestamp && data->root != NULL) {
+	if (st.st_mtime == data->timestamp
+	    && frac == data->frac_ts
+	    && data->root != NULL) {
 	    k5_mutex_unlock(&data->lock);
 	    return 0;
 	}
@@ -377,6 +380,7 @@ errcode_t profile_update_file_data(prf_data_t data)
 	assert(data->root != NULL);
 #ifdef HAVE_STAT
 	data->timestamp = st.st_mtime;
+	data->frac_ts = frac;
 #endif
 	k5_mutex_unlock(&data->lock);
 	return 0;

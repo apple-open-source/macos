@@ -1,5 +1,5 @@
 # Source window for Insight.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -866,21 +866,44 @@ itcl::body SrcWin::toolbar {state} {
 # Unfortunately, this doesn't exist, so it's here for now.
 itcl::body SrcWin::inferior {action} {
 
+  # Check to see if this action is forwarded to other Insight instances
+  if {$::iipc} {
+    switch $action {
+      step -
+      next -
+      stepi -
+      nexti -
+      finish {
+	if {[pref get gdb/ipc/step_button]} {
+	  $::insight_ipc send $action
+	}
+      }
+      continue {
+	if {[pref get gdb/ipc/cont_button]} {
+	  $::insight_ipc send $action
+	}
+      }
+      run { 
+	if {[pref get gdb/ipc/run_button]} {
+	  $::insight_ipc send $action
+	}
+      }
+      stop {
+	if {[pref get gdb/ipc/stop_button]} {
+	  $::insight_ipc send $action
+	}
+      }
+    }
+  }
+
   switch $action {
     step { gdbtk_step }
-
     next { gdbtk_next }
-
     finish { gdbtk_finish }
-
     continue { gdbtk_continue }
-
     stepi { gdbtk_stepi }
-
     nexti { gdbtk_nexti }
-
     run { gdbtk_run }
-
     stop { gdbtk_stop }
   }
 }

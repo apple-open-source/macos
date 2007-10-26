@@ -17,7 +17,7 @@
 
 /* cron.h - header for vixie's cron
  *
- * $FreeBSD: src/usr.sbin/cron/cron/cron.h,v 1.14 2001/03/09 03:14:09 babkin Exp $
+ * $FreeBSD: src/usr.sbin/cron/cron/cron.h,v 1.16 2005/08/24 17:51:36 pjd Exp $
  *
  * vix 14nov88 [rest of log is in RCS]
  * vix 14jan87 [0 or 7 can be sunday; thanks, mwm@berkeley]
@@ -34,8 +34,11 @@
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <libutil.h>
 #include <pwd.h>
+#ifdef __APPLE__
 #include <grp.h>
+#endif
 #include <signal.h>
 #include <stdio.h>
 #include <time.h>
@@ -90,6 +93,7 @@
 #define	DBIT		0x0080	/* bit twiddling shown (long) */
 
 #define	CRON_TAB(u)	"%s/%s", SPOOL_DIR, u
+#define	TMP_CRON_TAB(u)	"%s/%s", TMP_SPOOL_DIR, u
 #define	REG		register
 #define	PPC_NULL	((char **)NULL)
 
@@ -157,8 +161,13 @@
 
 typedef	struct _entry {
 	struct _entry	*next;
+#ifdef __APPLE__
 	char            uname[MAXLOGNAME];
 	char            gname[MAXLOGNAME]; /* there is no MAXGROUPNAME, but if there were, it'd probably be the same */
+#else
+	uid_t		uid;
+	gid_t		gid;
+#endif
 #ifdef LOGIN_CAP
 	char            *class;
 #endif
@@ -173,9 +182,11 @@ typedef	struct _entry {
 #define	DOM_STAR	0x01
 #define	DOW_STAR	0x02
 #define	WHEN_REBOOT	0x04
-#define	RUN_AT		0x08
+#define	RUN_AT	0x08
 #define	NOT_UNTIL	0x10
-#define	NOT_BATTERY	0x20
+#ifdef __APPLE__
+#define NOT_BATTERY	0x20
+#endif
 	time_t	lastrun;
 } entry;
 
@@ -212,7 +223,6 @@ void		set_cron_uid __P((void)),
 		env_free __P((char **)),
 		unget_char __P((int, FILE *)),
 		free_entry __P((entry *)),
-		acquire_daemonlock __P((int)),
 		skip_comments __P((FILE *)),
 		log_it __P((char *, int, char *, char *)),
 		log_close __P((void));
@@ -225,7 +235,11 @@ int		job_runqueue __P((void)),
 		load_env __P((char *, FILE *)),
 		cron_pclose __P((FILE *)),
 		strcmp_until __P((char *, char *, int)),
+#ifdef __APPLE__
+		allowed __P((char *, int)),
+#else
 		allowed __P((char *)),
+#endif
 		strdtb __P((char *));
 
 char		*env_get __P((char *, char **)),
@@ -236,11 +250,15 @@ char		*env_get __P((char *, char **)),
 		**env_copy __P((char **)),
 		**env_set __P((char **, char *));
 
-user		*load_user __P((int, char *)),
+user		*load_user __P((int, struct passwd *, char *)),
 		*find_user __P((cron_db *, char *));
 
 entry		*load_entry __P((FILE *, void (*)(),
+#ifdef __APPLE__
 				 char *, char **));
+#else
+				 struct passwd *, char **));
+#endif
 
 FILE		*cron_popen __P((char *, char *, entry *));
 
@@ -271,6 +289,8 @@ char	*DowNames[] = {
 
 char	*ProgramName;
 int	LineNumber;
+unsigned Jitter,
+	RootJitter;
 time_t	TargetTime;
 
 # if DEBUGGING
@@ -286,7 +306,10 @@ extern	char	*copyright[],
 		*DowNames[],
 		*ProgramName;
 extern	int	LineNumber;
+extern unsigned	Jitter,
+		RootJitter;
 extern	time_t	TargetTime;
+extern struct pidfh *pfh;
 # if DEBUGGING
 extern	int	DebugFlags;
 extern	char	*DebugFlagNames[];

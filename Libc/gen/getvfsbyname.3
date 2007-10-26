@@ -66,9 +66,6 @@ the name of the filesystem
 the filesystem type number assigned by the kernel
 .It vfc_refcount
 the number of active mount points using the filesystem
-.It vfc_flags
-flag bits as described in
-.Xr getvfsent 3
 .El
 .Sh RETURN VALUES
 .Rv -std getvfsbyname
@@ -86,7 +83,6 @@ specifies a filesystem that is unknown or not configured in the kernel.
 .El
 .Sh SEE ALSO
 .Xr mount 2 ,
-.Xr getvfsent 3 ,
 .Xr sysctl 3 ,
 .Xr mount 8 ,
 .Xr sysctl 8

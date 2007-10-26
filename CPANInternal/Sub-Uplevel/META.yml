@@ -1,0 +1,20 @@
+---
+name: Sub-Uplevel
+version: 0.14
+author:
+  - 'David A. Golden <dagolden@cpan.org>'
+abstract: apparently run a function in a higher stack frame
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Test::More: 0.47
+  perl: 5.006
+provides:
+  Sub::Uplevel:
+    file: lib/Sub/Uplevel.pm
+    version: 0.14
+generated_by: Module::Build version 0.2805
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

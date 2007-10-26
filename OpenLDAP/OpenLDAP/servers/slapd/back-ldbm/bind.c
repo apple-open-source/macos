@@ -1,8 +1,8 @@
 /* bind.c - ldbm backend bind and unbind routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/bind.c,v 1.65.2.6 2004/04/06 18:16:02 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/bind.c,v 1.75.2.2 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,13 +45,8 @@ ldbm_back_bind(
 
 	AttributeDescription *password = slap_schema.si_ad_userPassword;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( BACK_LDBM, ENTRY, 
-		"ldbm_back_bind: dn: %s.\n", op->o_req_dn.bv_val, 0, 0 );
-#else
 	Debug(LDAP_DEBUG_ARGS,
 		"==> ldbm_back_bind: dn: %s\n", op->o_req_dn.bv_val, 0, 0);
-#endif
 
 	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE && be_isroot_pw( op ) ) {
 		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
@@ -80,13 +75,8 @@ ldbm_back_bind(
 #ifdef LDBM_SUBENTRIES
 	if ( is_entry_subentry( e ) ) {
 		/* entry is an subentry, don't allow bind */
-#ifdef NEW_LOGGING
-		LDAP_LOG ( OPERATION, DETAIL1,
-				"bdb_bind: entry is subentry\n", 0, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 				"entry is subentry\n", 0, 0, 0 );
-#endif
 		rc = LDAP_INVALID_CREDENTIALS;
 		goto return_results;
 	}
@@ -94,13 +84,7 @@ ldbm_back_bind(
 
 	if ( is_entry_alias( e ) ) {
 		/* entry is an alias, don't allow bind */
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDBM, INFO, 
-			"ldbm_back_bind: entry (%s) is an alias.\n",
-			e->e_name.bv_val, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "entry is alias\n", 0, 0, 0 );
-#endif
 
 #if 1
 		rc = LDAP_INVALID_CREDENTIALS;
@@ -113,12 +97,7 @@ ldbm_back_bind(
 
 	if ( is_entry_referral( e ) ) {
 		/* entry is a referral, don't allow bind */
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDBM, INFO, 
-			"ldbm_back_bind: entry(%s) is a referral.\n", e->e_dn, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0, 0, 0 );
-#endif
 
 		rc = LDAP_INVALID_CREDENTIALS;
 		goto return_results;
@@ -126,31 +105,16 @@ ldbm_back_bind(
 
 	switch ( op->oq_bind.rb_method ) {
 	case LDAP_AUTH_SIMPLE:
-		if ( ! access_allowed( op, e,
-			password, NULL, ACL_AUTH, NULL ) )
-		{
-#if 1
-			rc = LDAP_INVALID_CREDENTIALS;
-#else
-			rc = LDAP_INSUFFICIENT_ACCESS;
-#endif
-			goto return_results;
-		}
-
 		if ( (a = attr_find( e->e_attrs, password )) == NULL ) {
 			/* stop front end from sending result */
-#if 1
 			rc = LDAP_INVALID_CREDENTIALS;
-#else
-			rc = LDAP_INAPPROPRIATE_AUTH;
-#endif
 			goto return_results;
 		}
 
-		if ( slap_passwd_check( op->o_conn,
-			a, &op->oq_bind.rb_cred, &rs->sr_text ) != 0 )
+		if ( slap_passwd_check( op, e, a, &op->oq_bind.rb_cred,
+					&rs->sr_text ) != 0 )
 		{
-			/* stop front end from sending result */
+			/* failure; stop front end from sending result */
 			rc = LDAP_INVALID_CREDENTIALS;
 			goto return_results;
 		}

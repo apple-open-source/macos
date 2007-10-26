@@ -2,14 +2,14 @@ Notificação de inscrição para a lista de discussão %(listname)s
 
 Nós recebemos uma requisição%(remote)s para inscrição de seu endereço
 de email, "%(email)s", para a lista de discussão %(listaddr)s. Para 
-confirmara que deseja ser adicionado a esta lista de discussão, 
+confirmar que deseja ser adicionado a esta lista de discussão, 
 simplesmente responda a esta mensagem, mantendo o cabeçalho 
 Assunto intacto. Ou visite esta página web:
 
     %(confirmurl)s
 
-Ou adicione as seguinte linha -- e somente a seguinte linha -- em uma 
-mensagem para %(requestaddr)s:
+ou adicione as seguinte linha -- somente esta linha -- no 
+corpo da mensagem para %(requestaddr)s:
 
     confirm %(cookie)s
 

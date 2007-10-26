@@ -1,11 +1,10 @@
 TODO file for GNU m4
 
-Tell <pinard@iro.umontreal.ca> if you feel like volunteering for any
+Tell <bug-m4@gnu.org> if you feel like volunteering for any
 of these ideas, listed more or less in decreasing order of priority.
 
 * Features or problems
   - Update documentation from accumulated mail about it
-  - Changeword without arguments should restore default behavior
   - Study synclines at the very beginning of each diverted sequence
   - Make eval work on bignums - the 32 bits limit is artificial
 	From Krste Asanovic <krste@icsi.berkeley.edu>, 1993-03-20
@@ -13,8 +12,6 @@ of these ideas, listed more or less in decreasing order of priority.
 * Optimization and clean up
   - Check for memory leaks and uninitialized reads
 	From Vern Paxson <vern@horse.ee.lbl.gov> on 1993-12-06
-  - Simplify format/ecvt code, together with HAVE_EFGCVT
-  - Finalize the stdarg vs varargs thing
   - Profile GNU m4 and speed it up
 	From David J. MacKenzie <djm@eng.umd.edu>, 1993-01-20
 
@@ -31,11 +28,17 @@ of these ideas, listed more or less in decreasing order of priority.
 	GNU m4 is lousy regarding NULs in streams (this would require
 	maintaining the string lengths, and avoiding strlen, strcpy,
 	etc.). 
-  - Clean up the obstack.[ch] code
-  - Use rx.[ch] instead of regex.[ch]
-	From Hal Peterson <hrp@ironwood.cray.com>, 1994-04-22
 
 Local Variables:
 mode: outline
 outline-regexp: " *[-+*.] \\|"
 End:
+
+Copyright (C) 2000, 2006 Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the ``GNU Free
+Documentation License'' file as part of this distribution.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -138,19 +138,14 @@ static int fs_label(char *devpath, char *volName);
 static void fs_set_label_file(char *labelPtr);
 
 static int safe_open(char *path, int flags, mode_t mode);
-static void safe_read(int fd, char *buf, int nbytes, off_t off);
+static void safe_read(int fd, void *buf, int nbytes, off_t off);
 static void safe_close(int fd);
 static void safe_write(int fd, char *data, int len, off_t off);
-static void safe_execv(char *args[]);
-static void safe_unlink(char *path);
+static void safe_execv(const char *args[]);
 
-#ifdef DEBUG
-static void report_exit_code(int ret);
-#endif
-
-static int checkLoadable();
+static int checkLoadable(void);
 static int oklabel(const char *src);
-static void mklabel(u_int8_t *dest, const char *src);
+static void mklabel(char *dest, const char *src);
 
 int ret = 0;
 
@@ -267,9 +262,6 @@ int main(int argc, char **argv)
             usage();
     }
 
-    #ifdef DEBUG
-    report_exit_code(ret);
-    #endif
     exit(ret);
 
     return(ret);
@@ -290,7 +282,7 @@ static int fs_probe(char *devpath, int removable, int writable)
     u_int8_t	spc;
     unsigned	rootDirSectors;
     unsigned	i,j, finished;
-	char diskLabel[LABEL_LENGTH];
+    char diskLabel[LABEL_LENGTH];
     char buf[MAX_DOS_BLOCKSIZE];
 
     fd = safe_open(devpath, O_RDONLY, 0);
@@ -326,7 +318,7 @@ static int fs_probe(char *devpath, int removable, int writable)
     /* It is possible that the above check could match a partition table, or some */
     /* non-FAT disk meant to boot a PC.  Check some more fields for sensible values. */
 
-    /* We only work with 512, 1024, 2048 and 4096 byte sectors */
+    /* We only work with 512, 1024, 2048, and 4096 byte sectors */
     bps = getushort(b33->bpbBytesPerSec);
     if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
 	{
@@ -382,7 +374,7 @@ static int fs_probe(char *devpath, int removable, int writable)
                 else if (dirp->deAttributes == ATTR_WIN95)
                     continue;
                 else if (dirp->deAttributes & ATTR_VOLUME) {
-                    strncpy(diskLabel, dirp->deName, LABEL_LENGTH);
+                    strncpy(diskLabel, (char*)dirp->deName, LABEL_LENGTH);
                     finished = true;
                     break;
                 }
@@ -427,7 +419,7 @@ static int fs_probe(char *devpath, int removable, int writable)
                 else if (dirp->deAttributes == ATTR_WIN95)
                     continue;
                 else if (dirp->deAttributes & ATTR_VOLUME) {
-                    strncpy(diskLabel, dirp->deName, LABEL_LENGTH);
+                    strncpy(diskLabel, (char *)dirp->deName, LABEL_LENGTH);
                     finished = true;
                     break;
                 }
@@ -457,11 +449,11 @@ static int fs_probe(char *devpath, int removable, int writable)
     if (diskLabel[0] == 0) {
         if (getushort(b50->bpbRootDirEnts) == 0) { /* Its a FAT32 */
             if (((struct extboot *)bsp->bs710.bsExt)->exBootSignature == EXBOOTSIG) {
-            	strncpy(diskLabel, ((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, LABEL_LENGTH);
+            	strncpy(diskLabel, (char *)((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, LABEL_LENGTH);
 			}
         }
         else if (((struct extboot *)bsp->bs50.bsExt)->exBootSignature == EXBOOTSIG) {
-            strncpy(diskLabel, ((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, LABEL_LENGTH);
+            strncpy(diskLabel, (char *)((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, LABEL_LENGTH);
         }
     }
 
@@ -560,7 +552,7 @@ static int fs_label(char *devpath, char *volName)
 
         /* Both partitions tables and boot sectors pass the above test, do do some more */
 
-        /* We only work with 512, 1024, 2048, and 4096 byte sectors */
+        /* We only work with 512, 1024, 2048 and 4096 byte sectors */
         bps = getushort(b33->bpbBytesPerSec);
         if ((bps < 0x200) || (bps & (bps - 1)) || (bps > MAX_DOS_BLOCKSIZE))
                 return(FSUR_UNRECOGNIZED);
@@ -573,10 +565,10 @@ static int fs_label(char *devpath, char *volName)
         /* we know this disk, find the volume label */
         if (getushort(b50->bpbRootDirEnts) == 0) {
                 /* Its a FAT32 */
-                strncpy(((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
+                strncpy((char *)((struct extboot *)bsp->bs710.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
         }
         else if (((struct extboot *)bsp->bs50.bsExt)->exBootSignature == EXBOOTSIG) {
-                strncpy(((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
+                strncpy((char *)((struct extboot *)bsp->bs50.bsExt)->exVolumeLabel, label, LABEL_LENGTH);
         }
 
 
@@ -603,8 +595,8 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 	 */
 	encoding = kCFStringEncodingMacRoman;	/* Default to Roman/Latin */
 	if ((passwdp = getpwuid(getuid()))) {
-		strcpy(buffer, passwdp->pw_dir);
-		strcat(buffer, "/.CFUserTextEncoding");
+		strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
+		strlcat(buffer, "/.CFUserTextEncoding", sizeof(buffer));
 
 		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
 			size = read(fd, buffer, MAXPATHLEN);
@@ -672,10 +664,10 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 /* Set the name of this file system */
 static void fs_set_label_file(char *labelPtr)
 {
-	int				i;
+    int				i;
     CFStringEncoding encoding;
-    unsigned char	label[LABEL_LENGTH+1];
-    unsigned char	labelUTF8[LABEL_LENGTH*3];
+    char			label[LABEL_LENGTH+1];
+    char			labelUTF8[LABEL_LENGTH*3];
     CFStringRef 	cfstr;
 
 	/* Make a local copy of the label */
@@ -738,7 +730,7 @@ oklabel(const char *src)
  * Make a volume label.
  */
 static void
-mklabel(u_int8_t *dest, const char *src)
+mklabel(char *dest, const char *src)
 {
     int c, i;
 
@@ -773,14 +765,14 @@ safe_close(int fd)
 }
 
 void
-safe_execv(char *args[])
+safe_execv(const char *args[])
 {
 	int		pid;
 	union wait	status;
 
 	pid = fork();
 	if (pid == 0) {
-		(void)execv(args[0], args);
+		(void)execv(args[0], (char *const *) args);
 		fprintf(stderr, "%s: execv %s failed, %s\n", progname, args[0],
 			strerror(errno));
 		exit(FSUR_IO_FAIL);
@@ -808,18 +800,7 @@ safe_execv(char *args[])
 
 
 static void
-safe_unlink(char *path)
-{
-	if (unlink(path) && errno != ENOENT) {
-		fprintf(stderr, "%s: unlink %s failed, %s\n", progname, path,
-			strerror(errno));
-		exit(FSUR_IO_FAIL);
-	}
-}
-
-
-static void
-safe_read(int fd, char *buf, int nbytes, off_t off)
+safe_read(int fd, void *buf, int nbytes, off_t off)
 {
 	if (lseek(fd, off, SEEK_SET) == -1) {
 		fprintf(stderr, "%s: device seek error @ %qu, %s\n", progname,
@@ -860,42 +841,5 @@ static int checkLoadable(void)
 
 	return error;
 }
-
-
-
-#ifdef DEBUG
-static void
-report_exit_code(int ret)
-{
-    printf("...ret = %d\n", ret);
-
-    switch (ret) {
-    case FSUR_RECOGNIZED:
-	printf("File system recognized; a mount is possible.\n");
-	break;
-    case FSUR_UNRECOGNIZED:
-	printf("File system unrecognized; a mount is not possible.\n");
-	break;
-    case FSUR_IO_SUCCESS:
-	printf("Mount, unmount, or repair succeeded.\n");
-	break;
-    case FSUR_IO_FAIL:
-	printf("Unrecoverable I/O error.\n");
-	break;
-    case FSUR_IO_UNCLEAN:
-	printf("Mount failed; file system is not clean.\n");
-	break;
-    case FSUR_INVAL:
-	printf("Invalid argument.\n");
-	break;
-    case FSUR_LOADERR:
-	printf("kern_loader error.\n");
-	break;
-    case FSUR_INITRECOGNIZED:
-	printf("File system recognized; initialization is possible.\n");
-	break;
-    }
-}
-#endif
 
 /* end of DOS.util.c */

@@ -71,6 +71,7 @@
  */
 
 #include "k5-int.h"
+#include "gss_libinit.h"
 #include "gssapiP_krb5.h"
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
@@ -79,7 +80,7 @@
 #include <assert.h>
 
 /*
- * $Id: init_sec_context.c 17241 2005-06-15 02:28:30Z  $
+ * $Id: init_sec_context.c 18721 2006-10-16 16:18:29Z epeisach $
  */
 
 /* XXX This is for debugging only!!!  Should become a real bitfield
@@ -155,7 +156,7 @@ make_gss_checksum (krb5_context context, krb5_auth_context auth_context,
     unsigned char *ptr;
     struct gss_checksum_data *data = cksum_data;
     krb5_data credmsg;
-    int junk;
+    unsigned int junk;
 
     data->checksum_data.data = 0;
     credmsg.data = 0;
@@ -325,7 +326,7 @@ make_ap_req_v1(context, ctx, cred, k_cred, chan_bindings, mech_type, token)
 
    ptr = t;
 
-   g_make_token_header((gss_OID) mech_type, ap_req.length,
+   g_make_token_header(mech_type, ap_req.length,
 		       &ptr, KG_TOK_CTX_AP_REQ);
 
    TWRITE_STR(ptr, (unsigned char *) ap_req.data, ap_req.length);
@@ -688,7 +689,7 @@ mutual_auth(
       return(GSS_S_NO_CONTEXT);
    }
 
-   ctx = (gss_ctx_id_t) *context_handle;
+   ctx = (krb5_gss_ctx_id_t) *context_handle;
 
    /* make sure the context is non-established, and that certain
       arguments are unchanged */
@@ -720,7 +721,7 @@ mutual_auth(
 
    ptr = (unsigned char *) input_token->value;
 
-   if (g_verify_token_header((gss_OID) ctx->mech_used,
+   if (g_verify_token_header(ctx->mech_used,
 			     &(ap_rep.length),
 			     &ptr, KG_TOK_CTX_AP_REP,
 			     input_token->length, 1)) {
@@ -847,7 +848,7 @@ krb5_gss_init_sec_context(minor_status, claimant_cred_handle,
    OM_uint32 tmp_min_stat;
 
    if (*context_handle == GSS_C_NO_CONTEXT) {
-       kerr = krb5_init_context(&context);
+       kerr = krb5_gss_init_context(&context);
        if (kerr) {
 	   *minor_status = kerr;
 	   return GSS_S_FAILURE;
@@ -878,7 +879,7 @@ krb5_gss_init_sec_context(minor_status, claimant_cred_handle,
    /* verify the credential, or use the default */
    /*SUPPRESS 29*/
    if (claimant_cred_handle == GSS_C_NO_CREDENTIAL) {
-      major_status = kg_get_defcred(minor_status, &cred);
+      major_status = kg_get_defcred(minor_status, (gss_cred_id_t *)&cred);
       if (major_status && GSS_ERROR(major_status)) {
 	 if (*context_handle == GSS_C_NO_CONTEXT)
 	    krb5_free_context(context);
@@ -918,6 +919,9 @@ krb5_gss_init_sec_context(minor_status, claimant_cred_handle,
    } else if (g_OID_equal(mech_type, gss_mech_krb5_old)) {
        if (!cred->prerfc_mech)
 	   err = 1;
+   } else if (g_OID_equal(mech_type, gss_mech_krb5_wrong)) {
+       if (!cred->rfc_mech)
+	   err = 1;
    } else {
        err = 1;
    }
@@ -925,7 +929,7 @@ krb5_gss_init_sec_context(minor_status, claimant_cred_handle,
    if (err) {
       k5_mutex_unlock(&cred->lock);
       if (claimant_cred_handle == GSS_C_NO_CREDENTIAL)
-	 krb5_gss_release_cred(minor_status, (gss_cred_id_t)&cred);
+	 krb5_gss_release_cred(minor_status, (gss_cred_id_t *)&cred);
       *minor_status = 0;
       if (*context_handle == GSS_C_NO_CONTEXT)
 	 krb5_free_context(context);
@@ -962,7 +966,56 @@ krb5_gss_init_sec_context(minor_status, claimant_cred_handle,
    }
 
    if (claimant_cred_handle == GSS_C_NO_CREDENTIAL)
-      krb5_gss_release_cred(&tmp_min_stat, (gss_cred_id_t)&cred);
+      krb5_gss_release_cred(&tmp_min_stat, (gss_cred_id_t *)&cred);
 
    return(major_status);
 }
+
+#ifndef _WIN32
+k5_mutex_t kg_kdc_flag_mutex = K5_MUTEX_PARTIAL_INITIALIZER;
+static int kdc_flag = 0;
+#endif
+
+krb5_error_code
+krb5_gss_init_context (krb5_context *ctxp)
+{
+    krb5_error_code err;
+#ifndef _WIN32
+    int is_kdc;
+#endif
+
+    err = gssint_initialize_library();
+    if (err)
+	return err;
+#ifndef _WIN32
+    err = k5_mutex_lock(&kg_kdc_flag_mutex);
+    if (err)
+	return err;
+    is_kdc = kdc_flag;
+    k5_mutex_unlock(&kg_kdc_flag_mutex);
+
+    if (is_kdc)
+	return krb5int_init_context_kdc(ctxp);
+#endif
+
+    return krb5_init_context(ctxp);
+}
+
+#ifndef _WIN32
+krb5_error_code
+krb5_gss_use_kdc_context()
+{
+    krb5_error_code err;
+
+    err = gssint_initialize_library();
+    if (err)
+	return err;
+    err = k5_mutex_lock(&kg_kdc_flag_mutex);
+    if (err)
+	return err;
+    kdc_flag = 1;
+    k5_mutex_unlock(&kg_kdc_flag_mutex);
+    return 0;
+}
+#endif
+

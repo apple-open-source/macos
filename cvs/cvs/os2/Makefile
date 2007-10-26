@@ -82,7 +82,6 @@ OS2_SOURCES = \
        filesubr.c \
        dirent.c \
        run.c \
-       stripslash.c \
        rcmd.c \
        waitpid.c \
        popen.c \
@@ -167,7 +166,6 @@ OS2_OBJECTS = \
        ${srcdir}${SL}filesubr.obj \
        ${srcdir}${SL}dirent.obj \
        ${srcdir}${SL}run.obj \
-       ${srcdir}${SL}stripslash.obj \
        ${srcdir}${SL}rcmd.obj \
        ${srcdir}${SL}waitpid.obj \
        ${srcdir}${SL}popen.obj \
@@ -287,7 +285,7 @@ tags TAGS:
 # distdir added for compatibility with CVS automake.
 top_distdir = ..
 PACKAGE = cvs
-VERSION = 1.11.18
+VERSION = 1.12.13
 distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
 
 distdir: $(DISTFILES)

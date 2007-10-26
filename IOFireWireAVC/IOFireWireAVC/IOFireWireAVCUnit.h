@@ -184,6 +184,7 @@ protected:
 	{
 		OSArray * fAVCAsyncCommands;
 		IOFireWireController *fControl;
+		bool enableRobustAVCCommandResponseMatching;
 	};
 
 /*! @var fIOFireWireAVCUnitExpansion 
@@ -206,6 +207,7 @@ public:
     // IOService overrides
     virtual bool start(IOService *provider);
     virtual IOReturn message(UInt32 type, IOService *provider, void *argument);
+	virtual IOReturn setProperties (OSObject * properties );
 
 /*! @function handleOpen
     @abstract Overrideable method to control the open / close behaviour of an IOService.

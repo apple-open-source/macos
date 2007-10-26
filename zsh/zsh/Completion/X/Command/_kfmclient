@@ -1,5 +1,8 @@
 #compdef kfmclient
 
+# kfmclient is a command line interface for use with Konqueror,
+# the KDE file manager and web browser.
+
 local expl
 local -a context state line
 typeset -A opt_args
@@ -42,7 +45,7 @@ _arguments \
   '--config=:configuration  file:_files' \
   '--dcopserver=:DCOP server: ' \
   '--nocrashhandler[disable crash handler, allow core dumps]' \
-  '--waitforwm[Wait for a WM_NET compatible window manager]' \
+  '--waitforwm[wait for a WM_NET compatible window manager]' \
   '--style=:GUI style for application: ' \
   '--geometry=:client window geometry:_x_geometry' \
   '1:client command:(openURL openProfile openProperties exec move
@@ -60,18 +63,19 @@ case $line[1] in
     _mime_types
     return
   elif [[ $state = firstarg ]]; then
-    _urls
+    _webbrowser
     return
   fi
   ;;
 
   (openProfile)
   if [[ $state = secondarg ]]; then
-    _urls
+    _webbrowser
     return
   elif [[ $state = firstarg ]]; then
+    local appdata=${$(kde-config --path data 2> /dev/null):-~/.kde/share/apps/}
     _wanted profile expl 'Konqueror profile' \
-      compadd -- ~/.kde/share/apps/konqueror/profiles/*(:t)
+      compadd -- ${(s/:/)^${appdata}}konqueror/profiles/*(:t)
     return
   fi
   ;;
@@ -82,14 +86,14 @@ case $line[1] in
     _message "KDE binding"
     return
   elif [[ $state = firstarg ]]; then
-    _urls
+    _webbrowser
     return
   fi
   ;;
 
-  (move|download|openProperties)
+  (move|download|copy|openProperties)
   if [[ $state = firstarg ]]; then
-      _urls
+      _webbrowser
       return
   fi
   ;;

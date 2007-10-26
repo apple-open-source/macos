@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -89,25 +89,51 @@
 union u_spcl {
 	char dummy[TP_BSIZE];
 	struct	s_spcl {
+#ifdef __LP64__
+		int	c_type;		    /* record type (see below) */
+		int	c_date;		    /* date of this dump */
+		int	c_ddate;	    /* date of previous dump */
+		int	c_volume;	    /* dump volume number */
+#else /* !__LP64__ */
 		long	c_type;		    /* record type (see below) */
 		time_t	c_date;		    /* date of this dump */
 		time_t	c_ddate;	    /* date of previous dump */
 		long	c_volume;	    /* dump volume number */
+#endif /* __LP64__ */
 		daddr_t	c_tapea;	    /* logical block of this record */
 		ino_t	c_inumber;	    /* number of inode */
+#ifdef __LP64__
+		int	c_magic;	    /* magic number (see above) */
+		int	c_checksum;	    /* record checksum */
+#else /* !__LP64__ */
 		long	c_magic;	    /* magic number (see above) */
 		long	c_checksum;	    /* record checksum */
+#endif /* __LP64__ */
 		struct	dinode	c_dinode;   /* ownership and mode of inode */
+#ifdef __LP64__
+		int	c_count;	    /* number of valid c_addr entries */
+#else /* !__LP64__ */
 		long	c_count;	    /* number of valid c_addr entries */
+#endif /* __LP64__ */
 		char	c_addr[TP_NINDIR];  /* 1 => data; 0 => hole in inode */
 		char	c_label[LBLSIZE];   /* dump label */
+#ifdef __LP64__
+		int	c_level;	    /* level of this dump */
+#else /* !__LP64__ */
 		long	c_level;	    /* level of this dump */
+#endif /* __LP64__ */
 		char	c_filesys[NAMELEN]; /* name of dumpped file system */
 		char	c_dev[NAMELEN];	    /* name of dumpped device */
 		char	c_host[NAMELEN];    /* name of dumpped host */
+#ifdef __LP64__
+		int	c_flags;	    /* additional information */
+		int	c_firstrec;	    /* first record on volume */
+		int	c_spare[32];	    /* reserved for future uses */
+#else /* !__LP64__ */
 		long	c_flags;	    /* additional information */
 		long	c_firstrec;	    /* first record on volume */
 		long	c_spare[32];	    /* reserved for future uses */
+#endif /* __LP64__ */
 	} s_spcl;
 };
 

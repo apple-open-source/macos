@@ -1,5 +1,6 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1994, 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1994, 1995, 1996, 1997, 2001, 2003
+## Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -13,8 +14,8 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
 ## %ANSI2KNR-DIR% is the directory where ansi2knr is, `' if
 ## is the current directory.
@@ -28,14 +29,14 @@ if %?ANSI2KNR-DIR%
 
 ANSI2KNR = %ANSI2KNR-DIR%/ansi2knr
 %ANSI2KNR-DIR%/ansi2knr:
-	cd %ANSI2KNR-DIR% && $(MAKE) $(AM_MAKEFLAGS) ansi2knr
+	cd %ANSI2KNR-DIR% && $(MAKE) $(AM_MAKEFLAGS) ./ansi2knr
 
 else !%?ANSI2KNR-DIR%
 
 ## Substitution from AM_C_PROTOTYPES.  This makes it be built only when
 ## necessary.
 ANSI2KNR = @ANSI2KNR@
-ansi2knr: ansi2knr.$(OBJEXT)
+./ansi2knr: ansi2knr.$(OBJEXT)
 	$(LINK) ansi2knr.$(OBJEXT) $(LIBS)
 ansi2knr.$(OBJEXT): $(CONFIG_HEADER)
 

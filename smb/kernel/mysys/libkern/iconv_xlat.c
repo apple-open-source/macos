@@ -1,6 +1,8 @@
 /*
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
+ * 
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv_xlat.c,v 1.8 2004/12/13 00:25:16 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -43,10 +44,6 @@
 /*
  * "XLAT" converter
  */
-
-#ifdef MODULE_DEPEND
-MODULE_DEPEND(iconv_xlat, libiconv, 1, 1, 1);
-#endif
 
 /*
  * XLAT converter instance

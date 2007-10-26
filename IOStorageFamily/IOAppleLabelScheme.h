@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@
  * Apple Label Scheme Definitions
  */
 
-#pragma pack(8)              /* (enable 64-bit struct packing for applelabel) */
+#pragma pack(push, 1)                        /* (enable 8-bit struct packing) */
 
 /* Label scheme. */
 
@@ -68,7 +68,7 @@ struct applelabel
 
 #define AL_FLAG_DEFAULT 0x00000000
 
-#pragma options align=reset              /* (reset to default struct packing) */
+#pragma pack(pop)                        /* (reset to default struct packing) */
 
 #ifdef KERNEL
 #ifdef __cplusplus

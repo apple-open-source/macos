@@ -536,6 +536,8 @@ void queue_wins_refresh(struct nmb_name *nmbname,
 
 	userdata = (struct userdata_struct *)SMB_MALLOC(sizeof(*userdata) + strlen(tag) + 1);
 	if (!userdata) {
+		p->locked = False;
+		free_packet(p);
 		DEBUG(0,("Failed to allocate userdata structure!\n"));
 		return;
 	}
@@ -864,6 +866,7 @@ void reply_netbios_packet(struct packet_struct *orig_packet,
 	struct res_rec answers;
 	struct nmb_packet *orig_nmb = &orig_packet->packet.nmb;
 	BOOL loopback_this_packet = False;
+	int rr_type = RR_TYPE_NB;
 	const char *packet_type = "unknown";
   
 	/* Check if we are sending to or from ourselves. */
@@ -885,11 +888,15 @@ void reply_netbios_packet(struct packet_struct *orig_packet,
 			packet_type = "nmb_status";
 			nmb->header.nm_flags.recursion_desired = False;
 			nmb->header.nm_flags.recursion_available = False;
+			rr_type = RR_TYPE_NBSTAT;
 			break;
 		case NMB_QUERY:
 			packet_type = "nmb_query";
 			nmb->header.nm_flags.recursion_desired = True;
 			nmb->header.nm_flags.recursion_available = True;
+			if (rcode) {
+				rr_type = RR_TYPE_NULL;
+			}
 			break;
 		case NMB_REG:
 		case NMB_REG_REFRESH:
@@ -906,6 +913,7 @@ void reply_netbios_packet(struct packet_struct *orig_packet,
 			packet_type = "nmb_wack";
 			nmb->header.nm_flags.recursion_desired = False;
 			nmb->header.nm_flags.recursion_available = False;
+			rr_type = RR_TYPE_NULL;
 			break;
 		case WINS_REG:
 			packet_type = "wins_reg";
@@ -916,6 +924,9 @@ void reply_netbios_packet(struct packet_struct *orig_packet,
 			packet_type = "wins_query";
 			nmb->header.nm_flags.recursion_desired = True;
 			nmb->header.nm_flags.recursion_available = True;
+			if (rcode) {
+				rr_type = RR_TYPE_NULL;
+			}
 			break;
 		default:
 			DEBUG(0,("reply_netbios_packet: Unknown packet type: %s %s to ip %s\n",
@@ -947,8 +958,8 @@ for id %hu\n", packet_type, nmb_namestr(&orig_nmb->question.question_name),
 	memset((char*)nmb->answers,'\0',sizeof(*nmb->answers));
   
 	nmb->answers->rr_name  = orig_nmb->question.question_name;
-	nmb->answers->rr_type  = orig_nmb->question.question_type;
-	nmb->answers->rr_class = orig_nmb->question.question_class;
+	nmb->answers->rr_type  = rr_type;
+	nmb->answers->rr_class = RR_CLASS_IN;
 	nmb->answers->ttl      = ttl;
   
 	if (data && len) {
@@ -1142,10 +1153,10 @@ mismatch with our scope (%s).\n", inet_ntoa(p->ip), scope, global_scope()));
 	switch (command) {
 		case ANN_HostAnnouncement:
 			debug_browse_data(buf, len);
-			process_lm_host_announce(subrec, p, buf+1);
+			process_lm_host_announce(subrec, p, buf+1, len > 1 ? len-1 : 0);
 			break;
 		case ANN_AnnouncementRequest:
-			process_lm_announce_request(subrec, p, buf+1);
+			process_lm_announce_request(subrec, p, buf+1, len > 1 ? len-1 : 0);
 			break;
 		default:
 			DEBUG(0,("process_lanman_packet: On subnet %s ignoring browse packet \
@@ -1237,7 +1248,7 @@ packet sent to name %s from IP %s\n",
 packet sent to name %s from IP %s\n",
 			dgram->datasize,
 			len,
-			PTR_DIFF(buf2, dgram->data),
+			(int)PTR_DIFF(buf2, dgram->data),
 			nmb_namestr(&dgram->dest_name),
 			inet_ntoa(p->ip) ));
 		return;
@@ -1248,7 +1259,7 @@ packet sent to name %s from IP %s\n",
 packet sent to name %s from IP %s\n",
 			dgram->datasize,
 			len,
-			PTR_DIFF(buf2, dgram->data),
+			(int)PTR_DIFF(buf2, dgram->data),
 			nmb_namestr(&dgram->dest_name),
 			inet_ntoa(p->ip) ));
 		return;
@@ -1639,7 +1650,7 @@ on subnet %s\n", rrec->response_id, inet_ntoa(rrec->packet->ip), subrec->subnet_
   plus the broadcast sockets.
 ***************************************************************************/
 
-static BOOL create_listen_fdset(fd_set **ppset, int **psock_array, int *listen_number)
+static BOOL create_listen_fdset(fd_set **ppset, int **psock_array, int *listen_number, int *maxfd)
 {
 	int *sock_array = NULL;
 	struct subnet_record *subrec = NULL;
@@ -1659,11 +1670,13 @@ static BOOL create_listen_fdset(fd_set **ppset, int **psock_array, int *listen_n
 	if((count*2) + 2 > FD_SETSIZE) {
 		DEBUG(0,("create_listen_fdset: Too many file descriptors needed (%d). We can \
 only use %d.\n", (count*2) + 2, FD_SETSIZE));
+		SAFE_FREE(pset);
 		return True;
 	}
 
 	if((sock_array = SMB_MALLOC_ARRAY(int, (count*2) + 2)) == NULL) {
 		DEBUG(0,("create_listen_fdset: malloc fail for socket array.\n"));
+		SAFE_FREE(pset);
 		return True;
 	}
 
@@ -1672,21 +1685,25 @@ only use %d.\n", (count*2) + 2, FD_SETSIZE));
 	/* Add in the broadcast socket on 137. */
 	FD_SET(ClientNMB,pset);
 	sock_array[num++] = ClientNMB;
+	*maxfd = MAX( *maxfd, ClientNMB);
 
 	/* Add in the 137 sockets on all the interfaces. */
 	for (subrec = FIRST_SUBNET; subrec; subrec = NEXT_SUBNET_EXCLUDING_UNICAST(subrec)) {
 		FD_SET(subrec->nmb_sock,pset);
 		sock_array[num++] = subrec->nmb_sock;
+		*maxfd = MAX( *maxfd, subrec->nmb_sock);
 	}
 
 	/* Add in the broadcast socket on 138. */
 	FD_SET(ClientDGRAM,pset);
 	sock_array[num++] = ClientDGRAM;
+	*maxfd = MAX( *maxfd, ClientDGRAM);
 
 	/* Add in the 138 sockets on all the interfaces. */
 	for (subrec = FIRST_SUBNET; subrec; subrec = NEXT_SUBNET_EXCLUDING_UNICAST(subrec)) {
 		FD_SET(subrec->dgram_sock,pset);
 		sock_array[num++] = subrec->dgram_sock;
+		*maxfd = MAX( *maxfd, subrec->dgram_sock);
 	}
 
 	*listen_number = (count*2) + 2;
@@ -1711,6 +1728,7 @@ BOOL listen_for_packets(BOOL run_election)
 	static int listen_number = 0;
 	static int *sock_array = NULL;
 	int i;
+	static int maxfd = 0;
 
 	fd_set fds;
 	int selrtn;
@@ -1720,7 +1738,7 @@ BOOL listen_for_packets(BOOL run_election)
 #endif
 
 	if(listen_set == NULL || rescan_listen_set) {
-		if(create_listen_fdset(&listen_set, &sock_array, &listen_number)) {
+		if(create_listen_fdset(&listen_set, &sock_array, &listen_number, &maxfd)) {
 			DEBUG(0,("listen_for_packets: Fatal error. unable to create listen set. Exiting.\n"));
 			return True;
 		}
@@ -1733,6 +1751,7 @@ BOOL listen_for_packets(BOOL run_election)
 	dns_fd = asyncdns_fd();
 	if (dns_fd != -1) {
 		FD_SET(dns_fd, &fds);
+		maxfd = MAX( maxfd, dns_fd);
 	}
 #endif
 
@@ -1750,7 +1769,7 @@ BOOL listen_for_packets(BOOL run_election)
 
 	BlockSignals(False, SIGTERM);
 
-	selrtn = sys_select(FD_SETSIZE,&fds,NULL,NULL,&timeout);
+	selrtn = sys_select(maxfd+1,&fds,NULL,NULL,&timeout);
 
 	/* We can only take signals when we are in the select - block them again here. */
 
@@ -1880,7 +1899,7 @@ BOOL send_mailslot(BOOL unique, const char *mailslot,char *buf, size_t len,
 	SSVAL(ptr,smb_vwv16,2);
 	p2 = smb_buf(ptr);
 	safe_strcpy_base(p2, mailslot, dgram->data, sizeof(dgram->data));
-	p2 = skip_string(p2,1);
+	p2 = skip_string(ptr,MAX_DGRAM_SIZE,p2);
   
 	if (((p2+len) > dgram->data+sizeof(dgram->data)) || ((p2+len) < p2)) {
 		DEBUG(0, ("send_mailslot: Cannot write beyond end of packet\n"));

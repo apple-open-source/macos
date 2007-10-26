@@ -1,5 +1,8 @@
 #ifndef __GDB_MACOSX_NAT_CFM_H__
 #define __GDB_MACOSX_NAT_CFM_H__
+#if WITH_CFM
+
+#include <mach/mach.h>
 
 struct dyld_objfile_info;
 
@@ -110,4 +113,5 @@ extern long
 
 long cfm_update (task_t task, struct dyld_objfile_info *info);
 
+#endif /* WITH_CFM */
 #endif /* __GDB_MACOSX_NAT_CFM_H__ */

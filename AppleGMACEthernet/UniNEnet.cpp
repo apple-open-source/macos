@@ -267,6 +267,9 @@ UInt32 UniNEnet::Alrt( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 
 bool UniNEnet::init( OSDictionary *properties )
 {
+    UInt32		rxOff = kMaxFrameSize_default * 2 / kPauseThresholds_Factor;
+    UInt32		rxOn  = kMaxFrameSize_default * 1 / kPauseThresholds_Factor;
+
 #if USE_ELG
 	AllocateEventLog( kEvLogSize );
 	ELG( this, fpELG, 'GMAC', "UniNEnet::init - event logging set up." );
@@ -277,11 +280,32 @@ bool UniNEnet::init( OSDictionary *properties )
 
 		/* Initialize some instance variables:	*/
 
+		/* Set receive flow control pause thresholds:									*/
+		/* Pause OFF when 2 packets back up in the FIFO.								*/
+		/* Pause  ON when the FIFO is down to one packet.								*/
+		/* There are 2 reasons for the FIFO to back up:									*/
+		/* The controller is vying for bandwidth on the PCI bus with another device or	*/
+		/* the interrupt handler, driver, and network stack are not offloading			*/
+		/* the Rx ring fast enough.														*/
+		/* Bus contention should not happen in most machines. So setting the rxOff to	*/
+		/* to cover 2 frames is more than adequate. As far as frames backing up in		*/
+		/* the Rx ring, we want to rxOff as soon as possible to minimize dropped		*/
+		/* frames.	The rxOn value must, of course, be less than rxOff value so it is	*/
+		/* set to the value for one full size frame.									*/
+		/* The pause time value shuold be set large enough to cover interrupt latency,	*/
+		/* processing of a full Rx ring, and some time for Tx ring processing.			*/
+		/* A high value is most often not a problem since the rxOn will override it.	*/
+		/* However, if we don't process packets fast enough, they could back up in the	*/
+		/* switch which may then drop them.												*/
+
+	fPauseThresholds	= (rxOff << kPauseThresholds_OFF_Threshold_Shift)
+						| (rxOn	 << kPauseThresholds_ON_Threshold_Shift);
 	fCellClockEnabled	= false;
 	fAutoNegotiate		= true;
 	fMediumType			= kIOMediumEthernetAuto;	// default to autoNegotiation
 	fSendPauseCommand	= kSendPauseCommand_default;
 	fTxRingIndexLast	= ~0U;
+	fMaxFrameSize		= kIOEthernetMaxPacketSize;
     return true;
 }/* end init */
 
@@ -355,7 +379,7 @@ bool UniNEnet::start( IOService *provider )
 
 		/* Allocate IOMbufBigMemoryCursor instances:	*/
 
-    fTxMbufCursor = IOMbufBigMemoryCursor::withSpecification( NETWORK_BUFSIZE, MAX_SEGS_PER_TX_MBUF );
+	fTxMbufCursor = IOMbufBigMemoryCursor::withSpecification( NETWORK_BUFSIZE, MAX_SEGS_PER_TX_MBUF );
     if ( !fTxMbufCursor ) 
     {
         ALRT( 0, 0, 'tMC-', "UniNEnet::start - Tx IOMbufBigMemoryCursor allocation failure" );
@@ -490,22 +514,6 @@ bool UniNEnet::start( IOService *provider )
         return false;
     }
 
-		/* Attach an IOEthernetInterface client.	*/
-		/* But don't register it just yet			*/
-	ELG( IOThreadSelf(), 0, 'AttI', "UniNEnet::start - attach interface" );
-    if ( !attachInterface( (IONetworkInterface**)&networkInterface, false ) )
-    {	ALRT( 0, 0, 'Att-', "UniNEnet::start - attachInterface failed" );      
-        return false;
-    }
-
-	if ( fBuiltin )
-	{
-			/* Attach a kernel debugger client:	*/
-	
-		ELG( IOThreadSelf(), 0, 'AttD', "UniNEnet::start - attach debugger" );
-		attachDebuggerClient( &debugger );
-	}
-
 		/* BUS MASTER, MEM I/O Space, MEM WR & INV	*/
 
 	nub->configWrite32( 0x04, 0x16 );		// write to the Config space
@@ -535,6 +543,22 @@ bool UniNEnet::start( IOService *provider )
 								| kRxConfiguration_Checksum_Start_Offset;
 	fRxMACConfiguration			= 0;
 
+		/* Attach an IOEthernetInterface client.	*/
+		/* But don't register it just yet			*/
+	ELG( IOThreadSelf(), 0, 'AttI', "UniNEnet::start - attach interface" );
+    if ( !attachInterface( (IONetworkInterface**)&networkInterface, false ) )
+    {	ALRT( 0, 0, 'Att-', "UniNEnet::start - attachInterface failed" );      
+        return false;
+    }
+
+	if ( fBuiltin )
+	{
+			/* Attach a kernel debugger client:	*/
+	
+		ELG( IOThreadSelf(), 0, 'AttD', "UniNEnet::start - attach debugger" );
+		attachDebuggerClient( &debugger );
+	}
+
 		/* Ready to service interface requests:	*/
 
 	ELG( IOThreadSelf(), 0, 'RegS', "UniNEnet::start - networkInterface->registerService" );
@@ -548,7 +572,7 @@ bool UniNEnet::configureInterface( IONetworkInterface *netif )
     IONetworkData	 *nd;
 
 
-	ELG( IOThreadSelf(), netif, 'cfig', "configureInterface" );
+	ELG( IOThreadSelf(), netif, 'cfig', "UniNEnet::configureInterface" );
 
     if ( super::configureInterface( netif ) == false )
         return false;
@@ -665,7 +689,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
 	interruptStatus = READ_REGISTER( Status );	// auto-clear register
-	ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
+	ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "UniNEnet::interruptOccurred - got status" );
 	fTxCompletion = interruptStatus >> 19;
 		/* Bump statistics if either the Rx ring or the Rx FIFO overflowed:	*/
 
@@ -676,7 +700,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 	{		/* If either overflowed:	*/
 	///	if ( fMACControlConfiguration & kMACControlConfiguration_Send_Pause_Enable )
 	///		WRITE_REGISTER( SendPauseCommand, fSendPauseCommand | 0x10000 );
-		ELG( 0, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
+		ELG( 0, rxMACStatus, 'Rx--', "UniNEnet::interruptOccurred - Rx overflow" );
 		ETHERNET_STAT_ADD( dot3RxExtraEntry.overruns );
 		NETWORK_STAT_ADD( inputErrors );
 	}
@@ -804,6 +828,7 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 		stopPHY();					// Set up for wake on Magic Packet if wanted.
 		medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
 		setLinkStatus( kIONetworkLinkValid );	// Link status is valid/not active. Was "unknown" until Radar 3872249.
+		ELG( medium, 0, 'sls-', "UniNEnet::wakeUp -  setLinkStatus valid/not active." );
 	}
 
 	flushRings( true, false );		// Flush all mbufs from TX ring.
@@ -838,6 +863,7 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 
 	medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
 	setLinkStatus( 0 ); // Link status is unknown - not kIONetworkLinkValid.
+	ELG( medium, 0, 'slsU', "UniNEnet::wakeUp -  setLinkStatus unknown." );
 
 	if ( fBuiltin )
 		enableCellClock();
@@ -963,19 +989,15 @@ IOReturn UniNEnet::disable( IONetworkInterface* /*netif*/ )
 ///	fpELG->evLogFlag = 0xDEBEEFED;
 #endif // USE_ELG
 
-	ELG( this, debugEnabled, 'NetD', "disable( IONetworkInterface* )" );
+	ELG( this, debugEnabled, 'NetD', "UniNEnet::disable( IONetworkInterface* )" );
 
-    /*
-     * Disable our IOOutputQueue object. This will prevent the
-     * outputPacket() method from being called.
-     */
+		/* Disable our IOOutputQueue object. This will prevent the
+		 * outputPacket() method from being called.
+		 */
     transmitQueue->stop();
 
-    /*
-     * Flush all packets currently in the output queue.
-     */
     transmitQueue->setCapacity( 0 );
-    transmitQueue->flush();
+    transmitQueue->flush();	/* Flush all packets currently in the output queue.	*/
 
     	/* If we have no active clients, then disable the controller.	*/
 
@@ -1041,6 +1063,30 @@ IOReturn UniNEnet::disable( IOKernelDebugger* /*debugger*/ )
 }/* end disable debugger */
 
 
+IOReturn UniNEnet::getMaxPacketSize( UInt32 *maxSize ) const
+{
+	*maxSize = kIOEthernetMaxPacketSize + 4;	// bump max for VLAN
+	ELG( 0, kIOEthernetMaxPacketSize + 4, 'gMPz', "UniNEnet::getMaxPacketSize" );
+    return kIOReturnSuccess;
+}/* end getMaxPacketSize */
+
+
+IOReturn UniNEnet::setMaxPacketSize( UInt32 maxSize )
+{
+	if ( maxSize > kIOEthernetMaxPacketSize + 4 )	// sanity check. The family might do this too
+		return kIOReturnBadArgument;
+
+	fMaxFrameSize = maxSize;
+	return kIOReturnSuccess;
+}/* end setMaxPacketSize */
+
+
+UInt32 UniNEnet::getFeatures() const
+{
+	return kIONetworkFeatureSoftwareVlan;
+}/* end getFeatures */
+
+
 IOReturn UniNEnet::getPacketFilters( const OSSymbol	*group, UInt32 *filters ) const
 {
 //	ELG( 0, 0, 'G PF', "UniNEnet::getPacketFilters" );	// can't cuz const issue
@@ -1093,9 +1139,8 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         return; 
     }    
 
-	x			  = READ_REGISTER( TxMACStatus );	// auto-clear register
-	fRxMACStatus |= READ_REGISTER( RxMACStatus );	// auto-clear register
-	ELG( x, fRxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
+	fRxMACStatus |= READ_REGISTER( RxMACStatus );	// both are auto-clear registers
+	ELG( READ_REGISTER( TxMACStatus ), fRxMACStatus, 'MACS', "UniNEnet::timeoutOccurred - Tx and Rx MAC Status regs" );
 
 		/* Update statistics from the GMAC statistics registers:	*/
 
@@ -1297,7 +1342,7 @@ IOReturn UniNEnet::setPromiscuousMode( bool active )
 	IODebuggerLockState		lockState = kIODebuggerLockTaken;
 
 
-	ELG( 0, active, 'SetP', "setPromiscuousMode" );
+	ELG( 0, active, 'SetP', "UniNEnet::setPromiscuousMode" );
 
 	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
@@ -1326,7 +1371,7 @@ IOReturn UniNEnet::setPromiscuousMode( bool active )
 
 IOReturn UniNEnet::setMulticastMode( bool active )
 {
-	ELG( this, active, 'SetM', "setMulticastMode" );
+	ELG( this, active, 'SetM', "UniNEnet::setMulticastMode" );
 	multicastEnabled = active;
 
 	return kIOReturnSuccess;
@@ -1338,25 +1383,26 @@ IOReturn UniNEnet::setMulticastList( IOEthernetAddress *addrs, UInt32 count )
 	IODebuggerLockState		lockState = kIODebuggerLockTaken;
 
 
-	ELG( addrs, count, 'SetL', "setMulticastList" );
-    
+	ELG( addrs, count, 'SetL', "UniNEnet::setMulticastList" );
+
 	if ( fCellClockEnabled == false )
-		enableCellClock();				// Leave the cell clocked when done.
+	///	enableCellClock();				// Leave the cell clocked when done.
+			// setting fCellClockEnabled causes wakeUp to not be called in monitorLinkStatus 
+		return kIOReturnSuccess;
 
 	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
-    resetHashTableMask();
-    for ( UInt32 i = 0; i < count; i++ )
+    resetHashTableMask();							// bzero the tables
+    for ( UInt32 i = 0; i < count; i++ ) 
     {
-        addToHashTableMask( addrs->bytes );
-        addrs++;
+        addToHashTableMask( addrs->bytes );			// add a MAC address
+        addrs++;									// point to next address
     }
-    updateHashTableMask();
+    updateHashTableMask();							// fill in 16 HashTable registers 
 
 	if ( fBuiltin )		IODebuggerUnlock( lockState );
     return kIOReturnSuccess;
 }/* end setMulticastList */
-
 
 
 IOOutputQueue* UniNEnet::createOutputQueue()
@@ -1372,7 +1418,7 @@ bool UniNEnet::createMediumTables()
 
 
 	fMediumDict = OSDictionary::withCapacity( fMediumTableCount );
-	ELG( 0, fMediumDict, 'MTbl', "createMediumTables" );
+	ELG( 0, fMediumDict, 'MTbl', "UniNEnet::createMediumTables" );
 	if ( fMediumDict == 0 )
 		return false;
 
@@ -1409,7 +1455,7 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 		wakeUp( true );
 
 	gotReg = miiReadWord( &controlReg, MII_CONTROL );
-	ELG( controlReg, mType, 'sMed', "selectMedium" );
+	ELG( controlReg, mType, 'sMed', "UniNEnet::selectMedium" );
 
 	if ( !gotReg || controlReg == 0xFFFF )
 	{
@@ -1430,6 +1476,7 @@ IOReturn UniNEnet::selectMedium( const IONetworkMedium *medium )
 	if ( (mType & kIOMediumOptionLoopback) ^ (controlReg & MII_CONTROL_LOOPBACK) )
 	{
 		setLinkStatus( 0 );	/* Link status is unknown - not kIONetworkLinkValid	*/
+		ELG( medium, mType, 'SLSu', "UniNEnet::selectMedium -  setLinkStatus." );
 		fPHYStatus	= 0;
 		fLinkStatus	= kLinkStatusUnknown;
 		ELG( 0, mType & kIOMediumOptionLoopback, 'LpBk', "UniNEnet::selectMedium - changing loopback mode." );
@@ -1468,12 +1515,12 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 	UInt16			statusReg;			// 01 - status register
 	UInt16			anar;				// 04 - AutoNegotiation Advertisement Register
 	UInt16			gigReg;				// Vendor specific register
-	IOMediumType	mType, mtyp;		// mtyp is mType without loopback and flow control bits
+	IOMediumType	mType, mtyp;		// mtyp is mType without loopback
 	bool			br;					// boolean return value
 
 
 	mType	=  fMediumType & (kIOMediumNetworkTypeMask | kIOMediumSubTypeMask | kIOMediumCommonOptionsMask);
-	mtyp	= mType & ~(kIOMediumOptionLoopback | kIOMediumOptionFlowControl);
+	mtyp	= mType & ~(kIOMediumOptionLoopback);
 
 	controlReg = MII_CONTROL_AUTONEGOTIATION | MII_CONTROL_RESTART_NEGOTIATION;
 
@@ -1481,13 +1528,13 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 
 	ELG( anar, mType, 'n SD', "UniNEnet::negotiateSpeedDuplex" );
 
-	anar &= ~(	MII_ANAR_100BASET4			/* turn off all speed/duplex bits	*/
+	anar &= ~(	MII_ANAR_ASYM_PAUSE
+			  | MII_ANAR_PAUSE
+			  | MII_ANAR_100BASET4			/* turn off all speed/duplex bits	*/
 			  | MII_ANAR_100BASETX_FD		/* This register has only  10/100	*/
 			  | MII_ANAR_100BASETX			/* Full/Half bits - no gigabit		*/
 			  | MII_ANAR_10BASET_FD
 			  | MII_ANAR_10BASET );
-
-	anar |= MII_ANAR_PAUSE;					/* Advertise our Pause capability	*/
 
 		/* Set the Speed/Duplex bit that we need:	*/
 
@@ -1497,31 +1544,43 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 		anar |=	(	MII_ANAR_100BASETX_FD	/* turn on all speed/duplex bits	*/
 				  | MII_ANAR_100BASETX
 				  | MII_ANAR_10BASET_FD
-				  | MII_ANAR_10BASET );
+				  | MII_ANAR_10BASET
+				  | MII_ANAR_PAUSE );
 		break;
 
-	case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:		// 10 Full
-		anar |= MII_ANAR_10BASET_FD;
-		break;
-
-	case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:		// 10 Half
+	case kIOMediumEthernet10BaseT | kIOMediumOptionHalfDuplex:	// 10/Half
 		anar |= MII_ANAR_10BASET;
 		break;
 
-	case kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex:	// 100 Full
-		anar |= MII_ANAR_100BASETX_FD;
+	case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex:	// 10/Full
+		anar |= MII_ANAR_10BASET_FD;
+		break;
+																// 10/Full/Flow Control:
+	case kIOMediumEthernet10BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl:
+		anar |= MII_ANAR_10BASET_FD | MII_ANAR_PAUSE;
 		break;
 
-	case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:	// 100 Half
+	case kIOMediumEthernet100BaseTX | kIOMediumOptionHalfDuplex:// 100/Half
 		anar |= MII_ANAR_100BASETX;
 		break;
 
-	case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:	// 1000 Full
-	case kIOMediumEthernet1000BaseT | kIOMediumOptionHalfDuplex:	// 1000 Half
+	case kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex:// 100/Full
+		anar |= MII_ANAR_100BASETX_FD;
+		break;
+																// 100/Full/Flow Control:
+	case kIOMediumEthernet100BaseTX | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl:
+		anar |= MII_ANAR_100BASETX_FD | MII_ANAR_PAUSE;
+		break;
+																// gig/Full/Flow Control:
+	case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl:
+		anar |= MII_ANAR_PAUSE;
 		break;	//	gigabit is vendor specific - do it there
 
-	default:		/* unknown	*/
-		ELG( 0, 0, ' ?sd', "UniNEnet::negotiateSpeedDuplex - not 10 nor 100 combo." );
+	case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:// gig/Full
+		break;	//	gigabit is vendor specific - do it there
+
+	default:		/* unknown - maybe NONE	*/
+		ELG( 0, 0, ' ?sd', "UniNEnet::negotiateSpeedDuplex - unknown combo." );
 		break;
 	}/* end SWITCH on speed/duplex */
 
@@ -1556,17 +1615,14 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 			// Turn off gig/Half and gig/Full bits:
 		gigReg &= ~(MII_1000BASETCONTROL_FULLDUPLEXCAP | MII_1000BASETCONTROL_HALFDUPLEXCAP);
 
-			/* Turn on gig/Full or gig/Half as appropriate:	*/
+			/* Optionally turn on gig/Full (we don't allow gig/half):	*/
 
 		switch ( mtyp )
-		{					// gig/Full:
+		{
 		case kIOMediumEthernetAuto:
 		case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:
+		case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex | kIOMediumOptionFlowControl:
 			gigReg |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
-			break;
-							// gig/Half:
-		case kIOMediumEthernet1000BaseT | kIOMediumOptionHalfDuplex:
-			gigReg |= MII_1000BASETCONTROL_HALFDUPLEXCAP;
 			break;
 		}/* end SWITCH on Marvell gig/Full or gig/Half */
 
@@ -1654,7 +1710,7 @@ IOReturn UniNEnet::forceSpeedDuplex()
 		break;
 	}/* end SWITCH on PHY type */
 
-//	if ( mType & kIOMediumOptionFlowControl )	/// touch up the MAC
+		// monitorLinkStatus will touch up the MAC wrt Pause flow control.
 
 	miiWriteWord( controlReg, MII_CONTROL );
 
@@ -1712,7 +1768,7 @@ void UniNEnet::writeRegister( volatile UInt32 *pReg, UInt32 data )
 
 void UniNEnet::enableCellClock()
 {
-	ELG( 0, 0, '+Clk', "UniNEnet::enableCellClock" );
+	ELG( fCellClockEnabled, 0, '+Clk', "UniNEnet::enableCellClock" );
 	callPlatformFunction( "EnableUniNEthernetClock", true, (void*)true, (void*)nub, 0, 0 );
 	OSSynchronizeIO();
 	IODelay( 3 );			// Allow the cell some cycles before using it.
@@ -1738,12 +1794,19 @@ IOReturn UniNEnet::newUserClient(	task_t			owningTask,
 									UInt32			type,		// Lucky number
 									IOUserClient	**handler )	// returned handler
 {
-	IOReturn			ior		= kIOReturnSuccess;
 	UniNEnetUserClient	*client	= NULL;
+    bool				privileged;
+	IOReturn			ior		= kIOReturnSuccess;
 
-	
+
 	ELG( type, type, 'Usr+', "UniNEnet::newUserClient" );
-
+    
+    privileged = IOUserClient::clientHasPrivilege( current_task(), kIOClientPrivilegeAdministrator ) == kIOReturnSuccess;
+	if ( !privileged )
+	{
+		ELG( 0, 0, 'Prv-', "UniNEnet::newUserClient - task is not privileged." );
+		return kIOReturnNotPrivileged;
+	}
 		// Check that this is a user client type that we support.
 		// type is known only to this driver's user and kernel
 		// classes. It could be used, for example, to define

@@ -24,6 +24,95 @@
 #ifndef _XLOCALE___WCTYPE_H_
 #define _XLOCALE___WCTYPE_H_
 
+#if !defined(_DONT_USE_CTYPE_INLINE_) && \
+    (defined(_USE_CTYPE_INLINE_) || defined(__GNUC__) || defined(__cplusplus))
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswalnum_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_A|_CTYPE_D, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswalpha_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_A, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswcntrl_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_C, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswctype_l(wint_t _wc, wctype_t _charclass, locale_t _l)
+{
+	return (__istype_l(_wc, _charclass, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswdigit_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_D, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswgraph_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_G, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswlower_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_L, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswprint_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_R, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswpunct_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_P, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswspace_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_S, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswupper_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_U, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline int
+iswxdigit_l(wint_t _wc, locale_t _l)
+{
+	return (__istype_l(_wc, _CTYPE_X, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline wint_t
+towlower_l(wint_t _wc, locale_t _l)
+{
+        return (__tolower_l(_wc, _l));
+}
+
+__DARWIN_WCTYPE_TOP_static_inline wint_t
+towupper_l(wint_t _wc, locale_t _l)
+{
+        return (__toupper_l(_wc, _l));
+}
+
+#else /* not using inlines */
+
 __BEGIN_DECLS
 int	iswalnum_l(wint_t, locale_t);
 int	iswalpha_l(wint_t, locale_t);
@@ -39,23 +128,13 @@ int	iswupper_l(wint_t, locale_t);
 int	iswxdigit_l(wint_t, locale_t);
 wint_t	towlower_l(wint_t, locale_t);
 wint_t	towupper_l(wint_t, locale_t);
+__END_DECLS
+
+#endif /* using inlines */
+
+__BEGIN_DECLS
 wctype_t
 	wctype_l(const char *, locale_t);
 __END_DECLS
-
-#define	iswalnum_l(wc, l)		__istype_l((wc), _CTYPE_A|_CTYPE_D, (l))
-#define	iswalpha_l(wc, l)		__istype_l((wc), _CTYPE_A, (l))
-#define	iswcntrl_l(wc, l)		__istype_l((wc), _CTYPE_C, (l))
-#define	iswctype_l(wc, charclass, l)	__istype_l((wc), (charclass), (l))
-#define	iswdigit_l(wc, l)		__istype_l((wc), _CTYPE_D, (l))
-#define	iswgraph_l(wc, l)		__istype_l((wc), _CTYPE_G, (l))
-#define	iswlower_l(wc, l)		__istype_l((wc), _CTYPE_L, (l))
-#define	iswprint_l(wc, l)		__istype_l((wc), _CTYPE_R, (l))
-#define	iswpunct_l(wc, l)		__istype_l((wc), _CTYPE_P, (l))
-#define	iswspace_l(wc, l)		__istype_l((wc), _CTYPE_S, (l))
-#define	iswupper_l(wc, l)		__istype_l((wc), _CTYPE_U, (l))
-#define	iswxdigit_l(wc, l)		__istype_l((wc), _CTYPE_X, (l))
-#define	towlower_l(wc, l)		__tolower_l((wc), (l))
-#define	towupper_l(wc, l)		__toupper_l((wc), (l))
 
 #endif /* _XLOCALE___WCTYPE_H_ */

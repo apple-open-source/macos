@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -14,7 +14,7 @@
 *   created by: Markus W. Scherer
 *
 *   Constants for mostly non-core Unicode character properties
-*   stored in uprops.dat.
+*   stored in uprops.icu.
 */
 
 #ifndef __UPROPS_H__
@@ -23,7 +23,6 @@
 #include "unicode/utypes.h"
 #include "unicode/uset.h"
 #include "uset_imp.h"
-#include "ucase.h"
 #include "udataswp.h"
 
 /* indexes[] entries */
@@ -49,42 +48,44 @@ enum {
 /* definitions for the main properties words */
 enum {
     /* general category shift==0                                0 (5 bits) */
-    UPROPS_EXCEPTION_SHIFT=5,                               /*  5 (1 bit)  */
-    UPROPS_BIDI_SHIFT,                                      /*  6 (5 bits) */
-    UPROPS_MIRROR_SHIFT=UPROPS_BIDI_SHIFT+5,                /* 11 (1 bit)  */
-    UPROPS_NUMERIC_TYPE_SHIFT,                              /* 12 (3 bits) */
-    UPROPS_CASE_SENSITIVE_SHIFT=UPROPS_NUMERIC_TYPE_SHIFT+3,/* 15 (1 bit) format version 3.2 */
-    UPROPS_RESERVED_SHIFT,                                  /* 16 (4 bits) */
-    UPROPS_VALUE_SHIFT=20,                                  /* 20 */
-
-    UPROPS_EXCEPTION_BIT=1UL<<UPROPS_EXCEPTION_SHIFT,
-    UPROPS_VALUE_BITS=32-UPROPS_VALUE_SHIFT,
-
-    UPROPS_MIN_VALUE=-(1L<<(UPROPS_VALUE_BITS-1)),
-    UPROPS_MAX_VALUE=(1L<<(UPROPS_VALUE_BITS-1))-1,
-    UPROPS_MAX_EXCEPTIONS_COUNT=1L<<UPROPS_VALUE_BITS
+    UPROPS_NUMERIC_TYPE_SHIFT=5,                            /*  5 (3 bits) */
+    UPROPS_NUMERIC_VALUE_SHIFT=8                            /*  8 (8 bits) */
 };
 
-#define PROPS_VALUE_IS_EXCEPTION(props) ((props)&UPROPS_EXCEPTION_BIT)
 #define GET_CATEGORY(props) ((props)&0x1f)
-#define GET_BIDI_CLASS(props) ((props>>UPROPS_BIDI_SHIFT)&0x1f)
-#define GET_NUMERIC_TYPE(props) (((props)>>UPROPS_NUMERIC_TYPE_SHIFT)&7)
-#define GET_UNSIGNED_VALUE(props) ((props)>>UPROPS_VALUE_SHIFT)
-#define GET_SIGNED_VALUE(props) ((int32_t)(props)>>UPROPS_VALUE_SHIFT)
-#define GET_EXCEPTIONS(props) (exceptionsTable+GET_UNSIGNED_VALUE(props))
-
 #define CAT_MASK(props) U_MASK(GET_CATEGORY(props))
 
+#define GET_NUMERIC_TYPE(props) (((props)>>UPROPS_NUMERIC_TYPE_SHIFT)&7)
+#define GET_NUMERIC_VALUE(props) (((props)>>UPROPS_NUMERIC_VALUE_SHIFT)&0xff)
+
+/* internal numeric pseudo-types for special encodings of numeric values */
 enum {
-    EXC_UPPERCASE,
-    EXC_LOWERCASE,
-    EXC_TITLECASE,
-    EXC_UNUSED,
-    EXC_NUMERIC_VALUE,
-    EXC_DENOMINATOR_VALUE,
-    EXC_MIRROR_MAPPING,
-    EXC_SPECIAL_CASING,
-    EXC_CASE_FOLDING
+    UPROPS_NT_FRACTION=4, /* ==U_NT_COUNT, must not change unless binary format version changes */
+    UPROPS_NT_LARGE,
+    UPROPS_NT_COUNT
+};
+
+/* encoding of fractional and large numbers */
+enum {
+    UPROPS_MAX_SMALL_NUMBER=0xff,
+
+    UPROPS_FRACTION_NUM_SHIFT=3,        /* numerator: bits 7..3 */
+    UPROPS_FRACTION_DEN_MASK=7,         /* denominator: bits 2..0 */
+
+    UPROPS_FRACTION_MAX_NUM=31,
+    UPROPS_FRACTION_DEN_OFFSET=2,       /* denominator values are 2..9 */
+
+    UPROPS_FRACTION_MIN_DEN=UPROPS_FRACTION_DEN_OFFSET,
+    UPROPS_FRACTION_MAX_DEN=UPROPS_FRACTION_MIN_DEN+UPROPS_FRACTION_DEN_MASK,
+
+    UPROPS_LARGE_MANT_SHIFT=4,          /* mantissa: bits 7..4 */
+    UPROPS_LARGE_EXP_MASK=0xf,          /* exponent: bits 3..0 */
+    UPROPS_LARGE_EXP_OFFSET=2,          /* regular exponents 2..17 */
+    UPROPS_LARGE_EXP_OFFSET_EXTRA=18,   /* extra large exponents 18..33 */
+
+    UPROPS_LARGE_MIN_EXP=UPROPS_LARGE_EXP_OFFSET,
+    UPROPS_LARGE_MAX_EXP=UPROPS_LARGE_MIN_EXP+UPROPS_LARGE_EXP_MASK,
+    UPROPS_LARGE_MAX_EXP_EXTRA=UPROPS_LARGE_EXP_OFFSET_EXTRA+UPROPS_LARGE_EXP_MASK
 };
 
 /* number of properties vector words */
@@ -94,8 +95,7 @@ enum {
  * Properties in vector word 0
  * Bits
  * 31..24   DerivedAge version major/minor one nibble each
- * 23       reserved
- * 22..18   Line Break
+ * 23..18   Line Break
  * 17..15   East Asian Width
  * 14.. 7   UBlockCode
  *  6.. 0   UScriptCode
@@ -105,7 +105,7 @@ enum {
 #define UPROPS_AGE_MASK         0xff000000
 #define UPROPS_AGE_SHIFT        24
 
-#define UPROPS_LB_MASK          0x007C0000
+#define UPROPS_LB_MASK          0x00FC0000
 #define UPROPS_LB_SHIFT         18
 
 #define UPROPS_EA_MASK          0x00038000
@@ -129,8 +129,8 @@ enum {
  */
 enum {
     UPROPS_WHITE_SPACE,
-    UPROPS_BIDI_CONTROL,
-    UPROPS_JOIN_CONTROL,
+        UPROPS_WAS_BIDI_CONTROL,                /* reserved, was used in format version 3 */
+        UPROPS_WAS_JOIN_CONTROL,
     UPROPS_DASH,
     UPROPS_HYPHEN,
     UPROPS_QUOTATION_MARK,
@@ -142,8 +142,8 @@ enum {
     UPROPS_IDEOGRAPHIC,
     UPROPS_DIACRITIC,
     UPROPS_EXTENDER,
-    UPROPS_LOWERCASE,
-    UPROPS_UPPERCASE,
+        UPROPS_WAS_LOWERCASE,                   /* reserved, was used in format version 3 */
+        UPROPS_WAS_UPPERCASE,
     UPROPS_NONCHARACTER_CODE_POINT,
     UPROPS_GRAPHEME_EXTEND,
     UPROPS_GRAPHEME_LINK,
@@ -153,7 +153,7 @@ enum {
     UPROPS_UNIFIED_IDEOGRAPH,
     UPROPS_DEFAULT_IGNORABLE_CODE_POINT,
     UPROPS_DEPRECATED,
-    UPROPS_SOFT_DOTTED,
+        UPROPS_WAS_SOFT_DOTTED,                 /* reserved, was used in format version 3 */
     UPROPS_LOGICAL_ORDER_EXCEPTION,
     UPROPS_XID_START,
     UPROPS_XID_CONTINUE,
@@ -167,21 +167,28 @@ enum {
  * Properties in vector word 2
  * Bits
  * 31..24   More binary properties
- * 13..11   Joining Type
- * 10.. 5   Joining Group
+ * 23..19   reserved
+ * 18..14   Sentence Break
+ * 13..10   Word Break
+ *  9.. 5   Grapheme Cluster Break
  *  4.. 0   Decomposition Type
  */
-#define UPROPS_JT_MASK          0x00003800
-#define UPROPS_JT_SHIFT         11
+#define UPROPS_SB_MASK          0x0007c000
+#define UPROPS_SB_SHIFT         14
 
-#define UPROPS_JG_MASK          0x000007e0
-#define UPROPS_JG_SHIFT         5
+#define UPROPS_WB_MASK          0x00003c00
+#define UPROPS_WB_SHIFT         10
+
+#define UPROPS_GCB_MASK         0x000003e0
+#define UPROPS_GCB_SHIFT        5
 
 #define UPROPS_DT_MASK          0x0000001f
 
 enum {
     UPROPS_V2_S_TERM=24,                        /* new in ICU 3.0 and Unicode 4.0.1 */
     UPROPS_V2_VARIATION_SELECTOR,
+    UPROPS_V2_PATTERN_SYNTAX,                   /* new in ICU 3.4 and Unicode 4.1 */
+    UPROPS_V2_PATTERN_WHITE_SPACE,
     UPROPS_V2_TOP                               /* must be <=32 */
 };
 
@@ -216,6 +223,31 @@ uprv_getMaxValues(int32_t column);
  */
 U_CFUNC UHangulSyllableType
 uchar_getHST(UChar32 c);
+
+/**
+ * Checks if c is alphabetic, or a decimal digit; implements UCHAR_POSIX_ALNUM.
+ * @internal
+ */
+U_CFUNC UBool
+u_isalnumPOSIX(UChar32 c);
+
+/**
+ * Checks if c is in
+ * [^\p{space}\p{gc=Control}\p{gc=Surrogate}\p{gc=Unassigned}]
+ * with space=\p{Whitespace} and Control=Cc.
+ * Implements UCHAR_POSIX_GRAPH.
+ * @internal
+ */
+U_CFUNC UBool
+u_isgraphPOSIX(UChar32 c);
+
+/**
+ * Checks if c is in \p{graph}\p{blank} - \p{cntrl}.
+ * Implements UCHAR_POSIX_PRINT.
+ * @internal
+ */
+U_CFUNC UBool
+u_isprintPOSIX(UChar32 c);
 
 /** Turn a bit index into a bit flag. @internal */
 #define FLAG(n) ((uint32_t)1<<(n))
@@ -259,8 +291,10 @@ enum {
     FF      =0x000c,
     CR      =0x000d,
     U_A     =0x0041,
+    U_F     =0x0046,
     U_Z     =0x005a,
     U_a     =0x0061,
+    U_f     =0x0066,
     U_z     =0x007a,
     DEL     =0x007f,
     NL      =0x0085,
@@ -275,6 +309,12 @@ enum {
     WJ      =0x2060,
     INHSWAP =0x206a,
     NOMDIG  =0x206f,
+    U_FW_A  =0xff21,
+    U_FW_F  =0xff26,
+    U_FW_Z  =0xff3a,
+    U_FW_a  =0xff41,
+    U_FW_f  =0xff46,
+    U_FW_z  =0xff5a,
     ZWNBSP  =0xfeff
 };
 
@@ -285,19 +325,6 @@ enum {
 U_CAPI int32_t U_EXPORT2
 uprv_getMaxCharNameLength(void);
 
-#if 0
-/* 
-Currently not used but left for future use. Probably by UnicodeSet. 
-urename.h and unames.c changed accordingly. 
-*/
-/**
- * Get the maximum length of an ISO comment.
- * @return 0 if no ISO comments available.
- */
-U_CAPI int32_t U_EXPORT2
-uprv_getMaxISOCommentLength();
-#endif
-
 /**
  * Fills set with characters that are used in Unicode character names.
  * Includes all characters that are used in regular/Unicode 1.0/extended names.
@@ -305,22 +332,7 @@ uprv_getMaxISOCommentLength();
  * @param sa USetAdder to receive characters.
  */
 U_CAPI void U_EXPORT2
-uprv_getCharNameCharacters(USetAdder *sa);
-
-#if 0
-/* 
-Currently not used but left for future use. Probably by UnicodeSet. 
-urename.h and unames.c changed accordingly. 
-*/
-/**
- * Fills set with characters that are used in Unicode character names.
- * Just empties the set if no ISO comments are available.
- * @param sa USetAdder to receive characters.
- */
-U_CAPI void U_EXPORT2
-uprv_getISOCommentCharacters(USetAdder *sa);
-*/
-#endif
+uprv_getCharNameCharacters(const USetAdder *sa);
 
 /**
  * Constants for which data and implementation files provide which properties.
@@ -330,8 +342,10 @@ uprv_getISOCommentCharacters(USetAdder *sa);
 enum UPropertySource {
     /** No source, not a supported property. */
     UPROPS_SRC_NONE,
-    /** From uchar.c/uprops.icu */
+    /** From uchar.c/uprops.icu main trie */
     UPROPS_SRC_CHAR,
+    /** From uchar.c/uprops.icu properties vectors trie */
+    UPROPS_SRC_PROPSVEC,
     /** Hangul_Syllable_Type, from uchar.c/uprops.icu */
     UPROPS_SRC_HST,
     /** From unames.c/unames.icu */
@@ -340,9 +354,11 @@ enum UPropertySource {
     UPROPS_SRC_NORM,
     /** From ucase.c/ucase.icu */
     UPROPS_SRC_CASE,
-    /** From ubidi.c/ubidi.icu */
+    /** From ubidi_props.c/ubidi.icu */
     UPROPS_SRC_BIDI,
-    /** One more than the highes UPropertySource (UPROPS_SRC_) constant. */
+    /** From uchar.c/uprops.icu main trie as well as properties vectors trie */
+    UPROPS_SRC_CHAR_AND_PROPSVEC,
+    /** One more than the highest UPropertySource (UPROPS_SRC_) constant. */
     UPROPS_SRC_COUNT
 };
 typedef enum UPropertySource UPropertySource;
@@ -355,19 +371,27 @@ U_CAPI UPropertySource U_EXPORT2
 uprops_getSource(UProperty which);
 
 /**
- * Enumerate each core properties data trie and add the
+ * Enumerate uprops.icu's main data trie and add the
  * start of each range of same properties to the set.
  * @internal
  */
 U_CAPI void U_EXPORT2
-uchar_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
+uchar_addPropertyStarts(const USetAdder *sa, UErrorCode *pErrorCode);
+
+/**
+ * Enumerate uprops.icu's properties vectors trie and add the
+ * start of each range of same properties to the set.
+ * @internal
+ */
+U_CAPI void U_EXPORT2
+upropsvec_addPropertyStarts(const USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
  * Same as uchar_addPropertyStarts() but only for Hangul_Syllable_Type.
  * @internal
  */
 U_CAPI void U_EXPORT2
-uhst_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
+uhst_addPropertyStarts(const USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
  * Return a set of characters for property enumeration.
@@ -378,7 +402,7 @@ uhst_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
  * @internal
  */
 U_CAPI void U_EXPORT2
-uprv_getInclusions(USetAdder *sa, UErrorCode *pErrorCode);
+uprv_getInclusions(const USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
  * Swap the ICU Unicode properties file. See uchar.c.

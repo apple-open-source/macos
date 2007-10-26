@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -55,7 +58,7 @@
 /*
  * Global Definitions
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 GLOBAL char     *rpc_g_cn_call_client_events [] =
 {
     "TRANSMIT_REQ     ",
@@ -83,7 +86,7 @@ GLOBAL char     *rpc_g_cn_call_client_states [] =
     "CALL_FAILED_DNE  ",
     "CALL_FAILED      "
 };
-#endif /* DEBUG */
+#endif /* DEBUG_DCE_RPC */
 
 
 /***********************************************************************/
@@ -622,7 +625,7 @@ INTERNAL unsigned32     transmit_req_action_rtn
      * had no input arguments, then the first call should have
      * been a call_transceive with no stub data.
      */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if (stub_data_p->num_elt <= 0)
     {
         status = rpc_s_coding_error;
@@ -993,7 +996,7 @@ INTERNAL unsigned32     handle_recv_frag_action_rtn
              * before returning to the client stub.
              */
             call_rep->u.client.cancel.server_had_pending = true;
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
             if (RPC_CN_PKT_FLAGS (header_p) & RPC_C_CN_FLAGS_ALERT_PENDING)
             {
                 RPC_DBG_PRINTF (rpc_e_dbg_cancel, RPC_C_CN_DBG_CANCEL,
@@ -1150,7 +1153,7 @@ INTERNAL unsigned32     raise_fault_action_rtn
              * before returning to the client stub.
              */
             call_rep->u.client.cancel.server_had_pending = true;
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
             if (RPC_CN_PKT_FLAGS (header_p) & RPC_C_CN_FLAGS_ALERT_PENDING)
             {
                 RPC_DBG_PRINTF (rpc_e_dbg_cancel, RPC_C_CN_DBG_CANCEL,

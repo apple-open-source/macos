@@ -23,9 +23,10 @@
 #include <sys/types.h>
 #include <sys/acl.h>
 #include <errno.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+extern int __umask_extended(int, acl_t);
 
 int
 umaskx_np(filesec_t fsec)
@@ -46,5 +47,5 @@ umaskx_np(filesec_t fsec)
 		if (size == 0)
 			acl = NULL;
 	}
-	return syscall(SYS_umask_extended, newmask, acl);
+	return __umask_extended(newmask, acl);
 }

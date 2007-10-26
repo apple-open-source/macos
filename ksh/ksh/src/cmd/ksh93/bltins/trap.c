@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * trap  [-p]  action sig...
@@ -163,11 +159,7 @@ int	b_kill(int argc,char *argv[],void *extra)
 	{
 		case ':':
 			if((signame=argv[opt_info.index++]) && (sig=sig_number(signame+1))>=0)
-			{
-				if(argv[opt_info.index] && strcmp(argv[opt_info.index],"--")==0)
-					opt_info.index++;
 				goto endopts;
-			}
 			opt_info.index--;
 			errormsg(SH_DICT,2, "%s", opt_info.arg);
 			break;
@@ -187,6 +179,8 @@ int	b_kill(int argc,char *argv[],void *extra)
 	}
 endopts:
 	argv += opt_info.index;
+	if(*argv && strcmp(*argv,"--")==0 && strcmp(*(argv-1),"--")!=0)
+		argv++;
 	if(error_info.errors || flag==(L_FLAG|S_FLAG) || (!(*argv) && !(flag&L_FLAG)))
 		errormsg(SH_DICT,ERROR_usage(2),"%s", optusage((char*)0));
 	/* just in case we send a kill -9 $$ */
@@ -227,8 +221,9 @@ endopts:
 
 static int sig_number(const char *string)
 {
-	register int n;
-	char *last;
+	const Shtable_t	*tp;
+	register int	n,sig=0;
+	char		*last;
 	if(isdigit(*string))
 	{
 		n = strtol(string,&last,10);
@@ -249,8 +244,20 @@ static int sig_number(const char *string)
 		while(c);
 		stakseek(n);
 		if(memcmp(stakptr(n),"SIG",3)==0)
+		{
+			sig = 1;
 			n += 3;
-		n = sh_lookup(stakptr(n),shtab_signals);
+		}
+		tp = sh_locate(stakptr(n),(const Shtable_t*)shtab_signals,sizeof(*shtab_signals));
+		n = tp->sh_number;
+		if(sig==1 && (n>=(SH_TRAP-1) && n < (1<<SH_SIGBITS)))
+		{
+			/* sig prefix cannot match internal traps */
+			n = 0;
+			tp = (Shtable_t*)((char*)tp + sizeof(*shtab_signals));
+			if(strcmp(stakptr(n),tp->sh_name)==0)
+				n = tp->sh_number;
+		}
 		n &= (1<<SH_SIGBITS)-1;
 		if(n < SH_TRAP)
 			n--;
@@ -299,6 +306,7 @@ static void sig_list(register Shell_t *shp,register int flag)
 	{
 		/* print the traps */
 		register char *trap,*sname,**trapcom;
+		char name[6];
 		sig = shp->st.trapmax;
 		/* use parent traps if otrapcom is set (for $(trap)  */
 		trapcom = (shp->st.otrapcom?shp->st.otrapcom:shp->st.trapcom);
@@ -308,6 +316,7 @@ static void sig_list(register Shell_t *shp,register int flag)
 				continue;
 			if(!(sname=(char*)names[sig+1]))
 			{
+				sname = name;
 				sname[0] = 'S';
 				sname[1] = 'I';
 				sname[2] = 'G';

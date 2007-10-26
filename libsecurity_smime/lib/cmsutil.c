@@ -294,6 +294,7 @@ SecCmsUtilGetTemplateByTypeTag(SECOidTag type)
 	break;
     default:
     case SEC_OID_PKCS7_DATA:
+    case SEC_OID_OTHER:
 	template = NULL;
 	break;
     }

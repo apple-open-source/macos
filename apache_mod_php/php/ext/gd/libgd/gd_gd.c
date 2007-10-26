@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -58,7 +57,7 @@ int _gdGetColors (gdIOCtx * in, gdImagePtr im, int gd2xFlag)
 	}
 
 	GD2_DBG(printf("Pallette had %d colours (T=%d)\n", im->colorsTotal, im->transparent));
-	
+
 	if (im->trueColor) {
 		return TRUE;
 	}
@@ -122,6 +121,9 @@ static gdImagePtr _gdCreateFromFile (gdIOCtx * in, int *sx, int *sy)
 		im = gdImageCreateTrueColor(*sx, *sy);
 	} else {
 		im = gdImageCreate(*sx, *sy);
+	}
+	if(!im) {
+		goto fail1;
 	}
 	if (!_gdGetColors(in, im, gd2xFlag)) {
 		goto fail2;
@@ -225,7 +227,7 @@ void _gdPutColors (gdImagePtr im, gdIOCtx * out)
 
 static void _gdPutHeader (gdImagePtr im, gdIOCtx * out)
 {
-	/* 65535 indicates this is a gd 2.x .gd file.  
+	/* 65535 indicates this is a gd 2.x .gd file.
 	 * 2.0.12: 65534 indicates truecolor.
 	 */
 	if (im->trueColor) {

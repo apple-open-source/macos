@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>expat</string>
+	<key>OpenSourceVersion</key>
+	<string>2.0.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://expat.sourceforge.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://dl.sourceforge.net/sourceforge/expat/expat-2.0.0.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>9ff011a75a1f5b60145c4afdec520442cb398d93</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-06-08</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>expat.txt</string>
+</dict>
+</array>
+</plist>

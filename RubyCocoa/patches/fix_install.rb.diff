@@ -1,0 +1,11 @@
+--- install.rb.orig     2006-02-11 00:27:45.000000000 +0100
++++ install.rb  2006-02-11 00:27:58.000000000 +0100
+@@ -653,7 +653,7 @@
+       else
+         xcode_version = 0 # unknown
+       end
+-      obj_path = "#{obj_path}/Default" if xcode_version >= 620
++      #obj_path = "#{obj_path}/Default" if xcode_version >= 620
+     end
+     obj_path
+   end

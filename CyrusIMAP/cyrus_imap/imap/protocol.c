@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: protocol.c,v 1.4 2005/03/05 00:37:02 dasenbro Exp $ */
+/* $Id: protocol.c,v 1.15 2006/11/30 17:11:19 murch Exp $ */
 
 #include <config.h>
 
@@ -89,38 +89,59 @@ static char *nntp_parsesuccess(char *str, const char **status)
     return success;
 }
 
+static char *sieve_parsesuccess(char *str, const char **status)
+{
+    char *success = NULL, *tmp;
+
+    if (!strncmp(str, "OK (", 4) &&
+	(tmp = strstr(str+4, "SASL \"")) != NULL) {
+	success = tmp+6; /* skip SASL " */
+	tmp = strstr(success, "\"");
+	*tmp = '\0'; /* clip " */
+    }
+
+    if (status) *status = NULL;
+    return success;
+}
+
 struct protocol_t protocol[] = {
     { "imap", "imap",
+      { 0, "* OK" },
       { "C01 CAPABILITY", "C01 ", &imap_parsemechlist,
 	{ { " AUTH=", CAPA_AUTH },
 	  { " STARTTLS", CAPA_STARTTLS },
 	  { " IDLE", CAPA_IDLE },
 	  { " MUPDATE", CAPA_MUPDATE },
 	  { " MULTIAPPEND", CAPA_MULTIAPPEND },
+	  { " LIST-SUBSCRIBED", CAPA_LISTSUBSCRIBED },
+	  { " RIGHTS=kxte", CAPA_ACLRIGHTS },
 	  { NULL, 0 } } },
       { "S01 STARTTLS", "S01 OK", "S01 NO" },
       { "A01 AUTHENTICATE", 0, 0, "A01 OK", "A01 NO", "+ ", "*", NULL },
-      { "N01 NOOP", "N01 OK" },
-      { "Q01 LOGOUT", "Q01 " } },
+      { "N01 NOOP", "* ", "N01 OK" },
+      { "Q01 LOGOUT", "* ", "Q01 " } },
     { "pop3", "pop",
+      { 0, "+OK " },
       { "CAPA", ".", NULL,
 	{ { "SASL ", CAPA_AUTH },
 	  { "STLS", CAPA_STARTTLS },
 	  { NULL, 0 } } },
       { "STLS", "+OK", "-ERR" },
       { "AUTH", 255, 0, "+OK", "-ERR", "+ ", "*", NULL },
-      { "NOOP", "+OK" },
-      { "QUIT", "+OK" } },
+      { "NOOP", NULL, "+OK" },
+      { "QUIT", NULL, "+OK" } },
     { "nntp", "nntp",
+      { 0, "20" },
       { "CAPABILITIES", ".", NULL,
 	{ { "SASL ", CAPA_AUTH },
 	  { "STARTTLS", CAPA_STARTTLS },
 	  { NULL, 0 } } },
       { "STARTTLS", "382", "580" },
       { "AUTHINFO SASL", 512, 0, "28", "48", "383 ", "*", &nntp_parsesuccess },
-      { "DATE", "111" },
-      { "QUIT", "205" } },
+      { "DATE", NULL, "111" },
+      { "QUIT", NULL, "205" } },
     { "lmtp", "lmtp",
+      { 0, "220 " },
       { "LHLO murder", "250 ", NULL,
 	{ { "AUTH ", CAPA_AUTH },
 	  { "STARTTLS", CAPA_STARTTLS },
@@ -129,14 +150,36 @@ struct protocol_t protocol[] = {
 	  { NULL, 0 } } },
       { "STARTTLS", "220", "454" },
       { "AUTH", 512, 0, "235", "5", "334 ", "*", NULL },
-      { "NOOP", "250" },
-      { "QUIT", "221" } },
+      { "NOOP", NULL, "250" },
+      { "QUIT", NULL, "221" } },
     { "mupdate", "mupdate",
+      { 1, "* OK" },
       { NULL, "* OK", NULL,
 	{ { "* AUTH ", CAPA_AUTH },
+	  { "* STARTTLS", CAPA_STARTTLS },
 	  { NULL, 0 } } },
       { "S01 STARTTLS", "S01 OK", "S01 NO" },
       { "A01 AUTHENTICATE", INT_MAX, 1, "A01 OK", "A01 NO", "", "*", NULL },
-      { "N01 NOOP", "N01 OK" },
-      { "Q01 LOGOUT", "Q01 " } }
+      { "N01 NOOP", NULL, "N01 OK" },
+      { "Q01 LOGOUT", NULL, "Q01 " } },
+    { "sieve", SIEVE_SERVICE_NAME,
+      { 1, "OK" },
+      { "CAPABILITY", "OK", NULL,
+	{ { "\"SASL\" ", CAPA_AUTH },
+	  { "\"STARTTLS\"", CAPA_STARTTLS },
+	  { NULL, 0 } } },
+      { "STARTTLS", "OK", "NO" },
+      { "AUTHENTICATE", INT_MAX, 1, "OK", "NO", NULL, "*", &sieve_parsesuccess },
+      { NULL, NULL, NULL },
+      { "LOGOUT", NULL, "OK" } },
+    { "csync", "csync",
+      { 1, "* OK" },
+      { NULL, "* OK", NULL,
+	{ { "* SASL ", CAPA_AUTH },
+	  { "* STARTTLS", CAPA_STARTTLS },
+	  { NULL, 0 } } },
+      { "STARTTLS", "OK", "NO" },
+      { "AUTHENTICATE", INT_MAX, 0, "OK", "NO", "+ ", "*", NULL },
+      { "NOOP", NULL, "OK" },
+      { "EXIT", NULL, "OK" } }
 };

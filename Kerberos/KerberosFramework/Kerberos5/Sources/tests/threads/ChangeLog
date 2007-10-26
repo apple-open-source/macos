@@ -1,4 +1,0 @@
-2004-08-03  Ken Raeburn  <raeburn@mit.edu>
-
-	* Makefile.in, t_rcache.c: New files.
-

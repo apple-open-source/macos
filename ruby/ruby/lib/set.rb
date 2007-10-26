@@ -9,7 +9,7 @@
 # All rights reserved.  You can redistribute and/or modify it under the same
 # terms as Ruby.
 #
-#   $Id: set.rb,v 1.20.2.4 2004/12/18 02:07:28 matz Exp $
+#   $Id: set.rb 11980 2007-03-03 16:06:45Z knu $
 #
 # == Overview 
 # 
@@ -286,7 +286,7 @@ class Set
   end
   alias difference -	##
 
-  # Returns a new array containing elements common to the set and the
+  # Returns a new set containing elements common to the set and the
   # given enumerable object.
   def &(enum)
     enum.is_a?(Enumerable) or raise ArgumentError, "value must be enumerable"
@@ -296,13 +296,13 @@ class Set
   end
   alias intersection &	##
 
-  # Returns a new array containing elements exclusive between the set
+  # Returns a new set containing elements exclusive between the set
   # and the given enumerable object.  (set ^ enum) is equivalent to
   # ((set | enum) - (set & enum)).
   def ^(enum)
     enum.is_a?(Enumerable) or raise ArgumentError, "value must be enumerable"
-    n = dup
-    enum.each { |o| if n.include?(o) then n.delete(o) else n.add(o) end }
+    n = Set.new(enum)
+    each { |o| if n.include?(o) then n.delete(o) else n.add(o) end }
     n
   end
 
@@ -440,6 +440,11 @@ class SortedSet < Set
     def setup	# :nodoc:
       @@setup and return
 
+      module_eval {
+        # a hack to shut up warning
+        alias old_init initialize
+        remove_method :old_init
+      }
       begin
 	require 'rbtree'
 
@@ -514,6 +519,7 @@ end
 
 module Enumerable
   # Makes a set from the enumerable object with given arguments.
+  # Needs to +require "set"+ to use this method.
   def to_set(klass = Set, *args, &block)
     klass.new(self, *args, &block)
   end
@@ -1043,6 +1049,13 @@ class TC_Set < Test::Unit::TestCase
     assert_equal(Set[2,4], ret)
   end
 
+  def test_xor
+    set = Set[1,2,3,4]
+    ret = set ^ [2,4,5,5]
+    assert_not_same(set, ret)
+    assert_equal(Set[1,3,5], ret)
+  end
+
   def test_eq
     set1 = Set[2,3,1]
     set2 = Set[1,2,3]
@@ -1059,6 +1072,8 @@ class TC_Set < Test::Unit::TestCase
 #    assert_equal(set2, set1)
     assert_equal(set2, set2.clone)
     assert_equal(set1.clone, set1)
+
+    assert_not_equal(Set[Exception.new,nil], Set[Exception.new,Exception.new], "[ruby-dev:26127]")
   end
 
   # def test_hash

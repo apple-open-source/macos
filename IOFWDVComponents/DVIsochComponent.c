@@ -760,70 +760,90 @@ Exit:
 
 static OSStatus cameraNameLookup(DeviceDescriptionPtr pDeviceDescription, UInt8 *name)
 {
-    OSStatus		result = noErr;
-    int len = strlen(pDeviceDescription->fDevice->fName);
+    OSStatus	result	= noErr;
+    int 		len 	= strlen(pDeviceDescription->fDevice->fName);
 
 #ifdef kIDH_Verbose_Debug_Logging
 	syslog(LOG_INFO, "IDH: cameraNameLookup begin\n");
 #endif
 	
-    if(len) {
+	if(len) 
+	{
         if(len>255)
             len = 255;
         name[0] = len;
         BlockMoveData(pDeviceDescription->fDevice->fName, name+1, len);
     }
-    else {
+    else
+	{
         // Look up vendor ID in resource list
-        UInt32	vendorID = pDeviceDescription->fDevice->fGUID >> 40;
-        Handle	h;
-        UInt32	*pGuid;
-        UInt32	guidCount;
-        UInt32	i, index;		
-        Str255	cameraName = "\pDV"; // in case we don't find anything
-        SInt16 	refNum = -1, localizedRefNum = -1;
-        SInt16	oldRes;
+		UInt32		vendorID	= pDeviceDescription->fDevice->fGUID >> 40;
+		CFStringRef cameraName	= CFStringCreateWithCString(kCFAllocatorDefault, "DV", CFStringGetSystemEncoding());
+        SInt16		refNum		= -1, localizedRefNum = -1;
+		Boolean		stringFound	= false;
 
-        BlockMoveData(cameraName, name, cameraName[0] + 1);
+		CFBundleRef myRef = 0;
 
 		// read vendor id resource and look for matching guid
-        if(pDeviceDescription->fGlobals->fBundleID == 0) {
-            CFBundleRef myRef;
-            myRef = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.IOFWDVComponents"));
-            CFBundleOpenBundleResourceFiles(myRef, &refNum, &localizedRefNum);
-            pDeviceDescription->fGlobals->fBundleID = myRef;
-            pDeviceDescription->fGlobals->fBundleResRef = localizedRefNum;
-        }
-        oldRes = CurResFile();
-        UseResFile(pDeviceDescription->fGlobals->fBundleResRef);
-		h = Get1Resource('vnid', -20775); // jkl, get resource assignment and constant
-		result = ResError();
-		if (h && (result == noErr)) {
-			HLock(h);
-	
-			// first long is number of vendor id's stored in resource
-			guidCount = **((UInt32 **) h);
+		if(pDeviceDescription->fGlobals->fBundleID == 0) 
+		{
+			myRef = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.IOFWDVComponents"));
+			CFBundleOpenBundleResourceFiles(myRef, &refNum, &localizedRefNum);
+			pDeviceDescription->fGlobals->fBundleID = myRef;
+			pDeviceDescription->fGlobals->fBundleResRef = localizedRefNum;
+		}
+		else
+		{
+			myRef = pDeviceDescription->fGlobals->fBundleID;
+		}
+		
+		if( myRef )
+		{
+			// form the key
+			CFStringRef keyRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("VENDOR_%08X"), vendorID);
+			
+			if( keyRef )
+			{
+				// lookup the value
+				CFStringRef localizedString = CFBundleCopyLocalizedString ( myRef,  keyRef, cameraName, NULL );
 
-			pGuid = *((UInt32 **) h);
-			pGuid++;
-	
-			for (i = 0, index = 1; i < guidCount; i++, index++) {
-				if (pGuid[i] == vendorID) {
-					// found device, get its name
-                    GetIndString(cameraName, -20775, index);
-					if (cameraName[0]) {
-						BlockMoveData(cameraName, name, cameraName[0] + 1);
-						BlockMoveData(" DV", name + name[0] + 1, 3);
-						name[0] += 3;
-						break;
+				if ( localizedString )
+				{
+					CFMutableArrayRef names = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+
+					if (localizedString && CFStringGetLength(localizedString) > 0) 
+					{
+						CFArrayAppendValue(names, (const void *)localizedString);
 					}
-				}	
+					
+					if (cameraName && CFStringGetLength(cameraName) > 0) 
+					{
+						CFArrayAppendValue(names, (const void *)cameraName);
+					}
+					
+					CFStringRef vendorAndCameraName = CFStringCreateByCombiningStrings(kCFAllocatorDefault, names, CFSTR(" "));
+					
+					if ( vendorAndCameraName )
+					{
+						stringFound = CFStringGetPascalString ( vendorAndCameraName, name, sizeof(name), CFStringGetSystemEncoding());
+						CFRelease( vendorAndCameraName );
+					}
+					
+					CFRelease(names); 
+					CFRelease( localizedString );
+				}
+				
+				CFRelease( keyRef );
 			}
-			HUnlock(h);
-			ReleaseResource(h);
-        }
-        UseResFile(oldRes);
-    }
+		}
+
+		if(stringFound == false)
+		{
+			CFStringGetPascalString ( CFSTR("DV"), name, sizeof(name), CFStringGetSystemEncoding());
+		}
+
+		CFRelease(cameraName);
+	}
 
 #ifdef kIDH_Verbose_Debug_Logging
 	syslog(LOG_INFO, "IDH: cameraNameLookup end\n");
@@ -1077,14 +1097,22 @@ static void disableWrite(DeviceDescription *deviceDescriptionPtr)
 	syslog(LOG_INFO, "IDH: disableWrite begin\n");
 #endif
 	
-    DVWriteStop(deviceDescriptionPtr->fWrite);
-    DVWriteFreeFrames(deviceDescriptionPtr->fWrite);
-    DVWriteFree(deviceDescriptionPtr->fWrite);
-    deviceDescriptionPtr->fWrite = NULL;
-    if(deviceDescriptionPtr->fOldWriteTimeStamps) {
-        DisposePtr((Ptr)deviceDescriptionPtr->fOldWriteTimeStamps);
-        deviceDescriptionPtr->fOldWriteTimeStamps = NULL;
-    }
+	if (deviceDescriptionPtr->fWrite)
+	{
+		DVWriteStop(deviceDescriptionPtr->fWrite);
+		DVWriteFreeFrames(deviceDescriptionPtr->fWrite);
+		DVWriteFree(deviceDescriptionPtr->fWrite);
+		deviceDescriptionPtr->fWrite = NULL;
+		if(deviceDescriptionPtr->fOldWriteTimeStamps)
+		{
+			DisposePtr((Ptr)deviceDescriptionPtr->fOldWriteTimeStamps);
+			deviceDescriptionPtr->fOldWriteTimeStamps = NULL;
+		}
+	}
+	else
+	{
+		syslog(LOG_INFO, "IDH: disableWrite called with deviceDescriptionPtr->fWrite == NULL\n");
+	}
 
 #ifdef kIDH_Verbose_Debug_Logging
 	syslog(LOG_INFO, "IDH: disableWrite end\n");

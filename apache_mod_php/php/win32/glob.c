@@ -34,7 +34,7 @@
  * SUCH DAMAGE.
  */
 
-/* $Id: glob.c,v 1.3.4.2 2003/09/20 03:22:54 sniper Exp $ */
+/* $Id: glob.c,v 1.6.6.1 2006/11/10 09:56:16 dmitry Exp $ */
 
 /*
  * glob(3) -- a superset of the one defined in POSIX 1003.2.
@@ -81,8 +81,6 @@
 #include <dirent.h>
 #include <pwd.h>
 #include <unistd.h>
-#else
-#include "win32/pwd.h"
 #endif
 #include <errno.h>
 #include "glob.h"
@@ -359,7 +357,9 @@ globtilde(pattern, patbuf, patbuf_len, pglob)
 	size_t patbuf_len;
 	glob_t *pglob;
 {
+#ifndef PHP_WIN32
 	struct passwd *pwd;
+#endif
 	char *h;
 	const Char *p;
 	Char *b, *eb;
@@ -399,10 +399,14 @@ globtilde(pattern, patbuf, patbuf_len, pglob)
 		/*
 		 * Expand a ~user
 		 */
+#ifndef PHP_WIN32
 		if ((pwd = getpwnam((char*) patbuf)) == NULL)
 			return pattern;
 		else
 			h = pwd->pw_dir;
+#else
+		return pattern;
+#endif
 	}
 
 	/* Copy the home directory */

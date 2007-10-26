@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Open a file/string for IO.
@@ -53,24 +49,14 @@ reg char*	mode;		/* mode of the stream */
 	if((sflags = _sftype(mode,&oflags,NIL(int*))) == 0)
 		return NIL(Sfio_t*);
 
-	/* usually used on the standard streams to change control flags */
-	if(f && !file && (f->mode&SF_INIT) )
+	/* changing the control flags */
+	if(f && !file && !((f->flags|sflags)&SF_STRING) )
 	{	SFMTXSTART(f, NIL(Sfio_t*));
 
-		if(f->mode&SF_INIT) /* paranoia in case another thread snuck in */
-		{	if(f->file >= 0 && !(f->flags&SF_STRING) &&
-			   (oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0 )
-			{	/* set the wanted file access control flags */
-				int ctl = sysfcntlf(f->file, F_GETFL, 0);
-				ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
-				sysfcntlf(f->file, F_SETFL, ctl);
-			}
+		if(f->mode&SF_INIT ) /* stream uninitialized, ok to set flags */
+		{	f->flags |= (sflags & (SF_FLAGS & ~SF_RDWR));
 
-			/* set all non read-write flags */
-			f->flags |= (sflags & (SF_FLAGS & ~SF_RDWR));
-
-			/* reset read/write modes */
-			if((sflags &= SF_RDWR) != 0)
+			if((sflags &= SF_RDWR) != 0) /* reset read/write modes */
 			{	f->flags = (f->flags & ~SF_RDWR) | sflags;
 
 				if((f->flags&SF_RDWR) == SF_RDWR)
@@ -81,10 +67,20 @@ reg char*	mode;		/* mode of the stream */
 					f->mode = (f->mode&~SF_WRITE)|SF_READ;
 				else	f->mode = (f->mode&~SF_READ)|SF_WRITE;
 			}
-
-			SFMTXRETURN(f,f);
 		}
-		else	SFMTXRETURN(f,NIL(Sfio_t*));
+		else /* make sure there is no buffered data */
+		{	if(sfsync(f) < 0)
+				SFMTXRETURN(f,NIL(Sfio_t*));
+		}
+
+		if(f->file >= 0 && (oflags &= (O_TEXT|O_BINARY|O_APPEND)) != 0 )
+		{	/* set file access control */
+			int ctl = sysfcntlf(f->file, F_GETFL, 0);
+			ctl = (ctl & ~(O_TEXT|O_BINARY|O_APPEND)) | oflags;
+			sysfcntlf(f->file, F_SETFL, ctl);
+		}
+
+		SFMTXRETURN(f,f);
 	}
 
 	if(sflags&SF_STRING)
@@ -100,7 +96,7 @@ reg char*	mode;		/* mode of the stream */
 		while((fd = sysopenf((char*)file,oflags,SF_CREATMODE)) < 0 && errno == EINTR)
 			errno = 0;
 #else
-		while((fd = sysopenf(file,oflags&(O_WRONLY|O_RDWR))) < 0 && errno == EINTR)
+		while((fd = sysopenf(file,oflags&O_ACCMODE)) < 0 && errno == EINTR)
 			errno = 0;
 		if(fd >= 0)
 		{	if((oflags&(O_CREAT|O_EXCL)) == (O_CREAT|O_EXCL) )
@@ -118,10 +114,10 @@ reg char*	mode;		/* mode of the stream */
 		else if(oflags&O_CREAT)
 		{	while((fd = syscreatf(file,SF_CREATMODE)) < 0 && errno == EINTR)
 				errno = 0;
-			if(!(oflags&O_WRONLY))
+			if((oflags&O_ACCMODE) != O_WRONLY)
 			{	/* the file now exists, reopen it for read/write */
 				CLOSE(fd);
-				while((fd = sysopenf(file,oflags&(O_WRONLY|O_RDWR))) < 0 &&
+				while((fd = sysopenf(file,oflags&O_ACCMODE)) < 0 &&
 				      errno == EINTR)
 					errno = 0;
 			}
@@ -195,6 +191,10 @@ int*		uflagp;
 		sflags &= ~SF_MTSAFE;
 		uflag = 1;
 		continue;
+	case 'W' :
+		sflags |= SF_WCWIDTH;
+		uflag = 0;
+		continue;
 	default :
 		if(!(oflags&O_CREAT) )
 			oflags &= ~O_EXCL;
@@ -203,7 +203,7 @@ int*		uflagp;
 			oflags |= O_BINARY;
 #endif
 		if((sflags&SF_RDWR) == SF_RDWR)
-			oflags = (oflags&~(O_RDONLY|O_WRONLY))|O_RDWR;
+			oflags = (oflags&~O_ACCMODE)|O_RDWR;
 		if(oflagsp)
 			*oflagsp = oflags;
 		if(uflagp)

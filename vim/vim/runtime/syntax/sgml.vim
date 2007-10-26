@@ -1,10 +1,9 @@
 " Vim syntax file
 " Language:	SGML
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
-" Last Change:	Tue, 06 Nov 2001 10:03:51 +0100
+" Last Change:	Tue, 27 Apr 2004 15:05:21 CEST
 " Filenames:	*.sgml,*.sgm
-" URL:		http://www.zellner.org/vim/syntax/sgml.vim
-" $Id$
+" $Id: sgml.vim,v 1.1 2004/06/13 17:52:57 vimboss Exp $
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -246,10 +245,10 @@ syn match   sgmlEntityPunct  contained "[&.;]"
 
 " The real comments (this implements the comments as defined by sgml,
 " but not all sgml pages actually conform to it. Errors are flagged.
-syn region  sgmlComment		       start=+<!+	 end=+>+ contains=sgmlCommentPart,sgmlString,sgmlCommentError,sgmlTodo
-syn keyword sgmlTodo	     contained TODO FIXME XXX display
+syn region  sgmlComment                start=+<!+        end=+>+ contains=sgmlCommentPart,sgmlString,sgmlCommentError,sgmlTodo
+syn keyword sgmlTodo         contained TODO FIXME XXX display
 syn match   sgmlCommentError contained "[^><!]"
-syn region  sgmlCommentPart  contained start=+--+	 end=+--+
+syn region  sgmlCommentPart  contained start=+--+        end=+--+
 
 
 " CData sections
@@ -265,8 +264,8 @@ syn region    sgmlCdata
 " using the following line instead leads to corrupt folding at CDATA regions
 " syn match    sgmlCdata      +<!\[CDATA\[\_.\{-}]]>+  contains=sgmlCdataStart,sgmlCdataEnd,@sgmlCdataHook
 syn match    sgmlCdataStart +<!\[CDATA\[+  contained contains=sgmlCdataCdata
-syn keyword  sgmlCdataCdata CDATA	   contained
-syn match    sgmlCdataEnd   +]]>+	   contained
+syn keyword  sgmlCdataCdata CDATA          contained
+syn match    sgmlCdataEnd   +]]>+          contained
 
 
 " Processing instructions

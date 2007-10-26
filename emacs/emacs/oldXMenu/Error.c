@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/Error.c,v 1.1.1.4 2002/09/10 23:34:43 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -28,3 +28,5 @@ XMenuError()
     return(message);
 }
 
+/* arch-tag: 5fff4a23-40ca-40d0-8887-c50fc73dea9d
+   (do not change this comment) */

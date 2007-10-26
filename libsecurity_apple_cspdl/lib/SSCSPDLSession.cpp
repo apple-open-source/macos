@@ -117,18 +117,6 @@ void
 SSCSPDLSession::didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
 	KeyHandle keyHandle, CSSM_ACL_AUTHORIZATION_TAG tag)
 {
-#ifndef SECURITYSERVER_ACL_EDITS
-	{
-		// The user checked to don't ask again checkbox in the rogue app alert.  Let's edit the ACL for this key and add the calling application (ourself) to it.
-		secdebug("keyacl", "SSCSPDLSession::didChangeKeyAcl(keyHandle: %lu tag: %lu)", keyHandle, tag);
-		ClientSessionKey csKey(clientSession, keyHandle);             // the underlying key
-		SecPointer<KeychainCore::Access> access = new KeychainCore::Access(csKey);	// extract access rights
-		SecPointer<KeychainCore::TrustedApplication> thisApp = new KeychainCore::TrustedApplication;
-		access->addApplicationToRight(tag, thisApp.get());	// add this app
-		access->setAccess(csKey, true);	// commit
-	}
-#endif // !SECURITYSERVER_ACL_EDITS
-
 	SSKey *theKey = NULL;
 
 	{
@@ -141,7 +129,7 @@ SSCSPDLSession::didChangeKeyAcl(SecurityServer::ClientSession &clientSession,
 			SSKey *aKey = dynamic_cast<SSKey *>(it->second);
 			if (aKey->optionalKeyHandle() == keyHandle)
 			{
-				// Write the key to disk if it's persistant.
+				// Write the key to disk if it's persistent.
 				theKey = aKey;
 				break;
 			}

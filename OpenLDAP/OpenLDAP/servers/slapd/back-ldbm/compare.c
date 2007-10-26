@@ -1,8 +1,8 @@
 /* compare.c - ldbm backend compare routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/compare.c,v 1.43.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/compare.c,v 1.49.2.6 2006/04/04 20:29:34 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,11 +36,15 @@ ldbm_back_compare(
 	Attribute	*a;
 	int		manageDSAit = get_manageDSAit( op );
 
+	rs->sr_matched = NULL;
+	rs->sr_ref = NULL;
+
 	/* grab giant lock for reading */
 	ldap_pvt_thread_rdwr_rlock(&li->li_giant_rwlock);
 
 	/* get entry with reader lock */
-	if ( (e = dn2entry_r( op->o_bd, &op->o_req_ndn, &matched )) == NULL ) {
+	e = dn2entry_r( op->o_bd, &op->o_req_ndn, &matched );
+	if ( e == NULL ) {
 		if ( matched != NULL ) {
 			rs->sr_matched = ch_strdup( matched->e_dn );
 			rs->sr_ref = is_entry_referral( matched )
@@ -55,36 +59,23 @@ ldbm_back_compare(
 		ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
 
 		rs->sr_err = LDAP_REFERRAL;
-		send_ldap_result( op, rs );
-
-		if ( rs->sr_ref ) ber_bvarray_free( rs->sr_ref );
-		free( (char *)rs->sr_matched );
-		rs->sr_ref = NULL;
-		rs->sr_matched = NULL;
-		return( 1 );
+		goto return_results;
 	}
 
-	if (!manageDSAit && is_entry_referral( e ) ) {
+	if ( !manageDSAit && is_entry_referral( e ) ) {
+		struct berval	bv;
+
 		/* entry is a referral, don't allow add */
 		rs->sr_ref = get_entry_referrals( op, e );
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDBM, INFO, 
-			"ldbm_back_compare: entry (%s) is a referral.\n", e->e_dn, 0, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0,
 		    0, 0 );
-#endif
 
 
 		rs->sr_err = LDAP_REFERRAL;
-		rs->sr_matched = e->e_name.bv_val;
-		send_ldap_result( op, rs );
+		ber_dupbv_x( &bv, &e->e_name, op->o_tmpmemctx );
+		rs->sr_matched = bv.bv_val;
 
-		if ( rs->sr_ref ) ber_bvarray_free( rs->sr_ref );
-		rs->sr_ref = NULL;
-		rs->sr_matched = NULL;
-		rs->sr_err = 1;
 		goto return_results;
 	}
 
@@ -93,7 +84,6 @@ ldbm_back_compare(
 	{
 		send_ldap_error( op, rs, LDAP_INSUFFICIENT_ACCESS,
 			NULL );
-		rs->sr_err = 1;
 		goto return_results;
 	}
 
@@ -116,15 +106,28 @@ ldbm_back_compare(
 		}
 	}
 
+return_results:;
+	if ( e ) cache_return_entry_r( &li->li_cache, e );
+	ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
+
 	send_ldap_result( op, rs );
 
-	if( rs->sr_err != LDAP_NO_SUCH_ATTRIBUTE ) {
-		rs->sr_err = 0;
+	switch ( rs->sr_err ) {
+	case LDAP_COMPARE_FALSE:
+	case LDAP_COMPARE_TRUE:
+		rs->sr_err = LDAP_SUCCESS;
+		break;
 	}
 
+	if ( rs->sr_ref != NULL ) {
+		ber_bvarray_free( rs->sr_ref );
+		rs->sr_ref = NULL;
+	}
 
-return_results:;
-	cache_return_entry_r( &li->li_cache, e );
-	ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
-	return( rs->sr_err );
+	if ( rs->sr_matched != NULL ) {
+		op->o_tmpfree( (char *)rs->sr_matched, op->o_tmpmemctx );
+		rs->sr_matched = NULL;
+	}
+
+	return rs->sr_err;
 }

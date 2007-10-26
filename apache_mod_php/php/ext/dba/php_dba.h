@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_dba.h,v 1.19.2.5.8.2 2007/01/01 09:46:40 sebastian Exp $ */
+/* $Id: php_dba.h,v 1.29.2.1.2.1 2007/01/01 09:35:59 sebastian Exp $ */
 
 #ifndef PHP_DBA_H
 #define PHP_DBA_H
@@ -33,7 +33,6 @@ typedef enum {
 
 typedef struct dba_lock {
 	php_stream *fp;
-	int fd;
 	char *name;
 	int mode; /* LOCK_EX,LOCK_SH */
 } dba_lock;
@@ -44,6 +43,7 @@ typedef struct dba_info {
 	char *path;
 	dba_mode_t mode;
 	php_stream *fp;  /* this is the database stream for builtin handlers */
+	int fd;
 	/* arg[cv] are only available when the dba_open handler is called! */
 	int argc;
 	zval ***argv;
@@ -64,6 +64,9 @@ typedef struct dba_info {
 
 #define DBA_STREAM_OPEN  (0x0010)
 #define DBA_PERSISTENT   (0x0020)
+
+#define DBA_CAST_AS_FD   (0x0050)
+#define DBA_NO_APPEND    (0x00D0)
 
 extern zend_module_entry dba_module_entry;
 #define dba_module_ptr &dba_module_entry
@@ -139,6 +142,7 @@ PHP_FUNCTION(dba_optimize);
 PHP_FUNCTION(dba_sync);
 PHP_FUNCTION(dba_handlers);
 PHP_FUNCTION(dba_list);
+PHP_FUNCTION(dba_key_split);
 
 #else
 #define dba_module_ptr NULL

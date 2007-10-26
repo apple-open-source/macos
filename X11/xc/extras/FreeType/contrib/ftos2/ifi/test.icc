@@ -1,6 +1,0 @@
-test.exe:       $*.obj freetype.lib
-   ilink /DE /PM:VIO /ST:0x1000 $*.obj freetype.lib
-test.obj:       $*.c
-   icc -Ti+ -C -Ss -Sp1 $*.c
-freetype.lib:       $*.dll
-   implib $*.lib $*.dll

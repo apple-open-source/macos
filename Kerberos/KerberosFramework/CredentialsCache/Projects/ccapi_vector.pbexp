@@ -1,0 +1,86 @@
+#
+# $Header$
+#
+# Copyright 1998-2006 Massachusetts Institute of Technology.
+# All Rights Reserved.
+#
+# Export of this software from the United States of America may
+# require a specific license from the United States Government.
+# It is the responsibility of any person or organization contemplating
+# export to obtain such a license before exporting.
+#
+# WITHIN THAT CONSTRAINT, permission to use, copy, modify, and
+# distribute this software and its documentation for any purpose and
+# without fee is hereby granted, provided that the above copyright
+# notice appear in all copies and that both that copyright notice and
+# this permission notice appear in supporting documentation, and that
+# the name of M.I.T. not be used in advertising or publicity pertaining
+# to distribution of the software without specific, written prior
+# permission.  Furthermore if you modify this software you must label
+# your software as modified software and not distribute it in such a
+# fashion that it might be confused with the original M.I.T. software.
+# M.I.T. makes no representations about the suitability of
+# this software for any purpose.  It is provided "as is" without express
+# or implied warranty.
+#
+
+___cc_context_release_vector
+___cc_context_get_change_time_vector
+___cc_context_get_default_ccache_name_vector
+___cc_context_open_ccache_vector
+___cc_context_open_default_ccache_vector
+___cc_context_create_ccache_vector
+___cc_context_create_default_ccache_vector
+___cc_context_create_new_ccache_vector
+___cc_context_new_ccache_iterator_vector
+___cc_context_lock_vector
+___cc_context_unlock_vector
+___cc_context_compare_vector
+___cc_ccache_release_vector
+___cc_ccache_destroy_vector
+___cc_ccache_set_default_vector
+___cc_ccache_get_credentials_version_vector
+___cc_ccache_get_name_vector
+___cc_ccache_get_principal_vector
+___cc_ccache_set_principal_vector
+___cc_ccache_store_credentials_vector
+___cc_ccache_remove_credentials_vector
+___cc_ccache_new_credentials_iterator_vector
+___cc_ccache_move_vector
+___cc_ccache_lock_vector
+___cc_ccache_unlock_vector
+___cc_ccache_get_last_default_time_vector
+___cc_ccache_get_change_time_vector
+___cc_ccache_compare_vector
+___cc_string_release_vector
+___cc_credentials_release_vector
+___cc_credentials_compare_vector
+___cc_ccache_iterator_release_vector
+___cc_ccache_iterator_next_vector
+___cc_credentials_iterator_release_vector
+___cc_credentials_iterator_next_vector
+___cc_initialize_vector
+___cc_shutdown_vector
+___cc_get_NC_info_vector
+___cc_get_change_time_vector
+___cc_open_vector
+___cc_create_vector
+___cc_close_vector
+___cc_destroy_vector
+___cc_seq_fetch_NCs_begin_vector
+___cc_seq_fetch_NCs_next_vector
+___cc_seq_fetch_NCs_end_vector
+___cc_get_name_vector
+___cc_get_cred_version_vector
+___cc_set_principal_vector
+___cc_get_principal_vector
+___cc_store_vector
+___cc_remove_cred_vector
+___cc_seq_fetch_creds_begin_vector
+___cc_seq_fetch_creds_next_vector
+___cc_seq_fetch_creds_end_vector
+___cc_free_principal_vector
+___cc_free_name_vector
+___cc_free_creds_vector
+___cc_free_NC_info_vector
+

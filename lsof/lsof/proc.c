@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.41 2005/08/29 10:03:28 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.42 2007/04/24 16:16:59 abe Exp $";
 #endif
 
 
@@ -324,6 +324,14 @@ alloc_lproc(pid, pgid, ppid, uid, cmd, pss, sf)
  */
 	Lp->zn = (char *)NULL;
 #endif	/* defined(HASZONES) */
+ 
+#if	defined(HASSELINUX)
+/*
+ * Clear the security context pointer.  The dialect's own code will
+ * set it.
+ */
+	Lp->cntx = (char *)NULL;
+#endif	/* defined(HASSELINUX) */
 
 }
 
@@ -427,7 +435,7 @@ ent_inaddr(la, lp, fa, fp, af)
 	    else
 #endif	/* defined(HASIPv6) */
 
-	        Lf->li[0].ia.a4 = *(struct in_addr *)la;
+		Lf->li[0].ia.a4 = *(struct in_addr *)la;
 	    Lf->li[0].p = lp;
 	} else
 	    Lf->li[0].af = 0;
@@ -958,6 +966,11 @@ print_proc()
 	    if (FieldSel[LSOF_FIX_ZONE].st && Fzone && Lp->zn)
 		(void) printf("%c%s%c", LSOF_FID_ZONE, Lp->zn, Terminator);
 #endif	/* defined(HASZONES) */
+ 
+#if	defined(HASSELINUX)
+	    if (FieldSel[LSOF_FIX_CNTX].st && Fcntx && Lp->cntx)
+		(void) printf("%c%s%c", LSOF_FID_CNTX, Lp->cntx, Terminator);
+#endif	/* defined(HASSELINUX) */
 
 	    if (FieldSel[LSOF_FIX_PGID].st && Fpgid)
 		(void) printf("%c%d%c", LSOF_FID_PGID, Lp->pgid, Terminator);

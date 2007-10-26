@@ -96,6 +96,18 @@
 #include <sys/cdefs.h>
 
 #define PMAPPORT		((unsigned short)111)
+#ifdef __LP64__
+#define PMAPPROG		((unsigned int)100000)
+#define PMAPVERS		((unsigned int)2)
+#define PMAPVERS_PROTO		((unsigned int)2)
+#define PMAPVERS_ORIG		((unsigned int)1)
+#define PMAPPROC_NULL		((unsigned int)0)
+#define PMAPPROC_SET		((unsigned int)1)
+#define PMAPPROC_UNSET		((unsigned int)2)
+#define PMAPPROC_GETPORT	((unsigned int)3)
+#define PMAPPROC_DUMP		((unsigned int)4)
+#define PMAPPROC_CALLIT		((unsigned int)5)
+#else
 #define PMAPPROG		((unsigned long)100000)
 #define PMAPVERS		((unsigned long)2)
 #define PMAPVERS_PROTO		((unsigned long)2)
@@ -106,12 +118,20 @@
 #define PMAPPROC_GETPORT	((unsigned long)3)
 #define PMAPPROC_DUMP		((unsigned long)4)
 #define PMAPPROC_CALLIT		((unsigned long)5)
+#endif
 
 struct pmap {
+#ifdef __LP64__
+	unsigned int pm_prog;
+	unsigned int pm_vers;
+	unsigned int pm_prot;
+	unsigned int pm_port;
+#else
 	long unsigned pm_prog;
 	long unsigned pm_vers;
 	long unsigned pm_prot;
 	long unsigned pm_port;
+#endif
 };
 
 struct pmaplist {

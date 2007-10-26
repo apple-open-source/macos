@@ -42,7 +42,8 @@ protected:
     
     UInt32 fWriteGen;
     UInt16 fWriteNodeID;
-    
+    bool bypassRobustCommandResponseMatching;
+	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
     */    
@@ -73,6 +74,8 @@ public:
     virtual UInt32 handleResponse(UInt16 nodeID, UInt32 len, const void *buf);
 
     virtual IOReturn resetInterimTimeout();
+
+	virtual UInt32 handleResponseWithSimpleMatching(UInt16 nodeID, UInt32 len, const void *buf);
 
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireAVCCommand, 0);

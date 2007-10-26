@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.dep.mk,v 1.46 2004/03/12 21:36:12 trhodes Exp $
+# $FreeBSD: src/share/mk/bsd.dep.mk,v 1.48 2005/01/06 11:12:43 krion Exp $
 #
 # The include file <bsd.dep.mk> handles Makefile dependencies.
 #
@@ -18,7 +18,7 @@
 # MKDEP		Options for ${MKDEPCMD} [not set]
 #
 # MKDEPCMD	Makefile dependency list program [mkdep]
-# 
+#
 # SRCS          List of source files (c, c++, assembler)
 #
 # DPSRCS	List of source files which are needed for generating
@@ -56,7 +56,7 @@ MKDEPCMD?=	mkdep
 DEPENDFILE?=	.depend
 
 # Keep `tags' here, before SRCS are mangled below for `depend'.
-.if !target(tags) && defined(SRCS) && !defined(NOTAGS)
+.if !target(tags) && defined(SRCS) && !defined(NO_TAGS)
 tags: ${SRCS}
 .if ${CTAGS:T} == "ctags"
 	@${CTAGS} ${CTAGSFLAGS} -f /dev/stdout \

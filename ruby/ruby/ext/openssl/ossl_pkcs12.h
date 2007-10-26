@@ -1,10 +1,10 @@
 /*
  * This program is licenced under the same licence as Ruby.
  * (See the file 'LICENCE'.)
- * $Id: ossl_pkcs12.h,v 1.1 2003/12/11 12:29:08 gotoyuzo Exp $
+ * $Id: ossl_pkcs12.h 11708 2007-02-12 23:01:19Z shyouhei $
  */
 #if !defined(_OSSL_PKCS12_H_)
-#define _OSSL_PKCS7_H_
+#define _OSSL_PKCS12_H_
 
 extern VALUE mPKCS12;
 extern VALUE cPKCS12;

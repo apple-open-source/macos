@@ -2,7 +2,7 @@
 # Glenn Fowler
 # AT&T Research
 #
-# @(#)C probe (AT&T Research) 2004-02-14
+# @(#)C probe (AT&T Research) 2007-03-08
 #
 # probe [ -d ] c-compiler-path [ attributes ]
 #
@@ -29,6 +29,7 @@ probe_sd=".dll .lib .dll .x"
 probe_so=".so .sl .dylib"
 probe_symprefix="_"
 probe_verbose="'-v -v' '-# -#' '-d -d' -dryrun '-V -V'"
+probe_version="--version -version -V -v"
 
 #
 # the following are set by the preamble for the tool specific probe
@@ -42,6 +43,8 @@ dynamic=
 exe=exe
 executable="test -x"
 hosted=
+ifs=${IFS-'
+	 '}
 obj=o
 ppenv=
 ppopt=
@@ -61,13 +64,17 @@ else	tmpdir=/tmp
 fi
 tmpdir=$tmpdir/probe$$
 undef="define defined elif else endif error if ifdef ifndef include line pragma undef __STDC__ __STDPP__ __ARGC__ __BASE__ __BASE_FILE__ __DATE__ __FILE__ __INCLUDE_LEVEL__ __LINE__ __PATH__ __TIME__ __VERSION__"
+version_flags=
+version_stamp=
+version_string=
 
 #
 # constrain the environment
 #
 
 DISPLAY=
-export DISPLAY
+LC_ALL=C
+export DISPLAY LC_ALL
 
 #
 # now the common probes
@@ -116,6 +123,7 @@ cd $tmpdir
 exec 3>&1 4>&2 </dev/null
 case $debug in
 "")	exec >/dev/null 2>&1
+	(ulimit -c 0) >/dev/null 2>&1 && ulimit -c 0
 	;;
 *)	PS4='+$LINENO+ '
 	set -x
@@ -150,12 +158,13 @@ done
 
 if	test -f "$dir/probe.ini"
 then	. "$dir/probe.ini"
+	IFS=$ifs
 fi
 
 mkdir suffix
 cd suffix
 for src in $probe_src
-do	echo "main(){return 0;}" > ../test.$src
+do	echo "int main(){return 0;}" > ../test.$src
 	rm -f test*
 	if	$cc -c ../test.$src
 	then	set test.*
@@ -187,6 +196,7 @@ cd ..
 case $src in
 c)	;;
 *)	echo '// (
+int
 main()
 {
 	class { public: int i; } j;
@@ -254,7 +264,7 @@ case $hosttype in
 esac
 
 echo '#include <stdio.h>
-main(){printf("hello");return(0);}' > dynamic.$src
+int main(){printf("hello");return 0;}' > dynamic.$src
 echo 'extern int sfclose() { return 0; }' > fun.$src
 if	$cc -c dynamic.$src && $cc -c fun.$src
 then	eval set x $probe_so
@@ -371,7 +381,18 @@ then	eval set x $probe_so
 	fi
 fi
 
-echo 'main(){return(0);}' > hosted.$src
+eval set x $probe_version
+shift
+for o in "$@"
+do	if	$cc $o > version.out 2>&1
+	then	version_flags=$o
+		version_string=`sed -e 1q -e 's/;/ /g' version.out`
+		version_stamp=";VERSION;$o;$version_string;PATH;$cc"
+		break
+	fi
+done
+
+echo 'int main(){return 0;}' > hosted.$src
 $cc -o hosted.$exe hosted.$src && ./hosted.$exe && hosted=1
 
 echo '#!'$sh'
@@ -428,7 +449,6 @@ definclude="-I+C -I-H"
 stdinclude=$definclude
 case $hosted in
 "")	usrinclude= ;;
-*)	usrinclude=/usr/include ;;
 esac
 cmdinclude=
 while	:

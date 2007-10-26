@@ -1,6 +1,18 @@
---- pselect.c.orig	Sat Oct 12 09:13:37 2002
-+++ pselect.c	Fri May 16 14:11:39 2003
-@@ -31,8 +31,10 @@
+--- pselect.c.orig	2007-08-19 17:38:56.000000000 -0700
++++ pselect.c	2007-08-19 19:15:50.000000000 -0700
+@@ -27,12 +27,22 @@
+  * SUCH DAMAGE.
+  */
+ 
++#if defined(VARIANT_CANCELABLE) || defined(VARIANT_PRE1050)
++#undef __DARWIN_NON_CANCELABLE
++#endif /* VARIANT_CANCELABLE */
++
++#ifdef VARIANT_DARWINEXTSN
++#define _DARWIN_UNLIMITED_SELECT
++#endif /* VARIANT_DARWINEXTSN */
++
+ #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/gen/pselect.c,v 1.6 2002/10/12 16:13:37 mike Exp $");
  
  #include "namespace.h"

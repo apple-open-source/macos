@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2000-2004, International Business Machines
+*   Copyright (c) 2000-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -26,18 +26,6 @@ U_NAMESPACE_BEGIN
 class U_I18N_API NullTransliterator : public Transliterator {
 
 public:
-
-    /**
-     * ID for this transliterator.
-     * @internal Use transliterator factory methods instead since this class will be removed in that release.
-     */
-    static const UChar ID[]; // public for Transliterator
-
-    /**
-     * ID for this transliterator.
-     * @internal Use transliterator factory methods instead since this class will be removed in that release.
-     */
-    static const UChar SHORT_ID[]; // public for Transliterator
 
     /**
      * Constructs a transliterator.
@@ -66,15 +54,11 @@ public:
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
-     *
-     * @draft ICU 2.2
      */
     virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
-     *
-     * @draft ICU 2.2
      */
     static UClassID U_EXPORT2 getStaticClassID();
 

@@ -1,801 +1,181 @@
-# Dutch messages for GNU tar.
-# Copyright (C) 1996 Free Software Foundation, Inc.
-# Erick Branderhorst <branderh@debian.org>, 1996.
-# André van Dijk <ady@unseen.demon.nl>, 1998.
-#
+# Dutch translation of tar.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+# Elros Cyriatan <cyriatan@fastmail.fm>, 2004.
+# 
+# 
 msgid ""
 msgstr ""
-"Project-Id-Version: tar 1.13.7\n"
+"Project-Id-Version: tar 1.14.90\n"
 "Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
-"POT-Creation-Date: 2004-05-10 14:53+0300\n"
-"PO-Revision-Date: 1999-09-25 13:46:41\n"
-"Last-Translator: André van Dijk <ady@unseen.demon.nl>\n"
-"Language-Team: Dutch <nl@li.org>\n"
+"POT-Creation-Date: 2004-12-21 17:11+0200\n"
+"PO-Revision-Date: 2004-10-03 13:32+0200\n"
+"Last-Translator: Elros Cyriatan <cyriatan@fastmail.fm>\n"
+"Language-Team: Dutch <vertaling@nl.linux.org>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=ISO-8859-1\n"
-"Content-Transfer-Encoding: 8-bit\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 
-#: lib/argmatch.c:133
-#, fuzzy, c-format
+#: lib/argmatch.c:137
+#, c-format
 msgid "invalid argument %s for %s"
-msgstr "ongeldig argument %s voor `%s'"
+msgstr "ongeldig argument %s voor %s"
 
-#: lib/argmatch.c:134
-#, fuzzy, c-format
+#: lib/argmatch.c:138
+#, c-format
 msgid "ambiguous argument %s for %s"
-msgstr "dubbelzinnig argument %s voor `%s'"
+msgstr "dubbelzinnig argument %s voor %s"
 
-#: lib/argmatch.c:153
+#: lib/argmatch.c:157
 #, c-format
 msgid "Valid arguments are:"
-msgstr "Geldige argumenten:"
+msgstr "Geldige argumenten zijn:"
 
-#: lib/error.c:127 src/rmt.c:92
+#: lib/error.c:123 rmt/rmt.c:92
 msgid "Unknown system error"
 msgstr "Onbekende systeemfout"
 
-#: lib/getopt.c:570 lib/getopt.c:589
+#: lib/getopt.c:551 lib/getopt.c:570
 #, c-format
 msgid "%s: option `%s' is ambiguous\n"
 msgstr "%s: optie `%s' is dubbelzinnig\n"
 
-#: lib/getopt.c:622 lib/getopt.c:626
+#: lib/getopt.c:603 lib/getopt.c:607
 #, c-format
 msgid "%s: option `--%s' doesn't allow an argument\n"
 msgstr "%s: optie `--%s' staat geen argument toe\n"
 
-#: lib/getopt.c:635 lib/getopt.c:640
+#: lib/getopt.c:616 lib/getopt.c:621
 #, c-format
 msgid "%s: option `%c%s' doesn't allow an argument\n"
 msgstr "%s: optie `%c%s' staat geen argument toe\n"
 
-#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#: lib/getopt.c:667 lib/getopt.c:689 lib/getopt.c:1020 lib/getopt.c:1042
 #, c-format
 msgid "%s: option `%s' requires an argument\n"
 msgstr "%s: optie `%s' vereist een argument\n"
 
-#: lib/getopt.c:746 lib/getopt.c:749
+#: lib/getopt.c:727 lib/getopt.c:730
 #, c-format
 msgid "%s: unrecognized option `--%s'\n"
-msgstr "%s: onbekende optie `--%s'\n"
+msgstr "%s: optie niet herkend `--%s'\n"
 
-#: lib/getopt.c:757 lib/getopt.c:760
+#: lib/getopt.c:738 lib/getopt.c:741
 #, c-format
 msgid "%s: unrecognized option `%c%s'\n"
-msgstr "%s: onbekende optie `%c%s'\n"
+msgstr "%s: optie `%c%s' niet herkend\n"
 
-#: lib/getopt.c:815 lib/getopt.c:818
+#: lib/getopt.c:796 lib/getopt.c:799
 #, c-format
 msgid "%s: illegal option -- %c\n"
 msgstr "%s: ongeldige optie -- %c\n"
 
-#: lib/getopt.c:824 lib/getopt.c:827
+#: lib/getopt.c:805 lib/getopt.c:808
 #, c-format
 msgid "%s: invalid option -- %c\n"
 msgstr "%s: ongeldige optie -- %c\n"
 
-#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#: lib/getopt.c:863 lib/getopt.c:882 lib/getopt.c:1095 lib/getopt.c:1116
 #, c-format
 msgid "%s: option requires an argument -- %c\n"
 msgstr "%s: optie vereist een argument -- %c\n"
 
-#: lib/getopt.c:954 lib/getopt.c:973
+#: lib/getopt.c:935 lib/getopt.c:954
 #, c-format
 msgid "%s: option `-W %s' is ambiguous\n"
-msgstr ""
+msgstr "%s: optie`-W %s' is dubbelzinnig\n"
 
-#: lib/getopt.c:997 lib/getopt.c:1018
+#: lib/getopt.c:978 lib/getopt.c:999
 #, c-format
 msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr "%s: optie `-W %s' staat geen argument toe\n"
+msgstr "%s: optie`-W %s' staat geen argument toe\n"
 
-#: lib/human.c:483
-#, fuzzy
+#: lib/human.c:484
 msgid "block size"
-msgstr "blok %s: "
+msgstr "blokgrootte"
 
-#: lib/quotearg.c:238
+#: lib/quotearg.c:240
 msgid "`"
-msgstr "`"
+msgstr "â€˜"
 
-#: lib/quotearg.c:239
+#: lib/quotearg.c:241
 msgid "'"
-msgstr "'"
+msgstr "â€™"
 
-#: lib/xmalloc.c:53
-#, fuzzy
-msgid "memory exhausted"
-msgstr "Geheugen uitgeput"
+#: lib/rtapelib.c:297
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Dienst niet beschikbaar"
 
-#: src/buffer.c:139
-#, fuzzy, c-format
-msgid "Total bytes written: %s (%s, %s/s)\n"
-msgstr "Totaal aantal geschreven bytes: "
+#: lib/rtapelib.c:301
+msgid "stdin"
+msgstr "standaard invoer"
 
-#: src/buffer.c:216
-msgid "(pipe)"
+#: lib/rtapelib.c:304
+msgid "stdout"
+msgstr "standaard uitvoer"
+
+#: lib/rtapelib.c:512
+msgid "Cannot execute remote shell"
+msgstr "Kan externe shell niet uitvoeren"
+
+#: lib/argp-help.c:194
+#, c-format
+msgid "%.*s: ARGP_HELP_FMT parameter requires a value"
 msgstr ""
 
-#: src/buffer.c:264
-msgid "Invalid value for record_size"
-msgstr "Ongeldige waarde voor `record_size'"
-
-#: src/buffer.c:267
-msgid "No archive name given"
-msgstr "Geen archiefnaam gegeven"
-
-#: src/buffer.c:282
-#, fuzzy, c-format
-msgid "Cannot allocate memory for blocking factor %d"
-msgstr "Kan geen geheugen vinden voor `blocking' faktor %d"
-
-#: src/buffer.c:316
-msgid "Cannot verify stdin/stdout archive"
-msgstr "Kan standaard-invoer/uitvoer archief niet verifiëren"
-
-#: src/buffer.c:392
-#, fuzzy, c-format
-msgid "Archive not labeled to match %s"
-msgstr "Archief niet aangemerkt om te corresponderen met `%s'"
-
-#: src/buffer.c:395 src/buffer.c:752
-#, fuzzy, c-format
-msgid "Volume %s does not match %s"
-msgstr "Volume `%s' komt niet overeen met `%s'"
-
-#: src/buffer.c:433
+#: lib/argp-help.c:203
 #, c-format
-msgid "Write checkpoint %d"
-msgstr "Schrijf controllepunt %d"
-
-#: src/buffer.c:592
-msgid "At beginning of tape, quitting now"
-msgstr "Begin van `tape', ik stop nu"
-
-#: src/buffer.c:598
-msgid "Too many errors, quitting"
-msgstr "Te veel fouten, ik stop"
-
-#: src/buffer.c:622
-#, fuzzy, c-format
-msgid "Read %s bytes from %s"
-msgstr "%s hernoemd naar %s"
-
-#: src/buffer.c:633
-#, fuzzy, c-format
-msgid "Unaligned block (%lu byte) in archive"
-msgid_plural "Unaligned block (%lu bytes) in archive"
-msgstr[0] "Slechts %lu bytes gelezen uit archief %s"
-msgstr[1] "Slechts %lu bytes gelezen uit archief %s"
-
-# c-format
-#: src/buffer.c:653
-#, fuzzy, c-format
-msgid "Record size = %lu block"
-msgid_plural "Record size = %lu blocks"
-msgstr[0] "Recordgrootte = %lu blokken"
-msgstr[1] "Recordgrootte = %lu blokken"
-
-#: src/buffer.c:670
-#, c-format
-msgid "Read checkpoint %d"
-msgstr "Lees controllepunt %d"
-
-#: src/buffer.c:761 src/extract.c:1082
-#, c-format
-msgid "Reading %s\n"
-msgstr "Lezen %s\n"
-
-#: src/buffer.c:765
-msgid "WARNING: No volume header"
-msgstr "LET OP: Geen deel-kopregels"
-
-#: src/buffer.c:773
-#, c-format
-msgid "%s is not continued on this volume"
-msgstr "%s gaat niet verder op dit deel"
-
-#: src/buffer.c:787
-#, c-format
-msgid "%s is the wrong size (%s != %s + %s)"
-msgstr "%s heeft de onjuiste grootte (%s != %s + %s)"
-
-#: src/buffer.c:799
-msgid "This volume is out of sequence"
-msgstr "Dit deel is buiten het bereik"
-
-#: src/buffer.c:881
-#, fuzzy
-msgid "Cannot backspace archive file; it may be unreadable without -i"
-msgstr "Kan niet terug in archief bestand; het kan onleesbaar zijn zonder -i"
-
-#: src/buffer.c:927
-#, c-format
-msgid "%s: contains invalid volume number"
+msgid "%.*s: Unknown ARGP_HELP_FMT parameter"
 msgstr ""
 
-#: src/buffer.c:979
-msgid "Volume number overflow"
+#: lib/argp-help.c:215
+#, c-format
+msgid "Garbage in ARGP_HELP_FMT: %s"
 msgstr ""
 
-#: src/buffer.c:998
-#, c-format
-msgid "`%s' command failed"
-msgstr ""
-
-#: src/buffer.c:1007
-#, c-format
-msgid "Prepare volume #%d for %s and hit return: "
-msgstr "Maak deel #%d klaar voor %s en druk op enter: "
-
-#: src/buffer.c:1013
-msgid "EOF where user reply was expected"
-msgstr "Bestandseinde waar gebruiksreactie werd verwacht"
-
-#: src/buffer.c:1018 src/buffer.c:1048
-msgid "WARNING: Archive is incomplete"
-msgstr "LET OP: Archief is onvolledig"
-
-#: src/buffer.c:1032
-#, c-format
+#: lib/argp-help.c:1188
 msgid ""
-" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
-" q          Abort tar\n"
-" !          Spawn a subshell\n"
-" ?          Print this list\n"
-msgstr ""
-" n [name]   Geef een nieuwe bestandsnaam voor de volgende (en "
-"daaropvolgende) delen\n"
-" q          Breek tar af\n"
-" !          Splits een subshell af\n"
-" ?          Toon deze lijst\n"
-
-#: src/buffer.c:1043
-msgid "No new volume; exiting.\n"
-msgstr "Geen nieuw deel; ik stop.\n"
-
-# c-format
-#: src/compare.c:106
-#, fuzzy, c-format
-msgid "Could only read %lu of %lu byte"
-msgid_plural "Could only read %lu of %lu bytes"
-msgstr[0] "Kon slechts %lu van %lu bytes lezen"
-msgstr[1] "Kon slechts %lu van %lu bytes lezen"
-
-#: src/compare.c:117 src/compare.c:133
-msgid "Contents differ"
-msgstr "Inhoud verschilt"
-
-#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
-#: src/list.c:398 src/list.c:1244
-msgid "Unexpected EOF in archive"
-msgstr "Onverwacht bestandseinde in archief"
-
-#: src/compare.c:213
-#, c-format
-msgid "Verify "
-msgstr "Verifieer "
-
-#: src/compare.c:220
-#, fuzzy, c-format
-msgid "%s: Unknown file type '%c', diffed as normal file"
-msgstr ""
-"Onbekend bestandstype `%c' voor %s, `ge-diffed' als een normaal bestand"
-
-#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
-msgid "File type differs"
-msgstr "Bestandstype verschilt"
-
-#: src/compare.c:250 src/compare.c:379 src/compare.c:423
-msgid "Mode differs"
-msgstr "Modus verschilt"
-
-#: src/compare.c:253
-msgid "Uid differs"
-msgstr "Gebruikersnummer verschilt"
-
-#: src/compare.c:255
-msgid "Gid differs"
-msgstr "Groepsnummer verschilt"
-
-#: src/compare.c:258
-msgid "Mod time differs"
-msgstr "Aanpassingstijd verschilt"
-
-#: src/compare.c:262 src/compare.c:452
-msgid "Size differs"
-msgstr "Grootte verschilt"
-
-# c-format
-#: src/compare.c:320
-#, c-format
-msgid "Not linked to %s"
-msgstr "Niet gekoppeld aan %s"
-
-#: src/compare.c:343
-msgid "Symlink differs"
-msgstr "Symbolische koppeling verschilt"
-
-#: src/compare.c:373
-msgid "Device number differs"
-msgstr "Apparaatnummer verschilt"
-
-#: src/compare.c:564
-#, fuzzy, c-format
-msgid "VERIFY FAILURE: %d invalid header detected"
-msgid_plural "VERIFY FAILURE: %d invalid headers detected"
-msgstr[0] "VERIFICATIE FOUT: %d ongeldige kopregels gevonden"
-msgstr[1] "VERIFICATIE FOUT: %d ongeldige kopregels gevonden"
-
-#: src/create.c:145
-msgid "Generating negative octal headers"
+"Mandatory or optional arguments to long options are also mandatory or "
+"optional for any corresponding short options."
 msgstr ""
 
-#: src/create.c:196
-#, c-format
-msgid "value %s out of %s range %s..%s; substituting %s"
+#: lib/argp-help.c:1575
+msgid "Usage:"
 msgstr ""
 
-#: src/create.c:202
-#, c-format
-msgid "value %s out of %s range %s..%s"
+#: lib/argp-help.c:1579
+msgid "  or: "
 msgstr ""
 
-#: src/create.c:462 src/create.c:525
-#, fuzzy, c-format
-msgid "%s: file name is too long (max %d); not dumped"
-msgstr "%s: onveranderd; niet gedumpt"
-
-#: src/create.c:472
-#, c-format
-msgid "%s: file name is too long (cannot be split); not dumped"
+#: lib/argp-help.c:1591
+msgid " [OPTION...]"
 msgstr ""
 
-#: src/create.c:499
+#: lib/argp-help.c:1618
 #, fuzzy, c-format
-msgid "%s: link name is too long; not dumped"
-msgstr "%s: onveranderd; niet gedumpt"
+msgid "Try `%s --help' or `%s --usage' for more information.\n"
+msgstr "Probeer `%s --help' voor meer informatie.\n"
 
-#: src/create.c:865
-#, fuzzy, c-format
-msgid "%s: File shrank by %s byte; padding with zeros"
-msgid_plural "%s: File shrank by %s bytes; padding with zeros"
-msgstr[0] "Bestand %s is %s bytes gekrompen, opvullen met nullen"
-msgstr[1] "Bestand %s is %s bytes gekrompen, opvullen met nullen"
-
-#: src/create.c:891
+#: lib/argp-help.c:1646 src/tar.c:1252
 #, c-format
-msgid "%s: file changed as we read it"
-msgstr "%s: bestand veranderd tijdens lezen"
-
-#: src/create.c:991
-#, fuzzy, c-format
-msgid "%s: file is on a different filesystem; not dumped"
-msgstr "%s: Op een ander bestandssysteem; niet gedumpt"
-
-#: src/create.c:1151
-#, c-format
-msgid "%s: Unknown file type; file ignored"
-msgstr "%s: Onbekend bestandstype; bestand genegeerd"
-
-#: src/create.c:1250
-#, fuzzy, c-format
-msgid "Missing links to '%s'.\n"
-msgstr " koppelen aan %s\n"
-
-#: src/create.c:1313
-#, fuzzy, c-format
-msgid "%s: file is unchanged; not dumped"
-msgstr "%s: onveranderd; niet gedumpt"
-
-#: src/create.c:1322
-#, fuzzy, c-format
-msgid "%s: file is the archive; not dumped"
-msgstr "%s is een archief; niet gedumpt"
-
-#: src/create.c:1357
-#, fuzzy, c-format
-msgid "%s: File removed before we read it"
-msgstr "%s: bestand veranderd tijdens lezen"
-
-#: src/create.c:1450
-#, c-format
-msgid "%s: socket ignored"
+msgid "Report bugs to %s.\n"
 msgstr ""
+"Rapporteer fouten aan %s,\n"
+"en fouten in de vertaling aan <vertaling@nl.linux.org>.\n"
 
-#: src/create.c:1455
-#, c-format
-msgid "%s: door ignored"
-msgstr ""
-
-#: src/delete.c:209 src/list.c:169 src/update.c:160
-msgid "This does not look like a tar archive"
-msgstr "Dit ziet er niet uit als een tar archief"
-
-#: src/delete.c:215 src/list.c:183 src/update.c:165
-msgid "Skipping to next header"
-msgstr "Overslaan tot volgende kopregel"
-
-#: src/delete.c:280
-msgid "Deleting non-header from archive"
-msgstr "Verwijderen niet-kopregel uit archief"
-
-#: src/extract.c:195
-#, fuzzy, c-format
-msgid "%s: implausibly old time stamp %s"
-msgstr "%s: ongeldig tijdstempel `%s' genegeerd"
-
-#: src/extract.c:198
-#, c-format
-msgid "%s: time stamp %s is %lu s in the future"
-msgstr ""
-
-#: src/extract.c:346
-#, c-format
-msgid "%s: Unexpected inconsistency when making directory"
-msgstr ""
-
-#: src/extract.c:463
-#, fuzzy, c-format
-msgid "Current `%s' is newer"
-msgstr "Map %s is nieuw"
-
-#: src/extract.c:575
-#, c-format
-msgid "%s: Directory renamed before its status could be extracted"
-msgstr ""
-
-#: src/extract.c:640
-#, c-format
-msgid "%s: Was unable to backup this file"
-msgstr "%s: Kon geen veiligheidskopie maken van dit bestand"
-
-#: src/extract.c:707
-msgid "Extracting contiguous files as regular files"
-msgstr "Extraheren aaneengesloten bestanden als gewone bestanden"
-
-#: src/extract.c:894
-msgid "Attempting extraction of symbolic links as hard links"
-msgstr ""
-"Poging tot extractie van symbolische koppelingen als `harde' koppelingen"
-
-#: src/extract.c:1091
-#, fuzzy, c-format
-msgid "%s: Cannot extract -- file is continued from another volume"
-msgstr "Kan `%s' niet extraheren -- bestand is vervolgd op een ander deel"
-
-#: src/extract.c:1100
-msgid "Visible long name error"
-msgstr "Zichtbare lange name fout"
-
-#: src/extract.c:1108
-#, fuzzy, c-format
-msgid "%s: Unknown file type '%c', extracted as normal file"
-msgstr "Onbekend bestandstype `%c' voor %s, geëxtraheerd als gewoon bestand"
-
-#: src/extract.c:1193
-msgid "Error is not recoverable: exiting now"
-msgstr ""
-
-#: src/incremen.c:193
-#, fuzzy, c-format
-msgid "%s: Directory has been renamed"
-msgstr "Map %s is hernoemd"
-
-#: src/incremen.c:205
-#, fuzzy, c-format
-msgid "%s: Directory is new"
-msgstr "Map %s is nieuw"
-
-#: src/incremen.c:354
-#, fuzzy
-msgid "Invalid time stamp"
-msgstr "Ongeldige tapelengte"
-
-#: src/incremen.c:357
-#, fuzzy
-msgid "Time stamp out of range"
-msgstr "Zoek offset buiten bereik"
-
-#: src/incremen.c:381
-#, fuzzy
-msgid "Invalid device number"
-msgstr "Ongeldige waarde voor `record_size'"
-
-#: src/incremen.c:385
-msgid "Device number out of range"
-msgstr "Apparaatnummer buiten bereik"
-
-#: src/incremen.c:393
-#, fuzzy
-msgid "Invalid inode number"
-msgstr "Ongeldige waarde voor `record_size'"
-
-#: src/incremen.c:397
-msgid "Inode number out of range"
-msgstr "Inode nummer buiten bereik"
-
-#: src/incremen.c:523
-#, c-format
-msgid "%s: Deleting %s\n"
-msgstr "%s: Verwijderen %s\n"
-
-#: src/incremen.c:528
-#, fuzzy, c-format
-msgid "%s: Cannot remove"
-msgstr "Kan %s niet verwijderen"
-
-#: src/list.c:117
-#, fuzzy, c-format
-msgid "%s: Omitting"
-msgstr "Weglaten %s"
-
-#: src/list.c:133
-#, c-format
-msgid "block %s: ** Block of NULs **\n"
-msgstr "blok %s: ** Blok met nullen **\n"
-
-#: src/list.c:146
-#, c-format
-msgid "A lone zero block at %s"
-msgstr ""
-
-#: src/list.c:157
-#, c-format
-msgid "block %s: ** End of File **\n"
-msgstr "blok %s: ** Bestandseinde (EOF) **\n"
-
-#: src/list.c:180 src/list.c:994 src/list.c:1219
-#, c-format
-msgid "block %s: "
-msgstr "blok %s: "
-
-#: src/list.c:625
-#, c-format
-msgid "Blanks in header where numeric %s value expected"
-msgstr ""
-
-#: src/list.c:678
-#, c-format
-msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
-msgstr ""
-
-#: src/list.c:688
-#, c-format
-msgid "Archive octal value %.*s is out of %s range"
-msgstr ""
-
-#: src/list.c:704
-msgid "Archive contains obsolescent base-64 headers"
-msgstr ""
-
-#: src/list.c:717
-#, c-format
-msgid "Archive signed base-64 string %s is out of %s range"
-msgstr ""
-
-#: src/list.c:748
-#, fuzzy, c-format
-msgid "Archive base-256 value is out of %s range"
-msgstr "Dit deel is buiten het bereik"
-
-#: src/list.c:775
-#, c-format
-msgid "Archive contains %.*s where numeric %s value expected"
-msgstr ""
-
-#: src/list.c:796
-#, c-format
-msgid "Archive value %s is out of %s range %s.%s"
-msgstr ""
-
-#: src/list.c:1025
-msgid "Visible longname error"
-msgstr "Zichtbare lange naam fout"
-
-#: src/list.c:1150
-#, c-format
-msgid " link to %s\n"
-msgstr " koppelen aan %s\n"
-
-#: src/list.c:1158
-#, fuzzy, c-format
-msgid " unknown file type %s\n"
-msgstr " onbekend bestandstype `%c'\n"
-
-#: src/list.c:1176
-#, c-format
-msgid "--Long Link--\n"
-msgstr ""
-
-#: src/list.c:1180
-#, c-format
-msgid "--Long Name--\n"
-msgstr ""
-
-#: src/list.c:1184
-#, c-format
-msgid "--Volume Header--\n"
-msgstr "--Deelkopregels--\n"
-
-#: src/list.c:1192
-#, c-format
-msgid "--Continued at byte %s--\n"
-msgstr "--Vervolgd bij byte %s--\n"
-
-#: src/list.c:1196
-#, c-format
-msgid "--Mangled file names--\n"
-msgstr "--Verminkte bestandsnamen--\n"
-
-#: src/list.c:1224
-msgid "Creating directory:"
-msgstr "Aanmaken map:"
-
-#: src/mangle.c:54
-msgid "Unexpected EOF in mangled names"
-msgstr "Onverwacht bestandseinde in verminkte namen"
-
-#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
-#, fuzzy, c-format
-msgid "%s: Cannot rename to %s"
-msgstr "Kan %s niet hernoemen tot %s"
-
-#: src/mangle.c:93
-#, c-format
-msgid "Renamed %s to %s"
-msgstr "%s hernoemd naar %s"
-
-#: src/mangle.c:110
-#, fuzzy, c-format
-msgid "%s: Cannot symlink to %s"
-msgstr "Kan geen symbolische koppeling aanmaken van %s naar %s"
-
-#: src/mangle.c:113
-#, c-format
-msgid "Symlinked %s to %s"
-msgstr "Symbolische koppeling aangemaakt van %s naar %s"
-
-#: src/mangle.c:117
-#, c-format
-msgid "Unknown demangling command %s"
-msgstr "Onbekende verminkingsherstelopdracht %s"
-
-#: src/misc.c:378
-#, fuzzy, c-format
-msgid "Renaming %s to %s\n"
-msgstr "%s hernoemd naar %s"
-
-#: src/misc.c:410
-#, fuzzy, c-format
-msgid "Renaming %s back to %s\n"
-msgstr "Hernoemen `%s' naar %s\n"
-
-#: src/misc.c:490
-#, fuzzy
-msgid "Cannot save working directory"
-msgstr "Kan niet veranderen naar map %s"
-
-#: src/misc.c:496
-#, fuzzy
-msgid "Cannot change working directory"
-msgstr "Kan niet veranderen naar map %s"
-
-#: src/misc.c:540 src/misc.c:549
-#, fuzzy, c-format
-msgid "%s: Cannot %s"
-msgstr "Kan status van bestand %s niet opvragen"
-
-#: src/misc.c:558
-#, c-format
-msgid "%s: Warning: Cannot %s"
-msgstr ""
-
-#: src/misc.c:573
-#, fuzzy, c-format
-msgid "%s: Cannot change mode to %s"
-msgstr "%s: Kan modus niet veranderen naar %04lo"
-
-#: src/misc.c:581
-#, fuzzy, c-format
-msgid "%s: Cannot change ownership to uid %lu, gid %lu"
-msgstr "%s: Kan eigenaar niet veranderen naar `uid %lu, gid %lu'"
-
-#: src/misc.c:616
-#, fuzzy, c-format
-msgid "%s: Cannot hard link to %s"
-msgstr "Kan koppeling %s niet lezen"
-
-#: src/misc.c:677 src/misc.c:718
-#, fuzzy, c-format
-msgid "%s: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Read error at byte %s, reading %lu bytes"
-msgstr[0] "Leesfout bij byte %s, bij lezen %lu bytes, in bestand %s"
-msgstr[1] "Leesfout bij byte %s, bij lezen %lu bytes, in bestand %s"
-
-#: src/misc.c:690
-#, fuzzy, c-format
-msgid "%s: Warning: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
-msgstr[0] "Leesfout bij byte %s, bij lezen %lu bytes, in bestand %s"
-msgstr[1] "Leesfout bij byte %s, bij lezen %lu bytes, in bestand %s"
-
-#: src/misc.c:778
-#, fuzzy, c-format
-msgid "%s: Cannot seek to %s"
-msgstr "Kan niet schrijven naar %s"
-
-#: src/misc.c:794
-#, c-format
-msgid "%s: Warning: Cannot seek to %s"
-msgstr ""
-
-#: src/misc.c:812
-#, fuzzy, c-format
-msgid "%s: Cannot create symlink to %s"
-msgstr "%s: Kan geen symbolische verwijzing maken naar `%s'"
-
-#: src/misc.c:880
-#, fuzzy, c-format
-msgid "%s: Wrote only %lu of %lu byte"
-msgid_plural "%s: Wrote only %lu of %lu bytes"
-msgstr[0] "%s: Kan slechts %lu van %lu bytes schrijven"
-msgstr[1] "%s: Kan slechts %lu van %lu bytes schrijven"
-
-#: src/misc.c:906
-msgid "child process"
-msgstr ""
-
-#: src/misc.c:915
-msgid "interprocess channel"
-msgstr ""
-
-#: src/names.c:368 src/names.c:417 src/names.c:461
-msgid "Missing file name after -C"
-msgstr "Ontbrekende bestandsnaam na -C"
-
-#: src/names.c:638 src/names.c:654
-#, c-format
-msgid "%s: Not found in archive"
-msgstr "%s: Niet gevonden in archief"
-
-#: src/names.c:641
-#, fuzzy, c-format
-msgid "%s: Required occurrence not found in archive"
-msgstr "%s: Niet gevonden in archief"
-
-#: src/names.c:1053
-#, fuzzy, c-format
-msgid "Removing leading `%s' from member names"
-msgstr "Verwijderen voorloop `/' van verwijzingen"
-
-#: src/names.c:1054
-#, fuzzy, c-format
-msgid "Removing leading `%s' from hard link targets"
-msgstr "Verwijderen voorloop `/' van verwijzingen"
-
-#: src/names.c:1067
-msgid "Substituting `.' for empty member name"
-msgstr ""
-
-#: src/names.c:1068
-msgid "Substituting `.' for empty hard link target"
-msgstr ""
-
-#: src/rmt.c:144
+#: rmt/rmt.c:144
 msgid "rmtd: Cannot allocate buffer space\n"
-msgstr "rmtd: Kan bufferruimte niet alloceren\n"
+msgstr "rmtd: Kan bufferruimte niet toewijzen\n"
 
-#: src/rmt.c:146
+#: rmt/rmt.c:146
 msgid "Cannot allocate buffer space"
-msgstr "Kan geen bufferruimte vrijmaken"
+msgstr "Kan bufferruimte niet toewijzen"
 
-#: src/rmt.c:256 src/tar.c:349
+#: rmt/rmt.c:256
 #, c-format
 msgid "Try `%s --help' for more information.\n"
-msgstr "`%s --help' voor meer informatie.\n"
+msgstr "Probeer `%s --help' voor meer informatie.\n"
 
-#: src/rmt.c:260
+#: rmt/rmt.c:260
 #, c-format
 msgid ""
 "Usage: %s [OPTION]\n"
@@ -804,393 +184,784 @@ msgid ""
 "  --version  Output version info.\n"
 "  --help  Output this help.\n"
 msgstr ""
+"Gebruik: %s [OPTIE]\n"
+"Een tape veranderen, en opdrachten accepteren van een ander proces.\n"
+"\n"
+"  --version  Versie-informatie weergeven.\n"
+"  --help  Deze hulp weergeven.\n"
 
-#: src/rmt.c:267 src/tar.c:542
-#, fuzzy, c-format
+#: rmt/rmt.c:267
+#, c-format
 msgid ""
 "\n"
 "Report bugs to <%s>.\n"
 msgstr ""
 "\n"
-"Meld fouten aan <tar-bugs@gnu.ai.mit.edu>.\n"
+"Rapporteer fouten aan <%s>,\n"
+"en fouten in de vertaling aan <vertaling@nl.linux.org>.\n"
 
-#: src/rmt.c:300 src/tar.c:1300
+#: rmt/rmt.c:301
 msgid ""
 "This program comes with NO WARRANTY, to the extent permitted by law.\n"
 "You may redistribute it under the terms of the GNU General Public License;\n"
 "see the file named COPYING for details."
 msgstr ""
+"Dit programma komt ZONDER GARANTIE, voor zover de wet dat toestaat.\n"
+"U mag het verspreiden onder de voorwaarden van de GNU General Public\n"
+"License; zie het bestand genaamd COPYING voor details."
 
-#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+#: rmt/rmt.c:400 rmt/rmt.c:520 rmt/rmt.c:530
 msgid "Seek offset out of range"
-msgstr "Zoek offset buiten bereik"
+msgstr "Zoekpositie buiten bereik"
 
-#: src/rmt.c:412
+#: rmt/rmt.c:413
 msgid "Seek direction out of range"
 msgstr "Zoekrichting buiten bereik"
 
-#: src/rmt.c:451
+#: rmt/rmt.c:452
 msgid "rmtd: Premature eof\n"
-msgstr "rmtd: Prematuur einde van bestand\n"
+msgstr "rmtd: Vroegtijdig einde-bestand\n"
 
-#: src/rmt.c:453
+#: rmt/rmt.c:454
 msgid "Premature end of file"
-msgstr "Prematuur einde van bestand"
+msgstr "Vroegtijdig einde-bestand"
 
-#: src/rmt.c:561
+#: rmt/rmt.c:562
 #, c-format
 msgid "rmtd: Garbage command %c\n"
-msgstr "rmtd: Rommel commando %c\n"
+msgstr "rmtd: Troepopdracht %c\n"
 
-#: src/rmt.c:563
+#: rmt/rmt.c:564
 msgid "Garbage command"
-msgstr "Rommel commando"
+msgstr "Troepopdracht"
 
-#: src/rtapelib.c:292
-msgid "exec/tcp: Service not available"
-msgstr "exec/tcp: Dients niet beschikbaar"
+#: src/buffer.c:263
+#, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "Totaal aantal bytes geschreven: %s (%s, %s/s)\n"
 
-#: src/rtapelib.c:296
-msgid "stdin"
-msgstr "standaardinvoer"
+#: src/buffer.c:340
+msgid "(pipe)"
+msgstr "(pijp)"
 
-#: src/rtapelib.c:299
-msgid "stdout"
-msgstr "standaarduitvoer"
+#: src/buffer.c:388
+msgid "Invalid value for record_size"
+msgstr "Ongeldige waarde voor record_size"
 
-#: src/rtapelib.c:506
-msgid "Cannot execute remote shell"
-msgstr "Kan `remote shell' niet uitvoeren"
+#: src/buffer.c:391
+msgid "No archive name given"
+msgstr "Geen archiefnaam opgegeven"
 
-#: src/tar.c:70
+#: src/buffer.c:441
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Kan standaard in/uitvoer archieven niet verifiÃ«ren"
+
+#: src/buffer.c:454
+#, c-format
+msgid "Archive is compressed. Use %s option"
+msgstr ""
+
+#: src/buffer.c:526
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "Archief niet aangegeven als overeenkomend met %s"
+
+#: src/buffer.c:529 src/buffer.c:896
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "Deel %s komt niet overeen met %s"
+
+#: src/buffer.c:567
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Controlepunt %d geschreven"
+
+#: src/buffer.c:654
+#, c-format
+msgid "%s: file name too long to be stored in a GNU multivolume header"
+msgstr ""
+"%s: bestandsnaam is te lang om opgeslagen te worden in een GNU-meerdelen kop"
+
+#: src/buffer.c:733
+msgid "At beginning of tape, quitting now"
+msgstr "Aan begin van tape, afsluiten"
+
+#: src/buffer.c:739
+msgid "Too many errors, quitting"
+msgstr "Teveel fouten, afsluiten"
+
+#: src/buffer.c:765
+#, c-format
+msgid "Read %s bytes from %s"
+msgstr "Gelezen %s bytes van %s"
+
+#: src/buffer.c:777
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "Niet-uitgelijnd blok (%lu byte) in archief"
+msgstr[1] "Niet-uitgelijnd blok (%lu byte) in archief"
+
+#: src/buffer.c:797
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "Record grootte = %lu blok"
+msgstr[1] "Record grootte = %lu blok"
+
+#: src/buffer.c:814
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Controlepunt %d gelezen"
+
+#: src/buffer.c:905 src/extract.c:1100
+#, c-format
+msgid "Reading %s\n"
+msgstr "Bezig met lezen %s\n"
+
+#: src/buffer.c:909
+msgid "WARNING: No volume header"
+msgstr "WAARSCHUWING: Deel heeft geen kop"
+
+#: src/buffer.c:917
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s gaat niet verder in dit deel"
+
+#: src/buffer.c:931
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s heeft een verkeerde grootte (%s != %s + %s)"
+
+#: src/buffer.c:943
+msgid "This volume is out of sequence"
+msgstr "Dit deel valt buiten de reeks"
+
+#: src/buffer.c:1025
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+
+#: src/buffer.c:1057
+msgid "rmtlseek not stopped at a record boundary"
+msgstr "rmtlseek niet gestopt op een recordgrens"
+
+#: src/buffer.c:1108
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: bevat ongeldig deelnummer"
+
+#: src/buffer.c:1160
+msgid "Volume number overflow"
+msgstr "Deelnummer overloop"
+
+#: src/buffer.c:1179
+#, c-format
+msgid "`%s' command failed"
+msgstr "`%s' opdracht mislukt"
+
+#: src/buffer.c:1188
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Bereid deel #%d voor %s voor en druk op enter: "
+
+#: src/buffer.c:1194
+msgid "EOF where user reply was expected"
+msgstr "einde-bestand terwijl gebruikersinvoer werd verwacht"
+
+#: src/buffer.c:1199 src/buffer.c:1229
+msgid "WARNING: Archive is incomplete"
+msgstr "WAARSCHUWING: Archief is onvolledig"
+
+#: src/buffer.c:1213
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [naam]   Een nieuwe bestandsnaam opgeven voor het/de volgende (en "
+"opvolgende) deel/delen\n"
+" q          Tar afbreken\n"
+" !          Een deelshell voortbrengen\n"
+" ?          Deze lijst weergeven\n"
+
+#: src/buffer.c:1224
+msgid "No new volume; exiting.\n"
+msgstr "Geen nieuw deel; afsluiten.\n"
+
+#: src/compare.c:105
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "Kon slechts %lu van %lu byte lezen"
+msgstr[1] "Kon slechts %lu van %lu byte lezen"
+
+#: src/compare.c:116 src/compare.c:132
+msgid "Contents differ"
+msgstr "Inhouden verschillen"
+
+#: src/compare.c:158 src/extract.c:763 src/incremen.c:496 src/list.c:235
+#: src/list.c:412 src/list.c:1282
+msgid "Unexpected EOF in archive"
+msgstr "Onverwacht einde-bestand in archief"
+
+#: src/compare.c:212
+#, c-format
+msgid "Verify "
+msgstr "Controleren "
+
+#: src/compare.c:219
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s: Onbekende bestandssoort '%c', ge-diff-d als gewoon bestand"
+
+#: src/compare.c:242 src/compare.c:364 src/compare.c:416 src/compare.c:443
+msgid "File type differs"
+msgstr "Bestandssoorten verschillen"
+
+#: src/compare.c:249 src/compare.c:378 src/compare.c:422
+msgid "Mode differs"
+msgstr "Modus verschilt"
+
+#: src/compare.c:252
+msgid "Uid differs"
+msgstr "UID verschilt"
+
+#: src/compare.c:254
+msgid "Gid differs"
+msgstr "GID verschilt"
+
+#: src/compare.c:257
+msgid "Mod time differs"
+msgstr "Wijzigingstijd verschilt"
+
+#: src/compare.c:261 src/compare.c:451
+msgid "Size differs"
+msgstr "Grootte verschilt"
+
+#: src/compare.c:319
+#, c-format
+msgid "Not linked to %s"
+msgstr "Niet gekoppeld aan %s"
+
+#: src/compare.c:342
+msgid "Symlink differs"
+msgstr "Symbolische koppeling verschilt"
+
+#: src/compare.c:372
+msgid "Device number differs"
+msgstr "Apparaatnummer verschilt"
+
+#: src/compare.c:500
+msgid "Archive contains file names with leading prefixes removed."
+msgstr "Archief bevat bestandsnamen waarvan de voorvoegsels zijn verwijderd."
+
+#: src/compare.c:502
+msgid "Verification may fail to locate original files."
+msgstr ""
+
+#: src/compare.c:572
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "VERIFIÃ‹REN MISLUKT: %d ongeldige kop gevonden"
+msgstr[1] "VERIFIÃ‹REN MISLUKT: %d ongeldige kop gevonden"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "Negatieve octale koppen worden gegenereerd"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "waarde %s buiten %s bereik %s..%s; wordt vervangen met %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "waarde %s buiten %s bereik %s..%s"
+
+#: src/create.c:481 src/create.c:544
+#, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: bestandsnaam is te lang (max %d); niet gedumpt"
+
+#: src/create.c:491
+#, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: bestandsnaam is te lang (kan niet worden gesplitst); niet gedumpt"
+
+#: src/create.c:518
+#, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: koppelingsnaam is te lang; niet gedumpt"
+
+#: src/create.c:884
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: Bestand geschronken met %s byte; opgevuld met nullen"
+msgstr[1] "%s: Bestand geschronken met %s byte; opgevuld met nullen"
+
+#: src/create.c:910
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: bestand gewijzigd terwijl we het lazen"
+
+#: src/create.c:1051
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: bestand is op een ander bestandssysteem; niet gedumpt"
+
+#: src/create.c:1061
+#, fuzzy, c-format
+msgid "%s: contains a cache directory tag; not dumped"
+msgstr "%s: koppelingsnaam is te lang; niet gedumpt"
+
+#: src/create.c:1221
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Onbekende bestandssoort; bestand genegeerd"
+
+#: src/create.c:1320
+#, c-format
+msgid "Missing links to '%s'.\n"
+msgstr "Ontbrekende koppelingen naar `%s'.\n"
+
+#: src/create.c:1387
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: bestand is ongewijzigd; niet gedumpt"
+
+#: src/create.c:1395
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s: bestand is het archief; niet gedumpt"
+
+#: src/create.c:1430
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: Bestand verwijderd voordat we het gelezen hebben"
+
+#: src/create.c:1523
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: socket genegeerd"
+
+#: src/create.c:1528
+#, c-format
+msgid "%s: door ignored"
+msgstr "%s: deur genegeerd"
+
+#: src/delete.c:209 src/list.c:171 src/update.c:163
+msgid "This does not look like a tar archive"
+msgstr "Dit ziet er niet uit als een tar-archief"
+
+#: src/delete.c:215 src/list.c:185 src/update.c:168
+msgid "Skipping to next header"
+msgstr "Overslaan tot volgende kop"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "Niet-kop uit archief verwijderd"
+
+#: src/extract.c:208
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr "%s: onwaarschijnlijk oude tijdsstempel %s"
+
+#: src/extract.c:211
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: tijdsstempel %s is %lu s in de toekomst"
+
+#: src/extract.c:359
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: Onverwachte inconsistentie bij maken van map"
+
+#: src/extract.c:478
+#, c-format
+msgid "Current `%s' is newer"
+msgstr "Huidige `%s' is nieuwer"
+
+#: src/extract.c:590
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: Map hernoemd voordat zijn status kon worden uitgepakt"
+
+#: src/extract.c:655
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Niet in staat om reservekopie te maken van bestand"
+
+#: src/extract.c:722
+msgid "Extracting contiguous files as regular files"
+msgstr "Aansluitende bestanden worden uitgepakt als gewone bestanden"
+
+#: src/extract.c:908
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr ""
+"Bezig met proberen om symbolische koppelingen als harde koppelingen uit te "
+"pakken"
+
+#: src/extract.c:1109
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s: Kan niet uitpakken -- bestand gaat door in een ander deel"
+
+#: src/extract.c:1118
+msgid "Visible long name error"
+msgstr "Zichtbare lange naam fout"
+
+#: src/extract.c:1126
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: Onbekende bestandssoort '%c', uitgepakt als gewoon bestand"
+
+#: src/extract.c:1211
+msgid "Error is not recoverable: exiting now"
+msgstr "Fout is niet herstelbaar: er wordt nu afgesloten"
+
+#: src/extract.c:1218
+msgid "memory exhausted"
+msgstr "geheugen uitgeput"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: Map is hernoemd"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: Map is nieuw"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "Ongeldige tijdsstempel"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "Tijdsstempel buiten bereik"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "Ongeldig apparaatnummer"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "Apparaatnummer buiten bereik"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "Ongeldig inode-nummer"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "Inode-nummer buiten bereik"
+
+#: src/incremen.c:524
+#, c-format
+msgid "%s: Not purging directory: unable to stat"
+msgstr ""
+
+#: src/incremen.c:531
+#, fuzzy, c-format
+msgid "%s: directory is on a different device: not purging"
+msgstr "%s: bestand is op een ander bestandssysteem; niet gedumpt"
+
+#: src/incremen.c:539
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Bezig met verwijderen %s\n"
+
+#: src/incremen.c:544
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: Kan niet verwijderen"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: Overgeslagen"
+
+#: src/list.c:135
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "blok %s: ** Blok van NULlen **\n"
+
+#: src/list.c:148
+#, c-format
+msgid "A lone zero block at %s"
+msgstr "Een enkel nul-blok op %s"
+
+#: src/list.c:159
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "blok %s: ** Einde-bestand **\n"
+
+#: src/list.c:182 src/list.c:1017 src/list.c:1244
+#, c-format
+msgid "block %s: "
+msgstr "blok %s: "
+
+#: src/list.c:644
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "Lege ruimte in kop waar numerieke %s waarde werd verwacht"
+
+#: src/list.c:698
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"Archief octaalwaarde %.*s is buiten bereik %s; 2-complement wordt aangenomen"
+
+#: src/list.c:708
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "Archief octaalwaarde %.*s is buiten bereik %s"
+
+#: src/list.c:725
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "Archief bevat achterhaald-wordende grondtal-64 koppen"
+
+#: src/list.c:738
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr "Archief grondtal-64-met-teken tekenreeks %s is buiten bereik %s"
+
+#: src/list.c:769
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "Archief grondtal-256 waarde is buiten bereik %s"
+
+#: src/list.c:797
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "Archief bevat %.*s waar numerieke %s waarde werd verwacht"
+
+#: src/list.c:818
+#, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "Archiefwaarde %s is buiten bereik %s %s.%s"
+
+#: src/list.c:1048
+msgid "Visible longname error"
+msgstr "Zichtbare lange naam fout"
+
+#: src/list.c:1175
+#, c-format
+msgid " link to %s\n"
+msgstr " koppelen aan %s\n"
+
+#: src/list.c:1183
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " onbekende bestandssoort %s\n"
+
+#: src/list.c:1201
+#, c-format
+msgid "--Long Link--\n"
+msgstr "--Lange koppeling--\n"
+
+#: src/list.c:1205
+#, c-format
+msgid "--Long Name--\n"
+msgstr "--Lange naam--\n"
+
+#: src/list.c:1209
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--Deelkop--\n"
+
+#: src/list.c:1217
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Verder bij byte %s--\n"
+
+#: src/list.c:1221
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--Gemangelde bestandsnamen--\n"
+
+#: src/list.c:1249
+msgid "Creating directory:"
+msgstr "Bezig met maken map:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "Onverwacht bestandseinde in gemangelde namen"
+
+#: src/mangle.c:90 src/misc.c:399 src/misc.c:417
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: Kan niet hernoemen tot %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "%s hernoemd tot %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: Kan niet symbolisch koppelen aan %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "%s symbolisch gekoppeld aan %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Onbekende ontmangelopdracht %s"
+
+#: src/misc.c:390
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Bezig met hernoemen %s tot %s\n"
+
+#: src/misc.c:422
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "Bezig met hernoemen %s terug naar %s\n"
+
+#: src/misc.c:502
+msgid "Cannot save working directory"
+msgstr "Kan werkmap niet opslaan"
+
+#: src/misc.c:508
+msgid "Cannot change working directory"
+msgstr "Kan werkmap niet wijzigen"
+
+#: src/misc.c:552 src/misc.c:561
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: Kan niet %s"
+
+#: src/misc.c:570
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Waarschuwing: Kan niet %s"
+
+#: src/misc.c:585
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Kan modus niet wijzigen tot %s"
+
+#: src/misc.c:593
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Kan eigenaarschap niet veranderen tot UID %lu, GID %lu"
+
+#: src/misc.c:628
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Kan niet hard koppelen aan %s"
+
+#: src/misc.c:689 src/misc.c:730
+#, fuzzy, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Leesfout bij byte %s, bij lezen %lu byte"
+msgstr[1] "%s: Leesfout bij byte %s, bij lezen %lu byte"
+
+#: src/misc.c:702
+#, fuzzy, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Waarschuwing: Leesfout bij byte %s, bij lezen %lu byte"
+msgstr[1] "%s: Waarschuwing: Leesfout bij byte %s, bij lezen %lu byte"
+
+#: src/misc.c:790
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Kan niet zoeken tot %s"
+
+#: src/misc.c:806
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Waarschuwing: Kan niet zoeken tot %s"
+
+#: src/misc.c:824
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Kan geen symbolische koppeling maken naar %s"
+
+#: src/misc.c:892
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Slechts %lu van %lu byte geschreven"
+msgstr[1] "%s: Slechts %lu van %lu byte geschreven"
+
+#: src/misc.c:918
+msgid "child process"
+msgstr "kindproces"
+
+#: src/misc.c:927
+msgid "interprocess channel"
+msgstr "interproces kanaal"
+
+#: src/names.c:372 src/names.c:421 src/names.c:465
+msgid "Missing file name after -C"
+msgstr "Ontbrekende bestandsnaam na -C"
+
+#: src/names.c:642 src/names.c:658
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Niet gevonden in archief"
+
+#: src/names.c:645
+#, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: Vereiste overeenkomst niet gevonden in archief"
+
+#: src/names.c:1093
+#, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Leidende `%s' uit lidnamen verwijderd"
+
+#: src/names.c:1094
+#, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Leidende `%s' uit harde-koppeling doelen verwijderd"
+
+#: src/names.c:1107
+msgid "Substituting `.' for empty member name"
+msgstr "Vervangen `.' voor lege lidnaam"
+
+#: src/names.c:1108
+msgid "Substituting `.' for empty hard link target"
+msgstr "Vervangen `.' voor leeg harde-koppeling doel"
+
+#: src/tar.c:71
 #, c-format
 msgid "Options `-%s' and `-%s' both want standard input"
-msgstr "Opties `-%s' en `-%s' willen beiden standaardinvoer"
+msgstr "Opties `-%s' en `-%s' willen beide standaard invoer"
 
-#: src/tar.c:141
-#, fuzzy, c-format
-msgid "%s: Invalid archive format"
-msgstr "Ongeldig datum formaat \"%s\""
-
-#: src/tar.c:165
-msgid "GNU features wanted on incompatible archive format"
-msgstr "GNU extras gevraagd voor een niet compatibel archiefformaat"
-
-#: src/tar.c:353
-msgid ""
-"GNU `tar' saves many files together into a single tape or disk archive, and\n"
-"can restore individual files from the archive.\n"
-msgstr ""
-"GNU `tar' bewaart meerdere bestanden in een tape of disk archief en\n"
-"kan afzonderlijke bestanden terugzetten uit het archief.\n"
-
-#: src/tar.c:357
+#: src/tar.c:143
 #, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: Ongeldig archiefformaat"
+
+#: src/tar.c:167
+msgid "GNU features wanted on incompatible archive format"
+msgstr "GNU functies gewenst bij incompatibel archiefformaat"
+
+#: src/tar.c:241
 msgid ""
-"\n"
-"Usage: %s [OPTION]... [FILE]...\n"
+"GNU `tar' saves many files together into a single tape or disk archive, and "
+"can restore individual files from the archive.\n"
 "\n"
 "Examples:\n"
-"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
-"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
-"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
-msgstr ""
-
-#: src/tar.c:364
-msgid ""
-"\n"
-"If a long option shows an argument as mandatory, then it is mandatory\n"
-"for the equivalent short option also.  Similarly for optional arguments.\n"
-msgstr ""
-"\n"
-"Verplichte argumenten voor lange opties zijn ook verplicht bij korte "
-"opties.\n"
-
-#: src/tar.c:369
-msgid ""
-"\n"
-"Main operation mode:\n"
-"  -t, --list              list the contents of an archive\n"
-"  -x, --extract, --get    extract files from an archive\n"
-"  -c, --create            create a new archive\n"
-"  -d, --diff, --compare   find differences between archive and file system\n"
-"  -r, --append            append files to the end of an archive\n"
-"  -u, --update            only append files newer than copy in archive\n"
-"  -A, --catenate          append tar files to an archive\n"
-"      --concatenate       same as -A\n"
-"      --delete            delete from the archive (not on mag tapes!)\n"
-msgstr ""
-"\n"
-"Hoofdwerkingsmodus:\n"
-"  -t, --list              toon de inhoud van een archief\n"
-"  -x, --extract, --get    extraheer bestanden uit een archief\n"
-"  -c, --create            maak een nieuw archief aan\n"
-"  -d, --diff, --compare   zoek verschillen tussen archief en "
-"bestandssysteem\n"
-"  -r, --append            voeg bestanden toe aan het einde van een archief\n"
-"  -u, --update            voeg alleen nieuwere bestanden toe aan archief\n"
-"  -A, --catenate          voeg tar bestanden toe aan archief\n"
-"      --concatenate       zelfde als -A\n"
-"      --delete            verwijder uit het archief (niet op mag. tapes!)\n"
-
-#: src/tar.c:382
-msgid ""
-"\n"
-"Operation modifiers:\n"
-"  -W, --verify               attempt to verify the archive after writing it\n"
-"      --remove-files         remove files after adding them to the archive\n"
-"  -k, --keep-old-files       don't replace existing files when extracting\n"
-"      --keep-newer-files     don't replace existing files that are newer\n"
-"                             than their archive copies\n"
-"      --overwrite            overwrite existing files when extracting\n"
-"      --no-overwrite-dir     preserve metadata of existing directories\n"
-"  -U, --unlink-first         remove each file prior to extracting over it\n"
-"      --recursive-unlink     empty hierarchies prior to extracting "
-"directory\n"
-"  -S, --sparse               handle sparse files efficiently\n"
-"  -O, --to-stdout            extract files to standard output\n"
-"  -G, --incremental          handle old GNU-format incremental backup\n"
-"  -g, --listed-incremental=FILE\n"
-"                             handle new GNU-format incremental backup\n"
-"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
-"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
-"in\n"
-"                             the archive. This option is valid only in\n"
-"                             conjunction with one of the subcommands --"
-"delete,\n"
-"                             --diff, --extract or --list and when a list of\n"
-"                             files is given either on the command line or\n"
-"                             via -T option.\n"
-"                             NUM defaults to 1.\n"
-msgstr ""
-
-#: src/tar.c:408
-#, fuzzy
-msgid ""
-"\n"
-"Handling of file attributes:\n"
-"      --owner=NAME             force NAME as owner for added files\n"
-"      --group=NAME             force NAME as group for added files\n"
-"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
-"files\n"
-"      --atime-preserve         don't change access times on dumped files\n"
-"  -m, --modification-time      don't extract file modified time\n"
-"      --same-owner             try extracting files with the same ownership\n"
-"      --no-same-owner          extract files as yourself\n"
-"      --numeric-owner          always use numbers for user/group names\n"
-"  -p, --same-permissions       extract permissions information\n"
-"      --no-same-permissions    do not extract permissions information\n"
-"      --preserve-permissions   same as -p\n"
-"  -s, --same-order             sort names to extract to match archive\n"
-"      --preserve-order         same as -s\n"
-"      --preserve               same as both -p and -s\n"
-msgstr ""
-"\n"
-"Wat te doen met bestandsattributen:\n"
-"      --owner=NAAM             NAAM wordt eigenaar toegevoegde bestanden\n"
-"      --group=NAAM             NAAM wordt groep toegevoegde bestanden\n"
-"      --mode=OCTAAL            OCTAAL wordt mode toegevoegde bestanden\n"
-"      --atime-preserve         verander de toegangstijd niet\n"
-"  -m, --modification-time      extraheer modificatie tijd niet\n"
-"      --same-owner             probeer te extraheren met zelfde eigenaar\n"
-"      --numeric-owner          gebruik nummers voor gebruikers- en "
-"groepsnamen\n"
-"  -p, --same-permissions       extraheer alle beveiligingsinformatie\n"
-"      --preserve-permissions   zelfde als -p\n"
-"  -s, --same-order             sorteer te extraheren namen om overeen te "
-"komen\n"
-"                               met archief\n"
-"      --preserve-order         zelfde als -s\n"
-"      --preserve               zelfde als -p en -s tegelijk\n"
-
-#: src/tar.c:426
-#, fuzzy
-msgid ""
-"\n"
-"Device selection and switching:\n"
-"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
-"      --force-local              archive file is local even if has a colon\n"
-"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
-"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
-"  -[0-7][lmh]                    specify drive and density\n"
-"  -M, --multi-volume             create/list/extract multi-volume archive\n"
-"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
-"  -F, --info-script=FILE         run script at end of each tape (implies -"
-"M)\n"
-"      --new-volume-script=FILE   same as -F FILE\n"
-"      --volno-file=FILE          use/update the volume number in FILE\n"
-msgstr ""
-"\n"
-"Apparaat selectie en omschakeling:\n"
-"  -f, --file=ARCHIEF             gebruik archiefbestand of apparaat ARCHIEF\n"
-"      --force-local              archiefbestand is lokaal zelfs al heeft \n"
-"                                 het een dubbele punt\n"
-"      --rsh-command=COMMAND      gebruik `remote' COMMAND in plaats van rsh\n"
-"  -[0-7][lmh]                    specificeer station en dichtheid\n"
-"  -M, --multi-volume             maak/toon/extraheer meerdelige archieven\n"
-"  -L, --tape-length=NUM          verander tape na schrijven NUM x 1024 "
-"bytes\n"
-"  -F, --info-script=BESTAND      voer script uit aan einde van elke tape (-"
-"M)\n"
-"      --new-volume-script=BESTAND  zelfde als -F BESTAND\n"
-"      --volno-file=BESTAND       gebruik/actualiseer het deel nummer in "
-"BESTAND\n"
-
-#: src/tar.c:440
-msgid ""
-"\n"
-"Device blocking:\n"
-"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
-"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
-"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
-"EOF)\n"
-"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
-msgstr ""
-"\n"
-"Apparaat blokken:\n"
-"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
-"      --record-size=GROOTTE      GROOTTE bytes per record, veelvoud van 512\n"
-"  -i, --ignore-zeros             negeer genulde blokken (zelfde als EOF)\n"
-"  -B, --read-full-records        herblok tijdens lezen (voor 4.2BSD pijpen)\n"
-
-#: src/tar.c:448
-msgid ""
-"\n"
-"Archive format selection:\n"
-"      --format=FMTNAME               create archive of the given format.\n"
-"                                     FMTNAME is one of the following:\n"
-"                                     v7        old V7 tar format\n"
-"                                     oldgnu    GNU format as per tar <= "
-"1.12\n"
-"                                     gnu       GNU tar 1.13 format\n"
-"                                     ustar     POSIX 1003.1-1988 (ustar) "
-"format\n"
-"                                     posix     POSIX 1003.1-2001 (pax) "
-"format\n"
-"      --old-archive, --portability   same as --format=v7\n"
-"      --posix                        same as --format=posix\n"
-"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
-"                                     control pax keywords\n"
-"  -V, --label=NAME                   create archive with volume name NAME\n"
-"              PATTERN                at list/extract time, a globbing "
-"PATTERN\n"
-"  -j, --bzip2                        filter the archive through bzip2\n"
-"  -z, --gzip, --ungzip               filter the archive through gzip\n"
-"  -Z, --compress, --uncompress       filter the archive through compress\n"
-"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
-msgstr ""
-
-#: src/tar.c:469
-#, fuzzy
-msgid ""
-"\n"
-"Local file selection:\n"
-"  -C, --directory=DIR          change to directory DIR\n"
-"  -T, --files-from=NAME        get names to extract or create from file "
-"NAME\n"
-"      --null                   -T reads null-terminated names, disable -C\n"
-"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
-"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
-"      --anchored               exclude patterns match file name start "
-"(default)\n"
-"      --no-anchored            exclude patterns match after any /\n"
-"      --ignore-case            exclusion ignores case\n"
-"      --no-ignore-case         exclusion is case sensitive (default)\n"
-"      --wildcards              exclude patterns use wildcards (default)\n"
-"      --no-wildcards           exclude patterns are plain strings\n"
-"      --wildcards-match-slash  exclude pattern wildcards match "
-"'/' (default)\n"
-"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
-"  -P, --absolute-names         don't strip leading `/'s from file names\n"
-"  -h, --dereference            dump instead the files symlinks point to\n"
-"      --no-recursion           avoid descending automatically in "
-"directories\n"
-"  -l, --one-file-system        stay in local file system when creating "
-"archive\n"
-"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
-"      --strip-path=NUM         strip NUM leading components from file names\n"
-"                               before extraction\n"
-msgstr ""
-"\n"
-"Lokale bestandsselektie:\n"
-"  -C, --directory DIR        verander naar map DIR\n"
-"  -T, --files-from=NAAM      haal de te gebruiken bestandsnamen uit NAAM\n"
-"      --null                 -T leest nul-getermineerde namen, disable -C\n"
-"      --exclude=PATROON      sluit bestanden uit, gegeven als `globbing' "
-"PATROON\n"
-"  -X, --exclude-from=BESTAND sluit `globbing' patronen uit BESTAND uit\n"
-"  -P, --absolute-names       haal voorloop `/' niet weg bij bestandsnamen\n"
-"  -h, --dereference          dump bestanden verwezen door symlinks\n"
-"      --no-recurse           voorkom automatisch afdalen in mappen\n"
-"  -l, --one-file-system      blijf in lokale bestandssysteem bij maken\n"
-"                             archief\n"
-"  -K, --starting-file=NAAM   start met bestand NAAM in het archief\n"
-
-#: src/tar.c:494
-#, fuzzy
-msgid ""
-"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
-"      --newer-mtime=DATE       compare date and time when data changed only\n"
-"      --after-date=DATE        same as -N\n"
-msgstr ""
-"  -N, --newer=DATUM          bewaar alleen bestanden nieuwer dan DATUM\n"
-"      --newer-mtime          vergelijk datum en tijd alleen bij gewijzigde "
-"data\n"
-"      --after-date=DATUM     zelfde als -N\n"
-
-#: src/tar.c:500
-#, fuzzy
-msgid ""
-"      --backup[=CONTROL]       backup before removal, choose version "
-"control\n"
-"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
-msgstr ""
-"      --backup[=CONTROL]     backup voor verwijdering, kies versie beheer\n"
-"      --suffix=SUFFIX        backup voor verwijdering, overstem\n"
-"                             gebruikelijke achtervoegsel\n"
-
-#: src/tar.c:504
-#, fuzzy
-msgid ""
-"\n"
-"Informative output:\n"
-"      --help            print this help, then exit\n"
-"      --version         print tar program version number, then exit\n"
-"  -v, --verbose         verbosely list files processed\n"
-"      --checkpoint      print directory names while reading the archive\n"
-"      --check-links     print a message if not all links are dumped\n"
-"      --totals          print total bytes written while creating archive\n"
-"      --index-file=FILE send verbose output to FILE\n"
-"      --utc             print file modification dates in UTC\n"
-"  -R, --block-number    show block number within archive with each message\n"
-"  -w, --interactive     ask for confirmation for every action\n"
-"      --confirmation    same as -w\n"
-msgstr ""
-"\n"
-"Informatieve uitvoer:\n"
-"      --help            toon hulp-tekst en beëindig programma\n"
-"      --version         toon versie-informatie en beëindig programma\n"
-"  -v, --verbose         toon verwerkte bestanden woordenrijk\n"
-"      --checkpoint      toon mapnaam tijdens lezen archief\n"
-"      --totals          toon aantal geschreven bytes tijdens aanmaken "
-"archief\n"
-"  -R, --block-number    toon bloknummer in archief bij elke melding\n"
-"  -w, --interactive     vraag om bevestiging bij elke aktie\n"
-"      --confirmation    zelfde als -w\n"
-
-#: src/tar.c:519
-msgid ""
-"\n"
-"Compatibility options:\n"
-"  -o                                 when creating, same as --old-archive\n"
-"                                     when extracting, same as --no-same-"
-"owner\n"
-msgstr ""
-
-#: src/tar.c:526
-msgid ""
-"\n"
-"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"  tar -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  tar -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  tar -xf archive.tar          # Extract all files from archive.tar.\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
 "The version control may be set with --backup or VERSION_CONTROL, values "
 "are:\n"
 "\n"
@@ -1198,452 +969,903 @@ msgid ""
 "  nil, existing   numbered if numbered backups exist, simple otherwise\n"
 "  never, simple   always make simple backups\n"
 msgstr ""
+"GNU `tar' slaat veel bestanden samen op een enkele tape of in een enkel "
+"schijfarchief op, en kan individuele bestanden uit het archief herstellen.\n"
 "\n"
-"Het backup achtervoegsel is `~', tenzij ingesteld met --suffix of\n"
+"Voorbeelden:\n"
+"  tar -cf archive.tar foo bar  # Maak archive.tar van bestanden foo en bar.\n"
+"  tar -tvf archive.tar         # Alle bestanden in archive.tar opsommen.\n"
+"  tar -xf archive.tar          # Alle bestanden van archive.tar uitpakken.\n"
+"Het reservekopie-voorvoegsel is `~', tenzij ingesteld met --suffix of "
 "SIMPLE_BACKUP_SUFFIX.\n"
-"Het versie beheer kan worden ingesteld met --backup of VERSION_CONTROL,\n"
+"Het versiebeheer kan worden ingesteld met --backup of VERSION_CONTROL; "
 "waarden zijn:\n"
 "\n"
-"  t, numbered     maak genummerde backups\n"
-"  nil, existing   genummerd als genummerde backups bestaat, anders simpel\n"
-"  never, simple   maak altijd simpele backups\n"
+"  t, numbered     genummerde reservekopieen maken\n"
+"  nil, existing   genummerd als ze bestaan, anders simpel\n"
+"  never, simple   altijd simpele reservekopieen maken\n"
+
+#: src/tar.c:270
+msgid "Main operation mode:"
+msgstr ""
+
+#: src/tar.c:273
+msgid "list the contents of an archive"
+msgstr "de inhoud van een archief opsommen"
+
+#: src/tar.c:275
+msgid "extract files from an archive"
+msgstr "bestanden uit een archief uitpakken"
+
+#: src/tar.c:278
+msgid "create a new archive"
+msgstr "een nieuw archief maken"
+
+#: src/tar.c:280
+msgid "find differences between archive and file system"
+msgstr "verschillen tussen archief en bestandssyteem vinden"
+
+#: src/tar.c:283
+msgid "append files to the end of an archive"
+msgstr "bestanden aan het eind van een archief bijvoegen"
+
+#: src/tar.c:285
+msgid "only append files newer than copy in archive"
+msgstr ""
+"alleen toevoegen bijvoegen die nieuwer zijn dan hun versie in het archief"
+
+#: src/tar.c:287
+msgid "append tar files to an archive"
+msgstr "tar-bestanden aan een archief toevoegen"
+
+#: src/tar.c:290
+msgid "delete from the archive (not on mag tapes!)"
+msgstr "verwijderen uit het archief (niet op magnetische tapes!)"
+
+#: src/tar.c:293
+msgid "Operation modifiers:"
+msgstr ""
+
+#: src/tar.c:296
+msgid "attempt to verify the archive after writing it"
+msgstr "het archief proberen te verifiÃ«ren na het schrijven"
+
+#: src/tar.c:298
+msgid "remove files after adding them to the archive"
+msgstr "bestanden verwijderen na ze toegevoegd te hebben aan het archief"
+
+#: src/tar.c:300
+msgid "don't replace existing files when extracting"
+msgstr "bestaande bestanden niet vervangen bij uitpakken"
+
+#: src/tar.c:302
+msgid "don't replace existing files that are newer than their archive copies"
+msgstr ""
+"bestaande bestanden die nieuwer zijn dan die in het archief niet vervangen"
+
+#: src/tar.c:304
+msgid "preserve metadata of existing directories"
+msgstr ""
+
+#: src/tar.c:306
+msgid "overwrite existing files when extracting"
+msgstr "bestaande bestanden overschrijven bij uitpakken"
+
+#: src/tar.c:308
+msgid "remove each file prior to extracting over it"
+msgstr "elk bestand verwijderen alvorens er overheen uit te pakken"
+
+#: src/tar.c:310
+msgid "empty hierarchies prior to extracting directory"
+msgstr "hiÃ«rarchieen legen alvorens naar de map uit te pakken"
+
+#: src/tar.c:312
+msgid "handle sparse files efficiently"
+msgstr ""
+
+#: src/tar.c:314
+msgid "extract files to standard output"
+msgstr "bestanden uitpakken naar standaard uitvoer"
+
+#: src/tar.c:316
+msgid "handle old GNU-format incremental backup"
+msgstr ""
+
+#: src/tar.c:317 src/tar.c:390 src/tar.c:455 src/tar.c:514
+msgid "FILE"
+msgstr "BESTAND"
+
+#: src/tar.c:318
+msgid "handle new GNU-format incremental backup"
+msgstr ""
+
+#: src/tar.c:320
+msgid "do not exit with nonzero on unreadable files"
+msgstr "niet afsluiten met niet-nul bij onleesbare bestanden"
+
+#: src/tar.c:321 src/tar.c:385 src/tar.c:398 src/tar.c:484
+msgid "NUMBER"
+msgstr "GETAL"
+
+#: src/tar.c:322
+msgid ""
+"process only the NUMth occurrence of each file in the archive. This option "
+"is valid only in conjunction with one of the subcommands --delete, --diff, --"
+"extract or --list and when a list of files is given either on the command "
+"line or via -T option. NUMBER defaults to 1."
+msgstr ""
+
+#: src/tar.c:324
+msgid "Archive is seekable"
+msgstr "Archief is zoekbaar"
+
+#: src/tar.c:327
+msgid "Handling of file attributes:"
+msgstr ""
+
+#: src/tar.c:329 src/tar.c:331 src/tar.c:387
+msgid "NAME"
+msgstr "NAAM"
+
+#: src/tar.c:330
+msgid "force NAME as owner for added files"
+msgstr "NAAM forceren als eigenaar van toegevoegde bestanden"
+
+#: src/tar.c:332
+msgid "force NAME as group for added files"
+msgstr "NAAM forceren als groep voor toegevoegde bestanden"
+
+#: src/tar.c:333
+msgid "CHANGES"
+msgstr "WIJZIGINGEN"
+
+#: src/tar.c:334
+msgid "force (symbolic) mode CHANGES for added files"
+msgstr "(symbolische) modus WIJZIGINGEN forceren voor toegevoegde bestanden"
+
+#: src/tar.c:336
+msgid "don't change access times on dumped files"
+msgstr "toegangstijden niet wijzigen voor gedumpte bestanden"
+
+#: src/tar.c:338
+msgid "don't extract file modified time"
+msgstr "bestandswijzigingstijd niet uitpakken"
+
+#: src/tar.c:340
+msgid "try extracting files with the same ownership"
+msgstr "bestanden proberen uit te pakken met gelijk eigenaarschap"
+
+#: src/tar.c:342
+msgid "extract files as yourself"
+msgstr "bestanden uitpakken als uzelf"
+
+#: src/tar.c:344
+msgid "always use numbers for user/group names"
+msgstr "altijd getallen gebruiken voor gebruikers/groepsnamen"
+
+#: src/tar.c:346
+msgid "extract permissions information"
+msgstr "toegangsrechteninformatie uitpakken"
+
+#: src/tar.c:349
+msgid "do not extract permissions information"
+msgstr "toegangsrechteninformatie niet uitpakken"
+
+#: src/tar.c:351
+msgid "sort names to extract to match archive"
+msgstr "uit te pakken namen sorteren zodat ze overeenkomen met het archief"
+
+#: src/tar.c:354
+msgid "same as both -p and -s"
+msgstr "hetzelfde als -p en -s"
+
+#: src/tar.c:357
+msgid "Device selection and switching:"
+msgstr ""
+
+#: src/tar.c:359
+msgid "ARCHIVE"
+msgstr "ARCHIEF"
+
+#: src/tar.c:360
+msgid "use archive file or device ARCHIVE"
+msgstr "archiefbestand of apparaat ARCHIEF gebruiken"
+
+#: src/tar.c:362
+msgid "archive file is local even if has a colon"
+msgstr "archiefbestand is lokaal, zelfs als het een dubbele punt bevat"
+
+#: src/tar.c:363 src/tar.c:365
+msgid "COMMAND"
+msgstr "OPDRACHT"
+
+#: src/tar.c:364
+msgid "use given rmt COMMAND instead of rmt"
+msgstr ""
+
+#: src/tar.c:366
+msgid "use remote COMMAND instead of rsh"
+msgstr ""
+
+#: src/tar.c:370
+msgid "specify drive and density"
+msgstr "schijf en dichtheid opgeven"
+
+#: src/tar.c:384
+msgid "create/list/extract multi-volume archive"
+msgstr "meerdelig archief maken/opsommen/uitpakken"
+
+#: src/tar.c:386
+msgid "change tape after writing NUMBER x 1024 bytes"
+msgstr "tape wisselen na schrijven van GETAL x 1024 bytes"
+
+#: src/tar.c:388
+msgid "run script at end of each tape (implies -M)"
+msgstr "script uitvoeren aan einde van elke tape (impliceert -M)"
+
+#: src/tar.c:391
+msgid "use/update the volume number in FILE"
+msgstr ""
+
+#: src/tar.c:394
+msgid "Device blocking:"
+msgstr "Apparaatblokkering:"
+
+#: src/tar.c:396
+msgid "BLOCKS"
+msgstr "BLOKKEN"
+
+#: src/tar.c:397
+msgid "BLOCKS x 512 bytes per record"
+msgstr "BLOKKEN x 512 bytes per record"
+
+#: src/tar.c:399
+msgid "SIZE bytes per record, multiple of 512"
+msgstr "GROOTTE bytes per record, veelvoud van 512"
+
+#: src/tar.c:401
+msgid "ignore zeroed blocks in archive (means EOF)"
+msgstr "nul-blokken in archief negeren (betekent einde-bestand)"
+
+#: src/tar.c:403
+msgid "reblock as we read (for 4.2BSD pipes)"
+msgstr "opnieuw blokkeren tijdens het lezen (voor 4.2BSD pijpen)"
+
+#: src/tar.c:406
+msgid "Archive format selection:"
+msgstr "Archiefformaat keuze:"
+
+#: src/tar.c:408
+msgid "FORMAT"
+msgstr "FORMAAT"
+
+#: src/tar.c:409
+msgid "create archive of the given format."
+msgstr "een archief maken in het gekozen formaat."
+
+#: src/tar.c:411
+msgid "FORMAT is one of the following:"
+msgstr "FORMAAT is een van de volgende:"
+
+#: src/tar.c:412
+#, fuzzy
+msgid "old V7 tar format"
+msgstr "v7        oud V7 tar formaat"
+
+#: src/tar.c:414
+#, fuzzy
+msgid "GNU format as per tar <= 1.12"
+msgstr "oldgnu    GNU formaat van tar <= 1.12"
+
+#: src/tar.c:416
+#, fuzzy
+msgid "GNU tar 1.13.x format"
+msgstr "gnu       GNU tar 1.13.x formaat"
+
+#: src/tar.c:418
+#, fuzzy
+msgid "POSIX 1003.1-1988 (ustar) format"
+msgstr "ustar     POSIX 1003.1-1988 (ustar) formaat"
+
+#: src/tar.c:420
+#, fuzzy
+msgid "POSIX 1003.1-2001 (pax) format"
+msgstr "posix     POSIX 1003.1-2001 (pax) formaat"
+
+#: src/tar.c:421
+#, fuzzy
+msgid "Same as pax"
+msgstr "hetzelfde als -N"
+
+#: src/tar.c:424
+msgid "same as --format=v7"
+msgstr "hetzelfde als --format=v7"
+
+#: src/tar.c:427
+msgid "same as --format=posix"
+msgstr "hetzelfde als --format=posix"
+
+#: src/tar.c:428
+msgid "keyword[[:]=value][,keyword[[:]=value], ...]"
+msgstr "sleutelwoord[[:]=waarde][,sleutelwoord[[:]=waarde], ...]"
+
+#: src/tar.c:429
+msgid "control pax keywords"
+msgstr ""
+
+#: src/tar.c:430
+msgid "TEXT"
+msgstr "TEKST"
+
+#: src/tar.c:431
+msgid ""
+"create archive with volume name NAME. At list/extract time, use TEXT as a "
+"globbing pattern"
+msgstr ""
+
+#: src/tar.c:433
+msgid "filter the archive through bzip2"
+msgstr "het archief door bzip2 filteren"
+
+#: src/tar.c:435
+msgid "filter the archive through gzip"
+msgstr "het archief filteren door gzip"
+
+#: src/tar.c:439
+msgid "filter the archive through compress"
+msgstr "het archief filteren door compress"
+
+#: src/tar.c:441
+msgid "PROG"
+msgstr "PROG"
+
+#: src/tar.c:442
+msgid "filter through PROG (must accept -d)"
+msgstr "filteren door PROG (moet -d accepteren)"
+
+#: src/tar.c:445
+msgid "Local file selection:"
+msgstr "Lokale bestandskeuze:"
+
+#: src/tar.c:447
+msgid "DIR"
+msgstr "MAP"
+
+#: src/tar.c:448
+msgid "change to directory DIR"
+msgstr "gaan naar MAP"
+
+#: src/tar.c:449
+msgid "FILE-OF-NAMES"
+msgstr "BESTAND-MET-NAMEN"
+
+#: src/tar.c:450
+msgid "get names to extract or create from file NAME"
+msgstr "namen voor uitpakken of maken opvragen uit bestand NAAM"
+
+#: src/tar.c:452
+msgid "-T reads null-terminated names, disable -C"
+msgstr ""
+
+#: src/tar.c:453
+msgid "PATTERN"
+msgstr "PATROON"
+
+#: src/tar.c:454
+msgid "exclude files, given as a PATTERN"
+msgstr "bestanden uitsluiten, gegeven als een PATROON"
+
+#: src/tar.c:456
+msgid "exclude patterns listed in FILE"
+msgstr "patronen uitsluiten opgesomd in BESTAND"
+
+#: src/tar.c:458
+msgid "exclude directories containing a cache tag"
+msgstr ""
+
+#: src/tar.c:460
+msgid "exclusion ignores case"
+msgstr "uitsluiting is niet hoofdlettergevoelig"
+
+#: src/tar.c:462
+msgid "exclude patterns match file name start"
+msgstr "uitsluitpatronen komen overeen met begin bestandsnaam"
+
+#: src/tar.c:464
+msgid "exclude patterns match after any / (default)"
+msgstr "uitsluitpatronen komen overeen met alles na elke / (standaard)"
+
+#: src/tar.c:466
+msgid "exclusion is case sensitive (default)"
+msgstr "uitsluiting is hoofdlettergevoelig (standaard)"
+
+#: src/tar.c:468
+msgid "exclude patterns are plain strings"
+msgstr "uitsluitpatronen zijn gewone tekenreeksen"
+
+#: src/tar.c:470
+msgid "exclude pattern wildcards do not match '/'"
+msgstr "uitsluitpatroonjokertekens komen niet overeen met '/'"
+
+#: src/tar.c:472
+msgid "avoid descending automatically in directories"
+msgstr "automatisch afdalen in mappen vermijden"
+
+#: src/tar.c:474
+msgid "stay in local file system when creating archive"
+msgstr "in lokale bestandssysteem blijven bij maken van archief"
+
+#: src/tar.c:477
+msgid "recurse into directories (default)"
+msgstr "recursief in mappen afdalen (standaard)"
+
+#: src/tar.c:479
+msgid "don't strip leading `/'s from file names"
+msgstr "leidende `/' niet uit bestandsnamen verwijderen"
+
+#: src/tar.c:481
+msgid "dump instead the files symlinks point to"
+msgstr ""
+
+#: src/tar.c:482
+msgid "MEMBER-NAME"
+msgstr "LIDNAAM"
+
+#: src/tar.c:483
+msgid "begin at member MEMBER-NAME in the archive"
+msgstr "beginnen bij lid LIDNAAM in het archief"
+
+#: src/tar.c:485
+msgid "strip NUMBER leading components from file names"
+msgstr "AANTAL leidende componenten verwijderen uit bestandsnamen"
+
+#: src/tar.c:486
+msgid "DATE-OR-FILE"
+msgstr "DATUM-OF-BESTAND"
+
+#: src/tar.c:487
+msgid "only store files newer than DATE-OR-FILE"
+msgstr "alleen bestanden opslaan nieuwer dan DATUM-OF-BESTAND"
+
+#: src/tar.c:488 src/tar.c:490
+msgid "DATE"
+msgstr "DATUM"
+
+#: src/tar.c:489
+msgid "compare date and time when data changed only"
+msgstr "alleen bij veranderde gegevens datum en tijd vergelijken"
+
+#: src/tar.c:491
+msgid "same as -N"
+msgstr "hetzelfde als -N"
+
+#: src/tar.c:492
+msgid "CONTROL"
+msgstr "VERSIEBEHEER"
+
+#: src/tar.c:493
+msgid "backup before removal, choose version CONTROL"
+msgstr "reservekopie maken voor verwijderen, VERSIEBEHEER kiezen"
+
+#: src/tar.c:494
+msgid "STRING"
+msgstr "TEKENREEKS"
+
+#: src/tar.c:495
+msgid ""
+"backup before removal, override usual suffix ('~' unless overridden by "
+"environment variable SIMPLE_BACKUP_SUFFIX"
+msgstr ""
+
+#: src/tar.c:497
+msgid "exclude patterns use wildcards (default)"
+msgstr "uitsluitpatronen gebruiken jokertekens (standaard)"
+
+#: src/tar.c:499
+msgid "exclude pattern wildcards match '/' (default)"
+msgstr "uitsluitpatroonjokertekens komen overeen met '/' (standaard)"
+
+#: src/tar.c:502
+msgid "Informative output:"
+msgstr "Informatieve uitvoer:"
+
+#: src/tar.c:505
+msgid "verbosely list files processed"
+msgstr "breedsprakig alle verwerkte bestanden opsommen"
+
+#: src/tar.c:507
+msgid "display progress messages every 10th record"
+msgstr "voortgangsberichten weergeven voor elk 10e record"
+
+#: src/tar.c:509
+msgid "print a message if not all links are dumped"
+msgstr ""
+
+#: src/tar.c:511
+msgid "print total bytes written while creating archive"
+msgstr "totaal aantal geschreven bytes weergeven bij maken van archief"
+
+#: src/tar.c:513
+msgid "print file modification dates in UTC"
+msgstr "bestandswijzigingsdata weergeven in UTC"
+
+#: src/tar.c:515
+msgid "send verbose output to FILE"
+msgstr "breedsprakige uitvoer sturen naar BESTAND"
+
+#: src/tar.c:517
+msgid "show block number within archive with each message"
+msgstr "blokgetal binnen archief weergeven bij elk bericht"
+
+#: src/tar.c:519
+msgid "ask for confirmation for every action"
+msgstr "bij elke actie om toestemming vragen"
+
+#: src/tar.c:522
+msgid "Show tar defaults"
+msgstr "Standaardinstellingen van tar weergeven"
+
+#: src/tar.c:524
+msgid ""
+"When listing or extracting, list each directory that does not match search "
+"criteria"
+msgstr ""
+"Bij opsommen of uitpakken, elke map opsommen die niet aan zoekcriteria "
+"voldoet"
+
+#: src/tar.c:527
+msgid "Compatibility options:"
+msgstr "Compatibiliteitsopties:"
+
+#: src/tar.c:530
+msgid ""
+"when creating, same as --old-archive. When extracting, same as --no-same-"
+"owner"
+msgstr ""
+"bij aanmaken, hetzelfde als --old-archive. Bij uitpakken, hetzelfde als --no-"
+"same-owner"
+
+#: src/tar.c:533
+msgid "Other options:"
+msgstr "Andere opties:"
 
 #: src/tar.c:535
+msgid "Give this help list"
+msgstr "Deze hulp weergeven"
+
+#: src/tar.c:536
+msgid "Give a short usage message"
+msgstr "Een kort gebruiksbericht weergeven"
+
+#: src/tar.c:537
+msgid "Print license and exit"
+msgstr "Licentie weergeven en afsluiten"
+
+#: src/tar.c:538
+msgid "Print program version"
+msgstr "Programmaversie weergeven"
+
+#: src/tar.c:575
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "U kunt niet meer dan Ã©Ã©n `-Acdtrux' optie opgeven"
+
+#: src/tar.c:585
+msgid "Conflicting compression options"
+msgstr "Conflicterende inpak-opties"
+
+#: src/tar.c:595
+msgid ""
+"Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n"
+"for complete list of authors.\n"
+msgstr ""
+"Gebaseerd op het werk van John Gilmore en Jay Fenlason. Vertaling van\n"
+"Elros Cyriatan. Zie AUTHORS voor een volledige lijst van auteurs.\n"
+
+#: src/tar.c:597
 #, c-format
 msgid ""
+"   GNU tar is free software; you can redistribute it and/or modify\n"
+"   it under the terms of the GNU General Public License as published by\n"
+"   the Free Software Foundation; either version 2 of the License, or\n"
+"   (at your option) any later version.\n"
 "\n"
-"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
-"date\n"
-"or a file name starting with `/' or `.', in which case the file's date is "
-"used.\n"
-"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+"   GNU tar is distributed in the hope that it will be useful,\n"
+"   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+"   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+"   GNU General Public License for more details.\n"
+"\n"
+"   You should have received a copy of the GNU General Public License\n"
+"   along with GNU tar; if not, write to the Free Software\n"
+"   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n"
+"\n"
 msgstr ""
+"   GNU tar is vrije software; u kunt het verspreiden en/of wijzigen onder\n"
+"   de voorwaarden van de GNU General Public License zoals uitgegeven\n"
+"   door de Free Software Foundation; ofwel versie 2 van de Licentie, ofwel\n"
+"   een nieuwere versie (aan u de keuze).\n"
+"\n"
+"   GNU tar wordt verspreid met de hoop dat het nuttig zal zijn, maar\n"
+"   ZONDER ENIGE GARANTIE; zelfs zonder de geÃ¯mpliceerde garantie van\n"
+"   VERKOOPBAARHEID of GESCHIKTHEID VOOR EEN BEPAALD DOEL.  Zie\n"
+"   de GNU General Public License voor details.\n"
+"\n"
+"   U moet bij GNU tar een versie van de GNU General Public License\n"
+"   gekregen hebben; als dit niet zo is kunt u schrijven aan de Free "
+"Software\n"
+"   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n"
+"\n"
 
-#: src/tar.c:568
-msgid "You may not specify more than one `-Acdtrux' option"
-msgstr "Niet meer specificeren dan één `-Acdtrux' optie"
-
-#: src/tar.c:577
-msgid "Conflicting compression options"
-msgstr "Conflicterende compressie opties"
-
-#: src/tar.c:649
-#, c-format
-msgid "Old option `%c' requires an argument."
-msgstr "Oude optie `%c' verwacht een argument."
-
-#: src/tar.c:702
+#: src/tar.c:638
 msgid "Invalid blocking factor"
-msgstr "Ongeldige blocking faktor"
+msgstr "Ongeldige blokkerende factor"
 
-#: src/tar.c:777
+#: src/tar.c:713
 msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
 msgstr ""
+"Waarschuwing: de -l optie wordt niet ondersteund; bedoelt u misschien -j of -"
+"T?"
 
-#: src/tar.c:807
-msgid "Invalid tape length"
-msgstr "Ongeldige tapelengte"
-
-#: src/tar.c:831
-msgid "More than one threshold date"
-msgstr "Meer dan een drempel datum"
-
-#: src/tar.c:841
-msgid "Date file not found"
+#: src/tar.c:738
+msgid "Semantics of -l option will change in the future releases."
 msgstr ""
 
-#: src/tar.c:850
+#: src/tar.c:740
+msgid "Please use --one-file-system option instead."
+msgstr ""
+
+#: src/tar.c:753
+msgid "Invalid tape length"
+msgstr "Ongeldige tape-lengte"
+
+#: src/tar.c:781
+msgid "More than one threshold date"
+msgstr "Meerdere drempeldata"
+
+#: src/tar.c:791
+msgid "Date file not found"
+msgstr "Datumbestand niet gevonden"
+
+#: src/tar.c:800
 #, c-format
 msgid "Substituting %s for unknown date format %s"
-msgstr ""
+msgstr "%s wordt vervangen voor onbekend datumformaat %s"
 
-#: src/tar.c:955
+#: src/tar.c:905
 msgid "Warning: the -y option is not supported; perhaps you meant -j?"
 msgstr ""
+"Waarschuwing: de -y optie wordt niet ondersteund; bedoelt u misschien -j?"
 
-#: src/tar.c:1027
-#, fuzzy, c-format
+#: src/tar.c:981
+#, c-format
 msgid "%s: Invalid group"
-msgstr "%s: ongeldige optie -- %c\n"
+msgstr "%s: Ongeldige groep"
 
-#: src/tar.c:1036
+#: src/tar.c:990
 msgid "Invalid mode given on option"
 msgstr "Ongeldige modus gegeven bij optie"
 
-#: src/tar.c:1079
-#, fuzzy
+#: src/tar.c:1033
 msgid "Invalid number"
-msgstr "Ongeldige waarde voor `record_size'"
+msgstr "Ongeldig nummer"
 
-#: src/tar.c:1097
-#, fuzzy
+#: src/tar.c:1051
 msgid "Invalid owner"
-msgstr "Ongeldige waarde voor `record_size'"
+msgstr "Ongeldige eigenaar"
 
-#: src/tar.c:1121
+#: src/tar.c:1075
 msgid "Invalid record size"
-msgstr "Ongeldige waarde voor `record_size'"
+msgstr "Ongeldige record-grootte"
 
-#: src/tar.c:1124
+#: src/tar.c:1078
 #, c-format
 msgid "Record size must be a multiple of %d."
-msgstr "Recordgrootte moet een veelvoud zijn van %d."
+msgstr "Record-grootte moet een veelvoud zijn van %d."
 
-#: src/tar.c:1158
-#, fuzzy
+#: src/tar.c:1110
 msgid "Invalid number of elements"
-msgstr "Ongeldige tapelengte"
+msgstr "Ongeldig aantal elementen"
 
-#: src/tar.c:1259
+#: src/tar.c:1185
+#, c-format
+msgid "Malformed density argument: '%s'"
+msgstr "Misvormd dichtheidsargument: `%s'"
+
+#: src/tar.c:1221
+#, c-format
+msgid "Unknown density: '%c'"
+msgstr "Onbekende dichtheid: '%c'"
+
+#: src/tar.c:1241
 msgid "Options `-[0-7][lmh]' not supported by *this* tar"
 msgstr "Opties `-[0-7][lmh]' worden niet ondersteund door *deze* tar"
 
-#: src/tar.c:1305
-#, fuzzy
-msgid "Written by John Gilmore and Jay Fenlason."
+#: src/tar.c:1249
+#, c-format
+msgid ""
+"\n"
+"*This* tar defaults to:\n"
 msgstr ""
 "\n"
-"Geschreven door John Gilmore en Jay Fenlason.\n"
+"*Deze* tar heeft deze standaardwaarden:\n"
 
-#: src/tar.c:1340
-msgid "--occurrence is meaningless without a file list"
-msgstr ""
+#: src/tar.c:1278
+msgid "[FILE]..."
+msgstr "[BESTAND]..."
 
-#: src/tar.c:1346
-msgid "--occurrence cannot be used in the requested operation mode"
-msgstr ""
-
-#: src/tar.c:1364
-#, fuzzy
-msgid "Multiple archive files require `-M' option"
-msgstr "Meerdere archiefbestanden verwacht de `-M' optie"
-
-#: src/tar.c:1369
-msgid "Cannot combine --listed-incremental with --newer"
-msgstr "Ongeldige combinatie: --listed-incremental met --newer"
-
-#: src/tar.c:1384
+#: src/tar.c:1375
 #, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Oude optie `%c' vereist een argument."
+
+#: src/tar.c:1458
+msgid "--occurrence is meaningless without a file list"
+msgstr "--occurrence betekent niets zonder een bestandenlijst"
+
+#: src/tar.c:1464
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr "--occurrence kan niet worden gebruikt in de verzochte werkmodus"
+
+#: src/tar.c:1494
+msgid "Multiple archive files require `-M' option"
+msgstr "Meerdere archiefbestanden vereisen de `-M' optie"
+
+#: src/tar.c:1499
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "Kan --listed-incremental niet met --newer combineren"
+
+#: src/tar.c:1514
+#, fuzzy, c-format
 msgid "%s: Volume label is too long (limit is %lu byte)"
 msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s: Label voor deel is te lang (grens is %lu byte)"
+msgstr[1] "%s: Label voor deel is te lang (grens is %lu byte)"
 
-#: src/tar.c:1394
+#: src/tar.c:1524
 msgid "Cannot verify multi-volume archives"
-msgstr "Kan meerdelige archieven niet verifiëren"
+msgstr "Kan meerdelige archieven niet verifiÃ«ren"
 
-#: src/tar.c:1396
+#: src/tar.c:1526
 msgid "Cannot verify compressed archives"
-msgstr "Kan gecomprimeerde archieven niet verifiëren"
-
-#: src/tar.c:1402
-msgid "Cannot use multi-volume compressed archives"
-msgstr "Kan meerdelige gecomprimeerde archieven niet gebruiken"
-
-#: src/tar.c:1404
-msgid "Cannot update compressed archives"
-msgstr "Kan gecomprimeerde archieven niet bijwerken"
-
-#: src/tar.c:1416
-msgid "--pax-option can be used only on POSIX archives"
-msgstr ""
-
-#: src/tar.c:1436
-msgid "Cowardly refusing to create an empty archive"
-msgstr "Angstvallige weigering een leeg archief aan te maken"
-
-#: src/tar.c:1457
-msgid "Options `-Aru' are incompatible with `-f -'"
-msgstr "Opties `-Aru' zijn niet uitwisselbaar met `-f -'"
-
-#: src/tar.c:1479
-#, c-format
-msgid "Treating date `%s' as %s + %ld nanoseconds"
-msgstr ""
+msgstr "Kan ingepakte archieven niet verifiÃ«ren"
 
 #: src/tar.c:1532
-msgid "You must specify one of the `-Acdtrux' options"
-msgstr "Een van de `-Acdtrux' opties specificeren"
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Kan geen meerdelige ingepakte archieven gebruiken"
+
+#: src/tar.c:1534
+msgid "Cannot update compressed archives"
+msgstr "Kan ingepakte archieven niet bijwerken"
+
+#: src/tar.c:1546
+msgid "--pax-option can be used only on POSIX archives"
+msgstr "--pax-optie kan alleen worden gebruikt bij POSIX-archieven"
+
+#: src/tar.c:1563
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Een leeg archief durf ik niet te schrijven"
 
 #: src/tar.c:1584
-msgid "Error in writing to standard output"
-msgstr ""
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Opties `-Aru' kunnen niet samen met `-f -'"
 
-#: src/tar.c:1586
+#: src/tar.c:1607
+#, fuzzy, c-format
+msgid "Treating date `%s' as %s + %ld nanosecond"
+msgid_plural "Treating date `%s' as %s + %ld nanoseconds"
+msgstr[0] "Datum `%s' wordt genomen als %s + %ld nanoseconde"
+msgstr[1] "Datum `%s' wordt genomen als %s + %ld nanoseconde"
+
+#: src/tar.c:1663
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "U moet een van de opties `-Acdtrux' opgeven"
+
+#: src/tar.c:1715
+msgid "Error in writing to standard output"
+msgstr "Fout bij schrijven naar standaard uitvoer"
+
+#: src/tar.c:1717
 msgid "Error exit delayed from previous errors"
-msgstr "Fout afsluiting uitgesteld na eerdere fouten"
+msgstr "Afsluitcode uitgesteld na eerdere fouten"
 
 #: src/update.c:86
 #, fuzzy, c-format
 msgid "%s: File shrank by %s byte"
 msgid_plural "%s: File shrank by %s bytes"
-msgstr[0] "%s: Bestand is %s bytes gekrompen, (jak!)"
-msgstr[1] "%s: Bestand is %s bytes gekrompen, (jak!)"
+msgstr[0] "%s: Bestand gekrompen met %s byte"
+msgstr[1] "%s: Bestand gekrompen met %s byte"
 
 #: src/xheader.c:140
 #, c-format
 msgid "Keyword %s is unknown or not yet imlemented"
-msgstr ""
+msgstr "Sleutelwoord %s is onbekend of nog niet geÃ¯mplementeerd"
 
 #: src/xheader.c:166
 #, c-format
 msgid "Pattern %s cannot be used"
-msgstr ""
+msgstr "Patroon %s kan niet worden gebruikt"
 
 #: src/xheader.c:176
 #, c-format
 msgid "Keyword %s cannot be overridden"
-msgstr ""
+msgstr "Sleutelwoord %s kan niet worden genegeerd"
 
 #: src/xheader.c:490
 msgid "Malformed extended header: missing whitespace after the length"
-msgstr ""
+msgstr "Misvormde uitgebreide kop: ontbrekende witruimte na de lengte"
 
 #: src/xheader.c:501
 msgid "Malformed extended header: missing equal sign"
-msgstr ""
+msgstr "Misvormde uitgebreide kop: ontbrekend is-gelijk teken"
+
+#~ msgid "Cannot allocate memory for blocking factor %d"
+#~ msgstr "Kan geen geheugen toewijzen voor blokkerende factor %d"
+
+#~ msgid ""
+#~ "GNU `tar' saves many files together into a single tape or disk archive, "
+#~ "and\n"
+#~ "can restore individual files from the archive.\n"
+#~ msgstr ""
+#~ "GNU `tar' slaat veel bestanden samen op een enkele tape of in een enkel\n"
+#~ "bestand op, en kan afzonderlijke bestanden uit het archief uitpakken.\n"
 
-#~ msgid "Cannot close file #%d"
-#~ msgstr "Kan bestand #%d niet afsluiten"
-
-#~ msgid "Cannot close descriptor %d"
-#~ msgstr "Kan beschrijver %d niet afsluiten"
-
-# c-format
-#~ msgid "Cannot properly duplicate %s"
-#~ msgstr "Kan %s niet juist dupliceren"
-
-#~ msgid "Cannot use compressed or remote archives"
-#~ msgstr "Kan geen gebruik maken van gecomprimeerde of niet lokale archieven"
-
-#~ msgid "Cannot open pipe"
-#~ msgstr "Kan pijp niet openen"
-
-#~ msgid "Cannot fork"
-#~ msgstr "Kan geen nieuw proces afsplitsen"
-
-#~ msgid "tar (child)"
-#~ msgstr "tar (kind)"
-
-#~ msgid "(child) Pipe to stdin"
-#~ msgstr "(kind) Doorsturen naar standaardinvoer"
-
-#~ msgid "Cannot open archive %s"
-#~ msgstr "Kan archief %s niet openen"
-
-#~ msgid "Archive to stdout"
-#~ msgstr "Archief naar standaarduitvoer"
-
-#~ msgid "Cannot exec %s"
-#~ msgstr "Kan %s niet uitvoeren"
-
-#~ msgid "Child cannot fork"
-#~ msgstr "Kind kan geen nieuw proces afsplitsen"
-
-#~ msgid "((child)) Pipe to stdout"
-#~ msgstr "((kind)) Doorsturen naar standaarduitvoer"
-
-#~ msgid "tar (grandchild)"
-#~ msgstr "tar (kleinkind)"
-
-#~ msgid "(grandchild) Pipe to stdin"
-#~ msgstr "(kleinkind) Doorsturen naar standaardinvoer"
-
-#~ msgid "Cannot read from compression program"
-#~ msgstr "Kan niet lezen vanuit compressie-programma"
-
-#~ msgid "(child) Pipe to stdout"
-#~ msgstr "(kind) Doorsturen naar standaarduitvoer"
-
-#~ msgid "Archive to stdin"
-#~ msgstr "Archief naar standaardinvoer"
-
-#~ msgid "((child)) Pipe to stdin"
-#~ msgstr "((kind)) Doorsturen naar standaardinvoer"
-
-#~ msgid "(grandchild) Pipe to stdout"
-#~ msgstr "(kleinkind) Doorsturen naar standaarduitvoer"
-
-#~ msgid "Cannot write to compression program"
-#~ msgstr "Kan niet schrijven naar compressie-programma"
-
-#~ msgid "Write to compression program short %lu bytes"
-#~ msgstr "Schrijf naar compressie programma `short' %lu bytes"
-
-#~ msgid "Only wrote %lu of %lu bytes to %s"
-#~ msgstr "Slechts %lu van %lu bytes geschreven naar %s"
-
-#~ msgid "Read error on %s"
-#~ msgstr "Fout bij lezen van %s"
-
-#~ msgid "Archive %s EOF not on block boundary"
-#~ msgstr "Archief %s bestandseinde niet op blokgrens"
-
-#~ msgid "WARNING: Cannot close %s (%d, %d)"
-#~ msgstr "LET OP: Kan %s niet afsluiten (%d, %d)"
-
-#~ msgid "WARNING: Cannot truncate %s"
-#~ msgstr "LET OP: Kan %s niet afbreken"
-
-#~ msgid "While waiting for child"
-#~ msgstr "Bij wachten op kind"
-
-#~ msgid "Child died with signal %d"
-#~ msgstr "Kind stierf met signaal %d"
-
-#~ msgid "Child returned status %d"
-#~ msgstr "Kind retourneerde status %d"
-
-#~ msgid "Cannot fork!"
-#~ msgstr "Kan geen nieuw proces afsplitsen!"
-
-#~ msgid "Cannot exec a shell %s"
-#~ msgstr "Kan shell %s niet uitvoeren"
-
-#~ msgid "Cannot open %s"
-#~ msgstr "Kan %s niet openen"
-
-#~ msgid "Could not allocate memory for diff buffer of %lu bytes"
-#~ msgstr "Kan geen geheugen vinden voor verschilbuffer van %lu bytes"
-
-#~ msgid "Cannot read %s"
-#~ msgstr "Kan %s niet lezen"
-
-#~ msgid "Unexpected EOF on archive file"
-#~ msgstr "Onverwacht bestandseinde in archiefbestand"
-
-#~ msgid "Cannot seek to %s in file %s"
-#~ msgstr "Kan niet spoelen naar %s in bestand %s"
-
-#~ msgid "Error while closing %s"
-#~ msgstr "Fout bij afsluiten %s"
-
-#~ msgid "Could not rewind archive file for verify"
-#~ msgstr "Kon archief niet terugspoelen om te verifiëren"
-
-#~ msgid "Removing leading `/' from archive names"
-#~ msgstr "Verwijderen voorloop `/' van archiefnamen"
-
-#~ msgid "Wrote %s of %s bytes to file %s"
-#~ msgstr "Schreef %s van %s bytes naar bestand %s"
-
-#~ msgid "lseek error at byte %s in file %s"
-#~ msgstr "Zoekfout bij byte %s in bestand %s"
-
-#~ msgid "File %s shrunk, padding with zeros"
-#~ msgstr "Bestand %s gekrompen, opvullen met nullen"
-
-#~ msgid "Cannot add file %s"
-#~ msgstr "Kan bestand %s niet toevoegen"
-
-#~ msgid "%s: close"
-#~ msgstr "%s: sluiten"
-
-# c-format
-#~ msgid "Cannot add directory %s"
-#~ msgstr "Kan map %s niet openen"
-
-#~ msgid "Cannot open directory %s"
-#~ msgstr "Kan map %s niet openen"
-
-#~ msgid "File name %s%s too long"
-#~ msgstr "Bestandsnaam %s%s te lang"
-
-#~ msgid "Could not re-position archive file"
-#~ msgstr "Kan archiefbestand niet herpositioneren"
-
-#~ msgid "%s: Could not change access and modification times"
-#~ msgstr "%s: Kan toegangs- en aanpassingstijd niet veranderen"
-
-#~ msgid "%s: Cannot lchown to uid %lu gid %lu"
-#~ msgstr "%s: Kan niet `lchown' naar `uid %lu gid %lu'"
-
-#~ msgid "%s: Cannot chown to uid %lu gid %lu"
-#~ msgstr "%s: Kan niet `chown' naar `uid %lu gid %lu'"
-
-#~ msgid "%s: lseek error at byte %s"
-#~ msgstr "%s: lseek fout bij byte %s"
-
-#~ msgid "%s: Could not write to file"
-#~ msgstr "%s: Kan niet schrijven naar bestand"
-
-#~ msgid "%s: Could only write %s of %s bytes"
-#~ msgstr "%s: Kan slechts %s van %s bytes schrijven"
-
-#~ msgid "%s: Could not create file"
-#~ msgstr "%s: Kan bestand niet aanmaken"
-
-#~ msgid "%s: Error while closing"
-#~ msgstr "%s: Fout bij afsluiten"
-
-#~ msgid "%s: Could not link to `%s'"
-#~ msgstr "%s: Kan niet koppelen aan `%s'"
-
-#~ msgid "%s: Could not make node"
-#~ msgstr "%s: Kan knooppunt niet aanmaken"
-
-#~ msgid "%s: Could not make fifo"
-#~ msgstr "%s: Kan geen fifo (first in first out) aanmaken"
-
-#~ msgid "%s: Could not create directory"
-#~ msgstr "%s: Kan geen map aanmaken"
-
-#~ msgid "Added write and execute permission to directory %s"
-#~ msgstr "Schrijf en uitvoer rechten toegevoegd aan map %s"
-
-#~ msgid "Could not get current directory"
-#~ msgstr "Kan huidige map niet achterhalen"
-
-#~ msgid "Could not get current directory: %s"
-#~ msgstr "Kan huidige map niet achterhalen: %s"
-
-#~ msgid "File name %s/%s too long"
-#~ msgstr "Bestandsnaam %s/%s is te lang"
-
-#~ msgid "%s: out-of-range timestamp `%s' ignored"
-#~ msgstr "%s: tijdstempel `%s' buiten bereik, genegeerd"
-
-#~ msgid "Cannot chdir to %s"
-#~ msgstr "Kan map niet veranderen naar %s"
-
-#~ msgid "Error while deleting %s"
-#~ msgstr "Fout tijdens verwijderen %s"
-
-#~ msgid "Hmm, this doesn't look like a tar archive"
-#~ msgstr "Hmm, dit ziet er niet uit als een tar archief"
-
-#~ msgid "Skipping to next file header"
-#~ msgstr "Overslaan tot volgende bestandskopregel"
-
-#~ msgid "EOF in archive file"
-#~ msgstr "Bestandseinde in archiefbestand"
-
-#~ msgid "Only wrote %lu of %lu bytes to file %s"
-#~ msgstr "Slechts %lu van %lu bytes geschreven naar bestand %s"
-
-#~ msgid "Renaming previous `%s' to `%s'\n"
-#~ msgstr "`%s' hernoemd naar `%s'\n"
-
-#~ msgid "%s: Cannot rename for backup"
-#~ msgstr ":%s: Kan niet hernoemen voor backup"
-
-#~ msgid "%s: Cannot rename from backup"
-#~ msgstr "%s: Kan niet hernoemen van backup"
-
-#~ msgid "Cannot open file %s"
-#~ msgstr "Kan bestand %s niet openen"
-
-#~ msgid "Cannot read confirmation from user"
-#~ msgstr "Kan niet veranderen naar map %s"
-
-# c-format
 #~ msgid ""
 #~ "\n"
 #~ "Usage: %s [OPTION]... [FILE]...\n"
+#~ "\n"
+#~ "Examples:\n"
+#~ "  %s -cf archive.tar foo bar  # Create archive.tar from files foo and "
+#~ "bar.\n"
+#~ "  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+#~ "  %s -xf archive.tar          # Extract all files from archive.tar.\n"
 #~ msgstr ""
 #~ "\n"
-#~ "Aanroep: %s [OPTIE]... [BESTAND]...\n"
+#~ "Gebruik: %s [OPTIE]... [BESTAND]...\n"
+#~ "\n"
+#~ "Voorbeelden:\n"
+#~ "  %s -cf archive.tar foo bar  # archive.tar maken van bestanden foo en "
+#~ "bar.\n"
+#~ "  %s -tvf archive.tar         # Alle bestanden in archive.tar opsommen.\n"
+#~ "  %s -xf archive.tar          # Alle bestanden uit archive.tar "
+#~ "uitpakken.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.  Similarly for optional arguments.\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Als bij een lange optie staat dat dat argument verplicht is, geldt dat "
+#~ "ook voor de\n"
+#~ "equivalente korte optie.  Hetzelfde geldt voor optionele argumenten.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Main operation mode:\n"
+#~ "  -t, --list              list the contents of an archive\n"
+#~ "  -x, --extract, --get    extract files from an archive\n"
+#~ "  -c, --create            create a new archive\n"
+#~ "  -d, --diff, --compare   find differences between archive and file "
+#~ "system\n"
+#~ "  -r, --append            append files to the end of an archive\n"
+#~ "  -u, --update            only append files newer than copy in archive\n"
+#~ "  -A, --catenate          append tar files to an archive\n"
+#~ "      --concatenate       same as -A\n"
+#~ "      --delete            delete from the archive (not on mag tapes!)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Hoofd uitvoermodus:\n"
+#~ "  -t, --list              de inhoud van een archief opsommen\n"
+#~ "  -x, --extract, --get    bestanden uit een archief uitpakken\n"
+#~ "  -c, --create            een nieuw archief aanmaken\n"
+#~ "  -d, --diff, --compare   verschillen tussen archief en bestandssysteem "
+#~ "vinden\n"
+#~ "  -r, --append            bestanden aan eind van archief toevoegen\n"
+#~ "  -u, --update            alleen nieuwere bestanden dan versie in archief "
+#~ "toevoegen\n"
+#~ "  -A, --catenate          tar-bestanden aan archief toevoegen\n"
+#~ "      --concatenate       zelfde als -A\n"
+#~ "      --delete            verwijderen uit het archief (niet op mag "
+#~ "tapes!)\n"
 
 #~ msgid ""
 #~ "\n"
@@ -1652,8 +1874,12 @@ msgstr ""
 #~ "it\n"
 #~ "      --remove-files         remove files after adding them to the "
 #~ "archive\n"
-#~ "  -k, --keep-old-files       don't overwrite existing files when "
+#~ "  -k, --keep-old-files       don't replace existing files when "
 #~ "extracting\n"
+#~ "      --keep-newer-files     don't replace existing files that are newer\n"
+#~ "                             than their archive copies\n"
+#~ "      --overwrite            overwrite existing files when extracting\n"
+#~ "      --no-overwrite-dir     preserve metadata of existing directories\n"
 #~ "  -U, --unlink-first         remove each file prior to extracting over "
 #~ "it\n"
 #~ "      --recursive-unlink     empty hierarchies prior to extracting "
@@ -1661,298 +1887,249 @@ msgstr ""
 #~ "  -S, --sparse               handle sparse files efficiently\n"
 #~ "  -O, --to-stdout            extract files to standard output\n"
 #~ "  -G, --incremental          handle old GNU-format incremental backup\n"
-#~ "  -g, --listed-incremental   handle new GNU-format incremental backup\n"
+#~ "  -g, --listed-incremental=FILE\n"
+#~ "                             handle new GNU-format incremental backup\n"
 #~ "      --ignore-failed-read   do not exit with nonzero on unreadable "
 #~ "files\n"
+#~ "      --occurrence[=NUM]     process only the NUMth occurrence of each "
+#~ "file in\n"
+#~ "                             the archive. This option is valid only in\n"
+#~ "                             conjunction with one of the subcommands --"
+#~ "delete,\n"
+#~ "                             --diff, --extract or --list and when a list "
+#~ "of\n"
+#~ "                             files is given either on the command line "
+#~ "or\n"
+#~ "                             via -T option.\n"
+#~ "                             NUM defaults to 1.\n"
 #~ msgstr ""
 #~ "\n"
-#~ "Werkingsaanpassers:\n"
-#~ "  -W, --verify               probeer archief na schrijven te verifiëren\n"
-#~ "      --remove-files         verwijder bestanden na toevoegen in het "
+#~ "Bewerkingsveranderaars:\n"
+#~ "  -W, --verify               het archief proberen te verifiÃ«ren na "
+#~ "schrijven\n"
+#~ "      --remove-files         bestanden verwijderen na toevoegen aan "
 #~ "archief\n"
-#~ "  -k, --keep-old-files       overschrijf bestanden niet tijdens "
-#~ "extractie\n"
-#~ "  -U, --unlink-first         verwijder elk bestand voordat een nieuwe "
-#~ "er \n"
-#~ "                             overheen geëxtraheerd wordt\n"
-#~ "                             (twee maal gegeven, zelfs hele lege mappen\n"
-#~ "      --recursive-unlink     maak hierarchiën leeg voor extractie\n"
-#~ "  -S, --sparse               ga efficiënt om met `sparse' bestanden\n"
-#~ "  -O, --to-stdout            extraheer bestanden naar standaarduitvoer\n"
-#~ "  -G, --incremental          gebruik oud GNU-formaat incrementele backup\n"
-#~ "  -g, --listed-incremental   gebruik nieuw GNU-formaat incrementele "
-#~ "backup\n"
-#~ "      --ignore-failed-read   beëinding niet met niet-nul bij onleesbare\n"
-#~ "                             bestanden\n"
+#~ "  -k, --keep-old-files       bestaande bestanden niet vervangen bij "
+#~ "uitpakken\n"
+#~ "      --keep-newer-files     bestaande bestanden niet vervangen die "
+#~ "nieuwer\n"
+#~ "                             zijn dan hun archiefversies\n"
+#~ "      --overwrite            bestaande bestanden overschrijven bij "
+#~ "uitpakken\n"
+#~ "      --no-overwrite-dir     metadata van bestaande mappen behouden\n"
+#~ "  -U, --unlink-first         elk bestand verwijderen alvorens eroverheen "
+#~ "uit te pakken\n"
+#~ "      --recursive-unlink     hierarchieÃ«n legen voor uitpakken map\n"
+#~ "  -S, --sparse               schaarse bestanden efficiÃ«nt verwerken\n"
+#~ "  -O, --to-stdout            bestanden naar standaard uitvoer uitpakken\n"
+#~ "  -G, --incremental          oude GNU-formaat vermeerderende reservekopie "
+#~ "verwerken\n"
+#~ "  -g, --listed-incremental=BESTAND\n"
+#~ "                             nieuwe GNU-formaat vermeerderende "
+#~ "reservekopie verwerken\n"
+#~ "      --ignore-failed-read   niet afsluiten met niet-nul bij onleesbare "
+#~ "bestanden\n"
+#~ "      --occurrence[=GETAL]   slechts de GETALde overeenkomst van elk "
+#~ "bestand in\n"
+#~ "                             het archief verwerken. Deze optie is slechts "
+#~ "geldig samen met\n"
+#~ "                             een van de deelopdrachten --delete, --diff, "
+#~ "--extract of --list en\n"
+#~ "                             als een lijst bestanden gegeven is op de "
+#~ "opdrachtregel of met de\n"
+#~ "                             -T optie. GETAL is standaard 1.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Handling of file attributes:\n"
+#~ "      --owner=NAME             force NAME as owner for added files\n"
+#~ "      --group=NAME             force NAME as group for added files\n"
+#~ "      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+#~ "files\n"
+#~ "      --atime-preserve         don't change access times on dumped files\n"
+#~ "  -m, --modification-time      don't extract file modified time\n"
+#~ "      --same-owner             try extracting files with the same "
+#~ "ownership\n"
+#~ "      --no-same-owner          extract files as yourself\n"
+#~ "      --numeric-owner          always use numbers for user/group names\n"
+#~ "  -p, --same-permissions       extract permissions information\n"
+#~ "      --no-same-permissions    do not extract permissions information\n"
+#~ "      --preserve-permissions   same as -p\n"
+#~ "  -s, --same-order             sort names to extract to match archive\n"
+#~ "      --preserve-order         same as -s\n"
+#~ "      --preserve               same as both -p and -s\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Omgaan met kenmerken:\n"
+#~ "      --owner=NAAM             NAAM forceren als eigenaar toegevoegde "
+#~ "bestanden\n"
+#~ "      --group=NAAM             NAAM forceren als groep bij toegevoegde "
+#~ "bestanden\n"
+#~ "      --mode=WIJZIGINGEN       (symbolische) modus WIJZIGINGEN forceren "
+#~ "voor\n"
+#~ "                               toegevoegde bestanden\n"
+#~ "      --atime-preserve         toegangstijden voor gedumpte bestanden "
+#~ "behouden\n"
+#~ "  -m, --modification-time      bestandswijzigtijd niet uitpakken\n"
+#~ "      --same-owner             bestanden proberen uit te pakken met "
+#~ "zelfde eigenaarschap\n"
+#~ "      --no-same-owner          bestanden uitpakken als uzelf\n"
+#~ "      --numeric-owner          altijd getallen voor gebruiker/groepnamen "
+#~ "gebruiken\n"
+#~ "  -p, --same-permissions       toegangsrechten uitpakken\n"
+#~ "      --no-same-permissions    toegangsrechten niet uitpakken\n"
+#~ "      --preserve-permissions   zelfde als -p\n"
+#~ "  -s, --same-order             namen sorteren bij uitpakken van archief\n"
+#~ "      --preserve-order         zelfde als -s\n"
+#~ "      --preserve               zelfde als -p en -s\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Device selection and switching:\n"
+#~ "  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+#~ "      --force-local              archive file is local even if has a "
+#~ "colon\n"
+#~ "      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/"
+#~ "rmt\n"
+#~ "      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+#~ "  -[0-7][lmh]                    specify drive and density\n"
+#~ "  -M, --multi-volume             create/list/extract multi-volume "
+#~ "archive\n"
+#~ "  -L, --tape-length=NUM          change tape after writing NUM x 1024 "
+#~ "bytes\n"
+#~ "  -F, --info-script=FILE         run script at end of each tape (implies -"
+#~ "M)\n"
+#~ "      --new-volume-script=FILE   same as -F FILE\n"
+#~ "      --volno-file=FILE          use/update the volume number in FILE\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Apparaatkeuze en schakeling:\n"
+#~ "  -f, --file=ARCHIEF             archiefbestand of apparaat ARCHIEF "
+#~ "gebruiken\n"
+#~ "      --force-local              archiefbestand is lokaal, zelfs als het "
+#~ "een : heeft\n"
+#~ "      --rmt-command=OPDRACHT     gegeven rmt OPDRACHT gebruiken i.p.v. /"
+#~ "etc/rmt\n"
+#~ "      --rsh-command=OPDRACHT     OPDRACHT gebruiken i.p.v.  rsh\n"
+#~ "  -[0-7][lmh]                    schijf en dichtheid opgeven\n"
+#~ "  -M, --multi-volume             aanmaken/opsommen/uitpakken meerdelig "
+#~ "archief\n"
+#~ "  -L, --tape-length=AANTAL       tape wisselen na schrijven AANTAL x 1024 "
+#~ "bytes\n"
+#~ "  -F, --info-script=BESTAND      script uitvoeren aan eind van elke tape "
+#~ "(impliceert -M)\n"
+#~ "      --new-volume-script=BESTAND  zelfde als -F BESTAND\n"
+#~ "      --volno-file=BESTAND       deelnummer in BESTAND gebruiken/"
+#~ "bijwerken\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Device blocking:\n"
+#~ "  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+#~ "      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+#~ "  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+#~ "EOF)\n"
+#~ "  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Apparaat indeling in blokken:\n"
+#~ "  -b, --blocking-factor=BLOKKEN  BLOKKEN x 512 bytes per record\n"
+#~ "      --record-size=GROOTTE      GROOTTE bytes per record, veelvoud van "
+#~ "512\n"
+#~ "  -i, --ignore-zeros             genulde blokken negeren in archief "
+#~ "(betekent einde-bestand)\n"
+#~ "  -B, --read-full-records        opnieuw in blokken indelen tijdens lezen "
+#~ "(voor 4.2BSD pijpen)\n"
 
 #~ msgid ""
 #~ "\n"
 #~ "Archive format selection:\n"
+#~ "      --format=FMTNAME               create archive of the given format.\n"
+#~ "                                     FMTNAME is one of the following:\n"
+#~ "                                     v7        old V7 tar format\n"
+#~ "                                     oldgnu    GNU format as per tar <= "
+#~ "1.12\n"
+#~ "                                     gnu       GNU tar 1.13 format\n"
+#~ "                                     ustar     POSIX 1003.1-1988 (ustar) "
+#~ "format\n"
+#~ "                                     posix     POSIX 1003.1-2001 (pax) "
+#~ "format\n"
+#~ "      --old-archive, --portability   same as --format=v7\n"
+#~ "      --posix                        same as --format=posix\n"
+#~ "  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+#~ "                                     control pax keywords\n"
 #~ "  -V, --label=NAME                   create archive with volume name "
 #~ "NAME\n"
 #~ "              PATTERN                at list/extract time, a globbing "
 #~ "PATTERN\n"
-#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
-#~ "      --posix                        write a POSIX conformant archive\n"
-#~ "  -y, --bzip2                        filter the archive through bzip2\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
 #~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
 #~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
 #~ "      --use-compress-program=PROG    filter through PROG (must accept -"
 #~ "d)\n"
 #~ msgstr ""
 #~ "\n"
-#~ "Archiefformaat selektie:\n"
-#~ "  -V, --label=NAAM                   maak een archief aan met deelnaam "
-#~ "NAAM\n"
-#~ "              PATROON                tijdens tonen/extractie, NAAM is\n"
-#~ "                                     bestandsselectiepatroon\n"
-#~ "  -o, --old-archive, --portability   maak een V7 archief\n"
-#~ "      --posix                        maak een POSIX archief\n"
-#~ "  -y, --bzip2                        filter het tarchief door bzip2\n"
-#~ "  -z, --gzip, --ungzip               filter het archief door gzip\n"
-#~ "  -Z, --compress, --uncompress       filter het archief door compress\n"
-#~ "      --use-compress-program=PROG    filter door PROG (moet -d "
+#~ "Archiefformaat keuze:\n"
+#~ "      --format=FORMAAT               archief van gekozen formaat maken.\n"
+#~ "                                     FORMAAT is Ã©Ã©n van de volgende:\n"
+#~ "                                     v7        oud V7 tar formaat\n"
+#~ "                                     oldgnu    GNU formaat van tar <= "
+#~ "1.12\n"
+#~ "                                     gnu       GNU tar 1.13 formaat\n"
+#~ "                                     ustar     POSIX 1003.1-1988 (ustar) "
+#~ "formaat\n"
+#~ "                                     posix     POSIX 1003.1-2001 (pax) "
+#~ "formaat\n"
+#~ "      --old-archive, --portability   zelfde als --format=v7\n"
+#~ "      --posix                        zelfde als --format=posix\n"
+#~ "  --pax-option keyword[[:]=waarde][,keyword[[:]=waarde], ...]\n"
+#~ "                                     pax sleutelwoorden instellen\n"
+#~ "  -V, --label=NAAM                   archief maken met deelnaam NAAM\n"
+#~ "              PATROON                bij opsommen/uitpakken, een globbing "
+#~ "PATROON\n"
+#~ "  -j, --bzip2                        archief door bzip2 filteren\n"
+#~ "  -z, --gzip, --ungzip               archief door gzip filteren\n"
+#~ "  -Z, --compress, --uncompress       archief door compress filteren\n"
+#~ "      --use-compress-program=PROG    filteren door PROG (moet -d "
 #~ "accepteren)\n"
 
 #~ msgid ""
-#~ "\n"
-#~ "GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
-#~ "is set in the environment, GNU extensions are disallowed with `--posix'.\n"
-#~ "Support for POSIX is only partially implemented, don't count on it yet.\n"
-#~ "ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; and FILE may be a file\n"
-#~ "or a device.  *This* `tar' defaults to `-f%s -b%d'.\n"
+#~ "  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+#~ "      --newer-mtime=DATE       compare date and time when data changed "
+#~ "only\n"
+#~ "      --after-date=DATE        same as -N\n"
 #~ msgstr ""
-#~ "\n"
-#~ "GNU tar kan geen `--posix' archieven lezen of maken.  Als "
-#~ "POSIXLY_CORRECT\n"
-#~ "is gezet als omgevingsvariable zijn GNU uitbreidingen niet toegestaan "
-#~ "met\n"
-#~ "`--posix'.  Ondersteuning voor POSIX is slechts gedeeltelijk "
-#~ "geïmplementeerd,\n"
-#~ "reken er nog niet op.  ARCHIEF kan zijn BESTAND, HOST:BESTAND of\n"
-#~ "GEBRUIKER@HOST:BESTAND; en BESTAND kan een bestand zijn of een apparaat.\n"
-#~ "*Deze* `tar' gebruikt standaard `-f%s -b%d'.\n"
+#~ "  -N, --newer=DATUM-OF-BESTAND  slechts bestanden nieuwer dan DATUM of "
+#~ "BESTAND opslaan\n"
+#~ "      --newer-mtime=DATUM      datum en tijd vergelijken slechts als "
+#~ "gegevens gewijzigd\n"
+#~ "      --after-date=DATUM       zelfde als -N\n"
 
-#~ msgid "Obsolete option, now implied by --blocking-factor"
-#~ msgstr "Overbodige optienaam vervangen door --blocking-factor"
-
-#~ msgid "Obsolete option name replaced by --blocking-factor"
-#~ msgstr "Overbodige optienaam vervangen door --blocking-factor"
-
-#~ msgid "Obsolete option name replaced by --read-full-records"
-#~ msgstr "Overbodige optienaam vervangen door --read-full-records"
-
-#~ msgid "Obsolete option name replaced by --touch"
-#~ msgstr "Overbodige optienaam vervangen door --touch"
-
-#~ msgid "Conflicting archive format options"
-#~ msgstr "Conflicterende archiefformaat opties"
-
-#~ msgid "Obsolete option name replaced by --absolute-names"
-#~ msgstr "Overbodige optienaam vervangen door --absolute-names"
-
-#~ msgid "Obsolete option name replaced by --block-number"
-#~ msgstr "Overbodige optienaam vervangen door --block-number"
-
-#~ msgid "Obsolete option name replaced by --backup"
-#~ msgstr "Overbodige optienaam vervangen door --backup"
-
-#~ msgid "Invalid group given on option"
-#~ msgstr "Ongeldige groep gegeven bij optie"
-
-#~ msgid "Invalid owner given on option"
-#~ msgstr "Ongeldige eigenaar gegeven bij optie"
+#~ msgid ""
+#~ "      --backup[=CONTROL]       backup before removal, choose version "
+#~ "control\n"
+#~ "      --suffix=SUFFIX          backup before removal, override usual "
+#~ "suffix\n"
+#~ msgstr ""
+#~ "      --backup[=CONTROLE]      reservekopie maken voor verwijderen, kies "
+#~ "versiecontrole\n"
+#~ "      --suffix=ACHTERVOEGSEL   reservekopie maken voor verwijderen, "
+#~ "gebruikelijk achtervoegsel negeren\n"
 
 #~ msgid ""
 #~ "\n"
-#~ "Copyright 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
-#~ "Inc.\n"
+#~ "Compatibility options:\n"
+#~ "  -o                                 when creating, same as --old-"
+#~ "archive\n"
+#~ "                                     when extracting, same as --no-same-"
+#~ "owner\n"
 #~ msgstr ""
 #~ "\n"
-#~ "Copyright 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
-#~ "Inc.\n"
+#~ "Compatibiliteitsopties:\n"
+#~ "  -o                                 bij aanmaken, zelfde als --old-"
+#~ "archive\n"
+#~ "                                     bij uitpakken, zelfde als --no-same-"
+#~ "owner\n"
 
-#~ msgid ""
-#~ "This is free software; see the source for copying conditions.  There is "
-#~ "NO\n"
-#~ "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR "
-#~ "PURPOSE.\n"
-#~ msgstr ""
-#~ "Dit is vrije programmatuur; zie de broncode voor kopieervoorwaarden.\n"
-#~ "Er is GEEN garantie; zelfs niet voor VERKOOPBAARHEID of GESCHIKTHEID\n"
-#~ "VOOR EEN BEPAALD DOEL.\n"
-
-#~ msgid "Read error at byte %s reading %lu bytes in file %s"
-#~ msgstr "Leesfout bij byte %s bij lezen %lu bytes in bestand %s"
-
-#~ msgid "Generate data files for GNU tar test suite.\n"
-#~ msgstr "Genereer data bestanden voor GNU tar test omgeving.\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Usage: %s [OPTION]...\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Aanroep: %s [OPTIE]...\n"
-
-#~ msgid ""
-#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
-#~ "for the equivalent short option also.\n"
-#~ "\n"
-#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
-#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
-#~ "      --help                 display this help and exit\n"
-#~ "      --version              output version information and exit\n"
-#~ msgstr ""
-#~ "Verplichte argumenten voor lange opties zijn ook verplicht bij korte "
-#~ "opties.\n"
-#~ "\n"
-#~ "  -l, --file-length     lengte van het gegenereerde bestand\n"
-#~ "  -p, --pattern=PATROON PATROON is `default' of `zeros'\n"
-#~ "      --help            toon hulp-tekst en beëindig programma\n"
-#~ "      --version         toon versie-informatie en beëindig programma\n"
-
-#~ msgid "Ambiguous pattern `%s'"
-#~ msgstr "Dubbelzinnig patroon `%s'"
-
-#~ msgid "Unknown pattern `%s'"
-#~ msgstr "Onbekend patroon `%s'"
-
-#~ msgid ""
-#~ "\n"
-#~ "Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Written by François Pinard <pinard@iro.umontreal.ca>.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Geschreven door François Pinard <pinard@iro.umontreal.ca>.\n"
-
-#~ msgid " (core dumped)"
-#~ msgstr " (geheugen gedumpt)"
-
-#~ msgid "Removing drive spec from names in the archive"
-#~ msgstr "Verwijder station specificatie uit naam in het archief"
-
-#~ msgid "Removing leading `/' from absolute path names in the archive"
-#~ msgstr "Verwijder voorloop / van absolute bestandsnamen in het archief"
-
-#~ msgid "Amount actually written is (I hope) %d.\n"
-#~ msgstr "Werkelijk geschreven hoeveelheid is %d (hoop ik).\n"
-
-#~ msgid "Data differs"
-#~ msgstr "%s: Data verschilt"
-
-#~ msgid "File does not exist"
-#~ msgstr "Bestand bestaat niet"
-
-#~ msgid "Cannot stat file %s"
-#~ msgstr "Kan status van bestand %s niet opvragen"
-
-#~ msgid "Not a regular file"
-#~ msgstr "Geen gewoon bestand"
-
-#~ msgid "Does not exist"
-#~ msgstr "Bestaat niet"
-
-#~ msgid "No such file or directory"
-#~ msgstr "Onbekend bestand of map"
-
-#~ msgid "Mode or device-type changed"
-#~ msgstr "Modus van apparaattype verandered"
-
-#~ msgid "No longer a directory"
-#~ msgstr "Niet langer een map"
-
-#~ msgid "%d at %d\n"
-#~ msgstr "%d op %d\n"
-
-#~ msgid "Mode"
-#~ msgstr "Modus"
-
-#~ msgid "Uid"
-#~ msgstr "Gebruikersnummer"
-
-#~ msgid "Gid"
-#~ msgstr "Groepsnummer"
-
-#~ msgid "Size"
-#~ msgstr "Grootte"
-
-#~ msgid "Missing filename after -C"
-#~ msgstr "Ontbrekende bestandsnaam na -C"
-
-#~ msgid "EOF?  What does that mean?"
-#~ msgstr "Bestandseinde?  Wat betekent dat?"
-
-#~ msgid ""
-#~ "Mandatory or optional arguments to long options are mandatory or "
-#~ "optional\n"
-#~ "for short options too.\n"
-#~ msgstr ""
-#~ "Verplichte opties voor lange opties zijn ook verplicht voor korte "
-#~ "opties.\n"
-
-#~ msgid "File %s\n"
-#~ msgstr "Bestand %s\n"
-
-#~ msgid "Junk files\n"
-#~ msgstr "Bagger bestanden\n"
-
-#~ msgid "file %s\n"
-#~ msgstr "bestand %s\n"
-
-#~ msgid "Skip %ld\n"
-#~ msgstr "Sla over %ld\n"
-
-#~ msgid "Out of first loop\n"
-#~ msgstr "Buiten eerste loop\n"
-
-#~ msgid "Saved %d blocks, need %d more\n"
-#~ msgstr "%d blokken bewaard, nog %d nodig\n"
-
-#~ msgid "New record\n"
-#~ msgstr "Nieuw record\n"
-
-#~ msgid "Header type %d\n"
-#~ msgstr "Kopregeltype %d\n"
-
-#~ msgid "File %s "
-#~ msgstr "Bestand %s "
-
-#~ msgid "Flush it\n"
-#~ msgstr "Schrijf het\n"
-
-#~ msgid "Flushing %d blocks from %s\n"
-#~ msgstr "Schrijf %d blokken van %s\n"
-
-#~ msgid "Block: %d <= %d  "
-#~ msgstr "Blok: %d <= %d  "
-
-#~ msgid "Block %d left\n"
-#~ msgstr "Blok %d overgebleven\n"
-
-#~ msgid "Final %d\n"
-#~ msgstr "Uiteindelijk %d\n"
-
-#~ msgid "Need %d kept_in %d keep %d\n"
-#~ msgstr "Need %d kept_in %d keep %d\n"
-
-#~ msgid "Flush...\n"
-#~ msgstr "Schrijf...\n"
-
-#~ msgid "Copying %d\n"
-#~ msgstr "Kopiëren %d\n"
-
-#~ msgid "Now new %d  need %d  keep %d  keep_in %d block %d/%d\n"
-#~ msgstr "Nu nieuw %d  nodig %d  houd %d  houd_in %d blok %d/%d (??)\n"
-
-#~ msgid "Write record\n"
-#~ msgstr "Schrijf record\n"
-
-#~ msgid "Fore to %x\n"
-#~ msgstr "Verder naar %x\n"
+#~ msgid "Written by John Gilmore and Jay Fenlason."
+#~ msgstr "Geschreven door John Gilmore en Jay Fenlason."

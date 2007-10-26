@@ -175,9 +175,13 @@ both_ftw(const char *path,
 		case FTS_DC:
 #if __DARWIN_UNIX03
 			/* Unix03 says nftw should break cycles and not return
-			  errors in physical mode (which is definitly what it
+			  errors in non-physical mode (which is definitly what it
 			  says ftw can't do) */
 			if (nfn && !(ftwflags & FTW_PHYS)) {
+				/* 4489297 - when FTW_DEPTH is set, skip
+				   the link also */
+				if (postorder)
+				    continue;
 				fnflag = FTW_D;
 				break;
 			}

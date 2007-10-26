@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,20 +72,28 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 			CFDictionaryRef		config,
 			Boolean			keepInactive)
 {
-	CFMutableDictionaryRef  newConfig;
+	CFMutableDictionaryRef  newConfig	= NULL;
 	Boolean			ok;
 
-	if (!isA_CFDictionary(config)) {
+	if ((config != NULL) && !isA_CFDictionary(config)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
-	newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+	if (config != NULL) {
+		newConfig = CFDictionaryCreateMutableCopy(NULL, 0, config);
+	}
 
 	if (keepInactive) {
 		CFDictionaryRef	curConfig;
 
-		// preserve enabled/disabled state
+		if (config == NULL) {
+			newConfig = CFDictionaryCreateMutable(NULL,
+							      0,
+							      &kCFTypeDictionaryKeyCallBacks,
+							      &kCFTypeDictionaryValueCallBacks);
+		}
+
 		curConfig = SCPreferencesPathGetValue(prefs, path);
 		if (isA_CFDictionary(curConfig) && CFDictionaryContainsKey(curConfig, kSCResvInactive)) {
 			// if currently disabled
@@ -97,9 +105,17 @@ __setPrefsConfiguration(SCPreferencesRef	prefs,
 	}
 
 	// set new configuration
-	ok = SCPreferencesPathSetValue(prefs, path, newConfig);
+	if (newConfig != NULL) {
+		// if new configuration (or we are preserving a disabled state)
+		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
+		CFRelease(newConfig);
+	} else {
+		ok = SCPreferencesPathRemoveValue(prefs, path);
+		if (!ok && (SCError() == kSCStatusNoKey)) {
+			ok = TRUE;
+		}
+	}
 
-	CFRelease(newConfig);
 	return ok;
 }
 
@@ -123,7 +139,7 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 		  CFStringRef		path,
 		  Boolean		enabled)
 {
-	CFDictionaryRef		curConfig       = NULL;
+	CFDictionaryRef		curConfig;
 	CFMutableDictionaryRef  newConfig       = NULL;
 	Boolean			ok		= FALSE;
 
@@ -135,37 +151,36 @@ __setPrefsEnabled(SCPreferencesRef      prefs,
 			return FALSE;
 		}
 		newConfig = CFDictionaryCreateMutableCopy(NULL, 0, curConfig);
+
+		if (enabled) {
+			// enable
+			CFDictionaryRemoveValue(newConfig, kSCResvInactive);
+		} else {
+			// disable
+			CFDictionarySetValue(newConfig, kSCResvInactive, kCFBooleanTrue);
+		}
 	} else {
-		newConfig = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (!enabled) {
+			// disable
+			newConfig = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			CFDictionarySetValue(newConfig, kSCResvInactive, kCFBooleanTrue);
+		}
 	}
 
-	if (enabled) {
-		// enable
-		CFDictionaryRemoveValue(newConfig, kSCResvInactive);
-	} else {
-		// disable
-		CFDictionarySetValue(newConfig, kSCResvInactive, kCFBooleanTrue);
-	}
-
-	// update configuration
-	if (CFDictionaryGetCount(newConfig) == 0) {
-		CFRelease(newConfig);
-		newConfig = NULL;
-	}
-
-	if (newConfig == NULL) {
-		ok = SCPreferencesPathRemoveValue(prefs, path);
-	} else {
+	// set new configuration
+	if (newConfig != NULL) {
+		// if updated configuration (or we are establishing as disabled)
 		ok = SCPreferencesPathSetValue(prefs, path, newConfig);
+		CFRelease(newConfig);
+	} else {
+		ok = SCPreferencesPathRemoveValue(prefs, path);
+		if (!ok && (SCError() == kSCStatusNoKey)) {
+			ok = TRUE;
+		}
 	}
 
-	if (newConfig != NULL)  CFRelease(newConfig);
 	return ok;
 }
-
-
-#define SYSTEMCONFIGURATION_BUNDLE_ID   CFSTR("com.apple.SystemConfiguration")
-#define SYSTEMCONFIGURATION_FRAMEWORK   "SystemConfiguration.framework"
 
 
 static CFDictionaryRef
@@ -178,7 +193,7 @@ __copyTemplates()
 	CFStringRef     xmlError	= NULL;
 	CFDataRef       xmlTemplates    = NULL;
 
-	bundle = CFBundleGetBundleWithIdentifier(SYSTEMCONFIGURATION_BUNDLE_ID);
+	bundle = _SC_CFBundleGet();
 	if (bundle == NULL) {
 		return NULL;
 	}
@@ -296,7 +311,7 @@ __copyProtocolTemplate(CFStringRef      interfaceType,
 
 	if (isA_CFDictionary(interface)) {
 		protocol = CFDictionaryGetValue(interface, protocolType);
-		if (isA_CFDictionary(protocol) && (CFDictionaryGetCount(protocol) > 0)) {
+		if (isA_CFDictionary(protocol)) {
 			CFRetain(protocol);
 		} else {
 			protocol = NULL;
@@ -357,35 +372,166 @@ __destroyInterface(int s, CFStringRef interface)
 }
 
 
-__private_extern__ Boolean
-__markInterfaceUp(int s, CFStringRef interface)
+/*
+ * For rdar://problem/4685223
+ *
+ * To keep MoreSCF happy we need to ensure that the first "Set" and
+ * "NetworkService" have a [less than] unique identifier that can
+ * be parsed as a numeric string.
+ *
+ * Note: this backwards compatibility code must be enabled using the
+ *       following command:
+ *
+ *       sudo defaults write						\
+ *       	/Library/Preferences/SystemConfiguration/preferences	\
+ *       	MoreSCF							\
+ *       	-bool true
+ */
+__private_extern__
+CFStringRef
+__SCPreferencesPathCreateUniqueChild_WithMoreSCFCompatibility(SCPreferencesRef prefs, CFStringRef prefix)
 {
-	struct ifreq	ifr;
+	static int	hack	= -1;
+	CFStringRef	path	= NULL;
 
-	bzero(&ifr, sizeof(ifr));
-	(void) _SC_cfstring_to_cstring(interface,
-				       ifr.ifr_name,
-				       sizeof(ifr.ifr_name),
-				       kCFStringEncodingASCII);
+	if (hack < 0) {
+		CFBooleanRef	enable;
 
-	if (ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr) == -1) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not get flags for interface \"%@\": %s"),
-		      interface,
-		      strerror(errno));
-		return FALSE;
+		enable = SCPreferencesGetValue(prefs, CFSTR("MoreSCF"));
+		hack = (isA_CFBoolean(enable) && CFBooleanGetValue(enable)) ? 1 : 0;
 	}
 
-	ifr.ifr_flags |= IFF_UP;
-	if (ioctl(s, SIOCSIFFLAGS, (caddr_t)&ifr) == -1) {
-		SCLog(TRUE,
-		      LOG_ERR,
-		      CFSTR("could not set flags for interface \"%@\": %s"),
-		      interface,
-		      strerror(errno));
-		return FALSE;
+	if (hack > 0) {
+		CFDictionaryRef	dict;
+		Boolean	ok;
+
+		path = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@/%@"), prefix, CFSTR("0"));
+		dict = SCPreferencesPathGetValue(prefs, path);
+		if (dict != NULL) {
+			// if path "0" exists
+			CFRelease(path);
+			return NULL;
+		}
+
+		// unique child with path "0" does not exist, create
+		dict = CFDictionaryCreate(NULL,
+					  NULL, NULL, 0,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+		ok = SCPreferencesPathSetValue(prefs, path, dict);
+		CFRelease(dict);
+		if (!ok) {
+			// if create failed
+			CFRelease(path);
+			return NULL;
+		}
 	}
 
-	return TRUE;
+	return path;
 }
+
+
+static CFDataRef
+__copy_legacy_password(CFTypeRef password)
+{
+	if (password == NULL) {
+		return NULL;
+	}
+
+	if (isA_CFData(password)) {
+		CFIndex	n;
+
+		n = CFDataGetLength(password);
+		if ((n % sizeof(UniChar)) == 0) {
+			CFStringEncoding	encoding;
+			CFStringRef		str;
+
+#if	__BIG_ENDIAN__
+			encoding = (*(CFDataGetBytePtr(password) + 1) == 0x00) ? kCFStringEncodingUTF16LE : kCFStringEncodingUTF16BE;
+#else	// __LITTLE_ENDIAN__
+			encoding = (*(CFDataGetBytePtr(password)    ) == 0x00) ? kCFStringEncodingUTF16BE : kCFStringEncodingUTF16LE;
+#endif
+			str = CFStringCreateWithBytes(NULL,
+						      (const UInt8 *)CFDataGetBytePtr(password),
+						      n,
+						      encoding,
+						      FALSE);
+			password = CFStringCreateExternalRepresentation(NULL,
+									str,
+									kCFStringEncodingUTF8,
+									0);
+			CFRelease(str);
+		} else {
+			password = NULL;
+		}
+	} else if (isA_CFString(password) && (CFStringGetLength(password) > 0)) {
+		// convert password to CFData
+		password = CFStringCreateExternalRepresentation(NULL,
+								password,
+								kCFStringEncodingUTF8,
+								0);
+	} else {
+		password = NULL;
+	}
+
+	return password;
+}
+
+
+__private_extern__
+Boolean
+__extract_password(SCPreferencesRef	prefs,
+		   CFDictionaryRef	config,
+		   CFStringRef		passwordKey,
+		   CFStringRef		encryptionKey,
+		   CFStringRef		encryptionKeyChainValue,
+		   CFStringRef		unique_id,
+		   CFDataRef		*password)
+{
+	CFStringRef	encryption	= NULL;
+	Boolean		exists		= FALSE;
+
+	// check for keychain password
+	if (config != NULL) {
+		encryption = CFDictionaryGetValue(config, encryptionKey);
+	}
+	if ((encryption == NULL) ||
+	    (isA_CFString(encryption) &&
+	     CFEqual(encryption, encryptionKeyChainValue))) {
+		// check password
+		if (password != NULL) {
+			if (prefs != NULL) {
+				*password = _SCPreferencesSystemKeychainPasswordItemCopy(prefs, unique_id);
+			} else {
+				*password = _SCSecKeychainPasswordItemCopy(NULL, unique_id);
+			}
+			exists = (*password != NULL);
+		} else {
+			if (prefs != NULL) {
+				exists = _SCPreferencesSystemKeychainPasswordItemExists(prefs, unique_id);
+			} else {
+				exists = _SCSecKeychainPasswordItemExists(NULL, unique_id);
+			}
+		}
+	}
+
+	// as needed, check for in-line password
+	if (!exists && (encryption == NULL) && (config != NULL)) {
+		CFDataRef	inline_password;
+
+		inline_password = CFDictionaryGetValue(config, passwordKey);
+		inline_password = __copy_legacy_password(inline_password);
+		if (inline_password != NULL) {
+			exists = TRUE;
+
+			if (password != NULL) {
+				*password = inline_password;
+			} else {
+				CFRelease(inline_password);
+			}
+		}
+	}
+
+	return exists;
+}
+

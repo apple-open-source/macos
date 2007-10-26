@@ -1,0 +1,193 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define to use arc4random() function */
+#undef ARC4_RANDOM
+
+/* Define to 1 if `struct sockaddr_in' has a `sin_len' member */
+#undef BSD44SOCKETS
+
+/* Define to pathname where authentication cookie files should be stored */
+#undef DEF_AUTH_DIR
+
+/* Define to pathname of where chooser binary is installed */
+#undef DEF_CHOOSER
+
+/* Define to default command to start failsafe X session */
+#undef DEF_FAILSAFE_CLIENT
+
+/* Define to pathname where greeter shared object is installed (if used) */
+#undef DEF_GREETER_LIB
+
+/* Define to default Xserver file entry for local X server */
+#undef DEF_SERVER_LINE
+
+/* Define to default command to start X session */
+#undef DEF_SESSION
+
+/* Define to default PATH environment variable for system commands */
+#undef DEF_SYSTEM_PATH
+
+/* Define to default shell */
+#undef DEF_SYSTEM_SHELL
+
+/* Define to default PATH environment variable for user sessions */
+#undef DEF_USER_PATH
+
+/* Define to pathname of default xdm-config file */
+#undef DEF_XDM_CONFIG
+
+/* Define to device that provides random data source */
+#undef DEV_RANDOM
+
+/* Define to 1 if you have the 'getifaddrs' function. */
+#undef HAS_GETIFADDRS
+
+/* Define to 1 if you have the 'mkstemp' function. */
+#undef HAS_MKSTEMP
+
+/* Define to 1 if you have the 'setproctitle' function. */
+#undef HAS_SETPROCTITLE
+
+/* Define to 1 if you have the 'setusercontext' function. */
+#undef HAS_SETUSERCONTEXT
+
+/* Define to 1 if you have the `authdes_create' function. */
+#undef HAVE_AUTHDES_CREATE
+
+/* Define to 1 if you have the `authdes_seccreate' function. */
+#undef HAVE_AUTHDES_SECCREATE
+
+/* Define to 1 if you have the `daemon' function. */
+#undef HAVE_DAEMON
+
+/* Define to 1 if your headers define the key_setnet() function. */
+#undef HAVE_DECL_KEY_SETNET
+
+/* Define to 1 if you have the <dlfcn.h> header file. */
+#undef HAVE_DLFCN_H
+
+/* Define to 1 if you have the `fork' function. */
+#undef HAVE_FORK
+
+/* Define to 1 if you have the <grp.h> header file. */
+#undef HAVE_GRP_H
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the `sigaction' function. */
+#undef HAVE_SIGACTION
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define to 1 if you have the `vfork' function. */
+#undef HAVE_VFORK
+
+/* Define to 1 if you have the <vfork.h> header file. */
+#undef HAVE_VFORK_H
+
+/* Define to 1 if `fork' works. */
+#undef HAVE_WORKING_FORK
+
+/* Define to 1 if `vfork' works. */
+#undef HAVE_WORKING_VFORK
+
+/* Support IPv6 for TCP connections */
+#undef IPv6
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Major version of this package */
+#undef PACKAGE_VERSION_MAJOR
+
+/* Minor version of this package */
+#undef PACKAGE_VERSION_MINOR
+
+/* Patch version of this package */
+#undef PACKAGE_VERSION_PATCHLEVEL
+
+/* Define as the return type of signal handlers (`int' or `void'). */
+#undef RETSIGTYPE
+
+/* Support Secure RPC ("SUN-DES-1") authentication for X11 clients */
+#undef SECURE_RPC
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Support TCP socket connections */
+#undef TCPCONN
+
+/* Support UNIX socket connections */
+#undef UNIXCONN
+
+/* Define to 1 if you have the shadow password functions. */
+#undef USESHADOW
+
+/* Use PAM for authentication */
+#undef USE_PAM
+
+/* Define to 1 to use Xft for text on greeter screen */
+#undef USE_XFT
+
+/* Define to 1 to use XINERAMA in greeter & chooser */
+#undef USE_XINERAMA
+
+/* Version number of package */
+#undef VERSION
+
+/* Define to 1 to display XPM logos on greeter screen */
+#undef XPM
+
+/* Define to pathname for xrdb program */
+#undef XRDB_PROGRAM
+
+/* Define to `__inline__' or `__inline' if that's what the C compiler
+   calls it, or to nothing if 'inline' is not supported under any name.  */
+#ifndef __cplusplus
+#undef inline
+#endif
+
+/* Define to `int' if <sys/types.h> does not define. */
+#undef pid_t
+
+/* Define as `fork' if `vfork' does not work. */
+#undef vfork

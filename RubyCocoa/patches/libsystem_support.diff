@@ -1,0 +1,10 @@
+Index: framework/src/ruby/osx/objc/foundation.rb
+===================================================================
+--- framework/src/ruby/osx/objc/foundation.rb	(revision 1810)
++++ framework/src/ruby/osx/objc/foundation.rb	(working copy)
+@@ -6,3 +6,5 @@
+ 
+ require 'osx/objc/oc_all.rb'
+ require 'osx/objc/cocoa_macros'
++
++OSX.load_bridge_support_file('/System/Library/BridgeSupport/libSystem.bridgesupport')

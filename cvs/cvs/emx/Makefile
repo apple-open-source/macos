@@ -68,7 +68,6 @@ DIFF_HEADERS = \
 OS2_SOURCES = \
        filesubr.c \
        startserver.c \
-       stripslash.c \
        savecwd.c \
        system.c
 
@@ -163,7 +162,6 @@ LIB_SOURCES = \
 OS2_OBJECTS = \
        ${srcdir}/filesubr.o \
        ${srcdir}/startserver.o \
-       ${srcdir}/stripslash.o \
        ${top_srcdir}/windows-NT/rcmd.o \
        ${srcdir}/savecwd.o \
        ${srcdir}/system.o
@@ -301,7 +299,7 @@ lint:
 # distdir added for compatibility with CVS automake.
 top_distdir = ..
 PACKAGE = cvs
-VERSION = 1.11.18
+VERSION = 1.12.13
 distdir = $(top_distdir)/$(PACKAGE)-$(VERSION)
 distdir: $(DISTFILES)
 	@list='$(DISTFILES)'; for file in $$list; do \

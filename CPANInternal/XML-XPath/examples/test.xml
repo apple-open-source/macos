@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<timesheet xmlns:a="www" xmlns:b="xxx" xmlns="fred">
+        <employee>
+                <name>
+                        <forename>Matt</forename>
+                        <surname>Sergeant</surname>
+                </name>
+                <department>Development IT</department>
+        </employee>
+        <rules>
+                <rule>NextRule1</rule>
+                <rule>NextRule2</rule>
+        </rules>
+        <projects>
+                <project a:Name="Consultancy > fred" b:Name="Fred">
+                        <sunday>0.00</sunday>
+                        <monday>0.00</monday>
+                        <tuesday>7.75</tuesday>
+                        <wednesday>8.75</wednesday>
+                        <thursday>7.75</thursday>
+                        <friday>6.5</friday>
+                        <saturday>0.00</saturday>
+                </project>
+                <project Name="Holiday">
+                        <sunday>0.00</sunday>
+                        <monday>7.75</monday>
+                        <tuesday>0.00</tuesday>
+                        <wednesday>0.00</wednesday>
+                        <thursday>0.00</thursday>
+                        <friday>0.00</friday>
+                        <saturday>0.00</saturday>
+                </project>
+        </projects>
+</timesheet>

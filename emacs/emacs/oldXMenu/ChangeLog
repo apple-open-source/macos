@@ -1,10 +1,49 @@
-2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+2007-06-02  Chong Yidong  <cyd@stupidchicken.com>
 
-	* Version 21.2 released.
+	* Version 22.1 released.
+
+2007-05-30  Ulrich Mueller  <ulm@gentoo.org>  (tiny change)
+
+	* XMakeAssoc.c (XMakeAssoc): Use malloc rather than xmalloc.
+
+2007-02-27  Glenn Morris  <rgm@gnu.org>
+
+	* Imakefile: Remove unused file with no explicit legal info.
+	* Makefile.in (distclean): Remove Makefile.
+
+2007-02-25  Glenn Morris  <rgm@gnu.org>
+
+	* XCrAssoc.c, XDelAssoc.c, XDestAssoc.c, XLookAssoc.c:
+	* XMakeAssoc.c: Remove license text in favour of including
+	copyright.h, as was done in original X11 source.
+
+2004-12-27  Jan Dj,Ad(Brv  <jan.h.d@swipnet.se>
+
+	* Activate.c (XMenuActivate): Return XM_NO_SELECT if Escape or C-g
+	was pressed.
+
+2004-11-12  Jan Dj,Ad(Brv  <jan.h.d@swipnet.se>
+
+	* XMenu.h (XMenuActivateSetWaitFunction): New function.
+
+	* Activate.c (XMenuActivateSetWaitFunction): New function.
+	(XMenuActivate): Call wait_func if set, before XNextEvent.
+
+2002-04-22  Jan Dj,Ad(Brv  <jan.h.d@swipnet.se>
+
+	* Activate.c: Add calls to GrabKeyboard to remove strange
+	interactions with window managers that steal keypresses.
+	Call ungrab_all instead of XtUngrabPointer.
+	(XMenuActivate): Add call to XGrabKeyboard
+	(XMenuActivate): Add call to XUngrabKeyboard
 
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
-	* Version 21.1 released.
+	* (Version 21.1 released.)
+
+2001-10-05  Gerd Moellmann  <gerd@gnu.org>
+
+	* Branch for 21.1.
 
 2000-07-21  Eli Zaretskii  <eliz@is.elta.co.il>
 
@@ -219,7 +258,7 @@
 
 1993-06-16  Jim Blandy  (jimb@wookumz.gnu.ai.mit.edu)
 
-        Bring mumbleclean targets into conformance with GNU coding standards.
+	Bring mumbleclean targets into conformance with GNU coding standards.
 	* Makefile.in (mostlyclean, realclean): New targets.
 
 1993-06-08  Jim Blandy  (jimb@wookumz.gnu.ai.mit.edu)
@@ -276,7 +315,7 @@
 
 1993-05-22  Jim Blandy  (jimb@geech.gnu.ai.mit.edu)
 
-        * Version 19.7 released.
+	* Version 19.7 released.
 
 1993-05-15  Jim Blandy  (jimb@geech.gnu.ai.mit.edu)
 
@@ -285,7 +324,7 @@
 
 1993-04-13  Jim Blandy  (jimb@totoro.cs.oberlin.edu)
 
-	* XLookAssoc.c, XMakeAssoc: VMS needs <X11/Xresource.h>, not
+	* XLookAssoc.c, XMakeAssoc.c: VMS needs <X11/Xresource.h>, not
 	<X11/Xos.h>.
 
 	* XCrAssoc.c: #include <errno.h>, not "errno.h".
@@ -397,33 +436,51 @@
 
 	* Makefile (CC): Assignment commented out.
 
-1991-11-16  Noah Friedman  (friedman at nutrimat)
+1991-11-16  Noah Friedman  (friedman@nutrimat)
 
-        * copyright.h: New file (copied from X11R4 distribution)
-        * All files: Replaced occurrences of #include <X11/copyright.h>
-          with #include "copyright.h"
+	* copyright.h: New file (copied from X11R4 distribution)
+	* All files: Replaced occurrences of #include <X11/copyright.h>
+	with #include "copyright.h"
 
-1991-10-25  Richard Stallman  (rms at mole.gnu.ai.mit.edu)
+1991-10-25  Richard Stallman  (rms@mole.gnu.ai.mit.edu)
 
 	* XMenu.h (enum _xmmode): Remove spurious comma.
 
 	* X10.h: New file.
 	* XMenu.h, XMenuInt.h: Include X10.h from this dir.
 
-1990-11-13  Richard Stallman  (rms at mole.ai.mit.edu)
+1990-11-13  Richard Stallman  (rms@mole.ai.mit.edu)
 
 	* XMenu.h (struct _xmenu): Use unsigned long for colors.
 
-1990-11-12  Richard Stallman  (rms at mole.ai.mit.edu)
+1990-11-12  Richard Stallman  (rms@mole.ai.mit.edu)
 
 	* Internal.c: Declare argument `display' in some functions.
 
 
 ;; Local Variables:
-;; coding: iso-2022-7bit-unix
+;; coding: iso-2022-7bit
+;; add-log-time-zone-rule: t
 ;; End:
 
-    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001
-	Free Software Foundation, Inc.
-  Copying and distribution of this file, with or without modification,
-  are permitted provided the copyright notice and this notice are preserved.
+    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001,
+	2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
+
+  This file is part of GNU Emacs.
+
+  GNU Emacs is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
+
+  GNU Emacs is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GNU Emacs; see the file COPYING.  If not, write to the
+  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+  Boston, MA 02110-1301, USA.
+
+;;; arch-tag: 8b17c869-6677-40ce-be86-e62cf34061cf

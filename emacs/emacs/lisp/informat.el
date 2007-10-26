@@ -1,6 +1,7 @@
 ;;; informat.el --- info support functions package for Emacs
 
-;; Copyright (C) 1986 Free Software Foundation, Inc.
+;; Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: help
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -57,7 +58,7 @@
         (let (tag-list
               refillp
               (case-fold-search t)
-              (regexp 
+              (regexp
                (concat
                 "\\("
 
@@ -116,7 +117,7 @@
                   (delete-region  (match-beginning 0) (match-end 0))))
               ;; else this is a Node
               (setq tag-list
-                    (cons (list 
+                    (cons (list
                            (concat "Node: " (match-string-no-properties 13))
                            (1+ (match-beginning 10)))
                           tag-list))))
@@ -453,7 +454,7 @@ For example, invoke \"emacs -batch -f batch-info-validate $info/ ~/*.info\""
 	(cond ((not (file-exists-p file))
 	       (message ">> %s does not exist!" file)
 	       (setq error 1
-		     command-line-args-left (cdr command-line-args-left))) 
+		     command-line-args-left (cdr command-line-args-left)))
 	      ((file-directory-p file)
 	       (setq command-line-args-left (nconc (directory-files file)
 					      (cdr command-line-args-left))))
@@ -503,4 +504,5 @@ For example, invoke \"emacs -batch -f batch-info-validate $info/ ~/*.info\""
 
 (provide 'informat)
 
+;;; arch-tag: 581c440e-5be1-4f31-b005-2d5824bbf569
 ;;; informat.el ends here

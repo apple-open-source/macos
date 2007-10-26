@@ -29,6 +29,8 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/memutils.h>
 
+#include <unistd.h>     // WWDC 2007 thread-crash workaround
+#include <syslog.h>     // WWDC 2007 thread-crash workaround
 
 //
 // Thread-local storage primitive
@@ -103,11 +105,7 @@ Mutex::Mutex(Type type, bool log)
 	mUseCount = mContentionCount = 0;
 	switch (type) {
 	case normal:
-#if defined(NDEBUG)		// deployment version - normal mutex
-		check(pthread_mutex_init(&me, NULL));
-#else					// debug version - checking mutex
-		check(pthread_mutex_init(&me, &mutexAttrs().checking));
-#endif //NDEBUG
+		check(pthread_mutex_init(&me, IFELSEDEBUG(&mutexAttrs().checking, NULL)));
 		break;
 	case recursive:		// requested recursive (is also checking, always)
 		check(pthread_mutex_init(&me, &mutexAttrs().recursive));
@@ -278,16 +276,35 @@ Thread::~Thread()
 
 void Thread::run()
 {
-    if (int err = pthread_create(&self.mIdent, NULL, runner, this))
-        UnixError::throwMe(err);
-	secdebug("thread", "%p created", self.mIdent);
+    pthread_attr_t ptattrs;
+    int err, ntries = 10;       // 10 is arbitrary
+
+    if ((err = pthread_attr_init(&ptattrs)) ||
+        (err = pthread_attr_setdetachstate(&ptattrs, PTHREAD_CREATE_DETACHED)))
+    {
+        syslog(LOG_ERR, "error %d setting thread detach state", err);
+    }
+    while (err = pthread_create(&self.mIdent, &ptattrs, runner, this) && 
+           --ntries)
+    {
+        syslog(LOG_ERR, "pthread_create() error %d", err);
+        usleep(50000);          // 50 ms is arbitrary
+    }
+    if (err)
+    {
+        syslog(LOG_ERR, "too many failed pthread_create() attempts");
+    }
+    else
+        secdebug("thread", "%p created", self.mIdent);
 }
 
 void *Thread::runner(void *arg)
 {
     Thread *me = static_cast<Thread *>(arg);
+#if 0       // for WWDC 2007 seed
     if (int err = pthread_detach(me->self.mIdent))
         UnixError::throwMe(err);
+#endif
 	secdebug("thread", "%p starting", me->self.mIdent);
     me->action();
 	secdebug("thread", "%p terminating", me->self.mIdent);
@@ -313,44 +330,4 @@ ThreadRunner::ThreadRunner(Action *todo)
 void ThreadRunner::action()
 {
     mAction();
-}
-
-
-//
-// Nesting Mutexi.
-// This is obsolete; use Mutex(Mutex::recursive).
-//
-NestingMutex::NestingMutex() : mCount(0)
-{ }
-
-void NestingMutex::lock()
-{
-    while (!tryLock()) {
-        mWait.lock();
-        mWait.unlock();
-    }
-}
-
-bool NestingMutex::tryLock()
-{
-    StLock<Mutex> _(mLock);
-    if (mCount == 0) {	// initial lock
-        mCount = 1;
-        mIdent = Thread::Identity::current();
-        mWait.lock();
-        return true;
-    } else if (mIdent == Thread::Identity::current()) {	// recursive lock
-        mCount++;
-        return true;
-    } else {	// locked by another thread
-        return false;
-    }
-}
-
-void NestingMutex::unlock()
-{
-    StLock<Mutex> _(mLock);
-    assert(mCount > 0 && mIdent == Thread::Identity::current());
-    if (--mCount == 0)	// last recursive unlock
-        mWait.unlock();
 }

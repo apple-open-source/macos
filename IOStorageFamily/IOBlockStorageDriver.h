@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,7 +50,7 @@
  * operating statistics.  The table is an OSDictionary, where each entry
  * describes one given statistic.
  */
- 
+
 #define kIOBlockStorageDriverStatisticsKey "Statistics"
 
 /*!
@@ -351,27 +351,33 @@ protected:
         UInt64       maxWriteSegmentTransfer;
         UInt64       maxReadSegmentByteTransfer;
         UInt64       maxWriteSegmentByteTransfer;
+        UInt64       minSegmentAlignmentByteTransfer;
+        UInt64       maxSegmentWidthByteTransfer;
     };
     ExpansionData * _expansionData;
 
-    #define _mediaDirtied                 \
+    #define _mediaDirtied                    \
               IOBlockStorageDriver::_expansionData->mediaDirtied
-    #define _maxReadBlockTransfer         \
+    #define _maxReadBlockTransfer            \
               IOBlockStorageDriver::_expansionData->maxReadBlockTransfer
-    #define _maxWriteBlockTransfer        \
+    #define _maxWriteBlockTransfer           \
               IOBlockStorageDriver::_expansionData->maxWriteBlockTransfer
-    #define _powerEventNotifier           \
+    #define _powerEventNotifier              \
               IOBlockStorageDriver::_expansionData->powerEventNotifier
-    #define _deblockRequestWriteLockCount \
+    #define _deblockRequestWriteLockCount    \
               IOBlockStorageDriver::_expansionData->deblockRequestWriteLockCount
-    #define _maxReadSegmentTransfer       \
+    #define _maxReadSegmentTransfer          \
               IOBlockStorageDriver::_expansionData->maxReadSegmentTransfer
-    #define _maxWriteSegmentTransfer      \
+    #define _maxWriteSegmentTransfer         \
               IOBlockStorageDriver::_expansionData->maxWriteSegmentTransfer
-    #define _maxReadSegmentByteTransfer   \
+    #define _maxReadSegmentByteTransfer      \
               IOBlockStorageDriver::_expansionData->maxReadSegmentByteTransfer
-    #define _maxWriteSegmentByteTransfer  \
+    #define _maxWriteSegmentByteTransfer     \
               IOBlockStorageDriver::_expansionData->maxWriteSegmentByteTransfer
+    #define _minSegmentAlignmentByteTransfer \
+              IOBlockStorageDriver::_expansionData->minSegmentAlignmentByteTransfer
+    #define _maxSegmentWidthByteTransfer     \
+              IOBlockStorageDriver::_expansionData->maxSegmentWidthByteTransfer
 
     OSSet *         _openClients;
     OSNumber *      _statistics[kStatisticsCount];
@@ -418,7 +424,12 @@ protected:
 
         AbsoluteTime timeStart;
 
-        UInt32 reserved[6];
+        struct
+        {
+            IOStorageAttributes  attributes;
+        } request;
+
+        UInt32 reserved[2];
     };
 
     static const UInt8 kBlockTypeStandard = 0x00;
@@ -557,32 +568,9 @@ protected:
 
     virtual void deleteContext(Context * context);
 
-    /*!
-     * @function prepareRequest
-     * @discussion
-     * The prepareRequest method allocates and prepares state for the transfer.
-     *
-     * This method is part of a sequence of methods invoked for each read/write
-     * request.  The first is prepareRequest, which allocates and prepares some
-     * context for the transfer; the second is deblockRequest, which aligns the
-     * transfer at the media's block boundaries; third is breakUpRequest, which
-     * breaks up the transfer into multiple sub-transfers when certain hardware
-     * constraints are exceeded; fourth is executeRequest, which implements the
-     * actual transfer from the block storage device.
-     *
-     * This method's implementation is not typically overridden.
-     * @param byteStart
-     * Starting byte offset for the data transfer.
-     * @param buffer
-     * Buffer for the data transfer.  The size of the buffer implies the size of
-     * the data transfer.
-     * @param completion
-     * Completion routine to call once the data transfer is complete.
-     */
-
     virtual void prepareRequest(UInt64               byteStart,
                                 IOMemoryDescriptor * buffer,
-                                IOStorageCompletion  completion);
+                                IOStorageCompletion  completion); /* DEPRECATED */
 
     /*!
      * @function deblockRequest
@@ -762,14 +750,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void read(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion);
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion);
 
     /*!
      * @function write
@@ -793,14 +788,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void write(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion);
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion);
 
     /*!
      * @function synchronizeCache
@@ -1362,7 +1364,42 @@ protected:
 
     OSMetaClassDeclareReservedUsed(IOBlockStorageDriver, 0); /* 10.1.2 */
 
-    OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  1);
+    /*!
+     * @function prepareRequest
+     * @discussion
+     * The prepareRequest method allocates and prepares state for the transfer.
+     *
+     * This method is part of a sequence of methods invoked for each read/write
+     * request.  The first is prepareRequest, which allocates and prepares some
+     * context for the transfer; the second is deblockRequest, which aligns the
+     * transfer at the media's block boundaries; third is breakUpRequest, which
+     * breaks up the transfer into multiple sub-transfers when certain hardware
+     * constraints are exceeded; fourth is executeRequest, which implements the
+     * actual transfer from the block storage device.
+     *
+     * This method's implementation is not typically overridden.
+     * @param byteStart
+     * Starting byte offset for the data transfer.
+     * @param buffer
+     * Buffer for the data transfer.  The size of the buffer implies the size of
+     * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
+     * @param completion
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
+     */
+
+    virtual void prepareRequest(UInt64                byteStart,
+                                IOMemoryDescriptor *  buffer,
+                                IOStorageAttributes * attributes,
+                                IOStorageCompletion * completion);
+
+    OSMetaClassDeclareReservedUsed(IOBlockStorageDriver, 1); /* 10.5.0 */
+
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  2);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  3);
     OSMetaClassDeclareReservedUnused(IOBlockStorageDriver,  4);

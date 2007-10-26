@@ -36,53 +36,52 @@
 .Dt DIRECTORY 3
 .Os
 .Sh NAME
+.Nm closedir ,
+.Nm dirfd ,
 .Nm opendir ,
 .Nm readdir ,
 .Nm readdir_r ,
-.Nm telldir ,
-.Nm seekdir ,
 .Nm rewinddir ,
-.Nm closedir ,
-.Nm dirfd
+.Nm seekdir ,
+.Nm telldir
 .Nd directory operations
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
-.In sys/types.h
 .In dirent.h
-.Ft DIR *
-.Fn opendir "const char *filename"
-.Ft struct dirent *
-.Fn readdir "DIR *dirp"
-.Ft int
-.Fn readdir_r "DIR *dirp" "struct dirent *entry" "struct dirent **result"
-.Ft long
-.Fn telldir "DIR *dirp"
-.Ft void
-.Fn seekdir "DIR *dirp" "long  loc"
-.Ft void
-.Fn rewinddir "DIR *dirp"
 .Ft int
 .Fn closedir "DIR *dirp"
 .Ft int
 .Fn dirfd "DIR *dirp"
+.Ft DIR *
+.Fn opendir "const char *dirname"
+.Ft struct dirent *
+.Fn readdir "DIR *dirp"
+.Ft int
+.Fn readdir_r "DIR *restrict dirp" "struct dirent *restrict entry" \
+    "struct dirent **restrict result"
+.Ft void
+.Fn rewinddir "DIR *dirp"
+.Ft void
+.Fn seekdir "DIR *dirp" "long  loc"
+.Ft long
+.Fn telldir "DIR *dirp"
 .Sh DESCRIPTION
 The
 .Fn opendir
 function
 opens the directory named by
-.Fa filename ,
+.Fa dirname ,
 associates a
 .Em directory stream
-with it
-and
-returns a pointer to be used to identify the
+with it,
+and returns a pointer to be used to identify the
 .Em directory stream
 in subsequent operations.  The pointer
 .Dv NULL
 is returned if
-.Fa filename
-cannot be accessed, or if it cannot
+.Fa dirname
+cannot be accessed or if it cannot
 .Xr malloc 3
 enough memory to hold the whole thing.
 .Pp
@@ -104,7 +103,7 @@ buffer to store the results in.  If the read succeeds,
 .Fa result
 is pointed at the
 .Fa entry ;
-upon reaching the end of the directory
+upon reaching the end of the directory,
 .Fa result
 is set to
 .Dv NULL .
@@ -120,8 +119,8 @@ Values returned by
 .Fn telldir
 are good only for the lifetime of the
 .Dv DIR
-pointer,
-.Fa dirp ,
+pointer (e.g.,
+.Fa dirp )
 from which they are derived.  If the directory is closed and then
 reopened, prior values returned by
 .Fn telldir
@@ -180,21 +179,28 @@ while ((dp = readdir(dirp)) != NULL)
 (void)closedir(dirp);
 return NOT_FOUND;
 .Ed
+.Sh LEGACY SYNOPSIS
+.Fd #include <sys/types.h>
+.Fd #include <dirent.h>
+.Pp
+.In sys/types.h
+is necessary for these functions.
 .Sh SEE ALSO
 .Xr close 2 ,
 .Xr lseek 2 ,
 .Xr open 2 ,
 .Xr read 2 ,
+.Xr compat 5 ,
 .Xr dir 5
 .Sh HISTORY
 The
+.Fn closedir ,
+.Fn dirfd ,
 .Fn opendir ,
 .Fn readdir ,
-.Fn telldir ,
-.Fn seekdir ,
 .Fn rewinddir ,
-.Fn closedir ,
+.Fn seekdir ,
 and
-.Fn dirfd
+.Fn telldir
 functions appeared in
 .Bx 4.2 .

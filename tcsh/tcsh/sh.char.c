@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/sh.char.c,v 1.1.1.3 2003/01/17 03:41:11 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/sh.char.c,v 3.18 2002/07/01 20:50:21 christos Exp $ */
 /*
  * sh.char.c: Character classification tables
  */
@@ -32,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.char.c,v 1.1.1.3 2003/01/17 03:41:11 nicolai Exp $")
+RCSID("$Id: sh.char.c,v 3.18 2002/07/01 20:50:21 christos Exp $")
 
 #include "sh.char.h"
 

@@ -1,0 +1,195 @@
+.\" $XdotOrg: $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpGetPdmStartParams 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpGetPdmStartParams \-  Builds up parameters in accordance with the PDM 
+Selection Protocol as a standard convenience function.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B Status XpGetPdmStartParams
+(
+.I print_display
+.I print_window
+.I print_context
+.I video_display
+.I video_window
+.I selection_display_return
+.I selection_return
+.I type_return
+.I format_return
+.I data_return
+.I nelements_return
+)
+.br
+      Display *\fIprint_display\fP\^;
+.br
+      Window \fIprint_window\fP\^;
+.br
+      XPContext \fIprint_context\fP\^;
+.br
+      Display *\fIvideo_display\fP\^;                  
+.br
+      Window \fIvideo_window\fP\^;      
+.br
+      Display **\fIselection_display_return\fP\^;      
+.br
+      Atom *\fIselection_return\fP\^;      
+.br
+      Atom *\fItype_return\fP\^;      
+.br
+      int *\fIformat_return\fP\^;      
+.br
+      unsigned char **\fIdata_return\fP\^;      
+.br
+      int *\fInelements_return\fP\^;      
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I print_display
+Specifies a pointer to the print Display structure; returned from XOpenDisplay 
+on the X Print Server.
+.TP
+.I print_window
+Specifies a client window on any screen of print_display long-lived enough for 
+ICCCM communications of the final PDM status ("OK" or "CANCEL" ClientMessage) 
+sent to print_window.
+.TP
+.I print_context
+An existing print context that the PDM should reference.
+.TP
+.I video_display
+Specifies a pointer to the video Display structure; returned from XOpenDisplay 
+on the Video X-Server.
+.TP
+.I video_window
+Specifies the window on video_display near which the transient dialogs from the 
+PDM should be posted.
+.TP
+.I selection_display_return
+Returns the display connection on which the PDM selection should be made. May 
+be equal to print_display or video_display, or may be a new display connection 
+that the caller should close when done.
+.TP
+.I selection_return
+Returns the selection atom for which a PDM selection should be made.
+.TP
+.I type_return
+Returns the type for the PDM Selection Protocol property the caller is expected 
+to create.
+.TP
+.I format_return
+Returns the format for the PDM Selection Protocol property the caller is 
+expected to create.
+.TP
+.I data_return
+Returns the data set for the PDM Selection Protocol property the caller is 
+expected to create. The caller is expected to XFree the data when finished.
+.TP
+.I nelements_return
+Returns the number of elements for the PDM Selection Protocol property the 
+caller is expected to create.
+.SH DESCRIPTION
+.LP
+This request returns a zero status if an error occurred, non-zero otherwise.
+
+XpGetPdmStartParams is a convenience routine used to construct the necessary 
+property information and selection display connection information needed to 
+initiate a PDM Selection per the "PDM Selection Protocol". Once the information 
+is constructed, the caller is responsible for the creation of a property, the 
+generation of a SelectionRequest, the receipt of a SelectionNotify event, and 
+the receipt of a ClientMessage event, as described in the PDM Selection Protocol.
+
+When finished, the caller is expected to free data using XFree.
+XpGetPdmStartParams returns zero if an error occurred, else non-zero. If an 
+error occurs all 
+.I other_return 
+values are undefined.
+
+Setting the environment variable XPDMSELECTION causes XpGetPdmStartParams to use 
+an alternate selection name. If not set, the selection name 
+.I
+PDM_MANAGER 
+is used.
+
+Setting the environment variable XPDMDISPLAY causes XpGetPdmStartParams to 
+locate the selection on an alternate X Server. If not set,
+.I
+selection_display_return
+ is set equal to 
+.I
+print_display. 
+If XPDMDISPLAY is set to one of the keywords "print" or "video",
+.I
+selection_display_return 
+is set to 
+.I
+print_display 
+or 
+.I
+video_display, 
+respectively. If XPDMDISPLAY is set to a valid DISPLAY-style string, 
+.I
+selection_display_return 
+may be set, as appropriate, to one of 
+.I
+print_display, 
+.I
+video_display, 
+or to a new display connection opened from within 
+XpGetPdmStartParams. Only in the single case where a new display connection is 
+made should the caller close 
+.I
+selection_display_return 
+using XCloseDisplay.
+
+When XpGetPdmStartParams is called, the caller's locale (see XpSetLocaleHinter) 
+is included in the information as a "hint" to the Print Dialog Manager (PDM). If 
+supported by the implementation, the PDM will use the hint to display dialogs 
+more appropriately labeled for the locale of the client. If the Print Dialog 
+Manager cannot understand the hint, the PDM will choose a default. Note that the 
+locale of the print attributes that the PDM will subsequently access, will 
+already have been determined when the client called XpCreateContext.
+
+The environment variables XPDMDISPLAY and XPDMSELECTION are re-read each time 
+XpGetPdmStartParams is called.
+.SH "SEE ALSO"
+.BR XpCreateContext (3Xp),
+.BR XpSetLocaleHinter (3Xp)

@@ -24,6 +24,11 @@ if $tracelevel then {
         strace $tracelevel
 }
 
+if [target_info exists darwin64] {
+   verbose "Fix and continue not supported for x86-64/ppc64."
+   return
+}
+
 set prms_id 0
 set bug_id 0
 

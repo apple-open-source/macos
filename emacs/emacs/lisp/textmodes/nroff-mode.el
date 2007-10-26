@@ -1,6 +1,7 @@
 ;;; nroff-mode.el --- GNU Emacs major mode for editing nroff source
 
-;; Copyright (C) 1985, 1986, 1994, 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1994, 1995, 1997, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: wp
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -37,32 +38,42 @@
 
 (defgroup nroff nil
   "Nroff mode."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'wp
   :prefix "nroff-")
 
-(defvar nroff-mode-abbrev-table nil
-  "Abbrev table used while in nroff mode.")
-(define-abbrev-table 'nroff-mode-abbrev-table ())
 
 (defcustom nroff-electric-mode nil
-  "*Non-nil means automatically closing requests when you insert an open."
+  "Non-nil means automatically closing requests when you insert an open."
   :group 'nroff
   :type 'boolean)
 
-(defvar nroff-mode-map nil
-     "Major mode keymap for nroff mode.")
-(if (not nroff-mode-map)
-    (progn
-      (setq nroff-mode-map (make-sparse-keymap))
-      (define-key nroff-mode-map "\t"  'tab-to-tab-stop)
-      (define-key nroff-mode-map "\es" 'center-line)
-      (define-key nroff-mode-map "\e?" 'count-text-lines)
-      (define-key nroff-mode-map "\n"  'electric-nroff-newline)
-      (define-key nroff-mode-map "\en" 'forward-text-line)
-      (define-key nroff-mode-map "\ep" 'backward-text-line)))
+(defvar nroff-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "\t"  'tab-to-tab-stop)
+    (define-key map "\es" 'center-line)
+    (define-key map "\e?" 'nroff-count-text-lines)
+    (define-key map "\n"  'nroff-electric-newline)
+    (define-key map "\en" 'nroff-forward-text-line)
+    (define-key map "\ep" 'nroff-backward-text-line)
+    map)
+  "Major mode keymap for `nroff-mode'.")
 
-(defvar nroff-mode-syntax-table nil
-  "Syntax table used while in nroff mode.")
+(defvar nroff-mode-syntax-table
+  (let ((st (copy-syntax-table text-mode-syntax-table)))
+    ;; " isn't given string quote syntax in text-mode but it
+    ;; (arguably) should be for use round nroff arguments (with ` and
+    ;; ' used otherwise).
+    (modify-syntax-entry ?\" "\"  2" st)
+    ;; Comments are delimited by \" and newline.
+    (modify-syntax-entry ?\\ "\\  1" st)
+    (modify-syntax-entry ?\n ">" st)
+    st)
+  "Syntax table used while in `nroff-mode'.")
+
+(defvar nroff-imenu-expression
+  ;; man headers:
+  '((nil "^\\.SH \"?\\([^\"\n]*\\)\"?$" 1)))
 
 (defcustom nroff-font-lock-keywords
   (list
@@ -76,81 +87,59 @@
    ;; variants).  This won't currently do groff's \A'foo' and
    ;; the like properly.  One might expect it to highlight an escape's
    ;; arguments in common cases, like \f.
-   (concat "\\\\"                     ; backslash
-         "\\("                        ; followed by various possibilities
-         (mapconcat 'identity
-                    '("[f*n]*\\[.+]"  ; some groff extensions
-                      "(.."           ; two chars after (
-                      "[^(\"]"        ; single char escape
-                      ) "\\|")
-         "\\)")
+   (concat "\\\\"		      ; backslash
+	 "\\("			      ; followed by various possibilities
+	 (mapconcat 'identity
+		    '("[f*n]*\\[.+?]" ; some groff extensions
+		      "(.."	      ; two chars after (
+		      "[^(\"]"	      ; single char escape
+		      ) "\\|")
+	 "\\)")
    )
-  "Font-lock highlighting control in nroff-mode."
+  "Font-lock highlighting control in `nroff-mode'."
   :group 'nroff
   :type '(repeat regexp))
 
+(defcustom nroff-mode-hook nil
+  "Hook run by function `nroff-mode'."
+  :type 'hook
+  :group 'nroff)
+
 ;;;###autoload
-(defun nroff-mode ()
+(define-derived-mode nroff-mode text-mode "Nroff"
   "Major mode for editing text intended for nroff to format.
 \\{nroff-mode-map}
 Turning on Nroff mode runs `text-mode-hook', then `nroff-mode-hook'.
 Also, try `nroff-electric-mode', for automatically inserting
 closing requests for requests that are used in matched pairs."
-  (interactive)
-  (kill-all-local-variables)
-  (use-local-map nroff-mode-map)
-  (setq mode-name "Nroff")
-  (setq major-mode 'nroff-mode)
-  (if nroff-mode-syntax-table
-      ()
-    (setq nroff-mode-syntax-table (copy-syntax-table text-mode-syntax-table))
-    ;; " isn't given string quote syntax in text-mode but it
-    ;; (arguably) should be for use round nroff arguments (with ` and
-    ;; ' used otherwise).
-    (modify-syntax-entry ?\" "\"  2" nroff-mode-syntax-table)
-    ;; Comments are delimited by \" and newline.
-    (modify-syntax-entry ?\\ "\\  1" nroff-mode-syntax-table)
-    (modify-syntax-entry ?\n ">  1" nroff-mode-syntax-table))
-  (set-syntax-table nroff-mode-syntax-table)
-  (make-local-variable 'font-lock-defaults)
-  (setq font-lock-defaults
-	;; SYNTAX-BEGIN is set to backward-paragraph to avoid slow-down
-	;; near the end of large buffers due to searching to buffer's
-	;; beginning.
-	'(nroff-font-lock-keywords nil t nil backward-paragraph))
-  (setq local-abbrev-table nroff-mode-abbrev-table)
-  (make-local-variable 'nroff-electric-mode)
-  (setq nroff-electric-mode nil)
-  (make-local-variable 'outline-regexp)
-  (setq outline-regexp "\\.H[ ]+[1-7]+ ")
-  (make-local-variable 'outline-level)
-  (setq outline-level 'nroff-outline-level)
+  (set (make-local-variable 'font-lock-defaults)
+       ;; SYNTAX-BEGIN is set to backward-paragraph to avoid slow-down
+       ;; near the end of large buffers due to searching to buffer's
+       ;; beginning.
+       '(nroff-font-lock-keywords nil t nil backward-paragraph))
+  (set (make-local-variable 'outline-regexp) "\\.H[ ]+[1-7]+ ")
+  (set (make-local-variable 'outline-level) 'nroff-outline-level)
   ;; now define a bunch of variables for use by commands in this mode
-  (make-local-variable 'page-delimiter)
-  (setq page-delimiter "^\\.\\(bp\\|SK\\|OP\\)")
-  (make-local-variable 'paragraph-start)
-  (setq paragraph-start (concat "[.']\\|" paragraph-start))
-  (make-local-variable 'paragraph-separate)
-  (setq paragraph-separate (concat "[.']\\|" paragraph-separate))
+  (set (make-local-variable 'page-delimiter) "^\\.\\(bp\\|SK\\|OP\\)")
+  (set (make-local-variable 'paragraph-start)
+       (concat "[.']\\|" paragraph-start))
+  (set (make-local-variable 'paragraph-separate)
+       (concat "[.']\\|" paragraph-separate))
   ;; comment syntax added by mit-erl!gildea 18 Apr 86
-  (make-local-variable 'comment-start)
-  (setq comment-start "\\\" ")
-  (make-local-variable 'comment-start-skip)
-  (setq comment-start-skip "\\\\\"[ \t]*")
-  (make-local-variable 'comment-column)
-  (setq comment-column 24)
-  (make-local-variable 'comment-indent-function)
-  (setq comment-indent-function 'nroff-comment-indent)
-  (run-hooks 'text-mode-hook 'nroff-mode-hook))
+  (set (make-local-variable 'comment-start) "\\\" ")
+  (set (make-local-variable 'comment-start-skip) "\\\\\"[ \t]*")
+  (set (make-local-variable 'comment-column) 24)
+  (set (make-local-variable 'comment-indent-function) 'nroff-comment-indent)
+  (set (make-local-variable 'imenu-generic-expression) nroff-imenu-expression))
 
 (defun nroff-outline-level ()
   (save-excursion
     (looking-at outline-regexp)
     (skip-chars-forward ".H ")
-    (string-to-int (buffer-substring (point) (+ 1 (point))))))
+    (string-to-number (buffer-substring (point) (+ 1 (point))))))
 
-;;; Compute how much to indent a comment in nroff/troff source.
-;;; By mit-erl!gildea April 86
+;; Compute how much to indent a comment in nroff/troff source.
+;; By mit-erl!gildea April 86
 (defun nroff-comment-indent ()
   "Compute indent for an nroff/troff comment.
 Puts a full-stop before comments on a line by themselves."
@@ -172,21 +161,21 @@ Puts a full-stop before comments on a line by themselves."
 			      9) 8)))))) ; add 9 to ensure at least two blanks
       (goto-char pt))))
 
-(defun count-text-lines (start end &optional print)
+(defun nroff-count-text-lines (start end &optional print)
   "Count lines in region, except for nroff request lines.
 All lines not starting with a period are counted up.
 Interactively, print result in echo area.
 Noninteractively, return number of non-request lines from START to END."
   (interactive "r\np")
   (if print
-      (message "Region has %d text lines" (count-text-lines start end))
+      (message "Region has %d text lines" (nroff-count-text-lines start end))
     (save-excursion
       (save-restriction
 	(narrow-to-region start end)
 	(goto-char (point-min))
 	(- (buffer-size) (forward-text-line (buffer-size)))))))
 
-(defun forward-text-line (&optional cnt)
+(defun nroff-forward-text-line (&optional cnt)
   "Go forward one nroff text line, skipping lines of nroff requests.
 An argument is a repeat count; if negative, move backward."
   (interactive "p")
@@ -204,11 +193,11 @@ An argument is a repeat count; if negative, move backward."
     (setq cnt (+ cnt 1)))
   cnt)
 
-(defun backward-text-line (&optional cnt)
+(defun nroff-backward-text-line (&optional cnt)
   "Go backward one nroff text line, skipping lines of nroff requests.
 An argument is a repeat count; negative means move forward."
   (interactive "p")
-  (forward-text-line (- cnt)))
+  (nroff-forward-text-line (- cnt)))
 
 (defconst nroff-brace-table
   '((".(b" . ".)b")
@@ -246,7 +235,7 @@ An argument is a repeat count; negative means move forward."
     (".nf" . ".fi")
     (".de" . "..")))
 
-(defun electric-nroff-newline (arg)
+(defun nroff-electric-newline (arg)
   "Insert newline for nroff mode; special if electric-nroff mode.
 In `electric-nroff-mode', if ending a line containing an nroff opening request,
 automatically inserts the matching closing request after point."
@@ -267,22 +256,23 @@ automatically inserts the matching closing request after point."
 	(if needs-nl (insert "\n")))
       (forward-char 1))))
 
-(defun electric-nroff-mode (&optional arg)
+(define-minor-mode nroff-electric-mode
   "Toggle `nroff-electric-newline' minor mode.
 `nroff-electric-newline' forces Emacs to check for an nroff request at the
 beginning of the line, and insert the matching closing request if necessary.
 This command toggles that mode (off->on, on->off), with an argument,
 turns it on iff arg is positive, otherwise off."
-  (interactive "P")
-  (or (eq major-mode 'nroff-mode) (error "Must be in nroff mode"))
-  (or (assq 'nroff-electric-mode minor-mode-alist)
-      (setq minor-mode-alist (append minor-mode-alist
-				     (list '(nroff-electric-mode
-					     " Electric")))))
-  (setq nroff-electric-mode
-	(cond ((null arg) (null nroff-electric-mode))
-	      (t (> (prefix-numeric-value arg) 0)))))
+  :lighter " Electric"
+  (or (derived-mode-p 'nroff-mode) (error "Must be in nroff mode")))
+
+;; Old names that were not namespace clean.
+(define-obsolete-function-alias 'count-text-lines 'nroff-count-text-lines "22.1")
+(define-obsolete-function-alias 'forward-text-line 'nroff-forward-text-line "22.1")
+(define-obsolete-function-alias 'backward-text-line 'nroff-backward-text-line "22.1")
+(define-obsolete-function-alias 'electric-nroff-newline 'nroff-electric-newline "22.1")
+(define-obsolete-function-alias 'electric-nroff-mode 'nroff-electric-mode "22.1")
 
 (provide 'nroff-mode)
 
+;; arch-tag: 6e276340-6c65-4f65-b4e3-0ca431ddfb6c
 ;;; nroff-mode.el ends here

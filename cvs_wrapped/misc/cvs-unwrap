@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+#	cvs-unwrap - Extract a tar package created with `cvs-wrap'.
+#
+
+#ident $Id
+
+program="`basename $0`"
+
+usage="Usage: $program tarfile
+Extracts directories from a gzipped tar file created by \`cvs-wrap'.
+"
+
+for option
+do
+  case "$option" in
+    -h | --help)
+      echo "$usage"
+      exit 1
+      ;;
+    -*)
+      echo "$program: Unknown option: $option"
+      echo "$usage"
+      exit 1
+      ;;
+    *)
+      ;;
+  esac
+done
+
+if [ $# -ne 1 ]; then
+  echo "$program: Invalid parameters."
+  echo "$usage"
+  exit 1
+fi
+
+if [ ! -f "$1" ]; then
+  echo "$program: \`$1' doesn't exist."
+  echo "$usage"
+  exit 1
+fi
+
+# Move the file to a new name.
+
+tmpfile="$1.cvswrapped-file-$$"
+
+rm -rf "$tmpfile"; mv "$1" "$tmpfile"
+
+# Find and remove the wrapper reference, and unpack the wrapper.
+
+if `gzip -t "$tmpfile" > /dev/null 2>&1`; then
+  wrapper=`gzip -d -c "$tmpfile" | gnutar -t -f - | head -1`
+  rm -rf "$wrapper"
+  gzip -d -c "$tmpfile" | gnutar -m --preserve --sparse -x -f -
+else
+  wrapper=`gnutar -t -f "$tmpfile" | head -1`
+  rm -rf "$wrapper"
+  gnutar -m --preserve --sparse -x -f "$tmpfile"
+fi
+
+# Remove the temporary file.
+
+rm -rf "$tmpfile"
+
+exit 0

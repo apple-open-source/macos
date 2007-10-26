@@ -354,7 +354,7 @@ ProxyEncodeTcpStream(struct alias_link *link,
 	if (dlen == 0)
 		return;
 
-        p = (char *) pip;
+        p = (u_char *) pip;
         p += hlen;
 
         memmove(p + slen, p, dlen);

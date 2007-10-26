@@ -41,11 +41,11 @@
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 .\"
-.TH SASLPASSWD 8 "Jan 11, 1999" "CMU SASL"
+.TH SASLPASSWD2 8 "Mar 7, 2005" "CMU SASL"
 .SH NAME
-saslpasswd \- set a user's sasl password
+saslpasswd2 \- set a user's sasl password
 .SH SYNOPSIS
-.B saslpasswd
+.B saslpasswd2
 .RB [ -p ]
 .RB [ -d ]
 .RB [ -c ]
@@ -53,16 +53,17 @@ saslpasswd \- set a user's sasl password
 .RB [ -f\ file ]
 .RB [ -u\ domain ]
 .RB [ -a\ appname ]
+.RB [ -v ]
 .B userid
 .SH DESCRIPTION
-.I saslpasswd
+.I saslpasswd2
 is used by a server administrator to set a user's sasl password for
 server programs and SASL mechanisms which use the standard libsasl
 database of user secrets.
 .SH OPTIONS
 .TP
 .B -p
-Pipe mode \- saslpasswd will neither prompt for the password nor
+Pipe mode \- saslpasswd2 will neither prompt for the password nor
 verify that it was entered correctly.  This is the default when
 standard input is not a terminal.
 .TP
@@ -95,5 +96,10 @@ for sasldb
 use
 .B appname
 as application name.
+.TP
+.B -v
+Print libsasl2 version number and exit.
 .SH SEE ALSO
+sasldblistusers2(8)
+.TP
 rfc2222 \- Simple Authentication and Security Layer (SASL)

@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd September 20, 1999
+.Dd August 31, 2006
 .Dt SHM_UNLINK 2
 .Os Darwin
 .Sh NAME
@@ -33,19 +33,30 @@
 .Sh DESCRIPTION
 The
 .Fn shm_unlink
-function removes the shared memory object named by
-.Fa name .
-If no process has the file open, then all resources associated
-with the object are reclaimed.
-If one or more process have the object open, the name removed,
-but the removal of the memory object is delayed until all
-references to it have been closed.
+function disassociates the shared memory object specified by
+.Fa name
+from that name.
+The resources associated with the shared memory object remain intact
+until the last file descriptor reference is removed, e.g., by
+.Xr close 2
+or
+.Xr munmap 2 ,
+at which point the resources are reclaimed
+(if no references exist at the time of the call to
+.Fn shm_unlink ,
+the resources are reclaimed immediately).
+The name can only be reused
+when it is bound to a new shared memory object with a call to
+.Xr shm_open 2
+with the
+.Dv O_CREAT
+flag.
 .Sh RETURN VALUES
 Upon successful completion, a value of 0 is returned.
 Otherwise, a value of -1 is returned and
 .Va errno
-is set to indicate the error, and the named shared memory object
-will remain unchanged.
+is set to indicate the error,
+and the named shared memory object will remain unchanged.
 .Sh ERRORS
 The
 .Fn shm_unlink
@@ -65,9 +76,9 @@ The named object does not exist.
 .Xr close 2 ,
 .Xr mmap 2 ,
 .Xr munmap 2 ,
+.Xr shm_open 2 ,
 .Xr shmat 2 ,
-.Xr shmctl 2 ,
-.Xr shm_open 2
+.Xr shmctl 2
 .Sh HISTORY
 .Fn shm_open
 is specified in the POSIX Realtime Extension (1003.1b-1993/1003.1i-1995).

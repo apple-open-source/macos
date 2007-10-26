@@ -2,7 +2,7 @@
 microtime() function
 --SKIPIF--
 <?php 
-	if (!function_exists('microtime'))  die('skip microtime() not available');
+	if (!function_exists('microtime'))  die('skip microtime() not available'); 
 	die('warn system dependent');
 ?>
 --FILE--

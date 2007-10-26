@@ -85,7 +85,7 @@ int fetchItemFromNet(
 	if(fetchCrl) {
 		char *cssmTime = cuTimeAtNowPlus(0, TIME_CSSM);
 		op = "ocspdCRLFetch";
-		crtn = ocspdCRLFetch(alloc, uriData,
+		crtn = ocspdCRLFetch(alloc, uriData, NULL,
 			true,		// cacheRead
 			writeToCache,
 			cssmTime,

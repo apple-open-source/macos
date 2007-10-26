@@ -1,5 +1,6 @@
 // { dg-do assemble  }
-
+// APPLE LOCAL mainline
+// { dg-options "-Wconversion" }
 // Copyright (C) 2000 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 24 Feb 2000 <nathan@codesourcery.com>
 
@@ -54,4 +55,3 @@ void fn ()
   punk ();          // { dg-warning "" } double to int
   rock (1);         // { dg-warning "" } double to int
 }
-

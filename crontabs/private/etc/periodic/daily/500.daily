@@ -25,23 +25,12 @@ fi
 #    find / -name .nfs\* -mtime +7 -exec rm -f -- {} \; -o -fstype nfs -prune
 #fi
 
-if [ -d /tmp ]; then
-    cd /tmp && {
-    find -x . -fstype local -type f -atime +3 -ctime +3 -exec rm -f -- {} \;
-    find -x -d . -fstype local ! -name . -type d -mtime +1 -exec rmdir -- {} \; \
-	>/dev/null 2>&1; }
-fi
-
 if [ -d /var/spool/fax ]; then
     echo ""
     echo "Removing scratch fax files"
     cd /var/spool/fax && \
     find . -type f -name '[0-9]*.[0-9][0-9][0-9]' -mtime +7 -delete >/dev/null 2>&1;
 fi
-
-
-# remove system messages older than 21 days
-msgs -c
 
 if [ -f /var/account/acct ] ; then
     if [ -x /usr/bin/gzip ]; then gzext=".gz"; else gzext=""; fi
@@ -56,17 +45,6 @@ if [ -f /var/account/acct ] ; then
     sa -s > /dev/null
 fi
 
-if [ -d /var/db/netinfo ]; then
-    echo ""
-    echo "Backing up NetInfo data"
-    cd /var/db/netinfo
-    for domain in *.nidb; do
-	domain=$(basename $domain .nidb)
-	server=`nicl -t localhost/$domain -statistics | grep tag | awk '{print $3}'`
-	if [ $server = master ] ; then nidump -r / -t localhost/$domain > $bak/$domain.nidump; fi
-    done
-fi
-
 echo ""
 echo "Checking subsystem status:"
 
@@ -76,50 +54,9 @@ df -k -l
 echo ""
 dump W
 
-if [ -d /var/spool/mqueue ]; then
-	echo ""
-	echo "mail:"
-	mailq
-fi
-
 echo ""
 echo "network:"
 netstat -i
-
-echo ""
-if [ -d /var/rwho ] ; then
-	ruptime
-fi
-
-echo ""
-printf %s "Rotating log files:"
-cd /var/log
-for i in system.log; do
-    if [ -f "${i}" ]; then
-	printf %s " ${i}"
-	if [ -x /usr/bin/gzip ]; then gzext=".gz"; else gzext=""; fi
-	if [ -f "${i}.6${gzext}" ]; then mv -f "${i}.6${gzext}" "${i}.7${gzext}"; fi
-	if [ -f "${i}.5${gzext}" ]; then mv -f "${i}.5${gzext}" "${i}.6${gzext}"; fi
-	if [ -f "${i}.4${gzext}" ]; then mv -f "${i}.4${gzext}" "${i}.5${gzext}"; fi
-	if [ -f "${i}.3${gzext}" ]; then mv -f "${i}.3${gzext}" "${i}.4${gzext}"; fi
-	if [ -f "${i}.2${gzext}" ]; then mv -f "${i}.2${gzext}" "${i}.3${gzext}"; fi
-	if [ -f "${i}.1${gzext}" ]; then mv -f "${i}.1${gzext}" "${i}.2${gzext}"; fi
-	if [ -f "${i}.0${gzext}" ]; then mv -f "${i}.0${gzext}" "${i}.1${gzext}"; fi
-        if [ -f "${i}" ]; then
-              touch "${i}.$$" && chmod 640 "${i}.$$" && chown root:admin "${i}.$$"
-              mv -f "${i}" "${i}.0" && mv "${i}.$$" "${i}" && if [ -x /usr/bin/gzip ]; then 
-		gzip -9 "${i}.0"; fi
-        fi
-    fi
-done
-if [ -f /var/run/syslog.pid ]; then kill -HUP $(cat /var/run/syslog.pid | head -1); fi
-echo ""
-
-# Prune the main syslog output file (/var/log/asl.log)
-# Delete all messages after 7 days (-k Time lt -7d)
-# Delete Warning (Level 4) and above after 3 days (-k Time lt -3d -k Level ge 4)
-# Delete Info (Level 6) and above after 1 day (-k Time lt -1d -k Level ge 6)
-syslog -p -k Time lt -7d -o -k Time lt -3d -k Level ge 4 -o -k Time lt -1d -k Level ge 6
 
 if [ -f /etc/daily.local ]; then
     echo ""

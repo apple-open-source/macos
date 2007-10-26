@@ -67,8 +67,8 @@ sendmessage(mp, obuf, doign, prefix)
 	long count;
 	FILE *ibuf;
 	char *cp, *cp2, line[LINESIZE];
-	int ishead, infld, ignoring, dostat, firstline;
-	int c, length, prefixlen;
+	int ishead, infld, ignoring = 0, dostat, firstline;
+	int c = 0, length, prefixlen = 0;
 
 	/*
 	 * Compute the prefix string, without trailing whitespace
@@ -308,7 +308,7 @@ mail1(hp, printheaders)
 	char *nbuf;
 	int pid;
 	char **namelist;
-	struct name *to, *nsto;
+	struct name *to, *nsto = NULL;
 	FILE *mtf;
 
 	/*
@@ -395,8 +395,23 @@ mail1(hp, printheaders)
 			(void)savemail(expand(nbuf), mtf);
 		free(nbuf);
 		free(nsto);
-	} else if ((cp = value("record")) != NULL)
-		(void)savemail(expand(cp), mtf);
+	} else if ((cp = value("record")) != NULL) {
+		char * expanded_record_name = expand(cp);
+		char * outfolder = value("outfolder");
+		if ((outfolder != NULL) && (*expanded_record_name != '/')) {
+			char xname[PATHSIZE];
+			if (getfold(xname, sizeof(xname)) >= 0) {
+				if (xname[strlen(xname)-1] != '/')
+					strlcat(xname, "/", sizeof(xname)); /* only when needed */
+				strlcat(xname, expanded_record_name, sizeof(xname));
+				(void)savemail(xname, mtf);
+			} else { /* folder problem? - just save using "record" */
+				(void)savemail(expanded_record_name, mtf);
+			}
+		} else {
+			(void)savemail(expanded_record_name, mtf);
+		}
+	}
 	/*
 	 * Fork, set up the temporary mail file as standard
 	 * input for "mail", and exec with the user list we generated

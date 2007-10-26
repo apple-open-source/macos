@@ -2,7 +2,7 @@
 	File:		MBCBoardViewTextures.mm
 	Contains:	Load OpenGL textures from resources
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 	
 	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
@@ -18,6 +18,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewTextures.mm,v $
+		Revision 1.14  2007/03/01 20:58:48  neerache
+		Plug texture leaks <rdar://problem/3987435>
+		
+		Revision 1.13  2006/10/09 21:43:50  neerache
+		UTF-8 cleanliness is next to godliness <rdar://problems/4325719>
+		
 		Revision 1.12  2004/09/02 11:07:53  neerache
 		Use anisotropic textures
 		
@@ -190,10 +196,6 @@ static ImageRec *ImageOpen(const char *fileName)
         x = image->ysize * image->zsize * (int) sizeof(unsigned);
         image->rowStart = (unsigned *)malloc(x);
         image->rowSize = (int *)malloc(x);
-        if (image->rowStart == NULL || image->rowSize == NULL) {
-            fprintf(stderr, "Out of memory!\n");
-            exit(1);
-        }
         image->rleEnd = 512 + (2 * x);
         fseek(image->file, 512, SEEK_SET);
         fread(image->rowStart, 1, x, image->file);
@@ -218,8 +220,8 @@ ImageClose(ImageRec *image) {
     free(image->tmpG);
     free(image->tmpB);
 	if (image->rowStart) {
-		//		free(image->rowStart);
-		// 		free(image->rowSize);
+		free(image->rowStart);
+		free(image->rowSize);
 	}
     free(image);
 }
@@ -321,7 +323,7 @@ GLuint load_texture(NSString * name, NSString * dir, BOOL mono)
     name = [[NSBundle mainBundle] pathForResource:name 
 							   ofType:@"rgb" 
 							   inDirectory:dir];
-    data = (GLubyte *)read_texture([name cString], &w, &h, &c);
+    data = (GLubyte *)read_texture([name UTF8String], &w, &h, &c);
     
     if (mono) 
 		for (c = 0; c<w*h; ++c) {

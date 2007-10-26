@@ -1,0 +1,181 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		8DD76FAC0486AB0100D96B5E /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 08FB7796FE84155DC02AAC07 /* main.c */; settings = {ATTRIBUTES = (); }; };
+		A127AD7C076A5E2400D45119 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A127AD7B076A5E2400D45119 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8DD76FAF0486AB0100D96B5E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		08FB7796FE84155DC02AAC07 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
+		8DD76FB20486AB0100D96B5E /* KerberosDebugTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = KerberosDebugTest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A108E7500A41EC5E008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7510A41EC5E008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A127AD7B076A5E2400D45119 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A127AD7C076A5E2400D45119 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* KerberosDebugTest */ = {
+			isa = PBXGroup;
+			children = (
+				A108E7500A41EC5E008545E5 /* Release.xcconfig */,
+				A108E7510A41EC5E008545E5 /* Debug.xcconfig */,
+				08FB7795FE84155DC02AAC07 /* Sources */,
+				A127AD7B076A5E2400D45119 /* Kerberos.framework */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = KerberosDebugTest;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7796FE84155DC02AAC07 /* main.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76FB20486AB0100D96B5E /* KerberosDebugTest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* KerberosDebugTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A108E7460A41EC49008545E5 /* Build configuration list for PBXNativeTarget "KerberosDebugTest" */;
+			buildPhases = (
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KerberosDebugTest;
+			productInstallPath = "$(HOME)/bin";
+			productName = KerberosDebugTest;
+			productReference = 8DD76FB20486AB0100D96B5E /* KerberosDebugTest */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A108E74A0A41EC49008545E5 /* Build configuration list for PBXProject "DebugTest" */;
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* KerberosDebugTest */;
+			projectDirPath = "";
+			targets = (
+				8DD76FA90486AB0100D96B5E /* KerberosDebugTest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8DD76FAC0486AB0100D96B5E /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A108E7470A41EC49008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7510A41EC5E008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = KerberosDebugTest;
+			};
+			name = Debug;
+		};
+		A108E7480A41EC49008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7500A41EC5E008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INSTALL_PATH = "$(HOME)/bin";
+				PRODUCT_NAME = KerberosDebugTest;
+			};
+			name = Release;
+		};
+		A108E74B0A41EC49008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7510A41EC5E008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A108E74C0A41EC49008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7500A41EC5E008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A108E7460A41EC49008545E5 /* Build configuration list for PBXNativeTarget "KerberosDebugTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E7470A41EC49008545E5 /* Debug */,
+				A108E7480A41EC49008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A108E74A0A41EC49008545E5 /* Build configuration list for PBXProject "DebugTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E74B0A41EC49008545E5 /* Debug */,
+				A108E74C0A41EC49008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

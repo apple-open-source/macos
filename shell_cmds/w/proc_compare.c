@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,13 +27,22 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-
+#if 0
 #ifndef lint
-static const char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
+static char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
+#endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+#ifndef __APPLE__
+__FBSDID("$FreeBSD: src/usr.bin/w/proc_compare.c,v 1.9 2004/04/14 09:34:17 bde Exp $");
 #endif
 
 #include <sys/param.h>
+#ifdef __APPLE__
+#include <sys/time.h>
+#endif
+#include <sys/proc.h>
 #include <sys/time.h>
 #include <sys/user.h>
 
@@ -53,7 +58,7 @@ static const char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
  *	   with the highest cpu utilization is picked (p_estcpu).  Ties are
  *	   broken by picking the highest pid.
  *	3) The sleeper with the shortest sleep time is next.  With ties,
- *	   we pick out just "short-term" sleepers (PS_SINTR == 0).
+ *	   we pick out just "short-term" sleepers (TDF_SINTR == 0).
  *	4) Further ties are broken by picking the highest pid.
  *
  * If you change this, be sure to consider making the change in the kernel
@@ -62,19 +67,31 @@ static const char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
  * TODO - consider whether pctcpu should be used.
  */
 
-#include <sys/cdefs.h>
+#if !HAVE_KVM
+#define ki_estcpu	p_estcpu
+#define ki_pid		p_pid
+#define ki_slptime	p_slptime
+#define ki_stat		p_stat
+#define ki_tdflags	p_tdflags
+#endif
 
-
-#define ISRUN(p)        (((p)->p_stat == SRUN) || ((p)->p_stat == SIDL))
+#define ISRUN(p)	(((p)->ki_stat == SRUN) || ((p)->ki_stat == SIDL))
 #define TESTAB(a, b)    ((a)<<1 | (b))
 #define ONLYA   2
 #define ONLYB   1
 #define BOTH    3
 
+#if HAVE_KVM
 int
-proc_compare(p1, p2)
-	struct extern_proc *p1, *p2;
+proc_compare(struct kinfo_proc *p1, struct kinfo_proc *p2)
 {
+#else
+int
+proc_compare(struct kinfo_proc *arg1, struct kinfo_proc *arg2)
+{
+	struct extern_proc* p1 = &arg1->kp_proc;
+	struct extern_proc* p2 = &arg2->kp_proc;
+#endif
 
 	if (p1 == NULL)
 		return (1);
@@ -90,29 +107,38 @@ proc_compare(p1, p2)
 		/*
 		 * tie - favor one with highest recent cpu utilization
 		 */
-		if (p2->p_estcpu > p1->p_estcpu)
+		if (p2->ki_estcpu > p1->ki_estcpu)
 			return (1);
-		if (p1->p_estcpu > p2->p_estcpu)
+		if (p1->ki_estcpu > p2->ki_estcpu)
 			return (0);
-		return (p2->p_pid > p1->p_pid);	/* tie - return highest pid */
+		return (p2->ki_pid > p1->ki_pid); /* tie - return highest pid */
 	}
 	/*
  	 * weed out zombies
 	 */
-	switch (TESTAB(p1->p_stat == SZOMB, p2->p_stat == SZOMB)) {
+	switch (TESTAB(p1->ki_stat == SZOMB, p2->ki_stat == SZOMB)) {
 	case ONLYA:
 		return (1);
 	case ONLYB:
 		return (0);
 	case BOTH:
-		return (p2->p_pid > p1->p_pid); /* tie - return highest pid */
+		return (p2->ki_pid > p1->ki_pid); /* tie - return highest pid */
 	}
 	/*
 	 * pick the one with the smallest sleep time
 	 */
-	if (p2->p_slptime > p1->p_slptime)
+	if (p2->ki_slptime > p1->ki_slptime)
 		return (0);
-	if (p1->p_slptime > p2->p_slptime)
+	if (p1->ki_slptime > p2->ki_slptime)
 		return (1);
-	return (p2->p_pid > p1->p_pid);	/* tie - return highest pid */
+#ifndef __APPLE__
+	/*
+	 * favor one sleeping in a non-interruptible sleep
+	 */
+	if (p1->ki_tdflags & TDF_SINTR && (p2->ki_tdflags & TDF_SINTR) == 0)
+		return (1);
+	if (p2->ki_tdflags & TDF_SINTR && (p1->ki_tdflags & TDF_SINTR) == 0)
+		return (0);
+#endif
+	return (p2->ki_pid > p1->ki_pid);	/* tie - return highest pid */
 }

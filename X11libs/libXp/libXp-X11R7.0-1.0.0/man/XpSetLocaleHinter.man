@@ -1,0 +1,205 @@
+.\" $XdotOrg: xc/doc/man/Xp/XpSetLocaleHinter.man,v 1.1 2004/05/22 06:27:25 alanc Exp $
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004 Sun Microsystems, Inc.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpSetLocaleHinter 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpSetLocaleHinter \-  Sets a "locale hinter" function and description of it.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B void XpSetLocaleHinter 
+(
+.I hinter_proc
+.I hinter_desc
+)
+.br
+      XPHinterProc \fIhinter_proc\fP\^;
+.br
+      char *\fIhinter_desc\fP\^;
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I hinter_proc
+A pointer to a "hinter proc".
+.TP
+.I hinter_desc
+A pointer to contextual information about the locale hinter proc.
+.SH DESCRIPTION
+.LP
+Since (to date) there is no single industry standard for locale values, locale 
+information about the current client required by XpCreateContext, 
+XpGetPrinterList 
+and XpGetPdmStartParams is at best considered a "hint" when transmitted to the X 
+Print Server and PDM. In single vendor environments, the locale hint should be 
+consistent and understood. In multi-vendor environments however, the locale hint 
+may or may not be understood. The caller locale will be used as the fallback 
+default.
+
+XpSetLocaleHinter and XpGetLocaleHinter access hooks that are used to register 
+more advanced hint generators. By default, Xp uses a hinter proc that calls 
+setlocale on  the CTYPE category on POSIX systems, and 
+.I hinter_desc 
+is NULL.
+
+XpSetLocaleHinter sets the 
+.I hinter_proc 
+and 
+.I hinter_desc 
+which will be subsequently used by the Xp calls requiring a locale hint (see 
+above). 
+.I hinter_proc 
+is the function that will generate the locale hint (for example, 
+"C"), and 
+.I hinter_desc 
+is a string, with or without the embeddable keyword %locale%, that provides a 
+higher level context for the results of 
+.I hinter_proc.
+
+If 
+.I hinter_proc 
+is set to NULL, then the default Xp hinter proc is installed. 
+XpSetLocaleHinter makes its own private copy of 
+.I hinter_desc 
+prior to returning.
+
+An example set call might look as follows:
+
+.nf
+    XpSetLocaleHinter( my_hinter, "%locale%;CDElocale" );
+.fi
+
+Where my_hinter might look as follows:
+
+.nf
+   char *my_hinter()
+   {
+       /\(**
+        * Use setlocale() to retrieve the current locale.
+        */
+       return( my_x_strdup( setlocale(LC_CTYPE, (char *) NULL) ) );
+   }
+   
+.fi
+
+
+When the client's locale is needed, if both 
+.I hinter_desc 
+and the results of 
+.I hinter_proc 
+are non-NULL, and the keyword %locale% is found in 
+.I hinter_desc, 
+then the keyword will be replaced with the result of 
+.I hinter_proc. 
+The resulting string will be used as the locale hint by the Xp calls.
+
+If both 
+.I hinter_desc 
+and the results of 
+.I hinter_proc 
+are non-NULL, but the keyword %locale% is not found in 
+.I hinter_desc, 
+then 
+.I hinter_desc, 
+as is, becomes the string used as the locale hint by the Xp calls.
+
+If one of 
+.I hinter_desc 
+or the results of 
+.I hinter_proc 
+is NULL, then the other non-NULL value becomes the string used as the locale 
+hint by the Xp calls.
+
+If 
+.I hinter_desc 
+and the results of 
+.I hinter_proc 
+are NULL, then a NULL (i.e. (char *) NULL) locale hint is sent by the Xp calls.
+
+The syntax for 
+.I hinter_desc 
+is a variation of the unadopted X/Open standard for a "String Network 
+Locale-Specification Syntax" (X/Open, Distributed Internationalization Services, 
+Version 2, 1994 Snapshot). The Xp 
+.I hinter_desc 
+syntax is:
+
+.nf
+    name_spec[;registry_spec[;ver_spec[;encoding_spec]]]
+
+.fi
+ 
+In Xp, the first item is the locale name, followed by progressively more 
+detailed information about the locale name, with each piece of information 
+separated by a `;'.
+.SH STRUCTURES
+The signature for 
+.I hinter_proc 
+is defined in <X11/extensions/Print.h> as follows:
+
+.nf
+    typedef char * (*XPHinterProc)();
+    
+.fi
+.I hinter_proc 
+is expected to return a string that can be freed using XFree by the Xp calls 
+themselves.
+
+Some examples include (
+.I hinter_desc 
+to left, expanded results to the right):
+
+.nf
+    CFRENCH                                CFRENCH
+    %locale%                               C
+    %locale%;CDElocale                     C;CDElocale
+    %locale%;HP                            C;HP
+    %locale%;IBM                           C;IBM
+    %locale%;XOPEN;01_11;XFN-001001        de_DE;XOPEN;01_11;XFN-001001
+    
+.fi   
+.SH FILES
+.PD 0
+.TP 20
+<X11/extensions/Print.h>
+.SH "SEE ALSO"
+.BR XpCreateContext (3Xp),
+.BR XpGetLocaleHinter (3Xp),
+.BR XpGetPdmStartParams (3Xp),
+.BR XpGetPrinterList (3Xp),
+.BR XpSetLocaleHinter (3Xp)

@@ -1,4 +1,4 @@
-/* Copyright (C) 1992,1995-1999,2000-2003 Free Software Foundation, Inc.
+/* Copyright (C) 1992,1995-1999,2000-2003,2005 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -13,39 +13,27 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU C Library; see the file COPYING.LIB.  If not,
-   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-   Boston, MA 02111-1307, USA.  */
+   write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-#if HAVE_CONFIG_H
+#ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
 #include <alloca.h>
 
 #include <errno.h>
-#if !_LIBC
-# if !defined errno && !defined HAVE_ERRNO_DECL
-extern int errno;
-# endif
+#ifndef __set_errno
 # define __set_errno(ev) ((errno) = (ev))
 #endif
 
-#if _LIBC || HAVE_STDLIB_H
-# include <stdlib.h>
-#endif
-#if _LIBC || HAVE_STRING_H
-# include <string.h>
-#endif
+#include <stdlib.h>
+#include <string.h>
 #if _LIBC || HAVE_UNISTD_H
 # include <unistd.h>
 #endif
 
-/* For those losing systems which don't have 'alloca' we have to add
-   some additional code emulating it.  */
-#if _LIBC || HAVE_ALLOCA
-# define freea(p) /* nothing */
-#else
-# define alloca(n) malloc (n)
-# define freea(p) free (p)
+#if !_LIBC
+# include "allocsa.h"
 #endif
 
 #if !_LIBC
@@ -168,11 +156,18 @@ __add_to_environ (const char *name, const char *value, const char *combined,
 	{
 	  /* See whether the value is already known.  */
 #ifdef USE_TSEARCH
-	  new_value = (char *) alloca (namelen + 1 + vallen);
 # ifdef _LIBC
+	  new_value = (char *) alloca (namelen + 1 + vallen);
 	  __mempcpy (__mempcpy (__mempcpy (new_value, name, namelen), "=", 1),
 		     value, vallen);
 # else
+	  new_value = (char *) allocsa (namelen + 1 + vallen);
+	  if (new_value == NULL)
+	    {
+	      __set_errno (ENOMEM);
+	      UNLOCK;
+	      return -1;
+	    }
 	  memcpy (new_value, name, namelen);
 	  new_value[namelen] = '=';
 	  memcpy (&new_value[namelen + 1], value, vallen);
@@ -185,8 +180,8 @@ __add_to_environ (const char *name, const char *value, const char *combined,
 	      new_environ[size] = (char *) malloc (namelen + 1 + vallen);
 	      if (new_environ[size] == NULL)
 		{
-#ifdef USE_TSEARCH
-		  freea (new_value);
+#if defined USE_TSEARCH && !defined _LIBC
+		  freesa (new_value);
 #endif
 		  __set_errno (ENOMEM);
 		  UNLOCK;
@@ -205,8 +200,8 @@ __add_to_environ (const char *name, const char *value, const char *combined,
 		 user string or not.  */
 	      STORE_VALUE (new_environ[size]);
 	    }
-#ifdef USE_TSEARCH
-	  freea (new_value);
+#if defined USE_TSEARCH && !defined _LIBC
+	  freesa (new_value);
 #endif
 	}
 
@@ -228,11 +223,19 @@ __add_to_environ (const char *name, const char *value, const char *combined,
       else
 	{
 #ifdef USE_TSEARCH
-	  char *new_value = alloca (namelen + 1 + vallen);
+	  char *new_value;
 # ifdef _LIBC
+	  new_value = alloca (namelen + 1 + vallen);
 	  __mempcpy (__mempcpy (__mempcpy (new_value, name, namelen), "=", 1),
 		     value, vallen);
 # else
+	  new_value = allocsa (namelen + 1 + vallen);
+	  if (new_value == NULL)
+	    {
+	      __set_errno (ENOMEM);
+	      UNLOCK;
+	      return -1;
+	    }
 	  memcpy (new_value, name, namelen);
 	  new_value[namelen] = '=';
 	  memcpy (&new_value[namelen + 1], value, vallen);
@@ -245,9 +248,10 @@ __add_to_environ (const char *name, const char *value, const char *combined,
 	      np = malloc (namelen + 1 + vallen);
 	      if (np == NULL)
 		{
-#ifdef USE_TSEARCH
-		  freea (new_value);
+#if defined USE_TSEARCH && !defined _LIBC
+		  freesa (new_value);
 #endif
+		  __set_errno (ENOMEM);
 		  UNLOCK;
 		  return -1;
 		}
@@ -262,8 +266,8 @@ __add_to_environ (const char *name, const char *value, const char *combined,
 	      /* And remember the value.  */
 	      STORE_VALUE (np);
 	    }
-#ifdef USE_TSEARCH
-	  freea (new_value);
+#if defined USE_TSEARCH && !defined _LIBC
+	  freesa (new_value);
 #endif
 	}
 
@@ -285,7 +289,7 @@ setenv (const char *name, const char *value, int replace)
    never made it.  Nevertheless the POSIX.9 standard (POSIX bindings
    for Fortran 77) requires this function.  */
 int
-clearenv ()
+clearenv (void)
 {
   LOCK;
 

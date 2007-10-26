@@ -144,7 +144,6 @@ public:
 	 * tpCrlVfy.cpp's global cache module).
 	 */
 	int 					mRefCount;
-	bool					mToBeDeleted;
 	
 	/* used only by tpCrlVerify */
 	TPCrlFromWhere			mFromWhere;

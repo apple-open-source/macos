@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/param.h>
 
 #include <mach/mach.h>
 
@@ -39,6 +40,11 @@
 #include "AppleRAIDUserClient.h"
 #include "AppleRAIDUserLib.h"
 #include "AppleRAIDMember.h"
+#include "AppleLVMGroup.h"
+#include "AppleLVMVolume.h"
+#include "AppleRAIDConcatSet.h"
+#include "AppleRAIDMirrorSet.h"
+#include "AppleRAIDStripeSet.h"
 
 #ifdef DEBUG
 
@@ -53,8 +59,6 @@
 #ifndef IOLog2
 #define IOLog2(args...) 
 #endif
-
-
 
 // ***************************************************************************************************
 //
@@ -83,7 +87,7 @@ AppleRAIDOpenConnection()
     serviceObject = IOServiceGetMatchingService(kIOMasterPortDefault, classToMatch);
     if (!serviceObject)
     {
-        IOLog1("Couldn't find any matches.\n");
+        IOLog2("Couldn't find any matches.\n");
 	return kIOReturnNoResources;
     }
     
@@ -99,7 +103,7 @@ AppleRAIDOpenConnection()
 	return kr;
     }
 
-    kr = IOConnectMethodScalarIScalarO(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0);
+    kr = IOConnectCallStructMethod(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0, 0, 0);
     UInt32 count = 0;
     // retry for 1 minute
     while (kr == kIOReturnExclusiveAccess && count < 60)
@@ -108,7 +112,7 @@ AppleRAIDOpenConnection()
 	if ((count % 15) == 0) IOLog1("AppleRAID: controller object is busy, retrying...\n");
 #endif
 	(void)sleep(1);
-	kr = IOConnectMethodScalarIScalarO(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0);
+	kr = IOConnectCallStructMethod(gRAIDControllerPort, kAppleRAIDClientOpen, 0, 0, 0, 0);
 	count++;
     }
     if (kr != KERN_SUCCESS)
@@ -130,7 +134,7 @@ AppleRAIDCloseConnection()
 
     if (!gRAIDControllerPort) return kIOReturnSuccess;
 
-    kr = IOConnectMethodScalarIScalarO(gRAIDControllerPort, kAppleRAIDClientClose, 0, 0);
+    kr = IOConnectCallStructMethod(gRAIDControllerPort, kAppleRAIDClientClose, 0, 0, 0, 0);
     if (kr != KERN_SUCCESS)
     {
         IOLog1("AppleRAIDClientClose returned %d\n", kr);
@@ -153,37 +157,38 @@ AppleRAIDCloseConnection()
 
 // ***************************************************************************************************
 //
-// set notifications
+// notifications
 // 
 // ***************************************************************************************************
 
-typedef struct setChangedInfo {
+typedef struct changeInfo {
     io_object_t			service;
     mach_port_t     		notifier;
     CFStringRef			uuidString;
-} setChangedInfo_t;
+} changeInfo_t;
 
 static IONotificationPortRef	gNotifyPort;
 static io_iterator_t		gRAIDSetIter;
+static io_iterator_t		gLogicalVolumeIter;
 
 static void
 raidSetChanged(void *refcon, io_service_t service, natural_t messageType, void *messageArgument)
 {
-    setChangedInfo_t * setChangedInfo = (setChangedInfo_t *)refcon;
+    changeInfo_t * changeInfo = (changeInfo_t *)refcon;
 
     if (messageType == kIOMessageServiceIsTerminated) {
 
 	// broadcast "raid set died" notification
 	CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
 					     CFSTR(kAppleRAIDNotificationSetTerminated),
-					     setChangedInfo->uuidString,
+					     changeInfo->uuidString,
 					     NULL,           // CFDictionaryRef userInfo
 					     false);
 
-	IOObjectRelease(setChangedInfo->service);
-	IOObjectRelease(setChangedInfo->notifier);
-	CFRelease(setChangedInfo->uuidString);
-	free(setChangedInfo);
+	IOObjectRelease(changeInfo->service);
+	IOObjectRelease(changeInfo->notifier);
+	CFRelease(changeInfo->uuidString);
+	free(changeInfo);
 	
 	return;
     }
@@ -196,7 +201,7 @@ raidSetChanged(void *refcon, io_service_t service, natural_t messageType, void *
     // broadcast "raid set changed" notification
     CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
 					 CFSTR(kAppleRAIDNotificationSetChanged),
-					 setChangedInfo->uuidString,
+					 changeInfo->uuidString,
 					 NULL,           // CFDictionaryRef userInfo
 					 false);
 }
@@ -206,7 +211,7 @@ raidSetDetected(void *refCon, io_iterator_t iterator)
 {
     kern_return_t		kr;
     io_service_t		newSet;
-    setChangedInfo_t *		setChangedInfo;
+    changeInfo_t *		changeInfo;
     CFMutableDictionaryRef  	registryEntry;
     CFStringRef			uuidString;
 
@@ -216,28 +221,108 @@ raidSetDetected(void *refCon, io_iterator_t iterator)
 	kr = IORegistryEntryCreateCFProperties(newSet, &registryEntry, kCFAllocatorDefault, 0);
 	if (kr != KERN_SUCCESS) return;
 
-	// get the set's UUID name
-	uuidString = CFDictionaryGetValue(registryEntry, CFSTR(kAppleRAIDSetUUIDKey));
+	// get the set's UUID name, for stacked sets the member uuid is the correct UUID
+	// to use for this notification, it also works for regular raid sets.
+	uuidString = CFDictionaryGetValue(registryEntry, CFSTR(kAppleRAIDMemberUUIDKey));
 	if (uuidString) uuidString = CFStringCreateCopy(NULL, uuidString);
 	CFRelease(registryEntry);
 	if (!uuidString) return;
 
-	setChangedInfo = calloc(1, sizeof(setChangedInfo_t));
-	setChangedInfo->service = newSet;
-	setChangedInfo->uuidString = uuidString;
+	changeInfo = calloc(1, sizeof(changeInfo_t));
+	changeInfo->service = newSet;
+	changeInfo->uuidString = uuidString;
 
 	// set up notifications for any changes to this set
 	kr = IOServiceAddInterestNotification(gNotifyPort, newSet, kIOGeneralInterest,
-					      &raidSetChanged, (void *)setChangedInfo,
-					      &setChangedInfo->notifier);
+					      &raidSetChanged, (void *)changeInfo,
+					      &changeInfo->notifier);
 	if (kr != KERN_SUCCESS) {
-	    free(setChangedInfo);
+	    free(changeInfo);
 	    return;
 	}
 
 	// broadcast "new raid set" notification
 	CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
 					     CFSTR(kAppleRAIDNotificationSetDiscovered),
+					     uuidString,
+					     NULL,	// CFDictionaryRef userInfo
+					     false);
+    }
+}
+
+
+static void
+logicalVolumeChanged(void *refcon, io_service_t service, natural_t messageType, void *messageArgument)
+{
+    changeInfo_t * changeInfo = (changeInfo_t *)refcon;
+
+    if (messageType == kIOMessageServiceIsTerminated) {
+
+	// broadcast "logical volume died" notification
+	CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
+					     CFSTR(kAppleLVMNotificationVolumeTerminated),
+					     changeInfo->uuidString,
+					     NULL,           // CFDictionaryRef userInfo
+					     false);
+
+	IOObjectRelease(changeInfo->service);
+	IOObjectRelease(changeInfo->notifier);
+	CFRelease(changeInfo->uuidString);
+	free(changeInfo);
+	
+	return;
+    }
+
+    IOLog2("logicalVolumeChanged: messageType %08x, arg %08lx\n", messageType, (UInt32) messageArgument);
+
+    // we only care about messages from the raid driver, toss all others.
+    if (messageType != kAppleLVMMessageVolumeChanged) return;
+
+    // broadcast "logical volume changed" notification
+    CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
+					 CFSTR(kAppleLVMNotificationVolumeChanged),
+					 changeInfo->uuidString,
+					 NULL,           // CFDictionaryRef userInfo
+					 false);
+}
+
+void static
+logicalVolumeDetected(void *refCon, io_iterator_t iterator)
+{
+    kern_return_t		kr;
+    io_service_t		newVolume;
+    changeInfo_t *		changeInfo;
+    CFMutableDictionaryRef  	registryEntry;
+    CFStringRef			uuidString;
+
+    while (newVolume = IOIteratorNext(iterator)) {
+
+	// fetch a copy of the in kernel registry object
+	kr = IORegistryEntryCreateCFProperties(newVolume, &registryEntry, kCFAllocatorDefault, 0);
+	if (kr != KERN_SUCCESS) return;
+
+	// get the volume's UUID name
+	uuidString = CFDictionaryGetValue(registryEntry, CFSTR("UUID"));
+	if (uuidString) uuidString = CFStringCreateCopy(NULL, uuidString);
+	CFRelease(registryEntry);
+	if (!uuidString) return;
+
+	changeInfo = calloc(1, sizeof(changeInfo_t));
+	changeInfo->service = newVolume;
+	changeInfo->uuidString = uuidString;
+
+	// set up notifications for any changes to this volume
+	kr = IOServiceAddInterestNotification(gNotifyPort, newVolume, kIOGeneralInterest,
+					      &logicalVolumeChanged, (void *)changeInfo,
+					      &changeInfo->notifier);
+	if (kr != KERN_SUCCESS) {
+	    free(changeInfo);
+	    return;
+	}
+
+	// broadcast "new raid volume" notification
+	CFNotificationCenterPostNotification(CFNotificationCenterGetLocalCenter(),
+					     CFSTR(kAppleLVMNotificationVolumeDiscovered),
 					     uuidString,
 					     NULL,	// CFDictionaryRef userInfo
 					     false);
@@ -254,6 +339,15 @@ AppleRAIDEnableNotifications()
 
     IOLog1("AppleRAIDEnableNotifications entered\n");
 
+    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+    runLoopSource = IONotificationPortGetRunLoopSource(gNotifyPort);
+    
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopDefaultMode);
+    
+    //
+    // set up raid set notifications
+    //
+
     classToMatch = IOServiceMatching(kAppleRAIDSetClassName);
     if (classToMatch == NULL)
     {
@@ -261,11 +355,6 @@ AppleRAIDEnableNotifications()
 	return kIOReturnNoResources;
     }
 
-    gNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
-    runLoopSource = IONotificationPortGetRunLoopSource(gNotifyPort);
-    
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopDefaultMode);
-    
     kr = IOServiceAddMatchingNotification(  gNotifyPort,
                                             kIOFirstMatchNotification,
                                             classToMatch,
@@ -280,6 +369,31 @@ AppleRAIDEnableNotifications()
     
     raidSetDetected(NULL, gRAIDSetIter);	// Iterate once to get already-present
 						// devices and arm the notification
+    //
+    // set up logical volume notifications
+    //
+
+    classToMatch = IOServiceMatching(kAppleLogicalVolumeClassName);
+    if (classToMatch == NULL)
+    {
+        IOLog1("IOServiceMatching returned a NULL dictionary.\n");
+	return kIOReturnNoResources;
+    }
+
+    kr = IOServiceAddMatchingNotification(  gNotifyPort,
+                                            kIOFirstMatchNotification,
+                                            classToMatch,
+                                            logicalVolumeDetected,
+                                            NULL,
+                                            &gLogicalVolumeIter );
+    if (kr != KERN_SUCCESS)
+    {
+        IOLog1("IOServiceAddMatchingNotification returned %d\n", kr);
+	return kr;
+    }
+    
+    logicalVolumeDetected(NULL, gLogicalVolumeIter);	// Iterate once to get already-present
+							// devices and arm the notification
     return kr;
 }
 
@@ -289,10 +403,13 @@ AppleRAIDDisableNotifications(void)
 
     IONotificationPortDestroy(gNotifyPort);
 
-    if (gRAIDSetIter) 
-    {
+    if (gRAIDSetIter) {
         IOObjectRelease(gRAIDSetIter);
         gRAIDSetIter = 0;
+    }
+    if (gLogicalVolumeIter) {
+        IOObjectRelease(gLogicalVolumeIter);
+        gLogicalVolumeIter = 0;
     }
     
     return KERN_SUCCESS;
@@ -305,14 +422,218 @@ AppleRAIDDisableNotifications(void)
 // 
 // ***************************************************************************************************
 
-#define kMaxIOConnectTransferSize  4096
+typedef struct memberInfo {
+    CFStringRef diskNameCF;
+    io_name_t	diskName;
+    io_name_t	wholeDiskName;
+    unsigned int partitionNumber;
+    char	devicePath[256];
+    io_name_t	regName;
 
+    // from media
+    UInt64	size;
+    UInt64	blockSize;
+    bool	isWhole;
+    bool	isRAID;
+    CFStringRef uuidString;
+    UInt64	headerOffset;
+
+    // from header
+    UInt64	chunkCount;
+    UInt64	chunkSize;
+    UInt64	primaryMetaDataSize;
+    UInt64	secondaryMetaDataSize;
+    UInt64	startOffset;		// jbod & lvg
+
+    AppleRAIDPrimaryOnDisk * primaryData;
+    void *	secondaryData;
+} memberInfo_t;
+
+static void
+freeMemberInfo(memberInfo_t * m)
+{
+    if (m->diskNameCF) CFRelease(m->diskNameCF);
+    if (m->uuidString) CFRelease(m->uuidString);
+    if (m->primaryData) free(m->primaryData);
+    if (m->secondaryData) free(m->secondaryData);
+    free(m);
+}
+
+static memberInfo_t *
+getMemberInfo(CFStringRef partitionName)
+{
+    // sigh...
+    CFIndex diskNameSize = CFStringGetLength(partitionName);
+    diskNameSize = CFStringGetMaximumSizeForEncoding(diskNameSize, kCFStringEncodingUTF8) + 1;
+    char *diskName = malloc(diskNameSize);
+    if (!CFStringGetCString(partitionName, diskName, diskNameSize, kCFStringEncodingUTF8)) return NULL;
+    
+    io_registry_entry_t obj = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, diskName));
+    if (!obj){
+        IOLog1("AppleRAIDLib - getMemberInfo: IOServiceGetMatchingService failed for %s\n", diskName);
+	return NULL;
+    }
+
+    memberInfo_t * mi = calloc(1, sizeof(memberInfo_t));
+
+    mi->diskNameCF = partitionName;
+    CFRetain(partitionName);
+
+    strlcpy(mi->diskName, diskName, sizeof(io_name_t));
+    snprintf(mi->devicePath, sizeof(mi->devicePath), "/dev/%s", diskName);
+
+    IORegistryEntryGetName(obj, mi->regName);
+
+    CFMutableDictionaryRef properties = NULL;
+    IOReturn result = IORegistryEntryCreateCFProperties(obj, &properties, kCFAllocatorDefault, kNilOptions);
+
+    if (!result && properties) {
+
+	CFNumberRef number;
+
+	number = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaSizeKey));
+	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &mi->size);
+
+	mi->headerOffset = ARHEADER_OFFSET(mi->size);
+	
+	number = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaPreferredBlockSizeKey));
+	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &mi->blockSize);
+
+	mi->isWhole = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaWholeKey)) == kCFBooleanTrue;
+
+	mi->isRAID = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR(kAppleRAIDIsRAIDKey)) == kCFBooleanTrue;
+
+	mi->uuidString = (CFStringRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaUUIDKey));
+	if (mi->uuidString) CFRetain(mi->uuidString);
+
+	strcpy(mi->wholeDiskName, mi->diskName);
+
+	if (!mi->isWhole) {
+	    char * c = mi->wholeDiskName + 4;				// skip over disk
+	    while (*c != 's' && *c++);					// look for 's'
+	    if (*c == 's') {
+		*c = 0;							// clip off remainder
+		sscanf(c+1, "%u", &mi->partitionNumber);		// get partition number
+	    }
+	}
+
+    } else {
+	freeMemberInfo(mi);
+	return NULL;
+    }
+
+    return mi;
+}
+
+typedef struct setInfo {
+    CFMutableDictionaryRef	setProps;
+    CFIndex			memberCount;
+    CFMutableArrayRef		members;
+    CFMutableDictionaryRef *	memberProps;
+    memberInfo_t **		memberInfo;
+//    CFIndex			spareCount;
+//    CFMutableArrayRef		spares;
+//    CFMutableDictionaryRef	spareProps;
+//    memberInfo_t **		spareInfo;
+} setInfo_t;
+
+static void
+freeSetInfo(setInfo_t *setInfo)
+{
+    CFIndex i;
+    if (setInfo->memberProps) {
+	for (i=0; i < setInfo->memberCount; i++) {
+	    if (setInfo->memberProps[i]) CFRelease(setInfo->memberProps[i]);
+	}
+	free(setInfo->memberProps);
+    }
+    if (setInfo->memberInfo) {
+	for (i=0; i < setInfo->memberCount; i++) {
+	    if (setInfo->memberInfo[i]) freeMemberInfo(setInfo->memberInfo[i]);
+	}
+	free(setInfo->memberInfo);
+    }
+
+    // XXX same for spares
+
+    if (setInfo->setProps) CFRelease(setInfo->setProps);
+    free(setInfo);
+}
+
+static setInfo_t *
+getSetInfo(AppleRAIDSetRef setRef)
+{
+    setInfo_t * setInfo = calloc(1, sizeof(setInfo_t));
+    if (!setInfo) return NULL;
+
+    setInfo->setProps = AppleRAIDGetSetProperties(setRef);
+    if (!setInfo->setProps) goto error;
+
+    // find the members/spares in the this set
+    setInfo->members = (CFMutableArrayRef)CFDictionaryGetValue(setInfo->setProps, CFSTR(kAppleRAIDMembersKey));
+    setInfo->memberCount = setInfo->members ? CFArrayGetCount(setInfo->members) : 0;
+//    setInfo->spares = (CFMutableArrayRef)CFDictionaryGetValue(setInfo->setProps, CFSTR(kAppleRAIDSparesKey));
+//    setInfo->spareCount = setInfo->spares ? CFArrayGetCount(setInfo->spares) : 0;
+
+    if (setInfo->memberCount) {
+	setInfo->memberInfo = calloc(setInfo->memberCount, sizeof(memberInfo_t *));
+	setInfo->memberProps = calloc(setInfo->memberCount, sizeof(CFMutableDictionaryRef));
+    }
+//    if (setInfo->spareCount) {
+//	setInfo->spareInfo = calloc(setInfo->spareCount, sizeof(memberInfo_t *));
+//	setInfo->spareProps = calloc(setInfo->spareCount, sizeof(CFMutableDictionaryRef));
+//    }
+    
+    CFIndex i;
+    for (i=0; i < setInfo->memberCount; i++) {
+	CFStringRef member = (CFStringRef)CFArrayGetValueAtIndex(setInfo->members, i);
+	if (member) {
+	    setInfo->memberProps[i] = AppleRAIDGetMemberProperties(member);
+	    if (setInfo->memberProps[i]) {
+		CFStringRef partitionName = (CFStringRef)CFDictionaryGetValue(setInfo->memberProps[i], CFSTR(kIOBSDNameKey));
+		if (partitionName) {
+		    setInfo->memberInfo[i] = getMemberInfo(partitionName);
+		}
+
+		CFMutableDictionaryRef props = setInfo->memberProps[i];
+		memberInfo_t * info = setInfo->memberInfo[i];
+
+		CFNumberRef number;
+		number = (CFNumberRef)CFDictionaryGetValue(setInfo->setProps, CFSTR(kAppleRAIDChunkSizeKey));   // per set
+		if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &info->chunkSize);
+
+		number = (CFNumberRef)CFDictionaryGetValue(props, CFSTR(kAppleRAIDChunkCountKey));		// per member
+		if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &info->chunkCount);
+		
+		number = (CFNumberRef)CFDictionaryGetValue(props, CFSTR(kAppleRAIDPrimaryMetaDataUsedKey));	// per member
+		if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &info->primaryMetaDataSize);
+
+		number = (CFNumberRef)CFDictionaryGetValue(props, CFSTR(kAppleRAIDSecondaryMetaDataSizeKey));	// per member
+		if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &info->secondaryMetaDataSize);
+
+		number = (CFNumberRef)CFDictionaryGetValue(props, CFSTR(kAppleRAIDMemberStartKey));		// per member
+		if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &info->startOffset);
+	    }
+	}
+    }
+
+    // XXX same for spares
+
+    return setInfo;
+    
+error:
+    freeSetInfo(setInfo);
+    return NULL;
+}
+
+
+#define kMaxIOConnectTransferSize  4096
 
 CFMutableArrayRef
 AppleRAIDGetListOfSets(UInt32 filter)
 {
     kern_return_t 	kr;
-    IOByteCount		listSize = kMaxIOConnectTransferSize;
+    size_t		listSize = kMaxIOConnectTransferSize;
     CFMutableArrayRef 	theList = NULL;
 
     char * listString = (char *)malloc((int)listSize);
@@ -320,13 +641,12 @@ AppleRAIDGetListOfSets(UInt32 filter)
     io_connect_t raidControllerPort = AppleRAIDOpenConnection();
     if (!raidControllerPort) return NULL;
 
-    kr = IOConnectMethodScalarIStructureO(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
-					  kAppleRAIDGetListOfSets,	// an index to the function in the Kernel.
-					  1,				// the number of scalar input values.
-					  &listSize,			// a pointer to the size of the output struct parameter.
-					  filter,			// input
-					  listString);			// output
-    
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleRAIDGetListOfSets,	// an index to the function in the Kernel.
+				   &filter,			// input
+				   sizeof(filter),		// input size
+				   listString,			// output
+				   &listSize);			// output size (in/out)
     if (kr == KERN_SUCCESS) {
         IOLog2("AppleRAIDGetListOfSets was successful.\n");
         IOLog2("size = %d, theList = %s\n", (int)listSize, (char *)listString);
@@ -345,9 +665,9 @@ CFMutableDictionaryRef
 AppleRAIDGetSetProperties(AppleRAIDSetRef setName)
 {
     kern_return_t 	kr;
-    IOByteCount		propSize = kMaxIOConnectTransferSize;
+    size_t		propSize = kMaxIOConnectTransferSize;
     CFMutableDictionaryRef props = NULL;
-    CFIndex		bufferSize = kAppleRAIDMaxUUIDStringSize;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize;
     char		buffer[bufferSize];
 
     if (!CFStringGetCString(setName, buffer, bufferSize, kCFStringEncodingUTF8)) {
@@ -360,13 +680,13 @@ AppleRAIDGetSetProperties(AppleRAIDSetRef setName)
     
     char * propString = (char *)malloc(propSize);
 
-    kr = IOConnectMethodStructureIStructureO(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
-					     kAppleRAIDGetSetProperties,	// an index to the function in the Kernel.
-					     bufferSize,			// the size of the input struct paramter.
-					     &propSize,				// a pointer to the size of the output struct parameter.
-					     buffer,				// a pointer to the input struct parameter.
-					     propString);			// a pointer to the output struct parameter.
-    
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleRAIDGetSetProperties,	// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   propString,			// output
+				   &propSize);			// output size (in/out)
+
     if (kr == KERN_SUCCESS) {
         IOLog2("AppleRAIDGetSetProperties was successful.\n");
         IOLog2("size = %d, prop = %s\n", (int)propSize, (char *)propString);
@@ -385,9 +705,9 @@ CFMutableDictionaryRef
 AppleRAIDGetMemberProperties(AppleRAIDMemberRef memberName)
 {
     kern_return_t 	kr;
-    IOByteCount		propSize = kMaxIOConnectTransferSize;
+    size_t		propSize = kMaxIOConnectTransferSize;
     CFMutableDictionaryRef props = NULL;
-    CFIndex		bufferSize = kAppleRAIDMaxUUIDStringSize;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize;
     char		buffer[bufferSize];
 
     if (!CFStringGetCString(memberName, buffer, bufferSize, kCFStringEncodingUTF8)) {
@@ -400,13 +720,13 @@ AppleRAIDGetMemberProperties(AppleRAIDMemberRef memberName)
 
     char * propString = (char *)malloc(propSize);
 
-    kr = IOConnectMethodStructureIStructureO(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
-					     kAppleRAIDGetMemberProperties,	// an index to the function in the Kernel.
-					     bufferSize,			// the size of the input struct paramter.
-					     &propSize,				// a pointer to the size of the output struct parameter.
-					     buffer,				// a pointer to the input struct parameter.
-					     propString);			// a pointer to the output struct parameter.
-    
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleRAIDGetMemberProperties,	// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   propString,			// output
+				   &propSize);			// output size (in/out)
+
     if (kr == KERN_SUCCESS) {
         IOLog2("AppleRAIDGetMemberProperties was successful.\n");
         IOLog2("size = %d, prop = %s\n", (int)propSize, (char *)propString);
@@ -431,11 +751,12 @@ AppleRAIDGetMemberProperties(AppleRAIDMemberRef memberName)
 static const char *raidDescriptionBuffer =
 " <array> \n"
     "<dict> \n"
-	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>Stripe</string> \n"
+	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>" kAppleRAIDLevelNameStripe "</string> \n"
 	"<key>" kAppleRAIDMemberTypeKey "</key>"	"<array> \n"
 								"<string>" kAppleRAIDMembersKey "</string> \n"
 							"</array> \n"
 	"<key>" kAppleRAIDSetAutoRebuildKey "</key>"	"<false/> \n"
+	"<key>" kAppleRAIDSetQuickRebuildKey "</key>"	"<false/> \n"
 	"<key>" kAppleRAIDSetTimeoutKey "</key>"	"<integer size=\"32\">0</integer> \n"
 	"<key>" kAppleRAIDChunkSizeKey "</key>"		"<integer size=\"64\">0x8000</integer> \n"
 
@@ -447,12 +768,13 @@ static const char *raidDescriptionBuffer =
 	"<key>" kAppleRAIDCanBeConvertedToKey "</key>"	"<false/> \n"
     "</dict> \n"
     "<dict> \n"
-	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>Mirror</string> \n"
+	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>" kAppleRAIDLevelNameMirror "</string> \n"
 	"<key>" kAppleRAIDMemberTypeKey "</key>"	"<array> \n"
 								"<string>" kAppleRAIDMembersKey "</string> \n"
 								"<string>" kAppleRAIDSparesKey "</string> \n"
 							"</array> \n"
 	"<key>" kAppleRAIDSetAutoRebuildKey "</key>"	"<true/> \n"
+	"<key>" kAppleRAIDSetQuickRebuildKey "</key>"	"<true/> \n"
 	"<key>" kAppleRAIDSetTimeoutKey "</key>"	"<integer size=\"32\">30</integer> \n"
 	"<key>" kAppleRAIDChunkSizeKey "</key>"		"<integer size=\"64\">0x8000</integer> \n"
 
@@ -464,10 +786,26 @@ static const char *raidDescriptionBuffer =
 	"<key>" kAppleRAIDCanBeConvertedToKey "</key>"	"<true/> \n"
     "</dict> \n"
     "<dict> \n"
-	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>Concat</string> \n"
+	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>" kAppleRAIDLevelNameConcat "</string> \n"
 	"<key>" kAppleRAIDMemberTypeKey "</key>"	"<array> \n"
 								"<string>" kAppleRAIDMembersKey "</string> \n"
-								"<string>" kAppleRAIDSparesKey "</string> \n"
+							"</array> \n"
+	"<key>" kAppleRAIDSetAutoRebuildKey "</key>"	"<false/> \n"
+	"<key>" kAppleRAIDSetQuickRebuildKey "</key>"	"<false/> \n"
+	"<key>" kAppleRAIDSetTimeoutKey "</key>"	"<integer size=\"32\">0</integer> \n"
+	"<key>" kAppleRAIDChunkSizeKey "</key>"		"<integer size=\"64\">0x8000</integer> \n"
+    
+	"<key>" kAppleRAIDCanAddMembersKey "</key>"	"<true/> \n"
+	"<key>" kAppleRAIDCanAddSparesKey "</key>"	"<false/> \n"
+	"<key>" kAppleRAIDSizesCanVaryKey "</key>"	"<true/> \n"
+	"<key>" kAppleRAIDRemovalAllowedKey "</key>"	"<string>" kAppleRAIDRemovalLastMember "</string> \n"
+
+	"<key>" kAppleRAIDCanBeConvertedToKey "</key>"	"<true/> \n"
+    "</dict> \n"
+    "<dict> \n"
+	"<key>" kAppleRAIDLevelNameKey "</key>"		"<string>" kAppleRAIDLevelNameLVG "</string> \n"
+	"<key>" kAppleRAIDMemberTypeKey "</key>"	"<array> \n"
+								"<string>" kAppleRAIDMembersKey "</string> \n"
 							"</array> \n"
 	"<key>" kAppleRAIDSetAutoRebuildKey "</key>"	"<false/> \n"
 	"<key>" kAppleRAIDSetTimeoutKey "</key>"	"<integer size=\"32\">0</integer> \n"
@@ -476,7 +814,7 @@ static const char *raidDescriptionBuffer =
 	"<key>" kAppleRAIDCanAddMembersKey "</key>"	"<true/> \n"
 	"<key>" kAppleRAIDCanAddSparesKey "</key>"	"<false/> \n"
 	"<key>" kAppleRAIDSizesCanVaryKey "</key>"	"<true/> \n"
-	"<key>" kAppleRAIDRemovalAllowedKey "</key>"	"<string>" kAppleRAIDRemovalLastMember "</string> \n"
+	"<key>" kAppleRAIDRemovalAllowedKey "</key>"	"<string>" kAppleRAIDRemovalNone "</string> \n"
 
 	"<key>" kAppleRAIDCanBeConvertedToKey "</key>"	"<true/> \n"
     "</dict> \n"
@@ -516,16 +854,20 @@ static const char *defaultCreateSetBuffer =
     "<key>" kAppleRAIDSequenceNumberKey "</key>"	"<integer size=\"32\">1</integer> \n"
     "<key>" kAppleRAIDChunkSizeKey "</key>"		"<integer size=\"64\">0x00008000</integer> \n"
     "<key>" kAppleRAIDChunkCountKey "</key>"		"<integer size=\"64\">0</integer> \n"		// per member
+
     "<key>" kAppleRAIDMembersKey "</key>"		"<array/> \n"
     "<key>" kAppleRAIDSparesKey "</key>"		"<array/> \n"
 
     "<key>" kAppleRAIDSetAutoRebuildKey "</key>"	"<false/> \n"					// mirror, raid v only
+    "<key>" kAppleRAIDSetQuickRebuildKey "</key>"	"<false/> \n"					// mirror, raid v only
     "<key>" kAppleRAIDSetTimeoutKey "</key>"		"<integer size=\"32\">30</integer> \n"		// mirror, raid v only
 
     "<key>" kAppleRAIDCanAddMembersKey "</key>"		"<false/> \n"					// mirror, concat only
     "<key>" kAppleRAIDCanAddSparesKey "</key>"		"<false/> \n"
     "<key>" kAppleRAIDSizesCanVaryKey "</key>"		"<false/> \n"					// true for concat only
     "<key>" kAppleRAIDRemovalAllowedKey "</key>"	"<string>internal error</string> \n"
+
+    "<key>" kAppleRAIDSetContentHintKey "</key>"	"<string/> \n"
 " </dict> \n";
 
 
@@ -534,8 +876,8 @@ AppleRAIDCreateSet(CFStringRef raidType, CFStringRef setName)
 {
     CFStringRef errorString;
 
-    CFMutableDictionaryRef setInfo = (CFMutableDictionaryRef)IOCFUnserialize(defaultCreateSetBuffer, kCFAllocatorDefault, 0, &errorString);
-    if (!setInfo) {
+    CFMutableDictionaryRef setProps = (CFMutableDictionaryRef)IOCFUnserialize(defaultCreateSetBuffer, kCFAllocatorDefault, 0, &errorString);
+    if (!setProps) {
 	CFIndex	bufferSize = CFStringGetLength(errorString);
 	bufferSize = CFStringGetMaximumSizeForEncoding(bufferSize, kCFStringEncodingUTF8) + 1;
 	char *buffer = malloc(bufferSize);
@@ -554,42 +896,74 @@ AppleRAIDCreateSet(CFStringRef raidType, CFStringRef setName)
     CFRelease(uuid);
     if (!uuidString) return NULL;
     
-    CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDSetUUIDKey), uuidString);
-    CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDLevelNameKey), raidType);
-    CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDSetNameKey), setName);
+    CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDSetUUIDKey), uuidString);  CFRelease(uuidString);
+    CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDLevelNameKey), raidType);
+    CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDSetNameKey), setName);
 
     // XXX could just pull these from GetSetDescriptions
+    // AppleRAIDDefaultSetPropForKey(raidType, key);
 
     // overrides
     if (CFEqual(raidType, CFSTR("Stripe"))) {
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalNone));
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalNone));
     }
     if (CFEqual(raidType, CFSTR("Concat"))) {
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDCanAddMembersKey), kCFBooleanTrue);
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDSizesCanVaryKey), kCFBooleanTrue);
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalLastMember));
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDCanAddMembersKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDSizesCanVaryKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalLastMember));
     }
     if (CFEqual(raidType, CFSTR("Mirror"))) {
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDCanAddMembersKey), kCFBooleanTrue);
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDCanAddSparesKey), kCFBooleanTrue);
-	CFDictionaryReplaceValue(setInfo, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalAnyMember));
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDCanAddMembersKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDCanAddSparesKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalAnyMember));
+    }
+    if (CFEqual(raidType, CFSTR("LVG"))) {
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDCanAddMembersKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDSizesCanVaryKey), kCFBooleanTrue);
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDRemovalAllowedKey), CFSTR(kAppleRAIDRemovalAnyMember));
+	CFDictionaryReplaceValue(setProps, CFSTR(kAppleRAIDSetContentHintKey), CFSTR(kAppleRAIDNoMediaExport));
     }
     
-    return setInfo;
+    return setProps;
 }
 
 bool
-AppleRAIDModifySet(CFMutableDictionaryRef setInfo, CFStringRef key, void * value)
+AppleRAIDModifySet(CFMutableDictionaryRef setProps, CFStringRef key, void * value)
 {
-    // XXX add some simple sanity checks?
-    // like the key needs to be an existing key
-    // value needs to be of the same CF type
+    CFStringRef errorString;
 
-    // if live, changing the chunksize means we have to change chunk count
+//  AppleRAIDDefaultSetPropForKey(raidType, key);
     
-    CFDictionarySetValue(setInfo, key, value);
+    CFMutableDictionaryRef defaultSetProps = (CFMutableDictionaryRef)IOCFUnserialize(defaultCreateSetBuffer, kCFAllocatorDefault, 0, &errorString);
+    if (!defaultSetProps) {
+	CFIndex	bufferSize = CFStringGetLength(errorString);
+	bufferSize = CFStringGetMaximumSizeForEncoding(bufferSize, kCFStringEncodingUTF8) + 1;
+	char *buffer = malloc(bufferSize);
+	if (!buffer || !CFStringGetCString(errorString, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	    goto error;
+	}
+
+	IOLog1("AppleRAIDModifySet - failed while parsing create set template file, error: %s\n", buffer);
+	CFRelease(errorString);
+	goto error;
+    }
+
+    const void * defaultValue = CFDictionaryGetValue(defaultSetProps, key);
+    if (!defaultValue) goto error;
+
+    if (CFGetTypeID(defaultValue) != CFGetTypeID(value)) goto error;
+
+    // XXX if live, changing the chunksize means we have to change chunk count
+    
+    CFDictionarySetValue(setProps, key, value);
+
+    CFRelease(defaultSetProps);
 
     return true;
+
+error:
+    if (defaultSetProps) CFRelease(defaultSetProps);
+    return false;
 }
 
 // ***************************************************************************************************
@@ -598,97 +972,8 @@ AppleRAIDModifySet(CFMutableDictionaryRef setInfo, CFStringRef key, void * value
 // 
 // ***************************************************************************************************
 
-struct memberInfo {
-    CFStringRef diskNameCF;
-    io_name_t	diskName;
-    io_name_t	wholeDiskName;
-    unsigned int partitionNumber;
-    io_name_t	regName;
-    UInt64	size;
-    UInt64	blockSize;
-    UInt64	chunkCount;
-    UInt64	chunkSize;
-    UInt64	headerOffset;
-    bool	isWhole;
-    bool	isRAID;
-    CFStringRef uuidString;
-};
-typedef struct memberInfo memberInfo_t;
-
-static memberInfo_t *
-getMemberInfo(CFStringRef partitionName)
-{
-    // sigh...
-    CFIndex diskNameSize = CFStringGetLength(partitionName);
-    diskNameSize = CFStringGetMaximumSizeForEncoding(diskNameSize, kCFStringEncodingUTF8) + 1;
-    char *diskName = malloc(diskNameSize);
-    if (!CFStringGetCString(partitionName, diskName, diskNameSize, kCFStringEncodingUTF8)) return NULL;
-    
-    io_registry_entry_t obj = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, diskName));
-    if (!obj){
-        IOLog1("AppleRAIDLib - getMemberInfo: IOServiceGetMatchingService failed for %s\n", diskName);
-	return NULL;
-    }
-
-    memberInfo_t * mi = calloc(1, sizeof(memberInfo_t));
-
-    mi->diskNameCF = partitionName;
-    CFRetain(partitionName);
-
-    strncpy(mi->diskName, diskName, sizeof(io_name_t));
-
-    IORegistryEntryGetName(obj, mi->regName);
-
-    CFMutableDictionaryRef properties = NULL;
-    IOReturn result = IORegistryEntryCreateCFProperties (obj, &properties, kCFAllocatorDefault, kNilOptions);
-
-    if (!result && properties) {
-
-	CFNumberRef number;
-
-	number = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaSizeKey));
-	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &mi->size);
-
-	number = (CFNumberRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaPreferredBlockSizeKey));
-	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &mi->blockSize);
-
-	mi->isWhole = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaWholeKey)) == kCFBooleanTrue;
-
-	mi->isRAID = (CFBooleanRef)CFDictionaryGetValue(properties, CFSTR(kAppleRAIDIsRAIDKey)) == kCFBooleanTrue;
-
-#define kIOMediaUUIDKey "UUID"
-	mi->uuidString = (CFStringRef)CFDictionaryGetValue(properties, CFSTR(kIOMediaUUIDKey));
-	if (mi->uuidString) CFRetain(mi->uuidString);
-
-	strcpy(mi->wholeDiskName, mi->diskName);
-
-	if (!mi->isWhole) {
-	    char * c = mi->wholeDiskName + 4;				// skip over disk
-	    while (*c != 's' && *c++);					// look for 's'
-	    if (*c == 's') {
-		*c = 0;							// clip off remainder
-		sscanf(c+1, "%u", &mi->partitionNumber);		// get partition number
-	    }
-	}
-
-    } else {
-	free(mi);
-	return NULL;
-    }
-
-    return mi;
-}
-
-static void
-freeMemberInfo(memberInfo_t * m)
-{
-    if (m->diskNameCF) CFRelease(m->diskNameCF);
-    if (m->uuidString) CFRelease(m->uuidString);
-    free(m);
-}
-
 AppleRAIDMemberRef
-AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CFStringRef memberType)
+AppleRAIDAddMember(CFMutableDictionaryRef setProps, CFStringRef partitionName, CFStringRef memberType)
 {
     memberInfo_t * memberInfo = getMemberInfo(partitionName);
     if (!memberInfo) return NULL;
@@ -698,7 +983,7 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
 
     // make sure we support this operation
     UInt32 version;
-    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDHeaderVersionKey));
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDHeaderVersionKey));
     if (!number || !CFNumberGetValue(number, kCFNumberSInt32Type, &version) || version < 0x00020000) {
 	printf("AppleRAID: This operation is not supported on earlier RAID set revisions.\n");
 	return NULL;
@@ -718,12 +1003,12 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
     freeMemberInfo(memberInfo);
     if (!uuidString) return NULL;
 
-    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, memberType);
+    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setProps, memberType);
     if (!uuidArray) return NULL;
     // make sure that uuidArray is resizable
     uuidArray = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, uuidArray);
     if (!uuidArray) return NULL;
-    CFDictionarySetValue(setInfo, memberType, uuidArray);
+    CFDictionarySetValue(setProps, memberType, uuidArray);
 
     CFStringRef pathArrayName = 0;
     if (CFStringCompare(memberType, CFSTR(kAppleRAIDMembersKey), 0) == kCFCompareEqualTo) {
@@ -734,10 +1019,10 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
     }
     if (!pathArrayName) return NULL;
 
-    CFMutableArrayRef pathArray = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, pathArrayName);
+    CFMutableArrayRef pathArray = (CFMutableArrayRef)CFDictionaryGetValue(setProps, pathArrayName);
     if (!pathArray) {
 	pathArray = (CFMutableArrayRef)CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-	if (pathArray) CFDictionarySetValue(setInfo, pathArrayName, pathArray);
+	if (pathArray) CFDictionarySetValue(setProps, pathArrayName, pathArray);
     }
     if (!pathArray) return NULL;
 
@@ -748,10 +1033,10 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
 
     // enable autorebuild if the set is not degraded and we are adding a spare
     if (CFStringCompare(memberType, CFSTR(kAppleRAIDSparesKey), 0) == kCFCompareEqualTo) {
-	CFMutableStringRef status = (CFMutableStringRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDStatusKey));
+	CFMutableStringRef status = (CFMutableStringRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDStatusKey));
 	if (status) {
 	    if (CFStringCompare(status, CFSTR(kAppleRAIDStatusOnline), 0) == kCFCompareEqualTo) {
-		AppleRAIDModifySet(setInfo, CFSTR(kAppleRAIDSetAutoRebuildKey), (void *)kCFBooleanTrue);
+		AppleRAIDModifySet(setProps, CFSTR(kAppleRAIDSetAutoRebuildKey), (void *)kCFBooleanTrue);
 	    }
 	}
     }
@@ -768,22 +1053,23 @@ AppleRAIDAddMember(CFMutableDictionaryRef setInfo, CFStringRef partitionName, CF
 #include <sys/fcntl.h>
 
 static bool
-writeHeader(CFMutableDictionaryRef setInfo, memberInfo_t * memberInfo)
+writeHeader(CFMutableDictionaryRef memberProps, memberInfo_t * memberInfo)
 {
     AppleRAIDHeaderV2 * header = calloc(1, kAppleRAIDHeaderSize);
     if (!header) return false;
 
-    strncpy(header->raidSignature, kAppleRAIDSignature, 16);
+    strlcpy(header->raidSignature, kAppleRAIDSignature, sizeof(header->raidSignature));
     CFStringRef string;
-    string = (CFStringRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSetUUIDKey));
+    string = (CFStringRef)CFDictionaryGetValue(memberProps, CFSTR(kAppleRAIDSetUUIDKey));
     if (string) CFStringGetCString(string, header->raidUUID, 64, kCFStringEncodingUTF8);
-    string = (CFStringRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDMemberUUIDKey));
+    string = (CFStringRef)CFDictionaryGetValue(memberProps, CFSTR(kAppleRAIDMemberUUIDKey));
     if (string) CFStringGetCString(string, header->memberUUID, 64, kCFStringEncodingUTF8);
 
     header->size = memberInfo->chunkCount * memberInfo->chunkSize;
+    ByteSwapHeaderV2(header);
 
     // strip any internal keys from header dictionary before writing to disk
-    CFMutableDictionaryRef headerInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, setInfo);
+    CFMutableDictionaryRef headerInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, memberProps);
     if (!headerInfo) return false;
     CFIndex propCount = CFDictionaryGetCount(headerInfo);
     if (!propCount) return false;
@@ -796,78 +1082,320 @@ writeHeader(CFMutableDictionaryRef setInfo, memberInfo_t * memberInfo)
 	    CFDictionaryRemoveValue(headerInfo, keys[i]);
 	}
     }
+    CFDictionaryRemoveValue(headerInfo, CFSTR(kAppleRAIDSetQuickRebuildKey));	// redundant
+    CFDictionaryRemoveValue(headerInfo, CFSTR(kAppleRAIDLVGExtentsKey));	// redundant
+    CFDictionaryRemoveValue(headerInfo, CFSTR(kAppleRAIDLVGVolumeCountKey));	// redundant
+    CFDictionaryRemoveValue(headerInfo, CFSTR(kAppleRAIDLVGFreeSpaceKey));	// redundant
 
     CFDataRef setData = IOCFSerialize(headerInfo, kNilOptions);
     if (!setData) {
-	IOLog1("AppleRAIDLib - serialize on setInfo failed\n");
+	IOLog1("AppleRAIDLib - serialize on memberProps failed\n");
 	return false;
     }
     bcopy(CFDataGetBytePtr(setData), header->plist, CFDataGetLength(setData));
     CFRelease(headerInfo);
     CFRelease(setData);
 
-    char devicePath[256];
-    sprintf(devicePath, "/dev/%s", memberInfo->diskName);
-
-    int fd = open(devicePath, O_RDWR, 0);
+    int fd = open(memberInfo->devicePath, O_RDWR, 0);
     if (fd < 0) return false;
 	
-    IOLog1("writeHeader %s, header offset = %llu.\n", devicePath, memberInfo->headerOffset);
+    IOLog1("writeHeader %s, header offset = %llu.\n", memberInfo->devicePath, memberInfo->headerOffset);
     
     off_t seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-    if (seek != memberInfo->headerOffset) return false;
+    if (seek != memberInfo->headerOffset) goto ioerror;
 
     int length = write(fd, header, kAppleRAIDHeaderSize);
-	
+    if (length < kAppleRAIDHeaderSize) goto ioerror;
+    
     close(fd);
-
     free(header);
-	
-    if (length < kAppleRAIDHeaderSize) return false;
-
     return true;
+
+ioerror:
+    close(fd);
+    free(header);
+    return false;
 }
 
 static CFDataRef
 readHeader(memberInfo_t * memberInfo)
 {
-    AppleRAIDHeaderV2 * header = calloc(1, kAppleRAIDHeaderSize);
-    if (!header) return NULL;
+    CFDataRef headerData = NULL;
 
-    char devicePath[256];
-    sprintf(devicePath, "/dev/%s", memberInfo->diskName);
-
-    int fd = open(devicePath, O_RDONLY, 0);
+    int fd = open(memberInfo->devicePath, O_RDONLY, 0);
     if (fd < 0) return NULL;
 	
-    memberInfo->headerOffset = ARHEADER_OFFSET(memberInfo->size);
+    AppleRAIDHeaderV2 * header = calloc(1, kAppleRAIDHeaderSize);
+    if (!header) goto error;
 
-//    IOLog1("readHeader %s, header offset = %llu.\n", devicePath, memberInfo->headerOffset);
+//    IOLog1("readHeader %s, header offset = %llu.\n", memberInfo->devicePath, memberInfo->headerOffset);
     
     off_t seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-    if (seek != memberInfo->headerOffset) return NULL;
+    if (seek != memberInfo->headerOffset) goto error;
 
     int length = read(fd, header, kAppleRAIDHeaderSize);
-	
-    close(fd);
-	
-    if (length < kAppleRAIDHeaderSize) return NULL;
-    if (strncmp(header->raidSignature, kAppleRAIDSignature, 16)) return NULL;
+    if (length < kAppleRAIDHeaderSize) goto error;
 
-    CFDataRef headerData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)header, kAppleRAIDHeaderSize);
-    free(header);
+    if (!strncmp(header->raidSignature, kAppleRAIDSignature, sizeof(header->raidSignature))) {
+	 headerData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)header, kAppleRAIDHeaderSize);
+    }
+
+error:
+    close(fd);
+    if (header) free(header);
     
     return headerData;
 }
 
-static bool
-updateLiveSet(CFMutableDictionaryRef setInfo)    
+static AppleRAIDPrimaryOnDisk *
+initPrimaryMetaDataForMirror(memberInfo_t * memberInfo)
 {
-    CFStringRef setUUIDString = CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSetUUIDKey));
+    if (!memberInfo->primaryMetaDataSize) return false;
+
+    void * bitmap = calloc(1, memberInfo->primaryMetaDataSize);
+    if (!bitmap) return NULL;
+
+    // setup bitmap using extents
+    AppleRAIDPrimaryOnDisk * map = bitmap;
+    strlcpy(map->priMagic, kAppleRAIDPrimaryMagic, sizeof(map->priMagic));
+    map->priSize = memberInfo->primaryMetaDataSize;
+    map->priType = kAppleRAIDPrimaryExtents;
+    map->priSequenceNumber = 0;  // set by caller
+    map->pri.extentCount = 1;
+    map->priUsed = sizeof(AppleRAIDPrimaryOnDisk);
+
+    AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)(map + 1);
+    extent->extentByteOffset = 0;
+    extent->extentByteCount = memberInfo->chunkCount * memberInfo->chunkSize;
+    map->priUsed += sizeof(AppleRAIDExtentOnDisk);
+
+    memberInfo->primaryData = bitmap;
+	    
+    return bitmap;
+}
+
+static AppleRAIDPrimaryOnDisk *
+initPrimaryMetaDataForLVG(memberInfo_t * memberInfo)
+{
+    if (!memberInfo->primaryMetaDataSize) return false;
+
+    void * primary = calloc(1, memberInfo->primaryMetaDataSize);
+    if (!primary) return NULL;
+
+    // setup primary header for LVG
+    AppleRAIDPrimaryOnDisk * header = primary;
+    strlcpy(header->priMagic, kAppleRAIDPrimaryMagic, sizeof(header->priMagic));
+    header->priSize = memberInfo->primaryMetaDataSize;
+    header->priType = kAppleRAIDPrimaryLVG;
+    header->priSequenceNumber = 0;  // set by caller
+    header->pri.volumeCount = 0;
+
+    header->priUsed = sizeof(AppleRAIDPrimaryOnDisk);
+
+    memberInfo->primaryData = primary;
+
+    return primary;
+}
+
+static CFMutableDictionaryRef initLogicalVolumeProps(CFStringRef lvgUUIDString, CFStringRef volumeType, UInt64 size,
+						     CFStringRef location, CFNumberRef sequenceNumber, CFDataRef extentData);
+static AppleLVMVolumeOnDisk * buildLVMetaDataBlock(CFMutableDictionaryRef lvProps, CFDataRef extentData);
+
+static void *
+initSecondaryMetaDataForLVG(memberInfo_t * memberInfo, CFMutableDictionaryRef setProps)
+{
+    CFMutableDictionaryRef lvProps = 0;
+    AppleLVMVolumeOnDisk * lvData = 0;
+    void * secondary = 0;
+    
+    if (!memberInfo->secondaryMetaDataSize || !setProps) return NULL;
+
+    CFStringRef lvgUUIDString = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSetUUIDKey));
+    if (!lvgUUIDString) return NULL;
+    const void * sequenceProp = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSequenceNumberKey));
+    if (!sequenceProp) return NULL;
+    CFStringRef volumeType = CFSTR(kAppleLVMVolumeTypeMaster);
+    UInt64 volumeSize =  memberInfo->secondaryMetaDataSize;
+
+    // the first logical volume is used to hold the logical volume
+    // entries on its disk, since the lvg needs to be up before you
+    // can add a logical volume it is special.  it needs to
+    // work when disks are missing so it is relative to the member
+    // instead of the logical volume group.  it is not listed in
+    // the TOC but assumed to be the first entry in secondary
+    // metadata area of the disk
+
+    AppleRAIDExtentOnDisk extent;
+    extent.extentByteOffset = memberInfo->chunkCount * memberInfo->chunkSize - memberInfo->secondaryMetaDataSize;
+    extent.extentByteCount = memberInfo->secondaryMetaDataSize;
+
+    CFDataRef extentData = CFDataCreate(kCFAllocatorDefault, (const UInt8 *)&extent, sizeof(AppleRAIDExtentOnDisk));
+    if (!extentData) goto error;
+    
+    lvProps = initLogicalVolumeProps(lvgUUIDString, volumeType, volumeSize, CFSTR("meta"), sequenceProp, extentData);
+    if (!lvProps) goto error;
+    lvData = buildLVMetaDataBlock(lvProps, extentData);
+    if (!lvData) goto error;
+
+    secondary = calloc(1, memberInfo->secondaryMetaDataSize);
+    if (!secondary) goto error;
+
+    bcopy(lvData, secondary, lvData->lvHeaderSize);
+
+    if (lvProps) CFRelease(lvProps);
+    if (lvData) free(lvData);
+    if (extentData) CFRelease(extentData);
+
+    memberInfo->secondaryData = secondary;
+    
+    return secondary;
+
+error:    
+    if (lvProps) CFRelease(lvProps);
+    if (lvData) free(lvData);
+    if (extentData) CFRelease(extentData);
+    if (secondary) free(secondary);
+
+    return NULL;
+}
+
+static bool
+writePrimaryMetaData(memberInfo_t * memberInfo)
+{
+    if (!memberInfo->primaryData) return false;
+    if (!memberInfo->primaryMetaDataSize) return false;
+
+#if defined(__LITTLE_ENDIAN__)
+    AppleRAIDPrimaryOnDisk * header = memberInfo->primaryData;
+    if (header->priType == kAppleRAIDPrimaryExtents) {
+	int i;
+	AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)(header + 1);	    
+	for (i=0; i < header->pri.extentCount; i++) {
+	    ByteSwapExtent(extent + i);
+	}
+    }
+    ByteSwapPrimaryHeader(header);
+#endif    
+
+    int fd = open(memberInfo->devicePath, O_RDWR, 0);
+    if (fd < 0) return false;
+	
+    off_t metaDataOffset = memberInfo->chunkCount * memberInfo->chunkSize;
+
+    IOLog1("writePrimary %s, meta data offset = %llu.\n", memberInfo->devicePath, metaDataOffset);
+
+    off_t seek = lseek(fd, metaDataOffset, SEEK_SET);
+    if (seek != metaDataOffset) goto error;
+
+    int length = write(fd, memberInfo->primaryData, memberInfo->primaryMetaDataSize);
+
+    if (length < memberInfo->primaryMetaDataSize) goto error;
+    
+    close(fd);
+    return true;
+
+error:
+    close(fd);
+    return false;
+}
+
+#if 0
+static AppleRAIDPrimaryOnDisk *
+readPrimaryMetaData(memberInfo_t * memberInfo)
+{
+    UInt64 primaryOffset = memberInfo->chunkSize * memberInfo->chunkCount;
+    UInt64 primarySize = memberInfo->primaryMetaDataSize;
+
+    if (memberInfo->primaryData) free(memberInfo->primaryData);
+    memberInfo->primaryData = NULL;
+
+    AppleRAIDPrimaryOnDisk * primary = calloc(1, primarySize);
+    if (!primary) return NULL;
+
+    int fd = open(memberInfo->devicePath, O_RDONLY, 0);
+    if (fd < 0) return NULL;
+	
+    IOLog1("readPrimary %s, offset = %llu, size = %llu.\n", memberInfo->devicePath, primaryOffset, primarySize);
+
+    off_t seek = lseek(fd, primaryOffset, SEEK_SET);
+    if (seek != primaryOffset) goto error;
+
+    int length = read(fd, primary, primarySize);
+	
+    if (length < primarySize) goto error;
+
+    if (!strncmp(primary->priMagic, kAppleRAIDPrimaryMagic, sizeof(primary->priMagic))) {
+	memberInfo->primaryData = primary;
+    } else {
+	IOLog1("readPrimary, found bad magic on %s.\n", memberInfo->devicePath);
+    }
+
+error:
+    close(fd);
+    
+#if defined(__LITTLE_ENDIAN__)
+    AppleRAIDPrimaryOnDisk * header = memberInfo->primaryData;
+    ByteSwapPrimaryHeader(header);
+    if (header->priType == kAppleRAIDPrimaryExtents) {
+	int i;
+	AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)(header + 1);	    
+	for (i=0; i < header->pri.extentCount; i++) {
+	    ByteSwapExtent(extent + i);
+	}
+    }
+#endif
+    
+    return memberInfo->primaryData;
+}
+#endif
+
+// XXX instead of allocating a huge chunk of a memory and zeroing, the code
+// could write a smaller chunk over and over same for primary data
+
+static bool
+writeSecondaryMetaData(memberInfo_t * memberInfo)
+{
+    if (!memberInfo->secondaryData) return false;
+    if (!memberInfo->secondaryMetaDataSize) return false;
+
+    AppleLVMVolumeOnDisk * header = memberInfo->secondaryData;
+    AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)((char *)header + header->lvExtentsStart);
+    // since this can only be called when creating a LVG, we know there is only one extent we need to swap
+    assert(header->lvExtentsCount == 1);
+    ByteSwapExtent(extent);
+    ByteSwapLVMVolumeHeader(header);
+    
+    int fd = open(memberInfo->devicePath, O_RDWR, 0);
+    if (fd < 0) return false;
+	
+    off_t metaDataOffset = memberInfo->chunkCount * memberInfo->chunkSize - memberInfo->secondaryMetaDataSize;
+
+    IOLog1("writeSecondary %s, meta data offset = %llu, size = %llu.\n",
+	   memberInfo->devicePath, metaDataOffset, memberInfo->secondaryMetaDataSize);
+
+    off_t seek = lseek(fd, metaDataOffset, SEEK_SET);
+    if (seek != metaDataOffset) goto error;
+
+    int length = write(fd, memberInfo->secondaryData, memberInfo->secondaryMetaDataSize);
+
+    if (length < memberInfo->secondaryMetaDataSize) goto error;
+    
+    close(fd);
+    return true;
+
+error:
+    close(fd);
+    return false;
+}
+
+static bool
+updateLiveSet(CFMutableDictionaryRef setProps)
+{
+    CFStringRef setUUIDString = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSetUUIDKey));
 
     // strip out any properties that haven't changed
     CFMutableDictionaryRef currentSet = AppleRAIDGetSetProperties(setUUIDString);
-    CFMutableDictionaryRef updatedInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, setInfo);
+    CFMutableDictionaryRef updatedInfo = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, setProps);
     if (!updatedInfo) return false;
 
     CFIndex propCount = CFDictionaryGetCount(updatedInfo);
@@ -896,7 +1424,7 @@ updateLiveSet(CFMutableDictionaryRef setInfo)
     CFDictionarySetValue(updatedInfo, CFSTR(kAppleRAIDSetUUIDKey), setUUIDString);
 
     // put the sequence number back in (in case the set changed underneath us)
-    const void * seqNum = CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSequenceNumberKey));
+    const void * seqNum = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSequenceNumberKey));
     if (!seqNum) return false;
     CFDictionarySetValue(updatedInfo, CFSTR(kAppleRAIDSequenceNumberKey), seqNum);
 
@@ -915,30 +1443,31 @@ updateLiveSet(CFMutableDictionaryRef setInfo)
 	
     kern_return_t 	kr;
     char *		buffer = (char *)CFDataGetBytePtr(setData);
-    CFIndex		bufferSize = CFDataGetLength(setData);
+    size_t		bufferSize = CFDataGetLength(setData);
     char		updateData[0x1000];
-    IOByteCount		updateDataSize = sizeof(updateData);
+    size_t		updateDataSize = sizeof(updateData);
 
     if (!buffer) return false;
 
     IOLog1("update set changes = %s\n", buffer);
 
-    kr = IOConnectMethodStructureIStructureO(raidControllerPort,	// an io_connect_t returned from IOServiceOpen().
-					     kAppleRAIDUpdateSet,	// an index to the function in the Kernel.
-					     bufferSize,		// the size of the input struct paramter.
-					     &updateDataSize,		// a pointer to the size of the output struct parameter.
-					     buffer,			// a pointer to the input struct parameter.
-					     updateData);		// a pointer to the output struct parameter.
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleRAIDUpdateSet,		// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   updateData,			// output
+				   &updateDataSize);		// output size (in/out)
     
     if (kr != KERN_SUCCESS) {
 	IOLog1("AppleRAID - updateLiveSet failed with %x calling client.\n", kr);
+	AppleRAIDCloseConnection();
 	return false;
     }
 
     // get back the updated sequence number
     seqNum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, (UInt32 *)updateData);
     if (!seqNum) return false;
-    CFDictionarySetValue(setInfo, CFSTR(kAppleRAIDSequenceNumberKey), seqNum);
+    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDSequenceNumberKey), seqNum);
 
     CFRelease(setData);
     CFRelease(updatedInfo);
@@ -951,18 +1480,25 @@ updateLiveSet(CFMutableDictionaryRef setInfo)
 // for each member initalize the following member specific values
 //	kAppleRAIDMemberTypeKey - spare or member
 //	kAppleRAIDMemberUUIDKey 
-//	kAppleRAIDMemberIndexKey - index in set  (zero for spare)
+//	kAppleRAIDMemberIndexKey - index in set  (9999 for spare)
 //	kAppleRAIDChunkCountKey - size of this member
 	
 static bool
-createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
+createNewMembers(CFMutableDictionaryRef setProps, memberInfo_t ** memberInfo,
 		 CFIndex memberCount, CFIndex spareCount,
 		 CFIndex newMemberCount, CFIndex newSpareCount) 
 {
     if (!memberInfo) return false;
+
+    CFStringRef raidType = (CFStringRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDLevelNameKey));
+    bool isLVG = CFEqual(raidType, CFSTR(kAppleRAIDLevelNameLVG));
+    bool isMirror = CFEqual(raidType, CFSTR(kAppleRAIDLevelNameMirror));
 	
     UInt32 i;
     for (i = 0; i < newMemberCount + newSpareCount; i++) {
+
+	// whole raw disks are not supported
+	if ((memberInfo[i]->isWhole) && (!memberInfo[i]->isRAID)) return false;
 
 	CFStringRef typeString= 0, uuidString = 0;
 	CFNumberRef index = 0, count = 0;
@@ -973,7 +1509,7 @@ createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
 	    UInt32 memberIndex = i + memberCount;
 	    index = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &memberIndex);
 		
-	    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDMembersKey));
+	    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDMembersKey));
 	    if (!uuidArray) return false;
 	    uuidString = (CFStringRef)CFArrayGetValueAtIndex(uuidArray, memberIndex);
 
@@ -981,10 +1517,10 @@ createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
 
 	    typeString = CFSTR(kAppleRAIDSparesKey);
 		
-	    UInt32 spareIndex = 9999;
+	    UInt32 spareIndex = kAppleRAIDDummySpareIndex;
 	    index = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &spareIndex);
 
-	    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSparesKey));
+	    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSparesKey));
 	    if (!uuidArray) return false;
 	    spareIndex = i - newMemberCount + spareCount;
 	    uuidString = (CFStringRef)CFArrayGetValueAtIndex(uuidArray, spareIndex);
@@ -993,10 +1529,10 @@ createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
 	count = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &memberInfo[i]->chunkCount);
 
 	if (typeString && index && uuidString && count) {
-	    CFDictionarySetValue(setInfo, CFSTR(kAppleRAIDMemberTypeKey), typeString);
-	    CFDictionarySetValue(setInfo, CFSTR(kAppleRAIDMemberIndexKey), index);
-	    CFDictionarySetValue(setInfo, CFSTR(kAppleRAIDMemberUUIDKey), uuidString);
-	    CFDictionarySetValue(setInfo, CFSTR(kAppleRAIDChunkCountKey), count);
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDMemberTypeKey), typeString);
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDMemberIndexKey), index);
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDMemberUUIDKey), uuidString);
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDChunkCountKey), count);
 
 	    CFRelease(index);
 	    CFRelease(count);
@@ -1004,26 +1540,68 @@ createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
 	    return false;
 	}
 
-	// whole raw disks are not supported
-	if ((memberInfo[i]->isWhole) && (!memberInfo[i]->isRAID)) return false;
+	if (memberInfo[i]->primaryMetaDataSize) {
+	    // layout the primary meta data
+	    AppleRAIDPrimaryOnDisk * primary = NULL;
+	    if (isLVG)    primary = initPrimaryMetaDataForLVG(memberInfo[i]);
+	    if (isMirror) primary = initPrimaryMetaDataForMirror(memberInfo[i]);
+	    if (!primary) {
+		IOLog1("AppleRAIDUpdateSet - failed to create the primary metadata for partition \"%s\"\n", memberInfo[i]->diskName);
+		return false;
+	    }
+
+	    // update the sequence number
+	    const void * number = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSequenceNumberKey));
+	    if (!number) return false;
+	    if (!CFNumberGetValue(number, kCFNumberSInt32Type, &primary->priSequenceNumber)) return false;
+
+	    // set the amount used in the in the raid header
+	    UInt64 usedSize = memberInfo[i]->primaryData->priUsed;
+	    CFNumberRef meta1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &usedSize);
+	    if (!meta1) return false;
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDPrimaryMetaDataUsedKey), meta1);
+	    CFRelease(meta1);
+	}
+
+	if (memberInfo[i]->secondaryMetaDataSize) {
+	    void * secondary = NULL;
+	    if (isLVG) secondary = initSecondaryMetaDataForLVG(memberInfo[i], setProps);
+	    if (!secondary) {
+		IOLog1("AppleRAIDUpdateSet - failed to create the secondary metadata for partition \"%s\"\n", memberInfo[i]->diskName);
+		return false;
+	    }
+
+	    CFNumberRef meta2 = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &memberInfo[i]->secondaryMetaDataSize);
+	    if (!meta2) return false;
+	    CFDictionarySetValue(setProps, CFSTR(kAppleRAIDSecondaryMetaDataSizeKey), meta2);
+	    CFRelease(meta2);
+	}
 
 	CFStringRef partitionName = CFStringCreateWithCString(kCFAllocatorDefault, memberInfo[i]->diskName, kCFStringEncodingUTF8);
 	if (!partitionName) return false;
 	bool success = AppleRAIDRemoveHeaders(partitionName);
 	if (!success) {
-	    IOLog1("there was a problem erasing the raid headers on partition \"%s\"\n", memberInfo[i]->diskName);
+	    IOLog1("AppleRAIDUpdateSet - there was a problem erasing the raid headers on partition \"%s\"\n", memberInfo[i]->diskName);
 	    return false;
 	}
 	CFRelease(partitionName);
 
-	if (!writeHeader(setInfo, memberInfo[i])) {
+	if (memberInfo[i]->secondaryMetaDataSize && !writeSecondaryMetaData(memberInfo[i])) {
+	    IOLog1("AppleRAIDUpdateSet - failed while writing secondary metadata to partition \"%s\"\n", memberInfo[i]->diskName);
+	    return false;
+	}
+
+	if (memberInfo[i]->primaryMetaDataSize && !writePrimaryMetaData(memberInfo[i])) {
+	    IOLog1("AppleRAIDUpdateSet - failed while writing primary metadata to partition \"%s\"\n", memberInfo[i]->diskName);
+	    return false;
+	}
+
+	if (!writeHeader(setProps, memberInfo[i])) {
 	    IOLog1("AppleRAIDUpdateSet - failed while writing RAID header to partition \"%s\"\n", memberInfo[i]->diskName);
 	    return false;
 	}
 
-	// if this stacked raid set we need to
-	//   - force set to read the new headers 
-	//   - reset the intermediate iomedia nubs (dead danglers)
+	//  if this is a stacked set then force the set to read the new headers 
 	if (memberInfo[i]->isRAID) {
 
 	    CFMutableDictionaryRef updateInfo = CFDictionaryCreateMutable(kCFAllocatorDefault,
@@ -1048,11 +1626,12 @@ createNewMembers(CFMutableDictionaryRef setInfo, memberInfo_t ** memberInfo,
     return true;
 }
 
+static UInt64 calculateBitMapSize(UInt64 partitionSize, UInt64 chunkSize, UInt64 * remainingBytes);
 
 AppleRAIDSetRef
-AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
+AppleRAIDUpdateSet(CFMutableDictionaryRef setProps)
 {
-    CFStringRef setUUIDString = CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSetUUIDKey));
+    CFStringRef setUUIDString = CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSetUUIDKey));
     CFRetain(setUUIDString);
     memberInfo_t ** memberInfo = 0;
 
@@ -1064,31 +1643,31 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
     CFIndex memberCount = 0, spareCount = 0;
     CFIndex newMemberCount = 0, newSpareCount = 0;
     
-    CFMutableArrayRef newMemberNames = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR("_member names_"));
+    CFMutableArrayRef newMemberNames = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR("_member names_"));
     if (newMemberNames) {
 	CFRetain(newMemberNames);
-	CFDictionaryRemoveValue(setInfo, CFSTR("_member names_"));
+	CFDictionaryRemoveValue(setProps, CFSTR("_member names_"));
 	newMemberCount = CFArrayGetCount(newMemberNames);
     }
 
-    CFMutableArrayRef newSpareNames = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR("_spare names_"));
+    CFMutableArrayRef newSpareNames = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR("_spare names_"));
     if (newSpareNames) {
 	CFRetain(newSpareNames);
-	CFDictionaryRemoveValue(setInfo, CFSTR("_spare names_"));
+	CFDictionaryRemoveValue(setProps, CFSTR("_spare names_"));
 	newSpareCount = CFArrayGetCount(newSpareNames);
     }
 
 
     // if the raid set has status it is "live", get it's current member/spare counts
-    bool liveSet = CFDictionaryContainsKey(setInfo, CFSTR(kAppleRAIDStatusKey));  // this only works once
+    bool liveSet = CFDictionaryContainsKey(setProps, CFSTR(kAppleRAIDStatusKey));  // this only works once
     if (liveSet) {
-	CFDictionaryRemoveValue(setInfo, CFSTR(kAppleRAIDStatusKey));
+	CFDictionaryRemoveValue(setProps, CFSTR(kAppleRAIDStatusKey));
 
-	CFMutableArrayRef tempMembers = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDMembersKey));
+	CFMutableArrayRef tempMembers = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDMembersKey));
 	if (tempMembers) {
 	    memberCount = CFArrayGetCount(tempMembers) - newMemberCount;
 	}
-	CFMutableArrayRef tempSpares = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSparesKey));
+	CFMutableArrayRef tempSpares = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSparesKey));
 	if (tempSpares) {
 	    spareCount = CFArrayGetCount(tempSpares) - newSpareCount;
 	}
@@ -1122,29 +1701,47 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
 	if (newMemberNames) CFRelease(newMemberNames);
 	if (newSpareNames) CFRelease(newSpareNames);
 
-	bool sizesCanVary = (CFBooleanRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSizesCanVaryKey)) == kCFBooleanTrue;
+	bool sizesCanVary = (CFBooleanRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSizesCanVaryKey)) == kCFBooleanTrue;
+	bool quickRebuild = (CFBooleanRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSetQuickRebuildKey)) == kCFBooleanTrue;
+	CFStringRef raidType = (CFStringRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDLevelNameKey));
+	bool isLVG = CFEqual(raidType, CFSTR(kAppleRAIDLevelNameLVG));
+
+	UInt64 metaDataSize = 0;
+	if (quickRebuild) {
+	    if (liveSet) {
+		// XXX this is the used size, not whole size
+		CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDPrimaryMetaDataUsedKey));
+		if (!number || !CFNumberGetValue(number, kCFNumberSInt64Type, &metaDataSize) || !metaDataSize) {
+		    printf("AppleRAID: Failed to find the size of the mirror quick rebuild bitmap.\n");
+		    return NULL;
+		}
+	    }
+	}
+
+	// determine each partition's chunk count
+	UInt64 chunkSize = 0;
+	CFNumberRef number;
+	number = (CFNumberRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDChunkSizeKey));
+	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkSize);
+	if (!chunkSize) return NULL;
 
 	// find the smallest member (or spare)
 	UInt64 smallestSize = 0;
 	if (liveSet) {
 	    // calculate the minimum required size for a member partition in this set
-	    UInt64 chunkSize = 0, chunkCount = 0;
+	    UInt64 chunkCount = 0;
 	    CFNumberRef number;
-	    number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkSizeKey));
-	    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkSize);
-
-	    number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkCountKey));
+	    number = (CFNumberRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDChunkCountKey));
 	    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkCount);
 
-	    if (!chunkSize || !chunkCount) return NULL;
+	    if (!chunkCount) return NULL;
 
-	    smallestSize = chunkCount * chunkSize + (UInt64)kAppleRAIDHeaderSize;
+	    smallestSize = chunkCount * chunkSize + metaDataSize + (UInt64)kAppleRAIDHeaderSize;
 	} else {
 	    smallestSize = memberInfo[0]->size;
 	}
 	if (!sizesCanVary) {
 	    for (i = 0; i < newMemberCount + newSpareCount; i++) {
-		// XXX if smaller than minimum raid set size  (1MB ?)
 		if (liveSet) {
 		    if (memberInfo[i]->size < smallestSize) {
 			IOLog1("AppleRAIDUpdateSet() new member is too small to add to set.\n");
@@ -1157,21 +1754,30 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
 	    IOLog1("smallest member size %lld\n", smallestSize);
 	}
 
-	// determine each partition's chunk count
-	UInt64 chunkSize = 0;
-	CFNumberRef number;
-	number = (CFNumberRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDChunkSizeKey));
-	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &chunkSize);
-	if (!chunkSize) return NULL;
+	//  if quick rebuilding then factor in the required meta data size
+	if (quickRebuild && !metaDataSize) {
 
+	    metaDataSize = calculateBitMapSize(smallestSize, chunkSize, NULL);
+	    IOLog1("quick rebuild bit map size = %lld @ offset %lld\n", metaDataSize,
+		   (ARHEADER_OFFSET(smallestSize) - metaDataSize) / chunkSize);
+	}
+
+	if (isLVG) metaDataSize = 0x100000;  // XXXTOC start with a meg
+    
 	for (i = 0; i < newMemberCount + newSpareCount; i++) {
-	    memberInfo[i]->headerOffset = ARHEADER_OFFSET(memberInfo[i]->size);
-	    if (sizesCanVary) {
-		memberInfo[i]->chunkCount = ARCHUNK_COUNT(memberInfo[i]->size, chunkSize);
-	    } else {
-		memberInfo[i]->chunkCount = ARCHUNK_COUNT(smallestSize, chunkSize);
-	    }
+
 	    memberInfo[i]->chunkSize = chunkSize;
+	    memberInfo[i]->primaryMetaDataSize = metaDataSize;
+
+	    // XXXTOC start with 4 megs which gives us 1024 min size volumes entries
+	    // should be able calculate a better size based on the member size
+	    if (isLVG) memberInfo[i]->secondaryMetaDataSize = 0x400000;
+	    
+	    if (sizesCanVary) {
+		memberInfo[i]->chunkCount = (memberInfo[i]->headerOffset - metaDataSize) / chunkSize;
+	    } else {
+		memberInfo[i]->chunkCount = (ARHEADER_OFFSET(smallestSize) - metaDataSize) / chunkSize;
+	    }
 	}
     }
 
@@ -1179,15 +1785,14 @@ AppleRAIDUpdateSet(CFMutableDictionaryRef setInfo)
     // add give the set a chance to reject anything it does not like
 
     if (liveSet) {
-	if (!updateLiveSet(setInfo)) return NULL;
+	if (!updateLiveSet(setProps)) return NULL;
     }
 
     // write out headers on new members/spares
 	
     if (newSpareCount || newMemberCount) {
-	if (!createNewMembers(setInfo, memberInfo,
-			      memberCount, spareCount,
-			      newMemberCount, newSpareCount)) return NULL;
+	if (!createNewMembers(setProps, memberInfo, memberCount,
+			      spareCount, newMemberCount, newSpareCount)) return NULL;
     }
 
     if (newSpareCount || newMemberCount) {
@@ -1218,30 +1823,27 @@ AppleRAIDRemoveHeaders(CFStringRef partitionName)
     AppleRAIDHeaderV2 * header = calloc(1, kAppleRAIDHeaderSize);
     if (!header) return false;
 
-    char devicePath[256];
-    sprintf(devicePath, "/dev/%s", memberInfo->diskName);
-
-    int fd = open(devicePath, O_RDWR, 0);
+    int fd = open(memberInfo->devicePath, O_RDWR, 0);
     if (fd < 0) return false;
 
     // look for v1 style header
-    memberInfo->headerOffset = 0;
+    UInt64 headerOffset = 0;
     {
-	IOLog2("AppleRAIDRemoveHeaders %s, scaning header offset = %llu.\n", devicePath, memberInfo->headerOffset);
+	IOLog2("AppleRAIDRemoveHeaders %s, scaning header offset = %llu.\n", memberInfo->devicePath, headerOffset);
     
-	off_t seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-	if (seek != memberInfo->headerOffset) return false;
+	off_t seek = lseek(fd, headerOffset, SEEK_SET);
+	if (seek != headerOffset) return false;
 
 	int length = read(fd, header, kAppleRAIDHeaderSize);
 	if (length < kAppleRAIDHeaderSize) return false;
 
-	if (!strncmp(header->raidSignature, kAppleRAIDSignature, 16)) {
-	    IOLog1("AppleRAIDRemoveHeaders %s, found header at offset = %llu.\n", devicePath, memberInfo->headerOffset);
+	if (!strncmp(header->raidSignature, kAppleRAIDSignature, sizeof(header->raidSignature))) {
+	    IOLog1("AppleRAIDRemoveHeaders %s, found ARv1 header at offset = %llu.\n", memberInfo->devicePath, headerOffset);
 
 	    bzero(header, kAppleRAIDHeaderSize);
 
-	    seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-	    if (seek != memberInfo->headerOffset) return false;
+	    seek = lseek(fd, headerOffset, SEEK_SET);
+	    if (seek != headerOffset) return false;
 	    
 	    length = write(fd, header, kAppleRAIDHeaderSize);
 	    if (length < kAppleRAIDHeaderSize) return false;
@@ -1249,51 +1851,61 @@ AppleRAIDRemoveHeaders(CFStringRef partitionName)
     }
 
     // scan for nested headers
-    memberInfo->headerOffset = ARHEADER_OFFSET(memberInfo->size);
+    headerOffset = ARHEADER_OFFSET(memberInfo->size);
     int count = 5;
-    while (memberInfo->headerOffset && count) {
-	IOLog2("AppleRAIDRemoveHeaders %s, scanning header offset = %llu.\n", devicePath, memberInfo->headerOffset);
+    while (headerOffset && count) {
+	IOLog2("AppleRAIDRemoveHeaders %s, scanning header offset = %llu.\n", memberInfo->devicePath, headerOffset);
     
-	off_t seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-	if (seek != memberInfo->headerOffset) return false;
+	off_t seek = lseek(fd, headerOffset, SEEK_SET);
+	if (seek != headerOffset) break;
 
 	int length = read(fd, header, kAppleRAIDHeaderSize);
-	if (length < kAppleRAIDHeaderSize) return false;
+	if (length < kAppleRAIDHeaderSize) break;
 
-	if (!strncmp(header->raidSignature, kAppleRAIDSignature, 16)) {
-	    IOLog1("AppleRAIDRemoveHeaders %s, found header at offset = %llu.\n", devicePath, memberInfo->headerOffset);
+	ByteSwapHeaderV2(header);
+	
+	if (!strncmp(header->raidSignature, kAppleRAIDSignature, sizeof(header->raidSignature))) {
+	    IOLog1("AppleRAIDRemoveHeaders %s, found ARv2 header at offset = %llu.\n", memberInfo->devicePath, headerOffset);
 
-	    UInt64 nextOffset = header->size;
+	    UInt64 memberSize = header->size;
 
 	    bzero(header, kAppleRAIDHeaderSize);
 
-	    seek = lseek(fd, memberInfo->headerOffset, SEEK_SET);
-	    if (seek != memberInfo->headerOffset) return false;
+	    seek = lseek(fd, headerOffset, SEEK_SET);
+	    if (seek != headerOffset) break;
 	    
 	    length = write(fd, header, kAppleRAIDHeaderSize);
-	    if (length < kAppleRAIDHeaderSize) return false;
+	    if (length < kAppleRAIDHeaderSize) break;
 
-	    memberInfo->headerOffset = ARHEADER_OFFSET(nextOffset);
+	    headerOffset = (memberSize < headerOffset) ? ARHEADER_OFFSET(memberSize) : 0;
 
 	} else {
 
-	    memberInfo->headerOffset = 0;
+	    headerOffset = 0;
 	}
 	count--;
     }
 	
     close(fd);
-    free(memberInfo);
+    freeMemberInfo(memberInfo);
 
-    return true;
+    return headerOffset == 0;
 }
 
 
 bool
-AppleRAIDRemoveMember(CFMutableDictionaryRef setInfo, AppleRAIDMemberRef member)
+AppleRAIDRemoveMember(CFMutableDictionaryRef setProps, AppleRAIDMemberRef member)
 {
+    // make sure we support this operation
+    UInt32 version;
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDHeaderVersionKey));
+    if (!number || !CFNumberGetValue(number, kCFNumberSInt32Type, &version) || version < 0x00020000) {
+	printf("AppleRAID: This operation is not supported on earlier RAID set revisions.\n");
+	return NULL;
+    }
+
     // find the member or spare
-    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDMembersKey));
+    CFMutableArrayRef uuidArray = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDMembersKey));
     CFMutableArrayRef uuidArray2 = 0;
     if (!uuidArray) return NULL;
     CFIndex count = 0;
@@ -1312,7 +1924,7 @@ again:
 
     // same for spares array
     if (!uuidArray2) {
-	uuidArray2 = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSparesKey));
+	uuidArray2 = (CFMutableArrayRef)CFDictionaryGetValue(setProps, CFSTR(kAppleRAIDSparesKey));
 	if (uuidArray2 && CFArrayGetCount(uuidArray2)) {
 	    uuidArray = uuidArray2;
 	    goto again;
@@ -1326,72 +1938,269 @@ again:
 bool
 AppleRAIDDestroySet(AppleRAIDSetRef setName)
 {
-    CFMutableDictionaryRef setInfo = AppleRAIDGetSetProperties(setName);
-    if (!setInfo) return false;
-
-    // find the members/spares in the this set
-    CFMutableArrayRef members = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDMembersKey));
-    CFIndex memberCount = members ? CFArrayGetCount(members) : 0;
-    CFMutableArrayRef spares = (CFMutableArrayRef)CFDictionaryGetValue(setInfo, CFSTR(kAppleRAIDSparesKey));
-    CFIndex spareCount = spares ? CFArrayGetCount(spares) : 0;
-
-    UInt32 memberInfoCount = 0;
-    memberInfo_t ** memberInfo = calloc(memberCount + spareCount, sizeof(memberInfo_t *));
-    
-    bool twice = false;
-    CFIndex i;
- 
-getMoreMembers:
-    
-    for (i=0; i < memberCount; i++) {
-	CFStringRef memberName = (CFStringRef)CFArrayGetValueAtIndex(members, i);
-	if (memberName) {
-	    CFMutableDictionaryRef memberProps = AppleRAIDGetMemberProperties(memberName);	
-	    if (memberProps) {
-		CFStringRef partitionName = (CFStringRef)CFDictionaryGetValue(memberProps, CFSTR(kIOBSDNameKey));
-		if (partitionName) {
-
-		    memberInfo_t * info = getMemberInfo(partitionName);
-		    if (info) {
-			memberInfo[memberInfoCount++] = info;
-		    } else {
-			IOLog1("AppleRAIDDestroySet - getMemberInfo failed for %s.\n", info->diskName);
-		    }
-		}
-		CFRelease(memberProps);
-	    }
-	}
-    }
-
-    if (!twice) {
-	twice = true;
-	members = spares;
-	memberCount = spareCount;
-	goto getMoreMembers;
-    }
+    CFMutableDictionaryRef setProps = AppleRAIDGetSetProperties(setName);
+    if (!setProps) return false;
 
     UInt32 subCommand = kAppleRAIDUpdateDestroySet;
     CFNumberRef destroySubCommand = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &subCommand);
-    CFDictionarySetValue(setInfo, CFSTR("_update command_"), destroySubCommand);
+    CFDictionarySetValue(setProps, CFSTR("_update command_"), destroySubCommand);
 
-    if (!updateLiveSet(setInfo)) return false;
+    if (!updateLiveSet(setProps)) return false;
 
-    CFRelease(setInfo);
-
-    // clean up
-    for (i=0; i < memberInfoCount; i++) {
-	freeMemberInfo(memberInfo[i]);
-    }
+    CFRelease(setProps);
 
     return true;
 }
 
 
-UInt64 AppleRAIDGetUsableSize(UInt64 partitionSize, UInt64 chunkSize)
-{
-    UInt64 chunkCount = ARCHUNK_COUNT(partitionSize, chunkSize);
+#define kAppleRAIDMinBitMapBytesPerBit	(512 * 1024)		// min bytes allowed to be represented by one bit
+#define kAppleRAIDMaxBitMapBytesPerBit	(32 * 1024 * 1024) 	// max bytes allowed to be represented by one bit
 
-    return chunkCount * chunkSize;
+#define kAppleRAIDBitMapPageSize	(4 * 1024)		// the "offical" raid page size
+#define kAppleRAIDMinBitMapSize		(32 * 4 * 1024)		// 128k
+
+// the largest bitmap for a 0x10000000000000000 volume is 4GB
+
+// if remainingBytes is set, we are trying to fit the bitmap into the partition, the bitmap covers the data section of the partition.
+// if remainingBytes is not set, we are trying to find the size of a bitmap to cover the whole partition.
+// in either case this function returns the size of the bitmap
+
+// XXX this code is too agressive in bumping the number of bytes per bit
+
+static UInt64 calculateBitMapSize(UInt64 partitionSize, UInt64 chunkSize, UInt64 * remainingBytes)
+{
+    UInt64 bytesPerBit = kAppleRAIDMinBitMapBytesPerBit;
+    UInt64 bitMapSize = kAppleRAIDMinBitMapSize;
+    UInt64 bitsNeeded;
+
+    // adjust bytes per bit until we have a reasonable sized bitmap
+
+    if (remainingBytes) {
+
+	UInt64 availableBytes = ARHEADER_OFFSET(partitionSize) - sizeof(AppleRAIDPrimaryOnDisk);
+	bitsNeeded = (availableBytes - bitMapSize) / bytesPerBit;
+	bitsNeeded += (availableBytes - bitMapSize) % bytesPerBit ? 1 : 0;
+	while (bitsNeeded > (bitMapSize * 8)) {
+
+	    bytesPerBit *= 2;
+	    if (bytesPerBit > kAppleRAIDMaxBitMapBytesPerBit) {
+		bytesPerBit = kAppleRAIDMinBitMapBytesPerBit;
+		bitMapSize += kAppleRAIDMinBitMapSize;
+	    }
+	    bitsNeeded = (availableBytes - bitMapSize) / bytesPerBit;
+	    bitsNeeded += (availableBytes - bitMapSize) % bytesPerBit ? 1 : 0;
+	}
+
+	*remainingBytes = (availableBytes - bitMapSize) / chunkSize * chunkSize;
+
+    } else {
+
+	bitsNeeded = partitionSize / bytesPerBit;
+	bitsNeeded += partitionSize % bytesPerBit ? 1 : 0;
+	while (bitsNeeded > (bitMapSize * 8)) {
+
+	    bytesPerBit *= 2;
+	    if (bytesPerBit > kAppleRAIDMaxBitMapBytesPerBit) {
+		bytesPerBit = kAppleRAIDMinBitMapBytesPerBit;
+		bitMapSize += kAppleRAIDMinBitMapSize;
+	    }
+	    bitsNeeded = partitionSize / bytesPerBit;
+	    bitsNeeded += partitionSize % bytesPerBit ? 1 : 0;
+	}
+    }
+
+    return bitMapSize;
+}
+
+static AppleRAIDExtentOnDisk *
+allocateExtent(AppleRAIDExtentOnDisk * firstExtent,  UInt64 lvgExtentCount, UInt64 size, CFStringRef location, UInt64 * extentCount)
+{
+
+    // XXXTOC need to look at location
+
+    *extentCount = 0;
+    AppleRAIDExtentOnDisk dummyExtent = {0, 0};
+
+    AppleRAIDExtentOnDisk * newExtents = malloc(sizeof(AppleRAIDExtentOnDisk));
+    if (!newExtents) return NULL;
+
+    while (size) {
+	
+	AppleRAIDExtentOnDisk * prevExtent = &dummyExtent;
+	AppleRAIDExtentOnDisk * nextExtent = firstExtent;
+	AppleRAIDExtentOnDisk * prevLargestExtent = 0;
+	AppleRAIDExtentOnDisk * nextLargestExtent = 0;
+	UInt64 gap = 0;
+	UInt64 largestGap = 0;
+	
+	// there should always be an ending extent for the metadata
+	while (nextExtent < firstExtent + lvgExtentCount) {
+
+	    gap = nextExtent->extentByteOffset - (prevExtent->extentByteOffset + prevExtent->extentByteCount);
+
+	    // IOLog1("  existing extent at %lld, size %lld\n", prevExtent->extentByteOffset, prevExtent->extentByteCount);
+
+	    if (gap >= size) break;
+
+	    if (gap > largestGap) {
+		largestGap = gap;
+		prevLargestExtent = prevExtent;
+		nextLargestExtent = nextExtent;
+	    }
+	
+	    prevExtent = nextExtent;
+	    nextExtent++;
+	}
+
+	if (largestGap && gap < size) {
+	    prevExtent = prevLargestExtent;
+	    nextExtent = nextLargestExtent;
+	    gap = nextExtent->extentByteOffset - (prevExtent->extentByteOffset + prevExtent->extentByteCount);
+	    IOLog1("largest extent found is %lld, wanted %lld\n", gap, size);
+	}
+
+	if (!gap) {
+	    free(newExtents);
+	    return NULL;
+	}
+
+	if (gap) {
+
+	    if (*extentCount) {
+		newExtents = reallocf(newExtents, sizeof(AppleRAIDExtentOnDisk) * (*extentCount + 1));
+		if (!newExtents) return NULL;
+	    }
+
+	    newExtents[*extentCount].extentByteOffset = prevExtent->extentByteOffset + prevExtent->extentByteCount;
+	    newExtents[*extentCount].extentByteCount = MIN(gap, size);
+
+	    IOLog1("Allocated new extent at %lld, size %lld\n", newExtents[*extentCount].extentByteOffset, newExtents[*extentCount].extentByteCount);
+
+	    prevExtent->extentByteCount += MIN(gap, size);  // this does not stick if it is the dummy extent (which is ok if we call this last)
+	    
+	    *extentCount += 1;
+	    size -= MIN(gap, size);
+	}
+    }
+
+    if (!size) return newExtents;
+
+    free(newExtents);
+    return NULL;
+}
+
+
+static UInt64 growLastExtent(CFMutableDataRef extentData, AppleRAIDExtentOnDisk * lvgExtentList, UInt64 lvgExtentCount, UInt64 newSize)
+{
+    CFIndex extentDataSize = CFDataGetLength(extentData);
+    CFIndex index = 0;
+    UInt64 volumeSize = 0;
+    CFRange range;
+    AppleRAIDExtentOnDisk foo, * extent = &foo;
+
+    // find volume's last extent & recalculate it's size
+
+    while (index < extentDataSize) {
+
+	range = CFRangeMake(index, sizeof(AppleRAIDExtentOnDisk));
+	CFDataGetBytes(extentData, range, (void *)extent);
+
+	volumeSize += extent->extentByteCount;
+
+	index += sizeof(AppleRAIDExtentOnDisk);
+    }
+    UInt64 volumeEnd = extent->extentByteOffset + extent->extentByteCount;
+
+    UInt64 bytesNeeded = newSize - volumeSize;
+    
+    // find a gap in the used lvg extents that starts at the volume's end
+    // XXX this should use a binary search
+    
+    AppleRAIDExtentOnDisk * lvgExtent;
+    index = 0;
+    UInt64 gapStart = 0;
+    UInt64 gapSize;
+    while (gapStart <= volumeEnd && index < (lvgExtentCount - 1)) {
+
+	lvgExtent = lvgExtentList + index;
+	
+	gapStart = lvgExtent->extentByteOffset + lvgExtent->extentByteCount;
+	gapSize = (lvgExtent + 1)->extentByteOffset - gapStart;
+
+	// found something!
+	if (gapStart == volumeEnd && gapSize) {
+
+	    UInt64 bytesAvailable = MIN(bytesNeeded, gapSize);
+	    extent->extentByteCount += bytesAvailable;
+	    lvgExtent->extentByteCount += bytesAvailable;  // in case we reuse list later
+	    CFDataReplaceBytes(extentData, range, (void *)extent, sizeof(AppleRAIDExtentOnDisk));
+
+	    return volumeSize + bytesAvailable;
+	}
+
+	index++;
+    }
+
+    return 0;
+}
+	
+
+static UInt64 truncateExtents(CFMutableDataRef extentData, UInt64 newSize)
+{
+    CFIndex extentDataSize = CFDataGetLength(extentData);
+    CFIndex index = 0;
+    UInt64 extentEnd = 0;
+    CFRange range;
+    AppleRAIDExtentOnDisk foo, * extent = &foo;
+	
+    while (index < extentDataSize) {
+
+	range = CFRangeMake(index, sizeof(AppleRAIDExtentOnDisk));
+	CFDataGetBytes(extentData, range, (void *)extent);
+
+	extentEnd += extent->extentByteCount;
+
+	if (newSize <= extentEnd) {		// found it
+	    
+	    extent->extentByteCount -= extentEnd - newSize;
+	    CFDataReplaceBytes(extentData, range, (void *)extent, sizeof(AppleRAIDExtentOnDisk));
+	    CFDataSetLength(extentData, index + sizeof(AppleRAIDExtentOnDisk));
+
+	    return CFDataGetLength(extentData) / sizeof(AppleRAIDExtentOnDisk);  // the new extent count
+	}
+	
+	index += sizeof(AppleRAIDExtentOnDisk);
+    }
+    
+    // should never get here
+    return 0;
+}
+
+
+UInt64 AppleRAIDGetUsableSize(UInt64 partitionSize, UInt64 chunkSize, UInt32 options)
+{
+    UInt64 usable = 0;
+
+    if (!chunkSize) {
+	IOLog1("AppleRAIDGetUseableSize: zero chunkSize?\n"); 
+	return 0;
+    }
+
+    switch (options) {
+
+    case kAppleRAIDUsableSizeOptionNone:
+	usable = ARHEADER_OFFSET(partitionSize) / chunkSize * chunkSize;
+	break;
+
+    case kAppleRAIDUsableSizeOptionQuickRebuild:
+	(void)calculateBitMapSize(partitionSize, chunkSize, &usable);
+	break;
+
+    default:
+	break;
+    }
+
+    return usable;
 }
 
 
@@ -1406,4 +2215,731 @@ AppleRAIDDumpHeader(CFStringRef partitionName)
     freeMemberInfo(memberInfo);
 
     return data;
+}
+
+
+// ***************************************************************************************************
+//
+// LVM interfaces
+// 
+// ***************************************************************************************************
+
+CFMutableArrayRef
+AppleLVMGetVolumesForGroup(AppleRAIDSetRef setRef, AppleRAIDMemberRef member)
+{
+    kern_return_t 	kr;
+    size_t		propSize = kMaxIOConnectTransferSize;  // XXX buffer size?  use kAppleRAIDLVGVolumeCountKey
+    CFMutableArrayRef	volumes = NULL;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize * 2;
+    char		buffer[bufferSize];
+
+    if (!CFStringGetCString(setRef, buffer, kAppleRAIDMaxUUIDStringSize, kCFStringEncodingUTF8)) {
+	IOLog1("AppleLVMGetVolumesForGroup() CFStringGetCString failed on set ref?\n");
+	return NULL;
+    }
+
+    if (member) {
+	if (!CFStringGetCString(member, &buffer[kAppleRAIDMaxUUIDStringSize], kAppleRAIDMaxUUIDStringSize, kCFStringEncodingUTF8)) {
+	    IOLog1("AppleLVMGetVolumesForGroup() CFStringGetCString failed on member ref?\n");
+	    return NULL;
+	}
+    } else {
+	buffer[kAppleRAIDMaxUUIDStringSize] = 0;
+    }
+
+    io_connect_t raidControllerPort = AppleRAIDOpenConnection();
+    if (!raidControllerPort) return NULL;
+    
+    char * propString = (char *)malloc(propSize);
+
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleLVMGetVolumesForGroup,	// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   propString,			// output
+				   &propSize);			// output size (in/out)
+
+    if (kr == KERN_SUCCESS) {
+        IOLog2("AppleLVMGetVolumesForGroup was successful.\n");
+        IOLog2("size = %d, prop = %s\n", (int)propSize, (char *)propString);
+
+	volumes = (CFMutableArrayRef)IOCFUnserialize(propString, kCFAllocatorDefault, 0, NULL);
+    } else {
+        IOLog1("AppleLVMGetVolumesForGroup failed with 0x%x.\n", kr);
+    }
+
+    free(propString);
+
+    AppleRAIDCloseConnection();
+    
+    return volumes;
+}
+
+
+CFMutableDictionaryRef
+AppleLVMGetVolumeProperties(AppleLVMVolumeRef volRef)
+{
+    kern_return_t 	kr;
+    size_t		propSize = kMaxIOConnectTransferSize;
+    CFMutableDictionaryRef props = NULL;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize;
+    char		buffer[bufferSize];
+
+    if (!CFStringGetCString(volRef, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	IOLog1("AppleLVMGetVolumeProperties() CFStringGetCString failed?\n");
+	return NULL;
+    }
+
+    io_connect_t raidControllerPort = AppleRAIDOpenConnection();
+    if (!raidControllerPort) return NULL;
+    
+    char * propString = (char *)malloc(propSize);
+
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleLVMGetVolumeProperties,// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   propString,			// output
+				   &propSize);			// output size (in/out)
+
+    if (kr == KERN_SUCCESS) {
+        IOLog2("AppleLVMGetVolumeProperties was successful.\n");
+        IOLog2("size = %d, prop = %s\n", (int)propSize, (char *)propString);
+
+	props = (CFMutableDictionaryRef)IOCFUnserialize(propString, kCFAllocatorDefault, 0, NULL);
+    }
+
+    free(propString);
+
+    AppleRAIDCloseConnection();
+    
+    return props;
+}
+
+static AppleRAIDExtentOnDisk *
+getVolumeExtents(AppleLVMVolumeRef volRef, UInt64 * extentCount)
+{
+    kern_return_t 	kr;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize;
+    char		buffer[bufferSize];
+    size_t		extentSize = kMaxIOConnectTransferSize;
+    AppleRAIDExtentOnDisk * extents = NULL;
+
+    if (!extentCount || !*extentCount) return NULL;
+
+    if (!CFStringGetCString(volRef, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	IOLog1("AppleLVMGetVolumeExtents() CFStringGetCString failed?\n");
+	return NULL;
+    }
+
+    if (*extentCount * sizeof(AppleRAIDExtentOnDisk) > extentSize) return NULL;  // XXX buffer size
+
+    io_connect_t raidControllerPort = AppleRAIDOpenConnection();
+    if (!raidControllerPort) return NULL;
+    
+    AppleRAIDExtentOnDisk * extentsBuffer = (AppleRAIDExtentOnDisk *)malloc(extentSize);
+
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleLVMGetVolumeExtents,	// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   extentsBuffer,		// output
+				   &extentSize);		// output size (in/out)
+
+    if (kr == KERN_SUCCESS) {
+        IOLog2("AppleLVMGetVolumeExtents was successful.\n");
+        IOLog2("size = %d, extent = %s\n", (int)extentSize, (char *)extentString);
+
+	extents = extentsBuffer;
+	*extentCount = extentSize / sizeof(AppleRAIDExtentOnDisk);
+    } else {
+        IOLog2("AppleLVMGetVolumeExtents failed.\n");
+	free(extentsBuffer);
+    }
+
+    // XXX check for buffer too small error (first size is zero)
+
+    AppleRAIDCloseConnection();
+    
+    return extents;
+}
+
+
+CFDataRef AppleLVMGetVolumeExtents(AppleLVMVolumeRef volRef)
+{
+    UInt64 extentCount = kMaxIOConnectTransferSize / sizeof(AppleRAIDExtentOnDisk);
+
+    AppleRAIDExtentOnDisk * extentList = getVolumeExtents(volRef, &extentCount);
+    if (!extentList) return NULL;
+
+    if (extentList->extentByteCount == 0) {
+	// retry with larger buffer
+	extentCount = extentList->extentByteOffset;
+	extentList = getVolumeExtents(volRef, &extentCount);
+    }
+    if (!extentList) return NULL;
+
+    CFDataRef extentData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)extentList,
+						       extentCount * sizeof(AppleRAIDExtentOnDisk), kCFAllocatorMalloc);
+    return extentData;
+}
+
+static const char *lvDescriptionBuffer =
+" <array> \n"
+    "<dict> \n"
+	"<key>" kAppleLVMVolumeTypeKey "</key>"		"<string>" kAppleLVMVolumeTypeConcat "</string> \n"
+    "</dict> \n"
+    "<dict> \n"
+	"<key>" kAppleLVMVolumeTypeKey "</key>"		"<string>" kAppleLVMVolumeTypeSnapRO "</string> \n"
+    "</dict> \n"
+    "<dict> \n"
+	"<key>" kAppleLVMVolumeTypeKey "</key>"		"<string>" kAppleLVMVolumeTypeSnapRW "</string> \n"
+    "</dict> \n"
+" </array> \n";
+
+CFMutableArrayRef AppleLVMGetVolumeDescription(void)
+{
+    CFStringRef errorString;
+
+    CFMutableArrayRef lvDescription = (CFMutableArrayRef)IOCFUnserialize(lvDescriptionBuffer, kCFAllocatorDefault, 0, &errorString);
+    if (!lvDescription) {
+	CFIndex	bufferSize = CFStringGetLength(errorString);
+	bufferSize = CFStringGetMaximumSizeForEncoding(bufferSize, kCFStringEncodingUTF8) + 1;
+	char *buffer = malloc(bufferSize);
+	if (!buffer || !CFStringGetCString(errorString, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	    return NULL;
+	}
+
+	IOLog1("AppleLVMGetVolumeDescription - failed while parsing raid definition file, error: %s\n", buffer);
+	CFRelease(errorString);
+	return NULL;
+    }
+
+    return lvDescription;
+}
+
+static const char *defaultCreateLVBuffer =
+" <dict> \n"
+    "<key>" kAppleLVMVolumeVersionKey "</key>"		"<integer size=\"32\">0x00030000</integer> \n"
+    "<key>" kAppleLVMGroupUUIDKey "</key>"		"<string>internal error</string> \n"
+    "<key>" kAppleLVMVolumeUUIDKey "</key>"		"<string>internal error</string> \n"
+    "<key>" kAppleLVMVolumeSequenceKey "</key>"		"<integer size=\"32\">0</integer> \n"
+    "<key>" kAppleLVMVolumeSizeKey "</key>"		"<integer size=\"64\">0x00000000</integer> \n"
+    "<key>" kAppleLVMVolumeExtentCountKey "</key>"	"<integer size=\"64\">0x00000001</integer> \n"
+    "<key>" kAppleLVMVolumeTypeKey "</key>"		"<string>internal error</string> \n"
+    "<key>" kAppleLVMVolumeLocationKey "</key>"		"<string/> \n"
+    "<key>" kAppleLVMVolumeContentHintKey "</key>"	"<string/> \n"
+    "<key>" kAppleLVMVolumeNameKey "</key>"		"<string/> \n"
+" </dict> \n";
+
+static CFMutableDictionaryRef
+initLogicalVolumeProps(CFStringRef lvgUUIDString, CFStringRef volumeType, UInt64 size, CFStringRef location,
+		       CFNumberRef sequenceNumber, CFDataRef extentData)
+{
+    CFStringRef errorString;
+    UInt64 extentCount = CFDataGetLength(extentData) / sizeof(AppleRAIDExtentOnDisk);
+    if (!extentCount) return NULL;
+
+    CFMutableDictionaryRef lvProps = (CFMutableDictionaryRef)IOCFUnserialize(defaultCreateLVBuffer, kCFAllocatorDefault, 0, &errorString);
+    if (!lvProps) {
+	CFIndex	bufferSize = CFStringGetLength(errorString);
+	bufferSize = CFStringGetMaximumSizeForEncoding(bufferSize, kCFStringEncodingUTF8) + 1;
+	char *buffer = malloc(bufferSize);
+	if (!buffer || !CFStringGetCString(errorString, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	    return NULL;
+	}
+
+	IOLog1("AppleLVMCreateVolume - failed while parsing logical volume template file, error: %s\n", buffer);
+	CFRelease(errorString);
+	return NULL;
+    }
+
+    CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+    if (!uuid) return NULL;
+    CFStringRef uuidString = CFUUIDCreateString(kCFAllocatorDefault, uuid);
+    CFRelease(uuid);
+    if (!uuidString) return NULL;
+
+    CFNumberRef sizeProp = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &size);
+    if (!sizeProp) return NULL;
+    
+    CFNumberRef countProp = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &extentCount);
+    if (!countProp) return NULL;
+    
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeUUIDKey), uuidString);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMGroupUUIDKey), lvgUUIDString);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeSequenceKey), sequenceNumber);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey), sizeProp);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeLocationKey), location);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeTypeKey), volumeType);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeExtentCountKey), countProp);
+
+    CFDictionarySetValue(lvProps, CFSTR("_extent data_"), extentData);
+
+    CFRelease(uuidString);
+    CFRelease(sizeProp);
+    CFRelease(countProp);
+
+    return lvProps;
+}
+
+
+CFMutableDictionaryRef
+AppleLVMCreateVolume(AppleRAIDSetRef setRef, CFStringRef volumeType, UInt64 volumeSize, CFStringRef volumeLocation)
+{
+    CFMutableDictionaryRef lvProps = 0;
+
+    if (!setRef || !volumeType || !volumeSize || !volumeLocation) return NULL;
+    
+    setInfo_t * lvgInfo = getSetInfo(setRef);
+    if (!lvgInfo) return NULL;
+
+    // read in the logical volume group's free space data
+    UInt64 lvgExtentCount = 0;
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(lvgInfo->setProps, CFSTR(kAppleRAIDLVGExtentsKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &lvgExtentCount);
+
+    UInt64 lvgFreeSpace = 0;
+    number = (CFNumberRef)CFDictionaryGetValue(lvgInfo->setProps, CFSTR(kAppleRAIDLVGFreeSpaceKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &lvgFreeSpace);
+
+    if (volumeSize > lvgFreeSpace) {
+	printf("AppleRAID: Insufficent free space to create requested logical volume.\n");
+	return NULL;
+    }
+
+    // Ask for the extent list
+    AppleRAIDExtentOnDisk * lvgExtentList = getVolumeExtents(setRef, &lvgExtentCount);
+    if (!lvgExtentList) goto error;
+
+    // XXXTOC use kAppleRAIDMemberStartKey to find a member's startOffset
+    // and then use that move the extentList pointer to start of that member
+    // could also use the lvg extents to calculate the free space per member
+    // to help spread out new volumes
+
+    UInt64 extentCount = 0;
+    AppleRAIDExtentOnDisk * extentList = allocateExtent(lvgExtentList, lvgExtentCount, volumeSize, volumeLocation, &extentCount);
+    if (!extentList) goto error;
+
+    CFDataRef extentData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8 *)extentList,
+						       extentCount * sizeof(AppleRAIDExtentOnDisk), kCFAllocatorMalloc);
+    if (!extentData) goto error;
+    
+    // set up disk block(s) for lv entry
+    const void * sequenceProp = CFDictionaryGetValue(lvgInfo->setProps, CFSTR(kAppleRAIDSequenceNumberKey));
+    if (!sequenceProp) goto error;
+    CFStringRef lvgUUIDString = CFDictionaryGetValue(lvgInfo->setProps, CFSTR(kAppleRAIDSetUUIDKey));
+    if (!lvgUUIDString) goto error;
+
+    lvProps = initLogicalVolumeProps(lvgUUIDString, volumeType, volumeSize, volumeLocation, sequenceProp, extentData);
+    if (!lvProps) goto error;
+
+    freeSetInfo(lvgInfo);
+
+    return lvProps;
+
+error:
+    // clean up
+    if (lvProps) CFRelease(lvProps);
+    freeSetInfo(lvgInfo);
+
+    return NULL;
+}
+
+
+bool
+AppleLVMModifyVolume(CFMutableDictionaryRef lvProps, CFStringRef key, void * value)
+{
+    CFStringRef errorString;
+
+    CFMutableDictionaryRef defaultLVProps = (CFMutableDictionaryRef)IOCFUnserialize(defaultCreateLVBuffer, kCFAllocatorDefault, 0, &errorString);
+    if (!defaultLVProps) {
+	CFIndex	bufferSize = CFStringGetLength(errorString);
+	bufferSize = CFStringGetMaximumSizeForEncoding(bufferSize, kCFStringEncodingUTF8) + 1;
+	char *buffer = malloc(bufferSize);
+	if (!buffer || !CFStringGetCString(errorString, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	    goto error;
+	}
+
+	IOLog1("AppleLVMModifyVolume - failed while parsing logical volume template file, error: %s\n", buffer);
+	CFRelease(errorString);
+	goto error;
+    }
+
+    const void * defaultValue = CFDictionaryGetValue(defaultLVProps, key);
+    if (!defaultValue) goto error;
+
+    if (CFGetTypeID(defaultValue) != CFGetTypeID(value)) goto error;
+
+    AppleRAIDSetRef lvgRef = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMGroupUUIDKey));
+    if (!lvgRef) return false;
+    CFMutableDictionaryRef lvgProps = AppleRAIDGetSetProperties(lvgRef);
+    if (!lvgProps) return false;
+    const void * sequenceNumber = CFDictionaryGetValue(lvgProps, CFSTR(kAppleRAIDSequenceNumberKey));
+    if (!sequenceNumber) return false;
+    CFDictionarySetValue(lvProps, CFSTR(kAppleLVMVolumeSequenceKey), sequenceNumber);
+    CFRelease(lvgProps);
+
+    CFDictionarySetValue(lvProps, key, value);
+
+    CFRelease(defaultLVProps);
+    
+    return true;
+
+error:
+    if (defaultLVProps) CFRelease(defaultLVProps);
+    return false;
+}
+
+static AppleLVMVolumeOnDisk *
+buildLVMetaDataBlock(CFMutableDictionaryRef lvProps, CFDataRef extentData)
+{
+    CFDataRef propData = 0;
+
+    AppleRAIDExtentOnDisk * extentList = (AppleRAIDExtentOnDisk *)CFDataGetBytePtr(extentData);
+    UInt64 extentCount = CFDataGetLength(extentData) / sizeof(AppleRAIDExtentOnDisk);
+    if (!extentCount || !extentList) return NULL;
+    
+    AppleLVMVolumeOnDisk * lvData = calloc(1, kAppleLVMVolumeOnDiskMinSize);
+    if (!lvData) return NULL;
+
+    strlcpy(lvData->lvMagic, kAppleLVMVolumeMagic, sizeof(lvData->lvMagic));
+    lvData->lvHeaderSize = kAppleLVMVolumeOnDiskMinSize;
+    lvData->lvExtentsCount = extentCount;
+
+    // strip any internal keys from the dictionary before writing to disk
+    CFMutableDictionaryRef cleanProps = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, lvProps);
+    if (!cleanProps) goto error; 
+    CFIndex propCount = CFDictionaryGetCount(cleanProps);
+    if (!propCount) goto error;
+    const void ** keys = calloc(propCount, sizeof(void *));
+    if (!keys) goto error;
+    CFDictionaryGetKeysAndValues(cleanProps, keys, NULL);
+    UInt32 i;
+    for (i = 0; i < propCount; i++) {
+	if (!CFStringHasPrefix(keys[i], CFSTR("AppleLVM-"))) {
+	    CFDictionaryRemoveValue(cleanProps, keys[i]);
+	}
+    }
+    CFDictionaryRemoveValue(cleanProps, CFSTR(kAppleLVMVolumeStatusKey));	// redundant
+
+    propData = IOCFSerialize(cleanProps, kNilOptions);
+    if (!propData) {
+	IOLog1("AppleRAIDLib - serialize on logical data props failed\n");
+	goto error;
+    }
+    bcopy(CFDataGetBytePtr(propData), lvData->plist, CFDataGetLength(propData));
+
+    IOLog1("LogicalVolumeProps = %s\n", lvData->plist);
+    
+    // start extents on multiple of sizeof(AppleRAIDExtentOnDisk) after the plist
+    UInt32 firstExtent = CFDataGetLength(propData);
+    firstExtent = firstExtent + (UInt32)((char *)lvData->plist - (char *)lvData);
+    firstExtent = firstExtent + sizeof(AppleRAIDExtentOnDisk) - 1;
+    firstExtent = firstExtent / sizeof(AppleRAIDExtentOnDisk) * sizeof(AppleRAIDExtentOnDisk);
+
+    lvData->lvExtentsStart = firstExtent;
+    AppleRAIDExtentOnDisk * extent = (AppleRAIDExtentOnDisk *)((char *)lvData + firstExtent);
+
+    // sanity check before copy
+    if (lvData->lvExtentsStart + sizeof(AppleRAIDExtentOnDisk) > lvData->lvHeaderSize) goto error;
+
+    for (i = 0; i < extentCount; i++) {
+
+	IOLog1("  %20llu - %12llu (%llu)\n",
+	       extentList->extentByteOffset,
+	       extentList->extentByteOffset + extentList->extentByteCount - 1,
+	       extentList->extentByteCount);
+
+	*extent++ = *extentList++;
+    }
+    
+    CFRelease(propData);
+    CFRelease(cleanProps);
+    
+    return lvData;
+
+error:    
+    if (lvData) free(lvData);
+    if (propData) CFRelease(propData);
+    if (cleanProps) CFRelease(cleanProps);
+    return NULL;
+}
+
+
+AppleLVMVolumeRef
+AppleLVMUpdateVolume(CFMutableDictionaryRef volProps)
+{
+    CFStringRef volRef = (CFStringRef)CFDictionaryGetValue(volProps, CFSTR(kAppleLVMVolumeUUIDKey));
+    if (!volRef) return NULL;
+
+    CFDataRef extentData = (CFDataRef)CFDictionaryGetValue(volProps, CFSTR("_extent data_"));
+    if (extentData) {
+	CFRetain(extentData);
+	CFDictionaryRemoveValue(volProps, CFSTR("_extent data_"));
+    } else {
+	extentData = AppleLVMGetVolumeExtents(volRef);
+	if (!extentData) return NULL;
+    }
+
+    AppleLVMVolumeOnDisk * lvData = buildLVMetaDataBlock(volProps, extentData);
+    if (!lvData) goto error;
+    
+    io_connect_t raidControllerPort = AppleRAIDOpenConnection();
+    if (!raidControllerPort) {
+	IOLog1("AppleLVMUpdateVolume - failed connecting to raid controller object?\n");
+	goto error;
+    }
+	
+    kern_return_t 	kr;
+    char *		buffer = (char *)lvData;
+    size_t		bufferSize = kAppleLVMVolumeOnDiskMinSize;
+    char		updateData[0x1000];
+    size_t		updateDataSize = sizeof(updateData);
+
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleLVMUpdateLogicalVolume,// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   updateData,			// output
+				   &updateDataSize);		// output size (in/out)
+    
+    AppleRAIDCloseConnection();
+
+    if (kr != KERN_SUCCESS) {
+	IOLog1("AppleLVMUpdateVolume failed with %x calling client.\n", kr);
+	goto error;
+    }
+
+    CFRelease(extentData);
+    free(lvData);
+
+    CFRetain(volRef);
+    return volRef;
+
+error:
+    if (extentData) CFRelease(extentData);
+    if (lvData) free(lvData);
+    return NULL;
+}
+
+
+bool
+AppleLVMDestroyVolume(AppleLVMVolumeRef volRef)
+{
+    kern_return_t 	kr;
+    size_t		bufferSize = kAppleRAIDMaxUUIDStringSize;
+    char		buffer[bufferSize];
+    char		returnData[0x1000];
+    size_t		returnDataSize = sizeof(returnData);
+
+    if (!CFStringGetCString(volRef, buffer, bufferSize, kCFStringEncodingUTF8)) {
+	IOLog1("AppleLVMDestroyVolume() CFStringGetCString failed?\n");
+	return NULL;
+    }
+
+    io_connect_t raidControllerPort = AppleRAIDOpenConnection();
+    if (!raidControllerPort) return NULL;
+    
+    kr = IOConnectCallStructMethod(raidControllerPort,		// an io_connect_t returned from IOServiceOpen().
+				   kAppleLVMDestroyLogicalVolume,// an index to the function in the Kernel.
+				   buffer,			// input
+				   bufferSize,			// input size
+				   returnData,			// output
+				   &returnDataSize);		// output size (in/out)
+
+    if (kr != KERN_SUCCESS) {
+	IOLog1("AppleLVMDestroyVolume failed with %x calling client.\n", kr);
+    }
+
+    AppleRAIDCloseConnection();
+    
+    return (kr == KERN_SUCCESS);
+}
+
+// Logical Volume level manipulations
+
+UInt64
+AppleLVMResizeVolume(CFMutableDictionaryRef lvProps, UInt64 newSize)
+{
+    UInt64 currentSize = 0;
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &currentSize);
+    if (!number || !currentSize) return 0;
+    if (!newSize) return currentSize;
+    if (currentSize == newSize) return 0;  // keeps us from calling update
+
+    CFStringRef volRef = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeUUIDKey));
+    if (!volRef) return 0;
+    AppleRAIDSetRef lvgRef = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMGroupUUIDKey));
+    if (!lvgRef) return false;
+    CFMutableDictionaryRef lvgProps = AppleRAIDGetSetProperties(lvgRef);
+    if (!lvgProps) return false;
+
+    if (newSize > currentSize) {
+	UInt64 freeSpace = 0;
+	number = (CFNumberRef)CFDictionaryGetValue(lvgProps, CFSTR(kAppleRAIDLVGFreeSpaceKey));
+	if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &freeSpace);
+
+	if (newSize > freeSpace) {
+	    printf("AppleRAID: Insufficent free space to resize the logical volume.\n");
+	    return 0;
+	}
+    }
+
+    CFDataRef originalExtentData;
+    originalExtentData = (CFDataRef)CFDictionaryGetValue(lvProps, CFSTR("_extent data_"));
+    if (!originalExtentData) {
+	originalExtentData = AppleLVMGetVolumeExtents(volRef);
+	if (!originalExtentData) return 0;
+	CFDictionarySetValue(lvProps, CFSTR("_extent data_"), originalExtentData);
+	CFRelease(originalExtentData);
+    }
+
+    CFMutableDataRef extentData = CFDataCreateMutableCopy(kCFAllocatorDefault, 0, originalExtentData);    
+    CFDictionarySetValue(lvProps, CFSTR("_extent data_"), extentData);
+    CFRelease(extentData);
+
+    const void * sequenceNumber = CFDictionaryGetValue(lvgProps, CFSTR(kAppleRAIDSequenceNumberKey));
+    if (!sequenceNumber) return false;
+    CFDictionarySetValue(lvProps, CFSTR(kAppleLVMVolumeSequenceKey), sequenceNumber);
+    CFRelease(lvgProps);
+
+    //
+    // truncate volume
+    //
+
+    if (newSize < currentSize) {
+
+	UInt64 newExtentCount = truncateExtents(extentData, newSize);
+	if (!newExtentCount) return 0;
+
+	// set the size and extent count properties
+	number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &newSize);
+	CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey), number);
+	number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &newExtentCount);
+	CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeExtentCountKey), number);
+	
+	return newSize;
+    }
+
+    // fetch the lvg extent lists
+
+    AppleRAIDSetRef setRef = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMGroupUUIDKey));
+    if (!setRef) return 0;
+	
+    setInfo_t * lvgInfo = getSetInfo(setRef);
+    if (!lvgInfo) return 0;
+
+    // read in the logical volume group's free space data
+    UInt64 lvgExtentCount = 0;
+    number = (CFNumberRef)CFDictionaryGetValue(lvgInfo->setProps, CFSTR(kAppleRAIDLVGExtentsKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &lvgExtentCount);
+
+    // Ask for the extent list
+    AppleRAIDExtentOnDisk * lvgExtentList = getVolumeExtents(setRef, &lvgExtentCount);
+    if (!lvgExtentList) return 0;
+
+    // and peferred allocation region
+    CFStringRef volumeLocation = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeLocationKey));
+    if (!volumeLocation) return 0;
+
+    //
+    // try to extend the current final extent
+    //
+
+    UInt64 size = growLastExtent(extentData, lvgExtentList, lvgExtentCount, newSize);
+    if (size) {
+
+	number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &newSize);
+	CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey), number);
+	
+	if (size == newSize) return newSize;
+
+	// we got something, but not enough
+	currentSize = size;
+    }
+
+    //
+    // try to allocate a new extent(s)
+    //
+
+    UInt64 extentCount = 0;
+    AppleRAIDExtentOnDisk * extentList = allocateExtent(lvgExtentList, lvgExtentCount, newSize - currentSize, volumeLocation, &extentCount);
+    if (!extentList) return 0;
+
+    CFDataAppendBytes(extentData, (const UInt8 *)extentList, extentCount * sizeof(AppleRAIDExtentOnDisk));
+    free(extentList);
+
+    number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &newSize);
+    CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey), number);
+
+    UInt64 newExtentCount = 0;
+    number = (CFNumberRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeExtentCountKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &newExtentCount);
+    newExtentCount += extentCount;
+    number = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt64Type, &newExtentCount);
+    if (number) CFDictionaryReplaceValue(lvProps, CFSTR(kAppleLVMVolumeExtentCountKey), number);
+    if (number) CFRelease(number);
+    
+    return newSize;
+}
+
+
+CFMutableDictionaryRef
+AppleLVMSnapShotVolume(CFMutableDictionaryRef lvProps, CFStringRef snapType, UInt64 snapSize)
+{
+    UInt64 lvSize = 0;
+    CFNumberRef number = (CFNumberRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeSizeKey));
+    if (number) CFNumberGetValue(number, kCFNumberSInt64Type, &lvSize);
+    if (!number || !lvSize) return NULL;
+
+    snapSize = MIN(snapSize, lvSize);
+
+    UInt64 bitmapSize = calculateBitMapSize(lvSize, 0, NULL);
+
+    CFStringRef lvgUUID = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMGroupUUIDKey));
+    if (!lvgUUID) return NULL;
+    CFStringRef lvUUID = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeUUIDKey));
+    if (!lvgUUID) return NULL;
+    CFStringRef location = (CFStringRef)CFDictionaryGetValue(lvProps, CFSTR(kAppleLVMVolumeLocationKey));
+    if (!lvgUUID) return NULL;
+
+    // this needs two logical volumes, one for data and one for bitmap/extent (how to resize?)
+
+    CFMutableDictionaryRef bitmap = AppleLVMCreateVolume(lvgUUID, CFSTR(kAppleLVMVolumeTypeBitMap), bitmapSize, CFSTR(kAppleLVMVolumeLocationFast));
+    if (!bitmap) return NULL;
+    CFDictionarySetValue(bitmap, CFSTR(kAppleLVMParentUUIDKey), lvUUID);
+    CFStringRef bitmapUUID = AppleLVMUpdateVolume(bitmap);
+    if (!bitmapUUID) return NULL;
+    
+    CFMutableDictionaryRef snap = AppleLVMCreateVolume(lvgUUID, snapType, snapSize, location);
+    if (!snap) return NULL;
+    CFDictionarySetValue(snap, CFSTR(kAppleLVMParentUUIDKey), lvUUID);
+    CFRelease(bitmap);
+
+    return snap;
+}
+
+
+bool
+AppleLVMMigrateVolume(AppleLVMVolumeRef volRef, AppleRAIDMemberRef toRef, CFStringRef volumeLocation)
+{
+    return false;
+}
+
+
+// Logical Group Member level manipulations
+
+AppleLVMVolumeRef
+AppleLVMRemoveMember(AppleLVMVolumeRef volRef, AppleRAIDMemberRef memberRef)
+{
+    return NULL;
+}
+
+
+AppleLVMVolumeRef
+AppleLVMMergeGroups(AppleRAIDSetRef setRef, AppleRAIDSetRef donorSetRef)
+{
+    return NULL;
 }

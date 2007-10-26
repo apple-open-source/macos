@@ -1,5 +1,4 @@
-.\"	$NetBSD: pwd.1,v 1.12 1997/09/14 08:51:38 lukem Exp $
-.\"
+.\"-
 .\" Copyright (c) 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -14,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -35,49 +30,74 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)pwd.1	8.2 (Berkeley) 4/28/95
+.\" $FreeBSD: src/bin/pwd/pwd.1,v 1.26 2005/01/16 16:41:58 ru Exp $
 .\"
-.Dd November 2, 1998
+.Dd April 12, 2003
 .Dt PWD 1
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm pwd
 .Nd return working directory name
 .Sh SYNOPSIS
 .Nm
-.Op Fl LP
+.Op Fl L | P
 .Sh DESCRIPTION
-.Nm
-writes the absolute pathname of the current working directory to
-the standard output.
-.Pp
 The
 .Nm
-utility exits 0 on success, and >0 if an error occurs.
+utility writes the absolute pathname of the current working directory to
+the standard output.
 .Pp
-The following options are available:
+Some shells may provide a builtin
+.Nm
+command which is similar or identical to this utility.
+Consult the
+.Xr builtin 1
+manual page.
+.Pp
+The options are as follows:
 .Bl -tag -width indent
 .It Fl L
-Print the logical path to the current working directory, as defined
-by the shell in the environment variable PWD.
+Display the logical current working directory.
 .It Fl P
-Print the physical path to the current working directory, with symbolic
-links in the path resolved. This is the default.
+Display the physical current working directory (all symbolic links resolved).
 .El
+.Pp
+If no options are specified, the
+.\" 4207130
+.Fl L
+option is assumed.
+.Sh ENVIRONMENT
+Environment variables used by
+.Nm :
+.Bl -tag -width ".Ev PWD"
+.It Ev PWD
+Logical current working directory.
+.El
+.Sh EXIT STATUS
+.Ex -std
+.Sh SEE ALSO
+.Xr builtin 1 ,
+.Xr cd 1 ,
+.Xr csh 1 ,
+.Xr sh 1 ,
+.Xr getcwd 3
 .Sh STANDARDS
 The
 .Nm
-utility is expected to be
-.St -p1003.2
-compatible.
-.Sh SEE ALSO
-.Xr cd 1 ,
-.Xr csh 1 ,
-.Xr getcwd 3
+utility conforms to
+.St -p1003.1-2001 .
 .Sh BUGS
 In
 .Xr csh 1
 the command
 .Ic dirs
-is always faster (although it can give a different answer in the rare case
+is always faster because it is built into that shell.
+However, it can give a different answer in the rare case
 that the current directory or a containing directory was moved after
-the shell descended into it).
+the shell descended into it.
+.Pp
+The
+.Fl L
+option does not work unless the
+.Ev PWD
+environment variable is exported by the shell.

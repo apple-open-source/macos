@@ -1,8 +1,9 @@
 /* machine description file for Sun's 386-based RoadRunner.  This file borrows heavily from
-  "sun2.h", but since that file is heavily cpu-specific, it was easier
-  not to include it.
+   "sun2.h", but since that file is heavily cpu-specific, it was easier
+   not to include it.
 
-   Copyright (C) 1988 Free Software Foundation, Inc.
+   Copyright (C) 1988, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -18,10 +19,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -47,7 +48,7 @@ NOTE-END  */
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
 
-/* Underscores are not prepended to C symbols on this machine.  */ 
+/* Underscores are not prepended to C symbols on this machine.  */
 #undef LDAV_SYMBOL
 #define LDAV_SYMBOL "avenrun"
 
@@ -80,3 +81,6 @@ NOTE-END  */
    on the 386 needs this.  */
 #define LIBS_MACHINE -lkvm
 #endif
+
+/* arch-tag: 861af4b4-ce5f-475e-876e-ebff6436a1fe
+   (do not change this comment) */

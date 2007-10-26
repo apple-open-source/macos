@@ -30,7 +30,6 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
 
@@ -198,12 +197,17 @@ void IOFWAsyncStreamCommand::gotAck(int ackCode)
 
 IOReturn IOFWAsyncStreamCommand::execute()
 {
-    IOReturn result;
+    IOReturn result = kIOReturnBadArgument;
     
     fStatus = kIOReturnBusy;
 
-	result = fControl->asyncStreamWrite(fGeneration,
-		fSpeed, fTag, fSyncBits, fChannel,fMemDesc,0,fSize, this);
+	fSpeed = min((int)fControl->getBroadcastSpeed(), fSpeed) ;
+
+	if( fSize < ( 1 << 9+fControl->getBroadcastSpeed() ) and ( fChannel >= 0 and fChannel < 64) )
+	{
+		result = fControl->asyncStreamWrite(fGeneration,
+											fSpeed, fTag, fSyncBits, fChannel,fMemDesc,0,fSize, this);
+	}
 
 	// complete could release us so protect fStatus with retain and release
 	IOReturn status = fStatus;	

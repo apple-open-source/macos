@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  * Copyright (c) 1988, 1989 by Adam de Boor
@@ -40,6 +40,7 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/make/hash.c,v 1.25 2005/05/13 08:53:00 harti Exp $");
 
 /* hash.c --
  *
@@ -48,16 +49,18 @@
  * 	table.  Hash tables grow automatically as the amount of
  * 	information increases.
  */
+
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include "sprite.h"
-#include "make.h"
+
 #include "hash.h"
+#include "util.h"
 
 /*
  * Forward references to local procedures that are used before they're
  * defined:
  */
-
 static void RebuildTable(Hash_Table *);
 
 /*
@@ -71,7 +74,7 @@ static void RebuildTable(Hash_Table *);
  *---------------------------------------------------------
  *
  * Hash_InitTable --
- * 
+ *
  * 	Set up the hash table t with a given number of buckets, or a
  * 	reasonable default if the number requested is less than or
  * 	equal to zero.  Hash tables will grow in size as needed.
@@ -85,7 +88,6 @@ static void RebuildTable(Hash_Table *);
  *
  *---------------------------------------------------------
  */
-
 void
 Hash_InitTable(Hash_Table *t, int numBuckets)
 {
@@ -104,7 +106,7 @@ Hash_InitTable(Hash_Table *t, int numBuckets)
 	t->numEntries = 0;
 	t->size = i;
 	t->mask = i - 1;
-	t->bucketPtr = hp = (struct Hash_Entry **)emalloc(sizeof(*hp) * i);
+	t->bucketPtr = hp = emalloc(sizeof(*hp) * i);
 	while (--i >= 0)
 		*hp++ = NULL;
 }
@@ -126,7 +128,6 @@ Hash_InitTable(Hash_Table *t, int numBuckets)
  *
  *---------------------------------------------------------
  */
-
 void
 Hash_DeleteTable(Hash_Table *t)
 {
@@ -136,10 +137,10 @@ Hash_DeleteTable(Hash_Table *t)
 	for (hp = t->bucketPtr, i = t->size; --i >= 0;) {
 		for (h = *hp++; h != NULL; h = nexth) {
 			nexth = h->next;
-			free((char *)h);
+			free(h);
 		}
 	}
-	free((char *)t->bucketPtr);
+	free(t->bucketPtr);
 
 	/*
 	 * Set up the hash table to cause memory faults on any future access
@@ -165,13 +166,12 @@ Hash_DeleteTable(Hash_Table *t)
  *
  *---------------------------------------------------------
  */
-
 Hash_Entry *
-Hash_FindEntry(Hash_Table *t, char *key)
+Hash_FindEntry(const Hash_Table *t, const char *key)
 {
 	Hash_Entry *e;
 	unsigned h;
-	char *p;
+	const char *p;
 
 	for (h = 0, p = key; *p;)
 		h = (h << 5) - h + *p++;
@@ -200,13 +200,12 @@ Hash_FindEntry(Hash_Table *t, char *key)
  *	Memory may be allocated, and the hash buckets may be modified.
  *---------------------------------------------------------
  */
-
 Hash_Entry *
-Hash_CreateEntry(Hash_Table *t, char *key, Boolean *newPtr)
+Hash_CreateEntry(Hash_Table *t, const char *key, Boolean *newPtr)
 {
 	Hash_Entry *e;
 	unsigned int h;
-	char *p;
+	const char *p;
 	int keylen;
 	struct Hash_Entry **hp;
 
@@ -233,13 +232,13 @@ Hash_CreateEntry(Hash_Table *t, char *key, Boolean *newPtr)
 	 */
 	if (t->numEntries >= rebuildLimit * t->size)
 		RebuildTable(t);
-	e = (Hash_Entry *) emalloc(sizeof(*e) + keylen);
+	e = emalloc(sizeof(*e) + keylen);
 	hp = &t->bucketPtr[h & t->mask];
 	e->next = *hp;
 	*hp = e;
 	e->clientData = NULL;
 	e->namehash = h;
-	(void) strcpy(e->name, p);
+	strcpy(e->name, p);
 	t->numEntries++;
 
 	if (newPtr != NULL)
@@ -263,7 +262,6 @@ Hash_CreateEntry(Hash_Table *t, char *key, Boolean *newPtr)
  *
  *---------------------------------------------------------
  */
-
 void
 Hash_DeleteEntry(Hash_Table *t, Hash_Entry *e)
 {
@@ -275,12 +273,12 @@ Hash_DeleteEntry(Hash_Table *t, Hash_Entry *e)
 	     (p = *hp) != NULL; hp = &p->next) {
 		if (p == e) {
 			*hp = p->next;
-			free((char *)p);
+			free(p);
 			t->numEntries--;
 			return;
 		}
 	}
-	(void) write(STDERR_FILENO, "bad call to Hash_DeleteEntry\n", 29);
+	write(STDERR_FILENO, "bad call to Hash_DeleteEntry\n", 29);
 	abort();
 }
 
@@ -302,14 +300,14 @@ Hash_DeleteEntry(Hash_Table *t, Hash_Entry *e)
  *
  *---------------------------------------------------------
  */
-
 Hash_Entry *
-Hash_EnumFirst(Hash_Table *t, Hash_Search *searchPtr)
+Hash_EnumFirst(const Hash_Table *t, Hash_Search *searchPtr)
 {
+
 	searchPtr->tablePtr = t;
 	searchPtr->nextIndex = 0;
 	searchPtr->hashEntryPtr = NULL;
-	return Hash_EnumNext(searchPtr);
+	return (Hash_EnumNext(searchPtr));
 }
 
 /*
@@ -329,12 +327,11 @@ Hash_EnumFirst(Hash_Table *t, Hash_Search *searchPtr)
  *
  *---------------------------------------------------------
  */
-
 Hash_Entry *
 Hash_EnumNext(Hash_Search *searchPtr)
 {
 	Hash_Entry *e;
-	Hash_Table *t = searchPtr->tablePtr;
+	const Hash_Table *t = searchPtr->tablePtr;
 
 	/*
 	 * The hashEntryPtr field points to the most recently returned
@@ -373,7 +370,6 @@ Hash_EnumNext(Hash_Search *searchPtr)
  *
  *---------------------------------------------------------
  */
-
 static void
 RebuildTable(Hash_Table *t)
 {
@@ -387,7 +383,7 @@ RebuildTable(Hash_Table *t)
 	i <<= 1;
 	t->size = i;
 	t->mask = mask = i - 1;
-	t->bucketPtr = hp = (struct Hash_Entry **) emalloc(sizeof(*hp) * i);
+	t->bucketPtr = hp = emalloc(sizeof(*hp) * i);
 	while (--i >= 0)
 		*hp++ = NULL;
 	for (hp = oldhp, i = oldsize; --i >= 0;) {
@@ -398,5 +394,5 @@ RebuildTable(Hash_Table *t)
 			*xp = e;
 		}
 	}
-	free((char *)oldhp);
+	free(oldhp);
 }

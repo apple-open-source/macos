@@ -1,0 +1,16 @@
+/lddlflags=/a
+.
+/^\*)/s//[78].*)/
+/^esac/i
+*)
+   lddlflags="${ldflags} -bundle -undefined dynamic_lookup"
+   case "$ld" in
+       *-mmacosx-version-min=*) ;;
+       *)
+           productVersion=`sw_vers -productVersion`
+           ld="${ld} -mmacosx-version-min=${productVersion}"
+	   ;;
+   esac
+   ;;
+.
+w

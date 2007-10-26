@@ -1,9 +1,9 @@
 #
 #   irb/workspace-binding.rb - 
-#   	$Release Version: 0.9$
-#   	$Revision: 1.5.2.1 $
-#   	$Date: 2004/04/18 23:20:32 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   	$Release Version: 0.9.5$
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
 #

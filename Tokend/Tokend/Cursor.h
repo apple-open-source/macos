@@ -93,5 +93,4 @@ private:
 
 #endif /* !_TOKEND_CURSOR_H_ */
 
-/* arch-tag: D2A1003C-EBDA-11D8-8F44-000A95C4302E */
 

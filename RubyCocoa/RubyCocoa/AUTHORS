@@ -1,0 +1,76 @@
+= Current Maintainer =
+
+Laurent Sansonetti <lsansonetti@apple.com>
+Fujimoto Hisa <hisa@fobj.com> (secondary)
+
+= Current Developers =
+
+Chris Mcgrath <chris@octopod.info>
+  Contributed rb_nibtool, bugfixes.
+
+Eloy Duran <e.duran@superalloy.nl>
+  Major contributions (earlier QTKit support, BridgeDoc, ActiveRecordBindings),
+  bugfixes, documentation, sample code.
+
+Fujimoto Hisa <hisa@fobj.com>
+  Original author of the project.
+
+Jonathan Paisley <jp-www@dcs.gla.ac.uk>
+  Contributed standaloneify, patches for Ruby threading, lots of bugfixes.
+
+Kimura Wataru <kimuraw@i.nifty.jp>
+  Lots of major contributions (too numerous) and bugfixes.
+
+Laurent Sansonetti <lsansonetti@apple.com>
+  Major rewrite of the core (BridgeSupport, Libffi), bugfixes, documentation,
+  sample code.
+
+Satoshi Nakagawa  <artension@gmail.com>
+  lots of bugfixes, around object cacheing.
+
+
+= Retired Developers =
+
+Chris Thomas <kenshin@apple.com>
+  Many Bugfixes, sample code, article
+
+= Thanks To =
+
+...
+
+Thanks for the kindness, mainly at the early stage of development, to ...
+
+Aaron J Reichow
+Chris Thomas        # article, bugfix, sample code
+Dave Thomas         # introduce on Ruby Garden
+Filip Pizlo
+Gesse Gam           # documentation
+Hiroyuki Shimura    # most early adapter
+John Platte
+Justin Palmer       # documentation, bugfix, sample code
+Kazumi Okamoto
+Kozo Hara           # documentation
+Kouhei Sutou        # bundle support api
+Luc Heinrich        # sample code, test thread, etc...
+Masaki Yatsu
+Masao Kanemitsu
+Masatoshi Seki      # sample code
+Matthew Fero
+Matthias Neeracher  # bugfixes
+Michael Miller      # documentation
+Mitsuhiro Kondo
+Naoki Hiroshima     # bugfixes
+Norberto Ortigoza
+Ogino Junya
+Paul Haddad
+Ralph Broom         # documentation
+Rich Kilmer
+Rod Schmidt
+Satoshi Nakagawa    # bugfixes
+S. Sawada           # tutorial, WebKit
+Shirai Kaoru        # bugfixes
+Tetsuhumi Takaishi
+Tosh
+Vincent Isamart     # bugfixes
+
+... and other many people who helped the project!

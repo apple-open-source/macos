@@ -50,7 +50,7 @@ CRecTypeList::~CRecTypeList ( void )
 //	* GetRecType
 //------------------------------------------------------------------------------------
 
-sInt32 CRecTypeList::GetRecType ( uInt32 inIndex, char **outData )
+SInt32 CRecTypeList::GetRecType ( UInt32 inIndex, char **outData )
 {
 	return( GetAttribute( inIndex, outData ) );
 }

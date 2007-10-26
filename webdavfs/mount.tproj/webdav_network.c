@@ -31,12 +31,15 @@
 #include <sys/mount.h>
 #include <sys/sysctl.h>
 #include <Security/Security.h>
+#include <netdb.h>
+#include <stdio.h>
 
 #include "webdav_parse.h"
 #include "webdav_requestqueue.h"
 #include "webdav_authcache.h"
 #include "webdav_network.h"
 #include "EncodedSourceID.h"
+
 
 /******************************************************************************/
 
@@ -51,6 +54,7 @@
 #define kSSLClientPropTLSServerCertificateChain CFSTR("TLSServerCertificateChain") /* array[data] */
 #define kSSLClientPropTLSTrustClientStatus	CFSTR("TLSTrustClientStatus") /* CFNumberRef of kCFNumberSInt32Type (errSSLxxxx) */
 #define kSSLClientPropTLSServerHostName	CFSTR("TLSServerHostName") /* CFString */
+#define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
 struct HeaderFieldValue
 {
@@ -65,6 +69,8 @@ static CFIndex first_read_len = 4096;	/* bytes.  Amount to download at open so f
 static CFStringRef X_Source_Id_HeaderValue = NULL;	/* the X-Source-Id header value, or NULL if not iDisk */
 
 static SCDynamicStoreRef gProxyStore;
+
+static Boolean gIsMicrosoftIISServer = FALSE;
 
 /******************************************************************************/
 
@@ -346,9 +352,7 @@ static const char * SkipLWS(const char *bytes)
 static int set_global_stream_properties(CFReadStreamRef readStreamRef)
 {
 	int error, mutexerror;
-	
-	error = 0;
-	
+		
 	mutexerror = pthread_mutex_lock(&gNetworkGlobals_lock);
 	require_noerr_action(mutexerror, pthread_mutex_lock, error = mutexerror; webdav_kill(-1));
 	
@@ -356,7 +360,7 @@ static int set_global_stream_properties(CFReadStreamRef readStreamRef)
 	
 	mutexerror = pthread_mutex_unlock(&gNetworkGlobals_lock);
 	require_noerr_action(mutexerror, pthread_mutex_unlock, error = mutexerror; webdav_kill(-1));
-
+	
 pthread_mutex_unlock:
 pthread_mutex_lock:
 	
@@ -760,6 +764,16 @@ int network_init(const UInt8 *uri, CFIndex uriLength, int *store_notify_fd, int 
 	gBaseURL = CFURLCreateAbsoluteURLWithBytes(kCFAllocatorDefault, uri, uriLength, kCFStringEncodingUTF8, NULL, FALSE);
 	require_action_string(gBaseURL != NULL, CFURLCreateAbsoluteURLWithBytes, error = ENOMEM, "name was not legal UTF8");
 
+	/*
+	 * Make sure the gBaseURL doesn't have any components that it shouldn't have.
+	 * All it should have are the scheme, the host, the port, and the path.
+	 * UserInfo (name and password) and ResourceSpecifier (params, queries and fragments)
+	 * components are not allowed.
+	 */
+	require_action(((CFURLGetByteRangeForComponent(gBaseURL, kCFURLComponentUserInfo, NULL).location == kCFNotFound) &&
+				   (CFURLGetByteRangeForComponent(gBaseURL, kCFURLComponentResourceSpecifier, NULL).location == kCFNotFound)),
+				   IllegalURLComponent, error = EINVAL);
+
 	/* initialize first_read_len variable */
 	get_first_read_len();
 	
@@ -782,6 +796,7 @@ int network_init(const UInt8 *uri, CFIndex uriLength, int *store_notify_fd, int 
 		gReadStreams[index].uniqueValue = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), index); /* unique string */
 	}
 
+IllegalURLComponent:
 CFURLCreateAbsoluteURLWithBytes:
 network_update_proxy:
 SCDynamicStoreSetNotificationKeys:
@@ -915,8 +930,12 @@ static int translate_status_to_error(UInt32 statusCode)
 				case 410:	/* Gone */
 					result = ENOENT;
 					break;
+				case 413:	/* Request Entity Too Large (this server doesn't allow large PUTs) */
+					result = EFBIG;
+					break;
 				case 414:	/* Request URI Too Long */
 					result = ENAMETOOLONG;
+					break;
 				case 423:	/* Locked (WebDAV) */
 				case 424:	/* Failed Dependency (WebDAV) (EBUSY when a directory cannot be MOVE'd) */
 					result = EBUSY;
@@ -1131,8 +1150,18 @@ static int ConfirmCertificate(CFReadStreamRef readStreamRef, SInt32 error)
 	int fd[2];
 	int pid, terminated_pid;
 	union wait status;
-	char *env[] = {"__CF_USER_TEXT_ENCODING=0x1D29:0:0", "", (char *) 0 };
-
+	char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; 
+	char *env[] = {CFUserTextEncodingEnvSetting, "", (char *) 0 };
+	
+	/* 
+	 * Create a new environment with a definition of __CF_USER_TEXT_ENCODING to work 
+	 * around CF's interest in the user's home directory (which could be networked, 
+	 * causing recursive references through automount). Make sure we include the uid
+	 * since CF will check for this when deciding if to look in the home directory.
+	 */ 
+	snprintf(CFUserTextEncodingEnvSetting, sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING, getuid());
+	
+	
 	result = FALSE;
 	fd[0] = fd[1] = -1;
 	
@@ -1367,6 +1396,58 @@ CFDictionaryCreateMutable:
 
 /******************************************************************************/
 
+/*
+ * returns ETIMEDOUT for server reachability type errors
+ * returns EXIO otherwise
+ * returns EIO if this was not an SSL error
+ */
+
+static int stream_error_to_errno(CFStreamError *streamError)
+{
+	int result = ENXIO;
+	
+	if (streamError->domain == kCFStreamErrorDomainPOSIX)
+	{
+		switch (streamError->error) {
+			case EADDRNOTAVAIL:
+			case ENETDOWN:
+			case ETIMEDOUT:
+			case ECONNRESET:
+			case ENETUNREACH:
+			case ECONNREFUSED:
+				/* These errors affect mobility, so return ETIMEDOUT */
+				syslog(LOG_ERR, "stream_error: Posix error %d", (int)streamError->error);
+				result = ETIMEDOUT;
+				break;
+			default:
+				syslog(LOG_ERR, "stream_error: Posix error %d", (int)streamError->error);
+				result = ENXIO;
+				break;
+		}
+	}
+	else if (streamError->domain == kCFStreamErrorDomainNetDB)
+	{
+		switch (streamError->error) {
+			case EAI_NODATA:
+				/* no address associated with host name */
+				syslog(LOG_ERR, "stream_error: NetDB error EAI_NODATA"); 
+				result = ETIMEDOUT;
+				break;
+			default:
+				syslog(LOG_ERR, "stream_error: NetDB error %d", (int)streamError->error);
+				result = ENXIO;
+				break;
+		}			
+	}
+	else {
+		syslog(LOG_ERR, "stream_error: Domain %d Error %d", (int) streamError->domain, (int)streamError->error);
+		result = ENXIO;
+	}
+	return result;
+}
+
+/******************************************************************************/
+
 	/* create the HTTP read stream with CFReadStreamCreateForHTTPRequest */
 	/* turn on automatic redirection */
 	/* add proxies (if any) */
@@ -1396,11 +1477,13 @@ static int open_stream_for_transaction(
 	int *retryTransaction,		/* -> if TRUE, return EAGAIN on errors when streamError is kCFStreamErrorDomainPOSIX/EPIPE and set retryTransaction to FALSE */ 
 	struct ReadStreamRec **readStreamRecPtr)	/* <- pointer to the ReadStreamRec in use */
 {
-	int result;
+	int result, error;
 	struct ReadStreamRec *theReadStreamRec;
 	CFReadStreamRef newReadStreamRef;
+	CFSocketNativeHandle sock;
+	CFDataRef sockWrapper = NULL;
 	
-	result = 0;
+	result = error = 0;
 	*readStreamRecPtr = NULL;
 	
 	/* create the HTTP read stream */
@@ -1448,9 +1531,11 @@ static int open_stream_for_transaction(
 			CFStreamError streamError;
 			
 			streamError = CFReadStreamGetError(newReadStreamRef);
-			if ( *retryTransaction && streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE)
+			if ( *retryTransaction &&
+				((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+				 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
-				/* if we get a POSIX errror back from the stream, retry the transaction once */
+				/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
 				syslog(LOG_INFO,"open_stream_for_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
 				*retryTransaction = FALSE;
 				result = EAGAIN;
@@ -1462,7 +1547,7 @@ static int open_stream_for_transaction(
 					syslog(LOG_ERR,"open_stream_for_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
-				result = ENXIO;
+				result = stream_error_to_errno(&streamError);
 			}
 		}
 		goto CFReadStreamOpen;
@@ -1475,6 +1560,18 @@ static int open_stream_for_transaction(
 		CFRelease(theReadStreamRec->readStreamRef);
 	}
 	
+	/* Set SO_NOADDRERR on the socket so we will know about EADDRNOTAVAIL errors ASAP */
+	sockWrapper = (CFDataRef)CFReadStreamCopyProperty(newReadStreamRef, kCFStreamPropertySocketNativeHandle);
+	
+	if (sockWrapper)
+	{
+		CFRange r = {0, sizeof(CFSocketNativeHandle)};
+		CFDataGetBytes(sockWrapper, r, (UInt8 *)&sock);
+		CFRelease(sockWrapper);
+		int flag = 1;
+		setsockopt(sock, SOL_SOCKET, SO_NOADDRERR, &flag, sizeof(flag));
+	}
+
 	/* save new read stream */
 	theReadStreamRec->readStreamRef = newReadStreamRef;
 	
@@ -1582,9 +1679,11 @@ static int stream_get_transaction(
 			CFStreamError streamError;
 			
 			streamError = CFReadStreamGetError(readStreamRecPtr->readStreamRef);
-			if ( *retryTransaction && streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE )
+			if ( *retryTransaction &&
+				((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+				 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
-				/* if we get a POSIX errror back from the stream, retry the transaction once */
+				/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
 				syslog(LOG_INFO,"stream_get_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
 				*retryTransaction = FALSE;
 				result = EAGAIN;
@@ -1596,7 +1695,7 @@ static int stream_get_transaction(
 					syslog(LOG_ERR,"stream_get_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
-				result = ENXIO;
+				result = stream_error_to_errno(&streamError);
 			}
 			goto CFReadStreamRead;
 		}
@@ -1829,7 +1928,8 @@ static int stream_transaction_from_file(
 			CFStreamError streamError;
 						
 			streamError = CFReadStreamGetError(readStreamRecPtr->readStreamRef);
-			if ( *retryTransaction && streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE )
+			if ( *retryTransaction && ((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+									  (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 			{
 				/* if we get a POSIX errror back from the stream, retry the transaction once */
 				syslog(LOG_INFO,"stream_transaction_from_file: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
@@ -1843,7 +1943,7 @@ static int stream_transaction_from_file(
 					syslog(LOG_ERR,"stream_transaction_from_file: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
 				}
 				set_connectionstate(WEBDAV_CONNECTION_DOWN);
-				result = ENXIO;
+				result = stream_error_to_errno(&streamError);
 			}
 			goto CFReadStreamRead;
 		}
@@ -1999,9 +2099,11 @@ static int stream_transaction(
 					CFStreamError streamError;
 								
 					streamError = CFReadStreamGetError(readStreamRecPtr->readStreamRef);
-					if ( *retryTransaction && streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE )
+					if ( *retryTransaction &&
+						((streamError.domain == kCFStreamErrorDomainPOSIX && streamError.error == EPIPE) ||
+						 (streamError.domain ==  kCFStreamErrorDomainHTTP && streamError.error ==  kCFStreamErrorHTTPConnectionLost)) )
 					{
-						/* if we get a POSIX errror back from the stream, retry the transaction once */
+						/* if we get a POSIX EPIPE or HTTP Connection Lost error back from the stream, retry the transaction once */
 						syslog(LOG_INFO,"stream_transaction: CFStreamError: domain %ld, error %ld -- retrying", streamError.domain, streamError.error);
 						*retryTransaction = FALSE;
 						result = EAGAIN;
@@ -2013,7 +2115,7 @@ static int stream_transaction(
 							syslog(LOG_ERR,"stream_transaction: CFStreamError: domain %ld, error %ld", streamError.domain, streamError.error);
 						}
 						set_connectionstate(WEBDAV_CONNECTION_DOWN);
-						result = ENXIO;
+						result = stream_error_to_errno(&streamError);
 					}
 				}
 			}
@@ -2114,10 +2216,10 @@ static int send_transaction(
 	CFHTTPMessageRef message;
 	CFHTTPMessageRef responseRef;
 	UInt32 statusCode;
-	UInt32 auth_generation;
 	UInt8 *responseBuffer;
 	CFIndex responseBufferLength;
 	int retryTransaction;
+	AuthRequestContext ctx;
 	
 	error = 0;
 	responseBuffer = NULL;
@@ -2125,7 +2227,8 @@ static int send_transaction(
 	message = NULL;
 	responseRef = NULL;
 	statusCode = 0;
-	auth_generation = 0;
+	ctx.count = 0;
+	ctx.generation = 0;
 	retryTransaction = TRUE;
 
 	/* the transaction/authentication loop */
@@ -2167,7 +2270,7 @@ static int send_transaction(
 		 * statusCode will be 401 or 407 and responseRef will not be NULL if we've already been through the loop;
 		 * statusCode will be 0 and responseRef will be NULL if this is the first time through.
 		 */
-		error = authcache_apply(uid, message, statusCode, responseRef, &auth_generation);
+		error = authcache_apply(uid, message, statusCode, responseRef, &ctx);
 		if ( error != 0 )
 		{
 			break;
@@ -2217,7 +2320,7 @@ CFHTTPMessageCreateRequest:
 			 * add the credentials to the keychain. If the auth_generation changed, then
 			 * another transaction updated the authcache element after we got it.
 			 */
-			(void) authcache_valid(uid, message, auth_generation);
+			(void) authcache_valid(uid, message, &ctx);
 		}
 		else
 		{
@@ -2390,6 +2493,26 @@ static void ParseDAVLevel(CFHTTPMessageRef responsePropertyRef, int *dav_level)
 	}
 }
 
+
+/*****************************************************************************/
+static Boolean IsMicrosoftIISServer(CFHTTPMessageRef responsePropertyRef)
+{
+	Boolean result = FALSE;
+
+	CFStringRef serverHeaderRef = CFHTTPMessageCopyHeaderFieldValue(responsePropertyRef, CFSTR("Server"));
+	if ( serverHeaderRef != NULL ) {
+		result = CFStringHasPrefix(serverHeaderRef, CFSTR("Microsoft-IIS/"));
+		CFRelease(serverHeaderRef);
+	}
+	else {
+		/* no server header */
+		result = FALSE;
+	}
+	
+	return (result);
+}
+
+
 /******************************************************************************/
 
 static int network_getDAVLevel(
@@ -2410,11 +2533,13 @@ static int network_getDAVLevel(
 	/* send request to the server and get the response */
 	error = send_transaction(uid, urlRef, CFSTR("OPTIONS"), NULL,
 		headerCount, headers, TRUE, NULL, NULL, &response);
-	if ( !error )
-	{
+	if ( !error ) {
 		/* get the DAV level */
 		ParseDAVLevel(response, dav_level);
 		
+		/* see if its a Microsoft IIS server or not */
+		gIsMicrosoftIISServer = IsMicrosoftIISServer(response);
+
 		/* release the response buffer */
 		CFRelease(response);
 	}
@@ -2506,9 +2631,15 @@ static int network_stat(
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
 		{ CFSTR("Content-Type"), CFSTR("text/xml") },
-		{ CFSTR("Depth"), CFSTR("0") }
+		{ CFSTR("Depth"), CFSTR("0") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
 	
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
+
 	/* create the message body with the xml */
 	bodyData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, xmlString, strlen((const char *)xmlString), kCFAllocatorNull);
 	require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
@@ -2556,9 +2687,15 @@ static int network_dir_is_empty(
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
 		{ CFSTR("Content-Type"), CFSTR("text/xml") },
-		{ CFSTR("Depth"), CFSTR("1") }
+		{ CFSTR("Depth"), CFSTR("1") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
 	
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
+
 	error = 0;
 	responseBuffer = NULL;
 
@@ -2846,6 +2983,63 @@ malloc_buffer:
 
 /******************************************************************************/
 
+int network_server_ping(u_int32_t delay)
+{
+	int error;
+	CFHTTPMessageRef response;
+	CFURLRef urlRef = gBaseURL;
+	
+	/* the 3 headers */
+	CFIndex headerCount = 1;
+	struct HeaderFieldValue headers[] = {
+		{ CFSTR("Accept"), CFSTR("*/*") },
+	};
+	
+	/* first delay a bit */
+	if (delay)
+		sleep(delay);
+
+	/* send an OPTIONS request to the server and get the response */
+	error = send_transaction(gProcessUID, urlRef, CFSTR("OPTIONS"), NULL,
+		headerCount, headers, TRUE, NULL, NULL, &response);
+		
+	if ( !error ) {
+		set_connectionstate(WEBDAV_CONNECTION_UP);
+		CFRelease(response);	/* release the response buffer */
+	}
+	else {
+		/* Still no host connectivity */
+		syslog(LOG_ERR, "WebDAV server still not responding...");
+		
+		/* Determine next sleep delay */
+		switch (delay) {
+		
+			case 0:
+				delay = 1;
+				break;
+			case 1:
+				delay = 2;
+				break;
+			case 2:
+				delay = 4;
+				break;
+			case 4:
+				delay = 8;
+				break;
+			default:
+				delay = 12;
+				break;
+		}
+				
+		/* queue another ping request */
+		requestqueue_enqueue_server_ping(delay);
+	}
+	
+	return ( error );
+}
+
+/******************************************************************************/
+
 int network_open(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> node to open */
@@ -2898,14 +3092,15 @@ int network_open(
 		CFHTTPMessageRef message;
 		CFHTTPMessageRef responseRef;
 		UInt32 statusCode;
-		UInt32 auth_generation;
+		AuthRequestContext ctx;
 		int retryTransaction;
 				
 		error = 0;
 		message = NULL;
 		responseRef = NULL;
 		statusCode = 0;
-		auth_generation = 0;
+		ctx.count = 0;
+		ctx.generation = 0;
 		retryTransaction = TRUE;
 
 		/* create a CFURL to the node */
@@ -2925,6 +3120,12 @@ int network_open(
 			message = CFHTTPMessageCreateRequest(kCFAllocatorDefault, CFSTR("GET"), urlRef, kCFHTTPVersion1_1);
 			require_action(message != NULL, CFHTTPMessageCreateRequest, error = EIO);
 			
+			if (gIsMicrosoftIISServer) {
+				/* translate flag and no-cache only for Microsoft IIS Server */
+				CFHTTPMessageSetHeaderFieldValue(message, CFSTR("translate"), CFSTR("f"));
+				CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Pragma"), CFSTR("no-cache"));
+			}
+
 			/* Change the User-Agent header */
 			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("User-Agent"), userAgentHeaderValue);
 			
@@ -2981,7 +3182,7 @@ int network_open(
 			 * statusCode will be 401 or 407 and responseRef will not be NULL if we've already been through the loop;
 			 * statusCode will be 0 and responseRef will be NULL if this is the first time through.
 			 */
-			error = authcache_apply(uid, message, statusCode, responseRef, &auth_generation);
+			error = authcache_apply(uid, message, statusCode, responseRef, &ctx);
 			if ( error != 0 )
 			{
 				break;
@@ -3031,7 +3232,7 @@ CFHTTPMessageCreateRequest:
 				 * add the credentials to the keychain. If the auth_generation changed, then
 				 * another transaction updated the authcache element after we got it.
 				 */
-				(void) authcache_valid(uid, message, auth_generation);
+				(void) authcache_valid(uid, message, &ctx);
 				time(&node->file_validated_time);
 				{
 					CFStringRef headerRef;
@@ -3115,6 +3316,8 @@ int network_statfs(
 		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
 		"<D:propfind xmlns:D=\"DAV:\">\n"
 			"<D:prop>\n"
+				"<D:quota-available-bytes/>\n"
+				"<D:quota-used-bytes/>\n"
 				"<D:quota/>\n"
 				"<D:quotaused/>\n"
 			"</D:prop>\n"
@@ -3124,8 +3327,14 @@ int network_statfs(
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
 		{ CFSTR("Content-Type"), CFSTR("text/xml") },
-		{ CFSTR("Depth"), CFSTR("0") }
+		{ CFSTR("Depth"), CFSTR("0") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
+
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
 
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
@@ -3174,9 +3383,16 @@ int network_create(
 	/* the 1 header */
 	CFIndex headerCount = 1;
 	struct HeaderFieldValue headers[] = {
-		{ CFSTR("Accept"), CFSTR("*/*") }
+		{ CFSTR("Accept"), CFSTR("*/*") },
+		{ CFSTR("translate"), CFSTR("f") },
+		{ CFSTR("Pragma"), CFSTR("no-cache") }
 	};
 	
+	if (gIsMicrosoftIISServer) {
+		/* translate flag and no-cache only for Microsoft IIS Server */
+		headerCount += 2;
+	}
+
 	*creation_date = -1;
 
 	/* create a CFURL to the node plus name */
@@ -3221,7 +3437,7 @@ int network_fsync(
 	CFHTTPMessageRef message;
 	CFHTTPMessageRef responseRef;
 	UInt32 statusCode;
-	UInt32 auth_generation;
+	AuthRequestContext ctx;
 	CFStringRef lockTokenRef;
 	char *file_entity_tag;
 	int retryTransaction;
@@ -3233,7 +3449,8 @@ int network_fsync(
 	message = NULL;
 	responseRef = NULL;
 	statusCode = 0;
-	auth_generation = 0;
+	ctx.count = 0;
+	ctx.generation = 0;
 	retryTransaction = TRUE;
 	
 	/* create a CFURL to the node */
@@ -3253,6 +3470,12 @@ int network_fsync(
 		message = CFHTTPMessageCreateRequest(kCFAllocatorDefault, CFSTR("PUT"), urlRef, kCFHTTPVersion1_1);
 		require_action(message != NULL, CFHTTPMessageCreateRequest, error = EIO);
 		
+		if (gIsMicrosoftIISServer) {
+			/* translate flag and no-cache only for Microsoft IIS Server */
+			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("translate"), CFSTR("f"));
+			CFHTTPMessageSetHeaderFieldValue(message, CFSTR("Pragma"), CFSTR("no-cache"));
+		}
+
 		/* Change the User-Agent header */
 		CFHTTPMessageSetHeaderFieldValue(message, CFSTR("User-Agent"), userAgentHeaderValue);
 		
@@ -3287,7 +3510,7 @@ int network_fsync(
 		 * statusCode will be 401 or 407 and responseRef will not be NULL if we've already been through the loop;
 		 * statusCode will be 0 and responseRef will be NULL if this is the first time through.
 		 */
-		error = authcache_apply(uid, message, statusCode, responseRef, &auth_generation);
+		error = authcache_apply(uid, message, statusCode, responseRef, &ctx);
 		if ( error != 0 )
 		{
 			break;
@@ -3332,7 +3555,7 @@ CFHTTPMessageCreateRequest:
 			 * add the credentials to the keychain. If the auth_generation changed, then
 			 * another transaction updated the authcache element after we got it.
 			 */
-			(void) authcache_valid(uid, message, auth_generation);
+			(void) authcache_valid(uid, message, &ctx);
 			{
 				CFStringRef headerRef;
 				const char *field_value;
@@ -3399,8 +3622,14 @@ CFHTTPMessageCreateRequest:
 		struct HeaderFieldValue headers[] = {
 			{ CFSTR("Accept"), CFSTR("*/*") },
 			{ CFSTR("Content-Type"), CFSTR("text/xml") },
-			{ CFSTR("Depth"), CFSTR("0") }
+			{ CFSTR("Depth"), CFSTR("0") },
+			{ CFSTR("translate"), CFSTR("f") }
 		};
+
+		if (gIsMicrosoftIISServer) {
+			/* translate flag only for Microsoft IIS Server */
+			headerCount += 1;
+		}
 
 		propError = 0;
 		responseBuffer = NULL;
@@ -3460,9 +3689,14 @@ static int network_delete(
 	CFHTTPMessageRef response;
 	/* possibly 2 headers */
 	CFIndex headerCount;
-	struct HeaderFieldValue headers[] = {
+	struct HeaderFieldValue headers2[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
-		{ CFSTR("If"), NULL }
+		{ CFSTR("If"), NULL },
+		{ CFSTR("translate"), CFSTR("f") }
+	};
+	struct HeaderFieldValue headers1[] = {
+		{ CFSTR("Accept"), CFSTR("*/*") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
 
 	*remove_date = -1;
@@ -3474,7 +3708,7 @@ static int network_delete(
 		if ( lockTokenRef != NULL )
 		{
 			headerCount = 2;
-			headers[1].value = lockTokenRef;
+			headers2[1].value = lockTokenRef;
 		}
 		else
 		{
@@ -3488,8 +3722,21 @@ static int network_delete(
 	}
 
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("DELETE"), NULL,
-		headerCount, headers, FALSE, NULL, NULL, &response);
+	if (headerCount == 1) {
+		if (gIsMicrosoftIISServer) {
+			/* translate flag only for Microsoft IIS Server */
+			headerCount += 1;
+		}
+		error = send_transaction(uid, urlRef, CFSTR("DELETE"), NULL, headerCount, headers1, FALSE, NULL, NULL, &response);
+	}
+	else {
+		if (gIsMicrosoftIISServer) {
+			/* translate flag only for Microsoft IIS Server */
+			headerCount += 1;
+		}
+		error = send_transaction(uid, urlRef, CFSTR("DELETE"), NULL, headerCount, headers2, FALSE, NULL, NULL, &response);
+	}
+
 	if ( !error )
 	{
 		CFStringRef dateHeaderRef;
@@ -3592,9 +3839,15 @@ int network_rename(
 	CFIndex headerCount = 2;
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
-		{ CFSTR("Destination"), NULL }
+		{ CFSTR("Destination"), NULL },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
 	
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
+
 	*rename_date = -1;
 	urlRef = NULL;
 	destinationUrlRef = NULL;
@@ -3696,12 +3949,20 @@ int network_lock(
 		"</D:lockinfo>\n";
 	/* the 3 headers */
 	CFIndex headerCount = 4;
-	struct HeaderFieldValue headers[] = {
+	struct HeaderFieldValue headers5[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
 		{ CFSTR("Depth"), CFSTR("0") },
 		{ CFSTR("Timeout"), NULL },
 		{ CFSTR("Content-Type"), NULL },
-		{ CFSTR("If"), NULL }
+		{ CFSTR("If"), NULL },
+		{ CFSTR("translate"), CFSTR("f") }
+	};
+	struct HeaderFieldValue headers4[] = {
+		{ CFSTR("Accept"), CFSTR("*/*") },
+		{ CFSTR("Depth"), CFSTR("0") },
+		{ CFSTR("Timeout"), NULL },
+		{ CFSTR("Content-Type"), NULL },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
 	CFStringRef timeoutSpecifierRef;
 	CFStringRef lockTokenRef;
@@ -3713,7 +3974,8 @@ int network_lock(
 	timeoutSpecifierRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Second-%s"), gtimeout_string);
 	require_action(timeoutSpecifierRef != NULL, CFStringCreateWithFormat_timeoutSpecifierRef, error = EIO);
 	
-	headers[2].value = timeoutSpecifierRef;
+	headers4[2].value = timeoutSpecifierRef;
+	headers5[2].value = timeoutSpecifierRef;
 	
 	if ( refresh )
 	{
@@ -3724,11 +3986,11 @@ int network_lock(
 		bodyData = NULL;
 		
 		headerCount = 5;
-		headers[3].value = CFSTR("text/xml");
+		headers5[3].value = CFSTR("text/xml");
 		lockTokenRef = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), node->file_locktoken);
 		require_action(lockTokenRef != NULL, CFStringCreateWithFormat_lockTokenRef, error = EIO);
 		
-		headers[4].value = lockTokenRef;
+		headers5[4].value = lockTokenRef;
 	}
 	else
 	{
@@ -3738,12 +4000,25 @@ int network_lock(
 		require_action(bodyData != NULL, CFDataCreateWithBytesNoCopy, error = EIO);
 		
 		headerCount = 4;
-		headers[3].value = CFSTR("text/xml; charset=\"utf-8\"");
+		headers4[3].value = CFSTR("text/xml; charset=\"utf-8\"");
 	}
-	
+
 	/* send request to the server and get the response */
-	error = send_transaction(uid, urlRef, CFSTR("LOCK"), bodyData,
-		headerCount, headers, FALSE, &responseBuffer, &count, NULL);
+	if (headerCount == 4) {
+		if (gIsMicrosoftIISServer) {
+			/* translate flag only for Microsoft IIS Server */
+			headerCount += 1;
+		}
+		error = send_transaction(uid, urlRef, CFSTR("LOCK"), bodyData, headerCount, headers4, FALSE, &responseBuffer, &count, NULL);
+	}
+	else {
+		if (gIsMicrosoftIISServer) {
+			/* translate flag only for Microsoft IIS Server */
+			headerCount += 1;
+		}
+		error = send_transaction(uid, urlRef, CFSTR("LOCK"), bodyData, headerCount, headers5, FALSE, &responseBuffer, &count, NULL);
+	}
+
 	if ( !error )
 	{
 		char *locktoken;
@@ -3809,8 +4084,14 @@ int network_unlock(
 	CFIndex headerCount = 2;
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
-		{ CFSTR("Lock-Token"), NULL }
+		{ CFSTR("Lock-Token"), NULL },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
+
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
 
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
@@ -3878,8 +4159,14 @@ int network_readdir(
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
 		{ CFSTR("Content-Type"), CFSTR("text/xml") },
-		{ CFSTR("Depth"), CFSTR("1") }
+		{ CFSTR("Depth"), CFSTR("1") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
+
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
 
 	/* create a CFURL to the node */
 	urlRef = create_cfurl_from_node(node, NULL, 0);
@@ -3929,7 +4216,13 @@ int network_mkdir(
 	CFIndex headerCount = 1;
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
+		{ CFSTR("translate"), CFSTR("f") }
 	};
+
+	if (gIsMicrosoftIISServer) {
+		/* translate flag only for Microsoft IIS Server */
+		headerCount += 1;
+	}
 
 	*creation_date = -1;
 
@@ -3981,9 +4274,16 @@ int network_read(
 	CFIndex headerCount = 2;
 	struct HeaderFieldValue headers[] = {
 		{ CFSTR("Accept"), CFSTR("*/*") },
-		{ CFSTR("Range"), NULL }
+		{ CFSTR("Range"), NULL },
+		{ CFSTR("translate"), CFSTR("f") },
+		{ CFSTR("Pragma"), CFSTR("no-cache") }
 	};
 	
+	if (gIsMicrosoftIISServer) {
+		/* translate flag and no-cache only for Microsoft IIS Server */
+		headerCount += 2;
+	}
+
 	*buffer = NULL;
 	*actual_count = 0;
 	

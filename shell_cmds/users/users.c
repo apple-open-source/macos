@@ -54,9 +54,9 @@ __RCSID("$NetBSD: users.c,v 1.7 1998/02/03 04:19:15 perry Exp $");
 #include <unistd.h>
 #include <string.h>
 #include <unistd.h>
-#include <utmp.h>
+#include <utmpx.h>
 
-typedef char	namebuf[UT_NAMESIZE];
+typedef char	namebuf[_UTX_USERSIZE];
 
 int	main __P((int, char **));
 int scmp __P((const void *, const void *));
@@ -70,7 +70,7 @@ main(argc, argv)
 	int ncnt = 0;
 	int nmax = 0;
 	int cnt;
-	struct utmp utmp;
+	struct utmpx *ux;
 	int ch;
 
 	while ((ch = getopt(argc, argv, "")) != -1)
@@ -83,13 +83,11 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (!freopen(_PATH_UTMP, "r", stdin)) {
-		err(1, "can't open %s", _PATH_UTMP);
-		/* NOTREACHED */
-	}
+	setutxent();
 
-	while (fread((char *)&utmp, sizeof(utmp), 1, stdin) == 1) {
-		if (*utmp.ut_name) {
+	while ((ux = getutxent()) != NULL) {
+		if (*ux->ut_user && ux->ut_type == USER_PROCESS)
+		{
 			if (ncnt >= nmax) {
 				nmax += 32;
 				names = realloc(names, 
@@ -101,17 +99,17 @@ main(argc, argv)
 				}
 			}
 
-			(void)strncpy(names[ncnt], utmp.ut_name, UT_NAMESIZE);
+			(void)strncpy(names[ncnt], ux->ut_user, _UTX_USERSIZE);
 			++ncnt;
 		}
 	}
 
 	if (ncnt) {
-		qsort(names, ncnt, UT_NAMESIZE, scmp);
-		(void)printf("%.*s", UT_NAMESIZE, names[0]);
+		qsort(names, ncnt, _UTX_USERSIZE, scmp);
+		(void)printf("%.*s", _UTX_USERSIZE, names[0]);
 		for (cnt = 1; cnt < ncnt; ++cnt)
-			if (strncmp(names[cnt], names[cnt - 1], UT_NAMESIZE))
-				(void)printf(" %.*s", UT_NAMESIZE, names[cnt]);
+			if (strncmp(names[cnt], names[cnt - 1], _UTX_USERSIZE))
+				(void)printf(" %.*s", _UTX_USERSIZE, names[cnt]);
 		(void)printf("\n");
 	}
 	exit(0);
@@ -121,5 +119,5 @@ int
 scmp(p, q)
 	const void *p, *q;
 {
-	return(strncmp((char *) p, (char *) q, UT_NAMESIZE));
+	return(strncmp((char *) p, (char *) q, _UTX_USERSIZE));
 }

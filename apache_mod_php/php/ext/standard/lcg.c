@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: lcg.c,v 1.33.2.3.8.4 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: lcg.c,v 1.41.2.1.2.2 2007/05/17 06:38:13 rasmus Exp $ */
 
 #include "php.h"
 #include "php_lcg.h"
@@ -103,14 +103,6 @@ PHP_MINIT_FUNCTION(lcg)
 #else
 	lcg_init_globals(&lcg_globals);
 #endif
-	return SUCCESS;
-}
-
-PHP_RINIT_FUNCTION(lcg)
-{
-	if (!LCG(seeded)) {
-		lcg_seed(TSRMLS_C);
-	}
 	return SUCCESS;
 }
 

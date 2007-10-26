@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,7 +59,7 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2007 Apple Inc. All rights reserved.\n"
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
@@ -87,9 +87,16 @@ typedef enum {
 	GROUP,
 	SC_10_1,
 	SC_10_1_10_4,	// deprecated in 10.4
+	SC_10_1_10_5,	// deprecated in 10.5
 	SC_10_2,
 	SC_10_3,
 	SC_10_4,
+	SC_10_5,
+	COMMENT_PRIVATE,
+	GROUP_PRIVATE,
+	SC_10_5_PRIVATE,
+	COMMENT_DEPRECATED,
+	GROUP_DEPRECATED,
 	END
 } controlType;
 
@@ -114,6 +121,7 @@ typedef enum {
 #define USERSENT		"EntUsers"
 #define USERSPROP		"PropUsers"
 #define VERSION			"Version"
+#define VIRTUALPROP		"PropVirtualNetworkInterfaces"
 
 #define CFARRAY_CFNUMBER	"CFArray[CFNumber]"
 #define CFARRAY_CFSTRING	"CFArray[CFString]"
@@ -124,10 +132,12 @@ typedef enum {
 #define CFNUMBER_BOOL		"CFNumber (0 or 1)"
 #define CFSTRING		"CFString"
 
+#define ACCESSPOINTNAME		"AccessPointName"
 #define ACSP			"ACSP"			// Apple Client Server Protocol
 #define ACTIVE			"Active"
 #define ADDRESSES		"Addresses"
 #define AFTER			"After"
+#define AGGRESSIVE		"Aggressive"
 #define AIRPORT			"AirPort"
 #define ALERT			"Alert"
 #define ALLOWNETCREATION	"AllowNetCreation"
@@ -135,28 +145,34 @@ typedef enum {
 #define ANYREGEX		"AnyRegex"
 #define APPLETALK		"AppleTalk"
 #define AUTH			"Auth"
+#define AUTHENTICATIONMETHOD	"AuthenticationMethod"
 #define AUTOCONFIG		"AutoConfig"
 #define AUTODISCOVERY		"AutoDiscovery"
 #define AUTOMATIC		"Automatic"
 #define BEFORE			"Before"
 #define BINDINGMETHODS		"BindingMethods"
+#define	BOND			"Bond"
 #define BOOTP			"BOOTP"
 #define BROADCAST		"Broadcast"
 #define CALLWAITINGAUDIBLEALERT	"CallWaitingAudibleAlert"
 #define CAUSE			"Cause"
 #define CCP			"CCP"
 #define CHAP			"CHAP"
+#define CERTIFICATE		"Certificate"
 #define COMM			"Comm"
+#define COMPATIBLE		"Compatible"
 #define COMPRESSIONACFIELD	"CompressionACField"
 #define COMPRESSIONPFIELD	"CompressionPField"
 #define COMPRESSIONVJ		"CompressionVJ"
 #define COMPUTERNAME		"ComputerName"
 #define CONFIGMETHOD		"ConfigMethod"
 #define CONNECTDELAY		"ConnectDelay"
-#define CONNECTIONSCRIPT	"ConnectionScript"
+#define CONNECTION		"Connection"
 #define CONNECTSPEED		"ConnectSpeed"
 #define CONNECTTIME		"ConnectTime"
+#define CONSERVATIVE		"Conservative"
 #define CONSOLEUSER		"ConsoleUser"
+#define CONTEXTID		"ContextID"
 #define CURRENTSET		"CurrentSet"
 #define DATACOMPRESSION		"DataCompression"
 #define DEFAULT			"Default"
@@ -181,6 +197,7 @@ typedef enum {
 #define DOMAIN 			"Domain"
 #define DOMAINS			"Domains"
 #define EAP			"EAP"
+#define EAPOL			"EAPOL"
 #define ECHO			"Echo"
 #define ECHOFAILURE		"EchoFailure"
 #define ECHOINTERVAL		"EchoInterval"
@@ -192,6 +209,7 @@ typedef enum {
 #define ETHERNET		"Ethernet"
 #define EXCEPTIONSLIST		"ExceptionsList"
 #define EXCLUDESIMPLEHOSTNAMES	"ExcludeSimpleHostnames"
+#define FAILOVER		"Failover"
 #define FILE			"File"
 #define FIREWIRE		"FireWire"
 #define FIRST			"First"
@@ -201,13 +219,17 @@ typedef enum {
 #define GLOBAL			"Global"
 #define GOPHER			"Gopher"
 #define HARDWARE		"Hardware"
+#define HIGH			"High"
 #define HOLD			"Hold"
+#define HOSTNAME		"HostName"
 #define HOSTNAMES		"HostNames"
 #define HTTP			"HTTP"
 #define HTTPS			"HTTPS"
+#define HYBRID			"Hybrid"
 #define IDLEREMINDER		"IdleReminder"
 #define IDLEREMINDERTIMER	"IdleReminderTimer"
 #define IGNOREDIALTONE		"IgnoreDialTone"
+#define IGNORELINKSTATUS	"IgnoreLinkStatus"
 #define INACTIVE		"Inactive"
 #define INFORM			"INFORM"
 #define INTERFACE		"Interface"
@@ -218,20 +240,27 @@ typedef enum {
 #define IPV4			"IPv4"
 #define IPV6			"IPv6"
 #define IPSEC			"IPSec"
-#define JOINMODE		"JoinMode"
+#define JOIN			"Join"
 #define KEYCHAIN		"Keychain"
+#define KEYID			"KeyID"
 #define L2TP			"L2TP"
 #define LAST			"Last"
 #define LCP			"LCP"
 #define LINK			"Link"
 #define LINKLOCAL		"LinkLocal"
+#define LOCALCERTIFICATE	"LocalCertificate"
 #define LOCALHOSTNAME		"LocalHostName"
+#define LOCALIDENTIFIER		"LocalIdentifier"
 #define LOGFILE			"Logfile"
+#define LOW			"Low"
 #define MACADDRESS		"MACAddress"
 #define MANUAL			"Manual"
 #define MATCH			"Match"
 #define MEDIA			"Media"
+#define MIXED			"Mixed"
+#define MODEL			"Model"
 #define OPTIONS			"Options"
+#define MODE			"Mode"
 #define MODEM			"Modem"
 #define MPPE40			"MPPE40"
 #define MPPE128			"MPPE128"
@@ -240,6 +269,7 @@ typedef enum {
 #define MSCHAP2			"MSCHAP2"
 #define MTU			"MTU"
 #define NAME			"Name"
+#define NETBIOS			"NetBIOS"
 #define NETINFO			"NetInfo"
 #define NETWORK			"Network"
 #define NETWORKID		"NetworkID"
@@ -248,13 +278,15 @@ typedef enum {
 #define NODE			"Node"
 #define NODEID			"NodeID"
 #define NOTE			"Note"
+#define ONDEMAND		"OnDemand"
 #define ORDER			"Order"
 #define ORDERS			"Orders"
 #define OVERRIDEPRIMARY		"OverridePrimary"
 #define PAP			"PAP"
 #define PASSIVE			"Passive"
 #define PASSWORD		"Password"
-#define PEERDNS			"PeerDNS"
+#define PEER			"Peer"
+#define PERSONALITY		"Personality"
 #define PLUGIN			"Plugin"
 #define PLUGINS			"Plugins"
 #define POWER			"Power"
@@ -268,16 +300,19 @@ typedef enum {
 #define PREFS			"Prefs"
 #define PRIMARYINTERFACE	"PrimaryInterface"
 #define PRIMARYSERVICE		"PrimaryService"
+#define PRIORITY		"Priority"
 #define PROMPT			"Prompt"
 #define PROTOCOL		"Protocol"
 #define PROXIES			"Proxies"
 #define PROXY			"Proxy"
 #define PULSEDIAL		"PulseDial"
+#define RANKED			"Ranked"
 #define RECEIVEACCM		"ReceiveACCM"
 #define RECENT			"Recent"
 #define REDIALCOUNT		"RedialCount"
 #define REDIAL			"Redial"
 #define REDIALINTERVAL		"RedialInterval"
+#define REGION			"Region"
 #define RELAY			"Relay"
 #define REMINDER		"Reminder"
 #define REMINDERTIME		"ReminderTime"
@@ -288,6 +323,8 @@ typedef enum {
 #define ROUTERADVERTISEMENT	"RouterAdvertisement"
 #define RTSP			"RTSP"
 #define SAVEPASSWORDS		"SavePasswords"
+#define SCOPE			"Scope"
+#define SCRIPT			"Script"
 #define SEARCH			"Search"
 #define SEEDNETWORKRANGE	"SeedNetworkRange"
 #define SEEDROUTER		"SeedRouter"
@@ -299,6 +336,7 @@ typedef enum {
 #define SETS			"Sets"
 #define SETUP			"Setup"
 #define	SHAREDSECRET		"SharedSecret"
+#define SMB			"SMB"
 #define SOCKS			"SOCKS"
 #define SORTLIST		"SortList"
 #define SPEAKER			"Speaker"
@@ -316,6 +354,7 @@ typedef enum {
 #define TAGS			"Tags"
 #define TERMINALSCRIPT		"TerminalScript"
 #define TIMEOUT			"Timeout"
+#define TOKEN			"Token"
 #define TRANSMITACCM		"TransmitACCM"
 #define TRANSPORT		"Transport"
 #define TYPE			"Type"
@@ -325,16 +364,23 @@ typedef enum {
 #define USERDEFINEDNAME		"UserDefinedName"
 #define USE			"Use"
 #define USERS			"Users"
+#define VENDOR			"Vendor"
 #define VERBOSELOGGING		"VerboseLogging"
+#define VIRTUALNETWORKINTERFACES	"VirtualNetworkInterfaces"
+#define	VLAN			"VLAN"
 #define WAITFORDIALTONE		"WaitForDialTone"
+#define WINS			"WINS"
+#define WORKGROUP		"Workgroup"
 
-struct {
+typedef struct {
     int				control;
     const char *		prefix;
     const char *		key;
     const char *		value;
     const char *		type;
-} names[] = {
+} schemaDefinition;
+
+static schemaDefinition names[] = {
 
   { GROUP, NULL, "Reserved Keys", NULL, NULL },
 
@@ -357,6 +403,11 @@ struct {
     { SC_10_1, PREF, SETS, NULL, CFDICTIONARY },
     { SC_10_1, PREF, SYSTEM, NULL, CFDICTIONARY },
     { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, PREF, "Preference Keys", NULL, NULL },
+
+    { SC_10_5_PRIVATE, PREF, VIRTUALNETWORKINTERFACES, NULL, CFDICTIONARY },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, COMP, "Component Keys", NULL, NULL },
 
@@ -382,27 +433,39 @@ struct {
     { SC_10_1, NETENT, ETHERNET, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, FIREWIRE, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, INTERFACE, NULL, CFDICTIONARY },
+    { SC_10_5, NETENT, IPSEC, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, IPV4, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, IPV6, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, L2TP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, LINK, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, MODEM, NULL, CFDICTIONARY },
-    { SC_10_1, NETENT, NETINFO, NULL, CFDICTIONARY },
+    { SC_10_1_10_5, NETENT, NETINFO, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, PPP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, PPPOE, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, PPPSERIAL, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, PPTP, NULL, CFDICTIONARY },
     { SC_10_1, NETENT, PROXIES, NULL, CFDICTIONARY },
+    { SC_10_5, NETENT, SMB, NULL, CFDICTIONARY },
     { SC_10_3, NETENT, STF, NULL, CFDICTIONARY },
     { COMMENT, "", NULL, NULL, NULL },
 
-  { GROUP, NETPROP AIRPORT, KEY_PREFIX COMP NETWORK " Properties", NULL, NULL },
+  { GROUP_PRIVATE, NETENT, "Network Entity Keys", NULL, NULL },
+
+    { SC_10_5_PRIVATE, NETENT, EAPOL, NULL, CFDICTIONARY },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+
+  { GROUP, NETPROP, KEY_PREFIX COMP NETWORK " Properties", NULL, NULL },
 
     { SC_10_2, NETPROP, OVERRIDEPRIMARY, NULL, CFNUMBER_BOOL },
     { SC_10_1, NETPROP, SERVICE ORDER, NULL, CFARRAY_CFSTRING },
     { SC_10_1, NETPROP, PPP OVERRIDEPRIMARY, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
+  { GROUP_PRIVATE, NETPROP, KEY_PREFIX COMP NETWORK " Properties", NULL, NULL },
+
+    { SC_10_5_PRIVATE, NETPROP, IGNORELINKSTATUS, NULL, CFBOOLEAN },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },	
+	
   { GROUP, NETPROP AIRPORT, KEY_PREFIX COMP NETWORK INTERFACE " Properties", NULL, NULL },
 
     { SC_10_2, NETPROP, INTERFACES, NULL, CFARRAY_CFSTRING },
@@ -418,16 +481,17 @@ struct {
     { SC_10_2, NETPROP AIRPORT, ALLOWNETCREATION, NULL, CFNUMBER_BOOL },
     { SC_10_1, NETPROP AIRPORT, AUTH PASSWORD, NULL, CFDATA },
     { SC_10_1, NETPROP AIRPORT, AUTH PASSWORD ENCRYPTION, NULL, CFSTRING },
-    { SC_10_2, NETPROP AIRPORT, JOINMODE, NULL, CFSTRING },
+    { SC_10_2, NETPROP AIRPORT, JOIN MODE, NULL, CFSTRING },
     { SC_10_1, NETPROP AIRPORT, POWER ENABLED, NULL, CFNUMBER_BOOL },
     { SC_10_1, NETPROP AIRPORT, PREFERRED NETWORK, NULL, CFSTRING },
     { SC_10_2, NETPROP AIRPORT, SAVEPASSWORDS, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
-    { COMMENT, "--- " KEY_PREFIX NETPROP AIRPORT JOINMODE " values ---", NULL, NULL, NULL },
-    { SC_10_3, NETVAL AIRPORT JOINMODE, AUTOMATIC, NULL, NULL },
-    { SC_10_2, NETVAL AIRPORT JOINMODE, PREFERRED, NULL, NULL },
-    { SC_10_2, NETVAL AIRPORT JOINMODE, RECENT, NULL, NULL },
-    { SC_10_2, NETVAL AIRPORT JOINMODE, STRONGEST, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP AIRPORT JOIN MODE " values ---", NULL, NULL, NULL },
+    { SC_10_3, NETVAL AIRPORT JOIN MODE, AUTOMATIC, NULL, NULL },
+    { SC_10_2, NETVAL AIRPORT JOIN MODE, PREFERRED, NULL, NULL },
+    { SC_10_4, NETVAL AIRPORT JOIN MODE, RANKED, NULL, NULL },
+    { SC_10_2, NETVAL AIRPORT JOIN MODE, RECENT, NULL, NULL },
+    { SC_10_2, NETVAL AIRPORT JOIN MODE, STRONGEST, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP AIRPORT PASSWORD ENCRYPTION " values ---", NULL, NULL, NULL },
     { SC_10_3, NETVAL AIRPORT AUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
@@ -498,6 +562,26 @@ struct {
     { SC_10_3, NETVAL INTERFACE SUBTYPE, L2TP, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
+  { GROUP, NETPROP IPSEC, KEY_PREFIX NETENT IPSEC " Entity Keys", NULL, NULL },
+
+    { SC_10_5, NETPROP IPSEC, LOCALIDENTIFIER, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, LOCALIDENTIFIER TYPE, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, AUTHENTICATIONMETHOD, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, SHAREDSECRET, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, SHAREDSECRET ENCRYPTION, NULL, CFSTRING },
+    { SC_10_5, NETPROP IPSEC, LOCALCERTIFICATE, NULL, CFDATA },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC AUTHENTICATIONMETHOD " values ---", NULL, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC AUTHENTICATIONMETHOD, SHAREDSECRET, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC AUTHENTICATIONMETHOD, CERTIFICATE, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC SHAREDSECRET ENCRYPTION " values ---", NULL, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC SHAREDSECRET ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP IPSEC LOCALIDENTIFIER TYPE " values ---", NULL, NULL, NULL },
+    { SC_10_5, NETVAL IPSEC LOCALIDENTIFIER TYPE, KEYID, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
   { GROUP, NETPROP IPV4, KEY_PREFIX NETENT IPV4 " Entity Keys", NULL, NULL },
 
     { SC_10_1, NETPROP IPV4, ADDRESSES, NULL, CFARRAY_CFSTRING },
@@ -516,6 +600,11 @@ struct {
     { SC_10_1, NETVAL IPV4 CONFIGMETHOD, MANUAL, NULL, NULL },
     { SC_10_1, NETVAL IPV4 CONFIGMETHOD, PPP, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, NETPROP IPV4, KEY_PREFIX NETENT IPV4 " Entity Keys", NULL, NULL },
+    { COMMENT_PRIVATE, "--- " KEY_PREFIX NETPROP IPV4 CONFIGMETHOD " values ---", NULL, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL IPV4 CONFIGMETHOD, FAILOVER, NULL, NULL },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP IPV6, KEY_PREFIX NETENT IPV6 " Entity Keys", NULL, NULL },
 
@@ -546,9 +635,14 @@ struct {
 
   { GROUP, NETPROP MODEM, KEY_PREFIX NETENT MODEM " (Hardware) Entity Keys", NULL, NULL },
 
-    { SC_10_1, NETPROP MODEM, CONNECTIONSCRIPT, NULL, CFSTRING },
+    { SC_10_5, NETPROP MODEM, ACCESSPOINTNAME, NULL, CFSTRING },
+    { SC_10_5, NETPROP MODEM, CONNECTION PERSONALITY, NULL, CFSTRING },
+    { SC_10_1, NETPROP MODEM, CONNECTION SCRIPT, NULL, CFSTRING },
     { SC_10_2, NETPROP MODEM, CONNECTSPEED, NULL, CFNUMBER },
     { SC_10_1, NETPROP MODEM, DATACOMPRESSION, NULL, CFNUMBER_BOOL },
+    { SC_10_5, NETPROP MODEM, DEVICE CONTEXTID, NULL, CFSTRING },
+    { SC_10_5, NETPROP MODEM, DEVICE MODEL, NULL, CFSTRING },
+    { SC_10_5, NETPROP MODEM, DEVICE VENDOR, NULL, CFSTRING },
     { SC_10_1, NETPROP MODEM, DIALMODE, NULL, CFSTRING },
     { SC_10_1, NETPROP MODEM, ERRORCORRECTION, NULL, CFNUMBER_BOOL },
     { SC_10_2, NETPROP MODEM, HOLD CALLWAITINGAUDIBLEALERT, NULL, CFNUMBER_BOOL },
@@ -567,21 +661,21 @@ struct {
     { SC_10_1, NETVAL MODEM DIALMODE, WAITFORDIALTONE, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
-  { GROUP, NETPROP NETINFO, KEY_PREFIX NETENT NETINFO " Entity Keys", NULL, NULL },
+  { GROUP_DEPRECATED, NETPROP NETINFO, KEY_PREFIX NETENT NETINFO " Entity Keys", NULL, NULL },
 
-    { SC_10_1, NETPROP NETINFO, BINDINGMETHODS, NULL, CFSTRING },
-    { SC_10_1, NETPROP NETINFO, SERVER ADDRESSES, NULL, CFARRAY_CFSTRING },
-    { SC_10_1, NETPROP NETINFO, SERVER TAGS, NULL, CFARRAY_CFSTRING },
-    { SC_10_1, NETPROP NETINFO, BROADCAST SERVER TAG, NULL, CFSTRING },
-    { COMMENT, "", NULL, NULL, NULL },
-    { COMMENT, "--- " KEY_PREFIX NETPROP NETINFO BINDINGMETHODS " values ---", NULL, NULL, NULL },
-    { SC_10_1, NETVAL NETINFO BINDINGMETHODS, BROADCAST, NULL, NULL },
-    { SC_10_1, NETVAL NETINFO BINDINGMETHODS, DHCP, NULL, NULL },
-    { SC_10_1, NETVAL NETINFO BINDINGMETHODS, MANUAL, NULL, NULL },
-    { COMMENT, "", NULL, NULL, NULL },
-    { COMMENT, "--- " KEY_PREFIX NETPROP NETINFO BROADCAST SERVER TAG " default value ---", NULL, NULL, NULL },
-    { SC_10_1, NETVAL NETINFO, DEFAULT SERVER TAG, "network", NULL },
-    { COMMENT, "", NULL, NULL, NULL },
+    { SC_10_1_10_5, NETPROP NETINFO, BINDINGMETHODS, NULL, CFSTRING },
+    { SC_10_1_10_5, NETPROP NETINFO, SERVER ADDRESSES, NULL, CFARRAY_CFSTRING },
+    { SC_10_1_10_5, NETPROP NETINFO, SERVER TAGS, NULL, CFARRAY_CFSTRING },
+    { SC_10_1_10_5, NETPROP NETINFO, BROADCAST SERVER TAG, NULL, CFSTRING },
+    { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
+    { COMMENT_DEPRECATED, "--- " KEY_PREFIX NETPROP NETINFO BINDINGMETHODS " values ---", NULL, NULL, NULL },
+    { SC_10_1_10_5, NETVAL NETINFO BINDINGMETHODS, BROADCAST, NULL, NULL },
+    { SC_10_1_10_5, NETVAL NETINFO BINDINGMETHODS, DHCP, NULL, NULL },
+    { SC_10_1_10_5, NETVAL NETINFO BINDINGMETHODS, MANUAL, NULL, NULL },
+    { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
+    { COMMENT_DEPRECATED, "--- " KEY_PREFIX NETPROP NETINFO BROADCAST SERVER TAG " default value ---", NULL, NULL, NULL },
+    { SC_10_1_10_5, NETVAL NETINFO, DEFAULT SERVER TAG, "network", NULL },
+    { COMMENT_DEPRECATED, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP PPP, KEY_PREFIX NETENT PPP " Entity Keys", NULL, NULL },
 
@@ -617,6 +711,7 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP PPP AUTH PASSWORD ENCRYPTION " values ---", NULL, NULL, NULL },
     { SC_10_3, NETVAL PPP AUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { SC_10_5, NETVAL PPP AUTH PASSWORD ENCRYPTION, TOKEN, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "--- " KEY_PREFIX NETPROP PPP AUTH PROMPT " values ---", NULL, NULL, NULL },
     { SC_10_3, NETVAL PPP AUTH PROMPT, BEFORE, NULL, CFSTRING },
@@ -650,7 +745,7 @@ struct {
 
     { COMMENT, "--- " IPCP ": ---", NULL, NULL, NULL },
     { SC_10_1, NETPROP PPP, IPCP COMPRESSIONVJ, NULL, CFNUMBER_BOOL },
-    { SC_10_4, NETPROP PPP, IPCP USE PEERDNS, NULL, CFNUMBER_BOOL },
+    { SC_10_4, NETPROP PPP, IPCP USE PEER DNS, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "--- " LCP ": ---", NULL, NULL, NULL },
@@ -664,6 +759,26 @@ struct {
     { SC_10_1, NETPROP PPP, LCP RECEIVEACCM, NULL, CFNUMBER },
     { SC_10_1, NETPROP PPP, LCP TRANSMITACCM, NULL, CFNUMBER },
     { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, NETPROP PPP, KEY_PREFIX NETENT PPP " Entity Keys", NULL, NULL },
+
+    { COMMENT_PRIVATE, "--- " ONDEMAND ": ---", NULL, NULL, NULL },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND DOMAINS, NULL, CFARRAY_CFSTRING },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND ENABLED, NULL, CFNUMBER_BOOL },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND HOSTNAME, NULL, CFSTRING },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND MODE, NULL, CFSTRING },
+    { SC_10_5_PRIVATE, NETPROP PPP, ONDEMAND PRIORITY, NULL, CFSTRING },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { COMMENT_PRIVATE, "--- " KEY_PREFIX NETPROP PPP ONDEMAND MODE " values ---", NULL, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND MODE, AGGRESSIVE, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND MODE, CONSERVATIVE, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND MODE, COMPATIBLE, NULL, NULL },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { COMMENT_PRIVATE, "--- " KEY_PREFIX NETPROP PPP ONDEMAND PRIORITY " values ---", NULL, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND PRIORITY, DEFAULT, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND PRIORITY, HIGH, NULL, NULL },
+    { SC_10_5_PRIVATE, NETVAL PPP ONDEMAND PRIORITY, LOW, NULL, NULL },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, NETPROP PPPOE, KEY_PREFIX NETENT PPPOE " Entity Keys", NULL, NULL },
 
@@ -722,6 +837,21 @@ struct {
     { SC_10_4, NETPROP PROXIES, PROXY AUTODISCOVERY ENABLE, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
+  { GROUP, NETPROP SMB, KEY_PREFIX NETENT SMB " Entity Keys", NULL, NULL },
+
+    { SC_10_5, NETPROP SMB, NETBIOS NAME, NULL, CFSTRING },
+    { SC_10_5, NETPROP SMB, NETBIOS NODE TYPE, NULL, CFSTRING },
+    { SC_10_5, NETPROP SMB, NETBIOS SCOPE, NULL, CFSTRING },
+    { SC_10_5, NETPROP SMB, WINS ADDRESSES, NULL, CFARRAY_CFSTRING },
+    { SC_10_5, NETPROP SMB, WORKGROUP, NULL, CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "--- " KEY_PREFIX NETPROP SMB NETBIOS NODE TYPE " values ---", NULL, NULL, NULL },
+    { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, BROADCAST, NULL },
+    { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, PEER, NULL },
+    { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, MIXED, NULL },
+    { SC_10_5, NETVAL SMB NETBIOS NODE TYPE, HYBRID, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
   { GROUP, USERSENT CONSOLEUSER, KEY_PREFIX COMP USERS " Entity Keys", NULL, NULL },
 
     { SC_10_1, USERSENT, CONSOLEUSER, NULL, NULL },
@@ -732,6 +862,12 @@ struct {
     { SC_10_1, SYSTEMPROP, COMPUTERNAME, NULL, CFSTRING },
     { SC_10_1, SYSTEMPROP, COMPUTERNAME ENCODING, NULL, CFNUMBER },
     { COMMENT, "", NULL, NULL, NULL },
+
+  { GROUP_PRIVATE, SYSTEMPROP COMPUTERNAME, KEY_PREFIX COMP SYSTEM " Properties", NULL, NULL },
+
+    { SC_10_5_PRIVATE, SYSTEMPROP, COMPUTERNAME REGION, NULL, CFNUMBER },
+    { SC_10_5_PRIVATE, SYSTEMPROP, HOSTNAME, NULL, CFSTRING },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
 
   { GROUP, DYNAMICSTORE DOMAIN, "SCDynamicStore \"domain\" prefixes", NULL, NULL },
 
@@ -756,6 +892,17 @@ struct {
     { SC_10_1, DYNAMICSTORE NETPROP, SERVICEIDS, NULL, CFARRAY_CFSTRING },
 //  { COMMENT, "", NULL, NULL, NULL },
 
+  { GROUP_PRIVATE, VIRTUALNETWORKINTERFACES, "Virtual Network Interface Keys", NULL, NULL },
+
+    { SC_10_5_PRIVATE, VIRTUALPROP BOND, INTERFACES, NULL, CFARRAY_CFSTRING },
+    { SC_10_5_PRIVATE, VIRTUALPROP BOND, MODE, NULL, CFNUMBER },
+    { SC_10_5_PRIVATE, VIRTUALPROP BOND, OPTIONS, NULL, CFDICTIONARY },
+    { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+    { SC_10_5_PRIVATE, VIRTUALPROP VLAN, INTERFACE, NULL, CFSTRING },
+    { SC_10_5_PRIVATE, VIRTUALPROP VLAN, TAG, NULL, CFNUMBER },
+    { SC_10_5_PRIVATE, VIRTUALPROP VLAN, OPTIONS, NULL, CFDICTIONARY },
+//  { COMMENT_PRIVATE, "", NULL, NULL, NULL },
+
 //{ GROUP, "DEPRECATED", "Deprecated schema definition keys", NULL, NULL },
 
     { SC_10_1_10_4, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
@@ -765,6 +912,11 @@ struct {
 
     { END, NULL, NULL, NULL, NULL },
 };
+
+static int	maxkbuf		= 0;
+static char	*maxkstr	= NULL;
+static int	maxvbuf		= 0;
+static char	*maxvstr	= NULL;
 
 static inline void
 setmax(int *max, char **maxstr, char *str)
@@ -783,59 +935,265 @@ setmax(int *max, char **maxstr, char *str)
 enum {
     gen_header_e,
     gen_comments_e,
+    gen_comments_private_e,
     gen_headerdoc_e,
+    gen_headerdoc_private_e,
     gen_hfile_e,
+    gen_hfile_private_e,
     gen_cfile_e,
 };
+
+void
+print_comment(schemaDefinition *def)
+{
+	char kbuf[256];
+	char vbuf[256];
+
+	snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
+		 def->prefix, def->key);
+	snprintf(vbuf, sizeof(vbuf), "\"%s\"",
+		 def->value ? def->value : def->key);
+		 
+	if (def->type)
+	    printf(" *   %-50s %-30s %s\n",
+		   kbuf, vbuf, def->type);
+	else
+	    printf(" *   %-50s %s\n",
+		   kbuf, vbuf);
+
+	return;
+}
+
+void
+print_headerdoc(schemaDefinition *def)
+{
+	char kbuf[256];
+	char vbuf[256];
+
+	snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
+		 def->prefix, def->key);
+	setmax(&maxkbuf, &maxkstr, kbuf);
+
+	snprintf(vbuf, sizeof(vbuf), "\"%s\"",
+		 def->value ? def->value : def->key);
+	setmax(&maxvbuf, &maxvstr, vbuf);
+
+	printf("\n");
+
+	printf("/*!\n");
+	printf("  @const %s\n", kbuf);
+	switch (def->control) {
+	    case SC_10_1:
+		printf("  @availability Introduced in Mac OS X 10.1.\n");
+		break;
+	    case SC_10_2:
+		printf("  @availability Introduced in Mac OS X 10.2.\n");
+		break;
+	    case SC_10_1_10_4:
+		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
+		break;
+	    case SC_10_1_10_5:
+		printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.5.\n");
+		break;
+	    case SC_10_3:
+		printf("  @availability Introduced in Mac OS X 10.3.\n");
+		break;
+	    case SC_10_4:
+		printf("  @availability Introduced in Mac OS X 10.4.\n");
+		break;
+	    case SC_10_5:
+	    case SC_10_5_PRIVATE:
+		printf("  @availability Introduced in Mac OS X 10.5.\n");
+		break;
+	}
+	printf(" */\n");
+	printf("extern const CFStringRef %s;\n", kbuf);
+
+	return;
+}
+
+void
+print_hfile(schemaDefinition *def)
+{
+	char kbuf[256];
+	char vbuf[256];
+
+	snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
+		 def->prefix, def->key);
+	setmax(&maxkbuf, &maxkstr, kbuf);
+
+	snprintf(vbuf, sizeof(vbuf), "\"%s\"",
+		 def->value ? def->value : def->key);
+	setmax(&maxvbuf, &maxvstr, vbuf);
+
+	printf("\n");
+
+	switch (def->control) {
+	    case SC_10_1:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_2:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_3:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_1_10_4:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_1_10_5:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_5)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_4:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    case SC_10_5:
+	    case SC_10_5_PRIVATE:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER)\n", kbuf);
+		printf("#endif\n");
+		break;
+	    default:
+		printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
+		printf("  " SC_SCHEMA_DECLARATION "(%s,)\n", kbuf);
+		printf("#endif\n");
+		break;
+	}
+
+	switch (def->control) {
+	    case SC_10_1:
+	    case SC_10_1_10_4:
+	    case SC_10_1_10_5:
+		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)\n");
+		break;
+	    case SC_10_2:
+		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)\n");
+		break;
+	    case SC_10_3:
+		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)\n");
+		break;
+	    case SC_10_4:
+		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)\n");
+		break;
+	    case SC_10_5:
+	    case SC_10_5_PRIVATE:
+		printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1050) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1050)\n");
+		break;
+	}
+
+	printf("  #define %-48s              \\\n",
+	       kbuf);
+	printf("	  " SC_SCHEMA_KV "(%-48s \\\n",
+	       kbuf);
+	printf("		      ,%-48s \\\n",
+	       vbuf);
+	printf("		      ,%-48s )\n",
+	       def->type ? def->type : "");
+
+	switch (def->control) {
+	    case SC_10_1:
+	    case SC_10_1_10_4:
+	    case SC_10_1_10_5:
+	    case SC_10_2:
+	    case SC_10_3:
+	    case SC_10_4:
+	    case SC_10_5:
+	    case SC_10_5_PRIVATE:
+		printf("#endif\n");
+		break;
+	}
+
+	return;
+}
 
 void
 dump_names(int type)
 {
     int i;
-    int maxkbuf = 0;
-    char *maxkstr = NULL;
-    int maxvbuf = 0;
-    char *maxvstr = NULL;
 
     for (i = 0; TRUE; i++) {
 	switch (names[i].control) {
 	    case END: {
 		goto done;
-		break;
 	    }
 
 	    case COMMENT: {
 		switch (type) {
-		    case gen_header_e:
-		        break;
 		    case gen_comments_e:
-		        if (names[i].prefix)
-			    printf(" *   %s\n", names[i].prefix);
-		        break;
-		    case gen_hfile_e:
-//		        if (names[i].prefix)
-//			    printf("%s\n", names[i].prefix);
-		        break;
+			if (names[i].prefix)
+			    if (strlen(names[i].prefix) > 0)
+				printf(" *   %s\n", names[i].prefix);
+			    else
+				printf(" *\n");
+			break;
 		    default:
-		        break;
+			break;
 		}
 		break;
 	    }
 
-	    case GROUP: {
+	    case COMMENT_PRIVATE: {
 		switch (type) {
-		    case gen_header_e:
-		        break;
-		    case gen_comments_e:
-		        if (names[i].key)
-			    printf(" * %s\n *\n", names[i].key);
-		        break;
-		    case gen_headerdoc_e:
-		        if (names[i].prefix)
-			    printf("\n/*!\n  @group %s\n */\n", names[i].key);
-		        break;
+		    case gen_comments_private_e:
+			if (names[i].prefix)
+			    if (strlen(names[i].prefix) > 0)
+				printf(" *   %s\n", names[i].prefix);
+			    else
+				printf(" *\n");
+			break;
 		    default:
-		        break;
+			break;
+		}
+		break;
+	    }
+
+	    case COMMENT_DEPRECATED: {
+		break;
+	    }
+
+	    case GROUP:
+	    case GROUP_DEPRECATED: {
+		switch (type) {
+		    case gen_comments_e:
+			if (names[i].control == GROUP) {
+				if (names[i].key)
+				    printf(" * %s\n *\n", names[i].key);
+			}
+			break;
+		    case gen_headerdoc_e:
+			if (names[i].prefix)
+			    printf("\n/*!\n  @group %s\n */\n", names[i].key);
+			break;
+		    default:
+			break;
+		}
+		break;
+	    }
+
+	    case GROUP_PRIVATE: {
+		switch (type) {
+		    case gen_comments_private_e:
+			if (names[i].key)
+			    printf(" * %s\n *\n", names[i].key);
+			break;
+		    case gen_headerdoc_private_e:
+			if (names[i].prefix)
+			    printf("\n/*!\n  @group %s\n */\n", names[i].key);
+			break;
+		    default:
+			break;
 		}
 		break;
 	    }
@@ -846,154 +1204,91 @@ dump_names(int type)
 
 		switch (type) {
 		    case gen_header_e:
-		        snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-			         names[i].prefix, names[i].key);
+			snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
+				 names[i].prefix, names[i].key);
 
-		        if (names[i].value)
+			if (names[i].value)
 			    snprintf(vbuf, sizeof(vbuf), "SCSTR(\"%s\")",
 				     names[i].value);
-		        else
+			else
 			    snprintf(vbuf, sizeof(vbuf), "SCSTR(\"%s\")",
 				     names[i].key);
 
-		        printf("#define %-50s %s\n",
+			printf("#define %-50s %s\n",
 			       kbuf, vbuf);
-		        break;
+			break;
+
 		    case gen_comments_e:
-		        switch (names[i].control) {
+			switch (names[i].control) {
 			    case SC_10_1_10_4:
-			        // don't report deprecated keys
-			        break;
+			    case SC_10_1_10_5:
+				// don't report deprecated keys
+				break;
+			    case SC_10_5_PRIVATE:
+				// don't report private definitions
+				break;
 			    default:
-			        snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-				         names[i].prefix, names[i].key);
-
-			        snprintf(vbuf, sizeof(vbuf), "\"%s\"",
-				         names[i].value ? names[i].value : names[i].key);
-
-			        if (names[i].type)
-				    printf(" *   %-50s %-30s %s\n",
-				           kbuf, vbuf, names[i].type);
-			        else
-				    printf(" *   %-50s %s\n",
-				           kbuf, vbuf);
-			        break;
+				print_comment(&names[i]);
+				break;
 			}
 			break;
+		    case gen_comments_private_e:
+			switch (names[i].control) {
+			    case SC_10_1_10_4:
+			    case SC_10_1_10_5:
+				// don't report deprecated keys
+				break;
+			    case SC_10_5_PRIVATE:
+				print_comment(&names[i]);
+				break;
+			    default:
+				// don't report public definitions
+				break;
+			}
+			break;
+
 		    case gen_headerdoc_e:
-			snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-				 names[i].prefix, names[i].key);
-			setmax(&maxkbuf, &maxkstr, kbuf);
-
-			snprintf(vbuf, sizeof(vbuf), "\"%s\"",
-				 names[i].value ? names[i].value : names[i].key);
-			setmax(&maxvbuf, &maxvstr, vbuf);
-
-			printf("\n");
-
-			printf("/*!\n");
-			printf("  @const %s\n", kbuf);
 			switch (names[i].control) {
-			    case SC_10_1:
-				printf("  @availability Introduced in Mac OS X 10.1.\n");
+			    case SC_10_5_PRIVATE:
 				break;
-			    case SC_10_2:
-				printf("  @availability Introduced in Mac OS X 10.2.\n");
-				break;
-			    case SC_10_1_10_4:
-				printf("  @availability Introduced in Mac OS X 10.1, but later deprecated in Mac OS X 10.4.\n");
-				break;
-			    case SC_10_3:
-				printf("  @availability Introduced in Mac OS X 10.3.\n");
-				break;
-			    case SC_10_4:
-				printf("  @availability Introduced in Mac OS X 10.4.\n");
+				// don't report private definitions
+			    default:
+				print_headerdoc(&names[i]);
 				break;
 			}
-			printf(" */\n");
-			printf("extern const CFStringRef %s;\n", kbuf);
-
-		        break;
-		    case gen_hfile_e:
-			snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-				 names[i].prefix, names[i].key);
-			setmax(&maxkbuf, &maxkstr, kbuf);
-
-			snprintf(vbuf, sizeof(vbuf), "\"%s\"",
-				 names[i].value ? names[i].value : names[i].key);
-			setmax(&maxvbuf, &maxvstr, vbuf);
-
-			printf("\n");
-
+			break;
+		    case gen_headerdoc_private_e:
 			switch (names[i].control) {
-			    case SC_10_1:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER)\n", kbuf);
-				printf("#endif\n");
-				break;
-			    case SC_10_2:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER)\n", kbuf);
-				printf("#endif\n");
-				break;
-			    case SC_10_3:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER)\n", kbuf);
-				printf("#endif\n");
-				break;
-			    case SC_10_1_10_4:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_1_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4)\n", kbuf);
-				printf("#endif\n");
-				break;
-			    case SC_10_4:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1040\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s, AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER)\n", kbuf);
-				printf("#endif\n");
+			    case SC_10_5_PRIVATE:
+				print_headerdoc(&names[i]);
 				break;
 			    default:
-				printf("#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030\n");
-				printf("  " SC_SCHEMA_DECLARATION "(%s,)\n", kbuf);
-				printf("#endif\n");
+				// don't report public definitions
 				break;
 			}
-
-			switch (names[i].control) {
-			    case SC_10_1:
-			    case SC_10_1_10_4:
-				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1010)\n");
-				break;
-			    case SC_10_2:
-				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1020) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1020)\n");
-				break;
-			    case SC_10_3:
-				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1030) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1030)\n");
-				break;
-			    case SC_10_4:
-				printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1040) || (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)\n");
-				break;
-			}
-
-			printf("  #define %-48s              \\\n",
-			       kbuf);
-			printf("          " SC_SCHEMA_KV "(%-48s \\\n",
-			       kbuf);
-			printf("                      ,%-48s \\\n",
-			       vbuf);
-			printf("                      ,%-48s )\n",
-			       names[i].type ? names[i].type : "");
-
-			switch (names[i].control) {
-			    case SC_10_1:
-			    case SC_10_1_10_4:
-			    case SC_10_2:
-			    case SC_10_3:
-			    case SC_10_4:
-				printf("#endif\n");
-				break;
-			}
-
 			break;
+
+		    case gen_hfile_e:
+			switch (names[i].control) {
+			    case SC_10_5_PRIVATE:
+				break;
+				// don't report private definitions
+			    default:
+				print_hfile(&names[i]);
+				break;
+			}
+			break;
+		    case gen_hfile_private_e:
+			switch (names[i].control) {
+			    case SC_10_5_PRIVATE:
+				print_hfile(&names[i]);
+				break;
+			    default:
+				// don't report public definitions
+				break;
+			}
+			break;
+
 		    case gen_cfile_e:
 			snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 				 names[i].prefix, names[i].key);
@@ -1119,13 +1414,13 @@ main(int argc, char * argv[])
 	printf(" */\n");
 
 	printf("#if MAC_OS_X_VERSION_MIN_REQUIRED <= 1020\n");
-	printf("    #ifndef SCSTR\n");
-	printf("      #include <CoreFoundation/CFString.h>\n");
-	printf("      #define SCSTR(s) CFSTR(s)\n");
-	printf("    #endif\n");
+	printf("  #ifndef SCSTR\n");
+	printf("    #include <CoreFoundation/CFString.h>\n");
+	printf("    #define SCSTR(s) CFSTR(s)\n");
+	printf("  #endif\n");
 	printf("  #ifndef " SC_SCHEMA_DECLARATION "\n");
 	printf("    #define " SC_SCHEMA_DECLARATION "(k,q)\textern const CFStringRef k q;\n");
-	printf("    #endif\n");
+	printf("  #endif\n");
 	printf("  #ifndef " SC_SCHEMA_KV "\n");
 	printf("    #define " SC_SCHEMA_KV "(k,v,t)\tSCSTR( v )\n");
 	printf("  #endif\n");
@@ -1153,10 +1448,10 @@ main(int argc, char * argv[])
 
 	// The SCSTR() macro should only be availble for Mac OS X 10.1.0 ... 10.4.x
 	printf("#if (MAC_OS_X_VERSION_MIN_REQUIRED >= 1010) && (MAC_OS_X_VERSION_MAX_ALLOWED <= 1040)\n");
-	printf("    #ifndef SCSTR\n");
-	printf("      #include <CoreFoundation/CFString.h>\n");
-	printf("      #define SCSTR(s) CFSTR(s)\n");
-	printf("    #endif\n");
+	printf("  #ifndef SCSTR\n");
+	printf("    #include <CoreFoundation/CFString.h>\n");
+	printf("    #define SCSTR(s) CFSTR(s)\n");
+	printf("  #endif\n");
 	printf("#endif\n\n\n");
 
 	printf("/* -------------------- HeaderDoc comments -------------------- */\n\n\n");
@@ -1173,6 +1468,35 @@ main(int argc, char * argv[])
 	printf("\n");
 
 	printf("#endif /* _SCSCHEMADEFINITIONS_H */\n");
+    }
+    else if (strcmp(type, "private") == 0) {
+	printf("%s\n", copyright_string);
+	printf("/*\n * This file is automatically generated\n * DO NOT EDIT!\n */\n\n");
+
+	printf("/*\n");
+	dump_names(gen_comments_private_e);
+	printf(" */\n\n\n");
+
+	printf("#ifndef _SCSCHEMADEFINITIONSPRIVATE_H\n#define _SCSCHEMADEFINITIONSPRIVATE_H\n\n");
+
+	printf("/* -------------------- Macro declarations -------------------- */\n\n");
+
+	printf("#include <SystemConfiguration/SCSchemaDefinitions.h>\n\n");
+
+	printf("/* -------------------- HeaderDoc comments -------------------- */\n\n\n");
+	printf("#if\t0\n");
+	printf("/*!\n");
+	printf(" *\t@header SCSchemaDefinitionsPrivate\n");
+	printf(" */\n");
+	dump_names(gen_headerdoc_private_e);
+	printf("\n");
+	printf("#endif\t/* 0 */\n\n\n");
+
+	printf("/* -------------------- Schema declarations -------------------- */\n\n");
+	dump_names(gen_hfile_private_e);
+	printf("\n");
+
+	printf("#endif /* _SCSCHEMADEFINITIONSPRIVATE_H */\n");
     }
     else if (strcmp(type, "cfile") == 0) {
 	printf("/*\n");

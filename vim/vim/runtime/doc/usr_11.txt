@@ -1,4 +1,4 @@
-*usr_11.txt*	For Vim version 6.2.  Last change: 2003 Apr 09
+*usr_11.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -181,10 +181,37 @@ something wrong.  It may be one of these two situations.
    either it was changed after the crash (perhaps you recovered it earlier,
    but didn't delete the swap file?), or else the file was saved before the
    crash but after the last write of the swap file (then you're lucky: you
-   don't even need that old swap file). Vim will warn you for this with this
+   don't even need that old swap file).  Vim will warn you for this with this
    extra line:
 
       NEWER than swap file! ~
+
+
+UNREADABLE SWAP FILE
+
+Sometimes the line
+
+	[cannot be read] ~
+
+will appear under the name of the swap file.  This can be good or bad,
+depending on circumstances.
+
+It is good if a previous editing session crashed without having made any
+changes to the file.  Then a directory listing of the swap file will show
+that it has zero bytes.  You may delete it and proceed.
+
+It is slightly bad if you don't have read permission for the swap file.  You
+may want to view the file read-only, or quit.  On multi-user systems, if you
+yourself did the last changes under a different login name, a logout
+followed by a login under that other name might cure the "read error".  Or
+else you might want to find out who last edited (or is editing) the file and
+have a talk with them.
+
+It is very bad if it means there is a physical read error on the disk
+containing the swap file.  Fortunately, this almost never happens.
+You may want to view the file read-only at first (if you can), to see the
+extent of the changes that were "forgotten".  If you are the one in charge of
+that file, be prepared to redo your last changes.
 
 
 WHAT TO DO?
@@ -192,7 +219,7 @@ WHAT TO DO?
 If dialogs are supported you will be asked to select one of five choices:
 
   Swap file ".main.c.swp" already exists! ~
-  [O]pen Read-Only, (E)dit anyway, (R)ecover, (Q)uit, (D)elete it: ~
+  [O]pen Read-Only, (E)dit anyway, (R)ecover, (Q)uit, (A)bort, (D)elete it: ~
 
 O  Open the file readonly.  Use this when you just want to view the file and
    don't need to recover it.  You might want to use this when you know someone
@@ -212,6 +239,10 @@ Q  Quit.  This avoids starting to edit the file.  Use this if there is another
    files in several windows, Vim quits only if there is a swap file for the
    first one.  When using an edit command, the file will not be loaded and you
    are taken back to the previously edited file.
+
+A  Abort.  Like Quit, but also abort further commands.  This is useful when
+   loading a script that edits several files, such as a session with multiple
+   windows.
 
 D  Delete the swap file.  Use this when you are sure you no longer need it.
    For example, when it doesn't contain changes, or when the file itself is

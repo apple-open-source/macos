@@ -65,7 +65,8 @@ public:
 
 protected:
 	void pollReaders();
-	
+	void clearReaders();
+
 	Server &server;
 	TokenCache *cache;
 	std::string cachePath;
@@ -73,8 +74,7 @@ protected:
 
 protected:
 	// Listener
-	void notifyMe(SecurityServer::NotificationDomain domain,
-		SecurityServer::NotificationEvent event, const CssmData &data);
+	void notifyMe(Notification *message);
 	
 	// MachServer::Timer
 	void action();
@@ -102,7 +102,8 @@ protected:
 		possible				// perhaps... we're not sure
 	};
 	DeviceSupport deviceSupport(const IOKit::Device &dev);
-	
+	bool isExcludedDevice(const IOKit::Device &dev);
+
 private:
 	ServiceLevel mServiceLevel;	// level of service requested/determined
 	void (PCSCMonitor::*mTimerAction)(); // what to do when our timer fires	

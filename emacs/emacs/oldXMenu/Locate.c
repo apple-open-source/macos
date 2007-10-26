@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/Locate.c,v 1.1.1.4 2002/09/10 23:34:45 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -31,7 +31,7 @@ XMenuLocate(display, menu, p_num, s_num, x_pos, y_pos, ul_x, ul_y, width, height
 {
     register XMPane *p_ptr;	/* XMPane pointer. */
     register XMSelect *s_ptr;	/* XMSelect pointer. */
-    
+
     /*
      * Are the position arguments positive?
      */
@@ -76,3 +76,6 @@ XMenuLocate(display, menu, p_num, s_num, x_pos, y_pos, ul_x, ul_y, width, height
     _XMErrorCode = XME_NO_ERROR;
     return(XM_SUCCESS);
 }
+
+/* arch-tag: 1ff94bab-cf67-4c92-bff4-dc0130153173
+   (do not change this comment) */

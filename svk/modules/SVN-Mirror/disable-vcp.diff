@@ -1,0 +1,16 @@
+--- Makefile.PL.orig	2007-03-30 17:19:48.000000000 -0700
++++ Makefile.PL	2007-03-30 17:20:07.000000000 -0700
+@@ -20,13 +20,6 @@
+         'File::chdir' => '0',
+         'Class::Accessor' => '0',
+ );
+-features(
+-    'VCP support' => [
+-	-default => 0,
+-        'VCP' => '0.9',
+-        (($^O eq 'MSWin32') ? 'Win32API::GUID' : 'Data::UUID') => 0,
+-    ],
+-) unless $^O eq 'MSWin32'; # VCP support currently requires symlinks
+ 
+ include('ExtUtils::AutoInstall');
+ auto_install();

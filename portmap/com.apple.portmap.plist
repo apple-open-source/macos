@@ -6,6 +6,9 @@
 	<string>com.apple.portmap</string>
 	<key>ProgramArguments</key>
 	<array>
+		<string>/usr/bin/sandbox-exec</string>
+		<string>-f</string>
+		<string>/usr/share/sandbox/portmap.sb</string>
 		<string>/usr/sbin/portmap</string>
 	</array>
 	<key>Sockets</key>
@@ -17,6 +20,8 @@
 		</dict>
 	</dict>
 	<key>ServiceIPC</key>
+	<true/>
+	<key>HopefullyExitsLast</key>
 	<true/>
 </dict>
 </plist>

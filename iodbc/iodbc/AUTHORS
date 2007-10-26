@@ -1,5 +1,5 @@
 #
-#  $Id: AUTHORS,v 1.2 2004/08/10 22:20:18 luesang Exp $
+#  $Id: AUTHORS,v 1.8 2005/07/26 23:16:25 source Exp $
 #
 #  List of Authors/Contributers
 #
@@ -36,6 +36,9 @@ Sergei Malinin <smalinin@openlinksw.com>				(sm)
 
 Tim Haynes <webmaster{at}iodbc.org>					(th)
   - Maintainer iODBC.org web site
+
+Max Khon <fjoe{at}samodelkin.net>					(mk)
+  - iODBC fixes and extentions
 
 
 This list is not complete. If you have contributed to this project and

@@ -1,0 +1,33 @@
+--- py2app/apptemplate/src/main.c.orig	2007-07-20 14:26:11.000000000 -0700
++++ py2app/apptemplate/src/main.c	2007-08-07 01:05:21.000000000 -0700
+@@ -331,10 +331,11 @@
+         ensureGUI();
+         choice = xNSRunAlertPanel(
+             getErrorTitle(getApplicationName()),
+-            xCFSTR(error),
++            xCFSTR("%@"),
+             xCFSTR(ERR_TERMINATE),
+             xCFSTR(ERR_CONSOLEAPPTITLE),
+-            NULL);
++            NULL,
++            xCFSTR(error));
+         if (choice == NSAlertAlternateReturn) openConsole();
+     }
+     MSG(releasePool, "release");
+@@ -836,12 +837,13 @@
+     ensureGUI();
+     if (!buttonURL) {
+         int choice = xNSRunAlertPanel(
+-            title, errmsg, xCFSTR(ERR_TERMINATE),
+-            xCFSTR(ERR_CONSOLEAPPTITLE), NULL);
++            title, xCFSTR("%@"), xCFSTR(ERR_TERMINATE),
++            xCFSTR(ERR_CONSOLEAPPTITLE), NULL, errmsg);
+         if (choice == NSAlertAlternateReturn) openConsole();
+     } else {
+         int choice = xNSRunAlertPanel(
+-            title, errmsg, xCFSTR(ERR_TERMINATE), buttonString, NULL);
++            title, xCFSTR("%@"), xCFSTR(ERR_TERMINATE),
++            buttonString, NULL, errmsg);
+         if (choice == NSAlertAlternateReturn) {
+             id ws = MSG(CLS("NSWorkspace"), "sharedWorkspace");
+             MSG(ws, "openURL:", buttonURL);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,6 +63,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <dirhelper_priv.h>
+
+extern char *_dirhelper(dirhelper_which_t which, char *path, size_t pathlen);
+
+#if __DARWIN_UNIX03
+#define CONFSTR_ERR_RET	0
+#else /* !__DARWIN_UNIX03 */
+#define CONFSTR_ERR_RET	-1
+#endif /* __DARWIN_UNIX03 */
+
 size_t
 confstr(name, buf, len)
 	int name;
@@ -78,15 +88,15 @@ confstr(name, buf, len)
 		mib[0] = CTL_USER;
 		mib[1] = USER_CS_PATH;
 		if (sysctl(mib, 2, NULL, &tlen, NULL, 0) == -1)
-			return (-1);
+			return (CONFSTR_ERR_RET);
 		if (len != 0 && buf != NULL) {
 			if ((p = malloc(tlen)) == NULL)
-				return (-1);
+				return (CONFSTR_ERR_RET);
 			if (sysctl(mib, 2, p, &tlen, NULL, 0) == -1) {
 				sverrno = errno;
 				free(p);
 				errno = sverrno;
-				return (-1);
+				return (CONFSTR_ERR_RET);
 			}
 			/*
 			 * POSIX 1003.2 requires partial return of
@@ -155,6 +165,33 @@ docopy:
 		if (len != 0 && buf != NULL)
 			strlcpy(buf, p, len);
 		return (strlen(p) + 1);
+
+	case _CS_DARWIN_USER_DIR:
+		if ((p = alloca(PATH_MAX)) == NULL) {
+			errno = ENOMEM;
+			return (CONFSTR_ERR_RET);
+		}
+		if (_dirhelper(DIRHELPER_USER_LOCAL, p, PATH_MAX) == NULL)
+			return (CONFSTR_ERR_RET);
+		goto docopy;
+
+	case _CS_DARWIN_USER_TEMP_DIR:
+		if ((p = alloca(PATH_MAX)) == NULL) {
+			errno = ENOMEM;
+			return (CONFSTR_ERR_RET);
+		}
+		if (_dirhelper(DIRHELPER_USER_LOCAL_TEMP, p, PATH_MAX) == NULL)
+			return (CONFSTR_ERR_RET);
+		goto docopy;
+
+	case _CS_DARWIN_USER_CACHE_DIR:
+		if ((p = alloca(PATH_MAX)) == NULL) {
+			errno = ENOMEM;
+			return (CONFSTR_ERR_RET);
+		}
+		if (_dirhelper(DIRHELPER_USER_LOCAL_CACHE, p, PATH_MAX) == NULL)
+			return (CONFSTR_ERR_RET);
+		goto docopy;
 
 	default:
 		errno = EINVAL;

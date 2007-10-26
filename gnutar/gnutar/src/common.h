@@ -20,6 +20,8 @@
 /* Declare the GNU tar archive format.  */
 #include "tar.h"
 
+#include <quarantine.h>
+
 /* The checksum field is filled with this while the checksum is computed.  */
 #define CHKBLANKS	"        "	/* 8 blanks, no null */
 
@@ -38,11 +40,6 @@
 /* Some various global definitions.  */
 
 /* Name of file to use for interacting with user.  */
-#if MSDOS
-# define TTY_NAME "con"
-#else
-# define TTY_NAME "/dev/tty"
-#endif
 
 /* GLOBAL is defined to empty in tar.c only, and left alone in other *.c
    modules.  Here, we merely set it to "extern" if it is not already set.
@@ -129,6 +126,9 @@ GLOBAL size_t record_size;
 
 GLOBAL bool absolute_names_option;
 
+/* Allow GNUTYPE_NAMES type? */
+GLOBAL bool allow_name_mangling_option;
+
 /* Display file times in UTC */
 GLOBAL bool utc_option;
 
@@ -160,10 +160,11 @@ GLOBAL int check_links_option;
 /* Patterns that match file names to be excluded.  */
 GLOBAL struct exclude *excluded;
 
+/* Exclude directories containing a cache directory tag. */
+GLOBAL bool exclude_caches_option;
+
 /* Specified file containing names to work on.  */
 GLOBAL const char *files_from_option;
-
-GLOBAL bool force_local_option;
 
 /* Specified value to be put into tar file in place of stat () results, or
    just -1 if such an override should not take place.  */
@@ -251,9 +252,9 @@ GLOBAL int same_owner_option;
 /* If positive, preserve permissions when extracting.  */
 GLOBAL int same_permissions_option;
 
-/* When set, strip the given number of path elements from the file name
+/* When set, strip the given number of file name components from the file name
    before extracting */
-GLOBAL size_t strip_path_elements;
+GLOBAL size_t strip_name_components;
 
 GLOBAL bool show_omitted_dirs_option;
 
@@ -287,6 +288,7 @@ GLOBAL const char *volume_label_option;
 
 /* File descriptor for archive file.  */
 GLOBAL int archive;
+GLOBAL qtn_file_t archive_qtn_file;
 
 /* Nonzero when outputting to /dev/null.  */
 GLOBAL bool dev_null_output;
@@ -331,6 +333,10 @@ struct name
 GLOBAL dev_t ar_dev;
 GLOBAL ino_t ar_ino;
 
+GLOBAL bool seekable_archive;
+
+GLOBAL dev_t root_device;
+
 
 /* Declarations for each module.  */
 
@@ -370,6 +376,8 @@ void clear_read_error_count (void);
 void xclose (int fd);
 void archive_write_error (ssize_t) __attribute__ ((noreturn));
 void archive_read_error (void);
+off_t seek_archive (off_t size);
+void set_start_time (void);
 
 /* Module create.c.  */
 
@@ -440,7 +448,7 @@ void delete_archive_members (void);
 char *get_directory_contents (char *, dev_t);
 void read_directory_file (void);
 void write_directory_file (void);
-void gnu_restore (char const *);
+void purge_directory (char const *);
 
 /* Module list.c.  */
 
@@ -499,6 +507,7 @@ void print_for_mkdir (char *, int, mode_t);
 void print_header (struct tar_stat_info *, off_t);
 void read_and (void (*) (void));
 enum read_header read_header (bool);
+enum read_header tar_checksum (union block *header, bool silent);
 void skip_file (off_t);
 void skip_member (void);
 
@@ -518,7 +527,15 @@ enum remove_option
 {
   ORDINARY_REMOVE_OPTION,
   RECURSIVE_REMOVE_OPTION,
-  WANT_DIRECTORY_REMOVE_OPTION
+
+  /* FIXME: The following value is never used. It seems to be intended
+     as a placeholder for a hypothetical option that should instruct tar
+     to recursively remove subdirectories in purge_directory(),
+     as opposed to the functionality of --recursive-unlink
+     (RECURSIVE_REMOVE_OPTION value), which removes them in
+     prepare_to_extract() phase. However, with the addition of more
+     meta-info to the incremental dumps, this should become unnecessary */
+  WANT_DIRECTORY_REMOVE_OPTION  
 };
 int remove_any_file (const char *, enum remove_option);
 bool maybe_backup_file (const char *, int);
@@ -581,6 +598,8 @@ void write_fatal_details (char const *, ssize_t, size_t)
 pid_t xfork (void);
 void xpipe (int[2]);
 
+void *page_aligned_alloc (void **, size_t);
+
 /* Module names.c.  */
 
 extern struct name *gnu_list_name;
@@ -613,8 +632,11 @@ bool excluded_name (char const *);
 
 void add_avoided_name (char const *);
 bool is_avoided_name (char const *);
+bool is_individual_file (char const *);
 
 bool contains_dot_dot (char const *);
+
+bool removed_prefixes_p (void);
 
 #define ISFOUND(c) ((occurrence_option == 0) ? (c)->found_count : \
                     (c)->found_count == occurrence_option)
@@ -667,13 +689,10 @@ bool sys_compare_gid (struct stat *a, struct stat *b);
 bool sys_file_is_archive (struct tar_stat_info *p);
 bool sys_compare_links (struct stat *link_data, struct stat *stat_data);
 int sys_truncate (int fd);
-void sys_reset_uid_gid (void);
 pid_t sys_child_open_for_compress (void);
 pid_t sys_child_open_for_uncompress (void);
-void sys_reset_uid_gid (void);
 size_t sys_write_archive_buffer (void);
 bool sys_get_archive_stat (void);
-void sys_reset_uid_gid (void);
 
 /* Module compare.c */
 void report_difference (struct tar_stat_info *st, const char *message, ...);

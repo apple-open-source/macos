@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:44 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -14,37 +16,37 @@
 <a href="#FILES">FILES</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:17 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p>arbitron &minus; arbitron mailboxes</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>arbitron</b> [ <b>&minus;C</b> <i>config-file</i> ] [
-<b>&minus;o</b> ] [ <b>&minus;d</b> days ] [ <b>&minus;p</b>
-months ]<i><br>
-mailbox</i>...</p>
+<b>&minus;o</b> ] [ <b>&minus;u</b> ] [ <b>&minus;l</b> ] [
+<b>&minus;p</b> <i>months</i> ]<br>
+[ <b>&minus;d</b> <i>days</i> | <b>&minus;D</b>
+<i>mmddyyyy</i>[<b>:</b><i>mmddyyyy</i>] ]
+<i>mailbox</i>...</p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -55,32 +57,37 @@ prunes the mailboxes of \Seen state for dormant users.</p>
 <!-- INDENTATION -->
 <p><i>Arbitron</i> produces one line of output per mailbox,
 reporting the mailbox name followed by a space, followed by
-the number of readers, and if -o is not specified, another
-space and the number of subscribers. <b>IMPORTANT: This
-format is subject to change in future versions.</b></p>
+the number of readers (and if -u is specified, followed by a
+colon and a comma-separated list of the readers userids),
+and if -o is not specified, another space and the number of
+subscribers (and if -u is specified, followed by a colon and
+a comma-separated list of the subscribers userids).
+<b>IMPORTANT: This format is subject to change in future
+versions.</b></p>
 <!-- INDENTATION -->
 <p>Each &quot;reader&quot; is a distinct authentication
 identity which has &quot;s&quot; rights to the mailbox and
-which has SELECTed the mailbox within the past <i>days</i>
-days. Users are not counted as reading their own personal
-mailboxes. Personal mailboxes are not reported unless there
-is at least one reader other than the mailboxes owner.</p>
+which has SELECTed the mailbox within either the past
+<i>days</i> days or the specified date range. Users are not
+counted as reading their own personal mailboxes. Personal
+mailboxes are not reported unless there is at least one
+reader other than the mailboxes owner.</p>
 <!-- INDENTATION -->
 <p><i>Arbitron</i> reads its configuration options out of
 the <i>imapd.conf</i>(5) file unless specified otherwise by
 <b>-C</b>.</p>
 </td>
-</table></p>
+</table>
 <a name="OPTIONS"></a>
 <h2>OPTIONS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;C</b> <i>config-file</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -91,30 +98,51 @@ the <i>imapd.conf</i>(5) file unless specified otherwise by
 </td>
 </table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
-       cols="5" cellspacing="0" cellpadding="0">
+<table width="100%" border=0 rules="none" frame="void"
+       cols="4" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="11%"></td>
-<td width="2%">
+<td width="4%">
 
 <p><b>&minus;o</b></p>
 </td>
-<td width="13%"></td>
-<td width="57%">
+<td width="5%"></td>
+<td width="77%">
 
 <p>&quot;old way&quot; -- do not report subscribers.</p>
 </td>
-<td width="14%">
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;u</b></p>
 </td>
-</table></p>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Report userids in addition to the count(s).</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;l</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Enable long reporting (comma delimited table consisting
+of mbox, userid, r/s, start time, end time).</p>
+</td>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;d</b> <i>days</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -127,13 +155,36 @@ SELECTed the mailbox within <i>days</i> days. Default is
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>&minus;D</b>
+<i>mmddyyyy</i>[<b>:</b><i>mmddyyyy</i>]</p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="21%"></td>
+<td width="77%">
+<p>Count as a reader an authentication identity which has
+SELECTed the mailbox within the given date range. The start
+date and optional end date are specified as 2-digit month of
+the year, 2-digit day of the month, and 4-digit year. If the
+end date is not specified, then the current system time is
+used as the end time.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;p</b> <i>months</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -148,13 +199,13 @@ infinity.</p>
 <a name="FILES"></a>
 <h2>FILES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>/etc/imapd.conf</b></p></td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

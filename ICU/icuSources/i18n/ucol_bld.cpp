@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -67,29 +67,73 @@ isAcceptableInvUCA(void * /*context*/,
 }
 U_CDECL_END
 
+/* 
+ * Takes two CEs (lead and continuation) and 
+ * compares them as CEs should be compared:
+ * primary vs. primary, secondary vs. secondary
+ * tertiary vs. tertiary
+ */
+static int32_t compareCEs(uint32_t source0, uint32_t source1, uint32_t target0, uint32_t target1) {
+  uint32_t s1 = source0, s2, t1 = target0, t2;
+  if(isContinuation(source1)) {
+    s2 = source1;
+  } else {
+    s2 = 0;
+  }
+  if(isContinuation(target1)) {
+    t2 = target1;
+  } else {
+    t2 = 0;
+  }
+  
+  uint32_t s = 0, t = 0;
+  if(s1 == t1 && s2 == t2) {
+    return 0;
+  }
+  s = (s1 & 0xFFFF0000)|((s2 & 0xFFFF0000)>>16); 
+  t = (t1 & 0xFFFF0000)|((t2 & 0xFFFF0000)>>16); 
+  if(s < t) {
+    return -1;
+  } else if(s > t) {
+    return 1;
+  } else {
+    s = (s1 & 0x0000FF00) | (s2 & 0x0000FF00)>>8;
+    t = (t1 & 0x0000FF00) | (t2 & 0x0000FF00)>>8;
+    if(s < t) {
+      return -1;
+    } else if(s > t) {
+      return 1;
+    } else {
+      s = (s1 & 0x000000FF)<<8 | (s2 & 0x000000FF);
+      t = (t1 & 0x000000FF)<<8 | (t2 & 0x000000FF);
+      if(s < t) {
+        return -1;
+      } else {
+        return 1;
+      }
+    }
+  }
+}
+
 static
 int32_t ucol_inv_findCE(const UColTokenParser *src, uint32_t CE, uint32_t SecondCE) {
   uint32_t bottom = 0, top = src->invUCA->tableSize;
   uint32_t i = 0;
   uint32_t first = 0, second = 0;
   uint32_t *CETable = (uint32_t *)((uint8_t *)src->invUCA+src->invUCA->table);
+  int32_t res = 0;
 
   while(bottom < top-1) {
     i = (top+bottom)/2;
     first = *(CETable+3*i);
     second = *(CETable+3*i+1);
-    if(first > CE) {
+    res = compareCEs(first, second, CE, SecondCE);
+    if(res > 0) {
       top = i;
-    } else if(first < CE) {
+    } else if(res < 0) {
       bottom = i;
     } else {
-        if(second > SecondCE) {
-          top = i;
-        } else if(second < SecondCE) {
-          bottom = i;
-        } else {
-          break;
-        }
+      break;
     }
   }
 
@@ -177,15 +221,20 @@ U_CAPI int32_t U_EXPORT2 ucol_inv_getPrevCE(const UColTokenParser *src,
 }
 
 U_CAPI uint32_t U_EXPORT2 ucol_getCEStrengthDifference(uint32_t CE, uint32_t contCE, 
-                                            uint32_t prevCE, uint32_t prevContCE) {
-    uint32_t strength = UCOL_TERTIARY;
-    while(((prevCE & strengthMask[strength]) != (CE & strengthMask[strength]) 
-        || (prevContCE & strengthMask[strength]) != (contCE & strengthMask[strength]))
-        && strength) {
-        strength--;
+                                            uint32_t prevCE, uint32_t prevContCE) 
+{
+    if(prevCE == CE && prevContCE == contCE) {
+      return UCOL_IDENTICAL;
     }
-    return strength;
-                                            
+    if((prevCE & strengthMask[UCOL_PRIMARY]) != (CE & strengthMask[UCOL_PRIMARY])
+      || (prevContCE & strengthMask[UCOL_PRIMARY]) != (contCE & strengthMask[UCOL_PRIMARY])) {
+      return UCOL_PRIMARY;
+    }
+    if((prevCE & strengthMask[UCOL_SECONDARY]) != (CE & strengthMask[UCOL_SECONDARY])
+      || (prevContCE & strengthMask[UCOL_SECONDARY]) != (contCE & strengthMask[UCOL_SECONDARY])) {
+      return UCOL_SECONDARY;
+    }
+    return UCOL_TERTIARY;                                            
 }
 
 
@@ -284,7 +333,7 @@ U_CFUNC void ucol_inv_getGapPositions(UColTokenParser *src, UColTokListHeader *l
   //if(lh->baseCE >= PRIMARY_IMPLICIT_MIN && lh->baseCE < PRIMARY_IMPLICIT_MAX ) { /* implicits - */ 
     lh->pos[0] = 0;
     t1 = lh->baseCE;
-    t2 = lh->baseContCE;
+    t2 = lh->baseContCE & UCOL_REMOVE_CONTINUATION;
     lh->gapsLo[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
     lh->gapsLo[1] = (t1 & UCOL_SECONDARYMASK) << 16 | (t2 & UCOL_SECONDARYMASK) << 8;
     lh->gapsLo[2] = (UCOL_TERTIARYORDER(t1)) << 24 | (UCOL_TERTIARYORDER(t2)) << 16;
@@ -292,7 +341,7 @@ U_CFUNC void ucol_inv_getGapPositions(UColTokenParser *src, UColTokListHeader *l
     primaryCE = uprv_uca_getImplicitFromRaw(uprv_uca_getRawFromImplicit(primaryCE)+1);
 
     t1 = primaryCE & UCOL_PRIMARYMASK | 0x0505;
-    t2 = (primaryCE << 16) & UCOL_PRIMARYMASK | UCOL_CONTINUATION_MARKER;
+    t2 = (primaryCE << 16) & UCOL_PRIMARYMASK; // | UCOL_CONTINUATION_MARKER;
 
     lh->gapsHi[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
     lh->gapsHi[1] = (t1 & UCOL_SECONDARYMASK) << 16 | (t2 & UCOL_SECONDARYMASK) << 8;
@@ -301,12 +350,12 @@ U_CFUNC void ucol_inv_getGapPositions(UColTokenParser *src, UColTokListHeader *l
   //} else if(lh->baseCE == UCOL_RESET_TOP_VALUE && lh->baseContCE == 0) {
     lh->pos[0] = 0;
     t1 = lh->baseCE;
-    t2 = lh->baseContCE;
+    t2 = lh->baseContCE&UCOL_REMOVE_CONTINUATION;
     lh->gapsLo[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
     lh->gapsLo[1] = (t1 & UCOL_SECONDARYMASK) << 16 | (t2 & UCOL_SECONDARYMASK) << 8;
     lh->gapsLo[2] = (UCOL_TERTIARYORDER(t1)) << 24 | (UCOL_TERTIARYORDER(t2)) << 16;
     t1 = lh->nextCE;
-    t2 = lh->nextContCE;
+    t2 = lh->nextContCE&UCOL_REMOVE_CONTINUATION;
     lh->gapsHi[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
     lh->gapsHi[1] = (t1 & UCOL_SECONDARYMASK) << 16 | (t2 & UCOL_SECONDARYMASK) << 8;
     lh->gapsHi[2] = (UCOL_TERTIARYORDER(t1)) << 24 | (UCOL_TERTIARYORDER(t2)) << 16;
@@ -638,17 +687,19 @@ U_CFUNC void ucol_doCE(UColTokenParser *src, uint32_t *CEparts, UColToken *tok, 
 
   // we want to set case bits here and now, not later.
   // Case bits handling 
-  tok->CEs[0] &= 0xFFFFFF3F; // Clean the case bits field
-  int32_t cSize = (tok->source & 0xFF000000) >> 24;
-  UChar *cPoints = (tok->source & 0x00FFFFFF) + src->source;
+  if(tok->CEs[0] != 0) { // case bits should be set only for non-ignorables
+    tok->CEs[0] &= 0xFFFFFF3F; // Clean the case bits field
+    int32_t cSize = (tok->source & 0xFF000000) >> 24;
+    UChar *cPoints = (tok->source & 0x00FFFFFF) + src->source;
 
-  if(cSize > 1) {
-    // Do it manually
-    tok->CEs[0] |= ucol_uprv_getCaseBits(src->UCA, cPoints, cSize, status);
-  } else {
-    // Copy it from the UCA
-    uint32_t caseCE = ucol_getFirstCE(src->UCA, cPoints[0], status);
-    tok->CEs[0] |= (caseCE & 0xC0);
+    if(cSize > 1) {
+      // Do it manually
+      tok->CEs[0] |= ucol_uprv_getCaseBits(src->UCA, cPoints, cSize, status);
+    } else {
+      // Copy it from the UCA
+      uint32_t caseCE = ucol_getFirstCE(src->UCA, cPoints[0], status);
+      tok->CEs[0] |= (caseCE & 0xC0);
+    }
   }
 
 #if UCOL_DEBUG==2
@@ -857,13 +908,6 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
       el.cSize = (tok->source >> 24); 
       uprv_memcpy(el.uchars, (tok->source & 0x00FFFFFF) + src->source, el.cSize*sizeof(UChar));
     }
-
-    if(UCOL_ISTHAIPREVOWEL(el.cPoints[0])) {
-      el.isThai = TRUE;
-    } else {
-      el.isThai = FALSE;
-    }
-
     if(src->UCA != NULL) {
       for(i = 0; i<el.cSize; i++) {
         if(UCOL_ISJAMO(el.cPoints[i])) {
@@ -872,43 +916,11 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
       }
     }
 
-#if 0
-    // we do case bits in doCE now, since we will mess up expansions otherwise.
-    // Case bits handling 
-    el.CEs[0] &= 0xFFFFFF3F; // Clean the case bits field
-    if(el.cSize > 1) {
-      // Do it manually
-      el.CEs[0] |= ucol_uprv_getCaseBits(src->UCA, el.cPoints, el.cSize, status);
-    } else {
-      // Copy it from the UCA
-      uint32_t caseCE = ucol_getFirstCE(src->UCA, el.cPoints[0], status);
-      el.CEs[0] |= (caseCE & 0xC0);
-    }
-#endif
-
     /* and then, add it */
 #if UCOL_DEBUG==2
     fprintf(stderr, "Adding: %04X with %08X\n", el.cPoints[0], el.CEs[0]);
 #endif
     uprv_uca_addAnElement(t, &el, status);
-
-#if 0
-    if(el.cSize > 1) { // this is a contraction, we should check whether a composed form should also be included
-      UChar composed[256];
-      uint32_t compLen = unorm_normalize(el.cPoints, el.cSize, UNORM_NFC, 0, composed, 256, status);;
-
-      if(compLen != el.cSize || uprv_memcmp(composed, el.cPoints, el.cSize*sizeof(UChar))) {
-        // composed form of a contraction is different than the decomposed form!
-        // do it!
-#ifdef UCOL_DEBUG
-        fprintf(stderr, "Adding composed for %04X->%04X\n", *element->cPoints, *composed);
-#endif
-        el.cSize = compLen;
-        uprv_memcpy(el.cPoints, composed, el.cSize*sizeof(UChar));
-        uprv_uca_addAnElement(t, &el, status);
-      }
-    }
-#endif
 
 #if UCOL_DEBUG_DUPLICATES
     if(*status != U_ZERO_ERROR) {
@@ -1190,7 +1202,7 @@ UCATableHeader *ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *st
   }
 
   // Add completely ignorable elements
-  utrie_enum(t->UCA->mapping, NULL, _processUCACompleteIgnorables, t);
+  utrie_enum(&t->UCA->mapping, NULL, _processUCACompleteIgnorables, t);
 
 
   // canonical closure

@@ -9,7 +9,7 @@
  */
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/xargs/strnsubst.c,v 1.6 2002/06/22 12:58:42 jmallett Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/xargs/strnsubst.c,v 1.7 2004/10/18 15:40:47 cperciva Exp $");
 
 #include <err.h>
 #include <stdlib.h>
@@ -44,8 +44,7 @@ strnsubst(char **str, const char *match, const char *replstr, size_t maxsize)
 		replstr = "";
 
 	if (match == NULL || replstr == NULL || maxsize == strlen(s1)) {
-		strncpy(s2, s1, maxsize);
-		s2[maxsize - 1] = '\0';
+		strlcpy(s2, s1, maxsize);
 		goto done;
 	}
 
@@ -53,10 +52,9 @@ strnsubst(char **str, const char *match, const char *replstr, size_t maxsize)
 		this = strstr(s1, match);
 		if (this == NULL)
 			break;
-		if ((strlen(s2) + ((uintptr_t)this - (uintptr_t)s1) +
-		    (strlen(replstr) - 1)) > maxsize && *replstr != '\0') {
-			strncat(s2, s1, maxsize);
-			s2[maxsize - 1] = '\0';
+		if ((strlen(s2) + strlen(s1) + strlen(replstr) -
+		    strlen(match) + 1) > maxsize) {
+			strlcat(s2, s1, maxsize);
 			goto done;
 		}
 		strncat(s2, s1, (uintptr_t)this - (uintptr_t)s1);

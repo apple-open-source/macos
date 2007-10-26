@@ -31,7 +31,9 @@
     // do not protect postlude page
 #define SCALABLE_MALLOC_DO_SCRIBBLE		(1 << 3)
     // write 0x55 onto free blocks
-
+#define SCALABLE_MALLOC_ABORT_ON_ERROR (1 << 4)
+    // call abort() on a malloc or free error, such as a double free
+	
 extern malloc_zone_t *create_scalable_zone(size_t initial_size, unsigned debug_flags);
     /* Create a new zone that scales for small objects or large objects */
 

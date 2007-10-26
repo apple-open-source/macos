@@ -22,21 +22,28 @@
  */
 /*	@(#)sigsuspend.c	1.0	9/22/95	(c) 1995 NeXT	*/
 
-#include <sys/signal.h>
-#include <sys/syscall.h>
+#include <signal.h>
 #include <unistd.h>
 
+#ifdef VARIANT_CANCELABLE
+int __sigsuspend (const sigset_t);
+#else /* !VARIANT_CANCELABLE */
+int __sigsuspend_nocancel(const sigset_t);
+#endif /* VARIANT_CANCELABLE */
+
 int
-sigsuspend (
-            const sigset_t *sigmask_p
-)
+sigsuspend (const sigset_t *sigmask_p)
 {
     sigset_t	mask;
-    
+
     if (sigmask_p)
         mask = *sigmask_p;
     else
         sigemptyset(&mask);
-    return syscall (SYS_sigsuspend, mask);
+#ifdef VARIANT_CANCELABLE
+    return __sigsuspend(mask);
+#else /* !VARIANT_CANCELABLE */
+    return __sigsuspend_nocancel(mask);
+#endif /* VARIANT_CANCELABLE */
 }
 

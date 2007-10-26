@@ -1888,6 +1888,17 @@ rtx_renumbered_equal_p (rtx x, rtx y)
       if (LABEL_REF_NONLOCAL_P (x) || LABEL_REF_NONLOCAL_P (y))
 	return XEXP (x, 0) == XEXP (y, 0);
 
+      /* APPLE LOCAL begin ARM pic support */
+      /* ARM uses label_refs to contant pool entries in
+	 pic_add_dot_plus_eight that must not compare equal, but, they
+	 are not emitted into the function body, so, there is no
+	 next_real_insn for them.  Unfortunately, different labels
+	 both return 0, leading to a false equality.  Found on
+	 libiberty build.  */
+      if (next_real_insn (XEXP (x, 0)) == 0)
+	return 0;
+      /* APPLE LOCAL end ARM pic support */
+
       /* Two label-refs are equivalent if they point at labels
 	 in the same position in the instruction stream.  */
       return (next_real_insn (XEXP (x, 0))

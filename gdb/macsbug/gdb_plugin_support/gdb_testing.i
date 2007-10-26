@@ -5,7 +5,7 @@
  |            Separate place to "bread board", test, and expirement with gdb            |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
 
@@ -381,5 +381,79 @@ void save_breakpoints_commandX (char *arg, int from_tty)
     }
 }
 #endif
+
+/*--------------------------------------------------------------------------------------*/
+
+char *gdb_teste(GDB_ADDRESS addr)
+{
+    int  unmapped = 0;
+    int  offset = 0;
+    int  line = 0;
+    char *filename = NULL;
+    char *name = NULL;
+    asection *section = NULL;
+    struct minimal_symbol *msymbol;
+    struct obj_section *addr_section;
+    struct bfd_section *the_bfd_section;
+    struct objfile *objfile;
+    bfd *abfd;
+
+    // references are bfd/bdd-in2.h, objfiles.h
+    
+    static char result[2048];
+    
+    #if 0
+    if (!build_address_symbolic(addr, 0, &name, &offset, &filename, &line, &unmapped))
+    	return (name);
+    #endif
+    
+    msymbol = lookup_solib_trampoline_symbol_by_pc(addr);
+    *result = '\0';
+    if (msymbol)
+    	strcpy(result, SYMBOL_LINKAGE_NAME(msymbol));
+    
+    #if 0
+    msymbol = lookup_minimal_symbol_by_pc_section(addr, section);
+    if (msymbol)
+    	if (*result)
+    	    strcat(result, " ");
+    	sprintf(result + strlen(result), "(%s)",  SYMBOL_BFD_SECTION(msymbol)->name);
+    #endif
+    
+    // LC_SEGMENT.segname.sectname
+    // LC_SEGMENT.__TEXT.__cstring
+    // LC_SEGMENT.__DATA.__cfstring
+    // LC_SEGMENT.__OBJC.__cstring_object
+    
+    addr_section = find_pc_section(addr);
+    if (addr_section) {
+    	objfile = addr_section->objfile;
+    	abfd = addr_section->objfile->obfd;
+    	the_bfd_section = addr_section->the_bfd_section;
+    	
+    	if (the_bfd_section) {
+    	    if (*result)
+    	    	strcat(result, " ");
+    	    sprintf(result + strlen(result), "(%s)",  the_bfd_section->name);
+    	}
+    
+	if (bfd_get_section_by_name(abfd, "LC_SEGMENT.__DATA.__basicstring")) {
+	    if (*result)
+		strcat(result, " ");
+	    sprintf(result + strlen(result), "(RealBasic)");
+	}
+	
+	if (bfd_get_section_by_name(abfd, "LC_SEGMENT.__OBJC")) {
+	    if (*result)
+		strcat(result, " ");
+	    sprintf(result + strlen(result), "(objc)");
+	}
+    }
+    
+    if (!*result)
+    	*result = '\0';
+    
+    return (result);
+}
 
 /*--------------------------------------------------------------------------------------*/

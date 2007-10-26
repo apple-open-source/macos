@@ -172,7 +172,7 @@ void AppleCSPSession::WrapKeyCms(
 	 * validate mode, padding, IV?
 	 */
 	CssmData TEMP1;
-	uint32 bytesEncrypted;
+	CSSM_SIZE bytesEncrypted;
 	CssmData remData;
 	EncryptData(CCHandle,
 		context,
@@ -321,7 +321,7 @@ void AppleCSPSession::UnwrapKeyCms(
 	IV1.Data = (uint8 *)magicCmsIv;
 	IV1.Length = 8;
 	CssmData TEMP3;
-	uint32 bytesDecrypted;
+	CSSM_SIZE bytesDecrypted;
 	CssmData remData;
 	
 	try {

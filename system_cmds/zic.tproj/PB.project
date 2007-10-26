@@ -4,7 +4,7 @@
         FRAMEWORKS = (); 
         H_FILES = (private.h, tzfile.h); 
         OTHER_LINKED = (ialloc.c, scheck.c, zic.c); 
-        OTHER_SOURCES = (HACK, Makefile.preamble, Makefile, Makefile.postamble, datfiles, zic.8); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, zic.8); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

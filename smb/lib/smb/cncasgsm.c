@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -53,7 +56,7 @@
 /*
  * Global Definitions
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 GLOBAL char     *rpc_g_cn_grp_client_events [] =
 {
     "NEW              ",

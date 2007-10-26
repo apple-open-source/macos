@@ -93,6 +93,19 @@ EXTERN int	traceactions;		/* on/off */
 EXTERN int	tracehistory;		/* on/off */
 EXTERN FILE	*ftrace;		/* output trace file */
 
+void traceinit(struct interface *);
+void traceon(char *);
+void traceoff(void);
+void sigtrace(int);
+void bumploglevel(void);
+void trace(struct ifdebug *, struct sockaddr *, char *, int, int);
+struct rt_entry; /* forward reference */
+void traceaction(FILE *, char *, struct rt_entry *);
+void tracenewmetric(FILE *, struct rt_entry *, int);
+void dumpif(FILE *, struct interface *);
+void dumptrace(FILE *, char *, struct ifdebug *);
+void dumppacket(FILE *, char *, struct sockaddr_in *, char *, int, struct timeval *);
+
 #define	TRACE_ACTION(action, route) { \
 	  if (traceactions) \
 		traceaction(ftrace, action, route); \
@@ -109,11 +122,11 @@ EXTERN FILE	*ftrace;		/* output trace file */
 				ntohl(ifp->int_metric)); \
 	  } \
 	  if (tracepackets) \
-		dumppacket(ftrace, "from", src, pack, size, &now); \
+		dumppacket(ftrace, "from", (struct sockaddr_in *)src, pack, size, &now); \
 	}
 #define	TRACE_OUTPUT(ifp, dst, size) { \
 	  if (tracehistory && ifp) \
 		trace(&ifp->int_output, dst, packet, size, ifp->int_metric); \
 	  if (tracepackets) \
-		dumppacket(ftrace, "to", dst, packet, size, &now); \
+		dumppacket(ftrace, "to", (struct sockaddr_in *)dst, packet, size, &now); \
 	}

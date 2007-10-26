@@ -1,0 +1,85 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <constant name='SenConditionFailure' type='@' />
+  <constant name='SenEqualityFailure' type='@' />
+  <constant name='SenFailureTypeKey' type='@' />
+  <constant name='SenRaiseFailure' type='@' />
+  <constant name='SenTestCaseDidFailNotification' type='@' />
+  <constant name='SenTestCaseDidStartNotification' type='@' />
+  <constant name='SenTestCaseDidStopNotification' type='@' />
+  <constant name='SenTestConditionKey' type='@' />
+  <constant name='SenTestDescriptionKey' type='@' />
+  <constant name='SenTestEqualityAccuracyKey' type='@' />
+  <constant name='SenTestEqualityLeftKey' type='@' />
+  <constant name='SenTestEqualityRightKey' type='@' />
+  <constant name='SenTestFailureException' type='@' />
+  <constant name='SenTestFilenameKey' type='@' />
+  <constant name='SenTestLineNumberKey' type='@' />
+  <constant name='SenTestScopeAll' type='@' />
+  <constant name='SenTestScopeKey' type='@' />
+  <constant name='SenTestScopeNone' type='@' />
+  <constant name='SenTestScopeSelf' type='@' />
+  <constant name='SenTestSuiteDidStartNotification' type='@' />
+  <constant name='SenTestSuiteDidStopNotification' type='@' />
+  <constant name='SenTestedUnitPath' type='@' />
+  <constant name='SenUnconditionalFailure' type='@' />
+  <function name='STComposeString' variadic='true'>
+    <retval type='@' />
+    <arg printf_format='true' type='@' type64='@' />
+  </function>
+  <function name='SenSelfTestMain'>
+    <retval type='i' />
+  </function>
+  <function name='getScalarDescription'>
+    <retval type='@' />
+    <arg type='@' />
+  </function>
+  <class name='NSException'>
+    <method class_method='true' selector='failureInCondition:isTrue:inFile:atLine:withDescription:' variadic='true'>
+      <arg index='1' type='B' />
+      <arg index='4' printf_format='true' />
+    </method>
+    <method class_method='true' selector='failureInEqualityBetweenObject:andObject:inFile:atLine:withDescription:' variadic='true'>
+      <arg index='4' printf_format='true' />
+    </method>
+    <method class_method='true' selector='failureInEqualityBetweenValue:andValue:withAccuracy:inFile:atLine:withDescription:' variadic='true'>
+      <arg index='4' printf_format='true' />
+    </method>
+    <method class_method='true' selector='failureInFile:atLine:withDescription:' variadic='true'>
+      <arg index='2' printf_format='true' />
+    </method>
+    <method class_method='true' selector='failureInRaise:exception:inFile:atLine:withDescription:' variadic='true'>
+      <arg index='4' printf_format='true' />
+    </method>
+    <method class_method='true' selector='failureInRaise:inFile:atLine:withDescription:' variadic='true'>
+      <arg index='3' printf_format='true' />
+    </method>
+  </class>
+  <class name='NSFileManager'>
+    <method selector='fileExistsAtPathOrLink:'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='NSInvocation'>
+    <method selector='hasTestCaseSignature'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='SenTest'>
+    <method selector='isEmpty'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='SenTestProbe'>
+    <method class_method='true' selector='isTesting'>
+      <retval type='B' />
+    </method>
+  </class>
+  <class name='SenTestRun'>
+    <method selector='hasSucceeded'>
+      <retval type='B' />
+    </method>
+  </class>
+</signatures>
+

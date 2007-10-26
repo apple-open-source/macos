@@ -1,7 +1,7 @@
 /* imtest.c -- IMAP/POP3/NNTP/LMTP/SMTP/MUPDATE/MANAGESIEVE test client
  * Ken Murchison (multi-protocol implementation)
  * Tim Martin (SASL implementation)
- * $Id: imtest.c,v 1.5 2005/03/05 00:37:08 dasenbro Exp $
+ * $Id: imtest.c,v 1.110 2006/11/30 17:11:22 murch Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -328,8 +328,7 @@ int	tls_cipher_algbits = 0;
 static int set_cert_stuff(SSL_CTX * ctx, char *cert_file, char *key_file)
 {
     if (cert_file != NULL) {
-	if (SSL_CTX_use_certificate_file(ctx, cert_file,
-					 SSL_FILETYPE_PEM) <= 0) {
+	if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
 	    printf("unable to get certificate from '%s'\n", cert_file);
 	    return (0);
 	}
@@ -887,6 +886,12 @@ imt_stat getauthline(struct sasl_cmd_t *sasl_cmd, char **line, int *linelen)
     }
     
     if (*str != '\r') {
+	/* trim CRLF */
+	char *p = str + strlen(str) - 1;
+	if (p >= str && *p == '\n') *p-- = '\0';
+	if (p >= str && *p == '\r') *p-- = '\0';
+
+	/* alloc space for decoded response */
 	len = strlen(str) + 1;
 	*line = malloc(len);
 	if ((*line) == NULL) {
@@ -1078,7 +1083,8 @@ int auth_sasl(struct sasl_cmd_t *sasl_cmd, char *mechlist)
 
 	    /* send to server */
 	    if (sendliteral) {
-		printf("{%d+}\r\n", inbase64len);
+		printf("%s{%d+}\r\n",
+		       initial_response ? "" : "C: ", inbase64len);
 		prot_printf(pout, "{%d+}\r\n", inbase64len);
 		prot_flush(pout);
 	    }
@@ -1086,12 +1092,12 @@ int auth_sasl(struct sasl_cmd_t *sasl_cmd, char *mechlist)
 	    prot_write(pout, inbase64, inbase64len);
 
 	    out = NULL;
-	} else if(sendliteral) {
+	} else if (sendliteral) {
 	    /* If we had no response, we still need to send the
 	       empty literal in this case */
 	    printf("{0+}\r\nC: ");
 	    prot_printf(pout, "{0+}\r\n");
-	} else {
+	} else if (!initial_response) {
 	    printf("C: ");
 	}
       noinitresp:
@@ -1283,7 +1289,10 @@ static void interactive(struct protocol_t *protocol, char *filename)
     FD_SET(fd_out, &write_set);
     FD_SET(sock, &write_set);
     
-    nfds = getdtablesize();
+    nfds = fd;
+    if (nfds < sock) nfds = sock;
+    if (nfds < fd_out) nfds = fd_out;
+    nfds++;
     
     if (filename != NULL) {
 	donewritingfile = 0;
@@ -2242,6 +2251,13 @@ static struct protocol_t protocols[] = {
       { "AUTHENTICATE", INT_MAX, 1, "OK", "NO", NULL, "*", &sieve_parse_success },
       NULL, { "LOGOUT", "OK" }, NULL, NULL, NULL
     },
+    { "csync", NULL, "csync",
+      { 1, "* OK", NULL },
+      { NULL , "* OK", "* STARTTLS", "* SASL ", NULL },
+      { "STARTTLS", "OK", "NO", 1 },
+      { "AUTHENTICATE", INT_MAX, 0, "OK", "NO", "+ ", "*", NULL },
+      NULL, { "EXIT", "OK" }, NULL, NULL, NULL
+    },
     { NULL, NULL, NULL,
       { 0, NULL, NULL },
       { NULL, NULL, NULL, NULL, NULL },
@@ -2419,6 +2435,8 @@ int main(int argc, char **argv)
 	    prot = "mupdate";
 	else if (!strcasecmp(prog, "sivtest"))
 	    prot = "sieve";
+	else if (!strcasecmp(prog, "synctest"))
+	    prot = "csync";
     }
 
     protocol = protocols;

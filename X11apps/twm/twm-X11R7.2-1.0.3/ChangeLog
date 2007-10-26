@@ -1,0 +1,73 @@
+2006-06-03  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/session.c (ReadWinConfigEntry): 
+	Coverity #369: If malloc of entry->wm_command fails, error cleanup
+	was still trying to read pointers from it to free.
+
+2006-06-02  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/menus.c (ExecuteFunction): 
+	Coverity #1508: Variable "action" not freed or pointed-to
+
+2005-12-20  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version for X11R7 release.
+
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* man/Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-16  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/Makefile.am: 
+	Capitalize O in "X.Org Foundation"
+	
+	* configure.ac: 
+	* man/Makefile.am: 
+	Use cpp to substitute variables in man pages
+
+2005-10-15  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* src/Makefile.am: Have generated files be cleaned by maintainer
+	to pass check-tarball test.
+
+2005-10-09  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* src/Makefile.am (deftwmrc.c): 
+	* src/deftwmrc.c:
+	* src/parse.c: 
+	* src/parse.h: 
+	Bug #3755 <https://bugs.freedesktop.org/show_bug.cgi?id=3755>
+	twm can't handle 8-bit characters in .twmrc (Tomohiro KUBOITA)
+
+2005-08-02  Keith Packard  <keithp@keithp.com>
+
+	* src/Makefile.am:
+2005-08-02  Keith Packard  <keithp@keithp.com>
+
+	* Makefile.am:
+	Mark generated files as BUILT_SOURCES and CLEANFILES
+	to ensure they are regenerated after 'make clean' and
+	to make parallel builds work right.

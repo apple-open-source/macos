@@ -18,79 +18,75 @@
 .IP "\\$1" \\$2
 ..
 .TH "TDBBACKUP" 8 "" "" ""
-.SH NAME
-tdbbackup \- tool for backing up and for validating the integrity of samba .tdb files
+.SH "NAME"
+tdbbackup - tool for backing up and for validating the integrity of samba .tdb files
 .SH "SYNOPSIS"
-.ad l
-.hy 0
-.HP 10
-\fBtdbbackup\fR [\-s\ suffix] [\-v] [\-h]
-.ad
-.hy
-
+.HP 1
+tdbbackup [-s suffix] [-v] [-h]
 .SH "DESCRIPTION"
-
 .PP
-This tool is part of the \fBsamba\fR(1) suite\&.
-
+This tool is part of the
+\fBsamba\fR(1)
+suite.
 .PP
-\fBtdbbackup\fR is a tool that may be used to backup samba \&.tdb files\&. This tool may also be used to verify the integrity of the \&.tdb files prior to samba startup or during normal operation\&. If it finds file damage and it finds a prior backup the backup file will be restored\&.
-
+tdbbackup
+is a tool that may be used to backup samba .tdb files. This tool may also be used to verify the integrity of the .tdb files prior to samba startup or during normal operation. If it finds file damage and it finds a prior backup the backup file will be restored.
 .SH "OPTIONS"
-
-.TP
-\-h
-Get help information\&.
-
-.TP
-\-s suffix
-The \fB\-s\fR option allows the adminisistrator to specify a file backup extension\&. This way it is possible to keep a history of tdb backup files by using a new suffix for each backup\&.
-
-.TP
-\-v
-The \fB\-v\fR will check the database for damages (currupt data) which if detected causes the backup to be restored\&.
-
+.PP
+-h
+.RS 3n
+Get help information.
+.RE
+.PP
+-s suffix
+.RS 3n
+The
+-s
+option allows the adminisistrator to specify a file backup extension. This way it is possible to keep a history of tdb backup files by using a new suffix for each backup.
+.RE
+.PP
+-v
+.RS 3n
+The
+-v
+will check the database for damages (currupt data) which if detected causes the backup to be restored.
+.RE
 .SH "COMMANDS"
-
 .PP
 \fBGENERAL INFORMATION\fR
-
 .PP
-The \fBtdbbackup\fR utility can safely be run at any time\&. It was designed so that it can be used at any time to validate the integrity of tdb files, even during Samba operation\&. Typical usage for the command will be:
-
+The
+tdbbackup
+utility can safely be run at any time. It was designed so that it can be used at any time to validate the integrity of tdb files, even during Samba operation. Typical usage for the command will be:
 .PP
-tdbbackup [\-s suffix] *\&.tdb
-
+tdbbackup [-s suffix] *.tdb
 .PP
-Before restarting samba the following command may be run to validate \&.tdb files:
-
+Before restarting samba the following command may be run to validate .tdb files:
 .PP
-tdbbackup \-v [\-s suffix] *\&.tdb
-
+tdbbackup -v [-s suffix] *.tdb
 .PP
-Samba \&.tdb files are stored in various locations, be sure to run backup all \&.tdb file on the system\&. Imporatant files includes:
-
-.TP 3
+Samba .tdb files are stored in various locations, be sure to run backup all .tdb file on the system. Important files includes:
+.TP 3n
 \(bu
-\fBsecrets\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
-.TP
-\(bu
-\fBpassdb\&.tdb\fR \- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba\&.
-.TP
-\(bu
-\fB*\&.tdb\fR located in the /usr/local/samba/var directory or on some systems in the /var/cache or /var/lib/samba directories\&.
-.LP
 
+secrets.tdb
+- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba.
+.TP 3n
+\(bu
+
+passdb.tdb
+- usual location is in the /usr/local/samba/private directory, or on some systems in /etc/samba.
+.TP 3n
+\(bu
+
+*.tdb
+located in the /usr/local/samba/var directory or on some systems in the /var/cache or /var/lib/samba directories.
 .SH "VERSION"
-
 .PP
-This man page is correct for version 3\&.0 of the Samba suite\&.
-
+This man page is correct for version 3.0 of the Samba suite.
 .SH "AUTHOR"
-
 .PP
-The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
-
+The original Samba software and related utilities were created by Andrew Tridgell. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed.
 .PP
-The tdbbackup man page was written by John H Terpstra\&.
+The tdbbackup man page was written by John H Terpstra.
 

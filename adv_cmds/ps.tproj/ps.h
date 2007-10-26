@@ -108,7 +108,7 @@ typedef struct var {
 				/* output routine */
 	void	(*oproc) __P((struct kinfo *, struct varent *));
 				/* sizing routine*/
-	int	(*sproc) __P((struct kinfo *));
+	int	(*sproc) __P((struct kinfo *, struct varent *));
 	short	width;		/* printing width */
 	/*
 	 * The following (optional) elements are hooks for passing information

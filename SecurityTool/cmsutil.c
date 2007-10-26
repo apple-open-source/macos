@@ -38,6 +38,7 @@
  */
 
 #include "security.h"
+#include "keychain_utilities.h"
 
 #include <Security/SecCmsBase.h>
 #include <Security/SecCmsContentInfo.h>
@@ -303,13 +304,13 @@ static OSStatus do_update(update_func *update,
     {
         for (;len; --len, ++data)
         {
-            rv = update(cx, data, 1);
+            rv = update(cx, (const char *)data, 1);
             if (rv)
                 break;
         }
     }
     else
-	rv = update(cx, data, len);
+	rv = update(cx, (const char *)data, len);
 
     return rv;
 }
@@ -1271,6 +1272,7 @@ int cms_util(int argc, char **argv)
     /* Call the libsec initialization routines */
     if (keychainName)
     {
+		check_obsolete_keychain(keychainName);
         statusX = SecKeychainOpen(keychainName, &options.certDBHandle);
         if (!options.certDBHandle)
         {

@@ -1,3 +1,4 @@
+.\" Portions Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
 .\"	$NetBSD: networks.5,v 1.3 1994/11/30 19:31:23 jtc Exp $
 .\"
 .\" Copyright (c) 1983, 1991, 1993
@@ -71,18 +72,22 @@ from the Internet address manipulation library,
 .Xr inet 3 .
 Network names may contain any printable character other than a field
 delimiter, newline, or comment character.
+.Sh INTERACTION WITH DIRECTORY SERVICES
+Processes generally find network records using one of the
+.Xr getnetent 3
+family of functions.
+On Mac OS X, these functions interact with the
+.Xr DirectoryService 8
+daemon,
+which reads the /etc/networks file as well as searching other directory information services
+to determine network name and address information.
 .Sh FILES
 .Bl -tag -width /etc/networks -compact
 .It Pa /etc/networks
-The
-.Nm networks
-file resides in
-.Pa /etc .
 .El
 .Sh SEE ALSO
-.Xr getnetent 3
-.Sh BUGS
-A name server should be used instead of a static file.
+.Xr getnetent 3 ,
+.Xr DirectoryService 8
 .Sh HISTORY
 The
 .Nm

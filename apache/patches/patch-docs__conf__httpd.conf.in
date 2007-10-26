@@ -1,0 +1,61 @@
+--- docs/conf/httpd.conf.in.orig	2005-11-29 08:10:50.000000000 -0800
++++ docs/conf/httpd.conf.in	2006-05-23 15:01:12.000000000 -0700
+@@ -62,8 +62,8 @@
+ # It is usually good practice to create a dedicated user and group for
+ # running httpd, as with most system services.
+ #
+-User daemon
+-Group daemon
++User www
++Group www
+ </IfModule>
+ 
+ # 'Main' server configuration
+@@ -139,7 +139,7 @@
+     # http://httpd.apache.org/docs/2.2/mod/core.html#options
+     # for more information.
+     #
+-    Options Indexes FollowSymLinks
++    Options Indexes FollowSymLinks MultiViews
+ 
+     #
+     # AllowOverride controls what directives may be placed in .htaccess files.
+@@ -365,19 +365,19 @@
+ # necessary.
+ 
+ # Server-pool management (MPM specific)
+-#Include @rel_sysconfdir@/extra/httpd-mpm.conf
++Include @rel_sysconfdir@/extra/httpd-mpm.conf
+ 
+ # Multi-language error messages
+ #Include @rel_sysconfdir@/extra/httpd-multilang-errordoc.conf
+ 
+ # Fancy directory listings
+-#Include @rel_sysconfdir@/extra/httpd-autoindex.conf
++Include @rel_sysconfdir@/extra/httpd-autoindex.conf
+ 
+ # Language settings
+-#Include @rel_sysconfdir@/extra/httpd-languages.conf
++Include @rel_sysconfdir@/extra/httpd-languages.conf
+ 
+ # User home directories
+-#Include @rel_sysconfdir@/extra/httpd-userdir.conf
++Include @rel_sysconfdir@/extra/httpd-userdir.conf
+ 
+ # Real-time info on requests and configuration
+ #Include @rel_sysconfdir@/extra/httpd-info.conf
+@@ -386,7 +386,7 @@
+ #Include @rel_sysconfdir@/extra/httpd-vhosts.conf
+ 
+ # Local access to the Apache HTTP Server Manual
+-#Include @rel_sysconfdir@/extra/httpd-manual.conf
++Include @rel_sysconfdir@/extra/httpd-manual.conf
+ 
+ # Distributed authoring and versioning (WebDAV)
+ #Include @rel_sysconfdir@/extra/httpd-dav.conf
+@@ -405,3 +405,5 @@
+ SSLRandomSeed startup builtin
+ SSLRandomSeed connect builtin
+ </IfModule>
++
++Include @rel_sysconfdir@/other/*.conf

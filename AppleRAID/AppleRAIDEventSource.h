@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,21 +29,23 @@ class AppleRAIDEventSource : public IOEventSource
 {
     OSDeclareDefaultStructors(AppleRAIDEventSource);
     
-    friend class AppleRAIDStorageRequest;
-    
 protected:
     queue_head_t fCompletedHead;
     
     virtual bool checkForWork(void);
-    virtual void memberCompleteRequest(AppleRAIDMemoryDescriptor *memoryDescriptor,
-                                      IOReturn status, UInt64 actualByteCount);
     
 public:
-    typedef void (*Action)(AppleRAIDSet *appleRAID, AppleRAIDStorageRequest *storageRequest);
-    static AppleRAIDEventSource *withAppleRAIDSet(AppleRAIDSet *appleRAID, Action action);
+    typedef void (*Action)(AppleRAIDSet * appleRAID, AppleRAIDStorageRequest * storageRequest);
+    static AppleRAIDEventSource * withAppleRAIDSet(AppleRAIDSet *appleRAID, Action action);
     virtual bool initWithAppleRAIDSet(AppleRAIDSet *appleRAID, Action action);
     
+    virtual void completeRequest(AppleRAIDMemoryDescriptor * memoryDescriptor,
+				 IOReturn status, UInt64 actualByteCount);
+    virtual void completeRequestLVG(AppleLVMMemoryDescriptor * memoryDescriptor,
+				    IOReturn status, UInt64 actualByteCount);
+
     virtual IOStorageCompletionAction getStorageCompletionAction(void);
+    virtual IOStorageCompletionAction getStorageCompletionActionLVG(void);
 };
 
 

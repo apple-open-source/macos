@@ -1,6 +1,7 @@
 ;;; pcomplete.el --- programmable completion
 
-;; Copyright (C) 1999, 2000, 2001 Free Sofware Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Keywords: processes abbrev
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -32,7 +33,6 @@
 ;; To use pcomplete with shell-mode, for example, you will need the
 ;; following in your .emacs file:
 ;;
-;;   (load "pcmpl-auto")
 ;;   (add-hook 'shell-mode-hook 'pcomplete-shell-setup)
 ;;
 ;; Most of the code below simply provides support mechanisms for
@@ -139,7 +139,7 @@
   :type '(choice regexp (const :tag "None" nil))
   :group 'pcomplete)
 
-(defcustom pcomplete-ignore-case (memq system-type '(ms-dos windows-nt))
+(defcustom pcomplete-ignore-case (memq system-type '(ms-dos windows-nt cygwin))
   "*If non-nil, ignore case when doing filename completion."
   :type 'boolean
   :group 'pcomplete)
@@ -150,7 +150,7 @@ This mirrors the optional behavior of tcsh."
   :type 'boolean
   :group 'pcomplete)
 
-(defcustom pcomplete-suffix-list (list directory-sep-char ?:)
+(defcustom pcomplete-suffix-list (list ?/ ?:)
   "*A list of characters which constitute a proper suffix."
   :type '(repeat character)
   :group 'pcomplete)
@@ -311,6 +311,16 @@ command arguments."
   :type 'boolean
   :group 'pcomplete)
 
+(defcustom pcomplete-termination-string " "
+  "*A string that is inserted after any completion or expansion.
+This is usually a space character, useful when completing lists of
+words separated by spaces.  However, if your list uses a different
+separator character, or if the completion occurs in a word that is
+already terminated by a character, this variable should be locally
+modified to be an empty string, or the desired separation string."
+  :type 'string
+  :group 'pcomplete)
+
 ;;; Internal Variables:
 
 ;; for cycling completion support
@@ -337,12 +347,12 @@ command arguments."
 ;;; User Functions:
 
 ;;;###autoload
-(defun pcomplete ()
+(defun pcomplete (&optional interactively)
   "Support extensible programmable completion.
 To use this function, just bind the TAB key to it, or add it to your
 completion functions list (it should occur fairly early in the list)."
-  (interactive)
-  (if (and (interactive-p)
+  (interactive "p")
+  (if (and interactively
 	   pcomplete-cycle-completions
 	   pcomplete-current-completions
 	   (memq last-command '(pcomplete
@@ -418,7 +428,7 @@ This will modify the current buffer."
 	(unless (pcomplete-insert-entry
 		 "" (car pcomplete-current-completions) t
 		 pcomplete-last-completion-raw)
-	  (insert-and-inherit " "))
+	  (insert-and-inherit pcomplete-termination-string))
 	(setq pcomplete-current-completions
 	      (cdr pcomplete-current-completions))))))
 
@@ -495,7 +505,7 @@ See the documentation for `pcomplete-arg'."
 
 (defsubst pcomplete-actual-arg (&optional index offset)
   "Return the actual text representation of the last argument.
-This different from `pcomplete-arg', which returns the textual value
+This is different from `pcomplete-arg', which returns the textual value
 that the last argument evaluated to.  This function returns what the
 user actually typed in."
   (buffer-substring (pcomplete-begin index offset) (point)))
@@ -521,7 +531,7 @@ user actually typed in."
       (throw 'pcompleted nil))))
 
 (defun pcomplete-match-string (which &optional index offset)
-  "Like `string-match', but on the current completion argument."
+  "Like `match-string', but on the current completion argument."
   (let ((arg (pcomplete-arg (or index 1) offset)))
     (if arg
 	(match-string which arg)
@@ -573,8 +583,8 @@ user actually typed in."
 (defun pcomplete-comint-setup (completef-sym)
   "Setup a comint buffer to use pcomplete.
 COMPLETEF-SYM should be the symbol where the
-dynamic-complete-functions are kept.  For comint mode itself, this is
-`comint-dynamic-complete-functions'."
+dynamic-complete-functions are kept.  For comint mode itself,
+this is `comint-dynamic-complete-functions'."
   (set (make-local-variable 'pcomplete-parse-arguments-function)
        'pcomplete-parse-comint-arguments)
   (make-local-variable completef-sym)
@@ -582,8 +592,7 @@ dynamic-complete-functions are kept.  For comint mode itself, this is
 		    (symbol-value completef-sym))))
     (if elem
 	(setcar elem 'pcomplete)
-      (nconc (symbol-value completef-sym)
-	     (list 'pcomplete)))))
+      (add-to-list completef-sym 'pcomplete))))
 
 ;;;###autoload
 (defun pcomplete-shell-setup ()
@@ -695,15 +704,13 @@ Magic characters are those in `pcomplete-arg-quote-list'."
 
 (defun pcomplete-entries (&optional regexp predicate)
   "Complete against a list of directory candidates.
-This function always uses the last argument as the basis for
-completion.
 If REGEXP is non-nil, it is a regular expression used to refine the
 match (files not matching the REGEXP will be excluded).
 If PREDICATE is non-nil, it will also be used to refine the match
 \(files for which the PREDICATE returns nil will be excluded).
-If PATH is non-nil, it will be used for completion instead of
-consulting the last argument."
-  (let* ((name pcomplete-stub)
+If no directory information can be extracted from the completed
+component, `default-directory' is used as the basis for completion."
+  (let* ((name (substitute-env-vars pcomplete-stub))
 	 (default-directory (expand-file-name
 			     (or (file-name-directory name)
 				 default-directory)))
@@ -733,13 +740,14 @@ consulting the last argument."
 		 (function
 		  (lambda (file)
 		    (if (eq (aref file (1- (length file)))
-			    directory-sep-char)
+			    ?/)
 			(and pcomplete-dir-ignore
 			     (string-match pcomplete-dir-ignore file))
 		      (and pcomplete-file-ignore
 			   (string-match pcomplete-file-ignore file))))))))
-      (setq above-cutoff (> (length completions)
-			    pcomplete-cycle-cutoff-length))
+      (setq above-cutoff (and pcomplete-cycle-cutoff-length
+			     (> (length completions)
+				pcomplete-cycle-cutoff-length)))
       (sort completions
 	    (function
 	     (lambda (l r)
@@ -749,11 +757,11 @@ consulting the last argument."
 	       ;; since . is earlier in the ASCII alphabet than
 	       ;; /
 	       (let ((left (if (eq (aref l (1- (length l)))
-				   directory-sep-char)
+				   ?/)
 			       (substring l 0 (1- (length l)))
 			     l))
 		     (right (if (eq (aref r (1- (length r)))
-				    directory-sep-char)
+				    ?/)
 				(substring r 0 (1- (length r)))
 			      r)))
 		 (if above-cutoff
@@ -801,11 +809,10 @@ consulting the last argument."
 (defun pcomplete-opt (options &optional prefix no-ganging args-follow)
   "Complete a set of OPTIONS, each beginning with PREFIX (?- by default).
 PREFIX may be t, in which case no PREFIX character is necessary.
-If REQUIRED is non-nil, the options must be present.
-If NO-GANGING is non-nil, each option is separate.  -xy is not allowed.
-If ARGS-FOLLOW is non-nil, then options which arguments which take may
-have the argument appear after a ganged set of options.  This is how
-tar behaves, for example."
+If NO-GANGING is non-nil, each option is separate (-xy is not allowed).
+If ARGS-FOLLOW is non-nil, then options which take arguments may have
+the argument appear after a ganged set of options.  This is how tar
+behaves, for example."
   (if (and (= pcomplete-index pcomplete-last)
 	   (string= (pcomplete-arg) "-"))
       (let ((len (length options))
@@ -856,7 +863,7 @@ tar behaves, for example."
 	    (setq index (1+ index))))))))
 
 (defun pcomplete--here (&optional form stub paring form-only)
-  "Complete aganst the current argument, if at the end.
+  "Complete against the current argument, if at the end.
 See the documentation for `pcomplete-here'."
   (if (< pcomplete-index pcomplete-last)
       (progn
@@ -885,7 +892,7 @@ See the documentation for `pcomplete-here'."
     (throw 'pcomplete-completions (eval form))))
 
 (defmacro pcomplete-here (&optional form stub paring form-only)
-  "Complete aganst the current argument, if at the end.
+  "Complete against the current argument, if at the end.
 If completion is to be done here, evaluate FORM to generate the list
 of strings which will be used for completion purposes.  If STUB is a
 string, use it as the completion stub instead of the default (which is
@@ -905,10 +912,11 @@ always for the sake of efficiency.
 
 If PARING is nil, this argument will be pared against previous
 arguments using the function `file-truename' to normalize them.
-PARING may be a function, in which case that function is for
-normalization.  If PARING is the value t, the argument dealt with by
-this call will not participate in argument paring.  If it the integer
-0, all previous arguments that have been seen will be cleared.
+PARING may be a function, in which case that function is used for
+normalization.  If PARING is t, the argument dealt with by this
+call will not participate in argument paring.  If it is the
+integer 0, all previous arguments that have been seen will be
+cleared.
 
 If FORM-ONLY is non-nil, only the result of FORM will be used to
 generate the completions list.  This means that the hook
@@ -938,8 +946,9 @@ generate the completions list.  This means that the hook
 (unless (fboundp 'event-matches-key-specifier-p)
   (defalias 'event-matches-key-specifier-p 'eq))
 
-(unless (fboundp 'read-event)
-  (defsubst read-event (&optional prompt)
+(defun pcomplete-read-event (&optional prompt)
+  (if (fboundp 'read-event)
+      (read-event prompt)
     (aref (read-key-sequence prompt) 0)))
 
 (unless (fboundp 'event-basic-type)
@@ -961,18 +970,22 @@ Typing SPC flushes the help buffer."
       (prog1
 	  (catch 'done
 	    (while (with-current-buffer (get-buffer "*Completions*")
-		     (setq event (read-event)))
+		     (setq event (pcomplete-read-event)))
 	      (cond
-	       ((event-matches-key-specifier-p event ? )
+	       ((event-matches-key-specifier-p event ?\s)
 		(set-window-configuration pcomplete-last-window-config)
 		(setq pcomplete-last-window-config nil)
 		(throw 'done nil))
-	       ((event-matches-key-specifier-p event 'tab)
-		(save-selected-window
-		  (select-window (get-buffer-window "*Completions*"))
-		  (if (pos-visible-in-window-p (point-max))
-		      (goto-char (point-min))
-		    (scroll-up)))
+	       ((or (event-matches-key-specifier-p event 'tab)
+                    ;; Needed on a terminal
+                    (event-matches-key-specifier-p event 9))
+                (let ((win (or (get-buffer-window "*Completions*" 0)
+                               (display-buffer "*Completions*"
+                                               'not-this-window))))
+                  (with-selected-window win
+                    (if (pos-visible-in-window-p (point-max))
+                        (goto-char (point-min))
+                      (scroll-up))))
 		(message ""))
 	       (t
 		(setq unread-command-events (list event))
@@ -1008,7 +1021,7 @@ Returns non-nil if a space was appended at the end."
     (let (space-added)
       (when (and (not (memq (char-before) pcomplete-suffix-list))
 		 addsuffix)
-	(insert-and-inherit " ")
+	(insert-and-inherit pcomplete-termination-string)
 	(setq space-added t))
       (setq pcomplete-last-completion-length (- (point) here)
 	    pcomplete-last-completion-stub stub)
@@ -1121,16 +1134,13 @@ See also `pcomplete-filename'."
 
 (defun pcomplete--help ()
   "Produce context-sensitive help for the current argument.
-If specific documentation can't be given, be generic.
-INFODOC specifies the Info node to goto.  DOCUMENTATION is a sexp
-which will produce documentation for the argument (it is responsible
-for displaying in its own buffer)."
+If specific documentation can't be given, be generic."
   (if (and pcomplete-help
 	   (or (and (stringp pcomplete-help)
 		    (fboundp 'Info-goto-node))
 	       (listp pcomplete-help)))
       (if (listp pcomplete-help)
-	  (message (eval pcomplete-help))
+	  (message "%s" (eval pcomplete-help))
 	(save-window-excursion (info))
 	(switch-to-buffer-other-window "*info*")
 	(funcall (symbol-function 'Info-goto-node) pcomplete-help))
@@ -1141,12 +1151,6 @@ for displaying in its own buffer)."
       (message "No context-sensitive help available"))))
 
 ;; general utilities
-
-(defsubst pcomplete-time-less-p (t1 t2)
-  "Say whether time T1 is less than time T2."
-  (or (< (car t1) (car t2))
-      (and (= (car t1) (car t2))
-	   (< (nth 1 t1) (nth 1 t2)))))
 
 (defun pcomplete-pare-list (l r &optional pred)
   "Destructively remove from list L all elements matching any in list R.
@@ -1198,4 +1202,5 @@ Returns the resultant list."
 ; (defalias 'pc-match-beginning 'pcomplete-match-beginning)
 ; (defalias 'pc-match-end 'pcomplete-match-end)
 
+;;; arch-tag: ae32ef2d-dbed-4244-8b0f-cf5a2a3b07a4
 ;;; pcomplete.el ends here

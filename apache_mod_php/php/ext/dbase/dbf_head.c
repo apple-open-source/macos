@@ -24,12 +24,16 @@ dbhead_t *get_dbf_head(int fd)
 	dbfield_t *dbf, *cur_f, *tdbf;
 	int ret, nfields, offset, gf_retval;
 
-	if ((dbh = (dbhead_t *)malloc(sizeof(dbhead_t))) == NULL)
+	if ((dbh = (dbhead_t *)calloc(1, sizeof(dbhead_t))) == NULL)
 		return NULL;
-	if (lseek(fd, 0, 0) < 0)
+	if (lseek(fd, 0, 0) < 0) {
+		free(dbh);
 		return NULL;
-	if ((ret = read(fd, &dbhead, sizeof(dbhead))) < 0)
+	}
+	if ((ret = read(fd, &dbhead, sizeof(dbhead))) <= 0) {
+		free(dbh);
 		return NULL;
+	}
 
 	/* build in core info */
 	dbh->db_fd = fd;
@@ -44,7 +48,7 @@ dbhead_t *get_dbf_head(int fd)
 
 	/* malloc enough memory for the maximum number of fields:
 	   32 * 1024 = 32K dBase5 (for Win) seems to allow that many */
-	tdbf = (dbfield_t *)malloc(sizeof(dbfield_t)*1024);
+	tdbf = (dbfield_t *)calloc(1, sizeof(dbfield_t)*1024);
 	
 	offset = 1;
 	nfields = 0;
@@ -54,6 +58,7 @@ dbhead_t *get_dbf_head(int fd)
 
 		if (gf_retval < 0) {
 			free_dbf_head(dbh);
+			free(tdbf);
 			return NULL;
 		}
 		if (gf_retval != 2 ) {
@@ -89,7 +94,7 @@ void free_dbf_head(dbhead_t *dbh)
 			free(cur_f->db_format);
 		}
 	}
-
+	
 	free(dbf);
 	free(dbh);
 }
@@ -119,7 +124,7 @@ int put_dbf_head(dbhead_t *dbh)
 
 	if (lseek(fd, 0, 0) < 0)
 		return -1;
-	if ((ret = write(fd, &dbhead, sizeof(dbhead))) < 0)
+	if ((ret = write(fd, &dbhead, sizeof(dbhead))) <= 0)
 		return -1;
 	return ret;
 }
@@ -132,7 +137,7 @@ int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 	struct dbf_dfield	dbfield;
 	int ret;
 
-	if ((ret = read(dbh->db_fd, &dbfield, sizeof(dbfield))) < 0) {
+	if ((ret = read(dbh->db_fd, &dbfield, sizeof(dbfield))) <= 0) {
 		return ret;
 	}
 
@@ -148,8 +153,12 @@ int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 	dbf->db_type = dbfield.dbf_type;
 	switch (dbf->db_type) {
 	    case 'N':
+	    case 'F':
 		dbf->db_flen = dbfield.dbf_flen[0];
 		dbf->db_fdc = dbfield.dbf_flen[1];
+		break;
+            case 'D':
+		dbf->db_flen = 8;
 		break;
 	    default:
 	    	dbf->db_flen = get_short(dbfield.dbf_flen);
@@ -157,7 +166,8 @@ int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 	}
 
 	if ((dbf->db_format = get_dbf_f_fmt(dbf)) == NULL) {
-		return 1;
+		/* something went wrong, most likely this fieldtype is not supported */
+		return -1;
 	}
 
 	return 0;
@@ -177,7 +187,7 @@ int put_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 	/* build the on disk field info */
 	scp = dbf->db_fname; dcp = dbfield.dbf_name;
 
-	strncpy(dbfield.dbf_name, dbf->db_fname, DBF_NAMELEN);
+	strlcpy(dbfield.dbf_name, dbf->db_fname, DBF_NAMELEN + 1);
 
 	dbfield.dbf_type = dbf->db_type;
 	switch (dbf->db_type) {
@@ -190,7 +200,7 @@ int put_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 	}
 
 	/* now write it out to disk */
-	if ((ret = write(dbh->db_fd, &dbfield, sizeof(dbfield))) < 0) {
+	if ((ret = write(dbh->db_fd, &dbfield, sizeof(dbfield))) <= 0) {
 		return ret;
 	}
 	return 1;
@@ -208,7 +218,7 @@ void put_dbf_info(dbhead_t *dbh)
 	int		fcnt;
 
 	if ((cp = db_cur_date(NULL))) {
-		strncpy(dbh->db_date, cp, 8);
+		strlcpy(dbh->db_date, cp, 9);
 		free(cp);
 	}
 	put_dbf_head(dbh);
@@ -225,16 +235,19 @@ char *get_dbf_f_fmt(dbfield_t *dbf)
 	/* build the field format for printf */
 	switch (dbf->db_type) {
 	   case 'C':
-		sprintf(format, "%%-%ds", dbf->db_flen);
+		snprintf(format, sizeof(format), "%%-%ds", dbf->db_flen);
 		break;
 	   case 'N':
 	   case 'L':
 	   case 'D':
-		sprintf(format, "%%%ds", dbf->db_flen);
+	   case 'F':
+		snprintf(format, sizeof(format), "%%%ds", dbf->db_flen);
 		break;
 	   case 'M':
-		strcpy(format, "%s");
+		strlcpy(format, "%s", sizeof(format));
 		break;
+	   default:
+		return NULL;
 	}
 	return (char *)strdup(format);
 }
@@ -247,22 +260,14 @@ dbhead_t *dbf_open(char *dp, int o_flags TSRMLS_DC)
 
 	cp = dp;
 	if ((fd = VCWD_OPEN(cp, o_flags|O_BINARY)) < 0) {
-		cp = (char *)malloc(MAXPATHLEN);  /* So where does this get free()'d?  -RL */
-		strncpy(cp, dp, MAXPATHLEN-5); strcat(cp, ".dbf");
-		if ((fd = VCWD_OPEN(cp, o_flags)) < 0) {
-			free(cp);
-			perror("open");
-			return NULL;
-		}
-	}
-
-	if ((dbh = get_dbf_head(fd)) ==	 0) {
-		fprintf(stderr, "Unable to get header\n");
 		return NULL;
 	}
-	dbh->db_name = cp;
+
+	if ((dbh = get_dbf_head(fd)) ==	NULL) {
+		return NULL;
+	}
+
 	dbh->db_cur_rec = 0;
-	
 	return dbh;
 }
 

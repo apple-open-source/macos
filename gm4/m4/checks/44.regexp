@@ -1,3 +1,0 @@
-dnl ../doc/m4.texinfo:2487: Origin of test
-regexp(`GNUs not Unix', `\w\(\w+\)$', `*** \& *** \1 ***')
-dnl @result{}*** Unix *** nix ***

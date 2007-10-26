@@ -1,182 +1,174 @@
 #include <TargetConditionals.h>
-#include <krb5/autoconf.h>
+
+/* So we can build on Tiger */
+#define BUILD_WITH_BROKEN_LDAP       1
 
 #define USE_CCAPI                    1
+#define USE_CCAPI_V3                 1
 #define USE_LOGIN_LIBRARY            1
+#define USE_PASSWORD_SERVER          1
 #define USE_BUNDLE_ERROR_STRINGS     1
+#define USE_CFBUNDLE                 1
 
-#define KRB_PRIVATE                  1
-#define KRB5_PRIVATE                 1
-#define KRB524_PRIVATE               1
+#define KRB5_PLUGIN_BUNDLE_DIR       "/System/Library/KerberosPlugins/KerberosFrameworkPlugins"
+#define KDB5_PLUGIN_BUNDLE_DIR       "/System/Library/KerberosPlugins/KerberosDatabasePlugins"
+#define KRB5_AUTHDATA_PLUGIN_BUNDLE_DIR  "/System/Library/KerberosPlugins/KerberosAuthDataPlugins"
 
-#define GETGROUPS_T                  gid_t
-#define GETPEERNAME_ARG2_TYPE        struct sockaddr
-#define GETPEERNAME_ARG3_TYPE        int
-#define GETSOCKNAME_ARG2_TYPE        struct sockaddr
-#define GETSOCKNAME_ARG3_TYPE        int
-#define GETSOCKNAME_ARG3_TYPE        int
-#define GETSOCKNAME_ARG3_TYPE        int
-#define GET_TGT_VIA_PASSWD           1
-#define GSSAPI                       1
-#define GSSAPI_KRB5                  1
-#define GSSAPI_V2                    1
-#define HAVE_ACCESS                  1
-#define HAVE_ARPA_INET_H             1
-#define HAVE_ARPA_NAMESER_H          1
-#define HAVE_BT_RSEQ                 1
-#define HAVE_CGETENT                 1
-#define HAVE_CHMOD                   1
-#define HAVE_CLOSELOG                1
-#define HAVE_CURSES_H                1
-#define HAVE_DAEMON                  1
-#define HAVE_FCHMOD                  1
-#define HAVE_FCHOWN                  1
-#define HAVE_FCNTL_H                 1
-#define HAVE_FLOCK                   1
-#define HAVE_FORK                    1
-#define HAVE_GETADDRINFO             1
-#define HAVE_GETCWD                  1
-#define HAVE_GETDTABLESIZE           1
-#define HAVE_GETENV                  1
-#define HAVE_GETEUID                 1
-#define HAVE_GETHOSTBYNAME2          1
-#define HAVE_GETIFADDRS              1
-#define HAVE_GETNAMEINFO             1
-#define HAVE_GETOPT                  1
-#define HAVE_GETUID                  1
-#define HAVE_GETUSERSHELL            1
-#define HAVE_HERROR                  1
-#define HAVE_IFADDRS_H               1
-#define HAVE_INET_ATON               1
-#define HAVE_INET_NTOP               1
-#define HAVE_INET_PTON               1
-#define HAVE_INITGROUPS              1
-#define HAVE_INTTYPES_H              1
-#define HAVE_ISATTY                  1
-#define HAVE_KILLPG                  1
-#define HAVE_KRB_GET_ERR_TEXT        1
-#define HAVE_KRB_SAVE_CREDENTIALS    1
-#define HAVE_LIMITS_H                1
-#define HAVE_LOGWTMP                 1
-#define HAVE_LSTAT                   1
-#define HAVE_MEMMOVE                 1
-#define HAVE_MEMORY_H                1
-#define HAVE_NETDB_H                 1
-#define HAVE_NETINET_IN_H            1
-#define HAVE_OPENLOG                 1
-#define HAVE_OPENPTY                 1
-#define HAVE_PATHS_H                 1
-#define HAVE_PWD_H                   1
-#define HAVE_REGCOMP                 1
-#define HAVE_REGEXEC                 1
-#define HAVE_REGEXP_H                1
-#define HAVE_REGEX_H                 1
-#define HAVE_REVOKE                  1
-#define HAVE_RRESVPORT_AF            1
-#define HAVE_SA_LEN                  1
-#define HAVE_SETENV                  1
-#define HAVE_SETEUID                 1
-#define HAVE_SETLOGIN                1
-#define HAVE_SETOWN                  1
-#define HAVE_SETPGID                 1
-#define HAVE_SETPRIORITY             1
-#define HAVE_SETREUID                1
-#define HAVE_SETSID                  1
-#define HAVE_SETUPTERM               1
-#define HAVE_SRAND                   1
-#define HAVE_SRAND48                 1
-#define HAVE_SRANDOM                 1
-#define HAVE_SSCANF                  1
-#define HAVE_STAT                    1
-#define HAVE_STDARG_H                1
-#define HAVE_STDINT_H                1
-#define HAVE_STDLIB_H                1
-#define HAVE_STRCASECMP              1
-#define HAVE_STRCHR                  1
-#define HAVE_STRDUP                  1
-#define HAVE_STRERROR                1
-#define HAVE_STRFTIME                1
-#define HAVE_STRINGS_H               1
-#define HAVE_STRING_H                1
-#define HAVE_STRPTIME                1
-#define HAVE_STRSTR                  1
-#define HAVE_STRUCT_SOCKADDR_STORAGE 1
-#define HAVE_STRUCT_UTMP_UT_HOST     1
-#define HAVE_SYSLOG                  1
-#define HAVE_SYSLOG_H                1
-#define HAVE_SYS_ERRLIST             1
-#define HAVE_SYS_FILIO_H             1
-#define HAVE_SYS_IOCTL_COMPAT_H      1
-#define HAVE_SYS_PARAM_H             1
-#define HAVE_SYS_SELECT_H            1
-#define HAVE_SYS_SOCKET_H            1
-#define HAVE_SYS_SOCKIO_H            1
-#define HAVE_SYS_STAT_H              1
-#define HAVE_SYS_TIME_H              1
-#define HAVE_SYS_TTY_H               1
-#define HAVE_SYS_TYPES_H             1
-#define HAVE_SYS_UIO_H               1
-#define HAVE_SYS_UTSNAME_H           1
-#define HAVE_SYS_WAIT_H              1
-#define HAVE_TCGETPGRP               1
-#define HAVE_TCSETPGRP               1
-#define HAVE_TERM_H                  1
-#define HAVE_TIMEZONE                1
-#define HAVE_TIME_H                  1
-#define HAVE_TTYENT_H                1
-#define HAVE_TTYNAME                 1
-#define HAVE_UMASK                   1
-#define HAVE_UNISTD_H                1
-#define HAVE_UNSETENV                1
-#define HAVE_UTIL_H                  1
-#define HAVE_UTIMES                  1
-#define HAVE_UTMP_H                  1
-#define HAVE_VFORK                   1
-#define HAVE_VFPRINTF                1
-#define HAVE_VSNPRINTF               1
-#define HAVE_VSPRINTF                1
-#define HAVE_WAITPID                 1
-#define HAVE_WORKING_FORK            1
-#define HAVE_WORKING_VFORK           1
-#define HEIMDAL_FRIENDLY             1
-#define KADM5                        1
-#define KDB4_DISABLE                 1
-#define KERBEROS                     1
-#define KRB4                         1
-#define KRB4_USE_KEYTAB              1
-#define KRB5                         1
-#define KRB524_PRIVATE               1
-#define KRB5_DNS_LOOKUP              1
-#define KRB5_DNS_LOOKUP_KDC          1
-#define KRB5_KRB4_COMPAT             1
+#define SHARED                       1
+
 #define KRB5_PRIVATE                 1
-#define krb5_sigtype                 void
-#define KRB5_USE_INET6               1
-#define LINEMODE                     1
-#define NEED_DAEMON_PROTO            1
-#define NEED_PARSETOS_PROTO          1
-#define NEED_SOCKETS                 
-#define NO_UT_EXIT                   1
-#define NO_UT_PID                    1
-#define NO_UT_TYPE                   1
-#define NO_YYLINENO                  1
-#define POSIX_SETJMP                 1
-#define POSIX_SIGNALS                1
-#define POSIX_SIGTYPE                1
-#define POSIX_TERMIOS                1
-#define RETSIGTYPE                   void
-#define SETPGRP_TWOARG               1
-#define SETRPCENT_TYPE               void
-#define STDC_HEADERS                 1
-#define SYS_ERRLIST_DECLARED         1
-#define TERMCAP                      1
-#define TIME_WITH_SYS_TIME           1
-#define USE_AUTOCONF_H               1
-#define USE_DIRENT_H                 1
-#define USE_KADM5_API_VERSION        2
-#define USE_MASTER                   1
-#define USE_RCACHE                   1
-#define USE_SIGPROCMASK              1
-#define USE_TERMIO                   1
-#define WAIT_USES_INT                1
-#define YYTEXT_POINTER               1
+#define KRB5_DEPRECATED              1
+
+#define krb5_decrypt_tkt_part                __KerberosInternal_krb5_decrypt_tkt_part
+#define krb5_free_enc_tkt_part               __KerberosInternal_krb5_free_enc_tkt_part
+#define decode_krb5_ticket                   __KerberosInternal_decode_krb5_ticket
+#define encode_krb5_enc_data                 __KerberosInternal_encode_krb5_enc_data
+#define krb5_kt_free_entry                   __KerberosInternal_krb5_kt_free_entry
+#define decode_krb5_as_req                   __KerberosInternal_decode_krb5_as_req
+#define krb5_crypto_us_timeofday             __KerberosInternal_krb5_crypto_us_timeofday
+#define krb5_free_kdc_req                    __KerberosInternal_krb5_free_kdc_req
+#define krb5_encode_kdc_rep                  __KerberosInternal_krb5_encode_kdc_rep
+#define krb5_encrypt_tkt_part                __KerberosInternal_krb5_encrypt_tkt_part
+#define krb5_free_pa_data                    __KerberosInternal_krb5_free_pa_data
+#define decode_krb5_authdata                 __KerberosInternal_decode_krb5_authdata
+#define decode_krb5_tgs_req                  __KerberosInternal_decode_krb5_tgs_req
+#define krb5_check_transited_list            __KerberosInternal_krb5_check_transited_list
+#define krb5_free_realm_tree                 __KerberosInternal_krb5_free_realm_tree
+#define krb5_walk_realm_tree                 __KerberosInternal_krb5_walk_realm_tree
+#define decode_krb5_enc_data                 __KerberosInternal_decode_krb5_enc_data
+#define decode_krb5_enc_sam_response_enc     __KerberosInternal_decode_krb5_enc_sam_response_enc
+#define decode_krb5_pa_enc_ts                __KerberosInternal_decode_krb5_pa_enc_ts
+#define decode_krb5_predicted_sam_response   __KerberosInternal_decode_krb5_predicted_sam_response
+#define decode_krb5_sam_response             __KerberosInternal_decode_krb5_sam_response
+#define encode_krb5_etype_info               __KerberosInternal_encode_krb5_etype_info
+#define encode_krb5_etype_info2              __KerberosInternal_encode_krb5_etype_info2
+#define encode_krb5_padata_sequence          __KerberosInternal_encode_krb5_padata_sequence
+#define encode_krb5_predicted_sam_response   __KerberosInternal_encode_krb5_predicted_sam_response
+#define encode_krb5_sam_challenge            __KerberosInternal_encode_krb5_sam_challenge
+#define krb5_free_etype_info                 __KerberosInternal_krb5_free_etype_info
+#define krb5_free_predicted_sam_response     __KerberosInternal_krb5_free_predicted_sam_response
+#define krb5_free_sam_response               __KerberosInternal_krb5_free_sam_response
+#define krb5_rc_store                        __KerberosInternal_krb5_rc_store
+#define mit_des_fixup_key_parity             __KerberosInternal_mit_des_fixup_key_parity
+#define mit_des_is_weak_key                  __KerberosInternal_mit_des_is_weak_key
+#define decode_krb5_ap_req                   __KerberosInternal_decode_krb5_ap_req
+#define encode_krb5_kdc_req_body             __KerberosInternal_encode_krb5_kdc_req_body
+#define krb5_free_ap_req                     __KerberosInternal_krb5_free_ap_req
+#define krb5_rc_close                        __KerberosInternal_krb5_rc_close
+#define krb5_rc_expunge                      __KerberosInternal_krb5_rc_expunge
+#define krb5_rc_initialize                   __KerberosInternal_krb5_rc_initialize
+#define krb5_rc_recover                      __KerberosInternal_krb5_rc_recover
+#define krb5_rc_resolve_full                 __KerberosInternal_krb5_rc_resolve_full
+#define krb5_rd_req_decoded_anyflag          __KerberosInternal_krb5_rd_req_decoded_anyflag
+#define krb5int_cm_call_select               __KerberosInternal_krb5int_cm_call_select
+#define krb5int_foreach_localaddr            __KerberosInternal_krb5int_foreach_localaddr
+#define krb5int_getnameinfo                  __KerberosInternal_krb5int_getnameinfo
+#define krb5int_sendtokdc_debug_handler      __KerberosInternal_krb5int_sendtokdc_debug_handler
+#define krb5_copy_addr                       __KerberosInternal_krb5_copy_addr
+#define krb5_free_address                    __KerberosInternal_krb5_free_address
+#define krb5int_getspecific                  __KerberosInternal_krb5int_getspecific
+#define krb5int_key_register                 __KerberosInternal_krb5int_key_register
+#define krb5int_setspecific                  __KerberosInternal_krb5int_setspecific
+#define krb5int_mutex_lock                   __KerberosInternal_krb5int_mutex_lock
+#define krb5int_mutex_unlock                 __KerberosInternal_krb5int_mutex_unlock
+#define krb5int_mutex_alloc                  __KerberosInternal_krb5int_mutex_alloc
+#define krb5int_mutex_free                   __KerberosInternal_krb5int_mutex_free
+#define krb5_net_write                       __KerberosInternal_krb5_net_write
+#define krb5_defkeyname                      __KerberosInternal_krb5_defkeyname
+#define krb5_lock_file                       __KerberosInternal_krb5_lock_file
+#define krb5_kt_register                     __KerberosInternal_krb5_kt_register
+#define krb5_read_message                    __KerberosInternal_krb5_read_message
+#define krb5_write_message                   __KerberosInternal_krb5_write_message
+
+#define krb5_is_permitted_enctype            __KerberosInternal_krb5_is_permitted_enctype
+#define krb5_principal2salt_norealm          __KerberosInternal_krb5_principal2salt_norealm
+
+#define krb5int_open_plugin_dirs             __KerberosInternal_krb5int_open_plugin_dirs
+#define krb5int_close_plugin_dirs            __KerberosInternal_krb5int_close_plugin_dirs
+#define krb5int_get_plugin_dir_func          __KerberosInternal_krb5int_get_plugin_dir_func
+#define krb5int_free_plugin_dir_func         __KerberosInternal_krb5int_free_plugin_dir_func
+#define krb5int_get_plugin_dir_data          __KerberosInternal_krb5int_get_plugin_dir_data
+#define krb5int_free_plugin_dir_data         __KerberosInternal_krb5int_free_plugin_dir_data
+
+#if defined(KFM_TARGET_CONFIGURE)
+
+#elif defined(KFM_TARGET_CCAPI)
+
+#elif defined(KFM_TARGET_CCACHESERVER)
+
+#elif defined(KFM_TARGET_SUPPORT)
+
+#elif defined(KFM_TARGET_SS)
+
+#elif defined(KFM_TARGET_PROFILE)
+
+#elif defined(KFM_TARGET_K5CRYPTO)
+
+#elif defined(KFM_TARGET_KRB5)
+#    define LIBDIR                   "/usr/lib"
+
+#elif defined(KFM_TARGET_DES425)
+
+#elif defined(KFM_TARGET_KRB4)
+#    define KRB4_USE_KEYTAB          1
+
+#elif defined(KFM_TARGET_GSSAPI)
+
+#elif defined(KFM_TARGET_GSSRPC)
+#    define GSSAPI_KRB5              1
+#    define DEBUG_GSSAPI             0
+#    define GSSRPC__IMPL             1
+
+#elif defined(KFM_TARGET_KDB5)
+#    define KDB5_USE_LIB_KDB_DB2     1
+
+#elif defined(KFM_TARGET_KDB_LDAP)
+#define krb5_dbe_lookup_last_pwd_change kdb_ldap_dbe_lookup_last_pwd_change
+#define krb5_dbe_lookup_mod_princ_data  kdb_ldap_dbe_lookup_mod_princ_data
+#define krb5_dbe_lookup_tl_data         kdb_ldap_dbe_lookup_tl_data
+#define krb5_dbe_update_last_pwd_change kdb_ldap_dbe_update_last_pwd_change
+#define krb5_dbe_update_mod_princ_data  kdb_ldap_dbe_update_mod_princ_data
+#define krb5_dbe_update_tl_data         kdb_ldap_dbe_update_tl_data
+
+#elif defined(KFM_TARGET_KADM5CLNT)
+
+#elif defined(KFM_TARGET_KADM5SRV)
+
+#elif defined(KFM_TARGET_APPUTILS)
+
+#elif defined(KFM_TARGET_KRB524D)
+#    define USE_MASTER               1
+#    define KRB524_PRIVATE           1
+
+#elif defined(KFM_TARGET_KRB5KDC)
+#    define LIBDIR                   "/usr/lib"
+
+#elif defined(KFM_TARGET_KADMIN)
+
+#elif defined(KFM_TARGET_KADMIN_LOCAL)
+
+#elif defined(KFM_TARGET_KDB5_UTIL)
+#    define KDB4_DISABLE             1
+
+#elif defined(KFM_TARGET_KDB5_LDAP_UTIL)
+#    define KDB4_DISABLE             1
+
+#elif defined(KFM_TARGET_KTUTIL)
+
+#elif defined(KFM_TARGET_KADMIND)
+
+#elif defined(KFM_TARGET_KPROP)
+
+#elif defined(KFM_TARGET_KPROPD)
+
+#elif defined(KFM_TARGET_DB2)
+#define PLUGIN                       1
+
+#elif defined(KFM_TARGET_KLDAP)
+#define PLUGIN                       1
+
+#elif defined(KFM_TEST_PLUGIN)
+
+#else
+#    error "KfM target macro not defined"
+#endif

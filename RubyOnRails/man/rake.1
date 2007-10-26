@@ -1,0 +1,46 @@
+.Dd February 27, 2006
+.Dt ERB 1
+.Os
+.Sh NAME
+.Nm rake
+.Nd Ruby Make
+.Sh SYNOPSIS
+.Nm rake
+.Op Fl f Ar rakefile 
+.Op Ar options...
+.Ar targets...
+.Sh DESCRIPTION
+.Nm Rake
+is a simple
+.Xr ruby 1
+build program with capabilities similar to the regular
+.Xr make 1
+command.
+.Pp
+.Nm Rake
+has the following features:
+.Bl -bullet
+.It
+Rakefiles (Rake's version of Makefiles) are completely defined in standard 
+.Nm Ruby 
+syntax. No XML files to edit. No quirky Makefile syntax to worry about (is that a tab or a space?).
+.It
+Users can specify tasks with prerequisites.
+.It
+.Nm Rake
+supports rule patterns to sythesize implicit tasks.
+.It
+Flexible FileLists that act like arrays but know about manipulating file names and paths.
+.El
+.Pp
+For more information about
+.Nm Rake
+you can use its
+.Fl --help
+flag. There is also online documentation available at "http://docs.rubyrake.org".
+.Sh SEE ALSO
+.Xr make 1
+.Xr ruby 1
+.Sh AUTHORS
+Rake is written by 
+.An Jim Weirich Aq jim@weirichhouse.org

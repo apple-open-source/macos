@@ -37,12 +37,12 @@
 
 int
 bootp_transmit(int sockfd, char sendbuf[2048],
-	       char * if_name, 
-	       int hwtype, void * hwaddr, int hwlen,
+	       const char * if_name, 
+	       int hwtype, const void * hwaddr, int hwlen,
 	       struct in_addr dest_ip,
 	       struct in_addr src_ip,
 	       u_short dest_port,
 	       u_short src_port,
-	       void * data, int len);
+	       const void * data, int len);
 
 #endif _S_BOOTP_TRANSMIT_H

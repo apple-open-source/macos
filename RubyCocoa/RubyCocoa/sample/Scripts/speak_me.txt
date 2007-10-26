@@ -1,0 +1,7 @@
+			      RubyCocoa
+	- A Ruby/Objective-C Bridge for Mac OS X with Cocoa -
+
+  RubyCocoa is a Mac OS X framework that allows Cocoa programming in
+  the object-oriented scripting language Ruby. RubyCocoa allows
+  writing a Cocoa application in Ruby.  It allows creating and using a
+  Cocoa object in a Ruby script.

@@ -41,7 +41,7 @@
  * themselves.  Why is this thus?
  *
  * No character in any of these domains maps to a character in another
- * domain, because I'm not sure what characters are legal in
+ * domain, because I'm not sure what characters are valid in
  * passwords, or what tools people are likely to use to cut and paste
  * them.  It seems prudent not to introduce control or meta chars,
  * unless the user introduced them first.  And having the control
@@ -73,7 +73,7 @@ shifts[] = {
  *
  * scramble(STR) returns SCRM, a scrambled copy of STR.  SCRM[0] is a
  * single letter indicating the scrambling method.  As of this
- * writing, the only legal method is 'A', but check the code for more
+ * writing, the only valid method is 'A', but check the code for more
  * up-to-date information.  The copy will have been allocated with
  * xmalloc(). 
  *
@@ -84,8 +84,7 @@ shifts[] = {
 
 /* Return a xmalloc'd, scrambled version of STR. */
 char *
-scramble (str)
-    char *str;
+scramble (char *str)
 {
     int i;
     char *s;
@@ -107,8 +106,7 @@ scramble (str)
 
 /* Decode the string in place. */
 char *
-descramble (str)
-    char *str;
+descramble (char *str)
 {
     char *s;
     int i;
@@ -141,7 +139,7 @@ descramble (str)
 
 #ifdef DIAGNOSTIC
 int
-main ()
+main( int argc, char **argv )
 {
     int i;
     char *e, *m, biggie[256];

@@ -1,5 +1,5 @@
 # Makefile for the Cyrus controlling process
-# $Id: Makefile.in,v 1.7 2005/03/05 00:37:28 dasenbro Exp $
+# $Id: Makefile.in,v 1.22 2006/11/30 17:11:23 murch Exp $
 # 
 # @configure_input@
 #
@@ -80,15 +80,15 @@ install:
 	$(srcdir)/../install-sh -d ${DESTDIR}$(service_path)
 	for file in $(PROGS); \
 	do \
-		$(INSTALL) -s -m 755 $$file $(DESTDIR)$(service_path) || exit 1; \
+		$(INSTALL) -m 755 $$file $(DESTDIR)$(service_path) || exit 1; \
 	done
 
 .c.o:
 	$(CC) -c $(CPPFLAGS) $(DEFS) $(CFLAGS) \
 	$<
 
-master: master.o masterconf.o cyrusMasterMIB.o ../lib/lock_@WITH_LOCK@.o
-	$(CC) $(LDFLAGS) -o master master.o masterconf.o cyrusMasterMIB.o ../lib/lock_@WITH_LOCK@.o $(LIBS) $(DEPLIBS)
+master: master.o masterconf.o message_uuid_master.o cyrusMasterMIB.o ../lib/lock_@WITH_LOCK@.o
+	$(CC) $(LDFLAGS) -o master master.o masterconf.o message_uuid_master.o cyrusMasterMIB.o ../lib/lock_@WITH_LOCK@.o $(LIBS) $(DEPLIBS)
 
 clean:
 	rm -f *.o *.a Makefile.bak $(PROGS)

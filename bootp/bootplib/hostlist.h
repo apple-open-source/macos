@@ -25,6 +25,11 @@
  * - definitions for host list structures and functions
  */
 
+#ifndef _S_HOSTLIST_H
+#define _S_HOSTLIST_H
+
+#include <netinet/in.h>
+
 struct hosts {
 	struct hosts	*next;
 	struct hosts	*prev;
@@ -52,6 +57,8 @@ void		hostprint(struct hosts * hp);
 void		hostremove(struct hosts * * hosts, struct hosts * hp);
 void		hostlistfree(struct hosts * * hosts);
 
+typedef boolean_t subnet_match_func_t(void * arg, struct in_addr iaddr);
+
 static __inline__ struct hosts *
 hostbyip(struct hosts * hosts, struct in_addr iaddr)
 {
@@ -64,7 +71,8 @@ hostbyip(struct hosts * hosts, struct in_addr iaddr)
 }
 
 static __inline__ struct hosts *
-hostbyaddr(struct hosts * hosts, u_char hwtype, void * hwaddr, int hwlen)
+hostbyaddr(struct hosts * hosts, u_char hwtype, void * hwaddr, int hwlen,
+	   subnet_match_func_t * func, void * arg)
 {
     struct hosts * hp;
 
@@ -72,10 +80,14 @@ hostbyaddr(struct hosts * hosts, u_char hwtype, void * hwaddr, int hwlen)
 	if (hwtype == hp->htype 
 	    && hwlen == hp->hlen
 	    && bcmp(hwaddr, &hp->haddr, hwlen) == 0) {
-	    return (hp);
+	    if (func == NULL
+		|| (*func)(arg, hp->iaddr)) {
+		return (hp);
+	    }
 	}
     }
     return (NULL);
 }
 
 
+#endif _S_HOSTLIST_H

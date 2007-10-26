@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -441,7 +440,7 @@ AppleUSBEHCIHubInfo::AllocateIsochBandwidth(AppleEHCIIsochEndpoint	*pEP, UInt32 
 				for(i=0; i< 8; i++)
 					if (isochOUTUsed[i] || interruptUsed[i] || isochINUsed[i])
 					{
-						USBLog(3, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth: allocating %ld bytes IN", this, maxPacketSize);
+						USBLog(3, "AppleUSBEHCIHubInfo[%p]::AllocateIsochBandwidth:  We want %d bytes, but some microframe is already using some, so not bandwidth (isochOUT: %d, interruptUsed: %d, isochIN: %d", this, (int)maxPacketSize, (int)isochOUTUsed[i], (int)interruptUsed[i], (int)isochINUsed[i]);
 						return kIOReturnNoBandwidth;
 					}
 				i=0;
@@ -639,10 +638,14 @@ AppleUSBEHCIHubInfo::ReallocateIsochBandwidth(AppleEHCIIsochEndpoint* pEP, UInt3
 		res = AllocateIsochBandwidth(pEP, maxPacketSize);
 	}
 	else
+	{
 		USBLog(3, "AppleUSBEHCIHubInfo[%p]::ReallocateIsochBandwidth: MPS not changed, ignoring", this);
+	}
 
 	if (res)
+	{
 		USBLog(3, "AppleUSBEHCIHubInfo[%p]::ReallocateIsochBandwidth: reallocation failed, result=0x%x", this, res);
+	}
 
 	return res;
 }

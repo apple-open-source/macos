@@ -1,0 +1,11 @@
+0.04  2003-11-23
+
+- Changed behaviour of format_datetime to always return a full timestamp
+  (see the document of format_datetime for more info)
+  
+- Fixed bug that caused formatter to fail when a named timezone had been set
+  (thanks Aaron)
+  
+0.03  2003-02-25
+
+- Initial (working) release

@@ -136,6 +136,10 @@ typedef struct {
 	void		*addr3;
 } option_t;
 
+/* load balancing */
+//#define LB_MAX_PRIORITY 10
+#define LB_DEFAULT_PORT 4112
+
 
 struct vpn_params {
     int					debug;
@@ -159,11 +163,19 @@ struct vpn_params {
 	u_int32_t			server_subtype;
 	char				*plugin_path;
         
+	/* parameter for type Load Balancing */
+	int					lb_enable;
+	//int					lb_priority;
+	u_int16_t			lb_port;		// network order
+	struct in_addr		lb_cluster_address;		// network order
+	struct in_addr		lb_redirect_address;		// network order
+	char				lb_interface[IFNAMSIZ+1];
+
 	/* parameter for type IPSEC */
 
 
 };
-    
+
 
 int process_options(struct vpn_params *options, int argc, char *argv[]);
 CFArrayRef get_active_servers(struct vpn_params *params);

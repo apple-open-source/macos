@@ -1,0 +1,63 @@
+diff -ruN ./src/normal.c ../vim-new/src/normal.c
+--- ./src/normal.c	2005-05-20 13:43:17.000000000 -0700
++++ ../vim-new/src/normal.c	2005-05-23 17:43:04.000000000 -0700
+@@ -6346,18 +6346,23 @@
+ 	 * Imitate strange Vi behaviour: When using "]]" with an operator
+ 	 * we also stop at '}'.
+ 	 */
+-	if (!findpar(cap->oap, cap->arg, cap->count1, flag,
+-	      (cap->oap->op_type != OP_NOP
+-				      && cap->arg == FORWARD && flag == '{')))
+-	    clearopbeep(cap->oap);
+-	else
+-	{
+-	    if (cap->oap->op_type == OP_NOP)
+-		beginline(BL_WHITE | BL_FIX);
++	if (curbuf->b_p_lisp) {
++	    findpar(cap->oap, cap->arg, cap->count1, 
++	      '(', FALSE);
++	} else {
++	    if (!findpar(cap->oap, cap->arg, cap->count1, flag,
++		  (cap->oap->op_type != OP_NOP
++					  && cap->arg == FORWARD && flag == '{')))
++		clearopbeep(cap->oap);
++	    else
++	    {
++		if (cap->oap->op_type == OP_NOP)
++		    beginline(BL_WHITE | BL_FIX);
+ #ifdef FEAT_FOLDING
+-	    if ((fdo_flags & FDO_BLOCK) && KeyTyped && cap->oap->op_type == OP_NOP)
+-		foldOpenCursor();
++		if ((fdo_flags & FDO_BLOCK) && KeyTyped && cap->oap->op_type == OP_NOP)
++		    foldOpenCursor();
+ #endif
++	    }
+ 	}
+     }
+ 
+@@ -6527,6 +6533,11 @@
+ nv_brace(cap)
+     cmdarg_T	*cap;
+ {
++    if (curbuf->b_p_lisp) {
++	cap->nchar = '(';
++	nv_csearch(cap);
++	return;
++    }
+     cap->oap->motion_type = MCHAR;
+     cap->oap->use_reg_one = TRUE;
+     if (cap->cmdchar == ')')
+diff -ruN ./src/search.c ../vim-new/src/search.c
+--- ./src/search.c	2005-02-14 08:42:39.000000000 -0800
++++ ../vim-new/src/search.c	2005-05-20 16:54:05.000000000 -0700
+@@ -2679,6 +2679,10 @@
+     char_u	*s;
+ 
+     s = ml_get(lnum);
++    if (para == '(')
++	return *s == '(';
++    if (para == ')')
++	return *s == ')';
+     if (*s == para || *s == '\f' || (both && *s == '}'))
+ 	return TRUE;
+     if (*s == '.' && (inmacro(p_sections, s + 1) ||

@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+STOR
+</keywords>
+</info>
 
 # Client-side
 <client>
@@ -32,7 +40,7 @@ works
 </upload>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -40,3 +48,4 @@ STOR 107
 QUIT
 </protocol>
 </verify>
+</testcase>

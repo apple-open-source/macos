@@ -54,5 +54,3 @@ void BELPICError::debugDiagnose(const void *id) const
 
 #endif //NDEBUG
 
-
-/* arch-tag: 8B4FF59F-124C-11D9-AFF8-000A9595DEEE */

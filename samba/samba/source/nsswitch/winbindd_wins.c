@@ -65,12 +65,12 @@ static int wins_lookup_open_socket_in(void)
 }
 
 
-static struct node_status *lookup_byaddr_backend(char *addr, int *count)
+static NODE_STATUS_STRUCT *lookup_byaddr_backend(char *addr, int *count)
 {
 	int fd;
 	struct in_addr  ip;
 	struct nmb_name nname;
-	struct node_status *status;
+	NODE_STATUS_STRUCT *status;
 
 	fd = wins_lookup_open_socket_in();
 	if (fd == -1)
@@ -88,14 +88,14 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 {
 	int fd;
 	struct ip_service *ret = NULL;
-	struct in_addr *return_ip;
+	struct in_addr *return_ip = NULL;
 	int j, i, flags = 0;
 
 	*count = 0;
 
 	/* always try with wins first */
 	if (resolve_wins(name,0x20,&ret,count)) {
-		if ( count == 0 )
+		if ( *count == 0 )
 			return NULL;
 		if ( (return_ip = SMB_MALLOC_ARRAY(struct in_addr, *count)) == NULL ) {
 			free( ret );
@@ -121,7 +121,9 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 	     j--) {
 		struct in_addr *bcast = iface_n_bcast(j);
 		return_ip = name_query(fd,name,0x20,True,True,*bcast,count, &flags, NULL);
-		if (return_ip) break;
+		if (return_ip) {
+			break;
+		}
 	}
 
 	close(fd);
@@ -130,11 +132,11 @@ static struct in_addr *lookup_byname_backend(const char *name, int *count)
 
 /* Get hostname from IP  */
 
-enum winbindd_result winbindd_wins_byip(struct winbindd_cli_state *state)
+void winbindd_wins_byip(struct winbindd_cli_state *state)
 {
 	fstring response;
 	int i, count, maxlen, size;
-	struct node_status *status;
+	NODE_STATUS_STRUCT *status;
 
 	/* Ensure null termination */
 	state->request.data.winsreq[sizeof(state->request.data.winsreq)-1]='\0';
@@ -149,7 +151,8 @@ enum winbindd_result winbindd_wins_byip(struct winbindd_cli_state *state)
 	    size = strlen(state->request.data.winsreq);
 	    if (size > maxlen) {
 		SAFE_FREE(status);
-		return WINBINDD_ERROR;
+		request_error(state);
+		return;
 	    }
 	    fstrcat(response,state->request.data.winsreq);
 	    fstrcat(response,"\t");
@@ -160,7 +163,8 @@ enum winbindd_result winbindd_wins_byip(struct winbindd_cli_state *state)
 			size = sizeof(status[i].name) + strlen(response);
 			if (size > maxlen) {
 			    SAFE_FREE(status);
-			    return WINBINDD_ERROR;
+			    request_error(state);
+			    return;
 			}
 			fstrcat(response, status[i].name);
 			fstrcat(response, " ");
@@ -171,12 +175,12 @@ enum winbindd_result winbindd_wins_byip(struct winbindd_cli_state *state)
 	    SAFE_FREE(status);
 	}
 	fstrcpy(state->response.data.winsresp,response);
-	return WINBINDD_OK;
+	request_ok(state);
 }
 
 /* Get IP from hostname */
 
-enum winbindd_result winbindd_wins_byname(struct winbindd_cli_state *state)
+void winbindd_wins_byname(struct winbindd_cli_state *state)
 {
 	struct in_addr *ip_list;
 	int i, count, maxlen, size;
@@ -198,7 +202,8 @@ enum winbindd_result winbindd_wins_byname(struct winbindd_cli_state *state)
 		    size = strlen(addr);
 		    if (size > maxlen) {
 			SAFE_FREE(ip_list);
-			return WINBINDD_ERROR;
+			request_error(state);
+			return;
 		    }
 		    if (i != 0) {
 			/* Clear out the newline character */
@@ -213,15 +218,18 @@ enum winbindd_result winbindd_wins_byname(struct winbindd_cli_state *state)
 		size = strlen(state->request.data.winsreq) + strlen(response);
 		if (size > maxlen) {
 		    SAFE_FREE(ip_list);
-		    return WINBINDD_ERROR;
+		    request_error(state);
+		    return;
 		}   
 		fstrcat(response,state->request.data.winsreq);
 		fstrcat(response,"\n");
 		SAFE_FREE(ip_list);
-	} else
-		return WINBINDD_ERROR;
+	} else {
+		request_error(state);
+		return;
+	}
 
 	fstrcpy(state->response.data.winsresp,response);
 
-	return WINBINDD_OK;
+	request_ok(state);
 }

@@ -17,7 +17,7 @@ Becky A. Badgett        badgett@cs.utexas.edu
 Bo Nygaard Bai          bai@iesd.auc.dk
 Dave Barber             dbarber@apocalypse.bbn.com
 Rene Beaulieu           reneb@distri.hydro.qc.ca
-Neal Becker             neal@ctd.comsat.com 
+Neal Becker             neal@ctd.comsat.com
 Dieter Becker           becker@med-in.uni-sb.de
 Nelson H. F. Beebe      beebe@geronimo.math.utah.edu
 Jeff Beadles		jeff@onion.rain.com
@@ -52,7 +52,7 @@ Stephen J Cowley        s.j.cowley@amtp.cam.ac.uk
 Ron Cox                 roncox@indirect.com
 Frank Crawford          frank@photon.ansto.gov.au
 James R. Crawford       qralston@cislabs.pitt.edu
-Lawrence Crowl          crowl@research.cs.orst.edu 
+Lawrence Crowl          crowl@research.cs.orst.edu
 Klaus Dahlenburg        kdburg@incoahe.hanse.de
 William E Davidsen      davidsen@ariel.crd.ge.com
 John M. DeDourek        dedourek@aixive2.cs.unb.ca
@@ -70,12 +70,12 @@ Darrell Duane           dduane@mason1.gmu.edu
 John Eaton              jwe@che.utexas.edu
 Will Edgington          wedgingt@ptolemy.arc.nasa.gov
 Brian Edmonds           edmonds@edmonds.home.cs.ubc.ca
-Paul Eggert             eggert@twinsun.com
+Paul Eggert             eggert@cs.ucla.edu
 Enami                   enami@sys.ptg.sony.co.jp
 Kristoffer Eriksson     ske@pkmab.se
 Daniel Eriksson         m91der@bellatrix.tdb.uu.se
 Rik Faith               faith@cs.unc.edu
-Larry Fahnoe            fahnoe@c1mpls.mn.org 
+Larry Fahnoe            fahnoe@c1mpls.mn.org
 Cristian Ferretti       cfs@poincare.mat.puc.cl
 Karl-Jose Filler        pla_jfi@pki-nbg.philips.de
 Valery Fine             fine@vxcern.cern.ch
@@ -119,6 +119,7 @@ Denny de Jonge          witaddj@dutrex.tudelft.nl
 Arne H. Juul            arnej@lise.unit.no
 Dana Jacobsen           jacobsd@solar.cor2.epa.gov
 Peter Jannesen		peter@ncs.nl
+Sverre Jarp
 Brian D. Johnston       johnstonb@med.ge.com
 Walter W. Jones         wwj@candela.cfr.nist.gov
 Tom Judson              judson@scf.usc.edu
@@ -147,7 +148,7 @@ Alexander Lehmann       alex@hal.rhein-main.de
 Simon Leinen            simon@lia.di.epfl.ch
 Burt Leland             burt@molecular.com
 Tony Leneis             tony@plaza.adp.ds.com
-Hugues Leroy            hugues.leroy@irisa.fr 
+Hugues Leroy            hugues.leroy@irisa.fr
 Marty Leisner           leisner@eso.mc.xerox.com
 Charles Levert          charles@aramis.comm.polymtl.ca
 Richard Levitte         levitte@e.kth.se
@@ -172,7 +173,7 @@ Jason Merrill           jason@jarthur.claremont.edu
 Dean S. Messing         deanm@medulla.labs.tek.com
 M. Mesturino            mesturino@cselt.stet.it
 Luke Mewburn            zak@rmit.edu.au
-Jim Meyering		meyering@cs.utexas.edu 
+Jim Meyering		meyering@cs.utexas.edu
 Dragan Milicic          milicic@math.utah.edu
 Frederic Miserey        none.fred@applelink.apple.com
 Marcel J.E. Mol         marcel@duteca.et.tudelft.nl
@@ -192,7 +193,7 @@ Todd Ogasawara          todd@protege.pegasus.com
 Helge Oldach            helge.oldach@stollmann.de
 Arthur David Olson      ado@elsie.nci.nih.gov
 Piet van Oostrum        piet@cs.ruu.nl
-Rafael R. Pappalardo    rafapa@obelix.cica.es 
+Rafael R. Pappalardo    rafapa@obelix.cica.es
 Mike Pearlman           canuck@masc38.rice.edu
 Yves Perrenoud          pyves@nuga.alphanet.ch
 Hal Peterson            hrp@pecan.cray.com
@@ -257,7 +258,7 @@ Pedro A. M. Vazquez     vazquez@iqm.unicamp.br
 Arjan de Vet            devet@win.tue.nl
 Larry W. Virden         lvirden@cas.org
 Vadim V. Vlasov         vvlasov@inucres.msk.su
-Eduard Vopicka          eduard.vopicka@vse.cs 
+Eduard Vopicka          eduard.vopicka@vse.cs
 Theo Vosse              vosse@ruls41.leidenuniv.nl
 Darin Wayrynen          darin@pcg.uucp
 Marcel Waldvogel        marcel@nice.usergroup.ethz.ch
@@ -267,10 +268,10 @@ David Watt              dmwatt@smersh.cambridge.ma.us
 Scott Weikart           scott@igc.apc.org
 Ivo Welch               iwelch@agsm.ucla.edu
 Jochen Wiedmann         zrawi01@zmcipdec1.zdv.uni-tuebingen.de
-Gijsb. Wiesenekker      wiesenecker@sara.nl 
+Gijsb. Wiesenekker      wiesenecker@sara.nl
 Wietze van Winden       wietze@swi.psy.uva.nl
 Frank Wuebbeling        wuebbel@math.uni-muenster.de
-Larry W. Virden         lwv26@cas.org 
+Larry W. Virden         lwv26@cas.org
 Bill Wohler             wohler@sap-ag.de
 Jamie Zawinski          jwz@lucid.com
 Christos Zoulas         christos@deshaw.com

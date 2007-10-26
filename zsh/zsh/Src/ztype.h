@@ -41,18 +41,28 @@
 #define ISPECIAL (1 << 11)
 #define IMETA    (1 << 12)
 #define IWSEP    (1 << 13)
-#define _icom(X,Y) (typtab[STOUC(X)] & Y)
-#define idigit(X) _icom(X,IDIGIT)
-#define ialnum(X) _icom(X,IALNUM)
-#define iblank(X) _icom(X,IBLANK)	/* blank, not including \n */
-#define inblank(X) _icom(X,INBLANK)	/* blank or \n */
-#define itok(X) _icom(X,ITOK)
-#define isep(X) _icom(X,ISEP)
-#define ialpha(X) _icom(X,IALPHA)
-#define iident(X) _icom(X,IIDENT)
-#define iuser(X) _icom(X,IUSER)	/* username char */
-#define icntrl(X) _icom(X,ICNTRL)
-#define iword(X) _icom(X,IWORD)
-#define ispecial(X) _icom(X,ISPECIAL)
-#define imeta(X) _icom(X,IMETA)
-#define iwsep(X) _icom(X,IWSEP)
+#define INULL    (1 << 14)
+#define zistype(X,Y) (typtab[STOUC(X)] & Y)
+#define idigit(X) zistype(X,IDIGIT)
+#define ialnum(X) zistype(X,IALNUM)
+#define iblank(X) zistype(X,IBLANK)	/* blank, not including \n */
+#define inblank(X) zistype(X,INBLANK)	/* blank or \n */
+#define itok(X) zistype(X,ITOK)
+#define isep(X) zistype(X,ISEP)
+#define ialpha(X) zistype(X,IALPHA)
+#define iident(X) zistype(X,IIDENT)
+#define iuser(X) zistype(X,IUSER)	/* username char */
+#define icntrl(X) zistype(X,ICNTRL)
+#define iword(X) zistype(X,IWORD)
+#define ispecial(X) zistype(X,ISPECIAL)
+#define imeta(X) zistype(X,IMETA)
+#define iwsep(X) zistype(X,IWSEP)
+#define inull(X) zistype(X,INULL)
+
+#ifdef MULTIBYTE_SUPPORT
+#define WC_ZISTYPE(X,Y) wcsitype((X),(Y))
+#define WC_ISPRINT(X)	iswprint(X)
+#else
+#define WC_ZISTYPE(X,Y)	zistype((X),(Y))
+#define WC_ISPRINT(X)	isprint(X)
+#endif

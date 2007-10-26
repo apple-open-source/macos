@@ -315,8 +315,8 @@ item(tt(CASE_GLOB) <D>)(
 Make globbing (filename generation) sensitive to case.  Note that other
 uses of patterns are always sensitive to case.  If the option is unset,
 the presence of any character which is special to filename generation
-will cause case-insensitive matching.  For example, tt(cvs(/)) can
-match the directory tt(CVS) owing to the presence of the globbing flag
+will cause case-insensitive matching.  For example, tt(cvs+LPAR()/+RPAR())
+can match the directory tt(CVS) owing to the presence of the globbing flag
 (unless the option tt(BARE_GLOB_QUAL) is unset).
 )
 pindex(CSH_NULL_GLOB)
@@ -376,6 +376,15 @@ characters resulting from command substitution as being eligible for
 filename generation.  Braces (and commas in between) do not become eligible
 for expansion.
 )
+pindex(HIST_SUBST_PATTERN)
+item(tt(HIST_SUBST_PATTERN))(
+Substitutions using the tt(:s) and tt(:&) history modifiers are performed
+with pattern matching instead of string matching.  This occurs wherever
+history modifiers are valid, including glob qualifiers and parameters.
+See
+ifzman(the section Modifiers in zmanref(zshexp))\
+ifnzman(noderef(Modifiers)).
+)
 pindex(IGNORE_BRACES)
 cindex(disabling brace expansion)
 cindex(brace expansion, disabling)
@@ -410,6 +419,32 @@ cindex(marking directories)
 item(tt(MARK_DIRS) (tt(-8), ksh: tt(-X)))(
 Append a trailing `tt(/)' to all directory
 names resulting from filename generation (globbing).
+)
+pindex(MULTIBYTE <D>)
+cindex(characters, multibyte, in expansion and globbing)
+cindex(multibyte characters, in expansion and globbing)
+item(tt(MULTIBYTE))(
+Respect multibyte characters when found in strings.
+When this option is set, strings are examined using the
+system library to determine how many bytes form a character, depending
+on the current locale.  This affects the way characters are counted in
+pattern matching, parameter values and various delimiters.
+
+The option is on by default if the shell was compiled with
+tt(MULTIBYTE_SUPPORT); otherwise it is off by default and has no effect if
+turned on.
+
+If the option is off a single byte is always treated as a single
+character.  This setting is designed purely for examining strings
+known to contain raw bytes or other values that may not be characters
+in the current locale.  It is not necessary to unset the option merely
+because the character set for the current locale does not contain multibyte
+characters.
+
+The option does not affect the shell's editor,  which always uses the
+locale to determine multibyte characters.  This is because
+the character set displayed by the terminal emulator is independent of
+shell settings.
 )
 pindex(NOMATCH)
 cindex(globbing, no matches)
@@ -460,6 +495,16 @@ item(tt(UNSET) (tt(PLUS()u), ksh: tt(PLUS()u)) <K> <S> <Z>)(
 Treat unset parameters as if they were empty when substituting.
 Otherwise they are treated as an error.
 )
+pindex(WARN_CREATE_GLOBAL)
+cindex(parameters, warning when created globally)
+item(tt(WARN_CREATE_GLOBAL))(
+Print a warning message when a global parameter is created in a function
+by an assignment.  This often indicates that a parameter has not been
+declared local when it should have been.  Parameters explicitly declared
+global from within a function using tt(typeset -g) do not cause a warning.
+Note that there is no warning when a local parameter is assigned to in
+a nested function, which may also indicate an error.
+)
 enditem()
 
 subsect(History)
@@ -468,9 +513,12 @@ pindex(APPEND_HISTORY)
 cindex(history, appending to a file)
 item(tt(APPEND_HISTORY) <D>)(
 If this is set, zsh sessions will append their history list to
-the history file, rather than overwrite it. Thus, multiple parallel
-zsh sessions will all have their history lists added to the
-history file, in the order they are killed.
+the history file, rather than replace it. Thus, multiple parallel
+zsh sessions will all have the new entries from their history lists
+added to the history file, in the order that they exit.
+The file will still be periodically re-written to trim it when the
+number of lines grows 20% beyond the value specified by
+tt($SAVEHIST) (see also the HIST_SAVE_BY_COPY option).
 )
 pindex(BANG_HIST)
 cindex(history, enable substitution)
@@ -562,6 +610,22 @@ item(tt(HIST_REDUCE_BLANKS))(
 Remove superfluous blanks from each command line
 being added to the history list.
 )
+pindex(HIST_SAVE_BY_COPY)
+item(tt(HIST_SAVE_BY_COPY) <D>)(
+When the history file is re-written, we normally write out a copy of
+the file named $HISTFILE.new and then rename it over the old one.
+However, if this option is unset, we instead truncate the old
+history file and write out the new version in-place.  If one of the
+history-appending options is enabled, this option only has an effect
+when the enlarged history file needs to be re-written to trim it
+down to size.  Disable this only if you have special needs, as doing
+so makes it possible to lose history entries if zsh gets interrupted
+during the save.
+
+When writing out a copy of the history file, zsh preserves the old
+file's permissions and group information, but will refuse to write
+out a new file if it would change the history file's owner.
+)
 pindex(HIST_SAVE_NO_DUPS)
 item(tt(HIST_SAVE_NO_DUPS))(
 When writing out the history file, older commands that duplicate
@@ -579,9 +643,10 @@ cindex(history, incremental appending to a file)
 item(tt(INC_APPEND_HISTORY))(
 This options works like tt(APPEND_HISTORY) except that new history lines
 are added to the tt($HISTFILE) incrementally (as soon as they are
-entered), rather than waiting until the shell is killed.
-The file is periodically trimmed to the number of lines specified by
-tt($SAVEHIST), but can exceed this value between trimmings.
+entered), rather than waiting until the shell exits.
+The file will still be periodically re-written to trim it when the
+number of lines grows 20% beyond the value specified by
+tt($SAVEHIST) (see also the HIST_SAVE_BY_COPY option).
 )
 pindex(SHARE_HISTORY)
 cindex(share history)
@@ -847,8 +912,11 @@ such jobs will be killed automatically.
 
 The check is omitted if the commands run from the previous command line
 included a `tt(jobs)' command, since it is assumed the user is aware that
-there are background or suspended jobs.  A `tt(jobs)' command run from the
-tt(precmd) function is not counted for this purpose.
+there are background or suspended jobs.  A `tt(jobs)' command run from one
+of the hook functions defined in
+ifnzman(the section Special Functions in noderef(Functions))\
+ifzman(the section SPECIAL FUNCTIONS in zmanref(zshmisc))
+is not counted for this purpose.
 )
 pindex(HUP)
 cindex(jobs, HUP)
@@ -890,6 +958,22 @@ Print a carriage return just before printing
 a prompt in the line editor.  This is on by default as multi-line editing
 is only possible if the editor knows where the start of the line appears.
 )
+pindex(PROMPT_SP)
+cindex(prompt, save partial lines)
+item(tt(PROMPT_SP) <D>)(
+Attempt to preserve a partial line (i.e. a line that did not end with a
+newline) that would otherwise be covered up by the command prompt due to
+the PROMPT_CR option.  This works by outputting some cursor-control
+characters, including a series of spaces, that should make the terminal
+wrap to the next line when a partial line is present (note that this is
+only successful if your terminal has automatic margins, which is typical).
+
+When a partial line is preserved, you will see an inverse+bold character at
+the end of the partial line:  a "%" for a normal user or a "#" for root.
+
+NOTE: if the PROMPT_CR option is not set, enabling this option will have no
+effect.  This option is on by default.
+)
 pindex(PROMPT_PERCENT)
 cindex(prompt, % expansion)
 item(tt(PROMPT_PERCENT) <C> <Z>)(
@@ -924,6 +1008,14 @@ hence appear as `tt(077)' instead of `tt(8#77)'.  This option has no effect
 on the choice of the output base, nor on the output of bases other than
 hexadecimal and octal.  Note that these formats will be understood on input
 irrespective of the setting of tt(C_BASES).
+)
+pindex(DEBUG_BEFORE_CMD)
+cindex(traps, DEBUG, before or after command)
+cindex(DEBUG trap, before or after command)
+item(tt(DEBUG_BEFORE_CMD))(
+Run the tt(DEBUG) trap before each command; otherwise it is run after
+each command.  Setting this option mimics the behaviour of ksh 93; with
+the option unset the behaviour is that of ksh 88.
 )
 pindex(ERR_EXIT)
 cindex(exit status, trapping)
@@ -993,7 +1085,7 @@ For example,
 
 example(unsetopt localtraps
 trap - INT
-fn() { setopt localtraps; trap '' INT; sleep 3; })
+fn+LPAR()RPAR() { setopt localtraps; trap '' INT; sleep 3; })
 
 will restore normally handling of tt(SIGINT) after the function exits.
 )
@@ -1009,6 +1101,10 @@ Interpret any integer constant beginning with a 0 as octal, per IEEE Std
 1003.2-1992 (ISO 9945-2:1993).  This is not enabled by default as it
 causes problems with parsing of, for example, date and time strings with
 leading zeroes.
+
+Sequences of digits indicating a numeric base such as the `tt(08)'
+component in `tt(08#77)' are always interpreted as decimal, regardless
+of leading zeroes.
 )
 pindex(TYPESET_SILENT)
 item(tt(TYPESET_SILENT))(
@@ -1143,6 +1239,27 @@ tt(source),
 tt(times),
 tt(trap) and
 tt(unset).
+)
+pindex(POSIX_IDENTIFIERS)
+cindex(identifiers, non-portable characters in)
+cindex(parameter names, non-portable characters in)
+item(tt(POSIX_IDENTIFIERS) <K> <S>)(
+When this option is set, only the ASCII characters tt(a) to tt(z), tt(A) to
+tt(Z), tt(0) to tt(9) and tt(_) may be used in identifiers (names
+of shell parameters and modules).
+
+When the option is unset and multibyte character support is enabled (i.e. it
+is compiled in and the option tt(MULTIBYTE) is set), then additionally any
+alphanumeric characters in the local character set may be used in
+identifiers.  Note that scripts and functions written with this feature are
+not portable, and also that both options must be set before the script
+or function is parsed; setting them during execution is not sufficient
+as the syntax var(variable)tt(=)var(value) has already been parsed as
+a command rather than an assignment.
+
+If multibyte character support is not compiled into the shell this option is
+ignored; all octets with the top bit set may be used in identifiers.
+This is non-standard but is the traditional zsh behaviour.
 )
 pindex(SH_FILE_EXPANSION)
 cindex(sh, expansion style)

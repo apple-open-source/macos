@@ -14,6 +14,8 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = syslogd.tproj util.tproj
 
+LIBRARIES = aslcommon
+
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

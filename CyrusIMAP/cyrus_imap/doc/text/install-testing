@@ -3,7 +3,7 @@ Testing the IMAP Server
     To test the IMAP server, reboot and perform the following steps (all of
     these samples use "foobar" as the IMAP server name). A list of answers
     to common installation problems is maintained in
-    http://asg.web.cmu.edu/cyrus/imapd/install-FAQ. 
+    http://cyrusimap.web.cmu.edu/twiki. 
 
      1. From your normal account, telnet to the IMAP port on the server
         you're setting up: 

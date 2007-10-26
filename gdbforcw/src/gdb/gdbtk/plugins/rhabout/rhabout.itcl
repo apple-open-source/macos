@@ -1,0 +1,87 @@
+class RHAbout {
+  inherit PluginWindow
+  constructor {args} {
+    global gdb_ImageDir
+
+    # What about a menu?
+    $menubar add menubutton file "File" 0
+    $menubar add command None "Close" \
+      [code $this destroy_toplevel] \
+      -underline 1
+    $menubar add menubutton help "Help" 0
+    $menubar add command Other "Help Topics" \
+      {open_help index.html} \
+      -underline 0
+    $menubar add separator
+    $menubar add command Other "About GDB..." \
+      {ManagedWin::open About -transient} \
+      -underline 0
+
+    # The menu only shows up if you do this:
+    $menubar show
+
+    # Do you want a toolbar?
+    $toolbar add button con Other {ManagedWin::open Console} \
+                           "Console (Ctrl+N)" -image console_img
+
+    # The toolbar will only show up if you do this:
+    $toolbar show
+
+    # Now, fill the childsite with some graphics and text
+
+    # Remember to use the childsite, do not pack in the widget hull
+    set f [childsite]
+
+    # Put in some graphics
+    label $f.image1 -bg white -image \
+      [image create photo -file [file join $gdb_ImageDir insight.gif]]
+
+    # Here we call an interface function provided by GDBTCL
+    set text [gdb_cmd {show version}]
+
+    # Here we call a command procedure that we created, if it exists
+    catch {append text [rhabout_extra_text]}
+
+    # Now add the text
+    message $f.m -bg white -fg black -text $text -aspect 500 -relief flat
+
+    # Add a status bar so we can show some dynamic information
+    set _status [label $f.stat -relief sunken -bd 3 \
+                   -font global/status -height 1]
+
+    # pack everything
+    pack $f.image1 $f.m -fill both -expand yes
+    pack $f.stat -expand 1 -fill both
+    pack $itk_interior
+
+    # Give our sample window a name
+    window_name "About Red Hat Insight Plug-In"
+  }
+
+  # You can overload the base class busy method, but make sure
+  # to call it as well or the menu and button status will not be updated
+  # (unless this is what you want)
+  public method busy {event} {
+    debug
+    # Call the baseclass version
+    PluginWindow::busy $event
+
+    # Display something in the status area
+    $_status configure -text "Running..."
+  }
+
+  # You can overload the base class idle method, but make sure
+  # to call it as well or the menu and button status will not be updated
+  # (unless this is what you want)
+  private method idle {} {
+    debug
+    # First call the baseclass version
+    PluginWindow::idle
+
+    # Display something in the status area
+    $_status configure -text "Stopped."
+  }
+
+  # Path to the status area
+  private variable _status
+}

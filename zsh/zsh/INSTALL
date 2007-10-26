@@ -2,9 +2,10 @@
                         INSTALLING ZSH
                         ++++++++++++++
 
-This file is divided into two parts:  making and installing the shell, and
+This file is divided into two parts:  making and installing the shell, a
+note on the script run to set up the environment for new users, and
 a description of various additional configuration options.  You should
-have a look at the items in the second part before following the
+have a look at the items in the second and third parts before following the
 instructions in the first.
 
 
@@ -231,9 +232,67 @@ Note that this is mutually exclusive with using the source directories
 as make can become confused by build files created in the source directories.
 
 
+================================
+AUTOMATIC NEW USER CONFIGURATION
+================================
+
+In the default configuration, the shell comes with a system based around
+the zsh/newuser add-on module that detects when a user first starts the
+shell interactively and has no initialisation files (.zshenv, .zshrc,
+.zprofile or .zlogin).  The shell then executes code in the file
+scripts/newuser in the shared library area (by default
+/usr/local/share/zsh/<VERSION>/scripts/newuser).  This feature can be
+turned off simply by removing this script.  The module can be removed
+entirely from the configured shell by editing the line starting
+"name=zsh/newuser" in the config.modules file, which is generated in the
+top level distribution directory during configuration: change the line to
+include "link=no auto=no".
+
+The supplied script executes the function supplied as
+Functions/Newuser/zsh-newuser-install.  This function is currently under
+development.  It is probably preferable for administrators who wish to
+customize the system their own way to edit the newuser script in
+scripts/newuser.  Also, as there is currently no internationalization
+support, administrators of sites with users who mostly do not speak English
+may wish not to install the zsh/newuser module.
+
+
 =====================
 CONFIGURATION OPTIONS
 =====================
+
+Multibyte Character Support
+---------------------------
+
+Support for multibyte character sets that extend ASCII, such as UTF-8, is
+now reasonably close to complete, except that combining characters are not
+handled properly (some assistance with this problem would be appreciated).
+The configuration script should turn on multibyte support on all systems
+where it can be compiled successfully.
+
+The support can be explicitly enabled or disabled with --enable-multibyte or
+--disable-multibyte.  The developers are not aware of any need to use
+--disable-multibyte and this should be reported as a bug.  Currently
+multibyte mode is believed to work on at least the following:
+
+  - All(?) current GNU/Linux distributions
+  - OS X 10.4.3 (problems have been reported with multibyte characters
+    in HFS file names)
+  - NetBSD 2.0.2
+  - Solaris 8+ (inputting multibyte characters from the keyboard doesn't
+    work in some installations).
+  - Cygwin (though use of multibyte characters is somewhat non-standard).
+
+The corresponding shell option MULTIBYTE is now on by default in all
+emulation modes when multibyte support is enabled.  Turning it off is not
+recommended unless there is a particular need to examine single bytes
+regardless of the locale.  As the line editor bases its behaviour on the
+locale regardless of the option (in order to correspond to the displayed
+character set), the option should be left on during the execution of
+user-defined editor and completion widgets so that the behaviour
+corresponds to that of builtin widgets.
+
+See chapter 5 in the FAQ for some notes on multibyte input.
 
 Memory Routines
 ---------------
@@ -267,6 +326,9 @@ This enables the builtin "hashinfo".
 To add some sanity checks and generate debugging information for debuggers
 you can use the following option.  This also disables optimization.
  --enable-zsh-debug            # use it if you want to debug zsh
+In this mode, zsh may output extra information about internal errors
+to stderr.  The shell variable ZSH_DEBUG_LOG may be set to another file
+to which errors will be appended.
 
 Startup/shutdown files
 ----------------------

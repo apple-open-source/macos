@@ -1,5 +1,17 @@
+<testcase>
+<info>
+<keywords>
+FTP
+PORT
+RETR
+FAILURE
+</keywords>
+</info>
 # Server-side
 <reply>
+<servercmd>
+REPLY RETR 314 bluah you f00l!
+</servercmd>
 </reply>
 
 # Client-side
@@ -13,9 +25,6 @@ FTP download, failed RETR with PORT
  <command>
 ftp://%HOSTIP:%FTPPORT/119 -P -
 </command>
-<file name="log/ftpserver.cmd">
-REPLY RETR 314 bluah you f00l!
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -30,7 +39,7 @@ REPLY RETR 314 bluah you f00l!
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 TYPE I
 SIZE 119
@@ -38,3 +47,4 @@ RETR 119
 QUIT
 </protocol>
 </verify>
+</testcase>

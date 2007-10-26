@@ -3,21 +3,21 @@
 	<key>OpenSourceProject</key>
 	<string>less</string>
 	<key>OpenSourceVersion</key>
-	<string>382</string>
+	<string>394</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.greenwoodsoftware.com/less/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/less/less-382.tar.gz</string>
-	<key>OpenSourceMD5</key>
-	<string>103fe4aef6297b93f0f73f38cc3b1bd7</string>
+	<string>http://www.greenwoodsoftware.com/less/less-394.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>fa0d9aa30ec461866786c4080bb594fc3337bb02</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-07-28</string>
+	<string>2006-01-24</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Patched to remain compatible with more(1).</string>
 	</array>
 	<key>OpenSourceLicense</key>
-	<string>GPL</string>
+	<string>Less License</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>less.txt</string>
 </dict>

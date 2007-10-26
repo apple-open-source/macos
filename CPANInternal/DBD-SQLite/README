@@ -1,0 +1,30 @@
+DBD::SQLite
+===========
+
+SQLite is a small fast embedded SQL database engine.
+
+DBD::SQLite embeds that database engine into a DBD driver, so
+if you want a relational database for your project, but don't
+want to install a large RDBMS system like MySQL or PostgreSQL,
+then DBD::SQLite may be just what you need.
+
+It supports quite a lot of features, such as transactions (atomic
+commit and rollback), indexes, DBA-free operation, a large subset
+of SQL92 supported, and more.
+
+Installation requires a compiler.
+
+The engine is very fast, but for updates/inserts/dml it does
+perform a global lock on the entire database. This, obviously,
+might not be good for multiple user systems. So beware. The
+database also appears to be significantly faster if your
+transactions are coarse. One performance benchmark I did was
+inserting 100_000 rows into the database - with AutoCommit
+on it was doing about 50 rows per second. When I turned AutoCommit
+off it went up to 1000 rows per second.
+
+This module is distributed under the same terms as Perl itself, and
+is copyright Matt Sergeant, 2002.
+
+The underlying SQLite database engine is copyright free.
+

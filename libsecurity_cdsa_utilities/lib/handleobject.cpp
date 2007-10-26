@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,7 @@ ModuleNexus<HandleObject::State> HandleObject::state;
 // Bring the State constructor out of line
 //
 HandleObject::State::State()
+	: sequence(1)
 { }
 
 
@@ -59,7 +60,7 @@ void HandleObject::State::make(HandleObject *obj)
 {
     StLock<Mutex> _(*this);
 	for (;;) {
-		Handle handle = reinterpret_cast<uint32>(obj) ^ (++sequence << 19);
+		Handle handle = reinterpret_cast<CSSM_HANDLE>(obj) ^ (++sequence << 19);
 		if (handleMap[handle] == NULL) {
 			secdebug("handleobj", "create 0x%lx for %p", handle, obj);
 			obj->setHandle(handle);

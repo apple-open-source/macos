@@ -1,0 +1,46 @@
+.\"
+.\" Copyright 2002 Keith Packard.\"
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation, and that the name of Keith Packard not be used in
+.\" advertising or publicity pertaining to distribution of the software without
+.\" specific, written prior permission.  Keith Packard makes no
+.\" representations about the suitability of this software for any purpose.  It
+.\" is provided "as is" without express or implied warranty.
+.\"
+.\" KEITH PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL KEITH PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+.\" DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+.\" TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.\"
+.\"
+.\" $XFree86: xc/programs/xcursorgen/xcursorgen.man,v 1.1 2002/09/03 06:48:28 keithp Exp $
+.\"
+.TH XCURSORGEN 1 __vendorversion__
+.SH NAME
+xcursorgen \- create an X cursor file from a collection of PNG images
+.SH SYNOPSIS
+.B "xcursorgen"
+.RI [ config-file ]
+.RI [ output-file ]
+.SH DESCRIPTION
+Xcursorgen reads the config-file to find the list of cursor images along
+with their hotspot and nominal size information.  Xcursorgen converts all of
+the images to Xcursor format and writes them to the output-file.
+.P
+Each line in the config file is of the form:
+.br
+<size> <xhot> <yhot> <filename> <ms-delay>
+.br
+.P
+Multiple images with the same <size> are used to create animated cursors,
+the <ms-delay> value on each line indicates how long each image should be
+displayed before switching to the next.  <ms-delay> can be elided for static
+cursors.
+.SH "SEE ALSO"
+Xcursor(3x)

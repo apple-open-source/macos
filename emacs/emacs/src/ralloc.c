@@ -1,5 +1,6 @@
-/* Block-relocating memory allocator. 
-   Copyright (C) 1993, 1995, 2000 Free Software Foundation, Inc.
+/* Block-relocating memory allocator.
+   Copyright (C) 1993, 1995, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* NOTES:
 
@@ -28,6 +29,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include <config.h>
 #include "lisp.h"		/* Needed for VALBITS.  */
+#include "blockinput.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -42,7 +44,7 @@ typedef size_t SIZE;
 extern void safe_bcopy ();
 
 #ifdef DOUG_LEA_MALLOC
-#define M_TOP_PAD           -2 
+#define M_TOP_PAD           -2
 extern int mallopt ();
 #else /* not DOUG_LEA_MALLOC */
 #ifndef SYSTEM_MALLOC
@@ -98,7 +100,7 @@ static POINTER break_value;
 /* This is the size of a page.  We round memory requests to this boundary.  */
 static int page_size;
 
-/* Whenever we get memory from the system, get this many extra bytes.  This 
+/* Whenever we get memory from the system, get this many extra bytes.  This
    must be a multiple of page_size.  */
 static int extra_bytes;
 
@@ -141,7 +143,7 @@ extern POINTER (*__morecore) ();
    We try to make just one heap and make it larger as necessary.
    But sometimes we can't do that, because we can't get contiguous
    space to add onto the heap.  When that happens, we start a new heap.  */
-   
+
 typedef struct heap
 {
   struct heap *next;
@@ -174,7 +176,7 @@ static heap_ptr first_heap, last_heap;
 /* These structures are allocated in the malloc arena.
    The linked list is kept in order of increasing '.data' members.
    The data blocks abut each other; if b->next is non-nil, then
-   b->data + b->size == b->next->data.  
+   b->data + b->size == b->next->data.
 
    An element with variable==NIL denotes a freed block, which has not yet
    been collected.  They may only appear while r_alloc_freeze > 0, and will be
@@ -328,7 +330,7 @@ static void
 relinquish ()
 {
   register heap_ptr h;
-  int excess = 0;
+  long excess = 0;
 
   /* Add the amount of space beyond break_value
      in all heaps which have extend beyond break_value at all.  */
@@ -467,8 +469,8 @@ get_bloc (size)
 /* Calculate new locations of blocs in the list beginning with BLOC,
    relocating it to start at ADDRESS, in heap HEAP.  If enough space is
    not presently available in our reserve, call obtain for
-   more space. 
-   
+   more space.
+
    Store the new location of each bloc in its new_data field.
    Do not touch the contents of blocs or break_value.  */
 
@@ -481,7 +483,7 @@ relocate_blocs (bloc, heap, address)
   register bloc_ptr b = bloc;
 
   /* No need to ever call this if arena is frozen, bug somewhere!  */
-  if (r_alloc_freeze_level) 
+  if (r_alloc_freeze_level)
     abort();
 
   while (b)
@@ -506,7 +508,7 @@ relocate_blocs (bloc, heap, address)
 	  /* Add up the size of all the following blocs.  */
 	  while (tb != NIL_BLOC)
 	    {
-	      if (tb->variable) 
+	      if (tb->variable)
 		s += tb->size;
 
 	      tb = tb->next;
@@ -523,7 +525,7 @@ relocate_blocs (bloc, heap, address)
       /* Record the new address of this bloc
 	 and update where the next bloc can start.  */
       b->new_data = address;
-      if (b->variable) 
+      if (b->variable)
 	address = (char *) address + b->size;
       b = b->next;
     }
@@ -639,7 +641,7 @@ resize_bloc (bloc, size)
   SIZE old_size;
 
   /* No need to ever call this if arena is frozen, bug somewhere!  */
-  if (r_alloc_freeze_level) 
+  if (r_alloc_freeze_level)
     abort();
 
   if (bloc == NIL_BLOC || size == bloc->size)
@@ -681,8 +683,8 @@ resize_bloc (bloc, size)
 	    {
 	      b->size = 0;
 	      b->data = b->new_data;
-            } 
-	  else 
+            }
+	  else
 	    {
 	      safe_bcopy (b->data, b->new_data, b->size);
 	      *b->variable = b->data = b->new_data;
@@ -708,8 +710,8 @@ resize_bloc (bloc, size)
 	    {
 	      b->size = 0;
 	      b->data = b->new_data;
-            } 
-	  else 
+            }
+	  else
 	    {
 	      safe_bcopy (b->data, b->new_data, b->size);
 	      *b->variable = b->data = b->new_data;
@@ -738,7 +740,7 @@ free_bloc (bloc)
       bloc->variable = (POINTER *) NIL;
       return;
     }
-  
+
   resize_bloc (bloc, 0);
 
   if (bloc == first_bloc && bloc == last_bloc)
@@ -794,7 +796,7 @@ free_bloc (bloc)
    __morecore hook values - in particular, __default_morecore in the
    GNU malloc package.  */
 
-POINTER 
+POINTER
 r_alloc_sbrk (size)
      long size;
 {
@@ -850,7 +852,7 @@ r_alloc_sbrk (size)
       if (first_heap->bloc_start < new_bloc_start)
 	{
 	  /* This is no clean solution - no idea how to do it better.  */
-	  if (r_alloc_freeze_level) 
+	  if (r_alloc_freeze_level)
 	    return NIL;
 
 	  /* There is a bug here: if the above obtain call succeeded, but the
@@ -1018,7 +1020,7 @@ r_re_alloc (ptr, size)
 
   if (!*ptr)
     return r_alloc (ptr, size);
-  if (!size) 
+  if (!size)
     {
       r_alloc_free (ptr);
       return r_alloc (ptr, 0);
@@ -1028,12 +1030,12 @@ r_re_alloc (ptr, size)
   if (bloc == NIL_BLOC)
     abort ();
 
-  if (size < bloc->size) 
+  if (size < bloc->size)
     {
       /* Wouldn't it be useful to actually resize the bloc here?  */
       /* I think so too, but not if it's too expensive...  */
-      if ((bloc->size - MEM_ROUNDUP (size) >= page_size) 
-          && r_alloc_freeze_level == 0) 
+      if ((bloc->size - MEM_ROUNDUP (size) >= page_size)
+          && r_alloc_freeze_level == 0)
 	{
 	  resize_bloc (bloc, MEM_ROUNDUP (size));
 	  /* Never mind if this fails, just do nothing...  */
@@ -1055,7 +1057,7 @@ r_re_alloc (ptr, size)
           else
 	    return NIL;
 	}
-      else 
+      else
 	{
 	  if (! resize_bloc (bloc, MEM_ROUNDUP (size)))
 	    return NIL;
@@ -1091,22 +1093,22 @@ void
 r_alloc_thaw ()
 {
 
-  if (! r_alloc_initialized) 
+  if (! r_alloc_initialized)
     r_alloc_init ();
 
   if (--r_alloc_freeze_level < 0)
     abort ();
 
-  /* This frees all unused blocs.  It is not too inefficient, as the resize 
-     and bcopy is done only once.  Afterwards, all unreferenced blocs are 
+  /* This frees all unused blocs.  It is not too inefficient, as the resize
+     and bcopy is done only once.  Afterwards, all unreferenced blocs are
      already shrunk to zero size.  */
-  if (!r_alloc_freeze_level) 
+  if (!r_alloc_freeze_level)
     {
       bloc_ptr *b = &first_bloc;
-      while (*b) 
-	if (!(*b)->variable) 
-	  free_bloc (*b); 
-	else 
+      while (*b)
+	if (!(*b)->variable)
+	  free_bloc (*b);
+	else
 	  b = &(*b)->next;
     }
 }
@@ -1238,7 +1240,7 @@ r_alloc_init ()
   if (r_alloc_initialized)
     return;
   r_alloc_initialized = 1;
-  
+
   page_size = PAGE;
 #ifndef SYSTEM_MALLOC
   real_morecore = __morecore;
@@ -1255,7 +1257,9 @@ r_alloc_init ()
 #endif
 
 #ifdef DOUG_LEA_MALLOC
-    mallopt (M_TOP_PAD, 64 * 4096);
+  BLOCK_INPUT;
+  mallopt (M_TOP_PAD, 64 * 4096);
+  UNBLOCK_INPUT;
 #else
 #ifndef SYSTEM_MALLOC
   /* Give GNU malloc's morecore some hysteresis
@@ -1283,6 +1287,9 @@ r_alloc_init ()
 	 (char *) first_heap->end - (char *) first_heap->start);
   virtual_break_value = break_value = first_heap->bloc_start = first_heap->end;
 #endif
-  
+
   use_relocatable_buffers = 1;
 }
+
+/* arch-tag: 6a524a15-faff-44c8-95d4-a5da6f55110f
+   (do not change this comment) */

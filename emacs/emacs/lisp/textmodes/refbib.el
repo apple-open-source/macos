@@ -1,8 +1,10 @@
 ;;; refbib.el --- convert refer-style references to ones usable by Latex bib
 
-;; Copyright (C) 1989 Free Software Foundation, Inc.
+;; Copyright (C) 1989, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Henry Kautz <kautz@research.att.com>
+;; Maintainer: FSF
 ;; Keywords: bib, tex
 
 ;; This file is part of GNU Emacs.
@@ -19,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -35,7 +37,7 @@
 ;; 9/88, created H.Kautz
 ;; modified 1/19/89, allow books with editor but no author;
 ;;                   added %O ordering field;
-;;                   appended illegal multiple fields, instead of 
+;;                   appended invalid multiple fields, instead of
 ;;                     discarding;
 ;;                   added rule, a tech report whose %R number
 ;;                     contains "ISBN" is really a book
@@ -70,25 +72,25 @@
   :group 'refbib)
 
 (defcustom r2b-journal-abbrevs
-  '(  
+  '(
     )
-  "Abbreviation list for journal names.  
+  "Abbreviation list for journal names.
 If the car of an element matches a journal name exactly, it is replaced by
 the cadr when output.  Braces must be included if replacement is a
 {string}, but not if replacement is a bibtex abbreviation.  The cadr
-may be eliminated if is exactly the same as the car.  
+may be eliminated if is exactly the same as the car.
   Because titles are capitalized before matching, the abbreviation
-for the journal name should be listed as beginning with a capital 
+for the journal name should be listed as beginning with a capital
 letter, even if it really doesn't.
   For example, a value of '((\"Aij\" \"{Artificial Intelligence}\")
 \(\"Ijcai81\" \"ijcai7\")) would expand Aij to the text string
-\"Artificial Intelligence\", but would replace Ijcai81 with the 
+\"Artificial Intelligence\", but would replace Ijcai81 with the
 BibTeX macro \"ijcai7\"."
   :type '(repeat (list string string))
   :group 'refbib)
 
-(defcustom r2b-booktitle-abbrevs 
-  '(  
+(defcustom r2b-booktitle-abbrevs
+  '(
     )
   "Abbreviation list for book and proceedings names.
 If the car of an element matches a title or booktitle exactly, it is
@@ -100,7 +102,7 @@ the car.
 should be listed as beginning with a capital letter, even if it doesn't.
   For example, a value of '((\"Aij\" \"{Artificial Intelligence}\")
 \(\"Ijcai81\" \"ijcai7\")) would expand Aij to the text string
-\"Artificial Intelligence\", but would replace Ijcai81 with the 
+\"Artificial Intelligence\", but would replace Ijcai81 with the
 BibTeX macro \"ijcai7\"."
   :type '(repeat (list string string))
   :group 'refbib)
@@ -112,7 +114,7 @@ but whose name and whose abbrev expansion (as defined in `r2b-journal-abbrevs'
 and `r2b-booktitle-abbrevs') does not contain the words \"conference\" or
 \"proceedings\".  (Those cases are handled automatically.)
 The entry must match the given data exactly.
-  Because titles are capitalized before matching, the items in this list 
+  Because titles are capitalized before matching, the items in this list
 should begin with a capital letter.
   For example, suppose the title \"Ijcai81\" is used for the proceedings of
 a conference, and its expansion is the BibTeX macro \"ijcai7\".  Then
@@ -190,7 +192,7 @@ This is in addition to the `r2b-capitalize-title-stop-words'.")
    (makunbound 'r2b-stop-regexp))
 
 (defvar r2b-stop-regexp
-   (concat "\\`\\(\\(" 
+   (concat "\\`\\(\\("
       r2b-additional-stop-words "\\|" r2b-capitalize-title-stop-words
       "\\)\\('\\w*\\)?\\W+\\)*\\([A-Z0-9]+\\)"))
 
@@ -221,37 +223,49 @@ This is in addition to the `r2b-capitalize-title-stop-words'.")
 
 (defvar r2b-error-found nil)
 
+(eval-when-compile
+  (defvar r2b-variables) (defvar r2bv-address)    (defvar r2bv-annote)
+  (defvar r2bv-author)   (defvar r2bv-booktitle)  (defvar r2bv-date)
+  (defvar r2bv-decade)   (defvar r2bv-editor)     (defvar r2bv-entry-kind)
+  (defvar r2bv-institution) (defvar r2bv-journal) (defvar r2bv-keywords)
+  (defvar r2bv-kn)       (defvar r2bv-month)      (defvar r2bv-note)
+  (defvar r2bv-number)   (defvar r2bv-ordering)   (defvar r2bv-organization)
+  (defvar r2bv-pages)    (defvar r2bv-primary-author) (defvar r2bv-publisher)
+  (defvar r2bv-school)   (defvar r2bv-title)      (defvar r2bv-title-first-word)
+  (defvar r2bv-tr)       (defvar r2bv-type)       (defvar r2bv-volume)
+  (defvar r2bv-where)    (defvar r2bv-year))
+
 (setq r2b-variables '(
-			r2b-error-found
-			  r2bv-author
-			  r2bv-primary-author
-			  r2bv-date
-			  r2bv-year
-			  r2bv-decade
-			  r2bv-month
-			  r2bv-title
-			  r2bv-title-first-word
-			  r2bv-editor
-			  r2bv-annote
-			  r2bv-tr
-			  r2bv-address
-			  r2bv-institution
-			  r2bv-keywords
-			  r2bv-booktitle
-			  r2bv-journal
-			  r2bv-volume
-			  r2bv-number
-			  r2bv-pages
-			  r2bv-booktitle
-			  r2bv-kn
-			  r2bv-publisher
-			  r2bv-organization
-			  r2bv-school
-			  r2bv-type
-			  r2bv-where
-			  r2bv-note
-			  r2bv-ordering
-			  ))
+                      r2b-error-found
+                      r2bv-author
+                      r2bv-primary-author
+                      r2bv-date
+                      r2bv-year
+                      r2bv-decade
+                      r2bv-month
+                      r2bv-title
+                      r2bv-title-first-word
+                      r2bv-editor
+                      r2bv-annote
+                      r2bv-tr
+                      r2bv-address
+                      r2bv-institution
+                      r2bv-keywords
+                      r2bv-booktitle
+                      r2bv-journal
+                      r2bv-volume
+                      r2bv-number
+                      r2bv-pages
+                      r2bv-booktitle
+                      r2bv-kn
+                      r2bv-publisher
+                      r2bv-organization
+                      r2bv-school
+                      r2bv-type
+                      r2bv-where
+                      r2bv-note
+                      r2bv-ordering
+                      ))
 
 (defun r2b-clear-variables ()
    "Set all global vars used by r2b to nil."
@@ -280,7 +294,7 @@ title if CAPITALIZE is true.  Returns value of VAR."
       (r2b-trace "snarfing %s" field)
       (goto-char (point-min))
       (while (and not-past-end
-		(re-search-forward 
+		(re-search-forward
 		   (concat "^" field "\\b[ \t]*\\(.*[^ \t\n]\\)[ \t]*") nil t))
 	 (setq item (r2b-match 1))
 	 (while (and (setq not-past-end (zerop (forward-line 1)))
@@ -292,7 +306,7 @@ title if CAPITALIZE is true.  Returns value of VAR."
 	    (setq val item)
 	    (if unique
 	       (progn
-		  (r2b-warning "*Illegal multiple field %s %s" field item)
+		  (r2b-warning "*Invalid multiple field %s %s" field item)
 		  (setq val (concat val "\n" item))
 		  )
 	       (setq val (concat val "\n\t\tand " item))
@@ -325,7 +339,7 @@ title if CAPITALIZE is true.  Returns value of VAR."
       (let ((months r2b-month-abbrevs))
 	 (if (string-match "[^0-9]" r2bv-month)
 	    (progn
-	       (while (and months (not (string-match (car (car months)) 
+	       (while (and months (not (string-match (car (car months))
 					  r2bv-month)))
 		  (setq months (cdr months)))
 	       (if months
@@ -387,7 +401,7 @@ title if CAPITALIZE is true.  Returns value of VAR."
       (r2b-set-match 'r2bv-title-first-word 4
 	 r2b-stop-regexp
 	 r2bv-title)
-      
+
       (r2b-get-field 'r2bv-annote "%X" t )
       (r2b-get-field 'r2bv-tr "%R" t)
       (r2b-get-field 'r2bv-address "%C" t)
@@ -445,7 +459,7 @@ try to replace the {DATA} with an abbreviation."
       (princ ", \n  ")
       (princ field)
       (princ " =\t")
-      (if (not nodelim) 
+      (if (not nodelim)
 	(if r2b-delimit-with-quote
 	  (princ "\"")
 	  (princ "{")))
@@ -453,7 +467,7 @@ try to replace the {DATA} with an abbreviation."
       (if (> (match-end 0) 59)
 	(princ "\n"))
       (princ data)
-      (if (not nodelim) 
+      (if (not nodelim)
 	(if r2b-delimit-with-quote
 	  (princ "\"")
 	  (princ "}")))
@@ -463,7 +477,7 @@ try to replace the {DATA} with an abbreviation."
 
 (defun r2b-require (vars)
    "If any of VARS is null, set to empty string and log error."
-   (cond 
+   (cond
       ((null vars))
       ((listp vars) (r2b-require (car vars)) (r2b-require (cdr vars)))
       (t
@@ -495,7 +509,7 @@ try to replace the {DATA} with an abbreviation."
 (defun r2b-isa-university (name)
    "Return t if NAME is a university or similar organization,
 but not a publisher."
-   (and 
+   (and
       name
       (string-match "university" name)
       (not (string-match "press" name))
@@ -512,9 +526,9 @@ but not a publisher."
 
       (setq r2bv-kn (concat r2bv-primary-author r2bv-decade
 			r2bv-title-first-word))
-      
+
       (setq r2bv-entry-kind
-	 (cond 
+	 (cond
 	    ((r2b-isa-proceedings r2bv-journal)
 	       (r2b-moveq r2bv-booktitle r2bv-journal)
 	       (if (r2b-isa-university r2bv-institution)
@@ -565,7 +579,7 @@ but not a publisher."
 	       'proceedings)
 	    ((or r2bv-editor
 		(and r2bv-author
-		   (or 
+		   (or
 		      (null r2bv-tr)
 		      (string-match "\\bisbn\\b" r2bv-tr))))
 	       (r2b-moveq r2bv-publisher r2bv-institution)
@@ -576,12 +590,12 @@ but not a publisher."
 	       'book)
 	    (r2bv-tr
 	       (r2b-require 'r2bv-institution)
-	       (if (string-match 
-		      "\\`\\(\\(.\\|\n\\)+\\)[ \t\n]+\\([^ \t\n]\\)+\\'" 
+	       (if (string-match
+		      "\\`\\(\\(.\\|\n\\)+\\)[ \t\n]+\\([^ \t\n]\\)+\\'"
 		      r2bv-tr)
 		  (progn
 		     (setq r2bv-type (substring r2bv-tr 0 (match-end 1)))
-		     (setq r2bv-number (substring r2bv-tr 
+		     (setq r2bv-number (substring r2bv-tr
 					  (match-beginning 3)))
 		     (setq r2bv-tr nil))
 		  (r2b-moveq r2bv-number r2bv-tr))
@@ -632,14 +646,14 @@ but not a publisher."
    )
 
 
-(defun r2b-convert-record (output-name)
-   "Transform current bib entry and append to buffer OUTPUT;
-do \"M-x r2b-help\" for more info."
-   (interactive 
+(defun r2b-convert-record (output)
+   "Transform current bib entry and append to buffer OUTPUT.
+Do `\\[r2b-help]' for more info."
+   (interactive
       (list (read-string "Output to buffer: " r2b-out-buf-name)))
    (let (rec-end rec-begin not-done)
-      (setq r2b-out-buf-name output-name)
-      (setq r2b-out-buf (get-buffer-create output-name))
+      (setq r2b-out-buf-name output)
+      (setq r2b-out-buf (get-buffer-create output))
       (setq r2b-in-buf (current-buffer))
       (set-buffer r2b-out-buf)
       (goto-char (point-max))
@@ -667,12 +681,12 @@ do \"M-x r2b-help\" for more info."
 	 nil
 	 )
       ))
-      
-      
-(defun r2b-convert-buffer (output-name)
+
+
+(defun r2b-convert-buffer (output)
    "Transform current buffer and append to buffer OUTPUT.
-Do `M-x r2b-help' for more info."
-   (interactive 
+Do `\\[r2b-help]' for more info."
+   (interactive
       (list (read-string "Output to buffer: " r2b-out-buf-name)))
    (save-excursion
       (setq r2b-log (get-buffer-create r2b-log-name))
@@ -682,8 +696,8 @@ Do `M-x r2b-help' for more info."
    (goto-char (point-min))
    (message "Working, please be patient...")
    (sit-for 0)
-   (while (r2b-convert-record output-name) t)
-   (message "Done, results in %s, errors in %s" 
+   (while (r2b-convert-record output) t)
+   (message "Done, results in %s, errors in %s"
       r2b-out-buf-name r2b-log-name)
    )
 
@@ -740,4 +754,5 @@ Please send bug reports and suggestions to
 (provide 'refbib)
 (provide 'refer-to-bibtex)
 
+;;; arch-tag: 664afee2-6e76-4408-ba56-981d8a179586
 ;;; refbib.el ends here

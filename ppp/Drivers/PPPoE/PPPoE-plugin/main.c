@@ -193,39 +193,14 @@ work out which device we are using and read its options file
 ----------------------------------------------------------------------------- */
 void pppoe_process_extra_options()
 {
-    int 		error = EXIT_OPTION_ERROR;
-    int 		len, s;
-    struct ifreq 	ifr;
 
     if (!device)
         device = "en0";
-        
-    s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
-    if (s >= 0) {
-        
-        len = strlen(device);
-        if (len <= sizeof(ifr.ifr_name)) {
-
-            bzero(&ifr, sizeof(ifr));
-            bcopy(device, ifr.ifr_name, len);
-            if (ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0) {
-                // ensure that the device is UP
-                ifr.ifr_flags |= IFF_UP;
-                if (ioctl(s, SIOCSIFFLAGS, (caddr_t) &ifr) >= 0)
-                    error = 0;
-            }
-        }
-        
-        close(s);
-    }
-        
+                
     if (!strcmp(mode, MODE_ANSWER)) {
         // make sure we get a file descriptor > 2 so that pppd can detach and close 0,1,2
         sockfd = dup(0);
     }
-
-    if (error)
-        exit(error);
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -265,8 +240,9 @@ That is, open the socket and run the connector
 int pppoe_connect(int *errorcode)
 {
     char 	dev[32], name[MAXPATHLEN]; 
-    int 	err = 0;  
+    int 	err = 0, len, s;  
     CFURLRef	url;
+    struct ifreq 	ifr;
     
 	*errorcode = 0;
 
@@ -276,6 +252,31 @@ int pppoe_connect(int *errorcode)
     hungup = 0;
     kill_link = 0;
     linkdown = 0;
+	
+	err = -1;
+    s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
+    if (s >= 0) {
+        
+        len = strlen(device);
+        if (len <= sizeof(ifr.ifr_name)) {
+
+            bzero(&ifr, sizeof(ifr));
+            bcopy(device, ifr.ifr_name, len);
+            if (ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0) {
+                // ensure that the device is UP
+                ifr.ifr_flags |= IFF_UP;
+                if (ioctl(s, SIOCSIFFLAGS, (caddr_t) &ifr) >= 0)
+                    err = 0;
+            }
+        }
+        
+        close(s);
+    }
+	if (err) {
+		error("PPPoE cannot use interface '%s'.", device);
+		status = EXIT_OPEN_FAILED;
+		return -1;
+	}
 
     if (strcmp(mode, MODE_ANSWER)) {
         /* open the socket */
@@ -440,6 +441,9 @@ int pppoe_dial()
 {
     struct sockaddr_pppoe 	addr;
     u_short 			len, i;
+	unsigned char ac_address[ETHER_ADDR_LEN];
+	char ac_string[ETHER_ADDR_LEN * 3];
+	int ac_len = ETHER_ADDR_LEN, err;
     
     // if the specific pppoe option are not used, try to see 
     // if the remote address generic field can be decomposed
@@ -499,6 +503,16 @@ int pppoe_dial()
         return -1;
     }
 
+	/* build network signature from the Access Concentrator address */
+	err = getsockopt(sockfd, PPPPROTO_PPPOE, PPPOE_OPT_PEER_ENETADDR, ac_address, &ac_len);
+	if (err == -1) {
+		warning("PPPoE cannot retrieve access concentrator address, %m");
+	}
+	else {
+		sprintf(ac_string, "%02X:%02X:%2X:%02X:%02X:%02X", ac_address[0], ac_address[1], ac_address[2], ac_address[3], ac_address[4], ac_address[5]);
+		set_network_signature("PPPoE.AccessConcentratorAddress", ac_string, 0, 0);
+	}
+	
     notice("PPPoE connection established.");
     return 0;
 }
@@ -529,7 +543,7 @@ int pppoe_listen()
     }
 
     if (listen(sockfd, 10) < 0) {
-        printf("PPPoE listen failed, %m");
+        error("PPPoE listen failed, %m");
         return -1;
     }
 

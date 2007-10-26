@@ -4,15 +4,15 @@
 		<key>OpenSourceProject</key>
 		<string>ksh</string>
 		<key>OpenSourceVersion</key>
-		<string>2004-02-29</string>
+		<string>2007-03-28</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.research.att.com/sw/download/</string>
+		<string>http://public.research.att.com/~gsf/download/</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.research.att.com/sw/download/tgz/ast-ksh.2004-02-29.tgz</string>
-		<key>OpenSourceMD5</key>
-		<string>fa91217bc99ccf9cc32b3250a2431185</string>
+		<string>http://public.research.att.com/~gsf/download/tgz/ast-ksh.2007-03-28.tgz</string>
+		<key>OpenSourceSHA1</key>
+		<string>332c3acf640c899cd2de3531be6446b3c3edc617</string>
 		<key>OpenSourceImportDate</key>
-		<string>2004-08-16</string>
+		<string>2007-05-18</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -22,15 +22,15 @@
 		<key>OpenSourceProject</key>
 		<string>ksh</string>
 		<key>OpenSourceVersion</key>
-		<string>2004-02-29</string>
+		<string>2006-03-28</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.research.att.com/sw/download/</string>
+		<string>http://public.research.att.com/~gsf/download/</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.research.att.com/sw/download/tgz/INIT.2004-02-29.tgz</string>
-		<key>OpenSourceMD5</key>
-		<string>cd4cc8fe24b040685451bea07f9bd163</string>
+		<string>http://public.research.att.com/~gsf/download/tgz/INIT.2007-03-28.tgz</string>
+		<key>OpenSourceSHA1</key>
+		<string>e74a912858533631ed24eb2714d4be7b46a60ab8</string>
 		<key>OpenSourceImportDate</key>
-		<string>2004-08-16</string>
+		<string>2007-05-18</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>

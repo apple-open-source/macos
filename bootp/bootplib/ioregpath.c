@@ -27,16 +27,11 @@
 CFDictionaryRef
 myIORegistryEntryCopyValue(const char * path)
 {
-    mach_port_t         	master;
     io_registry_entry_t 	service;
     kern_return_t       	status;
     CFMutableDictionaryRef	properties = NULL;
 
-    status = IOMasterPort(bootstrap_port, &master);
-    if (status != KERN_SUCCESS) {
-	return (NULL);
-    }
-    service = IORegistryEntryFromPath(master, path);
+    service = IORegistryEntryFromPath(kIOMasterPortDefault, path);
     if (service == MACH_PORT_NULL) {
 	return (NULL);
     }
@@ -51,22 +46,33 @@ myIORegistryEntryCopyValue(const char * path)
     return (properties);
 }
 
+CFTypeRef
+myIORegistryEntryCopyProperty(const char * path, CFStringRef prop)
+{
+    io_registry_entry_t 	service;
+    CFTypeRef			val;
+
+    service = IORegistryEntryFromPath(kIOMasterPortDefault, path);
+    if (service == MACH_PORT_NULL) {
+	return (NULL);
+    }
+    val = IORegistryEntryCreateCFProperty(service, prop,
+					  kCFAllocatorDefault,
+					  kNilOptions);
+    IOObjectRelease(service);
+    return (val);
+}
+
 CFDictionaryRef
 myIORegistryEntryBSDNameMatchingCopyValue(const char * devname, Boolean parent)
 {
-    mach_port_t         	master;
     kern_return_t       	status;
     CFMutableDictionaryRef	properties = NULL;
     io_registry_entry_t 	service;
 
-    status = IOMasterPort(bootstrap_port, &master);
-    if (status != KERN_SUCCESS) {
-	return (NULL);
-    }
-
     service 
-	= IOServiceGetMatchingService(master,
-				      IOBSDNameMatching(master, 0, devname));
+	= IOServiceGetMatchingService(kIOMasterPortDefault,
+				      IOBSDNameMatching(kIOMasterPortDefault, 0, devname));
     if (service == MACH_PORT_NULL) {
 	return (NULL);
     }

@@ -149,6 +149,10 @@ SOURCE=..\..\src\localize.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\src\mappedio.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\src\parser.c
 # End Source File
 # Begin Source File
@@ -178,6 +182,10 @@ SOURCE=..\..\src\tmbstr.c
 # Begin Source File
 
 SOURCE=..\..\src\utf8.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\win32tc.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -213,7 +221,7 @@ SOURCE=..\..\src\entities.h
 # End Source File
 # Begin Source File
 
-SOURCE=..\..\include\fileio.h
+SOURCE=..\..\src\fileio.h
 # End Source File
 # Begin Source File
 
@@ -222,6 +230,10 @@ SOURCE=..\..\src\forward.h
 # Begin Source File
 
 SOURCE=..\..\src\lexer.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\mappedio.h
 # End Source File
 # Begin Source File
 
@@ -266,6 +278,14 @@ SOURCE=..\..\src\tmbstr.h
 # Begin Source File
 
 SOURCE=..\..\src\utf8.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\version.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\src\win32tc.h
 # End Source File
 # End Group
 # End Target

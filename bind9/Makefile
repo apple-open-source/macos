@@ -10,7 +10,7 @@ Extra_Install_Flags = sysconfdir="/private/etc"                             \
                       includedir="$(DSTROOT)/usr/local/include"		\
                       libdir="$(DSTROOT)/usr/local/lib"                 \
                       localstatedir="/private/var"
-GnuAfterInstall	= install-strip install-extra
+GnuAfterInstall	= install-strip install-extra install-sandbox-profile
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Target	= install
@@ -45,3 +45,6 @@ install-extra:
 	install -c -m 644 bind9.plist $(DSTROOT)/usr/local/OpenSourceVersions
 	mkdir -p $(DSTROOT)/usr/local/OpenSourceLicenses
 	install -c -m 644 bind9/COPYRIGHT $(DSTROOT)/usr/local/OpenSourceLicenses/bind9.txt
+install-sandbox-profile:
+	mkdir -p $(DSTROOT)/usr/share/sandbox
+	install -c -m 644 named.sb $(DSTROOT)/usr/share/sandbox

@@ -27,20 +27,18 @@
  */
 
 
-#import "Credential.h"
+#import "KerberosCredential.h"
 #import "TargetOwnedTimer.h"
 
 @interface TicketInfoController : NSWindowController
 {
     IBOutlet NSTextField *clientPrincipalTextField;
     IBOutlet NSTextField *servicePrincipalTextField;
-    IBOutlet NSTextField *versionTextField;
     IBOutlet NSTextField *statusTextField;
 
     IBOutlet NSTabView *ticketTabView;
     IBOutlet NSTabViewItem *flagsTabViewItem;
-    IBOutlet NSTabViewItem *v4EncryptionTabViewItem;
-    IBOutlet NSTabViewItem *v5EncryptionTabViewItem;
+    IBOutlet NSTabViewItem *encryptionTabViewItem;
     
     IBOutlet NSTextField *issuedTimeTextField;
     IBOutlet NSTextField *startTimeTextField;
@@ -63,21 +61,21 @@
 
     IBOutlet NSTableView *ipAddressesTableView;
     
-    IBOutlet NSTextField *stringToKeyTypeTextField;
     IBOutlet NSTextField *sessionKeyEnctypeTextField;
     IBOutlet NSTextField *servicePrincipalEnctypeTextField;
     
-    Credential *credential;
+    KerberosCredential *credential;
     NSDateFormatter *timeFormatter;
     
     TargetOwnedTimer *stateTimer;
 }
 
-- (id) initWithCredential: (Credential *) aCredential;
+- (id) initWithCredential: (KerberosCredential *) aCredential;
 - (void) dealloc;
 
 - (void) windowDidLoad;
 - (void) stateTimer: (TargetOwnedTimer *) timer;
+- (void) updateStatusTextField;
 
 - (int) numberOfRowsInTableView: (NSTableView *) tableView;
 - (id) tableView: (NSTableView *) tableView objectValueForTableColumn: (NSTableColumn *) tableColumn row: (int) index;

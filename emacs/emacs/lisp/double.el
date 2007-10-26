@@ -1,6 +1,7 @@
 ;;; double.el --- support for keyboard remapping with double clicking
 
-;; Copyright (C) 1994, 1997, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1997, 1998, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Per Abrahamsen <abraham@dina.kvl.dk>
 ;; Keywords: i18n
@@ -19,14 +20,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; This mode is intended for use with languages that adds a small
 ;; number of extra letters not available on the keyboard.
-;; 
+;;
 ;; Examples includes Scandinavian and German with an US keyboard.
 ;;
 ;; The idea is that certain keys are overloaded.  When you press it
@@ -34,7 +35,7 @@
 ;; string will be replaced by another.  This can be used for mapping
 ;; keys on a US keyboard to generate characters according to the local
 ;; keyboard convention when pressed once, and according to US keyboard
-;; convention when pressed twice. 
+;; convention when pressed twice.
 ;;
 ;; To use this mode, you must define the variable `double-map' and
 ;; then enable double mode with `M-x double-mode'.  Read the
@@ -75,7 +76,7 @@ Each entry is a list with three elements:
 
 (defcustom double-prefix-only t
   "*Non-nil means that Double mode mapping only works for prefix keys.
-That is, for any key `X' in `double-map',  `X' alone will be mapped
+That is, for any key `X' in `double-map', `X' alone will be mapped
 but not `C-u X' or `ESC X' since the X is not the prefix key."
   :group 'double
   :type 'boolean)
@@ -99,7 +100,7 @@ but not `C-u X' or `ESC X' since the X is not the prefix key."
 (or (boundp 'isearch-mode-map)
     (load-library "isearch"))
 
-(define-key isearch-mode-map [ignore] 
+(define-key isearch-mode-map [ignore]
   (function (lambda () (interactive) (isearch-update))))
 
 (defun double-translate-key (prompt)
@@ -116,8 +117,9 @@ but not `C-u X' or `ESC X' since the X is not the prefix key."
 	   ;; End of generated event.  See if he will repeat it...
 	   (let ((new (double-read-event prompt))
 		 (entry (assoc double-last-event double-map)))
+	     (force-window-update (selected-window))
 	     (if (eq new double-last-event)
-		 (progn 
+		 (progn
 		   (setq unread-command-events
 			 (append (make-list (1- (length (nth 1 entry)))
 					    127)
@@ -207,4 +209,5 @@ when pressed twice.  See variable `double-map' for details."
 
 (provide 'double)
 
+;;; arch-tag: 2e170036-44cb-4493-bc32-ada0a4395221
 ;;; double.el ends here

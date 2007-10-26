@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,11 +16,13 @@
    +----------------------------------------------------------------------+
  */
 
-#include <php.h>
+/* $Id: winutil.c,v 1.16.2.1.2.1 2007/01/01 09:36:13 sebastian Exp $ */
+
+#include "php.h"
 
 PHPAPI char *php_win_err(int error)
 {
-	char *buf;
+	char *buf = NULL;
 
 	FormatMessage(
 		FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |	FORMAT_MESSAGE_IGNORE_INSERTS,

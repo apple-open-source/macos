@@ -110,7 +110,7 @@ extern void dblog4(char *str, void * arg1, void * arg2, void * arg3, void * arg4
 extern "C" {
 #endif
 
-static inline volatile void _panic(const char *str)
+static inline void _panic(const char *str)
 {
 	printf(str);
 	exit(1);

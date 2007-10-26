@@ -1,6 +1,7 @@
 ;;; backquote.el --- implement the ` Lisp construct
 
-;;; Copyright (C) 1990, 1992, 1994, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1990, 1992, 1994, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Rick Sladkey <jrs@world.std.com>
 ;; Maintainer: FSF
@@ -20,10 +21,14 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
+
+;; When the Lisp reader sees `(...), it generates (\` (...)).
+;; When it sees ,... inside such a backquote form, it generates (\, ...).
+;; For ,@... it generates (\,@ ...).
 
 ;; This backquote will generate calls to the backquote-list* form.
 ;; Both a function version and a macro version are included.
@@ -40,6 +45,9 @@
   "Like `list' but the last argument is the tail of the new list.
 
 For example (backquote-list* 'a 'b 'c) => (a b . c)"
+  ;; The recursive solution is much nicer:
+  ;; (if list (cons first (apply 'backquote-list*-function list)) first))
+  ;; but Emacs is not very good at efficiently processing recursion.
   (if list
       (let* ((rest list) (newlist (cons first nil)) (last newlist))
 	(while (cdr rest)
@@ -54,7 +62,10 @@ For example (backquote-list* 'a 'b 'c) => (a b . c)"
   "Like `list' but the last argument is the tail of the new list.
 
 For example (backquote-list* 'a 'b 'c) => (a b . c)"
-  (setq list (reverse (cons first list))
+  ;; The recursive solution is much nicer:
+  ;; (if list (list 'cons first (cons 'backquote-list*-macro list)) first))
+  ;; but Emacs is not very good at efficiently processing such things.
+  (setq list (nreverse (cons first list))
 	first (car list)
 	list (cdr list))
   (if list
@@ -138,7 +149,7 @@ Vectors work just like lists.  Nested backquotes are permitted."
       ;; Scan this list-level, setting LISTS to a list of forms,
       ;; each of which produces a list of elements
       ;; that should go in this level.
-      ;; The order of LISTS is backwards. 
+      ;; The order of LISTS is backwards.
       ;; If there are non-splicing elements (constant or variable)
       ;; at the beginning, put them in FIRSTLIST,
       ;; as a list of tagged values (TAG . FORM).
@@ -168,7 +179,7 @@ Vectors work just like lists.  Nested backquotes are permitted."
       (if (or rest list)
 	  (setq lists (cons (backquote-listify list (backquote-process rest))
 			    lists)))
-      ;; Turn LISTS into a form that produces the combined list. 
+      ;; Turn LISTS into a form that produces the combined list.
       (setq expression
 	    (if (or (cdr lists)
 		    (eq (car-safe (car lists)) backquote-splice-symbol))
@@ -210,4 +221,5 @@ Vectors work just like lists.  Nested backquotes are permitted."
 	tail))
      (t (cons 'list heads)))))
 
+;;; arch-tag: 1a26206a-6b5e-4c56-8e24-2eef0f7e0e7a
 ;;; backquote.el ends here

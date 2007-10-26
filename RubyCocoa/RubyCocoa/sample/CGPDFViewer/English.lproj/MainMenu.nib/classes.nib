@@ -1,0 +1,19 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                firstPage = id; 
+                lastPage = id; 
+                pageDown = id; 
+                pageUp = id; 
+                rotateLeft = id; 
+                rotateRight = id; 
+            }; 
+            CLASS = MainController; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

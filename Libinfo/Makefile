@@ -13,8 +13,7 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Library
 
 SUBPROJECTS = dns.subproj gen.subproj lookup.subproj membership.subproj\
-              netinfo.subproj nis.subproj rpc.subproj util.subproj\
-              mdns.subproj
+              netinfo.subproj nis.subproj rpc.subproj util.subproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

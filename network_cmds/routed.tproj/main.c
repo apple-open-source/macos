@@ -63,6 +63,7 @@
 #include "defs.h"
 #include <sys/ioctl.h>
 #include <sys/file.h>
+#include <signal.h>
 
 #include <net/if.h>
 
@@ -79,17 +80,20 @@ int	bufspace = 127*1024;	/* max. input buffer size to request */
 struct	rip *msg = (struct rip *)packet;
 void	hup(), rtdeleteall(), sigtrace(), timer();
 
+int getsocket(int, int, struct sockaddr_in *);
+void process(int);
+void timevalsub( struct timeval *, struct timeval *);
+
+int
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int n, cc, nfd, omask, tflags = 0;
-	struct sockaddr from;
+	int n, nfd, omask, tflags = 0;
 	struct timeval *tvp, waittime;
 	struct itimerval itval;
 	register struct rip *query = msg;
 	fd_set ibits;
-	u_char retry;
 	
 	argv0 = argv;
 #if BSD >= 43
@@ -180,12 +184,10 @@ main(argc, argv)
 		supplier = 0;
 	query->rip_cmd = RIPCMD_REQUEST;
 	query->rip_vers = RIPVERSION;
-	if (sizeof(query->rip_nets[0].rip_dst.sa_family) > 1)	/* XXX */
-		query->rip_nets[0].rip_dst.sa_family = htons((u_short)AF_UNSPEC);
-	else
-		query->rip_nets[0].rip_dst.sa_family = AF_UNSPEC;
+	query->rip_nets[0].rip_dst.sa_family = AF_UNSPEC;
+	query->rip_nets[0].rip_dst.sa_len = sizeof (query->rip_nets[0].rip_dst);
 	query->rip_nets[0].rip_metric = htonl((u_long)HOPCNT_INFINITY);
-	toall(sndmsg);
+	toall((int (*)())sndmsg, 0, NULL);
 	signal(SIGALRM, timer);
 	signal(SIGHUP, hup);
 	signal(SIGTERM, hup);
@@ -221,7 +223,7 @@ main(argc, argv)
 			}
 			if (traceactions)
 				fprintf(ftrace,
-				 "select until dynamic update %d/%d sec/usec\n",
+				 "select until dynamic update %ld/%d sec/usec\n",
 				    waittime.tv_sec, waittime.tv_usec);
 			tvp = &waittime;
 		} else
@@ -245,7 +247,7 @@ main(argc, argv)
 					    "send delayed dynamic update\n");
 				(void) gettimeofday(&now,
 					    (struct timezone *)NULL);
-				toall(supply, RTS_CHANGED,
+				toall((int (*)())supply, RTS_CHANGED,
 				    (struct interface *)NULL);
 				lastbcast = now;
 				needupdate = 0;
@@ -276,8 +278,11 @@ printf("s %d, ibits %x index %d, mod %d, sh %x, or %x &ibits %x\n",
 		/* handle ICMP redirects */
 		sigsetmask(omask);
 	}
+	/* NOTREACHED */
+	return 0;
 }
 
+void
 timevaladd(t1, t2)
 	struct timeval *t1, *t2;
 {
@@ -289,6 +294,7 @@ timevaladd(t1, t2)
 	}
 }
 
+void
 timevalsub(t1, t2)
 	struct timeval *t1, *t2;
 {
@@ -300,11 +306,13 @@ timevalsub(t1, t2)
 	}
 }
 
+void
 process(fd)
 	int fd;
 {
 	struct sockaddr from;
-	int fromlen, cc;
+	socklen_t fromlen;
+	int cc;
 	union {
 		char	buf[MAXPACKETSIZE+1];
 		struct	rip rip;
@@ -324,6 +332,7 @@ process(fd)
 	}
 }
 
+int
 getsocket(domain, type, sin)
 	int domain, type;
 	struct sockaddr_in *sin;

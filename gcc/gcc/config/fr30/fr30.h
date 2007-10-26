@@ -1125,7 +1125,9 @@ fprintf (STREAM, "\t.word .L%d\n", VALUE)
 #define FUNCTION_MODE QImode
 
 /* If cross-compiling, don't require stdio.h etc to build libgcc.a.  */
-#if defined CROSS_COMPILE && ! defined inhibit_libc
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#if defined CROSS_DIRECTORY_STRUCTURE && ! defined inhibit_libc
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #define inhibit_libc
 #endif
 

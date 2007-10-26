@@ -1,4 +1,4 @@
-*usr_30.txt*	For Vim version 6.2.  Last change: 2002 Aug 10
+*usr_30.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -35,7 +35,7 @@ you give) and captures the results: >
 
 If errors were generated, they are captured and the editor positions you where
 the first error occurred.
-   Take a look at an example ":make" session. (Typical :make sessions generate
+   Take a look at an example ":make" session.  (Typical :make sessions generate
 far more errors and fewer stupid ones.)  After typing ":make" the screen looks
 like this:
 
@@ -606,7 +606,7 @@ This allows formatting a message like this:
 Try setting 'textwidth' to a different value, e.g., 80, and format the text by
 Visually selecting it and typing "gq".  The result is:
 
-	> ! Did you see that site? It looks really great. ~
+	> ! Did you see that site?  It looks really great. ~
 	> I don't like it.  The colors are terrible. ~
 	What is the URL of that site? ~
 
@@ -630,7 +630,7 @@ middle part has an offset of one space.
    The middle part "mb:*" starts with "m", which indicates it is a middle
 part.  The "b" flag means that a blank must follow the text.  Otherwise Vim
 would consider text like "*pointer" also to be the middle of a comment.
-   The end part "ex:*/" has the "e" for indentification.  The "x" flag has a
+   The end part "ex:*/" has the "e" for identification.  The "x" flag has a
 special meaning.  It means that after Vim automatically inserted a star,
 typing / will remove the extra space.
 

@@ -1,6 +1,7 @@
 ;;; mouse-drag.el --- use mouse-2 to do a new style of scrolling
 
-;; Copyright (C) 1996, 1997, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 1997, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Heidemann <johnh@ISI.EDU>
 ;; Keywords: mouse
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -208,7 +209,7 @@ To test this function, evaluate:
 	 (start-col (car (posn-col-row start-posn)))
 	 (old-selected-window (selected-window))
 	 event end row mouse-delta scroll-delta
-	 have-scrolled point-event-p old-binding
+	 have-scrolled
 	 window-last-row
 	 col mouse-col-delta window-last-col
 	 (scroll-col-delta 0)
@@ -261,18 +262,13 @@ To test this function, evaluate:
 	      (mouse-drag-safe-scroll scroll-delta scroll-col-delta)
 	      (mouse-drag-repeatedly-safe-scroll scroll-delta scroll-col-delta))))) ;xxx
     ;; If it was a click and not a drag, prepare to pass the event on.
-    ;; Note:  We must determine the pass-through event before restoring
-    ;; the window, but invoke it after.  Sigh.
+    ;; Is there a more correct way to reconstruct the event?
     (if (and (not have-scrolled)
 	     (mouse-drag-events-are-point-events-p start-posn end))
-	(setq point-event-p t
-	      old-binding (key-binding
-			   (vector (event-basic-type start-event)))))
+	(push (cons (event-basic-type start-event) (cdr start-event))
+	      unread-command-events))
     ;; Now restore the old window.
-    (select-window old-selected-window)
-    ;; For clicks, call the old function.
-    (if point-event-p
-	(call-interactively old-binding))))
+    (select-window old-selected-window)))
 
 (defun mouse-drag-drag (start-event)
   "\"Drag\" the page according to a mouse drag.
@@ -297,7 +293,7 @@ To test this function, evaluate:
 	 (start-col (car (posn-col-row start-posn)))
 	 (old-selected-window (selected-window))
 	 event end row mouse-delta scroll-delta
-	 have-scrolled point-event-p old-binding
+	 have-scrolled
 	 window-last-row
 	 col mouse-col-delta window-last-col
 	 (scroll-col-delta 0)
@@ -335,19 +331,16 @@ To test this function, evaluate:
 		(setq have-scrolled t)
 		(mouse-drag-safe-scroll scroll-delta scroll-col-delta)))))))
     ;; If it was a click and not a drag, prepare to pass the event on.
-    ;; Note:  We must determine the pass-through event before restoring
-    ;; the window, but invoke it after.  Sigh.
+    ;; Is there a more correct way to reconstruct the event?
     (if (and (not have-scrolled)
 	     (mouse-drag-events-are-point-events-p start-posn end))
-	(setq point-event-p t
-	      old-binding (key-binding
-			   (vector (event-basic-type start-event)))))
+	(push (cons (event-basic-type start-event) (cdr start-event))
+	      unread-command-events))
     ;; Now restore the old window.
-    (select-window old-selected-window)
-    ;; For clicks, call the old function.
-    (if point-event-p
-	(call-interactively old-binding))))
+    (select-window old-selected-window)))
+
 
 (provide 'mouse-drag)
 
+;;; arch-tag: e47354ff-82f5-42c4-b3dc-88dd9c04b770
 ;;; mouse-drag.el ends here

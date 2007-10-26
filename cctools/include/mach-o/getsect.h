@@ -26,6 +26,10 @@
 #include <stdint.h>
 #include <mach-o/loader.h>
 
+#if __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 /*
  * Runtime interfaces for Mach-O programs.  For both 32-bit and 64-bit programs,
  * where the sizes returned will be 32-bit or 64-bit based on the size of
@@ -97,5 +101,9 @@ extern const struct section_64 *getsectbynamefromheader_64(
     const struct mach_header_64 *mhp,
     const char *segname,
     const char *sectname);
+
+#if __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif /* _MACH_O_GETSECT_H_ */

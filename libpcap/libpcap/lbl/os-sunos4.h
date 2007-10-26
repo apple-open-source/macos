@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/lbl/os-sunos4.h,v 1.1.1.1 2001/07/07 00:41:37 bbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/lbl/os-sunos4.h,v 1.32.1.1 1999/10/07 23:46:41 mcr Exp $ (LBL)
  */
 
 /* Prototypes missing in SunOS 4 */

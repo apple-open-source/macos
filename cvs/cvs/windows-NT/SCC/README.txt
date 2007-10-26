@@ -79,7 +79,7 @@ The only publicly available document which we are aware of is pubscc.h
 in this directory.  This should be sufficient to get a start at
 playing around with the SCC, and if you have done that and then
 proceed to run into those areas which pubscc.h does not document well,
-you are encouraged to send mail to bug-cvs@gnu.org with your
+you are encouraged to send mail to bug-cvs@nongnu.org with your
 questions.
 
 OTHER INTERFACES
@@ -91,7 +91,7 @@ although they may be at a somewhat different level and systems may
 support/use several interfaces rather than it being an either/or thing.
 
 If you know of other interfaces which should be added here I guess the
-best place to make suggestions is bug-cvs@gnu.org (although
+best place to make suggestions is bug-cvs@nongnu.org (although
 the following list is not intended to be particularly CVS-centric).
 
 * The CVS remote protocol is documented in doc/cvsclient.texi in the

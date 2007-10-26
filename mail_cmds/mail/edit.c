@@ -193,6 +193,10 @@ run_editor(fp, size, type, readonly)
 	nf = NULL;
 	if ((edit = value(type == 'e' ? "EDITOR" : "VISUAL")) == NULL)
 		edit = type == 'e' ? _PATH_EX : _PATH_VI;
+	else {
+		if (*edit=='\0')
+			edit = type == 'e' ? _PATH_EX : _PATH_VI;
+	}
 	if (run_command(edit, 0, -1, -1, tempname, NULL, NULL) < 0) {
 		(void)rm(tempname);
 		goto out;

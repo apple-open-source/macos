@@ -2,7 +2,7 @@
 	File:		MBCBoardViewDraw.mm
 	Contains:	Draw chess board
 	Version:	1.0
-	Copyright:	© 2002-2004 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2006 by Apple Computer, Inc., all rights reserved.
 	
 	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
@@ -18,6 +18,18 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewDraw.mm,v $
+		Revision 1.41  2007/01/16 21:23:47  neerache
+		Adapt to changed HiDPI code for NSOpenGLView
+		
+		Revision 1.40  2006/10/09 21:05:01  neerache
+		Correct HiDPI problems <rdar://problem/4412218>
+		
+		Revision 1.39  2006/07/27 22:00:02  neerache
+		Work around OpenGL driver issue for WWDC <rdar://problem/4655889>
+		
+		Revision 1.38  2006/03/28 02:53:00  neerache
+		Fix incorrect type
+		
 		Revision 1.37  2004/12/20 09:39:29  neerache
 		Implement self test (RADAR 3590419 / Feature 8905)
 		
@@ -200,7 +212,7 @@ using std::min;
 		//
 		// Floating window, transparent background
 		//
-		long opaque = NO;
+		GLint opaque = NO;
 		[[self openGLContext] setValues:&opaque 
 							  forParameter:NSOpenGLCPSurfaceOpacity];
 		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
@@ -223,6 +235,7 @@ using std::min;
 
 	glDisable(GL_FOG);
 
+	const float	kUserSpaceScale = 1.0f / [[self window] userSpaceScaleFactor];
 	const float kDistance 		= 300.0f;
 	const float kBoardSize 		= fVariant==kVarCrazyhouse ? 55.0f : 50.0f;
 	const float kDeg2Rad  		= M_PI / 180.0f;
@@ -230,7 +243,7 @@ using std::min;
 	const float kAngleOfView	= 2.0f * atan2(kBoardSize, kDistance) * kRad2Deg;
 
 	NSRect bounds = [self bounds];
-	glViewport(0, 0, (long)bounds.size.width, (long)bounds.size.height);
+	glViewport(0, 0, (long)(kUserSpaceScale*bounds.size.width), (long)(kUserSpaceScale*bounds.size.height));
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -250,16 +263,6 @@ using std::min;
 	gluLookAt(cameraX, cameraY, cameraZ,
 			  0.0, 0.0, 0.0, 0.0, 1.0, 0.0);
 
-#if 0
-	//
-	// Work around an apparent bug in some graphics driver versions
-	// where the stencil buffer matters although the stencil test
-	// is disabled.
-	//
-	if (!fBoardReflectivity)
-		glClear(GL_STENCIL_BUFFER_BIT);
-#endif
-	
 	fNeedPerspective	= false;
 }
 
@@ -965,13 +968,16 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	bool	    horizontal		= 
 		fabs(fCurMouse.x-fOrigMouse.x) > fabs(fCurMouse.y-fOrigMouse.y);
-	const float	kCircleSize		= 10.0f;
-	const float	kArrowClearance	= 15.0f;
-	const float	kArrowLength	= 30.0f;
-	const float kArrowWidth		= 10.0f;
-	const float	kThreshold		= 10.0f;
-	const float kWellSize		= 55.0f;
-	const float kWellRound		= 20.0f;
+	const float	kUserSpaceScale		= [[self window] userSpaceScaleFactor];
+	const float	kScale			= kUserSpaceScale*kUserSpaceScale;
+	const float	kCircleSize		= 10.0f*kScale;
+	const float	kArrowClearance	= 15.0f*kScale;
+	const float	kArrowLength	= 30.0f*kScale;
+	const float kArrowWidth		= 10.0f*kScale;
+	const float	kThreshold		= 10.0f*kScale;
+	const float kWellSize		= 55.0f*kScale;
+	const float kWellRound		= 20.0f*kScale;
+	NSPoint kScaledMouse	 = NSMakePoint(fOrigMouse.x*kUserSpaceScale, fOrigMouse.y*kUserSpaceScale);
 
 	GLfloat on_color[4] 		= {1.0f, 1.0f, 1.0f, 1.0f};
 	GLfloat off_color[4] 		= {1.0f, 1.0f, 1.0f, 0.4f};
@@ -991,7 +997,7 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 
 	glPushMatrix();
     glRotatef(90.0, 1.0, 0.0, 0.0);
-	glTranslatef(fOrigMouse.x, fOrigMouse.y, 0.01f);
+	glTranslatef(kScaledMouse.x, kScaledMouse.y, 0.01f);
 	
 	glColor4fv(well_color);
 	glBegin(GL_QUADS);
@@ -1030,9 +1036,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Up
 	//
-	fromPos[0] = fOrigMouse.x;
+	fromPos[0] = kScaledMouse.x;
 	fromPos[1] = 0;
-	fromPos[2] = fOrigMouse.y+kArrowClearance;
+	fromPos[2] = kScaledMouse.y+kArrowClearance;
 	toPos	   = fromPos;
 	toPos[2]  += kArrowLength;
 	glColor4fv((!horizontal && (fCurMouse.y > fOrigMouse.y+kThreshold))
@@ -1042,9 +1048,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Down
 	//
-	fromPos[0] = fOrigMouse.x;
+	fromPos[0] = kScaledMouse.x;
 	fromPos[1] = 0;
-	fromPos[2] = fOrigMouse.y-kArrowClearance;
+	fromPos[2] = kScaledMouse.y-kArrowClearance;
 	toPos	   = fromPos;
 	toPos[2]  -= kArrowLength;
 	glColor4fv((!horizontal && (fCurMouse.y < fOrigMouse.y-kThreshold))
@@ -1054,9 +1060,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Right
 	//
-	fromPos[0] = fOrigMouse.x+kArrowClearance;
+	fromPos[0] = kScaledMouse.x+kArrowClearance;
 	fromPos[1] = 0;
-	fromPos[2] = fOrigMouse.y;
+	fromPos[2] = kScaledMouse.y;
 	toPos	   = fromPos;
 	toPos[0]  += kArrowLength;
 	glColor4fv((horizontal && (fCurMouse.x > fOrigMouse.x+kThreshold))
@@ -1066,9 +1072,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Left
 	//
-	fromPos[0] = fOrigMouse.x-kArrowClearance;
+	fromPos[0] = kScaledMouse.x-kArrowClearance;
 	fromPos[1] = 0;
-	fromPos[2] = fOrigMouse.y;
+	fromPos[2] = kScaledMouse.y;
 	toPos	   = fromPos;
 	toPos[0]  -= kArrowLength;
 	glColor4fv((horizontal && (fCurMouse.x < fOrigMouse.x-kThreshold))
@@ -1243,6 +1249,13 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	// Update the GL context
 	if (fIsFloating) 
 		[self makeBoardSolid];
+
+	//
+	// Work around OpenGL driver issue
+	//
+#ifdef __LP64__
+	glFlush();
+#endif
 
 	[[self openGLContext] flushBuffer];
 }

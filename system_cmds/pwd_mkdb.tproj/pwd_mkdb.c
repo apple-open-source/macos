@@ -31,8 +31,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__unused static const char copyright[] =
 "@(#) Copyright (c) 1991, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -41,7 +42,7 @@ static const char copyright[] =
 #if 0
 static const char sccsid[] = "from: @(#)pwd_mkdb.c	8.5 (Berkeley) 4/20/94";
 #else
-static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:14:55 millert Exp $";
+__unused static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:14:55 millert Exp $";
 #endif
 #endif /* not lint */
 
@@ -62,6 +63,7 @@ static const char rcsid[] = "$OpenBSD: pwd_mkdb.c,v 1.36 2003/06/08 21:14:55 mil
 #include <unistd.h>
 #include <util.h>
 #include <sys/param.h>
+#include "pw_scan.h"
 
 #define	INSECURE	1
 #define	SECURE		2

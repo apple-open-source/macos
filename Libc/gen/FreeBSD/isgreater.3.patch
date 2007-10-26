@@ -1,5 +1,30 @@
---- isgreater.3.orig	Fri Oct  3 17:12:54 2003
-+++ isgreater.3	Fri Nov  7 15:44:33 2003
+--- _SB/Libc/gen/FreeBSD/isgreater.3	2003-11-12 00:44:46.000000000 -0800
++++ _SB/Libc/gen/FreeBSD/isgreater.3.edit	2006-06-28 16:55:51.000000000 -0700
+@@ -55,11 +55,11 @@
+ .Fn islessequal ,
+ and
+ .Fn islessgreater
+-take arguments
++takes arguments
+ .Fa x
+ and
+ .Fa y
+-and return a non-zero value if and only if its nominal
++and returns a non-zero value if and only if its nominal
+ relation on
+ .Fa x
+ and
+@@ -74,8 +74,8 @@
+ macro takes arguments
+ .Fa x
+ and
+-.Fa y
+-and returns non-zero if and only if neither
++.Fa y ,
++returning non-zero if and only if neither
+ .Fa x
+ nor
+ .Fa y
 @@ -97,6 +97,3 @@
  .Fn isunordered
  macros conform to

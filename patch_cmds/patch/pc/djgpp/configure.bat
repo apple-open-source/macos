@@ -1,6 +1,6 @@
 @echo off
 Rem	Configure patch for DJGPP v2.
-Rem	$Id: configure.bat,v 1.1.1.2 2000/05/06 22:44:56 wsanchez Exp $
+Rem	$Id: configure.bat,v 1.4 1997/06/17 06:52:12 eggert Exp $
 
 Rem	The DOS shell has fixed-size environment storage.
 Rem	When the environment is full, the shell prints

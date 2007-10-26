@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucgendat.c,v 1.28.2.3 2004/01/01 18:16:31 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucgendat.c,v 1.36.2.3 2006/01/03 22:16:10 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,12 +32,13 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ucgendat.c,v 1.5 2004/03/30 01:32:51 jtownsen Exp $" */
+/* $Id: ucgendat.c,v 1.4 2001/01/02 18:46:20 mleisher Exp $" */
 
 #include "portable.h"
 #include "ldap_config.h"
 
 #include <stdio.h>
+#include <ac/ctype.h>
 #include <ac/stdlib.h>
 #include <ac/string.h>
 #include <ac/unistd.h>
@@ -45,6 +46,10 @@
 #include <ac/bytes.h>
 
 #include <lutil.h>
+
+#ifndef HARDCODE_DATA
+#define	HARDCODE_DATA	1
+#endif
 
 #undef ishdigit
 #define ishdigit(cc) (((cc) >= '0' && (cc) <= '9') ||\
@@ -136,7 +141,7 @@ static ac_uint4 kdecomps_size;
  */
 #define COMPEX_SET(c) (compexs[(c) >> 5] |= (1 << ((c) & 31)))
 #define COMPEX_TEST(c) (compexs[(c) >> 5] & (1 << ((c) & 31)))
-static ac_uint4 compexs[2048];
+static ac_uint4 compexs[8192];
 
 /*
  * Struct for holding a composition pair, and array of composition pairs
@@ -855,8 +860,17 @@ read_cdata(FILE *in)
          * 3. D800-DFFF Surrogates.
          * 4. E000-F8FF Private Use Area.
          * 5. F900-FA2D Han compatibility.
+	 * ...Plus additional ranges in newer Unicode versions...
          */
         switch (code) {
+	  case 0x3400:
+	    /* CJK Ideograph Extension A */
+            add_range(0x3400, 0x4db5, "Lo", "L");
+
+            add_range(0x3400, 0x4db5, "Cp", 0);
+
+	    skip = 1;
+	    break;
           case 0x4e00:
             /*
              * The Han ideographs.
@@ -910,6 +924,26 @@ read_cdata(FILE *in)
             add_range(0xf900, 0xfaff, "Cp", 0);
 
             skip = 1;
+	    break;
+	  case 0x20000:
+	    /* CJK Ideograph Extension B */
+            add_range(0x20000, 0x2a6d6, "Lo", "L");
+
+            add_range(0x20000, 0x2a6d6, "Cp", 0);
+
+	    skip = 1;
+	    break;
+	  case 0xf0000:
+	    /* Plane 15 private use */
+	    add_range(0xf0000, 0xffffd, "Co", "L");
+	    skip = 1;
+	    break;
+
+	  case 0x100000:
+	    /* Plane 16 private use */
+	    add_range(0x100000, 0x10fffd, "Co", "L");
+	    skip = 1;
+	    break;
         }
 
         if (skip)
@@ -1044,7 +1078,7 @@ read_cdata(FILE *in)
              * Adjust the denominator in case of integers and add the number.
              */
             if (wnum == 0)
-              number[1] = number[0];
+              number[1] = 1;
 
             add_number(code, number[0], number[1]);
         }
@@ -1171,10 +1205,11 @@ cmpcomps(const void *v_comp1, const void *v_comp2)
 static void
 read_compexdata(FILE *in)
 {
-    ac_uint2 i, code;
+    ac_uint2 i;
+    ac_uint4 code;
     char line[512], *s;
 
-    (void) memset((char *) compexs, 0, sizeof(ac_uint4) << 11);
+    (void) memset((char *) compexs, 0, sizeof(compexs));
 
     while (fgets(line, sizeof(line), in)) {
 	if( (s=strchr(line, '\n')) ) *s = '\0';
@@ -1185,10 +1220,11 @@ read_compexdata(FILE *in)
 	    continue;
 
 	/*
-         * Collect the code.  Assume max 4 digits
+         * Collect the code.  Assume max 6 digits
          */
 
-	for (s = line, i = code = 0; *s != '#' && i < 4; i++, s++) {
+	for (s = line, i = code = 0; *s != '#' && i < 6; i++, s++) {
+	    if (isspace((unsigned char)*s)) break;
             code <<= 4;
             if (*s >= '0' && *s <= '9')
 		code += *s - '0';
@@ -1224,14 +1260,37 @@ create_comps(void)
     qsort(comps, comps_used, sizeof(_comp_t), cmpcomps);
 }
 
+#if HARDCODE_DATA
+static void
+write_case(FILE *out, _case_t *tab, int num, int first)
+{
+    int i;
+
+    for (i=0; i<num; i++) {
+	if (first) first = 0;
+	else fprintf(out, ",");
+	fprintf(out, "\n\t0x%08lx, 0x%08lx, 0x%08lx",
+		(unsigned long) tab[i].key, (unsigned long) tab[i].other1,
+		(unsigned long) tab[i].other2);
+    }
+}
+
+#define PREF "static const "
+
+#endif
+
 static void
 write_cdata(char *opath)
 {
     FILE *out;
 	ac_uint4 bytes;
     ac_uint4 i, idx, nprops;
+#if !(HARDCODE_DATA)
     ac_uint2 casecnt[2];
+#endif
     char path[BUFSIZ];
+#if HARDCODE_DATA
+    int j, k;
 
     /*****************************************************************
      *
@@ -1240,11 +1299,19 @@ write_cdata(char *opath)
      *****************************************************************/
 
     /*
+     * Open the output file.
+     */
+    snprintf(path, sizeof path, "%s" LDAP_DIRSEP "uctable.h", opath);
+    if ((out = fopen(path, "w")) == 0)
+      return;
+#else
+    /*
      * Open the ctype.dat file.
      */
     snprintf(path, sizeof path, "%s" LDAP_DIRSEP "ctype.dat", opath);
     if ((out = fopen(path, "wb")) == 0)
       return;
+#endif
 
     /*
      * Collect the offsets for the properties.  The offsets array is
@@ -1277,7 +1344,36 @@ write_cdata(char *opath)
       bytes += 4 - (bytes & 3);
     nprops = bytes / sizeof(ac_uint2);
     bytes += sizeof(ac_uint4) * idx;
-        
+
+#if HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _ucprop_size = %d;\n\n", NUMPROPS);
+
+    fprintf(out, PREF "ac_uint2 _ucprop_offsets[] = {");
+
+    for (i = 0; i<nprops; i++) {
+       if (i) fprintf(out, ",");
+       if (!(i&7)) fprintf(out, "\n\t");
+       else fprintf(out, " ");
+       fprintf(out, "0x%04x", propcnt[i]);
+    }
+    fprintf(out, "\n};\n\n");
+
+    fprintf(out, PREF "ac_uint4 _ucprop_ranges[] = {");
+
+    k = 0;
+    for (i = 0; i < NUMPROPS; i++) {
+	if (proptbl[i].used > 0) {
+	  for (j=0; j<proptbl[i].used; j++) {
+	    if (k) fprintf(out, ",");
+	    if (!(k&3)) fprintf(out,"\n\t");
+	    else fprintf(out, " ");
+	    k++;
+	    fprintf(out, "0x%08lx", (unsigned long) proptbl[i].ranges[j]);
+	  }
+	}
+    }
+    fprintf(out, "\n};\n\n");
+#else
     /*
      * Write the header.
      */
@@ -1303,6 +1399,7 @@ write_cdata(char *opath)
     }
 
     fclose(out);
+#endif
 
     /*****************************************************************
      *
@@ -1310,6 +1407,37 @@ write_cdata(char *opath)
      *
      *****************************************************************/
 
+#if HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _uccase_size = %ld;\n\n",
+        (long) (upper_used + lower_used + title_used));
+
+    fprintf(out, PREF "ac_uint2 _uccase_len[2] = {%ld, %ld};\n\n",
+        (long) upper_used, (long) lower_used);
+    fprintf(out, PREF "ac_uint4 _uccase_map[] = {");
+
+    if (upper_used > 0)
+      /*
+       * Write the upper case table.
+       */
+      write_case(out, upper, upper_used, 1);
+
+    if (lower_used > 0)
+      /*
+       * Write the lower case table.
+       */
+      write_case(out, lower, lower_used, !upper_used);
+
+    if (title_used > 0)
+      /*
+       * Write the title case table.
+       */
+      write_case(out, title, title_used, !(upper_used||lower_used));
+
+    if (!(upper_used || lower_used || title_used))
+	fprintf(out, "\t0");
+
+    fprintf(out, "\n};\n\n");
+#else
     /*
      * Open the case.dat file.
      */
@@ -1353,6 +1481,7 @@ write_cdata(char *opath)
       fwrite((char *) title, sizeof(_case_t), title_used, out);
 
     fclose(out);
+#endif
 
     /*****************************************************************
      *
@@ -1365,6 +1494,27 @@ write_cdata(char *opath)
      */
     create_comps();
     
+#if HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _uccomp_size = %ld;\n\n",
+        comps_used * 4L);
+
+    fprintf(out, PREF "ac_uint4 _uccomp_data[] = {");
+
+     /*
+      * Now, if comps exist, write them out.
+      */
+    if (comps_used > 0) {
+	for (i=0; i<comps_used; i++) {
+	    if (i) fprintf(out, ",");
+	    fprintf(out, "\n\t0x%08lx, 0x%08lx, 0x%08lx, 0x%08lx",
+	        (unsigned long) comps[i].comp, (unsigned long) comps[i].count,
+	        (unsigned long) comps[i].code1, (unsigned long) comps[i].code2);
+	}
+    } else {
+	fprintf(out, "\t0");
+    }
+    fprintf(out, "\n};\n\n");
+#else
     /*
      * Open the comp.dat file.
      */
@@ -1391,6 +1541,7 @@ write_cdata(char *opath)
         fwrite((char *) comps, sizeof(_comp_t), comps_used, out);
     
     fclose(out);
+#endif
     
     /*****************************************************************
      *
@@ -1403,6 +1554,43 @@ write_cdata(char *opath)
      */
     expand_decomp();
 
+#if HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _ucdcmp_size = %ld;\n\n",
+        decomps_used * 2L);
+
+    fprintf(out, PREF "ac_uint4 _ucdcmp_nodes[] = {");
+
+    if (decomps_used) {
+	/*
+	 * Write the list of decomp nodes.
+	 */
+	for (i = idx = 0; i < decomps_used; i++) {
+	    fprintf(out, "\n\t0x%08lx, 0x%08lx,",
+	        (unsigned long) decomps[i].code, (unsigned long) idx);
+	    idx += decomps[i].used;
+	}
+
+	/*
+	 * Write the sentinel index as the last decomp node.
+	 */
+	fprintf(out, "\n\t0x%08lx\n};\n\n", (unsigned long) idx);
+
+	fprintf(out, PREF "ac_uint4 _ucdcmp_decomp[] = {");
+	/*
+	 * Write the decompositions themselves.
+	 */
+	k = 0;
+	for (i = 0; i < decomps_used; i++)
+	  for (j=0; j<decomps[i].used; j++) {
+	    if (k) fprintf(out, ",");
+	    if (!(k&3)) fprintf(out,"\n\t");
+	    else fprintf(out, " ");
+	    k++;
+	    fprintf(out, "0x%08lx", (unsigned long) decomps[i].decomp[j]);
+	  }
+	fprintf(out, "\n};\n\n");
+    }
+#else
     /*
      * Open the decomp.dat file.
      */
@@ -1456,7 +1644,46 @@ write_cdata(char *opath)
 
         fclose(out);
     }
+#endif
 
+#ifdef HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _uckdcmp_size = %ld;\n\n",
+        kdecomps_used * 2L);
+
+    fprintf(out, PREF "ac_uint4 _uckdcmp_nodes[] = {");
+
+    if (kdecomps_used) {
+	/*
+	 * Write the list of kdecomp nodes.
+	 */
+	for (i = idx = 0; i < kdecomps_used; i++) {
+	    fprintf(out, "\n\t0x%08lx, 0x%08lx,",
+	        (unsigned long) kdecomps[i].code, (unsigned long) idx);
+	    idx += kdecomps[i].used;
+	}
+
+	/*
+	 * Write the sentinel index as the last decomp node.
+	 */
+	fprintf(out, "\n\t0x%08lx\n};\n\n", (unsigned long) idx);
+
+	fprintf(out, PREF "ac_uint4 _uckdcmp_decomp[] = {");
+
+	/*
+	 * Write the decompositions themselves.
+	 */
+	k = 0;
+	for (i = 0; i < kdecomps_used; i++)
+	  for (j=0; j<kdecomps[i].used; j++) {
+	    if (k) fprintf(out, ",");
+	    if (!(k&3)) fprintf(out,"\n\t");
+	    else fprintf(out, " ");
+	    k++;
+	    fprintf(out, "0x%08lx", (unsigned long) kdecomps[i].decomp[j]);
+	  }
+	fprintf(out, "\n};\n\n");
+    }
+#else
     /*
      * Open the kdecomp.dat file.
      */
@@ -1510,13 +1737,33 @@ write_cdata(char *opath)
 
         fclose(out);
     }
+#endif
 
     /*****************************************************************
      *
      * Generate the combining class data.
      *
      *****************************************************************/
+#ifdef HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _uccmcl_size = %ld;\n\n", (long) ccl_used);
 
+    fprintf(out, PREF "ac_uint4 _uccmcl_nodes[] = {");
+
+    if (ccl_used > 0) {
+	/*
+	 * Write the combining class ranges out.
+	 */
+	for (i = 0; i<ccl_used; i++) {
+	    if (i) fprintf(out, ",");
+	    if (!(i&3)) fprintf(out, "\n\t");
+	    else fprintf(out, " ");
+	    fprintf(out, "0x%08lx", (unsigned long) ccl[i]);
+	}
+    } else {
+	fprintf(out, "\t0");
+    }
+    fprintf(out, "\n};\n\n");
+#else
     /*
      * Open the cmbcl.dat file.
      */
@@ -1548,6 +1795,7 @@ write_cdata(char *opath)
       fwrite((char *) ccl, sizeof(ac_uint4), ccl_used, out);
 
     fclose(out);
+#endif
 
     /*****************************************************************
      *
@@ -1555,6 +1803,41 @@ write_cdata(char *opath)
      *
      *****************************************************************/
 
+#if HARDCODE_DATA
+    fprintf(out, PREF "ac_uint4 _ucnum_size = %lu;\n\n",
+        (unsigned long)ncodes_used<<1);
+
+    fprintf(out, PREF "ac_uint4 _ucnum_nodes[] = {");
+
+    /*
+     * Now, if number mappings exist, write them out.
+     */
+    if (ncodes_used > 0) {
+	for (i = 0; i<ncodes_used; i++) {
+	    if (i) fprintf(out, ",");
+	    if (!(i&1)) fprintf(out, "\n\t");
+	    else fprintf(out, " ");
+	    fprintf(out, "0x%08lx, 0x%08lx",
+	        (unsigned long) ncodes[i].code, (unsigned long) ncodes[i].idx);
+	}
+	fprintf(out, "\n};\n\n");
+
+	fprintf(out, PREF "short _ucnum_vals[] = {");
+	for (i = 0; i<nums_used; i++) {
+	    if (i) fprintf(out, ",");
+	    if (!(i&3)) fprintf(out, "\n\t");
+	    else fprintf(out, " ");
+	    if (nums[i].numerator < 0) {
+		fprintf(out, "%6d, 0x%04x",
+		  nums[i].numerator, nums[i].denominator);
+	    } else {
+		fprintf(out, "0x%04x, 0x%04x",
+		  nums[i].numerator, nums[i].denominator);
+	    }
+	}
+	fprintf(out, "\n};\n\n");
+    }
+#else
     /*
      * Open the num.dat file.
      */
@@ -1586,6 +1869,7 @@ write_cdata(char *opath)
         fwrite((char *) ncodes, sizeof(_codeidx_t), ncodes_used, out);
         fwrite((char *) nums, sizeof(_num_t), nums_used, out);
     }
+#endif
 
     fclose(out);
 }

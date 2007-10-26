@@ -2,10 +2,10 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
-   | that is bundled with this package in the file LICENSE, and is        | 
+   | that is bundled with this package in the file LICENSE, and is        |
    | available through the world-wide-web at the following url:           |
    | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
@@ -17,13 +17,17 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_extensions.h,v 1.67.2.3.2.3 2007/01/01 09:35:46 sebastian Exp $ */
 
 #ifndef ZEND_EXTENSIONS_H
 #define ZEND_EXTENSIONS_H
 
 #include "zend_compile.h"
 
-#define ZEND_EXTENSION_API_NO	20050606
+/* The first number is the engine version and the rest is the date.
+ * This way engine 2/3 API no. is always greater than engine 1 API no..
+ */
+#define ZEND_EXTENSION_API_NO	220060519
 
 typedef struct _zend_extension_version_info {
 	int zend_extension_api_no;
@@ -68,7 +72,7 @@ struct _zend_extension {
 
 	op_array_handler_func_t op_array_handler;
 
-	statement_handler_func_t statement_handler;	
+	statement_handler_func_t statement_handler;
 	fcall_begin_handler_func_t fcall_begin_handler;
 	fcall_end_handler_func_t fcall_end_handler;
 
@@ -88,9 +92,10 @@ struct _zend_extension {
 	int resource_number;
 };
 
-
+BEGIN_EXTERN_C()
 ZEND_API int zend_get_resource_handle(zend_extension *extension);
 ZEND_API void zend_extension_dispatch_message(int message, void *arg);
+END_EXTERN_C()
 
 #define ZEND_EXTMSG_NEW_EXTENSION		1
 
@@ -105,12 +110,23 @@ ZEND_API void zend_extension_dispatch_message(int message, void *arg);
 ZEND_API extern zend_llist zend_extensions;
 
 void zend_extension_dtor(zend_extension *extension);
-ZEND_API int zend_load_extension(char *path);
-ZEND_API int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle);
 void zend_append_version_info(zend_extension *extension);
 int zend_startup_extensions_mechanism(void);
 int zend_startup_extensions(void);
 void zend_shutdown_extensions(TSRMLS_D);
+
+BEGIN_EXTERN_C()
+ZEND_API int zend_load_extension(char *path);
+ZEND_API int zend_register_extension(zend_extension *new_extension, DL_HANDLE handle);
 ZEND_API zend_extension *zend_get_extension(char *extension_name);
+END_EXTERN_C()
 
 #endif /* ZEND_EXTENSIONS_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

@@ -38,5 +38,10 @@ extern char ***_NSGetArgv(void);
 extern int *_NSGetArgc(void);
 extern char ***_NSGetEnviron(void);
 extern char **_NSGetProgname(void);
-extern struct mach_header *_NSGetMachExecuteHeader(void);
+#ifdef __LP64__
+extern struct mach_header_64 *
+#else /* !__LP64__ */
+extern struct mach_header *
+#endif /* __LP64__ */
+				_NSGetMachExecuteHeader(void);
 __END_DECLS

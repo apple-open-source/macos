@@ -1,5 +1,5 @@
 /* assert.h -- assert() macro that can exit cleanly
- $Id: assert.h,v 1.5 2005/03/05 00:37:11 dasenbro Exp $
+ $Id: assert.h,v 1.10 2003/02/13 20:15:38 rjs3 Exp $
 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

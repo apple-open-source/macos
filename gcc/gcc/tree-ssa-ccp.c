@@ -1818,25 +1818,50 @@ fold_stmt_r (tree *expr_p, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-
-/* Return the string length of ARG in LENGTH.  If ARG is an SSA name variable,
-   follow its use-def chains.  If LENGTH is not NULL and its value is not
-   equal to the length we determine, or if we are unable to determine the
-   length, return false.  VISITED is a bitmap of visited variables.  */
+/* APPLE LOCAL begin mainline */
+/* Return the string length, maximum string length or maximum value of
+   ARG in LENGTH.
+   If ARG is an SSA name variable, follow its use-def chains.  If LENGTH
+   is not NULL and, for TYPE == 0, its value is not equal to the length
+   we determine or if we are unable to determine the length or value,
+   return false.  VISITED is a bitmap of visited variables.
+   TYPE is 0 if string length should be returned, 1 for maximum string
+   length and 2 for maximum value ARG can have.  */
 
 static bool
-get_strlen (tree arg, tree *length, bitmap visited)
+get_maxval_strlen (tree arg, tree *length, bitmap visited, int type)
 {
   tree var, def_stmt, val;
   
   if (TREE_CODE (arg) != SSA_NAME)
     {
+      if (type == 2)
+        {
+          val = arg;
+          if (TREE_CODE (val) != INTEGER_CST
+              || tree_int_cst_sgn (val) < 0)
+            return false;
+        }
+      else
       val = c_strlen (arg, 1);
       if (!val)
 	return false;
 
-      if (*length && simple_cst_equal (val, *length) != 1)
+      if (*length)
+        {
+          if (type > 0)
+            {
+              if (TREE_CODE (*length) != INTEGER_CST
+                  || TREE_CODE (val) != INTEGER_CST)
 	return false;
+
+              if (tree_int_cst_lt (*length, val))
+                *length = val;
+              return true;
+            }
+          else if (simple_cst_equal (val, *length) != 1)
+            return false;
+        }
 
       *length = val;
       return true;
@@ -1854,28 +1879,14 @@ get_strlen (tree arg, tree *length, bitmap visited)
     {
       case MODIFY_EXPR:
 	{
-	  tree len, rhs;
+          tree rhs;
 	  
 	  /* The RHS of the statement defining VAR must either have a
 	     constant length or come from another SSA_NAME with a constant
 	     length.  */
 	  rhs = TREE_OPERAND (def_stmt, 1);
 	  STRIP_NOPS (rhs);
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    return get_strlen (rhs, length, visited);
-
-	  /* See if the RHS is a constant length.  */
-	  len = c_strlen (rhs, 1);
-	  if (len)
-	    {
-	      if (*length && simple_cst_equal (len, *length) != 1)
-		return false;
-
-	      *length = len;
-	      return true;
-	    }
-
-	  break;
+          return get_maxval_strlen (rhs, length, visited, type);
 	}
 
       case PHI_NODE:
@@ -1897,7 +1908,7 @@ get_strlen (tree arg, tree *length, bitmap visited)
 	      if (arg == PHI_RESULT (def_stmt))
 		continue;
 
-	      if (!get_strlen (arg, length, visited))
+              if (!get_maxval_strlen (arg, length, visited, type))
 		return false;
 	    }
 
@@ -1912,16 +1923,15 @@ get_strlen (tree arg, tree *length, bitmap visited)
   return false;
 }
 
-
 /* Fold builtin call FN in statement STMT.  If it cannot be folded into a
    constant, return NULL_TREE.  Otherwise, return its constant value.  */
 
 static tree
 ccp_fold_builtin (tree stmt, tree fn)
 {
-  tree result, strlen_val[2];
+  tree result, val[3];
   tree callee, arglist, a;
-  int strlen_arg, i;
+  int arg_mask, i, type;
   bitmap visited;
   bool ignore;
 
@@ -1929,6 +1939,8 @@ ccp_fold_builtin (tree stmt, tree fn)
 
   /* First try the generic builtin folder.  If that succeeds, return the
      result directly.  */
+  callee = get_callee_fndecl (fn);
+  arglist = TREE_OPERAND (fn, 1);
   result = fold_builtin (fn, ignore);
   if (result)
   {
@@ -1938,13 +1950,11 @@ ccp_fold_builtin (tree stmt, tree fn)
   }
 
   /* Ignore MD builtins.  */
-  callee = get_callee_fndecl (fn);
   if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
     return NULL_TREE;
 
   /* If the builtin could not be folded, and it has no argument list,
      we're done.  */
-  arglist = TREE_OPERAND (fn, 1);
   if (!arglist)
     return NULL_TREE;
 
@@ -1954,11 +1964,31 @@ ccp_fold_builtin (tree stmt, tree fn)
     case BUILT_IN_STRLEN:
     case BUILT_IN_FPUTS:
     case BUILT_IN_FPUTS_UNLOCKED:
-      strlen_arg = 1;
+      arg_mask = 1;
+      type = 0;
       break;
     case BUILT_IN_STRCPY:
     case BUILT_IN_STRNCPY:
-      strlen_arg = 2;
+      arg_mask = 2;
+      type = 0;
+      break;
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+    case BUILT_IN_STRNCPY_CHK:
+      arg_mask = 4;
+      type = 2;
+      break;
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      arg_mask = 2;
+      type = 1;
+      break;
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      arg_mask = 2;
+      type = 2;
       break;
     default:
       return NULL_TREE;
@@ -1967,15 +1997,15 @@ ccp_fold_builtin (tree stmt, tree fn)
   /* Try to use the dataflow information gathered by the CCP process.  */
   visited = BITMAP_ALLOC (NULL);
 
-  memset (strlen_val, 0, sizeof (strlen_val));
+  memset (val, 0, sizeof (val));
   for (i = 0, a = arglist;
-       strlen_arg;
-       i++, strlen_arg >>= 1, a = TREE_CHAIN (a))
-    if (strlen_arg & 1)
+       arg_mask;
+       i++, arg_mask >>= 1, a = TREE_CHAIN (a))
+    if (arg_mask & 1)
       {
 	bitmap_clear (visited);
-	if (!get_strlen (TREE_VALUE (a), &strlen_val[i], visited))
-	  strlen_val[i] = NULL_TREE;
+        if (!get_maxval_strlen (TREE_VALUE (a), &val[i], visited, type))
+          val[i] = NULL_TREE;
       }
 
   BITMAP_FREE (visited);
@@ -1984,9 +2014,9 @@ ccp_fold_builtin (tree stmt, tree fn)
   switch (DECL_FUNCTION_CODE (callee))
     {
     case BUILT_IN_STRLEN:
-      if (strlen_val[0])
+      if (val[0])
 	{
-	  tree new = fold_convert (TREE_TYPE (fn), strlen_val[0]);
+          tree new = fold_convert (TREE_TYPE (fn), val[0]);
 
 	  /* If the result is not a valid gimple value, or not a cast
 	     of a valid gimple value, then we can not use the result.  */
@@ -1998,25 +2028,53 @@ ccp_fold_builtin (tree stmt, tree fn)
       break;
 
     case BUILT_IN_STRCPY:
-      if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-        result = fold_builtin_strcpy (fn, strlen_val[1]);
+      if (val[1] && is_gimple_val (val[1]))
+        result = fold_builtin_strcpy (fn, val[1]);
       break;
 
     case BUILT_IN_STRNCPY:
-      if (strlen_val[1] && is_gimple_val (strlen_val[1]))
-	result = fold_builtin_strncpy (fn, strlen_val[1]);
+      if (val[1] && is_gimple_val (val[1]))
+        result = fold_builtin_strncpy (fn, val[1]);
       break;
 
     case BUILT_IN_FPUTS:
       result = fold_builtin_fputs (arglist,
 				   TREE_CODE (stmt) != MODIFY_EXPR, 0,
-				   strlen_val[0]);
+                                   val[0]);
       break;
 
     case BUILT_IN_FPUTS_UNLOCKED:
       result = fold_builtin_fputs (arglist,
 				   TREE_CODE (stmt) != MODIFY_EXPR, 1,
-				   strlen_val[0]);
+                                   val[0]);
+      break;
+
+    case BUILT_IN_MEMCPY_CHK:
+    case BUILT_IN_MEMPCPY_CHK:
+    case BUILT_IN_MEMMOVE_CHK:
+    case BUILT_IN_MEMSET_CHK:
+      if (val[2] && is_gimple_val (val[2]))
+        result = fold_builtin_memory_chk (callee, arglist, val[2], ignore,
+                                          DECL_FUNCTION_CODE (callee));
+      break;
+
+    case BUILT_IN_STRCPY_CHK:
+    case BUILT_IN_STPCPY_CHK:
+      if (val[1] && is_gimple_val (val[1]))
+	result = fold_builtin_stxcpy_chk (callee, arglist, val[1], ignore,
+                                          DECL_FUNCTION_CODE (callee));
+      break;
+
+    case BUILT_IN_STRNCPY_CHK:
+      if (val[2] && is_gimple_val (val[2]))
+        result = fold_builtin_strncpy_chk (arglist, val[2]);
+      break;
+
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      if (val[1] && is_gimple_val (val[1]))
+        result = fold_builtin_snprintf_chk (arglist, val[1],
+                                            DECL_FUNCTION_CODE (callee));
       break;
 
     default:
@@ -2028,7 +2086,7 @@ ccp_fold_builtin (tree stmt, tree fn)
   return result;
 }
 
-
+/* APPLE LOCAL end mainline */
 /* Fold the statement pointed by STMT_P.  In some cases, this function may
    replace the whole statement with a new one.  Returns true iff folding
    makes any changes.  */

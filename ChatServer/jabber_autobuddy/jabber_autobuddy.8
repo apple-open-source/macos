@@ -1,0 +1,33 @@
+.Dd June 29, 2006
+.Dt JABBER_AUTOBUDDY 1
+.Os "Mac OS X Server"
+.Sh NAME
+.Nm jabber_autobuddy
+.Nd Perform buddy/contact management for jabberd
+.Sh SYNOPSIS
+.Nm jabber_autobuddy
+.Ar [options] <command> [command arguments]
+.Sh DESCRIPTION
+jabber_autobuddy is not intended to be invoked by users directly.  It is a utility for managing buddies/contacts for jabberd by directly modifying the service's SQLite database tables.  The primary use of the tool is to make all jabber users a "buddy" of every other jabber user, which is not ideal for a system with a large number of users.  See the list of commands for a description of each supported operation.  The JID specified in the commands is of format <username>@<hostname>.  Logging goes to syslog.
+.Pp
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Fl "D"
+Debug mode/verbose output sent to standard error.
+.It Fl "v, h, ?"
+Display usage information.
+.El
+.Pp
+.Sh COMMANDS
+.Bl -tag -width indent
+.It Fl "i JID"
+Initialize given JID in database.  This is required before using other commands.
+.It Fl "a JID"
+Add JID to the buddy list of all other initialized users.
+.It Fl "r JID"
+Delete JID from all buddy lists.
+.It Fl "d JID"
+Delete all data owned by JID, and remove JID from all buddy lists.
+.It Fl "m"
+Make all initialized users buddies of each other.
+.El

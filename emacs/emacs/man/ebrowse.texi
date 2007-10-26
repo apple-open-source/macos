@@ -7,18 +7,15 @@
 @syncodeindex fn cp
 @comment %**end of header
 
-@ifinfo
-@dircategory Emacs
-@direntry 
-* Ebrowse: (ebrowse).   A C++ class browser for Emacs.
-@end direntry
-
+@copying
 This file documents Ebrowse, a C++ class browser for GNU Emacs.
 
-Copyright @copyright{} 2000 Free Software Foundation, Inc.
+Copyright @copyright{} 2000, 2001, 2002, 2003, 2004,
+2005, 2006, 2007  Free Software Foundation, Inc.
 
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, with the Front-Cover texts being ``A GNU
 Manual,'' and with the Back-Cover Texts as in (a) below.  A copy of the
@@ -33,43 +30,24 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
-@end ifinfo
+@end quotation
+@end copying
 
-@iftex
+@dircategory Emacs
+@direntry
+* Ebrowse: (ebrowse).   A C++ class browser for Emacs.
+@end direntry
+
 @titlepage
 @title Ebrowse User's Manual
 @sp 4
-@subtitle Ebrowse/Emacs 21
-@sp 1
-@subtitle May 2000
+@subtitle Ebrowse/Emacs
 @sp 5
 @author Gerd Moellmann
 @page
-
 @vskip 0pt plus 1filll
-@noindent
-Copyright @copyright{} 2000 Free Software Foundation, Inc.
-
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with no
-Invariant Sections, with the Front-Cover texts being ``A GNU
-Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
-license is included in the section entitled ``GNU Free Documentation
-License'' in the Emacs manual.
-
-(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
-this GNU Manual, like GNU software.  Copies published by the Free
-Software Foundation raise funds for GNU development.''
-
-This document is part of a collection distributed under the GNU Free
-Documentation License.  If you want to distribute this document
-separately from the collection, you can do so by adding a copy of the
-license to the document, as described in section 6 of the license.
+@insertcopying
 @end titlepage
-@page
-@end iftex
 
 @node Top, Overview, (dir), (dir)
 
@@ -79,12 +57,13 @@ Ebrowse.
 @end ifnottex
 
 @menu
-* Overview::			What is it and now does it work?
+* Overview::			What is it and how does it work?
 * Generating browser files::	How to process C++ source files
 * Loading a Tree::		How to start browsing
 * Tree Buffers::		Traversing class hierarchies
 * Member Buffers::		Looking at member information
 * Tags-like Functions::		Finding members from source files
+* GNU Free Documentation License:: The license for this documentation.
 * Concept Index::		An entry for each concept defined
 @end menu
 
@@ -115,7 +94,7 @@ knows what identifiers are defined in your program@dots{}.
 
 The design of Ebrowse reflects these two needs.
 
-How does it work? 
+How does it work?
 
 @cindex parser for C++ sources
 A fast parser written in C is used to process C++ source files.
@@ -309,7 +288,7 @@ might want to add this to your init file:
 (add-to-list 'auto-mode-alist '(@var{NAME} . ebrowse-tree-mode))
 @end lisp
 
-@noindent 
+@noindent
 where @var{NAME} is the Lisp data base name you are using.
 
 @findex --append
@@ -642,7 +621,7 @@ This command is also provided in the tree buffer's context menu.
 
 @item s
 Display file names for the current line, or for the number of lines
-given by a prefix argument. 
+given by a prefix argument.
 @end table
 
 Here is an example of a tree buffer with file names displayed.
@@ -685,7 +664,7 @@ name like in the example below.
 @table @kbd
 @item -
 This command collapses the branch of the tree starting at the class the
-cursor is on. 
+cursor is on.
 
 @item +
 This command expands the branch of the tree starting at the class the
@@ -781,7 +760,7 @@ also @xref{Tags-like Functions}.)@refill
 @item M t
 Toggle the mark of the line point is in or for as many lines as given by
 a prefix command.  This command can also be found in the class' context
-menu. 
+menu.
 
 @cindex unmark all
 @item M a
@@ -882,7 +861,7 @@ list.
 @item L f
 Switch to the list of member functions.
 
-@cindex static 
+@cindex static
 @item L F
 Switch to the list of static member functions.
 
@@ -901,7 +880,7 @@ Switch to the list of types.
 
 Both commands cycle through the member list.
 
-Most of the commands are also available from the member buffer's 
+Most of the commands are also available from the member buffer's
 context menu.
 
 
@@ -999,11 +978,11 @@ a mouse.
 @cindex switching buffers
 
 @table @kbd
-@item TAB
+@item @key{TAB}
 Pop up the tree buffer to which the member buffer belongs.
 
 @item t
-Do the same as @kbd{TAB} but also position the cursor on the class
+Do the same as @key{TAB} but also position the cursor on the class
 displayed in the member buffer.
 @end table
 
@@ -1017,7 +996,7 @@ displayed in the member buffer.
 
 @table @kbd
 @cindex @code{public} members
-@item F a u 
+@item F a u
 This command toggles the display of @code{public} members.  The
 @samp{a} stands for `access'.
 
@@ -1238,7 +1217,7 @@ This command sets the column width depending on the display form used
 This command forces a redisplay of the member buffer.  If the width
 of the window displaying the member buffer is changed this command
 redraws the member list with the appropriate column widths and number of
-columns. 
+columns.
 @end table
 
 
@@ -1260,7 +1239,7 @@ This key is bound to @code{describe-mode}.
 @comment ***		    TAGS LIKE FUNCTIONS
 @comment **************************************************************
 
-@node Tags-like Functions, Concept Index, Member Buffers, Top
+@node Tags-like Functions, GNU Free Documentation License, Member Buffers, Top
 @comment  node-name,       next,       previous,      up
 @chapter Tags-like Functions
 
@@ -1295,7 +1274,7 @@ they work in a C++ source buffer, not in member and tree buffers created
 by Ebrowse.
 
 @table @kbd
-@item C-c b f
+@item C-c C-m f
 Find the definition of the member around point.  If you invoke this
 function with a prefix argument, the declaration is searched.
 
@@ -1304,37 +1283,37 @@ select the class with completion.  If there is a scope declaration in
 front of the member name, this class name is used as initial input for
 the completion.
 
-@item C-c b F
+@item C-c C-m F
 Find the declaration of the member around point.
 
-@item C-c b v
+@item C-c C-m v
 View the definition of the member around point.
 
-@item C-c b V
+@item C-c C-m V
 View the declaration of the member around point.
 
-@item C-c b 4 f
+@item C-c C-m 4 f
 Find a member's definition in another window.
 
-@item C-c b 4 F
+@item C-c C-m 4 F
 Find a member's declaration in another window.
 
-@item C-c b 4 v
+@item C-c C-m 4 v
 View a member's definition in another window.
 
-@item C-c b 4 V
+@item C-c C-m 4 V
 View a member's declaration in another window.
 
-@item C-c b 5 f
+@item C-c C-m 5 f
 Find a member's definition in another frame.
 
-@item C-c b 5 F
+@item C-c C-m 5 F
 Find a member's declaration in another frame.
 
-@item C-c b 5 v
+@item C-c C-m 5 v
 View a member's definition in another frame.
 
-@item C-c b 5 V
+@item C-c C-m 5 V
 View a member's declaration in another frame.
 @end table
 
@@ -1353,7 +1332,7 @@ move to positions in the stack:@refill
 
 @table @kbd
 @cindex return to original position
-@item C-c b -
+@item C-c C-m -
 This command sets point to the previous position in the position stack.
 Directly after you performed a jump, this will put you back to the
 position where you came from.
@@ -1364,12 +1343,12 @@ infinite size there is a maximum number of positions defined.  When this
 number is reached, older positions are discarded when new positions are
 pushed on the stack.
 
-@item C-c b +
+@item C-c C-m +
 This command moves forward in the position stack, setting point to
 the next position stored in the position stack.
 
-@item C-c b p
-Displays an electric buffer showing all positions saved in the stack. 
+@item C-c C-m p
+Displays an electric buffer showing all positions saved in the stack.
 You can select a position by pressing @kbd{SPC} in a line.  You can
 view a position with @kbd{v}.
 @end table
@@ -1393,23 +1372,23 @@ mentioned in the marked classes only.  Otherwise all files in the class
 tree are used.
 
 @table @kbd
-@item C-c b s
+@item C-c C-m s
 This function performs a regular expression search in the chosen set of
 files.
 
-@item C-c b u
+@item C-c C-m u
 This command performs a search for calls of a given member which is
 selected in the usual way with completion.
 
-@item C-c b %
+@item C-c C-m %
 Perform a query replace over the set of files.
 
-@item C-c b ,
+@item C-c C-m ,
 All three operations above stop when finding a match.  You can restart
 the operation with this command.
 
-@item C-c b n
-This restarts the last tags operation with the next file in the list. 
+@item C-c C-m n
+This restarts the last tags operation with the next file in the list.
 @end table
 
 
@@ -1423,7 +1402,7 @@ This restarts the last tags operation with the next file in the list.
 @cindex list class members in a file
 @cindex file, members
 
-The command @kbd{C-c b l}, lists all members in a given file.  The file
+The command @kbd{C-c C-m l}, lists all members in a given file.  The file
 name is read from the minibuffer with completion.
 
 
@@ -1431,18 +1410,18 @@ name is read from the minibuffer with completion.
 
 @node Apropos, Symbol Completion, Members in Files, Tags-like Functions
 @comment  node-name,       next,       previous,      up
-@section Member Apropos 
+@section Member Apropos
 @cindex apropos on class members
 @cindex members, matching regexp
 
-The command @kbd{C-c b a} can be used to display all members matching a
+The command @kbd{C-c C-m a} can be used to display all members matching a
 given regular expression.  This command can be very useful if you
 remember only part of a member name, and not its beginning.
 
 A special buffer is popped up containing all identifiers matching the
 regular expression, and what kind of symbol it is (e.g.@: a member
 function, or a type).  You can then switch to this buffer, and use the
-command @kbd{C-c b f}, for example, to jump to a specific member.
+command @kbd{C-c C-m f}, for example, to jump to a specific member.
 
 
 
@@ -1453,22 +1432,31 @@ command @kbd{C-c b f}, for example, to jump to a specific member.
 @cindex completion
 @cindex symbol completion
 
-The command @kbd{C-c b TAB} completes the symbol in front of point.
+The command @kbd{C-c C-m @key{TAB}} completes the symbol in front of point.
 
 
 
 
-@node Member Buffer Display,  , Symbol Completion, Tags-like Functions
+@node Member Buffer Display, , Symbol Completion, Tags-like Functions
 @section Quick Member Display
 @cindex member buffer, for member at point
 
 You can quickly display a member buffer containing the member the cursor
-in on with the command @kbd{C-c b m}.
+in on with the command @kbd{C-c C-m m}.
 
 
-@node Concept Index, , Tags-like Functions, Top
+@node GNU Free Documentation License, Concept Index, Tags-like Functions, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+
+@node Concept Index, , GNU Free Documentation License, Top
 @unnumbered Concept Index
 @printindex cp
 
 @contents
 @bye
+
+@ignore
+   arch-tag: 52fe78ac-a1c4-48e7-815e-0a31acfad4bf
+@end ignore

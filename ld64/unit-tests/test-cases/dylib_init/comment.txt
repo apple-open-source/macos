@@ -1,0 +1,2 @@
+When creating a dylib with the -init option to specify the init  routine in 64-bit,
+libtool sould not complain "file not found: __init".

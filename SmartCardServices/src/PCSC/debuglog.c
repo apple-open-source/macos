@@ -1,190 +1,329 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All Rights Reserved.
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please
- * obtain a copy of the License at http://www.apple.com/publicsource and
- * read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please
- * see the License for the specific language governing rights and
- * limitations under the License.
+ *  Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
+ * 
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
  */
 
-/******************************************************************
+/*
+ *  debuglog.c
+ *  SmartCardServices
+ */
 
-	MUSCLE SmartCard Development ( http://www.linuxnet.com )
-	Title  : debuglog.c
-	Package: pcsc lite
-	Author : David Corcoran, Ludovic Rousseau
-	Date   : 7/27/99, update 11 Aug, 2002
-	License: Copyright (C) 1999,2002 David Corcoran
-			<corcoran@linuxnet.com>
-	Purpose: This handles debugging. 
-	            
-$Id: debuglog.c,v 1.2 2003/02/13 20:06:24 ghoo Exp $
+/*
+ * MUSCLE SmartCard Development ( http://www.linuxnet.com )
+ *
+ * Copyright (C) 1999-2002
+ *  David Corcoran <corcoran@linuxnet.com>
+ * Copyright (C) 1999-2005
+ *  Ludovic Rousseau <ludovic.rousseau@free.fr>
+ *
+ * $Id: debuglog.c 2302 2007-01-06 17:57:58Z rousseau $
+ */
 
-********************************************************************/
+/**
+ * @file
+ * @brief This handles debugging for pcscd.
+ */
+
+#include "config.h"
 
 #ifndef WIN32
 #include <syslog.h>
 #endif
-
+#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-
-#ifndef WIN32
-#include "config.h"
-#else
-#include "../win32/win32_config.h"
-#endif
+#include <assert.h>
+#include <sys/types.h>
 
 #include "wintypes.h"
 #include "pcsclite.h"
 #include "debuglog.h"
+#include "sys_generic.h"
+//#include "strlcpy.h"
 
-// Max string size when dumping a 256 bytes longs APDU
-#define DEBUG_BUF_SIZE (256*3+30)
+/**
+ * Max string size when dumping a 256 bytes longs APDU
+ * Should be bigger than 256*3+30
+ */
+#define DEBUG_BUF_SIZE 2048
 
-static char DebugBuffer[DEBUG_BUF_SIZE];
+static char LogSuppress = DEBUGLOG_LOG_ENTRIES;
+static char LogMsgType = DEBUGLOG_NO_DEBUG;
+static char LogCategory = DEBUG_CATEGORY_NOTHING;
 
-static int lSuppress = DEBUGLOG_LOG_ENTRIES;
-static int debug_msg_type = DEBUGLOG_NO_DEBUG;
-static int debug_category = DEBUG_CATEGORY_NOTHING;
+/* default level is a bit verbose to be backward compatible */
+static char LogLevel = PCSC_LOG_INFO;
 
-void debug_msg(const char *fmt, ...)
+static signed char LogDoColor = 0;	/* no color by default */
+
+void log_msg(const int priority, const char *fmt, ...)
 {
+	char DebugBuffer[DEBUG_BUF_SIZE];
 	va_list argptr;
 
-	if (lSuppress != DEBUGLOG_LOG_ENTRIES)
+	if ((LogSuppress != DEBUGLOG_LOG_ENTRIES)
+		|| (priority < LogLevel) /* log priority lower than threshold? */
+		|| (DEBUGLOG_NO_DEBUG == LogMsgType))
 		return;
 
 	va_start(argptr, fmt);
 #ifndef WIN32
 	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
 #else
+#if HAVE_VSNPRINTF
+	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
+#else
 	vsprintf(DebugBuffer, fmt, argptr);
+#endif
 #endif
 	va_end(argptr);
 
-	if (debug_msg_type == DEBUGLOG_NO_DEBUG)
-	{
-		/*
-		 * Do nothing, it hasn't been set 
-		 */
-
-	} else if (debug_msg_type & DEBUGLOG_SYSLOG_DEBUG)
-	{
 #ifndef WIN32
+	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
 		syslog(LOG_INFO, "%s", DebugBuffer);
-#else
-		fprintf(stderr, "%s\n", DebugBuffer);
-#endif
-
-	} else if (debug_msg_type & DEBUGLOG_STDERR_DEBUG)
+	else
 	{
-		fprintf(stderr, "%s\n", DebugBuffer);
+		if (LogDoColor)
+		{
+			const char *color_pfx = "", *color_sfx = "\33[0m";
 
-	} else if (debug_msg_type & DEBUGLOG_STDOUT_DEBUG)
-	{
-		fprintf(stdout, "%s\n", DebugBuffer);
+			switch (priority)
+			{
+				case PCSC_LOG_CRITICAL:
+					color_pfx = "\33[01;31m"; /* bright + Red */
+					break;
+
+				case PCSC_LOG_ERROR:
+					color_pfx = "\33[35m"; /* Magenta */
+					break;
+
+				case PCSC_LOG_INFO:
+					color_pfx = "\33[34m"; /* Blue */
+					break;
+
+				case PCSC_LOG_DEBUG:
+					color_pfx = ""; /* normal (black) */
+					color_sfx = "";
+					break;
+			}
+			fprintf(stderr, "%s%s%s\n", color_pfx, DebugBuffer, color_sfx);
+		}
+		else
+			fprintf(stderr, "%s\n", DebugBuffer);
 	}
-}	/* debug_msg */
+#else
+	fprintf(stderr, "%s\n", DebugBuffer);
+#endif
+} /* log_msg */
 
-void debug_xxd(const char *msg, const unsigned char *buffer, const int len)
+void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
+	const int len)
 {
+	char DebugBuffer[DEBUG_BUF_SIZE];
 	int i;
-	unsigned char *c, *debug_buf_end;
+	char *c;
+	char *debug_buf_end;
 
-	if (lSuppress != DEBUGLOG_LOG_ENTRIES)
+	if ((LogSuppress != DEBUGLOG_LOG_ENTRIES)
+		|| (priority < LogLevel) /* log priority lower than threshold? */
+		|| (DEBUGLOG_NO_DEBUG == LogMsgType))
 		return;
 
 	debug_buf_end = DebugBuffer + DEBUG_BUF_SIZE - 5;
 
-	strncpy(DebugBuffer, msg, sizeof(DebugBuffer) - 1);
+	strlcpy(DebugBuffer, msg, sizeof(DebugBuffer));
 	c = DebugBuffer + strlen(DebugBuffer);
 
 	for (i = 0; (i < len) && (c < debug_buf_end); ++i)
 	{
 		sprintf(c, "%02X ", buffer[i]);
-		c += strlen(c);
+		c += 3;
 	}
 
-	if (debug_msg_type == DEBUGLOG_NO_DEBUG)
-	{
-		/*
-		 * Do nothing, it hasn't been set 
-		 */
+	/* the buffer is too small so end it with "..." */
+	if ((c >= debug_buf_end) && (i < len))
+		c[-3] = c[-2] = c[-1] = '.';
 
-	} else if (debug_msg_type & DEBUGLOG_SYSLOG_DEBUG)
-	{
 #ifndef WIN32
+	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
 		syslog(LOG_INFO, "%s", DebugBuffer);
-#else
-		fprintf(stderr, "%s\n", DebugBuffer);
+	else
 #endif
-
-	} else if (debug_msg_type & DEBUGLOG_STDERR_DEBUG)
-	{
 		fprintf(stderr, "%s\n", DebugBuffer);
+} /* log_xxd */
 
-	} else if (debug_msg_type & DEBUGLOG_STDOUT_DEBUG)
-	{
-		fprintf(stdout, "%s\n", DebugBuffer);
-	}
-}	/* debug_xxd */
-
+#ifdef PCSCD
 void DebugLogSuppress(const int lSType)
 {
-	lSuppress = lSType;
+	LogSuppress = lSType;
 }
+#endif
 
 void DebugLogSetLogType(const int dbgtype)
 {
-	debug_msg_type |= dbgtype;
+	switch (dbgtype)
+	{
+		case DEBUGLOG_NO_DEBUG:
+		case DEBUGLOG_SYSLOG_DEBUG:
+		case DEBUGLOG_STDERR_DEBUG:
+			LogMsgType = dbgtype;
+			break;
+		default:
+			Log2(PCSC_LOG_CRITICAL, "unknown log type (%d), using stderr",
+				dbgtype);
+			LogMsgType = DEBUGLOG_STDERR_DEBUG;
+	}
+
+	/* no color under Windows */
+#ifndef WIN32
+	/* log to stderr and stderr is a tty? */
+	if (DEBUGLOG_STDERR_DEBUG == LogMsgType && isatty(fileno(stderr)))
+	{
+		const char *terms[] = { "linux", "xterm", "xterm-color", "Eterm", "rxvt", "rxvt-unicode" };
+		char *term;
+
+		term = getenv("TERM");
+		if (term)
+		{
+			unsigned int i;
+
+			/* for each known color terminal */
+			for (i = 0; i < sizeof(terms) / sizeof(terms[0]); i++)
+			{
+				/* we found a supported term? */
+				if (0 == strcmp(terms[i], term))
+				{
+					LogDoColor = 1;
+					break;
+				}
+			}
+		}
+	}
+#endif
 }
 
-int DebugLogSetCategory(const int dbginfo)
+void DebugLogSetLevel(const int level)
+{
+	LogLevel = level;
+	switch (level)
+	{
+		case PCSC_LOG_CRITICAL:
+		case PCSC_LOG_ERROR:
+			/* do not log anything */
+			break;
+
+		case PCSC_LOG_INFO:
+			Log1(PCSC_LOG_INFO, "debug level=notice");
+			break;
+
+		case PCSC_LOG_DEBUG:
+			Log1(PCSC_LOG_DEBUG, "debug level=debug");
+			break;
+
+		default:
+			LogLevel = PCSC_LOG_INFO;
+			Log2(PCSC_LOG_CRITICAL, "unknown level (%d), using level=notice",
+				level);
+	}
+}
+
+INTERNAL int DebugLogSetCategory(const int dbginfo)
 {
 #define DEBUG_INFO_LENGTH 80
 	char text[DEBUG_INFO_LENGTH];
 
-	// use a negative number to UNset
-	// typically use ~DEBUG_CATEGORY_APDU
+	/* use a negative number to UNset
+	 * typically use ~DEBUG_CATEGORY_APDU
+	 */
 	if (dbginfo < 0)
-		debug_category &= dbginfo;
+		LogCategory &= dbginfo;
 	else
-		debug_category |= dbginfo;
+		LogCategory |= dbginfo;
 
-	// set to empty string
+	/* set to empty string */
 	text[0] = '\0';
 
-	if (debug_category & DEBUG_CATEGORY_APDU)
-		strncat(text, " APDU", DEBUG_INFO_LENGTH-1-strlen(text));
+	if (LogCategory & DEBUG_CATEGORY_APDU)
+		strlcat(text, " APDU", sizeof(text));
 
-	DebugLogB("Debug options:%s", text);
+	Log2(PCSC_LOG_INFO, "Debug options:%s", text);
 
-	return debug_category;
+	return LogCategory;
 }
 
-void DebugLogCategory(const int category, const char *buffer, const int len)
+INTERNAL void DebugLogCategory(const int category, const unsigned char *buffer,
+	const int len)
 {
 	if ((category & DEBUG_CATEGORY_APDU)
-		&& (debug_category & DEBUG_CATEGORY_APDU))
-		debug_xxd("APDU: ", buffer, len);
+		&& (LogCategory & DEBUG_CATEGORY_APDU))
+		log_xxd(PCSC_LOG_INFO, "APDU: ", (const unsigned char *)buffer, len);
 
 	if ((category & DEBUG_CATEGORY_SW)
-		&& (debug_category & DEBUG_CATEGORY_APDU))
-		debug_xxd("SW: ", buffer, len);
+		&& (LogCategory & DEBUG_CATEGORY_APDU))
+		log_xxd(PCSC_LOG_INFO, "SW: ", (const unsigned char *)buffer, len);
 }
 
-LPSTR pcsc_stringify_error(const LONG Error)
+/*
+ * old function supported for backward object code compatibility
+ * defined only for pcscd
+ */
+#ifdef PCSCD
+void debug_msg(const char *fmt, ...)
+{
+	char DebugBuffer[DEBUG_BUF_SIZE];
+	va_list argptr;
+
+	if ((LogSuppress != DEBUGLOG_LOG_ENTRIES)
+		|| (DEBUGLOG_NO_DEBUG == LogMsgType))
+		return;
+
+	va_start(argptr, fmt);
+#ifndef WIN32
+	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
+#else
+#if HAVE_VSNPRINTF
+	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
+#else
+	vsprintf(DebugBuffer, fmt, argptr);
+#endif
+#endif
+	va_end(argptr);
+
+#ifndef WIN32
+	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
+		syslog(LOG_INFO, "%s", DebugBuffer);
+	else
+#endif
+		fprintf(stderr, "%s\n", DebugBuffer);
+} /* debug_msg */
+
+void debug_xxd(const char *msg, const unsigned char *buffer, const int len)
+{
+	log_xxd(PCSC_LOG_ERROR, msg, buffer, len);
+} /* debug_xxd */
+#endif
+
+char *pcsc_stringify_error(const int32_t Error)
 {
 
 	static char strError[75];
@@ -301,6 +440,9 @@ LPSTR pcsc_stringify_error(const LONG Error)
 		break;
 	case SCARD_E_SERVICE_STOPPED:
 		strcpy(strError, "Service was stopped.");
+		break;
+	default:
+		sprintf(strError, "Unknown PCSC error: %d [0x%08X]", Error, Error);
 		break;
 
 	};

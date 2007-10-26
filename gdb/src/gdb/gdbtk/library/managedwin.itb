@@ -1,5 +1,5 @@
 # Managed window for Insight.
-# Copyright 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
+# Copyright 1998, 1999, 2000, 2001, 2002, 2004 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -29,6 +29,9 @@ itcl::body ManagedWin::destructor {} {
   # splash screen at startup...
 
   if {!$numTopWins && [quit_if_last]} {
+    if {$::iipc && [pref get gdb/ipc/exit]} {
+      $::insight_ipc send quit
+    }
     gdb_force_quit
   } else {
     destroy_toplevel
@@ -40,11 +43,41 @@ itcl::body ManagedWin::destructor {} {
 #   (and optionally its icon's name).
 # ------------------------------------------------------------
 itcl::body ManagedWin::window_name {wname {iname ""}} {
+
+  if {$wname != ""} {
+    set _wname $wname
+  } else {
+    set wname $_wname
+  }
+  if {$iname != ""} {
+    set _iname $iname
+  } else {
+    set iname $_iname
+  }
+
+  if {$win_instance != ""} {
+    append wname " \[$win_instance\]"
+    if {$iname != ""} {
+      append iname " \[$win_instance\]"
+    }
+  }
   wm title $_top $wname
   if {$iname != ""} {
     wm iconname $_top $iname
   } else {
     wm iconname $_top $wname
+  }
+}
+
+# ------------------------------------------------------------
+#  PUBLIC METHOD:  window_instance - Set the string to be
+#   appended to each window title for this instance of Insight
+# ------------------------------------------------------------
+itcl::body ManagedWin::window_instance {ins} {
+  set win_instance $ins
+  foreach obj [itcl_info objects -isa ManagedWin] {
+    debug "$obj ManagedWin::_wname"
+    $obj window_name ""
   }
 }
 

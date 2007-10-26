@@ -1,0 +1,322 @@
+commit 08be10e6c26794ed1ffa21d7946ddcc3da007237
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Dec 16 01:33:11 2006 +0200
+
+    bump to 1.0.4
+
+commit eaaa31aa77f06249de137018ef85903b0ad4aa39
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Dec 6 19:00:54 2006 +0200
+
+    Makefile.am: make ChangeLog hook safer
+    Make ChangeLog hook as safe as possible.
+
+commit 93d7c1c797d8c74c18e78854fcf78a3f0d79b444
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 16:47:03 2006 -0700
+
+    Bump version to 1.0.3
+
+commit ddc72074e6389a64d5753621b48855137a8c3623
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 13:44:48 2006 -0700
+
+    Add XvMCWrapper to lint target
+
+commit 34b32e0f6773004138543e6f41f5639736493707
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 13:44:15 2006 -0700
+
+    Fix sparse warning: Using plain integer as NULL pointer
+
+commit 142aa1230c651bc70d192edbbfa6870488006d36
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 18:31:46 2006 -0700
+
+    Fix sparse warnings: Using plain integer as NULL pointer
+
+commit 945f89d551438298d9a09a4fd3e9e40ac6b1ad51
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 18:30:41 2006 -0700
+
+    Add hooks for checking code with sparse/lint/etc.
+
+commit 3cc151c221139869980bc33d5336ab75c04606bc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 17:28:45 2006 -0700
+
+    Replace static ChangeLog with disthook to generate from git log
+
+commit f856448323ad315f5301f1022e9ee75de7174dbd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 17:25:50 2006 -0700
+
+    Add *~ to .gitignore to skip over emacs droppings
+
+commit 25c9975510f7a7c4f1c18b72526bc2a9b97ff90e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:59:11 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 42226f6ba7fbccd7d7cb0f9ce431be477bdf9a0c
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 16 22:07:08 2006 +0000
+
+    Define HAS_SHM if shmat() is found
+    Include <config.h> to get HAS_SHM define.
+
+commit 9a93b2a2ace59e6c2ab8fec586561a136c06e664
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:24:15 2006 +0000
+
+    Bump to 1.0.2
+
+commit 987ac45a04fc6734096fd6469ef12a4b1d09f971
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Apr 3 19:35:40 2006 +0000
+
+    Bug #6479: Cygwin build fix. (Yaakov Selkowitz)
+
+commit 3b44259383a99f4db7d7c026638c6676d838229b
+Author: Donnie Berkholz <spyderous@gentoo.org>
+Date:   Wed Mar 22 17:53:58 2006 +0000
+
+    Set XVMC_CONFIGDIR to $(sysconfdir)/X11.
+
+commit 0e3081d35bcad1b5ee637c9b5d0292011c8536b4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:06 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 588b2f5642d0061f1e1954ce9f97bff71a27d75e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:28:27 2005 +0000
+
+    Stub COPYING files
+
+commit 479c508369c27e88145aab93016c6bcee5b6e71e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:35 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d7aa41b6025facaa98c827bea605de1aa77ffb5d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:45 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 68f34d7d3b1564d967f77127b68af6c3de26578b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:51 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit b679a08c793780c08a21af602e4e814cc24b1a93
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sat Nov 26 21:06:07 2005 +0000
+
+    Bug #5067 <https://bugs.freedesktop.org/show_bug.cgi?id=5067> Add dot
+        before revision definitions for libXvMCW (Cedric Berger)
+
+commit 7907128fae6bbb41e2e6cc6387afba857c75eb41
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 23:17:41 2005 +0000
+
+    Add/improve libs .cvsignores.
+
+commit 25b2dc7180677176005d65828d2bfde17119c7a6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:43 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 384001cc85ea7a77b2800fda7d4abc745135ad3c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:12 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 6140efabd4d1dc46f40d3bc15ad2d78307c5c6e3
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Sep 11 18:25:27 2005 +0000
+
+    XvMC depends on xv. (Bugzilla #4367, Joshua Baergen).
+
+commit cd5375fa75e1f232d23069a59a82f0bcf6ee2a9f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 3 03:28:03 2005 +0000
+
+    Do PKG_CHECK_MODULES on a unique token instead of on "DEP", so builds with
+        a global configure cache don't get confused.
+
+commit 912ba3998aba2fd6e5e669f80a6ef205a613818e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:53 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit ad129004fe84555fa82286577b343188bd922971
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Jul 23 05:27:00 2005 +0000
+
+    Fix distchecks
+
+commit 50f1a745af62aadab1118b2c565e4f3c60ddcbd6
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jul 16 07:44:53 2005 +0000
+
+    Set soversion to 1.0.0 with -version-number.
+
+commit 46023798075bda8427b61ce57f8d5595abed89cb
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 12 01:17:49 2005 +0000
+
+    Set soversions to 1.0.0; add XvMClib.h.
+
+commit a27ff6109baf266d414db756549eba0b6e4dcaf5
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 12 00:38:53 2005 +0000
+
+    Change version to 1.1.0.
+
+commit 32a12b87526bdeeeadc6859cc2c440d74846d935
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 06:55:15 2005 +0000
+
+    Add .cvsignore files
+
+commit 05fd6003cbd18c04268a3ee8974a81fdcf1f7a74
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Jul 2 06:35:04 2005 +0000
+
+    Add appropriate lib*_CFLAGS to Makefile.am's -- fixes build problems
+
+commit 125b5cabb1980a3564c2567c0702a9adf32327bf
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Tue Jun 21 15:41:37 2005 +0000
+
+    lib/XScrnSaver/configure.ac
+    lib/XScrnSaver/src/Makefile.am
+    lib/Xfontcache/configure.ac
+    lib/Xfontcache/src/Makefile.am
+    lib/Xinerama/configure.ac
+    lib/Xinerama/src/Makefile.am
+    lib/Xtst/configure.ac
+    lib/Xv/configure.ac
+    lib/XvMC/configure.ac
+    lib/dmx/configure.ac Add missing xext.pc and xextproto.pc Add DEP_CFLAGS to
+        src/Makefile.am
+
+commit 0273d0113119cdefe148d58ddf3508bd9b20f2b8
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 20 22:39:13 2005 +0000
+
+    Add XvMC build system
+
+commit b4716fab0524c583daac7048f5d304af3b1589b5
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 20 22:38:12 2005 +0000
+
+    Fix some includes in xc/lib/XvMC
+
+commit 58fde9acdcc6256917089271537017dc28710988
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Dec 4 00:42:50 2004 +0000
+
+    Encoding of numerous files changed to UTF-8
+
+commit 359c8b9d75372ecd1f78cdb0bfccd134577d9c31
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Tue Nov 23 17:29:47 2004 +0000
+
+    Bugzilla #1883 (https://freedesktop.org/bugzilla/show_bug.cgi?id=1883): Fix
+        insufficient SHM detection in XvMC local test. Removed reference to
+        getpagesize() which caused linking problems on s390. Reported by Stefan
+        Dirsch <sndirsh@suse.de>
+
+commit 120c3035f60138ad15599b0b0c4468400e966423
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sat Nov 13 11:09:23 2004 +0000
+
+    lib/XvMC/Imake
+    Added support for automatic loading of the correct hardware XvMC driver.
+        This involves a protocol extension of the XvMC protocol. The XvMC
+        revision number was bumped.
+
+commit 0077c785f91a80d48216a969757bc3f3b607e7e2
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Wed Oct 20 16:35:16 2004 +0000
+
+    Imported via XvMC library release 0.13.0 from unichrome.sf.net. This
+        enables hardware mpeg2 decoding for the CLE266 chip using the
+        nonstandard VLD XvMC extension. Complete author information is
+        available at the unichrome site. Updated the XvMC wrapper to look for
+        version specific Xv and XvMC shared libraries.
+
+commit d6f84be6af28d2a316e05858f0b0571074314c2c
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sun Sep 26 11:48:57 2004 +0000
+
+    Added the XvMC wrapper. First support for runtime loading of hardware-
+        specific XvMC libraries.
+
+commit b3d2a9cbcf27659b04eb0088c02de753dc43d5a8
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:55 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 1892f06c354c1b37308a5adc35cf6a4343148871
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:27 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 2cf814aa9975839c342fbb37c8cf34c8eaf83add
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:32 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 5fbd3ca2a0e419175a28d68cd00e00541ec51c02
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:34 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 6c01fc4ce83d0a401ac497a589ca7009824b2ee7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:48 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 023801d605d93ffdbd383b9f32df0a3213c829f1
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:54:21 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit 59642182406c19c9d17efd9d845cbbd65ad4654f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 204fb5fcf4292629677e3876bd449fb76e55fcdd
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    Initial revision

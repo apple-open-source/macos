@@ -20,7 +20,7 @@
 $MMWRAPPER = "/home/mailman/mail/mailman";
 $MMLISTDIR = "/home/mailman/lists";
 $SENDMAIL = "/usr/lib/sendmail -oem -oi";
-$VERSION = '$Id: mm-handler,v 1.1.1.1 2002/04/05 19:41:09 jalbert Exp $';
+$VERSION = '$Id: mm-handler 5100 2002-04-05 19:41:09Z bwarsaw $';
 
 ## Comment this if you offer local user addresses.
 $NOUSERS = "\nPersonal e-mail addresses are not offered by this server.";

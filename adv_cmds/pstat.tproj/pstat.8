@@ -38,7 +38,7 @@
 .Nm pstat
 .Nd display system data structures
 .Sh SYNOPSIS
-.Nm pstat
+.Nm
 .Op Fl Tfnstv
 .Op Fl M Ar core
 .Op Fl N Ar system
@@ -63,48 +63,44 @@ number rather than by name.
 .Pp
 Options are
 .Bl -tag -width indent
-.It Fl T
-Prints the number of used and free slots in the several system tables
-and is useful for checking to see how large system tables have become
-if the system is under heavy load.
 .It Fl f
 Print the open file table with these headings:
 .Bl -tag -width indent
-.It LOC
-The core location of this table entry.
-.It TYPE
-The type of object the file table entry points to.
+.It CNT
+Number of processes that know this open file.
+.It DATA
+The location of the vnode table entry or socket structure for this file.
 .It FLG
 Miscellaneous state variables encoded thus:
 .Bl -tag -width indent
-.It R
-open for reading
-.It W
-open for writing
 .It A
 open for appending
-.It S
-shared lock present
-.It X
-exclusive lock present
 .It I
 signal pgrp when data ready
+.It R
+open for reading
+.It S
+shared lock present
+.It W
+open for writing
+.It X
+exclusive lock present
 .El
-.It CNT
-Number of processes that know this open file.
+.It LOC
+The core location of this table entry.
 .It MSG
 Number of messages outstanding for this file.
-.It DATA
-The location of the vnode table entry or socket structure for this file.
 .It OFFSET
 The file offset (see
 .Xr lseek 2 ) .
+.It TYPE
+The type of object the file table entry points to.
 .El
 .It Fl s
-Print information about swap space usage on all the 
-swap areas compiled into the kernel.
-The first column is the device name of the partition.  The next column is
-the total space available in the partition.  The 
+Print information about swap space usage
+on all the swap areas compiled into the kernel.
+The first column is the device name of the partition.
+The next column is the total space available in the partition.  The 
 .Ar Used
 column indicates the total blocks used so far;  the 
 .Ar Available
@@ -115,51 +111,22 @@ reports the percentage of space used.
 .Pp
 If more than one partition is configured into the system, totals for all
 of the statistics will be reported in the final line of the report.
+.It Fl T
+Prints the number of used and free slots in the several system tables
+and is useful for checking to see how large system tables have become
+if the system is under heavy load.
 .It Fl t
 Print table for terminals
 with these headings:
 .Bl -tag -width indent
-.It RAW
-Number of characters in raw input queue.
-.It CAN
-Number of characters in canonicalized input queue.
-.It OUT
-Number of characters in output queue.
-.It MODE
-See
-.Xr tty 4 .
 .It ADDR
 Physical device address.
-.It DEL
-Number of delimiters (newlines) in canonicalized input queue.
+.It CAN
+Number of characters in canonicalized input queue.
 .It COL
 Calculated column position of terminal.
-.It STATE
-Miscellaneous state variables encoded thus:
-.Bl -tag -width indent
-.It T
-delay timeout in progress
-.It W
-waiting for open to complete
-.It O
-open
-.It F
-outq has been flushed during DMA
-.It C
-carrier is on
-.It B
-busy doing output
-.It A
-process is awaiting output
-.It X
-open for exclusive use
-.It S
-output stopped
-.It H
-hangup on close
-.El
-.It PGRP
-Process group for which this is controlling terminal.
+.It DEL
+Number of delimiters (newlines) in canonicalized input queue.
 .It DISC
 Line discipline; blank is old tty
 OTTYDISC
@@ -173,6 +140,39 @@ for
 NETLDISC
 (see
 .Xr bk 4 ) .
+.It MODE
+See
+.Xr tty 4 .
+.It OUT
+Number of characters in output queue.
+.It PGRP
+Process group for which this is controlling terminal.
+.It RAW
+Number of characters in raw input queue.
+.It STATE
+Miscellaneous state variables encoded thus:
+.Bl -tag -width indent
+.It A
+process is awaiting output
+.It B
+busy doing output
+.It C
+carrier is on
+.It F
+outq has been flushed during DMA
+.It H
+hangup on close
+.It O
+open
+.It S
+output stopped
+.It T
+delay timeout in progress
+.It W
+waiting for open to complete
+.It X
+open for exclusive use
+.El
 .El
 .It Fl v
 Print the active vnodes.  Each group of vnodes corresponding
@@ -204,91 +204,89 @@ type specific.  The headers common to all vnodes are:
 .Bl -tag -width indent
 .It ADDR
 Location of this vnode.
-.It TYP
-File type.
-.It VFLAG
-.Pp
-A list of letters representing vnode flags:
-.Bl -tag -width indent
-.It R
-\- VROOT
-.It T
-\- VTEXT
-.It L
-\- VXLOCK
-.It W
-\- VXWANT
-.It E
-\- VEXLOCK
-.It S
-\- VSHLOCK
-.It T
-\- VLWAIT
-.It A
-\- VALIASED
-.It B
-\- VBWAIT
-.El
-.Pp
-.It USE
-The number of references to this vnode.
-.It HOLD
-The number of I/O buffers held by this vnode.
 .It FILEID
 The vnode fileid.
 In the case of
-.Em ufs
+.Em ufs ,
 this is the inode number.
+.It HOLD
+The number of I/O buffers held by this vnode.
 .It IFLAG
 Miscellaneous filesystem specific state variables encoded thus:
 .Bl -tag -width indent
 .It "For ufs:"
 .Pp
 .Bl -tag -width indent
-.It L
-locked
-.It U
-update time
-.Pq Xr fs 5
-must be corrected
 .It A
 access time must be corrected
-.It W
-wanted by another process (L flag is on)
 .It C
 changed time must be corrected
-.It S
-shared lock applied
 .It E
 exclusive lock applied
-.It Z
-someone waiting for a lock
+.It L
+locked
 .It M
 contains modifications
 .It R
 has a rename in progress
+.It S
+shared lock applied
+.It U
+update time
+.Pq Xr fs 5
+must be corrected
+.It W
+wanted by another process (L flag is on)
+.It Z
+someone waiting for a lock
 .El
 .It "For nfs:"
 .Bl -tag -width indent
-.It W
-waiting for I/O buffer flush to complete
-.It P
-I/O buffers being flushed
-.It M
-locally modified data exists
 .It E
 an earlier write failed
-.It X
-non-cacheable lease (nqnfs)
-.It O
-write lease (nqnfs)
 .It G
 lease was evicted (nqnfs)
+.It M
+locally modified data exists
+.It O
+write lease (nqnfs)
+.It P
+I/O buffers being flushed
+.It W
+waiting for I/O buffer flush to complete
+.It X
+non-cacheable lease (nqnfs)
 .El
 .El
 .It SIZ/RDEV
 Number of bytes in an ordinary file, or
 major and minor device of special file.
+.It TYP
+File type.
+.It USE
+The number of references to this vnode.
+.It VFLAG
+A list of letters representing vnode flags:
+.Bl -tag -width indent
+.It A
+\- VALIASED
+.It B
+\- VBWAIT
+.It E
+\- VEXLOCK
+.It L
+\- VXLOCK
+.It R
+\- VROOT
+.It S
+\- VSHLOCK
+.It T
+\- VLWAIT
+.It T
+\- VTEXT
+.It W
+\- VXWANT
+.El
 .El
 .El
 .Sh FILES
@@ -304,7 +302,7 @@ default source of tables
 .Xr systat 1 ,
 .Xr vmstat 1 ,
 .Xr stat 2 ,
-.Xr fs 5 ,
+.Xr fs 5
 .Rs
 .Rt Tn UNIX Rt Implementation ,
 .Ra K. Thompson
@@ -316,5 +314,5 @@ regardless of whether those partitions are being used.
 Does not understand NFS swap servers.
 .Sh HISTORY
 The
-.Nm pstat
+.Nm
 command appeared in 4.0BSD.

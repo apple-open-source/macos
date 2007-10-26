@@ -11,6 +11,11 @@ require 'tkextlib/tcllib.rb'
 
 module Tk::Tcllib
   module Style
+    PACKAGE_NAME = 'style'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('style')
@@ -34,6 +39,7 @@ module Tk::Tcllib
 end
 
 # TkPackage.require('style', '0.1')
+# TkPackage.require('style', '0.3')
 TkPackage.require('style')
 
 module Tk::Tcllib

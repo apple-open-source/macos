@@ -4,7 +4,7 @@
 
 #include <gssrpc/rpc.h>
 #include <krb5.h>
-#include <k5-int.h>
+#include <errno.h>
 #include <kadm5/admin.h>
 #include <kadm5/kadm_rpc.h>
 #include <kadm5/admin_xdr.h>
@@ -544,6 +544,7 @@ xdr_generic_ret(XDR *xdrs, generic_ret *objp)
 	if (!xdr_kadm5_ret_t(xdrs, &objp->code)) {
 		return (FALSE);
 	}
+
 	return(TRUE);
 }
 
@@ -626,6 +627,7 @@ xdr_gprincs_ret(XDR *xdrs, gprincs_ret *objp)
 	       return (FALSE);
 	  }
      }
+
      return (TRUE);
 }
 
@@ -785,7 +787,7 @@ xdr_chrand_ret(XDR *xdrs, chrand_ret *objp)
 		       return FALSE;
 	     }
 	}
-	
+
 	return (TRUE);
 }
 
@@ -826,6 +828,7 @@ xdr_gprinc_ret(XDR *xdrs, gprinc_ret *objp)
 		  }
 	     }
 	}
+
 	return (TRUE);
 }
 
@@ -896,6 +899,7 @@ xdr_gpol_ret(XDR *xdrs, gpol_ret *objp)
 	    if (!xdr_kadm5_policy_ent_rec(xdrs, &objp->rec))
 		return (FALSE);
 	}
+
 	return (TRUE);
 }
 
@@ -930,6 +934,7 @@ xdr_gpols_ret(XDR *xdrs, gpols_ret *objp)
 	       return (FALSE);
 	  }
      }
+
      return (TRUE);
 }
 
@@ -941,6 +946,7 @@ bool_t xdr_getprivs_ret(XDR *xdrs, getprivs_ret *objp)
      if (! xdr_kadm5_ret_t(xdrs, &objp->code) ||
 	 ! xdr_long(xdrs, &objp->privs))
 	  return FALSE;
+
      return TRUE;
 }
 
@@ -956,7 +962,7 @@ xdr_krb5_principal(XDR *xdrs, krb5_principal *objp)
        ok, and the other solutions are even uglier */
 
     if (!context &&
-	krb5_init_context(&context))
+	kadm5_init_krb5_context(&context))
        return(FALSE);
 
     switch(xdrs->x_op) {

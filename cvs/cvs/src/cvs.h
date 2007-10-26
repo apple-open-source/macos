@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  *
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS kit.
@@ -16,76 +21,62 @@
 # include <config.h>		/* this is stuff found via autoconf */
 #endif /* CONFIG_H */
 
-/* Changed from if __STDC__ to ifdef __STDC__ because of Sun's acc compiler */
+/* Add GNU attribute suppport.  */
+#ifndef __attribute__
+/* This feature is available in gcc versions 2.5 and later.  */
+# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5) || __STRICT_ANSI__
+#  define __attribute__(Spec) /* empty */
+# else
+#   if __GNUC__ == 2 && __GNUC_MINOR__ < 96
+#    define __pure__	/* empty */
+#   endif
+#   if __GNUC__ < 3
+#    define __malloc__	/* empty */
+#   endif
+# endif
+/* The __-protected variants of `format' and `printf' attributes
+   are accepted by gcc versions 2.6.4 (effectively 2.7) and later.  */
+# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 7)
+#  define __const__	const
+#  define __format__	format
+#  define __noreturn__	noreturn
+#  define __printf__	printf
+# endif
+#endif /* __attribute__ */
 
-#ifdef __STDC__
-#define	PTR	void *
-#else
-#define	PTR	char *
-#endif
+/* Some GNULIB headers require that we include system headers first.  */
+#include "system.h"
 
-/* Add prototype support.  */
-#ifndef PROTO
-#if defined (USE_PROTOTYPES) ? USE_PROTOTYPES : defined (__STDC__)
-#define PROTO(ARGS) ARGS
-#else
-#define PROTO(ARGS) ()
-#endif
-#endif
+/* begin GNULIB headers */
+#include "dirname.h"
+#include "exit.h"
+#include "getdate.h"
+#include "minmax.h"
+#include "regex.h"
+#include "strcase.h"
+#include "stat-macros.h"
+#include "timespec.h"
+#include "unlocked-io.h"
+#include "xalloc.h"
+#include "xgetcwd.h"
+#include "xreadlink.h"
+#include "xsize.h"
+/* end GNULIB headers */
 
-#include <stdio.h>
+#if ! STDC_HEADERS
+char *getenv();
+#endif /* ! STDC_HEADERS */
 
 /* Under OS/2, <stdio.h> doesn't define popen()/pclose(). */
 #ifdef USE_OWN_POPEN
 #include "popen.h"
 #endif
 
-/* Begin GNULIB headers.  */
-#include "xsize.h"
-/* End GNULIB headers.  */
-
-#ifdef STDC_HEADERS
-#include <stdlib.h>
-#else
-extern void exit ();
-extern char *getenv();
-#endif
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#ifdef HAVE_STRING_H
-#include <string.h>
-#else
-#include <strings.h>
-#endif
-
 #ifdef SERVER_SUPPORT
 /* If the system doesn't provide strerror, it won't be declared in
    string.h.  */
-char *strerror ();
+char *strerror (int);
 #endif
-
-#ifdef HAVE_FNMATCH
-# include <fnmatch.h> /* This is supposed to be available on Posix systems */
-#else /* HAVE_FNMATCH */
-# include "fnmatch.h" /* Our substitute */
-#endif /* HAVE_FNMATCH */
-
-#include <ctype.h>
-#include <pwd.h>
-#include <signal.h>
-
-#ifdef HAVE_ERRNO_H
-#include <errno.h>
-#else
-#ifndef errno
-extern int errno;
-#endif /* !errno */
-#endif /* HAVE_ERRNO_H */
-
-#include "system.h"
 
 #include "hash.h"
 #include "stack.h"
@@ -102,24 +93,19 @@ extern int errno;
 #include <ndbm.h>
 #endif /* MY_NDBM */
 
-#include "regex.h"
-#include "getopt.h"
 #include "wait.h"
 
 #include "rcs.h"
 
 
-/* This actually gets set in system.h.  Note that the _ONLY_ reason for
-   this is if various system calls (getwd, getcwd, readlink) require/want
-   us to use it.  All other parts of CVS allocate pathname buffers
-   dynamically, and we want to keep it that way.  */
-#ifndef PATH_MAX
-#ifdef MAXPATHLEN
-#define	PATH_MAX MAXPATHLEN+2
-#else
-#define	PATH_MAX 1024+2
-#endif
-#endif /* PATH_MAX */
+
+/* Note that the _ONLY_ reason for PATH_MAX is if various system calls (getwd,
+ * getcwd, readlink) require/want us to use it.  All other parts of CVS
+ * allocate pathname buffers dynamically, and we want to keep it that way.
+ */
+#include "pathmax.h"
+
+
 
 /* Definitions for the CVS Administrative directory and the files it contains.
    Here as #define's to make changing the names a simple task.  */
@@ -176,24 +162,28 @@ extern int errno;
  * entire source repository beginning at $CVSROOT.
  */
 #define	CVSROOTADM		"CVSROOT"
-#define	CVSROOTADM_MODULES	"modules"
-#define	CVSROOTADM_LOGINFO	"loginfo"
-#define	CVSROOTADM_RCSINFO	"rcsinfo"
-#define CVSROOTADM_COMMITINFO	"commitinfo"
-#define CVSROOTADM_TAGINFO      "taginfo"
-#define	CVSROOTADM_EDITINFO	"editinfo"
-#define CVSROOTADM_VERIFYMSG    "verifymsg"
-#define	CVSROOTADM_HISTORY	"history"
-#define CVSROOTADM_VALTAGS	"val-tags"
-#define	CVSROOTADM_IGNORE	"cvsignore"
 #define	CVSROOTADM_CHECKOUTLIST "checkoutlist"
-#define CVSROOTADM_WRAPPER	"cvswrappers"
-#define CVSROOTADM_NOTIFY	"notify"
-#define CVSROOTADM_USERS	"users"
-#define CVSROOTADM_READERS	"readers"
-#define CVSROOTADM_WRITERS	"writers"
-#define CVSROOTADM_PASSWD	"passwd"
+#define CVSROOTADM_COMMITINFO	"commitinfo"
 #define CVSROOTADM_CONFIG	"config"
+#define	CVSROOTADM_HISTORY	"history"
+#define	CVSROOTADM_IGNORE	"cvsignore"
+#define	CVSROOTADM_LOGINFO	"loginfo"
+#define	CVSROOTADM_MODULES	"modules"
+#define CVSROOTADM_NOTIFY	"notify"
+#define CVSROOTADM_PASSWD	"passwd"
+#define CVSROOTADM_POSTADMIN	"postadmin"
+#define CVSROOTADM_POSTPROXY	"postproxy"
+#define CVSROOTADM_POSTTAG	"posttag"
+#define CVSROOTADM_POSTWATCH	"postwatch"
+#define CVSROOTADM_PREPROXY	"preproxy"
+#define	CVSROOTADM_RCSINFO	"rcsinfo"
+#define CVSROOTADM_READERS	"readers"
+#define CVSROOTADM_TAGINFO      "taginfo"
+#define CVSROOTADM_USERS	"users"
+#define CVSROOTADM_VALTAGS	"val-tags"
+#define CVSROOTADM_VERIFYMSG    "verifymsg"
+#define CVSROOTADM_WRAPPER	"cvswrappers"
+#define CVSROOTADM_WRITERS	"writers"
 
 #define CVSNULLREPOS		"Emptydir"	/* an empty directory */
 
@@ -207,8 +197,12 @@ extern int errno;
 #define	CVSATTIC	"Attic"
 
 #define	CVSLCK		"#cvs.lock"
+#define	CVSHISTORYLCK	"#cvs.history.lock"
+#define	CVSVALTAGSLCK	"#cvs.val-tags.lock"
 #define	CVSRFL		"#cvs.rfl"
+#define	CVSPFL		"#cvs.pfl"
 #define	CVSWFL		"#cvs.wfl"
+#define CVSPFLPAT	"#cvs.pfl.*"	/* wildcard expr to match plocks */
 #define CVSRFLPAT	"#cvs.rfl.*"	/* wildcard expr to match read locks */
 #define	CVSEXT_LOG	",t"
 #define	CVSPREFIX	",,"
@@ -242,13 +236,9 @@ extern int errno;
 #define	CVSBRANCH	"1.1.1"		/* RCS branch used for vendor srcs */
 
 #ifdef USE_VMS_FILENAMES
-#define BAKPREFIX       "_$"
-#define DEVNULL         "NLA0:"
+# define BAKPREFIX	"_$"
 #else /* USE_VMS_FILENAMES */
-#define	BAKPREFIX	".#"		/* when rcsmerge'ing */
-#ifndef DEVNULL
-#define	DEVNULL		"/dev/null"
-#endif
+# define BAKPREFIX	".#"		/* when rcsmerge'ing */
 #endif /* USE_VMS_FILENAMES */
 
 /*
@@ -263,9 +253,10 @@ extern int errno;
 #define	CVSREAD_ENV	"CVSREAD"	/* make files read-only */
 #define	CVSREAD_DFLT	0		/* writable files by default */
 
-#define CVSREADONLYFS_ENV "CVSREADONLYFS" /* repository is read-only */
+#define	CVSREADONLYFS_ENV "CVSREADONLYFS" /* repository is read-only */
 
 #define	TMPDIR_ENV	"TMPDIR"	/* Temporary directory */
+#define	CVS_PID_ENV	"CVS_PID"	/* pid of running cvs */
 
 #define	EDITOR1_ENV	"CVSEDITOR"	/* which editor to use */
 #define	EDITOR2_ENV	"VISUAL"	/* which editor to use */
@@ -369,8 +360,11 @@ typedef enum direnter_type Dtype;
 #define CVS_LOCK_READ	1
 #define CVS_LOCK_WRITE	2
 
+/* Option flags for Parse_Info() */
+#define PIOPT_ALL 1	/* accept "all" keyword */
+
 extern const char *program_name, *program_path, *cvs_cmd_name;
-extern char *Tmpdir, *Editor;
+extern char *Editor;
 extern int cvsadmin_root;
 extern char *CurDir;
 extern int really_quiet, quiet;
@@ -378,6 +372,12 @@ extern int use_editor;
 extern int cvswrite;
 extern mode_t cvsumask;
 
+/* Temp dir abstraction.  */
+/* From main.c.  */
+const char *get_cvs_tmp_dir (void);
+/* From filesubr.c.  */
+const char *get_system_temp_dir (void);
+void push_env_temp_dir (void);
 
 
 /* This global variable holds the global -d option.  It is NULL if -d
@@ -385,26 +385,30 @@ extern mode_t cvsumask;
    from the CVSROOT environment variable or from a CVS/Root file.  */
 extern char *CVSroot_cmdline;
 
-/* These variables keep track of all of the CVSROOT directories that
-   have been seen by the client and the current one of those selected.  */
+/* This variable keeps track of all of the CVSROOT directories that
+ * have been seen by the client.
+ */
 extern List *root_directories;
-extern cvsroot_t *current_parsed_root;
 
-extern char *emptydir_name PROTO ((void));
-extern int safe_location PROTO ((char *));
+char *emptydir_name (void);
+int safe_location (char *);
 
 extern int trace;		/* Show all commands */
 extern int noexec;		/* Don't modify disk anywhere */
 extern int readonlyfs;		/* fail on all write locks; succeed all read locks */
 extern int logoff;		/* Don't write history entry */
 
-extern int top_level_admin;
 
 
 #define LOGMSG_REREAD_NEVER 0	/* do_verify - never  reread message */
 #define LOGMSG_REREAD_ALWAYS 1	/* do_verify - always reread message */
 #define LOGMSG_REREAD_STAT 2	/* do_verify - reread message if changed */
-extern int RereadLogAfterVerify;
+
+/* This header needs the LOGMSG_* defns above.  */
+#include "parseinfo.h"
+
+/* This structure holds the global configuration data.  */
+extern struct config *config;
 
 #ifdef CLIENT_SUPPORT
 extern List *dirs_sent_to_server; /* used to decide which "Argument
@@ -412,12 +416,12 @@ extern List *dirs_sent_to_server; /* used to decide which "Argument
 				     server in multiroot mode. */
 #endif
 
-extern char hostname[];
+extern char *hostname;
 
 /* Externs that are included directly in the CVS sources */
 
-int RCS_merge PROTO((RCSNode *, const char *, const char *, const char *,
-                     const char *, const char *));
+int RCS_merge (RCSNode *, const char *, const char *, const char *,
+               const char *, const char *);
 /* Flags used by RCS_* functions.  See the description of the individual
    functions for which flags mean what for each function.  */
 #define RCS_FLAGS_FORCE 1
@@ -427,83 +431,78 @@ int RCS_merge PROTO((RCSNode *, const char *, const char *, const char *,
 #define RCS_FLAGS_KEEPFILE 16
 #define RCS_FLAGS_USETIME 32
 
-extern int RCS_exec_rcsdiff PROTO ((RCSNode *rcsfile,
-				    const char *opts, const char *options,
-				    const char *rev1, const char *rev1_cache,
-                                    const char *rev2, const char *label1,
-                                    const char *label2, const char *workfile));
-extern int diff_exec PROTO ((const char *file1, const char *file2,
-			     const char *label1, const char *label2,
-			     const char *options, const char *out));
+int RCS_exec_rcsdiff (RCSNode *rcsfile, int diff_argc,
+                      char * const *diff_argv, const char *options,
+                      const char *rev1, const char *rev1_cache,
+                      const char *rev2,
+                      const char *label1, const char *label2,
+                      const char *workfile);
+int diff_exec (const char *file1, const char *file2,
+               const char *label1, const char *label2,
+               int iargc, char * const *iargv, const char *out);
 
 
 #include "error.h"
 
-DBM *open_module PROTO((void));
-FILE *open_file PROTO((const char *, const char *));
-List *Find_Directories PROTO((char *repository, int which, List *entries));
-void Entries_Close PROTO((List *entries));
-List *Entries_Open PROTO ((int aflag, char *update_dir));
-void Subdirs_Known PROTO((List *entries));
-void Subdir_Register PROTO((List *, const char *, const char *));
-void Subdir_Deregister PROTO((List *, const char *, const char *));
-
-char *Make_Date PROTO((char *rawdate));
-char *date_from_time_t PROTO ((time_t));
-void date_to_internet PROTO ((char *, const char *));
-void date_to_tm PROTO ((struct tm *, const char *));
-void tm_to_internet PROTO ((char *, const struct tm *));
-
-char *Name_Repository PROTO((const char *dir, const char *update_dir));
-const char *Short_Repository PROTO((const char *repository));
-void Sanitize_Repository_Name PROTO((char *repository));
-
-char *previous_rev PROTO ((RCSNode *rcs, const char *rev));
-char *gca PROTO ((const char *rev1, const char *rev2));
-extern void check_numeric PROTO ((const char *, int, char **));
-char *getcaller PROTO ((void));
-char *time_stamp PROTO ((const char *file));
-
-void *xmalloc PROTO((size_t bytes));
-void *xrealloc PROTO((void *ptr, size_t bytes));
-void expand_string PROTO ((char **, size_t *, size_t));
-void xrealloc_and_strcat PROTO ((char **, size_t *, const char *));
-char *xstrdup PROTO((const char *str));
-int strip_trailing_newlines PROTO((char *str));
-int pathname_levels PROTO ((const char *path));
-
-typedef	int (*CALLPROC)	PROTO((const char *repository, const char *value));
-int Parse_Info PROTO((const char *infofile, const char *repository,
-                      CALLPROC callproc, int all));
-extern int parse_config PROTO ((char *));
-
-typedef	RETSIGTYPE (*SIGCLEANUPPROC)	PROTO(());
-int SIG_register PROTO((int sig, SIGCLEANUPPROC sigcleanup));
-int isdir PROTO((const char *file));
-int isfile PROTO((const char *file));
-int islink PROTO((const char *file));
-int isdevice PROTO ((const char *));
-int isreadable PROTO((const char *file));
-int iswritable PROTO((const char *file));
-int isaccessible PROTO((const char *file, const int mode));
-int isabsolute PROTO((const char *filename));
-#ifdef HAVE_READLINK
-char *xreadlink PROTO((const char *link));
-#endif
-char *xresolvepath PROTO((const char *path));
-const char *last_component PROTO((const char *path));
-char *get_homedir PROTO ((void));
-char *strcat_filename_onto_homedir PROTO ((const char *, const char *));
-char *cvs_temp_name PROTO ((void));
-FILE *cvs_temp_file PROTO ((char **filename));
-
-int numdots PROTO((const char *s));
-char *increment_revnum PROTO ((const char *));
-int compare_revnums PROTO ((const char *, const char *));
-int unlink_file PROTO((const char *f));
-int unlink_file_dir PROTO((const char *f));
+/* If non-zero, error will use the CVS protocol to report error
+ * messages.  This will only be set in the CVS server parent process;
+ * most other code is run via do_cvs_command, which forks off a child
+ * process and packages up its stderr in the protocol.
+ *
+ * This needs to be here rather than in error.h in order to use an unforked
+ * error.h from GNULIB.
+ */
+extern int error_use_protocol;
 
 
+DBM *open_module (void);
+List *Find_Directories (char *repository, int which, List *entries);
+void Entries_Close (List *entries);
+List *Entries_Open (int aflag, char *update_dir);
+void Subdirs_Known (List *entries);
+void Subdir_Register (List *, const char *, const char *);
+void Subdir_Deregister (List *, const char *, const char *);
+
+void parse_tagdate (char **tag, char **date, const char *input);
+char *Make_Date (const char *rawdate);
+char *date_from_time_t (time_t);
+void date_to_internet (char *, const char *);
+void date_to_tm (struct tm *, const char *);
+void tm_to_internet (char *, const struct tm *);
+char *gmformat_time_t (time_t unixtime);
+char *format_date_alloc (char *text);
+
+char *Name_Repository (const char *dir, const char *update_dir);
+const char *Short_Repository (const char *repository);
+void Sanitize_Repository_Name (char *repository);
+
+char *entries_time (time_t unixtime);
+time_t unix_time_stamp (const char *file);
+char *time_stamp (const char *file);
+
+typedef	int (*CALLPROC)	(const char *repository, const char *value,
+                         void *closure);
+int Parse_Info (const char *infofile, const char *repository,
+                CALLPROC callproc, int opt, void *closure);
+
+typedef	RETSIGTYPE (*SIGCLEANUPPROC)	(int);
+int SIG_register (int sig, SIGCLEANUPPROC sigcleanup);
+bool isdir (const char *file);
+bool isfile (const char *file);
+ssize_t islink (const char *file);
+bool isdevice (const char *file);
+bool isreadable (const char *file);
+bool iswritable (const char *file);
+bool isaccessible (const char *file, const int mode);
+const char *last_component (const char *path);
+char *get_homedir (void);
+char *strcat_filename_onto_homedir (const char *, const char *);
+char *cvs_temp_name (void);
+FILE *cvs_temp_file (char **filename);
+
+int ls (int argc, char *argv[]);
+int unlink_file (const char *f);
+int unlink_file_dir (const char *f);
 
 /* This is the structure that the recursion processor passes to the
    fileproc to tell it about a particular file.  */
@@ -534,70 +533,76 @@ struct file_info
     RCSNode *rcs;
 };
 
+/* This needs to be included after the struct file_info definition since some
+ * of the functions subr.h defines refer to struct file_info.
+ */
+#include "subr.h"
 
-
-int update PROTO((int argc, char *argv[]));
+int update (int argc, char *argv[]);
 /* The only place this is currently used outside of update.c is add.c.
  * Restricting its use to update.c seems to be in the best interest of
  * modularity, but I can't think of a good way to get an update of a
  * resurrected file done and print the fact otherwise.
  */
-void write_letter PROTO ((struct file_info *finfo, int letter));
-int xcmp PROTO((const char *file1, const char *file2));
-int yesno PROTO((void));
-void *valloc PROTO((size_t bytes));
-time_t get_date PROTO((char *date, struct timeb *now));
-extern int Create_Admin PROTO ((const char *dir, const char *update_dir,
-                                const char *repository, const char *tag,
-                                const char *date,
-                                int nonbranch, int warn, int dotemplate));
-extern int expand_at_signs PROTO ((const char *, off_t, FILE *));
+void write_letter (struct file_info *finfo, int letter);
+int xcmp (const char *file1, const char *file2);
+void *valloc (size_t bytes);
+
+int Create_Admin (const char *dir, const char *update_dir,
+                  const char *repository, const char *tag, const char *date,
+                  int nonbranch, int warn, int dotemplate);
+int expand_at_signs (const char *, size_t, FILE *);
 
 /* Locking subsystem (implemented in lock.c).  */
 
-int Reader_Lock PROTO((char *xrepository));
-void Lock_Cleanup PROTO((void));
+int Reader_Lock (char *xrepository);
+void Simple_Lock_Cleanup (void);
+void Lock_Cleanup (void);
 
 /* Writelock an entire subtree, well the part specified by ARGC, ARGV, LOCAL,
    and AFLAG, anyway.  */
-void lock_tree_for_write PROTO ((int argc, char **argv, int local, int which,
-				 int aflag));
+void lock_tree_promotably (int argc, char **argv, int local, int which,
+			   int aflag);
 
 /* See lock.c for description.  */
-extern void lock_dir_for_write PROTO ((char *));
+void lock_dir_for_write (const char *);
 
-/* LockDir setting from CVSROOT/config.  */
-extern char *lock_dir;
+/* Get a write lock for the history file.  */
+int history_lock (const char *);
+void clear_history_lock (void);
 
-void Scratch_Entry PROTO((List * list, const char *fname));
-void ParseTag PROTO((char **tagp, char **datep, int *nonbranchp));
-void WriteTag PROTO ((const char *dir, const char *tag, const char *date,
-                      int nonbranch, const char *update_dir,
-                      const char *repository));
-void cat_module PROTO((int status));
-void check_entries PROTO((char *dir));
-void close_module PROTO((DBM * db));
-void copy_file PROTO((const char *from, const char *to));
-void fperrmsg PROTO((FILE * fp, int status, int errnum, char *message,...));
-void free_names PROTO((int *pargc, char *argv[]));
+/* Get a write lock for the val-tags file.  */
+int val_tags_lock (const char *);
+void clear_val_tags_lock (void);
 
-extern int ign_name PROTO ((char *name));
-void ign_add PROTO((char *ign, int hold));
-void ign_add_file PROTO((char *file, int hold));
-void ign_setup PROTO((void));
-void ign_dir_add PROTO((char *name));
-int ignore_directory PROTO((const char *name));
-typedef void (*Ignore_proc) PROTO ((const char *, const char *));
-extern void ignore_files PROTO ((List *, List *, const char *, Ignore_proc));
+void Scratch_Entry (List * list, const char *fname);
+void ParseTag (char **tagp, char **datep, int *nonbranchp);
+void WriteTag (const char *dir, const char *tag, const char *date,
+               int nonbranch, const char *update_dir, const char *repository);
+void WriteTemplate (const char *update_dir, int dotemplate,
+                    const char *repository);
+void cat_module (int status);
+void check_entries (char *dir);
+void close_module (DBM * db);
+void copy_file (const char *from, const char *to);
+void fperrmsg (FILE * fp, int status, int errnum, char *message,...);
+
+int ign_name (char *name);
+void ign_add (char *ign, int hold);
+void ign_add_file (char *file, int hold);
+void ign_setup (void);
+void ign_dir_add (char *name);
+int ignore_directory (const char *name);
+typedef void (*Ignore_proc) (const char *, const char *);
+void ignore_files (List *, List *, const char *, Ignore_proc);
 extern int ign_inhibit_server;
 
 #include "update.h"
 
-void line2argv PROTO ((int *pargc, char ***argv, char *line, char *sepchars));
-void make_directories PROTO((const char *name));
-void make_directory PROTO((const char *name));
-extern int mkdir_if_needed PROTO ((const char *name));
-void rename_file PROTO((const char *from, const char *to));
+void make_directories (const char *name);
+void make_directory (const char *name);
+int mkdir_if_needed (const char *name);
+void rename_file (const char *from, const char *to);
 /* Expand wildcards in each element of (ARGC,ARGV).  This is according to the
    files which exist in the current directory, and accordingly to OS-specific
    conventions regarding wildcard syntax.  It might be desirable to change the
@@ -605,75 +610,62 @@ void rename_file PROTO((const char *from, const char *to));
    in the working directory).  The result is placed in *PARGC and *PARGV;
    the *PARGV array itself and all the strings it contains are newly
    malloc'd.  It is OK to call it with PARGC == &ARGC or PARGV == &ARGV.  */
-extern void expand_wild PROTO ((int argc, char **argv, 
-                                int *pargc, char ***pargv));
+void expand_wild (int argc, char **argv, 
+                  int *pargc, char ***pargv);
 
-#ifdef SERVER_SUPPORT
-extern int cvs_casecmp PROTO ((const char *, const char *));
-#endif
+/* exithandle.c */
+void signals_register (RETSIGTYPE (*handler)(int));
+void cleanup_register (void (*handler) (void));
 
-void strip_trailing_slashes PROTO((char *path));
-void update_delproc PROTO((Node * p));
-void usage PROTO((const char *const *cpp));
-void xchmod PROTO((const char *fname, int writable));
-char *xgetwd PROTO((void));
-List *Find_Names PROTO((char *repository, int which, int aflag,
-                        List **optentries));
-void Register PROTO((List * list, const char *fname, const char *vn,
-                     const char *ts, const char *options, const char *tag,
-                     const char *date, const char *ts_conflict));
-void Update_Logfile PROTO((const char *repository, const char *xmessage,
-                           FILE * xlogfp, List * xchanges));
-void do_editor PROTO((const char *dir, char **messagep,
-		      const char *repository, List * changes));
+void update_delproc (Node * p);
+void usage (const char *const *cpp);
+void xchmod (const char *fname, int writable);
+List *Find_Names (char *repository, int which, int aflag,
+		  List ** optentries);
+void Register (List * list, const char *fname, const char *vn, const char *ts,
+               const char *options, const char *tag, const char *date,
+               const char *ts_conflict);
+void Update_Logfile (const char *repository, const char *xmessage,
+                     FILE *xlogfp, List *xchanges);
+void do_editor (const char *dir, char **messagep,
+                const char *repository, List *changes);
 
-void do_verify PROTO((char **messagep, const char *repository));
+void do_verify (char **messagep, const char *repository, List *changes);
 
-typedef	int (*CALLBACKPROC)	PROTO((int argc, char *argv[], char *where,
+typedef	int (*CALLBACKPROC)	(int argc, char *argv[], char *where,
 	char *mwhere, char *mfile, int shorten, int local_specified,
-	char *omodule, char *msg));
+	char *omodule, char *msg);
 
-typedef	int (*FILEPROC) PROTO ((void *callerdat, struct file_info *finfo));
-typedef	int (*FILESDONEPROC) PROTO ((void *callerdat, int err,
-                                     const char *repository,
-                                     const char *update_dir,
-                                     List *entries));
-typedef	Dtype (*DIRENTPROC) PROTO ((void *callerdat, const char *dir,
-				    const char *repos, const char *update_dir,
-				    List *entries));
-typedef	int (*DIRLEAVEPROC) PROTO ((void *callerdat, const char *dir, int err,
-				    const char *update_dir, List *entries));
 
-extern int mkmodules PROTO ((char *dir));
-extern int init PROTO ((int argc, char **argv));
+typedef	int (*FILEPROC) (void *callerdat, struct file_info *finfo);
+typedef	int (*FILESDONEPROC) (void *callerdat, int err,
+                              const char *repository, const char *update_dir,
+                              List *entries);
+typedef	Dtype (*DIRENTPROC) (void *callerdat, const char *dir,
+                             const char *repos, const char *update_dir,
+                             List *entries);
+typedef	int (*DIRLEAVEPROC) (void *callerdat, const char *dir, int err,
+                             const char *update_dir, List *entries);
 
-int do_module PROTO((DBM * db, char *mname, enum mtype m_type, char *msg,
+int mkmodules (char *dir);
+int init (int argc, char **argv);
+
+int do_module (DBM * db, char *mname, enum mtype m_type, char *msg,
 		CALLBACKPROC callback_proc, char *where, int shorten,
 		int local_specified, int run_module_prog, int build_dirs,
-		char *extra_arg));
-void history_write PROTO((int type, const char *update_dir, const char *revs,
-                          const char *name, const char *repository));
-int start_recursion PROTO((FILEPROC fileproc, FILESDONEPROC filesdoneproc,
+		char *extra_arg);
+void history_write (int type, const char *update_dir, const char *revs,
+                    const char *name, const char *repository);
+int start_recursion (FILEPROC fileproc, FILESDONEPROC filesdoneproc,
 		     DIRENTPROC direntproc, DIRLEAVEPROC dirleaveproc,
 		     void *callerdat,
 		     int argc, char *argv[], int local, int which,
 		     int aflag, int locktype, char *update_preload,
-		     int dosrcs, char *repository));
-void SIG_beginCrSect PROTO((void));
-void SIG_endCrSect PROTO((void));
-int SIG_inCrSect PROTO((void));
-void read_cvsrc PROTO((int *argc, char ***argv, const char *cmdname));
-
-char *make_message_rcslegal PROTO((const char *message));
-extern int file_has_conflict PROTO ((const struct file_info *,
-				     const char *ts_conflict));
-extern int file_has_markers PROTO ((const struct file_info *));
-extern void get_file PROTO ((const char *, const char *, const char *,
-			     char **, size_t *, size_t *));
-extern char *shell_escape PROTO((char *buf, const char *str));
-char *backup_file PROTO((const char *file, const char *suffix));
-extern void resolve_symlink PROTO ((char **filename));
-void sleep_past PROTO ((time_t desttime));
+		     int dosrcs, char *repository);
+void SIG_beginCrSect (void);
+void SIG_endCrSect (void);
+int SIG_inCrSect (void);
+void read_cvsrc (int *argc, char ***argv, const char *cmdname);
 
 /* flags for run_exec(), the fast system() for CVS */
 #define	RUN_NORMAL            0x0000    /* no special behaviour */
@@ -684,19 +676,22 @@ void sleep_past PROTO ((time_t desttime));
 #define	RUN_SIGIGNORE         0x0010    /* ignore interrupts for command */
 #define	RUN_TTY               (char *)0 /* for the benefit of lint */
 
-void run_arg PROTO((const char *s));
-void run_print PROTO((FILE * fp));
-void run_setup PROTO ((const char *prog));
-int run_exec PROTO((const char *stin, const char *stout, const char *sterr,
-		    int flags));
+void run_add_arg_p (int *, size_t *, char ***, const char *s);
+void run_arg_free_p (int, char **);
+void run_add_arg (const char *s);
+void run_print (FILE * fp);
+void run_setup (const char *prog);
+int run_exec (const char *stin, const char *stout, const char *sterr,
+              int flags);
+int run_piped (int *, int *);
 
 /* other similar-minded stuff from run.c.  */
-FILE *run_popen PROTO((const char *, const char *));
-int piped_child PROTO((const char **, int *, int *));
-void close_on_exec PROTO((int));
+FILE *run_popen (const char *, const char *);
+int piped_child (char *const *, int *, int *, bool);
+void close_on_exec (int);
 
-pid_t waitpid PROTO((pid_t, int *, int));
-
+pid_t waitpid (pid_t, int *, int);
+
 /*
  * a struct vers_ts contains all the information about a file including the
  * user and rcs file names, and the version checked out and the head.
@@ -711,9 +706,9 @@ struct vers_ts
 
        NULL = file is not mentioned in Entries (this is also used for a
 	      directory).
-       "" = ILLEGAL!  The comment used to say that it meant "no user file"
+       "" = INVALID!  The comment used to say that it meant "no user file"
 	    but as far as I know CVS didn't actually use it that way.
-	    Note that according to cvs.texinfo, "" is not legal in the
+	    Note that according to cvs.texinfo, "" is not valid in the
 	    Entries file.
        0 = user file is new
        -vers = user file to be removed.  */
@@ -767,25 +762,25 @@ struct vers_ts
 };
 typedef struct vers_ts Vers_TS;
 
-Vers_TS *Version_TS PROTO ((struct file_info *finfo, char *options, char *tag,
+Vers_TS *Version_TS (struct file_info *finfo, char *options, char *tag,
 			    char *date, int force_tag_match,
-			    int set_time));
-void freevers_ts PROTO ((Vers_TS ** versp));
+			    int set_time);
+void freevers_ts (Vers_TS ** versp);
 
 /* Miscellaneous CVS infrastructure which layers on top of the recursion
    processor (for example, needs struct file_info).  */
 
-int Checkin PROTO ((int type, struct file_info *finfo, char *rev,
-		    char *tag, char *options, char *message));
-int No_Difference PROTO ((struct file_info *finfo, Vers_TS *vers));
+int Checkin (int type, struct file_info *finfo, char *rev,
+	     char *tag, char *options, char *message);
+int No_Difference (struct file_info *finfo, Vers_TS *vers);
 /* TODO: can the finfo argument to special_file_mismatch be changed? -twp */
-int special_file_mismatch PROTO ((struct file_info *finfo,
-				  char *rev1, char *rev2));
+int special_file_mismatch (struct file_info *finfo,
+				  char *rev1, char *rev2);
 
 /* CVSADM_BASEREV stuff, from entries.c.  */
-extern char *base_get PROTO ((struct file_info *));
-extern void base_register PROTO ((struct file_info *, char *));
-extern void base_deregister PROTO ((struct file_info *));
+char *base_get (struct file_info *);
+void base_register (struct file_info *, char *);
+void base_deregister (struct file_info *);
 
 /*
  * defines for Classify_File() to determine the current state of a file.
@@ -808,9 +803,8 @@ enum classify_type
 };
 typedef enum classify_type Ctype;
 
-Ctype Classify_File PROTO
-    ((struct file_info *finfo, char *tag, char *date, char *options,
-      int force_tag_match, int aflag, Vers_TS **versp, int pipeout));
+Ctype Classify_File (struct file_info *finfo, char *tag, char *date, char *options,
+      int force_tag_match, int aflag, Vers_TS **versp, int pipeout);
 
 /*
  * structure used for list nodes passed to Update_Logfile() and
@@ -837,41 +831,42 @@ typedef enum {
     WRAP_RCSOPTION
 } WrapMergeHas;
 
-void  wrap_setup PROTO((void));
-int   wrap_name_has PROTO((const char *name,WrapMergeHas has));
-char *wrap_rcsoption PROTO ((const char *fileName, int asFlag));
-char *wrap_tocvs_process_file PROTO((const char *fileName));
-int   wrap_merge_is_copy PROTO((const char *fileName));
-void wrap_fromcvs_process_file PROTO ((const char *fileName));
-void wrap_add_file PROTO((const char *file,int temp));
-void wrap_add PROTO((char *line,int temp));
-void wrap_send PROTO ((void));
+void  wrap_setup (void);
+int   wrap_name_has (const char *name,WrapMergeHas has);
+char *wrap_rcsoption (const char *fileName, int asFlag);
+char *wrap_tocvs_process_file (const char *fileName);
+int   wrap_merge_is_copy (const char *fileName);
+void wrap_fromcvs_process_file (const char *fileName);
+void wrap_add_file (const char *file,int temp);
+void wrap_add (char *line,int temp);
+void wrap_send (void);
 #if defined(SERVER_SUPPORT) || defined(CLIENT_SUPPORT)
-void wrap_unparse_rcs_options PROTO ((char **, int));
+void wrap_unparse_rcs_options (char **, int);
 #endif /* SERVER_SUPPORT || CLIENT_SUPPORT */
 
 /* Pathname expansion */
-char *expand_path PROTO((const char *name, const char *file, int line));
+char *expand_path (const char *name, const char *cvsroot, bool formatsafe,
+		   const char *file, int line);
 
 /* User variables.  */
 extern List *variable_list;
 
-extern void variable_set PROTO ((char *nameval));
+void variable_set (char *nameval);
 
-int watch PROTO ((int argc, char **argv));
-int edit PROTO ((int argc, char **argv));
-int unedit PROTO ((int argc, char **argv));
-int editors PROTO ((int argc, char **argv));
-int watchers PROTO ((int argc, char **argv));
-extern int annotate PROTO ((int argc, char **argv));
-extern int add PROTO ((int argc, char **argv));
-extern int admin PROTO ((int argc, char **argv));
-extern int checkout PROTO ((int argc, char **argv));
-extern int commit PROTO ((int argc, char **argv));
-extern int diff PROTO ((int argc, char **argv));
-extern int history PROTO ((int argc, char **argv));
-extern int import PROTO ((int argc, char **argv));
-extern int cvslog PROTO ((int argc, char **argv));
+int watch (int argc, char **argv);
+int edit (int argc, char **argv);
+int unedit (int argc, char **argv);
+int editors (int argc, char **argv);
+int watchers (int argc, char **argv);
+int annotate (int argc, char **argv);
+int add (int argc, char **argv);
+int admin (int argc, char **argv);
+int checkout (int argc, char **argv);
+int commit (int argc, char **argv);
+int diff (int argc, char **argv);
+int history (int argc, char **argv);
+int import (int argc, char **argv);
+int cvslog (int argc, char **argv);
 #ifdef AUTH_CLIENT_SUPPORT
 /* Some systems (namely Mac OS X) have conflicting definitions for these
  * functions.  Avoid them.
@@ -882,40 +877,47 @@ extern int cvslog PROTO ((int argc, char **argv));
 #ifdef HAVE_LOGOUT
 # define logout		cvs_logout
 #endif /* HAVE_LOGOUT */
-extern int login PROTO((int argc, char **argv));
-extern int logout PROTO((int argc, char **argv));
+int login (int argc, char **argv);
+int logout (int argc, char **argv);
 #endif /* AUTH_CLIENT_SUPPORT */
-extern int patch PROTO((int argc, char **argv));
-extern int release PROTO((int argc, char **argv));
-extern int cvsremove PROTO((int argc, char **argv));
-extern int rtag PROTO((int argc, char **argv));
-extern int cvsstatus PROTO((int argc, char **argv));
-extern int cvstag PROTO((int argc, char **argv));
-extern int version PROTO((int argc, char **argv));
-
-extern unsigned long int lookup_command_attribute PROTO((char *));
+int patch (int argc, char **argv);
+int release (int argc, char **argv);
+int cvsremove (int argc, char **argv);
+int rtag (int argc, char **argv);
+int cvsstatus (int argc, char **argv);
+int cvstag (int argc, char **argv);
+int version (int argc, char **argv);
+
+unsigned long int lookup_command_attribute (const char *);
 
 #if defined(AUTH_CLIENT_SUPPORT) || defined(AUTH_SERVER_SUPPORT)
-char *scramble PROTO ((char *str));
-char *descramble PROTO ((char *str));
+char *scramble (char *str);
+char *descramble (char *str);
 #endif /* AUTH_CLIENT_SUPPORT || AUTH_SERVER_SUPPORT */
 
 #ifdef AUTH_CLIENT_SUPPORT
-char *get_cvs_password PROTO((void));
-int get_cvs_port_number PROTO((const cvsroot_t *root));
-char *normalize_cvsroot PROTO((const cvsroot_t *root));
+char *get_cvs_password (void);
+/* get_cvs_port_number() is not pure since the /etc/services file could change
+ * between calls.  */
+int get_cvs_port_number (const cvsroot_t *root);
+/* normalize_cvsroot() is not pure since it calls get_cvs_port_number.  */
+char *normalize_cvsroot (const cvsroot_t *root)
+	__attribute__ ((__malloc__));
 #endif /* AUTH_CLIENT_SUPPORT */
 
-extern void tag_check_valid PROTO ((char *, int, char **, int, int, char *));
-extern void tag_check_valid_join PROTO ((char *, int, char **, int, int,
-					 char *));
-
+void tag_check_valid (const char *, int, char **, int, int, char *, bool);
+
 #include "server.h"
 
 /* From server.c and documented there.  */
-extern void cvs_output PROTO ((const char *, size_t));
-extern void cvs_output_binary PROTO ((char *, size_t));
-extern void cvs_outerr PROTO ((const char *, size_t));
-extern void cvs_flusherr PROTO ((void));
-extern void cvs_flushout PROTO ((void));
-extern void cvs_output_tagged PROTO ((const char *, const char *));
+void cvs_output (const char *, size_t);
+void cvs_output_binary (char *, size_t);
+void cvs_outerr (const char *, size_t);
+void cvs_flusherr (void);
+void cvs_flushout (void);
+void cvs_output_tagged (const char *, const char *);
+
+extern const char *global_session_id;
+
+/* From find_names.c.  */
+List *find_files (const char *dir, const char *pat);

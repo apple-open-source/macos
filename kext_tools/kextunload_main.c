@@ -1,13 +1,35 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
 #include <libc.h>
 
 #include <IOKit/kext/KXKextManager.h>
+#include <utility.h>
 
-static char * progname = "(unknown)";
-static int verbose_level = kKXKextManagerLogLevelDefault; // -v, -q set this
-static mach_port_t gMasterPort;
+const char * progname = "(unknown)";
+int g_verbose_level = kKXKextManagerLogLevelDefault; // -v, -q set this
 
 static char calc_buffer[2] = "";
 static int kern_result_buffer_length = 80;
@@ -16,12 +38,10 @@ static char * kern_result_buffer;     // for formatting status messages
 /*******************************************************************************
 *******************************************************************************/
 
-// FIXME: Several of these belong in a separate module
 int format_kern_result(kern_return_t result);
-static void verbose_log(const char * format, ...);
-static void error_log(const char * format, ...);
-static void qerror(const char * format, ...);
-int addKextsToManager(
+
+// Do not use the addKextsToManager () call from utility.[hc]
+static int _addKextsToManager(
     KXKextManagerRef aManager,
     CFArrayRef kextNames,
     CFMutableArrayRef kextArray);
@@ -31,7 +51,8 @@ static void usage(int level);
 *******************************************************************************/
 
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char *argv[])
+{
     int exit_code = 0;
     int optchar;
     KXKextManagerRef myKextManager = NULL;   // must release
@@ -60,13 +81,6 @@ int main(int argc, const char *argv[]) {
         progname++;   // go past the '/'
     } else {
         progname = (char *)argv[0];
-    }
-
-    kern_result = IOMasterPort(NULL, &gMasterPort);
-    if (kern_result != KERN_SUCCESS) {
-        qerror("can't get I/O Kit master port\n");
-        exit_code = 1;
-        goto finish;
     }
 
    /*****
@@ -126,26 +140,26 @@ int main(int argc, const char *argv[]) {
             unload_personalities = false;
             break;
           case 'q':
-            if (verbose_level != kKXKextManagerLogLevelDefault) {
+            if (g_verbose_level != kKXKextManagerLogLevelDefault) {
                 qerror("duplicate use of -v and/or -q option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
-            verbose_level = kKXKextManagerLogLevelSilent;
+            g_verbose_level = kKXKextManagerLogLevelSilent;
             break;
           case 'v':
             {
                 const char * next;
 
-                if (verbose_level != kKXKextManagerLogLevelDefault) {
+                if (g_verbose_level != kKXKextManagerLogLevelDefault) {
                     qerror("duplicate use of -v and/or -q option\n\n");
                     usage(0);
                     exit_code = 1;
                     goto finish;
                 }
                 if (optind >= argc) {
-                    verbose_level = kKXKextManagerLogLevelBasic;
+                    g_verbose_level = kKXKextManagerLogLevelBasic;
                 } else {
                     next = argv[optind];
                     if ((next[0] == '0' || next[0] == '1' ||
@@ -154,13 +168,13 @@ int main(int argc, const char *argv[]) {
                          next[0] == '6') && next[1] == '\0') {
 
                         if (next[0] == '0') {
-                            verbose_level = kKXKextManagerLogLevelErrorsOnly;
+                            g_verbose_level = kKXKextManagerLogLevelErrorsOnly;
                         } else {
-                            verbose_level = atoi(next);
+                            g_verbose_level = atoi(next);
                         }
                         optind++;
                     } else {
-                        verbose_level = kKXKextManagerLogLevelBasic;
+                        g_verbose_level = kKXKextManagerLogLevelBasic;
                     }
                 }
             }
@@ -178,7 +192,7 @@ int main(int argc, const char *argv[]) {
     */
     for (i = 0; i < argc; i++) {
         CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
-              argv[i], kCFStringEncodingMacRoman);
+              argv[i], kCFStringEncodingUTF8);
         if (!kextName) {
             qerror("Can't create kext name string for \"%s\"; "
                 "no memory?\n", argv[i]);
@@ -219,7 +233,7 @@ int main(int argc, const char *argv[]) {
         goto finish;
     }
 
-    KXKextManagerSetLogLevel(myKextManager, verbose_level);
+    KXKextManagerSetLogLevel(myKextManager, g_verbose_level);
     KXKextManagerSetLogFunction(myKextManager, &verbose_log);
     KXKextManagerSetErrorLogFunction(myKextManager, &error_log);
 
@@ -234,7 +248,7 @@ int main(int argc, const char *argv[]) {
    /*****
     * Add each kext named on the command line to the manager.
     */
-    if (!addKextsToManager(myKextManager, kextNames, kexts)) {
+    if (!_addKextsToManager(myKextManager, kextNames, kexts)) {
         exit_code = 1;
         goto finish;
     }
@@ -257,7 +271,7 @@ int main(int argc, const char *argv[]) {
         char * kext_class_name = NULL;  // don't free
 
         kext_class_name = (char *)CFArrayGetValueAtIndex(kextClassNames, i);
-        kern_result = IOCatalogueTerminate(gMasterPort,
+        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
             kIOCatalogServiceTerminate,
             kext_class_name);
         if (kern_result == kIOReturnNotPrivileged) {
@@ -284,7 +298,7 @@ int main(int argc, const char *argv[]) {
         char * kext_id = NULL;  // don't free
 
         kext_id = (char *)CFArrayGetValueAtIndex(kextBundleIDs, i);
-        kern_result = IOCatalogueTerminate(gMasterPort,
+        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
             unload_personalities ? kIOCatalogModuleUnload :
                 kIOCatalogModuleTerminate,
             kext_id);
@@ -320,20 +334,20 @@ int main(int argc, const char *argv[]) {
         kextName = (CFStringRef)CFArrayGetValueAtIndex(kextNames, i);
         kextID = KXKextGetBundleIdentifier(theKext);
         if (!CFStringGetCString(kextName,
-            kext_name, sizeof(kext_name) - 1, kCFStringEncodingMacRoman)) {
+            kext_name, sizeof(kext_name) - 1, kCFStringEncodingUTF8)) {
 
             exit_code = 1;
             continue;
         }
 
         if (!CFStringGetCString(kextID,
-            kext_id, sizeof(kext_id) - 1, kCFStringEncodingMacRoman)) {
+            kext_id, sizeof(kext_id) - 1, kCFStringEncodingUTF8)) {
 
             exit_code = 1;
             continue;
         }
 
-        kern_result = IOCatalogueTerminate(gMasterPort,
+        kern_result = IOCatalogueTerminate(kIOMasterPortDefault,
             unload_personalities ? kIOCatalogModuleUnload :
                 kIOCatalogModuleTerminate,
             kext_id);
@@ -392,83 +406,10 @@ int format_kern_result(kern_return_t kern_result)
     return 1;
 }
 
-static void verbose_log(const char * format, ...)
-{
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-
-    if (verbose_level < kKXKextManagerLogLevelDefault) return;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("malloc failure\n");
-        return;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    va_start(ap, format);
-    fprintf(stdout, "%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    free(output_string);
-
-    return;
-}
-
-
-static void error_log(const char * format, ...)
-{
-    va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-
-    if (verbose_level < kKXKextManagerLogLevelErrorsOnly) return;
-
-    va_start(ap, format);
-    output_length = vsnprintf(fake_buffer, 1, format, ap);
-    va_end(ap);
-
-    output_string = (char *)malloc(output_length + 1);
-    if (!output_string) {
-        qerror("malloc failure\n");
-        return;
-    }
-
-    va_start(ap, format);
-    vsprintf(output_string, format, ap);
-    va_end(ap);
-
-    va_start(ap, format);
-    qerror("%s: %s\n", progname, output_string);
-    va_end(ap);
-
-    free(output_string);
-
-    return;
-}
-
-static void qerror(const char * format, ...)
-{
-    va_list ap;
-
-    if (verbose_level < kKXKextManagerLogLevelErrorsOnly) return;
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    return;
-}
-
-int addKextsToManager(
+/*******************************************************************************
+*
+*******************************************************************************/
+static int _addKextsToManager(
     KXKextManagerRef aManager,
     CFArrayRef kextNames,
     CFMutableArrayRef kextArray)

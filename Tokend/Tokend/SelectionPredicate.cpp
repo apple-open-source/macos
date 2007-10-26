@@ -68,4 +68,3 @@ bool SelectionPredicate::evaluate(TokenContext *tokenContext,
 
 }	// end namespace Tokend
 
-/* arch-tag: E96BD4DB-DF80-11D8-8EA7-000A95C4302E */

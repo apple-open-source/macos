@@ -1,16 +1,21 @@
 " Vim compiler file
-" Compiler:     Ruby syntax check and/or error reporting
-" Maintainer:   Tim Hammerquist <timmy@cpan.org>
-" Last Change:  Tue Jul 16 00:38:00 PDT 2002
+" Language:		Ruby
+" Function:		Syntax check and/or error reporting
+" Maintainer:		Tim Hammerquist <timh at rubyforge.org>
+" Info:			$Id: ruby.vim,v 1.6 2006/04/15 20:18:31 vimboss Exp $
+" URL:			http://vim-ruby.rubyforge.org
+" Anon CVS:		See above site
+" Release Coordinator:	Doug Kearns <dougkearns@gmail.com>
+" ----------------------------------------------------------------------------
 "
 " Changelog:
-" 0.2:  script saves and restores 'cpoptions' value to prevent problems with
-"       line continuations
-" 0.1:  initial release
+" 0.2:	script saves and restores 'cpoptions' value to prevent problems with
+"	line continuations
+" 0.1:	initial release
 "
 " Contributors:
 "   Hugh Sasse <hgs@dmu.ac.uk>
-"   Doug Kearns <djkea2@mugca.its.monash.edu.au>
+"   Doug Kearns <djkea2@gus.gscit.monash.edu.au>
 "
 " Todo:
 "   match error type %m
@@ -22,11 +27,16 @@
 "   This is my first experience with 'errorformat' and compiler plugins and
 "   I welcome any input from more experienced (or clearer-thinking)
 "   individuals.
+" ----------------------------------------------------------------------------
 
 if exists("current_compiler")
   finish
 endif
 let current_compiler = "ruby"
+
+if exists(":CompilerSet") != 2		" older Vim always used :setlocal
+  command -nargs=* CompilerSet setlocal <args>
+endif
 
 let s:cpo_save = &cpo
 set cpo-=C
@@ -34,15 +44,15 @@ set cpo-=C
 " default settings runs script normally
 " add '-c' switch to run syntax check only:
 "
-"   setlocal makeprg=ruby\ -wc\ $*
+"   CompilerSet makeprg=ruby\ -wc\ $*
 "
 " or add '-c' at :make command line:
 "
 "   :make -c %<CR>
 "
-setlocal makeprg=ruby\ -w\ $*
+CompilerSet makeprg=ruby\ -w\ $*
 
-setlocal errorformat=
+CompilerSet errorformat=
     \%+E%f:%l:\ parse\ error,
     \%W%f:%l:\ warning:\ %m,
     \%E%f:%l:in\ %*[^:]:\ %m,
@@ -55,4 +65,4 @@ setlocal errorformat=
 let &cpo = s:cpo_save
 unlet s:cpo_save
 
-" vim: ft=vim
+" vim: nowrap sw=2 sts=2 ts=8 ff=unix:

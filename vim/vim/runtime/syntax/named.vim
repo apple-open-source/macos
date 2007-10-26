@@ -2,9 +2,10 @@
 " Language:	BIND 8.x configuration file
 " Maintainer:	glory hump <rnd@web-drive.ru>
 " Last change:	Mon May 21 04:51:01 SAMST 2001
+" Updated:	by Marcin Dalecki 2004-12-31
 " Filenames:	named.conf
-" URL:	http://rnd.web-drive.ru/vim/syntax/named.vim
-" $Id$
+" URL:	http://rnd.web-drive.ru/vim/syntax/named.vim [DEFUNCT]
+" $Id: named.vim,v 1.3 2005/01/04 21:14:57 vimboss Exp $
 "
 " NOTE
 "    it was not widely tested, i just tried it on my simple
@@ -33,10 +34,11 @@ set cpo-=C
 " BIND configuration file
 
 syn match	namedComment	"//.*"
+syn match	namedComment	"#.*"
 syn region	namedComment	start="/\*" end="\*/"
 syn region	namedString	start=/"/ end=/"/ contained
-" --- omitted trailing semicolon FIXME
-syn match	namedError	/[^;{]$/
+" --- omitted trailing semicolon
+syn match	namedError	/[^;{#]$/
 
 " --- top-level keywords
 

@@ -73,6 +73,14 @@ int (*chap_verify_hook)(char *name, char *ourname, int id,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space) = NULL;
 
+#ifdef __APPLE__
+/* Hook for a plugin to validate unknown CHAP packets */
+int (*chap_unknown_hook)(char *name, char *ourname, int code, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *pkt, int pkt_len,
+			unsigned char *message, int message_space) = NULL;
+#endif
+
 /*
  * Option variables.
  */
@@ -160,6 +168,8 @@ static int		inside_UI = 0;
 static int chap_ui_fds[2];	/* files descriptors for UI thread */
 static   pthread_t chap_ui_thread; /* UI thread */
 static unsigned char *chap_saved_packet = 0;
+static int chap_ignore_failure = 0; /* ignore failure packet */
+static u_int8_t chap_ignore_failure_id = 0; /* ignore failure packet id */
 static unsigned char chap_last_message[MAXNAMELEN];
 static int		ask_password_mode = 0; /* 0 for retry, 1 for change */
 #endif
@@ -338,6 +348,9 @@ chap_generate_challenge(struct chap_server_state *ss)
 	p[3] = len;
 }
 
+#ifdef __APPLE__
+static char prev_name[MAXNAMELEN+1];
+#endif
 /*
  * chap_handle_response - check the response to our challenge.
  */
@@ -345,7 +358,7 @@ static void
 chap_handle_response(struct chap_server_state *ss, int id,
 		     unsigned char *pkt, int len)
 {
-	int response_len, ok, mlen;
+	int response_len, ok = 0, mlen;
 	unsigned char *response, *p;
 	unsigned char *name = NULL;	/* initialized to shut gcc up */
 	int (*verifier)(char *, char *, int, struct chap_digest_type *,
@@ -390,7 +403,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 				 response, message, sizeof(message));
 		if (!ok || !auth_number()) {
 			ss->flags |= AUTH_FAILED;
-			warning("Peer %q failed CHAP authentication", name);
+			//warning("Peer %q failed CHAP authentication", name);
 		}
 	}
 
@@ -399,7 +412,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 	MAKEHEADER(p, PPP_CHAP);
 	mlen = strlen(message);
 	len = CHAP_HDRLEN + mlen;
-	p[0] = (ss->flags & AUTH_FAILED)? CHAP_FAILURE: CHAP_SUCCESS;
+	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
 	p[1] = id;
 	p[2] = len >> 8;
 	p[3] = len;
@@ -407,11 +420,25 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		memcpy(p + CHAP_HDRLEN, message, mlen);
 	output(0, outpacket_buf, PPP_HDRLEN + len);
 
+#ifdef __APPLE__
+	prev_name[0] = 0;
+	if (ok == -1) {
+		/* need to set timer to resend the failure message*/
+		ss->flags |= CHALLENGE_VALID; // challenge is still valid
+		ss->challenge[PPP_HDRLEN+1]++;  // but bump packet id
+		
+		strcpy(prev_name, name);
+		return;		/* just return */
+	}
+#endif
+
 	if ((ss->flags & AUTH_DONE) == 0) {
 		ss->flags |= AUTH_DONE;
 		if (ss->flags & AUTH_FAILED) {
+			notice("CHAP peer authentication failed for %q", name);
 			auth_peer_fail(0, PPP_CHAP);
 		} else {
+			notice("CHAP peer authentication succeeded for %q", name);
 			auth_peer_success(0, PPP_CHAP, ss->digest->code,
 					  name, strlen(name));
 			if (chap_rechallenge_time) {
@@ -422,6 +449,76 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		}
 	}
 }
+
+#ifdef __APPLE__
+/*
+ * chap_handle_default - check handles for unknown packet.
+ */
+static void
+chap_handle_default(struct chap_server_state *ss, int code, int id,
+		     unsigned char *pkt, int len)
+{
+	int ok = 0, mlen;
+	unsigned char *p;
+	//unsigned char *name = NULL;	/* initialized to shut gcc up */
+	unsigned char message[256];
+
+	if (!chap_unknown_hook)
+		return;
+
+	if ((ss->flags & LOWERUP) == 0)
+		return;
+
+	message[0] = 0;
+
+	if ((ss->flags & AUTH_DONE) == 0) {
+
+		ok = (*chap_unknown_hook)(prev_name, ss->name, code, id, ss->digest,
+			 ss->challenge + PPP_HDRLEN + CHAP_HDRLEN,
+			 pkt, len, message, sizeof(message));
+		if (!ok) {
+			ss->flags |= AUTH_FAILED;
+			//warning("Peer %q failed CHAP authentication", prev_name);
+		}
+	}
+
+	if (ok == -2)
+		return;
+		
+	/* send the response */
+	p = outpacket_buf;
+	MAKEHEADER(p, PPP_CHAP);
+	mlen = strlen(message);
+	len = CHAP_HDRLEN + mlen;
+	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
+	p[1] = id;
+	p[2] = len >> 8;
+	p[3] = len;
+	if (mlen > 0)
+		memcpy(p + CHAP_HDRLEN, message, mlen);
+	output(0, outpacket_buf, PPP_HDRLEN + len);
+
+	if (ok == -1)
+		return;		/* just return */
+
+	if ((ss->flags & AUTH_DONE) == 0) {
+		ss->flags |= AUTH_DONE;
+		if (ss->flags & AUTH_FAILED) {
+			notice("CHAP peer authentication failed for %q", prev_name);
+			auth_peer_fail(0, PPP_CHAP);
+		} else {
+			notice("CHAP peer authentication succeeded for %q", prev_name);
+			auth_peer_success(0, PPP_CHAP, ss->digest->code,
+					  prev_name, strlen(prev_name));
+			if (chap_rechallenge_time) {
+				ss->flags |= TIMEOUT_PENDING;
+				TIMEOUT(chap_timeout, ss,
+					chap_rechallenge_time);
+			}
+		}
+	}
+}
+#endif
 
 /*
  * chap_verify_response - check whether the peer's response matches
@@ -485,6 +582,8 @@ chap_respond(struct chap_client_state *cs, int id,
 		warning("No CHAP secret found for authenticating us to %q", rname);
 	}
 
+	chap_ignore_failure = 0;
+	
 	p = response;
 	MAKEHEADER(p, PPP_CHAP);
 	p += CHAP_HDRLEN;
@@ -557,14 +656,21 @@ chap_wait_input_fd(void)
 		p = response;
 		MAKEHEADER(p, PPP_CHAP);
 
-		if (ask_password_mode == 1)
+		if (ask_password_mode == 1) {
 			err = cs->digest->make_change_password(p, cs->name, chap_saved_packet, 
 					  secret, secret_len, new_passwd, strlen(new_passwd),  cs->priv);
+			/* save new password if possible */
+			if (!err)
+				save_new_password();
+		}
 		else 
 			err = cs->digest->make_retry_password(p, cs->name, chap_saved_packet, 
 					  secret, secret_len,  cs->priv);
 
 		memset(secret, 0, secret_len);
+		
+		chap_ignore_failure = 1;
+		chap_ignore_failure_id = chap_saved_packet[1];
 		
 		free(chap_saved_packet);
 		chap_saved_packet = 0;
@@ -573,6 +679,7 @@ chap_wait_input_fd(void)
 			/* error occured, fail authentication */
 			return;
 		}
+				
 		nlen = p[2];
 		nlen <<= 8;
 		nlen += p[3];
@@ -686,6 +793,13 @@ chap_handle_status(struct chap_client_state *cs, int code, int id,
 			chap_last_message[0] = 0;
 			ret = (*cs->digest->handle_failure)(pkt, len, chap_last_message, sizeof(chap_last_message));
 			if (ret == 1) {
+				if (chap_ignore_failure) {
+					chap_ignore_failure = 0;
+					if (chap_ignore_failure_id == id) {
+						cs->flags &= ~AUTH_DONE;
+						return;
+					}
+				}
 				/* change password */
 				cs->flags = oldflags;
 				if (chap_ask_password(cs, id, pkt, len, 1) == 0)
@@ -694,6 +808,13 @@ chap_handle_status(struct chap_client_state *cs, int code, int id,
 					cs->flags |= AUTH_DONE;
 			}
 			else if (ret == 2) {
+				if (chap_ignore_failure) {
+					chap_ignore_failure = 0;
+					if (chap_ignore_failure_id == id) {
+						cs->flags &= ~AUTH_DONE;
+						return;
+					}
+				}
 				/* incorrect password, retry allowed */
 				cs->flags = oldflags;
 				if (chap_ask_password(cs, id, pkt, len, 0) == 0)
@@ -747,6 +868,11 @@ chap_input(int unit, unsigned char *pkt, int pktlen)
 	case CHAP_SUCCESS:
 		chap_handle_status(cs, code, id, pkt, len);
 		break;
+#ifdef __APPLE__
+	default:
+		chap_handle_default(ss, code, id, pkt, len);
+		break;
+#endif
 	}
 }
 
@@ -851,6 +977,7 @@ struct protent chap_protent = {
     NULL,
     NULL,
 #ifdef __APPLE__
+    NULL,
     NULL,
     NULL,
     NULL

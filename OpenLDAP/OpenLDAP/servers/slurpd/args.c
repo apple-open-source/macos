@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/args.c,v 1.25.2.5 2004/03/22 17:33:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/args.c,v 1.29.2.3 2006/01/03 22:16:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -79,7 +79,8 @@ doargs(
 
     while ( (i = getopt( argc, argv, "d:f:n:or:t:V" )) != EOF ) {
 	switch ( i ) {
-	case 'd':	/* set debug level and 'do not detach' flag */
+	case 'd': {	/* set debug level and 'do not detach' flag */
+	    int level;
 	    g->no_detach = 1;
 	    if ( optarg[0] == '?' ) {
 #ifdef LDAP_DEBUG
@@ -108,14 +109,19 @@ doargs(
 		return( -1 );
 	    }
 #ifdef LDAP_DEBUG
-	    ldap_debug |= atoi( optarg );
+	    if ( lutil_atoi( &level, optarg ) != 0 ) {
+		fprintf( stderr, "unable to parse debug flag \"%s\".\n", optarg );
+		usage( g->myname );
+		return( -1 );
+	    }
+	    ldap_debug |= level;
 #else /* !LDAP_DEBUG */
-	    if ( atoi( optarg ) != 0 )
+	    if ( lutil_atoi( &level, optarg ) != 0 || level != 0 )
 		/* can't enable debugging - not built with debug code */
 		fputs( "must compile with LDAP_DEBUG for debugging\n",
 		       stderr );
 #endif /* LDAP_DEBUG */
-	    break;
+	    } break;
 	case 'f':	/* slapd config file */
 	    LUTIL_SLASHPATH( optarg );
 	    g->slapd_configfile = strdup( optarg );

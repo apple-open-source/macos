@@ -1,8 +1,8 @@
 /* ldbm.h - ldap dbm compatibility routine header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/ldbm.h,v 1.1.2.2 2004/01/01 18:16:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/ldbm.h,v 1.2.2.2 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

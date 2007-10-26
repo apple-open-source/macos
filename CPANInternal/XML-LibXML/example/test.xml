@@ -1,0 +1,6 @@
+<x xmlns:xinclude="http://www.w3.org/2001/XInclude">
+<xml>
+test
+<xinclude:include href="test2.xml"/>
+</xml>
+</x>

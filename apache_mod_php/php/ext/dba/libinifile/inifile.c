@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: inifile.c,v 1.6.2.3.4.2 2007/01/01 09:46:41 sebastian Exp $ */
+/* $Id: inifile.c,v 1.14.2.1.2.3 2007/01/01 19:40:29 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -25,7 +25,6 @@
 #include "php.h"
 #include "php_globals.h"
 #include "safe_mode.h"
-#include "php_network.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -44,7 +43,7 @@
 /* {{{ inifile_version */
 char *inifile_version() 
 {
-	return "1.0, $Revision: 1.6.2.3.4.2 $";
+	return "1.0, $Revision: 1.14.2.1.2.3 $";
 }
 /* }}} */ 
 
@@ -84,18 +83,17 @@ void inifile_line_free(line_type *ln)
 inifile * inifile_alloc(php_stream *fp, int readonly, int persistent TSRMLS_DC)
 {
 	inifile *dba;
-	int fd = 0;
 
 	if (!readonly) {
-		if (SUCCESS != php_stream_cast(fp, PHP_STREAM_AS_FD, (void*)&fd, 1)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not cast stream");
+		if (!php_stream_truncate_supported(fp)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't truncate this stream");
 			return NULL;
 		}
 	}
+ 
 	dba = pemalloc(sizeof(inifile), persistent);
 	memset(dba, 0, sizeof(inifile));
 	dba->fp = fp;
-	dba->fd = fd;
 	dba->readonly = readonly;
 	return dba;
 }
@@ -316,8 +314,7 @@ static int inifile_truncate(inifile *dba, size_t size TSRMLS_DC)
 {
 	int res;
 
-	php_stream_flush(dba->fp);
-	if ((res=ftruncate(dba->fd, size)) != 0) {
+	if ((res=php_stream_truncate_set_size(dba->fp, size)) != 0) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error in ftruncate: %d", res);
 		return FAILURE;
 	}
@@ -407,7 +404,7 @@ static int inifile_copy_to(inifile *dba, size_t pos_start, size_t pos_end, inifi
 	}
 	php_stream_seek(dba->fp, pos_start, SEEK_SET);
 	if (!php_stream_copy_to_stream(dba->fp, fp, pos_end - pos_start)) {
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy group [%d - %d] to temporary stream", pos_start, pos_end);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy group [%zu - %zu] to temporary stream", pos_start, pos_end);
 		return FAILURE;
 	} 
 	return SUCCESS;
@@ -432,7 +429,7 @@ static int inifile_filter(inifile *dba, inifile *from, const key_type *key TSRML
 			if (pos_start != pos_next) {
 				php_stream_seek(from->fp, pos_start, SEEK_SET);
 				if (!php_stream_copy_to_stream(from->fp, dba->fp, pos_next - pos_start)) {
-					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy [%d - %d] from temporary stream", pos_next, pos_start);
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy [%zu - %zu] from temporary stream", pos_next, pos_start);
 					ret = FAILURE;
 				}
 				php_stream_seek(from->fp, pos_curr, SEEK_SET);
@@ -451,7 +448,7 @@ static int inifile_filter(inifile *dba, inifile *from, const key_type *key TSRML
 	if (pos_start != pos_next) {
 		php_stream_seek(from->fp, pos_start, SEEK_SET);
 		if (!php_stream_copy_to_stream(from->fp, dba->fp, pos_next - pos_start)) {
-			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy [%d - %d] from temporary stream", pos_next, pos_start);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not copy [%zu - %zu] from temporary stream", pos_next, pos_start);
 			ret = FAILURE;
 		}
 	}
@@ -541,7 +538,7 @@ static int inifile_delete_replace_append(inifile *dba, const key_type *key, cons
 			php_stream_seek(fp_tmp, 0, SEEK_SET);
 			php_stream_seek(dba->fp, 0, SEEK_END);
 			if (!php_stream_copy_to_stream(fp_tmp, dba->fp, PHP_STREAM_COPY_ALL)) {
-				php_error_docref(NULL TSRMLS_CC, E_ERROR, "Could not copy from temporary stream - ini file truncated");
+				php_error_docref(NULL TSRMLS_CC, E_RECOVERABLE_ERROR, "Could not copy from temporary stream - ini file truncated");
 				ret = FAILURE;
 			}
 		}

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getpart.c,v 1.16 2005/02/24 18:54:23 danf Exp $
+ * $Id: getpart.c,v 1.23 2007-01-23 20:24:26 danf Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -32,13 +32,19 @@
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
+/* just to please base64.h we create a fake struct */
+struct SessionHandle {
+  int fake;
+};
+
 #include "base64.h"
 
 /* include memdebug.h last */
 #include "memdebug.h"
 
-#define EAT_SPACE(ptr) while( ptr && *ptr && isspace((int)*ptr) ) ptr++
-#define EAT_WORD(ptr) while( ptr && *ptr && !isspace((int)*ptr) && ('>' != *ptr)) ptr++
+#define EAT_SPACE(ptr) while( ptr && *ptr && ISSPACE(*ptr) ) ptr++
+#define EAT_WORD(ptr) while( ptr && *ptr && !ISSPACE(*ptr) && \
+                            ('>' != *ptr)) ptr++
 
 #ifdef DEBUG
 #define show(x) printf x
@@ -114,6 +120,7 @@ const char *spitout(FILE *stream,
 
   enum {
     STATE_OUTSIDE,
+    STATE_OUTER,
     STATE_INMAIN,
     STATE_INSUB,
     STATE_ILLEGAL
@@ -167,6 +174,10 @@ const char *spitout(FILE *stream,
         cmain[0]=0; /* no main anymore */
         display=0;
       }
+      else if(state == STATE_OUTER) {
+        /* this is the end of the outermost file section */
+        state--;
+      }
     }
     else if(!display) {
       /* this is the beginning of a section */
@@ -176,6 +187,12 @@ const char *spitout(FILE *stream,
       *end = 0;
       switch(state) {
       case STATE_OUTSIDE:
+        /* Skip over the outermost element (<testcase>), but if it turns out
+           to be a comment, completely ignore it below */
+        strcpy(cmain, ptr);
+        state = STATE_OUTER;
+        break;
+      case STATE_OUTER:
         strcpy(cmain, ptr);
         state = STATE_INMAIN;
         break;
@@ -191,7 +208,7 @@ const char *spitout(FILE *stream,
         /* There might be attributes here. Check for those we know of and care
            about. */
         if(strstr(&end[1], "base64=")) {
-          /* rought and dirty, but "mostly" functional */
+          /* rough and dirty, but "mostly" functional */
           /* Treat all data as base64 encoded */
           base64 = 1;
         }
@@ -208,6 +225,11 @@ const char *spitout(FILE *stream,
       show(("* (%d bytes) %s\n", stringlen, buffer));
       display = 1; /* start displaying */
     }
+    else if ((*cmain == '?') || (*cmain == '!') || (*csub == '!')) {
+        /* Ignore comments, DOCTYPEs and XML declarations */
+        show(("%d ignoring (%s/%s)\n", state, cmain, csub));
+        state--;
+    }
     else {
       show(("%d (%s/%s): %s\n", state, cmain, csub, buffer));
       display = 0; /* no display */
@@ -218,19 +240,3 @@ const char *spitout(FILE *stream,
   return string;
 }
 
-#ifdef GETPART_TEST
-int main(int argc, char **argv)
-{
-  if(argc< 3) {
-    printf("./moo main sub\n");
-  }
-  else {
-    size_t size;
-    unsigned int i;
-    const char *buffer = spitout(stdin, argv[1], argv[2], &size);
-    for(i=0; i< size; i++)
-      printf("%c", buffer[i]);
-  }
-  return 0;
-}
-#endif

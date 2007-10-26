@@ -59,9 +59,9 @@
     
     interfaceClass = GetInterfaceClassAndSubClass(&interfaceDescriptor.bInterfaceClass);
 
-    [thisDevice addProperty:"Interface Class:" withValue:(char *)[[interfaceClass classDescription] cString] atDepth:INTERFACE_LEVEL];
-    [thisDevice addProperty:"Interface Subclass;" withValue:(char *)[[interfaceClass subclassDescription] cString] atDepth:INTERFACE_LEVEL];
-    [thisDevice addProperty:"Interface Protocol:" withValue:(char *)[[interfaceClass protocolDescription] cString] atDepth:INTERFACE_LEVEL];
+    [thisDevice addProperty:"Interface Class:" withValue:(char *)[[interfaceClass classDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
+    [thisDevice addProperty:"Interface Subclass;" withValue:(char *)[[interfaceClass subclassDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
+    [thisDevice addProperty:"Interface Protocol:" withValue:(char *)[[interfaceClass protocolDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
     
     tempString1 = [interfaceClass className];
     
@@ -122,14 +122,14 @@
         tempString1 = tempString2;
     }
     
-    [thisDevice addProperty:"Interface Association" withValue:(char *)([tempString1 cString]) atDepth:INTERFACE_LEVEL-1];
+    [thisDevice addProperty:"Interface Association" withValue:(char *)([tempString1 cStringUsingEncoding:NSUTF8StringEncoding]) atDepth:INTERFACE_LEVEL-1];
     headingNode = [[thisDevice rootNode] deepestChild];
     
     [thisDevice addNumberProperty:"First Interface" value: interfaceAssocDescriptor.bFirstInterface size:sizeof(interfaceAssocDescriptor.bFirstInterface) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
     [thisDevice addNumberProperty:"Interface Count" value: interfaceAssocDescriptor.bInterfaceCount size:sizeof(interfaceAssocDescriptor.bInterfaceCount) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
     
-    [thisDevice addProperty:"Function Class" withValue:(char *)[[interfaceAssocClass classDescription] cString] atDepth:INTERFACE_LEVEL];
-    [thisDevice addProperty:"Function Subclass" withValue:(char *)[[interfaceAssocClass subclassDescription] cString] atDepth:INTERFACE_LEVEL];
+    [thisDevice addProperty:"Function Class" withValue:(char *)[[interfaceAssocClass classDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
+    [thisDevice addProperty:"Function Subclass" withValue:(char *)[[interfaceAssocClass subclassDescription] cStringUsingEncoding:NSUTF8StringEncoding] atDepth:INTERFACE_LEVEL];
     
     [thisDevice addNumberProperty:"Interface Protocol" value: interfaceAssocDescriptor.bFunctionProtocol size:sizeof(interfaceAssocDescriptor.bFunctionProtocol) atDepth:INTERFACE_LEVEL usingStyle:kIntegerOutputStyle];
 

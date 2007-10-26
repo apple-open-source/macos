@@ -44,7 +44,7 @@ enum
 static void
 breakpoint_notify (int b, int pending_bp)
 {
-  gdb_breakpoint_query (uiout, b);
+  gdb_breakpoint_query (uiout, b, NULL);
 }
 
 
@@ -214,9 +214,9 @@ mi_cmd_break_insert (char *command, char **argv, int argc)
     }
 
   if (optind >= argc)
-    error ("mi_cmd_break_insert: Missing <location>");
+    error (_("mi_cmd_break_insert: Missing <location>"));
   if (optind < argc - 1)
-    error ("mi_cmd_break_insert: Garbage following <location>");
+    error (_("mi_cmd_break_insert: Garbage following <location>"));
   address = argv[optind];
 
   /* APPLE LOCAL: realpath() the incoming shlib name, as we do with all
@@ -232,32 +232,35 @@ mi_cmd_break_insert (char *command, char **argv, int argc)
     }
 
   /* Now we have what we need, let's insert the breakpoint! */
-  old_hooks = set_gdb_event_hooks (&breakpoint_hooks);
+  old_hooks = deprecated_set_gdb_event_hooks (&breakpoint_hooks);
   switch (type)
     {
     case REG_BP:
       rc = gdb_breakpoint (address, condition,
 			   0 /*hardwareflag */ , temp_p,
 			   0 /* futureflag */, thread, 
-			   ignore_count, indices, requested_shlib);
+			   ignore_count, indices, requested_shlib,
+			   &mi_error_message);
       break;
     case HW_BP:
       rc = gdb_breakpoint (address, condition,
 			   1 /*hardwareflag */ , temp_p,
 			   0 /* futureflag */, thread, 
-			   ignore_count, indices, requested_shlib);
+			   ignore_count, indices, requested_shlib,
+			   &mi_error_message);
       break;
     case FUT_BP:
       rc = gdb_breakpoint (address, condition,
 			   0, temp_p,
 			   1 /* futureflag */, thread, 
-			   ignore_count, indices, requested_shlib);
+			   ignore_count, indices, requested_shlib,
+			   &mi_error_message);
       break;
 
 #if 0
     case REGEXP_BP:
       if (temp_p)
-	error ("mi_cmd_break_insert: Unsupported tempoary regexp breakpoint");
+	error (_("mi_cmd_break_insert: Unsupported tempoary regexp breakpoint"));
       else
 	rbreak_command_wrapper (address, FROM_TTY);
       return MI_CMD_DONE;
@@ -265,15 +268,17 @@ mi_cmd_break_insert (char *command, char **argv, int argc)
 #endif
     default:
       internal_error (__FILE__, __LINE__,
-		      "mi_cmd_break_insert: Bad switch.");
+		      _("mi_cmd_break_insert: Bad switch."));
     }
-  set_gdb_event_hooks (old_hooks);
 
+  deprecated_set_gdb_event_hooks (old_hooks);
+
+  /* APPLE LOCAL huh? */
   if (indices_cleanup != NULL)
     do_cleanups (indices_cleanup);
 
   if (rc == GDB_RC_FAIL)
-    return MI_CMD_CAUGHT_ERROR;
+    return MI_CMD_ERROR;
   else
     return MI_CMD_DONE;
 }
@@ -296,14 +301,16 @@ mi_cmd_break_watch (char *command, char **argv, int argc)
 {
   char *expr = NULL;
   enum wp_type type = REG_WP;
+  int watch_location = 0;
   enum opt
     {
-      READ_OPT, ACCESS_OPT
+      READ_OPT, ACCESS_OPT, LOCATION_OPT
     };
   static struct mi_opt opts[] =
   {
     {"r", READ_OPT, 0},
     {"a", ACCESS_OPT, 0},
+    {"l", LOCATION_OPT, 0},
     0
   };
 
@@ -323,28 +330,31 @@ mi_cmd_break_watch (char *command, char **argv, int argc)
 	case ACCESS_OPT:
 	  type = ACCESS_WP;
 	  break;
+	case LOCATION_OPT:
+	  watch_location = 1;
+	  break;
 	}
     }
   if (optind >= argc)
-    error ("mi_cmd_break_watch: Missing <expression>");
+    error (_("mi_cmd_break_watch: Missing <expression>"));
   if (optind < argc - 1)
-    error ("mi_cmd_break_watch: Garbage following <expression>");
+    error (_("mi_cmd_break_watch: Garbage following <expression>"));
   expr = argv[optind];
 
   /* Now we have what we need, let's insert the watchpoint! */
   switch (type)
     {
     case REG_WP:
-      watch_command_wrapper (expr, FROM_TTY);
+      watch_command_wrapper (expr, watch_location, FROM_TTY);
       break;
     case READ_WP:
-      rwatch_command_wrapper (expr, FROM_TTY);
+      rwatch_command_wrapper (expr, watch_location, FROM_TTY);
       break;
     case ACCESS_WP:
-      awatch_command_wrapper (expr, FROM_TTY);
+      awatch_command_wrapper (expr, watch_location, FROM_TTY);
       break;
     default:
-      error ("mi_cmd_break_watch: Unknown watchpoint type.");
+      error (_("mi_cmd_break_watch: Unknown watchpoint type."));
     }
   return MI_CMD_DONE;
 }
@@ -496,7 +506,7 @@ mi_interp_create_breakpoint_hook (struct breakpoint *bpt)
 
   list_cleanup = make_cleanup_ui_out_list_begin_end (uiout, "MI_HOOK_RESULT");
   ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_create");
-  gdb_breakpoint_query (uiout, bpt->number);
+  gdb_breakpoint_query (uiout, bpt->number, NULL);
   do_cleanups (list_cleanup);
   uiout = saved_ui_out; 
 }
@@ -519,7 +529,7 @@ mi_interp_modify_breakpoint_hook (struct breakpoint *bpt)
 
   list_cleanup = make_cleanup_ui_out_list_begin_end (uiout, "MI_HOOK_RESULT");
   ui_out_field_string (uiout, "HOOK_TYPE", "breakpoint_modify");
-  gdb_breakpoint_query (uiout, bpt->number);
+  gdb_breakpoint_query (uiout, bpt->number, NULL);
   do_cleanups (list_cleanup);
   uiout = saved_ui_out; 
 }
@@ -564,7 +574,18 @@ mi_async_breakpoint_resolve_event (int pending_b, int new_b)
   bpt = find_breakpoint (new_b);
   if (bpt->addr_string != NULL)
     ui_out_field_string (uiout, "new_expr", bpt->addr_string);
-  gdb_breakpoint_query (uiout, new_b);
+
+  /* APPLE LOCAL: Need to tell the UI whether the breakpoint condition was not
+     successfully evaluated, so it can put up an appropriate warning.  */
+  if (bpt->cond_string != NULL)
+    {
+      if (bpt->cond == NULL)
+	ui_out_field_int (uiout, "condition_valid", 0); 
+      else
+	ui_out_field_int (uiout, "condition_valid", 1); 
+    }
+  /* END APPLE LOCAL  */
+  gdb_breakpoint_query (uiout, new_b, NULL);
   
   do_cleanups (old_chain);
 }

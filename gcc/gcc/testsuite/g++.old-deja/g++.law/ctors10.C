@@ -8,7 +8,8 @@
 
 #include <iostream>
 
-class Class
+// APPLE LOCAL mainline 2006-10-13 3904173
+class Klasse
 {
         class Err : public std::ostream
         {

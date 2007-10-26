@@ -1,0 +1,29 @@
+--- examples/Makefile.in.orig	Sun Jan 19 18:21:17 2003
++++ examples/Makefile.in	Tue Jul 13 09:08:46 2004
+@@ -126,5 +126,5 @@
+ 
+ echo_cpp_SOURCES = $(INCLUDE_FILES) $(INCLUDEDIR)/fcgio.h echo-cpp.cpp
+-echo_cpp_LDADD = $(LIBDIR)/libfcgi++.la
++echo_cpp_LDADD = $(LIBDIR)/libfcgi++.la $(LIBFCGI)
+ subdir = examples
+ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+--- libfcgi/Makefile.in.orig	Sun Jan 19 18:21:18 2003
++++ libfcgi/Makefile.in	Tue Jul 13 09:08:23 2004
+@@ -116,5 +116,5 @@
+ 
+ libfcgi___la_CFLAGS = @PTHREAD_CFLAGS@
+-libfcgi___la_LDFLAGS = -lfcgi -rpath @libdir@
++libfcgi___la_LDFLAGS = -rpath @libdir@
+ subdir = libfcgi
+ mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+--- Makefile.in.orig	2006-06-06 02:02:32.000000000 +0200
++++ Makefile.in	2006-06-06 02:02:45.000000000 +0200
+@@ -93,7 +93,7 @@
+ am__quote = @am__quote@
+ install_sh = @install_sh@
+ 
+-SUBDIRS = libfcgi cgi-fcgi examples include
++SUBDIRS = libfcgi include
+ 
+ include_HEADERS = fcgi_config.h
+ 

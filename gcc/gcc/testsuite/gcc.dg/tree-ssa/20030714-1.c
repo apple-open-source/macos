@@ -14,7 +14,8 @@ struct rtx_def
   enum rtx_code code:16;
   unsigned frame_related:1;
 };
-static rtx
+/* APPLE LOCAL mainline 4840357 */
+rtx
 find_base_value (src)
      rtx src;
 {

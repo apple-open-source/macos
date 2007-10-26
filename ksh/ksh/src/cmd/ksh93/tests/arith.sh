@@ -1,35 +1,32 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1982-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#                David Korn <dgk@research.att.com>                 #
-#                                                                  #
-####################################################################
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1982-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                  David Korn <dgk@research.att.com>                   #
+#                                                                      #
+########################################################################
 function err_exit
 {
 	print -u2 -n "\t"
-	print -u2 -r $Command[$1]: "${@:2}"
+	print -u2 -r ${Command}[$1]: "${@:2}"
 	let Errors+=1
 }
 alias err_exit='err_exit $LINENO'
 
-Command=$0
+Command=${0##*/}
+trap '' FPE # NOTE: osf.alpha requires this (no ieee math)
 integer Errors=0
 integer x=1 y=2 z=3
 if	(( 2+2 != 4 ))
@@ -319,8 +316,9 @@ if	[[ $(print x$((10))=foo) != x10=foo ]]
 then	err_exit 'parsing error with x$((10))=foo'
 fi
 $SHELL -c 'typeset x$((10))=foo' 2> /dev/null || err_exit 'typeset x$((10)) parse error'
+unset x
 x=$(( exp(log(2.0)) ))
-(( x > 1.999 && x < 2.001 )) || err_exit 'composit functions not working'
+(( x > 1.999 && x < 2.001 )) || err_exit 'composite functions not working'
 unset x y n
 typeset -Z8 x=0 y=0
 integer n
@@ -348,6 +346,10 @@ do	(( ipx = ip % 256 ))
 done	
 unset x
 x=010
+(( x == 8 )) || err_exit 'leading zeros not treated as octal arithmetic'
+(( $x == 8 )) || err_exit 'leading zeros not treated as octal arithmetic with $x'
+unset x
+typeset -Z x=010
 (( x == 10 )) || err_exit 'leading zeros not ignored for arithmetic'
 (( $x == 10 )) || err_exit 'leading zeros not ignored for arithmetic with $x'
 typeset -i i=x
@@ -357,7 +359,108 @@ c010=3
 (( c$x  == 3 )) || err_exit 'leading zero with variable should not be stripped'
 [[ $( ($SHELL -c '((++1))' 2>&1)2>/dev/null ) == *lvalue* ]] || err_exit "((--1)) not generating error message"
 i=2
-(( "22" == 22 )) || print err_exit "double quoted constants fail"
-(( "2$i" == 22 )) || print err_exit "double quoted variables fail"
-(( "18+$i+2" == 22 )) || print err_exit "double quoted expressions fail"
+(( "22" == 22 )) || err_exit "double quoted constants fail"
+(( "2$i" == 22 )) || err_exit "double quoted variables fail"
+(( "18+$i+2" == 22 )) || err_exit "double quoted expressions fail"
+# 04-04-28 bug fix
+unset i; typeset -i i=01-2
+(( i == -1 )) || err_exit "01-2 is not -1"
+
+trap 'rm -f /tmp/script$$ /tmp/data$$.[12]' EXIT
+cat > /tmp/script$$ <<-\!
+tests=$*
+typeset -A blop
+function blop.get
+{
+	.sh.value=777
+}
+function mkobj
+{
+	nameref obj=$1
+	obj=()
+	[[ $tests == *1* ]] && {
+		(( obj.foo = 1 ))
+		(( obj.bar = 2 ))
+		(( obj.baz = obj.foo + obj.bar ))	# ok
+		echo $obj
+	}
+	[[ $tests == *2* ]] && {
+		(( obj.faz = faz = obj.foo + obj.bar ))	# ok
+		echo $obj
+	}
+	[[ $tests == *3* ]] && {
+		# case 3, 'active' variable involved, w/ intermediate variable
+		(( obj.foz = foz = ${blop[1]} ))	# coredump
+		echo $obj
+	}
+	[[ $tests == *4* ]] && {
+		# case 4, 'active' variable, in two steps
+		(( foz = ${blop[1]} ))	# ok
+		(( obj.foz = foz ))		# ok
+		echo $obj
+	}
+	[[ $tests == *5* ]] && {
+		# case 5, 'active' variable involved, w/o intermediate variable
+		(( obj.fuz = ${blop[1]} ))	# coredump
+		echo $obj
+	}
+	[[ $tests == *6* ]] && {
+		echo $(( obj.baz = obj.foo + obj.bar ))	# coredump
+	}
+	[[ $tests == *7* ]] && {
+		echo $(( obj.foo + obj.bar ))	# coredump
+	}
+}
+mkobj bla
+!
+chmod +x /tmp/script$$
+[[ $(/tmp/script$$ 1) != '( bar=2 baz=3 foo=1 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 2) != '( faz=0 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 3) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 4) != '( foz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 5) != '( fuz=777 )' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 6) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+[[ $(/tmp/script$$ 7) != '0' ]] 2>/dev/null && err_exit 'compound var arithmetic failed'
+unset foo
+typeset -F1 foo=123456789.19
+[[ $foo == 123456789.2 ]] || err_exit 'typeset -F1 not working correctly'
+
+# divide by zero
+
+for expr in '1/(1/2)' '8%(1/2)' '8%(1.0/2)'
+do	[[ $( ( $SHELL -c "( (($expr)) )  || print ok" ) 2>/dev/null ) == ok ]] || err_exit "divide by zero not trapped: $expr"
+done
+
+for expr in '1/(1.0/2)' '1/(1/2.0)'
+do	[[ $( ( $SHELL -c "( print -r -- \$(($expr)) )" ) 2>/dev/null ) == 2 ]] || err_exit "invalid value for: $expr"
+done
+[[ $((5||0)) == 1 ]] || err_exit '$((5||0))'" == $((5||0)) should be 1"
+$SHELL -c 'integer x=3 y=2; (( (y += x += 2) == 7  && x==5))' 2> /dev/null || err_exit '((y += x += 2)) not working' 
+$SHELL -c 'b=0; [[ $((b?a=1:b=9)) == 9 ]]' 2> /dev/null || err_exit 'b?a=1:b=9 not working'
+unset x
+(( x = 4*atan(1.0) ))
+[[ $x == "$((x))" ]] || err_exit  '$x !- $((x)) when x is pi'
+$SHELL -c  "[[  ${x//./} == {14,100}(\d) ]]" 2> /dev/null || err_exit 'pi has less than 14 significant places'
+if	(( Inf+1 == Inf ))
+then	[[ $(printf "%g\n" $((Inf))) == inf ]] || err_exit 'printf "%g\n" $((Inf)) fails'
+#	[[ $(printf "%g\n" $((Nan))) == inf ]] || err_exit 'printf "%g\n" $((Nan)) fails'
+	[[ $(printf "%g\n" Inf) == inf ]] || err_exit 'printf "%g\n" Inf fails'
+	[[ $(printf "%g\n" NaN) == nan ]] || err_exit 'printf "%g\n" NaN fails'
+	[[ $(print -- $((Inf))) == inf ]] || err_exit 'print -- $((Inf)) fails'
+	(( 1.0/0.0 == Inf )) || err_exit '1.0/0.0 != Inf'
+	[[ $(print -- $((0.0/0.0))) == nan ]] || err_exit '0.0/0.0 != NaN'
+	(( Inf*Inf == Inf )) || err_exit 'Inf*Inf != Inf'
+	(( NaN != NaN )) || err_exit 'NaN == NaN'
+	(( -5*Inf == -Inf )) || err_exit '-5*Inf != -Inf'
+	[[ $(print -- $((sqrt(-1.0)))) == nan ]]|| err_exit 'sqrt(-1.0) != NaN'
+	(( pow(1.0,Inf) == 1.0 )) || err_exit 'pow(1.0,Inf) != 1.0'
+	(( pow(Inf,0.0) == 1.0 )) || err_exit 'pow(Inf,0.0) != 1.0'
+	[[ $(print -- $((NaN/Inf))) == nan ]] || err_exit 'NaN/Inf != NaN'
+	(( 4.0/Inf == 0.0 )) || err_exit '4.0/Inf != 0.0'
+else	err_exit 'Inf and NaN not working'
+fi
+unset x y
+float x=14.555 y
+y=$(printf "%a" x)
+(( x == y )) || err_exit "output of printf %a not self preserving -- expected $x, got $y"
 exit $((Errors))

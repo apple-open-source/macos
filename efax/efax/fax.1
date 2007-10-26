@@ -141,9 +141,8 @@ shows the status of the automatic receive process once, or every
 daemon.
 
 The \fBfax answer\fP command is used for unattended reception of
-faxes.  It is normally placed in the inittab(5) or ttytab(5) file
-and is run automatically by init(8).
-
+faxes.  It is normally placed in a launchd.plist(5) file and is
+run automatically by launchd(8).
 The \fB-v\fP option displays verbose messages.
 
 Other features of the fax script are documented within the
@@ -229,7 +228,7 @@ interruptions to telephone service.
 
 .BR efax(1),
 .BR efix(1),
-.BR ghostscript(1).
+.BR launchd(8).
 
 .SH  BUGS
 

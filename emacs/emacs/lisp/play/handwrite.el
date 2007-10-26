@@ -1,6 +1,7 @@
 ;;; handwrite.el --- turns your emacs buffer into a handwritten document -*- coding: iso-latin-1; -*-
 
-;; (C) Copyright 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Danny Roozendaal (was: <danny@tvs.kun.nl>)
 ;; Created: October 21 1996
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -69,11 +70,14 @@
 
 ;;; Code:
 
+(defvar ps-printer-name)
+(defvar ps-lpr-command)
+
 
 ;; Variables
 
 (defgroup handwrite nil
-  "Turns your emacs buffer into a handwritten document."
+  "Turns your Emacs buffer into a handwritten document."
   :prefix "handwrite-"
   :group 'games)
 
@@ -143,7 +147,7 @@ Variables: handwrite-linespace     (default 12)
       ((pmin)				; thanks, Havard
        (lastp)
        (cur-buf (current-buffer))
-       (tpoint (point))	
+       (tpoint (point))
        (ps-ypos 63)
        (lcount 0)
        (ipage 1)
@@ -151,7 +155,19 @@ Variables: handwrite-linespace     (default 12)
        (buf-name (buffer-name) )
        (textp)
        (ps-buf-name)			;name of the PostScript buffer
-       )
+       (trans-table
+	'(("ÿ" . "264") ("á" . "207") ("à" . "210") ("â" . "211")
+	  ("ä" . "212") ("ã" . "213") ("å" . "214") ("é" . "216")
+	  ("è" . "217") ("ê" . "220") ("ë" . "221") ("í" . "222")
+	  ("ì" . "223") ("î" . "224") ("ï" . "225") ("ó" . "227")
+	  ("ò" . "230") ("ô" . "231") ("ö" . "232") ("õ" . "233")
+	  ("ú" . "234") ("ù" . "235") ("û" . "236") ("ü" . "237")
+	  ("ß" . "247") ("°" . "241") ("®" . "250") ("©" . "251")
+	  ("ij" . "264") ("ç" . "215") ("§" . "244") ("ñ" . "226")
+	  ("£" . "243")))
+       (escape-table '("\\\\" "(" ")")) ; \\ comes first to not work
+					; on inserted backslashes
+       line)
     (goto-char (point-min))		;start at beginning
     (setq handwrite-psindex (1+ handwrite-psindex))
     (setq ps-buf-name
@@ -159,8 +175,7 @@ Variables: handwrite-linespace     (default 12)
     (setq next-line-add-newlines t)
     (switch-to-buffer ps-buf-name)
     (handwrite-insert-header buf-name)
-    (insert "\n(\\nCreated by GNU Emacs' handwrite version "
-	    emacs-version  "\\n\\n)=print flush\n")
+    (insert "%%Creator: GNU Emacs' handwrite version " emacs-version  "\n")
     (handwrite-insert-preamble)
     (handwrite-insert-info)
     (handwrite-insert-font)
@@ -175,155 +190,46 @@ Variables: handwrite-linespace     (default 12)
     (switch-to-buffer cur-buf)
     (goto-char (point-min))		;start at beginning
     (save-excursion
-      ;;as long as we see a newline the document is not ended.	
-      (while (re-search-forward "\n" nil t)
-	(previous-line 1)
-	(beginning-of-line)
-	(setq pmin (point))
-	(search-forward "\n" nil t)
-	(backward-char 1)
-	(copy-region-as-kill (point) pmin)
-	(forward-char 1)
+      (while (not (eobp))
+	(setq line (thing-at-point 'line))
+	(dolist (escape escape-table)
+	  (setq line (replace-regexp-in-string escape
+					       (concat "\\\\" escape) line)))
+	(dolist (trans trans-table)
+	  (setq line (replace-regexp-in-string (car trans)
+					       (concat "\\\\" (cdr trans))
+					       line)))
 	(switch-to-buffer ps-buf-name)
-	(yank)
+	(insert (replace-regexp-in-string "\n" "" line))
 	(message "write write write...")
-	(search-forward ")a" nil t)
-	(backward-char 2)
-	(setq lastp (point))
-	(beginning-of-line)
-	(search-forward "(" nil t)
-	(while (re-search-forward "[()\\]" lastp t)
-	  (save-excursion
-	    (setq lastp (+ lastp 1))
-	    (forward-char -1)
-	    (insert "\\")))
 	(setq ps-ypos (+ ps-ypos handwrite-linespace))
 	(end-of-line)
 	(insert "\n")
 	(setq lcount (+ lcount 1))
-	(cond ( (eq lcount handwrite-numlines)
-		(setq ipage (+ ipage 1))
-		(insert "0 0  m\n")
-		(insert "showpage exec Hwsave restore\n")
-		(insert "%%Page: " (number-to-string ipage) " "
-			(number-to-string ipage) "\n")
-		(insert "Hwjst\n")
-		(insert "/Hwsave save def\n")
-		(if handwrite-pagenumbering
-		    (insert "20 30 m\nxym(page "
-			    (number-to-string ipage) ")a\n"))
-		(setq ps-ypos 63)
-		(setq lcount 0)
-		))
-	(insert "44 "(number-to-string ps-ypos) " m\n")
+	(when (= lcount handwrite-numlines)
+	  (setq ipage (+ ipage 1))
+	  (insert "0 0  m\n")
+	  (insert "showpage exec Hwsave restore\n")
+	  (insert "%%Page: " (number-to-string ipage) " "
+		  (number-to-string ipage) "\n")
+	  (insert "Hwjst\n")
+	  (insert "/Hwsave save def\n")
+	  (if handwrite-pagenumbering
+	      (insert "20 30 m\nxym(page "
+		      (number-to-string ipage) ")a\n"))
+	  (setq ps-ypos 63)
+	  (setq lcount 0))
+	(insert "44 " (number-to-string ps-ypos) " m\n")
 	(insert "xym( )a")
 	(backward-char 3)
 	(switch-to-buffer cur-buf)
+	(forward-line 1)
 	))
     (switch-to-buffer ps-buf-name)
     (next-line 1)
     (insert "showpage exec Hwsave restore\n\n")
     (insert "%%Pages " (number-to-string ipage) " 0\n")
     (insert "%%EOF\n")
-    (goto-char textp)			;start where the inserted text begins
-    (while (search-forward "ÿ" nil t)
-      (replace-match "\\" nil t) (insert "264"))
-    (goto-char textp)
-    (while (search-forward "á" nil t)
-      (replace-match "\\" nil t) (insert "207"))
-    (goto-char textp)
-    (while (search-forward "à" nil t)
-      (replace-match "\\" nil t) (insert "210"))
-    (goto-char textp)
-    (while (search-forward "â" nil t)
-      (replace-match "\\" nil t) (insert "211"))
-    (goto-char textp)
-    (while (search-forward "ä" nil t)
-      (replace-match "\\" nil t) (insert "212"))
-    (goto-char textp)
-    (while (search-forward "ã" nil t)
-      (replace-match "\\" nil t) (insert "213"))
-    (goto-char textp)
-    (while (search-forward "å" nil t)
-      (replace-match "\\" nil t) (insert "214"))
-    (goto-char textp)
-    (while (search-forward "é" nil t)
-      (replace-match "\\" nil t) (insert "216"))
-    (goto-char textp)
-    (while (search-forward "è" nil t)
-      (replace-match "\\" nil t) (insert "217"))
-    (goto-char textp)
-    (while (search-forward "ê" nil t)
-      (replace-match "\\" nil t) (insert "220"))
-    (goto-char textp)
-    (while (search-forward "ë" nil t)
-      (replace-match "\\" nil t) (insert "221"))
-    (goto-char textp)
-    (while (search-forward "í" nil t)
-      (replace-match "\\" nil t) (insert "222"))
-    (goto-char textp)
-    (while (search-forward "ì" nil t)
-      (replace-match "\\" nil t) (insert "223"))
-    (goto-char textp)
-    (while (search-forward "î" nil t)
-      (replace-match "\\" nil t) (insert "224"))
-    (goto-char textp)
-    (while (search-forward "ï" nil t)
-      (replace-match "\\" nil t) (insert "225"))
-    (goto-char textp)
-    (while (search-forward "ó" nil t)
-      (replace-match "\\" nil t) (insert "227"))
-    (goto-char textp)
-    (while (search-forward "ò" nil t)
-      (replace-match "\\" nil t) (insert "230"))
-    (goto-char textp)
-    (while (search-forward "ô" nil t)
-      (replace-match "\\" nil t) (insert "231"))
-    (goto-char textp)
-    (while (search-forward "ö" nil t)
-      (replace-match "\\" nil t) (insert "232"))
-    (goto-char textp)
-    (while (search-forward "õ" nil t)
-      (replace-match "\\" nil t) (insert "233"))
-    (goto-char textp)
-    (while (search-forward "ú" nil t)
-      (replace-match "\\" nil t) (insert "234"))
-    (goto-char textp)
-    (while (search-forward "ù" nil t)
-      (replace-match "\\" nil t) (insert "235"))
-    (goto-char textp)
-    (while (search-forward "û" nil t)
-      (replace-match "\\" nil t) (insert "236"))
-    (goto-char textp)
-    (while (search-forward "ü" nil t)
-      (replace-match "\\" nil t) (insert "237"))
-    (goto-char textp)
-    (while (search-forward "ß" nil t)
-      (replace-match "\\" nil t) (insert "247"))
-    (goto-char textp)
-    (while (search-forward "°" nil t)
-      (replace-match "\\" nil t) (insert "241"))
-    (goto-char textp)
-    (while (search-forward "®" nil t)
-      (replace-match "\\" nil t) (insert "250"))
-    (goto-char textp)
-    (while (search-forward "©" nil t)
-      (replace-match "\\" nil t) (insert "251"))
-    (goto-char textp)
-    (while (search-forward "ij" nil t)
-      (replace-match "\\" nil t) (insert "264"))
-    (goto-char textp)
-    (while (search-forward "ç" nil t)
-      (replace-match "\\" nil t) (insert "215"))
-    (goto-char textp)
-    (while (search-forward "§" nil t)
-      (replace-match "\\" nil t) (insert "244"))
-    (goto-char textp)
-    (while (search-forward "ñ" nil t)
-      (replace-match "\\" nil t) (insert "226"))
-    (goto-char textp)
-    (while (search-forward "£" nil t)
-      (replace-match "\\" nil t) (insert "243"))
     ;;To avoid cumbersome code we simply ignore pagefeeds
     (goto-char textp)
     (while (search-forward "\f" nil t)
@@ -339,7 +245,9 @@ Variables: handwrite-linespace     (default 12)
 		 (ps-lpr-switches
 		  (if (stringp ps-printer-name)
 		      (list (concat "-P" ps-printer-name)))))
-	    (apply (or ps-print-region-function 'call-process-region)
+	    (apply (or (and (boundp 'ps-print-region-function)
+			    ps-print-region-function)
+		       'call-process-region)
 		   (point-min) (point-max) ps-lpr-command nil nil nil))))
     (message "")
     (bury-buffer ())
@@ -492,7 +400,7 @@ values for `handwrite-linespace' and `handwrite-numlines'."
 }def
 %%EndPreamble\n"))
 
-;;The the font size for the PostScript output.
+;;The font size for the PostScript output.
 ;;Also the x-y-translations of the PostScript stuff.
 (defun handwrite-insert-info ()
   (insert "\n%%BeginSizeTranslate\n")
@@ -1375,7 +1283,7 @@ end
 ;; Key bindings
 
 
-;;; I'd rather not fill up the menu bar menus with 
+;;; I'd rather not fill up the menu bar menus with
 ;;; lots of random miscellaneous features. -- rms.
 ;;;(define-key-after
 ;;;  (lookup-key global-map [menu-bar edit])
@@ -1417,4 +1325,5 @@ end
 (provide 'handwrite)
 
 
+;;; arch-tag: f2285ae9-e41b-4c96-8343-87dce41e44b7
 ;;; handwrite.el ends here

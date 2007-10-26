@@ -10,7 +10,7 @@ STARTTEST
 =/end of AUTO
 ENDTEST
 
-/* start of AUTO matically checked */
+/* start of AUTO matically checked vim: set ts=4 : */
 {
 	if (test)
 		cmd1;
@@ -297,6 +297,25 @@ char *(array[100]) = {
 	"bar",
 }
 
+enum soppie
+{
+	yes = 0,
+	no,
+	maybe
+};
+
+typedef enum soppie
+{
+	yes = 0,
+	no,
+	maybe
+};
+
+{
+	int a,
+		b;
+}
+
 {
 	struct Type
 	{
@@ -504,6 +523,10 @@ char *tab[] = {"aaa",
 	int indented;
 {}
 
+char *a[] = {"aaa", "bbb",
+	"ccc", NULL};
+// here
+
 char *tab[] = {"aaa",
 	"xx", /* xx */};    /* asdf */
 int not_indented;
@@ -523,16 +546,259 @@ int	foo,
 	bar;
 int foo;
 
+#if defined(foo) \
+	&& defined(bar)
 char * xx = "asdf\
 	foo\
 	bor";
 int x;
+
+char    *foo = "asdf\
+	asdf\
+	asdf",
+	*bar;
+
+void f()
+{
+#if defined(foo) \
+	&& defined(bar)
+char    *foo = "asdf\
+	asdf\
+	asdf",
+	*bar;
+	{
+	int i;
+char    *foo = "asdf\
+	asdf\
+	asdf",
+	*bar;
+	}
+#endif
+}
+#endif
 
 int y;		// comment
 		// comment
 
 	// comment
 
+{
+	Constructor(int a,
+			int b )  : BaseClass(a)
+	{
+	}
+}
+
+void foo()
+{
+	char one,
+	two;
+	struct bla piet,
+	jan;
+	enum foo kees,
+	jannie;
+	static unsigned sdf,
+	krap;
+	unsigned int piet,
+	jan;
+	int
+	kees,
+	jan;
+}
+
+{
+	t(int f,
+			int d);		// )
+	d();
+}
+
+Constructor::Constructor(int a,
+                         int b 
+                        )  : 
+   BaseClass(a,
+             b,
+             c),
+   mMember(b),
+{
+}
+
+Constructor::Constructor(int a,
+                         int b )  : 
+   BaseClass(a)
+{
+}
+
+Constructor::Constructor(int a,
+                         int b ) /*x*/ : /*x*/ BaseClass(a),
+                                               member(b)
+{
+}
+
+class CAbc :
+   public BaseClass1,
+   protected BaseClass2
+{
+   int Test() { return FALSE; }
+   int Test1() { return TRUE; }
+
+   CAbc(int a, int b )  : 
+      BaseClass(a)
+   { 
+      switch(xxx)
+      {
+         case abc:
+            asdf();
+            break;
+
+         case 999:
+            baer();
+            break;
+      }
+   }
+
+public: // <-- this was incoreectly indented before!!
+   void testfall();
+protected:
+   void testfall();
+};
+
+class CAbc : public BaseClass1,
+             protected BaseClass2
+{
+};
+
+static struct
+{
+    int a;
+    int b;
+} variable[COUNT] =
+{
+    {
+        123,
+        456
+    },
+	{
+        123,
+        456
+    }
+};
+
+static struct
+{
+    int a;
+    int b;
+} variable[COUNT] =
+{
+    { 123, 456 },
+	{ 123, 456 }
+};
+
+void asdf()		/* ind_maxparen may cause trouble here */
+{
+	if ((0
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1
+				&& 1)) break;
+}
+
+foo()
+{
+	a = cond ? foo() : asdf
+					   + asdf;
+
+	a = cond ?
+		foo() : asdf
+				+ asdf;
+}
+
+int  main(void)
+{
+	if (a)
+		if (b)
+			2;
+		else 3;
+	next_line_of_code();
+}
+
+barry()
+{
+	Foo::Foo (int one,
+			int two)
+		: something(4)
+	{}
+}
+
+barry()
+{
+	Foo::Foo (int one, int two)
+		: something(4)
+	{}
+}
+
+Constructor::Constructor(int a,
+		int b 
+		)  : 
+	BaseClass(a,
+			b,
+			c),
+	mMember(b)
+{
+}
+       int main ()
+       {
+	 if (lala)
+	   do
+	     ++(*lolo);
+	   while (lili
+		  && lele);
+	   lulu;
+       }
+
+int main ()
+{
+switch (c)
+{
+case 'c': if (cond)
+{
+}
+}
+}
+
+main()
+{
+	(void) MyFancyFuasdfadsfnction(
+			argument);
+}
+
+main()
+{
+	char	foo[] = "/*";
+	/* as
+	df */
+		hello
+}
 /* end of AUTO */
 
 STARTTEST
@@ -900,6 +1166,152 @@ void f()
 	c1 && c2
 	)
 	foo;
+}
+
+STARTTEST
+:set cino=b1
+2kdd]]=][
+ENDTEST
+
+void f()
+{
+	switch (x)
+	{
+		case 1:
+			a = b;
+			break;
+		default:
+			a = 0;
+			break;
+	}
+}
+
+STARTTEST
+:set cino=(0,W5
+2kdd]]=][
+ENDTEST
+
+void f()
+{
+	invokeme(
+	argu,
+	ment);
+	invokeme(
+	argu,
+	ment
+	);
+	invokeme(argu,
+	ment
+	);
+}
+
+STARTTEST
+:set cino=/6
+2kdd]]=][
+ENDTEST
+
+void f()
+{
+	statement;
+		// comment 1
+	// comment 2
+}
+
+STARTTEST
+:set cino=
+2kdd]]/comment 1/+1
+==
+ENDTEST
+
+void f()
+{
+	statement;
+	   // comment 1
+	// comment 2
+}
+
+STARTTEST
+:set cino=g0
+2kdd]]=][
+ENDTEST
+
+class CAbc
+{
+   int Test() { return FALSE; }
+
+public: // comment
+   void testfall();
+protected:
+   void testfall();
+};
+
+STARTTEST
+:set cino=+20
+2kdd]]=][
+ENDTEST
+
+	void
+foo()
+{
+	if (a)
+	{
+	} else
+		asdf;
+}
+
+STARTTEST
+:set cino=(0,W2s
+2kdd]]=][
+ENDTEST
+
+{
+   averylongfunctionnamelongfunctionnameaverylongfunctionname()->asd(
+         asdasdf,
+         func(asdf,
+              asdfadsf),
+         asdfasdf
+         );
+
+   /* those are ugly, but consequent */
+
+   func()->asd(asdasdf,
+               averylongfunctionname(
+                     abc,
+                     dec)->averylongfunctionname(
+                           asdfadsf,
+                           asdfasdf,
+                           asdfasdf,
+                           ),
+               func(asdfadf,
+                    asdfasdf
+                   ),
+               asdasdf
+              );
+
+   averylongfunctionnameaverylongfunctionnameavery()->asd(fasdf(
+               abc,
+               dec)->asdfasdfasdf(
+                     asdfadsf,
+                     asdfasdf,
+                     asdfasdf,
+                     ),
+         func(asdfadf,
+              asdfasdf),
+         asdasdf
+         );
+}
+
+STARTTEST
+:set cino=M1
+2kdd]]=][
+ENDTEST
+
+int main ()
+{
+	if (cond1 &&
+			cond2
+			)
+		foo;
 }
 
 STARTTEST

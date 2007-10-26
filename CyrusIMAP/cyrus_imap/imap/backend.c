@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: backend.c,v 1.5 2005/03/05 00:36:44 dasenbro Exp $ */
+/* $Id: backend.c,v 1.44 2007/02/05 18:41:46 jeaton Exp $ */
 
 #include <config.h>
 
@@ -70,11 +70,14 @@
 #include "backend.h"
 #include "global.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "iptostring.h"
 #include "util.h"
 
 static char *ask_capability(struct protstream *pout, struct protstream *pin,
-			    struct protocol_t *prot, unsigned long *capa)
+			    struct protocol_t *prot, unsigned long *capa,
+			    int banner)
 {
     char str[4096];
     char *ret = NULL, *tmp;
@@ -82,7 +85,7 @@ static char *ask_capability(struct protstream *pout, struct protstream *pin,
 
     *capa = 0;
     
-    if (prot->capa_cmd.cmd) {
+    if (!banner && prot->capa_cmd.cmd) {
 	/* request capabilities of server */
 	prot_printf(pout, "%s\r\n", prot->capa_cmd.cmd);
 	prot_flush(pout);
@@ -102,7 +105,7 @@ static char *ask_capability(struct protstream *pout, struct protstream *pin,
 		    if (prot->capa_cmd.parse_mechlist)
 			ret = prot->capa_cmd.parse_mechlist(str, prot);
 		    else
-			ret = strdup(tmp+strlen(c->str));
+			ret = xstrdup(tmp+strlen(c->str));
 		}
 	    }
 	}
@@ -156,27 +159,30 @@ static int do_starttls(struct backend *s, struct tls_cmd_t *tls_cmd)
 
 static int backend_authenticate(struct backend *s, struct protocol_t *prot,
 				char **mechlist, const char *userid,
-				const char **status)
+				sasl_callback_t *cb, const char **status)
 {
     int r;
     sasl_security_properties_t *secprops = NULL;
     struct sockaddr_storage saddr_l, saddr_r;
     char remoteip[60], localip[60];
     socklen_t addrsize;
-    sasl_callback_t *cb;
+    int local_cb = 0;
     char buf[2048], optstr[128], *p;
     const char *mech_conf, *pass;
 
-    strlcpy(optstr, s->hostname, sizeof(optstr));
-    p = strchr(optstr, '.');
-    if (p) *p = '\0';
-    strlcat(optstr, "_password", sizeof(optstr));
-    pass = config_getoverflowstring(optstr, NULL);
-    if(!pass) pass = config_getstring(IMAPOPT_PROXY_PASSWORD);
-    cb = mysasl_callbacks(userid, 
-			  config_getstring(IMAPOPT_PROXY_AUTHNAME),
-			  config_getstring(IMAPOPT_PROXY_REALM),
-			  pass);
+    if (!cb) {
+	local_cb = 1;
+	strlcpy(optstr, s->hostname, sizeof(optstr));
+	p = strchr(optstr, '.');
+	if (p) *p = '\0';
+	strlcat(optstr, "_password", sizeof(optstr));
+	pass = config_getoverflowstring(optstr, NULL);
+	if(!pass) pass = config_getstring(IMAPOPT_PROXY_PASSWORD);
+	cb = mysasl_callbacks(userid, 
+			      config_getstring(IMAPOPT_PROXY_AUTHNAME),
+			      config_getstring(IMAPOPT_PROXY_REALM),
+			      pass);
+    }
 
     /* set the IP addresses */
     addrsize=sizeof(struct sockaddr_storage);
@@ -200,7 +206,7 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
 	return r;
     }
 
-    secprops = mysasl_secprops(0);
+    secprops = mysasl_secprops(SASL_SEC_NOPLAINTEXT);
     r = sasl_setprop(s->saslconn, SASL_SEC_PROPS, secprops);
     if (r != SASL_OK) {
 	return r;
@@ -239,10 +245,10 @@ static int backend_authenticate(struct backend *s, struct protocol_t *prot,
 	/* If we don't have a usable mech, do TLS and try again */
     } while (r == SASL_NOMECH && CAPA(s, CAPA_STARTTLS) &&
 	     do_starttls(s, &prot->tls_cmd) != -1 &&
-	     (*mechlist = ask_capability(s->out, s->in, prot, &s->capability)));
+	     (*mechlist = ask_capability(s->out, s->in, prot, &s->capability, 0)));
 
     /* xxx unclear that this is correct */
-    free_callbacks(cb);
+    if (local_cb) free_callbacks(cb);
 
     if (r == SASL_OK) {
 	prot_setsasl(s->in, s->saslconn);
@@ -264,25 +270,28 @@ static void timed_out(int sig)
     }
 }
 
-struct backend *backend_connect(struct backend *ret, const char *server,
+struct backend *backend_connect(struct backend *ret_backend, const char *server,
 				struct protocol_t *prot, const char *userid,
-				const char **auth_status)
+				sasl_callback_t *cb, const char **auth_status)
 {
     /* need to (re)establish connection to server or create one */
     int sock = -1;
     int r;
-    int err;
+    int err = -1;
     struct addrinfo hints, *res0 = NULL, *res;
     struct sockaddr_un sunsock;
     char buf[2048], *mechlist = NULL;
     struct sigaction action;
+    struct backend *ret;
 
-    if (!ret) {
+    if (!ret_backend) {
 	ret = xmalloc(sizeof(struct backend));
 	memset(ret, 0, sizeof(struct backend));
 	strlcpy(ret->hostname, server, sizeof(ret->hostname));
 	ret->timeout = NULL;
     }
+    else
+	ret = ret_backend;
 
     if (server[0] == '/') { /* unix socket */
 	res0 = &hints;
@@ -312,7 +321,7 @@ struct backend *backend_connect(struct backend *ret, const char *server,
 	if (err) {
 	    syslog(LOG_ERR, "getaddrinfo(%s) failed: %s",
 		   server, gai_strerror(err));
-	    free(ret);
+	    if (!ret_backend) free(ret);
 	    return NULL;
 	}
     }
@@ -348,7 +357,7 @@ struct backend *backend_connect(struct backend *ret, const char *server,
 	if (res0 != &hints)
 	    freeaddrinfo(res0);
 	syslog(LOG_ERR, "connect(%s) failed: %m", server);
-	free(ret);
+	if (!ret_backend) free(ret);
 	return NULL;
     }
     memcpy(&ret->addr, res->ai_addr, res->ai_addrlen);
@@ -359,80 +368,104 @@ struct backend *backend_connect(struct backend *ret, const char *server,
     ret->out = prot_new(sock, 1);
     ret->sock = sock;
     prot_setflushonread(ret->in, ret->out);
+    ret->prot = prot;
     
-    if (prot->capa_cmd.cmd) {
-	/* read the initial greeting */
-	if (!prot_fgets(buf, sizeof(buf), ret->in)) {
-	    syslog(LOG_ERR,
-		   "backend_connect(): couldn't read initial greeting: %s",
-		   ret->in->error ? ret->in->error : "(null)");
-	    free(ret);
-	    close(sock);
-	    return NULL;
-	}
+    if (!prot->banner.is_capa) {
+	do { /* read the initial greeting */
+	    if (!prot_fgets(buf, sizeof(buf), ret->in)) {
+		syslog(LOG_ERR,
+		       "backend_connect(): couldn't read initial greeting: %s",
+		       ret->in->error ? ret->in->error : "(null)");
+		if (!ret_backend) free(ret);
+		close(sock);
+		return NULL;
+	    }
+	} while (strncasecmp(buf, prot->banner.resp,
+			     strlen(prot->banner.resp)));
     }
 
     /* get the capabilities */
-    mechlist = ask_capability(ret->out, ret->in, prot, &ret->capability);
+    mechlist = ask_capability(ret->out, ret->in, prot, &ret->capability,
+			      prot->banner.is_capa);
 
     /* now need to authenticate to backend server,
        unless we're doing LMTP on a UNIX socket (deliver) */
     if ((server[0] != '/') || strcmp(prot->sasl_service, "lmtp")) {
-	if ((r = backend_authenticate(ret, prot, &mechlist, userid, auth_status))) {
+	if ((r = backend_authenticate(ret, prot, &mechlist, userid,
+				      cb, auth_status))) {
 	    syslog(LOG_ERR, "couldn't authenticate to backend server: %s",
 		   sasl_errstring(r, NULL, NULL));
-	    free(ret);
+	    if (!ret_backend) free(ret);
 	    close(sock);
 	    ret = NULL;
 	}
     }
 
     if (mechlist) free(mechlist);
-    
+
+    if (!ret_backend) ret_backend = ret;
+	    
     return ret;
 }
 
-int backend_ping(struct backend *s, struct protocol_t *prot)
+int backend_ping(struct backend *s)
 {
     char buf[1024];
 
-    if (!s || !prot || !prot->ping_cmd.cmd) return 0;
+    if (!s || !s->prot->ping_cmd.cmd) return 0;
     if (!s->sock == -1) return -1; /* Disconnected Socket */
     
-    prot_printf(s->out, "%s\r\n", prot->ping_cmd.cmd);
+    prot_printf(s->out, "%s\r\n", s->prot->ping_cmd.cmd);
     prot_flush(s->out);
 
-    if (!prot_fgets(buf, sizeof(buf), s->in) ||
-	strncmp(prot->ping_cmd.resp, buf, strlen(prot->ping_cmd.resp))) {
-	return -1; /* ping failed */
+    for (;;) {
+	if (!prot_fgets(buf, sizeof(buf), s->in)) {
+	    /* connection closed? */
+	    return -1;
+	} else if (s->prot->ping_cmd.unsol &&
+		   !strncmp(s->prot->ping_cmd.unsol, buf,
+			    strlen(s->prot->ping_cmd.unsol))) {
+	    /* unsolicited response */
+	    continue;
+	} else {
+	    /* success/fail response */
+	    return strncmp(s->prot->ping_cmd.ok, buf,
+			   strlen(s->prot->ping_cmd.ok));
+	}
     }
-
-    return 0;
 }
 
-void backend_disconnect(struct backend *s, struct protocol_t *prot)
+void backend_disconnect(struct backend *s)
 {
     char buf[1024];
 
     if (!s || s->sock == -1) return;
     
     if (!prot_error(s->in)) {
-	if (prot && prot->logout_cmd.cmd) {
-	    prot_printf(s->out, "%s\r\n", prot->logout_cmd.cmd);
+	if (s->prot->logout_cmd.cmd) {
+	    prot_printf(s->out, "%s\r\n", s->prot->logout_cmd.cmd);
 	    prot_flush(s->out);
 
-	    while (prot_fgets(buf, sizeof(buf), s->in)) {
-		if (!strncmp(prot->logout_cmd.resp, buf,
-			     strlen(prot->logout_cmd.resp))) {
+	    for (;;) {
+		if (!prot_fgets(buf, sizeof(buf), s->in)) {
+		    /* connection closed? */
+		    break;
+		} else if (s->prot->logout_cmd.unsol &&
+			   !strncmp(s->prot->logout_cmd.unsol, buf,
+				    strlen(s->prot->logout_cmd.unsol))) {
+		    /* unsolicited response */
+		    continue;
+		} else {
+		    /* success/fail response -- don't care either way */
 		    break;
 		}
 	    }
 	}
-
-	/* Flush the incoming buffer */
-	prot_NONBLOCK(s->in);
-	prot_fill(s->in);
     }
+
+    /* Flush the incoming buffer */
+    prot_NONBLOCK(s->in);
+    prot_fill(s->in);
 
 #ifdef HAVE_SSL
     /* Free tlsconn */

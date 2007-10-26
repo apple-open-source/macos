@@ -1,10 +1,10 @@
 ;;; nnsoup.el --- SOUP access for Gnus
 
-;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
-;;	Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
-;; 	Masanobu UMEDA <umerin@flab.flab.fujitsu.junet>
+;;	Masanobu UMEDA <umerin@flab.flab.fujitsu.junet>
 ;; Keywords: news, mail
 
 ;; This file is part of GNU Emacs.
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -37,7 +37,7 @@
 
 (nnoo-declare nnsoup)
 
-(defvoo nnsoup-directory "~/SOUP/"
+(defvoo nnsoup-directory (nnheader-concat gnus-home-directory "SOUP/")
   "*SOUP packet directory.")
 
 (defvoo nnsoup-tmp-directory
@@ -58,7 +58,9 @@
 (defvoo nnsoup-active-file (expand-file-name "active" nnsoup-directory)
   "Active file.")
 
-(defvoo nnsoup-packer "tar cf - %s | gzip > $HOME/Soupin%d.tgz"
+(defvoo nnsoup-packer (concat "tar cf - %s | gzip > "
+			      (expand-file-name gnus-home-directory)
+			      "Soupin%d.tgz")
   "Format string command for packing a SOUP packet.
 The SOUP files will be inserted where the %s is in the string.
 This string MUST contain both %s and %d.  The file number will be
@@ -68,14 +70,14 @@ inserted where %d appears.")
   "*Format string command for unpacking a SOUP packet.
 The SOUP packet file name will be inserted at the %s.")
 
-(defvoo nnsoup-packet-directory "~/"
+(defvoo nnsoup-packet-directory gnus-home-directory
   "*Where nnsoup will look for incoming packets.")
 
 (defvoo nnsoup-packet-regexp "Soupout"
   "*Regular expression matching SOUP packets in `nnsoup-packet-directory'.")
 
 (defvoo nnsoup-always-save t
-  "If non nil commit the reply buffer on each message send.
+  "If non-nil commit the reply buffer on each message send.
 This is necessary if using message mode outside Gnus with nnsoup as a
 backend for the messages.")
 
@@ -114,7 +116,7 @@ backend for the messages.")
 	;; articles in SEQUENCE come from.
 	(while (and areas sequence)
 	  ;; Peel off areas that are below sequence.
-	  (while (and areas (< (cdaar areas) (car sequence)))
+	  (while (and areas (< (cdar (car areas)) (car sequence)))
 	    (setq areas (cdr areas)))
 	  (when areas
 	    ;; This is a useful area.
@@ -130,7 +132,7 @@ backend for the messages.")
 	      (setq use-nov nil))
 	    ;; We assign the portion of `sequence' that is relevant to
 	    ;; this MSG packet to this packet.
-	    (while (and sequence (<= (car sequence) (cdaar areas)))
+	    (while (and sequence (<= (car sequence) (cdar (car areas))))
 	      (push (car sequence) this-area-seq)
 	      (setq sequence (cdr sequence)))
 	    (setcar useful-areas (cons (nreverse this-area-seq)
@@ -158,7 +160,7 @@ backend for the messages.")
 		  (when index-buffer
 		    (insert-buffer-substring index-buffer)
 		    (goto-char b)
-		    ;; We have to remove the index number entires and
+		    ;; We have to remove the index number entries and
 		    ;; insert article numbers instead.
 		    (while (looking-at "[0-9]+")
 		      (replace-match (int-to-string number) t t)
@@ -249,7 +251,7 @@ backend for the messages.")
   ;; Try to guess the type based on the first article in the group.
   (when (not article)
     (setq article
-	  (cdaar (cddr (assoc group nnsoup-group-alist)))))
+	  (cdar (car (cddr (assoc group nnsoup-group-alist))))))
   (if (not article)
       'unknown
     (let ((kind (gnus-soup-encoding-kind
@@ -257,7 +259,7 @@ backend for the messages.")
 		  (nth 1 (nnsoup-article-to-area
 			  article nnsoup-current-group))))))
       (cond ((= kind ?m) 'mail)
-	    ((= kind ?n) 'news) 
+	    ((= kind ?n) 'news)
 	    (t 'unknown)))))
 
 (deffoo nnsoup-close-group (group &optional server)
@@ -337,7 +339,7 @@ backend for the messages.")
 		  (delete-file (nnsoup-file prefix t)))
 		t)
 	  (setcdr (cdr total-infolist) (delq info (cddr total-infolist)))
-	  (setq articles (gnus-sorted-complement articles range-list))))
+	  (setq articles (gnus-sorted-difference articles range-list))))
       (when (not mod-time)
 	(setcdr (cdr total-infolist) (delq info (cddr total-infolist)))))
     (if (cddr total-infolist)
@@ -371,7 +373,7 @@ backend for the messages.")
 	  (setq min (caaar e))
 	  (while (cdr e)
 	    (setq e (cdr e)))
-	  (setq max (cdaar e))
+	  (setq max (cdar (car e)))
 	  (setcdr entry (cons (cons min max) (cdr entry)))))
       (setq nnsoup-group-alist-touched t))
     nnsoup-group-alist))
@@ -399,7 +401,7 @@ backend for the messages.")
     prefix))
 
 (defun nnsoup-file-name (dir file)
-  "Return the full path of FILE (in any case) in DIR."
+  "Return the full name of FILE (in any case) in DIR."
   (let* ((case-fold-search t)
 	 (files (directory-files dir t))
 	 (regexp (concat (regexp-quote file) "$")))
@@ -651,25 +653,25 @@ backend for the messages.")
 (defun nnsoup-article-to-area (article group)
   "Return the area that ARTICLE in GROUP is located in."
   (let ((areas (cddr (assoc group nnsoup-group-alist))))
-    (while (and areas (< (cdaar areas) article))
+    (while (and areas (< (cdar (car areas)) article))
       (setq areas (cdr areas)))
     (and areas (car areas))))
 
 (defvar nnsoup-old-functions
-  (list message-send-mail-function message-send-news-function))
+  (list message-send-mail-real-function message-send-news-function))
 
 ;;;###autoload
 (defun nnsoup-set-variables ()
   "Use the SOUP methods for posting news and mailing mail."
   (interactive)
   (setq message-send-news-function 'nnsoup-request-post)
-  (setq message-send-mail-function 'nnsoup-request-mail))
+  (setq message-send-mail-real-function 'nnsoup-request-mail))
 
 ;;;###autoload
 (defun nnsoup-revert-variables ()
   "Revert posting and mailing methods to the standard Emacs methods."
   (interactive)
-  (setq message-send-mail-function (car nnsoup-old-functions))
+  (setq message-send-mail-real-function (car nnsoup-old-functions))
   (setq message-send-news-function (cadr nnsoup-old-functions)))
 
 (defun nnsoup-store-reply (kind)
@@ -752,9 +754,9 @@ backend for the messages.")
   (let ((files (sort (directory-files nnsoup-directory t "IDX$")
 		     (lambda (f1 f2)
 		       (< (progn (string-match "/\\([0-9]+\\)\\." f1)
-				 (string-to-int (match-string 1 f1)))
+				 (string-to-number (match-string 1 f1)))
 			  (progn (string-match "/\\([0-9]+\\)\\." f2)
-				 (string-to-int (match-string 1 f2)))))))
+				 (string-to-number (match-string 1 f2)))))))
 	active group lines ident elem min)
     (set-buffer (get-buffer-create " *nnsoup work*"))
     (while files
@@ -814,4 +816,5 @@ backend for the messages.")
 
 (provide 'nnsoup)
 
+;;; arch-tag: b0451389-5703-4450-9425-f66f6b38c828
 ;;; nnsoup.el ends here

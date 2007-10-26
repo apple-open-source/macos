@@ -116,6 +116,11 @@ __define_stab (N_SSYM, 0x60, "SSYM")
    Value is starting text address of the compilation.  */
 __define_stab (N_SO, 0x64, "SO")
 
+/* APPLE LOCAL begin symbol separation, dwarf 4386531 */
+/* Used with Essential Symbols.  */
+__define_stab (N_OSO, 0x66, "OSO")
+/* APPLE LOCAL end symbol separation, dwarf 4386531 */
+
 /* Automatic variable in the stack.  Value is offset from frame pointer.
    Also used for type descriptions.  */
 __define_stab (N_LSYM, 0x80, "LSYM")

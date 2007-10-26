@@ -75,7 +75,7 @@ dump_base64(FILE *fp, unsigned char *data, int len)
 {
 	unsigned char *buf = xmalloc(2*len);
 	int i, n;
-	n = uuencode(data, len, buf, 2*len);
+	n = uuencode(data, len, (char *)buf, 2*len);
 	for (i = 0; i < n; i++) {
 		fprintf(fp, "%c", buf[i]);
 		if (i % 70 == 69)

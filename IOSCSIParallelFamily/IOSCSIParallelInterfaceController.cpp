@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 #include "IOSCSIParallelInterfaceDevice.h"
 #include "SCSIParallelTask.h"
 #include "SCSIParallelTimer.h"
+#include "SCSIParallelWorkLoop.h"
 
 // Libkern includes
 #include <libkern/OSAtomic.h>
@@ -43,6 +44,8 @@
 // Generic IOKit includes
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
@@ -92,12 +95,19 @@ OSDefineAbstractStructors ( IOSCSIParallelInterfaceController, IOService );
 
 #define kIOPropertySCSIInitiatorManagesTargets		"Manages Targets"
 #define kIOPropertyControllerCharacteristicsKey		"Controller Characteristics"
+#define kIOPropertyDeviceTreeEntryKey				"IODeviceTreeEntry"
 
 enum
 {
-	kWorldWideNameDataSize 		= 8,
-	kAddressIdentifierDataSize 	= 3,
-	kALPADataSize				= 1
+	kWorldWideNameDataSize 				= 8,
+	kAddressIdentifierDataSize 			= 3,
+	kALPADataSize						= 1
+};
+
+enum
+{
+	kPhysicalInterconnectDictionaryEntryCount	= 3,
+	kHBAContraintsDictionaryEntryCount			= 7
 };
 
 
@@ -106,6 +116,17 @@ enum
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 SInt32	IOSCSIParallelInterfaceController::fSCSIParallelDomainCount = 0;
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Prototypes
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static IOSCSIParallelInterfaceDevice *
+GetDevice (	SCSIParallelTaskIdentifier 	parallelTask );
+
+static void
+CopyProtocolCharacteristicsProperties ( OSDictionary * dict, IOService * service );
 
 
 #if 0
@@ -129,7 +150,7 @@ IOSCSIParallelInterfaceController::handleOpen ( IOService *		client,
 	
 	STATUS_LOG ( ( "+IOSCSIParallelInterfaceController::handleOpen\n" ) );
 	
-	result = fClients->setObject( client );
+	result = fClients->setObject ( client );
 	
 	STATUS_LOG ( ( "-IOSCSIParallelInterfaceController::handleOpen\n" ) );
 	
@@ -194,6 +215,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 {
 	
 	OSDictionary *	dict		= NULL;
+	OSDictionary *	copyDict	= NULL;
 	OSNumber *		number		= NULL;
 	bool			result		= false;
 	
@@ -232,77 +254,34 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	dict = NULL;
 	
 	// See if a protocol characteristics property already exists for the controller
-	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyProtocolCharacteristicsKey ) );
-	if ( dict == NULL )
+	copyDict = OSDynamicCast ( OSDictionary, copyProperty ( kIOPropertyProtocolCharacteristicsKey ) );
+	if ( copyDict != NULL )
 	{
 		
-		// A Protocol Characteristics dictionary could not be retrieved, so one
-		// will be created.		
-		dict = OSDictionary::withCapacity ( 3 );
+		// Create a deep copy of the dictionary.
+		dict = ( OSDictionary * ) copyDict->copyCollection ( );
+		copyDict->release ( );
 		
 	}
 	
 	else
 	{
 		
-		// Create a copy of the dictionary.
-		dict = OSDictionary::withDictionary ( dict );
+		// A Protocol Characteristics dictionary could not be retrieved, so one
+		// will be created.		
+		dict = OSDictionary::withCapacity ( kPhysicalInterconnectDictionaryEntryCount );
 		
 	}
 	
 	if ( dict != NULL )
 	{
 		
-		OSString *		string = NULL;
-		OSNumber *		number = NULL;
+		OSNumber *	number = NULL;
 		
-		// Set the Physical Interconnect property if it doesn't already exist
-		string = OSDynamicCast ( OSString, getProperty ( kIOPropertyPhysicalInterconnectTypeKey ) );
-		if ( string == NULL )
-		{
-			
-			string = OSString::withCString ( kIOPropertyPhysicalInterconnectTypeSCSIParallel );
-			if ( string != NULL )
-			{
-				
-				dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
-				string->release ( );
-				string = NULL;
-				
-			}
-			
-		}
+		// Copy any relevant properties from the IOService into the dictionary.
+		CopyProtocolCharacteristicsProperties ( dict, this );
 		
-		else
-		{
-			
-			dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
-			
-		}
-		
-		string = OSDynamicCast ( OSString, getProperty ( kIOPropertyPhysicalInterconnectLocationKey ) );
-		if ( string == NULL )
-		{
-			
-			string = OSString::withCString ( kIOPropertyInternalExternalKey );
-			if ( string != NULL )
-			{
-				
-				dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
-				string->release ( );
-				string = NULL;
-				
-			}
-			
-		}
-		
-		else
-		{
-			
-			dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
-			
-		}
-		
+		// Set the domain ID.
 		number = OSNumber::withNumber ( fSCSIDomainIdentifier, 32 );
 		if ( number != NULL )
 		{
@@ -310,22 +289,6 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 			dict->setObject ( kIOPropertySCSIDomainIdentifierKey, number );
 			number->release ( );
 			number = NULL;
-			
-		}
-
-		number = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyReadTimeOutDurationKey ) );
-		if ( number != NULL )
-		{
-			
-			dict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
-			
-		}
-		
-		number = OSDynamicCast ( OSNumber, getProperty ( kIOPropertyWriteTimeOutDurationKey ) );
-		if ( number != NULL )
-		{
-			
-			dict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
 			
 		}
 		
@@ -470,29 +433,15 @@ PROVIDER_START_FAILURE:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	stop - Begins provided services.								  [PRIVATE]
+//	stop - Ends provided services.									  [PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
 IOSCSIParallelInterfaceController::stop ( IOService * provider )
 {
 	
-	// Prevent any new requests from being sent to the controller
-	fHBACanAcceptClientRequests = false;
-	
-	// Check that there are no commands that are still pending
-	// A pending command would be considered a SCSIParallelTask that
-	// has been gotten, but has not been freed.
-	
-	// Destroy all of the Target Device objects.  Doing this before stopping the
-	// controller prevents any clients from trying to access the controller 
-	// after being stopped.
-	
-	// Halt all services from the subclass
+	// Halt all services from the subclass.
 	StopController ( );
-	
-	// Halt the reception of interrupts.
-	fDispatchEvent->disable ( );
 	
 	fHBAHasBeenInitialized = false;
 	
@@ -514,6 +463,46 @@ IOSCSIParallelInterfaceController::stop ( IOService * provider )
 	}
 	
 	super::stop ( provider );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	willTerminate - Prevent HBA from accepting any further commands.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::willTerminate (
+	IOService * 		provider,
+	IOOptionBits		options )
+{
+	
+	// Prevent any new requests from being sent to the controller.
+	fHBACanAcceptClientRequests = false;
+	return true;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	didTerminate - Closes provider if all outstanding I/O is complete.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::didTerminate (
+	IOService * 		provider,
+	IOOptionBits		options,
+	bool *				defer )
+{
+	
+	if ( fProvider->isOpen ( this ) == true )
+	{
+		fProvider->close ( this );
+	}
+	
+	return true;
 	
 }
 
@@ -551,6 +540,13 @@ IOSCSIParallelInterfaceController::GetSCSIDomainIdentifier ( void )
 }
 
 
+#if 0
+#pragma mark -
+#pragma mark Property Management
+#pragma mark -
+#endif
+
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ SetHBAProperty - Sets a property for this object. 			   [PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -563,12 +559,17 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 	
 	bool			result 		= false;
 	OSDictionary *	hbaDict		= NULL;
+	OSDictionary *	copyDict	= NULL;
 	
 	require_nonzero ( key, ErrorExit );
 	require_nonzero ( value, ErrorExit );
 	
-	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
-	hbaDict = OSDictionary::withDictionary ( hbaDict );
+	copyDict = OSDynamicCast ( OSDictionary, copyProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	require_nonzero ( copyDict, ErrorExit );
+	
+	hbaDict = ( OSDictionary * ) copyDict->copyCollection ( );
+	copyDict->release ( );
+	
 	require_nonzero ( hbaDict, ErrorExit );
 	
 	if ( strcmp ( key, kIOPropertyVendorNameKey ) == 0 )
@@ -681,12 +682,17 @@ void
 IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
 {
 	
-	OSDictionary *	hbaDict = NULL;
+	OSDictionary *	hbaDict		= NULL;
+	OSDictionary *	copyDict	= NULL;
 	
 	require_nonzero ( key, ErrorExit );
 	
-	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
-	hbaDict = OSDictionary::withDictionary ( hbaDict );
+	copyDict = OSDynamicCast ( OSDictionary, copyProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	require_nonzero ( copyDict, ErrorExit );
+	
+	hbaDict = ( OSDictionary * ) copyDict->copyCollection ( );
+	copyDict->release ( );
+	
 	require_nonzero ( hbaDict, ErrorExit );
 	
 	if ( hbaDict->getObject ( key ) != NULL )
@@ -748,37 +754,52 @@ IOSCSIParallelInterfaceController::CreateWorkLoop ( IOService * provider )
 	
 	bool		result = false;
 	IOReturn	status = kIOReturnSuccess;
+	char		lockGroupName[64];
+	
+	bzero ( lockGroupName, sizeof ( lockGroupName ) );
+	
+	snprintf ( lockGroupName, 64, "SCSI Domain %d", ( int ) fSCSIDomainIdentifier );
 	
 	if ( fWorkLoop == NULL )
 	{
 		
-		fWorkLoop = IOWorkLoop::workLoop ( );
+		fWorkLoop = SCSIParallelWorkLoop::Create ( lockGroupName );
 		require_nonzero ( fWorkLoop, CREATE_WORKLOOP_FAILURE );
 		
 	}
 	
+	// Create a timer.
 	fTimerEvent = SCSIParallelTimer::CreateTimerEventSource ( this,
 			( IOTimerEventSource::Action ) &IOSCSIParallelInterfaceController::TimeoutOccurred );
 	require_nonzero ( fTimerEvent, TIMER_CREATION_FAILURE );
 	
+	// Add the timer to the workloop.
 	status = fWorkLoop->addEventSource ( fTimerEvent );
 	require_success ( status, ADD_TES_FAILURE );
 	
-	fDispatchEvent = IOFilterInterruptEventSource::filterInterruptEventSource (
-						this,
-						&IOSCSIParallelInterfaceController::ServiceInterrupt,
-						&IOSCSIParallelInterfaceController::FilterInterrupt,
-						provider,
-						0 );
+	// Ask the subclass to create the device interrupt.
+	fDispatchEvent = CreateDeviceInterrupt (
+		&IOSCSIParallelInterfaceController::ServiceInterrupt,
+		&IOSCSIParallelInterfaceController::FilterInterrupt,
+		provider );
 	
-	require_nonzero ( fDispatchEvent, CREATE_ISR_EVENT_FAILURE );
+	// Virtual HBAs or HBAs that want to handle interrupts differently might
+	// return NULL. We'll allow that, but they'll have to deal with things
+	// themselves.
+	if ( fDispatchEvent != NULL )
+	{
+		
+		// Add the interrupt event source to the workloop.
+		status = fWorkLoop->addEventSource ( fDispatchEvent );
+		require_success ( status, ADD_ISR_EVENT_FAILURE );
+		
+	}
 	
-	status = fWorkLoop->addEventSource ( fDispatchEvent );
-	require_success ( status, ADD_ISR_EVENT_FAILURE );
-	
+	// Create a command gate.
 	fControllerGate = IOCommandGate::commandGate ( this, NULL );
 	require_nonzero ( fControllerGate, ALLOCATE_COMMAND_GATE_FAILURE );
 	
+	// Add the command gate to the workloop.
 	status = fWorkLoop->addEventSource ( fControllerGate );
 	require_success ( status,  ADD_GATE_EVENT_FAILURE );
 	
@@ -798,19 +819,22 @@ ADD_GATE_EVENT_FAILURE:
 ALLOCATE_COMMAND_GATE_FAILURE:
 	
 	
-	fWorkLoop->removeEventSource ( fDispatchEvent );
+	if ( fDispatchEvent != NULL )
+	{
+		fWorkLoop->removeEventSource ( fDispatchEvent );
+	}
 	
 	
 ADD_ISR_EVENT_FAILURE:
 	
 	
-	require_nonzero_quiet ( fDispatchEvent, CREATE_ISR_EVENT_FAILURE );
-	fDispatchEvent->release ( );
-	fDispatchEvent = NULL;
-	
-	
-CREATE_ISR_EVENT_FAILURE:
-	
+	if ( fDispatchEvent != NULL )
+	{
+		
+		fDispatchEvent->release ( );
+		fDispatchEvent = NULL;
+		
+	}
 	
 	fWorkLoop->removeEventSource ( fTimerEvent );
 	
@@ -847,34 +871,39 @@ void
 IOSCSIParallelInterfaceController::ReleaseWorkLoop ( void )
 {
 	
-	if ( fControllerGate != NULL )
-	{
-		
-		fWorkLoop->removeEventSource ( fControllerGate );
-		fControllerGate->release ( );
-		fControllerGate = NULL;
-		
-	}
-	
-	if ( fTimerEvent != NULL ) 	
-	{
-		
-		fTimerEvent->release ( );
-		fTimerEvent = NULL;
-		
-	}
-	
-	if ( fDispatchEvent != NULL )   
-	{
-		
-		fWorkLoop->removeEventSource ( fDispatchEvent );
-		fDispatchEvent->release ( );
-		fDispatchEvent = NULL;
-		
-	}
-	
+	// Make sure we have a workloop.
 	if ( fWorkLoop != NULL )
 	{
+		
+		// Remove all the event sources from the workloop
+		// and deallocate them.
+		
+		if ( fControllerGate != NULL )
+		{
+			
+			fWorkLoop->removeEventSource ( fControllerGate );
+			fControllerGate->release ( );
+			fControllerGate = NULL;
+			
+		}
+		
+		if ( fTimerEvent != NULL ) 	
+		{
+			
+			fWorkLoop->removeEventSource ( fTimerEvent );
+			fTimerEvent->release ( );
+			fTimerEvent = NULL;
+			
+		}
+		
+		if ( fDispatchEvent != NULL )   
+		{
+			
+			fWorkLoop->removeEventSource ( fDispatchEvent );
+			fDispatchEvent->release ( );
+			fDispatchEvent = NULL;
+			
+		}
 		
 		fWorkLoop->release ( );
 		fWorkLoop = NULL;
@@ -935,15 +964,72 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	
 	bool				result			= false;
 	SCSIParallelTask *	parallelTask 	= NULL;
-	UInt32				taskSize		= ReportHBASpecificTaskDataSize ( );
+	UInt32				taskSize		= 0;
+	UInt64				mask			= 0;
+	OSNumber *			value			= NULL;
+	OSDictionary *		constraints		= NULL;
+	
+	// Default alignment is 16-byte aligned, 32-bit memory only.
+	taskSize 	= ReportHBASpecificTaskDataSize ( );
+	constraints = OSDictionary::withCapacity ( kHBAContraintsDictionaryEntryCount );
+	
+	require_nonzero ( constraints, ERROR_EXIT );
+	
+	ReportHBAConstraints ( constraints );
+	
+	// Set constraints for cluster layer / IOBlockStorageDriver.
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMaximumSegmentCountReadKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMaximumSegmentCountReadKey, value );
+	}
+
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMaximumSegmentCountWriteKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMaximumSegmentCountWriteKey, value );
+	}
+
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMaximumSegmentByteCountReadKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMaximumSegmentByteCountReadKey, value );
+	}
+
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMaximumSegmentByteCountWriteKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMaximumSegmentByteCountWriteKey, value );
+	}
+
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMinimumSegmentAlignmentByteCountKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMinimumSegmentAlignmentByteCountKey, value );
+	}
+
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMaximumSegmentAddressableBitCountKey ) );
+	if ( value != NULL )
+	{
+		setProperty ( kIOMaximumSegmentAddressableBitCountKey, value );
+	}
+	
+	value = OSDynamicCast ( OSNumber, constraints->getObject ( kIOMinimumHBADataAlignmentMaskKey ) );
+	mask  = value->unsigned64BitValue ( );
+	
+	constraints->release ( );
+	constraints = NULL;
 	
 	fParallelTaskPool = IOCommandPool::withWorkLoop ( fWorkLoop );
 	require_nonzero ( fParallelTaskPool, POOL_CREATION_FAILURE );
 	
 	// As long as a single SCSI Parallel Task can be allocated, the HBA
 	// can function.  Check to see if the first one can be allocated.
-	parallelTask = SCSIParallelTask::Create ( taskSize );
+	parallelTask = SCSIParallelTask::Create ( taskSize, mask );
 	require_nonzero ( parallelTask, TASK_CREATION_FAILURE );
+	
+	result = InitializeDMASpecification ( parallelTask );
+	require ( result, TASK_INIT_FAILURE );
 	
 	// Send the single command into the pool.
 	fParallelTaskPool->returnCommand ( parallelTask );
@@ -954,9 +1040,18 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	{
 		
 		// Allocate the command with enough space for the HBA specific data
-		parallelTask = SCSIParallelTask::Create ( taskSize );
+		parallelTask = SCSIParallelTask::Create ( taskSize, mask );
 		if ( parallelTask != NULL )
 		{
+			
+			result = InitializeDMASpecification ( parallelTask );
+			if ( result == false )
+			{
+				
+				parallelTask->release ( );
+				break;
+				
+			}
 			
 			// Send the next command into the pool.
 			fParallelTaskPool->returnCommand ( parallelTask );
@@ -972,6 +1067,14 @@ IOSCSIParallelInterfaceController::AllocateSCSIParallelTasks ( void )
 	return result;
 	
 	
+TASK_INIT_FAILURE:
+	
+	
+	require_nonzero ( parallelTask, TASK_CREATION_FAILURE );
+	parallelTask->release ( );
+	parallelTask = NULL;
+	
+	
 TASK_CREATION_FAILURE:
 	
 	
@@ -981,6 +1084,7 @@ TASK_CREATION_FAILURE:
 	
 	
 POOL_CREATION_FAILURE:
+ERROR_EXIT:
 	
 	
 	return result;
@@ -1042,12 +1146,13 @@ IOSCSIParallelInterfaceController::ExecuteParallelTask (
 	
 	// If the controller has requested a suspend,
 	// return the command and let it add it back to the queue.
-	if ( fHBACanAcceptClientRequests == false )
+	if ( fHBACanAcceptClientRequests == true )
 	{
+		
+		// If the controller has not suspended, send the task now
+		serviceResponse = ProcessParallelTask ( parallelRequest );
+		
 	}
-	
-	// If the controller has not suspended, send the task now
-	serviceResponse = ProcessParallelTask ( parallelRequest );
 	
 	return serviceResponse;
 	
@@ -1069,10 +1174,29 @@ IOSCSIParallelInterfaceController::CompleteParallelTask (
 	
 	STATUS_LOG ( ( "+IOSCSIParallelInterfaceController::CompleteParallelTask\n" ) );
 	
+	// We should be within a synchronized context (i.e. holding the workloop lock),
+	// but some subclassers aren't so bright. <sigh>
+	if ( fWorkLoop->inGate ( ) == false )
+	{
+		
+		// Let's make sure to grab the lock and call this routine again.
+		fControllerGate->runAction (
+			OSMemberFunctionCast (
+				IOCommandGate::Action,
+				this,
+				&IOSCSIParallelInterfaceController::CompleteParallelTask ),
+			parallelRequest,
+			( void * ) completionStatus,
+			( void * ) serviceResponse );
+		
+		goto Exit;
+		
+	}
+	
 	// Remove the task from the timeout list.
 	( ( SCSIParallelTimer * ) fTimerEvent )->RemoveTask ( parallelRequest );
 	
-	target = GetTargetForID ( GetTargetIdentifier ( parallelRequest ) );
+	target = GetDevice ( parallelRequest );
 	require_nonzero ( target, Exit );
 	
 	// Complete the command
@@ -1276,7 +1400,12 @@ IOSCSIParallelInterfaceController::FilterInterruptRequest ( void )
 void
 IOSCSIParallelInterfaceController::EnableInterrupt ( void )
 {
-	fDispatchEvent->enable ( );
+	
+	if ( fDispatchEvent != NULL )
+	{
+		fDispatchEvent->enable ( );
+	}
+	
 }
 
 
@@ -1287,7 +1416,12 @@ IOSCSIParallelInterfaceController::EnableInterrupt ( void )
 void
 IOSCSIParallelInterfaceController::DisableInterrupt ( void )
 {
-	fDispatchEvent->disable ( );
+	
+	if ( fDispatchEvent != NULL )
+	{
+		fDispatchEvent->disable ( );
+	}
+	
 }
 
 
@@ -1299,7 +1433,12 @@ IOSCSIParallelInterfaceController::DisableInterrupt ( void )
 void
 IOSCSIParallelInterfaceController::SignalInterrupt ( void )
 {
-	( ( IOFilterInterruptEventSource * ) fDispatchEvent )->signalInterrupt ( );
+	
+	if ( fDispatchEvent != NULL )
+	{
+		( ( IOFilterInterruptEventSource * ) fDispatchEvent )->signalInterrupt ( );
+	}
+	
 }
 
 
@@ -1343,6 +1482,8 @@ IOSCSIParallelInterfaceController::TimeoutOccurred (
 	if ( timer != NULL )
 	{
 		
+		timer->BeginTimeoutContext ( );
+		
 		expiredTask = timer->GetExpiredTask ( );
 		while ( expiredTask != NULL )
 		{
@@ -1351,6 +1492,8 @@ IOSCSIParallelInterfaceController::TimeoutOccurred (
 			expiredTask = timer->GetExpiredTask ( );
 			
 		}
+		
+		timer->EndTimeoutContext ( );
 		
 		// Rearm the timer
 		timer->Rearm ( );
@@ -1424,7 +1567,15 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 {
 	
 	IOSCSIParallelInterfaceDevice *		newDevice 	= NULL;
+	IORegistryEntry *					entry		= NULL;
 	bool								result		= false;
+	
+	// Some subclasses like to create targets from within the StartController() override.
+	// In those cases, fHBACanAcceptClientRequests is still false. We force it to true
+	// in this case since a target is getting created - the HBA must be ready for I/O
+	// by that time...
+	if ( fHBACanAcceptClientRequests == false )
+		fHBACanAcceptClientRequests = true;
 	
 	// Verify that the device ID is not that of the initiator.
 	require ( ( targetID != fInitiatorIdentifier ), INVALID_PARAMETER_EXIT );
@@ -1432,17 +1583,18 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	// First check to see if this device already exists
 	require ( ( GetTargetForID ( targetID ) == NULL ), INVALID_PARAMETER_EXIT );
 	
+	// See if the controller has a device tree entry it wants us to hook this
+	// target upto (e.g. to get io-device-location keys).
+	entry = OSDynamicCast ( IORegistryEntry, properties->getObject ( kIOPropertyDeviceTreeEntryKey ) );
+	
 	// Create the IOSCSIParallelInterfaceDevice object
 	newDevice = IOSCSIParallelInterfaceDevice::CreateTarget (
 									targetID,
-									ReportHBASpecificDeviceDataSize ( ) );
+									ReportHBASpecificDeviceDataSize ( ),
+									entry );
 	require_nonzero ( newDevice, DEVICE_CREATION_FAILED_EXIT );
 	
 	AddDeviceToTargetList ( newDevice );
-	
-	// Attach the device
-	result = newDevice->init ( 0 );
-	require ( result, ATTACH_FAILED_EXIT );
 	
 	result = newDevice->attach ( this );
 	require ( result, ATTACH_FAILED_EXIT );
@@ -1508,7 +1660,7 @@ IOSCSIParallelInterfaceController::DestroyTargetForID (
 		
 	}
 	
-	// Remove the IOSCSIParallelInterfaceDevice from the device list
+	// Remove the IOSCSIParallelInterfaceDevice from the device list.
 	RemoveDeviceFromTargetList ( victimDevice );
 	
 	// The device can now be destroyed.
@@ -1626,8 +1778,7 @@ IOSCSIParallelInterfaceController::GetTargetForID ( SCSITargetIdentifier targetI
 	
 	lockState = IOSimpleLockLockDisableInterrupt ( fDeviceLock );
 	
-	// Since the array is made up of 16 elements, do a bitwize and with the 
-	// targetID to get the array index.
+	// Hash the index.
 	indexID = targetID & kSCSIParallelDeviceListIndexMask;
 	
 	// Walk the list for the indexID
@@ -1677,8 +1828,7 @@ IOSCSIParallelInterfaceController::AddDeviceToTargetList (
 	
 	lockState = IOSimpleLockLockDisableInterrupt ( fDeviceLock );
 	
-	// Since the array is made up of 16 elements, do a bitwize and with the 
-	// targetID to get the array index.
+	// Hash the index.
 	indexID = newDevice->GetTargetIdentifier ( ) & kSCSIParallelDeviceListIndexMask;
 	
 	// Set the pointer in the SCSI Device array
@@ -1720,7 +1870,8 @@ IOSCSIParallelInterfaceController::AddDeviceToTargetList (
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	RemoveDeviceFromTargetList - Adds a device to the target list.	  [PRIVATE]
+//	RemoveDeviceFromTargetList - Removes a device from the target list.
+//																	  [PRIVATE]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 void
@@ -1752,8 +1903,7 @@ IOSCSIParallelInterfaceController::RemoveDeviceFromTargetList (
 		// to the victim's next device.
 		UInt8	indexID = 0;
 		
-		// Since the array is made up of 16 elements, do a bitwize and with the 
-		// targetID to get the array index.
+		// Hash the index.
 		indexID = victimDevice->GetTargetIdentifier ( ) & kSCSIParallelDeviceListIndexMask;
 		
 		// Set the Device List element to point at the device object that was following
@@ -1796,6 +1946,107 @@ bool
 IOSCSIParallelInterfaceController::DoesHBAPerformAutoSense ( void )
 {
 	return false;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	ReportHBAConstraints - Default implementation.				 	   [PUBLIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+void
+IOSCSIParallelInterfaceController::ReportHBAConstraints (
+	OSDictionary *		constraints )
+{
+	
+	UInt64			value	= 0;
+	OSNumber *		number	= NULL;
+	
+	// Default alignment is 16-byte aligned, 32-bit memory only.
+	value = 0x00000000FFFFFFF0ULL;
+	
+	number = OSNumber::withNumber ( value, 64 );
+	if ( number != NULL )
+	{
+		
+		constraints->setObject ( kIOMinimumHBADataAlignmentMaskKey, number );
+		number->release ( );
+		
+	}
+	
+	// 32-bit addressing by default.
+	value = 32;
+	number = OSNumber::withNumber ( value, 64 );
+	if ( number != NULL )
+	{
+		
+		constraints->setObject ( kIOMaximumSegmentAddressableBitCountKey, number );
+		number->release ( );
+		
+	}
+	
+	// 4-byte alignment by default.
+	value = 4;
+	number = OSNumber::withNumber ( value, 64 );
+	if ( number != NULL )
+	{
+		
+		constraints->setObject ( kIOMinimumSegmentAlignmentByteCountKey, number );
+		number->release ( );
+		
+	}
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	InitializeDMASpecification - Default implementation.		 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::InitializeDMASpecification (
+	IODMACommand * command )
+{
+	
+	bool	result = false;
+	
+	result = command->initWithSpecification (
+		kIODMACommandOutputHost32,
+		32,			// addressBits
+		4096,		// PAGE_SIZE
+		IODMACommand::kMapped,
+		1048576,	// 1MB I/O
+		4			// 4-byte aligned segments
+		);
+	
+	return result;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	CreateDeviceInterrupt - Default implementation.				 	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOInterruptEventSource *
+IOSCSIParallelInterfaceController::CreateDeviceInterrupt (
+	IOInterruptEventSource::Action			action,
+	IOFilterInterruptEventSource::Filter	filter,
+	IOService *								provider )
+{
+	
+	IOInterruptEventSource *	ies = NULL;
+	
+	ies = IOFilterInterruptEventSource::filterInterruptEventSource (
+		this,
+		action,
+		filter,
+		provider,
+		0 );
+	
+	check ( ies != NULL );
+	
+	return ies;
+	
 }
 
 
@@ -1848,53 +2099,52 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 												SCSIPortStatus newStatus )
 {
 	
-	OSDictionary *	hbaDict = NULL;
+	OSDictionary *	hbaDict		= NULL;
+	OSDictionary *	copyDict	= NULL;
+	OSString *		string 		= NULL;
+	char *			linkStatus	= NULL;
 	
-	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
-	hbaDict = OSDictionary::withDictionary ( hbaDict );
+	copyDict = OSDynamicCast ( OSDictionary, copyProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	require_nonzero ( copyDict, ErrorExit );
+	
+	hbaDict = ( OSDictionary * ) copyDict->copyCollection ( );
+	copyDict->release ( );
+	
 	require_nonzero ( hbaDict, ErrorExit );
 	
-	if ( hbaDict != NULL )
+	switch ( newStatus )
 	{
 		
-		OSString *	string 		= NULL;
-		char *		linkStatus	= NULL;
+		case kSCSIPort_StatusOnline:
+			linkStatus = kIOPropertyPortStatusLinkEstablishedKey;
+			break;
 		
-		switch ( newStatus )
-		{
-			
-			case kSCSIPort_StatusOnline:
-				linkStatus = kIOPropertyPortStatusLinkEstablishedKey;
-				break;
-			
-			case kSCSIPort_StatusOffline:
-				linkStatus = kIOPropertyPortStatusNoLinkEstablishedKey;
-				break;
-			
-			case kSCSIPort_StatusFailure:
-				linkStatus = kIOPropertyPortStatusLinkFailedKey;
-				break;
-			
-			default:
-				break;
-			
-		}
+		case kSCSIPort_StatusOffline:
+			linkStatus = kIOPropertyPortStatusNoLinkEstablishedKey;
+			break;
 		
-		string = OSString::withCString ( linkStatus );
-		if ( string != NULL )
-		{
-			
-			hbaDict->setObject ( kIOPropertyPortStatusKey, string );
-			string->release ( );
-			string = NULL;
-			
-		}
+		case kSCSIPort_StatusFailure:
+			linkStatus = kIOPropertyPortStatusLinkFailedKey;
+			break;
 		
-		setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
-		hbaDict->release ( );
-		hbaDict = NULL;
+		default:
+			break;
 		
 	}
+	
+	string = OSString::withCString ( linkStatus );
+	if ( string != NULL )
+	{
+		
+		hbaDict->setObject ( kIOPropertyPortStatusKey, string );
+		string->release ( );
+		string = NULL;
+		
+	}
+	
+	setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
+	hbaDict->release ( );
+	hbaDict = NULL;
 	
 	
 ErrorExit:
@@ -1950,6 +2200,126 @@ IOSCSIParallelInterfaceController::GetTargetIdentifier (
 	}
 	
 	return tempTask->GetTargetIdentifier ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	GetDevice - Gets Device for task.								   [STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static IOSCSIParallelInterfaceDevice *
+GetDevice (	SCSIParallelTaskIdentifier 	parallelTask )
+{
+	
+	SCSIParallelTask *	tempTask = ( SCSIParallelTask * ) parallelTask;
+	
+	if ( tempTask == NULL )
+	{
+		return NULL;
+	}
+	
+	return tempTask->GetDevice ( );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	CopyProtocolCharacteristicsProperties - Copies properties from object
+//											to dictionary.			   [STATIC]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+static void
+CopyProtocolCharacteristicsProperties ( OSDictionary * dict, IOService * service )
+{
+	
+	OSString *		string = NULL;
+	OSNumber *		number = NULL;
+	
+	// Set the Physical Interconnect property if it doesn't already exist.
+	if ( dict->getObject ( kIOPropertyPhysicalInterconnectTypeKey ) == NULL )
+	{
+		
+		string = OSDynamicCast ( OSString, service->getProperty ( kIOPropertyPhysicalInterconnectTypeKey ) );
+		if ( string == NULL )
+		{
+			
+			string = OSString::withCString ( kIOPropertyPhysicalInterconnectTypeSCSIParallel );
+			if ( string != NULL )
+			{
+				
+				dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
+				string->release ( );
+				string = NULL;
+				
+			}
+			
+		}
+		
+		else
+		{
+			
+			dict->setObject ( kIOPropertyPhysicalInterconnectTypeKey, string );
+			
+		}
+		
+	}
+
+	// Set the Physical Interconnect Location property if it doesn't already exist.
+	if ( dict->getObject ( kIOPropertyPhysicalInterconnectLocationKey ) == NULL )
+	{
+		
+		string = OSDynamicCast ( OSString, service->getProperty ( kIOPropertyPhysicalInterconnectLocationKey ) );
+		if ( string == NULL )
+		{
+			
+			string = OSString::withCString ( kIOPropertyInternalExternalKey );
+			if ( string != NULL )
+			{
+				
+				dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
+				string->release ( );
+				string = NULL;
+				
+			}
+			
+		}
+		
+		else
+		{
+			
+			dict->setObject ( kIOPropertyPhysicalInterconnectLocationKey, string );
+			
+		}
+		
+	}
+	
+	// Set the Timeout Duration properties if they don't already exist.
+	if ( dict->getObject ( kIOPropertyReadTimeOutDurationKey ) == NULL )
+	{
+		
+		number = OSDynamicCast ( OSNumber, service->getProperty ( kIOPropertyReadTimeOutDurationKey ) );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertyReadTimeOutDurationKey, number );
+			
+		}
+		
+	}
+	
+	if ( dict->getObject ( kIOPropertyWriteTimeOutDurationKey ) == NULL )
+	{
+		
+		number = OSDynamicCast ( OSNumber, service->getProperty ( kIOPropertyWriteTimeOutDurationKey ) );
+		if ( number != NULL )
+		{
+			
+			dict->setObject ( kIOPropertyWriteTimeOutDurationKey, number );
+			
+		}
+		
+	}
 	
 }
 
@@ -2220,6 +2590,18 @@ IOSCSIParallelInterfaceController::GetDataBufferOffset (
 	
 	return tempTask->GetDataBufferOffset ( );
 	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	GetDMACommand - Gets IODMACommand associated with this task.	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IODMACommand *
+IOSCSIParallelInterfaceController::GetDMACommand ( 
+							SCSIParallelTaskIdentifier 		parallelTask )
+{
+	return ( IODMACommand * ) parallelTask;
 }
 
 
@@ -2596,8 +2978,8 @@ IOSCSIParallelInterfaceController::GetHBATargetDataPointer (
 
 // Space reserved for future expansion.
 OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController,  1 );		// Used for DoesHBAPerformAutoSense
+OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController,  2 );		// Used for ReportHBAConstraints
 
-OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  2 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  3 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  4 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  5 );
@@ -2607,9 +2989,9 @@ OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  8 );
 
 OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController,  9 );		// Used for HandleTimeout
 OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController, 10 );		// Used for FilterInterruptRequest
+OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController, 11 );		// Used for InitializeDMASpecification
+OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController, 12 );		// Used for CreateDeviceInterrupt
 
-OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 11 );
-OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 12 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 13 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 14 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 15 );

@@ -21,7 +21,7 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "IOSystemConfiguration.h"
 #include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include "IOPowerSources.h"
 #include "IOPowerSourcesPrivate.h"
@@ -199,8 +199,8 @@ static CFStringRef getPowerSourceState(CFTypeRef blob, CFTypeRef id)
  */
 extern CFStringRef IOPSGetProvidingPowerSourceType(CFTypeRef ps_blob)
 {
-    CFArrayRef      batt_arr = NULL;
-    CFArrayRef      ups_arr = NULL;
+    // CFArrayRef      batt_arr = NULL;
+    // CFArrayRef      ups_arr = NULL;
     CFTypeRef       the_ups = NULL;
     CFTypeRef       the_batt = NULL;
     CFStringRef     ps_state = NULL;

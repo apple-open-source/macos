@@ -1,0 +1,11 @@
+--- ext/digest/sha1/sha1.h.orig	2006-03-20 15:10:28.000000000 +0100
++++ ext/digest/sha1/sha1.h	2006-03-20 15:10:48.000000000 +0100
+@@ -13,6 +13,8 @@
+ 
+ #include "defs.h"
+ 
++#include <CommonCrypto/CommonDigest.h>
++
+ typedef struct {
+ 	uint32_t state[5];
+ 	uint32_t count[2];  

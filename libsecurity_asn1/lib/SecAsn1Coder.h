@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  *
- * SecAsn1Coder.h: ANS1 encode/decode object, ANSI C version.
+ * SecAsn1Coder.h: ANS1 encode/decode object.
+ *
+ * A SecAsn1Coder is capable of encoding and decoding both DER and BER data
+ * streams, based on caller-supplied templates which in turn are based
+ * upon ASN.1 specifications. A SecAsn1Coder allocates memory during encode
+ * and decode using a memory pool which is owned and managed by the SecAsn1Coder
+ * object, and which is freed when the SecAsn1Coder object os released. 
  */
  
 #ifndef	_SEC_ASN1_CODER_H_
@@ -28,7 +34,7 @@
 
 #include <Security/cssmtype.h>
 #include <Security/SecBase.h>
-#include <Security/secasn1t.h>
+#include <Security/SecAsn1Types.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -54,16 +60,20 @@ OSStatus SecAsn1CoderRelease(
  * The result is allocated in this SecAsn1Coder's memory pool and 
  * is freed when this object is released.
  *
- * Returns errSecUnknownFormat on decode-specific error.
+ * The templates argument points to a an array of SecAsn1Templates 
+ * defining the object to be decoded; the end of the array is 
+ * indicated by a SecAsn1Template with file kind equalling 0. 
  *
  * The dest pointer is a template-specific struct allocated by the caller 
  * and must be zeroed by the caller. 
+ *
+ * Returns errSecUnknownFormat on decode-specific error.
  */
 OSStatus SecAsn1Decode(
 	SecAsn1CoderRef			coder,
 	const void				*src,		// DER-encoded source
 	size_t					len,
-	const SecAsn1Template 	*templ,	
+	const SecAsn1Template 	*templates,	
 	void					*dest);
 		
 /* 
@@ -80,11 +90,15 @@ OSStatus SecAsn1DecodeData(
  * SecAsn1Coder's memory pool and is freed when this object is released.
  *
  * The src pointer is a template-specific struct.
+ *
+ * The templates argument points to a an array of SecAsn1Templates 
+ * defining the object to be decoded; the end of the array is 
+ * indicated by a SecAsn1Template with file kind equalling 0. 
  */
 OSStatus SecAsn1EncodeItem(
 	SecAsn1CoderRef			coder,
 	const void				*src,
-	const SecAsn1Template 	*templ,	
+	const SecAsn1Template 	*templates,	
 	CSSM_DATA				*dest);
 		
 /*
@@ -96,28 +110,34 @@ OSStatus SecAsn1EncodeItem(
  *
  * All except SecAsn1Malloc return a memFullErr in the highly 
  * unlikely event of a malloc failure.
+ *
+ * SecAsn1Malloc() returns a pointer to allocated memory, like 
+ * malloc().
  */
 void *SecAsn1Malloc(
 	SecAsn1CoderRef			coder,
 	size_t					len); 
 	
-/* malloc item.Data, set item.Length */
+/* Allocate item.Data, set item.Length */
 OSStatus SecAsn1AllocItem(
 	SecAsn1CoderRef			coder,
 	CSSM_DATA				*item,
 	size_t					len);
 	
-/* malloc and copy, various forms */
+/* Allocate and copy, various forms */
 OSStatus SecAsn1AllocCopy(
 	SecAsn1CoderRef			coder,
-	const void				*src,
-	size_t					len,
-	CSSM_DATA				*dest);
+	const void				*src,		/* memory copied from here */
+	size_t					len,		/* length to allocate & copy */
+	CSSM_DATA				*dest);		/* dest->Data allocated and copied to;
+										 *   dest->Length := len */
 	
 OSStatus SecAsn1AllocCopyItem(
 	SecAsn1CoderRef			coder,
-	const CSSM_DATA			*src,
-	CSSM_DATA				*dest);
+	const CSSM_DATA			*src,		/* src->Length bytes allocated and copied from 
+										 *   src->Data */
+	CSSM_DATA				*dest);		/* dest->Data allocated and copied to;
+										 *   dest->Length := src->Length */
 		
 #ifdef __cplusplus
 }

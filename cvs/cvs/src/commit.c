@@ -1,6 +1,11 @@
 /*
- * Copyright (c) 1992, Brian Berliner and Jeff Polk
- * Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  *
  * You may distribute under the terms of the GNU General Public License as
  * specified in the README file that comes with the CVS source distribution.
@@ -14,51 +19,45 @@
  *
  */
 
-#include <assert.h>
 #include "cvs.h"
 #include "getline.h"
 #include "edit.h"
 #include "fileattr.h"
 #include "hardlink.h"
 
-static Dtype check_direntproc PROTO ((void *callerdat, const char *dir,
-                                      const char *repos,
-                                      const char *update_dir,
-                                      List *entries));
-static int check_fileproc PROTO ((void *callerdat, struct file_info *finfo));
-static int check_filesdoneproc PROTO ((void *callerdat, int err,
-                                       const char *repos,
-                                       const char *update_dir,
-                                       List *entries));
-static int checkaddfile PROTO((const char *file, const char *repository,
-                               const char *tag, const char *options,
-                               RCSNode **rcsnode));
-static Dtype commit_direntproc PROTO ((void *callerdat, const char *dir,
-                                       const char *repos,
-                                       const char *update_dir,
-                                       List *entries));
-static int commit_dirleaveproc PROTO ((void *callerdat, const char *dir,
-                                       int err, const char *update_dir,
-                                       List *entries));
-static int commit_fileproc PROTO ((void *callerdat, struct file_info *finfo));
-static int commit_filesdoneproc PROTO ((void *callerdat, int err,
-                                        const char *repository,
-                                        const char *update_dir,
-                                        List *entries));
-static int finaladd PROTO((struct file_info *finfo, char *revision, char *tag,
-			   char *options));
-static int findmaxrev PROTO((Node * p, void *closure));
-static int lock_RCS PROTO((const char *user, RCSNode *rcs, const char *rev,
-			   const char *repository));
-static int precommit_list_proc PROTO((Node * p, void *closure));
-static int precommit_proc PROTO((const char *repository, const char *filter));
-static int remove_file PROTO ((struct file_info *finfo, char *tag,
-			       char *message));
-static void fixaddfile PROTO((const char *rcs));
-static void fixbranch PROTO((RCSNode *, char *branch));
-static void unlockrcs PROTO((RCSNode *rcs));
-static void ci_delproc PROTO((Node *p));
-static void masterlist_delproc PROTO((Node *p));
+static Dtype check_direntproc (void *callerdat, const char *dir,
+                               const char *repos, const char *update_dir,
+                               List *entries);
+static int check_fileproc (void *callerdat, struct file_info *finfo);
+static int check_filesdoneproc (void *callerdat, int err, const char *repos,
+				const char *update_dir, List *entries);
+static int checkaddfile (const char *file, const char *repository,
+                         const char *tag, const char *options,
+                         RCSNode **rcsnode);
+static Dtype commit_direntproc (void *callerdat, const char *dir,
+                                const char *repos, const char *update_dir,
+                                List *entries);
+static int commit_dirleaveproc (void *callerdat, const char *dir, int err,
+				const char *update_dir, List *entries);
+static int commit_fileproc (void *callerdat, struct file_info *finfo);
+static int commit_filesdoneproc (void *callerdat, int err,
+                                 const char *repository,
+				 const char *update_dir, List *entries);
+static int finaladd (struct file_info *finfo, char *revision, char *tag,
+		     char *options);
+static int findmaxrev (Node * p, void *closure);
+static int lock_RCS (const char *user, RCSNode *rcs, const char *rev,
+                     const char *repository);
+static int precommit_list_to_args_proc (Node * p, void *closure);
+static int precommit_proc (const char *repository, const char *filter,
+                           void *closure);
+static int remove_file (struct file_info *finfo, char *tag,
+			char *message);
+static void fixaddfile (const char *rcs);
+static void fixbranch (RCSNode *, char *branch);
+static void unlockrcs (RCSNode *rcs);
+static void ci_delproc (Node *p);
+static void masterlist_delproc (Node *p);
 
 struct commit_info
 {
@@ -73,6 +72,7 @@ struct master_lists
     List *cilist;			/* list with commit_info structs */
 };
 
+static int check_valid_edit = 0;
 static int force_ci = 0;
 static int got_message;
 static int aflag;
@@ -81,13 +81,13 @@ static char *write_dirtag;
 static int write_dirnonbranch;
 static char *logfile;
 static List *mulist;
-static List *saved_ulist;
 static char *saved_message;
 static time_t last_register_time;
 
 static const char *const commit_usage[] =
 {
-    "Usage: %s %s [-Rlf] [-m msg | -F logfile] [-r rev] files...\n",
+    "Usage: %s %s [-cRlf] [-m msg | -F logfile] [-r rev] files...\n",
+    "    -c          Check for valid edits before committing.\n",
     "    -R          Process directories recursively.\n",
     "    -l          Local directory only (not recursive).\n",
     "    -f          Force the file to be committed; disables recursion.\n",
@@ -100,7 +100,8 @@ static const char *const commit_usage[] =
 
 #ifdef CLIENT_SUPPORT
 /* Identify a file which needs "? foo" or a Questionable request.  */
-struct question {
+struct question
+{
     /* The two fields for the Directory request.  */
     char *dir;
     char *repos;
@@ -111,7 +112,8 @@ struct question {
     struct question *next;
 };
 
-struct find_data {
+struct find_data
+{
     List *ulist;
     int argc;
     char **argv;
@@ -135,20 +137,11 @@ struct find_data {
 
 
 
-static Dtype find_dirent_proc PROTO ((void *callerdat, const char *dir,
-                                      const char *repository,
-                                      const char *update_dir,
-                                      List *entries));
-
 static Dtype
-find_dirent_proc (callerdat, dir, repository, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+find_dirent_proc (void *callerdat, const char *dir, const char *repository,
+                  const char *update_dir, List *entries)
 {
-    struct find_data *find_data = (struct find_data *)callerdat;
+    struct find_data *find_data = callerdat;
 
     /* This check seems to slowly be creeping throughout CVS (update
        and send_dirent_proc by CVS 1.5, diff in 31 Oct 1995.  My guess
@@ -177,16 +170,12 @@ static struct find_data *find_data_static;
 
 
 
-static void find_ignproc PROTO ((const char *, const char *));
-
 static void
-find_ignproc (file, dir)
-    const char *file;
-    const char *dir;
+find_ignproc (const char *file, const char *dir)
 {
     struct question *p;
 
-    p = (struct question *) xmalloc (sizeof (struct question));
+    p = xmalloc (sizeof (struct question));
     p->dir = xstrdup (dir);
     p->repos = xstrdup (find_data_static->repository);
     p->file = xstrdup (file);
@@ -196,20 +185,11 @@ find_ignproc (file, dir)
 
 
 
-static int find_filesdoneproc PROTO ((void *callerdat, int err,
-                                      const char *repository,
-                                      const char *update_dir,
-                                      List *entries));
-
 static int
-find_filesdoneproc (callerdat, err, repository, update_dir, entries)
-    void *callerdat;
-    int err;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+find_filesdoneproc (void *callerdat, int err, const char *repository,
+                    const char *update_dir, List *entries)
 {
-    struct find_data *find_data = (struct find_data *)callerdat;
+    struct find_data *find_data = callerdat;
     find_data->repository = repository;
 
     /* if this directory has an ignore list, process it then free it */
@@ -227,21 +207,17 @@ find_filesdoneproc (callerdat, err, repository, update_dir, entries)
 
 
 
-static int find_fileproc PROTO ((void *callerdat, struct file_info *finfo));
-
 /* Machinery to find out what is modified, added, and removed.  It is
    possible this should be broken out into a new client_classify function;
    merging it with classify_file is almost sure to be a mess, though,
    because classify_file has all kinds of repository processing.  */
 static int
-find_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+find_fileproc (void *callerdat, struct file_info *finfo)
 {
     Vers_TS *vers;
     enum classify_type status;
     Node *node;
-    struct find_data *args = (struct find_data *)callerdat;
+    struct find_data *args = callerdat;
     struct logfile_info *data;
     struct file_info xfinfo;
 
@@ -267,7 +243,7 @@ find_fileproc (callerdat, finfo)
 	if (vers->ts_user == NULL)
 	    error (0, 0, "nothing known about `%s'", finfo->fullname);
 	else
-	    error (0, 0, "use `%s add' to create an entry for %s",
+	    error (0, 0, "use `%s add' to create an entry for `%s'",
 		   program_name, finfo->fullname);
 	freevers_ts (&vers);
 	return 1;
@@ -327,7 +303,7 @@ find_fileproc (callerdat, finfo)
     node = getnode ();
     node->key = xstrdup (finfo->fullname);
 
-    data = (struct logfile_info *) xmalloc (sizeof (struct logfile_info));
+    data = xmalloc (sizeof (struct logfile_info));
     data->type = status;
     data->tag = xstrdup (vers->tag);
     data->rev_old = data->rev_new = NULL;
@@ -345,28 +321,24 @@ find_fileproc (callerdat, finfo)
 
 
 
-static int copy_ulist PROTO ((Node *, void *));
-
 static int
-copy_ulist (node, data)
-    Node *node;
-    void *data;
+copy_ulist (Node *node, void *data)
 {
-    struct find_data *args = (struct find_data *)data;
+    struct find_data *args = data;
     args->argv[args->argc++] = node->key;
     return 0;
 }
 #endif /* CLIENT_SUPPORT */
 
+
+
 #ifdef SERVER_SUPPORT
-# define COMMIT_OPTIONS "+nlRm:fF:r:"
+# define COMMIT_OPTIONS "+cnlRm:fF:r:"
 #else /* !SERVER_SUPPORT */
-# define COMMIT_OPTIONS "+lRm:fF:r:"
+# define COMMIT_OPTIONS "+clRm:fF:r:"
 #endif /* SERVER_SUPPORT */
 int
-commit (argc, argv)
-    int argc;
-    char **argv;
+commit (int argc, char **argv)
 {
     int c;
     int err = 0;
@@ -383,16 +355,12 @@ commit (argc, argv)
     /* FIXME: Shouldn't this check be much more closely related to the
        readonly user stuff (CVSROOT/readers, &c).  That is, why should
        root be able to "cvs init", "cvs import", &c, but not "cvs ci"?  */
-    if (geteuid () == (uid_t) 0
-#  ifdef CLIENT_SUPPORT
-	/* Who we are on the client side doesn't affect logging.  */
-	&& !current_parsed_root->isremote
-#  endif
-	)
+    /* Who we are on the client side doesn't affect logging.  */
+    if (geteuid () == (uid_t) 0 && !current_parsed_root->isremote)
     {
 	struct passwd *pw;
 
-	if ((pw = (struct passwd *) getpwnam (getcaller ())) == NULL)
+	if ((pw = getpwnam (getcaller ())) == NULL)
 	    error (1, 0,
                    "your apparent username (%s) is unknown to this system",
                    getcaller ());
@@ -406,6 +374,9 @@ commit (argc, argv)
     {
 	switch (c)
 	{
+            case 'c':
+                check_valid_edit = 1;
+                break;
 #ifdef SERVER_SUPPORT
 	    case 'n':
 		/* Silently ignore -n for compatibility with old
@@ -425,7 +396,7 @@ commit (argc, argv)
 		    saved_message = NULL;
 		}
 
-		saved_message = xstrdup(optarg);
+		saved_message = xstrdup (optarg);
 		break;
 	    case 'r':
 		if (saved_tag)
@@ -440,6 +411,7 @@ commit (argc, argv)
 		break;
 	    case 'f':
 		force_ci = 1;
+                check_valid_edit = 0;
 		local = 1;		/* also disable recursion */
 		break;
 	    case 'F':
@@ -501,11 +473,10 @@ commit (argc, argv)
 	   a little unneeded network traffic.  */
 	find_args.force = force_ci || saved_tag != NULL;
 
-	err = start_recursion (find_fileproc, find_filesdoneproc,
-			       find_dirent_proc, (DIRLEAVEPROC) NULL,
-			       (void *)&find_args,
-			       argc, argv, local, W_LOCAL, 0, CVS_LOCK_NONE,
-			       (char *) NULL, 0, (char *) NULL);
+	err = start_recursion
+	    (find_fileproc, find_filesdoneproc, find_dirent_proc, NULL,
+	     &find_args, argc, argv, local, W_LOCAL, 0, CVS_LOCK_NONE,
+	     NULL, 0, NULL );
 	if (err)
 	    error (1, 0, "correct above errors first!");
 
@@ -528,7 +499,7 @@ commit (argc, argv)
 	    find_args.argc = 0;
 	    return 0;
 	}
-	find_args.argv = xmalloc (xtimes (find_args.argc, sizeof (char **)));
+	find_args.argv = xnmalloc (find_args.argc, sizeof (char **));
 	find_args.argc = 0;
 	walklist (find_args.ulist, copy_ulist, &find_args);
 
@@ -549,7 +520,7 @@ commit (argc, argv)
 	 * The protocol is designed this way.  This is a feature.
 	 */
 	if (use_editor)
-	    do_editor (".", &saved_message, (char *)NULL, find_args.ulist);
+	    do_editor (".", &saved_message, NULL, find_args.ulist);
 
 	/* We always send some sort of message, even if empty.  */
 	option_with_arg ("-m", saved_message ? saved_message : "");
@@ -576,11 +547,26 @@ commit (argc, argv)
 		}
 		else
 		{
-		    send_to_server ("Directory ", 0);
-		    send_to_server (p->dir[0] == '\0' ? "." : p->dir, 0);
-		    send_to_server ("\012", 1);
-		    send_to_server (p->repos, 0);
-		    send_to_server ("\012", 1);
+		    /* This used to send the Directory line of its own accord,
+		     * but skipped some of the other processing like checking
+		     * for whether the server would accept "Relative-directory"
+		     * requests.  Relying on send_a_repository() to do this
+		     * picks up these checks but also:
+		     *
+		     *   1. Causes the "Directory" request to be sent only once
+		     *      per directory.
+		     *   2. Causes the global TOPLEVEL_REPOS to be set.
+		     *   3. Causes "Static-directory" and "Sticky" requests
+		     *      to sometimes be sent.
+		     *
+		     * (1) is almost certainly a plus.  (2) & (3) may or may
+		     * not be useful sometimes, and will ocassionally cause a
+		     * little extra network traffic.  The additional network
+		     * traffic is probably already saved several times over and
+		     * certainly cancelled out via the multiple "Directory"
+		     * request suppression of (1).
+		     */
+		    send_a_repository (p->dir, p->repos, p->dir);
 
 		    send_to_server ("Questionable ", 0);
 		    send_to_server (p->file, 0);
@@ -596,9 +582,11 @@ commit (argc, argv)
 	}
 
 	if (local)
-	    send_arg("-l");
+	    send_arg ("-l");
+        if (check_valid_edit)
+            send_arg ("-c");
 	if (force_ci)
-	    send_arg("-f");
+	    send_arg ("-f");
 	option_with_arg ("-r", saved_tag);
 	send_arg ("--");
 
@@ -655,7 +643,7 @@ commit (argc, argv)
 #endif
 
     if (saved_tag != NULL)
-	tag_check_valid (saved_tag, argc, argv, local, aflag, "");
+	tag_check_valid (saved_tag, argc, argv, local, aflag, "", false);
 
     /* XXX - this is not the perfect check for this */
     if (argc <= 0)
@@ -663,7 +651,7 @@ commit (argc, argv)
 
     wrap_setup ();
 
-    lock_tree_for_write (argc, argv, local, W_LOCAL, aflag);
+    lock_tree_promotably (argc, argv, local, W_LOCAL, aflag);
 
     /*
      * Set up the master update list and hard link list
@@ -679,7 +667,7 @@ commit (argc, argv)
 	 * We need to save the working directory so that
 	 * check_fileproc can construct a full pathname for each file.
 	 */
-	working_dir = xgetwd();
+	working_dir = xgetcwd ();
     }
 #endif
 
@@ -687,14 +675,10 @@ commit (argc, argv)
      * Run the recursion processor to verify the files are all up-to-date
      */
     err = start_recursion (check_fileproc, check_filesdoneproc,
-			   check_direntproc, (DIRLEAVEPROC) NULL, NULL, argc,
-			   argv, local, W_LOCAL, aflag, CVS_LOCK_NONE,
-			   (char *) NULL, 1, (char *) NULL);
+                           check_direntproc, NULL, NULL, argc, argv, local,
+                           W_LOCAL, aflag, CVS_LOCK_NONE, NULL, 1, NULL);
     if (err)
-    {
-	Lock_Cleanup ();
 	error (1, 0, "correct above errors first!");
-    }
 
     /*
      * Run the recursion processor to commit the files
@@ -702,9 +686,9 @@ commit (argc, argv)
     write_dirnonbranch = 0;
     if (noexec == 0)
 	err = start_recursion (commit_fileproc, commit_filesdoneproc,
-			       commit_direntproc, commit_dirleaveproc, NULL,
-			       argc, argv, local, W_LOCAL, aflag, CVS_LOCK_NONE,
-			       (char *) NULL, 1, (char *) NULL);
+                               commit_direntproc, commit_dirleaveproc, NULL,
+                               argc, argv, local, W_LOCAL, aflag,
+                               CVS_LOCK_WRITE, NULL, 1, NULL);
 
     /*
      * Unlock all the dirs and clean up
@@ -712,13 +696,8 @@ commit (argc, argv)
     Lock_Cleanup ();
     dellist (&mulist);
 
-#ifdef SERVER_SUPPORT
-    if (server_active)
-	return err;
-#endif
-
     /* see if we need to sleep before returning to avoid time-stamp races */
-    if (last_register_time)
+    if (!server_active && last_register_time)
     {
 	sleep_past (last_register_time);
     }
@@ -733,9 +712,7 @@ commit (argc, argv)
 
 static
 Ctype
-classify_file_internal (finfo, vers)
-    struct file_info *finfo;
-    Vers_TS **vers;
+classify_file_internal (struct file_info *finfo, Vers_TS **vers)
 {
     int save_noexec, save_quiet, save_really_quiet;
     Ctype status;
@@ -754,16 +731,16 @@ classify_file_internal (finfo, vers)
 	/* If the tag is for the trunk, make sure we're at the head */
 	if (numdots (saved_tag) < 2)
 	{
-	    status = Classify_File (finfo, (char *) NULL, (char *) NULL,
-				    (char *) NULL, 1, aflag, vers, 0);
+	    status = Classify_File (finfo, NULL, NULL,
+				    NULL, 1, aflag, vers, 0);
 	    if (status == T_UPTODATE || status == T_MODIFIED ||
 		status == T_ADDED)
 	    {
 		Ctype xstatus;
 
 		freevers_ts (vers);
-		xstatus = Classify_File (finfo, saved_tag, (char *) NULL,
-					 (char *) NULL, 1, aflag, vers, 0);
+		xstatus = Classify_File (finfo, saved_tag, NULL,
+					 NULL, 1, aflag, vers, 0);
 		if (xstatus == T_REMOVE_ENTRY)
 		    status = T_MODIFIED;
 		else if (status == T_MODIFIED && xstatus == T_CONFLICT)
@@ -786,16 +763,16 @@ classify_file_internal (finfo, vers)
 		cp = strrchr (xtag, '.');
 		*cp = '\0';
 	    }
-	    status = Classify_File (finfo, xtag, (char *) NULL,
-				    (char *) NULL, 1, aflag, vers, 0);
+	    status = Classify_File (finfo, xtag, NULL,
+				    NULL, 1, aflag, vers, 0);
 	    if ((status == T_REMOVE_ENTRY || status == T_CONFLICT)
 		&& (cp = strrchr (xtag, '.')) != NULL)
 	    {
 		/* pluck one more dot off the revision */
 		*cp = '\0';
 		freevers_ts (vers);
-		status = Classify_File (finfo, xtag, (char *) NULL,
-					(char *) NULL, 1, aflag, vers, 0);
+		status = Classify_File (finfo, xtag, NULL,
+					NULL, 1, aflag, vers, 0);
 		if (status == T_UPTODATE || status == T_REMOVE_ENTRY)
 		    status = T_MODIFIED;
 	    }
@@ -806,8 +783,7 @@ classify_file_internal (finfo, vers)
 	}
     }
     else
-	status = Classify_File (finfo, saved_tag, (char *) NULL, (char *) NULL,
-				1, 0, vers, 0);
+	status = Classify_File (finfo, saved_tag, NULL, NULL, 1, 0, vers, 0);
     noexec = save_noexec;
     quiet = save_quiet;
     really_quiet = save_really_quiet;
@@ -823,9 +799,7 @@ classify_file_internal (finfo, vers)
  */
 /* ARGSUSED */
 static int
-check_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+check_fileproc (void *callerdat, struct file_info *finfo)
 {
     Ctype status;
     const char *xdir;
@@ -834,6 +808,7 @@ check_fileproc (callerdat, finfo)
     Vers_TS *vers;
     struct commit_info *ci;
     struct logfile_info *li;
+    int retval = 1;
 
     size_t cvsroot_len = strlen (current_parsed_root->directory);
 
@@ -845,11 +820,11 @@ check_fileproc (callerdat, finfo)
 
     if (strncmp (finfo->repository, current_parsed_root->directory,
                  cvsroot_len) == 0
-	&& ISDIRSEP (finfo->repository[cvsroot_len])
+	&& ISSLASH (finfo->repository[cvsroot_len])
 	&& strncmp (finfo->repository + cvsroot_len + 1,
 		    CVSROOTADM,
 		    sizeof (CVSROOTADM) - 1) == 0
-	&& ISDIRSEP (finfo->repository[cvsroot_len + sizeof (CVSROOTADM)])
+	&& ISSLASH (finfo->repository[cvsroot_len + sizeof (CVSROOTADM)])
 	&& strcmp (finfo->repository + cvsroot_len + sizeof (CVSROOTADM) + 1,
 		   CVSNULLREPOS) == 0
 	)
@@ -870,14 +845,16 @@ check_fileproc (callerdat, finfo)
 	case T_CHECKOUT:
 	case T_PATCH:
 	case T_NEEDS_MERGE:
-	case T_CONFLICT:
 	case T_REMOVE_ENTRY:
 	    error (0, 0, "Up-to-date check failed for `%s'", finfo->fullname);
-	    freevers_ts (&vers);
-	    return 1;
+	    goto out;
+	case T_CONFLICT:
 	case T_MODIFIED:
 	case T_ADDED:
 	case T_REMOVED:
+        {
+            char *editor;
+
 	    /*
 	     * some quick sanity checks; if no numeric -r option specified:
 	     *	- can't have a sticky date
@@ -899,8 +876,7 @@ check_fileproc (callerdat, finfo)
 		    error (0, 0,
 			   "cannot commit with sticky date for file `%s'",
 			   finfo->fullname);
-		    freevers_ts (&vers);
-		    return 1;
+		    goto out;
 		}
 		if (status == T_MODIFIED && vers->tag &&
 		    !RCS_isbranch (finfo->rcs, vers->tag))
@@ -908,44 +884,32 @@ check_fileproc (callerdat, finfo)
 		    error (0, 0,
 			   "sticky tag `%s' for file `%s' is not a branch",
 			   vers->tag, finfo->fullname);
-		    freevers_ts (&vers);
-		    return 1;
+		    goto out;
 		}
 	    }
-	    if (status == T_MODIFIED && !force_ci && vers->ts_conflict)
+	    if (status == T_CONFLICT && !force_ci)
 	    {
-		/*
-		 * We found a "conflict" marker.
-		 *
-		 * If the timestamp on the file is the same as the
-		 * timestamp stored in the Entries file, we block the commit.
-		 */
-		if ( file_has_conflict ( finfo, vers->ts_conflict ) )
-		{
-		    error (0, 0,
-			  "file `%s' had a conflict and has not been modified",
-			   finfo->fullname);
-		    freevers_ts (&vers);
-		    return 1;
-		}
-
-		if (file_has_markers (finfo))
-		{
-		    /* Make this a warning, not an error, because we have
-		       no way of knowing whether the "conflict indicators"
-		       are really from a conflict or whether they are part
-		       of the document itself (cvs.texinfo and sanity.sh in
-		       CVS itself, for example, tend to want to have strings
-		       like ">>>>>>>" at the start of a line).  Making people
-		       kludge this the way they need to kludge keyword
-		       expansion seems undesirable.  And it is worse than
-		       keyword expansion, because there is no -ko
-		       analogue.  */
-		    error (0, 0,
-			   "\
+		error (0, 0,
+		      "file `%s' had a conflict and has not been modified",
+		       finfo->fullname);
+		goto out;
+	    }
+	    if (status == T_MODIFIED && !force_ci && file_has_markers (finfo))
+	    {
+		/* Make this a warning, not an error, because we have
+		   no way of knowing whether the "conflict indicators"
+		   are really from a conflict or whether they are part
+		   of the document itself (cvs.texinfo and sanity.sh in
+		   CVS itself, for example, tend to want to have strings
+		   like ">>>>>>>" at the start of a line).  Making people
+		   kludge this the way they need to kludge keyword
+		   expansion seems undesirable.  And it is worse than
+		   keyword expansion, because there is no -ko
+		   analogue.  */
+		error (0, 0,
+		       "\
 warning: file `%s' seems to still contain conflict indicators",
-			   finfo->fullname);
-		}
+		       finfo->fullname);
 	    }
 
 	    if (status == T_REMOVED)
@@ -955,8 +919,7 @@ warning: file `%s' seems to still contain conflict indicators",
 		    error (0, 0,
 			   "`%s' should be removed and is still there (or is"
 			   " back again)", finfo->fullname);
-		    freevers_ts (&vers);
-		    return 1;
+		    goto out;
 		}
 
 		if (vers->tag && isdigit ((unsigned char) *vers->tag))
@@ -970,7 +933,7 @@ warning: file `%s' seems to still contain conflict indicators",
 			   "cannot remove file `%s' which has a numeric sticky"
 			   " tag of `%s'", finfo->fullname, vers->tag);
 		    freevers_ts (&vers);
-		    return 1;
+		    goto out;
 		}
 	    }
 	    if (status == T_ADDED)
@@ -983,8 +946,7 @@ warning: file `%s' seems to still contain conflict indicators",
 			error (0, 0,
 		    "cannot add file `%s' when RCS file `%s' already exists",
 			       finfo->fullname, finfo->rcs->path);
-			freevers_ts (&vers);
-			return 1;
+			goto out;
 		    }
 		}
 		else if (isdigit ((unsigned char) *vers->tag) &&
@@ -993,8 +955,7 @@ warning: file `%s' seems to still contain conflict indicators",
 		    error (0, 0,
 		"cannot add file `%s' with revision `%s'; must be on trunk",
 			       finfo->fullname, vers->tag);
-		    freevers_ts (&vers);
-		    return 1;
+		    goto out;
 		}
 	    }
 
@@ -1012,15 +973,13 @@ warning: file `%s' seems to still contain conflict indicators",
 	    {
 		struct master_lists *ml;
 
-		ulist = getlist ();
-		cilist = getlist ();
+		ml = xmalloc (sizeof (struct master_lists));
+		ulist = ml->ulist = getlist ();
+		cilist = ml->cilist = getlist ();
+
 		p = getnode ();
 		p->key = xstrdup (xdir);
 		p->type = UPDATE;
-		ml = (struct master_lists *)
-		    xmalloc (sizeof (struct master_lists));
-		ml->ulist = ulist;
-		ml->cilist = cilist;
 		p->data = ml;
 		p->delproc = masterlist_delproc;
 		(void) addnode (mulist, p);
@@ -1031,9 +990,61 @@ warning: file `%s' seems to still contain conflict indicators",
 	    p->key = xstrdup (finfo->file);
 	    p->type = UPDATE;
 	    p->delproc = update_delproc;
-	    li = ((struct logfile_info *)
-		  xmalloc (sizeof (struct logfile_info)));
+	    li = xmalloc (sizeof (struct logfile_info));
 	    li->type = status;
+
+	    if (check_valid_edit)
+            {
+                char *editors = NULL;
+
+		editor = NULL;
+                editors = fileattr_get0 (finfo->file, "_editors");
+                if (editors != NULL)
+                {
+                    char *caller = getcaller ();
+                    char *p = NULL;
+                    char *p0 = NULL;
+
+                    p = editors;
+                    p0 = p;
+                    while (*p != '\0')
+                    {
+                        p = strchr (p, '>');
+                        if (p == NULL)
+                        {
+                            break;
+                        }
+                        *p = '\0';
+                        if (strcmp (caller, p0) == 0)
+                        {
+                            break;
+                        }
+                        p = strchr (p + 1, ',');
+                        if (p == NULL)
+                        {
+                            break;
+                        }
+                        ++p;
+                        p0 = p;
+                    }
+
+                    if (strcmp (caller, p0) == 0)
+                    {
+                        editor = caller;
+                    }
+
+                    free (editors);
+                }
+            }
+
+            if (check_valid_edit && editor == NULL)
+            {
+                error (0, 0, "Valid edit does not exist for %s",
+                       finfo->fullname);
+                freevers_ts (&vers);
+                return 1;
+            }
+
 	    li->tag = xstrdup (vers->tag);
 	    li->rev_old = xstrdup (vers->vn_rcs);
 	    li->rev_new = NULL;
@@ -1044,7 +1055,7 @@ warning: file `%s' seems to still contain conflict indicators",
 	    p->key = xstrdup (finfo->file);
 	    p->type = UPDATE;
 	    p->delproc = ci_delproc;
-	    ci = (struct commit_info *) xmalloc (sizeof (struct commit_info));
+	    ci = xmalloc (sizeof (struct commit_info));
 	    ci->status = status;
 	    if (vers->tag)
 		if (isdigit ((unsigned char) *vers->tag))
@@ -1052,9 +1063,9 @@ warning: file `%s' seems to still contain conflict indicators",
 		else
 		    ci->rev = RCS_whatbranch (finfo->rcs, vers->tag);
 	    else
-		ci->rev = (char *) NULL;
+		ci->rev = NULL;
 	    ci->tag = xstrdup (vers->tag);
-	    ci->options = xstrdup(vers->options);
+	    ci->options = xstrdup (vers->options);
 	    p->data = ci;
 	    (void) addnode (cilist, p);
 
@@ -1069,9 +1080,7 @@ warning: file `%s' seems to still contain conflict indicators",
 		struct hardlink_info *hlinfo;
 
 		/* Get the full pathname of the current file. */
-		fullpath = xmalloc (strlen(working_dir) +
-				    strlen(finfo->fullname) + 2);
-		sprintf (fullpath, "%s/%s", working_dir, finfo->fullname);
+		fullpath = Xasprintf ("%s/%s", working_dir, finfo->fullname);
 
 		/* To permit following links in subdirectories, files
                    are keyed on finfo->fullname, not on finfo->name. */
@@ -1085,8 +1094,7 @@ warning: file `%s' seems to still contain conflict indicators",
 		       the current file's status and the links listed in its
 		       `hardlinks' delta field.  We will append this
 		       hardlink_info node to the appropriate hardlist entry. */
-		    hlinfo = (struct hardlink_info *)
-			xmalloc (sizeof (struct hardlink_info));
+		    hlinfo = xmalloc (sizeof (struct hardlink_info));
 		    hlinfo->status = status;
 		    linkp->data = hlinfo;
 		}
@@ -1094,10 +1102,11 @@ warning: file `%s' seems to still contain conflict indicators",
 #endif
 
 	    break;
+        }
+
 	case T_UNKNOWN:
 	    error (0, 0, "nothing known about `%s'", finfo->fullname);
-	    freevers_ts (&vers);
-	    return 1;
+	    goto out;
 	case T_UPTODATE:
 	    break;
 	default:
@@ -1105,8 +1114,12 @@ warning: file `%s' seems to still contain conflict indicators",
 	    break;
     }
 
+    retval = 0;
+
+ out:
+
     freevers_ts (&vers);
-    return 0;
+    return retval;
 }
 
 
@@ -1117,12 +1130,8 @@ warning: file `%s' seems to still contain conflict indicators",
  */
 /* ARGSUSED */
 static Dtype
-check_direntproc (callerdat, dir, repos, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repos;
-    const char *update_dir;
-    List *entries;
+check_direntproc (void *callerdat, const char *dir, const char *repos,
+                  const char *update_dir, List *entries)
 {
     if (!isdir (dir))
 	return R_SKIP_ALL;
@@ -1136,20 +1145,71 @@ check_direntproc (callerdat, dir, repos, update_dir, entries)
 
 
 /*
- * Walklist proc to run pre-commit checks
+ * Walklist proc to generate an arg list from the line in commitinfo
  */
 static int
-precommit_list_proc (p, closure)
+precommit_list_to_args_proc (p, closure)
     Node *p;
     void *closure;
 {
-    struct logfile_info *li = p->data;
-    if (li->type == T_ADDED
-	|| li->type == T_MODIFIED
-	|| li->type == T_REMOVED)
+    struct format_cmdline_walklist_closure *c = closure;
+    struct logfile_info *li;
+    char *arg = NULL;
+    const char *f;
+    char *d;
+    size_t doff;
+
+    if (p->data == NULL) return 1;
+
+    f = c->format;
+    d = *c->d;
+    /* foreach requested attribute */
+    while (*f)
     {
-	run_arg (p->key);
+   	switch (*f++)
+	{
+	    case 's':
+		li = p->data;
+		if (li->type == T_ADDED
+			|| li->type == T_MODIFIED
+			|| li->type == T_REMOVED)
+		{
+		    arg = p->key;
+		}
+		break;
+	    default:
+		error (1, 0,
+		       "Unknown format character or not a list attribute: %c",
+		       f[-1]);
+		/* NOTREACHED */
+		break;
+	}
+	/* copy the attribute into an argument */
+	if (c->quotes)
+	{
+	    arg = cmdlineescape (c->quotes, arg);
+	}
+	else
+	{
+	    arg = cmdlinequote ('"', arg);
+	}
+	doff = d - *c->buf;
+	expand_string (c->buf, c->length, doff + strlen (arg));
+	d = *c->buf + doff;
+	strncpy (d, arg, strlen (arg));
+	d += strlen (arg);
+	free (arg);
+
+	/* and always put the extra space on.  we'll have to back up a char
+	 * when we're done, but that seems most efficient
+	 */
+	doff = d - *c->buf;
+	expand_string (c->buf, c->length, doff + 1);
+	d = *c->buf + doff;
+	*d++ = ' ';
     }
+    /* correct our original pointer into the buff */
+    *c->d = d;
     return 0;
 }
 
@@ -1159,35 +1219,59 @@ precommit_list_proc (p, closure)
  * Callback proc for pre-commit checking
  */
 static int
-precommit_proc (repository, filter)
-    const char *repository;
-    const char *filter;
+precommit_proc (const char *repository, const char *filter, void *closure)
 {
-    /* see if the filter is there, only if it's a full path */
-    if (isabsolute (filter))
-    {
-    	char *s, *cp;
+    char *newfilter = NULL;
+    char *cmdline;
+    const char *srepos = Short_Repository (repository);
+    List *ulist = closure;
 
-	s = xstrdup (filter);
-	for (cp = s; *cp; cp++)
-	    if (isspace ((unsigned char) *cp))
-	    {
-		*cp = '\0';
-		break;
-	    }
-	if (!isfile (s))
-	{
-	    error (0, errno, "cannot find pre-commit filter `%s'", s);
-	    free (s);
-	    return 1;			/* so it fails! */
-	}
-	free (s);
+#ifdef SUPPORT_OLD_INFO_FMT_STRINGS
+    if (!strchr (filter, '%'))
+    {
+	error (0, 0,
+               "warning: commitinfo line contains no format strings:\n"
+               "    \"%s\"\n"
+               "Appending defaults (\" %%r/%%p %%s\"), but please be aware that this usage is\n"
+               "deprecated.", filter);
+	newfilter = Xasprintf ("%s %%r/%%p %%s", filter);
+	filter = newfilter;
+    }
+#endif /* SUPPORT_OLD_INFO_FMT_STRINGS */
+
+    /*
+     * Cast any NULL arguments as appropriate pointers as this is an
+     * stdarg function and we need to be certain the caller gets what
+     * is expected.
+     */
+    cmdline = format_cmdline (
+#ifdef SUPPORT_OLD_INFO_FMT_STRINGS
+			      false, srepos,
+#endif /* SUPPORT_OLD_INFO_FMT_STRINGS */
+			      filter,
+			      "c", "s", cvs_cmd_name,
+#ifdef SERVER_SUPPORT
+			      "R", "s", referrer ? referrer->original : "NONE",
+#endif /* SERVER_SUPPORT */
+			      "p", "s", srepos,
+			      "r", "s", current_parsed_root->directory,
+			      "s", ",", ulist, precommit_list_to_args_proc,
+			      (void *) NULL,
+			      (char *) NULL);
+
+    if (newfilter) free (newfilter);
+
+    if (!cmdline || !strlen (cmdline))
+    {
+	if (cmdline) free (cmdline);
+	error (0, 0, "precommit proc resolved to the empty string!");
+	return 1;
     }
 
-    run_setup (filter);
-    run_arg (repository);
-    (void) walklist (saved_ulist, precommit_list_proc, NULL);
-    return run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL|RUN_REALLY);
+    run_setup (cmdline);
+    free (cmdline);
+
+    return run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL | RUN_REALLY);
 }
 
 
@@ -1197,29 +1281,28 @@ precommit_proc (repository, filter)
  */
 /* ARGSUSED */
 static int
-check_filesdoneproc (callerdat, err, repos, update_dir, entries)
-    void *callerdat;
-    int err;
-    const char *repos;
-    const char *update_dir;
-    List *entries;
+check_filesdoneproc (void *callerdat, int err, const char *repos,
+                     const char *update_dir, List *entries)
 {
     int n;
     Node *p;
+    List *saved_ulist;
 
     /* find the update list for this dir */
     p = findnode (mulist, update_dir);
     if (p != NULL)
 	saved_ulist = ((struct master_lists *) p->data)->ulist;
     else
-	saved_ulist = (List *) NULL;
+	saved_ulist = NULL;
 
     /* skip the checks if there's nothing to do */
     if (saved_ulist == NULL || saved_ulist->list->next == saved_ulist->list)
 	return err;
 
     /* run any pre-commit checks */
-    if ((n = Parse_Info (CVSROOTADM_COMMITINFO, repos, precommit_proc, 1)) > 0)
+    n = Parse_Info (CVSROOTADM_COMMITINFO, repos, precommit_proc, PIOPT_ALL,
+                    saved_ulist);
+    if (n > 0)
     {
 	error (0, 0, "Pre-commit check failed");
 	err += n;
@@ -1238,9 +1321,7 @@ static char *sbranch;
 
 /* ARGSUSED */
 static int
-commit_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+commit_fileproc (void *callerdat, struct file_info *finfo)
 {
     Node *p;
     int err = 0;
@@ -1284,14 +1365,10 @@ commit_fileproc (callerdat, finfo)
     if (!got_message)
     {
 	got_message = 1;
-	if (
-#ifdef SERVER_SUPPORT
-	    !server_active &&
-#endif
-	    use_editor)
+	if (!server_active && use_editor)
 	    do_editor (finfo->update_dir, &saved_message,
 		       finfo->repository, ulist);
-	do_verify (&saved_message, finfo->repository);
+	do_verify (&saved_message, finfo->repository, ulist);
     }
 
     p = findnode (cilist, finfo->file);
@@ -1356,14 +1433,15 @@ commit_fileproc (callerdat, finfo)
      */
     if (ci->status == T_ADDED)
     {
-	char *xrev = (char *) NULL;
+	char *xrev = NULL;
 
 	if (ci->rev == NULL)
 	{
 	    /* find the max major rev number in this directory */
 	    maxrev = 0;
 	    (void) walklist (finfo->entries, findmaxrev, NULL);
-	    if (finfo->rcs->head) {
+	    if (finfo->rcs->head)
+	    {
 		/* resurrecting: include dead revision */
 		int thisrev = atoi (finfo->rcs->head);
 		if (thisrev > maxrev)
@@ -1371,8 +1449,7 @@ commit_fileproc (callerdat, finfo)
 	    }
 	    if (maxrev == 0)
 		maxrev = 1;
-	    xrev = xmalloc (20);
-	    (void) sprintf (xrev, "%d", maxrev);
+	    xrev = Xasprintf ("%d", maxrev);
 	}
 
 	/* XXX - an added file with symbolic -r should add tag as well */
@@ -1397,7 +1474,8 @@ commit_fileproc (callerdat, finfo)
     {
 	err = remove_file (finfo, ci->tag, saved_message);
 #ifdef SERVER_SUPPORT
-	if (server_active) {
+	if (server_active)
+	{
 	    server_scratch_entry_only ();
 	    server_updated (finfo,
 			    NULL,
@@ -1406,15 +1484,16 @@ commit_fileproc (callerdat, finfo)
 			    SERVER_UPDATED,
 
 			    (mode_t) -1,
-			    (unsigned char *) NULL,
-			    (struct buffer *) NULL);
+			    NULL,
+			    NULL);
 	}
 #endif
     }
 
     /* Clearly this is right for T_MODIFIED.  I haven't thought so much
        about T_ADDED or T_REMOVED.  */
-    notify_do ('C', finfo->file, getcaller (), NULL, NULL, finfo->repository);
+    notify_do ('C', finfo->file, finfo->update_dir, getcaller (), NULL, NULL,
+	       finfo->repository);
 
 out:
     if (err != 0)
@@ -1464,15 +1543,13 @@ out:
  */
 /* ARGSUSED */
 static int
-commit_filesdoneproc (callerdat, err, repository, update_dir, entries)
-    void *callerdat;
-    int err;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+commit_filesdoneproc (void *callerdat, int err, const char *repository,
+                      const char *update_dir, List *entries)
 {
     Node *p;
     List *ulist;
+
+    assert (repository);
 
     p = findnode (mulist, update_dir);
     if (p == NULL)
@@ -1481,8 +1558,6 @@ commit_filesdoneproc (callerdat, err, repository, update_dir, entries)
     ulist = ((struct master_lists *) p->data)->ulist;
 
     got_message = 0;
-
-    Update_Logfile (repository, saved_message, (FILE *) 0, ulist);
 
     /* Build the administrative files if necessary.  */
     {
@@ -1517,14 +1592,28 @@ commit_filesdoneproc (callerdat, err, repository, update_dir, entries)
 		    || admin_dir[p - repository + cvsrootlen] == '/');
 	    admin_dir[p - repository + cvsrootlen] = '\0';
 
-	    cvs_output (program_name, 0);
-	    cvs_output (" ", 1);
-	    cvs_output (cvs_cmd_name, 0);
-	    cvs_output (": Rebuilding administrative file database\n", 0);
+	    if (!really_quiet)
+	    {
+		cvs_output (program_name, 0);
+		cvs_output (" ", 1);
+		cvs_output (cvs_cmd_name, 0);
+		cvs_output (": Rebuilding administrative file database\n", 0);
+	    }
 	    mkmodules (admin_dir);
 	    free (admin_dir);
+	    WriteTemplate (".", 1, repository);
 	}
     }
+
+    /* FIXME: This used to be above the block above.  The advantage of being
+     * here is that it is not called until after all possible writes from this
+     * process are complete.  The disadvantage is that a fatal error during
+     * update of CVSROOT can prevent the loginfo script from being called.
+     *
+     * A more general solution I have been considering is calling a generic
+     * "postwrite" hook from the remove write lock routine.
+     */
+    Update_Logfile (repository, saved_message, NULL, ulist);
 
     return err;
 }
@@ -1536,12 +1625,8 @@ commit_filesdoneproc (callerdat, err, repository, update_dir, entries)
  */
 /* ARGSUSED */
 static Dtype
-commit_direntproc (callerdat, dir, repos, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repos;
-    const char *update_dir;
-    List *entries;
+commit_direntproc (void *callerdat, const char *dir, const char *repos,
+                   const char *update_dir, List *entries)
 {
     Node *p;
     List *ulist;
@@ -1555,22 +1640,18 @@ commit_direntproc (callerdat, dir, repos, update_dir, entries)
     if (p != NULL)
 	ulist = ((struct master_lists *) p->data)->ulist;
     else
-	ulist = (List *) NULL;
+	ulist = NULL;
 
     /* skip the files as an optimization */
     if (ulist == NULL || ulist->list->next == ulist->list)
 	return R_SKIP_FILES;
 
     /* get commit message */
-    real_repos = Name_Repository (dir, update_dir);
     got_message = 1;
-    if (
-#ifdef SERVER_SUPPORT
-        !server_active &&
-#endif
-        use_editor)
+    real_repos = Name_Repository (dir, update_dir);
+    if (!server_active && use_editor)
 	do_editor (update_dir, &saved_message, real_repos, ulist);
-    do_verify (&saved_message, real_repos);
+    do_verify (&saved_message, real_repos, ulist);
     free (real_repos);
     return R_PROCESS;
 }
@@ -1582,12 +1663,8 @@ commit_direntproc (callerdat, dir, repos, update_dir, entries)
  */
 /* ARGSUSED */
 static int
-commit_dirleaveproc (callerdat, dir, err, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    int err;
-    const char *update_dir;
-    List *entries;
+commit_dirleaveproc (void *callerdat, const char *dir, int err,
+                     const char *update_dir, List *entries)
 {
     /* update the per-directory tag info */
     /* FIXME?  Why?  The "commit examples" node of cvs.texinfo briefly
@@ -1610,9 +1687,7 @@ commit_dirleaveproc (callerdat, dir, err, update_dir, entries)
  * find the maximum major rev number in an entries file
  */
 static int
-findmaxrev (p, closure)
-    Node *p;
-    void *closure;
+findmaxrev (Node *p, void *closure)
 {
     int thisrev;
     Entnode *entdata = p->data;
@@ -1634,10 +1709,7 @@ findmaxrev (p, closure)
    Return value is 0 on success, or >0 on error (in which case we have
    printed an error message).  */
 static int
-remove_file (finfo, tag, message)
-    struct file_info *finfo;
-    char *tag;
-    char *message;
+remove_file (struct file_info *finfo, char *tag, char *message)
 {
     int retcode;
 
@@ -1677,11 +1749,6 @@ remove_file (finfo, tag, message)
     /* we are removing the file from either the head or a branch */
     /* commit a new, dead revision. */
 
-    /* Print message indicating that file is going to be removed. */
-    cvs_output ("Removing ", 0);
-    cvs_output (finfo->fullname, 0);
-    cvs_output (";\n", 0);
-
     rev = NULL;
     lockflag = 1;
     if (branch)
@@ -1700,7 +1767,7 @@ remove_file (finfo, tag, message)
 	{
 	    /* no revision exists on this branch.  use the previous
 	       revision but do not lock. */
-	    corev = RCS_gettag (finfo->rcs, tag, 1, (int *) NULL);
+	    corev = RCS_gettag (finfo->rcs, tag, 1, NULL);
 	    prev_rev = xstrdup (corev);
 	    lockflag = 0;
 	} else
@@ -1732,8 +1799,7 @@ remove_file (finfo, tag, message)
     /* check something out.  Generally this is the head.  If we have a
        particular rev, then name it.  */
     retcode = RCS_checkout (finfo->rcs, finfo->file, rev ? corev : NULL,
-			    (char *) NULL, (char *) NULL, RUN_TTY,
-			    (RCSCHECKOUTPROC) NULL, (void *) NULL);
+			    NULL, NULL, RUN_TTY, NULL, NULL);
     if (retcode != 0)
     {
 	error (0, 0,
@@ -1752,8 +1818,8 @@ remove_file (finfo, tag, message)
     if (corev != NULL)
 	free (corev);
 
-    retcode = RCS_checkin (finfo->rcs, finfo->file, message, rev, 0,
-			   RCS_FLAGS_DEAD | RCS_FLAGS_QUIET);
+    retcode = RCS_checkin (finfo->rcs, NULL, finfo->file, message,
+			   rev, 0, RCS_FLAGS_DEAD | RCS_FLAGS_QUIET);
     if (retcode	!= 0)
     {
 	if (!quiet)
@@ -1773,13 +1839,22 @@ remove_file (finfo, tag, message)
 	RCS_setattic (finfo->rcs, 1);
 
     /* Print message that file was removed. */
-    cvs_output (old_path, 0);
-    cvs_output ("  <--  ", 0);
-    cvs_output (finfo->file, 0);
-    cvs_output ("\nnew revision: delete; previous revision: ", 0);
-    cvs_output (prev_rev, 0);
-    cvs_output ("\ndone\n", 0);
-    free(prev_rev);
+    if (!really_quiet)
+    {
+	cvs_output (old_path, 0);
+	cvs_output ("  <--  ", 0);
+	if (finfo->update_dir && strlen (finfo->update_dir))
+	{
+	    cvs_output (finfo->update_dir, 0);
+	    cvs_output ("/", 1);
+	}
+	cvs_output (finfo->file, 0);
+	cvs_output ("\nnew revision: delete; previous revision: ", 0);
+	cvs_output (prev_rev, 0);
+	cvs_output ("\n", 0);
+    }
+
+    free (prev_rev);
 
     free (old_path);
 
@@ -1793,20 +1868,14 @@ remove_file (finfo, tag, message)
  * Do the actual checkin for added files
  */
 static int
-finaladd (finfo, rev, tag, options)
-    struct file_info *finfo;
-    char *rev;
-    char *tag;
-    char *options;
+finaladd (struct file_info *finfo, char *rev, char *tag, char *options)
 {
     int ret;
 
     ret = Checkin ('A', finfo, rev, tag, options, saved_message);
     if (ret == 0)
     {
-	char *tmp = xmalloc (strlen (finfo->file) + sizeof (CVSADM)
-			     + sizeof (CVSEXT_LOG) + 10);
-	(void) sprintf (tmp, "%s/%s%s", CVSADM, finfo->file, CVSEXT_LOG);
+	char *tmp = Xasprintf ("%s/%s%s", CVSADM, finfo->file, CVSEXT_LOG);
 	if (unlink_file (tmp) < 0
 	    && !existence_error (errno))
 	    error (0, errno, "cannot remove %s", tmp);
@@ -1826,8 +1895,7 @@ finaladd (finfo, rev, tag, options)
  * Unlock an rcs file
  */
 static void
-unlockrcs (rcs)
-    RCSNode *rcs;
+unlockrcs (RCSNode *rcs)
 {
     int retcode;
 
@@ -1848,8 +1916,7 @@ unlockrcs (rcs)
  * to be removed without reparsing the file as we do below.
  */
 static void
-fixaddfile (rcs)
-    const char *rcs;
+fixaddfile (const char *rcs)
 {
     RCSNode *rcsfile;
     int save_really_quiet;
@@ -1872,9 +1939,7 @@ fixaddfile (rcs)
  * put the branch back on an rcs file
  */
 static void
-fixbranch (rcs, branch)
-    RCSNode *rcs;
-    char *branch;
+fixbranch (RCSNode *rcs, char *branch)
 {
     int retcode;
 
@@ -1918,12 +1983,8 @@ fixbranch (rcs, branch)
  */
 
 static int
-checkaddfile (file, repository, tag, options, rcsnode)
-    const char *file;
-    const char *repository;
-    const char *tag;
-    const char *options;
-    RCSNode **rcsnode;
+checkaddfile (const char *file, const char *repository, const char *tag,
+              const char *options, RCSNode **rcsnode)
 {
     RCSNode *rcs;
     char *fname;
@@ -1952,7 +2013,7 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	size_t desclen = 0;
 	const char *opt;
 
-	if ( adding_on_branch )
+	if (adding_on_branch)
 	{
 	    mode_t omask;
 	    rcsname = xmalloc (strlen (repository)
@@ -1961,10 +2022,10 @@ checkaddfile (file, repository, tag, options, rcsnode)
 			       + sizeof (RCSEXT)
 			       + 3);
 	    (void) sprintf (rcsname, "%s/%s", repository, CVSATTIC);
-	    omask = umask ( cvsumask );
-	    if (CVS_MKDIR (rcsname, 0777 ) != 0 && errno != EEXIST)
+	    omask = umask (cvsumask);
+	    if (CVS_MKDIR (rcsname, 0777) != 0 && errno != EEXIST)
 		error (1, errno, "cannot make directory `%s'", rcsname);
-	    (void) umask ( omask );
+	    (void) umask (omask);
 	    (void) sprintf (rcsname,
 			    "%s/%s/%s%s",
 			    repository,
@@ -1973,23 +2034,11 @@ checkaddfile (file, repository, tag, options, rcsnode)
 			    RCSEXT);
 	}
 	else
-	{
-	    rcsname = xmalloc (strlen (repository)
-			       + strlen (file)
-			       + sizeof (RCSEXT)
-			       + 2);
-	    (void) sprintf (rcsname,
-			    "%s/%s%s",
-			    repository,
-			    file,
-			    RCSEXT);
-	}
+	    rcsname = Xasprintf ("%s/%s%s", repository, file, RCSEXT);
 
 	/* this is the first time we have ever seen this file; create
 	   an RCS file.  */
-	fname = xmalloc (strlen (file) + sizeof (CVSADM)
-			 + sizeof (CVSEXT_LOG) + 10);
-	(void) sprintf (fname, "%s/%s%s", CVSADM, file, CVSEXT_LOG);
+	fname = Xasprintf ("%s/%s%s", CVSADM, file, CVSEXT_LOG);
 	/* If the file does not exist, no big deal.  In particular, the
 	   server does not (yet at least) create CVSEXT_LOG files.  */
 	if (isfile (fname))
@@ -2014,18 +2063,9 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	else
 	    opt = NULL;
 
-	/* This message is an artifact of the time when this
-	   was implemented via "rcs -i".  It should be revised at
-	   some point (does the "initial revision" in the message from
-	   RCS_checkin indicate that this is a new file?  Or does the
-	   "RCS file" message serve some function?).  */
-	cvs_output ("RCS file: ", 0);
-	cvs_output (rcsname, 0);
-	cvs_output ("\ndone\n", 0);
-
 	if (add_rcs_file (NULL, rcsname, file, NULL, opt,
 			  NULL, NULL, 0, NULL,
-			  desc, desclen, NULL) != 0)
+			  desc, desclen, NULL, 0) != 0)
 	{
 	    if (rcsname != NULL)
 	        free (rcsname);
@@ -2081,11 +2121,12 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    }
 	}
 
-	rev = RCS_getversion (rcs, tag, NULL, 1, (int *) NULL);
+	rev = RCS_getversion (rcs, tag, NULL, 1, NULL);
 	/* and lock it */
 	if (lock_RCS (file, rcs, rev, repository))
 	{
-	    error (0, 0, "cannot lock `%s'.", rcs->path);
+	    error (0, 0, "cannot lock revision %s in `%s'.",
+		   rev ? rev : tag ? tag : "HEAD", rcs->path);
 	    if (rev != NULL)
 		free (rev);
 	    goto out;
@@ -2106,9 +2147,7 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    int retcode;
 
 	    /* move the new file out of the way. */
-	    fname = xmalloc (strlen (file) + sizeof (CVSADM)
-			     + sizeof (CVSPREFIX) + 10);
-	    (void) sprintf (fname, "%s/%s%s", CVSADM, CVSPREFIX, file);
+	    fname = Xasprintf ("%s/%s%s", CVSADM, CVSPREFIX, file);
 	    rename_file (file, fname);
 
 	    /* Create empty FILE.  Can't use copy_file with a DEVNULL
@@ -2119,17 +2158,17 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    if (fclose (fp) < 0)
 		error (0, errno, "cannot close %s", file);
 
-	    tmp = xmalloc (strlen (file) + strlen (tag) + 80);
+	    tmp = Xasprintf ("file %s was initially added on branch %s.",
+			     file, tag);
 	    /* commit a dead revision. */
-	    (void) sprintf (tmp, "file %s was initially added on branch %s.",
-			    file, tag);
-	    retcode = RCS_checkin (rcs, NULL, tmp, NULL, 0,
+	    retcode = RCS_checkin (rcs, NULL, NULL, tmp, NULL, 0,
 				   RCS_FLAGS_DEAD | RCS_FLAGS_QUIET);
 	    free (tmp);
 	    if (retcode != 0)
 	    {
 		error (retcode == -1 ? 1 : 0, retcode == -1 ? errno : 0,
 		       "could not create initial dead revision %s", rcs->path);
+		free (fname);
 		goto out;
 	    }
 
@@ -2150,7 +2189,8 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    /* and lock it once again. */
 	    if (lock_RCS (file, rcs, NULL, repository))
 	    {
-		error (0, 0, "cannot lock `%s'.", rcs->path);
+		error (0, 0, "cannot lock initial revision in `%s'.",
+		       rcs->path);
 		goto out;
 	    }
 	}
@@ -2171,7 +2211,10 @@ checkaddfile (file, repository, tag, options, rcsnode)
 
 	    fixbranch (rcs, sbranch);
 
-	    head = RCS_getversion (rcs, NULL, NULL, 0, (int *) NULL);
+	    head = RCS_getversion (rcs, NULL, NULL, 0, NULL);
+	    if (!head)
+		error (1, 0, "No head revision in archive file `%s'.",
+		       rcs->print_path);
 	    magicrev = RCS_magicrev (rcs, head);
 
 	    /* If this is not a new branch, then we will want a dead
@@ -2197,9 +2240,7 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    if (!newfile && headtime != -1)
 	    {
 		/* move the new file out of the way. */
-		fname = xmalloc (strlen (file) + sizeof (CVSADM)
-			     + sizeof (CVSPREFIX) + 10);
-		(void) sprintf (fname, "%s/%s%s", CVSADM, CVSPREFIX, file);
+		fname = Xasprintf ("%s/%s%s", CVSADM, CVSPREFIX, file);
 		rename_file (file, fname);
 
 		/* Create empty FILE.  Can't use copy_file with a DEVNULL
@@ -2212,12 +2253,9 @@ checkaddfile (file, repository, tag, options, rcsnode)
 
 		/* As we will be hacking the delta date, put the time
 		   this was added into the log message. */
-		t = time(NULL);
-		ct = gmtime(&t);
-		tmp = xmalloc (strlen (file) + strlen (tag) + 80);
-
-		(void) sprintf (tmp,
-			       "file %s was added on branch %s on %d-%02d-%02d %02d:%02d:%02d +0000",
+		t = time (NULL);
+		ct = gmtime (&t);
+		tmp = Xasprintf ("file %s was added on branch %s on %d-%02d-%02d %02d:%02d:%02d +0000",
 				 file, tag,
 				 ct->tm_year + (ct->tm_year < 100 ? 0 : 1900),
 				 ct->tm_mon + 1, ct->tm_mday,
@@ -2225,7 +2263,7 @@ checkaddfile (file, repository, tag, options, rcsnode)
 			 
 		/* commit a dead revision. */
 		revnum = RCS_whatbranch (rcs, tag);
-		retcode = RCS_checkin (rcs, NULL, tmp, revnum, headtime,
+		retcode = RCS_checkin (rcs, NULL, NULL, tmp, revnum, headtime,
 				       RCS_FLAGS_DEAD |
 				       RCS_FLAGS_QUIET |
 				       RCS_FLAGS_USETIME);
@@ -2260,14 +2298,14 @@ checkaddfile (file, repository, tag, options, rcsnode)
 	    /* lock the branch. (stubbed branches need not be locked.)  */
 	    if (lock_RCS (file, rcs, NULL, repository))
 	    {
-		error (0, 0, "cannot lock `%s'.", rcs->path);
+		error (0, 0, "cannot lock head revision in `%s'.", rcs->path);
 		goto out;
 	    }
 	}
 
 	if (*rcsnode != rcs)
 	{
-	    freercsnode(rcsnode);
+	    freercsnode (rcsnode);
 	    *rcsnode = rcs;
 	}
     }
@@ -2308,11 +2346,8 @@ checkaddfile (file, repository, tag, options, rcsnode)
  * put the branch back as the head if there are any errors.
  */
 static int
-lock_RCS (user, rcs, rev, repository)
-    const char *user;
-    RCSNode *rcs;
-    const char *rev;
-    const char *repository;
+lock_RCS (const char *user, RCSNode *rcs, const char *rev,
+          const char *repository)
 {
     char *branch = NULL;
     int err = 0;
@@ -2390,8 +2425,7 @@ lock_RCS (user, rcs, rev, repository)
  * free an UPDATE node's data
  */
 void
-update_delproc (p)
-    Node *p;
+update_delproc (Node *p)
 {
     struct logfile_info *li = p->data;
 
@@ -2408,8 +2442,7 @@ update_delproc (p)
  * Free the commit_info structure in p.
  */
 static void
-ci_delproc (p)
-    Node *p;
+ci_delproc (Node *p)
 {
     struct commit_info *ci = p->data;
 
@@ -2426,8 +2459,7 @@ ci_delproc (p)
  * Free the commit_info structure in p.
  */
 static void
-masterlist_delproc (p)
-    Node *p;
+masterlist_delproc (Node *p)
 {
     struct master_lists *ml = p->data;
 

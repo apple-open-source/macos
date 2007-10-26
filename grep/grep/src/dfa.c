@@ -89,6 +89,13 @@ extern void free();
 #define ISCNTRL(C) (isascii(C) && iscntrl(C))
 #endif
 
+#ifdef __APPLE__
+#include "get_compat.h"
+#else
+#define COMPAT_MODE(func, mode) 1
+#endif
+
+
 /* ISASCIIDIGIT differs from ISDIGIT, as follows:
    - Its arg may be any int or unsigned int; it need not be an unsigned char.
    - It's guaranteed to evaluate its argument exactly once.
@@ -414,7 +421,7 @@ update_mb_len_index (unsigned char const *p, int len)
 
 /* This function fetch a wide character, and update cur_mb_len,
    used only if the current locale is a multibyte environment.  */
-static wchar_t
+static wint_t
 fetch_wc (char const *eoferr)
 {
   wchar_t wc;
@@ -423,7 +430,7 @@ fetch_wc (char const *eoferr)
       if (eoferr != 0)
 	dfaerror (eoferr);
       else
-	return -1;
+	return WEOF;
     }
 
   cur_mb_len = mbrtowc(&wc, lexptr, lexleft, &mbs);
@@ -459,7 +466,7 @@ fetch_wc (char const *eoferr)
 static void
 parse_bracket_exp_mb ()
 {
-  wchar_t wc, wc1, wc2;
+  wint_t wc, wc1, wc2;
 
   /* Work area to build a mb_char_classes.  */
   struct mb_char_classes *work_mbc;
@@ -496,7 +503,7 @@ parse_bracket_exp_mb ()
     work_mbc->invert = 0;
   do
     {
-      wc1 = -1; /* mark wc1 is not initialized".  */
+      wc1 = WEOF; /* mark wc1 is not initialized".  */
 
       /* Note that if we're looking at some other [:...:] construct,
 	 we just treat it as a bunch of ordinary characters.  We can do
@@ -586,7 +593,7 @@ parse_bracket_exp_mb ()
 		      work_mbc->coll_elems[work_mbc->ncoll_elems++] = elem;
 		    }
  		}
-	      wc = -1;
+	      wc1 = wc = WEOF;
 	    }
 	  else
 	    /* We treat '[' as a normal character here.  */
@@ -600,7 +607,7 @@ parse_bracket_exp_mb ()
 	    wc = fetch_wc(("Unbalanced ["));
 	}
 
-      if (wc1 == -1)
+      if (wc1 == WEOF)
 	wc1 = fetch_wc(_("Unbalanced ["));
 
       if (wc1 == L'-')
@@ -630,17 +637,17 @@ parse_bracket_exp_mb ()
 	    }
 	  REALLOC_IF_NECESSARY(work_mbc->range_sts, wchar_t,
 			       range_sts_al, work_mbc->nranges + 1);
-	  work_mbc->range_sts[work_mbc->nranges] = wc;
+	  work_mbc->range_sts[work_mbc->nranges] = (wchar_t)wc;
 	  REALLOC_IF_NECESSARY(work_mbc->range_ends, wchar_t,
 			       range_ends_al, work_mbc->nranges + 1);
-	  work_mbc->range_ends[work_mbc->nranges++] = wc2;
+	  work_mbc->range_ends[work_mbc->nranges++] = (wchar_t)wc2;
 	}
-      else if (wc != -1)
+      else if (wc != WEOF)
 	/* build normal characters.  */
 	{
 	  REALLOC_IF_NECESSARY(work_mbc->chars, wchar_t, chars_al,
 			       work_mbc->nchars + 1);
-	  work_mbc->chars[work_mbc->nchars++] = wc;
+	  work_mbc->chars[work_mbc->nchars++] = (wchar_t)wc;
 	}
     }
   while ((wc = wc1) != L']');
@@ -707,9 +714,10 @@ looking_at (char const *s)
   return strncmp(s, lexptr, len) == 0;
 }
 
-extern int __collate_load_error;
-extern char *__collate_substitute(char *);
-
+/*
+ * there are currently no public APIs to access collating symbols or
+ * equivalence classes.
+ */
 char *try_collating_thing(char const *ct, int ct_len, int *chars_used) {
     char *term;
     if (*ct == '.') {
@@ -730,12 +738,7 @@ char *try_collating_thing(char const *ct, int ct_len, int *chars_used) {
 	return NULL;
     }
     strlcpy(t, ct, slen);
-    if (__collate_load_error) {
-	return t;
-    }
-    char *r = __collate_substitute(t);
-    free(t);
-    return r;
+    return t;
 }
 
 
@@ -853,6 +856,9 @@ lex (void)
 	    goto normal_char;
 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
 	    goto normal_char;
+	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
+	    dfaerror(_("Invalid extended regular expression (^?)"));
+	  }
 	  return lasttok = QMARK;
 
 	case '*':
@@ -860,6 +866,9 @@ lex (void)
 	    goto normal_char;
 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
 	    goto normal_char;
+	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
+	    dfaerror(_("Invalid extended regular expression (^*)"));
+	  }
 	  return lasttok = STAR;
 
 	case '+':
@@ -869,6 +878,9 @@ lex (void)
 	    goto normal_char;
 	  if (!(syntax_bits & RE_CONTEXT_INDEP_OPS) && laststart)
 	    goto normal_char;
+	  if (lasttok == BEGLINE && COMPAT_MODE("bin/grep", "unix2003")) {
+	    dfaerror(_("Invalid extended regular expression (^+)"));
+	  }
 	  return lasttok = PLUS;
 
 	case '{':
@@ -1023,7 +1035,7 @@ lex (void)
 	  if (MB_CUR_MAX > 1)
 	    {
 	      /* In multibyte environment a bracket expression may contain
-	         multibyte characters, which must be treated as characters
+		 multibyte characters, which must be treated as characters
 		 (not bytes).  So we parse it by parse_bracket_exp_mb().  */
 	      parse_bracket_exp_mb();
 	      return lasttok = MBCSET;
@@ -1053,10 +1065,11 @@ lex (void)
 		  if (!match) {
 		    dfaerror(_("invalid collating element or class"));
 		  } else {
-		      if (*match && !match[1]) {
+		      if (*match && !match[1] && *match != ']') {
 			c1 = *match;
 			lexptr += used;
 			lexleft -= used;
+			free(match);
 			goto skip;
 		      } else {
 			char *cp = match;
@@ -1109,6 +1122,7 @@ lex (void)
 			char *match = try_collating_thing(lexptr, lexleft, &used);
 			if (match && *match && !match[1]) {
 			    c2 = *match;
+			    backslash = *match == ']';
 			    lexptr += used;
 			    lexleft -= used;
 			}
@@ -2619,6 +2633,8 @@ match_mb_charset (struct dfa *d, int s, position pos, int index)
     }
 
   /* match with a character?  */
+  if (case_fold)
+    wc = towlower (wc);
   for (i = 0; i<work_mbc->nchars; i++)
     {
       if (wc == work_mbc->chars[i])

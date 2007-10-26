@@ -1,5 +1,6 @@
 /* Markers: examining, setting and deleting.
-   Copyright (C) 1985, 1997, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1997, 1998, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 #include <config.h>
@@ -49,7 +50,7 @@ clear_charpos_cache (b)
 /* Converting between character positions and byte positions.  */
 
 /* There are several places in the buffer where we know
-   the corrspondence: BEG, BEGV, PT, GPT, ZV and Z,
+   the correspondence: BEG, BEGV, PT, GPT, ZV and Z,
    and everywhere there is a marker.  So we find the one of these places
    that is closest to the specified position, and scan from there.  */
 
@@ -133,7 +134,7 @@ buf_charpos_to_bytepos (b, charpos)
      struct buffer *b;
      int charpos;
 {
-  Lisp_Object tail;
+  struct Lisp_Marker *tail;
   int best_above, best_above_byte;
   int best_below, best_below_byte;
 
@@ -149,8 +150,8 @@ buf_charpos_to_bytepos (b, charpos)
   if (best_above == best_above_byte)
     return charpos;
 
-  best_below = 1;
-  best_below_byte = 1;
+  best_below = BEG;
+  best_below_byte = BEG_BYTE;
 
   /* We find in best_above and best_above_byte
      the closest known point above CHARPOS,
@@ -169,18 +170,15 @@ buf_charpos_to_bytepos (b, charpos)
   if (b == cached_buffer && BUF_MODIFF (b) == cached_modiff)
     CONSIDER (cached_charpos, cached_bytepos);
 
-  tail = BUF_MARKERS (b);
-  while (! NILP (tail))
+  for (tail = BUF_MARKERS (b); tail; tail = tail->next)
     {
-      CONSIDER (XMARKER (tail)->charpos, XMARKER (tail)->bytepos);
+      CONSIDER (tail->charpos, tail->bytepos);
 
       /* If we are down to a range of 50 chars,
 	 don't bother checking any other markers;
 	 scan the intervening chars directly now.  */
       if (best_above - best_below < 50)
 	break;
-
-      tail = XMARKER (tail)->chain;
     }
 
   /* We get here if we did not exactly hit one of the known places.
@@ -252,6 +250,25 @@ buf_charpos_to_bytepos (b, charpos)
 }
 
 #undef CONSIDER
+
+/* Used for debugging: recompute the bytepos corresponding to CHARPOS
+   in the simplest, most reliable way.  */
+
+int
+verify_bytepos (charpos)
+     int charpos;
+{
+  int below = 1;
+  int below_byte = 1;
+
+  while (below != charpos)
+    {
+      below++;
+      BUF_INC_POS (current_buffer, below_byte);
+    }
+
+  return below_byte;
+}
 
 /* bytepos_to_charpos returns the char position corresponding to BYTEPOS.  */
 
@@ -310,7 +327,7 @@ buf_bytepos_to_charpos (b, bytepos)
      struct buffer *b;
      int bytepos;
 {
-  Lisp_Object tail;
+  struct Lisp_Marker *tail;
   int best_above, best_above_byte;
   int best_below, best_below_byte;
 
@@ -326,8 +343,8 @@ buf_bytepos_to_charpos (b, bytepos)
   if (best_above == best_above_byte)
     return bytepos;
 
-  best_below = 1;
-  best_below_byte = 1;
+  best_below = BEG;
+  best_below_byte = BEG_BYTE;
 
   CONSIDER (BUF_PT_BYTE (b), BUF_PT (b));
   CONSIDER (BUF_GPT_BYTE (b), BUF_GPT (b));
@@ -337,18 +354,15 @@ buf_bytepos_to_charpos (b, bytepos)
   if (b == cached_buffer && BUF_MODIFF (b) == cached_modiff)
     CONSIDER (cached_bytepos, cached_charpos);
 
-  tail = BUF_MARKERS (b);
-  while (! NILP (tail))
+  for (tail = BUF_MARKERS (b); tail; tail = tail->next)
     {
-      CONSIDER (XMARKER (tail)->bytepos, XMARKER (tail)->charpos);
+      CONSIDER (tail->bytepos, tail->charpos);
 
       /* If we are down to a range of 50 chars,
 	 don't bother checking any other markers;
 	 scan the intervening chars directly now.  */
       if (best_above - best_below < 50)
 	break;
-
-      tail = XMARKER (tail)->chain;
     }
 
   /* We get here if we did not exactly hit one of the known places.
@@ -370,7 +384,7 @@ buf_bytepos_to_charpos (b, bytepos)
 	 It will last until the next GC.
 	 But don't do it if BUF_MARKERS is nil;
 	 that is a signal from Fset_buffer_multibyte.  */
-      if (record && ! NILP (BUF_MARKERS (b)))
+      if (record && BUF_MARKERS (b))
 	{
 	  Lisp_Object marker, buffer;
 	  marker = Fmake_marker ();
@@ -403,7 +417,7 @@ buf_bytepos_to_charpos (b, bytepos)
 	 It will last until the next GC.
 	 But don't do it if BUF_MARKERS is nil;
 	 that is a signal from Fset_buffer_multibyte.  */
-      if (record && ! NILP (BUF_MARKERS (b)))
+      if (record && BUF_MARKERS (b))
 	{
 	  Lisp_Object marker, buffer;
 	  marker = Fmake_marker ();
@@ -428,13 +442,13 @@ buf_bytepos_to_charpos (b, bytepos)
 /* Operations on markers. */
 
 DEFUN ("marker-buffer", Fmarker_buffer, Smarker_buffer, 1, 1, 0,
-  "Return the buffer that MARKER points into, or nil if none.\n\
-Returns nil if MARKER points into a dead buffer.")
-  (marker)
+       doc: /* Return the buffer that MARKER points into, or nil if none.
+Returns nil if MARKER points into a dead buffer.  */)
+     (marker)
      register Lisp_Object marker;
 {
   register Lisp_Object buf;
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
   if (XMARKER (marker)->buffer)
     {
       XSETBUFFER (buf, XMARKER (marker)->buffer);
@@ -446,11 +460,12 @@ Returns nil if MARKER points into a dead buffer.")
 }
 
 DEFUN ("marker-position", Fmarker_position, Smarker_position, 1, 1, 0,
-  "Return the position MARKER points at, as a character number.")
-  (marker)
+       doc: /* Return the position MARKER points at, as a character number.
+Returns nil if MARKER points nowhere.  */)
+     (marker)
      Lisp_Object marker;
 {
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
   if (XMARKER (marker)->buffer)
     return make_number (XMARKER (marker)->charpos);
 
@@ -458,25 +473,27 @@ DEFUN ("marker-position", Fmarker_position, Smarker_position, 1, 1, 0,
 }
 
 DEFUN ("set-marker", Fset_marker, Sset_marker, 2, 3, 0,
-  "Position MARKER before character number POSITION in BUFFER.\n\
-BUFFER defaults to the current buffer.\n\
-If POSITION is nil, makes marker point nowhere.\n\
-Then it no longer slows down editing in any buffer.\n\
-Returns MARKER.")
-  (marker, position, buffer)
+       doc: /* Position MARKER before character number POSITION in BUFFER.
+BUFFER defaults to the current buffer.
+If POSITION is nil, makes marker point nowhere.
+Then it no longer slows down editing in any buffer.
+Returns MARKER.  */)
+     (marker, position, buffer)
      Lisp_Object marker, position, buffer;
 {
   register int charno, bytepos;
   register struct buffer *b;
   register struct Lisp_Marker *m;
 
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
+  m = XMARKER (marker);
+
   /* If position is nil or a marker that points nowhere,
      make this marker point nowhere.  */
   if (NILP (position)
       || (MARKERP (position) && !XMARKER (position)->buffer))
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       return marker;
     }
 
@@ -484,17 +501,15 @@ Returns MARKER.")
     b = current_buffer;
   else
     {
-      CHECK_BUFFER (buffer, 1);
+      CHECK_BUFFER (buffer);
       b = XBUFFER (buffer);
       /* If buffer is dead, set marker to point nowhere.  */
       if (EQ (b->name, Qnil))
 	{
-	  unchain_marker (marker);
+	  unchain_marker (m);
 	  return marker;
 	}
     }
-
-  m = XMARKER (marker);
 
   /* Optimize the special case where we are copying the position
      of an existing marker, and MARKER is already in the same buffer.  */
@@ -506,7 +521,7 @@ Returns MARKER.")
       return marker;
     }
 
-  CHECK_NUMBER_COERCE_MARKER (position, 1);
+  CHECK_NUMBER_COERCE_MARKER (position);
 
   charno = XINT (position);
 
@@ -526,19 +541,19 @@ Returns MARKER.")
 
   if (m->buffer != b)
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       m->buffer = b;
-      m->chain = BUF_MARKERS (b);
-      BUF_MARKERS (b) = marker;
+      m->next = BUF_MARKERS (b);
+      BUF_MARKERS (b) = m;
     }
-  
+
   return marker;
 }
 
 /* This version of Fset_marker won't let the position
    be outside the visible part.  */
 
-Lisp_Object 
+Lisp_Object
 set_marker_restricted (marker, pos, buffer)
      Lisp_Object marker, pos, buffer;
 {
@@ -546,13 +561,15 @@ set_marker_restricted (marker, pos, buffer)
   register struct buffer *b;
   register struct Lisp_Marker *m;
 
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
+  m = XMARKER (marker);
+
   /* If position is nil or a marker that points nowhere,
      make this marker point nowhere.  */
   if (NILP (pos)
       || (MARKERP (pos) && !XMARKER (pos)->buffer))
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       return marker;
     }
 
@@ -560,17 +577,15 @@ set_marker_restricted (marker, pos, buffer)
     b = current_buffer;
   else
     {
-      CHECK_BUFFER (buffer, 1);
+      CHECK_BUFFER (buffer);
       b = XBUFFER (buffer);
       /* If buffer is dead, set marker to point nowhere.  */
       if (EQ (b->name, Qnil))
 	{
-	  unchain_marker (marker);
+	  unchain_marker (m);
 	  return marker;
 	}
     }
-
-  m = XMARKER (marker);
 
   /* Optimize the special case where we are copying the position
      of an existing marker, and MARKER is already in the same buffer.  */
@@ -582,7 +597,7 @@ set_marker_restricted (marker, pos, buffer)
       return marker;
     }
 
-  CHECK_NUMBER_COERCE_MARKER (pos, 1);
+  CHECK_NUMBER_COERCE_MARKER (pos);
 
   charno = XINT (pos);
 
@@ -602,19 +617,19 @@ set_marker_restricted (marker, pos, buffer)
 
   if (m->buffer != b)
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       m->buffer = b;
-      m->chain = BUF_MARKERS (b);
-      BUF_MARKERS (b) = marker;
+      m->next = BUF_MARKERS (b);
+      BUF_MARKERS (b) = m;
     }
-  
+
   return marker;
 }
 
 /* Set the position of MARKER, specifying both the
    character position and the corresponding byte position.  */
 
-Lisp_Object 
+Lisp_Object
 set_marker_both (marker, buffer, charpos, bytepos)
      Lisp_Object marker, buffer;
      int charpos, bytepos;
@@ -622,23 +637,22 @@ set_marker_both (marker, buffer, charpos, bytepos)
   register struct buffer *b;
   register struct Lisp_Marker *m;
 
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
+  m = XMARKER (marker);
 
   if (NILP (buffer))
     b = current_buffer;
   else
     {
-      CHECK_BUFFER (buffer, 1);
+      CHECK_BUFFER (buffer);
       b = XBUFFER (buffer);
       /* If buffer is dead, set marker to point nowhere.  */
       if (EQ (b->name, Qnil))
 	{
-	  unchain_marker (marker);
+	  unchain_marker (m);
 	  return marker;
 	}
     }
-
-  m = XMARKER (marker);
 
   /* In a single-byte buffer, the two positions must be equal.  */
   if (BUF_Z (b) == BUF_Z_BYTE (b)
@@ -653,19 +667,19 @@ set_marker_both (marker, buffer, charpos, bytepos)
 
   if (m->buffer != b)
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       m->buffer = b;
-      m->chain = BUF_MARKERS (b);
-      BUF_MARKERS (b) = marker;
+      m->next = BUF_MARKERS (b);
+      BUF_MARKERS (b) = m;
     }
-  
+
   return marker;
 }
 
 /* This version of set_marker_both won't let the position
    be outside the visible part.  */
 
-Lisp_Object 
+Lisp_Object
 set_marker_restricted_both (marker, buffer, charpos, bytepos)
      Lisp_Object marker, buffer;
      int charpos, bytepos;
@@ -673,23 +687,22 @@ set_marker_restricted_both (marker, buffer, charpos, bytepos)
   register struct buffer *b;
   register struct Lisp_Marker *m;
 
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
+  m = XMARKER (marker);
 
   if (NILP (buffer))
     b = current_buffer;
   else
     {
-      CHECK_BUFFER (buffer, 1);
+      CHECK_BUFFER (buffer);
       b = XBUFFER (buffer);
       /* If buffer is dead, set marker to point nowhere.  */
       if (EQ (b->name, Qnil))
 	{
-	  unchain_marker (marker);
+	  unchain_marker (m);
 	  return marker;
 	}
     }
-
-  m = XMARKER (marker);
 
   if (charpos < BUF_BEGV (b))
     charpos = BUF_BEGV (b);
@@ -713,61 +726,58 @@ set_marker_restricted_both (marker, buffer, charpos, bytepos)
 
   if (m->buffer != b)
     {
-      unchain_marker (marker);
+      unchain_marker (m);
       m->buffer = b;
-      m->chain = BUF_MARKERS (b);
-      BUF_MARKERS (b) = marker;
+      m->next = BUF_MARKERS (b);
+      BUF_MARKERS (b) = m;
     }
-  
+
   return marker;
 }
 
-/* This is called during garbage collection,
+/* Remove MARKER from the chain of whatever buffer it is in.
+   Leave it "in no buffer".
+
+   This is called during garbage collection,
    so we must be careful to ignore and preserve mark bits,
    including those in chain fields of markers.  */
 
 void
 unchain_marker (marker)
-     register Lisp_Object marker;
+     register struct Lisp_Marker *marker;
 {
-  register Lisp_Object tail, prev, next;
-  register EMACS_INT omark;
+  register struct Lisp_Marker *tail, *prev, *next;
   register struct buffer *b;
 
-  b = XMARKER (marker)->buffer;
+  b = marker->buffer;
   if (b == 0)
     return;
 
   if (EQ (b->name, Qnil))
     abort ();
 
-  XMARKER (marker)->buffer = 0;
+  marker->buffer = 0;
 
   tail = BUF_MARKERS (b);
-  prev = Qnil;
-  while (! GC_NILP (tail))
+  prev = NULL;
+  while (tail)
     {
-      next = XMARKER (tail)->chain;
-      XUNMARK (next);
+      next = tail->next;
 
-      if (XMARKER (marker) == XMARKER (tail))
+      if (marker == tail)
 	{
-	  if (NILP (prev))
+	  if (!prev)
 	    {
 	      BUF_MARKERS (b) = next;
 	      /* Deleting first marker from the buffer's chain.  Crash
 		 if new first marker in chain does not say it belongs
 		 to the same buffer, or at least that they have the same
 		 base buffer.  */
-	      if (!NILP (next) && b->text != XMARKER (next)->buffer->text)
+	      if (next && b->text != next->buffer->text)
 		abort ();
 	    }
 	  else
-	    {
-	      omark = XMARKBIT (XMARKER (prev)->chain);
-	      XMARKER (prev)->chain = next;
-	      XSETMARKBIT (XMARKER (prev)->chain, omark);
-	    }
+	    prev->next = next;
 	  /* We have removed the marker from the chain;
 	     no need to scan the rest of the chain.  */
 	  return;
@@ -816,18 +826,17 @@ marker_byte_position (marker)
 }
 
 DEFUN ("copy-marker", Fcopy_marker, Scopy_marker, 1, 2, 0,
-  "Return a new marker pointing at the same place as MARKER.\n\
-If argument is a number, makes a new marker pointing\n\
-at that position in the current buffer.\n\
-The optional argument TYPE specifies the insertion type of the new marker;\n\
-see `marker-insertion-type'.")
-  (marker, type)
+       doc: /* Return a new marker pointing at the same place as MARKER.
+If argument is a number, makes a new marker pointing
+at that position in the current buffer.
+The optional argument TYPE specifies the insertion type of the new marker;
+see `marker-insertion-type'.  */)
+     (marker, type)
      register Lisp_Object marker, type;
 {
   register Lisp_Object new;
 
-  if (! (INTEGERP (marker) || MARKERP (marker)))
-    marker = wrong_type_argument (Qinteger_or_marker_p, marker);
+  CHECK_TYPE (INTEGERP (marker) || MARKERP (marker), Qinteger_or_marker_p, marker);
 
   new = Fmake_marker ();
   Fset_marker (new, marker,
@@ -838,36 +847,36 @@ see `marker-insertion-type'.")
 
 DEFUN ("marker-insertion-type", Fmarker_insertion_type,
        Smarker_insertion_type, 1, 1, 0,
-  "Return insertion type of MARKER: t if it stays after inserted text.\n\
-nil means the marker stays before text inserted there.")
-  (marker)
+       doc: /* Return insertion type of MARKER: t if it stays after inserted text.
+The value nil means the marker stays before text inserted there.  */)
+     (marker)
      register Lisp_Object marker;
 {
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
   return XMARKER (marker)->insertion_type ? Qt : Qnil;
 }
 
 DEFUN ("set-marker-insertion-type", Fset_marker_insertion_type,
        Sset_marker_insertion_type, 2, 2, 0,
-  "Set the insertion-type of MARKER to TYPE.\n\
-If TYPE is t, it means the marker advances when you insert text at it.\n\
-If TYPE is nil, it means the marker stays behind when you insert text at it.")
-  (marker, type)
+       doc: /* Set the insertion-type of MARKER to TYPE.
+If TYPE is t, it means the marker advances when you insert text at it.
+If TYPE is nil, it means the marker stays behind when you insert text at it.  */)
+     (marker, type)
      Lisp_Object marker, type;
 {
-  CHECK_MARKER (marker, 0);
+  CHECK_MARKER (marker);
 
   XMARKER (marker)->insertion_type = ! NILP (type);
   return type;
 }
 
 DEFUN ("buffer-has-markers-at", Fbuffer_has_markers_at, Sbuffer_has_markers_at,
-  1, 1, 0,
-  "Return t if there are markers pointing at POSITION in the current buffer.")
-  (position)
-      Lisp_Object position;
+       1, 1, 0,
+       doc: /* Return t if there are markers pointing at POSITION in the current buffer.  */)
+     (position)
+     Lisp_Object position;
 {
-  register Lisp_Object tail;
+  register struct Lisp_Marker *tail;
   register int charno;
 
   charno = XINT (position);
@@ -877,13 +886,26 @@ DEFUN ("buffer-has-markers-at", Fbuffer_has_markers_at, Sbuffer_has_markers_at,
   if (charno > Z)
     charno = Z;
 
-  for (tail = BUF_MARKERS (current_buffer);
-       !NILP (tail);
-       tail = XMARKER (tail)->chain)
-    if (XMARKER (tail)->charpos == charno)
+  for (tail = BUF_MARKERS (current_buffer); tail; tail = tail->next)
+    if (tail->charpos == charno)
       return Qt;
 
   return Qnil;
+}
+
+/* For debugging -- count the markers in buffer BUF.  */
+
+int
+count_markers (buf)
+     struct buffer *buf;
+{
+  int total = 0;
+  struct Lisp_Marker *tail;
+
+  for (tail = BUF_MARKERS (buf); tail; tail = tail->next)
+    total++;
+
+  return total;
 }
 
 void
@@ -898,7 +920,9 @@ syms_of_marker ()
   defsubr (&Sbuffer_has_markers_at);
 
   DEFVAR_BOOL ("byte-debug-flag", &byte_debug_flag,
-   "Non-nil enables debugging checks in byte/char position conversions.");
+	       doc: /* Non-nil enables debugging checks in byte/char position conversions.  */);
   byte_debug_flag = 0;
-
 }
+
+/* arch-tag: 50aa418f-cdd0-4838-b64b-94aa4b2a3b74
+   (do not change this comment) */

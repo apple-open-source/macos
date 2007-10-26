@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -32,7 +28,10 @@
 #include <ast.h>
 #include <wchar.h>
 
+#define STUB	1
+
 #if !_lib_mbtowc
+#undef	STUB
 size_t
 mbtowc(wchar_t* t, const char* s, size_t n)
 {
@@ -43,10 +42,12 @@ mbtowc(wchar_t* t, const char* s, size_t n)
 #endif
 
 #if !_lib_mbrtowc
+#undef	STUB
 size_t
 mbrtowc(wchar_t* t, const char* s, size_t n, mbstate_t* q)
 {
 #if _lib_mbtowc
+#undef	STUB
 	memset(q, 0, sizeof(*q));
 	return mbtowc(t, s, n);
 #else
@@ -59,6 +60,7 @@ mbrtowc(wchar_t* t, const char* s, size_t n, mbstate_t* q)
 #endif
 
 #if !_lib_mbstowcs
+#undef	STUB
 size_t
 mbstowcs(wchar_t* t, const char* s, size_t n)
 {
@@ -75,6 +77,7 @@ mbstowcs(wchar_t* t, const char* s, size_t n)
 #endif
 
 #if !_lib_wctomb
+#undef	STUB
 int
 wctomb(char* s, wchar_t c)
 {
@@ -85,10 +88,12 @@ wctomb(char* s, wchar_t c)
 #endif
 
 #if !_lib_wcrtomb
+#undef	STUB
 size_t
 wcrtomb(char* s, wchar_t c, mbstate_t* q)
 {
 #if _lib_wctomb
+#undef	STUB
 	memset(q, 0, sizeof(*q));
 	return wctomb(s, c);
 #else
@@ -101,6 +106,7 @@ wcrtomb(char* s, wchar_t c, mbstate_t* q)
 #endif
 
 #if !_lib_wcslen
+#undef	STUB
 size_t
 wcslen(const wchar_t* s)
 {
@@ -113,6 +119,7 @@ wcslen(const wchar_t* s)
 #endif
 
 #if !_lib_wcstombs
+#undef	STUB
 size_t
 wcstombs(char* t, register const wchar_t* s, size_t n)
 {
@@ -125,4 +132,8 @@ wcstombs(char* t, register const wchar_t* s, size_t n)
 		while (p++, *s++);
 	return p - t;
 }
+#endif
+
+#if STUB
+NoN(wc)
 #endif

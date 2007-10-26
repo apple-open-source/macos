@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: bindevt.h,v 1.3.206.1 2004/03/06 08:15:14 marka Exp $ */
+/* $Id: bindevt.h,v 1.4 2004/03/05 05:12:05 marka Exp $ */
 
 #ifndef ISC_BINDEVT_H
 #define ISC_BINDEVT_H 1

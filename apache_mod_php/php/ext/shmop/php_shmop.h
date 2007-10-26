@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -31,9 +31,6 @@ extern zend_module_entry shmop_module_entry;
 #endif
 
 PHP_MINIT_FUNCTION(shmop);
-PHP_MSHUTDOWN_FUNCTION(shmop);
-PHP_RINIT_FUNCTION(shmop);
-PHP_RSHUTDOWN_FUNCTION(shmop);
 PHP_MINFO_FUNCTION(shmop);
 
 PHP_FUNCTION(shmop_open);

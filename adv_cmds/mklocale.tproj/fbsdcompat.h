@@ -33,7 +33,7 @@
 #define	_BYTE_ORDER	BYTE_ORDER
 #define	_LITTLE_ENDIAN	LITTLE_ENDIAN
 #define	__ct_rune_t	ct_rune_t
-#define	__va_list	_BSD_VA_LIST_
+#define	__va_list	__darwin_va_list
 
 /*
  * Do the opposite of FreeBSD namespace.h; that is, map the "hidden" names

@@ -1,6 +1,9 @@
 /* APPLE LOCAL file 4110735 */
 /* { dg-do run } */
 /* { dg-options "-O3" { target powerpc*-*-* } } */
+/* APPLE LOCAL mainline */
+/* { dg-options "-w" } */
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -62,4 +65,3 @@ int main()
 
 	bar (&c);
 }
-	

@@ -23,7 +23,7 @@
 .Nd construct a new HFS Plus file system
 .Sh SYNOPSIS
 .Nm newfs_hfs
-.Op Fl N
+.Op Fl N Ar [partition-size]
 .Op Fl U Ar uid
 .Op Fl G Ar gid
 .Op Fl M Ar mask
@@ -53,7 +53,7 @@ reasonable, however
 has several options to allow the defaults to be selectively overridden.
 The options are as follows:
 .Bl -tag -width Fl
-.It Fl N
+.It Fl N Ar [partition-size]
 Causes the file system parameters to be printed out
 without really creating the file system.
 .It Fl U Ar uid
@@ -63,7 +63,8 @@ Set the owner of the file system's root directory to
 Set the group of the file system's root directory to
 .Pa gid .
 .It Fl M Ar mask
-Specify the access permissions mask for the file system's root directory.
+Specify the octal access permissions mask for the file system's root
+directory.
 .It Fl h
 Creates a legacy HFS format filesystem. This option
 is not recomended for file systems that will be
@@ -101,8 +102,14 @@ Set the attribute file clump size.
 Set the allocation bitmap file clump size.
 .It Em c=blocks
 Set the catalog file clump size.
+.It Em d=blocks
+Set the data fork clump size.
 .It Em e=blocks
 Set the extent overflow file clump size.
+.It Em g=blocks
+Set the maximum growable size of the hfs wrapper.
+.It Em r=blocks
+Set the resource fork clump size.
 .El
 .It Fl i Ar first-cnid
 This specifies the initial catalog node ID for user files

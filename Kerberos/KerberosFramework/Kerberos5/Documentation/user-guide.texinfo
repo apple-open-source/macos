@@ -13,6 +13,11 @@
 @parskip 6pt plus 6pt
 @end iftex
 
+@dircategory Kerberos
+@direntry
+* krb5-user: (krb5-user).               Kerberos V5 UNIX User's Guide
+@end direntry
+
 @include definitions.texinfo
 @set EDITION 1.0
 
@@ -250,7 +255,7 @@ a different network address based on the forwardable ticket.  This
 allows for authentication forwarding without requiring a password to be
 typed in again.  For example, if a user with a forwardable TGT logs
 into a remote system, the KDC could issue a new TGT for that user with
-the netword address of the remote system, allowing authentication on
+the network address of the remote system, allowing authentication on
 that host to work as though the user were logged in locally.
 
 When the KDC creates a new ticket based on a forwardable ticket, it
@@ -932,7 +937,7 @@ Escape character is '^]'.
 [ Kerberos V5 accepts you as ``@value{RANDOMUSER1}@@@value{PRIMARYDOMAIN}'' ]
 [ Kerberos V5 accepted forwarded credentials ]
 What you type is protected by encryption.
-Last login: Tue Jul 30 18:47:44 from @value{RANDOMHOST}.@value{SECONDDOMAIN}
+Last login: Tue Jul 30 18:47:44 from @value{RANDOMHOST1}.@value{SECONDDOMAIN}
 Athena Server (sun4) Version 9.1.11 Tue Jul 30 14:40:08 EDT 2002
 
 shell%}

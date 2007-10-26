@@ -530,7 +530,7 @@ NewFtpMessage(struct ip *pip,
 	    case FTP_PORT_COMMAND:
 	    case FTP_227_REPLY:
 		/* Decompose alias port into pair format. */
-		ptr = (char *) &alias_port;
+		ptr = (u_char *) &alias_port;
 		p1 = *ptr++; p2=*ptr;
 
 		if (ftp_message_type == FTP_PORT_COMMAND) {

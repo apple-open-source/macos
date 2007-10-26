@@ -1,8 +1,21 @@
 /* trees.c -- output deflated data using Huffman coding
- * Copyright (C) 1992-1993 Jean-loup Gailly
- * This is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License, see the file COPYING.
- */
+
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992-1993 Jean-loup Gailly
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /*
  *  PURPOSE
@@ -60,7 +73,7 @@
 #include "gzip.h"
 
 #ifdef RCSID
-static char rcsid[] = "$Id: trees.c,v 0.12 1993/06/10 13:27:54 jloup Exp $";
+static char rcsid[] = "$Id: trees.c,v 1.4 2006/11/20 08:40:33 eggert Exp $";
 #endif
 
 /* ===========================================================================
@@ -342,7 +355,7 @@ void ct_init(attr, methodp)
     file_type = attr;
     file_method = methodp;
     compressed_len = input_len = 0L;
-        
+
     if (static_dtree[0].Len != 0) return; /* ct_init already called */
 
     /* Initialize the mapping length (0..255) -> length code (0..28) */
@@ -896,7 +909,8 @@ off_t flush_block(buf, stored_len, eof)
     if (stored_len <= opt_lenb && eof && compressed_len == 0L && seekable()) {
 #endif
         /* Since LIT_BUFSIZE <= 2*WSIZE, the input data must be there: */
-        if (buf == (char*)0) error ("block vanished");
+	if (!buf)
+	  gzip_error ("block vanished");
 
         copy_block(buf, (unsigned)stored_len, 0); /* without header */
         compressed_len = stored_len << 3;

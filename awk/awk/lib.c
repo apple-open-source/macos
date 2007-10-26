@@ -154,6 +154,8 @@ int getrec(char **pbuf, int *pbufsize, int isrecord)	/* get next input record */
 			}
 			setfval(nrloc, nrloc->fval+1);
 			setfval(fnrloc, fnrloc->fval+1);
+			if (donefld == 0)
+		                fldbld();
 			*pbuf = buf;
 			*pbufsize = bufsize;
 			return 1;

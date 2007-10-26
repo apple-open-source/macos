@@ -27,7 +27,7 @@ Namdisc_t;
 .nf
 .ft 5
 Namval_t 	*nv_open(const char *\fIname\fP, Dt_t *\fIdict\fP, int \fIflags\fP);
-Namval_t	*nv_create(Namval_t *\fInp\fP, const char *\fIname\fP, int \fIflags\fP, Namfun_t *\fIfp\fP);
+Namval_t	*nv_create(const char *\fIname\fP,  Dt_t *\fIdict\fP, int \fIflags\fP, Namfun_t *\fIfp\fP);
 void	nv_close(Namval_t *\fInp\fP);
 .ft R
 .fi
@@ -35,7 +35,7 @@ void	nv_close(Namval_t *\fInp\fP);
 .nf
 .ft 5
 char	*nv_getval(Namval_t *\fInp\fP);
-double	nv_getnum(Namval_t *\fInp\fP);
+Sfdouble_t	nv_getnum(Namval_t *\fInp\fP);
 char	*nv_name(Namval_t *\fInp\fP);
 void	nv_putval(Namval_t *\fInp\fP, const char *\fIval\fP, int \fIflags\fP);
 void	nv_unset(Namval_t *\fInp\fP);
@@ -74,7 +74,7 @@ int	nv_aindex(Namval_t *\fInp\fP);
 Namfun_t	*nv_disc(Namval_t *\fInp\fP, Namfun_t *\fIfp\fP, int \fIflags\fP);
 Namfun_t	*nv_hasdisc(Namval_t *\fInp\fP, const Namdisc_t *\fIdp\fP);
 char	*nv_getv(Namval_t *\fInp\fP, Namfun_t *\fIfp\fP);
-double	nv_getn(Namval_t *\fInp\fP, Namfun_t *\fIfp\fP);
+Sfdouble_t	nv_getn(Namval_t *\fInp\fP, Namfun_t *\fIfp\fP);
 void	nv_putv(Namval_t *\fInp\fP, const char *\fIval\fP, int \fIflags\fP, Namfun_t *\fIfp\fP);
 char	*nv_setdisc(Namval_t *\fInp\fP, const char *\fIa\fP, Namval_t *\fIf\fP, Namfun_t *\fIfp\fP);
 char	*nv_adddisc(Namval_t *\fInp\fP, const char **\fInames\fP);
@@ -87,7 +87,7 @@ const Namdisc_t	*nv_discfun(int \fIwhich\fP);
 int	nv_scan(Dt_t *\fIdict\fP, void(*\fIfn\fP)(Namval_t*,void*), void *\fIdata\fP, int \fImask\fP, int \fIflags\fP);
 Dt_t	nv_dict(Namval_t *\fInp\fP);
 void	nv_setvtree(Namval_t *\fInp\fP);
-void	nv_setref(Namval_t *\fInp\fP);
+void	nv_setref(Namval_t *\fInp\fP, Dt_t *\fIdp\fP, int \fIflags\fP);
 Namval_t	*nv_lastdict(void);
 .ft R
 .fi
@@ -151,7 +151,7 @@ If \f5NV_VARNAME\fP, \f5NV_IDENTIFIER\fP and \f5NV_ASSIGN\fP are
 all not specified, then no validity check is performed on the \fIname\fP
 argument and no further processing is performed.
 Otherwise, if \f5NV_ASSIGN\fP is specified, then the characters up
-to the first \f5=\fP are used to find the name-value pair,
+to the first \f5=\fP or \f5+=\fP are used to find the name-value pair,
 and the characters after the \f5=\fP are used to define
 the value that will be assigned to this name-value pair.
 If \fIname\fP does not contain an \f5=\fP, than no assignment
@@ -198,7 +198,8 @@ The \f5nv_getval()\fP function returns the value of the given
 name-value pair as a string.  A \f5NULL\fP return value indicates
 that the name-value pair is unset.
 The \f5nv_getnum()\fP function returns the value of the given
-name-value pair as a double precision number.
+name-value pair as a double precision number using the \f5Sfio\fP
+library  (See Sfio(3)) type \f5Sfdouble_t\fP.
 For name-value pairs without the \f5NV_INTEGER\fP attribute,
 the string value is evaluated as an arithmetic expression to
 arrive at a numerical value.
@@ -207,7 +208,7 @@ The \f5nv_putval()\fP function is used to assign a \fIvalue\fP to
 the name-value pair \fInp\fP.
 The \fIflags\fP argument consists zero or more of the bitwise-or
 of \f5NV_LONG\fP, \f5NV_SHORT\fP, \f5NV_DOUBLE\fP, \f5NV_INTEGER\fP,
-\f5NV_RDONLY\fP, \f5NV_REF\fP, and \f5NV_NOFREE\fP.
+\f5NV_RDONLY\fP, \f5NV_REF\fP, \f5NV_BINARY\fP, and \f5NV_NOFREE\fP.
 The presence of \f5NV_RDONLY\fP allows the assignment to occur
 even if the name-value pair has the \f5NV_RDONLY\fP attribute.
 The presence of \f5NV_INTEGER\fP indicates that the \fIvalue\fP
@@ -329,7 +330,7 @@ and the \fIdata\fP pointer passed to \f5nv_scan()\fP.
 The number of elements visited will be returned.
 .PP
 The \f5nv_clone()\fP function is used make a copy of the contents of
-name-value pair \f5src\fP to another name-value pair \f5dest\fP.
+name-value pair \fIsrc\fP to another name-value pair \fIdest\fP.
 .PP
 Disciplines provide a way to
 intercept the lookup and assignment operations,
@@ -399,24 +400,21 @@ to perform the assignment or unset that would have occurred
 if the discipline had not been installed.
 .PP
 The \f5createf()\fP discipline function is called from
-\f5nv_open()\fP when the name-value pair for name containing a
+\f5nv_open()\fP or \f5nv_create()\fP when the name-value pair preceding a
 .B \s+2.\s-2
-doesn't exist, unless \f5NV_NOADD\fP was specified.
-This function is passed the name-value pointer of the longest
-parent name-value pair that exists, plus the remaining string.
-The \fIflags\fP argument is \fB0\fP in this case.  Other values
-are reserved for future extensions. 
+is found.
+This function is passed the name-value pointer plus the remaining string and
+the current \fIflags\fP argument.
 The \f5createf()\fP discipline function
 must return the created name-value pair, otherwise the default action
 will be taken.
 If the name-value pair that is returned  is the same as the
 one given, then the the behavior will be the same as if
 an invalid name had been given to \f5nv_open()\fP.
-The \f5nv_createf()\fP function may be called within
-the \f5createf()\fP
-discipline function
+The \f5nv_create()\fP function may be called within
+the \f5createf()\fP discipline function
 to perform the action that would have occurred
-by an earlier \f5create()\fP discipline.
+by an earlier \f5nv_open()\fP function.
 .PP
 The \f5setdisc()\fP discipline function is used
 to extend the set of available shell level discipline functions
@@ -603,7 +601,10 @@ when not in a scan.
 .PP
 The \f5nv_setref()\fP function makes the name-value pair \f5np\fP
 into a reference to the variable whose name is given by
-the value of \f5np\fP.
+the value of \f5np\fP.  The \f5nv_open()\fP open function is
+called with this name, the dictionary given by \f5dp\fP,
+and the \f5flags\fP argument.
+A \f5NULL\fP value causes the shell global variable dictionary to be searched.
 .PP
 The \f5nv_setvtree()\fP function makes the name-value pair \f5np\fP
 into a tree structured variable so that \f5nv_getval()\fP

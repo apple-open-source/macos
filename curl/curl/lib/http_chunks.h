@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_chunks.h,v 1.12 2005/03/04 00:24:52 bagder Exp $
+ * $Id: http_chunks.h,v 1.15 2007-02-21 21:59:42 bagder Exp $
  ***************************************************************************/
 /*
  * The longest possible hexadecimal number we support in a chunked transfer.
@@ -52,9 +52,13 @@ typedef enum {
   /* POSTCR should get a CR and nothing else, then move to POSTLF */
   CHUNK_POSTCR,
 
-  /* POSTLF should get a LF and nothing else, then move back to HEX as
-     the CRLF combination marks the end of a chunk */
+  /* POSTLF should get a LF and nothing else, then move back to HEX as the
+     CRLF combination marks the end of a chunk */
   CHUNK_POSTLF,
+
+  /* Each Chunk body should end with a CRLF.  Read a CR and nothing else,
+     then move to CHUNK_STOP */
+  CHUNK_STOPCR,
 
   /* This is mainly used to really mark that we're out of the game.
      NOTE: that there's a 'dataleft' field in the struct that will tell how
@@ -62,7 +66,22 @@ typedef enum {
      buffer! */
   CHUNK_STOP,
 
+  /* At this point optional trailer headers can be found, unless the next line
+     is CRLF */
+  CHUNK_TRAILER,
+
+  /* A trailer CR has been found - next state is CHUNK_TRAILER_POSTCR.
+     Next char must be a LF */
+  CHUNK_TRAILER_CR,
+
+  /* A trailer LF must be found now, otherwise CHUNKE_BAD_CHUNK will be
+     signalled If this is an empty trailer CHUNKE_STOP will be signalled.
+     Otherwise the trailer will be broadcasted via Curl_client_write() and the
+     next state will be CHUNK_TRAILER */
+  CHUNK_TRAILER_POSTCR,
+
   CHUNK_LAST /* never use */
+
 } ChunkyState;
 
 typedef enum {
@@ -74,6 +93,7 @@ typedef enum {
   CHUNKE_WRITE_ERROR,
   CHUNKE_STATE_ERROR,
   CHUNKE_BAD_ENCODING,
+  CHUNKE_OUT_OF_MEMORY,
   CHUNKE_LAST
 } CHUNKcode;
 

@@ -198,8 +198,34 @@ struct tui_translate tui_border_kind_translate_lrcorner[] = {
 
 /* Tui configuration variables controlled with set/show command.  */
 const char *tui_active_border_mode = "bold-standout";
+static void
+show_tui_active_border_mode (struct ui_file *file, int from_tty,
+			     struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+The attribute mode to use for the active TUI window border is \"%s\".\n"),
+		    value);
+}
+
 const char *tui_border_mode = "normal";
+static void
+show_tui_border_mode (struct ui_file *file, int from_tty,
+		      struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+The attribute mode to use for the TUI window borders is \"%s\".\n"),
+		    value);
+}
+
 const char *tui_border_kind = "acs";
+static void
+show_tui_border_kind (struct ui_file *file, int from_tty,
+		      struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("The kind of border for TUI windows is \"%s\".\n"),
+		    value);
+}
+
 
 /* Tui internal configuration variables.  These variables are
    updated by tui_update_variables to reflect the tui configuration
@@ -290,6 +316,26 @@ show_tui_cmd (char *args, int from_tty)
 {
 }
 
+static struct cmd_list_element *tuilist;
+
+static void
+tui_command (char *args, int from_tty)
+{
+  printf_unfiltered (_("\"tui\" must be followed by the name of a "
+                     "tui command.\n"));
+  help_list (tuilist, "tui ", -1, gdb_stdout);
+}
+
+struct cmd_list_element **
+tui_get_cmd_list (void)
+{
+  if (tuilist == 0)
+    add_prefix_cmd ("tui", class_tui, tui_command,
+                    _("Text User Interface commands."),
+                    &tuilist, "tui ", 0, &cmdlist);
+  return &tuilist;
+}
+
 /* Function to initialize gdb commands, for tui window manipulation.  */
 void
 _initialize_tui_win (void)
@@ -300,100 +346,103 @@ _initialize_tui_win (void)
 
   /* Define the classes of commands.
      They will appear in the help list in the reverse of this order.  */
-  add_cmd ("tui", class_tui, NULL,
-	   "Text User Interface commands.",
-	   &cmdlist);
-
   add_prefix_cmd ("tui", class_tui, set_tui_cmd,
-                  "TUI configuration variables",
+                  _("TUI configuration variables"),
 		  &tui_setlist, "set tui ",
 		  0/*allow-unknown*/, &setlist);
   add_prefix_cmd ("tui", class_tui, show_tui_cmd,
-                  "TUI configuration variables",
+                  _("TUI configuration variables"),
 		  &tui_showlist, "show tui ",
 		  0/*allow-unknown*/, &showlist);
 
   add_com ("refresh", class_tui, tui_refresh_all_command,
-           "Refresh the terminal display.\n");
+           _("Refresh the terminal display.\n"));
   if (xdb_commands)
     add_com_alias ("U", "refresh", class_tui, 0);
-  add_com ("tabset", class_tui, tui_set_tab_width_command,
-           "Set the width (in characters) of tab stops.\n\
-Usage: tabset <n>\n");
-  add_com ("winheight", class_tui, tui_set_win_height_command,
-           "Set the height of a specified window.\n\
+  add_com ("tabset", class_tui, tui_set_tab_width_command, _("\
+Set the width (in characters) of tab stops.\n\
+Usage: tabset <n>\n"));
+  add_com ("winheight", class_tui, tui_set_win_height_command, _("\
+Set the height of a specified window.\n\
 Usage: winheight <win_name> [+ | -] <#lines>\n\
 Window names are:\n\
 src  : the source window\n\
 cmd  : the command window\n\
 asm  : the disassembly window\n\
-regs : the register display\n");
+regs : the register display\n"));
   add_com_alias ("wh", "winheight", class_tui, 0);
   add_info ("win", tui_all_windows_info,
-            "List of all displayed windows.\n");
-  add_com ("focus", class_tui, tui_set_focus_command,
-           "Set focus to named window or next/prev window.\n\
+	    _("List of all displayed windows.\n"));
+  add_com ("focus", class_tui, tui_set_focus_command, _("\
+Set focus to named window or next/prev window.\n\
 Usage: focus {<win> | next | prev}\n\
 Valid Window names are:\n\
 src  : the source window\n\
 asm  : the disassembly window\n\
 regs : the register display\n\
-cmd  : the command window\n");
+cmd  : the command window\n"));
   add_com_alias ("fs", "focus", class_tui, 0);
-  add_com ("+", class_tui, tui_scroll_forward_command,
-           "Scroll window forward.\nUsage: + [win] [n]\n");
-  add_com ("-", class_tui, tui_scroll_backward_command,
-           "Scroll window backward.\nUsage: - [win] [n]\n");
-  add_com ("<", class_tui, tui_scroll_left_command,
-           "Scroll window forward.\nUsage: < [win] [n]\n");
-  add_com (">", class_tui, tui_scroll_right_command,
-           "Scroll window backward.\nUsage: > [win] [n]\n");
+  add_com ("+", class_tui, tui_scroll_forward_command, _("\
+Scroll window forward.\n\
+Usage: + [win] [n]\n"));
+  add_com ("-", class_tui, tui_scroll_backward_command, _("\
+Scroll window backward.\n\
+Usage: - [win] [n]\n"));
+  add_com ("<", class_tui, tui_scroll_left_command, _("\
+Scroll window forward.\n\
+Usage: < [win] [n]\n"));
+  add_com (">", class_tui, tui_scroll_right_command, _("\
+Scroll window backward.\n\
+Usage: > [win] [n]\n"));
   if (xdb_commands)
-    add_com ("w", class_xdb, tui_xdb_set_win_height_command,
-             "XDB compatibility command for setting the height of a command window.\n\
-Usage: w <#lines>\n");
+    add_com ("w", class_xdb, tui_xdb_set_win_height_command, _("\
+XDB compatibility command for setting the height of a command window.\n\
+Usage: w <#lines>\n"));
 
   /* Define the tui control variables.  */
-  c = add_set_enum_cmd
-    ("border-kind", no_class,
-     tui_border_kind_enums, &tui_border_kind,
-     "Set the kind of border for TUI windows.\n"
-     "This variable controls the border of TUI windows:\n"
-     "space           use a white space\n"
-     "ascii           use ascii characters + - | for the border\n"
-     "acs             use the Alternate Character Set\n",
-     &tui_setlist);
-  add_show_from_set (c, &tui_showlist);
+  add_setshow_enum_cmd ("border-kind", no_class, tui_border_kind_enums,
+			&tui_border_kind, _("\
+Set the kind of border for TUI windows."), _("\
+Show the kind of border for TUI windows."), _("\
+This variable controls the border of TUI windows:\n\
+space           use a white space\n\
+ascii           use ascii characters + - | for the border\n\
+acs             use the Alternate Character Set"),
+			NULL,
+			show_tui_border_kind,
+			&tui_setlist, &tui_showlist);
 
-  c = add_set_enum_cmd
-    ("border-mode", no_class,
-     tui_border_mode_enums, &tui_border_mode,
-     "Set the attribute mode to use for the TUI window borders.\n"
-     "This variable controls the attributes to use for the window borders:\n"
-     "normal          normal display\n"
-     "standout        use highlight mode of terminal\n"
-     "reverse         use reverse video mode\n"
-     "half            use half bright\n"
-     "half-standout   use half bright and standout mode\n"
-     "bold            use extra bright or bold\n"
-     "bold-standout   use extra bright or bold with standout mode\n",
-     &tui_setlist);
-  add_show_from_set (c, &tui_showlist);
+  add_setshow_enum_cmd ("border-mode", no_class, tui_border_mode_enums,
+			&tui_border_mode, _("\
+Set the attribute mode to use for the TUI window borders."), _("\
+Show the attribute mode to use for the TUI window borders."), _("\
+This variable controls the attributes to use for the window borders:\n\
+normal          normal display\n\
+standout        use highlight mode of terminal\n\
+reverse         use reverse video mode\n\
+half            use half bright\n\
+half-standout   use half bright and standout mode\n\
+bold            use extra bright or bold\n\
+bold-standout   use extra bright or bold with standout mode"),
+			NULL,
+			show_tui_border_mode,
+			&tui_setlist, &tui_showlist);
 
-  c = add_set_enum_cmd
-    ("active-border-mode", no_class,
-     tui_border_mode_enums, &tui_active_border_mode,
-     "Set the attribute mode to use for the active TUI window border.\n"
-     "This variable controls the attributes to use for the active window border:\n"
-     "normal          normal display\n"
-     "standout        use highlight mode of terminal\n"
-     "reverse         use reverse video mode\n"
-     "half            use half bright\n"
-     "half-standout   use half bright and standout mode\n"
-     "bold            use extra bright or bold\n"
-     "bold-standout   use extra bright or bold with standout mode\n",
-     &tui_setlist);
-  add_show_from_set (c, &tui_showlist);
+  add_setshow_enum_cmd ("active-border-mode", no_class, tui_border_mode_enums,
+			&tui_active_border_mode, _("\
+Set the attribute mode to use for the active TUI window border."), _("\
+Show the attribute mode to use for the active TUI window border."), _("\
+This variable controls the attributes to use for the active window border:\n\
+normal          normal display\n\
+standout        use highlight mode of terminal\n\
+reverse         use reverse video mode\n\
+half            use half bright\n\
+half-standout   use half bright and standout mode\n\
+bold            use extra bright or bold\n\
+bold-standout   use extra bright or bold with standout mode"),
+			NULL,
+			show_tui_active_border_mode,
+			&tui_setlist, &tui_showlist);
 }
 
 /* Update gdb's knowledge of the terminal size.  */
@@ -602,6 +651,9 @@ tui_resize_all (void)
       enum tui_win_type win_type;
       int new_height, split_diff, cmd_split_diff, num_wins_displayed = 2;
 
+#ifdef HAVE_RESIZE_TERM
+      resize_term (screenheight, screenwidth);
+#endif      
       /* turn keypad off while we resize */
       if (win_with_focus != TUI_CMD_WIN)
 	keypad (TUI_CMD_WIN->generic.handle, FALSE);
@@ -680,10 +732,6 @@ tui_resize_all (void)
 	    new_height = first_win->generic.height + split_diff;
 	  make_invisible_and_set_new_height (first_win, new_height);
 
-	  if (first_win == TUI_DATA_WIN && width_diff != 0)
-	    first_win->detail.data_display_info.regs_column_count =
-	      tui_calculate_regs_column_count (
-			  first_win->detail.data_display_info.regs_display_type);
 	  locator->width += width_diff;
 
 	  /* Change the second window's height/width */
@@ -840,8 +888,8 @@ tui_set_focus (char *arg, int from_tty)
 	win_info = tui_partial_win_by_name (buf_ptr);
 
       if (win_info == (struct tui_win_info *) NULL || !win_info->generic.is_visible)
-	warning ("Invalid window specified. \n\
-The window name specified must be valid and visible.\n");
+	warning (_("Invalid window specified. \n\
+The window name specified must be valid and visible.\n"));
       else
 	{
 	  tui_set_win_focus_to (win_info);
@@ -851,11 +899,11 @@ The window name specified must be valid and visible.\n");
       if (TUI_DATA_WIN && TUI_DATA_WIN->generic.is_visible)
 	tui_refresh_data_win ();
       xfree (buf_ptr);
-      printf_filtered ("Focus set to %s window.\n",
+      printf_filtered (_("Focus set to %s window.\n"),
 		       tui_win_name ((struct tui_gen_win_info *) tui_win_with_focus ()));
     }
   else
-    warning ("Incorrect Number of Arguments.\n%s", FOCUS_USAGE);
+    warning (_("Incorrect Number of Arguments.\n%s"), FOCUS_USAGE);
 }
 
 static void
@@ -912,7 +960,7 @@ tui_set_tab_width_command (char *arg, int from_tty)
       if (ts > 0)
 	tui_set_default_tab_len (ts);
       else
-	warning ("Tab widths greater than 0 must be specified.\n");
+	warning (_("Tab widths greater than 0 must be specified."));
     }
 }
 
@@ -945,8 +993,8 @@ tui_set_win_height (char *arg, int from_tty)
 	  win_info = tui_partial_win_by_name (wname);
 
 	  if (win_info == (struct tui_win_info *) NULL || !win_info->generic.is_visible)
-	    warning ("Invalid window specified. \n\
-The window name specified must be valid and visible.\n");
+	    warning (_("Invalid window specified. \n\
+The window name specified must be valid and visible.\n"));
 	  else
 	    {
 	      /* Process the size */
@@ -981,13 +1029,13 @@ The window name specified must be valid and visible.\n");
 		       */
 		      if (tui_adjust_win_heights (win_info,
 						new_height) == TUI_FAILURE)
-			warning ("Invalid window height specified.\n%s",
+			warning (_("Invalid window height specified.\n%s"),
 				 WIN_HEIGHT_USAGE);
 		      else
                         tui_update_gdb_sizes ();
 		    }
 		  else
-		    warning ("Invalid window height specified.\n%s",
+		    warning (_("Invalid window height specified.\n%s"),
 			     WIN_HEIGHT_USAGE);
 		}
 	    }
@@ -1030,15 +1078,15 @@ tui_xdb_set_win_height (char *arg, int from_tty)
 	  if (!new_height_ok (tui_win_list[CMD_WIN], new_height) ||
 	      tui_adjust_win_heights (tui_win_list[CMD_WIN],
 				    new_height) == TUI_FAILURE)
-	    warning ("Invalid window height specified.\n%s",
+	    warning (_("Invalid window height specified.\n%s"),
 		     XDBWIN_HEIGHT_USAGE);
 	}
       else
-	warning ("Invalid window height specified.\n%s",
+	warning (_("Invalid window height specified.\n%s"),
 		 XDBWIN_HEIGHT_USAGE);
     }
   else
-    warning ("Invalid window height specified.\n%s", XDBWIN_HEIGHT_USAGE);
+    warning (_("Invalid window height specified.\n%s"), XDBWIN_HEIGHT_USAGE);
 }
 
 /* Set the height of the specified window, with va_list.  */
@@ -1495,8 +1543,8 @@ parse_scrolling_args (char *arg, struct tui_win_info * * win_to_scroll,
 
 	  if (*win_to_scroll == (struct tui_win_info *) NULL ||
 	      !(*win_to_scroll)->generic.is_visible)
-	    warning ("Invalid window specified. \n\
-The window name specified must be valid and visible.\n");
+	    error (_("Invalid window specified. \n\
+The window name specified must be valid and visible.\n"));
 	  else if (*win_to_scroll == TUI_CMD_WIN)
 	    *win_to_scroll = (struct tui_win_info *) (tui_source_windows ())->list[0];
 	}

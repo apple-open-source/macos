@@ -29,21 +29,23 @@
 #ifndef _IOKIT_AppleKeyswitch_H
 #define _IOKIT_AppleKeyswitch_H
 
+#include <IOKit/IOTypes.h>
+#include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOInterrupts.h>
 #include <IOKit/IOInterruptController.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOWorkLoop.h>
-#include <IOKit/IOTypes.h>
-#include <IOKit/IOLib.h>
 #include <IOKit/IODeviceTreeSupport.h>
+
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
 
 #ifdef DLOG
 #undef DLOG
 #endif
 
 // Uncomment for debug info
-// #define APPLEKEYSWITCH_DEBUG 1
+//#define APPLEKEYSWITCH_DEBUG 1
 
 #ifdef APPLEKEYSWITCH_DEBUG
 #define DLOG(fmt, args...)  kprintf(fmt, ## args)
@@ -56,6 +58,17 @@ enum
 	kKeyLargoGPIOBaseAddr		= 0x50, // ExtIntGPIO base offset
 };
 
+enum
+{
+	KEYSWITCH_VALUE_LOCKED		= 0,	
+	KEYSWITCH_VALUE_UNLOCKED	= 1
+};
+enum
+{
+	kSWITCH_STATE_IS_UNLOCKED	= 0,
+	kSWITCH_STATE_IS_LOCKED		= 1
+};
+
 class AppleKeyswitch : public IOService
 {
     OSDeclareDefaultStructors(AppleKeyswitch);
@@ -66,7 +79,15 @@ private:
     
     const OSSymbol 			*keyLargo_safeWriteRegUInt8;
     const OSSymbol 			*keyLargo_safeReadRegUInt8;
-    
+
+#if defined( __i386__ )
+	IOACPIPlatformDevice	* myProvider;
+	IONotifier				* switchEventNotify;
+#elif defined( __ppc__ )
+	void					* reserved1;	// make sure we remain the same size
+	void					* reserved2;
+#endif
+	
 public:
     IOWorkLoop 				*myWorkLoop;
     IOInterruptEventSource 	*interruptSource;
@@ -74,7 +95,16 @@ public:
     virtual bool 			start(IOService *provider);
     virtual void 			stop(IOService *provider);
     static void 			interruptOccurred(OSObject *obj, IOInterruptEventSource *src, int count);
+
     virtual void 			toggle(bool disableInts);
+
+	static IOReturn			keyswitchNotification(	void *      target,
+													void *      refCon,
+													UInt32      messageType,
+													IOService * provider,
+													void *      messageArgument,
+													vm_size_t   argSize );
+	void					getKeyswitchState( UInt8 * switchState );
 };
 
 #endif /* ! _IOKIT_AppleKeyswitch_H */

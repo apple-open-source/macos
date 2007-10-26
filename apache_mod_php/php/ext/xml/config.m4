@@ -1,47 +1,59 @@
 dnl
-dnl $Id: config.m4,v 1.38.2.3 2004/12/20 20:38:18 sniper Exp $
+dnl $Id: config.m4,v 1.54.2.1 2005/12/22 08:57:38 helly Exp $
 dnl
 
-PHP_C_BIGENDIAN
+PHP_ARG_ENABLE(xml,whether to enable XML support,
+[  --disable-xml           Disable XML support], yes)
 
-if test "$ac_cv_c_bigendian_php" = "yes"; then
-  order=4321
-else
-  order=1234
+if test -z "$PHP_LIBXML_DIR"; then
+  PHP_ARG_WITH(libxml-dir, libxml2 install dir,
+  [  --with-libxml-dir=DIR     XML: libxml2 install prefix], no, no)
 fi
 
-PHP_ARG_ENABLE(xml,whether to enable XML support,
-[  --disable-xml           Disable XML support using bundled expat lib], yes)
+PHP_ARG_WITH(libexpat-dir, libexpat install dir,
+[  --with-libexpat-dir=DIR   XML: libexpat install prefix (deprecated)], no, no)
 
-PHP_ARG_WITH(expat-dir, external libexpat install dir,
-[  --with-expat-dir=<DIR>    XML: external libexpat install dir], no, no)
+if test "$PHP_XML" != "no"; then
 
-if test "$PHP_XML" = "yes"; then
-  AC_DEFINE(HAVE_LIBEXPAT,  1, [ ])
+  dnl 
+  dnl Default to libxml2 if --with-libexpat-dir is not used.
+  dnl
+  if test "$PHP_LIBEXPAT_DIR" = "no"; then
 
-  if test "$PHP_EXPAT_DIR" = "no"; then
-    AC_DEFINE(HAVE_LIBEXPAT_BUNDLED, 1, [Bundled libexpat is used.])
-    AC_DEFINE(XML_NS, 1, [Define to make XML Namespaces functionality available.])
-    AC_DEFINE(XML_DTD, 1, [Define to make parameter entity parsing functionality available.])
-    AC_DEFINE(XML_CONTEXT_BYTES, 1024, [Define to specify how much context to retain around the current parse point.])
-    PHP_NEW_EXTENSION(xml, xml.c expat/xmlparse.c expat/xmlrole.c expat/xmltok.c, $ext_shared,,-DBYTEORDER=$order)
-    PHP_ADD_INCLUDE($ext_srcdir/expat)
-    PHP_ADD_BUILD_DIR($ext_builddir/expat)
-  else
-    PHP_NEW_EXTENSION(xml, xml.c, $ext_shared)
+    if test "$PHP_LIBXML" = "no"; then
+      AC_MSG_ERROR([XML extension requires LIBXML extension, add --enable-libxml])
+    fi
 
-    for i in $PHP_XML $PHP_EXPAT_DIR; do
-      if test -f $i/lib/libexpat.a -o -f $i/lib/libexpat.$SHLIB_SUFFIX_NAME ; then
+    PHP_SETUP_LIBXML(XML_SHARED_LIBADD, [
+      xml_extra_sources="compat.c"
+      PHP_ADD_EXTENSION_DEP(xml, libxml)
+    ], [
+      AC_MSG_ERROR([xml2-config not found. Use --with-libxml-dir=<DIR>])
+    ])
+  fi
+  
+  dnl
+  dnl Check for expat only if --with-libexpat-dir is used.
+  dnl
+  if test "$PHP_LIBEXPAT_DIR" != "no"; then
+    for i in $PHP_XML $PHP_LIBEXPAT_DIR /usr /usr/local; do
+      if test -f "$i/$PHP_LIBDIR/libexpat.a" || test -f "$i/$PHP_LIBDIR/libexpat.$SHLIB_SUFFIX_NAME"; then
         EXPAT_DIR=$i
+        break
       fi
     done
 
     if test -z "$EXPAT_DIR"; then
-      AC_MSG_ERROR(not found. Please reinstall the expat distribution.)
+      AC_MSG_ERROR([not found. Please reinstall the expat distribution.])
     fi
 
     PHP_ADD_INCLUDE($EXPAT_DIR/include)
-    PHP_ADD_LIBRARY_WITH_PATH(expat, $EXPAT_DIR/lib, XML_SHARED_LIBADD)
-    PHP_SUBST(XML_SHARED_LIBADD)
+    PHP_ADD_LIBRARY_WITH_PATH(expat, $EXPAT_DIR/$PHP_LIBDIR, XML_SHARED_LIBADD)
+    AC_DEFINE(HAVE_LIBEXPAT, 1, [ ])
   fi
+
+  PHP_NEW_EXTENSION(xml, xml.c $xml_extra_sources, $ext_shared)
+  PHP_SUBST(XML_SHARED_LIBADD)
+  PHP_INSTALL_HEADERS([ext/xml/])
+  AC_DEFINE(HAVE_XML, 1, [ ])
 fi

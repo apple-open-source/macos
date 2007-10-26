@@ -1,5 +1,5 @@
 /* lock.h -- file locking primitives
- $Id: lock.h,v 1.5 2005/03/05 00:37:16 dasenbro Exp $
+ $Id: lock.h,v 1.7 2003/02/13 20:15:40 rjs3 Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -65,11 +65,17 @@ static long				gCurrentSpeed;
 static long				gPinsInRow;
 static double				gLoadAverages[kNumSamples];
 static host_cpu_load_info_data_t	gSavedTicks;
+static IONotificationPortRef        gNotifyPort = NULL;
+static io_object_t                  gNotifyHandle = MACH_PORT_NULL;
+static CFRunLoopSourceRef           gNotifyRLS = NULL;
 
 void load(CFBundleRef bundle, Boolean bundleVerbose);
 static void UpdateConfiguration(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info);
 static void EnableDynamicPowerStep(Boolean enable);
 static void UpdateDynamicLoad(CFRunLoopTimerRef timerRef, void *info);
+static void InitDynamicPowerStep(void);
+static void FeatureChanged(void *refcon, io_service_t service,
+                    uint32_t messageType, void *messageArgument);
 
 #ifdef MAIN
 int main(int argc, char **argv)
@@ -82,19 +88,94 @@ int main(int argc, char **argv)
 
 void load(CFBundleRef bundle, Boolean bundleVerbose)
 {
-    kern_return_t		result;
-    CFRunLoopSourceRef  	runLoopSourceRef;
-    CFMutableArrayRef		arrayRef;
-    Boolean			ok;
+    io_service_t                rootDomainRef;
+    kern_return_t               kr = KERN_FAILURE;
     
-    if( !IOPMFeatureIsAvailable(CFSTR(kIOPMDynamicPowerStepKey), NULL)
-     && !IOPMFeatureIsAvailable(CFSTR(kIOPMReduceSpeedKey), NULL) )
+    // Return immediately if not on PowerPC.
+#ifndef __ppc__
+    return;
+#endif    
+    
+    // Install a notification when PM features are published
+    // We are interested in kIOPMDynamicPowerStepKey & kIOPMReduceSpeedKey    
+    rootDomainRef = IORegistryEntryFromPath( kIOMasterPortDefault,
+                        kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
+    gNotifyPort = IONotificationPortCreate( kIOMasterPortDefault );
+    gNotifyRLS = IONotificationPortGetRunLoopSource(gNotifyPort);
+    if (gNotifyRLS) {   
+        CFRunLoopAddSource( CFRunLoopGetCurrent(), 
+                            gNotifyRLS, kCFRunLoopDefaultMode);
+    }
+    
+    if (gNotifyRLS && gNotifyPort && (MACH_PORT_NULL != rootDomainRef))
     {
-        // Return immediately if neither DPS or Reduced is supported.
-        // Do not register for notifications or operate plugin at all.
-        return;    
-    }    
+        kr = IOServiceAddInterestNotification( gNotifyPort, 
+                                          rootDomainRef,
+                                          kIOGeneralInterest,
+                                          (IOServiceInterestCallback)FeatureChanged,
+                                          NULL,
+                                          &gNotifyHandle);
+    }
     
+    if (MACH_PORT_NULL != rootDomainRef) {
+        IOObjectRelease(rootDomainRef);
+    }
+    
+    if (KERN_SUCCESS != kr) {
+        // Unable to install notification.
+        // Cleanup here; then continue to see 
+        // if features are already published.
+    
+        if (gNotifyHandle != MACH_PORT_NULL) {
+            IOObjectRelease(gNotifyHandle);
+            gNotifyHandle = MACH_PORT_NULL;
+        }
+        if (gNotifyRLS) {    
+            CFRunLoopRemoveSource( CFRunLoopGetCurrent(), 
+                                    gNotifyRLS, kCFRunLoopDefaultMode);    
+            gNotifyRLS = NULL;
+        }
+        if (gNotifyPort) {
+            IONotificationPortDestroy(gNotifyPort);
+            gNotifyPort = NULL;
+        }
+    }
+
+    // Check for feature availability, and initDPS if supported.
+    // Return immediately if neither DPS or Reduced is supported.
+    if( IOPMFeatureIsAvailable(CFSTR(kIOPMDynamicPowerStepKey), NULL)
+     || IOPMFeatureIsAvailable(CFSTR(kIOPMReduceSpeedKey), NULL) )
+    {
+        InitDynamicPowerStep();
+    }
+
+    // non-failure return
+    return;
+}
+
+static void FeatureChanged(
+    void *refcon __unused, 
+    io_service_t service __unused,                    
+    uint32_t messageType, 
+    void *messageArgument __unused)
+{
+    if (messageType == kIOPMMessageFeatureChange)
+    {
+        if( IOPMFeatureIsAvailable(CFSTR(kIOPMDynamicPowerStepKey), NULL)
+         || IOPMFeatureIsAvailable(CFSTR(kIOPMReduceSpeedKey), NULL) )
+        {
+            InitDynamicPowerStep();
+        }
+    }
+}
+
+static void InitDynamicPowerStep(void)
+{
+    kern_return_t               result;
+    CFRunLoopSourceRef          runLoopSourceRef;
+    CFMutableArrayRef           arrayRef;
+    Boolean	                    ok;
+
     gIOPMDynamicStoreSettingsKey = CFSTR(kIOPMDynamicStoreSettingsKey);
     
     // Set up some defaults: DPS off and assume full speed.
@@ -131,8 +212,26 @@ void load(CFBundleRef bundle, Boolean bundleVerbose)
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSourceRef, kCFRunLoopDefaultMode);
     CFRelease(runLoopSourceRef);
     
+    // Remove ourselves from the feature publish notifications since we 
+    // are already loaded and no longer need them.
+    if (gNotifyHandle != MACH_PORT_NULL) {
+        IOObjectRelease(gNotifyHandle);
+        gNotifyHandle = MACH_PORT_NULL;
+    }
+    if (gNotifyRLS) {    
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), gNotifyRLS, kCFRunLoopDefaultMode);    
+        gNotifyRLS = NULL;
+    }
+    if (gNotifyPort) {
+        IONotificationPortDestroy(gNotifyPort);
+        gNotifyPort = NULL;
+    }
+    
     UpdateConfiguration(gSCDynamicStore, 0, 0);
+    
+    return;
 }
+
 
 static void UpdateConfiguration(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 {

@@ -9,7 +9,10 @@ Install_Man           = /usr/share/man
 Extra_Configure_Flags = --with-gssapi
 UserType              = Developer
 ToolType              = Commands
-GnuAfterInstall	      = install-man-pages cleanup
+GnuAfterInstall	      = install-man-pages cleanup install-misc
+
+# 4568501
+Extra_CC_Flags        = -D_NONSTD_SOURCE
 
 # These will get deleted.
 Install_HTML          = /Developer
@@ -27,9 +30,16 @@ cleanup:
 	mv $(DSTROOT)/usr/bin/cvs $(DSTROOT)/usr/bin/ocvs
 	-rmdir $(DSTROOT)/usr/share/man/man{5,8}
 	chmod -x $(DSTROOT)/usr/share/man/man1/ocvs.1
-	ln -s /usr/bin/cvs-diff-branch $(DSTROOT)/usr/bin/ocvs-diff-branch
-	ln -s /usr/bin/cvs-make-branch $(DSTROOT)/usr/bin/ocvs-make-branch
-	ln -s /usr/bin/cvs-merge-branch $(DSTROOT)/usr/bin/ocvs-merge-branch
-	ln -s /usr/bin/cvs-revert      $(DSTROOT)/usr/bin/ocvs-revert
-	ln -s /usr/bin/cvs-view-diffs  $(DSTROOT)/usr/bin/ocvs-view-diffs
+	mkdir -p $(DSTROOT)/usr/local/bin
+	for script in diff-branch make-branch merge-branch revert view-diffs; do \
+		mv $(DSTROOT)/usr/bin/cvs-$${script} $(DSTROOT)/usr/local/bin/cvs-$${script}; \
+		ln -s cvs-$${script} $(DSTROOT)/usr/local/bin/ocvs-$${script}; \
+	done
 
+install-misc:
+	$(MKDIR) $(DSTROOT)/Developer/Extras $(DSTROOT)/Developer/Tools
+	$(INSTALL) $(SRCROOT)/misc/cvswrappers $(DSTROOT)/Developer/Extras
+	$(INSTALL) $(SRCROOT)/misc/cvs-wrap $(DSTROOT)/usr/bin
+	$(LN) -s ../../usr/bin/cvs-wrap $(DSTROOT)/Developer/Tools/cvs-wrap
+	$(INSTALL) $(SRCROOT)/misc/cvs-unwrap $(DSTROOT)/usr/bin
+	$(LN) -s ../../usr/bin/cvs-unwrap $(DSTROOT)/Developer/Tools/cvs-unwrap

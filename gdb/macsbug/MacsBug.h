@@ -5,7 +5,7 @@
  |                          MacsBug Plugins Private Interfaces                          |
  |                                                                                      |
  |                                     Ira L. Ruben                                     |
- |                       Copyright Apple Computer, Inc. 2000-2005                       |
+ |                       Copyright Apple Computer, Inc. 2000-2006                       |
  |                                                                                      |
  *--------------------------------------------------------------------------------------*
  
@@ -73,27 +73,27 @@ extern void __print_4(char *arg, int from_tty);
 extern void __reset_current_function(char *arg, int from_tty);
 extern void __window_size(char *arg, int from_tty);
 
-extern char *hex_string(unsigned long long value, int width);
-
 extern char *default_help;			/* use for default help on commands	*/
 
 typedef struct {				/* format_disasm_line() data layout:	*/
      GDB_ADDRESS    addr;			/*   current addr being disassembled	*/
      GDB_ADDRESS    pc;				/*   current $pc value			*/
-     short	    max_width;			/*   truncate to this width (if >0)	*/
+     short	    max_width;			/*   truncate line to this width (if >0)*/
+     short          comm_max;			/*   truncate comments to this width(>0)*/
      GDB_FILE       *stream;			/*   output to this stream		*/
      unsigned short flags;			/*   control flags			*/
  	  #define FLAG_PC   	    0x0001	/*	flag pc line with '*' 		*/
 	  #define ALWAYS_SHOW_NAME  0x0002	/*	always show the function name	*/
 	  #define NO_NEWLINE	    0x0004	/*	don't append '\n' to line	*/
 	  #define WRAP_TO_SIDEBAR   0x0008	/*	wrap lines to right sidebar	*/
-	  #define ANNOTATE_PC_INSTR 0x0010	/*	annotate the $pc instruction	*/
+	  #define DISASM_PC_AREA    0x0010	/*      displaying pc-area		*/
 	  #define BRANCH_TAKEN 	    0x4000	/*	cond br at pc will be taken	*/
 	  #define BRANCH_NOT_TAKEN  0x8000	/*	cond br at pc will not be taken	*/
 } DisasmData;
 
 extern int branchTaken;				/* !=0 if branch [not] taken in disasm	*/
-extern char curr_function[];			/* current function being disassembled	*/
+
+extern unsigned long update_env_values;		/* environment variable update state	*/
 
 /*--------------------------------------------------------------------------------------*/
 
@@ -214,12 +214,14 @@ extern Special_Refresh_States immediate_flush;	/* Special_Refresh_States state s
 
 extern void run_command(char *arg, int from_tty);
 extern void init_macsbug_patches(void);
-extern int find_breakpt(GDB_ADDRESS address); 	/* -1 means not found			*/
+extern int find_breakpt(GDB_ADDRESS address);	/* -1 means not found			*/
 
 extern int control_level;			/* if, while, etc. nesting level	*/
 extern int reading_raw;				/* reading raw data for if, while, etc.	*/
 
 extern Gdb_Plugin gdb_printf_command;		/* gdb's own printf command		*/
+
+extern int macsbug_generation;			/* "time" of most recent run,attach,etc.*/
 
 /*--------------------------------------------------------------------------------------*/
 
@@ -240,6 +242,8 @@ extern int max_history;				/* max nbr of lines of history recorded	*/
 extern int show_so_si_src;			/* show source with so/si commands	*/
 extern int dx_state;				/* breakpoints enabled state		*/
 extern int sidebar_state;			/* display reg sidebar in scroll mode	*/
+extern int show_selectors;			/* display objc selectors at pc		*/
+extern int comment_insns;			/* comment selected instructions	*/
 extern int hexdump_width;			/* hexdump line bytes per line		*/
 extern int hexdump_group;			/* hexdump bytes per group		*/
 extern int force_arch;				/* target_arch set to this or inferior	*/

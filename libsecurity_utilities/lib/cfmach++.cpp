@@ -69,7 +69,7 @@ void CFAutoPort::enable()
 			if (!mSource || !mPort)
 				CFError::throwMe();		// CF won't tell us why...
 		}
-		CFRunLoopAddSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopDefaultMode);
+		CFRunLoopAddSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopCommonModes);
 		mEnabled = true;
 		secdebug("autoport", "%p enabled", this);
 	}
@@ -83,7 +83,7 @@ void CFAutoPort::enable()
 void CFAutoPort::disable()
 {
 	if (mEnabled) {
-		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopDefaultMode);
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), mSource, kCFRunLoopCommonModes);
 		mEnabled = false;
 		secdebug("autoport", "%p disabled", this);
 	}
@@ -94,8 +94,13 @@ void CFAutoPort::disable()
 // The CF-sponsored port callback.
 // We pass this to our receive() virtual and eat all exceptions.
 //
+static int gNumTimesCalled = 0;
+
 void CFAutoPort::cfCallback(CFMachPortRef cfPort, void *msg, CFIndex size, void *context)
 {
+	++gNumTimesCalled;
+	secdebug("adhoc", "Callback was called %d times.", gNumTimesCalled);
+	
 	Message message(msg, size);
 	try {
 		reinterpret_cast<CFAutoPort *>(context)->receive(message);

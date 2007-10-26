@@ -43,6 +43,9 @@ private:
     // false: use minutesToDim unless in emergency situation
     bool	fDimCaptured;
 
+    // ignore activity until time
+    AbsoluteTime fIdleUntil;
+
     typedef struct
     {
             UInt64 dim_time_secs;
@@ -107,6 +110,7 @@ private:
 
 public:
     
+    static bool serverStart(void);
     virtual bool start(IOService * provider);
 
     static bool makeDisplayConnects( IOFramebuffer * fb );

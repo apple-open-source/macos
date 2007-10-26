@@ -1,0 +1,381 @@
+.\"
+.\" $Id$
+.\"
+.\" Copyright © 2002 Keith Packard
+.\"
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation, and that the name of Keith Packard not be used in
+.\" advertising or publicity pertaining to distribution of the software without
+.\" specific, written prior permission.  Keith Packard makes no
+.\" representations about the suitability of this software for any purpose.  It
+.\" is provided "as is" without express or implied warranty.
+.\"
+.\" KEITH PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+.\" INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+.\" EVENT SHALL KEITH PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+.\" CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+.\" DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+.\" TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+.\" PERFORMANCE OF THIS SOFTWARE.
+.\"
+.de TQ
+.br
+.ns
+.TP \\$1
+..
+.TH XCURSOR __LIB_MAN_SUFFIX__ __xorgversion__ "Keith Packard"
+
+.SH NAME
+XCURSOR \- Cursor management library
+
+.SH SYNOPSIS
+.nf
+.B #include <X11/Xcursor/Xcursor.h>
+.fi
+.SH DESCRIPTION
+.B Xcursor
+is a simple library designed to help locate and load cursors.  Cursors can
+be loaded from files or memory.  A library of common cursors exists which
+map to the standard X cursor names.  Cursors can exist in several sizes and
+the library automatically picks the best size.
+
+.SH FUNCTIONAL OVERVIEW
+Xcursor is built in a couple of layers; at the bottom layer is code which
+can load cursor images from files.  Above that is a layer which locates
+cursor files based on the library path and theme.  At the top is a layer
+which builds cursors either out of an image loaded from a file or one of the
+standard X cursors.  When using images loaded from files, Xcursor prefers
+to use the Render extension CreateCursor request if supported by the X
+server.  Where not supported, Xcursor maps the cursor image to a standard X
+cursor and uses the core CreateCursor request.
+
+.SS CURSOR FILES
+Xcursor defines a new format for cursors on disk.  Each file holds
+one or more cursor images.  Each cursor image is tagged with a nominal size
+so that the best size can be selected automatically.  Multiple cursors of
+the same nominal size can be loaded together; applications are expected to
+use them as an animated sequence.
+.P
+Cursor files are stored as a header containing a table of contents followed
+by a sequence of chunks.  The table of contents indicates the type, subtype
+and position in the file of each chunk.  The file header looks like:
+.LP
+.in +.2i
+\fImagic\fP\^: CARD32 'Xcur' (0x58, 0x63, 0x75, 0x72)
+.br
+\fIheader\fP\^: CARD32 bytes in this header
+.br
+\fIversion\fP\^: CARD32 file version number
+.br
+\fIntoc\fP\^: CARD32 number of toc entries
+.br
+\fItoc\fP\^: LISTofTOC table of contents
+.in -.2i
+.P
+Each table of contents entry looks like:
+.LP
+.in +.2i
+\fItype\fP\^: CARD32 entry type
+.br
+\fIsubtype\fP\^: CARD32 type-specific label - size for images
+.br
+\fIposition\fP\^: CARD32 absolute byte position of table in file
+.in -.2i
+.P
+.P
+Each chunk in the file has set of common header fields followed by
+additional type-specific fields:
+.LP
+.in +.2i
+\fIheader\fP\^: CARD32 bytes in chunk header (including type-specific fields)
+.br
+\fItype\fP\^: CARD32 must match type in TOC for this chunk
+.br
+\fIsubtype\fP\^: CARD32 must match subtype in TOC for this chunk
+.br
+\fIversion\fP\^: CARD32 version number for this chunk type
+.in -.2i
+.P
+There are currently two chunk types defined for cursor files; comments and
+images.  Comments look like:
+.LP
+.in +.2i
+\fIheader\fP\^: 20 Comment headers are 20 bytes
+.br
+\fItype\fP\^: 0xfffe0001 Comment type is 0xfffe0001
+.br
+\fIsubtype\fP\^: { 1 (COPYRIGHT), 2 (LICENSE), 3 (OTHER) }
+.br
+\fIversion\fP\^: 1
+.br
+\fIlength\fP\^: CARD32 byte length of UTF-8 string
+.br
+\fIstring\fP\^: LISTofCARD8 UTF-8 string
+.in -.2i
+.P
+Images look like:
+.LP
+.in +.2i
+\fIheader\fP\^: 36 Image headers are 36 bytes
+.br
+\fItype\fP\^: 0xfffd0002 Image type is 0xfffd0002
+.br
+\fIsubtype\fP\^: CARD32 Image subtype is the nominal size
+.br
+\fIversion\fP\^: 1
+.br
+\fIwidth\fP\^: CARD32 Must be less than or equal to 0x7fff
+.br
+\fIheight\fP\^: CARD32 Must be less than or equal to 0x7fff
+.br
+\fIxhot\fP\^: CARD32 Must be less than or equal to width
+.br
+\fIyhot\fP\^: CARD32 Must be less than or equal to height
+.br
+\fIdelay\fP\^: CARD32 Delay between animation frames in milliseconds
+.br
+\fIpixels\fP\^: LISTofCARD32 Packed ARGB format pixels
+.in -.2i
+
+.SS THEMES
+Xcursor (mostly) follows the freedesktop.org spec for theming icons.  The
+default search path it uses is $HOME/.icons, __prefix__/share/icons,
+__prefix__/share/pixmaps, __ICONDIR__.  Within each of these
+directories, it searches for a directory using the theme name.  Within the
+theme directory, it looks for cursor files in the 'cursors' subdirectory.
+It uses the first cursor file found along  the path.
+.PP
+If necessary, Xcursor also looks for a "index.theme" file in each theme
+directory to find inherited themes and searches along the path for those
+themes as well.
+.PP
+If no theme is set, or if no cursor is found for the specified theme,
+Xcursor checks the "default" theme.
+
+.SH DATATYPES
+
+.TP
+.B XcursorImage
+holds a single cursor image in memory.  Each pixel in the cursor is a 32-bit
+value containing ARGB with A in the high byte.
+.sp
+.nf
+.ft CR
+    typedef struct _XcursorImage {
+        XcursorDim	size;	    /\(** nominal size for matching */
+        XcursorDim	width;	    /\(** actual width */
+        XcursorDim	height;	    /\(** actual height */
+        XcursorDim	xhot;	    /\(** hot spot x (must be inside image) */
+        XcursorDim	yhot;       /\(** hot spot y (must be inside image) */
+        XcursorPixel    *pixels;    /\(** pointer to pixels */
+    } XcursorImage;
+.ft
+.fi
+
+.TP
+.B XcursorImages
+holds multiple XcursorImage structures.  They're all freed when the
+XcursorImages is freed.
+.sp
+.nf
+.ft CR
+    typedef struct _XcursorImages {
+        int             nimage;	    /\(** number of images */
+        XcursorImage    **images;   /\(** array of XcursorImage pointers */
+    } XcursorImages;
+.ft
+.fi
+
+.TP
+.B XcursorCursors
+Holds multiple Cursor objects.  They're all freed when the XcursorCursors is
+freed.  These are reference counted so that multiple XcursorAnimate
+structures can use the same XcursorCursors.
+.sp
+.nf
+.ft CR
+    typedef struct _XcursorCursors {
+        Display     *dpy;	/\(** Display holding cursors */
+        int	    ref;	/\(** reference count */
+        int	    ncursor;	/\(** number of cursors */
+        Cursor	    *cursors;	/\(** array of cursors */
+    } XcursorCursors;
+.ft
+.fi
+
+.TP
+.B XcursorAnimate
+References a set of cursors and a sequence within that set.  Multiple
+XcursorAnimate structures may reference the same XcursorCursors; each
+holds a reference which is removed when the XcursorAnimate is freed.
+.sp
+.nf
+.ft CR
+    typedef struct _XcursorAnimate {
+        XcursorCursors   *cursors;  /\(** list of cursors to use */
+        int		 sequence;  /\(** which cursor is next */
+    } XcursorAnimate;
+.ft
+.fi
+
+.TP
+.B XcursorFile
+Xcursor provides an abstract API for accessing the file data.  Xcursor
+provides a stdio implementation of this abstract API; applications
+are free to create additional implementations.  These functions
+parallel the stdio functions in return value and expected argument values;
+the read and write functions flip the arguments around to match the POSIX
+versions.
+.sp
+.nf
+.ft CR
+    typedef struct _XcursorFile {
+        void	*closure;
+        int	(*read)  (XcursorFile *file, unsigned char *buf, int len);
+        int	(*write) (XcursorFile *file, unsigned char *buf, int len);
+        int	(*seek)  (XcursorFile *file, long offset, int whence);
+    };
+.ft
+.fi
+
+.SH FUNCTIONS
+
+.SS Object Management
+.TP
+XcursorImage *XcursorImageCreate (int width, int height)
+.TQ
+void XcursorImageDestroy (XcursorImage *image)
+Allocate and free images.  On allocation, the hotspot and the pixels are
+left uninitialized.  The size is set to the maximum of width and height.
+
+.TP
+XcursorImages *XcursorImagesCreate (int size)
+.TQ
+void XcursorImagesDestroy (XcursorImages *images)
+Allocate and free arrays to hold multiple cursor images.  On allocation,
+nimage is set to zero.
+
+.TP
+XcursorCursors *XcursorCursorsCreate (Display *dpy, int size)
+.TQ
+void XcursorCursorsDestroy (XcursorCursors *cursors)
+Allocate and free arrays to hold multiple cursors.  On allocation,
+ncursor is set to zero, ref is set to one.
+
+.SS Reading and writing images.
+
+.TP
+XcursorImage *XcursorXcFileLoadImage (XcursorFile *file, int size)
+.TQ
+XcursorImages *XcursorXcFileLoadImages (XcursorFile *file, int size)
+.TQ
+XcursorImages *XcursorXcFileLoadAllImages (XcursorFile *file)
+.TQ
+XcursorBool XcursorXcFileLoad (XcursorFile *file, XcursorComments **commentsp, XcursorImages **imagesp)
+.TQ
+XcursorBool XcursorXcFileSave (XcursorFile *file, const XcursorComments *comments, const XcursorImages *images)
+These read and write cursors from an XcursorFile handle.  After reading, the
+file pointer will be left at some random place in the file.
+		   
+.TP
+XcursorImage *XcursorFileLoadImage (FILE *file, int size)
+.TQ
+XcursorImages *XcursorFileLoadImages (FILE *file, int size)
+.TQ
+XcursorImages *XcursorFileLoadAllImages (FILE *file)
+.TQ
+XcursorBool XcursorFileLoad (FILE *file, XcursorComments **commentsp, XcursorImages **imagesp)
+.TQ
+XcursorBool XcursorFileSaveImages (FILE *file, const XcursorImages *images)
+.TQ
+XcursorBool XcursorFileSave (FILE * file, const XcursorComments *comments, const XcursorImages *images)
+These read and write cursors from a stdio FILE handle.  Writing flushes
+before returning so that any errors should be detected.
+
+.TP
+XcursorImage *XcursorFilenameLoadImage (const char *filename, int size)
+.TQ
+XcursorImages *XcursorFilenameLoadImages (const char *filename, int size)
+.TQ
+XcursorImages *XcursorFilenameLoadAllImages (FILE *file)
+.TQ
+XcursorBool XcursorFilenameLoad (const char *file, XcursorComments **commentsp, XcursorImages **imagesp)
+.TQ
+XcursorBool XcursorFilenameSaveImages (const char *filename, const XcursorImages *images)
+.TQ
+XcursorBool XcursorFilenameSave (const char *file, const XcursorComments *comments, const XcursorImages *images)
+These parallel the stdio FILE interfaces above, but take filenames.
+
+.SS Reading library images
+.TP
+XcursorImage *XcursorLibraryLoadImage (const char *name, const char *theme, int size)
+.TQ
+XcursorImages *XcursorLibraryLoadImages (const char *name, const char *theme, int size)
+These search the library path, loading the first file found.  If 'theme' is
+not NULL, these functions first try appending -theme to name and then
+name alone.
+
+.SS Cursor APIs
+
+.TP
+Cursor XcursorFilenameLoadCursor (Display *dpy, const char *file)
+.TQ
+XcursorCursors *XcursorFilenameLoadCursors (Display *dpy, const char *file)
+These load cursors from the specified file.
+
+.TP
+Cursor XcursorLibraryLoadCursor (Display *dpy, const char *name)
+.TQ
+XcursorCursors *XcursorLibraryLoadCursors (Display *dpy, const char *name)
+These load cursors using the specified library name.  The theme
+comes from the display.
+
+.SS X Cursor Name APIs
+
+.TP
+XcursorImage *XcursorShapeLoadImage (unsigned int shape, const char *theme, int size)
+.TQ
+XcursorImages *XcursorShapeLoadImages (unsigned int shape, const char *theme, int size)
+These map 'shape' to a library name using the standard X cursor names and
+then load the images.
+
+.TP
+Cursor XcursorShapeLoadCursor (Display *dpy, unsigned int shape)
+.TQ
+XcursorCursors *XcursorShapeLoadCursors (Display *dpy, unsigned int shape)
+These map 'shape' to a library name and then load the cursors.
+
+.SS Display Information APIs
+
+.TP
+XcursorBool XcursorSupportsARGB (Display *dpy)
+Returns whether the display supports ARGB cursors or whether cursors will be
+mapped to a core X cursor.
+
+.TP
+XcursorBool XcursorSetDefaultSize (Display *dpy, int size)
+Sets the default size for cursors on the specified display. When loading
+cursors, those who's nominal size is closest to this size will be preferred.
+
+.TP
+int XcursorGetDefaultSize (Display *dpy)
+Gets the default cursor size.
+
+.TP
+XcursorBool XcursorSetTheme (Display *dpy, const char *theme)
+Sets the current theme name.
+
+.TP
+char *XcursorGetTheme (Display *dpy)
+Gets the current theme name.
+
+.SH RESTRICTIONS
+.B Xcursor
+will probably change radically in the future; weak attempts will be made to
+retain some level of source-file compatibility.
+
+.SH AUTHOR
+Keith Packard

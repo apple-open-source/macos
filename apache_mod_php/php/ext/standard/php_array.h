@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_array.h,v 1.39.2.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_array.h,v 1.50.2.2.2.3 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef PHP_ARRAY_H
 #define PHP_ARRAY_H
@@ -39,6 +39,7 @@ PHP_FUNCTION(usort);
 PHP_FUNCTION(uasort);
 PHP_FUNCTION(uksort);
 PHP_FUNCTION(array_walk);
+PHP_FUNCTION(array_walk_recursive);
 PHP_FUNCTION(count);
 PHP_FUNCTION(end);
 PHP_FUNCTION(prev);
@@ -53,6 +54,7 @@ PHP_FUNCTION(array_search);
 PHP_FUNCTION(extract);
 PHP_FUNCTION(compact);
 PHP_FUNCTION(array_fill);
+PHP_FUNCTION(array_fill_keys);
 PHP_FUNCTION(range);
 PHP_FUNCTION(shuffle);
 PHP_FUNCTION(array_multisort);
@@ -75,30 +77,42 @@ PHP_FUNCTION(array_change_key_case);
 PHP_FUNCTION(array_rand);
 PHP_FUNCTION(array_unique);
 PHP_FUNCTION(array_intersect);
+PHP_FUNCTION(array_intersect_key);
+PHP_FUNCTION(array_intersect_ukey);
+PHP_FUNCTION(array_uintersect);
 PHP_FUNCTION(array_intersect_assoc);
+PHP_FUNCTION(array_uintersect_assoc);
+PHP_FUNCTION(array_intersect_uassoc);
+PHP_FUNCTION(array_uintersect_uassoc);
 PHP_FUNCTION(array_diff);
+PHP_FUNCTION(array_diff_key);
+PHP_FUNCTION(array_diff_ukey);
+PHP_FUNCTION(array_udiff);
 PHP_FUNCTION(array_diff_assoc);
+PHP_FUNCTION(array_udiff_assoc);
+PHP_FUNCTION(array_diff_uassoc);
+PHP_FUNCTION(array_udiff_uassoc);
 PHP_FUNCTION(array_sum);
+PHP_FUNCTION(array_product);
 PHP_FUNCTION(array_filter);
 PHP_FUNCTION(array_map);
 PHP_FUNCTION(array_key_exists);
 PHP_FUNCTION(array_chunk);
+PHP_FUNCTION(array_combine);
 
 HashTable* php_splice(HashTable *, int, int, zval ***, int, HashTable **);
 PHPAPI int php_array_merge(HashTable *dest, HashTable *src, int recursive TSRMLS_DC);
 int multisort_compare(const void *a, const void *b TSRMLS_DC);
 
-typedef struct {
+ZEND_BEGIN_MODULE_GLOBALS(array) 
 	int *multisort_flags[2];
 	int (*compare_func)(zval *result, zval *op1, zval *op2 TSRMLS_DC);
-} php_array_globals;
+ZEND_END_MODULE_GLOBALS(array) 
 
 #ifdef ZTS
-#define ARRAYG(v) TSRMG(array_globals_id, php_array_globals *, v)
-extern int array_globals_id;
+#define ARRAYG(v) TSRMG(array_globals_id, zend_array_globals *, v)
 #else
 #define ARRAYG(v) (array_globals.v)
-extern php_array_globals array_globals;
 #endif
 
 #endif /* PHP_ARRAY_H */

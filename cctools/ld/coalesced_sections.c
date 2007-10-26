@@ -308,7 +308,9 @@ deal_with_contents:
 		    }
 		    if(redo_live == FALSE || fine_relocs[i].live == TRUE){
 			/* align size before using it to assign output offset */
-			ms->s.size = round(ms->s.size, 1 << ms->s.align);
+			ms->s.size = align_to_input_mod(ms->s.size,
+						fine_relocs[i].input_offset,
+						ms->s.align);
 			fine_relocs[i].output_offset = ms->s.size;
 			ms->s.size += load_orders[i].input_size;
 		    }
@@ -346,7 +348,9 @@ deal_with_contents:
 		}
 		if(redo_live == FALSE || fine_relocs[i].live == TRUE){
 		    /* align size before using it to assign output offset */
-		    ms->s.size = round(ms->s.size, 1 << ms->s.align);
+		    ms->s.size = align_to_input_mod(ms->s.size,
+					            fine_relocs[i].input_offset,
+					            ms->s.align);
 		    fine_relocs[i].output_offset = ms->s.size;
 		    ms->s.size += load_orders[i].input_size;
 		}

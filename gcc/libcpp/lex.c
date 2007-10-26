@@ -26,8 +26,8 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* APPLE LOCAL begin CW asm blocks */
 /* A hack that would be better done with a callback or some such.  */
-extern enum cw_asm_states { cw_asm_none, cw_asm_decls, cw_asm_asm } cw_asm_state;
-extern int cw_asm_in_operands;
+extern enum iasm_states { iasm_none, iasm_decls, iasm_asm } iasm_state;
+extern int iasm_in_operands;
 /* APPLE LOCAL end CW asm blocks */
 
 enum spell_type
@@ -67,7 +67,8 @@ static void create_literal (cpp_reader *, cpp_token *, const uchar *,
 			    unsigned int, enum cpp_ttype);
 static bool warn_in_comment (cpp_reader *, _cpp_line_note *);
 static int name_p (cpp_reader *, const cpp_string *);
-static tokenrun *next_tokenrun (tokenrun *);
+/* APPLE LOCAL 4137741 */
+/* 'next_tokenrun' made extern and renamed to '_cpp_next_tokenrun'.  */
 
 static _cpp_buff *new_buff (size_t);
 
@@ -504,8 +505,8 @@ forms_identifier_p (cpp_reader *pfile, int first,
   /* APPLE LOCAL begin CW asm blocks */
   /* Allow [.+-] in CW asm opcodes (PowerPC specific).  Do this here
      so we don't have to figure out "bl- 45" vs "bl -45".  */
-  if (cw_asm_state >= cw_asm_decls 
-      && !cw_asm_in_operands
+  if (iasm_state >= iasm_decls 
+      && !iasm_in_operands
       && (*buffer->cur == '.' || *buffer->cur == '+' || *buffer->cur == '-'))
     {
       buffer->cur++;
@@ -733,8 +734,10 @@ _cpp_init_tokenrun (tokenrun *run, unsigned int count)
 }
 
 /* Returns the next tokenrun, or creates one if there is none.  */
-static tokenrun *
-next_tokenrun (tokenrun *run)
+/* APPLE LOCAL begin 4137741 */
+tokenrun *
+_cpp_next_tokenrun (tokenrun *run)
+/* APPLE LOCAL end 4137741 */
 {
   if (run->next == NULL)
     {
@@ -805,9 +808,10 @@ _cpp_temp_token (cpp_reader *pfile)
   /* Any pre-existing lookaheads must not be clobbered.  */
   if (la)
     {
+         /* APPLE LOCAL begin 4137741 */
       if (sz <= la)
         {
-          tokenrun *next = next_tokenrun (pfile->cur_run);
+          tokenrun *next = _cpp_next_tokenrun (pfile->cur_run);
 
           if (sz < la)
             memmove (next->base + 1, next->base,
@@ -824,7 +828,8 @@ _cpp_temp_token (cpp_reader *pfile)
   if (!sz)
   /* APPLE LOCAL end AltiVec */
     {
-      pfile->cur_run = next_tokenrun (pfile->cur_run);
+      pfile->cur_run = _cpp_next_tokenrun (pfile->cur_run);
+      /* APPLE LOCAL end 4137741 */
       pfile->cur_token = pfile->cur_run->base;
     }
 
@@ -845,7 +850,8 @@ _cpp_lex_token (cpp_reader *pfile)
     {
       if (pfile->cur_token == pfile->cur_run->limit)
 	{
-	  pfile->cur_run = next_tokenrun (pfile->cur_run);
+          /* APPLE LOCAL 4137741 */
+          pfile->cur_run = _cpp_next_tokenrun (pfile->cur_run);
 	  pfile->cur_token = pfile->cur_run->base;
 	}
 
@@ -859,6 +865,35 @@ _cpp_lex_token (cpp_reader *pfile)
 
       if (result->flags & BOL)
 	{
+          /* APPLE LOCAL begin 4137741 */
+          /* If we have squirreled away a CPP_EINCL token, return it now.  */
+          if (pfile->have_eincl)
+            {
+              result = pfile->beg_eincl++;
+ 
+              if (pfile->beg_eincl == pfile->end_eincl)
+                {
+                  pfile->beg_eincl = pfile->end_eincl = pfile->base_eincl.base;
+                  pfile->have_eincl = false;
+                }
+              else if (pfile->beg_eincl == pfile->cur_eincl->limit)
+                {
+                  /* NB: This point will be reached only if there are more
+                         than 250 nested headers that are _simultaneously_
+                         ending; a rare occurrence indeed.  */
+                  pfile->cur_eincl = _cpp_next_tokenrun (pfile->cur_eincl);
+                  pfile->beg_eincl = pfile->cur_eincl->base;
+                }
+ 
+              /* Push back original return value;
+                 we will retrieve it later.  */
+              pfile->lookaheads++;
+              pfile->cur_token--;
+ 
+              return result;
+            }
+ 
+          /* APPLE LOCAL end 4137741 */
 	  /* Is this a directive.  If _cpp_handle_directive returns
 	     false, it is an assembler #.  */
 	  if (result->type == CPP_HASH
@@ -969,7 +1004,7 @@ _cpp_get_fresh_line (cpp_reader *pfile)
   while (0)
 
 /* APPLE LOCAL begin CW asm blocks */
-static int cw_asm_label_follows;
+static bool iasm_label_follows;
 /* APPLE LOCAL end CW asm blocks */
 
 /* Lex a token into pfile->cur_token, which is also incremented, to
@@ -1051,7 +1086,7 @@ _cpp_lex_direct (cpp_reader *pfile)
       /* APPLE LOCAL begin CW asm blocks */
       /* An '@' in assembly code makes a following digit string into
 	 an identifier.  */
-      if (cw_asm_label_follows)
+      if (iasm_label_follows)
 	goto start_ident;
       /* APPLE LOCAL end CW asm blocks */
       /* APPLE LOCAL begin mainline UCNs 2005-04-17 3892809 */
@@ -1104,7 +1139,7 @@ _cpp_lex_direct (cpp_reader *pfile)
 	}
       /* APPLE LOCAL begin CW asm blocks */
       /* Got an identifier, reset the CW asm label hack flag.  */
-      cw_asm_label_follows = 0;
+      iasm_label_follows = false;
       /* APPLE LOCAL end CW asm blocks */
       break;
 
@@ -1326,8 +1361,8 @@ _cpp_lex_direct (cpp_reader *pfile)
     case ';':
       /* ';' separates instructions in CW asm, so flag that we're no
 	 longer seeing operands.  */
-      if (cw_asm_state >= cw_asm_decls)
-	cw_asm_in_operands = 0;
+      if (iasm_state >= iasm_decls)
+	iasm_in_operands = false;
       result->type = CPP_SEMICOLON;
       break;
     case '@':
@@ -1335,8 +1370,8 @@ _cpp_lex_direct (cpp_reader *pfile)
 	 either letters or digits, so set a hack flag for this.  (We
 	 still want to return the @ as a separate token so that the
 	 parser can distinguish labels from opcodes.)  */
-      if (cw_asm_state >= cw_asm_decls)
-	cw_asm_label_follows = 1;
+      if (iasm_state >= iasm_decls)
+	iasm_label_follows = true;
       result->type = CPP_ATSIGN;
       break;
       /* APPLE LOCAL end CW asm blocks */

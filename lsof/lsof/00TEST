@@ -869,9 +869,13 @@ base, footprints, and the scripts that support them.
 		  5.2, Sparc, gcc
 		  5.3, Alpha, gcc
 		  5.4, Alpha, gcc
+		  5.5, Alpha, gcc
 		  6.0, Alpha, gcc
 		  6.0, Amd64, gcc
 		  6.0, Sparc, gcc
+		  6.1, i386, gcc
+		  7.0 Alpha, gcc
+		  7.0 Amd64, gcc
     DEC OSF/1	  4.0, cc
     HP-UX	  10.20, cc			LTbigf
 		  10.20, gcc (1)		LTbigf
@@ -914,6 +918,8 @@ base, footprints, and the scripts that support them.
 		  2.99.9, x86, gcc		LTnfs
 		  2.99.10, x86, gcc		LTnfs
 		  2.99.11, x86, gcc		LTnfs
+		  2.99.12, x86, gcc		LTnfs
+		  3.99., x86, gcc		LTnfs
     OpenBSD       3.0, gcc
 		  3.1, gcc
 		  3.2, gcc
@@ -922,6 +928,7 @@ base, footprints, and the scripts that support them.
 		  3.5, gcc
 		  3.6, gcc
 		  3.7, gcc
+		  3.9, gcc
     OPENSTEP	  4.2, gcc			LTnfs
     OSR           5.04, cc              	LTnfs
 		  5.06, cc              	LTnfs
@@ -977,4 +984,4 @@ I was unable to make the test suite run on the following dialects.
 
 
 Vic Abell <abe@purdue.edu>
-March 27, 2006
+April 24, 2007

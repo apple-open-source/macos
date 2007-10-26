@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,7 @@ __SCDynamicStoreNotifyMachPort(SCDynamicStoreRef	store,
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
 
-	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;		/* you must have an open session to play */
 	}
 
@@ -90,7 +90,7 @@ _notifyviaport(mach_port_t	server,
 	serverSessionRef		mySession = getSession(server);
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
 
-	if (!mySession) {
+	if (mySession == NULL) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
 	}

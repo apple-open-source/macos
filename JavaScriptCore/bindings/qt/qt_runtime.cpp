@@ -35,7 +35,6 @@ QVariant convertValueToQVariant(ExecState* exec, JSValue* value)
     if (value == jsNull() || value == jsNaN() || value == jsUndefined())
         return QVariant();
 
-    JSLock lock;
     JSType type = value->type();
 
     if (type == StringType) {
@@ -60,7 +59,6 @@ JSValue* convertQVariantToValue(ExecState*, const QVariant& variant)
     if (variant.isNull())
         return jsNull();
 
-    JSLock lock;
     QVariant::Type type = variant.type();
 
     if (type == QVariant::Bool)

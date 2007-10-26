@@ -50,8 +50,8 @@ public:
 		AppleCSPSession &session,
 		CSSM_ALGORITHMS	requiredAlg,	// throws if this doesn't match key alg
 		CSSM_KEYUSE 	intendedUse,	// throws if key usage doesn't match this
-		UInt8			*&keyBits,		// RETURNED (not mallocd or copied)
-		UInt32			&keyLen);		// RETURNED
+		uint8			*&keyBits,		// RETURNED (not mallocd or copied)
+		CSSM_SIZE		&keyLen);		// RETURNED
 		
 protected:	
 	AppleCSPSession	&session() { return mSession; }
@@ -82,6 +82,8 @@ private:
 //
 class AppleKeyPairGenContext  {
 public:
+	virtual ~AppleKeyPairGenContext();
+	
 	//
 	// Subclass implements generate(const Context &, CssmKey &,
 	// CssmKey &). That method (called from CSPFullPluginSession)

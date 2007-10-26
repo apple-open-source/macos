@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,37 +34,102 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
+#include "SCHelper_client.h"
 
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/errno.h>
 
-static ssize_t
-writen(int d, const void *buf, size_t nbytes)
+static Boolean
+__SCPreferencesCommitChanges_helper(SCPreferencesRef prefs)
 {
-	size_t		left	= nbytes;
-	const void	*p	= buf;
+	CFDataRef		data		= NULL;
+	Boolean			ok;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
+	uint32_t		status		= kSCStatusOK;
+	CFDataRef		reply		= NULL;
+
+	if (prefsPrivate->helper == -1) {
+		// if no helper
+		goto fail;
+	}
+
+	if (prefsPrivate->changed) {
+		ok = _SCSerialize(prefsPrivate->prefs, &data, NULL, NULL);
+		if (!ok) {
+			goto fail;
+		}
+	}
+
+	// have the helper "commit" the prefs
+//	status = kSCStatusOK;
+//	reply  = NULL;
+	ok = _SCHelperExec(prefsPrivate->helper,
+			   SCHELPER_MSG_PREFS_COMMIT,
+			   data,
+			   &status,
+			   &reply);
+	if (data != NULL) CFRelease(data);
+	if (!ok) {
+		goto fail;
+	}
+
+	if (status != kSCStatusOK) {
+		goto error;
+	}
+
+	if (prefsPrivate->changed) {
+		if (prefsPrivate->signature != NULL) CFRelease(prefsPrivate->signature);
+		prefsPrivate->signature = reply;
+	}
+
+	prefsPrivate->changed = FALSE;
+	return TRUE;
+
+    fail :
+
+	// close helper
+	if (prefsPrivate->helper != -1) {
+		_SCHelperClose(prefsPrivate->helper);
+		prefsPrivate->helper = -1;
+	}
+
+	status = kSCStatusAccessError;
+
+    error :
+
+	// return error
+	if (reply != NULL) CFRelease(reply);
+	_SCErrorSet(status);
+	return FALSE;
+}
+
+
+static ssize_t
+writen(int ref, void *data, size_t len)
+{
+	size_t		left	= len;
+	ssize_t		n;
+	const void	*p	= data;
 
 	while (left > 0) {
-		ssize_t	n;
-
-		n = write(d, p, left);
-		if (n >= 0) {
-			left -= n;
-			p    +=	n;
-		} else {
+		if ((n = write(ref, p, left)) == -1) {
 			if (errno != EINTR) {
 				return -1;
 			}
+			n = 0;
 		}
+		left -= n;
+		p += n;
 	}
-	return nbytes;
+	return len;
 }
 
 
 Boolean
 SCPreferencesCommitChanges(SCPreferencesRef prefs)
 {
+	Boolean			ok		= FALSE;
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	Boolean			wasLocked;
 
@@ -86,6 +151,14 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		}
 	}
 
+	if (prefsPrivate->authorizationData != NULL) {
+		ok = __SCPreferencesCommitChanges_helper(prefs);
+		if (ok) {
+			prefsPrivate->changed = FALSE;
+		}
+		goto done;
+	}
+
 	/*
 	 * if necessary, apply changes
 	 */
@@ -105,7 +178,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 				statBuf.st_gid  = getegid();
 			} else {
 				SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges stat() failed: %s"), strerror(errno));
-				goto error;
+				goto done;
 			}
 		}
 
@@ -115,29 +188,12 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 		thePath = CFAllocatorAllocate(NULL, pathLen, 0);
 		snprintf(thePath, pathLen, "%s-new", path);
 
-		/* open the (new) preferences file */
-	    reopen :
 		fd = open(thePath, O_WRONLY|O_CREAT, statBuf.st_mode);
 		if (fd == -1) {
-			if ((errno == ENOENT) &&
-			    ((prefsPrivate->prefsID == NULL) || !CFStringHasPrefix(prefsPrivate->prefsID, CFSTR("/")))) {
-				char	*ch;
-
-				ch = strrchr(thePath, '/');
-				if (ch != NULL) {
-					int	status;
-
-					*ch = '\0';
-					status = mkdir(thePath, 0755);
-					*ch = '/';
-					if (status == 0) {
-						goto reopen;
-					}
-				}
-			}
+			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges open() failed: %s"), strerror(errno));
 			CFAllocatorDeallocate(NULL, thePath);
-			goto error;
+			goto done;
 		}
 
 		/* preserve permissions */
@@ -152,7 +208,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  prefs = %s"), path);
 			CFAllocatorDeallocate(NULL, thePath);
 			(void) close(fd);
-			goto error;
+			goto done;
 		}
 		if (writen(fd, (void *)CFDataGetBytePtr(newPrefs), CFDataGetLength(newPrefs)) == -1) {
 			_SCErrorSet(errno);
@@ -162,8 +218,10 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			CFAllocatorDeallocate(NULL, thePath);
 			(void) close(fd);
 			CFRelease(newPrefs);
-			goto error;
+			goto done;
 		}
+
+		/* synchronize the file's in-core state with that on disk */
 		if (fsync(fd) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges fsync() failed: %s"), strerror(errno));
@@ -172,8 +230,17 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			CFAllocatorDeallocate(NULL, thePath);
 			(void) close(fd);
 			CFRelease(newPrefs);
-			goto error;
+			goto done;
 		}
+
+		/*
+		 * ... and ask the drive to flush to the media
+		 *
+		 * Note: at present, this only works on HFS filesystems
+		 */
+		(void) fcntl(fd, F_FULLFSYNC, 0);
+
+		/* new preferences have been written */
 		if (close(fd) == -1) {
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges close() failed: %s"), strerror(errno));
@@ -181,7 +248,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			(void) unlink(thePath);
 			CFAllocatorDeallocate(NULL, thePath);
 			CFRelease(newPrefs);
-			goto error;
+			goto done;
 		}
 		CFRelease(newPrefs);
 
@@ -191,7 +258,7 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges rename() failed: %s"), strerror(errno));
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  path = %s --> %s"), thePath, path);
 			CFAllocatorDeallocate(NULL, thePath);
-			goto error;
+			goto done;
 		}
 		CFAllocatorDeallocate(NULL, thePath);
 
@@ -209,33 +276,28 @@ SCPreferencesCommitChanges(SCPreferencesRef prefs)
 			_SCErrorSet(errno);
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges stat() failed: %s"), strerror(errno));
 			SCLog(_sc_verbose, LOG_ERR, CFSTR("  path = %s"), thePath);
-			goto error;
+			goto done;
 		}
-		CFRelease(prefsPrivate->signature);
+		if (prefsPrivate->signature != NULL) CFRelease(prefsPrivate->signature);
 		prefsPrivate->signature = __SCPSignatureFromStatbuf(&statBuf);
 	}
 
-	if (!prefsPrivate->isRoot) {
-		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
-		goto perUser;
-	}
-
 	/* post notification */
-	if (!SCDynamicStoreNotifyValue(prefsPrivate->session,
-				       prefsPrivate->sessionKeyCommit)) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges SCDynamicStoreNotifyValue() failed"));
-		_SCErrorSet(kSCStatusFailed);
-		goto error;
+	if (prefsPrivate->session == NULL) {
+		ok = TRUE;
+	} else {
+		ok = SCDynamicStoreNotifyValue(prefsPrivate->session, prefsPrivate->sessionKeyCommit);
+		if (!ok) {
+			SCLog(_sc_verbose, LOG_ERR, CFSTR("SCPreferencesCommitChanges SCDynamicStoreNotifyValue() failed"));
+			_SCErrorSet(kSCStatusFailed);
+			goto done;
+		}
 	}
 
-    perUser :
-
-	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
 	prefsPrivate->changed = FALSE;
-	return TRUE;
 
-    error :
+    done :
 
 	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
-	return FALSE;
+	return ok;
 }

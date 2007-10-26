@@ -64,6 +64,12 @@ protected:
 
     virtual bool init( IOFireWireUnit * primary );
 	virtual	void free();
+
+	virtual bool isPhysicalAccessEnabled( void );
+
+	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction );
+		
+    virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 0);

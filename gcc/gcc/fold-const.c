@@ -4283,7 +4283,10 @@ fold_cond_expr_with_comparison (tree type, tree arg0, tree arg1, tree arg2)
       /* Avoid these transformations if the COND_EXPR may be used
 	 as an lvalue in the C++ front-end.  PR c++/19199.  */
       && (in_gimple_form
-	  || strcmp (lang_hooks.name, "GNU C++") != 0
+	  /* APPLE LOCAL begin radar 4084991 */
+	  || (strcmp (lang_hooks.name, "GNU C++") != 0 
+	      && strcmp (lang_hooks.name, "GNU Objective-C++") != 0)
+	  /* APPLE LOCAL end radar 4084991 */
 	  || ! maybe_lvalue_p (arg1)
 	  || ! maybe_lvalue_p (arg2)))
     {

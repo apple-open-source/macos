@@ -42,10 +42,12 @@
 #define MSG_REQ_DMALLOC_LOG_CHANGED	12
 
 #define MSG_SHUTDOWN		13
+#define MSG_USR_STATS 14
 
 /* nmbd messages */
 #define MSG_FORCE_ELECTION 1001
 #define MSG_WINS_NEW_ENTRY 1002
+#define MSG_SEND_PACKET    1003
 
 /* printing messages */
 /* #define MSG_PRINTER_NOTIFY  2001*/ /* Obsolete */
@@ -62,6 +64,29 @@
 #define MSG_SMB_SAM_SYNC     3003
 #define MSG_SMB_SAM_REPL     3004
 #define MSG_SMB_UNLOCK       3005
+#define MSG_SMB_BREAK_REQUEST 3006
+#define MSG_SMB_BREAK_RESPONSE 3007
+#define MSG_SMB_ASYNC_LEVEL2_BREAK 3008
+#define MSG_SMB_OPEN_RETRY   3009
+#define MSG_SMB_KERNEL_BREAK 3010
+#define MSG_SMB_FILE_RENAME  3011
+#define MSG_SMB_INJECT_FAULT 3012
+#define MSG_SMB_BLOCKING_LOCK_CANCEL 3013
+#define MSG_SMB_NOTIFY       3014
+#define MSG_SMB_STAT_CACHE_DELETE 3015
+/*
+ * Samba4 compatibility
+ */
+#define MSG_PVFS_NOTIFY       3016
+
+/* winbind messages */
+#define MSG_WINBIND_FINISHED     4001
+#define MSG_WINBIND_FORGET_STATE 4002
+#define MSG_WINBIND_ONLINE       4003
+#define MSG_WINBIND_OFFLINE      4004
+#define MSG_WINBIND_ONLINESTATUS 4005
+#define MSG_WINBIND_TRY_TO_GO_ONLINE 4006
+#define MSG_WINBIND_FAILED_TO_GO_ONLINE 4007
 
 /* Flags to classify messages - used in message_send_all() */
 /* Sender will filter by flag. */
@@ -71,5 +96,17 @@
 #define FLAG_MSG_NMBD		0x0004
 #define FLAG_MSG_PRINT_NOTIFY	0x0008
 #define FLAG_MSG_PRINT_GENERAL	0x0010
+
+struct process_id {
+	pid_t pid;
+};
+
+/*
+ * Samba4 API compatibility layer
+ */
+
+struct server_id {
+	struct process_id id;
+};
 
 #endif

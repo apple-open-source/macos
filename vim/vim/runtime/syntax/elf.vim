@@ -1,10 +1,10 @@
 " Vim syntax file
 " Language:    ELF
 " Maintainer:  Christian V. J. Brüssow <cvjb@cvjb.de>
-" Last Change: Son 22 Sep 2002 00:12:38 CEST
+" Last Change: Son 22 Jun 2003 20:43:14 CEST
 " Filenames:   *.ab,*.am
 " URL:	       http://www.cvjb.de/comp/vim/elf.vim
-" $Id$
+" $Id: elf.vim,v 1.1 2004/06/13 19:52:27 vimboss Exp $
 "
 " ELF: Extensible Language Facility
 "      This is the Applix Inc., Macro and Builder programming language.
@@ -13,9 +13,9 @@
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
 if version < 600
-   syntax clear
+	syntax clear
 elseif exists("b:current_syntax")
-   finish
+	finish
 endif
 
 " Case does not matter
@@ -66,11 +66,11 @@ syn match elfPunct "[,;]"
 " For version 5.7 and earlier: only when not done already
 " For version 5.8 and later: only when an item doesn't have highlighting yet
 if version >= 508 || !exists("did_elf_syn_inits")
-   if version < 508
-      let did_elf_syn_inits = 1
-      command -nargs=+ HiLink hi link <args>
-   else
-      command -nargs=+ HiLink hi def link <args>
+	if version < 508
+		let did_elf_syn_inits = 1
+		command -nargs=+ HiLink hi link <args>
+	else
+		command -nargs=+ HiLink hi def link <args>
    endif
 
   " The default methods for highlighting. Can be overridden later.
@@ -92,4 +92,4 @@ endif
 
 let b:current_syntax = "elf"
 
-" vim:ts=8:sw=3:
+" vim:ts=8:sw=4:nocindent:smartindent:

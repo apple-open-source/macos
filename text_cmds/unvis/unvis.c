@@ -1,5 +1,3 @@
-/*	$NetBSD: unvis.c,v 1.7 1998/02/03 04:17:30 perry Exp $	*/
-
 /*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,17 +31,18 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)unvis.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: unvis.c,v 1.7 1998/02/03 04:17:30 perry Exp $");
+static const char rcsid[] =
+  "$FreeBSD: src/usr.bin/unvis/unvis.c,v 1.9 2002/09/04 23:29:08 dwmalone Exp $";
 #endif /* not lint */
 
 #include <err.h>
@@ -52,13 +51,11 @@ __RCSID("$NetBSD: unvis.c,v 1.7 1998/02/03 04:17:30 perry Exp $");
 #include <unistd.h>
 #include <vis.h>
 
-int	main __P((int, char **));
-void process __P((FILE *fp, const char *filename));
+void process(FILE *, const char *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	FILE *fp;
 	int ch;
@@ -67,8 +64,7 @@ main(argc, argv)
 		switch((char)ch) {
 		case '?':
 		default:
-			(void) fprintf(stderr, "usage: unvis [file...]\n");
-			exit(1);
+			usage();
 		}
 	argc -= optind;
 	argv += optind;
@@ -86,10 +82,15 @@ main(argc, argv)
 	exit(0);
 }
 
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: unvis [file ...]\n");
+	exit(1);
+}
+
 void
-process(fp, filename)
-	FILE *fp;
-	const char *filename;
+process(FILE *fp, const char *filename)
 {
 	int offset = 0, c, ret;
 	int state = 0;
@@ -114,7 +115,6 @@ process(fp, filename)
 			break;
 		default:
 			errx(1, "bad return value (%d), can't happen", ret);
-			/* NOTREACHED */
 		}
 	}
 	if (unvis(&outc, (char)0, &state, UNVIS_END) == UNVIS_VALID)

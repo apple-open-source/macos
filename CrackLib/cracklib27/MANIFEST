@@ -1,0 +1,27 @@
+   File Name		Archive #	Description
+----------------------------------------------------------
+README                     1	Boring docs
+MANIFEST                   1	This file
+HISTORY                    2	Version information
+LICENCE                    1	Licence documentation
+Makefile                   2	Makefile for std distribution
+POSTER                     2	Cut down blurb for USENET
+cracklib                   1	Library source code
+cracklib/Makefile          2	
+cracklib/fascist.c         1	Pattern matching + API
+cracklib/genrules.pl       2	
+cracklib/packer.h          2	Boring config file
+cracklib/packlib.c         1	DAWG-16 compression library from C5
+cracklib/rules.c           1	...more stuff from Crack 5
+cracklib/stringlib.c       2	...even more stuff from Crack 5
+shadow                     1	Stubs for use with JFH's "shadow" suite
+shadow/README,CL           1	
+shadow/obscure.c,CL        2	jfh's "obscure" routine with CrackLib
+util                       1	support utilities
+util/Makefile              2	
+util/mkdict                2	dictionary preprocessor
+util/packer.c              2	dictionary packer
+util/testlib.c             2	password sanity testbed
+util/testnum.c             2	numeric dict-lookup testbed
+util/teststr.c             2	string dict-lookup testbed
+util/unpacker.c            2	dictionary unpacker

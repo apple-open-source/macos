@@ -1,4 +1,4 @@
-Copyright (c) 2003, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2003-2005, International Business Machines Corporation and others. All Rights Reserved.
 uciter8: Lenient reading of 8-bit Unicode with a UCharIterator
 
 This sample demonstrates reading
@@ -22,12 +22,12 @@ Files:
     uciter8.c        Main source file in C
     uit_len8.c       Lenient-UTF/CESU-8 UCharIterator implementation
     uit_len8.h       Header file with the prototoype for the lenient-UTF/CESU-8 UCharIterator
-    uciter8.dsw      Windows MSVC workspace.  Double-click this to get started.
-    uciter8.dsp      Windows MSVC project file
+    uciter8.sln      Windows MSVC workspace.  Double-click this to get started.
+    uciter8.vcproj   Windows MSVC project file
 
 To Build uciter8 on Windows
     1.  Install and build ICU
-    2.  In MSVC, open the workspace file icu\samples\uciter8\uciter8.dsw
+    2.  In MSVC, open the workspace file icu\samples\uciter8\uciter8.sln
     3.  Choose a Debug or Release build.
     4.  Build.
 

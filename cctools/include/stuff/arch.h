@@ -126,7 +126,7 @@ __private_extern__ long get_stack_direction_from_flag(
  * get_stack_addr_from_flag() returns the default starting address of the user
  * stack.
  */
-__private_extern__ unsigned long get_stack_addr_from_flag(
+__private_extern__ uint64_t get_stack_addr_from_flag(
     const struct arch_flag *flag);
 
 /*

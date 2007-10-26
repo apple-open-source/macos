@@ -248,9 +248,10 @@ void DSNode::NativeAuthentication (const char* userName, const char* password)
 	message.AppendBytes (password, passwordLength);
 	
 	DSBuffer response (mDirectoryService, 512);
-	DSContext continueData (mDirectoryService);
+	DSContext continueData;
 
-	long result = dsDoDirNodeAuth (mDirectoryService, authType, true, message, response, continueData);
+	long result = dsDoDirNodeAuth (mNodeReference, authType, true, message, response, continueData);
+	continueData.SetReference (mNodeReference);
 	CheckResult (result);
 }
 
@@ -263,6 +264,8 @@ void DSNode::GetRecordList (DSRecordList &recordList, DSDataList &recordNameList
 	tDirStatus result = dsGetRecordList (mNodeReference, recordList, recordNameList, patternMatch,
 										 recordTypeList, attributeTypeList, attributeInfoOnly, &recordCount,
 										 context);
+	context.SetReference (mNodeReference);
+	
 	CheckResult (result);
 }
 
@@ -274,6 +277,7 @@ void DSNode::Search (DSRecordList &recordList, DSDataList &recordTypeList, DSDat
 {
 	tDirStatus result = dsDoAttributeValueSearch (mNodeReference, recordList, recordTypeList, attributeType,
 												  patternMatch, patternToMatch, &recordCount, context);
+	context.SetReference (mNodeReference);
 	CheckResult (result);
 }
 
@@ -352,12 +356,13 @@ void DirectoryService::CreateNodeList (const char* nodeListFilter)
 	while (!done)
 	{
 		DSBuffer buffer (*this, 20 * 1024);
-		DSContext context (*this);
+		DSContext context;
 		
 		unsigned long bufferCount;
 
 		result = dsGetDirNodeList (mDirReference, buffer, &bufferCount, context);
-
+		context.SetReference (mDirReference);
+		
 		// get the returned nodes
 		while (!done)
 		{
@@ -415,7 +420,13 @@ DSNode& DSNodeList::operator[] (int n)
 
 
 
-DSContext::~DSContext () {if (mContext != NULL) dsReleaseContinueData (mDirectoryService, mContext);}
+DSContext::~DSContext ()
+{
+	if (mContext != NULL)
+	{
+		dsReleaseContinueData (mReference, mContext);
+	}
+}
 
 
 

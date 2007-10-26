@@ -1,75 +1,94 @@
 " Vim syntax file
-" Language:	Mail file
-" Maintainer:	Felix von Leitner <leitner@math.fu-berlin.de>
-" Last Change:	2001 Jun 28
+" Language:		Mail file
+" Previous Maintainer:	Felix von Leitner <leitner@math.fu-berlin.de>
+" Maintainer:		Gautam Iyer <gautam@math.uchicago.edu>
+" Last Change:		Wed 01 Jun 2005 02:11:07 PM CDT
 
-" For version 5.x: Clear all syntax items
-" For version 6.x: Quit when a syntax file was already loaded
-if version < 600
-  syntax clear
-elseif exists("b:current_syntax")
+" Quit when a syntax file was already loaded
+if exists("b:current_syntax")
   finish
 endif
 
 " The mail header is recognized starting with a "keyword:" line and ending
-" with an empty line or other line that can't be in the header.
-" All lines of the header are highlighted
-" For "From " matching case is required, not for the rest.
-syn region	mailHeader	start="^From " skip="^[ \t]" end="^[-A-Za-z0-9/]*[^-A-Za-z0-9/:]"me=s-1 end="^[^:]*$"me=s-1 end="^---*" contains=mailHeaderKey,mailSubject
+" with an empty line or other line that can't be in the header. All lines of
+" the header are highlighted. Headers of quoted messages (quoted with >) are
+" also highlighted.
+
+" Syntax clusters
+syn cluster mailHeaderFields	contains=mailHeaderKey,mailSubject,mailHeaderEmail,@mailLinks
+syn cluster mailLinks		contains=mailURL,mailEmail
+syn cluster mailQuoteExps	contains=mailQuoteExp1,mailQuoteExp2,mailQuoteExp3,mailQuoteExp4,mailQuoteExp5,mailQuoteExp6
+
+syn case match
+" For "From " matching case is required. The "From " is not matched in quoted
+" emails
+syn region	mailHeader	contains=@mailHeaderFields,@NoSpell start="^From " skip="^\s" end="\v^[-A-Za-z0-9]*([^-A-Za-z0-9:]|$)"me=s-1
+syn match	mailHeaderKey	contained contains=mailEmail,@NoSpell "^From\s.*$"
 
 syn case ignore
+" Nothing else depends on case. Headers in properly quoted (with "> " or ">")
+" emails are matched
+syn region	mailHeader	keepend contains=@mailHeaderFields,@mailQuoteExps,@NoSpell start="^\z(\(> \?\)*\)\v(newsgroups|from|((in-)?reply-)?to|b?cc|subject|return-path|received|date|replied):" skip="^\z1\s" end="\v^\z1[-a-z0-9]*([^-a-z0-9:]|$)"me=s-1 end="\v^\z1@!"me=s-1 end="\v^\z1(\> ?)+"me=s-1
 
-syn region	mailHeader	start="^\(Newsgroups:\|From:\|To:\|Cc:\|Bcc:\|Reply-To:\|Subject:\|Return-Path:\|Received:\|Date:\|Replied:\)" skip="^[ \t]" end="^[-a-z0-9/]*[^-a-z0-9/:]"me=s-1 end="^[^:]*$"me=s-1 end="^---*" contains=mailHeaderKey,mailSubject
+syn region	mailHeaderKey	contained contains=mailHeaderEmail,mailEmail,@mailQuoteExps,@NoSpell start="\v(^(\> ?)*)@<=(to|b?cc):" skip=",$" end="$"
+syn match	mailHeaderKey	contained contains=mailHeaderEmail,mailEmail,@NoSpell "\v(^(\> ?)*)@<=(from|reply-to):.*$"
+syn match	mailHeaderKey	contained contains=@NoSpell "\v(^(\> ?)*)@<=date:"
+syn match	mailSubject	contained "\v^subject:.*$"
+syn match	mailSubject	contained contains=@NoSpell "\v(^(\> ?)+)@<=subject:.*$"
 
-syn region	mailHeaderKey	contained start="^\(From\|To\|Cc\|Bcc\|Reply-To\).*" skip=",$" end="$" contains=mailEmail
-syn match	mailHeaderKey	contained "^Date"
+" Anything in the header between < and > is an email address
+syn match	mailHeaderEmail	contained contains=@NoSpell "<.\{-}>"
 
-syn match	mailSubject	contained "^Subject.*"
+" Mail Signatures. (Begin with "-- ", end with change in quote level)
+syn region	mailSignature	keepend contains=@mailLinks,@mailQuoteExps start="^--\s$" end="^$" end="^\(> \?\)\+"me=s-1
+syn region	mailSignature	keepend contains=@mailLinks,@mailQuoteExps,@NoSpell start="^\z(\(> \?\)\+\)--\s$" end="^\z1$" end="^\z1\@!"me=s-1 end="^\z1\(> \?\)\+"me=s-1
 
-syn match	mailEmail	contained "[_=a-z\./+A-Z0-9-]\+@[a-zA-Z0-9\./\-]\+"
-syn match	mailEmail	contained "<.\{-}>"
+" URLs start with a known protocol or www,web,w3.
+syn match mailURL contains=@NoSpell `\v<(((https?|ftp|gopher)://|(mailto|file|news):)[^' 	<>"]+|(www|web|w3)[a-z0-9_-]*\.[a-z0-9._-]+\.[^' 	<>"]+)[a-z0-9/]`
+syn match mailEmail contains=@NoSpell "\v[_=a-z\./+0-9-]+\@[a-z0-9._-]+\a{2}"
 
-syn region	mailSignature	start="^-- *$" end="^$"
+" Make sure quote markers in regions (header / signature) have correct color
+syn match mailQuoteExp1	contained "\v^(\> ?)"
+syn match mailQuoteExp2	contained "\v^(\> ?){2}"
+syn match mailQuoteExp3	contained "\v^(\> ?){3}"
+syn match mailQuoteExp4	contained "\v^(\> ?){4}"
+syn match mailQuoteExp5	contained "\v^(\> ?){5}"
+syn match mailQuoteExp6	contained "\v^(\> ?){6}"
 
-" even and odd quoted lines
-" removed ':', it caused too many bogus highlighting
-" order is imporant here!
-syn match	mailQuoted1	"^\([A-Za-z]\+>\|[]|}>]\).*$"
-syn match	mailQuoted2	"^\(\([A-Za-z]\+>\|[]|}>]\)[ \t]*\)\{2}.*$"
-syn match	mailQuoted3	"^\(\([A-Za-z]\+>\|[]|}>]\)[ \t]*\)\{3}.*$"
-syn match	mailQuoted4	"^\(\([A-Za-z]\+>\|[]|}>]\)[ \t]*\)\{4}.*$"
-syn match	mailQuoted5	"^\(\([A-Za-z]\+>\|[]|}>]\)[ \t]*\)\{5}.*$"
-syn match	mailQuoted6	"^\(\([A-Za-z]\+>\|[]|}>]\)[ \t]*\)\{6}.*$"
+" Even and odd quoted lines. order is imporant here!
+syn match mailQuoted1	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\([a-z]\+>\|[]|}>]\).*$"
+syn match mailQuoted2	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\(\([a-z]\+>\|[]|}>]\)[ \t]*\)\{2}.*$"
+syn match mailQuoted3	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\(\([a-z]\+>\|[]|}>]\)[ \t]*\)\{3}.*$"
+syn match mailQuoted4	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\(\([a-z]\+>\|[]|}>]\)[ \t]*\)\{4}.*$"
+syn match mailQuoted5	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\(\([a-z]\+>\|[]|}>]\)[ \t]*\)\{5}.*$"
+syn match mailQuoted6	contains=mailHeader,@mailLinks,mailSignature,@NoSpell "^\(\([a-z]\+>\|[]|}>]\)[ \t]*\)\{6}.*$"
 
-" Need to sync on the header.  Assume we can do that within a hundred lines
-syn sync lines=100
-
-" Define the default highlighting.
-" For version 5.7 and earlier: only when not done already
-" For version 5.8 and later: only when an item doesn't have highlighting yet
-if version >= 508 || !exists("did_ahdl_syn_inits")
-  if version < 508
-    let did_ahdl_syn_inits = 1
-    command -nargs=+ HiLink hi link <args>
-  else
-    command -nargs=+ HiLink hi def link <args>
-  endif
-
-  HiLink mailHeaderKey		Type
-  HiLink mailHeader		Statement
-  HiLink mailQuoted1		Comment
-  HiLink mailQuoted3		Comment
-  HiLink mailQuoted5		Comment
-  HiLink mailQuoted2		Identifier
-  HiLink mailQuoted4		Identifier
-  HiLink mailQuoted6		Identifier
-  HiLink mailSignature		PreProc
-  HiLink mailEmail		Special
-  HiLink mailSubject		String
-
-  delcommand HiLink
+" Need to sync on the header. Assume we can do that within 100 lines
+if exists("mail_minlines")
+    exec "syn sync minlines=" . mail_minlines
+else
+    syn sync minlines=100
 endif
 
-let b:current_syntax = "mail"
+" Define the default highlighting.
+hi def link mailHeader		Statement
+hi def link mailHeaderKey	Type
+hi def link mailSignature	PreProc
+hi def link mailHeaderEmail	mailEmail
+hi def link mailEmail		Special
+hi def link mailURL		String
+hi def link mailSubject		LineNR
+hi def link mailQuoted1		Comment
+hi def link mailQuoted3		mailQuoted1
+hi def link mailQuoted5		mailQuoted1
+hi def link mailQuoted2		Identifier
+hi def link mailQuoted4		mailQuoted2
+hi def link mailQuoted6		mailQuoted2
+hi def link mailQuoteExp1	mailQuoted1
+hi def link mailQuoteExp2	mailQuoted2
+hi def link mailQuoteExp3	mailQuoted3
+hi def link mailQuoteExp4	mailQuoted4
+hi def link mailQuoteExp5	mailQuoted5
+hi def link mailQuoteExp6	mailQuoted6
 
-" vim: ts=8
+let b:current_syntax = "mail"

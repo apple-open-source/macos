@@ -1,9 +1,10 @@
 # Makefile for GNU tar regression tests.
 
-# Copyright (C) 1996, 1997, 1999, 2000, 2001, 2003 Free Software
+# Copyright (C) 1996, 1997, 1999, 2000, 2001, 2003, 2004 Free Software
 # Foundation, Inc.
 
 # François Pinard <pinard@iro.umontreal.ca>, 1988.
+# Sergey Poznyakoff <gray@mirddin.farlep.net>, 2004.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -20,52 +21,102 @@
 ## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 ## 02111-1307, USA.
 
-check_PROGRAMS = genfile mksparse
-BUILT_SOURCES = preset
+EXTRA_DIST = $(TESTSUITE_AT) testsuite package.m4 star/README star/quicktest.sh
+DISTCLEANFILES       = atconfig $(check_SCRIPTS)
+MAINTAINERCLEANFILES = Makefile.in $(TESTSUITE)
 
-TESTS = \
- version.sh\
- append.sh\
- delete01.sh\
- delete02.sh\
- delete03.sh\
- delete04.sh\
- extrac01.sh\
- extrac02.sh\
- extrac03.sh\
- extrac04.sh\
- gzip.sh\
- incremen.sh\
- ignfail.sh\
- listed01.sh\
- longv7.sh\
- multiv01.sh\
- multiv02.sh\
- old.sh\
- options.sh\
- same-order01.sh\
- same-order02.sh\
- volume.sh\
- recurse.sh\
- sparse01.sh\
- star/gtarfail.sh\
- star/gtarfail2.sh\
- star/multi-fail.sh\
- star/ustar-big-2g.sh\
- star/ustar-big-8g.sh\
- star/pax-big-10g.sh\
- star/qucktest.sh 
+## ------------ ##
+## package.m4.  ##
+## ------------ ##
+
+$(srcdir)/package.m4: $(top_srcdir)/configure.ac
+	{                                      \
+	  echo '# Signature of the current package.'; \
+	  echo 'm4_define([AT_PACKAGE_NAME],      [@PACKAGE_NAME@])'; \
+	  echo 'm4_define([AT_PACKAGE_TARNAME],   [@PACKAGE_TARNAME@])'; \
+	  echo 'm4_define([AT_PACKAGE_VERSION],   [@PACKAGE_VERSION@])'; \
+	  echo 'm4_define([AT_PACKAGE_STRING],    [@PACKAGE_STRING@])'; \
+	  echo 'm4_define([AT_PACKAGE_BUGREPORT], [@PACKAGE_BUGREPORT@])'; \
+	} >$(srcdir)/package.m4
+
+#
+
+## ------------ ##
+## Test suite.  ##
+## ------------ ##
+
+TESTSUITE_AT = \
+ testsuite.at\
+ comprec.at\
+ delete01.at\
+ delete02.at\
+ delete03.at\
+ delete04.at\
+ delete05.at\
+ extrac01.at\
+ extrac02.at\
+ extrac03.at\
+ extrac04.at\
+ extrac05.at\
+ gzip.at\
+ incremental.at\
+ ignfail.at\
+ link01.at\
+ listed01.at\
+ listed02.at\
+ longv7.at\
+ multiv01.at\
+ multiv02.at\
+ multiv03.at\
+ old.at\
+ options.at\
+ pipe.at\
+ recurse.at\
+ same-order01.at\
+ same-order02.at\
+ sparse01.at\
+ volume.at\
+ version.at\
+ star/gtarfail.at\
+ star/gtarfail2.at\
+ star/multi-fail.at\
+ star/ustar-big-2g.at\
+ star/ustar-big-8g.at\
+ star/pax-big-10g.at
+
+TESTSUITE = $(srcdir)/testsuite
+
+AUTOTEST = $(AUTOM4TE) --language=autotest
+$(TESTSUITE): package.m4 $(TESTSUITE_AT)
+	$(AUTOTEST) -I $(srcdir) testsuite.at -o $@.tmp
+	mv $@.tmp $@
+
+atconfig: $(top_builddir)/config.status
+	cd $(top_builddir) && ./config.status tests/$@
+
+clean-local:
+	$(SHELL) $(TESTSUITE) --clean
+
+check-local: atconfig atlocal $(TESTSUITE)
+	$(SHELL) $(TESTSUITE)
+
+#check_SCRIPTS = tar
+
+# Run the test suite on the *installed* tree.
+installcheck-local:
+	$(SHELL) $(TESTSUITE) AUTOTEST_PATH=$(exec_prefix)/bin
+
+
+## ------------ ##
+## genfile      ##
+## ------------ ##
+
+check_PROGRAMS = genfile
 
 genfile_SOURCES = genfile.c
-mksparse_SOURCES = mksparse.c
-EXTRA_DIST = after before preset.in $(TESTS) star/README
 
 localedir = $(datadir)/locale
 INCLUDES = -I$(top_srcdir)/lib -I../lib -I$(top_srcdir)/src
 
 LDADD = ../lib/libtar.a $(LIBINTL)
 
-mostlyclean:
-	rm -rf tmp-*
-
-$(TESTS): genfile mksparse

@@ -1,7 +1,7 @@
 /* externs.h -- extern function declarations which do not appear in their
    own header file. */
 
-/* Copyright (C) 1993-2002 Free Software Foundation, Inc.
+/* Copyright (C) 1993-2005 Free Software Foundation, Inc.
 
    This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -31,12 +31,34 @@ extern intmax_t evalexp __P((char *, int *));
 
 /* Functions from print_cmd.c. */
 extern char *make_command_string __P((COMMAND *));
+extern char *named_function_string __P((char *, COMMAND *, int));
+
 extern void print_command __P((COMMAND *));
 extern void print_simple_command __P((SIMPLE_COM *));
-extern char *named_function_string __P((char *, COMMAND *, int));
 extern void print_word_list __P((WORD_LIST *, char *));
+
+/* debugger support */
+extern void print_for_command_head __P((FOR_COM *));
+#if defined (SELECT_COMMAND)
+extern void print_select_command_head __P((SELECT_COM *));
+#endif
+extern void print_case_command_head __P((CASE_COM *));
+#if defined (DPAREN_ARITHMETIC)
+extern void print_arith_command __P((WORD_LIST *));
+#endif
+#if defined (COND_COMMAND)
+extern void print_cond_command __P((COND_COM *));
+#endif
+
+/* set -x support */
 extern char *indirection_level_string __P((void));
-extern void xtrace_print_word_list __P((WORD_LIST *));
+extern void xtrace_print_assignment __P((char *, char *, int, int));
+extern void xtrace_print_word_list __P((WORD_LIST *, int));
+extern void xtrace_print_for_command_head __P((FOR_COM *));
+#if defined (SELECT_COMMAND)
+extern void xtrace_print_select_command_head __P((SELECT_COM *));
+#endif
+extern void xtrace_print_case_command_head __P((CASE_COM *));
 #if defined (DPAREN_ARITHMETIC)
 extern void xtrace_print_arith_cmd __P((WORD_LIST *));
 #endif
@@ -72,7 +94,9 @@ extern char **brace_expand __P((char *));
 extern int yyparse __P((void));
 extern int return_EOF __P((void));
 extern void reset_parser __P((void));
-extern WORD_LIST *parse_string_to_word_list __P((char *, const char *));
+extern WORD_LIST *parse_string_to_word_list __P((char *, int, const char *));
+
+extern void free_pushed_string_input __P((void));
 
 extern char *decode_prompt_string __P((char *));
 
@@ -88,6 +112,7 @@ extern void set_default_locale __P((void));
 extern void set_default_locale_vars __P((void));
 extern int set_locale_var __P((char *, char *));
 extern int set_lang __P((char *, char *));
+extern void set_default_lang __P((void));
 extern char *get_locale_var __P((char *));
 extern char *localetrans __P((char *, int, int *));
 extern char *mk_msgstr __P((char *, int *));
@@ -112,6 +137,10 @@ extern char *strcreplace __P((char *, int, char *, int));
 extern void strip_leading __P((char *));
 extern void strip_trailing __P((char *, int, int));
 extern void xbcopy __P((char *, char *, int));
+
+/* Functions from version.c. */
+extern char *shell_version_string __P((void));
+extern void show_shell_version __P((int));
 
 /* Functions from the bash library, lib/sh/libsh.a.  These should really
    go into a separate include file. */
@@ -197,9 +226,20 @@ extern char *sh_realpath __P((const char *, char *));
 extern int sh_setlinebuf __P((FILE *));
 #endif
 
+/* declarations for functions defined in lib/sh/shaccess.c */
+extern int sh_eaccess __P((char *, int));
+
+/* declarations for functions defined in lib/sh/shmatch.c */
+extern int sh_regmatch __P((const char *, const char *, int));
+
+/* defines for flags argument to sh_regmatch. */
+#define SHMAT_SUBEXP		0x001	/* save subexpressions in SH_REMATCH */
+#define SHMAT_PWARN		0x002	/* print a warning message on invalid regexp */
+
 /* declarations for functions defined in lib/sh/shquote.c */
 extern char *sh_single_quote __P((char *));
 extern char *sh_double_quote __P((char *));
+extern char *sh_mkdoublequoted __P((const char *, int, int));
 extern char *sh_un_double_quote __P((char *));
 extern char *sh_backslash_quote __P((char *));
 extern char *sh_backslash_quote_for_double_quotes __P((char *));
@@ -215,7 +255,7 @@ extern int strcasecmp __P((const char *, const char *));
 #endif /* HAVE_STRCASECMP */
 
 /* declarations for functions defined in lib/sh/strerror.c */
-#if !defined (strerror)
+#if !defined (HAVE_STRERROR) && !defined (strerror)
 extern char *strerror __P((int));
 #endif
 
@@ -266,6 +306,16 @@ extern void strvec_sort __P((char **));
 
 extern char **strvec_from_word_list __P((WORD_LIST *, int, int, int *));
 extern WORD_LIST *strvec_to_word_list __P((char **, int, int));
+
+/* declarations for functions defined in lib/sh/strnlen.c */
+#if !defined (HAVE_STRNLEN)
+extern size_t strnlen __P((const char *, size_t));
+#endif
+
+/* declarations for functions defined in lib/sh/strpbrk.c */
+#if !defined (HAVE_STRPBRK)
+extern char *strpbrk __P((const char *, const char *));
+#endif
 
 /* declarations for functions defined in lib/sh/strtod.c */
 #if !defined (HAVE_STRTOD)
@@ -323,9 +373,15 @@ extern char *sh_mktmpname __P((char *, int));
 extern int sh_mktmpfd __P((char *, int, char **));
 /* extern FILE *sh_mktmpfp __P((char *, int, char **)); */
 
+/* declarations for functions defined in lib/sh/winsize.c */
+extern void get_new_window_size __P((int, int *, int *));
+
 /* declarations for functions defined in lib/sh/xstrchr.c */
 #undef xstrchr
 extern char *xstrchr __P((const char *, int));
+
+/* declarations for functions defined in lib/sh/zcatfd.c */
+extern int zcatfd __P((int, int, char *));
 
 /* declarations for functions defined in lib/sh/zread.c */
 extern ssize_t zread __P((int, char *, size_t));

@@ -70,6 +70,8 @@ pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
 	if ((retval = pam_get_pass(pamh, &password, PASSWORD_PROMPT,
 	    options)) != PAM_SUCCESS)
 		return retval;
+	if (password[0] == '\0' && !(options & PAM_OPT_NULLOK))
+		return PAM_AUTH_ERR;
 	if ((pwd = getpwnam(user)) != NULL) {
 		if( (password[0] == '\0') && (pwd->pw_passwd[0] == '\0') )
 			retval = PAM_SUCCESS;

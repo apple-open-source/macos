@@ -1,7 +1,8 @@
-De %(real_name)s@%(host_name)s mailinglijst heeft %(count)d verzoek(en)
-die wachten op uw goedkeuring op:
+De %(real_name)s@%(host_name)s maillijst heeft %(count)d verzoek(en)
+die wachten op behandeling op:
 
 	%(adminDB)s
 
-Kunt u hier aub zo spoedig mogelijk naar kijken? Dit overzicht van wachtende verzoeken,
-als die er zijn, zal dagelijks naar u toegezonden worden.
+Gelieve deze af te handelen zodra het u schikt. Dit overzicht van
+onbehandelde verzoeken, mits aanwezig, zal u dagelijks worden
+toegezonden.

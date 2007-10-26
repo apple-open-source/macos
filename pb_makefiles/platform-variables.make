@@ -67,6 +67,7 @@ LOCAL_DEVELOPER_EXECUTABLES_DIR =
 LOCAL_LIBRARY_DIR = /Library
 USER_APPS_DIR = $(HOME)/Applications
 USER_LIBRARY_DIR = $(HOME)/Library
+MAN_PAGE_DIRECTORIES = /usr/share/man
 
 else
 ifeq "NEXTSTEP" "$(OS)"

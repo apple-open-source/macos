@@ -49,22 +49,22 @@ gTypes()
 using namespace KeychainCore;
 
 SecCFTypes::SecCFTypes() :
-	mAllocator(globals().apiLock),
-	Access("SecAccess"),
-	ACL("SecACL"),
-	Certificate("SecCertificate", &mAllocator),
-	CertificateRequest("SecCertificateRequest"),
-	Identity("SecIdentity"),
-	IdentityCursor("SecIdentitySearch"),
-	ItemImpl("SecKeychainItem", &mAllocator),
-	KCCursorImpl("SecKeychainSearch"),
-	KeychainImpl("SecKeychain", &mAllocator),
-	KeyItem("SecKey", &mAllocator),
-    PasswordImpl("SecPassword"),
-	Policy("SecPolicy"),
-	PolicyCursor("SecPolicySearch"),
-	Trust("SecTrust"),
-	TrustedApplication("SecTrustedApplication")
+	Access("SecAccess", false),
+	ACL("SecACL", false),
+	Certificate("SecCertificate", true),
+	CertificateRequest("SecCertificateRequest", false),
+	Identity("SecIdentity", false),
+	IdentityCursor("SecIdentitySearch", false),
+	ItemImpl("SecKeychainItem", true),
+	KCCursorImpl("SecKeychainSearch", false),
+	KeychainImpl("SecKeychain", true),
+	KeyItem("SecKey", true),
+    PasswordImpl("SecPassword", false),
+	Policy("SecPolicy", false),
+	PolicyCursor("SecPolicySearch", false),
+	Trust("SecTrust", false),
+	TrustedApplication("SecTrustedApplication", false),
+	ExtendedAttribute("SecKeychainItemExtendedAttributes", false)
 {
 }
 

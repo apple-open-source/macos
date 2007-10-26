@@ -1,8 +1,8 @@
 /* modrdn.c - shell backend modrdn function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modrdn.c,v 1.22.2.3 2004/01/01 18:16:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modrdn.c,v 1.25.2.3 2006/01/03 22:16:23 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,8 +63,9 @@ shell_back_modrdn(
 	e.e_bv.bv_val = NULL;
 	e.e_private = NULL;
 
-	if ( ! access_allowed( op, &e,
-		entry, NULL, ACL_WRITE, NULL ) )
+	if ( ! access_allowed( op, &e, entry, NULL,
+			op->oq_modrdn.rs_newSup ? ACL_WDEL : ACL_WRITE,
+			NULL ) )
 	{
 		send_ldap_error( op, rs, LDAP_INSUFFICIENT_ACCESS, NULL );
 		return -1;
@@ -83,7 +84,7 @@ shell_back_modrdn(
 	fprintf( wfp, "dn: %s\n", op->o_req_dn.bv_val );
 	fprintf( wfp, "newrdn: %s\n", op->oq_modrdn.rs_newrdn.bv_val );
 	fprintf( wfp, "deleteoldrdn: %d\n", op->oq_modrdn.rs_deleteoldrdn ? 1 : 0 );
-	if (op->oq_modrdn.rs_newSup != NULL) {
+	if ( op->oq_modrdn.rs_newSup != NULL ) {
 		fprintf( wfp, "newSuperior: %s\n", op->oq_modrdn.rs_newSup->bv_val );
 	}
 	fclose( wfp );

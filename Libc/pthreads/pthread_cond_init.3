@@ -36,7 +36,10 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_cond_init "pthread_cond_t *cond" "const pthread_condattr_t *attr"
+.Fo pthread_cond_init
+.Fa "pthread_cond_t *restrict cond"
+.Fa "const pthread_condattr_t *restrict attr"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_cond_init
@@ -44,26 +47,26 @@ function creates a new condition variable, with attributes specified with
 .Fa attr .
 If
 .Fa attr
-is NULL the default attributes are used.
+is NULL, the default attributes are used.
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_cond_init
 function will return zero and put the new condition variable id into
-.Fa cond ,
-otherwise an error number will be returned to indicate the error.
+.Fa cond .
+Otherwise, an error number will be returned to indicate the error.
 .Sh ERRORS
 .Fn pthread_cond_init
 will fail if:
 .Bl -tag -width Er
+.It Bq Er EAGAIN
+The system temporarily lacks the resources to create another condition
+variable.
 .It Bq Er EINVAL
 The value specified by
 .Fa attr
 is invalid.
 .It Bq Er ENOMEM
 The process cannot allocate enough memory to create another condition
-variable.
-.It Bq Er EAGAIN
-The system temporarily lacks the resources to create another condition
 variable.
 .El
 .Sh SEE ALSO

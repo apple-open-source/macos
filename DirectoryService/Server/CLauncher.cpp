@@ -51,7 +51,7 @@
 // --------------------------------------------------------------------------------
 // * Externs
 // --------------------------------------------------------------------------------
-extern CFRunLoopRef			gServerRunLoop;
+extern CFRunLoopRef			gPluginRunLoop;
 extern CPluginConfig	   *gPluginConfig;
 extern DSMutexSemaphore    *gKerberosMutex;
 
@@ -66,8 +66,8 @@ CLauncher::CLauncher ( CServerPlugin *inPlugin ) : CInternalDispatchThread(kTSLa
 
 	if ( inPlugin == nil )
 	{
-		ERRORLOG( kLogApplication, "Launcher failed create with no plugin pointer provided" );
-		throw((sInt32)eParameterError);
+		ErrLog( kLogApplication, "Launcher failed create with no plugin pointer provided" );
+		throw((SInt32)eParameterError);
 	}
 
 	fPlugin = inPlugin;
@@ -96,8 +96,8 @@ void CLauncher::StartThread ( void )
 {
 	if ( this == nil )
 	{
-		ERRORLOG( kLogApplication, "Launcher StartThread failed with memory error on itself" );
-		throw((sInt32)eMemoryError);
+		ErrLog( kLogApplication, "Launcher StartThread failed with memory error on itself" );
+		throw((SInt32)eMemoryError);
 	}
 
 	this->Resume();
@@ -114,8 +114,8 @@ void CLauncher::StopThread ( void )
 {
 	if ( this == nil )
 	{
-		ERRORLOG( kLogApplication, "Launcher StopThread failed with memory error on itself" );
-		throw((sInt32)eMemoryError);
+		ErrLog( kLogApplication, "Launcher StopThread failed with memory error on itself" );
+		throw((SInt32)eMemoryError);
 	}
 
 	// Check that the current thread context is not our thread context
@@ -130,13 +130,13 @@ void CLauncher::StopThread ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long CLauncher::ThreadMain ( void )
+SInt32 CLauncher::ThreadMain ( void )
 {
     			bool		done		= false;
-				sInt32		siResult 	= eDSNoErr;
-				uInt32		uiCntr		= 0;
-				uInt32		uiAttempts	= 100;
-    volatile	uInt32		uiWaitTime 	= 1;
+				SInt32		siResult 	= eDSNoErr;
+				UInt32		uiCntr		= 0;
+				UInt32		uiAttempts	= 100;
+    volatile	UInt32		uiWaitTime 	= 1;
 				sHeader		aHeader;
 				ePluginState		pluginState	= kUnknownState;
 
@@ -150,21 +150,22 @@ long CLauncher::ThreadMain ( void )
 			siResult = fPlugin->Initialize();
 			if ( ( siResult != eDSNoErr ) && ( uiCntr == 1 ) )
 			{
-				ERRORLOG3( kLogApplication, "Attempt #%l to initialize plug-in %s failed.\n  Will retry initialization at most 100 times every %l second.", uiCntr, fPlugin->GetPluginName(), uiWaitTime );
+				ErrLog( kLogApplication, "Attempt #%l to initialize plug-in %s failed.\n  Will retry initialization at most 100 times every %l second.", uiCntr, fPlugin->GetPluginName(), uiWaitTime );
+				DbgLog( kLogApplication, "Attempt #%l to initialize plug-in %s failed.\n  Will retry initialization at most 100 times every %l second.", uiCntr, fPlugin->GetPluginName(), uiWaitTime );
 			}
 			
 			if ( siResult == eDSNoErr )
 			{
-				DBGLOG2( kLogApplication, "Initialization of plug-in %s succeeded with #%l attempt.", fPlugin->GetPluginName(), uiCntr );
+				DbgLog( kLogApplication, "Initialization of plug-in %s succeeded with #%l attempt.", fPlugin->GetPluginName(), uiCntr );
 
 				gPlugins->SetState( fPlugin->GetPluginName(), kInitialized );
 
 				//provide the CFRunLoop to the plugins that need it
-				if (gServerRunLoop != NULL)
+				if (gPluginRunLoop != NULL)
 				{
 					aHeader.fType			= kServerRunLoop;
 					aHeader.fResult			= eDSNoErr;
-					aHeader.fContextData	= (void *)gServerRunLoop;
+					aHeader.fContextData	= (void *)gPluginRunLoop;
 					siResult = fPlugin->ProcessRequest( (void*)&aHeader ); //don't handle return
 				}
 				
@@ -183,27 +184,28 @@ long CLauncher::ThreadMain ( void )
 					siResult = fPlugin->SetPluginState( kInactive );
 					if ( siResult == eDSNoErr )
 					{
-						SRVRLOG1( kLogApplication, "Plug-in %s state is now inactive.", fPlugin->GetPluginName() );
+						SrvrLog( kLogApplication, "Plug-in %s state is now inactive.", fPlugin->GetPluginName() );
 				
 						gPlugins->SetState( fPlugin->GetPluginName(), kInactive );
 					}
 					else
 					{
-						ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to inactive.  Received error %l.", fPlugin->GetPluginName(), siResult );
+						ErrLog( kLogApplication, "Unable to set %s plug-in state to inactive.  Received error %l.", fPlugin->GetPluginName(), siResult );
 					}
 				}
 				else
 				{
-					siResult = fPlugin->SetPluginState( kActive );
+					// we assume the plugin is going to activate since we initialized successfully
+					// this is because we expect they will start accepting answers the second we send to them
+					siResult = gPlugins->SetState( fPlugin->GetPluginName(), kActive );
 					if ( siResult == eDSNoErr )
 					{
-						SRVRLOG1( kLogApplication, "Plug-in %s state is now active.", fPlugin->GetPluginName() );
-	
-						gPlugins->SetState( fPlugin->GetPluginName(), kActive );
+						SrvrLog( kLogApplication, "Plug-in %s state is now active.", fPlugin->GetPluginName() );
 					}
 					else
 					{
-						ERRORLOG2( kLogApplication, "Unable to set %s plug-in state to active.  Received error %l.", fPlugin->GetPluginName(), siResult );
+						gPlugins->SetState( fPlugin->GetPluginName(), kInactive );
+						ErrLog( kLogApplication, "Unable to set %s plug-in state to active.  Received error %l.", fPlugin->GetPluginName(), siResult );
 					}
 				}
 				
@@ -215,17 +217,15 @@ long CLauncher::ThreadMain ( void )
 				// We will try this 100 times before we bail
 				if ( uiCntr == uiAttempts )
 				{
-					ERRORLOG2( kLogApplication, "%l attempts to initialize plug-in %s failed.\n  Setting plug-in state to inactive.", uiCntr, fPlugin->GetPluginName() );
+					ErrLog( kLogApplication, "%l attempts to initialize plug-in %s failed.\n  Setting plug-in state to inactive.", uiCntr, fPlugin->GetPluginName() );
 
-					gPlugins->SetState( fPlugin->GetPluginName(), kInactive | kFailedToInit );
-
-					siResult = fPlugin->SetPluginState( kInactive );
+					siResult = gPlugins->SetState( fPlugin->GetPluginName(), kInactive | kFailedToInit );
 
 					done = true;
 				}
 				else
 				{
-					fWaitToInti.Wait( uiWaitTime * kMilliSecsPerSec );
+					fWaitToInit.WaitForEvent( uiWaitTime * kMilliSecsPerSec );
 				}
 			}
 		}

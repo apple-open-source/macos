@@ -1,0 +1,21 @@
+--- flags.c.orig	2003-05-20 15:22:41.000000000 -0700
++++ flags.c	2005-11-16 17:49:13.000000000 -0800
+@@ -85,10 +85,17 @@
+ 	}
+ 
+ 	/* [rwa]\+ or [rwa]b\+ means read and write */
+-	if (*mode == '+' || (*mode == 'b' && mode[1] == '+')) {
++	if (*mode == 'b')
++		mode++;
++	if (*mode == '+') {
+ 		ret = __SRW;
+ 		m = O_RDWR;
++		mode++;
++		if (*mode == 'b')
++			mode++;
+ 	}
++	if (*mode == 'x')
++		o |= O_EXCL;
+ 	*optr = m | o;
+ 	return (ret);
+ }

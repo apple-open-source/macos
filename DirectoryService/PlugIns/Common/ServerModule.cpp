@@ -56,7 +56,7 @@ extern void		   *ModuleFactory( CFAllocatorRef, CFUUIDRef );
 
 typedef struct _tagModuleType : public ModuleFtbl
 {
-	uInt32			mRefCount;
+	UInt32			mRefCount;
 	CDSServerModule	*mInstance;
 } _ModuleType;
 
@@ -169,9 +169,9 @@ static ULONG _COMRelease ( void *thisp )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _Validate ( void *thisp, const char *inVersionStr, const uInt32 inSignature )
+static SInt32 _Validate ( void *thisp, const char *inVersionStr, const UInt32 inSignature )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -184,12 +184,12 @@ static sInt32 _Validate ( void *thisp, const char *inVersionStr, const uInt32 in
 		nResult = opThis->mInstance->Validate( inVersionStr, inSignature );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -209,9 +209,9 @@ static sInt32 _Validate ( void *thisp, const char *inVersionStr, const uInt32 in
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _Initialize ( void *thisp )
+static SInt32 _Initialize ( void *thisp )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -224,12 +224,12 @@ static sInt32 _Initialize ( void *thisp )
 		nResult = opThis->mInstance->Initialize();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -249,9 +249,9 @@ static sInt32 _Initialize ( void *thisp )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _Configure ( void *thisp )
+static SInt32 _Configure ( void *thisp )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -264,12 +264,12 @@ static sInt32 _Configure ( void *thisp )
 		nResult = opThis->mInstance->Configure();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -289,9 +289,9 @@ static sInt32 _Configure ( void *thisp )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _ProcessRequest ( void *thisp, void *inData )
+static SInt32 _ProcessRequest ( void *thisp, void *inData )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -304,12 +304,12 @@ static sInt32 _ProcessRequest ( void *thisp, void *inData )
 		nResult = opThis->mInstance->ProcessRequest( inData );
 	}
 
-	catch ( sInt32 err )
+	catch ( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch ( OSErr err )
+	catch ( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -329,9 +329,9 @@ static sInt32 _ProcessRequest ( void *thisp, void *inData )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _SetPluginState ( void *thisp, const uInt32 inState )
+static SInt32 _SetPluginState ( void *thisp, const UInt32 inState )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -344,12 +344,12 @@ static sInt32 _SetPluginState ( void *thisp, const uInt32 inState )
 		nResult = opThis->mInstance->SetPluginState( inState );
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -369,9 +369,9 @@ static sInt32 _SetPluginState ( void *thisp, const uInt32 inState )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _PeriodicTask ( void *thisp )
+static SInt32 _PeriodicTask ( void *thisp )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -384,12 +384,12 @@ static sInt32 _PeriodicTask ( void *thisp )
 		nResult = opThis->mInstance->PeriodicTask();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}
@@ -409,9 +409,9 @@ static sInt32 _PeriodicTask ( void *thisp )
 //
 //--------------------------------------------------------------------------------------------------
 
-static sInt32 _Shutdown ( void *thisp )
+static SInt32 _Shutdown ( void *thisp )
 {
-	sInt32	nResult = eDSNoErr;
+	SInt32	nResult = eDSNoErr;
 	_ModuleType	*opThis = static_cast<_ModuleType *> (thisp);
 
 	if ( opThis == NULL )
@@ -424,12 +424,12 @@ static sInt32 _Shutdown ( void *thisp )
 		nResult = opThis->mInstance->Shutdown();
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		nResult = err;
 	}
 
-	catch( OSErr err )
+	catch( SInt16 err )
 	{
 		nResult = err;
 	}

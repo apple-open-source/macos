@@ -37,6 +37,13 @@
 #endif
 /* APPLE LOCAL end keymgr */
 
+/* APPLE LOCAL begin 4832917 */
+#ifdef __i386__
+#define _keymgr_get_per_thread_data(K) (NULL)
+#define _keymgr_set_per_thread_data(K, D) (0)
+#endif
+/* APPLE LOCAL end 4832917 */
+
 const std::nothrow_t std::nothrow = { };
 
 using std::new_handler;

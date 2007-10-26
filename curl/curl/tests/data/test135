@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+RETR
+Range
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -6,7 +15,7 @@
 0123456789abcdef
 0123456789abcdef
 </data>
-<datacheck nonewline=yes>
+<datacheck nonewline="yes">
 0123456789abc
 </datacheck>
 <size>
@@ -31,7 +40,7 @@ FTP retrieve a byte-range
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -41,3 +50,4 @@ RETR 135
 QUIT
 </protocol>
 </verify>
+</testcase>

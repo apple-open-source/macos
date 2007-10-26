@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -38,6 +41,7 @@
 #include <dce/idlddefs.h>
 #include <ndrui.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 /******************************************************************************/
 /*                                                                            */
@@ -182,8 +186,7 @@ void rpc_ss_ndr_unmar_scalar
             return;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_unmar_scalar: unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_scalar: unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -267,7 +270,7 @@ static void rpc_ss_ndr_unmar_union_body
         case IDL_DT_FULL_PTR:
             /* Unmarshall the node number into the space for the pointer */
             rpc_ss_ndr_unmar_scalar(IDL_DT_ULONG, &node_number, IDL_msp);
-            *(rpc_void_p_t *)body_addr = (rpc_void_p_t)node_number;
+            *(idl_ulong_int *)body_addr = node_number;
             break;
         case IDL_DT_UNIQUE_PTR:
             /*
@@ -306,8 +309,7 @@ static void rpc_ss_ndr_unmar_union_body
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_unmar_union_body: unrecognized type %d\n",
-                        type_byte);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_union_body: unrecognized type %d\n", type_byte);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -380,7 +382,7 @@ static void rpc_ss_ndr_unmar_union_ptees
         case IDL_DT_FULL_PTR:
             IDL_GET_LONG_FROM_VECTOR(defn_index, arm_type_ptr);
                                                  /* Will skip properties byte */
-            node_number = (idl_ulong_int)(*(rpc_void_p_t *)body_addr);
+            node_number = *(idl_ulong_int *)body_addr;
             if (node_number != 0)
             {
                 pointee_defn_ptr = IDL_msp->IDL_type_vec + defn_index;
@@ -869,8 +871,7 @@ void rpc_ss_ndr_unmar_xmit_as
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("rpc_ss_ndr_unmar_xmit_as: unrecognized type %d\n",
-                        transmitted_type);
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "rpc_ss_ndr_unmar_xmit_as: unrecognized type %d\n", transmitted_type);
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);

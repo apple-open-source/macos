@@ -1,10 +1,11 @@
 /*
-**********************************************************************
-* Copyright (C) 1999-2004, International Business Machines Corporation and others. All Rights Reserved.
-**********************************************************************
+***************************************************************************
+* Copyright (C) 1999-2006, International Business Machines Corporation
+* and others. All Rights Reserved.
+***************************************************************************
 *   Date        Name        Description
 *   10/20/99    alan        Creation.
-**********************************************************************
+***************************************************************************
 */
 
 #ifndef UNICODESET_H
@@ -14,12 +15,16 @@
 #include "unicode/unistr.h"
 #include "unicode/uset.h"
 
+/**
+ * \file 
+ * \brief C++ API: Unicode Set
+ */
+ 
 U_NAMESPACE_BEGIN
 
 class ParsePosition;
 class SymbolTable;
 class UVector;
-class CaseEquivClass;
 class RuleCharacterIterator;
 
 /**
@@ -108,8 +113,8 @@ class RuleCharacterIterator;
  * "[:Lu:]" and the Perl-like syntax "\\p{Lu}" are recognized.  For a
  * complete list of supported property patterns, see the User's Guide
  * for UnicodeSet at
- * <a href="http://oss.software.ibm.com/icu/userguide/unicodeSet.html">
- * http://oss.software.ibm.com/icu/userguide/unicodeSet.html</a>.
+ * <a href="http://icu.sourceforge.net/userguide/unicodeSet.html">
+ * http://icu.sourceforge.net/userguide/unicodeSet.html</a>.
  * Actual determination of property data is defined by the underlying
  * Unicode database as implemented by UCharacter.
  *
@@ -276,25 +281,19 @@ class U_COMMON_API UnicodeSet : public UnicodeFilter {
 
 public:
 
-    /**
-     * Minimum value that can be stored in a UnicodeSet.
-     * @stable ICU 2.4
-     */
-#ifdef U_CYGWIN
-    static U_COMMON_API const UChar32 MIN_VALUE;
-#else
-    static const UChar32 MIN_VALUE;
-#endif
+    enum {
+        /**
+         * Minimum value that can be stored in a UnicodeSet.
+         * @stable ICU 2.4
+         */
+        MIN_VALUE = 0,
 
-    /**
-     * Maximum value that can be stored in a UnicodeSet.
-     * @stable ICU 2.4
-     */
-#ifdef U_CYGWIN
-    static U_COMMON_API const UChar32 MAX_VALUE;
-#else
-    static const UChar32 MAX_VALUE;
-#endif
+        /**
+         * Maximum value that can be stored in a UnicodeSet.
+         * @stable ICU 2.4
+         */
+        MAX_VALUE = 0x10ffff
+    };
 
     //----------------------------------------------------------------
     // Constructors &c
@@ -357,22 +356,12 @@ public:
      * @param symbols a symbol table mapping variable names to values
      * and stand-in characters to UnicodeSets; may be NULL
      * @param status input-output error code
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     UnicodeSet(const UnicodeString& pattern, ParsePosition& pos,
                uint32_t options,
                const SymbolTable* symbols,
                UErrorCode& status);
-
-#ifdef U_USE_UNICODESET_DEPRECATES
-    /**
-     * Obsolete: Constructs a set from the given Unicode character category.
-     * @param category an integer indicating the character category as
-     * defined in uchar.h.
-     * @obsolete ICU 2.6. Use a pattern with the category instead since this API will be removed in that release.
-     */
-    UnicodeSet(int8_t category, UErrorCode& status);
-#endif
 
     /**
      * Constructs a set that is identical to the given UnicodeSet.
@@ -514,7 +503,7 @@ public:
      * @param status returns <code>U_ILLEGAL_ARGUMENT_ERROR</code> if the pattern
      * contains a syntax error.
      * @return a reference to this
-     * @draft ICU 2.8
+     * @stable ICU 2.8
      */
     UnicodeSet& applyPattern(const UnicodeString& pattern,
                              ParsePosition& pos,
@@ -575,7 +564,8 @@ public:
      * correspond to the following sets:
      *
      * "ANY" = [\\u0000-\\U0010FFFF],
-     * "ASCII" = [\\u0000-\\u007F].
+     * "ASCII" = [\\u0000-\\u007F],
+     * "Assigned" = [:^Cn:].
      *
      * @param value a value alias, either short or long.  The name is matched
      * loosely.  See PropertyValueAliases.txt for names and a description of
@@ -1258,7 +1248,7 @@ private:
      *
      * The original design document is out of date, but still useful.
      * Ignore the property and value names:
-     * http://oss.software.ibm.com/cvs/icu/~checkout~/icuhtml/design/unicodeset_properties.html
+     * http://dev.icu-project.org/cgi-bin/viewcvs.cgi/~checkout~/icuhtml/design/unicodeset_properties.html
      *
      * Recognized syntax:
      *
@@ -1324,20 +1314,6 @@ private:
     static const UnicodeSet* getInclusions(int32_t src, UErrorCode &errorCode);
 
     friend class UnicodeSetIterator;
-
-    //----------------------------------------------------------------
-    // Implementation: closeOver
-    //----------------------------------------------------------------
-
-    void caseCloseOne(const UnicodeString& folded);
-
-    void caseCloseOne(const CaseEquivClass& c);
-
-    void caseCloseOne(UChar folded);
-
-    static const CaseEquivClass* getCaseMapOf(const UnicodeString& folded);
-
-    static const CaseEquivClass* getCaseMapOf(UChar folded);
 };
 
 inline UBool UnicodeSet::operator!=(const UnicodeSet& o) const {

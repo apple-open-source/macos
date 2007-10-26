@@ -12,7 +12,7 @@
 
 int extra_text (ClientData clientData,
                 Tcl_Interp *interp,
-                int argc, char *argv[]);
+                int objc, Tcl_Obj *CONST objv[]);
 
 /* Here you actually do whatever you want, like calling your target 
    libraries etc.  Here we just return a string. */
@@ -20,7 +20,7 @@ int extra_text (ClientData clientData,
 int
 extra_text (ClientData clientData,
                 Tcl_Interp *interp,
-                int argc, char *argv[])
+                int objc, Tcl_Obj *CONST objv[])
 {
   interp->result = "\nThis is a sample plug-in\n";
   return TCL_OK;
@@ -32,8 +32,8 @@ int EXPORT
 Rhabout_Init (Tcl_Interp *interp)
 {
   /* Register your command as a Tcl command with this interpreter. */
-  Tcl_CreateCommand (interp, "rhabout_extra_text", extra_text,
-                     (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
+  Tcl_CreateObjCommand (interp, "rhabout_extra_text", extra_text,
+                        (ClientData) NULL, (Tcl_CmdDeleteProc *) NULL);
 
   /* Register this package */
   Tcl_PkgProvide (interp, "RHABOUT", "1.0");

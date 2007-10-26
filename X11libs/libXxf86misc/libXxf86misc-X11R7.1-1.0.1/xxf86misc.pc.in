@@ -1,0 +1,12 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Xxf86misc
+Description: XFree86 Misc Extension Library
+Version: @VERSION@
+Requires: xf86miscproto
+Requires.private: x11 xext
+Cflags: -I${includedir}
+Libs: -L${libdir} -lXxf86misc

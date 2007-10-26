@@ -1,10 +1,10 @@
 ;;; log-view.el --- Major mode for browsing RCS/CVS/SCCS log output
 
-;; Copyright (C) 1999, 2000  Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stefan Monnier <monnier@cs.yale.edu>
+;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
 ;; Keywords: rcs sccs cvs log version-control
-;; Revision: $Id: log-view.el,v 1.1.1.1 2001/10/31 17:55:55 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -20,22 +20,66 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
-;; Todo:
+;; Major mode to browse revision log histories.
+;; Currently supports the format output by:
+;;  RCS, SCCS, CVS, Subversion, and DaRCS.
 
-;; - add compatibility with cvs-log.el
+;; Examples of log output:
+
+;;;; RCS/CVS:
+
+;; ----------------------------
+;; revision 1.35	locked by: turlutut
+;; date: 2005-03-22 18:48:38 +0000;  author: monnier;  state: Exp;  lines: +6 -8
+;; (gnus-display-time-event-handler):
+;; Check display-time-timer at runtime rather than only at load time
+;; in case display-time-mode is turned off in the mean time.
+;; ----------------------------
+;; revision 1.34
+;; date: 2005-02-09 15:50:38 +0000;  author: kfstorm;  state: Exp;  lines: +7 -7
+;; branches:  1.34.2;
+;; Change release version from 21.4 to 22.1 throughout.
+;; Change development version from 21.3.50 to 22.0.50.
+
+;;;; SCCS:
+
+;;;; Subversion:
+
+;;;; Darcs:
+
+;; Changes to darcsum.el:
+;; 
+;; Mon Nov 28 15:19:38 GMT 2005  Dave Love <fx@gnu.org>
+;;   * Abstract process startup into darcsum-start-process.  Use TERM=dumb.
+;;   TERM=dumb avoids escape characters, at least, for any old darcs that 
+;;   doesn't understand DARCS_DONT_COLOR & al.
+;; 
+;; Thu Nov 24 15:20:45 GMT 2005  Dave Love <fx@gnu.org>
+;;   * darcsum-mode-related changes.
+;;   Don't call font-lock-mode (unnecessary) or use-local-map (redundant).
+;;   Use mode-class 'special.  Add :group.
+;;   Add trailing-whitespace option to mode hook and fix
+;;   darcsum-display-changeset not to use trailing whitespace.
+
+;;; Todo:
+
 ;; - add ability to modify a log-entry (via cvs-mode-admin ;-)
 ;; - remove references to cvs-*
+;; - make it easier to add support for new backends without changing the code.
 
 ;;; Code:
 
 (eval-when-compile (require 'cl))
 (require 'pcvs-util)
+(autoload 'vc-find-version "vc")
+(autoload 'vc-version-diff "vc")
 
+(defvar cvs-minor-wrap-function)
 
 (defgroup log-view nil
   "Major mode for browsing log output of RCS/CVS/SCCS."
@@ -43,12 +87,18 @@
   :prefix "log-view-")
 
 (easy-mmode-defmap log-view-mode-map
-  '(("n" . log-view-msg-next)
+  '(("q" . quit-window)
+    ("z" . kill-this-buffer)
+    ("m" . set-mark-command)
+    ;; ("e" . cvs-mode-edit-log)
+    ("d" . log-view-diff)
+    ("f" . log-view-find-version)
+    ("n" . log-view-msg-next)
     ("p" . log-view-msg-prev)
     ("N" . log-view-file-next)
     ("P" . log-view-file-prev)
-    ("M-n" . log-view-file-next)
-    ("M-p" . log-view-file-prev))
+    ("\M-n" . log-view-file-next)
+    ("\M-p" . log-view-file-prev))
   "Log-View's keymap."
   :group 'log-view
   ;; Here I really need either buffer-local keymap-inheritance
@@ -58,45 +108,63 @@
 (defvar log-view-mode-hook nil
   "Hook run at the end of `log-view-mode'.")
 
-(defface log-view-file-face
+(defface log-view-file
   '((((class color) (background light))
-     (:background "grey70" :bold t))
-    (t (:bold t)))
+     (:background "grey70" :weight bold))
+    (t (:weight bold)))
   "Face for the file header line in `log-view-mode'."
   :group 'log-view)
-(defvar log-view-file-face 'log-view-file-face)
+;; backward-compatibility alias
+(put 'log-view-file-face 'face-alias 'log-view-file)
+(defvar log-view-file-face 'log-view-file)
 
-(defface log-view-message-face
+(defface log-view-message
   '((((class color) (background light))
      (:background "grey85"))
-    (t (:bold t)))
+    (t (:weight bold)))
   "Face for the message header line in `log-view-mode'."
   :group 'log-view)
-(defvar log-view-message-face 'log-view-message-face)
+;; backward-compatibility alias
+(put 'log-view-message-face 'face-alias 'log-view-message)
+(defvar log-view-message-face 'log-view-message)
 
 (defconst log-view-file-re
-  (concat "^\\("
-	  "Working file: \\(.+\\)"
-	  "\\|SCCS/s\\.\\(.+\\):"
-	  "\\)\n"))
-(defconst log-view-message-re "^\\(revision \\([.0-9]+\\)\\|D \\([.0-9]+\\) .*\\)$")
+  (concat "^\\(?:Working file: \\(.+\\)"                ;RCS and CVS.
+          "\\|\\(?:SCCS/s\\.\\|Changes to \\)\\(.+\\):" ;SCCS and Darcs.
+	  "\\)\n"))                   ;Include the \n for font-lock reasons.
+
+(defconst log-view-message-re
+  (concat "^\\(?:revision \\([.0-9]+\\)\\(?:\t.*\\)?" ; RCS and CVS.
+          "\\|r\\([0-9]+\\) | .* | .*"                ; Subversion.
+          "\\|D \\([.0-9]+\\) .*"                     ; SCCS.
+          ;; Darcs doesn't have revision names.  VC-darcs uses patch names
+          ;; instead.  Darcs patch names are hashcodes, which do not appear
+          ;; in the log output :-(, but darcs accepts any prefix of the log
+          ;; message as a patch name, so we match the first line of the log
+          ;; message.
+          ;; First loosely match the date format.
+          (concat "\\|[^ \n].*[^0-9\n][0-9][0-9]:[0-9][0-9][^0-9\n].*[^ \n]"
+                  ;;Email of user and finally Msg, used as revision name.
+                  "  .*@.*\n\\(?:  \\* \\(.*\\)\\)?")
+          "\\)$"))
 
 (defconst log-view-font-lock-keywords
   `((,log-view-file-re
+     (1 (if (boundp 'cvs-filename-face) cvs-filename-face) nil t)
      (2 (if (boundp 'cvs-filename-face) cvs-filename-face) nil t)
-     (3 (if (boundp 'cvs-filename-face) cvs-filename-face) nil t)
      (0 log-view-file-face append))
     (,log-view-message-re . log-view-message-face)))
 (defconst log-view-font-lock-defaults
   '(log-view-font-lock-keywords t nil nil nil))
 
-;;;; 
+;;;;
 ;;;; Actual code
-;;;; 
+;;;;
 
 ;;;###autoload
 (define-derived-mode log-view-mode fundamental-mode "Log-View"
   "Major mode for browsing CVS log output."
+  (setq buffer-read-only t)
   (set (make-local-variable 'font-lock-defaults) log-view-font-lock-defaults)
   (set (make-local-variable 'cvs-minor-wrap-function) 'log-view-minor-wrap))
 
@@ -126,7 +194,7 @@
     (forward-line 1)
     (or (re-search-backward log-view-file-re nil t)
 	(re-search-forward log-view-file-re))
-    (let* ((file (or (match-string 2) (match-string 3)))
+    (let* ((file (or (match-string 1) (match-string 2)))
 	   (cvsdir (and (re-search-backward log-view-dir-re nil t)
 			(match-string 1)))
 	   (pcldir (and (boundp 'cvs-pcl-cvs-dirchange-re)
@@ -135,28 +203,43 @@
 	   (dir ""))
       (let ((default-directory ""))
 	(when pcldir (setq dir (expand-file-name pcldir dir)))
-	(when cvsdir (setq dir (expand-file-name cvsdir dir)))
-	(expand-file-name file dir)))))
+	(when cvsdir (setq dir (expand-file-name cvsdir dir))))
+      (expand-file-name file dir))))
 
-(defun log-view-current-tag ()
+(defun log-view-current-tag (&optional where)
   (save-excursion
+    (when where (goto-char where))
     (forward-line 1)
     (let ((pt (point)))
       (when (re-search-backward log-view-message-re nil t)
-	(let ((rev (or (match-string 2) (match-string 3))))
+        (let (rev)
+          ;; Find the subgroup that matched.
+          (dotimes (i (/ (length (match-data 'integers)) 2))
+            (setq rev (or rev (match-string (1+ i)))))
 	  (unless (re-search-forward log-view-file-re pt t)
 	    rev))))))
 
+(defvar cvs-minor-current-files)
+(defvar cvs-branch-prefix)
+(defvar cvs-secondary-branch-prefix)
+
 (defun log-view-minor-wrap (buf f)
   (let ((data (with-current-buffer buf
-		(cons
-		 (cons (log-view-current-file)
-		       (log-view-current-tag))
-		 (when mark-active
-		   (save-excursion
-		     (goto-char (mark))
-		     (cons (log-view-current-file)
-			   (log-view-current-tag))))))))
+		(let* ((beg (point))
+		       (end (if mark-active (mark) (point)))
+		       (fr (log-view-current-tag beg))
+		       (to (log-view-current-tag end)))
+		  (when (string-equal fr to)
+		    (save-excursion
+		      (goto-char end)
+		      (log-view-msg-next)
+		      (setq to (log-view-current-tag))))
+		  (cons
+                   ;; The first revision has to be the one at point, for
+                   ;; operations that only take one revision
+                   ;; (e.g. cvs-mode-edit).
+		   (cons (log-view-current-file) fr)
+		   (cons (log-view-current-file) to))))))
     (let ((cvs-branch-prefix (cdar data))
 	  (cvs-secondary-branch-prefix (and (cdar data) (cddr data)))
 	  (cvs-minor-current-files
@@ -167,37 +250,37 @@
 	  (cvs-force-command "/F"))
       (funcall f))))
 
+(defun log-view-find-version (pos)
+  "Visit the version at point."
+  (interactive "d")
+  (save-excursion
+    (goto-char pos)
+    (switch-to-buffer (vc-find-version (log-view-current-file)
+                                       (log-view-current-tag)))))
+
+;;
+;; diff
+;;
+
+(defun log-view-diff (beg end)
+  "Get the diff between two revisions.
+If the mark is not active or the mark is on the revision at point,
+get the diff between the revision at point and its previous revision.
+Otherwise, get the diff between the revisions where the region starts
+and ends."
+  (interactive
+   (list (if mark-active (region-beginning) (point))
+         (if mark-active (region-end) (point))))
+  (let ((fr (log-view-current-tag beg))
+        (to (log-view-current-tag end)))
+    (when (string-equal fr to)
+      (save-excursion
+        (goto-char end)
+        (log-view-msg-next)
+        (setq to (log-view-current-tag))))
+    (vc-version-diff (log-view-current-file) to fr)))
+
 (provide 'log-view)
 
-;;; Change Log:
-;; $Log: log-view.el,v $
-;; Revision 1.1.1.1  2001/10/31 17:55:55  jevans
-;; Import emacs 21.1 onto the vendor branch.
-;;
-;; Revision 1.6  2000/12/18 03:17:31  monnier
-;; Remove useless Version.
-;;
-;; Revision 1.5  2000/12/06 19:49:40  fx
-;; Fix copyright years.
-;;
-;; Revision 1.4  2000/05/21 02:12:34  monnier
-;; Fix file description.
-;; (log-view-mode-map): Unsatisfying fix for when cvs-mode-map is not
-;; available.
-;; (log-view-font-lock-keywords): Only use cvs-filename-face if present.
-;; (log-view-current-file): Only use cvs-pcl-cvs-dirchange-re if present.
-;;
-;; Revision 1.3  2000/05/10 22:22:21  monnier
-;; (log-view-goto-rev): New function for the new VC.
-;; (log-view-minor-wrap): Use mark-active.
-;;
-;; Revision 1.2  2000/03/22 01:10:09  monnier
-;; (log-view-(msg|file)-(prev|next)): Rename from
-;; log-view-*-(message|file) and use easy-mmode-define-navigation.
-;; (log-view-message-re): Match SCCS format as well.
-;; And match the revision line rather than the dashed separator line.
-;; (log-view-mode): Use the new define-derived-mode.
-;; (log-view-current-tag): Fill in with an actual implementation.
-;;
-
+;; arch-tag: 0d64220b-ce7e-4f62-9c2a-6b04c2f81f4f
 ;;; log-view.el ends here

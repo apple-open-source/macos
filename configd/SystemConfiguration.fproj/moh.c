@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,15 +47,15 @@
 //       present in the system when we create the socket.
 
 
-static int
-readn(int ref, void *data, int len)
+static ssize_t
+readn(int ref, void *data, size_t len)
 {
-	int	left	= len;
-	int	n;
+	size_t	left	= len;
+	ssize_t	n;
 	void	*p	= data;
 
 	while (left > 0) {
-		if ((n = read(ref, p, left)) < 0) {
+		if ((n = read(ref, p, left)) == -1) {
 			if (errno != EINTR) {
 				return -1;
 			}
@@ -71,15 +71,15 @@ readn(int ref, void *data, int len)
 }
 
 
-static int
-writen(int ref, void *data, int len)
+static ssize_t
+writen(int ref, const void *data, size_t len)
 {
-	int	left	= len;
-	int	n;
-	void	*p	= data;
+	size_t		left	= len;
+	ssize_t		n;
+	const void	*p	= data;
 
 	while (left > 0) {
-		if ((n = write(ref, p, left)) <= 0) {
+		if ((n = write(ref, p, left)) == -1) {
 			if (errno != EINTR) {
 				return -1;
 			}
@@ -107,7 +107,7 @@ MOHInit(int *ref, CFStringRef deviceName)
 	strncpy(sun.sun_path, MOH_PATH, sizeof(sun.sun_path));
 
 	status = connect(sock, (struct sockaddr *)&sun, sizeof(sun));
-	if (status < 0) {
+	if (status == -1) {
 		return errno;
 	}
 
@@ -120,7 +120,7 @@ __private_extern__
 int
 MOHDispose(int ref)
 {
-	if (close(ref) < 0) {
+	if (close(ref) == -1) {
 		return errno;
 	}
 	return 0;
@@ -130,12 +130,12 @@ MOHDispose(int ref)
 __private_extern__
 int
 MOHExec(int		ref,
-	u_long		link,
+	uint32_t	link,
 	uint32_t	cmd,
 	void		*request,
-	u_long		requestLen,
+	size_t		requestLen,
 	void		**reply,
-	u_long		*replyLen)
+	size_t		*replyLen)
 {
 	struct moh_msg_hdr	msg;
 	char			*buf		= NULL;

@@ -1,0 +1,50 @@
+== Using Ruby Threads with RubyCocoa ==
+
+Using Ruby threads to call Objective-C APIs may result in random crashes 
+unless the Ruby interpreter has been patched.
+
+For the rationale behind this problem, please read:
+:
+http://lists.sourceforge.jp/mailman/archives/rubycocoa-devel/2006-August/000373.html
+
+We strongly recommend you to patch your version of Ruby if you plan to write
+RubyCocoa threading code.
+
+== Binary ==
+
+We provide a binary version of libruby 1.8.2 that have been already patched.
+
+This binary is meant to replace Apple's version of Ruby in Tiger.
+
+Installation is simple:
+
+1. Decompress the tarball
+
+   $ tar -xzf misc/libruby.1.dylib-tiger.tar.gz
+
+2. Copy the resulted binary to /usr/lib/libruby.1.dylib. Make a backup of the
+   previous version before.
+
+   $ sudo mv /usr/lib/libruby.1.dylib /usr/lib/libruby.1.dylib.old
+   $ sudo mv libruby.1.dylib /usr/lib/libruby.1.dylib
+
+== Manually Patching ==
+
+ruby_thread_hooks.diff is the patch that needs to be applied to the Ruby 
+interpreter. 
+
+The patch can be theoretically applied to any Ruby 1.8.x release (works fine
+with 1.8.6 and even with the latest patchlevel releases).
+
+Versions of Ruby below 1.8.x are not supported.
+
+The patch doesn't need to be applied before building RubyCocoa.
+
+Example:
+
+$ tar -xzf ruby-1.8.x.tar.gz
+$ cd ruby-1.8.x
+$ patch -p0 </path/to/ruby_thread_hooks.diff
+$ ./configure --enable-shared --enable-pthread
+$ make
+$ sudo make install

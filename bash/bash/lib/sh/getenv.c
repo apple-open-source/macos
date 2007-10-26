@@ -115,7 +115,7 @@ putenv (str)
       return -1;
     }
 
-  offset = assignment (str);
+  offset = assignment (str, 0);
   if (str[offset] != '=')
     {
       errno = EINVAL;
@@ -127,7 +127,7 @@ putenv (str)
   value = name + offset + 1;
 
   /* XXX - should we worry about readonly here? */
-  var = bind_variable (name, value);
+  var = bind_variable (name, value, 0);
   if (var == 0)
     {
       errno = EINVAL;
@@ -169,13 +169,13 @@ setenv (name, value, rewrite)
     }
 
   var = 0;
-  v = value;
+  v = (char *)value;	/* some compilers need explicit cast */
   /* XXX - should we worry about readonly here? */
   if (rewrite == 0)
     var = find_variable (name);
 
   if (var == 0)
-    var = bind_variable (name, v);
+    var = bind_variable (name, v, 0);
 
   if (var == 0)
     return -1;

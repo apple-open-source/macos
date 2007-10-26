@@ -1,0 +1,110 @@
+2005-04-20  Release Manager
+
+	* GCC 4.0.0 released.
+
+2005-02-14  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR bootstrap/19818
+	* ansidecl.h (PARAMS): Guard from redefinition.
+
+2004-12-11  Ben Elliston  <bje@au.ibm.com>
+
+	* fibheap.h (struct fibnode): Only use unsigned long bitfields
+	when __GNUC__ is defined and ints are less than 32-bits wide.
+
+2004-10-07  Bob Wilson  <bob.wilson@acm.org>
+
+	* xtensa-config.h (XSHAL_USE_ABSOLUTE_LITERALS,
+	XCHAL_HAVE_PREDICTED_BRANCHES, XCHAL_INST_FETCH_WIDTH): New.
+	(XCHAL_EXTRA_SA_SIZE, XCHAL_EXTRA_SA_ALIGN): Delete.
+
+2004-09-13  Aaron W. LaFramboise  <aaronavay62@aaronwl.com>
+
+	* libiberty.h (basename): Prototype for __MINGW32__.
+
+2004-09-04  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* ansidecl.h (ATTRIBUTE_SENTINEL): Define.
+	* libiberty.h (concat, reconcat, concat_length, concat_copy,
+	concat_copy2): Use ATTRIBUTE_SENTINEL.
+
+2004-08-02  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* libiberty.h (XDELETE, XDELETEVEC, XRESIZEVEC): Remove any
+	const-qualification before disposal.
+
+2004-07-24  Bernardo Innocenti  <bernie@develer.com>
+
+	* ansidecl.h (ARG_UNUSED): New Macro.
+
+2004-07-24  Bernardo Innocenti  <bernie@develer.com>
+
+	* libiberty.h (XNEW, XCNEW, XNEWVEC, XCNEWVEC, XOBNEW): Move here from
+	libcpp/internal.h.
+	(XDELETE, XRESIZEVEC, XDELETEVEC, XNEWVAR, XCNEWVAR, XRESIZEVAR): New
+	macros.
+
+2004-07-21  Paolo Bonzini  <bonzini@gnu.org>
+
+	* ansidecl.h (ATTRIBUTE_PURE): New.
+
+2004-07-13  Bernardo Innocenti  <bernie@develer.com>
+
+	* libiberty.h (ASTRDUP): Add casts required for stricter
+	type conversion rules of C++.
+	* obstack.h (obstack_free): Likewise.
+
+2004-05-04  Andreas Jaeger  <aj@suse.de>
+
+	* demangle.h: Do not use C++ reserved keyword typename as
+	parameter for cplus_demangle_fill_builtin_type.
+
+2004-04-22  Richard Henderson  <rth@redhat.com>
+
+	* hashtab.h (struct htab): Add size_prime_index.
+
+2004-04-13  Jeff Law  <law@redhat.com>
+ 
+	* hashtab.h (htab_remove_elt_with_hash): Prototype new function.
+ 
+2004-03-30  Zack Weinberg  <zack@codesourcery.com>
+
+	* hashtab.h, splay-tree.h: Use new shorter form of GTY markers.
+
+2004-02-24  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* dyn-string.h: Update copyright date.
+
+2004-02-23  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* dyn-string.h: Remove test of IN_LIBGCC2 and IN_GLIBCPP_V3 and
+	the associated #defines.
+
+2004-01-12  Ian Lance Taylor  <ian@wasabisystems.com>
+
+	* demangle.h: Instead of checking ANSI_PROTOTYPES, just include
+	"libiberty.h".
+
+	* demangle.h: If ANSI_PROTOTYPES is defined, include <stddef.h>.
+
+	* demangle.h (enum demangle_component_type): Define.
+	(struct demangle_operator_info): Declare.
+	(struct demangle_builtin_type_info): Declare.
+	(struct demangle_component): Define.
+	(cplus_demangle_fill_component): Declare.
+	(cplus_demangle_fill_name): Declare.
+	(cplus_demangle_fill_builtin_type): Declare.
+	(cplus_demangle_fill_operator): Declare.
+	(cplus_demangle_fill_extended_operator): Declare.
+	(cplus_demangle_fill_ctor, cplus_demangle_fill_dtor): Declare.
+	(cplus_demangle_v3_components): Declare.
+	(cplus_demangle_print): Declare.
+
+For older changes see ChangeLog-9103
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 74
+version-control: never
+End:

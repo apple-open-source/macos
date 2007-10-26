@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>PyRSS2Gen</string>
+		<key>OpenSourceVersion</key>
+		<string>1.0.0</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.dalkescientific.com/Python/PyRSS2Gen.html</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.dalkescientific.com/Python/PyRSS2Gen-1.0.0.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>fcea9beb59ca022ed89b254b2362ae5af386f01a</string>
+		<key>OpenSourceImportDate</key>
+		<string>2006-06-12</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>PyRSS2Gen.txt</string>
+	</dict>
+</array>
+</plist>

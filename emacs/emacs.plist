@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>Emacs</string>
+	<key>OpenSourceVersion</key>
+	<string>22.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/emacs/emacs.html</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/pub/gnu/emacs/emacs-22.1.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>6949df37caec2d7a2e0eee3f1b422726</string>
+	<key>OpenSourceImportDate</key>
+	<string>2007-06-02</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>MacOSX Build fixes</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>emacs.txt</string>
+</dict>
+</plist>

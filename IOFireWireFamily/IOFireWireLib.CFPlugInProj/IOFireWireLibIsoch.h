@@ -104,6 +104,11 @@
 											0xD3, 0x83, 0x76, 0x70, 0x44, 0x63, 0x11, 0xD7,\
 											0xB7, 0x9A, 0x00, 0x03, 0x93, 0x8B, 0xEB, 0x0A)
 
+//  uuid string: 6D1FDE59-50CE-4ED4-880A-9D13A4624038
+#define kIOFireWireAsyncStreamListenerInterfaceID  CFUUIDGetConstantUUIDWithBytes(kCFAllocatorDefault,\
+											0x6D, 0x1F, 0xDE, 0x59, 0x50, 0xCE, 0x4E, 0xD4,\
+											0x88, 0x0A, 0x90, 0x13, 0xA4, 0x62, 0x40, 0x38)
+
 
 typedef void	(*IOFireWireIsochChannelForceStopHandler)(
 	IOFireWireLibIsochChannelRef	interface, 
@@ -551,7 +556,10 @@ public:
 	DCLCommand*			(*AllocateTransferBufferDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt32 inOpcode, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 
 	DCLCommand*			(*AllocateSendPacketStartDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
+	
+	// AllocateSendPacketWithHeaderStartDCL has been deprecated! If you need this functionality, you should be using NuDCL!
 	DCLCommand*			(*AllocateSendPacketWithHeaderStartDCL)( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
+	
 	DCLCommand*			(*AllocateSendBufferDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 	DCLCommand*			(*AllocateSendPacketDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 
@@ -559,7 +567,7 @@ public:
 	DCLCommand*			(*AllocateReceivePacketDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize) ;
 	DCLCommand*			(*AllocateReceiveBufferDCL)		( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, void* inBuffer, IOByteCount inSize, IOByteCount inPacketSize, UInt32 inBufferOffset) ;
 
-	DCLCommand*			(*AllocateCallProcDCL)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCallCommandProc* inProc, UInt32 inProcData) ;
+	DCLCommand*			(*AllocateCallProcDCL)			( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLCallCommandProc* inProc, DCLCallProcDataType inProcData) ;
 	DCLCommand*			(*AllocateLabelDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL) ;
 	DCLCommand*			(*AllocateJumpDCL)				( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, DCLLabel* pInJumpDCLLabel) ;
 	DCLCommand*			(*AllocateSetTagSyncBitsDCL)	( IOFireWireLibDCLCommandPoolRef self, DCLCommand* inDCL, UInt16 inTagBits, UInt16 inSyncBits) ;
@@ -692,7 +700,7 @@ public:
 	/*!	@function SetDCLBranch
 		@abstract Set the branch pointer for a NuDCL
 		@discussion Program execution will jump to the DCL pointed to by 'branchDCL', after the DCL is executed. If set to 0, 
-			execution will continue with the next DCL in the program.
+			execution will stop after this DCL.
 		
 			This change will apply immediately to a non-running DCL program. To apply the change to a running program
 			use IOFireWireLocalIsochPortInterface::Notify()
@@ -937,5 +945,95 @@ public:
 	UInt8				(*GetDCLTagBits)( NuDCLRef dcl ) ;
 
 } IOFireWireNuDCLPoolInterface ;
+
+#pragma mark -
+#pragma mark ASYNCSTREAM LISTENER INTERFACE
+// ============================================================
+// IOFWAsyncStreamListener Interface
+// ============================================================
+
+typedef struct IOFWAsyncStreamListenerInterface_t
+{
+/*!	@class IOFWAsyncStreamListener (IOFireWireLib)
+	@discussion Represents and provides management functions for a asyn stream listener object.
+*/
+/* headerdoc parse workaround	
+class IOFWAsyncStreamListenerInterface: public IUnknown {
+public:
+*/
+	IUNKNOWN_C_GUTS ;
+	UInt16 version, revision ;
+
+	/*!	@function SetListenerHandler
+		@abstract Set the callback that should be called to handle incoming async stream packets
+		@param self The async stream interface to use.
+		@param inReceiver The callback to set.
+		@result Returns the callback that was previously set or nil for none.*/
+	const IOFWAsyncStreamListenerHandler (*SetListenerHandler)( IOFWAsyncStreamListenerInterfaceRef self, IOFWAsyncStreamListenerHandler inReceiver) ;
+
+	/*!	@function SetSkippedPacketHandler
+		@abstract Set the callback that should be called when incoming packets are
+			dropped by the address space.
+		@param self The address space interface to use.
+		@param inHandler The callback to set.
+		@result Returns the callback that was previously set or nil for none.*/
+	const IOFWAsyncStreamListenerSkippedPacketHandler (*SetSkippedPacketHandler)( IOFWAsyncStreamListenerInterfaceRef self, IOFWAsyncStreamListenerSkippedPacketHandler inHandler) ;
+
+	/*!	@function NotificationIsOn
+		@abstract Is notification on?
+		@param self The async stream interface to use.
+		@result Returns true if packet notifications for this channel are active */
+	Boolean (*NotificationIsOn)(IOFWAsyncStreamListenerInterfaceRef self) ;
+
+	/*!	@function TurnOnNotification
+		@abstract Try to turn on packet notifications for this channel.
+		@param self The async stream interface to use.
+		@result Returns true upon success */
+	Boolean (*TurnOnNotification)(IOFWAsyncStreamListenerInterfaceRef self) ;
+
+	/*!	@function TurnOffNotification
+		@abstract Force packet notification off.
+		@param self The async stream interface to use. */
+	void (*TurnOffNotification)(IOFWAsyncStreamListenerInterfaceRef self) ;	
+
+	/*!	@function ClientCommandIsComplete
+		@abstract Notify the async stream object that a packet notification handler has completed.
+		@discussion Packet notifications are received one at a time, in order. This function
+			must be called after a packet handler has completed its work.
+		@param self The async stream interface to use.
+		@param commandID The ID of the packet notification being completed. This is the same
+			ID that was passed when a packet notification handler is called.
+		@param status The completion status of the packet handler */
+	void (*ClientCommandIsComplete)(IOFWAsyncStreamListenerInterfaceRef self, FWClientCommandID commandID, IOReturn status) ;
+
+	// --- accessors ----------
+	
+	/*!	@function GetRefCon
+		@abstract Returns the user refCon value for this async stream interface.
+		@param self The async stream interface to use.
+		@result returns the callback object.*/
+	void* (*GetRefCon)(IOFWAsyncStreamListenerInterfaceRef self) ;
+
+	/*!	@function SetFlags
+		@abstract set flags for the listener.
+		@param self The async stream interface to use.
+		@param flags indicate performance metrics.
+		@result none.	*/	
+	void (*SetFlags)( IOFWAsyncStreamListenerInterfaceRef self, UInt32 flags );
+		
+	/*!	@function GetFlags
+		@abstract get the flags of listener.
+		@param self The async stream interface to use.
+		@result flags.	*/	
+	UInt32 (*GetFlags)(IOFWAsyncStreamListenerInterfaceRef self);
+	
+	
+	/*!	@function GetOverrunCounter
+		@abstract get overrun counter from the DCL program.
+		@param self The async stream interface to use.
+		@result returns the counter value.	*/	
+	UInt32 (*GetOverrunCounter)(IOFWAsyncStreamListenerInterfaceRef self);
+
+} IOFWAsyncStreamListenerInterface ;
 
 #endif //__IOFireWireLibIsoch_H__

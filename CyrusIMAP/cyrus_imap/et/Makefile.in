@@ -51,12 +51,16 @@ ARCHIVE = ar cr
 AWK = @AWK@
 SED = sed
 
+BI_RC_FLAGS = @BI_RC_FLAGS@
 DEFS = @DEFS@
 CPPFLAGS = @CPPFLAGS@
 LIBS = @LIBS@
 
 CFLAGS = @CFLAGS@ @BI_RC_CFLAGS@
-LDFLAGS = @LDFLAGS@
+LDFLAGS = @LDFLAGS@ @BI_RC_CFLAGS@
+
+#CFLAGS = @CFLAGS@ -arch ppc -arch i386
+#LDFLAGS = @LDFLAGS@ -arch ppc -arch i386
 
 SHELL = /bin/sh
 

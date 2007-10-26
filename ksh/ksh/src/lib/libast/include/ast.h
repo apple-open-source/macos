@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Advanced Software Technology Library
@@ -64,6 +60,9 @@ struct _sfio_s;
 #ifndef	__FILE_typedef
 #define __FILE_typedef	1
 #endif
+#ifndef _FILEDEFED
+#define _FILEDEFED	1
+#endif
 #endif
 
 /*
@@ -94,17 +93,20 @@ struct _sfio_s;
  * astconflist() flags
  */
 
-#define ASTCONF_parse		0x001
-#define ASTCONF_write		0x002
-#define ASTCONF_read		0x004
-#define ASTCONF_lower		0x008
-#define ASTCONF_base		0x010
-#define ASTCONF_defined		0x020
-#define ASTCONF_quote		0x040
-#define ASTCONF_table		0x080
-#define ASTCONF_matchcall	0x100
-#define ASTCONF_matchname	0x200
-#define ASTCONF_matchstandard	0x400
+#define ASTCONF_parse		0x0001
+#define ASTCONF_write		0x0002
+#define ASTCONF_read		0x0004
+#define ASTCONF_lower		0x0008
+#define ASTCONF_base		0x0010
+#define ASTCONF_defined		0x0020
+#define ASTCONF_quote		0x0040
+#define ASTCONF_table		0x0080
+#define ASTCONF_matchcall	0x0100
+#define ASTCONF_matchname	0x0200
+#define ASTCONF_matchstandard	0x0400
+#define ASTCONF_error		0x0800
+#define ASTCONF_system		0x1000
+#define ASTCONF_AST		0x2000
 
 /*
  * pathcanon() flags
@@ -162,6 +164,7 @@ typedef struct
 #define FMT_ESCAPED	0x02		/* already escaped		*/
 #define FMT_SHELL	0x04		/* escape $ ` too		*/
 #define FMT_WIDE	0x08		/* don't escape 8 bit chars	*/
+#define FMT_PARAM	0x10		/* disable FMT_SHELL ${$( quote	*/
 
 /*
  * multibyte macros
@@ -185,10 +188,13 @@ typedef struct
  */
 
 #define elementsof(x)	(sizeof(x)/sizeof(x[0]))
+#define integralof(x)	(((char*)(x))-((char*)0))
 #define newof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)calloc(1,sizeof(t)*(n)+(x)))
 #define oldof(p,t,n,x)	((p)?(t*)realloc((char*)(p),sizeof(t)*(n)+(x)):(t*)malloc(sizeof(t)*(n)+(x)))
+#define pointerof(x)	((void*)((char*)0+(x)))
 #define roundof(x,y)	(((x)+(y)-1)&~((y)-1))
 #define ssizeof(x)	((int)sizeof(x))
+
 #define streq(a,b)	(*(a)==*(b)&&!strcmp(a,b))
 #define strneq(a,b,n)	(*(a)==*(b)&&!strncmp(a,b,n))
 #define strsignal(s)	fmtsignal(s)
@@ -227,7 +233,7 @@ typedef int (*Strcmp_f)(const char*, const char*);
 #define extern		__EXPORT__
 #endif
 
-extern char*		astgetconf(const char*, const char*, const char*, Error_f);
+extern char*		astgetconf(const char*, const char*, const char*, int, Error_f);
 extern char*		astconf(const char*, const char*, const char*);
 extern Ast_confdisc_f	astconfdisc(Ast_confdisc_f);
 extern void		astconflist(Sfio_t*, const char*, int, const char*);
@@ -240,9 +246,10 @@ extern ssize_t		base64encode(const void*, size_t, void**, void*, size_t, void**)
 extern ssize_t		base64decode(const void*, size_t, void**, void*, size_t, void**);
 extern int		chresc(const char*, char**);
 extern int		chrtoi(const char*);
+extern int		eaccess(const char*, int);
 extern char*		fmtbase(long, int, int);
-extern char*		fmtbasell(_ast_intmax_t, int, int);
-#define fmtbase(a,b,c)	fmtbasell((_ast_intmax_t)(a),b,c) /* until 2003-09-01 */
+extern char*		fmtbasell(intmax_t, int, int);
+#define fmtbase(a,b,c)	fmtbasell((intmax_t)(a),b,c) /* until 2003-09-01 */
 extern char*		fmtbuf(size_t);
 extern char*		fmtclock(Sfulong_t);
 extern char*		fmtelapsed(unsigned long, int);
@@ -250,7 +257,7 @@ extern char*		fmterror(int);
 extern char*		fmtesc(const char*);
 extern char*		fmtesq(const char*, const char*);
 extern char*		fmtident(const char*);
-extern char*		fmtip4(unsigned _ast_int4_t, int);
+extern char*		fmtip4(uint32_t, int);
 extern char*		fmtfmt(const char*);
 extern char*		fmtgid(int);
 extern char*		fmtmatch(const char*);
@@ -307,9 +314,9 @@ extern char*		strncopy(char*, const char*, size_t);
 extern double		strntod(const char*, size_t, char**);
 extern _ast_fltmax_t	strntold(const char*, size_t, char**);
 extern long		strntol(const char*, size_t, char**, int);
-extern _ast_intmax_t	strntoll(const char*, size_t, char**, int);
+extern intmax_t		strntoll(const char*, size_t, char**, int);
 extern unsigned long	strntoul(const char*, size_t, char**, int);
-extern unsigned _ast_intmax_t	strntoull(const char*, size_t, char**, int);
+extern uintmax_t	strntoull(const char*, size_t, char**, int);
 extern int		stropt(const char*, const void*, int, int(*)(void*, const void*, int, const char*), void*);
 extern int		strperm(const char*, char**, int);
 extern void*		strpsearch(const void*, size_t, size_t, const char*, char**);
@@ -318,9 +325,9 @@ extern void		strsort(char**, int, int(*)(const char*, const char*));
 extern char*		strsubmatch(const char*, const char*, int);
 extern unsigned long	strsum(const char*, unsigned long);
 extern char*		strtape(const char*, char**);
-extern int		strtoip4(const char*, char**, unsigned _ast_int4_t*, unsigned char*);
+extern int		strtoip4(const char*, char**, uint32_t*, unsigned char*);
 extern long		strton(const char*, char**, char*, int);
-extern _ast_intmax_t	strtonll(const char*, char**, char*, int);
+extern intmax_t		strtonll(const char*, char**, char*, int);
 extern int		struid(const char*);
 extern int		struniq(char**, int);
 
@@ -349,51 +356,6 @@ extern char**		environ;
 
 #define VMFL	1
 #include <vmalloc.h>
-
-#if defined(__STDPP__directive) && defined(__STDPP__ignore)
-
-__STDPP__directive pragma pp:ignore "malloc.h"
-
-#else
-
-#ifndef _malloc_h
-#define _malloc_h
-#endif
-#ifndef _malloc_h_
-#define _malloc_h_
-#endif
-#ifndef __malloc_h
-#define __malloc_h
-#endif
-#ifndef __malloc_h__
-#define __malloc_h__
-#endif
-#ifndef _MALLOC_H
-#define _MALLOC_H
-#endif
-#ifndef _MALLOC_H_
-#define _MALLOC_H_
-#endif
-#ifndef __MALLOC_H
-#define __MALLOC_H
-#endif
-#ifndef __MALLOC_H__
-#define __MALLOC_H__
-#endif
-#ifndef _MALLOC_INCLUDED
-#define _MALLOC_INCLUDED
-#endif
-#ifndef __MALLOC_INCLUDED
-#define __MALLOC_INCLUDED
-#endif
-#ifndef _H_MALLOC
-#define _H_MALLOC
-#endif
-#ifndef __H_MALLOC
-#define __H_MALLOC
-#endif
-
-#endif
 
 #endif
 

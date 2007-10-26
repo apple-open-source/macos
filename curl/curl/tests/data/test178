@@ -1,3 +1,4 @@
+<testcase>
 #
 # Server-side
 <reply>
@@ -35,8 +36,8 @@ http://%HOSTIP:%HTTPPORT/178
 <protocol>
 GET /178 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

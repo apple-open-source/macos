@@ -6,6 +6,8 @@
 /* MSK, 02/02/05, Changed HAVE_TERMIOS_H to an undef since the change in   */
 /*                getpass.c no longer undef'd it during compile.           */
 /* MSK, 02/08/05, turned two config-vms files into one by using USE_SSLEAY */
+/* MPZ, 12/28/05, changed HAVE_STRTOK_R define to use CRTL_VER             */
+/* MSK, 01/27/07, needed to add HAVE_STRUCT_TIMEVAL define                 */
 
 /* Define cpu-machine-OS */
 #ifdef __ALPHA
@@ -96,6 +98,9 @@
 /* Define if you have the strstr function.  */
 #define  HAVE_STRSTR 1
 
+/* Define if you have the ftruncate function. */
+#define HAVE_FTRUNCATE 1
+
 /* Define if you have the uname function.  */
 #define HAVE_UNAME 1
 
@@ -110,6 +115,9 @@
 
 /* Define if you have the <malloc.h> header file.  */
 #define HAVE_MALLOC_H 1
+
+/* Define if you need the malloc.h header header file even with stdlib.h  */
+/* #define NEED_MALLOC_H 1 */
 
 /* Define if you have the <net/if.h> header file.  */
 #define HAVE_NET_IF_H 1
@@ -204,7 +212,11 @@
 /* Define if getaddrinfo exists and works */
 #define HAVE_GETADDRINFO 1
 
+/* Define if you have the <timeval.h> header file.  */
 #define	HAVE_TIMEVAL_H	1
+
+/* Define if you have the timeval struct.  */
+#define	HAVE_STRUCT_TIMEVAL 1
 
 /* Name of this package! */
 #define PACKAGE "not-used"
@@ -227,11 +239,9 @@
 /* Define if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
-/* Define if you have the `strtok_r' function.       */
-/* Seems VAX V7.3 with DEC C 6.4 doesn't define this */
-#ifdef __VAX
-#undef HAVE_STRTOK_R
-#else
+/* Define if you have the `strtok_r' function.  */
+/* Condition lifted from <string.h>             */
+#if __CRTL_VER >= 70301000
 #define HAVE_STRTOK_R 1
 #endif
 
@@ -271,3 +281,64 @@
 
 /* Somewhere around 7.12.0 HAVE_INET_NTOP was introduced. */
 #define HAVE_INET_NTOP 1
+
+/* to disable LDAP */
+#define CURL_DISABLE_LDAP 1
+
+/* Define if you have the getnameinfo function. */
+#define HAVE_GETNAMEINFO 1
+
+/* Define to the type qualifier of arg 1 for getnameinfo. */
+#define GETNAMEINFO_QUAL_ARG1 const
+
+/* Define to the type of arg 1 for getnameinfo. */
+#define GETNAMEINFO_TYPE_ARG1 struct sockaddr *
+
+/* Define to the type of arg 2 for getnameinfo. */
+#define GETNAMEINFO_TYPE_ARG2 socklen_t
+
+/* Define to the type of args 4 and 6 for getnameinfo. */
+#define GETNAMEINFO_TYPE_ARG46 size_t
+
+/* Define to the type of arg 7 for getnameinfo. */
+#define GETNAMEINFO_TYPE_ARG7 int
+
+/* Define if you have the recv function. */
+#define HAVE_RECV 1
+
+/* Define to the type of arg 1 for recv. */
+#define RECV_TYPE_ARG1 int
+
+/* Define to the type of arg 2 for recv. */
+#define RECV_TYPE_ARG2 void *
+
+/* Define to the type of arg 3 for recv. */
+#define RECV_TYPE_ARG3 int
+
+/* Define to the type of arg 4 for recv. */
+#define RECV_TYPE_ARG4 int
+
+/* Define to the function return type for recv. */
+#define RECV_TYPE_RETV int
+
+/* Define if you have the send function. */
+#define HAVE_SEND 1
+
+/* Define to the type of arg 1 for send. */
+#define SEND_TYPE_ARG1 int
+
+/* Define to the type qualifier of arg 2 for send. */
+#define SEND_QUAL_ARG2 const
+
+/* Define to the type of arg 2 for send. */
+#define SEND_TYPE_ARG2 void *
+
+/* Define to the type of arg 3 for send. */
+#define SEND_TYPE_ARG3 int
+
+/* Define to the type of arg 4 for send. */
+#define SEND_TYPE_ARG4 int
+
+/* Define to the function return type for send. */
+#define SEND_TYPE_RETV int
+

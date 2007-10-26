@@ -433,9 +433,11 @@ int nsuccesses = 0;
 	RAIDDevicePtr newLeaf = &gMembers[gTotalMembers++];  // burn entries
 	if(FillInLeaf(partSpec, newLeaf))  continue;
 
-	// is this the master (from whose Apple_Boot we loaded?
+	// is this the master (from whose Apple_Boot we loaded)?
+	// if either device doesn't exist (e.g. if both FindDevice calls
+	// returned NULL), we'd fail later.
         if(FindDevice(newLeaf->path) == FindDevice(masterMemberPath)) {
-printf("raid: found member affiliated with our boot device\n");
+	  printf("raid: found member affiliated with our boot device\n");
           gRAIDMaster = newLeaf;
        }
 

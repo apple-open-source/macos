@@ -20,7 +20,7 @@
 
 #include "python/py_lsa.h"
 
-PyObject *new_lsa_policy_hnd_object(struct cli_state *cli, TALLOC_CTX *mem_ctx,
+PyObject *new_lsa_policy_hnd_object(struct rpc_pipe_client *cli, TALLOC_CTX *mem_ctx,
 				    POLICY_HND *pol)
 {
 	lsa_policy_hnd_object *o;
@@ -89,15 +89,15 @@ static PyObject *lsa_open_policy(PyObject *self, PyObject *args,
 		goto done;
 	}
 
-	ntstatus = cli_lsa_open_policy(cli, mem_ctx, True,
-				       desired_access, &hnd);
+	ntstatus = rpccli_lsa_open_policy(
+		cli->pipe_list, mem_ctx, True, desired_access, &hnd);
 
 	if (!NT_STATUS_IS_OK(ntstatus)) {
 		PyErr_SetObject(lsa_ntstatus, py_ntstatus_tuple(ntstatus));
 		goto done;
 	}
 
-	result = new_lsa_policy_hnd_object(cli, mem_ctx, &hnd);
+	result = new_lsa_policy_hnd_object(cli->pipe_list, mem_ctx, &hnd);
 
 done:
 	if (!result) {
@@ -125,7 +125,7 @@ static PyObject *lsa_close(PyObject *self, PyObject *args, PyObject *kw)
 
 	/* Call rpc function */
 
-	result = cli_lsa_close(hnd->cli, hnd->mem_ctx, &hnd->pol);
+	result = rpccli_lsa_close(hnd->cli, hnd->mem_ctx, &hnd->pol);
 
 	/* Cleanup samba stuff */
 
@@ -147,7 +147,7 @@ static PyObject *lsa_lookup_names(PyObject *self, PyObject *args)
 	const char **names;
 	DOM_SID *sids;
 	TALLOC_CTX *mem_ctx = NULL;
-	uint32 *name_types;
+	enum lsa_SidType *name_types;
 
 	if (!PyArg_ParseTuple(args, "O", &py_names))
 		return NULL;
@@ -167,7 +167,7 @@ static PyObject *lsa_lookup_names(PyObject *self, PyObject *args)
 		/* Convert list to char ** array */
 
 		num_names = PyList_Size(py_names);
-		names = (const char **)talloc(mem_ctx, num_names * sizeof(char *));
+		names = (const char **)_talloc(mem_ctx, num_names * sizeof(char *));
 		
 		for (i = 0; i < num_names; i++) {
 			PyObject *obj = PyList_GetItem(py_names, i);
@@ -180,13 +180,14 @@ static PyObject *lsa_lookup_names(PyObject *self, PyObject *args)
 		/* Just a single element */
 
 		num_names = 1;
-		names = (const char **)talloc(mem_ctx, sizeof(char *));
+		names = (const char **)_talloc(mem_ctx, sizeof(char *));
 
 		names[0] = PyString_AsString(py_names);
 	}
 
-	ntstatus = cli_lsa_lookup_names(hnd->cli, mem_ctx, &hnd->pol,
-					num_names, names, &sids, &name_types);
+	ntstatus = rpccli_lsa_lookup_names(
+		hnd->cli, mem_ctx, &hnd->pol, num_names, names, 
+		NULL, &sids, &name_types);
 
 	if (!NT_STATUS_IS_OK(ntstatus) && NT_STATUS_V(ntstatus) != 0x107) {
 		PyErr_SetObject(lsa_ntstatus, py_ntstatus_tuple(ntstatus));
@@ -241,7 +242,7 @@ static PyObject *lsa_lookup_sids(PyObject *self, PyObject *args,
 		/* Convert dictionary to char ** array */
 		
 		num_sids = PyList_Size(py_sids);
-		sids = (DOM_SID *)talloc(mem_ctx, num_sids * sizeof(DOM_SID));
+		sids = (DOM_SID *)_talloc(mem_ctx, num_sids * sizeof(DOM_SID));
 		
 		memset(sids, 0, num_sids * sizeof(DOM_SID));
 		
@@ -259,7 +260,7 @@ static PyObject *lsa_lookup_sids(PyObject *self, PyObject *args,
 		/* Just a single element */
 
 		num_sids = 1;
-		sids = (DOM_SID *)talloc(mem_ctx, sizeof(DOM_SID));
+		sids = (DOM_SID *)_talloc(mem_ctx, sizeof(DOM_SID));
 
 		if (!string_to_sid(&sids[0], PyString_AsString(py_sids))) {
 			PyErr_SetString(PyExc_ValueError, "string_to_sid failed");
@@ -267,9 +268,9 @@ static PyObject *lsa_lookup_sids(PyObject *self, PyObject *args,
 		}
 	}
 
-	ntstatus = cli_lsa_lookup_sids(hnd->cli, mem_ctx, &hnd->pol,
-				       num_sids, sids, &domains, &names, 
-				       &types);
+	ntstatus = rpccli_lsa_lookup_sids(
+		hnd->cli, mem_ctx, &hnd->pol, num_sids, sids, &domains, 
+		&names, &types);
 
 	if (!NT_STATUS_IS_OK(ntstatus)) {
 		PyErr_SetObject(lsa_ntstatus, py_ntstatus_tuple(ntstatus));
@@ -306,7 +307,7 @@ static PyObject *lsa_enum_trust_dom(PyObject *self, PyObject *args)
 	if (!PyArg_ParseTuple(args, ""))
 		return NULL;
 	
-	ntstatus = cli_lsa_enum_trust_dom(
+	ntstatus = rpccli_lsa_enum_trust_dom(
 		hnd->cli, hnd->mem_ctx, &hnd->pol, &enum_ctx,
 		&num_domains, &domain_names, &domain_sids);
 
@@ -480,5 +481,5 @@ void initlsa(void)
 	py_samba_init();
 
 	setup_logging("lsa", True);
-	SAMBA_DEBUGLEVEL = 10;
+	DEBUGLEVEL = 10;
 }

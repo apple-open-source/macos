@@ -1,6 +1,6 @@
---- variable.c.orig	Fri Oct 29 16:30:02 2004
-+++ variable.c	Fri Oct 29 16:33:36 2004
-@@ -78,6 +78,40 @@
+--- variable.c.orig	2005-09-25 22:16:31.000000000 -0700
++++ variable.c	2006-04-10 12:23:51.000000000 -0700
+@@ -144,6 +144,41 @@
  
  /* Implement variables.  */
  
@@ -13,6 +13,7 @@
 +  char *p;
 +
 +  if (length == 20 && !strncmp (name, "USE_APPLE_PB_SUPPORT", length)) {
++    //if (makelevel == 0) error(NILF, "USE_APPLE_PB_SUPPORT is deprecated");
 +    for (p = value; *p != '\0'; p++) {
 +      if (isspace (*p)) {
 +	continue;
@@ -39,16 +40,16 @@
 +#endif /* __APPLE__ || NeXT || NeXT_PDO */
 +
  void
- init_hash_global_variable_set ()
+ init_hash_global_variable_set (void)
  {
-@@ -105,6 +139,10 @@
-   struct variable *v;
+@@ -168,6 +203,10 @@
    struct variable **var_slot;
    struct variable var_key;
-+
+ 
 +#if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
 +  check_apple_pb_support (name, length, value);
 +#endif /* __APPLE__ || NeXT || NeXT_PDO */
- 
++
    if (set == NULL)
      set = &global_variable_set;
+ 

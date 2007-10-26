@@ -35,6 +35,8 @@
 #include <security_cdsa_utilities/cssmkey.h>
 #include <security_utilities/unix++.h>
 
+#define __MigTypeCheck 1
+
 
 namespace Security {
 namespace Tokend {

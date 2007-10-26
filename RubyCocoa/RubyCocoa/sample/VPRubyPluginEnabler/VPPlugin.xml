@@ -1,0 +1,55 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <constant name='VPAliasType' type='@'/>
+  <constant name='VPFileAliasType' type='@'/>
+  <constant name='VPInjectedFileType' type='@'/>
+  <constant name='VPInjectionCompleteNotification' type='@'/>
+  <constant name='VPPageType' type='@'/>
+  <constant name='VPPlainTextPage' type='@'/>
+  <constant name='VPRichTextPage' type='@'/>
+  <constant name='VPURLType' type='@'/>
+  <class name='VPData'>
+    <method selector='isURL'>
+      <retval type='B'/>
+    </method>
+    <method selector='isEncrypted'>
+      <retval type='B'/>
+    </method>
+    <method selector='skipOnExport'>
+      <retval type='B'/>
+    </method>
+  </class>
+  <class name='VPExporter'>
+    <method selector='shouldCancel'>
+      <retval type='B'/>
+    </method>
+  </class>
+  <class name='VPPlugin'>
+    <method selector='validateAction:forPageType:userObject:'>
+      <retval type='B'/>
+    </method>
+  </class>
+  <class name='VPPluginManager'>
+    <method selector='addPluginsMenuTitle:withSuperMenuTitle:target:action:keyEquivalent:keyEquivalentModifierMask:'>
+      <retval type='B'/>
+    </method>
+    <method selector='addPluginsMenuTitle:withSuperMenuTitle:target:action:keyEquivalent:keyEquivalentModifierMask:userObject:'>
+      <retval type='B'/>
+    </method>
+    <method selector='registerPluginAppleScriptName:target:action:'>
+      <retval type='B'/>
+    </method>
+    <method selector='registerURLHandler:'>
+      <retval type='B'/>
+    </method>
+  </class>
+  <class name='VPURLHandler'>
+    <method selector='canHandleURL:'>
+      <retval type='B'/>
+    </method>
+    <method selector='handleURL:'>
+      <retval type='B'/>
+    </method>
+  </class>
+</signatures>

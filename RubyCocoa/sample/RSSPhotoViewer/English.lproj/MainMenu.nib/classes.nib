@@ -1,0 +1,26 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = IKImageBrowserView; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_dataSource" = id; 
+                "_delegate" = id; 
+                "_dragDestinationDelegate" = id; 
+                "_horizontalScroller" = NSScroller; 
+                "_verticalScroller" = NSScroller; 
+            }; 
+            SUPERCLASS = NSView; 
+        }, 
+        {CLASS = NSObject; LANGUAGE = ObjC; }, 
+        {
+            ACTIONS = {parse = id; zoomChanged = id; }; 
+            CLASS = RSSWindowController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {imageBrowserView = id; }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

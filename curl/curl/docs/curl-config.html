@@ -54,6 +54,8 @@ p.roffit {
 <p class="level1">Displays the compiler used to build libcurl. 
 <p class="level0"><a name="--cflags"></a><span class="nroffip">--cflags</span> 
 <p class="level1">Set of compiler options (CFLAGS) to use when compiling files that use libcurl. Currently that is only thw include path to the curl include files. 
+<p class="level0"><a name="--checkfor"></a><span class="nroffip">--checkfor [version]</span> 
+<p class="level1">Specify the oldest possible libcurl version string you want, and this  script will return 0 if the current installation is new enough or it  returns 1 and outputs a text saying that the current version is not new  enough. (Added in 7.15.4) 
 <p class="level0"><a name="--feature"></a><span class="nroffip">--feature</span> 
 <p class="level1">Lists what particular main features the installed libcurl was built with. At the time of writing, this list may include SSL, KRB4 or IPv6. Do not assume any particular order. The keywords will be separated by newlines. There may be none, one or several keywords in the list. 
 <p class="level0"><a name="--help"></a><span class="nroffip">--help</span> 
@@ -63,11 +65,11 @@ p.roffit {
 <p class="level0"><a name="--prefix"></a><span class="nroffip">--prefix</span> 
 <p class="level1">This is the prefix used when libcurl was installed. Libcurl is then installed in $prefix/lib and its header files are installed in $prefix/include and so on. The prefix is set with "configure --prefix". 
 <p class="level0"><a name="--protocols"></a><span class="nroffip">--protocols</span> 
-<p class="level1">Lists what particular protocols the installed libcurl was built to support. At the time of writing, this list may include HTTP, HTTPS, FTP, FTPS, GOPHER, FILE, TELNET, LDAP, DICT. Do not assume any particular order. The protocols will be listed using uppercase and are separated by newlines. There may be none, one or several protocols in the list. (Added in 7.13.0) 
+<p class="level1">Lists what particular protocols the installed libcurl was built to support. At the time of writing, this list may include HTTP, HTTPS, FTP, FTPS, FILE, TELNET, LDAP, DICT. Do not assume any particular order. The protocols will be listed using uppercase and are separated by newlines. There may be none, one or several protocols in the list. (Added in 7.13.0) 
 <p class="level0"><a name="--version"></a><span class="nroffip">--version</span> 
 <p class="level1">Outputs version information about the installed libcurl. 
 <p class="level0"><a name="--vernum"></a><span class="nroffip">--vernum</span> 
-<p class="level1">Outputs version information about the installed libcurl, in numerical mode. This outputs the version number, in hexadecimal, with 8 bits for each part; major, minor, patch. So that libcurl 7.7.4 would appear as 070704 and libcurl 12.13.14 would appear as 0c0d0e... Note that the initial zero might be omitted. <a name="EXAMPLES"></a><h2 class="nroffsh">EXAMPLES</h2>
+<p class="level1">Outputs version information about the installed libcurl, in numerical mode. This outputs the version number, in hexadecimal, with 8 bits for each part; major, minor, patch. So that libcurl 7.7.4 would appear as 070704 and libcurl 12.13.14 would appear as 0c0d0e... Note that the initial zero might be omitted. (This option was broken in the 7.15.0 release.) <a name="EXAMPLES"></a><h2 class="nroffsh">EXAMPLES</h2>
 <p class="level0">What linker options do I need when I link with libcurl? 
 <p class="level0">&nbsp; $ curl-config --libs 
 <p class="level0">What compiler options do I need when I compile using libcurl functions? 

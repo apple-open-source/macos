@@ -22,4 +22,6 @@ void info_task_command (char *args, int from_tty);
 void info_thread_command (char *tidstr, int from_tty);
 thread_t get_application_thread_port (thread_t our_name);
 
+void macosx_prune_threads (thread_array_t thread_list, unsigned int nthreads);
+
 #endif /* __GDB_MACOSX_NAT_INFTHREAD_H__ */

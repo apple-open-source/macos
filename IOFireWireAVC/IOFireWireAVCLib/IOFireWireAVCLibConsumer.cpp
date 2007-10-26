@@ -455,7 +455,7 @@ IOReturn IOFireWireAVCLibConsumer::init( IOFireWireAVCLibUnitInterface ** avcUni
 	if( status == kIOReturnSuccess )
 	{
 		fService = (*fFWUnit)->GetDevice( fFWUnit );
-		if( fService == NULL )
+		if( fService == (io_object_t)NULL )
 			status = kIOReturnError;
 	}
 	
@@ -772,11 +772,11 @@ IOReturn IOFireWireAVCLibConsumer::doConnectToRemotePlug( void )
         cmd.subfunction 				= ALLOCATE_ATTACH;			// Subfunction = ALLOCATE_ATTACH
         cmd.status 						= 0xff;						// status = N/A
         cmd.plug_id 					= fRemotePlugNumber;		// plugID = plug number
-        cmd.plug_offset_hi 				= 0xffff;
-        cmd.plug_offset_lo 				= 0xffffffff;		// any producer port	
-        cmd.connected_node_id 			= 0xffc0 | localNodeID;
-        cmd.connected_plug_offset_hi	= AddressHi(address.addressHi);
-        cmd.connected_plug_offset_lo	= AddressLo_PortBits(address.addressLo, kAVCConcurrentWrites | kAVCMulticast );
+        cmd.plug_offset_hi 				= OSSwapHostToBigInt16(0xffff);
+        cmd.plug_offset_lo 				= OSSwapHostToBigInt32(0xffffffff);		// any producer port	
+        cmd.connected_node_id 			= OSSwapHostToBigInt16(0xffc0 | localNodeID);
+        cmd.connected_plug_offset_hi	= OSSwapHostToBigInt16(AddressHi(address.addressHi));
+        cmd.connected_plug_offset_lo	= OSSwapHostToBigInt32(AddressLo_PortBits(address.addressLo, kAVCConcurrentWrites | kAVCMulticast ));
         cmd.connected_plug_id			= fLocalPlugNumber;
         cmd.connection_count			= Ex_ConnectionCount(0x1,0x3f);
         cmd.write_interval_retry_count 	= WriteInterval_RetryCount(0x00,0x00);
@@ -789,6 +789,16 @@ IOReturn IOFireWireAVCLibConsumer::doConnectToRemotePlug( void )
     if( status == kIOReturnSuccess )
     {
         status = (*fAVCUnit)->AVCCommandInGeneration( fAVCUnit, generation, (UInt8*)&cmd, sizeof(cmd), (UInt8*)&response, &responseLength );
+		
+		// Fix up endian issues here!
+		if (responseLength >= sizeof(ACAVCCommand))
+		{
+			response.plug_offset_hi = OSSwapBigToHostInt16(response.plug_offset_hi);
+			response.plug_offset_lo = OSSwapBigToHostInt32(response.plug_offset_lo);
+			response.connected_node_id = OSSwapBigToHostInt16(response.connected_node_id);
+			response.connected_plug_offset_hi = OSSwapBigToHostInt16(response.connected_plug_offset_hi);
+			response.connected_plug_offset_lo = OSSwapBigToHostInt32(response.connected_plug_offset_lo);
+		}
     }
     
     if( status == kIOReturnSuccess )
@@ -896,11 +906,11 @@ IOReturn IOFireWireAVCLibConsumer::disconnectFromRemotePlug( void * self )
                 cmd.subfunction 				= DETACH_RELEASE;			// Subfunction = DETACH_RELEASE
                 cmd.status 						= 0xff;						// status = N/A
                 cmd.plug_id 					= me->fRemotePlugNumber;	// plugID = plug number
-                cmd.plug_offset_hi 				= 0xffff;
-                cmd.plug_offset_lo 				= AddressLoToMaskedPortID(me->fRemotePlugAddress.addressLo);
-                cmd.connected_node_id 			= 0xffff;
-                cmd.connected_plug_offset_hi	= 0xffff;
-                cmd.connected_plug_offset_lo	= 0xffffffff;
+                cmd.plug_offset_hi 				= OSSwapHostToBigInt16(0xffff);
+                cmd.plug_offset_lo 				= OSSwapHostToBigInt32(AddressLoToMaskedPortID(me->fRemotePlugAddress.addressLo));
+                cmd.connected_node_id 			= OSSwapHostToBigInt16(0xffff);
+                cmd.connected_plug_offset_hi	= OSSwapHostToBigInt16(0xffff);
+                cmd.connected_plug_offset_lo	= OSSwapHostToBigInt32(0xffffffff);
                 cmd.connected_plug_id			= 0xff;
                 cmd.connection_count			= Ex_ConnectionCount(0x1,0x3f);
                 cmd.write_interval_retry_count 	= WriteInterval_RetryCount(0xf,0xf);
@@ -911,6 +921,16 @@ IOReturn IOFireWireAVCLibConsumer::disconnectFromRemotePlug( void * self )
             {
                 responseLength = sizeof(response);
 				status = (*me->fAVCUnit)->AVCCommandInGeneration( me->fAVCUnit, me->fGeneration, (UInt8*)&cmd, sizeof(cmd), (UInt8*)&response, &responseLength );
+				
+				// Fix up endian issues here!
+				if (responseLength >= sizeof(ACAVCCommand))
+				{
+					response.plug_offset_hi = OSSwapBigToHostInt16(response.plug_offset_hi);
+					response.plug_offset_lo = OSSwapBigToHostInt32(response.plug_offset_lo);
+					response.connected_node_id = OSSwapBigToHostInt16(response.connected_node_id);
+					response.connected_plug_offset_hi = OSSwapBigToHostInt16(response.connected_plug_offset_hi);
+					response.connected_plug_offset_lo = OSSwapBigToHostInt32(response.connected_plug_offset_lo);
+				}
             }
             
 			if( status == kIOFireWireBusReset )
@@ -1161,11 +1181,11 @@ void IOFireWireAVCLibConsumer::deviceInterestCallback( natural_t type, void * ar
                                 cmd.subfunction 				= RESTORE_PORT;				// Subfunction = RESTORE_PORT
                                 cmd.status 						= 0xff;						// status = N/A
                                 cmd.plug_id 					= fRemotePlugNumber;		// plugID = plug number
-                                cmd.plug_offset_hi 				= 0xffff;
-                                cmd.plug_offset_lo 				= AddressLoToMaskedPortID(fRemotePlugAddress.addressLo);			
-                                cmd.connected_node_id 			= 0xffc0 | localNodeID;
-                                cmd.connected_plug_offset_hi	= 0xffff;
-                                cmd.connected_plug_offset_lo	= AddressLoToMaskedPortID(0x00000000);
+                                cmd.plug_offset_hi 				= OSSwapHostToBigInt16(0xffff);
+                                cmd.plug_offset_lo 				= OSSwapHostToBigInt32(AddressLoToMaskedPortID(fRemotePlugAddress.addressLo));			
+                                cmd.connected_node_id 			= OSSwapHostToBigInt16(0xffc0 | localNodeID);
+                                cmd.connected_plug_offset_hi	= OSSwapHostToBigInt16(0xffff);
+                                cmd.connected_plug_offset_lo	= OSSwapHostToBigInt32(AddressLoToMaskedPortID(0x00000000));
                                 cmd.connected_plug_id			= 0xff;
                                 cmd.connection_count			= Ex_ConnectionCount(0x1,0x3f);
                                 cmd.write_interval_retry_count 	= WriteInterval_RetryCount(0xf,0xf);
@@ -1176,6 +1196,16 @@ void IOFireWireAVCLibConsumer::deviceInterestCallback( natural_t type, void * ar
                             if( status == kIOReturnSuccess )
                             {
                                 status = (*fAVCUnit)->AVCCommandInGeneration( fAVCUnit, generation, (UInt8*)&cmd, sizeof(cmd), (UInt8*)&response, &responseLength );
+								
+								// Fix up endian issues here!
+								if (responseLength >= sizeof(ACAVCCommand))
+								{
+									response.plug_offset_hi = OSSwapBigToHostInt16(response.plug_offset_hi);
+									response.plug_offset_lo = OSSwapBigToHostInt32(response.plug_offset_lo);
+									response.connected_node_id = OSSwapBigToHostInt16(response.connected_node_id);
+									response.connected_plug_offset_hi = OSSwapBigToHostInt16(response.connected_plug_offset_hi);
+									response.connected_plug_offset_lo = OSSwapBigToHostInt32(response.connected_plug_offset_lo);
+								}
                             }
                             
 							if( status == kIOReturnSuccess )
@@ -1508,7 +1538,7 @@ IOReturn IOFireWireAVCLibConsumer::updateProducerRegister( UInt32 newVal, UInt32
 	do
 	{
 		FWLOG(( "IOFireWireAVCLibConsumer::updateProducerRegister sending CompareAndSwap(0x%08lx,0x%08lx) to producer\n", fOutputPlugRegisterBuffer, newVal ));
-		status = (*fFWUnit)->CompareSwap( fFWUnit, fService, &fRemotePlugAddress, fOutputPlugRegisterBuffer, newVal, true, generation );
+		status = (*fFWUnit)->CompareSwap( fFWUnit, fService, &fRemotePlugAddress, OSSwapHostToBigInt32(fOutputPlugRegisterBuffer), OSSwapHostToBigInt32(newVal), true, generation );
 		if( status == kIOFireWireBusReset || status == kIOReturnSuccess)
 		{
 			done = true;
@@ -1528,7 +1558,7 @@ IOReturn IOFireWireAVCLibConsumer::updateProducerRegister( UInt32 newVal, UInt32
 				status = (*fFWUnit)->ReadQuadlet( fFWUnit, fService, &fRemotePlugAddress, &producerRegister, true, generation );
 				if( status == kIOReturnSuccess )
 				{
-					fOutputPlugRegisterBuffer = producerRegister;
+					fOutputPlugRegisterBuffer = OSSwapBigToHostInt32(producerRegister);
 				}
 				else if( status == kIOFireWireBusReset )
 				{
@@ -1568,10 +1598,12 @@ IOFireWireAVCLibConsumer::packetReadHandler(
 	UInt16								nodeID,			// nodeID of requester
 	UInt32								destAddressHi,	// destination on this node
 	UInt32								destAddressLo,
-	UInt32								refcon)
+	void*								refcon)
 {
 
 	IOFireWireAVCLibConsumer * me = (IOFireWireAVCLibConsumer*)refcon;
+	
+	UInt32 endianFixedPlugVal;
 	
 	FWLOG(( "IOFireWireAVCLibConsumer::packetReadHandler called - destAddressLo = 0x%08lx\n", destAddressLo ));
     
@@ -1579,7 +1611,8 @@ IOFireWireAVCLibConsumer::packetReadHandler(
     
     if( packetOffset < 4 )
     {
-        bcopy( (void*)&me->fInputPlugRegisterBuffer, buffer + packetOffset, sizeof(UInt32));
+		endianFixedPlugVal = OSSwapHostToBigInt32(me->fInputPlugRegisterBuffer);
+        bcopy( (void*)&endianFixedPlugVal, buffer + packetOffset, sizeof(UInt32));
     }
     else if( packetOffset < 64 )
     {
@@ -1607,7 +1640,7 @@ UInt32 IOFireWireAVCLibConsumer::packetWriteHandler(
 					UInt16								srcNodeID,		// nodeID of sender
 					UInt32								destAddressHi,	// destination on this node
 					UInt32								destAddressLo,
-					UInt32								refcon)
+					void*								refcon)
 {
     IOFireWireAVCLibConsumer * me = (IOFireWireAVCLibConsumer*)refcon;
     IOReturn 	status = kIOReturnSuccess;
@@ -1645,7 +1678,7 @@ UInt32 IOFireWireAVCLibConsumer::packetWriteHandler(
 		
         if( status == kIOReturnSuccess )
         {        
-            me->fInputPlugRegisterBuffer = *((UInt32*)packet);
+            me->fInputPlugRegisterBuffer =  OSSwapBigToHostInt32(*((UInt32*)packet));
 			FWLOG(( "IOFireWireAVCLibConsumer::packetWriteHandler received packet = 0x%08lx\n", me->fInputPlugRegisterBuffer ));
 		}
 		

@@ -1,5 +1,5 @@
 A lista de discussão %(listname)s está passando por uma grande
-modificação. Ela está sendo executada em um novo sistema de 
+modificação. Ela está sendo gerenciada por um novo sistema de 
 listas de discussão chamado "Mailman". Isto felizmente resolverá 
 uma série de problemas que existiam na administração desta lista 
 de discussão. 

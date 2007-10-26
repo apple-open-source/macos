@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,7 +67,7 @@ Process& Database::process() const
 {
 	return referent<Process>();
 }
-
+	
 
 //
 // Send a keychain-related notification event about this database
@@ -86,6 +86,7 @@ void DbCommon::notify(NotificationEvent event, const DLDbIdentifier &ident)
 	// clean up
     free (data.data());
 }
+
 
 //
 // Default behaviors
@@ -186,7 +187,7 @@ SecurityServerAcl &Database::acl()
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);
 }
 
-bool Database::isLocked() const
+bool Database::isLocked()
 {
 	secdebug("database", "%p calling unimplemented isLocked", this);
 	CssmError::throwMe(CSSM_ERRCODE_FUNCTION_NOT_IMPLEMENTED);

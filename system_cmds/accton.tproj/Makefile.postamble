@@ -107,3 +107,8 @@
 # Makefile API), which are rules that get invoked before and after the install 
 # target runs.  Such rules should be specified with the '::' syntax rather than 
 # a single colon.
+
+after_install:
+	install -d $(DSTROOT)/usr/share/man/man8
+	install -m 0444 accton.8 $(DSTROOT)/usr/share/man/man8/accton.8
+

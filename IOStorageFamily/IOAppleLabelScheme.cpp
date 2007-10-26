@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,7 @@ OSDefineMetaClassAndStructors(IOAppleLabelScheme, IOFilterScheme);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 // Notes
 //
-// o the on-disk structure's fields are: 64-bit packed, big-endian formatted
+// o the on-disk structure's fields are big-endian formatted
 // o the al_offset value is relative to the media container
 //
 

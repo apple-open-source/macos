@@ -114,6 +114,8 @@ objc/objc-parse.y: c-parse.in
 	sed -e "/^@@ifc.*/,/^@@end_ifc.*/d" \
 	    -e "/^@@ifobjc.*/d" -e "/^@@end_ifobjc.*/d" < $< >>tmp-objc-prs.y
 	$(SHELL) $(srcdir)/../move-if-change tmp-objc-prs.y $@
+	# APPLE LOCAL mainline rewrite
+	touch $@
 
 gtype-objc.h : s-gtype ; @true
 gt-objc-objc-act.h : s-gtype ; @true

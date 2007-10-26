@@ -66,12 +66,12 @@ Crypt::activate()
 //
 // Manage encryption contexts
 //
-uint32
+CSSM_SIZE
 Encrypt::encrypt(const CssmData *in, uint32 inCount,
 						CssmData *out, uint32 outCount, CssmData &remData)
 {
 	unstaged();
-	uint32 total;
+	CSSM_SIZE total;
 	check(CSSM_EncryptData(handle(), in, inCount, out, outCount, &total, &remData));
 	return total;
 }
@@ -83,12 +83,12 @@ Encrypt::init()
 	mStaged = true;
 }
 
-uint32
+CSSM_SIZE
 Encrypt::encrypt(const CssmData *in, uint32 inCount,
 	CssmData *out, uint32 outCount)
 {
 	staged();
-	uint32 total;
+	CSSM_SIZE total;
 	check(CSSM_EncryptDataUpdate(handle(), in, inCount, out, outCount, &total));
 	return total;
 }
@@ -106,12 +106,12 @@ Encrypt::final(CssmData &remData)
 // Manage Decryption contexts
 //
 
-uint32
+CSSM_SIZE
 Decrypt::decrypt(const CssmData *in, uint32 inCount,
 	CssmData *out, uint32 outCount, CssmData &remData)
 {
 	unstaged();
-	uint32 total;
+	CSSM_SIZE total;
 	check(CSSM_DecryptData(handle(), in, inCount, out, outCount, &total, &remData));
 	return total;
 }
@@ -123,12 +123,12 @@ Decrypt::init()
 	mStaged = true;
 }
 
-uint32
+CSSM_SIZE
 Decrypt::decrypt(const CssmData *in, uint32 inCount,
 	CssmData *out, uint32 outCount)
 {
 	staged();
-	uint32 total;
+	CSSM_SIZE total;
 	check(CSSM_DecryptDataUpdate(handle(), in, inCount, out, outCount, &total));
 	return total;
 }

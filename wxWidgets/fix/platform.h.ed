@@ -1,0 +1,17 @@
+/Project Builder/a
+.
+/__POWERPC__/a
+.
+.,.+2c
+#    if defined(__ppc__) || defined(__ppc64__)
+#        ifndef __POWERPC__
+#            define __POWERPC__ 1
+#        endif
+#    elif defined(__i386__) || defined(__x86_64__)
+#        ifndef __INTEL__
+#            define __INTEL__ 1
+#        endif
+#    else
+#        error architecture not supported
+#    endif
+.

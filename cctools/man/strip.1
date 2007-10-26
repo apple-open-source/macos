@@ -1,4 +1,4 @@
-.TH STRIP 1 "January 20, 2006" "Apple Computer, Inc."
+.TH STRIP 1 "August 4, 2006" "Apple Computer, Inc."
 .SH NAME
 strip \- remove symbols
 .SH SYNOPSIS
@@ -232,8 +232,30 @@ Write the result into the file
 .TP
 .B \-no_uuid
 Remove any LC_UUID load commands.
+.TP
+.BI \-arch " arch_type"
+Specifies the architecture,
+.I arch_type,
+of the file for
+.IR strip (1)
+to operate on when the file is a universal file.  (See
+.IR arch (3)
+for the currently know
+.IR arch_type s.)
+The
+.I arch_type
+can be "all" to operate on all architectures in the file, which is the default.
 .SH "SEE ALSO"
 ld(1), cc(1)
+.SH EXAMPLES
+.PP
+When creating a stub library the
+.B \-c
+and 
+.B \-x
+are typically used:
+.IP
+strip -x -c libfoo -o libfoo.stripped
 .SH LIMITATIONS
 Not every layout of a Mach-O file can be stripped by this program.  But all 
 layouts produced by the Apple compiler system can be stripped.

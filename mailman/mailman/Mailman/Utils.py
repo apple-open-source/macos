@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 
 """Miscellaneous essential routines.
@@ -27,15 +28,17 @@ from __future__ import nested_scopes
 
 import os
 import re
+import cgi
+import sha
+import time
+import errno
+import base64
 import random
 import urlparse
-import sha
-import errno
-import time
-import cgi
 import htmlentitydefs
 import email.Header
 import email.Iterators
+from email.Errors import HeaderParseError
 from types import UnicodeType
 from string import whitespace, digits
 try:
@@ -50,6 +53,7 @@ from Mailman import mm_cfg
 from Mailman import Errors
 from Mailman import Site
 from Mailman.SafeDict import SafeDict
+from Mailman.Logging.Syslog import syslog
 
 try:
     True, False
@@ -198,10 +202,10 @@ def LCDomain(addr):
 
 
 # TBD: what other characters should be disallowed?
-_badchars = re.compile(r'[][()<>|;^,/\200-\377]')
+_badchars = re.compile(r'[][()<>|;^,\000-\037\177-\377]')
 
 def ValidateEmail(s):
-    """Verify that the an email address isn't grossly evil."""
+    """Verify that an email address isn't grossly evil."""
     # Pretty minimal, cheesy check.  We could do better...
     if not s or s.count(' ') > 0:
         raise Errors.MMBadEmailError
@@ -216,9 +220,16 @@ def ValidateEmail(s):
 
 
 
+# Patterns which may be used to form malicious path to inject a new
+# line in the mailman error log. (TK: advisory by Moritz Naumann)
+CRNLpat = re.compile(r'[^\x21-\x7e]')
+
 def GetPathPieces(envar='PATH_INFO'):
     path = os.environ.get(envar)
     if path:
+        if CRNLpat.search(path):
+            path = CRNLpat.split(path)[0]
+            syslog('error', 'Warning: Possible malformed path attack.')
         return [p for p in path.split('/') if p]
     return None
 
@@ -297,11 +308,51 @@ for v in _vowels:
         _syllables.append(v+c)
 del c, v
 
-def MakeRandomPassword(length=6):
+def UserFriendly_MakeRandomPassword(length):
     syls = []
     while len(syls) * 2 < length:
         syls.append(random.choice(_syllables))
     return EMPTYSTRING.join(syls)[:length]
+
+
+def Secure_MakeRandomPassword(length):
+    bytesread = 0
+    bytes = []
+    fd = None
+    try:
+        while bytesread < length:
+            try:
+                # Python 2.4 has this on available systems.
+                newbytes = os.urandom(length - bytesread)
+            except (AttributeError, NotImplementedError):
+                if fd is None:
+                    try:
+                        fd = os.open('/dev/urandom', os.O_RDONLY)
+                    except OSError, e:
+                        if e.errno <> errno.ENOENT:
+                            raise
+                        # We have no available source of cryptographically
+                        # secure random characters.  Log an error and fallback
+                        # to the user friendly passwords.
+                        syslog('error',
+                               'urandom not available, passwords not secure')
+                        return UserFriendly_MakeRandomPassword(length)
+                newbytes = os.read(fd, length - bytesread)
+            bytes.append(newbytes)
+            bytesread += len(newbytes)
+        s = base64.encodestring(EMPTYSTRING.join(bytes))
+        # base64 will expand the string by 4/3rds
+        return s.replace('\n', '')[:length]
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def MakeRandomPassword(length=mm_cfg.MEMBER_PASSWORD_LENGTH):
+    if mm_cfg.USER_FRIENDLY_PASSWORDS:
+        return UserFriendly_MakeRandomPassword(length)
+    return Secure_MakeRandomPassword(length)
+
 
 def GetRandomSeed():
     chr1 = int(random.random() * 52)
@@ -392,6 +443,9 @@ def UnobscureEmail(addr):
 
 
 
+class OuterExit(Exception):
+    pass
+
 def findtext(templatefile, dict=None, raw=False, lang=None, mlist=None):
     # Make some text from a template file.  The order of searches depends on
     # whether mlist and lang are provided.  Once the templatefile is found,
@@ -458,7 +512,6 @@ def findtext(templatefile, dict=None, raw=False, lang=None, mlist=None):
     searchdirs.append(os.path.join(mm_cfg.TEMPLATE_DIR, 'site'))
     searchdirs.append(mm_cfg.TEMPLATE_DIR)
     # Start scanning
-    quickexit = 'quickexit'
     fp = None
     try:
         for lang in languages:
@@ -466,12 +519,12 @@ def findtext(templatefile, dict=None, raw=False, lang=None, mlist=None):
                 filename = os.path.join(dir, lang, templatefile)
                 try:
                     fp = open(filename)
-                    raise quickexit
+                    raise OuterExit
                 except IOError, e:
                     if e.errno <> errno.ENOENT: raise
                     # Okay, it doesn't exist, keep looping
                     fp = None
-    except quickexit:
+    except OuterExit:
         pass
     if fp is None:
         # Try one last time with the distro English template, which, unless
@@ -497,7 +550,6 @@ def findtext(templatefile, dict=None, raw=False, lang=None, mlist=None):
                 text = sdict.interpolate(utemplate)
         except (TypeError, ValueError), e:
             # The template is really screwed up
-            from Mailman.Logging.Syslog import syslog
             syslog('error', 'broken template: %s\n%s', filename, e)
             pass
     if raw:
@@ -636,9 +688,11 @@ def get_domain():
     if mm_cfg.VIRTUAL_HOST_OVERVIEW and host:
         return host.lower()
     else:
-        # See the note in Defaults.py concerning DEFAULT_HOST_NAME
-        # vs. DEFAULT_EMAIL_HOST.
-        hostname = mm_cfg.DEFAULT_HOST_NAME or mm_cfg.DEFAULT_EMAIL_HOST
+        # See the note in Defaults.py concerning DEFAULT_URL
+        # vs. DEFAULT_URL_HOST.
+        hostname = ((mm_cfg.DEFAULT_URL
+                     and urlparse.urlparse(mm_cfg.DEFAULT_URL)[1])
+                     or mm_cfg.DEFAULT_URL_HOST)
         return hostname.lower()
 
 
@@ -816,6 +870,6 @@ def oneline(s, cset):
         ustr = h.__unicode__()
         line = UEMPTYSTRING.join(ustr.splitlines())
         return line.encode(cset, 'replace')
-    except (LookupError, UnicodeError):
+    except (LookupError, UnicodeError, ValueError, HeaderParseError):
         # possibly charset problem. return with undecoded string in one line.
         return EMPTYSTRING.join(s.splitlines())

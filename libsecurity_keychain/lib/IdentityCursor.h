@@ -53,6 +53,8 @@ public:
 	virtual ~IdentityCursor() throw();
 	virtual bool next(SecPointer<Identity> &identity);
 
+	CFDataRef pubKeyHashForSystemIdentity(CFStringRef domain);
+
 protected:
 	StorageManager::KeychainList mSearchList;
 

@@ -25,9 +25,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <objc/Object.h>
 #include "dhcp_options.h"
-#include "NIDomain.h"
+#include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFString.h>
+#include "netinfo.h"
 
 typedef struct {
     interface_t *	if_p;
@@ -42,25 +43,22 @@ typedef struct {
  * bootpd.h
  */
 int
-add_subnet_options(NIDomain_t * domain, u_char * hostname, 
+add_subnet_options(char * hostname, 
 		   struct in_addr iaddr, 
 		   interface_t * intface, dhcpoa_t * options,
-		   const u_char * tags, int n);
+		   const uint8_t * tags, int n);
 boolean_t
 bootp_add_bootfile(const char * request_file, const char * hostname, 
-		   const char * bootfile, char * reply_file, 
+		   const char * bootfile, char * reply_file,
 		   int reply_file_size);
-boolean_t	
-get_dhcp_option(id subnet, int tag, void * buf, int * len_p);
-
 void
 host_parms_from_proplist(ni_proplist * pl_p, int index, struct in_addr * ip, 
-			 u_char * * name, u_char * * bootfile);
+			 char * * name, char * * bootfile);
 
 boolean_t
 subnetAddressAndMask(struct in_addr giaddr, interface_t * intface,
 		     struct in_addr * addr, struct in_addr * mask);
-boolean_t 
+boolean_t
 subnet_match(void * arg, struct in_addr iaddr);
 
 boolean_t	
@@ -69,6 +67,10 @@ sendreply(interface_t * intf, struct bootp * bp, int n,
 boolean_t
 ip_address_reachable(struct in_addr ip, struct in_addr giaddr, 
 		     interface_t * intface);
+
+void
+set_number_from_plist(CFDictionaryRef plist, CFStringRef prop_name_cf,
+		      const char * prop_name, uint32_t * val_p);
 
 #define NI_DHCP_OPTION_PREFIX	"dhcp_"
 #include "globals.h"
@@ -79,29 +81,6 @@ typedef struct subnet_match_args {
     interface_t *	if_p;
     boolean_t		has_binding;
 } subnet_match_args_t;
-
-
-typedef struct {
-    ni_proplist		pl;
-    ni_id		dir_id;
-    ni_name		path;
-    int			instance;
-} PropList_t;
-
-void
-PropList_free(PropList_t * pl_p);
-
-void 
-PropList_init(PropList_t * pl_p, ni_name path);
-
-boolean_t
-PropList_read(PropList_t * pl_p);
-
-ni_namelist *
-PropList_lookup(PropList_t * pl_p, ni_name propname);
-
-int
-PropList_instance(PropList_t * pl_p);
 
 extern void
 my_log(int priority, const char *message, ...);

@@ -29,6 +29,10 @@
 #define PPPPROTO_L2TP		18		/* TEMP - move to ppp.h - 1..32 are reserved */
 #define L2TP_NAME		"L2TP"		/* */
 
+#ifdef KERNEL
+SYSCTL_DECL(_net_ppp_l2tp);
+#endif
+
 /* some default values */
 #define L2TP_DEFAULT_WINDOW_SIZE	4	/* default window size for both sides */
 #define L2TP_DEFAULT_INITIAL_TIMEOUT	1		/* 1 seconds */
@@ -60,6 +64,7 @@
 #define L2TP_FLAG_SEQ_REQ	0x00000008	/* our sequencing required (ignored for control connection) */
 #define L2TP_FLAG_PEER_SEQ_REQ	0x00000010	/* peer sequencing required (ignored for control connection) */
 #define L2TP_FLAG_ADAPT_TIMER	0x00000020	/* use adaptative timer for reliable layer */
+#define L2TP_FLAG_IPSEC		0x00000040	/* is IPSec used for this connection */
 
 /* control and data flags */
 #define L2TP_FLAGS_T		0x8000

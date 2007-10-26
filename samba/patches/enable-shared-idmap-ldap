@@ -1,0 +1,16 @@
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -1360,6 +1360,11 @@ bin/ldap.@SHLIBEXT@: proto_exists nsswit
+ 	@$(SHLD) $(LDSHFLAGS) -o $@ nsswitch/idmap_ldap.o \
+ 		@SONAMEFLAG@`basename $@`
+ 
++bin/ldap.@SHLIBEXT@: nsswitch/idmap_ldap.o
++	@echo "Building plugin $@"
++	@$(SHLD) $(LDSHFLAGS) -o $@ nsswitch/idmap_ldap.o \
++		@SONAMEFLAG@`basename $@`
++
+ bin/weird.@SHLIBEXT@: proto_exists $(DEVEL_HELP_WEIRD_OBJ)
+ 	@echo "Building plugin $@"
+ 	@$(SHLD) $(LDSHFLAGS) -o $@ $(DEVEL_HELP_WEIRD_OBJ) \

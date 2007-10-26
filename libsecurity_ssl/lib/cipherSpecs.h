@@ -50,6 +50,11 @@ OSStatus  FindCipherSpec(SSLContext *ctx);
 
 extern const SSLCipherSpec SSL_NULL_WITH_NULL_NULL_CipherSpec;
 
+/*
+ * Determine if an SSLCipherSuite is SSLv2 only.
+ */
+#define CIPHER_SUITE_IS_SSLv2(suite)	((suite & 0xff00) == 0xff00)
+
 #ifdef __cplusplus
 }
 #endif

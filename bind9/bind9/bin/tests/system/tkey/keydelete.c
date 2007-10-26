@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: keydelete.c,v 1.4.206.5 2006/01/04 23:50:20 marka Exp $ */
+/* $Id: keydelete.c,v 1.6.18.3 2005/11/30 23:52:53 marka Exp $ */
 
 #include <config.h>
 

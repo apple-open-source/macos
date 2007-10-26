@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -69,7 +69,7 @@ CommentAclSubject *CommentAclSubject::Maker::make(const TypedList &list) const
 CommentAclSubject *CommentAclSubject::Maker::make(Version, Reader &pub, Reader &) const
 {
 	CSSM_LIST *base; pub(base);	// get original pointer base
-	const void *data; uint32 length; pub.countedData(data, length);	// data blob
+	const void *data; size_t length; pub.countedData(data, length);	// data blob
 
 	// copy the input blob into writable memory
 	CSSM_LIST *list = Allocator::standard().malloc<CSSM_LIST>(length);

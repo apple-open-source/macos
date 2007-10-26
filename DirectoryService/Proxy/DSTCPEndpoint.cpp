@@ -39,10 +39,8 @@
 #include <errno.h>			// system call error numbers
 #include <unistd.h>			// for select call 
 #include <stdlib.h>			// for calloc()
-
-#include <errno.h>
+#include <poll.h>
 #include <sys/time.h>		// for struct timeval
-
 #include <machine/byte_order.h>
 
 #include "DSCThread.h"		// for GetCurThreadRunState()
@@ -79,10 +77,10 @@ void DSTCPEndpoint::InitBuffers ( void )
 	try {
 
 		mErrorBuffer = new char [kTCPErrorBufferLen];
-		if ( mErrorBuffer == nil ) throw((sInt32)eMemoryAllocError);
+		if ( mErrorBuffer == nil ) throw((SInt32)eMemoryAllocError);
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		throw(err);
 	}
@@ -94,9 +92,9 @@ void DSTCPEndpoint::InitBuffers ( void )
 //
 // ----------------------------------------------------------------------------
 
-DSTCPEndpoint::DSTCPEndpoint (	const uInt32	inSessionID,
-								const uInt32	inOpenTimeout,
-								const uInt32	inRWTimeout ) :
+DSTCPEndpoint::DSTCPEndpoint (	const UInt32	inSessionID,
+								const UInt32	inOpenTimeout,
+								const UInt32	inRWTimeout ) :
 	mLogMsgSessionID(inSessionID),
 	mMyIPAddr (DSNetworkUtilities::GetOurIPAddress(0)),
 	mRemoteHostIPAddr (0),
@@ -119,7 +117,7 @@ DSTCPEndpoint::DSTCPEndpoint (	const uInt32	inSessionID,
 // ----------------------------------------------------------------------------
 
 DSTCPEndpoint::DSTCPEndpoint (	const DSTCPEndpoint	*inEndpoint,
-								const uInt32 		inSessionID) :
+								const UInt32 		inSessionID) :
 	mLogMsgSessionID(inSessionID),
 	mMyIPAddr (inEndpoint->mMyIPAddr),
 	mRemoteHostIPAddr (inEndpoint->mRemoteHostIPAddr),
@@ -157,7 +155,7 @@ DSTCPEndpoint::~DSTCPEndpoint ( void )
 			DoTCPCloseSocket( mConnectFD );
 		}
 	}
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 	}
 
@@ -177,7 +175,7 @@ DSTCPEndpoint::~DSTCPEndpoint ( void )
 //			port number
 // ----------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::ConnectTo ( const uInt32 inIPAddress, const uInt16 inPort )
+SInt32 DSTCPEndpoint::ConnectTo ( const UInt32 inIPAddress, const UInt16 inPort )
 {
 	int					err = eDSNoErr;
 	int					result = 0;
@@ -254,7 +252,7 @@ sInt32 DSTCPEndpoint::ConnectTo ( const uInt32 inIPAddress, const uInt16 inPort 
 						err = errno;
 						::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-						DBGLOG2( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, mErrorBuffer );
+						DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, mErrorBuffer );
 #else
 						LOG2( kStdErr, "DoTCPCloseSocket: close() on unused socket 0 failed with error %d: %s", err, mErrorBuffer );
 #endif
@@ -262,7 +260,7 @@ sInt32 DSTCPEndpoint::ConnectTo ( const uInt32 inIPAddress, const uInt16 inPort 
 					else
 					{
 #ifdef DSSERVERTCP
-						DBGLOG( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0" );
+						DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on unused socket 0" );
 #else
 						LOG( kStdErr, "DoTCPCloseSocket: close() on unused socket 0" );
 #endif
@@ -305,7 +303,7 @@ sInt32 DSTCPEndpoint::ConnectTo ( const uInt32 inIPAddress, const uInt16 inPort 
 //			 be a need to specify which interface to listen on.
 // ----------------------------------------------------------------------------
 
-void DSTCPEndpoint::ListenToPort ( const uInt16 inPort )
+void DSTCPEndpoint::ListenToPort ( const UInt16 inPort )
 {
 	this->ListenToPortOnAddress( inPort, INADDR_ANY );
 } // ListenToPort
@@ -318,7 +316,7 @@ void DSTCPEndpoint::ListenToPort ( const uInt16 inPort )
 //			(one address) - Does not accept connection yet, only sets up the port..
 // ----------------------------------------------------------------------------
 
-void DSTCPEndpoint::ListenToPortOnAddress ( const uInt16 inPort, const uInt32 inWhichAddress )
+void DSTCPEndpoint::ListenToPortOnAddress ( const UInt16 inPort, const UInt32 inWhichAddress )
 {
 	int		rc = 0;
 	int		sockfd;
@@ -332,32 +330,32 @@ void DSTCPEndpoint::ListenToPortOnAddress ( const uInt16 inPort, const uInt32 in
 	sockfd = this->DoTCPOpenSocket();
 	if ( sockfd < 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 	mListenFD = sockfd;
 
 	rc = this->SetSocketOption( mListenFD, SO_REUSEADDR );
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 
 	rc = this->SetSocketOption( mListenFD, SO_REUSEPORT );
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 
 	rc = this->DoTCPBind();
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 
 	rc = this->DoTCPListen();
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 } //  ListenToPortOnAddress
 
@@ -423,48 +421,34 @@ void DSTCPEndpoint::GetReverseAddressString (	char	*ioBuffer,
 
 Boolean DSTCPEndpoint::Connected ( void ) const
 {
-	int		bytesReadable = 0;
-	char	temp[1];
+	struct pollfd fdToPoll;
+	int result;
 
 	if ( mAborting == true )
 	{
-		// throw((sInt32)kAbortedWarning);
+		// throw((SInt32)kAbortedWarning);
 		return false;
 	}
 
-	bytesReadable = ::recvfrom( mConnectFD, temp, sizeof (temp), (MSG_DONTWAIT | MSG_PEEK), NULL, NULL );
-
-	if ( bytesReadable == -1 )
-	{
-		switch ( errno )
-		{
-			case EAGAIN:
-				// no data in the socket but socket is still open and connected
-				return true;
-				break;
-
-			default:
-				return false;
-				break;
-		}
-	}
-
-	// recvfrom() only returns 0 when the peer has closed the connection (read a EOF)
-	if ( bytesReadable == 0 )
-	{
-		return( false );
-	}
-
-	return( true );
-
+	if ( mConnectFD == -1 )
+		return false;
+	
+	fdToPoll.fd = mConnectFD;
+	fdToPoll.events = POLLSTANDARD;
+	fdToPoll.revents = 0;
+	result = poll( &fdToPoll, 1, 0 );
+	if ( result == -1 )
+		return false;
+	return ( (fdToPoll.revents & POLLHUP) == 0 );
 } // Connected
+
 
 // ----------------------------------------------------------------------------
 // ¥ EncryptDataInPlace
 //	Encrypt a block.
 // ----------------------------------------------------------------------------
 
-void DSTCPEndpoint::EncryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize )
+void DSTCPEndpoint::EncryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
 {
 	// do nothing, only applies to encrypted connections
 	outBuffSize = 0;
@@ -477,7 +461,7 @@ void DSTCPEndpoint::EncryptData ( void *inData, const uInt32 inBuffSize, void *&
 //	Decrypt a block.
 // ----------------------------------------------------------------------------
 
-void DSTCPEndpoint::DecryptData ( void *inData, const uInt32 inBuffSize, void *&outData, uInt32 &outBuffSize )
+void DSTCPEndpoint::DecryptData ( void *inData, const UInt32 inBuffSize, void *&outData, UInt32 &outBuffSize )
 {
 	// do nothing, only applies to encrypted connections
 	outBuffSize = 0;
@@ -491,14 +475,14 @@ void DSTCPEndpoint::DecryptData ( void *inData, const uInt32 inBuffSize, void *&
 //		- Send data to the connected peer
 // ----------------------------------------------------------------------------
 
-uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
+UInt32 DSTCPEndpoint::WriteData ( const void *inData, const UInt32 inSize )
 {
 	struct timeval	tvTimeout	= { mRWTimeout, 0 };
 	const char		*aPtr 		= (const char *) inData;
 	int				err			= eDSNoErr;
 	int				rc			= 0;
-	uInt32			dataSize	= inSize;
-	uInt32			bytesWrote	= 0;
+	UInt32			dataSize	= inSize;
+	UInt32			bytesWrote	= 0;
 	fd_set			aWriteSet;
 
 	while ( dataSize > 0 && aPtr != NULL ) 
@@ -511,7 +495,7 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 		
 		//if ( !this->Connected() )
 		//{
-			//throw( (sInt32)kConnectionLostWarning );
+			//throw( (SInt32)kConnectionLostWarning );
 		//}
 
 		// This ridiculous code is to handle "interrupted system calls"
@@ -537,26 +521,26 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 
 		if ( mAborting == true )
 		{
-			throw( (sInt32)kAbortedWarning );
+			throw( (SInt32)kAbortedWarning );
 		}
 
 		if ( rc == 0 ) 
 		{
 #ifdef DSSERVERTCP
-			DBGLOG1( kLogTCPEndpoint, "WriteData(): select() timed out on %s", mRemoteHostIPString );
+			DbgLog( kLogTCPEndpoint, "WriteData(): select() timed out on %s", mRemoteHostIPString );
 #else
 			LOG1( kStdErr, "WriteData(): select() timed out on %s", mRemoteHostIPString );
 #endif
-			throw( (sInt32)kTimeoutError );
+			throw( (SInt32)kTimeoutError );
 		}
 		else if ( rc == -1 ) 
 		{
 #ifdef DSSERVERTCP
-			DBGLOG3( kLogTCPEndpoint, "WriteData: select() error %d: %s on %A.\n", errno, ::strerror( errno ), mRemoteHostIPAddr );
+			DbgLog( kLogTCPEndpoint, "WriteData: select() error %d: %s on %A.\n", errno, ::strerror( errno ), mRemoteHostIPAddr );
 #else
 			LOG3( kStdErr, "WriteData: select() error %d: %s on %A.\n", errno, ::strerror( errno ), mRemoteHostIPAddr );
 #endif
-			throw( (sInt32)eDSTCPSendError);
+			throw( (SInt32)eDSTCPSendError);
 		}
 		else if ( FD_ISSET(mConnectFD, &aWriteSet) )
 		{
@@ -566,7 +550,7 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 				rc = ::sendto(mConnectFD, aPtr, dataSize, 0, NULL, 0);
 				if (mAborting == true)
 				{
-					throw((sInt32)kAbortedWarning);
+					throw((SInt32)kAbortedWarning);
 				}
 			} while ( (rc == -1) && (errno == EAGAIN) );
 			
@@ -577,16 +561,16 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 				::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
 				::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
 #ifdef DSSERVERTCP
-				DBGLOG2( kLogTCPEndpoint, "WriteData: select() error %d: %s", err, mErrorBuffer );
+				DbgLog( kLogTCPEndpoint, "WriteData: select() error %d: %s", err, mErrorBuffer );
 #else
 				LOG2( kStdErr, "WriteData: select() error %d: %s", err, mErrorBuffer );
 #endif
-				throw( (sInt32)eDSTCPSendError);
+				throw( (SInt32)eDSTCPSendError);
 			}
 #ifdef DSSERVERTCP
-			DBGLOG3( kLogTCPEndpoint, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (uInt32)this, mConnectFD );
+			DbgLog( kLogTCPEndpoint, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (UInt32)this, mConnectFD );
 #else
-			LOG3( kStdErr, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (uInt32)this, mConnectFD );
+			LOG3( kStdErr, "WriteData(): sent %d bytes with endpoint %d and connectFD %d", rc, (UInt32)this, mConnectFD );
 #endif
 			dataSize -= rc;
 			aPtr += rc;
@@ -595,9 +579,9 @@ uInt32 DSTCPEndpoint::WriteData ( const void *inData, const uInt32 inSize )
 	} // while
 
 #ifdef DSSERVERTCP
-	DBGLOG3( kLogTCPEndpoint, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (uInt32)this, mConnectFD );
+	DbgLog( kLogTCPEndpoint, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (UInt32)this, mConnectFD );
 #else
-	LOG3( kStdErr, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (uInt32)this, mConnectFD );
+	LOG3( kStdErr, "WriteData(): sent %d total bytes with endpoint %d and connectFD %d", bytesWrote, (UInt32)this, mConnectFD );
 #endif
 	return bytesWrote;
 } // WriteData
@@ -650,7 +634,7 @@ int DSTCPEndpoint::CloseListener ( void )
 inline void DSTCPEndpoint::Abort ( void )
 {
 #ifdef DSSERVERTCP
-	DBGLOG( kLogTCPEndpoint, "Aborting a TCPEndpoint..." );
+	DbgLog( kLogTCPEndpoint, "Aborting a TCPEndpoint..." );
 #else
 	LOG( kStdErr, "Aborting a TCPEndpoint..." );
 #endif
@@ -676,7 +660,7 @@ int DSTCPEndpoint::DoTCPOpenSocket (void)
 	int		sockfd;
 
 #ifdef DSSERVERTCP
-	DBGLOG( kLogTCPEndpoint, "Open socket." );
+	DbgLog( kLogTCPEndpoint, "Open socket." );
 #else
 	LOG( kStdErr, "Open socket." );
 #endif
@@ -686,14 +670,14 @@ int DSTCPEndpoint::DoTCPOpenSocket (void)
 	{
 		if ( mAborting == true )
 		{
-			throw( (sInt32)kAbortedWarning );
+			throw( (SInt32)kAbortedWarning );
 		}
 		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 		err = errno;
 		::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		ERRORLOG2( kLogTCPEndpoint, "Unable to open a socket. error %d: %s", err, mErrorBuffer );
-		DBGLOG2( kLogTCPEndpoint, "DoTCPOpenSocket: socket() error %d: %s", err, mErrorBuffer );
+		ErrLog( kLogTCPEndpoint, "Unable to open a socket. error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket() error %d: %s", err, mErrorBuffer );
 #else
 		LOG2( kStdErr, "DoTCPOpenSocket: Unable to open a socket with error %d: %s", err, mErrorBuffer );
 #endif
@@ -703,7 +687,7 @@ int DSTCPEndpoint::DoTCPOpenSocket (void)
 	{
 		::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		DBGLOG3( kLogTCPEndpoint, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, mErrorBuffer, sockfd );
+		DbgLog( kLogTCPEndpoint, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, mErrorBuffer, sockfd );
 #else
 		LOG3( kStdErr, "DoTCPOpenSocket: socket error %d: %s with sockfd %d", err, mErrorBuffer, sockfd );
 #endif
@@ -730,7 +714,7 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 		if ( (inSocket != mListenFD) && (inSocket != mConnectFD) )
 		{
 #ifdef DSSERVERTCP
-			ERRORLOG1( kLogTCPEndpoint, "SetSocketOption: invalid socket: %d", inSocket );
+			ErrLog( kLogTCPEndpoint, "SetSocketOption: invalid socket: %d", inSocket );
 #else
 			LOG1( kStdErr, "SetSocketOption: invalid socket: %d", inSocket );
 #endif
@@ -742,7 +726,7 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 		{
 			if ( mAborting == true )
 			{
-				throw( (sInt32)kAbortedWarning );
+				throw( (SInt32)kAbortedWarning );
 			}
 
 			::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
@@ -751,8 +735,8 @@ int DSTCPEndpoint::SetSocketOption ( const int inSocket, const int inSocketOptio
 			::strncpy( mErrorBuffer, ::strerror( errno ), kTCPErrorBufferLen );
 
 #ifdef DSSERVERTCP
-			ERRORLOG2( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
-			DBGLOG2( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
+			ErrLog( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
+			DbgLog( kLogTCPEndpoint, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
 #else
 			LOG2( kStdErr, "Unable to set socket option: Message: \"%s\", Error: %d", mErrorBuffer, err );
 #endif
@@ -777,7 +761,7 @@ int DSTCPEndpoint::DoTCPBind ( void )
  
 	if ( mAborting == true ) 
 	{
-		throw( (sInt32)kAbortedWarning );
+		throw( (SInt32)kAbortedWarning );
 	}
 
 	rc = ::bind( mListenFD, (struct sockaddr *)&mMySockAddr, sizeof(mMySockAddr) );
@@ -787,7 +771,7 @@ int DSTCPEndpoint::DoTCPBind ( void )
 		::memset( mErrorBuffer, 0, kTCPErrorBufferLen );
 		::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		DBGLOG2( kLogTCPEndpoint, "DSTCPEndpoint: bind() error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DSTCPEndpoint: bind() error %d: %s", err, mErrorBuffer );
 #else
 		LOG2( kStdErr, "DSTCPEndpoint: bind() error %d: %s", err, mErrorBuffer );
 #endif
@@ -817,7 +801,7 @@ int DSTCPEndpoint::DoTCPListen ( void )
 		err = errno;
 		::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
 #ifdef DSSERVERTCP
-		DBGLOG2( kLogTCPEndpoint, "DoTCPListen: listen() error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPListen: listen() error %d: %s", err, mErrorBuffer );
 #else
 		LOG2( kStdErr, "DoTCPListen: listen() error %d: %s", err, mErrorBuffer );
 #endif
@@ -848,20 +832,20 @@ int DSTCPEndpoint::DoTCPAccept ( void )
 		rc = ::select( mListenFD + 1, &readSet, NULL, NULL, NULL );
 		if ( mAborting == true )
 		{
-			throw( (sInt32)kAbortedWarning );
+			throw( (SInt32)kAbortedWarning );
 		}
 
 		if ( rc == -1 )
 		{
 #ifdef DSSERVERTCP
-			DBGLOG2( kLogTCPEndpoint, "DoTCPAccept: select() returned error %d: %s\n", errno, ::strerror( errno ) );
+			DbgLog( kLogTCPEndpoint, "DoTCPAccept: select() returned error %d: %s\n", errno, ::strerror( errno ) );
 #else
 			LOG2( kStdErr, "DoTCPAccept: select() returned error %d: %s\n", errno, ::strerror( errno ) );
 #endif
 
 			if ( errno != EINTR )
 			{
-				throw( (sInt32)eDSTCPReceiveError );
+				throw( (SInt32)eDSTCPReceiveError );
 			}
 
 			// Clear the bit and try again if call was interrupted.
@@ -873,28 +857,28 @@ int DSTCPEndpoint::DoTCPAccept ( void )
 
 	if ( mAborting == true )
 	{
-		throw( (sInt32)kAbortedWarning );
+		throw( (SInt32)kAbortedWarning );
 	}
 
 	if ( mConnectFD == -1 )
 	{
 #ifdef DSSERVERTCP
-		DBGLOG2( kLogTCPEndpoint,  "DoTCPAccept: select error %d: %s", errno, ::strerror( err ) );
+		DbgLog( kLogTCPEndpoint,  "DoTCPAccept: select error %d: %s", errno, ::strerror( err ) );
 #else
 		LOG2( kStdErr,  "DoTCPAccept: select error %d: %s", errno, ::strerror( err ) );
 #endif
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 
 	rc = this->SetSocketOption( mListenFD, SO_KEEPALIVE );
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 	rc = this->SetSocketOption( mListenFD, SO_NOSIGPIPE );
 	if ( rc != 0 )
 	{
-		throw( (sInt32)eDSTCPReceiveError );
+		throw( (SInt32)eDSTCPReceiveError );
 	}
 
 	if ( err == eDSNoErr )
@@ -925,7 +909,7 @@ int DSTCPEndpoint::DoTCPCloseSocket ( const int inSockFD )
 	}
 
 #ifdef DSSERVERTCP
-	DBGLOG( kLogTCPEndpoint, "Close socket." );
+	DbgLog( kLogTCPEndpoint, "Close socket." );
 #endif
 	rc = ::close( inSockFD );
 	if ( rc == -1 )
@@ -934,7 +918,7 @@ int DSTCPEndpoint::DoTCPCloseSocket ( const int inSockFD )
 		err = errno;
 		::strncpy( mErrorBuffer, ::strerror( err ), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-		DBGLOG3( kLogTCPEndpoint, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, mErrorBuffer );
 #else
 		LOG3( kStdErr, "DoTCPCloseSocket: close() on socket %d failed with error %d: %s", inSockFD, err, mErrorBuffer );
 #endif
@@ -949,7 +933,7 @@ int DSTCPEndpoint::DoTCPCloseSocket ( const int inSockFD )
 //	* DoTCPRecvFrom ()
 // ----------------------------------------------------------------------------
 
-uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize )
+UInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const UInt32 inBufferSize )
 {
 	int				rc;
 	int				err;
@@ -979,11 +963,11 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 			if ( tvTimeout.tv_sec < 0 )
 			{
 #ifdef DSSERVERTCP
-				DBGLOG( kLogTCPEndpoint, "DoTCPRecvFrom: connection timeout?" );
+				DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: connection timeout?" );
 #else
 				LOG( kStdErr, "DoTCPRecvFrom: connection timeout?" );
 #endif
-				throw( (sInt32)eDSTCPReceiveError );
+				throw( (SInt32)eDSTCPReceiveError );
 			}
 		}
 	} while ( !mAborting && (rc == -1) && (EINTR == errno) );
@@ -991,21 +975,21 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 	if ( mAborting == true )
 	{
 #ifdef DSSERVERTCP
-		DBGLOG( kLogTCPEndpoint, "DSTCPEndpoint::DoTCPRecvFrom(): We have been aborted." );
+		DbgLog( kLogTCPEndpoint, "DSTCPEndpoint::DoTCPRecvFrom(): We have been aborted." );
 #else
 		LOG( kStdErr, "DSTCPEndpoint::DoTCPRecvFrom(): We have been aborted." );
 #endif
-		throw( (sInt32)kAbortedWarning );
+		throw( (SInt32)kAbortedWarning );
 	}
 
 	if ( rc == 0 )
 	{
 #ifdef DSSERVERTCP
-			DBGLOG( kLogTCPEndpoint, "DoTCPRecvFrom: timed out waiting for response." );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: timed out waiting for response." );
 #else
 			LOG( kStdErr, "DoTCPRecvFrom: timed out waiting for response." );
 #endif
-			throw( (sInt32)kTimeoutError );
+			throw( (SInt32)kTimeoutError );
 	}
 	else if ( rc == -1 )
 	{
@@ -1013,11 +997,11 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 		::memset(mErrorBuffer, 0, kTCPErrorBufferLen);
 		::strncpy(mErrorBuffer, ::strerror(err), kTCPErrorBufferLen);
 #ifdef DSSERVERTCP
-		DBGLOG2( kLogTCPEndpoint, "DoTCPRecvFrom: select() error %d: %s", err, mErrorBuffer );
+		DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: select() error %d: %s", err, mErrorBuffer );
 #else
 		LOG2( kStdErr, "DoTCPRecvFrom: select() error %d: %s", err, mErrorBuffer );
 #endif
-		throw((sInt32)eDSTCPReceiveError);
+		throw((SInt32)eDSTCPReceiveError);
 	} 
 	else if ( FD_ISSET(mConnectFD, &readSet) )
 	{
@@ -1030,7 +1014,7 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 	
 			if ( mAborting == true )
 			{
-				throw( (sInt32)kAbortedWarning );
+				throw( (SInt32)kAbortedWarning );
 			}
 		} while ( (bytesRead == -1) && (errno == EAGAIN) );
 		
@@ -1039,11 +1023,11 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 			// connection closed from the other side
 			err = errno;
 #ifdef DSSERVERTCP
-			DBGLOG1( kLogTCPEndpoint, "DoTCPRecvFrom: connection closed by peer - error is %d", err );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: connection closed by peer - error is %d", err );
 #else
 			LOG1( kStdErr, "DoTCPRecvFrom: connection closed by peer - error is %d", err );
 #endif
-			throw( (sInt32)eDSTCPReceiveError );
+			throw( (SInt32)eDSTCPReceiveError );
 		}
 		else if ( bytesRead == -1 )
 		{
@@ -1051,23 +1035,23 @@ uInt32 DSTCPEndpoint::DoTCPRecvFrom ( void *ioBuffer, const uInt32 inBufferSize 
 			err = errno;
 			::strncpy( mErrorBuffer, ::strerror(err), kTCPErrorBufferLen );
 #ifdef DSSERVERTCP
-			DBGLOG2( kLogTCPEndpoint, "DoTCPRecvFrom: recvfrom error %d: %s", err, mErrorBuffer );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom: recvfrom error %d: %s", err, mErrorBuffer );
 #else
 			LOG2( kStdErr, "DoTCPRecvFrom: recvfrom error %d: %s", err, mErrorBuffer );
 #endif
-			throw( (sInt32)eDSTCPReceiveError );
+			throw( (SInt32)eDSTCPReceiveError );
 		}
 		else
 		{
 #ifdef DSSERVERTCP
-			DBGLOG3( kLogTCPEndpoint, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (uInt32)this, mConnectFD );
+			DbgLog( kLogTCPEndpoint, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (UInt32)this, mConnectFD );
 #else
-			LOG3( kStdErr, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (uInt32)this, mConnectFD );
+			LOG3( kStdErr, "DoTCPRecvFrom(): received %d bytes with endpoint %d and connectFD %d", bytesRead, (UInt32)this, mConnectFD );
 #endif
 		}
 	}
 
-	return( (uInt32)bytesRead );
+	return( (UInt32)bytesRead );
 
 } // DoTCPRecvFrom
 
@@ -1081,11 +1065,11 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 	sComData			   *pOutMsg			= nil;
 	sComProxyData		   *pOutProxyMsg	= nil;
 	void				   *tmpOutMsg		= nil;
-	uInt32					buffLen			= 0;
-	uInt32					readBytes		= 0;
-	sInt32					siResult		= eDSNoErr;
+	UInt32					buffLen			= 0;
+	UInt32					readBytes		= 0;
+	SInt32					siResult		= eDSNoErr;
 	void				   *inBuffer		= nil;
-	uInt32					inLength		= 0;
+	UInt32					inLength		= 0;
 
 	//need to read a tag and then a buffer length
 	siResult = SyncToMessageBody(true, &inLength);
@@ -1106,7 +1090,7 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 				{
 					//TODO need to recover somehow
 	#ifdef DSSERVERTCP
-					ERRORLOG( kLogTCPEndpoint, "GetClientMessage: Couldn't read entire message block" );
+					ErrLog( kLogTCPEndpoint, "GetClientMessage: Couldn't read entire message block" );
 	#endif
 					free(inBuffer);
 					inBuffer = nil;
@@ -1123,7 +1107,7 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 					}
 					if (pOutProxyMsg != nil)
 					{
-						if (NXSwapBigLongToHost(pOutProxyMsg->fDataSize) > buffLen - sizeof(sComProxyData))
+						if (NXSwapBigIntToHost(pOutProxyMsg->fDataSize) > buffLen - sizeof(sComProxyData))
 						{
 							//fprintf(stderr,"bad message fDataSize!\n");
 							//let's just throw the message out since it is probably malformed
@@ -1134,14 +1118,14 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 						//{
 							//place the endpoint handle into the pOutProxyMsg struct
 							//don't create a duplicate
-							//pOutProxyMsg->fPort = (uInt32) this; //don't need this since using direct dispatch
+							//pOutProxyMsg->fPort = (UInt32) this; //don't need this since using direct dispatch
 							//KW use of this endpoint needs to be mutex protected?
 							//not likely since we force a single thread on the open API connection
 						//}
 					}
 				}
 			}
-			catch( sInt32 err )
+			catch( SInt32 err )
 			{
 				if (pOutProxyMsg != nil)
 				{
@@ -1176,15 +1160,15 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 //							returns the buffer length
 // ----------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 *outBuffLen)
+SInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, UInt32 *outBuffLen)
 {
-	uInt32			index = 0;
-	uInt32			readBytes = 0;
-	uInt32			newLen = 0;
-	uInt32			curIndex = kDSTCPEndpointMessageTagSize;
+	UInt32			index = 0;
+	UInt32			readBytes = 0;
+	UInt32			newLen = 0;
+	UInt32			curIndex = kDSTCPEndpointMessageTagSize;
 	char		   *ourBuffer;
-	uInt32			buffLen = 0;
-	sInt32			result	= eDSNoErr;
+	UInt32			buffLen = 0;
+	SInt32			result	= eDSNoErr;
 
 	ourBuffer = (char *) calloc(kDSTCPEndpointMaxMessageSize, 1);
 	
@@ -1198,21 +1182,21 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 			free(ourBuffer);
 			*outBuffLen = 0;
 #ifdef DSSERVERTCP
-			DBGLOG2( kLogTCPEndpoint, "SyncToMessageBody: attempted read of %d bytes failed with %d bytes read", kDSTCPEndpointMessageTagSize, readBytes );
+			DbgLog( kLogTCPEndpoint, "SyncToMessageBody: attempted read of %d bytes failed with %d bytes read", kDSTCPEndpointMessageTagSize, readBytes );
 #else
 			LOG2( kStdErr, "SyncToMessageBody: attempted read of %d bytes failed with %d bytes read", kDSTCPEndpointMessageTagSize, readBytes );
 #endif
 			return eDSTCPReceiveError;
 		}
 	}
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		if (ourBuffer != nil)
 		{
 			free(ourBuffer);
 		}
 #ifdef DSSERVERTCP
-		DBGLOG2( kLogTCPEndpoint, "SyncToMessageBody: attempted read of %d bytes failed in DoTCPRecvFrom with error %d", kDSTCPEndpointMessageTagSize, err );
+		DbgLog( kLogTCPEndpoint, "SyncToMessageBody: attempted read of %d bytes failed in DoTCPRecvFrom with error %d", kDSTCPEndpointMessageTagSize, err );
 #else
 		LOG2( kStdErr, "SyncToMessageBody: attempted read of %d bytes failed in DoTCPRecvFrom with error %d", kDSTCPEndpointMessageTagSize, err );
 #endif
@@ -1241,7 +1225,7 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 					free(ourBuffer);
 					*outBuffLen = 0;
 #ifdef DSSERVERTCP
-					DBGLOG1( kLogTCPEndpoint, "SyncToMessageBody: align frame by skipping leading zeroes - attempted read of one byte failed with %d bytes read", newLen );
+					DbgLog( kLogTCPEndpoint, "SyncToMessageBody: align frame by skipping leading zeroes - attempted read of one byte failed with %d bytes read", newLen );
 #else
 					LOG1( kStdErr, "SyncToMessageBody: align frame by skipping leading zeroes - attempted read of one byte failed with %d bytes read", newLen );
 #endif
@@ -1254,14 +1238,14 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 				curIndex++;
 			}
 		}		
-		catch( sInt32 err )
+		catch( SInt32 err )
 		{
 			if (ourBuffer != nil)
 			{
 				free(ourBuffer);
 			}
 #ifdef DSSERVERTCP
-			DBGLOG1( kLogTCPEndpoint, "SyncToMessageBody: align frame by skipping leading zeroes - failed in DoTCPRecvFrom with error %l", err );
+			DbgLog( kLogTCPEndpoint, "SyncToMessageBody: align frame by skipping leading zeroes - failed in DoTCPRecvFrom with error %l", err );
 #else
 			LOG1( kStdErr, "SyncToMessageBody: align frame by skipping leading zeroes - failed in DoTCPRecvFrom with error %l", err );
 #endif
@@ -1280,7 +1264,7 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 			if (newLen != 4) //|| (buffLen < sizeof(sComData)) )
 			{
 #ifdef DSSERVERTCP
-				DBGLOG1( kLogTCPEndpoint, "SyncToMessageBody: get the buffer length - attempted read of four bytes failed with %d bytes read", newLen );
+				DbgLog( kLogTCPEndpoint, "SyncToMessageBody: get the buffer length - attempted read of four bytes failed with %d bytes read", newLen );
 #else
 				LOG1( kStdErr, "SyncToMessageBody: get the buffer length - attempted read of four bytes failed with %d bytes read", newLen );
 #endif
@@ -1288,17 +1272,17 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 			}
 			else
 			{
-				*outBuffLen = NXSwapBigLongToHost(buffLen);
+				*outBuffLen = NXSwapBigIntToHost(buffLen);
 			}
 		}		
-		catch( sInt32 err )
+		catch( SInt32 err )
 		{
 			if (ourBuffer != nil)
 			{
 				free(ourBuffer);
 			}
 #ifdef DSSERVERTCP
-			DBGLOG1( kLogTCPEndpoint, "SyncToMessageBody: get the buffer length - failed in DoTCPRecvFrom with error %l", err );
+			DbgLog( kLogTCPEndpoint, "SyncToMessageBody: get the buffer length - failed in DoTCPRecvFrom with error %l", err );
 #else
 			LOG1( kStdErr, "SyncToMessageBody: get the buffer length - failed in DoTCPRecvFrom with error %l", err );
 #endif
@@ -1317,11 +1301,11 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 //
 //------------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
+SInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 {
-	uInt32                  messageSize = 0;
+	UInt32                  messageSize = 0;
 	sComProxyData  *inProxyMsg  = nil;
-	sInt32                  sendResult  = eDSNoErr;
+	SInt32                  sendResult  = eDSNoErr;
 
 	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
@@ -1345,11 +1329,11 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 //
 //------------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
+SInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 {
-	uInt32                  messageSize = 0;
+	UInt32                  messageSize = 0;
 	sComProxyData  *inProxyMsg  = nil;
-	sInt32                  sendResult  = eDSNoErr;
+	SInt32                  sendResult  = eDSNoErr;
 
 	inProxyMsg = AllocToProxyStruct( (sComData *)inMsg );
 	//let us only send the data that is present and not the entire buffer
@@ -1372,15 +1356,15 @@ sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 //
 //------------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, uInt32 inLength )
+SInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, UInt32 inLength )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	char			   *sendBuffer	= nil;
-	uInt32				dataBuffLen	= 0;
-	uInt32				sendBuffLen	= 0;
-	uInt32				sentBytes	= 0;
+	UInt32				dataBuffLen	= 0;
+	UInt32				sendBuffLen	= 0;
+	UInt32				sentBytes	= 0;
 	void			   *outBuffer	= nil;
-	uInt32				outLength	= 0;
+	UInt32				outLength	= 0;
 	bool				bFreeOutBuff= true;
 
 	EncryptData(inBuffer, inLength, outBuffer, outLength);
@@ -1397,7 +1381,7 @@ sInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, uInt32 inLength )
 	sendBuffLen = kDSTCPEndpointMessageTagSize + 4 + dataBuffLen;
 	sendBuffer = (char *)calloc(sendBuffLen, 1);
 	strcpy(sendBuffer,"DSPX");
-	*(long*)(sendBuffer+kDSTCPEndpointMessageTagSize) = NXSwapHostLongToBig(dataBuffLen);
+	*(SInt32*)(sendBuffer+kDSTCPEndpointMessageTagSize) = NXSwapHostIntToBig(dataBuffLen);
 	memcpy(sendBuffer+kDSTCPEndpointMessageTagSize+4, outBuffer, outLength);
 
 	try
@@ -1408,17 +1392,17 @@ sInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, uInt32 inLength )
 		{
 			//TODO need to cleanup on error here
 #ifdef DSSERVERTCP
-			DBGLOG2( kLogTCPEndpoint, "SendBuffer(): attempted send of %d bytes only sent %d bytes", sendBuffLen, sentBytes );
+			DbgLog( kLogTCPEndpoint, "SendBuffer(): attempted send of %d bytes only sent %d bytes", sendBuffLen, sentBytes );
 #else
 			LOG2( kStdErr, "SendBuffer(): attempted send of %d bytes only sent %d bytes", sendBuffLen, sentBytes );
 #endif
 			result = eDSTCPSendError;
 		}
 	}
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 #ifdef DSSERVERTCP
-		DBGLOG1( kLogTCPEndpoint, "SendBuffer(): failed send of %d bytes", sendBuffLen );
+		DbgLog( kLogTCPEndpoint, "SendBuffer(): failed send of %d bytes", sendBuffLen );
 #else
 		LOG1( kStdErr, "SendBuffer(): failed send of %d bytes", sendBuffLen );
 #endif
@@ -1450,13 +1434,13 @@ sInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, uInt32 inLength )
 //    postcondition: *outMsg != nil
 //------------------------------------------------------------------------------
 
-sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
+SInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 {
-	sInt32					siResult		= eDSNoErr;
-	uInt32					buffLen			= 0;
-	uInt32					readBytes 		= 0;
+	SInt32					siResult		= eDSNoErr;
+	UInt32					buffLen			= 0;
+	UInt32					readBytes 		= 0;
 	void				   *inBuffer		= nil;
-	uInt32					inLength		= 0;
+	UInt32					inLength		= 0;
 	sComProxyData		   *outProxyMsg		= nil;
 
 	//need to read a tag and then a buffer length
@@ -1490,7 +1474,7 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 				}
 			}
 		}
-		catch( sInt32 err )
+		catch( SInt32 err )
 		{
 			siResult = eDSTCPReceiveError;
 		}
@@ -1523,7 +1507,7 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 //
 //------------------------------------------------------------------------------
 
-uInt32 DSTCPEndpoint::GetRemoteHostIPAddress ( void )
+UInt32 DSTCPEndpoint::GetRemoteHostIPAddress ( void )
 {
 	return mRemoteHostIPAddr;
 }
@@ -1533,7 +1517,7 @@ uInt32 DSTCPEndpoint::GetRemoteHostIPAddress ( void )
 //
 //------------------------------------------------------------------------------
 
-uInt16 DSTCPEndpoint::GetRemoteHostPort ( void )
+UInt16 DSTCPEndpoint::GetRemoteHostPort ( void )
 {
 	return ( ntohs( mRemoteSockAddr.sin_port ) );
 }

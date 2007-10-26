@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -32,7 +28,7 @@
  */
 
 static const char usage_1[] =
-"[-?@(#)$Id: chgrp (AT&T Labs Research) 2002-11-14 $\n]"
+"[-?@(#)$Id: chgrp (AT&T Research) 2006-10-11 $\n]"
 USAGE_LICENSE
 ;
 
@@ -53,8 +49,8 @@ static const char usage_own_1[] =
 ;
 
 static const char usage_2[] =
-"[c:changes?Describe only files whose ownership actually change.]"
-"[f:quiet|silent?Do not report files whose permissioins fail to change.]"
+"[c:changes?Describe only files whose ownership actually changes.]"
+"[f:quiet|silent?Do not report files whose ownership fails to change.]"
 "[l|h:symlink?Change the ownership of the symbolic links on systems that"
 "	support this.]"
 "[m:map?The first operand is interpreted as a file that contains a map"
@@ -63,8 +59,8 @@ static const char usage_2[] =
 "	\ato\a part of the pair. The process stops at the first match for"
 "	each file. Unmatched files are silently ignored.]"
 "[n:show?Show actions but don't execute.]"
-"[r:reference?The explicit ownership operand is omitted and the ownership of"
-"	\afile\a is used instead.]:[file]"
+"[r:reference?Omit the explicit ownership operand and use the ownership of"
+"	\afile\a instead.]:[file]"
 "[v:verbose?Describe changed permissions of all files.]"
 "[H:metaphysical?Follow symbolic links for command arguments; otherwise don't"
 "	follow symbolic links when traversing directories.]"
@@ -93,12 +89,11 @@ __STDPP__directive pragma pp:hide lchown
 #define lchown		______lchown
 #endif
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <cdt.h>
 #include <ls.h>
 #include <ctype.h>
 #include <fts.h>
-#include <sfstr.h>
 
 #include "FEATURE/symlink"
 
@@ -128,11 +123,6 @@ typedef struct				/* uid/gid map			*/
 #define OPT_VERBOSE	(1<<7)		/* have uid			*/
 
 extern int	lchown(const char*, uid_t, gid_t);
-
-static struct State_s
-{
-	int		interrupt;
-} state;
 
 #if !_lib_lchown
 
@@ -226,13 +216,7 @@ b_chgrp(int argc, char** argv, void* context)
 	struct stat	st;
 	int		(*chownf)(const char*, uid_t, gid_t);
 
-	if (argc < 0)
-	{
-		state.interrupt = 1;
-		return -1;
-	}
-	state.interrupt = 0;
-	cmdinit(argv, context, ERROR_CATALOG, ERROR_NOTIFY);
+	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	flags = fts_flags() | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
 	if (!(sp = sfstropen()))
 		error(ERROR_SYSTEM|3, "out of space");
@@ -250,7 +234,8 @@ b_chgrp(int argc, char** argv, void* context)
 	else
 		sfputr(sp, ERROR_translate(0, 0, 0, "[[owner:]group]"), -1);
 	sfputr(sp, usage_3, -1);
-	usage = sfstruse(sp);
+	if (!(usage = sfstruse(sp)))
+		error(ERROR_SYSTEM|3, "out of space");
 	for (;;)
 	{
 		switch (optget(argv, usage))
@@ -387,7 +372,7 @@ b_chgrp(int argc, char** argv, void* context)
 	}
 	if (!(fts = fts_open(argv + 1, flags, NiL)))
 		error(ERROR_system(1), "%s: not found", argv[1]);
-	while (!state.interrupt && (ent = fts_read(fts)))
+	while (!sh_checksig(context) && (ent = fts_read(fts)))
 		switch (ent->fts_info)
 		{
 		case FTS_F:
@@ -441,7 +426,7 @@ b_chgrp(int argc, char** argv, void* context)
 					}
 					sfprintf(sfstdout, "%s uid:%05d->%05d gid:%05d->%05d %s\n", op, ent->fts_statp->st_uid, uid, ent->fts_statp->st_gid, gid, ent->fts_accpath);
 				}
-				if (!(options & OPT_SHOW) && (*chownf)(ent->fts_accpath, uid, gid))
+				if (!(options & OPT_SHOW) && (*chownf)(ent->fts_accpath, uid, gid) && !(options & OPT_FORCE))
 					error(ERROR_system(0), "%s: cannot change%s", ent->fts_accpath, s);
 			}
 			break;

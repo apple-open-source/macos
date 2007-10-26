@@ -38,10 +38,10 @@ module DL
 	case proto
 	when /^([\d\w\*_\s]+)\(([\d\w\*_\s\,\[\]]*)\)$/
 	  ret = $1
-	  args = $2
+	  args = $2.strip()
 	  ret = ret.split(/\s+/)
 	  args = args.split(/\s*,\s*/)
-	  func = ret.pop
+	  func = ret.pop()
 	  if( func =~ /^\*/ )
 	    func.gsub!(/^\*+/,"")
 	    ret.push("*")
@@ -87,7 +87,7 @@ module DL
 	  "  rs = dec.call(rs) if (dec && rs)",
 	  "  @retval = r",
 	  "  @args   = rs",
-	  "  @retval",
+	  "  r",
 	  "}",
 	].join("\n"))
 
@@ -99,9 +99,10 @@ module DL
       # example:
       #  typealias("uint", "unsigned int")
       #
-      def typealias(*args)
+      def typealias(alias_type, ty1, enc1=nil, dec1=nil, ty2=nil, enc2=nil, dec2=nil)
 	init_types()
-	@types.typealias(*args)
+	@types.typealias(alias_type, ty1, enc1, dec1,
+                                     ty2||ty1, enc2, dec2)
       end
 
       # example:
@@ -168,7 +169,7 @@ module DL
 	  "  rs = dec.call(rs) if dec",
 	  "  @retval = r",
 	  "  @args   = rs",
-	  "  return @retval",
+	  "  return r",
 	  "end",
 	  "module_function :#{mname}",
 	].join("\n")

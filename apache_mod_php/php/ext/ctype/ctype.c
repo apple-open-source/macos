@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
 
@@ -28,38 +28,100 @@
 
 #include <ctype.h>
 
-/* You should tweak config.m4 so this symbol (or some else suitable)
-   gets defined.
-*/
 #if HAVE_CTYPE
 
-/* If you declare any globals in php_ctype.h uncomment this:
-ZEND_DECLARE_MODULE_GLOBALS(ctype)
-*/
+static PHP_MINFO_FUNCTION(ctype);
 
-/* True global resources - no need for thread safety here */
-/* static int le_ctype; */
+static PHP_FUNCTION(ctype_alnum);
+static PHP_FUNCTION(ctype_alpha);
+static PHP_FUNCTION(ctype_cntrl);
+static PHP_FUNCTION(ctype_digit);
+static PHP_FUNCTION(ctype_lower);
+static PHP_FUNCTION(ctype_graph);
+static PHP_FUNCTION(ctype_print);
+static PHP_FUNCTION(ctype_punct);
+static PHP_FUNCTION(ctype_space);
+static PHP_FUNCTION(ctype_upper);
+static PHP_FUNCTION(ctype_xdigit);
+
+/* {{{ arginfo */
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_alnum, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_alpha, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_cntrl, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_digit, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_lower, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_graph, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_print, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_punct, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_space, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_upper, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+static
+ZEND_BEGIN_ARG_INFO(arginfo_ctype_xdigit, 0)
+	ZEND_ARG_INFO(0, text)
+ZEND_END_ARG_INFO()
+
+/* }}} */
 
 /* {{{ ctype_functions[]
  * Every user visible function must have an entry in ctype_functions[].
  */
-function_entry ctype_functions[] = {
-	PHP_FE(ctype_alnum,	NULL)
-	PHP_FE(ctype_alpha,	NULL)
-	PHP_FE(ctype_cntrl,	NULL)
-	PHP_FE(ctype_digit,	NULL)
-	PHP_FE(ctype_lower,	NULL)
-	PHP_FE(ctype_graph,	NULL)
-	PHP_FE(ctype_print,	NULL)
-	PHP_FE(ctype_punct,	NULL)
-	PHP_FE(ctype_space,	NULL)
-	PHP_FE(ctype_upper,	NULL)
-	PHP_FE(ctype_xdigit,	NULL)
+static zend_function_entry ctype_functions[] = {
+	PHP_FE(ctype_alnum,	arginfo_ctype_alnum)
+	PHP_FE(ctype_alpha,	arginfo_ctype_alpha)
+	PHP_FE(ctype_cntrl,	arginfo_ctype_cntrl)
+	PHP_FE(ctype_digit,	arginfo_ctype_digit)
+	PHP_FE(ctype_lower,	arginfo_ctype_lower)
+	PHP_FE(ctype_graph,	arginfo_ctype_graph)
+	PHP_FE(ctype_print,	arginfo_ctype_print)
+	PHP_FE(ctype_punct,	arginfo_ctype_punct)
+	PHP_FE(ctype_space,	arginfo_ctype_space)
+	PHP_FE(ctype_upper,	arginfo_ctype_upper)
+	PHP_FE(ctype_xdigit,	arginfo_ctype_xdigit)
 	{NULL, NULL, NULL}	/* Must be the last line in ctype_functions[] */
 };
 /* }}} */
 
-/* {{{ ctype_mpodule_entry
+/* {{{ ctype_module_entry
  */
 zend_module_entry ctype_module_entry = {
 	STANDARD_MODULE_HEADER,
@@ -81,7 +143,7 @@ ZEND_GET_MODULE(ctype)
 
 /* {{{ PHP_MINFO_FUNCTION
  */
-PHP_MINFO_FUNCTION(ctype)
+static PHP_MINFO_FUNCTION(ctype)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "ctype functions", "enabled");
@@ -129,7 +191,7 @@ PHP_MINFO_FUNCTION(ctype)
 
 /* {{{ proto bool ctype_alnum(mixed c)
    Checks for alphanumeric character(s) */
-PHP_FUNCTION(ctype_alnum)
+static PHP_FUNCTION(ctype_alnum)
 {
 	CTYPE(isalnum);
 }
@@ -137,7 +199,7 @@ PHP_FUNCTION(ctype_alnum)
 
 /* {{{ proto bool ctype_alpha(mixed c)
    Checks for alphabetic character(s) */
-PHP_FUNCTION(ctype_alpha)
+static PHP_FUNCTION(ctype_alpha)
 {
 	CTYPE(isalpha);
 }
@@ -145,7 +207,7 @@ PHP_FUNCTION(ctype_alpha)
 
 /* {{{ proto bool ctype_cntrl(mixed c)
    Checks for control character(s) */
-PHP_FUNCTION(ctype_cntrl)
+static PHP_FUNCTION(ctype_cntrl)
 {
 	CTYPE(iscntrl);
 }
@@ -153,7 +215,7 @@ PHP_FUNCTION(ctype_cntrl)
 
 /* {{{ proto bool ctype_digit(mixed c)
    Checks for numeric character(s) */
-PHP_FUNCTION(ctype_digit)
+static PHP_FUNCTION(ctype_digit)
 {
 	CTYPE(isdigit);
 }
@@ -161,7 +223,7 @@ PHP_FUNCTION(ctype_digit)
 
 /* {{{ proto bool ctype_lower(mixed c)
    Checks for lowercase character(s)  */
-PHP_FUNCTION(ctype_lower)
+static PHP_FUNCTION(ctype_lower)
 {
 	CTYPE(islower);
 }
@@ -169,7 +231,7 @@ PHP_FUNCTION(ctype_lower)
 
 /* {{{ proto bool ctype_graph(mixed c)
    Checks for any printable character(s) except space */
-PHP_FUNCTION(ctype_graph)
+static PHP_FUNCTION(ctype_graph)
 {
 	CTYPE(isgraph);
 }
@@ -177,7 +239,7 @@ PHP_FUNCTION(ctype_graph)
 
 /* {{{ proto bool ctype_print(mixed c)
    Checks for printable character(s) */
-PHP_FUNCTION(ctype_print)
+static PHP_FUNCTION(ctype_print)
 {
 	CTYPE(isprint);
 }
@@ -185,7 +247,7 @@ PHP_FUNCTION(ctype_print)
 
 /* {{{ proto bool ctype_punct(mixed c)
    Checks for any printable character which is not whitespace or an alphanumeric character */
-PHP_FUNCTION(ctype_punct)
+static PHP_FUNCTION(ctype_punct)
 {
 	CTYPE(ispunct);
 }
@@ -193,7 +255,7 @@ PHP_FUNCTION(ctype_punct)
 
 /* {{{ proto bool ctype_space(mixed c)
    Checks for whitespace character(s)*/
-PHP_FUNCTION(ctype_space)
+static PHP_FUNCTION(ctype_space)
 {
 	CTYPE(isspace);
 }
@@ -201,7 +263,7 @@ PHP_FUNCTION(ctype_space)
 
 /* {{{ proto bool ctype_upper(mixed c)
    Checks for uppercase character(s) */
-PHP_FUNCTION(ctype_upper)
+static PHP_FUNCTION(ctype_upper)
 {
 	CTYPE(isupper);
 }
@@ -209,7 +271,7 @@ PHP_FUNCTION(ctype_upper)
 
 /* {{{ proto bool ctype_xdigit(mixed c)
    Checks for character(s) representing a hexadecimal digit */
-PHP_FUNCTION(ctype_xdigit)
+static PHP_FUNCTION(ctype_xdigit)
 {
 	CTYPE(isxdigit);
 }

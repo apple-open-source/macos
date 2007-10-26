@@ -204,5 +204,3 @@ void BELPICKeyRecord::getAcl(const char *tag, uint32 &count,
 	acls = mAclEntries.entries();
 }
 
-
-/* arch-tag: 8AE701D5-124C-11D9-AE74-000A9595DEEE */

@@ -61,7 +61,9 @@
 #define PPC_MACOSX_IS_FSP_REGNUM(regno) ((regno >= PPC_MACOSX_FIRST_FSP_REGNUM) && (regno <= PPC_MACOSX_LAST_FSP_REGNUM))
 #define PPC_MACOSX_IS_VSP_REGNUM(regno) (((regno >= PPC_MACOSX_FIRST_VSP_REGNUM) && (regno <= PPC_MACOSX_LAST_VSP_REGNUM)) && (regno != PPC_MACOSX_VRSAVE_REGNUM))
 
-#define PPC_MACOSX_DEFAULT_LR_SAVE 8
+/* This is the offset from the stack of the normal save location for the
+   link register IN WORDS.  Multiply by the wordsize to get bytes.  */
+#define PPC_MACOSX_DEFAULT_LR_SAVE 2
 
 #define PPC_MACOSX_REGISTER_TYPE unsigned int
 #define PPC_MACOSX_FP_REGISTER_TYPE double

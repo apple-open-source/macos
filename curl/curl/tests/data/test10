@@ -1,3 +1,10 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP PUT
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -42,7 +49,6 @@ the
 <protocol>
 PUT /we/want/10 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 78
 Expect: 100-continue
@@ -58,3 +64,4 @@ the
       feature
 </protocol>
 </verify>
+</testcase>

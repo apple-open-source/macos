@@ -1,6 +1,6 @@
 /*
  * Mar  8, 2000 by Hajimu UMEMOTO <ume@mahoroba.org>
- * $Id: gai.h,v 1.5 2005/01/10 19:03:59 snsimon Exp $
+ * $Id: gai.h,v 1.6 2006/01/20 20:41:10 snsimon Exp $
  *
  * This module is besed on ssh-1.2.27-IPv6-1.5 written by
  * KIKUCHI Takahiro <kick@kyoto.wide.ad.jp>

@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -14,10 +14,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Distributed default settings for significant Mailman config variables.
-"""
+"""Distributed default settings for significant Mailman config variables."""
 
 # NEVER make site configuration changes to this file.  ALWAYS make them in
 # mm_cfg.py instead, in the designated area.  See the comments in that file
@@ -146,6 +146,10 @@ def add_virtualhost(urlhost, emailhost=None):
 # And set the default
 add_virtualhost(DEFAULT_URL_HOST, DEFAULT_EMAIL_HOST)
 
+# Note that you will want to run bin/fix_url.py to change the domain of an
+# existing list.  bin/fix_url.py must be run within the bin/withlist script,
+# like so: bin/withlist -l -r bin/fix_url.py <listname>
+
 
 
 #####
@@ -255,6 +259,19 @@ PRIVATE_EXTERNAL_ARCHIVER = No
 # Errors.DiscardMessage if it wants to throw the message away.  Otherwise it
 # should modify the Message object as necessary.
 ARCHIVE_SCRUBBER = 'Mailman.Handlers.Scrubber'
+
+# Control parameter whether Mailman.Handlers.Scrubber should use message
+# attachment's filename as is indicated by the filename parameter or use
+# 'attachement-xxx' instead.  The default is set True because the applications
+# on PC and Mac begin to use longer non-ascii filenames.  Historically, it
+# was set False in 2.1.6 for backward compatiblity but it was reset to True
+# for safer operation in mailman-2.1.7.
+SCRUBBER_DONT_USE_ATTACHMENT_FILENAME = True
+
+# Use of attachment filename extension per se is may be dangerous because
+# virus fakes it. You can set this True if you filter the attachment by
+# filename extension
+SCRUBBER_USE_ATTACHMENT_FILENAME_EXTENSION = False
 
 # This variable defines what happens to text/html subparts.  They can be
 # stripped completely, escaped, or filtered through an external program.  The
@@ -453,11 +470,13 @@ GLOBAL_PIPELINE = [
     'Moderate',
     'Hold',
     'MimeDel',
+    'Scrubber',
     'Emergency',
     'Tagger',
     'CalcRecips',
     'AvoidDuplicates',
     'Cleanse',
+    'CleanseDKIM',
     'CookHeaders',
     # And now we send the message to the digest mbox file, and to the arch and
     # news queues.  Runners will provide further processing of the message,
@@ -476,6 +495,7 @@ GLOBAL_PIPELINE = [
 OWNER_PIPELINE = [
     'SpamDetect',
     'Replybot',
+    'CleanseDKIM',
     'OwnerRecips',
     'ToOutgoing',
     ]
@@ -520,7 +540,7 @@ OWNER_PIPELINE = [
 # printing of this log message.
 SMTP_LOG_EVERY_MESSAGE = (
     'smtp',
-    '%(msg_message-id)s smtp for %(#recips)d recips, completed in %(time).3f seconds')
+    '%(msg_message-id)s smtp to %(listname)s for %(#recips)d recips, completed in %(time).3f seconds')
 
 # This will only be printed if there were no immediate smtp failures.
 # Mutually exclusive with SMTP_LOG_REFUSED.
@@ -590,6 +610,8 @@ VERP_REGEXP = r'^(?P<bounces>[^+]+?)\+(?P<mailbox>[^=]+)=(?P<host>[^@]+)@.*$'
 # VERP format and regexp for probe messages
 VERP_PROBE_FORMAT = '%(bounces)s+%(token)s'
 VERP_PROBE_REGEXP = r'^(?P<bounces>[^+]+?)\+(?P<token>[^@]+)@.*$'
+# Set this Yes to activate VERP probe for disabling by bounce
+VERP_PROBES = No
 
 # A perfect opportunity for doing VERP is the password reminders, which are
 # already addressed individually to each recipient.  Set this to Yes to enable
@@ -615,13 +637,17 @@ VERP_DELIVERY_INTERVAL = 0
 # friendly Subject: on the message, but requires cooperation from the MTA.
 # Format is like VERP_FORMAT above, but with the following substitutions:
 #
-# %(confirm)s -- the list-confirm mailbox will be set here
+# %(addr)s -- the list-confirm mailbox will be set here
 # %(cookie)s  -- the confirmation cookie will be set here
 VERP_CONFIRM_FORMAT = '%(addr)s+%(cookie)s'
 
 # This is analogous to VERP_REGEXP, but for splitting apart the
-# VERP_CONFIRM_FORMAT.
-VERP_CONFIRM_REGEXP = r'^(?P<addr>[^+]+?)\+(?P<cookie>[^@]+)@.*$'
+# VERP_CONFIRM_FORMAT.  MUAs have been observed that mung
+# From: local_part@host
+# into
+# To: "local_part" <local_part@host>
+# when replying, so we skip everything up to '<' if any.
+VERP_CONFIRM_REGEXP = r'^(.*<)?(?P<addr>[^+]+?)\+(?P<cookie>[^@]+)@.*$'
 
 # Set this to Yes to enable VERP-like (more user friendly) confirmations
 VERP_CONFIRMATIONS = No
@@ -770,6 +796,21 @@ ADMIN_CATEGORIES = [
 # list's config variable default_member_moderation.
 DEFAULT_NEW_MEMBER_OPTIONS = 256
 
+# Specify the type of passwords to use, when Mailman generates the passwords
+# itself, as would be the case for membership requests where the user did not
+# fill in a password, or during list creation, when auto-generation of admin
+# passwords was selected.
+#
+# Set this value to Yes for classic Mailman user-friendly(er) passwords.
+# These generate semi-pronounceable passwords which are easier to remember.
+# Set this value to No to use more cryptographically secure, but harder to
+# remember, passwords -- if your operating system and Python version support
+# the necessary feature (specifically that /dev/urandom be available).
+USER_FRIENDLY_PASSWORDS = Yes
+# This value specifies the default lengths of member and list admin passwords
+MEMBER_PASSWORD_LENGTH = 8
+ADMIN_PASSWORD_LENGTH = 10
+
 
 
 #####
@@ -788,12 +829,27 @@ DEFAULT_MAX_MESSAGE_SIZE = 40           # KB
 # These format strings will be expanded w.r.t. the dictionary for the
 # mailing list instance.
 DEFAULT_SUBJECT_PREFIX  = "[%(real_name)s] "
+# DEFAULT_SUBJECT_PREFIX = "[%(real_name)s %%d]" # for numbering
 DEFAULT_MSG_HEADER = ""
 DEFAULT_MSG_FOOTER = """_______________________________________________
 %(real_name)s mailing list
 %(real_name)s@%(host_name)s
 %(web_page_url)slistinfo%(cgiext)s/%(_internal_name)s
 """
+
+# Where to put subject prefix for 'Re:' messages:
+#
+#     old style: Re: [prefix] test
+#     new style: [prefix 123] Re: test ... (number is optional)
+#
+# Old style is default for backward compatibility.  New style is forced if a
+# list owner set %d (numbering) in prefix.  If the site owner had applied new
+# style patch (from SF patch area) before, he/she may want to set this No in
+# mm_cfg.py.
+OLD_STYLE_PREFIXING = Yes
+
+# Scrub regular delivery
+DEFAULT_SCRUB_NONDIGEST = False
 
 # Mail command processor will ignore mail command lines after designated max.
 DEFAULT_MAIL_COMMANDS_MAX_LINES = 25
@@ -804,6 +860,9 @@ DEFAULT_ADMIN_IMMED_NOTIFY = Yes
 
 # Is the list owner notified of subscribes/unsubscribes?
 DEFAULT_ADMIN_NOTIFY_MCHANGES = No
+
+# Discard held messages after this days
+DEFAULT_MAX_DAYS_TO_HOLD = 0
 
 # Should list members, by default, have their posts be moderated?
 DEFAULT_DEFAULT_MEMBER_MODERATION = No
@@ -917,10 +976,26 @@ DEFAULT_FILTER_CONTENT = No
 # types regardless of subtype (jpeg, gif, etc.).
 DEFAULT_FILTER_MIME_TYPES = []
 
-# DEFAULT_PASS_MIME_TYPES is a list of MIME types to be passed through.  Format is the same as DEFAULT_FILTER_MIME_TYPES
+# DEFAULT_PASS_MIME_TYPES is a list of MIME types to be passed through.
+# Format is the same as DEFAULT_FILTER_MIME_TYPES
 DEFAULT_PASS_MIME_TYPES = ['multipart/mixed',
                            'multipart/alternative',
                            'text/plain']
+
+# DEFAULT_FILTER_FILENAME_EXTENSIONS is a list of filename extensions to be
+# removed. It is useful because many viruses fake their content-type as
+# harmless ones while keep their extension as executable and expect to be
+# executed when victims 'open' them.
+DEFAULT_FILTER_FILENAME_EXTENSIONS = [
+    'exe', 'bat', 'cmd', 'com', 'pif', 'scr', 'vbs', 'cpl'
+    ]
+
+# DEFAULT_PASS_FILENAME_EXTENSIONS is a list of filename extensions to be
+# passed through. Format is the same as DEFAULT_FILTER_FILENAME_EXTENSIONS.
+DEFAULT_PASS_FILENAME_EXTENSIONS = []
+
+# Replace multipart/alternative with its first alternative.
+DEFAULT_COLLAPSE_ALTERNATIVES = Yes
 
 # Whether text/html should be converted to text/plain after content filtering
 # is performed.  Conversion is done according to HTML_TO_PLAIN_TEXT_COMMAND
@@ -1246,6 +1321,7 @@ LC_DESCRIPTIONS = {}
 def add_language(code, description, charset):
     LC_DESCRIPTIONS[code] = (description, charset)
 
+add_language('ar',    _('Arabic'),              'utf-8')
 add_language('ca',    _('Catalan'),             'iso-8859-1')
 add_language('cs',    _('Czech'),               'iso-8859-2')
 add_language('da',    _('Danish'),              'iso-8859-1')
@@ -1258,6 +1334,7 @@ add_language('fi',    _('Finnish'),             'iso-8859-1')
 add_language('fr',    _('French'),              'iso-8859-1')
 add_language('hr',    _('Croatian'),            'iso-8859-2')
 add_language('hu',    _('Hungarian'),           'iso-8859-2')
+add_language('ia',    _('Interlingua'),         'iso-8859-15')
 add_language('it',    _('Italian'),             'iso-8859-1')
 add_language('ja',    _('Japanese'),            'euc-jp')
 add_language('ko',    _('Korean'),              'euc-kr')
@@ -1274,7 +1351,8 @@ add_language('sl',    _('Slovenian'),           'iso-8859-2')
 add_language('sv',    _('Swedish'),             'iso-8859-1')
 add_language('tr',    _('Turkish'),             'iso-8859-9')
 add_language('uk',    _('Ukrainian'),           'utf-8')
-add_language('zh_CN', _('Chinese (China)'),     'gb2312')
-add_language('zh_TW', _('Chinese (Taiwan)'),    'big5')
+add_language('vi',    _('Vietnamese'),          'utf-8')
+add_language('zh_CN', _('Chinese (China)'),     'utf-8')
+add_language('zh_TW', _('Chinese (Taiwan)'),    'utf-8')
 
 del _

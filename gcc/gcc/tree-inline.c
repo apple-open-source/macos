@@ -177,7 +177,8 @@ remap_decl (tree decl, inline_data *id)
   if (!n)
     {
       /* Make a copy of the variable or label.  */
-      tree t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0));
+      /* APPLE LOCAL mainline 2006-09-08 4658012 */
+      tree t = copy_decl_for_inlining (decl, fn, VARRAY_TREE (id->fns, 0), false);
 
       /* Remember it, so that if we encounter this local entity again
 	 we can reuse this copy.  Do this early because remap_type may
@@ -533,6 +534,12 @@ copy_body_r (tree *tp, int *walk_subtrees, void *data)
     {
       tree new_type = remap_type (TREE_TYPE (*tp), id);
 
+/* APPLE LOCAL begin ARM strings in code */
+      /* Mark string constants as used by multiple functions. */
+      if (TREE_CODE (*tp) == STRING_CST)
+	TREE_STRING_INLINED (*tp) = 1;
+/* APPLE LOCAL end ARM strings in code */
+
       if (new_type == TREE_TYPE (*tp))
 	*walk_subtrees = 0;
 
@@ -727,7 +734,8 @@ setup_one_parameter (inline_data *id, tree p, tree value, tree fn,
   /* Make an equivalent VAR_DECL.  Note that we must NOT remap the type
      here since the type of this decl must be visible to the calling
      function.  */
-  var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0));
+  /* APPLE LOCAL mainline 2006-09-08 4658012 */
+  var = copy_decl_for_inlining (p, fn, VARRAY_TREE (id->fns, 0), false);
 
   /* Register the VAR_DECL as the equivalent for the PARM_DECL;
      that way, when the PARM_DECL is encountered, it will be
@@ -852,9 +860,11 @@ initialize_inlined_parameters (inline_data *id, tree args, tree static_chain,
    function as seen by the callee.  *USE_P is a (possibly null) value that
    holds the result as seen by the caller.  */
 
+/* APPLE LOCAL begin mainline 2006-09-08 4658012 */
 static tree
 declare_return_variable (inline_data *id, tree return_slot_addr,
-			 tree modify_dest, tree *use_p)
+			 tree modify_dest, tree *use_p, tree bind_expr)
+/* APPLE LOCAL end mainline 2006-09-08 4658012 */
 {
   tree callee = VARRAY_TOP_TREE (id->fns);
   tree caller = VARRAY_TREE (id->fns, 0);
@@ -922,7 +932,8 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
 
   gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (callee_type)) == INTEGER_CST);
 
-  var = copy_decl_for_inlining (result, callee, caller);
+  /* APPLE LOCAL mainline 2006-09-08 4658012 */
+  var = copy_decl_for_inlining (result, callee, caller, true);
   DECL_SEEN_IN_BIND_EXPR_P (var) = 1;
   DECL_STRUCT_FUNCTION (caller)->unexpanded_var_list
     = tree_cons (NULL_TREE, var,
@@ -932,11 +943,20 @@ declare_return_variable (inline_data *id, tree return_slot_addr,
      not be visible to the user.  */
   TREE_NO_WARNING (var) = 1;
 
+  /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
+  declare_inline_vars (bind_expr, var);
+  /* APPLE LOCAL end mainline 2006-09-08 4658012 */
+
   /* Build the use expr.  If the return type of the function was
      promoted, convert it back to the expected type.  */
   use = var;
   if (!lang_hooks.types_compatible_p (TREE_TYPE (var), caller_type))
     use = fold_convert (caller_type, var);
+
+  /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
+  if (DECL_BY_REFERENCE (result))
+    var = build_fold_addr_expr (var);
+  /* APPLE LOCAL end mainline 2006-09-08 4658012 */
 
  done:
   /* Register the VAR_DECL as the equivalent for the RESULT_DECL; that
@@ -1111,8 +1131,19 @@ static tree
 inline_forbidden_p (tree fndecl)
 {
   location_t saved_loc = input_location;
-  tree ret = walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
-					   inline_forbidden_p_1, fndecl);
+  /* APPLE LOCAL begin CW asm blocks */
+  tree ret;
+  if (DECL_IASM_ASM_FUNCTION (fndecl)
+      && ! flag_ms_asms)
+    {
+      inline_forbidden_reason
+	= G_("%Jfunction %qF can never be inlined because it was declared with asm");
+      return fndecl;
+    }
+
+  ret = walk_tree_without_duplicates (&DECL_SAVED_TREE (fndecl),
+				      inline_forbidden_p_1, fndecl);
+  /* APPLE LOCAL end CW asm blocks */
 
   input_location = saved_loc;
   return ret;
@@ -1253,7 +1284,11 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case ADDR_EXPR:
     case COMPLEX_EXPR:
     case RANGE_EXPR:
+    /* APPLE LOCAL begin ARM improved inline estimation */
+#ifndef TARGET_ARM
     case CASE_LABEL_EXPR:
+#endif
+    /* APPLE LOCAL end ARM improved inline estimation */
     case SSA_NAME:
     case CATCH_EXPR:
     case EH_FILTER_EXPR:
@@ -1390,6 +1425,15 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
     case POSTINCREMENT_EXPR:
 
     case SWITCH_EXPR:
+    /* APPLE LOCAL begin ARM improved inline estimation */
+    /* Assuming case labels cost 1 (not literally true) means the switch
+       counts 1 per case.  This is a bit high but switches are expensive
+       and that is not really visible in the trees at this point.
+       Even the table lookup algorithm involves duplicating the table. */
+#ifdef TARGET_ARM
+    case CASE_LABEL_EXPR:
+#endif
+    /* APPLE LOCAL end ARM improved inline estimation */
 
     case ASM_EXPR:
 
@@ -1432,7 +1476,15 @@ estimate_num_insns_1 (tree *tp, int *walk_subtrees, void *data)
 
 	/* Our cost must be kept in sync with cgraph_estimate_size_after_inlining
 	   that does use function declaration to figure out the arguments.  */
-	if (!decl)
+/* APPLE LOCAL begin ARM improved inline estimation */
+#ifdef TARGET_ARM
+	/* External functions do not have DECL_ARGUMENTS, only the type list,
+	   but their parameters should be counted anyway. */
+	if (!decl || !DECL_ARGUMENTS (decl))
+#else
+    if (!decl)
+#endif
+/* APPLE LOCAL end ARM improved inline estimation */
 	  {
 	    for (arg = TREE_OPERAND (x, 1); arg; arg = TREE_CHAIN (arg))
 	      *count += estimate_move_cost (TREE_TYPE (TREE_VALUE (arg)));
@@ -1699,8 +1751,10 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
     modify_dest = NULL;
 
   /* Declare the return variable for the function.  */
+  /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
   decl = declare_return_variable (id, return_slot_addr,
-				  modify_dest, &use_retvar);
+				  modify_dest, &use_retvar, expr);
+  /* APPLE LOCAL end mainline 2006-09-08 4658012 */
 
   /* After we've initialized the parameters, we insert the body of the
      function itself.  */
@@ -1780,7 +1834,9 @@ expand_call_inline (tree *tp, int *walk_subtrees, void *data)
      inlined.  If we don't do this now, we can lose the information about the
      variables in the function when the blocks get blown away as soon as we
      remove the cgraph node.  */
-  (*debug_hooks->outlining_inline_function) (edge->callee->decl);
+  /* APPLE LOCAL begin mainline 2006-05-15 rewrite 4548482  */
+  (*debug_hooks->outlining_inline_function) (edge->callee->decl, &input_location);
+  /* APPLE LOCAL end mainline 2006-05-15 rewrite 4548482  */
 
   /* Update callgraph if needed.  */
   cgraph_remove_node (edge->callee);
@@ -2473,9 +2529,11 @@ mark_local_for_remap_r (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
       tree decl = TREE_OPERAND (*tp, 0);
 
       /* Copy the decl and remember the copy.  */
+      /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
       insert_decl_map (id, decl,
 		       copy_decl_for_inlining (decl, DECL_CONTEXT (decl),
-					       DECL_CONTEXT (decl)));
+					       DECL_CONTEXT (decl), false));
+      /* APPLE LOCAL end mainline 2006-09-08 4658012 */
     }
 
   return NULL_TREE;

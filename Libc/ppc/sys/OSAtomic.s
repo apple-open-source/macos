@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -90,6 +91,60 @@ MI_ENTRY_POINT(_OSAtomicXor32)
     blr
 
 
+/* int32_t	OSAtomicOr32Orig( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicOr32Orig)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    or      r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10              // return old value
+    blr
+
+
+/* int32_t	OSAtomicAnd32Orig( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicAnd32Orig)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    and     r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10              // return old value
+    blr
+
+
+/* int32_t	OSAtomicXor32Orig( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicXor32Orig)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    xor     r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10              // return old value
+    blr
+
+
 /* int64_t	OSAtomicAdd64( int64_t theAmount, int64_t *theValue ); */
 
 #if defined(__ppc64__)
@@ -99,16 +154,28 @@ MI_ENTRY_POINT(_OSAtomicAdd64)
 
 
 /* bool OSAtomicCompareAndSwap32( int32_t oldValue, int32_t newValue, int32_t *theValue ); */
+/* bool OSAtomicCompareAndSwap64( int64_t oldValue, int64_t newValue, int64_t *theValue ); */
+/* bool OSAtomicCompareAndSwapPtr( void* oldValue, void* newValue, void* *theValue ); */
+/* bool OSAtomicCompareAndSwapInt( int oldValue, int newValue, int *theValue ); */
+/* bool OSAtomicCompareAndSwapLong( long oldValue, long newValue, long *theValue ); */
 
 MI_ENTRY_POINT(_OSAtomicCompareAndSwap32)
     ba      _COMM_PAGE_COMPARE_AND_SWAP32
-    
-
-/* bool OSAtomicCompareAndSwap64( int364_t oldValue, int64_t newValue, int64_t *theValue ); */
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapInt)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32
 
 #if defined(__ppc64__)
 MI_ENTRY_POINT(_OSAtomicCompareAndSwap64)
     ba      _COMM_PAGE_COMPARE_AND_SWAP64
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtr)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP64
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapLong)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP64
+#else	/* !defined(__ppc64__) */
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtr)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapLong)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32
 #endif  /* defined(__ppc64__) */
 
 
@@ -228,6 +295,60 @@ MI_ENTRY_POINT(_OSAtomicXor32Barrier)
     blr
 
 
+/* int32_t	OSAtomicOr32OrigBarrier( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicOr32OrigBarrier)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    or      r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32B   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10		// return old value
+    blr
+
+
+/* int32_t	OSAtomicAnd32OrigBarrier( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicAnd32OrigBarrier)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    and     r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32B   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10		// return old value
+    blr
+
+
+/* int32_t	OSAtomicXor32OrigBarrier( int32_t theMask, int32_t *theValue ); */
+
+MI_ENTRY_POINT(_OSAtomicXor32OrigBarrier)
+    mflr    r12                 // save return address
+    mr      r5,r4               // move ptr to where compare-and-swap wants it
+    mr      r11,r3              // copy mask
+1:
+    lwz     r3,0(r5)            // get old value
+    mr      r10,r3		// save old value
+    xor     r4,r3,r11           // make new value
+    bla     _COMM_PAGE_COMPARE_AND_SWAP32B   // preserves r4,r5,r9-r12
+    cmpwi   r3,0                // did swap occur?
+    beq--   1b                  // compare-and-swap failed, try again
+    mtlr    r12                 // restore return adddress
+    mr      r3,r10		// return old value
+    blr
+
+
 /* int64_t	OSAtomicAdd64Barrier( int64_t theAmount, int64_t *theValue ); */
 
 #if defined(__ppc64__)
@@ -248,16 +369,28 @@ MI_ENTRY_POINT(_OSAtomicAdd64Barrier)
 
 
 /* bool OSAtomicCompareAndSwap32Barrier( int32_t oldValue, int32_t newValue, int32_t *theValue ); */
+/* bool OSAtomicCompareAndSwap64Barrier( int64_t oldValue, int64_t newValue, int64_t *theValue ); */
+/* bool OSAtomicCompareAndSwapPtrBarrier( void* oldValue, void* newValue, void* *theValue ); */
+/* bool OSAtomicCompareAndSwapIntBarrier( int oldValue, int newValue, int *theValue ); */
+/* bool OSAtomicCompareAndSwapLongBarrier( long oldValue, long newValue, long *theValue ); */
 
 MI_ENTRY_POINT(_OSAtomicCompareAndSwap32Barrier)
     ba      _COMM_PAGE_COMPARE_AND_SWAP32B
-    
-
-/* bool OSAtomicCompareAndSwap64Barrier( int364_t oldValue, int64_t newValue, int64_t *theValue ); */
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapIntBarrier)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32B
 
 #if defined(__ppc64__)
 MI_ENTRY_POINT(_OSAtomicCompareAndSwap64Barrier)
     ba      _COMM_PAGE_COMPARE_AND_SWAP64B
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtrBarrier)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP64B
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapLongBarrier)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP64B
+#else	/* !defined(__ppc64__) */
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapPtrBarrier)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32B
+MI_ENTRY_POINT(_OSAtomicCompareAndSwapLongBarrier)
+    ba      _COMM_PAGE_COMPARE_AND_SWAP32B
 #endif  /* defined(__ppc64__) */
 
 
@@ -311,18 +444,28 @@ MI_ENTRY_POINT(_OSAtomicTestAndClearBarrier)
 /* bool    OSSpinLockTry( OSSpinLock *lock ); */
 
 MI_ENTRY_POINT(_OSSpinLockTry)
+    .globl  __spin_lock_try
+__spin_lock_try:
     ba      _COMM_PAGE_SPINLOCK_TRY
     
 
 /* void    OSSpinLockLock( OSSpinLock *lock ); */
 
 MI_ENTRY_POINT(_OSSpinLockLock)
+    .globl  _spin_lock
+    .globl  __spin_lock
+_spin_lock:
+__spin_lock:
     ba      _COMM_PAGE_SPINLOCK_LOCK
     
 
 /* void    OSSpinLockUnlock( OSSpinLock *lock ); */
 
 MI_ENTRY_POINT(_OSSpinLockUnlock)
+    .globl  _spin_unlock
+    .globl  __spin_unlock
+_spin_unlock:
+__spin_unlock:
     ba      _COMM_PAGE_SPINLOCK_UNLOCK
     
 
@@ -331,3 +474,14 @@ MI_ENTRY_POINT(_OSSpinLockUnlock)
 MI_ENTRY_POINT(_OSMemoryBarrier)
     ba     _COMM_PAGE_MEMORY_BARRIER
 
+
+/* void  OSAtomicEnqueue( OSQueueHead *list, void *new, size_t offset); */
+
+MI_ENTRY_POINT(_OSAtomicEnqueue)
+    ba      _COMM_PAGE_ENQUEUE
+    
+    
+/* void* OSAtomicDequeue( OSQueueHead *list, size_t offset); */
+
+MI_ENTRY_POINT(_OSAtomicDequeue)
+    ba      _COMM_PAGE_DEQUEUE

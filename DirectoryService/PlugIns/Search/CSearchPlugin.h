@@ -36,7 +36,9 @@
 #include "CConfigs.h"
 #include "CBuff.h"
 #include "CServerPlugin.h"
+#include "CInternalDispatchThread.h"
 #include <CoreFoundation/CoreFoundation.h>
+#include "DSEventSemaphore.h"
 
 #define kXMLSwitchComputersKey				"Switch Computers"
 #define kXMLSwitchAllKey					"Switch All"
@@ -58,59 +60,92 @@ typedef enum {
 
 typedef struct sSearchConfig {
 	sSearchList			   *fSearchNodeList;
-	uInt32		  			fSearchPolicy;
+	UInt32		  			fSearchNodePolicy;
 	CConfigs			   *pConfigFromXML;
 	char				   *fSearchNodeName;
 	char				   *fSearchConfigFilePrefix;
 	eDirNodeType			fDirNodeType;
-	uInt32					fSearchConfigKey;	//KW we now have three options here
+	UInt32					fSearchConfigKey;	//KW we now have three options here
 												//either eDSAuthenticationSearchNodeName == eDSSearchNodeName or
 												//eDSContactsSearchNodeName or eDSNetworkSearchNodeName
 	sSearchConfig		   *fNext;
 } sSearchConfig;	//KW used to store the essentials for each search policy node collection intended for different use
 
 typedef struct {
-	uInt32				fID;
+	UInt32				fID;
 	tDirReference		fDirRef;
 	tDirNodeReference	fNodeRef;
 	bool				fAttrOnly;
-	uInt32				fRecCount;
-	uInt32				fRecIndex;
-	uInt32				fLimitRecSearch;
-	uInt32				fTotalRecCount;
+	UInt32				fRecCount;
+	UInt32				fRecIndex;
+	UInt32				fLimitRecSearch;
+	UInt32				fTotalRecCount;
 	eSearchState		fState;
 	tDataBuffer		   *fDataBuff;
 	void			   *fContextData;
 	bool				bNodeBuffTooSmall;
+	bool				bIsAugmented;
+	tDataListPtr		fAugmentReqAttribs;
 } sSearchContinueData;
 
 typedef struct {
 	sSearchList		   *fSearchNodeList;
 	bool				bListChanged;
 	DSMutexSemaphore   *pSearchListMutex;
-	uInt32				offset;
-	uInt32				fSearchConfigKey;
+	UInt32				offset;
+	UInt32				fSearchConfigKey;
 	void			   *fSearchNode;
 	bool				bAutoSearchList;
 	bool				bCheckForNIParentNow;
 	uid_t				fUID;
 	uid_t				fEffectiveUID;
+#if AUGMENT_RECORDS
+	CConfigs		   *pConfigFromXML;
+#endif
 } sSearchContextData;
+
+class CSearchPluginHandlerThread : public CInternalDispatchThread
+{
+public:
+					CSearchPluginHandlerThread			( void );
+					CSearchPluginHandlerThread			( const FourCharCode inThreadSignature, int inWhichFunction, void *inNeededClass );
+	virtual		   ~CSearchPluginHandlerThread			( void );
+	
+	virtual	long	ThreadMain			( void );		// we manage our own thread top level
+	virtual	void	StartThread			( void );
+	virtual	void	StopThread			( void );
+
+protected:
+	virtual	void	LastChance			( void );
+			
+private:
+	int				fWhichFunction;
+	void		   *fNeededClass;
+};
+
+__BEGIN_DECLS
+int ShouldRegisterWorkstation(void);
+__END_DECLS
 
 class CSearchPlugin : public CServerPlugin
 {
 
 public:
+	static DSEventSemaphore	fAuthPolicyChangeEvent;
+	static DSEventSemaphore	fContactPolicyChangeEvent;
+	static int32_t			fAuthCheckNodeThreadActive;
+	static int32_t			fContactCheckNodeThreadActive;
+	
 						CSearchPlugin			( FourCharCode inSig, const char *inName );
 	virtual			   ~CSearchPlugin			( void );
 
-	virtual sInt32		Validate				( const char *inVersionStr, const uInt32 inSignature );
-	virtual sInt32		Initialize				( void );
-	//virtual sInt32		Configure				( void );
-	virtual sInt32		SetPluginState			( const uInt32 inState );
-	virtual sInt32		PeriodicTask			( void );
-	virtual sInt32		ProcessRequest			( void *inData );
-	//virtual sInt32		Shutdown				( void );
+	virtual SInt32		Validate				( const char *inVersionStr, const UInt32 inSignature );
+	virtual SInt32		Initialize				( void );
+	//virtual SInt32		Configure				( void );
+	virtual SInt32		SetPluginState			( const UInt32 inState );
+	virtual SInt32		PeriodicTask			( void );
+	virtual SInt32		ProcessRequest			( void *inData );
+	//virtual SInt32		Shutdown				( void );
 
 	static	void		WakeUpRequests			( void );
 	static	void		ContinueDeallocProc		( void *inContinueData );
@@ -120,90 +155,101 @@ public:
 	static	void		ContextSetCheckForNIParentNowProc 
 												( void* inContextData );
 
-	sInt32				CleanSearchConfigData	( sSearchConfig *inList );
-	sInt32				CleanSearchListData		( sSearchList *inList );
-	void				ReDiscoverNetwork		( void );
+	SInt32				CleanSearchConfigData	( sSearchConfig *inList );
+	SInt32				CleanSearchListData		( sSearchList *inList );
+	void				EnsureCheckNodesThreadIsRunning	( tDirPatternMatch policyToCheck );
+	void				CheckNodes				( tDirPatternMatch policyToCheck, int32_t *threadFlag, DSEventSemaphore *eventSemaphore );
+
+	bool				fRegisterWorkstation;
 
 protected:
-	sInt32			SwitchSearchPolicy			(	uInt32 inSearchPolicy,
+	bool			SwitchSearchPolicy			(	UInt32 inSearchPolicy,
 													sSearchConfig *inSearchConfig );
-	sInt32			HandleRequest				(	void *inData );
-	sInt32			DoNetInfoDefault			(	sSearchList **inSearchNodeList );
+	SInt32			HandleRequest				(	void *inData );
 	void			WaitForInit					(	void );
-	sInt32			AddLocalNodesAsFirstPaths	(	sSearchList **inSearchNodeList );
-	sInt32			AddDefaultLDAPNodesLast		(	sSearchList **inSearchNodeList );
+	SInt32			AddLocalNodesAsFirstPaths	(	sSearchList **inSearchNodeList );
+	SInt32			AddDefaultLDAPNodesLast		(	sSearchList **inSearchNodeList );
 	sSearchConfig  *MakeSearchConfigData		(	sSearchList *inSearchNodeList,
-													uInt32 inSearchPolicy,
+													UInt32 inSearchPolicy,
 													CConfigs *inConfigFromXML,
 													char *inSearchNodeName,
 													char *inSearchConfigFilePrefix,
 													eDirNodeType inDirNodeType,
-													uInt32 inSearchConfigType );
-	sSearchConfig  *FindSearchConfigWithKey		(	uInt32 inSearchConfigKey );
-	sInt32			AddSearchConfigToList		(	sSearchConfig *inSearchConfig );
-//	sInt32			RemoveSearchConfigWithKey	(	uInt32 inSearchConfigKey );
-    static sInt32	CleanContextData			(	sSearchContextData *inContext );
-    void			SetSearchPolicyIndicatorFile(	uInt32 inSearchNodeIndex,
-													uInt32 inSearchPolicyIndex );
+													UInt32 inSearchConfigType );
+	sSearchConfig  *FindSearchConfigWithKey		(	UInt32 inSearchConfigKey );
+	SInt32			AddSearchConfigToList		(	sSearchConfig *inSearchConfig );
+//	SInt32			RemoveSearchConfigWithKey	(	UInt32 inSearchConfigKey );
+    static SInt32	CleanContextData			(	sSearchContextData *inContext );
+    void			SetSearchPolicyIndicatorFile(	UInt32 inSearchNodeIndex,
+													UInt32 inSearchPolicyIndex );
     void			RemoveSearchPolicyIndicatorFile		(	void );
 	void			HandleMultipleNetworkTransitions	(	void );
 
 private:
-	sInt32			OpenDirNode				( sOpenDirNode *inData );
-	sInt32			CloseDirNode			( sCloseDirNode *inData );
-	sInt32			GetDirNodeInfo			( sGetDirNodeInfo *inData );
-	sInt32			GetRecordList			( sGetRecordList *inData );
-	sInt32			GetRecordEntry			( sGetRecordEntry *inData );
-	sInt32			GetAttributeEntry		( sGetAttributeEntry *inData );
-	sInt32			GetAttributeValue		( sGetAttributeValue *inData );
-	sSearchList	   *GetLocalPaths			( char** localNodeName );
-	sSearchList	   *GetNetInfoPaths			( bool bFullPath, char** localNodeName );
+	SInt32			OpenDirNode				( sOpenDirNode *inData );
+	SInt32			CloseDirNode			( sCloseDirNode *inData );
+	SInt32			GetDirNodeInfo			( sGetDirNodeInfo *inData );
+	SInt32			GetRecordList			( sGetRecordList *inData );
+	SInt32			GetRecordEntry			( sGetRecordEntry *inData );
+	SInt32			GetAttributeEntry		( sGetAttributeEntry *inData );
+	SInt32			GetAttributeValue		( sGetAttributeValue *inData );
+	sSearchList	   *GetDefaultLocalPath		( void );
+	sSearchList	   *GetBSDLocalPath			( void );
 	sSearchList	   *GetDefaultLDAPPaths		( void );
-	sInt32			AttributeValueSearch	( sDoAttrValueSearchWithData *inData );
-	sInt32			MultipleAttributeValueSearch
+	SInt32			AttributeValueSearch	( sDoAttrValueSearchWithData *inData );
+	SInt32			MultipleAttributeValueSearch
 											( sDoMultiAttrValueSearchWithData *inData );
-	sInt32			CloseAttributeList		( sCloseAttributeList *inData );
-	sInt32			CloseAttributeValueList	( sCloseAttributeValueList *inData );
-	sInt32			ReleaseContinueData		( sReleaseContinueData *inData );
-	sInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
+	SInt32			CloseAttributeList		( sCloseAttributeList *inData );
+	SInt32			CloseAttributeValueList	( sCloseAttributeValueList *inData );
+	SInt32			ReleaseContinueData		( sReleaseContinueData *inData );
+	SInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
 	
 	void			SystemGoingToSleep		( void );
 	void			SystemWillPowerOn			( void );
 
-	sInt32			GetNextNodeRef			(	tDirNodeReference inNodeRef,
+	SInt32			GetNextNodeRef			(	tDirNodeReference inNodeRef,
 												tDirNodeReference *outNodeRef,
 												sSearchContextData *inContext );
 	tDataList	   *GetNodePath				(	tDirNodeReference inNodeRef,
 												sSearchContextData *inContext );
 
-	sInt32			AddDataToOutBuff		(	sSearchContinueData *inContinue,
+	SInt32			AddDataToOutBuff		(	sSearchContinueData *inContinue,
 												CBuff *inOutBuff,
-												sSearchContextData *inContext );
+												sSearchContextData *inContext,
+												tDataListPtr inRequestedAttrList );
 
-	sInt32			CheckSearchPolicyChange	(	sSearchContextData *pContext,
+	SInt32			CheckSearchPolicyChange	(	sSearchContextData *pContext,
 												tDirNodeReference inNodeRef,
 												tContextData inContinueData );
+	bool			IsAugmented				(	sSearchContextData *inContext, 
+												tDirNodeReference inNodeRef );
+	void			UpdateContinueForAugmented	(	sSearchContextData *inContext,
+													sSearchContinueData *inContinue,
+													tDataListPtr inAttrTypeRequestList );
 
 	sSearchContextData*	MakeContextData		( void );
 
 	sSearchList*	DupSearchListWithNewRefs( sSearchList *inSearchList );
 	sSearchList*	BuildNetworkNodeList			( void );
-	sInt32			CheckForNIAutoSwitch			( void );
-	CFDictionaryRef FindNIAutoSwitchToLDAPRecord	( void );
+#if AUGMENT_RECORDS
+	SInt32			CheckForAugmentConfig			( tDirPatternMatch policyToCheck );
+	CFDictionaryRef FindAugmentConfigRecord			( tDirPatternMatch nodeType );
+#endif
 	
 	sSearchConfig	   *pSearchConfigList;		//would like to block on access to this list
 												//KW should make use of CFMutableArray or STL type?
 	DSMutexSemaphore	fMutex;
 
 	tDirReference		fDirRef;
-	uInt32				fState;
-	bool				fPluginInitialized;
-	CFRunLoopRef		fServerRunLoop;
-	time_t				fTransitionCheckTime;
+	UInt32				fState;
 	CFStringRef			fLZMACAddress;
 	CFStringRef			fNLZMACAddress;
 	char			   *fAuthSearchPathCheck;
 	bool				fSomeNodeFailedToOpen;
+	
+#if AUGMENT_RECORDS
+	tDirNodeReference	fAugmentNodeRef;
+#endif
 };
 
 #endif	// __CSearchPlugin_H__

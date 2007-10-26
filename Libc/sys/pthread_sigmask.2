@@ -33,10 +33,13 @@
 .Nm pthread_sigmask
 .Nd examine and/or change a thread's signal mask
 .Sh SYNOPSIS
-.In pthread.h
 .In signal.h
 .Ft int
-.Fn pthread_sigmask "int how" "const sigset_t *set" "sigset_t *oset"
+.Fo pthread_sigmask
+.Fa "int how"
+.Fa "const sigset_t *restrict set"
+.Fa "sigset_t *restrict oset"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_sigmask
@@ -82,12 +85,20 @@ will fail if:
 .Fa how
 is not one of the defined values.
 .El
+.Sh LEGACY SYNOPSIS
+.Fd #include <pthread.h>
+.Fd #include <signal.h>
+.Pp
+The include file
+.In pthread.h
+is necessary.
 .Sh SEE ALSO
 .Xr sigaction 2 ,
 .Xr sigpending 2 ,
 .Xr sigprocmask 2 ,
 .Xr sigsuspend 2 ,
-.Xr sigsetops 3
+.Xr sigsetops 3 ,
+.Xr compat 5
 .Sh STANDARDS
 .Fn pthread_sigmask
 conforms to ISO/IEC 9945-1:1996 (``POSIX.1'')

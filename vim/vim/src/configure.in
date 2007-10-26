@@ -13,13 +13,14 @@ AC_PROG_MAKE_SET
 dnl Checks for programs.
 AC_PROG_CC	dnl required by almost everything
 AC_PROG_CPP	dnl required by header file checks
+AC_PROGRAM_EGREP dnl required by AC_EGREP_CPP
 AC_ISC_POSIX	dnl required by AC_C_CROSS
 AC_PROG_AWK	dnl required for "make html" in ../doc
 
 dnl Don't strip if we don't have it
 AC_CHECK_PROG(STRIP, strip, strip, :)
 
-dnl Check for extention of executables
+dnl Check for extension of executables
 AC_EXEEXT
 
 dnl Set default value for CFLAGS if none is defined or it's empty
@@ -28,9 +29,15 @@ if test -z "$CFLAGS"; then
   test "$GCC" = yes && CFLAGS="-O2 -fno-strength-reduce -Wall"
 fi
 if test "$GCC" = yes; then
-  gccversion=`"$CC" --version | sed -e '2,$d;s/^[[^0-9]]*\([[0-9]]\.[[0-9.]]*\).*$/\1/g'`
-  if test "$gccversion" = "3.0.1" -o "$gccversion" = "3.0.2"; then
-    echo 'GCC 3.0.x has a bug in the optimizer, disabling "-O#"'
+  dnl method that should work for nearly all versions
+  gccversion=`"$CC" -dumpversion`
+  if test "x$gccversion" = "x"; then
+    dnl old method; fall-back for when -dumpversion doesn't work
+    gccversion=`"$CC" --version | sed -e '2,$d' -e 's/darwin.//' -e 's/^[[^0-9]]*\([[0-9]]\.[[0-9.]]*\).*$/\1/g'`
+  fi
+  dnl version 4.0.1 was reported to cause trouble on Macintosh by Marcin Dalecki
+  if test "$gccversion" = "3.0.1" -o "$gccversion" = "3.0.2" -o "$gccversion" = "4.0.1"; then
+    echo 'GCC [[34]].0.[[12]] has a bug in the optimizer, disabling "-O#"'
     CFLAGS=`echo "$CFLAGS" | sed 's/-O[[23456789]]/-O/'`
   else
     if test "$gccversion" = "3.1" -o "$gccversion" = "3.2" -o "$gccversion" = "3.2.1" && `echo "$CFLAGS" | grep -v fno-strength-reduce >/dev/null`; then
@@ -47,7 +54,8 @@ if test "$cross_compiling" = yes; then
   (cross compiling doesn't work)])
 fi
 
-dnl gcc-cpp has the wonderful -MM option to produce nicer dependencies
+dnl gcc-cpp has the wonderful -MM option to produce nicer dependencies.
+dnl But gcc 3.1 changed the meaning!  See near the end.
 test "$GCC" = yes && CPP_MM=M; AC_SUBST(CPP_MM)
 
 if test -f ./toolcheck; then
@@ -74,6 +82,103 @@ case `uname` in
 		QNX=yes; AC_MSG_RESULT(yes);;
     *)		QNX=no; AC_MSG_RESULT(no);;
 esac
+
+dnl Check for Darwin and MacOS X
+dnl We do a check for MacOS X in the very beginning because there
+dnl are a lot of other things we need to change besides GUI stuff
+AC_MSG_CHECKING([for Darwin (Mac OS X)])
+if test "`(uname) 2>/dev/null`" = Darwin; then
+  AC_MSG_RESULT(yes)
+
+  AC_MSG_CHECKING(--disable-darwin argument)
+  AC_ARG_ENABLE(darwin,
+	  [  --disable-darwin        Disable Darwin (Mac OS X) support.],
+	  , [enable_darwin="yes"])
+  if test "$enable_darwin" = "yes"; then
+    AC_MSG_RESULT(no)
+    AC_MSG_CHECKING(if Darwin files are there)
+    if test -f os_macosx.c; then
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT([no, Darwin support disabled])
+      enable_darwin=no
+    fi
+  else
+    AC_MSG_RESULT([yes, Darwin support excluded])
+  fi
+
+  AC_MSG_CHECKING(--with-mac-arch argument)
+  AC_ARG_WITH(mac-arch, [  --with-mac-arch=ARCH    current, intel, ppc or both],
+	MACARCH="$withval"; AC_MSG_RESULT($MACARCH),
+	MACARCH="current"; AC_MSG_RESULT(defaulting to $MACARCH))
+
+  if test "x$MACARCH" = "xboth"; then
+    AC_MSG_CHECKING(for 10.4 universal SDK)
+    dnl There is a terrible inconsistency (but we appear to get away with it):
+    dnl $CFLAGS uses the 10.4u SDK library for the headers, while $CPPFLAGS
+    dnl doesn't, because "gcc -E" doesn't grok it.  That means the configure
+    dnl tests using the preprocessor are actually done with the wrong header
+    dnl files. $LDFLAGS is set at the end, because configure uses it together
+    dnl with $CFLAGS and we can only have one -sysroot argument.
+    save_cppflags="$CPPFLAGS"
+    save_cflags="$CFLAGS"
+    save_ldflags="$LDFLAGS"
+    CFLAGS="$CFLAGS -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386 -arch ppc"
+    AC_TRY_LINK([ ], [ ],
+	AC_MSG_RESULT(found, will make universal binary),
+
+	AC_MSG_RESULT(not found)
+	CFLAGS="$save_cflags"
+	AC_MSG_CHECKING(if Intel architecture is supported)
+	CPPFLAGS="$CPPFLAGS -arch i386"
+	LDFLAGS="$save_ldflags -arch i386"
+	AC_TRY_LINK([ ], [ ],
+	    AC_MSG_RESULT(yes); MACARCH="intel",
+	    AC_MSG_RESULT(no, using PowerPC)
+		MACARCH="ppc"
+		CPPFLAGS="$save_cppflags -arch ppc"
+		LDFLAGS="$save_ldflags -arch ppc"))
+  elif test "x$MACARCH" = "xintel"; then
+    CPPFLAGS="$CPPFLAGS -arch intel"
+    LDFLAGS="$LDFLAGS -arch intel"
+  elif test "x$MACARCH" = "xppc"; then
+    CPPFLAGS="$CPPFLAGS -arch ppc"
+    LDFLAGS="$LDFLAGS -arch ppc"
+  fi
+
+  if test "$enable_darwin" = "yes"; then
+    MACOSX=yes
+    OS_EXTRA_SCR="os_macosx.c os_mac_conv.c";
+    OS_EXTRA_OBJ="objects/os_macosx.o objects/os_mac_conv.o"
+    dnl TODO: use -arch i386 on Intel machines
+    CPPFLAGS="$CPPFLAGS -DMACOS_X_UNIX -no-cpp-precomp"
+    if test "x$MACARCH" = "xboth"; then
+      CPPFLAGS="$CPPFLAGS -I/Developer/SDKs/MacOSX10.4u.sdk/Developer/Headers/FlatCarbon"
+    else
+      CPPFLAGS="$CPPFLAGS -I/Developer/Headers/FlatCarbon"
+    fi
+
+    dnl If Carbon is found, assume we don't want X11
+    dnl unless it was specifically asked for (--with-x)
+    dnl or Motif, Athena or GTK GUI is used.
+    AC_CHECK_HEADER(Carbon/Carbon.h, CARBON=yes)
+    if test "x$CARBON" = "xyes"; then
+      if test -z "$with_x" -a "X$enable_gui" != Xmotif -a "X$enable_gui" != Xathena -a "X$enable_gui" != Xgtk -a "X$enable_gui" != Xgtk2; then
+	with_x=no
+      fi
+    fi
+  fi
+
+  dnl Avoid a bug with -O2 with gcc 4.0.1.  Symptom: malloc() reports double
+  dnl free.  This happens in expand_filename(), because the optimizer swaps
+  dnl two blocks of code, both using "repl", that can't be swapped.
+  if test "$MACARCH" = "intel" -o "$MACARCH" = "both"; then
+    CFLAGS=`echo "$CFLAGS" | sed 's/-O[[23456789]]/-Oz/'`
+  fi
+
+else
+  AC_MSG_RESULT(no)
+fi
 
 AC_SUBST(OS_EXTRA_SRC)
 AC_SUBST(OS_EXTRA_OBJ)
@@ -106,7 +211,7 @@ fi
 AC_MSG_CHECKING(--with-vim-name argument)
 AC_ARG_WITH(vim-name, [  --with-vim-name=NAME    what to call the Vim executable],
 	VIMNAME="$withval"; AC_MSG_RESULT($VIMNAME),
-	VIMNAME="vim"; AC_MSG_RESULT(Defaulting to vim))
+	VIMNAME="vim"; AC_MSG_RESULT(Defaulting to $VIMNAME))
 AC_SUBST(VIMNAME)
 AC_MSG_CHECKING(--with-ex-name argument)
 AC_ARG_WITH(ex-name, [  --with-ex-name=NAME     what to call the Ex executable],
@@ -246,6 +351,98 @@ else
   AC_MSG_RESULT(yes)
 fi
 
+dnl Check for MzScheme feature.
+AC_MSG_CHECKING(--enable-mzschemeinterp argument)
+AC_ARG_ENABLE(mzschemeinterp,
+	[  --enable-mzschemeinterp   Include MzScheme interpreter.], ,
+	[enable_mzschemeinterp="no"])
+AC_MSG_RESULT($enable_mzschemeinterp)
+
+if test "$enable_mzschemeinterp" = "yes"; then
+  dnl -- find the mzscheme executable
+  AC_SUBST(vi_cv_path_mzscheme)
+
+  AC_MSG_CHECKING(--with-plthome argument)
+  AC_ARG_WITH(plthome,
+	[  --with-plthome=PLTHOME   Use PLTHOME.],
+	with_plthome="$withval"; AC_MSG_RESULT($with_plthome),
+	with_plthome="";AC_MSG_RESULT("no"))
+
+  if test "X$with_plthome" != "X"; then
+       vi_cv_path_mzscheme_pfx="$with_plthome"
+  else
+    AC_MSG_CHECKING(PLTHOME environment var)
+    if test "X$PLTHOME" != "X"; then
+	AC_MSG_RESULT("$PLTHOME")
+	vi_cv_path_mzscheme_pfx="$PLTHOME"
+    else
+	AC_MSG_RESULT("not set")
+	dnl -- try to find MzScheme executable
+	AC_PATH_PROG(vi_cv_path_mzscheme, mzscheme)
+
+	dnl resolve symbolic link, the executable is often elsewhere and there
+	dnl are no links for the include files.
+	if test "X$vi_cv_path_mzscheme" != "X"; then
+	  lsout=`ls -l $vi_cv_path_mzscheme`
+	  if echo "$lsout" | grep -e '->' >/dev/null 2>/dev/null; then
+	    vi_cv_path_mzscheme=`echo "$lsout" | sed 's/.*-> \(.*\)/\1/'`
+	  fi
+	fi
+
+	if test "X$vi_cv_path_mzscheme" != "X"; then
+	    dnl -- find where MzScheme thinks it was installed
+	    AC_CACHE_CHECK(MzScheme install prefix,vi_cv_path_mzscheme_pfx,
+	    [ vi_cv_path_mzscheme_pfx=`
+	    ${vi_cv_path_mzscheme} -evm \
+	    "(display (simplify-path		\
+	       (build-path (call-with-values	\
+		(lambda () (split-path (find-system-path (quote exec-file)))) \
+		(lambda (base name must-be-dir?) base)) (quote up))))"` ])
+	    dnl Remove a trailing slash.
+	    vi_cv_path_mzscheme_pfx=`echo "$vi_cv_path_mzscheme_pfx" | sed 's+/$++'`
+	fi
+    fi
+  fi
+
+  if test "X$vi_cv_path_mzscheme_pfx" != "X"; then
+    AC_MSG_CHECKING(if scheme.h can be found in $vi_cv_path_mzscheme_pfx/include)
+    if test -f $vi_cv_path_mzscheme_pfx/include/scheme.h; then
+      AC_MSG_RESULT("yes")
+    else
+      AC_MSG_RESULT("no")
+      vi_cv_path_mzscheme_pfx=
+    fi
+  fi
+
+  if test "X$vi_cv_path_mzscheme_pfx" != "X"; then
+    if test -f "${vi_cv_path_mzscheme_pfx}/lib/libmzgc.a"; then
+      MZSCHEME_LIBS="${vi_cv_path_mzscheme_pfx}/lib/libmzgc.a ${vi_cv_path_mzscheme_pfx}/lib/libmzscheme.a"
+    else
+      MZSCHEME_LIBS="-L${vi_cv_path_mzscheme_pfx}/lib -lmzgc -lmzscheme"
+      if test "$GCC" = yes; then
+	dnl Make Vim remember the path to the library.  For when it's not in
+	dnl $LD_LIBRARY_PATH.
+	MZSCHEME_LIBS="$MZSCHEME_LIBS -Wl,-rpath -Wl,${vi_cv_path_mzscheme_pfx}/lib"
+      elif test "`(uname) 2>/dev/null`" = SunOS &&
+			       uname -r | grep '^5' >/dev/null; then
+	MZSCHEME_LIBS="$MZSCHEME_LIBS -R ${vi_cv_path_mzscheme_pfx}/lib"
+      fi
+    fi
+    MZSCHEME_CFLAGS="-I${vi_cv_path_mzscheme_pfx}/include   \
+      -DMZSCHEME_COLLECTS='\"${vi_cv_path_mzscheme_pfx}/collects\"'"
+    MZSCHEME_SRC="if_mzsch.c"
+    MZSCHEME_OBJ="objects/if_mzsch.o"
+    MZSCHEME_PRO="if_mzsch.pro"
+    AC_DEFINE(FEAT_MZSCHEME)
+  fi
+  AC_SUBST(MZSCHEME_SRC)
+  AC_SUBST(MZSCHEME_OBJ)
+  AC_SUBST(MZSCHEME_PRO)
+  AC_SUBST(MZSCHEME_LIBS)
+  AC_SUBST(MZSCHEME_CFLAGS)
+fi
+
+
 AC_MSG_CHECKING(--enable-perlinterp argument)
 AC_ARG_ENABLE(perlinterp,
 	[  --enable-perlinterp     Include Perl interpreter.], ,
@@ -259,6 +456,22 @@ if test "$enable_perlinterp" = "yes"; then
     if $vi_cv_path_perl -e 'require 5.003_01' >/dev/null 2>/dev/null; then
      eval `$vi_cv_path_perl -V:usethreads`
      if test "X$usethreads" = "XUNKNOWN" -o "X$usethreads" = "Xundef"; then
+       badthreads=no
+     else
+       if $vi_cv_path_perl -e 'require 5.6.0' >/dev/null 2>/dev/null; then
+	 eval `$vi_cv_path_perl -V:use5005threads`
+	 if test "X$use5005threads" = "XUNKNOWN" -o "X$use5005threads" = "Xundef"; then
+	   badthreads=no
+	 else
+	   badthreads=yes
+	   AC_MSG_RESULT(>>> Perl > 5.6 with 5.5 threads cannot be used <<<)
+	 fi
+       else
+	 badthreads=yes
+	 AC_MSG_RESULT(>>> Perl 5.5 with threads cannot be used <<<)
+       fi
+     fi
+     if test $badthreads = no; then
       AC_MSG_RESULT(OK)
       eval `$vi_cv_path_perl -V:shrpenv`
       if test "X$shrpenv" = "XUNKNOWN"; then # pre 5.003_04
@@ -266,32 +479,71 @@ if test "$enable_perlinterp" = "yes"; then
       fi
       vi_cv_perllib=`$vi_cv_path_perl -MConfig -e 'print $Config{privlibexp}'`
       AC_SUBST(vi_cv_perllib)
+      dnl Remove "-fno-something", it breaks using cproto.
       perlcppflags=`$vi_cv_path_perl -Mlib=$srcdir -MExtUtils::Embed \
-	      -e 'ccflags;perl_inc'`
-      if test "X$perlcppflags" != "X"; then
-	PERL_CFLAGS="$perlcppflags"
-      fi
+	      -e 'ccflags;perl_inc;print"\n"' | sed -e 's/-fno[[^ ]]*//'`
       dnl Remove "-lc", it breaks on FreeBSD when using "-pthread".
       perllibs=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed -e 'ldopts' | \
 		sed -e '/Warning/d' -e '/Note (probably harmless)/d' \
 			-e 's/-bE:perl.exp//' -e 's/-lc //'`
-      AC_SUBST(perllibs)
       dnl Don't add perl lib to $LIBS: if it's not in LD_LIBRARY_PATH
       dnl a test in configure may fail because of that.
       perlldflags=`cd $srcdir; $vi_cv_path_perl -MExtUtils::Embed \
 		-e 'ccdlflags' | sed -e 's/-bE:perl.exp//'`
-      if test "X$perlldflags" != "X"; then
-	LDFLAGS="$perlldflags $LDFLAGS"
+
+      dnl check that compiling a simple program still works with the flags
+      dnl added for Perl.
+      AC_MSG_CHECKING([if compile and link flags for Perl are sane])
+      cflags_save=$CFLAGS
+      libs_save=$LIBS
+      ldflags_save=$LDFLAGS
+      CFLAGS="$CFLAGS $perlcppflags"
+      LIBS="$LIBS $perllibs"
+      LDFLAGS="$perlldflags $LDFLAGS"
+      AC_TRY_LINK(,[ ],
+	     AC_MSG_RESULT(yes); perl_ok=yes,
+	     AC_MSG_RESULT(no: PERL DISABLED); perl_ok=no)
+      CFLAGS=$cflags_save
+      LIBS=$libs_save
+      LDFLAGS=$ldflags_save
+      if test $perl_ok = yes; then
+	if test "X$perlcppflags" != "X"; then
+	  PERL_CFLAGS="$perlcppflags"
+	fi
+	if test "X$perlldflags" != "X"; then
+	  LDFLAGS="$perlldflags $LDFLAGS"
+	fi
+	PERL_LIBS=$perllibs
+	PERL_SRC="auto/if_perl.c if_perlsfio.c"
+	PERL_OBJ="objects/if_perl.o objects/if_perlsfio.o"
+	PERL_PRO="if_perl.pro if_perlsfio.pro"
+	AC_DEFINE(FEAT_PERL)
       fi
-      PERL_SRC="auto/if_perl.c if_perlsfio.c"
-      PERL_OBJ="objects/if_perl.o objects/if_perlsfio.o"
-      PERL_PRO="if_perl.pro if_perlsfio.pro"
-      AC_DEFINE(FEAT_PERL)
-     else
-      AC_MSG_RESULT(>>> Perl with threads cannot be used <<<)
      fi
     else
       AC_MSG_RESULT(>>> too old; need Perl version 5.003_01 or later <<<)
+    fi
+  fi
+
+  if test "x$MACOSX" = "xyes"; then
+    dnl Mac OS X 10.2 or later
+    dir=/System/Library/Perl
+    darwindir=$dir/darwin
+    if test -d $darwindir; then
+      PERL=/usr/bin/perl
+    else
+      dnl Mac OS X 10.3
+      dir=/System/Library/Perl/5.8.1
+      darwindir=$dir/darwin-thread-multi-2level
+      if test -d $darwindir; then
+	PERL=/usr/bin/perl
+      fi
+    fi
+    if test -n "$PERL"; then
+      PERL_DIR="$dir"
+      PERL_CFLAGS="-DFEAT_PERL -I$darwindir/CORE"
+      PERL_OBJ="objects/if_perl.o objects/if_perlsfio.o $darwindir/auto/DynaLoader/DynaLoader.a"
+      PERL_LIBS="-L$darwindir/CORE -lperl"
     fi
   fi
 fi
@@ -300,6 +552,7 @@ AC_SUBST(PERL_SRC)
 AC_SUBST(PERL_OBJ)
 AC_SUBST(PERL_PRO)
 AC_SUBST(PERL_CFLAGS)
+AC_SUBST(PERL_LIBS)
 
 AC_MSG_CHECKING(--enable-pythoninterp argument)
 AC_ARG_ENABLE(pythoninterp,
@@ -384,14 +637,19 @@ eof
 	    dnl -- delete the lines from make about Entering/Leaving directory
 	    eval "`cd ${PYTHON_CONFDIR} && make -f ${tmp_mkf} __ | sed '/ directory /d'`"
 	    rm -f ${tmp_mkf}
-	    if test "${vi_cv_var_python_version}" = "1.4"; then
-		vi_cv_path_python_plibs="${PYTHON_CONFDIR}/libModules.a ${PYTHON_CONFDIR}/libPython.a ${PYTHON_CONFDIR}/libObjects.a ${PYTHON_CONFDIR}/libParser.a"
+	    if test "x$MACOSX" = "xyes" && ${vi_cv_path_python} -c \
+		"import sys; sys.exit(${vi_cv_var_python_version} < 2.3)"; then
+	      vi_cv_path_python_plibs="-framework Python"
 	    else
-		vi_cv_path_python_plibs="-L${PYTHON_CONFDIR} -lpython${vi_cv_var_python_version}"
+	      if test "${vi_cv_var_python_version}" = "1.4"; then
+		  vi_cv_path_python_plibs="${PYTHON_CONFDIR}/libModules.a ${PYTHON_CONFDIR}/libPython.a ${PYTHON_CONFDIR}/libObjects.a ${PYTHON_CONFDIR}/libParser.a"
+	      else
+		  vi_cv_path_python_plibs="-L${PYTHON_CONFDIR} -lpython${vi_cv_var_python_version}"
+	      fi
+	      vi_cv_path_python_plibs="${vi_cv_path_python_plibs} ${python_MODLIBS} ${python_LIBS} ${python_SYSLIBS} ${python_LINKFORSHARED}"
+	      dnl remove -ltermcap, it can conflict with an earlier -lncurses
+	      vi_cv_path_python_plibs=`echo $vi_cv_path_python_plibs | sed s/-ltermcap//`
 	    fi
-	    vi_cv_path_python_plibs="${vi_cv_path_python_plibs} ${python_MODLIBS} ${python_LIBS} ${python_SYSLIBS} ${python_LINKFORSHARED}"
-	    dnl remove -ltermcap, it can conflict with an earlier -lncurses
-	    vi_cv_path_python_plibs=`echo $vi_cv_path_python_plibs | sed s/-ltermcap//`
 	])
 
 	PYTHON_LIBS="${vi_cv_path_python_plibs}"
@@ -401,7 +659,12 @@ eof
 	  PYTHON_CFLAGS="-I${vi_cv_path_python_pfx}/include/python${vi_cv_var_python_version} -I${vi_cv_path_python_epfx}/include/python${vi_cv_var_python_version}"
 	fi
 	PYTHON_SRC="if_python.c"
-	PYTHON_OBJ="objects/if_python.o objects/py_config.o"
+	dnl For Mac OSX 10.2 config.o is included in the Python library.
+	if test "x$MACOSX" = "xyes"; then
+	  PYTHON_OBJ="objects/if_python.o"
+	else
+	  PYTHON_OBJ="objects/if_python.o objects/py_config.o"
+	fi
 	if test "${vi_cv_var_python_version}" = "1.4"; then
 	   PYTHON_OBJ="$PYTHON_OBJ objects/py_getpath.o"
 	fi
@@ -413,29 +676,52 @@ eof
 	dnl sigaltstack() will look in libc_r (it's there in libc!).
 	dnl Otherwise, when using GCC, try adding -pthread to $CFLAGS.  GCC
 	dnl will then define target-specific defines, e.g., -D_REENTRANT.
+	dnl Don't do this for Mac OSX, -pthread will generate a warning.
 	AC_MSG_CHECKING([if -pthread should be used])
 	threadsafe_flag=
 	thread_lib=
-	test "$GCC" = yes && threadsafe_flag="-pthread"
-	if test "`(uname) 2>/dev/null`" = FreeBSD; then
-	  threadsafe_flag="-D_THREAD_SAFE"
-	  thread_lib="-pthread"
+	if test "x$MACOSX" != "xyes"; then
+	  test "$GCC" = yes && threadsafe_flag="-pthread"
+	  if test "`(uname) 2>/dev/null`" = FreeBSD; then
+	    threadsafe_flag="-D_THREAD_SAFE"
+	    thread_lib="-pthread"
+	  fi
 	fi
+	libs_save_old=$LIBS
 	if test -n "$threadsafe_flag"; then
 	  cflags_save=$CFLAGS
-	  libs_save=$LIBS
 	  CFLAGS="$CFLAGS $threadsafe_flag"
 	  LIBS="$LIBS $thread_lib"
 	  AC_TRY_LINK(,[ ],
 	     AC_MSG_RESULT(yes); PYTHON_CFLAGS="$PYTHON_CFLAGS $threadsafe_flag",
-	     AC_MSG_RESULT(no); LIBS=$libs_save
+	     AC_MSG_RESULT(no); LIBS=$libs_save_old
 	     )
 	  CFLAGS=$cflags_save
 	else
 	  AC_MSG_RESULT(no)
 	fi
 
-	AC_DEFINE(FEAT_PYTHON)
+	dnl check that compiling a simple program still works with the flags
+	dnl added for Python.
+	AC_MSG_CHECKING([if compile and link flags for Python are sane])
+	cflags_save=$CFLAGS
+	libs_save=$LIBS
+	CFLAGS="$CFLAGS $PYTHON_CFLAGS"
+	LIBS="$LIBS $PYTHON_LIBS"
+	AC_TRY_LINK(,[ ],
+	       AC_MSG_RESULT(yes); python_ok=yes,
+	       AC_MSG_RESULT(no: PYTHON DISABLED); python_ok=no)
+	CFLAGS=$cflags_save
+	LIBS=$libs_save
+	if test $python_ok = yes; then
+	  AC_DEFINE(FEAT_PYTHON)
+	else
+	  LIBS=$libs_save_old
+	  PYTHON_SRC=
+	  PYTHON_OBJ=
+	  PYTHON_LIBS=
+	  PYTHON_CFLAGS=
+	fi
 
       fi
     else
@@ -458,17 +744,21 @@ AC_MSG_RESULT($enable_tclinterp)
 
 if test "$enable_tclinterp" = "yes"; then
 
-  dnl on FreeBSD tclsh is a silly script, look for tclsh8.0 or tclsh8.2
+  dnl on FreeBSD tclsh is a silly script, look for tclsh8.[420]
   AC_MSG_CHECKING(--with-tclsh argument)
   AC_ARG_WITH(tclsh, [  --with-tclsh=PATH       which tclsh to use (default: tclsh8.0)],
 	tclsh_name="$withval"; AC_MSG_RESULT($tclsh_name),
-	tclsh_name="tclsh8.0"; AC_MSG_RESULT(no))
+	tclsh_name="tclsh8.4"; AC_MSG_RESULT(no))
   AC_PATH_PROG(vi_cv_path_tcl, $tclsh_name)
   AC_SUBST(vi_cv_path_tcl)
 
-  dnl when no specific version specified, also try 8.2
-  if test "X$vi_cv_path_tcl" = "X" -a $tclsh_name = "tclsh8.0"; then
+  dnl when no specific version specified, also try 8.2 and 8.0
+  if test "X$vi_cv_path_tcl" = "X" -a $tclsh_name = "tclsh8.4"; then
     tclsh_name="tclsh8.2"
+    AC_PATH_PROG(vi_cv_path_tcl, $tclsh_name)
+  fi
+  if test "X$vi_cv_path_tcl" = "X" -a $tclsh_name = "tclsh8.2"; then
+    tclsh_name="tclsh8.0"
     AC_PATH_PROG(vi_cv_path_tcl, $tclsh_name)
   fi
   dnl still didn't find it, try without version number
@@ -484,7 +774,12 @@ if test "$enable_tclinterp" = "yes"; then
       tclloc=`echo 'set l [[info library]];set i [[string last lib $l]];incr i -2;puts [[string range $l 0 $i]]' | $vi_cv_path_tcl -`
 
       AC_MSG_CHECKING(for location of Tcl include)
-      tclinc="$tclloc/include $tclloc/include/tcl $tclloc/include/tcl$tclver /usr/local/include"
+      if test "x$MACOSX" != "xyes"; then
+	tclinc="$tclloc/include $tclloc/include/tcl $tclloc/include/tcl$tclver /usr/local/include /usr/include"
+      else
+	dnl For Mac OS X 10.3, use the OS-provided framework location
+	tclinc="/System/Library/Frameworks/Tcl.framework/Headers"
+      fi
       for try in $tclinc; do
 	if test -f "$try/tcl.h"; then
 	  AC_MSG_RESULT($try/tcl.h)
@@ -498,13 +793,21 @@ if test "$enable_tclinterp" = "yes"; then
       fi
       if test -z "$SKIP_TCL"; then
 	AC_MSG_CHECKING(for location of tclConfig.sh script)
-	tclcnf=`echo $tclinc | sed s/include/lib/g`
+	if test "x$MACOSX" != "xyes"; then
+	  tclcnf=`echo $tclinc | sed s/include/lib/g`
+	else
+	  dnl For Mac OS X 10.3, use the OS-provided framework location
+	  tclcnf="/System/Library/Frameworks/Tcl.framework"
+	fi
 	for try in $tclcnf; do
 	  if test -f $try/tclConfig.sh; then
 	    AC_MSG_RESULT($try/tclConfig.sh)
 	    . $try/tclConfig.sh
 	    dnl use eval, because tcl 8.2 includes ${TCL_DBGX}
 	    TCL_LIBS=`eval echo "$TCL_LIB_SPEC $TCL_LIBS"`
+	    dnl Use $TCL_DEFS for -D_THREAD_SAFE et al.  But only use the
+	    dnl "-D_ABC" items.  Watch out for -DFOO=long\ long.
+	    TCL_DEFS=`echo $TCL_DEFS | sed -e 's/\\\\ /\\\\X/g' | tr ' ' '\012' | sed -e '/^-[[^D]]/d' -e '/-D[[^_]]/d' -e 's/-D_/ -D_/' | tr '\012' ' ' | sed -e 's/\\\\X/\\\\ /g'`
 	    break
 	  fi
 	done
@@ -538,7 +841,7 @@ if test "$enable_tclinterp" = "yes"; then
 	  TCL_SRC=if_tcl.c
 	  TCL_OBJ=objects/if_tcl.o
 	  TCL_PRO=if_tcl.pro
-	  TCL_CFLAGS="-I$TCL_INC"
+	  TCL_CFLAGS="-I$TCL_INC $TCL_DEFS"
 	fi
       fi
     else
@@ -562,32 +865,46 @@ if test "$enable_rubyinterp" = "yes"; then
   AC_PATH_PROG(vi_cv_path_ruby, ruby)
   if test "X$vi_cv_path_ruby" != "X"; then
     AC_MSG_CHECKING(Ruby version)
-    if $vi_cv_path_ruby -e 'VERSION >= "1.6.0" or exit 1' >/dev/null 2>/dev/null; then
+    if $vi_cv_path_ruby -e '(VERSION rescue RUBY_VERSION) >= "1.6.0" or exit 1' >/dev/null 2>/dev/null; then
       AC_MSG_RESULT(OK)
-      rubyhdrdir=`$vi_cv_path_ruby -r mkmf -e 'print Config::CONFIG[["archdir"]] || $hdrdir'`
-      RUBY_CFLAGS="-I$rubyhdrdir"
-      rubylibs=`$vi_cv_path_ruby -r rbconfig -e 'print Config::CONFIG[["LIBS"]]'`
-      if test "X$rubylibs" != "X"; then
-	RUBY_LIBS="$rubylibs"
-      fi
-      librubyarg=`$vi_cv_path_ruby -r rbconfig -e 'print Config.expand(Config::CONFIG[["LIBRUBYARG"]])'`
-      if test -f "$rubyhdrdir/$librubyarg"; then
-	librubyarg="$rubyhdrdir/$librubyarg"
-      else
-	librubyarg=`$vi_cv_path_ruby -r rbconfig -e "print '$librubyarg'.gsub(/-L\./, %'-L#{Config.expand(Config::CONFIG[\"libdir\"])}')"`
-      fi
+      AC_MSG_CHECKING(Ruby header files)
+      rubyhdrdir=`$vi_cv_path_ruby -r mkmf -e 'print Config::CONFIG[["archdir"]] || $hdrdir' 2>/dev/null`
+      if test "X$rubyhdrdir" != "X"; then
+	AC_MSG_RESULT($rubyhdrdir)
+	RUBY_CFLAGS="-I$rubyhdrdir"
+	rubylibs=`$vi_cv_path_ruby -r rbconfig -e 'print Config::CONFIG[["LIBS"]]'`
+	if test "X$rubylibs" != "X"; then
+	  RUBY_LIBS="$rubylibs"
+	fi
+	librubyarg=`$vi_cv_path_ruby -r rbconfig -e 'print Config.expand(Config::CONFIG[["LIBRUBYARG"]])'`
+	if test -f "$rubyhdrdir/$librubyarg"; then
+	  librubyarg="$rubyhdrdir/$librubyarg"
+	else
+	  rubylibdir=`$vi_cv_path_ruby -r rbconfig -e 'print Config.expand(Config::CONFIG[["libdir"]])'`
+	  if test -f "$rubylibdir/$librubyarg"; then
+	    librubyarg="$rubylibdir/$librubyarg"
+	  elif test "$librubyarg" = "libruby.a"; then
+	    dnl required on Mac OS 10.3 where libruby.a doesn't exist
+	    librubyarg="-lruby"
+	  else
+	    librubyarg=`$vi_cv_path_ruby -r rbconfig -e "print '$librubyarg'.gsub(/-L\./, %'-L#{Config.expand(Config::CONFIG[\"libdir\"])}')"`
+	  fi
+	fi
 
-      if test "X$librubyarg" != "X"; then
-	RUBY_LIBS="$librubyarg $RUBY_LIBS"
+	if test "X$librubyarg" != "X"; then
+	  RUBY_LIBS="$librubyarg $RUBY_LIBS"
+	fi
+	rubyldflags=`$vi_cv_path_ruby -r rbconfig -e 'print Config::CONFIG[["LDFLAGS"]]'`
+	if test "X$rubyldflags" != "X"; then
+	  LDFLAGS="$rubyldflags $LDFLAGS"
+	fi
+	RUBY_SRC="if_ruby.c"
+	RUBY_OBJ="objects/if_ruby.o"
+	RUBY_PRO="if_ruby.pro"
+	AC_DEFINE(FEAT_RUBY)
+      else
+	AC_MSG_RESULT(not found, disabling Ruby)
       fi
-      rubyldflags=`$vi_cv_path_ruby -r rbconfig -e 'print Config::CONFIG[["LDFLAGS"]]'`
-      if test "X$rubyldflags" != "X"; then
-	LDFLAGS="$rubyldflags $LDFLAGS"
-      fi
-      RUBY_SRC="if_ruby.c"
-      RUBY_OBJ="objects/if_ruby.o"
-      RUBY_PRO="if_ruby.pro"
-      AC_DEFINE(FEAT_RUBY)
     else
       AC_MSG_RESULT(too old; need Ruby version 1.6.0 or later)
     fi
@@ -714,7 +1031,7 @@ AC_MSG_RESULT($enable_fontset)
 dnl defining FEAT_XFONTSET is delayed, so that it can be disabled for no GUI
 
 test -z "$with_x" && with_x=yes
-test "${enable_gui-yes}" != no -a "x$QNX" != "xyes" && with_x=yes
+test "${enable_gui-yes}" != no -a "x$MACOSX" != "xyes" -a "x$QNX" != "xyes" && with_x=yes
 if test "$with_x" = no; then
   AC_MSG_RESULT(defaulting to: don't HAVE_X11)
 else
@@ -754,8 +1071,10 @@ else
 
   dnl Remove "-I/usr/include " from X_CFLAGS, should not be needed.
   X_CFLAGS="`echo $X_CFLAGS\  | sed 's%-I/usr/include %%'`"
-  dnl Remove " -L/usr/lib" from X_LIBS, should not be needed.
-  X_LIBS="`echo $X_LIBS\  | sed 's% -L/usr/lib%%'`"
+  dnl Remove "-L/usr/lib " from X_LIBS, should not be needed.
+  X_LIBS="`echo $X_LIBS\  | sed 's%-L/usr/lib %%'`"
+  dnl Same for "-R/usr/lib ".
+  X_LIBS="`echo $X_LIBS\  | sed -e 's%-R/usr/lib %%' -e 's%-R /usr/lib %%'`"
 
 
   dnl Check if the X11 header files are correctly installed. On some systems
@@ -814,89 +1133,82 @@ else
   fi
 fi
 
-test "x$with_x" = xno -a "x$BEOS" != "xyes" -a "x$QNX" != "xyes" && enable_gui=no
+test "x$with_x" = xno -a "x$MACOSX" != "xyes" -a "x$QNX" != "xyes" && enable_gui=no
 
 AC_MSG_CHECKING(--enable-gui argument)
 AC_ARG_ENABLE(gui,
- [  --enable-gui[=OPTS]     X11 GUI [default=auto] [OPTS=auto/no/gtk/gtk2/gnome/gnome2/motif/athena/neXtaw/beos/photon]], , enable_gui="auto")
+ [  --enable-gui[=OPTS]     X11 GUI [default=auto] [OPTS=auto/no/gtk/gtk2/gnome/gnome2/motif/athena/neXtaw/photon/carbon]], , enable_gui="auto")
 
-## Canonicalize the --enable-gui= argument so that it can be easily compared.
-## Do not use character classes for portability with old tools.
+dnl Canonicalize the --enable-gui= argument so that it can be easily compared.
+dnl Do not use character classes for portability with old tools.
 enable_gui_canon=`echo "_$enable_gui" | \
 	sed 's/[[ _+-]]//g;y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/'`
 
-if test "x$BEOS" = "xyes"; then
+dnl Skip everything by default.
+SKIP_GTK=YES
+SKIP_GTK2=YES
+SKIP_GNOME=YES
+SKIP_MOTIF=YES
+SKIP_ATHENA=YES
+SKIP_NEXTAW=YES
+SKIP_PHOTON=YES
+SKIP_CARBON=YES
+GUITYPE=NONE
 
-  SKIP_GTK=YES
-  SKIP_GTK2=YES
-  SKIP_GNOME=YES
-  SKIP_MOTIF=YES
-  SKIP_ATHENA=YES
-  SKIP_NEXTAW=YES
-  SKIP_PHOTON=YES
-  SKIP_BEOS=
-  GUITYPE=NONE
-
-  case "$enable_gui_canon" in
-    no)		AC_MSG_RESULT(no GUI support)
-		SKIP_BEOS=YES ;;
-    yes|"")	AC_MSG_RESULT(yes - automatic GUI support) ;;
-    auto)	AC_MSG_RESULT(auto - automatic GUI support) ;;
-    beos)	AC_MSG_RESULT(BeOS GUI support) ;;
-    *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported]) ;;
-  esac
-
-elif test "x$QNX" = "xyes" -a "x$with_x" = "xno" ; then
-  SKIP_GTK=YES
-  SKIP_GTK2=YES
-  SKIP_GNOME=YES
-  SKIP_MOTIF=YES
-  SKIP_ATHENA=YES
-  SKIP_NEXTAW=YES
-  SKIP_BEOS=YES
+if test "x$QNX" = "xyes" -a "x$with_x" = "xno" ; then
   SKIP_PHOTON=
-  GUITYPE=NONE
-
   case "$enable_gui_canon" in
     no)		AC_MSG_RESULT(no GUI support)
 		SKIP_PHOTON=YES ;;
     yes|"")	AC_MSG_RESULT(yes - automatic GUI support) ;;
     auto)	AC_MSG_RESULT(auto - automatic GUI support) ;;
     photon)	AC_MSG_RESULT(Photon GUI support) ;;
-    *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported]) ;;
+    *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported])
+		SKIP_PHOTON=YES ;;
+  esac
+
+elif test "x$MACOSX" = "xyes" -a "x$with_x" = "xno" ; then
+  SKIP_CARBON=
+  case "$enable_gui_canon" in
+    no)		AC_MSG_RESULT(no GUI support)
+		SKIP_CARBON=YES ;;
+    yes|"")	AC_MSG_RESULT(yes - automatic GUI support) ;;
+    auto)	AC_MSG_RESULT(auto - automatic GUI support) ;;
+    carbon)	AC_MSG_RESULT(Carbon GUI support) ;;
+    *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported])
+		SKIP_CARBON=YES ;;
   esac
 
 else
 
-  SKIP_GTK=
-  SKIP_GTK2=
-  SKIP_GNOME=
-  SKIP_MOTIF=
-  SKIP_ATHENA=
-  SKIP_NEXTAW=
-  SKIP_BEOS=YES
-  SKIP_PHOTON=YES
-  GUITYPE=NONE
-
   case "$enable_gui_canon" in
-    no|none)	AC_MSG_RESULT(no GUI support)
-		SKIP_GTK=YES; SKIP_GTK2=YES; SKIP_GNOME=YES; SKIP_MOTIF=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
-    yes|"")	AC_MSG_RESULT(yes - automatic GUI support) ;;
-    auto)	AC_MSG_RESULT(auto - automatic GUI support) ;;
+    no|none)	AC_MSG_RESULT(no GUI support) ;;
+    yes|""|auto)	AC_MSG_RESULT(yes/auto - automatic GUI support)
+		SKIP_GTK=
+		SKIP_GTK2=
+		SKIP_GNOME=
+		SKIP_MOTIF=
+		SKIP_ATHENA=
+		SKIP_NEXTAW=
+		SKIP_CARBON=;;
     gtk)	AC_MSG_RESULT(GTK+ 1.x GUI support)
-		SKIP_GTK2=YES; SKIP_GNOME=YES; SKIP_MOTIF=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
+		SKIP_GTK=;;
     gtk2)	AC_MSG_RESULT(GTK+ 2.x GUI support)
-		SKIP_GNOME=YES; SKIP_MOTIF=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
+		SKIP_GTK=
+		SKIP_GTK2=;;
     gnome)	AC_MSG_RESULT(GNOME 1.x GUI support)
-		SKIP_GTK2=YES; SKIP_MOTIF=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
+		SKIP_GNOME=
+		SKIP_GTK=;;
     gnome2)	AC_MSG_RESULT(GNOME 2.x GUI support)
-		SKIP_MOTIF=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
+		SKIP_GNOME=
+		SKIP_GTK=
+		SKIP_GTK2=;;
     motif)	AC_MSG_RESULT(Motif GUI support)
-		SKIP_GTK=YES; SKIP_GNOME=YES; SKIP_ATHENA=YES; SKIP_NEXTAW=YES ;;
+		SKIP_MOTIF=;;
     athena)	AC_MSG_RESULT(Athena GUI support)
-		SKIP_GTK=YES; SKIP_GNOME=YES; SKIP_MOTIF=YES; SKIP_NEXTAW=YES ;;
+		SKIP_ATHENA=;;
     nextaw)	AC_MSG_RESULT(neXtaw GUI support)
-		SKIP_GTK=YES; SKIP_GNOME=YES; SKIP_MOTIF=YES; SKIP_ATHENA=YES ;;
+		SKIP_NEXTAW=;;
     *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported]) ;;
   esac
 
@@ -971,6 +1283,45 @@ if test "x$SKIP_NEXTAW" != "xYES" -a "$enable_gui_canon" != "nextaw"; then
   fi
 fi
 
+if test "x$SKIP_CARBON" != "xYES" -a "$enable_gui_canon" != "carbon"; then
+  AC_MSG_CHECKING(whether or not to look for Carbon)
+  AC_ARG_ENABLE(carbon-check,
+	[  --enable-carbon-check   If auto-select GUI, check for Carbon [default=yes]],
+	, enable_carbon_check="yes")
+  AC_MSG_RESULT($enable_carbon_check);
+  if test "x$enable_carbon_check" = "xno"; then
+    SKIP_CARBON=YES
+  fi
+fi
+
+
+if test "x$MACOSX" = "xyes" -a -z "$SKIP_CARBON" -a "x$CARBON" = "xyes"; then
+  AC_MSG_CHECKING(for Carbon GUI)
+  dnl already did the check, just give the message
+  AC_MSG_RESULT(yes);
+  GUITYPE=CARBONGUI
+  if test "$VIMNAME" = "vim"; then
+    VIMNAME=Vim
+  fi
+
+  dnl Default install directory is not /usr/local
+  if test x$prefix = xNONE; then
+    prefix=/Applications
+  fi
+
+  dnl Sorry for the hard coded default
+  datadir='${prefix}/Vim.app/Contents/Resources'
+
+  dnl skip everything else
+  SKIP_GTK=YES;
+  SKIP_GTK2=YES;
+  SKIP_GNOME=YES;
+  SKIP_MOTIF=YES;
+  SKIP_ATHENA=YES;
+  SKIP_NEXTAW=YES;
+  SKIP_PHOTON=YES;
+  SKIP_CARBON=YES
+fi
 
 dnl
 dnl Get the cflags and libraries from the gtk-config script
@@ -980,7 +1331,7 @@ dnl define an autoconf function to check for a specified version of GTK, and
 dnl try to compile/link a GTK program.  this gets used once for GTK 1.1.16.
 dnl
 dnl AM_PATH_GTK([MINIMUM-VERSION, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
-dnl Test for GTK, and define GTK_CFLAGS and GTK_LIBS
+dnl Test for GTK, and define GTK_CFLAGS, GTK_LIBDIR and GTK_LIBS
 dnl
 AC_DEFUN(AM_PATH_GTK,
 [
@@ -996,6 +1347,7 @@ AC_DEFUN(AM_PATH_GTK,
       dnl But I guess the dependency on pkgconfig.m4 is not wanted or
       dnl something like that.
       GTK_CFLAGS=`$PKG_CONFIG --cflags gtk+-2.0`
+      GTK_LIBDIR=`$PKG_CONFIG --libs-only-L gtk+-2.0`
       GTK_LIBS=`$PKG_CONFIG --libs gtk+-2.0`
       gtk_major_version=`$PKG_CONFIG --modversion gtk+-2.0 | \
 	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
@@ -1007,6 +1359,7 @@ AC_DEFUN(AM_PATH_GTK,
     elif test "X$GTK_CONFIG" != "Xno"; then
     {
       GTK_CFLAGS=`$GTK_CONFIG $gtk_config_args --cflags`
+      GTK_LIBDIR=
       GTK_LIBS=`$GTK_CONFIG $gtk_config_args --libs`
       gtk_major_version=`$GTK_CONFIG $gtk_config_args --version | \
 	     sed 's/\([[0-9]]*\)\.\([[0-9]]*\)\.\([[0-9]]*\)/\1/'`
@@ -1134,6 +1487,17 @@ AC_DEFUN([GNOME_INIT_HOOK],
       GNOME_LIBS=`$PKG_CONFIG --libs-only-l libgnomeui-2.0`
       GNOME_LIBDIR=`$PKG_CONFIG --libs-only-L libgnomeui-2.0`
       GNOME_INCLUDEDIR=`$PKG_CONFIG --cflags libgnomeui-2.0`
+
+      dnl On FreeBSD we need -pthread but pkg-config doesn't include it.
+      dnl This might not be the right way but it works for me...
+      AC_MSG_CHECKING(for FreeBSD)
+      if test "`(uname) 2>/dev/null`" = FreeBSD; then
+	AC_MSG_RESULT(yes, adding -pthread)
+	GNOME_INCLUDEDIR="$GNOME_INCLUDEDIR -D_THREAD_SAFE"
+	GNOME_LIBS="$GNOME_LIBS -pthread"
+      else
+	AC_MSG_RESULT(no)
+      fi
       $1
     else
       AC_MSG_RESULT(not found)
@@ -1248,7 +1612,8 @@ if test -z "$SKIP_GTK"; then
     dnl problems (bold fonts, --remote doesn't work).
     if test "X$SKIP_GTK2" != "XYES"; then
       AM_PATH_GTK(2.2.0,
-		  [GTK_LIBNAME="$GTK_LIBS"
+		  [GUI_LIB_LOC="$GTK_LIBDIR"
+		   GTK_LIBNAME="$GTK_LIBS"
 		  GUI_INC_LOC="$GTK_CFLAGS"], )
       if test "x$GTK_CFLAGS" != "x"; then
 	SKIP_ATHENA=YES
@@ -1361,7 +1726,7 @@ if test -z "$SKIP_MOTIF"; then
     gui_libs="`echo $x_libraries|sed 's%/[^/][^/]*$%%'` `echo "$gui_XXX" | sed s/XXX/lib/g` `echo "$GUI_INC_LOC" | sed s/include/lib/` $GUI_LIB_LOC"
     GUI_LIB_LOC=
     for try in $gui_libs; do
-      for libtry in "$try"/libXm.a "$try"/libXm.so* "$try"/libXm.sl; do
+      for libtry in "$try"/libXm.a "$try"/libXm.so* "$try"/libXm.sl "$try"/libXm.dylib; do
 	if test -f "$libtry"; then
 	  GUI_LIB_LOC=$try
 	fi
@@ -1447,6 +1812,11 @@ if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF"; then
   LDFLAGS="$X_LIBS $LDFLAGS"
   AC_CHECK_LIB(Xext, XShapeQueryExtension, [GUI_X_LIBS="-lXext"],,
 		[-lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS])
+  dnl For Solaris we need -lw and -ldl before linking with -lXmu works.
+  AC_CHECK_LIB(w, wslen, [X_EXTRA_LIBS="$X_EXTRA_LIBS -lw"],,
+		[$GUI_X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS])
+  AC_CHECK_LIB(dl, dlsym, [X_EXTRA_LIBS="$X_EXTRA_LIBS -ldl"],,
+		[$GUI_X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS])
   AC_CHECK_LIB(Xmu, XmuCreateStippledPixmap, [GUI_X_LIBS="-lXmu $GUI_X_LIBS"],,
 		[$GUI_X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS])
   if test -z "$SKIP_MOTIF"; then
@@ -1515,7 +1885,15 @@ fi
 if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF"; then
   cppflags_save=$CPPFLAGS
   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
-  AC_CHECK_HEADERS(X11/Xmu/Editres.h)
+dnl Xmu/Editres.h may exist but can only be used after including Intrinsic.h
+  AC_MSG_CHECKING([for X11/Xmu/Editres.h])
+  AC_TRY_COMPILE([
+#include <X11/Intrinsic.h>
+#include <X11/Xmu/Editres.h>],
+		      [int i; i = 0;],
+	      AC_MSG_RESULT(yes)
+		      AC_DEFINE(HAVE_X11_XMU_EDITRES_H),
+	      AC_MSG_RESULT(no))
   CPPFLAGS=$cppflags_save
 fi
 
@@ -1523,7 +1901,19 @@ dnl Only use the Xm directory when compiling Motif, don't use it for Athena
 if test -z "$SKIP_MOTIF"; then
   cppflags_save=$CPPFLAGS
   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
-  AC_CHECK_HEADERS(Xm/Xm.h Xm/XpmP.h)
+  AC_CHECK_HEADERS(Xm/Xm.h Xm/XpmP.h Xm/JoinSideT.h Xm/TraitP.h Xm/Manager.h \
+		   Xm/UnhighlightT.h Xm/Notebook.h)
+
+  if test $ac_cv_header_Xm_XpmP_h = yes; then
+    dnl Solaris uses XpmAttributes_21, very annoying.
+    AC_MSG_CHECKING([for XpmAttributes_21 in Xm/XpmP.h])
+    AC_TRY_COMPILE([#include <Xm/XpmP.h>], [XpmAttributes_21 attr;],
+	AC_MSG_RESULT(yes); AC_DEFINE(XPMATTRIBUTES_TYPE, XpmAttributes_21),
+	AC_MSG_RESULT(no); AC_DEFINE(XPMATTRIBUTES_TYPE, XpmAttributes)
+	)
+  else
+    AC_DEFINE(XPMATTRIBUTES_TYPE, XpmAttributes)
+  fi
   CPPFLAGS=$cppflags_save
 fi
 
@@ -1538,11 +1928,6 @@ fi
 if test "x$GUITYPE:$enable_fontset" = "xGTK:yes" -a "0$gtk_major_version" -ge 2; then
   AC_MSG_RESULT(GTK+ 2 GUI selected; fontset has been disabled)
   enable_fontset="no"
-fi
-
-dnl There is no test for the BeOS GUI, if it's selected it's used
-if test -z "$SKIP_BEOS"; then
-  GUITYPE=BEOSGUI
 fi
 
 if test -z "$SKIP_PHOTON"; then
@@ -1565,6 +1950,12 @@ fi
 if test "$enable_fontset" = "yes"; then
   AC_DEFINE(FEAT_XFONTSET)
 fi
+
+
+dnl ---------------------------------------------------------------------------
+dnl end of GUI-checking
+dnl ---------------------------------------------------------------------------
+
 
 dnl Only really enable hangul input when GUI and XFONTSET are available
 if test "$enable_hangulinput" = "yes"; then
@@ -1621,12 +2012,28 @@ fi
 
 AC_CHECK_HEADERS(stdarg.h stdlib.h string.h sys/select.h sys/utsname.h \
 	termcap.h fcntl.h sgtty.h sys/ioctl.h sys/time.h termio.h \
-	iconv.h langinfo.h unistd.h stropts.h errno.h strings.h \
+	iconv.h langinfo.h unistd.h stropts.h errno.h \
 	sys/resource.h sys/systeminfo.h locale.h \
 	sys/stream.h sys/ptem.h termios.h libc.h sys/statfs.h \
 	poll.h sys/poll.h pwd.h utime.h sys/param.h libintl.h \
 	libgen.h util/debug.h util/msg18n.h frame.h \
-	sys/acl.h sys/access.h sys/sysctl.h sys/sysinfo.h)
+	sys/acl.h sys/access.h sys/sysctl.h sys/sysinfo.h wchar.h wctype.h)
+
+dnl pthread_np.h may exist but can only be used after including pthread.h
+AC_MSG_CHECKING([for pthread_np.h])
+AC_TRY_COMPILE([
+#include <pthread.h>
+#include <pthread_np.h>],
+		      [int i; i = 0;],
+	      AC_MSG_RESULT(yes)
+		      AC_DEFINE(HAVE_PTHREAD_NP_H),
+	      AC_MSG_RESULT(no))
+
+AC_CHECK_HEADERS(strings.h)
+if test "x$MACOSX" = "xyes"; then
+  dnl The strings.h file on OS/X contains a warning and nothing useful.
+  AC_DEFINE(NO_STRINGS_WITH_STRING_H)
+else
 
 dnl Check if strings.h and string.h can both be included when defined.
 AC_MSG_CHECKING([if strings.h can be included after string.h])
@@ -1651,6 +2058,7 @@ AC_TRY_COMPILE([
 		AC_DEFINE(NO_STRINGS_WITH_STRING_H)
 		AC_MSG_RESULT(no))
 CPPFLAGS=$cppflags_save
+fi
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_PROG_GCC_TRADITIONAL
@@ -1731,8 +2139,12 @@ AC_ARG_WITH(tlib, [  --with-tlib=library     terminal library to be used ],)
 if test -n "$with_tlib"; then
   AC_MSG_RESULT($with_tlib)
   LIBS="$LIBS -l$with_tlib"
+  AC_MSG_CHECKING(for linking with $with_tlib library)
+  AC_TRY_LINK([], [], AC_MSG_RESULT(OK), AC_MSG_ERROR(FAILED))
+  dnl Need to check for tgetent() below.
+  olibs="$LIBS"
 else
-  AC_MSG_RESULT([automatic terminal library selection])
+  AC_MSG_RESULT([empty: automatic terminal library selection])
   dnl  On HP-UX 10.10 termcap or termlib should be used instead of
   dnl  curses, because curses is much slower.
   dnl  Newer versions of ncurses are preferred over anything.
@@ -1761,10 +2173,23 @@ main() {char *s; s=(char *)tgoto("%p1%d", 0, 1); exit(0); }],
       LIBS="$olibs"
     fi
   done
+  if test "x$olibs" = "x$LIBS"; then
+    AC_MSG_RESULT(no terminal library found)
+  fi
 fi
-if test "x$olibs" != "x$LIBS"; then
-  AC_MSG_CHECKING(whether we talk terminfo)
-  AC_TRY_RUN([
+
+if test "x$olibs" = "x$LIBS"; then
+  AC_MSG_CHECKING([for tgetent()])
+  AC_TRY_LINK([],
+      [char s[10000]; int res = tgetent(s, "thisterminaldoesnotexist");],
+	AC_MSG_RESULT(yes),
+	AC_MSG_ERROR([NOT FOUND!
+      You need to install a terminal library; for example ncurses.
+      Or specify the name of the library with --with-tlib.]))
+fi
+
+AC_MSG_CHECKING(whether we talk terminfo)
+AC_TRY_RUN([
 #ifdef HAVE_TERMCAP_H
 # include <termcap.h>
 #endif
@@ -1773,9 +2198,6 @@ main()
 	  AC_MSG_RESULT([no -- we are in termcap land]),
 	  AC_MSG_RESULT([yes -- terminfo spoken here]); AC_DEFINE(TERMINFO),
 	  AC_MSG_ERROR(failed to compile test program.))
-else
-  AC_MSG_RESULT(none found)
-fi
 
 if test "x$olibs" != "x$LIBS"; then
   AC_MSG_CHECKING(what tgetent() returns for an unknown terminal)
@@ -1988,8 +2410,9 @@ AC_CHECK_FUNCS(bcmp fchdir fchown fseeko fsync ftello getcwd getpseudotty \
 	getpwnam getpwuid getrlimit gettimeofday getwd lstat memcmp \
 	memset nanosleep opendir putenv qsort readlink select setenv \
 	setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
-	sigvec snprintf strcasecmp strerror strftime stricmp strncasecmp \
-	strnicmp strpbrk strtol tgetent towlower towupper usleep utime utimes)
+	sigvec strcasecmp strerror strftime stricmp strncasecmp \
+	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+	usleep utime utimes)
 
 dnl fstatfs() can take 2 to 4 arguments, try to use st_blksize if possible
 AC_MSG_CHECKING(for st_blksize)
@@ -2128,30 +2551,6 @@ else
   AC_MSG_RESULT(yes)
 fi
 
-AC_MSG_CHECKING(for vsnprintf())
-AC_TRY_RUN([
-#include <stdio.h>
-#include <stdarg.h>
-	/* Check use of vsnprintf() */
-	void warn(char *fmt, ...);
-	void warn(char *fmt, ...)
-	{
-	  va_list ap; char buf[20];
-	  va_start(ap, fmt);
-	  vsnprintf(buf, 20, fmt, ap);
-	  va_end(ap);
-	}
-	main()
-	{
-	warn("testing %s\n", "a very long string that won't fit");
-	exit(0);
-	}
-	    ],
-	AC_DEFINE(HAVE_VSNPRINTF) AC_MSG_RESULT(yes),
-	AC_MSG_RESULT(no),
-	AC_MSG_ERROR(failed to compile test program))
-
-
 dnl rename needs to be checked separately to work on Nextstep with cc
 AC_MSG_CHECKING(for rename)
 AC_TRY_LINK([#include <stdio.h>], [rename("this", "that")],
@@ -2270,6 +2669,7 @@ AC_CHECK_LIB(xpg4, _xpg4_setrunelocale, [LIBS="$LIBS -lxpg4"],,)
 
 dnl Check how we can run ctags
 dnl --version for Exuberant ctags (preferred)
+dnl       Add --fields=+S to get function signatures for omni completion.
 dnl -t for typedefs (many ctags have this)
 dnl -s for static functions (Elvis ctags only?)
 dnl -v for variables. Dangerous, most ctags take this for 'vgrind style'.
@@ -2277,7 +2677,7 @@ dnl -i+m to test for older Exuberant ctags
 AC_MSG_CHECKING(how to create tags)
 test -f tags && mv tags tags.save
 if (eval ctags --version /dev/null | grep Exuberant) < /dev/null 1>&AC_FD_CC 2>&1; then
-  TAGPRG="ctags"
+  TAGPRG="ctags -I INIT+ --fields=+S"
 else
   (eval etags	   /dev/null) < /dev/null 1>&AC_FD_CC 2>&1 && TAGPRG="etags"
   (eval etags -c   /dev/null) < /dev/null 1>&AC_FD_CC 2>&1 && TAGPRG="etags -c"
@@ -2307,9 +2707,15 @@ AC_ARG_ENABLE(nls,
 
 if test "$enable_nls" = "yes"; then
   AC_MSG_RESULT(no)
+
+  INSTALL_LANGS=install-languages
+  AC_SUBST(INSTALL_LANGS)
+  INSTALL_TOOL_LANGS=install-tool-languages
+  AC_SUBST(INSTALL_TOOL_LANGS)
+
   AC_CHECK_PROG(MSGFMT, msgfmt, msgfmt, )
   AC_MSG_CHECKING([for NLS])
-  if test -d po; then
+  if test -f po/Makefile; then
     have_gettext="no"
     if test -n "$MSGFMT"; then
       AC_TRY_LINK(
@@ -2343,7 +2749,7 @@ if test "$enable_nls" = "yes"; then
 		AC_MSG_RESULT([no]))
     fi
   else
-    AC_MSG_RESULT([no "po" directory - disabled]);
+    AC_MSG_RESULT([no "po/Makefile" - disabled]);
   fi
 else
   AC_MSG_RESULT(yes)
@@ -2417,8 +2823,49 @@ elif test x${DLL} = xdl.h; then
 fi
 AC_CHECK_HEADERS(setjmp.h)
 
-AC_CHECK_HEADERS(copyfile.h)
-AC_CHECK_FUNCS(copyfile)
+if test "x$MACOSX" = "xyes" -a -n "$PERL"; then
+  dnl -ldl must come after DynaLoader.a
+  if echo $LIBS | grep -e '-ldl' >/dev/null; then
+    LIBS=`echo $LIBS | sed s/-ldl//`
+    PERL_LIBS="$PERL_LIBS -ldl"
+  fi
+fi
+
+if test "x$MACOSX" = "xyes" && test "x$CARBON" = "xyes" \
+	&& test "x$GUITYPE" != "xCARBONGUI"; then
+  AC_MSG_CHECKING(whether we need -framework Carbon)
+  dnl check for MACOSX without Carbon GUI, but with FEAT_MBYTE
+  if test "x$enable_multibyte" = "xyes" || test "x$features" == "xbig" \
+	|| test "x$features" = "xhuge"; then
+    LIBS="$LIBS -framework Carbon"
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
+fi
+if test "x$MACARCH" = "xboth"; then
+  LDFLAGS="$LDFLAGS -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386 -arch ppc"
+fi
+
+dnl gcc 3.1 changed the meaning of -MM.  The only solution appears to be to
+dnl use "-isystem" instead of "-I" for all non-Vim include dirs.
+dnl But only when making dependencies, cproto and lint don't take "-isystem".
+dnl Mac gcc returns "powerpc-apple-darwin8-gcc-4.0.1 (GCC)...", need to allow
+dnl the number before the version number.
+AC_MSG_CHECKING(for GCC 3 or later)
+DEPEND_CFLAGS_FILTER=
+if test "$GCC" = yes; then
+  gccmajor=`echo "$gccversion" | sed -e 's/^\([[1-9]]\)\..*$/\1/g'`
+  if test "$gccmajor" -gt "2"; then
+    DEPEND_CFLAGS_FILTER="| sed 's+-I */+-isystem /+g'"
+  fi
+fi
+if test "$DEPEND_CFLAGS_FILTER" = ""; then
+  AC_MSG_RESULT(no)
+else
+  AC_MSG_RESULT(yes)
+fi
+AC_SUBST(DEPEND_CFLAGS_FILTER)
 
 dnl write output files
 AC_OUTPUT(auto/config.mk:config.mk.in)

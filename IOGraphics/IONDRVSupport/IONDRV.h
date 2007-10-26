@@ -76,6 +76,10 @@ struct DriverInitInfo {
 #define kAAPLRegEntryIDKey	"AAPL,RegEntryID"
 #endif
 
+#ifndef kAAPLDisableMSIKey
+#define kAAPLDisableMSIKey	"AAPL,DisableMSI"
+#endif
+
 #define MAKE_REG_ENTRY(regEntryID,obj) 				\
 	(regEntryID)->opaque[ 0 ] = (void *) obj;			\
 	(regEntryID)->opaque[ 1 ] = (void *) ~(UInt32)obj;		\
@@ -236,6 +240,7 @@ public:
     IOService *			provider;
     IOOptionBits		options;
     UInt32			count;
+    SInt32			providerInterruptSource;
     IONDRVInterruptSource *	sources;
     IONDRVInterruptSet *	child;
 

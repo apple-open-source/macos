@@ -1,0 +1,35 @@
+Index: PR-4825889/samba/source/smbd/trans2.c
+===================================================================
+--- PR-4825889.orig/samba/source/smbd/trans2.c
++++ PR-4825889/samba/source/smbd/trans2.c
+@@ -3597,6 +3597,30 @@ total_data=%u (should be %u)\n", (unsign
+ 				break;
+ 			}
+ 
++               case 0x310: /* SMB_QFILEINFO_MAC_SPOTLIGHT */
++                       {
++                               char *path = NULL;              /* my_getpid(); */
++                               uint32 my_uid = htonl (current_user.ut.uid);
++                               uint32 my_gid = htonl (current_user.ut.gid);
++                               uint32 sharedSecret0 = htonl (0);
++                               uint32 sharedSecret1 = htonl (0);
++
++                               /* Just test code for now */
++                               memcpy (pdata, &my_uid, sizeof (my_uid));  /* bitmap <hack> this is the uid for now until we get Kerberized */
++                               pdata += 4;
++                               memcpy (pdata, &my_gid, sizeof (my_gid)); /* sessionID <hack> this is the gid for now until we get Kerberized */
++                               pdata += 4;
++                               memcpy(pdata, &sharedSecret0, sizeof(sharedSecret0));           /* sharedSecret[0] */
++                               pdata += 4;
++                               memcpy(pdata, &sharedSecret1, sizeof(sharedSecret1));           /* sharedSecret[1] */
++                               pdata += 4;
++                               data_size = 16;
++                               path = lp_pathname(SNUM(conn));
++                               memcpy (pdata, path, strlen (path));
++                               data_size += strlen (path);
++                               break;
++                       }
++
+ #if defined(HAVE_POSIX_ACLS)
+ 		case SMB_QUERY_POSIX_ACL:
+ 			{

@@ -21,6 +21,7 @@
 #include "defs.h"
 #include "symtab.h"
 #include "symfile.h"
+#include "source.h"
 #include "linespec.h"
 #include "breakpoint.h"
 #include "tracepoint.h"
@@ -534,7 +535,7 @@ gdb_set_bp (ClientData clientData, Tcl_Interp *interp,
   b->thread = thread;
 
   /* FIXME: this won't work for duplicate basenames! */
-  xasprintf (&buf, "%s:%d", basename (Tcl_GetStringFromObj (objv[1], NULL)),
+  xasprintf (&buf, "%s:%d", lbasename (Tcl_GetStringFromObj (objv[1], NULL)),
 	     line);
   b->addr_string = xstrdup (buf);
   free(buf);

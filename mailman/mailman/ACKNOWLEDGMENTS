@@ -1,14 +1,16 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
-59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 
-The following folks are or have been the primary maintainers of Mailman:
+The following folks are or have been core developers of Mailman (in reverse
+alphabetical order):
 
     Barry Warsaw, Mailman's yappy guard dog
     Thomas Wouters, Mailman's Dutch treat
     John Viega, Mailman's inventor
     Harald Meland, Norse Mailman
     Ken Manheimer, Mailman's savior
+    Tokio Kikuchi, Mailman's weatherman
     Scott Cotton, Cookie-Monster
 
 They can be contacted directly via mailman-cabal@python.org.
@@ -42,6 +44,7 @@ in answering questions on mailman-users.
 
     David Abrahams
     William Ahern
+    Terry Allen
     Jose Paulo Moitinho de Almeida
     Sven Anderson
     Matthias Andree
@@ -54,6 +57,7 @@ in answering questions on mailman-users.
     David Blomquist
     Bojan
     Søren Bondrup
+    Grant Bowman
     Alessio Bragadini
     J. D. Bronson
     Stan Bubrouski
@@ -62,11 +66,13 @@ in answering questions on mailman-users.
     Ted Cabeen
     Mentor Cana
     John Carnes
+    Julio A. Cartaya
     Claudio Cattazzo
     Donn Cave
     David Champion
     Hye-Shik Chang
     Eric D. Christensen
+    Tom G. Christensen
     Paul Cox
     Stefaniu Criste
     Robert Daeley
@@ -88,6 +94,7 @@ in answering questions on mailman-users.
     Pascal GEORGE
     Vadim Getmanshchuk
     David Gibbs
+    Dmitri I GOULIAEV
     Terry Grace
     Federico Grau
     Pekka Haavisto
@@ -98,6 +105,7 @@ in answering questions on mailman-users.
     Paul Hebble
     Tollef Fog Heen
     Peer Heinlein
+    James Henstridge
     Walter Hop
     Bert Hubert
     Henny Huisman
@@ -108,7 +116,6 @@ in answering questions on mailman-users.
     Matthias Juchem
     Tamito KAJIYAMA
     Nino Katic
-    Tokio Kikuchi
     Ashley M. Kirchner
     Matthias Klose
     Harald Koch
@@ -147,6 +154,7 @@ in answering questions on mailman-users.
     Mike Noyes
     David B. O'Donnell
     Timothy O'Malley
+    Andrew Martynov
     Jason R. Mastaler
     Michael Meltzer
     Martin Mokrejs
@@ -157,6 +165,7 @@ in answering questions on mailman-users.
     Eva Österlind
     Toni Panadès
     Jon Parise
+    Chris Pepper
     Tim Peters
     Joe Peterson
     Piarres Beobide Egaña
@@ -180,8 +189,10 @@ in answering questions on mailman-users.
     Guido van Rossum
     Nicholas Russo
     Chris Ryan
+    Mark Sapiro
     Cabel Sasser
     Bartosz Sawicki
+    Kai Schaetzl
     Karoly Segesdi
     SHIGENO Kazutaka
     Gleydson Mazioli da Silva
@@ -190,6 +201,7 @@ in answering questions on mailman-users.
     Mikhail Sobolev
     Greg Stein
     Dale Stimson
+    Students of HIT <mailman-cn@mail.cs.hit.edu.cn>
     Szabolcs Szigeti
     Vizi Szilard
     David T-G
@@ -200,18 +212,23 @@ in answering questions on mailman-users.
     Roger Tsang
     Chuq Von Rospach
     Jens Vagelpohl
+    Valia V. Vaneeva
     Anti Veeranna
     Todd Vierling
     Bill Wagner
     Greg Ward
     Mark Weaver
     Kathleen Webb
+    Florian Weimer
     Ousmane Wilane
     Dan Wilder
     Seb Wills
+    Dai Xiaoguang
+    Ping Yeh
     YASUDA Yukihiro
     Michael Yount
     Blair Zajac
+    Mikhail Zabaluev
     Noam Zeilberger
     Daniel Zeiss
     Todd Zullinger

@@ -1,9 +1,10 @@
-thisconfigdir=.
+thisconfigdir=../..
 myfulldir=lib/krb5
-mydir=.
+mydir=lib/krb5
 BUILDTOP=$(REL)..$(S)..
 LOCALINCLUDES = -I$(srcdir)/ccache -I$(srcdir)/keytab -I$(srcdir)/rcache -I$(srcdir)/os
-LOCAL_SUBDIRS= error_tables asn.1 ccache keytab krb os rcache posix
+LOCAL_SUBDIRS= error_tables asn.1 ccache keytab krb os rcache
+DEFS=
 
 ##DOSBUILDTOP = ..\..
 ##DOSLIBNAME=$(OUTPRE)krb5.lib
@@ -19,7 +20,7 @@ STLIBOBJS=krb5_libinit.o
 
 LIBBASE=krb5
 LIBMAJOR=3
-LIBMINOR=2
+LIBMINOR=3
 LIBINITFUNC=profile_library_initializer krb5int_lib_init
 LIBFINIFUNC=profile_library_finalizer krb5int_lib_fini
 
@@ -32,7 +33,6 @@ STOBJLISTS= \
 	krb/OBJS.ST \
 	rcache/OBJS.ST \
 	os/OBJS.ST \
-	posix/OBJS.ST \
 	$(BUILDTOP)/util/profile/OBJS.ST
 
 SUBDIROBJLISTS= \
@@ -43,7 +43,6 @@ SUBDIROBJLISTS= \
 	krb/OBJS.ST \
 	rcache/OBJS.ST \
 	os/OBJS.ST \
-	posix/OBJS.ST \
 	$(BUILDTOP)/util/profile/OBJS.ST
 
 OBJS=\
@@ -55,8 +54,8 @@ SRCS=\
 RELDIR=krb5
 SHLIB_EXPDEPS = \
 	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
-	$(COM_ERR_DEPLIB)
-SHLIB_EXPLIBS=-lk5crypto -lcom_err @GEN_LIB@ $(LIBS)
+	$(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
+SHLIB_EXPLIBS=-lk5crypto -lcom_err $(SUPPORT_LIB) @GEN_LIB@ $(LIBS)
 SHLIB_DIRS=-L$(TOPLIBD)
 SHLIB_RDIRS=$(KRB5_LIBDIR)
 
@@ -126,22 +125,24 @@ clean-windows::
 
 install-unix:: install-libs
 
-# @lib_frag@
-# @libobj_frag@
+@lib_frag@
+@libobj_frag@
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-krb5_libinit.so krb5_libinit.po $(OUTPRE)krb5_libinit.$(OBJEXT): krb5_libinit.c $(BUILDTOP)/include/krb5/autoconf.h \
-  $(COM_ERR_DEPS) $(BUILDTOP)/include/krb5.h $(BUILDTOP)/include/krb5_err.h \
-  $(BUILDTOP)/include/kv5m_err.h $(BUILDTOP)/include/asn1_err.h \
-  $(BUILDTOP)/include/kdb5_err.h krb5_libinit.h $(SRCTOP)/include/k5-platform.h \
-  $(SRCTOP)/include/k5-thread.h $(srcdir)/ccache/cc-int.h \
-  $(SRCTOP)/include/k5-int.h $(BUILDTOP)/include/krb5/osconf.h \
-  $(BUILDTOP)/include/profile.h $(SRCTOP)/include/port-sockets.h \
-  $(SRCTOP)/include/socket-utils.h $(SRCTOP)/include/krb5/kdb.h \
-  $(srcdir)/keytab/kt-int.h $(srcdir)/rcache/rc-int.h \
-  $(srcdir)/os/os-proto.h
-
+krb5_libinit.so krb5_libinit.po $(OUTPRE)krb5_libinit.$(OBJEXT): \
+  $(BUILDTOP)/include/asn1_err.h $(BUILDTOP)/include/autoconf.h \
+  $(BUILDTOP)/include/kdb5_err.h $(BUILDTOP)/include/krb5/krb5.h \
+  $(BUILDTOP)/include/krb5_err.h $(BUILDTOP)/include/kv5m_err.h \
+  $(BUILDTOP)/include/osconf.h $(BUILDTOP)/include/profile.h \
+  $(COM_ERR_DEPS) $(SRCTOP)/include/k5-err.h $(SRCTOP)/include/k5-int.h \
+  $(SRCTOP)/include/k5-platform.h $(SRCTOP)/include/k5-plugin.h \
+  $(SRCTOP)/include/k5-thread.h $(SRCTOP)/include/krb5.h \
+  $(SRCTOP)/include/krb5/locate_plugin.h $(SRCTOP)/include/krb5/preauth_plugin.h \
+  $(SRCTOP)/include/port-sockets.h $(SRCTOP)/include/socket-utils.h \
+  $(srcdir)/ccache/cc-int.h $(srcdir)/keytab/kt-int.h \
+  $(srcdir)/os/os-proto.h $(srcdir)/rcache/rc-int.h krb5_libinit.c \
+  krb5_libinit.h

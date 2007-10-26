@@ -1,0 +1,109 @@
+Index: samba/source/passdb/pdb_interface.c
+===================================================================
+--- samba/source/passdb/pdb_interface.c.orig
++++ samba/source/passdb/pdb_interface.c
+@@ -294,15 +294,30 @@ static NTSTATUS pdb_default_create_user(
+ 					TALLOC_CTX *tmp_ctx, const char *name,
+ 					uint32 acb_info, uint32 *rid)
+ {
+-	struct samu *sam_pass;
+ 	NTSTATUS status;
+-	struct passwd *pwd;
+-
++	BOOL found = False;
++	struct samu *sam_pass = NULL;
++	struct passwd *pwd = NULL;
++
++	/* In OpenDirectory, there is no separation between the Unix account
++	 * database and the Samba account database. However, since computer
++	 * trust accounts do no show up in the former, we need to use the Samba
++	 * account database to search for the account. For other passdb
++	 * backends like tdbsam, this is exactly the wrong thing to do, so we
++	 * have to conditionalise this on lp_opendirectory().
++	 */
+ 	if ((sam_pass = samu_new(tmp_ctx)) == NULL) {
+ 		return NT_STATUS_NO_MEMORY;
+ 	}
+ 
+-	if ( !(pwd = Get_Pwnam_alloc(tmp_ctx, name)) ) {
++	if (lp_opendirectory()) {
++	    found = pdb_getsampwnam(sam_pass, name);
++	} else {
++	    pwd = Get_Pwnam_alloc(tmp_ctx, name);
++	    found = pwd ? True : False;
++	}
++
++	if (!found) {
+ 		pstring add_script;
+ 		int add_ret;
+ 		fstring name2;
+@@ -316,7 +331,8 @@ static NTSTATUS pdb_default_create_user(
+ 		if (add_script[0] == '\0') {
+ 			DEBUG(3, ("Could not find user %s and no add script "
+ 				  "defined\n", name));
+-			return NT_STATUS_NO_SUCH_USER;
++			status = NT_STATUS_NO_SUCH_USER;
++			goto done;
+ 		}
+ 
+ 		/* lowercase the username before creating the Unix account for 
+@@ -339,26 +355,40 @@ static NTSTATUS pdb_default_create_user(
+ 		}
+ #endif
+ 
+-		flush_pwnam_cache();
+-
+-		pwd = Get_Pwnam_alloc(tmp_ctx, name);
++		if (lp_opendirectory()) {
++		    found = pdb_getsampwnam(sam_pass, name);
++		} else {
++		    flush_pwnam_cache();
++		    pwd = Get_Pwnam_alloc(tmp_ctx, name);
++		    found = pwd ? True : False;
++		}
+ 	}
+ 
+ 	/* we have a valid SID coming out of this call */
+ 
+-	status = samu_alloc_rid_unix( sam_pass, pwd );
+-
+-	TALLOC_FREE( pwd );
++	if (!found) {
++		DEBUG(1, ("pdb_default_create_user: failed to add "
++				"a new account for '%s'\n", name));
++		/* I guess this error is as good as any -- jpeach */
++		status = NT_STATUS_INSUFFICIENT_RESOURCES;
++		goto done;
++	}
+ 
+-	if (!NT_STATUS_IS_OK(status)) {
+-		DEBUG(3, ("pdb_default_create_user: failed to create a new user structure: %s\n", nt_errstr(status)));
+-		return status;
++	if (!lp_opendirectory()) {
++	    status = samu_alloc_rid_unix(sam_pass, pwd);
++	    if (!NT_STATUS_IS_OK(status)) {
++		    DEBUG(3, ("pdb_default_create_user: failed to create "
++			"a new user structure: %s\n", nt_errstr(status)));
++		    goto done;
++	    }
+ 	}
+ 
++
+ 	if (!sid_peek_check_rid(get_global_sam_sid(),
+ 				pdb_get_user_sid(sam_pass), rid)) {
+ 		DEBUG(0, ("Could not get RID of fresh user\n"));
+-		return NT_STATUS_INTERNAL_ERROR;
++		status = NT_STATUS_INTERNAL_ERROR;
++		goto done;
+ 	}
+ 
+ 	/* Use the username case specified in the original request */
+@@ -373,6 +403,8 @@ static NTSTATUS pdb_default_create_user(
+ 
+ 	status = pdb_add_sam_account(sam_pass);
+ 
++done:
++	TALLOC_FREE(pwd);
+ 	TALLOC_FREE(sam_pass);
+ 
+ 	return status;

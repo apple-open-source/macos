@@ -1,5 +1,6 @@
 /* Replacement utsname.h file for building GNU Emacs on the Macintosh.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* Contributed by Andrew Choi (akochoi@users.sourceforge.net).  */
+/* Contributed by Andrew Choi (akochoi@mac.com).  */
 
 #ifndef	_UTSNAME_H
 #define	_UTSNAME_H
@@ -30,3 +31,6 @@ struct utsname {
 int uname(struct utsname *name);
 
 #endif
+
+/* arch-tag: 8a013744-4d43-4084-8e2f-d3fb66c83160
+   (do not change this comment) */

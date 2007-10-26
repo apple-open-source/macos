@@ -1,6 +1,7 @@
 ;;; rnews.el --- USENET news reader for GNU Emacs
 
-;; Copyright (C) 1985, 1986, 1987 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1987, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: news
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Change Log:
 
@@ -57,6 +58,12 @@
 
 (require 'mail-utils)
 (require 'sendmail)
+
+(defvar caesar-translate-table)
+(defvar minor-modes)
+(defvar news-buffer-save)
+(defvar news-group-name)
+(defvar news-minor-modes)
 
 (autoload 'rmail-output "rmailout"
   "Append this message to Unix mail file named FILE-NAME."
@@ -105,7 +112,7 @@ if its GROUP-REGEXP matches the current newsgroup name.")
 
 (defvar news-mode-map nil)
 (defvar news-read-first-time-p t)
-;; Contains the (dotified) news groups of which you are a member. 
+;; Contains the (dotified) news groups of which you are a member.
 (defvar news-user-group-list nil)
 
 (defvar news-current-news-group nil)
@@ -133,7 +140,7 @@ Not currently used.")
 ;; association list in which we store lists of the form
 ;; (pointified-group-name (first last old-last))
 (defvar news-group-article-assoc nil)
-  
+
 (defvar news-current-message-number 0 "Displayed Article Number")
 (defvar news-total-current-group 0 "Total no of messages in group")
 
@@ -337,7 +344,7 @@ C-c C-r caesar rotate all letters by 13 places in the article's body (rot13).
 g       get new USENET news.
 f       post a reply article to USENET.
 a       post an original news article.
-A       add a newsgroup. 
+A       add a newsgroup.
 o	save the current article in the named file (append if file exists).
 C-o	output this message to a Unix-format mail file (append it).
 c       \"copy\" (actually link) current or prefix-arg msg to file.
@@ -375,7 +382,7 @@ U       unsubscribe from specified newsgroup."
   (set-syntax-table text-mode-syntax-table)
   (use-local-map news-mode-map)
   (setq local-abbrev-table text-mode-abbrev-table)
-  (run-hooks 'news-mode-hook))
+  (run-mode-hooks 'news-mode-hook))
 
 (defun string-subst-char (new old string)
   (let (index)
@@ -397,9 +404,9 @@ U       unsubscribe from specified newsgroup."
 to a list (a . b)"
   (let ((n (string-match "-" number-string)))
     (if n
-	(cons (string-to-int (substring number-string 0 n))
-	      (string-to-int (substring number-string (1+ n))))
-      (setq n (string-to-int number-string))
+	(cons (string-to-number (substring number-string 0 n))
+	      (string-to-number (substring number-string (1+ n))))
+      (setq n (string-to-number number-string))
       (cons n n))))
 
 ;(defun is-in (elt lis)
@@ -435,14 +442,14 @@ to a list (a . b)"
 			(buffer-substring end endofline))))
 	    (if (assoc tem news-group-article-assoc)
 		(message "You are subscribed twice to %s; I ignore second"
-			 tem)	      
+			 tem)
 	      (setq temp-user-groups (cons tem temp-user-groups)
 		    news-group-article-assoc
 		    (cons (list tem (list (car range)
 					  (cdr range)
 					  (cdr range)))
 			  news-group-article-assoc)))))
-	(kill-buffer newsrcbuf)))      
+	(kill-buffer newsrcbuf)))
     (setq temp-user-groups (nreverse temp-user-groups))
     (message "Prefrobnicating...")
     (switch-to-buffer news-buffer)
@@ -524,11 +531,11 @@ to a list (a . b)"
   (news-select-message arg))
 
 (defun news-select-message (arg)
-  (if (stringp arg) (setq arg (string-to-int arg)))
+  (if (stringp arg) (setq arg (string-to-number arg)))
   (let ((file (concat news-path
 		      (string-subst-char ?/ ?. news-current-news-group)
 		      "/" arg)))
-    (if (= arg 
+    (if (= arg
 	   (or (news-cadr (memq (news-cdar news-point-pdl) news-list-of-files))
 	       0))
 	(setcdr (car news-point-pdl) arg))
@@ -552,7 +559,7 @@ Negative ARG moves backward.
 If ARG is 1 or -1, moves to next or previous newsgroup if at end."
   (interactive "p")
   (let ((no (+ arg news-current-message-number)))
-    (if (or (< no news-current-group-begin) 
+    (if (or (< no news-current-group-begin)
 	    (> no news-current-group-end))
 	(cond ((= arg 1)
 	       (news-set-current-group-certification)
@@ -803,7 +810,7 @@ Using ls was found to be too slow in a previous version."
 			 ;; don't get confused by directories that look like numbers
 			 (file-directory-p
 			  (concat file-directory "/" (car tem)))
-			 (<= (string-to-int (car tem)) end-file-no))
+			 (<= (string-to-number (car tem)) end-file-no))
 		     (setq news-list-of-files
 			   (delq (car tem) news-list-of-files)))
 		 (setq tem (cdr tem)))
@@ -811,7 +818,7 @@ Using ls was found to be too slow in a previous version."
 		   (progn (setq news-current-group-end 0)
 			  nil)
 		 (setq news-list-of-files
-		       (mapcar 'string-to-int news-list-of-files))
+		       (mapcar 'string-to-number news-list-of-files))
 		 (setq news-list-of-files (sort news-list-of-files '<))
 		 (setq news-current-group-end
 		       (elt news-list-of-files
@@ -886,7 +893,7 @@ Using ls was found to be too slow in a previous version."
 		    (progn
 		      (message
 		       "Added %s to your list of newsgroups." gp)
-		      (end-of-buffer)
+		      (goto-char (point-max))
 		      (insert gp ": 1-1\n")))
 		  (search-backward gp nil t)
 		  (let (start end endofline tem)
@@ -984,4 +991,5 @@ Mail and USENET news headers are not rotated."
 
 (provide 'rnews)
 
+;;; arch-tag: c032a20b-cafb-466c-b3fa-5be404a18f8c
 ;;; rnews.el ends here

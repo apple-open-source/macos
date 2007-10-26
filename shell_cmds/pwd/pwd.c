@@ -1,6 +1,4 @@
-/*	$NetBSD: pwd.c,v 1.10 1998/07/28 05:31:26 mycroft Exp $	*/
-
-/*
+/*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -33,49 +27,49 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1991, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static char const copyright[] =
+"@(#) Copyright (c) 1991, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)pwd.c	8.3 (Berkeley) 4/1/94";
-#else
-__RCSID("$NetBSD: pwd.c,v 1.10 1998/07/28 05:31:26 mycroft Exp $");
-#endif
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/bin/pwd/pwd.c,v 1.25 2005/02/09 17:37:38 ru Exp $");
+
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <errno.h>
-#include <string.h>
 
-char *getcwd_logical __P((char *, size_t));
-void  usage __P((void));
-int   main __P((int, char *[]));
+static char *getcwd_logical(void);
+void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
+	int physical;
 	int ch;
-	int lFlag=0;
-	char *p = NULL;
+	char *p;
 
+	// 4207130
+	physical = 0;
 	while ((ch = getopt(argc, argv, "LP")) != -1)
 		switch (ch) {
 		case 'L':
-			lFlag=1;
+			physical = 0;
 			break;
 		case 'P':
-			lFlag=0;
+			physical = 1;
 			break;
 		case '?':
 		default:
@@ -87,62 +81,47 @@ main(argc, argv)
 	if (argc != 0)
 		usage();
 
-	if (lFlag)
-		p = getcwd_logical(NULL, 0);
+	/*
+	 * If we're trying to find the logical current directory and that
+	 * fails, behave as if -P was specified.
+	 *
+	 * 4701537: Only fall back if $PWD was actually wrong. We want to
+	 * fail if the path is too long (errno == ENAMETOOLONG).
+	 */
+	if ((!physical && (p = getcwd_logical()) != NULL) ||
+	    ((physical || errno == ENOENT) && (p = getcwd(NULL, 0)) != NULL))
+		printf("%s\n", p);
 	else
-		p = getcwd(NULL, 0);
-
-	if (p == NULL) err(1, "%s", "");
-
-	(void)printf("%s\n", p);
+		err(1, ".");
 
 	exit(0);
-	/* NOTREACHED */
-}
-
-char *
-getcwd_logical(pt, size)
-        char *pt;
-        size_t size;
-{
-        char *pwd;
-        size_t pwdlen;
-        dev_t dev;
-        ino_t ino;
-        struct stat s;
-
-        /* Check $PWD -- if it's right, it's fast. */
-        if ((pwd = getenv("PWD")) != NULL && pwd[0] == '/' && stat(pwd, &s) != -1) {
-                dev = s.st_dev;
-                ino = s.st_ino;
-                if (stat(".", &s) != -1 && dev == s.st_dev && ino == s.st_ino) {
-                        pwdlen = strlen(pwd);
-			if (pt) {
-				if (!size) {
-                                        errno = EINVAL;
-                                        return (NULL);
-				}
-                                if (pwdlen + 1 > size) {
-                                        errno = ERANGE;
-                                        return (NULL);
-                                }
-                        } else if ((pt = malloc(pwdlen + 1)) == NULL) {
-				errno = ENOMEM;
-                                return (NULL);
-			}
-                        memmove(pt, pwd, pwdlen);
-                        pt[pwdlen] = '\0';
-                        return (pt);
-                }
-        }
-
-        return (NULL);
 }
 
 void
-usage()
+usage(void)
 {
-	(void)fprintf(stderr, "usage: pwd [-LP]\n");
-	exit(1);
-	/* NOTREACHED */
+
+	(void)fprintf(stderr, "usage: pwd [-L | -P]\n");
+  	exit(1);
+}
+
+static char *
+getcwd_logical(void)
+{
+	struct stat lg, phy;
+	char *pwd;
+
+	/*
+	 * Check that $PWD is an absolute logical pathname referring to
+	 * the current working directory.
+	 */
+	if ((pwd = getenv("PWD")) != NULL && *pwd == '/') {
+		if (stat(pwd, &lg) == -1 || stat(".", &phy) == -1)
+			return (NULL);
+		if (lg.st_dev == phy.st_dev && lg.st_ino == phy.st_ino)
+			return (pwd);
+	}
+
+	errno = ENOENT;
+	return (NULL);
 }

@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,10 +16,10 @@
    | (with helpful hints from Dean Gaudet <dgaudet@arctic.org>            |
    | PHP 4.0 patches by:                                                  |
    | Zeev Suraski <zeev@zend.com>                                         |
-   | Stig Bakken <ssb@fast.no>                                            |
+   | Stig Bakken <ssb@php.net>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.40.4.5.6.2 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: sapi_apache.c,v 1.47.2.1.2.1 2007/01/01 09:36:12 sebastian Exp $ */
 
 #include "php_apache_http.h"
 
@@ -28,14 +28,13 @@
 int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 {
 	int retval = OK;	
-	zend_file_handle file_handle = {0};
+	zend_file_handle file_handle;
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
 		return FAILURE;
 	}
 	/* sending a file handle to another dll is not working
-	// so let zend open it. 
-	*/
+	   so let zend open it. */
 	
 	if (display_source_mode) {
 		zend_syntax_highlighter_ini syntax_highlighter_ini;

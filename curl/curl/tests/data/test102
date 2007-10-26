@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+FTP
+PASV
+RETR
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -8,6 +16,9 @@ that FTP
 works
   so does it?
 </data>
+<servercmd>
+REPLY EPSV 500 no such command
+</servercmd>
 </reply>
 
 # Client-side
@@ -22,16 +33,13 @@ FTP RETR PASV
 ftp://%HOSTIP:%FTPPORT/102
 </command>
 
-<file name="log/ftpserver.cmd">
-REPLY EPSV 500 no such command
-</file>
 </client>
 
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 PASV
@@ -41,3 +49,4 @@ RETR 102
 QUIT
 </protocol>
 </verify>
+</testcase>

@@ -36,10 +36,10 @@
 .Dt IF_NAMETOINDEX 3
 .Os
 .Sh NAME
-.Nm if_nametoindex ,
+.Nm if_freenameindex ,
 .Nm if_indextoname ,
 .Nm if_nameindex ,
-.Nm if_freenameindex
+.Nm if_nametoindex
 .Nd convert interface index to name, and vice versa
 .Sh LIBRARY
 .Lb libc
@@ -47,14 +47,23 @@
 .Fd #include <sys/types.h>
 .Fd #include <sys/socket.h>
 .Fd #include <net/if.h>
-.Ft "unsigned int"
-.Fn if_nametoindex "const char *ifname"
+.Ft void
+.Fo if_freenameindex
+.Fa "struct if_nameindex *ptr"
+.Fc
 .Ft "char *"
-.Fn if_indextoname "unsigned int ifindex" "char *ifname"
+.Fo if_indextoname
+.Fa "unsigned ifindex"
+.Fa "char *ifname"
+.Fc
 .Ft "struct if_nameindex *"
-.Fn if_nameindex "void"
-.Ft "void"
-.Fn if_freenameindex "struct if_nameindex *ptr"
+.Fo if_nameindex
+.Fa void
+.Fc
+.Ft "unsigned int"
+.Fo if_nametoindex
+.Fa "const char *ifname"
+.Fc
 .Sh DESCRIPTION
 The functions map interface index to readable interface name
 (such as

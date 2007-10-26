@@ -1,0 +1,462 @@
+#! /usr/bin/env -i /usr/bin/ruby
+
+##
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+#
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
+##
+
+ENV.clear
+ENV['__CF_USER_TEXT_ENCODING'] = "0x#{Process::Sys::getuid()}:0:0"
+
+require 'osx/foundation';
+require 'optparse';
+require 'open3'
+
+# NOTE Remember that this script is generally being called by either launchd or
+# some admin tool. This means that we must implement a best-effort service
+# model and never fail to do as much as possible. There will be no error output
+# unless the --verbose flag is specified.
+
+ENV.clear
+
+# Take an exclusive lock on ourselves. This is a mutex to serialise
+# simultaneous invocations.
+mutex = File.open($0, 'r')
+mutex.flock(File::LOCK_EX)
+
+$0 = File.basename($0)
+
+$GUEST = false
+$VERBOSE = false
+
+# This class lets us run commands without invoking the shell. We are not to
+# concerned with trapping the error status, since we are implementing a
+# best-effort service model. It's nice to keep stdout and stderr separate
+# though.
+class ShellCommand
+    DSCL = '/usr/bin/dscl'
+    NET = '/usr/bin/net'
+
+    def ShellCommand.run(*cmd)
+	# This ends up in Kernel.exec, which invokes the shell when passed a
+	# single argument.
+	return false unless cmd.length > 1
+	# A final layer of paranoia.
+        return false unless (cmd[0] == DSCL || cmd[0] == NET)
+
+	print "#{$0}: running command: '#{cmd.join("' '")}'\n" if $VERBOSE;
+
+        io = Open3.popen3(*cmd) { | stdin, stdout, stderr |
+            stdin.close # we are not going to provide any input
+
+            loop do
+		read_array = [stdout, stderr].reject { |fd| fd.closed? }
+                break if read_array.empty?
+
+                ready = Kernel.select(read_array, nil, nil, 0.1)
+		next if ready == nil
+
+                ready.flatten.each { | fd |
+		    begin
+			line = fd.readline
+		    rescue
+			# Reading at EOF will throw EOFError, but any exception
+			# exception is enough to know we are done.
+			fd.close
+			next
+		    end
+
+                    if (fd == stderr)
+                        $stderr.print "#{$0} (#{cmd[0]}): #{line}" \
+			    if $VERBOSE
+                    else
+                        if block_given?
+                            yield line
+                        else
+                            $stdout.print line \
+				if $VERBOSE
+                        end
+                    end
+		}
+	    end
+	}
+    end
+end
+
+class NotificationCenter
+    def initialize
+        @center = OSX::NSDistributedNotificationCenter.defaultCenter()
+    end
+
+    def post(notification, info)
+        @center.postNotificationName_object_userInfo_options(
+	    notification, # notification name
+	    nil, # notification sender,
+	    info, # user info dictionary
+	    OSX::NSNotificationPostToAllSessions);
+    end
+end
+
+class SharePoints
+
+    # Emit the SharePoints configuration in smb.conf format.
+    def smbconf(sharename)
+        return nil unless @shares.has_key?(sharename)
+
+        strval = "[#{sharename}]\n"
+
+	@shares[sharename].keys.sort.each { | key |
+
+	    confstr = UserShares.mapattr(key, @shares[sharename][key])
+	    next unless confstr
+	    strval += "\t#{confstr}\n"
+	}
+
+        return strval
+    end
+
+    def initialize
+        @shares = {} # Hash of hashes indexed by the share name
+        share = {}
+	data = ''
+
+        ShellCommand.run(ShellCommand::DSCL, '-plist',
+                        '.', '-readall', '/SharePoints') { |line|
+	    data += line
+        }
+
+	cfdata = OSX::NSData.dataWithBytes_length(data, data.length)
+	plist, format, err = \
+	OSX::NSPropertyListSerialization.propertyListFromData_mutabilityOption_format_errorDescription(cfdata,
+		OSX::NSPropertyListImmutable)
+
+	if (plist == nil or !plist.kind_of? OSX::NSCFArray)
+	    $stderr.print "#{$0}: failed to parse dscl plist\n" \
+		if $VERBOSE
+	    return nil
+	end
+
+	# OK. No we have an array of dictionaries, where each dictionary is
+	# a share definition.
+	plist.each { | entry |
+	    s = SharePoints.to_native(entry)
+	    if s.has_key?('dsAttrTypeNative:smb_name')
+		name = s['dsAttrTypeNative:smb_name']
+		@shares[name] = s
+	    else
+		$stderr.print "#{$0}: ignoring share with missing smb_name\n" \
+		    if $VERBOSE
+	    end
+	}
+
+    end
+
+    def each_key
+        @shares.each_key { | key |
+            yield key
+        }
+    end
+
+    def each
+        @shares.each { | key, hash |
+            yield key, hash
+        }
+    end
+
+private
+
+    def SharePoints.to_native(val)
+
+	return nil if val == nil
+
+	if val.kind_of? OSX::NSCFBoolean
+	    return (val == OSX::KCFBooleanTrue ? true : false)
+	end
+
+	if val.kind_of? OSX::NSCFString
+	    return val.to_s
+	end
+
+	if val.kind_of? OSX::NSCFNumber
+	    return val.to_i
+	end
+
+	if val.kind_of? OSX::NSCFArray
+	    array = []
+	    val.each { |element| array += [ SharePoints.to_native(element) ] }
+
+	    # The plist emitted by dscl is unusual in that each value in a
+	    # key-value pair is emitted as an array containing a simgle
+	    # element. So here we squash single-element arrays to their value.
+
+	    case array.length
+	    when 0
+		return nil
+	    when 1
+		return array[0]
+	    else
+		return array
+	    end
+	end
+
+	if val.kind_of? OSX::NSCFDictionary
+	    hash = {}
+	    val.allKeys().each { | key |
+		# Note: we need to convert both the key and the data, 
+		# otherwise we will end up indexed by OSX::NSCFString and
+		# won't be able to index by Ruby Strings.
+		new_key = SharePoints.to_native(key)
+		new_val = SharePoints.to_native(val[key])
+		hash[new_key] = new_val
+	    }
+	    return hash
+	end
+
+	# NOTE: We don't convert CFData or CFDate because we
+	# don't need them for the preferences we have.
+
+	$stderr.print \
+	    "#{$0}: preferences type #{val.class} is not supported\n" \
+	    if $VERBOSE
+
+	return nil
+    end
+
+end
+
+class UserShares
+
+    # Map DS attributes to smb.conf keys. The required attributes are
+    # commented out because they need special handling.
+    ATTRIBUTE_MAP =
+    {
+        'dsAttrTypeNative:directory_path' => 'path',
+        'dsAttrTypeNative:name' => 'comment',
+        'dsAttrTypeNative:smb_guestaccess' => 'guest ok',
+        'dsAttrTypeNative:smb_inherit_permissions' => 'inherit permissions',
+        'dsAttrTypeNative:smb_createmask' => 'create mask',
+        'dsAttrTypeNative:smb_directorymask' => 'directory mask',
+        'dsAttrTypeNative:smb_oplocks' => 'oplocks',
+        'dsAttrTypeNative:smb_strictlocking' => 'strict locking',
+    }
+
+    def UserShares.mapattr(key, value)
+            return nil unless ATTRIBUTE_MAP.has_key?(key)
+
+            # Map boolean values to standard smb.conf names
+            case value
+            when '1'
+		val = 'yes'
+            when '0'
+		val = 'no'
+	    else
+		val = value
+            end
+
+            return "#{ATTRIBUTE_MAP[key]}=#{val}"
+    end
+
+    def initialize
+        @shares = []
+
+        # 'net usershare list --long' prints the names of each usershare, one
+        # per line.
+        ShellCommand.run(ShellCommand::NET,
+                    'usershare', 'list', '--long') { | line |
+
+	    if line =~ /^\s*(.+)\s*$/
+		# share named should always be valid, otherwise the
+		# usershare system would not have accepted thenm.
+		sharename = $1
+		@shares.push(sharename)
+	    end
+        }
+
+	@shares = @shares.sort
+    end
+
+    # Emit the UserShares configuration in smb.conf format.
+    def smbconf(sharename)
+	return nil unless @shares.include?(sharename)
+
+        strval = ""
+        ShellCommand.run(ShellCommand::NET,
+                    'usershare', 'info', '--long', sharename) { |line|
+	    if line =~ /\[.+\]/
+		strval += "#{line}"
+	    else
+		# Indent share parameters and insert spaces around '='.
+		line = line.sub(/([^[:space:]])=([^[:space:]])/, '\1 = \2')
+		strval += "\t#{line}"
+	    end
+        }
+        return strval
+    end
+
+    # We iterate by share names.
+    def each
+        @shares.each { | sharename | yield sharename }
+    end
+
+    # Return true if the gives hash has the
+    def validate(sharehash)
+        invalid = Regexp.new('[%<>*?|\/\\+=;:\$",]')
+
+        # Check for required attributes.
+        return false unless (
+            sharehash.has_key?('dsAttrTypeNative:smb_shared') &&
+            sharehash.has_key?('dsAttrTypeNative:smb_name') &&
+            sharehash.has_key?('dsAttrTypeNative:directory_path')
+        )
+
+        # Check we have a legal share name.
+        return false if (sharehash['dsAttrTypeNative:smb_name'] =~ invalid)
+
+        return true
+    end
+
+    # Remove all the usershare records.
+    def clear
+        self.each { | sharename |
+	    ShellCommand.run(ShellCommand::NET, 'usershare', 'delete', sharename);
+        }
+    end
+
+    # Create a new usershare record.
+    def store(sharename, sharehash)
+	unless validate(sharehash)
+	    print "#{$0}: invalid share [#{sharename}] \n" if $VERBOSE
+	    return false
+	end
+
+        if sharehash['dsAttrTypeNative:smb_shared'] != '1'
+	    print "#{$0}: share [#{sharename}] is disabled\n" if $VERBOSE
+	    return
+	end
+
+        path = sharehash['dsAttrTypeNative:directory_path']
+        name = sharehash['dsAttrTypeNative:smb_name']
+        comment = sharehash['dsAttrTypeNative:smb_name']
+
+	if name != sharename
+	    # If this happens, we have a bug.
+	    raise ArgumentError, "inconsistent share #{sharename}", caller
+	end
+
+        # No share ACL by default. We rely on filesystem access control.
+        # S-1-1-0 is the group "everyone" - we can't use a group name because
+        # we can't rely on smbd being available to resolve the name to a SID.
+        acl = 'S-1-1-0:F'
+
+        # Enable guest access according to the global default, but override
+	# with the per-share value if it is set.
+        if sharehash.has_key? 'dsAttrTypeNative:smb_guestaccess'
+            if sharehash['dsAttrTypeNative:smb_guestaccess'] == '1'
+                guest = 'guest_ok=y'
+            else
+                guest = 'guest_ok=n'
+            end
+        else
+            guest = $GUEST ? 'guest_ok=y' : 'guest_ok=n'
+        end
+
+        args = [ 'usershare', 'add', name, path, comment, acl, guest]
+
+        sharehash.each { |key, value|
+	    # Skip attributes that we already mapped to commandline options.
+	    case key
+	    when 'dsAttrTypeNative:directory_path'
+		next
+	    when 'dsAttrTypeNative:name'
+		next
+	    when 'dsAttrTypeNative:smb_guestaccess'
+		next
+	    end
+
+	    argval = UserShares.mapattr(key, value)
+	    next unless argval
+            args.push(argval) if argval
+        }
+
+        ShellCommand.run(ShellCommand::NET, *args)
+	return true
+    end
+end
+
+opts = OptionParser.new
+opts.on('--verbose',
+'print extra debugging messages') {
+    $VERBOSE = true
+}
+
+opts.on('--enable-guest',
+'enable guest access by default') {
+    $GUEST = true
+}
+
+opts.on('--list-current',
+'print the current share configuration') {
+
+    ushares = UserShares.new()
+    ushares.each { | sharename |
+        $stdout.print ushares.smbconf(sharename)
+    }
+
+    exit 0
+}
+
+opts.on('--list-pending',
+'print the pending share configuration') {
+
+    dshares = SharePoints.new()
+    dshares.each_key { | sharename |
+	$stdout.print dshares.smbconf(sharename)
+    }
+
+    exit 0
+}
+
+begin
+    opts.parse!(ARGV) # Remove args as they are parsed.
+    if (ARGV.length != 0)
+	raise OptionParser::InvalidOption, ARGV[0], caller
+    end
+rescue OptionParser::InvalidOption => err
+    $stderr.print "#{$0}: #{err}\n"
+    $stderr.print opts.help()
+    exit 1
+end
+
+dshares = SharePoints.new()
+ushares = UserShares.new()
+
+# Synchronize the shares from DS to usershares.
+ushares.clear()
+dshares.each { | sharename, sharehash |
+    ushares.store(sharename, sharehash)
+}
+
+# Notify anyone who cares.
+notify = NotificationCenter.new()
+notify.post('com.apple.ServiceConfigurationChangedNotification',
+    { 'ServiceName' => 'sharepoints'});
+
+# vim: set ft=ruby sts=4 ts=8 tw=79 :

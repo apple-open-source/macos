@@ -9,6 +9,9 @@ srcdir = $(WIN32DIR:/win32=)
 !else
 srcdir = $(WIN32DIR)/..
 !endif
+!ifndef prefix
+prefix = /usr
+!endif
 OS = mswince
 RT = msvcrt
 INCLUDE = !include
@@ -47,12 +50,21 @@ armv4i-sig3-wince: -prologue- -armv4i- -sig3- -epilogue-
 	@type << > $(MAKEFILE)
 ### Makefile for ruby $(OS) ###
 srcdir = $(srcdir:\=/)
+prefix = $(prefix:\=/)
+EXTSTATIC = $(EXTSTATIC)
+!if defined(RDOCTARGET)
+RDOCTARGET = $(RDOCTARGET)
+!endif
+!if defined(EXTOUT)
+EXTOUT = $(EXTOUT)
+!endif
 <<
 	@$(CPP) -I$(srcdir) -DRUBY_EXTERN="//" <<"Creating $(MAKEFILE)" >> $(MAKEFILE)
 #include "version.h"
 MAJOR = RUBY_VERSION_MAJOR
 MINOR = RUBY_VERSION_MINOR
 TEENY = RUBY_VERSION_TEENY
+MSC_VER = _MSC_VER
 <<
 
 -generic-: nul
@@ -216,7 +228,6 @@ RUBY_SO_NAME = $(RUBY_SO_NAME)
 !else
 # RUBY_SO_NAME = $$(RT)-$$(RUBY_INSTALL_NAME)$$(MAJOR)$$(MINOR)
 !endif
-# prefix = /usr
 # CFLAGS = -nologo $$(DEBUGFLAGS) $$(OPTFLAGS) $$(PROCESSOR_FLAG)
 CPPFLAGS = -I. -I$$(srcdir) -I$$(srcdir)/missing -I$$(srcdir)/wince \
            $$(CECPUDEF) -DUNDER_CE -D_WIN32_WCE=$$(SUBSYSVERSION:.=) \
@@ -230,6 +241,5 @@ CPPFLAGS = -I. -I$$(srcdir) -I$$(srcdir)/missing -I$$(srcdir)/wince \
 
 $(INCLUDE) $$(srcdir)/wince/Makefile.sub
 <<
-	@if exist config.h del config.h
-	@if exist config.status del config.status
+	@$(srcdir:/=\)\win32\rm.bat config.h config.status
 	@echo type `$(MAKE)' to make ruby for $(OS).

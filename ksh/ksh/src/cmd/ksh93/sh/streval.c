@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -82,6 +78,7 @@ struct vars				/* vars stacked per invocation */
 	Sfdouble_t	(*convert)(const char**,struct lval*,int,Sfdouble_t);
 };
 
+typedef int	   (*Math_0_f)(Sfdouble_t);
 typedef Sfdouble_t (*Fun_t)(Sfdouble_t,...);
 typedef Sfdouble_t (*Math_1_f)(Sfdouble_t);
 typedef Sfdouble_t (*Math_2_f)(Sfdouble_t,Sfdouble_t);
@@ -233,15 +230,15 @@ Sfdouble_t	arith_exec(Arith_t *ep)
 				arith_error(node.value,ptr,ep->emode);
 			*++sp = num;
 			type = node.isfloat;
-			if(num > LDBL_ULONGLONG_MAX || num < LDBL_LONGLONG_MIN)
+			if(num > LDBL_ULLONG_MAX || num < LDBL_LLONG_MIN)
 				type = 1;
 			else
 			{
 				Sfdouble_t d=num;
-				if(num > LDBL_LONGLONG_MAX && num <= LDBL_ULONGLONG_MAX)
+				if(num > LDBL_LLONG_MAX && num <= LDBL_ULLONG_MAX)
 				{
 					type = 2;
-					d -= LDBL_LONGLONG_MAX;
+					d -= LDBL_LLONG_MAX;
 				}
 				if((Sflong_t)d!=d)
 					type = 1;
@@ -297,7 +294,7 @@ Sfdouble_t	arith_exec(Arith_t *ep)
 			num = pow(sp[-1],num);
 			break;
 		    case A_MOD:
-			if(!num)
+			if(!(Sflong_t)num)
 				arith_error(e_divzero,ep->expr,ep->emode);
 			if(type==2 || tp[-1]==2)
 				num = U2F((Sfulong_t)(sp[-1]) % (Sfulong_t)(num));
@@ -305,10 +302,13 @@ Sfdouble_t	arith_exec(Arith_t *ep)
 				num = (Sflong_t)(sp[-1]) % (Sflong_t)(num);
 			break;
 		    case A_DIV:
-			if(!num)
-				arith_error(e_divzero,ep->expr,ep->emode);
 			if(type==1 || tp[-1]==1)
+			{
 				num = sp[-1]/num;
+				type = 1;
+			}
+			else if((Sfulong_t)(num)==0)
+				arith_error(e_divzero,ep->expr,ep->emode);
 			else if(type==2 || tp[-1]==2)
 				num = U2F((Sfulong_t)(sp[-1]) / (Sfulong_t)(num));
 			else
@@ -367,6 +367,12 @@ Sfdouble_t	arith_exec(Arith_t *ep)
 		    case A_LT:
 			num = (sp[-1]<num);
 			type=0;
+			break;
+		    case A_CALL0:
+			sp--,tp--;
+			fun = *((Fun_t*)(ep->code+(int)(*sp)));
+			type = 0;
+			num = (*((Math_0_f)fun))(num);
 			break;
 		    case A_CALL1:
 			sp--,tp--;
@@ -523,8 +529,10 @@ again:
 		/* check for assignment operation */
 		if(peekchr(vp)== '=' && !(strval_precedence[op]&NOASSIGN))
 		{
-			if((!lvalue.value || precedence > 2))
+			if((!lvalue.value || precedence > 3))
 				ERROR(vp,e_notlvalue);
+			if(precedence==3)
+				precedence = 2;
 			assignop = lvalue;
 			getchr(vp);
 			c = 3;
@@ -615,11 +623,13 @@ again:
 			vp->paren--;
 			if(fun)
 			{
+				int  x= (nargs>7);
+				nargs &= 7;
 				if(vp->infun != nargs)
 					ERROR(vp,e_argcount);
 				if(vp->staksize+=nargs>=vp->stakmaxsize)
 					vp->stakmaxsize = vp->staksize+nargs;
-				stakputc(A_CALL1+nargs-1);
+				stakputc(A_CALL0+nargs -x);
 				vp->staksize -= nargs;
 			}
 			vp->infun = infun;
@@ -662,7 +672,7 @@ again:
 			offset2 = stakpush(vp,0,short);
 			*((short*)stakptr(offset1)) = staktell();
 			stakputc(A_POP);
-			if(!expr(vp,c))
+			if(!expr(vp,3))
 				return(0);
 			*((short*)stakptr(offset2)) = staktell();
 			lvalue.value = 0;
@@ -688,9 +698,9 @@ again:
 			stakputc(A_POP);
 			if(!expr(vp,c))
 				return(0);
+			*((short*)stakptr(offset)) = staktell();
 			if(op!=A_QCOLON)
 				stakputc(A_NOTNOT);
-			*((short*)stakptr(offset)) = staktell();
 			lvalue.value = 0;
 			wasop=0;
 			break;
@@ -729,17 +739,12 @@ again:
 				}
 				else
 					d = chresc(pos+1,(char**)&vp->nextchr);
+				/* posix allows the trailing ' to be optional */
 				if(*vp->nextchr=='\'')
 					vp->nextchr++;
-				else
-				{
-					vp->nextchr = pos;
-					vp->errmsg.value = "invalid character constant";
-				}
-
 			}
 			else
-				d = (*vp->convert)(&vp->nextchr, &lvalue, LOOKUP, d);
+				d = (*vp->convert)(&vp->nextchr, &lvalue, LOOKUP, 0);
 			if (vp->nextchr == pos)
 			{
 				if(vp->errmsg.value = lvalue.value)
@@ -794,7 +799,7 @@ Arith_t *arith_compile(const char *string,char **last,Sfdouble_t(*fun)(const cha
         {
 		if(cur.errstr)
 			string = cur.errstr;
-		(*fun)( &string , &cur.errmsg, ERRMSG, 0);
+		(*fun)( &string , &cur.errmsg, MESSAGE, 0);
 		cur.nextchr = cur.errchr;
 	}
 	stakputc(0);
@@ -819,7 +824,7 @@ Arith_t *arith_compile(const char *string,char **last,Sfdouble_t(*fun)(const cha
  *     is a user supplied conversion routine that is called when unknown 
  *     chars are encountered.
  * *end points to the part to be converted and must be adjusted by convert to
- * point to the next non-converted character; if typ is ERRMSG then string
+ * point to the next non-converted character; if typ is MESSAGE then string
  * points to an error message string
  *
  * NOTE: (*convert)() may call strval()

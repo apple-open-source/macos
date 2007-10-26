@@ -35,7 +35,7 @@
 - (void) test
 {
   /* Private variables simply don't exist in the subclass.  */
-  _private = 12; /* { dg-error "._private. was not declared in this scope" } */
+  _private = 12; /* { dg-error "instance variable \\'_private\\' is declared private" } */
 
   _protected = 12; /* Ok  */
   _public = 12;    /* Ok  */

@@ -178,7 +178,7 @@ CSSM_RETURN p12Decrypt(
 	}
 	
 	/* go - CSP mallocs ptext and rem data */
-	uint32 bytesDecrypted;
+	CSSM_SIZE bytesDecrypted;
 	crtn = CSSM_DecryptData(ccHand,
 		&cipherText,
 		1,
@@ -269,7 +269,7 @@ CSSM_RETURN p12Encrypt(
 	}
 	
 	/* go - CSP mallocs ctext and rem data */
-	uint32 bytesEncrypted;
+	CSSM_SIZE bytesEncrypted;
 	crtn = CSSM_EncryptData(ccHand,
 		&plainText,
 		1,
@@ -387,6 +387,10 @@ CSSM_RETURN p12UnwrapKey(
 	const CSSM_KEY		*passKey,
 	SecNssCoder			&coder,		// for mallocing privKey
 	const CSSM_DATA		&labelData,
+	SecAccessRef		access,		// optional 
+	bool				noAcl,
+	CSSM_KEYUSE			keyUsage,
+	CSSM_KEYATTR_FLAGS	keyAttrs,
 
 	/*
 	 * Result: a private key, reference format, optionaly stored
@@ -401,9 +405,10 @@ CSSM_RETURN p12UnwrapKey(
 	CSSM_KEY unwrappedKey;
 	CSSM_KEYHEADER &hdr = wrappedKey.KeyHeader;
 	CSSM_DATA descrData = {0, NULL};	// not used for PKCS8 wrap 
-	CSSM_KEYATTR_FLAGS reqAttr = CSSM_KEYATTR_RETURN_REF |
-		CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE;
+	CSSM_KEYATTR_FLAGS reqAttr = keyAttrs;
+	
 	ResourceControlContext rcc;
+	ResourceControlContext *rccPtr = NULL;
 	Security::KeychainCore::Access::Maker maker;
 	
 	/* P12 style IV derivation, optional */
@@ -476,22 +481,21 @@ CSSM_RETURN p12UnwrapKey(
 	}
 
 	wrappedKey.KeyData = shroudedKeyBits;
-
-	// Create a Access::Maker for the initial owner of the private key.
-	memset(&rcc, 0, sizeof(rcc));
-	maker.initialOwner(rcc);
+	
+	if(!noAcl) {
+		// Create a Access::Maker for the initial owner of the private key.
+		memset(&rcc, 0, sizeof(rcc));
+		maker.initialOwner(rcc);
+		rccPtr = &rcc;
+	}
 	
 	crtn = CSSM_UnwrapKey(ccHand,
 		NULL,				// PublicKey
 		&wrappedKey,
-		/*
-		 * FIXME: I suppose we should infer these from an associated
-		 * cert....
-		 */
-		CSSM_KEYUSE_ANY,
+		keyUsage,
 		reqAttr,
 		&labelData,
-		&rcc,					// CredAndAclEntry
+		rccPtr,					// CredAndAclEntry
 		privKey,
 		&descrData);			// required
 	if(crtn) {
@@ -504,12 +508,13 @@ CSSM_RETURN p12UnwrapKey(
 	
 	// Finally fix the acl and owner of the private key to the 
 	// specified access control settings.
-	if(crtn == CSSM_OK) {
+	if((crtn == CSSM_OK) && !noAcl) {
 		try {
-		
-			CssmClient::KeyAclBearer 
-				bearer(cspHand, *privKey, Allocator::standard());
-			SecPointer<KeychainCore::Access> initialAccess(new KeychainCore::Access("privateKey"));
+			CssmClient::KeyAclBearer bearer(
+				cspHand, *privKey, Allocator::standard());
+			SecPointer<KeychainCore::Access> initialAccess(access ?
+				KeychainCore::Access::required(access) :		/* caller-supplied */
+				new KeychainCore::Access("privateKey"));		/* default */
 			initialAccess->setAccess(bearer, maker);
 		}
 		catch (const CssmError &e) {

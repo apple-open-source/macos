@@ -23,7 +23,6 @@
 /* 
  * ocspdNetwork.cpp - Network support for ocspd and CRL/cert fetch
  */
-
 #include <security_ocspd/ocspdDebug.h>
 #include "ocspdNetwork.h"
 #include <security_ocspd/ocspdUtils.h>
@@ -34,6 +33,11 @@
 #include <security_utilities/cfutilities.h>
 #include <CoreServices/CoreServices.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecific.h>
+
+/* enable deprecated function declarations */
+#ifndef LDAP_DEPRECATED
+#define LDAP_DEPRECATED 1
+#endif
 #include <LDAP/ldap.h>
 
 #define ocspdHttpDebug(args...)     secdebug("ocspdHttp", ## args)
@@ -228,6 +232,8 @@ CSSM_RETURN ocspdHttpPost(
 	CFNumberRef cfnTo = NULL;
 	CFRef<CFDictionaryRef> proxyDict;
 	
+	ocspdHttpDebug("ocspdHttpPost top");
+
 	/* trim off possible NULL terminator from incoming URL */
 	uint32 urlLen = url.Length;
 	if(url.Data[urlLen - 1] == '\0') {
@@ -279,14 +285,14 @@ CSSM_RETURN ocspdHttpPost(
 		goto errOut;
     }
 	
-	/* set a reasonable timeout */
+	/* SUTiDenver: set a reasonable timeout */
 	ito = READ_STREAM_TIMEOUT;
 	cfnTo = CFNumberCreate(NULL, kCFNumberSInt32Type, &ito);
     if(!CFReadStreamSetProperty(cfStream, _kCFStreamPropertyReadTimeout, cfnTo)) {
 		ocspdErrorLog("ocspdHttpPost: error setting _kCFStreamPropertyReadTimeout\n");
 		/* but keep going */
 	}
-	
+
 	/* set up possible proxy info */
 	proxyDict.take(SCDynamicStoreCopyProxies(NULL));
 	if(proxyDict) {
@@ -306,7 +312,7 @@ CSSM_RETURN ocspdHttpPost(
 		if(thisMove < 0) {
 			CFStreamError error = CFReadStreamGetError(cfStream);
 			ocspdErrorLog("ocspdHttpPost: error on CFReadStreamRead: domain "
-				"%d error %ld\n", error.domain, error.error);
+				"%d error %ld\n", (int)error.domain, (long)error.error);
 			ourRtn = CSSMERR_APPLETP_NETWORK_FAILURE;
 			break;
 		}
@@ -615,4 +621,5 @@ CSSM_RETURN ocspdNetFetch(
 	}
 	return CSSMERR_APPLETP_CRL_BAD_URI;
 }
+
 

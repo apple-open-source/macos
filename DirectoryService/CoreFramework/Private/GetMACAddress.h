@@ -29,10 +29,13 @@
 #define __GetMACAddress_h__	1
 
 #include <DirectoryServiceCore/PrivateTypes.h>
-
 #include <CoreFoundation/CoreFoundation.h>
 
-extern sInt32 GetMACAddress( CFStringRef *theLZMACAddress, CFStringRef *theNLZMACAddress, bool bWithColons = true );
-extern CFStringRef GetMACAddressFormattedStr(unsigned char* addr, bool bLeadingZeros, bool bWithColons = true );
+__BEGIN_DECLS
+
+SInt32 GetMACAddress( CFStringRef *theLZMACAddress, CFStringRef *theNLZMACAddress, bool bWithColons );
+CFStringRef GetMACAddressFormattedStr(unsigned char* addr, bool bLeadingZeros, bool bWithColons );
+
+__END_DECLS
 
 #endif	// __GetMACAddress_h__

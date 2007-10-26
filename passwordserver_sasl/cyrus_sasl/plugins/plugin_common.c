@@ -1,6 +1,6 @@
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.c,v 1.6.4.1 2005/11/09 19:11:23 snsimon Exp $
+ * $Id: plugin_common.c,v 1.12 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -135,7 +135,7 @@ int _plug_ipfromstring(const sasl_utils_t *utils, const char *addr,
 
     if (addr[i] == ';')
 	i++;
-    /* XXX/FIXME: Do we need this check? */
+    /* XXXFIXME: Do we need this check? */
     for (j = i; addr[j] != '\0'; j++)
 	if (!isdigit((int)(addr[j]))) {
 	    PARAMERROR( utils );
@@ -172,7 +172,7 @@ int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
     unsigned i;
     int ret;
     buffer_info_t *out;
-    char *pos;
+    unsigned char *pos;
 
     if(!utils || !vec || !output) {
 	if(utils) PARAMERROR( utils );
@@ -213,8 +213,8 @@ int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
 }
 
 /* Basically a conditional call to realloc(), if we need more */
-int _plug_buf_alloc(const sasl_utils_t *utils, char **rwbuf,
-		    unsigned *curlen, unsigned newlen) 
+int _plug_buf_alloc(const sasl_utils_t *utils, unsigned char **rwbuf,
+		    unsigned int *curlen, unsigned int newlen) 
 {
     if(!utils || !rwbuf || !curlen) {
 	PARAMERROR(utils);
@@ -622,26 +622,27 @@ void _plug_decode_init(decode_context_t *text,
  * using decode_pkt() to decode individual packets.
  */
 int _plug_decode(decode_context_t *text,
-		 const char *input, unsigned inputlen,
-		 char **output,		/* output buffer */
+		 const unsigned char *input, unsigned inputlen,
+		 unsigned char **output,		/* output buffer */
 		 unsigned *outputsize,	/* current size of output buffer */
 		 unsigned *outputlen,	/* length of data in output buffer */
 		 int (*decode_pkt)(void *rock,
-				   const char *input, unsigned inputlen,
-				   char **output, unsigned *outputlen),
+				   const unsigned char *input, unsigned inputlen,
+				   unsigned char **output, unsigned *outputlen),
 		 void *rock)
 {
     unsigned int tocopy;
     unsigned diff;
-    char *tmp;
+    unsigned char *tmp;
     unsigned tmplen;
     int ret;
-	char *newbuffer = NULL;
+	unsigned char *newbuffer = NULL;
+	
+	*outputlen = 0;
 	
     while (inputlen) { /* more input */
 	if (text->needsize) { /* need to get the rest of the 4-byte size */
-		*outputlen = 0;
-		
+	
 	    /* copy as many bytes (up to 4) as we have into size buffer */
 	    tocopy = (inputlen > text->needsize) ? text->needsize : inputlen;
 	    memcpy(text->sizebuf + 4 - text->needsize, input, tocopy);
@@ -658,12 +659,12 @@ int _plug_decode(decode_context_t *text,
 			text->utils->log(NULL, SASL_LOG_ERR, "text->size = 0");
 		    return SASL_FAIL;
 	    }
-	    
+		
 		if (text->size > text->in_maxbuf)
 		{
 			/* don't print this one in production code */
 		    /*
-		    text->utils->log(NULL, SASL_LOG_ERR, 
+			text->utils->log(NULL, SASL_LOG_ERR, 
 				     "large encoded packet, expanding buffer 1 (%d > %d)",
 				     text->size, text->in_maxbuf);
 			*/
@@ -700,7 +701,7 @@ int _plug_decode(decode_context_t *text,
 		return SASL_OK;
 	    }
 	}
-	
+					 
 	/* need to check every time */
 	if (text->size > text->in_maxbuf) {
 		/* this one is unusual, want the logging */
@@ -719,7 +720,7 @@ int _plug_decode(decode_context_t *text,
 	}
 	
 	diff = text->size - text->cursize; /* bytes needed for full packet */
-	if (inputlen < diff) {	/* not a complete packet, need more input */
+	if (inputlen < diff) {	/* not a complete packet, need more input */					 
 	    memcpy(text->buffer + text->cursize, input, inputlen);
 	    text->cursize += inputlen;
 	    return SASL_OK;
@@ -738,19 +739,19 @@ int _plug_decode(decode_context_t *text,
 	}
 	
 	/* append the decoded packet to the output */
-	ret = _plug_buf_alloc(text->utils, output, outputsize,
-			      *outputlen + tmplen + 1); /* +1 for NUL */
+	ret = _plug_buf_alloc(text->utils, (unsigned char **)output, outputsize, *outputlen + tmplen + 1); /* +1 for NULL */
 	if (ret != SASL_OK) return ret;
 	
 	memcpy(*output + *outputlen, tmp, tmplen);
 	*outputlen += tmplen;
 
-	/* protect stupid clients */
-	*(*output + *outputlen) = '\0';
-
 	/* reset for the next packet */
 	text->needsize = 4;
     }
+	
+	/* protect stupid clients */
+	if (*output)
+		*(*output + *outputlen) = '\0';
 
     return SASL_OK;    
 }
@@ -773,7 +774,7 @@ int _plug_parseuser(const sasl_utils_t *utils,
 	return SASL_BADPARAM;
     }
 
-    r = strchr(input, '@');
+    r = rindex(input, '@');
     if (!r) {
 	/* hmmm, the user didn't specify a realm */
 	if(user_realm && user_realm[0]) {
@@ -801,6 +802,29 @@ int _plug_parseuser(const sasl_utils_t *utils,
     }
 
     return ret;
+}
+
+int _plug_make_fulluser(const sasl_utils_t *utils,
+			char **fulluser,
+			const char * useronly,
+			const char *realm)
+{
+    if(!fulluser || !useronly || !realm) {
+	PARAMERROR( utils );
+	return (SASL_BADPARAM);
+    }
+
+    *fulluser = utils->malloc (strlen(useronly) + strlen(realm) + 2);
+    if (*fulluser == NULL) {
+	MEMERROR( utils );
+	return (SASL_NOMEM);
+    }
+
+    strcpy (*fulluser, useronly);
+    strcat (*fulluser, "@");
+    strcat (*fulluser, realm);
+
+    return (SASL_OK);
 }
 
 char * _plug_get_error_message (const sasl_utils_t *utils,

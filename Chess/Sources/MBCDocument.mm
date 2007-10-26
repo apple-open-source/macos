@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCDocument.mm,v $
+		Revision 1.5.2.1  2007/03/31 03:47:35  neerache
+		Make document/save system work without UI changes <rdar://problem/4186113>
+		
+		Revision 1.5  2007/03/02 07:40:46  neerache
+		Revise document handling & saving <rdar://problems/3776337&4186113>
+		
 		Revision 1.4  2003/08/11 22:55:41  neerache
 		Loading was unreliable (RADAR 2811246)
 		
@@ -45,20 +51,12 @@
 
 	fController	= controller;
 
-	[self addWindowController:[controller windowController]];
-
 	return self;
 }
 
 - (void) close
 {
-	[self removeWindowController:[[self windowControllers] lastObject]];
 	[super close];
-}
-
-- (void) doClose:(id)arg
-{
-	[self close];
 }
 
 - (BOOL) loadDataRepresentation:(NSData *)docData ofType:(NSString *)docType
@@ -71,21 +69,18 @@
 						   mutabilityOption: NSPropertyListImmutable
 						   format: &format
 						   errorDescription:nil]];
-	[self performSelector:@selector(doClose:) withObject:nil afterDelay:0.010];
 
 	return res;
 }
 
-- (BOOL)writeToFile:(NSString *)fileName ofType:(NSString *)docType
+- (BOOL)writeToURL:(NSURL *)fileURL ofType:(NSString *)docType error:(NSError **)outError
 {
 	BOOL res;
 
 	if ([docType isEqualToString:@"moves"])
-		res = [fController saveMovesTo:fileName];
+		res = [fController saveMovesTo:[fileURL path]];
 	else
-		res = [super writeToFile:fileName ofType:docType];
-
-	[self performSelector:@selector(doClose:) withObject:nil afterDelay:0.010];
+		res = [super writeToURL:fileURL ofType:docType error:outError];
 
 	return res;
 }
@@ -96,6 +91,11 @@
 			   dataFromPropertyList:[fController saveGameToDict]
 			   format: NSPropertyListXMLFormat_v1_0
 			   errorDescription:nil];
+}
+
+- (BOOL)shouldRunSavePanelWithAccessoryView
+{
+	return NO;
 }
 
 @end

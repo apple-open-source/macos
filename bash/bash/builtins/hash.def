@@ -1,7 +1,7 @@
 This file is hash.def, from which is created hash.c.
 It implements the builtin "hash" in Bash.
 
-Copyright (C) 1987-2002 Free Software Foundation, Inc.
+Copyright (C) 1987-2006 Free Software Foundation, Inc.
 
 This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -49,6 +49,7 @@ $END
 #include <errno.h>
 
 #include "../bashansi.h"
+#include "../bashintl.h"
 
 #include "../shell.h"
 #include "../builtins.h"
@@ -58,8 +59,8 @@ $END
 #include "common.h"
 #include "bashgetopt.h"
 
-extern int dot_found_in_search;
 extern int posixly_correct;
+extern int dot_found_in_search;
 extern char *this_command_name;
 
 static int add_hashed_command __P((char *, int));
@@ -80,7 +81,7 @@ hash_builtin (list)
 
   if (hashing_enabled == 0)
     {
-      builtin_error ("hashing disabled");
+      builtin_error (_("hashing disabled"));
       return (EXECUTION_FAILURE);
     }
 
@@ -122,11 +123,11 @@ hash_builtin (list)
 
   /* We want hash -r to be silent, but hash -- to print hashing info, so
      we test expunge_hash_table. */
-
   if (list == 0 && expunge_hash_table == 0)
     {
-      if (print_hashed_commands (list_portably) == 0 && !posixly_correct)
-		fprintf (stdout, "%s: hash table empty\n", this_command_name);
+      opt = print_hashed_commands (list_portably);
+      if (opt == 0 && posixly_correct == 0)
+	printf (_("%s: hash table empty\n"), this_command_name);
 
       return (EXECUTION_SUCCESS);
     }
@@ -166,10 +167,13 @@ hash_builtin (list)
 	}
       else if (absolute_program (w))
 	continue;
-      else if (delete && phash_remove (w))
+      else if (delete)
 	{
-	  sh_notfound (w);
-	  opt = EXECUTION_FAILURE;
+	  if (phash_remove (w))
+	    {
+	      sh_notfound (w);
+	      opt = EXECUTION_FAILURE;
+	    }
 	}
       else if (add_hashed_command (w, 0))
 	opt = EXECUTION_FAILURE;

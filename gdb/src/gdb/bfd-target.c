@@ -1,6 +1,6 @@
 /* Very simple "bfd" target, for GDB, the GNU debugger.
 
-   Copyright 2003 Free Software Foundation, Inc.
+   Copyright 2003, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -71,8 +71,9 @@ build_target_sections_from_bfd (struct target_ops *targ, struct bfd *abfd)
 LONGEST
 target_bfd_xfer_partial (struct target_ops *ops,
 			 enum target_object object,
-			 const char *annex, void *readbuf,
-			 const void *writebuf, ULONGEST offset, LONGEST len)
+			 const char *annex, gdb_byte *readbuf,
+			 const gdb_byte *writebuf,
+			 ULONGEST offset, LONGEST len)
 {
   switch (object)
     {
@@ -121,8 +122,8 @@ target_bfd_reopen (struct bfd *bfd)
 {
   struct target_ops *t = XZALLOC (struct target_ops);
   t->to_shortname = "bfd";
-  t->to_longname = "BFD backed target";
-  t->to_doc = "You should never see this";
+  t->to_longname = _("BFD backed target");
+  t->to_doc = _("You should never see this");
   t->to_xfer_partial = target_bfd_xfer_partial;
   t->to_xclose = target_bfd_xclose;
   t->to_data = bfd;

@@ -1,0 +1,1549 @@
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/data_access/swrun.c APPLE/agent/mibgroup/host/data_access/swrun.c
+--- SVN/agent/mibgroup/host/data_access/swrun.c
++++ APPLE/agent/mibgroup/host/data_access/swrun.c
+@@ -0,0 +1,260 @@
++/*
++ *  Swrun MIB architecture support
++ *
++ * $Id: swrun.patch,v 1.3 2007/08/16 22:09:13 randall Exp $
++ */
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/data_access/swrun.h>
++
++
++/**---------------------------------------------------------------------*/
++/*
++ * local static vars
++ */
++static int _swrun_init = 0;
++
++/*
++ * local static prototypes
++ */
++static void _swrun_entry_release(netsnmp_swrun_entry * entry,
++                                            void *unused);
++
++/**---------------------------------------------------------------------*/
++/*
++ * external per-architecture functions prototypes
++ *
++ * These shouldn't be called by the general public, so they aren't in
++ * the header file.
++ */
++extern void netsnmp_arch_swrun_init(void);
++extern int netsnmp_arch_swrun_container_load(netsnmp_container* container,
++                                             u_int load_flags);
++
++/**
++ * initialization
++ */
++void
++init_swrun(void)
++{
++    DEBUGMSGTL(("swrun:access", "init\n"));
++
++    netsnmp_assert(0 == _swrun_init); /* who is calling twice? */
++
++    if (1 == _swrun_init)
++        return;
++
++    _swrun_init = 1;
++
++    netsnmp_arch_swrun_init();
++}
++
++void
++shutdown_swrun(void)
++{
++    DEBUGMSGTL(("swrun:access", "shutdown\n"));
++
++}
++
++/**---------------------------------------------------------------------*/
++/*
++ * container functions
++ */
++/**
++ * create swrun container
++ */
++netsnmp_container *
++netsnmp_swrun_container_create(u_int flags)
++{
++    netsnmp_container *container;
++
++    DEBUGMSGTL(("swrun:container", "init\n"));
++
++    /*
++     * create the container.
++     */
++    container = netsnmp_container_find("swrun:table_container");
++    if (NULL == container)
++        return NULL;
++
++    container->container_name = strdup("swrun container");
++
++    return container;
++}
++
++/**
++ * load swrun information in specified container
++ *
++ * @param container empty container to be filled.
++ *                  pass NULL to have the function create one.
++ * @param load_flags flags to modify behaviour. Examples:
++ *                   NETSNMP_SWRUN_ALL_OR_NONE
++ *
++ * @retval NULL  error
++ * @retval !NULL pointer to container
++ */
++netsnmp_container*
++netsnmp_swrun_container_load(netsnmp_container* user_container, u_int load_flags)
++{
++    netsnmp_container* container = user_container;
++    int rc;
++
++    DEBUGMSGTL(("swrun:container:load", "load\n"));
++    netsnmp_assert(1 == _swrun_init);
++
++    if (NULL == container)
++        container = netsnmp_swrun_container_create(load_flags);
++    if (NULL == container) {
++        snmp_log(LOG_ERR, "no container specified/found for swrun\n");
++        return NULL;
++    }
++
++    rc =  netsnmp_arch_swrun_container_load(container, load_flags);
++    if (0 != rc) {
++        if (NULL == user_container) {
++            netsnmp_swrun_container_free(container, NETSNMP_SWRUN_NOFLAGS);
++            container = NULL;
++        }
++        else if (load_flags & NETSNMP_SWRUN_ALL_OR_NONE) {
++            DEBUGMSGTL(("swrun:container:load",
++                        " discarding partial results\n"));
++            netsnmp_swrun_container_free_items(container);
++        }
++    }
++
++    return container;
++}
++
++void
++netsnmp_swrun_container_free(netsnmp_container *container, u_int free_flags)
++{
++    DEBUGMSGTL(("swrun:container", "free\n"));
++
++    if (NULL == container) {
++        snmp_log(LOG_ERR, "invalid container for netsnmp_swrun_container_free\n");
++        return;
++    }
++
++    if(! (free_flags & NETSNMP_SWRUN_DONT_FREE_ITEMS))
++        netsnmp_swrun_container_free_items(container);
++
++    CONTAINER_FREE(container);
++}
++
++void
++netsnmp_swrun_container_free_items(netsnmp_container *container)
++{
++    DEBUGMSGTL(("swrun:container", "free_items\n"));
++
++    if (NULL == container) {
++        snmp_log(LOG_ERR, "invalid container for netsnmp_swrun_container_free_items\n");
++        return;
++    }
++
++    /*
++     * free all items.
++     */
++    CONTAINER_CLEAR(container,
++                    (netsnmp_container_obj_func*)_swrun_entry_release,
++                    NULL);
++}
++
++/**---------------------------------------------------------------------*/
++/*
++ * swrun_entry functions
++ */
++/**
++ */
++netsnmp_swrun_entry *
++netsnmp_swrun_entry_get_by_index(netsnmp_container *container, oid index)
++{
++    netsnmp_index   tmp;
++
++    DEBUGMSGTL(("swrun:entry", "by_index\n"));
++    netsnmp_assert(1 == _swrun_init);
++
++    if (NULL == container) {
++        snmp_log(LOG_ERR,
++                 "invalid container for netsnmp_swrun_entry_get_by_index\n");
++        return NULL;
++    }
++
++    tmp.len = 1;
++    tmp.oids = &index;
++
++    return (netsnmp_swrun_entry *) CONTAINER_FIND(container, &tmp);
++}
++
++/**
++ */
++netsnmp_swrun_entry *
++netsnmp_swrun_entry_create(int32_t index)
++{
++    netsnmp_swrun_entry *entry =
++        SNMP_MALLOC_TYPEDEF(netsnmp_swrun_entry);
++
++    if(NULL == entry)
++        return NULL;
++
++    entry->hrSWRunIndex = index;
++    entry->hrSWRunType = 1; /* unknown */
++    entry->hrSWRunStatus = 2; /* runnable */
++
++    entry->oid_index.len = 1;
++    entry->oid_index.oids = (oid *) & entry->hrSWRunIndex;
++
++    return entry;
++}
++
++/**
++ */
++NETSNMP_INLINE void
++netsnmp_swrun_entry_free(netsnmp_swrun_entry * entry)
++{
++    if (NULL == entry)
++        return;
++
++    /*
++     * SNMP_FREE not needed, for any of these, 
++     * since the whole entry is about to be freed
++     */
++    free(entry);
++}
++
++/**---------------------------------------------------------------------*/
++/*
++ * Utility routines
++ */
++
++/**
++ */
++static void
++_swrun_entry_release(netsnmp_swrun_entry * entry, void *context)
++{
++    netsnmp_swrun_entry_free(entry);
++}
++
++
++#ifdef TEST
++int main(int argc, char *argv[])
++{
++    const char *tokens = getenv("SNMP_DEBUG");
++
++    netsnmp_container_init_list();
++
++    /** swrun,verbose:swrun,9:swrun,8:swrun,5:swrun */
++    if (tokens)
++        debug_register_tokens(tokens);
++    else
++        debug_register_tokens("swrun");
++    snmp_set_do_debugging(1);
++
++    init_swrun();
++    netsnmp_swrun_container_load(NULL, 0);
++    shutdown_swrun();
++
++    return 0;
++}
++#endif
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/data_access/swrun.h APPLE/agent/mibgroup/host/data_access/swrun.h
+--- SVN/agent/mibgroup/host/data_access/swrun.h
++++ APPLE/agent/mibgroup/host/data_access/swrun.h
+@@ -0,0 +1,46 @@
++/*
++ * swrun data access header
++ *
++ * $Id: swrun.patch,v 1.3 2007/08/16 22:09:13 randall Exp $
++ */
++#ifndef NETSNMP_ACCESS_SWRUN_CONFIG_H
++#define NETSNMP_ACCESS_SWRUN_CONFIG_H
++
++/*
++ * all platforms use this generic code
++ */
++config_require(host/data_access/swrun)
++
++/**---------------------------------------------------------------------*/
++/*
++ * configure required files
++ *
++ * Notes:
++ *
++ * 1) prefer functionality over platform, where possible. If a method
++ *    is available for multiple platforms, test that first. That way
++ *    when a new platform is ported, it won't need a new test here.
++ *
++ * 2) don't do detail requirements here. If, for example,
++ *    HPUX11 had different reuirements than other HPUX, that should
++ *    be handled in the *_hpux.h header file.
++ */
++
++#ifdef NETSNMP_INCLUDE_HRSWRUN_REWRITES
++
++config_exclude(host/hr_swrun)
++
++#   if defined( darwin )
++
++    config_require(host/data_access/swrun_darwin)
++
++#   else
++
++    config_error(This platform does not yet support hrSWRunTable rewrites)
++
++#   endif
++#else
++#   define NETSNMP_ACCESS_SWRUN_NOARCH 1
++#endif
++
++#endif /* NETSNMP_ACCESS_SWRUN_CONFIG_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/data_access/swrun_darwin.c APPLE/agent/mibgroup/host/data_access/swrun_darwin.c
+--- SVN/agent/mibgroup/host/data_access/swrun_darwin.c
++++ APPLE/agent/mibgroup/host/data_access/swrun_darwin.c
+@@ -0,0 +1,491 @@
++/*
++ * swinst.c : hrSWInstalledTable data access
++ */
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/library/container.h>
++#include <net-snmp/library/snmp_debug.h>
++#include <net-snmp/data_access/swrun.h>
++
++#include <stdlib.h>
++#include <unistd.h>
++
++#include <libproc.h>
++#include <sys/proc_info.h>
++#include <sys/sysctl.h>	/* for sysctl() and struct kinfo_proc */
++
++#define __APPLE_API_EVOLVING 1
++#include <sys/acl.h> /* or else CoreFoundation.h barfs */
++#undef __APPLE_API_EVOLVING 
++
++#include <CoreFoundation/CFBase.h>
++#include <CoreFoundation/CFNumber.h>
++#include <CoreFoundation/CFBundle.h>
++#include <CoreServices/CoreServices.h>
++#include <IOKit/IOCFBundle.h>
++#include <mach/mach.h>
++#include <mach/mach_time.h>
++
++/** sigh... can't find Processes.h */
++#ifndef kProcessDictionaryIncludeAllInformationMask 
++#define kProcessDictionaryIncludeAllInformationMask (long)0xFFFFFFFF
++#endif
++#ifndef procNotFound
++#define procNotFound -600
++#endif
++
++/* ---------------------------------------------------------------------
++ */
++static int _kern_argmax;
++static int _set_command_name(netsnmp_swrun_entry *entry);
++
++/** avoid kernel bug in 10.2. 8192 oughta be enough anyways, right? */
++#define MAX_KERN_ARGMAX 8192
++
++/* ---------------------------------------------------------------------
++ */
++void
++netsnmp_arch_swrun_init(void)
++{
++    int    mib[2] = { CTL_KERN, KERN_ARGMAX };
++    size_t size, mib_size = sizeof(mib)/sizeof(mib[0]);
++    
++    DEBUGMSGTL(("swrun:load:arch","init\n"));
++
++    size = sizeof(_kern_argmax);
++    if (sysctl(mib, mib_size, &_kern_argmax, &size, NULL, 0) == -1) {
++        snmp_log(LOG_ERR, "Error in ARGMAX sysctl(): %s", strerror(errno));
++        _kern_argmax = MAX_KERN_ARGMAX;
++    }
++    else if (_kern_argmax > MAX_KERN_ARGMAX) {
++        DEBUGMSGTL(("swrun:load:arch",
++                    "artificially limiting ARGMAX to %d (from %d)\n",
++                    MAX_KERN_ARGMAX, _kern_argmax));
++        _kern_argmax = MAX_KERN_ARGMAX;
++    }
++
++
++}
++
++/* ---------------------------------------------------------------------
++ */
++#define SWRUNINDENT "           "
++int
++netsnmp_arch_swrun_container_load( netsnmp_container *container, u_int flags)
++{
++    int	                 mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_ALL};
++    size_t               buf_size, mib_size = sizeof(mib)/sizeof(mib[0]);
++    struct kinfo_proc   *processes = NULL;
++    struct proc_taskallinfo taskinfo;
++    netsnmp_swrun_entry *entry;
++    int                  rc, num_entries, i;
++
++    DEBUGMSGTL(("swrun:load:arch"," load\n"));
++
++    /*
++     * get size to allocate. This introduces a bit of a race condition,
++     * as the size could change between this call and the next...
++     */
++    rc = sysctl(mib, mib_size, NULL, &buf_size, NULL, 0);
++    if (rc < 0) {
++        snmp_log(LOG_ERR, "KERN_PROC_ALL size sysctl failed: %d\n", rc);
++        return -1;
++    }
++
++    processes = (struct kinfo_proc*) malloc(buf_size);
++    if (NULL == processes) {
++        snmp_log(LOG_ERR, "malloc failed\n");
++        return -1;
++    }
++
++    rc = sysctl(mib, mib_size, processes, &buf_size, NULL, 0);
++    if (rc < 0) {
++        snmp_log(LOG_ERR, "KERN_PROC_ALL sysctl failed: %d\n", rc);
++        free(processes);
++        return -1;
++    }
++    
++    num_entries = buf_size / sizeof(struct kinfo_proc);
++    
++    for (i = 0; i < num_entries; i++) {
++        /*
++         * skip empty names.
++         * p_stat = (SIDL|SRUN|SSLEEP|SSTOP|SZOMB)
++         */
++        if ((NULL == processes[i].kp_proc.p_comm) ||
++            (0 == processes[i].kp_proc.p_pid)) {
++            DEBUGMSGTL(("swrun:load:arch",
++                        " skipping p_comm '%s', pid %5d, p_pstat %d\n",
++                        processes[i].kp_proc.p_comm ? 
++                        processes[i].kp_proc.p_comm : "NULL",
++                        processes[i].kp_proc.p_pid,
++                        processes[i].kp_proc.p_stat));
++            continue;
++        }
++
++        DEBUGMSGTL(("swrun:load:arch"," %s pid %5d\n",
++                    processes[i].kp_proc.p_comm,
++                    processes[i].kp_proc.p_pid));
++
++        entry = netsnmp_swrun_entry_create(processes[i].kp_proc.p_pid);
++        if (NULL == entry)
++            continue; /* error already logged by function */
++        rc = CONTAINER_INSERT(container, entry);
++
++        /*
++         * p_comm is a partial name, but it is all we have at this point.
++         */
++        entry->hrSWRunName_len = snprintf(entry->hrSWRunName,
++                                          sizeof(entry->hrSWRunName)-1,
++                                          "%s", processes[i].kp_proc.p_comm);
++
++        /** sysctl for name, path, params */
++        rc = _set_command_name(entry);
++
++        /*
++         * map p_stat to RunStatus. Odd that there is no 'running' status.
++         */
++        switch(processes[i].kp_proc.p_stat) {
++            case SRUN:
++                entry->hrSWRunStatus = HRSWRUNSTATUS_RUNNABLE;
++                break;
++            case SSLEEP:
++            case SSTOP:
++                entry->hrSWRunStatus = HRSWRUNSTATUS_NOTRUNNABLE;
++                break;
++            case SIDL:
++            case SZOMB:
++            default:
++                entry->hrSWRunStatus = HRSWRUNSTATUS_INVALID;
++                break;
++        } 
++
++        /*
++         * check for system processes
++         */
++        if (P_SYSTEM & processes[i].kp_proc.p_flag) {
++            entry->hrSWRunType = 2; /* operatingSystem */
++            DEBUGMSGTL(("swrun:load:arch", SWRUNINDENT "SYSTEM\n"));
++        }
++
++        /*
++         * get mem size, run time
++         */
++        rc = proc_pidinfo( processes[i].kp_proc.p_pid, PROC_PIDTASKALLINFO, 0,
++                           &taskinfo, sizeof(taskinfo));
++        if (sizeof(taskinfo) != rc) {
++            DEBUGMSGTL(("swrun:load:arch", " proc_pidinfo returned %d\n", rc));
++        }
++        else {
++            uint64_t task_mem = taskinfo.ptinfo.pti_resident_size / 1024;
++            union {
++                u_quad_t     uq; /* u_int64_t */
++                UnsignedWide uw; /* struct u_int32_t hi/lo */
++            } at, ns;
++            at.uq = taskinfo.ptinfo.pti_total_user +
++                    taskinfo.ptinfo.pti_total_system;
++            ns.uw = AbsoluteToNanoseconds( at.uw );
++            ns.uq = ns.uq / 10000000LL; /* nano to deci */
++            if (task_mem > INT32_MAX) {
++                DEBUGMSGTL(("swrun:load:arch", SWRUNINDENT "mem overflow\n"));
++                task_mem = INT32_MAX;
++            }
++            if (ns.uq > INT32_MAX) {
++                DEBUGMSGTL(("swrun:load:arch", SWRUNINDENT "time overflow\n"));
++                ns.uq = INT32_MAX;
++            }
++            entry->hrSWRunPerfMem = task_mem;
++            entry->hrSWRunPerfCPU = ns.uq;
++        }
++    }
++    free(processes);
++
++    DEBUGMSGTL(("swrun:load:arch"," loaded %d entries\n",
++                CONTAINER_SIZE(container)));
++
++    return 0;
++}
++
++/* ---------------------------------------------------------------------
++ * The following code was snagged from Darwin code, and the original
++ * file had the following licences:
++ */
++
++/*
++ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
++ *
++ * @APPLE_LICENSE_HEADER_START@
++ * 
++ * The contents of this file constitute Original Code as defined in and
++ * are subject to the Apple Public Source License Version 1.1 (the
++ * "License").  You may not use this file except in compliance with the
++ * License.  Please obtain a copy of the License at
++ * http://www.apple.com/publicsource and read it before using this file.
++ * 
++ * This Original Code and all software distributed under the License are
++ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
++ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
++ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
++ * License for the specific language governing rights and limitations
++ * under the License.
++ * 
++ * @APPLE_LICENSE_HEADER_END@
++ */
++#ifdef JAGUAR /* xxx configure test? */
++static int
++_set_command_name_jaguar(netsnmp_swrun_entry *entry)
++{
++    int	        mib[3] = {CTL_KERN, KERN_PROCARGS, 0};
++    size_t      procargssize, mib_size = sizeof(mib)/sizeof(mib[0]);
++    char       *arg_end, *exec_path;
++    int        *ip;
++    int         len;
++    char       *command_beg, *command, *command_end;
++    char        arg_buf[MAX_KERN_ARGMAX]; /* max to avoid kernel bug */
++
++    DEBUGMSGTL(("swrun:load:arch:_cn"," pid %d\n", entry->hrSWRunIndex));
++
++    mib[2] = entry->hrSWRunIndex;
++
++    memset(arg_buf, 0x0, sizeof(arg_buf));
++    procargssize = _kern_argmax;
++    if (sysctl(mib, mib_size, arg_buf, &procargssize, NULL, 0) == -1) {
++        snmp_log(LOG_ERR, "Error in PROCARGS sysctl() for %s: %s\n",
++                 entry->hrSWRunName, strerror(errno));
++        entry->hrSWRunPath_len = 0;
++        return -1;
++    }
++
++    /* Set ip just above the end of arg_buf. */
++    arg_end = &arg_buf[procargssize];
++    ip = (int *)arg_end;
++    
++    /*
++     * Skip the last 2 words, since the last is a 0 word, and
++     * the second to last may be as well, if there are no
++     * arguments.
++     */
++    ip -= 3;
++    
++    /* Iterate down the arguments until a 0 word is found. */
++    for (; *ip != 0; ip--) {
++        if (ip == (int *)arg_buf) {
++            DEBUGMSGTL(("swrun:load:arch:_cn"," unexpected toparg\n"));
++            return -1;
++        }
++    }
++    
++    /* The saved exec_path is just above the 0 word. */
++    ip++;
++    exec_path = (char *)ip;
++    DEBUGMSGTL(("swrun:load:arch:_cn"," exec_path %s\n", exec_path));
++    len = strlen(exec_path);
++    strncpy(entry->hrSWRunPath, exec_path, sizeof(entry->hrSWRunPath)-1);
++    entry->hrSWRunPath[sizeof(entry->hrSWRunPath)-1] = 0;
++    if (len > sizeof(entry->hrSWRunPath)-1) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," truncating long run path\n"));
++        entry->hrSWRunPath[sizeof(entry->hrSWRunPath)-2] = '$';
++        entry->hrSWRunPath_len = sizeof(entry->hrSWRunPath)-1;
++        DEBUGMSGTL(("swrun:load:arch:_cn"," exec_path %s\n",
++                    entry->hrSWRunPath));
++    }
++    else
++        entry->hrSWRunPath_len = len;
++    
++    /*
++     * Get the beginning of the first argument.  It is word-aligned,
++     * so skip padding '\0' bytes.
++     */
++    command_beg = exec_path + strlen(exec_path);
++    DEBUGMSGTL(("swrun:load:arch:_cn"," command_beg '%s'\n", command_beg));
++    for (; *command_beg == '\0'; command_beg++) {
++        if (command_beg >= arg_end)
++            return -1;
++    }
++    DEBUGMSGTL(("swrun:load:arch:_cn"," command_beg '%s'\n", command_beg));
++    
++    /* Get the basename of command. */
++    command = command_end = command_beg + strlen(command_beg) + 1;
++    for (command--; command >= command_beg; command--) {
++        if (*command == '/')
++            break;
++    }
++    command++;
++    DEBUGMSGTL(("swrun:load:arch:_cn"," command '%s'\n", command));
++    
++    /* Allocate space for the command and copy. */
++    DEBUGMSGTL(("swrun:load:arch:_cn",
++                SWRUNINDENT "kernel name %s\n", command));
++    if (strncmp(command, entry->hrSWRunName, sizeof(entry->hrSWRunName)-1)) {
++        strncpy(entry->hrSWRunName, command, sizeof(entry->hrSWRunName)-1);
++        entry->hrSWRunName[sizeof(entry->hrSWRunName)-1] = 0;
++        entry->hrSWRunName_len = strlen(entry->hrSWRunName);
++        DEBUGMSGTL(("swrun:load:arch:_cn", "**"
++                    SWRUNINDENT "updated name to %s\n", entry->hrSWRunName));
++        return 0;
++    }
++
++    /** no error, no change */
++    return 1;
++}
++#else
++static int
++_set_command_name(netsnmp_swrun_entry *entry)
++{
++    int	        mib[3] = {CTL_KERN, 0, 0};
++    size_t      procargssize, mib_size = sizeof(mib)/sizeof(mib[0]);
++    char       *cp;
++    int         len, nargs;
++    char       *command_beg, *command, *command_end, *exec_path, *argN;
++    char        arg_buf[MAX_KERN_ARGMAX]; /* max to avoid kernel bug */
++
++    /*
++     * arguments
++     */
++    mib[1] = KERN_PROCARGS2;
++    mib[2] = entry->hrSWRunIndex;
++
++    memset(arg_buf, 0x0, sizeof(arg_buf));
++    procargssize = _kern_argmax;
++    if (sysctl(mib, mib_size, arg_buf, &procargssize, NULL, 0) == -1) {
++        snmp_log(LOG_ERR, "Error in PROCARGS2 sysctl() for %s: %s\n",
++                 entry->hrSWRunName, strerror(errno));
++        entry->hrSWRunPath_len = 0;
++        entry->hrSWRunParameters_len = 0;
++        return -1;
++    }
++    else {
++        memcpy(&nargs,arg_buf, sizeof(nargs));
++    }
++
++    exec_path = arg_buf + sizeof(nargs);
++    len = strlen(exec_path);
++    strncpy(entry->hrSWRunPath, exec_path, sizeof(entry->hrSWRunPath)-1);
++    entry->hrSWRunPath[sizeof(entry->hrSWRunPath)-1] = 0;
++    if (len > sizeof(entry->hrSWRunPath)-1) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," truncating long run path\n"));
++        entry->hrSWRunPath[sizeof(entry->hrSWRunPath)-2] = '$';
++        entry->hrSWRunPath_len = sizeof(entry->hrSWRunPath)-1;
++    }
++    else
++        entry->hrSWRunPath_len = len;
++
++    /** Skip the saved exec_path. */
++#if 0
++    cp = exec_path + len;
++#else
++    for (cp = exec_path; cp < &arg_buf[procargssize]; cp++) {
++        if (*cp == '\0') 
++            break; /* End of exec_path reached. */
++    }
++    if (cp != exec_path + len) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," OFF BY %d\n",
++                    (exec_path + len) - cp));
++        netsnmp_assert( cp == exec_path + len );
++    }
++#endif
++    if (cp == &arg_buf[procargssize]) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," unexpected end of buffer\n"));
++        return -1;
++    }
++
++    /** Skip trailing '\0' characters. */
++    for (; cp < &arg_buf[procargssize]; cp++) {
++        if (*cp != '\0')
++            break; /* Beginning of first argument reached. */
++    }
++    if (cp == &arg_buf[procargssize]) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," unexpected end of buffer\n"));
++        return -1;
++    }
++    command_beg = cp;
++
++    /*
++     * Make sure that the command is '\0'-terminated.  This protects
++     * against malicious programs; under normal operation this never
++     * ends up being a problem..
++     */
++    for (; cp < &arg_buf[procargssize]; cp++) {
++        if (*cp == '\0')
++            break; /* End of first argument reached. */
++    }
++    if (cp == &arg_buf[procargssize]) {
++        DEBUGMSGTL(("swrun:load:arch:_cn"," unexpected end of buffer\n"));
++        return -1;
++    }
++    command_end = command = cp;
++    --nargs;
++
++    /*
++     * save arguments
++     */
++    while( nargs && cp < &arg_buf[procargssize] ) {
++        /** Skip trailing '\0' characters from prev arg. */
++        for (; (cp < &arg_buf[procargssize]) && (*cp == 0); cp++) 
++            ; /* noop */
++        if (cp == &arg_buf[procargssize])
++            continue; /* effectively a break */
++    
++        /** save argN start */
++        argN = cp;
++        --nargs;
++        if (0 == nargs)
++            continue; /* effectively a break */
++
++        /** Skip to end of arg */
++        for (; (cp < &arg_buf[procargssize]) && (*cp != 0); cp++) 
++            ;  /* noop */
++        if (cp == &arg_buf[procargssize])
++            continue; /* effectively a break */
++
++        /*
++         * check for overrun into env
++         */
++        if ((*argN != '-') && strchr(argN,'='))  {
++            DEBUGMSGTL(("swrun:load:arch:_cn", " *** OVERRUN INTO ENV %d\n",nargs));
++            continue;
++        }
++
++        /*
++         * save arg
++         */
++        if(entry->hrSWRunParameters_len < sizeof(entry->hrSWRunParameters)-1) {
++            strncat(&entry->hrSWRunParameters[entry->hrSWRunParameters_len], argN,
++                    sizeof(entry->hrSWRunParameters) - entry->hrSWRunParameters_len - 2);
++            entry->hrSWRunParameters_len = strlen(entry->hrSWRunParameters);
++            if ((entry->hrSWRunParameters_len+2 < sizeof(entry->hrSWRunParameters)-1) && (0 != nargs)) {
++                /* add space between params */
++                entry->hrSWRunParameters[entry->hrSWRunParameters_len++] = ' ';
++                entry->hrSWRunParameters[entry->hrSWRunParameters_len] = 0;
++            } else {
++                DEBUGMSGTL(("swrun:load:arch:_cn"," truncating long arg list\n"));
++                entry->hrSWRunParameters[entry->hrSWRunParameters_len++] = '$';
++                entry->hrSWRunParameters[entry->hrSWRunParameters_len] = '0';
++            }
++        }
++    }
++    if (' ' == entry->hrSWRunParameters[entry->hrSWRunParameters_len])
++        entry->hrSWRunParameters[entry->hrSWRunParameters_len--] = 0;
++
++    
++    /* Get the basename of command. */
++    for (command--; command >= command_beg; command--) {
++        if (*command == '/')
++            break;
++    }
++    command++;
++    
++    /* Allocate space for the command and copy. */
++    if (strncmp(command, entry->hrSWRunName, sizeof(entry->hrSWRunName)-1)) {
++        strncpy(entry->hrSWRunName, command, sizeof(entry->hrSWRunName)-1);
++        entry->hrSWRunName[sizeof(entry->hrSWRunName)-1] = 0;
++        entry->hrSWRunName_len = strlen(entry->hrSWRunName);
++        DEBUGMSGTL(("swrun:load:arch:_cn",
++                    " **updated name to %s\n", entry->hrSWRunName));
++    }
++
++    return 0;
++}
++#endif
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/hrSWRunPerfTable.c APPLE/agent/mibgroup/host/hrSWRunPerfTable.c
+--- SVN/agent/mibgroup/host/hrSWRunPerfTable.c
++++ APPLE/agent/mibgroup/host/hrSWRunPerfTable.c
+@@ -0,0 +1,186 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : mib2c.container.conf,v 1.8 2006/07/26 15:58:26 dts12 Exp $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/data_access/swrun.h>
++#include "hrSWRunPerfTable.h"
++
++#define MYTABLE "hrSWRunPerfTable"
++
++/** Initializes the hrSWRunPerfTable module */
++void
++init_hrSWRunPerfTable(void)
++{
++    /*
++     * here we initialize all the tables we're planning on supporting 
++     */
++    initialize_table_hrSWRunPerfTable();
++}
++
++extern oid      hrSWRunTable_oid[];
++extern size_t   hrSWRunTable_oid_len;
++
++/** Initialize the hrSWRunPerfTable table by defining its contents and how it's structured */
++void
++initialize_table_hrSWRunPerfTable(void)
++{
++    static oid      hrSWRunPerfTable_oid[] =
++        { 1, 3, 6, 1, 2, 1, 25, 5, 1 };
++    size_t          hrSWRunPerfTable_oid_len =
++        OID_LENGTH(hrSWRunPerfTable_oid);
++    netsnmp_handler_registration *reg;
++    netsnmp_mib_handler *handler;
++    netsnmp_cache *cache;
++    netsnmp_table_registration_info *table_info;
++
++    reg =
++        netsnmp_create_handler_registration("hrSWRunPerfTable",
++                                            hrSWRunPerfTable_handler,
++                                            hrSWRunPerfTable_oid,
++                                            hrSWRunPerfTable_oid_len,
++                                            HANDLER_CAN_RONLY);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,"error creating handler registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,"error allocating table registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: hrSWRunIndex */
++                                     0);
++    table_info->min_column = COLUMN_HRSWRUNPERFCPU;
++    table_info->max_column = COLUMN_HRSWRUNPERFMEM;
++
++    /*************************************************
++     *
++     * find hrSWRunTable cache
++     */
++    cache =
++        netsnmp_cache_find_by_oid(hrSWRunTable_oid, hrSWRunTable_oid_len);
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for " MYTABLE "\n");
++        goto bail;
++    }
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, (netsnmp_container*)cache->magic,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,"error allocating table registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,"error injecting container_table handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    handler = NULL; /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR, "error creating cache handler for " MYTABLE "\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,"error injecting cache handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    handler = NULL; /* reg has it*/
++
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,"error registering table handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++
++    return; /* ok */
++
++
++  bail: /* not ok */
++    
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (reg) 
++        netsnmp_handler_registration_free(reg);
++}
++
++/** handles requests for the hrSWRunPerfTable table */
++int
++hrSWRunPerfTable_handler(netsnmp_mib_handler *handler,
++                         netsnmp_handler_registration *reginfo,
++                         netsnmp_agent_request_info *reqinfo,
++                         netsnmp_request_info *requests)
++{
++
++    netsnmp_request_info *request;
++    netsnmp_table_request_info *table_info;
++    netsnmp_swrun_entry *table_entry;
++
++    switch (reqinfo->mode) {
++        /*
++         * Read-support (also covers GetNext requests)
++         */
++    case MODE_GET:
++        for (request = requests; request; request = request->next) {
++            if (request->processed)
++               continue;
++            table_entry = (netsnmp_swrun_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR, "could not extract table entry or info for "
++                 MYTABLE "\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_HRSWRUNPERFCPU:
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->hrSWRunPerfCPU);
++                break;
++            case COLUMN_HRSWRUNPERFMEM:
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->hrSWRunPerfMem);
++                break;
++            default:
++                /*
++                 * An unsupported/unreadable column (if applicable) 
++                 */
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_NOSUCHOBJECT, NULL, 0);
++            }
++        }
++        break;
++
++    }
++    return SNMP_ERR_NOERROR;
++}
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/hrSWRunPerfTable.h APPLE/agent/mibgroup/host/hrSWRunPerfTable.h
+--- SVN/agent/mibgroup/host/hrSWRunPerfTable.h
++++ APPLE/agent/mibgroup/host/hrSWRunPerfTable.h
+@@ -0,0 +1,22 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : mib2c.container.conf,v 1.8 2006/07/26 15:58:26 dts12 Exp $
++ */
++#ifndef HRSWRUNPERFTABLE_H
++#define HRSWRUNPERFTABLE_H
++
++config_require(host/hrSWRunTable)
++
++/*
++ * function declarations 
++ */
++void            init_hrSWRunPerfTable(void);
++void            initialize_table_hrSWRunPerfTable(void);
++Netsnmp_Node_Handler hrSWRunPerfTable_handler;
++
++/*
++ * column number definitions for table hrSWRunPerfTable 
++ */
++#define COLUMN_HRSWRUNPERFCPU		1
++#define COLUMN_HRSWRUNPERFMEM		2
++#endif                          /* HRSWRUNPERFTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/hrSWRunTable.c APPLE/agent/mibgroup/host/hrSWRunTable.c
+--- SVN/agent/mibgroup/host/hrSWRunTable.c
++++ APPLE/agent/mibgroup/host/hrSWRunTable.c
+@@ -0,0 +1,395 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : mib2c.container.conf,v 1.8 2006/07/26 15:58:26 dts12 Exp $
++ */
++
++#include <net-snmp/net-snmp-config.h>
++#include <net-snmp/net-snmp-includes.h>
++#include <net-snmp/agent/net-snmp-agent-includes.h>
++#include <net-snmp/agent/table_container.h>
++#include <net-snmp/data_access/swrun.h>
++#include <net-snmp/agent/cache_handler.h>
++#include "hrSWRunTable.h"
++
++#include <signal.h>
++
++#define MYTABLE "hrSWRunTable"
++
++static void _cache_free(netsnmp_cache * cache, void *magic);
++static int _cache_load(netsnmp_cache * cache, void *vmagic);
++
++/** Initializes the hrSWRunTable module */
++void
++init_hrSWRunTable(void)
++{
++    /*
++     * here we initialize all the tables we're planning on supporting 
++     */
++    initialize_table_hrSWRunTable();
++}
++
++oid      hrSWRunTable_oid[] = { 1, 3, 6, 1, 2, 1, 25, 4, 2 };
++size_t   hrSWRunTable_oid_len = OID_LENGTH(hrSWRunTable_oid);
++
++/** Initialize the hrSWRunTable table by defining its contents and how it's structured */
++void
++initialize_table_hrSWRunTable(void)
++{
++    netsnmp_handler_registration *reg;
++    netsnmp_mib_handler *handler = NULL;
++    netsnmp_container *container = NULL;
++    netsnmp_table_registration_info *table_info = NULL;
++    netsnmp_cache  *cache = NULL;
++
++#ifdef NETSNMP_INCLUDE_HRSWRUN_WRITE_SUPPORT
++#  define SWRUN_ACCESS_LEVEL HANDLER_CAN_RWRITE
++#else
++#  define SWRUN_ACCESS_LEVEL HANDLER_CAN_RONLY
++#endif
++    reg =
++        netsnmp_create_handler_registration(MYTABLE,
++                                            hrSWRunTable_handler,
++                                            hrSWRunTable_oid,
++                                            hrSWRunTable_oid_len,
++                                            SWRUN_ACCESS_LEVEL);
++    if (NULL == reg) {
++        snmp_log(LOG_ERR,"error creating handler registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    reg->modes |= HANDLER_CAN_NOT_CREATE;
++
++    container = netsnmp_container_find("hrSWRunTable:table_container");
++    if (NULL == container) {
++        snmp_log(LOG_ERR,"error creating container for " MYTABLE "\n");
++        goto bail;
++    }
++
++    table_info = SNMP_MALLOC_TYPEDEF(netsnmp_table_registration_info);
++    if (NULL == table_info) {
++        snmp_log(LOG_ERR,"error allocating table registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++
++    netsnmp_table_helper_add_indexes(table_info, ASN_INTEGER,   /* index: hrSWRunIndex */
++                                     0);
++    table_info->min_column = COLUMN_HRSWRUNINDEX;
++    table_info->max_column = COLUMN_HRSWRUNSTATUS;
++
++    /*************************************************
++     *
++     * inject container_table helper
++     */
++    handler = netsnmp_container_table_handler_get(table_info, container,
++                                                  TABLE_CONTAINER_KEY_NETSNMP_INDEX);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR,"error allocating table registration for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,"error injecting container_table handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    handler = NULL; /* reg has it, will reuse below */
++
++    /*************************************************
++     *
++     * inject cache helper
++     */
++    cache = netsnmp_cache_create(30,    /* timeout in seconds */
++                                 _cache_load, _cache_free,
++                                 hrSWRunTable_oid, hrSWRunTable_oid_len);
++
++    if (NULL == cache) {
++        snmp_log(LOG_ERR, "error creating cache for " MYTABLE "\n");
++        goto bail;
++    }
++    cache->flags = NETSNMP_CACHE_DONT_INVALIDATE_ON_SET;
++    cache->magic = container;
++
++    handler = netsnmp_cache_handler_get(cache);
++    if (NULL == handler) {
++        snmp_log(LOG_ERR, "error creating cache handler for " MYTABLE "\n");
++        goto bail;
++    }
++
++    if (SNMPERR_SUCCESS != netsnmp_inject_handler(reg, handler)) {
++        snmp_log(LOG_ERR,"error injecting cache handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++    handler = NULL; /* reg has it*/
++
++    if (SNMPERR_SUCCESS != netsnmp_register_table(reg, table_info)) {
++        snmp_log(LOG_ERR,"error registering table handler for "
++                 MYTABLE "\n");
++        goto bail;
++    }
++
++    return; /* ok */
++
++
++  bail: /* not ok */
++    
++    if (handler)
++        netsnmp_handler_free(handler);
++
++    if (cache)
++        netsnmp_cache_free(cache);
++
++    if (table_info)
++        netsnmp_table_registration_info_free(table_info);
++
++    if (container)
++        CONTAINER_FREE(container);
++
++    if (reg) 
++        netsnmp_handler_registration_free(reg);
++
++}
++
++/** handles requests for the hrSWRunTable table */
++int
++hrSWRunTable_handler(netsnmp_mib_handler *handler,
++                     netsnmp_handler_registration *reginfo,
++                     netsnmp_agent_request_info *reqinfo,
++                     netsnmp_request_info *requests)
++{
++    netsnmp_request_info *request;
++    netsnmp_table_request_info *table_info;
++    netsnmp_swrun_entry *table_entry;
++
++    switch (reqinfo->mode) {
++        /*
++         * Read-support (also covers GetNext requests)
++         */
++    case MODE_GET:
++        for (request = requests; request; request = request->next) {
++            if (request->processed)
++               continue;
++            table_entry = (netsnmp_swrun_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR, "could not extract table entry or info for "
++                 MYTABLE "\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_HRSWRUNINDEX:
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->hrSWRunIndex);
++                break;
++            case COLUMN_HRSWRUNNAME:
++                snmp_set_var_typed_value(request->requestvb, ASN_OCTET_STR,
++                                         (u_char *) table_entry->
++                                         hrSWRunName,
++                                         table_entry->hrSWRunName_len);
++                break;
++            case COLUMN_HRSWRUNID:
++                snmp_set_var_typed_value(request->requestvb, ASN_OBJECT_ID,
++#ifdef NETSNMP_SWRUN_HAVE_ID
++                                         (u_char *) table_entry->hrSWRunID,
++                                         table_entry->hrSWRunID_len
++#else
++                                         (u_char *) &nullOid, nullOidLen
++#endif
++                    );
++                break;
++            case COLUMN_HRSWRUNPATH:
++                snmp_set_var_typed_value(request->requestvb, ASN_OCTET_STR,
++                                         (u_char *) table_entry->
++                                         hrSWRunPath,
++                                         table_entry->hrSWRunPath_len);
++                break;
++            case COLUMN_HRSWRUNPARAMETERS:
++                snmp_set_var_typed_value(request->requestvb, ASN_OCTET_STR,
++                                         (u_char *) table_entry->
++                                         hrSWRunParameters,
++                                         table_entry->
++                                         hrSWRunParameters_len);
++                break;
++            case COLUMN_HRSWRUNTYPE:
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->hrSWRunType);
++                break;
++            case COLUMN_HRSWRUNSTATUS:
++                snmp_set_var_typed_integer(request->requestvb, ASN_INTEGER,
++                                           table_entry->hrSWRunStatus);
++                break;
++            default:
++                /*
++                 * An unsupported/unreadable column (if applicable) 
++                 */
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_NOSUCHOBJECT, NULL, 0);
++            }
++        }
++        break;
++
++#ifdef NETSNMP_INCLUDE_HRSWRUN_WRITE_SUPPORT
++        /*
++         * Write-support
++         */
++    case MODE_SET_RESERVE1:
++        for (request = requests; request; request = request->next) {
++            int pid;
++            if (request->processed)
++               continue;
++            table_entry = (netsnmp_swrun_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR, "could not extract table entry or info for "
++                 MYTABLE "\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_HRSWRUNSTATUS:
++                if (*request->requestvb->val.integer != HRSWRUNSTATUS_INVALID) {
++                    netsnmp_set_request_error(reqinfo, request,
++                                              SNMP_ERR_WRONGVALUE);
++                    return SNMP_ERR_NOERROR;
++                }
++                pid = request->requestvb->name[request->requestvb->name_length-1];
++                if (1 == pid) {
++                    snmp_log(LOG_WARNING,"refusing to kill pid 1\n");
++                    netsnmp_set_request_error(reqinfo, request,
++                                              SNMP_ERR_NOACCESS);
++                    return SNMP_ERR_NOERROR;
++                }
++                break;
++            default:
++                netsnmp_set_request_error(reqinfo, request,
++                                          SNMP_ERR_NOTWRITABLE);
++                return SNMP_ERR_NOERROR;
++            }
++        }
++        break;
++
++    case MODE_SET_RESERVE2:
++        break;
++
++    case MODE_SET_FREE:
++        break;
++
++    case MODE_SET_ACTION:
++        for (request = requests; request; request = request->next) {
++            if (request->processed)
++               continue;
++            table_entry = (netsnmp_swrun_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR, "could not extract table entry or info for "
++                 MYTABLE "\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_HRSWRUNSTATUS:
++                table_entry->old_hrSWRunStatus =
++                    table_entry->hrSWRunStatus;
++                table_entry->hrSWRunStatus =
++                    *request->requestvb->val.integer;
++                break;
++            }
++        }
++        break;
++
++    case MODE_SET_UNDO:
++        for (request = requests; request; request = request->next) {
++            if (request->processed)
++               continue;
++            container = netsnmp_container_table_extract_context(request);
++            table_entry = (netsnmp_swrun_entry *)
++                netsnmp_container_table_extract_context(request);
++            table_info = netsnmp_extract_table_info(request);
++            if ((NULL == table_entry) || (NULL == table_info)) {
++                snmp_log(LOG_ERR, "could not extract table entry or info for "
++                 MYTABLE "\n");
++                snmp_set_var_typed_value(request->requestvb,
++                                         SNMP_ERR_GENERR, NULL, 0);
++                continue;
++            }
++
++            switch (table_info->colnum) {
++            case COLUMN_HRSWRUNSTATUS:
++                table_entry->hrSWRunStatus =
++                    table_entry->old_hrSWRunStatus;
++                table_entry->old_hrSWRunStatus = 0;
++                break;
++            }
++        }
++        break;
++
++    case MODE_SET_COMMIT:
++        for (request = requests; request; request = request->next) {
++            int pid;
++            if (request->processed)
++               continue;
++            pid = request->requestvb->name[request->requestvb->name_length-1];
++            DEBUGMSGTL(("hrSWRunTable:commit", "kill(%d,TERM)\n", pid));
++            kill(pid, SIGTERM);
++        }
++        break;
++#endif /* NETSNMP_INCLUDE_HRSWRUN_WRITE_SUPPORT */
++    }
++    return SNMP_ERR_NOERROR;
++}
++
++/***********************************************************************
++ *
++ * DATA ACCESS
++ *
++ * The data access mechanism here is rather simple: let newsnmp_swrun_*
++ * take care of it.
++ ***********************************************************************/
++/**
++ * @internal
++ */
++static int
++_cache_load(netsnmp_cache * cache, void *vmagic)
++{
++    DEBUGMSGTL(("internal:hrSWRunTable:_cache_load", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR, "invalid cache for hrSWRunTable_cache_load\n");
++        return -1;
++    }
++
++    /** should only be called for an invalid or expired cache */
++    netsnmp_assert((0 == cache->valid) || (1 == cache->expired));
++
++    cache->magic =
++        netsnmp_swrun_container_load((netsnmp_container *) cache->magic,
++                                            0);
++    return 0;
++}                               /* _cache_load */
++
++/**
++ * @internal
++ */
++static void
++_cache_free(netsnmp_cache * cache, void *magic)
++{
++    DEBUGMSGTL(("internal:hrSWRunTable:_cache_free", "called\n"));
++
++    if ((NULL == cache) || (NULL == cache->magic)) {
++        snmp_log(LOG_ERR, "invalid cache in hrSWRunTable_cache_free\n");
++        return;
++    }
++
++    netsnmp_swrun_container_free_items((netsnmp_container *) cache->magic);
++}                               /* _cache_free */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/hrSWRunTable.h APPLE/agent/mibgroup/host/hrSWRunTable.h
+--- SVN/agent/mibgroup/host/hrSWRunTable.h
++++ APPLE/agent/mibgroup/host/hrSWRunTable.h
+@@ -0,0 +1,27 @@
++/*
++ * Note: this file originally auto-generated by mib2c using
++ *  : mib2c.container.conf,v 1.8 2006/07/26 15:58:26 dts12 Exp $
++ */
++#ifndef HRSWRUNTABLE_H
++#define HRSWRUNTABLE_H
++
++config_require(host/data_access/swrun)
++
++/*
++ * function declarations 
++ */
++void            init_hrSWRunTable(void);
++void            initialize_table_hrSWRunTable(void);
++Netsnmp_Node_Handler hrSWRunTable_handler;
++
++/*
++ * column number definitions for table hrSWRunTable 
++ */
++#define COLUMN_HRSWRUNINDEX		1
++#define COLUMN_HRSWRUNNAME		2
++#define COLUMN_HRSWRUNID		3
++#define COLUMN_HRSWRUNPATH		4
++#define COLUMN_HRSWRUNPARAMETERS		5
++#define COLUMN_HRSWRUNTYPE		6
++#define COLUMN_HRSWRUNSTATUS		7
++#endif                          /* HRSWRUNTABLE_H */
+diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/include/net-snmp/data_access/swrun.h APPLE/include/net-snmp/data_access/swrun.h
+--- SVN/include/net-snmp/data_access/swrun.h
++++ APPLE/include/net-snmp/data_access/swrun.h
+@@ -0,0 +1,90 @@
++#ifndef NETSNMP_SWRUN_H
++#define NETSNMP_SWRUN_H
++
++#ifdef  __cplusplus
++extern "C" {
++#endif
++
++
++    /*-*****************************************************************
++     *
++     * Data structure for a row entry 
++     */
++    typedef struct hrSWRunTable_entry {
++        netsnmp_index   oid_index;
++        
++        /*
++         * Index values 
++         */
++        oid             hrSWRunIndex;
++        
++        /*
++         * Column values 
++         */
++        char            hrSWRunName[65]; /* size per MIB + 1 */
++        char            hrSWRunPath[129]; /* size per MIB + 1 */
++        char            hrSWRunParameters[129]; /* size per MIB + 1 */
++#ifdef NETSNMP_SWRUN_HAVE_ID  /* if not defined, will always use nullOid */
++        oid             hrSWRunID[128];
++        u_char          hrSWRunID_len;
++#endif
++        u_char          hrSWRunName_len;
++        u_char          hrSWRunPath_len;
++        u_char          hrSWRunParameters_len;
++
++        u_char          hrSWRunType;
++        u_char          hrSWRunStatus;
++        u_char          old_hrSWRunStatus;
++
++        /*
++         * Perf values
++         */
++        int32_t         hrSWRunPerfCPU;
++        int32_t         hrSWRunPerfMem;
++        
++    } netsnmp_swrun_entry;
++
++    /*
++     * enums for column hrSWRunType
++     */
++#define HRSWRUNTYPE_UNKNOWN             1
++#define HRSWRUNTYPE_OPERATINGSYSTEM     2
++#define HRSWRUNTYPE_DEVICEDRIVER        3
++#define HRSWRUNTYPE_APPLICATION         4
++
++    /*
++     * enums for column hrSWRunStatus
++     */
++#define HRSWRUNSTATUS_RUNNING           1
++#define HRSWRUNSTATUS_RUNNABLE          2
++#define HRSWRUNSTATUS_NOTRUNNABLE       3
++#define HRSWRUNSTATUS_INVALID           4
++
++    /*-*****************************************************************
++     *
++     * Prototypes
++     */
++    netsnmp_container *
++    netsnmp_swrun_container_load(netsnmp_container *container, u_int flags );
++
++    void netsnmp_swrun_container_free(netsnmp_container *container, u_int flags);
++    void netsnmp_swrun_container_free_items(netsnmp_container * container);
++
++    netsnmp_swrun_entry *
++    netsnmp_swrun_entry_create(int32_t swIndex);
++
++    void netsnmp_swrun_entry_free(netsnmp_swrun_entry *entry);
++
++#define NETSNMP_SWRUN_NOFLAGS            0x00000000
++#define NETSNMP_SWRUN_ALL_OR_NONE        0x00000001
++#define NETSNMP_SWRUN_DONT_FREE_ITEMS    0x00000002
++/*#define NETSNMP_SWRUN_xx                0x00000004 */
++
++#ifdef  __cplusplus
++}
++#endif
++
++
++#endif /* NETSNMP_SWRUN_H */
++
++

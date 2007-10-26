@@ -43,11 +43,17 @@
 
 #include "PMSettings.h"
 #include "PrivateLib.h"
- 
-/* Global - systemEnergySettings
+
+/* Arguments to CopyPMSettings functions */
+enum {
+    kIOPMUnabridgedSettings = false,
+    kIOPMRemoveUnsupportedSettings = true
+};
+
+/* Global - energySettings
  * Keeps track of current Energy Saver settings.
  */
-static CFDictionaryRef                  systemEnergySettings = NULL;
+static CFDictionaryRef                  energySettings = NULL;
 
 /* Global - currentPowerSource
  * Keeps track of current power - battery or AC
@@ -58,6 +64,7 @@ static CFStringRef                      currentPowerSource = NULL;
  * Tracks active PM usage profiles
  */
 static unsigned long                    g_overrides = 0;
+static unsigned long                    gLastOverrideState = 0;
 
 static io_connect_t                     gPowerManager;
 
@@ -66,10 +73,16 @@ static unsigned long                    deferredPSChangeNotify = 0;
 static unsigned long                    _pmcfgd_impendingSleep = 0;
 
 // Forward Declarations
-static CFDictionaryRef _copyPMSettings(void);
-static IOReturn activate_profiles(CFDictionaryRef d, CFStringRef s);
+static CFDictionaryRef _copyPMSettings(
+                bool removeUnsupported);
+static IOReturn activate_profiles(
+                CFDictionaryRef d, 
+                CFStringRef s, 
+                bool removeUnsupported);
 
-// Must be followed by a call to activateSettingOverrides
+/* overrideSetting
+ * Must be followed by a call to activateSettingOverrides
+ */
 __private_extern__ void
 overrideSetting
 (
@@ -92,8 +105,15 @@ overrideSetting
 __private_extern__ void
 activateSettingOverrides(void)
 {
-    if(systemEnergySettings) {
-        activate_profiles(systemEnergySettings, currentPowerSource);
+    if (!energySettings) 
+        return;
+
+    if (gLastOverrideState != g_overrides)
+    {
+        gLastOverrideState = g_overrides;
+        activate_profiles( energySettings, 
+                            currentPowerSource, 
+                            kIOPMRemoveUnsupportedSettings);
     }
 }
 
@@ -138,7 +158,7 @@ PMSettings_CopyActivePMSettings(void)
     CFDictionaryRef         energySettings;
     CFDictionaryRef         return_val;
 
-    copy_all_settings = _copyPMSettings();
+    copy_all_settings = _copyPMSettings(kIOPMRemoveUnsupportedSettings);
     if(!copy_all_settings) return NULL;
     energySettings = isA_CFDictionary(CFDictionaryGetValue(copy_all_settings,currentPowerSource));
     if(energySettings) 
@@ -159,87 +179,25 @@ PMSettingsConsoleUserHasChanged(void)
         // Broadcast settings to drivers a second time during boot-up, since
         // some drivers may not have been loaded at the time configd launched,
         // particularly IOBacklightDisplay (3956697).
-        activate_profiles(systemEnergySettings, currentPowerSource);
+        activate_profiles( energySettings, 
+                            currentPowerSource, 
+                            kIOPMRemoveUnsupportedSettings);
         first_login = 0;
     }
 }
 
 /* _copyPMSettings
- * Synthesizes a dictionary of "user-selected profiles" per-power source. 
- The returned dictionary represents the "currently selected" per-power source settings.
+ * The returned dictionary represents the "currently selected" 
+ * per-power source settings.
  */
 static CFDictionaryRef
-_copyPMSettings(void)
+_copyPMSettings(bool removeUnsupported)
 {
-    CFDictionaryRef                 active_profiles = NULL;
-    CFArrayRef                      system_profiles = NULL;
-    CFDictionaryRef                 custom_settings = NULL;
-    CFMutableDictionaryRef          return_val = 0;
-    CFStringRef                     *active_profile_dict_keys = NULL;
-    CFNumberRef                     *active_profile_dict_values = NULL;
-    int                             ps_count;
-    int                             i;
-
-    active_profiles = IOPMCopyActivePowerProfiles();
-    system_profiles = IOPMCopyPowerProfiles();    
-    custom_settings = IOPMCopyPMPreferences();
-    
-    if(!active_profiles || !system_profiles || !custom_settings) goto exit;
-
-    return_val = CFDictionaryCreateMutable(0, 0, 
-            &kCFTypeDictionaryKeyCallBacks, 
-            &kCFTypeDictionaryValueCallBacks);
-
-    ps_count = CFDictionaryGetCount(active_profiles);
-    active_profile_dict_keys = (CFStringRef *)malloc(ps_count*sizeof(CFStringRef));
-    active_profile_dict_values = (CFNumberRef *)malloc(ps_count*sizeof(CFNumberRef));
-    if(!active_profile_dict_keys || !active_profile_dict_values) goto exit;
-    CFDictionaryGetKeysAndValues(
-        active_profiles, 
-        (const void **)active_profile_dict_keys, 
-        (const void **)active_profile_dict_values);
-
-    for(i=0; i<ps_count; i++)
-    {
-        int                         profile_index;
-        CFDictionaryRef             settings_per_power_source;
-        CFDictionaryRef             sys_profile;
-        CFDictionaryRef             tmp_settings;
-
-        if(!CFNumberGetValue(active_profile_dict_values[i], 
-            kCFNumberIntType, &profile_index)) continue;
-        if(-1 == profile_index) {
-            // Custom profile for this power source
-            settings_per_power_source = 
-                CFDictionaryGetValue(custom_settings, active_profile_dict_keys[i]);
-        } else {
-            // user has selected a system defined profile for this source
-            if( (profile_index < 0) || (profile_index > 4) ) continue;
-            sys_profile = isA_CFDictionary(
-                CFArrayGetValueAtIndex(system_profiles, profile_index));
-            if(!sys_profile) continue;
-            settings_per_power_source = CFDictionaryGetValue(sys_profile, active_profile_dict_keys[i]);
-        }
-        syslog(LOG_INFO, "PM configd:_copyPMSettings(): using profile #%d for power source %s\n", 
-            profile_index, CFStringGetCStringPtr(active_profile_dict_keys[i], kCFStringEncodingMacRoman));
-        if(!settings_per_power_source) {
-            syslog(LOG_INFO, "ERROR ERROR ERROR no settings_per_power_source available!\n");
-            continue;
-        }
-        tmp_settings = CFDictionaryCreateCopy(kCFAllocatorDefault, settings_per_power_source);
-        if(!tmp_settings) continue;
-        CFDictionarySetValue(return_val, active_profile_dict_keys[i], tmp_settings);
-        CFRelease(tmp_settings);
+    if(removeUnsupported) {
+        return IOPMCopyActivePMPreferences();
+    } else {
+        return IOPMCopyUnabridgedActivePMPreferences();
     }
-
-
-exit:
-    if(active_profile_dict_keys) free(active_profile_dict_keys);
-    if(active_profile_dict_values) free(active_profile_dict_values);
-    if(active_profiles) CFRelease(active_profiles);
-    if(system_profiles) CFRelease(system_profiles);
-    if(custom_settings) CFRelease(custom_settings);
-    return return_val;
 }
 
 
@@ -251,7 +209,7 @@ exit:
  * times or forcing ReduceProcessorSpeed on.
  */
 static IOReturn 
-activate_profiles(CFDictionaryRef d, CFStringRef s)
+activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
 {
     CFDictionaryRef                     energy_settings;
     CFMutableDictionaryRef              profiles_activated;
@@ -261,7 +219,9 @@ activate_profiles(CFDictionaryRef d, CFStringRef s)
     int                                 one = 1;
     int                                 zero = 0;
     
-    //syslog(LOG_INFO, "g_overrides = %ld", g_overrides);
+    if(NULL == d) return;
+    
+    if(NULL == s) s = CFSTR(kIOPMACPowerKey);
     
     if(g_overrides)
     {
@@ -278,7 +238,6 @@ activate_profiles(CFDictionaryRef d, CFStringRef s)
         if(g_overrides & kPMForceLowSpeedProfile)
         {
             if(n1) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMReduceSpeedKey), n1);
-            //syslog(LOG_INFO, "ForceLowSpeed activated");
         }
         
         if(g_overrides & kPMForceHighSpeed)
@@ -286,6 +245,17 @@ activate_profiles(CFDictionaryRef d, CFStringRef s)
             if(n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMReduceSpeedKey), n0);
             if(n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMDynamicPowerStepKey), n0);
         }
+        
+        if(g_overrides & kPMPreventIdleSleep)
+        {
+            if(n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMSystemSleepKey), n0);
+        }
+
+        if(g_overrides & kPMPreventDisplaySleep)
+        {
+            if(n0) CFDictionarySetValue(profiles_activated, CFSTR(kIOPMDisplaySleepKey), n0);
+        }
+
         
         CFRelease(n0);
         CFRelease(n1);
@@ -296,12 +266,12 @@ activate_profiles(CFDictionaryRef d, CFStringRef s)
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         CFDictionaryAddValue(tmp, s, profiles_activated);
 
-        ret = IOPMActivatePMPreference(tmp, s);
+        ret = IOPMActivatePMPreference(tmp, s, removeUnsupported);
 
         CFRelease(profiles_activated);
         CFRelease(tmp);
     } else {
-        ret = IOPMActivatePMPreference(d, s);
+        ret = IOPMActivatePMPreference(d, s, removeUnsupported);
     }
         
     return ret;
@@ -311,15 +281,16 @@ activate_profiles(CFDictionaryRef d, CFStringRef s)
 __private_extern__ void 
 PMSettings_prime(void)
 {
-    mach_port_t                         masterPort;
     CFTypeRef                           ps_blob;
 
     // Open a connection to the Power Manager.
-    IOMasterPort(bootstrap_port, &masterPort);
-    gPowerManager = IOPMFindPowerManagement(masterPort);
+    gPowerManager = IOPMFindPowerManagement(MACH_PORT_NULL);
     if (gPowerManager == 0) return;
-    IOObjectRelease(masterPort);
-    
+
+    // Activate non-power source specific, PM settings
+    // namely disable sleep, where appropriate
+    IOPMActivateSystemPowerSettings();
+
     /*
      * determine current power source for separate Battery/AC settings
      */
@@ -331,10 +302,14 @@ PMSettings_prime(void)
     } else currentPowerSource = CFSTR(kIOPMACPowerKey);
     
     // load the initial configuration from the database
-    systemEnergySettings = _copyPMSettings();
+    energySettings = _copyPMSettings(kIOPMUnabridgedSettings);
 
     // send the initial configuration to the kernel
-    if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
+    if(energySettings) {
+        activate_profiles( energySettings, 
+                            currentPowerSource, 
+                            kIOPMUnabridgedSettings);
+    }
 
     // send initial power source info to drivers
     if(CFEqual(currentPowerSource, CFSTR(kIOPMACPowerKey)))
@@ -342,6 +317,17 @@ PMSettings_prime(void)
     else IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
 }
  
+__private_extern__ void 
+PMSettingsSupportedPrefsListHasChanged(void)
+{
+    // The "supported prefs have changed" notification is generated 
+    // by a kernel driver annnouncing a new supported feature, or unloading
+    // and removing support. Let's re-evaluate our known settings.
+
+    PMSettingsPrefsHaveChanged();    
+}
+
+
 /* ESPrefsHaveChanged
  *
  * Is the handler that configd calls when someone "applies" new Energy Saver
@@ -351,14 +337,21 @@ PMSettings_prime(void)
 __private_extern__ void 
 PMSettingsPrefsHaveChanged(void) 
 {
+    // re-blast system-wide settings
+    IOPMActivateSystemPowerSettings();
+
     // re-read preferences into memory
-    if(systemEnergySettings) CFRelease(systemEnergySettings);
-    systemEnergySettings = (CFDictionaryRef)isA_CFDictionary(_copyPMSettings());
+    if(energySettings) CFRelease(energySettings);
+
+    energySettings = isA_CFDictionary(_copyPMSettings(
+                                        kIOPMRemoveUnsupportedSettings));
 
     // push new preferences out to the kernel
-    //syslog(LOG_INFO, "PMConfigd: activating new preferences");
-    if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
-    
+    if(energySettings) {
+        activate_profiles(energySettings, 
+                            currentPowerSource,
+                            kIOPMRemoveUnsupportedSettings);
+    }    
     return;
 }
 
@@ -395,7 +388,11 @@ __private_extern__ void PMSettingsPSChange(CFTypeRef ps_blob)
             deferredPSChangeNotify = 1;
         }
         
-        if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
+        if(energySettings) {
+            activate_profiles( energySettings, 
+                                currentPowerSource,
+                                kIOPMRemoveUnsupportedSettings);
+        }
     }
 
 }
@@ -406,13 +403,12 @@ __private_extern__ void PMSettingsPSChange(CFTypeRef ps_blob)
 __private_extern__ void
 PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
 {
-    CFBooleanRef			        rem_bool;
-    int					        flags;
-    int					        changed_flags;
-    int                                 	settings_changed = 0;
-    static int				        old_flags = 0;
-    io_iterator_t			        it;
-    static io_registry_entry_t			root_domain = 0;
+    int                             flags;
+    int                             changed_flags;
+    int                             settings_changed = 0;
+    static int                      old_flags = 0;
+    io_iterator_t                   it;
+    static io_registry_entry_t      root_domain = 0;
 
     if(!root_domain) 
     {
@@ -437,18 +433,35 @@ PMSettingsBatteriesHaveChanged(CFArrayRef battery_info)
     old_flags = flags;
     
     // Do we need to override the low processor speed setting?
-    if(changed_flags & kForceLowSpeed)
+    if(changed_flags & kIOPMForceLowSpeed)
     {
     
         settings_changed = 1;
-        if(flags & kForceLowSpeed)
+        if(flags & kIOPMForceLowSpeed)
             g_overrides |= kPMForceLowSpeedProfile;
         else g_overrides &= ~kPMForceLowSpeedProfile;
     }
 
     if(settings_changed)
     {
-        if(systemEnergySettings) activate_profiles(systemEnergySettings, currentPowerSource);
+        if(energySettings) {
+            activate_profiles( energySettings, 
+                                currentPowerSource,
+                                kIOPMRemoveUnsupportedSettings);
+        }
     }
     
+}
+
+/* activateForcedSettings
+ * 
+ */
+__private_extern__ IOReturn 
+_activateForcedSettings(CFDictionaryRef forceSettings)
+{
+    // Calls to "pmset force" end up here
+    energySettings = CFDictionaryCreateCopy(0, forceSettings);
+    activate_profiles( energySettings, 
+                        currentPowerSource,
+                        kIOPMRemoveUnsupportedSettings);
 }

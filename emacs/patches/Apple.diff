@@ -1,0 +1,611 @@
+Index: Makefile.in
+===================================================================
+RCS file: /cvsroot/emacs/emacs/Makefile.in,v
+retrieving revision 1.321
+diff -u -b -r1.321 Makefile.in
+--- Makefile.in	3 Feb 2007 21:49:10 -0000	1.321
++++ Makefile.in	2 Jun 2007 16:22:06 -0000
+@@ -384,8 +384,12 @@
+ 	    exec_prefix=${exec_prefix} bindir=${bindir} \
+ 	    libexecdir=${libexecdir} archlibdir=${archlibdir} \
+ 	    INSTALL_STRIP=${INSTALL_STRIP})
+-	${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs${EXEEXT} $(DESTDIR)${bindir}/$(EMACSFULL)
+-	-chmod 1755 $(DESTDIR)${bindir}/$(EMACSFULL)
++	if [ -f src/emacs-undumped ]; then \
++		${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs-undumped $(DESTDIR)${bindir}/; \
++	else \
++	        ${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs${EXEEXT} $(DESTDIR)${bindir}/$(EMACSFULL); \
++	chmod 1755 $(DESTDIR)${bindir}/$(EMACSFULL); \
++	fi
+ 	rm -f $(DESTDIR)${bindir}/$(EMACS)
+ 	-ln $(DESTDIR)${bindir}/$(EMACSFULL) $(DESTDIR)${bindir}/$(EMACS)
+ 	-unset CDPATH; \
+Index: configure
+===================================================================
+RCS file: /cvsroot/emacs/emacs/configure,v
+retrieving revision 1.202.2.5
+diff -u -b -r1.202.2.5 configure
+--- configure	20 May 2007 18:05:49 -0000	1.202.2.5
++++ configure	2 Jun 2007 16:22:06 -0000
+@@ -2354,15 +2354,16 @@
+   ## Apple Darwin / Mac OS X
+   *-apple-darwin* )
+     case "${canonical}" in
+-      i[3456]86-* )  machine=intel386 ;;
+-      powerpc-* )    machine=powermac ;;
++      i[3456]86-* )  machine=mac ;;
++      powerpc-* )    machine=mac ;;
++      mac-apple-darwin* ) machine=mac;;
+       * )            unported=yes ;;
+     esac
+     opsys=darwin
+     # Define CPP as follows to make autoconf work correctly.
+     CPP="${CC-cc} -E -no-cpp-precomp"
+     # Use fink packages if available.
+-    if test -d /sw/include && test -d /sw/lib; then
++    if false && test -d /sw/include && test -d /sw/lib; then
+       GCC_TEST_OPTIONS="-I/sw/include -L/sw/lib"
+       CPP="${CPP} ${GCC_TEST_OPTIONS}"
+       NON_GCC_TEST_OPTIONS=${GCC_TEST_OPTIONS}
+@@ -3103,6 +3104,7 @@
+     case "${canonical}" in
+       *-cygwin )                opsys=cygwin ;;
+       *-darwin* )               opsys=darwin
++	                        machine=mac #For univeral building
+                                 CPP="${CC-cc} -E -no-cpp-precomp"
+  				;;
+       *-isc1.* | *-isc2.[01]* )	opsys=386-ix ;;
+Index: etc/emacs.py
+===================================================================
+RCS file: /cvsroot/emacs/emacs/etc/emacs.py,v
+retrieving revision 1.12.2.2
+diff -u -b -r1.12.2.2 emacs.py
+--- etc/emacs.py	28 Apr 2007 19:59:28 -0000	1.12.2.2
++++ etc/emacs.py	2 Jun 2007 16:22:06 -0000
+@@ -1,7 +1,7 @@
+ """Definitions used by commands sent to inferior Python in python.el."""
+ 
+-# Copyright (C) 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
+-# Author: Dave Love <fx@gnu.org>
++# Copyright (C) 2004, 2005, 2006 Free Software Foundation, Inc.
++# Author: Dave Love <d.love@dl.ac.uk>
+ 
+ # This file is part of GNU Emacs.
+ 
+@@ -20,195 +20,86 @@
+ # Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ # Boston, MA 02110-1301, USA.
+ 
+-import os, sys, traceback, inspect, __main__
+-from sets import Set
++import os, sys, traceback, inspect, rlcompleter, __main__
+ 
+-__all__ = ["eexecfile", "eargs", "complete", "ehelp", "eimport", "modpath"]
+-
+-def format_exception (filename, should_remove_self):
+-    type, value, tb = sys.exc_info ()
+-    sys.last_type = type
+-    sys.last_value = value
+-    sys.last_traceback = tb
+-    if type is SyntaxError:
+-        try: # parse the error message
+-            msg, (dummy_filename, lineno, offset, line) = value
+-        except:
+-            pass # Not the format we expect; leave it alone
+-        else:
+-            # Stuff in the right filename
+-            value = SyntaxError(msg, (filename, lineno, offset, line))
+-            sys.last_value = value
+-    res = traceback.format_exception_only (type, value)
+-    # There are some compilation errors which do not provide traceback so we
+-    # should not massage it.
+-    if should_remove_self:
+-        tblist = traceback.extract_tb (tb)
+-        del tblist[:1]
+-        res = traceback.format_list (tblist)
+-        if res:
+-            res.insert(0, "Traceback (most recent call last):\n")
+-        res[len(res):] = traceback.format_exception_only (type, value)
+-    # traceback.print_exception(type, value, tb)
+-    for line in res: print line,
++__all__ = ["eexecfile", "args", "complete", "ehelp", "eimport"]
+ 
+ def eexecfile (file):
+     """Execute FILE and then remove it.
+-    Execute the file within the __main__ namespace.
+     If we get an exception, print a traceback with the top frame
+-    (ourselves) excluded."""
+-    # We cannot use real execfile since it has a bug where the file stays
+-    # locked forever (under w32) if SyntaxError occurs.
+-    # --- code based on code.py and PyShell.py.
+-    try:
+-        try:
+-            source = open (file, "r").read()
+-            code = compile (source, file, "exec")
+-        # Other exceptions (shouldn't be any...) will (correctly) fall
+-        # through to "final".
+-        except (OverflowError, SyntaxError, ValueError):
+-            # FIXME: When can compile() raise anything else than
+-            # SyntaxError ????
+-            format_exception (file, False)
+-            return
++    (oursleves) excluded."""
+         try:
+-            exec code in __main__.__dict__
++	try: execfile (file, globals (), globals ())
+         except:
+-            format_exception (file, True)
++	    (type, value, tb) = sys.exc_info ()
++	    # Lose the stack frame for this location.
++	    tb = tb.tb_next
++	    if tb is None:	# print_exception won't do it
++		print "Traceback (most recent call last):"
++	    traceback.print_exception (type, value, tb)
+     finally:
+ 	os.remove (file)
+ 
+-def eargs (name, imports):
++def eargs (name):
+     "Get arglist of NAME for Eldoc &c."
+     try:
+-	if imports: exec imports
+ 	parts = name.split ('.')
+ 	if len (parts) > 1:
+ 	    exec 'import ' + parts[0] # might fail
+ 	func = eval (name)
+-	if inspect.isbuiltin (func) or type(func) is type:
++	if inspect.isbuiltin (func):
+ 	    doc = func.__doc__
+ 	    if doc.find (' ->') != -1:
+ 		print '_emacs_out', doc.split (' ->')[0]
+-	    else:
++	    elif doc.find ('\n') != -1:
+ 		print '_emacs_out', doc.split ('\n')[0]
+ 	    return
+ 	if inspect.ismethod (func):
+ 	    func = func.im_func
+ 	if not inspect.isfunction (func):
+-            print '_emacs_out '
+             return
+ 	(args, varargs, varkw, defaults) = inspect.getargspec (func)
+ 	# No space between name and arglist for consistency with builtins.
+ 	print '_emacs_out', \
+ 	    func.__name__ + inspect.formatargspec (args, varargs, varkw,
+ 						   defaults)
+-    except:
+-	print "_emacs_out "
+-
+-def all_names (object):
+-    """Return (an approximation to) a list of all possible attribute
+-    names reachable via the attributes of OBJECT, i.e. roughly the
+-    leaves of the dictionary tree under it."""
+-
+-    def do_object (object, names):
+-	if inspect.ismodule (object):
+-	    do_module (object, names)
+-	elif inspect.isclass (object):
+-	    do_class (object, names)
+-	# Might have an object without its class in scope.
+-	elif hasattr (object, '__class__'):
+-	    names.add ('__class__')
+-	    do_class (object.__class__, names)
+-	# Probably not a good idea to try to enumerate arbitrary
+-	# dictionaries...
+-	return names
+-
+-    def do_module (module, names):
+-	if hasattr (module, '__all__'):	# limited export list
+-	    names.union_update (module.__all__)
+-	    for i in module.__all__:
+-		do_object (getattr (module, i), names)
+-	else:			# use all names
+-	    names.union_update (dir (module))
+-	    for i in dir (module):
+-		do_object (getattr (module, i), names)
+-	return names
+-
+-    def do_class (object, names):
+-	ns = dir (object)
+-	names.union_update (ns)
+-	if hasattr (object, '__bases__'): # superclasses
+-	    for i in object.__bases__: do_object (i, names)
+-	return names
+-
+-    return do_object (object, Set ([]))
++    except: pass
+ 
+-def complete (name, imports):
++def complete (text, namespace = None):
+     """Complete TEXT in NAMESPACE and print a Lisp list of completions.
+-    Exec IMPORTS first."""
+-    import __main__, keyword
+-
+-    def class_members(object):
+-	names = dir (object)
+-	if hasattr (object, '__bases__'):
+-	    for super in object.__bases__:
+-		names = class_members (super)
+-	return names	
+-
+-    names = Set ([])
+-    base = None
++    NAMESPACE is currently not used."""
++    if namespace is None: namespace = __main__.__dict__
++    c = rlcompleter.Completer (namespace)
+     try:
+-	dict = __main__.__dict__.copy()
+-	if imports: exec imports in dict
+-	l = len (name)
+-	if not "." in name:
+-	    for list in [dir (__builtins__), keyword.kwlist, dict.keys()]:
+-		for elt in list:
+-		    if elt[:l] == name: names.add(elt)
++        if '.' in text:
++            matches = c.attr_matches (text)
+ 	else:
+-	    base = name[:name.rfind ('.')]
+-	    name = name[name.rfind('.')+1:]
+-	    try:
+-		object = eval (base, dict)
+-		names = Set (dir (object))
+-		if hasattr (object, '__class__'):
+-		    names.add('__class__')
+-		    names.union_update (class_members (object))
+-	    except: names = all_names (dict)
+-    except: return []
+-    l = len(name)
++            matches = c.global_matches (text)
+     print '_emacs_out (',
+-    for n in names:
+-	if name == n[:l]:
+-	    if base: print '"%s.%s"' % (base, n),
+-	    else: print '"%s"' % n,
++        for elt in matches:
++            print '"%s"' % elt,
+     print ')'
++    except:
++        print '_emacs_out ()'
+ 
+-def ehelp (name, imports):
+-    """Get help on string NAME.
++def ehelp (name, g, l):
++    """Get help on string NAME using globals G and locals L.
+     First try to eval name for, e.g. user definitions where we need
+     the object.  Otherwise try the string form."""
+-    locls = {}
+-    if imports:
+-	try: exec imports in locls
+-	except: pass
+-    try: help (eval (name, globals(), locls))
++    try: help (eval (name, g, l))
+     except: help (name)
+ 
+ def eimport (mod, dir):
+     """Import module MOD with directory DIR at the head of the search path.
+     NB doesn't load from DIR if MOD shadows a system module."""
+-    from __main__ import __dict__
+-
+     path0 = sys.path[0]
+     sys.path[0] = dir
+     try:
+ 	try:
+-	    if __dict__.has_key(mod) and inspect.ismodule (__dict__[mod]):
+-		reload (__dict__[mod])
++	    if globals().has_key(mod) and inspect.ismodule (eval (mod)):
++		reload(eval (mod))
+ 	    else:
+-		__dict__[mod] = __import__ (mod)
++		globals ()[mod] = __import__ (mod)
+ 	except:
+ 	    (type, value, tb) = sys.exc_info ()
+ 	    print "Traceback (most recent call last):"
+@@ -216,17 +107,6 @@
+     finally:
+ 	sys.path[0] = path0
+ 
+-def modpath (module):
+-    """Return the source file for the given MODULE (or None).
+-Assumes that MODULE.py and MODULE.pyc are in the same directory."""
+-    try:
+-	path = __import__ (module).__file__
+-	if path[-4:] == '.pyc' and os.path.exists (path[0:-1]):
+-	    path = path[:-1]
+-	print "_emacs_out", path
+-    except:
+-	print "_emacs_out ()"
+-
+-# print '_emacs_ok'		# ready for input and can call continuation
++print '_emacs_ok'		# ready for input and can call continuation
+ 
+ # arch-tag: d90408f3-90e2-4de4-99c2-6eb9c7b9ca46
+Index: lisp/Makefile.in
+===================================================================
+RCS file: /cvsroot/emacs/emacs/lisp/Makefile.in,v
+retrieving revision 1.85
+diff -u -b -r1.85 Makefile.in
+--- lisp/Makefile.in	20 Mar 2007 09:47:12 -0000	1.85
++++ lisp/Makefile.in	2 Jun 2007 16:22:06 -0000
+@@ -281,6 +281,7 @@
+ 	  $(MAKE) $(MFLAGS) autoloads;				\
+ 	else							\
+ 	  cp $(lisp)/ldefs-boot.el $(lisp)/loaddefs.el;		\
++	  chmod u+w $(lisp)/loaddefs.el;			\
+ 	fi
+ 
+ maintainer-clean: distclean
+Index: mac/inc/m-mac.h
+===================================================================
+RCS file: /cvsroot/emacs/emacs/mac/inc/m-mac.h,v
+retrieving revision 1.10
+diff -u -b -r1.10 m-mac.h
+--- mac/inc/m-mac.h	16 Jan 2007 02:34:26 -0000	1.10
++++ mac/inc/m-mac.h	2 Jun 2007 16:22:07 -0000
+@@ -27,9 +27,11 @@
+ 
+ /* Define WORDS_BIG_ENDIAN iff lowest-numbered byte in a word
+    is the most significant byte.  */
+-
++#ifdef __BIG_ENDIAN__
+ #define WORDS_BIG_ENDIAN
+-
++#else
++#undef WORDS_BIG_ENDIAN
++#endif
+ /* Define NO_ARG_ARRAY if you cannot take the address of the first of a
+  * group of arguments and treat it as an array of the arguments.  */
+ 
+@@ -70,7 +72,7 @@
+    Then the function dump-emacs will not be defined
+    and temacs will do (load "loadup") automatically unless told otherwise.  */
+ 
+-#define CANNOT_DUMP
++/* #define CANNOT_DUMP */
+ 
+ /* Define VIRT_ADDR_VARIES if the virtual addresses of
+    pure and impure space as loaded can vary, and even their
+Index: src/Makefile.in
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/Makefile.in,v
+retrieving revision 1.340
+diff -u -b -r1.340 Makefile.in
+--- src/Makefile.in	20 Mar 2007 08:49:19 -0000	1.340
++++ src/Makefile.in	2 Jun 2007 16:22:08 -0000
+@@ -957,6 +957,13 @@
+ 	rm -f emacs${EXEEXT}
+ 	ln temacs${EXEEXT} emacs${EXEEXT}
+ #else
++	if [ -n "`file temacs | grep 'Mach-O universal binary'`" ]; then	\
++		mv temacs emacs-undumped;				\
++		lipo -thin `$(SRCROOT)/filearch.rb emacs-undumped` -output temacs emacs-undumped;	\
++	else if [ -n "`file temacs | grep 'Mach-O'`" ]; then		\
++		cp temacs emacs-undumped;				\
++	fi								\
++	fi
+ #ifdef HAVE_SHM
+ 	LC_ALL=C $(RUN_TEMACS) -nl -batch -l loadup dump
+ #else /* ! defined (HAVE_SHM) */
+@@ -1382,6 +1389,11 @@
+ #ifdef CANNOT_DUMP
+ 	ln temacs${EXEEXT} bootstrap-emacs${EXEEXT}
+ #else
++	if [ -n "`file temacs | grep 'Mach-O universal binary'`" ]; then        \
++		mv temacs emacs-undumped;                               \
++		lipo -thin `$(SRCROOT)/filearch.rb emacs-undumped` -output temacs emacs-undumped;        \
++		rm emacs-undumped;					\
++	fi
+ #ifdef HAVE_SHM
+ 	$(RUN_TEMACS) -nl -batch -l loadup bootstrap
+ #else /* ! defined (HAVE_SHM) */
+Index: src/dispnew.c
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/dispnew.c,v
+retrieving revision 1.392
+diff -u -b -r1.392 dispnew.c
+--- src/dispnew.c	16 Apr 2007 16:24:33 -0000	1.392
++++ src/dispnew.c	2 Jun 2007 16:22:08 -0000
+@@ -6837,7 +6837,8 @@
+ #endif /* HAVE_NTGUI */
+ 
+ #ifdef MAC_OS
+-  if (!inhibit_window_system)
++  /* treat tty /dev/stdin as emacs -nw */
++  if (!inhibit_window_system && !isatty(0))
+     {
+       Vwindow_system = intern ("mac");
+       Vwindow_system_version = make_number (1);
+Index: src/lread.c
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/lread.c,v
+retrieving revision 1.369
+diff -u -b -r1.369 lread.c
+--- src/lread.c	28 Mar 2007 08:16:19 -0000	1.369
++++ src/lread.c	2 Jun 2007 16:22:08 -0000
+@@ -3783,8 +3783,11 @@
+   if (NILP (Vpurify_flag))
+     normal = PATH_LOADSEARCH;
+   else
++#ifdef EMACS_UNDUMPED
++    normal = PATH_LOADSEARCH; /* for dumping from universal binary after install */
++#else
+     normal = PATH_DUMPLOADSEARCH;
+-
++#endif
+   /* In a dumped Emacs, we normally have to reset the value of
+      Vload_path from PATH_LOADSEARCH, since the value that was dumped
+      uses ../lisp, instead of the path of the installed elisp
+Index: src/mac.c
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/mac.c,v
+retrieving revision 1.77
+diff -u -b -r1.77 mac.c
+--- src/mac.c	19 Apr 2007 08:41:05 -0000	1.77
++++ src/mac.c	2 Jun 2007 16:22:08 -0000
+@@ -68,6 +68,8 @@
+ #include <unistd.h>
+ #endif
+ 
++#include <CoreFoundation/CoreFoundation.h> /* to get user locale */
++
+ /* The system script code. */
+ static int mac_system_script_code;
+ 
+@@ -4950,26 +4952,26 @@
+ 
+ #endif	/* TARGET_API_MAC_CARBON */
+ 
+-
+ static Lisp_Object
+ mac_get_system_locale ()
+ {
+-  OSStatus err;
+-  LangCode lang;
+-  RegionCode region;
+-  LocaleRef locale;
+-  Str255 str;
+-
+-  lang = GetScriptVariable (smSystemScript, smScriptLang);
+-  region = GetScriptManagerVariable (smRegionCode);
+-  err = LocaleRefFromLangOrRegionCode (lang, region, &locale);
+-  if (err == noErr)
+-    err = LocaleRefGetPartString (locale, kLocaleAllPartsMask,
+-				  sizeof (str), str);
+-  if (err == noErr)
+-    return build_string (str);
+-  else
+-    return Qnil;
++  Lisp_Object object = Qnil;
++  CFLocaleRef locale = CFLocaleCopyCurrent();
++  if (locale) {
++    CFStringRef string = CFLocaleGetValue(locale, kCFLocaleIdentifier);
++    if (string) {
++      CFDataRef data = CFStringCreateExternalRepresentation(kCFAllocatorDefault, string, kCFStringEncodingUTF8, 0);
++      if (data) {
++	const UInt8 *sdata = CFDataGetBytePtr(data);
++	if (sdata)
++	  object = build_string(sdata);
++	CFRelease(data);
++      }
++      CFRelease(string);
++    }
++    CFRelease(locale);
++  }
++  return object;
+ }
+ 
+ 
+Index: src/unexmacosx.c
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/unexmacosx.c,v
+retrieving revision 1.22
+diff -u -b -r1.22 unexmacosx.c
+--- src/unexmacosx.c	21 Jan 2007 04:18:15 -0000	1.22
++++ src/unexmacosx.c	2 Jun 2007 16:22:08 -0000
+@@ -443,17 +443,7 @@
+ 
+   while (num && num_unexec_regions < MAX_UNEXEC_REGIONS)
+     {
+-      /* Subtract the size of trailing null pages from filesize.  It
+-	 can be smaller than vmsize in segment commands.  In such a
+-	 case, trailing pages are initialized with zeros.  */
+-      for (p = ranges->address + ranges->size; p > ranges->address;
+-	   p -= sizeof (int))
+-	if (*(((int *) p)-1))
+-	  break;
+-      filesize = ROUNDUP_TO_PAGE_BOUNDARY (p - ranges->address);
+-      assert (filesize <= ranges->size);
+-
+-      unexec_regions[num_unexec_regions].filesize = filesize;
++      unexec_regions[num_unexec_regions].filesize = ranges->size;
+       unexec_regions[num_unexec_regions++].range = *ranges;
+       printf ("%#10lx (sz: %#8lx/%#8lx)\n", (long) (ranges->address),
+ 	      (long) filesize, (long) (ranges->size));
+@@ -502,6 +492,7 @@
+ unexec_regions_merge ()
+ {
+   int i, n;
++  vm_address_t end;
+   unexec_region_info r;
+ 
+   qsort (unexec_regions, num_unexec_regions, sizeof (unexec_regions[0]),
+@@ -517,11 +508,27 @@
+ 	  r.range.size += unexec_regions[i].range.size;
+ 	}
+       else
+-	{
++	{	/* All segments must be a multiple of pagesize */
++	  end = r.range.address + r.range.size;
++	  if (end & (pagesize-1L)) {
++	    end = ROUNDUP_TO_PAGE_BOUNDARY(end);
++	    printf("Page (%#8x) aligning region @%#8x size from %#8x to %#8x\n",
++		   pagesize, r.range.address, r.range.size, end - r.range.address);
++	    r.range.size = end - r.range.address;
++	    r.filesize = r.range.size;
++	  }
+ 	  unexec_regions[n++] = r;
+ 	  r = unexec_regions[i];
+ 	}
+     }
++  end = r.range.address + r.range.size;
++  if (end & (pagesize-1L)) {
++     end = ROUNDUP_TO_PAGE_BOUNDARY(end);
++     printf("Page (%#8x) aligning region @%#8x size from %#8x to %#8x\n",
++	    pagesize, r.range.address, r.range.size, end - r.range.address);
++     r.range.size = end - r.range.address;
++     r.filesize = r.range.size;
++  }
+   unexec_regions[n++] = r;
+   num_unexec_regions = n;
+ }
+@@ -562,6 +569,9 @@
+     case LC_TWOLEVEL_HINTS:
+       printf ("LC_TWOLEVEL_HINTS");
+       break;
++    case LC_UUID:
++      printf("LC_UUID");
++      break;
+     default:
+       printf ("unknown          ");
+     }
+@@ -846,7 +856,7 @@
+ 	      (long) (sc.vmsize), (long) (sc.vmaddr));
+ 
+       if (!unexec_write (sc.fileoff, (void *) sc.vmaddr, sc.filesize))
+-	unexec_error ("cannot write new __DATA segment");
++        unexec_error ("cannot write new __DATA segment %#8x (sz: %#8x)", sc.vmaddr, sc.filesize);
+       curr_file_offset += ROUNDUP_TO_PAGE_BOUNDARY (sc.filesize);
+ 
+       if (!unexec_write (curr_header_offset, &sc, sc.cmdsize))
+Index: src/s/darwin.h
+===================================================================
+RCS file: /cvsroot/emacs/emacs/src/s/darwin.h,v
+retrieving revision 1.28
+diff -u -b -r1.28 darwin.h
+--- src/s/darwin.h	9 Apr 2007 09:18:54 -0000	1.28
++++ src/s/darwin.h	2 Jun 2007 16:22:08 -0000
+@@ -35,6 +35,7 @@
+ /* BSD4_3 and BSD4_4 are already defined in sys/param.h */
+ /* #define BSD4_3 */
+ /* #define BSD4_4 */
++/* sigpause is POSIX, undef BSD_SYSTEM??*/
+ #define BSD_SYSTEM
+ /* #define VMS */
+ 
+@@ -264,7 +265,7 @@
+ 
+ /* Link in the Carbon lib. */
+ #ifdef HAVE_CARBON
+-#define LIBS_CARBON -framework Carbon -framework QuickTime
++#define LIBS_CARBON -framework Carbon -framework QuickTime -framework CoreFoundation
+ #else
+ #define LIBS_CARBON
+ #endif
+@@ -273,7 +274,8 @@
+    end of the header for adding load commands.  Needed for dumping.
+    0x690 is the total size of 30 segment load commands (at 56
+    each).  */
+-#define LD_SWITCH_SYSTEM_TEMACS -prebind LIBS_CARBON -Xlinker -headerpad -Xlinker 690
++/* headerpad now set in encompassing Makefile */
++#define LD_SWITCH_SYSTEM_TEMACS -prebind LIBS_CARBON
+ 
+ #define C_SWITCH_SYSTEM_TEMACS -Dtemacs
+ 

@@ -72,17 +72,17 @@ struct __UNCUserNotification {
     mach_port_t _replyPort;
     int _token;
     double _timeout;
-    unsigned _requestFlags;
-    unsigned _responseFlags;
+    unsigned long _requestFlags;
+    unsigned long _responseFlags;
     char *_sessionID;
     mach_msg_base_t *_response;
     char **_responseContents;
 };
 
-static unsigned UNCPackContents(char *buffer, const char **contents, int token, int itimeout, char *source) {
+static unsigned long UNCPackContents(char *buffer, const char **contents, int token, int itimeout, char *source) {
     // if buffer is non-null, write XML into it; if buffer is null, return required size
     // should consider escape sequences
-    unsigned keyLen, valLen;
+    unsigned long keyLen, valLen;
     const char **p = contents, *key = NULL, *val = NULL, *nextKey = NULL, *previousKey = NULL; 
     char *b = buffer, tokenString[64], timeoutString[64];
 
@@ -151,7 +151,7 @@ static void convertEscapes(char *str) {
     }
 }
 
-static unsigned UNCUnpackContents(char *buffer, char **contents) {
+static unsigned long UNCUnpackContents(char *buffer, char **contents) {
     // if contents is non-null, unpack XML buffer into it; if contents is null, return required size
     // if contents is non-null, as side effect, insert null string terminators in buffer and convert some escapes in place
     char **p = contents, *key = NULL, *keyEnd = NULL, *previousKey = NULL, *value = NULL, *valueEnd = NULL, *b = buffer;
@@ -215,11 +215,11 @@ static const char *UNCSessionIDForContents(const char **contents) {
 
 extern char ***_NSGetArgv(void);
 
-static int UNCSendRequest(const char *sessionID, mach_port_t replyPort, int token, double timeout, unsigned flags, const char **contents) {
+static int UNCSendRequest(const char *sessionID, mach_port_t replyPort, int token, double timeout, unsigned long flags, const char **contents) {
     int retval = ERR_SUCCESS, itimeout = (timeout > 0.0 && timeout < INT_MAX) ? (int)timeout : 0;
     mach_msg_base_t *msg = NULL;
     mach_port_t bootstrapPort = MACH_PORT_NULL, serverPort = MACH_PORT_NULL;
-    unsigned size;
+    unsigned long size;
     char namebuffer[MAX_PORT_NAME_LENGTH + 1], oldnamebuffer[MAX_PORT_NAME_LENGTH + 1], *source = (*_NSGetArgv())[0], *p = source;
     
     strcpy(namebuffer, NOTIFICATION_PORT_NAME);
@@ -259,7 +259,7 @@ static int UNCSendRequest(const char *sessionID, mach_port_t replyPort, int toke
     return retval;
 }
 
-extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned flags, int *error, const char **contents) {
+extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned long flags, int *error, const char **contents) {
     UNCUserNotificationRef userNotification = NULL;
     int retval = ERR_SUCCESS;
     static unsigned short tokenCounter = 0;
@@ -298,11 +298,11 @@ extern UNCUserNotificationRef UNCUserNotificationCreate(double timeout, unsigned
     return userNotification;
 }
 
-extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotification, double timeout, unsigned *responseFlags) {
+extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotification, double timeout, unsigned long *responseFlags) {
     int retval = ERR_SUCCESS;
     mach_msg_timeout_t msgtime = (timeout > 0.0 && 1000.0 * timeout < INT_MAX) ? (mach_msg_timeout_t)(1000.0 * timeout) : 0;
     mach_msg_base_t *msg = NULL;
-    unsigned size = MAX_STRING_COUNT * MAX_STRING_LENGTH, contentSize = 0;
+    unsigned long size = MAX_STRING_COUNT * MAX_STRING_LENGTH, contentSize = 0;
 
     if (userNotification && MACH_PORT_NULL != userNotification->_replyPort) {
         msg = (mach_msg_base_t *)malloc(size);
@@ -336,7 +336,7 @@ extern int UNCUserNotificationReceiveResponse(UNCUserNotificationRef userNotific
     return retval;
 }
 
-extern const char *UNCUserNotificationGetResponseValue(UNCUserNotificationRef userNotification, const char *key, unsigned index) {
+extern const char *UNCUserNotificationGetResponseValue(UNCUserNotificationRef userNotification, const char *key, unsigned long index) {
     char **p, *retval = NULL;
     if (userNotification && userNotification->_responseContents && key) {
         p = userNotification->_responseContents;
@@ -352,7 +352,7 @@ extern const char **UNCUserNotificationGetResponseContents(UNCUserNotificationRe
     return userNotification ? (const char **)(userNotification->_responseContents) : NULL;
 }
 
-extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, double timeout, unsigned flags, const char **contents) {
+extern int UNCUserNotificationUpdate(UNCUserNotificationRef userNotification, double timeout, unsigned long flags, const char **contents) {
     int retval = ERR_SUCCESS;
     if (userNotification && MACH_PORT_NULL != userNotification->_replyPort) {
         retval = UNCSendRequest(userNotification->_sessionID, userNotification->_replyPort, userNotification->_token, timeout, flags|kUNCUpdateFlag, contents);
@@ -378,11 +378,11 @@ extern void UNCUserNotificationFree(UNCUserNotificationRef userNotification) {
     }
 }
 
-extern int UNCDisplayNotice(double timeout, unsigned flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle) {
+extern int UNCDisplayNotice(double timeout, unsigned long flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle) {
     UNCUserNotificationRef userNotification;
     int retval = ERR_SUCCESS;
     const char *contents[13];
-    unsigned i = 0;
+    unsigned long i = 0;
     if (iconPath) {contents[i++] = kUNCIconPathKey; contents[i++] = iconPath;}
     if (soundPath) {contents[i++] = kUNCSoundPathKey; contents[i++] = soundPath;}
     if (localizationPath) {contents[i++] = kUNCLocalizationPathKey; contents[i++] = localizationPath;}
@@ -395,11 +395,11 @@ extern int UNCDisplayNotice(double timeout, unsigned flags, const char *iconPath
     return retval;
 }
 
-extern int UNCDisplayAlert(double timeout, unsigned flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle, const char *alternateButtonTitle, const char *otherButtonTitle, unsigned *responseFlags) {
+extern int UNCDisplayAlert(double timeout, unsigned long flags, const char *iconPath, const char *soundPath, const char *localizationPath, const char *alertHeader, const char *alertMessage, const char *defaultButtonTitle, const char *alternateButtonTitle, const char *otherButtonTitle, unsigned long *responseFlags) {
     UNCUserNotificationRef userNotification;
     int retval = ERR_SUCCESS;
     const char *contents[17];
-    unsigned i = 0;
+    unsigned long i = 0;
     if (iconPath) {contents[i++] = kUNCIconPathKey; contents[i++] = iconPath;}
     if (soundPath) {contents[i++] = kUNCSoundPathKey; contents[i++] = soundPath;}
     if (localizationPath) {contents[i++] = kUNCLocalizationPathKey; contents[i++] = localizationPath;}

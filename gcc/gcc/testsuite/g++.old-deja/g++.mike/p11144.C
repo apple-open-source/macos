@@ -7,9 +7,11 @@ public:
   int d_i;
   Id(int i) : d_i(i) {}
   int value() {return d_i;}
-} id(1);
+/* APPLE LOCAL begin radar 3904184 */
+} ID(1);
 
-Id foo() { return id; }
+Id foo() { return ID; }
+/* APPLE LOCAL end radar 3904184 */
 
 int main() {
   const Id &id1 = foo();

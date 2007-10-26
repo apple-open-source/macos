@@ -59,7 +59,7 @@ int main (int argc, const char **argv)
     
     if (!err) {
         newFileName = (char *) malloc (strlen (argv[1]) + 5 /* .new */);
-        if (newFileName != NULL) { 
+        if (newFileName) { 
             sprintf (newFileName, "%s.new", argv[1]);
             dprintf ("newFileName is %s", newFileName);
         } else { 
@@ -69,7 +69,7 @@ int main (int argc, const char **argv)
     
     if (!err) {
         oldFileName = (char *) malloc (strlen (argv[1]) + 5 /* .old */);
-        if (oldFileName != NULL) { 
+        if (oldFileName) { 
             sprintf (oldFileName, "%s.old", argv[1]);
             dprintf ("oldFileName is %s", oldFileName);
         } else {
@@ -101,7 +101,7 @@ int main (int argc, const char **argv)
         }
         
         if (newFD    >= 0   ) { close (newFD); }    
-        if (fileData != NULL) { free (fileData); }
+        if (fileData) { free (fileData); }
     }
     
     if (!err) {
@@ -128,8 +128,8 @@ int main (int argc, const char **argv)
         }
     }
     
-    if (newFileName != NULL) { unlink (newFileName); free (newFileName); }
-    if (oldFileName != NULL) { free (oldFileName); }
+    if (newFileName) { unlink (newFileName); free (newFileName); }
+    if (oldFileName) { free (oldFileName); }
     
     dprintf ("done (err = %d)", err);
     return err;

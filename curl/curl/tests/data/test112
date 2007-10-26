@@ -1,3 +1,12 @@
+<testcase>
+<info>
+<keywords>
+FTP
+EPSV
+APPE
+Resume
+</keywords>
+</info>
 # Server-side
 <reply>
 </reply>
@@ -22,11 +31,9 @@ worx?
 
 # Verify data after the test has been "shot"
 <verify>
-<strip>
-</strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 EPSV
 TYPE I
@@ -39,3 +46,4 @@ QUIT
 worx?
 </upload>
 </verify>
+</testcase>

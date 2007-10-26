@@ -1,5 +1,6 @@
 /* Things for GLYPHS and glyph tables.
-   Copyright (C) 1993 Free Software Foundation, Inc.
+   Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Access the slots of a display-table, according to their purpose.  */
 
@@ -90,8 +91,8 @@ extern Lisp_Object Vglyph_table;
 /* Assuming that GLYPH_SIMPLE_P (BASE, LEN, G) is 0,
    return the length and the address of the character-sequence
    used for outputting GLYPH G.  */
-#define GLYPH_LENGTH(base,g)   XSTRING (base[g])->size
-#define GLYPH_STRING(base,g)   XSTRING (base[g])->data
+#define GLYPH_LENGTH(base,g)   SCHARS (base[g])
+#define GLYPH_STRING(base,g)   SDATA (base[g])
 
 /* GLYPH for a space character.  */
 
@@ -99,3 +100,6 @@ extern Lisp_Object Vglyph_table;
 #define NULL_GLYPH 00
 
 #define GLYPH_FROM_CHAR(c) (c)
+
+/* arch-tag: d7f792d2-f59c-4904-a91e-91522e3ab349
+   (do not change this comment) */

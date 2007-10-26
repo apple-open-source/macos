@@ -217,4 +217,32 @@ private:
     OSMetaClassDeclareReservedUnused(IOATABusCommand, 20);
 };
 
+#include <IOKit/IODMACommand.h>
+
+class IOATABusCommand64 : public IOATABusCommand
+{
+
+	OSDeclareDefaultStructors( IOATABusCommand64 )
+	
+	public:
+	
+	// new features
+	static IOATABusCommand64* allocateCmd32(void);	
+	virtual IODMACommand* GetDMACommand( void );
+	
+	
+	
+	// overrides for IODMACommand setup
+	virtual void zeroCommand(void);  	 
+	virtual void setBuffer ( IOMemoryDescriptor* inDesc);
+	virtual void setCommandInUse( bool inUse = true);
+	virtual void executeCallback(void);
+
+
+	protected:
+	IODMACommand* _dmaCmd;
+	virtual bool init();  
+	virtual void free();
+};
+
 #endif /*_IOATABUSCOMMAND_H*/

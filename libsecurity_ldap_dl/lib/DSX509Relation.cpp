@@ -134,7 +134,7 @@ DSX509Tuple* DSX509UniqueIdentifier::GetTuple ()
 
 
 
-static void * appMalloc (uint32 size, void *allocRef) {
+static void * appMalloc (CSSM_SIZE size, void *allocRef) {
 	return (malloc (size));
 }
 
@@ -147,13 +147,13 @@ static void appFree (void *mem_ptr, void *allocRef) {
 
 
 
-static void * appRealloc (void *ptr, uint32 size, void *allocRef) {
+static void * appRealloc (void *ptr, CSSM_SIZE size, void *allocRef) {
 	return (realloc (ptr, size));
 }
 
 
 
-static void * appCalloc (uint32 num, uint32 size, void *allocRef) {
+static void * appCalloc (uint32 num, CSSM_SIZE size, void *allocRef) {
 	return (calloc (num, size));
 }
 
@@ -348,7 +348,7 @@ DSX509Query::DSX509Query (DSX509Relation* relation, const CSSM_QUERY *queryBase)
 	}
 	
 	// make a continue data
-	mDSContext = new DSContext (*mDirectoryService);
+	mDSContext = new DSContext;
 }
 
 

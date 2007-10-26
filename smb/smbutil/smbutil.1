@@ -1,4 +1,4 @@
-.\" $Id: smbutil.1,v 1.4 2004/09/02 20:24:29 lindak Exp $
+.\" $Id: smbutil.1,v 1.6 2006/01/06 07:37:18 lindak Exp $
 .Dd February 14, 2000
 .Dt SMBUTIL 1
 .Os
@@ -29,71 +29,9 @@ Verbose output.
 .Pp
 The commands and local options are:
 .Bl -tag -width indent
-.It Cm crypt Op Ar password
-Encrypt clear text password for use in the
-.Pa ~/.nsmbrc
-file.
-The encrypted password starts with the
-.Ql $$1
-symbols.
-Warning: the encryption function is very weak and intended only to hide
-clear text password.
-If
-.Ar password
-is omitted from the command line,
-.Nm
-will prompt for one.
 .It Cm help Ar command
 Print usage information about
 .Ar command .
-.It Cm lc
-List active connections and their parameters.
-.It Xo
-.Cm login
-.Oo Fl Ar connection_options
-.Oc // Ns Oo Ar workgroup ;
-.Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server Ns Oo
-.Pf / Ar share
-.Oc
-.Xc
-Login/attach to the specified
-.Ar server
-and/or
-.Ar share
-as
-.Ar user .
-This command will create and authenticate connection to an SMB server, and
-will leave it active after exit.
-Thus, it is possible to login only once and then
-use other SMB commands without authentication procedure and additional
-connections.
-For the description of
-.Fl Ar connection_options
-refer to the
-.Xr mount_smbfs 8
-manpage (all uppercase options are connection options).
-.It Xo
-.Cm logout
-.No // Ns Oo Ar workgroup ;
-.Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server Ns Oo
-.Pf / Ar share
-.Oc
-.Xc
-Logout/detach from the specified
-.Ar server
-and/or
-.Ar share
-as
-.Ar user .
-This command will destroy a connection created by the
-.Cm login
-command.
-A connection may not be closed immediately if it is used by other
-programs.
 .It Xo
 .Cm lookup
 .Op Fl w Ar host
@@ -106,25 +44,7 @@ The NetBIOS name server can be directly specified via the
 .Fl w
 option.
 .It Xo
-.Cm print
-.Oo Fl Ar connection_options
-.Oc // Ns Oo Ar workgroup ;
-.Oc Ns Oo Ar user Ns Oo
-.Pf \: Ar password
-.Oc Ns @ Ns Oc Ar server Ns Oo
-.Pf / Ar share
-.Oc Ar file
-.Xc
-Send the given
-.Ar file
-to the specified queue on the remote server.
-If
-.Ar file
-is
-.Pa - ,
-then standard input will be used.
-.It Xo
-.Em status
+.Cm status
 .Ar server
 .Xc
 Resolve given
@@ -133,7 +53,7 @@ Resolve given
 .It Xo
 .Cm view
 .Oo Fl Ar connection_options
-.Oc // Ns Oo Ar workgroup ;
+.Oc // Ns Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
 .Pf \: Ar password
 .Oc Ns @ Ns Oc Ar server
@@ -144,11 +64,11 @@ for the user
 .Ar user .
 .El
 .Sh FILES
-.Bl -tag -width ".Pa ~/.nsmbrc" -compact
-.It Pa ~/.nsmbrc
-Keeps description for each connection.
+.Bl -tag -width ".Pa nsmb.conf" -compact
+.It Pa nsmb.conf
+Keeps static parameters for connections and other information.
 See
-.Pa ./examples/dot.nsmbrc
+.Pa man nsmb.conf
 for details.
 .El
 .Sh AUTHORS

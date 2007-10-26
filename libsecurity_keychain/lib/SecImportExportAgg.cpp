@@ -28,6 +28,7 @@
 #include "SecExternalRep.h"
 #include "SecImportExportUtils.h"
 #include "SecNetscapeTemplates.h"
+#include "Certificate.h"
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_pkcs12/SecPkcs12.h>
 #include <Security/SecCmsDecoder.h>
@@ -38,6 +39,7 @@
 #include <security_asn1/SecNssCoder.h>	
 #include <security_asn1/nssUtils.h>		
 #include <security_cdsa_utils/cuCdsaUtils.h>
+#include <security_keychain/Globals.h>
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecKeyPriv.h>
 
@@ -315,6 +317,16 @@ OSStatus impExpPkcs12Import(
 	CFMutableArrayRef	privKeys = NULL;
 	CSSM_KEY			*passKey = NULL;
 	CFStringRef			phraseStr = NULL;
+
+	/* 
+	 * Optional private key attrs.
+	 * Although the PKCS12 library has its own defaults for these, we'll
+	 * set them explicitly to the defaults specified in our API if the 
+	 * caller doesn't specify any. 
+	 */
+	CSSM_KEYUSE keyUsage = CSSM_KEYUSE_ANY;
+	CSSM_KEYATTR_FLAGS keyAttrs = CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE |
+		CSSM_KEYATTR_RETURN_REF;
 	
 	if( (keyParams == NULL) ||
 	    ( (keyParams->passphrase == NULL) && 
@@ -339,7 +351,7 @@ OSStatus impExpPkcs12Import(
 		return CSSMERR_CSSM_ADDIN_LOAD_FAILED;
 	}
 	
-	assert(cspHand != 0);
+	assert(cspHand != CSSM_INVALID_HANDLE);
 	if(importKeychain != NULL) {
 		ortn = SecPkcs12SetKeychain(p12Coder, importKeychain);
 		if(ortn) {
@@ -348,7 +360,7 @@ OSStatus impExpPkcs12Import(
 		}
 	}
 	else {
-		if(cspHand == NULL) {
+		if(cspHand == CSSM_INVALID_HANDLE) {
 			ortn = paramErr;
 			goto errOut;
 		}
@@ -394,6 +406,40 @@ OSStatus impExpPkcs12Import(
 			SecImpExpDbg("SecPkcs12LimitPrivateKeyImport error");
 			goto errOut;
 		}
+	}
+	
+	if(keyParams != NULL) {
+		if(keyParams->keyUsage != 0) {
+			keyUsage = keyParams->keyUsage;
+		}
+		if(keyParams->keyAttributes != 0) {
+			keyAttrs = keyParams->keyAttributes;
+		}
+		if(keyParams->flags & kSecKeyNoAccessControl) {
+			ortn = SecPkcs12SetAccess(p12Coder, NULL);
+			if(ortn) {
+				SecImpExpDbg("SecPkcs12SetAccess error");
+				goto errOut;
+			}
+		}
+		else if(keyParams->accessRef != NULL) {
+			ortn = SecPkcs12SetAccess(p12Coder, keyParams->accessRef);
+			if(ortn) {
+				SecImpExpDbg("SecPkcs12SetAccess error");
+				goto errOut;
+			}
+		}
+		/* else default ACL */
+	}
+	ortn = SecPkcs12SetKeyUsage(p12Coder, keyUsage);
+	if(ortn) {
+		SecImpExpDbg("SecPkcs12SetKeyUsage error");
+		goto errOut;
+	}
+	ortn = SecPkcs12SetKeyAttrs(p12Coder, keyAttrs);
+	if(ortn) {
+		SecImpExpDbg("SecPkcs12SetKeyAttrs error");
+		goto errOut;
 	}
 	
 	/* GO */
@@ -442,7 +488,7 @@ OSStatus impExpPkcs12Import(
 	
 	/*
 	 * Now go through all certs, searching for a matching private
-	 * key. When we find a match we try to create an indentity from the 
+	 * key. When we find a match we try to create an identity from the 
 	 * cert, which might fail for a number of reasons, currently including 
 	 * the fact that there is no way to create an identity with a key
 	 * which does not reside on a keychain. (Such is the case here when
@@ -455,6 +501,7 @@ OSStatus impExpPkcs12Import(
 	 */
 	for(dex=0; dex<numCerts; dex++) {
 		SecCertificateRef   certRef = NULL;				// created by P12
+        SecCertificateRef   importedCertRef = NULL;		// owned by Sec layer
 		CSSM_KEY_PTR		pubKey = NULL;				// mallocd by CL
 		CSSM_KEY_PTR		privKey = NULL;				// owned by P12
 		CSSM_DATA			certData;					// owned by Sec layer
@@ -475,9 +522,20 @@ OSStatus impExpPkcs12Import(
 			/* Skip the Identity match - just return keys and certs */
 			goto loopEnd;
 		}
-	
+
+        /* the SecPkcs12CopyCertificate function returns a floating
+         * certificate without a keychain. We must update it now that
+         * it has been added to importKeychain.
+         */
+        {
+        StorageManager::KeychainList keychains;
+        globals().storageManager.optionalSearchList(importKeychain, keychains);
+        SecPointer<Certificate> cert = Certificate::required(certRef);
+        importedCertRef = cert->findInKeychain(keychains)->handle();
+        }
+
 		/* Get digest of this cert's public key */
-		ortn = SecCertificateGetData(certRef, &certData);
+		ortn = SecCertificateGetData(importedCertRef, &certData);
 		if(ortn) {
 			SecImpExpDbg("SecCertificateGetData error");
 			goto loopEnd;
@@ -510,7 +568,7 @@ OSStatus impExpPkcs12Import(
 				 * MATCH: try to cook up Identity.
 				 * TBD: I expect some work will be needed here when 
 				 * Sec layer can handle floating keys. One thing 
-				 * that woulds be nice would be if we could create an identity
+				 * that would be nice would be if we could create an identity
 				 * FROM a given SecCertRef and a SecKeyRef, even if 
 				 * the SecKeyRef is floating. 
 				 * 
@@ -523,7 +581,7 @@ OSStatus impExpPkcs12Import(
 				 */
 				SecIdentityRef idRef = NULL;
 				ortn = SecIdentityCreateWithCertificate(importKeychain,
-					certRef, &idRef);
+					importedCertRef, &idRef);
 				if(ortn == noErr) {
 					/*
 					 * Got one!
@@ -553,6 +611,10 @@ OSStatus impExpPkcs12Import(
 		}
 		CFRelease(certRef);				// outArray holds only ref
 		certRef = NULL;
+        if (importedCertRef) {
+            CFRelease(importedCertRef);
+            importedCertRef = NULL;
+        }
 		if(pubKey != NULL) {
 			/* technically invalid, the CL used some CSP handle we 
 			 * don't have access to to get this... */

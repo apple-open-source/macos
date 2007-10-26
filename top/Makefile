@@ -8,7 +8,7 @@ CC		= cc
 CPPFLAGS	= -I$(SRCROOT) -DTOP_DEPRECATED #-DTOP_JAGUAR
 CFLAGS		= -Os -g3 -no-cpp-precomp -Wall $(RC_CFLAGS)
 LIB_LDFLAGS	= -framework CoreFoundation -framework IOKit
-BIN_LDFLAGS	= -lpanel -lncurses
+BIN_LDFLAGS	= -lpanel -lncurses -lutil
 LDFLAGS		= $(LIB_LDFLAGS) $(BIN_LDFLAGS)
 INSTALL		= install -c
 LN		= ln
@@ -40,7 +40,7 @@ BIN_MAN1	:= top.1
 .PHONY : all installsrc installhdrs install clean installlib installbin \
 	 installman
 
-all : $(SYMROOT)/$(BIN) $(SYMROOT)/$(LIB)
+all : $(SYMROOT)/$(LIB) $(SYMROOT)/$(BIN)
 
 #
 # xbs targets.
@@ -88,10 +88,13 @@ installman :
 
 $(OBJROOT)/%.o : $(SRCROOT)/%.c \
 	     $(patsubst %.h,$(SRCROOT)/%.h,$(LIB_HDRS) $(LIB_PHDRS) $(BIN_HDRS))
-	$(CC) -c $(CPPFLAGS) $(CFLAGS) $< -o $@
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) -mdynamic-no-pic $< -o $@
 
-$(SYMROOT)/$(LIB) : $(patsubst %.c,$(OBJROOT)/%.o,$(LIB_SRCS))
-	$(AR) cru $@ $?
+$(SYMROOT)/$(LIB) : $(patsubst %.c,$(SRCROOT)/%.c,$(LIB_SRCS)) \
+	     $(patsubst %.h,$(SRCROOT)/%.h,$(LIB_HDRS) $(LIB_PHDRS))
+	$(CC) -c $(CPPFLAGS) $(CFLAGS) $(LIB_SRCS)
+	mv *.o $(OBJROOT)
+	$(AR) cru $@ $(patsubst %.c,$(OBJROOT)/%.o,$(LIB_SRCS))
 	$(RANLIB) $@
 
 $(SYMROOT)/$(BIN) : $(patsubst %.c,$(OBJROOT)/%.o,$(BIN_SRCS)) $(SYMROOT)/$(LIB)

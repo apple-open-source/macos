@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnv_u32.c
@@ -34,6 +34,10 @@
 /* -SURROGATE_LOW_START + HALF_BASE */
 #define SURROGATE_LOW_BASE      9216
 
+enum {
+    UCNV_NEED_TO_WRITE_BOM=1
+};
+
 /* UTF-32BE ----------------------------------------------------------------- */
 
 static void
@@ -47,9 +51,10 @@ T_UConverter_toUnicode_UTF32_BE(UConverterToUnicodeArgs * args,
     unsigned char *toUBytes = args->converter->toUBytes;
     uint32_t ch, i;
 
-    /* UTF-8 returns here for only non-offset, this needs to change.*/
+    /* Restore state of current sequence */
     if (args->converter->toUnicodeStatus && myTarget < targetLimit) {
         i = args->converter->toULength;       /* restore # of bytes consumed */
+        args->converter->toULength = 0;
 
         ch = args->converter->toUnicodeStatus - 1;/*Stores the previously calculated ch from a previous call*/
         args->converter->toUnicodeStatus = 0;
@@ -127,8 +132,10 @@ T_UConverter_toUnicode_UTF32_BE_OFFSET_LOGIC(UConverterToUnicodeArgs * args,
     uint32_t ch, i;
     int32_t offsetNum = 0;
 
+    /* Restore state of current sequence */
     if (args->converter->toUnicodeStatus && myTarget < targetLimit) {
         i = args->converter->toULength;       /* restore # of bytes consumed */
+        args->converter->toULength = 0;
 
         ch = args->converter->toUnicodeStatus - 1;/*Stores the previously calculated ch from a previous call*/
         args->converter->toUnicodeStatus = 0;
@@ -204,13 +211,30 @@ T_UConverter_fromUnicode_UTF32_BE(UConverterFromUnicodeArgs * args,
                                   UErrorCode * err)
 {
     const UChar *mySource = args->source;
-    unsigned char *myTarget = (unsigned char *) args->target;
+    unsigned char *myTarget;
     const UChar *sourceLimit = args->sourceLimit;
     const unsigned char *targetLimit = (unsigned char *) args->targetLimit;
     UChar32 ch, ch2;
     unsigned int indexToWrite;
     unsigned char temp[sizeof(uint32_t)];
 
+    if(mySource >= sourceLimit) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    /* write the BOM if necessary */
+    if(args->converter->fromUnicodeStatus==UCNV_NEED_TO_WRITE_BOM) {
+        static const char bom[]={ 0, 0, (char)0xfe, (char)0xff };
+        ucnv_fromUWriteBytes(args->converter,
+                             bom, 4,
+                             &args->target, args->targetLimit,
+                             &args->offsets, -1,
+                             err);
+        args->converter->fromUnicodeStatus=0;
+    }
+
+    myTarget = (unsigned char *) args->target;
     temp[0] = 0;
 
     if (args->converter->fromUChar32) {
@@ -288,8 +312,8 @@ T_UConverter_fromUnicode_UTF32_BE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
                                                UErrorCode * err)
 {
     const UChar *mySource = args->source;
-    unsigned char *myTarget = (unsigned char *) args->target;
-    int32_t *myOffsets = args->offsets;
+    unsigned char *myTarget;
+    int32_t *myOffsets;
     const UChar *sourceLimit = args->sourceLimit;
     const unsigned char *targetLimit = (unsigned char *) args->targetLimit;
     UChar32 ch, ch2;
@@ -297,6 +321,24 @@ T_UConverter_fromUnicode_UTF32_BE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
     unsigned int indexToWrite;
     unsigned char temp[sizeof(uint32_t)];
 
+    if(mySource >= sourceLimit) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    /* write the BOM if necessary */
+    if(args->converter->fromUnicodeStatus==UCNV_NEED_TO_WRITE_BOM) {
+        static const char bom[]={ 0, 0, (char)0xfe, (char)0xff };
+        ucnv_fromUWriteBytes(args->converter,
+                             bom, 4,
+                             &args->target, args->targetLimit,
+                             &args->offsets, -1,
+                             err);
+        args->converter->fromUnicodeStatus=0;
+    }
+
+    myTarget = (unsigned char *) args->target;
+    myOffsets = args->offsets;
     temp[0] = 0;
 
     if (args->converter->fromUChar32) {
@@ -360,7 +402,7 @@ lowsurogate:
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
         }
-        offsetNum++;
+        offsetNum = offsetNum + 1 + (temp[1] != 0);
     }
 
     if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err)) {
@@ -437,7 +479,7 @@ static const UConverterImpl _UTF32BEImpl = {
     NULL,
     NULL,
     NULL,
-    ucnv_getCompleteUnicodeSet
+    ucnv_getNonSurrogateUnicodeSet
 };
 
 /* The 1232 CCSID refers to any version of Unicode with any endianess of UTF-32 */
@@ -471,10 +513,11 @@ T_UConverter_toUnicode_UTF32_LE(UConverterToUnicodeArgs * args,
     unsigned char *toUBytes = args->converter->toUBytes;
     uint32_t ch, i;
 
-    /* UTF-8 returns here for only non-offset, this needs to change.*/
+    /* Restore state of current sequence */
     if (args->converter->toUnicodeStatus && myTarget < targetLimit)
     {
         i = args->converter->toULength;       /* restore # of bytes consumed */
+        args->converter->toULength = 0;
 
         /* Stores the previously calculated ch from a previous call*/
         ch = args->converter->toUnicodeStatus - 1;
@@ -557,10 +600,11 @@ T_UConverter_toUnicode_UTF32_LE_OFFSET_LOGIC(UConverterToUnicodeArgs * args,
     uint32_t ch, i;
     int32_t offsetNum = 0;
 
-    /* UTF-8 returns here for only non-offset, this needs to change.*/
+    /* Restore state of current sequence */
     if (args->converter->toUnicodeStatus && myTarget < targetLimit)
     {
         i = args->converter->toULength;       /* restore # of bytes consumed */
+        args->converter->toULength = 0;
 
         /* Stores the previously calculated ch from a previous call*/
         ch = args->converter->toUnicodeStatus - 1;
@@ -645,13 +689,30 @@ T_UConverter_fromUnicode_UTF32_LE(UConverterFromUnicodeArgs * args,
                                   UErrorCode * err)
 {
     const UChar *mySource = args->source;
-    unsigned char *myTarget = (unsigned char *) args->target;
+    unsigned char *myTarget;
     const UChar *sourceLimit = args->sourceLimit;
     const unsigned char *targetLimit = (unsigned char *) args->targetLimit;
     UChar32 ch, ch2;
     unsigned int indexToWrite;
     unsigned char temp[sizeof(uint32_t)];
 
+    if(mySource >= sourceLimit) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    /* write the BOM if necessary */
+    if(args->converter->fromUnicodeStatus==UCNV_NEED_TO_WRITE_BOM) {
+        static const char bom[]={ (char)0xff, (char)0xfe, 0, 0 };
+        ucnv_fromUWriteBytes(args->converter,
+                             bom, 4,
+                             &args->target, args->targetLimit,
+                             &args->offsets, -1,
+                             err);
+        args->converter->fromUnicodeStatus=0;
+    }
+
+    myTarget = (unsigned char *) args->target;
     temp[3] = 0;
 
     if (args->converter->fromUChar32)
@@ -737,8 +798,8 @@ T_UConverter_fromUnicode_UTF32_LE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
                                                UErrorCode * err)
 {
     const UChar *mySource = args->source;
-    unsigned char *myTarget = (unsigned char *) args->target;
-    int32_t *myOffsets = args->offsets;
+    unsigned char *myTarget;
+    int32_t *myOffsets;
     const UChar *sourceLimit = args->sourceLimit;
     const unsigned char *targetLimit = (unsigned char *) args->targetLimit;
     UChar32 ch, ch2;
@@ -746,6 +807,24 @@ T_UConverter_fromUnicode_UTF32_LE_OFFSET_LOGIC(UConverterFromUnicodeArgs * args,
     unsigned char temp[sizeof(uint32_t)];
     int32_t offsetNum = 0;
 
+    if(mySource >= sourceLimit) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    /* write the BOM if necessary */
+    if(args->converter->fromUnicodeStatus==UCNV_NEED_TO_WRITE_BOM) {
+        static const char bom[]={ (char)0xff, (char)0xfe, 0, 0 };
+        ucnv_fromUWriteBytes(args->converter,
+                             bom, 4,
+                             &args->target, args->targetLimit,
+                             &args->offsets, -1,
+                             err);
+        args->converter->fromUnicodeStatus=0;
+    }
+
+    myTarget = (unsigned char *) args->target;
+    myOffsets = args->offsets;
     temp[3] = 0;
 
     if (args->converter->fromUChar32)
@@ -817,7 +896,7 @@ lowsurogate:
                 *err = U_BUFFER_OVERFLOW_ERROR;
             }
         }
-        offsetNum++;
+        offsetNum = offsetNum + 1 + (temp[2] != 0);
     }
 
     if (mySource < sourceLimit && myTarget >= targetLimit && U_SUCCESS(*err))
@@ -895,7 +974,7 @@ static const UConverterImpl _UTF32LEImpl = {
     NULL,
     NULL,
     NULL,
-    ucnv_getCompleteUnicodeSet
+    ucnv_getNonSurrogateUnicodeSet
 };
 
 /* The 1232 CCSID refers to any version of Unicode with any endianess of UTF-32 */
@@ -948,18 +1027,7 @@ _UTF32Reset(UConverter *cnv, UConverterResetChoice choice) {
     }
     if(choice!=UCNV_RESET_TO_UNICODE) {
         /* reset fromUnicode: prepare to output the UTF-32PE BOM */
-        cnv->charErrorBufferLength=4;
-#if U_IS_BIG_ENDIAN
-        cnv->charErrorBuffer[0]=0;
-        cnv->charErrorBuffer[1]=0;
-        cnv->charErrorBuffer[2]=0xfe;
-        cnv->charErrorBuffer[3]=0xff;
-#else
-        cnv->charErrorBuffer[0]=0xff;
-        cnv->charErrorBuffer[1]=0xfe;
-        cnv->charErrorBuffer[2]=0;
-        cnv->charErrorBuffer[3]=0;
-#endif
+        cnv->fromUnicodeStatus=UCNV_NEED_TO_WRITE_BOM;
     }
 }
 
@@ -1019,14 +1087,14 @@ _UTF32ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
                 ++source;
                 if(state==4) {
                     state=8; /* detect UTF-32BE */
-                    offsetDelta=source-pArgs->source;
+                    offsetDelta=(int32_t)(source-pArgs->source);
                 } else if(state==8) {
                     state=9; /* detect UTF-32LE */
-                    offsetDelta=source-pArgs->source;
+                    offsetDelta=(int32_t)(source-pArgs->source);
                 }
             } else {
                 /* switch to UTF-32BE and pass the previous bytes */
-                int32_t count=source-pArgs->source; /* number of bytes from this buffer */
+                int32_t count=(int32_t)(source-pArgs->source); /* number of bytes from this buffer */
 
                 /* reset the source */
                 source=pArgs->source;
@@ -1153,13 +1221,14 @@ static const UConverterImpl _UTF32Impl = {
     NULL,
     NULL,
     NULL,
-    ucnv_getCompleteUnicodeSet
+    ucnv_getNonSurrogateUnicodeSet
 };
 
+/* The 1236 CCSID refers to any version of Unicode with a BOM sensitive endianess of UTF-32 */
 static const UConverterStaticData _UTF32StaticData = {
     sizeof(UConverterStaticData),
     "UTF-32",
-    0, /* ### TODO review correctness of all Unicode CCSIDs */
+    1236,
     UCNV_IBM, UCNV_UTF32, 4, 4,
 #if U_IS_BIG_ENDIAN
     { 0, 0, 0xff, 0xfd }, 4,

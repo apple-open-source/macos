@@ -340,6 +340,8 @@ AR_FOR_TARGET := $(shell \
 AR_FLAGS_FOR_TARGET =
 AR_CREATE_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) rc
 AR_EXTRACT_FOR_TARGET = $(AR_FOR_TARGET) $(AR_FLAGS_FOR_TARGET) x
+# APPLE LOCAL mainline
+LIPO_FOR_TARGET = lipo
 RANLIB_FOR_TARGET := $(shell \
   if [ -f $(objdir)/../binutils/ranlib ] ; then \
     echo $(objdir)/../binutils/ranlib ; \
@@ -362,6 +364,8 @@ NM_FOR_TARGET := $(shell \
        t='$(program_transform_name)'; echo nm | sed -e $$t ; \
     fi; \
   fi)
+# APPLE LOCAL mainline
+STRIP_FOR_TARGET = strip
 
 # --------
 # UNSORTED
@@ -768,7 +772,10 @@ TREE_DATA_REF_H = tree-data-ref.h $(LAMBDA_H)
 
 # IN_GCC distinguishes between code compiled into GCC itself and other
 # programs built during a bootstrap.
-# autoconf inserts -DCROSS_COMPILE if we are building a cross compiler.
+ # APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
+# autoconf inserts -DCROSS_DIRECTORY_STRUCTURE if we are building a
+# cross compiler which does not use the native headers and libraries.
+ # APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325
 INTERNAL_CFLAGS = -DIN_GCC @CROSS@
 
 # This is the variable actually used when we compile. If you change this,
@@ -959,7 +966,7 @@ OBJS-common = \
  varasm.o varray.o vec.o version.o vmsdbgout.o xcoffout.o alloc-pool.o	   \
  et-forest.o cfghooks.o bt-load.o pretty-print.o $(GGC) web.o passes.o	   \
  rtl-profile.o tree-profile.o rtlhooks.o cfgexpand.o lambda-mat.o          \
- lambda-trans.o	lambda-code.o tree-loop-linear.o
+ lambda-trans.o	lambda-code.o tree-loop-linear.o tree-object-size.o
 # APPLE LOCAL end lno, loops-to-memset
 
 OBJS-md = $(out_object_file)
@@ -1222,8 +1229,8 @@ cc1-dummy$(exeext): $(C_OBJS) dummy-checksum.o $(BACKEND) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ $(C_OBJS) dummy-checksum.o \
 	  $(BACKEND) $(LIBS) $(CC1_ORDER_FLAGS)
 
-cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(exeext)
-	build/genchecksum$(exeext) cc1-dummy$(exeext) > $@
+cc1-checksum.c : cc1-dummy$(exeext) build/genchecksum$(build_exeext)
+	build/genchecksum$(build_exeext) cc1-dummy$(exeext) > $@
 
 cc1-checksum.o : cc1-checksum.c
 
@@ -1287,7 +1294,8 @@ libgcc.mk: config.status Makefile mklibgcc $(LIB2ADD) $(LIB2ADD_ST) xgcc$(exeext
 	mv tmp-libgcc.mk libgcc.mk
 
 # All the things that might cause us to want to recompile bits of libgcc.
-LIBGCC_DEPS = $(GCC_PASSES) $(LANGUAGES) stmp-int-hdrs $(STMP_FIXPROTO) \
+# APPLE LOCAL mainline -j safe no dep on LANGUAGES, GCC_PASSES is enough
+LIBGCC_DEPS = $(GCC_PASSES) stmp-int-hdrs $(STMP_FIXPROTO) \
 	libgcc.mk $(srcdir)/libgcc2.c $(srcdir)/libgcov.c $(TCONFIG_H) \
 	$(MACHMODE_H) longlong.h gbl-ctors.h config.status \
 	tsystem.h $(FPBIT) $(DPBIT) $(TPBIT) $(LIB2ADD) \
@@ -1411,6 +1419,8 @@ c-parse.y: c-parse.in
 	sed -e "/^@@ifobjc.*/,/^@@end_ifobjc.*/d" \
 	    -e "/^@@ifc.*/d" -e "/^@@end_ifc.*/d" $< >>tmp-c-parse.y
 	$(SHELL) $(srcdir)/../move-if-change tmp-c-parse.y $@
+	# APPLE LOCAL mainline rewrite
+	touch $@
 
 c-incpath.o: c-incpath.c c-incpath.h $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) \
 		intl.h prefix.h coretypes.h $(TM_H) cppdefault.h $(TARGET_H) \
@@ -1430,12 +1440,10 @@ c-lang.o : c-lang.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     c-objc-common.h c-pragma.h
 stub-objc.o : stub-objc.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TREE_H) \
     $(GGC_H) $(C_COMMON_H)
-# APPLE LOCAL begin 4133801
 c-lex.o : c-lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
     $(RTL_H) debug.h $(C_TREE_H) $(C_COMMON_H) real.h c-incpath.h cppdefault.h \
     $(C_PRAGMA_H) input.h intl.h $(FLAGS_H) toplev.h output.h \
-    $(CPPLIB_H) $(EXPR_H) $(TM_P_H) langhooks.h
-# APPLE LOCAL end 4133801
+    $(CPPLIB_H) $(EXPR_H) $(TM_P_H)
 # APPLE LOCAL AltiVec
 c-lex.o: $(TARGET_H) ../libcpp/internal.h
 c-ppoutput.o : c-ppoutput.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
@@ -1509,7 +1517,8 @@ attribs.o : attribs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(FL
 	builtin-types.def $(TARGET_H) langhooks.h
 
 c-format.o : c-format.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) langhooks.h \
-	$(C_COMMON_H) $(FLAGS_H) toplev.h intl.h $(DIAGNOSTIC_H) c-format.h
+# APPLE LOCAL radar 5096648 \
+	$(C_COMMON_H) $(FLAGS_H) toplev.h intl.h $(DIAGNOSTIC_H) $(GTM_H) c-format.h
 
 c-semantics.o : c-semantics.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
 	$(C_TREE_H) $(FLAGS_H) toplev.h output.h $(C_PRAGMA_H) $(RTL_H) $(GGC_H) \
@@ -1647,11 +1656,9 @@ prefix.o: prefix.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) Makefile prefix.h
 convert.o: convert.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(FLAGS_H) \
    convert.h toplev.h langhooks.h c-tree.h c-common.h
 # APPLE LOCAL end AltiVec
-# APPLE LOCAL begin 4133801
 langhooks.o : langhooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) toplev.h \
    tree-inline.h $(RTL_H) insn-config.h $(INTEGRATE_H) langhooks.h \
-   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h debug.h
-# APPLE LOCAL end 4133801
+   $(LANGHOOKS_DEF_H) $(FLAGS_H) $(GGC_H) diagnostic.h intl.h
 tree.o : tree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(FLAGS_H) function.h $(PARAMS_H) \
    toplev.h $(GGC_H) $(HASHTAB_H) $(TARGET_H) output.h $(TM_P_H) langhooks.h \
@@ -1714,10 +1721,12 @@ tree-ssa-dom.o : tree-ssa-dom.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    tree-ssa-propagate.h \
    cfgloop.h
 # APPLE LOCAL end lno
+# APPLE LOCAL begin 4538899 mainline
 tree-ssa-threadupdate.o : tree-ssa-threadupdate.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) $(GGC_H) output.h \
    diagnostic.h errors.h function.h $(TM_H) coretypes.h $(TREE_DUMP_H) \
-   $(BASIC_BLOCK_H) $(FLAGS_H)  tree-pass.h
+   $(BASIC_BLOCK_H) $(FLAGS_H)  tree-pass.h cfgloop.h
+# APPLE LOCAL end 4538899 mainline
 tree-ssanames.o : tree-ssanames.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(TREE_H) varray.h $(GGC_H) gt-tree-ssanames.h  $(TREE_FLOW_H)
 tree-phinodes.o : tree-phinodes.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
@@ -1857,7 +1866,8 @@ tree-data-ref.o: tree-data-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 tree-vect-analyze.o: tree-vect-analyze.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h \
-   tree-vectorizer.h tree-data-ref.h $(SCEV_H) $(EXPR_H)
+# APPLE LOCAL 4375453 \
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H) $(EXPR_H) $(TARGET_H) 
 tree-vect-transform.o: tree-vect-transform.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h target.h tree-pass.h $(EXPR_H) \
@@ -1865,11 +1875,17 @@ tree-vect-transform.o: tree-vect-transform.c $(CONFIG_H) $(SYSTEM_H) coretypes.h
 tree-vectorizer.o: tree-vectorizer.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h $(EXPR_H) \
-   tree-vectorizer.h tree-data-ref.h $(SCEV_H) input.h target.h cfglayout.h
+# APPLE LOCAL opt diary \
+   tree-vectorizer.h tree-data-ref.h $(SCEV_H) input.h target.h cfglayout.h debug.h
 tree-loop-linear.o: tree-loop-linear.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    errors.h $(GGC_H) $(OPTABS_H) $(TREE_H) $(RTL_H) $(BASIC_BLOCK_H) diagnostic.h \
    $(TREE_FLOW_H) $(TREE_DUMP_H) $(TIMEVAR_H) cfgloop.h tree-pass.h \
    $(TREE_DATA_REF_H) $(SCEV_H) $(EXPR_H)
+# APPLE LOCAL begin mainline
+tree-object-size.o : tree-object-size.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(TREE_H) $(DIAGNOSTIC_H) $(TREE_FLOW_H) tree-pass.h \
+   tree-ssa-propagate.h
+# APPLE LOCAL end mainline
 tree-gimple.o : tree-gimple.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(EXPR_H) \
 	$(RTL_H) $(TREE_GIMPLE_H) $(TM_H) coretypes.h bitmap.h $(GGC_H)
 tree-mudflap.o : $(CONFIG_H) errors.h $(SYSTEM_H) $(TREE_H) tree-inline.h \
@@ -1891,9 +1907,11 @@ diagnostic.o : diagnostic.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 opts.o : opts.c opts.h options.h toplev.h $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TREE_H) $(TM_H) langhooks.h $(GGC_H) $(RTL_H) \
 	output.h $(DIAGNOSTIC_H) $(TM_P_H) $(INSN_ATTR_H) intl.h target.h
+# APPLE LOCAL begin mainline
 targhooks.o : targhooks.c targhooks.h $(CONFIG_H) $(SYSTEM_H) \
 	coretypes.h $(TREE_H) $(EXPR_H) $(TM_H) $(RTL_H) $(TM_P_H) function.h \
-	output.h toplev.h
+	output.h toplev.h $(GGC_H) gt-targhooks.h
+# APPLE LOCAL end mainline
 
 toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) version.h $(RTL_H) \
    function.h $(FLAGS_H) xcoffout.h input.h $(INSN_ATTR_H) output.h $(DIAGNOSTIC_H) \
@@ -1938,11 +1956,13 @@ varasm.o : varasm.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) $(RTL_
    $(FLAGS_H) function.h $(EXPR_H) hard-reg-set.h $(REGS_H) \
    output.h $(C_PRAGMA_H) toplev.h xcoffout.h debug.h $(GGC_H) $(TM_P_H) \
    $(HASHTAB_H) $(TARGET_H) langhooks.h gt-varasm.h real.h
+# APPLE LOCAL begin mainline
 function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(CFGLAYOUT_H) $(TREE_GIMPLE_H) \
    $(FLAGS_H) function.h $(EXPR_H) $(OPTABS_H) libfuncs.h $(REGS_H) hard-reg-set.h \
    insn-config.h $(RECOG_H) output.h toplev.h except.h $(HASHTAB_H) $(GGC_H) \
-   $(TM_P_H) langhooks.h gt-function.h $(TARGET_H) basic-block.h
+   $(TM_P_H) langhooks.h gt-function.h $(TARGET_H) basic-block.h $(PREDICT_H)
+# APPLE LOCAL end mainline
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) \
    function.h insn-config.h hard-reg-set.h $(EXPR_H) libfuncs.h except.h \
    $(RECOG_H) toplev.h output.h varray.h $(GGC_H) $(TM_P_H) \
@@ -2100,10 +2120,12 @@ cfg.o : cfg.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) in
    function.h except.h $(GGC_H) $(TM_P_H) alloc-pool.h $(TIMEVAR_H) 
 cfghooks.o: cfghooks.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(BASIC_BLOCK_H) $(CFGLAYOUT_H) $(TREE_FLOW_H) $(TIMEVAR_H) toplev.h
+# APPLE LOCAL begin mainline
 cfgexpand.o : cfgexpand.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(RTL_H) $(TREE_H) $(TM_P_H) $(EXPR_H) function.h $(TIMEVAR_H) $(TM_H) \
    coretypes.h $(TREE_DUMP_H) except.h langhooks.h cfgloop.h tree-pass.h \
-   $(RTL_H) $(DIAGNOSTIC_H) toplev.h
+   $(RTL_H) $(DIAGNOSTIC_H) toplev.h $(PARAMS_H)
+# APPLE LOCAL end mainline
 cfgrtl.o : cfgrtl.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(FLAGS_H) \
    insn-config.h $(BASIC_BLOCK_H) $(REGS_H) hard-reg-set.h output.h toplev.h $(RECOG_H) \
    function.h except.h $(GGC_H) $(TM_P_H) insn-config.h $(EXPR_H)
@@ -2497,6 +2519,7 @@ insn-preds.o : insn-preds.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   function.h hard-reg-set.h $(RESOURCE_H) $(TM_P_H) toplev.h reload.h \
   $(REGS_H)
 
+# APPLE LOCAL begin mainline
 GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(CPP_ID_DATA_H) $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -2524,7 +2547,7 @@ GTFILES = $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-chrec.h $(srcdir)/tree-complex.c \
   $(srcdir)/tree-ssa-operands.h $(srcdir)/tree-ssa-operands.c \
   $(srcdir)/tree-profile.c $(srcdir)/rtl-profile.c $(srcdir)/tree-nested.c \
-  $(out_file) \
+  $(srcdir)/targhooks.c $(out_file) \
   @all_gtfiles@
 
 GTFILES_FILES_LANGS = @all_gtfiles_files_langs@
@@ -2545,7 +2568,8 @@ gt-tree-eh.h \
 gt-tree-ssanames.h gt-tree-iterator.h gt-gimplify.h \
 gt-tree-phinodes.h gt-tree-cfg.h gt-tree-nested.h \
 gt-tree-ssa-operands.h gt-tree-ssa-propagate.h \
-gt-stringpool.h : s-gtype ; @true
+gt-stringpool.h gt-targhooks.h : s-gtype ; @true
+# APPLE LOCAL end mainline
 
 gtyp-gen.h: s-gtyp-gen ; @true
 s-gtyp-gen: Makefile
@@ -3996,22 +4020,22 @@ slowcompare slowcompare3 slowcompare4 slowcompare-lean slowcompare3-lean slowcom
 fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcompare4-lean \
  gnucompare  gnucompare3  gnucompare4  gnucompare-lean  gnucompare3-lean  gnucompare4-lean: force
 	-rm -f .bad_compare
- # APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
+ # APPLE LOCAL begin mainline
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	for dir in . $(SUBDIRS) libgcc; do \
 	  if [ "`echo $$dir/*$(objext)`" != "$$dir/*$(objext)" ] ; then \
 	    for file in $$dir/*$(objext); do \
 	      case $$file in \
 		./cc*-checksum$(objext) | libgcc/* ) \
-		    tail +16c ./$$file > tmp-foo1 \
-		    && tail +16c stage$$stage/$$file > tmp-foo2 \
+		    tail -c +17 ./$$file > tmp-foo1 \
+		    && tail -c +17 stage$$stage/$$file > tmp-foo2 \
 		    && ( cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
 			 || echo warning: $$file differs || true ) \
 		  ;; \
 		*)  case "$@" in \
 		  slowcompare* ) \
-		    tail +16c ./$$file > tmp-foo1; \
-		    tail +16c stage$$stage/$$file > tmp-foo2 \
+		    tail -c +17 ./$$file > tmp-foo1; \
+		    tail -c +17 stage$$stage/$$file > tmp-foo2 \
 		      && (cmp tmp-foo1 tmp-foo2 > /dev/null 2>&1 \
 			  || echo $$file differs >> .bad_compare) || true; \
 		    ;; \
@@ -4028,7 +4052,7 @@ fastcompare fastcompare3 fastcompare4 fastcompare-lean fastcompare3-lean fastcom
 	    done; \
 	  else true; fi; \
 	done
- # APPLE LOCAL end mainline 4.1 2005-06-17 3988498
+ # APPLE LOCAL end mainline
 	-rm -f tmp-foo*
 	case "$@" in *compare | *compare-lean ) stage=2 ;; * ) stage=`echo $@ | sed -e 's,^[a-z]*compare\([0-9][0-9]*\).*,\1,'` ;; esac; \
 	if [ -f .bad_compare ]; then \

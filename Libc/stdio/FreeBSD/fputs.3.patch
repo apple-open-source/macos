@@ -1,6 +1,53 @@
---- fputs.3.orig	Tue May 20 15:22:42 2003
-+++ fputs.3	Thu Jul 31 17:34:11 2003
-@@ -109,3 +109,13 @@
+--- fputs.3	2003-05-20 15:22:42.000000000 -0700
++++ fputs.3.edit	2006-07-13 09:28:07.000000000 -0700
+@@ -48,14 +48,19 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft int
+-.Fn fputs "const char *str" "FILE *stream"
++.Fo fputs
++.Fa "const char *restrict s"
++.Fa "FILE *restrict stream"
++.Fc
+ .Ft int
+-.Fn puts "const char *str"
++.Fo puts
++.Fa "const char *s"
++.Fc
+ .Sh DESCRIPTION
+ The function
+ .Fn fputs
+ writes the string pointed to by
+-.Fa str
++.Fa s
+ to the stream pointed to by
+ .Fa stream .
+ .\" The terminating
+@@ -65,7 +70,7 @@
+ The function
+ .Fn puts
+ writes the string
+-.Fa str ,
++.Fa s ,
+ and a terminating newline character,
+ to the stream
+ .Dv stdout .
+@@ -97,6 +102,14 @@
+ .Va errno
+ for any of the errors specified for the routines
+ .Xr write 2 .
++.Sh COMPATIBILITY
++.Fn fputs
++now returns a non-negative number (as opposed to 0)
++on successful completion.
++As a result, many tests (e.g., "fputs() == 0", "fputs() != 0")
++do not give the desired result.
++Use "fputs() != EOF" or "fputs() == EOF"
++to determine success or failure.
+ .Sh SEE ALSO
+ .Xr ferror 3 ,
+ .Xr fputws 3 ,
+@@ -109,3 +122,13 @@
  .Fn puts
  conform to
  .St -isoC .

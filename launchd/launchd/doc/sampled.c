@@ -1,3 +1,4 @@
+#include <mach/mach.h>
 #include <sys/types.h>
 #include <sys/event.h>
 #include <sys/socket.h>
@@ -14,7 +15,18 @@
 
 #include "launch.h"
 
-int main(void)
+static void
+ack_mach_port(launch_data_t o, const char *name, void *context __attribute__((unused)))
+{
+	mach_port_t p = launch_data_get_machport(o);
+
+	mach_port_deallocate(mach_task_self(), p);
+
+	syslog(LOG_NOTICE, "Ignoring Mach service: %s", name);
+}
+
+int
+main(void)
 {
 	struct timespec timeout = { 60, 0 };
 	struct sockaddr_storage ss;
@@ -38,13 +50,21 @@ int main(void)
 
 	if (LAUNCH_DATA_ERRNO == launch_data_get_type(resp)) {
 		errno = launch_data_get_errno(resp);
-		syslog(LOG_ERR, "Check-in failed: %m");
+		if (errno == EACCES)
+			syslog(LOG_ERR, "Check-in failed. Did you forget to set ServiceIPC == true in your plist?");
+		else
+			syslog(LOG_ERR, "Check-in failed: %m");
 		exit(EXIT_FAILURE);
 	}
 
 	tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_TIMEOUT);
 	if (tmp)
 		timeout.tv_sec = launch_data_get_integer(tmp);
+
+	tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_MACHSERVICES);
+	if (tmp) {
+		launch_data_dict_iterate(tmp, ack_mach_port, NULL);
+	}
 
 	tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS);
 	if (NULL == tmp) {

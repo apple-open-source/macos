@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: idled.c,v 1.5 2005/03/05 00:36:54 dasenbro Exp $ */
+/* $Id: idled.c,v 1.25 2007/02/05 18:41:46 jeaton Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -61,6 +61,8 @@
 #include "global.h"
 #include "mboxlist.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "hash.h"
 #include "exitcodes.h"
 
@@ -216,6 +218,9 @@ void process_msg(idle_data_t *idledata)
 
 	/* remove pid from list of those idling on mboxname */
 	idle_done(idledata->mboxname, idledata->pid);
+	break;
+
+    case IDLE_NOOP:
 	break;
 	
     default:

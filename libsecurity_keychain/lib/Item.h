@@ -67,6 +67,8 @@ protected:
 	// Return true if we got the attribute, false if we only got the actualLength.
 	void getAttributeFrom(CssmDbAttributeData *data, SecKeychainAttribute &attr,  UInt32 *actualLength);
 	void getClass(SecKeychainAttribute &attr,  UInt32 *actualLength);
+	
+	PrimaryKey addWithCopyInfo(Keychain &keychain, bool isCopy);
 
 protected:
 	// Methods called by KeychainImpl;
@@ -79,7 +81,7 @@ protected:
 
 public:
     virtual ~ItemImpl() throw();
-    bool isPersistant() const;
+    bool isPersistent() const;
     bool isModified() const;
 
 	virtual void update();
@@ -124,13 +126,22 @@ public:
     bool useSecureStorage(const CssmClient::Db &db);
 	virtual void willRead();
 
+    // create a persistent reference to this item
+    void copyPersistentReference(CFDataRef &outDataRef);
+
 	// for keychain syncing
 	void doNotEncrypt () {mDoNotEncrypt = true;}
+
+	// for posting events on this item
+	void postItemEvent (SecKeychainEvent theEvent);
 
 	// Only call these functions while holding globals().apiLock.
 	bool inCache() const throw() { return mInCache; }
 	void inCache(bool inCache) throw() { mInCache = inCache; }
 
+	/* For binding to extended attributes. */
+	virtual const CssmData &itemID();
+	
 protected:
 	// new item members
     RefPointer<CssmDataContainer> mData;

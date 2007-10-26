@@ -39,9 +39,10 @@ AEP_Patches    = patch-Makefile.in \
                  patch-sudoers \
                  patch-sudoers.man.in \
                  DVG-4724013_manpage_tweaks.patch \
+                 DVG-4646431_password_after_reboot.patch \
                  DVG-4594036+4873886_new_warning.patch \
-				 DVG-4646431_password_after_reboot.patch \
-				 DVG-4130827_memberd_group_resolution.patch
+                 DVG-4130827_memberd_group_resolution.patch \
+                 DVG-5095270+5159283_clean_environment.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

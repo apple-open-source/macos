@@ -21,7 +21,6 @@
 #include "config.h"
 #include "system.h"
 #include <signal.h>
-#include <sys/ucontext.h>
 #include <sys/mman.h>
 #include "hosthooks.h"
 #include "hosthooks-def.h"
@@ -32,9 +31,86 @@ static void segv_crash_handler (int);
 static void segv_handler (int, siginfo_t *, void *);
 static void darwin_rs6000_extra_signals (void);
 
-/* This doesn't have a prototype in signal.h in 10.2.x and earlier,
-   fixed in later releases.  */
-extern int sigaltstack(const struct sigaltstack *, struct sigaltstack *);
+/* This is from the Darwin /usr/include/mach/ppc/_types.h.  */
+struct gcc_ppc_thread_state
+{
+	unsigned int srr0;      /* Instruction address register (PC) */
+	unsigned int srr1;	/* Machine state register (supervisor) */
+	unsigned int r0;
+	unsigned int r1;
+	unsigned int r2;
+	unsigned int r3;
+	unsigned int r4;
+	unsigned int r5;
+	unsigned int r6;
+	unsigned int r7;
+	unsigned int r8;
+	unsigned int r9;
+	unsigned int r10;
+	unsigned int r11;
+	unsigned int r12;
+	unsigned int r13;
+	unsigned int r14;
+	unsigned int r15;
+	unsigned int r16;
+	unsigned int r17;
+	unsigned int r18;
+	unsigned int r19;
+	unsigned int r20;
+	unsigned int r21;
+	unsigned int r22;
+	unsigned int r23;
+	unsigned int r24;
+	unsigned int r25;
+	unsigned int r26;
+	unsigned int r27;
+	unsigned int r28;
+	unsigned int r29;
+	unsigned int r30;
+	unsigned int r31;
+
+	unsigned int cr;        /* Condition register */
+	unsigned int xer;	/* User's integer exception register */
+	unsigned int lr;	/* Link register */
+	unsigned int ctr;	/* Count register */
+	unsigned int mq;	/* MQ register (601 only) */
+
+	unsigned int vrsave;	/* Vector Save Register */
+};
+
+struct gcc_ppc_float_state
+{
+	double  fpregs[32];
+
+	unsigned int fpscr_pad; /* fpscr is 64 bits, 32 bits of rubbish */
+	unsigned int fpscr;	/* floating point status register */
+};
+
+struct gcc_ppc_vector_state
+{
+	unsigned long	save_vr[32][4];
+	unsigned long	save_vscr[4];
+	unsigned int	save_pad5[4];
+	unsigned int	save_vrvalid;			/* VRs that have been saved */
+	unsigned int	save_pad6[7];
+};
+
+struct gcc_ppc_exception_state
+{
+	unsigned long dar;			/* Fault registers for coredump */
+	unsigned long dsisr;
+	unsigned long exception;	/* number of powerpc exception taken */
+	unsigned long pad0;			/* align to 16 bytes */
+	unsigned long pad1[4];		/* space in PCB "just in case" */
+};
+
+/* This is from the Darwin /usr/include/ppc/ucontext.h.  */
+struct gcc_mcontext {
+	struct gcc_ppc_exception_state	es;
+	struct gcc_ppc_thread_state		ss;
+	struct gcc_ppc_float_state		fs;
+	struct gcc_ppc_vector_state		vs;
+};
 
 #undef HOST_HOOKS_EXTRA_SIGNALS
 #define HOST_HOOKS_EXTRA_SIGNALS darwin_rs6000_extra_signals
@@ -57,13 +133,15 @@ segv_handler (int sig ATTRIBUTE_UNUSED,
 	      void *scp)
 {
   ucontext_t *uc = (ucontext_t *)scp;
+  struct gcc_mcontext *mc;
   unsigned faulting_insn;
 
   /* The fault might have happened when trying to run some instruction, in
-     which case the next line will segfault _again_.  Handle this case.  */
+     which case the next lines will segfault _again_.  Handle this case.  */
   signal (SIGSEGV, segv_crash_handler);
-
-  faulting_insn = *(unsigned *)uc->uc_mcontext->ss.srr0;
+  
+  mc = (struct gcc_mcontext *)uc->uc_mcontext;
+  faulting_insn = *(unsigned *)mc->ss.srr0;
 
   /* Note that this only has to work for GCC, so we don't have to deal
      with all the possible cases (GCC has no AltiVec code, for
@@ -111,8 +189,7 @@ segv_handler (int sig ATTRIBUTE_UNUSED,
       exit (FATAL_EXIT_CODE);
     }
 
-  fprintf (stderr, "[address=%08lx pc=%08x]\n", 
-	   uc->uc_mcontext->es.dar, uc->uc_mcontext->ss.srr0);
+  fprintf (stderr, "[address=%08lx pc=%08x]\n", mc->es.dar, mc->ss.srr0);
   internal_error ("Segmentation Fault");
   exit (FATAL_EXIT_CODE);
 }

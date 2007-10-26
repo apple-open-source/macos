@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,30 +18,38 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.106 2005/01/14 13:43:29 bagder Exp $
+# $Id: Makefile.am,v 1.118 2007-04-03 18:25:18 yangtse Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
 DSP = curllib.dsp
+VCPROJ = curllib.vcproj
 
-EXTRA_DIST = Makefile.b32 Makefile.m32 Makefile.vc6 Makefile.riscos $(DSP)    \
- curllib.dsw config-vms.h config-win32.h config-win32ce.h config-riscos.h     \
- config-mac.h config.h.in ca-bundle.crt README.encoding README.memoryleak     \
- README.ares README.curlx makefile.dj config.dj libcurl.framework.make	      \
- libcurl.plist libcurl.rc config-amigaos.h amigaos.c amigaos.h makefile.amiga \
- Makefile.netware nwlib.c libcurl.imp msvcproj.head msvcproj.foot	      \
- config-win32ce.h README.httpauth Makefile.Watcom README.hostip
+DOCS = README.encoding README.memoryleak README.ares README.curlx	\
+ README.hostip README.multi_socket README.httpauth README.pipelining
 
-CLEANFILES = $(DSP)
+EXTRA_DIST = Makefile.b32 Makefile.m32 Makefile.vc6 Makefile.riscos	\
+ $(DSP) curllib.dsw config-win32.h config-win32ce.h config-riscos.h	\
+ config-mac.h config.h.in ca-bundle.crt makefile.dj config.dos		\
+ libcurl.framework.make libcurl.plist libcurl.rc config-amigaos.h	\
+ amigaos.c amigaos.h makefile.amiga Makefile.netware nwlib.c		\
+ libcurl.imp msvcproj.head msvcproj.foot config-win32ce.h		\
+ Makefile.Watcom config-tpf.h $(DOCS) $(VCPROJ)
+
+CLEANFILES = $(DSP) $(VCPROJ)
 
 lib_LTLIBRARIES = libcurl.la
+LIBCURL_LIBS = @LIBCURL_LIBS@
 
 # we use srcdir/include for the static global include files
 # we use builddir/lib for the generated lib/config.h file to get found
 # we use srcdir/lib for the lib-private header files
-INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)/lib -I$(top_srcdir)/lib
 
-VERSION=-version-info 3:0:0
+INCLUDES = -I$(top_srcdir)/include \
+           -I$(top_builddir)/lib   \
+           -I$(top_srcdir)/lib
+
+VERSION=-version-info 4:0:0
 
 # This flag accepts an argument of the form current[:revision[:age]]. So,
 # passing -version-info 3:12:1 sets current to 3, revision to 12, and age to
@@ -82,7 +90,7 @@ if MIMPURE
 MIMPURE = -mimpure-text
 endif
 
-libcurl_la_LDFLAGS = $(UNDEF) $(VERSION) $(MIMPURE)
+libcurl_la_LDFLAGS = $(UNDEF) $(VERSION) $(MIMPURE) $(LIBCURL_LIBS)
 
 # Makefile.inc provides the CSOURCES and HHEADERS defines
 include Makefile.inc
@@ -118,10 +126,11 @@ dist-hook:
 	echo "/* ca bundle path set in here*/" > $(distdir)/ca-bundle.h
 
 DSPOUT = | awk '{printf("%s\r\n", $$0)}' >> $(DSP)
+VCPROJOUT = | awk '{printf("%s\r\n", $$0)}' >> $(VCPROJ)
 
 $(DSP): msvcproj.head msvcproj.foot Makefile.am
 	echo "creating $(DSP)"
-	@(cp msvcproj.head $(DSP); \
+	@(cp $(srcdir)/msvcproj.head $(DSP); \
 	echo "# Begin Group \"Source Files\"" $(DSPOUT); \
 	for file in $(WIN32SOURCES); do \
 	echo "# Begin Source File" $(DSPOUT); \
@@ -138,4 +147,16 @@ $(DSP): msvcproj.head msvcproj.foot Makefile.am
 	echo "# End Source File" $(DSPOUT); \
 	done; \
 	echo "# End Group" $(DSPOUT); \
-	cat msvcproj.foot $(DSPOUT) )
+	cat $(srcdir)/msvcproj.foot $(DSPOUT) )
+
+$(VCPROJ): vc8proj.head vc8proj.foot Makefile.am
+	echo "creating $(VCPROJ)"
+	@(cp $(srcdir)/vc8proj.head $(VCPROJ); \
+	for file in $(WIN32SOURCES); do \
+	echo "<File RelativePath=\""$$file"\"></File>" $(VCPROJOUT); \
+	done; \
+	echo "</Filter><Filter	Name=\"Header Files\">" $(VCPROJOUT); \
+	for file in $(WIN32HEADERS); do \
+	echo "<File RelativePath=\""$$file"\"></File>" $(VCPROJOUT); \
+	done; \
+	cat $(srcdir)/vc8proj.foot $(VCPROJOUT) )

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -53,6 +53,8 @@ AppleUSBMergeNub::probe(IOService *provider, SInt32 *score)
 {
     const IORegistryPlane * usbPlane = getPlane(kIOUSBPlane);
     
+	// Note: the following line limits the use of the IOProviderParentUSBNubMergeProperties dictionary to IOUSBDevice nubs
+	// A little more work needs to be done if we want to use this with IOUSBInterface nubs
     IOUSBDevice	*device = OSDynamicCast(IOUSBDevice, provider);
     if (device && usbPlane)
     {
@@ -271,7 +273,9 @@ AppleUSBMergeNub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDicti
         {
             childTargetDictionary = OSDynamicCast(OSDictionary, childTargetObject);
             if ( childTargetDictionary )
+			{
                 USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
+			}
         }
 
         // See if our source entry is also a dictionary
@@ -315,4 +319,3 @@ AppleUSBMergeNub::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDicti
     USBLog(3,"-%s[%p]::MergeDictionaryIntoDictionary(%p=>(%p)  result %d", getName(), this, parentSourceDictionary, parentTargetDictionary, result);
     return result;
 }
-

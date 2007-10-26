@@ -12,6 +12,8 @@ NAME = login
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
 HFILES = pathnames.h
 
 CFILES = klogin.c login.c
@@ -25,7 +27,9 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
 WINDOWS_INSTALLDIR = /usr/bin
 PDO_UNIX_INSTALLDIR = /usr/bin
+ifeq "$(Embedded)" "NO"
 LIBS = -lbsm -lpam -lpam_misc
+endif
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

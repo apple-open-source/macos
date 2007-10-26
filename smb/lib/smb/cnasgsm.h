@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -45,7 +48,7 @@
 /*
  * R P C _ C N _ A S S O C _ G R P _ S M _ T R C
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_ASSOC_GRP_SM_TRC(assoc_grp, event_id)\
 {\
     if ((assoc_grp)->grp_flags & RPC_C_CN_ASSOC_GRP_CLIENT)\
@@ -74,20 +77,20 @@
 /*
  * R P C _ C N _ A S S O C _ G R P _ S M _ T R C _ S T A T E
  */
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_ASSOC_GRP_SM_TRC_STATE(assoc_grp)\
 {\
     if ((assoc_grp)->grp_flags & RPC_C_CN_ASSOC_GRP_CLIENT)\
     {\
         RPC_DBG_PRINTF (rpc_e_dbg_cn_state, RPC_C_CN_DBG_ASSOC_GRP_SM_TRACE, \
-                        ("STATE CLIENT GRP:    %x new state->%s\n",\
+                        ("STATE CLIENT GRP:    %p new state->%s\n",\
                          assoc_grp->grp_remid.all,\
                          rpc_g_cn_grp_client_states[(assoc_grp)->grp_state.cur_state-RPC_C_CN_STATEBASE])); \
     }\
     else\
     {\
         RPC_DBG_PRINTF (rpc_e_dbg_cn_state, RPC_C_CN_DBG_ASSOC_GRP_SM_TRACE, \
-                        ("STATE SERVER GRP:    %x new state->%s\n",\
+                        ("STATE SERVER GRP:    %p new state->%s\n",\
                          assoc_grp->grp_id.all,\
                          rpc_g_cn_grp_server_states[(assoc_grp)->grp_state.cur_state-RPC_C_CN_STATEBASE])); \
     }\
@@ -182,7 +185,7 @@
 EXTERNAL rpc_cn_sm_state_entry_p_t rpc_g_cn_client_grp_sm [];
 EXTERNAL rpc_cn_sm_action_fn_t     rpc_g_cn_client_grp_action_tbl [];
 
-#if DEBUG
+#if DEBUG_DCE_RPC
 EXTERNAL char   *rpc_g_cn_grp_client_events [];
 EXTERNAL char   *rpc_g_cn_grp_client_states [];
 #endif
@@ -197,7 +200,7 @@ EXTERNAL char   *rpc_g_cn_grp_client_states [];
 
 /***********************************************************************/
 
-#if DEBUG
+#if DEBUG_DCE_RPC
 EXTERNAL char   *rpc_g_cn_grp_server_events [];
 EXTERNAL char   *rpc_g_cn_grp_server_states [];
 #endif

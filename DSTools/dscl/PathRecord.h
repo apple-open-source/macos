@@ -52,4 +52,6 @@ typedef enum {
 // They are virtually the same, with just a minor difference in calls.
 - (tDirStatus) modify:(tAttrCAM)inAction withKey:(NSString*)inKey withValues:(NSArray*)inValues;
 
+// ATM - give PlugInManager access to record object
+-(DSoRecord*) record;
 @end

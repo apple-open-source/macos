@@ -4,7 +4,7 @@
 # Synopsis: Abstract superclass for Header and OO structures
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/11/29 23:40:29 $
+# Last Updated: $Date: 2007/07/19 18:44:59 $
 # 
 # Method additions by SKoT McDonald <skot@tomandandy.com> Aug 2001 
 #
@@ -39,14 +39,15 @@ BEGIN {
 }
 use HeaderDoc::HeaderElement;
 use HeaderDoc::DBLookup;
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash resolveLink quote sanitize);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash resolveLink quote sanitize dereferenceUIDObject validTag);
 use HeaderDoc::BlockParse qw(blockParseOutside);
 use File::Basename;
 use Cwd;
+use Carp qw(cluck);
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.17.2.16.2.71 $';
+$VERSION = '$Revision: 1.17.2.16.2.96 $';
 
 # Inheritance
 @ISA = qw(HeaderDoc::HeaderElement);
@@ -79,6 +80,7 @@ my $depth = 0;
     my $_defaultFrameName;
     my $_compositePageName;
     my $_htmlHeader;
+    my $_htmlFooter;
     my $_apiUIDPrefix;
     # my $_headerObject;
     
@@ -112,6 +114,14 @@ my $depth = 0;
             $_htmlHeader = shift;
         }
         return $_htmlHeader;
+    }
+
+    sub htmlFooter {
+        my $class = shift;
+        if (@_) {
+            $_htmlFooter = shift;
+        }
+        return $_htmlFooter;
     }
 
     sub apiUIDPrefix {    
@@ -176,6 +186,7 @@ sub _initialize {
     # $self->{DATATYPESDIR} = undef;
     # $self->{STRUCTSDIR} = undef;
     # $self->{VARSDIR} = undef;
+    # $self->{PROPSDIR} = undef;
     # $self->{FUNCTIONSDIR} = undef;
     # $self->{METHODSDIR} = undef;
     # $self->{PDEFINESDIR} = undef;
@@ -287,6 +298,7 @@ sub clone {
     $clone->{DATATYPESDIR} = $self->{DATATYPESDIR};
     $clone->{STRUCTSDIR} = $self->{STRUCTSDIR};
     $clone->{VARSDIR} = $self->{VARSDIR};
+    $clone->{PROPSDIR} = $self->{PROPSDIR};
     $clone->{FUNCTIONSDIR} = $self->{FUNCTIONSDIR};
     $clone->{METHODSDIR} = $self->{METHODSDIR};
     $clone->{PDEFINESDIR} = $self->{PDEFINESDIR};
@@ -483,6 +495,7 @@ sub outputDir {
 	    $self->functionsDir("$rootOutputDir$pathSeparator"."Functions");
 	    $self->methodsDir("$rootOutputDir$pathSeparator"."Methods");
 	    $self->varsDir("$rootOutputDir$pathSeparator"."Vars");
+	    $self->propsDir("$rootOutputDir$pathSeparator"."Properties");
 	    $self->pDefinesDir("$rootOutputDir$pathSeparator"."PDefines");
 	    $self->enumsDir("$rootOutputDir$pathSeparator"."Enums");
 	    $self->exportsDir("$rootOutputDir$pathSeparator"."Exports");
@@ -555,6 +568,15 @@ sub varsDir {
     return $self->{VARSDIR};
 }
 
+sub propsDir {
+    my $self = shift;
+
+    if (@_) {
+        $self->{PROPSDIR} = shift;
+    }
+    return $self->{PROPSDIR};
+}
+
 sub pDefinesDir {
     my $self = shift;
 
@@ -611,6 +633,7 @@ sub tocStringSub {
     my $composite = shift;
     my $ignore_access = shift;
     my $tag = shift;
+    my $newTOC = shift;
 
     my $localDebug = 0;
     my $class = ref($self) || $self;
@@ -623,13 +646,21 @@ sub tocStringSub {
 	$jumpLabel = "#HeaderDoc_$tag";
     }
 
+	    my $tempurl = "";
 	    if ($composite) {
-	        $tocString .= "<h4><a href=\"$compositePageName$jumpLabel\" target=\"doc\">$head</a></h4>\n";
+	        $tempurl = "$compositePageName$jumpLabel";
 	    } else {
-	        $tocString .= "<h4><a href=\"$baseref$jumpLabel\" target=\"doc\">$head</a></h4>\n";
+	       	$tempurl = "$baseref$jumpLabel";
+	    }
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading($tempurl, $head, "doc");
+	    } else {
+	       	$tocString .= "<h4><a href=\"$tempurl\" target=\"doc\">$head</a></h4>\n";
 	    }
 
+	    my $firstgroup = 1;
 	    foreach my $group (@groups) {
+		my $firstaccess = 1;
 	        my $done_one = 0;
 		print "Sorting group $group\n" if ($localDebug);
 
@@ -661,7 +692,11 @@ sub tocStringSub {
 		if (!length($group)) {
 			# $entrypreface = $preface;
 		} else {
-			$tocString .= "$preface<font size=\"-1\"><i>$group:</i></font><br>";
+			if ($newTOC) {
+				$tocString .= tocGroup($group, $firstgroup);
+			} else {
+				$tocString .= "$preface<font size=\"-1\"><i>$group:</i></font><br>";
+			}
 		}
 
 		my @Cs;
@@ -677,6 +712,7 @@ sub tocStringSub {
 	      foreach my $obj (@tempobjs) {
 	        my $access = $obj->accessControl();
 
+		$firstgroup = 0;
 # print "ACCESS: $access\n";
 	        
 	        if ($access =~ /public/o || $ignore_access){
@@ -706,8 +742,8 @@ sub tocStringSub {
 	        	if ($self->outputformat eq "hdxml") {
 	        	    $tocString .= "XMLFIX<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>$entrypreface<a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			    if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			    } else {
 	        		$tocString .= "<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			    }
@@ -729,8 +765,8 @@ sub tocStringSub {
 	        	if ($self->outputformat eq "hdxml") {
 	        	    $tocString .= "XMLFIX<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>$entrypreface<a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			    if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			    } else {
 	        		$tocString .= "<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			    }
@@ -744,9 +780,14 @@ sub tocStringSub {
 	        } elsif ($self->outputformat eq "hdxml") {
 	            $tocString .= "XMLFIX<h5>Public</h5>\n";
 	        } elsif ($self->outputformat eq "html") {
-	            $tocString .= "<h5>Public</h5>\n";
+		    if ($newTOC) {
+	        	$tocString .= tocAccess("Public", $firstaccess);
+		    } else {
+	        	$tocString .= "<h5>Public</h5>\n";
+		    }
 		} else {
 		}
+		$firstaccess = 0;
 		    my @tempobjs = ();
 		    if ($HeaderDoc::sort_entries) {
 			@tempobjs = sort objName @publics;
@@ -756,17 +797,23 @@ sub tocStringSub {
 		    foreach my $obj (@tempobjs) {
 	        	my $name = $obj->name();
 			my $urlname = $obj->apiuid(); # sanitize($name);
+			# if ($urlname eq "") {
+				# cluck("Empty urlname!  Object was $obj\n");
+			# }
 	        	if ($self->outputformat eq "hdxml") {
 	        	    $tocString .= "XMLFIX<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>$entrypreface<a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			    if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			    } else {
 	        		$tocString .= "<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			    }
 			} else {
 			}
 	        }
+		if ($newTOC) {
+	        	$tocString .= tocAccessEnd();
+		}
 	      }
 	      if (@protecteds) {
 		if ($class eq "HeaderDoc::Header" || $ignore_access) {
@@ -774,9 +821,14 @@ sub tocStringSub {
 	        } elsif ($self->outputformat eq "hdxml") {
 	            $tocString .= "XMLFIX<h5>Protected</h5>\n";
 	        } elsif ($self->outputformat eq "html") {
-	            $tocString .= "<h5>Protected</h5>\n";
+		    if ($newTOC) {
+	        	$tocString .= tocAccess("Protected", $firstaccess);
+		    } else {
+	        	$tocString .= "<h5>Protected</h5>\n";
+		    }
 		} else {
 		}
+		$firstaccess = 0;
 		    my @tempobjs = ();
 		    if ($HeaderDoc::sort_entries) {
 			@tempobjs = sort objName @protecteds;
@@ -789,14 +841,17 @@ sub tocStringSub {
 		        if ($self->outputformat eq "hdxml") {
 	        	    $tocString .= "XMLFIX<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>$entrypreface<a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			    if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			    } else {
 	        		$tocString .= "<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			    }
 			} else {
 			}
 	        }
+		if ($newTOC) {
+	        	$tocString .= tocAccessEnd();
+		}
 	      }
 	      if (@privates) {
 		if ($class eq "HeaderDoc::Header" || $ignore_access) {
@@ -804,9 +859,14 @@ sub tocStringSub {
 	        } elsif ($self->outputformat eq "hdxml") {
 	            $tocString .= "XMLFIX<h5>Private</h5>\n";
 	        } elsif ($self->outputformat eq "html") {
-	            $tocString .= "<h5>Private</h5>\n";
+		    if ($newTOC) {
+	        	$tocString .= tocAccess("Protected", $firstaccess);
+		    } else {
+	        	$tocString .= "<h5>Private</h5>\n";
+		    }
 		} else {
 		}
+		$firstaccess = 0;
 		    my @tempobjs = ();
 		    if ($HeaderDoc::sort_entries) {
 			@tempobjs = sort objName @privates;
@@ -819,19 +879,25 @@ sub tocStringSub {
 	        	if ($self->outputformat eq "hdxml") {
 	        	    $tocString .= "XMLFIX<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>$entrypreface<a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			    if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			    } else {
 	        		$tocString .= "<nobr>$entrypreface<a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			    }
 			} else {
 			}
 	        }
+		if ($newTOC) {
+	        	$tocString .= tocAccessEnd();
+		}
 	      }
 	      # if (!($group eq "")) {
 		# $tocString .= "</dd></dl><p>\n";
 	      # }
 	 }
+    if ($newTOC) {
+	$tocString .= $self->tocHeadingEnd();
+    }
 
     return $tocString;
 }
@@ -852,13 +918,13 @@ sub inarray
 
 sub tocString {
     my $self = shift;
+    my $newTOC = shift;
+
     my $contentFrameName = $self->filename();
     my @classes = $self->classes();     
     my @protocols = $self->protocols();
     my @categories = $self->categories();
     my $class = ref($self) || $self;
-    my $xml = 0;
-    if ($self->outputformat() eq "hdxml") { $xml = 1; }
 
     $contentFrameName =~ s/(.*)\.h/$1/o; 
     $contentFrameName = &safeName(filename => $contentFrameName);  
@@ -869,13 +935,6 @@ sub tocString {
     my $compositePageName = HeaderDoc::APIOwner->compositePageName(); 
     my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName(); 
 
-    if ($xml && $class ne "HeaderDoc::Header") { $compositePageName = $self->filename(); }
-	# @@@ WRONG PRINTABLE PAGE
-    if ($xml) {
-	$compositePageName =~ s/\.(h|i)$//o;
-	$compositePageName .= ".xml";
-    }
-    
     my @funcs = $self->functions();
     my @methods = $self->methods();
     my @constants = $self->constants();
@@ -883,13 +942,21 @@ sub tocString {
     my @structs = $self->structs();
     my @enums = $self->enums();
     my @ALLpDefines = $self->pDefines();
-    my @globals = $self->vars();
+    my @vars = $self->vars();
     my $tocString = "";
 
+    my @properties = $self->props();
+
+    my $baseref = $contentFrameName;
     if ($composite)  {
-	$tocString .= "<h4><br><nobr><a href=\"$compositePageName\" target=\"doc\">Introduction</a></nobr></h4>\n";
+	$baseref = $compositePageName;
+    }
+
+    if ($newTOC) {
+	# $tocString .= "<h4><br><nobr><a href=\"$baseref#top\" target=\"doc\">".$HeaderDoc::introductionName."</a></nobr></h4>\n";
+	$tocString .= $self->tocEntry("$baseref#top", $HeaderDoc::introductionName);
     } else {
-	$tocString .= "<h4><br><nobr><a href=\"$contentFrameName\" target=\"doc\">Introduction</a></nobr></h4>\n";
+	$tocString .= "<h4><br><nobr><a href=\"$baseref#top\" target=\"doc\">".$HeaderDoc::introductionName."</a></nobr></h4>\n";
     }
 
     my @groups = ("");
@@ -903,7 +970,7 @@ sub tocString {
     }
 
     my @objs = ( @funcs, @methods, @constants, @typedefs, @structs, @enums,
-	@pDefines, @globals );
+	@pDefines, @vars, @properties );
     if ($HeaderDoc::sort_entries) { @objs = sort objGroup @objs; }
     foreach my $obj (@objs) {
 	# warn "obj is $obj\n";
@@ -928,15 +995,28 @@ sub tocString {
 		$funchead = "Member Functions";
 	    }
 	    my $baseref = "Functions/Functions.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($funchead, \@groups, \@funcs,
-		$compositePageName, $baseref, $composite, 0, "functions");
+		$compositePageName, $baseref, $composite, 0, "functions", $newTOC);
     }
     if (@methods) {
 	    # $tocString .= "<h4>Methods</h4>\n";
-	    $tocString .= "<h4><a href=\"$compositePageName#HeaderDoc_methods\" target=\"doc\">Methods</a></h4>\n";
+	    my $baseref = "Methods/Methods.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading("$baseref#HeaderDoc_methods", "Methods", "doc");
+	    } else {
+		$tocString .= "<h4><a href=\"$baseref#HeaderDoc_methods\" target=\"doc\">Methods</a></h4>\n";
+	    }
 
+	    my $firstgroup = 1;
 	    foreach my $group (@groups) {
 	        my $done_one = 0;
+		my $firstaccess = 1;
 		print "Sorting group $group\n" if ($localDebug);
 
 		my @groupmeths = ();
@@ -958,7 +1038,11 @@ sub tocString {
 		}
 		if (!($group eq "")) {
 			# if ($done_one) { $tocString .= "&nbsp;<br>" }
-			$tocString .= "<dl><dt>&nbsp;&nbsp;<font size=\"-1\"><i>$group:</i><br></font></dt><dd>";
+			if ($newTOC) {
+				$tocString .= tocGroup($group, $firstgroup);
+			} else {
+				$tocString .= "<dl><dt>&nbsp;&nbsp;<font size=\"-1\"><i>$group:</i><br></font></dt><dd>";
+			}
 		}
 
 		my @classMethods;
@@ -966,6 +1050,7 @@ sub tocString {
 
 	      foreach my $obj (sort byMethodType @groupmeths) {
 	        my $type = $obj->isInstanceMethod();
+		$firstgroup = 0;
 	        
 	        if ($type =~ /NO/o){
 	            push (@classMethods, $obj);
@@ -979,12 +1064,15 @@ sub tocString {
 	      if (@classMethods) {
 		if ($class eq "HeaderDoc::Header") {
 		    $tocString .= "\n";
-	        } elsif ($self->outputformat eq "hdxml") {
-	            $tocString .= "XMLFIX<h5>Class Methods</h5>\n";
 	        } elsif ($self->outputformat eq "html") {
-	            $tocString .= "<h5>Class Methods</h5>\n";
+		    if ($newTOC) {
+	        	$tocString .= tocAccess("Class Methods", $firstaccess);
+		    } else {
+	        	$tocString .= "<h5>Class Methods</h5>\n";
+		    }
 		} else {
 		}
+		$firstaccess = 0;
 		    my @tempobjs = ();
 		    if ($HeaderDoc::sort_entries) {
 			@tempobjs = sort objName @classMethods;
@@ -994,27 +1082,32 @@ sub tocString {
 		    foreach my $obj (@tempobjs) {
 	        	my $name = $obj->name();
 			my $urlname = $obj->apiuid();
-	        	if ($self->outputformat eq "hdxml") {
-	        	    $tocString .= "XMLFIX<nobr>&nbsp;&nbsp;<font size=\"-1\">+</font><a href=\"Methods/Methods.html#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>&nbsp;&nbsp;<font size=\"-1\">+</font><a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-			    } else {
-	        		$tocString .= "<nobr>&nbsp;&nbsp;<font size=\"-1\">+</font><a href=\"Methods/Methods.html#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-			    }
-			} else {
+			if (length($name) > 30) {
+				$name =~ s/:/:\&zwj;/g;
 			}
-	        }
+
+			if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
+			} else {
+	        		$tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font size=\"-1\">+</font><a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
+			}
+	            }
+		if ($newTOC) {
+	        	$tocString .= tocAccessEnd();
+		}
 	      }
 	      if (@instanceMethods) {
 		if ($class eq "HeaderDoc::Header") {
 		    $tocString .= "\n";
-	        } elsif ($self->outputformat eq "hdxml") {
-	            $tocString .= "XMLFIX<h5>Instance Methods</h5>\n";
 	        } elsif ($self->outputformat eq "html") {
-	            $tocString .= "<h5>Instance Methods</h5>\n";
+		    if ($newTOC) {
+	        	$tocString .= tocAccess("Instance Methods", $firstaccess);
+		    } else {
+	        	$tocString .= "<h5>Instance Methods</h5>\n";
+		    }
 		} else {
 		}
+		$firstaccess = 0;
 		    my @tempobjs = ();
 		    if ($HeaderDoc::sort_entries) {
 			@tempobjs = sort objName @instanceMethods;
@@ -1024,52 +1117,81 @@ sub tocString {
 		    foreach my $obj (@tempobjs) {
 	        	my $name = $obj->name();
 			my $urlname = $obj->apiuid();
-		        if ($self->outputformat eq "hdxml") {
-	        	    $tocString .= "XMLFIX<nobr>&nbsp;&nbsp;<font size=\"-1\">-</font><a href=\"Methods/Methods.html#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-		        } elsif ($self->outputformat eq "html") {
-			    if ($composite) {
-	        		$tocString .= "<nobr>&nbsp;&nbsp;<font size=\"-1\">-</font><a href=\"$compositePageName#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-			    } else {
-	        		$tocString .= "<nobr>&nbsp;&nbsp;<font size=\"-1\">-</font><a href=\"Methods/Methods.html#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
-			    }
+
+			if (length($name) > 30) {
+				$name =~ s/:/:\&zwj;/g;
+			}
+
+			$baseref = "Methods/Methods.html";
+			if ($composite) {
+				$baseref = $compositePageName;
+			}
+			if ($newTOC) {
+				$tocString .= tocSubEntry("$baseref#$urlname", "doc", $name);
 			} else {
+	        		$tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<font size=\"-1\">-</font><a href=\"$baseref#$urlname\" target=\"doc\">$name</a></nobr><br>\n";
 			}
 	        }
+		if ($newTOC) {
+	        	$tocString .= tocAccessEnd();
+		}
 	      }
 	      if (!($group eq "")) {
-		$tocString .= "</dd></dl><p>\n";
+			if ($newTOC) {
+				# $tocString .= tocGroupEnd($group);
+			} else {
+				$tocString .= "</dd></dl><p>\n";
+			}
 	      }
+	}
+	if ($newTOC) {
+		$tocString .= $self->tocHeadingEnd();
 	}
     }
     if (@typedefs) {
 	    my $head = "Defined Types\n";
 	    my $baseref = "DataTypes/DataTypes.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($head, \@groups, \@typedefs,
-		$compositePageName, $baseref, $composite, 1, "");
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
     }
     if (@structs) {
 	    my $head = "Structs and Unions\n";
 	    my $baseref = "Structs/Structs.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($head, \@groups, \@structs,
-		$compositePageName, $baseref, $composite, 1, "");
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
     }
     if (@constants) {
 	    my $head = "Constants\n";
 	    my $baseref = "Constants/Constants.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($head, \@groups, \@constants,
-		$compositePageName, $baseref, $composite, 1, "");
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
 	}
     if (@enums) {
 	    my $head = "Enumerations\n";
 	    my $baseref = "Enums/Enums.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($head, \@groups, \@enums,
-		$compositePageName, $baseref, $composite, 1, "");
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
 	}
     if (@pDefines) {
 	    my $head = "#defines\n";
 	    my $baseref = "PDefines/PDefines.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
 	    $tocString .= $self->tocStringSub($head, \@groups, \@pDefines,
-		$compositePageName, $baseref, $composite, 1, "");
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
 	}
     if (@classes) {
 	my @realclasses = ();
@@ -1083,7 +1205,11 @@ sub tocString {
 	}
 	if (@realclasses) {
 	    @classes = @realclasses;
-	    $tocString .= "<h4>Classes</h4>\n";
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading("$baseref#HeaderDoc_classes", "Classes", "doc");
+	    } else {
+		$tocString .= "<h4><a href=\"$baseref#HeaderDoc_classes\" target=\"doc\">Classes</a></h4>\n";
+	    }
 	    my @tempobjs = ();
 	    if ($HeaderDoc::sort_entries) {
 		@tempobjs = sort objName @classes;
@@ -1095,12 +1221,18 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
+	    $tocString .= $self->tocHeadingEnd() if ($newTOC);
 	}
 	if (@comints) {
 	    @classes = @comints;
-	    $tocString .= "<h4>COM Interfaces</h4>\n";
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading("$baseref#HeaderDoc_cominterfaces", "COM Interfaces", "doc");
+	    } else {
+		# $tocString .= "<h4>COM Interfaces</h4>\n";
+		$tocString .= "<h4><a href=\"$baseref#HeaderDoc_comints\" target=\"doc\">COM Interfaces</a></h4>\n";
+	    }
 	    my @tempobjs = ();
 	    if ($HeaderDoc::sort_entries) {
 		@tempobjs = sort objName @classes;
@@ -1112,12 +1244,18 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
+	    $tocString .= $self->tocHeadingEnd() if ($newTOC);
 	}
     }
     if (@protocols) {
-	    $tocString .= "<h4>Protocols</h4>\n";
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading("$baseref#HeaderDoc_protocols", "Protocols", "doc");
+	    } else {
+		# $tocString .= "<h4>Protocols</h4>\n";
+		$tocString .= "<h4><a href=\"$baseref#HeaderDoc_protocols\" target=\"doc\">Protocols</a></h4>\n";
+	    }
 	    my @tempobjs = ();
 	    if ($HeaderDoc::sort_entries) {
 		@tempobjs = sort objName @protocols;
@@ -1129,11 +1267,17 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;&nbsp;<a href=\"Protocols/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"Protocols/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
+	    $tocString .= $self->tocHeadingEnd() if ($newTOC);
     }
     if (@categories) {
-	    $tocString .= "<h4>Categories</h4>\n";
+	    if ($newTOC) {
+		$tocString .= $self->tocHeading("$baseref#HeaderDoc_categories", "Categories", "doc");
+	    } else {
+		# $tocString .= "<h4>Categories</h4>\n";
+		$tocString .= "<h4><a href=\"$baseref#HeaderDoc_categories\" target=\"doc\">Categories</a></h4>\n";
+	    }
 	    my @tempobjs = ();
 	    if ($HeaderDoc::sort_entries) {
 		@tempobjs = sort objName @categories;
@@ -1145,24 +1289,45 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;&nbsp;<a href=\"Categories/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"Categories/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
+	    $tocString .= $self->tocHeadingEnd() if ($newTOC);
     }
-    if (@globals) {
+    if (@properties) {
+	    my $propname = "Properties";
+	    my $baseref = "Properties/Properties.html";
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
+	    $tocString .= $self->tocStringSub($propname, \@groups, \@properties,
+		$compositePageName, $baseref, $composite, 1, "", $newTOC);
+    }
+    if (@vars) {
 	    my $globalname = "Globals";
 	    if ($class ne "HeaderDoc::Header") {
 		$globalname = "Member Data";
 	    }
 	    my $baseref = "Vars/Vars.html";
-	    $tocString .= $self->tocStringSub($globalname, \@groups, \@globals,
-		$compositePageName, $baseref, $composite, 0, "");
+	    if ($composite) {
+		$baseref = $compositePageName;
+	    }
+	    $tocString .= $self->tocStringSub($globalname, \@groups, \@vars,
+		$compositePageName, $baseref, $composite, 0, "", $newTOC);
     }
     if ($class ne "HeaderDoc::Header") {
-	$tocString .= "<br><h4>Other Reference</h4><hr>\n";
-	$tocString .= "<nobr>&nbsp;&nbsp;<a href=\"../../$defaultFrameName\" target=\"_top\">Header</a></nobr><br>\n";
+	if ($newTOC) {
+		$tocString .= $self->tocEntry("../../$defaultFrameName", "Header", "_top");
+	} else {
+		$tocString .= "<br><h4>Other Reference</h4><hr>\n";
+		$tocString .= "<nobr>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"../../$defaultFrameName\" target=\"_top\">Header</a></nobr><br>\n";
+	}
     }
     if (!$composite) {
-	$tocString .= "<br><hr><a href=\"$compositePageName\" target=\"_blank\">[Printable HTML Page]</a>\n";
+	if ($newTOC) {
+		$tocString .= $self->tocEntry("$compositePageName", "[Printable HTML Page]", "_blank");
+	} else {
+		$tocString .= "<br><hr><a href=\"$compositePageName\" target=\"_blank\">[Printable HTML Page]</a>\n";
+	}
     }
     my $availability = $self->availability();
     my $updated = $self->updated();
@@ -1173,6 +1338,110 @@ sub tocString {
 	$tocString .= "<p><i>Updated: $updated</i><p>";
     }
     return $tocString;
+}
+
+sub tocHeading
+{
+    my $self = shift;
+    my $url = shift;
+    my $name = shift;
+    my $target = shift;
+
+    my $string = "";
+
+    $string .= "<div toc=\"section\">\n";
+    $string .= "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td width=\"10\" scope=\"row\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"99%\"></td><tr><td width=\"5\"><img width=\"5\" height=\"1\" src=\"/Resources/Images/1dot.gif\" alt=\"\"></td><td valign=\"top\" align=\"left\" style=\"margin-left: 5px; margin-right: 5px; padding-top: 4px;\"><a toc=\"section_link\" href=\"#\" onclick=\"disclosure_triangle()\"><img src=\"/Resources/Images/top_level_open.gif\" open=\"/Resources/Images/top_level_open.gif\" closed=\"/Resources/Images/top_level_closed.gif\" border=\"0\" alt=\"\" /></a></td><td width=\"10\"><img width=\"6\" height=\"1\" src=\"/Resources/Images/1dot.gif\" alt=\"\"></td><td valign=\"top\" colspan=\"4\" class=\"toc_contents_text\" toc=\"section_link\" style=\"padding-right: 5px; padding-top: 3px; padding-bottom: 3px;\">";
+    if ($target ne "") {
+	$string .= "<a href=\"$url\" target=$target>$name</a></td></tr>\n";
+    } else {
+	$string .= "<a href=\"#\">$name</a></td></tr>\n";
+    }
+    $string .= "</table>\n";
+    $string .= "<div toc=\"collapsible\">\n";
+
+    return $string;
+}
+
+sub tocHeadingEnd
+{
+    my $self = shift;
+
+    my $string = "";
+    $string .= "</div></div>\n";
+
+    return $string;
+}
+
+sub tocEntry
+{
+	my $self = shift;
+	my $url = shift;
+	my $name = shift;
+	my $target = "doc";
+	if (@_) { $target = shift; }
+
+	my $tocString = "";
+	$tocString .= "<div>\n";
+	$tocString .= "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\" width=\"100%\"><tr><td width=\"10\" scope=\"row\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"20\"></td><td width=\"99%\"></td>\n";
+	$tocString .= "<tr><td width=\"10\"><img width=\"10\" height=\"1\" src=\"/Resources/Images/1dot.gif\" alt=\"\"></td><td width=\"10\"><img width=\"10\" height=\"1\" src=\"/Resources/Images/1dot.gif\" alt=\"\"></td><td width=\"10\"></td><td valign=\"top\" colspan=\"3\" class=\"toc_contents_text\" style=\"padding-right: 5px; padding-top: 3px; padding-bottom: 3px;\" toc=\"section_link\"><a href=\"$url\" target=\"$target\">$name</a></td></tr>\n";
+	# $tocString .= "</tr>\n";
+	$tocString .= "</table>\n";
+	$tocString .= "</div>\n";
+
+	return $tocString;
+}
+
+sub tocGroup
+{
+	my $group = shift;
+	my $firstgroup = shift;
+	my $tocString = "";
+
+	if (!$firstgroup) { $tocString .= "<span class='hd_tocGroupSpace'>&nbsp;<br></span>\n"; }
+
+	my $preface = "&nbsp;&nbsp;";
+	# $tocString .= "$preface<font size=\"-1\"><i>$group:</i></font><br>";
+	$tocString .= "<span class=\"hd_tocGroup\">$group</span>\n";
+
+	return $tocString;
+}
+
+sub tocAccess
+{
+	my $access = shift;
+	my $firstaccess = shift;
+	my $tocString = "";
+
+	if (!$firstaccess) { $tocString .= "<span class='hd_tocAccessSpace'>&nbsp;<br></span>\n"; }
+	# $tocString .= "&nbsp;&nbsp;&nbsp;&nbsp;<b>$access</b><br>\n";
+	$tocString .= "<span class=\"hd_tocAccess\">$access</span>\n";
+
+	return $tocString;
+}
+
+sub tocAccessEnd
+{
+	my $access = shift;
+	my $tocString = "";
+
+	# $tocString .= "</dd></dl>\n";
+
+	return $tocString;
+}
+
+sub tocSubEntry
+{
+	my $url = shift;
+	my $target = shift;
+	my $name = shift;
+	my $tocString = "";
+
+	# FOR NOW --DAG
+	my $entrypreface = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";
+	# $tocString .= "<nobr>$entrypreface<a href=\"$url\" target=\"$target\">$name</a></nobr><br>\n";
+	$tocString .= "<ul><li><a href=\"$url\" target=\"$target\">$name</a></li></ul>\n";
+
+	return $tocString;
 }
 
 sub enums {
@@ -1270,7 +1539,8 @@ sub addToFunctions {
 			  my $apioclass = ref($apio) || $apio;
 			  if ($apioclass ne "HeaderDoc::CPPClass") {
 			    if ($apioclass !~ /HeaderDoc::ObjC/o) {
-				warn "Conflicting declarations for function/method ($name1)\n    outside a class.  This is probably not what you want.\n";
+				warn "Conflicting declarations for function/method ($name1) outside a class (apioclass=$apioclass).  This is probably not what you want.\n";
+				# $apio->dbprint();
 			    }
 			  }
 			}
@@ -1350,6 +1620,26 @@ sub addToStructs {
     return @{ $self->{STRUCTS} };
 }
 
+sub props {
+    my $self = shift;
+
+    if (@_) {
+        @{ $self->{PROPS} } = @_;
+    }
+    ($self->{PROPS}) ? return @{ $self->{PROPS} } : return ();
+}
+
+sub addToProps {
+    my $self = shift;
+
+    if (@_) {
+        foreach my $item (@_) {
+            push (@{ $self->{PROPS} }, $item);
+        }
+    }
+    return @{ $self->{PROPS} };
+}
+
 sub vars {
     my $self = shift;
 
@@ -1424,8 +1714,7 @@ sub updated {
 		    # my $filename = $HeaderDoc::headerObject->filename();
 		    my $filename = $self->filename();
 		    my $linenum = $self->linenum();
-		    print "$filename:$linenum:Bogus date format: $updated.\n";
-		    print "Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		    print "$filename:$linenum: warning: Bogus date format: $updated. Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		    return $self->{UPDATED};
 		} else {
 		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smog;
@@ -1488,11 +1777,10 @@ sub updated {
 		# my $filename = $HeaderDoc::headerObject->filename();
 		my $filename = $self->filename();
 		my $linenum = $self->linenum();
-		print "$filename:$linenum:Invalid date (year = $year, month = $month, day = $day).\n";
-		print "$filename:$linenum:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		print "$filename:$linenum: warning: Invalid date (year = $year, month = $month, day = $day). Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} =HeaderDoc::HeaderElement::strdate($month, $day, $year);
+		$self->{UPDATED} =HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
 	}
     }
     return $self->{UPDATED};
@@ -1513,19 +1801,41 @@ sub createMetaFile {
     close OUTFILE;
 }
 
+# use Devel::Peek;
+
 sub createFramesetFile {
     my $self = shift;
+    # print "I0\n"; Dump($self);
     my $docNavigatorComment = $self->docNavigatorComment();
+    # print "I1\n"; Dump($self);
     my $class = ref($self);
     my $defaultFrameName = $class->defaultFrameName();
+    # print "I2\n"; Dump($self);
+
+
+    my $jsnav = 1;
+    my $newTOC = $HeaderDoc::newTOC;
+    my $cols = "190,100%";
+    my $frameatts = "";
+    my $bordercolor = "";
+    my $framesetatts = "";
+    if ($newTOC) {
+	$cols = "210, *";
+	$bordercolor = "bordercolor=\"#999999\"";
+	$frameatts = "border=\"0\" frameborder=\"0\"";
+	$framesetatts = "frameborder=\"NO\" border=\"0\""; #  frameborder=\"0\"";
+    }
+	
+    # print "I5\n";
+    # Dump($self);
 
     my $HTMLmeta = "";
     # if ($class eq "HeaderDoc::Header") {
 	$HTMLmeta = $self->HTMLmeta();
     # }
-    if ($self->outputformat() eq "html") {
-	$HTMLmeta .= $self->styleSheet(0);
-    }
+    # if ($self->outputformat() eq "html") {
+	# $HTMLmeta .= $self->styleSheet(0);
+    # }
 
     my $filename = $self->filename();
     my $name = $self->name();
@@ -1545,55 +1855,64 @@ sub createFramesetFile {
     my $compositePageName = $self->compositePageName();
 
     my $composite = $HeaderDoc::ClassAsComposite;
-    if ($class eq "HeaderDoc::Header") {
-	$composite = 0;
+    # if ($class eq "HeaderDoc::Header") {
+	# $composite = 0;
+    # }
+
+    my $script = "";
+
+    if ($jsnav) {
+	$script .= "<script language=\"JavaScript\" type=\"text/javascript\"><!--\n";
+
+	$script .= "origURL = parent.document.URL;\n";
+	$script .= "contentURL = origURL.substring(origURL.indexOf('?')+1, origURL.length);\n";
+
+	$script .= "if (contentURL.length == origURL.length) {\n";
+	$script .= "	jumpPos = origURL.substring(origURL.indexOf('#')+1, origURL.length);\n";
+	if ($composite) {
+       		$script .= "	contentURL = '$compositePageName';\n";
+	} else {
+       		$script .= "	contentURL = '$rootFileName.html';\n";
+	}
+	$script .= "	if (jumpPos.length != origURL.length) {\n";
+	$script .= "		contentURL += '#' + jumpPos;\n";
+	$script .= "	}\n";
+	$script .= "	// document.write('contentURL: ' + contentURL + '<br>\\n');\n";
+	$script .= "	// document.write('Length: ' + contentURL.length + '<br>\\n');\n";
+	# $script .= "	alert('contentURL = '+contentURL);\n";
+	$script .= "}\n";
+
+	$script .= "document.write('<frameset id=\"frameset\" cols=\"$cols\" $framesetatts><frame src=\"toc.html\" name=\"nav\" $bordercolor $frameatts><frame src=\"' + contentURL + '\" name=\"doc\" $frameatts><\\/frameset>');\n";
+
+	$script .= "--></script>\n";
     }
 
     open(OUTFILE, ">$outputFile") || die "Can't write $outputFile. \n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
 	print OUTFILE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Frameset//EN\"\n    \"http://www.w3.org/TR/1999/REC-html401-19991224/frameset.dtd\">\n";
-    print OUTFILE "<html><head>\n    <title>Documentation for $title</title>\n$HTMLmeta\n	<meta name=\"generator\" content=\"HeaderDoc\">\n</head>\n";
+    print OUTFILE "<html><head>\n    <title>Documentation for $title</title>\n$HTMLmeta\n	<meta name=\"generator\" content=\"HeaderDoc\" />\n$script"."</head>\n";
 
-    my $jsnav = 1;
-
+    print OUTFILE "<body bgcolor=\"#e6e6e6\">\n";
     if ($jsnav) {
-	print OUTFILE "<script language=\"JavaScript\" type=\"text/javascript\">\n";
-
-	print OUTFILE "origURL = parent.document.URL;\n";
-	print OUTFILE "contentURL = origURL.substring(origURL.indexOf('?')+1, origURL.length);\n";
-
-	print OUTFILE "if (contentURL.length == origURL.length) {\n";
-	if ($composite) {
-       		print OUTFILE "	contentURL = '$compositePageName';\n";
-	} else {
-       		print OUTFILE "	contentURL = '$rootFileName.html';\n";
-	}
-	print OUTFILE "// document.write('contentURL: ' + contentURL + '<br>\\n');\n";
-	print OUTFILE "// document.write('Length: ' + contentURL.length + '<br>\\n');\n";
-	print OUTFILE "}\n";
-	print OUTFILE "document.write('<frameset cols=\"20%,80%\"><frame src=\"toc.html\" name=\"nav\"><frame src=\\\"' + contentURL + '\\\" name=\"doc\"><\/frameset>');\n";
-
-	print OUTFILE "</script>\n";
 	print OUTFILE "<noscript>\n";
     }
 
-    print OUTFILE "<frameset cols=\"190,100%\">\n";
-    print OUTFILE "<frame src=\"toc.html\" name=\"toc\">\n";
+    print OUTFILE "<frameset cols=\"$cols\" $framesetatts>\n";
+    print OUTFILE "<frame src=\"toc.html\" name=\"toc\" $bordercolor $frameatts>\n";
     if ($composite) {
-	print OUTFILE "<frame src=\"$compositePageName\" name=\"doc\">\n";
+	print OUTFILE "<frame src=\"$compositePageName\" name=\"doc\" $frameatts>\n";
     } else {
-	print OUTFILE "<frame src=\"$rootFileName.html\" name=\"doc\">\n";
+	print OUTFILE "<frame src=\"$rootFileName.html\" name=\"doc\" $frameatts>\n";
     }
     print OUTFILE "</frameset>\n";
     print OUTFILE "<noframes>\n";
-    print OUTFILE "<body bgcolor=\"#e6e6e6\">\n";
     print OUTFILE "<h2>This document set is best viewed in a browser that supports frames. To access the TOC, <a href=\"toc.html\">Click here</a></h2>\n";
-    print OUTFILE "</body>\n";
     print OUTFILE "</noframes>\n";
 
     if ($jsnav) {
 	print OUTFILE "</noscript>\n";
     }
+    print OUTFILE "</body>\n";
 
     print OUTFILE "$docNavigatorComment\n";
     print OUTFILE "</html>\n";
@@ -1614,7 +1933,8 @@ sub createTOCFile {
     my $tocTitlePrefix = $self->tocTitlePrefix();
     my $outputFileName = "toc.html";    
     my $outputFile = "$rootDir$pathSeparator$outputFileName";    
-    my $fileString = $self->tocString();    
+    my $newTOC = $HeaderDoc::newTOC;
+    my $fileString = $self->tocString($newTOC);
 
     my $filename = $self->filename();
     my $name = $self->name();
@@ -1631,34 +1951,60 @@ sub createTOCFile {
     # if ($class eq "HeaderDoc::Header") {
 	$HTMLmeta = $self->HTMLmeta();
     # }
-    if ($self->outputformat() eq "html") {
-	$HTMLmeta .= $self->styleSheet(0);
-    }
+    # if ($self->outputformat() eq "html") {
+	# $HTMLmeta .= $self->styleSheet(0);
+    # }
 
 	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
 	print OUTFILE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
-	print OUTFILE "<html>";
 
-	print OUTFILE $self->styleSheet(1);
+	if ($newTOC) {
+		print OUTFILE "<html>";
 
-	print OUTFILE "<head>\n    <title>Documentation for $title</title>\n$HTMLmeta\n	<meta name=\"generator\" content=\"HeaderDoc\">\n</head>\n";
-	print OUTFILE "<body bgcolor=\"#edf2f6\" link=\"#000099\" vlink=\"#660066\"\n";
-	print OUTFILE "leftmargin=\"0\" topmargin=\"0\" marginwidth=\"0\"\n"; 
-	print OUTFILE "marginheight=\"0\">\n";
+		print OUTFILE "<head>\n";
+		print OUTFILE "<meta name=\"ROBOTS\" content=\"NOINDEX\" />\n";
+		print OUTFILE "<script language=\"JavaScript\" src=\"/Resources/JavaScript/toc.js\" type=\"text/javascript\"></script>\n";
+		print OUTFILE "<title>Documentation for $title</title>\n$HTMLmeta\n	<meta name=\"generator\" content=\"HeaderDoc\" />\n";
+		print OUTFILE $self->styleSheet(1);
+		print OUTFILE "</head>\n";
+		print OUTFILE "<body bgcolor=\"#ffffff\" link=\"#000099\" vlink=\"#660066\"\n";
+		print OUTFILE "leftmargin=\"0\" topmargin=\"0\" marginwidth=\"0\"\n"; 
+		print OUTFILE "marginheight=\"0\" style=\"border-left: 10px solid white; border-right: 5px solid white;\n";
+		print OUTFILE "border-top: 10px solid white\" onload=\"initialize_toc();\">\n";
 
-	print OUTFILE "<table width=\"100%\" cellpadding=0 cellspacing=0 border=0>";
-	print OUTFILE "<tr height=51 bgcolor=\"#466C9B\"><td>&nbsp;</td></tr>";
-	print OUTFILE "</table><br>";
+		print OUTFILE "<div id=\"toc\"><div id=\"toc_staticbox\" style=\"display: table;\">\n";
 
-	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
-	print OUTFILE "<tr><td width=\"15\">&nbsp;</td><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
-	print OUTFILE "<tr><td width=\"15\">&nbsp;</td><td width=\"15\">&nbsp;</td><td><b><font size=\"+1\">$name</font></b></td></tr>\n";
-	print OUTFILE "<tr><td></td><td colspan=\"2\">\n";
-	print OUTFILE $fileString;
-	print OUTFILE "</td></tr>\n";
-	print OUTFILE "</table><p>&nbsp;<p>\n";
-	print OUTFILE "</body></html>\n";
+		print OUTFILE "<h2>$tocTitlePrefix $name</h2>\n";
+		print OUTFILE "<div id=\"toc_PDFbottomborder\"></div>\n";
+		print OUTFILE $fileString;
+		print OUTFILE "</div></div><p>&nbsp;<p>\n";
+		print OUTFILE "</body></html>\n";
+	} else {
+		print OUTFILE "<html>";
+
+		print OUTFILE "<head>\n";
+		print OUTFILE "<meta name=\"ROBOTS\" content=\"NOINDEX\" />\n";
+		print OUTFILE "<title>Documentation for $title</title>\n$HTMLmeta\n	<meta name=\"generator\" content=\"HeaderDoc\" />\n";
+		print OUTFILE $self->styleSheet(1);
+		print OUTFILE "</head>\n";
+		print OUTFILE "<body bgcolor=\"#edf2f6\" link=\"#000099\" vlink=\"#660066\"\n";
+		print OUTFILE "leftmargin=\"0\" topmargin=\"0\" marginwidth=\"0\"\n"; 
+		print OUTFILE "marginheight=\"0\">\n";
+
+		print OUTFILE "<table width=\"100%\" cellpadding=0 cellspacing=0 border=0>";
+		print OUTFILE "<tr height=51 bgcolor=\"#466C9B\"><td>&nbsp;</td></tr>";
+		print OUTFILE "</table><br>";
+
+		print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
+		print OUTFILE "<tr><td width=\"15\">&nbsp;</td><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
+		print OUTFILE "<tr><td width=\"15\">&nbsp;</td><td width=\"15\">&nbsp;</td><td><b><font size=\"+1\">$name</font></b></td></tr>\n";
+		print OUTFILE "<tr><td></td><td colspan=\"2\">\n";
+		print OUTFILE $fileString;
+		print OUTFILE "</td></tr>\n";
+		print OUTFILE "</table><p>&nbsp;<p>\n";
+		print OUTFILE "</body></html>\n";
+	}
 	close OUTFILE;
 }
 
@@ -1689,11 +2035,19 @@ sub createContentFile {
     my $filename = $self->filename();
     my $name = $self->name();
     my $title = $filename;
+    my $throws = $self->throws();
     if (!length($name)) {
 	$name = "$filename";
     } else {
 	$title = "$name ($filename)";
     }
+    my $short_attributes = $self->getAttributes(0);
+    my $long_attributes = $self->getAttributes(1);
+    my $list_attributes = $self->getAttributeLists(0);
+
+    my $newTOC = $HeaderDoc::newTOC;
+
+    # print "newTOC: $newTOC\n";
 
     my $rootFileName = $self->filename();
 
@@ -1708,9 +2062,9 @@ sub createContentFile {
     # if ($class eq "HeaderDoc::Header") {
 	$HTMLmeta = $self->HTMLmeta();
     # }
-    if ($self->outputformat() eq "html") {
-	$HTMLmeta .= $self->styleSheet(0);
-    }
+    # if ($self->outputformat() eq "html") {
+	# $HTMLmeta .= $self->styleSheet(0);
+    # }
 
     my $fileString = "";
 
@@ -1734,24 +2088,16 @@ sub createContentFile {
 	$headerAbstract .= "Use the links in the table of contents to the left to access documentation.<br>\n";    
     }
 	$fileString .= "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
-	$fileString .= "<html><HEAD>\n    <title>API Documentation</title>\n	$HTMLmeta <meta name=\"generator\" content=\"HeaderDoc\">\n</HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
+	$fileString .= "<html><HEAD>\n    <title>API Documentation</title>\n	$HTMLmeta <meta name=\"generator\" content=\"HeaderDoc\" />\n";
+	$fileString .= $self->styleSheet(0);
+	$fileString .= "</HEAD>\n<BODY bgcolor=\"#ffffff\">\n";
 	if ($HeaderDoc::insert_header) {
 		$fileString .= "<!-- start of header -->\n";
 		$fileString .= $self->htmlHeader()."\n";
 		$fileString .= "<!-- end of header -->\n";
 	}
+	$fileString .= "<a name=\"top\"></a>\n";
 	$fileString .= "<H1>$name</H1><hr>\n";
-	if (length($headerAbstract)) {
-	    # $fileString .= "<b>Abstract: </b>$headerAbstract<hr><br>\n";    
-	    if ($self->can("isFramework") && $self->isFramework()) {
-		$fileString .= "<!-- headerDoc=frameworkabstract;name=start -->\n";
-	    }
-	    $fileString .= "$headerAbstract\n";    
-	    if ($self->can("isFramework") && $self->isFramework()) {
-		$fileString .= "<!-- headerDoc=frameworkabstract;name=end -->\n";
-	    }
-	    $fileString .= "<br>\n";    
-	}
 
 	my $namespace = $self->namespace();
 	my $availability = $self->availability();
@@ -1767,7 +2113,10 @@ sub createContentFile {
 			my $localDebug = 0;
 			print "Included file: $include\n" if ($localDebug);
 
-			if (!$first) { $includeList .= ",\n"; }
+			if (!$first) {
+				if ($newTOC) { $includeList .= "<br>\n"; }
+				else { $includeList .= ",\n"; }
+			}
 			my $xmlinc = $self->textToXML($include);
 
 			my $includeguts = $include;
@@ -1787,28 +2136,109 @@ sub createContentFile {
 	    $fileString .= "<p></p>\n";
 	}
 
+	my $attstring = ""; my $c = 0;
 	if (length($namespace)) {
-	    $fileString .= "<b>Namespace:</b> $namespace<br>\n";
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Namespace:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$namespace</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<b>Namespace:</b> $namespace<br>\n";
+		}
+		$c++;
 	}
 	if (length($availability)) {      
-	    $fileString .= "<b>Availability:</b> $availability<br>\n";
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Availability:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$availability</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<b>Availability:</b> $availability<br>\n";
+		}
+		$c++;
 	}
 	if (length($updated)) {      
-	    $fileString .= "<b>Updated:</b> $updated<br>\n";
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Updated:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$updated</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<b>Updated:</b> $updated<br>\n";
+		}
+		$c++;
 	}
 	if (length($includeList)) {
-		$fileString .= "<b>Includes:</b> ";
-		$fileString .= $includeList;
-		$fileString .= "<br>\n";
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Includes:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$includeList</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<b>Includes:</b> ";
+			$attstring .= $includeList;
+			$attstring .= "<br>\n";
+		}
+		$c++;
 	}
-	my $short_attributes = $self->getAttributes(0);
-	my $long_attributes = $self->getAttributes(1);
-	my $list_attributes = $self->getAttributeLists(0);
+
+	my $tempstring; my $oldc = $c;
 	if (length($short_attributes)) {
-	        $fileString .= "$short_attributes";
+	        $tempstring .= "$short_attributes"; $c++;
 	}
 	if (length($list_attributes)) {
-	        $fileString .= "$list_attributes";
+	        $tempstring .= "$list_attributes"; $c++;
+	}
+	if ($newTOC) {
+		# print "HERE (oldC=$oldc)\n";
+		if ($c == 2) {
+			$tempstring =~ s/<\/table><\/div>\s*<div.*?><table.*?>//s;
+		}
+		if ($oldc) { $tempstring =~ s/^\s*<div.*?><table.*?>//s; }
+		$tempstring =~ s/<\/table><\/div>\s*$//s;
+	}
+	$attstring .= $tempstring;
+	if (!$newTOC) { $attstring .= "<dl>"; }
+	if (length($throws)) {
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Throws:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$throws</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<dt><i>Throws:</i></dt>\n<dd>$throws</dd>\n";
+		}
+		$c++;
+	}
+	# if (length($abstract)) {
+		# $fileString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
+	# }
+	if ($newTOC) {
+		if ($c) { $attstring .= "</table></div>\n"; }
+
+		# Otherwise we do this later.
+		$fileString .= $attstring;
+	} else {
+		$attstring .= "</dl>";
+	}
+
+	if (length($headerAbstract)) {
+	    # $fileString .= "<b>Abstract: </b>$headerAbstract<hr><br>\n";    
+	    if ($self->can("isFramework") && $self->isFramework()) {
+		$fileString .= "<!-- headerDoc=frameworkabstract;name=start -->\n";
+	    }
+	    $fileString .= "$headerAbstract\n";    
+	    if ($self->can("isFramework") && $self->isFramework()) {
+		$fileString .= "<!-- headerDoc=frameworkabstract;name=end -->\n";
+	    }
+	    $fileString .= "<br>\n";    
+	}
+
+	if (!$newTOC) {
+		# Otherwise we do this earlier.
+		$fileString .= $attstring;
 	}
  	if (length($updated) || length($availability) || length($namespace) || length($headerAbstract) || length($short_attributes) || length($list_attributes) || length($includeList)) {
 	    $fileString .= "<p></p>\n";
@@ -1830,7 +2260,7 @@ sub createContentFile {
 
 	my @fields = $self->fields();
 	if (@fields) {
-		$fileString .= "<hr><h5><font face=\"Lucida Grande,Helvetica,Arial\">Template Parameter Descriptions</font></h5>";
+		$fileString .= "<hr><h5><font face=\"Lucida Grande,Helvetica,Arial\">Template Parameters</font></h5>";
 		# print "\nGOT fields.\n";
 		# $fileString .= "<table width=\"90%\" border=1>";
 		# $fileString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>";
@@ -1846,17 +2276,22 @@ sub createContentFile {
 		$fileString .= "</dl>\n";
 	}
 	$fileString .= "<hr><br><center>";
+	if ($HeaderDoc::insert_header) {
+		$fileString .= "<!-- start of footer -->\n";
+		$fileString .= $self->htmlFooter()."\n";
+		$fileString .= "<!-- end of footer -->\n";
+	}
 	$fileString .= "&#169; $copyrightOwner " if (length($copyrightOwner));
 	my $filedate = $self->updated();
 	if (length($filedate)) {
-	    $fileString .= "(Last Updated $filedate)\n";
+	    $fileString .= "Last Updated: $filedate\n";
 	} else {
-	    $fileString .= "(Last Updated $dateStamp)\n";
+	    $fileString .= "Last Updated: $dateStamp\n";
 	}
 	$fileString .= "<br>";
 	$fileString .= "<font size=\"-1\">HTML documentation generated by <a href=\"http://www.opensource.apple.com/projects\" target=\"_blank\">HeaderDoc</a></font>\n";    
 	$fileString .= "</center>\n";
-	$fileString .= "</BODY>\n</HTML>\n";
+	$fileString .= "</body>\n</html>\n";
 
 	print OUTFILE $self->fixup_inheritDoc(toplevel_html_fixup_links($self, $fileString));
 
@@ -1872,6 +2307,7 @@ sub writeHeaderElements {
     my $structsDir = $self->structsDir();
     my $constantsDir = $self->constantsDir();
     my $varsDir = $self->varsDir();
+    my $propsDir = $self->propsDir();
     my $enumsDir = $self->enumsDir();
     my $pDefinesDir = $self->pDefinesDir();
     my $classesDir = $self->classesDir();
@@ -1903,59 +2339,70 @@ sub writeHeaderElements {
     if (@pDefines) { foreach my $obj (@pDefines) { $junk = $obj->apirefSetup();}}
     if (@classes) { foreach my $obj (@classes) { $junk = $obj->apirefSetup();}}
     $HeaderDoc::ignore_apiuid_errors = 0;
+
+    if (!$HeaderDoc::ClassAsComposite) {
     
-    if ($self->functions()) {
+        if ($self->functions()) {
 		if (! -e $functionsDir) {
 			unless (mkdir ("$functionsDir", 0777)) {die ("Can't create output folder $functionsDir. \n$!");};
 	    }
 	    $self->writeFunctions();
-    }
-    if ($self->methods()) {
+        }
+        if ($self->methods()) {
 		if (! -e $methodsDir) {
 			unless (mkdir ("$methodsDir", 0777)) {die ("Can't create output folder $methodsDir. \n$!");};
 	    }
 	    $self->writeMethods();
-    }
+        }
     
-    if ($self->constants()) {
+        if ($self->constants()) {
 		if (! -e $constantsDir) {
 			unless (mkdir ("$constantsDir", 0777)) {die ("Can't create output folder $constantsDir. \n$!");};
 	    }
 	    $self->writeConstants();
-    }
+        }
     
-    if ($self->typedefs()) {
+        if ($self->typedefs()) {
 		if (! -e $dataTypesDir) {
 			unless (mkdir ("$dataTypesDir", 0777)) {die ("Can't create output folder $dataTypesDir. \n$!");};
 	    }
 	    $self->writeTypedefs();
-    }
+        }
     
-    if ($self->structs()) {
+        if ($self->structs()) {
 		if (! -e $structsDir) {
 			unless (mkdir ("$structsDir", 0777)) {die ("Can't create output folder $structsDir. \n$!");};
 	    }
 	    $self->writeStructs();
-    }
-    if ($self->vars()) {
+        }
+        if ($self->props()) {
+		if (! -e $propsDir) {
+			unless (mkdir ("$propsDir", 0777)) {die ("Can't create output folder $propsDir. \n$!");};
+	    }
+	    $self->writeProps();
+        }
+        if ($self->vars()) {
 		if (! -e $varsDir) {
 			unless (mkdir ("$varsDir", 0777)) {die ("Can't create output folder $varsDir. \n$!");};
 	    }
 	    $self->writeVars();
-    }
-    if ($self->enums()) {
+        }
+        if ($self->enums()) {
 		if (! -e $enumsDir) {
 			unless (mkdir ("$enumsDir", 0777)) {die ("Can't create output folder $enumsDir. \n$!");};
 	    }
 	    $self->writeEnums();
-    }
+        }
 
-    if ($self->pDefines()) {
+        if ($self->pDefines()) {
 		if (! -e $pDefinesDir) {
 			unless (mkdir ("$pDefinesDir", 0777)) {die ("Can't create output folder $pDefinesDir. \n$!");};
 	    }
 	    $self->writePDefines();
+        }
     }
+
+    # Always do this to create directories for nested classes.
     if ($self->classes()) {
 		if (! -e $classesDir) {
 			unless (mkdir ("$classesDir", 0777)) {die ("Can't create output folder $classesDir. \n$!");};
@@ -1978,7 +2425,7 @@ sub writeHeaderElementsToManPage {
     my $XMLPageString = $self->_getXMLPageString();
     my $section = $HeaderDoc::man_section;
 
-    mkdir($tempOutputDir);
+    mkdir($tempOutputDir, 0777);
 
     my $cwd = getcwd();
     chdir($tempOutputDir);
@@ -2105,12 +2552,27 @@ sub _getXMLPageString {
 	    $compositePageString .= "</structs_and_unions>\n";
     }
     
-    $contentString= $self->_getVarXMLDetailString();
+    $contentString= $self->_getPropXMLDetailString();
     if (length($contentString)) {
 		$contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= "<globals>";
+	    $compositePageString .= "<properties>";
 	    $compositePageString .= $contentString;
-	    $compositePageString .= "</globals>\n";
+	    $compositePageString .= "</properties>\n";
+    }
+
+    $contentString= $self->_getVarXMLDetailString();
+    if (length($contentString)) {
+	    $contentString = $self->stripAppleRefs($contentString);
+
+	    my $class = ref($self) || $self;
+	    my $vartype = "globals";
+
+	    if ($class ne "HeaderDoc::Header") {
+		$vartype = "membervars";
+	    }
+	    $compositePageString .= "<$vartype>";
+	    $compositePageString .= $contentString;
+	    $compositePageString .= "</$vartype>\n";
     }
     
     $contentString = $self->_getEnumXMLDetailString();
@@ -2151,47 +2613,6 @@ sub _getXMLPageString {
 
 
     return $compositePageString;
-
-
-    # $compositePageString =~ s/^\<br\>\<br\>$//smog;
-    # $compositePageString =~ s/\<br\>/<br\/>/smog;
-
-    # global substitutions
-    $compositePageString =~ s/\<h1\>//smigo;
-    $compositePageString =~ s/\<\/h1\>//smigo;
-    $compositePageString =~ s/\<h2\>//smigo;
-    $compositePageString =~ s/\<\/h2\>//smigo;
-    $compositePageString =~ s/\<h3\>//smigo;
-    $compositePageString =~ s/\<\/h3\>//smigo;
-    $compositePageString =~ s/\<hr\>//smigo;
-    $compositePageString =~ s/\<br\>//smigo;
-    $compositePageString =~ s/&lt;tt&gt;//smigo;
-    $compositePageString =~ s/&lt;\/tt&gt;//smigo;
-    $compositePageString =~ s/&lt;pre&gt;//smigo;
-    $compositePageString =~ s/&lt;\/pre&gt;//smigo;
-    $compositePageString =~ s/&nbsp;/ /smigo;
-
-    # note: in theory, the paragraph tag can be left open,
-    # which could break XML parsers.  While this is common
-    # in web pages, it doesn't seem to be common in
-    # headerdoc comments, so ignoring it for now.
-
-    # case standardize tags.
-    $compositePageString =~ s/<ul>/<ul>/smigo;
-    $compositePageString =~ s/<\/ul>/<\/ul>/smigo;
-    $compositePageString =~ s/<ol>/<ol>/smigo;
-    $compositePageString =~ s/<\/ol>/<\/ol>/smigo;
-    $compositePageString =~ s/<li>/<li>/smigo;
-    $compositePageString =~ s/<\/li>/<\/li>/smigo;
-    $compositePageString =~ s/<b>/<b>/smigo;
-    $compositePageString =~ s/<\/b>/<\/b>/smigo;
-    $compositePageString =~ s/<i>/<i>/smigo;
-    $compositePageString =~ s/<\/i>/<\/i>/smigo;
-
-    # Disable this fixup code.
-    # $compositePageString = $newstring;
-    
-    return $compositePageString;
 }
 
 sub _getCompositePageString { 
@@ -2199,20 +2620,13 @@ sub _getCompositePageString {
     my $name = $self->name();
     my $compositePageString;
     my $contentString;
+    my $list_attributes = $self->getAttributeLists(1);
+    my $short_attributes = $self->getAttributes(0);
+    my $long_attributes = $self->getAttributes(1);
 
     $compositePageString .= $self->compositePageAPIRef();
 
-    my $abstract = $self->abstract();
-    if (length($abstract)) {
-	    $compositePageString .= "<h2>Abstract</h2>\n";
-	    $compositePageString .= $abstract;
-    }
-
-    my $discussion = $self->discussion();
-    if (length($discussion)) {
-	    $compositePageString .= "<h2>Discussion</h2>\n";
-	    $compositePageString .= $discussion;
-    }
+    $compositePageString .= $self->documentationBlock();
     
     # if ((length($abstract)) || (length($discussion))) {
     # ALWAYS....
@@ -2259,9 +2673,25 @@ sub _getCompositePageString {
 	    $compositePageString .= $contentString;
     }
     
+    $contentString= $self->_getPropDetailString(1);
+    if (length($contentString)) {
+	    my $class = ref($self) || $self;
+	    my $globalname = "Properties";
+	    my $baseref = "Properties/Properties.html";
+	    $compositePageString .= "<h2>$globalname</h2>\n";
+		# $contentString = $self->stripAppleRefs($contentString);
+	    $compositePageString .= $contentString;
+    }
+
     $contentString= $self->_getVarDetailString(1);
     if (length($contentString)) {
-	    $compositePageString .= "<h2>Globals</h2>\n";
+	    my $class = ref($self) || $self;
+	    my $globalname = "Globals";
+	    if ($class ne "HeaderDoc::Header") {
+		$globalname = "Member Data";
+	    }
+	    my $baseref = "Vars/Vars.html";
+	    $compositePageString .= "<h2>$globalname</h2>\n";
 		# $contentString = $self->stripAppleRefs($contentString);
 	    $compositePageString .= $contentString;
     }
@@ -2335,7 +2765,7 @@ sub compositePageAPIUID
 	$shortname = $self->filename();
 	$shortname =~ s/\.hdoc$//so;
     }
-    $shortname = sanitize($shortname);
+    $shortname = sanitize($shortname, 1);
 
     my $apiuid = "//$apiUIDPrefix/doc/$type/$shortname";
 
@@ -2355,18 +2785,20 @@ sub _getFunctionDetailString {
     my $contentString = "";
 
     $contentString .= $self->_getFunctionEmbeddedTOC($composite);
-
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @funcObjs;
-    } else {
-	@tempobjs = @funcObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
+    $contentString .= $self->_getDetailString(\@funcObjs, $composite, "functions", "Functions");
     return $contentString;
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @funcObjs;
+    # } else {
+	# @tempobjs = @funcObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getFunctionXMLDetailString {
@@ -2466,14 +2898,15 @@ sub _getEmbeddedTOC
     my @objlist = @{ $listref };
     my $eTOCString = "";
     my $class = ref($self) || $self;
-    my $localDebug = 0;
     my $compositePageName = $self->compositePageName();
 
     if ($includeObjectName) {
 	$eTOCString .= "<h2>$tag</h2>\n";
-    } else {
-	$eTOCString .= "<a name=\"HeaderDoc_$tag\"></a>\n";
     }
+    my $processed_tag = $tag;
+    $processed_tag =~ s/\s//sg;
+    $processed_tag = lc($processed_tag);
+    $eTOCString .= "<a name=\"HeaderDoc_$processed_tag\"></a>\n";
 
     print "My class is $class\n" if ($localDebug);
 
@@ -2496,8 +2929,12 @@ sub _getEmbeddedTOC
 
 	my $target = "doc";
 	my $composite = $HeaderDoc::ClassAsComposite;
-	if ($class eq "HeaderDoc::Header") { $composite = 0; }
-	if ($compositePage) { $composite = 1; $target = "_top"; }
+	# if ($class eq "HeaderDoc::Header") { $composite = 0; }
+	if ($compositePage && !$composite) { $composite = 1; $target = "_top"; }
+	if ($obj->isAPIOwner()) {
+		$target = "_top";
+		$composite = 0;
+	}
 
 	my $safeName = $name;
 	$safeName = &safeName(filename => $name);
@@ -2645,8 +3082,10 @@ sub _getFunctionEmbeddedTOC
     } else {
 	@tempobjs = @functions;
     }
+    my $prefix = ""; my $suffix = "";
+    # if ($HeaderDoc::groupright) { $prefix = "<blockquote>\n"; $suffix = "</blockquote>\n"; }
 
-    return $self->_getEmbeddedTOC(\@tempobjs, "Functions.html", "functions", $composite, 0);
+    return $prefix.$self->_getEmbeddedTOC(\@tempobjs, "Functions.html", "functions", $composite, 0).$suffix;
 }
 
 sub _getMethodEmbeddedTOC
@@ -2662,7 +3101,10 @@ sub _getMethodEmbeddedTOC
 	@tempobjs = @methods;
     }
 
-    return $self->_getEmbeddedTOC(\@tempobjs, "Methods.html", "methods", $composite, 0);
+    my $prefix = ""; my $suffix = "";
+    # if ($HeaderDoc::groupright) { $prefix = "<blockquote>\n"; $suffix = "</blockquote>\n"; }
+
+    return $prefix.$self->_getEmbeddedTOC(\@tempobjs, "Methods.html", "methods", $composite, 0).$suffix;
 }
 
 sub _getMethodDetailString {
@@ -2673,18 +3115,20 @@ sub _getMethodDetailString {
     my $localDebug = 0;
 
     $contentString .= $self->_getMethodEmbeddedTOC($composite);
-
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @methObjs;
-    } else {
-	@tempobjs = @methObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
+    $contentString .= $self->_getDetailString(\@methObjs, $composite, "methods", "Methods");
     return $contentString;
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @methObjs;
+    # } else {
+	# @tempobjs = @methObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getMethodXMLDetailString {
@@ -2717,17 +3161,19 @@ sub _getConstantDetailString {
     my @constantObjs = $self->constants();
     my $contentString;
 
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @constantObjs;
-    } else {
-	@tempobjs = @constantObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
-    return $contentString;
+    return $self->_getDetailString(\@constantObjs, $composite, "constants", "Constants");
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @constantObjs;
+    # } else {
+	# @tempobjs = @constantObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getConstantXMLDetailString {
@@ -2760,17 +3206,19 @@ sub _getTypedefDetailString {
     my @typedefObjs = $self->typedefs();
     my $contentString;
 
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @typedefObjs;
-    } else {
-	@tempobjs = @typedefObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
-    return $contentString;
+    return $self->_getDetailString(\@typedefObjs, $composite, "typedefs", "Typedefs");
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @typedefObjs;
+    # } else {
+	# @tempobjs = @typedefObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getTypedefXMLDetailString {
@@ -2803,17 +3251,19 @@ sub _getStructDetailString {
     my @structObjs = $self->structs();
     my $contentString;
 
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @structObjs;
-    } else {
-	@tempobjs = @structObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
-    return $contentString;
+    return $self->_getDetailString(\@structObjs, $composite, "structs", "Structs");
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @structObjs;
+    # } else {
+	# @tempobjs = @structObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getStructXMLDetailString {
@@ -2836,23 +3286,63 @@ sub _getStructXMLDetailString {
 
 sub writeVars {
     my $self = shift;
+    my $class = ref($self) || $self;
+    my $globalname = "Globals";
+    if ($class ne "HeaderDoc::Header") {
+	$globalname = "Member Data";
+    }
     my $varsFile = $self->varsDir().$pathSeparator."Vars.html";
-    $self->_createHTMLOutputFile($varsFile, $self->_getVarDetailString(0), "Data Members");
+    $self->_createHTMLOutputFile($varsFile, $self->_getVarDetailString(0), "$globalname");
+}
+
+sub writeProps {
+    my $self = shift;
+    my $propsFile = $self->propsDir().$pathSeparator."Properties.html";
+    $self->_createHTMLOutputFile($propsFile, $self->_getPropDetailString(0), "Properties");
+}
+
+sub _getPropDetailString {
+    my $self = shift;
+    my $composite = shift;
+    my @propObjs = $self->props();
+
+    return $self->_getDetailString(\@propObjs, $composite, "props", "Properties");
 }
 
 sub _getVarDetailString {
     my $self = shift;
     my $composite = shift;
     my @varObjs = $self->vars();
+
+    return $self->_getDetailString(\@varObjs, $composite, "vars", "Variables");
+
+    # my $contentString;
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @varObjs;
+    # } else {
+	# @tempobjs = @varObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
+}
+
+sub _getPropXMLDetailString {
+    my $self = shift;
+    my @propObjs = $self->props();
     my $contentString;
+
     my @tempobjs = ();
     if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @varObjs;
+	@tempobjs = sort objName @propObjs;
     } else {
-	@tempobjs = @varObjs;
+	@tempobjs = @propObjs;
     }
     foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
+        my $documentationBlock = $obj->XMLdocumentationBlock();
         $contentString .= $documentationBlock;
     }
     return $contentString;
@@ -2888,17 +3378,19 @@ sub _getEnumDetailString {
     my @enumObjs = $self->enums();
     my $contentString;
 
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @enumObjs;
-    } else {
-	@tempobjs = @enumObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
-    }
-    return $contentString;
+    return $self->_getDetailString(\@enumObjs, $composite, "enums", "Enumerated Types");
+
+    # my @tempobjs = ();
+    # if ($HeaderDoc::sort_entries) {
+	# @tempobjs = sort objName @enumObjs;
+    # } else {
+	# @tempobjs = @enumObjs;
+    # }
+    # foreach my $obj (@tempobjs) {
+        # my $documentationBlock = $obj->documentationBlock($composite);
+        # $contentString .= $documentationBlock;
+    # }
+    # return $contentString;
 }
 
 sub _getEnumXMLDetailString {
@@ -2937,16 +3429,61 @@ sub _getPDefineDetailString {
 		push(@pDefineObjs, $define);
 	}
     }
+    return $self->_getDetailString(\@pDefineObjs, $composite, "defines", "Macro Definitions");
+}
 
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @pDefineObjs;
-    } else {
-	@tempobjs = @pDefineObjs;
+sub _getDetailString
+{
+    my $self = shift;
+    my $arrayref = shift;
+    my $composite = shift;
+    my $type = shift;
+    my $displaytype = shift;
+    my @objs = @{$arrayref};
+    my $contentString = "";
+
+    my $count = @objs;
+
+    if (!$count) { return ""; }
+
+    my %groups = ( "" => "" );
+    if ($HeaderDoc::groupright) {
+	foreach my $obj (@objs) {
+		my $group = $obj->group();
+		if (length($group)) {
+			# print "GROUP $group\n";
+			$groups{$group} = $group;
+		}
+	}
     }
-    foreach my $obj (@tempobjs) {
-        my $documentationBlock = $obj->documentationBlock($composite);
-        $contentString .= $documentationBlock;
+
+    foreach my $group (keys %groups) {
+	# print "PRINTGROUP: $group\n";
+	if ($HeaderDoc::groupright) {
+		my $show = 1;
+		my $tempgroup = $group;
+		if (!length($group)) { $tempgroup = "Untagged"; $show = 0; }
+		$contentString .= "<a name=\"".$type."_group_".$tempgroup."\"></a>\n";
+		$contentString .= "<h2><i>$tempgroup $displaytype</i></h2>\n";
+		$contentString .= "<blockquote>\n";
+	}
+	my @tempobjs = ();
+	if ($HeaderDoc::sort_entries) {
+		@tempobjs = sort objName @objs;
+	} else {
+		@tempobjs = @objs;
+	}
+	foreach my $obj (@tempobjs) {
+		if (!$HeaderDoc::groupright || ($obj->group() eq $group)) {
+			my $documentationBlock = $obj->documentationBlock($composite);
+			$contentString .= $documentationBlock;
+		# } else {
+			# print "NOMATCH: ".$obj->group()." != ".$group.".\n";
+		}
+	}
+	if ($HeaderDoc::groupright) {
+		$contentString .= "</blockquote>\n";
+	}
     }
     return $contentString;
 }
@@ -2987,9 +3524,10 @@ sub writeClasses {
         if (1 || $isMacOS) {$className = &safeName(filename => $className);};
         $obj->outputDir("$classRootDir$pathSeparator$className");
         $obj->createFramesetFile();
-        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
         $obj->createTOCFile();
-        $obj->writeHeaderElements(); 
+        $obj->writeHeaderElements();
+	$obj->writeHeaderElementsToCompositePage();
+        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
     }
 }
 
@@ -3094,12 +3632,12 @@ sub _getFunctionsAndParamsExportString {
 				my $filename = $self->filename();
 				my $linenum = $self->linenum();
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
-		        	warn "$filename:$linenum:Tagged parameter '$tName' not found in declaration of function $funcName.\n";
-		        	warn "$filename:$linenum:Parsed declaration for $funcName is:\n$declaration\n";
-		        	warn "$filename:$linenum:Parsed params for $funcName are:\n";
+		        	warn "$filename:$linenum: warning: Tagged parameter '$tName' not found in declaration of function $funcName.\n";
+		        	warn "$filename:$linenum: warning: Parsed declaration for $funcName is:\n$declaration\n";
+		        	warn "$filename:$linenum: warning: Parsed params for $funcName are:\n";
 		        	foreach my $pp (@parsedParams) {
 		        	    my $n = $pp->name();
-		        	    print "$filename:$linenum:$n\n";
+		        	    print "$filename:$linenum: warning: $n\n";
 		        	}
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
 		        }
@@ -3189,12 +3727,12 @@ sub _getMethodsAndParamsExportString {
 				my $filename = $self->filename();
 				my $linenum = $self->linenum();
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
-		        	warn "$filename:$linenum:Tagged parameter '$tName' not found in declaration of method $methName.\n";
-		        	warn "$filename:$linenum:Parsed declaration for $methName is:\n$declaration\n";
-		        	warn "$filename:$linenum:Parsed params for $methName are:\n";
+		        	warn "$filename:$linenum: warning: Tagged parameter '$tName' not found in declaration of method $methName.\n";
+		        	warn "$filename:$linenum: warning: Parsed declaration for $methName is:\n$declaration\n";
+		        	warn "$filename:$linenum: warning: Parsed params for $methName are:\n";
 		        	foreach my $pp (@parsedParams) {
 		        	    my $n = $pp->name();
-		        	    print "$filename:$linenum:$n\n";
+		        	    print "$filename:$linenum: warning: $n\n";
 		        	}
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
 		        }
@@ -3266,7 +3804,7 @@ sub _getDataTypesAndFieldsExportString {
         push (@dataTypeLines, "$tmpString");
     }
     # get Constants
-    my @tempobjs = ();
+    @tempobjs = ();
     if ($HeaderDoc::sort_entries) {
 	@tempobjs = sort objName @constants;
     } else {
@@ -3291,7 +3829,7 @@ sub _getDataTypesAndFieldsExportString {
         push (@dataTypeLines, "$tmpString");
     }
     # get Structs and Unions
-    my @tempobjs = ();
+    @tempobjs = ();
     if ($HeaderDoc::sort_entries) {
 	@tempobjs = sort objName @structObjs;
     } else {
@@ -3331,8 +3869,8 @@ sub _getDataTypesAndFieldsExportString {
 				my $filename = $self->filename();
 				my $linenum = $self->linenum();
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
-		        	warn "$filename:$linenum:Tagged parameter '$fName' not found in declaration of struct $name.\n";
-		        	warn "$filename:$linenum:Declaration for $name is:\n$declaration\n";
+		        	warn "$filename:$linenum: warning: Tagged parameter '$fName' not found in declaration of struct $name.\n";
+		        	warn "$filename:$linenum: warning: Declaration for $name is:\n$declaration\n";
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
 		        	$pos = "UNKNOWN_POSITION";
 		        }
@@ -3345,7 +3883,7 @@ sub _getDataTypesAndFieldsExportString {
         }
     }
     # get Typedefs
-    my @tempobjs = ();
+    @tempobjs = ();
     if ($HeaderDoc::sort_entries) {
 	@tempobjs = sort objName @typedefs;
     } else {
@@ -3389,8 +3927,8 @@ sub _getDataTypesAndFieldsExportString {
 				my $filename = $self->filename();
 				my $linenum = $self->linenum();
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
-		        	warn "$filename:$linenum:Tagged parameter '$fName' not found in declaration of struct $name.\n";
-		        	warn "$filename:$linenum:Declaration for $name is:\n$declaration\n";
+		        	warn "$filename:$linenum: warning: Tagged parameter '$fName' not found in declaration of struct $name.\n";
+		        	warn "$filename:$linenum: warning: Declaration for $name is:\n$declaration\n";
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
 		        	$pos = "UNKNOWN_POSITION";
 		        }
@@ -3447,8 +3985,8 @@ sub _getEnumeratorsExportString {
 				my $filename = $self->filename();
 				my $linenum = $self->linenum();
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
-		        	warn "$filename:$linenum:Tagged parameter '$fName' not found in declaration of enum $name.\n";
-		        	warn "$filename:$linenum:Declaration for $name is:\n$declaration\n";
+		        	warn "$filename:$linenum: warning: Tagged parameter '$fName' not found in declaration of enum $name.\n";
+		        	warn "$filename:$linenum: warning: Declaration for $name is:\n$declaration\n";
 		        	print "$filename:$linenum:---------------------------------------------------------------------------\n";
 		        	$pos = "UNKNOWN_POSITION";
 		        }
@@ -3638,7 +4176,7 @@ sub _createHTMLOutputFile {
 	print OUTFILE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
 	print OUTFILE "<html>";
 
-	print OUTFILE "<head>\n    <title>$heading</title>\n	$HTMLmeta <meta name=\"generator\" content=\"HeaderDoc\">\n";
+	print OUTFILE "<head>\n    <title>$heading</title>\n	$HTMLmeta <meta name=\"generator\" content=\"HeaderDoc\" />\n";
 
 	print OUTFILE $self->styleSheet(0);
 	
@@ -3648,16 +4186,22 @@ sub _createHTMLOutputFile {
 		print OUTFILE $self->htmlHeader()."\n";
 		print OUTFILE "<!-- end of header -->\n";
 	}
-	print OUTFILE "<h1><font face=\"Geneva,Arial,Helvtica\">$heading</font></h1><br>\n";
+	print OUTFILE "<a name=\"top\"></a>\n";
+	# print OUTFILE "<h1><font face=\"Geneva,Arial,Helvtica\">$heading</font></h1><br>\n";
 	print OUTFILE $fileString;
     print OUTFILE "<p>";
+	if ($HeaderDoc::insert_header) {
+		print OUTFILE "<!-- start of footer -->\n";
+		print OUTFILE $self->htmlFooter()."\n";
+		print OUTFILE "<!-- end of footer -->\n";
+	}
     print OUTFILE "<p>&#169; $copyrightOwner " if (length($copyrightOwner));
-    # print OUTFILE "(Last Updated $dateStamp)\n";
+    # print OUTFILE "Last Updated: $dateStamp\n";
     my $filedate = $self->updated();
     if (length($filedate)) {
-	    print OUTFILE "(Last Updated $filedate)\n";
+	    print OUTFILE "Last Updated: $filedate\n";
     } else {
-	    print OUTFILE "(Last Updated $dateStamp)\n";
+	    print OUTFILE "Last Updated: $dateStamp\n";
     }
     print OUTFILE "</p>";
 	print OUTFILE "</body></html>\n";
@@ -3768,7 +4312,7 @@ sub fixup_links
 	    my $newtarget = $oldtarget;
 	    my $prefix = $self->apiUIDPrefix();
 
-	    if (!($oldtarget =~ /\/\/$prefix/)) {
+	    if (!($oldtarget =~ /\/\//)) {
 		warn("link needs to be resolved.\n") if ($localDebug);
 		warn("target is $oldtarget\n") if ($localDebug);
 		$newtarget = resolveLink($oldtarget);
@@ -3914,9 +4458,10 @@ sub processComment
 		my $embedDebug = 0 || $localDebug;
 		my $localDebug = $embedDebug;
 		# We're processing contents of a class.  These get handled differently.
+
 		if ($self =~ /HeaderDoc::APIOwner/) {
 			# silently return.
-			return;
+			return 0;
 		}
 
 		if ($parseTree) {
@@ -3931,6 +4476,7 @@ sub processComment
 				if ($s) {
 					print "PARSERSTATE EOTREE: $s->{lastTreeNode}\n" if ($localDebug);
 				}
+			$parseTree->dbprint() if ($localDebug);
 		}
 
 		my $keyfield = $fields[0];
@@ -3938,7 +4484,7 @@ sub processComment
 
 		my $inFunction = my $inClass = my $inMethod = my $inTypedef = my $inUnion = my $inStruct = my $inConstant = my $inVar = my $inPDefine = my $inEnum = my $inUnknown = my $inInterface = 0;
 
-		my $localDebug = 0;
+		$localDebug = 0;
 		my $classType = $self->classType();
 		my $lang = $self->lang();
 
@@ -3970,59 +4516,52 @@ sub processComment
 			($keyfield =~ /^class\s+/) && do {
 				$inClass = 1;
 				print "nested class\n" if ($localDebug);
-				# $classType = "cpp";
-				# if ($lang eq "php") {
-					# $classType = "php";
-				# }
-				# if ($lang eq "java") {
-					# $classType = "java";
-				# }
 				last SWITCH;
 			    };
 			($keyfield =~ /^interface\s+/) && do {
 				$inInterface = 1;
 				print "nested interface\n" if ($localDebug);
-				warn("Interface not supported here.\n"); # @@@
-				return;
+				warn("$filename:$linenum: warning: Interface not supported here.\n"); # @@@ Change if we ever need to support nested interfaces.
+				return 0;
 				last SWITCH;
 			    };
 			($keyfield =~ /^protocol\s+/) && do {
 				# $inProtocol = 1;
 				print "nested protocol\n" if ($localDebug);
-				warn("Protocol not supported here.\n"); # @@@
-				return;
+				warn("$filename:$linenum: warning: Protocol not supported here.\n"); # @@@ Change if we ever need to support nested protocols.
+				return 0;
 				last SWITCH;
 			    };
 			($keyfield =~ /^category\s+/) && do {
 				print "nested category\n" if ($localDebug);
-				warn("Category not supported here.\n"); # @@@
-				return;
+				warn("$filename:$linenum: warning: Category not supported here.\n"); # @@@ Change if we ever need to support nested categories.
+				return 0;
 				last SWITCH;
 			    };
 			($keyfield =~ /^language\s+/) && do {
 				print "nested language\n" if ($localDebug);
-				warn("\@language is deprecated.\n"); # @@@
-				return;
+				warn("$filename:$linenum: warning: \@language is deprecated.\n");
+				return 0;
 				last SWITCH;
 			    };
 			($keyfield =~ /^(function|method)group\s+/) && do {
 				print "nested function/methodgroup\n" if ($localDebug);
 				my $group = $keyfield;
-				$group =~ s/^functiongroup\s+//s;
+				$group =~ s/^(function|method)group\s+//s;
 				$group =~ s/\s*\*\/\s*$//s;
-				# warn("Function Groups not supported in classes yet!\n"); # @@@
+				# warn("Function Groups not supported in classes yet!\n");
 				$self->{FUNCTIONGROUPSTATE} = $group;
-				return;
+				return 0;
 			    };
 			($keyfield =~ /^group\s+/) && do {
 				# $inGroup = 1;
 				print "nested group\n" if ($localDebug);
-				# warn("Groups not supported in classes yet!\n"); # @@@
+				# warn("Groups not supported in classes yet!\n");
 				my $group = $keyfield;
 				$group =~ s/^group\s+//s;
 				$group =~ s/\s*\*\/\s*$//s;
 				$HeaderDoc::globalGroup = $group;
-				return;
+				return 0;
 			    };
 			($keyfield =~ /^(function)\s+/) && do {
 				$inFunction = 1;
@@ -4075,18 +4614,21 @@ sub processComment
 				last SWITCH;
 			    };
 			($keyfield =~ /^serial(Data|Field|)\s+/) && do {
-				warn("serialData not supported here.\n"); # @@@
-				return;
+				warn("$filename:$linenum: warning: serialData not supported here.\n"); # @@@ Change if we ever need to support this option in a nested context.
+				return 0;
 			    };
 			($keyfield eq "") && do {
 				$inUnknown = 1;
 				print "nested inUnknown[???]\n" if ($localDebug);
 				last SWITCH;
 			};
-			    {
-				warn("UNKNOWN FIELD[EMBEDDED]: \"$keyfield\".\n");
-				return;
-			    };
+			    if (!validTag($keyfield)) {
+				warn("$filename:$linenum: warning: UNKNOWN FIELD[EMBEDDED]: \"$keyfield\".\n");
+				return 0;
+			    } else {
+				$inUnknown = 1;
+				print "nested inUnknown[???]\n" if ($localDebug);
+			    }
 		}
 		$first_field = 0;
 
@@ -4111,7 +4653,7 @@ sub processComment
 		my $nlines = 42;
 		my $preAtPart = "";
 
-		# @@@ DAG IS THIS RIGHT?
+		# Get any discussion that precedes the first @ sign.
                                 if ($inUnknown == 1) {
                                         if ($fields[0] =~ s/^\s*\/\*!\s*(\w.*?)\@/\/\*! \@/sio) {
                                                 $preAtPart = $1;
@@ -4119,7 +4661,7 @@ sub processComment
                                                 $preAtPart = $fields[0];
                                                 $preAtPart =~ s/^\s*\/\*!\s*//sio;
                                                 $preAtPart =~ s/\s*\*\/\s*$//sio;
-                                                $fields[0] = "/*! */";
+                                                $fields[0] = "/*! "; # Don't add end of commend marker here.
                                         }
                                         print "preAtPart: \"$preAtPart\"\n" if ($localDebug);
                                         print "fields[0]: \"$fields[0]\"\n" if ($localDebug);
@@ -4128,7 +4670,7 @@ sub processComment
 		my $xml_output = 0;
 		if ($self->outputformat() eq "hdxml") { $xml_output = 1; }
 
-		my $localDebug = 0;
+		$localDebug = 0;
 		my $hangDebug = 0;
 		my $parmDebug = 0;
 		my $blockDebug = 0;
@@ -4144,7 +4686,7 @@ sub processComment
 
 		my $oldcur = $HeaderDoc::currentClass;
 		$HeaderDoc::currentClass = $self;
-		blockParseOutside($apiOwner, $inFunction, $inUnknown,
+		my ($inputCounterToss, $cppAccessControlStateToss, $classTypeToss, $classObjectRefToss, $catObjectRefToss, $blockOffsetToss, $numcurlybraces) = blockParseOutside($apiOwner, $inFunction, $inUnknown,
 			$inTypedef, $inStruct, $inEnum, $inUnion,
 			$inConstant, $inVar, $inMethod, $inPDefine,
 			$inClass, $inInterface, $blockOffset, $categoryObjectsref,
@@ -4157,7 +4699,7 @@ sub processComment
 
 		$HeaderDoc::currentClass = $oldcur;
 
-		return;
+		return $numcurlybraces;
 	}
 
 	# NOT EMBEDDED from here down.
@@ -4166,9 +4708,19 @@ sub processComment
 	my $superclassfieldname = "Superclass";
 	if ($class =~ /HeaderDoc::ObjCCategory/) {
 		$superclassfieldname = "Extends&nbsp;Class";
+	} elsif ($class =~ /HeaderDoc::ObjCProtocol/) {
+		$superclassfieldname = "Extends&nbsp;Protocol";
 	}
 	my $first_field = 1;
 	foreach my $field (@fields) {
+		my $fieldname = "";
+		my $top_level_field = 0;
+		if ($field =~ /^(\w+)(\s|$)/) {
+			$fieldname = $1;
+			# print "FIELDNAME: $fieldname\n";
+			$top_level_field = validTag($fieldname, 1);
+		}
+		# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
 		SWITCH: {
 			($field =~ /^\/\*\!/o && $first_field) && do {
 				my $copy = $field;
@@ -4179,18 +4731,6 @@ sub processComment
 				last SWITCH;
 				};
 			(($lang eq "java") && ($field =~ /^\s*\/\*\*/o)) && do {last SWITCH;}; # ignore opening /**
-			($field =~ s/^(class|interface|template)(\s+)/$2/io) && 
-				do {
-					my ($name, $disc);
-					my $filename = $HeaderDoc::headerObject->filename();
-					# print "CLASSNAMEANDDISC:\n";
-					($name, $disc) = &getAPINameAndDisc($field);
-					my $classID = ref($apiOwner);
-					$apiOwner->name($name);
-					$apiOwner->filename($filename);
-					if (length($disc)) {$apiOwner->discussion($disc);};
-                	last SWITCH;
-            	};
 			($field =~ /^see(also|)(\s+)/i) &&
 				do {
 					$apiOwner->see($field);
@@ -4198,22 +4738,34 @@ sub processComment
 				};
 			($field =~ s/^protocol(\s+)/$1/io) && 
 				do {
-					my ($name, $disc);
+					my ($name, $disc, $namedisc);
 					my $filename = $HeaderDoc::headerObject->filename();
-					($name, $disc) = &getAPINameAndDisc($field); 
+					($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
 					$apiOwner->name($name);
 					$apiOwner->filename($filename);
-					if (length($disc)) {$apiOwner->discussion($disc);};
+					if (length($disc)) {
+						if ($namedisc) {
+							$apiOwner->nameline_discussion($disc);
+						} else {
+							$apiOwner->discussion($disc);
+						}
+					}
 					last SWITCH;
 				};
 			($field =~ s/^category(\s+)/$1/io) && 
 				do {
-					my ($name, $disc);
+					my ($name, $disc, $namedisc);
 					my $filename = $HeaderDoc::headerObject->filename();
-					($name, $disc) = &getAPINameAndDisc($field); 
+					($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
 					$apiOwner->name($name);
 					$apiOwner->filename($filename);
-					if (length($disc)) {$apiOwner->discussion($disc);};
+					if (length($disc)) {
+						if ($namedisc) {
+							$apiOwner->nameline_discussion($disc);
+						} else {
+							$apiOwner->discussion($disc);
+						}
+					}
 					last SWITCH;
 				};
             			($field =~ s/^templatefield(\s+)/$1/io) && do {     
@@ -4232,10 +4784,10 @@ sub processComment
                                 	last SWITCH;
                         	};
 			($field =~ s/^super(class|)(\s+)/$2/io) && do { $apiOwner->attribute($superclassfieldname, $field, 0); $apiOwner->explicitSuper(1); last SWITCH; };
-			($field =~ s/^throws(\s+)/$1/io) && do {$apiOwner->throws($field); last SWITCH;};
-			($field =~ s/^exception(\s+)/$1/io) && do {$apiOwner->throws($field); last SWITCH;};
+			($field =~ s/^(throws|exception)(\s+)/$2/io) && do {$apiOwner->throws($field); last SWITCH;};
 			($field =~ s/^abstract(\s+)/$1/io) && do {$apiOwner->abstract($field); last SWITCH;};
-			($field =~ s/^discussion(\s+)/$1/io) && do {$apiOwner->discussion($field); last SWITCH;};
+			($field =~ s/^brief(\s+)/$1/io) && do {$apiOwner->abstract($field, 1); last SWITCH;};
+			($field =~ s/^discussion(\s+|$)/$1/io) && do {$apiOwner->discussion($field); last SWITCH;};
 			($field =~ s/^availability(\s+)/$1/io) && do {$apiOwner->availability($field); last SWITCH;};
 			($field =~ s/^since(\s+)/$1/io) && do {$apiOwner->availability($field); last SWITCH;};
             		($field =~ s/^author(\s+)/$1/io) && do {$apiOwner->attribute("Author", $field, 0); last SWITCH;};
@@ -4244,11 +4796,11 @@ sub processComment
             		($field =~ s/^version(\s+)/$1/io) && do {$apiOwner->attribute("Version", $field, 0); last SWITCH;};
 			($field =~ s/^updated(\s+)/$1/io) && do {$apiOwner->updated($field); last SWITCH;};
 	    ($field =~ s/^attribute(\s+)/$1/io) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$apiOwner->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
@@ -4266,16 +4818,16 @@ sub processComment
 			    $apiOwner->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
 	    ($field =~ s/^attributeblock(\s+)/$1/io) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$apiOwner->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
@@ -4295,7 +4847,32 @@ sub processComment
 			# ($field =~ s/^charset(\s+)/$1/io) && do {$apiOwner->encoding($field); last SWITCH;};
 			# ($field =~ s/^encoding(\s+)/$1/io) && do {$apiOwner->encoding($field); last SWITCH;};
 			# print "Unknown field in class comment: $field\n";
-			warn "$filename:$linenum:Unknown field (\@$field) in class comment (".$apiOwner->name().")[2]\n";
+			($top_level_field == 1) &&
+				do {
+					my $keepname = 1;
+ 					if ($field =~ s/^(class|interface|template)(\s+)/$2/io) {
+						$keepname = 1;
+					} else {
+						$field =~ s/(\w+)(\s|$)/$2/io;
+						$keepname = 0;
+					}
+					my ($name, $disc, $namedisc);
+					my $filename = $HeaderDoc::headerObject->filename();
+					# print "CLASSNAMEANDDISC:\n";
+					($name, $disc, $namedisc) = &getAPINameAndDisc($field);
+					my $classID = ref($apiOwner);
+					if ($keepname) { $apiOwner->name($name); }
+					$apiOwner->filename($filename);
+					if (length($disc)) {
+						if ($namedisc) {
+							$apiOwner->nameline_discussion($disc);
+						} else {
+							$apiOwner->discussion($disc);
+						}
+					}
+                	last SWITCH;
+            	};
+			warn "$filename:$linenum: warning: Unknown field (\@$field) in class comment (".$apiOwner->name().")[2]\n";
 		}
 		$first_field = 0;
 	}
@@ -4341,6 +4918,72 @@ sub HTMLmeta
 	# print "WARNING: APIO DISCUSSION CHANGED\n";
     # $self->SUPER::discussion(@_);
 # }
+
+sub dbprint
+{
+	my $self = shift;
+	print "NAME: ".$self->name()."\n";
+}
+
+sub freeAPIOBackReferences
+{
+	my $self = shift;
+	my $listref = shift;
+	my $freechildren = shift;
+
+	if ($listref) {
+		my @list = @{$listref};
+		foreach my $item (@list) {
+			$item->{APIOWNER} = undef;
+			if ($freechildren) {
+				$item->free();
+			}
+		}
+	}
+}
+
+sub free
+{
+    my $self = shift;
+    my $freechildrenraw = shift;
+
+    my $freeclasses = 1;
+    my $freechildren = 1;
+    if ($freechildrenraw == 2) {
+	$freechildren = 0;
+	$freeclasses = 0;
+    } elsif ($freechildrenraw) {
+	# don't free the classes.
+	$freeclasses = 0;
+    }
+
+    $self->freeAPIOBackReferences( $self->{CONSTANTS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{FUNCTIONS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{METHODS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{TYPEDEFS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{STRUCTS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{VARS}, $freechildren);;
+    $self->freeAPIOBackReferences( $self->{PDEFINES}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{ENUMS}, $freechildren);
+    $self->freeAPIOBackReferences( $self->{CLASSES}, $freeclasses);
+    
+
+    $self->{CONSTANTS} = undef;
+    $self->{FUNCTIONS} = undef;
+    $self->{METHODS} = undef;
+    $self->{TYPEDEFS} = undef;
+    $self->{STRUCTS} = undef;
+    $self->{VARS} = undef;
+    $self->{PDEFINES} = undef;
+    $self->{ENUMS} = undef;
+    $self->{CLASSES} = undef;
+    $self->{HEADEROBJECT} = undef;
+    $self->{APIOWNER} = undef;
+
+    if (!$self->noRegisterUID()) {
+	dereferenceUIDObject($self->apiuid(), $self);
+    }
+}
 
 1;
 

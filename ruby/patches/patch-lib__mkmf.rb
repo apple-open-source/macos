@@ -1,11 +1,11 @@
---- lib/mkmf.rb.orig	2004-12-04 09:11:53.000000000 -0800
-+++ lib/mkmf.rb	2004-12-04 09:12:03.000000000 -0800
-@@ -230,7 +230,7 @@
- 
- def cpp_command(outfile, opt="")
-   "$(CPP) #$INCFLAGS -I#{$hdrdir} " \
--  "#$CPPFLAGS #$CFLAGS #{opt} #{CONFTEST_C} #{outfile}"
-+  "#$CPPFLAGS #$CFLAGS #{opt} #{CONFTEST_C} #{outfile}".gsub(/-arch \w+/, "")
+--- lib/mkmf.rb	2006-08-17 07:47:50.000000000 +0200
++++ lib/mkmf.rb.new	2006-09-24 19:40:58.000000000 +0200
+@@ -285,7 +285,7 @@
  end
  
- def libpathflag(libpath=$LIBPATH)
+ def cpp_command(outfile, opt="")
+-  Config::expand("$(CPP) #$INCFLAGS #$CPPFLAGS #$CFLAGS #{opt} #{CONFTEST_C} #{outfile}",
++  Config::expand("$(CPP) #$INCFLAGS #$CPPFLAGS #$CFLAGS #{opt} #{CONFTEST_C} #{outfile}".gsub(/-arch \w+/, ""),
+ 		 CONFIG.merge('hdrdir' => $hdrdir.quote, 'srcdir' => $srcdir.quote))
+ end
+ 

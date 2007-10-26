@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: incomplete_class.c,v 1.14.4.5.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: incomplete_class.c,v 1.28.2.2.2.2 2007/02/01 14:07:43 tony2001 Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -26,87 +26,114 @@
 #define INCOMPLETE_CLASS_MSG \
 		"The script tried to execute a method or "  \
 		"access a property of an incomplete object. " \
-		"Please ensure that the class definition %s of the object " \
+		"Please ensure that the class definition \"%s\" of the object " \
 		"you are trying to operate on was loaded _before_ " \
-		"the session was started"
+		"unserialize() gets called or provide a __autoload() function " \
+		"to load the class definition "
 
+
+static zend_object_handlers php_incomplete_object_handlers;
 
 /* {{{ incomplete_class_message
  */
-static void incomplete_class_message(zend_property_reference *ref, int error_type)
+static void incomplete_class_message(zval *object, int error_type TSRMLS_DC)
 {
-	char buf[1024];
 	char *class_name;
-	TSRMLS_FETCH();
+	zend_bool class_name_alloced = 1;
 
-	class_name = php_lookup_class_name(ref->object, NULL, 0 TSRMLS_CC);
+	class_name = php_lookup_class_name(object, NULL);
 	
-	if (!class_name)
-		class_name = estrdup("unknown");
+	if (!class_name) {
+		class_name_alloced = 0;
+		class_name = "unknown";
+	}
 	
-	snprintf(buf, sizeof(buf)-1, INCOMPLETE_CLASS_MSG, class_name);
-	
-	efree(class_name);
+	php_error_docref(NULL TSRMLS_CC, error_type, INCOMPLETE_CLASS_MSG, class_name);
 
-	php_error_docref(NULL TSRMLS_CC, error_type, "%s", buf);
+	if (class_name_alloced) {
+		efree(class_name);
+	}
 }
 /* }}} */
 
-/* {{{ incomplete_class_call_func
- */
-static void incomplete_class_call_func(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference)
+static zval *incomplete_class_get_property(zval *object, zval *member, int type TSRMLS_DC)
 {
-	incomplete_class_message(property_reference, E_ERROR);
+	incomplete_class_message(object, E_NOTICE TSRMLS_CC);
+	if(type == BP_VAR_W || type == BP_VAR_RW) {
+		return EG(error_zval_ptr);
+	} else {
+		return EG(uninitialized_zval_ptr);
+	}
 }
-/* }}} */
 
-/* {{{ incomplete_class_set_property
- */
-static int incomplete_class_set_property(zend_property_reference *property_reference, zval *value)
+static void incomplete_class_write_property(zval *object, zval *member, zval *value TSRMLS_DC)
 {
-	incomplete_class_message(property_reference, E_NOTICE);
-	
-	/* does not reach this point */
-	return (0);
+	incomplete_class_message(object, E_NOTICE TSRMLS_CC);
 }
-/* }}} */
-
-/* {{{ incomplete_class_get_property
- */
-static zval incomplete_class_get_property(zend_property_reference *property_reference)
+	
+static zval **incomplete_class_get_property_ptr_ptr(zval *object, zval *member TSRMLS_DC)
 {
-	zval foo;
-	
-	incomplete_class_message(property_reference, E_NOTICE);
-
-	/* does not reach this point */
-	memset(&foo, 0, sizeof(zval)); /* shut warnings up */
-	return (foo);
+	incomplete_class_message(object, E_NOTICE TSRMLS_CC);
+	return &EG(error_zval_ptr);
 }
-/* }}} */
+
+static void incomplete_class_unset_property(zval *object, zval *member TSRMLS_DC)
+{
+	incomplete_class_message(object, E_NOTICE TSRMLS_CC);
+}
+
+static int incomplete_class_has_property(zval *object, zval *member, int check_empty TSRMLS_DC)
+{
+	incomplete_class_message(object, E_NOTICE TSRMLS_CC);
+	return 0;
+}
+
+static union _zend_function *incomplete_class_get_method(zval **object, char *method, int method_len TSRMLS_DC) {
+	incomplete_class_message(*object, E_ERROR TSRMLS_CC);
+	return NULL;
+}
 
 /* {{{ php_create_incomplete_class
  */
+static zend_object_value php_create_incomplete_object(zend_class_entry *class_type TSRMLS_DC) {
+	zend_object *object;
+	zend_object_value value;
+	
+	value = zend_objects_new(&object, class_type TSRMLS_CC);
+	value.handlers = &php_incomplete_object_handlers;
+	
+	ALLOC_HASHTABLE(object->properties);
+	zend_hash_init(object->properties, 0, NULL, ZVAL_PTR_DTOR, 0);
+	return value;
+}
+
 zend_class_entry *php_create_incomplete_class(TSRMLS_D)
 {
 	zend_class_entry incomplete_class;
 
-	INIT_OVERLOADED_CLASS_ENTRY(incomplete_class, INCOMPLETE_CLASS, NULL,
-			incomplete_class_call_func,
-			incomplete_class_get_property,
-			incomplete_class_set_property);
+	INIT_CLASS_ENTRY(incomplete_class, INCOMPLETE_CLASS, NULL);
+	incomplete_class.create_object = php_create_incomplete_object;
 
+	memcpy(&php_incomplete_object_handlers, &std_object_handlers, sizeof(zend_object_handlers));
+	php_incomplete_object_handlers.read_property = incomplete_class_get_property;
+	php_incomplete_object_handlers.has_property = incomplete_class_has_property;
+	php_incomplete_object_handlers.unset_property = incomplete_class_unset_property;
+	php_incomplete_object_handlers.write_property = incomplete_class_write_property;
+	php_incomplete_object_handlers.get_property_ptr_ptr = incomplete_class_get_property_ptr_ptr;
+    php_incomplete_object_handlers.get_method = incomplete_class_get_method;
+	
 	return zend_register_internal_class(&incomplete_class TSRMLS_CC);
 }
 /* }}} */
 
 /* {{{ php_lookup_class_name
  */
-char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del TSRMLS_DC)
+PHPAPI char *php_lookup_class_name(zval *object, zend_uint *nlen)
 {
 	zval **val;
 	char *retval = NULL;
 	HashTable *object_properties;
+	TSRMLS_FETCH();
 
 	object_properties = Z_OBJPROP_P(object);
 
@@ -123,9 +150,10 @@ char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del TSRMLS_DC)
 
 /* {{{ php_store_class_name
  */
-void php_store_class_name(zval *object, const char *name, size_t len TSRMLS_DC)
+PHPAPI void php_store_class_name(zval *object, const char *name, zend_uint len)
 {
 	zval *val;
+	TSRMLS_FETCH();
 
 	MAKE_STD_ZVAL(val);
 

@@ -51,7 +51,7 @@ $skip_header = 0;
 while (<>) {
   if ($in_header) {
     next if /^\s*Version:/; # Omit Version: line
-    s/(Copyright:\s*).*/\1© 2002-2003 Apple Computer, Inc. All rights reserved./;
+    s/(Copyright:\s*).*/\1© 2002-2005 Apple Computer, Inc. All rights reserved./;
     if (/^\s*File Ownership/) {
       print $license;
       $in_header   = 0;

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/compare.c,v 1.23.2.7 2004/04/12 16:08:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/compare.c,v 1.30.2.13 2006/01/03 22:16:20 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -34,32 +34,33 @@
 int
 meta_back_compare( Operation *op, SlapReply *rs )
 {
-	struct metainfo	*li = ( struct metainfo * )op->o_bd->be_private;
-	struct metaconn *lc;
-	struct metasingleconn *lsc;
-	char *match = NULL, *err = NULL;
-	struct berval mmatch = BER_BVNULL;
-	int candidates = 0, last = 0, i, count = 0, rc;
-       	int cres = LDAP_SUCCESS, rres = LDAP_SUCCESS;
-	int *msgid;
-	dncookie dc;
+	metainfo_t		*mi = ( metainfo_t * )op->o_bd->be_private;
+	metaconn_t		*mc = NULL;
+	char			*match = NULL,
+				*err = NULL;
+	struct berval		mmatch = BER_BVNULL;
+	int			ncandidates = 0,
+				last = 0,
+				i,
+				count = 0,
+				rc,
+       				cres = LDAP_SUCCESS,
+				rres = LDAP_SUCCESS,
+				*msgid;
+	dncookie		dc;
 
-	lc = meta_back_getconn( op, rs, META_OP_ALLOW_MULTIPLE,
-			&op->o_req_ndn, NULL );
-	if ( !lc ) {
- 		send_ldap_result( op, rs );
-		return -1;
+	SlapReply		*candidates = meta_back_candidates_get( op );
+
+	mc = meta_back_getconn( op, rs, NULL, LDAP_BACK_SENDERR );
+	if ( !mc || !meta_back_dobind( op, rs, mc, LDAP_BACK_SENDERR ) ) {
+		return rs->sr_err;
 	}
 	
-	if ( !meta_back_dobind( lc, op ) ) {
-		rs->sr_err = LDAP_OTHER;
- 		send_ldap_result( op, rs );
-		return -1;
-	}
-
-	msgid = ch_calloc( sizeof( int ), li->ntargets );
+	msgid = ch_calloc( sizeof( int ), mi->mi_ntargets );
 	if ( msgid == NULL ) {
-		return -1;
+		send_ldap_error( op, rs, LDAP_OTHER, NULL );
+		rc = LDAP_OTHER;
+		goto done;
 	}
 
 	/*
@@ -69,12 +70,12 @@ meta_back_compare( Operation *op, SlapReply *rs )
 	dc.rs = rs;
 	dc.ctx = "compareDN";
 
-	for ( i = 0, lsc = lc->conns; !META_LAST(lsc); ++i, ++lsc ) {
-		struct berval mdn = BER_BVNULL;
-		struct berval mapped_attr = op->oq_compare.rs_ava->aa_desc->ad_cname;
-		struct berval mapped_value = op->oq_compare.rs_ava->aa_value;
+	for ( i = 0; i < mi->mi_ntargets; i++ ) {
+		struct berval		mdn = BER_BVNULL;
+		struct berval		mapped_attr = op->orc_ava->aa_desc->ad_cname;
+		struct berval		mapped_value = op->orc_ava->aa_value;
 
-		if ( lsc->candidate != META_CANDIDATE ) {
+		if ( candidates[ i ].sr_tag != META_CANDIDATE ) {
 			msgid[ i ] = -1;
 			continue;
 		}
@@ -82,7 +83,7 @@ meta_back_compare( Operation *op, SlapReply *rs )
 		/*
 		 * Rewrite the compare dn, if needed
 		 */
-		dc.rwmap = &li->targets[ i ]->rwmap;
+		dc.target = &mi->mi_targets[ i ];
 
 		switch ( ldap_back_dn_massage( &dc, &op->o_req_dn, &mdn ) ) {
 		case LDAP_UNWILLING_TO_PERFORM:
@@ -96,23 +97,38 @@ meta_back_compare( Operation *op, SlapReply *rs )
 		/*
 		 * if attr is objectClass, try to remap the value
 		 */
-		if ( op->oq_compare.rs_ava->aa_desc == slap_schema.si_ad_objectClass ) {
-			ldap_back_map( &li->targets[ i ]->rwmap.rwm_oc,
-					&op->oq_compare.rs_ava->aa_value,
+		if ( op->orc_ava->aa_desc == slap_schema.si_ad_objectClass ) {
+			ldap_back_map( &mi->mi_targets[ i ].mt_rwmap.rwm_oc,
+					&op->orc_ava->aa_value,
 					&mapped_value, BACKLDAP_MAP );
 
-			if ( mapped_value.bv_val == NULL || mapped_value.bv_val[0] == '\0' ) {
+			if ( BER_BVISNULL( &mapped_value ) || mapped_value.bv_val[0] == '\0' ) {
 				continue;
 			}
 		/*
 		 * else try to remap the attribute
 		 */
 		} else {
-			ldap_back_map( &li->targets[ i ]->rwmap.rwm_at,
-				&op->oq_compare.rs_ava->aa_desc->ad_cname,
+			ldap_back_map( &mi->mi_targets[ i ].mt_rwmap.rwm_at,
+				&op->orc_ava->aa_desc->ad_cname,
 				&mapped_attr, BACKLDAP_MAP );
-			if ( mapped_attr.bv_val == NULL || mapped_attr.bv_val[0] == '\0' ) {
+			if ( BER_BVISNULL( &mapped_attr ) || mapped_attr.bv_val[0] == '\0' ) {
 				continue;
+			}
+
+			if ( op->orc_ava->aa_desc->ad_type->sat_syntax == slap_schema.si_syn_distinguishedName )
+			{
+				dc.ctx = "compareAttrDN";
+
+				switch ( ldap_back_dn_massage( &dc, &op->orc_ava->aa_value, &mapped_value ) )
+				{
+				case LDAP_UNWILLING_TO_PERFORM:
+					rc = 1;
+					goto finish;
+
+				default:
+					break;
+				}
 			}
 		}
 		
@@ -121,53 +137,69 @@ meta_back_compare( Operation *op, SlapReply *rs )
 		 * that returns determines the result; a constraint on unicity
 		 * of the result ought to be enforced
 		 */
-		msgid[ i ] = ldap_compare( lc->conns[ i ].ld, mdn.bv_val,
-				mapped_attr.bv_val, mapped_value.bv_val );
+		 rc = ldap_compare_ext( mc->mc_conns[ i ].msc_ld, mdn.bv_val,
+				mapped_attr.bv_val, &mapped_value,
+				op->o_ctrls, NULL, &msgid[ i ] );
+
 		if ( mdn.bv_val != op->o_req_dn.bv_val ) {
 			free( mdn.bv_val );
-			mdn.bv_val = NULL;
-		}
-		if ( mapped_attr.bv_val != op->oq_compare.rs_ava->aa_desc->ad_cname.bv_val ) {
-			free( mapped_attr.bv_val );
-		}
-		if ( mapped_value.bv_val != op->oq_compare.rs_ava->aa_value.bv_val ) {
-			free( mapped_value.bv_val );
+			BER_BVZERO( &mdn );
 		}
 
-		if ( msgid[ i ] == -1 ) {
+		if ( mapped_attr.bv_val != op->orc_ava->aa_desc->ad_cname.bv_val ) {
+			free( mapped_attr.bv_val );
+			BER_BVZERO( &mapped_attr );
+		}
+
+		if ( mapped_value.bv_val != op->orc_ava->aa_value.bv_val ) {
+			free( mapped_value.bv_val );
+			BER_BVZERO( &mapped_value );
+		}
+
+		if ( rc != LDAP_SUCCESS ) {
+			/* FIXME: what should we do with the error? */
 			continue;
 		}
 
-		++candidates;
+		++ncandidates;
 	}
 
 	/*
 	 * wait for replies
 	 */
-	for ( rc = 0, count = 0; candidates > 0; ) {
+	for ( rc = 0, count = 0; ncandidates > 0; ) {
 
 		/*
 		 * FIXME: should we check for abandon?
 		 */
-		for ( i = 0, lsc = lc->conns; !META_LAST(lsc); lsc++, i++ ) {
-			int		lrc;
-			LDAPMessage	*res = NULL;
+		for ( i = 0; i < mi->mi_ntargets; i++ ) {
+			metasingleconn_t	*msc = &mc->mc_conns[ i ];
+			int			lrc;
+			LDAPMessage		*res = NULL;
+			struct timeval		tv;
+
+			LDAP_BACK_TV_SET( &tv );
 
 			if ( msgid[ i ] == -1 ) {
 				continue;
 			}
 
-			lrc = ldap_result( lsc->ld, msgid[ i ],
-					0, NULL, &res );
+			lrc = ldap_result( msc->msc_ld, msgid[ i ],
+					LDAP_MSG_ALL, &tv, &res );
 
 			if ( lrc == 0 ) {
-				/*
-				 * FIXME: should we yield?
-				 */
-				if ( res ) {
-					ldap_msgfree( res );
-				}
+				assert( res == NULL );
 				continue;
+
+			} else if ( lrc == -1 ) {
+				/* we do not retry in this case;
+				 * only for unique operations... */
+				ldap_get_option( msc->msc_ld,
+					LDAP_OPT_ERROR_NUMBER, &rs->sr_err );
+				rres = slap_map_api2result( rs );
+				rres = rc;
+				rc = -1;
+				goto finish;
 
 			} else if ( lrc == LDAP_RES_COMPARE ) {
 				if ( count > 0 ) {
@@ -175,18 +207,26 @@ meta_back_compare( Operation *op, SlapReply *rs )
 					rc = -1;
 					goto finish;
 				}
+
+				rc = ldap_parse_result( msc->msc_ld, res,
+						&rs->sr_err,
+						NULL, NULL, NULL, NULL, 1 );
+				if ( rc != LDAP_SUCCESS ) {
+					rres = rc;
+					rc = -1;
+					goto finish;
+				}
 				
-				rs->sr_err = ldap_result2error( lsc->ld, res, 1 );
 				switch ( rs->sr_err ) {
 				case LDAP_COMPARE_TRUE:
 				case LDAP_COMPARE_FALSE:
 
 					/*
-					 * true or flase, got it;
+					 * true or false, got it;
 					 * sending to cache ...
 					 */
-					if ( li->cache.ttl != META_DNCACHE_DISABLED ) {
-						( void )meta_dncache_update_entry( &li->cache, &op->o_req_ndn, i );
+					if ( mi->mi_cache.ttl != META_DNCACHE_DISABLED ) {
+						( void )meta_dncache_update_entry( &mi->mi_cache, &op->o_req_ndn, i );
 					}
 
 					count++;
@@ -199,24 +239,24 @@ meta_back_compare( Operation *op, SlapReply *rs )
 					if ( err != NULL ) {
 						free( err );
 					}
-					ldap_get_option( lsc->ld,
+					ldap_get_option( msc->msc_ld,
 						LDAP_OPT_ERROR_STRING, &err );
 
 					if ( match != NULL ) {
 						free( match );
 					}
-					ldap_get_option( lsc->ld,
+					ldap_get_option( msc->msc_ld,
 						LDAP_OPT_MATCHED_DN, &match );
 					
 					last = i;
 					break;
 				}
 				msgid[ i ] = -1;
-				--candidates;
+				--ncandidates;
 
 			} else {
 				msgid[ i ] = -1;
-				--candidates;
+				--ncandidates;
 				if ( res ) {
 					ldap_msgfree( res );
 				}
@@ -248,14 +288,19 @@ finish:;
 		 * At least one compare failed with matched portion,
 		 * and none was successful
 		 */
-	} else if ( match != NULL &&  match[0] != '\0' ) {
-		struct berval matched;
+	} else if ( match != NULL && match[ 0 ] != '\0' ) {
+		struct berval matched, pmatched;
 
-		matched.bv_val = match;
-		matched.bv_len = strlen( match );
+		ber_str2bv( match, 0, 0, &matched );
 
 		dc.ctx = "matchedDN";
 		ldap_back_dn_massage( &dc, &matched, &mmatch );
+		if ( dnPretty( NULL, &mmatch, &pmatched, NULL ) == LDAP_SUCCESS ) {
+			if ( mmatch.bv_val != match ) {
+				free( mmatch.bv_val );
+			}
+			mmatch = pmatched;
+		}
 	}
 
 	if ( rres != LDAP_SUCCESS ) {
@@ -275,7 +320,10 @@ finish:;
 	if ( msgid ) {
 		free( msgid );
 	}
-	
+
+done:;
+	meta_back_release_conn( op, mc );
+
 	return rc;
 }
 

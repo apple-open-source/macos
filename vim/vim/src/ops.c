@@ -57,6 +57,7 @@ static struct yankreg
     char_u	**y_array;	/* pointer to array of line pointers */
     linenr_T	y_size;		/* number of lines in y_array */
     char_u	y_type;		/* MLINE, MCHAR or MBLOCK */
+    char_u	y_op_change;
 #ifdef FEAT_VISUAL
     colnr_T	y_width;	/* only set if y_type == MBLOCK */
 #endif
@@ -94,15 +95,10 @@ struct block_def
 static void shift_block __ARGS((oparg_T *oap, int amount));
 static void block_insert __ARGS((oparg_T *oap, char_u *s, int b_insert, struct block_def*bdp));
 #endif
-#ifdef FEAT_EVAL
-static char_u	*get_expr_line __ARGS((void));
-#endif
-static void	get_yank_register __ARGS((int regname, int writing));
 static int	stuff_yank __ARGS((int, char_u *));
+static void	put_reedit_in_typebuf __ARGS((void));
 static int	put_in_typebuf __ARGS((char_u *s, int colon));
 static void	stuffescaped __ARGS((char_u *arg, int literally));
-static int	get_spec_reg __ARGS((int regname, char_u **argp, int *allocated, int errmsg));
-static void	cmdline_paste_str __ARGS((char_u *s, int literally));
 #ifdef FEAT_MBYTE
 static void	mb_adjust_opend __ARGS((oparg_T *oap));
 #endif
@@ -124,7 +120,7 @@ static void	str_to_reg __ARGS((struct yankreg *y_ptr, int type, char_u *str, lon
 #endif
 static int	ends_in_white __ARGS((linenr_T lnum));
 #ifdef FEAT_COMMENTS
-static int	same_leader __ARGS((int, char_u *, int, char_u *));
+static int	same_leader __ARGS((linenr_T lnum, int, char_u *, int, char_u *));
 static int	fmt_check_par __ARGS((linenr_T, int *, char_u **, int do_comments));
 #else
 static int	fmt_check_par __ARGS((linenr_T));
@@ -163,6 +159,8 @@ static char opchars[][3] =
     {'z', 'C', TRUE},	/* OP_FOLDCLOSEREC */
     {'z', 'd', TRUE},	/* OP_FOLDDEL */
     {'z', 'D', TRUE},	/* OP_FOLDDELREC */
+    {'g', 'w', TRUE},	/* OP_FORMAT2 */
+    {'g', '@', FALSE},	/* OP_FUNCTION */
 };
 
 /*
@@ -424,7 +422,7 @@ shift_block(oap, amount)
 	{
 #ifdef FEAT_MBYTE
 	    if (has_mbyte)
-		bd.textstart += (*mb_ptr2len_check)(bd.textstart);
+		bd.textstart += (*mb_ptr2len)(bd.textstart);
 #endif
 	    ++bd.textstart;
 	}
@@ -636,7 +634,7 @@ block_insert(oap, s, b_insert, bdp)
 }
 #endif
 
-#if defined(FEAT_LISP) || defined(FEAT_CINDENT)
+#if defined(FEAT_LISP) || defined(FEAT_CINDENT) || defined(PROTO)
 /*
  * op_reindent - handle reindenting a block of lines.
  */
@@ -651,6 +649,13 @@ op_reindent(oap, how)
     linenr_T	first_changed = 0;
     linenr_T	last_changed = 0;
     linenr_T	start_lnum = curwin->w_cursor.lnum;
+
+    /* Don't even try when 'modifiable' is off. */
+    if (!curbuf->b_p_ma)
+    {
+	EMSG(_(e_modifiable));
+	return;
+    }
 
     for (i = oap->line_count; --i >= 0 && !got_int; )
     {
@@ -720,7 +725,7 @@ op_reindent(oap, how)
 }
 #endif /* defined(FEAT_LISP) || defined(FEAT_CINDENT) */
 
-#ifdef FEAT_EVAL
+#if defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Keep the last expression line here, for repeating.
  */
@@ -761,7 +766,7 @@ set_expr_line(new_line)
  * Get the result of the '=' register expression.
  * Returns a pointer to allocated memory, or NULL for failure.
  */
-    static char_u *
+    char_u *
 get_expr_line()
 {
     char_u	*expr_copy;
@@ -776,9 +781,20 @@ get_expr_line()
     if (expr_copy == NULL)
 	return NULL;
 
-    rv = eval_to_string(expr_copy, NULL);
+    rv = eval_to_string(expr_copy, NULL, TRUE);
     vim_free(expr_copy);
     return rv;
+}
+
+/*
+ * Get the '=' register expression itself, without evaluating it.
+ */
+    char_u *
+get_expr_line_src()
+{
+    if (expr_line == NULL)
+	return NULL;
+    return vim_strsave(expr_line);
 }
 #endif /* FEAT_EVAL */
 
@@ -817,11 +833,12 @@ valid_yank_reg(regname, writing)
 /*
  * Set y_current and y_append, according to the value of "regname".
  * Cannot handle the '_' register.
+ * Must only be called with a valid register name!
  *
  * If regname is 0 and writing, use register 0
  * If regname is 0 and reading, use previous register
  */
-    static void
+    void
 get_yank_register(regname, writing)
     int	    regname;
     int	    writing;
@@ -835,7 +852,7 @@ get_yank_register(regname, writing)
 	return;
     }
     i = regname;
-    if (isdigit(i))
+    if (VIM_ISDIGIT(i))
 	i -= '0';
     else if (ASCII_ISLOWER(i))
 	i = CharOrdLow(i) + 10;
@@ -865,6 +882,33 @@ get_yank_register(regname, writing)
 	y_previous = y_current;
 }
 
+#if defined(FEAT_CLIPBOARD) || defined(PROTO)
+/*
+ * When "regname" is a clipboard register, obtain the selection.  If it's not
+ * available return zero, otherwise return "regname".
+ */
+    int
+may_get_selection(regname)
+    int regname;
+{
+    if (regname == '*')
+    {
+	if (!clip_star.available)
+	    regname = 0;
+	else
+	    clip_get_selection(&clip_star);
+    }
+    else if (regname == '+')
+    {
+	if (!clip_plus.available)
+	    regname = 0;
+	else
+	    clip_get_selection(&clip_plus);
+    }
+    return regname;
+}
+#endif
+
 #if defined(FEAT_VISUAL) || defined(PROTO)
 /*
  * Obtain the contents of a "normal" register. The register is made empty.
@@ -878,6 +922,16 @@ get_register(name, copy)
     static struct yankreg	*reg;
     int				i;
 
+#ifdef FEAT_CLIPBOARD
+    /* When Visual area changed, may have to update selection.  Obtain the
+     * selection too. */
+    if (name == '*' && clip_star.available && clip_isautosel())
+    {
+	clip_update_selection();
+	may_get_selection(name);
+    }
+#endif
+
     get_yank_register(name, 0);
     reg = (struct yankreg *)alloc((unsigned)sizeof(struct yankreg));
     if (reg != NULL)
@@ -886,8 +940,11 @@ get_register(name, copy)
 	if (copy)
 	{
 	    /* If we run out of memory some or all of the lines are empty. */
-	    reg->y_array = (char_u **)alloc((unsigned)(sizeof(char_u *)
-							       * reg->y_size));
+	    if (reg->y_size == 0)
+		reg->y_array = NULL;
+	    else
+		reg->y_array = (char_u **)alloc((unsigned)(sizeof(char_u *)
+							      * reg->y_size));
 	    if (reg->y_array != NULL)
 	    {
 		for (i = 0; i < reg->y_size; ++i)
@@ -1046,38 +1103,10 @@ stuff_yank(regname, p)
 	y_current->y_array[0] = p;
 	y_current->y_size = 1;
 	y_current->y_type = MCHAR;  /* used to be MLINE, why? */
+	y_current->y_op_change = 0;
     }
     return OK;
 }
-
-#ifdef FEAT_CLIPBOARD
-/*
- * When "regname" is a clipboard register, obtain the selection.  If it's not
- * available return zero, otherwise return "regname".
- */
-static int may_get_selection __ARGS((int regname));
-
-    static int
-may_get_selection(regname)
-    int regname;
-{
-    if (regname == '*')
-    {
-	if (!clip_star.available)
-	    regname = 0;
-	else
-	    clip_get_selection(&clip_star);
-    }
-    else if (regname == '+')
-    {
-	if (!clip_plus.available)
-	    regname = 0;
-	else
-	    clip_get_selection(&clip_plus);
-    }
-    return regname;
-}
-#endif
 
 /*
  * execute a yank register: copy it into the stuff buffer
@@ -1097,10 +1126,20 @@ do_execreg(regname, colon, addcr)
     int		remap;
 
     if (regname == '@')			/* repeat previous one */
+    {
+	if (lastc == NUL)
+	{
+	    EMSG(_("E748: No previously used register"));
+	    return FAIL;
+	}
 	regname = lastc;
+    }
 					/* check for valid regname */
     if (regname == '%' || regname == '#' || !valid_yank_reg(regname, FALSE))
+    {
+	emsg_invreg(regname);
 	return FAIL;
+    }
     lastc = regname;
 
 #ifdef FEAT_CLIPBOARD
@@ -1120,7 +1159,19 @@ do_execreg(regname, colon, addcr)
 	}
 	vim_free(new_last_cmdline); /* don't keep the cmdline containing @: */
 	new_last_cmdline = NULL;
-	retval = put_in_typebuf(last_cmdline, TRUE);
+	/* Escape all control characters with a CTRL-V */
+	p = vim_strsave_escaped_ext(last_cmdline,
+		(char_u *)"\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037", Ctrl_V, FALSE);
+	if (p != NULL)
+	{
+	    /* When in Visual mode "'<,'>" will be prepended to the command.
+	     * Remove it when it's already there. */
+	    if (VIsual_active && STRNCMP(p, "'<,'>", 5) == 0)
+		retval = put_in_typebuf(p + 5, TRUE);
+	    else
+		retval = put_in_typebuf(p, TRUE);
+	}
+	vim_free(p);
     }
 #endif
 #ifdef FEAT_EVAL
@@ -1156,6 +1207,7 @@ do_execreg(regname, colon, addcr)
 	/*
 	 * Insert lines into typeahead buffer, from last one to first one.
 	 */
+	put_reedit_in_typebuf();
 	for (i = y_current->y_size; --i >= 0; )
 	{
 	    /* insert NL between lines and after last line if type is MLINE */
@@ -1177,6 +1229,33 @@ do_execreg(regname, colon, addcr)
     return retval;
 }
 
+/*
+ * If "restart_edit" is not zero, put it in the typeahead buffer, so that it's
+ * used only after other typeahead has been processed.
+ */
+    static void
+put_reedit_in_typebuf()
+{
+    char_u	buf[3];
+
+    if (restart_edit != NUL)
+    {
+	if (restart_edit == 'V')
+	{
+	    buf[0] = 'g';
+	    buf[1] = 'R';
+	    buf[2] = NUL;
+	}
+	else
+	{
+	    buf[0] = restart_edit == 'I' ? 'i' : restart_edit;
+	    buf[1] = NUL;
+	}
+	if (ins_typebuf(buf, REMAP_NONE, 0, TRUE, FALSE) == OK)
+	    restart_edit = NUL;
+    }
+}
+
     static int
 put_in_typebuf(s, colon)
     char_u	*s;
@@ -1184,6 +1263,7 @@ put_in_typebuf(s, colon)
 {
     int		retval = OK;
 
+    put_reedit_in_typebuf();
     if (colon)
 	retval = ins_typebuf((char_u *)"\n", REMAP_YES, 0, TRUE, FALSE);
     if (retval == OK)
@@ -1306,7 +1386,7 @@ stuffescaped(arg, literally)
 /*
  * If "regname" is a special register, return a pointer to its value.
  */
-    static int
+    int
 get_spec_reg(regname, argp, allocated, errmsg)
     int		regname;
     char_u	**argp;
@@ -1361,7 +1441,7 @@ get_spec_reg(regname, argp, allocated, errmsg)
 	    if (!errmsg)
 		return FALSE;
 	    *argp = file_name_at_cursor(FNAME_MESS | FNAME_HYP
-				| (regname == Ctrl_P ? FNAME_EXP : 0), 1L);
+			    | (regname == Ctrl_P ? FNAME_EXP : 0), 1L, NULL);
 	    *allocated = TRUE;
 	    return TRUE;
 #endif
@@ -1385,47 +1465,20 @@ get_spec_reg(regname, argp, allocated, errmsg)
 }
 
 /*
- * paste a yank register into the command line.
- * used by CTRL-R command in command-line mode
+ * Paste a yank register into the command line.
+ * Only for non-special registers.
+ * Used by CTRL-R command in command-line mode
  * insert_reg() can't be used here, because special characters from the
  * register contents will be interpreted as commands.
  *
  * return FAIL for failure, OK otherwise
  */
     int
-cmdline_paste(regname, literally)
+cmdline_paste_reg(regname, literally)
     int regname;
     int literally;	/* Insert text literally instead of "as typed" */
 {
     long	i;
-    char_u	*arg;
-    int		allocated;
-
-    /* check for valid regname; also accept special characters for CTRL-R in
-     * the command line */
-    if (regname != Ctrl_F && regname != Ctrl_P && regname != Ctrl_W
-	    && regname != Ctrl_A && !valid_yank_reg(regname, FALSE))
-	return FAIL;
-
-    /* A register containing CTRL-R can cause an endless loop.  Allow using
-     * CTRL-C to break the loop. */
-    line_breakcheck();
-    if (got_int)
-	return FAIL;
-
-#ifdef FEAT_CLIPBOARD
-    regname = may_get_selection(regname);
-#endif
-
-    if (get_spec_reg(regname, &arg, &allocated, TRUE))
-    {
-	if (arg == NULL)
-	    return FAIL;
-	cmdline_paste_str(arg, literally);
-	if (allocated)
-	    vim_free(arg);
-	return OK;
-    }
 
     get_yank_register(regname, FALSE);
     if (y_current->y_array == NULL)
@@ -1446,46 +1499,6 @@ cmdline_paste(regname, literally)
 	    return FAIL;
     }
     return OK;
-}
-
-/*
- * Put a string on the command line.
- * When "literally" is TRUE, insert literally.
- * When "literally" is FALSE, insert as typed, but don't leave the command
- * line.
- */
-    static void
-cmdline_paste_str(s, literally)
-    char_u	*s;
-    int		literally;
-{
-    int		c, cv;
-
-    if (literally)
-	put_on_cmdline(s, -1, TRUE);
-    else
-	while (*s != NUL)
-	{
-	    cv = *s;
-	    if (cv == Ctrl_V && s[1])
-		++s;
-#ifdef FEAT_MBYTE
-	    if (has_mbyte)
-	    {
-		c = mb_ptr2char(s);
-		s += mb_char2len(c);
-	    }
-	    else
-#endif
-		c = *s++;
-	    if (cv == Ctrl_V || c == ESC || c == Ctrl_C || c == CR || c == NL
-#ifdef UNIX
-		    || c == intr_char
-#endif
-		    || (c == Ctrl_BSL && *s == Ctrl_N))
-		stuffcharReadbuff(Ctrl_V);
-	    stuffcharReadbuff(c);
-	}
 }
 
 #if defined(FEAT_CLIPBOARD) || defined(PROTO)
@@ -1556,6 +1569,7 @@ op_delete(oap)
     if (       oap->motion_type == MCHAR
 #ifdef FEAT_VISUAL
 	    && !oap->is_VIsual
+	    && !oap->block_mode
 #endif
 	    && oap->line_count > 1
 	    && oap->op_type == OP_DELETE)
@@ -1576,9 +1590,15 @@ op_delete(oap)
 	    && *ml_get(oap->start.lnum) == NUL)
     {
 	/*
-	 * It's an error to operate on an empty region, when 'E' inclucded in
+	 * It's an error to operate on an empty region, when 'E' included in
 	 * 'cpoptions' (Vi compatible).
 	 */
+#ifdef FEAT_VIRTUALEDIT
+	if (virtual_op)
+	    /* Virtual editing: Nothing gets deleted, but we set the '[ and ']
+	     * marks as if it happened. */
+	    goto setmarks;
+#endif
 	if (vim_strchr(p_cpo, CPO_EMPTYREGION) != NULL)
 	    beep_flush();
 	return OK;
@@ -1825,7 +1845,11 @@ op_delete(oap)
 		    curwin->w_cursor.coladd = 0;
 	    }
 #endif
-	    (void)del_bytes((long)n, restart_edit == NUL && !virtual_op);
+	    (void)del_bytes((long)n, !virtual_op, oap->op_type == OP_DELETE
+#ifdef FEAT_VISUAL
+				    && !oap->is_VIsual
+#endif
+							);
 	}
 	else				/* delete characters between lines */
 	{
@@ -1845,7 +1869,11 @@ op_delete(oap)
 	    /* delete from start of line until op_end */
 	    curwin->w_cursor.col = 0;
 	    (void)del_bytes((long)(oap->end.col + 1 - !oap->inclusive),
-				    restart_edit == NUL && !virtual_op);
+					!virtual_op, oap->op_type == OP_DELETE
+#ifdef FEAT_VISUAL
+					&& !oap->is_VIsual
+#endif
+							    );
 	    curwin->w_cursor = curpos;		/* restore curwin->w_cursor */
 
 	    (void)do_join(FALSE);
@@ -1854,6 +1882,9 @@ op_delete(oap)
 
     msgmore(curbuf->b_ml.ml_line_count - old_lcount);
 
+#ifdef FEAT_VIRTUALEDIT
+setmarks:
+#endif
 #ifdef FEAT_VISUAL
     if (oap->block_mode)
     {
@@ -1897,6 +1928,9 @@ op_replace(oap, c)
     int		c;
 {
     int			n, numc;
+#ifdef FEAT_MBYTE
+    int			num_chars;
+#endif
     char_u		*newp, *oldp;
     size_t		oldlen;
     struct block_def	bd;
@@ -1922,8 +1956,8 @@ op_replace(oap, c)
 	for ( ; curwin->w_cursor.lnum <= oap->end.lnum; ++curwin->w_cursor.lnum)
 	{
 	    block_prep(oap, &bd, curwin->w_cursor.lnum, TRUE);
-	    if (bd.textlen == 0 && !virtual_op)	/* nothing to delete */
-		continue;
+	    if (bd.textlen == 0 && (!virtual_op || bd.is_MAX))
+		continue;	    /* nothing to replace */
 
 	    /* n == number of extra chars required
 	     * If we split a TAB, it may be replaced by several characters.
@@ -1950,11 +1984,29 @@ op_replace(oap, c)
 #ifdef FEAT_VIRTUALEDIT
 		    && !bd.is_oneChar
 #endif
-		    && bd.end_char_vcols > 0 ? bd.end_char_vcols - 1 : 0);
+		    && bd.end_char_vcols > 0) ? bd.end_char_vcols - 1 : 0;
 	    /* Figure out how many characters to replace. */
 	    numc = oap->end_vcol - oap->start_vcol + 1;
 	    if (bd.is_short && (!virtual_op || bd.is_MAX))
 		numc -= (oap->end_vcol - bd.end_vcol) + 1;
+
+#ifdef FEAT_MBYTE
+	    /* A double-wide character can be replaced only up to half the
+	     * times. */
+	    if ((*mb_char2cells)(c) > 1)
+	    {
+		if ((numc & 1) && !bd.is_short)
+		{
+		    ++bd.endspaces;
+		    ++n;
+		}
+		numc = numc / 2;
+	    }
+
+	    /* Compute bytes needed, move character count to num_chars. */
+	    num_chars = numc;
+	    numc *= (*mb_char2len)(c);
+#endif
 	    /* oldlen includes textlen, so don't double count */
 	    n += numc - bd.textlen;
 
@@ -1970,7 +2022,16 @@ op_replace(oap, c)
 	    /* insert pre-spaces */
 	    copy_spaces(newp + bd.textcol, (size_t)bd.startspaces);
 	    /* insert replacement chars CHECK FOR ALLOCATED SPACE */
-	    copy_chars(newp + STRLEN(newp), (size_t)numc, c);
+#ifdef FEAT_MBYTE
+	    if (has_mbyte)
+	    {
+		n = (int)STRLEN(newp);
+		while (--num_chars >= 0)
+		    n += (*mb_char2bytes)(c, newp + n);
+	    }
+	    else
+#endif
+		copy_chars(newp + STRLEN(newp), (size_t)numc, c);
 	    if (!bd.is_short)
 	    {
 		/* insert post-spaces */
@@ -2008,10 +2069,13 @@ op_replace(oap, c)
 		{
 		    /* This is slow, but it handles replacing a single-byte
 		     * with a multi-byte and the other way around. */
+		    oap->end.col += (*mb_char2len)(c) - (*mb_char2len)(n);
 		    n = State;
 		    State = REPLACE;
 		    ins_char(c);
 		    State = n;
+		    /* Backup to the replaced character. */
+		    dec_cursor();
 		}
 		else
 #endif
@@ -2060,7 +2124,7 @@ op_replace(oap, c)
 #endif
 
 	    /* Advance to next character, stop at the end of the file. */
-	    if (inc(&curwin->w_cursor) == -1)
+	    if (inc_cursor() == -1)
 		break;
 	}
     }
@@ -2087,6 +2151,7 @@ op_tilde(oap)
     pos_T		pos;
 #ifdef FEAT_VISUAL
     struct block_def	bd;
+    int			todo;
 #endif
     int			did_change = 0;
 
@@ -2102,12 +2167,27 @@ op_tilde(oap)
 	{
 	    block_prep(oap, &bd, pos.lnum, FALSE);
 	    pos.col = bd.textcol;
-	    while (--bd.textlen >= 0)
+	    for (todo = bd.textlen; todo > 0; --todo)
 	    {
+# ifdef FEAT_MBYTE
+		if (has_mbyte)
+		    todo -= (*mb_ptr2len)(ml_get_pos(&pos)) - 1;
+# endif
 		did_change |= swapchar(oap->op_type, &pos);
 		if (inc(&pos) == -1)	    /* at end of file */
 		    break;
 	    }
+# ifdef FEAT_NETBEANS_INTG
+	    if (usingNetbeans && did_change)
+	    {
+		char_u *ptr = ml_get_buf(curbuf, pos.lnum, FALSE);
+
+		netbeans_removed(curbuf, pos.lnum, bd.textcol,
+							    (long)bd.textlen);
+		netbeans_inserted(curbuf, pos.lnum, bd.textcol,
+				    &ptr[bd.textcol], bd.textlen);
+	    }
+# endif
 	}
 	if (did_change)
 	    changed_lines(oap->start.lnum, 0, oap->end.lnum + 1, 0L);
@@ -2132,9 +2212,36 @@ op_tilde(oap)
 	    if (inc(&pos) == -1)    /* at end of file */
 		break;
 	}
+
 	if (did_change)
+	{
 	    changed_lines(oap->start.lnum, oap->start.col, oap->end.lnum + 1,
 									  0L);
+#ifdef FEAT_NETBEANS_INTG
+	    if (usingNetbeans && did_change)
+	    {
+		char_u *ptr;
+		int count;
+
+		pos = oap->start;
+		while (pos.lnum < oap->end.lnum)
+		{
+		    ptr = ml_get_buf(curbuf, pos.lnum, FALSE);
+		    count = (int)STRLEN(ptr) - pos.col;
+		    netbeans_removed(curbuf, pos.lnum, pos.col, (long)count);
+		    netbeans_inserted(curbuf, pos.lnum, pos.col,
+						 &ptr[pos.col], count);
+		    pos.col = 0;
+		    pos.lnum++;
+		}
+		ptr = ml_get_buf(curbuf, pos.lnum, FALSE);
+		count = oap->end.col - pos.col + 1;
+		netbeans_removed(curbuf, pos.lnum, pos.col, (long)count);
+		netbeans_inserted(curbuf, pos.lnum, pos.col,
+						 &ptr[pos.col], count);
+	    }
+#endif
+	}
     }
 
 #ifdef FEAT_VISUAL
@@ -2180,6 +2287,19 @@ swapchar(op_type, pos)
 	return FALSE;
 
 #ifdef FEAT_MBYTE
+    if (op_type == OP_UPPER && enc_latin1like && c == 0xdf)
+    {
+	pos_T   sp = curwin->w_cursor;
+
+	/* Special handling of German sharp s: change to "SS". */
+	curwin->w_cursor = *pos;
+	del_char(FALSE);
+	ins_char('S');
+	ins_char('S');
+	curwin->w_cursor = sp;
+	inc(pos);
+    }
+
     if (enc_dbcs != 0 && c >= 0x100)	/* No lower/uppercase letter */
 	return FALSE;
 #endif
@@ -2432,7 +2552,7 @@ op_change(oap)
 
 #ifdef FEAT_VISUALEXTRA
     /*
-     * In Visual block mode, handle copying the next text to all lines of the
+     * In Visual block mode, handle copying the new text to all lines of the
      * block.
      */
     if (oap->block_mode && oap->start.lnum != oap->end.lnum)
@@ -2446,8 +2566,7 @@ op_change(oap)
 	{
 	    if ((ins_text = alloc_check((unsigned)(ins_len + 1))) != NULL)
 	    {
-		STRNCPY(ins_text, firstline + bd.textcol, ins_len);
-		ins_text[ins_len] = NUL;
+		vim_strncpy(ins_text, firstline + bd.textcol, (size_t)ins_len);
 		for (linenr = oap->start.lnum + 1; linenr <= oap->end.lnum;
 								     linenr++)
 		{
@@ -2516,6 +2635,21 @@ init_yank()
 	y_regs[i].y_array = NULL;
 }
 
+#if defined(EXITFREE) || defined(PROTO)
+    void
+clear_registers()
+{
+    int		i;
+
+    for (i = 0; i < NUM_REGISTERS; ++i)
+    {
+	y_current = &y_regs[i];
+	if (y_current->y_array != NULL)
+	    free_yank_all();
+    }
+}
+#endif
+
 /*
  * Free "n" lines from the current yank register.
  * Called for normal freeing and in case of error.
@@ -2562,7 +2696,7 @@ free_yank_all()
 }
 
 /*
- * Yank the text between curwin->w_cursor and startpos into a yank register.
+ * Yank the text between "oap->start" and "oap->end" into a yank register.
  * If we are to append (uppercase register), we first yank into a new yank
  * register and then concatenate the old and the new one (so we keep the old
  * one in case of out-of-memory).
@@ -2614,15 +2748,16 @@ op_yank(oap, deleting, mess)
     else
 	free_yank_all();	    /* free previously yanked lines */
 
-/*
- * If the cursor was in column 1 before and after the movement, and the
- * operator is not inclusive, the yank is always linewise.
- */
+    /*
+     * If the cursor was in column 1 before and after the movement, and the
+     * operator is not inclusive, the yank is always linewise.
+     */
     if (       oap->motion_type == MCHAR
 	    && oap->start.col == 0
 	    && !oap->inclusive
 #ifdef FEAT_VISUAL
 	    && (!oap->is_VIsual || *p_sel == 'o')
+	    && !oap->block_mode
 #endif
 	    && oap->end.col == 0
 	    && yanklines > 1)
@@ -2634,6 +2769,7 @@ op_yank(oap, deleting, mess)
 
     y_current->y_size = yanklines;
     y_current->y_type = yanktype;   /* set the yank register type */
+    y_current->y_op_change = (oap->op_type == OP_CHANGE) && inindent(0);
 #ifdef FEAT_VISUAL
     y_current->y_width = 0;
 #endif
@@ -2696,7 +2832,7 @@ op_yank(oap, deleting, mess)
 #ifdef FEAT_VIRTUALEDIT
 			if (virtual_op)
 			{
-			    getvcol(curwin, &oap->start, &cs, NUL, &ce);
+			    getvcol(curwin, &oap->start, &cs, NULL, &ce);
 			    if (ce != cs && oap->start.coladd > 0)
 			    {
 				/* Part of a tab selected -- but don't
@@ -2715,7 +2851,7 @@ op_yank(oap, deleting, mess)
 #ifdef FEAT_VIRTUALEDIT
 			if (virtual_op)
 			{
-			    getvcol(curwin, &oap->end, &cs, NUL, &ce);
+			    getvcol(curwin, &oap->end, &cs, NULL, &ce);
 			    if (p[endcol] == NUL || (cs + oap->end.coladd < ce
 # ifdef FEAT_MBYTE
 					/* Don't add space for double-wide
@@ -2753,7 +2889,7 @@ op_yank(oap, deleting, mess)
 		    else
 		    {
 			if (endcol == MAXCOL)
-			    endcol = STRLEN(p);
+			    endcol = (colnr_T)STRLEN(p);
 			bd.textlen = endcol - startcol + oap->inclusive;
 		    }
 		    bd.textstart = p + startcol;
@@ -2779,9 +2915,9 @@ op_yank(oap, deleting, mess)
 	if (yanktype == MLINE)	/* MLINE overrides MCHAR and MBLOCK */
 	    curr->y_type = MLINE;
 
-	/* concatenate the last line of the old block with the first line of
-	 * the new block */
-	if (curr->y_type == MCHAR)
+	/* Concatenate the last line of the old block with the first line of
+	 * the new block, unless being Vi compatible. */
+	if (curr->y_type == MCHAR && vim_strchr(p_cpo, CPO_REGAPPEND) == NULL)
 	{
 	    pnew = lalloc((long_u)(STRLEN(curr->y_array[curr->y_size - 1])
 			      + STRLEN(y_current->y_array[0]) + 1), TRUE);
@@ -2819,7 +2955,18 @@ op_yank(oap, deleting, mess)
 	    /* redisplay now, so message is not deleted */
 	    update_topline_redraw();
 	    if (yanklines == 1)
-		MSG(_("1 line yanked"));
+	    {
+#ifdef FEAT_VISUAL
+		if (oap->block_mode)
+		    MSG(_("block of 1 line yanked"));
+		else
+#endif
+		    MSG(_("1 line yanked"));
+	    }
+#ifdef FEAT_VISUAL
+	    else if (oap->block_mode)
+		smsg((char_u *)_("block of %ld lines yanked"), yanklines);
+#endif
 	    else
 		smsg((char_u *)_("%ld lines yanked"), yanklines);
 	}
@@ -2830,6 +2977,15 @@ op_yank(oap, deleting, mess)
      */
     curbuf->b_op_start = oap->start;
     curbuf->b_op_end = oap->end;
+    if (yanktype == MLINE
+#ifdef FEAT_VISUAL
+		&& !oap->block_mode
+#endif
+       )
+    {
+	curbuf->b_op_start.col = 0;
+	curbuf->b_op_end.col = MAXCOL;
+    }
 
 #ifdef FEAT_CLIPBOARD
     /*
@@ -2929,10 +3085,11 @@ copy_yank_reg(reg)
 #endif
 
 /*
- * put contents of register "regname" into the text
- * flags: PUT_FIXINDENT	make indent look nice
- *	  PUT_CURSEND	leave cursor after end of new text
- *	  PUT_LINE	force linewise put (":put")
+ * Put contents of register "regname" into the text.
+ * Caller must check "regname" to be valid!
+ * "flags": PUT_FIXINDENT	make indent look nice
+ *	    PUT_CURSEND		leave cursor after end of new text
+ *	    PUT_LINE		force linewise put (":put")
  */
     void
 do_put(regname, dir, count, flags)
@@ -3065,6 +3222,9 @@ do_put(regname, dir, count, flags)
 	y_width = y_current->y_width;
 #endif
 	y_size = y_current->y_size;
+	if (Unix2003_compat && y_size > 1 && y_type == MCHAR && curwin->w_cursor.col == 0 && y_current->y_op_change) {
+	    y_type = MLINE;
+	}
 	y_array = y_current->y_array;
     }
 
@@ -3093,7 +3253,7 @@ do_put(regname, dir, count, flags)
 	if (flags & PUT_LINE_FORWARD)
 	{
 	    /* Must be "p" for a Visual block, put lines below the block. */
-	    curwin->w_cursor = curbuf->b_visual_end;
+	    curwin->w_cursor = curbuf->b_visual.vi_end;
 	    dir = FORWARD;
 	}
 	curbuf->b_op_start = curwin->w_cursor;	/* default for '[ mark */
@@ -3142,6 +3302,7 @@ do_put(regname, dir, count, flags)
 	    curwin->w_cursor.lnum = lnum - 1;
 	else
 	    curwin->w_cursor.lnum = lnum;
+	curbuf->b_op_start = curwin->w_cursor;	/* for mark_adjust() */
 #endif
     }
     else if (u_save_cursor() == FAIL)
@@ -3192,7 +3353,7 @@ do_put(regname, dir, count, flags)
 #ifdef FEAT_MBYTE
 	    if (has_mbyte)
 		/* move to start of next multi-byte character */
-		curwin->w_cursor.col += (*mb_ptr2len_check)(ml_get_cursor());
+		curwin->w_cursor.col += (*mb_ptr2len)(ml_get_cursor());
 	    else
 #endif
 #ifdef FEAT_VIRTUALEDIT
@@ -3222,6 +3383,7 @@ do_put(regname, dir, count, flags)
 	}
 	curwin->w_cursor.coladd = 0;
 #endif
+	bd.textcol = 0;
 	for (i = 0; i < y_size; ++i)
 	{
 	    int spaces;
@@ -3229,7 +3391,6 @@ do_put(regname, dir, count, flags)
 
 	    bd.startspaces = 0;
 	    bd.endspaces = 0;
-	    bd.textcol = 0;
 	    vcol = 0;
 	    delcount = 0;
 
@@ -3332,9 +3493,9 @@ do_put(regname, dir, count, flags)
 	/* adjust '] mark */
 	curbuf->b_op_end.lnum = curwin->w_cursor.lnum - 1;
 	curbuf->b_op_end.col = bd.textcol + totlen - 1;
-#ifdef FEAT_VIRTUALEDIT
+# ifdef FEAT_VIRTUALEDIT
 	curbuf->b_op_end.coladd = 0;
-#endif
+# endif
 	if (flags & PUT_CURSEND)
 	{
 	    curwin->w_cursor = curbuf->b_op_end;
@@ -3358,7 +3519,7 @@ do_put(regname, dir, count, flags)
 #ifdef FEAT_MBYTE
 		if (has_mbyte)
 		{
-		    int bytelen = (*mb_ptr2len_check)(ml_get_cursor());
+		    int bytelen = (*mb_ptr2len)(ml_get_cursor());
 
 		    /* put it on the next of the multi-byte character. */
 		    col += bytelen;
@@ -3379,7 +3540,6 @@ do_put(regname, dir, count, flags)
 		    }
 		}
 	    }
-	    new_cursor = curwin->w_cursor;
 	    curbuf->b_op_start = curwin->w_cursor;
 	}
 	/*
@@ -3387,6 +3547,7 @@ do_put(regname, dir, count, flags)
 	 */
 	else if (dir == BACKWARD)
 	    --lnum;
+	new_cursor = curwin->w_cursor;
 
 	/*
 	 * simple case: insert into current line
@@ -3434,6 +3595,7 @@ do_put(regname, dir, count, flags)
 		     * First insert y_array[size - 1] in front of second line.
 		     * Then append y_array[0] to first line.
 		     */
+		    lnum = new_cursor.lnum;
 		    ptr = ml_get(lnum) + col;
 		    totlen = (int)STRLEN(y_array[y_size - 1]);
 		    newp = alloc_check((unsigned)(STRLEN(ptr) + totlen + 1));
@@ -3504,15 +3666,7 @@ error:
 	    {
 		curbuf->b_op_start.col = 0;
 		if (dir == FORWARD)
-		{
-#ifdef FEAT_FOLDING
-		    /* a "p" inside a closed fold is like a "p" in the last
-		     * line of the fold */
-		    (void)hasFolding(curbuf->b_op_start.lnum, NULL,
-						    &curbuf->b_op_start.lnum);
-#endif
 		    curbuf->b_op_start.lnum++;
-		}
 	    }
 	    mark_adjust(curbuf->b_op_start.lnum + (y_type == MCHAR),
 					     (linenr_T)MAXLNUM, nr_lines, 0L);
@@ -3534,7 +3688,13 @@ error:
 	    else
 		curbuf->b_op_end.col = 0;
 
-	    if (flags & PUT_CURSEND)
+	    if (flags & PUT_CURSLINE)
+	    {
+		/* ":put": put cursor on last inserted line */
+		curwin->w_cursor.lnum = lnum;
+		beginline(BL_WHITE | BL_FIX);
+	    }
+	    else if (flags & PUT_CURSEND)
 	    {
 		/* put cursor after inserted text */
 		if (y_type == MLINE)
@@ -3553,7 +3713,7 @@ error:
 	    }
 	    else if (y_type == MLINE)
 	    {
-		/* put cursor onfirst non-blank in first inserted line */
+		/* put cursor on first non-blank in first inserted line */
 		curwin->w_cursor.col = 0;
 		if (dir == FORWARD)
 		    ++curwin->w_cursor.lnum;
@@ -3569,19 +3729,40 @@ error:
 
 end:
     if (allocated)
-    {
 	vim_free(insert_string);
-	if (regname == '=')
-	    vim_free(y_array);
-    }
-    if (gchar_cursor() == NUL
-	    && curwin->w_cursor.col > 0
+    if (regname == '=')
+	vim_free(y_array);
+
+    /* If the cursor is past the end of the line put it at the end. */
+    adjust_cursor_eol();
+}
+
+/*
+ * When the cursor is on the NUL past the end of the line and it should not be
+ * there move it left.
+ */
+    void
+adjust_cursor_eol()
+{
+    if (curwin->w_cursor.col > 0
+	    && gchar_cursor() == NUL
+#ifdef FEAT_VIRTUALEDIT
+	    && (ve_flags & VE_ONEMORE) == 0
+#endif
 	    && !(restart_edit || (State & INSERT)))
     {
-	--curwin->w_cursor.col;
+	/* Put the cursor on the last character in the line. */
+	dec_cursor();
+
 #ifdef FEAT_VIRTUALEDIT
 	if (ve_flags == VE_ALL)
-	    ++curwin->w_cursor.coladd;
+	{
+	    colnr_T	    scol, ecol;
+
+	    /* Coladd is set to the width of the last character. */
+	    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol);
+	    curwin->w_cursor.coladd = ecol - scol + 1;
+	}
 #endif
     }
 }
@@ -3654,9 +3835,14 @@ ex_display(eap)
     long		j;
     char_u		*p;
     struct yankreg	*yb;
-    char_u		name;
+    int			name;
     int			attr;
     char_u		*arg = eap->arg;
+#ifdef FEAT_MBYTE
+    int			clen;
+#else
+# define clen 1
+#endif
 
     if (arg != NULL && *arg == NUL)
 	arg = NULL;
@@ -3666,6 +3852,18 @@ ex_display(eap)
     MSG_PUTS_TITLE(_("\n--- Registers ---"));
     for (i = -1; i < NUM_REGISTERS && !got_int; ++i)
     {
+	name = get_register_name(i);
+	if (arg != NULL && vim_strchr(arg, name) == NULL)
+	    continue;	    /* did not ask for this register */
+
+#ifdef FEAT_CLIPBOARD
+	/* Adjust register name for "unnamed" in 'clipboard'.
+	 * When it's a clipboard register, fill it with the current contents
+	 * of the clipboard.  */
+	adjust_clip_reg(&name);
+	(void)may_get_selection(name);
+#endif
+
 	if (i == -1)
 	{
 	    if (y_previous != NULL)
@@ -3675,9 +3873,7 @@ ex_display(eap)
 	}
 	else
 	    yb = &(y_regs[i]);
-	name = get_register_name(i);
-	if (yb->y_array != NULL
-		&& (arg == NULL || vim_strchr(arg, name) != NULL))
+	if (yb->y_array != NULL)
 	{
 	    msg_putchar('\n');
 	    msg_putchar('"');
@@ -3694,10 +3890,12 @@ ex_display(eap)
 		}
 		for (p = yb->y_array[j]; *p && (n -= ptr2cells(p)) >= 0; ++p)
 		{
-		    msg_outtrans_len(p, 1);
 #ifdef FEAT_MBYTE
-		    if (has_mbyte)
-			p += (*mb_ptr2len_check)(p) - 1;
+		    clen = (*mb_ptr2len)(p);
+#endif
+		    msg_outtrans_len(p, clen);
+#ifdef FEAT_MBYTE
+		    p += clen - 1;
 #endif
 		}
 	    }
@@ -3796,7 +3994,7 @@ dis_msg(p, skip_esc)
 	    && (n -= ptr2cells(p)) >= 0)
     {
 #ifdef FEAT_MBYTE
-	if (has_mbyte && (l = (*mb_ptr2len_check)(p)) > 1)
+	if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
 	{
 	    msg_outtrans_len(p, l);
 	    p += l;
@@ -3816,6 +4014,8 @@ do_do_join(count, insert_space)
     long    count;
     int	    insert_space;
 {
+    colnr_T	col = MAXCOL;
+
     if (u_save((linenr_T)(curwin->w_cursor.lnum - 1),
 		    (linenr_T)(curwin->w_cursor.lnum + count)) == FAIL)
 	return;
@@ -3828,7 +4028,13 @@ do_do_join(count, insert_space)
 	    beep_flush();
 	    break;
 	}
+	if (col == MAXCOL && vim_strchr(p_cpo, CPO_JOINCOL) != NULL)
+	    col = curwin->w_cursor.col;
     }
+
+    /* Vi compatible: use the column of the first join */
+    if (col != MAXCOL && vim_strchr(p_cpo, CPO_JOINCOL) != NULL)
+	curwin->w_cursor.col = col;
 
 #if 0
     /*
@@ -3851,7 +4057,7 @@ do_join(insert_space)
     int		insert_space;
 {
     char_u	*curr;
-    char_u	*next;
+    char_u	*next, *next_start;
     char_u	*newp;
     int		endcurr1, endcurr2;
     int		currsize;	/* size of the current line */
@@ -3870,13 +4076,12 @@ do_join(insert_space)
 #ifdef FEAT_MBYTE
 	if (has_mbyte)
 	{
-	    next = curr + currsize - 1;
-	    next -= (*mb_head_off)(curr, next);
+	    next = curr + currsize;
+	    mb_ptr_back(curr, next);
 	    endcurr1 = (*mb_ptr2char)(next);
 	    if (next > curr)
 	    {
-		--next;
-		next -= (*mb_head_off)(curr, next);
+		mb_ptr_back(curr, next);
 		endcurr2 = (*mb_ptr2char)(next);
 	    }
 	}
@@ -3889,7 +4094,7 @@ do_join(insert_space)
 	}
     }
 
-    next = ml_get((linenr_T)(curwin->w_cursor.lnum + 1));
+    next = next_start = ml_get((linenr_T)(curwin->w_cursor.lnum + 1));
     spaces = 0;
     if (insert_space)
     {
@@ -3945,8 +4150,14 @@ do_join(insert_space)
      * Delete the following line. To do this we move the cursor there
      * briefly, and then move it back. After del_lines() the cursor may
      * have moved up (last line deleted), so the current lnum is kept in t.
+     *
+     * Move marks from the deleted line to the joined line, adjusting the
+     * column.  This is not Vi compatible, but Vi deletes the marks, thus that
+     * should not really be a problem.
      */
     t = curwin->w_cursor.lnum;
+    mark_col_adjust(t + 1, (colnr_T)0, (linenr_T)-1,
+			     (long)(currsize + spaces - (next - next_start)));
     ++curwin->w_cursor.lnum;
     del_lines(1L, FALSE);
     curwin->w_cursor.lnum = t;
@@ -3966,12 +4177,13 @@ do_join(insert_space)
 
 #ifdef FEAT_COMMENTS
 /*
- * Return TRUE if the two comment leaders given are the same.  The cursor is
- * in the first line.  White-space is ignored.	Note that the whole of
+ * Return TRUE if the two comment leaders given are the same.  "lnum" is
+ * the first line.  White-space is ignored.  Note that the whole of
  * 'leader1' must match 'leader2_len' characters from 'leader2' -- webb
  */
     static int
-same_leader(leader1_len, leader1_flags, leader2_len, leader2_flags)
+same_leader(lnum, leader1_len, leader1_flags, leader2_len, leader2_flags)
+    linenr_T lnum;
     int	    leader1_len;
     char_u  *leader1_flags;
     int	    leader2_len;
@@ -4002,7 +4214,7 @@ same_leader(leader1_len, leader1_flags, leader2_len, leader2_flags)
 		return FALSE;
 	    if (*p == COM_START)
 	    {
-		if (*(ml_get_curline() + leader1_len) == NUL)
+		if (*(ml_get(lnum) + leader1_len) == NUL)
 		    return FALSE;
 		if (leader2_flags == NULL || leader2_len == 0)
 		    return FALSE;
@@ -4018,12 +4230,12 @@ same_leader(leader1_len, leader1_flags, leader2_len, leader2_flags)
      * Get current line and next line, compare the leaders.
      * The first line has to be saved, only one line can be locked at a time.
      */
-    line1 = vim_strsave(ml_get_curline());
+    line1 = vim_strsave(ml_get(lnum));
     if (line1 != NULL)
     {
 	for (idx1 = 0; vim_iswhite(line1[idx1]); ++idx1)
 	    ;
-	line2 = ml_get(curwin->w_cursor.lnum + 1);
+	line2 = ml_get(lnum + 1);
 	for (idx2 = 0; idx2 < leader2_len; ++idx2)
 	{
 	    if (!vim_iswhite(line2[idx2]))
@@ -4045,14 +4257,20 @@ same_leader(leader1_len, leader1_flags, leader2_len, leader2_flags)
  * implementation of the format operator 'gq'
  */
     void
-op_format(oap)
+op_format(oap, keep_cursor)
     oparg_T	*oap;
+    int		keep_cursor;		/* keep cursor on same text char */
 {
     long	old_line_count = curbuf->b_ml.ml_line_count;
+
+    /* Place the cursor where the "gq" or "gw" command was given, so that "u"
+     * can put it back there. */
+    curwin->w_cursor = oap->cursor_start;
 
     if (u_save((linenr_T)(oap->start.lnum - 1),
 				       (linenr_T)(oap->end.lnum + 1)) == FAIL)
 	return;
+    curwin->w_cursor = oap->start;
 
 #ifdef FEAT_VISUAL
     if (oap->is_VIsual)
@@ -4062,6 +4280,11 @@ op_format(oap)
 
     /* Set '[ mark at the start of the formatted area */
     curbuf->b_op_start = oap->start;
+
+    /* For "gw" remember the cursor position and put it back below (adjusted
+     * for joined and split lines). */
+    if (keep_cursor)
+	saved_cursor = oap->cursor_start;
 
     format_lines(oap->line_count);
 
@@ -4078,6 +4301,12 @@ op_format(oap)
 
     /* put '] mark on the end of the formatted area */
     curbuf->b_op_end = curwin->w_cursor;
+
+    if (keep_cursor)
+    {
+	curwin->w_cursor = saved_cursor;
+	saved_cursor.lnum = 0;
+    }
 
 #ifdef FEAT_VISUAL
     if (oap->is_VIsual)
@@ -4099,6 +4328,71 @@ op_format(oap)
     }
 #endif
 }
+
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Implementation of the format operator 'gq' for when using 'formatexpr'.
+ */
+    void
+op_formatexpr(oap)
+    oparg_T	*oap;
+{
+# ifdef FEAT_VISUAL
+    if (oap->is_VIsual)
+	/* When there is no change: need to remove the Visual selection */
+	redraw_curbuf_later(INVERTED);
+# endif
+
+    (void)fex_format(oap->start.lnum, oap->line_count, NUL);
+}
+
+    int
+fex_format(lnum, count, c)
+    linenr_T	lnum;
+    long	count;
+    int		c;	/* character to be inserted */
+{
+    int		use_sandbox = was_set_insecurely((char_u *)"formatexpr",
+								   OPT_LOCAL);
+    int		r;
+#ifdef FEAT_MBYTE
+    char_u	buf[MB_MAXBYTES];
+#else
+    char_u	buf[2];
+#endif
+
+    /*
+     * Set v:lnum to the first line number and v:count to the number of lines.
+     * Set v:char to the character to be inserted (can be NUL).
+     */
+    set_vim_var_nr(VV_LNUM, lnum);
+    set_vim_var_nr(VV_COUNT, count);
+
+#ifdef FEAT_MBYTE
+    if (has_mbyte)
+	buf[(*mb_char2bytes)(c, buf)] = NUL;
+    else
+#endif
+    {
+	buf[0] = c;
+	buf[1] = NUL;
+    }
+    set_vim_var_string(VV_CHAR, buf, -1);
+
+    /*
+     * Evaluate the function.
+     */
+    if (use_sandbox)
+	++sandbox;
+    r = eval_to_number(curbuf->b_p_fex);
+    if (use_sandbox)
+	--sandbox;
+
+    set_vim_var_string(VV_CHAR, NULL, -1);
+
+    return r;
+}
+#endif
 
 /*
  * Format "line_count" lines, starting at the cursor position.
@@ -4246,7 +4540,8 @@ format_lines(line_count)
 	     */
 	    if (curwin->w_cursor.lnum >= curbuf->b_ml.ml_line_count
 #ifdef FEAT_COMMENTS
-		    || !same_leader(leader_len, leader_flags,
+		    || !same_leader(curwin->w_cursor.lnum,
+					leader_len, leader_flags,
 					  next_leader_len, next_leader_flags)
 #endif
 		    )
@@ -4306,7 +4601,10 @@ format_lines(line_count)
 		if (line_count < 0 && u_save_cursor() == FAIL)
 			break;
 #ifdef FEAT_COMMENTS
-		(void)del_bytes((long)next_leader_len, FALSE);
+		(void)del_bytes((long)next_leader_len, FALSE, FALSE);
+		if (next_leader_len > 0)
+		    mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
+						      (long)-next_leader_len);
 #endif
 		curwin->w_cursor.lnum--;
 		if (do_join(TRUE) == FAIL)
@@ -4334,8 +4632,14 @@ ends_in_white(lnum)
     linenr_T	lnum;
 {
     char_u	*s = ml_get(lnum);
+    size_t	l;
 
-    return (*s != NUL && vim_iswhite(s[STRLEN(s) - 1]));
+    if (*s == NUL)
+	return FALSE;
+    /* Don't use STRLEN() inside vim_iswhite(), SAS/C complains: "macro
+     * invocation may call function multiple times". */
+    l = STRLEN(s) - 1;
+    return vim_iswhite(s[l]);
 }
 
 /*
@@ -4385,6 +4689,62 @@ fmt_check_par(lnum)
     return (*skipwhite(ml_get(lnum)) == NUL || startPS(lnum, NUL, FALSE));
 }
 #endif
+
+/*
+ * Return TRUE when a paragraph starts in line "lnum".  Return FALSE when the
+ * previous line is in the same paragraph.  Used for auto-formatting.
+ */
+    int
+paragraph_start(lnum)
+    linenr_T	lnum;
+{
+    char_u	*p;
+#ifdef FEAT_COMMENTS
+    int		leader_len = 0;		/* leader len of current line */
+    char_u	*leader_flags = NULL;	/* flags for leader of current line */
+    int		next_leader_len;	/* leader len of next line */
+    char_u	*next_leader_flags;	/* flags for leader of next line */
+    int		do_comments;		/* format comments */
+#endif
+
+    if (lnum <= 1)
+	return TRUE;		/* start of the file */
+
+    p = ml_get(lnum - 1);
+    if (*p == NUL)
+	return TRUE;		/* after empty line */
+
+#ifdef FEAT_COMMENTS
+    do_comments = has_format_option(FO_Q_COMS);
+#endif
+    if (fmt_check_par(lnum - 1
+#ifdef FEAT_COMMENTS
+				, &leader_len, &leader_flags, do_comments
+#endif
+		))
+	return TRUE;		/* after non-paragraph line */
+
+    if (fmt_check_par(lnum
+#ifdef FEAT_COMMENTS
+			   , &next_leader_len, &next_leader_flags, do_comments
+#endif
+		))
+	return TRUE;		/* "lnum" is not a paragraph line */
+
+    if (has_format_option(FO_WHITE_PAR) && !ends_in_white(lnum - 1))
+	return TRUE;		/* missing trailing space in previous line. */
+
+    if (has_format_option(FO_Q_NUMBER) && (get_number_indent(lnum) > 0))
+	return TRUE;		/* numbered item starts in "lnum". */
+
+#ifdef FEAT_COMMENTS
+    if (!same_leader(lnum - 1, leader_len, leader_flags,
+					  next_leader_len, next_leader_flags))
+	return TRUE;		/* change of comment leader. */
+#endif
+
+    return FALSE;
+}
 
 #ifdef FEAT_VISUAL
 /*
@@ -4448,12 +4808,7 @@ block_prep(oap, bdp, lnum, is_del)
 	}
 #endif
 	prev_pstart = pstart;
-#ifdef FEAT_MBYTE
-	if (has_mbyte)
-	    pstart += (*mb_ptr2len_check)(pstart);
-	else
-#endif
-	    ++pstart;
+	mb_ptr_adv(pstart);
     }
     bdp->start_char_vcols = incr;
     if (bdp->start_vcol < oap->start_vcol)	/* line too short */
@@ -4524,7 +4879,7 @@ block_prep(oap, bdp, lnum, is_del)
 		/* if (!is_del || oap->op_type == OP_APPEND) */
 		if (oap->op_type == OP_APPEND || virtual_op)
 		    bdp->endspaces = oap->end_vcol - bdp->end_vcol
-					+ oap->inclusive;
+							     + oap->inclusive;
 		else
 		    bdp->endspaces = 0; /* replace doesn't add characters */
 	    }
@@ -4535,7 +4890,7 @@ block_prep(oap, bdp, lnum, is_del)
 		{
 		    bdp->endspaces = incr - bdp->endspaces;
 		    if (pend != pstart)
-		    pend = prev_pend;
+			pend = prev_pend;
 		}
 	    }
 	}
@@ -4592,7 +4947,7 @@ do_addsub(command, Prenum1)
     char_u	buf2[NUMBUFLEN];
     int		hex;		/* 'X' or 'x': hex; '0': octal */
     static int	hexupper = FALSE;	/* 0xABC */
-    long_u	n;
+    unsigned long n;
     long_u	oldn;
     char_u	*ptr;
     int		c;
@@ -4617,14 +4972,14 @@ do_addsub(command, Prenum1)
      */
     col = curwin->w_cursor.col;
     if (dohex)
-	while (col > 0 && isxdigit(ptr[col]))
+	while (col > 0 && vim_isxdigit(ptr[col]))
 	    --col;
     if (       dohex
 	    && col > 0
 	    && (ptr[col] == 'X'
 		|| ptr[col] == 'x')
 	    && ptr[col - 1] == '0'
-	    && isxdigit(ptr[col + 1]))
+	    && vim_isxdigit(ptr[col + 1]))
     {
 	/*
 	 * Found hexadecimal number, move to its start.
@@ -4639,26 +4994,22 @@ do_addsub(command, Prenum1)
 	col = curwin->w_cursor.col;
 
 	while (ptr[col] != NUL
-		&& !isdigit(ptr[col])
+		&& !vim_isdigit(ptr[col])
 		&& !(doalp && ASCII_ISALPHA(ptr[col])))
 	    ++col;
 
 	while (col > 0
-		&& isdigit(ptr[col - 1])
+		&& vim_isdigit(ptr[col - 1])
 		&& !(doalp && ASCII_ISALPHA(ptr[col])))
 	    --col;
     }
-
-    /* truncate to max length of a number */
-    if (length >= NUMBUFLEN - 1)
-	length = NUMBUFLEN - 2;
 
     /*
      * If a number was found, and saving for undo works, replace the number.
      */
     firstdigit = ptr[col];
     RLADDSUBFIX(ptr);
-    if ((!isdigit(firstdigit) && !(doalp && ASCII_ISALPHA(firstdigit)))
+    if ((!VIM_ISDIGIT(firstdigit) && !(doalp && ASCII_ISALPHA(firstdigit)))
 	    || u_save_cursor() != OK)
     {
 	beep_flush();
@@ -4828,10 +5179,12 @@ do_addsub(command, Prenum1)
 	length -= (int)STRLEN(buf2);
 
 	/*
-	 * adjust number of zeros to the new number of digits, so the
-	 * total length of the number remains the same
+	 * Adjust number of zeros to the new number of digits, so the
+	 * total length of the number remains the same.
+	 * Don't do this when
+	 * the result may look like an octal number.
 	 */
-	if (firstdigit == '0')
+	if (firstdigit == '0' && !(dooct && hex == 0))
 	    while (length-- > 0)
 		*ptr++ = '0';
 	*ptr = NUL;
@@ -4957,11 +5310,19 @@ write_viminfo_registers(fp)
     char_u  c;
     int	    num_lines;
     int	    max_num_lines;
+    int	    max_kbyte;
+    long    len;
 
     fprintf(fp, _("\n# Registers:\n"));
 
-    max_num_lines = get_viminfo_parameter('"');
+    /* Get '<' value, use old '"' value if '<' is not found. */
+    max_num_lines = get_viminfo_parameter('<');
+    if (max_num_lines < 0)
+	max_num_lines = get_viminfo_parameter('"');
     if (max_num_lines == 0)
+	return;
+    max_kbyte = get_viminfo_parameter('s');
+    if (max_kbyte == 0)
 	return;
     for (i = 0; i < NUM_REGISTERS; i++)
     {
@@ -4977,6 +5338,23 @@ write_viminfo_registers(fp)
 	if (i == TILDE_REGISTER)
 	    continue;
 #endif
+	/* Skip empty registers. */
+	num_lines = y_regs[i].y_size;
+	if (num_lines == 0
+		|| (num_lines == 1 && y_regs[i].y_type == MCHAR
+					&& STRLEN(y_regs[i].y_array[0]) == 0))
+	    continue;
+
+	if (max_kbyte > 0)
+	{
+	    /* Skip register if there is more text than the maximum size. */
+	    len = 0;
+	    for (j = 0; j < num_lines; j++)
+		len += (long)STRLEN(y_regs[i].y_array[j]) + 1L;
+	    if (len > (long)max_kbyte * 1024L)
+		continue;
+	}
+
 	switch (y_regs[i].y_type)
 	{
 	    case MLINE:
@@ -4992,7 +5370,7 @@ write_viminfo_registers(fp)
 #endif
 	    default:
 		sprintf((char *)IObuff, _("E574: Unknown register type %d"),
-		    y_regs[i].y_type);
+							    y_regs[i].y_type);
 		emsg(IObuff);
 		type = (char_u *)"LINE";
 		break;
@@ -5007,7 +5385,6 @@ write_viminfo_registers(fp)
 		    0
 #endif
 		    );
-	num_lines = y_regs[i].y_size;
 
 	/* If max_num_lines < 0, then we save ALL the lines in the register */
 	if (max_num_lines > 0 && num_lines > max_num_lines)
@@ -5151,6 +5528,7 @@ clip_get_selection(cbd)
 	y_previous = old_y_previous;
 	y_current = old_y_current;
 	curwin->w_cursor = old_cursor;
+	changed_cline_bef_curs();   /* need to update w_virtcol et al */
 	curwin->w_curswant = old_curswant;
 	curwin->w_set_curswant = old_set_curswant;
 	curbuf->b_op_start = old_op_start;
@@ -5190,7 +5568,7 @@ clip_yank_selection(type, str, len, cbd)
 }
 
 /*
- * Convert the '*'/'*' register into a GUI selection string returned in *str
+ * Convert the '*'/'+' register into a GUI selection string returned in *str
  * with length *len.
  * Returns the motion type, or -1 for failure.
  */
@@ -5228,10 +5606,10 @@ clip_convert_selection(str, len, cbd)
     /*
      * Don't want newline character at end of last line if we're in MCHAR mode.
      */
-    if (y_ptr->y_type == MCHAR && *len > eolsize)
+    if (y_ptr->y_type == MCHAR && *len >= eolsize)
 	*len -= eolsize;
 
-    p = *str = lalloc(*len, TRUE);
+    p = *str = lalloc(*len + 1, TRUE);	/* add one to avoid zero */
     if (p == NULL)
 	return -1;
     lnum = 0;
@@ -5355,9 +5733,10 @@ get_reg_type(regname, reglen)
  * Returns NULL for error.
  */
     char_u *
-get_reg_contents(regname, allowexpr)
+get_reg_contents(regname, allowexpr, expr_src)
     int		regname;
-    int		allowexpr;	/* allow "=" register. */
+    int		allowexpr;	/* allow "=" register */
+    int		expr_src;	/* get expression for "=" register */
 {
     long	i;
     char_u	*retval;
@@ -5368,7 +5747,11 @@ get_reg_contents(regname, allowexpr)
     if (regname == '=')
     {
 	if (allowexpr)
+	{
+	    if (expr_src)
+		return get_expr_line_src();
 	    return get_expr_line();
+	}
 	return NULL;
     }
 
@@ -5468,6 +5851,11 @@ write_reg_contents_ex(name, str, maxlen, must_append, yank_type, block_len)
     struct yankreg  *old_y_previous, *old_y_current;
     long	    len;
 
+    if (maxlen >= 0)
+	len = maxlen;
+    else
+	len = (long)STRLEN(str);
+
     /* Special case: '/' search pattern */
     if (name == '/')
     {
@@ -5475,9 +5863,29 @@ write_reg_contents_ex(name, str, maxlen, must_append, yank_type, block_len)
 	return;
     }
 
+#ifdef FEAT_EVAL
+    if (name == '=')
+    {
+	char_u	    *p, *s;
+
+	p = vim_strnsave(str, (int)len);
+	if (p == NULL)
+	    return;
+	if (must_append)
+	{
+	    s = concat_str(get_expr_line_src(), p);
+	    vim_free(p);
+	    p = s;
+
+	}
+	set_expr_line(p);
+	return;
+    }
+#endif
+
     if (!valid_yank_reg(name, TRUE))	    /* check for valid reg name */
     {
-	EMSG2(_("E354: Invalid register name: '%s'"), transchar(name));
+	emsg_invreg(name);
 	return;
     }
 
@@ -5491,10 +5899,6 @@ write_reg_contents_ex(name, str, maxlen, must_append, yank_type, block_len)
     get_yank_register(name, TRUE);
     if (!y_append && !must_append)
 	free_yank_all();
-    if (maxlen >= 0)
-	len = maxlen;
-    else
-	len = (long)STRLEN(str);
 #ifndef FEAT_VISUAL
     /* Just in case - make sure we don't use MBLOCK */
     if (yank_type == MBLOCK)
@@ -5604,10 +6008,9 @@ str_to_reg(y_ptr, type, str, len, blocklen)
 	if (s == NULL)
 	    break;
 	if (extra)
-	{
 	    mch_memmove(s, y_ptr->y_array[lnum], (size_t)extra);
+	if (append)
 	    vim_free(y_ptr->y_array[lnum]);
-	}
 	if (i)
 	    mch_memmove(s + extra, str + start, (size_t)i);
 	extra += i;
@@ -5639,16 +6042,16 @@ clear_oparg(oap)
     vim_memset(oap, 0, sizeof(oparg_T));
 }
 
-static long	line_count_info __ARGS((char_u *line, long *wc, long limit, int eol_size));
+static long	line_count_info __ARGS((char_u *line, long *wc, long *cc, long limit, int eol_size));
 
 /*
- *  Count the number of characters and "words" in a line.
+ *  Count the number of bytes, characters and "words" in a line.
  *
  *  "Words" are counted by looking for boundaries between non-space and
  *  space characters.  (it seems to produce results that match 'wc'.)
  *
- *  Return value is character count; word count for the line is ADDED
- *  to "*wc".
+ *  Return value is byte count; word count for the line is added to "*wc".
+ *  Char count is added to "*cc".
  *
  *  The function will only examine the first "limit" characters in the
  *  line, stopping if it encounters an end-of-line (NUL byte).  In that
@@ -5656,16 +6059,19 @@ static long	line_count_info __ARGS((char_u *line, long *wc, long limit, int eol_
  *  the size of the EOL character.
  */
     static long
-line_count_info(line, wc, limit, eol_size)
+line_count_info(line, wc, cc, limit, eol_size)
     char_u	*line;
     long	*wc;
+    long	*cc;
     long	limit;
     int		eol_size;
 {
-    long	i, words = 0;
+    long	i;
+    long	words = 0;
+    long	chars = 0;
     int		is_word = 0;
 
-    for (i = 0; line[i] && i < limit; i++)
+    for (i = 0; line[i] && i < limit; )
     {
 	if (is_word)
 	{
@@ -5677,6 +6083,12 @@ line_count_info(line, wc, limit, eol_size)
 	}
 	else if (!vim_isspace(line[i]))
 	    is_word = 1;
+	++chars;
+#ifdef FEAT_MBYTE
+	i += (*mb_ptr2len)(line + i);
+#else
+	++i;
+#endif
     }
 
     if (is_word)
@@ -5684,8 +6096,12 @@ line_count_info(line, wc, limit, eol_size)
     *wc += words;
 
     /* Add eol_size if the end of line was reached before hitting limit. */
-    if (!line[i] && i < limit)
+    if (line[i] == NUL && i < limit)
+    {
 	i += eol_size;
+	chars += eol_size;
+    }
+    *cc += chars;
     return i;
 }
 
@@ -5698,15 +6114,17 @@ line_count_info(line, wc, limit, eol_size)
 cursor_pos_info()
 {
     char_u	*p;
-    char_u	buf1[20];
-    char_u	buf2[20];
+    char_u	buf1[50];
+    char_u	buf2[40];
     linenr_T	lnum;
+    long	byte_count = 0;
+    long	byte_count_cursor = 0;
     long	char_count = 0;
     long	char_count_cursor = 0;
-    int		eol_size;
-    long	last_check = 100000L;
     long	word_count = 0;
     long	word_count_cursor = 0;
+    int		eol_size;
+    long	last_check = 100000L;
 #ifdef FEAT_VISUAL
     long	line_count_selected = 0;
     pos_T	min_pos, max_pos;
@@ -5750,7 +6168,9 @@ cursor_pos_info()
 		oparg.block_mode = TRUE;
 		oparg.op_type = OP_NOP;
 		getvcols(curwin, &min_pos, &max_pos,
-			&oparg.start_vcol, &oparg.end_vcol);
+					  &oparg.start_vcol, &oparg.end_vcol);
+		if (curwin->w_curswant == MAXCOL)
+		    oparg.end_vcol = MAXCOL;
 		/* Swap the start, end vcol if needed */
 		if (oparg.end_vcol < oparg.start_vcol)
 		{
@@ -5766,12 +6186,12 @@ cursor_pos_info()
 	for (lnum = 1; lnum <= curbuf->b_ml.ml_line_count; ++lnum)
 	{
 	    /* Check for a CTRL-C every 100000 characters. */
-	    if (char_count > last_check)
+	    if (byte_count > last_check)
 	    {
 		ui_breakcheck();
 		if (got_int)
 		    return;
-		last_check = char_count + 100000L;
+		last_check = byte_count + 100000L;
 	    }
 
 #ifdef FEAT_VISUAL
@@ -5779,6 +6199,9 @@ cursor_pos_info()
 	    if (VIsual_active
 		    && lnum >= min_pos.lnum && lnum <= max_pos.lnum)
 	    {
+		char_u	    *s = NULL;
+		long	    len = 0L;
+
 		switch (VIsual_mode)
 		{
 		    case Ctrl_V:
@@ -5789,12 +6212,12 @@ cursor_pos_info()
 # ifdef FEAT_VIRTUALEDIT
 			virtual_op = MAYBE;
 # endif
-			char_count_cursor += line_count_info(bd.textstart,
-				&word_count_cursor, (long)bd.textlen, eol_size);
+			s = bd.textstart;
+			len = (long)bd.textlen;
 			break;
 		    case 'V':
-			char_count_cursor += line_count_info(ml_get(lnum),
-				&word_count_cursor, (long)MAXCOL, eol_size);
+			s = ml_get(lnum);
+			len = MAXCOL;
 			break;
 		    case 'v':
 			{
@@ -5803,11 +6226,20 @@ cursor_pos_info()
 			    colnr_T end_col = (lnum == max_pos.lnum)
 				      ? max_pos.col - start_col + 1 : MAXCOL;
 
-			    char_count_cursor +=
-				line_count_info(ml_get(lnum) + start_col,
-				 &word_count_cursor, (long)end_col, eol_size);
+			    s = ml_get(lnum) + start_col;
+			    len = end_col;
 			}
 			break;
+		}
+		if (s != NULL)
+		{
+		    byte_count_cursor += line_count_info(s, &word_count_cursor,
+					   &char_count_cursor, len, eol_size);
+		    if (lnum == curbuf->b_ml.ml_line_count
+			    && !curbuf->b_p_eol
+			    && curbuf->b_p_bin
+			    && (long)STRLEN(s) < len)
+			byte_count_cursor -= eol_size;
 		}
 	    }
 	    else
@@ -5817,39 +6249,49 @@ cursor_pos_info()
 		if (lnum == curwin->w_cursor.lnum)
 		{
 		    word_count_cursor += word_count;
-		    char_count_cursor = char_count +
-			line_count_info(ml_get(lnum), &word_count_cursor,
+		    char_count_cursor += char_count;
+		    byte_count_cursor = byte_count +
+			line_count_info(ml_get(lnum),
+				&word_count_cursor, &char_count_cursor,
 				  (long)(curwin->w_cursor.col + 1), eol_size);
 		}
 	    }
 	    /* Add to the running totals */
-	    char_count += line_count_info(ml_get(lnum), &word_count,
-						      (long)MAXCOL, eol_size);
+	    byte_count += line_count_info(ml_get(lnum), &word_count,
+					 &char_count, (long)MAXCOL, eol_size);
 	}
 
 	/* Correction for when last line doesn't have an EOL. */
 	if (!curbuf->b_p_eol && curbuf->b_p_bin)
-	    char_count -= eol_size;
+	    byte_count -= eol_size;
 
 #ifdef FEAT_VISUAL
 	if (VIsual_active)
 	{
-	    if (VIsual_mode == Ctrl_V)
+	    if (VIsual_mode == Ctrl_V && curwin->w_curswant < MAXCOL)
 	    {
 		getvcols(curwin, &min_pos, &max_pos, &min_pos.col,
-			&max_pos.col);
+								&max_pos.col);
 		sprintf((char *)buf1, _("%ld Cols; "),
 			(long)(oparg.end_vcol - oparg.start_vcol + 1));
 	    }
 	    else
 		buf1[0] = NUL;
 
-	    sprintf((char *)IObuff,
-	    _("Selected %s%ld of %ld Lines; %ld of %ld Words; %ld of %ld Bytes"),
+	    if (char_count_cursor == byte_count_cursor
+						  && char_count == byte_count)
+		sprintf((char *)IObuff, _("Selected %s%ld of %ld Lines; %ld of %ld Words; %ld of %ld Bytes"),
 			buf1, line_count_selected,
 			(long)curbuf->b_ml.ml_line_count,
 			word_count_cursor, word_count,
-			char_count_cursor, char_count);
+			byte_count_cursor, byte_count);
+	    else
+		sprintf((char *)IObuff, _("Selected %s%ld of %ld Lines; %ld of %ld Words; %ld of %ld Chars; %ld of %ld Bytes"),
+			buf1, line_count_selected,
+			(long)curbuf->b_ml.ml_line_count,
+			word_count_cursor, word_count,
+			char_count_cursor, char_count,
+			byte_count_cursor, byte_count);
 	}
 	else
 #endif
@@ -5860,20 +6302,29 @@ cursor_pos_info()
 		    (int)curwin->w_virtcol + 1);
 	    col_print(buf2, (int)STRLEN(p), linetabsize(p));
 
-	    sprintf((char *)IObuff,
-		_("Col %s of %s; Line %ld of %ld; Word %ld of %ld; Byte %ld of %ld"),
+	    if (char_count_cursor == byte_count_cursor
+		    && char_count == byte_count)
+		sprintf((char *)IObuff, _("Col %s of %s; Line %ld of %ld; Word %ld of %ld; Byte %ld of %ld"),
 		    (char *)buf1, (char *)buf2,
 		    (long)curwin->w_cursor.lnum,
 		    (long)curbuf->b_ml.ml_line_count,
 		    word_count_cursor, word_count,
-		    char_count_cursor, char_count);
+		    byte_count_cursor, byte_count);
+	    else
+		sprintf((char *)IObuff, _("Col %s of %s; Line %ld of %ld; Word %ld of %ld; Char %ld of %ld; Byte %ld of %ld"),
+		    (char *)buf1, (char *)buf2,
+		    (long)curwin->w_cursor.lnum,
+		    (long)curbuf->b_ml.ml_line_count,
+		    word_count_cursor, word_count,
+		    char_count_cursor, char_count,
+		    byte_count_cursor, byte_count);
 	}
 
 #ifdef FEAT_MBYTE
-	char_count = bomb_size();
-	if (char_count > 0)
+	byte_count = bomb_size();
+	if (byte_count > 0)
 	    sprintf((char *)IObuff + STRLEN(IObuff), _("(+%ld for BOM)"),
-								  char_count);
+								  byte_count);
 #endif
 	/* Don't shorten this message, the user asked for it. */
 	p = p_shm;

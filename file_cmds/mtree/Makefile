@@ -14,16 +14,17 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h mtree.h
 
-CFILES = compare.c create.c excludes.c misc.c mtree.c spec.c verify.c
+CFILES = compare.c create.c excludes.c misc.c mtree.c spec.c specspec.c verify.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble mtree.8
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID -DENABLE_MD5 -DENABLE_RMD160 -DENABLE_SHA1
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
-LIBS = 
+LIBS = -lmd -lcrypto
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

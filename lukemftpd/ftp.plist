@@ -28,5 +28,7 @@
 			<true/>
 		</dict>
 	</dict>
+	<key>SHAuthorizationRight</key>
+	<string>system.preferences</string>
 </dict>
 </plist>

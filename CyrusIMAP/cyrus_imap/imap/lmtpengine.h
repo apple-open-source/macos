@@ -1,5 +1,5 @@
 /* lmtpengine.h: lmtp protocol engine interface
- * $Id: lmtpengine.h,v 1.6 2005/08/10 21:38:18 dasenbro Exp $
+ * $Id: lmtpengine.h,v 1.23 2006/11/30 17:11:18 murch Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -82,9 +82,14 @@ int msg_getsize(message_data_t *m);
 int msg_getnumrcpt(message_data_t *m);
 
 /* return delivery destination of recipient 'rcpt_num' */
+#ifdef APPLE_OS_X_SERVER
 void msg_getrcpt(message_data_t *m, int rcpt_num,
 		 const char **user, const char **domain, const char **mailbox,
 		 const char **auto_fwd);
+#else
+void msg_getrcpt(message_data_t *m, int rcpt_num,
+		 const char **user, const char **domain, const char **mailbox);
+#endif
 
 /* return entire recipient of 'rcpt_num' */
 const char *msg_getrcptall(message_data_t *m, int rcpt_num);
@@ -107,7 +112,7 @@ struct addheader {
 struct lmtp_func {
     int (*deliver)(message_data_t *m, 
 		   char *authuser, struct auth_state *authstate);
-    int (*verify_user)(const char *user, const char *domain, const char *mailbox,
+    int (*verify_user)(const char *user, const char *domain, char *mailbox,
 		       long quotacheck, /* user must have this much quota left
 					   (-1 means don't care about quota) */
 		       struct auth_state *authstate);

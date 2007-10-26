@@ -1,19 +1,23 @@
 // { dg-do assemble  }
 // GROUPS passed templates default-arguments
 template <class I>
-class Class {
+// APPLE LOCAL mainline 2006-10-13 3904173
+class Klasse {
 public:
   void func1(int n=1);
   void func2(int d) {}
 };
 template <class I> 
-void Class<I>::func1(int n) {}
+// APPLE LOCAL mainline 2006-10-13 3904173
+void Klasse<I>::func1(int n) {}
 
 //if this is replaced by:
-//void Class<I>::func1(int n=1) {}
+// APPLE LOCAL mainline 2006-10-13 3904173
+//void Klasse<I>::func1(int n=1) {}
 //the code compiles.
 
 int main() {
-  Class<int> C;
+  // APPLE LOCAL mainline 2006-10-13 3904173
+  Klasse<int> C;
   return 0;
 }

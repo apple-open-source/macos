@@ -1,6 +1,6 @@
 #!/bin/sh
 # 
-# Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 1999-2007 Apple Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -47,34 +47,71 @@
 # the rights to redistribute these changes.
 #
 
-C=${MIGCC-/usr/bin/cc}
-M=${MIGCOM-${NEXT_ROOT}/usr/libexec/migcom}
+# 07/12/07 - gab: <rdar://problems/5202843>
+# added logic to determine location of script, so that proper location
+# of helper tools can be found relative to location of script.
+# (Thanks to rgm for the scripting help.)
+
+realpath()
+{
+	local FILE="$1"
+	local PARENT=$(dirname "$FILE")
+	local BASE=$(basename "$FILE")
+	pushd "$PARENT" >/dev/null 2>&1 || return 0
+	local DIR=$(pwd -P)
+	popd >/dev/null
+	if [ "$DIR" == "/" ]; then
+		echo "/$BASE"
+	else
+		echo "$DIR/$BASE"
+	fi
+	return 1
+}
+
+scriptPath=$(realpath "$0")
+scriptRoot=$(dirname "$scriptPath")
+ccPath=$(realpath "${scriptRoot}/cc")
+migcomPath=$(realpath "${scriptRoot}/../libexec/migcom")
+
+C=${MIGCC-${ccPath}}
+M=${MIGCOM-${NEXT_ROOT}${migcomPath}}
 
 cppflags="-D__MACH30__"
-migflags=
+
 files=
 arch=`/usr/bin/arch`
 
+WORKTMP=`/usr/bin/mktemp -d "${TMPDIR:-/tmp}/mig.XXXXXX"` 
+if [ $? -ne 0 ]; then
+      echo "Failure creating temporary work directory: ${WORKTMP}"
+      echo "Exiting..."
+      exit 1
+fi
+
 # parse out the arguments until we hit plain file name(s)
+
+# 05/08/07 - gab: <rdar://problem/5175104>
+# use array to collect all migcom parameters, to include proper quoting around pathname
+# parameters that may contain whitespace.
 
 until [ $# -eq 0 ]
 do
     case "$1" in
-	-[dtqkKQvVtTrRsSlLxX] ) migflags="$migflags $1"; shift;;
-	-i	) sawI=1; migflags="$migflags $1 $2"; shift; shift;;
-	-user   ) user="$2"; if [ ! "${sawI-}" ]; then migflags="$migflags $1 $2"; fi; shift; shift;;
-	-server ) server="$2"; migflags="$migflags $1 $2"; shift; shift;;
-	-header ) header="$2"; migflags="$migflags $1 $2"; shift; shift;;
-	-sheader ) sheader="$2"; migflags="$migflags $1 $2"; shift; shift;;
-	-iheader ) iheader="$2"; migflags="$migflags $1 $2"; shift; shift;;
-	-dheader ) dheader="$2"; migflags="$migflags $1 $2"; shift; shift;;
-	-arch ) arch="$2"; shift ; shift;;
-	-maxonstack ) migflags="$migflags $1 $2"; shift; shift;;
-	-split ) migflags="$migflags $1"; shift;;
+	-[dtqkKQvVtTrRsSlLxX] ) migflags=( "${migflags[@]}" "$1" ); shift;;
+	-i	) sawI=1; migflags=( "${migflags[@]}" "$1" "$2" ); shift; shift;;
+	-user   )  user="$2"; if [ ! "${sawI-}" ]; then migflags=( "${migflags[@]}" "$1" "$2" ); fi; shift; shift;;
+	-server )  server="$2";  migflags=( "${migflags[@]}" "$1" "$2" ); shift; shift;;
+	-header )  header="$2";  migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+	-sheader ) sheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+	-iheader ) iheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+	-dheader ) dheader="$2"; migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+	-arch ) arch="$2"; shift; shift;;
+	-maxonstack ) migflags=( "${migflags[@]}" "$1" "$2"); shift; shift;;
+	-split ) migflags=( "${migflags[@]}" "$1" ); shift;;
 	-MD ) sawMD=1; cppflags="$cppflags $1"; shift;;
 	-cpp) shift; shift;;
-	-cc) C=$2; shift; shift;;
-	-migcom) M=$2; shift; shift;;
+	-cc) C="$2"; shift; shift;;
+	-migcom) M="$2"; shift; shift;;
 	-* ) cppflags="$cppflags $1"; shift;;
 	* ) break;;
     esac
@@ -103,11 +140,11 @@ do
         * ) file="$1"; shift;;
     esac
     base="$(basename "${file}" .defs)"
-    temp="/tmp/${base}.$$"
+    temp="${WORKTMP}/${base}.$$"
     sourcedir="$(dirname "${file}")"
     rm -f "${temp}.c" "${temp}.d"
     (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
-    $C -E -arch ${arch} ${cppflags} -I "${sourcedir}" "${temp}.c" | $M  $migflags || rm -f "${temp}.c" "${temp}.d" | exit
+    "$C" -E -arch ${arch} ${cppflags} -I "${sourcedir}" "${temp}.c" | "$M" "${migflags[@]}" || rm -df "${temp}.c" "${temp}.d" "${WORKTMP}" | exit
 
     if [ "${sawMD}" -a -f "${temp}.d" ]
     then
@@ -148,5 +185,6 @@ do
     rm -f "${temp}.c"
 done
 
+/bin/rmdir "${WORKTMP}"
 exit 0
 

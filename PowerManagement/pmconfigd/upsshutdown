@@ -24,26 +24,16 @@ if ! [ "${FAILOVER_EMAIL_RECIPIENT:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
 fi
 
 #
-# Shutdown services not controlled by watchdog.
+# Take the system down.
 #
-# (These kill statements should use StartupItem script...)
-kill -TERM $(cat /var/run/failoverd.pid)
-kill -TERM $(cat /var/run/vpnd-*.pid)
-kill -TERM $(cat /var/run/AppleFileServer.pid)
-kill -TERM $(cat /var/run/QuickTimeStreamingServer.pid)
-kill -TERM $(cat /var/run/smbd.pid)
-kill -TERM $(cat /var/run/nmbd.pid)
-
-${SI_PATH}/Apache/Apache stop
-servermgrdctl stop
-
-#
-# Shutdown watchdog and its services.
-#
-${SI_PATH}/Watchdog/Watchdog stop
-
-#
-# Wait for watchdog and take the system down cleanly.
-#
-sleep 10
-shutdown -h now "${MSG}"
+if [[ -n $1 && "WaitForUPS" == $1 ]] ; then
+    #
+    # Wait for UPS to take the system down abruptly and unexpectedly.
+    #
+    shutdown -hu now "${MSG}"
+else
+    #
+    # Gently shutdown the system immediately.
+    #
+    shutdown -h now "${MSG}"
+fi

@@ -34,8 +34,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
-/* APPLE LOCAL 4133801 */
-#include "debug.h"
 #include "ggc.h"
 #include "diagnostic.h"
 
@@ -562,17 +560,3 @@ lhd_to_target_charset (HOST_WIDE_INT c)
 {
   return c;
 }
-
-/* APPLE LOCAL begin 4133801 */
-void
-lhd_start_source_file (int n, const char *s)
-{
-  (*debug_hooks->start_source_file) (n, s);
-}
-
-void
-lhd_end_source_file (int n, const char *s ATTRIBUTE_UNUSED)
-{
-  (*debug_hooks->end_source_file) (n);
-}
-/* APPLE LOCAL end 4133801 */

@@ -99,7 +99,7 @@
  * On the next minute it steps forward again :-(
  * This is typically 16.5uS/S then 3975uS at the 4min re-sync,
  * or 9.5uS/S then 3990.5uS at a 7min re-sync,
- * at which point it may loose the "00" second time stamp.
+ * at which point it may lose the "00" second time stamp.
  * I assume that the most accurate time is just AFTER the re-sync.
  * Hence remember the last cycle interval,
  *
@@ -720,7 +720,7 @@ ees_receive(
 			/* Incomplete.  Wait for more. */
 			if (debug & DB_LOG_AWAITMORE)
 			    msyslog(LOG_INFO,
-				    "I: ees clock %d: %x == %x: await more",
+				    "I: ees clock %d: %p == %p: await more",
 				    ees->unit, dpt, dpend);
 			return;
 		}
@@ -1284,7 +1284,13 @@ ees_process(
 	if (ees->dump_vals) dump_buf(coffs, 0, samples, "Raw  data  is:");
 
 	/* Sort the offsets, trim off the extremes, then choose one. */
-	qsort((char *) coffs, (size_t)samples, sizeof(l_fp), offcompare);
+	qsort(
+#ifdef QSORT_USES_VOID_P
+	    (void *)
+#else
+	    (char *)
+#endif
+	    coffs, (size_t)samples, sizeof(l_fp), offcompare);
 
 	noff = samples;
 	i = 0;

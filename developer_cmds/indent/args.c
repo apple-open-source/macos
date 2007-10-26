@@ -1,8 +1,35 @@
-/*	$NetBSD: args.c,v 1.5 1997/10/19 03:17:12 lukem Exp $	*/
+/*	$NetBSD: args.c,v 1.9 2003/08/07 11:14:07 agc Exp $	*/
 
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * All rights reserved.
@@ -41,7 +68,7 @@
 #if 0
 static char sccsid[] = "@(#)args.c	8.1 (Berkeley) 6/6/93";
 #else
-__RCSID("$NetBSD: args.c,v 1.5 1997/10/19 03:17:12 lukem Exp $");
+__RCSID("$NetBSD: args.c,v 1.9 2003/08/07 11:14:07 agc Exp $");
 #endif
 #endif				/* not lint */
 
@@ -286,13 +313,13 @@ struct pro {
  * given in these files.
  */
 void
-set_profile()
+set_profile(void)
 {
 	FILE   *f;
 	char    fname[BUFSIZ];
 	static char prof[] = ".indent.pro";
 
-	sprintf(fname, "%s/%s", getenv("HOME"), prof);
+	snprintf(fname, sizeof(fname), "%s/%s", getenv("HOME"), prof);
 	if ((f = fopen(option_source = fname, "r")) != NULL) {
 		scan_profile(f);
 		(void) fclose(f);
@@ -305,8 +332,7 @@ set_profile()
 }
 
 void
-scan_profile(f)
-	FILE   *f;
+scan_profile(FILE *f)
 {
 	int     i;
 	char   *p;
@@ -328,9 +354,7 @@ scan_profile(f)
 char   *param_start;
 
 int
-eqin(s1, s2)
-	char   *s1;
-	char   *s2;
+eqin(char *s1, char *s2)
 {
 	while (*s1) {
 		if (*s1++ != *s2++)
@@ -343,7 +367,7 @@ eqin(s1, s2)
  * Set the defaults.
  */
 void
-set_defaults()
+set_defaults(void)
 {
 	struct pro *p;
 
@@ -358,8 +382,7 @@ set_defaults()
 }
 
 void
-set_option(arg)
-	char   *arg;
+set_option(char *arg)
 {
 	struct pro *p;
 
@@ -395,8 +418,9 @@ found:
 			if (*param_start == 0)
 				goto need_param;
 			{
-				char   *str = (char *) malloc(strlen(param_start) + 1);
-				strcpy(str, param_start);
+				char   *str;
+
+				str = strdup(param_start);
 				addkey(str, 4);
 			}
 			break;
@@ -416,7 +440,7 @@ indent: set_option: internal error: p_special %d\n", p->p_special);
 		break;
 
 	case PRO_INT:
-		if (!isdigit(*param_start)) {
+		if (!isdigit((unsigned char)*param_start)) {
 	need_param:
 			fprintf(stderr, "indent: %s: ``%s'' requires a parameter\n",
 			    option_source, arg - 1);

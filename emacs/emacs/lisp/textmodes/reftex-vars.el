@@ -1,8 +1,11 @@
 ;;; reftex-vars.el --- configuration variables for RefTeX
-;; Copyright (c) 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
 
-;; Author: Carsten Dominik <dominik@strw.LeidenUniv.nl>
-;; Version: 4.16
+;; Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
+
+;; Author: Carsten Dominik <dominik@science.uva.nl>
+;; Maintainer: auctex-devel@gnu.org
+;; Version: 4.31
 
 ;; This file is part of GNU Emacs.
 
@@ -13,20 +16,23 @@
 
 ;; GNU Emacs is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE   See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; along with GNU Emacs; see the file COPYING  If not, write to the
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;;; Code:
-
+(eval-when-compile (defvar reftex-tables-dirty))
 (eval-when-compile (require 'cl))
-(provide 'reftex-vars)
+(eval-and-compile
+  (defun reftex-set-dirty (symbol value)
+    (setq reftex-tables-dirty t)
+    (set symbol value)))
 
 ;; Define the two constants which are needed during compilation
 
@@ -90,9 +96,9 @@
     (LaTeX       "LaTeX default environments"
      (("section"   ?s "%S" "~\\ref{%s}" (nil . t)
        (regexp "parts?" "chapters?" "chap\\." "sections?" "sect?\\."
-	       "paragraphs?" "par\\."
-	       "\\\\S" "\247" "Teile?" "Kapitel" "Kap\\." "Abschnitte?"
-	       "appendi\\(x\\|ces\\)" "App\\."  "Anh\"?ange?" "Anh\\."))
+               "paragraphs?" "par\\."
+               "\\\\S" "\247" "Teile?" "Kapitel" "Kap\\." "Abschnitte?"
+               "appendi\\(x\\|ces\\)" "App\\."  "Anh\"?ange?" "Anh\\."))
 
       ("enumerate" ?i "item:" "~\\ref{%s}" item
        (regexp "items?" "Punkte?"))
@@ -125,23 +131,52 @@ distribution.  Mixed-case symbols are convenience aliases.")
 
 (defconst reftex-cite-format-builtin
   '((default "Default macro \\cite{%l}"
-      "\\cite{%l}")
+      "\\cite[]{%l}")
     (natbib "The Natbib package"
-     ((?\C-m . "\\cite{%l}")
-      (?t    . "\\citet{%l}")
-      (?T    . "\\citet*{%l}")
-      (?p    . "\\citep{%l}")
-      (?P    . "\\citep*{%l}")
+     ((?\C-m . "\\cite[][]{%l}")
+      (?t    . "\\citet[][]{%l}")
+      (?T    . "\\citet*[][]{%l}")
+      (?p    . "\\citep[][]{%l}")
+      (?P    . "\\citep*[][]{%l}")
       (?e    . "\\citep[e.g.][]{%l}")
       (?s    . "\\citep[see][]{%l}")
       (?a    . "\\citeauthor{%l}")
       (?A    . "\\citeauthor*{%l}")
-      (?y    . "\\citeyear{%l}")))
+      (?y    . "\\citeyear{%l}")
+      (?n    . "\\nocite{%l}")))
+    (amsrefs "The AMSRefs package"
+     ((?\C-m . "\\cite{%l}")
+      (?p    . "\\cite{%l}")
+      (?P    . "\\cites{%l}")
+      (?t    . "\\ocite{%l}")
+      (?T    . "\\ocites{%l}")
+      (?y    . "\\ycite{%l}")
+      (?Y    . "\\ycites{%l}")
+      (?a    . "\\citeauthor{%l}")
+      (?A    . "\\citeauthory{%l}")
+      (?f    . "\\fullcite{%l}")
+      (?F    . "\\fullocite{%l}")
+      (?n    . "\\nocite{%l}")))
+    (jurabib "The Jurabib package"
+     ((?\C-m . "\\cite{%l}")
+      (?c    . "\\cite[][]{%l}")
+      (?t    . "\\citet{%l}")
+      (?p    . "\\citep{%l}")
+      (?e    . "\\citep[e.g.][]{%l}")
+      (?s    . "\\citep[see][]{%l}")
+      (?u    . "\\fullcite{%l}")
+      (?i    . "\\citetitle{%l}")
+      (?a    . "\\citeauthor{%l}")
+      (?e    . "\\citefield{}{%l}")
+      (?y    . "\\citeyear{%l}")
+      (?f    . "\\footcite{%l}")
+      (?F    . "\\footcite[][]{%l}")
+      (?l    . "\\footfullcite{%l}")))
     (bibentry "The Bibentry package"
       "\\bibentry{%l}")
     (harvard "The Harvard package"
-     ((?\C-m . "\\cite{%l}")
-      (?p    . "\\cite{%l}")
+     ((?\C-m . "\\cite[]{%l}")
+      (?p    . "\\cite[]{%l}")
       (?t    . "\\citeasnoun{%l}")
       (?n    . "\\citeasnoun{%l}")
       (?s    . "\\possessivecite{%l}")
@@ -149,17 +184,17 @@ distribution.  Mixed-case symbols are convenience aliases.")
       (?y    . "\\citeyear{%l}")
       (?a    . "\\citename{%l}")))
     (chicago "The Chicago package"
-     ((?\C-m . "\\cite{%l}")
-      (?t    . "\\citeN{%l}")
+     ((?\C-m . "\\cite[]{%l}")
+      (?t    . "\\citeN[]{%l}")
       (?T    . "\\shortciteN{%l}")
-      (?p    . "\\cite{%l}")
+      (?p    . "\\cite[]{%l}")
       (?P    . "\\shortcite{%l}")
       (?a    . "\\citeA{%l}")
       (?A    . "\\shortciteA{%l}")
       (?y    . "\\citeyear{%l}")))
     (astron "The Astron package"
-     ((?\C-m . "\\cite{%l}")
-      (?p    . "\\cite{%l}" )
+     ((?\C-m . "\\cite[]{%l}")
+      (?p    . "\\cite[]{%l}" )
       (?t    . "%2a (\\cite{%l})")))
     (author-year "Do-it-yourself Author-year"
      ((?\C-m . "\\cite{%l}")
@@ -181,13 +216,13 @@ The following conventions are valid for all alist entries:
     (multind "The multind.sty package"
        (("\\index{}{*}" 1 ?i "" nil t)))
     (index "The index.sty package"
-	   (("\\index[]{*}" 1 ?i "" nil t)
-	    ("\\index*[]{*}" 1 ?I "" nil nil)))
+           (("\\index[]{*}" 1 ?i "" nil t)
+            ("\\index*[]{*}" 1 ?I "" nil nil)))
     (Index-Shortcut "index.sty with \\shortindexingon"
        (("\\index[]{*}" 1 ?i "" nil t)
-	("\\index*[]{*}" 1 ?I "" nil nil)
-	("^[]{*}" 1 ?^ "" texmathp t)   
-	("_[]{*}" 1 ?_ "" texmathp nil))))
+        ("\\index*[]{*}" 1 ?I "" nil nil)
+        ("^[]{*}" 1 ?^ "" texmathp t)   
+        ("_[]{*}" 1 ?_ "" texmathp nil))))
   "Builtin stuff for reftex-index-macros.
 Lower-case symbols correspond to a style file of the same name in the LaTeX
 distribution.  Mixed-case symbols are convenience aliases.")
@@ -199,17 +234,66 @@ distribution.  Mixed-case symbols are convenience aliases.")
   "LaTeX label and citation support."
   :tag "RefTeX"
   :link '(url-link :tag "Home Page" 
-		   "http://strw.leidenuniv.nl/~dominik/Tools/")
+                   "http://staff.science.uva.nl/~dominik/Tools/reftex/")
   :link '(emacs-commentary-link :tag "Commentary in reftex.el" "reftex.el")
   :link '(custom-manual "(reftex)Top")
   :prefix "reftex-"
   :group 'tex)
+
 
 ;; Table of contents configuration --------------------------------------
 
 (defgroup reftex-table-of-contents-browser nil
   "A multifile table of contents browser."
   :group 'reftex)
+
+(defcustom reftex-include-file-commands '("include" "input")
+  "LaTeX commands which input another file.
+The file name is expected after the command, either in braces or separated
+by whitespace."
+  :group 'reftex-table-of-contents-browser
+  :type '(repeat string))
+
+(defcustom reftex-max-section-depth 12
+  "Maximum depth of section levels in document structure.
+Standard LaTeX needs default is 7, but there are packages for which this
+needs to be larger."
+  :group 'reftex-table-of-contents-browser
+  :type 'integer)
+
+;; LaTeX section commands and level numbers
+(defcustom reftex-section-levels
+  '(
+    ("part"            .  0)
+    ("chapter"         .  1)
+    ("section"         .  2)
+    ("subsection"      .  3)
+    ("subsubsection"   .  4)
+    ("paragraph"       .  5)
+    ("subparagraph"    .  6)
+    ("addchap"         . -1) ; KOMA-Script
+    ("addsec"          . -2) ; KOMA-Script
+;;; ("minisec"         . -7) ; KOMA-Script
+    )
+  "Commands and levels used for defining sections in the document.
+This is an alist with each element like (COMMAND-NAME . LEVEL).
+The car of each cons cell is the name of the section macro (without
+the backslash).  The cdr is a number indicating its level.  A negative
+level means the same level as the positive value, but the section will
+never get a number.  The cdr may also be a function which will be called
+to after the section-re matched to determine the level.
+This list is also used for promotion and demption of sectioning commands.
+If you are using a document class which has several sets of sectioning
+commands, promotion only works correctly if this list is sorted first
+by set, then within each set by level.  The promotion commands always
+select the nearest entry with the correct new level."
+  :group 'reftex-table-of-contents-browser
+  :set 'reftex-set-dirty
+  :type '(repeat
+          (cons (string :tag "sectioning macro" "")
+                (choice
+                 (number :tag "level           " 0)
+                 (symbol :tag "function        " my-level-func)))))
 
 (defcustom reftex-toc-max-level 100
   "*The maximum level of toc entries which will be included in the TOC.
@@ -218,6 +302,53 @@ are level 1, sections are level 2 etc.
 This variable can be changed from within the *toc* buffer with the `t' key."
   :group 'reftex-table-of-contents-browser
   :type 'integer)
+
+(defcustom reftex-part-resets-chapter nil
+  "*Non-nil means, \\part is like any other sectioning command.
+This means, part numbers will be included in the numbering of chapters, and
+chapter counters will be reset for each part.
+When nil (the default), parts are special, do not reset the chapter counter
+and also do not show up in chapter numbers."
+  :group 'reftex-table-of-contents-browser
+  :type 'boolean)
+
+
+(defcustom reftex-auto-recenter-toc 'frame
+  "*Non-nil means, turn automatic recentering of *TOC* window on.
+When active, the *TOC* window will always show the section you
+are currently working in.  Recentering happens whenever Emacs is idle for
+more than `reftex-idle-time' seconds.
+
+Value t means, turn on immediately when RefTeX gets started.  Then,
+recentering will work for any toc window created during the session.
+
+Value 'frame (the default) means, turn automatic recentering on only while the
+dedicated TOC frame does exist, and do the recentering only in that frame.  So
+when creating that frame (with \"d\" key in an ordinary TOC window), the
+automatic recentering is turned on.  When the frame gets destroyed, automatic
+recentering is turned off again.
+
+This feature can be turned on and off from the menu 
+\(Ref->Options)."
+  :group 'reftex-table-of-contents-browser
+  :type '(choice
+          (const :tag "never" nil)
+          (const :tag "always" t)
+          (const :tag "in dedicated frame only" frame)))
+ 
+(defcustom reftex-toc-split-windows-horizontally nil
+  "*Non-nil means, create TOC window by splitting window horizontally."
+  :group 'reftex-table-of-contents-browser
+  :type 'boolean)
+
+(defcustom reftex-toc-split-windows-fraction .3
+  "*Fraction of the width or height of the frame to be used for TOC window.
+See also `reftex-toc-split-windows-horizontally'."
+  :group 'reftex-table-of-contents-browser
+  :type 'number)
+
+(defvar reftex-toc-split-windows-horizontally-fraction 0.5
+  "This variable is obsolete, use `reftex-toc-split-windows-fraction' instead.")
 
 (defcustom reftex-toc-keep-other-windows t
   "*Non-nil means, split the selected window to display the *toc* buffer.
@@ -244,6 +375,17 @@ This flag can be toggled from within the *toc* buffer with the `l' key."
 This flag can be toggled from within the *toc* buffer with the `i' key."
   :group 'reftex-table-of-contents-browser
   :type 'boolean)
+
+(defcustom reftex-toc-confirm-promotion 2
+  "*Non-nil means, promotion/demotion commands first prompt for confirmation.
+When nil, the command is executed immediately.  When this is an integer
+N, ask for confirmation only if N or more section commands are going to be
+changed."
+  :group 'reftex-table-of-contents-browser
+  :type '(choice
+          (const  :tag "Never" nil)
+          (const  :tag "Always" t)
+          (number :tag "When more than N sections" :value 2)))
 
 (defcustom reftex-toc-include-context nil
   "*Non-nil means, include context with labels in the *toc* buffer.
@@ -283,7 +425,7 @@ When nil, follow-mode will be suspended for stuff in unvisited files."
 
 (defcustom reftex-default-label-alist-entries
   '(amsmath endnotes fancybox floatfig longtable picinpar
-	    rotating sidecap subfigure supertab wrapfig LaTeX)
+            rotating sidecap subfigure supertab wrapfig LaTeX)
   "Default label alist specifications.  LaTeX should always be the last entry.
 The value of this variable is a list of symbols with associations in the 
 constant `reftex-label-alist-builtin'.  Check that constant for a full list
@@ -291,14 +433,14 @@ of options."
   :group 'reftex-defining-label-environments
   :set   'reftex-set-dirty
   :type `(set
-	  :indent 4
+          :indent 4
           :inline t
           :greedy t
           ,@(mapcar
-	     (lambda (x)
-	       (list 'const :tag (concat (symbol-name (nth 0 x))
-					 ": " (nth 1 x))
-		     (nth 0 x)))
+             (lambda (x)
+               (list 'const :tag (concat (symbol-name (nth 0 x))
+                                         ": " (nth 1 x))
+                     (nth 0 x)))
              reftex-label-alist-builtin)))
 
 (defcustom reftex-label-alist nil
@@ -334,7 +476,7 @@ ENV-OR-MACRO
     which contains all labels.
 
     This may also be a function to do local parsing and identify point
-    to be in a a non-standard label environment.  The function must take
+    to be in a non-standard label environment.  The function must take
     an argument BOUND and limit backward searches to this value.  It
     should return either nil or a cons cell (FUNCTION . POSITION) with
     the function symbol and the position where the special environment
@@ -360,6 +502,8 @@ LABEL-PREFIX
     empty string.  The prefix may contain the following `%' escapes:
        %f   Current file name with directory and extension stripped.
        %F   Current file name relative to directory of master file.
+       %m   Master file name, directory and extension stripped.
+       %M   Directory name (without path) where master file is located.
        %u   User login name, on systems which support this.
        %S   A section prefix derived with variable `reftex-section-prefixes'.
 
@@ -446,10 +590,10 @@ list.  However, builtin defaults should normally be set with the variable
            (choice    :tag "Environment or \\macro "
                       (const  :tag "Ignore, just use typekey" nil)
                       (string "")
-		      (symbol :tag "Special parser" my-parser))
-	   (choice    :tag "Type specification    "
-		      (const :tag "unspecified, like in \\label" nil)
-		      (character :tag "Char  " ?a))
+                      (symbol :tag "Special parser" my-parser))
+           (choice    :tag "Type specification    "
+                      (const :tag "unspecified, like in \\label" nil)
+                      (character :tag "Char  " ?a))
            (choice    :tag "Label prefix string   "
                       (const  :tag "Default" nil)
                       (string :tag "String" "lab:"))
@@ -457,64 +601,27 @@ list.  However, builtin defaults should normally be set with the variable
                       (const  :tag "Default" nil)
                       (string :tag "String" "~\\ref{%s}"))
            (choice    :tag "Context method        "
-		      (const  :tag "Default position" t)
-		      (const  :tag "After label"      nil)
-		      (number :tag "Macro arg nr" 1)
-		      (regexp :tag "Regexp" "")
-		      (const  :tag "Caption in float" caption)
-		      (const  :tag "Item in list" item)
-		      (const  :tag "Eqnarray-like" eqnarray-like)
-		      (const  :tag "Alignat-like" alignat-like)
-		      (symbol :tag "Function" my-func))
-	   (repeat :tag "Magic words" :extra-offset 2 (string))
-	   (option (choice :tag "Make TOC entry     "
-			   (const :tag "No entry" nil)
-			   (integer :tag "Level" :value -3))))
+                      (const  :tag "Default position" t)
+                      (const  :tag "After label"      nil)
+                      (number :tag "Macro arg nr" 1)
+                      (regexp :tag "Regexp" "")
+                      (const  :tag "Caption in float" caption)
+                      (const  :tag "Item in list" item)
+                      (const  :tag "Eqnarray-like" eqnarray-like)
+                      (const  :tag "Alignat-like" alignat-like)
+                      (symbol :tag "Function" my-func))
+           (repeat :tag "Magic words" :extra-offset 2 (string))
+           (option (choice :tag "Make TOC entry     "
+                           (const :tag "No entry" nil)
+                           (integer :tag "Level" :value -3))))
      (choice
       :tag "Package"
       :value AMSTeX
       ,@(mapcar
-	 (lambda (x)
-	   (list 'const :tag (concat (symbol-name (nth 0 x)))
-		 (nth 0 x)))
-	 reftex-label-alist-builtin)))))
-
-(defcustom reftex-max-section-depth 12
-  "Maximum depth of section levels in document structure.
-Standard LaTeX needs default is 7, but there are packages for which this
-needs to be larger."
-  :group 'reftex-defining-label-environments
-  :type 'integer)
-
-;; LaTeX section commands and level numbers
-(defcustom reftex-section-levels
-  '(
-    ("part"            .  0)
-    ("chapter"         .  1)
-    ("section"         .  2)
-    ("subsection"      .  3)
-    ("subsubsection"   .  4)
-    ("paragraph"       .  5)
-    ("subparagraph"    .  6)
-    ("subsubparagraph" .  7)
-    ("addchap"         . -1) ; KOMA-Script
-    ("addsec"          . -2) ; KOMA-Script
-;;; ("minisec"         . -7) ; KOMA-Script
-    )
-  "Commands and levels used for defining sections in the document.
-This is an alist with each element like (COMMAND-NAME . LEVEL).
-The car of each cons cell is the name of the section macro (without
-the backslash).  The cdr is a number indicating its level.  A negative
-level means the same level as the positive value, but the section will
-never get a number.  The cdr may also be a function which will be called
-to after the section-re matched to determine the level."
-  :group 'reftex-defining-label-environments
-  :set 'reftex-set-dirty
-  :type '(repeat
-          (cons (string :tag "sectioning macro" "")
-		(choice
-		 (number :tag "level           " 0)
-		 (symbol :tag "function        " my-level-func)))))
+         (lambda (x)
+           (list 'const :tag (concat (symbol-name (nth 0 x)))
+                 (nth 0 x)))
+         reftex-label-alist-builtin)))))
 
 (defcustom reftex-section-prefixes '((0 . "part:") (1 . "cha:") (t . "sec:"))
   "Prefixes for section labels.
@@ -523,15 +630,15 @@ this list is used to determine the correct prefix string depending on the
 current section level.
 The list is an alist, with each entry of the form (KEY . PREFIX)
 Possible keys are sectioning macro names like `chapter', section levels
-(as given in `reftex-section-levels'), and t for the default."
+\(as given in `reftex-section-levels'), and t for the default."
   :group 'reftex-defining-label-environments
   :type '(repeat
-	  (cons :value (0 . "")
-		(choice
-		 (string :tag  "macro name")
-		 (integer :tag "section level")
-		 (const :tag "default" t))
-		(string :tag "Prefix"))))
+          (cons :value (0 . "")
+                (choice
+                 (string :tag  "macro name")
+                 (integer :tag "section level")
+                 (const :tag "default" t))
+                (string :tag "Prefix"))))
 
 (defcustom reftex-default-context-regexps
   '((caption       . "\\\\\\(rot\\)?caption\\*?[[{]")
@@ -544,6 +651,43 @@ the final regular expression - so %s will be replaced with the environment
 or macro."
   :group 'reftex-defining-label-environments
   :type '(repeat (cons (symbol) (regexp))))
+
+(defcustom reftex-trust-label-prefix nil
+  "Non-nil means, trust the label prefix when determining label type.
+It is customary to use special label prefixes to distinguish different label
+types.  The label prefixes have no syntactic meaning in LaTeX (unless
+special packages like fancyref are being used).  RefTeX can and by
+default does parse around each label to detect the correct label type,
+but this process can be slow when a document contains thousands of
+labels.  If you use label prefixes consistently, you may speed up
+document parsing by setting this variable to a non-nil value.  RefTeX
+will then compare the label prefix with the prefixes found in
+`reftex-label-alist' and derive the correct label type in this way.
+Possible values for this option are:
+
+t          This means to trust any label prefixes found.
+regexp     If a regexp, only prefixes matched by the regexp are trusted.
+list       List of accepted prefixes, as strings.  The colon is part of
+           the prefix, e.g. (\"fn:\" \"eqn:\" \"item:\").
+nil        Never trust a label prefix.
+
+The only disadvantage of using this feature is that the label context
+displayed in the label selection buffer along with each label is
+simply some text after the label definition.  This is no problem if you
+place labels keeping this in mind (e.g. *before* the equation, *at
+the beginning* of a fig/tab caption ...).  Anyway, it is probably best
+to use the regexp or the list value types to fine-tune this feature.
+For example, if your document contains thousands of footnotes with
+labels fn:xxx, you may want to set this variable to the value \"^fn:$\" or
+\(\"fn:\").  Then RefTeX will still do extensive parsing for any
+non-footnote labels."
+  :group 'reftex-defining-label-environments
+  :type '(choice
+          (const :tag "Always" t)
+          (const :tag "Never" nil)
+          (regexp)
+          (repeat :tag "List"
+                  (string :tag "prefix (with colon)"))))
   
 (defcustom reftex-special-environment-functions nil
   "List of functions to be called when trying to figure out current environment.
@@ -621,7 +765,7 @@ And here is the setup for RefTeX:
 
 If DERIVE is t, RefTeX will try to derive a sensible label from context.
 A section label for example will be derived from the section heading.
-The conversion of the context to a legal label is governed by the
+The conversion of the context to a valid label is governed by the
 specifications given in `reftex-derive-label-parameters'.
 If RefTeX fails to derive a label, it will prompt the user.
 If DERIVE is nil, the label generated will consist of the prefix and a
@@ -647,7 +791,7 @@ indicating the label types for which it should be true.  The strings work
 like character classes.
 Thus, the combination may be set differently for each label type.  The
 default settings \"s\" and \"sft\" mean: Derive section labels from headings
-(with confirmation).  Prompt for figure and table labels.  Use simple labels
+\(with confirmation).  Prompt for figure and table labels.  Use simple labels
 without confirmation for everything else.
 The available label types are: s (section), f (figure), t (table), i (item),
 e (equation), n (footnote), N (endnote), plus any definitions in
@@ -664,7 +808,7 @@ e (equation), n (footnote), N (endnote), plus any definitions in
                         (string :tag "selected label types" ""))))
 
 (defcustom reftex-string-to-label-function 'reftex-string-to-label
-  "Function to turn an arbitrary string into a legal label.
+  "Function to turn an arbitrary string into a valid label.
 RefTeX's default function uses the variable `reftex-derive-label-parameters'."
   :group 'reftex-making-and-inserting-labels
   :type 'symbol)
@@ -672,7 +816,7 @@ RefTeX's default function uses the variable `reftex-derive-label-parameters'."
 (defcustom reftex-translate-to-ascii-function 'reftex-latin1-to-ascii
   "Filter function which will process a context string before it is used
 to derive a label from it.  The intended application is to convert ISO or
-Mule characters into something legal in labels.  The default function
+Mule characters into something valid in labels.  The default function
 removes the accents from Latin-1 characters.  X-Symbol (>=2.6) sets this
 variable to the much more general `x-symbol-translate-to-ascii'."
   :group 'reftex-making-and-inserting-labels
@@ -685,8 +829,8 @@ This variable is a list of the following items.
 
 NWORDS      Number of words to use.
 MAXCHAR     Maximum number of characters in a label string.
-ILLEGAL     nil: Throw away any words containing characters illegal in labels.
-            t:   Throw away only the illegal characters, not the whole word.
+INVALID     nil: Throw away any words containing characters invalid in labels.
+            t:   Throw away only the invalid characters, not the whole word.
 ABBREV      nil: Never abbreviate words.
             t:   Always abbreviate words (see `reftex-abbrev-parameters').
             not t and not nil: Abbreviate words if necessary to shorten
@@ -697,7 +841,7 @@ DOWNCASE    t:   Downcase words before using them."
   :group 'reftex-making-and-inserting-labels
   :type  '(list (integer :tag "Number of words            "  3)
                 (integer :tag "Maximum label length       " 20)
-                (choice  :tag "Illegal characters in words"
+                (choice  :tag "Invalid characters in words"
                          (const :tag "throw away entire word" nil)
                          (const :tag "throw away single chars" t))
                 (choice  :tag "Abbreviate words           "
@@ -708,10 +852,10 @@ DOWNCASE    t:   Downcase words before using them."
                 (repeat  :tag "Ignore words"
                          :entry-format "           %i %d %v"
                          (string :tag ""))
-		(option (boolean :tag "Downcase words          "))))
+                (option (boolean :tag "Downcase words          "))))
 
 (defcustom reftex-label-illegal-re "[^-a-zA-Z0-9_+=:;,.]"
-  "Regexp matching characters not legal in labels."
+  "Regexp matching characters not valid in labels."
   :group 'reftex-making-and-inserting-labels
   :type '(regexp :tag "Regular Expression"))
 
@@ -806,6 +950,7 @@ Instead of nil or t, this may also be a string of type letters indicating
 the label types for which it should be true."
   :group  'reftex-referencing-labels
   :type `(choice :tag "\\vref is default macro" ,@reftex-tmp))
+;;;###autoload(put 'reftex-vref-is-default 'safe-local-variable (lambda (x) (or (stringp x) (symbolp x))))
 
 (defcustom reftex-fref-is-default nil
   "*Non-nil means, the fancyref macro \\fref is used as default.
@@ -816,11 +961,13 @@ Instead of nil or t, this may also be a string of type letters indicating
 the label types for which it should be true."
   :group  'reftex-referencing-labels
   :type `(choice :tag "\\fref is default macro" ,@reftex-tmp))
+;;;###autoload(put 'reftex-fref-is-default 'safe-local-variable (lambda (x) (or (stringp x) (symbolp x))))
 
 (defcustom reftex-level-indent 2
   "*Number of spaces to be used for indentation per section level."
   :group 'reftex-referencing-labels
   :type 'integer)
+;;;###autoload(put 'reftex-level-indent 'safe-local-variable 'integerp)
 
 (defcustom reftex-guess-label-type t
   "*Non-nil means, `reftex-reference' will try to guess the label type.
@@ -830,6 +977,7 @@ immediately offer the correct label menu - otherwise it will prompt you for
 a label type.  If you set this variable to nil, RefTeX will always prompt."
   :group 'reftex-referencing-labels
   :type 'boolean)
+;;;###autoload(put 'reftex-guess-label-type 'safe-local-variable (lambda (x) (memq x '(nil t))))
 
 (defcustom reftex-format-ref-function nil
   "Function which produces the string to insert as a reference.
@@ -854,6 +1002,12 @@ string to insert into the buffer."
 (defgroup reftex-citation-support nil
   "Support for referencing bibliographic data with BibTeX."
   :group 'reftex)
+
+(defcustom reftex-bibliography-commands '("bibliography" "nobibliography")
+  "LaTeX commands which specify the BibTeX databases to use with the document."
+  :group 'reftex-citation-support
+  :type '(repeat string))
+
 
 (defvar reftex-bibfile-ignore-list nil) ; compatibility
 (defcustom reftex-bibfile-ignore-regexps nil
@@ -898,7 +1052,7 @@ If `reftex-cite-format' is a string, it will be used as the format.
 In the format, the following percent escapes will be expanded.
 
 %l   The BibTeX label of the citation.
-%a   List of author names, see also `reftex-cite-punctuation.
+%a   List of author names, see also `reftex-cite-punctuation'.
 %2a  Like %a, but abbreviate more than 2 authors like Jones et al.
 %A   First author name only.
 %e   Works like %a, but on list of editor names. (%2e and %E work a well)
@@ -916,6 +1070,9 @@ display, and for (setq reftex-comment-citations t).
 
 %< as a special operator kills punctuation and space around it after the 
 string has been formatted.
+
+A pair of square brackets indicates an optional argument, and RefTeX
+will prompt for the values of these arguments.
 
 Beware that all this only works with BibTeX database files.  When
 citations are made from the \\bibitems in an explicit thebibliography
@@ -948,6 +1105,42 @@ E.g.: (setq reftex-cite-format 'natbib)"
                     (?t  . "\\cite{%l}") (?p . "\\cite{%l}"))
             (cons (character :tag "Key character" ?\r)
                   (string    :tag "Format string" "")))))
+
+(defcustom reftex-cite-prompt-optional-args 'maybe
+  "*Non-nil means, prompt for empty optional arguments in cite macros.
+When an entry in `reftex-cite-format' ist given with square brackets to
+indicate optional arguments (for example \\cite[][]{%l}), RefTeX can
+prompt for values.  Possible values are:
+
+nil     Never prompt for optional arguments
+t       Always prompt
+maybe   Prompt only if `reftex-citation' was called with C-u prefix arg
+
+Unnecessary empty optional arguments are removed before insertion into
+the buffer.  See `reftex-cite-cleanup-optional-args'."
+  :group 'reftex-citation-support
+  :type '(choice
+          (const :tag "Always" t)
+          (const :tag "When called with prefix arg" maybe)
+          (const :tag "Never" nil)))
+
+(defcustom reftex-cite-cleanup-optional-args t
+  "*Non-nil means, remove unnecessary empty optional arguments in cite macros.
+The cite macros provided by some packages (for example
+natbib) allow specifying two optional arguments, one for a prefix to
+the citation, and a second for a postfix.  When only one optional
+argument is given, it is interpreted as postfix.  When this option is
+t, RefTeX removes unnecessary empty optional arguments from the cite
+macro before insertion.  For example, it will change
+    \\cite[][]{Jones}              -> \\cite{Jones}
+    \\cite[][Chapter 1]{Jones}     -> \\cite[Chapter 1]{Jones}
+    \\cite[see][]{Jones}           -> \\cite[see][]{Jones}
+    \\cite[see][Chapter 1]{Jones}  -> \\cite{Jones}
+Is is possible that other packages have other conventions about which
+optional argument is interpreted how - that is why this cleaning up
+can be turned off."
+  :group 'reftex-citation-support
+  :type 'boolean)
 
 (defcustom reftex-comment-citations nil
   "*Non-nil means add a comment for each citation describing the full entry.
@@ -1017,16 +1210,16 @@ you will be asked for confirmation to turn it on and rescan the document."
 These correspond to the makeindex keywords LEVEL ENCAP ACTUAL QUOTE ESCAPE."
   :group 'reftex-index-support
   :type '(list
-	  (string :tag "LEVEL  separator")
-	  (string :tag "ENCAP  char     ")
-	  (string :tag "ACTUAL char     ")
-	  (string :tag "QUOTE  char     ")
-	  (string :tag "ESCAPE char     ")))
+          (string :tag "LEVEL  separator")
+          (string :tag "ENCAP  char     ")
+          (string :tag "ACTUAL char     ")
+          (string :tag "QUOTE  char     ")
+          (string :tag "ESCAPE char     ")))
 
 (defcustom reftex-index-macros nil
   "Macros which define index entries.  The structure is
 
-(MACRO INDEX-TAG KEY PREFIX EXCLUDE REPEAT)
+\(MACRO INDEX-TAG KEY PREFIX EXCLUDE REPEAT)
 
 MACRO is the macro.  Arguments should be denoted by empty braces like
 \\index[]{*}.  Use square brackets to denote optional arguments.  The star
@@ -1055,7 +1248,7 @@ phrase buffer.
 
 The final entry may also be a symbol if this entry has a association
 in the variable `reftex-index-macros-builtin' to specify the main
-indexing package you are using.  Legal values are currently
+indexing package you are using.  Valid values are currently
 default         The LaTeX default - unnecessary to specify this one
 multind         The multind.sty package
 index           The index.sty package
@@ -1067,27 +1260,27 @@ package here."
   :group 'reftex-index-support
   :set 'reftex-set-dirty
   :type `(list
-	  (repeat 
-	   :inline t
-	   (list :value ("" "idx" ?a "" nil)
-		 (string  :tag "Macro with args")
-		 (choice  :tag "Index Tag      "
-			 (string)
-			 (integer :tag "Macro arg Nr" :value 1))
-		 (character :tag "Access Key     ")
-		 (string  :tag "Key Prefix     ")
-		 (symbol  :tag "Exclusion hook ")
+          (repeat 
+           :inline t
+           (list :value ("" "idx" ?a "" nil)
+                 (string  :tag "Macro with args")
+                 (choice  :tag "Index Tag      "
+                         (string)
+                         (integer :tag "Macro arg Nr" :value 1))
+                 (character :tag "Access Key     ")
+                 (string  :tag "Key Prefix     ")
+                 (symbol  :tag "Exclusion hook ")
                  (boolean :tag "Repeat Outside ")))
-	  (option
-	   :tag "Package:"
-	   (choice :tag "Package"
-		   :value index
-		   ,@(mapcar
-		      (lambda (x)
-			(list 'const :tag (concat (symbol-name (nth 0 x))
-						  ": " (nth 1 x))
-			      (nth 0 x)))
-		      reftex-index-macros-builtin)))))
+          (option
+           :tag "Package:"
+           (choice :tag "Package"
+                   :value index
+                   ,@(mapcar
+                      (lambda (x)
+                        (list 'const :tag (concat (symbol-name (nth 0 x))
+                                                  ": " (nth 1 x))
+                              (nth 0 x)))
+                      reftex-index-macros-builtin)))))
 
 (defcustom reftex-index-default-macro '(?i "idx")
   "The default index macro for \\[reftex-index-selection-or-word].
@@ -1100,33 +1293,33 @@ DEFAULT-TAG: This is the tag to be used if the macro requires a TAG argument.
              macro is optional, the TAG argument will be omitted."
   :group 'reftex-index-support
   :type '(list
-	  (character :tag "Character identifying default macro")
-	  (choice    :tag "Default index tag                  "
-		  (const nil)
-		  (string))))
+          (character :tag "Character identifying default macro")
+          (choice    :tag "Default index tag                  "
+                  (const nil)
+                  (string))))
 
 (defcustom reftex-index-default-tag "idx"
   "Default index tag.
 When working with multiple indexes, RefTeX queries for an index tag when
 creating index entries or displaying a specific index.  This variable controls
 the default offered for these queries.  The default can be selected with RET
-during selection or completion.  Legal values of this variable are:
+during selection or completion.  Valid values of this variable are:
 
 nil       Do not provide a default index
 \"tag\"     The default index tag given as a string, e.g. \"idx\".
 last      The last used index tag will be offered as default."
   :group 'reftex-index-support
   :type '(choice
-	  (const :tag  "no default" nil)
-	  (const :tag  "last used " 'last)
-	  (string :tag "index tag " "idx")))
+          (const :tag  "no default" nil)
+          (const :tag  "last used " 'last)
+          (string :tag "index tag " "idx")))
 
 (defcustom reftex-index-math-format "$%s$"
   "Format of index entries when copied from inside math mode.
 When `reftex-index-selection-or-word' is executed inside TeX math mode,
 the index key copied from the buffer is processed with this format string
 through the `format' function.  This can be used to add the math delimiters
-(e.g. `$') to the string.
+\(e.g. `$') to the string.
 Requires the `texmathp.el' library which is part of AUCTeX."
   :group 'reftex-index-support
   :type 'string)
@@ -1175,13 +1368,21 @@ at one of these points, no word boundary is required there."
   :group 'reftex-index-support
   :type 'boolean)
 
+(defcustom reftex-index-verify-function nil
+  "A function which is called  at each match during global indexing.
+If the function returns nil, the current match is skipped."
+  :group 'reftex-index-support
+  :type '(choice
+          (const :tag "No verification" nil)
+          (function)))
+
 (defcustom reftex-index-phrases-skip-indexed-matches nil
   "*Non-nil means, skip matches which appear to be indexed already.
 When doing global indexing from the phrases buffer, searches for some
 phrases may match at places where that phrase was already indexed.  In
 particular when indexing an already processed document again, this
 will even be the norm.  When this variable is non-nil, RefTeX checks if
-the match is an index macro argument, or if an index macro is directly
+the match is inside an index macro argument, or if an index macro is directly
 before or after the phrase.  If that is the case, that match will
 be ignored."
   :group 'reftex-index-support
@@ -1193,7 +1394,9 @@ Inserting indexing commands in a line makes the line longer - often
 so long that it does not fit onto the screen.  When this variable is
 non-nil, newlines will be added as necessary before and/or after the
 indexing command to keep lines short.  However, the matched text
-phrase and its index command will always end up on a single line.")
+phrase and its index command will always end up on a single line."
+  :group 'reftex-index-support
+  :type 'boolean)
 
 (defcustom reftex-index-phrases-sort-prefers-entry nil
   "*Non-nil means when sorting phrase lines, the explicit index entry is used.
@@ -1250,7 +1453,7 @@ references (both ways) and index entries is hard-coded.  This variable
 is only to configure additional structures for which crossreference
 viewing can be useful.  Each entry has the structure 
 
-(MACRO-RE SEARCH-RE HIGHLIGHT).
+\(MACRO-RE SEARCH-RE HIGHLIGHT).
 
 MACRO-RE is matched against the macro.  SEARCH-RE is the regexp used
 to search for cross references.  `%s' in this regexp is replaced with
@@ -1258,26 +1461,27 @@ with the macro argument at point.  HIGHLIGHT is an integer indicating
 which subgroup of the match should be highlighted."
   :group 'reftex-viewing-cross-references
   :type '(repeat (group (regexp  :tag "Macro  Regexp  ")
-			(string  :tag "Search Regexp  ")
-			(integer :tag "Highlight Group"))))
+                        (string  :tag "Search Regexp  ")
+                        (integer :tag "Highlight Group"))))
 
 (defcustom reftex-auto-view-crossref t
   "*Non-nil means, initially turn automatic viewing of crossref info on.
 Automatic viewing of crossref info normally uses the echo area.
-Whenever point is on the argument of a \\ref or \\cite macro, and no
-other message is being displayed, the echo area will display
-information about that cross reference.  You can also set the variable
-to the symbol `window'.  In this case a small temporary window is
-used for the display.
-This feature can be turned on and of from the menu 
-(Ref->Options)."
+Whenever point is idle for more than `reftex-idle-time' seconds on the
+argument of a \\ref or \\cite macro, and no other message is being
+displayed, the echo area will display information about that cross
+reference.  You can also set the variable to the symbol `window'.  In
+this case a small temporary window is used for the display.
+This feature can be turned on and off from the menu 
+\(Ref->Options)."
   :group 'reftex-viewing-cross-references
   :type '(choice (const :tag "off" nil)
-		 (const :tag "in Echo Area" t)
-		 (const :tag "in Other Window" window)))
+                 (const :tag "in Echo Area" t)
+                 (const :tag "in Other Window" window)))
 
 (defcustom reftex-idle-time 1.2
-  "*Time (secs) Emacs has to be idle before automatic crossref display is done."
+  "*Time (secs) Emacs has to be idle before automatic crossref display is done.
+Applies also to toc recentering."
   :group 'reftex-viewing-cross-references
   :type 'number)
 
@@ -1340,13 +1544,13 @@ See also `reftex-use-external-file-finders'."
   :type '(repeat (string :tag "Specification")))
 
 (defcustom reftex-file-extensions '(("tex" . (".tex" ".ltx"))
-				    ("bib" . (".bib")))
+                                    ("bib" . (".bib")))
   "*Association list with file extensions for different file types.
 This is a list of items, each item is like: (TYPE . (DEF-EXT OTHER-EXT ...))
 
 TYPE:       File type like \"bib\" or \"tex\".
 DEF-EXT:    The default extension for that file type, like \".tex\" or \".bib\".
-OTHER-EXT:  Any number of other legal extensions for this file type.
+OTHER-EXT:  Any number of other valid extensions for this file type.
 
 When a files is searched and it does not have any of the legal extensions,
 we try the default extension first, and then the naked file name.
@@ -1355,7 +1559,19 @@ If you are using AUCTeX, you also need to add new extensions to
 TeX-file-extensions."
   :group 'reftex-finding-files
   :type '(repeat (cons (string :tag "File type")
-		       (repeat (string :tag "Extension")))))
+                       (repeat (string :tag "Extension")))))
+
+(defcustom reftex-try-all-extensions nil
+  "Non-nil means, try all extensions listed in `reftex-file-extensions'.
+When searching for a file, LaTeX uses only the default extension.  However,
+if you are working with a noweb system that produces the .tex files from
+some other file, and you want RefTeX to scan the web file instead of the
+tex file, you need to set this option.  You also need to make the noweb
+extension the default extension, i.e. the first in the list in
+`reftex-file-extensions'.
+Note that if you are using external file finders, this option has no effect."
+  :group 'reftex-finding-files
+  :type 'boolean)
 
 (defcustom reftex-search-unrecursed-path-first t
   "*Non-nil means, search all specified directories before trying recursion.
@@ -1380,7 +1596,7 @@ the variables `reftex-texpath-environment-variables' and
   :type 'boolean)
 
 (defcustom reftex-external-file-finders '(("tex" . "kpsewhich -format=.tex %f")
-					  ("bib" . "kpsewhich -format=.bib %f"))
+                                          ("bib" . "kpsewhich -format=.bib %f"))
   "*Association list with external programs to call for finding files.
 Each entry is a cons cell (TYPE . PROGRAM).
 TYPE is either \"tex\" or \"bib\".  PROGRAM is the external program to use with
@@ -1389,7 +1605,7 @@ Note that these commands will be executed directly, not via a shell.
 Only relevant when `reftex-use-external-file-finders' is non-nil."
   :group 'reftex-finding-files
   :type '(repeat (cons (string :tag "File type")
-		       (string :tag "Program  "))))
+                       (string :tag "Program  "))))
 
 ;; Tuning the parser ----------------------------------------------------
 
@@ -1506,6 +1722,7 @@ The value of this variable will only have any effect when
 
 (defgroup reftex-fontification-configurations nil
   "Options concerning the faces used in RefTeX."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'reftex)
 
 (defcustom reftex-use-fonts t
@@ -1549,10 +1766,10 @@ Changing this variable requires to rebuild the selection and *toc* buffers
 to become effective (keys `g' or `r')."
   :group 'reftex-fontification-configurations
   :type '(choice
-	  (const :tag "Never" nil)
-	  (const :tag "Cursor driven" cursor)
-	  (const :tag "Mouse driven" mouse)
-	  (const :tag "Mouse and Cursor driven." both)))
+          (const :tag "Never" nil)
+          (const :tag "Cursor driven" cursor)
+          (const :tag "Mouse driven" mouse)
+          (const :tag "Mouse and Cursor driven." both)))
 
 (defcustom reftex-cursor-selected-face 'highlight
   "Face name to highlight cursor selected item in toc and selection buffers.
@@ -1659,17 +1876,17 @@ may require a restart of Emacs in order to become effective."
   :group 'reftex-miscellaneous-configurations
   :group 'LaTeX
   :type '(choice 
-	  (const :tag "No plug-ins" nil)
-	  (const :tag "All possible plug-ins" t)
-	  (list
-	   :tag "Individual choice"
-	   :value (t t t t t)
-	   (boolean :tag "supply label in new sections and environments")
-	   (boolean :tag "supply argument for macros like `\\label'     ")
-	   (boolean :tag "supply argument for macros like `\\ref'       ")
-	   (boolean :tag "supply argument for macros like `\\cite'      ")
-	   (boolean :tag "supply argument for macros like `\\index'     ")
-	   )))
+          (const :tag "No plug-ins" nil)
+          (const :tag "All possible plug-ins" t)
+          (list
+           :tag "Individual choice"
+           :value (t t t t t)
+           (boolean :tag "supply label in new sections and environments")
+           (boolean :tag "supply argument for macros like `\\label'     ")
+           (boolean :tag "supply argument for macros like `\\ref'       ")
+           (boolean :tag "supply argument for macros like `\\cite'      ")
+           (boolean :tag "supply argument for macros like `\\index'     ")
+           )))
 
 (defcustom reftex-allow-detached-macro-args nil
   "*Non-nil means, allow arguments of macros to be detached by whitespace.
@@ -1689,4 +1906,8 @@ construct:  \\bbb [xxx] {aaa}."
   :group 'reftex-miscellaneous-configurations
   :type 'hook)
 
+
+(provide 'reftex-vars)
+
+;;; arch-tag: 9591ea34-ef39-4431-90b7-c115eaf5e16f
 ;;; reftex-vars.el ends here

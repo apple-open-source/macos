@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ * 
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -19,13 +41,14 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <grp.h>
-#include <pwd.h>
+#include <stdlib.h>
+#include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
 
+#include "PrivateLib.h"
 #include "PMSettings.h"
 #include "SetActive.h"
 #include "powermanagementServer.h"
@@ -33,32 +56,44 @@
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath        "com.apple.PowerManagement.xml"
 
-#define kAssertionsArraySize        5
+#define kMaxTaskAssertions          64
 #define kIOPMTaskPortKey            CFSTR("task")
 #define kIOPMAssertionsKey          CFSTR("assertions")
 
-#define kIOPMNumAssertionTypes      2
-#define kHighPerfIndex              0
-#define kPreventIdleIndex           1
 
-static int callerIsRoot(int uid, int gid);
-static int callerIsAdmin(int uid, int gid);
-static int callerIsConsole(int uid, int gid);
+#define kIOPMNumAssertionTypes      6
+enum {
+    kHighPerfIndex          = 0,
+    kPreventIdleIndex       = 1,
+    kDisableInflowIndex     = 2,
+    kInhibitChargeIndex     = 3,
+    kDisableWarningsIndex   = 4,
+    kPreventDisplaySleepIndex = 5,
+    kEnableIdleIndex = 6
+};
+
+// Selectors for AppleSmartBatteryManagerUserClient
+enum {
+    kSBUCInflowDisable = 0,
+    kSBUCChargeInhibit = 1
+};
+
 
 extern CFMachPortRef            serverMachPort;
 
-// external
-__private_extern__ void mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info);
-
 // forward
-__private_extern__ void     cleanupAssertions(mach_port_t dead_port);
-static void                 evaluateAssertions(void);
-static void                 calculateAggregates(void);
+__private_extern__ void cleanupAssertions(mach_port_t dead_port);
+static void evaluateAssertions(void);
+static void calculateAggregates(void);
+static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
 
 // globals
-static CFMutableDictionaryRef           assertionsDict = NULL;
-static int                              aggregate_assertions[kIOPMNumAssertionTypes];
-static CFStringRef                      assertion_types_arr[kIOPMNumAssertionTypes];
+static CFMutableDictionaryRef assertionsDict = NULL;
+static int aggregate_assertions[kIOPMNumAssertionTypes];
+static int last_aggregate_assertions[kIOPMNumAssertionTypes];
+static CFStringRef assertion_types_arr[kIOPMNumAssertionTypes];
+
+static bool idle_enable_assumed = true;
 
 /***********************************
  * Static Profiles
@@ -73,10 +108,10 @@ calculateAggregates(void)
     
     // Clear out the aggregate assertion values. We are about to re-calculate
     // these values in the big nasty loop below.
-    for(i=0; i<kIOPMNumAssertionTypes; i++)
-    {
-        aggregate_assertions[i] = 0;
-    }
+    bzero( aggregate_assertions, sizeof(aggregate_assertions) );
+    
+    // Initialize kEnableIdleIndex to idle_enable_assumed
+    aggregate_assertions[kEnableIdleIndex] = idle_enable_assumed;
     
     process_count = CFDictionaryGetCount(assertionsDict);
     process_assertions = malloc(sizeof(CFDictionaryRef) * process_count);
@@ -105,23 +140,41 @@ calculateAggregates(void)
                 asst_type = isA_CFString(
                     CFDictionaryGetValue(this_assertion, kIOPMAssertionTypeKey));
                 asst_val = isA_CFNumber(
-                    CFDictionaryGetValue(this_assertion, kIOPMAssertionValueKey));
+                    CFDictionaryGetValue(this_assertion, kIOPMAssertionLevelKey));
                 if(asst_type && asst_val) {
                     CFNumberGetValue(asst_val, kCFNumberIntType, &val);
-                    if(kIOPMAssertionEnable == val)
+                    if(kIOPMAssertionLevelOn == val)
                     {
-                        if(kCFCompareEqualTo ==
-                            CFStringCompare(asst_type, kIOPMCPUBoundAssertion, 0))
+                        if (CFEqual(asst_type, kIOPMAssertionTypeNeedsCPU))
                         {
-                            aggregate_assertions[kHighPerfIndex] = 1;                        
-                        } else if(kCFCompareEqualTo ==
-                            CFStringCompare(asst_type, kIOPMPreventIdleSleepAssertion, 0))
+                            aggregate_assertions[kHighPerfIndex] = 1;
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeNoIdleSleep))
                         {
-                            aggregate_assertions[kPreventIdleIndex] = 1;                        
+                            aggregate_assertions[kPreventIdleIndex] = 1;
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeEnableIdleSleep))
+                        {
+                            aggregate_assertions[kEnableIdleIndex] = 1;
+                            
+                            // Once idle_enable_assumed != true, the system will not idle sleep
+                            // unless kIOPMAssertionTypeEnableIdleSleep is asserted.
+                            idle_enable_assumed = false;
+
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeDisableInflow))
+                        {
+                            aggregate_assertions[kDisableInflowIndex] = 1;
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeInhibitCharging))
+                        {
+                            aggregate_assertions[kInhibitChargeIndex] = 1;
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeDisableLowBatteryWarnings))
+                        {
+                            aggregate_assertions[kDisableWarningsIndex] = 1;
+                        } else if (CFEqual(asst_type, kIOPMAssertionTypeNoDisplaySleep))
+                        {
+                            aggregate_assertions[kPreventDisplaySleepIndex] = 1;
                         }
                     }
                 }
-            }
+           }
         }
     }
     free(process_assertions);
@@ -132,19 +185,141 @@ calculateAggregates(void)
     
 }
 
+
 static void
 evaluateAssertions(void)
 {
     calculateAggregates(); // fills results into aggregate_assertions global
 
-    if(aggregate_assertions[kHighPerfIndex]) {
-        overrideSetting(kPMForceHighSpeed, 1);
+    // Override PM settings
+    overrideSetting( kPMForceHighSpeed, 
+                    aggregate_assertions[kHighPerfIndex]);
+    overrideSetting( kPMPreventDisplaySleep, 
+                    aggregate_assertions[kPreventDisplaySleepIndex]);
+    if(  aggregate_assertions[kPreventIdleIndex]
+     || !aggregate_assertions[kEnableIdleIndex]) {
+        overrideSetting(kPMPreventIdleSleep, 1);
     } else {
-        overrideSetting(kPMForceHighSpeed, 0);
+        overrideSetting(kPMPreventIdleSleep, 0);
     }
+    
+    // Perform kDisableInflowIndex
+    if( aggregate_assertions[kDisableInflowIndex] 
+        != last_aggregate_assertions[kDisableInflowIndex]) 
+    {
+        asl_log(NULL, NULL, ASL_LEVEL_INFO, "%s DisableInflow",
+            aggregate_assertions[kDisableInflowIndex]? "Activating":"Clearing");
+        sendSmartBatteryCommand( kSBUCInflowDisable,
+                        aggregate_assertions[kDisableInflowIndex]);
+    }
+    
+    // Perform kInhibitChargeIndex
+    if( aggregate_assertions[kInhibitChargeIndex] 
+        != last_aggregate_assertions[kInhibitChargeIndex]) 
+    {
+        asl_log(NULL, NULL, ASL_LEVEL_INFO, "%s InhibitCharge",
+            aggregate_assertions[kInhibitChargeIndex]? "Activating":"Clearing");
+        sendSmartBatteryCommand( kSBUCChargeInhibit, 
+                        aggregate_assertions[kInhibitChargeIndex]);
+    }
+    
+    // Perform low battery warning
+    if( aggregate_assertions[kDisableWarningsIndex] 
+        != last_aggregate_assertions[kDisableWarningsIndex]) 
+    {
+        _setRootDomainProperty( CFSTR("BatteryWarningsDisabled"),
+                                (aggregate_assertions[kDisableWarningsIndex]
+                                    ? kCFBooleanTrue : kCFBooleanFalse));
+    }
+    
+    bcopy(aggregate_assertions, last_aggregate_assertions, 
+                            sizeof(aggregate_assertions));
     
     activateSettingOverrides();
 }
+
+
+#if HAVE_SMART_BATTERY
+static void
+sendSmartBatteryCommand(uint32_t which, uint32_t level)
+{
+    io_service_t    sbmanager = MACH_PORT_NULL;
+    io_connect_t    sbconnection = MACH_PORT_NULL;
+    kern_return_t   kret;
+    uint32_t        output_count = 1;
+    uint64_t        uc_return = kIOReturnError;
+    uint64_t        level_64 = level;
+
+    // Find SmartBattery manager
+    sbmanager = IOServiceGetMatchingService(MACH_PORT_NULL,
+                    IOServiceMatching("AppleSmartBatteryManager"));
+                    
+    if(MACH_PORT_NULL == sbmanager) {
+        goto bail;
+    }
+
+    kret = IOServiceOpen( sbmanager, mach_task_self(), 0, &sbconnection);
+    if(kIOReturnSuccess != kret) {
+        goto bail;
+    }
+
+    kret = IOConnectCallMethod(
+                    sbconnection, // connection
+                    which,      // selector
+                    &level_64,  // uint64_t *input
+                    1,          // input Count
+                    NULL,       // input struct count
+                    0,          // input struct count
+                    &uc_return, // output
+                    &output_count,  // output count
+                    NULL,       // output struct
+                    0);         // output struct count
+
+bail:
+
+    if (MACH_PORT_NULL != sbconnection) {
+        IOServiceClose(sbconnection);
+    }
+
+    if (MACH_PORT_NULL != sbmanager) {
+        IOObjectRelease(sbmanager);
+    }
+
+    return;
+}
+#else /* HAVE_SMART_BATTERY */
+
+static void
+sendSmartBatteryCommand(uint32_t which, uint32_t level)
+{
+    kern_return_t       kr;
+    io_iterator_t       iter;
+    io_registry_entry_t next;
+
+    do
+    {
+    if (kSBUCChargeInhibit != which)
+        break;
+    kr = IOServiceGetMatchingServices(kIOMasterPortDefault, 
+        IOServiceMatching("IOPMPowerSource"), &iter);
+    if (kIOReturnSuccess != kr)
+        break;
+    if (MACH_PORT_NULL == iter)
+        break;
+    while ((next = IOIteratorNext(iter)))
+    {
+        kr = IORegistryEntrySetCFProperty(next, CFSTR(kIOPMPSIsChargingKey), 
+                          level ? kCFBooleanFalse : kCFBooleanTrue);
+        IOObjectRelease(next);
+    }
+    IOObjectRelease(iter);
+    }
+    while (false);
+    return;
+}
+
+#endif /* HAVE_SMART_BATTERY */
+
 
 __private_extern__ IOReturn  
 _IOPMSetActivePowerProfilesRequiresRoot
@@ -167,9 +342,9 @@ _IOPMSetActivePowerProfilesRequiresRoot
        file using SCPreferences requires root privileges.       
       */
 
-    if( !callerIsRoot(uid, gid) &&
+    if( (!callerIsRoot(uid, gid) &&
         !callerIsAdmin(uid, gid) &&
-        !callerIsConsole(uid, gid) || 
+        !callerIsConsole(uid, gid)) || 
         ( (-1 == uid) || (-1 == gid) ))
     {
         ret = kIOReturnNotPrivileged;
@@ -224,89 +399,37 @@ exit:
     return ret;
 }
 
-
-static int
-callerIsRoot(
-    int uid,
-    int gid
-)
-{
-    return (0 == uid);
-}
-
-static int
-callerIsAdmin(
-    int uid,
-    int gid
-)
-{
-    int         ngroups = NGROUPS_MAX+1;
-    int         group_list[NGROUPS_MAX+1];
-    int         i;
-    struct group    *adminGroup;
-    struct passwd   *pw;
-        
-    
-    pw = getpwuid(uid);
-    if(!pw) return false;
-    
-    getgrouplist(pw->pw_name, pw->pw_gid, group_list, &ngroups);
-
-    adminGroup = getgrnam("admin");
-    if (adminGroup != NULL) {
-        gid_t    adminGid = adminGroup->gr_gid;
-        for(i=0; i<ngroups; i++)
-        {
-            if (group_list[i] == adminGid) {
-                return TRUE;    // if a member of group "admin"
-            }
-        }
-    }
-    return false;
-}
-
-static int
-callerIsConsole(
-    int uid,
-    int gid)
-{
-    CFStringRef                 user_name = 0;
-    uid_t                       console_uid;
-    gid_t                       console_gid;
-    
-    user_name = SCDynamicStoreCopyConsoleUser(
-            NULL, &console_uid, &console_gid);
-    if(user_name) CFRelease(user_name);
-    else return false;
-
-    return ((uid == console_uid) && (gid == console_gid));
-}
  
 /***********************************
- * Dynamic Profiles
+ * Dynamic Assertions
  ***********************************/
+#define ID_FROM_INDEX(idx)  (idx + 300)
+#define INDEX_FROM_ID(id)   (id - 300)
 
 __private_extern__ void
 PMAssertions_prime(void)
 {
-    assertion_types_arr[kHighPerfIndex] = kIOPMCPUBoundAssertion; 
-    assertion_types_arr[kPreventIdleIndex] = kIOPMPreventIdleSleepAssertion;
+    assertion_types_arr[kHighPerfIndex]             = kIOPMAssertionTypeNeedsCPU; 
+    assertion_types_arr[kPreventIdleIndex]          = kIOPMAssertionTypeNoIdleSleep;
+    assertion_types_arr[kDisableInflowIndex]        = kIOPMAssertionTypeDisableInflow; 
+    assertion_types_arr[kInhibitChargeIndex]        = kIOPMAssertionTypeInhibitCharging;
+    assertion_types_arr[kDisableWarningsIndex]      = kIOPMAssertionTypeDisableLowBatteryWarnings;
+    assertion_types_arr[kPreventDisplaySleepIndex]  = kIOPMAssertionTypeNoDisplaySleep;
+    assertion_types_arr[kEnableIdleIndex]           = kIOPMAssertionTypeEnableIdleSleep;
+
+    return;
 }
 
-kern_return_t _io_pm_assertion_create
+IOReturn _IOPMAssertionCreateRequiresRoot
 (
-    mach_port_t         server,
     mach_port_t         task,
-    string_t            profile,
-    mach_msg_type_number_t   profileCnt,
+    CFStringRef         assertionString,
     int                 level,
-    int                 *assertion_id,
-    int                 *result
+    int                 *assertion_id
 )
 {
+    IOReturn                result = kIOReturnInternalError;
     CFMachPortRef           cf_port_for_task = NULL;
-    mach_port_name_t        rcv_right = MACH_PORT_NULL;
-    kern_return_t           kern_result = KERN_SUCCESS;
     CFDictionaryRef         tmp_task = NULL;
     CFMutableDictionaryRef  this_task = NULL;
     CFArrayRef              tmp_assertions = NULL;
@@ -315,13 +438,13 @@ kern_return_t _io_pm_assertion_create
     kern_return_t           err = KERN_SUCCESS;
     int                     i;
 
-    // assertion_id will be set to -1 on failure, unless we succeed here
-    // and it gets a valid [0, (kAssertionsArraySize-1)] value below.
-    *assertion_id = -1;
+    // assertion_id will be set to kIOPMNullAssertionID on failure, 
+    // unless we succeed here and it gets a valid value below.
+    *assertion_id = kIOPMNullAssertionID;
 
-    cf_port_for_task = CFMachPortCreateWithPort(0, task, mig_server_callback, 0, 0);
+    cf_port_for_task = CFMachPortCreateWithPort(0, task, NULL, NULL, 0);
     if(!cf_port_for_task) {
-        *result = kIOReturnNoMemory;
+        result = kIOReturnNoMemory;
         goto exit;
     }
     
@@ -329,6 +452,7 @@ kern_return_t _io_pm_assertion_create
        (tmp_task = CFDictionaryGetValue(assertionsDict, cf_port_for_task)) )
     {
         // There is an existing dictionary tracking this process's assertions.
+        mach_port_deallocate(mach_task_self(), task);
         this_task = CFDictionaryCreateMutableCopy(0, 0, tmp_task);
         CFDictionarySetValue(assertionsDict, cf_port_for_task, this_task);
     } else {
@@ -338,10 +462,11 @@ kern_return_t _io_pm_assertion_create
                     &kCFTypeDictionaryKeyCallBacks,
                     &kCFTypeDictionaryValueCallBacks);
         if(!this_task){
-            *result = kIOReturnNoMemory;
+            mach_port_deallocate(mach_task_self(), task);
+            result = kIOReturnNoMemory;
             goto exit;
         }
-        CFDictionarySetValue(this_task, CFSTR("task"), cf_port_for_task);    
+        CFDictionarySetValue(this_task, kIOPMTaskPortKey, cf_port_for_task);    
 
         // Register for a dead name notification on this task_t
         err = mach_port_request_notification(
@@ -356,10 +481,15 @@ kern_return_t _io_pm_assertion_create
         {
             syslog(LOG_ERR, "mach port request notification error %s(%08x)\n",
                 mach_error_string(err), err);
-            *result = err;
+            mach_port_deallocate(mach_task_self(), task);
+            result = err;
             goto exit;
         }
                     
+        if (oldNotify != MACH_PORT_NULL) {
+            mach_port_deallocate(mach_task_self(), oldNotify);
+        }
+
         // assertionsDict is the global dictionary that maps a process's task_t
         // to all power management assertions it has created.
         if(!assertionsDict) {
@@ -371,10 +501,7 @@ kern_return_t _io_pm_assertion_create
 
     tmp_assertions = CFDictionaryGetValue(this_task, kIOPMAssertionsKey);
     if(!tmp_assertions) {
-        assertions = CFArrayCreateMutable(0, kAssertionsArraySize, &kCFTypeArrayCallBacks);
-        for(i=0; i<kAssertionsArraySize; i++) {
-            CFArraySetValueAtIndex(assertions, i, kCFBooleanFalse);
-        }
+        assertions = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
     } else {
         assertions = CFArrayCreateMutableCopy(0, 0, tmp_assertions);
     }
@@ -384,49 +511,47 @@ kern_return_t _io_pm_assertion_create
     // refcount them if they exist
 
     // find empty slot
-    int         index = -1;
+    CFIndex     arrayIndex;
     int         asst_count;
     asst_count = CFArrayGetCount(assertions);
-    if(0 == asst_count) {
-        index = 0;
-    } else {
-        for(i=0; i<asst_count; i++) {
-            // find the first empty element in the array
-            // empty elements are denoted by the value kCFBooleanFalse
-            if(kCFBooleanFalse == CFArrayGetValueAtIndex(assertions, i)) break;
-        }
-        if(kAssertionsArraySize == i) {
-            // ERROR! out of space in array!
-            *result = kIOReturnNoMemory;
-            goto exit;
-        } else index = i;
+    for (arrayIndex=0; arrayIndex<asst_count; arrayIndex++) 
+    {
+        // find the first empty element in the array
+        // empty elements are denoted by the value kCFBooleanFalse
+        if(kCFBooleanFalse == CFArrayGetValueAtIndex(assertions, arrayIndex)) break;
+    }
+    if (arrayIndex >= kMaxTaskAssertions) 
+    {
+        // ERROR! out of space in array!
+        result = kIOReturnNoMemory;
+        goto exit;
     }
 
     CFMutableDictionaryRef          new_assertion_dict = NULL;
-    CFStringRef                     cf_assertion_str = NULL;
     CFNumberRef                     cf_assertion_val = NULL;
     
-    *assertion_id = index;
+    *assertion_id = ID_FROM_INDEX(arrayIndex);
     new_assertion_dict = CFDictionaryCreateMutable(0, 2,
                     &kCFTypeDictionaryKeyCallBacks,
                     &kCFTypeDictionaryValueCallBacks);
-    cf_assertion_str = CFStringCreateWithCString(0, profile, kCFStringEncodingMacRoman);
     cf_assertion_val = CFNumberCreate(0, kCFNumberIntType, &level);
-    CFDictionarySetValue(new_assertion_dict, kIOPMAssertionTypeKey, cf_assertion_str);
-    CFDictionarySetValue(new_assertion_dict, kIOPMAssertionValueKey, cf_assertion_val);
-    CFRelease(cf_assertion_str);
+    CFDictionarySetValue(new_assertion_dict, 
+                            kIOPMAssertionTypeKey, assertionString);
+    CFDictionarySetValue(new_assertion_dict, 
+                            kIOPMAssertionLevelKey, cf_assertion_val);
     CFRelease(cf_assertion_val);
-    CFArraySetValueAtIndex(assertions, index, new_assertion_dict);
+    CFArraySetValueAtIndex(assertions, arrayIndex, new_assertion_dict);
     CFRelease(new_assertion_dict);
 
     evaluateAssertions();
 
-    *result = kIOReturnSuccess;
+    result = kIOReturnSuccess;
 exit:
     if(this_task) CFRelease(this_task);
     if(assertions) CFRelease(assertions);
     if(cf_port_for_task) CFRelease(cf_port_for_task);
-    return KERN_SUCCESS;
+
+    return result;
 }
 
 
@@ -442,19 +567,19 @@ kern_return_t _io_pm_assertion_release
     CFDictionaryRef         calling_task = NULL;
     CFMutableArrayRef       assertions = NULL;              
     CFTypeRef               assertion_to_release = NULL;
+    int                     i;
+    int                     n;
+    Boolean                 releaseTask;
 
-    if((assertion_id < 0) || (assertion_id >= kAssertionsArraySize)) {
-        *return_code = kIOReturnBadArgument;
-        goto exit;
-    }
-
-    cf_port_for_task = CFMachPortCreateWithPort(0, task, mig_server_callback, 0, 0);
+    cf_port_for_task = CFMachPortCreateWithPort(0, task, NULL, NULL, 0);
     if(!cf_port_for_task) {
         *return_code = kIOReturnNoMemory;
         goto exit;
     }
 
-    calling_task = CFDictionaryGetValue(assertionsDict, cf_port_for_task);
+    if (assertionsDict) {
+        calling_task = CFDictionaryGetValue(assertionsDict, cf_port_for_task);
+    }
     if(!calling_task) {
         *return_code = kIOReturnNotFound;
         goto exit;
@@ -468,20 +593,44 @@ kern_return_t _io_pm_assertion_release
     }
     
     // Look up assertion at assertion_id and make sure it exists
-    assertion_to_release = CFArrayGetValueAtIndex(assertions, assertion_id);
+    CFIndex arrayIndex = INDEX_FROM_ID(assertion_id);
+    if ((arrayIndex < 0) || (arrayIndex >= CFArrayGetCount(assertions))) {
+        *return_code = kIOReturnNotFound;
+        goto exit;
+    }
+    assertion_to_release = CFArrayGetValueAtIndex(assertions, arrayIndex);
     if(!assertion_to_release || !isA_CFDictionary(assertion_to_release)) {
         *return_code = kIOReturnNotFound;
         goto exit;
     }
     
     // Release it
-    CFArraySetValueAtIndex(assertions, assertion_id, kCFBooleanFalse);
-    
+    CFArraySetValueAtIndex(assertions, arrayIndex, kCFBooleanFalse);
+
+    // Check for last reference and cleanup
+    releaseTask = TRUE;
+    n = CFArrayGetCount(assertions);
+    for (i =0; i < n; i++) {
+        CFTypeRef    assertion;
+
+        assertion = CFArrayGetValueAtIndex(assertions, i);
+        if (!CFEqual(assertion, kCFBooleanFalse)) {
+            releaseTask = FALSE;
+            break;
+        }
+    }
+    if (releaseTask) {
+        CFDictionaryRemoveValue(assertionsDict, cf_port_for_task);
+        mach_port_deallocate(mach_task_self(), task);
+    }
+
+    // Re-evaluate
     evaluateAssertions();
     
     *return_code = kIOReturnSuccess;    
 exit:
     if(cf_port_for_task) CFRelease(cf_port_for_task);
+    mach_port_deallocate(mach_task_self(), task);
     return KERN_SUCCESS;   
 }
 
@@ -634,27 +783,23 @@ cleanupAssertions(
 )
 {
     CFMachPortRef               cf_task_port = NULL;
-    int                         dead_pid = -1;
     
     if(!assertionsDict) {
         return;
     }
     
     // Clean up after this dead process
-    cf_task_port = CFMachPortCreateWithPort(0, dead_port, mig_server_callback, 0, 0);
+    cf_task_port = CFMachPortCreateWithPort(0, dead_port, NULL, NULL, 0);
     if(!cf_task_port) return;
 
-    // Log a message on this exceptional circumstance.
-    pid_for_task(dead_port, &dead_pid);
-//    syslog(LOG_ERR, "Power Management cleaning up assertions for pid %d (port %d).\n", \
-        dead_pid, dead_port);
-    
-    // Remove the process's tracking data
-    // Deletes the entire dictionary that tracks this process.
-    CFDictionaryRemoveValue(assertionsDict, cf_task_port);
+    if (CFDictionaryContainsKey(assertionsDict, cf_task_port)) {
+        // Remove the process's tracking data
+        CFDictionaryRemoveValue(assertionsDict, cf_task_port);
+        mach_port_deallocate(mach_task_self(), dead_port);
+        evaluateAssertions();
+    }
 
-    evaluateAssertions();
-exit:
+    CFRelease(cf_task_port);
     return;
 }
 

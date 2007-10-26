@@ -1,7 +1,8 @@
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/FindSel.c,v 1.1.1.4 2002/09/10 23:34:44 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
+/* Copyright (C) 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007 Free Software Foundation, Inc.  */
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -70,3 +71,6 @@ XMenuFindSelection(menu, p_num, label)
     _XMErrorCode = XME_S_NOT_FOUND;
     return (XM_FAILURE);
 }
+
+/* arch-tag: 564a4a95-9ab0-4580-b05f-6970c4b25dd4
+   (do not change this comment) */

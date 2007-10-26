@@ -49,7 +49,7 @@ sentinel_frame_prev_register (struct frame_info *next_frame,
 			      void **this_prologue_cache,
 			      int regnum, int *optimized,
 			      enum lval_type *lvalp, CORE_ADDR *addrp,
-			      int *realnum, void *bufferp)
+			      int *realnum, gdb_byte *bufferp)
 {
   struct frame_unwind_cache *cache = *this_prologue_cache;
   /* Describe the register's location.  A reg-frame maps all registers
@@ -78,15 +78,25 @@ sentinel_frame_this_id (struct frame_info *next_frame,
   /* The sentinel frame is used as a starting point for creating the
      previous (inner most) frame.  That frame's THIS_ID method will be
      called to determine the inner most frame's ID.  Not this one.  */
-  internal_error (__FILE__, __LINE__, "sentinel_frame_this_id called");
+  internal_error (__FILE__, __LINE__, _("sentinel_frame_this_id called"));
+}
+
+static CORE_ADDR
+sentinel_frame_prev_pc (struct frame_info *next_frame,
+			void **this_prologue_cache)
+{
+  struct gdbarch *gdbarch = get_frame_arch (next_frame);
+  return gdbarch_unwind_pc (gdbarch, next_frame);
 }
 
 const struct frame_unwind sentinel_frame_unwinder =
 {
-  /* Should the sentinel frame be given a special type?  */
-  NORMAL_FRAME,
+  SENTINEL_FRAME,
   sentinel_frame_this_id,
-  sentinel_frame_prev_register
+  sentinel_frame_prev_register,
+  NULL, /* unwind_data */
+  NULL, /* sniffer */
+  sentinel_frame_prev_pc,
 };
 
 const struct frame_unwind *const sentinel_frame_unwind = &sentinel_frame_unwinder;

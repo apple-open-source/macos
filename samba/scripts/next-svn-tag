@@ -1,0 +1,51 @@
+#! /usr/bin/perl
+
+use strict;
+
+my $SVNBASE='svn+ssh://src.apple.com/svn/fs/samba';
+
+my $debug = 0;
+
+sub svn
+{
+    my $fh;
+    my @args = @_;
+
+    print "svn @args\n" if ($debug);
+
+    die "svn @args: $!" unless
+	open $fh, "svn @args|";
+
+    return $fh;
+}
+
+sub descending { $b <=> $a }
+
+sub find_next_tag
+{
+    my $fh;
+    my @tags;
+    my $next;
+
+    $fh = svn("ls $SVNBASE/tags");
+
+    # Tags are named samba-xx.yy, where the xx is the submitted build number
+    # and .yy is incremented if there is a new build make based on build xx.
+    # Here we are interested only in the major build number.
+    while (<$fh>) {
+	chomp;
+	if (m/samba-(\d+)/) {
+	    push @tags, ($1);
+	}
+    }
+
+    @tags = sort descending @tags;
+    print "@tags\n" if ($debug);
+
+    $next = $tags[0] + 1;
+    close $fh;
+    return "samba-$next";
+}
+
+my $next = find_next_tag();
+print "$next\n";

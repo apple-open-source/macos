@@ -171,9 +171,15 @@ typedef struct {
  * Service request
  */
 struct svc_req {
+#ifdef __LP64__
+	unsigned int		rq_prog;	/* service program number */
+	unsigned int		rq_vers;	/* service protocol version */
+	unsigned int		rq_proc;	/* the desired procedure */
+#else
 	unsigned long		rq_prog;	/* service program number */
 	unsigned long		rq_vers;	/* service protocol version */
 	unsigned long		rq_proc;	/* the desired procedure */
+#endif
 	struct opaque_auth rq_cred;	/* raw creds from the wire */
 	caddr_t		rq_clntcred;	/* read only cooked cred */
 	SVCXPRT	*rq_xprt;		/* associated transport */
@@ -185,24 +191,32 @@ struct svc_req {
  *
  * svc_register(xprt, prog, vers, dispatch, protocol)
  *	SVCXPRT *xprt;
- *	unsigned long prog;
- *	unsigned long vers;
+ *	u_long prog;
+ *	u_long vers;
  *	void (*dispatch)(...); // fixincludes needs the ..., even in a comment
  *	int protocol;  like TCP or UDP, zero means do not register 
  */
 __BEGIN_DECLS
+#ifdef __LP64__
+extern bool_t	svc_register __P((SVCXPRT *, unsigned int, unsigned int, void (*)(), int));
+#else
 extern bool_t	svc_register __P((SVCXPRT *, unsigned long, unsigned long, void (*)(), int));
+#endif
 __END_DECLS
 
 /*
  * Service un-registration
  *
  * svc_unregister(prog, vers)
- *	unsigned long prog;
- *	unsigned long vers;
+ *	u_long prog;
+ *	u_long vers;
  */
 __BEGIN_DECLS
+#ifdef __LP64__
+extern void	svc_unregister __P((unsigned int, unsigned int));
+#else
 extern void	svc_unregister __P((unsigned long, unsigned long));
+#endif
 __END_DECLS
 
 /*
@@ -259,7 +273,11 @@ extern bool_t	svc_sendreply	__P((SVCXPRT *, xdrproc_t, char *));
 extern void	svcerr_decode	__P((SVCXPRT *));
 extern void	svcerr_weakauth	__P((SVCXPRT *));
 extern void	svcerr_noproc	__P((SVCXPRT *));
+#ifdef __LP64__
+extern void	svcerr_progvers	__P((SVCXPRT *, unsigned int, unsigned int));
+#else
 extern void	svcerr_progvers	__P((SVCXPRT *, unsigned long, unsigned long));
+#endif
 extern void	svcerr_auth	__P((SVCXPRT *, enum auth_stat));
 extern void	svcerr_noprog	__P((SVCXPRT *));
 extern void	svcerr_systemerr __P((SVCXPRT *));

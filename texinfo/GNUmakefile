@@ -6,12 +6,12 @@
 
 Project        = texinfo
 Name           = $(Project)
-Version        = 4.7
+Version        = 4.8
 Name_Vers      = $(Name)-$(Version)
 Compress_Type  = bz2
 Tarball        = $(Name_Vers).tar.$(Compress_Type)
 Extract_Dir    = $(Name_Vers)
-Patch_List     = texindex.patch
+Patch_List     = 4832842-html.c.patch 4808658-texindex.c.patch texindex.patch
 
 ## Don't modify below here ##
 

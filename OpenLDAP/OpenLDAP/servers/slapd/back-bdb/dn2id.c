@@ -1,8 +1,8 @@
 /* dn2id.c - routines to deal with the dn2id index */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dn2id.c,v 1.84.2.10 2004/07/18 10:37:48 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dn2id.c,v 1.106.2.14 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,16 +35,12 @@ bdb_dn2id_add(
 	DB *db = bdb->bi_dn2id->bdi_db;
 	int		rc;
 	DBT		key, data;
+	ID		nid;
 	char		*buf;
 	struct berval	ptr, pdn;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, "bdb_dn2id_add( \"%s\", 0x%08lx )\n",
-		e->e_ndn, (long) e->e_id, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id_add( \"%s\", 0x%08lx )\n",
 		e->e_ndn, (long) e->e_id, 0 );
-#endif
 	assert( e->e_id != NOID );
 
 	DBTzero( &key );
@@ -60,43 +56,35 @@ bdb_dn2id_add(
 	ptr.bv_val[ptr.bv_len] = '\0';
 
 	DBTzero( &data );
-	data.data = (char *) &e->e_id;
-	data.size = sizeof( e->e_id );
+	data.data = &nid;
+	data.size = sizeof( nid );
+	BDB_ID2DISK( e->e_id, &nid );
 
 	/* store it -- don't override */
 	rc = db->put( db, txn, &key, &data, DB_NOOVERWRITE );
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, ERR, "bdb_dn2id_add: put failed: %s %d\n",
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_dn2id_add: put failed: %s %d\n",
 			db_strerror(rc), rc, 0 );
-#endif
 		goto done;
 	}
 
 #ifndef BDB_MULTIPLE_SUFFIXES
-	if( !be_issuffix( op->o_bd, &ptr )) {
+	if( !be_issuffix( op->o_bd, &ptr ))
 #endif
+	{
 		buf[0] = DN_SUBTREE_PREFIX;
 		rc = db->put( db, txn, &key, &data, DB_NOOVERWRITE );
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_add: subtree (%s) put failed: %d\n",
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 			"=> bdb_dn2id_add: subtree (%s) put failed: %d\n",
 			ptr.bv_val, rc, 0 );
-#endif
 			goto done;
 		}
 		
 #ifdef BDB_MULTIPLE_SUFFIXES
-	if( !be_issuffix( op->o_bd, &ptr )) {
+	if( !be_issuffix( op->o_bd, &ptr ))
 #endif
+	{
 		dnParent( &ptr, &pdn );
 	
 		key.size = pdn.bv_len + 2;
@@ -108,20 +96,14 @@ bdb_dn2id_add(
 		rc = bdb_idl_insert_key( op->o_bd, db, txn, &key, e->e_id );
 
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_add: parent (%s) insert failed: %d\n",
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"=> bdb_dn2id_add: parent (%s) insert failed: %d\n",
 					ptr.bv_val, rc, 0 );
-#endif
 			goto done;
 		}
-#ifndef BDB_MULTIPLE_SUFFIXES
 	}
 
+#ifndef BDB_MULTIPLE_SUFFIXES
 	while( !be_issuffix( op->o_bd, &ptr ))
 #else
 	for (;;)
@@ -132,15 +114,9 @@ bdb_dn2id_add(
 		rc = bdb_idl_insert_key( op->o_bd, db, txn, &key, e->e_id );
 
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_add: subtree (%s) insert failed: %d\n",
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"=> bdb_dn2id_add: subtree (%s) insert failed: %d\n",
 					ptr.bv_val, rc, 0 );
-#endif
 			break;
 		}
 #ifdef BDB_MULTIPLE_SUFFIXES
@@ -153,17 +129,11 @@ bdb_dn2id_add(
 		key.data = pdn.bv_val - 1;
 		ptr = pdn;
 	}
-#ifdef BDB_MULTIPLE_SUFFIXES
 	}
-#endif
 
 done:
 	op->o_tmpfree( buf, op->o_tmpmemctx );
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, RESULTS, "<= bdb_dn2id_add: %d\n", rc, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id_add: %d\n", rc, 0, 0 );
-#endif
 	return rc;
 }
 
@@ -181,13 +151,8 @@ bdb_dn2id_delete(
 	char		*buf;
 	struct berval	pdn, ptr;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, 
-		"=> bdb_dn2id_delete ( \"%s\", 0x%08lx )\n", e->e_ndn, e->e_id, 0);
-#else
 	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id_delete( \"%s\", 0x%08lx )\n",
 		e->e_ndn, e->e_id, 0 );
-#endif
 
 	DBTzero( &key );
 	key.size = e->e_nname.bv_len + 2;
@@ -203,38 +168,28 @@ bdb_dn2id_delete(
 	/* delete it */
 	rc = db->del( db, txn, &key, 0 );
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, ERR, 
-			"=> bdb_dn2id_delete: delete failed: %s %d\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY, "=> bdb_dn2id_delete: delete failed: %s %d\n",
 			db_strerror(rc), rc, 0 );
-#endif
 		goto done;
 	}
 
 #ifndef BDB_MULTIPLE_SUFFIXES
-	if( !be_issuffix( op->o_bd, &ptr )) {
+	if( !be_issuffix( op->o_bd, &ptr ))
 #endif
+	{
 		buf[0] = DN_SUBTREE_PREFIX;
-		rc = db->del( db, txn, &key, 0 );
+		rc = bdb_idl_delete_key( op->o_bd, db, txn, &key, e->e_id );
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_delete: subtree (%s) delete failed: %d\n", 
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 			"=> bdb_dn2id_delete: subtree (%s) delete failed: %d\n",
 			ptr.bv_val, rc, 0 );
-#endif
 			goto done;
 		}
 
 #ifdef BDB_MULTIPLE_SUFFIXES
-	if( !be_issuffix( op->o_bd, &ptr )) {
+	if( !be_issuffix( op->o_bd, &ptr ))
 #endif
+	{
 		dnParent( &ptr, &pdn );
 
 		key.size = pdn.bv_len + 2;
@@ -246,37 +201,26 @@ bdb_dn2id_delete(
 		rc = bdb_idl_delete_key( op->o_bd, db, txn, &key, e->e_id );
 
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_delete: parent (%s) delete failed: %d\n", 
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"=> bdb_dn2id_delete: parent (%s) delete failed: %d\n",
 				ptr.bv_val, rc, 0 );
-#endif
 			goto done;
 		}
-#ifndef BDB_MULTIPLE_SUFFIXES
 	}
 
-	while( !be_issuffix( op->o_bd, &ptr )) {
+#ifndef BDB_MULTIPLE_SUFFIXES
+	while( !be_issuffix( op->o_bd, &ptr ))
 #else
-	for (;;) {
+	for (;;)
 #endif
+	{
 		ptr.bv_val[-1] = DN_SUBTREE_PREFIX;
 
 		rc = bdb_idl_delete_key( op->o_bd, db, txn, &key, e->e_id );
 		if( rc != 0 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( INDEX, ERR, 
-				"=> bdb_dn2id_delete: subtree (%s) delete failed: %d\n", 
-				ptr.bv_val, rc, 0 );
-#else
 			Debug( LDAP_DEBUG_ANY,
 				"=> bdb_dn2id_delete: subtree (%s) delete failed: %d\n",
 				ptr.bv_val, rc, 0 );
-#endif
 			goto done;
 		}
 #ifdef BDB_MULTIPLE_SUFFIXES
@@ -289,17 +233,11 @@ bdb_dn2id_delete(
 		key.data = pdn.bv_val - 1;
 		ptr = pdn;
 	}
-#ifdef BDB_MULTIPLE_SUFFIXES
 	}
-#endif
 
 done:
 	op->o_tmpfree( buf, op->o_tmpmemctx );
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, RESULTS, "<= bdb_dn2id_delete %d\n", rc, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id_delete %d\n", rc, 0, 0 );
-#endif
 	return rc;
 }
 
@@ -310,16 +248,13 @@ bdb_dn2id(
 	struct berval	*dn,
 	EntryInfo *ei )
 {
-	int		rc;
-	DBT		key, data;
 	struct bdb_info *bdb = (struct bdb_info *) op->o_bd->be_private;
 	DB *db = bdb->bi_dn2id->bdi_db;
+	int		rc;
+	DBT		key, data;
+	ID		nid;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, "=> bdb_dn2id( \"%s\" )\n", dn->bv_val, 0, 0 );
-#else
-	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id( \"%s\" )\n", dn->bv_val, 0, 0 );
-#endif
+	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id(\"%s\")\n", dn->bv_val, 0, 0 );
 	DBTzero( &key );
 	key.size = dn->bv_len + 2;
 	key.data = op->o_tmpalloc( key.size, op->o_tmpmemctx );
@@ -328,7 +263,7 @@ bdb_dn2id(
 
 	/* store the ID */
 	DBTzero( &data );
-	data.data = &ei->bei_id;
+	data.data = &nid;
 	data.ulen = sizeof(ID);
 	data.flags = DB_DBT_USERMEM;
 
@@ -336,21 +271,12 @@ bdb_dn2id(
 	rc = db->get( db, txn, &key, &data, bdb->bi_db_opflags );
 
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, ERR, "<= bdb_dn2id: get failed %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id: get failed: %s (%d)\n",
 			db_strerror( rc ), rc, 0 );
-#endif
 	} else {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, RESULTS, 
-			"<= bdb_dn2id: got id=0x%08lx\n", ei->bei_id, 0, 0 );
-#else
+		BDB_DISK2ID( &nid, &ei->bei_id );
 		Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id: got id=0x%08lx\n",
 			ei->bei_id, 0, 0 );
-#endif
 	}
 
 	op->o_tmpfree( key.data, op->o_tmpmemctx );
@@ -369,13 +295,8 @@ bdb_dn2id_children(
 	ID		id;
 	int		rc;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, 
-		"=> bdb_dn2id_children( %s )\n", e->e_nname.bv_val, 0, 0 );
-#else
-	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id_children( %s )\n",
+	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2id_children(\"%s\")\n",
 		e->e_nname.bv_val, 0, 0 );
-#endif
 	DBTzero( &key );
 	key.size = e->e_nname.bv_len + 2;
 	key.data = op->o_tmpalloc( key.size, op->o_tmpmemctx );
@@ -400,17 +321,10 @@ bdb_dn2id_children(
 	rc = db->get( db, txn, &key, &data, bdb->bi_db_opflags );
 	op->o_tmpfree( key.data, op->o_tmpmemctx );
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, DETAIL1, 
-		"<= bdb_dn2id_children( %s ): %s (%d)\n", 
-		e->e_nname.bv_val, rc == 0 ? "" : ( rc == DB_NOTFOUND ? "no " :
-		db_strerror(rc)), rc );
-#else
-	Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id_children( %s ): %s (%d)\n",
+	Debug( LDAP_DEBUG_TRACE, "<= bdb_dn2id_children(\"%s\"): %s (%d)\n",
 		e->e_nname.bv_val,
 		rc == 0 ? "" : ( rc == DB_NOTFOUND ? "no " :
 			db_strerror(rc) ), rc );
-#endif
 
 	return rc;
 }
@@ -429,13 +343,8 @@ bdb_dn2idl(
 	int prefix = ( op->ors_scope == LDAP_SCOPE_ONELEVEL )
 		? DN_ONE_PREFIX : DN_SUBTREE_PREFIX;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, "=> bdb_dn2ididl( \"%s\" )\n",
+	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2idl(\"%s\")\n",
 		e->e_nname.bv_val, 0, 0 );
-#else
-	Debug( LDAP_DEBUG_TRACE, "=> bdb_dn2idl( \"%s\" )\n",
-		e->e_nname.bv_val, 0, 0 );
-#endif
 
 #ifndef	BDB_MULTIPLE_SUFFIXES
 	if ( prefix == DN_SUBTREE_PREFIX && BEI(e)->bei_parent->bei_id == 0 ) {
@@ -452,41 +361,27 @@ bdb_dn2idl(
 	((char *)key.data)[0] = prefix;
 	AC_MEMCPY( &((char *)key.data)[1], e->e_nname.bv_val, key.size - 1 );
 
-	rc = bdb_idl_fetch_key( op->o_bd, db, NULL, &key, ids );
+	BDB_IDL_ZERO( ids );
+	rc = bdb_idl_fetch_key( op->o_bd, db, NULL, &key, ids, NULL, 0 );
 
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, ERR, 
-			"<= bdb_dn2ididl: get failed: %s (%d)\n", db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			"<= bdb_dn2idl: get failed: %s (%d)\n",
 			db_strerror( rc ), rc, 0 );
-#endif
 
 	} else {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, RESULTS, 
-			"<= bdb_dn2ididl: id=%ld first=%ld last=%ld\n", 
-			(long) ids[0], (long) BDB_IDL_FIRST( ids ), 
-			(long) BDB_IDL_LAST( ids ) );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			"<= bdb_dn2idl: id=%ld first=%ld last=%ld\n",
 			(long) ids[0],
 			(long) BDB_IDL_FIRST( ids ), (long) BDB_IDL_LAST( ids ) );
-#endif
 	}
 
 	op->o_tmpfree( key.data, op->o_tmpmemctx );
 	return rc;
 }
-#else	/* BDB_HIER */
 
-/* Experimental management routines for a hierarchically structured database.
- *
- * Unsupported! Use at your own risk!
- * -- Howard Chu, Symas Corp. 2003.
+#else	/* BDB_HIER */
+/* Management routines for a hierarchically structured database.
  *
  * Instead of a ldbm-style dn2id database, we use a hierarchical one. Each
  * entry in this database is a struct diskNode, keyed by entryID and with
@@ -494,57 +389,34 @@ bdb_dn2idl(
  * a B-Tree with sorted duplicates to store all the children of a node under
  * the same key. Also, the first item under the key contains the entry's own
  * rdn and the ID of the node's parent, to allow bottom-up tree traversal as
- * well as top-down. To keep this info first in the list, the nrdnlen is set
- * to the negative of its value.
+ * well as top-down. To keep this info first in the list, the high bit of all
+ * subsequent nrdnlen's is always set. This means we can only accomodate
+ * RDNs up to length 32767, but that's fine since full DNs are already
+ * restricted to 8192.
  *
  * The diskNode is a variable length structure. This definition is not
  * directly usable for in-memory manipulation.
  */
 typedef struct diskNode {
-	ID entryID;
-	short nrdnlen;
+	unsigned char nrdnlen[2];
 	char nrdn[1];
-	char rdn[1];
+	char rdn[1];                        /* variable placement */
+	unsigned char entryID[sizeof(ID)];  /* variable placement */
 } diskNode;
-
-/* Sort function for the sorted duplicate data items of a dn2id key.
- * Sorts based on normalized RDN, in length order.
- */
-int
-hdb_dup_compare(
-	DB *db, 
-	const DBT *usrkey,
-	const DBT *curkey
-)
-{
-	signed char *u = (signed char *)&(((diskNode *)(usrkey->data))->nrdnlen);
-	signed char *c = (signed char *)&(((diskNode *)(curkey->data))->nrdnlen);
-	int rc, i;
-
-	/* data is not aligned, cannot compare directly */
-#ifdef WORDS_BIGENDIAN
-	for( i = 0; i < (int)sizeof(short); i++)
-#else
-	for( i = sizeof(short)-1; i >= 0; i--)
-#endif
-	{
-		rc = u[i] - c[i];
-		if( rc ) return rc;
-	}
-	return strcmp( u+sizeof(short), c+sizeof(short) );
-}
 
 /* This function constructs a full DN for a given entry.
  */
 int hdb_fix_dn(
 	Entry *e,
-	int checkit
-)
+	int checkit )
 {
 	EntryInfo *ei;
 	int rlen = 0, nrlen = 0;
 	char *ptr, *nptr;
 	int max = 0;
+
+	if ( !e->e_id )
+		return 0;
 
 	/* count length of all DN components */
 	for ( ei = BEI(e); ei && ei->bei_id; ei=ei->bei_parent ) {
@@ -602,6 +474,7 @@ hdb_dn2id_add(
 	struct bdb_info *bdb = (struct bdb_info *) op->o_bd->be_private;
 	DB *db = bdb->bi_dn2id->bdi_db;
 	DBT		key, data;
+	ID		nid;
 	int		rc, rlen, nrlen;
 	diskNode *d;
 	char *ptr;
@@ -615,24 +488,27 @@ hdb_dn2id_add(
 	}
 
 	d = op->o_tmpalloc(sizeof(diskNode) + rlen + nrlen, op->o_tmpmemctx);
-	d->entryID = e->e_id;
-	d->nrdnlen = nrlen;
+	d->nrdnlen[1] = nrlen & 0xff;
+	d->nrdnlen[0] = (nrlen >> 8) | 0x80;
 	ptr = lutil_strncopy( d->nrdn, e->e_nname.bv_val, nrlen );
 	*ptr++ = '\0';
 	ptr = lutil_strncopy( ptr, e->e_name.bv_val, rlen );
-	*ptr = '\0';
+	*ptr++ = '\0';
+	BDB_ID2DISK( e->e_id, ptr );
 
 	DBTzero(&key);
 	DBTzero(&data);
-	key.data = &eip->bei_id;
 	key.size = sizeof(ID);
 	key.flags = DB_DBT_USERMEM;
+	BDB_ID2DISK( eip->bei_id, &nid );
+
+	key.data = &nid;
 
 	/* Need to make dummy root node once. Subsequent attempts
 	 * will fail harmlessly.
 	 */
 	if ( eip->bei_id == 0 ) {
-		diskNode dummy = {0};
+		diskNode dummy = {{0, 0}, "", "", ""};
 		data.data = &dummy;
 		data.size = sizeof(diskNode);
 		data.flags = DB_DBT_USERMEM;
@@ -640,9 +516,6 @@ hdb_dn2id_add(
 		db->put( db, txn, &key, &data, DB_NODUPDATA );
 	}
 
-	if ( bdb->bi_idl_cache_size ) {
-		bdb_idl_cache_del( bdb, db, &key );
-	}
 	data.data = d;
 	data.size = sizeof(diskNode) + rlen + nrlen;
 	data.flags = DB_DBT_USERMEM;
@@ -650,13 +523,28 @@ hdb_dn2id_add(
 	rc = db->put( db, txn, &key, &data, DB_NODUPDATA );
 
 	if (rc == 0) {
-		key.data = &e->e_id;
-		d->entryID = eip->bei_id;
-		d->nrdnlen = 0 - nrlen;
+		BDB_ID2DISK( e->e_id, &nid );
+		BDB_ID2DISK( eip->bei_id, ptr );
+		d->nrdnlen[0] ^= 0x80;
 
 		rc = db->put( db, txn, &key, &data, DB_NODUPDATA );
 	}
 
+	/* Update all parents' IDL cache entries */
+	if ( rc == 0 && bdb->bi_idl_cache_size ) {
+		ID tmp[2];
+		char *ptr = ((char *)&tmp[1])-1;
+		key.data = ptr;
+		key.size = sizeof(ID)+1;
+		tmp[1] = eip->bei_id;
+		*ptr = DN_ONE_PREFIX;
+		bdb_idl_cache_add_id( bdb, db, &key, e->e_id );
+		*ptr = DN_SUBTREE_PREFIX;
+		for (; eip && eip->bei_parent->bei_id; eip = eip->bei_parent) {
+			tmp[1] = eip->bei_id;
+			bdb_idl_cache_add_id( bdb, db, &key, e->e_id );
+		}
+	}
 	op->o_tmpfree( d, op->o_tmpmemctx );
 
 	return rc;
@@ -674,50 +562,72 @@ hdb_dn2id_delete(
 	DBT		key, data;
 	DBC	*cursor;
 	diskNode *d;
-	int rc, nrlen;
+	int rc;
+	ID	nid;
+	unsigned char dlen[2];
 
 	DBTzero(&key);
 	key.size = sizeof(ID);
 	key.ulen = key.size;
-	key.data = &eip->bei_id;
 	key.flags = DB_DBT_USERMEM;
+	BDB_ID2DISK( eip->bei_id, &nid );
 
 	DBTzero(&data);
-	data.size = sizeof(diskNode) + BEI(e)->bei_nrdn.bv_len;
+	data.size = sizeof(diskNode) + BEI(e)->bei_nrdn.bv_len - sizeof(ID) - 1;
 	data.ulen = data.size;
 	data.dlen = data.size;
 	data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
 
-	if ( bdb->bi_idl_cache_size ) {
-		bdb_idl_cache_del( bdb, db, &key );
-	}
+	key.data = &nid;
 	rc = db->cursor( db, txn, &cursor, bdb->bi_db_opflags );
 	if ( rc ) return rc;
 
 	d = op->o_tmpalloc( data.size, op->o_tmpmemctx );
-	d->entryID = e->e_id;
-	d->nrdnlen = BEI(e)->bei_nrdn.bv_len;
+	d->nrdnlen[1] = BEI(e)->bei_nrdn.bv_len & 0xff;
+	d->nrdnlen[0] = (BEI(e)->bei_nrdn.bv_len >> 8) | 0x80;
+	dlen[0] = d->nrdnlen[0];
+	dlen[1] = d->nrdnlen[1];
 	strcpy( d->nrdn, BEI(e)->bei_nrdn.bv_val );
 	data.data = d;
 
 	/* Delete our ID from the parent's list */
-	rc = cursor->c_get( cursor, &key, &data, DB_GET_BOTH | DB_RMW );
-	if ( rc == 0 )
-		rc = cursor->c_del( cursor, 0 );
+	rc = cursor->c_get( cursor, &key, &data, DB_GET_BOTH_RANGE );
+	if ( rc == 0 ) {
+		if ( dlen[1] == d->nrdnlen[1] && dlen[0] == d->nrdnlen[0] &&
+			!strcmp( d->nrdn, BEI(e)->bei_nrdn.bv_val ))
+			rc = cursor->c_del( cursor, 0 );
+		else
+			rc = DB_NOTFOUND;
+	}
 
 	/* Delete our ID from the tree. With sorted duplicates, this
 	 * will leave any child nodes still hanging around. This is OK
 	 * for modrdn, which will add our info back in later.
 	 */
 	if ( rc == 0 ) {
-		key.data = &e->e_id;
-		rc = cursor->c_get( cursor, &key, &data, DB_SET | DB_RMW );
+		BDB_ID2DISK( e->e_id, &nid );
+		rc = cursor->c_get( cursor, &key, &data, DB_SET );
 		if ( rc == 0 )
 			rc = cursor->c_del( cursor, 0 );
 	}
 	cursor->c_close( cursor );
 	op->o_tmpfree( d, op->o_tmpmemctx );
 
+	/* Delete IDL cache entries */
+	if ( rc == 0 && bdb->bi_idl_cache_size ) {
+		ID tmp[2];
+		char *ptr = ((char *)&tmp[1])-1;
+		key.data = ptr;
+		key.size = sizeof(ID)+1;
+		tmp[1] = eip->bei_id;
+		*ptr = DN_ONE_PREFIX;
+		bdb_idl_cache_del_id( bdb, db, &key, e->e_id );
+		*ptr = DN_SUBTREE_PREFIX;
+		for (; eip && eip->bei_parent->bei_id; eip = eip->bei_parent) {
+			tmp[1] = eip->bei_id;
+			bdb_idl_cache_del_id( bdb, db, &key, e->e_id );
+		}
+	}
 	return rc;
 }
 
@@ -736,7 +646,8 @@ hdb_dn2id(
 	int		rc = 0, nrlen;
 	diskNode *d;
 	char	*ptr;
-	ID idp = ei->bei_parent->bei_id;
+	unsigned char dlen[2];
+	ID idp, parentID;
 
 	nrlen = dn_rdnlen( op->o_bd, in );
 	if (!nrlen) nrlen = in->bv_len;
@@ -746,28 +657,39 @@ hdb_dn2id(
 	key.data = &idp;
 	key.ulen = sizeof(ID);
 	key.flags = DB_DBT_USERMEM;
+	parentID = ( ei->bei_parent != NULL ) ? ei->bei_parent->bei_id : 0;
+	BDB_ID2DISK( parentID, &idp );
 
 	DBTzero(&data);
-	data.size = sizeof(diskNode) + nrlen;
+	data.size = sizeof(diskNode) + nrlen - sizeof(ID) - 1;
 	data.ulen = data.size * 3;
-	data.flags = DB_DBT_USERMEM;
+	data.dlen = data.ulen;
+	data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
 
 	rc = db->cursor( db, txn, &cursor, bdb->bi_db_opflags );
 	if ( rc ) return rc;
 
 	d = op->o_tmpalloc( data.size * 3, op->o_tmpmemctx );
-	d->nrdnlen = nrlen;
+	d->nrdnlen[1] = nrlen & 0xff;
+	d->nrdnlen[0] = (nrlen >> 8) | 0x80;
+	dlen[0] = d->nrdnlen[0];
+	dlen[1] = d->nrdnlen[1];
 	ptr = lutil_strncopy( d->nrdn, in->bv_val, nrlen );
 	*ptr = '\0';
 	data.data = d;
 
-	rc = cursor->c_get( cursor, &key, &data, DB_GET_BOTH );
+	rc = cursor->c_get( cursor, &key, &data, DB_GET_BOTH_RANGE );
+	if ( rc == 0 && (dlen[1] != d->nrdnlen[1] || dlen[0] != d->nrdnlen[0] ||
+		strncmp( d->nrdn, in->bv_val, nrlen ))) {
+		rc = DB_NOTFOUND;
+	}
 	if ( rc == 0 ) {
-		ei->bei_id = d->entryID;
+		ptr = (char *) data.data + data.size - sizeof(ID);
+		BDB_DISK2ID( ptr, &ei->bei_id );
 		ei->bei_rdn.bv_len = data.size - sizeof(diskNode) - nrlen;
 		ptr = d->nrdn + nrlen + 1;
 		ber_str2bv( ptr, ei->bei_rdn.bv_len, 1, &ei->bei_rdn );
-		if ( !ei->bei_parent->bei_dkids ) {
+		if ( ei->bei_parent != NULL && !ei->bei_parent->bei_dkids ) {
 			db_recno_t dkids;
 			/* How many children does the parent have? */
 			/* FIXME: do we need to lock the parent
@@ -787,6 +709,7 @@ int
 hdb_dn2id_parent(
 	Operation *op,
 	DB_TXN *txn,
+	u_int32_t	locker,
 	EntryInfo *ei,
 	ID *idp )
 {
@@ -797,19 +720,23 @@ hdb_dn2id_parent(
 	int		rc = 0;
 	diskNode *d;
 	char	*ptr;
-	unsigned char *pt2;
+	ID	nid;
 
 	DBTzero(&key);
 	key.size = sizeof(ID);
-	key.data = &ei->bei_id;
+	key.data = &nid;
 	key.ulen = sizeof(ID);
 	key.flags = DB_DBT_USERMEM;
+	BDB_ID2DISK( ei->bei_id, &nid );
 
 	DBTzero(&data);
 	data.flags = DB_DBT_USERMEM;
 
 	rc = db->cursor( db, txn, &cursor, bdb->bi_db_opflags );
 	if ( rc ) return rc;
+	if ( !txn && locker ) {
+		cursor->locker = locker;
+	}
 
 	data.ulen = sizeof(diskNode) + (SLAP_LDAPDN_MAXLEN * 2);
 	d = op->o_tmpalloc( data.ulen, op->o_tmpmemctx );
@@ -817,12 +744,13 @@ hdb_dn2id_parent(
 
 	rc = cursor->c_get( cursor, &key, &data, DB_SET );
 	if ( rc == 0 ) {
-		if (d->nrdnlen >= 0) {
+		if (d->nrdnlen[0] & 0x80) {
 			rc = LDAP_OTHER;
 		} else {
 			db_recno_t dkids;
-			*idp = d->entryID;
-			ei->bei_nrdn.bv_len = 0 - d->nrdnlen;
+			ptr = (char *) data.data + data.size - sizeof(ID);
+			BDB_DISK2ID( ptr, idp );
+			ei->bei_nrdn.bv_len = (d->nrdnlen[0] << 8) | d->nrdnlen[1];
 			ber_str2bv( d->nrdn, ei->bei_nrdn.bv_len, 1, &ei->bei_nrdn );
 			ei->bei_rdn.bv_len = data.size - sizeof(diskNode) -
 				ei->bei_nrdn.bv_len;
@@ -856,13 +784,17 @@ hdb_dn2id_children(
 	key.size = sizeof(ID);
 	key.data = &e->e_id;
 	key.flags = DB_DBT_USERMEM;
+	BDB_ID2DISK( e->e_id, &id );
 
+	/* IDL cache is in host byte order */
 	if ( bdb->bi_idl_cache_size ) {
 		rc = bdb_idl_cache_get( bdb, db, &key, NULL );
 		if ( rc != LDAP_NO_SUCH_OBJECT ) {
 			return rc;
 		}
 	}
+
+	key.data = &id;
 	DBTzero(&data);
 	data.data = &d;
 	data.ulen = sizeof(d);
@@ -897,20 +829,22 @@ hdb_dn2id_children(
 
 struct dn2id_cookie {
 	struct bdb_info *bdb;
-	DB *db;
-	int prefix;
-	int rc;
+	Operation *op;
 	EntryInfo *ei;
-	ID id;
-	ID dbuf;
 	ID *ids;
-	void *ptr;
-	ID tmp[BDB_IDL_DB_SIZE];
+	ID *tmp;
 	ID *buf;
+	DB *db;
+	DBC *dbc;
 	DBT key;
 	DBT data;
-	DBC *dbc;
-	Operation *op;
+	ID dbuf;
+	ID id;
+	ID nid;
+	int rc;
+	int depth;
+	char need_sort;
+	char prefix;
 };
 
 static int
@@ -921,7 +855,7 @@ apply_func(
 	EntryInfo *ei = data;
 	ID *idl = arg;
 
-	bdb_idl_insert( idl, ei->bei_id );
+	bdb_idl_append_one( idl, ei->bei_id );
 	return 0;
 }
 
@@ -930,22 +864,32 @@ hdb_dn2idl_internal(
 	struct dn2id_cookie *cx
 )
 {
+	BDB_IDL_ZERO( cx->tmp );
+
 	if ( cx->bdb->bi_idl_cache_size ) {
-		cx->rc = bdb_idl_cache_get(cx->bdb, cx->db, &cx->key, cx->tmp);
-		if ( cx->rc == DB_NOTFOUND ) {
-			return cx->rc;
+		char *ptr = ((char *)&cx->id)-1;
+
+		cx->key.data = ptr;
+		cx->key.size = sizeof(ID)+1;
+		if ( cx->prefix == DN_SUBTREE_PREFIX ) {
+			ID *ids = cx->depth ? cx->tmp : cx->ids;
+			*ptr = cx->prefix;
+			cx->rc = bdb_idl_cache_get(cx->bdb, cx->db, &cx->key, ids);
+			if ( cx->rc == LDAP_SUCCESS ) {
+				if ( cx->depth ) {
+					bdb_idl_append( cx->ids, cx->tmp );
+					cx->need_sort = 1;
+				}
+				return cx->rc;
+			}
 		}
+		*ptr = DN_ONE_PREFIX;
+		cx->rc = bdb_idl_cache_get(cx->bdb, cx->db, &cx->key, cx->tmp);
 		if ( cx->rc == LDAP_SUCCESS ) {
 			goto gotit;
 		}
-	}
-	BDB_IDL_ZERO( cx->tmp );
-
-	if ( !cx->ei ) {
-		cx->ei = bdb_cache_find_info( cx->bdb, cx->id );
-		if ( !cx->ei ) {
-			cx->rc = DB_NOTFOUND;
-			goto saveit;
+		if ( cx->rc == DB_NOTFOUND ) {
+			return cx->rc;
 		}
 	}
 
@@ -959,11 +903,24 @@ hdb_dn2idl_internal(
 		db_recno_t dkids = cx->ei->bei_dkids;
 		ei.bei_parent = cx->ei;
 
+		/* Only one thread should load the cache */
+		while ( cx->ei->bei_state & CACHE_ENTRY_ONELEVEL ) {
+			bdb_cache_entryinfo_unlock( cx->ei );
+			ldap_pvt_thread_yield();
+			bdb_cache_entryinfo_lock( cx->ei );
+			if ( cx->ei->bei_ckids+1 == cx->ei->bei_dkids ) {
+				goto synced;
+			}
+		}
+
+		cx->ei->bei_state |= CACHE_ENTRY_ONELEVEL;
+
 		bdb_cache_entryinfo_unlock( cx->ei );
 
 		cx->rc = cx->db->cursor( cx->db, NULL, &cx->dbc,
 			cx->bdb->bi_db_opflags );
-		if ( cx->rc ) return cx->rc;
+		if ( cx->rc )
+			goto done_one;
 
 		cx->data.data = &cx->dbuf;
 		cx->data.ulen = sizeof(ID);
@@ -971,11 +928,12 @@ hdb_dn2idl_internal(
 		cx->data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
 
 		/* The first item holds the parent ID. Ignore it. */
+		cx->key.data = &cx->nid;
+		cx->key.size = sizeof(ID);
 		cx->rc = cx->dbc->c_get( cx->dbc, &cx->key, &cx->data, DB_SET );
 		if ( cx->rc ) {
 			cx->dbc->c_close( cx->dbc );
-			if ( cx->rc == DB_NOTFOUND ) goto saveit;
-			return cx->rc;
+			goto done_one;
 		}
 
 		/* If the on-disk count is zero we've never checked it.
@@ -990,77 +948,101 @@ hdb_dn2idl_internal(
 		cx->data.ulen = BDB_IDL_UM_SIZE * sizeof(ID);
 		cx->data.flags = DB_DBT_USERMEM;
 
-		/* Fetch the rest of the IDs in a loop... */
-		while ( (cx->rc = cx->dbc->c_get( cx->dbc, &cx->key, &cx->data,
-			DB_MULTIPLE | DB_NEXT_DUP )) == 0 ) {
-			u_int8_t *j;
-			size_t len;
-			DB_MULTIPLE_INIT( cx->ptr, &cx->data );
-			while (cx->ptr) {
-				DB_MULTIPLE_NEXT( cx->ptr, &cx->data, j, len );
-				if (j) {
-					EntryInfo *ei2;
-					diskNode *d = (diskNode *)j;
-					short nrlen;
+		if ( dkids > 1 ) {
+			/* Fetch the rest of the IDs in a loop... */
+			while ( (cx->rc = cx->dbc->c_get( cx->dbc, &cx->key, &cx->data,
+				DB_MULTIPLE | DB_NEXT_DUP )) == 0 ) {
+				u_int8_t *j;
+				size_t len;
+				void *ptr;
+				DB_MULTIPLE_INIT( ptr, &cx->data );
+				while (ptr) {
+					DB_MULTIPLE_NEXT( ptr, &cx->data, j, len );
+					if (j) {
+						EntryInfo *ei2;
+						diskNode *d = (diskNode *)j;
+						short nrlen;
 
-					AC_MEMCPY( &ei.bei_id, &d->entryID, sizeof(ID) );
-					AC_MEMCPY( &nrlen, &d->nrdnlen, sizeof(d->nrdnlen) );
-					ei.bei_nrdn.bv_len = nrlen;
-					/* nrdn/rdn are set in-place.
-					 * hdb_cache_load will copy them as needed
-					 */
-					ei.bei_nrdn.bv_val = d->nrdn;
-					ei.bei_rdn.bv_len = len - sizeof(diskNode) - ei.bei_nrdn.bv_len;
-					ei.bei_rdn.bv_val = d->nrdn + ei.bei_nrdn.bv_len + 1;
-					bdb_idl_insert( cx->tmp, ei.bei_id );
-					hdb_cache_load( cx->bdb, &ei, &ei2 );
+						BDB_DISK2ID( j + len - sizeof(ID), &ei.bei_id );
+						nrlen = ((d->nrdnlen[0] ^ 0x80) << 8) | d->nrdnlen[1];
+						ei.bei_nrdn.bv_len = nrlen;
+						/* nrdn/rdn are set in-place.
+						 * hdb_cache_load will copy them as needed
+						 */
+						ei.bei_nrdn.bv_val = d->nrdn;
+						ei.bei_rdn.bv_len = len - sizeof(diskNode)
+							- ei.bei_nrdn.bv_len;
+						ei.bei_rdn.bv_val = d->nrdn + ei.bei_nrdn.bv_len + 1;
+						bdb_idl_append_one( cx->tmp, ei.bei_id );
+						hdb_cache_load( cx->bdb, &ei, &ei2 );
+					}
 				}
 			}
 		}
+
 		cx->rc = cx->dbc->c_close( cx->dbc );
+done_one:
+		bdb_cache_entryinfo_lock( cx->ei );
+		cx->ei->bei_state ^= CACHE_ENTRY_ONELEVEL;
+		bdb_cache_entryinfo_unlock( cx->ei );
+		if ( cx->rc )
+			return cx->rc;
+
 	} else {
 		/* The in-memory cache is in sync with the on-disk data.
 		 * do we have any kids?
 		 */
+synced:
 		cx->rc = 0;
 		if ( cx->ei->bei_ckids > 0 ) {
-
-			/* Walk the kids tree; order is irrelevant since bdb_idl_insert
-			 * will insert in sorted order.
+			/* Walk the kids tree; order is irrelevant since bdb_idl_sort
+			 * will sort it later.
 			 */
-			avl_apply( cx->ei->bei_kids, apply_func, cx->tmp, -1, AVL_POSTORDER );
+			avl_apply( cx->ei->bei_kids, apply_func,
+				cx->tmp, -1, AVL_POSTORDER );
 		}
 		bdb_cache_entryinfo_unlock( cx->ei );
 	}
 
-saveit:
-	if ( cx->bdb->bi_idl_cache_max_size ) {
+	if ( !BDB_IDL_IS_RANGE( cx->tmp ) && cx->tmp[0] > 3 )
+		bdb_idl_sort( cx->tmp, cx->buf );
+	if ( cx->bdb->bi_idl_cache_max_size && !BDB_IDL_IS_ZERO( cx->tmp )) {
+		char *ptr = ((char *)&cx->id)-1;
+		cx->key.data = ptr;
+		cx->key.size = sizeof(ID)+1;
+		*ptr = DN_ONE_PREFIX;
 		bdb_idl_cache_put( cx->bdb, cx->db, &cx->key, cx->tmp, cx->rc );
 	}
-	;
+
 gotit:
 	if ( !BDB_IDL_IS_ZERO( cx->tmp )) {
 		if ( cx->prefix == DN_SUBTREE_PREFIX ) {
-			if (cx->ei->bei_state & CACHE_ENTRY_NO_GRANDKIDS) {
-				bdb_idl_union( cx->ids, cx->tmp );
-			} else {
+			bdb_idl_append( cx->ids, cx->tmp );
+			cx->need_sort = 1;
+			if ( !(cx->ei->bei_state & CACHE_ENTRY_NO_GRANDKIDS)) {
 				ID *save, idcurs;
 				EntryInfo *ei = cx->ei;
 				int nokids = 1;
 				save = cx->op->o_tmpalloc( BDB_IDL_SIZEOF( cx->tmp ),
 					cx->op->o_tmpmemctx );
 				BDB_IDL_CPY( save, cx->tmp );
-				bdb_idl_union( cx->ids, cx->tmp );
 
 				idcurs = 0;
+				cx->depth++;
 				for ( cx->id = bdb_idl_first( save, &idcurs );
 					cx->id != NOID;
 					cx->id = bdb_idl_next( save, &idcurs )) {
-					cx->ei = NULL;
+					cx->ei = bdb_cache_find_info( cx->bdb, cx->id );
+					if ( !cx->ei ||
+						( cx->ei->bei_state & CACHE_ENTRY_NO_KIDS ))
+						continue;
+
+					BDB_ID2DISK( cx->id, &cx->nid );
 					hdb_dn2idl_internal( cx );
 					if ( !BDB_IDL_IS_ZERO( cx->tmp ))
 						nokids = 0;
 				}
+				cx->depth--;
 				cx->op->o_tmpfree( save, cx->op->o_tmpmemctx );
 				if ( nokids ) ei->bei_state |= CACHE_ENTRY_NO_GRANDKIDS;
 			}
@@ -1085,12 +1067,8 @@ hdb_dn2idl(
 	struct bdb_info *bdb = (struct bdb_info *)op->o_bd->be_private;
 	struct dn2id_cookie cx;
 
-#ifdef NEW_LOGGING
-	LDAP_LOG ( INDEX, ARGS, 
-		"=> hdb_dn2ididl( \"%s\" )\n", e->e_nname.bv_val, 0, 0 );
-#else
-	Debug( LDAP_DEBUG_TRACE, "=> hdb_dn2idl( \"%s\" )\n", e->e_nname.bv_val, 0, 0 );
-#endif
+	Debug( LDAP_DEBUG_TRACE, "=> hdb_dn2idl(\"%s\")\n",
+		e->e_nname.bv_val, 0, 0 );
 
 #ifndef BDB_MULTIPLE_SUFFIXES
 	if ( op->ors_scope != LDAP_SCOPE_ONELEVEL && 
@@ -1102,28 +1080,50 @@ hdb_dn2idl(
 #endif
 
 	cx.id = e->e_id;
+	BDB_ID2DISK( cx.id, &cx.nid );
 	cx.ei = e->e_id ? BEI(e) : &bdb->bi_cache.c_dntree;
 	cx.bdb = bdb;
 	cx.db = cx.bdb->bi_dn2id->bdi_db;
-	cx.prefix = op->ors_scope == LDAP_SCOPE_ONELEVEL
-		? DN_ONE_PREFIX : DN_SUBTREE_PREFIX;
+	cx.prefix = (op->ors_scope == LDAP_SCOPE_ONELEVEL) ?
+		DN_ONE_PREFIX : DN_SUBTREE_PREFIX;
 	cx.ids = ids;
-	cx.buf = stack;
+	cx.tmp = stack;
+	cx.buf = stack + BDB_IDL_UM_SIZE;
 	cx.op = op;
+	cx.need_sort = 0;
+	cx.depth = 0;
 
-	BDB_IDL_ZERO( ids );
 	if ( cx.prefix == DN_SUBTREE_PREFIX ) {
-		bdb_idl_insert( ids, cx.id );
+		ids[0] = 1;
+		ids[1] = cx.id;
+	} else {
+		BDB_IDL_ZERO( ids );
 	}
+	if ( cx.ei->bei_state & CACHE_ENTRY_NO_KIDS )
+		return LDAP_SUCCESS;
 
 	DBTzero(&cx.key);
-	cx.key.data = &cx.id;
 	cx.key.ulen = sizeof(ID);
 	cx.key.size = sizeof(ID);
 	cx.key.flags = DB_DBT_USERMEM;
 
 	DBTzero(&cx.data);
 
-	return hdb_dn2idl_internal(&cx);
+	hdb_dn2idl_internal(&cx);
+	if ( cx.need_sort ) {
+		char *ptr = ((char *)&cx.id)-1;
+		if ( !BDB_IDL_IS_RANGE( cx.ids ) && cx.ids[0] > 3 ) 
+			bdb_idl_sort( cx.ids, cx.tmp );
+		cx.key.data = ptr;
+		cx.key.size = sizeof(ID)+1;
+		*ptr = cx.prefix;
+		cx.id = e->e_id;
+		bdb_idl_cache_put( cx.bdb, cx.db, &cx.key, cx.ids, cx.rc );
+	}
+
+	if ( cx.rc == DB_NOTFOUND )
+		cx.rc = LDAP_SUCCESS;
+
+	return cx.rc;
 }
 #endif	/* BDB_HIER */

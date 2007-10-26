@@ -26,9 +26,14 @@
 
 #include "winbind_client.h"
 
+BOOL winbind_env_set( void );
+BOOL winbind_off( void );
+BOOL winbind_on( void );
+
 /* Global variables.  These are effectively the client state information */
 
 int winbindd_fd = -1;           /* fd for winbindd socket */
+static int is_privileged = 0;
 
 /* Free a response structure */
 
@@ -37,7 +42,7 @@ void free_response(struct winbindd_response *response)
 	/* Free any allocated extra_data */
 
 	if (response)
-		SAFE_FREE(response->extra_data);
+		SAFE_FREE(response->extra_data.data);
 }
 
 /* Initialise a request structure */
@@ -53,7 +58,7 @@ void init_request(struct winbindd_request *request, int request_type)
 
 /* Initialise a response structure */
 
-void init_response(struct winbindd_response *response)
+static void init_response(struct winbindd_response *response)
 {
 	/* Initialise return value */
 
@@ -71,8 +76,6 @@ void close_sock(void)
 }
 
 #define CONNECT_TIMEOUT 30
-#define WRITE_TIMEOUT CONNECT_TIMEOUT
-#define READ_TIMEOUT CONNECT_TIMEOUT
 
 /* Make sure socket handle isn't stdin, stdout or stderr */
 #define RECURSION_LIMIT 3
@@ -234,7 +237,8 @@ static int winbind_named_pipe_sock(const char *dir)
 		struct timeval tv;
 		fd_set w_fds;
 		int ret;
-		int connect_errno = 0, errnosize;
+		int connect_errno = 0;
+		socklen_t errnosize;
 
 		if (wait_time >= CONNECT_TIMEOUT)
 			goto error_out;
@@ -280,19 +284,11 @@ static int winbind_named_pipe_sock(const char *dir)
 
 	close(fd);
 	return -1;
-
-	if (connect(fd, (struct sockaddr *)&sunaddr, 
-		    sizeof(sunaddr)) == -1) {
-		close(fd);
-		return -1;
-	}
-        
-	return fd;
 }
 
 /* Connect to winbindd socket */
 
-int winbind_open_pipe_sock(void)
+static int winbind_open_pipe_sock(int recursing, int need_priv)
 {
 #ifdef HAVE_UNIXSOCKET
 	static pid_t our_pid;
@@ -305,33 +301,50 @@ int winbind_open_pipe_sock(void)
 		close_sock();
 		our_pid = getpid();
 	}
+
+	if ((need_priv != 0) && (is_privileged == 0)) {
+		close_sock();
+	}
 	
 	if (winbindd_fd != -1) {
 		return winbindd_fd;
+	}
+
+	if (recursing) {
+		return -1;
 	}
 
 	if ((winbindd_fd = winbind_named_pipe_sock(WINBINDD_SOCKET_DIR)) == -1) {
 		return -1;
 	}
 
+	is_privileged = 0;
+
 	/* version-check the socket */
 
-	if ((winbindd_request(WINBINDD_INTERFACE_VERSION, &request, &response) != NSS_STATUS_SUCCESS) || (response.data.interface_version != WINBIND_INTERFACE_VERSION)) {
+	request.flags = WBFLAG_RECURSE;
+	if ((winbindd_request_response(WINBINDD_INTERFACE_VERSION, &request, &response) != NSS_STATUS_SUCCESS) || (response.data.interface_version != WINBIND_INTERFACE_VERSION)) {
 		close_sock();
 		return -1;
 	}
 
 	/* try and get priv pipe */
 
-	if (winbindd_request(WINBINDD_PRIV_PIPE_DIR, &request, &response) == NSS_STATUS_SUCCESS) {
+	request.flags = WBFLAG_RECURSE;
+	if (winbindd_request_response(WINBINDD_PRIV_PIPE_DIR, &request, &response) == NSS_STATUS_SUCCESS) {
 		int fd;
-		if ((fd = winbind_named_pipe_sock(response.extra_data)) != -1) {
+		if ((fd = winbind_named_pipe_sock((char *)response.extra_data.data)) != -1) {
 			close(winbindd_fd);
 			winbindd_fd = fd;
+			is_privileged = 1;
 		}
 	}
 
-	SAFE_FREE(response.extra_data);
+	if ((need_priv != 0) && (is_privileged == 0)) {
+		return -1;
+	}
+
+	SAFE_FREE(response.extra_data.data);
 
 	return winbindd_fd;
 #else
@@ -341,7 +354,7 @@ int winbind_open_pipe_sock(void)
 
 /* Write data to winbindd socket */
 
-int write_sock(void *buffer, int count)
+int write_sock(void *buffer, int count, int recursing, int need_priv)
 {
 	int result, nwritten;
 	
@@ -349,7 +362,7 @@ int write_sock(void *buffer, int count)
 	
  restart:
 	
-	if (winbind_open_pipe_sock() == -1) {
+	if (winbind_open_pipe_sock(recursing, need_priv) == -1) {
 		return -1;
 	}
 	
@@ -411,6 +424,10 @@ static int read_sock(void *buffer, int count)
 {
 	int result = 0, nread = 0;
 	int total_time = 0, selret;
+
+	if (winbindd_fd == -1) {
+		return -1;
+	}
 
 	/* Read data from socket */
 	while(nread < count) {
@@ -489,7 +506,7 @@ int read_reply(struct winbindd_response *response)
 	   the server.  This has no meaning in the client's address space
 	   so we clear it out. */
 
-	response->extra_data = NULL;
+	response->extra_data.data = NULL;
 
 	/* Read variable length response */
 	
@@ -499,11 +516,11 @@ int read_reply(struct winbindd_response *response)
 		
 		/* Mallocate memory for extra data */
 		
-		if (!(response->extra_data = malloc(extra_data_len))) {
+		if (!(response->extra_data.data = malloc(extra_data_len))) {
 			return -1;
 		}
 		
-		if ((result2 = read_sock(response->extra_data, extra_data_len))
+		if ((result2 = read_sock(response->extra_data.data, extra_data_len))
 		    == -1) {
 			free_response(response);
 			return -1;
@@ -515,22 +532,31 @@ int read_reply(struct winbindd_response *response)
 	return result1 + result2;
 }
 
+BOOL winbind_env_set( void )
+{
+	char *env;
+	
+	if ((env=getenv(WINBINDD_DONT_ENV)) != NULL) {
+		if(strcmp(env, "1") == 0) {
+			return True;
+		}
+	}
+	return False;
+}
+
 /* 
  * send simple types of requests 
  */
 
-NSS_STATUS winbindd_send_request(int req_type, struct winbindd_request *request)
+NSS_STATUS winbindd_send_request(int req_type, int need_priv,
+				 struct winbindd_request *request)
 {
 	struct winbindd_request lrequest;
-	char *env;
-	int  value;
-	
+
 	/* Check for our tricky environment variable */
 
-	if ( (env = getenv(WINBINDD_DONT_ENV)) != NULL ) {
-		value = atoi(env);
-		if ( value == 1 )
-			return NSS_STATUS_NOTFOUND;
+	if (winbind_env_set()) {
+		return NSS_STATUS_NOTFOUND;
 	}
 
 	if (!request) {
@@ -542,7 +568,14 @@ NSS_STATUS winbindd_send_request(int req_type, struct winbindd_request *request)
 
 	init_request(request, req_type);
 	
-	if (write_sock(request, sizeof(*request)) == -1) {
+	if (write_sock(request, sizeof(*request),
+		       request->flags & WBFLAG_RECURSE, need_priv) == -1) {
+		return NSS_STATUS_UNAVAIL;
+	}
+
+	if ((request->extra_len != 0) &&
+	    (write_sock(request->extra_data.data, request->extra_len,
+			request->flags & WBFLAG_RECURSE, need_priv) == -1)) {
 		return NSS_STATUS_UNAVAIL;
 	}
 	
@@ -584,16 +617,40 @@ NSS_STATUS winbindd_get_response(struct winbindd_response *response)
 
 /* Handle simple types of requests */
 
-NSS_STATUS winbindd_request(int req_type, 
+NSS_STATUS winbindd_request_response(int req_type, 
 			    struct winbindd_request *request,
 			    struct winbindd_response *response)
 {
-	NSS_STATUS status;
+	NSS_STATUS status = NSS_STATUS_UNAVAIL;
+	int count = 0;
 
-	status = winbindd_send_request(req_type, request);
-	if (status != NSS_STATUS_SUCCESS) 
-		return(status);
-	return winbindd_get_response(response);
+	while ((status == NSS_STATUS_UNAVAIL) && (count < 10)) {
+		status = winbindd_send_request(req_type, 0, request);
+		if (status != NSS_STATUS_SUCCESS) 
+			return(status);
+		status = winbindd_get_response(response);
+		count += 1;
+	}
+
+	return status;
+}
+
+NSS_STATUS winbindd_priv_request_response(int req_type, 
+					  struct winbindd_request *request,
+					  struct winbindd_response *response)
+{
+	NSS_STATUS status = NSS_STATUS_UNAVAIL;
+	int count = 0;
+
+	while ((status == NSS_STATUS_UNAVAIL) && (count < 10)) {
+		status = winbindd_send_request(req_type, 1, request);
+		if (status != NSS_STATUS_SUCCESS) 
+			return(status);
+		status = winbindd_get_response(response);
+		count += 1;
+	}
+
+	return status;
 }
 
 /*************************************************************************
@@ -606,14 +663,15 @@ NSS_STATUS winbindd_request(int req_type,
 
 BOOL winbind_off( void )
 {
-	static char *s = WINBINDD_DONT_ENV "=1";
+	static char *s = CONST_DISCARD(char *, WINBINDD_DONT_ENV "=1");
 
 	return putenv(s) != -1;
 }
 
 BOOL winbind_on( void )
 {
-	static char *s = WINBINDD_DONT_ENV "=0";
+	static char *s = CONST_DISCARD(char *, WINBINDD_DONT_ENV "=0");
 
 	return putenv(s) != -1;
 }
+

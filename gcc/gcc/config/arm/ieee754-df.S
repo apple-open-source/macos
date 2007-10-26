@@ -59,7 +59,8 @@
 #ifdef L_negdf2
 
 ARM_FUNC_START negdf2
-ARM_FUNC_ALIAS aeabi_dneg negdf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_dneg, negdf2)
 
 	@ flip sign bit
 	eor	xh, xh, #0x80000000
@@ -78,7 +79,8 @@ ARM_FUNC_START aeabi_drsub
 	b	1f	
 
 ARM_FUNC_START subdf3
-ARM_FUNC_ALIAS aeabi_dsub subdf3
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_dsub, subdf3)
 
 	eor	yh, yh, #0x80000000	@ flip sign bit of second arg
 #if defined(__INTERWORKING_STUBS__)
@@ -86,7 +88,8 @@ ARM_FUNC_ALIAS aeabi_dsub subdf3
 #endif
 
 ARM_FUNC_START adddf3
-ARM_FUNC_ALIAS aeabi_dadd adddf3
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_dadd, adddf3)
 
 1:	stmfd	sp!, {r4, r5, lr}
 
@@ -119,7 +122,8 @@ ARM_FUNC_ALIAS aeabi_dadd adddf3
 	@ already in xh-xl.  We need up to 54 bit to handle proper rounding
 	@ of 0x1p54 - 1.1.
 	cmp	r5, #54
-	RETLDM	"r4, r5" hi
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(hi,r4, r5)
 
 	@ Convert mantissa to signed integer.
 	tst	xh, #0x80000000
@@ -199,7 +203,8 @@ LSYM(Lad_e):
 	adcs	xl, xl, #0
 	adc	xh, xh, r4, lsl #20
 	orr	xh, xh, r5
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	@ Result must be shifted left and exponent adjusted.
 LSYM(Lad_a):
@@ -272,7 +277,8 @@ LSYM(Lad_l):
 3:	subs	r4, r4, r3
 	addge	xh, xh, r4, lsl #20
 	orrge	xh, xh, r5
-	RETLDM	"r4, r5" ge
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(ge,r4,r5)
 
 	@ Exponent too small, denormalize result.
 	@ Find out proper shift value.
@@ -288,7 +294,8 @@ LSYM(Lad_l):
 	mov	xl, xl, lsr r4
 	orr	xl, xl, xh, lsl r2
 	orr	xh, r5, xh, lsr r4
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	@ shift result right of 21 to 31 bits, or left 11 to 1 bits after
 	@ a register switch from xh to xl.
@@ -297,13 +304,15 @@ LSYM(Lad_l):
 	mov	xl, xl, lsr r2
 	orr	xl, xl, xh, lsl r4
 	mov	xh, r5
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	@ Shift value right of 32 to 64 bits, or 0 to 32 bits after a switch
 	@ from xh to xl.
 2:	mov	xl, xh, lsr r4
 	mov	xh, r5
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	@ Adjust exponents for denormalized arguments.
 	@ Note that r4 must not remain equal to 0.
@@ -329,14 +338,16 @@ LSYM(Lad_s):
 	teq	r4, #0
 	moveq	xh, yh
 	moveq	xl, yl
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 1:	teq	xh, yh
 
 	@ Result is x - x = 0.
 	movne	xh, #0
 	movne	xl, #0
-	RETLDM	"r4, r5" ne
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(ne,r4,r5)
 
 	@ Result is x + x = 2x.
 	movs	ip, r4, lsr #21
@@ -344,10 +355,12 @@ LSYM(Lad_s):
 	movs	xl, xl, lsl #1
 	adcs	xh, xh, xh
 	orrcs	xh, xh, #0x80000000
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 2:	adds	r4, r4, #(2 << 21)
 	addcc	xh, xh, #(1 << 20)
-	RETLDM	"r4, r5" cc
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(cc,r4,r5)
 	and	r5, xh, #0x80000000
 
 	@ Overflow: return INF.
@@ -355,7 +368,8 @@ LSYM(Lad_o):
 	orr	xh, r5, #0x7f000000
 	orr	xh, xh, #0x00f00000
 	mov	xl, #0
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	@ At least one of x or y is INF/NAN.
 	@   if xh-xl != INF/NAN: return yh-yl (which is INF/NAN)
@@ -374,7 +388,8 @@ LSYM(Lad_i):
 	orreqs	r5, yl, yh, lsl #12
 	teqeq	xh, yh
 	orrne	xh, xh, #0x00080000	@ quiet NAN
-	RETLDM	"r4, r5"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5)
 
 	FUNC_END aeabi_dsub
 	FUNC_END subdf3
@@ -382,7 +397,8 @@ LSYM(Lad_i):
 	FUNC_END adddf3
 
 ARM_FUNC_START floatunsidf
-ARM_FUNC_ALIAS aeabi_ui2d floatunsidf
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_ui2d,floatunsidf)
 
 	teq	r0, #0
 	moveq	r1, #0
@@ -391,9 +407,11 @@ ARM_FUNC_ALIAS aeabi_ui2d floatunsidf
 	mov	r4, #0x400		@ initial exponent
 	add	r4, r4, #(52-1 - 1)
 	mov	r5, #0			@ sign bit is 0
-	.ifnc	xl, r0
+	/* APPLE LOCAL begin ARM MACH assembler */
+#if !defined(__VFP_FP__) || defined(__ARMEB__)
 	mov	xl, r0
-	.endif
+#endif
+	/* APPLE LOCAL end ARM MACH assembler */
 	mov	xh, #0
 	b	LSYM(Lad_l)
 
@@ -401,7 +419,8 @@ ARM_FUNC_ALIAS aeabi_ui2d floatunsidf
 	FUNC_END floatunsidf
 
 ARM_FUNC_START floatsidf
-ARM_FUNC_ALIAS aeabi_i2d floatsidf
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_i2d,floatsidf)
 
 	teq	r0, #0
 	moveq	r1, #0
@@ -411,9 +430,11 @@ ARM_FUNC_ALIAS aeabi_i2d floatsidf
 	add	r4, r4, #(52-1 - 1)
 	ands	r5, r0, #0x80000000	@ sign bit in r5
 	rsbmi	r0, r0, #0		@ absolute value
-	.ifnc	xl, r0
+	/* APPLE LOCAL begin ARM MACH assembler */
+#if !defined(__VFP_FP__) || defined(__ARMEB__)
 	mov	xl, r0
-	.endif
+#endif
+	/* APPLE LOCAL end ARM MACH assembler */
 	mov	xh, #0
 	b	LSYM(Lad_l)
 
@@ -421,7 +442,8 @@ ARM_FUNC_ALIAS aeabi_i2d floatsidf
 	FUNC_END floatsidf
 
 ARM_FUNC_START extendsfdf2
-ARM_FUNC_ALIAS aeabi_f2d extendsfdf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_f2d,extendsfdf2)
 
 	movs	r2, r0, lsl #1		@ toss sign bit
 	mov	xh, r2, asr #3		@ stretch exponent
@@ -447,7 +469,8 @@ ARM_FUNC_ALIAS aeabi_f2d extendsfdf2
 	FUNC_END extendsfdf2
 
 ARM_FUNC_START floatundidf
-ARM_FUNC_ALIAS aeabi_ul2d floatundidf
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_ul2d,floatundidf)
 
 	orrs	r2, r0, r1
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
@@ -469,7 +492,8 @@ ARM_FUNC_ALIAS aeabi_ul2d floatundidf
 	b	2f
 
 ARM_FUNC_START floatdidf
-ARM_FUNC_ALIAS aeabi_l2d floatdidf
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_l2d,floatdidf)
 
 	orrs	r2, r0, r1
 #if !defined (__VFP_FP__) && !defined(__SOFTFP__)
@@ -496,11 +520,13 @@ ARM_FUNC_ALIAS aeabi_l2d floatdidf
 	add	r4, r4, #(52-1 - 1)
 
 	@ FPA little-endian: must swap the word order.
-	.ifnc	xh, ah
+	/* APPLE LOCAL begin ARM MACH assembler */
+#if !defined(__VFP_FP__) && !defined(__ARMEB__)
 	mov	ip, al
 	mov	xh, ah
 	mov	xl, ip
-	.endif
+#endif
+	/* APPLE LOCAL end ARM MACH assembler */
 
 	movs	ip, xh, lsr #22
 	beq	LSYM(Lad_p)
@@ -542,7 +568,8 @@ LSYM(f0_ret):
 #ifdef L_muldivdf3
 
 ARM_FUNC_START muldf3
-ARM_FUNC_ALIAS aeabi_dmul muldf3
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_dmul,muldf3)
 	stmfd	sp!, {r4, r5, r6, lr}
 
 	@ Mask out exponents, trap any zero/denormal/INF/NAN.
@@ -674,7 +701,8 @@ ARM_FUNC_ALIAS aeabi_dmul muldf3
 	moveqs	lr, xl, lsr #1
 	adcs	xl, xl, #0
 	adc	xh, xh, r4, lsl #20
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ Multiplication by 0x1p*: let''s shortcut a lot of code.
 LSYM(Lml_1):
@@ -685,7 +713,8 @@ LSYM(Lml_1):
 	subs	r4, r4, ip, lsr #1
 	rsbgts	r5, r4, ip
 	orrgt	xh, xh, r4, lsl #20
-	RETLDM	"r4, r5, r6" gt
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(gt,r4, r5, r6)
 
 	@ Under/overflow: fix things up for the code below.
 	orr	xh, xh, #0x00100000
@@ -700,7 +729,8 @@ LSYM(Lml_u):
 	cmn	r4, #(53 + 1)
 	movle	xl, #0
 	bicle	xh, xh, #0x7fffffff
-	RETLDM	"r4, r5, r6" le
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(le,r4, r5, r6)
 
 	@ Find out proper shift value.
 	rsb	r4, r4, #0
@@ -721,7 +751,8 @@ LSYM(Lml_u):
 	adc	xh, r2, xh, lsr r4
 	orrs	lr, lr, r3, lsl #1
 	biceq	xl, xl, r3, lsr #31
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ shift result right of 21 to 31 bits, or left 11 to 1 bits after
 	@ a register switch from xh to xl. Then round.
@@ -735,7 +766,8 @@ LSYM(Lml_u):
 	adc	xh, xh, #0
 	orrs	lr, lr, r3, lsl #1
 	biceq	xl, xl, r3, lsr #31
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ Shift value right of 32 to 64 bits, or 0 to 32 bits after a switch
 	@ from xh to xl.  Leftover bits are in r3-r6-lr for rounding.
@@ -749,7 +781,8 @@ LSYM(Lml_u):
 	add	xl, xl, r3, lsr #31
 	orrs	lr, lr, r3, lsl #1
 	biceq	xl, xl, r3, lsr #31
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ One or both arguments are denormalized.
 	@ Scale them leftwards and preserve sign bit.
@@ -791,7 +824,8 @@ LSYM(Lml_z):
 	eor	xh, xh, yh
 	bic	xh, xh, #0x7fffffff
 	mov	xl, #0
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 1:	@ One or both args are INF or NAN.
 	orrs	r6, xl, xh, lsl #1
@@ -820,19 +854,22 @@ LSYM(Lml_o):
 	orr	xh, xh, #0x7f000000
 	orr	xh, xh, #0x00f00000
 	mov	xl, #0
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ Return a quiet NAN.
 LSYM(Lml_n):
 	orr	xh, xh, #0x7f000000
 	orr	xh, xh, #0x00f80000
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	FUNC_END aeabi_dmul
 	FUNC_END muldf3
 
 ARM_FUNC_START divdf3
-ARM_FUNC_ALIAS aeabi_ddiv divdf3
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_ddiv,divdf3)
 	
 	stmfd	sp!, {r4, r5, r6, lr}
 
@@ -950,7 +987,8 @@ ARM_FUNC_ALIAS aeabi_ddiv divdf3
 	moveqs	ip, xl, lsr #1
 	adcs	xl, xl, #0
 	adc	xh, xh, r4, lsl #20
-	RETLDM	"r4, r5, r6"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r4, r5, r6)
 
 	@ Division by 0x1p*: shortcut a lot of code.
 LSYM(Ldv_1):
@@ -959,7 +997,8 @@ LSYM(Ldv_1):
 	adds	r4, r4, ip, lsr #1
 	rsbgts	r5, r4, ip
 	orrgt	xh, xh, r4, lsl #20
-	RETLDM	"r4, r5, r6" gt
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM2(gt,r4, r5, r6)
 
 	orr	xh, xh, #0x00100000
 	mov	lr, #0
@@ -1015,18 +1054,22 @@ LSYM(Ldv_s):
 @ Note: only r0 (return value) and ip are clobbered here.
 
 ARM_FUNC_START gtdf2
-ARM_FUNC_ALIAS gedf2 gtdf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(gedf2,gtdf2)
 	mov	ip, #-1
 	b	1f
 
 ARM_FUNC_START ltdf2
-ARM_FUNC_ALIAS ledf2 ltdf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(ledf2,ltdf2)
 	mov	ip, #1
 	b	1f
 
 ARM_FUNC_START cmpdf2
-ARM_FUNC_ALIAS nedf2 cmpdf2
-ARM_FUNC_ALIAS eqdf2 cmpdf2
+/* APPLE LOCAL begin ARM MACH assembler macros */
+ARM_FUNC_ALIAS(nedf2,cmpdf2)
+ARM_FUNC_ALIAS(eqdf2,cmpdf2)
+/* APPLE LOCAL end ARM MACH assembler macros */
 	mov	ip, #1			@ how should we specify unordered here?
 
 1:	str	ip, [sp, #-4]
@@ -1096,7 +1139,8 @@ ARM_FUNC_START aeabi_cdrcmple
 	b	6f
 	
 ARM_FUNC_START aeabi_cdcmpeq
-ARM_FUNC_ALIAS aeabi_cdcmple aeabi_cdcmpeq
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_cdcmple,aeabi_cdcmpeq)
 
 	@ The status-returning routines are required to preserve all
 	@ registers except ip, lr, and cpsr.
@@ -1107,7 +1151,8 @@ ARM_FUNC_ALIAS aeabi_cdcmple aeabi_cdcmpeq
 	@ Clear the C flag if the return value was -1, indicating
 	@ that the first operand was smaller than the second.
 	cmnmi	 r0, #0
-	RETLDM   "r0"
+	/* APPLE LOCAL ARM MACH assembler macros */
+	RETLDM1(r0)
 
 	FUNC_END aeabi_cdcmple
 	FUNC_END aeabi_cdcmpeq
@@ -1169,7 +1214,8 @@ ARM_FUNC_START	aeabi_dcmpgt
 #ifdef L_unorddf2
 
 ARM_FUNC_START unorddf2
-ARM_FUNC_ALIAS aeabi_dcmpun unorddf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_dcmpun,unorddf2)
 
 	mov	ip, xh, lsl #1
 	mvns	ip, ip, asr #21
@@ -1195,7 +1241,8 @@ ARM_FUNC_ALIAS aeabi_dcmpun unorddf2
 #ifdef L_fixdfsi
 
 ARM_FUNC_START fixdfsi
-ARM_FUNC_ALIAS aeabi_d2iz fixdfsi
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_d2iz,fixdfsi)
 
 	@ check exponent range.
 	mov	r2, xh, lsl #1
@@ -1235,7 +1282,8 @@ ARM_FUNC_ALIAS aeabi_d2iz fixdfsi
 #ifdef L_fixunsdfsi
 
 ARM_FUNC_START fixunsdfsi
-ARM_FUNC_ALIAS aeabi_d2uiz fixunsdfsi
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_d2uiz,fixunsdfsi)
 
 	@ check exponent range.
 	movs	r2, xh, lsl #1
@@ -1273,7 +1321,8 @@ ARM_FUNC_ALIAS aeabi_d2uiz fixunsdfsi
 #ifdef L_truncdfsf2
 
 ARM_FUNC_START truncdfsf2
-ARM_FUNC_ALIAS aeabi_d2f truncdfsf2
+/* APPLE LOCAL ARM MACH assembler macros */
+ARM_FUNC_ALIAS(aeabi_d2f,truncdfsf2)
 
 	@ check exponent range.
 	mov	r2, xh, lsl #1
@@ -1333,3 +1382,256 @@ ARM_FUNC_ALIAS aeabi_d2f truncdfsf2
 	FUNC_END truncdfsf2
 
 #endif /* L_truncdfsf2 */
+
+/* APPLE LOCAL begin ARM 4702983 provide VFP versions (callable from Thumb). */
+#ifndef NOT_DARWIN
+#if __ARM_ARCH__ > 5
+#ifdef L_muldf3vfp
+
+ARM_FUNC_START muldf3vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fmuld	d5, d6, d7
+	fmrrd	r0, r1, d5
+	RET
+
+	FUNC_END muldf3vfp
+
+#endif
+
+#ifdef L_adddf3vfp
+
+ARM_FUNC_START adddf3vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	faddd	d5, d6, d7
+	fmrrd	r0, r1, d5
+	RET
+
+	FUNC_END adddf3vfp
+
+#endif
+
+#ifdef L_subdf3vfp
+
+ARM_FUNC_START subdf3vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fsubd	d5, d6, d7
+	fmrrd	r0, r1, d5
+	RET
+
+	FUNC_END subdf3vfp
+
+#endif
+
+#ifdef L_divdf3vfp
+
+ARM_FUNC_START divdf3vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fdivd	d5, d6, d7
+	fmrrd	r0, r1, d5
+	RET
+
+	FUNC_END divdf3vfp
+
+#endif
+
+#ifdef L_eqdf2vfp
+
+ARM_FUNC_START eqdf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movne	r0, #0
+	moveq	r0, #1
+	RET
+
+	FUNC_END eqdf2vfp
+
+#endif
+
+#ifdef L_nedf2vfp
+
+ARM_FUNC_START nedf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	moveq	r0, #0
+	movne	r0, #1
+	RET
+
+	FUNC_END nedf2vfp
+
+#endif
+
+#ifdef L_ltdf2vfp
+
+ARM_FUNC_START ltdf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movpl	r0, #0
+	movmi	r0, #1
+	RET
+
+	FUNC_END ltdf2vfp
+
+#endif
+
+#ifdef L_gtdf2vfp
+
+ARM_FUNC_START gtdf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movle	r0, #0
+	movgt	r0, #1
+	RET
+
+	FUNC_END gtdf2vfp
+
+#endif
+
+#ifdef L_ledf2vfp
+
+ARM_FUNC_START ledf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movhi	r0, #0
+	movls	r0, #1
+	RET
+
+	FUNC_END ledf2vfp
+
+#endif
+
+#ifdef L_gedf2vfp
+
+ARM_FUNC_START gedf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movlt	r0, #0
+	movge	r0, #1
+	RET
+
+	FUNC_END gedf2vfp
+
+#endif
+
+#ifdef L_unorddf2vfp
+
+ARM_FUNC_START unorddf2vfp
+
+	fmdrr	d6, r0, r1
+	fmdrr	d7, r2, r3
+	fcmpd	d6, d7
+	fmstat
+	movvc	r0, #0
+	movvs	r0, #1
+	RET
+
+	FUNC_END unorddf2vfp
+
+#endif
+
+#ifdef L_fixdfsivfp
+
+ARM_FUNC_START fixdfsivfp
+
+	fmdrr	d7, r0, r1
+	ftosizd	s15, d7
+	fmrs	r0, s15
+	RET
+
+	FUNC_END fixdfsivfp
+
+#endif
+
+#ifdef L_fixunsdfsivfp
+
+ARM_FUNC_START fixunsdfsivfp
+
+	fmdrr	d7, r0, r1
+	ftouizd	s15, d7
+	fmrs	r0, s15
+	RET
+
+	FUNC_END fixunsdfsivfp
+
+#endif
+
+#ifdef L_extendsfdf2vfp
+
+ARM_FUNC_START extendsfdf2vfp
+
+	fmsr	s15, r0
+	fcvtds	d7, s15
+	fmrrd	r0, r1, d7
+	RET
+
+	FUNC_END extendsfdf2vfp
+
+#endif
+
+#ifdef L_truncdfsf2vfp
+
+ARM_FUNC_START truncdfsf2vfp
+
+	fmdrr	d7, r0, r1
+	fcvtsd	s15, d7
+	fmrs	r0, s15
+	RET
+
+	FUNC_END truncdfsf2vfp
+
+#endif
+
+#ifdef L_floatsidfvfp
+
+ARM_FUNC_START floatsidfvfp
+
+	fmsr	s15, r0
+	fsitod	d7, s15
+	fmrrd	r0, r1, d7
+	RET
+
+	FUNC_END floatsidfvfp
+
+#endif
+
+#ifdef L_floatsidfvfp
+
+ARM_FUNC_START floatunssidfvfp
+
+	fmsr	s15, r0
+	fuitod	d7, s15
+	fmrrd	r0, r1, d7
+	RET
+
+	FUNC_END floatunssidfvfp
+
+#endif
+
+#endif /* __ARM_ARCH__ > 5 */
+#endif /* NOT_DARWIN */
+/* APPLE LOCAL end ARM 4702983 provide VFP versions (callable from Thumb) */

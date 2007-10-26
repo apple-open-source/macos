@@ -45,6 +45,7 @@ extern "C" {
 #include <net/if_types.h>
 #include <net/dlil.h>
 #include <net/bpf.h>
+#include <net/kpi_protocol.h>
 
 #include <netinet/in.h>
 #include <netinet/in_var.h>
@@ -54,7 +55,6 @@ extern "C" {
 #include <sys/sockio.h>
 #include <sys/malloc.h>
 }
-#include "firewire.h"
 #include "if_firewire.h"
 
 #ifndef DLT_APPLE_IP_OVER_IEEE1394
@@ -167,7 +167,7 @@ bool IOFWInterface::init(IONetworkController *controller)
 	// initialize firewire specific fields.
     setInterfaceType( IFT_IEEE1394 ); 
 	setMaxTransferUnit( FIREWIREMTU );
-    setMediaAddressLength( FIREWIRE_ADDR_LEN );
+    setMediaAddressLength( kIOFWAddressSize );
     setMediaHeaderLength( FIREWIRE_HDR_LEN );
     setFlags( IFF_BROADCAST | IFF_SIMPLEX | IFF_NOTRAILERS,
               IFF_RUNNING   | IFF_MULTICAST );
@@ -245,7 +245,7 @@ bool IOFWInterface::initIfnetParams(struct ifnet_init_params *params)
 	super::initIfnetParams( params );
 	
     _uniqueID = OSDynamicCast(OSData, getProvider()->getProperty(kIOMACAddress));
-    if ( (_uniqueID == 0) || (_uniqueID->getLength() != FIREWIRE_ADDR_LEN) )
+    if ( (_uniqueID == 0) || (_uniqueID->getLength() != kIOFWAddressSize) )
     {
         DLOG("%s: kIOMACAddress property access error (len %d)\n",
              getName(), _uniqueID ? _uniqueID->getLength() : 0);
@@ -277,7 +277,6 @@ void IOFWInterface::free()
     {
         DLOG("%s%d: release ifnet %p\n", getNamePrefix(), getUnitNumber(), interface);
 		firewire_del_if( this );
-        dlil_if_release(interface );
     }
 
     if ( _requiredFilters )
@@ -358,7 +357,7 @@ bool IOFWInterface::controllerDidOpen(IONetworkController * ctr)
         // Get the controller's MAC/FireWire address.
 
         addrData = OSDynamicCast(OSData, ctr->getProperty(kIOMACAddress));
-        if ((addrData == 0) || (addrData->getLength() != FIREWIRE_ADDR_LEN))
+        if ((addrData == 0) || (addrData->getLength() != kIOFWAddressSize))
         {
             DLOG("%s: kIOMACAddress property access error (len %d)\n",
                  getName(), addrData ? addrData->getLength() : 0);
@@ -522,8 +521,7 @@ IOReturn IOFWInterface::enableController(IONetworkController * ctr)
 
         // Disable all Wake-On-LAN filters.
 
-        disableFilter(ctr, gIOEthernetWakeOnLANFilterGroup, ~0,
-                      kFilterOptionNoStateChange);
+        disableFilter(ctr, gIOEthernetWakeOnLANFilterGroup, (UInt32)~0, kFilterOptionNoStateChange);
 
         // Restore current filter selection.
 
@@ -539,7 +537,7 @@ IOReturn IOFWInterface::enableController(IONetworkController * ctr)
         // Re-apply the user supplied link-level address.
 
         OSData * lladdr = OSDynamicCast(OSData, getProperty(kIOMACAddress));
-        if ( lladdr && lladdr->getLength() == FIREWIRE_ADDR_LEN )
+        if ( lladdr && lladdr->getLength() == kIOFWAddressSize )
         {
             ctr->setHardwareAddress( lladdr->getBytesNoCopy(),
                                      lladdr->getLength() );
@@ -636,9 +634,9 @@ int IOFWInterface::syncSIOCSIFFLAGS(IONetworkController * ctr)
 
 SInt IOFWInterface::syncSIOCSIFADDR(IONetworkController * ctr)
 {
-	ifnet_t ifp	= getIfnet();
-    IOReturn ret		= kIOReturnSuccess;
-	char	lladdr[8];
+	ifnet_t		ifp		= getIfnet();
+    IOReturn	ret		= kIOReturnSuccess;
+	char		lladdr[kIOFWAddressSize];
 	
 	if(ifp == NULL)
 		return (EINVAL);
@@ -828,8 +826,7 @@ IOFWInterface::enableFilter(IONetworkController * ctr,
 
     	return ctr->executeCommand(
                            this,               /* client */
-                           (IONetworkController::Action)
-                               &IOFWInterface::enableFilter,
+                           OSMemberFunctionCast(IONetworkController::Action, this, &IOFWInterface::enableFilter),
                            this,               /* target */
                            (void *) ctr,       /* param0 */
                            (void *) group,     /* param1 */
@@ -967,7 +964,7 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
     {
         char * addrp;
             
-        mcData = OSData::withCapacity(mcount * FIREWIRE_ADDR_LEN);
+        mcData = OSData::withCapacity(mcount * kIOFWAddressSize);
         if (!mcData)
         {
             DLOG("%s: no memory for multicast address list\n", getName());
@@ -989,7 +986,7 @@ IOFWInterface::setupMulticastFilter(IONetworkController * ctr)
             else
                 continue;
 
-            ok = mcData->appendBytes((const void *) addrp, FIREWIRE_ADDR_LEN);
+            ok = mcData->appendBytes((const void *) addrp, kIOFWAddressSize);
             assert(ok);
         }
 
@@ -1209,16 +1206,16 @@ IOReturn IOFWInterface::attachToDataLinkLayer(	IOOptionBits options,
 		ivedonethis++;
 					
 		// IPv4 proto register
-		ret = dlil_reg_proto_module(PF_INET, APPLE_IF_FAM_FIREWIRE,
-									firewire_attach_inet, dlil_detach_protocol);
+		ret = proto_register_plumber(PF_INET, APPLE_IF_FAM_FIREWIRE,
+									firewire_attach_inet, NULL);
 		if(ret == EEXIST || ret == 0)
 			ret = kIOReturnSuccess;
 		else
 			DLOG("ERROR: dlil_reg_proto_module for IPv4 over FIREWIRE %x", ret);
 
 		// IPv6 proto register
-		ret = dlil_reg_proto_module(PF_INET6, APPLE_IF_FAM_FIREWIRE,
-									firewire_attach_inet6, dlil_detach_protocol);
+		ret = proto_register_plumber(PF_INET6, APPLE_IF_FAM_FIREWIRE,
+									firewire_attach_inet6, NULL);
 		if(ret == EEXIST || ret == 0)
 			ret = kIOReturnSuccess;
 		else
@@ -1231,31 +1228,15 @@ IOReturn IOFWInterface::attachToDataLinkLayer(	IOOptionBits options,
 void IOFWInterface::detachFromDataLinkLayer( IOOptionBits options,
                                                   void *       parameter )
 {
-	int ret = 0;
-	int *detach_ret = (int*)parameter;
-	
 	if (ivedonethis == 1)
 	{		
-		ret = dlil_dereg_proto_module(PF_INET, APPLE_IF_FAM_FIREWIRE);
-	
-		if(ret == ENOENT)
-			DLOG("no protocol module for IPv4 to deregister for APPLE_IF_FAM_FIREWIRE");
-	
-		ret = dlil_dereg_proto_module(PF_INET6, APPLE_IF_FAM_FIREWIRE);
-	
-		if(ret == ENOENT)
-			DLOG("no protocol module for IPv6 to deregister for APPLE_IF_FAM_FIREWIRE");
-	
-		dlil_dereg_if_modules(APPLE_IF_FAM_FIREWIRE);
+		proto_unregister_plumber(PF_INET, APPLE_IF_FAM_FIREWIRE);
+		proto_unregister_plumber(PF_INET6, APPLE_IF_FAM_FIREWIRE);
 	}
 
 	ivedonethis--;
 
-	ret = dlil_if_detach((struct ifnet*)getIfnet());
-	
-	if(detach_ret) 
-		*detach_ret = ret;
-		
+	super::detachFromDataLinkLayer(options, parameter);
 }
 
 void IOFWInterface::setIfnetMTU(UInt32 mtu)

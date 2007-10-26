@@ -21,6 +21,7 @@
   */
 #include <vstream.h>
 #include <argv.h>
+#include <vstring.h>
 
  /*
   * Generic dictionary interface - in reality, a dictionary extends this
@@ -38,12 +39,14 @@ typedef struct DICT {
     int     lock_fd;			/* for dict_update() lock */
     int     stat_fd;			/* change detection */
     time_t  mtime;			/* mod time at open */
+    VSTRING *fold_buf;			/* key folding buffer */
 } DICT;
 
-extern DICT *dict_alloc(const char *, const char *, int);
+extern DICT *dict_alloc(const char *, const char *, ssize_t);
 extern void dict_free(DICT *);
 
 extern DICT *dict_debug(DICT *);
+
 #define DICT_DEBUG(d) ((d)->flags & DICT_FLAG_DEBUG ? dict_debug(d) : (d))
 
 #define DICT_FLAG_NONE		(0)
@@ -57,13 +60,44 @@ extern DICT *dict_debug(DICT *);
 #define DICT_FLAG_DUP_REPLACE	(1<<7)	/* if file, replace dups */
 #define DICT_FLAG_SYNC_UPDATE	(1<<8)	/* if file, sync updates */
 #define DICT_FLAG_DEBUG		(1<<9)	/* log access */
-#define DICT_FLAG_FOLD_KEY	(1<<10)	/* lowercase the lookup key */
+/*#define DICT_FLAG_FOLD_KEY	(1<<10)	/* lowercase the lookup key */
 #define DICT_FLAG_NO_REGSUB	(1<<11)	/* disallow regexp substitution */
 #define DICT_FLAG_NO_PROXY	(1<<12)	/* disallow proxy mapping */
 #define DICT_FLAG_NO_UNAUTH	(1<<13)	/* disallow unauthenticated data */
+#define DICT_FLAG_FOLD_FIX	(1<<14)	/* case-fold key with fixed-case map */
+#define DICT_FLAG_FOLD_MUL	(1<<15)	/* case-fold key with multi-case map */
+#define DICT_FLAG_FOLD_ANY	(DICT_FLAG_FOLD_FIX | DICT_FLAG_FOLD_MUL)
 
+ /* IMPORTANT: Update the dict_mask[] table when the above changes */
+
+ /*
+  * The subsets of flags that control how a map is used. These are relevant
+  * mainly for proxymap support. Note: some categories overlap.
+  * 
+  * DICT_FLAG_PARANOID - flags that forbid the use of insecure map types for
+  * security-sensitive operations. These flags are specified by the caller,
+  * and are checked by the map implementation itself upon open, lookup etc.
+  * requests.
+  * 
+  * DICT_FLAG_IMPL_MASK - flags that specify properties of the lookup table
+  * implementation. These flags are set by the map implementation itself.
+  * 
+  * DICT_FLAG_INST_MASK - flags that control how a specific table instance is
+  * opened or used. The caller specifies these flags, and the caller may not
+  * change them between open, lookup, etc. requests (although the map itself
+  * may make changes to some of these flags).
+  * 
+  * DICT_FLAG_NP_INST_MASK - ditto, but without the paranoia flags.
+  * 
+  * DICT_FLAG_RQST_MASK - flags that the caller specifies, and that the caller
+  * may change between open, lookup etc. requests.
+  */
 #define DICT_FLAG_PARANOID \
 	(DICT_FLAG_NO_REGSUB | DICT_FLAG_NO_PROXY | DICT_FLAG_NO_UNAUTH)
+#define DICT_FLAG_IMPL_MASK	(DICT_FLAG_FIXED | DICT_FLAG_PATTERN)
+#define DICT_FLAG_RQST_MASK	DICT_FLAG_FOLD_ANY
+#define DICT_FLAG_NP_INST_MASK	~(DICT_FLAG_IMPL_MASK | DICT_FLAG_RQST_MASK)
+#define DICT_FLAG_INST_MASK	(DICT_FLAG_NP_INST_MASK | DICT_FLAG_PARANOID)
 
 extern int dict_unknown_allowed;
 extern int dict_errno;
@@ -112,6 +146,7 @@ typedef void (*DICT_WALK_ACTION) (const char *, DICT *, char *);
 extern void dict_walk(DICT_WALK_ACTION, char *);
 extern int dict_changed(void);
 extern const char *dict_changed_name(void);
+extern const char *dict_flags_str(int);
 
 /* LICENSE
 /* .ad

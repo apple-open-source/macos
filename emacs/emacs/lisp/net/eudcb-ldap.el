@@ -1,10 +1,11 @@
 ;;; eudcb-ldap.el --- Emacs Unified Directory Client - LDAP Backend
 
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Oscar Figueiredo <oscar@xemacs.org>
-;; Maintainer: Oscar Figueiredo <oscar@xemacs.org>
-;; Keywords: help
+;; Author: Oscar Figueiredo <oscar@cpe.fr>
+;; Maintainer: Pavel Janík <Pavel@Janik.cz>
+;; Keywords: comm
 
 ;; This file is part of GNU Emacs.
 
@@ -20,11 +21,11 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
-;;    This library provides specific LDAP protocol support for the 
+;;    This library provides specific LDAP protocol support for the
 ;;    Emacs Unified Directory Client package
 
 ;;; Installation:
@@ -53,31 +54,32 @@
     (phone . telephonenumber))
   "Alist mapping EUDC attribute names to LDAP names.")
 
-(eudc-protocol-set 'eudc-query-function 'eudc-ldap-simple-query-internal 
+(eudc-protocol-set 'eudc-query-function 'eudc-ldap-simple-query-internal
 		   'ldap)
 (eudc-protocol-set 'eudc-list-attributes-function 'eudc-ldap-get-field-list
 		   'ldap)
-(eudc-protocol-set 'eudc-protocol-attributes-translation-alist 
+(eudc-protocol-set 'eudc-protocol-attributes-translation-alist
 		   'eudc-ldap-attributes-translation-alist 'ldap)
-(eudc-protocol-set 'eudc-bbdb-conversion-alist 
-		   'eudc-ldap-bbdb-conversion-alist 
+(eudc-protocol-set 'eudc-bbdb-conversion-alist
+		   'eudc-ldap-bbdb-conversion-alist
 		   'ldap)
 (eudc-protocol-set 'eudc-protocol-has-default-query-attributes nil 'ldap)
-(eudc-protocol-set 'eudc-attribute-display-method-alist 
+(eudc-protocol-set 'eudc-attribute-display-method-alist
 		   '(("jpegphoto" . eudc-display-jpeg-inline)
 		     ("labeledurl" . eudc-display-url)
 		     ("audio" . eudc-display-sound)
-		     ("labeledurl" . eudc-display-url)
-		     ("url" . eudc-display-url)) 
+		     ("labeleduri" . eudc-display-url)
+		     ("mail" . eudc-display-mail)
+		     ("url" . eudc-display-url))
 		   'ldap)
-(eudc-protocol-set 'eudc-switch-to-server-hook 
-		   '(eudc-ldap-check-base) 
+(eudc-protocol-set 'eudc-switch-to-server-hook
+		   '(eudc-ldap-check-base)
 		   'ldap)
 
 (defun eudc-ldap-cleanup-record-simple (record)
   "Do some cleanup in a RECORD to make it suitable for EUDC."
-  (mapcar 
-   (function 
+  (mapcar
+   (function
     (lambda (field)
       (cons (intern (car field))
 	    (if (cdr (cdr field))
@@ -89,11 +91,11 @@
   (mapconcat 'identity (split-string string "\\$") "\n"))
 
 ;; Cleanup a LDAP record to make it suitable for EUDC:
-;;   Make the record a cons-cell instead of a list if the it's single-valued
+;;   Make the record a cons-cell instead of a list if it is single-valued
 ;;   Filter the $ character in addresses into \n if not done by the LDAP lib
 (defun eudc-ldap-cleanup-record-filtering-addresses (record)
-  (mapcar 
-   (function 
+  (mapcar
+   (function
     (lambda (field)
       (let ((name (intern (car field)))
 	    (value (cdr field)))
@@ -107,9 +109,9 @@
 
 (defun eudc-ldap-simple-query-internal (query &optional return-attrs)
   "Query the LDAP server with QUERY.
-QUERY is a list of cons cells (ATTR . VALUE) where ATTRs should be valid 
-LDAP attribute names.  
-RETURN-ATTRS is a list of attributes to return, defaulting to 
+QUERY is a list of cons cells (ATTR . VALUE) where ATTRs should be valid
+LDAP attribute names.
+RETURN-ATTRS is a list of attributes to return, defaulting to
 `eudc-default-return-attributes'."
   (let ((result (ldap-search (eudc-ldap-format-query-as-rfc1558 query)
 			     eudc-server
@@ -118,7 +120,7 @@ RETURN-ATTRS is a list of attributes to return, defaulting to
 	final-result)
     (if (or (not (boundp 'ldap-ignore-attribute-codings))
 	    ldap-ignore-attribute-codings)
-	(setq result 
+	(setq result
 	      (mapcar 'eudc-ldap-cleanup-record-filtering-addresses result))
       (setq result (mapcar 'eudc-ldap-cleanup-record-simple result)))
 
@@ -128,9 +130,9 @@ RETURN-ATTRS is a list of attributes to return, defaulting to
 	(setq result (eudc-filter-partial-records result return-attrs)))
     ;; Apply eudc-duplicate-attribute-handling-method
     (if (not (eq 'list eudc-duplicate-attribute-handling-method))
-	(mapcar 
+	(mapcar
 	 (function (lambda (record)
-		     (setq final-result 
+		     (setq final-result
 			   (append (eudc-filter-duplicate-attributes record)
 				   final-result))))
 	 result))
@@ -143,12 +145,12 @@ attribute names are returned. Default to `person'"
   (interactive)
   (or eudc-server
       (call-interactively 'eudc-set-server))
-  (let ((ldap-host-parameters-alist 
+  (let ((ldap-host-parameters-alist
 	 (list (cons eudc-server
 		     '(scope subtree sizelimit 1)))))
-    (mapcar 'eudc-ldap-cleanup-record
-	    (ldap-search 
-	     (eudc-ldap-format-query-as-rfc1558 
+    (mapcar 'eudc-ldap-cleanup-record-simple
+	    (ldap-search
+	     (eudc-ldap-format-query-as-rfc1558
 	      (list (cons "objectclass"
 			  (or objectclass
 			      "person"))))
@@ -156,13 +158,13 @@ attribute names are returned. Default to `person'"
 
 (defun eudc-ldap-escape-query-special-chars (string)
   "Value is STRING with characters forbidden in LDAP queries escaped."
-;; Note that * should also be escaped but in most situations I suppose 
+;; Note that * should also be escaped but in most situations I suppose
 ;; the user doesn't want this
   (eudc-replace-in-string
    (eudc-replace-in-string
     (eudc-replace-in-string
-      (eudc-replace-in-string 
-       string 
+      (eudc-replace-in-string
+       string
        "\\\\" "\\5c")
       "(" "\\28")
      ")" "\\29")
@@ -170,16 +172,16 @@ attribute names are returned. Default to `person'"
 
 (defun eudc-ldap-format-query-as-rfc1558 (query)
   "Format the EUDC QUERY list as a RFC1558 LDAP search filter."
-  (format "(&%s)" 
-	  (apply 'concat 
+  (format "(&%s)"
+	  (apply 'concat
 		 (mapcar '(lambda (item)
-			    (format "(%s=%s)" 
-				    (car item) 
+			    (format "(%s=%s)"
+				    (car item)
 				    (eudc-ldap-escape-query-special-chars (cdr item))))
 			 query))))
 
 
-;;}}}        
+;;}}}
 
 ;;{{{      High-level interfaces (interactive functions)
 
@@ -192,19 +194,20 @@ attribute names are returned. Default to `person'"
   "Check if the current LDAP server has a configured search base."
   (unless (or (eudc-ldap-get-host-parameter eudc-server 'base)
 	      ldap-default-base
-	      (null (y-or-n-p "No search base defined. Configure it now ?")))
+	      (null (y-or-n-p "No search base defined. Configure it now? ")))
     ;; If the server is not in ldap-host-parameters-alist we add it for the
     ;; user
     (if (null (assoc eudc-server ldap-host-parameters-alist))
-	(setq ldap-host-parameters-alist 
+	(setq ldap-host-parameters-alist
 	      (cons (list eudc-server) ldap-host-parameters-alist)))
     (customize-variable 'ldap-host-parameters-alist)))
 
-;;;}}}
+;;}}}
 
 
 (eudc-register-protocol 'ldap)
 
 (provide 'eudcb-ldap)
 
+;;; arch-tag: 0f254dc0-7378-4fd4-ae26-18666184e96b
 ;;; eudcb-ldap.el ends here

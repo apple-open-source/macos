@@ -38,16 +38,7 @@ struct IOMbufQueue {
 static __inline__
 UInt32 IOMbufFree(mbuf_t m)
 {
-    UInt32 count = 0;
-    mbuf_t tempmb = m;
-
-	while (tempmb) // FIXME if 3730918 is implemented, mbuf_freem_list() will return the free count for us.
-	{
-		tempmb = mbuf_nextpkt( tempmb );
-		count++;
-	}
-	mbuf_freem_list(m);
-    return count;
+	return mbuf_freem_list(m);
 }
 
 static __inline__

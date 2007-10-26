@@ -51,7 +51,8 @@ class AppleUSBCDCACMControl : public IOService
     OSDeclareDefaultStructors(AppleUSBCDCACMControl);			// Constructor & Destructor stuff
 
 private:
-    AppleUSBCDCACMData		*fDataDriver;                           // Our Data Driver
+	AppleUSBCDC				*fCDCDriver;		// The CDC driver
+    AppleUSBCDCACMData		*fDataDriver;       // Our Data Driver
     bool			fdataAcquired;				// Has the data port been acquired
     UInt8			fSessions;				// Active sessions (across all ports)
     bool			fTerminate;				// Are we being terminated (ie the device was unplugged)

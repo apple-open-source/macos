@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,10 +23,182 @@
 #include<IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include "AppleIntelICHxSATA.h"
 
+
+//---------------------------------------------------------------------------
+// begin implementation AppleIntelICHxSATAPolledAdapter
+// --------------------------------------------------------------------------
+#undef super
+#define super IOPolledInterface
+
+OSDefineMetaClassAndStructors(  AppleIntelICHxSATAPolledAdapter, IOPolledInterface )
+
+IOReturn 
+AppleIntelICHxSATAPolledAdapter::probe(IOService * target)
+{
+    pollingActive = false;
+    return kIOReturnSuccess;
+}
+
+IOReturn 
+AppleIntelICHxSATAPolledAdapter::open( IOOptionBits state, IOMemoryDescriptor * buffer)
+{
+    switch( state )
+    {
+	case kIOPolledPreflightState:
+	    // nothing to do here for this controller
+	    break;
+	
+	case kIOPolledBeforeSleepState:
+	    pollingActive = true;
+	    break;
+	
+	case kIOPolledAfterSleepState:
+	    // ivars may be inconsistent at this time. Kernel space is restored by bootx, then executed. 
+	    // ivars may be stale depending on the when the image snapshot took place during image write
+	    // call the controller to return the ivars to a queiscent state and restore the pci device state.
+	    owner->transitionFixup();
+	    pollingActive = true;
+	    break;	
+
+	case kIOPolledPostflightState:
+	    // illegal value should not happen. 
+	default:	
+	    break;
+    }
+    return kIOReturnSuccess;
+}
+
+IOReturn 
+AppleIntelICHxSATAPolledAdapter::close(IOOptionBits state)
+{
+    switch( state )
+    {
+	case kIOPolledPreflightState:
+	case kIOPolledBeforeSleepState:
+	case kIOPolledAfterSleepState:
+	case kIOPolledPostflightState:
+	default:
+	    pollingActive = false;	
+	break;
+    }
+
+    return kIOReturnSuccess;
+}
+
+IOReturn 
+AppleIntelICHxSATAPolledAdapter::startIO(uint32_t 	        operation,
+					 uint32_t		bufferOffset,
+					 uint64_t	        deviceOffset,
+					 uint64_t	        length,
+					 IOPolledCompletion	completion)
+{
+    return kIOReturnUnsupported;
+}
+
+IOReturn 
+AppleIntelICHxSATAPolledAdapter::checkForWork(void)
+{
+
+    if( owner )
+    {
+	owner->pollEntry();
+    }
+
+    return kIOReturnSuccess;
+}
+
+
+bool 
+AppleIntelICHxSATAPolledAdapter::isPolling( void )
+{
+    return pollingActive;
+}
+
+void
+AppleIntelICHxSATAPolledAdapter::setOwner( AppleIntelICHxSATA* myOwner )
+{
+    owner = myOwner;
+    pollingActive = false;
+}
+
+//---------------------------------------------------------------------------
+
+#undef super
 #define super AppleIntelPIIXPATA
 OSDefineMetaClassAndStructors( AppleIntelICHxSATA, AppleIntelPIIXPATA )
 
 //---------------------------------------------------------------------------
+
+// polled mode is called at a time when hardware interrupts are disabled.
+// this is a poll-time procedure, when given a slice of time, the poll proc
+// checks the state of the hardware to see if it has a pending interrupt status
+// and calls the interrupt handlers in place of the interrupt event source.
+
+void 
+AppleIntelICHxSATA::pollEntry( void )
+{
+    // make sure there is a current command before processing further.
+    if( 0 == _currentCommand )
+	return;
+
+    if ( *(_bmStatusReg) & kPIIX_IO_BMISX_IDEINTS )
+    {
+	// Clear interrupt latch
+	*(_bmStatusReg) = kPIIX_IO_BMISX_IDEINTS;
+
+	// Let our superclass handle the interrupt to advance to the next state
+	// in its internal state machine.
+	handleDeviceInterrupt();
+    }
+}
+
+void
+AppleIntelICHxSATA::executeEventCallouts( ataEventCode event, ataUnitID unit )
+{
+    if( polledAdapter && polledAdapter->isPolling())
+    {
+	return;
+    }
+    super::executeEventCallouts(event, unit);
+}
+
+IOReturn 
+AppleIntelICHxSATA::startTimer( UInt32 inMS)
+{
+    if( polledAdapter && polledAdapter->isPolling())
+    {
+	return kIOReturnSuccess;
+    }
+    return super::startTimer( inMS);
+}
+
+void
+AppleIntelICHxSATA::stopTimer(void)
+{
+    if( polledAdapter && polledAdapter->isPolling())
+    {
+	return;
+    }
+    return super::stopTimer( );
+}
+
+void 
+AppleIntelICHxSATA::transitionFixup( void )
+{
+    // ivars working up the chain of inheritance:
+    
+    // from IOATAController		
+    _queueState = IOATAController::kQueueOpen;
+    _busState = IOATAController::kBusFree;
+    _currentCommand = 0L;
+    _selectedUnit = kATAInvalidDeviceID;
+    _queueState = IOATAController::kQueueOpen;
+    _immediateGate = IOATAController::kImmediateOK;
+
+    // make sure the hardware is running
+    _pciDevice->restoreDeviceState();
+}
+
 
 bool AppleIntelICHxSATA::start( IOService * provider )
 {
@@ -35,6 +207,16 @@ bool AppleIntelICHxSATA::start( IOService * provider )
 
     setProperty( kIOPropertyPhysicalInterconnectTypeKey,
                  kIOPropertyPhysicalInterconnectTypeSerialATA );
+
+
+    polledAdapter = new AppleIntelICHxSATAPolledAdapter;
+    
+    if( polledAdapter)
+    {
+	polledAdapter->setOwner( this );
+	setProperty ( kIOPolledInterfaceSupportKey, polledAdapter );
+	polledAdapter->release();
+    }
 
     return super::start(provider);
 }
@@ -68,12 +250,12 @@ UInt32 AppleIntelICHxSATA::scanForDrives( void )
         if ( (loopMs % 1000) == 0 )
         {
             for ( UInt32 i = 0; i < _provider->getMaxDriveUnits(); i++ )
-                setSATAPortEnable( i, false );
+                _provider->setSerialATAPortEnableForDrive( i, false );
         
             IOSleep( 20 );
         
             for ( UInt32 i = 0; i < _provider->getMaxDriveUnits(); i++ )
-                setSATAPortEnable( i, true );
+                _provider->setSerialATAPortEnableForDrive( i, true );
     
             IOSleep( 20 );
 
@@ -105,7 +287,7 @@ UInt32 AppleIntelICHxSATA::scanForDrives( void )
     {
         if ( _devInfo[unit].type != kUnknownATADeviceType &&
              ( unit >= _provider->getMaxDriveUnits() ||
-               getSATAPortPresentStatus( unit ) == false ) )
+               _provider->getSerialATAPortPresentStatusForDrive( unit ) == false ) )
         {
             // Detected a device, but SATA reports that no device are
             // present on the port. Trust SATA since if the device was
@@ -121,60 +303,11 @@ UInt32 AppleIntelICHxSATA::scanForDrives( void )
     {
         if ( _devInfo[unit].type == kUnknownATADeviceType )
         {
-            setSATAPortEnable( unit, false );
+            _provider->setSerialATAPortEnableForDrive( unit, false );
         }
     }
 
     return unitsFound;
-}
-
-//---------------------------------------------------------------------------
-
-void AppleIntelICHxSATA::setSATAPortEnable( UInt32 driveUnit, bool enable )
-{
-    int   port = _provider->getSerialATAPortForDrive( driveUnit );
-    UInt8 mask = 0;
-
-    switch ( port )
-    {
-        case kSerialATAPort0:
-            mask = kPIIX_PCI_PCS_P0E;
-            break;
-        case kSerialATAPort1:
-            mask = kPIIX_PCI_PCS_P1E;
-            break;
-        case kSerialATAPort2:
-            mask = kPIIX_PCI_PCS_P2E;
-            break;
-        case kSerialATAPort3:
-            mask = kPIIX_PCI_PCS_P3E;
-            break;
-    }
-
-    _provider->pciConfigWrite8( kPIIX_PCI_PCS,
-                                enable ? mask : 0, mask );
-}
-
-//---------------------------------------------------------------------------
-
-bool AppleIntelICHxSATA::getSATAPortPresentStatus( UInt32 driveUnit )
-{
-    int   port = _provider->getSerialATAPortForDrive( driveUnit );
-    UInt8 pcs;
-    UInt8 mask;
-
-    pcs = _pciDevice->configRead8( kPIIX_PCI_PCS );
-
-    switch ( port )
-    {
-        case kSerialATAPort0: mask = kPIIX_PCI_PCS_P0P; break;
-        case kSerialATAPort1: mask = kPIIX_PCI_PCS_P1P; break;
-        case kSerialATAPort2: mask = kPIIX_PCI_PCS_P2P; break;
-        case kSerialATAPort3: mask = kPIIX_PCI_PCS_P3P; break;
-        default:              mask = 0;
-    }
-
-    return (( pcs & mask ) == mask);
 }
 
 //---------------------------------------------------------------------------
@@ -219,8 +352,8 @@ IOReturn AppleIntelICHxSATA::setPowerState( unsigned long stateIndex,
 
         for ( UInt32 unit = 0; unit < _provider->getMaxDriveUnits(); unit++ )
         {
-            setSATAPortEnable( unit,
-                              _devInfo[unit].type != kUnknownATADeviceType );
+            _provider->setSerialATAPortEnableForDrive(
+                unit, _devInfo[unit].type != kUnknownATADeviceType );
         }
         _initPortEnable = false;
     }
@@ -267,3 +400,4 @@ static void dumpRegsICH6( IOPCIDevice * pci )
     kprintf("Index 0x84  %0x\n", pci->configRead32(0xa4));
 }
 #endif
+

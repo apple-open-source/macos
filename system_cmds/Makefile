@@ -12,17 +12,25 @@ NAME = system_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = dynamic_pager.tproj ac.tproj accton.tproj arch.tproj at.tproj\
-	auditd.tproj audit.tproj\
-        atrun.tproj chkpasswd.tproj chpass.tproj dmesg.tproj\
-        getconf.tproj getty.tproj hostinfo.tproj iostat.tproj kgmon.tproj\
-        ktrace.tproj login.tproj makekey.tproj\
-        mkfile.tproj nvram.tproj passwd.tproj pwd_mkdb.tproj\
-        reboot.tproj shutdown.tproj sync.tproj sysctl.tproj\
-        update.tproj vipw.tproj zic.tproj zdump.tproj vm_stat.tproj\
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
+TOOLS = dynamic_pager.tproj ac.tproj accton.tproj arch.tproj\
+	bootlog.tproj\
+        dirhelper.tproj dmesg.tproj\
+        getconf.tproj getty.tproj hostinfo.tproj iostat.tproj\
+        login.tproj makekey.tproj\
+        mkfile.tproj newgrp.tproj nvram.tproj passwd.tproj pwd_mkdb.tproj\
+        reboot.tproj sync.tproj sysctl.tproj\
+        update.tproj vipw.tproj vifs.tproj zic.tproj zdump.tproj vm_stat.tproj\
         zprint.tproj latency.tproj sc_usage.tproj fs_usage.tproj\
-        kdump.tproj sadc.tproj sar.tproj pt_chown.tproj sa.tproj\
-        utmp_update.tproj
+        sadc.tproj sar.tproj sa.tproj
+
+ifeq "$(Embedded)" "NO"
+TOOLS += at.tproj atrun.tproj\
+	auditd.tproj audit.tproj\
+	chkpasswd.tproj chpass.tproj\
+	shutdown.tproj
+endif
 
 LIBRARIES = dp_notify_lib
 

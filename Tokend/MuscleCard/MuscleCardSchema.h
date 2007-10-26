@@ -78,4 +78,3 @@ private:
 
 #endif /* !_MUSCLECARDSCHEMA_H_ */
 
-/* arch-tag: C02D9FA0-F620-11D8-855B-000A9595DEEE */

@@ -29,6 +29,7 @@
 
 #include <security_keychain/Item.h>
 // included by item #include <security_keychain/Keychains.h>
+#include <security_keychain/Access.h>
 
 
 namespace Security {
@@ -49,6 +50,7 @@ public:
     bool useKeychain() const { return mUseKeychain; }
     bool rememberInKeychain() const { return mRememberInKeychain; }
     void setRememberInKeychain(bool remember) { mRememberInKeychain = remember; }
+    void setAccess(Access *access);
 
 private:
     // keychain item cached?

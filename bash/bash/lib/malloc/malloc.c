@@ -1,6 +1,6 @@
 /* malloc.c - dynamic memory allocation for bash. */
 
-/*  Copyright (C) 1985, 1987, 1997 Free Software Foundation, Inc.
+/*  Copyright (C) 1985-2005 Free Software Foundation, Inc.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -221,7 +221,7 @@ typedef union _malloc_guard {
 
 static union mhead *nextf[NBUCKETS];
 
-/* busy[i] is nonzero while allocation of block size i is in progress.  */
+/* busy[i] is nonzero while allocation or free of block size i is in progress. */
 
 static char busy[NBUCKETS];
 
@@ -236,7 +236,7 @@ static unsigned long binsizes[NBUCKETS] = {
 	8192UL, 16384UL, 32768UL, 65536UL, 131072UL, 262144UL, 524288UL,
 	1048576UL, 2097152UL, 4194304UL, 8388608UL, 16777216UL, 33554432UL,
 	67108864UL, 134217728UL, 268435456UL, 536870912UL, 1073741824UL,
-	2147483648UL, 4294967296UL-1
+	2147483648UL, 4294967295UL
 };
 
 /* binsizes[x] == (1 << ((x) + 3)) */
@@ -246,7 +246,7 @@ static unsigned long binsizes[NBUCKETS] = {
 static PTR_T internal_malloc __P((size_t, const char *, int, int));
 static PTR_T internal_realloc __P((PTR_T, size_t, const char *, int, int));
 static void internal_free __P((PTR_T, const char *, int, int));
-static PTR_T internal_memalign __P((unsigned int, size_t, const char *, int, int));
+static PTR_T internal_memalign __P((size_t, size_t, const char *, int, int));
 #ifndef NO_CALLOC
 static PTR_T internal_calloc __P((size_t, size_t, const char *, int, int));
 static void internal_cfree __P((PTR_T, const char *, int, int));
@@ -291,8 +291,11 @@ extern void mtrace_free __P((PTR_T, int, const char *, int));
 #if !defined (botch)
 static void
 botch (s, file, line)
+     const char *s;
+     const char *file;
+     int line;
 {
-  fprintf (stderr, "malloc: failed assertion: %s\n", s);
+  fprintf (stderr, _("malloc: failed assertion: %s\n"), s);
   (void)fflush (stderr);
   abort ();
 }
@@ -308,7 +311,7 @@ xbotch (mem, e, s, file, line)
      const char *file;
      int line;
 {
-  fprintf (stderr, "\r\nmalloc: %s:%d: assertion botched\r\n",
+  fprintf (stderr, _("\r\nmalloc: %s:%d: assertion botched\r\n"),
 			file ? file : "unknown", line);
 #ifdef MALLOC_REGISTER
   if (mem != NULL && malloc_register)
@@ -320,7 +323,8 @@ xbotch (mem, e, s, file, line)
 
 /* Coalesce two adjacent free blocks off the free list for size NU - 1,
    as long as we can find two adjacent free blocks.  nextf[NU -1] is
-   assumed to not be busy; the caller (morecore()) checks for this. */
+   assumed to not be busy; the caller (morecore()) checks for this. 
+   BUSY[NU] must be set to 1. */
 static void
 bcoalesce (nu)
      register int nu;
@@ -330,9 +334,10 @@ bcoalesce (nu)
   unsigned long siz;
 
   nbuck = nu - 1;
-  if (nextf[nbuck] == 0)
+  if (nextf[nbuck] == 0 || busy[nbuck])
     return;
 
+  busy[nbuck] = 1;
   siz = binsize (nbuck);
 
   mp2 = mp1 = nextf[nbuck];
@@ -343,22 +348,27 @@ bcoalesce (nu)
       mp1 = mp;
       mp = CHAIN (mp);
     }
+
   if (mp == 0)
-    return;
+    {
+      busy[nbuck] = 0;
+      return;
+    }
 
   /* OK, now we have mp1 pointing to the block we want to add to nextf[NU].
      CHAIN(mp2) must equal mp1.  Check that mp1 and mp are adjacent. */
   if (mp2 != mp1 && CHAIN(mp2) != mp1)
-    xbotch ((PTR_T)0, 0, "bcoalesce: CHAIN(mp2) != mp1", (char *)NULL, 0);
+    {
+      busy[nbuck] = 0;
+      xbotch ((PTR_T)0, 0, "bcoalesce: CHAIN(mp2) != mp1", (char *)NULL, 0);
+    }
 
 #ifdef MALLOC_DEBUG
   if (CHAIN (mp1) != (union mhead *)((char *)mp1 + siz))
-    return;	/* not adjacent */
-#endif
-
-#ifdef MALLOC_STATS
-  _mstats.tbcoalesce++;
-  _mstats.ncoalesce[nbuck]++;
+    {
+      busy[nbuck] = 0;
+      return;	/* not adjacent */
+    }
 #endif
 
   /* Since they are adjacent, remove them from the free list */
@@ -366,6 +376,12 @@ bcoalesce (nu)
     nextf[nbuck] = CHAIN (mp);
   else
     CHAIN (mp2) = CHAIN (mp);
+  busy[nbuck] = 0;
+
+#ifdef MALLOC_STATS
+  _mstats.tbcoalesce++;
+  _mstats.ncoalesce[nbuck]++;
+#endif
 
   /* And add the combined two blocks to nextf[NU]. */
   mp1->mh_alloc = ISFREE;
@@ -377,7 +393,7 @@ bcoalesce (nu)
 /* Split a block at index > NU (but less than SPLIT_MAX) into a set of
    blocks of the correct size, and attach them to nextf[NU].  nextf[NU]
    is assumed to be empty.  Must be called with signals blocked (e.g.,
-   by morecore()). */
+   by morecore()).  BUSY[NU] must be set to 1. */
 static void
 bsplit (nu)
      register int nu;
@@ -413,6 +429,12 @@ bsplit (nu)
   /* XXX might want to split only if nextf[nbuck] has >= 2 blocks free
      and nbuck is below some threshold. */
 
+  /* Remove the block from the chain of larger blocks. */
+  busy[nbuck] = 1;
+  mp = nextf[nbuck];
+  nextf[nbuck] = CHAIN (mp);
+  busy[nbuck] = 0;
+
 #ifdef MALLOC_STATS
   _mstats.tbsplit++;
   _mstats.nsplit[nbuck]++;
@@ -421,10 +443,6 @@ bsplit (nu)
   /* Figure out how many blocks we'll get. */
   siz = binsize (nu);
   nblks = binsize (nbuck) / siz;
-
-  /* Remove the block from the chain of larger blocks. */
-  mp = nextf[nbuck];
-  nextf[nbuck] = CHAIN (mp);
 
   /* Split the block and put it on the requested chain. */
   nextf[nu] = mp;
@@ -437,6 +455,49 @@ bsplit (nu)
       mp = (union mhead *)((char *)mp + siz);
     }
   CHAIN (mp) = 0;
+}
+
+/* Take the memory block MP and add it to a chain < NU.  NU is the right bucket,
+   but is busy.  This avoids memory orphaning. */
+static void
+xsplit (mp, nu)
+     union mhead *mp;
+     int nu;
+{
+  union mhead *nh;
+  int nbuck, nblks, split_max;
+  unsigned long siz;
+
+  nbuck = nu - 1;
+  while (nbuck >= SPLIT_MIN && busy[nbuck])
+    nbuck--;
+  if (nbuck < SPLIT_MIN)
+    return;
+
+#ifdef MALLOC_STATS
+  _mstats.tbsplit++;
+  _mstats.nsplit[nu]++;
+#endif
+
+  /* Figure out how many blocks we'll get. */
+  siz = binsize (nu);			/* original block size */
+  nblks = siz / binsize (nbuck);	/* should be 2 most of the time */
+
+  /* And add it to nextf[nbuck] */
+  siz = binsize (nbuck);		/* XXX - resetting here */
+  nh = mp;
+  while (1)
+    {
+      mp->mh_alloc = ISFREE;
+      mp->mh_index = nbuck;
+      if (--nblks <= 0) break;
+      CHAIN (mp) = (union mhead *)((char *)mp + siz);
+      mp = (union mhead *)((char *)mp + siz);
+    }
+  busy[nbuck] = 1;
+  CHAIN (mp) = nextf[nbuck];
+  nextf[nbuck] = nh;
+  busy[nbuck] = 0;
 }
 
 static void
@@ -487,9 +548,10 @@ lesscore (nu)			/* give system back some memory */
   _mstats.nlesscore[nu]++;
 #endif
 }
-  
+
+/* Ask system for more memory; add to NEXTF[NU].  BUSY[NU] must be set to 1. */  
 static void
-morecore (nu)			/* ask system for more memory */
+morecore (nu)
      register int nu;		/* size index to get more of  */
 {
   register union mhead *mp;
@@ -528,7 +590,7 @@ morecore (nu)			/* ask system for more memory */
     }
 
   /* Try to coalesce two adjacent blocks from the free list on nextf[nu - 1],
-     if we can, and we're withing the range of the block coalescing limits. */
+     if we can, and we're within the range of the block coalescing limits. */
   if (nu >= COMBINE_MIN && nu < COMBINE_MAX && busy[nu - 1] == 0 && nextf[nu - 1])
     {
       bcoalesce (nu);
@@ -734,7 +796,7 @@ internal_malloc (n, file, line, flags)		/* get a block */
   /* If not for this check, we would gobble a clobbered free chain ptr
      and bomb out on the NEXT allocate of this size block */
   if (p->mh_alloc != ISFREE || p->mh_index != nunits)
-    xbotch ((PTR_T)(p+1), 0, "malloc: block on free list clobbered", file, line);
+    xbotch ((PTR_T)(p+1), 0, _("malloc: block on free list clobbered"), file, line);
 
   /* Fill in the info, and set up the magic numbers for range checking. */
   p->mh_alloc = ISALLOC;
@@ -811,10 +873,10 @@ internal_free (mem, file, line, flags)
     {
       if (p->mh_alloc == ISFREE)
 	xbotch (mem, ERR_DUPFREE,
-		"free: called with already freed block argument", file, line);
+		_("free: called with already freed block argument"), file, line);
       else
 	xbotch (mem, ERR_UNALLOC,
-		"free: called with unallocated block argument", file, line);
+		_("free: called with unallocated block argument"), file, line);
     }
 
   ASSERT (p->mh_magic2 == MAGIC2);
@@ -833,13 +895,13 @@ internal_free (mem, file, line, flags)
 
   if (IN_BUCKET(nbytes, nunits) == 0)
     xbotch (mem, ERR_UNDERFLOW,
-	    "free: underflow detected; mh_nbytes out of range", file, line);
+	    _("free: underflow detected; mh_nbytes out of range"), file, line);
 
   ap += p->mh_nbytes;
   z = mg.s;
   *z++ = *ap++, *z++ = *ap++, *z++ = *ap++, *z++ = *ap++;  
   if (mg.i != p->mh_nbytes)
-    xbotch (mem, ERR_ASSERT_FAILED, "free: start and end chunk sizes differ", file, line);
+    xbotch (mem, ERR_ASSERT_FAILED, _("free: start and end chunk sizes differ"), file, line);
 
 #if 1
   if (nunits >= LESSCORE_MIN && ((char *)p + binsize(nunits) == memtop))
@@ -849,9 +911,8 @@ internal_free (mem, file, line, flags)
     {
       /* If above LESSCORE_FRC, give back unconditionally.  This should be set
 	 high enough to be infrequently encountered.  If between LESSCORE_MIN
-	 and LESSCORE_FRC, call lesscore if the bucket is marked as busy (in
-	 which case we would punt below and leak memory) or if there's already
-	 a block on the free list. */
+	 and LESSCORE_FRC, call lesscore if the bucket is marked as busy or if
+	 there's already a block on the free list. */
       if ((nunits >= LESSCORE_FRC) || busy[nunits] || nextf[nunits] != 0)
 	{
 	  lesscore (nunits);
@@ -866,11 +927,14 @@ internal_free (mem, file, line, flags)
 #endif
 
   ASSERT (nunits < NBUCKETS);
-  p->mh_alloc = ISFREE;
 
   if (busy[nunits] == 1)
-    return;	/* this is bogus, but at least it won't corrupt the chains */
+    {
+      xsplit (p, nunits);	/* split block and add to different chain */
+      goto free_return;
+    }
 
+  p->mh_alloc = ISFREE;
   /* Protect against signal handlers calling malloc.  */
   busy[nunits] = 1;
   /* Put this block on the free list.  */
@@ -879,6 +943,7 @@ internal_free (mem, file, line, flags)
   busy[nunits] = 0;
 
 free_return:
+  ;		/* Empty statement in case this is the end of the function */
 
 #ifdef MALLOC_STATS
   _mstats.nmalloc[nunits]--;
@@ -935,7 +1000,7 @@ internal_realloc (mem, n, file, line, flags)
 
   if (p->mh_alloc != ISALLOC)
     xbotch (mem, ERR_UNALLOC,
-	    "realloc: called with unallocated block argument", file, line);
+	    _("realloc: called with unallocated block argument"), file, line);
 
   ASSERT (p->mh_magic2 == MAGIC2);
   nbytes = ALLOCATED_BYTES(p->mh_nbytes);
@@ -950,13 +1015,13 @@ internal_realloc (mem, n, file, line, flags)
      original number of bytes requested. */
   if (IN_BUCKET(nbytes, nunits) == 0)
     xbotch (mem, ERR_UNDERFLOW,
-	    "realloc: underflow detected; mh_nbytes out of range", file, line);
+	    _("realloc: underflow detected; mh_nbytes out of range"), file, line);
 
   m = (char *)mem + (tocopy = p->mh_nbytes);
   z = mg.s;
   *z++ = *m++, *z++ = *m++, *z++ = *m++, *z++ = *m++;
   if (mg.i != p->mh_nbytes)
-    xbotch (mem, ERR_ASSERT_FAILED, "realloc: start and end chunk sizes differ", file, line);
+    xbotch (mem, ERR_ASSERT_FAILED, _("realloc: start and end chunk sizes differ"), file, line);
 
 #ifdef MALLOC_WATCH
   if (_malloc_nwatch > 0)
@@ -1022,7 +1087,7 @@ internal_realloc (mem, n, file, line, flags)
 
 static PTR_T
 internal_memalign (alignment, size, file, line, flags)
-     unsigned int alignment;
+     size_t alignment;
      size_t size;
      const char *file;
      int line, flags;
@@ -1141,7 +1206,7 @@ sh_free (mem, file, line)
 
 PTR_T
 sh_memalign (alignment, size, file, line)
-     unsigned int alignment;
+     size_t alignment;
      size_t size;
      const char *file;
      int line;
@@ -1208,7 +1273,7 @@ free (mem)
 
 PTR_T
 memalign (alignment, size)
-     unsigned int alignment;
+     size_t alignment;
      size_t size;
 {
   return internal_memalign (alignment, size, (char *)NULL, 0, 0);

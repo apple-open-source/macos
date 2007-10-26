@@ -12,29 +12,31 @@ DIRS := private/etc/defaults \
 	private/etc/periodic/weekly \
 	private/etc/periodic/monthly \
 	System/Library/LaunchDaemons \
-	usr/share/man/man5 \
-	usr/share/man/man8 \
-	usr/sbin
+	usr/share/man/man5
 
 # Data files.
-FILES := System/Library/LaunchDaemons/com.apple.periodic-daily.plist \
+FILES := System/Library/LaunchDaemons/com.apple.newsyslog.plist \
+	System/Library/LaunchDaemons/com.apple.periodic-daily.plist \
 	System/Library/LaunchDaemons/com.apple.periodic-weekly.plist \
 	System/Library/LaunchDaemons/com.apple.periodic-monthly.plist \
 	private/etc/defaults/periodic.conf \
-	usr/share/man/man5/periodic.conf.5 \
-	usr/share/man/man8/periodic.8
+	private/etc/newsyslog.conf \
+	usr/share/man/man5/periodic.conf.5
 
 # Executables.
-BINS := private/etc/periodic/daily/500.daily \
-	private/etc/periodic/daily/100.clean-logs \
-	private/etc/periodic/weekly/500.weekly \
+BINS := private/etc/periodic/daily/100.clean-logs \
+	private/etc/periodic/daily/110.clean-tmps \
+	private/etc/periodic/daily/130.clean-msgs \
+	private/etc/periodic/daily/430.status-rwho \
+	private/etc/periodic/daily/500.daily \
+	private/etc/periodic/weekly/310.locate \
+	private/etc/periodic/weekly/320.whatis \
+	private/etc/periodic/weekly/999.local \
+	private/etc/periodic/monthly/200.accounting \
 	private/etc/periodic/monthly/500.monthly \
-	usr/sbin/periodic
+	private/etc/periodic/monthly/999.local
 
-# Compatibility symlinks, hopefully to be removed sometime in the future.
-BLINKS := periodic/daily/500.daily private/etc/daily \
-	periodic/weekly/500.weekly private/etc/weekly \
-	periodic/monthly/500.monthly private/etc/monthly
+COMMANDS := newsyslog periodic
 
 install::
 	@echo "Installing $(Project)"
@@ -51,14 +53,12 @@ install::
 		echo $(INSTALL_SCRIPT) $$i $(DSTROOT)/`dirname $$i`; \
 		$(INSTALL_SCRIPT) $$i $(DSTROOT)/`dirname $$i`; \
 	done; \
-	f=; \
-	for i in $(BLINKS); do \
-		if test -z $$f ; then \
-			f=$$i; \
-		else \
-			echo "$(LN) -fs $$f $(DSTROOT)/$$i"; \
-			$(LN) -fs $$f $(DSTROOT)/$$i; \
-			f=; \
-		fi; \
+	for i in $(COMMANDS) ; do \
+		echo $(MAKE) -C $$i $@ SRCROOT=$(SRCROOT)/$$i \
+			OBJROOT=$(OBJROOT)/$$i SYMROOT=$(SYMROOT)/$$i \
+			DSTROOT=$(DSTROOT); \
+		$(MAKE) -C $$i $@ SRCROOT=$(SRCROOT)/$$i \
+			OBJROOT=$(OBJROOT)/$$i SYMROOT=$(SYMROOT)/$$i \
+			DSTROOT=$(DSTROOT); \
 	done; \
 	'

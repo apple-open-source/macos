@@ -1,6 +1,0 @@
-/* Copyright 1998 Apple Computer, Inc. */
-
-#include "SYS.h"
-
-SYSCALL($FILENAMESANSEXTENSION$, 0)
-	blr

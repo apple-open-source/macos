@@ -26,8 +26,6 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 
-ModuleNexus<Mutex> desInitMutex;
-
 #define DESDebug(args...)	secdebug("desContext", ## args)
 
 /*
@@ -35,8 +33,7 @@ ModuleNexus<Mutex> desInitMutex;
  */
 DESContext::~DESContext()
 {
-	desdone(&DesInst);
-	memset(&DesInst, 0, sizeof(struct _desInst));
+	memset(&DesInst, 0, sizeof(DES_key_schedule));
 }
 	
 /* 
@@ -47,8 +44,8 @@ void DESContext::init(
 	const Context &context, 
 	bool encrypting)
 {
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
 	
 	/* obtain key from context */
 	symmetricKeyBits(context, session(), CSSM_ALGID_DES, 
@@ -58,15 +55,7 @@ void DESContext::init(
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
-	/* init the low-level state */
-	{
-		StLock<Mutex> _(desInitMutex());
-		if(IFDEBUG(int irtn =) desinit(&DesInst, DES_MODE_STD)) {
-			DESDebug("desinit returned %d\n", irtn);
-			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
-		}
-	}
-	dessetkey(&DesInst, (char *)keyData);
+	osDesSetkey(&DesInst, (char *)keyData, 0, 0);
 
 	/* Finally, have BlockCryptor do its setup */
 	setup(DES_BLOCK_SIZE_BYTES, context);
@@ -89,16 +78,13 @@ void DESContext::encryptBlock(
 	if(cipherTextLen < DES_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	if(plainText != cipherText) {
-		/* little optimization for callers who want to encrypt in place */
-		memmove(cipherText, plainText, DES_BLOCK_SIZE_BYTES);
-	}
-	endes(&DesInst, (char *)cipherText);
+	osDesEncrypt(&DesInst, (const_DES_cblock *)plainText, (DES_cblock *)cipherText);
 	cipherTextLen = DES_BLOCK_SIZE_BYTES;
 }
 
 void DESContext::decryptBlock(
 	const void		*cipherText,		// length implied (one block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
@@ -110,7 +96,7 @@ void DESContext::decryptBlock(
 		/* little optimization for callers who want to decrypt in place */
 		memmove(plainText, cipherText, DES_BLOCK_SIZE_BYTES);
 	}
-	dedes(&DesInst, (char *)plainText);
+	osDesDecrypt(&DesInst, (const_DES_cblock *)cipherText, (DES_cblock *)plainText);
 	plainTextLen = DES_BLOCK_SIZE_BYTES;
 }
 
@@ -121,8 +107,7 @@ void DESContext::decryptBlock(
 DES3Context::~DES3Context()
 {
 	for(int i =0; i<3; i++) {
-		desdone(&DesInst[i]);
-		memset(&DesInst[i], 0, sizeof(struct _desInst));
+		memset(&DesInst, 0, sizeof(DES3_Schedule));
 	}
 }
 
@@ -134,8 +119,8 @@ void DES3Context::init(
 	const Context &context, 
 	bool encrypting)
 {
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
 	
 	/* obtain key from context */
 	symmetricKeyBits(context, session(), CSSM_ALGID_3DES_3KEY_EDE, 
@@ -144,20 +129,7 @@ void DES3Context::init(
 	if(keyLen != DES3_KEY_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
-	
-	/* init the low-level state */
-	int irtn;
-	unsigned i;
-	{
-		StLock<Mutex> _(desInitMutex());
-		for(i=0; i<3; i++) {
-			if((irtn = desinit(&DesInst[i], DES_MODE_STD))) {
-				DESDebug("desinit returned %d\n", irtn);
-				CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
-			}
-			dessetkey(&DesInst[i], (char *)keyData + (8 * i));
-		}
-	}
+	osDes3Setkey(&DesInst, (char *)keyData, 0, 0);
 	
 	/* Finally, have BlockCryptor do its setup */
 	setup(DES3_BLOCK_SIZE_BYTES, context);
@@ -180,20 +152,13 @@ void DES3Context::encryptBlock(
 	if(cipherTextLen < DES3_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	if(plainText != cipherText) {
-		/* little optimization for callers who want to encrypt in place */
-		memmove(cipherText, plainText, DES3_BLOCK_SIZE_BYTES);
-	}
-	
-	/* encrypt --> decrypt --> encrypt */
-	endes(&DesInst[0], (char *)cipherText);
-	dedes(&DesInst[1], (char *)cipherText);
-	endes(&DesInst[2], (char *)cipherText);
+	osDes3Encrypt(&DesInst, (const_DES_cblock *)plainText, (DES_cblock *)cipherText);
 	cipherTextLen = DES3_BLOCK_SIZE_BYTES;
 }
 
 void DES3Context::decryptBlock(
 	const void		*cipherText,		// length implied (one block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
@@ -201,14 +166,6 @@ void DES3Context::decryptBlock(
 	if(plainTextLen < DES3_BLOCK_SIZE_BYTES) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	if(plainText != cipherText) {
-		/* little optimization for callers who want to decrypt in place */
-		memmove(plainText, cipherText, DES3_BLOCK_SIZE_BYTES);
-	}
-	
-	/* decrypt --> encrypt -->decrypt */
-	dedes(&DesInst[2], (char *)plainText);
-	endes(&DesInst[1], (char *)plainText);
-	dedes(&DesInst[0], (char *)plainText);
+	osDes3Decrypt(&DesInst, (const_DES_cblock *)cipherText, (DES_cblock *)plainText);
 	plainTextLen = DES3_BLOCK_SIZE_BYTES;
 }

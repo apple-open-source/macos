@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include "ntp_rfc2553.h"
+
 #include "ntp_types.h"
 
 /*
@@ -280,7 +282,7 @@ typedef u_int32 u_fp;
 #define L_SUBUF(r, uf)	M_SUBUF((r)->l_ui, (r)->l_uf, (uf))
 #define	L_ADDF(r, f)	M_ADDF((r)->l_ui, (r)->l_uf, (f))
 #define	L_RSHIFT(v)	M_RSHIFT((v)->l_i, (v)->l_uf)
-#define	L_RSHIFTU(v)	M_RSHIFT((v)->l_ui, (v)->l_uf)
+#define	L_RSHIFTU(v)	M_RSHIFTU((v)->l_ui, (v)->l_uf)
 #define	L_LSHIFT(v)	M_LSHIFT((v)->l_ui, (v)->l_uf)
 #define	L_CLR(v)	((v)->l_ui = (v)->l_uf = 0)
 
@@ -338,14 +340,13 @@ typedef u_int32 u_fp;
 /*
  * Prototypes
  */
-extern	char *	dofptoa		P((u_fp, int, int, int));
-extern	char *	dolfptoa	P((u_long, u_long, int, int, int));
+extern	char *	dofptoa		P((u_fp, int, short, int));
+extern	char *	dolfptoa	P((u_long, u_long, int, short, int));
 
 extern	int	atolfp		P((const char *, l_fp *));
 extern	int	buftvtots	P((const char *, l_fp *));
-extern	char *	fptoa		P((s_fp, int));
-extern	char *	fptoms		P((s_fp, int));
-extern	char *	fptoms		P((s_fp, int));
+extern	char *	fptoa		P((s_fp, short));
+extern	char *	fptoms		P((s_fp, short));
 extern	int	hextolfp	P((const char *, l_fp *));
 extern  void    gpstolfp        P((int, int, unsigned long, l_fp *));
 extern	int	mstolfp		P((const char *, l_fp *));
@@ -358,11 +359,16 @@ extern	void	get_systime	P((l_fp *));
 extern	int	step_systime	P((double));
 extern	int	adj_systime	P((double));
 
+extern	struct tm * ntp2unix_tm P((u_long ntp, int local));
+
 #define	lfptoa(_fpv, _ndec)	mfptoa((_fpv)->l_ui, (_fpv)->l_uf, (_ndec))
 #define	lfptoms(_fpv, _ndec)	mfptoms((_fpv)->l_ui, (_fpv)->l_uf, (_ndec))
 
-#define	ntoa(_sin)		numtoa((_sin)->sin_addr.s_addr)
-#define	ntohost(_sin)		numtohost((_sin)->sin_addr.s_addr)
+#define stoa(_sin)	socktoa((_sin))
+#define stohost(_sin)	socktohost((_sin))
+
+#define	ntoa(_sin)	stoa(_sin)
+#define	ntohost(_sin)	stohost(_sin)
 
 #define	ufptoa(_fpv, _ndec)	dofptoa((_fpv), 0, (_ndec), 0)
 #define	ufptoms(_fpv, _ndec)	dofptoa((_fpv), 0, (_ndec), 1)

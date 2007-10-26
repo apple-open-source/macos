@@ -40,4 +40,7 @@
 // Initialize with a DS Node object and the name of this record type.
 - initWithNode:(DSoNode*)inNode recordType:(NSString*)inType;
 
+// ATM - PlugInManager needs access to node & recordType
+-(DSoNode*) 	node;
+-(NSString*) 	recordType;
 @end

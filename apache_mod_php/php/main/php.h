@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php.h,v 1.178.2.14.2.5 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: php.h,v 1.221.2.4.2.7 2007/01/01 09:36:11 sebastian Exp $ */
 
 #ifndef PHP_H
 #define PHP_H
@@ -26,7 +26,7 @@
 #include <dmalloc.h>
 #endif
 
-#define PHP_API_VERSION 20020918
+#define PHP_API_VERSION 20041225
 #define PHP_HAVE_STREAMS
 #define YYDEBUG 0
 
@@ -63,6 +63,12 @@
 #else 
 #define PHP_EOL "\n"
 #endif
+#endif
+
+#ifdef NETWARE
+/* For php_get_uname() function */
+#define PHP_UNAME  "NetWare"
+#define PHP_OS      PHP_UNAME
 #endif
 
 #include "php_regex.h"
@@ -116,19 +122,25 @@
 	}
 
 #ifndef HAVE_STRLCPY
+BEGIN_EXTERN_C()
 PHPAPI size_t php_strlcpy(char *dst, const char *src, size_t siz);
+END_EXTERN_C()
 #undef strlcpy
 #define strlcpy php_strlcpy
 #endif
 
 #ifndef HAVE_STRLCAT
+BEGIN_EXTERN_C()
 PHPAPI size_t php_strlcat(char *dst, const char *src, size_t siz);
+END_EXTERN_C()
 #undef strlcat
 #define strlcat php_strlcat
 #endif
 
 #ifndef HAVE_STRTOK_R
+BEGIN_EXTERN_C()
 char *strtok_r(char *s, const char *delim, char **last);
+END_EXTERN_C()
 #endif
 
 #ifndef HAVE_SOCKLEN_T
@@ -187,7 +199,6 @@ char *strerror(int);
 
 #if HAVE_PWD_H
 # ifdef PHP_WIN32
-#include "win32/pwd.h"
 #include "win32/param.h"
 # else
 #include <pwd.h>
@@ -219,7 +230,9 @@ char *strerror(int);
 #define PHP_ATTRIBUTE_MALLOC ZEND_ATTRIBUTE_MALLOC
 #define PHP_ATTRIBUTE_FORMAT ZEND_ATTRIBUTE_FORMAT
 
+BEGIN_EXTERN_C()
 #include "snprintf.h"
+END_EXTERN_C()
 #include "spprintf.h"
 
 #define EXEC_INPUT_BUF 4096
@@ -241,10 +254,11 @@ char *strerror(int);
 
 
 /* global variables */
-#ifndef PHP_WIN32
-extern char **environ;
+#if !defined(PHP_WIN32)
+#define PHP_SLEEP_NON_VOID
 #define php_sleep sleep
-#endif
+extern char **environ;
+#endif	/* !defined(PHP_WIN32) */
 
 #ifdef PHP_PWRITE_64
 ssize_t pwrite(int, void *, size_t, off64_t);
@@ -254,14 +268,27 @@ ssize_t pwrite(int, void *, size_t, off64_t);
 ssize_t pread(int, void *, size_t, off64_t);
 #endif
 
+BEGIN_EXTERN_C()
 void phperror(char *error);
 PHPAPI int php_write(void *buf, uint size TSRMLS_DC);
-PHPAPI int php_printf(const char *format, ...) PHP_ATTRIBUTE_FORMAT(printf, 1, 2);
+PHPAPI int php_printf(const char *format, ...) PHP_ATTRIBUTE_FORMAT(printf, 1,
+		2);
 PHPAPI void php_log_err(char *log_message TSRMLS_DC);
 int Debug(char *format, ...) PHP_ATTRIBUTE_FORMAT(printf, 1, 2);
 int cfgparse(void);
+END_EXTERN_C()
 
 #define php_error zend_error
+
+typedef enum {
+	EH_NORMAL = 0,
+	EH_SUPPRESS,
+	EH_THROW
+} error_handling_t;
+
+BEGIN_EXTERN_C()
+PHPAPI void php_set_error_handling(error_handling_t error_handling, zend_class_entry *exception_class TSRMLS_DC);
+#define php_std_error_handling() php_set_error_handling(EH_NORMAL, NULL TSRMLS_CC)
 
 PHPAPI void php_verror(const char *docref, const char *params, int type, const char *format, va_list args TSRMLS_DC) PHP_ATTRIBUTE_FORMAT(printf, 4, 0);
 
@@ -274,10 +301,11 @@ PHPAPI void php_verror(const char *docref, const char *params, int type, const c
 /* PHPAPI void php_error(int type, const char *format, ...); */
 PHPAPI void php_error_docref0(const char *docref TSRMLS_DC, int type, const char *format, ...)
 	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 3, PHP_ATTR_FMT_OFFSET + 4);
-PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...) 
+PHPAPI void php_error_docref1(const char *docref TSRMLS_DC, const char *param1, int type, const char *format, ...)
 	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 4, PHP_ATTR_FMT_OFFSET + 5);
-PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, const char *param2, int type, const char *format, ...) 
+PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, const char *param2, int type, const char *format, ...)
 	PHP_ATTRIBUTE_FORMAT(printf, PHP_ATTR_FMT_OFFSET + 5, PHP_ATTR_FMT_OFFSET + 6);
+END_EXTERN_C()
 
 #define php_error_docref php_error_docref0
 
@@ -288,8 +316,11 @@ PHPAPI void php_error_docref2(const char *docref TSRMLS_DC, const char *param1, 
 #define phprestart zendrestart
 #define phpin zendin
 
+#define php_memnstr zend_memnstr
+
 /* functions */
-int php_startup_internal_extensions(void);
+BEGIN_EXTERN_C()
+int php_register_internal_extensions(TSRMLS_D);
 
 int php_mergesort(void *base, size_t nmemb, register size_t size, int (*cmp)(const void *, const void * TSRMLS_DC) TSRMLS_DC);
 
@@ -299,16 +330,26 @@ PHPAPI int cfg_get_long(char *varname, long *result);
 PHPAPI int cfg_get_double(char *varname, double *result);
 PHPAPI int cfg_get_string(char *varname, char **result);
 
+PHPAPI void php_com_initialize(TSRMLS_D);
+END_EXTERN_C()
 
 /* PHP-named Zend macro wrappers */
 #define PHP_FN					ZEND_FN
+#define PHP_MN					ZEND_MN
 #define PHP_NAMED_FUNCTION		ZEND_NAMED_FUNCTION
 #define PHP_FUNCTION			ZEND_FUNCTION
+#define PHP_METHOD  			ZEND_METHOD
 
+#define PHP_RAW_NAMED_FE ZEND_RAW_NAMED_FE
 #define PHP_NAMED_FE	ZEND_NAMED_FE
 #define PHP_FE			ZEND_FE
+#define PHP_DEP_FE      ZEND_DEP_FE
 #define PHP_FALIAS		ZEND_FALIAS
-#define PHP_STATIC_FE	ZEND_STATIC_FE
+#define PHP_DEP_FALIAS	ZEND_DEP_FALIAS
+#define PHP_ME          ZEND_ME
+#define PHP_MALIAS      ZEND_MALIAS
+#define PHP_ABSTRACT_ME ZEND_ABSTRACT_ME
+#define PHP_ME_MAPPING  ZEND_ME_MAPPING
 
 #define PHP_MODULE_STARTUP_N	ZEND_MODULE_STARTUP_N
 #define PHP_MODULE_SHUTDOWN_N	ZEND_MODULE_SHUTDOWN_N
@@ -328,12 +369,18 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 #define PHP_RINIT		ZEND_MODULE_ACTIVATE_N
 #define PHP_RSHUTDOWN	ZEND_MODULE_DEACTIVATE_N
 #define PHP_MINFO		ZEND_MODULE_INFO_N
+#define PHP_GINIT		ZEND_GINIT
+#define PHP_GSHUTDOWN	ZEND_GSHUTDOWN
 
 #define PHP_MINIT_FUNCTION		ZEND_MODULE_STARTUP_D
 #define PHP_MSHUTDOWN_FUNCTION	ZEND_MODULE_SHUTDOWN_D
 #define PHP_RINIT_FUNCTION		ZEND_MODULE_ACTIVATE_D
 #define PHP_RSHUTDOWN_FUNCTION	ZEND_MODULE_DEACTIVATE_D
 #define PHP_MINFO_FUNCTION		ZEND_MODULE_INFO_D
+#define PHP_GINIT_FUNCTION		ZEND_GINIT_FUNCTION
+#define PHP_GSHUTDOWN_FUNCTION	ZEND_GSHUTDOWN_FUNCTION
+ 
+#define PHP_MODULE_GLOBALS		ZEND_MODULE_GLOBALS
 
 
 /* Output support */
@@ -352,10 +399,6 @@ PHPAPI int cfg_get_string(char *varname, char **result);
 } while (0)
 
 #define PUTC_H(c)					(php_header_write(&(c), 1 TSRMLS_CC), (c))
-
-#ifdef ZTS
-#define VIRTUAL_DIR
-#endif
 
 #include "php_streams.h"
 #include "php_memory_streams.h"
@@ -379,7 +422,7 @@ PHPAPI int cfg_get_string(char *varname, char **result);
  */
 
 #ifndef XtOffset
-#if defined(CRAY) || (defined(__arm) && !defined(LINUX))
+#if defined(CRAY) || (defined(__arm) && !(defined(LINUX) || defined(__riscos__)))
 #ifdef __STDC__
 #define XtOffset(p_type, field) _Offsetof(p_type, field)
 #else

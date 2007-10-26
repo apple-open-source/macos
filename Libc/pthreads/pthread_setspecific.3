@@ -39,7 +39,10 @@
 .Sh SYNOPSIS
 .Fd #include <pthread.h>
 .Ft int
-.Fn pthread_setspecific "pthread_key_t key" "const void *value"
+.Fo pthread_setspecific
+.Fa "pthread_key_t key"
+.Fa "const void *value"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_setspecific
@@ -47,7 +50,7 @@ function associates a thread-specific value with a
 .Fa key
 obtained via a previous call to
 .Fn pthread_key_create .
-Different threads man bind different values to the same key.
+Different threads may bind different values to the same key.
 These values are
 typically pointers to blocks of dynamically allocated memory that have been
 reserved for use by the calling thread.
@@ -55,33 +58,32 @@ reserved for use by the calling thread.
 The effect of calling
 .Fn pthread_setspecific
 with a key value not obtained from
-.Fn pthread_key_create
+.Fn pthread_key_create ,
 or after
 .Fa key
 has been deleted with
-.Fn pthread_key_delete
+.Fn pthread_key_delete ,
 is undefined.
 .Pp
 .Fn pthread_setspecific
-may be called from a thread-specific data destructor function, however this
-may result in lost storage or infinite loops.
+may be called from a thread-specific data destructor function;
+however, this may result in lost storage or infinite loops.
 .Sh RETURN VALUES
 If successful,  the
 .Fn pthread_setspecific
 function will return zero.
-Otherwise an error number will be returned to
-indicate the error.
+Otherwise, an error number will be returned to indicate the error.
 .Sh ERRORS
 .Fn pthread_setspecific
 will fail if:
 .Bl -tag -width Er
-.It Bq Er ENOMEM
-Insufficient memory exists to associate the value with the
-.Fa key .
 .It Bq Er EINVAL
 The
 .Fa key
 value is invalid.
+.It Bq Er ENOMEM
+Insufficient memory exists to associate the value with the
+.Fa key .
 .El
 .Sh SEE ALSO
 .Xr pthread_getspecific 3 ,

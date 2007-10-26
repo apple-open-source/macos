@@ -72,7 +72,7 @@ public:
     virtual IOReturn clientDied(void);
   
     virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
-    void * com_apple_iokit_KLogClient::QueueMSG(void * inPtr, 
+    void * QueueMSG(void * inPtr, 
 												void * outPtr, 
 												IOByteCount inSize, 
 												IOByteCount *outSize, 

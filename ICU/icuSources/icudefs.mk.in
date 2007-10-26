@@ -3,7 +3,7 @@
 #
 # Yves Arrouye.
 #
-# Copyright (C) 2000-2004, International Business Machines Corporation and others.
+# Copyright (C) 2000-2005, International Business Machines Corporation and others.
 # All Rights Reserved.
 
 #
@@ -44,7 +44,8 @@ ICUDATA_DIR = @pkgicudatadir@/$(PACKAGE)$(ICULIBSUFFIX)/$(VERSION)
 
 ICUDATA_BASENAME_VERSION = $(ICUPREFIX)dt@LIB_VERSION_MAJOR@
 ICUDATA_ENTRY_POINT = $(ICUDATA_BASENAME_VERSION)
-ICUDATA_PLATFORM_NAME = $(ICUDATA_BASENAME_VERSION)@ICUDATA_CHAR@
+ICUDATA_CHAR = @ICUDATA_CHAR@
+ICUDATA_PLATFORM_NAME = $(ICUDATA_BASENAME_VERSION)$(ICUDATA_CHAR)
 PKGDATA_LIBSTATICNAME = -L $(STATIC_PREFIX)$(ICUPREFIX)$(DATA_STUBNAME)$(ICULIBSUFFIX)
 ifeq ($(strip $(PKGDATA_MODE)),)
 PKGDATA_MODE=@DATA_PACKAGING_MODE@
@@ -154,6 +155,7 @@ LDLIBRARYPATH_ENVVAR = LD_LIBRARY_PATH
 # Versioned target for a shared library.
 FINAL_SO_TARGET = $(SO_TARGET).$(SO_TARGET_VERSION)
 MIDDLE_SO_TARGET = $(SO_TARGET).$(SO_TARGET_VERSION_MAJOR)
+SHARED_OBJECT = $(FINAL_SO_TARGET)
 
 ##  How ICU libraries are named...  ex. $(LIBICU)uc$(SO)
 # Prefix for the ICU library names
@@ -172,6 +174,7 @@ endif
 STATIC_PREFIX = s
 LIBSICU = $(LIBPREFIX)$(STATIC_PREFIX)$(ICUPREFIX)
 A = a
+SOBJ = $(SO)
 
 # Force removal [for make clean]
 RMV = rm -rf
@@ -215,7 +218,7 @@ LIBICUTOOLUTIL= -L$(LIBDIR) -l$(STATIC_PREFIX_WHEN_USED)$(ICUPREFIX)$(TOOLUTIL_S
 LIBICUIO=       -L$(LIBDIR) -l$(STATIC_PREFIX_WHEN_USED)$(ICUPREFIX)$(IO_STUBNAME)$(ICULIBSUFFIX)$(SO_TARGET_VERSION_SUFFIX)
 
 # Invoke, set library path for all ICU libraries.
-INVOKE = $(LDLIBRARYPATH_ENVVAR)=$(LIBDIR):$(top_builddir)/stubdata:$(top_builddir)/tools/ctestfw:$$$(LDLIBRARYPATH_ENVVAR) $(LEAK_CHECKER)
+INVOKE = $(LDLIBRARYPATH_ENVVAR)=$(LIBRARY_PATH_PREFIX)$(LIBDIR):$(top_builddir)/stubdata:$(top_builddir)/tools/ctestfw:$$$(LDLIBRARYPATH_ENVVAR) $(LEAK_CHECKER)
 
 # Platform-specific setup
 include @platform_make_fragment@

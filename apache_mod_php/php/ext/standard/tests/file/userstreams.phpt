@@ -82,12 +82,12 @@ class uselessstream
 
 class mystream 
 {
-	var $path;
-	var $mode;
-	var $options;
+	public $path;
+	public $mode;
+	public $options;
 
-	var $position;
-	var $varname;
+	public $position;
+	public $varname;
 
 	function stream_open($path, $mode, $options, &$opened_path)
 	{
@@ -157,17 +157,17 @@ class mystream
 
 }
 
-if (@stream_register_wrapper("bogus", "class_not_exist")) {
+if (@stream_wrapper_register("bogus", "class_not_exist")) {
 	die("Registered a non-existant class!!!???");
 }
 echo "Not Registered\n";
 
-if (!stream_register_wrapper("test", "mystream")) {
+if (!stream_wrapper_register("test", "mystream")) {
 	die("test wrapper registration failed");
 }
 echo "Registered\n";
 
-if (!stream_register_wrapper("bogon", "uselessstream")) {
+if (!stream_wrapper_register("bogon", "uselessstream")) {
 	die("bogon wrapper registration failed");
 }
 echo "Registered\n";
@@ -211,15 +211,15 @@ for ($i = 0; $i < 256; $i++) {
 	$whence = $whence_map[array_rand($whence_map, 1)];
 	switch($whence) {
 		case SEEK_SET:
-			$offset = rand(0, $DATALEN);
+			$offset = rand(0, $DATALEN - 1);
 			$position = $offset;
 			break;
 		case SEEK_END:
-			$offset = -rand(0, $DATALEN);
+			$offset = -rand(0, $DATALEN - 1);
 			$position = $DATALEN + $offset;
 			break;
 		case SEEK_CUR:
-			$offset = rand(0, $DATALEN);
+			$offset = rand(0, $DATALEN - 1);
 			$offset -= $position;
 			$position += $offset;
 			break;

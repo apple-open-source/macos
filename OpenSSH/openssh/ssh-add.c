@@ -61,6 +61,7 @@
 #include "authfile.h"
 #include "pathnames.h"
 #include "misc.h"
+#include "keychain.h"
 
 /* argv0 */
 extern char *__progname;
@@ -92,12 +93,24 @@ clear_pass(void)
 }
 
 static int
-delete_file(AuthenticationConnection *ac, const char *filename)
+add_from_keychain(AuthenticationConnection *ac)
+{
+	if (ssh_add_from_keychain(ac) == 0)
+		return -1;
+
+	fprintf(stderr, "Added keychain identities.\n");
+	return 0;
+}
+
+static int
+delete_file(AuthenticationConnection *ac, int keychain, const char *filename)
 {
 	Key *public;
 	char *comment = NULL;
 	int ret = -1;
 
+	if (keychain)
+		remove_from_keychain(filename);
 	public = key_load_public(filename, &comment);
 	if (public == NULL) {
 		printf("Bad key file %s\n", filename);
@@ -135,7 +148,7 @@ delete_all(AuthenticationConnection *ac)
 }
 
 static int
-add_file(AuthenticationConnection *ac, const char *filename)
+add_file(AuthenticationConnection *ac, int keychain, const char *filename)
 {
 	Key *private;
 	char *comment = NULL;
@@ -158,11 +171,16 @@ add_file(AuthenticationConnection *ac, const char *filename)
 
 	/* At first, try empty passphrase */
 	private = key_load_private(filename, "", &comment);
+	if (keychain && private != NULL)
+		store_in_keychain(filename, "");
 	if (comment == NULL)
 		comment = xstrdup(filename);
 	/* try last */
-	if (private == NULL && pass != NULL)
+	if (private == NULL && pass != NULL) {
 		private = key_load_private(filename, pass, NULL);
+		if (keychain && private != NULL)
+			store_in_keychain(filename, pass);
+	}
 	if (private == NULL) {
 		/* clear passphrase since it did not work */
 		clear_pass();
@@ -176,8 +194,11 @@ add_file(AuthenticationConnection *ac, const char *filename)
 				return -1;
 			}
 			private = key_load_private(filename, pass, &comment);
-			if (private != NULL)
+			if (private != NULL) {
+				if (keychain)
+					store_in_keychain(filename, pass);
 				break;
+			}
 			clear_pass();
 			snprintf(msg, sizeof msg,
 			    "Bad passphrase, try again for %.200s: ", comment);
@@ -294,13 +315,13 @@ lock_agent(AuthenticationConnection *ac, int lock)
 }
 
 static int
-do_file(AuthenticationConnection *ac, int deleting, char *file)
+do_file(AuthenticationConnection *ac, int deleting, int keychain, char *file)
 {
 	if (deleting) {
-		if (delete_file(ac, file) == -1)
+		if (delete_file(ac, keychain, file) == -1)
 			return -1;
 	} else {
-		if (add_file(ac, file) == -1)
+		if (add_file(ac, keychain, file) == -1)
 			return -1;
 	}
 	return 0;
@@ -323,6 +344,11 @@ usage(void)
 	fprintf(stderr, "  -s reader   Add key in smartcard reader.\n");
 	fprintf(stderr, "  -e reader   Remove key in smartcard reader.\n");
 #endif
+#ifdef KEYCHAIN
+	fprintf(stderr, "  -k          Add all identities stored in your keychain.\n");
+	fprintf(stderr, "  -K          Store passphrases in your keychain.\n");
+	fprintf(stderr, "              With -d, remove passphrases from your keychain.\n");
+#endif
 }
 
 int
@@ -333,6 +359,7 @@ main(int argc, char **argv)
 	AuthenticationConnection *ac = NULL;
 	char *sc_reader_id = NULL;
 	int i, ch, deleting = 0, ret = 0;
+	int keychain = 0;
 
 	/* Ensure that fds 0, 1 and 2 are open or directed to /dev/null */
 	sanitise_stdfd();
@@ -350,7 +377,7 @@ main(int argc, char **argv)
 		    "Could not open a connection to your authentication agent.\n");
 		exit(2);
 	}
-	while ((ch = getopt(argc, argv, "lLcdDxXe:s:t:")) != -1) {
+	while ((ch = getopt(argc, argv, "lLcdDxXe:s:kKt:")) != -1) {
 		switch (ch) {
 		case 'l':
 		case 'L':
@@ -372,6 +399,13 @@ main(int argc, char **argv)
 			if (delete_all(ac) == -1)
 				ret = 1;
 			goto done;
+		case 'k':
+			if (add_from_keychain(ac) == -1)
+				ret = 1;
+			goto done;
+		case 'K':
+			keychain = 1;
+			break;
 		case 's':
 			sc_reader_id = optarg;
 			break;
@@ -417,7 +451,7 @@ main(int argc, char **argv)
 			    default_files[i]);
 			if (stat(buf, &st) < 0)
 				continue;
-			if (do_file(ac, deleting, buf) == -1)
+			if (do_file(ac, deleting, keychain, buf) == -1)
 				ret = 1;
 			else
 				count++;
@@ -426,7 +460,7 @@ main(int argc, char **argv)
 			ret = 1;
 	} else {
 		for (i = 0; i < argc; i++) {
-			if (do_file(ac, deleting, argv[i]) == -1)
+			if (do_file(ac, deleting, keychain, argv[i]) == -1)
 				ret = 1;
 		}
 	}

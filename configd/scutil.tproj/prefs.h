@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2005, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,12 +32,37 @@
 #define _PREFS_H
 
 #include <sys/cdefs.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+
+
+Boolean	_prefs_changed;
+
 
 __BEGIN_DECLS
+
+Boolean	_prefs_open		(CFStringRef name, CFStringRef prefsID);
+void	_prefs_save		(void);
+void	_prefs_close		(void);
+Boolean	_prefs_commitRequired	(int argc, char **argv, const char *command);
 
 int	findPref		(char *pref);
 void	do_getPref		(char *pref, int argc, char **argv);
 void	do_setPref		(char *pref, int argc, char **argv);
+
+void	do_prefs_init		(void);
+void	do_prefs_quit		(int argc, char **argv);
+
+void	do_prefs_open		(int argc, char **argv);
+void	do_prefs_lock		(int argc, char **argv);
+void	do_prefs_unlock		(int argc, char **argv);
+void	do_prefs_commit		(int argc, char **argv);
+void	do_prefs_apply		(int argc, char **argv);
+void	do_prefs_close		(int argc, char **argv);
+
+void	do_prefs_list		(int argc, char **argv);
+void	do_prefs_get		(int argc, char **argv);
+void	do_prefs_set		(int argc, char **argv);
+void	do_prefs_remove		(int argc, char **argv);
 
 __END_DECLS
 

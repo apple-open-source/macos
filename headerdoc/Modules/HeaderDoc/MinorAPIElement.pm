@@ -5,7 +5,7 @@
 #           is to hold info for data export to Inside Mac Database
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/04 23:11:23 $
+# Last Updated: $Date: 2005/08/24 23:39:53 $
 #
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -38,7 +38,7 @@ use HeaderDoc::HeaderElement;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.6.6.10 $';
+$VERSION = '$Revision: 1.6.6.11 $';
 
 sub new {
     my($param) = shift;
@@ -150,6 +150,33 @@ sub printObject {
     $self->SUPER::printObject();
     print "position: $self->{POSITION}\n";
     print "type: $self->{TYPE}\n";
+}
+
+# /*! @function appleRefIsDoc
+#     @param value
+#     @abstract Sets or gets a state flag.
+#     @discussion The APPLEREFISDOC state flag controls whether to use a
+#     language-specific or doc-specific apple_ref marker for a doc block.
+#  */
+sub appleRefIsDoc
+{
+    my $self = shift;
+    if (@_) {
+	my $value = shift;
+	$self->{APPLEREFISDOC} = $value;
+    }   
+	# print "ARID: ".$self->{APPLEREFISDOC}." for $self\n";
+    if ($self->{APPLEREFISDOC}) {
+	return $self->{APPLEREFISDOC};
+    } elsif ($self->apiOwner()) {
+	my $apio = $self->apiOwner();
+	bless($apio, "HeaderDoc::HeaderElement");
+	bless($apio, $apio->class());
+	my $apioval = $apio->appleRefIsDoc();
+	# print "APIOVAL: $apioval for $apio (".$apio->name().")\n";
+	if ($apioval) { return $apioval; }
+    }
+    return $self->{APPLEREFISDOC};
 }
 
 1;

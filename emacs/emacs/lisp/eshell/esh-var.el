@@ -1,6 +1,7 @@
 ;;; esh-var.el --- handling of variables
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'esh-var)
 
@@ -28,7 +29,7 @@
 (defgroup eshell-var nil
   "Variable interpolation is introduced whenever the '$' character
 appears unquoted in any argument (except when that argument is
-surrounded by single quotes) .  It may be used to interpolate a
+surrounded by single quotes).  It may be used to interpolate a
 variable value, a subcommand, or even the result of a Lisp form."
   :tag "Variable handling"
   :group 'eshell)
@@ -137,6 +138,11 @@ variable value, a subcommand, or even the result of a Lisp form."
   :type 'boolean
   :group 'eshell-var)
 
+(defcustom eshell-modify-global-environment nil
+  "*If non-nil, using `export' changes Emacs's global environment."
+  :type 'boolean
+  :group 'eshell-var)
+
 (defcustom eshell-variable-name-regexp "[A-Za-z0-9_-]+"
   "*A regexp identifying what constitutes a variable name reference.
 Note that this only applies for '$NAME'.  If the syntax '$<NAME>' is
@@ -199,7 +205,9 @@ function), and the arguments passed to this function would be the list
   "Initialize the variable handle code."
   ;; Break the association with our parent's environment.  Otherwise,
   ;; changing a variable will affect all of Emacs.
-  (set (make-local-variable 'process-environment) (eshell-copy-environment))
+  (unless eshell-modify-global-environment
+    (set (make-local-variable 'process-environment)
+	 (eshell-copy-environment)))
 
   (define-key eshell-command-map [(meta ?v)] 'eshell-insert-envvar)
 
@@ -208,15 +216,12 @@ function), and the arguments passed to this function would be the list
   (set (make-local-variable 'eshell-special-chars-outside-quoting)
        (append eshell-special-chars-outside-quoting '(?$)))
 
-  (make-local-hook 'eshell-parse-argument-hook)
   (add-hook 'eshell-parse-argument-hook 'eshell-interpolate-variable t t)
 
-  (make-local-hook 'eshell-prepare-command-hook)
   (add-hook 'eshell-prepare-command-hook
 	    'eshell-handle-local-variables nil t)
 
   (when (eshell-using-module 'eshell-cmpl)
-    (make-local-hook 'pcomplete-try-first-hook)
     (add-hook 'pcomplete-try-first-hook
 	      'eshell-complete-variable-reference nil t)
     (add-hook 'pcomplete-try-first-hook
@@ -272,7 +277,7 @@ This function is explicit for adding to `eshell-parse-argument-hook'."
 	  (eshell-parse-variable))))
 
 (defun eshell/define (var-alias definition)
-  "Define an VAR-ALIAS using DEFINITION."
+  "Define a VAR-ALIAS using DEFINITION."
   (if (not definition)
       (setq eshell-variable-aliases-list
 	    (delq (assoc var-alias eshell-variable-aliases-list)
@@ -293,7 +298,7 @@ This function is explicit for adding to `eshell-parse-argument-hook'."
   nil)
 
 (defun eshell/export (&rest sets)
-  "This alias allows the 'export' command to act as bash users expect."
+  "This alias allows the `export' command to act as bash users expect."
   (while sets
     (if (and (stringp (car sets))
 	     (string-match "^\\([^=]+\\)=\\(.*\\)" (car sets)))
@@ -426,11 +431,11 @@ Possible options are:
 		    (eshell-parse-double-quote))))
 	(if name
 	  (list 'eshell-get-variable (eval name) 'indices))))
-     ((eq (char-after) ?<)
+     ((eq (char-after) ?\<)
       (let ((end (eshell-find-delimiter ?\< ?\>)))
 	(if (not end)
 	    (throw 'eshell-incomplete ?\<)
-	  (let* ((temp (make-temp-name temporary-file-directory))
+	  (let* ((temp (make-temp-file temporary-file-directory))
 		 (cmd (concat (buffer-substring (1+ (point)) end)
 			      " > " temp)))
 	    (prog1
@@ -564,7 +569,7 @@ For example, to retrieve the second element of a user's record in
 			(split-string value separator)))))
       (cond
        ((< (length refs) 0)
-	(error "Illegal array variable index: %s"
+	(error "Invalid array variable index: %s"
 	       (eshell-stringify refs)))
        ((= (length refs) 1)
 	(setq value (eshell-index-value value (car refs))))
@@ -627,7 +632,7 @@ For example, to retrieve the second element of a user's record in
 	    (if (and value
 		     (stringp value)
 		     (file-directory-p value))
-		(concat varname (char-to-string directory-sep-char))
+		(concat varname "/")
 	      varname))))
        (eshell-envvar-names (eshell-environment-variables)))
       (all-completions argname obarray 'boundp)
@@ -646,4 +651,5 @@ For example, to retrieve the second element of a user's record in
 
 ;;; Code:
 
+;;; arch-tag: 393654fe-bdad-4f27-9a10-b1472ded14cf
 ;;; esh-var.el ends here

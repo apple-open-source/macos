@@ -3,7 +3,7 @@
 //
 /*
 ***************************************************************************
-*   Copyright (C) 2002-2004 International Business Machines Corporation   *
+*   Copyright (C) 2002-2005 International Business Machines Corporation   *
 *   and others. All rights reserved.                                      *
 ***************************************************************************
 */
@@ -28,7 +28,7 @@
 //                                  when the hash table is deleted.
 //
 U_CDECL_BEGIN
-static void  U_EXPORT2 U_CALLCONV RBBISymbolTableEntry_deleter(void *p) {
+static void U_CALLCONV RBBISymbolTableEntry_deleter(void *p) {
     RBBISymbolTableEntry *px = (RBBISymbolTableEntry *)p;
     delete px;
 }
@@ -44,7 +44,7 @@ RBBISymbolTable::RBBISymbolTable(RBBIRuleScanner *rs, const UnicodeString &rules
     fHashTable       = NULL;
     fCachedSetLookup = NULL;
     
-    fHashTable = uhash_open(uhash_hashUnicodeString, uhash_compareUnicodeString, &status);
+    fHashTable = uhash_open(uhash_hashUnicodeString, uhash_compareUnicodeString, NULL, &status);
     // uhash_open checks status
     if (U_FAILURE(status)) {
         return;

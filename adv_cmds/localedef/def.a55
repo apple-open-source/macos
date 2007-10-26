@@ -1,0 +1,6 @@
+LC_COLLATE
+order_start forward
+order_start forward;forward;forward
+<a>
+order_end
+END LC_COLLATE

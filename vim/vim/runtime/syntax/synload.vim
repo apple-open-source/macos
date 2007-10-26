@@ -1,6 +1,6 @@
 " Vim syntax support file
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2001 May 21
+" Last Change:	2006 Apr 30
 
 " This file sets up for syntax highlighting.
 " It is loaded from "syntax.vim" and "manual.vim".
@@ -49,14 +49,21 @@ fun! s:SynSet()
   endif
 
   if s != ""
-    " Load the syntax file(s)
-"   if has("mac")
-"     exe "runtime! syntax:" . s . ".vim"
-"   else
-      exe "runtime! syntax/" . s . ".vim"
-"   endif
+    " Load the syntax file(s).  When there are several, separated by dots,
+    " load each in sequence.
+    for name in split(s, '\.')
+      exe "runtime! syntax/" . name . ".vim syntax/" . name . "/*.vim"
+    endfor
   endif
 endfun
+
+
+" Handle adding doxygen to other languages (C, C++, IDL)
+au Syntax cpp,c,idl
+	\ if (exists('b:load_doxygen_syntax') && b:load_doxygen_syntax)
+	\	|| (exists('g:load_doxygen_syntax') && g:load_doxygen_syntax)
+	\   | runtime! syntax/doxygen.vim
+	\ | endif
 
 
 " Source the user-specified syntax highlighting file

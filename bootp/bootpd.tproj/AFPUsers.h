@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,19 +24,29 @@
 #ifndef _S_AFPUSERS_H
 #define _S_AFPUSERS_H
 
+#include <unistd.h>
+#include <stdint.h>
+#include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFDictionary.h>
+#include <OpenDirectory/OpenDirectory.h>
+
+typedef CFMutableDictionaryRef	AFPUserRef;
+
 typedef struct {
-    ni_id		dir;
-    NIDomain_t *	domain;
-    PLCache_t		list;
-} AFPUsers_t;
+    ODNodeRef		node;
+    CFMutableArrayRef	list;
+} AFPUserList, *AFPUserListRef;
 
-void		AFPUsers_free(AFPUsers_t * users);
-boolean_t	AFPUsers_set_password(AFPUsers_t * users, 
-				      PLCacheEntry_t * entry,
-				      u_char * passwd);
-boolean_t	AFPUsers_init(AFPUsers_t * users, NIDomain_t * domain);
-boolean_t	AFPUsers_create(AFPUsers_t * users, gid_t gid,
-				uid_t start, int count);
-void		AFPUsers_print(AFPUsers_t * users);
+void		AFPUserList_free(AFPUserListRef users);
+Boolean		AFPUserList_init(AFPUserListRef users);
+Boolean		AFPUserList_create(AFPUserListRef users, gid_t gid,
+				   uid_t start, int count);
+AFPUserRef	AFPUserList_lookup(AFPUserListRef users, CFStringRef afp_user);
 
-#endif _S_AFPUSERS_H
+uid_t		AFPUser_get_uid(AFPUserRef user);
+char *		AFPUser_get_user(AFPUserRef user, char *buf, size_t buf_len);
+Boolean		AFPUser_set_random_password(AFPUserRef user, 
+					    char * passwd, size_t passwd_len);
+
+#endif	// _S_AFPUSERS_H

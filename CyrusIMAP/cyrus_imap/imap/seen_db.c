@@ -1,5 +1,5 @@
 /* seen_db.c -- implementation of seen database using per-user berkeley db
- * $Id: seen_db.c,v 1.5 2005/03/05 00:37:05 dasenbro Exp $
+ * $Id: seen_db.c,v 1.51 2007/02/05 18:41:48 jeaton Exp $
  * 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -64,6 +64,8 @@
 
 #include "global.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "mailbox.h"
 #include "imap_err.h"
 #include "seen.h"
@@ -605,7 +607,7 @@ static int seen_merge_cb(void *rockp,
 		      &(rockdata->tid));
     if(!r && tgtdata) {
 	/* compare timestamps */
-	int version, tmplast, tgtlast;
+	int version, tmplast, tgtlast, tmpuid, tgtuid;
 	char *p;
 	const char *tmp = tmpdata, *tgt = tgtdata;
 	
@@ -614,8 +616,8 @@ static int seen_merge_cb(void *rockp,
 	assert(version == SEEN_VERSION);
        	/* skip lastread */
 	strtol(tgt, &p, 10); tgt = p;
-	/* skip lastuid */
-	strtol(tgt, &p, 10); tgt = p;
+	/* get lastuid */
+	tgtuid = strtol(tgt, &p, 10); tgt = p;
 	/* get lastchange */
 	tgtlast = strtol(tgt, &p, 10);
 
@@ -624,11 +626,12 @@ static int seen_merge_cb(void *rockp,
 	assert(version == SEEN_VERSION);
        	/* skip lastread */
 	strtol(tmp, &p, 10); tmp = p;
-	/* skip lastuid */
-	strtol(tmp, &p, 10); tmp = p;
+	/* get lastuid */
+	tmpuid = strtol(tmp, &p, 10); tmp = p;
 	/* get lastchange */
 	tmplast = strtol(tmp, &p, 10);
 
+	if(tmpuid > tgtuid) dirty = 1;
 	if(tmplast > tgtlast) dirty = 1;
     } else {
 	dirty = 1;

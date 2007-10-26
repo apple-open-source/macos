@@ -1,5 +1,5 @@
 # soap/baseData.rb: SOAP4R - Base type library
-# Copyright (C) 2000, 2001, 2003, 2004  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
+# Copyright (C) 2000, 2001, 2003-2005  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
 
 # This program is copyrighted free software by NAKAMURA, Hiroshi.  You can
 # redistribute it and/or modify it under the same terms of Ruby's license;
@@ -44,9 +44,9 @@ module SOAPType
   attr_accessor :definedtype
 
   def initialize(*arg)
-    super(*arg)
+    super
     @encodingstyle = nil
-    @elename = XSD::QName.new
+    @elename = XSD::QName::EMPTY
     @id = nil
     @precedents = []
     @root = false
@@ -54,6 +54,14 @@ module SOAPType
     @position = nil
     @definedtype = nil
     @extraattr = {}
+  end
+
+  def inspect
+    if self.is_a?(XSD::NSDBase)
+      sprintf("#<%s:0x%x %s %s>", self.class.name, __id__, self.elename, self.type)
+    else
+      sprintf("#<%s:0x%x %s>", self.class.name, __id__, self.elename)
+    end
   end
 
   def rootnode
@@ -74,7 +82,7 @@ module SOAPBasetype
   include SOAP
 
   def initialize(*arg)
-    super(*arg)
+    super
   end
 end
 
@@ -87,7 +95,7 @@ module SOAPCompoundtype
   include SOAP
 
   def initialize(*arg)
-    super(*arg)
+    super
   end
 end
 
@@ -106,7 +114,7 @@ public
   # Override the definition in SOAPBasetype.
   def initialize(obj = nil)
     super()
-    @type = XSD::QName.new
+    @type = XSD::QName::EMPTY
     @refid = nil
     @obj = nil
     __setobj__(obj) if obj
@@ -170,7 +178,7 @@ class SOAPExternalReference < XSD::NSDBase
 
   def initialize
     super()
-    @type = XSD::QName.new
+    @type = XSD::QName::EMPTY
   end
 
   def referred
@@ -391,7 +399,7 @@ public
 
   def initialize(type = nil)
     super()
-    @type = type || XSD::QName.new
+    @type = type || XSD::QName::EMPTY
     @array = []
     @data = []
   end
@@ -399,7 +407,7 @@ public
   def to_s()
     str = ''
     self.each do |key, data|
-      str << "#{ key }: #{ data }\n"
+      str << "#{key}: #{data}\n"
     end
     str
   end
@@ -442,9 +450,30 @@ public
     @array
   end
 
+  def to_obj
+    hash = {}
+    proptype = {}
+    each do |k, v|
+      value = v.respond_to?(:to_obj) ? v.to_obj : v.to_s
+      case proptype[k]
+      when :single
+        hash[k] = [hash[k], value]
+        proptype[k] = :multi
+      when :multi
+        hash[k] << value
+      else
+        hash[k] = value
+        proptype[k] = :single
+      end
+    end
+    hash
+  end
+
   def each
-    for i in 0..(@array.length - 1)
-      yield(@array[i], @data[i])
+    idx = 0
+    while idx < @array.length
+      yield(@array[idx], @data[idx])
+      idx += 1
     end
   end
 
@@ -502,11 +531,15 @@ class SOAPElement
     @position = nil
     @extraattr = {}
 
-    @qualified = false
+    @qualified = nil
 
     @array = []
     @data = []
     @text = text
+  end
+
+  def inspect
+    sprintf("#<%s:0x%x %s>", self.class.name, __id__, self.elename)
   end
 
   # Text interface.
@@ -548,16 +581,29 @@ class SOAPElement
       @text
     else
       hash = {}
+      proptype = {}
       each do |k, v|
-	hash[k] = v.is_a?(SOAPElement) ? v.to_obj : v.to_s
+        value = v.respond_to?(:to_obj) ? v.to_obj : v.to_s
+        case proptype[k]
+        when :single
+          hash[k] = [hash[k], value]
+          proptype[k] = :multi
+        when :multi
+          hash[k] << value
+        else
+          hash[k] = value
+          proptype[k] = :single
+        end
       end
       hash
     end
   end
 
   def each
-    for i in 0..(@array.length - 1)
-      yield(@array[i], @data[i])
+    idx = 0
+    while idx < @array.length
+      yield(@array[idx], @data[idx])
+      idx += 1
     end
   end
 
@@ -566,18 +612,39 @@ class SOAPElement
     o
   end
 
-  def self.from_obj(hash_or_string)
+  def self.from_obj(obj, namespace = nil)
     o = SOAPElement.new(nil)
-    if hash_or_string.is_a?(Hash)
-      hash_or_string.each do |k, v|
-	child = self.from_obj(v)
-	child.elename = k.is_a?(XSD::QName) ? k : XSD::QName.new(nil, k.to_s)
-	o.add(child)
+    case obj
+    when nil
+      o.text = nil
+    when Hash
+      obj.each do |elename, value|
+        if value.is_a?(Array)
+          value.each do |subvalue|
+            child = from_obj(subvalue, namespace)
+            child.elename = to_elename(elename, namespace)
+            o.add(child)
+          end
+        else
+          child = from_obj(value, namespace)
+          child.elename = to_elename(elename, namespace)
+          o.add(child)
+        end
       end
     else
-      o.text = hash_or_string
+      o.text = obj.to_s
     end
     o
+  end
+
+  def self.to_elename(obj, namespace = nil)
+    if obj.is_a?(XSD::QName)
+      obj
+    elsif /\A(.+):([^:]+)\z/ =~ obj.to_s
+      XSD::QName.new($1, $2)
+    else
+      XSD::QName.new(namespace, obj.to_s)
+    end
   end
 
 private
@@ -590,18 +657,32 @@ private
     value
   end
 
-  def add_accessor(name)
-    methodname = name
-    if self.respond_to?(methodname)
-      methodname = safe_accessor_name(methodname)
+  if RUBY_VERSION > "1.7.0"
+    def add_accessor(name)
+      methodname = name
+      if self.respond_to?(methodname)
+        methodname = safe_accessor_name(methodname)
+      end
+      Mapping.define_singleton_method(self, methodname) do
+        @data[@array.index(name)]
+      end
+      Mapping.define_singleton_method(self, methodname + '=') do |value|
+        @data[@array.index(name)] = value
+      end
     end
-    sclass = class << self; self; end
-    sclass.__send__(:define_method, methodname, proc {
-      @data[@array.index(name)]
-    })
-    sclass.__send__(:define_method, methodname + '=', proc { |value|
-      @data[@array.index(name)] = value
-    })
+  else
+    def add_accessor(name)
+      methodname = safe_accessor_name(name)
+      instance_eval <<-EOS
+        def #{methodname}
+          @data[@array.index(#{name.dump})]
+        end
+
+        def #{methodname}=(value)
+          @data[@array.index(#{name.dump})] = value
+        end
+      EOS
+    end
   end
 
   def safe_accessor_name(name)
@@ -624,7 +705,7 @@ public
 
   def initialize(type = nil, rank = 1, arytype = nil)
     super()
-    @type = type || XSD::QName.new
+    @type = type || ValueArrayName
     @rank = rank
     @data = Array.new
     @sparse = false
@@ -646,7 +727,7 @@ public
 
   def [](*idxary)
     if idxary.size != @rank
-      raise ArgumentError.new("Given #{ idxary.size } params does not match rank: #{ @rank }")
+      raise ArgumentError.new("given #{idxary.size} params does not match rank: #{@rank}")
     end
 
     retrieve(idxary)
@@ -656,30 +737,29 @@ public
     value = idxary.slice!(-1)
 
     if idxary.size != @rank
-      raise ArgumentError.new("Given #{ idxary.size } params(#{ idxary }) does not match rank: #{ @rank }")
+      raise ArgumentError.new("given #{idxary.size} params(#{idxary})" +
+        " does not match rank: #{@rank}")
     end
 
-    for i in 0..(idxary.size - 1)
-      if idxary[i] + 1 > @size[i]
-	@size[i] = idxary[i] + 1
+    idx = 0
+    while idx < idxary.size
+      if idxary[idx] + 1 > @size[idx]
+	@size[idx] = idxary[idx] + 1
       end
+      idx += 1
     end
 
     data = retrieve(idxary[0, idxary.size - 1])
     data[idxary.last] = value
 
     if value.is_a?(SOAPType)
-      value.elename = value.elename.dup_name('item')
-      
+      value.elename = ITEM_NAME
       # Sync type
       unless @type.name
 	@type = XSD::QName.new(value.type.namespace,
 	  SOAPArray.create_arytype(value.type.name, @rank))
       end
-
-      unless value.type
-	value.type = @type
-      end
+      value.type ||= @type
     end
 
     @offset = idxary
@@ -709,7 +789,7 @@ public
 	deep_map(ele, &block)
       else
 	new_obj = block.call(ele)
-	new_obj.elename = new_obj.elename.dup_name('item')
+	new_obj.elename = ITEM_NAME
 	new_obj
       end
     end
@@ -737,13 +817,15 @@ public
   def soap2array(ary)
     traverse_data(@data) do |v, *position|
       iteary = ary
-      for rank in 1..(position.size - 1)
+      rank = 1
+      while rank < position.size
 	idx = position[rank - 1]
 	if iteary[idx].nil?
 	  iteary = iteary[idx] = Array.new
 	else
 	  iteary = iteary[idx]
 	end
+        rank += 1
       end
       if block_given?
 	iteary[position.last] = yield(v)
@@ -759,21 +841,26 @@ public
 
 private
 
+  ITEM_NAME = XSD::QName.new(nil, 'item')
+
   def retrieve(idxary)
     data = @data
-    for rank in 1..(idxary.size)
+    rank = 1
+    while rank <= idxary.size
       idx = idxary[rank - 1]
       if data[idx].nil?
 	data = data[idx] = Array.new
       else
 	data = data[idx]
       end
+      rank += 1
     end
     data
   end
 
   def traverse_data(data, rank = 1)
-    for idx in 0..(ranksize(rank) - 1)
+    idx = 0
+    while idx < ranksize(rank)
       if rank < @rank
 	traverse_data(data[idx], rank + 1) do |*v|
 	  v[1, 0] = idx
@@ -782,6 +869,7 @@ private
       else
 	yield(data[idx], idx)
       end
+      idx += 1
     end
   end
 
@@ -836,7 +924,7 @@ public
 private
 
   def self.create_arytype(typename, rank)
-    "#{ typename }[" << ',' * (rank - 1) << ']'
+    "#{typename}[" << ',' * (rank - 1) << ']'
   end
 
   TypeParseRegexp = Regexp.new('^(.+)\[([\d,]*)\]$')

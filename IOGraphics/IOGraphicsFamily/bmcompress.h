@@ -25,29 +25,29 @@
 */
 #if __BIG_ENDIAN__
 #define WRITEBYTE(c0,c1,d,n) do { \
-    uint32_t c = c0; *((UInt8 *)d)++ = c0 >> 24; n -= 1; \
+    uint32_t c = c0; STOREINC(d, c0 >> 24, UInt8); n -= 1; \
     c0 = ((c0 << 8) & 0xFFFFFF00) | ((c1 >> 24) & 0x000000FF); \
     c1 = ((c1 << 8) & 0xFFFFFF00) | ((c  >> 24) & 0x000000FF); \
 } while(0)
 #define WRITESHORT(c0,c1,d,n) do { \
-    uint32_t c = c0; *((UInt16 *)d)++ = c0 >> 16; n -= 2; \
+    uint32_t c = c0; STOREINC(d, c0 >> 16, UInt16); n -= 2; \
     c0 = ((c0 << 16) & 0xFFFF0000) | ((c1 >> 16) & 0x0000FFFF); \
     c1 = ((c1 << 16) & 0xFFFF0000) | ((c  >> 16) & 0x0000FFFF); \
 } while(0)
 #else
 #define WRITEBYTE(c0,c1,d,n) do { \
-    uint32_t c = c0; *((UInt8 *)d)++ = c0 & 0xFF; n -= 1; \
+    uint32_t c = c0; STOREINC(d, c0 & 0xFF, UInt8); n -= 1; \
     c0 = ((c0 >> 8) & 0x00FFFFFF) | ((c1 << 24) & 0xFF000000); \
     c1 = ((c1 >> 8) & 0x00FFFFFF) | ((c  << 24) & 0xFF000000); \
 } while(0)
 #define WRITESHORT(c0,c1,d,n) do { \
-    uint32_t c = c0; *((UInt16 *)d)++ = c0 & 0xFFFF; n -= 2;  \
+    uint32_t c = c0; STOREINC(d, c0 & 0xFFFF, UInt16); n -= 2;  \
     c0 = ((c0 >> 16) & 0x0000FFFF) | ((c1 << 16) & 0xFFFF0000); \
     c1 = ((c1 >> 16) & 0x0000FFFF) | ((c  << 16) & 0xFFFF0000); \
 } while(0)
 #endif
 #define WRITEWORD(c0,c1,d,n) do { \
-    uint32_t c = c0; *((UInt32 *)d)++ = c0; n -= 4; c0 = c1; c1 = c; \
+    uint32_t c = c0; STOREINC(d, c0, UInt32); n -= 4; c0 = c1; c1 = c; \
 } while(0)
 
 static void FillVRAM8by1(int w, int h, uint32_t k0,uint32_t k1, uint8_t *dst, int dbpr)
@@ -89,22 +89,22 @@ static void FillVRAM8by1(int w, int h, uint32_t k0,uint32_t k1, uint8_t *dst, in
             kd = km[0];
 
             for(i=0 ; i<v ; i++)
-                *((double*)d)++ = kd;
+                STOREINC(d, kd, double)
 #else
             v  = n >> 3;
             n  = n & 0x07;
             for(i=0 ; i<v ; i++)
 	    {
-                *((uint32_t *)d)++ = c0;
-		*((uint32_t *)d)++ = c1;
+                STOREINC(d, c0, uint32_t);
+		STOREINC(d, c1, uint32_t);
 	    }
 #endif
         }
         else if(n >= 8)
         {
-            *((uint32_t *)d)++ = c0;
+	    STOREINC(d, c0, uint32_t);
             n = n - 8;
-            *((uint32_t *)d)++ = c1;
+	    STOREINC(d, c1, uint32_t);
         }
 
         if(n & 0x04)
@@ -492,10 +492,11 @@ static inline int compress_line_8(uint8_t *srcbase, int width, uint8_t *dstbase)
 static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 height,
 		 UInt32 rowbytes, UInt8 *dstbase, UInt32 dlen)
 {
-    uint32_t *dst;
-    uint32_t *cScan,*pScan;
+    uint32_t * dst;
+    uint32_t * cScan,*pScan;
+    UInt8 *    lineBuffer;
     SInt32       cSize, pSize;
-    UInt32       y;
+    UInt32       y, lineLen;
 
     if(dlen <= (3+height)*sizeof(uint32_t))
     {
@@ -505,6 +506,10 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
     }
 
     dst      = (uint32_t *)dstbase;
+
+    lineLen = width * depth;
+    lineBuffer = dstbase + dlen - lineLen;
+    dlen -= lineLen;
 
     dst[0]   = depth;
     dst[1]   = width;
@@ -525,9 +530,19 @@ static int CompressData(UInt8 *srcbase, UInt32 depth, UInt32 width, UInt32 heigh
 	    return 0;
         }
 
+	bcopy_nc(srcbase + y*rowbytes, lineBuffer, lineLen);
+
+	if (0 == (y & 7))
+	{
+	    AbsoluteTime deadline;
+	    clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
+	    assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
+	    thread_block(NULL);
+	}
+
         cSize = (depth <= 1 ? compress_line_8 :
                 (depth <= 2 ? compress_line_16 :
-                 compress_line_32))(srcbase + y*rowbytes, width, (uint8_t *)cScan);
+                 compress_line_32))(lineBuffer, width, (uint8_t *)cScan);
 
 	if(cSize != pSize  ||  bcmp(pScan, cScan, cSize))
         {
@@ -571,6 +586,14 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
 
         scan = (UInt8 *)srcbase + *src;
 
+	if (0 == (y & 7))
+	{
+	    AbsoluteTime deadline;
+	    clock_interval_to_deadline(8, kMicrosecondScale, &deadline);
+	    assert_wait_deadline((event_t)&clock_delay_until, THREAD_UNINT, __OSAbsoluteTime(deadline));
+	    thread_block(NULL);
+	}
+
         (depth <= 1  ? DecompressRLE8 :
             (depth <= 2 ? DecompressRLE16 : DecompressRLE32))
                 (scan, dst, xMin,xMax);
@@ -579,3 +602,228 @@ static void DecompressData(UInt8 *srcbase, UInt8 *dstbase, int dx, int dy,
         src = src + 1;
     }
 }
+
+static void 
+PreviewDecompress16(uint32_t * compressBuffer, 
+                        uint32_t width, uint32_t height, uint32_t row, 
+                        uint16_t * output)
+{
+    uint32_t i, j;
+    uint32_t * input;
+    
+    uint16_t * sc0 = IONew(uint16_t, (width+2));
+    uint16_t * sc1 = IONew(uint16_t, (width+2));
+    uint16_t * sc2 = IONew(uint16_t, (width+2));
+    uint16_t * sc3 = IONew(uint16_t, (width+2));
+    uint32_t   sr0, sr1, sr2, sr3;
+
+    bzero(sc0, (width+2) * sizeof(uint16_t));
+    bzero(sc1, (width+2) * sizeof(uint16_t));
+    bzero(sc2, (width+2) * sizeof(uint16_t));
+    bzero(sc3, (width+2) * sizeof(uint16_t));
+
+    uint32_t tmp1, tmp2, out;
+    for (j = 0; j < (height + 2); j++)
+    {
+        input = compressBuffer;
+        if (j < height)
+            input += j;
+        else
+            input += height - 1;
+        input = (uint32_t *)(input[3] + ((uint8_t *)compressBuffer));
+
+        uint32_t data = 0, repeat = 0, fetch, count = 0;
+        sr0 = sr1 = sr2 = sr3 = 0;
+
+        for (i = 0; i < (width + 2); i++)
+        {
+            if (i < width)
+            {
+                if (!count)
+                {
+                    count = *input++;
+                    repeat = (count & 0xff000000);
+                    count ^= repeat;
+                    fetch = true;
+                }
+                else
+                    fetch = (0 == repeat);
+    
+                count--;
+    
+                if (fetch)
+                {
+                    data = *((uint16_t *)input);
+		    input = (uint32_t *)(((uint8_t *) input) + sizeof(uint16_t));
+    
+                    // grayscale
+                    // srgb 13933, 46871, 4732
+                    // ntsc 19595, 38470, 7471
+                    data = 13933 * (0x1f & (data >> 10))
+                         + 46871 * (0x1f & (data >> 5))
+                         +  4732 * (0x1f & data);
+                    data >>= 13;
+        
+                    // 70% white, 30 % black
+                    data *= 19661;
+                    data += (103 << 16);
+                    data >>= 16;
+                }
+            }
+
+            // gauss blur
+            tmp2 = sr0 + data;
+            sr0 = data;
+            tmp1 = sr1 + tmp2;
+            sr1 = tmp2;
+            tmp2 = sr2 + tmp1;
+            sr2 = tmp1;
+            tmp1 = sr3 + tmp2;
+            sr3 = tmp2;
+            
+            tmp2 = sc0[i] + tmp1;
+            sc0[i] = tmp1;
+            tmp1 = sc1[i] + tmp2;
+            sc1[i] = tmp2;
+            tmp2 = sc2[i] + tmp1;
+            sc2[i] = tmp1;
+            out = (128 + sc3[i] + tmp2) >> 11;
+            sc3[i] = tmp2;
+
+            out &= 0x1f;
+            if ((i > 1) && (j > 1))
+                output[i-2] = out | (out << 5) | (out << 10);
+        }
+
+        if (j > 1)
+            output += row;
+    }
+    IODelete(sc3, uint16_t, (width+2));
+    IODelete(sc2, uint16_t, (width+2));
+    IODelete(sc1, uint16_t, (width+2));
+    IODelete(sc0, uint16_t, (width+2));
+}
+
+static void 
+PreviewDecompress32(uint32_t * compressBuffer, 
+                        uint32_t width, uint32_t height, uint32_t row, 
+                        uint32_t * output)
+{
+    uint32_t i, j;
+    uint32_t * input;
+    
+    uint16_t * sc0 = IONew(uint16_t, (width+2));
+    uint16_t * sc1 = IONew(uint16_t, (width+2));
+    uint16_t * sc2 = IONew(uint16_t, (width+2));
+    uint16_t * sc3 = IONew(uint16_t, (width+2));
+    uint32_t   sr0, sr1, sr2, sr3;
+
+    bzero(sc0, (width+2) * sizeof(uint16_t));
+    bzero(sc1, (width+2) * sizeof(uint16_t));
+    bzero(sc2, (width+2) * sizeof(uint16_t));
+    bzero(sc3, (width+2) * sizeof(uint16_t));
+
+    uint32_t tmp1, tmp2, out;
+    for (j = 0; j < (height + 2); j++)
+    {
+        input = compressBuffer;
+        if (j < height)
+            input += j;
+        else
+            input += height - 1;
+        input = (uint32_t *)(input[3] + ((uint8_t *)compressBuffer));
+
+        uint32_t data = 0, repeat = 0, fetch, count = 0;
+        sr0 = sr1 = sr2 = sr3 = 0;
+
+        for (i = 0; i < (width + 2); i++)
+        {
+            if (i < width)
+            {
+                if (!count)
+                {
+                    count = *input++;
+                    repeat = (count & 0xff000000);
+                    count ^= repeat;
+                    fetch = true;
+                }
+                else
+                    fetch = (0 == repeat);
+    
+                count--;
+    
+                if (fetch)
+                {
+                    data = *input++;
+    
+                    // grayscale
+                    // srgb 13933, 46871, 4732
+                    // ntsc 19595, 38470, 7471
+                    data = 13933 * (0xff & (data >> 24))
+                         + 46871 * (0xff & (data >> 16))
+                         +  4732 * (0xff & data);
+                    data >>= 16;
+        
+                    // 70% white, 30 % black
+                    data *= 19661;
+                    data += (103 << 16);
+                    data >>= 16;
+                }
+            }
+
+            // gauss blur
+            tmp2 = sr0 + data;
+            sr0 = data;
+            tmp1 = sr1 + tmp2;
+            sr1 = tmp2;
+            tmp2 = sr2 + tmp1;
+            sr2 = tmp1;
+            tmp1 = sr3 + tmp2;
+            sr3 = tmp2;
+            
+            tmp2 = sc0[i] + tmp1;
+            sc0[i] = tmp1;
+            tmp1 = sc1[i] + tmp2;
+            sc1[i] = tmp2;
+            tmp2 = sc2[i] + tmp1;
+            sc2[i] = tmp1;
+            out = (128 + sc3[i] + tmp2) >> 8;
+            sc3[i] = tmp2;
+
+            out &= 0xff;
+            if ((i > 1) && (j > 1))
+                output[i-2] = out | (out << 8) | (out << 16);
+        }
+
+        if (j > 1)
+            output += row;
+    }
+
+    IODelete(sc3, uint16_t, (width+2));
+    IODelete(sc2, uint16_t, (width+2));
+    IODelete(sc1, uint16_t, (width+2));
+    IODelete(sc0, uint16_t, (width+2));
+}
+
+bool
+PreviewDecompressData(void *srcbase, void *dstbase,
+		      int dw, int dh, int bytesPerPixel, int rowbytes)
+{
+    uint32_t * src = (uint32_t *) srcbase;
+
+    if ((bytesPerPixel != (int) src[0]) || (dw != (int) src[1]) || (dh != (int) src[2]))
+      return (false);
+
+    switch(bytesPerPixel)
+    {
+      case 4:
+        PreviewDecompress32((uint32_t *)srcbase, dw, dh, rowbytes >> 2, (uint32_t *) dstbase);
+        return (true);
+      case 2:
+        PreviewDecompress16((uint32_t *)srcbase, dw, dh, rowbytes >> 1, (uint16_t *) dstbase);
+        return (true);
+      default:
+        return (false);
+    }
+}
+

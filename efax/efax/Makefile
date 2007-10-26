@@ -2,6 +2,7 @@
 
 srcdir = .
 
+
 CC = gcc
 INSTALL = /usr/bin/install -c
 INSTALL_BIN    = $(INSTALL)  $(STRIP_FLAG) -m 755
@@ -13,7 +14,7 @@ INSTALL_DIR    = $(INSTALL) -d
 # Compile/load options. Add -DNO_STRERROR to CFLAGS if _strerror
 # is undefined
 
-CFLAGS = -g -O2 -Wall
+CFLAGS = -g -O0 -Wall
 LDFLAGS = 
 
 # Change the following to the destination directories for
@@ -34,8 +35,12 @@ all:	efax efix
 efax:	efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
 	$(CC) -o efax $(LDFLAGS) efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o \
 		-framework CoreFoundation -framework IOKit
+
 efix:	efix.o efaxlib.o efaxmsg.o
 	$(CC) -o efix $(LDFLAGS) efix.o efaxlib.o efaxmsg.o
+
+efaxtest:	efaxtest.o
+	$(CC) -o efaxtest $(LDFLAGS) efaxtest.o
 
 install:	all
 	$(INSTALL_DIR) $(DSTROOT)$(BINDIR)
@@ -49,16 +54,18 @@ install:	all
 	$(INSTALL_SCRIPT) $(srcdir)/fax $(DSTROOT)$(BINDIR)
 	$(INSTALL_DATA)   $(srcdir)/efax.rc $(DSTROOT)$(CONFDIR)
 	$(INSTALL_MAN)    $(srcdir)/fax.1 $(srcdir)/efax.1 $(srcdir)/efix.1 $(DSTROOT)$(MANDIR)/man1
+	$(INSTALL_DIR) $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL_DATA)   $(srcdir)/com.apple.efax.plist $(DSTROOT)/System/Library/LaunchDaemons
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
-		cp efax efix $(SYMROOT); \
+		/bin/cp efax efix $(SYMROOT); \
 	fi
 
 install-strip:
 	$(MAKE) STRIP_FLAG='-s' install
 
 clean:	
-	rm -f efax efix efax.o efix.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
+	rm -f efax efix efaxtest efax.o efix.o efaxlib.o efaxio.o efaxos.o efaxmsg.o efaxtest.o
 
 efax.o:		efax.c    efaxmsg.h efaxlib.h efaxio.h efaxos.h
 efaxio.o:	efaxio.c  efaxmsg.h           efaxio.h efaxos.h
@@ -66,3 +73,4 @@ efaxos.o:	efaxos.c  efaxmsg.h efaxlib.h          efaxos.h
 efix.o:		efix.c    efaxmsg.h efaxlib.h           
 efaxlib.o:	efaxlib.c efaxmsg.h efaxlib.h           
 efaxmsg.o:	efaxmsg.c efaxmsg.h
+efaxtest.o:	efaxtest.c

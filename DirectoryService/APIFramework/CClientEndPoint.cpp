@@ -40,16 +40,13 @@
 #include "DirServicesConst.h"
 #include "DirServicesPriv.h"
 #include "PrivateTypes.h"
-#include "DSSemaphore.h"
 #include "DSCThread.h"
 #include "DirectoryServiceMIG.h"
 
 #define kMsgSize	sizeof( sComData )
 #define kIPCMsgSize	sizeof( sIPCMsg )
 
-uInt32 CClientEndPoint::fMessageID	 = 0; //start with zero since GetMessageID pre-increments
-
-extern sInt32 gProcessPID;
+UInt32 CClientEndPoint::fMessageID	 = 0; //start with zero since GetMessageID pre-increments
 
 //------------------------------------------------------------------------------
 //	* CClientEndPoint:
@@ -110,7 +107,7 @@ CClientEndPoint::~CClientEndPoint ( void )
 //
 //------------------------------------------------------------------------------
 
-inline uInt32 CClientEndPoint::GetMessageID ( void )
+inline UInt32 CClientEndPoint::GetMessageID ( void )
 {
 	return( ++fMessageID );
 } // GetMessageID
@@ -121,19 +118,15 @@ inline uInt32 CClientEndPoint::GetMessageID ( void )
 //
 //------------------------------------------------------------------------------
 
-sInt32 CClientEndPoint::Initialize ( void )
+SInt32 CClientEndPoint::Initialize ( void )
 {
+	kern_return_t kr = KERN_FAILURE;
+
 	// let's get the server boot port right off the bat...
 	if( fServerPort != MACH_PORT_NULL )
 	{
 		mach_port_mod_refs( mach_task_self(), fServerPort, MACH_PORT_RIGHT_SEND, -1 );
 		fServerPort = MACH_PORT_NULL;
-	}
-	
-	kern_return_t kr = bootstrap_look_up( bootstrap_port, kDSStdMachPortName, &fServerPort );
-	if (kr != KERN_SUCCESS)
-	{
-		LOG3( kStdErr, "*** bootstrap_look_up: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( kr ) );
 	}
 	
 	if( fSessionPort != MACH_PORT_NULL )
@@ -142,35 +135,38 @@ sInt32 CClientEndPoint::Initialize ( void )
 		fSessionPort = MACH_PORT_NULL;
 	}
 	
-	dsmig_create_api_session( fServerPort, &fSessionPort );
+	if (fSrvrName != nil) //always used
+	{
+		kr = bootstrap_look_up( bootstrap_port, fSrvrName, &fServerPort );
+	}
+
+	//pure retry for normal daemon connection if we weren't trying to open the normal port or we had no name
+	if (kr != KERN_SUCCESS && (fSrvrName == nil || strcmp(fSrvrName, kDSStdMachPortName) != 0) ) 
+	{
+		kr = bootstrap_look_up( bootstrap_port, kDSStdMachPortName, &fServerPort );
+		if (kr != KERN_SUCCESS)
+		{
+			LOG3( kStdErr, "*** failed bootstrap_look_up: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( kr ) );
+		}
+	}
 	
-	return( eDSNoErr );
+	return ( (kr == KERN_SUCCESS && dsmig_create_api_session(fServerPort, &fSessionPort) == KERN_SUCCESS) ? eDSNoErr : eServerSendError );
 } // Initialize
 
-
-//------------------------------------------------------------------------------
-//	* CheckForServer
-//
-//------------------------------------------------------------------------------
-
-sInt32 CClientEndPoint:: CheckForServer ( void )
-{
-	return( eDSNoErr );
-} // CheckForServer
 
 //------------------------------------------------------------------------------
 //	* SendServerMessage
 //
 //------------------------------------------------------------------------------
 
-sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
+SInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 {
-	sInt32					result		= eServerSendError;
+	SInt32					result		= eServerSendError;
 	bool					bTryAgain	= false;
 	
 	do
 	{
-		kern_return_t			kr			= KERN_FAILURE;
+		kern_return_t			kr			= MACH_SEND_INVALID_DEST;
 		mach_msg_type_name_t	serverPoly	= MACH_MSG_TYPE_COPY_SEND; 
 		
 		// let's do the call
@@ -205,7 +201,7 @@ sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 			if( kr == KERN_SUCCESS )
 			{
 				sComDataPtr		pComData = NULL;
-				uInt32			uiLength = 0;
+				UInt32			uiLength = 0;
 				
 				// if we have OOL data, we need to copy it and deallocate it..
 				if( replyFixedLen )
@@ -246,6 +242,11 @@ sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 			{
 				bTryAgain = true;
 			}
+			else
+			{
+				// maybe bootstrap port is bad?  Let's try recovering that instead.
+				bTryAgain = (Initialize() == 0);
+			}
 		}
 		else
 		{
@@ -263,9 +264,9 @@ sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 //
 //------------------------------------------------------------------------------
 
-sInt32 CClientEndPoint::GetServerReply ( sComData **outMsg )
+SInt32 CClientEndPoint::GetServerReply ( sComData **outMsg )
 {
-	sInt32	siResult = eServerReplyError;
+	SInt32	siResult = eServerReplyError;
 	
 	if( fReplyMsg != NULL )
 	{

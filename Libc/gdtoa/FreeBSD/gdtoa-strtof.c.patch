@@ -1,6 +1,6 @@
---- gdtoa-strtof.c.orig	2005-01-20 20:12:37.000000000 -0800
-+++ gdtoa-strtof.c	2005-02-17 12:49:28.000000000 -0800
-@@ -29,13 +29,15 @@
+--- gdtoa-strtof.c.orig	2007-04-03 12:19:28.000000000 -0700
++++ gdtoa-strtof.c	2007-04-06 12:52:45.000000000 -0700
+@@ -29,24 +29,41 @@
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
  
@@ -17,18 +17,36 @@
 +strtof_l(CONST char *s, char **sp, locale_t loc)
  #endif
  {
- 	static FPI fpi = { 24, 1-127-24+1,  254-127-24+1, 1, SI };
-@@ -44,7 +46,8 @@
+-	static FPI fpi = { 24, 1-127-24+1,  254-127-24+1, 1, SI };
++	static FPI fpi0 = { 24, 1-127-24+1,  254-127-24+1, 1, SI };
+ 	ULong bits[1];
+ 	Long exp;
  	int k;
  	union { ULong L[1]; float f; } u;
++	FPI *fpi = &fpi0, fpi1;
++#ifdef Honor_FLT_ROUNDS
++	int rounding = Flt_Rounds;
++#endif
  
 -	k = strtodg(s, sp, &fpi, &exp, bits);
 +	NORMALIZE_LOCALE(loc);
-+	k = strtodg(s, sp, &fpi, &exp, bits, loc);
++#ifdef Honor_FLT_ROUNDS
++	if (rounding != fpi0.rounding) {
++		fpi1 = fpi0; /* for thread safety */
++		fpi1.rounding = rounding;
++		fpi = &fpi1;
++		}
++#endif /* Honor_FLT_ROUNDS */
++	k = strtodg(s, sp, fpi, &exp, bits, loc);
  	switch(k & STRTOG_Retmask) {
  	  case STRTOG_NoNumber:
++		u.L[0] = 0;
++		return u.f; // avoid setting sign
++
  	  case STRTOG_Zero:
-@@ -71,3 +74,13 @@
+ 		u.L[0] = 0;
+ 		break;
+@@ -71,3 +88,13 @@
  		u.L[0] |= 0x80000000L;
  	return u.f;
  	}

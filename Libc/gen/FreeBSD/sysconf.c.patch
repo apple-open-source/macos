@@ -1,5 +1,5 @@
---- sysconf.c	2004-04-15 16:50:28.000000000 -0700
-+++ /Volumes/dee/Len/Build/Libc-3845788.roots/Libc-3845788.sym/sysconf-fbsd.c	2004-11-30 18:08:26.000000000 -0800
+--- sysconf.c.orig	2007-04-03 12:19:23.000000000 -0700
++++ sysconf.c	2007-04-05 11:33:36.000000000 -0700
 @@ -45,6 +45,8 @@
  #include <sys/sysctl.h>
  #include <sys/resource.h>
@@ -9,17 +9,6 @@
  
  #include <errno.h>
  #include <limits.h>
-@@ -53,8 +55,8 @@
- #include <time.h>
- #include <unistd.h>
- 
--#include "../stdlib/atexit.h"
--#include "../stdtime/tzfile.h"
-+#include "atexit.h"
-+#include "tzfile.h"
- 
- #define	_PATH_ZONEINFO	TZDIR	/* from tzfile.h */
- 
 @@ -75,8 +77,9 @@
  	int name;
  {
@@ -31,7 +20,7 @@
  	long defaultresult;
  	const char *path;
  
-@@ -254,76 +257,94 @@
+@@ -254,76 +257,91 @@
  		return (_POSIX_TIMERS);
  #endif
  	case _SC_AIO_LISTIO_MAX:
@@ -90,10 +79,7 @@
 -		mib[0] = CTL_P1003_1B;
 -		mib[1] = CTL_P1003_1B_SEM_NSEMS_MAX;
 -		goto yesno;
-+		mib[0] = CTL_KERN;
-+		mib[1] = KERN_SYSV;
-+		mib[2] = KSYSV_SEMMNS;
-+		return (sysctl(mib, 3, &value, &len, NULL, 0) == -1 ? -1 : value);
++		return (sysctlbyname("kern.sysv.semmns", &value, &len, NULL, 0) == -1 ? -1 : value);
 +
  	case _SC_SEM_VALUE_MAX:
 +#if SEM_VALUE_MAX == 0
@@ -149,7 +135,7 @@
  	case _SC_ADVISORY_INFO:
  #if _POSIX_ADVISORY_INFO == 0
  #error "_POSIX_ADVISORY_INFO"
-@@ -348,18 +369,10 @@
+@@ -348,18 +366,12 @@
  #else
  		return (_POSIX_CPUTIME);
  #endif
@@ -162,14 +148,16 @@
 -#endif
 -#if _POSIX_THREAD_SAFE_FUNCTIONS > -1
  	case _SC_GETGR_R_SIZE_MAX:
++/*		return sizeof(group) + group_name_max + group_passwd_max + max_group_member*(MAXLOGNAME+1); */
++		return 4096;	/* INT_MAX is too big for Perl */
  	case _SC_GETPW_R_SIZE_MAX:
 -#error "somebody needs to implement this"
 -#endif
-+		return (-1);
++		return 4096;
  	case _SC_HOST_NAME_MAX:
  		return (MAXHOSTNAMELEN - 1); /* does not include \0 */
  	case _SC_LOGIN_NAME_MAX:
-@@ -370,10 +383,8 @@
+@@ -370,10 +382,8 @@
  #else
  		return (_POSIX_MONOTONIC_CLOCK);
  #endif
@@ -181,7 +169,7 @@
  	case _SC_READER_WRITER_LOCKS:
  		return (_POSIX_READER_WRITER_LOCKS);
  	case _SC_REGEXP:
-@@ -410,10 +421,16 @@
+@@ -410,10 +420,16 @@
  		return (_POSIX_THREAD_PROCESS_SHARED);
  	case _SC_THREAD_SAFE_FUNCTIONS:
  		return (_POSIX_THREAD_SAFE_FUNCTIONS);
@@ -198,7 +186,7 @@
  	case _SC_TIMEOUTS:
  		return (_POSIX_TIMEOUTS);
  	case _SC_THREADS:
-@@ -425,16 +442,14 @@
+@@ -425,16 +441,14 @@
  #else
  		return (_POSIX_TRACE);
  #endif
@@ -216,9 +204,12 @@
  		goto do_NAME_MAX;
  	case _SC_TYPED_MEMORY_OBJECTS:
  #if _POSIX_TYPED_MEMORY_OBJECTS == 0
-@@ -493,9 +508,13 @@
+@@ -491,11 +505,15 @@
+ 		return (_V6_LPBIG_OFFBIG);
+ #endif
  	case _SC_ATEXIT_MAX:
- 		return (ATEXIT_SIZE);
+-		return (ATEXIT_SIZE);
++		return (INT_MAX);	/* unlimited */
  	case _SC_IOV_MAX:
 +#ifdef KERN_IOV_MAX
  		mib[0] = CTL_KERN;
@@ -230,7 +221,7 @@
  	case _SC_XOPEN_CRYPT:
  		return (_XOPEN_CRYPT);
  	case _SC_XOPEN_ENH_I18N:
-@@ -531,7 +550,8 @@
+@@ -531,7 +549,8 @@
  #endif
  	case _SC_XOPEN_SHM:
  		sverrno = errno;
@@ -240,7 +231,7 @@
  		    0) == -1) {
  			errno = sverrno;
  			return (-1);
-@@ -568,11 +588,25 @@
+@@ -568,11 +587,37 @@
  		return (_POSIX_IPV6);
  #endif
  
@@ -263,6 +254,18 @@
 +		return (_XBS5_LP64_OFF64);
 +	case _SC_XBS5_LPBIG_OFFBIG:
 +		return (_XBS5_LPBIG_OFFBIG);
++	case _SC_SS_REPL_MAX:
++		return (_POSIX_SS_REPL_MAX);
++	case _SC_TRACE_EVENT_NAME_MAX:
++		return (_POSIX_TRACE_EVENT_NAME_MAX);
++	case _SC_TRACE_NAME_MAX:
++		return (_POSIX_TRACE_NAME_MAX);
++	case _SC_TRACE_SYS_MAX:
++		return (_POSIX_TRACE_SYS_MAX);
++	case _SC_TRACE_USER_EVENT_MAX:
++		return (_POSIX_TRACE_USER_EVENT_MAX);
++	case _SC_PASS_MAX:
++		return (PASS_MAX);
  
  	default:
  		errno = EINVAL;

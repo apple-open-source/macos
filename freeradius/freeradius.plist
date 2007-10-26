@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2007-01-05</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>freeradius.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>added: opendirectory plug-in</string>
+			<string>added: opendirectory support in ms-chap2 plug-in</string>
+			<string>added: sqlite3 driver</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>freeradius</string>
+		<key>OpenSourceVersion</key>
+		<string>1.1.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freeradius.org/</string>
+	</dict>
+</array>
+</plist>

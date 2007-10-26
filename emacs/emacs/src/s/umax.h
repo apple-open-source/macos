@@ -1,5 +1,6 @@
 /* Definitions file for GNU Emacs running on UMAX 4.2
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /*
@@ -147,7 +148,7 @@ Boston, MA 02111-1307, USA.  */
 #define SEGMENT_MASK	(64 * 1024 - 1)
 
 
-/* crt0.c needs this for compilation because it uses asm.  */  
+/* crt0.c needs this for compilation because it uses asm.  */
 
 #define C_SWITCH_ASM -q nodirect_code
 
@@ -164,3 +165,6 @@ Boston, MA 02111-1307, USA.  */
 /* Process groups work in the traditional BSD manner.  */
 
 #define BSD_PGRPS
+
+/* arch-tag: 2860edda-ce9e-4cfa-943d-3a06c7045854
+   (do not change this comment) */

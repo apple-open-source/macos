@@ -163,7 +163,7 @@ int nis_passwd(char *uname, char *domain)
 	tv.tv_sec = 2;
 	tv.tv_usec = 0;
 	ans = clnt_call(cl, YPPASSWDPROC_UPDATE,
-		xdr_yppasswd, &yppasswd, xdr_int, &ok, tv);
+		(xdrproc_t)xdr_yppasswd, &yppasswd, (xdrproc_t)xdr_int, &ok, tv);
 
 	if (ans != 0)
 	{

@@ -1,0 +1,3 @@
+The point of this test is a sanity check that ld removes the stabs associated with a copy of a coalesced 
+function that was removed.  Running nm through stabs-filter.pl produces connonical stabs
+that can be diffed against a checked in know good set of stabs

@@ -48,9 +48,28 @@
  */
 #define		kDSStdAuthSetShadowHashWindows				"dsAuthMethodStandard:dsAuthSetShadowHashWindows"
 
+//SPI constants
+/*!
+ * @defined kDSStdRecordTypeDirectoryNodeInfo
+ * @discussion Identifies the dsGetDirNodeInfo record type.
+ */
+#define		kDSStdRecordTypeDirectoryNodeInfo		"dsRecTypeStandard:DirectoryNodeInfo"
+
+/*!
+ * @defined kDSStdRecordTypeSearchNodeInfo
+ * @discussion Identifies the dsGetDirNodeInfo record type for the Search Nodes.
+ */
+#define		kDSStdRecordTypeSearchNodeInfo		"dsRecTypeStandard:SearchNodeInfo"
+
+/*!
+ * @defined kDBLocalDefaultPath
+ * @discussion Identifies the default file path for the default DS local node.
+ */
+#define		kDBLocalDefaultPath					"/var/db/dslocal/nodes/Default"
+
 typedef struct sDSTableEntry {
-	uInt32			fRefNum;
-	uInt32			fTimeStamp;
+	UInt32			fRefNum;
+	UInt32			fTimeStamp;
 	void			*fData;
 	struct sDSTableEntry  *fNext;
 } sDSTableEntry;							// used by CContinue and CPluginRef classes
@@ -64,26 +83,26 @@ typedef struct {
 
 typedef struct sObject
 {
-	uInt32		type;
-	uInt32		count;
-	uInt32		offset;
-	uInt32		used;
-	uInt32		length;
+	UInt32		type;
+	UInt32		count;
+	UInt32		offset;
+	UInt32		used;
+	UInt32		length;
 } sObject;
 
 typedef struct sComData
 {
 	mach_msg_header_t	head;
 	mach_msg_type_t		type;
-	uInt32				fDataSize;
-	uInt32				fDataLength;
-	uInt32				fMsgID;
-	uInt32				fPID;
-	uInt32				fPort;
-	uInt32				fIPAddress;
+	UInt32				fDataSize;
+	UInt32				fDataLength;
+	UInt32				fMsgID;
+	UInt32				fPID;
+	UInt32				fPort;
+	UInt32				fIPAddress;
 	// ---- when adding new items to this structure, add after this comment
-	uInt32				fUID;
-	uInt32				fEffectiveUID;
+	UInt32				fUID;
+	UInt32				fEffectiveUID;
 	uid_t				fAuditUID;
 	gid_t				fEffectiveGID;
 	gid_t				fGID;
@@ -98,26 +117,26 @@ typedef struct sComProxyData
 {
 	mach_msg_header_t	head;
 	mach_msg_type_t		type;
-	uInt32				fDataSize;
-	uInt32				fDataLength;
-	uInt32				fMsgID;
-	uInt32				fPID;
-	uInt32				fPort;
-	uInt32				fIPAddress;
+	UInt32				fDataSize;
+	UInt32				fDataLength;
+	UInt32				fMsgID;
+	UInt32				fPID;
+	UInt32				fPort;
+	UInt32				fIPAddress;
 	sObject				obj[ 10 ];
 	char				data[ 1 ];
 } sComProxyData;
 
 #ifdef __cplusplus
-	const uInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
-	const uInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
-	//const uInt32 kIPCMsgLen		= kMsgBlockSize + kObjSize;	// IPC message block size
-	const uInt32 kIPCMsgLen		= kMsgBlockSize;	// IPC message block size
+	const UInt32 kMsgBlockSize	= 1024 * 4;					// Set to average of 4k
+	const UInt32 kObjSize		= sizeof( sObject ) * 10;	// size of object struct
+	//const UInt32 kIPCMsgLen		= kMsgBlockSize + kObjSize;	// IPC message block size
+	const UInt32 kIPCMsgLen		= kMsgBlockSize;	// IPC message block size
 
 	// data should be OOL, may need to be increased if we create more MIG definitions that require more inline data
-    const uInt32 kMaxFixedMsg       = 16384;
-    const uInt32 kMaxFixedMsgData	= kMaxFixedMsg - sizeof(sComData);  // this is the max fixed data we'll send..
-    const uInt32 kMaxMIGMsg         = kMaxFixedMsg + 256;               // padding for any additional data
+    const UInt32 kMaxFixedMsg       = 16384;
+    const UInt32 kMaxFixedMsgData	= kMaxFixedMsg - sizeof(sComData);  // this is the max fixed data we'll send..
+    const UInt32 kMaxMIGMsg         = kMaxFixedMsg + 256;               // padding for any additional data
 #else
 	#define kMsgBlockSize		1024 * 4
 	#define kObjSize			sizeof(sObject) * 10
@@ -130,12 +149,12 @@ typedef struct sComProxyData
 typedef struct sIPCMsg
 {
 	mach_msg_header_t	fHeader;
-	uInt32				fMsgType;
-	uInt32				fCount;
-	uInt32				fOf;
-	uInt32				fMsgID;
-	uInt32				fPID;
-	uInt32				fPort;
+	UInt32				fMsgType;
+	UInt32				fCount;
+	UInt32				fOf;
+	UInt32				fMsgID;
+	UInt32				fPID;
+	UInt32				fPort;
 	sObject				obj[ 10 ];
 	char				fData[ kIPCMsgLen ];
 	mach_msg_audit_trailer_t	fTail;	//this is the largest trailer struct
@@ -230,7 +249,8 @@ enum eDSServerCalls {
 	/*    */ kCheckUserNameAndPassword,
 	/* 10 */ kAddChildPIDToReference,
 	/*    */ kOpenDirServiceProxy,
-	/* 12 */ kDSServerCallsEnd
+	/*    */ kOpenDirServiceLocal,
+	/* 13 */ kDSServerCallsEnd
 };
 
 //Note any time an entry point reference is added it must be ensured that
@@ -285,6 +305,73 @@ enum eDSPluginCalls {
 	/* 171 */ kDSPlugInCallsEnd
 };
 
+//-----------------------------------------------------------------------------
+//	* Logging Flags
+//
+//		The user may turn logging on or off, and select from the type of logging
+//		desired. Certain types of logging information are NOOPs if the
+//		compile-time symbol DEBUG is not defined.
+//
+//-----------------------------------------------------------------------------
+
+enum eLogFlags {
+	kLogNone		= 0x00000000,			// Log no information
+	kLogMeta		= 0x00000001,			// Info about the log itself
+	kLogApplication	= 0x00000002,			// P1
+	
+	// Assert
+	kLogAssert		= 0x00000004,			// P1
+	
+	// Listener
+	kLogListener	= 0x00000010,			// P1
+	
+	// Handler
+	kLogHandler		= 0x00000100,			// P2
+	kLogMsgQueue	= 0x00000200,			// P2
+	
+	// Threads
+	kLogThreads		= 0x00001000,			// P3
+	
+	// Endpoint
+	kLogEndpoint	= 0x00002000,			// P3
+	
+	// Plugin
+	kLogPlugin		= 0x00004000,			// P5
+	
+	// Proxy
+	kLogConnection	= 0x00008000,			// P3
+	
+	// Transactions
+	kLogMsgTrans			= 0x00010000,	// P2
+	
+	// TCP Endpoint
+	kLogTCPEndpoint			= 0x00020000,	// P3
+	
+	// Performance Stats
+	kLogPerformanceStats	= 0x00040000,	// P5
+	
+	// Priority logging scheme
+	kLogEmergency		= 0x00100000,		// P0
+	kLogAlert			= 0x00200000,		// P1
+	kLogCritical		= 0x00400000,		// P2
+	kLogError			= 0x00800000,		// P3 -- redirects to error log
+	kLogWarning			= 0x01000000,		// P4
+	kLogNotice			= 0x02000000,		// P5
+	kLogInfo			= 0x04000000,		// P6
+	kLogDebug			= 0x08000000,		// P7
+	
+	// Specific logging scheme
+	kLogAPICalls	= 0x40000000,			// P4 - API call logging
+	
+	// Everything
+	kLogEverything	= 0x7FFFFFFF,			
+	
+	//logging outside of "everything"
+	//dupe enum to set DBG header
+	kLogDebugHeader = 0x80000000			//for setting of kDebugHdr in CLog
+};
+
+// log types
 
 
 #endif // __SharedConsts_h__

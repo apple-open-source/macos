@@ -1,0 +1,39 @@
+--- init/aliases.old	2007-02-23 16:12:13.000000000 -0800
++++ init/aliases	2007-02-19 23:58:17.000000000 -0800
+@@ -0,0 +1,36 @@
++##
++# TCSH Expanded C-Shell INITIALIZATION FILE
++# Aliases file
++#
++# Wilfredo Sanchez Jr. | tritan@mit.edu
++# June 10, 1994
++#
++# MIT Project Athena
++##
++alias .		'pwd'
++alias ..	'cd ..'
++alias cd..	'cd ..'
++alias cdwd	'cd `pwd`'
++alias cwd	'echo $cwd'
++alias files	'find \!:1 -type f -print'	# files x => list files in x
++alias ff	'find . -name \!:1 -print'	# ff x => find file named x
++alias line	'sed -n '\''\!:1 p'\'' \!:2'	# line 5 file => show line 5 of file
++alias l 	'ls -lg'
++alias ll	'ls -lag \!* | more'
++alias term 	'set noglob; unsetenv TERMCAP; eval `tset -s -I -Q - \!*`'
++alias word	'grep \!* /usr/share/dict/web2'	# Grep thru dictionary
++alias wordcount	'(cat \!* | tr -s '\'' 	.,;:?\!()[]"'\'' '\''\012'\'' |' \
++		'cat -n | tail -1 | awk '\''{print $1}'\'')' # Histogram words
++
++if ($?TERM_PROGRAM) then
++  if ("$TERM_PROGRAM" == "Apple_Terminal") then
++    alias settermtitle 'echo -n "]2;\!:1"'
++  endif
++endif
++
++##
++# Read user's aliases
++##
++if (-r ${tcsh_initdir}/aliases.mine) then
++  source "${tcsh_initdir}/aliases.mine"
++endif

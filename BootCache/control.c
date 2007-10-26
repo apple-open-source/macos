@@ -15,6 +15,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <notify.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,7 @@ static int	print_statistics(struct BC_statistics *ss);
 static void	print_history(struct BC_history_entry *he, int nentries);
 static int	print_playlist(const char *pfname, int source);
 static int	unprint_playlist(const char *pfname);
+static int	generate_playlist(const char *pfname, const char *root);
 static int	truncate_playlist(const char *pfname, char *larg);
 
 static int verbose;
@@ -86,6 +88,8 @@ main(int argc, char *argv[])
 		return(print_playlist(pfname, cflag));
 	if (!strcmp(argv[0], "unprint"))
 		return(unprint_playlist(pfname));
+	if (!strcmp(argv[0], "generate"))
+		return(generate_playlist(pfname, argc < 2 ? NULL : argv[1]));
 	if (!strcmp(argv[0], "truncate")) {
 		if (argc < 2) 
 			return(usage("missing truncate length"));
@@ -116,7 +120,7 @@ static int
 usage(const char *reason)
 {
 	if (reason != NULL)
-		warnx("%s\n", reason);
+		warnx("%s", reason);
 	fprintf(stderr, "Usage: %s [-vvv] [-b blocksize] [-f <playlistfile>] start|stop\n", myname);
 	fprintf(stderr, "           Start/stop the cache using <playlistfile>.\n");
 	fprintf(stderr, "       %s statistics\n", myname);
@@ -130,6 +134,8 @@ usage(const char *reason)
 	fprintf(stderr, "           Print the contents of <playlistfile>.\n");
 	fprintf(stderr, "       %s -f <playlistfile> unprint\n", myname);
 	fprintf(stderr, "           Read a playlist from standard input and write to <playlistfile>.\n");
+	fprintf(stderr, "       %s -f <playlistfile> generate [<volume>]\n", myname);
+	fprintf(stderr, "           Generate a playlist from standard input data for <volume> and write to <playlistfile>.\n");
 	fprintf(stderr, "       %s -f <playlistfile> truncate <count>\n", myname);
 	fprintf(stderr, "           Truncate <playlistfile> to <count> entries.\n");
 	fflush(stderr);
@@ -186,16 +192,21 @@ start_cache(const char *pfname)
 static int
 stop_cache(const char *pfname, int debugging)
 {
-	struct BC_playlist_entry *pc, *opc;
+	struct BC_playlist_entry *pc;
 	struct BC_history_entry *he;
 	struct BC_statistics *ss;
-	int nentries, onentries, error;
+	int nentries, error;
 
 	/*
 	 * Stop the cache and fetch the history list.
 	 */
 	if ((error = BC_stop(&he, &nentries)) != 0)
 		err(1, "could not stop cache/fetch history");
+
+	/*
+	 * Notify whoever cares that BootCache has stopped recording.
+	 */
+	notify_post("com.apple.system.private.bootcache.done");
 
 	/*
 	 * Fetch cache statistics and print if requested.
@@ -233,6 +244,20 @@ stop_cache(const char *pfname, int debugging)
 		errx(1, "could not allocate memory to convert in");
 	}
 
+#if 0 	
+	/* 
+	 * Turning off playlist merging: this tends to bloat the cache and 
+	 * gradually slow the boot until the hitrate drops far enough to force
+	 * a clean slate. Previous attempts to outsmart the system, such as
+	 * truncating cache growth at 5% per boot, have led to fragile behavior
+	 * when the boot sequence changes. Out of a variety of strategies 
+	 * (merging, intersection, voting), a memoryless cache gets 
+	 * close-to-optimal performance and recovers most quickly from any 
+	 * strangeness at boot time.
+	 */
+	int onentries;
+	struct BC_playlist_entry *opc;
+
 	/*
 	 * In order to ensure best possible coverage, we try to merge the
 	 * existing playlist with our new history (provided that the hit
@@ -261,9 +286,9 @@ stop_cache(const char *pfname, int debugging)
 		warnx("old playlist does not match in-kernel playlist, not merging");
 		goto nomerge;	/* old playlist doesn't match in-kernel playlist */
 	}
-	if (((nentries * 100) / onentries) < 95) {
-		warnx("new playlist smaller than old playlist, not merging");
-		goto nomerge;	/* new playlist has > 5% fewer extents */
+	if (((nentries * 100) / onentries) < 105) {
+		warnx("new playlist not much bigger than old playlist, not merging");
+		goto nomerge;	/* new playlist has < 5% fewer extents */
 	}
 	if (((ss->ss_spurious_blocks * 100) / (ss->ss_read_blocks + 1)) > 10) {
 		warnx("old playlist has excess block wastage, not merging");
@@ -278,6 +303,7 @@ stop_cache(const char *pfname, int debugging)
 nomerge:
 	if (opc != NULL)
 		free(opc);
+#endif /* 0 */
 
 	/*
 	 * Sort the playlist into block order and coalesce into the smallest set
@@ -464,12 +490,11 @@ print_playlist(const char *pfname, int source)
 	for (i = 0; nentries-- > 0; i++, pc++) {
 		if (source) {
 			printf("    {0x%llx, 0x%llx, 0x%x}%s\n",
-			    pc->pce_offset, pc->pce_length, pc->pce_flags,
+			    pc->pce_offset, pc->pce_length, pc->pce_batch,
 			    (nentries > 0) ? "," : "");
 		} else {
-			printf("%-10llu %-5llu %s\n",
-			    pc->pce_offset, pc->pce_length,
-			    pc->pce_flags & PCE_PREFETCH ? "prefetch" : "");
+			printf("%-10llu %-5llu %d\n",
+			    pc->pce_offset, pc->pce_length, pc->pce_batch);
 		}
 		size += pc->pce_length;
 	}
@@ -491,7 +516,6 @@ static int
 unprint_playlist(const char *pfname)
 {
 	struct BC_playlist_entry *pc;
-	char flags[256];
 	int nentries, alloced, error, got;
 
 	pc = NULL;
@@ -519,23 +543,148 @@ unprint_playlist(const char *pfname)
 		}
 
 		/* read input */
-		got = fscanf(stdin, "%llu %llu %s",
+		got = fscanf(stdin, "%llu %llu %u",
 		    &(pc + nentries)->pce_offset,
 		    &(pc + nentries)->pce_length,
-		    flags);
-		(pc + nentries)->pce_flags = 0;
-		if (got < 2)
+		    &(pc + nentries)->pce_batch);
+		if (got < 3)
 			break;
-		if (got == 3) {
-			if (!strcmp(flags, "prefetch"))
-				(pc + nentries)->pce_flags |= PCE_PREFETCH;
-		}
 
 		/* grow */
 		nentries++;
 	}
 
 	if ((error = BC_write_playlist(pfname, pc, nentries)) != 0)
+		errx(1, "could not create playlist");
+	
+	return(0);
+}
+
+/*
+ * Read a canned playlist specification from stdin and generate
+ * a sorted playlist from it, as applied to the given root volume
+ * (which defaults to "/"). This is used during the OS Install to
+ * seed a bootcache for first boot from a list of files + offsets.
+ */
+static int
+generate_playlist(const char *pfname, const char *root)
+{
+	struct BC_playlist_entry *pc;
+	int nentries, alloced;
+
+	nentries = 0;
+	alloced = 4096; /* we know the rough size of the list */
+	pc = malloc(alloced * sizeof(*pc));
+	if(!pc) errx(1, "could not allocate initial playlist");
+
+	if (pfname == NULL)
+		errx(1, "must specify a playlist file to create");
+
+	if (root == NULL)
+		root = "/";
+	if (strlen(root) >= 512)
+		errx(1, "root path must be less than 512 characters");
+
+	if (BC_blocksize == 0) {
+		warnx("assuming 512-byte blocks");
+		BC_blocksize = 512;
+	}
+
+	for (;;) { /* go over each line */
+
+		/* read input */
+		int64_t offset, count;
+		int batch;
+		if(fscanf(stdin, "%lli %lli %i ", &offset, &count, &batch) < 3) break;
+
+		/* build the path */
+		char path[2048];
+		int path_offset = strlen(root);
+		strcpy(path, root);
+		while(path_offset < 2048) {
+			int read = fgetc(stdin);
+			if(read == EOF || read == '\n') {
+				path[path_offset] = '\0';
+				break;
+			} else {
+				path[path_offset++] = (char) read;
+			}
+		}
+		if(path_offset == 2048) continue;
+
+		/* open and stat the file */
+		struct stat sb;
+		int fd = open(path, O_RDONLY);
+		if(fd == -1 || fstat(fd, &sb) < 0) {
+			/* give up on this line */
+			if(fd != -1) close(fd);
+			continue;
+		}
+
+		/* add metadata blocks for file */
+		/*	TODO:
+			as a further enhancement, since we know we're going to access this file
+			by name, it would make sense to add to the bootcache any blocks that
+			will be used in doing so, including the directory entries of the parent
+			directories on up the chain.
+		*/
+
+		/* find blocks in the file */
+		off_t position;
+		pc[nentries].pce_batch = -1; /* mark that we have not started */
+		for(position = offset; position < offset + count && position < sb.st_size; position += BC_blocksize) {
+
+			/* look at each block in the range */
+			struct log2phys l2p;
+			bzero(&l2p, sizeof(l2p));
+			lseek(fd, position, SEEK_SET);
+			if(fcntl(fd, F_LOG2PHYS, &l2p) == -1) {
+				continue;
+			}
+
+			if(pc[nentries].pce_batch == -1) {
+				/* start the entry */
+				pc[nentries].pce_offset = l2p.l2p_devoffset;
+				pc[nentries].pce_length = BC_blocksize;
+				pc[nentries].pce_batch = batch;
+			} else if(l2p.l2p_devoffset == (pc[nentries].pce_offset + pc[nentries].pce_length)) {
+				/* entry continues contiguously one more block */
+				pc[nentries].pce_length += BC_blocksize;
+			} else {
+				/* entry is non-contiguous, we're done with the last one */
+				/* create space for a new entry */
+				if(++nentries >= alloced) {
+					alloced *= 2;
+					if((pc = realloc(pc, alloced * sizeof(*pc))) == NULL) {
+						errx(1, "could not allocate memory for %d entries", alloced);
+					}
+				}
+
+				/* create the new entry */
+				pc[nentries].pce_offset = l2p.l2p_devoffset;
+				pc[nentries].pce_length = BC_blocksize;
+				pc[nentries].pce_batch = batch;
+			}
+		}
+
+		/* finish entry and clean up */
+		if(++nentries >= alloced) {
+			alloced *= 2;
+			if((pc = realloc(pc, alloced * sizeof(*pc))) == NULL) {
+				errx(1, "could not allocate memory for %d entries", alloced);
+			}
+		}
+		close(fd);
+	}
+	if(pc[nentries].pce_batch == -1)
+		errx(1, "no blocks found for playlist");
+
+	/* sort the playlist */
+	BC_sort_playlist(pc, nentries);
+	BC_coalesce_playlist(&pc, &nentries);
+
+	/* write the playlist */
+	if (BC_write_playlist(pfname, pc, nentries) != 0)
 		errx(1, "could not create playlist");
 	
 	return(0);

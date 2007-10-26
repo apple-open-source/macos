@@ -1,3 +1,32 @@
+2005-11-01  Joseph S. Myers  <joseph@codesourcery.com>
+
+        * gcc_update: Include revision number in LAST_UPDATED.
+
+2005-10-30  Steven Bosscher  <stevenb@suse.de>
+
+        * gcc_build: Use gcc.gnu.org as the default server.  Set up
+        SVN_REPOSITORY correctly.  Add support for checking out branches.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+        * gcc_update: When svn update is called and
+        --silent is used, pass -q.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+        * gcc_update: Remove the -q from svn invocation.
+
+2005-10-28  Andrew Pinski  <pinskia@gcc.gnu.org>
+
+        * gcc_build: Remove -d from the call to gcc_update.
+
+2005-10-28  Daniel Berlin  <dberlin@dberlin.org>
+            Ben Elliston <bje@au1.ibm.com>
+
+        * gcc_update: Update for svn.
+        * newcvsroot: Ditto.
+        * gcc_build: Ditto.
+
 2005-07-07  Release Manager
 
 	* GCC 4.0.1 released.

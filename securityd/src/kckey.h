@@ -57,7 +57,7 @@ public:
     
 	KeychainDatabase &database() const;
     
-    // we can also yield an encoded KeyBlob *if* we belong to a database	
+    // we can also yield an encoded KeyBlob
 	KeyBlob *blob();
 	
 	void invalidateBlob();

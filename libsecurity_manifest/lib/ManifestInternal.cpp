@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004-2006 Apple Computer, Inc. All Rights Reserved.
  *
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -36,6 +36,7 @@
 #include <fts.h>
 #include <fcntl.h>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <CommonCrypto/CommonDigest.h>
 
 #include "Manifest.h"
 
@@ -119,7 +120,6 @@ void ManifestItemList::AddFileSystemObject (char* path, StringSet& exceptions, b
 	
 	FileSystemEntryItem* mItem;
 	
-	// by default, include the user, group, and node in the digested info for the file
 	bool includeUserAndGroup = true;
 	
 	switch (nodeStat.st_mode & S_IFMT)
@@ -177,16 +177,20 @@ void ManifestItemList::AddFileSystemObject (char* path, StringSet& exceptions, b
 void ManifestItemList::AddDataObject (CFDataRef object)
 {
 	// reconstruct the pointer
-	CssmClient::Digest d (*CSSMInitializer::GetCSP (), CSSM_ALGID_SHA1);
+	SHA1Digest digest;
+	CC_SHA1_CTX digestContext;
+	
+	CC_SHA1_Init (&digestContext);
+	
 	const UInt8* data = CFDataGetBytePtr (object);
 	CFIndex length = CFDataGetLength (object);
 	
-	CssmData dd ((void*) data, length);
-	d.digest (dd);
+	CC_SHA1_Update (&digestContext, data, length);
+	CC_SHA1_Final (digest, &digestContext);
 	
 	ManifestDataBlobItem* db = new ManifestDataBlobItem ();
-	CssmData dResult = d ();
-	db->SetDigest ((SHA1Digest*) dResult.data ());
+
+	db->SetDigest (&digest);
 	db->SetLength (length);
 	
 	push_back (db);
@@ -732,9 +736,10 @@ static u_int32_t ExtractUInt32 (u_int8_t *&finger)
 void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1Digest &digest, size_t &fileLength)
 {
 	secdebug ("manifest", "Creating digest for AppleDouble resource fork %s", name);
-	
-	CssmClient::Digest d (*CSSMInitializer::GetCSP (), CSSM_ALGID_SHA1);
 
+	CC_SHA1_CTX digestContext;
+	CC_SHA1_Init (&digestContext);
+	
 	// bring the file into memory
 	int fileNo = open (name, O_RDONLY, 0);
 	if (fileNo == -1)
@@ -792,12 +797,10 @@ void ManifestFileItem::ComputeDigestForAppleDoubleResourceFork (char* name, SHA1
 	fileLength = length;
 
 	// digest the data
-	CssmData data (buffer + offset, length);
-	d.digest (data);
+	CC_SHA1_Update (&digestContext, buffer + offset, length);
 	
 	// compute the SHA1 hash
-	CssmData dd = d();
-	memmove (&digest, (void*) dd.Data, dd.Length);
+	CC_SHA1_Final (digest, &digestContext);
 	
 	delete buffer;
 }
@@ -809,7 +812,8 @@ void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, siz
 	secdebug ("manifest", "Creating digest for %s", name);
 
 	// create a context for the digest operation
-	CssmClient::Digest d (*CSSMInitializer::GetCSP (), CSSM_ALGID_SHA1);
+	CC_SHA1_CTX digestContext;
+	CC_SHA1_Init (&digestContext);
 
 	
 	int fileNo = open (name, O_RDONLY, 0);
@@ -829,13 +833,11 @@ void ManifestFileItem::ComputeDigestForFile (char* name, SHA1Digest &digest, siz
 		while ((bytesRead = read (fileNo, buffer, kReadChunkSize)) != 0)
 		{
 			// digest the read data
-			CssmData data (buffer, bytesRead);
-			d.digest (data);
+			CC_SHA1_Update (&digestContext, buffer, bytesRead);
 		}
 		
 		// compute the SHA1 hash
-		CssmData dd = d ();
-		memmove (&digest, (void*) dd.Data, dd.Length);
+		CC_SHA1_Final (digest, &digestContext);
 	}
 
 	close (fileNo);
@@ -1078,13 +1080,15 @@ void ManifestSymLinkItem::ComputeRepresentation ()
 	int result = readlink (mPath.c_str (), path, sizeof (path));
 	secdebug ("manifest", "Read content %s for %s", path, mPath.c_str ());
 	
-	CssmClient::Digest d (*CSSMInitializer::GetCSP (), CSSM_ALGID_SHA1);
+	// create a digest context
+	CC_SHA1_CTX digestContext;
+	CC_SHA1_Init (&digestContext);
 	
-	CssmData dd (path, result);
-	d.digest (dd);
-	CssmData digest = d ();
-	
-	memmove (&mDigest, digest.Data, digest.Length);
+	// digest the data
+	CC_SHA1_Update (&digestContext, path, result);
+
+	// compute the result
+	CC_SHA1_Final (mDigest, &digestContext);
 	
 	UnixError::check (result);
 }

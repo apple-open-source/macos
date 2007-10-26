@@ -51,16 +51,16 @@ typedef uint32_t 	wirelessKeyType;
 typedef const void *	wireless_t;
 
 /*
- * Function: wireless_info
+ * Function: wireless_bind
  * Purpose:
- *   Given the client's mac address in client_mac, check whether this
+ *   Given the client's BSD interface name if_name, check whether this
  *   refers to a wireless device.  If so, return a wireless_t handle
- *   and returnTRUE, otherwise return FALSE.
+ *   and return TRUE.  Otherwise return FALSE.
  *   You must call wireless_free() on the returned handle if the
  *   return value is TRUE.
  */
 boolean_t
-wireless_find(const struct ether_addr * client_mac, wireless_t * wref_p);
+wireless_bind(const char * if_name, wireless_t * wref_p);
 
 /*
  * Function: wireless_ap_mac
@@ -79,10 +79,6 @@ wireless_set_key(const wireless_t wref, wirelessKeyType type,
 boolean_t
 wireless_set_wpa_session_key(const wireless_t wref, 
 			     const uint8_t * key, int key_length);
-
-boolean_t
-wireless_set_wpa_server_key(const wireless_t wref,
-			    const uint8_t * key, int key_length);
 
 void
 wireless_free(wireless_t handle);

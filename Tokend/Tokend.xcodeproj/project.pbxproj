@@ -1,0 +1,1718 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		52B2601F0BC5A864007E00F1 /* world */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 52B260280BC5A864007E00F1 /* Build configuration list for PBXAggregateTarget "world" */;
+			buildPhases = (
+			);
+			dependencies = (
+				529252170BC6BEED00816597 /* PBXTargetDependency */,
+				52B260D90BC5A864007E00F1 /* PBXTargetDependency */,
+				52B260DB0BC5A864007E00F1 /* PBXTargetDependency */,
+				52B260DD0BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = world;
+			productName = world;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		52B260320BC5A864007E00F1 /* Adornment.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C1B9B6406DBF99F00014414 /* Adornment.cpp */; };
+		52B260330BC5A864007E00F1 /* Attribute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9606DBF81800FA17D9 /* Attribute.cpp */; };
+		52B260340BC5A864007E00F1 /* AttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A8A06DBF81800FA17D9 /* AttributeCoder.cpp */; };
+		52B260350BC5A864007E00F1 /* Cursor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9806DBF81800FA17D9 /* Cursor.cpp */; };
+		52B260360BC5A864007E00F1 /* DbValue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9A06DBF81800FA17D9 /* DbValue.cpp */; };
+		52B260370BC5A864007E00F1 /* KeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3C166E06F61D6F00FC8AAC /* KeyHandle.cpp */; };
+		52B260380BC5A864007E00F1 /* MetaAttribute.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9C06DBF81800FA17D9 /* MetaAttribute.cpp */; };
+		52B260390BC5A864007E00F1 /* MetaRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9E06DBF81800FA17D9 /* MetaRecord.cpp */; };
+		52B2603A0BC5A864007E00F1 /* Record.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AA006DBF81800FA17D9 /* Record.cpp */; };
+		52B2603B0BC5A864007E00F1 /* RecordHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C55BAFC06DEABE500E4200A /* RecordHandle.cpp */; };
+		52B2603C0BC5A864007E00F1 /* Relation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A8E06DBF81800FA17D9 /* Relation.cpp */; };
+		52B2603D0BC5A864007E00F1 /* SCardError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CC3947A0731A4DD00761DEE /* SCardError.cpp */; };
+		52B2603E0BC5A864007E00F1 /* Schema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AA206DBF81800FA17D9 /* Schema.cpp */; };
+		52B2603F0BC5A864007E00F1 /* SelectionPredicate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AA406DBF81800FA17D9 /* SelectionPredicate.cpp */; };
+		52B260400BC5A864007E00F1 /* Token.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9006DBF81800FA17D9 /* Token.cpp */; };
+		52B260410BC5A864007E00F1 /* TokenContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134A9206DBF81800FA17D9 /* TokenContext.cpp */; };
+		52B2604D0BC5A864007E00F1 /* Adornment.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C1B9B6306DBF99F00014414 /* Adornment.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B2604E0BC5A864007E00F1 /* Attribute.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9706DBF81800FA17D9 /* Attribute.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B2604F0BC5A864007E00F1 /* AttributeCoder.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A8B06DBF81800FA17D9 /* AttributeCoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260500BC5A864007E00F1 /* Cursor.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9906DBF81800FA17D9 /* Cursor.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260510BC5A864007E00F1 /* DbValue.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9B06DBF81800FA17D9 /* DbValue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260520BC5A864007E00F1 /* KeyHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C3C166D06F61D6F00FC8AAC /* KeyHandle.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260530BC5A864007E00F1 /* MetaAttribute.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9D06DBF81800FA17D9 /* MetaAttribute.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260540BC5A864007E00F1 /* MetaRecord.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9F06DBF81800FA17D9 /* MetaRecord.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260550BC5A864007E00F1 /* Record.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134AA106DBF81800FA17D9 /* Record.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260560BC5A864007E00F1 /* RecordHandle.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C55BAFB06DEABE500E4200A /* RecordHandle.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260570BC5A864007E00F1 /* Relation.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A8F06DBF81800FA17D9 /* Relation.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260580BC5A864007E00F1 /* SCardError.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CC394790731A4DD00761DEE /* SCardError.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260590BC5A864007E00F1 /* Schema.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134AA306DBF81800FA17D9 /* Schema.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B2605A0BC5A864007E00F1 /* SelectionPredicate.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134AA506DBF81800FA17D9 /* SelectionPredicate.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B2605B0BC5A864007E00F1 /* Token.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9106DBF81800FA17D9 /* Token.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B2605C0BC5A864007E00F1 /* TokenContext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C134A9306DBF81800FA17D9 /* TokenContext.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		52B260680BC5A864007E00F1 /* belpic_csp_capabilities.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1CE8073065EA00AECB7F /* belpic_csp_capabilities.mdsinfo */; };
+		52B260690BC5A864007E00F1 /* belpic_csp_capabilities_common.mds in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1CE9073065EA00AECB7F /* belpic_csp_capabilities_common.mds */; };
+		52B2606A0BC5A864007E00F1 /* belpic_csp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1CEA073065EA00AECB7F /* belpic_csp_primary.mdsinfo */; };
+		52B2606B0BC5A864007E00F1 /* belpic_dl_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1CEB073065EA00AECB7F /* belpic_dl_primary.mdsinfo */; };
+		52B2606C0BC5A864007E00F1 /* belpic_smartcard.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1CEC073065EA00AECB7F /* belpic_smartcard.mdsinfo */; };
+		52B2606E0BC5A864007E00F1 /* belpic.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3A0070B4122006A0C7F /* belpic.cpp */; };
+		52B2606F0BC5A864007E00F1 /* BELPICError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3A3070B4122006A0C7F /* BELPICError.cpp */; };
+		52B260700BC5A864007E00F1 /* BELPICKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3A5070B4122006A0C7F /* BELPICKeyHandle.cpp */; };
+		52B260710BC5A864007E00F1 /* BELPICRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3A7070B4122006A0C7F /* BELPICRecord.cpp */; };
+		52B260720BC5A864007E00F1 /* BELPICSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3A9070B4122006A0C7F /* BELPICSchema.cpp */; };
+		52B260730BC5A864007E00F1 /* BELPICToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C86D3AB070B4122006A0C7F /* BELPICToken.cpp */; };
+		52B260750BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		52B260810BC5A864007E00F1 /* cac_csp_capabilities.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D000730661500AECB7F /* cac_csp_capabilities.mdsinfo */; };
+		52B260820BC5A864007E00F1 /* cac_csp_capabilities_common.mds in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D010730661500AECB7F /* cac_csp_capabilities_common.mds */; };
+		52B260830BC5A864007E00F1 /* cac_csp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D020730661500AECB7F /* cac_csp_primary.mdsinfo */; };
+		52B260840BC5A864007E00F1 /* cac_dl_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D030730661500AECB7F /* cac_dl_primary.mdsinfo */; };
+		52B260850BC5A864007E00F1 /* cac_smartcard.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D040730661500AECB7F /* cac_smartcard.mdsinfo */; };
+		52B260870BC5A864007E00F1 /* cac.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA7510703990100E5719F /* cac.cpp */; };
+		52B260880BC5A864007E00F1 /* CACAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA7490703990100E5719F /* CACAttributeCoder.cpp */; };
+		52B260890BC5A864007E00F1 /* CACError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C273A200708CE2C00CCB0FA /* CACError.cpp */; };
+		52B2608A0BC5A864007E00F1 /* CACKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74B0703990100E5719F /* CACKeyHandle.cpp */; };
+		52B2608B0BC5A864007E00F1 /* CACRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CBF5C390704CDBF00EEADC2 /* CACRecord.cpp */; };
+		52B2608C0BC5A864007E00F1 /* CACSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74D0703990100E5719F /* CACSchema.cpp */; };
+		52B2608D0BC5A864007E00F1 /* CACToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C7BA74F0703990100E5719F /* CACToken.cpp */; };
+		52B2608F0BC5A864007E00F1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBF5CBE0704E76200EEADC2 /* libz.dylib */; };
+		52B260900BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		52B2609C0BC5A864007E00F1 /* musclecard_csp_capabilities.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D300730664E00AECB7F /* musclecard_csp_capabilities.mdsinfo */; };
+		52B2609D0BC5A864007E00F1 /* musclecard_csp_capabilities_common.mds in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D310730664E00AECB7F /* musclecard_csp_capabilities_common.mds */; };
+		52B2609E0BC5A864007E00F1 /* musclecard_csp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D320730664E00AECB7F /* musclecard_csp_primary.mdsinfo */; };
+		52B2609F0BC5A864007E00F1 /* musclecard_dl_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D330730664E00AECB7F /* musclecard_dl_primary.mdsinfo */; };
+		52B260A00BC5A864007E00F1 /* musclecard_smartcard.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 4C5C1D340730664E00AECB7F /* musclecard_smartcard.mdsinfo */; };
+		52B260A20BC5A864007E00F1 /* KeyRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4CE2E6A406DC06AB00E21469 /* KeyRecord.cpp */; };
+		52B260A30BC5A864007E00F1 /* musclecard.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3FACAD06DBF84400D18D5F /* musclecard.cpp */; };
+		52B260A40BC5A864007E00F1 /* MuscleCardAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C1B9B5C06DBF96E00014414 /* MuscleCardAttributeCoder.cpp */; };
+		52B260A50BC5A864007E00F1 /* MuscleCardKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C253C0E06F66A6100B5CED6 /* MuscleCardKeyHandle.cpp */; };
+		52B260A60BC5A864007E00F1 /* MuscleCardSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C1B9B8906DBFEE200014414 /* MuscleCardSchema.cpp */; };
+		52B260A70BC5A864007E00F1 /* MuscleCardToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C3FACAE06DBF84400D18D5F /* MuscleCardToken.cpp */; };
+		52B260A80BC5A864007E00F1 /* TokenRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C63F7A506DC052A00CB6F22 /* TokenRecord.cpp */; };
+		52B260A90BC5A864007E00F1 /* MscACL.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AAB06DBF81800FA17D9 /* MscACL.cpp */; };
+		52B260AA0BC5A864007E00F1 /* MscError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AA906DBF81800FA17D9 /* MscError.cpp */; };
+		52B260AB0BC5A864007E00F1 /* MscKey.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AAF06DBF81800FA17D9 /* MscKey.cpp */; };
+		52B260AC0BC5A864007E00F1 /* MscObject.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AB106DBF81800FA17D9 /* MscObject.cpp */; };
+		52B260AD0BC5A864007E00F1 /* MscPIN.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AB306DBF81800FA17D9 /* MscPIN.cpp */; };
+		52B260AE0BC5A864007E00F1 /* MscToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AB506DBF81800FA17D9 /* MscToken.cpp */; };
+		52B260AF0BC5A864007E00F1 /* MscTokenConnection.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AB706DBF81800FA17D9 /* MscTokenConnection.cpp */; };
+		52B260B00BC5A864007E00F1 /* MscWrappers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 4C134AB906DBF81800FA17D9 /* MscWrappers.cpp */; };
+		52B260B20BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		52B260BE0BC5A864007E00F1 /* piv_csp_capabilities.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 528067810B78E98600D02C3A /* piv_csp_capabilities.mdsinfo */; };
+		52B260BF0BC5A864007E00F1 /* piv_csp_capabilities_common.mds in Resources */ = {isa = PBXBuildFile; fileRef = 528067820B78E98600D02C3A /* piv_csp_capabilities_common.mds */; };
+		52B260C00BC5A864007E00F1 /* piv_csp_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 528067830B78E98600D02C3A /* piv_csp_primary.mdsinfo */; };
+		52B260C10BC5A864007E00F1 /* piv_dl_primary.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 528067840B78E98600D02C3A /* piv_dl_primary.mdsinfo */; };
+		52B260C20BC5A864007E00F1 /* piv_smartcard.mdsinfo in Resources */ = {isa = PBXBuildFile; fileRef = 528067850B78E98600D02C3A /* piv_smartcard.mdsinfo */; };
+		52B260C40BC5A864007E00F1 /* piv.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528067860B78E98600D02C3A /* piv.cpp */; };
+		52B260C50BC5A864007E00F1 /* PIVAttributeCoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528067870B78E98600D02C3A /* PIVAttributeCoder.cpp */; };
+		52B260C60BC5A864007E00F1 /* PIVError.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528067890B78E98600D02C3A /* PIVError.cpp */; };
+		52B260C70BC5A864007E00F1 /* PIVKeyHandle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5280678B0B78E98600D02C3A /* PIVKeyHandle.cpp */; };
+		52B260C80BC5A864007E00F1 /* PIVRecord.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5280678D0B78E98600D02C3A /* PIVRecord.cpp */; };
+		52B260C90BC5A864007E00F1 /* PIVSchema.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5280678F0B78E98600D02C3A /* PIVSchema.cpp */; };
+		52B260CA0BC5A864007E00F1 /* PIVToken.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528067910B78E98600D02C3A /* PIVToken.cpp */; };
+		52B260CB0BC5A864007E00F1 /* PIVCCC.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 529D9A7B0B867FA900DBFA4B /* PIVCCC.cpp */; };
+		52B260CD0BC5A864007E00F1 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CBF5CBE0704E76200EEADC2 /* libz.dylib */; };
+		52B260CE0BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */; };
+		C29914660C441EBB009571C2 /* PCSC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52CA8342067E8175005A1EBA /* PCSC.framework */; };
+		C29914670C441EBB009571C2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52CA8343067E8175005A1EBA /* Security.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		529252160BC6BEED00816597 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = libtokend;
+		};
+		52B260D80BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B260640BC5A864007E00F1;
+			remoteInfo = "BELPIC (Copied)";
+		};
+		52B260DA0BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2607D0BC5A864007E00F1;
+			remoteInfo = "CAC (Copied)";
+		};
+		52B260DC0BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B260BA0BC5A864007E00F1;
+			remoteInfo = "PIV (Copied)";
+		};
+		52B260DE0BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2604B0BC5A864007E00F1;
+			remoteInfo = "tokend (Upgraded)";
+		};
+		52B260E00BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = "libtokend (Upgraded)";
+		};
+		52B260E20BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = "libtokend (Upgraded)";
+		};
+		52B260E40BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = "libtokend (Upgraded)";
+		};
+		52B260E60BC5A864007E00F1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 52B2602D0BC5A864007E00F1;
+			remoteInfo = "libtokend (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		4C134A8A06DBF81800FA17D9 /* AttributeCoder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = AttributeCoder.cpp; sourceTree = "<group>"; };
+		4C134A8B06DBF81800FA17D9 /* AttributeCoder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = AttributeCoder.h; sourceTree = "<group>"; };
+		4C134A8E06DBF81800FA17D9 /* Relation.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Relation.cpp; sourceTree = "<group>"; };
+		4C134A8F06DBF81800FA17D9 /* Relation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Relation.h; sourceTree = "<group>"; };
+		4C134A9006DBF81800FA17D9 /* Token.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Token.cpp; sourceTree = "<group>"; };
+		4C134A9106DBF81800FA17D9 /* Token.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Token.h; sourceTree = "<group>"; };
+		4C134A9206DBF81800FA17D9 /* TokenContext.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TokenContext.cpp; sourceTree = "<group>"; };
+		4C134A9306DBF81800FA17D9 /* TokenContext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TokenContext.h; sourceTree = "<group>"; };
+		4C134A9606DBF81800FA17D9 /* Attribute.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Attribute.cpp; sourceTree = "<group>"; };
+		4C134A9706DBF81800FA17D9 /* Attribute.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Attribute.h; sourceTree = "<group>"; };
+		4C134A9806DBF81800FA17D9 /* Cursor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Cursor.cpp; sourceTree = "<group>"; };
+		4C134A9906DBF81800FA17D9 /* Cursor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Cursor.h; sourceTree = "<group>"; };
+		4C134A9A06DBF81800FA17D9 /* DbValue.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = DbValue.cpp; sourceTree = "<group>"; };
+		4C134A9B06DBF81800FA17D9 /* DbValue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DbValue.h; sourceTree = "<group>"; };
+		4C134A9C06DBF81800FA17D9 /* MetaAttribute.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaAttribute.cpp; sourceTree = "<group>"; };
+		4C134A9D06DBF81800FA17D9 /* MetaAttribute.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaAttribute.h; sourceTree = "<group>"; };
+		4C134A9E06DBF81800FA17D9 /* MetaRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MetaRecord.cpp; sourceTree = "<group>"; };
+		4C134A9F06DBF81800FA17D9 /* MetaRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MetaRecord.h; sourceTree = "<group>"; };
+		4C134AA006DBF81800FA17D9 /* Record.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Record.cpp; sourceTree = "<group>"; };
+		4C134AA106DBF81800FA17D9 /* Record.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Record.h; sourceTree = "<group>"; };
+		4C134AA206DBF81800FA17D9 /* Schema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = Schema.cpp; sourceTree = "<group>"; };
+		4C134AA306DBF81800FA17D9 /* Schema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = Schema.h; sourceTree = "<group>"; };
+		4C134AA406DBF81800FA17D9 /* SelectionPredicate.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SelectionPredicate.cpp; sourceTree = "<group>"; };
+		4C134AA506DBF81800FA17D9 /* SelectionPredicate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SelectionPredicate.h; sourceTree = "<group>"; };
+		4C134AA906DBF81800FA17D9 /* MscError.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscError.cpp; sourceTree = "<group>"; };
+		4C134AAA06DBF81800FA17D9 /* MscError.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscError.h; sourceTree = "<group>"; };
+		4C134AAB06DBF81800FA17D9 /* MscACL.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscACL.cpp; sourceTree = "<group>"; };
+		4C134AAC06DBF81800FA17D9 /* MscACL.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscACL.h; sourceTree = "<group>"; };
+		4C134AAF06DBF81800FA17D9 /* MscKey.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscKey.cpp; sourceTree = "<group>"; };
+		4C134AB006DBF81800FA17D9 /* MscKey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscKey.h; sourceTree = "<group>"; };
+		4C134AB106DBF81800FA17D9 /* MscObject.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscObject.cpp; sourceTree = "<group>"; };
+		4C134AB206DBF81800FA17D9 /* MscObject.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscObject.h; sourceTree = "<group>"; };
+		4C134AB306DBF81800FA17D9 /* MscPIN.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscPIN.cpp; sourceTree = "<group>"; };
+		4C134AB406DBF81800FA17D9 /* MscPIN.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscPIN.h; sourceTree = "<group>"; };
+		4C134AB506DBF81800FA17D9 /* MscToken.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscToken.cpp; sourceTree = "<group>"; };
+		4C134AB606DBF81800FA17D9 /* MscToken.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscToken.h; sourceTree = "<group>"; };
+		4C134AB706DBF81800FA17D9 /* MscTokenConnection.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscTokenConnection.cpp; sourceTree = "<group>"; };
+		4C134AB806DBF81800FA17D9 /* MscTokenConnection.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscTokenConnection.h; sourceTree = "<group>"; };
+		4C134AB906DBF81800FA17D9 /* MscWrappers.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MscWrappers.cpp; sourceTree = "<group>"; };
+		4C134ABA06DBF81800FA17D9 /* MscWrappers.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MscWrappers.h; sourceTree = "<group>"; };
+		4C1B9B5B06DBF96E00014414 /* MuscleCardAttributeCoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MuscleCardAttributeCoder.h; sourceTree = "<group>"; };
+		4C1B9B5C06DBF96E00014414 /* MuscleCardAttributeCoder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MuscleCardAttributeCoder.cpp; sourceTree = "<group>"; };
+		4C1B9B6306DBF99F00014414 /* Adornment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Adornment.h; sourceTree = "<group>"; };
+		4C1B9B6406DBF99F00014414 /* Adornment.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Adornment.cpp; sourceTree = "<group>"; };
+		4C1B9B8806DBFEE200014414 /* MuscleCardSchema.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MuscleCardSchema.h; sourceTree = "<group>"; };
+		4C1B9B8906DBFEE200014414 /* MuscleCardSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MuscleCardSchema.cpp; sourceTree = "<group>"; };
+		4C253C0D06F66A6100B5CED6 /* MuscleCardKeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MuscleCardKeyHandle.h; sourceTree = "<group>"; };
+		4C253C0E06F66A6100B5CED6 /* MuscleCardKeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MuscleCardKeyHandle.cpp; sourceTree = "<group>"; };
+		4C273A1F0708CE2C00CCB0FA /* CACError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACError.h; sourceTree = "<group>"; };
+		4C273A200708CE2C00CCB0FA /* CACError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACError.cpp; sourceTree = "<group>"; };
+		4C3C166D06F61D6F00FC8AAC /* KeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KeyHandle.h; sourceTree = "<group>"; };
+		4C3C166E06F61D6F00FC8AAC /* KeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = KeyHandle.cpp; sourceTree = "<group>"; };
+		4C3FACAC06DBF84400D18D5F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		4C3FACAD06DBF84400D18D5F /* musclecard.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = musclecard.cpp; sourceTree = "<group>"; };
+		4C3FACAE06DBF84400D18D5F /* MuscleCardToken.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = MuscleCardToken.cpp; sourceTree = "<group>"; };
+		4C3FACAF06DBF84400D18D5F /* MuscleCardToken.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = MuscleCardToken.h; sourceTree = "<group>"; };
+		4C55BAFB06DEABE500E4200A /* RecordHandle.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RecordHandle.h; sourceTree = "<group>"; };
+		4C55BAFC06DEABE500E4200A /* RecordHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RecordHandle.cpp; sourceTree = "<group>"; };
+		4C5C1CE8073065EA00AECB7F /* belpic_csp_capabilities.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = belpic_csp_capabilities.mdsinfo; path = BELPIC/mds/belpic_csp_capabilities.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1CE9073065EA00AECB7F /* belpic_csp_capabilities_common.mds */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = belpic_csp_capabilities_common.mds; path = BELPIC/mds/belpic_csp_capabilities_common.mds; sourceTree = SOURCE_ROOT; };
+		4C5C1CEA073065EA00AECB7F /* belpic_csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = belpic_csp_primary.mdsinfo; path = BELPIC/mds/belpic_csp_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1CEB073065EA00AECB7F /* belpic_dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = belpic_dl_primary.mdsinfo; path = BELPIC/mds/belpic_dl_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1CEC073065EA00AECB7F /* belpic_smartcard.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = belpic_smartcard.mdsinfo; path = BELPIC/mds/belpic_smartcard.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D000730661500AECB7F /* cac_csp_capabilities.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = cac_csp_capabilities.mdsinfo; path = CAC/mds/cac_csp_capabilities.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D010730661500AECB7F /* cac_csp_capabilities_common.mds */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = cac_csp_capabilities_common.mds; path = CAC/mds/cac_csp_capabilities_common.mds; sourceTree = SOURCE_ROOT; };
+		4C5C1D020730661500AECB7F /* cac_csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = cac_csp_primary.mdsinfo; path = CAC/mds/cac_csp_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D030730661500AECB7F /* cac_dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = cac_dl_primary.mdsinfo; path = CAC/mds/cac_dl_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D040730661500AECB7F /* cac_smartcard.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = cac_smartcard.mdsinfo; path = CAC/mds/cac_smartcard.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D300730664E00AECB7F /* musclecard_csp_capabilities.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = musclecard_csp_capabilities.mdsinfo; path = MuscleCard/mds/musclecard_csp_capabilities.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D310730664E00AECB7F /* musclecard_csp_capabilities_common.mds */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = musclecard_csp_capabilities_common.mds; path = MuscleCard/mds/musclecard_csp_capabilities_common.mds; sourceTree = SOURCE_ROOT; };
+		4C5C1D320730664E00AECB7F /* musclecard_csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = musclecard_csp_primary.mdsinfo; path = MuscleCard/mds/musclecard_csp_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D330730664E00AECB7F /* musclecard_dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = musclecard_dl_primary.mdsinfo; path = MuscleCard/mds/musclecard_dl_primary.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C5C1D340730664E00AECB7F /* musclecard_smartcard.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = musclecard_smartcard.mdsinfo; path = MuscleCard/mds/musclecard_smartcard.mdsinfo; sourceTree = SOURCE_ROOT; };
+		4C63F7A506DC052A00CB6F22 /* TokenRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = TokenRecord.cpp; sourceTree = "<group>"; };
+		4C63F7A606DC052A00CB6F22 /* TokenRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = TokenRecord.h; sourceTree = "<group>"; };
+		4C7BA7490703990100E5719F /* CACAttributeCoder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CACAttributeCoder.cpp; sourceTree = "<group>"; };
+		4C7BA74A0703990100E5719F /* CACAttributeCoder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CACAttributeCoder.h; sourceTree = "<group>"; };
+		4C7BA74B0703990100E5719F /* CACKeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CACKeyHandle.cpp; sourceTree = "<group>"; };
+		4C7BA74C0703990100E5719F /* CACKeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CACKeyHandle.h; sourceTree = "<group>"; };
+		4C7BA74D0703990100E5719F /* CACSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CACSchema.cpp; sourceTree = "<group>"; };
+		4C7BA74E0703990100E5719F /* CACSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CACSchema.h; sourceTree = "<group>"; };
+		4C7BA74F0703990100E5719F /* CACToken.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = CACToken.cpp; sourceTree = "<group>"; };
+		4C7BA7500703990100E5719F /* CACToken.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = CACToken.h; sourceTree = "<group>"; };
+		4C7BA7510703990100E5719F /* cac.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = cac.cpp; sourceTree = "<group>"; };
+		4C7BA7520703990100E5719F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		4C86D3A0070B4122006A0C7F /* belpic.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = belpic.cpp; sourceTree = "<group>"; };
+		4C86D3A3070B4122006A0C7F /* BELPICError.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BELPICError.cpp; sourceTree = "<group>"; };
+		4C86D3A4070B4122006A0C7F /* BELPICError.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BELPICError.h; sourceTree = "<group>"; };
+		4C86D3A5070B4122006A0C7F /* BELPICKeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BELPICKeyHandle.cpp; sourceTree = "<group>"; };
+		4C86D3A6070B4122006A0C7F /* BELPICKeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BELPICKeyHandle.h; sourceTree = "<group>"; };
+		4C86D3A7070B4122006A0C7F /* BELPICRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BELPICRecord.cpp; sourceTree = "<group>"; };
+		4C86D3A8070B4122006A0C7F /* BELPICRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BELPICRecord.h; sourceTree = "<group>"; };
+		4C86D3A9070B4122006A0C7F /* BELPICSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BELPICSchema.cpp; sourceTree = "<group>"; };
+		4C86D3AA070B4122006A0C7F /* BELPICSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BELPICSchema.h; sourceTree = "<group>"; };
+		4C86D3AB070B4122006A0C7F /* BELPICToken.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = BELPICToken.cpp; sourceTree = "<group>"; };
+		4C86D3AC070B4122006A0C7F /* BELPICToken.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = BELPICToken.h; sourceTree = "<group>"; };
+		4C86D3AD070B4122006A0C7F /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		4CA858F10654413F0083DED3 /* SecurityTokend.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = SecurityTokend.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		4CBF5C380704CDBF00EEADC2 /* CACRecord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CACRecord.h; sourceTree = "<group>"; };
+		4CBF5C390704CDBF00EEADC2 /* CACRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CACRecord.cpp; sourceTree = "<group>"; };
+		4CBF5CBE0704E76200EEADC2 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.1.dylib; sourceTree = "<absolute>"; };
+		4CC394790731A4DD00761DEE /* SCardError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCardError.h; sourceTree = "<group>"; };
+		4CC3947A0731A4DD00761DEE /* SCardError.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SCardError.cpp; sourceTree = "<group>"; };
+		4CE2E6A406DC06AB00E21469 /* KeyRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = KeyRecord.cpp; sourceTree = "<group>"; };
+		4CE2E6A506DC06AB00E21469 /* KeyRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = KeyRecord.h; sourceTree = "<group>"; };
+		523C07E70B7B940D00067DEA /* PIVDefines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVDefines.h; path = PIV/PIVDefines.h; sourceTree = "<group>"; };
+		523F79EC06D5AC27004256A0 /* security_cdsa_client.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		523F79ED06D5AC27004256A0 /* security_cdsa_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cdsa_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		523F79EE06D5AC27004256A0 /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_utilities.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		5280677F0B78E98600D02C3A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Info.plist; path = PIV/Info.plist; sourceTree = "<group>"; };
+		528067810B78E98600D02C3A /* piv_csp_capabilities.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = piv_csp_capabilities.mdsinfo; sourceTree = "<group>"; };
+		528067820B78E98600D02C3A /* piv_csp_capabilities_common.mds */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = piv_csp_capabilities_common.mds; sourceTree = "<group>"; };
+		528067830B78E98600D02C3A /* piv_csp_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = piv_csp_primary.mdsinfo; sourceTree = "<group>"; };
+		528067840B78E98600D02C3A /* piv_dl_primary.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = piv_dl_primary.mdsinfo; sourceTree = "<group>"; };
+		528067850B78E98600D02C3A /* piv_smartcard.mdsinfo */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = piv_smartcard.mdsinfo; sourceTree = "<group>"; };
+		528067860B78E98600D02C3A /* piv.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = piv.cpp; path = PIV/piv.cpp; sourceTree = "<group>"; };
+		528067870B78E98600D02C3A /* PIVAttributeCoder.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVAttributeCoder.cpp; path = PIV/PIVAttributeCoder.cpp; sourceTree = "<group>"; };
+		528067880B78E98600D02C3A /* PIVAttributeCoder.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVAttributeCoder.h; path = PIV/PIVAttributeCoder.h; sourceTree = "<group>"; };
+		528067890B78E98600D02C3A /* PIVError.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVError.cpp; path = PIV/PIVError.cpp; sourceTree = "<group>"; };
+		5280678A0B78E98600D02C3A /* PIVError.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVError.h; path = PIV/PIVError.h; sourceTree = "<group>"; };
+		5280678B0B78E98600D02C3A /* PIVKeyHandle.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVKeyHandle.cpp; path = PIV/PIVKeyHandle.cpp; sourceTree = "<group>"; };
+		5280678C0B78E98600D02C3A /* PIVKeyHandle.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVKeyHandle.h; path = PIV/PIVKeyHandle.h; sourceTree = "<group>"; };
+		5280678D0B78E98600D02C3A /* PIVRecord.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVRecord.cpp; path = PIV/PIVRecord.cpp; sourceTree = "<group>"; };
+		5280678E0B78E98600D02C3A /* PIVRecord.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVRecord.h; path = PIV/PIVRecord.h; sourceTree = "<group>"; };
+		5280678F0B78E98600D02C3A /* PIVSchema.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVSchema.cpp; path = PIV/PIVSchema.cpp; sourceTree = "<group>"; };
+		528067900B78E98600D02C3A /* PIVSchema.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVSchema.h; path = PIV/PIVSchema.h; sourceTree = "<group>"; };
+		528067910B78E98600D02C3A /* PIVToken.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVToken.cpp; path = PIV/PIVToken.cpp; sourceTree = "<group>"; };
+		528067920B78E98600D02C3A /* PIVToken.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVToken.h; path = PIV/PIVToken.h; sourceTree = "<group>"; };
+		529D9A7B0B867FA900DBFA4B /* PIVCCC.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PIVCCC.cpp; path = PIV/PIVCCC.cpp; sourceTree = "<group>"; };
+		529D9A7C0B867FA900DBFA4B /* PIVCCC.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PIVCCC.h; path = PIV/PIVCCC.h; sourceTree = "<group>"; };
+		52B2604A0BC5A864007E00F1 /* libtokend.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libtokend.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		52B260620BC5A864007E00F1 /* Info-tokend__Upgraded_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-tokend__Upgraded_.plist"; sourceTree = "<group>"; };
+		52B260630BC5A864007E00F1 /* tokend.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = tokend.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		52B2607B0BC5A864007E00F1 /* BELPIC.tokend */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BELPIC.tokend; sourceTree = BUILT_PRODUCTS_DIR; };
+		52B260960BC5A864007E00F1 /* CAC.tokend */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CAC.tokend; sourceTree = BUILT_PRODUCTS_DIR; };
+		52B260B80BC5A864007E00F1 /* MuscleCard.tokend */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MuscleCard.tokend; sourceTree = BUILT_PRODUCTS_DIR; };
+		52B260D40BC5A864007E00F1 /* PIV.tokend */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PIV.tokend; sourceTree = BUILT_PRODUCTS_DIR; };
+		52CA8342067E8175005A1EBA /* PCSC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PCSC.framework; path = /System/Library/Frameworks/PCSC.framework; sourceTree = "<absolute>"; };
+		52CA8343067E8175005A1EBA /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = Security.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		52DE698106E93B870024EA03 /* PKCS11Object.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PKCS11Object.h; sourceTree = "<group>"; };
+		52DE698206E93B870024EA03 /* PKCS11Object.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PKCS11Object.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		52B260740BC5A864007E00F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260750BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B2608E0BC5A864007E00F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B2608F0BC5A864007E00F1 /* libz.dylib in Frameworks */,
+				52B260900BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260B10BC5A864007E00F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260B20BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260CC0BC5A864007E00F1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C29914660C441EBB009571C2 /* PCSC.framework in Frameworks */,
+				C29914670C441EBB009571C2 /* Security.framework in Frameworks */,
+				52B260CD0BC5A864007E00F1 /* libz.dylib in Frameworks */,
+				52B260CE0BC5A864007E00F1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* TokendMuscle */ = {
+			isa = PBXGroup;
+			children = (
+				5280675F0B78E86F00D02C3A /* PIV */,
+				4C86D39F070B4122006A0C7F /* BELPIC */,
+				4C7BA7460703990100E5719F /* CAC */,
+				4C3FACA806DBF84400D18D5F /* MuscleCard */,
+				4C134A8706DBF81800FA17D9 /* Tokend */,
+				4CA858F0065441220083DED3 /* External Frameworks */,
+				4C415098073061D6004C9490 /* External Libraries */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+				52B260620BC5A864007E00F1 /* Info-tokend__Upgraded_.plist */,
+			);
+			name = TokendMuscle;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				52B2604A0BC5A864007E00F1 /* libtokend.a */,
+				52B260630BC5A864007E00F1 /* tokend.framework */,
+				52B2607B0BC5A864007E00F1 /* BELPIC.tokend */,
+				52B260960BC5A864007E00F1 /* CAC.tokend */,
+				52B260B80BC5A864007E00F1 /* MuscleCard.tokend */,
+				52B260D40BC5A864007E00F1 /* PIV.tokend */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4C134A8706DBF81800FA17D9 /* Tokend */ = {
+			isa = PBXGroup;
+			children = (
+				4C1B9B6406DBF99F00014414 /* Adornment.cpp */,
+				4C1B9B6306DBF99F00014414 /* Adornment.h */,
+				4C134A9606DBF81800FA17D9 /* Attribute.cpp */,
+				4C134A9706DBF81800FA17D9 /* Attribute.h */,
+				4C134A8A06DBF81800FA17D9 /* AttributeCoder.cpp */,
+				4C134A8B06DBF81800FA17D9 /* AttributeCoder.h */,
+				4C134A9806DBF81800FA17D9 /* Cursor.cpp */,
+				4C134A9906DBF81800FA17D9 /* Cursor.h */,
+				4C134A9A06DBF81800FA17D9 /* DbValue.cpp */,
+				4C134A9B06DBF81800FA17D9 /* DbValue.h */,
+				4C3C166E06F61D6F00FC8AAC /* KeyHandle.cpp */,
+				4C3C166D06F61D6F00FC8AAC /* KeyHandle.h */,
+				4C134A9C06DBF81800FA17D9 /* MetaAttribute.cpp */,
+				4C134A9D06DBF81800FA17D9 /* MetaAttribute.h */,
+				4C134A9E06DBF81800FA17D9 /* MetaRecord.cpp */,
+				4C134A9F06DBF81800FA17D9 /* MetaRecord.h */,
+				52DE698206E93B870024EA03 /* PKCS11Object.cpp */,
+				52DE698106E93B870024EA03 /* PKCS11Object.h */,
+				4C134AA006DBF81800FA17D9 /* Record.cpp */,
+				4C134AA106DBF81800FA17D9 /* Record.h */,
+				4C55BAFC06DEABE500E4200A /* RecordHandle.cpp */,
+				4C55BAFB06DEABE500E4200A /* RecordHandle.h */,
+				4C134A8E06DBF81800FA17D9 /* Relation.cpp */,
+				4C134A8F06DBF81800FA17D9 /* Relation.h */,
+				4CC3947A0731A4DD00761DEE /* SCardError.cpp */,
+				4CC394790731A4DD00761DEE /* SCardError.h */,
+				4C134AA206DBF81800FA17D9 /* Schema.cpp */,
+				4C134AA306DBF81800FA17D9 /* Schema.h */,
+				4C134AA406DBF81800FA17D9 /* SelectionPredicate.cpp */,
+				4C134AA506DBF81800FA17D9 /* SelectionPredicate.h */,
+				4C134A9006DBF81800FA17D9 /* Token.cpp */,
+				4C134A9106DBF81800FA17D9 /* Token.h */,
+				4C134A9206DBF81800FA17D9 /* TokenContext.cpp */,
+				4C134A9306DBF81800FA17D9 /* TokenContext.h */,
+			);
+			path = Tokend;
+			sourceTree = "<group>";
+		};
+		4C134AA606DBF81800FA17D9 /* Msc */ = {
+			isa = PBXGroup;
+			children = (
+				4C134AAB06DBF81800FA17D9 /* MscACL.cpp */,
+				4C134AAC06DBF81800FA17D9 /* MscACL.h */,
+				4C134AA906DBF81800FA17D9 /* MscError.cpp */,
+				4C134AAA06DBF81800FA17D9 /* MscError.h */,
+				4C134AAF06DBF81800FA17D9 /* MscKey.cpp */,
+				4C134AB006DBF81800FA17D9 /* MscKey.h */,
+				4C134AB106DBF81800FA17D9 /* MscObject.cpp */,
+				4C134AB206DBF81800FA17D9 /* MscObject.h */,
+				4C134AB306DBF81800FA17D9 /* MscPIN.cpp */,
+				4C134AB406DBF81800FA17D9 /* MscPIN.h */,
+				4C134AB506DBF81800FA17D9 /* MscToken.cpp */,
+				4C134AB606DBF81800FA17D9 /* MscToken.h */,
+				4C134AB706DBF81800FA17D9 /* MscTokenConnection.cpp */,
+				4C134AB806DBF81800FA17D9 /* MscTokenConnection.h */,
+				4C134AB906DBF81800FA17D9 /* MscWrappers.cpp */,
+				4C134ABA06DBF81800FA17D9 /* MscWrappers.h */,
+			);
+			path = Msc;
+			sourceTree = "<group>";
+		};
+		4C3FACA806DBF84400D18D5F /* MuscleCard */ = {
+			isa = PBXGroup;
+			children = (
+				4C134AA606DBF81800FA17D9 /* Msc */,
+				4C5C1D280730664E00AECB7F /* mds */,
+				4C3FACAC06DBF84400D18D5F /* Info.plist */,
+				4CE2E6A406DC06AB00E21469 /* KeyRecord.cpp */,
+				4CE2E6A506DC06AB00E21469 /* KeyRecord.h */,
+				4C3FACAD06DBF84400D18D5F /* musclecard.cpp */,
+				4C1B9B5C06DBF96E00014414 /* MuscleCardAttributeCoder.cpp */,
+				4C1B9B5B06DBF96E00014414 /* MuscleCardAttributeCoder.h */,
+				4C253C0E06F66A6100B5CED6 /* MuscleCardKeyHandle.cpp */,
+				4C253C0D06F66A6100B5CED6 /* MuscleCardKeyHandle.h */,
+				4C1B9B8906DBFEE200014414 /* MuscleCardSchema.cpp */,
+				4C1B9B8806DBFEE200014414 /* MuscleCardSchema.h */,
+				4C3FACAE06DBF84400D18D5F /* MuscleCardToken.cpp */,
+				4C3FACAF06DBF84400D18D5F /* MuscleCardToken.h */,
+				4C63F7A506DC052A00CB6F22 /* TokenRecord.cpp */,
+				4C63F7A606DC052A00CB6F22 /* TokenRecord.h */,
+			);
+			path = MuscleCard;
+			sourceTree = "<group>";
+		};
+		4C415098073061D6004C9490 /* External Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				4CBF5CBE0704E76200EEADC2 /* libz.dylib */,
+			);
+			name = "External Libraries";
+			sourceTree = "<group>";
+		};
+		4C5C1CE0073065EA00AECB7F /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4C5C1CE8073065EA00AECB7F /* belpic_csp_capabilities.mdsinfo */,
+				4C5C1CE9073065EA00AECB7F /* belpic_csp_capabilities_common.mds */,
+				4C5C1CEA073065EA00AECB7F /* belpic_csp_primary.mdsinfo */,
+				4C5C1CEB073065EA00AECB7F /* belpic_dl_primary.mdsinfo */,
+				4C5C1CEC073065EA00AECB7F /* belpic_smartcard.mdsinfo */,
+			);
+			name = mds;
+			path = BELPIC/mds;
+			sourceTree = SOURCE_ROOT;
+		};
+		4C5C1CF80730661500AECB7F /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4C5C1D000730661500AECB7F /* cac_csp_capabilities.mdsinfo */,
+				4C5C1D010730661500AECB7F /* cac_csp_capabilities_common.mds */,
+				4C5C1D020730661500AECB7F /* cac_csp_primary.mdsinfo */,
+				4C5C1D030730661500AECB7F /* cac_dl_primary.mdsinfo */,
+				4C5C1D040730661500AECB7F /* cac_smartcard.mdsinfo */,
+			);
+			name = mds;
+			path = CAC/mds;
+			sourceTree = SOURCE_ROOT;
+		};
+		4C5C1D280730664E00AECB7F /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				4C5C1D300730664E00AECB7F /* musclecard_csp_capabilities.mdsinfo */,
+				4C5C1D310730664E00AECB7F /* musclecard_csp_capabilities_common.mds */,
+				4C5C1D320730664E00AECB7F /* musclecard_csp_primary.mdsinfo */,
+				4C5C1D330730664E00AECB7F /* musclecard_dl_primary.mdsinfo */,
+				4C5C1D340730664E00AECB7F /* musclecard_smartcard.mdsinfo */,
+			);
+			name = mds;
+			path = MuscleCard/mds;
+			sourceTree = SOURCE_ROOT;
+		};
+		4C7BA7460703990100E5719F /* CAC */ = {
+			isa = PBXGroup;
+			children = (
+				4C5C1CF80730661500AECB7F /* mds */,
+				4C7BA7490703990100E5719F /* CACAttributeCoder.cpp */,
+				4C7BA74A0703990100E5719F /* CACAttributeCoder.h */,
+				4C273A200708CE2C00CCB0FA /* CACError.cpp */,
+				4C273A1F0708CE2C00CCB0FA /* CACError.h */,
+				4C7BA74B0703990100E5719F /* CACKeyHandle.cpp */,
+				4C7BA74C0703990100E5719F /* CACKeyHandle.h */,
+				4CBF5C390704CDBF00EEADC2 /* CACRecord.cpp */,
+				4CBF5C380704CDBF00EEADC2 /* CACRecord.h */,
+				4C7BA74D0703990100E5719F /* CACSchema.cpp */,
+				4C7BA74E0703990100E5719F /* CACSchema.h */,
+				4C7BA74F0703990100E5719F /* CACToken.cpp */,
+				4C7BA7500703990100E5719F /* CACToken.h */,
+				4C7BA7510703990100E5719F /* cac.cpp */,
+				4C7BA7520703990100E5719F /* Info.plist */,
+			);
+			path = CAC;
+			sourceTree = "<group>";
+		};
+		4C86D39F070B4122006A0C7F /* BELPIC */ = {
+			isa = PBXGroup;
+			children = (
+				4C5C1CE0073065EA00AECB7F /* mds */,
+				4C86D3A0070B4122006A0C7F /* belpic.cpp */,
+				4C86D3A3070B4122006A0C7F /* BELPICError.cpp */,
+				4C86D3A4070B4122006A0C7F /* BELPICError.h */,
+				4C86D3A5070B4122006A0C7F /* BELPICKeyHandle.cpp */,
+				4C86D3A6070B4122006A0C7F /* BELPICKeyHandle.h */,
+				4C86D3A7070B4122006A0C7F /* BELPICRecord.cpp */,
+				4C86D3A8070B4122006A0C7F /* BELPICRecord.h */,
+				4C86D3A9070B4122006A0C7F /* BELPICSchema.cpp */,
+				4C86D3AA070B4122006A0C7F /* BELPICSchema.h */,
+				4C86D3AB070B4122006A0C7F /* BELPICToken.cpp */,
+				4C86D3AC070B4122006A0C7F /* BELPICToken.h */,
+				4C86D3AD070B4122006A0C7F /* Info.plist */,
+			);
+			path = BELPIC;
+			sourceTree = "<group>";
+		};
+		4CA858F0065441220083DED3 /* External Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4CA8C4D606D6D19400F1BCC8 /* CoreFoundation.framework */,
+				523F79EC06D5AC27004256A0 /* security_cdsa_client.framework */,
+				523F79ED06D5AC27004256A0 /* security_cdsa_utilities.framework */,
+				523F79EE06D5AC27004256A0 /* security_utilities.framework */,
+				52CA8342067E8175005A1EBA /* PCSC.framework */,
+				52CA8343067E8175005A1EBA /* Security.framework */,
+				4CA858F10654413F0083DED3 /* SecurityTokend.framework */,
+			);
+			name = "External Frameworks";
+			sourceTree = "<group>";
+		};
+		5280675F0B78E86F00D02C3A /* PIV */ = {
+			isa = PBXGroup;
+			children = (
+				528067800B78E98600D02C3A /* mds */,
+				529D9A7B0B867FA900DBFA4B /* PIVCCC.cpp */,
+				529D9A7C0B867FA900DBFA4B /* PIVCCC.h */,
+				523C07E70B7B940D00067DEA /* PIVDefines.h */,
+				5280677F0B78E98600D02C3A /* Info.plist */,
+				528067860B78E98600D02C3A /* piv.cpp */,
+				528067870B78E98600D02C3A /* PIVAttributeCoder.cpp */,
+				528067880B78E98600D02C3A /* PIVAttributeCoder.h */,
+				528067890B78E98600D02C3A /* PIVError.cpp */,
+				5280678A0B78E98600D02C3A /* PIVError.h */,
+				5280678B0B78E98600D02C3A /* PIVKeyHandle.cpp */,
+				5280678C0B78E98600D02C3A /* PIVKeyHandle.h */,
+				5280678D0B78E98600D02C3A /* PIVRecord.cpp */,
+				5280678E0B78E98600D02C3A /* PIVRecord.h */,
+				5280678F0B78E98600D02C3A /* PIVSchema.cpp */,
+				528067900B78E98600D02C3A /* PIVSchema.h */,
+				528067910B78E98600D02C3A /* PIVToken.cpp */,
+				528067920B78E98600D02C3A /* PIVToken.h */,
+			);
+			name = PIV;
+			sourceTree = "<group>";
+		};
+		528067800B78E98600D02C3A /* mds */ = {
+			isa = PBXGroup;
+			children = (
+				528067810B78E98600D02C3A /* piv_csp_capabilities.mdsinfo */,
+				528067820B78E98600D02C3A /* piv_csp_capabilities_common.mds */,
+				528067830B78E98600D02C3A /* piv_csp_primary.mdsinfo */,
+				528067840B78E98600D02C3A /* piv_dl_primary.mdsinfo */,
+				528067850B78E98600D02C3A /* piv_smartcard.mdsinfo */,
+			);
+			name = mds;
+			path = PIV/mds;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		52B2604C0BC5A864007E00F1 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B2604D0BC5A864007E00F1 /* Adornment.h in Headers */,
+				52B2604E0BC5A864007E00F1 /* Attribute.h in Headers */,
+				52B2604F0BC5A864007E00F1 /* AttributeCoder.h in Headers */,
+				52B260500BC5A864007E00F1 /* Cursor.h in Headers */,
+				52B260510BC5A864007E00F1 /* DbValue.h in Headers */,
+				52B260520BC5A864007E00F1 /* KeyHandle.h in Headers */,
+				52B260530BC5A864007E00F1 /* MetaAttribute.h in Headers */,
+				52B260540BC5A864007E00F1 /* MetaRecord.h in Headers */,
+				52B260550BC5A864007E00F1 /* Record.h in Headers */,
+				52B260560BC5A864007E00F1 /* RecordHandle.h in Headers */,
+				52B260570BC5A864007E00F1 /* Relation.h in Headers */,
+				52B260580BC5A864007E00F1 /* SCardError.h in Headers */,
+				52B260590BC5A864007E00F1 /* Schema.h in Headers */,
+				52B2605A0BC5A864007E00F1 /* SelectionPredicate.h in Headers */,
+				52B2605B0BC5A864007E00F1 /* Token.h in Headers */,
+				52B2605C0BC5A864007E00F1 /* TokenContext.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		52B2602D0BC5A864007E00F1 /* libtokend */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B260450BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "libtokend" */;
+			buildPhases = (
+				52B260310BC5A864007E00F1 /* Sources */,
+				52B260430BC5A864007E00F1 /* ShellScript */,
+				52B260440BC5A864007E00F1 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52B260DF0BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = libtokend;
+			productName = libtokend;
+			productReference = 52B2604A0BC5A864007E00F1 /* libtokend.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		52B2604B0BC5A864007E00F1 /* tokend */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B2605D0BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "tokend" */;
+			buildPhases = (
+				52B2604C0BC5A864007E00F1 /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tokend;
+			productName = tokend;
+			productReference = 52B260630BC5A864007E00F1 /* tokend.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		52B260640BC5A864007E00F1 /* BELPIC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B260760BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "BELPIC" */;
+			buildPhases = (
+				52B260670BC5A864007E00F1 /* Resources */,
+				52B2606D0BC5A864007E00F1 /* Sources */,
+				52B260740BC5A864007E00F1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52B260E10BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = BELPIC;
+			productName = "Common Access Card";
+			productReference = 52B2607B0BC5A864007E00F1 /* BELPIC.tokend */;
+			productType = "com.apple.product-type.application";
+		};
+		52B2607D0BC5A864007E00F1 /* CAC */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B260910BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "CAC" */;
+			buildPhases = (
+				52B260800BC5A864007E00F1 /* Resources */,
+				52B260860BC5A864007E00F1 /* Sources */,
+				52B2608E0BC5A864007E00F1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52B260E30BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = CAC;
+			productName = "Common Access Card";
+			productReference = 52B260960BC5A864007E00F1 /* CAC.tokend */;
+			productType = "com.apple.product-type.application";
+		};
+		52B260980BC5A864007E00F1 /* MuscleCard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B260B30BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "MuscleCard" */;
+			buildPhases = (
+				52B2609B0BC5A864007E00F1 /* Resources */,
+				52B260A10BC5A864007E00F1 /* Sources */,
+				52B260B10BC5A864007E00F1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52B260E50BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = MuscleCard;
+			productName = MuscleCard;
+			productReference = 52B260B80BC5A864007E00F1 /* MuscleCard.tokend */;
+			productType = "com.apple.product-type.application";
+		};
+		52B260BA0BC5A864007E00F1 /* PIV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 52B260CF0BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "PIV" */;
+			buildPhases = (
+				52B260BD0BC5A864007E00F1 /* Resources */,
+				52B260C30BC5A864007E00F1 /* Sources */,
+				52B260CC0BC5A864007E00F1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				52B260E70BC5A864007E00F1 /* PBXTargetDependency */,
+			);
+			name = PIV;
+			productName = "Common Access Card";
+			productReference = 52B260D40BC5A864007E00F1 /* PIV.tokend */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = C27AD2220987FCDC001272E0 /* Build configuration list for PBXProject "Tokend" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* TokendMuscle */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				52B2601F0BC5A864007E00F1 /* world */,
+				52B2602D0BC5A864007E00F1 /* libtokend */,
+				52B2604B0BC5A864007E00F1 /* tokend */,
+				52B260640BC5A864007E00F1 /* BELPIC */,
+				52B2607D0BC5A864007E00F1 /* CAC */,
+				52B260980BC5A864007E00F1 /* MuscleCard */,
+				52B260BA0BC5A864007E00F1 /* PIV */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		52B260670BC5A864007E00F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260680BC5A864007E00F1 /* belpic_csp_capabilities.mdsinfo in Resources */,
+				52B260690BC5A864007E00F1 /* belpic_csp_capabilities_common.mds in Resources */,
+				52B2606A0BC5A864007E00F1 /* belpic_csp_primary.mdsinfo in Resources */,
+				52B2606B0BC5A864007E00F1 /* belpic_dl_primary.mdsinfo in Resources */,
+				52B2606C0BC5A864007E00F1 /* belpic_smartcard.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260800BC5A864007E00F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260810BC5A864007E00F1 /* cac_csp_capabilities.mdsinfo in Resources */,
+				52B260820BC5A864007E00F1 /* cac_csp_capabilities_common.mds in Resources */,
+				52B260830BC5A864007E00F1 /* cac_csp_primary.mdsinfo in Resources */,
+				52B260840BC5A864007E00F1 /* cac_dl_primary.mdsinfo in Resources */,
+				52B260850BC5A864007E00F1 /* cac_smartcard.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B2609B0BC5A864007E00F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B2609C0BC5A864007E00F1 /* musclecard_csp_capabilities.mdsinfo in Resources */,
+				52B2609D0BC5A864007E00F1 /* musclecard_csp_capabilities_common.mds in Resources */,
+				52B2609E0BC5A864007E00F1 /* musclecard_csp_primary.mdsinfo in Resources */,
+				52B2609F0BC5A864007E00F1 /* musclecard_dl_primary.mdsinfo in Resources */,
+				52B260A00BC5A864007E00F1 /* musclecard_smartcard.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260BD0BC5A864007E00F1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260BE0BC5A864007E00F1 /* piv_csp_capabilities.mdsinfo in Resources */,
+				52B260BF0BC5A864007E00F1 /* piv_csp_capabilities_common.mds in Resources */,
+				52B260C00BC5A864007E00F1 /* piv_csp_primary.mdsinfo in Resources */,
+				52B260C10BC5A864007E00F1 /* piv_dl_primary.mdsinfo in Resources */,
+				52B260C20BC5A864007E00F1 /* piv_smartcard.mdsinfo in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		52B260430BC5A864007E00F1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tfrmwk=\"${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.framework\"\n\tversa=\"${frmwk}/Versions/A\"\n\tcp \"${BUILT_PRODUCTS_DIR}/lib${PRODUCT_NAME}${postfix}.a\" \"${versa}/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"${versa}/${PRODUCT_NAME}${postfix}\" ${frmwk}/${PRODUCT_NAME}${postfix}\n\tnmedit -p \"${versa}/${PRODUCT_NAME}${postfix}\"\n\tranlib    \"${versa}/${PRODUCT_NAME}${postfix}\"\ndone";
+			showEnvVarsInLog = 0;
+		};
+		52B260440BC5A864007E00F1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\"\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\"\ndone";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		52B260310BC5A864007E00F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260320BC5A864007E00F1 /* Adornment.cpp in Sources */,
+				52B260330BC5A864007E00F1 /* Attribute.cpp in Sources */,
+				52B260340BC5A864007E00F1 /* AttributeCoder.cpp in Sources */,
+				52B260350BC5A864007E00F1 /* Cursor.cpp in Sources */,
+				52B260360BC5A864007E00F1 /* DbValue.cpp in Sources */,
+				52B260370BC5A864007E00F1 /* KeyHandle.cpp in Sources */,
+				52B260380BC5A864007E00F1 /* MetaAttribute.cpp in Sources */,
+				52B260390BC5A864007E00F1 /* MetaRecord.cpp in Sources */,
+				52B2603A0BC5A864007E00F1 /* Record.cpp in Sources */,
+				52B2603B0BC5A864007E00F1 /* RecordHandle.cpp in Sources */,
+				52B2603C0BC5A864007E00F1 /* Relation.cpp in Sources */,
+				52B2603D0BC5A864007E00F1 /* SCardError.cpp in Sources */,
+				52B2603E0BC5A864007E00F1 /* Schema.cpp in Sources */,
+				52B2603F0BC5A864007E00F1 /* SelectionPredicate.cpp in Sources */,
+				52B260400BC5A864007E00F1 /* Token.cpp in Sources */,
+				52B260410BC5A864007E00F1 /* TokenContext.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B2606D0BC5A864007E00F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B2606E0BC5A864007E00F1 /* belpic.cpp in Sources */,
+				52B2606F0BC5A864007E00F1 /* BELPICError.cpp in Sources */,
+				52B260700BC5A864007E00F1 /* BELPICKeyHandle.cpp in Sources */,
+				52B260710BC5A864007E00F1 /* BELPICRecord.cpp in Sources */,
+				52B260720BC5A864007E00F1 /* BELPICSchema.cpp in Sources */,
+				52B260730BC5A864007E00F1 /* BELPICToken.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260860BC5A864007E00F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260870BC5A864007E00F1 /* cac.cpp in Sources */,
+				52B260880BC5A864007E00F1 /* CACAttributeCoder.cpp in Sources */,
+				52B260890BC5A864007E00F1 /* CACError.cpp in Sources */,
+				52B2608A0BC5A864007E00F1 /* CACKeyHandle.cpp in Sources */,
+				52B2608B0BC5A864007E00F1 /* CACRecord.cpp in Sources */,
+				52B2608C0BC5A864007E00F1 /* CACSchema.cpp in Sources */,
+				52B2608D0BC5A864007E00F1 /* CACToken.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260A10BC5A864007E00F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260A20BC5A864007E00F1 /* KeyRecord.cpp in Sources */,
+				52B260A30BC5A864007E00F1 /* musclecard.cpp in Sources */,
+				52B260A40BC5A864007E00F1 /* MuscleCardAttributeCoder.cpp in Sources */,
+				52B260A50BC5A864007E00F1 /* MuscleCardKeyHandle.cpp in Sources */,
+				52B260A60BC5A864007E00F1 /* MuscleCardSchema.cpp in Sources */,
+				52B260A70BC5A864007E00F1 /* MuscleCardToken.cpp in Sources */,
+				52B260A80BC5A864007E00F1 /* TokenRecord.cpp in Sources */,
+				52B260A90BC5A864007E00F1 /* MscACL.cpp in Sources */,
+				52B260AA0BC5A864007E00F1 /* MscError.cpp in Sources */,
+				52B260AB0BC5A864007E00F1 /* MscKey.cpp in Sources */,
+				52B260AC0BC5A864007E00F1 /* MscObject.cpp in Sources */,
+				52B260AD0BC5A864007E00F1 /* MscPIN.cpp in Sources */,
+				52B260AE0BC5A864007E00F1 /* MscToken.cpp in Sources */,
+				52B260AF0BC5A864007E00F1 /* MscTokenConnection.cpp in Sources */,
+				52B260B00BC5A864007E00F1 /* MscWrappers.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		52B260C30BC5A864007E00F1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52B260C40BC5A864007E00F1 /* piv.cpp in Sources */,
+				52B260C50BC5A864007E00F1 /* PIVAttributeCoder.cpp in Sources */,
+				52B260C60BC5A864007E00F1 /* PIVError.cpp in Sources */,
+				52B260C70BC5A864007E00F1 /* PIVKeyHandle.cpp in Sources */,
+				52B260C80BC5A864007E00F1 /* PIVRecord.cpp in Sources */,
+				52B260C90BC5A864007E00F1 /* PIVSchema.cpp in Sources */,
+				52B260CA0BC5A864007E00F1 /* PIVToken.cpp in Sources */,
+				52B260CB0BC5A864007E00F1 /* PIVCCC.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		529252170BC6BEED00816597 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 529252160BC6BEED00816597 /* PBXContainerItemProxy */;
+		};
+		52B260D90BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B260640BC5A864007E00F1 /* BELPIC */;
+			targetProxy = 52B260D80BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260DB0BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2607D0BC5A864007E00F1 /* CAC */;
+			targetProxy = 52B260DA0BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260DD0BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B260BA0BC5A864007E00F1 /* PIV */;
+			targetProxy = 52B260DC0BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260DF0BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2604B0BC5A864007E00F1 /* tokend */;
+			targetProxy = 52B260DE0BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260E10BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 52B260E00BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260E30BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 52B260E20BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260E50BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 52B260E40BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+		52B260E70BC5A864007E00F1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 52B2602D0BC5A864007E00F1 /* libtokend */;
+			targetProxy = 52B260E60BC5A864007E00F1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		52B260290BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		52B2602A0BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = world;
+				SECTORDER_FLAGS = "";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B260460BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = LIMITED_SIGNING;
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "-dead_strip";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = tokend;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		52B260470BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+					nopic,
+				);
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = LIMITED_SIGNING;
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
+				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_LDFLAGS = "-dead_strip";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_nopic = "-mdynamic-no-pic $(OPT_CFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "\U0001$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_nopic = "-mdynamic-no-pic $(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "-dead_strip $(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = tokend;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B2605E0BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-tokend__Upgraded_.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = tokend;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		52B2605F0BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				GCC_DEBUGGING_SYMBOLS = default;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				INFOPLIST_FILE = "Info-tokend__Upgraded_.plist";
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				PRODUCT_NAME = tokend;
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B260770BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = BELPIC/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = BELPIC;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		52B260780BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = BELPIC/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework  tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = BELPIC;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B260920BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = CAC/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = CAC;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		52B260930BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = CAC/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = CAC;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B260B40BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = MuscleCard/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework  tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = MuscleCard;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		52B260B50BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = MuscleCard/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = MuscleCard;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		52B260D00BC5A864007E00F1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_HIDDEN_VIRTUAL_FUNCTIONS = YES;
+				GCC_WARN_INHIBIT_ALL_WARNINGS = NO;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_NON_VIRTUAL_DESTRUCTOR = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_SHADOW = NO;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = PIV/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = PIV;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		52B260D10BC5A864007E00F1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+				);
+				CURRENT_PROJECT_VERSION = 32432;
+				FRAMEWORK_SEARCH_PATHS = (
+					/usr/local/SecurityPieces/Frameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = PIV/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security/tokend";
+				OPT_CPPXFLAGS = "$(OPT_CXFLAGS) -fno-enforce-eh-specs -fno-implement-inlines";
+				OPT_CXFLAGS = "-DNDEBUG $(OPT_INLINEXFLAGS)";
+				OPT_INLINEXFLAGS = " -finline-functions";
+				OPT_LDXFLAGS = "-dead_strip";
+				OPT_LDXNOPIC = ",_nopic";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS) -DNDEBUG";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CXFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CXFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CPLUSPLUSFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPXFLAGS) $(OTHER_CPLUSPLUSFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS) -framework tokend,_debug -framework PCSC,_debug -framework SecurityTokend,_debug -framework Security,_debug -framework security_cdsa_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug";
+				OTHER_LDFLAGS_normal = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -framework tokend -framework PCSC -framework SecurityTokend -framework Security -framework security_cdsa_client$(OPT_LDXNOPIC) -framework security_cdsa_utilities$(OPT_LDXNOPIC) -framework security_utilities$(OPT_LDXNOPIC)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDXFLAGS) $(OTHER_LDFLAGS) -pg -framework tokend,_profile -framework PCSC,_profile -framework SecurityTokend,_profile -framework Security,_profile -framework security_cdsa_client,_profile  -framework security_cdsa_utilities,_profile -framework security_utilities,_profile";
+				PRODUCT_NAME = PIV;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = tokend;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		C27AD2230987FCDC001272E0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Development;
+		};
+		C27AD2240987FCDC001272E0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
+				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		52B260280BC5A864007E00F1 /* Build configuration list for PBXAggregateTarget "world" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260290BC5A864007E00F1 /* Development */,
+				52B2602A0BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B260450BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "libtokend" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260460BC5A864007E00F1 /* Development */,
+				52B260470BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B2605D0BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "tokend" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B2605E0BC5A864007E00F1 /* Development */,
+				52B2605F0BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B260760BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "BELPIC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260770BC5A864007E00F1 /* Development */,
+				52B260780BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B260910BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "CAC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260920BC5A864007E00F1 /* Development */,
+				52B260930BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B260B30BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "MuscleCard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260B40BC5A864007E00F1 /* Development */,
+				52B260B50BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		52B260CF0BC5A864007E00F1 /* Build configuration list for PBXNativeTarget "PIV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52B260D00BC5A864007E00F1 /* Development */,
+				52B260D10BC5A864007E00F1 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		C27AD2220987FCDC001272E0 /* Build configuration list for PBXProject "Tokend" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C27AD2230987FCDC001272E0 /* Development */,
+				C27AD2240987FCDC001272E0 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

@@ -28,37 +28,29 @@
  * and their ilk.
  */
 
-#if !defined(_INTTYPES_H_)
-#define _INTTYPES_H_
-
-#include <sys/cdefs.h>		/* For __BEGIN_DECLS and __END_DECLS */
-#include <_types.h>		/* For __darwin_wchar_t */
-#include <stdint.h>
-
-#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 199901L)
-  /* Translator is not ISO/IEC 9899:1999-compliant. */
-#  if !defined(restrict)
-#    define restrict
-#    define __RESTRICT_KEYWORD_DEFINED__
-#  endif
-#endif
-
 /* "C++ implementations should define these macros only when
  *  __STDC_FORMAT_MACROS is defined before <inttypes.h> is included."
  */
-#if (! defined(__cplusplus)) || defined(__STDC_FORMAT_MACROS)
+#if (!defined(__cplusplus) || defined(__STDC_FORMAT_MACROS)) && !defined(__STDC_FORMAT_MACROS_DEFINED)
+#define __STDC_FORMAT_MACROS_DEFINED
 
 #  undef __PRI_8_LENGTH_MODIFIER__
 #  undef __PRI_64_LENGTH_MODIFIER__
 #  undef __SCN_64_LENGTH_MODIFIER__
 
+#  if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0 > 1020
+#    define __PRI_8_LENGTH_MODIFIER__ "hh"
+#    define __PRI_64_LENGTH_MODIFIER__ "ll"
+#    define __SCN_64_LENGTH_MODIFIER__ "ll"
+#  else
 /* These could be "hh", "ll", and "ll" respectively, but that doesn't work on
    10.2, and these do.  Note that there's no way to use scanf to scan a
    decimal into a 'char' argument on 10.2, so "hh" is used unconditionally
    and programs that use it won't work on Jaguar.  */
-#  define __PRI_8_LENGTH_MODIFIER__ ""  /* none */
-#  define __PRI_64_LENGTH_MODIFIER__ "q"
-#  define __SCN_64_LENGTH_MODIFIER__ "q"
+#    define __PRI_8_LENGTH_MODIFIER__ ""  /* none */
+#    define __PRI_64_LENGTH_MODIFIER__ "q"
+#    define __SCN_64_LENGTH_MODIFIER__ "q"
+#  endif
 #  define __PRI_MAX_LENGTH_MODIFIER__ "j"
 #  define __SCN_MAX_LENGTH_MODIFIER__ "j"
 
@@ -161,11 +153,19 @@
 #  define PRIxMAX        __PRI_MAX_LENGTH_MODIFIER__ "x"
 #  define PRIXMAX        __PRI_MAX_LENGTH_MODIFIER__ "X"
 
-#  define SCNd8         "hhd"
-#  define SCNi8         "hhi"
-#  define SCNo8         "hho"
-#  define SCNu8         "hhu"
-#  define SCNx8         "hhx"
+#  if __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0 > 1020
+#    define SCNd8         __PRI_8_LENGTH_MODIFIER__ "d"
+#    define SCNi8         __PRI_8_LENGTH_MODIFIER__ "i"
+#    define SCNo8         __PRI_8_LENGTH_MODIFIER__ "o"
+#    define SCNu8         __PRI_8_LENGTH_MODIFIER__ "u"
+#    define SCNx8         __PRI_8_LENGTH_MODIFIER__ "x"
+#  else
+#    define SCNd8         "hhd"
+#    define SCNi8         "hhi"
+#    define SCNo8         "hho"
+#    define SCNu8         "hhu"
+#    define SCNx8         "hhx"
+#  endif
 
 #  define SCNd16        "hd"
 #  define SCNi16        "hi"
@@ -247,6 +247,21 @@
 
 #endif /* if C++, then __STDC_FORMAT_MACROS enables the above macros */
 
+#if !defined(_INTTYPES_H_)
+#define _INTTYPES_H_
+
+#include <sys/cdefs.h>		/* For __BEGIN_DECLS and __END_DECLS */
+#include <_types.h>		/* For __darwin_wchar_t */
+#include <stdint.h>
+
+#if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 199901L)
+  /* Translator is not ISO/IEC 9899:1999-compliant. */
+#  if !defined(restrict)
+#    define restrict
+#    define __RESTRICT_KEYWORD_DEFINED__
+#  endif
+#endif
+
 __BEGIN_DECLS
 
   /* 7.8.2.1 */
@@ -274,6 +289,11 @@ __BEGIN_DECLS
   /* 7.8.2.4 */
   extern intmax_t wcstoimax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);
   extern uintmax_t wcstoumax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);
+
+/* Poison the following routines if -fshort-wchar is set */
+#if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
+#pragma GCC poison wcstoimax wcstoumax
+#endif
 
 __END_DECLS
 

@@ -1,0 +1,24 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2007-02-07</string>
+	<key>OpenSourceProject</key>
+	<string>binutils</string>
+	<key>OpenSourceVersion</key>
+	<string>070207</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://sourceware.org/binutils/</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://sourceware.org/pub/binutils/snapshots/binutils-070207.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>2b2e45016dc551e0442902934204ae5d</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>cxxfilt.txt</string>
+</dict>
+</array>
+</plist>

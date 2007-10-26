@@ -3,36 +3,35 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -41,11 +40,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -61,6 +56,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -83,6 +80,7 @@
 			isa = PBXGroup;
 			name = AppleI2C;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -102,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleI2C;
-				MODULE_VERSION = 3.5.0d2;
+				MODULE_VERSION = 4.0.0d2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -128,7 +126,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleI2C</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleI2C version 3.5.0, Copyright 2003-2005 Apple Computer, Inc.</string>
+	<string>AppleI2C version 4.0.0, Copyright 2003-2005 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -140,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.5.0</string>
+	<string>4.0.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>3.5.0d2</string>
+	<string>4.0.0d2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>MacIOAppleI2C</key>
@@ -263,6 +261,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //080
 //081
@@ -275,9 +274,11 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleI2C.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
@@ -297,6 +298,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -320,12 +322,30 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
 //242
 //243
 //244
+//610
+//611
+//612
+//613
+//614
+		610D57AF087C8E6400BC2218 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 70A6691CFFF1B3B311CA2CAD;
+			remoteInfo = cpyhdr;
+		};
+//610
+//611
+//612
+//613
+//614
 //6C0
 //6C1
 //6C2
@@ -334,14 +354,18 @@
 		6CAA18FCFFF1ABBA11CA2CAD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = PPCI2CInterface.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		6CAA18FDFFF1ABBA11CA2CAD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PPCI2CInterface.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		6CAA18FEFFF1ABBA11CA2CAD = {
 			fileRef = 6CAA18FDFFF1ABBA11CA2CAD;
@@ -368,9 +392,11 @@
 //703
 //704
 		70A6691BFFF1B3B311CA2CAD = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = cpyhdr;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		70A6691CFFF1B3B311CA2CAD = {
 			buildPhases = (
@@ -444,6 +470,7 @@
 		70A66924FFF1B40711CA2CAD = {
 			isa = PBXTargetDependency;
 			target = 70A6691CFFF1B3B311CA2CAD;
+			targetProxy = 610D57AF087C8E6400BC2218;
 		};
 //700
 //701
@@ -458,8 +485,10 @@
 		DDE7AE15035F6FDB0DCE1A6A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = I2CUserClient.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		DDE7AE16035F6FDB0DCE1A6A = {
 			fileRef = DDE7AE15035F6FDB0DCE1A6A;
@@ -470,8 +499,10 @@
 		DDE7AE17035F6FF50DCE1A6A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = I2CUserClient.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		DDE7AE18035F6FF50DCE1A6A = {
 			fileRef = DDE7AE17035F6FF50DCE1A6A;
@@ -482,8 +513,10 @@
 		DDE7AE19035F70060DCE1A6A = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = I2CUserClientPrivate.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		DDE7AE1A035F70060DCE1A6A = {
 			fileRef = DDE7AE19035F70060DCE1A6A;

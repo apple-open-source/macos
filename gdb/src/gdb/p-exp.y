@@ -523,7 +523,7 @@ exp	:	THIS
 			  /* we need type of this */
 			  this_val = value_of_this (0); 
 			  if (this_val)
-			    this_type = this_val->type;
+			    this_type = value_type (this_val);
 			  else
 			    this_type = NULL;
 			  if (this_type)
@@ -674,7 +674,7 @@ variable:	name_not_typename
 			      /* we need type of this */
 			      this_val = value_of_this (0); 
 			      if (this_val)
-				this_type = this_val->type;
+				this_type = value_type (this_val);
 			      else
 				this_type = NULL;
 			      if (this_type)
@@ -1613,8 +1613,11 @@ yylex ()
 #endif /* not 0 */
 	  return TYPENAME;
         }
-    if ((yylval.tsym.type = lookup_primitive_typename (tmp)) != 0)
-	return TYPENAME;
+    yylval.tsym.type
+      = language_lookup_primitive_type_by_name (current_language,
+						current_gdbarch, tmp);
+    if (yylval.tsym.type != NULL)
+      return TYPENAME;
 
     /* Input names that aren't symbols but ARE valid hex numbers,
        when the input radix permits them, can be names or numbers

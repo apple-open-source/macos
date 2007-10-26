@@ -1,0 +1,231 @@
+#!/usr/bin/perl
+
+$target=shift @ARGV;
+$ENV{DESTDIR}=$ENV{DSTROOT};
+
+sub sys_print {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    die "returned code $retval" if $retval;
+}
+
+sub sys_print_nodie {
+    $command=shift;
+    print "$command\n";
+    system $command;
+    $retval=$? >> 8;
+    print "returned code $retval\n" if $retval;
+}
+
+if($target eq 'installsrc') {
+    sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
+    sys_print("ditto . $ENV{SRCROOT}");
+    chdir($ENV{SRCROOT});
+    foreach $module (glob('*')) {
+        next if $module =~ /build/;
+        next if $module =~ /Make/;
+        next if $module =~ /uvn/;
+        next if $module =~ /\./;
+        print "installing source for $module\n";
+        chdir($module);
+        sys_print("../uvn extract; ../uvn patch");
+        chdir('..');
+    }
+    exit();
+}
+
+if($target eq 'clean') {
+    print "Cleaning out directory $ENV{SRCROOT}\n";
+    chdir($ENV{SRCROOT});
+    sys_print("find . -name .svn | xargs rm -rf");
+    sys_print("find . -name .uvn | xargs rm -rf");
+    sys_print("find . -name \"*.gz\" | xargs rm");
+    sys_print("find . -name \"*.bz2\" | xargs rm");
+    sys_print("find . -name patches | xargs rm -rf");
+    exit();
+}
+
+if($target eq 'install') {
+    print "Install phase: \n";
+    sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
+    sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
+    $ENV{DESTDIR}=$ENV{DSTROOT};
+    
+    $prefix="/usr/X11";
+
+    ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
+
+# Must create local aclocal dir or aclocal fails
+    $ACLOCAL_LOCALDIR="$ENV{DSTROOT}$prefix/share/aclocal";
+    system "mkdir -p $ACLOCAL_LOCALDIR";
+    
+# The following is required to make aclocal find our .m4 macros
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
+    
+# The following is required to make pkg-config find our .pc metadata files
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+    
+# Set the library path so that locally built libs will be found by apps
+    $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$prefix/lib/:$ENV{LD_LIBRARY_PATH}";
+    
+    $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}";
+    
+# Set the default font path for xserver/xorg unless it's already set
+    $ENV{FONTPATH}="$prefix/lib/X11/fonts/misc/,$prefix/lib/X11/fonts/Type1/,$prefix/lib/X11/fonts/75dpi/,$prefix/lib/X11/fonts/100dpi/,$prefix/lib/X11/fonts/cyrillic/,$prefix/lib/X11/fonts/TTF/";
+    
+    foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
+	$arch_flags .= " -arch $arch ";
+    }
+    $ENV{CC}="gcc -I$ENV{DSTROOT}$prefix/include ";
+    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -g3 -pipe $arch_flags -O3 ";
+    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags";
+    $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
+     
+    build_lib();
+    
+    fix_la_reverse();
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.so.*");
+    lipo64("$ENV{DSTROOT}$prefix/bin/cxpm");
+    lipo64("$ENV{DSTROOT}$prefix/bin/sxpm");
+    lipo64("$ENV{DSTROOT}$prefix/bin/makestrs");
+    make_dsyms();
+}
+
+sub get_workdir {
+    foreach (glob('*')) {
+	if(-e "$_/configure") {
+	    return $_;
+	}
+    }
+    die "Unable to determine workdir";
+}
+
+sub build {
+    ($module)=@_;
+    $m1=$module;
+
+    print("build($module): ");
+    
+    die "$module not found" unless -e "$ENV{SRCROOT}/$module";
+    chdir ("$ENV{SRCROOT}/$module");
+    $full_path="$module/".get_workdir();
+    sys_print("mkdir -p $ENV{OBJROOT}/$full_path");
+    sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
+
+    chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("autoreconf -fvi");
+    print "Configuring...\n";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --datarootdir=$prefix/share --mandir=/usr/X11/man ";
+
+    $conf_flags_path=$ENV{SRCROOT}."/$dir/$module/conf_flags";
+    $post_config_path=$ENV{SRCROOT}."/$dir/$module/post_config";
+
+    if(-e $conf_flags_path) {
+	$conf_flags .= `cat $conf_flags_path`;
+	chomp $conf_flags;
+    }
+
+    sys_print("./configure $conf_flags");
+    sys_print("make -j2");
+    sys_print("make install");
+    fix_la();
+    sys_print_nodie("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+    chdir('../..');
+}
+
+
+#); All protocol modules must be installed before the libs (okay, that's an
+# overstatement, but all protocol modules should be installed anyway)
+#
+# the libraries have a dependency order:
+# xtrans, Xau, Xdmcp before anything else
+# fontenc before Xfont
+# ICE before SM
+# X11 before Xext
+# (X11 and SM) before Xt
+# Xt before Xmu and Xpm
+# Xext before any other extension library
+# Xfixes before Xcomposite
+# Xp before XprintUtil before XprintAppUtil
+sub build_lib {
+    build('libpng');
+    build("xtrans");
+    build("libpthread-stubs");
+    build("libXau");
+    build("libxcb");
+    build("libXdmcp");
+    build("libX11");
+    build("libXext");
+    build("libAppleWM");
+    build("libdmx");
+    build("libfontenc");
+    build("libFS");
+    build("libICE");
+    build("liblbxutil");
+    build("liboldX");
+    build("libSM");
+    build("libXt");
+    build("libXmu");
+    build("libXpm");
+    build("libXp");
+    build("libXaw");
+    build("libXfixes");
+    build("libXcomposite");
+    build("libXrender");
+    build("libXdamage");
+    build("libXcursor");
+    build("libXevie");
+    build("libXfont");
+    build("libXfontcache");
+    build("libXxf86misc");
+    build("libXxf86vm");
+    build("libXft");
+    build("libXi");
+    build("libXinerama");
+    build("libxkbfile");
+    build("libxkbui");
+    build("libXprintUtil");
+    build("libXprintAppUtil");
+    build("libXrandr");
+    build("libXres");
+    build("libXScrnSaver");
+    build("libXTrap");
+    build("libXtst");
+    build("libXv");
+    build("libXvMC");
+}
+
+sub make_dsyms {
+    open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
+    while(<FIND>) {
+	if(/(.*): .*Mach-O/) {
+	    $basename=$1;
+	    $fullname=$1;
+	    $basename =~ s/\/.*\///;
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullname");
+	    sys_print_nodie("strip -S $fullname");
+	}
+    }
+    close FIND;
+}
+
+sub fix_la {
+    sys_print("sed -i.bak 's_libdir=.*_libdir=$ENV{DSTROOT}$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("sed -i.bak 's_ ".$prefix."_ ".$ENV{DSTROOT}.$prefix."_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+}
+
+sub fix_la_reverse {
+    sys_print("sed -i.bak 's_libdir=.*_libdir=$prefix/lib_' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
+    sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
+}
+
+sub lipo64 {
+    $fname=shift;
+    sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
+    sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
+}

@@ -1,0 +1,15 @@
+Quản trị hộp thư chung %(listname)s mời bạn (địa chỉ thư « %(email)s ») tham gia hộp thư chung %(listname)s tại %(hostname)s.
+
+Bạn có thể chấp nhận lời mời này bằng cách đơn giản trả lời thư này, không thay đổi dòng đầu Chủ đề (Subject:).
+
+Hoặc có thể thăm trang Mạng này:
+
+    %(confirmurl)s
+
+Hoặc bạn có thể gồm dòng theo đây (chỉ dòng theo đây) trong thư được gởi cho %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Ghi chú rằng việc đơn giản trả lời thư này nên hoạt động trong phần lớn trình thư.
+
+Nếu bạn không muốn chấp nhận lời mời này, vui lòng đơn giản bỏ qua thư này. Mỗi câu hỏi, vui lòng gởi thư cho %(listowner)s.

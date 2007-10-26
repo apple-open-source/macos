@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -129,6 +129,12 @@ public:
      */
 
     virtual IOCDBlockStorageDriver * getProvider() const;
+
+    /*
+     * Compare the properties in the supplied table to this object's properties.
+     */
+
+    virtual bool matchPropertyTable(OSDictionary * table, SInt32 * score);
 
     /*!
      * @function read

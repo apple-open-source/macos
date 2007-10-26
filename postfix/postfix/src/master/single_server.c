@@ -99,6 +99,8 @@
 /*	This service must be configured with process limit of 1.
 /* .IP MAIL_SERVER_UNLIMITED
 /*	This service must be configured with process limit of 0.
+/* .IP MAIL_SERVER_PRIVILEGED
+/*	This service must be configured as privileged.
 /* .PP
 /*	The var_use_limit variable limits the number of clients that
 /*	a server can service before it commits suicide.
@@ -134,6 +136,7 @@
 #include <signal.h>
 #include <syslog.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -141,11 +144,13 @@
 #ifdef STRCASECMP_IN_STRINGS_H
 #include <strings.h>
 #endif
+#include <time.h>
 
 /* Utility library. */
 
 #include <msg.h>
 #include <msg_syslog.h>
+#include <msg_vstream.h>
 #include <chroot_uid.h>
 #include <vstring.h>
 #include <vstream.h>
@@ -193,6 +198,7 @@ static void (*single_server_onexit) (char *, char **);
 static void (*single_server_pre_accept) (char *, char **);
 static VSTREAM *single_server_lock;
 static int single_server_in_flow_delay;
+static unsigned single_server_generation;
 
 /* single_server_exit - normal termination */
 
@@ -232,7 +238,8 @@ static void single_server_wakeup(int fd)
      * If the accept() succeeds, be sure to disable non-blocking I/O, because
      * the application is supposed to be single-threaded. Notice the master
      * of our (un)availability to service connection requests. Commit suicide
-     * when the master process disconnected from us.
+     * when the master process disconnected from us. Don't drop the already
+     * accepted client request after "postfix reload"; that would be rude.
      */
     if (msg_verbose)
 	msg_info("connection established");
@@ -243,13 +250,13 @@ static void single_server_wakeup(int fd)
     vstream_control(stream, VSTREAM_CTL_PATH, tmp, VSTREAM_CTL_END);
     myfree(tmp);
     timed_ipc_setup(stream);
-    if (master_notify(var_pid, MASTER_STAT_TAKEN) < 0)
-	single_server_abort(EVENT_NULL_TYPE, EVENT_NULL_CONTEXT);
+    if (master_notify(var_pid, single_server_generation, MASTER_STAT_TAKEN) < 0)
+	 /* void */ ;
     if (single_server_in_flow_delay && mail_flow_get(1) < 0)
 	doze(var_in_flow_delay * 1000000);
     single_server_service(stream, single_server_name, single_server_argv);
     (void) vstream_fclose(stream);
-    if (master_notify(var_pid, MASTER_STAT_AVAIL) < 0)
+    if (master_notify(var_pid, single_server_generation, MASTER_STAT_AVAIL) < 0)
 	single_server_abort(EVENT_NULL_TYPE, EVENT_NULL_CONTEXT);
     if (msg_verbose)
 	msg_info("connection closed");
@@ -284,13 +291,51 @@ static void single_server_accept_local(int unused_event, char *context)
 	msg_fatal("select unlock: %m");
     if (fd < 0) {
 	if (errno != EAGAIN)
-	    msg_fatal("accept connection: %m");
+	    msg_error("accept connection: %m");
 	if (time_left >= 0)
 	    event_request_timer(single_server_timeout, (char *) 0, time_left);
 	return;
     }
     single_server_wakeup(fd);
 }
+
+#ifdef MASTER_XPORT_NAME_PASS
+
+/* single_server_accept_pass - accept descriptor */
+
+static void single_server_accept_pass(int unused_event, char *context)
+{
+    int     listen_fd = CAST_CHAR_PTR_TO_INT(context);
+    int     time_left = -1;
+    int     fd;
+
+    /*
+     * Be prepared for accept() to fail because some other process already
+     * got the connection. We use select() + accept(), instead of simply
+     * blocking in accept(), because we must be able to detect that the
+     * master process has gone away unexpectedly.
+     */
+    if (var_idle_limit > 0)
+	time_left = event_cancel_timer(single_server_timeout, (char *) 0);
+
+    if (single_server_pre_accept)
+	single_server_pre_accept(single_server_name, single_server_argv);
+    fd = PASS_ACCEPT(listen_fd);
+    if (single_server_lock != 0
+	&& myflock(vstream_fileno(single_server_lock), INTERNAL_LOCK,
+		   MYFLOCK_OP_NONE) < 0)
+	msg_fatal("select unlock: %m");
+    if (fd < 0) {
+	if (errno != EAGAIN)
+	    msg_error("accept connection: %m");
+	if (time_left >= 0)
+	    event_request_timer(single_server_timeout, (char *) 0, time_left);
+	return;
+    }
+    single_server_wakeup(fd);
+}
+
+#endif
 
 /* single_server_accept_inet - accept client connection request */
 
@@ -318,7 +363,7 @@ static void single_server_accept_inet(int unused_event, char *context)
 	msg_fatal("select unlock: %m");
     if (fd < 0) {
 	if (errno != EAGAIN)
-	    msg_fatal("accept connection: %m");
+	    msg_error("accept connection: %m");
 	if (time_left >= 0)
 	    event_request_timer(single_server_timeout, (char *) 0, time_left);
 	return;
@@ -330,11 +375,12 @@ static void single_server_accept_inet(int unused_event, char *context)
 
 NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 {
-    char   *myname = "single_server_main";
+    const char *myname = "single_server_main";
     VSTREAM *stream = 0;
     char   *root_dir = 0;
     char   *user_name = 0;
     int     debug_me = 0;
+    int     daemon_mode = 1;
     char   *service_name = basename(argv[0]);
     int     delay;
     int     c;
@@ -352,6 +398,9 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
     int     zerolimit = 0;
     WATCHDOG *watchdog;
     char   *oval;
+    char   *generation;
+    int     msg_vstream_needed = 0;
+    int     redo_syslog_init = 0;
 
     /*
      * Process environment options as early as we can.
@@ -403,10 +452,13 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
      * stderr, because no-one is going to see them.
      */
     opterr = 0;
-    while ((c = GETOPT(argc, argv, "cDi:lm:n:o:s:St:uvz")) > 0) {
+    while ((c = GETOPT(argc, argv, "cdDi:lm:n:o:s:St:uvVz")) > 0) {
 	switch (c) {
 	case 'c':
 	    root_dir = "setme";
+	    break;
+	case 'd':
+	    daemon_mode = 0;
 	    break;
 	case 'D':
 	    debug_me = 1;
@@ -424,9 +476,12 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 	    service_name = optarg;
 	    break;
 	case 'o':
+	    /* XXX Use split_nameval() */
 	    if ((oval = split_at(optarg, '=')) == 0)
 		oval = "";
 	    mail_conf_update(optarg, oval);
+	    if (strcmp(optarg, VAR_SYSLOG_NAME) == 0)
+		redo_syslog_init = 1;
 	    break;
 	case 's':
 	    if ((socket_count = atoi(optarg)) <= 0)
@@ -444,6 +499,10 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 	case 'v':
 	    msg_verbose++;
 	    break;
+	case 'V':
+	    if (++msg_vstream_needed == 1)
+		msg_vstream_init(mail_task(var_procname), VSTREAM_ERR);
+	    break;
 	case 'z':
 	    zerolimit = 1;
 	    break;
@@ -457,6 +516,16 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
      * Initialize generic parameters.
      */
     mail_params_init();
+    if (redo_syslog_init)
+	msg_syslog_init(mail_task(var_procname), LOG_PID, LOG_FACILITY);
+
+    /*
+     * If not connected to stdin, stdin must not be a terminal.
+     */
+    if (daemon_mode && stream == 0 && isatty(STDIN_FILENO)) {
+	msg_vstream_init(var_procname, VSTREAM_ERR);
+	msg_fatal("do not run this command by hand");
+    }
 
     /*
      * Application-specific initialization.
@@ -498,13 +567,18 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 	    single_server_in_flow_delay = 1;
 	    break;
 	case MAIL_SERVER_SOLITARY:
-	    if (!alone)
+	    if (stream == 0 && !alone)
 		msg_fatal("service %s requires a process limit of 1",
 			  service_name);
 	    break;
 	case MAIL_SERVER_UNLIMITED:
-	    if (!zerolimit)
+	    if (stream == 0 && !zerolimit)
 		msg_fatal("service %s requires a process limit of 0",
+			  service_name);
+	    break;
+	case MAIL_SERVER_PRIVILEGED:
+	    if (user_name)
+		msg_fatal("service %s requires privileged operation",
 			  service_name);
 	    break;
 	default:
@@ -519,14 +593,6 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 	user_name = var_mail_owner;
 
     /*
-     * If not connected to stdin, stdin must not be a terminal.
-     */
-    if (stream == 0 && isatty(STDIN_FILENO)) {
-	msg_vstream_init(var_procname, VSTREAM_ERR);
-	msg_fatal("do not run this command by hand");
-    }
-
-    /*
      * Can options be required?
      */
     if (stream == 0) {
@@ -536,8 +602,24 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
 	    single_server_accept = single_server_accept_inet;
 	else if (strcasecmp(transport, MASTER_XPORT_NAME_UNIX) == 0)
 	    single_server_accept = single_server_accept_local;
+#ifdef MASTER_XPORT_NAME_PASS
+	else if (strcasecmp(transport, MASTER_XPORT_NAME_PASS) == 0)
+	    single_server_accept = single_server_accept_pass;
+#endif
 	else
 	    msg_fatal("unsupported transport type: %s", transport);
+    }
+
+    /*
+     * Retrieve process generation from environment.
+     */
+    if ((generation = getenv(MASTER_GEN_NAME)) != 0) {
+	if (!alldig(generation))
+	    msg_fatal("bad generation: %s", generation);
+	OCTAL_TO_UNSIGNED(single_server_generation, generation);
+	if (msg_verbose)
+	    msg_info("process generation: %s (%o)",
+		     generation, single_server_generation);
     }
 
     /*
@@ -583,6 +665,7 @@ NORETURN single_server_main(int argc, char **argv, SINGLE_SERVER_FN service,...)
      * Optionally, restrict the damage that this process can do.
      */
     resolve_local_init();
+    tzset();
     chroot_uid(root_dir, user_name);
 
     /*

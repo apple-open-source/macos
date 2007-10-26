@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 
 """Mixin class for putting new messages in the right place for archival.
@@ -25,6 +25,7 @@ archival.
 import os
 import errno
 import traceback
+import re
 from cStringIO import StringIO
 
 from Mailman import mm_cfg
@@ -135,15 +136,15 @@ class Archiver:
                             self.internal_name() + '.mbox')
 
     def GetBaseArchiveURL(self):
+        url = self.GetScriptURL('private', absolute=1) + '/'
         if self.archive_private:
-            return self.GetScriptURL('private', absolute=1) + '/'
+            return url
         else:
-            inv = {}
-            for k, v in mm_cfg.VIRTUAL_HOSTS.items():
-                inv[v] = k
+            hostname = re.match('[^:]*://([^/]*)/.*', url).group(1)\
+                       or mm_cfg.DEFAULT_URL_HOST
             url = mm_cfg.PUBLIC_ARCHIVE_URL % {
                 'listname': self.internal_name(),
-                'hostname': inv.get(self.host_name, mm_cfg.DEFAULT_URL_HOST),
+                'hostname': hostname
                 }
             if not url.endswith('/'):
                 url += '/'

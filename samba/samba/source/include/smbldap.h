@@ -22,6 +22,8 @@
 #ifndef _SMBLDAP_H
 #define _SMBLDAP_H
 
+struct smbldap_state;
+
 #ifdef HAVE_LDAP
 
 /* specify schema versions between 2.2. and 3.0 */
@@ -38,6 +40,7 @@
 #define LDAP_OBJ_IDPOOL			"sambaUnixIdPool"
 #define LDAP_OBJ_IDMAP_ENTRY		"sambaIdmapEntry"
 #define LDAP_OBJ_SID_ENTRY		"sambaSidEntry"
+#define LDAP_OBJ_TRUST_PASSWORD         "sambaTrustPassword"
 
 #define LDAP_OBJ_ACCOUNT		"account"
 #define LDAP_OBJ_POSIXACCOUNT		"posixAccount"
@@ -93,10 +96,13 @@
 #define LDAP_ATTR_LOGON_COUNT		36
 #define LDAP_ATTR_MUNGED_DIAL		37
 #define LDAP_ATTR_BAD_PASSWORD_TIME	38
-#define LDAP_ATTR_PWD_HISTORY		39
+#define LDAP_ATTR_PWD_HISTORY           39
 #define LDAP_ATTR_SID_LIST		40
-#define LDAP_ATTR_MOD_TIMESTAMP		41
-#define LDAP_ATTR_LOGON_HOURS		42
+#define LDAP_ATTR_MOD_TIMESTAMP         41
+#define LDAP_ATTR_LOGON_HOURS		42 
+#define LDAP_ATTR_TRUST_PASSWD_FLAGS    43
+#define LDAP_ATTR_SN			44
+
 
 typedef struct _attrib_map_entry {
 	int		attrib;
@@ -115,13 +121,18 @@ extern ATTRIB_MAP_ENTRY groupmap_attr_list[];
 extern ATTRIB_MAP_ENTRY groupmap_attr_list_to_delete[];
 extern ATTRIB_MAP_ENTRY idpool_attr_list[];
 extern ATTRIB_MAP_ENTRY sidmap_attr_list[];
+extern ATTRIB_MAP_ENTRY trustpw_attr_list[];
+
 
 /* Function declarations -- not included in proto.h so we don't
    have to worry about LDAP structure types */
 
+NTSTATUS smbldap_init(TALLOC_CTX *mem_ctx,
+                      const char *location,
+                      struct smbldap_state **smbldap_state);
+
 const char* get_attr_key2string( ATTRIB_MAP_ENTRY table[], int key );
-char** get_attr_list( ATTRIB_MAP_ENTRY table[] );
-void free_attr_list( char **list );
+const char** get_attr_list( TALLOC_CTX *mem_ctx, ATTRIB_MAP_ENTRY table[] );
 void smbldap_set_mod (LDAPMod *** modlist, int modop, const char *attribute, const char *value);
 void smbldap_make_mod(LDAP *ldap_struct, LDAPMessage *existing,
 		      LDAPMod ***mods,
@@ -131,6 +142,10 @@ BOOL smbldap_get_single_attribute (LDAP * ldap_struct, LDAPMessage * entry,
 				   int max_len);
 BOOL smbldap_get_single_pstring (LDAP * ldap_struct, LDAPMessage * entry,
 				 const char *attribute, pstring value);
+char *smbldap_get_dn(LDAP *ld, LDAPMessage *entry);
+int smbldap_modify(struct smbldap_state *ldap_state,
+                   const char *dn,
+                   LDAPMod *attrs[]);
 
 /**
  * Struct to keep the state for all the ldap stuff 
@@ -139,11 +154,17 @@ BOOL smbldap_get_single_pstring (LDAP * ldap_struct, LDAPMessage * entry,
 
 struct smbldap_state {
 	LDAP *ldap_struct;
+	pid_t pid;
 	time_t last_ping;
 	/* retrive-once info */
 	const char *uri;
+
+	/* credentials */
+	BOOL anonymous;
 	char *bind_dn;
 	char *bind_secret;
+
+	BOOL paged_results;
 
 	unsigned int num_failures;
 
@@ -153,10 +174,53 @@ struct smbldap_state {
 	struct timeval last_rebind;
 };
 
+/* struct used by both pdb_ldap.c and pdb_nds.c */
+
+struct ldapsam_privates {
+	struct smbldap_state *smbldap_state;
+
+	/* Former statics */
+	LDAPMessage *result;
+	LDAPMessage *entry;
+	int index;
+
+	const char *domain_name;
+	DOM_SID domain_sid;
+
+	/* configuration items */
+	int schema_ver;
+
+	char *domain_dn;
+
+	/* Is this NDS ldap? */
+	int is_nds_ldap;
+
+	/* ldap server location parameter */
+	char *location;
+};
+
+/* Functions shared between pdb_ldap.c and pdb_nds.c. */
+NTSTATUS pdb_init_ldapsam_compat( struct pdb_methods **pdb_method, const char *location);
+void private_data_free_fn(void **result);
+int ldapsam_search_suffix_by_name(struct ldapsam_privates *ldap_state,
+                                  const char *user,
+                                  LDAPMessage ** result,
+                                  const char **attr);
+NTSTATUS pdb_init_ldapsam( struct pdb_methods **pdb_method, const char *location);
+const char** get_userattr_list( TALLOC_CTX *mem_ctx, int schema_ver );
+
+char * smbldap_talloc_single_attribute(LDAP *ldap_struct, LDAPMessage *entry,
+				       const char *attribute,
+				       TALLOC_CTX *mem_ctx);
+void talloc_autofree_ldapmsg(TALLOC_CTX *mem_ctx, LDAPMessage *result);
+void talloc_autofree_ldapmod(TALLOC_CTX *mem_ctx, LDAPMod **mod);
+const char *smbldap_talloc_dn(TALLOC_CTX *mem_ctx, LDAP *ld,
+			      LDAPMessage *entry);
+
+
 #endif 	/* HAVE_LDAP */
 
-struct smbldap_state;
-
 #define LDAP_CONNECT_DEFAULT_TIMEOUT   15
+#define LDAP_PAGE_SIZE 1024
 
 #endif	/* _SMBLDAP_H */

@@ -25,9 +25,12 @@
 #ifndef __APPLEUSBCDCACMData__
 #define __APPLEUSBCDCACMData__
 
+#include <IOKit/IOUserClient.h>
+
 #include "AppleUSBCDCCommon.h"
 #include "AppleUSBCDC.h"
 #include "AppleUSBCDCACMControl.h"
+#include "AppleUSBCDCACMDataUser.h"
 
 #define baseName		"usbmodem"
 #define defaultName		"USB Modem"
@@ -210,12 +213,16 @@ private:
 	AppleUSBCDC		*fCDCDriver;			// The CDC driver
 	AppleUSBCDCACMControl   *fControlDriver;			// Our Control Driver
     UInt16			fSessions;				// Number of active sessions
-	bool			fSuppressWarning;		// Are we suppressing the unplug warning dialog
     bool			fStopping;				// Are we being "stopped"
     UInt8			fProductName[productNameLength];	// Product String from the Device
+	IOPMrootDomain	*fPMRootDomain;			// Power Management root domain
+	bool			fWoR;					// Wake on Ring flag
+	OSObject		*fWakeSettingControllerHandle;	// Wake setting handle
     
     static void			dataReadComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
     static void			dataWriteComplete(void *obj, void *param, IOReturn ior, UInt32 remaining);
+	
+	void			handleSettingCallback(const OSSymbol *arg_type, OSObject *arg_val, uintptr_t refcon);
 
 public:
 
@@ -232,6 +239,10 @@ public:
 	bool			fTerminate;				// Are we being terminated (ie the device was unplugged)
 	bool			fResetOnClose;				// Do we need to reset the device on closing
 	bool			fEnumOnWake;				// Do we need to re-enumerate on wake
+	bool			fSuppressWarning;		// Are we suppressing the unplug warning dialog
+	
+	UInt16			fVendorID;				// Vendor ID
+    UInt16			fProductID;				// Product ID
 
         // IOKit methods:
 		
@@ -281,7 +292,8 @@ public:
 												
         // CDC Data Driver Methods
 	
-    void			USBLogData(UInt8 Dir, UInt32 Count, char *buf);
+    void			USBLogData(UInt8 Dir, SInt32 Count, char *buf);
+	void			dumpData(UInt8 Dir, char *buf, SInt32 Count);
     bool 			createSuffix(unsigned char *sufKey);
     bool			createSerialStream(void);
     bool 			setUpTransmit(void);
@@ -296,6 +308,7 @@ public:
     void			releaseResources(void);
     void 			freeRingBuffer(CirQueue *Queue);
     bool 			allocateRingBuffer(CirQueue *Queue, size_t BufferSize);
+	bool			setupWakeOnRingPMCallback(void);
     bool			WakeonRing(void);
 	void			setWakeFeature(void);
 	void			resurrectRead(void);
@@ -317,4 +330,30 @@ private:
     void 			CheckQueues(void);
     
 }; /* end class AppleUSBCDCACMData */
+
+class AppleUSBCDCACMData;
+
+class AppleUSBCDCACMDataUserClient : public IOUserClient
+{
+    OSDeclareDefaultStructors(AppleUSBCDCACMDataUserClient);
+
+private:
+    AppleUSBCDCACMData	*fProvider;
+    IOExternalMethod	fMethods[1];		// just one method
+    task_t		fTask;
+
+public:
+    IOExternalMethod	*getExternalMethodForIndex(UInt32 index);
+    bool		initWithTask(task_t owningTask, void *security_id , UInt32 type);
+    bool		start(IOService *provider);
+    IOReturn		clientClose(void);
+    IOReturn		clientDied(void);
+    IOReturn		doRequest(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *outPutSize);
+    
+private:
+    IOReturn		ACMDataOpen(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *pOutPutSize);
+    IOReturn		ACMDataClose(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *pOutPutSize);
+    IOReturn		ACMDataMessage(void *pIn, void *pOut, IOByteCount inputSize, IOByteCount *pOutPutSize);
+    
+}; /* end class AppleUSBCDCACMDataUserClient */
 #endif

@@ -685,7 +685,8 @@ finish_while_stmt (tree while_stmt)
 tree
 begin_do_stmt (void)
 {
-  tree r = build_stmt (DO_STMT, NULL_TREE, NULL_TREE);
+  /* APPLE LOCAL radar 4445586 */
+  tree r = build_stmt (DO_STMT, NULL_TREE, NULL_TREE, NULL_TREE);
   add_stmt (r);
   DO_BODY (r) = push_stmt_list ();
   return r;
@@ -1167,7 +1168,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
 	     otherwise we'll get an error.  Gross, but ...  */
 	  STRIP_NOPS (operand);
 
-	  /* APPLE LOCAL non-lvalue assign */
+	  /* APPLE LOCAL non lvalue assign */
 	  if (!lvalue_or_else (&operand, lv_asm))
 	    operand = error_mark_node;
 
@@ -2442,8 +2443,8 @@ finish_id_expression (tree id_expression,
 	{
 	  /* Name lookup failed.  */
 	  /* APPLE LOCAL begin CW asm blocks */
-	  if (inside_cw_asm_block)
-	    return cw_do_id (id_expression);
+	  if (inside_iasm_block)
+	    return iasm_do_id (id_expression);
 	  /* APPLE LOCAL end CW asm blocks */
 
 	  if (scope 
@@ -2493,7 +2494,7 @@ finish_id_expression (tree id_expression,
   /* APPLE LOCAL begin CW asm blocks */
   /* Accept raw type decls, which will be used in offset-getting
      expressions like "type.field(r3)".  */
-  else if (TREE_CODE (decl) == TYPE_DECL && inside_cw_asm_block)
+  else if (TREE_CODE (decl) == TYPE_DECL && inside_iasm_block)
     {
       *idk = CP_ID_KIND_NONE;
       return decl;

@@ -57,7 +57,8 @@ public:
 	/* methods associated with public API of this module */
 	bool lookup(
 		Allocator			&alloc,
-		const CSSM_DATA		&url,
+		const CSSM_DATA		*url,
+		const CSSM_DATA		*issuer,		// optional 
 		const CSSM_DATA		&verifyTime,
 		CSSM_DATA			&crlData);		// allocd in alloc space and RETURNED
 	
@@ -72,7 +73,8 @@ public:
 		unsigned			staleDays,
 		unsigned			expireOverlapSeconds,
 		bool				purgeAll,
-		bool				fullCryptoVerify);
+		bool				fullCryptoVerify,
+		bool				doRefresh);
 	
 private:
 	CSSM_RETURN openDatabase(
@@ -87,6 +89,7 @@ private:
 	CSSM_RETURN lookupPriv(
 		CSSM_DB_HANDLE				dbHand,
 		const CSSM_DATA				*url,
+		const CSSM_DATA				*issuer,
 		const CSSM_DATA				*verifyTime,
 		CSSM_HANDLE_PTR				resultHandPtr,
 		CSSM_DB_UNIQUE_RECORD_PTR	*recordPtr,
@@ -160,8 +163,8 @@ CSSM_RETURN CrlDatabase::openDatabase(
 			/* proceed to create it */
 			break;
 		default:
-			ocspdErrorLog("CrlDatabase::openDatabase: CSSM_DL_DbOpen returned %lu", 
-				crtn);
+			ocspdErrorLog("CrlDatabase::openDatabase: CSSM_DL_DbOpen returned %u", 
+				(unsigned)crtn);
 			return crtn;
 	}
 	
@@ -194,7 +197,7 @@ CSSM_RETURN CrlDatabase::openDatabase(
 		NULL,						// OpenParameters
 		&dbHand);
 	if(crtn) {
-		ocspdErrorLog("CrlDatabase::openDatabase: CSSM_DL_DbCreate returned %lu", crtn);
+		ocspdErrorLog("CrlDatabase::openDatabase: CSSM_DL_DbCreate returned %u", (unsigned)crtn);
 		return crtn;
 	}
 	else {
@@ -228,8 +231,9 @@ void CrlDatabase::closeDatabase(
 CSSM_RETURN CrlDatabase::lookupPriv(
 	CSSM_DB_HANDLE				dbHand,
 	
-	/* both predicate attributes optional */
+	/* all predicate attributes optional */
 	const CSSM_DATA				*url,
+	const CSSM_DATA				*issuer,
 	const CSSM_DATA				*verifyTime,
 	
 	/* these two always returned on success */
@@ -246,7 +250,7 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 	CSSM_DATA					*crlData)	
 {
 	CSSM_QUERY					query;
-	CSSM_SELECTION_PREDICATE	pred[3];	
+	CSSM_SELECTION_PREDICATE	pred[4];	
 	CSSM_SELECTION_PREDICATE	*predPtr = pred;
 	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, dbHand};
 	
@@ -255,13 +259,22 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 	assert(resultHandPtr != NULL);
 	assert(recordPtr != NULL);
 	
-	/* zero, one, or three predicates...first, the URI */
+	/* zero, one, two, or four predicates...first, the URI */
 	if(url) {
 		predPtr->DbOperator = CSSM_DB_EQUAL;
 		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
 		predPtr->Attribute.Info.Label.AttributeName = "URI";
 		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
 		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(url);
+		predPtr->Attribute.NumberOfValues = 1;
+		predPtr++;
+	}
+	if(issuer) {
+		predPtr->DbOperator = CSSM_DB_EQUAL;
+		predPtr->Attribute.Info.AttributeNameFormat = CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
+		predPtr->Attribute.Info.Label.AttributeName = "Issuer";
+		predPtr->Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
+		predPtr->Attribute.Value = const_cast<CSSM_DATA_PTR>(issuer);
 		predPtr->Attribute.NumberOfValues = 1;
 		predPtr++;
 	}
@@ -307,7 +320,8 @@ CSSM_RETURN CrlDatabase::lookupPriv(
 /* methods associated with public API of this module */
 bool CrlDatabase::lookup(
 	Allocator			&alloc,
-	const CSSM_DATA		&url,
+	const CSSM_DATA		*url,
+	const CSSM_DATA		*issuer,
 	const CSSM_DATA		&verifyTime,
 	CSSM_DATA			&crlData)		// allocd in alloc space and RETURNED
 {
@@ -338,7 +352,7 @@ bool CrlDatabase::lookup(
 	CSSM_RETURN					crtn;
 	CSSM_DL_DB_HANDLE			dlDbHand = {mDlHand, dbHand};
 	
-	crtn = lookupPriv(dbHand, &url, &verifyTime, &resultHand, &record, NULL, &dbCrl);
+	crtn = lookupPriv(dbHand, url, issuer, &verifyTime, &resultHand, &record, NULL, &dbCrl);
 	if(resultHand) {
 		CSSM_DL_DataAbortQuery(dlDbHand, resultHand);
 	}
@@ -382,7 +396,7 @@ CSSM_RETURN CrlDatabase::add(
 	 * the contents of the CRL itself */
 	CSSM_RETURN crtn = cuAddCrlToDb(dlDbHand, mClHand, &crlData, &url);
 	if(crtn) {
-		ocspdErrorLog("CrlDatabase::add: error %lu adding CRL to DB", crtn);
+		ocspdErrorLog("CrlDatabase::add: error %ld adding CRL to DB\n", (long)crtn);
 	}
 	else {
 		ocspdCrlDebug("CrlDatabase::add: CRL added to DB");
@@ -422,6 +436,7 @@ void CrlDatabase::flush(
 	
 	crtn = lookupPriv(dbHand,
 		&url, 
+		NULL,		// issuer
 		NULL,		// verify time
 		&resultHand, &record, 
 		NULL,		// attrs
@@ -456,7 +471,8 @@ void CrlDatabase::refresh(
 	unsigned			staleDays,
 	unsigned			expireOverlapSeconds,
 	bool				purgeAll,
-	bool				fullCryptoVerify)
+	bool				fullCryptoVerify,
+	bool				doRefresh)
 {
 	StLock<Mutex> _(mLock);
 
@@ -477,7 +493,7 @@ void CrlDatabase::refresh(
 	
 	CSSM_DL_DB_HANDLE dlDbHand = {mDlHand, dbHand};
 	ocspdCrlRefresh(dlDbHand, mClHand, staleDays, expireOverlapSeconds,
-		purgeAll, fullCryptoVerify);
+		purgeAll, fullCryptoVerify, doRefresh);
 	closeDatabase(dbHand);
 	return;
 }
@@ -487,16 +503,18 @@ static ModuleNexus<CrlDatabase> gCrlDatabase;
 #pragma mark ----- Public API -----
 
 /*
- * Lookup cached CRL by URL and verifyTime. 
+ * Lookup cached CRL by URL or issuer, and verifyTime. 
  * Just a boolean returned; we found it, or not.
+ * Exactly one of {url, issuer} should be non-NULL.
  */
 bool crlCacheLookup(
 	Allocator			&alloc,
-	const CSSM_DATA		&url,
+	const CSSM_DATA		*url,	
+	const CSSM_DATA		*issuer,	
 	const CSSM_DATA		&verifyTime,
 	CSSM_DATA			&crlData)			// allocd in alloc space and RETURNED
 {	
-	return gCrlDatabase().lookup(alloc, url, verifyTime, crlData);
+	return gCrlDatabase().lookup(alloc, url, issuer, verifyTime, crlData);
 }
 
 /* 
@@ -520,13 +538,14 @@ void crlCacheFlush(
 }
 
 /* 
- * Refresh the CRL cache. 
+ * Purge/refresh the CRL cache. 
  */
 void crlCacheRefresh(
 	unsigned			staleDays,
 	unsigned			expireOverlapSeconds,
 	bool				purgeAll,
-	bool				fullCryptoVerify)
+	bool				fullCryptoVerify,
+	bool				doRefresh)
 {	
-	gCrlDatabase().refresh(staleDays, expireOverlapSeconds, purgeAll, fullCryptoVerify);
+	gCrlDatabase().refresh(staleDays, expireOverlapSeconds, purgeAll, fullCryptoVerify, doRefresh);
 }

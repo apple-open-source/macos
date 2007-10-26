@@ -40,7 +40,7 @@ ptrlist_print(ptrlist_t * list)
     if (list->count > 0) {
 	int i;
 	for (i = 0; i < list->count; i++)
-	    printf("%d. %x\n", i, (unsigned int)list->array[i]);
+	    printf("%d. %p\n", i, list->array[i]);
     }
     return;
 }

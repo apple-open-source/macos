@@ -12,7 +12,7 @@
 # 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 # NOTE: Makefile.in is converted into Makefile by the configure script
 # in the parent directory.  Once configure has run, you can recreate
@@ -29,7 +29,6 @@ DESTDIR=
 
 CC=		@CC@
 CHMOD=  	@CHMOD@
-CHOWN=  	/usr/sbin/chown
 INSTALL=	@INSTALL@
 PYTHON=  	@PYTHON@
 
@@ -43,7 +42,7 @@ MAILMAN_USER=	@MAILMAN_USER@
 
 # Customizable but not set by configure
 OPT=		@OPT@
-CFLAGS=		@CFLAGS@ $(OPT) $(DEFS) $(LIBS)
+CFLAGS=		@CFLAGS@ $(BI_RC_CFLAGS) $(OPT) $(DEFS) $(LIBS)
 CGIDIR= 	$(exec_prefix)/cgi-bin
 CGIEXT=		@CGIEXT@
 MAILDIR=	$(exec_prefix)/mail
@@ -66,8 +65,8 @@ COMMON_FLAGS=	-DPREFIX="\"$(prefix)\"" \
 # user-only-writable for executables.
 DIRMODE=	775
 EXEMODE=	755
-INSTALL_PROGRAM=$(INSTALL) -s -m $(EXEMODE)
-DIRSETGID=	$(CHMOD) g+s
+INSTALL_PROGRAM=$(INSTALL) -m $(EXEMODE)
+DIRSETGID=	chmod g+s
 
 # Fixed definitions
 
@@ -123,8 +122,8 @@ finish:
 	-for f in $(SUID_CGI_PROGS); \
 	do \
 	    exe=$(DESTDIR)$(CGIDIR)/$$f$(CGIEXT); \
-	    $(CHOWN) $(MAILMAN_USER) $$exe; \
-	    $(CHMOD) u+s $$exe; \
+	    chown $(MAILMAN_USER) $$exe; \
+	    chmod u+s $$exe; \
 	done
 
 clean:

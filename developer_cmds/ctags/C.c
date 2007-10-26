@@ -414,12 +414,29 @@ str_entry(c)
 		if (!intoken(c))
 			break;
 	}
+	
 	switch (c) {
 		case '{':		/* it was "struct foo{" */
 			--sp;
 			break;
 		case '\n':		/* it was "struct foo\n" */
 			SETLINE;
+			if(GETC(!=, '/'))
+			{
+				while (GETC(!=, EOF))
+					if (!iswhite(c))
+						break;
+				if (c != '{') {
+					(void)ungetc(c, inf);
+					return (NO);
+				}
+				break;
+			}
+		case '/':
+                        /* skip comments */
+			if (GETC(==, '*')) {
+                                skip_comment();
+			}
 			/*FALLTHROUGH*/
 		default:		/* probably "struct foo " */
 			while (GETC(!=, EOF))

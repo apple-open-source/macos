@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -126,6 +126,62 @@ const UCollationResult results[] = {
     UCOL_LESS                                        /* 37 */
 };
 
+
+static
+void uprv_appendByteToHexString(char *dst, uint8_t val) {
+  uint32_t len = (uint32_t)uprv_strlen(dst);
+  *(dst+len) = T_CString_itosOffset((val >> 4));
+  *(dst+len+1) = T_CString_itosOffset((val & 0xF));
+  *(dst+len+2) = 0;
+}
+
+/* this function makes a string with representation of a sortkey */
+static char* U_EXPORT2 sortKeyToString(const UCollator *coll, const uint8_t *sortkey, char *buffer, uint32_t *len) {
+  int32_t strength = UCOL_PRIMARY;
+  uint32_t res_size = 0;
+  UBool doneCase = FALSE;
+
+  char *current = buffer;
+  const uint8_t *currentSk = sortkey;
+
+  uprv_strcpy(current, "[");
+
+  while(strength <= UCOL_QUATERNARY && strength <= coll->strength) {
+    if(strength > UCOL_PRIMARY) {
+      uprv_strcat(current, " . ");
+    }
+    while(*currentSk != 0x01 && *currentSk != 0x00) { /* print a level */
+      uprv_appendByteToHexString(current, *currentSk++);
+      uprv_strcat(current, " ");
+    }
+    if(coll->caseLevel == UCOL_ON && strength == UCOL_SECONDARY && doneCase == FALSE) {
+        doneCase = TRUE;
+    } else if(coll->caseLevel == UCOL_OFF || doneCase == TRUE || strength != UCOL_SECONDARY) {
+      strength ++;
+    }
+    uprv_appendByteToHexString(current, *currentSk++); /* This should print '01' */
+    if(strength == UCOL_QUATERNARY && coll->alternateHandling == UCOL_NON_IGNORABLE) {
+      break;
+    }
+  }
+
+  if(coll->strength == UCOL_IDENTICAL) {
+    uprv_strcat(current, " . ");
+    while(*currentSk != 0) {
+      uprv_appendByteToHexString(current, *currentSk++);
+      uprv_strcat(current, " ");
+    }
+
+    uprv_appendByteToHexString(current, *currentSk++);
+  }
+  uprv_strcat(current, "]");
+
+  if(res_size > *len) {
+    return NULL;
+  }
+
+  return buffer;
+}
 
 void addAllCollTest(TestNode** root)
 {
@@ -279,7 +335,8 @@ static void doTestVariant(UCollator* myCollation, const UChar source[], const UC
 
         partialSKResult = compareUsingPartials(myCollation, source, sLen, target, tLen, partialSizes[i], &status);
         if(partialSKResult != result) {
-          log_err("Partial sortkey comparison returned wrong result: %s, %s (size %i)\n", 
+          log_err("Partial sortkey comparison returned wrong result (%i exp. %i): %s, %s (size %i)\n", 
+            partialSKResult, result,
             aescstrdup(source,-1), aescstrdup(target,-1), partialSizes[i]);
         }
 
@@ -333,11 +390,11 @@ static void doTestVariant(UCollator* myCollation, const UChar source[], const UC
     gSortklen2 = uprv_strlen((const char *)sortKey2)+1;
     if(sortklen1 != gSortklen1){
         log_err("SortKey length does not match Expected: %i Got: %i\n",sortklen1, gSortklen1);
-        log_verbose("Generated sortkey: %s\n", ucol_sortKeyToString(myCollation, sortKey1, buffer, &len));
+        log_verbose("Generated sortkey: %s\n", sortKeyToString(myCollation, sortKey1, buffer, &len));
     }
     if(sortklen2!= gSortklen2){
         log_err("SortKey length does not match Expected: %i Got: %i\n", sortklen2, gSortklen2);
-        log_verbose("Generated sortkey: %s\n", ucol_sortKeyToString(myCollation, sortKey2, buffer, &len));
+        log_verbose("Generated sortkey: %s\n", sortKeyToString(myCollation, sortKey2, buffer, &len));
     }
 
     if(temp < 0) {
@@ -552,9 +609,8 @@ void genericLocaleStarterWithResult(const char *locale, const char *s[], uint32_
   ucol_close(coll);
 }
 
-#if 0
 /* currently not used with options */
-void genericRulesStarterWithOptions(const char *rules, const char *s[], uint32_t size, const UColAttribute *attrs, const UColAttributeValue *values, uint32_t attsize) {
+void genericRulesStarterWithOptionsAndResult(const char *rules, const char *s[], uint32_t size, const UColAttribute *attrs, const UColAttributeValue *values, uint32_t attsize, UCollationResult result) {
   UErrorCode status = U_ZERO_ERROR;
   UChar rlz[RULE_BUFFER_LEN] = { 0 };
   uint32_t rlen = u_unescape(rules, rlz, RULE_BUFFER_LEN);
@@ -570,15 +626,14 @@ void genericRulesStarterWithOptions(const char *rules, const char *s[], uint32_t
       ucol_setAttribute(coll, attrs[i], values[i], &status);
     }
 
-    genericOrderingTest(coll, s, size);
+    genericOrderingTestWithResult(coll, s, size, result);
   } else {
     log_err("Unable to open collator with rules %s\n", rules);
   }
   ucol_close(coll);
 }
-#endif
 
-void genericLocaleStarterWithOptions(const char *locale, const char *s[], uint32_t size, const UColAttribute *attrs, const UColAttributeValue *values, uint32_t attsize) {
+void genericLocaleStarterWithOptionsAndResult(const char *locale, const char *s[], uint32_t size, const UColAttribute *attrs, const UColAttributeValue *values, uint32_t attsize, UCollationResult result) {
   UErrorCode status = U_ZERO_ERROR;
   uint32_t i;
 
@@ -593,14 +648,18 @@ void genericLocaleStarterWithOptions(const char *locale, const char *s[], uint32
       ucol_setAttribute(coll, attrs[i], values[i], &status);
     }
 
-    genericOrderingTest(coll, s, size);
+    genericOrderingTestWithResult(coll, s, size, result);
   } else {
     log_err("Unable to open collator for locale %s\n", locale);
   }
   ucol_close(coll);
 }
 
-void genericRulesTestWithResult(const char *rules, const char *s[], uint32_t size, UCollationResult result) {
+void genericLocaleStarterWithOptions(const char *locale, const char *s[], uint32_t size, const UColAttribute *attrs, const UColAttributeValue *values, uint32_t attsize) {
+  genericLocaleStarterWithOptionsAndResult(locale, s, size, attrs, values, attsize, UCOL_LESS);
+}
+
+void genericRulesStarterWithResult(const char *rules, const char *s[], uint32_t size, UCollationResult result) {
   UErrorCode status = U_ZERO_ERROR;
   UChar rlz[RULE_BUFFER_LEN] = { 0 };
   uint32_t rlen = u_unescape(rules, rlz, RULE_BUFFER_LEN);
@@ -620,7 +679,7 @@ void genericRulesTestWithResult(const char *rules, const char *s[], uint32_t siz
 }
 
 void genericRulesStarter(const char *rules, const char *s[], uint32_t size) {
-  genericRulesTestWithResult(rules, s, size, UCOL_LESS);
+  genericRulesStarterWithResult(rules, s, size, UCOL_LESS);
 }
 
 static void TestTertiary()
@@ -800,10 +859,8 @@ static void TestJB581(void)
     /* Now, do the same comparison with keys */
     sourceKeyOut = ucol_getSortKey(myCollator, source, -1, sourceKeyArray, 100);
     targetKeyOut = ucol_getSortKey(myCollator, target, -1, targetKeyArray, 100);
-    result = 0;
     bufferLen = ((targetKeyOut > 100) ? 100 : targetKeyOut);
-    result = memcmp(sourceKeyArray, targetKeyArray, bufferLen);
-    if (result != 0)
+    if (memcmp(sourceKeyArray, targetKeyArray, bufferLen) != 0)
     {
         log_err("Comparing two strings with sort keys in C failed.\n");
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,41 +47,22 @@
 
 //================================================================================================
 //
-//   Structure declarations
+//   Class Declaration for IOUSBDeviceUserClientV2
 //
 //================================================================================================
 //
-typedef struct IOUSBDeviceUserClientAsyncParamBlock IOUSBDeviceUserClientAsyncParamBlock;
-
-struct IOUSBDeviceUserClientAsyncParamBlock {
-    OSAsyncReference 		fAsyncRef;
-    UInt32 			fMax;
-    IOMemoryDescriptor 		*fMem;
-    IOUSBDevRequestDesc		req;
-};
-
-//================================================================================================
-//
-//   Class Declaration for IOUSBDeviceUserClient
-//
-//================================================================================================
-//
-class IOUSBDeviceUserClient : public IOUserClient
+class IOUSBDeviceUserClientV2 : public IOUserClient
 {
-    OSDeclareDefaultStructors(IOUSBDeviceUserClient)
+    OSDeclareDefaultStructors(IOUSBDeviceUserClientV2)
 
-    IOUSBDevice *			fOwner;
-    task_t				fTask;
-    mach_port_t 			fWakePort;
-    const IOExternalMethod *		fMethods;
-    const IOExternalAsyncMethod *	fAsyncMethods;
-    IOCommandGate *			fGate;
-    IOWorkLoop	*			fWorkLoop;
-    UInt32				fNumMethods;
-    UInt32				fNumAsyncMethods;
-    UInt32				fOutstandingIO;
-    bool				fDead;
-    bool				fNeedToClose;
+    IOUSBDevice *					fOwner;
+    task_t							fTask;
+    mach_port_t						fWakePort;
+    IOCommandGate *					fGate;
+    IOWorkLoop	*					fWorkLoop;
+    uint32_t						fOutstandingIO;
+    bool							fDead;
+    bool							fNeedToClose;
     
     struct IOUSBDeviceUserClientExpansionData 
     {
@@ -91,8 +72,9 @@ class IOUSBDeviceUserClient : public IOUserClient
 
 protected:
         
-    virtual void                        SetExternalMethodVectors(void);
-
+    static const IOExternalMethodDispatch			sMethods[kIOUSBLibDeviceUserClientNumCommands];
+	
+	
 public:
         
     // IOService methods
@@ -103,88 +85,117 @@ public:
     virtual void                        free();
     virtual bool                        willTerminate( IOService * provider, IOOptionBits options );
     virtual bool                        didTerminate( IOService * provider, IOOptionBits options, bool * defer );
-
-    // pseudo IOKit methods - these methods are NOT the IOService:: methods, since both IOService::open
-    // and IOService::close require an IOService* as the first parameter
-    //
-    virtual IOReturn                    open(bool seize);
-    virtual IOReturn                    close(void);
+    virtual IOReturn					message( UInt32 type, IOService * provider,  void * argument = 0 );
 
     // IOUserClient methods
     //
-    virtual bool			initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary *properties);
-    virtual IOExternalMethod * 		getTargetAndMethodForIndex(IOService **target, UInt32 index);
-    virtual IOExternalAsyncMethod * 	getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
-    virtual IOReturn 			clientClose( void );
-    virtual IOReturn 			clientDied( void );
+    virtual bool						initWithTask(task_t owningTask, void *security_id, UInt32 type, OSDictionary *properties);
+	virtual IOReturn					externalMethod(	uint32_t selector, IOExternalMethodArguments * arguments, IOExternalMethodDispatch * dispatch, OSObject * target, void * reference);
+    virtual IOReturn					clientClose( void );
+    virtual IOReturn					clientDied( void );
+
+	// Open the IOUSBDevice
+    static	IOReturn					_open(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn                    open(bool seize);
+	
+	// Close the IOUSBDevice
+	static	IOReturn					_close(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+	virtual IOReturn					close(void);
+
 
     // IOUSBDevice methods
     //
-    virtual IOReturn                    SetConfiguration(UInt8 configIndex);
-    virtual IOReturn                    GetConfigDescriptor(UInt8 configIndex, IOUSBConfigurationDescriptorPtr desc, UInt32 *size);
-    virtual IOReturn                    CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, io_object_t *iterOut, IOByteCount inCount, IOByteCount *outCount);
-    virtual IOReturn                    GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
-    virtual IOReturn                    GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
-    virtual IOReturn                    DeviceReqIn(UInt16 param1, UInt32 param2, UInt32 noDataTimeout, UInt32 completionTimeout, void *buf, UInt32 *size);
-    virtual IOReturn                    DeviceReqOut(UInt16 param1, UInt32 param2, UInt32 noDataTimeout, UInt32 completionTimeout, void *buf, UInt32 size);
-    virtual IOReturn                    DeviceReqInOOL(IOUSBDevRequestTO *reqIn, IOByteCount inCount, UInt32 *sizeOut, IOByteCount *outCount);
-    virtual IOReturn                    DeviceReqOutOOL(IOUSBDevRequestTO *reqIn, IOByteCount inCount);
-    virtual IOReturn                    DeviceReqInAsync(OSAsyncReference asyncRef, IOUSBDevRequestTO *reqIn, IOByteCount inCount);
-    virtual IOReturn                    DeviceReqOutAsync(OSAsyncReference asyncRef, IOUSBDevRequestTO *reqIn, IOByteCount inCount);
-    virtual IOReturn                    SetAsyncPort(OSAsyncReference asyncRef);
-    virtual IOReturn                    ResetDevice( void );
-    virtual IOReturn                    SuspendDevice(bool suspend);
+  	static	IOReturn					_AbortPipeZero(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
     virtual IOReturn                    AbortPipeZero(void);
+	
+	static	IOReturn					_SetConfiguration(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn                    SetConfiguration(UInt8 configIndex);
+	
+	static	IOReturn					_GetConfiguration(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+    virtual IOReturn					GetConfiguration(uint64_t *configIndex);
+	
+ 	static	IOReturn					_GetConfigDescriptor(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);
+	virtual IOReturn                    GetConfigDescriptor(UInt8 configIndex, IOUSBConfigurationDescriptorPtr desc, UInt32 *size);
+	virtual IOReturn                    GetConfigDescriptor(UInt8 configIndex, IOMemoryDescriptor * mem, uint32_t *size);
+
+  	static	IOReturn					_CreateInterfaceIterator(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+	virtual IOReturn                    CreateInterfaceIterator(IOUSBFindInterfaceRequest *reqIn, io_object_t *iterOut, IOByteCount inCount, IOByteCount *outCount);
+		
+  	static	IOReturn					_DeviceRequestIn(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, mach_vm_size_t size, mach_vm_address_t buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion * completion);
+    virtual IOReturn                    DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, UInt32 noDataTimeout, UInt32 completionTimeout, void *requestBuffer, uint32_t *size);
+	virtual	IOReturn					DeviceRequestIn(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, UInt32 noDataTimeout, UInt32 completionTimeout, IOMemoryDescriptor *mem, uint32_t *pOutSize);
+	
+  	static	IOReturn					_DeviceRequestOut(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, mach_vm_size_t size, mach_vm_address_t buffer, UInt32 noDataTimeout, UInt32 completionTimeout, IOUSBCompletion * completion);
+    virtual IOReturn                    DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, UInt32 noDataTimeout, UInt32 completionTimeout, const void *requestBuffer, uint32_t size);
+	virtual	IOReturn					DeviceRequestOut(UInt8 bmRequestType,  UInt8 bRequest, UInt16 wValue, UInt16 wIndex, UInt32 noDataTimeout, UInt32 completionTimeout, IOMemoryDescriptor *mem);
+		
+  	static	IOReturn					_SetAsyncPort(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    SetAsyncPort(mach_port_t port);
+	
+  	static	IOReturn					_ResetDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    ResetDevice( void );
+	
+  	static	IOReturn					_SuspendDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    SuspendDevice(bool suspend);
+	
+  	static	IOReturn					_ReEnumerateDevice(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
     virtual IOReturn                    ReEnumerateDevice(UInt32 options);
     
+  	static	IOReturn					_GetFrameNumber(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    GetFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
+	
+  	static	IOReturn					_GetMicroFrameNumber(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+    virtual IOReturn                    GetMicroFrameNumber(IOUSBGetFrameStruct *data, UInt32 *size);
+	
+   	static	IOReturn					_GetFrameNumberWithTime(IOUSBDeviceUserClientV2 * target, void * reference, IOExternalMethodArguments * arguments);  
+	virtual IOReturn                    GetFrameNumberWithTime(IOUSBGetFrameStruct *data, UInt32 *size);
+
     // bookkeeping methods
     virtual void                        DecrementOutstandingIO(void);
     virtual void                        IncrementOutstandingIO(void);
     virtual UInt32                      GetOutstandingIO(void);
+	
+	void								PrintExternalMethodArgs( IOExternalMethodArguments * arguments, UInt32 level );
 
     // Getters
     //
-    IOUSBDevice *               GetOwner(void)                          { return fOwner; }
-    task_t                      GetTask(void)                           { return fTask; }
-    IOCommandGate *             GetCommandGate(void)                    { return fGate; }
-    UInt32                      GetNumMethods(void)                     { return fNumMethods; }
-    UInt32                      GetNumAsyncMethods(void)                { return fNumAsyncMethods; }
-    mach_port_t                 GetWakePort(void)                       { return fWakePort; }
-    bool                        IsDead(void)                            { return fDead; }
-    bool                        NeedToClose(void)                       { return fNeedToClose; }
+    IOUSBDevice *						GetOwner(void)                          { return fOwner; }
+    task_t								GetTask(void)                           { return fTask; }
+    IOCommandGate *						GetCommandGate(void)                    { return fGate; }
+    mach_port_t							GetWakePort(void)                       { return fWakePort; }
+    bool								IsDead(void)                            { return fDead; }
+    bool								NeedToClose(void)                       { return fNeedToClose; }
     
     // static methods
     //
-    static const IOExternalMethod	sMethods[kNumUSBDeviceMethods];
-    static const IOExternalAsyncMethod	sAsyncMethods[kNumUSBDeviceAsyncMethods];
     static void 			ReqComplete(void *obj, void *param, IOReturn status, UInt32 remaining);
     static IOReturn			ChangeOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn			GetGatedOutstandingIO(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
 
     // padding methods
     //
-    OSMetaClassDeclareReservedUsed(IOUSBDeviceUserClient,  0);
-    virtual IOReturn                    DeviceReqInOOLv2(IOUSBDevRequestTO *reqIn, UInt32 *sizeOut, IOByteCount inCount, IOByteCount *outCount);
-
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  1);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  2);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  3);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  4);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  5);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  6);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  7);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  8);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient,  9);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 10);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 11);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 12);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 13);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 14);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 15);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 16);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 17);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 18);
-    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClient, 19);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,	 0);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  1);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  2);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  3);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  4);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  5);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  6);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  7);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  8);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2,  9);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 10);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 11);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 12);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 13);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 14);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 15);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 16);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 17);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 18);
+    OSMetaClassDeclareReservedUnused(IOUSBDeviceUserClientV2, 19);
 };
 
 

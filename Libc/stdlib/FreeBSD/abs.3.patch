@@ -1,0 +1,20 @@
+--- abs.3	2003-05-20 15:23:24.000000000 -0700
++++ abs.3.edit	2006-09-27 18:20:25.000000000 -0700
+@@ -47,14 +47,12 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft int
+-.Fn abs "int j"
++.Fn abs "int i"
+ .Sh DESCRIPTION
+ The
+ .Fn abs
+-function
+-computes
+-the absolute value of the integer
+-.Fa j .
++function computes the absolute value of the integer
++.Fa i .
+ .Sh RETURN VALUES
+ The
+ .Fn abs

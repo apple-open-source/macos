@@ -54,14 +54,15 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static char copyright[] =
+__unused static char copyright[] =
 "@(#) Copyright (c) 1983, 1988, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-static char sccsid[] = "@(#)trpt.c	8.1 (Berkeley) 6/6/93";
+__unused static char sccsid[] = "@(#)trpt.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -100,6 +101,8 @@ static char sccsid[] = "@(#)trpt.c	8.1 (Berkeley) 6/6/93";
 #include <arpa/inet.h>
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <nlist.h>
 #include <paths.h>
@@ -128,6 +131,11 @@ static caddr_t tcp_pcbs[TCP_NDEBUG];
 static n_time ntime;
 static int aflag, kflag, memf, follow, sflag, tflag;
 
+void klseek(int, off_t, int);
+void dotrace(caddr_t);
+void tcp_trace(short, short, struct tcpcb *, struct tcpcb *, struct tcpiphdr *, int);
+
+int
 main(argc, argv)
 	int argc;
 	char **argv;
@@ -135,7 +143,7 @@ main(argc, argv)
 	extern char *optarg;
 	extern int optind;
 	int ch, i, jflag, npcbs, numeric();
-	char *system, *core, *malloc();
+	char *system, *core;
 	off_t lseek();
 
 	jflag = npcbs = 0;
@@ -270,6 +278,7 @@ main(argc, argv)
 	exit(0);
 }
 
+void
 dotrace(tcpcb)
 	register caddr_t tcpcb;
 {
@@ -284,8 +293,8 @@ again:	if (--tcp_debx < 0)
 		if (tcpcb && td->td_tcb != tcpcb)
 			continue;
 		ntime = ntohl(td->td_time);
-		tcp_trace(td->td_act, td->td_ostate, td->td_tcb, &td->td_cb,
-		    &td->td_ti.ti_t, td->td_req);
+		tcp_trace(td->td_act, td->td_ostate, (struct tcpcb *)td->td_tcb, &td->td_cb,
+		    (struct tcpiphdr *)&td->td_ti.ti_t, td->td_req);
 		if (i == tcp_debx)
 			goto done;
 	}
@@ -294,8 +303,8 @@ again:	if (--tcp_debx < 0)
 		if (tcpcb && td->td_tcb != tcpcb)
 			continue;
 		ntime = ntohl(td->td_time);
-		tcp_trace(td->td_act, td->td_ostate, td->td_tcb, &td->td_cb,
-		    &td->td_ti.ti_t, td->td_req);
+		tcp_trace(td->td_act, td->td_ostate, (struct tcpcb *)td->td_tcb, &td->td_cb,
+		    (struct tcpiphdr *)&td->td_ti.ti_t, td->td_req);
 	}
 done:	if (follow) {
 		prev_debx = tcp_debx + 1;
@@ -324,6 +333,7 @@ done:	if (follow) {
  * Tcp debug routines
  */
 /*ARGSUSED*/
+void
 tcp_trace(act, ostate, atp, tp, ti, req)
 	short act, ostate;
 	struct tcpcb *atp, *tp;
@@ -333,7 +343,7 @@ tcp_trace(act, ostate, atp, tp, ti, req)
 	tcp_seq seq, ack;
 	int flags, len, win, timer;
 
-	printf("%03ld %s:%s ",(ntime/10) % 1000, tcpstates[ostate],
+	printf("%03u %s:%s ",(ntime/10) % 1000, tcpstates[ostate],
 	    tanames[act]);
 	switch (act) {
 	case TA_INPUT:
@@ -358,10 +368,10 @@ tcp_trace(act, ostate, atp, tp, ti, req)
 		if (act == TA_OUTPUT)
 			len -= sizeof(struct tcphdr);
 		if (len)
-			printf("[%lx..%lx)", seq, seq + len);
+			printf("[%x..%x)", seq, seq + len);
 		else
-			printf("%lx", seq);
-		printf("@%lx", ack);
+			printf("%x", seq);
+		printf("@%x", ack);
 		if (win)
 			printf("(win=%x)", win);
 		flags = ti->ti_flags;
@@ -394,10 +404,10 @@ tcp_trace(act, ostate, atp, tp, ti, req)
 	/* print out internal state of tp !?! */
 	printf("\n");
 	if (sflag) {
-		printf("\trcv_nxt %lx rcv_wnd %x snd_una %lx snd_nxt %lx snd_max %lx\n",
+		printf("\trcv_nxt %x rcv_wnd %x snd_una %x snd_nxt %x snd_max %x\n",
 		    tp->rcv_nxt, tp->rcv_wnd, tp->snd_una, tp->snd_nxt,
 		    tp->snd_max);
-		printf("\tsnd_wl1 %lx snd_wl2 %lx snd_wnd %x\n", tp->snd_wl1,
+		printf("\tsnd_wl1 %x snd_wl2 %x snd_wnd %x\n", tp->snd_wl1,
 		    tp->snd_wl2, tp->snd_wnd);
 	}
 	/* print out timers? */
@@ -418,12 +428,14 @@ tcp_trace(act, ostate, atp, tp, ti, req)
 	}
 }
 
+int
 numeric(c1, c2)
 	caddr_t *c1, *c2;
 {
 	return(*c1 - *c2);
 }
 
+void
 klseek(fd, base, off)
 	int fd, off;
 	off_t base;

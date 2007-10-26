@@ -1,0 +1,24 @@
+---
+name: Class-C3
+version: 0.14
+author:
+  - 'Stevan Little, E<lt>stevan@iinteractive.comE<gt>'
+  - 'Brandon L. Black, E<lt>blblack@gmail.comE<gt>'
+abstract: A pragma to use the C3 method resolution order algortihm
+license: perl
+resources:
+  license: http://dev.perl.org/licenses/
+requires:
+  Algorithm::C3: 0.05
+  Scalar::Util: 1.1
+build_requires:
+  Test::Exception: 0.15
+  Test::More: 0.47
+provides:
+  Class::C3:
+    file: lib/Class/C3.pm
+    version: 0.14
+generated_by: Module::Build version 0.2805
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2

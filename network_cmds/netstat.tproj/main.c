@@ -78,7 +78,6 @@ static const char rcsid[] =
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
-#include <kvm.h>
 #include <limits.h>
 #include <netdb.h>
 #include <nlist.h>
@@ -91,6 +90,9 @@ static const char rcsid[] =
 #include <sys/types.h>
 #include <sys/sysctl.h>
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 /*
  * ----------------------------------------------------------------------------
@@ -343,16 +345,13 @@ static struct protox *knownname (char *);
 extern void _serv_cache_close();
 #endif
 
-#if 0
-static kvm_t *kvmd;
-#endif
-static char *nlistf = NULL, *memf = NULL;
-
 int	Aflag;		/* show addresses of protocol control block */
 int	aflag;		/* show all sockets (including servers) */
 int	bflag;		/* show i/f total bytes in/out */
 int	dflag;		/* show i/f dropped packets */
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 int	gflag;		/* show group (multicast) routing or stats */
+#endif
 int	iflag;		/* show interfaces */
 int	lflag;		/* show routing table with use and ref */
 int	Lflag;		/* show size of listen queues */
@@ -381,7 +380,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlM:mN:np:rRstuWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnp:rRstuWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -430,9 +429,11 @@ main(argc, argv)
 				errx(1, "%s: unknown address family", optarg);
 			}
 			break;
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 		case 'g':
 			gflag = 1;
 			break;
+#endif
 		case 'I': {
 			char *cp;
 
@@ -451,14 +452,8 @@ main(argc, argv)
 		case 'L':
 			Lflag = 1;
 			break;
-		case 'M':
-			memf = optarg;
-			break;
 		case 'm':
-			mflag = 1;
-			break;
-		case 'N':
-			nlistf = optarg;
+			mflag++;
 			break;
 		case 'n':
 			nflag = 1;
@@ -507,20 +502,8 @@ main(argc, argv)
 			++argv;
 			iflag = 1;
 		}
-		if (*argv) {
-			nlistf = *argv;
-			if (*++argv)
-				memf = *argv;
-		}
 	}
 #endif
-
-	/*
-	 * Discard setgid privileges if not the running kernel so that bad
-	 * guys can't print interesting stuff from kernel memory.
-	 */
-	if (nlistf != NULL || memf != NULL)
-		setgid(getgid());
 
 	if (mflag) {
 		mbpr();
@@ -551,6 +534,7 @@ main(argc, argv)
 			routepr(nl[N_RTREE].n_value);
 		exit(0);
 	}
+#if defined(__APPLE__) && !TARGET_OS_EMBEDDED
 	if (gflag) {
 		if (sflag) {
 			if (af == AF_INET || af == AF_UNSPEC)
@@ -567,8 +551,10 @@ main(argc, argv)
 				mroute6pr();
 #endif
 		}
+		ifmalist_dump();
 		exit(0);
 	}
+#endif
 
 	if (tp) {
 		printproto(tp, tp->pr_name);
@@ -631,10 +617,10 @@ printproto(tp, name)
 	u_long off;
 
 	if (sflag) {
-		if (iflag) {
+		if (iflag && !pflag) {
 			if (tp->pr_istats)
 				intpr(tp->pr_istats);
-			else if (pflag)
+			else
 				printf("%s: no per-interface stats routine\n",
 				    tp->pr_name);
 			return;
@@ -660,53 +646,15 @@ printproto(tp, name)
 		off = tp->pr_usesysctl ? tp->pr_usesysctl
 			: nl[tp->pr_index].n_value;
 	}
-	if (pr != NULL && (off || af != AF_UNSPEC))
-		(*pr)(off, name, af);
-	else
+	if (pr != NULL && (off || af != AF_UNSPEC)) {
+		if (sflag && iflag && pflag)
+			intervalpr(pr, off, name, af);
+		else
+			(*pr)(off, name, af);
+	} else {
 		printf("### no stats for %s\n", name);
-}
-
-/*
- * Read kernel memory, return 0 on success.
- */
-#if 0
-int
-kread(u_long addr, char *buf, int size)
-{
-	if (kvmd == 0) {
-		/*
-		 * XXX.
-		 */
-		kvmd = kvm_openfiles(nlistf, memf, NULL, O_RDONLY, buf);
-		if (kvmd != NULL) {
-			if (kvm_nlist(kvmd, nl) < 0) {
-				if(nlistf)
-					errx(1, "%s: kvm_nlist: %s", nlistf,
-					     kvm_geterr(kvmd));
-				else
-					errx(1, "kvm_nlist: %s", kvm_geterr(kvmd));
-			}
-
-			if (nl[0].n_type == 0) {
-				if(nlistf)
-					errx(1, "%s: no namelist", nlistf);
-				else
-					errx(1, "no namelist");
-			}
-		} else {
-			warnx("kvm not available");
-			return(-1);
-		}
 	}
-	if (!buf)
-		return (0);
-	if (kvm_read(kvmd, addr, buf, size) != size) {
-		warnx("%s", kvm_geterr(kvmd));
-		return (-1);
-	}
-	return (0);
 }
-#endif
 
 char *
 plural(int n)
@@ -765,14 +713,21 @@ name2protox(char *name)
 	return (NULL);
 }
 
+#define	NETSTAT_USAGE "\
+Usage:	netstat [-AaLlnW] [-f address_family | -p protocol]\n\
+	netstat [-gilns] [-f address_family]\n\
+	netstat -i | -I interface [-w wait] [-abdgt]\n\
+	netstat -s [-s] [-f address_family | -p protocol] [-w wait]\n\
+	netstat -i | -I interface -s [-f address_family | -p protocol]\n\
+	netstat -m [-m]\n\
+	netstat -r [-Aaln] [-f address_family]\n\
+	netstat -rs [-s]\n\
+"
+
 static void
 usage(void)
 {
-	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n",
-"usage: netstat [-Aan] [-f address_family] [-M core] [-N system]",
-"       netstat [-bdghimnrs] [-f address_family] [-M core] [-N system]",
-"       netstat [-bdn] [-I interface] [-M core] [-N system] [-w wait]",
-"       netstat -m [-M core] [-N system]",
-"       netstat [-M core] [-N system] [-p protocol]");
+	(void) fprintf(stderr, "%s\n", NETSTAT_USAGE);
 	exit(1);
 }
+

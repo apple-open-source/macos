@@ -4513,7 +4513,7 @@ start_rsh_server (tofdp, fromfdp)
 	   that).  */
 	cvs_rsh = "rsh";
     if (!cvs_server)
-	cvs_server = "cvs";
+	cvs_server = "ocvs";
 
     /* The command line starts out with rsh. */
     rsh_argv[i++] = cvs_rsh;
@@ -4570,7 +4570,7 @@ start_rsh_server (tofdp, fromfdp)
     if (!cvs_rsh)
 	cvs_rsh = "rsh";
     if (!cvs_server)
-	cvs_server = "cvs";
+	cvs_server = "ocvs";
 
     /* Pass the command to rsh as a single string.  This shouldn't
        affect most rsh servers at all, and will pacify some buggy

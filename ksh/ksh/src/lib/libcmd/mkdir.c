@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -31,7 +27,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: mkdir (AT&T Labs Research) 2001-10-31 $\n]"
+"[-?\n@(#)$Id: mkdir (AT&T Research) 2007-04-25 $\n]"
 USAGE_LICENSE
 "[+NAME?mkdir - make directories]"
 "[+DESCRIPTION?\bmkdir\b creates one or more directories.  By "
@@ -40,11 +36,13 @@ USAGE_LICENSE
 "[m:mode]:[mode?Set the mode of created directories to \amode\a.  "
 	"\amode\a is symbolic or octal mode as in \bchmod\b(1).  Relative "
 	"modes assume an initial mode of \ba=rwx\b.]"
-"[p:parents?Ensure  that  each  given directory exists.  Create "
-	"any missing parent directories for  each  argument.  "
-	"Parent directories default to the umask modified by "
-	"\bu+wx\b.  Do not consider an argument directory that "
-	"already exists to be an error.]"
+"[p:parents?Create any missing intermediate pathname components. For "
+    "each dir operand that does not name an existing directory, effects "
+    "equivalent to those caused by the following command shall occur: "
+    "\vmkdir -p -m $(umask -S),u+wx $(dirname dir) && mkdir [-m mode]] "
+    "dir\v where the \b-m\b mode option represents that option supplied to "
+    "the original invocation of \bmkdir\b, if any. Each dir operand that "
+    "names an existing directory shall be ignored without error.]"
 "\n"
 "\ndirectory ...\n"
 "\n"
@@ -56,9 +54,7 @@ USAGE_LICENSE
 "[+SEE ALSO?\bchmod\b(1), \brmdir\b(1), \bumask\b(1)]"
 ;
 
-
-
-#include <cmdlib.h>
+#include <cmd.h>
 #include <ls.h>
 
 #define DIRMODE	(S_IRWXU|S_IRWXG|S_IRWXO)
@@ -74,9 +70,9 @@ b_mkdir(int argc, char** argv, void* context)
 	register int	pflag = 0;
 	char*		name;
 	mode_t		dmode;
+	struct stat	st;
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	while (n = optget(argv, usage)) switch (n)
 	{
 	case 'p':
@@ -101,9 +97,10 @@ b_mkdir(int argc, char** argv, void* context)
 	mask = umask(0);
 	if (mflag || pflag)
 	{
-		dmode = (DIRMODE & ~mask) | S_IWUSR | S_IXUSR;
+		dmode = DIRMODE & ~mask;
 		if (!mflag)
 			mode = dmode;
+		dmode |= S_IWUSR | S_IXUSR;
 	}
 	else
 	{
@@ -146,7 +143,19 @@ b_mkdir(int argc, char** argv, void* context)
 					error(ERROR_system(0), "%s:", name);
 					break;
 				}
-				*arg = n;
+				if (!(*arg = n) && (mode & (S_ISVTX|S_ISUID|S_ISGID)))
+				{
+					if (stat(name, &st))
+					{
+						error(ERROR_system(0), "%s: cannot stat", name);
+						break;
+					}
+					if ((st.st_mode & (S_ISVTX|S_ISUID|S_ISGID)) != (mode & (S_ISVTX|S_ISUID|S_ISGID)) && chmod(name, mode))
+					{
+						error(ERROR_system(0), "%s: cannot change mode from %s to %s", name, fmtperm(st.st_mode & (S_ISVTX|S_ISUID|S_ISGID)), fmtperm(mode));
+						break;
+					}
+				}
 			}
 		}
 	}

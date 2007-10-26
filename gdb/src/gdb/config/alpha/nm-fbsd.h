@@ -1,5 +1,6 @@
-/* Native-dependent definitions for FreeBSD/Alpha.
-   Copyright 1986, 1987, 1989, 1992, 1996, 2000
+/* Native-dependent definitions for FreeBSD/alpha.
+
+   Copyright 1986, 1987, 1989, 1992, 1996, 2000, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -22,15 +23,6 @@
 #ifndef NM_FBSD_H
 #define NM_FBSD_H
 
-/* Type of the third argument to the `ptrace' system call.  */
-#define PTRACE_ARG3_TYPE caddr_t
-
-/* Override copies of {fetch,store}_inferior_registers in `infptrace.c'.  */
-#define FETCH_INFERIOR_REGISTERS
-
-/* We can attach and detach.  */
-#define ATTACH_DETACH
-
 /* The Alpha does not step over a breakpoint.  */
 #define CANNOT_STEP_BREAKPOINT 1
 
@@ -38,6 +30,5 @@
 /* Shared library support.  */
 
 #include "solib.h"		/* Support for shared libraries. */
-#include "elf/common.h"		/* Additional ELF shared library info. */
 
-#endif /* NM_FBSD_H */
+#endif /* nm-fbsd.h */

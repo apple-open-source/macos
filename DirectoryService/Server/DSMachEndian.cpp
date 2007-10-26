@@ -116,11 +116,11 @@ char* objectTypes[] =
 
 FILE* gDumpFile = NULL;
 
-void DumpBuf(char* buf, uInt32 len)
+void DumpBuf(char* buf, UInt32 len)
 {
     char acsiiBuf[17];
     
-    for (uInt32 i = 0; i < len; i++)
+    for (UInt32 i = 0; i < len; i++)
     {
         if ((i % 16) == 0) ::memset(acsiiBuf, 0, 17);
         fprintf(gDumpFile, "%02X ", buf[i]);
@@ -134,7 +134,7 @@ void DumpBuf(char* buf, uInt32 len)
 #endif
 
 
-DSMachEndian::DSMachEndian(sComData* fMessage, int direction) : fMessage(fMessage)
+DSMachEndian::DSMachEndian(sComData* message, int direction) : fMessage(message)
 {
     toBig = (direction == kDSSwapToBig);
 }
@@ -148,7 +148,7 @@ void DSMachEndian::SwapMessage()
     if (fMessage == nil) return;
     
 #if DUMP_BUFFER
-    uInt32 bufSize = 0;
+    UInt32 bufSize = 0;
     if (gDumpFile == NULL)
         gDumpFile = fopen("/Library/Logs/DirectoryService/PacketDump", "w");
         
@@ -159,9 +159,9 @@ void DSMachEndian::SwapMessage()
     for (i=0; i< 10; i++)
     {
         object = &fMessage->obj[i];
-        uInt32 objType = DSGetLong(&object->type, toBig);
-        uInt32 offset = DSGetLong(&object->offset, toBig);
-        uInt32 length = DSGetLong(&object->length, toBig);
+        UInt32 objType = DSGetLong(&object->type, toBig);
+        UInt32 offset = DSGetLong(&object->offset, toBig);
+        UInt32 length = DSGetLong(&object->length, toBig);
         char* type = "unknown";
         if (objType >= kResult && objType <= kAttrValueList)
             type = objectTypes[objType - kResult];
@@ -174,7 +174,7 @@ void DSMachEndian::SwapMessage()
         }
         if (length > 0)
         {
-            uInt32 size = offset + length - sizeof(sComData) + 4;
+            UInt32 size = offset + length - sizeof(sComData) + 4;
             if (size > bufSize) bufSize = size;
         }
     }
@@ -187,18 +187,18 @@ void DSMachEndian::SwapMessage()
     DSSwapLong(&fMessage->fPID, toBig);
     //DSSwapLong(&fMessage->fIPAddress, toBig); //zero is used for the mach ipc case
     
-	uInt32 aNodeRef = 0;
+	UInt32 aNodeRef = 0;
 
 	//handle CustomCall endian issues - need to determine which plugin is being used
 	bool bCustomCall = false;
-	uInt32 aCustomRequestNum = 0;
+	UInt32 aCustomRequestNum = 0;
 	bool bIsAPICallResponse = false;
 	const char* aPluginName = nil;
     // if this is the auth case or custom call case, we need to do some checks
     for (i=0; i< 10; i++)
     {
         object = &fMessage->obj[i];
-        uInt32 objType = DSGetLong(&object->type, toBig);
+        UInt32 objType = DSGetLong(&object->type, toBig);
 
         // check for two-way random special case before we start swapping stuff
         if (objType == kAuthMethod)
@@ -212,14 +212,14 @@ void DSMachEndian::SwapMessage()
 		if (objType == kCustomRequestCode)
 		{
 			bCustomCall = true;
-			aCustomRequestNum = (uInt32)DSGetLong(&object->count, toBig);
-DBGLOG1(kLogTCPEndpoint, "DSMachEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
+			aCustomRequestNum = (UInt32)DSGetLong(&object->count, toBig);
+DbgLog(kLogTCPEndpoint, "DSMachEndian::SwapMessage(): kCustomRequestCode with code %u", aCustomRequestNum );
 		}
 		
 		if (objType == ktNodeRef)
 		{
 			//need to determine the nodename for discrimination of duplicate custom call codes - server and FW sends
-			aNodeRef = (uInt32)DSGetLong(&object->count, toBig);
+			aNodeRef = (UInt32)DSGetLong(&object->count, toBig);
 		}
 
 		if (objType == kResult)
@@ -233,7 +233,7 @@ DBGLOG1(kLogTCPEndpoint, "DSMachEndian::SwapMessage(): kCustomRequestCode with c
 		if (aNodeRef != 0)
 		{
 			CServerPlugin *aPluginPtr = nil;
-			sInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fMessage->fPID, 0 );
+			SInt32 myResult = CRefTable::VerifyNodeRef( aNodeRef, &aPluginPtr, fMessage->fPID, 0 );
 			if (myResult == eDSNoErr)
 			{
 				aPluginName = aPluginPtr->GetPluginName();
@@ -252,11 +252,11 @@ DBGLOG1(kLogTCPEndpoint, "DSMachEndian::SwapMessage(): kCustomRequestCode with c
         if (object->type == 0)
             continue;
             
-        uInt32 objType = DSGetAndSwapLong(&object->type, toBig);
+        UInt32 objType = DSGetAndSwapLong(&object->type, toBig);
         DSSwapLong(&object->count, toBig);
-        uInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
+        UInt32 objOffset = DSGetAndSwapLong(&object->offset, toBig);
         DSSwapLong(&object->used, toBig);
-        uInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
+        UInt32 objLength = DSGetAndSwapLong(&object->length, toBig);
             
         DSSwapObjectData(objType, (char *)fMessage + objOffset, objLength, (!isTwoWay), bCustomCall, aCustomRequestNum, (const char*)aPluginName, bIsAPICallResponse, toBig);
     }

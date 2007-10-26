@@ -1,6 +1,7 @@
 /* machine description for Harris NightHawk 88k based machines
    (includes nh4000 and nh5000 machines).
-   Copyright (C) 1994 Free Software Foundation, Inc.
+   Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,14 +17,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file manually constructed for Harris Night Hawk 4000 (and 5000)
  * series Motorola 88100 and 88110 based machines.
  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="<name of system .h file here, without the s- or .h>"  */
 
@@ -82,16 +83,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* #define VIRT_ADDR_VARIES */
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
-#define HAVE_ALLOCA
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -112,3 +103,6 @@ Boston, MA 02111-1307, USA.  */
  */
 
 /* #define NO_SOCK_SIGIO */
+
+/* arch-tag: d9e12769-ae79-4c25-953f-70db5b7ef5dd
+   (do not change this comment) */

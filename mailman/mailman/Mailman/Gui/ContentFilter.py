@@ -1,21 +1,21 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""GUI component managing the content filtering options.
-"""
+"""GUI component managing the content filtering options."""
 
 from Mailman import mm_cfg
 from Mailman.i18n import _
@@ -57,9 +57,13 @@ class ContentFilter(GUIBase):
             <p>After this initial filtering, any <tt>multipart</tt>
             attachments that are empty are removed.  If the outer message is
             left empty after this filtering, then the whole message is
-            discarded.  Then, each <tt>multipart/alternative</tt> section will
+            discarded.
+
+            <p> Then, each <tt>multipart/alternative</tt> section will
             be replaced by just the first alternative that is non-empty after
-            filtering.
+            filtering if
+            <a href="?VARHELP=contentfilter/collapse_alternatives"
+            >collapse_alternatives</a> is enabled.
 
             <p>Finally, any <tt>text/html</tt> parts that are left in the
             message may be converted to <tt>text/plain</tt> if
@@ -74,7 +78,7 @@ class ContentFilter(GUIBase):
             ('filter_mime_types', mm_cfg.Text, (10, WIDTH), 0,
              _("""Remove message attachments that have a matching content
              type."""),
-             
+
              _("""Use this option to remove each message attachment that
              matches one of these content types.  Each line should contain a
              string naming a MIME <tt>type/subtype</tt>,
@@ -100,6 +104,19 @@ class ContentFilter(GUIBase):
              <tt>multipart</tt> to this list, any messages with attachments
              will be rejected by the pass filter.""")),
 
+            ('filter_filename_extensions', mm_cfg.Text, (10, WIDTH), 0,
+             _("""Remove message attachments that have a matching filename
+             extension."""),),
+
+            ('pass_filename_extensions', mm_cfg.Text, (10, WIDTH), 0,
+             _("""Remove message attachments that don't have a matching
+             filename extension.  Leave this field blank to skip this filter
+             test."""),),
+
+            ('collapse_alternatives', mm_cfg.Radio, (_('No'), _('Yes')), 0,
+             _("""Should Mailman collapse multipart/alternative to its
+             first part content?""")),
+
             ('convert_html_to_plaintext', mm_cfg.Radio, (_('No'), _('Yes')), 0,
              _("""Should Mailman convert <tt>text/html</tt> parts to plain
              text?  This conversion happens after MIME attachments have been
@@ -110,7 +127,7 @@ class ContentFilter(GUIBase):
              _("""Action to take when a message matches the content filtering
              rules."""),
 
-             _("""One of these actions is take when the message matches one of
+             _("""One of these actions is taken when the message matches one of
              the content filtering rules, meaning, the top-level
              content type matches one of the <a
              href="?VARHELP=contentfilter/filter_mime_types"
@@ -154,10 +171,19 @@ class ContentFilter(GUIBase):
                     doc.addError(_('Bad MIME type ignored: %(spectype)s'))
                 else:
                     types.append(spectype.strip().lower())
-	    if property == 'filter_mime_types':
+            if property == 'filter_mime_types':
                 mlist.filter_mime_types = types
-	    elif property == 'pass_mime_types':
+            elif property == 'pass_mime_types':
                 mlist.pass_mime_types = types
+        elif property in ('filter_filename_extensions',
+                          'pass_filename_extensions'):
+            fexts = []
+            for ext in [s.strip() for s in val.splitlines()]:
+                fexts.append(ext.lower())
+            if property == 'filter_filename_extensions':
+                mlist.filter_filename_extensions = fexts
+            elif property == 'pass_filename_extensions':
+                mlist.pass_filename_extensions = fexts
         else:
             GUIBase._setValue(self, mlist, property, val, doc)
 
@@ -166,4 +192,8 @@ class ContentFilter(GUIBase):
             return NL.join(mlist.filter_mime_types)
         if property == 'pass_mime_types':
             return NL.join(mlist.pass_mime_types)
+        if property == 'filter_filename_extensions':
+            return NL.join(mlist.filter_filename_extensions)
+        if property == 'pass_filename_extensions':
+            return NL.join(mlist.pass_filename_extensions)
         return None

@@ -30,6 +30,7 @@
 #include "krb5.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include "autoconf.h"
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -206,6 +207,37 @@ static void cc_test(krb5_context context, const char *name, int flags)
 
 }
 
+/*
+ * Checks if a credential type is registered with the library
+ */
+static int check_registered(krb5_context context, const char *prefix)
+{
+
+  char name[300];
+  krb5_error_code kret;
+  krb5_ccache id;
+
+  sprintf(name, "%s/tmp/cctest.%ld", prefix, (long) getpid());
+
+  kret = krb5_cc_resolve(context, name, &id);
+  if(kret != KRB5_OK) {
+    if(kret == KRB5_CC_UNKNOWN_TYPE)
+      return 0;
+    com_err("Checking on credential type", kret,prefix);
+    fflush(stderr);
+    return 0;
+  }
+
+  kret = krb5_cc_close(context, id);
+  if(kret != KRB5_OK) {
+    com_err("Checking on credential type - closing", kret,prefix);
+    fflush(stderr);
+  }
+
+  return 1;
+}
+
+
 static void do_test(krb5_context context, const char *prefix)
 {
   char name[300];
@@ -284,6 +316,12 @@ int main (void)
 
     test_misc(context);
     do_test(context, "");
+
+    if(check_registered(context, "KEYRING:"))
+      do_test(context, "KEYRING:");
+    else 
+      printf("Skiping KEYRING: test - unregistered type\n");
+
     do_test(context, "MEMORY:");
     do_test(context, "FILE:");
 

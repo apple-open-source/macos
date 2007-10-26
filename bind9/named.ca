@@ -20,7 +20,7 @@ A.ROOT-SERVERS.NET.      3600000      A     198.41.0.4
 ; formerly NS1.ISI.EDU
 ;
 .                        3600000      NS    B.ROOT-SERVERS.NET.
-B.ROOT-SERVERS.NET.      3600000      A     128.9.0.107
+B.ROOT-SERVERS.NET.      3600000      A     192.228.79.201
 ;
 ; formerly C.PSI.NET
 ;

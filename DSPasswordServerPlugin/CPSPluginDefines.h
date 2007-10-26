@@ -30,7 +30,6 @@
 
 
 #ifdef __cplusplus
-#include <PasswordServer/CReplicaFile.h>
 extern "C" {
 #endif
 
@@ -38,15 +37,12 @@ extern "C" {
 	#include <openssl/rc5.h>
 	#include <openssl/cast.h>
 	#include <netdb.h>
-	#include "sasl.h"
+	#include <sasl/sasl.h>
 	#include "AuthFile.h"
 	#include "key.h"
 #ifdef __cplusplus
 };
-#else
-typedef void CReplicaFile;
 #endif
-
 
 #define kDHX_SASL_Name						"DHX"
 #define kAuthNative_Priority				"DIGEST-MD5 CRAM-MD5 DHX TWOWAYRANDOM"
@@ -72,6 +68,8 @@ typedef struct sPSServerEntry {
 	char port[12];
 	char dns[256];
 	char id[34];
+	bool currentServerForLDAP;
+	int sortVal;
 } sPSServerEntry;
 
 // Context data structure
@@ -83,7 +81,7 @@ typedef struct sPSContextData {
 	char remoteaddr[NI_MAXHOST + NI_MAXSERV + 1];
     
     sasl_conn_t *conn;
-    FILE *serverIn, *serverOut;
+    FILE *serverOut;
     int fd;
 	sasl_callback_t callbacks[5];
     
@@ -97,7 +95,7 @@ typedef struct sPSContextData {
     AuthInfo last;						// information for the current authorization
     AuthInfo nao;						// information for the last authorization that was not "auth-only"
     
-	CReplicaFile *replicaFile;
+	void *replicaFile;
 	CFMutableArrayRef serverList;
 	sPSServerEntry serverProvidedFromNode;
 	bool providedNodeOnlyOrFail;
@@ -112,6 +110,9 @@ typedef struct sPSContextData {
 	unsigned char castReceiveIV[10];
 	bool askForReplicaList;
 	int serverVers[4];
+	char *serviceInfoStr;
+	bool isUNIXDomainSocket;
+	sPSServerEntry master;
 } sPSContextData;
 
 typedef struct sPSContinueData {
@@ -122,7 +123,6 @@ typedef struct sPSContinueData {
 	char				fUsername[kMaxUserNameLength + 1];
 	unsigned long 		fDataPos;
 } sPSContinueData;
-
 
 
 #endif

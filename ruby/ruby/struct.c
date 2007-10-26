@@ -2,8 +2,8 @@
 
   struct.c -
 
-  $Author: matz $
-  $Date: 2004/12/21 02:54:16 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Tue Mar 22 18:44:30 JST 1995
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -11,6 +11,7 @@
 **********************************************************************/
 
 #include "ruby.h"
+#include "env.h"
 
 VALUE rb_cStruct;
 
@@ -118,7 +119,7 @@ static VALUE
 rb_struct_ref(obj)
     VALUE obj;
 {
-    return rb_struct_getmember(obj, rb_frame_last_func());
+    return rb_struct_getmember(obj, ruby_frame->orig_func);
 }
 
 static VALUE rb_struct_ref0(obj) VALUE obj; {return RSTRUCT(obj)->ptr[0];}
@@ -159,18 +160,20 @@ rb_struct_set(obj, val)
     VALUE obj, val;
 {
     VALUE members, slot;
+    ID id;
     long i;
 
     members = rb_struct_members(obj);
     rb_struct_modify(obj);
+    id = ruby_frame->orig_func;
     for (i=0; i<RARRAY(members)->len; i++) {
 	slot = RARRAY(members)->ptr[i];
-	if (rb_id_attrset(SYM2ID(slot)) == rb_frame_last_func()) {
+	if (rb_id_attrset(SYM2ID(slot)) == id) {
 	    return RSTRUCT(obj)->ptr[i] = val;
 	}
     }
-    rb_name_error(rb_frame_last_func(), "`%s' is not a struct member",
-		  rb_id2name(rb_frame_last_func()));
+    rb_name_error(ruby_frame->last_func, "`%s' is not a struct member",
+		  rb_id2name(id));
     return Qnil;		/* not reached */
 }
 
@@ -209,13 +212,15 @@ make_struct(name, members, klass)
     rb_define_singleton_method(nstr, "members", rb_struct_s_members_m, 0);
     for (i=0; i< RARRAY(members)->len; i++) {
 	ID id = SYM2ID(RARRAY(members)->ptr[i]);
-	if (i<10) {
-	    rb_define_method_id(nstr, id, ref_func[i], 0);
+	if (rb_is_local_id(id) || rb_is_const_id(id)) {
+	    if (i<10) {
+		rb_define_method_id(nstr, id, ref_func[i], 0);
+	    }
+	    else {
+		rb_define_method_id(nstr, id, rb_struct_ref, 0);
+	    }
+	    rb_define_method_id(nstr, rb_id_attrset(id), rb_struct_set, 1);
 	}
-	else {
-	    rb_define_method_id(nstr, id, rb_struct_ref, 0);
-	}
-	rb_define_method_id(nstr, rb_id_attrset(id), rb_struct_set, 1);
     }
 
     return nstr;
@@ -474,18 +479,24 @@ inspect_struct(s)
     rb_str_cat2(str, cname);
     rb_str_cat2(str, " ");
     for (i=0; i<RSTRUCT(s)->len; i++) {
-	VALUE str2, slot;
+	VALUE slot;
+	ID id;
 	char *p;
 
 	if (i > 0) {
 	    rb_str_cat2(str, ", ");
 	}
 	slot = RARRAY(members)->ptr[i];
-	p = rb_id2name(SYM2ID(slot));
-	rb_str_cat2(str, p);
+	id = SYM2ID(slot);
+	if (rb_is_local_id(id) || rb_is_const_id(id)) {
+	    p = rb_id2name(id);
+	    rb_str_cat2(str, p);
+	}
+	else {
+	    rb_str_append(str, rb_inspect(slot));
+	}
 	rb_str_cat2(str, "=");
-	str2 = rb_inspect(RSTRUCT(s)->ptr[i]);
-	rb_str_append(str, str2);
+	rb_str_append(str, rb_inspect(RSTRUCT(s)->ptr[i]));
     }
     rb_str_cat2(str, ">");
     OBJ_INFECT(str, s);
@@ -507,9 +518,10 @@ rb_struct_inspect(s)
 {
     if (rb_inspecting_p(s)) {
 	char *cname = rb_class2name(rb_obj_class(s));
-	VALUE str = rb_str_new(0, strlen(cname) + 15);
+	size_t len = strlen(cname) + 14;
+	VALUE str = rb_str_new(0, len);
 
-	sprintf(RSTRING(str)->ptr, "#<struct %s:...>", cname);
+	snprintf(RSTRING(str)->ptr, len+1, "#<struct %s:...>", cname);
 	RSTRING(str)->len = strlen(RSTRING(str)->ptr);
 	return str;
     }
@@ -716,21 +728,15 @@ rb_struct_values_at(argc, argv, s)
 
 /*
  *  call-seq:
- *     struct.select(fixnum, ... )   => array
  *     struct.select {|i| block }    => array
  *  
- *  The first form returns an array containing the elements in
- *  <i>struct</i> corresponding to the given indices. The second
- *  form invokes the block passing in successive elements from
+ *  Invokes the block passing in successive elements from
  *  <i>struct</i>, returning an array containing those elements
  *  for which the block returns a true value (equivalent to
  *  <code>Enumerable#select</code>).
  *     
  *     Lots = Struct.new(:a, :b, :c, :d, :e, :f)
  *     l = Lots.new(11, 22, 33, 44, 55, 66)
- *     l.select(1, 3, 5)               #=> [22, 44, 66]
- *     l.select(0, 2, 4)               #=> [11, 33, 55]
- *     l.select(-1, -3, -5)            #=> [66, 44, 22]
  *     l.select {|v| (v % 2).zero? }   #=> [22, 44, 66]
  */
 

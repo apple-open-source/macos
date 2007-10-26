@@ -62,6 +62,8 @@ public:
     const CssmOid &oid() const			{ return mOid; }
     const CssmData &value() const		{ return mValue; }
 	CssmOwnedData &value()				{ return mValue; }
+	
+    void setValue(const CssmData &value);
     
     bool operator < (const Policy& other) const;
     bool operator == (const Policy& other) const;
@@ -70,6 +72,7 @@ private:
     TP					mTp;			// TP module for this Policy
     CssmAutoData		mOid;			// OID for this policy
     CssmAutoData		mValue;			// value for this policy
+    CssmAutoData		mAuxValue;		// variable-length value data for this policy
 };
 
 } // end namespace KeychainCore

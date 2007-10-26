@@ -26,8 +26,8 @@
 // Keychains.cpp
 //
 
-#include "Keychains.h"
 #include "KCEventNotifier.h"
+#include "Keychains.h"
 
 #include "Item.h"
 #include "KCCursor.h"
@@ -40,11 +40,33 @@
 #include <security_utilities/trackingallocator.h>
 #include <security_keychain/SecCFTypes.h>
 
-#include <Security/SecKeychainItemPriv.h>
+#include "SecKeychainPriv.h"
 
+#include <Security/SecKeychainItemPriv.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
+
+
+typedef struct EventItem
+{
+	SecKeychainEvent kcEvent;
+	Item item;
+} EventItem;
+
+typedef std::list<EventItem> EventBufferSuper;
+class EventBuffer : public EventBufferSuper
+{
+public:
+	EventBuffer () {}
+	virtual ~EventBuffer ();
+};
+
+
+EventBuffer::~EventBuffer ()
+{
+}
+
 
 
 //
@@ -134,9 +156,23 @@ bool KeychainSchemaImpl::hasRecordType (CSSM_DB_RECORDTYPE recordType) const
 bool
 KeychainSchemaImpl::hasAttribute(CSSM_DB_RECORDTYPE recordType, uint32 attributeId) const
 {
-	const RelationInfoMap &rmap = relationInfoMapFor(recordType);
-	RelationInfoMap::const_iterator rit = rmap.find(attributeId);
-	return rit != rmap.end();
+	try
+	{
+		const RelationInfoMap &rmap = relationInfoMapFor(recordType);
+		RelationInfoMap::const_iterator rit = rmap.find(attributeId);
+		return rit != rmap.end();
+	}
+	catch (MacOSError result)
+	{
+		if (result.osStatus () == errSecNoSuchClass)
+		{
+			return false;
+		}
+		else
+		{
+			throw;
+		}
+	}
 }
 
 CSSM_DB_ATTRIBUTE_FORMAT 
@@ -250,19 +286,34 @@ KeychainSchemaImpl::didCreateRelation(CSSM_DB_RECORDTYPE relationID,
 }
 
 
+struct Event
+{
+	SecKeychainEvent eventCode;
+	PrimaryKey primaryKey;
+};
+typedef std::list<Event> EventList;
+
 //
 // KeychainImpl
 //
 KeychainImpl::KeychainImpl(const Db &db)
-	: mInCache(false), mDb(db), mCustomUnlockCreds (this)
+	: mInCache(false), mDb(db), mCustomUnlockCreds (this), mIsInBatchMode (false)
 {
 	mDb->defaultCredentials(this);	// install activation hook
+	mEventBuffer = new EventBuffer;
 }
 
 KeychainImpl::~KeychainImpl() throw()
 {
-	// Remove ourselves from the cache if we are in it.
-	globals().storageManager.removeKeychain(dlDbIdentifier(), this);
+	try
+	{
+		// Remove ourselves from the cache if we are in it.
+		globals().storageManager.removeKeychain(dlDbIdentifier(), this);
+		delete mEventBuffer;
+	}
+	catch(...)
+	{
+	}
 }
 
 bool
@@ -363,8 +414,6 @@ KeychainImpl::create(const ResourceControlContext *rcc)
 	mDb->resourceControlContext(NULL);
 	mDb->dbInfo(NULL); // Clear the schema (to not break an open call later)
 	globals().storageManager.created(Keychain(this));
-
-    KCEventNotifier::PostKeychainEvent (kSecKeychainListChangedEvent, this, NULL);
 }
 
 void
@@ -518,12 +567,8 @@ KeychainImpl::isActive() const
 	return mDb->isActive();
 }
 
-void
-KeychainImpl::add(Item &inItem)
+void KeychainImpl::completeAdd(Item &inItem, PrimaryKey &primaryKey)
 {
-	Keychain keychain(this);
-	PrimaryKey primaryKey = inItem->add(keychain);
-
 	{
 		StLock<Mutex> stAPILock(globals().apiLock);
 		// The inItem shouldn't be in the cache yet
@@ -554,8 +599,24 @@ KeychainImpl::add(Item &inItem)
 
 		inItem->inCache(true);
 	}
+}
 
-    KCEventNotifier::PostKeychainEvent(kSecAddEvent, keychain, inItem);
+void
+KeychainImpl::addCopy(Item &inItem)
+{
+	Keychain keychain(this);
+	PrimaryKey primaryKey = inItem->addWithCopyInfo(keychain, true);
+	completeAdd(inItem, primaryKey);
+	postEvent(kSecAddEvent, inItem);
+}
+
+void
+KeychainImpl::add(Item &inItem)
+{
+	Keychain keychain(this);
+	PrimaryKey primaryKey = inItem->add(keychain);
+	completeAdd(inItem, primaryKey);
+	postEvent(kSecAddEvent, inItem);
 }
 
 void
@@ -601,14 +662,14 @@ KeychainImpl::didUpdate(const Item &inItem, PrimaryKey &oldPK,
 		}
 	}
 
-    KCEventNotifier::PostKeychainEvent(kSecUpdateEvent, this, inItem);
+	postEvent(kSecUpdateEvent, inItem);
 }
 
 void
 KeychainImpl::deleteItem(Item &inoutItem)
 {
-	// item must be persistant.
-	if (!inoutItem->isPersistant())
+	// item must be persistent
+	if (!inoutItem->isPersistent())
 		MacOSError::throwMe(errSecInvalidItemRef);
 
 	DbUniqueRecord uniqueId = inoutItem->dbUniqueRecord();
@@ -623,7 +684,7 @@ KeychainImpl::deleteItem(Item &inoutItem)
 
     // Post the notification for the item deletion with
 	// the primaryKey obtained when the item still existed
-	KCEventNotifier::PostKeychainEvent(kSecDeleteEvent, dlDbIdentifier(), primaryKey);
+	postEvent(kSecDeleteEvent, inoutItem);
 }
 
 
@@ -633,8 +694,17 @@ KeychainImpl::csp()
 	if (!mDb->dl()->subserviceMask() & CSSM_SERVICE_CSP)
 		MacOSError::throwMe(errSecInvalidKeychain);
 
-	SSDb ssDb(safe_cast<SSDbImpl *>(&(*mDb)));
-	return ssDb->csp();
+	// Try to cast first to a CSPDL to handle case where we don't have an SSDb
+	try
+	{
+		CssmClient::CSPDL cspdl(dynamic_cast<CssmClient::CSPDLImpl *>(&*mDb->dl()));
+		return CSP(cspdl);
+	}
+	catch (...)
+	{
+		SSDb ssDb(safe_cast<SSDbImpl *>(&(*mDb)));
+		return ssDb->csp();
+	}
 }
 
 PrimaryKey
@@ -892,6 +962,68 @@ KeychainImpl::copyBlob(CssmData &data)
 	mDb->copyBlob(data);
 }
 
+void
+KeychainImpl::setBatchMode(Boolean mode, Boolean rollback)
+{
+	mDb->setBatchMode(mode, rollback);
+	mIsInBatchMode = mode;
+	if (!mode)
+	{
+		if (!rollback) // was batch mode being turned off without an abort?
+		{
+			// dump the buffer
+			EventBuffer::iterator it = mEventBuffer->begin();
+			while (it != mEventBuffer->end())
+			{
+				PrimaryKey primaryKey;
+				if (it->item)
+				{
+					primaryKey = it->item->primaryKey();
+				}
+				
+				KCEventNotifier::PostKeychainEvent(it->kcEvent, mDb->dlDbIdentifier(), primaryKey);
+				
+				++it;
+			}
+			
+		}
+
+		// notify that a keychain has changed in too many ways to count
+		KCEventNotifier::PostKeychainEvent(kSecKeychainLeftBatchModeEvent);
+		mEventBuffer->clear();
+	}
+	else
+	{
+		KCEventNotifier::PostKeychainEvent(kSecKeychainEnteredBatchModeEvent);
+	}
+}
+
+void
+KeychainImpl::postEvent(SecKeychainEvent kcEvent, ItemImpl* item)
+{
+	PrimaryKey primaryKey;
+	if (item != NULL)
+	{
+		primaryKey = item->primaryKey();
+	}
+	
+	if (!mIsInBatchMode)
+	{
+		KCEventNotifier::PostKeychainEvent(kcEvent, mDb->dlDbIdentifier(), primaryKey);
+	}
+	else
+	{
+		EventItem it;
+		it.kcEvent = kcEvent;
+		if (item != NULL)
+		{
+			it.item = item;
+		}
+		
+		mEventBuffer->push_back (it);
+	}
+}
+
 Keychain
 Keychain::optional(SecKeychainRef handle)
 {
@@ -925,3 +1057,6 @@ KeychainImpl::defaultCredentials()
 	else
 		return globals().credentials();
 }
+
+
+

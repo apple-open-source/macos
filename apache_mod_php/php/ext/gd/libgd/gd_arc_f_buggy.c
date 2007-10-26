@@ -1,6 +1,6 @@
 /* This is potentially great stuff, but fails against the test
-   program at the end. This would probably be much more 
-   efficent than the implementation currently in gd.c if the 
+   program at the end. This would probably be much more
+   efficent than the implementation currently in gd.c if the
    errors in the output were corrected. TBB */
 
 #if 0
@@ -698,7 +698,7 @@ gdArcClosest (int width, int height, int angle)
 #define WIDTH	500
 #define HEIGHT	300
 
-int 
+int
 main (int argc, char *argv[])
 {
   gdImagePtr im = gdImageCreate (WIDTH, HEIGHT);
@@ -726,12 +726,12 @@ main (int argc, char *argv[])
   out = fopen ("test/arctest.png", "wb");
   if (!out)
     {
-      php_gd_error("Can't create test/arctest.png\n");
+      php_gd_error("Can't create test/arctest.png");
       exit (1);
     }
   gdImagePng (im, out);
   fclose (out);
-  php_gd_error("Test image written to test/arctest.png\n");
+  php_gd_error("Test image written to test/arctest.png");
   /* Destroy it */
   gdImageDestroy (im);
 

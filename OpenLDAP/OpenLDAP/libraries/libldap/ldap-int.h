@@ -1,8 +1,8 @@
 /*  ldap-int.h - defines & prototypes internal to the LDAP library */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.148.2.6 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.160.2.8 2006/01/03 22:16:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -41,6 +41,9 @@
 #define SASL_MAX_BUFF_SIZE	65536
 #define SASL_MIN_BUFF_SIZE	4096
 #endif
+
+#undef TV2MILLISEC
+#define TV2MILLISEC(tv) (((tv)->tv_sec * 1000) + ((tv)->tv_usec/1000))
 
 /* 
  * Support needed if the library is running in the kernel
@@ -86,6 +89,7 @@
 
 #define LDAP_DEPRECATED 1
 #include "ldap.h"
+#include "ldap_private.h" /* used for private extensions */
 
 #include "ldap_pvt.h"
 
@@ -116,7 +120,7 @@ LDAP_BEGIN_DECL
 #define LDAP_BOOL_TLS			3
 
 #define LDAP_BOOLEANS	unsigned long
-#define LDAP_BOOL(n)	(1 << (n))
+#define LDAP_BOOL(n)	((LDAP_BOOLEANS)1 << (n))
 #define LDAP_BOOL_GET(lo, bool)	\
 	((lo)->ldo_booleans & LDAP_BOOL(bool) ? -1 : 0)
 #define LDAP_BOOL_SET(lo, bool) ((lo)->ldo_booleans |= LDAP_BOOL(bool))
@@ -134,6 +138,7 @@ struct ldapmsg {
 	ber_tag_t		lm_msgtype;	/* the message type */
 	BerElement	*lm_ber;	/* the ber encoded message contents */
 	struct ldapmsg	*lm_chain;	/* for search - next msg in the resp */
+	struct ldapmsg	*lm_chain_tail;
 	struct ldapmsg	*lm_next;	/* next response */
 	time_t	lm_time;	/* used to maintain cache */
 };
@@ -147,6 +152,7 @@ struct ldapoptions {
 #define LDAP_UNINITIALIZED	0x0
 #define LDAP_INITIALIZED	0x1
 #define LDAP_VALID_SESSION	0x2
+#define LDAP_TRASHED_SESSION	0xFF
 	int   ldo_debug;
 #ifdef LDAP_CONNECTIONLESS
 #define	LDAP_IS_UDP(ld)		((ld)->ld_options.ldo_is_udp)
@@ -165,7 +171,11 @@ struct ldapoptions {
 	ber_int_t		ldo_sizelimit;
 
 #ifdef HAVE_TLS
+   	/* tls context */
+   	void		*ldo_tls_ctx;
    	int			ldo_tls_mode;
+	LDAP_TLS_CONNECT_CB	*ldo_tls_connect_cb;
+	void*			ldo_tls_connect_arg;
 #endif
 
 	LDAPURLDesc *ldo_defludp;
@@ -192,8 +202,17 @@ struct ldapoptions {
 	/* LDAP rebind callback function */
 	LDAP_REBIND_PROC *ldo_rebind_proc;
 	void *ldo_rebind_params;
+	LDAP_NEXTREF_PROC *ldo_nextref_proc;
+	void *ldo_nextref_params;
 
 	LDAP_BOOLEANS ldo_booleans;	/* boolean options */
+
+	/* apple specific extension */
+	short ldo_noaddr_option;
+	short ldo_noreverse_option;
+	LDAP_NOTIFYDESC_PROC *ldo_notifydesc_proc;
+	void *ldo_notifydesc_params;
+	char *ldo_sasl_fqdn;
 };
 
 
@@ -202,10 +221,6 @@ struct ldapoptions {
  */
 typedef struct ldap_conn {
 	Sockbuf		*lconn_sb;
-#ifdef HAVE_TLS
-   	/* tls context */
-   	void		*lconn_tls_ctx;
-#endif
 #ifdef HAVE_CYRUS_SASL
 	void		*lconn_sasl_authctx;	/* context for bind */
 	void		*lconn_sasl_sockctx;	/* for security layer */
@@ -248,6 +263,7 @@ typedef struct ldapreq {
 	char		*lr_res_matched;/* result matched DN string */
 	BerElement	*lr_ber;	/* ber encoded request contents */
 	LDAPConn	*lr_conn;	/* connection used to send request */
+	struct berval	lr_dn;	/* DN of request, in lr_ber */
 	struct ldapreq	*lr_parent;	/* request that spawned this referral */
 	struct ldapreq	*lr_child;	/* first child request */
 	struct ldapreq	*lr_refnext;	/* next referral spawned */
@@ -305,8 +321,10 @@ struct ldap {
 
 #define ld_sctrls		ld_options.ldo_sctrls
 #define ld_cctrls		ld_options.ldo_cctrls
-#define ld_rebind_proc	ld_options.ldo_rebind_proc
+#define ld_rebind_proc		ld_options.ldo_rebind_proc
 #define ld_rebind_params	ld_options.ldo_rebind_params
+#define ld_nextref_proc		ld_options.ldo_nextref_proc
+#define ld_nextref_params	ld_options.ldo_nextref_params
 
 #define ld_version		ld_options.ldo_version
 
@@ -323,6 +341,7 @@ struct ldap {
 	LDAPMessage	*ld_responses;	/* list of outstanding responses */
 
 #ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_t	ld_conn_mutex;
 	ldap_pvt_thread_mutex_t	ld_req_mutex;
 	ldap_pvt_thread_mutex_t	ld_res_mutex;
 #endif
@@ -337,7 +356,9 @@ struct ldap {
 	LDAPConn	*ld_conns;	/* list of server connections */
 	void		*ld_selectinfo;	/* platform specifics for select */
 };
-#define LDAP_VALID(ld)	( (ld)->ld_valid == LDAP_VALID_SESSION )
+#define LDAP_VALID(ld)		( (ld)->ld_valid == LDAP_VALID_SESSION )
+#define LDAP_TRASHED(ld)	( (ld)->ld_valid == LDAP_TRASHED_SESSION )
+#define LDAP_TRASH(ld)		( (ld)->ld_valid = LDAP_TRASHED_SESSION )
 
 #ifdef LDAP_R_COMPILE
 LDAP_V ( ldap_pvt_thread_mutex_t ) ldap_int_resolv_mutex;
@@ -448,7 +469,11 @@ LDAP_F (int) ldap_int_open_connection( LDAP *ld,
 /*
  * in os-ip.c
  */
+#ifndef HAVE_POLL
 LDAP_V (int) ldap_int_tblsize;
+LDAP_F (void) ldap_int_ip_init( void );
+#endif
+
 LDAP_F (int) ldap_int_timeval_dup( struct timeval **dest,
 	const struct timeval *tm );
 LDAP_F (int) ldap_connect_to_host( LDAP *ld, Sockbuf *sb,
@@ -461,7 +486,6 @@ LDAP_F (char *) ldap_host_connected_to( Sockbuf *sb,
 	const char *host );
 #endif
 
-LDAP_F (void) ldap_int_ip_init( void );
 LDAP_F (int) ldap_int_select( LDAP *ld, struct timeval *timeout );
 LDAP_F (void *) ldap_new_select_info( void );
 LDAP_F (void) ldap_free_select_info( void *sip );

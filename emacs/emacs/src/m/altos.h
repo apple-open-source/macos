@@ -1,5 +1,6 @@
 /* altos machine description file	Altos 3068 Unix System V Release 2
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2"  */
 
@@ -36,18 +37,9 @@ Boston, MA 02111-1307, USA.  */
 
 #define LIB_STANDARD -lc
 
-#ifdef __GNUC__
-#define alloca __builtin_alloca
-#define HAVE_ALLOCA
-#else
-#define C_ALLOCA		/* we have -lPW and alloca but it's broken!
-				   <vsedev!ron> */
-#endif
-
 #define SWITCH_ENUM_BUG
 
 #define NO_REMAP
-#define STACK_DIRECTION -1
 
 #undef TERMINFO
 
@@ -62,3 +54,6 @@ Boston, MA 02111-1307, USA.  */
 #ifdef __GNUC__
 #define COFF_ENCAPSULATE
 #endif
+
+/* arch-tag: 4572d0ff-70bb-445f-80f1-2bbac3cf47cb
+   (do not change this comment) */

@@ -1,6 +1,6 @@
 \documentstyle[times,fullpage,rcsid]{article}
 
-\rcs$Header$
+\rcs$Id: api-unit-test.tex 17360 2005-08-25 23:41:34Z raeburn $
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Make _ actually generate an _, and allow line-breaking after it.
@@ -41,7 +41,7 @@
 %\newcommand{\Priority}[1]{}
 
 \title{KADM5 Admin API\\
-Unit Test Description\footnote{\rcsHeader}}
+Unit Test Description\footnote{\rcsId}}
 \author{Jonathan I. Kamens}
 
 \begin{document}
@@ -860,7 +860,7 @@ that does not exist, init fails with ENOENT.}
 
 \numtest{32}{
 \Reason{Accepts 0 (never) for pw_expiration when there's a policy with
-	non-zero pw_max_life, and sets pw_expiration to zero.
+	non-zero pw_max_life, and sets pw_expiration to zero.}
 \Status{Implemented}	
 }
 

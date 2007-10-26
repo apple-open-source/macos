@@ -35,43 +35,10 @@ OSDefineMetaClassAndStructors( AppleAPICInterruptController,
         (((v) & (f ## Mask)) >> (f ## Shift))
 
 #define PIC_TO_SYS_VECTOR(pv) \
-        ((pv) + kBaseIOInterruptVectors + _vectorBase)
+        ((pv) + _vectorBase)
 
 #define SYS_TO_PIC_VECTOR(sv) \
-        ((sv) - kBaseIOInterruptVectors - _vectorBase);
-
-//---------------------------------------------------------------------------
-// Support for multiple I/O APIC is handled by having a dispatch table with
-// entries for every possible vector. Each entry points to an APIC driver
-// instance. The dispatcher is registered with the CPU interrupt controller,
-// and each APIC driver add themselve to the dispatch table. Can reduce the
-// size of the table by removing the reserved vectors at the bottom, and/or
-// store a 8-bit index to another table to lookup the interrupt controller.
-
-#define kSystemVectorNumber 256
-
-class AppleAPICInterruptDispatcher
-{
-public:
-     AppleAPICInterruptDispatcher();
-    ~AppleAPICInterruptDispatcher();
-
-    static void handleInterrupt( OSObject * target, void * refCon,
-                                 IOService * nub, int source );
-
-    bool isValid( void ) const;
-
-    bool registerAPICInterruptController(
-                     IOInterruptController * apicDriver,
-                     IOService *             apicDevice,
-                     long                    vectorBase,
-                     long                    vectorCount );
-};
-
-static AppleAPICInterruptDispatcher gAppleAPICInterruptDispatcher;
-static IOInterruptController *      gDispatchTable[ kSystemVectorNumber ];
-static IOLock *                     gDispatchLock;
-static bool                         gDispatchRegistered;
+        ((sv) - _vectorBase);
 
 //---------------------------------------------------------------------------
 
@@ -80,13 +47,13 @@ bool AppleAPIC::start( IOService * provider )
     OSNumber *        num;
     const OSSymbol *  sym;
 
-    if ( gAppleAPICInterruptDispatcher.isValid() == false ||
-         super::start( provider ) == false )
-        goto fail;
-
     _handleSleepWakeFunction = OSSymbol::withCString(
                                kHandleSleepWakeFunction );
-    if ( 0 == _handleSleepWakeFunction )
+
+	_setVectorPhysicalDestination = OSSymbol::withCString(
+									kSetVectorPhysicalDestination );
+
+    if (!_handleSleepWakeFunction || !_setVectorPhysicalDestination)
         goto fail;
 
     // Get the base vector number assigned to this I/O APIC. When multiple
@@ -166,6 +133,13 @@ bool AppleAPIC::start( IOService * provider )
     // entries are supported.
 
     _vectorCount = GET_FIELD( indexRead( kIndexVER ), kVERMaxEntries );
+    if (_vectorCount >= 0xFF)
+    {
+        APIC_LOG("IOAPIC-%ld: excessive vector count (%ld)\n",
+            _vectorBase, _vectorCount);
+        goto fail;
+    }
+
     APIC_LOG("IOAPIC-%ld: vector range = %ld:%ld\n",
              _vectorBase, _vectorBase, _vectorBase + _vectorCount);
     _vectorCount++;
@@ -206,14 +180,8 @@ bool AppleAPIC::start( IOService * provider )
 
     // Register our vectors with the top-level interrupt dispatcher.
 
-    if ( gAppleAPICInterruptDispatcher.registerAPICInterruptController(
-         /* APICDriver  */ this,
-         /* APICDevice  */ provider,
-         /* vectorBase  */ _vectorBase + kBaseIOInterruptVectors,
-         /* vectorCount */ _vectorCount ) == false )
-    {
-        goto fail;
-    }
+    setProperty(kBaseVectorNumberKey, _vectorBase, 32);
+    setProperty(kVectorCountKey,      _vectorCount, 32);
 
     // Register this interrupt controller so clients can register with us
     // by name. Grab the interrupt controller name from the provider.
@@ -231,7 +199,7 @@ bool AppleAPIC::start( IOService * provider )
 
     IOLog("IOAPIC: Version 0x%02lx Vectors %ld:%ld\n",
           GET_FIELD( indexRead( kIndexVER ), kVERVersion ),
-          _vectorBase, _vectorBase + _vectorCount);
+          _vectorBase, _vectorBase + _vectorCount - 1);
 
     getPlatform()->registerInterruptController( (OSSymbol *) sym, this );
     sym->release();
@@ -256,6 +224,12 @@ void AppleAPIC::free( void )
     {
         _handleSleepWakeFunction->release();
         _handleSleepWakeFunction = 0;
+    }
+
+    if ( _setVectorPhysicalDestination )
+    {
+        _setVectorPhysicalDestination->release();
+        _setVectorPhysicalDestination = 0;
     }
 
     if ( vectors )
@@ -490,7 +464,7 @@ void AppleAPIC::initVector( long vectorNumber, IOInterruptVector * vector )
 bool AppleAPIC::vectorCanBeShared( long vectorNumber,
                                    IOInterruptVector * vector)
 {
-    APIC_LOG("IOAPIC-%ld: %s( %ld )\n", _vectorBase, vectorNumber);
+    APIC_LOG("IOAPIC-%ld: %s( %ld )\n", _vectorBase, __FUNCTION__, vectorNumber);
 
     // Trust the ACPI platform driver to manage interrupt allocations
     // and not assign unshareable interrupts to multiple devices.
@@ -507,7 +481,10 @@ bool AppleAPIC::vectorCanBeShared( long vectorNumber,
 
 IOInterruptAction AppleAPIC::getInterruptHandlerAddress( void )
 {
-    return &AppleAPICInterruptDispatcher::handleInterrupt;
+
+    return OSMemberFunctionCast(IOInterruptAction,
+					this, &AppleAPIC::handleInterrupt);
+
 }
 
 //---------------------------------------------------------------------------
@@ -573,17 +550,6 @@ IOReturn AppleAPIC::handleInterrupt( void *      savedState,
 
     vector->interruptActive = 0;
 
-    // Must terminate the interrupt by writing an arbitrary value (0)
-    // to the EOI register in the Local APIC. Otherwise, lower priority
-    // interrupts are queued in the IRR but will not get dispensed for
-    // service. Higher priority interrupts do not wait for the EOI -
-    // interrupts can become nested.
-    //
-    // This also triggers the Local APIC to send an EOI message to the
-    // I/O APIC for level triggered interrupts. There is no need for
-    // the driver to write to the EOI register on the I/O APIC.
-
-    lapic_end_of_interrupt();
 
     return kIOReturnSuccess;
 }
@@ -637,6 +603,32 @@ void AppleAPIC::resumeFromSleep( void )
 
 //---------------------------------------------------------------------------
 
+IOReturn AppleAPIC::setVectorPhysicalDestination( UInt32 vectorNumber,
+												  UInt32 apicID )
+{
+	VectorEntry * entry;
+
+    kprintf("IOAPIC-%ld: %s( %ld, %ld )\n", _vectorBase, __FUNCTION__,
+		vectorNumber, apicID);
+
+	if (vectorNumber >= (UInt32)_vectorCount)
+		return kIOReturnBadArgument;
+
+	if (apicID > 255)
+		return kIOReturnBadArgument;
+
+	disableVectorEntry( vectorNumber );
+
+	entry = &_vectorTable[ vectorNumber ];
+	entry->h32 = (apicID << kRTHIDestinationShift) & kRTHIDestinationMask;
+
+	writeVectorEntry( vectorNumber );
+	
+	return kIOReturnSuccess;
+}
+
+//---------------------------------------------------------------------------
+
 IOReturn AppleAPIC::callPlatformFunction( const OSSymbol * function,
                                           bool waitForFunction,
                                           void * param1, void * param2,
@@ -651,98 +643,14 @@ IOReturn AppleAPIC::callPlatformFunction( const OSSymbol * function,
 
         return kIOReturnSuccess;
     }
+	else if ( function == _setVectorPhysicalDestination )
+	{
+		// param1 - vector number
+		// param2 - APIC ID
+		
+		return setVectorPhysicalDestination( (UInt32) param1, (UInt32) param2 );
+	}
 
     return super::callPlatformFunction( function, waitForFunction,
                                         param1, param2, param3, param4 );
-}
-
-//---------------------------------------------------------------------------
-//
-// AppleAPICInterruptDispatcher
-//
-//---------------------------------------------------------------------------
-
-AppleAPICInterruptDispatcher::AppleAPICInterruptDispatcher()
-{
-    bzero(gDispatchTable,
-          sizeof(IOInterruptController *) * kSystemVectorNumber);
-    gDispatchLock = IOLockAlloc();
-    gDispatchRegistered = false;
-}
-
-AppleAPICInterruptDispatcher::~AppleAPICInterruptDispatcher()
-{
-    if (gDispatchLock) IOLockFree(gDispatchLock);
-}
-
-void AppleAPICInterruptDispatcher::handleInterrupt( OSObject *  target,
-                                                    void *      refCon,
-                                                    IOService * nub,
-                                                    int         source )
-{
-    assert( source < kSystemVectorNumber );
-    assert( gDispatchTable[source] );
-
-    if (gDispatchTable[source])
-        gDispatchTable[source]->handleInterrupt( refCon, nub, source );
-}
-
-bool AppleAPICInterruptDispatcher::isValid( void ) const
-{
-    return ( 0 != gDispatchLock );
-}
-
-bool AppleAPICInterruptDispatcher::registerAPICInterruptController(
-                                   IOInterruptController * apicDriver,
-                                   IOService *             apicDevice,
-                                   long                    vectorBase,
-                                   long                    vectorCount )
-{
-    bool success = true;
-
-    IOLockLock( gDispatchLock );
-
-    for ( long vector = vectorBase;
-               vector < vectorBase + vectorCount &&
-               vector < kSystemVectorNumber;
-               vector++ )
-    {
-        if (gDispatchTable[vector] == 0)
-            gDispatchTable[vector] = apicDriver;
-        else
-            APIC_LOG("IOAPIC Dispatcher: vector %ld already taken\n",
-                     vector);
-    }
-
-    // The first caller will wire up interrupts and register the dispatcher
-    // with the CPU interrupt controller.
-
-    if ( false == gDispatchRegistered )
-    {
-        // Add CPU interrupt controller properties in the provider.
-
-        apicDriver->getPlatform()->setCPUInterruptProperties( apicDevice );
-
-        // Register the handler with the CPU interrupt controller.
-        // Attach to the first vector.
-
-        if ( kIOReturnSuccess != apicDevice->registerInterrupt(
-                                 /* source  */ 0, 
-                                 /* target  */ apicDriver,
-                                 /* handler */ &handleInterrupt,
-                                 /* refcon  */ 0 ) )
-        {
-            APIC_LOG("IOAPIC Dispatcher: registerInterrupt failed\n");
-            success = false;
-        }
-        else
-        {
-            apicDevice->enableInterrupt( 0 );
-            gDispatchRegistered = true;
-        }
-    }
-
-    IOLockUnlock( gDispatchLock );
-    
-    return success;
 }

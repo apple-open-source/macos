@@ -92,6 +92,7 @@ check on a DCE/DFS authentication
 ********************************************************************/
 static BOOL dfs_auth(char *user, char *password)
 {
+	struct tm *t;
 	error_status_t err;
 	int err2;
 	int prterr;
@@ -341,8 +342,13 @@ static BOOL dfs_auth(char *user, char *password)
 	set_effective_uid(0);
 	set_effective_gid(0);
 
-	DEBUG(0,
-	      ("DCE context expires: %s", asctime(localtime(&expire_time))));
+	t = localtime(&expire_time);
+	if (t) {
+		const char *asct = asctime(t);
+		if (asct) {
+			DEBUG(0,("DCE context expires: %s", asct));
+		}
+	}
 
 	dcelogin_atmost_once = 1;
 	return (True);
@@ -452,9 +458,9 @@ static NTSTATUS string_combinations2(char *s, int offset, NTSTATUS (*fn) (const 
 
 	for (i = offset; i < (len - (N - 1)); i++) {
 		char c = s[i];
-		if (!islower(c))
+		if (!islower_ascii(c))
 			continue;
-		s[i] = toupper(c);
+		s[i] = toupper_ascii(c);
 		if (!NT_STATUS_EQUAL(nt_status = string_combinations2(s, i + 1, fn, N - 1),NT_STATUS_WRONG_PASSWORD)) {
 			return (nt_status);
 		}

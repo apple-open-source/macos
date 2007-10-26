@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -346,7 +349,7 @@ PRIVATE void rpc__cn_sm_insert_event
   rpc_cn_sm_ctlblk_t              *sm
 )
 {
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     /*
      * Check whether the event list is full. This condition occurs
      * when the head and tail indices are equal and the state

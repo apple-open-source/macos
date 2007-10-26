@@ -31,8 +31,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.2 (Berkeley) 4/28/95
- * $FreeBSD: src/usr.bin/finger/extern.h,v 1.8 2002/09/04 23:29:00 dwmalone Exp $
+ * $FreeBSD: src/usr.bin/finger/extern.h,v 1.10 2005/09/19 10:11:46 dds Exp $
  */
+
+#ifndef	_EXTERN_H_
+#define	_EXTERN_H_
 
 extern char tbuf[1024];			/* Temp buffer for anybody. */
 extern int entries;			/* Number of people. */
@@ -44,11 +47,14 @@ extern int lflag;
 extern time_t now;
 extern int oflag;
 extern int pplan;			/* don't show .plan/.project */
+#ifndef __APPLE__
 extern int Tflag;
+#endif
+extern int invoker_root;		/* Invoked by root */
 
 void	 enter_lastlog(PERSON *);
 PERSON	*enter_person(struct passwd *);
-void	 enter_where(struct utmp *, PERSON *);
+void	 enter_where(struct utmpx *, PERSON *);
 PERSON	*find_person(const char *);
 int	 hide(struct passwd *);
 void	 lflag_print(void);
@@ -58,3 +64,5 @@ PERSON	*palloc(void);
 char	*prphone(char *);
 void	 sflag_print(void);
 int	 show_text(const char *, const char *, const char *);
+
+#endif /* !_EXTERN_H_ */

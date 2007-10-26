@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,7 @@ typedef struct {
 	char	*cmd;
 	int	minArgs;
 	int	maxArgs;
-	void	(*func)();
+	void	(*func)(int argc, char **argv);
 	int	group;
 	int	ctype;	/* -1==normal/hidden, 0==normal, 1==limited, 2==private */
 	char	*usage;
@@ -48,6 +48,9 @@ typedef struct {
 
 extern const cmdInfo	commands_store[];
 extern const int	nCommands_store;
+
+extern const cmdInfo	commands_net[];
+extern const int	nCommands_net;
 
 extern const cmdInfo	commands_prefs[];
 extern const int	nCommands_prefs;

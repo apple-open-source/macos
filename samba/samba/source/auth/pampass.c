@@ -63,7 +63,7 @@ typedef int (*smb_pam_conv_fn)(int, const struct pam_message **, struct pam_resp
 /*
  *  Macros to help make life easy
  */
-#define COPY_STRING(s) (s) ? strdup(s) : NULL
+#define COPY_STRING(s) (s) ? SMB_STRDUP(s) : NULL
 
 /*******************************************************************
  PAM error handler.
@@ -134,7 +134,7 @@ static int smb_pam_conv(int num_msg,
 		return PAM_CONV_ERR;
 	}
 
-	reply = malloc(sizeof(struct pam_response) * num_msg);
+	reply = SMB_MALLOC_ARRAY(struct pam_response, num_msg);
 	if (!reply)
 		return PAM_CONV_ERR;
 
@@ -206,16 +206,15 @@ struct chat_struct {
  Create a linked list containing chat data.
 ***************************************************************/
 
-static struct chat_struct *make_pw_chat(char *p) 
+static struct chat_struct *make_pw_chat(const char *p) 
 {
 	fstring prompt;
 	fstring reply;
 	struct chat_struct *list = NULL;
 	struct chat_struct *t;
-	struct chat_struct *tmp;
 
 	while (1) {
-		t = (struct chat_struct *)malloc(sizeof(*t));
+		t = SMB_MALLOC_P(struct chat_struct);
 		if (!t) {
 			DEBUG(0,("make_pw_chat: malloc failed!\n"));
 			return NULL;
@@ -223,7 +222,7 @@ static struct chat_struct *make_pw_chat(char *p)
 
 		ZERO_STRUCTP(t);
 
-		DLIST_ADD_END(list, t, tmp);
+		DLIST_ADD_END(list, t, struct chat_struct*);
 
 		if (!next_token(&p, prompt, NULL, sizeof(fstring)))
 			break;
@@ -294,7 +293,7 @@ static int smb_pam_passchange_conv(int num_msg,
 		return PAM_CONV_ERR;
 	}
 
-	reply = malloc(sizeof(struct pam_response) * num_msg);
+	reply = SMB_MALLOC_ARRAY(struct pam_response, num_msg);
 	if (!reply) {
 		DEBUG(0,("smb_pam_passchange_conv: malloc for reply failed!\n"));
 		free_pw_chat(pw_chat);
@@ -314,7 +313,7 @@ static int smb_pam_passchange_conv(int num_msg,
 				DEBUG(10,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_ON: trying to match |%s| to |%s|\n",
 						t->prompt, current_prompt ));
 
-				if (unix_wild_match(t->prompt, current_prompt) == 0) {
+				if (unix_wild_match(t->prompt, current_prompt)) {
 					fstrcpy(current_reply, t->reply);
 					DEBUG(10,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_ON: We sent: %s\n", current_reply));
 					pwd_sub(current_reply, udp->PAM_username, udp->PAM_password, udp->PAM_newpassword);
@@ -345,7 +344,7 @@ static int smb_pam_passchange_conv(int num_msg,
 				DEBUG(10,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_OFF: trying to match |%s| to |%s|\n",
 						t->prompt, current_prompt ));
 
-				if (unix_wild_match(t->prompt, current_prompt) == 0) {
+				if (unix_wild_match(t->prompt, current_prompt)) {
 					fstrcpy(current_reply, t->reply);
 					DEBUG(10,("smb_pam_passchange_conv: PAM_PROMPT_ECHO_OFF: We sent: %s\n", current_reply));
 					pwd_sub(current_reply, udp->PAM_username, udp->PAM_password, udp->PAM_newpassword);
@@ -410,8 +409,8 @@ static void smb_free_pam_conv(struct pam_conv *pconv)
 static struct pam_conv *smb_setup_pam_conv(smb_pam_conv_fn smb_pam_conv_fnptr, const char *user,
 					const char *passwd, const char *newpass)
 {
-	struct pam_conv *pconv = (struct pam_conv *)malloc(sizeof(struct pam_conv));
-	struct smb_pam_userdata *udp = (struct smb_pam_userdata *)malloc(sizeof(struct smb_pam_userdata));
+	struct pam_conv *pconv = SMB_MALLOC_P(struct pam_conv);
+	struct smb_pam_userdata *udp = SMB_MALLOC_P(struct smb_pam_userdata);
 
 	if (pconv == NULL || udp == NULL) {
 		SAFE_FREE(pconv);
@@ -515,7 +514,7 @@ static NTSTATUS smb_pam_auth(pam_handle_t *pamh, const char *user)
 	pam_error = pam_authenticate(pamh, PAM_SILENT | lp_null_passwords() ? 0 : PAM_DISALLOW_NULL_AUTHTOK);
 	switch( pam_error ){
 		case PAM_AUTH_ERR:
-			DEBUG(2, ("smb_pam_auth: PAM: Athentication Error for user %s\n", user));
+			DEBUG(2, ("smb_pam_auth: PAM: Authentication Error for user %s\n", user));
 			break;
 		case PAM_CRED_INSUFFICIENT:
 			DEBUG(2, ("smb_pam_auth: PAM: Insufficient Credentials for user %s\n", user));

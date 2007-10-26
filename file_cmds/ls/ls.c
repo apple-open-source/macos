@@ -84,8 +84,8 @@ __RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
 #define	STRBUF_SIZEOF(t)	(1 + CHAR_BIT * sizeof(t) / 3 + 1)
 
 static void	 display(FTSENT *, FTSENT *);
-static u_quad_t	 makenines(u_long);
-static int	 mastercmp(const FTSENT * const *, const FTSENT * const *);
+static u_quad_t	 makenines(u_quad_t);
+static int	 mastercmp(const FTSENT **, const FTSENT **);
 static void	 traverse(int, char **, int);
 
 static void (*printfcn)(DISPLAY *);
@@ -106,7 +106,7 @@ static int f_listdot;		/* list files beginning with . */
        int f_nonprint;		/* show unprintables as ? */
 static int f_nosort;		/* don't sort output */
        int f_notabs;		/* don't use tab-separated multi-col output */
-static int f_numericonly;	/* don't convert uid/gid to name */
+       int f_numericonly;	/* don't convert uid/gid to name */
        int f_octal;		/* show unprintables as \xxx */
        int f_octal_escape;	/* like f_octal but use C escapes if possible */
 static int f_recursive;		/* ls subdirectories also */
@@ -123,7 +123,9 @@ static int f_sizesort;		/* sort by size */
        int f_type;		/* add type character for non-regular files */
 static int f_whiteout;		/* show whiteout entries */
        int f_acl;		/* show ACLs in long listing */
+       int f_xattr;		/* show extended attributes in long listing */
        int f_group;		/* show group */
+       int f_owner;		/* show owner */
 #ifdef COLORLS
        int f_color;		/* add type in color for non-regular files */
 
@@ -149,6 +151,8 @@ main(int argc, char *argv[])
 	char *bp = tcapbuf;
 #endif
 
+	if (argc < 1)
+		usage();
 	(void)setlocale(LC_ALL, "");
 
 	/* Terminal defaults to -Cq, non-terminal defaults to -1. */
@@ -173,7 +177,7 @@ main(int argc, char *argv[])
 		f_listdot = 1;
 
 	fts_options = FTS_PHYSICAL;
- 	while ((ch = getopt(argc, argv, "1ABCFGHLPRSTWabcdefghiklmnopqrstuvwx")) 
+ 	while ((ch = getopt(argc, argv, "1@ABCFGHLOPRSTWabcdefghiklmnopqrstuvwx")) 
 	    != -1) {
 		switch (ch) {
 		/*
@@ -217,7 +221,12 @@ main(int argc, char *argv[])
 			f_slash = 0;
 			break;
 		case 'H':
-			fts_options |= FTS_COMFOLLOW;
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				fts_options &= ~FTS_LOGICAL;
+				fts_options |= FTS_PHYSICAL;
+				fts_options |= FTS_COMFOLLOWDIR;
+			} else
+				fts_options |= FTS_COMFOLLOW;
 			break;
 		case 'G':
 			setenv("CLICOLOR", "", 1);
@@ -225,9 +234,12 @@ main(int argc, char *argv[])
 		case 'L':
 			fts_options &= ~FTS_PHYSICAL;
 			fts_options |= FTS_LOGICAL;
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				fts_options &= ~(FTS_COMFOLLOW|FTS_COMFOLLOWDIR);
+			}
 			break;
 		case 'P':
-			fts_options &= ~FTS_COMFOLLOW;
+			fts_options &= ~(FTS_COMFOLLOW|FTS_COMFOLLOWDIR);
 			fts_options &= ~FTS_LOGICAL;
 			fts_options |= FTS_PHYSICAL;
 			break;
@@ -247,6 +259,10 @@ main(int argc, char *argv[])
 			break;
 		case 'f':
 			f_nosort = 1;
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				fts_options |= FTS_SEEDOT;
+				f_listdot = 1;
+			}
 			break;
 		case 'g':	/* Compatibility with Unix03 */
 			if (COMPAT_MODE("bin/ls", "Unix2003")) {
@@ -272,9 +288,21 @@ main(int argc, char *argv[])
 			break;
 		case 'n':
 			f_numericonly = 1;
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				f_longform = 1;
+				f_singlecol = 0;
+				f_stream = 0;
+			}
 			break;
 		case 'o':
-			f_flags = 1;
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				f_owner = 1;
+				f_longform = 1;
+				f_singlecol = 0;
+				f_stream = 0;
+			} else {
+				f_flags = 1;
+			}
 			break;
 		case 'p':
 			f_slash = 1;
@@ -320,6 +348,12 @@ main(int argc, char *argv[])
 			break;
 		case 'e':
 			f_acl = 1;
+			break;
+		case '@':
+			f_xattr = 1;
+			break;
+		case 'O':
+			f_flags = 1;
 			break;
 		default:
 		case '?':
@@ -382,7 +416,7 @@ main(int argc, char *argv[])
 	 * If not -F, -d or -l options, follow any symbolic links listed on
 	 * the command line.
 	 */
-	if (!f_longform && !f_listdir && !f_type)
+	if (!f_longform && !f_listdir && !f_type && !f_inode)
 		fts_options |= FTS_COMFOLLOW;
 
 	/*
@@ -457,15 +491,17 @@ traverse(int argc, char *argv[], int options)
 {
 	FTS *ftsp;
 	FTSENT *p, *chp;
-	int ch_options;
+	int ch_options, error;
 
 	if ((ftsp =
 	    fts_open(argv, options, f_nosort ? NULL : mastercmp)) == NULL)
 		err(1, "fts_open");
 
 	display(NULL, fts_children(ftsp, 0));
-	if (f_listdir)
+	if (f_listdir) {
+		fts_close(ftsp);
 		return;
+	}
 
 	/*
 	 * If not recursing down this tree and don't need stat info, just get
@@ -477,6 +513,9 @@ traverse(int argc, char *argv[], int options)
 		switch (p->fts_info) {
 		case FTS_DC:
 			warnx("%s: directory causes a cycle", p->fts_name);
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				rval = 1;
+			}
 			break;
 		case FTS_DNR:
 		case FTS_ERR:
@@ -505,9 +544,23 @@ traverse(int argc, char *argv[], int options)
 			if (!f_recursive && chp != NULL)
 				(void)fts_set(ftsp, p, FTS_SKIP);
 			break;
+		case FTS_SLNONE:	/* Same as default unless Unix conformance */
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				if ((options & FTS_LOGICAL)!=0) {	/* -L was specified */
+					if (p->fts_errno) {
+						warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
+						rval = 1;
+					}
+				}
+			}
+			break;
 		default:
 			break;
 		}
+	error = errno;
+	fts_close(ftsp);
+	errno = error;
+
 	if (errno)
 		err(1, "fts_read");
 }
@@ -526,7 +579,8 @@ display(FTSENT *p, FTSENT *list)
 	NAMES *np;
 	off_t maxsize;
 	u_int64_t btotal, maxblock;
-	u_long lattrlen, maxinode, maxlen, maxnlink, maxlattr;
+	u_long lattrlen, maxlen, maxnlink, maxlattr;
+	ino_t maxinode;
 	int bcfile, maxflags;
 	gid_t maxgroup;
 	uid_t maxuser;
@@ -582,7 +636,11 @@ display(FTSENT *p, FTSENT *list)
 			strcpy(initmax2, "0");
 
 		ninitmax = sscanf(jinitmax,
+#if _DARWIN_FEATURE_64_BIT_INODE
+		    " %llu : %qu : %lu : %i : %i : %i : %qu : %lu : %lu ",
+#else
 		    " %lu : %qu : %lu : %i : %i : %i : %qu : %lu : %lu ",
+#endif
 		    &maxinode, &maxblock, &maxnlink, &maxuser,
 		    &maxgroup, &maxflags, &maxsize, &maxlen, &maxlattr);
 		f_notabs = 1;
@@ -744,7 +802,11 @@ display(FTSENT *p, FTSENT *list)
 		d.s_flags = maxflags;
 		d.s_lattr = maxlattr;
 		d.s_group = maxgroup;
+#if _DARWIN_FEATURE_64_BIT_INODE
+		(void)snprintf(buf, sizeof(buf), "%llu", maxinode);
+#else
 		(void)snprintf(buf, sizeof(buf), "%lu", maxinode);
+#endif
 		d.s_inode = strlen(buf);
 		(void)snprintf(buf, sizeof(buf), "%lu", maxnlink);
 		d.s_nlink = strlen(buf);
@@ -767,7 +829,7 @@ display(FTSENT *p, FTSENT *list)
  * All other levels use the sort function.  Error entries remain unsorted.
  */
 static int
-mastercmp(const FTSENT * const *a, const FTSENT * const *b)
+mastercmp(const FTSENT **a, const FTSENT **b)
 {
 	int a_info, b_info;
 
@@ -796,7 +858,7 @@ mastercmp(const FTSENT * const *a, const FTSENT * const *b)
  * into a number that wide in decimal.
  */
 static u_quad_t
-makenines(u_long n)
+makenines(u_quad_t n)
 {
 	u_long i;
 	u_quad_t reg;

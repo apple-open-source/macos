@@ -1,5 +1,5 @@
 --- vfscanf.c.orig	2004-11-25 11:38:35.000000000 -0800
-+++ vfscanf.c	2005-02-23 19:24:50.000000000 -0800
++++ vfscanf.c	2005-05-20 00:46:37.000000000 -0700
 @@ -40,6 +40,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das Exp $");
@@ -226,7 +226,7 @@
  				n = 0;
 -				while (!isspace(*fp->_p) && width != 0) {
 -					if (n == MB_CUR_MAX) {
-+				while (!isspace_l(*fp->_p, loc) && width != 0) {
++				while (width != 0) {
 +					if (n == mb_cur_max) {
  						fp->_flags |= __SERR;
  						goto input_failure;
@@ -287,7 +287,7 @@
  				if (flags & POINTER)
  					*va_arg(ap, void **) =
  							(void *)(uintptr_t)res;
-@@ -763,43 +800,52 @@
+@@ -763,43 +800,48 @@
  				nassigned++;
  			}
  			nread += p - buf;
@@ -302,11 +302,8 @@
 -			if (width == 0 || width > sizeof(buf) - 1)
 -				width = sizeof(buf) - 1;
 -			if ((width = parsefloat(fp, buf, buf + width)) == 0)
-+			if ((width = parsefloat(fp, &pbuf, width, loc)) == 0) {
-+				if (pbuf)
-+					free(pbuf);
++			if ((width = parsefloat(fp, &pbuf, width, loc)) == 0)
  				goto match_failure;
-+			}
  			if ((flags & SUPPRESS) == 0) {
  				if (flags & LONGDBL) {
 -					long double res = strtold(buf, &p);
@@ -328,7 +325,6 @@
  			}
  			nread += width;
 -			nconversions++;
-+			free(pbuf);
  			break;
 +		}
  #endif /* !NO_FLOATING_POINT */
@@ -350,7 +346,7 @@
  /*
   * Fill in the given table from the scanset at the given format
   * (just after `[').  Return a pointer to the character past the
-@@ -807,9 +853,10 @@
+@@ -807,9 +849,10 @@
   * considered part of the scanset.
   */
  static const u_char *
@@ -362,7 +358,7 @@
  {
  	int c, n, v, i;
  
-@@ -845,6 +892,7 @@
+@@ -845,6 +888,7 @@
  			return (fmt - 1);
  
  		case '-':
@@ -370,7 +366,7 @@
  			/*
  			 * A scanset of the form
  			 *	[01+-]
-@@ -865,8 +913,8 @@
+@@ -865,8 +909,8 @@
  			 */
  			n = *fmt;
  			if (n == ']'
@@ -381,7 +377,7 @@
  			       )
  			   ) {
  				c = '-';
-@@ -874,14 +922,14 @@
+@@ -874,14 +918,14 @@
  			}
  			fmt++;
  			/* fill in the range */
@@ -399,7 +395,7 @@
  					   )
  						tab[i] = v;
  			}
-@@ -901,7 +949,7 @@
+@@ -901,7 +945,7 @@
  				return (fmt);
  #endif
  			break;
@@ -408,7 +404,7 @@
  		case ']':		/* end of scanset */
  			return (fmt);
  
-@@ -915,7 +963,7 @@
+@@ -915,18 +959,42 @@
  
  #ifndef NO_FLOATING_POINT
  static int
@@ -417,27 +413,45 @@
  {
  	char *commit, *p;
  	int infnanpos = 0;
-@@ -924,9 +972,18 @@
- 		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS
+ 	enum {
+ 		S_START, S_GOTSIGN, S_INF, S_NAN, S_MAYBEHEX,
+-		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS
++		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS, S_DECIMAL_POINT
  	} state = S_START;
  	unsigned char c;
 -	char decpt = *localeconv()->decimal_point;
-+	char decpt = *localeconv_l(loc)->decimal_point;
++	unsigned char *decpt = (unsigned char *)localeconv_l(loc)->decimal_point;
++	char *decpt_start;
  	_Bool gotmantdig = 0, ishex = 0;
-+	char *b, *e;
+-
++	static char *b = NULL;
++	static size_t bsiz = 0;
++	char *e;
 +	size_t s;
- 
-+	s = (width == 0 ? BUF : width + 1);
-+	b = (char *)malloc(s);
-+	if (b == NULL) {
-+		*buf = NULL;
-+		return 0;
++
++	if (bsiz = 0) {
++		b = (char *)malloc(BUF);
++		if (b == NULL) {
++			*buf = NULL;
++			return 0;
++		}
++		bsiz = BUF;
++	}
++	s = (width == 0 ? BUF : (width + 1));
++	if (s > bsiz) {
++		b = (char *)reallocf(b, s);
++		if (b == NULL) {
++			bsiz = 0;
++			*buf = NULL;
++			return 0;
++		}
++		bsiz = s;
 +	}
 +	e = b + (s - 1);
  	/*
  	 * We set commit = p whenever the string we have read so far
  	 * constitutes a valid representation of a floating point
-@@ -936,8 +993,8 @@
+@@ -936,8 +1004,8 @@
  	 * always necessary to read at least one character that doesn't
  	 * match; thus, we can't short-circuit "infinity" or "nan(...)".
  	 */
@@ -448,7 +462,7 @@
  		c = *fp->_p;
  reswitch:
  		switch (state) {
-@@ -997,7 +1054,7 @@
+@@ -997,7 +1065,7 @@
  				if (c == ')') {
  					commit = p;
  					infnanpos = -2;
@@ -457,7 +471,7 @@
  					goto parsedone;
  				break;
  			}
-@@ -1013,7 +1070,7 @@
+@@ -1013,16 +1081,33 @@
  				goto reswitch;
  			}
  		case S_DIGITS:
@@ -465,8 +479,37 @@
 +			if ((ishex && isxdigit_l(c, loc)) || isdigit_l(c, loc))
  				gotmantdig = 1;
  			else {
- 				state = S_FRAC;
-@@ -1030,7 +1087,7 @@
+-				state = S_FRAC;
+-				if (c != decpt)
+-					goto reswitch;
++				state = S_DECIMAL_POINT;
++				decpt_start = p;
++				goto reswitch;
+ 			}
+ 			if (gotmantdig)
+ 				commit = p;
+ 			break;
++		case S_DECIMAL_POINT:
++			if (*decpt == 0) {
++				if (gotmantdig)
++					commit = p - 1;
++				state = S_FRAC;
++				goto reswitch;
++			}
++			if (*decpt++ == c)
++				break;
++			/* not decimal point */
++			state = S_FRAC;
++			if (decpt_start == p)
++				goto reswitch;
++			while (decpt_start < --p)
++				__ungetc(*(u_char *)p, fp);
++			c = *(u_char *)p;
++			goto reswitch;
+ 		case S_FRAC:
+ 			if (((c == 'E' || c == 'e') && !ishex) ||
+ 			    ((c == 'P' || c == 'p') && ishex)) {
+@@ -1030,7 +1115,7 @@
  					goto parsedone;
  				else
  					state = S_EXP;
@@ -475,7 +518,7 @@
  				commit = p;
  				gotmantdig = 1;
  			} else
-@@ -1043,7 +1100,7 @@
+@@ -1043,7 +1128,7 @@
  			else
  				goto reswitch;
  		case S_EXPDIGITS:
@@ -484,25 +527,29 @@
  				commit = p;
  			else
  				goto parsedone;
-@@ -1051,6 +1108,17 @@
+@@ -1051,6 +1136,21 @@
  		default:
  			abort();
  		}
 +		if (p >= e) {
-+			size_t diff = (p - b);
++			ssize_t diff = (p - b);
++			ssize_t com = (commit - b);
 +			s += BUF;
 +			b = (char *)reallocf(b, s);
 +			if (b == NULL) {
++				bsiz = 0;
 +				*buf = NULL;
 +				return 0;
 +			}
++			bsiz = s;
 +			e = b + (s - 1);
 +			p = b + diff;
++			commit = b + com;
 +		}
  		*p++ = c;
  		if (--fp->_r > 0)
  			fp->_p++;
-@@ -1062,6 +1130,7 @@
+@@ -1062,6 +1162,7 @@
  	while (commit < --p)
  		__ungetc(*(u_char *)p, fp);
  	*++commit = '\0';

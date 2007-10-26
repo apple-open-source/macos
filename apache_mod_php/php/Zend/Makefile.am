@@ -13,9 +13,13 @@ libZend_la_SOURCES=\
 	zend_opcode.c zend_operators.c zend_ptr_stack.c zend_stack.c \
 	zend_variables.c zend.c zend_API.c zend_extensions.c zend_hash.c \
 	zend_list.c zend_indent.c zend_builtin_functions.c zend_sprintf.c \
-	zend_ini.c zend_qsort.c zend_multibyte.c zend_strtod.c
+	zend_ini.c zend_qsort.c zend_objects.c zend_object_handlers.c \
+	zend_objects_API.c zend_ts_hash.c zend_stream.c \
+	zend_default_classes.c \
+	zend_iterators.c zend_interfaces.c zend_exceptions.c \
+	zend_strtod.c zend_multibyte.c
 
-libZend_la_LDFLAGS = 
+libZend_la_LDFLAGS =
 libZend_la_LIBADD = @ZEND_EXTRA_LIBS@
 
 # automake isn't too clever about "non-standard" use of lex and yacc

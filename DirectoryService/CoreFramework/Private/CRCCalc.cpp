@@ -26,6 +26,7 @@
  */
 
 #include "CRCCalc.h"
+#include <string.h>
 
 // Consts ----------------------------------------------------------------------------
 
@@ -64,7 +65,7 @@ static const unsigned short CRCTable[] = {
         0x6E17, 0x7E36, 0x4E55, 0x5E74, 0x2E93, 0x3EB2, 0x0ED1, 0x1EF0
 };
 
-static const long cr3tab[] = { /* CRC polynomial 0xedb88320 */
+static const SInt32 cr3tab[] = { /* CRC polynomial 0xedb88320 */
 0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
 0x0edb8832, 0x79dcb8a4, 0xe0d5e91e, 0x97d2d988, 0x09b64c2b, 0x7eb17cbd, 0xe7b82d07, 0x90bf1d91,
 0x1db71064, 0x6ab020f2, 0xf3b97148, 0x84be41de, 0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7,
@@ -120,7 +121,7 @@ CRCCalc::~CRCCalc ( void )
 //	* UPDC16 ()
 // --------------------------------------------------------------------------------
 
-unsigned short CRCCalc::UPDC16 ( Byte *ptr, unsigned long count, unsigned short crc )
+unsigned short CRCCalc::UPDC16 ( unsigned char *ptr, UInt32 count, unsigned short crc )
 {
 	while (count-- > 0)
 	{
@@ -133,7 +134,7 @@ unsigned short CRCCalc::UPDC16 ( Byte *ptr, unsigned long count, unsigned short 
 //	* updcrc ()
 // --------------------------------------------------------------------------------
 
-unsigned short CRCCalc::updcrc ( register Byte b, register unsigned short crc )
+unsigned short CRCCalc::updcrc ( register unsigned char b, register unsigned short crc )
 {
 	return CRCTable[((crc >> 8) ^ b) & 0xFF] ^ (crc << 8);
 }
@@ -142,7 +143,60 @@ unsigned short CRCCalc::updcrc ( register Byte b, register unsigned short crc )
 //	* UPDC32 ()
 // --------------------------------------------------------------------------------
 
-unsigned long CRCCalc::UPDC32 ( register Byte b, register unsigned long c )
+UInt32 CRCCalc::UPDC32 ( register unsigned char b, register UInt32 c )
 {
 	return (cr3tab[((int)c ^ b) & 0xff] ^ ((c >> 8) & 0x00FFFFFF));
 }
+
+// ---------------------------------------------------------------------------
+//	* CalcCRC
+// ---------------------------------------------------------------------------
+
+UInt32 CalcCRC ( const char *inStr )
+{
+	const char 	   *p			= inStr;
+	SInt32			siI			= 0;
+	SInt32			siStrLen	= 0;
+	UInt32			uiCRC		= 0xFFFFFFFF;
+	CRCCalc			aCRCCalc;
+	
+	if ( inStr != NULL )
+	{
+		siStrLen = ::strlen( inStr );
+		
+		for ( siI = 0; siI < siStrLen; ++siI )
+		{
+			uiCRC = aCRCCalc.UPDC32( *p, uiCRC );
+			p++;
+		}
+	}
+	
+	return( uiCRC );
+	
+} // CalcCRC
+
+
+// ---------------------------------------------------------------------------
+//	* CalcCRCWithLength
+// ---------------------------------------------------------------------------
+
+UInt32 CalcCRCWithLength ( const void *inData, UInt32 inLength )
+{
+	const unsigned char	   *p		= (const unsigned char *)inData;
+	UInt32					uiCRC	= 0xFFFFFFFF;
+	CRCCalc					aCRCCalc;
+	
+	if ( inData != nil )
+	{
+		for ( UInt32 i = 0; i < inLength; ++i )
+		{
+			uiCRC = aCRCCalc.UPDC32( *p, uiCRC );
+			p++;
+		}
+	}
+	
+	return( uiCRC );
+	
+} // CalcCRCWithLength
+
+

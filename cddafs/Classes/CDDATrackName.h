@@ -38,7 +38,7 @@
 //
 //	CDDATrackName is the base class for all databases used. It provides
 //	localized variants of the artist, title, and track names, as well as a
-//	possible separator string used for autodiskmount
+//	possible separator string used for diskarbitrationd
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 class CDDATrackName

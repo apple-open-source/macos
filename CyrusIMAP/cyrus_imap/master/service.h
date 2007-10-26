@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
+/* $Id: service.h,v 1.16 2003/10/22 18:50:14 rjs3 Exp $ */
 
 #ifndef SERVICE_H
 #define SERVICE_H
@@ -52,7 +52,13 @@ enum {
     MASTER_SERVICE_AVAILABLE = 0x01,
     MASTER_SERVICE_UNAVAILABLE = 0x02,
     MASTER_SERVICE_CONNECTION = 0x03,
+#ifndef APPLE_OS_X_SERVER
     MASTER_SERVICE_CONNECTION_MULTI = 0x04
+#else
+    MASTER_SERVICE_CONNECTION_MULTI = 0x04,
+    MASTER_SERVICE_STATUS_ADD_USER = 0x05,
+    MASTER_SERVICE_STATUS_REMOVE_USER = 0x06
+#endif
 };
 
 extern int service_init(int argc, char **argv, char **envp);
@@ -68,6 +74,11 @@ enum {
 struct notify_message {
     int message;
     pid_t service_pid;
+#ifdef APPLE_OS_X_SERVER
+	time_t	s_start_time;
+	char s_user_buf[64+1];
+	char s_host_buf[64+1];
+#endif
 };
 
 #endif

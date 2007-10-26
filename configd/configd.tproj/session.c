@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -104,7 +104,6 @@ addSession(CFMachPortRef server)
 	sessions[n]->serverRunLoopSource = NULL;
 	sessions[n]->store		 = NULL;
 	sessions[n]->callerEUID          = 1;		/* not "root" */
-	sessions[n]->callerEGID          = 1;		/* not "wheel" */
 
 	return sessions[n];
 }

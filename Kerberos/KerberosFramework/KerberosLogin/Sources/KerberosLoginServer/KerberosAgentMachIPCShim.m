@@ -26,10 +26,10 @@
  * or implied warranty.
  */
 
-#import "AuthenticationController.h"
 #import "ChangePasswordController.h"
 #import "PrompterController.h"
-#import "ErrorAlert.h"
+#import "SFKerberosCredentialSelector.h"
+#import "KerberosErrorAlert.h"
 #import "KerberosAgentIPCServer.h"
 #import "KerberosLoginPrivate.h"
 
@@ -51,9 +51,26 @@ static boolean_t CallingApplicationIsKerberosApp (NSString *inApplicationPath)
 
 // ---------------------------------------------------------------------------
 
+static boolean_t CallingApplicationIsKerberosMenu (NSString *inApplicationPath)
+{
+    NSBundle *bundle = [NSBundle bundleWithPath: inApplicationPath];
+    if (bundle != NULL) {
+        NSString *identifier = [bundle bundleIdentifier];
+        if (identifier != NULL) {
+            return ([identifier compare: @"edu.mit.Kerberos.KerberosMenu"] == NSOrderedSame ||
+                    [identifier compare: @"com.apple.systemuiserver"] == NSOrderedSame);
+        }
+    }
+    
+    return false;
+}
+
+// ---------------------------------------------------------------------------
+
 static NSImage *CallingApplicationIcon (NSString *inApplicationPath)
 {
-    if (CallingApplicationIsKerberosApp (inApplicationPath)) {
+    if (CallingApplicationIsKerberosApp (inApplicationPath) ||
+        CallingApplicationIsKerberosMenu (inApplicationPath)) {
         return NULL;
     } else {
         return [[NSWorkspace sharedWorkspace] iconForFile: inApplicationPath];
@@ -70,7 +87,8 @@ static NSString *CallingApplicationName (task_t inTask, NSString *inApplicationP
     CFStringRef taskNameStringRef = NULL;
     NSString *taskName = NULL;
     
-    if (CallingApplicationIsKerberosApp (inApplicationPath)) {
+    if (CallingApplicationIsKerberosApp (inApplicationPath) ||
+        CallingApplicationIsKerberosMenu (inApplicationPath)) {
         return NULL;
     }
     
@@ -97,13 +115,17 @@ static NSString *CallingApplicationName (task_t inTask, NSString *inApplicationP
 
 // ---------------------------------------------------------------------------
 
-static boolean_t CallingApplicationIsFrontProcess (task_t inTask)
+static boolean_t CallingApplicationIsFrontProcess (task_t inTask, NSString *inApplicationPath)
 {
     KLStatus err = klNoErr;
     Boolean taskIsFrontProcess;
     pid_t taskPID;
     ProcessSerialNumber taskPSN, frontPSN;
     
+    if (CallingApplicationIsKerberosMenu (inApplicationPath)) {
+        return true;
+    }
+
     if (!err) {
         err = pid_for_task (inTask, &taskPID);
     }
@@ -120,7 +142,7 @@ static boolean_t CallingApplicationIsFrontProcess (task_t inTask)
         err = SameProcess (&taskPSN, &frontPSN, &taskIsFrontProcess);
     }
     
-    return (err == klNoErr) ? !taskIsFrontProcess : false;
+    return (err == klNoErr) ? taskIsFrontProcess : false;
 }
 
 #pragma mark -
@@ -155,8 +177,7 @@ kern_return_t KAIPCAcquireNewInitialTickets (mach_port_t        inServerPort,
     kern_return_t   err = KERN_SUCCESS;
     KLStatus        result = klNoErr;
     
-    AuthenticationController *controller = NULL;
-    Principal *principal = NULL;
+    KerberosPrincipal *principal = NULL;
     NSString *serviceNameString = NULL;
     NSString *applicationPath = NULL;
     
@@ -172,11 +193,6 @@ kern_return_t KAIPCAcquireNewInitialTickets (mach_port_t        inServerPort,
     }
     
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-        controller = [[AuthenticationController alloc] init];
-        if (controller == NULL) { result = klFatalDialogErr; }
-    }
-    
-    if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         if (inApplicationPathCnt > 0) {
             applicationPath = [[NSString alloc] initWithUTF8String: inApplicationPath];
             if (applicationPath == NULL) { result = klMemFullErr; }
@@ -187,12 +203,12 @@ kern_return_t KAIPCAcquireNewInitialTickets (mach_port_t        inServerPort,
         NSString *principalString = NULL;
         
         if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-            principalString = [NSString stringWithUTF8String: inPrincipal];
+			principalString = [NSString stringWithUTF8String: inPrincipal];
             if (principalString == NULL) { result = klMemFullErr; }
         }
         
         if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-            principal = [[Principal alloc] initWithString: principalString klVersion: kerberosVersion_V5];
+            principal = [[KerberosPrincipal alloc] initWithString: principalString];
             if (principal == NULL) { result = klMemFullErr; }
         }
     }
@@ -204,36 +220,44 @@ kern_return_t KAIPCAcquireNewInitialTickets (mach_port_t        inServerPort,
         }
     }
     
-    if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-        boolean_t isAutoPopup = CallingApplicationIsFrontProcess (inApplicationTask);
-        
-        [controller setDoesMinimize: isAutoPopup];
-        [controller setCallerNameString: CallingApplicationName (inApplicationTask, applicationPath)];
-        [controller setCallerIcon: CallingApplicationIcon (applicationPath)];
-        [controller setCallerProvidedPrincipal: principal];
-        [controller setServiceName: serviceNameString];
-        [controller setStartTime: inStartTime];
-        if (inFlags & KRB5_GET_INIT_CREDS_OPT_TKT_LIFE)     { [controller setLifetime:    inLifetime]; }
-        if (inFlags & KRB5_GET_INIT_CREDS_OPT_FORWARDABLE)  { [controller setForwardable: inForwardable]; }
-        if (inFlags & KRB5_GET_INIT_CREDS_OPT_PROXIABLE)    { [controller setProxiable:   inProxiable]; }
-        if (inFlags & KRB5_GET_INIT_CREDS_OPT_ADDRESS_LIST) { [controller setAddressless: inAddressless]; }
-        if (inFlags & KRB5_GET_INIT_CREDS_OPT_RENEW_LIFE) { 
-            [controller setRenewable: (inRenewableLifetime > 0)]; 
-            [controller setRenewableLifetime: inRenewableLifetime];
-        }
-        
-        if (!isAutoPopup) { 
-            [NSApp activateIgnoringOtherApps: YES]; 
-        }
-        result = [controller runWindow];
+      //
+      // Select a credential to use for authenticating.
+      // This can be a:
+      //              - identity (using PKINIT)
+      //              - .Mac identity (using PKINIT)
+      //              - Internet Password in the user's keychain
+      //              - password taken from the user in the Kerberos authentication panel
+      //
+    SFKerberosCredentialSelector *credentialSelector = NULL;
+      if ((result == klNoErr) && (err == KERN_SUCCESS)) {
+              credentialSelector = [[SFKerberosCredentialSelector alloc] init];
+              if ( credentialSelector != NULL )
+                      result = [credentialSelector selectCredentialWithPrincipal:principal
+                                                                              serviceName:serviceNameString
+                                                                              applicationTask:inApplicationTask 
+                                                                              applicationPath:applicationPath 
+                                                                              inLifetime:inLifetime
+                                                                              inRenewableLifetime:inRenewableLifetime
+                                                                              inFlags:inFlags
+                                                                              inStartTime:inStartTime
+                                                                              inForwardable:inForwardable
+                                                                              inProxiable:inProxiable
+                                                                              inAddressless:inAddressless
+                                                                              isAutoPopup:!CallingApplicationIsFrontProcess(inApplicationTask, applicationPath)
+                                                                              inApplicationName:CallingApplicationName(inApplicationTask, applicationPath)
+                                                                              inApplicationIcon:CallingApplicationIcon(applicationPath)];
+              else
+                      result = klMemFullErr;
     }
-    
-    if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-        newPrincipalString = [[[controller acquiredPrincipal] stringForKLVersion: kerberosVersion_V5] UTF8String];
-        newCacheNameString = [[controller acquiredCacheName] UTF8String];
-        newPrincipalLength = (newPrincipalString != NULL) ? strlen (newPrincipalString) + 1 : 0;
-        newCacheNameLength = (newCacheNameString != NULL) ? strlen (newCacheNameString) + 1 : 0;
-    }    
+
+      if ((result == klNoErr) && (err == KERN_SUCCESS)) {
+        newPrincipalString = [[[credentialSelector acquiredPrincipal] displayString] UTF8String];
+        newCacheNameString = [[credentialSelector acquiredCacheName] UTF8String];
+          newPrincipalLength = (newPrincipalString != NULL) ? strlen (newPrincipalString) + 1 : 0;
+          newCacheNameLength = (newCacheNameString != NULL) ? strlen (newCacheNameString) + 1 : 0;
+      }
+
+    if (credentialSelector != NULL) { [credentialSelector release]; }
     
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
         if (newPrincipalString != NULL) {
@@ -268,9 +292,8 @@ kern_return_t KAIPCAcquireNewInitialTickets (mach_port_t        inServerPort,
     if (serviceNameString != NULL) { [serviceNameString release]; }
     if (applicationPath   != NULL) { [applicationPath release]; }
     if (principal         != NULL) { [principal release]; }
-    if (controller        != NULL) { [controller release]; }
     
-    mach_server_quit_self ();
+    kipc_server_quit ();
     return err;
 }
 
@@ -287,7 +310,7 @@ kern_return_t KAIPCChangePassword (mach_port_t       inServerPort,
     KLStatus        result = klNoErr;
 
     ChangePasswordController *controller = NULL;
-    Principal                *principal = NULL;
+    KerberosPrincipal                *principal = NULL;
     NSString                 *applicationPath = NULL;
 
     if ((result == klNoErr) && (err == KERN_SUCCESS)) {
@@ -310,7 +333,7 @@ kern_return_t KAIPCChangePassword (mach_port_t       inServerPort,
         }
         
         if ((result == klNoErr) && (err == KERN_SUCCESS)) {
-            principal = [[Principal alloc] initWithString: principalString klVersion: kerberosVersion_V5];
+            principal = [[KerberosPrincipal alloc] initWithString: principalString];
             if (principal == NULL) { result = klMemFullErr; }
         }
     }
@@ -336,7 +359,7 @@ kern_return_t KAIPCChangePassword (mach_port_t       inServerPort,
     if (principal       != NULL) { [principal release]; }
     if (controller      != NULL) { [controller release]; }
 
-    mach_server_quit_self ();
+    kipc_server_quit ();
     return err;
 }
 
@@ -468,7 +491,7 @@ kern_return_t KAIPCPrompter (mach_port_t      inServerPort,
     if (applicationPath != NULL) { [applicationPath release]; }
     if (controller      != NULL) { [controller release]; }
     
-    mach_server_quit_self ();
+    kipc_server_quit ();
     return err;
 }
 
@@ -504,7 +527,7 @@ kern_return_t KAIPCHandleError (mach_port_t            inServerPort,
             }
             
             [NSApp activateIgnoringOtherApps: YES];
-            [ErrorAlert alertForError: inError action: action];
+            [KerberosErrorAlert alertForError: inError action: action];
         }
     }
 
@@ -512,6 +535,6 @@ kern_return_t KAIPCHandleError (mach_port_t            inServerPort,
         *outResult = result;
     }
 
-    mach_server_quit_self ();
+    kipc_server_quit ();
     return err;
 }

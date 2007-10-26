@@ -129,6 +129,18 @@ AtomicFile::create(mode_t mode)
 RefPointer<AtomicTempFile>
 AtomicFile::write()
 {
+	// check and see if we can write before doing so.  We have to open it (access is not sufficient
+	// due to acl support
+	int fileNo = open (path().c_str(), O_WRONLY, 0);
+	if (fileNo == -1)
+	{
+		CssmError::throwMe(CSSM_ERRCODE_OS_ACCESS_DENIED);
+	}
+	else
+	{
+		close (fileNo);
+	}
+	
 	RefPointer<AtomicLockedFile> lock(new AtomicLockedFile(*this));
 	return new AtomicTempFile(*this, lock);
 }
@@ -343,7 +355,7 @@ AtomicBufferedFile::read(off_t inOffset, off_t inLength, off_t &outLength)
 		if (bytesRead == 0)
 			break;
 
-		secdebug("atomicfile", "%p read %s: %d bytes to %p", this, mPath.c_str(), bytesRead, ptr);
+		secdebug("atomicfile", "%p read %s: %ld bytes to %p", this, mPath.c_str(), bytesRead, ptr);
 
 		bytesLeft -= bytesRead;
 		ptr += bytesRead;
@@ -515,7 +527,7 @@ AtomicTempFile::write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const
 			CssmError::throwMe(CSSMERR_DL_INTERNAL_ERROR);
 		}
 
-		secdebug("atomicfile", "%p wrote %s %d bytes from %p", this, mPath.c_str(), bytesWritten, ptr);
+		secdebug("atomicfile", "%p wrote %s %ld bytes from %p", this, mPath.c_str(), bytesWritten, ptr);
 
 		bytesLeft -= bytesWritten;
 		ptr += bytesWritten;
@@ -839,7 +851,7 @@ AtomicLockedFile::lock(mode_t mode)
 
 			/* Reset retry counter. */
 			retries = 0;
-			sleep(8 /* DEFlocksleep */);
+			usleep(250000);
 			break;
 
 		case ENOSPC:               /* no space left, treat it as a transient */
@@ -850,8 +862,8 @@ AtomicLockedFile::lock(mode_t mode)
 		case ENOTDIR:
 		case EIO:
 		/*case EACCES:*/
-			if(++retries < (7 + 1))  /* nfsTRY number of times+1 to ignore spurious NFS errors */
-				sleep(8 /* DEFlocksleep */);
+			if(++retries < (256 + 1))  /* nfsTRY number of times+1 to ignore spurious NFS errors */
+				usleep(250000);
 			else
 				failed = true;
 			break;

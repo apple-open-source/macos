@@ -1,0 +1,44 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>RubyCocoa</string>
+        <key>OpenSourceVersion</key>
+        <string>trunk</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://rubycocoa.sourceforge.net</string>
+        <key>OpenSourceURL</key>
+        <string>TBD</string>
+        <key>OpenSourceSHA1</key>
+        <string>TBD</string>
+        <key>OpenSourceImportDate</key>
+        <string>2006-07-10</string>
+        <key>OpenSourceLicense</key>
+        <string>Other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rubycocoa.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+</dict>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>RubyNode</string>
+        <key>OpenSourceVersion</key>
+        <string>0.1.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://rubynode.rubyforge.org</string>
+        <key>OpenSourceSHA1</key>
+        <string>f2ca487f41739226592dda11bc368d7a2321bc1e</string>
+        <key>OpenSourceImportDate</key>
+        <string>2007-06-28</string>
+        <key>OpenSourceLicense</key>
+        <string>Other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>rubynode.txt</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+</dict>
+</array>
+</plist>

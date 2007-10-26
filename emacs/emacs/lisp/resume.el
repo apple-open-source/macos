@@ -1,6 +1,7 @@
 ;;; resume.el --- process command line args from within a suspended Emacs job
 
-;; Copyright (C) 1992 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Joe Wells <jbw@bucsf.bu.edu>
 ;; Adapted-By: ESR
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -48,10 +49,10 @@
 ;;; Code:
 
 (defvar resume-emacs-args-file (expand-file-name "~/.emacs_args")
-  "*This file is where arguments are placed for a suspended emacs job.")
+  "*This file is where arguments are placed for a suspended Emacs job.")
 
 (defvar resume-emacs-args-buffer " *Command Line Args*"
-  "Buffer that is used by resume-process-args.")
+  "Buffer that is used by `resume-process-args'.")
 
 (defun resume-process-args ()
   "Handler for command line args given when Emacs is resumed."
@@ -84,7 +85,7 @@
 	    ;; arguments are now in reverse order
 	    (setq args (nreverse args))
 	    ;; make sure they're not read again
-	    (erase-buffer))		
+	    (erase-buffer))
 	  (resume-write-buffer-to-file (current-buffer) resume-emacs-args-file)
 	  ;; if nothing was in buffer, args will be null
 	  (or (null args)
@@ -125,4 +126,5 @@
 
 (provide 'resume)
 
+;;; arch-tag: c90b2761-4803-4e58-a0ae-c4721368b628
 ;;; resume.el ends here

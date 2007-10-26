@@ -7,7 +7,7 @@ error_reporting (E_ALL);
 
 class foo {
 
-    var $functions = array();
+    public $functions = array();
     
     function foo()
     {

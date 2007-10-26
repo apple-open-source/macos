@@ -46,6 +46,7 @@
 #include <net/if_var.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
+#include <net/if_media.h>
 #include <net/route.h>
 
 
@@ -72,7 +73,7 @@ inet_addrinfo_free(void * p)
 }
 
 static interface_t *
-S_next_entry(interface_list_t * interfaces, char * name)
+S_next_entry(interface_list_t * interfaces, const char * name)
 {
     interface_t * entry;
 
@@ -81,7 +82,7 @@ S_next_entry(interface_list_t * interfaces, char * name)
 
     entry = interfaces->list + interfaces->count++;
     bzero(entry, sizeof(*entry));
-    strcpy(entry->name, name);
+    strlcpy(entry->name, name, sizeof(entry->name));
     dynarray_init(&entry->inet, inet_addrinfo_free,
 		  inet_addrinfo_copy);
     return (entry);
@@ -120,17 +121,16 @@ S_build_interface_list(interface_list_t * interfaces)
     interfaces->size = size;
     
     for (ifap = addrs; ifap != NULL; ifap = ifap->ifa_next) {
+	const char *	name;
 	if (ifap->ifa_addr == NULL) {
 	    continue;
 	}
+	name = ifap->ifa_name;
 	switch (ifap->ifa_addr->sa_family) {
 	  case AF_INET: {
 	      inet_addrinfo_t	info;
 	      interface_t *	entry;
-	      u_char 		name[IFNAMSIZ + 1];
 
-	      strncpy(name, ifap->ifa_name, sizeof(name));
-	      name[IFNAMSIZ] = '\0';
 	      entry = ifl_find_name(interfaces, name);
 	      if (entry == NULL) { /* new entry */
 		  entry = S_next_entry(interfaces, name);
@@ -161,11 +161,8 @@ S_build_interface_list(interface_list_t * interfaces)
 	      struct sockaddr_dl * dl_p;
 	      interface_t *	entry;
 	      struct if_data *	if_data;
-	      u_char 		name[IFNAMSIZ + 1];
 
 	      dl_p = (struct sockaddr_dl *)ifap->ifa_addr;
-	      strncpy(name, ifap->ifa_name, sizeof(name));
-	      name[IFNAMSIZ] = '\0';
 	      entry = ifl_find_name(interfaces, name);
 	      if (entry == NULL) { /* new entry */
 		  entry = S_next_entry(interfaces, name);
@@ -180,7 +177,8 @@ S_build_interface_list(interface_list_t * interfaces)
 	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
 		  syslog(LOG_DEBUG,
 			 "%s: link type %d address length %d > %d", name,
-			 dl_p->sdl_type, dl_p->sdl_alen, sizeof(entry->link_address.addr));
+			 dl_p->sdl_type, dl_p->sdl_alen,
+			 sizeof(entry->link_address.addr));
 		  entry->link_address.alen = sizeof(entry->link_address.addr);
 	      }
 	      else {
@@ -196,6 +194,22 @@ S_build_interface_list(interface_list_t * interfaces)
 	      }
 	      else {
 		  entry->type = dl_p->sdl_type;
+	      }
+	      if (entry->type == IFT_ETHER) {
+		  int	s;
+
+		  s = socket(AF_INET, SOCK_DGRAM, 0);
+		  if (s != -1) {
+		      struct ifmediareq 	ifmr;
+		      
+		      bzero(&ifmr, sizeof(ifmr));
+		      strlcpy(ifmr.ifm_name, name, sizeof(ifmr.ifm_name));
+		      if (ioctl(s, SIOCGIFMEDIA, &ifmr) != -1
+			  && IFM_TYPE(ifmr.ifm_current) == IFM_IEEE80211) {
+			  entry->is_wireless = TRUE;
+		      }
+		      close(s);
+		  }
 	      }
 	      break;
 	  }
@@ -361,13 +375,13 @@ ifl_free(interface_list_t * * iflist)
  * Purpose:
  *   Interface-specific routines.
  */
-char *
+const char *
 if_name(interface_t * if_p)
 {
     return (if_p->name);
 }
 
-short
+uint16_t
 if_flags(interface_t * if_p)
 {
     return (if_p->flags);
@@ -420,7 +434,7 @@ if_inet_broadcast(interface_t * if_p)
 }
 
 void
-if_setflags(interface_t * if_p, short flags)
+if_setflags(interface_t * if_p, uint16_t flags)
 {
     if_p->flags = flags;
     return;
@@ -612,6 +626,12 @@ if_link_length(interface_t * if_p)
     return (if_p->link_address.alen);
 }
 
+boolean_t
+if_is_wireless(interface_t * if_p)
+{
+    return (if_p->is_wireless);
+}
+
 #ifdef TEST_INTERFACES
 
 #if 0
@@ -672,6 +692,9 @@ ifl_print(interface_list_t * list_p)
 	}
 	if (if_p->link_address.type != 0) {
 	    link_addr_print(&if_p->link_address);
+	    if (if_p->is_wireless) {
+		printf("wireless\n");
+	    }
 	}
 	count++;
     }

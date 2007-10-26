@@ -62,7 +62,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: ipcp.c,v 1.9 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: ipcp.c,v 1.12 2005/12/13 06:30:15 lindak Exp $"
 
 /*
  * TODO:
@@ -100,6 +100,17 @@ bool	disable_defaultip = 0;	/* Don't use hostname for default IP adrs */
 /* Hook for a plugin to know when IP protocol has come up */
 void (*ip_up_hook) __P((void)) = NULL;
 
+#ifdef __APPLE__
+/* Hook for a plugin receive ip data */
+void (*ipdata_input_hook) __P((int, u_char *, int, u_int32_t, u_int32_t)) = NULL;
+/* Hook when ip is up, don't reuse ip_up_hook to avoid conflict, and because we need more parameters */
+void (*ipdata_up_hook) __P((int, u_int32_t, u_int32_t)) = NULL;
+/* Hook when ip is down, don't reuse ip_down_hook to avoid conflict, and because we need more parameters */
+void (*ipdata_down_hook) __P((int)) = NULL;
+/* Hook to print IP data in a readable form */
+int (*ipdata_print_hook) __P((u_char *, int, void (*) __P((void *, char *, ...)), void *)) = NULL;
+#endif
+
 /* Hook for a plugin to know when IP protocol has come down */
 void (*ip_down_hook) __P((void)) = NULL;
 
@@ -120,6 +131,7 @@ int ip_src_address_filter = 0;
 static int default_route_set[NUM_PPP];	/* Have set up a default route */
 static int proxy_arp_set[NUM_PPP];	/* Have created proxy arp entry */
 static bool usepeerdns;			/* Ask peer for DNS addrs */
+static bool usepeerwins;		/* Ask peer for WINS addrs */
 static int ipcp_is_up;			/* have called np_up() */
 static int ipcp_is_open;		/* haven't called np_finished() */
 static bool ask_for_local;		/* request our address from peer */
@@ -248,6 +260,8 @@ static option_t ipcp_option_list[] = {
 
     { "usepeerdns", o_bool, &usepeerdns,
       "Ask peer for DNS address(es)", 1 },
+    { "usepeerwins", o_bool, &usepeerwins,
+      "Ask peer for WINS address(es)", 1 },
 
     { "netmask", o_special, (void *)setnetmask,
       "set netmask", OPT_PRIO | OPT_A2STRVAL | OPT_STATIC, netmask_str },
@@ -288,6 +302,10 @@ static void ipcp_input __P((int, u_char *, int));
 static void ipcp_protrej __P((int));
 static int  ipcp_printpkt __P((u_char *, int,
 			       void (*) __P((void *, char *, ...)), void *));
+#ifdef __APPLE__
+static int  ipcp_printdatapkt __P((u_char *, int,
+			       void (*) __P((void *, char *, ...)), void *));
+#endif
 static void ip_check_options __P((void));
 static int  ip_demand_conf __P((int));
 static int  ip_active_pkt __P((u_char *, int));
@@ -295,6 +313,7 @@ static int  ip_active_pkt __P((u_char *, int));
 static void create_resolv __P((u_int32_t, u_int32_t));
 #endif
 #ifdef __APPLE__
+static void ipcp_ipdata_input __P((int, u_char *, int));
 static int ipcp_state __P((int));
 #endif
 
@@ -308,7 +327,11 @@ struct protent ipcp_protent = {
     ipcp_open,
     ipcp_close,
     ipcp_printpkt,
+#ifdef __APPLE__
+	ipcp_ipdata_input,
+#else
     NULL,
+#endif
     1,
     "IPCP",
     "IP",
@@ -319,7 +342,8 @@ struct protent ipcp_protent = {
 #ifdef __APPLE__
     NULL,
     NULL,
-    ipcp_state
+    ipcp_state,
+    ipcp_printdatapkt
 #endif
 };
 
@@ -756,6 +780,8 @@ ipcp_resetci(f)
 	wo->accept_remote = 1;
     wo->req_dns1 = usepeerdns;	/* Request DNS addresses from the peer */
     wo->req_dns2 = usepeerdns;
+    wo->req_wins1 = usepeerwins;	/* Request WINS addresses from the peer */
+    wo->req_wins2 = usepeerwins;
     *go = *wo;
     if (!ask_for_local)
 	go->ouraddr = 0;
@@ -807,7 +833,9 @@ ipcp_cilen(f)
 	    LENCIVJ(go->neg_vj, go->old_vj) +
 	    LENCIADDR(go->neg_addr) +
 	    LENCIDNS(go->req_dns1) +
-	    LENCIDNS(go->req_dns2)) ;
+	    LENCIDNS(go->req_dns2) +
+	    LENCIDNS(go->req_wins1) +
+	    LENCIDNS(go->req_wins2)) ;
 }
 
 
@@ -892,6 +920,10 @@ ipcp_addci(f, ucp, lenp)
     ADDCIDNS(CI_MS_DNS1, go->req_dns1, go->dnsaddr[0]);
 
     ADDCIDNS(CI_MS_DNS2, go->req_dns2, go->dnsaddr[1]);
+
+    ADDCIDNS(CI_MS_WINS1, go->req_wins1, go->winsaddr[0]);
+
+    ADDCIDNS(CI_MS_WINS2, go->req_wins2, go->winsaddr[1]);
 
     *lenp -= len;
 }
@@ -1007,6 +1039,10 @@ ipcp_ackci(f, p, len)
     ACKCIDNS(CI_MS_DNS1, go->req_dns1, go->dnsaddr[0]);
 
     ACKCIDNS(CI_MS_DNS2, go->req_dns2, go->dnsaddr[1]);
+
+    ACKCIDNS(CI_MS_WINS1, go->req_wins1, go->winsaddr[0]);
+
+    ACKCIDNS(CI_MS_WINS2, go->req_wins2, go->winsaddr[1]);
 
     /*
      * If there are any remaining CIs, then this packet is bad.
@@ -1159,6 +1195,14 @@ ipcp_nakci(f, p, len)
 
     NAKCIDNS(CI_MS_DNS2, req_dns2,
 	    try.dnsaddr[1] = cidnsaddr;
+	    );
+
+    NAKCIDNS(CI_MS_WINS1, req_wins1,
+	    try.winsaddr[0] = cidnsaddr;
+	    );
+
+    NAKCIDNS(CI_MS_WINS2, req_wins2,
+	    try.winsaddr[1] = cidnsaddr;
 	    );
 
     /*
@@ -1336,6 +1380,10 @@ ipcp_rejci(f, p, len)
     REJCIDNS(CI_MS_DNS1, req_dns1, go->dnsaddr[0]);
 
     REJCIDNS(CI_MS_DNS2, req_dns2, go->dnsaddr[1]);
+
+    REJCIDNS(CI_MS_WINS1, req_wins1, go->winsaddr[0]);
+
+    REJCIDNS(CI_MS_WINS2, req_wins2, go->winsaddr[1]);
 
     /*
      * If there are any remaining CIs, then this packet is bad.
@@ -1722,6 +1770,8 @@ ip_demand_conf(u)
     // publish some dns information
     if (usepeerdns)
         sifdns(wo->hisaddr, wo->hisaddr);
+    if (usepeerwins)
+        sifwins(wo->hisaddr, wo->hisaddr);
 #endif
 
     notice("local  IP address %I", wo->ouraddr);
@@ -1776,6 +1826,13 @@ ipcp_up(f)
         sifdns(go->dnsaddr[0], go->dnsaddr[1]);
 #else
 	create_resolv(go->dnsaddr[0], go->dnsaddr[1]);
+#endif
+    }
+
+    if (usepeerwins && (go->winsaddr[0] || go->winsaddr[1])) {
+#ifdef __APPLE__
+        sifwins(go->winsaddr[0], go->winsaddr[1]);
+#else
 #endif
     }
 
@@ -1896,6 +1953,10 @@ ipcp_up(f)
     ipcp_is_up = 1;
 
     notify(ip_up_notifier, 0);
+#ifdef __APPLE__
+    if (ipdata_up_hook)
+		ipdata_up_hook(f->unit, go->ouraddr, ho->hisaddr);
+#endif
     if (ip_up_hook)
 	ip_up_hook();
 
@@ -1933,6 +1994,10 @@ ipcp_down(f)
      * before the interface is marked down. */
     update_link_stats(f->unit);
     notify(ip_down_notifier, 0);
+#ifdef __APPLE__
+    if (ipdata_down_hook)
+		ipdata_down_hook(f->unit);
+#endif
     if (ip_down_hook)
 	ip_down_hook();
     if (ipcp_is_up) {
@@ -2096,12 +2161,45 @@ create_resolv(peerdns1, peerdns2)
 #endif
 
 /*
+ * ipcp_ipdata_input - special treatment of special ip packets.
+ */
+static void
+ipcp_ipdata_input(unit, pkt, len)
+    int unit;
+    u_char *pkt;
+    int len;
+{
+    fsm *f = &ipcp_fsm[unit];
+	
+    if (f->state == OPENED) {
+
+		if (ipdata_input_hook)
+			ipdata_input_hook(unit, pkt, len, ipcp_wantoptions[unit].ouraddr, ipcp_wantoptions[unit].hisaddr);
+    }
+}
+
+/*
  * ipcp_printpkt - print the contents of an IPCP packet.
  */
 static char *ipcp_codenames[] = {
     "ConfReq", "ConfAck", "ConfNak", "ConfRej",
     "TermReq", "TermAck", "CodeRej"
 };
+
+#ifdef __APPLE__
+static int
+ipcp_printdatapkt(p, plen, printer, arg)
+    u_char *p;
+    int plen;
+    void (*printer) __P((void *, char *, ...));
+    void *arg;
+{
+	if (ipdata_print_hook) 
+		return ipdata_print_hook(p, plen, printer, arg);
+
+	return 0;
+}
+#endif
 
 static int
 ipcp_printpkt(p, plen, printer, arg)
@@ -2191,7 +2289,8 @@ ipcp_printpkt(p, plen, printer, arg)
 	    case CI_MS_WINS2:
 	        p += 2;
 		GETLONG(cilong, p);
-		printer(arg, "ms-wins %I", htonl(cilong));
+		printer(arg, "ms-wins%d %I", code - CI_MS_WINS1 + 1, 
+			htonl(cilong));
 		break;
 	    }
 	    while (p < optend) {

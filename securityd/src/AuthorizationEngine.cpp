@@ -21,14 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-/*
- *  AuthorizationEngine.cpp
- *  Authorization
- *
- *  Created by Michael Brouwer on Thu Oct 12 2000.
- *
- */
 #include "AuthorizationEngine.h"
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <Security/AuthorizationPriv.h>
@@ -52,6 +44,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
+
+#include <bsm/audit_uevents.h>
 
 namespace Authorization {
 
@@ -131,8 +125,6 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 
 		if (username.length())
 		{
-			// Call to checkpw in DS
-			Server::active().longTermActivity();
 			// Let's create a credential from the passed in username and password.
 			Credential newCredential(username, password, shared);
 			// If it's valid insert it into the credentials list.  Normally this is
@@ -155,15 +147,26 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 		secdebug("autheval", "evaluate rule %s for right %s returned %ld.", toplevelRule->name().c_str(), (*it)->name(), result);
 
 		{
-			RefPointer<OSXCode> processCode = Server::process().clientCode();
-			string processName = processCode ? processCode->canonicalPath() : "unknown";
-			RefPointer<OSXCode> authCreatorCode = auth.creatorCode();
-			string authCreatorName = authCreatorCode ? authCreatorCode->canonicalPath() : "unknown";
-			
-			if (result == errAuthorizationSuccess)
-				Syslog::info("Succeeded authorizing right %s by process %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
-			else if (result == errAuthorizationDenied)
-				Syslog::notice("Failed to authorize right %s by process %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+			string processName = "unknown";
+			if (SecCodeRef code = Server::process().currentGuest()) {
+				CFRef<CFURLRef> path;
+				if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
+					processName = cfString(path);
+			}
+			string authCreatorName = "unknown";
+			if (SecStaticCodeRef code = auth.creatorCode()) {
+				CFRef<CFURLRef> path;
+				if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
+					authCreatorName = cfString(path);
+			}
+
+			if (result == errAuthorizationSuccess) {
+				Syslog::info("Succeeded authorizing right %s by client %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+				CommonCriteria::AuditRecord auditrec(auth.creatorAuditToken());
+				auditrec.submit(AUE_ssauthorize, CommonCriteria::errNone, (*it)->name());
+			} else if (result == errAuthorizationDenied) {
+				Syslog::notice("Failed to authorize right %s by client %s for authorization created by %s.", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+			}
 		}
 		
 		if (result == errAuthorizationSuccess)
@@ -287,12 +290,6 @@ Engine::getRule(string &inRightName, CFDictionaryRef *outRuleDefinition)
 OSStatus 
 Engine::setRule(const char *inRightName, CFDictionaryRef inRuleDefinition, const CredentialSet *inCredentials, CredentialSet *outCredentials, AuthorizationToken &auth)
 {
-	// Get current time of day.
-	CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
-
-	// Update rules from database if needed
-	mAuthdb.sync(now);
-
 	// Validate rule by constructing it from the passed dictionary
 	if (!mAuthdb.validateRule(inRightName, inRuleDefinition))
 		return errAuthorizationDenied; // @@@ separate error for this?

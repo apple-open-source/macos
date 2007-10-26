@@ -7,16 +7,16 @@
  */
 
 /*
- * For MSDOS some keys produce codes larger than 0xff. They are split into two
- * chars, the first one is K_NUL (same value used in term.h).
- */
-#define K_NUL			(0xce)	/* for MSDOS: special key follows */
-
-/*
  * Keycode definitions for special keys.
  *
  * Any special key code sequences are replaced by these codes.
  */
+
+/*
+ * For MSDOS some keys produce codes larger than 0xff. They are split into two
+ * chars, the first one is K_NUL (same value used in term.h).
+ */
+#define K_NUL			(0xce)	/* for MSDOS: special key follows */
 
 /*
  * K_SPECIAL is the first byte of a special key code and is always followed by
@@ -100,6 +100,12 @@
 
 /* Used for the qnx pterm mouse */
 #define KS_PTERM_MOUSE		241
+
+/* Used for click in a tab pages label. */
+#define KS_TABLINE		240
+
+/* Used for menu in a tab pages line. */
+#define KS_TABMENU		239
 
 /*
  * Filler used after KS_SPECIAL and others
@@ -206,7 +212,13 @@ enum key_extra
     , KE_XF3
     , KE_XF4
     , KE_XEND		/* extra (vt100) end key for xterm */
+    , KE_ZEND		/* extra (vt100) end key for xterm */
     , KE_XHOME		/* extra (vt100) home key for xterm */
+    , KE_ZHOME		/* extra (vt100) home key for xterm */
+    , KE_XUP		/* extra vt100 cursor keys for xterm */
+    , KE_XDOWN
+    , KE_XLEFT
+    , KE_XRIGHT
 
     , KE_LEFTMOUSE_NM	/* non-mappable Left mouse button click */
     , KE_LEFTRELEASE_NM	/* non-mappable left mouse button release */
@@ -240,6 +252,8 @@ enum key_extra
     , KE_X2RELEASE
 
     , KE_DROP		/* DnD data is available */
+    , KE_CURSORHOLD	/* CursorHold event */
+    , KE_NOP		/* doesn't do something */
 };
 
 /*
@@ -270,11 +284,11 @@ enum key_extra
 #define K_XF3		TERMCAP2KEY(KS_EXTRA, KE_XF3)
 #define K_XF4		TERMCAP2KEY(KS_EXTRA, KE_XF4)
 
-/* extra set of function keys F1-F4, for vt100 compatible xterm */
-#define K_XF1		TERMCAP2KEY(KS_EXTRA, KE_XF1)
-#define K_XF2		TERMCAP2KEY(KS_EXTRA, KE_XF2)
-#define K_XF3		TERMCAP2KEY(KS_EXTRA, KE_XF3)
-#define K_XF4		TERMCAP2KEY(KS_EXTRA, KE_XF4)
+/* extra set of cursor keys for vt100 compatible xterm */
+#define K_XUP		TERMCAP2KEY(KS_EXTRA, KE_XUP)
+#define K_XDOWN		TERMCAP2KEY(KS_EXTRA, KE_XDOWN)
+#define K_XLEFT		TERMCAP2KEY(KS_EXTRA, KE_XLEFT)
+#define K_XRIGHT	TERMCAP2KEY(KS_EXTRA, KE_XRIGHT)
 
 #define K_F1		TERMCAP2KEY('k', '1')	/* function keys */
 #define K_F2		TERMCAP2KEY('k', '2')
@@ -336,33 +350,7 @@ enum key_extra
 
 #define K_S_F11		TERMCAP2KEY(KS_EXTRA, KE_S_F11)
 #define K_S_F12		TERMCAP2KEY(KS_EXTRA, KE_S_F12)
-#define K_S_F13		TERMCAP2KEY(KS_EXTRA, KE_S_F13)
-#define K_S_F14		TERMCAP2KEY(KS_EXTRA, KE_S_F14)
-#define K_S_F15		TERMCAP2KEY(KS_EXTRA, KE_S_F15)
-#define K_S_F16		TERMCAP2KEY(KS_EXTRA, KE_S_F16)
-#define K_S_F17		TERMCAP2KEY(KS_EXTRA, KE_S_F17)
-#define K_S_F18		TERMCAP2KEY(KS_EXTRA, KE_S_F18)
-#define K_S_F19		TERMCAP2KEY(KS_EXTRA, KE_S_F19)
-#define K_S_F20		TERMCAP2KEY(KS_EXTRA, KE_S_F20)
-
-#define K_S_F21		TERMCAP2KEY(KS_EXTRA, KE_S_F21)
-#define K_S_F22		TERMCAP2KEY(KS_EXTRA, KE_S_F22)
-#define K_S_F23		TERMCAP2KEY(KS_EXTRA, KE_S_F23)
-#define K_S_F24		TERMCAP2KEY(KS_EXTRA, KE_S_F24)
-#define K_S_F25		TERMCAP2KEY(KS_EXTRA, KE_S_F25)
-#define K_S_F26		TERMCAP2KEY(KS_EXTRA, KE_S_F26)
-#define K_S_F27		TERMCAP2KEY(KS_EXTRA, KE_S_F27)
-#define K_S_F28		TERMCAP2KEY(KS_EXTRA, KE_S_F28)
-#define K_S_F29		TERMCAP2KEY(KS_EXTRA, KE_S_F29)
-#define K_S_F30		TERMCAP2KEY(KS_EXTRA, KE_S_F30)
-
-#define K_S_F31		TERMCAP2KEY(KS_EXTRA, KE_S_F31)
-#define K_S_F32		TERMCAP2KEY(KS_EXTRA, KE_S_F32)
-#define K_S_F33		TERMCAP2KEY(KS_EXTRA, KE_S_F33)
-#define K_S_F34		TERMCAP2KEY(KS_EXTRA, KE_S_F34)
-#define K_S_F35		TERMCAP2KEY(KS_EXTRA, KE_S_F35)
-#define K_S_F36		TERMCAP2KEY(KS_EXTRA, KE_S_F36)
-#define K_S_F37		TERMCAP2KEY(KS_EXTRA, KE_S_F37)
+/* K_S_F13 to K_S_F37  are currently not used */
 
 #define K_HELP		TERMCAP2KEY('%', '1')
 #define K_UNDO		TERMCAP2KEY('&', '8')
@@ -376,9 +364,11 @@ enum key_extra
 #define K_HOME		TERMCAP2KEY('k', 'h')
 #define K_KHOME		TERMCAP2KEY('K', '1')	/* keypad home (upper left) */
 #define K_XHOME		TERMCAP2KEY(KS_EXTRA, KE_XHOME)
+#define K_ZHOME		TERMCAP2KEY(KS_EXTRA, KE_ZHOME)
 #define K_END		TERMCAP2KEY('@', '7')
 #define K_KEND		TERMCAP2KEY('K', '4')	/* keypad end (lower left) */
 #define K_XEND		TERMCAP2KEY(KS_EXTRA, KE_XEND)
+#define K_ZEND		TERMCAP2KEY(KS_EXTRA, KE_ZEND)
 #define K_PAGEUP	TERMCAP2KEY('k', 'P')
 #define K_PAGEDOWN	TERMCAP2KEY('k', 'N')
 #define K_KPAGEUP	TERMCAP2KEY('K', '3')	/* keypad pageup (upper R.) */
@@ -389,7 +379,7 @@ enum key_extra
 #define K_KDIVIDE	TERMCAP2KEY('K', '8')	/* keypad / */
 #define K_KMULTIPLY	TERMCAP2KEY('K', '9')	/* keypad * */
 #define K_KENTER	TERMCAP2KEY('K', 'A')	/* keypad Enter */
-#define K_KPOINT	TERMCAP2KEY('K', 'B')	/* keypad . */
+#define K_KPOINT	TERMCAP2KEY('K', 'B')	/* keypad . or ,*/
 
 #define K_K0		TERMCAP2KEY('K', 'C')	/* keypad 0 */
 #define K_K1		TERMCAP2KEY('K', 'D')	/* keypad 1 */
@@ -401,13 +391,6 @@ enum key_extra
 #define K_K7		TERMCAP2KEY('K', 'J')	/* keypad 7 */
 #define K_K8		TERMCAP2KEY('K', 'K')	/* keypad 8 */
 #define K_K9		TERMCAP2KEY('K', 'L')	/* keypad 9 */
-
-/*
- * These are used to recognize a keypad key that does have an ASCII equivalent.
- * Since the values are negative, it's the other way around.
- */
-#define FIRST_KEYPAD	K_K9
-#define LAST_KEYPAD	K_KPLUS
 
 #define K_MOUSE		TERMCAP2KEY(KS_MOUSE, KE_FILLER)
 #define K_MENU		TERMCAP2KEY(KS_MENU, KE_FILLER)
@@ -421,6 +404,9 @@ enum key_extra
 
 #define K_SELECT	TERMCAP2KEY(KS_SELECT, KE_FILLER)
 #define K_TEAROFF	TERMCAP2KEY(KS_TEAROFF, KE_FILLER)
+
+#define K_TABLINE	TERMCAP2KEY(KS_TABLINE, KE_FILLER)
+#define K_TABMENU	TERMCAP2KEY(KS_TABMENU, KE_FILLER)
 
 /*
  * Symbols for pseudo keys which are translated from the real key symbols
@@ -446,6 +432,7 @@ enum key_extra
 #define K_X2RELEASE     TERMCAP2KEY(KS_EXTRA, KE_X2RELEASE)
 
 #define K_IGNORE	TERMCAP2KEY(KS_EXTRA, KE_IGNORE)
+#define K_NOP		TERMCAP2KEY(KS_EXTRA, KE_NOP)
 
 #define K_SNIFF		TERMCAP2KEY(KS_EXTRA, KE_SNIFF)
 
@@ -459,28 +446,31 @@ enum key_extra
 
 #define K_DROP		TERMCAP2KEY(KS_EXTRA, KE_DROP)
 
+#define K_CURSORHOLD	TERMCAP2KEY(KS_EXTRA, KE_CURSORHOLD)
+
 /* Bits for modifier mask */
 /* 0x01 cannot be used, because the modifier must be 0x02 or higher */
 #define MOD_MASK_SHIFT	    0x02
 #define MOD_MASK_CTRL	    0x04
 #define MOD_MASK_ALT	    0x08	/* aka META */
-#define MOD_MASK_2CLICK	    0x10	/* use MOD_MASK_MULTI_CLICK */
-#define MOD_MASK_3CLICK	    0x20	/* use MOD_MASK_MULTI_CLICK */
-#define MOD_MASK_4CLICK	    0x30	/* use MOD_MASK_MULTI_CLICK */
+#define MOD_MASK_META	    0x10	/* META when it's different from ALT */
+#define MOD_MASK_2CLICK	    0x20	/* use MOD_MASK_MULTI_CLICK */
+#define MOD_MASK_3CLICK	    0x40	/* use MOD_MASK_MULTI_CLICK */
+#define MOD_MASK_4CLICK	    0x60	/* use MOD_MASK_MULTI_CLICK */
 #ifdef MACOS
-# define MOD_MASK_CMD	     0x80
+# define MOD_MASK_CMD	    0x80
 #endif
 
 #define MOD_MASK_MULTI_CLICK	(MOD_MASK_2CLICK|MOD_MASK_3CLICK|MOD_MASK_4CLICK)
 
 /*
  * The length of the longest special key name, including modifiers.
- * Current longest is <M-C-S-4-MiddleRelease> (length includes '<' and '>').
+ * Current longest is <M-C-S-T-4-MiddleRelease> (length includes '<' and '>').
  */
-#define MAX_KEY_NAME_LEN    23
+#define MAX_KEY_NAME_LEN    25
 
 /* Maximum length of a special key event as tokens.  This includes modifiers.
- * The longest event is something like <M-C-S-4-LeftDrag> which would be the
+ * The longest event is something like <M-C-S-T-4-LeftDrag> which would be the
  * following string of tokens:
  *
  * <K_SPECIAL> <KS_MODIFIER> bitmask <K_SPECIAL> <KS_EXTRA> <KT_LEFTDRAG>.

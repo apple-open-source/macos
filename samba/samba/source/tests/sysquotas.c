@@ -1,5 +1,7 @@
 /* this test should find out what quota api is available on the os */
 
+ int autoconf_quota(void);
+
 #if defined(HAVE_QUOTACTL_4A)
 /* long quotactl(int cmd, char *special, qid_t id, caddr_t addr) */
 
@@ -26,6 +28,8 @@
 #define SYS_DQBLK dqblk
 #endif
 
+ int autoconf_quota(void);
+
  int autoconf_quota(void)
 {
 	int ret = -1;
@@ -38,6 +42,10 @@
 
 #elif defined(HAVE_QUOTACTL_4B)
 /* int quotactl(const char *path, int cmd, int id, char *addr); */
+
+#ifdef HAVE_SYS_TYPES_H
+#include <sys/types.h>
+#endif
 
 #ifdef HAVE_SYS_QUOTA_H
 #include <sys/quota.h>

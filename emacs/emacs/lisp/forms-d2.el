@@ -1,4 +1,7 @@
-;;; forms-d2.el --- demo forms-mode
+;;; forms-d2.el --- demo forms-mode -*- no-byte-compile: t -*-
+
+;; Copyright (C) 1991, 1994, 1995, 1996, 1997, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Johan Vromans <jvromans@squirrel.nl>
 ;; Created: 1989
@@ -32,17 +35,17 @@
 ;; The following functions are used by this form for layout purposes.
 ;;
 (defun arch-tocol (target &optional fill)
-  "Produces a string to skip to column TARGET. Prepends newline if needed.
+  "Produces a string to skip to column TARGET.  Prepends newline if needed.
 The optional FILL should be a character, used to fill to the column."
   (if (null fill)
-      (setq fill ? ))
+      (setq fill ?\s))
   (if (< target (current-column))
       (concat "\n" (make-string target fill))
     (make-string (- target (current-column)) fill)))
 ;;
-(defun arch-rj (target field &optional fill) 
+(defun arch-rj (target field &optional fill)
   "Produces a string to skip to column TARGET minus the width of field FIELD.
-Prepends newline if needed. The optional FILL should be a character,
+Prepends newline if needed.  The optional FILL should be a character,
 used to fill to the column."
   (arch-tocol (- target (length (nth field forms-fields))) fill))
 
@@ -85,4 +88,5 @@ used to fill to the column."
 
 ;; That's all, folks!
 
+;;; arch-tag: 8e5d5dac-7abf-4722-ab5e-03eb749beaca
 ;;; forms-d2.el ends here

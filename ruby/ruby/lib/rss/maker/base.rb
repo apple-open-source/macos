@@ -21,17 +21,17 @@ module RSS
 
           subclass.module_eval(<<-EOEOC, __FILE__, __LINE__)
             def self.other_elements
-              const_get("OTHER_ELEMENTS") + super
+              OTHER_ELEMENTS + super
             end
 
             def self.need_initialize_variables
-              const_get("NEED_INITIALIZE_VARIABLES") + super
+              NEED_INITIALIZE_VARIABLES + super
             end
           EOEOC
         end
 
         def self.add_other_element(variable_name)
-          const_get("OTHER_ELEMENTS") << variable_name
+          OTHER_ELEMENTS << variable_name
         end
 
         def self.other_elements
@@ -39,7 +39,7 @@ module RSS
         end
 
         def self.add_need_initialize_variable(variable_name, init_value="nil")
-          const_get("NEED_INITIALIZE_VARIABLES") << [variable_name, init_value]
+          NEED_INITIALIZE_VARIABLES << [variable_name, init_value]
         end
 
         def self.need_initialize_variables
@@ -52,7 +52,7 @@ module RSS
 
           def_delegators("@\#{name}", :<<, :[], :[]=, :first, :last)
           def_delegators("@\#{name}", :push, :pop, :shift, :unshift)
-          def_delegators("@\#{name}", :each)
+          def_delegators("@\#{name}", :each, :size)
           
           add_need_initialize_variable(name, "[]")
         end
@@ -81,13 +81,17 @@ module RSS
         end
       end
 
+      def current_element(rss)
+        rss
+      end
+      
       def setup_values(target)
         set = false
         if have_required_values?
           variables.each do |var|
             setter = "#{var}="
             if target.respond_to?(setter)
-              value = self.__send__(var)
+              value = __send__(var)
               if value
                 target.__send__(setter, value)
                 set = true
@@ -144,7 +148,7 @@ module RSS
           end
 
           def make_#{element}
-            self.class::#{element[0,1].upcase}#{element[1..-1]}.new(self)
+            self.class::#{Utils.to_class_name(element)}.new(self)
           end
 EOC
       end
@@ -181,10 +185,6 @@ EOC
         end
       end
       
-      def current_element(rss)
-        rss
-      end
-      
       private
       remove_method :make_xml_stylesheets
       def make_xml_stylesheets
@@ -207,7 +207,11 @@ EOC
       def new_xml_stylesheet
         xss = XMLStyleSheet.new(@maker)
         @xml_stylesheets << xss
-        xss
+        if block_given?
+          yield xss
+        else
+          xss
+        end
       end
 
       class XMLStyleSheet
@@ -255,7 +259,7 @@ EOC
           end
 
           def make_#{element}
-            self.class::#{element[0,1].upcase}#{element[1..-1]}.new(@maker)
+            self.class::#{Utils.to_class_name(element)}.new(@maker)
           end
 EOC
       end
@@ -281,8 +285,12 @@ EOC
 
         def new_day
           day = self.class::Day.new(@maker)
-          @days << day 
-          day
+          @days << day
+          if block_given?
+            yield day
+          else
+            day
+          end
         end
         
         def current_element(rss)
@@ -311,8 +319,12 @@ EOC
 
         def new_hour
           hour = self.class::Hour.new(@maker)
-          @hours << hour 
-          hour
+          @hours << hour
+          if block_given?
+            yield hour
+          else
+            hour
+          end
         end
         
         def current_element(rss)
@@ -356,7 +368,11 @@ EOC
         def new_category
           category = self.class::Category.new(@maker)
           @categories << category
-          category
+          if block_given?
+            yield category
+          else
+            category
+          end
         end
 
         class CategoryBase
@@ -401,7 +417,11 @@ EOC
       end
       
       def normalize
-        sort_if_need[0..@max_size]
+        if @max_size >= 0
+          sort_if_need[0...@max_size]
+        else
+          sort_if_need[0..@max_size]
+        end
       end
       
       def current_element(rss)
@@ -410,8 +430,12 @@ EOC
 
       def new_item
         item = self.class::Item.new(@maker)
-        @items << item 
-        item
+        @items << item
+        if block_given?
+          yield item
+        else
+          item
+        end
       end
       
       private
@@ -443,7 +467,7 @@ EOC
           end
 
           def make_#{element}
-            self.class::#{element[0,1].upcase}#{element[1..-1]}.new(@maker)
+            self.class::#{Utils.to_class_name(element)}.new(@maker)
           end
 EOC
         end
@@ -457,9 +481,9 @@ EOC
         alias_method(:pubDate=, :date=)
 
         def <=>(other)
-          if @date and other.date
-            @date <=> other.date
-          elsif @date
+          if date and other.date
+            date <=> other.date
+          elsif date
             1
           elsif other.date
             -1

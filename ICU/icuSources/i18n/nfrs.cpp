@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2004, International Business Machines
+*   Copyright (C) 1997-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfrs.cpp
@@ -135,7 +135,7 @@ NFRuleSet::NFRuleSet(UnicodeString* descriptions, int32_t index, UErrorCode& sta
     if (description.length() == 0) {
         // throw new IllegalArgumentException("Empty rule set description");
         status = U_PARSE_ERROR;
-    return;
+        return;
     }
 
     // if the description begins with a rule set name (the rule set
@@ -701,14 +701,14 @@ NFRuleSet::appendRules(UnicodeString& result) const
     // followed by the regular rules...
     for (uint32_t i = 0; i < rules.size(); i++) {
         result.append(gFourSpaces);
-        rules[i]->appendRuleText(result);
+        rules[i]->_appendRuleText(result);
         result.append(gLineFeed);
     }
 
     // followed by the special rules (if they exist)
     if (negativeNumberRule) {
         result.append(gFourSpaces);
-        negativeNumberRule->appendRuleText(result);
+        negativeNumberRule->_appendRuleText(result);
         result.append(gLineFeed);
     }
 
@@ -716,7 +716,7 @@ NFRuleSet::appendRules(UnicodeString& result) const
         for (uint32_t i = 0; i < 3; ++i) {
             if (fractionRules[i]) {
                 result.append(gFourSpaces);
-                fractionRules[i]->appendRuleText(result);
+                fractionRules[i]->_appendRuleText(result);
                 result.append(gLineFeed);
             }
         }
@@ -770,6 +770,7 @@ static const uint8_t asciiDigits[] = {
 
 static const UChar kUMinus = (UChar)0x002d;
 
+#ifdef RBNF_DEBUG
 static const char kMinus = '-';
 
 static const uint8_t digitInfo[] = {
@@ -791,7 +792,6 @@ static const uint8_t digitInfo[] = {
     0xa1u, 0xa2u, 0xa3u,     0,     0,     0,     0,     0,
 };
 
-#ifdef RBNF_DEBUG
 int64_t util64_atoi(const char* str, uint32_t radix)
 {
     if (radix > 36) {
@@ -817,7 +817,6 @@ int64_t util64_atoi(const char* str, uint32_t radix)
     }
     return result;
 }
-#endif
 
 int64_t util64_utoi(const UChar* str, uint32_t radix)
 {
@@ -846,7 +845,6 @@ int64_t util64_utoi(const UChar* str, uint32_t radix)
     return result;
 }
 
-#ifdef RBNF_DEBUG
 uint32_t util64_toa(int64_t w, char* buf, uint32_t len, uint32_t radix, UBool raw)
 {    
     if (radix > 36) {

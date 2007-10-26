@@ -245,7 +245,7 @@ u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long
 
         if (doit) {
 			if (client->flags & CLIENT_FLAG_IS_SOCKET)
-				socket_client_notify (client->socketRef, client->notify_serviceid ? sid : 0, link, event, error);
+				socket_client_notify (client->socketRef, client->notify_serviceid ? sid : 0, link, event, error, client->flags);
 			else 
 				mach_client_notify (client->notify_port, client->serviceID, event, error);
         }

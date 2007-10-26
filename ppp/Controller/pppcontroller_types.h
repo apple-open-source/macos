@@ -31,6 +31,9 @@
 #endif
 #define mig_external __private_extern__
 
+/* Turn MIG type checking on by default */
+#define __MigTypeCheck       1
+
 /*
  * Mach server port name
  */

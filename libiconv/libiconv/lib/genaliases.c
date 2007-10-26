@@ -1,4 +1,4 @@
-/* Copyright (C) 1999-2001, 2003 Free Software Foundation, Inc.
+/* Copyright (C) 1999-2001, 2003, 2005 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,16 +13,30 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Creates the aliases.gperf table. */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-static void emit_encoding (const char* const* names, size_t n, const char* c_name)
+static void emit_encoding (FILE* out1, FILE* out2, const char* const* names, size_t n, const char* c_name)
 {
+  fprintf(out2,"grep 'sizeof(\"");
+  /* Output *names in upper case. */
+  {
+    const char* s = *names;
+    for (; *s; s++) {
+      unsigned char c = * (unsigned char *) s;
+      if (c >= 0x80)
+        exit(1);
+      if (c >= 'a' && c <= 'z')
+        c -= 'a'-'A';
+      putc(c, out2);
+    }
+  }
+  fprintf(out2,"\")' tmp.h | sed -e 's|^.*\\(stringpool_str[0-9]*\\).*$|  (int)(long)\\&((struct stringpool_t *)0)->\\1,|'\n");
   for (; n > 0; names++, n--) {
     /* Output *names in upper case. */
     const char* s = *names;
@@ -32,14 +46,16 @@ static void emit_encoding (const char* const* names, size_t n, const char* c_nam
         exit(1);
       if (c >= 'a' && c <= 'z')
         c -= 'a'-'A';
-      putc(c, stdout);
+      putc(c, out1);
     }
-    printf(", ei_%s\n", c_name);
+    fprintf(out1,", ei_%s\n", c_name);
   }
 }
 
 int main ()
 {
+  FILE* stdout2;
+
   printf("struct alias { int name; unsigned int encoding_index; };\n");
   printf("%%struct-type\n");
   printf("%%language=ANSI-C\n");
@@ -55,16 +71,28 @@ int main ()
 #define DEFENCODING(xxx_names,xxx,xxx_ifuncs1,xxx_ifuncs2,xxx_ofuncs1,xxx_ofuncs2) \
   {                                                           \
     static const char* const names[] = BRACIFY xxx_names;     \
-    emit_encoding(names,sizeof(names)/sizeof(names[0]),#xxx); \
+    emit_encoding(stdout,stdout2,names,sizeof(names)/sizeof(names[0]),#xxx); \
   }
 #define BRACIFY(...) { __VA_ARGS__ }
+
+  stdout2 = fdopen(3, "w");
+  if (stdout2 == NULL)
+    exit(1);
 #include "encodings.def"
+  if (fclose(stdout2))
+    exit(1);
+
+  stdout2 = fdopen(4, "w");
+  if (stdout2 == NULL)
+    exit(1);
 #include "encodings_local.def"
+  if (fclose(stdout2))
+    exit(1);
+
 #undef BRACIFY
 #undef DEFENCODING
 
-  fflush(stdout);
-  if (ferror(stdout))
+  if (ferror(stdout) || fclose(stdout))
     exit(1);
   exit(0);
 }

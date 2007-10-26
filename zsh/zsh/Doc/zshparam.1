@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "January 13, 2005" "zsh 4\&.2\&.3"
+.TH "ZSHPARAM" "1" "April 19, 2006" "zsh 4\&.3\&.4"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -6,7 +6,7 @@ zshparam \- zsh parameters
 A parameter has a name, a value, and a number of attributes\&.
 A name may be any sequence of alphanumeric
 characters and underscores, or the single characters
-`\fB*\fP', `\fB@\fP', `\fB#\fP', `\fB?\fP', `\fB\-\fP', `\fB$\fP', or `\fB!\fP'\&.
+`\fB*\fP\&', `\fB@\fP', `\fB#\fP', `\fB?\fP', `\fB\-\fP', `\fB$\fP', or `\fB!\fP'\&.
 The value may be a \fIscalar\fP (a string),
 an integer, an array (indexed numerically), or an \fIassociative\fP
 array (an unordered set of name\-value pairs, indexed by name)\&.  To declare
@@ -23,20 +23,20 @@ writing:
 .RE
 .PP
 If the integer attribute, \fB\-i\fP, is set for \fIname\fP, the \fIvalue\fP
-is subject to arithmetic evaluation\&.  Furthermore, by replacing `\fB=\fP'
-with `\fB+=\fP', a parameter can be added or appended to\&.  See
-the section `Array Parameters' for additional forms of assignment\&.
+is subject to arithmetic evaluation\&.  Furthermore, by replacing `\fB=\fP\&'
+with `\fB+=\fP\&', a parameter can be added or appended to\&.  See
+the section `Array Parameters\&' for additional forms of assignment\&.
 .PP
-To refer to the value of a parameter, write `\fB$\fP\fIname\fP' or
-`\fB${\fP\fIname\fP\fB}\fP'\&.  See
+To refer to the value of a parameter, write `\fB$\fP\fIname\fP\&' or
+`\fB${\fP\fIname\fP\fB}\fP\&'\&.  See
 \fIParameter Expansion\fP in \fIzshexpn\fP(1)
 for complete details\&.
 .PP
-In the parameter lists that follow, the mark `<S>' indicates that the
+In the parameter lists that follow, the mark `<S>\&' indicates that the
 parameter is special\&.
 Special parameters cannot have their type changed or their
 readonly attribute turned off, and if a special parameter is unset, then
-later recreated, the special properties will be retained\&.  `<Z>' indicates
+later recreated, the special properties will be retained\&.  `<Z>\&' indicates
 that the parameter does not exist when the shell initializes in \fBsh\fP or
 \fBksh\fP emulation mode\&.
 .SH "ARRAY PARAMETERS"
@@ -105,15 +105,15 @@ To create an empty array (including associative arrays), use one of:
 .SS "Array Subscripts"
 .PP
 Individual elements of an array may be selected using a subscript\&.  A
-subscript of the form `\fB[\fP\fIexp\fP\fB]\fP' selects the single element
+subscript of the form `\fB[\fP\fIexp\fP\fB]\fP\&' selects the single element
 \fIexp\fP, where \fIexp\fP is an arithmetic expression which will be subject
 to arithmetic expansion as if it were surrounded by
-`\fB$((\fP\&.\&.\&.\fB))\fP'\&.  The elements are numbered
+`\fB$((\fP\&.\&.\&.\fB))\fP\&'\&.  The elements are numbered
 beginning with 1, unless the \fBKSH_ARRAYS\fP option is set in which case
 they are numbered from zero\&.
 .PP
 Subscripts may be used inside braces used to delimit a parameter name, thus
-`\fB${foo[2]}\fP' is equivalent to `\fB$foo[2]\fP'\&.  If the \fBKSH_ARRAYS\fP
+`\fB${foo[2]}\fP\&' is equivalent to `\fB$foo[2]\fP'\&.  If the \fBKSH_ARRAYS\fP
 option is set, the braced form is the only one that works, as bracketed
 expressions otherwise are not treated as subscripts\&.
 .PP
@@ -123,35 +123,35 @@ rules for arithmetic expressions still apply, which affects the way that
 certain special characters must be protected from interpretation\&.  See
 \fISubscript Parsing\fP below for details\&.
 .PP
-A subscript of the form `\fB[*]\fP' or `\fB[@]\fP' evaluates to all elements
+A subscript of the form `\fB[*]\fP\&' or `\fB[@]\fP' evaluates to all elements
 of an array; there is no difference between the two except when they
 appear within double quotes\&.
-`\fB"$foo[*]"\fP' evaluates to `\fB"$foo[1] $foo[2] \fP\&.\&.\&.\fB"\fP', whereas
-`\fB"$foo[@]"\fP' evaluates to `\fB"$foo[1]" "$foo[2]" \fP\&.\&.\&.'\&.  For
-associative arrays, `\fB[*]\fP' or `\fB[@]\fP' evaluate to all the values,
+`\fB"$foo[*]"\fP\&' evaluates to `\fB"$foo[1] $foo[2] \fP\&.\&.\&.\fB"\fP', whereas
+`\fB"$foo[@]"\fP\&' evaluates to `\fB"$foo[1]" "$foo[2]" \fP\&.\&.\&.'\&.  For
+associative arrays, `\fB[*]\fP\&' or `\fB[@]\fP' evaluate to all the values,
 in no particular order\&.  Note that this does not substitute
-the keys; see the documentation for the `\fBk\fP' flag under
+the keys; see the documentation for the `\fBk\fP\&' flag under
 \fIParameter Expansion Flags\fP in \fIzshexpn\fP(1)
 for complete details\&.
-When an array parameter is referenced as `\fB$\fP\fIname\fP' (with no
-subscript) it evaluates to `\fB$\fP\fIname\fP\fB[*]\fP', unless the \fBKSH_ARRAYS\fP
-option is set in which case it evaluates to `\fB${\fP\fIname\fP\fB[0]}\fP' (for
-an associative array, this means the value of the key `\fB0\fP', which may
+When an array parameter is referenced as `\fB$\fP\fIname\fP\&' (with no
+subscript) it evaluates to `\fB$\fP\fIname\fP\fB[*]\fP\&', unless the \fBKSH_ARRAYS\fP
+option is set in which case it evaluates to `\fB${\fP\fIname\fP\fB[0]}\fP\&' (for
+an associative array, this means the value of the key `\fB0\fP\&', which may
 not exist even if there are values for other keys)\&.
 .PP
-A subscript of the form `\fB[\fP\fIexp1\fP\fB,\fP\fIexp2\fP\fB]\fP'
+A subscript of the form `\fB[\fP\fIexp1\fP\fB,\fP\fIexp2\fP\fB]\fP\&'
 selects all elements in the range \fIexp1\fP to \fIexp2\fP,
 inclusive\&. (Associative arrays are unordered, and so do not support
 ranges\&.) If one of the subscripts evaluates to a negative number,
 say \fB\-\fP\fIn\fP, then the \fIn\fPth element from the end
-of the array is used\&.  Thus `\fB$foo[\-3]\fP' is the third element
+of the array is used\&.  Thus `\fB$foo[\-3]\fP\&' is the third element
 from the end of the array \fBfoo\fP, and
-`\fB$foo[1,\-1]\fP' is the same as `\fB$foo[*]\fP'\&.
+`\fB$foo[1,\-1]\fP\&' is the same as `\fB$foo[*]\fP'\&.
 .PP
 Subscripting may also be performed on non\-array values, in which
 case the subscripts specify a substring to be extracted\&.
-For example, if \fBFOO\fP is set to `\fBfoobar\fP', then
-`\fBecho $FOO[2,5]\fP' prints `\fBooba\fP'\&.
+For example, if \fBFOO\fP is set to `\fBfoobar\fP\&', then
+`\fBecho $FOO[2,5]\fP\&' prints `\fBooba\fP'\&.
 .PP
 .SS "Array Element Assignment"
 .PP
@@ -185,7 +185,7 @@ are necessary in this case to prevent the brackets from being interpreted
 as filename generation operators\&.  The \fBnoglob\fP precommand modifier
 could be used instead\&.
 .PP
-To delete an element of an ordinary array, assign `\fB()\fP' to
+To delete an element of an ordinary array, assign `\fB()\fP\&' to
 that element\&.  To delete an element of an associative array, use the
 \fBunset\fP command:
 .PP
@@ -200,78 +200,137 @@ that element\&.  To delete an element of an associative array, use the
 If the opening bracket, or the comma in a range, in any subscript
 expression is directly followed by an opening parenthesis, the string up
 to the matching closing one is considered to be a list of flags, as in
-`\fIname\fP\fB[(\fP\fIflags\fP\fB)\fP\fIexp\fP\fB]\fP'\&.  The flags
-currently understood are:
+`\fIname\fP\fB[(\fP\fIflags\fP\fB)\fP\fIexp\fP\fB]\fP\&'\&.
+.PP
+The flags \fBs\fP, \fBn\fP and \fBb\fP take an argument; the delimiter
+is shown below as `\fB:\fP\&', but any character, or the matching pairs
+`\fB(\fP\&.\&.\&.\fB)\fP\&', `\fB{\fP\&.\&.\&.\fB}\fP', `\fB[\fP\&.\&.\&.\fB]\fP', or
+`\fB<\fP\&.\&.\&.\fB>\fP\&', may be used\&.
+.PP
+The flags currently understood are:
 .PP
 .PD 0
 .TP
 .PD
 \fBw\fP
-If the parameter subscripted is a scalar than this flag makes
+If the parameter subscripted is a scalar then this flag makes
 subscripting work on words instead of characters\&.  The default word
 separator is whitespace\&.
 .TP
 \fBs:\fP\fIstring\fP\fB:\fP
 This gives the \fIstring\fP that separates words (for use with the
-\fBw\fP flag)\&.
+\fBw\fP flag)\&.  The delimiter character \fB:\fP is arbitrary; see above\&.
 .TP
 \fBp\fP
 Recognize the same escape sequences as the \fBprint\fP builtin in
-the string argument of a subsequent `\fBs\fP' flag\&.
+the string argument of a subsequent `\fBs\fP\&' flag\&.
 .TP
 \fBf\fP
-If the parameter subscripted is a scalar than this flag makes
+If the parameter subscripted is a scalar then this flag makes
 subscripting work on lines instead of characters, i\&.e\&. with elements
-separated by newlines\&.  This is a shorthand for `\fBpws:\en:\fP'\&.
+separated by newlines\&.  This is a shorthand for `\fBpws:\en:\fP\&'\&.
 .TP
 \fBr\fP
 Reverse subscripting: if this flag is given, the \fIexp\fP is taken as a
 pattern and the result is the first matching array element, substring or
 word (if the parameter is an array, if it is a scalar, or if it is a
-scalar and the `\fBw\fP' flag is given, respectively)\&.  The subscript used
+scalar and the `\fBw\fP\&' flag is given, respectively)\&.  The subscript used
 is the number of the matching element, so that pairs of subscripts such as
-`\fB$foo[(r)\fP\fI??\fP\fB,3]\fP' and `\fB$foo[(r)\fP\fI??\fP\fB,(r)f*]\fP' are
+`\fB$foo[(r)\fP\fI??\fP\fB,3]\fP\&' and `\fB$foo[(r)\fP\fI??\fP\fB,(r)f*]\fP' are
 possible if the parameter is not an associative array\&.  If the
 parameter is an associative array, only the value part of each pair is
 compared to the pattern, and the result is that value\&.
+.RS
+.PP
+If a search through an ordinary array failed, the search sets the
+subscript to one past the end of the array, and hence
+\fB${array[(r)pattern]}\fP will substitute the empty string\&.  Thus the
+success of a search can be tested by using the \fB(i)\fP flag, for
+example (assuming the option \fBKSH_ARRAYS\fP is not in effect):
+.PP
+.RS
+.nf
+\fB[[ ${array[(i)pattern]} \-le ${#array} ]]\fP
+.fi
+.RE
+.PP
+If \fBKSH_ARRAYS\fP is in effect, the \fB\-le\fP should be replaced by \fB\-lt\fP\&.
+.PP
+Note that in subscripts with both `\fBr\fP\&' and `\fBR\fP' pattern characters
+are active even if they were substituted for a parameter (regardless
+of the setting of \fBGLOB_SUBST\fP which controls this feature in normal
+pattern matching)\&.  It is therefore necessary to quote pattern characters
+for an exact string match\&.  Given a string in \fB$key\fP, and assuming
+the \fBEXTENDED_GLOB\fP option is set, the following is sufficient to
+match an element of an array \fB$array\fP containing exactly the value of
+\fB$key\fP:
+.PP
+.RS
+.nf
+\fBkey2=${key//(#m)[\e][()\e\e*?#<>~^]/\e\e$MATCH}
+print ${array[(R)$key2]}\fP
+.fi
+.RE
+.RE
 .TP
 \fBR\fP
-Like `\fBr\fP', but gives the last match\&.  For associative arrays, gives
+Like `\fBr\fP\&', but gives the last match\&.  For associative arrays, gives
 all possible matches\&. May be used for assigning to ordinary array
 elements, but not for assigning to associative arrays\&.
+.RS
+.PP
+Note that this flag can give odd results on failure\&.  For an ordinary array
+the item substituted is that corresponding to subscript 0\&.  If the option
+\fBKSH_ARRAYS\fP is not in effect, this is the same as the element
+corresponding to subscript 1, although the form \fB${array[(I)pattern]}\fP
+will evaluate to 0 for a failed match\&.  If the option \fBKSH_ARRAYS\fP is in
+effect, the subscript is still 0 for a failed match; this cannot be
+distinguished from a successful match without testing \fB${array[0]}\fP
+against the pattern\&.
+.RE
 .TP
 \fBi\fP
-Like `\fBr\fP', but gives the index of the match instead; this may not be
+Like `\fBr\fP\&', but gives the index of the match instead; this may not be
 combined with a second argument\&.  On the left side of an assignment,
-behaves like `\fBr\fP'\&.  For associative arrays, the key part of each pair
+behaves like `\fBr\fP\&'\&.  For associative arrays, the key part of each pair
 is compared to the pattern, and the first matching key found is the
 result\&.
+.RS
+.PP
+See `\fBr\fP\&' for discussion of subscripts of failed matches\&.
+.RE
 .TP
 \fBI\fP
-Like `\fBi\fP', but gives the index of the last match, or all possible
+Like `\fBi\fP\&', but gives the index of the last match, or all possible
 matching keys in an associative array\&.
+.RS
+.PP
+See `\fBR\fP\&' for discussion of subscripts of failed matches\&.
+.RE
 .TP
 \fBk\fP
 If used in a subscript on an associative array, this flag causes the keys
 to be interpreted as patterns, and returns the value for the first key
 found where \fIexp\fP is matched by the key\&.  This flag does not work on
 the left side of an assignment to an associative array element\&.  If used
-on another type of parameter, this behaves like `\fBr\fP'\&.
+on another type of parameter, this behaves like `\fBr\fP\&'\&.
 .TP
 \fBK\fP
-On an associative array this is like `\fBk\fP' but returns all values where
+On an associative array this is like `\fBk\fP\&' but returns all values where
 \fIexp\fP is matched by the keys\&.  On other types of parameters this has
-the same effect as `\fBR\fP'\&.
+the same effect as `\fBR\fP\&'\&.
 .TP
 \fBn:\fP\fIexpr\fP\fB:\fP
-If combined with `\fBr\fP', `\fBR\fP', `\fBi\fP' or `\fBI\fP', makes them give
+If combined with `\fBr\fP\&', `\fBR\fP', `\fBi\fP' or `\fBI\fP', makes them give
 the \fIn\fPth or \fIn\fPth last match (if \fIexpr\fP evaluates to
 \fIn\fP)\&.  This flag is ignored when the array is associative\&.
+The delimiter character \fB:\fP is arbitrary; see above\&.
 .TP
 \fBb:\fP\fIexpr\fP\fB:\fP
-If combined with `\fBr\fP', `\fBR\fP', `\fBi\fP' or `\fBI\fP', makes them begin
+If combined with `\fBr\fP\&', `\fBR\fP', `\fBi\fP' or `\fBI\fP', makes them begin
 at the \fIn\fPth or \fIn\fPth last element, word, or character (if \fIexpr\fP
 evaluates to \fIn\fP)\&.  This flag is ignored when the array is associative\&.
+The delimiter character \fB:\fP is arbitrary; see above\&.
 .TP
 \fBe\fP
 This flag has no effect and for ordinary arrays is retained for backward
@@ -285,7 +344,7 @@ See \fIParameter Expansion Flags\fP (\fIzshexpn\fP(1)) for additional ways to ma
 .SS "Subscript Parsing"
 .PP
 This discussion applies mainly to associative array key strings and to
-patterns used for reverse subscripting (the `\fBr\fP', `\fBR\fP', `\fBi\fP',
+patterns used for reverse subscripting (the `\fBr\fP\&', `\fBR\fP', `\fBi\fP',
 etc\&. flags), but it may also affect parameter substitutions that appear
 as part of an arithmetic expression in an ordinary subscript\&.
 .PP
@@ -295,7 +354,7 @@ array elements by using the syntax:
 .RS
 .nf
 \fB
-   aa+=('key with "*strange*" characters' 'value string')
+   aa+=(\&'key with "*strange*" characters' 'value string')
 \fP
 .fi
 .RE
@@ -304,40 +363,40 @@ This adds a new key/value pair if the key is not already present, and
 replaces the value for the existing key if it is\&.
 .PP
 The basic rule to remember when writing a subscript expression is that all
-text between the opening `\fB[\fP' and the closing `\fB]\fP' is interpreted
+text between the opening `\fB[\fP\&' and the closing `\fB]\fP' is interpreted
 \fIas if\fP it were in double quotes (see \fIzshmisc\fP(1))\&.  However, unlike double quotes which normally cannot nest, subscript
 expressions may appear inside double\-quoted strings or inside other
 subscript expressions (or both!), so the rules have two important
 differences\&.
 .PP
-The first difference is that brackets (`\fB[\fP' and `\fB]\fP') must appear as
+The first difference is that brackets (`\fB[\fP\&' and `\fB]\fP') must appear as
 balanced pairs in a subscript expression unless they are preceded by a
-backslash (`\fB\e\fP')\&.  Therefore, within a subscript expression (and unlike
-true double\-quoting) the sequence `\fB\e[\fP' becomes `\fB[\fP', and similarly
-`\fB\e]\fP' becomes `\fB]\fP'\&.  This applies even in cases where a backslash is
-not normally required; for example, the pattern `\fB[^[]\fP' (to match any
-character other than an open bracket) should be written `\fB[^\e[]\fP' in a
-reverse\-subscript pattern\&.  However, note that `\fB\e[^\e[\e]\fP' and even
-`\fB\e[^[]\fP' mean the \fIsame\fP thing, because backslashes are always
+backslash (`\fB\e\fP\&')\&.  Therefore, within a subscript expression (and unlike
+true double\-quoting) the sequence `\fB\e[\fP\&' becomes `\fB[\fP', and similarly
+`\fB\e]\fP\&' becomes `\fB]\fP'\&.  This applies even in cases where a backslash is
+not normally required; for example, the pattern `\fB[^[]\fP\&' (to match any
+character other than an open bracket) should be written `\fB[^\e[]\fP\&' in a
+reverse\-subscript pattern\&.  However, note that `\fB\e[^\e[\e]\fP\&' and even
+`\fB\e[^[]\fP\&' mean the \fIsame\fP thing, because backslashes are always
 stripped when they appear before brackets!
 .PP
-The same rule applies to parentheses (`\fB(\fP' and `\fB)\fP') and
-braces (`\fB{\fP' and `\fB}\fP'): they must appear either in balanced pairs or
+The same rule applies to parentheses (`\fB(\fP\&' and `\fB)\fP') and
+braces (`\fB{\fP\&' and `\fB}\fP'): they must appear either in balanced pairs or
 preceded by a backslash, and backslashes that protect parentheses or
 braces are removed during parsing\&.  This is because parameter expansions
 may be surrounded balanced braces, and subscript flags are introduced by
 balanced parenthesis\&.
 .PP
-The second difference is that a double\-quote (`\fB"\fP') may appear as part
+The second difference is that a double\-quote (`\fB"\fP\&') may appear as part
 of a subscript expression without being preceded by a backslash, and
-therefore that the two characters `\fB\e"\fP' remain as two characters in the
-subscript (in true double\-quoting, `\fB\e"\fP' becomes `\fB"\fP')\&.  However,
+therefore that the two characters `\fB\e"\fP\&' remain as two characters in the
+subscript (in true double\-quoting, `\fB\e"\fP\&' becomes `\fB"\fP')\&.  However,
 because of the standard shell quoting rules, any double\-quotes that appear
 must occur in balanced pairs unless preceded by a backslash\&.  This makes
 it more difficult to write a subscript expression that contains an odd
 number of double\-quote characters, but the reason for this difference is
 so that when a subscript expression appears inside true double\-quotes, one
-can still write `\fB\e"\fP' (rather than `\fB\e\e\e"\fP') for `\fB"\fP'\&.
+can still write `\fB\e"\fP\&' (rather than `\fB\e\e\e"\fP') for `\fB"\fP'\&.
 .PP
 To use an odd number of double quotes as a key in an assignment, use the
 \fBtypeset\fP builtin and an enclosing pair of double quotes; to refer to
@@ -361,9 +420,9 @@ in the outer expression\&.
 .PP
 A further complication arises from a way in which subscript parsing is
 \fInot\fP different from double quote parsing\&.  As in true double\-quoting,
-the sequences `\fB\e*\fP', and `\fB\e@\fP' remain as two characters when they
-appear in a subscript expression\&.  To use a literal `\fB*\fP' or `\fB@\fP' as
-an associative array key, the `\fBe\fP' flag must be used:
+the sequences `\fB\e*\fP\&', and `\fB\e@\fP' remain as two characters when they
+appear in a subscript expression\&.  To use a literal `\fB*\fP\&' or `\fB@\fP' as
+an associative array key, the `\fBe\fP\&' flag must be used:
 .PP
 .RS
 .nf
@@ -379,47 +438,47 @@ then the complete expression is interpreted as a pattern\&.  This has two
 effects: first, parameters behave as if \fBGLOB_SUBST\fP were on (and it
 cannot be turned off); second, backslashes are interpreted twice, once
 when parsing the array subscript and again when parsing the pattern\&.  In a
-reverse subscript, it's necessary to use \fIfour\fP backslashes to cause a
+reverse subscript, it\&'s necessary to use \fIfour\fP backslashes to cause a
 single backslash to match literally in the pattern\&.  For complex patterns,
 it is often easiest to assign the desired pattern to a parameter and then
 refer to that parameter in the subscript, because then the backslashes,
 brackets, parentheses, etc\&., are seen only when the complete expression is
 converted to a pattern\&.  To match the value of a parameter literally in a
 reverse subscript, rather than as a pattern,
-use `\fB${(q\fP\fB)\fP\fIname\fP\fB}\fP' (see \fIzshexpn\fP(1)) to quote the expanded value\&.
+use `\fB${(q\fP\fB)\fP\fIname\fP\fB}\fP\&' (see \fIzshexpn\fP(1)) to quote the expanded value\&.
 .PP
-Note that the `\fBk\fP' and `\fBK\fP' flags are reverse subscripting for an
+Note that the `\fBk\fP\&' and `\fBK\fP' flags are reverse subscripting for an
 ordinary array, but are \fInot\fP reverse subscripting for an associative
 array!  (For an associative array, the keys in the array itself are
 interpreted as patterns by those flags; the subscript is a plain string
 in that case\&.)
 .PP
 One final note, not directly related to subscripting: the numeric names
-of positional parameters (described below) are parsed specially, so for example `\fB$2foo\fP' is equivalent to
-`\fB${2}foo\fP'\&.  Therefore, to use subscript syntax to extract a substring
+of positional parameters (described below) are parsed specially, so for example `\fB$2foo\fP\&' is equivalent to
+`\fB${2}foo\fP\&'\&.  Therefore, to use subscript syntax to extract a substring
 from a positional parameter, the expansion must be surrounded by braces;
-for example, `\fB${2[3,5]}\fP' evaluates to the third through fifth
-characters of the second positional parameter, but `\fB$2[3,5]\fP' is the
+for example, `\fB${2[3,5]}\fP\&' evaluates to the third through fifth
+characters of the second positional parameter, but `\fB$2[3,5]\fP\&' is the
 entire second parameter concatenated with the filename generation pattern
-`\fB[3,5]\fP'\&.
+`\fB[3,5]\fP\&'\&.
 .PP
 .SH "POSITIONAL PARAMETERS"
 The positional parameters provide access to the command\-line arguments
 of a shell function, shell script, or the shell itself; see
-the section `Invocation', and also the section `Functions'\&.
+the section `Invocation\&', and also the section `Functions'\&.
 The parameter \fIn\fP, where \fIn\fP is a number,
 is the \fIn\fPth positional parameter\&.
 The parameters \fB*\fP, \fB@\fP and \fBargv\fP are
 arrays containing all the positional parameters;
-thus `\fB$argv[\fP\fIn\fP\fB]\fP', etc\&., is equivalent to simply `\fB$\fP\fIn\fP'\&.
+thus `\fB$argv[\fP\fIn\fP\fB]\fP\&', etc\&., is equivalent to simply `\fB$\fP\fIn\fP'\&.
 .PP
 Positional parameters may be changed after the shell or function starts by
 using the \fBset\fP builtin, by assigning to the \fBargv\fP array, or by direct
-assignment of the form `\fIn\fP\fB=\fP\fIvalue\fP' where \fIn\fP is the number of
+assignment of the form `\fIn\fP\fB=\fP\fIvalue\fP\&' where \fIn\fP is the number of
 the positional parameter to be changed\&.  This also creates (with empty
 values) any of the positions from 1 to \fIn\fP that do not already have
 values\&.  Note that, because the positional parameters form an array, an
-array assignment of the form `\fIn\fP\fB=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP' is
+array assignment of the form `\fIn\fP\fB=(\fP\fIvalue\fP \&.\&.\&.\fB)\fP\&' is
 allowed, and has the effect of shifting all the values at positions greater
 than \fIn\fP by as many positions as necessary to accommodate the new values\&.
 .PP
@@ -467,20 +526,24 @@ The following parameters are automatically set by the shell:
 .TP
 .PD
 \fB!\fP <S>
-The process ID of the last background command invoked\&.
+The process ID of the last command started in the background with \fB&\fP,
+or put into the background with the \fBbg\fP builtin\&.
 .TP
 \fB#\fP <S>
 The number of positional parameters in decimal\&.  Note that some confusion
 may occur with the syntax \fB$#\fP\fIparam\fP which substitutes the length of
 \fIparam\fP\&.  Use \fB${#}\fP to resolve ambiguities\&.  In particular, the
-sequence `\fB$#\-\fP\fI\&.\&.\&.\fP' in an arithmetic expression is interpreted as
+sequence `\fB$#\-\fP\fI\&.\&.\&.\fP\&' in an arithmetic expression is interpreted as
 the length of the parameter \fB\-\fP, q\&.v\&.
 .TP
 \fBARGC\fP <S> <Z>
 Same as \fB#\fP\&.
 .TP
 \fB$\fP <S>
-The process ID of this shell\&.
+The process ID of this shell\&.  Note that this indicates the original
+shell started by invoking \fBzsh\fP; all processes forked from the shells
+without executing a new program, such as subshells started by
+\fB(\fP\fI\&.\&.\&.\fP\fB)\fP, substitute the same value\&.
 .TP
 \fB\-\fP <S>
 Flags supplied to the shell on invocation or by the \fBset\fP
@@ -500,7 +563,7 @@ although only the innermost positional parameter array is deleted (so
 Same as \fBargv[@]\fP, even when \fBargv\fP is not set\&.
 .TP
 \fB?\fP <S>
-The exit value returned by the last command\&.
+The exit status returned by the last command\&.
 .TP
 \fB0\fP <S>
 The name used to invoke the current shell\&.  If the \fBFUNCTION_ARGZERO\fP option
@@ -511,7 +574,7 @@ function, and within a sourced script to the name of the script\&.
 Same as \fB?\fP\&.
 .TP
 \fBpipestatus\fP <S> <Z>
-An array containing the exit values returned by all commands in the
+An array containing the exit statuses returned by all commands in the
 last pipeline\&.
 .TP
 \fB_\fP <S>
@@ -528,14 +591,14 @@ The effective group ID of the shell process\&.  If you have sufficient
 privileges, you may change the effective group ID of the shell
 process by assigning to this parameter\&.  Also (assuming sufficient
 privileges), you may start a single command with a different
-effective group ID by `\fB(EGID=\fP\fIgid\fP\fB; command)\fP'
+effective group ID by `\fB(EGID=\fP\fIgid\fP\fB; command)\fP\&'
 .TP
 \fBEUID\fP <S>
 The effective user ID of the shell process\&.  If you have sufficient
 privileges, you may change the effective user ID of the shell process
 by assigning to this parameter\&.  Also (assuming sufficient privileges),
 you may start a single command with a different
-effective user ID by `\fB(EUID=\fP\fIuid\fP\fB; command)\fP'
+effective user ID by `\fB(EUID=\fP\fIuid\fP\fB; command)\fP\&'
 .TP
 \fBERRNO\fP <S>
 The value of errno (see \fIerrno\fP(3))
@@ -549,7 +612,7 @@ The real group ID of the shell process\&.  If you have sufficient privileges,
 you may change the group ID of the shell process by assigning to this
 parameter\&.  Also (assuming sufficient privileges), you may start a single
 command under a different
-group ID by `\fB(GID=\fP\fIgid\fP\fB; command)\fP'
+group ID by `\fB(GID=\fP\fIgid\fP\fB; command)\fP\&'
 .TP
 \fBHISTCMD\fP
 The current history line number in an interactive shell, in other
@@ -592,7 +655,9 @@ command\&.
 The operating system, as determined at compile time\&.
 .TP
 \fBPPID\fP <S>
-The process ID of the parent of the shell\&.
+The process ID of the parent of the shell\&.  As for \fB$$\fP, the
+value indicates the parent of the original shell and does not
+change in subshells\&.
 .TP
 \fBPWD\fP
 The present working directory\&.  This is set when the shell initializes
@@ -619,7 +684,7 @@ since the assignment\&.
 .PP
 Unlike other special parameters, the type of the \fBSECONDS\fP parameter can
 be changed using the \fBtypeset\fP command\&.  Only integer and one of the
-floating point types are allowed\&.  For example, `\fBtypeset \-F SECONDS\fP'
+floating point types are allowed\&.  For example, `\fBtypeset \-F SECONDS\fP\&'
 causes the value to be reported as a floating point number\&.  The precision
 is six decimal places, although not all places may be useful\&.
 .RE
@@ -648,7 +713,7 @@ The real user ID of the shell process\&.  If you have sufficient privileges,
 you may change the user ID of the shell by assigning to this parameter\&.
 Also (assuming sufficient privileges), you may start a single command
 under a different
-user ID by `\fB(UID=\fP\fIuid\fP\fB; command)\fP'
+user ID by `\fB(UID=\fP\fIuid\fP\fB; command)\fP\&'
 .TP
 \fBUSERNAME\fP <S>
 The username corresponding to the real user ID of the shell process\&.  If you
@@ -656,7 +721,7 @@ have sufficient privileges, you may change the username (and also the
 user ID and group ID) of the shell by assigning to this parameter\&.
 Also (assuming sufficient privileges), you may start a single command
 under a different username (and user ID and group ID)
-by `\fB(USERNAME=\fP\fIusername\fP\fB; command)\fP'
+by `\fB(USERNAME=\fP\fIusername\fP\fB; command)\fP\&'
 .TP
 \fBVENDOR\fP
 The vendor, as determined at compile time\&.
@@ -674,7 +739,7 @@ In cases where there are two parameters with an upper\- and lowercase
 form of the same name, such as \fBpath\fP and \fBPATH\fP, the lowercase form
 is an array and the uppercase form is a scalar with the elements of the
 array joined together by colons\&.  These are similar to tied parameters
-created via `\fBtypeset \-T\fP'\&.  The normal use for the colon\-separated
+created via `\fBtypeset \-T\fP\&'\&.  The normal use for the colon\-separated
 form is for exporting to the environment, while the array form is easier
 to manipulate within the shell\&.  Note that unsetting either of the pair
 will unset the other; they retain their special properties when
@@ -685,20 +750,21 @@ recreated, and recreating one of the pair will recreate the other\&.
 .PD
 \fBARGV0\fP
 If exported, its value is used as the \fBargv[0]\fP of external commands\&.
-Usually used in constructs like `\fBARGV0=emacs nethack\fP'\&.
+Usually used in constructs like `\fBARGV0=emacs nethack\fP\&'\&.
 .TP
 \fBBAUD\fP
-The baud rate of the current connection\&.  Used by the line editor
-update mechanism to compensate for a slow terminal by delaying
-updates until necessary\&.  This may be profitably set to a lower value
-in some circumstances, e\&.g\&.
-for slow modems dialing into a communications server which is connected
-to a host via a fast link; in this case, this variable
-would be set by default to the speed of the fast link, and not
-the modem\&.
-This parameter should be set to the baud
-rate of the slowest part of the link for best performance\&. The compensation
-mechanism can be turned off by setting the variable to zero\&.
+The rate in bits per second at which data reaches the terminal\&.
+The line editor will use this value in order to compensate for a slow
+terminal by delaying updates to the display until necessary\&.  If the
+parameter is unset or the value is zero the compensation mechanism is
+turned off\&.  The parameter is not set by default\&.
+.RS
+.PP
+This parameter may be profitably set in some circumstances, e\&.g\&.
+for slow modems dialing into a communications server, or on a slow wide
+area network\&.  It should be set to the baud
+rate of the slowest part of the link for best performance\&.
+.RE
 .TP
 \fBcdpath\fP <S> <Z> (\fBCDPATH\fP <S>)
 An array (colon\-separated list)
@@ -721,7 +787,9 @@ arithmetic expansion before being interpreted as a pathname\&.  Note that
 \fBENV\fP is \fInot\fP used unless zsh is emulating \fBsh\fP or \fBksh\fP\&.
 .TP
 \fBFCEDIT\fP
-The default editor for the \fBfc\fP builtin\&.
+The default editor for the \fBfc\fP builtin\&.  If \fBFCEDIT\fP is not set,
+the parameter \fBEDITOR\fP is used; if that is not set either, a builtin
+default, usually \fBvi\fP, is used\&.
 .TP
 \fBfignore\fP <S> <Z> (\fBFIGNORE\fP <S>)
 An array (colon separated list)
@@ -737,11 +805,17 @@ with the \fB\-u\fP attribute is referenced\&.  If an executable
 file is found, then it is read and executed in the current environment\&.
 .TP
 \fBhistchars\fP <S>
-Three characters used by the shell's history and lexical analysis
+Three characters used by the shell\&'s history and lexical analysis
 mechanism\&.  The first character signals the start of a history
-expansion (default `\fB!\fP')\&.  The second character signals the
-start of a quick history substitution (default `\fB^\fP')\&.  The third
-character is the comment character (default `\fB#\fP')\&.
+expansion (default `\fB!\fP\&')\&.  The second character signals the
+start of a quick history substitution (default `\fB^\fP\&')\&.  The third
+character is the comment character (default `\fB#\fP\&')\&.
+.RS
+.PP
+The characters must be in the ASCII character set; any attempt to set
+\fBhistchars\fP to characters with a locale\-dependent meaning will be
+rejected with an error message\&.
+.RE
 .TP
 \fBHISTCHARS\fP <S> <Z>
 Same as \fBhistchars\fP\&.  (Deprecated\&.)
@@ -757,7 +831,10 @@ larger than the \fBSAVEHIST\fP size will give you the difference as a
 cushion for saving duplicated history events\&.
 .TP
 \fBHOME\fP <S>
-The default argument for the \fBcd\fP command\&.
+The default argument for the \fBcd\fP command\&.  This is not set automatically
+by the shell in \fBsh\fP, \fBksh\fP or \fBcsh\fP emulation, but it is typically
+present in the environment anyway, and if it becomes set it has its usual
+special behaviour\&.
 .TP
 \fBIFS\fP <S>
 Internal field separators (by default space, tab, newline and NUL), that
@@ -777,11 +854,11 @@ be pressed when reading bound multi\-character sequences\&.
 .TP
 \fBLANG\fP <S>
 This variable determines the locale category for any category not
-specifically selected via a variable starting with `\fBLC_\fP'\&.
+specifically selected via a variable starting with `\fBLC_\fP\&'\&.
 .TP
 \fBLC_ALL\fP <S>
-This variable overrides the value of the `\fBLANG\fP' variable and the value
-of any of the other variables starting with `\fBLC_\fP'\&.
+This variable overrides the value of the `\fBLANG\fP\&' variable and the value
+of any of the other variables starting with `\fBLC_\fP\&'\&.
 .TP
 \fBLC_COLLATE\fP <S>
 This variable determines the locale category for character collation
@@ -829,12 +906,12 @@ The interval in seconds between checks for new mail\&.
 .TP
 \fBmailpath\fP <S> <Z> (\fBMAILPATH\fP <S>)
 An array (colon\-separated list) of filenames to check for
-new mail\&.  Each filename can be followed by a `\fB?\fP' and a
+new mail\&.  Each filename can be followed by a `\fB?\fP\&' and a
 message that will be printed\&.  The message will undergo
 parameter expansion, command substitution and arithmetic
 expansion with the variable \fB$_\fP defined as the name
 of the file that has changed\&.  The default message is
-`\fBYou have new mail\fP'\&.  If an element is a directory
+`\fBYou have new mail\fP\&'\&.  If an element is a directory
 instead of a file the shell will recursively check every
 file in every subdirectory of the element\&.
 .TP
@@ -849,8 +926,8 @@ An array (colon\-separated list)
 of directories that \fBzmodload\fP
 searches for dynamically loadable modules\&.
 This is initialized to a standard pathname,
-usually `\fB/usr/local/lib/zsh/$ZSH_VERSION\fP'\&.
-(The `\fB/usr/local/lib\fP' part varies from installation to installation\&.)
+usually `\fB/usr/local/lib/zsh/$ZSH_VERSION\fP\&'\&.
+(The `\fB/usr/local/lib\fP\&' part varies from installation to installation\&.)
 For security reasons, any value set in the environment when the shell
 is started will be ignored\&.
 .RS
@@ -895,25 +972,25 @@ Same as \fBPS1\fP\&.
 .TP
 \fBPS1\fP <S>
 The primary prompt string, printed before a command is read\&.
-the default is `\fB%m%# \fP'\&.  It undergoes a special form of expansion
-before being displayed; see the section `Prompt Expansion'\&.
+the default is `\fB%m%# \fP\&'\&.  It undergoes a special form of expansion
+before being displayed; see the section `Prompt Expansion\&'\&.
 .TP
 \fBPS2\fP <S>
 The secondary prompt, printed when the shell needs more information
 to complete a command\&.
 It is expanded in the same way as \fBPS1\fP\&.
-The default is `\fB%_> \fP', which displays any shell constructs or quotation
+The default is `\fB%_> \fP\&', which displays any shell constructs or quotation
 marks which are currently being processed\&.
 .TP
 \fBPS3\fP <S>
 Selection prompt used within a \fBselect\fP loop\&.
 It is expanded in the same way as \fBPS1\fP\&.
-The default is `\fB?# \fP'\&.
+The default is `\fB?# \fP\&'\&.
 .TP
 \fBPS4\fP <S>
-The execution trace prompt\&.  Default is `\fB+%N:%i> \fP', which displays
+The execution trace prompt\&.  Default is `\fB+%N:%i> \fP\&', which displays
 the name of the current shell structure and the line number within it\&.
-In sh or ksh emulation, the default is `\fB+ \fP'\&.
+In sh or ksh emulation, the default is `\fB+ \fP\&'\&.
 .TP
 \fBpsvar\fP <S> <Z> (\fBPSVAR\fP <S>)
 An array (colon\-separated list) whose first nine values can be used in
@@ -965,19 +1042,19 @@ The maximum number of history events to save in the history file\&.
 .TP
 \fBSPROMPT\fP <S>
 The prompt used for spelling correction\&.  The sequence
-`\fB%R\fP' expands to the string which presumably needs spelling
-correction, and `\fB%r\fP' expands to the proposed correction\&.
+`\fB%R\fP\&' expands to the string which presumably needs spelling
+correction, and `\fB%r\fP\&' expands to the proposed correction\&.
 All other prompt escapes are also allowed\&.
 .TP
 \fBSTTY\fP
-If this parameter is set in a command's environment, the shell runs the
+If this parameter is set in a command\&'s environment, the shell runs the
 \fBstty\fP command with the value of this parameter as arguments in order to
 set up the terminal before executing the command\&. The modes apply only to the
 command, and are reset when it finishes or is suspended\&. If the command is
 suspended and continued later with the \fBfg\fP or \fBwait\fP builtins it will
 see the modes specified by \fBSTTY\fP, as if it were not suspended\&.  This
 (intentionally) does not apply if the command is continued via `\fBkill
-\-CONT\fP'\&.  \fBSTTY\fP is ignored if the command is run in the background, or
+\-CONT\fP\&'\&.  \fBSTTY\fP is ignored if the command is run in the background, or
 if it is in the environment of the shell but not explicitly assigned to in
 the input line\&. This avoids running stty at every external command by
 accidentally exporting it\&. Also note that \fBSTTY\fP should not be used for
@@ -986,14 +1063,14 @@ window size specifications; these will not be local to the command\&.
 \fBTERM\fP <S>
 The type of terminal in use\&.  This is used when looking up termcap
 sequences\&.  An assignment to \fBTERM\fP causes zsh to re\-initialize the
-terminal, even if the value does not change (e\&.g\&., `\fBTERM=$TERM\fP')\&.  It
+terminal, even if the value does not change (e\&.g\&., `\fBTERM=$TERM\fP\&')\&.  It
 is necessary to make such an assignment upon any change to the terminal
 definition database or terminal type in order for the new settings to
 take effect\&.
 .TP
 \fBTIMEFMT\fP
 The format of process time reports with the \fBtime\fP keyword\&.
-The default is `\fB%E real  %U user  %S system  %P %J\fP'\&.
+The default is `\fB%E real  %U user  %S system  %P %J\fP\&'\&.
 Recognizes the following escape sequences, although not all
 may be available on all systems, and some that are available
 may not be useful:
@@ -1002,7 +1079,7 @@ may not be useful:
 .PD 0
 .TP
 \fB%%\fP
-A `\fB%\fP'\&.
+A `\fB%\fP\&'\&.
 .TP
 \fB%U\fP
 CPU seconds spent in user mode\&.
@@ -1068,7 +1145,7 @@ The name of this job\&.
 .PP
 A star may be inserted between the percent sign and flags printing time\&.
 This cause the time to be printed in
-`\fIhh\fP\fB:\fP\fImm\fP\fB:\fP\fIss\fP\fB\&.\fP\fIttt\fP'
+`\fIhh\fP\fB:\fP\fImm\fP\fB:\fP\fIss\fP\fB\&.\fP\fIttt\fP\&'
 format (hours and minutes are only printed if they are not zero)\&.
 .RE
 .TP
@@ -1085,23 +1162,23 @@ scheduled to \fBTMOUT\fP seconds after the last keypress\&.
 \fBTMPPREFIX\fP
 A pathname prefix which the shell will use for all temporary files\&.
 Note that this should include an initial part for the file name as
-well as any directory names\&.  The default is `\fB/tmp/zsh\fP'\&.
+well as any directory names\&.  The default is `\fB/tmp/zsh\fP\&'\&.
 .TP
 \fBwatch\fP <S> <Z> (\fBWATCH\fP <S>)
 An array (colon\-separated list) of login/logout events to report\&.
-If it contains the single word `\fBall\fP', then all login/logout events
-are reported\&.  If it contains the single word `\fBnotme\fP', then all
-events are reported as with `\fBall\fP' except \fB$USERNAME\fP\&.
+If it contains the single word `\fBall\fP\&', then all login/logout events
+are reported\&.  If it contains the single word `\fBnotme\fP\&', then all
+events are reported as with `\fBall\fP\&' except \fB$USERNAME\fP\&.
 An entry in this list may consist of a username,
-an `\fB@\fP' followed by a remote hostname,
-and a `\fB%\fP' followed by a line (tty)\&.
+an `\fB@\fP\&' followed by a remote hostname,
+and a `\fB%\fP\&' followed by a line (tty)\&.
 Any or all of these components may be present in an entry;
 if a login/logout event matches all of them,
 it is reported\&.
 .TP
 \fBWATCHFMT\fP
 The format of login/logout reports if the \fBwatch\fP parameter is set\&.
-Default is `\fB%n has %a %l from %m\fP'\&.
+Default is `\fB%n has %a %l from %m\fP\&'\&.
 Recognizes the following escape sequences:
 .RS
 .PP
@@ -1121,13 +1198,13 @@ The line (tty) the user is logged in on\&.
 The full hostname of the remote host\&.
 .TP
 \fB%m\fP
-The hostname up to the first `\fB\&.\fP'\&.  If only the
+The hostname up to the first `\fB\&.\fP\&'\&.  If only the
 IP address is available or the utmp field contains
 the name of an X\-windows display, the whole name is printed\&.
 .RS
 .PP
 \fINOTE:\fP
-The `\fB%m\fP' and `\fB%M\fP' escapes will work only if there is a host name
+The `\fB%m\fP\&' and `\fB%M\fP' escapes will work only if there is a host name
 field in the utmp on your machine\&.  Otherwise they are
 treated as ordinary strings\&.
 .RE
@@ -1152,13 +1229,13 @@ The time, in 12\-hour, am/pm format\&.
 The time, in 24\-hour format\&.
 .TP
 \fB%w\fP
-The date in `\fIday\fP\fB\-\fP\fIdd\fP' format\&.
+The date in `\fIday\fP\fB\-\fP\fIdd\fP\&' format\&.
 .TP
 \fB%W\fP
-The date in `\fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP' format\&.
+The date in `\fImm\fP\fB/\fP\fIdd\fP\fB/\fP\fIyy\fP\&' format\&.
 .TP
 \fB%D\fP
-The date in `\fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP' format\&.
+The date in `\fIyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP\&' format\&.
 .TP
 \fB%(\fP\fIx\fP\fB:\fP\fItrue\-text\fP\fB:\fP\fIfalse\-text\fP\fB)\fP
 Specifies a ternary expression\&.
@@ -1170,18 +1247,18 @@ with a backslash\&.
 Ternary expressions may be nested\&.
 .RS
 .PP
-The test character \fIx\fP may be any one of `\fBl\fP', `\fBn\fP', `\fBm\fP'
-or `\fBM\fP', which indicate a `true' result if the corresponding
-escape sequence would return a non\-empty value; or it may be `\fBa\fP',
-which indicates a `true' result if the watched user has logged in,
-or `false' if he has logged out\&.
+The test character \fIx\fP may be any one of `\fBl\fP\&', `\fBn\fP', `\fBm\fP'
+or `\fBM\fP\&', which indicate a `true' result if the corresponding
+escape sequence would return a non\-empty value; or it may be `\fBa\fP\&',
+which indicates a `true\&' result if the watched user has logged in,
+or `false\&' if he has logged out\&.
 Other characters evaluate to neither true nor false; the entire
 expression is omitted in this case\&.
 .PP
-If the result is `true', then the \fItrue\-text\fP
+If the result is `true\&', then the \fItrue\-text\fP
 is formatted according to the rules above and printed,
 and the \fIfalse\-text\fP is skipped\&.
-If `false', the \fItrue\-text\fP is skipped and the \fIfalse\-text\fP
+If `false\&', the \fItrue\-text\fP is skipped and the \fIfalse\-text\fP
 is formatted and printed\&.
 Either or both of the branches may be empty, but
 both separators must be present in any case\&.
@@ -1198,9 +1275,9 @@ If set, this gives a string of characters, which can use all the same codes
 as the \fBbindkey\fP command as described in
 the zsh/zle module entry in \fIzshmodules\fP(1), that will be output to the terminal
 instead of beeping\&.  This may have a visible instead of an audible effect;
-for example, the string `\fB\ee[?5h\ee[?5l\fP' on a vt100 or xterm will have
+for example, the string `\fB\ee[?5h\ee[?5l\fP\&' on a vt100 or xterm will have
 the effect of flashing reverse video on and off (if you usually use reverse
-video, you should use the string `\fB\ee[?5l\ee[?5h\fP' instead)\&.  This takes
+video, you should use the string `\fB\ee[?5l\ee[?5h\fP\&' instead)\&.  This takes
 precedence over the \fBNOBEEP\fP option\&.
 .TP
 \fBZDOTDIR\fP

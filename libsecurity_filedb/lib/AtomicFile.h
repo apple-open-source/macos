@@ -138,7 +138,7 @@ public:
     void commit();
 
     void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint32 *inData, uint32 inCount);
-    void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint8 *inData, uint32 inLength);
+    void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint8 *inData, size_t inLength);
     void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint32 inData);
 
 private:

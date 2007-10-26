@@ -352,7 +352,7 @@ OSStatus SecImportRep::importWrappedKeyOpenssl(
 	
 	/* GO */
 	ortn =  impExpImportKeyCommon(&wrappedKey, importKeychain, cspHand,
-		flags, keyParams, &unwrapParams, outArray);
+		flags, keyParams, &unwrapParams, NULL, outArray);
 		
 	if(unwrappingKey.KeyData.Data != NULL) {
 		CSSM_FreeKey(cspHand, NULL, &unwrappingKey, CSSM_FALSE);
@@ -429,7 +429,7 @@ OSStatus impExpWrappedKeyOpenSslExport(
 		OPENSSL_WRAP_ENCR_ALG, OPENSSL_WRAP_ENCR_MODE, OPENSSL_WRAP_ENCR_PAD,
 		CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSL, 
 		CSSM_ATTRIBUTE_NONE, CSSM_KEYBLOB_RAW_FORMAT_NONE,
-		&saltIvData);
+		NULL, &saltIvData);
 	if(ortn) {
 		goto errOut;
 	}
@@ -452,7 +452,7 @@ OSStatus impExpWrappedKeyOpenSslExport(
 			break;  
 		default:
 			SecImpExpDbg("impExpWrappedKeyOpenSslExport unknown private key alg "
-				"%lu", wrappedKey.KeyHeader.AlgorithmId);
+				"%lu", (unsigned long)wrappedKey.KeyHeader.AlgorithmId);
 			/* punt though I think something is seriously hosed */
 			*pemHeader = "Private Key";
 	}

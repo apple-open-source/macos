@@ -2,7 +2,7 @@
 	File:		MBCBoardView.h
 	Contains:	Displays and manipulates an OpenGL chess board
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.h,v $
+		Revision 1.28  2007/03/02 23:06:00  neerache
+		<rdar://problem/4038207> Allow the user to type in a move in Chess
+		
 		Revision 1.27  2004/08/16 07:50:55  neerache
 		Support accessibility
 		
@@ -187,6 +190,7 @@ const float kMaxElevation		= 80.0f;
 	NSCursor *				fHandCursor;
 	NSCursor *				fArrowCursor;
 	MBCPiece				fLastPieceDrawn;
+	char					fKeyBuffer;
 }
 
 //

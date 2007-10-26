@@ -238,7 +238,7 @@ Relation *Schema::createStandardRelation(RelationId relationId)
 	case CSSM_DL_DB_RECORD_GENERIC:
 		createAttribute(*rt, &an_PrintName, kSecLabelItemAttr, kAF_BLOB, false)
 			.attributeCoder(&mDescriptionCoder);
-		createAttribute(*rt, &an_Alias, kSecAliasItemAttr, kAF_BLOB, false)
+		createAttribute(*rt, &an_Alias, kSecAlias, kAF_BLOB, false)
 			.attributeCoder(&mZeroCoder);
 		rt->metaRecord().attributeCoderForData(&mDataAttributeCoder);
 		break;
@@ -249,7 +249,7 @@ Relation *Schema::createStandardRelation(RelationId relationId)
 			kAF_UINT32, false).attributeCoder(&mCertEncodingBERCoder);
         createAttribute(*rt, &an_PrintName, kSecLabelItemAttr,
 			kAF_BLOB, false).attributeCoder(&mCertificateCoder);
-        createAttribute(*rt, &an_Alias, kSecAliasItemAttr,
+        createAttribute(*rt, &an_Alias, kSecAlias,
 			kAF_BLOB, false).attributeCoder(&mCertificateCoder);
         createAttribute(*rt, &an_Subject, kSecSubjectItemAttr,
 			kAF_BLOB, false).attributeCoder(&mCertificateCoder);
@@ -456,5 +456,3 @@ MetaRecord &Schema::findMetaRecord(RelationId inRelationId)
 
 } // end namespace Tokend
 
-
-/* arch-tag: BA0AF80B-F13E-11D8-AC69-000A95C4302E */

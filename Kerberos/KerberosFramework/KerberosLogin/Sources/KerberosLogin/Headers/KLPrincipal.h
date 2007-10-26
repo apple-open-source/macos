@@ -26,6 +26,4 @@
  * or implied warranty.
  */
 
-krb5_principal __KLGetKerberos5PrincipalFromPrincipal (KLPrincipal inPrincipal);
-
-KLStatus __KLGetRealmFromPrincipal (KLPrincipal inPrincipal, KLKerberosVersion inKerberosVersion, char **outRealm);
+krb5_principal __KLPrincipalGetKerberos5Principal (KLPrincipal inPrincipal);

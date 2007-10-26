@@ -29,5 +29,6 @@ SHLIB_NAME=	pam_afpmount.so
 SRCS=		pam_afpmount.c
 DPADD=		${LIBKRB} ${LIBCRYPTO} ${LIBCOM_ERR}
 LDADD=		-lkrb -lcrypto -lcom_err
+CFLAGS+=	-Wal
 
 .include <bsd.lib.mk>

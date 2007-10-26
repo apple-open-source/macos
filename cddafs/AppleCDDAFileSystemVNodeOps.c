@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -225,7 +225,7 @@ struct vnop_lookup_args {
 	// first check for "." and ".TOC.plist"
 	if ( compNamePtr->cn_nameptr[0] == '.' )
 	{
-
+		
 		if ( compNamePtr->cn_namelen == 1 )
 		{
 			
@@ -258,7 +258,7 @@ struct vnop_lookup_args {
 	}
 	
 	// At this point, we better be fetching a file which ends in ".aiff".
-	if ( strcmp ( &compNamePtr->cn_nameptr[compNamePtr->cn_namelen - 5], ".aiff" ) != 0 )
+	if ( strncmp ( &compNamePtr->cn_nameptr[compNamePtr->cn_namelen - 5], ".aiff", 5 ) != 0 )
 	{
 		
 		error = ENOENT;
@@ -555,10 +555,8 @@ struct vnop_read_args {
 			blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
 			
 			// Part 1
-			// We do the read in 3 parts. First is the portion which is not part of a full 2352 byte block.
-			// In some cases, we actually are sector aligned and we skip this part. A lot of times we'll find
-			// this sector incore as well, since it was part of third read for the previous I/O.
-			if ( sectorOffset != 0 )
+			// We do the read in 3 parts. First, we read one sector (picks up any buffer cache entry from a
+			// previous Part 3 if it exists).
 			{
 				
 				// Clip to requested transfer count and end of file.
@@ -1137,10 +1135,8 @@ struct vnop_pagein_args {
 			blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
 			
 			// Part 1
-			// We do the read in 3 parts. First is the portion which is not part of a full 2352 byte block.
-			// In some cases, we actually are sector aligned and we skip this part. A lot of times we'll find
-			// this sector incore as well, since it was part of third read for the previous I/O.
-			if ( sectorOffset != 0 )
+			// We do the read in 3 parts. First, we read one sector (picks up any buffer cache entry from a
+			// previous Part 3 if it exists).
 			{
 				
 				// Clip to requested transfer count and end of file.
@@ -1374,6 +1370,7 @@ struct vnop_getattr_args {
 		
 		// Set the nodeID. Force the XMLFileNode to be 3.
 		VATTR_RETURN ( attributesPtr, va_fileid, kAppleCDDAXMLFileID );
+		
 	}
 	
 	else
@@ -1433,6 +1430,7 @@ struct vnop_getattr_args {
 		
 		// Number of file refs: "." and ".."
 		VATTR_RETURN ( attributesPtr, va_nlink, kAppleCDDANumberOfRootDirReferences );		
+		VATTR_RETURN ( attributesPtr, va_nchildren, cddaNodePtr->u.directory.entryCount - kAppleCDDANumberOfRootDirReferences );
 		
 		// Number of Tracks + ".", "..", and ".TOC.plist"
 		VATTR_RETURN ( attributesPtr, va_data_size, ( cddaNodePtr->u.directory.entryCount ) * sizeof ( struct dirent ) );
@@ -1810,7 +1808,7 @@ struct vnop_getxattr_args {
 	DebugLog ( ( "CDDA_GetXAttr: Entering.\n" ) );
 	DebugAssert ( ( getXAttrArgsPtr != NULL ) );
 	
-	if ( strcmp ( getXAttrArgsPtr->a_name, XATTR_FINDERINFO_NAME ) != 0 )
+	if ( strncmp ( getXAttrArgsPtr->a_name, XATTR_FINDERINFO_NAME, sizeof ( XATTR_FINDERINFO_NAME ) ) != 0 )
 	{
 		return ( ENOATTR );
 	}

@@ -1,3 +1,13 @@
+/*****************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * $Id: lib512.c,v 1.4 2006-10-25 09:20:44 yangtse Exp $
+ */
+
 #include "test.h"
 
 /* Test case code based on source in a bug report filed by James Bursa on
@@ -43,6 +53,8 @@ int test(char *URL)
     }
     else
       rc = 4;
+
+    curl_global_cleanup();
   }
   else
     rc = 5;

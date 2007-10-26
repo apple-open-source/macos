@@ -80,12 +80,12 @@ IOUSBUserClientInit::start(IOService* provider)
     bool 		result = false;
     OSObject *          userClientClass = NULL;
 
-    USBLog(6,"+%s[%p]::start(%p) - provider = %s", getName(), this, provider, provider->getName());
+    USBLog(7,"+%s[%p]::start(%p) - provider = %s", getName(), this, provider, provider->getName());
 
 	gInstances++;
 	if ( gInstances == 1 )
 		retain();
-	
+
     // Get our dictionary to merge
     //
     providerMergeProperties = OSDynamicCast(OSDictionary, getProperty("IOProviderMergeProperties"));
@@ -103,7 +103,7 @@ IOUSBUserClientInit::start(IOService* provider)
     if (userClientClass)
         provider->setProperty("IOUserClientClass", userClientClass);
     
-    USBLog(6,"-%s[%p]::start", getName(), this);
+    USBLog(7,"-%s[%p]::start", getName(), this);
     
 	// We will always return false so that other drivers can match to this device
     return false;
@@ -299,7 +299,9 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
         {
             childTargetDictionary = OSDynamicCast(OSDictionary, childTargetObject);
             if ( childTargetDictionary )
+			{
                 USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
+			}
         }
 
         // See if our source entry is also a dictionary

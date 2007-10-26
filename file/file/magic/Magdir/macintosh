@@ -21,7 +21,7 @@
 
 # Newer StuffIt archives (grant@netbsd.org)
 0	string		StuffIt			StuffIt Archive
->162	string		>0			: %s
+#>162	string		>0			: %s
 
 # Macintosh Applications and Installation binaries (franklsm@tuns.ca)
 0	string		APPL			Macintosh Application (data)
@@ -360,4 +360,4 @@
 >>>>0xa54	belong		x		number of blocks: %d
 
 # From: Remi Mommsen <mommsen@slac.stanford.edu>
-0		string		BOMStore	Mac OS X bill of materials (BOM) fil
+0		string		BOMStore	Mac OS X bill of materials (BOM) file

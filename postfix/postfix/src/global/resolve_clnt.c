@@ -22,7 +22,17 @@
 /*	const char *address;
 /*	RESOLVE_REPLY *reply;
 /*
+/*	void	resolve_clnt_query_from(sender, address, reply)
+/*	const char *sender;
+/*	const char *address;
+/*	RESOLVE_REPLY *reply;
+/*
 /*	void	resolve_clnt_verify(address, reply)
+/*	const char *address;
+/*	RESOLVE_REPLY *reply;
+/*
+/*	void	resolve_clnt_verify_from(sender, address, reply)
+/*	const char *sender;
 /*	const char *address;
 /*	RESOLVE_REPLY *reply;
 /*
@@ -43,6 +53,10 @@
 /*
 /*	resolve_clnt_verify() implements an alternative version that can
 /*	be used for address verification.
+/*
+/*	resolve_clnt_query_from() and resolve_clnt_verify_from()
+/*	allow the caller to supply sender context that will be used
+/*	for sender-dependent relayhost lookup.
 /*
 /*	In the resolver reply, the flags member is the bit-wise OR of
 /*	zero or more of the following:
@@ -128,6 +142,7 @@
 extern CLNT_STREAM *rewrite_clnt_stream;
 
 static VSTRING *last_class;
+static VSTRING *last_sender;
 static VSTRING *last_addr;
 static RESOLVE_REPLY last_reply;
 
@@ -143,16 +158,20 @@ void    resolve_clnt_init(RESOLVE_REPLY *reply)
 
 /* resolve_clnt - resolve address to (transport, next hop, recipient) */
 
-void    resolve_clnt(const char *class, const char *addr, RESOLVE_REPLY *reply)
+void    resolve_clnt(const char *class, const char *sender,
+		             const char *addr, RESOLVE_REPLY *reply)
 {
-    char   *myname = "resolve_clnt";
+    const char *myname = "resolve_clnt";
     VSTREAM *stream;
+    int     server_flags;
+    int     count = 0;
 
     /*
      * One-entry cache.
      */
     if (last_addr == 0) {
 	last_class = vstring_alloc(10);
+	last_sender = vstring_alloc(10);
 	last_addr = vstring_alloc(100);
 	resolve_clnt_init(&last_reply);
     }
@@ -172,14 +191,15 @@ void    resolve_clnt(const char *class, const char *addr, RESOLVE_REPLY *reply)
 #define IFSET(flag, text) ((reply->flags & (flag)) ? (text) : "")
 
     if (*addr && strcmp(addr, STR(last_addr)) == 0
-	&& strcmp(class, STR(last_class)) == 0) {
+	&& strcmp(class, STR(last_class)) == 0
+	&& strcmp(sender, STR(last_sender)) == 0) {
 	vstring_strcpy(reply->transport, STR(last_reply.transport));
 	vstring_strcpy(reply->nexthop, STR(last_reply.nexthop));
 	vstring_strcpy(reply->recipient, STR(last_reply.recipient));
 	reply->flags = last_reply.flags;
 	if (msg_verbose)
-	    msg_info("%s: cached: `%s' -> transp=`%s' host=`%s' rcpt=`%s' flags=%s%s%s%s class=%s%s%s%s%s",
-		     myname, addr, STR(reply->transport),
+	    msg_info("%s: cached: `%s' -> `%s' -> transp=`%s' host=`%s' rcpt=`%s' flags=%s%s%s%s class=%s%s%s%s%s",
+		     myname, sender, addr, STR(reply->transport),
 		     STR(reply->nexthop), STR(reply->recipient),
 		     IFSET(RESOLVE_FLAG_FINAL, "final"),
 		     IFSET(RESOLVE_FLAG_ROUTED, "routed"),
@@ -207,24 +227,27 @@ void    resolve_clnt(const char *class, const char *addr, RESOLVE_REPLY *reply)
     for (;;) {
 	stream = clnt_stream_access(rewrite_clnt_stream);
 	errno = 0;
+	count += 1;
 	if (attr_print(stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_STR, MAIL_ATTR_REQ, class,
+		       ATTR_TYPE_STR, MAIL_ATTR_SENDER, sender,
 		       ATTR_TYPE_STR, MAIL_ATTR_ADDR, addr,
 		       ATTR_TYPE_END) != 0
 	    || vstream_fflush(stream)
 	    || attr_scan(stream, ATTR_FLAG_STRICT,
+			 ATTR_TYPE_INT, MAIL_ATTR_FLAGS, &server_flags,
 		       ATTR_TYPE_STR, MAIL_ATTR_TRANSPORT, reply->transport,
 			 ATTR_TYPE_STR, MAIL_ATTR_NEXTHOP, reply->nexthop,
 			 ATTR_TYPE_STR, MAIL_ATTR_RECIP, reply->recipient,
-			 ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, &reply->flags,
-			 ATTR_TYPE_END) != 4) {
-	    if (msg_verbose || (errno != EPIPE && errno != ENOENT))
+			 ATTR_TYPE_INT, MAIL_ATTR_FLAGS, &reply->flags,
+			 ATTR_TYPE_END) != 5) {
+	    if (msg_verbose || count > 1 || (errno && errno != EPIPE && errno != ENOENT))
 		msg_warn("problem talking to service %s: %m",
 			 var_rewrite_service);
 	} else {
 	    if (msg_verbose)
-		msg_info("%s: `%s' -> transp=`%s' host=`%s' rcpt=`%s' flags=%s%s%s%s class=%s%s%s%s%s",
-			 myname, addr, STR(reply->transport),
+		msg_info("%s: `%s' -> `%s' -> transp=`%s' host=`%s' rcpt=`%s' flags=%s%s%s%s class=%s%s%s%s%s",
+			 myname, sender, addr, STR(reply->transport),
 			 STR(reply->nexthop), STR(reply->recipient),
 			 IFSET(RESOLVE_FLAG_FINAL, "final"),
 			 IFSET(RESOLVE_FLAG_ROUTED, "routed"),
@@ -235,6 +258,9 @@ void    resolve_clnt(const char *class, const char *addr, RESOLVE_REPLY *reply)
 			 IFSET(RESOLVE_CLASS_VIRTUAL, "virtual"),
 			 IFSET(RESOLVE_CLASS_RELAY, "relay"),
 			 IFSET(RESOLVE_CLASS_DEFAULT, "default"));
+	    /* Server-requested disconnect. */
+	    if (server_flags != 0)
+		clnt_stream_recover(rewrite_clnt_stream);
 	    if (STR(reply->transport)[0] == 0)
 		msg_warn("%s: null transport result for: <%s>", myname, addr);
 	    else if (STR(reply->recipient)[0] == 0 && *addr != 0)
@@ -250,6 +276,7 @@ void    resolve_clnt(const char *class, const char *addr, RESOLVE_REPLY *reply)
      * Update the cache.
      */
     vstring_strcpy(last_class, class);
+    vstring_strcpy(last_sender, sender);
     vstring_strcpy(last_addr, addr);
     vstring_strcpy(last_reply.transport, STR(reply->transport));
     vstring_strcpy(last_reply.nexthop, STR(reply->nexthop));
@@ -271,6 +298,7 @@ void    resolve_clnt_free(RESOLVE_REPLY *reply)
 #include <stdlib.h>
 #include <msg_vstream.h>
 #include <vstring_vstream.h>
+#include <split_at.h>
 #include <mail_conf.h>
 
 static NORETURN usage(char *myname)
@@ -278,7 +306,7 @@ static NORETURN usage(char *myname)
     msg_fatal("usage: %s [-v] [address...]", myname);
 }
 
-static void resolve(char *addr, RESOLVE_REPLY *reply)
+static void resolve(char *class, char *addr, RESOLVE_REPLY *reply)
 {
     struct RESOLVE_FLAG_TABLE {
 	int     flag;
@@ -298,10 +326,11 @@ static void resolve(char *addr, RESOLVE_REPLY *reply)
     };
     struct RESOLVE_FLAG_TABLE *fp;
 
-    resolve_clnt_query(addr, reply);
+    resolve_clnt(class, RESOLVE_NULL_FROM, addr, reply);
     if (reply->flags & RESOLVE_FLAG_FAIL) {
 	vstream_printf("request failed\n");
     } else {
+	vstream_printf("%-10s %s\n", "class", class);
 	vstream_printf("%-10s %s\n", "address", addr);
 	vstream_printf("%-10s %s\n", "transport", STR(reply->transport));
 	vstream_printf("%-10s %s\n", "nexthop", *STR(reply->nexthop) ?
@@ -324,6 +353,7 @@ static void resolve(char *addr, RESOLVE_REPLY *reply)
 int     main(int argc, char **argv)
 {
     RESOLVE_REPLY reply;
+    char   *addr;
     int     ch;
 
     msg_vstream_init(argv[0], VSTREAM_ERR);
@@ -345,15 +375,17 @@ int     main(int argc, char **argv)
     resolve_clnt_init(&reply);
 
     if (argc > optind) {
-	while (argv[optind]) {
-	    resolve(argv[optind], &reply);
-	    optind++;
+	while (argv[optind] && argv[optind + 1]) {
+	    resolve(argv[optind], argv[optind + 1], &reply);
+	    optind += 2;
 	}
     } else {
 	VSTRING *buffer = vstring_alloc(1);
 
 	while (vstring_fgets_nonl(buffer, VSTREAM_IN)) {
-	    resolve(STR(buffer), &reply);
+	    if ((addr = split_at(STR(buffer), ' ')) == 0 || *STR(buffer) == 0)
+		msg_fatal("need as input: class address");
+	    resolve(STR(buffer), addr, &reply);
 	}
 	vstring_free(buffer);
     }

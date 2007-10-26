@@ -10,6 +10,11 @@
 #include "ntpd.h"
 #include "ntp_io.h"
 #include "ntp_stdlib.h"
+#include <ntp_random.h>
+
+#ifdef SIM
+#include "ntpsim.h"
+#endif
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -39,8 +44,8 @@
 # include <signal.h>
 # include <process.h>
 # include <io.h>
-# include "../libntp/log.h"
-# include <crtdbg.h>
+# include <clockstuff.h>
+#include "ntp_iocompletionport.h"
 #endif /* SYS_WINNT */
 #if defined(HAVE_RTPRIO)
 # ifdef HAVE_SYS_RESOURCE_H
@@ -99,10 +104,19 @@
 # include <sys/ci/ciioctl.h>
 #endif
 
-#ifdef PUBKEY
-#include "ntp_crypto.h"
-#endif /* PUBKEY */
+#ifdef HAVE_DROPROOT
+# include <ctype.h>
+# include <grp.h>
+# include <pwd.h>
+#ifdef HAVE_LINUX_CAPABILITIES
+# include <sys/capability.h>
+# include <sys/prctl.h>
+#endif
+#endif
 
+#ifdef __APPLE__
+#include <notify.h>
+#endif	/* __APPLE__ */
 /*
  * Signals we catch for debugging.	If not debugging we ignore them.
  */
@@ -119,16 +133,10 @@
 # define SIGDIE4 	SIGTERM
 #endif /* SYS_WINNT */
 
-#if defined SYS_WINNT
-/* handles for various threads, process, and objects */
-HANDLE ResolverThreadHandle = NULL;
-/* variables used to inform the Service Control Manager of our current state */
-SERVICE_STATUS ssStatus;
-SERVICE_STATUS_HANDLE	sshStatusHandle;
-HANDLE WaitHandles[3] = { NULL, NULL, NULL };
-char szMsgPath[255];
-static BOOL WINAPI OnConsoleEvent(DWORD dwCtrlType);
-#endif /* SYS_WINNT */
+#ifdef HAVE_DNSREGISTRATION
+#include <dns_sd.h>
+DNSServiceRef mdns;
+#endif
 
 /*
  * Scheduling priority we run at
@@ -144,11 +152,29 @@ int priority_done = 2;		/* 0 - Set priority */
  * Debugging flag
  */
 volatile int debug;
+volatile int info_flag;
+
+/*
+ * Set the processing not to be in the forground
+ */
+int forground_process = FALSE;
 
 /*
  * No-fork flag.  If set, we do not become a background daemon.
  */
 int nofork;
+
+#ifdef HAVE_DROPROOT
+int droproot = 0;
+char *user = NULL;		/* User to switch to */
+char *group = NULL;		/* group to switch to */
+char *chrootdir = NULL;		/* directory to chroot to */
+int sw_uid;
+int sw_gid;
+char *endp;  
+struct group *gr;
+struct passwd *pw; 
+#endif /* HAVE_DROPROOT */
 
 /*
  * Initializing flag.  All async routines watch this and only do their
@@ -176,19 +202,74 @@ static	RETSIGTYPE	finish		P((int));
 #endif	/* SIGDIE2 */
 
 #ifdef	DEBUG
+#ifndef SYS_WINNT
 static	RETSIGTYPE	moredebug	P((int));
 static	RETSIGTYPE	lessdebug	P((int));
+#endif
 #else /* not DEBUG */
 static	RETSIGTYPE	no_debug	P((int));
 #endif	/* not DEBUG */
 
+static RETSIGTYPE info P((int));
 int 		ntpdmain		P((int, char **));
 static void	set_process_priority	P((void));
+static void init_logging P((char *));
 
+/*
+ * Initialize the logging
+ */
+void
+init_logging(char *name)
+{
+	char *cp;
 
+	/*
+	 * Logging.  This may actually work on the gizmo board.  Find a name
+	 * to log with by using the basename
+	 */
+	cp = strrchr(name, '/');
+	if (cp == 0)
+		cp = name;
+	else
+		cp++;
+
+#if !defined(VMS)
+
+# ifndef LOG_DAEMON
+	openlog(cp, LOG_PID);
+# else /* LOG_DAEMON */
+
+#  ifndef LOG_NTP
+#	define	LOG_NTP LOG_DAEMON
+#  endif
+	openlog(cp, LOG_PID | LOG_NDELAY, LOG_NTP);
+#  ifdef DEBUG
+	if (debug)
+		setlogmask(LOG_UPTO(LOG_DEBUG));
+	else
+#  endif /* DEBUG */
+		setlogmask(LOG_UPTO(LOG_DEBUG)); /* @@@ was INFO */
+# endif /* LOG_DAEMON */
+#endif	/* !SYS_WINNT && !VMS */
+
+	NLOG(NLOG_SYSINFO) /* conditional if clause for conditional syslog */
+		msyslog(LOG_INFO, "%s", Version);
+}
+
+#ifdef SIM
+int
+main(
+	int argc,
+	char *argv[]
+	)
+{
+	return ntpsim(argc, argv);
+}
+#else /* SIM */
 #ifdef NO_MAIN_ALLOWED
 CALL(ntpd,"ntpd",ntpdmain);
 #else
+#ifndef SYS_WINNT
 int
 main(
 	int argc,
@@ -197,7 +278,9 @@ main(
 {
 	return ntpdmain(argc, argv);
 }
-#endif
+#endif /* SYS_WINNT */
+#endif /* NO_MAIN_ALLOWED */
+#endif /* SIM */
 
 #ifdef _AIX
 /*
@@ -334,12 +417,6 @@ ntpdmain(
 	)
 {
 	l_fp now;
-	char *cp;
-#ifdef AUTOKEY
-	u_int n;
-	char hostname[MAXFILENAME];
-#endif /* AUTOKEY */
-	struct recvbuf *rbuflist;
 	struct recvbuf *rbuf;
 #ifdef _AIX			/* HMS: ifdef SIGDANGER? */
 	struct sigaction sa;
@@ -348,6 +425,8 @@ ntpdmain(
 	initializing = 1;		/* mark that we are initializing */
 	debug = 0;			/* no debugging by default */
 	nofork = 0;			/* will fork by default */
+
+	init_logging(argv[0]);		/* Open the log file */
 
 #ifdef HAVE_UMASK
 	{
@@ -374,21 +453,39 @@ ntpdmain(
 	}
 #endif
 
-#ifdef SYS_WINNT
-	/* Set the Event-ID message-file name. */
-	if (!GetModuleFileName(NULL, szMsgPath, sizeof(szMsgPath))) {
-		msyslog(LOG_ERR, "GetModuleFileName(PGM_EXE_FILE) failed: %m\n");
+#ifdef OPENSSL
+	if ((SSLeay() ^ OPENSSL_VERSION_NUMBER) & ~0xff0L) {
+		msyslog(LOG_ERR,
+		    "ntpd: OpenSSL version mismatch. Built against %lx, you have %lx\n",
+		    OPENSSL_VERSION_NUMBER, SSLeay());
 		exit(1);
 	}
-	addSourceToRegistry("NTP", szMsgPath);
+#endif
+
+#ifdef SYS_WINNT
+	/*
+	 * Initialize the time structures and variables
+	 */
+	init_winnt_time();
+
 #endif
 	getstartup(argc, argv); /* startup configuration, may set debug */
+
+	if (debug)
+	    printf("%s\n", Version);
 
 	/*
 	 * Initialize random generator and public key pair
 	 */
 	get_systime(&now);
-	SRANDOM((int)(now.l_i * now.l_uf));
+	ntp_srandom((int)(now.l_i * now.l_uf));
+
+#ifdef HAVE_DNSREGISTRATION
+	msyslog(LOG_INFO, "Attemping to register mDNS\n");
+	if ( DNSServiceRegister (&mdns, 0, 0, NULL, "_ntp._udp", NULL, NULL, htons(NTP_PORT), 0, NULL, NULL, NULL) != kDNSServiceErr_NoError ) {
+		msyslog(LOG_ERR, "Unable to register mDNS\n");
+	}
+#endif
 
 #if !defined(VMS)
 # ifndef NODETACH
@@ -414,12 +511,12 @@ ntpdmain(
 			int max_fd;
 #endif /* not F_CLOSEM */
 
+#if defined(F_CLOSEM)
 			/*
 			 * From 'Writing Reliable AIX Daemons,' SG24-4946-00,
 			 * by Eric Agar (saves us from doing 32767 system
 			 * calls)
 			 */
-#if defined(F_CLOSEM)
 			if (fcntl(0, F_CLOSEM, 0) == -1)
 			    msyslog(LOG_ERR, "ntpd: failed to close open files(): %m");
 #else  /* not F_CLOSEM */
@@ -481,127 +578,13 @@ ntpdmain(
 #endif /* _AIX */
 		}
 #   endif /* not HAVE_DAEMON */
-#  else /* SYS_WINNT */
-
-		{
-			SERVICE_TABLE_ENTRY dispatchTable[] = {
-				{ TEXT("NetworkTimeProtocol"), (LPSERVICE_MAIN_FUNCTION)service_main },
-				{ NULL, NULL }
-			};
-
-			/* daemonize */
-			if (!StartServiceCtrlDispatcher(dispatchTable))
-			{
-				msyslog(LOG_ERR, "StartServiceCtrlDispatcher: %m");
-				ExitProcess(2);
-			}
-		}
 #  endif /* SYS_WINNT */
 	}
 # endif /* NODETACH */
-# if defined(SYS_WINNT) && !defined(NODETACH)
-	else
-		service_main(argc, argv);
-	return 0;	/* must return a value */
-} /* end main */
-
-/*
- * If this runs as a service under NT, the main thread will block at
- * StartServiceCtrlDispatcher() and another thread will be started by the
- * Service Control Dispatcher which will begin execution at the routine
- * specified in that call (viz. service_main)
- */
-void
-service_main(
-	DWORD argc,
-	LPTSTR *argv
-	)
-{
-	char *cp;
-	struct recvbuf *rbuflist;
-	struct recvbuf *rbuf;
-#ifdef AUTOKEY
-	u_int n;
-	char hostname[MAXFILENAME];
-#endif /* AUTOKEY */
-	if(!debug)
-	{
-		/* register our service control handler */
-		if (!(sshStatusHandle = RegisterServiceCtrlHandler( TEXT("NetworkTimeProtocol"),
-									(LPHANDLER_FUNCTION)service_ctrl)))
-		{
-			msyslog(LOG_ERR, "RegisterServiceCtrlHandler failed: %m");
-			return;
-		}
-
-		/* report pending status to Service Control Manager */
-		ssStatus.dwServiceType = SERVICE_WIN32_OWN_PROCESS;
-		ssStatus.dwCurrentState = SERVICE_START_PENDING;
-		ssStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
-		ssStatus.dwWin32ExitCode = NO_ERROR;
-		ssStatus.dwServiceSpecificExitCode = 0;
-		ssStatus.dwCheckPoint = 1;
-		ssStatus.dwWaitHint = 5000;
-		if (!SetServiceStatus(sshStatusHandle, &ssStatus))
-		{
-			msyslog(LOG_ERR, "SetServiceStatus: %m");
-			ssStatus.dwCurrentState = SERVICE_STOPPED;
-			SetServiceStatus(sshStatusHandle, &ssStatus);
-			return;
-		}
-
-	}  /* debug */
-# endif /* defined(SYS_WINNT) && !defined(NODETACH) */
 #endif /* VMS */
-
-	/*
-	 * Logging.  This may actually work on the gizmo board.  Find a name
-	 * to log with by using the basename of argv[0]
-	 */
-	cp = strrchr(argv[0], '/');
-	if (cp == 0)
-		cp = argv[0];
-	else
-		cp++;
 
 	debug = 0; /* will be immediately re-initialized 8-( */
 	getstartup(argc, argv); /* startup configuration, catch logfile this time */
-
-#if !defined(SYS_WINNT) && !defined(VMS)
-
-# ifndef LOG_DAEMON
-	openlog(cp, LOG_PID);
-# else /* LOG_DAEMON */
-
-#  ifndef LOG_NTP
-#	define	LOG_NTP LOG_DAEMON
-#  endif
-	openlog(cp, LOG_PID | LOG_NDELAY, LOG_NTP);
-#  ifdef DEBUG
-	if (debug)
-		setlogmask(LOG_UPTO(LOG_DEBUG));
-	else
-#  endif /* DEBUG */
-		setlogmask(LOG_UPTO(LOG_DEBUG)); /* @@@ was INFO */
-# endif /* LOG_DAEMON */
-#endif	/* !SYS_WINNT && !VMS */
-
-	NLOG(NLOG_SYSINFO) /* conditional if clause for conditional syslog */
-		msyslog(LOG_INFO, "%s", Version);
-
-#ifdef SYS_WINNT
-	/* GMS 1/18/1997
-	 * TODO: lock the process in memory using SetProcessWorkingSetSize() and VirtualLock() functions
-	 *
-	 process_handle = GetCurrentProcess();
-	 if (SetProcessWorkingSetSize(process_handle, 2097152 , 4194304 ) == TRUE) {
-	 if (VirtualLock(0 , 4194304) == FALSE)
-	 msyslog(LOG_ERR, "VirtualLock() failed: %m");
-	 } else {
-	 msyslog(LOG_ERR, "SetProcessWorkingSetSize() failed: %m");
-	 }
-	*/
-#endif /* SYS_WINNT */
 
 #ifdef SCO5_CLOCK
 	/*
@@ -624,6 +607,37 @@ service_main(
 #endif
 
 #if defined(HAVE_MLOCKALL) && defined(MCL_CURRENT) && defined(MCL_FUTURE)
+# ifdef HAVE_SETRLIMIT
+	/*
+	 * Set the stack limit to something smaller, so that we don't lock a lot
+	 * of unused stack memory.
+	 */
+	{
+	    struct rlimit rl;
+
+	    if (getrlimit(RLIMIT_STACK, &rl) != -1
+		&& (rl.rlim_cur = 50 * 4096) < rl.rlim_max)
+	    {
+		    if (setrlimit(RLIMIT_STACK, &rl) == -1)
+		    {
+			    msyslog(LOG_ERR,
+				"Cannot adjust stack limit for mlockall: %m");
+		    }
+	    }
+#  ifdef RLIMIT_MEMLOCK
+	    /*
+	     * The default RLIMIT_MEMLOCK is very low on Linux systems.
+	     * Unless we increase this limit malloc calls are likely to
+	     * fail if we drop root privlege.  To be useful the value
+	     * has to be larger than the largest ntpd resident set size.
+	     */
+	    rl.rlim_cur = rl.rlim_max = 32*1024*1024;
+	    if (setrlimit(RLIMIT_MEMLOCK, &rl) == -1) {
+	    	msyslog(LOG_ERR, "Cannot set RLIMIT_MEMLOCK: %m");
+	    }
+#  endif /* RLIMIT_MEMLOCK */
+	}
+# endif /* HAVE_SETRLIMIT */
 	/*
 	 * lock the process into memory
 	 */
@@ -700,26 +714,23 @@ service_main(
 	(void) signal_no_reset(SIGPIPE, SIG_IGN);
 #endif	/* SIGPIPE */
 
-#if defined SYS_WINNT
-	if (!SetConsoleCtrlHandler(OnConsoleEvent, TRUE)) {
-		msyslog(LOG_ERR, "Can't set console control handler: %m");
-	}
-#endif
-
+#ifdef __APPLE__
+	int token;
+	(void) signal_no_reset(SIGINFO, info);
+	notify_register_signal("com.apple.system.config.network_change", SIGINFO, &token);
+#endif	/* __APPLE__ */
 	/*
 	 * Call the init_ routines to initialize the data structures.
 	 */
-#if defined (HAVE_IO_COMPLETION_PORT)
-	init_io_completion_port();
-	init_winnt_time();
-#endif
 	init_auth();
 	init_util();
 	init_restrict();
 	init_mon();
 	init_timer();
+#if defined (HAVE_IO_COMPLETION_PORT)
+	init_io_completion_port();
+#endif
 	init_lib();
-	init_random();
 	init_request();
 	init_control();
 	init_peer();
@@ -743,39 +754,113 @@ service_main(
 	debug = 0;
 #endif
 	getconfig(argc, argv);
-#ifdef AUTOKEY
-	gethostname(hostname, MAXFILENAME);
-	n = strlen(hostname) + 1;
-	sys_hostname = emalloc(n);
-	memcpy(sys_hostname, hostname, n);
-#ifdef PUBKEY
+	loop_config(LOOP_DRIFTCOMP, old_drift / 1e6);
+#ifdef OPENSSL
 	crypto_setup();
-#endif /* PUBKEY */
-#endif /* AUTOKEY */
+#endif /* OPENSSL */
 	initializing = 0;
 
-#if defined(SYS_WINNT) && !defined(NODETACH)
-# if defined(DEBUG)
-	if(!debug)
-	{
-# endif
-		/* report to the service control manager that the service is running */
-		ssStatus.dwCurrentState = SERVICE_RUNNING;
-		ssStatus.dwWin32ExitCode = NO_ERROR;
-		if (!SetServiceStatus(sshStatusHandle, &ssStatus))
-		{
-			msyslog(LOG_ERR, "SetServiceStatus: %m");
-			if (ResolverThreadHandle != NULL)
-				CloseHandle(ResolverThreadHandle);
-			ssStatus.dwCurrentState = SERVICE_STOPPED;
-			SetServiceStatus(sshStatusHandle, &ssStatus);
-			return;
-		}
-# if defined(DEBUG)
-	}
-# endif  
-#endif
 
+#ifdef HAVE_DROPROOT
+	if( droproot ) {
+		/* Drop super-user privileges and chroot now if the OS supports this */
+
+#ifdef HAVE_LINUX_CAPABILITIES
+		/* set flag: keep privileges accross setuid() call (we only really need cap_sys_time): */
+		if( prctl( PR_SET_KEEPCAPS, 1L, 0L, 0L, 0L ) == -1 ) {
+			msyslog( LOG_ERR, "prctl( PR_SET_KEEPCAPS, 1L ) failed: %m" );
+			exit(-1);
+		}
+#else
+		/* we need a user to switch to */
+		if( user == NULL ) {
+			msyslog(LOG_ERR, "Need user name to drop root privileges (see -u flag!)" );
+			exit(-1);
+		}
+#endif /* HAVE_LINUX_CAPABILITIES */
+	
+		if (user != NULL) {
+			if (isdigit((unsigned char)*user)) {
+				sw_uid = (uid_t)strtoul(user, &endp, 0);
+				if (*endp != '\0') 
+					goto getuser;
+			} else {
+getuser:	
+				if ((pw = getpwnam(user)) != NULL) {
+					sw_uid = pw->pw_uid;
+				} else {
+					errno = 0;
+					msyslog(LOG_ERR, "Cannot find user `%s'", user);
+					exit (-1);
+				}
+			}
+		}
+		if (group != NULL) {
+			if (isdigit((unsigned char)*group)) {
+				sw_gid = (gid_t)strtoul(group, &endp, 0);
+				if (*endp != '\0') 
+					goto getgroup;
+			} else {
+getgroup:	
+				if ((gr = getgrnam(group)) != NULL) {
+					sw_gid = gr->gr_gid;
+				} else {
+					errno = 0;
+					msyslog(LOG_ERR, "Cannot find group `%s'", group);
+					exit (-1);
+				}
+			}
+		}
+		
+		if( chrootdir ) {
+			/* make sure cwd is inside the jail: */
+			if( chdir(chrootdir) ) {
+				msyslog(LOG_ERR, "Cannot chdir() to `%s': %m", chrootdir);
+				exit (-1);
+			}
+			if( chroot(chrootdir) ) {
+				msyslog(LOG_ERR, "Cannot chroot() to `%s': %m", chrootdir);
+				exit (-1);
+			}
+		}
+		if (group && setgid(sw_gid)) {
+			msyslog(LOG_ERR, "Cannot setgid() to group `%s': %m", group);
+			exit (-1);
+		}
+		if (group && setegid(sw_gid)) {
+			msyslog(LOG_ERR, "Cannot setegid() to group `%s': %m", group);
+			exit (-1);
+		}
+		if (user && setuid(sw_uid)) {
+			msyslog(LOG_ERR, "Cannot setuid() to user `%s': %m", user);
+			exit (-1);
+		}
+		if (user && seteuid(sw_uid)) {
+			msyslog(LOG_ERR, "Cannot seteuid() to user `%s': %m", user);
+			exit (-1);
+		}
+	
+#ifdef HAVE_LINUX_CAPABILITIES
+		do {
+			/*  We may be running under non-root uid now, but we still hold full root privileges!
+			 *  We drop all of them, except for the crucial one: cap_sys_time:
+			 */
+			cap_t caps;
+			if( ! ( caps = cap_from_text( "cap_sys_time=ipe" ) ) ) {
+				msyslog( LOG_ERR, "cap_from_text() failed: %m" );
+				exit(-1);
+			}
+			if( cap_set_proc( caps ) == -1 ) {
+				msyslog( LOG_ERR, "cap_set_proc() failed to drop root privileges: %m" );
+				exit(-1);
+			}
+			cap_free( caps );
+		} while(0);
+#endif /* HAVE_LINUX_CAPABILITIES */
+
+	}    /* if( droproot ) */
+#endif /* HAVE_DROPROOT */
+	
 	/*
 	 * Report that we're up to any trappers
 	 */
@@ -797,62 +882,15 @@ service_main(
 	 * yet to learn about anything else that is.
 	 */
 #if defined(HAVE_IO_COMPLETION_PORT)
-		WaitHandles[0] = CreateEvent(NULL, FALSE, FALSE, NULL); /* exit reques */
-		WaitHandles[1] = get_timer_handle();
-	    WaitHandles[2] = get_io_event();
 
-		for (;;) {
-			DWORD Index = WaitForMultipleObjectsEx(sizeof(WaitHandles)/sizeof(WaitHandles[0]), WaitHandles, FALSE, 1000, MWMO_ALERTABLE);
-			switch (Index) {
-				case WAIT_OBJECT_0 + 0 : /* exit request */
-					exit(0);
-				break;
-
-				case WAIT_OBJECT_0 + 1 : /* timer */
-					timer();
-				break;
-
-				case WAIT_OBJECT_0 + 2 : /* Io event */
-# ifdef DEBUG
-					if ( debug > 3 )
-					{
-						printf( "IoEvent occurred\n" );
-					}
-# endif
-				break;
-
-# if 1
-				/*
-				 * FIXME: According to the documentation for WaitForMultipleObjectsEx
-				 *        this is not possible. This may be a vestigial from when this was
-				 *        MsgWaitForMultipleObjects, maybe it should be removed?
-				 */
-				case WAIT_OBJECT_0 + 3 : /* windows message */
-				{
-					MSG msg;
-					while ( PeekMessage( &msg, NULL, 0, 0, PM_REMOVE ) )
-					{
-						if ( msg.message == WM_QUIT )
-						{
-							exit( 0 );
-						}
-						DispatchMessage( &msg );
-					}
-				}
-				break;
-# endif
-
-				case WAIT_IO_COMPLETION : /* loop */
-				case WAIT_TIMEOUT :
-				break;
-				
-			} /* switch */
-			rbuflist = getrecvbufs();	/* get received buffers */
-
+	for (;;) {
+		int tot_full_recvbufs = GetReceivedBuffers();
 #else /* normal I/O */
 
+#if defined(HAVE_SIGNALED_IO)
+	block_io_and_alarm();
+# endif
 	was_alarmed = 0;
-	rbuflist = (struct recvbuf *)0;
 	for (;;)
 	{
 # if !defined(HAVE_SIGNALED_IO) 
@@ -861,18 +899,20 @@ service_main(
 
 		fd_set rdfdes;
 		int nfound;
-# elif defined(HAVE_SIGNALED_IO)
-		block_io_and_alarm();
 # endif
 
-		rbuflist = getrecvbufs();	/* get received buffers */
 		if (alarm_flag) 	/* alarmed? */
 		{
 			was_alarmed = 1;
 			alarm_flag = 0;
 		}
 
-		if (!was_alarmed && rbuflist == (struct recvbuf *)0)
+		if (info_flag) {
+			info_flag = 0;
+			/* 6 is too short for ipv6 duplicate address detection */
+			rebind_timer = current_time + 10; /* let all changes settle down */
+		}
+		if (!was_alarmed && has_full_recv_buffer() == ISC_FALSE)
 		{
 			/*
 			 * Nothing to do.  Wait for something.
@@ -901,10 +941,11 @@ service_main(
 				(void)input_handler(&ts);
 			}
 			else if (nfound == -1 && errno != EINTR)
-				msyslog(LOG_ERR, "select() error: %m");
-			else if (debug > 2) {
-				msyslog(LOG_DEBUG, "select(): nfound=%d, error: %m", nfound);
-			}
+				netsyslog(LOG_ERR, "select() error: %m");
+#  ifdef DEBUG
+			else if (debug > 5)
+				netsyslog(LOG_DEBUG, "select(): nfound=%d, error: %m", nfound);
+#  endif /* DEBUG */
 # else /* HAVE_SIGNALED_IO */
                         
 			wait_for_signal();
@@ -914,46 +955,58 @@ service_main(
 				was_alarmed = 1;
 				alarm_flag = 0;
 			}
-			rbuflist = getrecvbufs();  /* get received buffers */
 		}
-# ifdef HAVE_SIGNALED_IO
-		unblock_io_and_alarm();
-# endif /* HAVE_SIGNALED_IO */
 
-		/*
-		 * Out here, signals are unblocked.  Call timer routine
-		 * to process expiry.
-		 */
 		if (was_alarmed)
 		{
+# ifdef HAVE_SIGNALED_IO
+			unblock_io_and_alarm();
+# endif /* HAVE_SIGNALED_IO */
+			/*
+			 * Out here, signals are unblocked.  Call timer routine
+			 * to process expiry.
+			 */
 			timer();
 			was_alarmed = 0;
+# ifdef HAVE_SIGNALED_IO
+                        block_io_and_alarm();
+# endif /* HAVE_SIGNALED_IO */
 		}
 
 #endif /* HAVE_IO_COMPLETION_PORT */
-		/*
-		 * Call the data procedure to handle each received
-		 * packet.
-		 */
-		while (rbuflist != (struct recvbuf *)0)
+
+		rbuf = get_full_recv_buffer();
+		while (rbuf != NULL)
 		{
-			rbuf = rbuflist;
-			rbuflist = rbuf->next;
-			(rbuf->receiver)(rbuf);
+# ifdef HAVE_SIGNALED_IO
+			unblock_io_and_alarm();
+# endif /* HAVE_SIGNALED_IO */
+			/*
+			 * Call the data procedure to handle each received
+			 * packet.
+			 */
+			if (rbuf->receiver != NULL)	/* This should always be true */
+			{
+				(rbuf->receiver)(rbuf);
+			} else {
+				 msyslog(LOG_ERR, "receive buffer corruption - receiver found to be NULL - ABORTING");
+				 abort();
+			}
+# ifdef HAVE_SIGNALED_IO
+                        block_io_and_alarm();
+# endif /* HAVE_SIGNALED_IO */
 			freerecvbuf(rbuf);
+			rbuf = get_full_recv_buffer();
 		}
-#if defined DEBUG && defined SYS_WINNT
-		if (debug > 4)
-		    printf("getrecvbufs: %ld handler interrupts, %ld frames\n",
-			   handler_calls, handler_pkts);
-#endif
 
 		/*
 		 * Go around again
 		 */
 	}
-	exit(1); /* unreachable */
-	return 1;		/* DEC OSF cc braindamage */
+# ifdef HAVE_SIGNALED_IO
+	unblock_io_and_alarm();
+# endif /* HAVE_SIGNALED_IO */
+	return 1;
 }
 
 
@@ -968,6 +1021,11 @@ finish(
 {
 
 	msyslog(LOG_INFO, "ntpd exiting on signal %d", sig);
+	write_stats();
+#ifdef HAVE_DNSREGISTRATION
+	if (mdns != NULL)
+	DNSServiceRefDeallocate(mdns);
+#endif
 
 	switch (sig)
 	{
@@ -978,6 +1036,19 @@ finish(
 # endif
 		case 0: 		/* Should never happen... */
 		return;
+# if defined(SIGHUP) || defined(SIGINT) || defined(SIGTERM)
+#  ifdef SIGHUP
+		case SIGHUP:
+#  endif
+#  ifdef SIGINT
+		case SIGINT:
+#  endif
+#  ifdef SIGTERM
+		case SIGTERM:
+#  endif
+		save_drift_file(1);
+		/* fall-thru */
+# endif
 		default:
 		exit(0);
 	}
@@ -986,6 +1057,7 @@ finish(
 
 
 #ifdef DEBUG
+#ifndef SYS_WINNT
 /*
  * moredebug - increase debugging verbosity
  */
@@ -1021,8 +1093,9 @@ lessdebug(
 	}
 	errno = saved_errno;
 }
+#endif
 #else /* not DEBUG */
-/*
+#ifndef SYS_WINNT/*
  * no_debug - We don't do the debug here.
  */
 static RETSIGTYPE
@@ -1035,130 +1108,13 @@ no_debug(
 	msyslog(LOG_DEBUG, "ntpd not compiled for debugging (signal %d)", sig);
 	errno = saved_errno;
 }
+#endif  /* not SYS_WINNT */
 #endif	/* not DEBUG */
 
-#ifdef SYS_WINNT
-/* service_ctrl - control handler for NTP service
- * signals the service_main routine of start/stop requests
- * from the control panel or other applications making
- * win32API calls
- */
-void
-service_ctrl(
-	DWORD dwCtrlCode
+static RETSIGTYPE
+info(
+	int sig
 	)
 {
-	DWORD  dwState = SERVICE_RUNNING;
-
-	/* Handle the requested control code */
-	switch(dwCtrlCode)
-	{
-		case SERVICE_CONTROL_PAUSE:
-		/* see no reason to support this */
-		break;
-
-		case SERVICE_CONTROL_CONTINUE:
-		/* see no reason to support this */
-		break;
-
-		case SERVICE_CONTROL_STOP:
-			dwState = SERVICE_STOP_PENDING;
-			/*
-			 * Report the status, specifying the checkpoint and waithint,
-			 *	before setting the termination event.
-			 */
-			ssStatus.dwCurrentState = dwState;
-			ssStatus.dwWin32ExitCode = NO_ERROR;
-			ssStatus.dwWaitHint = 3000;
-			if (!SetServiceStatus(sshStatusHandle, &ssStatus))
-			{
-				msyslog(LOG_ERR, "SetServiceStatus: %m");
-			}
-			if (WaitHandles[0] != NULL) {
-				SetEvent(WaitHandles[0]);
-			}
-		return;
-
-		case SERVICE_CONTROL_INTERROGATE:
-		/* Update the service status */
-		break;
-
-		default:
-		/* invalid control code */
-		break;
-
-	}
-
-	ssStatus.dwCurrentState = dwState;
-	ssStatus.dwWin32ExitCode = NO_ERROR;
-	if (!SetServiceStatus(sshStatusHandle, &ssStatus))
-	{
-		msyslog(LOG_ERR, "SetServiceStatus: %m");
-	}
+	info_flag = 1;
 }
-
-static BOOL WINAPI 
-OnConsoleEvent(  
-	DWORD dwCtrlType
-	)
-{
-	switch (dwCtrlType) {
-		case CTRL_BREAK_EVENT :
-			if (debug > 0) {
-				debug <<= 1;
-			}
-			else {
-				debug = 1;
-			}
-			if (debug > 8) {
-				debug = 0;
-			}
-			printf("debug level %d\n", debug);
-		break ;
-
-		case CTRL_C_EVENT  :
-		case CTRL_CLOSE_EVENT :
-		case CTRL_SHUTDOWN_EVENT :
-			if (WaitHandles[0] != NULL) {
-				SetEvent(WaitHandles[0]);
-			}
-		break;
-
-		default :
-			return FALSE;
-
-
-	}
-	return TRUE;;
-}
-
-
-/*
- *  NT version of exit() - all calls to exit() should be routed to
- *  this function.
- */
-void
-service_exit(
-	int status
-	)
-{
-	if (!debug) { /* did not become a service, simply exit */
-		/* service mode, need to have the service_main routine
-		 * register with the service control manager that the 
-		 * service has stopped running, before exiting
-		 */
-		ssStatus.dwCurrentState = SERVICE_STOPPED;
-		SetServiceStatus(sshStatusHandle, &ssStatus);
-
-	}
-	uninit_io_completion_port();
-	reset_winnt_time();
-
-# if defined _MSC_VER
-	_CrtDumpMemoryLeaks();
-# endif 
-#undef exit	
-	exit(status);
-}
-
-#endif /* SYS_WINNT */

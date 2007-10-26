@@ -39,7 +39,7 @@
 
 OSDefineMetaClassAndStructors(IOFWAddressSpaceAux, OSObject);
 
-OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 0);
+OSMetaClassDefineReservedUsed(IOFWAddressSpaceAux, 0);			// intersects
 OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 1);
 OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 2);
 OSMetaClassDefineReservedUnused(IOFWAddressSpaceAux, 3);
@@ -64,6 +64,8 @@ bool IOFWAddressSpaceAux::init( IOFWAddressSpace * primary )
 	
     if( !OSObject::init() )
         success = false;
+	
+	fExclusive = false;
 	
 	if( success )
 	{
@@ -206,6 +208,33 @@ void IOFWAddressSpaceAux::removeTrustedNode( IOFireWireDevice * device )
 void IOFWAddressSpaceAux::removeAllTrustedNodes( void )
 {
 	fTrustedNodeSet->flushCollection();
+}
+
+// isExclusive
+//
+//
+
+bool IOFWAddressSpaceAux::isExclusive( void )
+{
+	return fExclusive;
+}
+
+// setExclusive
+//
+//
+
+void IOFWAddressSpaceAux::setExclusive( bool exclusive )
+{
+	fExclusive = exclusive;
+}
+
+// intersects
+//
+//
+
+bool IOFWAddressSpaceAux::intersects( IOFWAddressSpace * space )
+{
+	return false;
 }
 
 #pragma mark -

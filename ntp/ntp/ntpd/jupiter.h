@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/ntp/ntp/ntpd/jupiter.h,v 1.2 2002/03/23 02:09:03 ajn Exp $ (LBL) */
+/* @(#) $Header$ (LBL) */
 
 /*
  * Rockwell Jupiter GPS receiver definitions

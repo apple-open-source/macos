@@ -1,10 +1,7 @@
 Index: samba/source/auth/auth.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/auth/auth.c,v
-retrieving revision 1.5
-diff -u -d -b -r1.5 auth.c
---- samba/source/auth/auth.c	6 Jan 2005 23:36:59 -0000	1.5
-+++ samba/source/auth/auth.c	7 Feb 2006 02:13:50 -0000
+--- samba/source/auth/auth.c.orig
++++ samba/source/auth/auth.c
 @@ -20,6 +20,10 @@
  
  #include "includes.h"
@@ -16,19 +13,20 @@ diff -u -d -b -r1.5 auth.c
  #undef DBGC_CLASS
  #define DBGC_CLASS DBGC_AUTH
  
-@@ -173,7 +177,50 @@
+@@ -175,7 +179,50 @@ static BOOL check_domain_match(const cha
  		return True;
  	}
  }
+-
 +#ifdef WITH_SACL
 +/*
 +	check_sacl(const char *inUser, const char *inService) - Check Service ACL
 +		inUser - username in utf-8
 +		inService - name of the service in utf-8
-+		
++
 +		NOTE: the service name is not the group name, the transformation currently goes like
 +			this: "service" -> "com.apple.access_service"
-+			
++
 +	returns
 +		1 if the user is authorized (or no ACL exists)
 +		0 if the user is not authorized or does not exist
@@ -39,19 +37,19 @@ diff -u -d -b -r1.5 auth.c
 +	uuid_t	user_uuid;
 +	int		isMember = 0;
 +	int		mbrErr = 0;
- 
++
 +	// get the uuid
 +	if(mbr_user_name_to_uuid(inUser, user_uuid))
 +	{
 +		return 0;
-+	}	
-+	
++	}
++
 +	// check the sacl
 +	if((mbrErr = mbr_check_service_membership(user_uuid, inService, &isMember)))
 +	{
 +		if(mbrErr == ENOENT)	// no ACL exists
 +		{
-+			return 1;	
++			return 1;
 +		} else {
 +			return 0;
 +		}
@@ -67,7 +65,7 @@ diff -u -d -b -r1.5 auth.c
  /**
   * Check a user's Plaintext, LM or NTLM password.
   *
-@@ -296,6 +343,14 @@
+@@ -300,6 +347,14 @@ static NTSTATUS check_ntlm_password(cons
  			} 
  		}
  		
@@ -75,41 +73,41 @@ diff -u -d -b -r1.5 auth.c
 +		if (check_sacl(unix_username, "smb") == 0)
 +		{
 +			DEBUG(1,("check_ntlm_password: check_sacl(%s, smb) failed \n", unix_username));
-+			return NT_STATUS_WRONG_PASSWORD;	
++			return NT_STATUS_WRONG_PASSWORD;
 +		}
 +		#endif
 +
  		if (NT_STATUS_IS_OK(nt_status)) {
  			DEBUG((*server_info)->guest ? 5 : 2, 
  			      ("check_ntlm_password:  %sauthentication for user [%s] -> [%s] -> [%s] succeeded\n", 
---- samba/source/smbd/sesssetup.c	2006-02-20 17:21:22.000000000 -0800
-+++ samba/source/smbd/sesssetup.c	2006-02-23 16:20:35.000000000 -0800
-@@ -23,6 +23,12 @@
- 
- #include "includes.h"
+Index: samba/source/smbd/sesssetup.c
+===================================================================
+--- samba/source/smbd/sesssetup.c.orig
++++ samba/source/smbd/sesssetup.c
+@@ -29,6 +29,10 @@ extern BOOL global_spnego_negotiated;
+ extern enum protocol_types Protocol;
+ extern int max_send;
  
 +#ifdef WITH_SACL
-+#include <membershipPriv.h>
-+
-+extern int		check_sacl(const char *inUser, const char *inService);
++extern int check_sacl(const char *inUser, const char *inService);
 +#endif
 +
  uint32 global_client_caps = 0;
  
- static struct auth_ntlmssp_state *global_ntlmssp_state;
-@@ -321,6 +327,15 @@
+ /*
+@@ -541,6 +545,15 @@ static int reply_spnego_kerberos(connect
   	   A better interface would copy it.... */
  	sess_vuid = register_vuid(server_info, session_key, nullblob, client);
  
-+	#ifdef WITH_SACL
-+	if (NT_STATUS_IS_OK(ret) && check_sacl((user), "smb") == 0)
++#ifdef WITH_SACL
++	if (check_sacl(user, "smb") == 0)
 +	{
-+		DEBUG(1,("reply_spnego_kerberos: check_sacl(%s, smb) failed \n", (user)));
-+		ret = NT_STATUS_LOGON_FAILURE;
++	        DEBUG(1,("reply_spnego_kerberos: "
++				"check_sacl(%s, smb) failed \n", (user)));
++	        ret = NT_STATUS_LOGON_FAILURE;
 +	}
-+	#endif
++#endif
 +
-+
- 	SAFE_FREE(user);
  	SAFE_FREE(client);
  
+ 	if (sess_vuid == UID_FIELD_INVALID ) {

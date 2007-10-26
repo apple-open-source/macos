@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,9 +12,15 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """Cleanse certain headers from all messages."""
+
+from email.Utils import formataddr
+
+from Mailman.Logging.Syslog import syslog
+from Mailman.Handlers.CookHeaders import uheader
 
 
 def process(mlist, msg, msgdata):
@@ -22,16 +28,21 @@ def process(mlist, msg, msgdata):
     # this after the information on the header is actually used, but before a
     # permanent record of the header is saved.
     del msg['approved']
+    # Remove this one too.
+    del msg['approve']
     # Also remove this header since it can contain a password
     del msg['urgent']
     # We remove other headers from anonymous lists
     if mlist.anonymous_list:
+        syslog('post', 'post to %s from %s anonymized',
+               mlist.internal_name(), msg.get('from'))
         del msg['from']
         del msg['reply-to']
         del msg['sender']
         # Hotmail sets this one
         del msg['x-originating-email']
-        msg['From'] = mlist.GetListEmail()
+        i18ndesc = str(uheader(mlist, mlist.description, 'From'))
+        msg['From'] = formataddr((i18ndesc, mlist.GetListEmail()))
         msg['Reply-To'] = mlist.GetListEmail()
     # Some headers can be used to fish for membership
     del msg['return-receipt-to']

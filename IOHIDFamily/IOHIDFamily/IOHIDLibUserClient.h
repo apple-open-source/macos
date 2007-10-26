@@ -32,12 +32,12 @@
 
 // evil hack alert: we are using type in one of two ways:
 // if type == 0, then we want to get the element values
-// otherwise type is an object pointer (in kernel space).
+// else type is an object pointer (in kernel space).
 // this was deemed better for now than duplicating
 // the code from IOUserClient.cpp: is_io_connect_map_memory,
 // mapClientMemory and is_io_connect_unmap_memory
 enum IOHIDLibUserClientMemoryTypes {
-    kIOHIDLibUserClientElementValuesType = 0
+    kIOHIDLibUserClientElementValuesType = 0,
 };
 
 // port types: I did consider adding queue ports to this
@@ -48,65 +48,82 @@ enum IOHIDLibUserClientPortTypes {
     kIOHIDLibUserClientDeviceValidPortType
 };
 
-enum IOHIDLibUserClientAsyncCommandCodes {
-    kIOHIDLibUserClientSetAsyncPort,   		// kIOUCScalarIScalarO, 0, 0
-    kIOHIDLibUserClientSetQueueAsyncPort,	// kIOUCScalarIScalarO, 1, 0
-    kIOHIDLibUserClientAsyncGetReport,		// kIOUCScalarIScalarO, 5, 0
-    kIOHIDLibUserClientAsyncSetReport,		// kIOUCScalarIScalarO, 5, 0
-
-    kIOHIDLibUserClientNumAsyncCommands
-};
-
 enum IOHIDLibUserClientCommandCodes {
-    kIOHIDLibUserClientOpen,			// kIOUCScalarIScalarO, 0, 0
-    kIOHIDLibUserClientClose,			// kIOUCScalarIScalarO, 0, 0
-    kIOHIDLibUserClientCreateQueue,		// kIOUCScalarIScalarO, 2, 1
-    kIOHIDLibUserClientDisposeQueue,		// kIOUCScalarIScalarO, 1, 0
-    kIOHIDLibUserClientAddElementToQueue,	// kIOUCScalarIScalarO, 3, 0
-    kIOHIDLibUserClientRemoveElementFromQueue,	// kIOUCScalarIScalarO, 2, 0
-    kIOHIDLibUserClientQueueHasElement, 	// kIOUCScalarIScalarO, 2, 1
-    kIOHIDLibUserClientStartQueue, 		// kIOUCScalarIScalarO, 1, 0
-    kIOHIDLibUserClientStopQueue, 		// kIOUCScalarIScalarO, 1, 0
-    kIOHIDLibUserClientUpdateElementValue, 	// kIOUCScalarIScalarO, 1, 0
-    kIOHIDLibUserClientPostElementValue,	// kIOUCStructIStructO, 0xffffffff, 0
-    kIOHIDLibUserClientGetReport,		// kIOUCScalarIStructO, 2, 0xffffffff
-    kIOHIDLibUserClientGetReportOOL,		// kIOUCStructIStructO, 
-    kIOHIDLibUserClientSetReport,		// kIOUCScalarIScalarO, 2, 0xffffffff
-    kIOHIDLibUserClientSetReportOOL,		// kIOUCStructIStructO,
     kIOHIDLibUserClientDeviceIsValid,
+    kIOHIDLibUserClientOpen,
+    kIOHIDLibUserClientClose,
+    kIOHIDLibUserClientCreateQueue,
+    kIOHIDLibUserClientDisposeQueue,
+    kIOHIDLibUserClientAddElementToQueue,
+    kIOHIDLibUserClientRemoveElementFromQueue,
+    kIOHIDLibUserClientQueueHasElement,
+    kIOHIDLibUserClientStartQueue,
+    kIOHIDLibUserClientStopQueue,
+    kIOHIDLibUserClientUpdateElementValues,
+    kIOHIDLibUserClientPostElementValues,
+    kIOHIDLibUserClientGetReport,
+    kIOHIDLibUserClientSetReport,
+    kIOHIDLibUserClientGetElementCount,
+    kIOHIDLibUserClientGetElements,
+    kIOHIDLibUserClientSetQueueAsyncPort,
     kIOHIDLibUserClientNumCommands
 };
 
-#if 0
-struct IOHIDCommandExecuteData {
-    HIDInfo HIDInfo;
-    HIDResults *HIDResults;
-	int kernelHandle;
-	int sgEntries;
-	UInt32 timeoutMS;
-	IOVirtualRange sgList[0];
-};
+__BEGIN_DECLS
 
-#define kIOHIDCommandExecuteDataMaxSize 1024
-
-#endif
-
-struct IOHIDElementValue
+typedef struct _IOHIDElementValue
 {
     IOHIDElementCookie cookie;
     UInt32             totalSize;
     AbsoluteTime       timestamp;
     UInt32             generation;
     UInt32             value[1];
-};
+}IOHIDElementValue;
 
-struct IOHIDReportReq
+typedef struct _IOHIDReportReq
 {
     UInt32      reportType;
     UInt32		reportID;
     void 		*reportBuffer;
     UInt32		reportBufferSize;
+}IOHIDReportReq;
+
+struct IOHIDElementStruct;
+typedef struct IOHIDElementStruct IOHIDElementStruct;
+struct IOHIDElementStruct
+{
+    UInt32                  cookieMin;
+    UInt32                  cookieMax;
+    UInt32                  parentCookie;
+    UInt32                  type;
+    UInt32                  collectionType;
+    UInt32                  flags;
+    UInt32                  usagePage;
+    UInt32                  usageMin;
+    UInt32                  usageMax;
+    SInt32                  min;
+    SInt32                  max;
+    SInt32                  scaledMin;
+    SInt32                  scaledMax;
+    UInt32                  size;
+    UInt32                  reportSize;
+    UInt32                  reportCount;
+    UInt32                  reportID;
+    UInt32                  unit;
+    UInt32                  unitExponent;
+    UInt32                  duplicateValueSize;
+    UInt32                  duplicateIndex;
+    UInt32                  bytes;
+    UInt32                  valueLocation;
+    UInt32                  valueSize;
 };
+
+enum {
+    kHIDElementType			= 0,
+    kHIDReportHandlerType
+};
+
+__END_DECLS
 
 #if KERNEL
 
@@ -115,7 +132,9 @@ struct IOHIDReportReq
 #include <IOKit/IOInterruptEventSource.h>
 
 class IOHIDDevice;
+class IOHIDEventQueue;
 class IOSyncer;
+struct IOHIDCompletion;
 #if 0
 class IOCommandGate;
 
@@ -131,7 +150,7 @@ enum {
 class IOHIDLibUserClient : public IOUserClient 
 {
     OSDeclareDefaultStructors(IOHIDLibUserClient)
-
+    
     bool resourceNotification(void *refCon, IOService *service);
     void resourceNotificationGated();
     
@@ -140,12 +159,10 @@ class IOHIDLibUserClient : public IOUserClient
     void setValid(bool state);
     
     IOReturn dispatchMessage(void* message);
-
+    
 protected:
-    static const IOExternalMethod
+    static const IOExternalMethodDispatch
 		sMethods[kIOHIDLibUserClientNumCommands];
-    static const IOExternalAsyncMethod
-		sAsyncMethods[kIOHIDLibUserClientNumAsyncCommands];
 
     IOHIDDevice *fNub;
     IOWorkLoop *fWL;
@@ -157,20 +174,21 @@ protected:
     UInt32 fPid;
     task_t fClient;
     mach_port_t fWakePort;
-    mach_port_t fQueuePort;
     mach_port_t fValidPort;
     
     void * fValidMessage;
-
+    
     bool fNubIsTerminated;
 	bool fNubIsKeyboard;
     
-    IONotifier * fResourceNotification;
-    UInt64 fCachedConsoleUsersSeed;
     IOOptionBits fCachedOptionBits;
-    bool    fValid;
-    UInt32 fGeneration;
+        
+    IONotifier * fResourceNotification;
     
+    UInt64 fCachedConsoleUsersSeed;
+    
+    bool    fValid;
+    uint64_t fGeneration;
     // Methods
     virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type);
     
@@ -178,32 +196,12 @@ protected:
 
     virtual bool start(IOService *provider);
 
-    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
-
-    virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
-
-    virtual IOReturn setAsyncPort(OSAsyncReference asyncRef,
-                                  void *, void *, void *,
-                                  void *, void *, void *);
-                                  
-    virtual IOReturn setQueueAsyncPort(OSAsyncReference asyncRef,
-                                  void *vInQueue, void *, void *,
-                                  void *, void *, void *);
-
-    // Open the IOHIDDevice
-    virtual IOReturn open(void * flags);
-    IOReturn openGated(IOOptionBits flags);
-
-    // Close the IOHIDDevice
-    virtual IOReturn close();
-    IOReturn closeGated();
-                   
-    virtual bool didTerminate( IOService * provider, IOOptionBits options, bool * defer );
+    virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
         
     virtual void free();
 
     virtual void cleanupGated();
-
+    
     virtual IOReturn message(UInt32 type, IOService * provider, void * argument = 0 );
     virtual IOReturn messageGated(UInt32 type, IOService * provider, void * argument = 0 );
 
@@ -219,93 +217,89 @@ protected:
                            UInt32                type,
                            IOOptionBits *        options,
                            IOMemoryDescriptor ** memory );
+						   
+	IOReturn externalMethod(	uint32_t                    selector, 
+                                IOExternalMethodArguments * arguments,
+                                IOExternalMethodDispatch *  dispatch, 
+                                OSObject *                  target, 
+                                void *                      reference);
+
+    IOReturn externalMethodGated(void * args);
+
+
+    // Open the IOHIDDevice
+    static IOReturn _open(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        open(IOOptionBits options);
+
+    // Close the IOHIDDevice
+    static IOReturn _close(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        close();
+                   
+    // Get Element Counts
+    static IOReturn _getElementCount(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);    
+    IOReturn        getElementCount(uint64_t * outElementCount, uint64_t * outReportElementCount);
+
+    // Get Elements
+    static IOReturn _getElements(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);    
+    IOReturn        getElements(uint32_t elementType, void *elementBuffer, uint32_t *elementBufferSize);
+    IOReturn        getElements(uint32_t elementType, IOMemoryDescriptor * mem,  uint32_t *elementBufferSize);
 
     // Device Valid
-    virtual IOReturn deviceIsValid(void * vOutStatus, void * vOutGeneration);
-    IOReturn deviceIsValidGated(void * vOutStatus, void * vOutGeneration);
+    static IOReturn _deviceIsValid(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);    
+    IOReturn        deviceIsValid(bool *status, uint64_t *generation);
+    
+    // Set queue port
+    static IOReturn _setQueueAsyncPort(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        setQueueAsyncPort(IOHIDEventQueue * queue, mach_port_t port);
 
     // Create a queue
-    virtual IOReturn createQueue(void * vInFlags, void * vInDepth, void * vOutQueue);
-    IOReturn createQueueGated(void * vInFlags, void * vInDepth, void * vOutQueue);
+    static IOReturn _createQueue(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        createQueue(uint32_t flags, uint32_t depth, uint64_t * outQueue);
 
     // Dispose a queue
-    virtual IOReturn disposeQueue(void * vInQueue);
-    IOReturn disposeQueueGated(void * vInQueue);
+    static IOReturn _disposeQueue(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        disposeQueue(IOHIDEventQueue * queue);
 
     // Add an element to a queue
-    virtual IOReturn addElementToQueue(void * vInQueue, void * vInElementCookie, void * vInFlags, void * vSizeChange);
-    IOReturn addElementToQueueGated(void * vInQueue, void * vInElementCookie, void * vInFlags, void * vSizeChange);
+    static IOReturn _addElementToQueue(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        addElementToQueue(IOHIDEventQueue * queue, IOHIDElementCookie elementCookie, uint32_t flags, uint64_t *pSizeChange);
    
     // remove an element from a queue
-    virtual IOReturn removeElementFromQueue (void * vInQueue, void * vInElementCookie, void * vSizeChange);
-    IOReturn removeElementFromQueueGated (void * vInQueue, void * vInElementCookie, void * vSizeChange);
+    static IOReturn _removeElementFromQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        removeElementFromQueue (IOHIDEventQueue * queue, IOHIDElementCookie elementCookie, uint64_t *pSizeChange);
     
     // Check to see if a queue has an element
-    virtual IOReturn queueHasElement (void * vInQueue, void * vInElementCookie, void * vOutHasElement);
-    IOReturn queueHasElementGated (void * vInQueue, void * vInElementCookie, void * vOutHasElement);
+    static IOReturn _queueHasElement (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        queueHasElement (IOHIDEventQueue * queue, IOHIDElementCookie elementCookie, uint64_t * pHasElement);
     
     // start a queue
-    virtual IOReturn startQueue (void * vInQueue);
-    IOReturn startQueueGated (void * vInQueue);
+    static IOReturn _startQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        startQueue (IOHIDEventQueue * queue);
     
     // stop a queue
-    virtual IOReturn stopQueue (void * vInQueue);
-    IOReturn stopQueueGated (void * vInQueue);
+    static IOReturn _stopQueue (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        stopQueue (IOHIDEventQueue * queue);
                             
     // Update Feature element value
-    virtual IOReturn updateElementValue (void *cookie);
-    IOReturn updateElementValueGated (void *cookie);
+    static IOReturn	_updateElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        updateElementValues (const uint64_t * lCookies, uint32_t cookieCount);
                                                 
     // Post element value
-    virtual IOReturn postElementValue (void *cookie, void * cookieBytes);
-    IOReturn postElementValueGated (void *cookie, void * cookieBytes);
+    static IOReturn _postElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        postElementValues (const uint64_t * lCookies, uint32_t cookieCount);
                                                 
     // Get report
-    virtual IOReturn getReport(void *vReportType, void *vReportID, void *vReportBuffer, void *vReportBufferSize);
-    IOReturn getReportGated (IOHIDReportType reportType, 
-                                    UInt32 reportID, 
-                                    void *reportBuffer, 
-                                    UInt32 *reportBufferSize);
-                                
-    // Get report OOL
-    virtual IOReturn getReportOOL ( void *vReqIn, void *vSizeOut, void * vInCount, void *vOutCount);
-    IOReturn getReportOOLGated (IOHIDReportReq *reqIn, 
-                                        UInt32 *sizeOut, 
-                                        IOByteCount inCount, 
-                                        IOByteCount *outCount);
+    static IOReturn _getReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        getReport(void *reportBuffer, uint32_t *pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+    IOReturn        getReport(IOMemoryDescriptor * mem, uint32_t * pOutsize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0); 
 
     // Set report
-    virtual IOReturn setReport (void *vReportType, void *vReportID, void *vReportBuffer, void *vReportBufferSize);
-    IOReturn setReportGated (IOHIDReportType reportType, 
-                                UInt32 reportID, 
-                                void *reportBuffer, 
-                                UInt32 reportBufferSize);
-                                
-    // Set report OOL
-    virtual IOReturn setReportOOL (void *vReq, void *vInCount);
-    IOReturn setReportOOLGated (IOHIDReportReq *req, IOByteCount inCount);
-
-
-    // Asyn get report
-    virtual IOReturn asyncGetReport (OSAsyncReference asyncRef, 
-                                    IOHIDReportType reportType, 
-                                    UInt32 reportID, 
-                                    void *reportBuffer,
-                                    UInt32 reportBufferSize, 
-                                    UInt32 completionTimeOutMS);
-    IOReturn asyncGetReportGated (void * param);
-                                    
-    // Asyn set report
-    virtual IOReturn asyncSetReport (OSAsyncReference asyncRef, 
-                                    IOHIDReportType reportType, 
-                                    UInt32 reportID, 
-                                    void *reportBuffer,
-                                    UInt32 reportBufferSize, 
-                                    UInt32 completionTimeOutMS);
-    IOReturn asyncSetReportGated (void * param);
+    static IOReturn _setReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
+    IOReturn        setReport(const void *reportBuffer, uint32_t reportBufferSize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+    IOReturn        setReport(IOMemoryDescriptor * mem, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 
     void ReqComplete(void *param, IOReturn status, UInt32 remaining);
-    void ReqCompleteGated(void *param, IOReturn status, UInt32 remaining);
+    IOReturn ReqCompleteGated(void *param, IOReturn status, UInt32 remaining);
 };
 
 #endif /* KERNEL */

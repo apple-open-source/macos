@@ -371,11 +371,7 @@ enum NXByteOrder target_byte_sex)
 	swap_x86_state_hdr(&fpu->fsh, target_byte_sex);
 
 	if(hdr.flavor == x86_FLOAT_STATE32)
-#if i386_THREAD_STATE == 1
 	    swap_i386_float_state(&fpu->ufs.fs32, target_byte_sex);
-#else
-	    {}
-#endif
 	else if(hdr.flavor == x86_FLOAT_STATE64)
 	    swap_x86_float_state64(&fpu->ufs.fs64, target_byte_sex);
 }
@@ -396,11 +392,7 @@ enum NXByteOrder target_byte_sex)
 	swap_x86_state_hdr(&exc->esh, target_byte_sex);
 
 	if(hdr.flavor == x86_EXCEPTION_STATE32)
-#if i386_THREAD_STATE == 1
 	    swap_i386_exception_state(&exc->ues.es32, target_byte_sex);
-#else
-	    {}
-#endif
 	else if(hdr.flavor == x86_EXCEPTION_STATE64)
 	    swap_x86_exception_state64(&exc->ues.es64, target_byte_sex);
 }

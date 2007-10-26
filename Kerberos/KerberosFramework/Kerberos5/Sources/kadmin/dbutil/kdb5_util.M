@@ -34,6 +34,10 @@ However, execution continues regardless of whether or not
 .B kdb5_util
 successfully opens the database, because the database may not exist yet
 or the stash file may be corrupt.
+.PP
+Note that some KDB plugins may not support all
+.B kdb5_util
+commands.
 .SH COMMAND-LINE OPTIONS
 .TP
 \fB\-r\fP\ \fIrealm\fP
@@ -146,7 +150,7 @@ option will.
 .RE
 .TP
 \fBload\fP [\fB\-old\fP] [\fB\-b6\fP] [\fB\-b7\fP] [\fB\-ov\fP] [\fB\-hash\fP]
-[\fB\-verbose\fP] [\fB\-update\fP] \fIfilename dbname\fP [\fIadmin_dbname\fP]
+[\fB\-verbose\fP] [\fB\-update\fP] \fIfilename [dbname\fP] [\fIadmin_dbname\fP]
 .br
 Loads a database dump from the named file into the named database.
 Unless the 
@@ -159,7 +163,10 @@ automatically and handled as appropriate.  Unless the
 option is given, 
 .B load
 creates a new database containing only the principals in the dump file,
-overwriting the contents of any previously existing database.  Options:
+overwriting the contents of any previously existing database.  Note that
+when using the LDAP KDB plugin the
+.B \-update
+must be given.  Options:
 .RS
 .TP
 .B \-old
@@ -197,7 +204,7 @@ database; otherwise, a new database is created containing only what is
 in the dump file and the old one destroyed upon successful completion.
 .TP
 .B dbname
-is required and overrides the value specified on the command line or the
+is optional and, when provided, overrides the value specified on the command line or the
 default.
 .TP
 .B admin_dbname

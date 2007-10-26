@@ -137,7 +137,7 @@ CSSM_RETURN CSSMAPI
 CSSM_CSP_CreateRandomGenContext (CSSM_CSP_HANDLE CSPHandle,
                                  CSSM_ALGORITHMS AlgorithmID,
                                  const CSSM_CRYPTO_DATA *Seed,
-                                 uint32 Length,
+                                 CSSM_SIZE Length,
                                  CSSM_CC_HANDLE *NewContextHandle);
 
 CSSM_RETURN CSSMAPI
@@ -369,7 +369,7 @@ CSSM_EncryptData (CSSM_CC_HANDLE CCHandle,
                   uint32 ClearBufCount,
                   CSSM_DATA_PTR CipherBufs,
                   uint32 CipherBufCount,
-                  uint32 *bytesEncrypted,
+                  CSSM_SIZE *bytesEncrypted,
                   CSSM_DATA_PTR RemData);
 
 CSSM_RETURN CSSMAPI
@@ -378,7 +378,7 @@ CSSM_EncryptDataP (CSSM_CC_HANDLE CCHandle,
                    uint32 ClearBufCount,
                    CSSM_DATA_PTR CipherBufs,
                    uint32 CipherBufCount,
-                   uint32 *bytesEncrypted,
+                   CSSM_SIZE *bytesEncrypted,
                    CSSM_DATA_PTR RemData,
                    CSSM_PRIVILEGE Privilege);
 
@@ -395,7 +395,7 @@ CSSM_EncryptDataUpdate (CSSM_CC_HANDLE CCHandle,
                         uint32 ClearBufCount,
                         CSSM_DATA_PTR CipherBufs,
                         uint32 CipherBufCount,
-                        uint32 *bytesEncrypted);
+                        CSSM_SIZE *bytesEncrypted);
 
 CSSM_RETURN CSSMAPI
 CSSM_EncryptDataFinal (CSSM_CC_HANDLE CCHandle,
@@ -407,7 +407,7 @@ CSSM_DecryptData (CSSM_CC_HANDLE CCHandle,
                   uint32 CipherBufCount,
                   CSSM_DATA_PTR ClearBufs,
                   uint32 ClearBufCount,
-                  uint32 *bytesDecrypted,
+                  CSSM_SIZE *bytesDecrypted,
                   CSSM_DATA_PTR RemData);
 
 CSSM_RETURN CSSMAPI
@@ -416,7 +416,7 @@ CSSM_DecryptDataP (CSSM_CC_HANDLE CCHandle,
                    uint32 CipherBufCount,
                    CSSM_DATA_PTR ClearBufs,
                    uint32 ClearBufCount,
-                   uint32 *bytesDecrypted,
+                   CSSM_SIZE *bytesDecrypted,
                    CSSM_DATA_PTR RemData,
                    CSSM_PRIVILEGE Privilege);
 
@@ -433,7 +433,7 @@ CSSM_DecryptDataUpdate (CSSM_CC_HANDLE CCHandle,
                         uint32 CipherBufCount,
                         CSSM_DATA_PTR ClearBufs,
                         uint32 ClearBufCount,
-                        uint32 *bytesDecrypted);
+                        CSSM_SIZE *bytesDecrypted);
 
 CSSM_RETURN CSSMAPI
 CSSM_DecryptDataFinal (CSSM_CC_HANDLE CCHandle,

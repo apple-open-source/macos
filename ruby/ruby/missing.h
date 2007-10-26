@@ -3,8 +3,8 @@
   missing.h - prototype for *.c in ./missing, and
   	      for missing timeval struct
 
-  $Author: nobu $
-  $Date: 2003/12/22 08:23:54 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Sat May 11 23:46:03 JST 2002
 
 ************************************************/
@@ -21,6 +21,9 @@ struct timeval {
     time_t tv_usec;	/* microseconds */
 };
 #endif
+#if defined(HAVE_SYS_TYPES_H)
+#  include <sys/types.h>
+#endif
 
 #ifndef HAVE_ACOSH
 extern double acosh _((double));
@@ -34,6 +37,10 @@ extern char *crypt _((char *, char *));
 
 #ifndef HAVE_DUP2
 extern int dup2 _((int, int));
+#endif
+
+#ifndef HAVE_EACCESS
+extern int eaccess _((const char*, int));
 #endif
 
 #ifndef HAVE_FINITE
@@ -79,10 +86,6 @@ extern int memcmp _((char *, char *, int));
 
 #ifndef HAVE_MEMMOVE
 extern void *memmove _((void *, void *, int));
-#endif
-
-#ifndef HAVE_MKDIR
-extern int mkdir _((char *, int));
 #endif
 
 /*

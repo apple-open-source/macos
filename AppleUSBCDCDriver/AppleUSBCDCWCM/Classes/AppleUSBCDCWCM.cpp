@@ -55,10 +55,6 @@
 
     // Globals
 
-#if USE_ELG
-    com_apple_iokit_XTrace	*gXTrace = 0;
-#endif
-
 static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 {
     {1,0,0,0,0,0,0,0,0,0,0,0},
@@ -68,73 +64,6 @@ static IOPMPowerState gOurPowerStates[kNumCDCStates] =
 #define super IOService
 
 OSDefineMetaClassAndStructors(AppleUSBCDCWCM, IOService);
-
-#if USE_ELG
-/****************************************************************************************************/
-//
-//		Function:	findKernelLoggerWM
-//
-//		Inputs:		
-//
-//		Outputs:	
-//
-//		Desc:		Just like the name says
-//
-/****************************************************************************************************/
-
-IOReturn findKernelLoggerWM()
-{
-    OSIterator		*iterator = NULL;
-    OSDictionary	*matchingDictionary = NULL;
-    IOReturn		error = 0;
-	
-	// Get matching dictionary
-	
-    matchingDictionary = IOService::serviceMatching("com_apple_iokit_XTrace");
-    if (!matchingDictionary)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerWM] Couldn't create a matching dictionary.\n");
-        goto exit;
-    }
-	
-	// Get an iterator
-	
-    iterator = IOService::getMatchingServices(matchingDictionary);
-    if (!iterator)
-    {
-        error = kIOReturnError;
-        IOLog(DEBUG_NAME "[findKernelLoggerWM] No XTrace logger found.\n");
-        goto exit;
-    }
-	
-	// User iterator to find each com_apple_iokit_XTrace instance. There should be only one, so we
-	// won't iterate
-	
-    gXTrace = (com_apple_iokit_XTrace*)iterator->getNextObject();
-    if (gXTrace)
-    {
-        IOLog(DEBUG_NAME "[findKernelLoggerWM] Found XTrace logger at %p.\n", gXTrace);
-    }
-	
-exit:
-	
-    if (error != kIOReturnSuccess)
-    {
-        gXTrace = NULL;
-        IOLog(DEBUG_NAME "[findKernelLoggerWM] Could not find a logger instance. Error = %X.\n", error);
-    }
-	
-    if (matchingDictionary)
-        matchingDictionary->release();
-            
-    if (iterator)
-        iterator->release();
-		
-    return error;
-    
-}/* end findKernelLoggerWM */
-#endif
 
 /****************************************************************************************************/
 //
@@ -189,21 +118,6 @@ bool AppleUSBCDCWCM::start(IOService *provider)
 	fControlLen = 0;
 	fControlMap = NULL;
     
-#if USE_ELG
-    XTraceLogInfo	*logInfo;
-    
-    findKernelLoggerWM();
-    if (gXTrace)
-    {
-        gXTrace->retain();		// don't let it unload ...
-        XTRACE(this, 0, 0xbeefbeef, "Hello from start");
-        logInfo = gXTrace->LogGetInfo();
-        IOLog("AppleUSBCDCWCM: start - Log is at %x\n", (unsigned int)logInfo);
-    } else {
-        return false;
-    }
-#endif
-
     XTRACE(this, 0, provider, "start - provider.");
     
     if(!super::start(provider))
@@ -244,7 +158,7 @@ bool AppleUSBCDCWCM::start(IOService *provider)
     registerService();
         
     XTRACE(this, 0, 0, "start - successful");
-	IOLog(DEBUG_NAME ": Version number - %s\n", VersionNumber);
+	Log(DEBUG_NAME ": Version number - %s\n", VersionNumber);
     
     return true;
     	

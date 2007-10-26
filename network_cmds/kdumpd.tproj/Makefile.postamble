@@ -114,3 +114,5 @@ VPATH += :../kdumpd.tproj
 after_install:
 	mkdir -p $(DSTROOT)/usr/share/man/man8
 	install -c -m 644 kdumpd.8 $(DSTROOT)/usr/share/man/man8/kdumpd.8
+	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
+	install -c -m 644 com.apple.kdumpd.plist $(DSTROOT)/System/Library/LaunchDaemons/com.apple.kdumpd.plist

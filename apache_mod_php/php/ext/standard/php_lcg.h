@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_lcg.h,v 1.17.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_lcg.h,v 1.21.2.1.2.2 2007/05/18 11:36:55 rasmus Exp $ */
 
 #ifndef PHP_LCG_H
 #define PHP_LCG_H
@@ -33,7 +33,6 @@ PHPAPI double php_combined_lcg(TSRMLS_D);
 PHP_FUNCTION(lcg_value);
 
 PHP_MINIT_FUNCTION(lcg);
-PHP_RINIT_FUNCTION(lcg);
 
 #ifdef ZTS
 #define LCG(v) TSRMG(lcg_globals_id, php_lcg_globals *, v)

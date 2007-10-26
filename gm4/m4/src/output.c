@@ -1,21 +1,22 @@
 /* GNU m4 -- A simple macro processor
 
-   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004 Free
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004, 2005, 2006 Free
    Software Foundation, Inc.
-  
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 #include "m4.h"
@@ -32,14 +33,10 @@
 
 /* Size of buffer size to use while copying files.  */
 #define COPY_BUFFER_SIZE (32 * 512)
- 
-#ifdef HAVE_TMPFILE
-extern FILE *tmpfile ();
-#endif
 
 /* Output functions.  Most of the complexity is for handling cpp like
    sync lines.
-  
+
    This code is fairly entangled with the code in input.c, and maybe it
    belongs there?  */
 
@@ -102,43 +99,6 @@ output_init (void)
   output_unused = 0;
 }
 
-#ifndef HAVE_TMPFILE
-
-#ifndef HAVE_MKSTEMP
-
-/* This implementation of mkstemp(3) does not avoid any races, but its
-   there.  */
-
-#include <fcntl.h>
-
-static int
-mkstemp (const char *tmpl)
-{
-  mktemp (tmpl);
-  return open (tmpl, O_RDWR | O_TRUNC | O_CREAT, 0600);
-}
-
-#endif /* not HAVE_MKSTEMP */
-
-/* Implement tmpfile(3) for non-USG systems.  */
-
-static FILE *
-tmpfile (void)
-{
-  char buf[32];
-  int fd;
-
-  strcpy (buf, "/tmp/m4XXXXXX");
-  fd = mkstemp (buf);
-  if (fd < 0)
-    return NULL;
-
-  unlink (buf);
-  return fdopen (fd, "w+");
-}
-
-#endif /* not HAVE_TMPFILE */
-
 /*-----------------------------------------------------------------------.
 | Reorganize in-memory diversion buffers so the current diversion can	 |
 | accomodate LENGTH more characters without further reorganization.  The |
@@ -197,7 +157,10 @@ make_room_for (int length)
       selected_diversion->file = tmpfile ();
       if (selected_diversion->file == NULL)
 	M4ERROR ((EXIT_FAILURE, errno,
-		  "ERROR: Cannot create temporary file for diversion"));
+		  "ERROR: cannot create temporary file for diversion"));
+      if (set_cloexec_flag (fileno (selected_diversion->file), true) != 0)
+	M4ERROR ((warning_status, errno,
+		  "Warning: cannot protect diversion across forks"));
 
       if (selected_diversion->used > 0)
 	{
@@ -207,7 +170,7 @@ make_room_for (int length)
 			  selected_diversion->file);
 	  if (count != 1)
 	    M4ERROR ((EXIT_FAILURE, errno,
-		      "ERROR: Cannot flush diversion to temporary file"));
+		      "ERROR: cannot flush diversion to temporary file"));
 	}
 
       /* Reclaim the buffer space for other diversions.  */
@@ -291,7 +254,7 @@ output_text (const char *text, int length)
     {
       count = fwrite (text, length, 1, output_file);
       if (count != 1)
-	M4ERROR ((EXIT_FAILURE, errno, "ERROR: Copying inserted file"));
+	M4ERROR ((EXIT_FAILURE, errno, "ERROR: copying inserted file"));
     }
   else
     {
@@ -306,7 +269,7 @@ output_text (const char *text, int length)
 | characters.  If OBS is NULL, rather output the text to an external file  |
 | or an in-memory diversion buffer.  If OBS is NULL, and there is no	   |
 | output file, the text is discarded.					   |
-| 									   |
+|									   |
 | If we are generating sync lines, the output have to be examined, because |
 | we need to know how much output each input line generates.  In general,  |
 | sync lines are output whenever a single input lines generates several	   |
@@ -379,7 +342,7 @@ shipout_text (struct obstack *obs, const char *text, int length)
 		sprintf (line, "#line %d", current_line);
 		for (cursor = line; *cursor; cursor++)
 		  OUTPUT_CHARACTER (*cursor);
-		if (output_current_line < 1)
+		if (output_current_line < 1 && current_file[0] != '\0')
 		  {
 		    OUTPUT_CHARACTER (' ');
 		    OUTPUT_CHARACTER ('"');
@@ -473,7 +436,7 @@ insert_file (FILE *file)
     {
       length = fread (buffer, 1, COPY_BUFFER_SIZE, file);
       if (ferror (file))
-	M4ERROR ((EXIT_FAILURE, errno, "ERROR: Reading inserted file"));
+	M4ERROR ((EXIT_FAILURE, errno, "ERROR: reading inserted file"));
       if (length == 0)
 	break;
       output_text (buffer, length);
@@ -491,9 +454,10 @@ insert_diversion (int divnum)
 {
   struct diversion *diversion;
 
-  /* Do not care about unexisting diversions.  */
+  /* Do not care about unexisting diversions.  Also, diversion 0 is stdout,
+     which is effectively always empty.  */
 
-  if (divnum < 0 || divnum >= diversions)
+  if (divnum <= 0 || divnum >= diversions)
     return;
 
   /* Also avoid undiverting into self.  */
@@ -559,7 +523,7 @@ freeze_diversions (FILE *file)
   int divnum;
   struct diversion *diversion;
   struct stat file_stat;
-  
+
   saved_number = current_diversion;
   last_inserted = 0;
   make_diversion (0);
@@ -574,7 +538,7 @@ freeze_diversions (FILE *file)
 	    {
 	      fflush (diversion->file);
 	      if (fstat (fileno (diversion->file), &file_stat) < 0)
-		M4ERROR ((EXIT_FAILURE, errno, "Cannot stat diversion"));
+		M4ERROR ((EXIT_FAILURE, errno, "cannot stat diversion"));
 	      fprintf (file, "D%d,%d", divnum, (int) file_stat.st_size);
 	    }
 	  else
@@ -592,4 +556,3 @@ freeze_diversions (FILE *file)
   if (saved_number != last_inserted)
     fprintf (file, "D%d,0\n\n", saved_number);
 }
-

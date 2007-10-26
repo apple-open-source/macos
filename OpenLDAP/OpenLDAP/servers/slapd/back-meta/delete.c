@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/delete.c,v 1.14.2.5 2004/04/12 16:08:15 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/delete.c,v 1.19.2.12 2006/04/05 21:27:52 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -34,45 +34,105 @@
 int
 meta_back_delete( Operation *op, SlapReply *rs )
 {
-	struct metainfo *li = ( struct metainfo * )op->o_bd->be_private;
-	struct metaconn *lc;
-	int candidate = -1;
-	struct berval mdn = BER_BVNULL;
-	dncookie dc;
+	metainfo_t	*mi = ( metainfo_t * )op->o_bd->be_private;
+	metaconn_t	*mc = NULL;
+	int		candidate = -1;
+	struct berval	mdn = BER_BVNULL;
+	dncookie	dc;
+	int		msgid;
+	int		do_retry = 1;
+	int		maperr = 1;
 
-	lc = meta_back_getconn( op, rs, META_OP_REQUIRE_SINGLE,
-			&op->o_req_ndn, &candidate );
-	if ( !lc ) {
- 		send_ldap_result( op, rs );
-		return -1;
+	mc = meta_back_getconn( op, rs, &candidate, LDAP_BACK_SENDERR );
+	if ( !mc || !meta_back_dobind( op, rs, mc, LDAP_BACK_SENDERR ) ) {
+		return rs->sr_err;
 	}
-	
-	if ( !meta_back_dobind( lc, op )
-			|| !meta_back_is_valid( lc, candidate ) ) {
-		rs->sr_err = LDAP_OTHER;
- 		send_ldap_result( op, rs );
-		return -1;
-	}
+
+	assert( mc->mc_conns[ candidate ].msc_ld != NULL );
 
 	/*
 	 * Rewrite the compare dn, if needed
 	 */
-	dc.rwmap = &li->targets[ candidate ]->rwmap;
+	dc.target = &mi->mi_targets[ candidate ];
 	dc.conn = op->o_conn;
 	dc.rs = rs;
 	dc.ctx = "deleteDN";
 
 	if ( ldap_back_dn_massage( &dc, &op->o_req_dn, &mdn ) ) {
 		send_ldap_result( op, rs );
-		return -1;
+		goto done;
 	}
 
-	ldap_delete_s( lc->conns[ candidate ].ld, mdn.bv_val );
+retry:;
+	rs->sr_err = ldap_delete_ext( mc->mc_conns[ candidate ].msc_ld,
+			mdn.bv_val, op->o_ctrls, NULL, &msgid );
+	if ( rs->sr_err == LDAP_UNAVAILABLE && do_retry ) {
+		do_retry = 0;
+		if ( meta_back_retry( op, rs, &mc, candidate, LDAP_BACK_SENDERR ) ) {
+			goto retry;
+		}
+		goto cleanup;
 
+	} else if ( rs->sr_err == LDAP_SUCCESS ) {
+		struct timeval	tv, *tvp = NULL;
+		LDAPMessage	*res = NULL;
+		int		rc;
+
+		if ( mi->mi_targets[ candidate ].mt_timeout[ LDAP_BACK_OP_DELETE ] != 0 ) {
+			tv.tv_sec = mi->mi_targets[ candidate ].mt_timeout[ LDAP_BACK_OP_DELETE ];
+			tv.tv_usec = 0;
+			tvp = &tv;
+		}
+
+		rs->sr_err = LDAP_OTHER;
+		maperr = 0;
+		rc = ldap_result( mc->mc_conns[ candidate ].msc_ld,
+			msgid, LDAP_MSG_ALL, tvp, &res );
+		switch ( rc ) {
+		case -1:
+			rs->sr_err = LDAP_OTHER;
+			break;
+
+		case 0:
+			ldap_abandon_ext( mc->mc_conns[ candidate ].msc_ld,
+				msgid, NULL, NULL );
+			rs->sr_err = op->o_protocol >= LDAP_VERSION3 ?
+				LDAP_ADMINLIMIT_EXCEEDED : LDAP_OPERATIONS_ERROR;
+			break;
+
+		case LDAP_RES_DELETE:
+			rc = ldap_parse_result( mc->mc_conns[ candidate ].msc_ld,
+				res, &rs->sr_err, NULL, NULL, NULL, NULL, 1 );
+			if ( rc != LDAP_SUCCESS ) {
+				rs->sr_err = rc;
+			}
+			maperr = 1;
+			break;
+
+		default:
+			ldap_msgfree( res );
+			break;
+		}
+	}
+
+	if ( maperr ) {
+		rs->sr_err = meta_back_op_result( mc, op, rs, candidate );
+
+	} else {
+		send_ldap_result( op, rs );
+	}
+
+cleanup:;
 	if ( mdn.bv_val != op->o_req_dn.bv_val ) {
 		free( mdn.bv_val );
+		BER_BVZERO( &mdn );
 	}
 	
-	return meta_back_op_result( lc, op, rs );
+done:;
+	if ( mc ) {
+		meta_back_release_conn( op, mc );
+	}
+
+	return rs->sr_err;
 }
 

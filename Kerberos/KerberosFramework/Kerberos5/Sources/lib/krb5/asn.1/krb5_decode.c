@@ -24,7 +24,7 @@
  * or implied warranty.
  */
 
-#include "krb5.h"
+#include "k5-int.h"
 #include "krbasn1.h"
 #include "asn1_k_decode.h"
 #include "asn1_decode.h"
@@ -526,6 +526,7 @@ krb5_error_code decode_krb5_safe_with_body(
   setup();
   alloc_field(*rep,krb5_safe);
   clear_field(rep,checksum);
+  tmpbody.magic = 0;
 
   check_apptag(20);
   { begin_structure();

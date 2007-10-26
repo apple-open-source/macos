@@ -79,13 +79,13 @@ extern krb5_error_code krb5_vercheck();
 extern void krb5_win_ccdll_load(krb5_context context);
 #endif
 
-static krb5_error_code init_common (krb5_context *, krb5_boolean);
+static krb5_error_code init_common (krb5_context *, krb5_boolean, krb5_boolean);
 
 krb5_error_code KRB5_CALLCONV
 krb5_init_context(krb5_context *context)
 {
 
-	return init_common (context, FALSE);
+	return init_common (context, FALSE, FALSE);
 }
 
 krb5_error_code KRB5_CALLCONV
@@ -94,11 +94,17 @@ krb5_init_secure_context(krb5_context *context)
 
         /* This is to make gcc -Wall happy */
         if(0) krb5_brand[0] = krb5_brand[0];
-	return init_common (context, TRUE);
+	return init_common (context, TRUE, FALSE);
+}
+
+krb5_error_code
+krb5int_init_context_kdc(krb5_context *context)
+{
+    return init_common (context, FALSE, TRUE);
 }
 
 static krb5_error_code
-init_common (krb5_context *context, krb5_boolean secure)
+init_common (krb5_context *context, krb5_boolean secure, krb5_boolean kdc)
 {
 	krb5_context ctx = 0;
 	krb5_error_code retval;
@@ -108,6 +114,22 @@ init_common (krb5_context *context, krb5_boolean secure)
 	} seed_data;
 	krb5_data seed;
 	int tmp;
+
+	/* Verify some assumptions.  If the assumptions hold and the
+	   compiler is optimizing, this should result in no code being
+	   executed.  If we're guessing "unsigned long long" instead
+	   of using uint64_t, the possibility does exist that we're
+	   wrong.  */
+	{
+	    krb5_ui_8 i64;
+	    assert(sizeof(i64) == 8);
+	    i64 = 0, i64--, i64 >>= 62;
+	    assert(i64 == 3);
+	    i64 = 1, i64 <<= 31, i64 <<= 31, i64 <<= 1;
+	    assert(i64 != 0);
+	    i64 <<= 1;
+	    assert(i64 == 0);
+	}
 
 	retval = krb5int_initialize_library();
 	if (retval)
@@ -128,10 +150,6 @@ init_common (krb5_context *context, krb5_boolean secure)
 	retval = krb5_vercheck();
 	if (retval)
 		return retval;
-#else /* assume UNIX for now */
-	retval = krb5int_initialize_library ();
-	if (retval)
-	    return retval;
 #endif
 
 	*context = 0;
@@ -151,14 +169,7 @@ init_common (krb5_context *context, krb5_boolean secure)
 	if ((retval = krb5_set_default_tgs_ktypes(ctx, NULL)))
 		goto cleanup;
 
-	ctx->conf_tgs_ktypes = calloc(ctx->tgs_ktype_count, sizeof(krb5_enctype));
-	if (ctx->conf_tgs_ktypes == NULL && ctx->tgs_ktype_count != 0)
-	    goto cleanup;
-	memcpy(ctx->conf_tgs_ktypes, ctx->tgs_ktypes,
-	       sizeof(krb5_enctype) * ctx->tgs_ktype_count);
-	ctx->conf_tgs_ktypes_count = ctx->tgs_ktype_count;
-
-	if ((retval = krb5_os_init_context(ctx)))
+	if ((retval = krb5_os_init_context(ctx, kdc)))
 		goto cleanup;
 
 	/* initialize the prng (not well, but passable) */
@@ -251,11 +262,6 @@ krb5_free_context(krb5_context ctx)
 	  ctx->tgs_ktypes = 0;
      }
 
-     if (ctx->conf_tgs_ktypes) {
-	 free(ctx->conf_tgs_ktypes);
-	 ctx->conf_tgs_ktypes = 0;
-     }
-
      if (ctx->default_realm) {
 	  free(ctx->default_realm);
 	  ctx->default_realm = 0;
@@ -265,6 +271,8 @@ krb5_free_context(krb5_context ctx)
 	  free(ctx->ser_ctx);
 	  ctx->ser_ctx = 0;
      }
+
+     krb5_clear_error_message(ctx);
 
      ctx->magic = 0;
      free(ctx);
@@ -305,7 +313,7 @@ krb5_set_default_in_tkt_ktypes(krb5_context context, const krb5_enctype *ktypes)
 
 static krb5_error_code
 get_profile_etype_list(krb5_context context, krb5_enctype **ktypes, char *profstr,
-		       int ctx_count, krb5_enctype *ctx_list)
+		       unsigned int ctx_count, krb5_enctype *ctx_list)
 {
     krb5_enctype *old_ktypes;
 
@@ -444,8 +452,7 @@ krb5_get_tgs_ktypes(krb5_context context, krb5_const_principal princ, krb5_encty
 	/* This one is set *only* by reading the config file; it's not
 	   set by the application.  */
 	return(get_profile_etype_list(context, ktypes, "default_tgs_enctypes",
-				      context->conf_tgs_ktypes_count,
-				      context->conf_tgs_ktypes));
+				      0, NULL));
     else
 	return(get_profile_etype_list(context, ktypes, "default_tgs_enctypes",
 				      context->tgs_ktype_count,
@@ -479,4 +486,94 @@ krb5_is_permitted_enctype(krb5_context context, krb5_enctype etype)
     krb5_free_ktypes (context, list);
 
     return(ret);
+}
+
+static krb5_error_code
+copy_ktypes(krb5_context ctx,
+	    unsigned int nktypes,
+	    krb5_enctype *oldktypes,
+	    krb5_enctype **newktypes)
+{
+    unsigned int i;
+
+    *newktypes = NULL;
+    if (!nktypes)
+	return 0;
+
+    *newktypes = malloc(nktypes * sizeof(krb5_enctype));
+    if (*newktypes == NULL)
+	return ENOMEM;
+    for (i = 0; i < nktypes; i++)
+	(*newktypes)[i] = oldktypes[i];
+    return 0;
+}
+
+krb5_error_code KRB5_CALLCONV
+krb5_copy_context(krb5_context ctx, krb5_context *nctx_out)
+{
+    krb5_error_code ret;
+    krb5_context nctx;
+
+    *nctx_out = NULL;
+    if (ctx == NULL)
+	return EINVAL;		/* XXX */
+
+    nctx = malloc(sizeof(*nctx));
+    if (nctx == NULL)
+	return ENOMEM;
+
+    *nctx = *ctx;
+
+    nctx->in_tkt_ktypes = NULL;
+    nctx->in_tkt_ktype_count = 0;
+    nctx->tgs_ktypes = NULL;
+    nctx->tgs_ktype_count = 0;
+    nctx->default_realm = NULL;
+    nctx->profile = NULL;
+    nctx->db_context = NULL;
+    nctx->ser_ctx_count = 0;
+    nctx->ser_ctx = NULL;
+    nctx->prompt_types = NULL;
+    nctx->os_context->default_ccname = NULL;
+
+    memset(&nctx->preauth_plugins, 0, sizeof(nctx->preauth_plugins));
+    nctx->preauth_context = NULL;
+
+    memset(&nctx->libkrb5_plugins, 0, sizeof(nctx->libkrb5_plugins));
+    nctx->vtbl = NULL;
+    nctx->locate_fptrs = NULL;
+
+    memset(&nctx->err, 0, sizeof(nctx->err));
+
+    ret = copy_ktypes(nctx, ctx->in_tkt_ktype_count,
+		      ctx->in_tkt_ktypes, &nctx->in_tkt_ktypes);
+    if (ret)
+	goto errout;
+    nctx->in_tkt_ktype_count = ctx->in_tkt_ktype_count;
+
+    ret = copy_ktypes(nctx, ctx->tgs_ktype_count,
+		      ctx->tgs_ktypes, &nctx->in_tkt_ktypes);
+    if (ret)
+	goto errout;
+    nctx->tgs_ktype_count = ctx->tgs_ktype_count;
+
+    if (ctx->os_context->default_ccname != NULL) {
+	nctx->os_context->default_ccname =
+	    strdup(ctx->os_context->default_ccname);
+	if (nctx->os_context->default_ccname == NULL) {
+	    ret = ENOMEM;
+	    goto errout;
+	}
+    }
+    ret = krb5_get_profile(ctx, &nctx->profile);
+    if (ret)
+	goto errout;
+
+errout:
+    if (ret) {
+	krb5_free_context(nctx);
+    } else {
+	*nctx_out = nctx;
+    }
+    return ret;
 }

@@ -21,6 +21,42 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "defs.h"
+#include "top.h"
+#include "inferior.h"
+#include "target.h"
+#include "symfile.h"
+#include "symtab.h"
+#include "objfiles.h"
+#include "gdb.h"
+#include "gdbcmd.h"
+#include "gdbcore.h"
+#include "gdbthread.h"
+#include "regcache.h"
+#include "environ.h"
+#include "event-top.h"
+#include "event-loop.h"
+#include "inf-loop.h"
+#include "gdb_stat.h"
+#include "exceptions.h"
+#include "checkpoint.h"
+#include "value.h"
+#include "gdb_regex.h"
+
+#include "bfd.h"
+
+#include <sys/ptrace.h>
+#include <sys/signal.h>
+#include <machine/setjmp.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <signal.h>
+#include <string.h>
+#include <ctype.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <mach/mach_error.h>
+
 #include "macosx-nat-dyld.h"
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-infthread.h"
@@ -39,41 +75,7 @@
 #include "macosx-nat-cfm.h"
 #endif
 
-#include "defs.h"
-#include "top.h"
-#include "inferior.h"
-#include "target.h"
-#include "symfile.h"
-#include "symtab.h"
-#include "objfiles.h"
-#include "gdb.h"
-#include "gdbcmd.h"
-#include "gdbcore.h"
-#include "gdbthread.h"
-#include "regcache.h"
-#include "environ.h"
-#include "event-top.h"
-#include "event-loop.h"
-#include "inf-loop.h"
-#include "gdb_stat.h"
-
-#include "bfd.h"
-
-#include <sys/ptrace.h>
-#include <sys/signal.h>
-#include <machine/setjmp.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <signal.h>
-#include <string.h>
-#include <ctype.h>
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <mach/mach_error.h>
-#if defined (LIBXML2_IS_USABLE)
-#include <libxml/parser.h>
-#include <libxml/tree.h>
-#endif
+#include <mach/mach_vm.h>
 
 #ifndef EXC_SOFT_SIGNAL
 #define EXC_SOFT_SIGNAL 0
@@ -103,19 +105,18 @@ extern int standard_can_async_p (void);
 
 extern bfd *exec_bfd;
 
-extern struct target_ops child_ops;
+extern struct target_ops deprecated_child_ops;
 extern struct target_ops macosx_child_ops;
 
 extern struct target_ops exec_ops;
 extern struct target_ops macosx_exec_ops;
 
 macosx_inferior_status *macosx_status = NULL;
+extern macosx_dyld_thread_status macosx_dyld_status;
 
 int inferior_ptrace_flag = 1;
 int inferior_ptrace_on_attach_flag = 1;
 int inferior_bind_exception_port_flag = 1;
-int inferior_handle_exceptions_flag = 1;
-int inferior_handle_all_events_flag = 1;
 
 struct target_ops macosx_child_ops;
 struct target_ops macosx_exec_ops;
@@ -124,11 +125,7 @@ struct target_ops macosx_exec_ops;
 extern void init_child_ops (void);
 extern void init_exec_ops (void);
 
-#if WITH_CFM
-int inferior_auto_start_cfm_flag = 1;
-#endif /* WITH_CFM */
-
-int inferior_auto_start_dyld_flag = 1;
+extern int inferior_auto_start_dyld_flag;
 
 int macosx_fake_resume = 0;
 
@@ -214,22 +211,13 @@ static void macosx_ptrace_me ();
 static void macosx_ptrace_him (int pid);
 
 static void macosx_child_create_inferior (char *exec_file, char *allargs,
-                                          char **env);
+                                          char **env, int from_tty);
 
 static void macosx_child_files_info (struct target_ops *ops);
 
 static char *macosx_pid_to_str (ptid_t tpid);
 
 static int macosx_child_thread_alive (ptid_t tpid);
-
-static void macosx_set_auto_start_dyld (char *args, int from_tty,
-                                        struct cmd_list_element *c);
-
-static const char *get_bundle_executable_from_plist (const char *pathname);
-
-#if defined (LIBXML2_IS_USABLE)
-static const char *find_executable_name_in_xml_tree (xmlNode * a_node);
-#endif
 
 static void
 macosx_handle_signal (macosx_signal_thread_message *msg,
@@ -362,7 +350,8 @@ macosx_handle_exception (macosx_exception_thread_message *msg,
         switch (msg->exception_data[0])
           {
           case EXC_SOFT_SIGNAL:
-            status->value.sig = msg->exception_data[1];
+            status->value.sig = 
+	      target_signal_from_host ((unsigned int) msg->exception_data[1]);
             macosx_status->stopped_in_softexc = 1;
             break;
           default:
@@ -615,7 +604,7 @@ macosx_post_pending_event (void)
 static void
 macosx_pending_event_handler (void *data)
 {
-  inferior_debug (1, "Called in macosx_pending_event_handler\n");
+  inferior_debug (4, "Called in macosx_pending_event_handler\n");
   async_client_callback (INF_REG_EVENT, data);
 }
 
@@ -638,20 +627,14 @@ macosx_service_event (enum macosx_source_type source,
       macosx_handle_exception ((macosx_exception_thread_message *) buf,
                                status);
       if (status->kind != TARGET_WAITKIND_SPURIOUS)
-        {
-          CHECK_FATAL (inferior_handle_exceptions_flag);
           return 1;
-        }
     }
   else if (source == NEXT_SOURCE_SIGNAL)
     {
       inferior_debug (1, "macosx_service_events: got signal message\n");
       macosx_handle_signal ((macosx_signal_thread_message *) buf, status);
       CHECK_FATAL (status->kind != TARGET_WAITKIND_SPURIOUS);
-      if (!inferior_handle_all_events_flag)
-        {
-          return 1;
-        }
+      return 1;
     }
   else if (source == NEXT_SOURCE_ERROR)
     {
@@ -675,6 +658,7 @@ macosx_service_event (enum macosx_source_type source,
 enum bp_ss_or_other {
   bp_event = 0,
   ss_event,
+  sig_event,
   other_event
 };
 
@@ -689,8 +673,12 @@ get_event_type (struct macosx_exception_thread_message *msg)
       else
 	return bp_event;
     }
-
-  return other_event;
+  else if (msg->exception_type == EXC_SOFTWARE
+      && (msg->data_count == 2)
+      && (msg->exception_data[0] == EXC_SOFT_SIGNAL))
+    return sig_event;
+  else
+    return other_event;
 }
 
 /* This function services the first of the non-breakpoint type events.  
@@ -717,7 +705,8 @@ macosx_service_one_other_event (struct target_waitstatus *status)
       macosx_exception_thread_message *msg = 
 	(macosx_exception_thread_message *) event->buf;
       if (event->type != NEXT_SOURCE_EXCEPTION 
-	  || get_event_type (msg) == other_event)
+	  || get_event_type (msg) == other_event
+	  || get_event_type (msg) == sig_event)
 	{
 	  count++;
 	  if (count == 1)
@@ -765,18 +754,26 @@ macosx_backup_before_break (int ignore)
 	      {
 		/* Back up the PC if necessary.  */
 		if (DECR_PC_AFTER_BREAK)
-		  write_pc_pid (read_pc_pid (ptid) - DECR_PC_AFTER_BREAK, ptid);
+		  {
+		    CORE_ADDR new_pc = read_pc_pid (ptid) - DECR_PC_AFTER_BREAK; 
+		    write_pc_pid (new_pc, ptid);
+		    inferior_debug (6, "backup_before_break: setting PID for thread: 0x%lx to %s\n", 
+				    msg->thread_port, paddr_nz (new_pc));
+		  }
 	      }
-	    count++;
 	  }
       }
+    count++;
   }
   
-  if (ret_event)
-    inferior_debug (1, "Backing up all breakpoint hits except thread 0x%lx\n",
-		    ((macosx_exception_thread_message *) ret_event->buf)->thread_port);
-  else
-    inferior_debug (1, "Backing up all breakpoint hits\n");
+  if (DECR_PC_AFTER_BREAK)
+    {
+      if (ret_event)
+	inferior_debug (6, "Backing up all breakpoint hits except thread 0x%lx\n",
+			((macosx_exception_thread_message *) ret_event->buf)->thread_port);
+      else
+	inferior_debug (6, "Backing up all breakpoint hits\n");
+    }
   return ret_event;
 }
 
@@ -817,7 +814,12 @@ macosx_process_events (struct macosx_inferior_status *inferior,
   int other_count = 0;
   int scheduler_bp = -1;
   enum bp_ss_or_other event_type;
-  struct macosx_pending_event *event, *single_step = NULL;
+  int hand_call_function_bp = -1;
+  struct macosx_pending_event *event = NULL, *single_step = NULL,
+    *hand_call_function_thread_event = NULL,
+    *signal_event = NULL;
+
+  int first_time_through = 1;
 
   CHECK_FATAL (status->kind == TARGET_WAITKIND_SPURIOUS);
 
@@ -832,10 +834,25 @@ macosx_process_events (struct macosx_inferior_status *inferior,
     {
       source = macosx_fetch_event (inferior, buf, sizeof (buf),
                                    NEXT_SOURCE_ALL, timeout);
+      /* After we wake up from select, get the write lock.  This
+         insures that we don't start reading the exception data when
+         the exception thread is only part way through writing it.  Be
+         sure to release this before exiting the function.  Since each
+         event is written in a single shot, we don't have to worry
+         about getting a partial first event, it's only the subsequent
+         events we need to sync with.  */
+      if (first_time_through)
+        {
+          first_time_through = 0;
+          macosx_exception_get_write_lock (&inferior->exception_status);
+        }
+
       if (source == NEXT_SOURCE_NONE)
         {
           break;
         }
+
+      event_count++;
       if (source == NEXT_SOURCE_ERROR)
 	{
 	  /* We couldn't read from the inferior exception port.  Dunno why,
@@ -847,31 +864,57 @@ macosx_process_events (struct macosx_inferior_status *inferior,
 	  status->value.integer = 0;
 	  return 0;
 	}
+      else if (source == NEXT_SOURCE_SIGNAL)
+	{
+	  event = macosx_add_to_pending_events (source, buf);
+	  signal_event = event;
+	  other_count++;
+	}
       else
         {
-          event_count++;
+
+	  struct ptid this_ptid;
+	  this_ptid = ptid_build (macosx_status->pid, 0, 
+				  ((macosx_exception_thread_message *) buf)->thread_port);
 
 	  event = macosx_add_to_pending_events (source, buf);
 	  event_type = get_event_type ((macosx_exception_thread_message *) buf);
+
+	  /* If this event is for the thread we were calling a function
+	     on, prefer that event.  Also record the bp number if it is a
+	     breakpoint event, so we can rewind the right breakpoints.  */
+
+	  extern ptid_t get_hand_call_ptid (void);
+	  if (ptid_equal (this_ptid, get_hand_call_ptid ()))
+	    {
+	      hand_call_function_thread_event = event;
+	      if (event_type == bp_event)
+		hand_call_function_bp = breakpoint_count;
+	    }
+
 	  if (event_type == ss_event)
 	    single_step = event;
 	  else if (event_type == bp_event)
 	    {
 	      if (scheduler_lock_on_p ()) 
 		{
-		  struct ptid lock_ptid, this_ptid;
-		  ptid_build (macosx_status->pid, 0, 
-			      ((macosx_exception_thread_message *) buf)->thread_port);
-		  if (ptid_equal (lock_ptid, this_ptid))
+		  if (ptid_equal (get_scheduler_lock_ptid (), this_ptid))
 		    scheduler_bp = breakpoint_count;
 		}
 	      breakpoint_count += 1;
+	    }
+	  else if (event_type == sig_event)
+	    {
+	      signal_event = event;
+	      other_count += 1;
 	    }
 	  else
 	    other_count += 1;
         }
       timeout = 0;
     }
+
+  macosx_exception_release_write_lock (&inferior->exception_status);
 
   if (event_count == 0)
     return 0;
@@ -900,33 +943,66 @@ macosx_process_events (struct macosx_inferior_status *inferior,
       /* If we have more than one, look through them to figure 
 	 out what to do.  */
       
-      /* If we found a single step breakpoint, then move the
-	 pc back on ALL the threads that have breakpoint hits, and
-	 report the single step event.  Otherwise, randomly pick one
-	 of the breakpoints and report it.  */
+      /* We have more than one exception event, but the upper layers of gdb can 
+	 only deal with one at a time.  We currently use the following
+         Heuristics pick which one we are going to report:
+	 
+	 * First priority is single-step events.  This is so we can finish
+	   stepping over a breakpoint without interruption.
+	 * Next, if there is a signal event, we handle it.  That's because
+	   I don't know how to push back a signal event.
+	 * Next is if we are calling a function by hand and that stops, we
+           should handle that immediately.
+	 * If there is any other non-breakpoint exception in the set, we
+	   handle that next.
+	 * Next if we hit a breakpoint on the thread we were trying to run
+	   the scheduler on, we prefer that.  This is an issue because we
+           might have pushed back many breakpoint hits, then tried to 
+	   run something on one of the threads.  We don't want to service
+	   the left-over events from the other threads till we are done with
+	   what we are doing on this thread.
+	 * Finally, we randomly pick one of the breakpoint events, and
+	   handle that.
+      */
+
       if (single_step != NULL)
 	{
 	  inferior_debug (2, "macosx_process_events: found a single step "
 			  "event, and %d breakpoint events\n", breakpoint_count);
 	  macosx_backup_before_break (-1);
-	  macosx_service_event (single_step->type, single_step->buf,
+	  event_count = macosx_service_event (single_step->type, single_step->buf,
 				status);
-	  event_count = 1;
-	  macosx_clear_pending_events ();
+	}
+      else if (signal_event != NULL)
+	{
+	  inferior_debug (2, "macosx_process_events: forwarding signal event");
+	  macosx_backup_before_break (-1);
+	  event_count = macosx_service_event (signal_event->type,
+					      signal_event->buf,
+					      status);
+	}
+      else if (hand_call_function_thread_event != NULL)
+	{
+	  inferior_debug (2, "macosx_process_events: found an event for "
+			  "the hand-call function thread "
+			  ", and %d breakpoint events\n", breakpoint_count);
+	  macosx_backup_before_break (hand_call_function_bp);
+	  event_count = macosx_service_event (hand_call_function_thread_event->type, 
+				hand_call_function_thread_event->buf,
+				status);
 	}
       else if (breakpoint_count != event_count)
 	{
-	  /* What do we do with more than one signal?
-	     Should we call PTRACE_THUPDATE to send the
-	     other threads the signal back?  */
+	  /* This is the case where we have maybe some breakpoints, and one or more
+	     other exceptions.  */
 	  inferior_debug (2, "macosx_process_events: found %d breakpoint events out of "
 			  "%d total events\n", breakpoint_count, event_count);
 	  macosx_backup_before_break (-1);
 	  event_count = macosx_service_one_other_event (status);
-	  event_count = 1;
 	}
       else
 	{
+	  /* This is the case where we just have a bunch of breakpoint hits.  */
 	  struct macosx_pending_event *chosen_break;
 	  int random_selector;
 	  if (scheduler_bp != -1)
@@ -934,6 +1010,8 @@ macosx_process_events (struct macosx_inferior_status *inferior,
 	      /* If we are trying to run a single thread, let's favor
 		 that thread over another that might have just gotten
 		 created and hit a breakpoint.  */
+	      inferior_debug (6, "macosx_process_events: Choosing scheduler "
+			      "breakpoint thread index: %d\n", scheduler_bp);
 	      random_selector = scheduler_bp;
 	    }
 	  else
@@ -942,54 +1020,52 @@ macosx_process_events (struct macosx_inferior_status *inferior,
 		 the breakpoint hit for that one.  */
 	      random_selector = (int)
 		((breakpoint_count * (double) rand ()) / (RAND_MAX + 1.0));
+	      inferior_debug (6, "macosx_process_events: Choosing random "
+			      "selector index %d\n", random_selector);
 	    }
 	  chosen_break = macosx_backup_before_break (random_selector);
-	  if (macosx_service_event (chosen_break->type, chosen_break->buf,
-				    status) == 0)
-	    event_count = 1;
-
-	  macosx_clear_pending_events ();
-
+	  event_count = macosx_service_event (chosen_break->type, chosen_break->buf,
+				    status);
 	}
+      macosx_clear_pending_events ();
     }
   return event_count;
 }
 
 void
-macosx_check_new_threads ()
+macosx_check_new_threads (thread_array_t thread_list, unsigned int nthreads)
 {
-  thread_array_t thread_list = NULL;
-  unsigned int nthreads = 0;
-
   kern_return_t kret;
   unsigned int i;
+  int dealloc_thread_list = (thread_list == NULL);
 
-  kret = task_threads (macosx_status->task, &thread_list, &nthreads);
-  if (kret != KERN_SUCCESS)
+  if (thread_list == NULL)
     {
-      return;
+      kret = task_threads (macosx_status->task, &thread_list, &nthreads);
+      MACH_CHECK_ERROR (kret);
     }
-  MACH_CHECK_ERROR (kret);
 
   for (i = 0; i < nthreads; i++)
     {
       ptid_t ptid = ptid_build (macosx_status->pid, 0, thread_list[i]);
+
       if (!in_thread_list (ptid))
         {
           struct thread_info *tp;
           tp = add_thread (ptid);
-          tp->private =
-            (struct private_thread_info *)
-            xmalloc (sizeof (struct private_thread_info));
-          tp->private->app_thread_port =
-            get_application_thread_port (thread_list[i]);
+          if (create_private_thread_info (tp))
+            tp->private->app_thread_port =
+              get_application_thread_port (thread_list[i]);
         }
     }
 
-  kret =
-    vm_deallocate (mach_task_self (), (vm_address_t) thread_list,
-                   (nthreads * sizeof (int)));
-  MACH_CHECK_ERROR (kret);
+  if (dealloc_thread_list)
+    {
+      kret =
+	vm_deallocate (mach_task_self (), (vm_address_t) thread_list,
+		       (nthreads * sizeof (int)));
+      MACH_CHECK_ERROR (kret);
+    }
 }
 
 /* This differs from child_stop in that we don't send
@@ -1075,7 +1151,7 @@ macosx_child_resume (ptid_t ptid, int step, enum target_signal signal)
 
   macosx_inferior_resume_mach (macosx_status, -1);
 
-  if (event_loop_p && target_can_async_p ())
+  if (target_can_async_p ())
     target_async (inferior_event_handler, 0);
 
   if (target_is_async_p ())
@@ -1126,7 +1202,7 @@ macosx_wait (struct macosx_inferior_status *ns,
       || (status->kind == TARGET_WAITKIND_SIGNALLED))
     return null_ptid;
 
-  macosx_check_new_threads ();
+  macosx_check_new_threads (NULL, 0);
 
   if (!macosx_thread_valid (macosx_status->task, macosx_status->last_thread))
     {
@@ -1154,13 +1230,13 @@ static void
 macosx_mourn_inferior ()
 {
   unpush_target (&macosx_child_ops);
-  child_ops.to_mourn_inferior ();
+  deprecated_child_ops.to_mourn_inferior ();
   macosx_inferior_destroy (macosx_status);
 
   inferior_ptid = null_ptid;
   attach_flag = 0;
 
-  macosx_dyld_mourn_inferior();
+  macosx_dyld_mourn_inferior ();
 
   macosx_clear_pending_events ();
 }
@@ -1169,7 +1245,7 @@ void
 macosx_fetch_task_info (struct kinfo_proc **info, size_t * count)
 {
   struct kinfo_proc *proc;
-  unsigned int control[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+  int control[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
   size_t length;
 
   CHECK_FATAL (info != NULL);
@@ -1257,17 +1333,6 @@ macosx_process_completer (char *text, char *word)
 }
 
 static void
-macosx_lookup_task_remote (char *host_str, char *pid_str, int pid,
-                           task_t * ptask, int *ppid)
-{
-  CHECK_FATAL (ptask != NULL);
-  CHECK_FATAL (ppid != NULL);
-
-  error
-    ("Unable to attach to remote processes on Mach 3.0 (no netname_look_up ()).");
-}
-
-static void
 macosx_lookup_task_local (char *pid_str, int pid, task_t * ptask, int *ppid)
 {
   CHECK_FATAL (ptask != NULL);
@@ -1291,7 +1356,6 @@ macosx_lookup_task_local (char *pid_str, int pid, task_t * ptask, int *ppid)
     }
   else
     {
-
       struct cleanup *cleanups = NULL;
       char **ret = macosx_process_completer_quoted (pid_str, pid_str, 0);
       char *tmp = NULL;
@@ -1348,10 +1412,41 @@ macosx_lookup_task_local (char *pid_str, int pid, task_t * ptask, int *ppid)
     }
 }
 
+/* Execute a busywait loop and poll to see if a process of a given
+   name has been started.  procname is case sensitive and does not
+   include the pathname of the process.  */
+
+static void
+wait_for_process_by_name (const char *procname)
+{
+  struct kinfo_proc *proc = NULL;
+  size_t count, i;
+
+  if (procname == NULL || procname[0] == '\0')
+    return;
+
+  printf_filtered ("Waiting for process '%s' to launch.\n", procname);
+
+  while (1)
+    {
+      QUIT;
+      macosx_fetch_task_info (&proc, &count);
+      for (i = 0; i < count; i++)
+        {
+          if (strncmp (proc[i].kp_proc.p_comm, procname, MAXCOMLEN) == 0)
+            {
+              xfree (proc);
+              return;
+            }
+        }
+      usleep (400);
+      xfree (proc);
+    }
+}
+
 static int
 macosx_lookup_task (char *args, task_t * ptask, int *ppid)
 {
-  char *host_str = NULL;
   char *pid_str = NULL;
   char *tmp = NULL;
 
@@ -1389,11 +1484,20 @@ macosx_lookup_task (char *args, task_t * ptask, int *ppid)
       pid_str = argv[0];
       break;
     case 2:
-      host_str = argv[0];
-      pid_str = argv[1];
-      break;
+      if (strcmp ("-waitfor", argv[0]) == 0 
+          || strcmp ("--waitfor", argv[0]) == 0)
+        {
+           /* If the user-provided process name string is long than the
+              proc name string provided by the kernel we'll need to truncate
+              the user's string if we're going to find a match.  */
+           pid_str = argv[1];
+           if (strlen (pid_str) > MAXCOMLEN)
+             pid_str[MAXCOMLEN] = '\0';
+           wait_for_process_by_name (pid_str);
+	   break;
+        }
     default:
-      error ("Usage: attach [host] <pid|pid-string>.");
+      error ("Usage: attach <-waitfor procname>|<pid>|<procname>.");
       break;
     }
 
@@ -1409,51 +1513,12 @@ macosx_lookup_task (char *args, task_t * ptask, int *ppid)
       pid = lpid;
     }
 
-  if (host_str != NULL)
-    {
-      macosx_lookup_task_remote (host_str, pid_str, pid, ptask, ppid);
-    }
-  else
-    {
-      macosx_lookup_task_local (pid_str, pid, ptask, ppid);
-    }
+  macosx_lookup_task_local (pid_str, pid, ptask, ppid);
 
   do_cleanups (cleanups);
   return 0;
 }
 
-static void
-macosx_set_auto_start_dyld (char *args, int from_tty,
-                            struct cmd_list_element *c)
-{
-
-  /* Don't want to bother with stopping the target to set this... */
-  if (target_executing)
-    return;
-
-  /* If we are so early on that the macosx_status hasn't gotten allocated
-     yet, this will fail, but we also won't have needed to do anything,
-     so we can safely just exit. */
-  if (macosx_status == NULL)
-    return;
-
-  /* If we are turning off watching dyld, we need to remove
-     the breakpoint... */
-
-  if (!inferior_auto_start_dyld_flag)
-    {
-      macosx_clear_start_breakpoint ();
-      return;
-    }
-
-  /* If the inferior is not running, then all we have to do
-     is set the flag, which is done in generic code. */
-
-  if (ptid_equal (inferior_ptid, null_ptid))
-    return;
-
-  macosx_solib_add (NULL, 0, NULL, 0);
-}
 
 static void
 macosx_child_attach (char *args, int from_tty)
@@ -1547,7 +1612,7 @@ macosx_child_attach (char *args, int from_tty)
         }
     }
 
-  macosx_check_new_threads ();
+  macosx_check_new_threads (NULL, 0);
 
   inferior_ptid = ptid_build (pid, 0, macosx_status->last_thread);
   attach_flag = 1;
@@ -1556,16 +1621,71 @@ macosx_child_attach (char *args, int from_tty)
 
   if (macosx_status->attached_in_ptrace)
     {
+      enum macosx_source_type source;
+      unsigned char buf[1024];
 
-      /* read attach notification */
+      /* read attach notification.  This is a little gross, as it
+         turns out.  We call ptrace with PT_ATTACHEXC and we get the
+         EXC_SOFT_SIGNAL for the SIGSTOP, but for some reason I don't
+         quite understand, we ALSO get a SIGSTOP from the waitpid in
+         the signal thread.  This happens even though we haven't
+         replied to the exception yet, or restarted the target.
+
+         HOWEVER, when we attach to a program that's been stopped
+         under CrashReporter, we don't get the waitpid SIGSTOP.  So we
+         can't do a blocking wait for it or we will never return in
+         the CrashReporter case.  Instead, we just poll the event
+         threads and see if anything has come in.  If it's the
+         SIGSTOP, we silently discard it.  
+
+	 Finally...  We have to make sure the signal thread has a
+         chance to run through the first waitpid call or we will pick
+         up the SIGSTOP next time we look for events (when we go to
+         continue.)  To do that we call macosx_fetch_event for the 
+	 signal thread with a fairly long (.1 sec) timeout.
+      */
+
+      /* So this wait - which has only the exception thread running,
+	 will get us the EXC_SOFT_SIGNAL,SIGSTOP.  */
       stop_soon = STOP_QUIETLY;
       wait_for_inferior ();
+
+      /* Now we need to start up the signal thread, wait to give it a chance to 
+	 start up, then we will snag the signal and discard it.  */
 
       macosx_signal_thread_create (&macosx_status->signal_status,
                                    macosx_status->pid);
-      stop_soon = STOP_QUIETLY;
-      wait_for_inferior ();
+
+      source = macosx_fetch_event (macosx_status, buf, sizeof (buf),
+				   NEXT_SOURCE_SIGNAL, 100000);
+
+      if (source == NEXT_SOURCE_SIGNAL)
+	{
+	  unsigned int signo;
+
+	  macosx_signal_thread_message *msg 
+	    = (macosx_signal_thread_message *) buf;
+	  signo = target_signal_from_host (WSTOPSIG (msg->status));
+	  if (signo != SIGSTOP)
+	    {
+	      /* If we are attaching to a crashed program - this
+		 happens when Xcode catches the crash, for instance -
+		 we'll pick up the crash signal rather than a SIGSTOP.  */
+	      inferior_debug (2,"Attach returned signal: %d\n", signo);
+	    }
+	  else 
+	    inferior_debug (2, "Got SIGSTOP from signal thread.");
+	}
+      else if (source == NEXT_SOURCE_NONE)
+	{
+	  inferior_debug (2, "No signal event on stop after attach.");
+	}
     }
+
+  /* I don't have any good way to know whether the malloc library
+     has been initialized yet.  But I'm going to guess that we are
+     unlikely to be able to attach BEFORE then...  */
+  macosx_set_malloc_inited (1);
 
   if (inferior_auto_start_dyld_flag)
     {
@@ -1779,7 +1899,17 @@ macosx_ptrace_him (int pid)
 
   macosx_status->suspend_count = 0;
 
+  /* This set how many traps we expect before we get to the
+     PT_TRACEME trap we really care about.  When using just
+     "exec" in the shell, we'll get one for the shell exec'ing,
+     and one for the exec command.  For "arch" there's one more
+     for the "arch" command running.  */
+
+#ifdef USE_ARCH_FOR_EXEC
+  traps_expected = (start_with_shell_flag ? 3 : 1);
+#else
   traps_expected = (start_with_shell_flag ? 2 : 1);
+#endif
   startup_inferior (traps_expected);
 
   if (ptid_equal (inferior_ptid, null_ptid))
@@ -1812,7 +1942,8 @@ macosx_ptrace_him (int pid)
 }
 
 static void
-macosx_child_create_inferior (char *exec_file, char *allargs, char **env)
+macosx_child_create_inferior (char *exec_file, char *allargs, char **env,
+			      int from_tty)
 {
   if ((exec_bfd != NULL) &&
       (exec_bfd->xvec->flavour == bfd_target_pef_flavour
@@ -1822,22 +1953,20 @@ macosx_child_create_inferior (char *exec_file, char *allargs, char **env)
         ("Can't run a PEF binary - use LaunchCFMApp as the executable file.");
     }
 
+  /* It's not safe to call functions in the target until we've initialized
+     the libsystem malloc package.  So for now, mark it unsafe.  */
+  macosx_set_malloc_inited (0);
+
   fork_inferior (exec_file, allargs, env, macosx_ptrace_me, macosx_ptrace_him,
                  NULL, NULL);
   if (ptid_equal (inferior_ptid, null_ptid))
     return;
 
-  macosx_clear_start_breakpoint ();
-  dyld_init_paths (&macosx_status->dyld_status.path_info);
-
-  if (inferior_auto_start_dyld_flag)
-    {
-      macosx_dyld_init (&macosx_status->dyld_status, exec_bfd);
-    }
+  macosx_dyld_create_inferior_hook ();
 
   attach_flag = 0;
 
-  if (event_loop_p && target_can_async_p ())
+  if (target_can_async_p ())
     target_async (inferior_event_handler, 0);
 
   clear_proceed_status ();
@@ -1920,7 +2049,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      throw_exception (RETURN_QUIT);
+      deprecated_throw_reason (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -2254,302 +2383,52 @@ macosx_get_current_exception_event ()
   return exception_event;
 }
 
-/* Given a pathname to an application bundle
-   ("/Developer/Examples/AppKit/Sketch/build/Sketch.app")
-   find the full pathname to the executable inside the bundle.
-
-   We can find it by looking at the Contents/Info.plist or we
-   can fall back on the old reliable
-     Sketch.app -> Sketch/Contents/MacOS/Sketch
-   rule of thumb.  */
-
-char *
-macosx_filename_in_bundle (const char *filename, int mainline)
-{
-  const char *wrapper_name, *app_str, *wrapper_name_from_plist;
-  char *full_pathname;
-  int filename_len = strlen (filename);
-  int wrapper_name_len, full_pathname_len;
-  int has_final_slash = 0;
-
-  /* FIXME: For now, only do apps, if somebody has more energy
-     later, then can do the !mainline case, and handle .framework
-     and .bundle.  */
-
-  if (!mainline)
-    return NULL;
-
-  wrapper_name = strrchr (filename, '/');
-  if (wrapper_name == NULL)
-    wrapper_name = filename;
-  else
-    {
-
-      wrapper_name = wrapper_name + 1;
-      /* Somebody might have passed us "Foo/Foo.app/" */
-      if (*wrapper_name == '\0')
-        {
-          has_final_slash = 1;
-          wrapper_name -= 2;
-          while (wrapper_name != filename)
-            {
-              if (*wrapper_name == '/')
-                {
-                  wrapper_name += 1;
-                  break;
-                }
-              wrapper_name -= 1;
-            }
-        }
-    }
-
-  app_str = strstr (wrapper_name, ".app");
-  if (app_str != NULL)
-    {
-      wrapper_name_len = app_str - wrapper_name;
-    }
-  else
-    {
-      wrapper_name_len = strlen (wrapper_name) - has_final_slash;
-    }
-
-  /* Copy everything over everything up to the Contents/ directory . */
-  /* I know it seems silly to add /Contents/ up here but I wanted to
-     isolate the lameish "is there a / at the end of the string or not
-     logic up here.  */
-
-  full_pathname_len = filename_len + (1 - has_final_slash) +
-    strlen ("Contents") + 1;
-  full_pathname = xmalloc (full_pathname_len);
-  memcpy (full_pathname, filename, filename_len + 1);
-  if (has_final_slash)
-    strcat (full_pathname, "Contents");
-  else
-    strcat (full_pathname, "/Contents");
-
-  wrapper_name_from_plist = get_bundle_executable_from_plist (full_pathname);
-
-  /* Now copy on '/MacOS/EXECUTABLENAME' where we use either a name from the
-     plist or a name identical to the .app bundle directory name. */
-
-  if (wrapper_name_from_plist != NULL)
-    {
-      full_pathname = xrealloc (full_pathname, full_pathname_len +
-                                strlen ("/MacOS/") +
-                                strlen (wrapper_name_from_plist));
-      strcat (full_pathname, "/MacOS/");
-      strcat (full_pathname, wrapper_name_from_plist);
-      /* not xfree() - this memory malloc'ed by libxml2. */
-      free ((char *) wrapper_name_from_plist);
-    }
-  else
-    {
-      full_pathname = xrealloc (full_pathname, full_pathname_len +
-                                strlen ("/MacOS/") + strlen (wrapper_name));
-      strcat (full_pathname, "/MacOS/");
-      strncat (full_pathname, wrapper_name, wrapper_name_len);
-    }
-
-  return full_pathname;
-}
-
-/* Find an app bundle Info.plist XML file and use libxml2 to parse it. */
-/* The string returned (NULL if unsuccessful) has been malloc()'ed by
-   libxml2, so free() it, don't xfree() or xmfree() it.  */
-
-static const char *
-get_bundle_executable_from_plist (const char *pathname)
-{
-#if !defined (LIBXML2_IS_USABLE)
-  return NULL;
-#else
-  xmlDoc *doc = NULL;
-  xmlNode *root_element = NULL;
-  char *info_plist_name;
-  const char *exe_name = NULL;
-  struct stat s;
-
-  LIBXML_TEST_VERSION
-    info_plist_name =
-    xmalloc (strlen (pathname) + strlen ("/Info.plist") + 1);
-  strcpy (info_plist_name, pathname);
-  strcat (info_plist_name, "/Info.plist");
-
-  if (stat (info_plist_name, &s) != 0)
-    return NULL;
-
-  doc = xmlParseFile (info_plist_name);
-
-  xfree (info_plist_name);
-  if (doc == NULL)
-    return NULL;
-
-  root_element = xmlDocGetRootElement (doc);
-  if (root_element != NULL)
-    exe_name = find_executable_name_in_xml_tree (root_element);
-
-  xmlFreeDoc (doc);
-  xmlCleanupParser ();
-
-  return exe_name;
-#endif
-}
-
-/* Step through a libxml2 XML tree to find a CFBundleExecutable
-   key/value pair indicating the name of the executable in an
-   application bundle.  It'd be nice if there were a higher
-   level way of doing this but I don't want to add any
-   dependencies on Foundation-like things.. */
-
-#if defined (LIBXML2_IS_USABLE)
-static const char *
-find_executable_name_in_xml_tree (xmlNode * a_node)
-{
-  xmlNode *cur_node = NULL;
-  int just_saw_CFBundleExecutable = 0;
-  const char *ret;
-
-  for (cur_node = a_node; cur_node; cur_node = cur_node->next)
-    {
-      if (cur_node->type == XML_ELEMENT_NODE && cur_node->name)
-        {
-          xmlChar *contents = xmlNodeGetContent (cur_node);
-          if (strcmp (cur_node->name, "key") == 0
-              && strcmp (contents, "CFBundleExecutable") == 0)
-            {
-              just_saw_CFBundleExecutable = 1;
-              continue;
-            }
-          if (strcmp (cur_node->name, "string") == 0
-              && just_saw_CFBundleExecutable == 1)
-            {
-              return (const char *) contents;
-            }
-          just_saw_CFBundleExecutable = 0;
-        }
-      ret = find_executable_name_in_xml_tree (cur_node->children);
-      if (ret != NULL)
-        return ret;
-    }
-  return (NULL);
-}
-#endif
-
-
-
-char *unsafe_functions[] = {
+static char *macosx_unsafe_functions[] = {
   "malloc",
   "free",
   "szone_malloc",
   "szone_free",
-  NULL
+  "_class_lookupMethodAndLoadCache"
 };
 
-
-struct thread_is_safe_args
+static regex_t *macosx_unsafe_patterns = NULL;
+static int num_unsafe_patterns;
+ 
+int
+macosx_check_safe_call (void)
 {
-  struct thread_info *tp;
-  int *unsafe_p;
-};
+  /* If we haven't initialized the malloc library yet, don't even
+     try to call functions.  It is very unlikely to succeed...  */
+  if (macosx_get_malloc_inited () == 0)
+      return 0;
 
-static int
-do_check_is_thread_unsafe (void *argptr)
-{
-  struct thread_is_safe_args *args = (struct thread_is_safe_args *) argptr;
-  struct frame_info *fi;
-  struct thread_info *tp = args->tp;
-  int *unsafe_p = args->unsafe_p;
-
-  if (tp != NULL)
-    switch_to_thread (tp->ptid);
-
-  /* Look up the stack to make sure none of the malloc
-     calls that might hold the malloc lock are present.
-     We aren't going to crawl the whole stack, but just look
-     up a few levels.  */
-
-  fi = get_current_frame ();
-  if (!fi)
-    return -1;
-
-  while (frame_relative_level (fi) < 5)
+  if (macosx_unsafe_patterns == NULL)
     {
-      CORE_ADDR pc;
-      char *sym_name;
+      int i;
+      
+      num_unsafe_patterns = sizeof (macosx_unsafe_functions) / sizeof (char *);
+      macosx_unsafe_patterns = (regex_t *) 
+	xcalloc (num_unsafe_patterns, sizeof (regex_t));
 
-      pc = get_frame_pc (fi);
-
-
-      if (find_pc_partial_function (pc, &sym_name, NULL, NULL))
-        {
-          int i;
-          for (i = 0; unsafe_functions[i] != NULL; i++)
-            {
-              if (strcmp (sym_name, unsafe_functions[i]) == 0)
-                {
-                  ui_out_text (uiout, "Unsafe to call functions on thread ");
-		  ui_out_field_int (uiout, "thread", pid_to_thread_id (inferior_ptid));
-		  ui_out_text (uiout, ": ");
-                  ui_out_field_fmt (uiout, "reason", "function: %s on stack",
-                                    unsafe_functions[i]);
-		  ui_out_text (uiout, "\n");
-                  (*unsafe_p)++;
-		  break;
-                }
-            }
-        }
-
-      fi = get_prev_frame (fi);
-      if (!fi)
-        break;
+      for (i = 0; i < num_unsafe_patterns; i++)
+	{
+	  int err_code;
+	  err_code = regcomp (macosx_unsafe_patterns + i, 
+			      macosx_unsafe_functions[i],
+			      REG_EXTENDED|REG_NOSUB);
+	  if (err_code != 0)
+	    {
+	      char err_str[512];
+	      regerror (err_code, macosx_unsafe_patterns + i,
+				  err_str, 512);
+	      internal_error (__FILE__, __LINE__,
+			      "Couldn't compile unsafe call pattern %s, error %s", 
+			      macosx_unsafe_functions[i], err_str);
+	    }
+	}
     }
-  
-  return 1;
-}
-
-/* This is the "iterate_over_threads" callback function.  It increments
-   the int * stuffed into DATA if there is an unsafe function in the
-   first 5 frames of the stack for the thread pointed to by TP.  */
-
-static int
-safe_macosx_check_is_thread_unsafe (struct thread_info *tp, void *data)
-{
-  struct thread_is_safe_args args;
-  args.tp = tp;
-  args.unsafe_p = (int *) data;
-  struct cleanup *old_chain;
-  
-  old_chain = make_cleanup_restore_current_thread (inferior_ptid, 0);
-
-  catch_errors ((catch_errors_ftype *) do_check_is_thread_unsafe, &args,
-		"", RETURN_MASK_ERROR);
-
-  do_cleanups (old_chain);
-
-  return 0;
-}
-
-/* Check whether it is safe to call functions.  If scheduler locking
-   is turned off, we just check whether it is safe to call on the current
-   thread, but if it is turned on we check for all threads.  */
-
-static int
-macosx_check_safe_call ()
-{
-  int unsafe_p = 0;
-  
-  if (!scheduler_lock_on_p ())
-    safe_macosx_check_is_thread_unsafe (NULL, &unsafe_p);
-  else
-    {
-      struct cleanup *old_cleanups;
-      old_cleanups = make_cleanup_restore_current_thread (inferior_ptid, 0);
-      target_find_new_threads ();
-
-      iterate_over_threads (safe_macosx_check_is_thread_unsafe, &unsafe_p);
-      do_cleanups (old_cleanups);
-    }
-  return !unsafe_p;
+  return check_safe_call (macosx_unsafe_patterns, num_unsafe_patterns, 5, 
+			  CHECK_SCHEDULER_VALUE);
 }
 
 void
@@ -2572,23 +2451,228 @@ macosx_print_extra_stop_info (int code, CORE_ADDR address)
   ui_out_text (uiout, "\n");
 }
 
+/* Info for a random fork (actually a random process). When fork-based checkpoints
+   are fully functional, this can go away.  */
+
+/* static */ void
+cpfork_info (char *args, int from_tty)
+{
+  task_t itask;
+  int pid;
+  int total = 0;
+
+  if (args == NULL)
+    {
+      pid = ptid_get_pid (inferior_ptid);
+    }
+
+  macosx_lookup_task (args, &itask, &pid);
+  if (itask == TASK_NULL)
+    {
+      error ("unable to locate task with pid %d", pid);
+      return;
+    }
+
+ {
+    vm_address_t        address = 0;
+    vm_size_t           size = 0;
+    kern_return_t       err = 0;
+
+    while (1) {
+      mach_msg_type_number_t  count;
+      struct vm_region_submap_info_64 info;
+      natural_t nestingDepth;
+
+      count = VM_REGION_SUBMAP_INFO_COUNT_64;
+      err = vm_region_recurse_64(itask, &address, &size, &nestingDepth,
+				 (vm_region_info_64_t)&info,&count);
+      if (err == KERN_INVALID_ADDRESS) {
+	break;
+      } else if (err) {
+	mach_error("vm_region",err);
+	break; // reached last region
+      }
+
+      ++total;
+
+      if (info.protection & VM_PROT_WRITE)
+	{
+	  printf("addr 0x%x size 0x%x (", address, size);
+	  {
+	    int rslt;
+	    vm_offset_t mempointer;       /* local copy of inferior's memory */
+	    mach_msg_type_number_t memcopied;     /* for vm_read to use */
+
+	    rslt = mach_vm_read (itask, address, 16, &mempointer, &memcopied);
+
+	    if (rslt == KERN_SUCCESS)
+	      {
+		int i;
+
+		for (i = 0; i < 16; ++i)
+		  printf("%x ", ((unsigned char *) mempointer)[i]);
+	      }
+	  }
+	  printf(")\n");
+	}
+
+      if (info.is_submap) { // is it a submap?
+	nestingDepth++;
+      } else {
+	address = address+size;
+      }
+    }
+ }
+  printf ("%d regions total.\n", total);
+}
+
+/* Checkpoint support.  */
+
+/* Given a checkpoint, collect blocks of memory from the inferior and
+   save them in GDB. This is very inefficient, and should only be used
+   as a fallback.  */
+
+void
+direct_memcache_get (struct checkpoint *cp)
+{
+  task_t itask;
+  int kret;
+  int pid = cp->pid;
+  vm_address_t        address = 0;
+  vm_size_t           size = 0;
+  kern_return_t       err = 0;
+
+  kret = task_for_pid (mach_task_self (), pid, &itask);
+  if (kret != KERN_SUCCESS)
+    {
+      error ("Unable to locate task for process-id %d: %s.", pid,
+	     MACH_ERROR_STRING (kret));
+    }
+  if (itask == TASK_NULL)
+    {
+      error ("unable to locate task");
+      return;
+    }
+
+  while (1)
+    {
+      mach_msg_type_number_t  count;
+      struct vm_region_submap_info_64 info;
+      natural_t nesting_depth;
+
+      count = VM_REGION_SUBMAP_INFO_COUNT_64;
+      err = vm_region_recurse_64 (itask, &address, &size, &nesting_depth,
+				  (vm_region_info_64_t) &info, &count);
+      if (err == KERN_INVALID_ADDRESS)
+	{
+	  break;
+	}
+      else if (err)
+	{
+	  mach_error ("vm_region",err);
+	  break; // reached last region
+	}
+
+      if (info.protection & VM_PROT_WRITE)
+	{
+	  memcache_get (cp, address, size);
+	}
+      
+      if (info.is_submap)
+	nesting_depth++;
+      else
+	address += size;
+    }
+}
+
+/* Given a checkpoint, collect blocks of memory from the fork that is serving
+   as its "backing store", and install them into the current inferior.  */
+
+void
+fork_memcache_put (struct checkpoint *cp)
+{
+  task_t itask;
+  int kret;
+  int pid = cp->pid;
+  vm_address_t        address = 0;
+  vm_size_t           size = 0;
+  kern_return_t       err = 0;
+
+  kret = task_for_pid (mach_task_self (), pid, &itask);
+  if (kret != KERN_SUCCESS)
+    {
+      error ("Unable to locate task for process-id %d: %s.", pid,
+	     MACH_ERROR_STRING (kret));
+    }
+  if (itask == TASK_NULL)
+    {
+      error ("unable to locate task");
+      return;
+    }
+
+  while (1)
+    {
+      mach_msg_type_number_t  count;
+      struct vm_region_submap_info_64 info;
+      natural_t nesting_depth;
+
+      count = VM_REGION_SUBMAP_INFO_COUNT_64;
+      err = vm_region_recurse_64 (itask, &address, &size, &nesting_depth,
+				  (vm_region_info_64_t) &info, &count);
+      if (err == KERN_INVALID_ADDRESS)
+	{
+	  break;
+	}
+      else if (err)
+	{
+	  mach_error ("vm_region",err);
+	  break; // reached last region
+	}
+
+      if (info.protection & VM_PROT_WRITE)
+	{
+	  int rslt;
+	  vm_offset_t mempointer;       /* local copy of inferior's memory */
+	  mach_msg_type_number_t memcopied;     /* for vm_read to use */
+
+	  if (0)
+	    printf("count now %d addr 0x%x size 0x%x\n", count, address, size);
+	  
+	  rslt = mach_vm_read (itask, address, size, &mempointer, &memcopied);
+
+	  if (0)
+	    printf("rslt is %d, copied %d\n", rslt, memcopied);
+
+	  if (rslt == KERN_SUCCESS)
+	    {
+	      int err;
+	      target_write_memory_partial (address, (char *)mempointer, 
+                                           memcopied, &err);
+	    }
+	}
+      
+      if (info.is_submap)
+	nesting_depth++;
+      else
+	address += size;
+    }
+}
+
 void
 _initialize_macosx_inferior ()
 {
-  struct cmd_list_element *cmd;
-
   CHECK_FATAL (macosx_status == NULL);
   macosx_status = (struct macosx_inferior_status *)
     xmalloc (sizeof (struct macosx_inferior_status));
 
   macosx_inferior_reset (macosx_status);
 
-  dyld_init_paths (&macosx_status->dyld_status.path_info);
-  dyld_objfile_info_init (&macosx_status->dyld_status.current_info);
+  dyld_init_paths (&macosx_dyld_status.path_info);
+  dyld_objfile_info_init (&macosx_dyld_status.current_info);
 
   init_child_ops ();
-  macosx_child_ops = child_ops;
-  child_ops.to_can_run = NULL;
+  macosx_child_ops = deprecated_child_ops;
+  deprecated_child_ops.to_can_run = NULL;
 
   init_exec_ops ();
   macosx_exec_ops = exec_ops;
@@ -2608,6 +2692,8 @@ _initialize_macosx_inferior ()
     = macosx_enable_exception_callback;
   macosx_exec_ops.to_get_current_exception_event
     = macosx_get_current_exception_event;
+
+  macosx_complete_child_target (&macosx_exec_ops);
 
   /* We don't currently ever use the "macos-exec" target ops.
      Instead, just make them be the default exec_ops.  */
@@ -2638,7 +2724,8 @@ _initialize_macosx_inferior ()
   macosx_child_ops.to_thread_alive = macosx_child_thread_alive;
   macosx_child_ops.to_pid_to_str = macosx_pid_to_str;
   macosx_child_ops.to_load = NULL;
-  macosx_child_ops.to_xfer_memory = mach_xfer_memory;
+  macosx_child_ops.deprecated_xfer_memory = mach_xfer_memory;
+  macosx_child_ops.to_xfer_partial = mach_xfer_partial;
   macosx_child_ops.to_can_async_p = standard_can_async_p;
   macosx_child_ops.to_is_async_p = standard_is_async_p;
   macosx_child_ops.to_terminal_inferior = macosx_terminal_inferior;
@@ -2658,6 +2745,15 @@ _initialize_macosx_inferior ()
   macosx_child_ops.to_get_current_exception_event
     = macosx_get_current_exception_event;
 
+  macosx_child_ops.to_find_exception_catchpoints
+    = macosx_find_exception_catchpoints;
+  macosx_child_ops.to_enable_exception_callback
+    = macosx_enable_exception_callback;
+  macosx_child_ops.to_get_current_exception_event
+    = macosx_get_current_exception_event;
+
+  macosx_complete_child_target (&macosx_child_ops);
+
   add_target (&macosx_exec_ops);
   add_target (&macosx_child_ops);
 
@@ -2665,48 +2761,26 @@ _initialize_macosx_inferior ()
   inferior_debug (2, "GDB task: 0x%lx, pid: %d\n", mach_task_self (),
                   getpid ());
 
-  cmd =
-    add_set_cmd ("inferior-bind-exception-port", class_obscure, var_boolean,
-                 (char *) &inferior_bind_exception_port_flag,
-                 "Set if GDB should bind the task exception port.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_boolean_cmd ("inferior-bind-exception-port", class_obscure,
+			   &inferior_bind_exception_port_flag, _("\
+Set if GDB should bind the task exception port."), _("\
+Show if GDB should bind the task exception port."), NULL,
+			   NULL, NULL,
+			   &setlist, &showlist);
 
-  cmd = add_set_cmd ("inferior-handle-exceptions", class_obscure, var_boolean,
-                     (char *) &inferior_handle_exceptions_flag,
-                     "Set if GDB should handle exceptions or pass them to the UNIX handler.",
-                     &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_boolean_cmd ("inferior-ptrace", class_obscure,
+			   &inferior_ptrace_flag, _("\
+Set if GDB should attach to the subprocess using ptrace ()."), _("\
+Show if GDB should attach to the subprocess using ptrace ()."), NULL,
+			   NULL, NULL,
+			   &setlist, &showlist);
 
-  cmd = add_set_cmd ("inferior-handle-all-events", class_obscure, var_boolean,
-                     (char *) &inferior_handle_all_events_flag,
-                     "Set if GDB should immediately handle all exceptions upon each stop, "
-                     "or only the first received.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_boolean_cmd ("inferior-ptrace-on-attach", class_obscure,
+			   &inferior_ptrace_on_attach_flag, _("\
+Set if GDB should attach to the subprocess using ptrace ()."), _("\
+Show if GDB should attach to the subprocess using ptrace ()."), NULL,
+			   NULL, NULL,
+			   &setlist, &showlist);
 
-  cmd = add_set_cmd ("inferior-ptrace", class_obscure, var_boolean,
-                     (char *) &inferior_ptrace_flag,
-                     "Set if GDB should attach to the subprocess using ptrace ().",
-                     &setlist);
-  add_show_from_set (cmd, &showlist);
-
-  cmd = add_set_cmd ("inferior-ptrace-on-attach", class_obscure, var_boolean,
-                     (char *) &inferior_ptrace_on_attach_flag,
-                     "Set if GDB should attach to the subprocess using ptrace ().",
-                     &setlist);
-  add_show_from_set (cmd, &showlist);
-
-  cmd = add_set_cmd ("inferior-auto-start-dyld", class_obscure, var_boolean,
-                     (char *) &inferior_auto_start_dyld_flag,
-                     "Set if GDB should enable debugging of dyld shared libraries.",
-                     &setlist);
-  add_show_from_set (cmd, &showlist);
-  set_cmd_sfunc (cmd, macosx_set_auto_start_dyld);
-
-#if WITH_CFM
-  cmd = add_set_cmd ("inferior-auto-start-cfm", class_obscure, var_boolean,
-                     (char *) &inferior_auto_start_cfm_flag,
-                     "Set if GDB should enable debugging of CFM shared libraries.",
-                     &setlist);
-  add_show_from_set (cmd, &showlist);
-#endif /* WITH_CFM */
+  add_info ("fork", cpfork_info, "help");
 }

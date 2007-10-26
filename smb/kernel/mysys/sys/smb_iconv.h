@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved. 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_iconv.h,v 1.2 2004/12/13 00:25:17 lindak Exp $
  */
 #ifndef _SYS_SMB_ICONV_H_
 #define _SYS_SMB_ICONV_H_
@@ -38,6 +39,7 @@
 #define	ICONV_CNVNMAXLEN	31	/* maximum length of converter name */
 #define	ICONV_CSMAXDATALEN	1024	/* maximum size of data associated with cs pair */
 
+#define NO_SFM_CONVERSIONS	0	/* Do not use the SFM conversion tables */
 /*
  * Entry for cslist sysctl
  */
@@ -70,15 +72,7 @@ struct iconv_add_out {
 	int	ia_csid;
 };
 
-#ifndef KERNEL
-
-__BEGIN_DECLS
-
-int   kiconv_add_xlat_table(const char *, const char *, const u_char *);
-
-__END_DECLS
-
-#else /* !KERNEL */
+#ifdef KERNEL
 
 #include <sys/kobj.h>
 #include <sys/queue.h>			/* can't avoid that */
@@ -132,10 +126,10 @@ MALLOC_DECLARE(M_ICONV);
 int iconv_open(const char *to, const char *from, void **handle);
 int iconv_close(void *handle);
 int iconv_conv(void *handle, const char **inbuf,
-	size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+	size_t *inbytesleft, char **outbuf, size_t *outbytesleft, int flags);
 int iconv_add(const char *converter, const char *to, const char *from);
 
-char* iconv_convstr(void *handle, char *dst, const char *src, size_t len);
+char* iconv_convstr(void *handle, char *dst, const char *src, size_t len, int flags);
 void* iconv_convmem(void *handle, void *dst, const void *src, int size);
 
 /*

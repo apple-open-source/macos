@@ -84,10 +84,12 @@ public:
 	/* the bulk of the work */
 	void parseAttrs(CFStringRef subdir = NULL);
 	
-	/* parse a single file, by path URL */
+	/* parse a single file, by path URL -- throws on parse error */
 	void parseFile(CFURLRef theFileUrl, CFStringRef subdir = NULL);
 	
 	void setDefaults(const MDS_InstallDefaults *defaults) { mDefaults = defaults; }
+	
+	const char *guid()  { return mGuid; }
 	
 private:
 	void logFileError(
@@ -151,6 +153,8 @@ private:
 	MDSSession		&mDl;
 	CSSM_DB_HANDLE 	mObjectHand;
 	CSSM_DB_HANDLE 	mCdsaDirHand;
+	
+	char 			*mGuid;		// should this be a CFStringRef instead?
 	
 	// Guid/SSID defaults
 	const MDS_InstallDefaults *mDefaults;

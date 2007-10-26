@@ -1,21 +1,25 @@
 /*
  *  fetch.c
  *
- *  $Id: fetch.c,v 1.3 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: fetch.c,v 1.24 2006/12/11 14:21:48 source Exp $
  *
  *  Fetch query result
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -71,6 +75,7 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
 
 #include <sql.h>
@@ -87,7 +92,7 @@
 #include <itrace.h>
 #include <unicode.h>
 
-static SQLRETURN
+SQLRETURN
 SQLFetch_Internal (SQLHSTMT hstmt)
 {
   STMT (pstmt, hstmt);
@@ -121,11 +126,10 @@ SQLFetch_Internal (SQLHSTMT hstmt)
       PUSHSQLERR (pstmt->herr, en_S1010);
       return SQL_ERROR;
     }
+
 #if (ODBCVER >= 0x0300)
-  if (((ENV_t *) ((DBC_t *) pstmt->hdbc)->henv)->dodbc_ver ==
-      SQL_OV_ODBC2
-      && ((GENV_t *) ((DBC_t *) pstmt->hdbc)->genv)->odbc_ver ==
-      SQL_OV_ODBC3)
+  if (((ENV_t *) ((DBC_t *) pstmt->hdbc)->henv)->dodbc_ver ==  SQL_OV_ODBC2
+      && ((GENV_t *) ((DBC_t *) pstmt->hdbc)->genv)->odbc_ver == SQL_OV_ODBC3)
     {				
 	/* 
 	 *  Try to map SQLFetch to SQLExtendedFetch for ODBC3 app calling 
@@ -135,9 +139,10 @@ SQLFetch_Internal (SQLHSTMT hstmt)
 	 *  requires it 
 	 */
       hproc = _iodbcdm_getproc (pstmt->hdbc, en_ExtendedFetch);
+
       if (hproc)
 	{
-	  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ExtendedFetch,
+	  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
 	      (pstmt->dhstmt, SQL_FETCH_NEXT, 0, pstmt->rows_fetched_ptr,
 		  pstmt->row_status_ptr));
 	}
@@ -150,11 +155,10 @@ SQLFetch_Internal (SQLHSTMT hstmt)
       if (hproc == SQL_NULL_HPROC)
 	{
 	  PUSHSQLERR (pstmt->herr, en_IM001);
-
 	  return SQL_ERROR;
 	}
 
-      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_Fetch,
+      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
 	  (pstmt->dhstmt));
     }
 
@@ -225,7 +229,7 @@ SQLFetch (SQLHSTMT hstmt)
 
   retcode = SQLFetch_Internal (hstmt);
 
-  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+  if (SQL_SUCCEEDED (retcode))
     _iodbcdm_ConvBindData (pstmt);
 
   LEAVE_STMT (hstmt,
@@ -298,7 +302,7 @@ _iodbcdm_ExtendedFetch (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_ExtendedFetch,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, fFetchType, irow, pcrow, rgfRowStatus));
 
   /* state transition */
@@ -364,7 +368,7 @@ SQLExtendedFetch (
   retcode =
       _iodbcdm_ExtendedFetch (hstmt, fFetchType, irow, pcrow, rgfRowStatus);
 
-  if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+  if (SQL_SUCCEEDED (retcode))
     _iodbcdm_ConvBindData (pstmt);
 
   LEAVE_STMT (hstmt,
@@ -494,14 +498,6 @@ SQLGetData_Internal (
       return SQL_ERROR;
     }
 
-  /* call driver */
-  hproc = _iodbcdm_getproc (pstmt->hdbc, en_GetData);
-
-  if (hproc == SQL_NULL_HPROC)
-    {
-      PUSHSQLERR (pstmt->herr, en_IM001);
-      return SQL_ERROR;
-    }
 
   /*
    *  Convert C type to ODBC version of driver
@@ -514,7 +510,17 @@ SQLGetData_Internal (
       cbValueMax /= sizeof(wchar_t);
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_GetData,
+
+  /* call driver */
+  hproc = _iodbcdm_getproc (pstmt->hdbc, en_GetData);
+
+  if (hproc == SQL_NULL_HPROC)
+    {
+      PUSHSQLERR (pstmt->herr, en_IM001);
+      return SQL_ERROR;
+    }
+
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, icol, nCType, rgbValue, cbValueMax, pcbValue));
 
   /* state transition */
@@ -642,7 +648,7 @@ SQLMoreResults_Internal (SQLHSTMT hstmt)
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_MoreResults,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt));
 
   /* state transition */
@@ -809,7 +815,7 @@ _iodbcdm_SetPos (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_SetPos,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, irow, fOption, fLock));
 
   /* state transition */
@@ -856,10 +862,10 @@ _iodbcdm_SetPos (
 
 SQLRETURN SQL_API
 SQLSetPos (
-  SQLHSTMT	hstmt,
+  SQLHSTMT		  hstmt,
   SQLSETPOSIROW		  irow, 
-  SQLUSMALLINT	fOption, 
-  SQLUSMALLINT	fLock)
+  SQLUSMALLINT		  fOption, 
+  SQLUSMALLINT		  fLock)
 {
   ENTER_STMT (hstmt,
     trace_SQLSetPos (TRACE_ENTER,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,7 +38,7 @@
 // Construct a TokenDbCommon
 //
 TokenDbCommon::TokenDbCommon(Session &ssn, Token &tk, const char *name)
-	: DbCommon(ssn), mDbName(name ? name : ""), mResetLevel(0)
+	: DbCommon(ssn), mDbName(name ? name : ""), mHasAclState(false), mResetLevel(0)
 {
 	secdebug("tokendb", "creating tokendbcommon %p: with token %p", this, &tk);
 	parent(tk);
@@ -55,7 +55,7 @@ Token &TokenDbCommon::token() const
 	return parent<Token>();
 }
 
-const std::string &TokenDbCommon::dbName() const
+std::string TokenDbCommon::dbName() const
 {
 	return token().printName();
 }
@@ -69,25 +69,29 @@ Adornable &TokenDbCommon::store()
 	StLock<Mutex> _(*this);
 	
 	// if this is the first one, hook for lifetime
-	if (mAdornments.empty()) {
+	if (!mHasAclState) {
 		session().addReference(*this);		// hold and slave to SSN lifetime
 		token().addCommon(*this);			// register with Token
+		mHasAclState = true;
 	}
 
 	// return our (now active) adornments
-	return mAdornments;
+	return *this;
 }
 
 void TokenDbCommon::resetAcls()
 {
 	StLock<Mutex> _(*this);
-	if (!mAdornments.empty()) {
-		mAdornments.clearAdornments();		// clear ACL state
+	if (mHasAclState) {
+		clearAdornments();					// clear ACL state
 		session().removeReference(*this);	// unhook from SSN
+		mHasAclState = false;
 	}
 	token().removeCommon(*this);			// unregister from Token
 }
 
+
+//
 // Send out a "keychain" notification for this database
 //
 void TokenDbCommon::notify(NotificationEvent event)
@@ -124,12 +128,12 @@ TokenDatabase::TokenDatabase(uint32 ssid, Process &proc,
 	StLock<Mutex> _(session);
 	if (TokenDbCommon *dbcom = session.findFirst<TokenDbCommon, uint32>(&TokenDbCommon::subservice, ssid)) {
 		parent(*dbcom);
-		secdebug("tokendb", "open tokendb %p(%ld) at known common %p",
+		secdebug("tokendb", "open tokendb %p(%d) at known common %p",
 			this, subservice(), dbcom);
 	} else {
 		// DbCommon not present; make a new one
 		parent(*new TokenDbCommon(proc.session(), *token, name));
-		secdebug("tokendb", "open tokendb %p(%ld) with new common %p",
+		secdebug("tokendb", "open tokendb %p(%d) with new common %p",
 			this, subservice(), &common());
 	}
 	mOpenCreds = copy(cred, Allocator::standard());
@@ -167,15 +171,103 @@ bool TokenDatabase::transient() const
 }
 
 
+//
+// Our ObjectAcl resides in the Token object.
+//
 SecurityServerAcl &TokenDatabase::acl()
 {
 	return token();
 }
 
-bool TokenDatabase::isLocked() const
+
+//
+// We post-process the status version of getAcl to account for virtual (per-session)
+// PIN lock status.
+//
+void TokenDatabase::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
+{
+	AclSource::getAcl(tag, count, acls);
+	
+	for (unsigned n = 0; n < count; n++) {
+		AclEntryPrototype &proto = acls[n];
+		if (unsigned pin = pinFromAclTag(proto.tag(), "?")) {	// pin state response
+			secdebug("tokendb", "%p updating PIN%d state response", this, pin);
+			TypedList &subject = proto.subject();
+			// subject == { CSSM_WORID_PIN, pin-number, status [, count ] } # all numbers
+			if (subject.length() > 2
+				&& subject[0].is(CSSM_LIST_ELEMENT_WORDID)
+				&& subject[0] == CSSM_WORDID_PIN
+				&& subject[1].is(CSSM_LIST_ELEMENT_WORDID)
+				&& subject[2].is(CSSM_LIST_ELEMENT_WORDID)) {
+				uint32 pin = subject[1];
+				if (!common().attachment<PreAuthorizationAcls::AclState>((void *)pin).accepted) {
+					// we are not pre-authorized in this session
+					secdebug("tokendb", "%p session state forces PIN%d reporting unauthorized", this, pin);
+					uint32 status = subject[2];
+					status &= ~CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED;	// clear authorized bit
+					subject[2] = status;
+#if !defined(NDEBUG)
+				if (subject.length() > 3 && subject[3].is(CSSM_LIST_ELEMENT_WORDID))
+					secdebug("tokendb", "%p PIN%d count=%d", this, pin, subject[3].word());
+#endif //NDEBUG
+				}
+			}
+		}
+	}
+}
+
+
+bool TokenDatabase::isLocked()
 {
 	Access access(token());
-	return access().isLocked();
+	
+	bool lockState = pinState(1);
+//	bool lockState = access().isLocked();
+	
+	secdebug("tokendb", "returning isLocked=%d", lockState);
+	return lockState;
+}
+
+bool TokenDatabase::pinState(uint32 pin, int *pinCount /* = NULL */)
+{
+	uint32 count;
+	AclEntryInfo *acls;
+	this->getAcl("PIN1?", count, acls);
+	bool locked = true;	// preset locked
+	if (pinCount)
+		*pinCount = -1;		// preset unknown
+	switch (count) {
+	case 0:
+		secdebug("tokendb", "PIN%d query returned no entries", pin);
+		break;
+	default:
+		secdebug("tokendb", "PIN%d query returned multiple entries", pin);
+		break;
+	case 1:
+		{
+			TypedList &subject = acls[0].proto().subject();
+			if (subject.length() > 2
+				&& subject[0].is(CSSM_LIST_ELEMENT_WORDID)
+				&& subject[0] == CSSM_WORDID_PIN
+				&& subject[1].is(CSSM_LIST_ELEMENT_WORDID)
+				&& subject[2].is(CSSM_LIST_ELEMENT_WORDID)) {
+				uint32 status = subject[2];
+				locked = !(status & CSSM_ACL_PREAUTH_TRACKING_AUTHORIZED);
+				if (pinCount && locked && subject.length() > 3 && subject[3].is(CSSM_LIST_ELEMENT_WORDID))
+					*pinCount = subject[3];
+			}
+		}
+		break;
+	}
+	
+	// release memory allocated by getAcl
+	ChunkFreeWalker free;
+	for (uint32 n = 0; n < count; n++)
+			walk(free, acls[n]);
+	Allocator::standard().free(acls);
+
+	// return status
+	return locked;
 }
 
 
@@ -197,13 +289,13 @@ void TokenDatabase::dbName(const char *name)
 // local transient store.
 //
 RefPointer<Key> TokenDatabase::makeKey(KeyHandle hKey, const CssmKey *key,
-	const AclEntryPrototype *owner)
+	uint32 moreAttributes, const AclEntryPrototype *owner)
 {
 	switch (key->blobType()) {
 	case CSSM_KEYBLOB_REFERENCE:
 		return new TokenKey(*this, hKey, key->header());
 	case CSSM_KEYBLOB_RAW:
-		return process().makeTemporaryKey(*key, 0, owner);
+		return process().makeTemporaryKey(*key, moreAttributes, owner);
 	default:
 		CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);	// bad key return from tokend
 	}
@@ -359,7 +451,7 @@ void TokenDatabase::generateKey(const Context &context,
 	KeyHandle hKey;
 	CssmKey *result;
 	access().generateKey(context, cred, owner, usage, modattrs(attrs), hKey, result);
-	newKey = makeKey(hKey, result, owner);
+	newKey = makeKey(hKey, result, 0, owner);
 	DONE
 }
 
@@ -377,8 +469,8 @@ void TokenDatabase::generateKey(const Context &context,
 	access().generateKey(context, cred, owner,
 		pubUsage, modattrs(pubAttrs), privUsage, modattrs(privAttrs),
 		hPublic, pubKey, hPrivate, privKey);
-	publicKey = makeKey(hPublic, pubKey, owner);
-	privateKey = makeKey(hPrivate, privKey, owner);
+	publicKey = makeKey(hPublic, pubKey, 0, owner);
+	privateKey = makeKey(hPrivate, privKey, 0, owner);
 	DONE
 }
 
@@ -429,7 +521,7 @@ void TokenDatabase::unwrapKey(const Context &context,
 	access().unwrapKey(context, cred, owner,
 		cWrappingKey, cWrappingKey, cPublicKey, cPublicKey,
 		wrappedKey, usage, modattrs(attrs), descriptiveData, hKey, result);
-	unwrappedKey = makeKey(hKey, result, owner);
+	unwrappedKey = makeKey(hKey, result, modattrs(attrs) & LocalKey::managedAttributes, owner);
 	DONE
 }
 
@@ -458,7 +550,7 @@ void TokenDatabase::deriveKey(const Context &context, Key *sourceKey,
 		*param = params;
 		//@@@ leak? what's the rule here?
 	}
-	derivedKey = makeKey(hKey, result, owner);
+	derivedKey = makeKey(hKey, result, 0, owner);
 	DONE
 }
 
@@ -488,9 +580,7 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 	GUARD
 	if (mode != CSSM_DB_ACCESS_RESET && cred) {
 		secdebug("tokendb", "%p authenticate calling validate", this);
-		int pin;
-		if (sscanf(cred->EntryTag, "PIN%d", &pin) == 1)
-		{
+		if (unsigned pin = pinFromAclTag(cred->EntryTag)) {
 			validate(CSSM_ACL_AUTHORIZATION_PREAUTH(pin), cred);
 			notify(kNotificationEventUnlocked);
 			return;
@@ -505,14 +595,14 @@ void TokenDatabase::authenticate(CSSM_DB_ACCESS_TYPE mode, const AccessCredentia
 		notify(kNotificationEventLocked);
 		break;
 	default:
-	{
-		// no idea what that did to the token; 
-		// But let's remember the new creds for our own sake.
-		AccessCredentials *newCred = copy(cred, Allocator::standard());
-		Allocator::standard().free(mOpenCreds);
-		mOpenCreds = newCred;
+		{
+			// no idea what that did to the token; 
+			// But let's remember the new creds for our own sake.
+			AccessCredentials *newCred = copy(cred, Allocator::standard());
+			Allocator::standard().free(mOpenCreds);
+			mOpenCreds = newCred;
+		}
 		break;
-	}
 	}
 	DONE
 }

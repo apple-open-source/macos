@@ -1,4 +1,4 @@
-#   Copyright 1997, 1999, 2002 Free Software Foundation, Inc.
+# Copyright 1997, 1999, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,12 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-# Please email any bugs, comments, and/or additions to this file to:
-# bug-gdb@prep.ai.mit.edu
-
 if $tracelevel then {
-	strace $tracelevel
-	}
+    strace $tracelevel
+}
 
 set prms_id 0
 set bug_id 0
@@ -46,7 +43,6 @@ set srcfile2 ${testfile}2.c
 set binfile  ${objdir}/${subdir}/${testfile}
 set binfile2 ${objdir}/${subdir}/${testfile}2
 set escapedbinfile  [string_to_regexp ${objdir}/${subdir}/${testfile}]
-set cleanupfile ${objdir}/${subdir}/${testfile}.awk
 
 #execute_anywhere "rm -f ${binfile} ${binfile2}"
 remote_exec build "rm -f ${binfile} ${binfile2}"
@@ -54,10 +50,11 @@ remote_exec build "rm -f ${binfile} ${binfile2}"
 #
 #log_user 1
 
-# Clean out any old files from past runs.
+# build the first test case
 #
-# APPLE LOCAL: remove; does this script even exist?
-#remote_exec build "${cleanupfile}"
+#if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+#    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+#}
 
 # APPLE LOCAL: We need to test that the OSABI-selection code works
 # properly when attaching, which in turn means that we need to create
@@ -74,16 +71,13 @@ proc gdb_compile_fake_fat { source dest type options } {
     if { [ lindex $ret 0 ] != 0 } { return $ret }
     regsub "^.* executable (.*)\r\n$" [ lindex $ret 1 ] "\\1" arch
 
-    set ret [ gdb_compile "${source}" "${dest}.${arch}" ${type} ${options} ]
-    if { ${ret} != "" } { return $ret }
-
     set ret [ remote_exec build "rm -f ${dest}.hppa" ]
     if { [ lindex $ret 0 ] != 0 } { return $ret }
 
     set ret [ remote_exec build "touch ${dest}.hppa" ]
     if { [ lindex $ret 0 ] != 0 } { return $ret }
 
-    set ret [ remote_exec build "lipo -create -o ${dest} -arch hppa ${dest}.hppa -arch ${arch} ${dest}.${arch}" ]
+    set ret [ remote_exec build "lipo -create -o ${dest} -arch hppa ${dest}.hppa -arch ${arch} ${dest}" ]
     if { [ lindex $ret 0 ] != 0 } { return $ret }
 
     set ret [ remote_exec build "chmod a+x ${dest}" ]
@@ -404,59 +398,61 @@ proc do_attach_tests {} {
 }
 
 proc do_call_attach_tests {} {
-   global gdb_prompt
-   global binfile2
-
-   # Start the program running and then wait for a bit, to be sure
-   # that it can be attached to.
-   #
-   set testpid [eval exec $binfile2 &]
-   exec sleep 2
-
-   # Attach
-   #
-   gdb_test "file $binfile2" ".*" "force switch to gdb64, if necessary"
-   gdb_test "set verbose on" "" "set verbose on (3)"
-   send_gdb "attach $testpid\n"
-   gdb_expect {
-      -re ".*warning: reading register.*I.*O error.*$gdb_prompt $" {
-         fail "attach call, read register 3 error"
-     }
-     -re "Attaching to.*process $testpid.*lib.*$gdb_prompt $" {
-         pass "attach call"
-     }
-      -re "$gdb_prompt $" {fail "attach call"}
-      timeout         {fail "(timeout) attach call"}
-   }
-   gdb_test "set verbose off" "" "set verbose off (3)"
-
-   # See if other registers are problems
-   #
-   send_gdb "i r r3\n"
-   gdb_expect {
-       -re ".*warning: reading register.*$gdb_prompt $" {
-           pass "CHFts23490: known bug"
-       }
-       -re ".*r3.*$gdb_prompt $" {
-           pass "Bug fixed, Yayyy!"
-       }
-       timeout { fail "timeout on info reg" }
-   }
-
-   # Get rid of the process
-   #
-   gdb_test "p should_exit = 1" ".*"
-   gdb_test "c" ".*Program exited normally.*"
+    global gdb_prompt
+    global binfile2
+    
+    # Start the program running and then wait for a bit, to be sure
+    # that it can be attached to.
    
-   # Be paranoid
-   #
-    remote_exec build "kill -9 ${testpid}"
+    set testpid [eval exec $binfile2 &]
+    exec sleep 2
+    if { [istarget "*-*-cygwin*"] } {
+	# testpid is the Cygwin PID, GDB uses the Windows PID, which might be
+	# different due to the way fork/exec works.
+	set testpid [ exec ps -e | gawk "{ if (\$1 == $testpid) print \$4; }" ]
+    }
 
+    # Attach
+   
+    gdb_test "file $binfile2" "" "force switch to gdb64, if necessary"
+    set test "attach call"
+    gdb_test_multiple "attach $testpid" "$test" {
+	-re "warning: reading register.*I.*O error.*$gdb_prompt $" {
+	    fail "$test (read register error)"
+	}
+	-re "Attaching to.*process $testpid.*libc.*$gdb_prompt $" {
+	    pass "$test"
+	}
+	-re "Attaching to.*process $testpid.*\[Switching to thread $testpid\..*\].*$gdb_prompt $" {
+	    pass "$test"
+	}
+    }
+
+    # See if other registers are problems
+    
+    set test "info other register"
+    gdb_test_multiple "i r r3" "$test" {
+	-re "warning: reading register.*$gdb_prompt $" {
+	    fail "$test"
+	}
+	-re "r3.*$gdb_prompt $" {
+	    pass "$test"
+	}
+    }
+
+    # Get rid of the process
+    
+    gdb_test "p should_exit = 1"
+    gdb_test "c" "Program exited normally."
+   
+    # Be paranoid
+   
+    remote_exec build "kill -9 ${testpid}"
 }
 
 
 # Start with a fresh gdb
-#
+
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
@@ -468,11 +464,11 @@ if { ! [ istarget "*-apple-darwin*" ] } {
 }
 
 # This is a test of gdb's ability to attach to a running process.
-#
+
 do_attach_tests
 
 # Test attaching when the target is inside a system call
-#
+
 gdb_exit
 gdb_start
 

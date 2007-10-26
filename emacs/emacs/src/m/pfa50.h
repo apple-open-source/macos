@@ -1,5 +1,6 @@
 /* Machine description file for PFU A-series.
-   Copyright (C) 1988, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Define WORDS_BIG_ENDIAN iff lowest-numbered byte in a word
@@ -49,7 +50,7 @@ Boston, MA 02111-1307, USA.  */
 #define NO_REMAP
 
 /* Define TEXT_START_ADDR if your linker don't set execute point to _start.
-   If it needed, temacs always CORE-DUMP.	*/
+   If it needed, temacs always CORE-DUMP.  */
 
 #define TEXT_START_ADDR __start
 
@@ -64,18 +65,13 @@ Boston, MA 02111-1307, USA.  */
 #define LD_SWITCH_MACHINE -e __start
 
 #if	pfa50 || pfa70
-
 /* On A-50/60/70/80, data space has high order byte use. */
-#define VALBITS 26
-#define VALMASK (((1<<VALBITS) - 1) | 0x60000000)
-#define XTYPE(a) ((enum Lisp_Type) (((a) >> VALBITS) & GCTYPEMASK))
-
+#define DATA_SEG_BITS 0x60000000
 #endif /* pfa50, pfa70 */
 
 /* SX/A has alloca in the PW library.  */
 
 #define LIB_STANDARD -lPW -lc
-#define HAVE_ALLOCA
 
 /* SX/A uses terminfo and lib/curses   */
 
@@ -92,3 +88,6 @@ Boston, MA 02111-1307, USA.  */
 #define NO_SIOCTL_H
 
 #define BROKEN_SIGIO
+
+/* arch-tag: f3a127d5-790b-4c78-b6be-837139fb12c4
+   (do not change this comment) */

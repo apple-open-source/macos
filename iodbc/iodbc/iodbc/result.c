@@ -1,21 +1,25 @@
 /*
  *  result.c
  *
- *  $Id: result.c,v 1.3 2004/11/11 01:52:38 luesang Exp $
+ *  $Id: result.c,v 1.28 2007/01/05 12:22:39 source Exp $
  *
  *  Prepare for getting query result
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -186,16 +190,16 @@ SQLBindCol_Internal (
 
   if (icol != 0 && !penv->unicode_driver && nCType == SQL_C_WCHAR)
     {
-      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_BindCol,
+      CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
           (pstmt->dhstmt, icol, SQL_C_CHAR, rgbValue, 
            cbValueMax, pcbValue));
     }
   else
-    CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_BindCol,
+    CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
         (pstmt->dhstmt, icol, nCType, rgbValue, cbValueMax, pcbValue));
 
   if (icol != 0 && !penv->unicode_driver && nCType == SQL_C_WCHAR 
-      && (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO))
+      && SQL_SUCCEEDED (retcode))
     {
       BIND_t tbind;
 
@@ -320,8 +324,8 @@ SQLGetCursorName_Internal (
     }
 
   if (szCursor 
-      && (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-      &&  ((penv->unicode_driver && waMode != 'W') 
+      && SQL_SUCCEEDED (retcode)
+      && ((penv->unicode_driver && waMode != 'W') 
           || (!penv->unicode_driver && waMode == 'W')))
     {
       if (waMode != 'W')
@@ -366,6 +370,7 @@ SQLGetCursorName (
 }
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLGetCursorNameA (
   SQLHSTMT 		  hstmt,
@@ -411,6 +416,7 @@ SQLGetCursorNameW (SQLHSTMT hstmt,
     	hstmt,
 	szCursor, cbCursorMax, pcbCursor));
 }
+#endif
 
 
 static SQLRETURN 
@@ -442,7 +448,7 @@ SQLRowCount_Internal (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_RowCount,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, pcrow));
 
   return retcode;
@@ -502,7 +508,7 @@ _iodbcdm_NumResultCols (
       return SQL_ERROR;
     }
 
-  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, en_NumResultCols,
+  CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc,
       (pstmt->dhstmt, &ccol));
 
   /* state transition */
@@ -720,8 +726,8 @@ SQLDescribeCol_Internal (
     *pfSqlType = _iodbcdm_map_sql_type (*pfSqlType, genv->odbc_ver);
 
   if (szColName 
-      && (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-      &&  ((penv->unicode_driver && waMode != 'W') 
+      && SQL_SUCCEEDED (retcode)
+      && ((penv->unicode_driver && waMode != 'W') 
           || (!penv->unicode_driver && waMode == 'W')))
     {
       if (waMode != 'W')
@@ -818,6 +824,7 @@ SQLDescribeCol (SQLHSTMT hstmt,
 } 
 
 
+#if ODBCVER >= 0x0300
 SQLRETURN SQL_API
 SQLDescribeColA (SQLHSTMT hstmt,
     SQLUSMALLINT	  icol,
@@ -903,6 +910,7 @@ SQLDescribeColW (
 	pibScale,
 	pfNullable));
 }
+#endif
 
 
 SQLRETURN SQL_API
@@ -919,12 +927,15 @@ SQLColAttributes_Internal (
   STMT(pstmt, hstmt);
   CONN (pdbc, pstmt->hdbc);
   ENVR (penv, pdbc->henv);
-  HPROC hproc = SQL_NULL_HPROC;
+  HPROC hproc2 = SQL_NULL_HPROC;
+  HPROC hproc3 = SQL_NULL_HPROC;
   SQLRETURN retcode = SQL_SUCCESS;
   void * _Desc = NULL;
   void * descOut = rgbDesc;
   sqlstcode_t sqlstat = en_00000;
   SQLUSMALLINT new_attr = fDescType;
+  SQLUINTEGER odbc_ver = ((GENV_t *) pdbc->genv)->odbc_ver;
+  SQLUINTEGER dodbc_ver = ((ENV_t *) pdbc->henv)->dodbc_ver;
 
   /* check arguments */
   if (icol == 0 && fDescType != SQL_COLUMN_COUNT)
@@ -1021,13 +1032,20 @@ SQLColAttributes_Internal (
 
   if (penv->unicode_driver)
     {
-      /* SQL_XXX_W */
+      hproc2 = _iodbcdm_getproc (pdbc, en_ColAttributesW);
 #if (ODBCVER >= 0x0300)
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttributeW)) 
-          != SQL_NULL_HPROC)
+      hproc3 = _iodbcdm_getproc (pdbc, en_ColAttributeW);
+#endif
+
+      if (odbc_ver == SQL_OV_ODBC2 && 
+          (  dodbc_ver == SQL_OV_ODBC2
+           || (dodbc_ver == SQL_OV_ODBC3 && hproc2 != SQL_NULL_HPROC)))
+        hproc3 = SQL_NULL_HPROC;
+
+#if (ODBCVER >= 0x0300)
+      if (hproc3 != SQL_NULL_HPROC)
         {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttributeW, (
+          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc3, (
        	          pstmt->dhstmt, 
        	          icol, 
        	          new_attr, 
@@ -1036,13 +1054,17 @@ SQLColAttributes_Internal (
        	          pcbDesc, 
        	          pfDesc));
         }
-      else 
+      else
 #endif
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttributesW)) 
-          != SQL_NULL_HPROC)
         {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttributesW, (
+          if (hproc2 == SQL_NULL_HPROC)
+            {
+              _iodbcdm_FreeStmtParams(pstmt);
+              PUSHSQLERR (pstmt->herr, en_IM001);
+              return SQL_ERROR;
+            }
+
+          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc2, (
       	          pstmt->dhstmt, 
       	          icol, 
       	          fDescType, 
@@ -1050,18 +1072,30 @@ SQLColAttributes_Internal (
       	          cbDescMax, 
       	          pcbDesc, 
       	          pfDesc));
-       	}
+        }
     }
   else
     {
       /* SQL_XXX */
       /* SQL_XXX_A */
+      hproc2 = _iodbcdm_getproc (pdbc, en_ColAttributes);
+      if (hproc2 == SQL_NULL_HPROC)
+        hproc2 = _iodbcdm_getproc (pdbc, en_ColAttributesA);
 #if (ODBCVER >= 0x0300)
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttribute)) 
-          != SQL_NULL_HPROC)
+      hproc3 = _iodbcdm_getproc (pdbc, en_ColAttribute);
+      if (hproc3 == SQL_NULL_HPROC)
+        hproc3 = _iodbcdm_getproc (pdbc, en_ColAttributeA);
+#endif
+      
+      if (odbc_ver == SQL_OV_ODBC2 && 
+          (  dodbc_ver == SQL_OV_ODBC2
+           || (dodbc_ver == SQL_OV_ODBC3 && hproc2 != SQL_NULL_HPROC)))
+        hproc3 = SQL_NULL_HPROC;
+
+#if (ODBCVER >= 0x0300)
+      if (hproc3 != SQL_NULL_HPROC)
         {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttribute, (
+          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc3, (
        	          pstmt->dhstmt, 
        	          icol, 
        	          new_attr, 
@@ -1069,44 +1103,18 @@ SQLColAttributes_Internal (
        	          cbDescMax, 
        	          pcbDesc, 
        	          pfDesc));
-        }
-      else 
-#endif
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttributes)) 
-          != SQL_NULL_HPROC)
-        {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttributes, (
-      	          pstmt->dhstmt, 
-      	          icol, 
-      	          fDescType, 
-      	          descOut, 
-      	          cbDescMax, 
-      	          pcbDesc, 
-      	          pfDesc));
         }
       else
-#if (ODBCVER >= 0x0300)
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttributeA)) 
-          != SQL_NULL_HPROC)
-        {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttributeA, (
-       	          pstmt->dhstmt, 
-       	          icol, 
-       	          new_attr, 
-       	          descOut, 
-       	          cbDescMax, 
-       	          pcbDesc, 
-       	          pfDesc));
-        }
-      else 
 #endif
-      if ((hproc = _iodbcdm_getproc (pdbc, en_ColAttributesA)) 
-          != SQL_NULL_HPROC)
         {
-          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc, 
-               en_ColAttributesA, (
+          if (hproc2 == SQL_NULL_HPROC)
+            {
+              _iodbcdm_FreeStmtParams(pstmt);
+              PUSHSQLERR (pstmt->herr, en_IM001);
+              return SQL_ERROR;
+            }
+
+          CALL_DRIVER (pstmt->hdbc, pstmt, retcode, hproc2, (
       	          pstmt->dhstmt, 
       	          icol, 
       	          fDescType, 
@@ -1115,18 +1123,11 @@ SQLColAttributes_Internal (
       	          pcbDesc, 
       	          pfDesc));
         }
-    }
-
-  if (hproc == SQL_NULL_HPROC)
-    {
-      _iodbcdm_FreeStmtParams(pstmt);
-      PUSHSQLERR (pstmt->herr, en_IM001);
-      return SQL_ERROR;
     }
 
   if (rgbDesc 
-      && (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
-      &&  ((penv->unicode_driver && waMode != 'W') 
+      && SQL_SUCCEEDED (retcode)
+      && ((penv->unicode_driver && waMode != 'W') 
           || (!penv->unicode_driver && waMode == 'W')))
     {
       switch(fDescType)
@@ -1227,6 +1228,7 @@ SQLColAttributes (
 }
 
 
+#if ODBCVER >= 0x0300
 RETCODE SQL_API
 SQLColAttributesA (
   SQLHSTMT 		  statementHandle,
@@ -1297,3 +1299,4 @@ SQLColAttributesW (
 	rgbDesc, cbDescMax, pcbDesc, 
 	pfDesc));
 }
+#endif

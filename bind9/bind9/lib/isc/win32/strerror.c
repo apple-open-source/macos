@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: strerror.c,v 1.5.186.2.2.2 2004/03/08 09:05:01 marka Exp $ */
+/* $Id: strerror.c,v 1.6 2004/03/05 05:11:59 marka Exp $ */
 
 #include <config.h>
 

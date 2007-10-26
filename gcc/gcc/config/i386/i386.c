@@ -74,17 +74,26 @@ extern struct cpp_reader* parse_in;
    : 4)
 
 /* Processor costs (relative to an add) */
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
 static const
 struct processor_costs size_cost = {	/* costs for tunning for size */
-  2,					/* cost of an add instruction */
-  3,					/* cost of a lea instruction */
-  2,					/* variable shift costs */
-  3,					/* constant shift costs */
-  {3, 3, 3, 3, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (2),			/* cost of an add instruction */
+  COSTS_N_INSNS (3),			/* cost of a lea instruction */
+  COSTS_N_INSNS (2),			/* variable shift costs */
+  COSTS_N_INSNS (3),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (3),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (3),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {3, 3, 3, 3, 5},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  3,					/* cost of movzx */
+  {COSTS_N_INSNS (3),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (3),			/*                          HI */
+   COSTS_N_INSNS (3),			/*                          SI */
+   COSTS_N_INSNS (3),			/*                          DI */
+   COSTS_N_INSNS (5)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (3),			/* cost of movzx */
   0,					/* "large" insn */
   2,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -110,26 +119,34 @@ struct processor_costs size_cost = {	/* costs for tunning for size */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  2,					/* cost of FADD and FSUB insns.  */
-  2,					/* cost of FMUL instruction.  */
-  2,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  2,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (2),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FSQRT instruction.  */
 };
 
 /* Processor costs (relative to an add) */
 static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  3,					/* variable shift costs */
-  2,					/* constant shift costs */
-  {6, 6, 6, 6, 6},			/* cost of starting a multiply */
-  1,					/* cost of multiply per each bit set */
-  {23, 23, 23, 23, 23},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (3),			/* variable shift costs */
+  COSTS_N_INSNS (2),			/* constant shift costs */
+  {COSTS_N_INSNS (6),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (6),			/*                               HI */
+   COSTS_N_INSNS (6),			/*                               SI */
+   COSTS_N_INSNS (6),			/*                               DI */
+   COSTS_N_INSNS (6)},			/*                               other */
+  COSTS_N_INSNS (1),			/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (23),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (23),			/*                          HI */
+   COSTS_N_INSNS (23),			/*                          SI */
+   COSTS_N_INSNS (23),			/*                          DI */
+   COSTS_N_INSNS (23)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   15,					/* "large" insn */
   3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -155,25 +172,33 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  23,					/* cost of FADD and FSUB insns.  */
-  27,					/* cost of FMUL instruction.  */
-  88,					/* cost of FDIV instruction.  */
-  22,					/* cost of FABS instruction.  */
-  24,					/* cost of FCHS instruction.  */
-  122,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (23),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (27),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (88),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (22),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (24),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (122),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs i486_cost = {	/* 486 specific costs */
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  3,					/* variable shift costs */
-  2,					/* constant shift costs */
-  {12, 12, 12, 12, 12},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (3),			/* variable shift costs */
+  COSTS_N_INSNS (2),			/* constant shift costs */
+  {COSTS_N_INSNS (12),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (12),			/*                               HI */
+   COSTS_N_INSNS (12),			/*                               SI */
+   COSTS_N_INSNS (12),			/*                               DI */
+   COSTS_N_INSNS (12)},			/*                               other */
   1,					/* cost of multiply per each bit set */
-  {40, 40, 40, 40, 40},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (40),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (40),			/*                          HI */
+   COSTS_N_INSNS (40),			/*                          SI */
+   COSTS_N_INSNS (40),			/*                          DI */
+   COSTS_N_INSNS (40)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   15,					/* "large" insn */
   3,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -199,25 +224,33 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  8,					/* cost of FADD and FSUB insns.  */
-  16,					/* cost of FMUL instruction.  */
-  73,					/* cost of FDIV instruction.  */
-  3,					/* cost of FABS instruction.  */
-  3,					/* cost of FCHS instruction.  */
-  83,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (16),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (73),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (83),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentium_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  4,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {11, 11, 11, 11, 11},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (4),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (11),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (11),			/*                               HI */
+   COSTS_N_INSNS (11),			/*                               SI */
+   COSTS_N_INSNS (11),			/*                               DI */
+   COSTS_N_INSNS (11)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {25, 25, 25, 25, 25},			/* cost of a divide/mod */
-  3,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (25),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (25),			/*                          HI */
+   COSTS_N_INSNS (25),			/*                          SI */
+   COSTS_N_INSNS (25),			/*                          DI */
+   COSTS_N_INSNS (25)},			/*                          other */
+  COSTS_N_INSNS (3),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
   6,					/* MOVE_RATIO */
   6,					/* cost for loading QImode using movzbl */
@@ -243,25 +276,33 @@ struct processor_costs pentium_cost = {
   0,					/* size of prefetch block */
   0,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  3,					/* cost of FADD and FSUB insns.  */
-  3,					/* cost of FMUL instruction.  */
-  39,					/* cost of FDIV instruction.  */
-  1,					/* cost of FABS instruction.  */
-  1,					/* cost of FCHS instruction.  */
-  70,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (3),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (39),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (1),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (1),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (70),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentiumpro_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {4, 4, 4, 4, 4},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (4),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (4),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (4)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {17, 17, 17, 17, 17},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (17),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (17),			/*                          HI */
+   COSTS_N_INSNS (17),			/*                          SI */
+   COSTS_N_INSNS (17),			/*                          DI */
+   COSTS_N_INSNS (17)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   6,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -287,25 +328,33 @@ struct processor_costs pentiumpro_cost = {
   32,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  3,					/* cost of FADD and FSUB insns.  */
-  5,					/* cost of FMUL instruction.  */
-  56,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  56,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (5),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs k6_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {3, 3, 3, 3, 3},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (3),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (3),			/*                               DI */
+   COSTS_N_INSNS (3)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 18, 18, 18, 18},			/* cost of a divide/mod */
-  2,					/* cost of movsx */
-  2,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (18),			/*                          HI */
+   COSTS_N_INSNS (18),			/*                          SI */
+   COSTS_N_INSNS (18),			/*                          DI */
+   COSTS_N_INSNS (18)},			/*                          other */
+  COSTS_N_INSNS (2),			/* cost of movsx */
+  COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
   4,					/* MOVE_RATIO */
   3,					/* cost for loading QImode using movzbl */
@@ -331,25 +380,33 @@ struct processor_costs k6_cost = {
   32,					/* size of prefetch block */
   1,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  2,					/* cost of FADD and FSUB insns.  */
-  2,					/* cost of FMUL instruction.  */
-  56,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  56,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (2),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs athlon_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {5, 5, 5, 5, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (5),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (5),			/*                               HI */
+   COSTS_N_INSNS (5),			/*                               SI */
+   COSTS_N_INSNS (5),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -375,25 +432,33 @@ struct processor_costs athlon_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   5,					/* Branch cost */
-  4,					/* cost of FADD and FSUB insns.  */
-  4,					/* cost of FMUL instruction.  */
-  24,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  35,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (24),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs k8_cost = {
-  1,					/* cost of an add instruction */
-  2,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {3, 4, 3, 4, 5},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (2),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (5)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {18, 26, 42, 74, 74},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   8,					/* "large" insn */
   9,					/* MOVE_RATIO */
   4,					/* cost for loading QImode using movzbl */
@@ -419,25 +484,33 @@ struct processor_costs k8_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   5,					/* Branch cost */
-  4,					/* cost of FADD and FSUB insns.  */
-  4,					/* cost of FMUL instruction.  */
-  19,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  35,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (4),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (4),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (19),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs pentium4_cost = {
-  1,					/* cost of an add instruction */
-  3,					/* cost of a lea instruction */
-  4,					/* variable shift costs */
-  4,					/* constant shift costs */
-  {15, 15, 15, 15, 15},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (3),			/* cost of a lea instruction */
+  COSTS_N_INSNS (4),			/* variable shift costs */
+  COSTS_N_INSNS (4),			/* constant shift costs */
+  {COSTS_N_INSNS (15),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (15),			/*                               HI */
+   COSTS_N_INSNS (15),			/*                               SI */
+   COSTS_N_INSNS (15),			/*                               DI */
+   COSTS_N_INSNS (15)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {56, 56, 56, 56, 56},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (56),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (56),			/*                          HI */
+   COSTS_N_INSNS (56),			/*                          SI */
+   COSTS_N_INSNS (56),			/*                          DI */
+   COSTS_N_INSNS (56)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   16,					/* "large" insn */
   6,					/* MOVE_RATIO */
   2,					/* cost for loading QImode using movzbl */
@@ -463,25 +536,33 @@ struct processor_costs pentium4_cost = {
   64,					/* size of prefetch block */
   6,					/* number of parallel prefetches */
   2,					/* Branch cost */
-  5,					/* cost of FADD and FSUB insns.  */
-  7,					/* cost of FMUL instruction.  */
-  43,					/* cost of FDIV instruction.  */
-  2,					/* cost of FABS instruction.  */
-  2,					/* cost of FCHS instruction.  */
-  43,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (5),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (7),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (43),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (43),			/* cost of FSQRT instruction.  */
 };
 
 static const
 struct processor_costs nocona_cost = {
-  1,					/* cost of an add instruction */
-  1,					/* cost of a lea instruction */
-  1,					/* variable shift costs */
-  1,					/* constant shift costs */
-  {10, 10, 10, 10, 10},			/* cost of starting a multiply */
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (10),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (10),			/*                               HI */
+   COSTS_N_INSNS (10),			/*                               SI */
+   COSTS_N_INSNS (10),			/*                               DI */
+   COSTS_N_INSNS (10)},			/*                               other */
   0,					/* cost of multiply per each bit set */
-  {66, 66, 66, 66, 66},			/* cost of a divide/mod */
-  1,					/* cost of movsx */
-  1,					/* cost of movzx */
+  {COSTS_N_INSNS (66),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (66),			/*                          HI */
+   COSTS_N_INSNS (66),			/*                          SI */
+   COSTS_N_INSNS (66),			/*                          DI */
+   COSTS_N_INSNS (66)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
   16,					/* "large" insn */
   /* APPLE LOCAL 4217585 FSF deferred until stage 1 */
   17,	   				/* MOVE_RATIO */
@@ -508,13 +589,186 @@ struct processor_costs nocona_cost = {
   128,					/* size of prefetch block */
   8,					/* number of parallel prefetches */
   1,					/* Branch cost */
-  6,					/* cost of FADD and FSUB insns.  */
-  8,					/* cost of FMUL instruction.  */
-  40,					/* cost of FDIV instruction.  */
-  3,					/* cost of FABS instruction.  */
-  3,					/* cost of FCHS instruction.  */
-  44,					/* cost of FSQRT instruction.  */
+  COSTS_N_INSNS (6),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (44),			/* cost of FSQRT instruction.  */
 };
+
+/* Generic64 should produce code tuned for Nocona and K8.  */
+static const
+struct processor_costs generic64_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  /* On all chips taken into consideration lea is 2 cycles and more.  With
+     this cost however our current implementation of synth_mult results in
+     use of unnecesary temporary registers causing regression on several
+     SPECfp benchmarks.  */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  /* Benchmarks shows large regressions on K8 sixtrack benchmark when this value
+     is increased to perhaps more appropriate value of 5.  */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+};
+
+/* Generic32 should produce code tuned for Athlon, PPro, Pentium4, Nocona and K8.  */
+static const
+struct processor_costs generic32_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+};
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
+/* APPLE LOCAL begin apple cpu  */
+/* The apple processor should have costs similar to generic and nocona.  */
+static const
+struct processor_costs apple_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  /* On all chips taken into consideration lea is 2 cycles and more.  With
+     this cost however our current implementation of synth_mult results in
+     use of unnecesary temporary registers causing regression on several
+     SPECfp benchmarks.  */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*                               HI */
+   COSTS_N_INSNS (3),			/*                               SI */
+   COSTS_N_INSNS (4),			/*                               DI */
+   COSTS_N_INSNS (2)},			/*                               other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*                          HI */
+   COSTS_N_INSNS (42),			/*                          SI */
+   COSTS_N_INSNS (74),			/*                          DI */
+   COSTS_N_INSNS (74)},			/*                          other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of loading integer registers */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  /* Benchmarks shows large regressions on K8 sixtrack benchmark when this value
+     is increased to perhaps more appropriate value of 5.  */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+};
+/* APPLE LOCAL end apple cpu */
 
 const struct processor_costs *ix86_cost = &pentium_cost;
 
@@ -557,54 +811,85 @@ static GTY(()) tree V4DF_type_node;
 #define m_K8  (1<<PROCESSOR_K8)
 #define m_ATHLON_K8  (m_K8 | m_ATHLON)
 #define m_NOCONA  (1<<PROCESSOR_NOCONA)
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+#define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
+#define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
+#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
-const int x86_use_leave = m_386 | m_K6 | m_ATHLON_K8;
-const int x86_push_memory = m_386 | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+/* Generic instruction choice should be common subset of supported CPUs
+   (PPro/PENT4/NOCONA/Athlon/K8).  */
+
+/* Leave is not affecting Nocona SPEC2000 results negatively, so enabling for
+   Generic seems like good code size tradeoff.  */
+const int x86_use_leave = m_386 | m_K6 | m_ATHLON_K8 | m_GENERIC;
+const int x86_push_memory = m_386 | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
 const int x86_zero_extend_with_and = m_486 | m_PENT;
-const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA /* m_386 | m_K6 */;
+const int x86_movx = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA | m_GENERIC /* m_386 | m_K6 */;
 const int x86_double_with_add = ~m_386;
 const int x86_use_bit_test = m_386;
-const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6;
+const int x86_unroll_strlen = m_486 | m_PENT | m_PPRO | m_ATHLON_K8 | m_K6 | m_GENERIC;
 const int x86_cmove = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-/* APPLE LOCAL mainline 2005-03-16 4054919 */
-const int x86_fisttp = m_NOCONA;
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
+/* APPLE LOCAL mainline 4054919 4632262 */
+/* Deleted something here.  */
 const int x86_3dnow_a = m_ATHLON_K8;
-const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
+/* APPLE LOCAL mainline */
+const int x86_deep_branch = m_PPRO | m_K6 | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
 /* Branch hints were put in P4 based on simulation result. But
    after P4 was made, no performance benefit was observed with
    branch hints. It also increases the code size. As the result,
    icc never generates branch hints.  */
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
 const int x86_branch_hints = 0;
-const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA;
+const int x86_use_sahf = m_PPRO | m_K6 | m_PENT4 | m_NOCONA; /*m_GENERIC | m_ATHLON_K8 ? */
+/* We probably ought to watch for partial register stalls on Generic32
+   compilation setting as well.  However in current implementation the
+   partial register stalls are not eliminated very well - they can
+   be introduced via subregs synthetized by combine and can happen
+   in caller/callee saving sequences.
+   Because this option pays back little on PPro based chips and is in conflict
+   with partial reg. dependencies used by Athlon/P4 based chips, it is better
+   to leave it off for generic32 for now.  */
 const int x86_partial_reg_stall = m_PPRO;
 const int x86_use_loop = m_K6;
-const int x86_use_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT);
+const int x86_use_fiop = ~(m_PPRO | m_ATHLON_K8 | m_PENT | m_GENERIC);
 const int x86_use_mov0 = m_K6;
-const int x86_use_cltd = ~(m_PENT | m_K6);
+const int x86_use_cltd = ~(m_PENT | m_K6 | m_GENERIC);
 const int x86_read_modify_write = ~m_PENT;
 const int x86_read_modify = ~(m_PENT | m_PPRO);
 const int x86_split_long_moves = m_PPRO;
-const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON_K8;
+const int x86_promote_QImode = m_K6 | m_PENT | m_386 | m_486 | m_ATHLON_K8 | m_GENERIC; /* m_PENT4 ? */
 const int x86_fast_prefix = ~(m_PENT | m_486 | m_386);
 const int x86_single_stringop = m_386 | m_PENT4 | m_NOCONA;
 const int x86_qimode_math = ~(0);
 const int x86_promote_qi_regs = 0;
+/* On PPro this flag is meant to avoid partial register stalls.  Just like
+   the x86_partial_reg_stall this option might be considered for Generic32
+   if our scheme for avoiding partial stalls was more effective.  */
 const int x86_himode_math = ~(m_PPRO);
 const int x86_promote_hi_regs = m_PPRO;
-const int x86_sub_esp_4 = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA;
-const int x86_sub_esp_8 = m_ATHLON_K8 | m_PPRO | m_386 | m_486 | m_PENT4 | m_NOCONA;
-const int x86_add_esp_4 = m_ATHLON_K8 | m_K6 | m_PENT4 | m_NOCONA;
-const int x86_add_esp_8 = m_ATHLON_K8 | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4 | m_NOCONA;
-const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO);
-const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO;
-const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO;
-const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO;
-const int x86_decompose_lea = m_PENT4 | m_NOCONA;
+const int x86_sub_esp_4 = m_ATHLON_K8 | m_PPRO | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_sub_esp_8 = m_ATHLON_K8 | m_PPRO | m_386 | m_486 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_add_esp_4 = m_ATHLON_K8 | m_K6 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_add_esp_8 = m_ATHLON_K8 | m_PPRO | m_K6 | m_386 | m_486 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_integer_DFmode_moves = ~(m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC);
+const int x86_partial_reg_dependency = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_memory_mismatch_stall = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_accumulate_outgoing_args = m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC;
+const int x86_prologue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
+const int x86_epilogue_using_move = m_ATHLON_K8 | m_PPRO | m_GENERIC;
 const int x86_shift1 = ~m_486;
-const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_sse_partial_reg_dependency = m_PENT4 | m_NOCONA | m_PPRO;
+const int x86_arch_always_fancy_math_387 = m_PENT | m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+/* In Generic model we have an confict here in between PPro/Pentium4 based chips
+   that thread 128bit SSE registers as single units versus K8 based chips that
+   divide SSE registers to two 64bit halves.
+   x86_sse_partial_reg_dependency promote all store destinations to be 128bit
+   to allow register renaming on 128bit SSE units, but usually results in one
+   extra microop on 64bit SSE units.  Experimental results shows that disabling
+   this option on P4 brings over 20% SPECfp regression, while enabling it on
+   K8 brings roughly 2.4% regression that can be partly masked by careful scheduling
+   of moves.  */
+const int x86_sse_partial_reg_dependency = m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC;
 /* Set for machines where the type and dependencies are resolved on SSE
    register parts instead of whole registers, so we may maintain just
    lower part of scalar values in proper format leaving the upper part
@@ -614,17 +899,22 @@ const int x86_sse_typeless_stores = m_ATHLON_K8;
 const int x86_sse_load0_by_pxor = m_PPRO | m_PENT4 | m_NOCONA;
 const int x86_use_ffreep = m_ATHLON_K8;
 const int x86_rep_movl_optimal = m_386 | m_PENT | m_PPRO | m_K6;
+/* APPLE LOCAL begin radar 4577796. */
+const int x86_use_incdec = ~(m_PENT4 | m_NOCONA);
+/* APPLE LOCAL end radar 4577796. */
 
 /* ??? Allowing interunit moves makes it all too easy for the compiler to put
    integer data in xmm registers.  Which results in pretty abysmal code.  */
 const int x86_inter_unit_moves = 0 /* ~(m_ATHLON_K8) */;
 
-const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPRO;
+const int x86_ext_80387_constants = m_K6 | m_ATHLON | m_PENT4 | m_NOCONA | m_PPRO | m_GENERIC32;
 /* Some CPU cores are not able to predict more than 4 branch instructions in
    the 16 byte window.  */
-const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA;
-const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT;
+const int x86_four_jump_limit = m_PPRO | m_ATHLON_K8 | m_PENT4 | m_NOCONA | m_GENERIC;
+const int x86_schedule = m_PPRO | m_ATHLON_K8 | m_K6 | m_PENT | m_GENERIC;
 const int x86_use_bt = m_ATHLON_K8;
+const int x86_pad_returns = m_ATHLON_K8 | m_GENERIC;
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -664,7 +954,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
 
 /* The "default" register map used in 32bit mode.  */
 
-int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const dbx_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 2, 1, 3, 6, 7, 4, 5,		/* general regs */
   12, 13, 14, 15, 16, 17, 18, 19,	/* fp regs */
@@ -673,7 +964,9 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  8					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 static int const x86_64_int_parameter_registers[6] =
 {
@@ -687,7 +980,8 @@ static int const x86_64_int_return_registers[4] =
 };
 
 /* The "default" register map used in 64bit mode.  */
-int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const dbx64_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 1, 2, 3, 4, 5, 6, 7,		/* general regs */
   33, 34, 35, 36, 37, 38, 39, 40,	/* fp regs */
@@ -696,7 +990,9 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
   25, 26, 27, 28, 29, 30, 31, 32,	/* extended SSE registers */
+  16					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Define the register numbers to be used in Dwarf debugging information.
    The SVR4 reference port C compiler uses the following register numbers
@@ -752,7 +1048,8 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 	17 for %st(6) (gcc regno = 14)
 	18 for %st(7) (gcc regno = 15)
 */
-int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER+1] =
 {
   0, 2, 1, 3, 6, 7, 5, 4,		/* general regs */
   11, 12, 13, 14, 15, 16, 17, 18,	/* fp regs */
@@ -761,13 +1058,17 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  8					/* return column */
 };
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* Test and compare insns in i386.md store the information needed to
    generate branch and scc insns here.  */
 
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
+/* APPLE LOCAL mainline */
+rtx ix86_compare_emitted = NULL_RTX;
 
 #define MAX_386_STACK_LOCALS 3
 /* Size of the register save area.  */
@@ -869,6 +1170,25 @@ const char *ix86_align_jumps_string;
 /* Power of two alignment for stack boundary in bytes.  */
 const char *ix86_preferred_stack_boundary_string;
 
+/* APPLE LOCAL begin 4356747 stack realign */
+/* -mstackrealign option */
+/* extern *//* Note #1 to merger: This decl will move to "i386.opt" in
+	       the next FSF merge, and then we'll need an 'extern'
+	       here.  */
+const char *ix86_force_align_arg_pointer;
+static const char ix86_force_align_arg_pointer_string[] = "force_align_arg_pointer";
+/* Note #2 to merger: The -mstackrealign stuff was submitted to FSF trunk
+on 10feb2006: http://gcc.gnu.org/ml/gcc-patches/2006-02/msg00854.html
+Apple needed this enhancement promptly (before the FSF acted on that patch), so
+A) I copied in a previous, necessary trunk patch:
+   http://gcc.gnu.org/ml/gcc-patches/2005-10/msg00931.html
+   This patch is marked "mainline 2006-02-17 4356747 stack realign".
+B) I added my own patch (URL above), marked "4356747 stack realign".
+C) I had to modify my patch to work without the "i386.opt" file (I was too lazy
+to merge this non-trivial change into Apple's Curry branch).
+HTH.  */
+/* APPLE LOCAL end 4356747 stack realign */
+
 /* Preferred alignment for stack boundary in bits.  */
 unsigned int ix86_preferred_stack_boundary;
 
@@ -963,11 +1283,8 @@ static rtx ix86_struct_value_rtx (tree, int);
 static bool ix86_ms_bitfield_layout_p (tree);
 static tree ix86_handle_struct_attribute (tree *, tree, tree, int, bool *);
 static int extended_reg_mentioned_1 (rtx *, void *);
-/* APPLE LOCAL begin why is this local? */
-#if TARGET_MACHO
-static bool ix86_binds_local_p (tree);
-#endif
-/* APPLE LOCAL end why is this local? */
+/* APPLE LOCAL begin mainline remove x86_binds_local_p  */
+/* APPLE LOCAL end mainline */
 static bool ix86_rtx_costs (rtx, int, int, int *);
 static int min_insn_size (rtx);
 static tree ix86_md_asm_clobbers (tree clobbers);
@@ -976,6 +1293,11 @@ static bool ix86_pass_by_reference (CUMULATIVE_ARGS *, enum machine_mode,
 				    tree, bool);
 static void ix86_init_builtins (void);
 static rtx ix86_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
+
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+static rtx ix86_internal_arg_pointer (void);
+static void ix86_dwarf_handle_frame_unspec (const char *, rtx, int);
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 /* This function is only used on Solaris.  */
 static void i386_solaris_elf_named_section (const char *, unsigned int, tree)
@@ -1079,12 +1401,12 @@ static void init_ext_80387_constants (void);
 #undef TARGET_MS_BITFIELD_LAYOUT_P
 #define TARGET_MS_BITFIELD_LAYOUT_P ix86_ms_bitfield_layout_p
 
-/* APPLE LOCAL begin why is this local? */
+/* APPLE LOCAL begin mainline */
 #if TARGET_MACHO
 #undef TARGET_BINDS_LOCAL_P
-#define TARGET_BINDS_LOCAL_P ix86_binds_local_p
+#define TARGET_BINDS_LOCAL_P darwin_binds_local_p
 #endif
-/* APPLE LOCAL end why is this local? */
+/* APPLE LOCAL end mainline */
 
 #undef TARGET_ASM_OUTPUT_MI_THUNK
 #define TARGET_ASM_OUTPUT_MI_THUNK x86_output_mi_thunk
@@ -1098,12 +1420,6 @@ static void init_ext_80387_constants (void);
 #define TARGET_RTX_COSTS ix86_rtx_costs
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST ix86_address_cost
-
-/* APPLE LOCAL begin SSE stack alignment */
-#ifndef BASIC_STACK_BOUNDARY
-#define BASIC_STACK_BOUNDARY (32)
-#endif
-/* APPLE LOCAL end SSE stack alignment */
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS ix86_fixed_condition_code_regs
@@ -1129,6 +1445,12 @@ static void init_ext_80387_constants (void);
 #define TARGET_MUST_PASS_IN_STACK ix86_must_pass_in_stack
 #undef TARGET_PASS_BY_REFERENCE
 #define TARGET_PASS_BY_REFERENCE ix86_pass_by_reference
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+#undef TARGET_INTERNAL_ARG_POINTER
+#define TARGET_INTERNAL_ARG_POINTER ix86_internal_arg_pointer
+#undef TARGET_DWARF_HANDLE_FRAME_UNSPEC
+#define TARGET_DWARF_HANDLE_FRAME_UNSPEC ix86_dwarf_handle_frame_unspec
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
 #undef TARGET_GIMPLIFY_VA_ARG_EXPR
 #define TARGET_GIMPLIFY_VA_ARG_EXPR ix86_gimplify_va_arg
@@ -1140,6 +1462,10 @@ static void init_ext_80387_constants (void);
 #undef TARGET_INSERT_ATTRIBUTES
 #define TARGET_INSERT_ATTRIBUTES SUBTARGET_INSERT_ATTRIBUTES
 #endif
+/* APPLE LOCAL begin mainline */
+#undef TARGET_STACK_PROTECT_FAIL
+#define TARGET_STACK_PROTECT_FAIL default_hidden_stack_protect_fail
+/* APPLE LOCAL end mainline */
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 #undef TARGET_FUNCTION_VALUE
@@ -1154,6 +1480,40 @@ struct gcc_target targetm = TARGET_INITIALIZER;
 #ifndef DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 1
 #endif
+
+/* APPLE LOCAL begin 4760857 optimization pragmas. */
+/* Hoisted so it can be used by reset_optimization_options. */
+static struct ptt
+  {
+    const struct processor_costs *cost;	/* Processor costs */
+    const int target_enable;			/* Target flags to enable.  */
+    const int target_disable;			/* Target flags to disable.  */
+    const int align_loop;			/* Default alignments.  */
+    const int align_loop_max_skip;
+    const int align_jump;
+    const int align_jump_max_skip;
+    const int align_func;
+  }
+const processor_target_table[PROCESSOR_max] =
+  {
+    {&i386_cost, 0, 0, 4, 3, 4, 3, 4},
+    {&i486_cost, 0, 0, 16, 15, 16, 15, 16},
+    {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
+    {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
+    {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
+    {&athlon_cost, 0, 0, 16, 7, 16, 7, 16},
+    {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0},
+    {&k8_cost, 0, 0, 16, 7, 16, 7, 16},
+  /* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+    {&nocona_cost, 0, 0, 0, 0, 0, 0, 0},
+    {&generic32_cost, 0, 0, 16, 7, 16, 7, 16},
+  /* APPLE LOCAL apple cpu */
+    {&generic64_cost, 0, 0, 16, 7, 16, 7, 16},
+  /* APPLE LOCAL end mainline 2006-04-19 4434601 */
+  /* APPLE LOCAL apple cpu */
+    {&apple_cost, 0, 0, 16, 7, 16, 7, 16}
+  };
+/* APPLE LOCAL end 4760857 optimization pragmas. */
 
 /* Sometimes certain combinations of command options do not make
    sense on a particular target machine.  You can define a macro
@@ -1173,29 +1533,9 @@ override_options (void)
   /* Comes from final.c -- no real reason to change it.  */
 #define MAX_CODE_ALIGN 16
 
-  static struct ptt
-    {
-      const struct processor_costs *cost;	/* Processor costs */
-      const int target_enable;			/* Target flags to enable.  */
-      const int target_disable;			/* Target flags to disable.  */
-      const int align_loop;			/* Default alignments.  */
-      const int align_loop_max_skip;
-      const int align_jump;
-      const int align_jump_max_skip;
-      const int align_func;
-    }
-  const processor_target_table[PROCESSOR_max] =
-    {
-      {&i386_cost, 0, 0, 4, 3, 4, 3, 4},
-      {&i486_cost, 0, 0, 16, 15, 16, 15, 16},
-      {&pentium_cost, 0, 0, 16, 7, 16, 7, 16},
-      {&pentiumpro_cost, 0, 0, 16, 15, 16, 7, 16},
-      {&k6_cost, 0, 0, 32, 7, 32, 7, 32},
-      {&athlon_cost, 0, 0, 16, 7, 16, 7, 16},
-      {&pentium4_cost, 0, 0, 0, 0, 0, 0, 0},
-      {&k8_cost, 0, 0, 16, 7, 16, 7, 16},
-      {&nocona_cost, 0, 0, 0, 0, 0, 0, 0}
-    };
+  /* APPLE LOCAL begin 4760857 optimization pragmas. */
+  /* processor_target_table moved to file scope. */
+  /* APPLE LOCAL end 4760857 optimization pragmas. */
 
   static const char * const cpu_names[] = TARGET_CPU_DEFAULT_NAMES;
   static struct pta
@@ -1211,9 +1551,13 @@ override_options (void)
 	  PTA_PREFETCH_SSE = 16,
 	  PTA_3DNOW = 32,
 	  PTA_3DNOW_A = 64,
-	  PTA_64BIT = 128
+	  /* APPLE LOCAL begin ssse3 4424835 */
+	  PTA_64BIT = 128,
+	  PTA_SSSE3 = 256
+	  /* APPLE LOCAL end ssse3 */
 	} flags;
     }
+  /* APPLE LOCAL begin x86_64 support */
   const processor_alias_table[] =
     {
       {"i386", PROCESSOR_I386, 0},
@@ -1230,7 +1574,8 @@ override_options (void)
       {"pentium2", PROCESSOR_PENTIUMPRO, PTA_MMX},
       {"pentium3", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE},
       {"pentium3m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE},
-      {"pentium-m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE | PTA_SSE2},
+      {"pentium-m", PROCESSOR_PENTIUMPRO, PTA_MMX | PTA_SSE | PTA_PREFETCH_SSE
+					  | PTA_SSE2 },
       {"pentium4", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2
 				       | PTA_MMX | PTA_PREFETCH_SSE},
       {"pentium4m", PROCESSOR_PENTIUM4, PTA_SSE | PTA_SSE2
@@ -1262,7 +1607,16 @@ override_options (void)
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
       {"athlon-fx", PROCESSOR_K8, PTA_MMX | PTA_PREFETCH_SSE | PTA_3DNOW | PTA_64BIT
 				      | PTA_3DNOW_A | PTA_SSE | PTA_SSE2},
+    /* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+      {"generic32", PROCESSOR_GENERIC32, 0 /* flags are only used for -march switch.  */ },
+      {"generic64", PROCESSOR_GENERIC64, PTA_64BIT /* flags are only used for -march switch.  */ },
+    /* APPLE LOCAL end mainline 2006-04-19 4434601 */
+      /* APPLE LOCAL begin apple cpu */
+      {"apple", PROCESSOR_APPLE, PTA_MMX | PTA_PREFETCH_SSE | PTA_SSE | PTA_SSE2
+				 | PTA_64BIT},
+      /* APPLE LOCAL end apple cpu */
     };
+  /* APPLE LOCAL end x86_64 support */
 
   int const pta_size = ARRAY_SIZE (processor_alias_table);
 
@@ -1270,18 +1624,27 @@ override_options (void)
   SUBTARGET_OVERRIDE_OPTIONS;
 #endif
 
-  /* APPLE LOCAL begin constant cfstrings */
+  /* APPLE LOCAL begin mainline */
 #ifdef SUBSUBTARGET_OVERRIDE_OPTIONS
   SUBSUBTARGET_OVERRIDE_OPTIONS;
 #endif
-  /* APPLE LOCAL end constant cfstrings */
+  /* APPLE LOCAL end mainline */
+
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  if (TARGET_MACHO && TARGET_64BIT) 
+    /* -fPIC is the default for x86_64 */
+    flag_pic = 2;
+  /* APPLE LOCAL end x86_64 support 2006-02-02 */
 
   /* Set the default values for switches whose default depends on TARGET_64BIT
      in case they weren't overwritten by command line options.  */
   if (TARGET_64BIT)
     {
+      /* APPLE LOCAL begin x86_64 */
+      /* Change this to 0 for now for x86_64.  */
       if (flag_omit_frame_pointer == 2)
-	flag_omit_frame_pointer = 1;
+	flag_omit_frame_pointer = 0;
+      /* APPLE LOCAL end x86_64 */
       if (flag_asynchronous_unwind_tables == 2)
 	flag_asynchronous_unwind_tables = 1;
       if (flag_pcc_struct_return == 2)
@@ -1296,16 +1659,55 @@ override_options (void)
       if (flag_pcc_struct_return == 2)
 	flag_pcc_struct_return = DEFAULT_PCC_STRUCT_RETURN;
     }
+  /* APPLE LOCAL begin mainline 2006-04-19 4434601 */
 
-  if (!ix86_tune_string && ix86_arch_string)
-    ix86_tune_string = ix86_arch_string;
-  if (!ix86_tune_string)
+  /* Need to check -mtune=generic first.  */
+  if (ix86_tune_string)
     {
-      ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
-      ix86_tune_defaulted = 1;
+      if (!strcmp (ix86_tune_string, "generic")
+	  || !strcmp (ix86_tune_string, "i686"))
+	{
+	  if (TARGET_64BIT)
+	    ix86_tune_string = "generic64";
+	  else
+	    ix86_tune_string = "generic32";
+	}
+      else if (!strncmp (ix86_tune_string, "generic", 7))
+	error ("bad value (%s) for -mtune= switch", ix86_tune_string);
     }
+  else
+    {
+      if (ix86_arch_string)
+	ix86_tune_string = ix86_arch_string;
+      if (!ix86_tune_string)
+	{
+	  ix86_tune_string = cpu_names [TARGET_CPU_DEFAULT];
+	  ix86_tune_defaulted = 1;
+	}
+
+      /* ix86_tune_string is set to ix86_arch_string or defaulted.  We
+	 need to use a sensible tune option.  */
+      if (!strcmp (ix86_tune_string, "generic")
+	  || !strcmp (ix86_tune_string, "x86-64")
+	  || !strcmp (ix86_tune_string, "i686"))
+	{
+	  if (TARGET_64BIT)
+	    ix86_tune_string = "generic64";
+	  else
+	    ix86_tune_string = "generic32";
+	}
+    }
+  if (!strcmp (ix86_tune_string, "x86-64"))
+    warning ("-mtune=x86-64 is deprecated.  Use -mtune=k8 or "
+	     "-mtune=generic instead as appropriate.");
+
   if (!ix86_arch_string)
     ix86_arch_string = TARGET_64BIT ? "x86-64" : "i386";
+  if (!strcmp (ix86_arch_string, "generic"))
+    error ("generic CPU can be used only for -mtune= switch");
+  if (!strncmp (ix86_arch_string, "generic", 7))
+    error ("bad value (%s) for -march= switch", ix86_arch_string);
+  /* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
   if (ix86_cmodel_string != 0)
     {
@@ -1332,7 +1734,10 @@ override_options (void)
     }
   if (ix86_asm_string != 0)
     {
-      if (!strcmp (ix86_asm_string, "intel"))
+      /* APPLE LOCAL begin mainline 4298982 */
+      if (! TARGET_MACHO
+	  && !strcmp (ix86_asm_string, "intel"))
+      /* APPLE LOCAL end mainline 4298982 */
 	ix86_asm_dialect = ASM_INTEL;
       else if (!strcmp (ix86_asm_string, "att"))
 	ix86_asm_dialect = ASM_ATT;
@@ -1372,6 +1777,11 @@ override_options (void)
 	if (processor_alias_table[i].flags & PTA_SSE3
 	    && !(target_flags_explicit & MASK_SSE3))
 	  target_flags |= MASK_SSE3;
+	/* APPLE LOCAL begin ssse3 4424835 */
+	if (processor_alias_table[i].flags & PTA_SSSE3
+	    && !(target_flags_explicit & MASK_SSSE3))
+	  target_flags |= MASK_SSSE3;
+	/* APPLE LOCAL end ssse3 */
 	if (processor_alias_table[i].flags & PTA_PREFETCH_SSE)
 	  x86_prefetch_sse = true;
 	if (TARGET_64BIT && !(processor_alias_table[i].flags & PTA_64BIT))
@@ -1499,11 +1909,10 @@ override_options (void)
      The default of 128 bits is for Pentium III's SSE __m128, but we
      don't want additional code to keep the stack aligned when
      optimizing for code size.  */
-  /* APPLE LOCAL begin SSE stack alignment */
-  ix86_preferred_stack_boundary = (optimize_size
-				   ? TARGET_64BIT ? 128 : BASIC_STACK_BOUNDARY
-				   : 128);
-  /* APPLE LOCAL end SSE stack alignment */
+  /* APPLE LOCAL begin mainline */
+  ix86_preferred_stack_boundary = ((TARGET_64BIT || TARGET_MACHO || !optimize_size)
+				   ? 128 : 32);
+  /* APPLE LOCAL end mainline */
   if (ix86_preferred_stack_boundary_string)
     {
       i = atoi (ix86_preferred_stack_boundary_string);
@@ -1556,7 +1965,11 @@ override_options (void)
      software floating point, don't use 387 inline instrinsics.  */
   if (!TARGET_80387)
     target_flags |= MASK_NO_FANCY_MATH_387;
-
+  /* APPLE LOCAL begin ssse3 4424835 */
+  /* Turn on SSE3 builtins for -mssse3.  */
+  if (TARGET_SSSE3)
+    target_flags |= MASK_SSE3;
+  /* APPLE LOCAL end ssse3 */
   /* Turn on SSE2 builtins for -msse3.  */
   if (TARGET_SSE3)
     target_flags |= MASK_SSE2;
@@ -1590,6 +2003,12 @@ override_options (void)
 	|= ((MASK_SSE2 | MASK_SSE | MASK_MMX | MASK_128BIT_LONG_DOUBLE)
 	    & ~target_flags_explicit);
 /* APPLE LOCAL begin mainline 2005-04-11 4010614 */
+      /* APPLE LOCAL begin apple cpu */
+      /* For the apple cpu target turn on SSE3 for 64-bit by default.  */
+      if (TARGET_MACHO
+	  && ! strcmp (ix86_arch_string, "apple"))
+	target_flags |= MASK_SSE3 & ~target_flags_explicit;
+      /* APPLE LOCAL end apple cpu */
      }
   else
     {
@@ -1676,6 +2095,20 @@ override_options (void)
       flag_pic = 2;
     }
   /* APPLE LOCAL end dynamic-no-pic */
+  /* APPLE LOCAL begin 4812082 -fast */
+  /* These flags were the best on the software H264 codec, and have therefore
+     been lumped into -fast per 4812082.  They have not been evaluated on
+     any other code, except that -fno-tree-pre is known to lose on the 
+     hardware accelerated version of the codec. */
+  if (flag_fast || flag_fastf || flag_fastcp)
+    {
+      flag_omit_frame_pointer = 1;
+      flag_strict_aliasing = 1;
+      flag_tree_pre = 0;
+      target_flags &= ~MASK_OMIT_LEAF_FRAME_POINTER;
+      align_loops = processor_target_table[ix86_tune].align_loop;
+    }
+  /* APPLE LOCAL end 4812082 -fast */
 }
 
 void
@@ -1717,18 +2150,21 @@ optimization_options (int level, int size ATTRIBUTE_UNUSED)
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif
-  /* APPLE LOCAL begin 4200243 */
-  if (getenv ("RC_FORCE_SSE3"))
-    target_flags |= MASK_SSE3;
+  /* APPLE LOCAL begin 4200243 4700932 */
+  {
+    char *force = getenv ("RC_FORCE_SSE3");
+    if (force && !strcmp (force, "YES"))
+      target_flags |= MASK_SSE3;
+  }
 }
-/* APPLE LOCAL end 4200243 */
+/* APPLE LOCAL end 4200243 4700932 */
 
 /* APPLE LOCAL begin optimization pragmas 3124235/3420242 */
 /* Version of the above for use from #pragma optimization_level.  Only
    per-function flags are reset.  */
-
+#if TARGET_MACHO
 void
-reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
+reset_optimization_options (int level, int size)
 {
   /* For -O2 and beyond, turn off -fschedule-insns by default.  It tends to
      make the problem with not enough registers even worse.  */
@@ -1757,7 +2193,26 @@ reset_optimization_options (int level, int size ATTRIBUTE_UNUSED)
 #ifdef SUBTARGET_OPTIMIZATION_OPTIONS
   SUBTARGET_OPTIMIZATION_OPTIONS;
 #endif
+  /* APPLE LOCAL begin 4760857 */
+  if (size)
+    ix86_cost = &size_cost;
+  else
+    ix86_cost = processor_target_table[ix86_tune].cost;
+
+  /* Default align_* from the processor table.  */
+  if (align_loops == 0)
+    {
+      align_loops = processor_target_table[ix86_tune].align_loop;
+      align_loops_max_skip = processor_target_table[ix86_tune].align_loop_max_skip;
+    }
+  if (align_jumps == 0)
+    {
+      align_jumps = processor_target_table[ix86_tune].align_jump;
+      align_jumps_max_skip = processor_target_table[ix86_tune].align_jump_max_skip;
+    }
+  /* APPLE LOCAL end 4760857 */
 }
+#endif
 /* APPLE LOCAL end optimization pragmas 3124235/3420242 */
 
 /* Table of valid machine attributes.  */
@@ -1784,6 +2239,11 @@ const struct attribute_spec ix86_attribute_table[] =
   { "regparmandstackparm", 0, 0, false, true, true, ix86_handle_cconv_attribute },
   { "regparmandstackparmee", 0, 0, false, true, true, ix86_handle_cconv_attribute },
   /* APPLE LOCAL end regparmandstackparm */
+  /* APPLE LOCAL begin 4356747 stack realign */
+  /* force_align_arg_pointer says this function realigns the stack at entry.  */
+  { ix86_force_align_arg_pointer_string, 0, 0,
+    false, true,  true, ix86_handle_cconv_attribute },
+  /* APPLE LOCAL end 4356747 stack realign */
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
   { "dllimport", 0, 0, false, false, false, handle_dll_attribute },
   { "dllexport", 0, 0, false, false, false, handle_dll_attribute },
@@ -1804,7 +2264,7 @@ const struct attribute_spec ix86_attribute_table[] =
 static bool
 ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
-  /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
+  /* APPLE LOCAL begin mainline 2006-04-16 4205103, 4314956 */
   tree func;
   rtx a, b;
 
@@ -1812,7 +2272,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   /* If we are generating position-independent code, we cannot sibcall
      optimize any indirect call, or a direct call to a global function,
      as the PLT requires %ebx be live.  (Darwin does not have a PLT.)  */
-  if (!TARGET_MACHO && !TARGET_64BIT && flag_pic 
+  if ((!TARGET_MACHO || TARGET_64BIT) && !TARGET_64BIT && flag_pic
       && (!decl || TREE_PUBLIC (decl)))
     return false;
   /* APPLE LOCAL end indirect sibcall 4087330 */
@@ -1836,9 +2296,16 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   a = ix86_function_value (TREE_TYPE (exp), func, false);
   b = ix86_function_value (TREE_TYPE (DECL_RESULT (cfun->decl)),
 			   cfun->decl, false);
-  if (! rtx_equal_p (a, b))
+  if (STACK_REG_P (a) || STACK_REG_P (b))
+    {
+      if (!rtx_equal_p (a, b))
+        return false;
+    }
+  else if (VOID_TYPE_P (TREE_TYPE (DECL_RESULT (cfun->decl))))
+    ;
+  else if (! rtx_equal_p (a, b))
     return false;
-  /* APPLE LOCAL end mainline 2005-09-20 4205103 */
+  /* APPLE LOCAL end mainline 2006-04-16 4205103, 4314956 */
   
   /* If this call is indirect, we'll need to be able to use a call-clobbered
      register for the address of the target function.  Make sure that all
@@ -1866,6 +2333,13 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       && ix86_function_regparm (TREE_TYPE (decl), NULL) >= 3)
     return false;
 #endif
+
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  /* If we forced aligned the stack, then sibcalling would unalign the
+     stack, which may break the called function.  */
+  if (cfun->machine->force_align_arg_pointer)
+    return false;
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Otherwise okay.  That also includes certain types of indirect calls.  */
   return true;
@@ -1904,8 +2378,9 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 	}
 
       /* APPLE LOCAL begin regparmandstackparm */
-      if (lookup_attribute ("regparmandstackparm", TYPE_ATTRIBUTES (*node))
-	  || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (*node)))
+      if (!TARGET_64BIT
+	  && (lookup_attribute ("regparmandstackparm", TYPE_ATTRIBUTES (*node))
+	      || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (*node))))
         {
 	  error ("regparmandstackparm and regparm attributes are not compatible");
 	}
@@ -1925,6 +2400,17 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 		   IDENTIFIER_POINTER (name), REGPARM_MAX);
 	  *no_add_attrs = true;
 	}
+
+      /* APPLE LOCAL begin 4356747, 4525731 stack realign */
+      if (!TARGET_64BIT
+	  && lookup_attribute (ix86_force_align_arg_pointer_string,
+			       TYPE_ATTRIBUTES (*node))
+	  && compare_tree_int (cst, REGPARM_MAX-1))
+        {
+	  error ("%s functions limited to %d register parameters",
+		 ix86_force_align_arg_pointer_string, REGPARM_MAX-1);
+	}
+      /* APPLE LOCAL end 4356747, 4525731 stack realign */
 
       return NULL_TREE;
     }
@@ -2031,11 +2517,12 @@ ix86_comp_type_attributes (tree type1, tree type2)
    DECL may be NULL when calling function indirectly
    or considering a libcall.  */
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
 static int
 ix86_function_regparm (tree type, tree decl)
 {
   tree attr;
-  int regparm = ix86_regparm;
+  int local_regparm = ix86_regparm;
   bool user_convention = false;
 
   if (!TARGET_64BIT)
@@ -2043,7 +2530,7 @@ ix86_function_regparm (tree type, tree decl)
       attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
       if (attr)
 	{
-	  regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
+	  local_regparm = TREE_INT_CST_LOW (TREE_VALUE (TREE_VALUE (attr)));
 	  user_convention = true;
 	}
 
@@ -2052,7 +2539,7 @@ ix86_function_regparm (tree type, tree decl)
 	  || lookup_attribute ("regparmandstackparmee", TYPE_ATTRIBUTES (type)))
       /* APPLE LOCAL end regparmandstackparm */
 	{
-	  regparm = 2;
+	  local_regparm = 2;
 	  user_convention = true;
 	}
 
@@ -2066,14 +2553,31 @@ ix86_function_regparm (tree type, tree decl)
 	      /* We can't use regparm(3) for nested functions as these use
 		 static chain pointer in third argument.  */
 	      if (DECL_CONTEXT (decl) && !DECL_NO_STATIC_CHAIN (decl))
-		regparm = 2;
+		local_regparm = 2;
 	      else
-		regparm = 3;
+		local_regparm = 3;
+	      /* If the function realigns its stackpointer, it
+		 clobbers %ecx to deref unaligned arguments.  If we've
+		 already generated code for the callee, the callee
+		 DECL_STRUCT_FUNCTION is gone, so we fall back to
+		 scanning the attributes for the self-realigning
+		 property.  */
+	      if ((DECL_STRUCT_FUNCTION (decl)
+		   && DECL_STRUCT_FUNCTION (decl)->machine
+		   && DECL_STRUCT_FUNCTION (decl)->machine->force_align_arg_pointer)
+		  || (!DECL_STRUCT_FUNCTION (decl)
+		      && lookup_attribute (ix86_force_align_arg_pointer_string,
+                  /* APPLE LOCAL begin radar 4861528, 5164498 */
+					   TYPE_ATTRIBUTES (TREE_TYPE (decl))))
+                  || ix86_force_align_arg_pointer)
+                  /* APPLE LOCAL end radar 4861528, 5164498 */
+		local_regparm = 2;
 	    }
 	}
     }
-  return regparm;
+  return local_regparm;
 }
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 
 /* APPLE LOCAL begin mainline 2005-09-20 4205103 */
 /* Return 1 or 2, if we can pass up to 8 SFmode (1) and DFmode (2) arguments
@@ -2362,6 +2866,11 @@ type_natural_mode (tree type)
 	  abort ();
 	}
     }
+  /* APPLE LOCAL begin 4656532 use V1DImode for _m64 */
+  /* Pass V1DImode objects as DImode.  This is for compatibility. */
+  if (TREE_CODE (type) == VECTOR_TYPE && mode == V1DImode && !TARGET_64BIT)
+    return DImode;
+  /* APPLE LOCAL end 4656532 use V1DImode for _m64 */
 
   return mode;
 }
@@ -3373,6 +3882,20 @@ ix86_function_value (tree valtype, tree fntype_or_decl,
 }
 /* APPLE LOCAL end mainline 2005-09-20 4205103 */
 
+/* APPLE LOCAL begin radar 4781080 */
+/* Return true iff must generate call to objcMsgSend for an 
+   fp-returning method. */ 
+bool
+ix86_objc_fpreturn_msgcall (tree ret_type, bool no_long_double)
+{
+  if (no_long_double)
+    return TARGET_64BIT && SCALAR_FLOAT_TYPE_P (ret_type)
+	   && TYPE_MODE (ret_type) != XFmode;
+  else
+    return SCALAR_FLOAT_TYPE_P (ret_type);
+}
+/* APPLE LOCAL end radar 4781080 */
+
 /* Return false iff type is returned in memory.  */
 int
 ix86_return_in_memory (tree type)
@@ -4106,15 +4629,63 @@ standard_80387_constant_rtx (int idx)
 				       XFmode);
 }
 
+/* APPLE LOCAL begin mainline */
+/* Return 1 if mode is a valid mode for sse.  */
+static int
+standard_sse_mode_p (enum machine_mode mode)
+{
+  switch (mode)
+    {
+    case V16QImode:
+    case V8HImode:
+    case V4SImode:
+    case V2DImode:
+    case V4SFmode:
+    case V2DFmode:
+      return 1;
+
+    default:
+      return 0;
+    }
+}
+
 /* Return 1 if X is FP constant we can load to SSE register w/o using memory.
  */
 int
 standard_sse_constant_p (rtx x)
 {
-  if (x == const0_rtx)
+  enum machine_mode mode = GET_MODE (x);
+
+  if (x == const0_rtx || x == CONST0_RTX (GET_MODE (x)))
     return 1;
-  return (x == CONST0_RTX (GET_MODE (x)));
+  if (vector_all_ones_operand (x, mode)
+      && standard_sse_mode_p (mode))
+    return TARGET_SSE2 ? 2 : -1;
+
+  return 0;
 }
+
+/* Return the opcode of the special instruction to be used to load
+   the constant X.  */
+
+const char *
+standard_sse_constant_opcode (rtx insn, rtx x)
+{
+  switch (standard_sse_constant_p (x))
+    {
+    case 1:
+      if (get_attr_mode (insn) == MODE_V4SF)
+        return "xorps\t%0, %0";
+      else if (get_attr_mode (insn) == MODE_V2DF)
+        return "xorpd\t%0, %0";
+      else
+        return "pxor\t%0, %0";
+    case 2:
+      return "pcmpeqd\t%0, %0";
+    }
+  gcc_unreachable ();
+}
+/* APPLE LOCAL end mainline */
 
 /* Returns 1 if OP contains a symbol reference */
 
@@ -4208,7 +4779,8 @@ ix86_setup_frame_addresses (void)
   cfun->machine->accesses_prev_frame = 1;
 }
 
-#if defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)
+/* APPLE LOCAL mainline */
+#if (defined(HAVE_GAS_HIDDEN) && defined(SUPPORTS_ONE_ONLY)) || TARGET_MACHO
 # define USE_HIDDEN_LINKONCE 1
 #else
 # define USE_HIDDEN_LINKONCE 0
@@ -4222,6 +4794,10 @@ static int pic_labels_used;
 static void
 get_pc_thunk_name (char name[32], unsigned int regno)
 {
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  gcc_assert(!TARGET_64BIT);
+  /* APPLE LOCAL end x86_64 support 2006-02-02 */
+
   /* APPLE LOCAL deep branch prediction pic-base.  */
   if (USE_HIDDEN_LINKONCE || TARGET_MACHO)
     sprintf (name, "__i686.get_pc_thunk.%s", reg_names[regno]);
@@ -4247,7 +4823,20 @@ ix86_file_end (void)
 	continue;
 
       get_pc_thunk_name (name, regno);
-
+      /* APPLE LOCAL begin mainline */
+#if TARGET_MACHO
+      if (TARGET_MACHO)
+        {
+          text_coal_section ();
+          fputs ("\t.weak_definition\t", asm_out_file);
+          assemble_name (asm_out_file, name);
+          fputs ("\n\t.private_extern\t", asm_out_file);
+          assemble_name (asm_out_file, name);
+          fputs ("\n", asm_out_file);
+          ASM_OUTPUT_LABEL (asm_out_file, name);
+        }
+      else
+#endif
       if (USE_HIDDEN_LINKONCE)
 	{
 	  tree decl;
@@ -4267,18 +4856,7 @@ ix86_file_end (void)
 	  fputc ('\n', asm_out_file);
 	  ASM_DECLARE_FUNCTION_NAME (asm_out_file, name, decl);
 	}
-      /* APPLE LOCAL begin deep branch prediction pic-base */
-      else if (TARGET_MACHO)
-	{
-	  text_coal_section ();
-	  fputs (".weak_definition\t", asm_out_file);
-	  assemble_name (asm_out_file, name);
-	  fputs ("\n.private_extern\t", asm_out_file);
-	  assemble_name (asm_out_file, name);
-	  fputs ("\n", asm_out_file);
-	  ASM_OUTPUT_LABEL (asm_out_file, name);
-	}
-      /* APPLE LOCAL end deep branch prediction pic-base */
+      /* APPLE LOCAL end mainline */
       else
 	{
 	  text_section ();
@@ -4296,9 +4874,9 @@ ix86_file_end (void)
 }
 
 /* Emit code for the SET_GOT patterns.  */
-
+/* APPLE LOCAL begin mainline */
 const char *
-output_set_got (rtx dest)
+output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 {
   rtx xops[3];
 
@@ -4307,7 +4885,7 @@ output_set_got (rtx dest)
 
   if (! TARGET_DEEP_BRANCH_PREDICTION || !flag_pic)
     {
-      xops[2] = gen_rtx_LABEL_REF (Pmode, gen_label_rtx ());
+      xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
 
       if (!flag_pic)
 	output_asm_insn ("mov{l}\t{%2, %0|%0, %2}", xops);
@@ -4317,6 +4895,7 @@ output_set_got (rtx dest)
 #if TARGET_MACHO
       /* Output the "canonical" label name ("Lxx$pb") here too.  This
          is what will be referred to by the Mach-O PIC subsystem.  */
+      if (!label)
       ASM_OUTPUT_LABEL (asm_out_file, machopic_function_base_name ());
 #endif
       (*targetm.asm_out.internal_label) (asm_out_file, "L",
@@ -4338,24 +4917,26 @@ output_set_got (rtx dest)
 #if TARGET_MACHO
       /* Output the "canonical" label name ("Lxx$pb") here too.  This
          is what will be referred to by the Mach-O PIC subsystem.  */
-      if (cfun)
+      if (!label)
 	ASM_OUTPUT_LABEL (asm_out_file, machopic_function_base_name ());
+      else
+	targetm.asm_out.internal_label (asm_out_file, "L",
+					CODE_LABEL_NUMBER (label));
 #endif
       /* APPLE LOCAL end deep branch prediction pic-base */
     }
 
-  /* APPLE LOCAL begin deep branch prediction pic-base */
-#if !TARGET_MACHO
+  if (TARGET_MACHO)
+    return "";
+
   if (!flag_pic || TARGET_DEEP_BRANCH_PREDICTION)
     output_asm_insn ("add{l}\t{%1, %0|%0, %1}", xops);
-  else if (!TARGET_MACHO)
+  else
     output_asm_insn ("add{l}\t{%1+[.-%a2], %0|%0, %a1+(.-%a2)}", xops);
-#endif	/* !TARGET_MACHO */
-  /* APPLE LOCAL end deep branch prediction pic-base */
 
   return "";
 }
-
+/* APPLE LOCAL end mainline */
 /* Generate an "push" pattern for input ARG.  */
 
 static rtx
@@ -4389,6 +4970,13 @@ ix86_select_alt_pic_regnum (void)
 static int
 ix86_save_reg (unsigned int regno, int maybe_eh_return)
 {
+  /* APPLE LOCAL begin CW asm blocks */
+  /* For an asm function, we don't save any registers, instead, the
+     user is responsible.  */
+  if (cfun->iasm_asm_function)
+    return 0;
+  /* APPLE LOCAL end CW asm blocks */
+
   if (pic_offset_table_rtx
       && regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && (regs_ever_live[REAL_PIC_OFFSET_TABLE_REGNUM]
@@ -4413,6 +5001,12 @@ ix86_save_reg (unsigned int regno, int maybe_eh_return)
 	    return 1;
 	}
     }
+
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer
+      && regno == REGNO (cfun->machine->force_align_arg_pointer))
+    return 1;
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   return (regs_ever_live[regno]
 	  && !call_used_regs[regno]
@@ -4629,15 +5223,17 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 static void
 ix86_emit_save_regs (void)
 {
-  int regno;
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign (function body) */
+  unsigned int regno;
   rtx insn;
 
-  for (regno = FIRST_PSEUDO_REGISTER - 1; regno >= 0; regno--)
+  for (regno = FIRST_PSEUDO_REGISTER; regno-- > 0; )
     if (ix86_save_reg (regno, true))
       {
 	insn = emit_insn (gen_push (gen_rtx_REG (Pmode, regno)));
 	RTX_FRAME_RELATED_P (insn) = 1;
       }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign (function body) */
 }
 
 /* Emit code to save registers using MOV insns.  First register
@@ -4645,7 +5241,8 @@ ix86_emit_save_regs (void)
 static void
 ix86_emit_save_regs_using_mov (rtx pointer, HOST_WIDE_INT offset)
 {
-  int regno;
+  /* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+  unsigned int regno;
   rtx insn;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
@@ -4700,6 +5297,70 @@ pro_epilogue_adjust_stack (rtx dest, rtx src, rtx offset, int style)
 #endif
 /* APPLE LOCAL end fix-and-continue x86 */
 
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+/* Handle the TARGET_INTERNAL_ARG_POINTER hook.  */
+
+static rtx
+ix86_internal_arg_pointer (void)
+{
+  /* APPLE LOCAL begin 4356747 stack realign */
+  /* Note to merger: this function is from FSF mainline, AND it has
+     been altered with a local patch that is pending in FSF.  */
+  bool has_force_align_arg_pointer =
+    (0 != lookup_attribute (ix86_force_align_arg_pointer_string,
+			    TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))));
+  if ((FORCE_PREFERRED_STACK_BOUNDARY_IN_MAIN
+       && DECL_NAME (current_function_decl)
+       && MAIN_NAME_P (DECL_NAME (current_function_decl))
+       && DECL_FILE_SCOPE_P (current_function_decl))
+      || ix86_force_align_arg_pointer
+      || has_force_align_arg_pointer)
+    {
+      /* Nested functions can't realign the stack due to a register
+	 conflict.  */
+      if (DECL_CONTEXT (current_function_decl)
+	  && TREE_CODE (DECL_CONTEXT (current_function_decl)) == FUNCTION_DECL)
+	{
+	  if (ix86_force_align_arg_pointer)
+	    warning ("-mstackrealign ignored for nested functions");
+	  if (has_force_align_arg_pointer)
+	    error ("%s not supported for nested functions",
+		   ix86_force_align_arg_pointer_string);
+	  return virtual_incoming_args_rtx;
+	}
+      cfun->machine->force_align_arg_pointer = gen_rtx_REG (Pmode, 2);
+      return copy_to_reg (cfun->machine->force_align_arg_pointer);
+    }
+  else
+    return virtual_incoming_args_rtx;
+  /* APPLE LOCAL end 4356747 stack realign */
+}
+
+/* Handle the TARGET_DWARF_HANDLE_FRAME_UNSPEC hook.
+   This is called from dwarf2out.c to emit call frame instructions
+   for frame-related insns containing UNSPECs and UNSPEC_VOLATILEs. */
+static void
+ix86_dwarf_handle_frame_unspec (const char *label, rtx pattern, int index)
+{
+  rtx unspec = SET_SRC (pattern);
+  gcc_assert (GET_CODE (unspec) == UNSPEC);
+
+  switch (index)
+    {
+    case UNSPEC_REG_SAVE:
+      dwarf2out_reg_save_reg (label, XVECEXP (unspec, 0, 0),
+			      SET_DEST (pattern));
+      break;
+    case UNSPEC_DEF_CFA:
+      dwarf2out_def_cfa (label, REGNO (SET_DEST (pattern)),
+			 INTVAL (XVECEXP (unspec, 0, 0)));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+
 /* Expand the prologue into a bunch of separate insns.  */
 
 void
@@ -4728,6 +5389,54 @@ ix86_expand_prologue (void)
   /* APPLE LOCAL end fix-and-continue x86 */
 
   ix86_compute_frame_layout (&frame);
+
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      rtx x, y;
+
+      /* Grab the argument pointer.  */
+      x = plus_constant (stack_pointer_rtx, 4);
+      y = cfun->machine->force_align_arg_pointer;
+      insn = emit_insn (gen_rtx_SET (VOIDmode, y, x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      /* The unwind info consists of two parts: install the fafp as the cfa,
+	 and record the fafp as the "save register" of the stack pointer.
+	 The later is there in order that the unwinder can see where it
+	 should restore the stack pointer across the and insn.  */
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, y, x);
+      RTX_FRAME_RELATED_P (x) = 1;
+      y = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, stack_pointer_rtx),
+			  UNSPEC_REG_SAVE);
+      y = gen_rtx_SET (VOIDmode, cfun->machine->force_align_arg_pointer, y);
+      RTX_FRAME_RELATED_P (y) = 1;
+      x = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, x, y));
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+
+      /* Align the stack.  */
+      emit_insn (gen_andsi3 (stack_pointer_rtx, stack_pointer_rtx,
+			     GEN_INT (-16)));
+
+      /* And here we cheat like madmen with the unwind info.  We force the
+	 cfa register back to sp+4, which is exactly what it was at the
+	 start of the function.  Re-pushing the return address results in
+	 the return at the same spot relative to the cfa, and thus is
+	 correct wrt the unwind info.  */
+      x = cfun->machine->force_align_arg_pointer;
+      x = gen_frame_mem (Pmode, plus_constant (x, -4));
+      insn = emit_insn (gen_push (x));
+      RTX_FRAME_RELATED_P (insn) = 1;
+
+      x = GEN_INT (4);
+      x = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, x), UNSPEC_DEF_CFA);
+      x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
+      x = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, x, NULL);
+      REG_NOTES (insn) = x;
+    }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Note: AT&T enter does NOT have reversed args.  Enter is probably
      slower on all targets.  Also sdb doesn't like it.  */
@@ -4758,8 +5467,13 @@ ix86_expand_prologue (void)
   if (allocate == 0)
     ;
   else if (! TARGET_STACK_PROBE || allocate < CHECK_STACK_LIMIT)
-    pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
-			       GEN_INT (-allocate), -1);
+  /* APPLE LOCAL begin CW asm blocks */
+    {
+      if (! cfun->iasm_asm_function)
+	pro_epilogue_adjust_stack (stack_pointer_rtx, stack_pointer_rtx,
+				   GEN_INT (-allocate), -1);
+    }
+  /* APPLE LOCAL end CW asm blocks */
   else
     {
       /* Only valid for Win32.  */
@@ -4890,6 +5604,15 @@ ix86_expand_epilogue (int style)
     offset -= 2;
   offset *= -UNITS_PER_WORD;
 
+  /* APPLE LOCAL begin CW asm blocks */
+  /* For an asm function, don't generate an epilogue. */
+  if (cfun->iasm_asm_function)
+    {
+      emit_jump_insn (gen_return_internal ());
+      return;
+    }
+  /* APPLE LOCAL end CW asm blocks */
+
   /* If we're only restoring one register and sp is not valid then
      using a move instruction to restore the register since it's
      less work than reloading sp and popping the register.
@@ -5004,6 +5727,15 @@ ix86_expand_epilogue (int style)
 	    emit_insn (gen_popsi1 (hard_frame_pointer_rtx));
 	}
     }
+
+  /* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+  if (cfun->machine->force_align_arg_pointer)
+    {
+      emit_insn (gen_addsi3 (stack_pointer_rtx,
+			     cfun->machine->force_align_arg_pointer,
+			     GEN_INT (-4)));
+    }
+  /* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
 
   /* Sibcall epilogues don't want a return instruction.  */
   if (style == 0)
@@ -5390,8 +6122,10 @@ legitimate_constant_p (rtx x)
       if (tls_symbolic_operand (x, Pmode))
 	return false;
       /* APPLE LOCAL begin dynamic-no-pic */
+#if TARGET_MACHO
       if (TARGET_MACHO && TARGET_DYNAMIC_NO_PIC)
 	return machopic_symbol_defined_p (x);
+#endif
       break;
 
     case PLUS:
@@ -5719,12 +6453,16 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	    goto report_error;
 	  }
 
-      /* APPLE LOCAL dynamic-no-pic */
-      else if (MACHOPIC_INDIRECT && (SYMBOLIC_CONST (disp)
-#if TARGET_MACHO
-			    && !machopic_operand_p (disp)
-#endif
-			    ))
+      /* APPLE LOCAL begin dynamic-no-pic */
+      /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+      /* Avoid the mach-o dynamic-no-pic case when in 64 bit */
+      else if (SYMBOLIC_CONST (disp) 
+	       && (flag_pic
+		   || (TARGET_MACHO
+		       && MACHOPIC_INDIRECT
+		       && !machopic_operand_p (disp))))
+	/* APPLE LOCAL end x86_64 support 2006-02-02 */
+      /* APPLE LOCAL end dynamic-no-pic */
 	{
 	is_legitimate_pic:
 	  if (TARGET_64BIT && (index || base))
@@ -5747,11 +6485,13 @@ legitimate_address_p (enum machine_mode mode, rtx addr, int strict)
 	      reason = "displacement is an invalid pic construct";
 	      goto report_error;
 	    }
+#if TARGET_MACHO
 	  else if (TARGET_DYNAMIC_NO_PIC && !legitimate_constant_p (disp))
 	    {
 	      reason = "displacment must be referenced via non_lazy_pointer";
 	      goto report_error;
 	    }
+#endif
 	  /* APPLE LOCAL end dynamic-no-pic */
 
           /* This code used to verify that a symbolic pic displacement
@@ -5844,12 +6584,15 @@ legitimize_pic_address (rtx orig, rtx reg)
   rtx new = orig;
   rtx base;
 
-#if TARGET_MACHO
-  if (reg == 0)
-    reg = gen_reg_rtx (Pmode);
-  /* Use the generic Mach-O PIC machinery.  */
-  return machopic_legitimize_pic_address (orig, GET_MODE (orig), reg);
-#endif
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  if (TARGET_MACHO && ! TARGET_64BIT) 
+  {
+    if (reg == 0)
+      reg = gen_reg_rtx (Pmode);
+    /* Use the generic Mach-O PIC machinery.  */
+    return machopic_legitimize_pic_address (orig, GET_MODE (orig), reg);
+  }
+  /* APPLE LOCAL end x86_64 support 2006-02-02 */
 
   if (TARGET_64BIT && legitimate_pic_address_disp_p (addr))
     new = addr;
@@ -5916,8 +6659,21 @@ legitimize_pic_address (rtx orig, rtx reg)
     }
   else
     {
-      if (GET_CODE (addr) == CONST)
+      /* APPLE LOCAL begin mainline */
+      if (GET_CODE (addr) == CONST_INT
+	  && !x86_64_immediate_operand (addr, VOIDmode))
 	{
+	  if (reg)
+	{
+	      emit_move_insn (reg, addr);
+	      new = reg;
+	    }
+	  else
+	    new = force_reg (Pmode, addr);
+	}
+      else if (GET_CODE (addr) == CONST)
+	{
+	  /* APPLE LOCAL end mainline */
 	  addr = XEXP (addr, 0);
 
 	  /* We must match stuff we generate before.  Assume the only
@@ -5959,7 +6715,13 @@ legitimize_pic_address (rtx orig, rtx reg)
 		{
 		  if (INTVAL (op1) < -16*1024*1024
 		      || INTVAL (op1) >= 16*1024*1024)
-		    new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+                    /* APPLE LOCAL begin mainline 2005-11-07 4905666 */
+                    {
+                      if (!x86_64_immediate_operand (op1, Pmode))
+                        op1 = force_reg (Pmode, op1);
+                      new = gen_rtx_PLUS (Pmode, force_reg (Pmode, op0), op1);
+                    }
+                    /* APPLE LOCAL end mainline 2005-11-07 4905666 */
 		}
 	    }
 	  else
@@ -6176,8 +6938,10 @@ legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED, enum machine_mode mode)
   if (flag_pic && SYMBOLIC_CONST (x))
     return legitimize_pic_address (x, 0);
   /* APPLE LOCAL begin dynamic-no-pic */
+#if TARGET_MACHO
   if (MACHO_DYNAMIC_NO_PIC_P && SYMBOLIC_CONST (x))
     return machopic_indirect_data_reference (x, 0);
+#endif
   /* APPLE LOCAL end dynamic-no-pic */
 
   /* Canonicalize shifts by 0, 1, 2, 3 into multiply */
@@ -6348,23 +7112,29 @@ output_pic_addr_const (FILE *file, rtx x, int code)
       break;
 
     case SYMBOL_REF:
-     /* Mark the decl as referenced so that cgraph will output the function.  */
-     if (SYMBOL_REF_DECL (x))
-       mark_decl_referenced (SYMBOL_REF_DECL (x));
+      /* APPLE LOCAL begin mainline whitespace */
+      /* Mark the decl as referenced so that cgraph will output the function.  */
+      if (SYMBOL_REF_DECL (x))
+	mark_decl_referenced (SYMBOL_REF_DECL (x));
+      /* APPLE LOCAL end mainline whitespace */
 
-     /* APPLE LOCAL begin stubify optimized symbols */
+      /* APPLE LOCAL begin stubify optimized symbols */
+      /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+      if (! TARGET_MACHO || TARGET_64BIT)
+	assemble_name (file, XSTR (x, 0));
+      else
+	{
+	  const char *name = XSTR (x, 0);
+	  if (MACHOPIC_INDIRECT
 #if TARGET_MACHO
-     {
-       const char *name = XSTR (x, 0);
-       if (MACHOPIC_INDIRECT
-	   && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION)
-	 name = machopic_indirection_name (x, /*stub_p=*/true);
-       assemble_name (file, name);
-     }
-#else
-      assemble_name (file, XSTR (x, 0));
+	      && machopic_classify_symbol (x) == MACHOPIC_UNDEFINED_FUNCTION
 #endif
-     /* APPLE LOCAL end stubify optimized symbols */
+	      )
+	    name = machopic_indirection_name (x, /*stub_p=*/true);
+	  assemble_name (file, name);
+	}
+      /* APPLE LOCAL end x86_64 support 2006-02-02 */
+      /* APPLE LOCAL end stubify optimized symbols */
       if (!TARGET_MACHO && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
@@ -6511,7 +7281,14 @@ i386_output_dwarf_dtprel (FILE *file, int size, rtx x)
 static rtx
 ix86_delegitimize_address (rtx orig_x)
 {
-  rtx x = orig_x, y;
+  /* APPLE LOCAL begin mainline 2006-03-08 4446590 */
+  rtx x = orig_x;
+  /* reg_addend is NULL or a multiple of some register.  */
+  rtx reg_addend = NULL_RTX;
+  /* const_addend is NULL or a const_int.  */
+  rtx const_addend = NULL_RTX;
+  /* This is the result, or NULL.  */
+  rtx result = NULL_RTX;
 
   if (GET_CODE (x) == MEM)
     x = XEXP (x, 0);
@@ -6533,63 +7310,53 @@ ix86_delegitimize_address (rtx orig_x)
   if (GET_CODE (XEXP (x, 0)) == REG
       && REGNO (XEXP (x, 0)) == PIC_OFFSET_TABLE_REGNUM)
     /* %ebx + GOT/GOTOFF */
-    y = NULL;
+    ;
   else if (GET_CODE (XEXP (x, 0)) == PLUS)
     {
       /* %ebx + %reg * scale + GOT/GOTOFF */
-      y = XEXP (x, 0);
-      if (GET_CODE (XEXP (y, 0)) == REG
-	  && REGNO (XEXP (y, 0)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 1);
-      else if (GET_CODE (XEXP (y, 1)) == REG
-	       && REGNO (XEXP (y, 1)) == PIC_OFFSET_TABLE_REGNUM)
-	y = XEXP (y, 0);
+      reg_addend = XEXP (x, 0);
+      if (GET_CODE (XEXP (reg_addend, 0)) == REG
+	  && REGNO (XEXP (reg_addend, 0)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 1);
+      else if (GET_CODE (XEXP (reg_addend, 1)) == REG
+	       && REGNO (XEXP (reg_addend, 1)) == PIC_OFFSET_TABLE_REGNUM)
+	reg_addend = XEXP (reg_addend, 0);
       else
 	return orig_x;
-      if (GET_CODE (y) != REG
-	  && GET_CODE (y) != MULT
-	  && GET_CODE (y) != ASHIFT)
+      if (GET_CODE (reg_addend) != REG
+	  && GET_CODE (reg_addend) != MULT
+	  && GET_CODE (reg_addend) != ASHIFT)
 	return orig_x;
     }
   else
     return orig_x;
 
   x = XEXP (XEXP (x, 1), 0);
+  if (GET_CODE (x) == PLUS
+      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+    {
+      const_addend = XEXP (x, 1);
+      x = XEXP (x, 0);
+    }
+
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
 	  || (XINT (x, 1) == UNSPEC_GOTOFF && GET_CODE (orig_x) != MEM)))
-    {
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, XVECEXP (x, 0, 0));
-      return XVECEXP (x, 0, 0);
-    }
+    result = XVECEXP (x, 0, 0);
 
-  if (GET_CODE (x) == PLUS
-      && GET_CODE (XEXP (x, 0)) == UNSPEC
-      && GET_CODE (XEXP (x, 1)) == CONST_INT
-      && ((XINT (XEXP (x, 0), 1) == UNSPEC_GOT && GET_CODE (orig_x) == MEM)
-	  || (XINT (XEXP (x, 0), 1) == UNSPEC_GOTOFF
-	      && GET_CODE (orig_x) != MEM)))
-    {
-      x = gen_rtx_PLUS (VOIDmode, XVECEXP (XEXP (x, 0), 0, 0), XEXP (x, 1));
-      if (y)
-	return gen_rtx_PLUS (Pmode, y, x);
-      return x;
-    }
-
-  /* APPLE LOCAL begin radar 4168635 */
   if (TARGET_MACHO && darwin_local_data_pic (x)
-      && GET_CODE (XEXP (x, 0)) == SYMBOL_REF
-      && CONSTANT_POOL_ADDRESS_P (XEXP (x, 0))
       && GET_CODE (orig_x) != MEM)
-    {
-      if (y)
-        return orig_x;
-      return XEXP (x, 0);
-    }
-  /* APPLE LOCAL end radar 4168635 */
+    result = XEXP (x, 0);
 
+  if (! result)
   return orig_x;
+
+  if (const_addend)
+    result = gen_rtx_PLUS (Pmode, result, const_addend);
+  if (reg_addend)
+    result = gen_rtx_PLUS (Pmode, reg_addend, result);
+  return result;
+  /* APPLE LOCAL end mainline 2006-03-08 4446590 */
 }
 
 static void
@@ -7218,11 +7985,9 @@ print_operand (FILE *file, rtx x, int code)
       if (GET_CODE (x) == CONST_INT)
 	fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (x));
       /* APPLE LOCAL begin dynamic-no-pic */
-      else if (flag_pic
-#if TARGET_MACHO
-	       || MACHOPIC_INDIRECT
-#endif
-	       )
+      /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+      else if (flag_pic || (TARGET_MACHO && MACHOPIC_INDIRECT))
+      /* APPLE LOCAL end x86_64 support 2006-02-02 */
       /* APPLE LOCAL end dynamic-no-pic */
 	output_pic_addr_const (file, x, code);
       else
@@ -8060,47 +8825,54 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
     }
 
   /* APPLE LOCAL begin dynamic-no-pic */
-  if (MACHOPIC_INDIRECT
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  /* allow macho & macho for x86_64 to coexist */
+  if (((TARGET_MACHO && MACHOPIC_INDIRECT)
+       || flag_pic)
       && mode == Pmode && symbolic_operand (op1, Pmode))
   /* APPLE LOCAL end dynamic-no-pic */
     {
-#if TARGET_MACHO
-      /* APPLE LOCAL begin dynamic-no-pic */
-      if (MACHOPIC_INDIRECT)
+      if (TARGET_MACHO && ! TARGET_64BIT) 
 	{
-	  rtx temp = ((reload_in_progress
-		       || ((op0 && GET_CODE (op0) == REG)
-			   && mode == Pmode))
-		      ? op0 : gen_reg_rtx (Pmode));
-	  op1 = machopic_indirect_data_reference (op1, temp);
-	  if (MACHOPIC_PURE)
-	    op1 = machopic_legitimize_pic_address (op1, mode,
-						   temp == op1 ? 0 : temp);
-	}
-      if (op0 != op1 && GET_CODE (op0) != MEM)
+	  /* APPLE LOCAL begin dynamic-no-pic */
+	  if (MACHOPIC_INDIRECT)
+	    {
+	      rtx temp = ((reload_in_progress
+			   || ((op0 && GET_CODE (op0) == REG)
+			       && mode == Pmode))
+			  ? op0 : gen_reg_rtx (Pmode));
+	      op1 = machopic_indirect_data_reference (op1, temp);
+	      if (MACHOPIC_PURE)
+		op1 = machopic_legitimize_pic_address (op1, mode,
+						       temp == op1 ? 0 : temp);
+	    }
+	  if (op0 != op1 && GET_CODE (op0) != MEM)
+	    {
+	      insn = gen_rtx_SET (VOIDmode, op0, op1);
+	      emit_insn (insn);
+	      return;
+	    }
+	  if (GET_CODE (op0) == MEM)
+	    op1 = force_reg (Pmode, op1);
+	  else
+	    {
+	      rtx temp = op0;
+	      if (GET_CODE (temp) != REG)
+		temp = gen_reg_rtx (Pmode);
+	      temp = legitimize_pic_address (op1, temp);
+	      if (temp == op0)
+		return;
+	      op1 = temp;
+	    }
+	} 
+      else 
 	{
-	  insn = gen_rtx_SET (VOIDmode, op0, op1);
-	  emit_insn (insn);
-	  return;
+	  if (GET_CODE (op0) == MEM)
+	    op1 = force_reg (Pmode, op1);
+	  else
+	    op1 = legitimize_address (op1, op1, Pmode);
 	}
-      if (GET_CODE (op0) == MEM)
-	op1 = force_reg (Pmode, op1);
-      else
-	{
-	  rtx temp = op0;
-	  if (GET_CODE (temp) != REG)
-	    temp = gen_reg_rtx (Pmode);
-	  temp = legitimize_pic_address (op1, temp);
-	  if (temp == op0)
-	    return;
-	  op1 = temp;
-	}
-#else /* TARGET_MACHO */
-      if (GET_CODE (op0) == MEM)
-	op1 = force_reg (Pmode, op1);
-      else
-	op1 = legitimize_address (op1, op1, Pmode);
-#endif /* TARGET_MACHO */
+      /* APPLE LOCAL end x86_64 support 2006-02-02 */
       /* APPLE LOCAL end dynamic-no-pic */
     }
   else
@@ -8153,6 +8925,9 @@ void
 ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
 {
   rtx op0 = operands[0], op1 = operands[1];
+  /* APPLE LOCAL begin radar 4614623 */
+  cfun->uses_vector = 1;
+  /* APPLE LOCAL end radar 4614623 */
 
   /* Force constants other than zero into memory.  We do not know how
      the instructions used to build constants modify the upper 64 bits
@@ -8160,7 +8935,10 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
      to handle some of them more efficiently.  */
   if ((reload_in_progress | reload_completed) == 0
       && register_operand (op0, mode)
-      && CONSTANT_P (op1) && op1 != CONST0_RTX (mode))
+      /* APPLE LOCAL begin mainline */
+      && CONSTANT_P (op1)
+      && standard_sse_constant_p (op1) <= 0)
+    /* APPLE LOCAL end mainline */
     op1 = validize_mem (force_const_mem (mode, op1));
 
   /* Make operand1 a register if it isn't already.  */
@@ -8536,6 +9314,507 @@ ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
     return FALSE;
   return TRUE;
 }
+
+/* APPLE LOCAL begin 4176531 4424891 */
+static void
+ix86_expand_vector_move2 (enum machine_mode mode, rtx op0, rtx op1)
+{
+  rtx operands[2];
+  operands[0] = op0;
+  operands[1] = op1;
+  ix86_expand_vector_move (mode, operands);
+}
+
+static rtvec
+gen_2_4_rtvec (int scalars_per_vector, rtx val, enum machine_mode mode)
+{
+  rtvec rval;
+  switch (scalars_per_vector)
+    {
+    case 2: rval = gen_rtvec (2, val, CONST0_RTX (mode));
+      break;
+    case 4: rval = gen_rtvec (4, val, CONST0_RTX (mode),
+			      CONST0_RTX (mode), CONST0_RTX (mode));
+      break;
+    default: abort ();
+    }
+  return rval;
+}
+
+/* Convert a DFmode value in an SSE register into an unsigned SImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and ignoring the upper 32 bits of the result.  On
+   x86_64, there is an equivalent SSE %xmm->signed-int-64 conversion.
+   On x86_32, we don't have the instruction, nor the 64-bit
+   destination register it requires.  Do the conversion inline in the
+   SSE registers.  Requires SSE2.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_uns_DF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_maxval_as_fp, int_two31_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_maxval, rvt_int_two31;
+  rtx int_zero_as_xmm, int_maxval_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx large_xmm_v2di;
+  rtx le_op;
+  rtx zero_or_two31_xmm;
+  rtx final_result_rtx;
+  rtx v_rtx;
+  rtx incoming_value;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, DFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, DFmode);
+
+  real_from_integer (&rvt_int_maxval, DFmode, 0xffffffffULL, 0ULL, 1);
+  int_maxval_as_fp = const_double_from_real_value (rvt_int_maxval, DFmode);
+
+  real_from_integer (&rvt_int_two31, DFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, DFmode);
+
+  incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+
+  fp_value = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, fp_value,
+			    gen_rtx_SUBREG (V2DFmode, incoming_value, 0));
+  large_xmm = gen_reg_rtx (V2DFmode);
+  
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, large_xmm, v_rtx);
+  le_op = gen_rtx_fmt_ee (LE, V2DFmode,
+			  gen_rtx_SUBREG (V2DFmode, fp_value, 0), large_xmm);
+  /* large_xmm = (fp_value >= 2**31) ? -1 : 0 ; */
+  emit_insn (gen_sse2_vmmaskcmpv2df3 (large_xmm, large_xmm, fp_value, le_op));
+
+  int_maxval_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_maxval_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, int_maxval_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsminv2df3 (fp_value, fp_value, int_maxval_as_xmm));
+
+  int_zero_as_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_zero_as_fp, DFmode));
+
+  ix86_expand_vector_move2 (DFmode, int_zero_as_xmm, v_rtx);
+
+  emit_insn (gen_sse2_vmsmaxv2df3 (fp_value, fp_value, int_zero_as_xmm));
+
+  zero_or_two31_xmm = gen_reg_rtx (V2DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+  ix86_expand_vector_move2 (DFmode, zero_or_two31_xmm, v_rtx);  
+
+  /* zero_or_two31 = (large_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv2df3 (zero_or_two31_xmm, zero_or_two31_xmm, large_xmm));
+  /* if (large_xmm) fp_value -= 2**31;  */
+  emit_insn (gen_subv2df3 (fp_value, fp_value, zero_or_two31_xmm));
+  /* assert (0 <= fp_value && fp_value < 2**31);
+     int_result = trunc (fp_value); */
+  final_result_rtx = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttpd2dq (final_result_rtx, fp_value));
+
+  large_xmm_v2di = gen_reg_rtx (V2DImode);
+  emit_move_insn (large_xmm_v2di, gen_rtx_SUBREG (V2DImode, large_xmm, 0));
+  emit_insn (gen_ashlv2di3 (large_xmm_v2di, large_xmm_v2di,
+			    gen_rtx_CONST_INT (SImode, 31)));
+
+  emit_insn (gen_xorv4si3 (final_result_rtx, final_result_rtx,
+			   gen_rtx_SUBREG (V4SImode, large_xmm_v2di, 0)));
+  if (!rtx_equal_p (target, final_result_rtx))
+    emit_insn (gen_sse2_stored (target, final_result_rtx));
+  return "";
+}
+
+/* Convert a SFmode value in an SSE register into an unsigned DImode.
+   When -fpmath=387, this is done with an x87 st(0)_FP->signed-int-64
+   conversion, and subsequently ignoring the upper 32 bits of the
+   result.  On x86_64, there is an equivalent SSE %xmm->signed-int-64
+   conversion.  On x86_32, we don't have the instruction, nor the
+   64-bit destination register it requires.  Do the conversion inline
+   in the SSE registers.  Requires SSE2.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_uns_SF2SI_sse (rtx operands[])
+{
+  rtx int_zero_as_fp, int_two31_as_fp, int_two32_as_fp;
+  REAL_VALUE_TYPE rvt_zero, rvt_int_two31, rvt_int_two32;
+  rtx int_zero_as_xmm;
+  rtx fp_value = operands[1];
+  rtx target = operands[0];
+  rtx large_xmm;
+  rtx two31_xmm, two32_xmm;
+  rtx above_two31_xmm, above_two32_xmm;
+  rtx zero_or_two31_SI_xmm;
+  rtx le_op;
+  rtx zero_or_two31_SF_xmm;
+  rtx int_result_xmm;
+  rtx v_rtx;
+  rtx incoming_value;
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_zero, SFmode, 0ULL, 0ULL, 1);
+  int_zero_as_fp = const_double_from_real_value (rvt_zero, SFmode);
+
+  real_from_integer (&rvt_int_two31, SFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, SFmode);
+
+  real_from_integer (&rvt_int_two32, SFmode, (HOST_WIDE_INT)0x100000000ULL,
+		     0ULL, 1);
+  int_two32_as_fp = const_double_from_real_value (rvt_int_two32, SFmode);
+
+  incoming_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+
+  fp_value = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (V4SFmode, fp_value,
+			    gen_rtx_SUBREG (V4SFmode, incoming_value, 0));
+  large_xmm = gen_reg_rtx (V4SFmode);
+  
+  /* fp_value = MAX (fp_value, 0.0); */
+  /* Preclude negative values; truncate at zero.  */
+  int_zero_as_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_zero_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, int_zero_as_xmm, v_rtx);
+  emit_insn (gen_sse_vmsmaxv4sf3 (fp_value, fp_value, int_zero_as_xmm));
+
+  /* two31_xmm = 0x8000000; */
+  two31_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two31_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two31_xmm, v_rtx);
+
+  /* zero_or_two31_xmm = 0x8000000; */
+  zero_or_two31_SF_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, zero_or_two31_SF_xmm, two31_xmm);
+
+  /* above_two31_xmm = (fp_value >= 2**31) ? 0xffff_ffff : 0 ; */
+  above_two31_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two31_xmm, two31_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two31_xmm,
+			  gen_rtx_SUBREG (V4SFmode, two31_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two31_xmm, above_two31_xmm,
+				     fp_value, le_op));
+
+  /* two32_xmm = 0x1_0000_0000; */
+  two32_xmm = gen_reg_rtx (V4SFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V4SFmode,
+				gen_2_4_rtvec (4, int_two32_as_fp, SFmode));
+  ix86_expand_vector_move2 (SFmode, two32_xmm, v_rtx);
+
+  /* above_two32_xmm = (fp_value >= 2**32) ? 0xffff_ffff : 0 ; */
+  above_two32_xmm = gen_reg_rtx (V4SFmode);
+  ix86_expand_vector_move2 (SFmode, above_two32_xmm, two32_xmm);
+  le_op = gen_rtx_fmt_ee (LE, V4SFmode, above_two32_xmm,
+			  gen_rtx_SUBREG (V4SFmode, two32_xmm, 0));
+  emit_insn (gen_sse_vmmaskcmpv4sf3 (above_two32_xmm, above_two32_xmm,
+				     fp_value, le_op));
+
+  /* zero_or_two31_SF_xmm = (above_two31_xmm) ? 2**31 : 0; */
+  emit_insn (gen_andv4sf3 (zero_or_two31_SF_xmm, zero_or_two31_SF_xmm,
+			   above_two31_xmm));
+
+  /* zero_or_two31_SI_xmm = (above_two31_xmm & 0x8000_0000); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm,
+		  gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm,
+			    gen_rtx_CONST_INT (SImode, 31)));
+
+  /* zero_or_two31_SI_xmm = (above_two_31_xmm << 31); */
+  zero_or_two31_SI_xmm = gen_reg_rtx (V4SImode);
+  emit_move_insn (zero_or_two31_SI_xmm,
+		  gen_rtx_SUBREG (V4SImode, above_two31_xmm, 0));
+  emit_insn (gen_ashlv4si3 (zero_or_two31_SI_xmm, zero_or_two31_SI_xmm,
+			    gen_rtx_CONST_INT (SImode, 31)));
+
+  /* if (above_two31_xmm) fp_value -= 2**31;  */
+  /* If the input FP value is greater than 2**31, subtract that amount
+     from the FP value before conversion.  We'll re-add that amount as
+     an integer after the conversion.  */
+  emit_insn (gen_subv4sf3 (fp_value, fp_value, zero_or_two31_SF_xmm));
+
+  /* assert (0.0 <= fp_value && fp_value < 2**31);
+     int_result_xmm = trunc (fp_value); */
+  /* Apply the SSE double -> signed_int32 conversion to our biased,
+     clamped SF value.  */
+  int_result_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_cvttps2dq (int_result_xmm, fp_value));
+
+  /* int_result_xmm += zero_or_two_31_SI_xmm; */
+  /* Restore the 2**31 bias we may have subtracted earlier.  If the
+     input FP value was between 2**31 and 2**32, this will unbias the
+     result.
+
+     input_fp_value < 2**31: this won't change the value
+     2**31 <= input_fp_value < 2**32:
+     this will restore the 2**31 bias we subtracted earler
+     input_fp_value >= 2**32: this insn doesn't matter;
+     the next insn will clobber this result
+  */
+  emit_insn (gen_addv4si3 (int_result_xmm, int_result_xmm,
+			   zero_or_two31_SI_xmm));
+
+  /* int_result_xmm |= above_two32_xmm; */
+  /* If the input value was greater than 2**32, force the integral
+     result to 0xffff_ffff.  */
+  emit_insn (gen_iorv4si3 (int_result_xmm, int_result_xmm,
+			   gen_rtx_SUBREG (V4SImode, above_two32_xmm, 0)));
+
+  if (!rtx_equal_p (target, int_result_xmm))
+    emit_insn (gen_sse2_stored (target, int_result_xmm));
+  return "";
+}
+
+/* Convert an unsigned DImode value into a DFmode, using only SSE.
+   Expects the 64-bit DImode to be supplied as two 32-bit parts in two
+   SSE %xmm registers; result returned in an %xmm register.  Requires
+   SSE2; will use SSE3 if available.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_uns_DI2DF_sse (rtx operands[])
+{
+  REAL_VALUE_TYPE bias_lo_rvt, bias_hi_rvt;
+  rtx bias_lo_rtx, bias_hi_rtx;
+  rtx target = operands[0];
+  rtx fp_value = operands[1];
+  rtx fp_value_hi, fp_value_lo;
+  rtx fp_value_hi_xmm, fp_value_lo_xmm;
+  rtx int_xmm;
+  rtx final_result_xmm, result_lo_xmm;
+  rtx biases, exponents;
+  rtvec biases_rtvec, exponents_rtvec;
+
+  cfun->uses_vector = 1;
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+
+  int_xmm = gen_reg_rtx (V4SImode);
+
+  fp_value = force_reg (GET_MODE (operands[1]), operands[1]);
+
+  fp_value_lo = gen_rtx_SUBREG (SImode, fp_value, 0);
+  fp_value_lo_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_loadld (fp_value_lo_xmm, CONST0_RTX (V4SImode),
+			      fp_value_lo));
+
+  fp_value_hi = gen_rtx_SUBREG (SImode, fp_value, 4);
+  fp_value_hi_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_loadld (fp_value_hi_xmm, CONST0_RTX (V4SImode),
+			      fp_value_hi));
+
+  ix86_expand_vector_move2 (V4SImode, int_xmm, fp_value_hi_xmm);
+  emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, fp_value_lo_xmm));
+
+  exponents_rtvec = gen_rtvec (4, GEN_INT (0x45300000UL),
+			       GEN_INT (0x43300000UL),
+			       CONST0_RTX (SImode), CONST0_RTX (SImode));
+  exponents = validize_mem (
+    force_const_mem (V4SImode, gen_rtx_CONST_VECTOR (V4SImode,
+						      exponents_rtvec)));
+  emit_insn (gen_sse2_punpckldq (int_xmm, int_xmm, exponents));
+
+  final_result_xmm = gen_reg_rtx (V2DFmode);
+  ix86_expand_vector_move2 (V2DFmode, final_result_xmm,
+			    gen_rtx_SUBREG (V2DFmode, int_xmm, 0));
+
+  /* Integral versions of the DFmode 'exponents' above.  */
+  REAL_VALUE_FROM_INT (bias_lo_rvt, 0x00000000000000ULL, 0x100000ULL, DFmode);
+  REAL_VALUE_FROM_INT (bias_hi_rvt, 0x10000000000000ULL, 0x000000ULL, DFmode);
+  bias_lo_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_lo_rvt, DFmode);
+  bias_hi_rtx = CONST_DOUBLE_FROM_REAL_VALUE (bias_hi_rvt, DFmode);
+  biases_rtvec = gen_rtvec (2, bias_lo_rtx, bias_hi_rtx);
+  biases = validize_mem (force_const_mem (V2DFmode,
+					  gen_rtx_CONST_VECTOR (V2DFmode,
+								biases_rtvec)));
+  emit_insn (gen_subv2df3 (final_result_xmm, final_result_xmm, biases));
+
+  if (TARGET_SSE3)
+    {
+      emit_insn (gen_sse3_haddv2df3 (final_result_xmm, final_result_xmm,
+				     final_result_xmm));
+    }
+  else
+    {
+      result_lo_xmm = gen_reg_rtx (V2DFmode);
+      ix86_expand_vector_move2 (V2DFmode, result_lo_xmm, final_result_xmm);
+      emit_insn (gen_sse2_unpckhpd (final_result_xmm, final_result_xmm,
+				    final_result_xmm));
+      emit_insn (gen_addv2df3 (final_result_xmm, final_result_xmm,
+			       result_lo_xmm));
+    }
+
+  if (!rtx_equal_p (target, final_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (DFmode, final_result_xmm, 0));
+
+  return "";
+}
+/* APPLE LOCAL end 4176531 4424891 */
+
+/* APPLE LOCAL begin 4424891 */
+/* Convert an unsigned SImode value into a DFmode, using only SSE.
+   Result returned in an %xmm register.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_uns_SI2DF_sse (rtx operands[])
+{
+  REAL_VALUE_TYPE rvt_int_two31;
+  rtx int_value_reg;
+  rtx fp_value_xmm, fp_value_as_int_xmm;
+  rtx final_result_xmm;
+  rtx int_two31_as_fp, int_two31_as_fp_vec;
+  rtx v_rtx;
+  rtx target = operands[0];
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+  gcc_assert (GET_MODE (operands[1]) == SImode);
+
+  cfun->uses_vector = 1;
+
+  int_value_reg = gen_reg_rtx (SImode);
+  emit_move_insn (int_value_reg, operands[1]);
+  emit_insn (gen_addsi3 (int_value_reg, int_value_reg,
+			 GEN_INT (-2147483648LL /* MIN_INT */)));
+
+  fp_value_as_int_xmm = gen_reg_rtx (V4SImode);
+  emit_insn (gen_sse2_loadld (fp_value_as_int_xmm, CONST0_RTX (V4SImode),
+			      int_value_reg));
+
+  fp_value_xmm = gen_reg_rtx (V2DFmode);
+  emit_insn (gen_sse2_cvtdq2pd (fp_value_xmm,
+				gen_rtx_SUBREG (V4SImode,
+						fp_value_as_int_xmm, 0)));
+
+  real_from_integer (&rvt_int_two31, DFmode, 0x80000000ULL, 0ULL, 1);
+  int_two31_as_fp = const_double_from_real_value (rvt_int_two31, DFmode);
+  v_rtx = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two31_as_fp, DFmode));
+
+  int_two31_as_fp_vec = validize_mem (force_const_mem (V2DFmode, v_rtx));
+
+  final_result_xmm = gen_reg_rtx (V2DFmode);
+  emit_move_insn (final_result_xmm, fp_value_xmm);
+  emit_insn (gen_sse2_vmaddv2df3 (final_result_xmm, final_result_xmm,
+				  int_two31_as_fp_vec));
+
+  if (!rtx_equal_p (target, final_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (DFmode, final_result_xmm, 0));
+
+  return "";
+}
+
+/* Convert an unsigned SImode value into a SFmode, using only SSE.
+   Result returned in an %xmm register.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_uns_SI2SF_sse (rtx operands[])
+{
+  REAL_VALUE_TYPE rvt_int_1p16;
+  rtx int_hi_reg, int_lo_reg;
+  rtx fp_hi_sf_xmm, fp_lo_sf_xmm;
+  rtx int_1p16_as_fp, int_1p16_as_fp_mem;
+  rtx target = operands[0];
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+  gcc_assert (GET_MODE (operands[1]) == SImode);
+
+  cfun->uses_vector = 1;
+
+  real_from_integer (&rvt_int_1p16, SFmode, 0x10000ULL, 0ULL, 1);
+  int_1p16_as_fp = const_double_from_real_value (rvt_int_1p16, SFmode);
+  int_1p16_as_fp_mem = validize_mem (force_const_mem (SFmode, int_1p16_as_fp));
+
+  int_lo_reg = gen_reg_rtx (SImode);
+  int_hi_reg = gen_reg_rtx (SImode);
+  emit_move_insn (int_lo_reg, operands[1]);
+  emit_move_insn (int_hi_reg, operands[1]);
+  emit_insn (gen_andsi3 (int_lo_reg, int_lo_reg, GEN_INT (0xffff)));
+  emit_insn (gen_lshrsi3 (int_hi_reg, int_hi_reg, GEN_INT (16)));
+
+  fp_hi_sf_xmm = gen_reg_rtx (SFmode);
+  fp_lo_sf_xmm = gen_reg_rtx (SFmode);
+  emit_insn (gen_floatsisf2 (fp_hi_sf_xmm, int_hi_reg));
+  emit_insn (gen_floatsisf2 (fp_lo_sf_xmm, int_lo_reg));
+
+  emit_insn (gen_rtx_SET
+	     (SFmode, fp_hi_sf_xmm,
+	      gen_rtx_fmt_ee (MULT, SFmode, fp_hi_sf_xmm, int_1p16_as_fp_mem)));
+  emit_insn (gen_rtx_SET
+	     (SFmode, fp_hi_sf_xmm,
+	      gen_rtx_fmt_ee (PLUS, SFmode, fp_hi_sf_xmm, fp_lo_sf_xmm)));
+
+  if (!rtx_equal_p (target, fp_hi_sf_xmm))
+    emit_move_insn (target, fp_hi_sf_xmm);
+
+  return "";
+}
+
+/* Convert an unsigned SImode value into a DFmode, using only SSE.
+   Result returned in an %xmm register.  For x86_32, -mfpmath=sse,
+   !optimize_size only.  */
+const char *
+ix86_expand_convert_sign_DI2DF_sse (rtx operands[])
+{
+  rtx my_operands[2];
+  REAL_VALUE_TYPE rvt_int_two32;
+  rtx rvt_int_two32_vec;
+  rtx fp_value_hi_xmm, fp_value_hi_shifted_xmm;
+  rtx final_result_xmm;
+  rtx int_two32_as_fp, int_two32_as_fp_vec;
+  rtx target = operands[0];
+  rtx input = force_reg (DImode, operands[1]);
+
+  gcc_assert (ix86_preferred_stack_boundary >= 128);
+  gcc_assert (GET_MODE (input) == DImode);
+
+  cfun->uses_vector = 1;
+
+  fp_value_hi_xmm = gen_reg_rtx (V2DFmode);
+  emit_insn (gen_sse2_cvtsi2sd (fp_value_hi_xmm, fp_value_hi_xmm,
+				gen_rtx_SUBREG (SImode, input, 4)));
+
+  real_from_integer (&rvt_int_two32, DFmode, 0x100000000ULL, 0ULL, 1);
+  int_two32_as_fp = const_double_from_real_value (rvt_int_two32, DFmode);
+  rvt_int_two32_vec = gen_rtx_CONST_VECTOR (V2DFmode,
+				gen_2_4_rtvec (2, int_two32_as_fp, DFmode));
+
+  int_two32_as_fp_vec = validize_mem (force_const_mem (V2DFmode,
+						       rvt_int_two32_vec));
+
+  fp_value_hi_shifted_xmm = gen_reg_rtx (V2DFmode);
+  emit_move_insn (fp_value_hi_shifted_xmm, fp_value_hi_xmm);
+  emit_insn (gen_sse2_vmmulv2df3 (fp_value_hi_shifted_xmm,
+				  fp_value_hi_shifted_xmm,
+				  int_two32_as_fp_vec));
+
+  my_operands[0] = gen_reg_rtx (DFmode);
+  my_operands[1] = gen_rtx_SUBREG (SImode, input, 0);
+  (void) ix86_expand_convert_uns_SI2DF_sse (my_operands);
+
+  final_result_xmm = REG_P (target) && GET_MODE (target) == V2DFmode
+    ? target : gen_reg_rtx (V2DFmode);
+  emit_move_insn (final_result_xmm, gen_rtx_SUBREG (V2DFmode,
+						    my_operands[0], 0));
+  emit_insn (gen_sse2_vmaddv2df3 (final_result_xmm, final_result_xmm,
+				  fp_value_hi_shifted_xmm));
+
+  if (!rtx_equal_p (target, final_result_xmm))
+    emit_move_insn (target, gen_rtx_SUBREG (DFmode, final_result_xmm, 0));
+
+  return "";
+}
+/* APPLE LOCAL end 4424891 */
 
 /* A subroutine of ix86_expand_fp_absneg_operator and copysign expanders.
    Create a mask for the sign bit in MODE for an SSE register.  If VECT is
@@ -9468,13 +10747,19 @@ ix86_expand_compare (enum rtx_code code, rtx *second_test, rtx *bypass_test)
     *second_test = NULL_RTX;
   if (bypass_test)
     *bypass_test = NULL_RTX;
+  /* APPLE LOCAL begin mainline */
 
-  if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
+  if (ix86_compare_emitted)
+    {
+      ret = gen_rtx_fmt_ee (code, VOIDmode, ix86_compare_emitted, const0_rtx);
+      ix86_compare_emitted = NULL_RTX;
+    }
+  else if (GET_MODE_CLASS (GET_MODE (op0)) == MODE_FLOAT)
     ret = ix86_expand_fp_compare (code, op0, op1, NULL_RTX,
 				  second_test, bypass_test);
   else
     ret = ix86_expand_int_compare (code, op0, op1);
-
+  /* APPLE LOCAL end mainline */
   return ret;
 }
 
@@ -9798,11 +11083,15 @@ ix86_expand_setcc (enum rtx_code code, rtx dest)
     }
 
   /* Attach a REG_EQUAL note describing the comparison result.  */
+  /* APPLE LOCAL begin mainline */
+  if (ix86_compare_op0 && ix86_compare_op1)
+    {
   equiv = simplify_gen_relational (code, QImode,
 				   GET_MODE (ix86_compare_op0),
 				   ix86_compare_op0, ix86_compare_op1);
   set_unique_reg_note (get_last_insn (), REG_EQUAL, equiv);
-
+    }
+  /* APPLE LOCAL end mainline */
   return 1; /* DONE */
 }
 
@@ -10445,6 +11734,194 @@ ix86_expand_int_movcc (rtx operands[])
   return 1; /* DONE */
 }
 
+/* APPLE LOCAL begin mainline April 14, 2005 Radar 4053179 */
+/* Swap, force into registers, or otherwise massage the two operands
+   to an sse comparison with a mask result.  Thus we differ a bit from
+   ix86_prepare_fp_compare_args which expects to produce a flags result.
+
+   The DEST operand exists to help determine whether to commute commutative
+   operators.  The POP0/POP1 operands are updated in place.  The new
+   comparison code is returned, or UNKNOWN if not implementable.  */
+
+static enum rtx_code
+ix86_prepare_sse_fp_compare_args (rtx dest, enum rtx_code code,
+                                 rtx *pop0, rtx *pop1)
+{
+  rtx tmp;
+
+  switch (code)
+    {
+    case LTGT:
+    case UNEQ:
+      /* We have no LTGT as an operator.  We could implement it with
+        NE & ORDERED, but this requires an extra temporary.  It's
+        not clear that it's worth it.  */
+      return UNKNOWN;
+
+    case LT:
+    case LE:
+    case UNGT:
+    case UNGE:
+      /* These are supported directly.  */
+      break;
+
+    case EQ:
+    case NE:
+    case UNORDERED:
+    case ORDERED:
+      /* For commutative operators, try to canonicalize the destination
+        operand to be first in the comparison - this helps reload to
+        avoid extra moves.  */
+      if (!dest || !rtx_equal_p (dest, *pop1))
+       break;
+      /* FALLTHRU */
+
+    case GE:
+    case GT:
+    case UNLE:
+    case UNLT:
+      /* These are not supported directly.  Swap the comparison operands
+        to transform into something that is supported.  */
+      tmp = *pop0;
+      *pop0 = *pop1;
+      *pop1 = tmp;
+      code = swap_condition (code);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return code;
+}
+
+/* Detect conditional moves that exactly match min/max operational
+   semantics.  Note that this is IEEE safe, as long as we don't
+   interchange the operands.
+
+   Returns FALSE if this conditional move doesn't match a MIN/MAX,
+   and TRUE if the operation is successful and instructions are emitted.  */
+
+static bool
+ix86_expand_sse_fp_minmax (rtx dest, enum rtx_code code, rtx cmp_op0,
+                          rtx cmp_op1, rtx if_true, rtx if_false)
+{
+  enum machine_mode mode;
+  bool is_min;
+  rtx tmp;
+
+  if (code == LT)
+    ;
+  else if (code == UNGE)
+    {
+      tmp = if_true;
+      if_true = if_false;
+      if_false = tmp;
+    }
+  else
+    return false;
+
+  if (rtx_equal_p (cmp_op0, if_true) && rtx_equal_p (cmp_op1, if_false))
+    is_min = true;
+  else if (rtx_equal_p (cmp_op1, if_true) && rtx_equal_p (cmp_op0, if_false))
+    is_min = false;
+  else
+    return false;
+
+  mode = GET_MODE (dest);
+
+  /* We want to check HONOR_NANS and HONOR_SIGNED_ZEROS here,
+     but MODE may be a vector mode and thus not appropriate.  */
+  if (!flag_finite_math_only || !flag_unsafe_math_optimizations)
+    {
+      int u = is_min ? UNSPEC_IEEE_MIN : UNSPEC_IEEE_MAX;
+      rtvec v;
+
+      if_true = force_reg (mode, if_true);
+      v = gen_rtvec (2, if_true, if_false);
+      tmp = gen_rtx_UNSPEC (mode, v, u);
+    }
+  else
+    {
+      code = is_min ? SMIN : SMAX;
+      tmp = gen_rtx_fmt_ee (code, mode, if_true, if_false);
+    }
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest, tmp));
+  return true;
+}
+
+/* Expand an sse vector comparison.  Return the register with the result.  */
+
+static rtx
+ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
+                    rtx op_true, rtx op_false)
+{
+  enum machine_mode mode = GET_MODE (dest);
+  rtx x;
+
+  cmp_op0 = force_reg (mode, cmp_op0);
+  if (!nonimmediate_operand (cmp_op1, mode))
+    cmp_op1 = force_reg (mode, cmp_op1);
+
+  if (optimize
+      || reg_overlap_mentioned_p (dest, op_true)
+      || reg_overlap_mentioned_p (dest, op_false))
+    dest = gen_reg_rtx (mode);
+
+  x = gen_rtx_fmt_ee (code, mode, cmp_op0, cmp_op1);
+  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+
+  return dest;
+}
+
+/* Expand DEST = CMP ? OP_TRUE : OP_FALSE into a sequence of logical
+   operations.  This is used for both scalar and vector conditional moves.  */
+
+static void
+ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
+{
+  enum machine_mode mode = GET_MODE (dest);
+  rtx t2, t3, x;
+
+  if (op_false == CONST0_RTX (mode))
+    {
+      op_true = force_reg (mode, op_true);
+      x = gen_rtx_AND (mode, cmp, op_true);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+  else if (op_true == CONST0_RTX (mode))
+    {
+      op_false = force_reg (mode, op_false);
+      x = gen_rtx_NOT (mode, cmp);
+      x = gen_rtx_AND (mode, x, op_false);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+  else
+    {
+      op_true = force_reg (mode, op_true);
+      op_false = force_reg (mode, op_false);
+
+      t2 = gen_reg_rtx (mode);
+      if (optimize)
+       t3 = gen_reg_rtx (mode);
+      else
+       t3 = dest;
+
+      x = gen_rtx_AND (mode, op_true, cmp);
+      emit_insn (gen_rtx_SET (VOIDmode, t2, x));
+
+      x = gen_rtx_NOT (mode, cmp);
+      x = gen_rtx_AND (mode, x, op_false);
+      emit_insn (gen_rtx_SET (VOIDmode, t3, x));
+
+      x = gen_rtx_IOR (mode, t3, t2);
+      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
+    }
+}
+
+/* Expand a floating-point conditional move.  Return true if successful.  */
+/* APPLE LOCAL end mainline April 14, 2005 Radar 4053179 */
 int
 ix86_expand_fp_movcc (rtx operands[])
 {
@@ -10454,88 +11931,38 @@ ix86_expand_fp_movcc (rtx operands[])
 
   if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
     {
-      rtx cmp_op0, cmp_op1, if_true, if_false;
-      rtx clob;
-      enum machine_mode vmode, cmode;
-      bool is_minmax = false;
-
-      cmp_op0 = ix86_compare_op0;
-      cmp_op1 = ix86_compare_op1;
-      if_true = operands[2];
-      if_false = operands[3];
+      /* APPLE LOCAL mainline April 14, 2005 Radar 4053179 */
+      enum machine_mode cmode;
 
       /* Since we've no cmove for sse registers, don't force bad register
 	 allocation just to gain access to it.  Deny movcc when the
 	 comparison mode doesn't match the move mode.  */
-      cmode = GET_MODE (cmp_op0);
+      /* APPLE LOCAL mainline April 14, 2005 Radar 4053179 */
+      cmode = GET_MODE (ix86_compare_op0);
       if (cmode == VOIDmode)
-	cmode = GET_MODE (cmp_op1);
+      /* APPLE LOCAL mainline April 14, 2005 Radar 4053179 */
+	cmode = GET_MODE (ix86_compare_op0);
       if (cmode != mode)
 	return 0;
 
-      /* We have no LTGT as an operator.  We could implement it with
-	 NE & ORDERED, but this requires an extra temporary.  It's
-	 not clear that it's worth it.  */
-      if (code == LTGT || code == UNEQ)
+      /* APPLE LOCAL begin mainline April 14, 2005 Radar 4053179 */
+      code = ix86_prepare_sse_fp_compare_args (operands[0], code,
+                                               &ix86_compare_op0,
+                                               &ix86_compare_op1);
+      if (code == UNKNOWN)
+      /* APPLE LOCAL end mainline April 14, 2005 Radar 4053179 */
 	return 0;
 
-      /* Massage condition to satisfy sse_comparison_operator.  Try
-	 to canonicalize the destination operand to be first in the
-	 comparison - this helps reload to avoid extra moves.  */
-      if (!sse_comparison_operator (operands[1], VOIDmode)
-	  || (COMMUTATIVE_P (operands[1])
-	      && rtx_equal_p (operands[0], cmp_op1)))
-	{
-	  tmp = cmp_op0;
-	  cmp_op0 = cmp_op1;
-	  cmp_op1 = tmp;
-	  code = swap_condition (code);
-	}
+      /* APPLE LOCAL begin mainline April 14, 2005 Radar 4053179 */
+      if (ix86_expand_sse_fp_minmax (operands[0], code, ix86_compare_op0,
+                                     ix86_compare_op1, operands[2],
+                                     operands[3]))
+        return 1;
 
-      /* Detect conditional moves that exactly match min/max operational
-	 semantics.  Note that this is IEEE safe, as long as we don't
-	 interchange the operands.  Which is why we keep this in the form
-	 if an IF_THEN_ELSE instead of reducing to SMIN/SMAX.  */
-      if ((code == LT || code == UNGE) && REG_P (cmp_op0) && REG_P (cmp_op1))
-	{
-	  if (((cmp_op0 == if_true && cmp_op1 == if_false)
-	      || (cmp_op0 == if_false && cmp_op1 == if_true)))
-	    {
-	      is_minmax = true;
-	      if (code == UNGE)
-		{
-		  code = LT;
-		  tmp = if_true;
-		  if_true = if_false;
-		  if_false = tmp;
-		}
-	    }
-	}
-
-      if (mode == SFmode)
-	vmode = V4SFmode;
-      else if (mode == DFmode)
-	vmode = V2DFmode;
-      else
-	gcc_unreachable ();
-
-      cmp_op0 = force_reg (mode, cmp_op0);
-      if (!nonimmediate_operand (cmp_op1, mode))
-	cmp_op1 = force_reg (mode, cmp_op1);
-
-      tmp = gen_rtx_fmt_ee (code, mode, cmp_op0, cmp_op1);
-      gcc_assert (sse_comparison_operator (tmp, VOIDmode));
-
-      tmp = gen_rtx_IF_THEN_ELSE (mode, tmp, if_true, if_false);
-      tmp = gen_rtx_SET (VOIDmode, operands[0], tmp);
-
-      if (!is_minmax)
-	{
-	  clob = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (vmode));
-	  tmp = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, tmp, clob));
-	}
-
-      emit_insn (tmp);
+      tmp = ix86_expand_sse_cmp (operands[0], code, ix86_compare_op0,
+                                 ix86_compare_op1, operands[2], operands[3]);
+      ix86_expand_sse_movcc (operands[0], tmp, operands[2], operands[3]);
+      /* APPLE LOCAL end mainline April 14, 2005 Radar 4053179 */
       return 1;
     }
 
@@ -10586,100 +12013,125 @@ ix86_expand_fp_movcc (rtx operands[])
   return 1;
 }
 
-void
-ix86_split_sse_movcc (rtx operands[])
+/* APPLE LOCAL begin mainline April 14, 2005 Radar 4053179 */
+/* Expand a floating-point vector conditional move; a vcond operation
+   rather than a movcc operation.  */
+ 
+bool
+ix86_expand_fp_vcond (rtx operands[])
 {
-  rtx dest, scratch, cmp, op_true, op_false, x;
-  enum machine_mode mode, vmode;
+  enum rtx_code code = GET_CODE (operands[3]);
+  rtx cmp;
 
-  /* Note that the operator CMP has been set up with matching constraints
-     such that dest is valid for the comparison.  Unless one of the true
-     or false operands are zero, the true operand has already been placed
-     in SCRATCH.  */
-  dest = operands[0];
-  scratch = operands[1];
-  op_true = operands[2];
-  op_false = operands[3];
-  cmp = operands[4];
+  code = ix86_prepare_sse_fp_compare_args (operands[0], code,
+                                          &operands[4], &operands[5]);
+  if (code == UNKNOWN)
+    return false;
 
-  mode = GET_MODE (dest);
-  vmode = GET_MODE (scratch);
+  if (ix86_expand_sse_fp_minmax (operands[0], code, operands[4],
+                                operands[5], operands[1], operands[2]))
+    return true;
 
-  /* We need to make sure that the TRUE and FALSE operands are out of the
-     way of the destination.  Marking the destination earlyclobber doesn't
-     work, since we want matching constraints for the actual comparison, so
-     at some point we always wind up having to do a copy ourselves here.
-     We very much prefer the TRUE value to be in SCRATCH.  If it turns out
-     that FALSE overlaps DEST, then we invert the comparison so that we
-     still only have to do one move.  */
-  if (rtx_equal_p (op_false, dest))
-    {
-      enum rtx_code code;
-
-      if (rtx_equal_p (op_true, dest))
-	{
-	  /* ??? Really ought not happen.  It means some optimizer managed
-	     to prove the operands were identical, but failed to fold the
-	     conditional move to a straight move.  Do so here, because 
-	     otherwise we'll generate incorrect code.  And since they're
-	     both already in the destination register, nothing to do.  */
-	  return;
-	}
-
-      x = gen_rtx_REG (mode, REGNO (scratch));
-      emit_move_insn (x, op_false);
-      op_false = op_true;
-      op_true = x;
-
-      code = GET_CODE (cmp);
-      code = reverse_condition_maybe_unordered (code);
-      cmp = gen_rtx_fmt_ee (code, mode, XEXP (cmp, 0), XEXP (cmp, 1));
-    }
-  else if (op_true == CONST0_RTX (mode))
-    ;
-  else if (op_false == CONST0_RTX (mode) && !rtx_equal_p (op_true, dest))
-    ;
-  else
-    {
-      x = gen_rtx_REG (mode, REGNO (scratch));
-      emit_move_insn (x, op_true);
-      op_true = x;
-    }
-
-  emit_insn (gen_rtx_SET (VOIDmode, dest, cmp));
-  dest = simplify_gen_subreg (vmode, dest, mode, 0);
-
-  if (op_false == CONST0_RTX (mode))
-    {
-      op_true = simplify_gen_subreg (vmode, op_true, mode, 0);
-      x = gen_rtx_AND (vmode, dest, op_true);
-      emit_insn (gen_rtx_SET (VOIDmode, dest, x));
-    }
-  else
-    {
-      op_false = simplify_gen_subreg (vmode, op_false, mode, 0);
-
-      if (op_true == CONST0_RTX (mode))
-	{
-	  x = gen_rtx_NOT (vmode, dest);
-	  x = gen_rtx_AND (vmode, x, op_false);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
-	}
-      else
-	{
-	  x = gen_rtx_AND (vmode, scratch, dest);
-	  emit_insn (gen_rtx_SET (VOIDmode, scratch, x));
-
-	  x = gen_rtx_NOT (vmode, dest);
-	  x = gen_rtx_AND (vmode, x, op_false);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
-
-	  x = gen_rtx_IOR (vmode, dest, scratch);
-	  emit_insn (gen_rtx_SET (VOIDmode, dest, x));
-	}
-    }
+  cmp = ix86_expand_sse_cmp (operands[0], code, operands[4], operands[5],
+                            operands[1], operands[2]);
+  ix86_expand_sse_movcc (operands[0], cmp, operands[1], operands[2]);
+  return true;
 }
 
+/* Expand a signed integral vector conditional move.  */
+
+bool
+ix86_expand_int_vcond (rtx operands[], bool unsignedp)
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+  enum rtx_code code = GET_CODE (operands[3]);
+  rtx cmp, x;
+
+  if (unsignedp)
+    code = signed_condition (code);
+  if (code == NE || code == LE || code == GE)
+    {
+      /* Inverse of a supported code.  */
+      x = operands[1];
+      operands[1] = operands[2];
+      operands[2] = x;
+      code = reverse_condition (code);
+    }
+  if (code == LT)
+    {
+      /* Swap of a supported code.  */
+      x = operands[4];
+      operands[4] = operands[5];
+      operands[5] = x;
+      code = swap_condition (code);
+    }
+  gcc_assert (code == EQ || code == GT);
+
+  /* Unlike floating-point, we can rely on the optimizers to have already
+     converted to MIN/MAX expressions, so we don't have to handle that.  */
+
+  /* Unsigned GT is not directly supported.  We can zero-extend QI and
+     HImode elements to the next wider element size, use a signed compare,
+     then repack.  For three extra instructions, this is definitely a win.  */
+  if (code == GT && unsignedp)
+    {
+      rtx o0l, o0h, o1l, o1h, cl, ch, zero;
+      enum machine_mode wider;
+      rtx (*unpackl) (rtx, rtx, rtx);
+      rtx (*unpackh) (rtx, rtx, rtx);
+      rtx (*pack) (rtx, rtx, rtx);
+
+      switch (mode)
+       {
+       case V16QImode:
+         wider = V8HImode;
+         unpackl = gen_sse2_punpcklbw;
+         unpackh = gen_sse2_punpckhbw;
+         pack = gen_sse2_packsswb;
+         break;
+       case V8HImode:
+         wider = V4SImode;
+         unpackl = gen_sse2_punpcklwd;
+         unpackh = gen_sse2_punpckhwd;
+         pack = gen_sse2_packssdw;
+         break;
+       default:
+         gcc_unreachable ();
+       }
+
+      operands[4] = force_reg (mode, operands[4]);
+      operands[5] = force_reg (mode, operands[5]);
+
+      o0l = gen_reg_rtx (wider);
+      o0h = gen_reg_rtx (wider);
+      o1l = gen_reg_rtx (wider);
+      o1h = gen_reg_rtx (wider);
+      cl = gen_reg_rtx (wider);
+      ch = gen_reg_rtx (wider);
+      cmp = gen_reg_rtx (mode);
+      zero = force_reg (mode, CONST0_RTX (mode));
+
+      emit_insn (unpackl (gen_lowpart (mode, o0l), operands[4], zero));
+      emit_insn (unpackh (gen_lowpart (mode, o0h), operands[4], zero));
+      emit_insn (unpackl (gen_lowpart (mode, o1l), operands[5], zero));
+      emit_insn (unpackh (gen_lowpart (mode, o1h), operands[5], zero));
+
+      x = gen_rtx_GT (wider, o0l, o1l);
+      emit_insn (gen_rtx_SET (VOIDmode, cl, x));
+
+      x = gen_rtx_GT (wider, o0h, o1h);
+      emit_insn (gen_rtx_SET (VOIDmode, ch, x));
+
+      emit_insn (pack (cmp, cl, ch));
+    }
+  else
+    cmp = ix86_expand_sse_cmp (operands[0], code, operands[4], operands[5],
+                              operands[1], operands[2]);
+
+  ix86_expand_sse_movcc (operands[0], cmp, operands[1], operands[2]);
+  return true;
+}
+/* APPLE LOCAL end mainline April 14, 2005 Radar 4053179 */
 /* Expand conditional increment or decrement using adb/sbb instructions.
    The default case using setcc followed by the conditional move can be
    done by generic code.  */
@@ -12245,24 +13697,29 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   if (TARGET_64BIT && pop)
     abort ();
 
-#if TARGET_MACHO
-  /* APPLE LOCAL dynamic-no-pic */
-  if (MACHOPIC_INDIRECT && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
-    fnaddr = machopic_indirect_call_target (fnaddr);
-#else
-  /* Static functions and indirect calls don't need the pic register.  */
-  if (! TARGET_64BIT && flag_pic
-      && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
-      && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
-    use_reg (&use, pic_offset_table_rtx);
-
-  if (TARGET_64BIT && INTVAL (callarg2) >= 0)
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  if (TARGET_MACHO && ! TARGET_64BIT) 
     {
-      rtx al = gen_rtx_REG (QImode, 0);
-      emit_move_insn (al, callarg2);
-      use_reg (&use, al);
+      /* APPLE LOCAL dynamic-no-pic */
+      if (MACHOPIC_INDIRECT && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
+	fnaddr = machopic_indirect_call_target (fnaddr);
     }
-#endif /* TARGET_MACHO */
+  else 
+    {
+      /* Static functions and indirect calls don't need the pic register.  */
+      if (! TARGET_64BIT && flag_pic
+	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
+	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
+	use_reg (&use, pic_offset_table_rtx);
+
+      if (TARGET_64BIT && INTVAL (callarg2) >= 0)
+	{
+	  rtx al = gen_rtx_REG (QImode, 0);
+	  emit_move_insn (al, callarg2);
+	  use_reg (&use, al);
+	}
+    }
+  /* APPLE LOCAL end x86_64 support 2006-02-02 */
 
   if (! call_insn_operand (XEXP (fnaddr, 0), Pmode))
     {
@@ -12526,6 +13983,10 @@ ix86_issue_rate (void)
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
     case PROCESSOR_NOCONA:
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+    case PROCESSOR_GENERIC32:
+    case PROCESSOR_GENERIC64:
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
       return 3;
 
     default:
@@ -12719,6 +14180,10 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
+    case PROCESSOR_GENERIC32:
+    case PROCESSOR_GENERIC64:
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
       memory = get_attr_memory (insn);
 
       /* Show ability of reorder buffer to hide latency of load by executing
@@ -13413,7 +14878,42 @@ enum ix86_builtins
 
   IX86_BUILTIN_MONITOR,
   IX86_BUILTIN_MWAIT,
+  /* APPLE LOCAL begin ssse3 4424835 */
+  /* Merom New Instructions.  */
+  IX86_BUILTIN_PHADDW,
+  IX86_BUILTIN_PHADDD,
+  IX86_BUILTIN_PHADDSW,
+  IX86_BUILTIN_PHSUBW,
+  IX86_BUILTIN_PHSUBD,
+  IX86_BUILTIN_PHSUBSW,
+  IX86_BUILTIN_PMADDUBSW,
+  IX86_BUILTIN_PMULHRSW,
+  IX86_BUILTIN_PSHUFB,
+  IX86_BUILTIN_PSIGNB,
+  IX86_BUILTIN_PSIGNW,
+  IX86_BUILTIN_PSIGND,
+  IX86_BUILTIN_PALIGNR,
+  IX86_BUILTIN_PABSB,
+  IX86_BUILTIN_PABSW,
+  IX86_BUILTIN_PABSD,
 
+  IX86_BUILTIN_PHADDW128,
+  IX86_BUILTIN_PHADDD128,
+  IX86_BUILTIN_PHADDSW128,
+  IX86_BUILTIN_PHSUBW128,
+  IX86_BUILTIN_PHSUBD128,
+  IX86_BUILTIN_PHSUBSW128,
+  IX86_BUILTIN_PMADDUBSW128,
+  IX86_BUILTIN_PMULHRSW128,
+  IX86_BUILTIN_PSHUFB128,
+  IX86_BUILTIN_PSIGNB128,
+  IX86_BUILTIN_PSIGNW128,
+  IX86_BUILTIN_PSIGND128,
+  IX86_BUILTIN_PALIGNR128,
+  IX86_BUILTIN_PABSB128,
+  IX86_BUILTIN_PABSW128,
+  IX86_BUILTIN_PABSD128,
+  /* APPLE LOCAL end ssse3 */
   IX86_BUILTIN_VEC_INIT_V2SI,
   IX86_BUILTIN_VEC_INIT_V4HI,
   IX86_BUILTIN_VEC_INIT_V8QI,
@@ -13543,11 +15043,12 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_MMX, CODE_FOR_mmx_addv8qi3, "__builtin_ia32_paddb", IX86_BUILTIN_PADDB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_addv4hi3, "__builtin_ia32_paddw", IX86_BUILTIN_PADDW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_addv2si3, "__builtin_ia32_paddd", IX86_BUILTIN_PADDD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_adddi3, "__builtin_ia32_paddq", IX86_BUILTIN_PADDQ, 0, 0 },
+  /* APPLE LOCAL begin 4656532 use V1DImode for _m64 */
+  { MASK_MMX, CODE_FOR_mmx_addv1di3, "__builtin_ia32_paddq", IX86_BUILTIN_PADDQ, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv8qi3, "__builtin_ia32_psubb", IX86_BUILTIN_PSUBB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv4hi3, "__builtin_ia32_psubw", IX86_BUILTIN_PSUBW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_subv2si3, "__builtin_ia32_psubd", IX86_BUILTIN_PSUBD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_subdi3, "__builtin_ia32_psubq", IX86_BUILTIN_PSUBQ, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_subv1di3, "__builtin_ia32_psubq", IX86_BUILTIN_PSUBQ, 0, 0 },
 
   { MASK_MMX, CODE_FOR_mmx_ssaddv8qi3, "__builtin_ia32_paddsb", IX86_BUILTIN_PADDSB, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_ssaddv4hi3, "__builtin_ia32_paddsw", IX86_BUILTIN_PADDSW, 0, 0 },
@@ -13599,23 +15100,24 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE | MASK_64BIT, CODE_FOR_sse_cvtsi2ssq, 0, IX86_BUILTIN_CVTSI642SS, 0, 0 },
 
   { MASK_MMX, CODE_FOR_mmx_ashlv4hi3, 0, IX86_BUILTIN_PSLLW, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashlv4hi3, 0, IX86_BUILTIN_PSLLWI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashlv4hi2si, 0, IX86_BUILTIN_PSLLWI, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_ashlv2si3, 0, IX86_BUILTIN_PSLLD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashlv2si3, 0, IX86_BUILTIN_PSLLDI, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashldi3, 0, IX86_BUILTIN_PSLLQ, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashldi3, 0, IX86_BUILTIN_PSLLQI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashlv2si2si, 0, IX86_BUILTIN_PSLLDI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashlv1di3, 0, IX86_BUILTIN_PSLLQ, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashlv1di2si, 0, IX86_BUILTIN_PSLLQI, 0, 0 },
 
   { MASK_MMX, CODE_FOR_mmx_lshrv4hi3, 0, IX86_BUILTIN_PSRLW, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_lshrv4hi3, 0, IX86_BUILTIN_PSRLWI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_lshrv4hi2si, 0, IX86_BUILTIN_PSRLWI, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_lshrv2si3, 0, IX86_BUILTIN_PSRLD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_lshrv2si3, 0, IX86_BUILTIN_PSRLDI, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_lshrdi3, 0, IX86_BUILTIN_PSRLQ, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_lshrdi3, 0, IX86_BUILTIN_PSRLQI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_lshrv2si2si, 0, IX86_BUILTIN_PSRLDI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_lshrv1di3, 0, IX86_BUILTIN_PSRLQ, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_lshrv1di2si, 0, IX86_BUILTIN_PSRLQI, 0, 0 },
 
   { MASK_MMX, CODE_FOR_mmx_ashrv4hi3, 0, IX86_BUILTIN_PSRAW, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashrv4hi3, 0, IX86_BUILTIN_PSRAWI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashrv4hi2si, 0, IX86_BUILTIN_PSRAWI, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_ashrv2si3, 0, IX86_BUILTIN_PSRAD, 0, 0 },
-  { MASK_MMX, CODE_FOR_mmx_ashrv2si3, 0, IX86_BUILTIN_PSRADI, 0, 0 },
+  { MASK_MMX, CODE_FOR_mmx_ashrv2si2si, 0, IX86_BUILTIN_PSRADI, 0, 0 },
+  /* APPLE LOCAL end 4656532 use V1DImode for _m64 */
 
   { MASK_SSE | MASK_3DNOW_A, CODE_FOR_mmx_psadbw, 0, IX86_BUILTIN_PSADBW, 0, 0 },
   { MASK_MMX, CODE_FOR_mmx_pmaddwd, 0, IX86_BUILTIN_PMADDWD, 0, 0 },
@@ -13754,7 +15256,35 @@ static const struct builtin_description bdesc_2arg[] =
   { MASK_SSE3, CODE_FOR_sse3_haddv4sf3, "__builtin_ia32_haddps", IX86_BUILTIN_HADDPS, 0, 0 },
   { MASK_SSE3, CODE_FOR_sse3_haddv2df3, "__builtin_ia32_haddpd", IX86_BUILTIN_HADDPD, 0, 0 },
   { MASK_SSE3, CODE_FOR_sse3_hsubv4sf3, "__builtin_ia32_hsubps", IX86_BUILTIN_HSUBPS, 0, 0 },
-  { MASK_SSE3, CODE_FOR_sse3_hsubv2df3, "__builtin_ia32_hsubpd", IX86_BUILTIN_HSUBPD, 0, 0 }
+  /* APPLE LOCAL begin ssse3 4424835 */
+  { MASK_SSE3, CODE_FOR_sse3_hsubv2df3, "__builtin_ia32_hsubpd", IX86_BUILTIN_HSUBPD, 0, 0 },
+
+  /* SSSE3 MMX */
+  { MASK_SSSE3, CODE_FOR_ssse3_phaddwv8hi3, "__builtin_ia32_phaddw128", IX86_BUILTIN_PHADDW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phaddwv4hi3, "__builtin_ia32_phaddw", IX86_BUILTIN_PHADDW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phadddv4si3, "__builtin_ia32_phaddd128", IX86_BUILTIN_PHADDD128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phadddv2si3, "__builtin_ia32_phaddd", IX86_BUILTIN_PHADDD, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phaddswv8hi3, "__builtin_ia32_phaddsw128", IX86_BUILTIN_PHADDSW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phaddswv4hi3, "__builtin_ia32_phaddsw", IX86_BUILTIN_PHADDSW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubwv8hi3, "__builtin_ia32_phsubw128", IX86_BUILTIN_PHSUBW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubwv4hi3, "__builtin_ia32_phsubw", IX86_BUILTIN_PHSUBW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubdv4si3, "__builtin_ia32_phsubd128", IX86_BUILTIN_PHSUBD128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubdv2si3, "__builtin_ia32_phsubd", IX86_BUILTIN_PHSUBD, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubswv8hi3, "__builtin_ia32_phsubsw128", IX86_BUILTIN_PHSUBSW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_phsubswv4hi3, "__builtin_ia32_phsubsw", IX86_BUILTIN_PHSUBSW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pmaddubswv8hi3, "__builtin_ia32_pmaddubsw128", IX86_BUILTIN_PMADDUBSW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pmaddubswv4hi3, "__builtin_ia32_pmaddubsw", IX86_BUILTIN_PMADDUBSW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pmulhrswv8hi3, "__builtin_ia32_pmulhrsw128", IX86_BUILTIN_PMULHRSW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pmulhrswv4hi3, "__builtin_ia32_pmulhrsw", IX86_BUILTIN_PMULHRSW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pshufbv16qi3, "__builtin_ia32_pshufb128", IX86_BUILTIN_PSHUFB128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pshufbv8qi3, "__builtin_ia32_pshufb", IX86_BUILTIN_PSHUFB, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv16qi3, "__builtin_ia32_psignb128", IX86_BUILTIN_PSIGNB128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv8qi3, "__builtin_ia32_psignb", IX86_BUILTIN_PSIGNB, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv8hi3, "__builtin_ia32_psignw128", IX86_BUILTIN_PSIGNW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv4hi3, "__builtin_ia32_psignw", IX86_BUILTIN_PSIGNW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv4si3, "__builtin_ia32_psignd128", IX86_BUILTIN_PSIGND128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_psignv2si3, "__builtin_ia32_psignd", IX86_BUILTIN_PSIGND, 0, 0 }
+  /* APPLE LOCAL end ssse3 */
 };
 
 static const struct builtin_description bdesc_1arg[] =
@@ -13801,6 +15331,16 @@ static const struct builtin_description bdesc_1arg[] =
   /* SSE3 */
   { MASK_SSE3, CODE_FOR_sse3_movshdup, 0, IX86_BUILTIN_MOVSHDUP, 0, 0 },
   { MASK_SSE3, CODE_FOR_sse3_movsldup, 0, IX86_BUILTIN_MOVSLDUP, 0, 0 },
+  /* APPLE LOCAL begin ssse3 4424835 */
+
+  /* SSSE3 */
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv16qi2, "__builtin_ia32_pabsb128", IX86_BUILTIN_PABSB128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv8qi2, "__builtin_ia32_pabsb", IX86_BUILTIN_PABSB, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv8hi2, "__builtin_ia32_pabsw128", IX86_BUILTIN_PABSW128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv4hi2, "__builtin_ia32_pabsw", IX86_BUILTIN_PABSW, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv4si2, "__builtin_ia32_pabsd128", IX86_BUILTIN_PABSD128, 0, 0 },
+  { MASK_SSSE3, CODE_FOR_ssse3_pabsv2si2, "__builtin_ia32_pabsd", IX86_BUILTIN_PABSD, 0, 0 }
+  /* APPLE LOCAL end ssse3 */
 };
 
 static void
@@ -13819,6 +15359,7 @@ ix86_init_builtins (void)
 /* Set up all the MMX/SSE builtins.  This is not called if TARGET_MMX
    is zero.  Otherwise, if TARGET_SSE is not set, only expand the MMX
    builtins.  */
+/* APPLE LOCAL begin 4656532 use V1DImode for _m64 */
 static void
 ix86_init_mmx_sse_builtins (void)
 {
@@ -13836,6 +15377,7 @@ ix86_init_mmx_sse_builtins (void)
   tree V4HI_type_node = build_vector_type_for_mode (intHI_type_node, V4HImode);
   tree V8QI_type_node = build_vector_type_for_mode (intQI_type_node, V8QImode);
   tree V8HI_type_node = build_vector_type_for_mode (intHI_type_node, V8HImode);
+  tree V1DI_type_node = build_vector_type_for_mode (long_long_integer_type_node, V1DImode);
 
   tree pchar_type_node = build_pointer_type (char_type_node);
   tree pcchar_type_node = build_pointer_type (
@@ -13845,7 +15387,7 @@ ix86_init_mmx_sse_builtins (void)
 			     build_type_variant (float_type_node, 1, 0));
   tree pv2si_type_node = build_pointer_type (V2SI_type_node);
   tree pv2di_type_node = build_pointer_type (V2DI_type_node);
-  tree pdi_type_node = build_pointer_type (long_long_unsigned_type_node);
+  tree pv1di_type_node = build_pointer_type (V1DI_type_node);
 
   /* Comparisons.  */
   tree int_ftype_v4sf_v4sf
@@ -13891,14 +15433,17 @@ ix86_init_mmx_sse_builtins (void)
   tree v4hi_ftype_v4hi_int
     = build_function_type_list (V4HI_type_node,
 				V4HI_type_node, integer_type_node, NULL_TREE);
-  tree v4hi_ftype_v4hi_di
+  tree v4hi_ftype_v4hi_v1di
     = build_function_type_list (V4HI_type_node,
-				V4HI_type_node, long_long_unsigned_type_node,
+				V4HI_type_node, V1DI_type_node,
 				NULL_TREE);
-  tree v2si_ftype_v2si_di
+  tree v2si_ftype_v2si_int
     = build_function_type_list (V2SI_type_node,
-				V2SI_type_node, long_long_unsigned_type_node,
-				NULL_TREE);
+				V2SI_type_node, integer_type_node, NULL_TREE);
+  tree v2si_ftype_v2si_v1di
+    = build_function_type_list (V2SI_type_node,
+				V2SI_type_node, V1DI_type_node, NULL_TREE);
+
   tree void_ftype_void
     = build_function_type (void_type_node, void_list_node);
   tree void_ftype_unsigned
@@ -13931,16 +15476,27 @@ ix86_init_mmx_sse_builtins (void)
   tree void_ftype_pfloat_v4sf
     = build_function_type_list (void_type_node,
 				pfloat_type_node, V4SF_type_node, NULL_TREE);
-  tree void_ftype_pdi_di
+  tree void_ftype_pv1di_v1di
     = build_function_type_list (void_type_node,
-				pdi_type_node, long_long_unsigned_type_node,
-				NULL_TREE);
+				pv1di_type_node, V1DI_type_node, NULL_TREE);
   tree void_ftype_pv2di_v2di
     = build_function_type_list (void_type_node,
 				pv2di_type_node, V2DI_type_node, NULL_TREE);
   /* Normal vector unops.  */
   tree v4sf_ftype_v4sf
     = build_function_type_list (V4SF_type_node, V4SF_type_node, NULL_TREE);
+  /* APPLE LOCAL begin ssse3 4424835 */
+  tree v16qi_ftype_v16qi
+    = build_function_type_list (V16QI_type_node, V16QI_type_node, NULL_TREE);
+  tree v8hi_ftype_v8hi
+    = build_function_type_list (V8HI_type_node, V8HI_type_node, NULL_TREE);
+  tree v4si_ftype_v4si
+    = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
+  tree v8qi_ftype_v8qi
+    = build_function_type_list (V8QI_type_node, V8QI_type_node, NULL_TREE);
+  tree v4hi_ftype_v4hi
+    = build_function_type_list (V4HI_type_node, V4HI_type_node, NULL_TREE);
+  /* APPLE LOCAL end ssse3 */
 
   /* Normal vector binops.  */
   tree v4sf_ftype_v4sf_v4sf
@@ -13955,10 +15511,21 @@ ix86_init_mmx_sse_builtins (void)
   tree v2si_ftype_v2si_v2si
     = build_function_type_list (V2SI_type_node,
 				V2SI_type_node, V2SI_type_node, NULL_TREE);
-  tree di_ftype_di_di
-    = build_function_type_list (long_long_unsigned_type_node,
-				long_long_unsigned_type_node,
-				long_long_unsigned_type_node, NULL_TREE);
+  tree v1di_ftype_v1di_v1di
+    = build_function_type_list (V1DI_type_node,
+				V1DI_type_node, V1DI_type_node, NULL_TREE);
+  /* APPLE LOCAL begin 4684674 */
+  tree v1di_ftype_v1di_int
+    = build_function_type_list (V1DI_type_node,
+				V1DI_type_node, integer_type_node, NULL_TREE);
+  /* APPLE LOCAL end 4684674 */
+  /* APPLE LOCAL begin ssse3 4424835 */
+  tree v1di_ftype_v1di_v1di_int
+    = build_function_type_list (V1DI_type_node,
+				V1DI_type_node,
+				V1DI_type_node,
+				integer_type_node, NULL_TREE);
+  /* APPLE LOCAL end ssse3 */
 
   tree v2si_ftype_v2sf
     = build_function_type_list (V2SI_type_node, V2SF_type_node, NULL_TREE);
@@ -14064,6 +15631,11 @@ ix86_init_mmx_sse_builtins (void)
   tree v2di_ftype_v2di_int
     = build_function_type_list (V2DI_type_node,
 				V2DI_type_node, integer_type_node, NULL_TREE);
+  /* APPLE LOCAL begin ssse3 4424835 */
+  tree v2di_ftype_v2di_v2di_int
+    = build_function_type_list (V2DI_type_node, V2DI_type_node,
+				V2DI_type_node, integer_type_node, NULL_TREE);
+  /* APPLE LOCAL end ssse3 */
   tree v4si_ftype_v4si_int
     = build_function_type_list (V4SI_type_node,
 				V4SI_type_node, integer_type_node, NULL_TREE);
@@ -14079,11 +15651,11 @@ ix86_init_mmx_sse_builtins (void)
   tree v4si_ftype_v8hi_v8hi
     = build_function_type_list (V4SI_type_node,
 				V8HI_type_node, V8HI_type_node, NULL_TREE);
-  tree di_ftype_v8qi_v8qi
-    = build_function_type_list (long_long_unsigned_type_node,
+  tree v1di_ftype_v8qi_v8qi
+    = build_function_type_list (V1DI_type_node,
 				V8QI_type_node, V8QI_type_node, NULL_TREE);
-  tree di_ftype_v2si_v2si
-    = build_function_type_list (long_long_unsigned_type_node,
+  tree v1di_ftype_v2si_v2si
+    = build_function_type_list (V1DI_type_node,
 				V2SI_type_node, V2SI_type_node, NULL_TREE);
   tree v2di_ftype_v16qi_v16qi
     = build_function_type_list (V2DI_type_node,
@@ -14166,8 +15738,8 @@ ix86_init_mmx_sse_builtins (void)
 	case V2SImode:
 	  type = v2si_ftype_v2si_v2si;
 	  break;
-	case DImode:
-	  type = di_ftype_di_di;
+	case V1DImode:
+	  type = v1di_ftype_v1di_v1di;
 	  break;
 
 	default:
@@ -14185,19 +15757,71 @@ ix86_init_mmx_sse_builtins (void)
 
       def_builtin (d->mask, d->name, type, d->code);
     }
+  /* APPLE LOCAL begin ssse3 4424835 */
+  /* Add all builtins that are more or less simple operations on 1 operand.  */
+  for (i = 0, d = bdesc_1arg; i < ARRAY_SIZE (bdesc_1arg); i++, d++)
+    {
+      enum machine_mode mode;
+      tree type;
 
+      if (d->name == 0)
+	continue;
+      mode = insn_data[d->icode].operand[1].mode;
+
+      switch (mode)
+	{
+	case V16QImode:
+	  type = v16qi_ftype_v16qi;
+	  break;
+	case V8HImode:
+	  type = v8hi_ftype_v8hi;
+	  break;
+	case V4SImode:
+	  type = v4si_ftype_v4si;
+	  break;
+	case V2DFmode:
+	  type = v2df_ftype_v2df;
+	  break;
+	case V4SFmode:
+	  type = v4sf_ftype_v4sf;
+	  break;
+	case V8QImode:
+	  type = v8qi_ftype_v8qi;
+	  break;
+	case V4HImode:
+	  type = v4hi_ftype_v4hi;
+	  break;
+	case V2SImode:
+	  type = v2si_ftype_v2si;
+	  break;
+
+	default:
+	  abort ();
+	}
+
+      def_builtin (d->mask, d->name, type, d->code);
+    }
+  /* APPLE LOCAL end ssse3 */
   /* Add the remaining MMX insns with somewhat more complicated types.  */
   def_builtin (MASK_MMX, "__builtin_ia32_emms", void_ftype_void, IX86_BUILTIN_EMMS);
-  def_builtin (MASK_MMX, "__builtin_ia32_psllw", v4hi_ftype_v4hi_di, IX86_BUILTIN_PSLLW);
-  def_builtin (MASK_MMX, "__builtin_ia32_pslld", v2si_ftype_v2si_di, IX86_BUILTIN_PSLLD);
-  def_builtin (MASK_MMX, "__builtin_ia32_psllq", di_ftype_di_di, IX86_BUILTIN_PSLLQ);
+  def_builtin (MASK_MMX, "__builtin_ia32_psllw", v4hi_ftype_v4hi_v1di, IX86_BUILTIN_PSLLW);
+  def_builtin (MASK_MMX, "__builtin_ia32_psllwi", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSLLWI);
+  def_builtin (MASK_MMX, "__builtin_ia32_pslld", v2si_ftype_v2si_v1di, IX86_BUILTIN_PSLLD);
+  def_builtin (MASK_MMX, "__builtin_ia32_pslldi", v2si_ftype_v2si_int, IX86_BUILTIN_PSLLDI);
+  def_builtin (MASK_MMX, "__builtin_ia32_psllq", v1di_ftype_v1di_v1di, IX86_BUILTIN_PSLLQ);
+  def_builtin (MASK_MMX, "__builtin_ia32_psllqi", v1di_ftype_v1di_int, IX86_BUILTIN_PSLLQI);
 
-  def_builtin (MASK_MMX, "__builtin_ia32_psrlw", v4hi_ftype_v4hi_di, IX86_BUILTIN_PSRLW);
-  def_builtin (MASK_MMX, "__builtin_ia32_psrld", v2si_ftype_v2si_di, IX86_BUILTIN_PSRLD);
-  def_builtin (MASK_MMX, "__builtin_ia32_psrlq", di_ftype_di_di, IX86_BUILTIN_PSRLQ);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrlw", v4hi_ftype_v4hi_v1di, IX86_BUILTIN_PSRLW);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrlwi", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSRLWI);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrld", v2si_ftype_v2si_v1di, IX86_BUILTIN_PSRLD);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrldi", v2si_ftype_v2si_int, IX86_BUILTIN_PSRLDI);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrlq", v1di_ftype_v1di_v1di, IX86_BUILTIN_PSRLQ);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrlqi", v1di_ftype_v1di_int, IX86_BUILTIN_PSRLQI);
 
-  def_builtin (MASK_MMX, "__builtin_ia32_psraw", v4hi_ftype_v4hi_di, IX86_BUILTIN_PSRAW);
-  def_builtin (MASK_MMX, "__builtin_ia32_psrad", v2si_ftype_v2si_di, IX86_BUILTIN_PSRAD);
+  def_builtin (MASK_MMX, "__builtin_ia32_psraw", v4hi_ftype_v4hi_v1di, IX86_BUILTIN_PSRAW);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrawi", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSRAWI);
+  def_builtin (MASK_MMX, "__builtin_ia32_psrad", v2si_ftype_v2si_v1di, IX86_BUILTIN_PSRAD);
+  def_builtin (MASK_MMX, "__builtin_ia32_psradi", v2si_ftype_v2si_int, IX86_BUILTIN_PSRADI);
 
   def_builtin (MASK_MMX, "__builtin_ia32_pshufw", v4hi_ftype_v4hi_int, IX86_BUILTIN_PSHUFW);
   def_builtin (MASK_MMX, "__builtin_ia32_pmaddwd", v2si_ftype_v4hi_v4hi, IX86_BUILTIN_PMADDWD);
@@ -14238,11 +15862,11 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE, "__builtin_ia32_movmskps", int_ftype_v4sf, IX86_BUILTIN_MOVMSKPS);
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_pmovmskb", int_ftype_v8qi, IX86_BUILTIN_PMOVMSKB);
   def_builtin (MASK_SSE, "__builtin_ia32_movntps", void_ftype_pfloat_v4sf, IX86_BUILTIN_MOVNTPS);
-  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_movntq", void_ftype_pdi_di, IX86_BUILTIN_MOVNTQ);
+  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_movntq", void_ftype_pv1di_v1di, IX86_BUILTIN_MOVNTQ);
 
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_sfence", void_ftype_void, IX86_BUILTIN_SFENCE);
 
-  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_psadbw", di_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW);
+  def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_psadbw", v1di_ftype_v8qi_v8qi, IX86_BUILTIN_PSADBW);
 
   def_builtin (MASK_SSE, "__builtin_ia32_rcpps", v4sf_ftype_v4sf, IX86_BUILTIN_RCPPS);
   def_builtin (MASK_SSE, "__builtin_ia32_rcpss", v4sf_ftype_v4sf, IX86_BUILTIN_RCPSS);
@@ -14340,7 +15964,7 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE2, "__builtin_ia32_loaddqu", v16qi_ftype_pcchar, IX86_BUILTIN_LOADDQU);
   def_builtin (MASK_SSE2, "__builtin_ia32_storedqu", void_ftype_pchar_v16qi, IX86_BUILTIN_STOREDQU);
 
-  def_builtin (MASK_SSE2, "__builtin_ia32_pmuludq", di_ftype_v2si_v2si, IX86_BUILTIN_PMULUDQ);
+  def_builtin (MASK_SSE2, "__builtin_ia32_pmuludq", v1di_ftype_v2si_v2si, IX86_BUILTIN_PMULUDQ);
   def_builtin (MASK_SSE2, "__builtin_ia32_pmuludq128", v2di_ftype_v4si_v4si, IX86_BUILTIN_PMULUDQ128);
 
   def_builtin (MASK_SSE2, "__builtin_ia32_psllw128", v8hi_ftype_v8hi_v2di, IX86_BUILTIN_PSLLW128);
@@ -14394,6 +16018,14 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE, "__builtin_ia32_storelv4si", ftype, IX86_BUILTIN_STOREQ);
   /* APPLE LOCAL end 4099020 */
 
+  /* APPLE LOCAL begin ssse3 4424835 */
+  /* Merom New Instructions.  */
+  def_builtin (MASK_SSSE3, "__builtin_ia32_palignr128",
+	       v2di_ftype_v2di_v2di_int, IX86_BUILTIN_PALIGNR128);
+  def_builtin (MASK_SSSE3, "__builtin_ia32_palignr", v1di_ftype_v1di_v1di_int,
+	       IX86_BUILTIN_PALIGNR);
+
+  /* APPLE LOCAL end ssse3 */
   /* Access to the vec_init patterns.  */
   ftype = build_function_type_list (V2SI_type_node, integer_type_node,
 				    integer_type_node, NULL_TREE);
@@ -14437,7 +16069,11 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE, "__builtin_ia32_vec_ext_v4si",
 	       ftype, IX86_BUILTIN_VEC_EXT_V4SI);
 
-  ftype = build_function_type_list (intHI_type_node, V8HI_type_node,
+  /* APPLE LOCAL begin radar 4469713 */
+  /* The return type of the builtin function should be an unsigned instead
+     of a signed type. */
+  ftype = build_function_type_list (unsigned_intHI_type_node, V8HI_type_node,
+  /* APPLE LOCAL end radar 4469713 */
 				    integer_type_node, NULL_TREE);
   def_builtin (MASK_SSE, "__builtin_ia32_vec_ext_v8hi",
 	       ftype, IX86_BUILTIN_VEC_EXT_V8HI);
@@ -14465,6 +16101,7 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (MASK_SSE | MASK_3DNOW_A, "__builtin_ia32_vec_set_v4hi",
 	       ftype, IX86_BUILTIN_VEC_SET_V4HI);
 }
+/* APPLE LOCAL end 4656532 use V1DImode for _m64 */
 
 /* Errors in the source file can cause expand_expr to return const0_rtx
    where we expect a vector.  To avoid crashing, use one of the vector
@@ -14885,7 +16522,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   tree arglist = TREE_OPERAND (exp, 1);
   tree arg0, arg1, arg2;
   rtx op0, op1, op2, pat;
-  enum machine_mode tmode, mode0, mode1, mode2;
+  /* APPLE LOCAL ssse3 */
+  enum machine_mode tmode, mode0, mode1, mode2, mode3;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
 
   switch (fcode)
@@ -15004,7 +16642,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_MOVNTPS:
       return ix86_expand_store_builtin (CODE_FOR_sse_movntv4sf, arglist);
     case IX86_BUILTIN_MOVNTQ:
-      return ix86_expand_store_builtin (CODE_FOR_sse_movntdi, arglist);
+      /* APPLE LOCAL 4656532 use V1DImode for _m64 */
+      return ix86_expand_store_builtin (CODE_FOR_sse_movntv1di, arglist);
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_expr (TREE_VALUE (arglist), NULL_RTX, VOIDmode, 0);
@@ -15264,7 +16903,56 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_LDDQU:
       return ix86_expand_unop_builtin (CODE_FOR_sse3_lddqu, arglist,
 				       target, 1);
+      /* APPLE LOCAL begin ssse3 4424835 */
+    case IX86_BUILTIN_PALIGNR:
+    case IX86_BUILTIN_PALIGNR128:
+      if (fcode == IX86_BUILTIN_PALIGNR)
+	{
+          /* APPLE LOCAL begin 4656532 use V1DImode for _m64 */
+	  icode = CODE_FOR_ssse3_palignrv1di;
+	  mode = V1DImode;
+          /* APPLE LOCAL end 4656532 use V1DImode for _m64 */
+	}
+      else
+	{
+	  icode = CODE_FOR_ssse3_palignrti;
+	  mode = V2DImode;
+	}
+      arg0 = TREE_VALUE (arglist);
+      arg1 = TREE_VALUE (TREE_CHAIN (arglist));
+      arg2 = TREE_VALUE (TREE_CHAIN (TREE_CHAIN (arglist)));
+      op0 = expand_expr (arg0, NULL_RTX, VOIDmode, 0);
+      op1 = expand_expr (arg1, NULL_RTX, VOIDmode, 0);
+      op2 = expand_expr (arg2, NULL_RTX, VOIDmode, 0);
+      tmode = insn_data[icode].operand[0].mode;
+      mode1 = insn_data[icode].operand[1].mode;
+      mode2 = insn_data[icode].operand[2].mode;
+      mode3 = insn_data[icode].operand[3].mode;
 
+      if (! (*insn_data[icode].operand[1].predicate) (op0, mode1))
+	{
+	  op0 = copy_to_reg (op0);
+	  op0 = simplify_gen_subreg (mode1, op0, GET_MODE (op0), 0);
+	}
+      if (! (*insn_data[icode].operand[2].predicate) (op1, mode2))
+	{
+	  op1 = copy_to_reg (op1);
+	  op1 = simplify_gen_subreg (mode2, op1, GET_MODE (op1), 0);
+	}
+      if (! (*insn_data[icode].operand[3].predicate) (op2, mode3))
+	{
+	  error ("shift must be an immediate");
+	  return const0_rtx;
+	}
+      target = gen_reg_rtx (mode);
+      pat = GEN_FCN (icode) (simplify_gen_subreg (tmode, target, mode, 0),
+			     op0, op1, op2);
+      if (! pat)
+	return 0;
+      emit_insn (pat);
+      return target;
+
+      /* APPLE LOCAL end ssse3 */
     case IX86_BUILTIN_VEC_INIT_V2SI:
     case IX86_BUILTIN_VEC_INIT_V4HI:
     case IX86_BUILTIN_VEC_INIT_V8QI:
@@ -15417,12 +17105,11 @@ ix86_free_from_memory (enum machine_mode mode)
    QImode must go into class Q_REGS.
    Narrow ALL_REGS to GENERAL_REGS.  This supports allowing movsf and
    movdf to do mem-to-mem moves through integer regs.  */
-/* APPLE LOCAL begin 3501055 mainline candidate */
+/* APPLE LOCAL begin mainline */
 enum reg_class
 ix86_preferred_reload_class (rtx x, enum reg_class class)
 {
   enum machine_mode mode = GET_MODE (x);
-  bool is_sse_math_mode;
 
   /* We're only allowed to return a subclass of CLASS.  Many of the 
      following checks fail for NO_REGS, so eliminate that early.  */
@@ -15433,28 +17120,15 @@ ix86_preferred_reload_class (rtx x, enum reg_class class)
   if (x == CONST0_RTX (mode))
     return class;
 
-  is_sse_math_mode =
-    TARGET_SSE_MATH && !TARGET_MIX_SSE_I387 && SSE_FLOAT_MODE_P (mode);
-
-  /* Force constants into memory if we are loading: a) a vector constant into
-     an MMX or SSE register b) a floating-point constant into an SSE register
-     that will be used for math.  This is because there are no MMX/SSE
-     load-from-constant instructions.  */
-
-  if (CONSTANT_P (x))
-    {
-      if (MAYBE_MMX_CLASS_P (class))
-        return NO_REGS;
-      /* APPLE LOCAL begin 4206991 */
-      if (MAYBE_SSE_CLASS_P (class)
-	  && (VECTOR_MODE_P (mode) || mode == TImode || is_sse_math_mode
-	      || GET_CODE (x) == CONST_INT))
-      /* APPLE LOCAL end 4206991 */
-        return NO_REGS;
-    }
+  /* Force constants into memory if we are loading a (nonzero) constant into
+     an MMX or SSE register.  This is because there are no MMX/SSE instructions
+     to load from a constant.  */
+  if (CONSTANT_P (x)
+      && (MAYBE_MMX_CLASS_P (class) || MAYBE_SSE_CLASS_P (class)))
+    return NO_REGS;
 
   /* Prefer SSE regs only, if we can use them for math.  */
-  if (is_sse_math_mode)
+  if (TARGET_SSE_MATH && !TARGET_MIX_SSE_I387 && SSE_FLOAT_MODE_P (mode))
     return SSE_CLASS_P (class) ? class : NO_REGS;
 
   /* Floating-point constants need more complex checks.  */
@@ -15530,7 +17204,7 @@ ix86_preferred_output_reload_class (rtx x, enum reg_class class)
 
   return class;
 }
-/* APPLE LOCAL end 3501055 mainline candidate */
+/* APPLE LOCAL end mainline */
 
 /* If we are copying between general and FP registers, we need a memory
    location. The same is true for SSE and MMX registers.
@@ -15891,21 +17565,6 @@ ix86_memory_move_cost (enum machine_mode mode, enum reg_class class, int in)
     }
 }
 
-/* APPLE LOCAL begin why is this local? */
-#if TARGET_MACHO
-/* Cross-module name binding.  Darwin does not support overriding
-   functions at dynamic-link time.  */
-
-static bool
-ix86_binds_local_p (tree decl)
-{
-  /* APPLE LOCAL kext treat vtables as overridable  */
-  return default_binds_local_p_1 (decl, 
-	flag_apple_kext && lang_hooks.vtable_p (decl));
-}
-#endif
-/* APPLE LOCAL end why is this local? */
-
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -15958,6 +17617,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  }
       return true;
 
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
     case ZERO_EXTEND:
       /* The zero extensions is often completely free on x86_64, so make
 	 it as cheap as possible.  */
@@ -15965,13 +17625,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  && GET_MODE (XEXP (x, 0)) == SImode)
 	*total = 1;
       else if (TARGET_ZERO_EXTEND_WITH_AND)
-	*total = COSTS_N_INSNS (ix86_cost->add);
+	*total = ix86_cost->add;
       else
-	*total = COSTS_N_INSNS (ix86_cost->movzx);
+	*total = ix86_cost->movzx;
       return false;
 
     case SIGN_EXTEND:
-      *total = COSTS_N_INSNS (ix86_cost->movsx);
+      *total = ix86_cost->movsx;
       return false;
 
     case ASHIFT:
@@ -15981,13 +17641,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  HOST_WIDE_INT value = INTVAL (XEXP (x, 1));
 	  if (value == 1)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->add);
+	      *total = ix86_cost->add;
 	      return false;
 	    }
 	  if ((value == 2 || value == 3)
 	      && ix86_cost->lea <= ix86_cost->shift_const)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->lea);
+	      *total = ix86_cost->lea;
 	      return false;
 	    }
 	}
@@ -16002,31 +17662,31 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
 	    {
 	      if (INTVAL (XEXP (x, 1)) > 32)
-		*total = COSTS_N_INSNS(ix86_cost->shift_const + 2);
+		*total = ix86_cost->shift_const + COSTS_N_INSNS (2);
 	      else
-		*total = COSTS_N_INSNS(ix86_cost->shift_const * 2);
+		*total = ix86_cost->shift_const * 2;
 	    }
 	  else
 	    {
 	      if (GET_CODE (XEXP (x, 1)) == AND)
-		*total = COSTS_N_INSNS(ix86_cost->shift_var * 2);
+		*total = ix86_cost->shift_var * 2;
 	      else
-		*total = COSTS_N_INSNS(ix86_cost->shift_var * 6 + 2);
+		*total = ix86_cost->shift_var * 6 + COSTS_N_INSNS (2);
 	    }
 	}
       else
 	{
 	  if (GET_CODE (XEXP (x, 1)) == CONST_INT)
-	    *total = COSTS_N_INSNS (ix86_cost->shift_const);
+	    *total = ix86_cost->shift_const;
 	  else
-	    *total = COSTS_N_INSNS (ix86_cost->shift_var);
+	    *total = ix86_cost->shift_var;
 	}
       return false;
 
     case MULT:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fmul);
+	  *total = ix86_cost->fmul;
 	  return false;
 	}
       else
@@ -16067,9 +17727,9 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	        op0 = XEXP (op0, 0), mode = GET_MODE (op0);
 	    }
 
-  	  *total = COSTS_N_INSNS (ix86_cost->mult_init[MODE_INDEX (mode)]
-			          + nbits * ix86_cost->mult_bit)
-	           + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code);
+  	  *total = (ix86_cost->mult_init[MODE_INDEX (mode)]
+		    + nbits * ix86_cost->mult_bit
+	            + rtx_cost (op0, outer_code) + rtx_cost (op1, outer_code));
 
           return true;
 	}
@@ -16079,14 +17739,14 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MOD:
     case UMOD:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fdiv);
+	*total = ix86_cost->fdiv;
       else
-	*total = COSTS_N_INSNS (ix86_cost->divide[MODE_INDEX (mode)]);
+	*total = ix86_cost->divide[MODE_INDEX (mode)];
       return false;
 
     case PLUS:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fadd);
+	*total = ix86_cost->fadd;
       else if (GET_MODE_CLASS (mode) == MODE_INT
 	       && GET_MODE_BITSIZE (mode) <= GET_MODE_BITSIZE (Pmode))
 	{
@@ -16098,7 +17758,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (XEXP (x, 0), 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = COSTS_N_INSNS (ix86_cost->lea);
+		  *total = ix86_cost->lea;
 		  *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
 		  *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
 				      outer_code);
@@ -16112,7 +17772,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	      HOST_WIDE_INT val = INTVAL (XEXP (XEXP (x, 0), 1));
 	      if (val == 2 || val == 4 || val == 8)
 		{
-		  *total = COSTS_N_INSNS (ix86_cost->lea);
+		  *total = ix86_cost->lea;
 		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
 		  *total += rtx_cost (XEXP (x, 1), outer_code);
 		  return true;
@@ -16120,7 +17780,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    }
 	  else if (GET_CODE (XEXP (x, 0)) == PLUS)
 	    {
-	      *total = COSTS_N_INSNS (ix86_cost->lea);
+	      *total = ix86_cost->lea;
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), outer_code);
 	      *total += rtx_cost (XEXP (XEXP (x, 0), 1), outer_code);
 	      *total += rtx_cost (XEXP (x, 1), outer_code);
@@ -16132,7 +17792,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case MINUS:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fadd);
+	  *total = ix86_cost->fadd;
 	  return false;
 	}
       /* FALLTHRU */
@@ -16142,7 +17802,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case XOR:
       if (!TARGET_64BIT && mode == DImode)
 	{
-	  *total = (COSTS_N_INSNS (ix86_cost->add) * 2
+	  *total = (ix86_cost->add * 2
 		    + (rtx_cost (XEXP (x, 0), outer_code)
 		       << (GET_MODE (XEXP (x, 0)) != DImode))
 		    + (rtx_cost (XEXP (x, 1), outer_code)
@@ -16154,16 +17814,16 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
     case NEG:
       if (FLOAT_MODE_P (mode))
 	{
-	  *total = COSTS_N_INSNS (ix86_cost->fchs);
+	  *total = ix86_cost->fchs;
 	  return false;
 	}
       /* FALLTHRU */
 
     case NOT:
       if (!TARGET_64BIT && mode == DImode)
-	*total = COSTS_N_INSNS (ix86_cost->add * 2);
+	*total = ix86_cost->add * 2;
       else
-	*total = COSTS_N_INSNS (ix86_cost->add);
+	*total = ix86_cost->add;
       return false;
 
     case COMPARE:
@@ -16174,7 +17834,7 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 	{
 	  /* This kind of construct is implemented using test[bwl].
 	     Treat it as if we had an AND.  */
-	  *total = (COSTS_N_INSNS (ix86_cost->add)
+	  *total = (ix86_cost->add
 		    + rtx_cost (XEXP (XEXP (x, 0), 0), outer_code)
 		    + rtx_cost (const1_rtx, outer_code));
 	  return true;
@@ -16190,13 +17850,14 @@ ix86_rtx_costs (rtx x, int code, int outer_code, int *total)
 
     case ABS:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fabs);
+	*total = ix86_cost->fabs;
       return false;
 
     case SQRT:
       if (FLOAT_MODE_P (mode))
-	*total = COSTS_N_INSNS (ix86_cost->fsqrt);
+	*total = ix86_cost->fsqrt;
       return false;
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
 
     case UNSPEC:
       if (XINT (x, 1) == UNSPEC_TP)
@@ -16221,6 +17882,10 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
   unsigned int length;
   char *binder_name, *symbol_name, lazy_ptr_name[32];
   int label = ++current_machopic_label_num;
+
+  /* APPLE LOCAL begin x86_64 support 2006-02-02 */
+  gcc_assert (! TARGET_64BIT);
+  /* APPLE LOCAL end x86_64 support 2006-02-02 */
 
   /* Lose our funky encoding stuff so it doesn't contaminate the stub.  */
   symb = (*targetm.strip_name_encoding) (symb);
@@ -16270,7 +17935,8 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 	{
 	  /* 25-byte PIC stub using "CALL get_pc_thunk".  */
 	  rtx tmp = gen_rtx_REG (SImode, 2 /* ECX */);
-	  output_set_got (tmp);	/* "CALL ___<cpu>.get_pc_thunk.cx".  */
+	  /* APPLE LOCAL mainline */
+	  output_set_got (tmp, NULL_RTX);	/* "CALL ___<cpu>.get_pc_thunk.cx".  */
 	  fprintf (file, "LPC$%d:\tmovl\t%s-LPC$%d(%%ecx),%%ecx\n", label, lazy_ptr_name, label);
 	}
       else
@@ -16279,7 +17945,8 @@ machopic_output_stub (FILE *file, const char *symb, const char *stub)
 	  fprintf (file, "\tcall LPC$%d\nLPC$%d:\tpopl %%ecx\n", label, label);
 	  fprintf (file, "\tmovl %s-LPC$%d(%%ecx),%%ecx\n", lazy_ptr_name, label);
 	}
-      fprintf (file, "\tjmp\t%%ecx\n");
+      /* APPLE LOCAL mainline fix indirection */
+      fprintf (file, "\tjmp\t*%%ecx\n");
     }
   else	/* 16-byte -mdynamic-no-pic stub.  */
     fprintf (file, "\tjmp\t*%s\n", lazy_ptr_name);
@@ -16343,6 +18010,30 @@ darwin_x86_file_end (void)
   ix86_file_end ();
 }
 /* APPLE LOCAL end deep branch prediction pic-base */
+
+/* APPLE LOCAL begin 4457939 stack alignment mishandled */
+void
+ix86_darwin_init_expanders (void)
+{
+  /* <rdar://problem/4471596> stack alignment is not handled properly
+
+     Please remove this entire function when addressing this
+     Radar.  Please be sure to delete the definition of INIT_EXPANDERS
+     in i386/darwin.h as well.  */
+  /* Darwin/x86_32 stack pointer will be 16-byte aligned at every
+     CALL, but the frame pointer, when used, will be 8-bytes offset
+     from a 16-byte alignment (the size of the return address and the
+     saved frame pointer).  */
+  if (cfun && cfun->emit
+      && cfun->emit->regno_pointer_align)
+    {
+      REGNO_POINTER_ALIGN (STACK_POINTER_REGNUM) = STACK_BOUNDARY;
+      REGNO_POINTER_ALIGN (FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_WORD;
+      REGNO_POINTER_ALIGN (ARG_POINTER_REGNUM) = BITS_PER_WORD;
+    }
+}
+/* APPLE LOCAL end 4457939 stack alignment mishandled */
 #endif /* TARGET_MACHO */
 
 /* Order the registers for register allocator.  */
@@ -16634,7 +18325,8 @@ x86_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
 #endif /* TARGET_MACHO */
 	{
 	  tmp = gen_rtx_REG (SImode, 2 /* ECX */);
-	  output_set_got (tmp);
+	  /* APPLE LOCAL mainline */
+	  output_set_got (tmp, NULL_RTX);
 
 	  xops[1] = tmp;
 	  output_asm_insn ("mov{l}\t{%0@GOT(%1), %1|%1, %0@GOT[%1]}", xops);
@@ -16647,6 +18339,11 @@ static void
 x86_file_start (void)
 {
   default_file_start ();
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
+#if TARGET_MACHO
+  darwin_file_start ();
+#endif
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
   if (X86_FILE_START_VERSION_DIRECTIVE)
     fputs ("\t.version\t\"01.01\"\n", asm_out_file);
   if (X86_FILE_START_FLTUSED)
@@ -16664,12 +18361,14 @@ x86_field_alignment (tree field, int computed)
   if (TARGET_64BIT || TARGET_ALIGN_DOUBLE)
     return computed;
   /* APPLE LOCAL begin mac68k alignment */
+#if TARGET_MACHO
   if (TARGET_ALIGN_MAC68K)
     {
       if (computed >= 128)
 	return computed;
       return MIN (computed, 16);
     }
+#endif
   /* APPLE LOCAL end mac68k alignment */
   mode = TYPE_MODE (TREE_CODE (type) == ARRAY_TYPE
 		    ? get_inner_array_type (type) : type);
@@ -16884,14 +18583,17 @@ ix86_pad_returns (void)
 
 /* Implement machine specific optimizations.  We implement padding of returns
    for K8 CPUs and pass to avoid 4 jumps in the single 16 byte window.  */
+/* APPLE LOCAL begin mainline 2006-04-19 4434601 */
 static void
 ix86_reorg (void)
 {
-  if (TARGET_ATHLON_K8 && optimize && !optimize_size)
+  if (TARGET_PAD_RETURNS && optimize && !optimize_size)
     ix86_pad_returns ();
   if (TARGET_FOUR_JUMP_LIMIT && optimize && !optimize_size)
     ix86_avoid_jump_misspredicts ();
 }
+/* APPLE LOCAL end mainline 2006-04-19 4434601 */
+
 
 /* Return nonzero when QImode register that must be represented via REX prefix
    is used.  */
@@ -16937,13 +18639,53 @@ x86_emit_floatuns (rtx operands[2])
   enum machine_mode mode, inmode;
 
   inmode = GET_MODE (operands[1]);
-  if (inmode != SImode
-      && inmode != DImode)
-    abort ();
+  /* APPLE LOCAL begin 4176531 4424891 4639472 */
+  mode = GET_MODE (operands[0]);
+  if (!TARGET_64BIT && !optimize_size)
+    {
+      switch (mode)
+	{
+	case DFmode:
+	  switch (inmode)
+	    {
+	    case SImode:
+	      ix86_expand_convert_uns_SI2DF_sse (operands);
+	      return;
+	    case DImode:
+	      ix86_expand_convert_uns_DI2DF_sse (operands);
+	      return;
+	    default:
+	      abort ();
+	      break;
+	    }
+	  break;
+
+	case SFmode:
+	  switch (inmode)
+	    {
+	    case SImode:
+	      ix86_expand_convert_uns_SI2SF_sse (operands);
+	      return;
+	    case DImode:
+	      /* ix86_expand_convert_uns_DI2SF_sse (operands); *//* Not Yet Implemented */
+	      break;
+	    default:
+	      abort ();
+	      break;
+	    }
+	  break;
+
+	default:
+	  abort ();
+	  break;
+	}
+    }
+  /* APPLE LOCAL end 4176531 4424891 4639472 */
 
   out = operands[0];
   in = force_reg (inmode, operands[1]);
-  mode = GET_MODE (out);
+  /* APPLE LOCAL begin one line deletion 4424891 */
+  /* APPLE LOCAL end one line deletion 4424891 */
   neglab = gen_label_rtx ();
   donelab = gen_label_rtx ();
   i1 = gen_reg_rtx (Pmode);
@@ -16980,7 +18722,8 @@ ix86_expand_vector_init_duplicate (bool mmx_ok, enum machine_mode mode,
     {
     case V2SImode:
     case V2SFmode:
-      if (!mmx_ok && !TARGET_SSE)
+      /* APPLE LOCAL 4643646 */
+      if (!mmx_ok)
 	return false;
       /* FALLTHRU */
 
@@ -18197,17 +19940,46 @@ ix86_darwin_handle_regparmandstackparm (tree fndecl)
 /* APPLE LOCAL end regparmandstackparm */
 
 /* APPLE LOCAL begin CW asm blocks */
+#include <ctype.h>
 #include "config/asm.h"
 #define CTI_MAX c_CTI_MAX
 #include "c-common.h"
 #undef CTI_MAX
+#undef GCC_DIAG_STYLE
+#include "c-tree.h"
+
+/* Addition register names accepted for inline assembly that would
+   otherwise not be registers.  This table must be sorted for
+   bsearch.  */
+static const char *iasm_additional_names[] = {
+  "AH", "AL", "AX", "BH", "BL", "BP", "BX", "CH", "CL", "CX", "DH",
+  "DI", "DL", "DX", "EAX", "EBP", "EBX", "ECX", "EDI", "EDX", "ESI",
+  "ESP", "MM0", "MM1", "MM2", "MM3", "MM4", "MM5", "MM6", "MM7", "R10",
+  "R11", "R12", "R13", "R14", "R15", "R8", "R9", "RAX", "RBP", "RBX",
+  "RCX", "RDI", "RDX", "RSI", "RSP", "SI", "SP", "ST", "ST(1)", "ST(2)",
+  "ST(3)", "ST(4)", "ST(5)", "ST(6)", "ST(7)", "XMM0", "XMM1", "XMM10",
+  "XMM11", "XMM12", "XMM13", "XMM14", "XMM15", "XMM2", "XMM3", "XMM4",
+  "XMM5", "XMM6", "XMM7", "XMM8", "XMM9" };
+
+/* Comparison function for bsearch to find additional register names.  */
+static int
+iasm_reg_comp (const void *a, const void *b)
+{
+  char *const*x = a;
+  char *const*y = b;
+  int c = strcasecmp (*x, *y);
+  return c;
+}
 
 /* Translate some register names seen in CW asm into GCC standard
    forms.  */
 
 const char *
-i386_cw_asm_register_name (const char *regname, char *buf)
+i386_iasm_register_name (const char *regname, char *buf)
 {
+  const char **r;
+
+  /* If we can find the named register, return it.  */
   if (decode_reg_name (regname) >= 0)
     {
       if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18215,14 +19987,34 @@ i386_cw_asm_register_name (const char *regname, char *buf)
       sprintf (buf, "%%%s", regname);
       return buf;
     }
+
+  /* If we can find a lower case version of any registers in
+     additional_names, return it.  */
+  r = bsearch (&regname, iasm_additional_names,
+	       sizeof (iasm_additional_names) / sizeof (iasm_additional_names[0]),
+	       sizeof (iasm_additional_names[0]), iasm_reg_comp);
+  if (r)
+    {
+      char *p;
+      const char *q;
+      q = regname = *r;
+      p = buf;
+      if (ASSEMBLER_DIALECT != ASM_INTEL)
+	*p++ = '%';
+      regname = p;
+      while ((*p++ = tolower (*q++)))
+	;
+      if (decode_reg_name (regname) >= 0)
+	return buf;
+    }
+
   return NULL;
 }
 
-extern bool cw_memory_clobber (const char *);
 /* Return true iff the opcode wants memory to be stable.  We arrange
    for a memory clobber in these instances.  */
 bool
-cw_memory_clobber (const char *ARG_UNUSED (opcode))
+iasm_memory_clobber (const char *ARG_UNUSED (opcode))
 {
   return true;
 }
@@ -18230,7 +20022,7 @@ cw_memory_clobber (const char *ARG_UNUSED (opcode))
 /* Return true iff the operands need swapping.  */
 
 bool
-cw_x86_needs_swapping (const char *opcode)
+iasm_x86_needs_swapping (const char *opcode)
 {
   /* Don't swap if output format is the same as input format.  */
   if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18241,6 +20033,8 @@ cw_x86_needs_swapping (const char *opcode)
     return false;
   if (strcasecmp (opcode, "invlpga") == 0)
     return false;
+  if (opcode[0] == ' ' && iasm_is_pseudo (opcode+1))
+    return false;
 
   return true;
 }
@@ -18249,11 +20043,11 @@ cw_x86_needs_swapping (const char *opcode)
    is in ATT syntax.  */
 
 static tree
-x86_swap_operands (const char *opcode, tree args)
+iasm_x86_swap_operands (const char *opcode, tree args)
 {
   int noperands;
 
-  if (cw_x86_needs_swapping (opcode) == false)
+  if (iasm_x86_needs_swapping (opcode) == false)
     return args;
 
 #if 0
@@ -18271,13 +20065,466 @@ x86_swap_operands (const char *opcode, tree args)
   return args;
 }
 
+/* Map a register name to a high level tree type for a VAR_DECL of
+   that type, whose RTL will refer to the given register.  */
+
+static tree
+iasm_type_for (tree arg)
+{
+  tree type = NULL_TREE;
+
+  if (IDENTIFIER_LENGTH (arg) > 2
+      && IDENTIFIER_POINTER (arg)[0] == '%')
+    {
+      enum machine_mode mode = VOIDmode;
+      if (IDENTIFIER_POINTER (arg)[1] == 'e')
+	mode = SImode;
+      else if (/* IDENTIFIER_POINTER (arg)[2] == 'h'
+		  || */ IDENTIFIER_POINTER (arg)[2] == 'l')
+	mode = QImode;
+      else if (IDENTIFIER_POINTER (arg)[2] == 'x')
+	mode = HImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'r')
+	mode = DImode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'x')
+	mode = SFmode;
+      else if (IDENTIFIER_POINTER (arg)[1] == 'm')
+	mode = SFmode;
+
+      if (mode != VOIDmode)
+	type = c_common_type_for_mode (mode, 1);
+    }
+
+  return type;
+}
+
+/* We raise the code from a named register into a VAR_DECL of an
+   appropriate type that refers to the register so that reload doesn't
+   run out of registers.  */
+
+tree
+iasm_raise_reg (tree arg)
+{
+  int regno = decode_reg_name (IDENTIFIER_POINTER (arg));
+  if (regno >= 0)
+    {
+      tree decl = NULL_TREE;
+
+      decl = lookup_name_two (arg, 0);
+      if (decl == error_mark_node)
+	decl = 0;
+      if (decl == 0)
+	{
+	  tree type = iasm_type_for (arg);
+	  if (type)
+	    {
+	      decl = build_decl (VAR_DECL, arg, type);
+	      DECL_ARTIFICIAL (decl) = 1;
+	      DECL_REGISTER (decl) = 1;
+	      C_DECL_REGISTER (decl) = 1;
+	      DECL_HARD_REGISTER (decl) = 1;
+	      change_decl_assembler_name (decl, arg);
+	      decl = pushdecl (decl);
+	    }
+	}
+
+      if (decl)
+	return decl;
+    }
+
+  return arg;
+}
+
+/* Allow constants and readonly variables to be used in instructions
+   in places that require constants.  */
+
+static tree
+iasm_default_conv (tree e)
+{
+  if (e == NULL_TREE)
+    return e;
+
+  if (TREE_CODE (e) == CONST_DECL)
+    e = DECL_INITIAL (e);
+
+  if (DECL_P (e) && DECL_MODE (e) != BLKmode)
+    e = decl_constant_value (e);
+  return e;
+}
+
+/* Return true iff the operand is suitible for as the offset for a
+   memory instruction.  */
+
+static bool
+iasm_is_offset (tree v)
+{
+  if (TREE_CODE (v) == INTEGER_CST)
+    return true;
+  if (TREE_CODE (v) == ADDR_EXPR)
+    {
+      v = TREE_OPERAND (v, 0);
+      if (TREE_CODE (v) == VAR_DECL
+	  && TREE_STATIC (v)
+	  && MEM_P (DECL_RTL (v)))
+    return true;
+      if (TREE_CODE (v) == LABEL_DECL)
+	return true;
+      return false;
+    }
+  if (TREE_CODE (v) == VAR_DECL
+      && TREE_STATIC (v)
+      && MEM_P (DECL_RTL (v)))
+    return true;
+  if ((TREE_CODE (v) == MINUS_EXPR
+       || TREE_CODE (v) == PLUS_EXPR)
+      && iasm_is_offset (TREE_OPERAND (v, 0))
+      && iasm_is_offset (TREE_OPERAND (v, 1)))
+    return true;
+  if (TREE_CODE (v) == NEGATE_EXPR
+      && iasm_is_offset (TREE_OPERAND (v, 0)))
+    return true;
+
+  return false;
+}
+
+/* Combine two types for [] expressions.  */
+
+static tree
+iasm_combine_type (tree type0, tree type1)
+{
+  if (type0 == void_type_node
+      || type0 == NULL_TREE)
+    {
+      if (type1 == void_type_node)
+	return NULL_TREE;
+      return type1;
+    }
+
+  if (type1 == void_type_node
+      || type1 == NULL_TREE)
+    return type0;
+
+  if (type0 == type1)
+    return type0;
+
+  error ("too many types in []");
+
+  return type0;
+}
+
+/* We canonicalize the inputs form of bracket expressions as the input
+   forms are less constrained than what the assembler will accept.
+
+   TOP is the top of the canonical tree we're generating and
+   TREE_OPERAND (, 0) is the offset portion of the expression.  ARGP
+   points to the current part of the tree we're walking.
+
+   The tranformations we do:
+
+   (A+O) ==> A
+   (A-O) ==> A
+   (O+A) ==> A
+
+   where O are offset expressions.  */
+
+static tree
+iasm_canonicalize_bracket_1 (tree* argp, tree top)
+{
+  tree arg = *argp;
+  tree offset = TREE_OPERAND (top, 0);
+  tree arg0, arg1;
+  tree rtype = NULL_TREE;
+
+  *argp = arg = iasm_default_conv (arg);
+
+  switch (TREE_CODE (arg))
+    {
+    case NOP_EXPR:
+      if (TREE_CODE (TREE_TYPE (arg)) == IDENTIFIER_NODE)
+	{
+	  *argp = TREE_OPERAND (arg, 0);
+	  return TREE_TYPE (arg);
+	}
+      break;
+
+    case BRACKET_EXPR:
+      rtype = TREE_TYPE (arg);
+      /* fall thru */
+    case PLUS_EXPR:
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+
+      arg0 = iasm_default_conv (arg0);
+      arg1 = iasm_default_conv (arg1);
+
+      if (iasm_is_offset (arg0))
+	{
+	  if (offset != integer_zero_node)
+	    arg0 = build2 (PLUS_EXPR, void_type_node, arg0, offset);
+	  TREE_OPERAND (top, 0) = arg0;
+
+	  *argp = arg1;
+	  if (arg1)
+	    return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));
+	}
+      else if (arg1 && iasm_is_offset (arg1))
+	{
+	  if (offset != integer_zero_node)
+	    arg1 = build2 (PLUS_EXPR, void_type_node, arg1, offset);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));
+	}
+      else
+	{
+	  rtype = iasm_combine_type (rtype,
+				     iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top));
+
+	  if (arg1)
+	    rtype = iasm_combine_type (rtype,
+				       iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), top));
+	  if (TREE_OPERAND (arg, 0) == NULL_TREE)
+	    {
+	      if (TREE_OPERAND (arg, 1))
+		{
+		  TREE_OPERAND (arg, 0) = TREE_OPERAND (arg, 1);
+		  TREE_OPERAND (arg, 1) = NULL_TREE;
+		}
+	      else
+		*argp = NULL_TREE;
+	    }
+	  else if (TREE_OPERAND (arg, 1) == NULL_TREE && rtype == NULL_TREE)
+	    *argp = TREE_OPERAND (arg, 0);
+	  if (TREE_CODE (arg) == PLUS_EXPR
+	      && TREE_TYPE (arg) == NULL_TREE
+	      && TREE_TYPE (TREE_OPERAND (arg, 0))
+	      && TREE_TYPE (TREE_OPERAND (arg, 1))
+	      && (POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 1)))
+		  || POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0)))))
+	    {
+	      tree type = TREE_TYPE (TREE_OPERAND (arg, 1));
+	      if (INTEGRAL_TYPE_P (type))
+		type = TREE_TYPE (TREE_OPERAND (arg, 0));
+	      TREE_TYPE (arg) = type;
+	    }
+	  if (TREE_CODE (arg) == PLUS_EXPR
+	      && TREE_TYPE (arg) == NULL_TREE
+	      && TREE_TYPE (TREE_OPERAND (arg, 0))
+	      && TREE_TYPE (TREE_OPERAND (arg, 0)) == TREE_TYPE (TREE_OPERAND (arg, 1)))
+	    {
+	      tree type = TREE_TYPE (TREE_OPERAND (arg, 0));
+	      TREE_TYPE (arg) = type;
+	    }
+	}
+      return rtype;
+
+    case MINUS_EXPR:
+      rtype = iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 0), top);
+      arg0 = TREE_OPERAND (arg, 0);
+      arg1 = TREE_OPERAND (arg, 1);
+      arg1 = iasm_default_conv (arg1);
+      if (iasm_is_offset (arg1))
+	{
+	  offset = TREE_OPERAND (top, 0);
+	  if (offset == integer_zero_node)
+	    arg1 = fold (build1 (NEGATE_EXPR,
+				 TREE_TYPE (arg1),
+				 arg1));
+	  else
+	    arg1 = build2 (MINUS_EXPR, void_type_node, offset, arg1);
+	  TREE_OPERAND (top, 0) = arg1;
+	  *argp = arg0;
+	  return iasm_combine_type (rtype, iasm_canonicalize_bracket_1 (argp, top));;
+	}
+      return rtype;
+
+    case PARM_DECL:
+    case VAR_DECL:
+      {
+	*argp = iasm_addr (arg);
+	break;
+      }
+
+    case IDENTIFIER_NODE:
+      {
+	*argp = iasm_raise_reg (arg);
+	break;
+      }
+
+    case MULT_EXPR:
+      if (TREE_TYPE (arg) == NULL_TREE)
+	{
+	  if (TREE_CODE (TREE_OPERAND (arg, 1)) == IDENTIFIER_NODE)
+	    TREE_OPERAND (arg, 1) = iasm_raise_reg (TREE_OPERAND (arg, 1));
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == IDENTIFIER_NODE)
+	    TREE_OPERAND (arg, 0) = iasm_raise_reg (TREE_OPERAND (arg, 0));
+	  if (TREE_TYPE (TREE_OPERAND (arg, 0))
+	      && TREE_TYPE (TREE_OPERAND (arg, 1)))
+	    TREE_TYPE (arg) = TREE_TYPE (TREE_OPERAND (arg, 0));
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+/* Form an indirection for an inline asm address expression operand.
+   We give a warning when we think the optimizer might have to be used
+   to reform complex addresses, &stack_var + %eax + 4 for example,
+   after gimplification rips the address apart.  */
+
+static tree
+iasm_indirect (tree addr)
+{
+  if (TREE_CODE (addr) == ADDR_EXPR
+      && TREE_CODE (TREE_TYPE (TREE_OPERAND (addr, 0))) != ARRAY_TYPE
+      /* && TREE_CODE (TREE_OPERAND (addr, 0)) == ARRAY_REF */)
+    return TREE_OPERAND (addr, 0);
+
+  addr = fold (build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr));
+
+  if (! optimize && TREE_CODE (addr) == INDIRECT_REF)
+    warning ("addressing mode too complex when not optimizing, will consume extra register(s)");
+
+  return addr;
+}
+
+/* For an address addition for an inline asm address expression.  We
+   try and form ARRAY_REFs, as they will go through gimplification
+   without being ripped apart.  */
+
+static tree
+iasm_add (tree addr, tree off)
+{
+  if (integer_zerop (off))
+    return addr;
+
+  /* We have to convert the offset to an int type, as we rip apart
+     trees whose type has been converted to a pointer type for the
+     offset already.  */
+  return pointer_int_sum (PLUS_EXPR, addr, convert (integer_type_node, off));
+}
+
+/* We canonicalize the inputs form of bracket expressions as the input
+   forms are less constrained than what the assembler will accept.  */
+
+static tree
+iasm_canonicalize_bracket (tree arg)
+{
+  tree rtype;
+
+  gcc_assert (TREE_CODE (arg) == BRACKET_EXPR);
+
+  /* Let the normal operand printer output this without trying to
+     decompose it into parts so that things like (%esp + 20) + 4 can
+     be output as 24(%esp) by the optimizer instead of 4(%0) and
+     burning an "R" with (%esp + 20).  */
+  if (TREE_OPERAND (arg, 1) == NULL_TREE
+      && TREE_TYPE (TREE_OPERAND (arg, 0))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 0))))
+    {
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL)
+	return arg;
+      return iasm_indirect (TREE_OPERAND (arg, 0));
+    }
+
+  /* Ensure that 0 is an offset */
+  if (TREE_OPERAND (arg, 0)
+      && iasm_is_offset (TREE_OPERAND (arg, 0)))
+    {
+      /* we win if 0 is an offset already. */
+    }
+  else if (TREE_OPERAND (arg, 1) == NULL_TREE)
+    {
+      /* Move 0 to 1, if 1 is empty and 0 isn't already an offset */
+      TREE_OPERAND (arg, 1) = TREE_OPERAND (arg, 0);
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+    }
+  else
+    {
+      tree swp;
+      /* Just have to force it now */
+      swp = iasm_build_bracket (TREE_OPERAND (arg, 0), TREE_OPERAND (arg, 1));
+      TREE_OPERAND (arg, 0) = integer_zero_node;
+      TREE_OPERAND (arg, 1) = swp;
+    }
+    
+  if (TREE_OPERAND (arg, 1))
+    {
+      rtype = iasm_canonicalize_bracket_1 (&TREE_OPERAND (arg, 1), arg);
+      if (rtype)
+	TREE_TYPE (arg) = iasm_combine_type (TREE_TYPE (arg), rtype);
+    }
+
+  /* For correctness, pointer types should be raised to the tree
+     level, as they denote address calculations with stack based
+     objects, and we want print_operand to print the entire address so
+     that it can combine contants and hard registers into the address.
+     Unfortunnately we might have to rely upon the optimizer to reform
+     the address after the gimplification pass rips it apart.  */
+
+  /* Handle [INTEGER_CST][ptr][op3] */
+  if (TREE_OPERAND (arg, 1)
+      && TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST
+      && TREE_CODE (TREE_OPERAND (arg, 1)) == BRACKET_EXPR
+      && TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0)))
+      && TREE_TYPE (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0))) != void_type_node
+      && (TREE_TYPE (arg) == void_type_node
+	  || (TREE_TYPE (arg) == get_identifier ("word")
+	      && (TYPE_MODE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (TREE_OPERAND (arg, 1), 0))))
+		  == HImode))))
+    {
+      tree op3 = TREE_OPERAND (TREE_OPERAND (arg, 1), 1);
+      tree addr = iasm_add (TREE_OPERAND (TREE_OPERAND (arg, 1), 0),
+			    TREE_OPERAND (arg, 0));
+      tree type;
+      addr = iasm_indirect (addr);
+      if (op3 == NULL_TREE)
+	return addr;
+      type = TREE_TYPE (addr);
+      type = build_pointer_type (type);
+      addr = build1 (ADDR_EXPR, type, addr);
+      addr = fold (build2 (PLUS_EXPR, type, addr, op3));
+      return iasm_indirect (addr);
+    }
+
+  /* Handle ptr + INTEGER_CST */
+  if (TREE_OPERAND (arg, 1)
+      && TREE_TYPE (arg) == void_type_node
+      && TREE_TYPE (TREE_OPERAND (arg, 1))
+      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (arg, 1)))
+      && TREE_TYPE (TREE_TYPE (TREE_OPERAND (arg, 1))) != void_type_node)
+    {
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) == ADDR_EXPR)
+	{
+	  if (TREE_OPERAND (arg, 0) == integer_zero_node)
+	    return TREE_OPERAND (TREE_OPERAND (arg, 1), 0);
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST)
+	    return iasm_indirect (iasm_add (TREE_OPERAND (arg, 1), TREE_OPERAND (arg, 0)));
+	}
+      if (TREE_CODE (TREE_OPERAND (arg, 1)) == PLUS_EXPR)
+	{
+	  if (TREE_OPERAND (arg, 0) == integer_zero_node)
+	    return iasm_indirect (TREE_OPERAND (arg, 1));
+	  if (TREE_CODE (TREE_OPERAND (arg, 0)) == INTEGER_CST)
+	    return iasm_indirect (iasm_add (TREE_OPERAND (arg, 1), TREE_OPERAND (arg, 0)));
+	}
+    }
+  return arg;
+}
+
 /* We canonicalize the instruction by swapping operands and rewritting
    the opcode if the output style is in ATT syntax.  */
 
 tree
-x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
+iasm_x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 {
-  cw_md_extra_info *e = ep;
+  iasm_md_extra_info *e = ep;
   static char buf[40];
   tree args = iargs;
   int argnum = 1;
@@ -18315,50 +20562,23 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	      TREE_VALUE (args) = get_identifier (buf);
 	    }
 	}
-      else if (TREE_CODE (arg) == BRACKET_EXPR && TREE_OPERAND (arg, 1) == NULL_TREE)
-	{
-	  tree arg0 = TREE_OPERAND (arg, 0);
-	  if (TREE_CODE (arg0) == PLUS_EXPR)
-	    {
-	      if (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST)
-		{
-		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-		  TREE_OPERAND (arg, 0) = op1;
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	      else
-		{
-		  tree op1 = cw_build_bracket (TREE_OPERAND (arg0, 1), NULL_TREE);
-		  TREE_OPERAND (arg, 0) = op1;
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	    }
-	  else if (TREE_CODE (arg0) == MINUS_EXPR)
-	    {
-	      tree val = TREE_OPERAND (arg0, 1);
-	      if (TREE_CODE (val) == INTEGER_CST)
-		{
-		  val = fold (build1 (NEGATE_EXPR,
-				      TREE_TYPE (val),
-				      val));
-		  TREE_OPERAND (arg, 0) = cw_build_bracket (val, NULL_TREE);
-		  TREE_OPERAND (arg, 1) = TREE_OPERAND (arg0, 0);
-		}
-	    }
-	}
-
+      else if (TREE_CODE (arg) == BRACKET_EXPR)
+	TREE_VALUE (args) = arg = iasm_canonicalize_bracket (arg);
 	  
       switch (TREE_CODE (arg))
 	{
+	case ARRAY_REF:
 	case VAR_DECL:
 	case PARM_DECL:
 	case INDIRECT_REF:
-	  if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
-	    e->mod[argnum-1] = 'l';
+	  if (TYPE_MODE (TREE_TYPE (arg)) == QImode)
+	    e->mod[argnum-1] = 'b';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == HImode)
 	    e->mod[argnum-1] = 'w';
-	  else if (TYPE_MODE (TREE_TYPE (arg)) == QImode)
-	    e->mod[argnum-1] = 'b';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == SImode)
+	    e->mod[argnum-1] = 'l';
+	  else if (TYPE_MODE (TREE_TYPE (arg)) == DImode)
+	    e->mod[argnum-1] = 'q';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == SFmode)
 	    e->mod[argnum-1] = 's';
 	  else if (TYPE_MODE (TREE_TYPE (arg)) == DFmode)
@@ -18395,7 +20615,7 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	  break;
 	case IDENTIFIER_NODE:
 	  if (IDENTIFIER_LENGTH (arg) > 2
-	      &&IDENTIFIER_POINTER (arg)[0] == '%')
+	      && IDENTIFIER_POINTER (arg)[0] == '%')
 	    {
 	      if (IDENTIFIER_POINTER (arg)[1] == 'e')
 		e->mod[argnum-1] = 'l';
@@ -18414,15 +20634,33 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
     }
   --argnum;
 
-  args = x86_swap_operands (opcode, iargs);
+  args = iasm_x86_swap_operands (opcode, iargs);
+  if (opcode[0] == ' ' && iasm_is_pseudo (opcode+1))
+    e->pseudo = true;
 
+  if (strcasecmp (opcode, "movs") == 0)
+    args = NULL_TREE;
   /* movsx isn't part of the AT&T syntax, they spell it movs.  */
-  if (strcasecmp (opcode, "movsx") == 0)
+  else if (strcasecmp (opcode, "movsx") == 0)
     opcode = "movs";
+  else if (strcasecmp (opcode, "pushfd") == 0)
+    *opcode_p = "pushf";
+  else if (strcasecmp (opcode, "popfd") == 0)
+    *opcode_p = "popf";
 
   /* movzx isn't part of the AT&T syntax, they spell it movz.  */
   if (strcasecmp (opcode, "movzx") == 0)
-    opcode = "movz";
+    {
+      /* Silly extention of the day, A zero extended move that has the
+	 same before and after size is accepted and it just a normal
+	 move.  */
+      if (argnum == 2
+	  && (e->mod[0] == e->mod[1]
+	      || e->mod[1] == 0))
+	opcode = "mov";
+      else
+	opcode = "movz";
+    }
 
   if (strncasecmp (opcode, "f", 1) == 0 &&
       (!(strcasecmp (opcode, "fldcw") == 0)))
@@ -18432,8 +20670,118 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
       if (e->mod[1] == 'w')
 	e->mod[1] = 's';
     }
+  else if (strcasecmp (opcode, "mov") == 0)
+    {
+      /* The 32-bit integer instructions can be used on floats.  */
+      if (e->mod[0] == 's')
+	e->mod[0] = 'l';
+      if (e->mod[1] == 's')
+	e->mod[1] = 'l';
+    }
 
-  if (strcasecmp (opcode, "out") == 0)
+  if (e->pseudo)
+    e->mod[0] = e->mod[1] = 0;
+  else if (strcasecmp (opcode, "clflush") == 0
+	   || strcasecmp (opcode, "fbld") == 0
+	   || strcasecmp (opcode, "fbstp") == 0
+	   || strcasecmp (opcode, "fldt") == 0
+	   || strcasecmp (opcode, "fnstcw") == 0
+	   || strcasecmp (opcode, "fnstsw") == 0
+	   || strcasecmp (opcode, "fstcw") == 0
+	   || strcasecmp (opcode, "fstsw") == 0
+	   || strcasecmp (opcode, "fxrstor") == 0
+	   || strcasecmp (opcode, "fxsave") == 0
+	   || strcasecmp (opcode, "invlpg") == 0
+	   || strcasecmp (opcode, "jmp") == 0
+	   || strcasecmp (opcode, "call") == 0
+	   || strcasecmp (opcode, "ja") == 0
+	   || strcasecmp (opcode, "jae") == 0
+	   || strcasecmp (opcode, "jb") == 0
+	   || strcasecmp (opcode, "jbe") == 0
+	   || strcasecmp (opcode, "jc") == 0
+	   || strcasecmp (opcode, "je") == 0
+	   || strcasecmp (opcode, "jg") == 0
+	   || strcasecmp (opcode, "jge") == 0
+	   || strcasecmp (opcode, "jl") == 0
+	   || strcasecmp (opcode, "jle") == 0
+	   || strcasecmp (opcode, "jna") == 0
+	   || strcasecmp (opcode, "jnae") == 0
+	   || strcasecmp (opcode, "jnb") == 0
+	   || strcasecmp (opcode, "jnc") == 0
+	   || strcasecmp (opcode, "jne") == 0
+	   || strcasecmp (opcode, "jng") == 0
+	   || strcasecmp (opcode, "jnge") == 0
+	   || strcasecmp (opcode, "jnl") == 0
+	   || strcasecmp (opcode, "jnle") == 0
+	   || strcasecmp (opcode, "jno") == 0
+	   || strcasecmp (opcode, "jnp") == 0
+	   || strcasecmp (opcode, "jns") == 0
+	   || strcasecmp (opcode, "jnz") == 0
+	   || strcasecmp (opcode, "jo") == 0
+	   || strcasecmp (opcode, "jp") == 0
+	   || strcasecmp (opcode, "jpe") == 0
+	   || strcasecmp (opcode, "jpo") == 0
+	   || strcasecmp (opcode, "js") == 0
+	   || strcasecmp (opcode, "jz") == 0
+	   || strcasecmp (opcode, "ldmxcsr") == 0
+	   || strcasecmp (opcode, "lldt") == 0
+	   || strcasecmp (opcode, "lmsw") == 0
+	   || strcasecmp (opcode, "ltr") == 0
+	   || strcasecmp (opcode, "movapd") == 0
+	   || strcasecmp (opcode, "movaps") == 0
+	   || strcasecmp (opcode, "movd") == 0
+	   || strcasecmp (opcode, "movhpd") == 0
+	   || strcasecmp (opcode, "movhps") == 0
+	   || strcasecmp (opcode, "movlpd") == 0
+	   || strcasecmp (opcode, "movlps") == 0
+	   || strcasecmp (opcode, "movntdq") == 0
+	   || strcasecmp (opcode, "movntpd") == 0
+	   || strcasecmp (opcode, "movntps") == 0
+	   || strcasecmp (opcode, "movntq") == 0
+	   || strcasecmp (opcode, "movq") == 0
+	   || strcasecmp (opcode, "movsd") == 0
+	   || strcasecmp (opcode, "movss") == 0
+	   || strcasecmp (opcode, "movupd") == 0
+	   || strcasecmp (opcode, "movups") == 0
+	   || strcasecmp (opcode, "out") == 0
+	   || strcasecmp (opcode, "prefetchnta") == 0
+	   || strcasecmp (opcode, "prefetcht0") == 0
+	   || strcasecmp (opcode, "prefetcht1") == 0
+	   || strcasecmp (opcode, "prefetcht2") == 0
+	   || strcasecmp (opcode, "seta") == 0
+	   || strcasecmp (opcode, "setae") == 0
+	   || strcasecmp (opcode, "setb") == 0
+	   || strcasecmp (opcode, "setbe") == 0
+	   || strcasecmp (opcode, "setc") == 0
+	   || strcasecmp (opcode, "sete") == 0
+	   || strcasecmp (opcode, "setg") == 0
+	   || strcasecmp (opcode, "setge") == 0
+	   || strcasecmp (opcode, "setl") == 0
+	   || strcasecmp (opcode, "setle") == 0
+	   || strcasecmp (opcode, "setna") == 0
+	   || strcasecmp (opcode, "setnae") == 0
+	   || strcasecmp (opcode, "setnb") == 0
+	   || strcasecmp (opcode, "setnbe") == 0
+	   || strcasecmp (opcode, "setnc") == 0
+	   || strcasecmp (opcode, "setne") == 0
+	   || strcasecmp (opcode, "setng") == 0
+	   || strcasecmp (opcode, "setnge") == 0
+	   || strcasecmp (opcode, "setnl") == 0
+	   || strcasecmp (opcode, "setnle") == 0
+	   || strcasecmp (opcode, "setno") == 0
+	   || strcasecmp (opcode, "setnp") == 0
+	   || strcasecmp (opcode, "setns") == 0
+	   || strcasecmp (opcode, "setnz") == 0
+	   || strcasecmp (opcode, "seto") == 0
+	   || strcasecmp (opcode, "setp") == 0
+	   || strcasecmp (opcode, "setpe") == 0
+	   || strcasecmp (opcode, "setpo") == 0
+	   || strcasecmp (opcode, "sets") == 0
+	   || strcasecmp (opcode, "setz") == 0
+	   || strcasecmp (opcode, "sldt") == 0
+	   || strcasecmp (opcode, "smsw") == 0
+	   || strcasecmp (opcode, "stmxcsr") == 0
+	   || strcasecmp (opcode, "str") == 0)
     e->mod[0] = 0;
   else if (strcasecmp (opcode, "rcr") == 0
 	   || strcasecmp (opcode, "rcl") == 0
@@ -18450,7 +20798,12 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
 	  && (e->mod[0] == e->mod[1]
 	      || e->mod[1] == 0)))
     {
-      sprintf (buf, "%s%c", opcode, e->mod[0]);
+      if (e->mod[0] == 'q'
+	  && !(strcasecmp (opcode, "inc") == 0
+	       || strcasecmp (opcode, "dec") == 0))
+	sprintf (buf, "%s%s", opcode, "ll");
+      else
+	sprintf (buf, "%s%c", opcode, e->mod[0]);
       *opcode_p = buf;
     }
   else if (argnum == 2 && e->mod[0] && e->mod[1])
@@ -18462,22 +20815,12 @@ x86_canonicalize_operands (const char **opcode_p, tree iargs, void *ep)
   return args;
 }
 
-/* Return true iff the operand is suitible for as the offset for a
-   memory instruction.  */
-static bool
-cw_is_offset (tree v)
-{
-  if (TREE_CODE (v) == INTEGER_CST)
-    return true;
-  return false;
-}
-
 /* Character used to seperate the prefix words.  */
 /* See radr://4141844 for the enhancement to make this uniformly ' '.  */
-#define CW_PREFIX_SEP '/'
+#define IASM_PREFIX_SEP '/'
 
 void
-x86_cw_print_prefix (char *buf, tree prefix_list)
+iasm_x86_print_prefix (char *buf, tree prefix_list)
 {
   buf += strlen (buf);
   while (prefix_list)
@@ -18486,62 +20829,70 @@ x86_cw_print_prefix (char *buf, tree prefix_list)
       size_t len = IDENTIFIER_LENGTH (prefix);
       memcpy (buf, IDENTIFIER_POINTER (prefix), len);
       buf += len;
-      buf[0] = CW_PREFIX_SEP;
+      buf[0] = IASM_PREFIX_SEP;
       ++buf;
       buf[0] = 0;
       prefix_list = TREE_CHAIN (prefix_list);
     }
 }
 
+/* Warn when a variables address is used to form a memory address when
+   that address will use an extra register during reload.  */
+
+static void
+iasm_warn_extra_reg (tree arg)
+{
+  if (TREE_CODE (arg) == ADDR_EXPR
+      && (TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == PARM_DECL))
+    warning ("addressing mode too complex, will consume an extra register");
+}
+
 bool
-cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
+iasm_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	     bool must_be_reg, bool must_not_be_reg, void *ep)
 {
-  cw_md_extra_info *e = ep;
+  iasm_md_extra_info *e = ep;
   switch (TREE_CODE (arg))
     {
     case BRACKET_EXPR:
       {
-	tree op2 = TREE_OPERAND (arg, 0);
-	tree op3 = TREE_OPERAND (arg, 1);
-	tree op0 = NULL_TREE, op1 = NULL_TREE;
+	tree op1 = TREE_OPERAND (arg, 0);
+	tree op2 = TREE_OPERAND (arg, 1);
+	tree op0 = NULL_TREE, op3 = NULL_TREE;
 	tree scale = NULL_TREE;
 
-	if (TREE_CODE (op2) == BRACKET_EXPR)
+	if (op2 == NULL_TREE
+	    && TREE_TYPE (op1)
+	    && POINTER_TYPE_P (TREE_TYPE (op1)))
 	  {
-	    op1 = TREE_OPERAND (op2, 0);
-	    op2 = TREE_OPERAND (op2, 1);
-	    if (TREE_CODE (op1) == BRACKET_EXPR)
+	    /* Let the normal operand printer output this without trying to
+	       decompose it into parts so that things like (%esp + 20) + 4
+	       can be output as 24(%esp) by the optimizer instead of 4(%0)
+	       and burning an "R" with (%esp + 20).  */
+	    iasm_force_constraint ("m", e);
+	    iasm_get_register_var (op1, "", buf, argnum, must_be_reg, e);
+	    iasm_force_constraint (0, e);
+	    break;
+	  }
+
+	if (op2
+	    && TREE_CODE (op2) == BRACKET_EXPR)
+	  {
+	    op3 = TREE_OPERAND (op2, 1);
+	    op2 = TREE_OPERAND (op2, 0);
+	    if (TREE_CODE (op2) == BRACKET_EXPR)
 	      {
-		op0 = TREE_OPERAND (op1, 1);
-		op1 = TREE_OPERAND (op1, 0);
+		op0 = TREE_OPERAND (op2, 1);
+		op2 = TREE_OPERAND (op2, 0);
 	      }
 	  }
 	if (op0)
 	  return false;
-	if (op2 == NULL_TREE)
-	  {
-	    op2 = op1;
-	    op1 = op0;
-	    op0 = NULL_TREE;
-	  }
 
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "[");
 
-	if (op3 && cw_is_offset (op3))
-	  {
-	    tree tmp = op1;
-	    op1 = op3;
-	    op3 = tmp;
-	  }
-	else if (cw_is_offset (op2))
-	  {
-	    tree tmp = op1;
-	    op1 = op2;
-	    op2 = op3;
-	    op3 = tmp;
-	  }
 	if (op3 == NULL_TREE
 	    && op2 && TREE_CODE (op2) == PLUS_EXPR)
 	  {
@@ -18554,33 +20905,6 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	    t = op3;
 	    op3 = op2;
 	    op2 = t;
-	  }
-	if (op1 == NULL_TREE)
-	  {
-	    if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op2, 0)))
-	      {
-		op1 = TREE_OPERAND (op2, 0);
-		op2 = TREE_OPERAND (op2, 1);
-	      }
-	    else if (op2 && TREE_CODE (op2) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op2, 1)))
-	      {
-		op1 = TREE_OPERAND (op2, 1);
-		op2 = TREE_OPERAND (op2, 0);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		&& cw_is_offset (TREE_OPERAND (op3, 0)))
-	      {
-		op1 = TREE_OPERAND (op3, 0);
-		op3 = TREE_OPERAND (op3, 1);
-	      }
-	    else if (op3 && TREE_CODE (op3) == PLUS_EXPR
-		     && cw_is_offset (TREE_OPERAND (op3, 1)))
-	      {
-		op1 = TREE_OPERAND (op3, 1);
-		op3 = TREE_OPERAND (op3, 0);
-	      }
 	  }
 
 	/* Crack out the scaling, if any.  */
@@ -18600,15 +20924,15 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	      }
 	  }
 
-	if (op1)
-	  {
-	    e->as_immediate = true;
-	    print_cw_asm_operand (buf, op1, argnum, uses,
-				  must_be_reg, must_not_be_reg, e);
-	    e->as_immediate = false;
-	  }
-	else
-	  strcat (buf, "0");
+	e->as_immediate = true;
+	iasm_print_operand (buf, op1, argnum, uses,
+			      must_be_reg, must_not_be_reg, e);
+	e->as_immediate = false;
+
+	/* Just an immediate.  */
+	if (op2 == NULL_TREE && op3 == NULL_TREE)
+	  break;
+
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
 	  strcat (buf, "]");
 	if (ASSEMBLER_DIALECT == ASM_INTEL)
@@ -18619,10 +20943,11 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	if (op2)
 	  {
 	    /* We know by context, this has to be an R.  */
-	    cw_force_constraint ("R", e);
-	    print_cw_asm_operand (buf, op2, argnum, uses,
+	    iasm_force_constraint ("R", e);
+	    iasm_warn_extra_reg (op2);
+	    iasm_print_operand (buf, op2, argnum, uses,
 				  must_be_reg, must_not_be_reg, e);
-	    cw_force_constraint (0, e);
+	    iasm_force_constraint (0, e);
 	  }
 	if (op3)
 	  {
@@ -18632,15 +20957,16 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
 	      strcat (buf, ",");
 
 	    /* We know by context, this has to be an l.  */
-	    cw_force_constraint ("l", e);
-	    print_cw_asm_operand (buf, op3, argnum, uses,
+	    iasm_force_constraint ("l", e);
+	    iasm_warn_extra_reg (op3);
+	    iasm_print_operand (buf, op3, argnum, uses,
 				  must_be_reg, must_not_be_reg, e);
-	    cw_force_constraint (0, e);
+	    iasm_force_constraint (0, e);
 	    if (scale)
 	      {
 		strcat (buf, ",");
 		e->as_immediate = true;
-		print_cw_asm_operand (buf, scale, argnum, uses,
+		iasm_print_operand (buf, scale, argnum, uses,
 				      must_be_reg, must_not_be_reg, e);
 		e->as_immediate = false;
 	      }
@@ -18653,17 +20979,24 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
       break;
 
     case ADDR_EXPR:
-      e->as_offset = true;
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+      if (TREE_CODE (TREE_OPERAND (arg, 0)) == ARRAY_REF
+	  || TREE_CODE (TREE_OPERAND (arg, 0)) == VAR_DECL)
+	{
+	  iasm_get_register_var (arg, "", buf, argnum, must_be_reg, e);
+	  break;
+	}
+      if (! e->as_immediate)
+	e->as_offset = true;
+      iasm_print_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       e->as_offset = false;
       break;
 
     case MULT_EXPR:
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
+      iasm_print_operand (buf, TREE_OPERAND (arg, 0), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       strcat (buf, "*");
-      print_cw_asm_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
+      iasm_print_operand (buf, TREE_OPERAND (arg, 1), argnum, uses,
 			    must_be_reg, must_not_be_reg, e);
       break;
     default:
@@ -18672,5 +21005,4 @@ cw_print_op (char *buf, tree arg, unsigned argnum, tree *uses,
   return true;
 }
 /* APPLE LOCAL end CW asm blocks */
-
 #include "gt-i386.h"

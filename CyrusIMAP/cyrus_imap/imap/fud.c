@@ -42,7 +42,7 @@
 
 #include <config.h>
 
-/* $Id: fud.c,v 1.5 2005/03/05 00:36:48 dasenbro Exp $ */
+/* $Id: fud.c,v 1.55 2007/02/05 18:41:46 jeaton Exp $ */
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -70,6 +70,8 @@
 #include "imap_err.h"
 #include "mailbox.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "acl.h"
 #include "seen.h"
 #include "mboxname.h"
@@ -202,6 +204,7 @@ int service_main(int argc __attribute__((unused)),
     r = begin_handling();
 
     shut_down(r);
+    return 0;
 }
 
 static void cyrus_timeout(int signo __attribute__((unused)))
@@ -362,7 +365,7 @@ int handle_request(const char *who, const char *name,
     r = (*fud_namespace.mboxname_tointernal)(&fud_namespace,name,who,mboxname);
     if (r) return r; 
 
-    r = mboxlist_detail(mboxname, &mbflag, &location, NULL, &acl, NULL);
+    r = mboxlist_detail(mboxname, &mbflag, &location, NULL, NULL, &acl, NULL);
     if(r || mbflag & MBTYPE_RESERVE) {
 	send_reply(sfrom, sfromsiz, REQ_UNK, who, name, 0, 0, 0);
 	return r;

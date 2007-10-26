@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""MailList mixin class managing the general options.
-"""
+"""MailList mixin class managing the general options."""
 
 import re
 
@@ -142,10 +142,14 @@ class General(GUIBase):
             ('subject_prefix', mm_cfg.String, WIDTH, 0,
              _('Prefix for subject line of list postings.'),
              _("""This text will be prepended to subject lines of messages
-             posted to the list, to distinguish mailing list messages in in
+             posted to the list, to distinguish mailing list messages in
              mailbox summaries.  Brevity is premium here, it's ok to shorten
              long mailing list names to something more concise, as long as it
-             still identifies the mailing list.""")),
+             still identifies the mailing list.
+             You can also add a sequential number by %%d substitution
+             directive. eg.; [listname %%d] -> [listname 123]
+                            (listname %%05d) -> (listname 00123)
+             """)),
 
             ('anonymous_list', mm_cfg.Radio, (_('No'), _('Yes')), 0,
              _("""Hide the sender of a message, replacing it with the list
@@ -185,7 +189,7 @@ class General(GUIBase):
              href="http://www.unicom.com/pw/reply-to-harmful.html">`Reply-To'
              Munging Considered Harmful</a> for a general discussion of this
              issue.  See <a
-        href="http://www.metasystema.org/essays/reply-to-useful.mhtml">Reply-To
+             href="http://www.metasystema.net/essays/reply-to.mhtml">Reply-To
              Munging Considered Useful</a> for a dissenting opinion.
 
              <p>Some mailing lists have restricted posting privileges, with a
@@ -213,7 +217,7 @@ class General(GUIBase):
              href="http://www.unicom.com/pw/reply-to-harmful.html">`Reply-To'
              Munging Considered Harmful</a> for a general discussion of this
              issue.  See <a
-        href="http://www.metasystema.org/essays/reply-to-useful.mhtml">Reply-To
+             href="http://www.metasystema.net/essays/reply-to.mhtml">Reply-To
              Munging Considered Useful</a> for a dissenting opinion.
 
              <p>Some mailing lists have restricted posting privileges, with a
@@ -315,12 +319,8 @@ class General(GUIBase):
 
             ('respond_to_post_requests', mm_cfg.Radio,
              (_('No'), _('Yes')), 0,
-             _('Send mail to poster when their posting is held for approval?'),
-
-             _("""Approval notices are sent when mail triggers certain of the
-             limits <em>except</em> routine list moderation and spam filters,
-             for which notices are <em>not</em> sent.  This option overrides
-             ever sending the notice.""")),
+             _('Send mail to poster when their posting is held for approval?')
+            ),
 
             _('Additional settings'),
 
@@ -409,6 +409,13 @@ class General(GUIBase):
              headers.)"""))
             )
 
+        # Discard held messages after this number of days
+        rtn.append(
+            ('max_days_to_hold', mm_cfg.Number, 7, 0,
+            _("""Discard held messages older than this number of days.
+            Use 0 for no automatic discarding."""))
+            )
+
         return rtn
 
     def _setValue(self, mlist, property, val, doc):
@@ -433,13 +440,13 @@ class General(GUIBase):
             GUIBase._setValue(self, mlist, property, val, doc)
 
     def _escape(self, property, value):
-        # The 'info' property allows HTML, but lets sanitize it to avoid XSS
+        # The 'info' property allows HTML, but let's sanitize it to avoid XSS
         # exploits.  Everything else should be fully escaped.
         if property <> 'info':
             return GUIBase._escape(self, property, value)
         # Sanitize <script> and </script> tags but nothing else.  Not the best
         # solution, but expedient.
-        return re.sub(r'<([/]?script.*?)>', r'&lt;\1&gt;', value)
+        return re.sub(r'(?i)<([/]?script.*?)>', r'&lt;\1&gt;', value)
 
     def _postValidate(self, mlist, doc):
         if not mlist.reply_to_address.strip() and \

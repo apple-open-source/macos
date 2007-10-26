@@ -3,7 +3,7 @@
 
 #ifdef PHP_WIN32
 #	include <windows.h>
-#	ifdef PHP4PI3WEB_EXPORTS
+#	ifdef PHP5PI3WEB_EXPORTS
 #		define MODULE_API __declspec(dllexport) 
 #	else
 #		define MODULE_API __declspec(dllimport) 
@@ -59,6 +59,7 @@ typedef struct _CONTROL_BLOCK {
     LPSTR     lpszContentType;        // Content type of client data
 	DWORD     dwBehavior;			  // PHP behavior (standard, highlight, intend
 
+
     LPVOID (* GetVariableNames) (HCONN      hConn);
 
     BOOL (* GetServerVariable) ( HCONN       hConn,
@@ -81,9 +82,9 @@ typedef struct _CONTROL_BLOCK {
 
 } CONTROL_BLOCK, *LPCONTROL_BLOCK;
 
-MODULE_API DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB);
-MODULE_API BOOL PHP4_startup();
-MODULE_API BOOL PHP4_shutdown();
+MODULE_API DWORD PHP5_wrapper(LPCONTROL_BLOCK lpCB);
+MODULE_API BOOL PHP5_startup();
+MODULE_API BOOL PHP5_shutdown();
 
 // the following type declaration is for the server side
 typedef DWORD ( * PFN_WRAPPERFUNC )( CONTROL_BLOCK *pCB );

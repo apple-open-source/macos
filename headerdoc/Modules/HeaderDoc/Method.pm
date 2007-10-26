@@ -30,14 +30,14 @@
 ######################################################################
 package HeaderDoc::Method;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.2.2.11.2.28 $';
+$VERSION = '$Revision: 1.2.2.11.2.35 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::HeaderElement );
@@ -139,8 +139,18 @@ sub processComment {
     my @fields = @$fieldArrayRef;
     my $filename = $self->filename();
     my $linenum = $self->linenum();
+    my $localDebug = 0;
 
 	foreach my $field (@fields) {
+		my $fieldname = "";
+		my $top_level_field = 0;
+		if ($field =~ /^(\w+)(\s|$)/) {
+			$fieldname = $1;
+			# print "FIELDNAME: $fieldname\n";
+			$top_level_field = validTag($fieldname, 1);
+		}
+		# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
+		print "FIELD: $field\n" if ($localDebug);
 		SWITCH: {
             		($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -150,32 +160,27 @@ sub processComment {
                                 }
                         last SWITCH;
                         };
-			($field =~ s/^method(\s+)/$1/o) && 
-			do {
-				my ($name, $disc);
-				($name, $disc) = &getAPINameAndDisc($field); 
-				$self->name($name);
-				if (length($disc)) {$self->discussion($disc);};
-				last SWITCH;
-			};
-			($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
-			($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
-			($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-			($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            		($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-			($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+			($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
+			($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
+ 			($field =~ s/^throws\s+//io) && do {$self->throws($field); last SWITCH;};
+ 			($field =~ s/^exception\s+//io) && do {$self->throws($field); last SWITCH;};
+			($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
+			($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
+            		($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
+            		($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+			($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            		($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+			($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributelist\s+//o) && do {
+	    ($field =~ s/^attributelist\s+//io) && do {
 		    $field =~ s/^\s*//so;
 		    $field =~ s/\s*$//so;
 		    my ($name, $lines) = split(/\n/, $field, 2);
@@ -189,25 +194,25 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributeblock\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+	    ($field =~ s/^attributeblock\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
-			($field =~ /^see(also|)\s+/o) &&
+			($field =~ /^see(also|)\s+/io) &&
 				do {
 				    $self->see($field);
 				    last SWITCH;
 				};
-			($field =~ s/^param\s+//o) && 
+			($field =~ s/^param\s+//io) && 
 			do {
 				$field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
 	            $field =~ /(\w*)\s*(.*)/so;
@@ -224,13 +229,33 @@ sub processComment {
 # print "class is $class\n";
 				last SWITCH;
 			};
-			($field =~ s/^return\s+//o) && do {$self->result($field); last SWITCH;};
-			($field =~ s/^result\s+//o) && do {$self->result($field); last SWITCH;};
+			($field =~ s/^return\s+//io) && do {$self->result($field); last SWITCH;};
+			($field =~ s/^result\s+//io) && do {$self->result($field); last SWITCH;};
+			($top_level_field == 1) && do {
+				my $keepname = 1;
+ 				if ($field =~ s/^(method)(\s+|$)/$2/io) {
+					$keepname = 1;
+				} else {
+					$field =~ s/(\w+)(\s|$)/$2/io;
+					$keepname = 0;
+				}
+				my ($name, $disc, $namedisc);
+				($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
+				$self->name($name);
+                		if (length($disc)) {
+					if ($namedisc) {
+						$self->nameline_discussion($disc);
+					} else {
+						$self->discussion($disc);
+					}
+				}
+				last SWITCH;
+			};
 			# my $filename = $HeaderDoc::headerObject->filename();
 			my $filename = $self->filename();
 			my $linenum = $self->linenum();
 			# print "$filename:$linenum:Unknown field in Method comment: $field\n";
-			if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in method comment (".$self->name().")\n"; }
+			if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in method comment (".$self->name().")\n"; }
 		}
 	}
 }
@@ -283,8 +308,7 @@ if (0) {
 	} else {
 		my $filename = $HeaderDoc::headerObject->filename();
 		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum:Unable to determine whether declaration is for an instance or class method[method].\n";
-			print "$filename:$linenum:     '$declaration'\n";
+			print "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[method]. '$declaration'\n";
 		}
 		# We have to take an educated guess so the UID is legal
 		$methodType = "instm";
@@ -296,11 +320,14 @@ if (0) {
     $self->setIsInstanceMethod("YES");
     $methodType = "instm";
 
+    if ($apioclass =~ /HeaderDoc::ObjCProtocol/) {
+	$methodType = "intfm";
+    }
 
     my $ptref = $self->parseTree();
     if (!$ptref) {
 	if (!$HeaderDoc::ignore_apiuid_errors) {
-	    warn "$filename:$linenum:Unable to find parse tree.  File a bug.\n";
+	    warn "$filename:$linenum: warning: Unable to find parse tree. File a bug.\n";
 	}
     } else {
 	my $pt = ${$ptref};
@@ -314,21 +341,21 @@ if (0) {
 	} else {
 		# This case is always bad, since it means the declaration is
 		# essentially blank....
-		warn "$filename:$linenum:Unable to find parser state for ".$self->name().".  File a bug.\n";
+		warn "$filename:$linenum: warning: Unable to find parser state for ".$self->name().". File a bug.\n";
 	}
 
 	if (!$ps) {
 		# This could be a user error or a bug.
 		if ($apioclass =~ /HeaderDoc::Header/) {
-			warn "$filename:$linenum:Objective-C method found outside a class or interface\n(or in a class or interface that lacks HeaderDoc markup).\n";
+			warn "$filename:$linenum: warning: Objective-C method found outside a class or interface (or in a class or interface that lacks HeaderDoc markup).\n";
 		} else {
-			warn "$filename:$linenum:Unable to find parser state for ".$self->name().".  File a bug.\n";
+			warn "$filename:$linenum: warning: Unable to find parser state for ".$self->name().". File a bug.\n";
 		}
 		# print "PT TOKEN WAS: ".$pt->token()."\n";
 	} else {
 		my $token = $ps->{occmethodtype};
 		if (!length($token)) {
-			warn "$filename:$linenum:Unable to find Objective-C method type.  File a bug.\n";
+			warn "$filename:$linenum: warning: Unable to find Objective-C method type. File a bug.\n";
 		} elsif ($token =~ /\+/) {
 			$self->setIsInstanceMethod("NO");
 			$methodType = "clm";

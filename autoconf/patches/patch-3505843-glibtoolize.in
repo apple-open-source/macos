@@ -1,0 +1,268 @@
+--- bin/autoreconf.in.orig	2006-06-05 05:17:36.000000000 -0700
++++ bin/autoreconf.in	2006-08-19 12:42:03.000000000 -0700
+@@ -58,7 +58,7 @@
+ $help = "Usage: $0 [OPTION] ... [DIRECTORY] ...
+ 
+ Run `autoconf' (and `autoheader', `aclocal', `automake', `autopoint'
+-(formerly `gettextize'), and `libtoolize' where appropriate)
++(formerly `gettextize'), and `glibtoolize' where appropriate)
+ repeatedly to remake the GNU Build System files in specified
+ DIRECTORIES and their subdirectories (defaulting to `.').
+ 
+@@ -110,7 +110,7 @@
+ my $autoheader = $ENV{'AUTOHEADER'} || '@bindir@/@autoheader-name@';
+ my $automake   = $ENV{'AUTOMAKE'}   || 'automake';
+ my $aclocal    = $ENV{'ACLOCAL'}    || 'aclocal';
+-my $libtoolize = $ENV{'LIBTOOLIZE'} || 'libtoolize';
++my $libtoolize = $ENV{'LIBTOOLIZE'} || 'glibtoolize';
+ my $autopoint  = $ENV{'AUTOPOINT'}  || 'autopoint';
+ 
+ # --install -- as --add-missing in other tools.
+@@ -501,7 +501,7 @@
+   # Setting up the source tree.  #
+   # ---------------------------- #
+ 
+-  # libtoolize, automake --add-missing etc. will drop files in the
++  # glibtoolize, automake --add-missing etc. will drop files in the
+   # $AUX_DIR.  But these tools fail to install these files if the
+   # directory itself does not exist, which valid: just imagine a CVS
+   # repository with hand written code only (there is not even a need
+@@ -516,7 +516,7 @@
+ 
+ 
+   # -------------------- #
+-  # Running libtoolize.  #
++  # Running glibtoolize. #
+   # -------------------- #
+ 
+   if (!$uses_libtool)
+@@ -534,7 +534,7 @@
+     }
+   else
+     {
+-      verb "$configure_ac: not running libtoolize: --install not given";
++      verb "$configure_ac: not running glibtoolize: --install not given";
+     }
+ 
+ 
+--- doc/autoconf.info.orig	2006-06-23 09:05:40.000000000 -0700
++++ doc/autoconf.info	2006-08-19 12:24:18.000000000 -0700
+@@ -1271,7 +1271,7 @@
+ simply in order to install the GNU Build System in a fresh tree.
+ 
+    `autoreconf' runs `autoconf', `autoheader', `aclocal', `automake',
+-`libtoolize', and `autopoint' (when appropriate) repeatedly to update
++`glibtoolize', and `autopoint' (when appropriate) repeatedly to update
+ the GNU Build System in the specified directories and their
+ subdirectories (*note Subdirectories::).  By default, it only remakes
+ those files that are older than their sources.
+@@ -1321,7 +1321,7 @@
+      files are copied; this can be changed with `--symlink'.
+ 
+      If deemed appropriate, this option triggers calls to `automake
+-     --add-missing', `libtoolize', `autopoint', etc.
++     --add-missing', `glibtoolize', `autopoint', etc.
+ 
+ `--no-recursive'
+      Do not rebuild files in subdirectories to configure (see *Note
+--- doc/autoconf.texi.orig	2006-06-23 08:11:37.000000000 -0700
++++ doc/autoconf.texi	2006-08-19 12:24:56.000000000 -0700
+@@ -1532,7 +1532,7 @@
+ System in a fresh tree.
+ 
+ @command{autoreconf} runs @command{autoconf}, @command{autoheader},
+-@command{aclocal}, @command{automake}, @command{libtoolize}, and
++@command{aclocal}, @command{automake}, @command{glibtoolize}, and
+ @command{autopoint} (when appropriate) repeatedly to update the
+ @acronym{GNU} Build System in the specified directories and their
+ subdirectories (@pxref{Subdirectories}).  By default, it only remakes
+@@ -1591,7 +1591,7 @@
+ 
+ If deemed appropriate, this option triggers calls to
+ @samp{automake --add-missing},
+-@samp{libtoolize}, @samp{autopoint}, etc.
++@samp{glibtoolize}, @samp{autopoint}, etc.
+ 
+ @item --no-recursive
+ Do not rebuild files in subdirectories to configure (see @ref{Subdirectories},
+@@ -19121,7 +19121,7 @@
+ @c  LocalWords:  LIBOBJS IFELSE cindex flushright Pinard Metaconfig uref Simons
+ @c  LocalWords:  distclean uninstall noindent versioning Tromey dir
+ @c  LocalWords:  SAMS samp aclocal acsite underquoted emph itemx prepend SUBST
+-@c  LocalWords:  evindex automake Gettext autopoint gettext symlink libtoolize
++@c  LocalWords:  evindex automake Gettext autopoint gettext symlink glibtoolize
+ @c  LocalWords:  defmac INIT tarname ovindex cvindex BUGREPORT PREREQ asis PROG
+ @c  LocalWords:  SRCDIR srcdir globbing afterwards cmds foos fooo foooo init cd
+ @c  LocalWords:  builddir timestamp src Imakefile chmod defvar CFLAGS CPPFLAGS
+--- lib/autoconf/lang.m4.orig	2006-06-01 10:35:29.000000000 -0700
++++ lib/autoconf/lang.m4	2006-08-19 12:35:28.000000000 -0700
+@@ -366,7 +366,7 @@
+ # In several of these libraries, workarounds have been introduced to
+ # avoid the AC_PROG_CC_WORKS test, that would just abort their
+ # configuration.  The introduction of AC_EXEEXT, enabled either by
+-# libtool or by CVS autoconf, have just made matters worse.
++# glibtool or by CVS autoconf, have just made matters worse.
+ #
+ # Unlike an earlier version of this macro, using AC_NO_EXECUTABLES does
+ # not disable link tests at autoconf time, but at configure time.
+--- man/autoconf.1.orig	2006-06-23 09:05:01.000000000 -0700
++++ man/autoconf.1	2006-08-19 12:29:53.000000000 -0700
+@@ -92,7 +92,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autoconf
+--- man/autoheader.1.orig	2006-06-23 09:05:01.000000000 -0700
++++ man/autoheader.1	2006-08-19 12:29:59.000000000 -0700
+@@ -88,7 +88,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autoheader
+--- man/autom4te.1.orig	2006-06-23 09:05:02.000000000 -0700
++++ man/autom4te.1	2006-08-19 12:30:04.000000000 -0700
+@@ -141,7 +141,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autom4te
+--- man/autoreconf.1.orig	2006-06-23 09:05:02.000000000 -0700
++++ man/autoreconf.1	2006-08-19 12:30:16.000000000 -0700
+@@ -7,7 +7,7 @@
+ [\fIOPTION\fR] ... [\fIDIRECTORY\fR] ...
+ .SH DESCRIPTION
+ Run `autoconf' (and `autoheader', `aclocal', `automake', `autopoint'
+-(formerly `gettextize'), and `libtoolize' where appropriate)
++(formerly `gettextize'), and `glibtoolize' where appropriate)
+ repeatedly to remake the GNU Build System files in specified
+ DIRECTORIES and their subdirectories (defaulting to `.').
+ .PP
+@@ -113,7 +113,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autoreconf
+--- man/autoscan.1.orig	2006-06-23 09:05:02.000000000 -0700
++++ man/autoscan.1	2006-08-19 12:30:23.000000000 -0700
+@@ -50,7 +50,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autoscan
+--- man/autoupdate.1.orig	2006-06-23 09:05:03.000000000 -0700
++++ man/autoupdate.1	2006-08-19 12:30:29.000000000 -0700
+@@ -52,7 +52,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B autoupdate
+--- man/config.guess.1.orig	2006-06-17 05:53:07.000000000 -0700
++++ man/config.guess.1	2006-08-19 12:30:34.000000000 -0700
+@@ -54,4 +54,4 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+--- man/config.sub.1.orig	2006-06-17 05:53:08.000000000 -0700
++++ man/config.sub.1	2006-08-19 12:30:40.000000000 -0700
+@@ -38,4 +38,4 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+--- man/ifnames.1.orig	2006-06-23 09:05:03.000000000 -0700
++++ man/ifnames.1	2006-08-19 12:30:48.000000000 -0700
+@@ -37,7 +37,7 @@
+ .BR config.guess (1),
+ .BR config.sub (1),
+ .BR ifnames (1),
+-.BR libtool (1).
++.BR glibtool (1).
+ .PP
+ The full documentation for
+ .B ifnames
+--- tests/foreign.at.orig	2006-01-21 01:00:28.000000000 -0800
++++ tests/foreign.at	2006-08-19 12:34:08.000000000 -0700
+@@ -27,12 +27,12 @@
+ 
+ AT_SETUP([Libtool])
+ 
+-# Skip this test if there is no libtoolize.
+-AT_CHECK([libtoolize --version || exit 77],
++# Skip this test if there is no glibtoolize.
++AT_CHECK([glibtoolize --version || exit 77],
+ 	 ignore, ignore, ignore)
+ # CVS Autoconf probably does not work with too old Libtools.
+ AT_CHECK([[
+-case `libtoolize --version |
++case `glibtoolize --version |
+       sed -n '/^.* \([0-9][0-9.a-z]*\)$/{
+ 		s//\1/
+ 		p
+@@ -44,20 +44,20 @@
+ 	 ignore, ignore, ignore)
+ 
+ # FIXME: Once Libtool `configure.ac' aware, change this.
+-# Using a configure.in, have libtoolize confess where libtool.m4 is.
++# Using a configure.in, have glibtoolize confess where libtool.m4 is.
+ AT_DATA([configure.in],
+ [[AC_INIT
+ # The other tests are relying on Autoconf's own copy of install-sh
+ # etc. via AC_CONFIG_AUX_DIR(..).  Don't do that here, since we don't
+-# want libtoolize to pollute Autoconf's srcdir.
++# want glibtoolize to pollute Autoconf's srcdir.
+ AC_CONFIG_AUX_DIR(.)
+ AC_PROG_LIBTOOL
+ ]])
+-# Some libtoolize complain if you don't have an aclocal.m4.
++# Some glibtoolize complain if you don't have an aclocal.m4.
+ AT_CHECK([touch aclocal.m4])
+-AT_CHECK([libtoolize], 0, [stdout], ignore)
++AT_CHECK([glibtoolize], 0, [stdout], ignore)
+ 
+-# Some broken libtoolize fail to install a functional config.guess.
++# Some broken glibtoolize fail to install a functional config.guess.
+ AT_CHECK([./config.guess || exit 77], [], [ignore], [ignore])
+ 
+ # Make sure at-path contains something valid, and let the test suite
+@@ -66,7 +66,7 @@
+ AT_CHECK([sed -n ["s,^.*\`\\(/[^']*\\)'.*,\\1,p"] stdout], 0, [stdout])
+ AT_CHECK([test -f "`cat stdout`"])
+ 
+-# libtoolize installed everything but install-sh...
++# glibtoolize installed everything but install-sh...
+ touch install-sh
+ 
+ # Build the concatenation of libtool.m4 and configure.ac.
+@@ -91,4 +91,4 @@
+ # But the script executes properly.
+ AT_CHECK_CONFIGURE([], [], [], [ignore])
+ 
+-AT_CLEANUP(install-sh ltconfig libtool at-path ltmain.sh config.guess config.sub)
++AT_CLEANUP(install-sh ltconfig glibtool at-path ltmain.sh config.guess config.sub)

@@ -184,23 +184,6 @@
 #define W_R_L  0x2
 
 
-/* prototypes */
-
-int fkmap __ARGS((int c));
-int toF_TyA __ARGS((int c));
-int F_isalpha __ARGS((int c));
-int F_isdigit __ARGS((int c));
-int F_ischar __ARGS((int c));
-int cmdl_fkmap __ARGS((int c));
-void cmd_pchar	__ARGS((int c, int offset));
-int cmd_gchar	__ARGS((int offset));
-void conv_to_pvim __ARGS((void));
-void conv_to_pstd __ARGS((void));
-char_u *lrswap __ARGS((char_u *ibuf));
-char_u *lrFswap __ARGS((char_u *cmdbuf, int len));
-char_u *lrF_sub __ARGS((char_u *ibuf));
-void farsi_fkey __ARGS((cmdarg_T *cap));
-
 /* special Farsi text messages */
 
 EXTERN char_u farsi_text_1[]

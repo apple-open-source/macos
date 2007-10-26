@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
+/* $Id: service.c,v 1.57 2007/02/05 18:57:24 jeaton Exp $ */
 
 #include <config.h>
 
@@ -70,6 +70,8 @@
 #include "service.h"
 #include "libconfig.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "signals.h"
 
 extern int optind, opterr;
@@ -108,7 +110,10 @@ static int libwrap_ask(struct request_info *r, int fd)
     int a;
     struct sockaddr_storage sin;
     socklen_t len = sizeof(sin);
-    
+
+    /* XXX: old FreeBSD didn't fill sockaddr correctly against AF_UNIX */
+    sin.ss_family = AF_UNIX;
+
     /* is this a connection from the local host? */
     if (getpeername(fd, (struct sockaddr *) &sin, &len) == 0) {
 	if (((struct sockaddr *)&sin)->sa_family == AF_UNIX) {
@@ -147,7 +152,6 @@ static int libwrap_ask(struct request_info *r __attribute__((unused)),
 #endif
 
 extern void cyrus_init(const char *, const char *, unsigned);
-extern const char *config_dir;
 
 static int getlockfd(char *service, int id)
 {
@@ -333,6 +337,11 @@ int main(int argc, char **argv, char **envp)
 	exit(EX_SOFTWARE);
     }
     id = atoi(p);
+
+    /* pick a random timeout between reuse_timeout -> 2*reuse_timeout
+     * to avoid massive IO overload if the network connection goes away */
+    srand(time(NULL) * getpid());
+    reuse_timeout = reuse_timeout + (rand() % reuse_timeout);
 
     cyrus_init(alt_config, service, 0);
 

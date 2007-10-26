@@ -1,5 +1,5 @@
 /* acl.c -- routines for access control lists
- $Id: acl.c,v 1.6 2005/03/05 00:37:10 dasenbro Exp $
+ $Id: acl.c,v 1.12 2007/01/02 17:19:49 murch Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -41,29 +41,40 @@
  *
  * Author: Chris Newman
  * Start Date: 6/28/93
+ *
+ * RFC 4314 support added by Ken Murchison
  */
 
 #include <config.h>
 #include <stdio.h>
 #include "acl.h"
+#include "libcyr_cfg.h"
 
 /* convert a string to an acl bit vector
  */
-int cyrus_acl_strtomask(str)
-const char *str;
+int cyrus_acl_strtomask(const char *str)
 {
+    const char *deleteright = libcyrus_config_getstring(CYRUSOPT_DELETERIGHT);
+    long legacy_create = 0;
+    long legacy_delete = 0;
     long result = 0;
 
     while (*str) {
-	switch (*str++) {
+	switch (*str) {
 	    case 'l': result |= ACL_LOOKUP; break;
 	    case 'r': result |= ACL_READ; break;
 	    case 's': result |= ACL_SEEN; break;
 	    case 'w': result |= ACL_WRITE; break;
 	    case 'i': result |= ACL_INSERT; break;
 	    case 'p': result |= ACL_POST; break;
-	    case 'c': result |= ACL_CREATE; break;
-	    case 'd': result |= ACL_REMOVE; break;
+	    case 'c': /* legacy CREATE macro - build member rights */
+		legacy_create = ACL_CREATE; break;
+	    case 'k': result |= ACL_CREATE; break;
+	    case 'x': result |= ACL_DELETEMBOX; break;
+	    case 't': result |= ACL_DELETEMSG; break;
+	    case 'e': result |= ACL_EXPUNGE; break;
+	    case 'd': /* legacy DELETE macro - build member rights */
+		legacy_delete = (ACL_DELETEMSG | ACL_EXPUNGE); break;
 	    case 'a': result |= ACL_ADMIN; break;
 	    case '0': result |= ACL_USER0; break;
 	    case '1': result |= ACL_USER1; break;
@@ -76,18 +87,42 @@ const char *str;
 	    case '8': result |= ACL_USER8; break;
 	    case '9': result |= ACL_USER9; break;
 	}
+
+	if (*str++ == *deleteright) {
+	    switch (*deleteright) {
+	    case 'c': /* legacy CREATE macro - build member rights */
+		legacy_create |= ACL_DELETEMBOX; break;
+	    case 'd': /* legacy DELETE macro - build member rights */
+		legacy_delete |= ACL_DELETEMBOX; break;
+	    default: result |= ACL_DELETEMBOX; break;
+	    }
+	}
     }
+
+    /* If the rights string contained a legacy macro, but none of its
+       member rights, then we add all of the member rights for the macro.
+       Otherwise, we ignore the legacy macro.
+    */
+    if (!(result & legacy_create)) result |= legacy_create;
+    if (!(result & legacy_delete)) result |= legacy_delete;
 
     return (result);
 }
 
 /* convert an acl bit vector to a string
  */
-char *cyrus_acl_masktostr(acl, str)
-int acl;
-char *str;
+char *cyrus_acl_masktostr(int acl, char *str)
 {
     char *pos = str;
+    const char *deleteright = libcyrus_config_getstring(CYRUSOPT_DELETERIGHT);
+    int legacy_create = ACL_CREATE;
+    int legacy_delete = (ACL_DELETEMSG | ACL_EXPUNGE);
+
+    switch (*deleteright) {
+    case 'c': legacy_create |= ACL_DELETEMBOX; break;
+    case 'd': legacy_delete |= ACL_DELETEMBOX; break;
+    default: /* XXX  we have backwards compatibility problems */ break;
+    }
 
     if (acl & ACL_LOOKUP) *pos++ = 'l';
     if (acl & ACL_READ) *pos++ = 'r';
@@ -95,8 +130,18 @@ char *str;
     if (acl & ACL_WRITE) *pos++ = 'w';
     if (acl & ACL_INSERT) *pos++ = 'i';
     if (acl & ACL_POST) *pos++ = 'p';
-    if (acl & ACL_CREATE) *pos++ = 'c';
-    if (acl & ACL_REMOVE) *pos++ = 'd';
+    if (acl & ACL_CREATE) *pos++ = 'k';
+    if (acl & ACL_DELETEMBOX) *pos++ = 'x';
+    if (acl & ACL_DELETEMSG) *pos++ = 't';
+    if (acl & ACL_EXPUNGE) *pos++ = 'e';
+    if (acl & legacy_create) {
+	/* legacy CREATE macro member right(s) - add macro */
+	*pos++ = 'c';
+    }
+    if (acl & legacy_delete) {
+	/* legacy DELETE macro member right(s) - add macro */
+	*pos++ = 'd';
+    }
     if (acl & ACL_ADMIN) *pos++ = 'a';
     if (acl & ACL_USER0) *pos++ = '0';
     if (acl & ACL_USER1) *pos++ = '1';

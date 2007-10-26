@@ -1,0 +1,34 @@
+--- lib/rubygems.rb.orig	2007-09-17 21:18:25.000000000 +0200
++++ lib/rubygems.rb	2007-09-17 22:09:21.000000000 +0200
+@@ -145,8 +145,7 @@
+       return File.join(install_dir, 'bin') unless install_dir == Gem.default_dir
+ 
+       if defined? RUBY_FRAMEWORK_VERSION then # mac framework support
+-        File.join(File.dirname(Config::CONFIG["sitedir"]),
+-                  File.basename(Config::CONFIG["bindir"]))
++        '/usr/bin'
+       else # generic install
+         Config::CONFIG['bindir']
+       end
+@@ -158,7 +157,11 @@
+     #
+     def path
+       @gem_path ||= nil
+-      set_paths(ENV['GEM_PATH']) unless @gem_path
++      unless @gem_path
++        paths = [ENV['GEM_PATH']]
++        paths << APPLE_GEM_HOME if defined? APPLE_GEM_HOME
++        set_paths(paths.compact.join(File::PATH_SEPARATOR))
++      end
+       @gem_path
+     end
+ 
+@@ -459,7 +462,7 @@
+     # not specified in the environment.
+     def default_dir
+       if defined? RUBY_FRAMEWORK_VERSION
+-        return File.join(File.dirname(Config::CONFIG["sitedir"]), "Gems")
++        return File.join(File.dirname(Config::CONFIG["sitedir"]), "Gems", Config::CONFIG['ruby_version'])
+       else
+         File.join(Config::CONFIG['libdir'], 'ruby', 'gems', Config::CONFIG['ruby_version'])
+       end

@@ -60,12 +60,12 @@ protected:
 	
 	io_connect_t 	fConnection;	// connection to user client in kernel
 	mach_port_t 	fAsyncPort;		// async port for callback from kernel
-	UInt32 			fMgmtORBRef;  	// reference to kernel orb object
+	uint64_t 		fMgmtORBRef;  	// reference to kernel orb object
 
 	IOFWSBP2ORBAppendCallback		fORBCallbackRoutine;
 	void *							fORBCallbackRefCon;
 
-	UInt32			fRefCon;
+	void *			fRefCon;
 	
 	// utility function to get "this" pointer from interface
 	static inline IOFireWireSBP2LibMgmtORB *getThis( void *self )
@@ -92,11 +92,11 @@ protected:
 												IOFWSBP2ORBAppendCallback callback );
 	virtual void setORBCallback( void * refCon, IOFWSBP2ORBAppendCallback callback );
 
-	static void staticSetRefCon( void * self, UInt32 refCon );
-	virtual void setRefCon( UInt32 refCon );
+	static void staticSetRefCon( void * self, void * refCon );
+	virtual void setRefCon( void * refCon );
 
-	static UInt32 staticGetRefCon( void * self );
-	virtual UInt32 getRefCon( void );
+	static void * staticGetRefCon( void * self );
+	virtual void * getRefCon( void );
 
     static IOReturn staticSetCommandFunction( void * self, UInt32 function );
     virtual IOReturn setCommandFunction( UInt32 function );
@@ -113,8 +113,8 @@ protected:
 	//////////////////////////////////////
 	// callback static methods
 	
-	static void staticORBCompletion( void *refcon, IOReturn result, void * arg0 );
-	virtual void ORBCompletion( IOReturn result, void * arg0 );
+	static void staticORBCompletion( void *refcon, IOReturn result, io_user_reference_t *args );
+	virtual void ORBCompletion( IOReturn result, io_user_reference_t *args );
 
 public:
 	

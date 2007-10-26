@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: co.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:38  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:38  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:31  wsanchez
  * Import of RCS 5.7
@@ -198,7 +198,7 @@ static struct hshentries *gendeltas;	/* deltas to be generated	*/
 static struct hshentry *targetdelta;	/* final delta to be generated	*/
 static struct stat workstat;
 
-mainProg(coId, "co", "$Id: co.c,v 1.1.1.1 1999/04/23 01:43:38 wsanchez Exp $")
+mainProg(coId, "co", "$Id: co.c,v 1.1 1999/04/23 01:43:38 wsanchez Exp $")
 {
 	static char const cmdusage[] =
 		"\nco usage: co -{fIlMpqru}[rev] -ddate -jjoins -ksubst -sstate -T -w[who] -Vn -xsuff -zzone file ...";

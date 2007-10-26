@@ -1,14 +1,13 @@
 /* This source code was modified by Martin Hedenfalk <mhe@stacken.kth.se> for
- * use in Curl. His latest changes were done 2000-09-18.
+ * use in Curl. Martin's latest changes were done 2000-09-18.
  *
- * It has since been patched away like a madman by Daniel Stenberg
- * <daniel@haxx.se> to make it better applied to curl conditions, and to make
- * it not use globals, pollute name space and more. This source code awaits a
- * rewrite to work around the paragraph 2 in the BSD licenses as explained
- * below.
+ * It has since been patched away like a madman by Daniel Stenberg to make it
+ * better applied to curl conditions, and to make it not use globals, pollute
+ * name space and more.
  *
  * Copyright (c) 1995, 1996, 1997, 1998, 1999 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
+ * Copyright (c) 2004 - 2007 Daniel Stenberg
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,15 +35,16 @@
  * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.  */
+ * SUCH DAMAGE.
+ *
+ * $Id: krb4.c,v 1.45 2007-01-03 23:04:43 bagder Exp $
+ */
 
 #include "setup.h"
 
 #ifndef CURL_DISABLE_FTP
 #ifdef HAVE_KRB4
 
-#include "security.h"
-#include "base64.h"
 #include <stdlib.h>
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
@@ -57,6 +57,8 @@
 #include <unistd.h> /* for getpid() */
 #endif
 
+#include "urldata.h"
+#include "base64.h"
 #include "ftp.h"
 #include "sendf.h"
 #include "krb4.h"
@@ -250,7 +252,7 @@ krb4_auth(void *app_data, struct connectdata *conn)
   }
 #endif
 
-  if(Curl_base64_encode((char *)adat.dat, adat.length, &p) < 1) {
+  if(Curl_base64_encode(conn->data, (char *)adat.dat, adat.length, &p) < 1) {
     Curl_failf(data, "Out of memory base64-encoding");
     return AUTH_CONTINUE;
   }
@@ -398,7 +400,8 @@ CURLcode Curl_krb_kauth(struct connectdata *conn)
   memset(key, 0, sizeof(key));
   memset(schedule, 0, sizeof(schedule));
   memset(passwd, 0, sizeof(passwd));
-  if(Curl_base64_encode((char *)tktcopy.dat, tktcopy.length, &p) < 1) {
+  if(Curl_base64_encode(conn->data, (char *)tktcopy.dat, tktcopy.length, &p)
+     < 1) {
     failf(conn->data, "Out of memory base64-encoding.");
     Curl_set_command_prot(conn, save);
     return CURLE_OUT_OF_MEMORY;

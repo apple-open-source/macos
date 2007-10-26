@@ -1,36 +1,16 @@
 \input texinfo   @c -*-texinfo-*-
-@c
-@c $Id: speedbar.texi,v 1.1.1.1 2001/10/31 18:01:28 jevans Exp $
-@c
-
-@c This file is part of GNU Emacs
-
-@c GNU Emacs is free software; you can redistribute it and/or modify it
-@c under the terms of the GNU General Public License as published by the
-@c Free Software Foundation; either version 2 of the License, or (at
-@c your option) any later version.
-
-@c GNU Emacs is distributed in the hope that it will be useful, but
-@c WITHOUT ANY WARRANTY; without even the implied warranty of
-@c MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-@c General Public License for more details.
-
-@c You should have received a copy of the GNU General Public License
-@c along with Emacs; see the file COPYING.  If not, write to the Free
-@c Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.
 
 @setfilename ../info/speedbar
 @settitle Speedbar: File/Tag summarizing utility
+@syncodeindex fn cp
 
-@dircategory Emacs
-@direntry
-* Speedbar: (speedbar).        File/Tag summarizing utility.
-@end direntry
-@ifnottex
-Copyright @copyright{} 1999, 2000 Free Software Foundation, Inc.
+@copying
+Copyright @copyright{} 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+2007  Free Software Foundation, Inc.
 
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with the
 Invariant Sections being ``The GNU Manifesto'', ``Distribution'' and
 ``GNU GENERAL PUBLIC LICENSE'', with the Front-Cover texts being ``A GNU
@@ -46,7 +26,13 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
-@end ifnottex
+@end quotation
+@end copying
+
+@dircategory Emacs
+@direntry
+* Speedbar: (speedbar). File/Tag summarizing utility.
+@end direntry
 
 @titlepage
 @sp 10
@@ -56,28 +42,8 @@ license to the document, as described in section 6 of the license.
 @vskip 0pt plus 1 fill
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1999, 2000 Free Software Foundation, Inc.
-@sp 1
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with the
-Invariant Sections being ``The GNU Manifesto'', ``Distribution'' and
-``GNU GENERAL PUBLIC LICENSE'', with the Front-Cover texts being ``A GNU
-Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
-license is included in the section entitled ``GNU Free Documentation
-License'' in the Emacs manual.
-
-(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
-this GNU Manual, like GNU software.  Copies published by the Free
-Software Foundation raise funds for GNU development.''
-
-This document is part of a collection distributed under the GNU Free
-Documentation License.  If you want to distribute this document
-separately from the collection, you can do so by adding a copy of the
-license to the document, as described in section 6 of the license.
+@insertcopying
 @end titlepage
-
-@syncodeindex fn cp
 
 @node Top, , , (dir)Top
 @comment  node-name,  next,  previous,  up
@@ -103,7 +69,7 @@ authors of other packages to provide speedbar summaries customized to
 the needs of that mode.
 
 Throughout this manual, activities are defined as `clicking on', or
-`expanding' items.  Clicking means using using @kbd{Mouse-2} on a
+`expanding' items.  Clicking means using @kbd{Mouse-2} on a
 button.  Expanding refers to clicking on an expansion button to display
 an expanded summary of the entry the expansion button is
 on.  @xref{Basic Navigation}.
@@ -116,6 +82,7 @@ on.  @xref{Basic Navigation}.
 * Minor Modes::      Additional minor modes such as Info and RMAIL.
 * Customizing::      Changing speedbar behavior.
 * Extending::        Extend speedbar for your own project.
+* GNU Free Documentation License:: The license for this documentation.
 * Index::
 @end menu
 
@@ -124,13 +91,13 @@ on.  @xref{Basic Navigation}.
 @chapter Introduction
 @cindex introduction
 
-To start using speedbar use the command @kbd{M-x speedbar RET} or select
-it from the Tools menu in versions of Emacs with speedbar installed by
-default.  This command will open a new frame to summarize the local
-files.  On X Window systems or on MS-Windows, speedbar's frame is twenty
-characters wide, and will mimic the height of the frame from which it
-was started.  It positions itself to the left or right of the frame you
-started it from.
+To start using speedbar use the command @kbd{M-x speedbar RET} or
+select it from the @samp{Options->Show/Hide} sub-menu.  This command
+will open a new frame to summarize the local files.  On X Window
+systems or on MS-Windows, speedbar's frame is twenty characters wide,
+and will mimic the height of the frame from which it was started.  It
+positions itself to the left or right of the frame you started it
+from.
 
 To use speedbar effectively, it is important to understand its
 relationship with the frame you started it from.  This frame is the
@@ -175,9 +142,6 @@ to use.
 These key bindings are common across all modes:
 
 @table @kbd
-@item delete, SPC
-@cindex scrolling in speedbar
-Scroll up and down one page.
 @item Q
 @cindex quitting speedbar
 Quit speedbar, and kill the frame.
@@ -625,9 +589,10 @@ will follow the general rules of their major counterparts in terms of
 key bindings and visuals, but will have specialized behaviors.
 
 @menu
-* RMAIL::  Managing folders in speedbar
-* Info::   Browsing topics in speedbar
-* GDB::    Managing the current stack trace in speedbar
+* RMAIL::  Managing folders.
+* Info::   Browsing topics.
+* GDB::    Watching expressions or managing the current
+            stack trace.
 @end menu
 
 @node RMAIL, Info, Minor Modes, Minor Modes
@@ -673,7 +638,15 @@ a @samp{[+]}, indicating that there are no sub-topics.
 @cindex gdb
 @cindex gud
 
-If you are debugging an application with GDB in Emacs, speedbar can show
+You can debug an application with GDB in Emacs using graphical mode or
+text command mode (@pxref{GDB Graphical Interface,,, emacs, The
+extensible self-documenting text editor}).
+
+If you are using graphical mode you can see how selected variables
+change each time your program stops (@pxref{Watch Expressions,,,
+emacs, The extensible self-documenting text editor}).
+
+If you are using text command mode, speedbar can show
 you the current stack when the current buffer is the @file{*gdb*}
 buffer.  Usually, it will just report that there is no stack, but when
 the application is stopped, the current stack will be shown.
@@ -681,10 +654,6 @@ the application is stopped, the current stack will be shown.
 You can click on any stack element and gdb will move to that stack
 level.  You can then check variables local to that level at the GDB
 prompt.
-
-This mode has the unfortunate side-effect of breaking GDB's repeat
-feature when you hit @kbd{RET} since your previous command is overridden
-with a stack fetching command.
 
 @node Customizing, Extending, Minor Modes, Top
 @comment  node-name,  next,  previous,  up
@@ -917,7 +886,7 @@ Set this to implement your own scanning or rescan safe functions with
 state data.
 @end table
 
-@node Extending, Index, Customizing, Top
+@node Extending, GNU Free Documentation License, Customizing, Top
 @comment  node-name,  next,  previous,  up
 @chapter Extending
 @cindex extending
@@ -1105,7 +1074,7 @@ summary to display in the minibuffer.
 
 There are several helper functions you can use if you are going to use
 built in tagging.  These functions can be @code{or}ed since each one
-returns non-nil if it displays a message.  They are:
+returns non-@code{nil} if it displays a message.  They are:
 
 @table @code
 @cindex @code{speedbar-item-info-file-helper}
@@ -1204,7 +1173,7 @@ when the mouse passes over it.  @var{function} is called whenever the
 user clicks on the text.
 
 The optional argument @var{token} is extra data to associated with the
-text.  Lastly @var{prevline} should be non-nil if you want this line to
+text.  Lastly @var{prevline} should be non-@code{nil} if you want this line to
 appear directly after the last button which was created instead of on
 the next line.
 @end defun
@@ -1214,11 +1183,11 @@ the next line.
 Create a tag line with @var{exp-button-type} for the small expansion
 button.  This is the button that expands or contracts a node (if
 applicable), and @var{exp-button-char} the character in it (@samp{+},
-@samp{-}, @samp{?},
-etc).  @var{exp-button-function} is the function to call if it's clicked
-on.  Button types are @code{'bracket}, @code{'angle}, @code{'curly},
-@code{'expandtag}, @code{'statictag}, or nil.  @var{exp-button-data} is
-extra data attached to the text forming the expansion button.
+@samp{-}, @samp{?}, etc).  @var{exp-button-function} is the function
+to call if it's clicked on.  Button types are @code{bracket},
+@code{angle}, @code{curly}, @code{expandtag}, @code{statictag}, and
+@code{nil}.  @var{exp-button-data} is extra data attached to the text
+forming the expansion button.
 
 Next, @var{tag-button} is the text of the tag.
 @var{tag-button-function} is the function to call if clicked on, and
@@ -1260,20 +1229,25 @@ obvious is @code{speedbar-tag-hierarchy-method}.
 @defvar speedbar-generic-list-group-expand-button-type
 This is the button type used for groups of tags, whether expanded
 or added in via a hierarchy method.  Two good values are
-@code{'curly} and @code{'expandtag}.  Curly is the default button, and
-@code{'expandtag} is useful if the groups also has a position.
+@code{curly} and @code{expandtag}.  Curly is the default button, and
+@code{expandtag} is useful if the groups also has a position.
 @end defvar
 
 @defvar speedbar-generic-list-tag-button-type
 This is the button type used for a single tag.
-Two good values are @code{nil} and @code{'statictag}.
-@code{nil} is the default, and @code{'statictag} has the same width as
-@code{'expandtag}.
+Two good values are @code{nil} and @code{statictag}.
+@code{nil} is the default, and @code{statictag} has the same width as
+@code{expandtag}.
 @end defvar
 
 @end defun
 
-@node Index, , Extending, Top
+@node GNU Free Documentation License, Index, Extending, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+
+@node Index, , GNU Free Documentation License, Top
 @comment  node-name,  next,  previous,  up
 @unnumbered Concept Index
 @printindex cp
@@ -1281,3 +1255,7 @@ Two good values are @code{nil} and @code{'statictag}.
 @bye
 @c  LocalWords:  speedbar's xref slowbar kbd subsubsection
 @c  LocalWords:  keybindings
+
+@ignore
+   arch-tag: e1fc85f0-1eeb-489f-a8d4-a2bfe711fa02
+@end ignore

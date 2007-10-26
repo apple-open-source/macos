@@ -32,8 +32,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 #include <stdio.h>
+#include <errno.h>
 #include <ctype.h>
 #include <rpc/types.h>
 #include <rpc/xdr.h>
@@ -46,62 +46,59 @@
 #define SOCK_UNSPEC 0
 #define IPPROTO_UNSPEC 0
 
-#define LONG_STRING_LENGTH 8192
-#define _LU_MAXLUSTRLEN 256
-#define LU_QBUF_SIZE 8192
-
 #define MAX_LOOKUP_ATTEMPTS 10
 
 #define INET_NTOP_AF_INET_OFFSET 4
 #define INET_NTOP_AF_INET6_OFFSET 8
 
-extern mach_port_t _lookupd_port();
-
 static int gai_proc = -1;
 static int gni_proc = -1;
 
-static int32_t supported_family[] =
+static const int32_t supported_family[] =
 {
 	PF_UNSPEC,
 	PF_INET,
 	PF_INET6
 };
-static int32_t supported_family_count = 3;
+static const int32_t supported_family_count = (sizeof(supported_family) / sizeof(supported_family[0]));
 
-static int32_t supported_socket[] =
+static const int32_t supported_socket[] =
 {
 	SOCK_RAW,
 	SOCK_UNSPEC,
 	SOCK_DGRAM,
 	SOCK_STREAM
 };
-static int32_t supported_socket_count = 4;
+static const int32_t supported_socket_count = (sizeof(supported_socket) / sizeof(supported_socket[0]));
 
-static int32_t supported_protocol[] =
+static const int32_t supported_protocol[] =
 {
 	IPPROTO_UNSPEC,
+	IPPROTO_ICMP,
 	IPPROTO_ICMPV6,
 	IPPROTO_UDP,
 	IPPROTO_TCP
 };
-static int32_t supported_protocol_count = 4;
+static const int32_t supported_protocol_count = (sizeof(supported_protocol) / sizeof(supported_protocol[0]));
 
-static int32_t supported_socket_protocol_pair[] =
+static const int32_t supported_socket_protocol_pair[] =
 {
 	SOCK_RAW,    IPPROTO_UNSPEC,
 	SOCK_RAW,    IPPROTO_UDP,
 	SOCK_RAW,    IPPROTO_TCP,
+	SOCK_RAW,    IPPROTO_ICMP,
 	SOCK_RAW,    IPPROTO_ICMPV6,
 	SOCK_UNSPEC, IPPROTO_UNSPEC,
 	SOCK_UNSPEC, IPPROTO_UDP,
 	SOCK_UNSPEC, IPPROTO_TCP,
+	SOCK_UNSPEC, IPPROTO_ICMP,
 	SOCK_UNSPEC, IPPROTO_ICMPV6,
 	SOCK_DGRAM,  IPPROTO_UNSPEC,
 	SOCK_DGRAM,  IPPROTO_UDP,
 	SOCK_STREAM, IPPROTO_UNSPEC,
 	SOCK_STREAM, IPPROTO_TCP
 };
-static int32_t supported_socket_protocol_pair_count = 12;
+static const int32_t supported_socket_protocol_pair_count = (sizeof(supported_socket_protocol_pair) / (sizeof(supported_socket_protocol_pair[0]) * 2));
 
 static int
 gai_family_type_check(int32_t f)
@@ -217,18 +214,6 @@ append_addrinfo(struct addrinfo **l, struct addrinfo *a)
 	}
 }
 
-static int
-encode_kv(XDR *x, const char *k, const char *v)
-{
-	int32_t n = 1;
-
-	if (!xdr_string(x, (char **)&k, _LU_MAXLUSTRLEN)) return 1;
-	if (!xdr_int(x, &n)) return 1;
-	if (!xdr_string(x, (char **)&v, _LU_MAXLUSTRLEN)) return 1;
-
-	return 0;
-}
-
 void
 freeaddrinfo(struct addrinfo *a)
 {
@@ -245,7 +230,7 @@ freeaddrinfo(struct addrinfo *a)
 }
 
 static struct addrinfo *
-new_addrinfo_v4(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr addr, uint32_t iface, char *cname)
+new_addrinfo_v4(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr addr, uint32_t iface, const char *cname)
 {
 	struct addrinfo *a;
 	struct sockaddr_in *sa;
@@ -291,11 +276,12 @@ new_addrinfo_v4(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struc
 }
 
 static struct addrinfo *
-new_addrinfo_v6(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in6_addr addr, uint32_t scopeid, char *cname)
+new_addrinfo_v6(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in6_addr addr, uint16_t scopeid, const char *cname)
 {
 	struct addrinfo *a;
 	struct sockaddr_in6 *sa;
 	int32_t len;
+	uint16_t esid;
 
 	a = (struct addrinfo *)calloc(1, sizeof(struct addrinfo));
 	if (a == NULL) return NULL;
@@ -320,8 +306,22 @@ new_addrinfo_v6(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struc
 	sa->sin6_family = PF_INET6;
 	sa->sin6_port = htons(port);
 	sa->sin6_addr = addr;
+
+	/* sin6_scope_id is in host byte order */
 	sa->sin6_scope_id = scopeid;
+
 	a->ai_addr = (struct sockaddr *)sa;
+
+	if (IN6_IS_ADDR_LINKLOCAL(&sa->sin6_addr))
+	{
+		/* check for embedded scopeid */
+		esid = ntohs(sa->sin6_addr.__u6_addr.__u6_addr16[1]);
+		if (esid != 0)
+		{
+			sa->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+			if (scopeid == 0) sa->sin6_scope_id = esid;
+		}
+	}
 
 	if (cname != NULL)
 	{
@@ -334,7 +334,8 @@ new_addrinfo_v6(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struc
 }
 
 /*
- * getaddrinfo support in lookupd
+ * getaddrinfo
+ *
  * Input dict may contain the following
  *
  * name: nodename
@@ -361,13 +362,12 @@ new_addrinfo_v6(int32_t flags, int32_t sock, int32_t proto, uint16_t port, struc
  */
 
 static struct addrinfo *
-gai_lookupd_process_dictionary(XDR *inxdr)
+gai_extract(kvarray_t *in)
 {
-	int32_t i, nkeys, nvals;
-	char *key, *val;
-	uint32_t flags, family, socktype, protocol, longport, scopeid;
-	uint16_t port;
-	char *addr, *canonname;
+	uint32_t d, k, kcount;
+	uint32_t flags, family, socktype, protocol, port32;
+	uint16_t port, scopeid;
+	const char *addr, *canonname;
 	struct addrinfo *a;
 	struct in_addr a4;
 	struct in6_addr a6;
@@ -381,69 +381,61 @@ gai_lookupd_process_dictionary(XDR *inxdr)
 	addr = NULL;
 	canonname = NULL;
 
-	if (!xdr_int(inxdr, &nkeys)) return NULL;
+	if (in == NULL) return NULL;
 
-	for (i = 0; i < nkeys; i++)
+	d = in->curr;
+	in->curr++;
+
+	if (d >= in->count) return NULL;
+
+	kcount = in->dict[d].kcount;
+
+	for (k = 0; k < kcount; k++)
 	{
-		key = NULL;
-		val = NULL;
-
-		if (!xdr_string(inxdr, &key, LONG_STRING_LENGTH)) return NULL;
-		if (!xdr_int(inxdr, &nvals)) 
+		if (!strcmp(in->dict[d].key[k], "gai_flags"))
 		{
-			free(key);
-			return NULL;
+			if (in->dict[d].vcount[k] == 0) continue;
+			flags = atoi(in->dict[d].val[k][0]);
 		}
-
-		if (nvals != 1)
+		else if (!strcmp(in->dict[d].key[k], "gai_family")) 
 		{
-			free(key);
-			return NULL;
+			if (in->dict[d].vcount[k] == 0) continue;
+			family = atoi(in->dict[d].val[k][0]);
 		}
-
-		if (!xdr_string(inxdr, &val, LONG_STRING_LENGTH))
+		else if (!strcmp(in->dict[d].key[k], "gai_socktype"))
 		{
-			free(key);
-			return NULL;
+			if (in->dict[d].vcount[k] == 0) continue;
+			socktype = atoi(in->dict[d].val[k][0]);
 		}
-
-		if (!strcmp(key, "flags"))
+		else if (!strcmp(in->dict[d].key[k], "gai_protocol"))
 		{
-			flags = atoi(val);
+			if (in->dict[d].vcount[k] == 0) continue;
+			protocol = atoi(in->dict[d].val[k][0]);
 		}
-		else if (!strcmp(key, "family")) 
+		else if (!strcmp(in->dict[d].key[k], "gai_port"))
 		{
-			family = atoi(val);
+			if (in->dict[d].vcount[k] == 0) continue;
+			port32 = atoi(in->dict[d].val[k][0]);
+			port = port32;
 		}
-		else if (!strcmp(key, "socktype"))
+		else if (!strcmp(in->dict[d].key[k], "gai_scopeid"))
 		{
-			socktype = atoi(val);
+			if (in->dict[d].vcount[k] == 0) continue;
+			scopeid = atoi(in->dict[d].val[k][0]);
 		}
-		else if (!strcmp(key, "protocol"))
+		else if (!strcmp(in->dict[d].key[k], "gai_address"))
 		{
-			protocol = atoi(val);
+			if (in->dict[d].vcount[k] == 0) continue;
+			addr = in->dict[d].val[k][0];
 		}
-		else if (!strcmp(key, "port"))
+		else if (!strcmp(in->dict[d].key[k], "gai_canonname"))
 		{
-			longport = atoi(val);
-			port = longport;
+			if (in->dict[d].vcount[k] == 0) continue;
+			canonname = in->dict[d].val[k][0];
 		}
-		else if (!strcmp(key, "scopeid"))
-		{
-			scopeid = atoi(val);
-		}
-		else if (!strcmp(key, "address")) addr = strdup(val);
-		else if (!strcmp(key, "canonname")) canonname = strdup(val);
-		free(key);
-		free(val);
 	}
 
-	if (family == PF_UNSPEC)
-	{
-		if (addr != NULL) free(addr);
-		if (canonname != NULL) free(canonname);
-		return NULL;
-	}
+	if (family == PF_UNSPEC) return NULL;
 
 	a = NULL;
 	if (family == PF_INET)
@@ -457,43 +449,38 @@ gai_lookupd_process_dictionary(XDR *inxdr)
 		a = new_addrinfo_v6(flags, socktype, protocol, port, a6, scopeid, canonname);
 	}
 
-	if (addr != NULL) free(addr);
-	if (canonname != NULL) free(canonname);
-
 	return a;
 }
 
-static int
-gai_make_query(const char *nodename, const char *servname, const struct addrinfo *hints, char *buf, uint32_t *len)
+static kvbuf_t *
+gai_make_query(const char *nodename, const char *servname, const struct addrinfo *hints)
 {
-	int32_t numerichost, family, proto, socktype, canonname, passive, parallel;
-	uint32_t na;
-	XDR outxdr;
+	int32_t flags, family, proto, socktype;
+	kvbuf_t *request;
 	char str[64], *cname;
 
-	numerichost = 0;
+	flags = 0;
 	family = PF_UNSPEC;
 	proto = IPPROTO_UNSPEC;
 	socktype = SOCK_UNSPEC;
-	canonname = 0;
-	passive = 0;
-	parallel = 0;
 	cname = NULL;
 
 	if (hints != NULL)
 	{
 		family = hints->ai_family;
-		if (hints->ai_flags & AI_NUMERICHOST) numerichost = 1;
-		if (hints->ai_flags & AI_CANONNAME) canonname = 1;
-		if (hints->ai_flags & AI_PASSIVE) passive = 1;
-		if (hints->ai_flags & AI_PARALLEL) parallel = 1;
+		if (hints->ai_flags & AI_NUMERICHOST) flags |= AI_NUMERICHOST;
+		if (hints->ai_flags & AI_CANONNAME) flags |= AI_CANONNAME;
+		if (hints->ai_flags & AI_PASSIVE) flags |= AI_PASSIVE;
+		if (hints->ai_flags & AI_PARALLEL) flags |= AI_PARALLEL;
 
 		proto = hints->ai_protocol;
+
 		if (hints->ai_socktype == SOCK_DGRAM)
 		{
 			socktype = SOCK_DGRAM;
 			proto = IPPROTO_UDP;
 		}
+
 		if (hints->ai_socktype == SOCK_STREAM)
 		{
 			socktype = SOCK_STREAM;
@@ -501,125 +488,53 @@ gai_make_query(const char *nodename, const char *servname, const struct addrinfo
 		}
 	}
 
-	xdrmem_create(&outxdr, buf, *len, XDR_ENCODE);
-
-	/* Attribute count */
-	na = 0;
-	if (nodename != NULL) na++;
-	if (servname != NULL) na++;
-	if (proto != IPPROTO_UNSPEC) na++;
-	if (socktype != SOCK_UNSPEC) na++;
-	if (family != PF_UNSPEC) na++;
-	if (canonname != 0) na++;
-	if (passive != 0) na++;
-	if (parallel != 0) na++;
-	if (numerichost != 0) na++;
-
-	if (!xdr_int(&outxdr, (int32_t *)&na))
+	request = kvbuf_new();
+	if (request == NULL)
 	{
-		xdr_destroy(&outxdr);
-		errno = EIO;
-		return EAI_SYSTEM;
+		errno = ENOMEM;
+		return NULL;
 	}
+
+	kvbuf_add_dict(request);
 
 	if (nodename != NULL)
 	{
-		if (encode_kv(&outxdr, "name", nodename) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		kvbuf_add_key(request, "name");
+		kvbuf_add_val(request, nodename);
 	}
 
 	if (servname != NULL)
 	{
-		if (encode_kv(&outxdr, "service", servname) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		kvbuf_add_key(request, "service");
+		kvbuf_add_val(request, servname);
 	}
 
 	if (proto != IPPROTO_UNSPEC)
 	{
-		snprintf(str, 64, "%u", proto);
-		if (encode_kv(&outxdr, "protocol", str) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		snprintf(str, sizeof(str), "%u", proto);
+		kvbuf_add_key(request, "protocol");
+		kvbuf_add_val(request, str);
 	}
 
 	if (socktype != SOCK_UNSPEC)
 	{
-		snprintf(str, 64, "%u", socktype);
-		if (encode_kv(&outxdr, "socktype", str) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		snprintf(str, sizeof(str), "%u", socktype);
+		kvbuf_add_key(request, "socktype");
+		kvbuf_add_val(request, str);
 	}
 
 	if (family != PF_UNSPEC)
 	{
-		snprintf(str, 64, "%u", family);
-		if (encode_kv(&outxdr, "family", str) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		snprintf(str, sizeof(str), "%u", family);
+		kvbuf_add_key(request, "family");
+		kvbuf_add_val(request, str);
 	}
 
-	if (canonname != 0)
-	{
-		if (encode_kv(&outxdr, "canonname", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
+	snprintf(str, sizeof(str), "%u", flags);
+	kvbuf_add_key(request, "ai_flags");
+	kvbuf_add_val(request, str);
 
-	if (passive != 0)
-	{
-		if (encode_kv(&outxdr, "passive", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	if (parallel != 0)
-	{
-		if (encode_kv(&outxdr, "parallel", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	if (numerichost != 0)
-	{
-		if (encode_kv(&outxdr, "numerichost", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	*len = xdr_getpos(&outxdr);
-
-	xdr_destroy(&outxdr);
-
-	return 0;
+	return request;
 }
 
 static int32_t
@@ -638,10 +553,129 @@ is_a_number(const char *s)
 	return 1;
 }
 
-int
+static int
+gai_trivial(struct in_addr *in4, struct in6_addr *in6, int16_t port, const struct addrinfo *hints, struct addrinfo **res)
+{
+	int32_t family, wantv4, wantv6, proto;
+	char *loopv4, *loopv6;
+	struct in_addr a4;
+	struct in6_addr a6;
+	struct addrinfo *a;
+
+	family = PF_UNSPEC;
+	if (hints != NULL) family = hints->ai_family;
+
+	wantv4 = 1;
+	wantv6 = 1;
+
+	if (family == PF_INET6) wantv4 = 0;
+	if (family == PF_INET) wantv6 = 0;
+
+	memset(&a4, 0, sizeof(struct in_addr));
+	memset(&a6, 0, sizeof(struct in6_addr));
+
+	if ((in4 == NULL) && (in6 == NULL))
+	{
+		loopv4 = "127.0.0.1";
+		loopv6 = "0:0:0:0:0:0:0:1";
+
+		if ((hints != NULL) && ((hints->ai_flags & AI_PASSIVE) == 1))
+		{
+			loopv4 = "0.0.0.0";
+			loopv6 = "0:0:0:0:0:0:0:0";
+		}
+
+		if ((family == PF_UNSPEC) || (family == PF_INET))
+		{
+			inet_pton(AF_INET, loopv4, &a4);
+		}
+
+		if ((family == PF_UNSPEC) || (family == PF_INET6))
+		{
+			inet_pton(AF_INET6, loopv6, &a6);
+		}
+	}
+	else if (in4 == NULL)
+	{
+		if (family == PF_INET) return EAI_BADHINTS;
+
+		wantv4 = 0;
+		memcpy(&a6, in6, sizeof(struct in6_addr));
+	}
+	else if (in6 == NULL)
+	{
+		if (family == PF_INET6) return EAI_BADHINTS;
+
+		wantv6 = 0;
+		memcpy(&a4, in4, sizeof(struct in_addr));
+	}
+	else
+	{
+		return EAI_NONAME;
+	}
+
+	proto = IPPROTO_UNSPEC;
+
+	if (hints != NULL)
+	{
+		proto = hints->ai_protocol;
+		if (proto == IPPROTO_UNSPEC)
+		{
+			if (hints->ai_socktype == SOCK_DGRAM) proto = IPPROTO_UDP;
+			else if (hints->ai_socktype == SOCK_STREAM) proto = IPPROTO_TCP;
+		}
+	}
+
+	if (wantv4 == 1)
+	{
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+		{
+			a = new_addrinfo_v4(0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, NULL);
+			append_addrinfo(res, a);
+		}
+
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+		{
+			a = new_addrinfo_v4(0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, NULL);
+			append_addrinfo(res, a);
+		}
+
+		if (proto == IPPROTO_ICMP)
+		{
+			a = new_addrinfo_v4(0, SOCK_RAW, IPPROTO_ICMP, port, a4, 0, NULL);
+			append_addrinfo(res, a);
+		}
+	}
+
+	if (wantv6 == 1)
+	{
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+		{
+			a = new_addrinfo_v6(0, SOCK_DGRAM, IPPROTO_UDP, port, a6, 0, NULL);
+			append_addrinfo(res, a);
+		}
+
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+		{
+			a = new_addrinfo_v6(0, SOCK_STREAM, IPPROTO_TCP, port, a6, 0, NULL);
+			append_addrinfo(res, a);
+		}
+
+		if (proto == IPPROTO_ICMPV6)
+		{
+			a = new_addrinfo_v6(0, SOCK_RAW, IPPROTO_ICMPV6, port, a6, 0, NULL);
+			append_addrinfo(res, a);
+		}
+	}
+
+	return 0;
+}
+
+static int
 gai_files(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
 {
-	int32_t i, numericserv, numerichost, family, proto, wantv4, wantv6;
+	int32_t i, status, numericserv, numerichost, family, proto, wantv4, wantv6, count;
+	uint16_t scopeid;
 	int16_t port;
 	struct servent *s;
 	struct hostent *h;
@@ -649,6 +683,9 @@ gai_files(const char *nodename, const char *servname, const struct addrinfo *hin
 	struct in_addr a4;
 	struct in6_addr a6;
 	struct addrinfo *a;
+
+	count = 0;
+	scopeid = 0;
 
 	numericserv = 0;
 	if (servname != NULL) numericserv = is_a_number(servname);
@@ -685,14 +722,27 @@ gai_files(const char *nodename, const char *servname, const struct addrinfo *hin
 	{
 		if ((family == PF_UNSPEC) || (family == PF_INET))
 		{
-			numerichost = inet_pton(AF_INET, nodename, &a4);
-			if ((numerichost == 1) && (family == PF_UNSPEC)) family = PF_INET;
+			status = inet_pton(AF_INET, nodename, &a4);
+			if (status == 1)
+			{
+				numerichost = 1;
+				if (family == PF_UNSPEC) family = PF_INET;
+			}
 		}
 
 		if ((family == PF_UNSPEC) || (family == PF_INET6))
 		{
-			numerichost = inet_pton(AF_INET6, nodename, &a6);
-			if ((numerichost == 1) && (family == PF_UNSPEC)) family = PF_INET6;
+			status = inet_pton(AF_INET6, nodename, &a6);
+			if (status == 1)
+			{
+				numerichost = 1;
+				if (family == PF_UNSPEC) family = PF_INET6;
+				if ((IN6_IS_ADDR_LINKLOCAL(&a6)) && (a6.__u6_addr.__u6_addr16[1] != 0))
+				{
+					scopeid = ntohs(a6.__u6_addr.__u6_addr16[1]);
+					a6.__u6_addr.__u6_addr16[1] = 0;
+				}
+			}
 		}
 	}
 
@@ -741,12 +791,21 @@ gai_files(const char *nodename, const char *servname, const struct addrinfo *hin
 			{
 				a = new_addrinfo_v4(0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, NULL);
 				append_addrinfo(res, a);
+				count++;
 			}
 
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 			{
 				a = new_addrinfo_v4(0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, NULL);
 				append_addrinfo(res, a);
+				count++;
+			}
+
+			if (proto == IPPROTO_ICMP)
+			{
+				a = new_addrinfo_v4(0, SOCK_RAW, IPPROTO_ICMP, port, a4, 0, NULL);
+				append_addrinfo(res, a);
+				count++;
 			}
 		}
 
@@ -754,24 +813,34 @@ gai_files(const char *nodename, const char *servname, const struct addrinfo *hin
 		{
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
 			{
-				a = new_addrinfo_v6(0, SOCK_DGRAM, IPPROTO_UDP, port, a6, 0, NULL);
+				a = new_addrinfo_v6(0, SOCK_DGRAM, IPPROTO_UDP, port, a6, scopeid, NULL);
 				append_addrinfo(res, a);
+				count++;
 			}
 
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 			{
-				a = new_addrinfo_v6(0, SOCK_STREAM, IPPROTO_TCP, port, a6, 0, NULL);
+				a = new_addrinfo_v6(0, SOCK_STREAM, IPPROTO_TCP, port, a6, scopeid, NULL);
 				append_addrinfo(res, a);
+				count++;
+			}
+
+			if (proto == IPPROTO_ICMPV6)
+			{
+				a = new_addrinfo_v6(0, SOCK_RAW, IPPROTO_ICMPV6, port, a6, scopeid, NULL);
+				append_addrinfo(res, a);
+				count++;
 			}
 		}
 
+		if (count == 0) return EAI_AGAIN;
 		return 0;
 	}
 
 	if (wantv4 == 1)
 	{
 		h = gethostbyname(nodename);
-		if (h == NULL) return 0;
+		if (h == NULL) return EAI_AGAIN;
 
 		for (i = 0; h->h_addr_list[i] != 0; i++)
 		{
@@ -781,42 +850,65 @@ gai_files(const char *nodename, const char *servname, const struct addrinfo *hin
 			{
 				a = new_addrinfo_v4(0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, NULL);
 				append_addrinfo(res, a);
+				count++;
 			}
 
 			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
 			{
 				a = new_addrinfo_v4(0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, NULL);
 				append_addrinfo(res, a);
+				count++;
 			}
 		}
 	}
 
+	if (wantv6 == 1)
+	{
+		h = gethostbyname2(nodename, AF_INET6);
+		if (h == NULL) return EAI_AGAIN;
+
+		for (i = 0; h->h_addr_list[i] != 0; i++)
+		{
+			memmove(&(a6.__u6_addr.__u6_addr32[0]), h->h_addr_list[i], h->h_length);
+
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+			{
+				a = new_addrinfo_v6(0, SOCK_DGRAM, IPPROTO_UDP, port, a6, 0, NULL);
+				append_addrinfo(res, a);
+				count++;
+			}
+
+			if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+			{
+				a = new_addrinfo_v6(0, SOCK_STREAM, IPPROTO_TCP, port, a6, 0, NULL);
+				append_addrinfo(res, a);
+				count++;
+			}
+		}
+	}
+
+	if (count == 0) return EAI_AGAIN;
 	return 0;
 }
 
 static int
-gai_lookupd(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
+ds_getaddrinfo(const char *nodename, const char *servname, const struct addrinfo *hints, struct addrinfo **res)
 {
-	uint32_t n, i, qlen, rlen;
-	XDR inxdr;
-	char qbuf[LU_QBUF_SIZE];
-	char *rbuf;
+	uint32_t i;
+	kvbuf_t *request;
+	kvarray_t *reply;
 	char *cname;
-	mach_port_t server_port;
 	kern_return_t status;
 	struct addrinfo *a;
 
-	server_port = MACH_PORT_NULL;
-	if (_lu_running()) server_port = _lookupd_port(0);
-	if (server_port == MACH_PORT_NULL)
+	if (_ds_running() == 0)
 	{
-		/* lookupd isn't available - fall back to the flat files */
 		return gai_files(nodename, servname, hints, res);
 	}
 
 	if (gai_proc < 0)
 	{
-		status = _lookup_link(server_port, "getaddrinfo", &gai_proc);
+		status = LI_DSLookupGetProcedureNumber("getaddrinfo", &gai_proc);
 		if (status != KERN_SUCCESS)
 		{
 			errno = ECONNREFUSED;
@@ -824,40 +916,31 @@ gai_lookupd(const char *nodename, const char *servname, const struct addrinfo *h
 		}
 	}
 
-	qlen = LU_QBUF_SIZE;
+	request = gai_make_query(nodename, servname, hints);
+	if (request == NULL) return EAI_SYSTEM;
 
-	/* gai_make_query sets errno if it fails */
-	i = gai_make_query(nodename, servname, hints, qbuf, &qlen);
-	if (i != 0) return EAI_SYSTEM;
+	reply = NULL;
+	status = LI_DSLookupQuery(gai_proc, request, &reply);
+	kvbuf_free(request);
 
-	qlen /= BYTES_PER_XDR_UNIT;
-
-	rbuf = NULL;
-
-	status = _lookup_all(server_port, gai_proc, (unit *)qbuf, qlen, &rbuf, &rlen);
-	if (status != KERN_SUCCESS) return EAI_NODATA;
-
-	rlen *= BYTES_PER_XDR_UNIT;
-
-	xdrmem_create(&inxdr, rbuf, rlen, XDR_DECODE);
-
-	if (!xdr_int(&inxdr, (int32_t *)&n))
+	if (status != KERN_SUCCESS)
 	{
-		xdr_destroy(&inxdr);
-		errno = EIO;
+		errno = ECONNREFUSED;
 		return EAI_SYSTEM;
 	}
 
+	if (reply == NULL) return EAI_NONAME;
+
 	cname = NULL;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < reply->count; i++)
 	{
-		a = gai_lookupd_process_dictionary(&inxdr);
+		a = gai_extract(reply);
+		if (a == NULL) continue;
 		if ((cname == NULL) && (a->ai_canonname != NULL)) cname = a->ai_canonname;
 		append_addrinfo(res, a);
 	}
 
-	xdr_destroy(&inxdr);
-	if (rbuf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)rbuf, rlen);
+	kvarray_free(reply);
 
 	if ((cname != NULL) && (res != NULL) && (res[0] != NULL) && (res[0]->ai_canonname == NULL))
 	{
@@ -895,6 +978,10 @@ int
 getaddrinfo(const char * __restrict nodename, const char * __restrict servname, const struct addrinfo * __restrict hints, struct addrinfo ** __restrict res)
 {
 	int32_t status, nodenull, servnull;
+	int32_t numericserv, numerichost, family;
+	int16_t port;
+	struct in_addr a4, *p4;
+	struct in6_addr a6, *p6;
 
 	if (res == NULL) return 0;
 	*res = NULL;
@@ -907,14 +994,63 @@ getaddrinfo(const char * __restrict nodename, const char * __restrict servname, 
 	if ((servname == NULL) || (servname[0] == '\0')) servnull = 1;
 
 	if ((nodenull == 1) && (servnull == 1)) return EAI_NONAME;
+
 	status = gai_checkhints(hints);
 	if (status != 0) return status;
 
-	if (nodenull == 1) status = gai_lookupd(NULL, servname, hints, res);
-	else if (servnull == 1) status = gai_lookupd(nodename, NULL, hints, res);
-	else status = gai_lookupd(nodename, servname, hints, res);
+	/*
+	 * Trap the "trivial" cases that can be answered without a query.
+	 * (nodename == numeric) && (servname == NULL)
+	 * (nodename == numeric) && (servname == numeric)
+	 * (nodename == NULL) && (servname == numeric)
+	 */
+	p4 = NULL;
+	p6 = NULL;
 
-	if ((status == 0) && (*res == NULL)) status = EAI_NODATA;
+	memset(&a4, 0, sizeof(struct in_addr));
+	memset(&a6, 0, sizeof(struct in6_addr));
+
+	numericserv = 0;
+	port = 0;
+	if (servnull == 0) numericserv = is_a_number(servname);
+	if (numericserv == 1) port = atoi(servname);
+
+	family = PF_UNSPEC;
+	if (hints != NULL) family = hints->ai_family;
+
+	numerichost = 0;
+	if (nodenull == 0)
+	{
+		if ((family == PF_UNSPEC) || (family == PF_INET))
+		{
+			status = inet_pton(AF_INET, nodename, &a4);
+			if (status == 1)
+			{
+				p4 = &a4;
+				numerichost = 1;
+			}
+		}
+
+		if ((family == PF_UNSPEC) || (family == PF_INET6))
+		{
+			status = inet_pton(AF_INET6, nodename, &a6);
+			if (status == 1)
+			{
+				p6 = &a6;
+				numerichost = 1;
+			}
+		}
+	}
+
+	if ((nodenull == 1) && (numericserv == 1)) return gai_trivial(NULL, NULL, port, hints, res);
+	if ((numerichost == 1) && (numericserv == 1)) return gai_trivial(p4, p6, port, hints, res);
+	if ((numerichost == 1) && (servnull == 1)) return gai_trivial(p4, p6, 0, hints, res);
+
+	if (nodenull == 1) status = ds_getaddrinfo(NULL, servname, hints, res);
+	else if (servnull == 1) status = ds_getaddrinfo(nodename, NULL, hints, res);
+	else status = ds_getaddrinfo(nodename, servname, hints, res);
+
+	if ((status == 0) && (*res == NULL)) status = EAI_NONAME;
 
 	return status;
 }
@@ -923,9 +1059,7 @@ int32_t
 getaddrinfo_async_start(mach_port_t *p, const char *nodename, const char *servname, const struct addrinfo *hints, getaddrinfo_async_callback callback, void *context)
 {
 	int32_t status;
-	uint32_t i, qlen;
-	char qbuf[LU_QBUF_SIZE];
-	mach_port_t server_port;
+	kvbuf_t *request;
 
 	*p = MACH_PORT_NULL;
 
@@ -934,17 +1068,9 @@ getaddrinfo_async_start(mach_port_t *p, const char *nodename, const char *servna
 	status = gai_checkhints(hints);
 	if (status != 0) return EAI_BADHINTS;
 
-	server_port = MACH_PORT_NULL;
-	if (_lu_running()) server_port = _lookupd_port(0);
-	if (server_port == MACH_PORT_NULL)
-	{
-		errno = ECONNREFUSED;
-		return EAI_SYSTEM;
-	}
-
 	if (gai_proc < 0)
 	{
-		status = _lookup_link(server_port, "getaddrinfo", &gai_proc);
+		status = LI_DSLookupGetProcedureNumber("getaddrinfo", &gai_proc);
 		if (status != KERN_SUCCESS)
 		{
 			errno = ECONNREFUSED;
@@ -952,22 +1078,26 @@ getaddrinfo_async_start(mach_port_t *p, const char *nodename, const char *servna
 		}
 	}
 
-	qlen = LU_QBUF_SIZE;
+	request = gai_make_query(nodename, servname, hints);
+	if (request == NULL) return EAI_SYSTEM;
 
-	/* gai_make_query sets errno if it fails */
-	i = gai_make_query(nodename, servname, hints, qbuf, &qlen);
-	if (i != 0) return EAI_SYSTEM;
+	status = LI_async_start(p, gai_proc, request, (void *)callback, context);
 
-	qlen /= BYTES_PER_XDR_UNIT;
+	kvbuf_free(request);
 
-	status = lu_async_start(p, gai_proc, qbuf, qlen, (void *)callback, context);
-	if (status != 0)
+	if (status != KERN_SUCCESS)
 	{
 		errno = ECONNREFUSED;
 		return EAI_SYSTEM;
 	}
 
 	return 0;
+}
+
+void
+getaddrinfo_async_cancel(mach_port_t p)
+{
+	LI_async_call_cancel(p, NULL);
 }
 
 int32_t
@@ -976,70 +1106,42 @@ getaddrinfo_async_send(mach_port_t *p, const char *nodename, const char *servnam
 	return getaddrinfo_async_start(p, nodename, servname, hints, NULL, NULL);
 }
 
-static int
-gai_extract_data(char *buf, uint32_t len, struct addrinfo **res)
+int32_t
+getaddrinfo_async_receive(mach_port_t p, struct addrinfo **res)
 {
-	XDR xdr;
-	uint32_t i, n;
+	kern_return_t status;
 	char *cname;
+	kvarray_t *reply;
+	uint32_t i;
 	struct addrinfo *a;
 
+	if (res == NULL) return 0;
 	*res = NULL;
 
-	if (buf == NULL) return EAI_NODATA;
-	if (len == 0) return EAI_NODATA;
+	reply = NULL;
 
-	xdrmem_create(&xdr, buf, len, XDR_DECODE);
-
-	if (!xdr_int(&xdr, (int32_t *)&n))
-	{
-		xdr_destroy(&xdr);
-		errno = EIO;
-		return EAI_SYSTEM;
-	}
+	status = LI_async_receive(p, &reply);
+	if (status < 0) return EAI_FAIL;
+	if (reply == NULL) return EAI_NONAME;
 
 	cname = NULL;
-	for (i = 0; i < n; i++)
+	for (i = 0; i < reply->count; i++)
 	{
-		a = gai_lookupd_process_dictionary(&xdr);
-		if (a == NULL) break;
-
+		a = gai_extract(reply);
+		if (a == NULL) continue;
 		if ((cname == NULL) && (a->ai_canonname != NULL)) cname = a->ai_canonname;
 		append_addrinfo(res, a);
 	}
 
-	xdr_destroy(&xdr);
+	kvarray_free(reply);
 
 	if ((cname != NULL) && (res != NULL) && (res[0] != NULL) && (res[0]->ai_canonname == NULL))
 	{
 		res[0]->ai_canonname = strdup(cname);
 	}
 
-	if (*res == NULL) return EAI_NODATA;
-	return 0;
-}
 
-int32_t
-getaddrinfo_async_receive(mach_port_t p, struct addrinfo **res)
-{
-	kern_return_t status;
-	char *buf;
-	uint32_t len;
-
-	if (res == NULL) return 0;
-	*res = NULL;
-
-	buf = NULL;
-	len = 0;
-
-	status = lu_async_receive(p, &buf, &len);
-	if (status < 0) return EAI_FAIL;
-
-	status = gai_extract_data(buf, len, res);
-	if (buf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)buf, len);
-	if (status != 0) return status;
-
-	if (*res == NULL) return EAI_NODATA;
+	if (*res == NULL) return EAI_NONAME;
 
 	return 0;
 }
@@ -1049,40 +1151,57 @@ getaddrinfo_async_handle_reply(void *msg)
 {
 	getaddrinfo_async_callback callback;
 	void *context;
-	char *buf;
-	uint32_t len;
+	char *buf, *cname;
+	uint32_t i, len;
 	int status;
-	struct addrinfo *res;
+	kvarray_t *reply;
+	struct addrinfo *l, *a, **res;
 
 	callback = (getaddrinfo_async_callback)NULL;
 	context = NULL;
 	buf = NULL;
 	len = 0;
-	res = NULL;
+	reply = NULL;
+	l = NULL;
+	res = &l;
 
-	status = lu_async_handle_reply(msg, &buf, &len, (void **)&callback, &context);
+	status = LI_async_handle_reply(msg, &reply, (void **)&callback, &context);
 	if (status != KERN_SUCCESS)
 	{
 		if (status == MIG_REPLY_MISMATCH) return 0;
-		if (callback != NULL) callback(EAI_NODATA, NULL, context);
-		return EAI_NODATA;
+		if (callback != NULL) callback(EAI_FAIL, NULL, context);
+		return EAI_FAIL;
 	}
 
-	status = gai_extract_data(buf, len, &res);
-	if (buf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)buf, len);
-	if (status != 0)
+	if (reply == NULL)
 	{
-		if (callback != NULL) callback(status, NULL, context);
-		return status;
+		if (callback != NULL) callback(EAI_NONAME, NULL, context);
+		return EAI_NONAME;
 	}
 
-	if (res == NULL)
+	cname = NULL;
+	for (i = 0; i < reply->count; i++)
 	{
-		callback(EAI_NODATA, NULL, context);
-		return EAI_NODATA;
+		a = gai_extract(reply);
+		if (a == NULL) continue;
+		if ((cname == NULL) && (a->ai_canonname != NULL)) cname = a->ai_canonname;
+		append_addrinfo(res, a);
 	}
 
-	callback(0, res, context);
+	kvarray_free(reply);
+
+	if ((cname != NULL) && (res[0] != NULL) && (res[0]->ai_canonname == NULL))
+	{
+		res[0]->ai_canonname = strdup(cname);
+	}
+
+	if (*res == NULL)
+	{
+		callback(EAI_NONAME, NULL, context);
+		return EAI_NONAME;
+	}
+
+	callback(0, *res, context);
 	return 0;
 }
 
@@ -1091,7 +1210,7 @@ getaddrinfo_async_handle_reply(void *msg)
  */
  
 /*
- * getnameinfo support in lookupd
+ * getnameinfo support in Directory Service
  * Input dict may contain the following
  *
  * ip_address: node address
@@ -1111,10 +1230,11 @@ getaddrinfo_async_handle_reply(void *msg)
  */
 
 static int
-gni_lookupd_process_dictionary(XDR *inxdr, char **host, char **serv)
+gni_extract(kvarray_t *in, const char **host, const char **serv)
 {
-	int32_t i, j, nkeys, nvals, status;
-	char *key, **vals;
+	uint32_t d, k, kcount;
+
+	if (in == NULL) return -1;
 
 	if ((host == NULL) || (serv == NULL))
 	{
@@ -1122,75 +1242,63 @@ gni_lookupd_process_dictionary(XDR *inxdr, char **host, char **serv)
 		return EAI_SYSTEM;
 	}
 
-	if (!xdr_int(inxdr, &nkeys))
-	{
-		errno = EIO;
-		return EAI_SYSTEM;
-	}
-
 	*host = NULL;
 	*serv = NULL;
 
-	for (i = 0; i < nkeys; i++)
+	d = in->curr;
+	in->curr++;
+
+	if (d >= in->count) return EAI_NONAME;
+
+	kcount = in->dict[d].kcount;
+	if (kcount == 0) return EAI_NONAME;
+
+	for (k = 0; k < kcount; k++)
 	{
-		key = NULL;
-		vals = NULL;
-		nvals = 0;
-
-		status = _lu_xdr_attribute(inxdr, &key, &vals, (uint32_t *)&nvals);
-		if (status < 0)
+		if (!strcmp(in->dict[d].key[k], "gni_name"))
 		{
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+			if (in->dict[d].vcount[k] == 0) continue;
+			if (*host != NULL) continue;
 
-		if (nvals == 0)
+			*host = in->dict[d].val[k][0];
+		}
+		else if (!strcmp(in->dict[d].key[k], "gni_service")) 
 		{
-			free(key);
-			continue;
-		}
+			if (in->dict[d].vcount[k] == 0) continue;
+			if (*serv != NULL) continue;
 
-		if ((*host == NULL) && (!strcmp("name", key)))
-		{
-			*host = vals[0];
-			for (j = 1; j < nvals; j++) free(vals[j]);
+			*serv = in->dict[d].val[k][0];
 		}
-
-		else if ((*serv == NULL) && (!strcmp(key, "service")))
-		{
-			*serv = vals[0];
-			for (j = 1; j < nvals; j++) free(vals[j]);
-		}
-
-		if (key != NULL) free(key);
-		free(vals);
 	}
 
+	if ((*host == NULL) && (*serv == NULL)) return EAI_NONAME;
 	return 0;
 }
 
-static int
-gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantserv, int flags, char *buf, uint32_t *len)
+static kvbuf_t *
+gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantserv, int flags)
 {
-	XDR outxdr;
-	uint16_t port;
-	char str[_LU_MAXLUSTRLEN], *key, ifname[IF_NAMESIZE];
-	uint32_t a4, ifnum, offset, na, proto, fqdn, numerichost, numericserv, name_req, isll, issl;
+	kvbuf_t *request;
+	uint16_t port, ifnum;
+	char str[NI_MAXHOST], ifname[IF_NAMESIZE], tmp[64];
+	uint32_t a4, offset, isll;
 	struct sockaddr_in6 *s6;
 
-	if (sa == NULL) return EAI_FAIL;
-	if (sa->sa_len != salen) return EAI_FAMILY;
+	if (sa == NULL)
+	{
+		errno = EINVAL;
+		return NULL;
+	}
 
-	proto = IPPROTO_TCP;
-	fqdn = 1;
-	numerichost = 0;
-	numericserv = 0;
-	name_req = 0;
+	if (sa->sa_len != salen)
+	{
+		errno = EINVAL;
+		return NULL;
+	}
+
 	isll = 0;
-	issl = 0;
 
 	offset = INET_NTOP_AF_INET_OFFSET;
-	key = "ip_address";
 	port = 0;
 
 	if (sa->sa_family == PF_INET)
@@ -1200,7 +1308,7 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 		a4 >>= IN_CLASSA_NSHIFT;
 		if (a4 == 0) flags |= NI_NUMERICHOST;
 
-		port = ((struct sockaddr_in *)sa)->sin_port;
+		port = ntohs(((struct sockaddr_in *)sa)->sin_port);
 	}
 	else if (sa->sa_family == PF_INET6)
 	{
@@ -1208,6 +1316,7 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 		switch (s6->sin6_addr.s6_addr[0])
 		{
 			case 0x00:
+			{
 				if (IN6_IS_ADDR_V4MAPPED(&s6->sin6_addr))
 				{
 				}
@@ -1219,27 +1328,30 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 					flags |= NI_NUMERICHOST;
 				}
 				break;
+			}
 			default:
+			{
 				if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
 				{
 					isll = 1;
-				}
-				else if (IN6_IS_ADDR_SITELOCAL(&s6->sin6_addr))
-				{
-					issl = 1;
 				}
 				else if (IN6_IS_ADDR_MULTICAST(&s6->sin6_addr))
 				{
 					flags |= NI_NUMERICHOST;
 				}
 				break;
+			}
 		}
 
-		if ((isll != 0) || (issl != 0))
+		if (isll != 0)
 		{
-			ifnum = s6->sin6_addr.__u6_addr.__u6_addr16[1];
+			ifnum = ntohs(s6->sin6_addr.__u6_addr.__u6_addr16[1]);
 			if (ifnum == 0) ifnum = s6->sin6_scope_id;
-			else if ((s6->sin6_scope_id != 0) && (ifnum != s6->sin6_scope_id)) return EAI_FAIL;
+			else if ((s6->sin6_scope_id != 0) && (ifnum != s6->sin6_scope_id))
+			{
+				errno = EINVAL;
+				return NULL;
+			}
 
 			s6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
 			s6->sin6_scope_id = ifnum;
@@ -1247,183 +1359,105 @@ gni_make_query(const struct sockaddr *sa, size_t salen, int wanthost, int wantse
 		}
 
 		offset = INET_NTOP_AF_INET6_OFFSET;
-		key = "ipv6_address";
-		port = s6->sin6_port;
+		port = ntohs(s6->sin6_port);
 	}
 	else
 	{
-		return EAI_FAMILY;
+		errno = EPFNOSUPPORT;
+		return NULL;
 	}
 
-	na = 0;
-
-	if (wanthost != 0) na++;
-	if (wantserv != 0) na++;
-
-	if (flags & NI_NOFQDN)
+	request = kvbuf_new();
+	if (request == NULL)
 	{
-		fqdn = 0;
-		na++;
+		errno = ENOMEM;
+		return NULL;
 	}
 
-	if (flags & NI_NUMERICHOST)
-	{
-		numerichost = 1;
-		na++;
-	}
-
-	if (flags & NI_NUMERICSERV)
-	{
-		numericserv = 1;
-		na++;
-	}
-
-	if (flags & NI_NAMEREQD)
-	{
-		name_req = 1;
-		na++;
-	}
-
-	if (flags & NI_DGRAM)
-	{
-		proto = IPPROTO_UDP;
-		na++;
-	}
-
-	xdrmem_create(&outxdr, buf, *len, XDR_ENCODE);
-
-	if (!xdr_int(&outxdr, (int32_t *)&na))
-	{
-		xdr_destroy(&outxdr);
-		errno = EIO;
-		return EAI_SYSTEM;
-	}
+	kvbuf_add_dict(request);
 
 	if (wanthost != 0)
 	{
-		inet_ntop(sa->sa_family, (char *)(sa) + offset, str, _LU_MAXLUSTRLEN);
+		inet_ntop(sa->sa_family, (char *)(sa) + offset, str, NI_MAXHOST);
 
-		if ((flags & NI_WITHSCOPEID) && (sa->sa_family == AF_INET6))
+		if (isll != 0)
 		{
 			ifnum = ((struct sockaddr_in6 *)sa)->sin6_scope_id;
-			if (if_indextoname(ifnum, ifname) != NULL)
+			if ((ifnum != 0) && (if_indextoname(ifnum, ifname) != NULL))
 			{
 				strcat(str, "%");
 				strcat(str, ifname);
 			}
 		}
 
-		if (encode_kv(&outxdr, key, str) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		kvbuf_add_key(request, "address");
+		kvbuf_add_val(request, str);
+
+		kvbuf_add_key(request, "family");
+		snprintf(tmp, sizeof(tmp), "%u", sa->sa_family);
+		kvbuf_add_val(request, tmp);
 	}
 
 	if (wantserv != 0)
 	{
-		snprintf(str, _LU_MAXLUSTRLEN, "%hu", port);
-		if (encode_kv(&outxdr, "port", str) != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
+		snprintf(tmp, sizeof(tmp), "%hu", port);
+		kvbuf_add_key(request, "port");
+		kvbuf_add_val(request, tmp);
 	}
 
-	if (proto == IPPROTO_UDP)
-	{
-		if (encode_kv(&outxdr, "protocol", "udp") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
+	snprintf(tmp, sizeof(tmp), "%u", flags);
+	kvbuf_add_key(request, "flags");
+	kvbuf_add_val(request, tmp);
 
-	if (fqdn == 0)
-	{
-		if (encode_kv(&outxdr, "fqdn", "0") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	if (numerichost == 1)
-	{
-		if (encode_kv(&outxdr, "numerichost", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	if (numericserv == 1)
-	{
-		if (encode_kv(&outxdr, "numericserv", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	if (name_req == 1)
-	{
-		if (encode_kv(&outxdr, "name_required", "1") != 0)
-		{
-			xdr_destroy(&outxdr);
-			errno = EIO;
-			return EAI_SYSTEM;
-		}
-	}
-
-	*len = xdr_getpos(&outxdr);
-
-	xdr_destroy(&outxdr);
-
-	return 0;
+	return request;
 }
 
 int
 getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __restrict host, socklen_t hostlen, char * __restrict serv, socklen_t servlen, int flags)
 {
-	uint32_t n, i, qlen, rlen;
-	uint32_t ifnum;
-	int wanth, wants, isll, issl;
-	XDR inxdr;
-	char qbuf[LU_QBUF_SIZE], ifname[IF_NAMESIZE];
-	char *rbuf, *hval, *sval;
-	mach_port_t server_port;
+	uint32_t n, i, ifnum;
+	int wanth, wants, isll;
+	kvbuf_t *request;
+	kvarray_t *reply;
+	char ifname[IF_NAMESIZE];
+	const char *hval, *sval;
 	kern_return_t status;
-	struct sockaddr_in *s4;
-	struct sockaddr_in6 *s6;
+	struct sockaddr_in *s4, s4buf;
+	struct sockaddr_in6 *s6, s6buf;
+	struct in_addr *a4;
+	struct in6_addr *a6;
 
 	/* Check input */
 	if (sa == NULL) return EAI_FAIL;
 
 	isll = 0;
-	issl = 0;
 	ifnum = 0;
 
-	if (sa->sa_family == AF_INET6)
+	s4 = &s4buf;
+	a4 = NULL;
+
+	s6 = &s6buf;
+	a6 = NULL;
+
+	if (sa->sa_family == AF_INET)
 	{
-		s6 = (struct sockaddr_in6 *)sa;
+		memcpy(s4, sa, sizeof(struct sockaddr_in));
+		a4 = &(s4->sin_addr);
+	}
+	else if (sa->sa_family == AF_INET6)
+	{
+		memcpy(s6, sa, sizeof(struct sockaddr_in6));
+		a6 = &(s6->sin6_addr);
 
 		if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr)) isll = 1;
-		if (IN6_IS_ADDR_SITELOCAL(&s6->sin6_addr)) issl = 1;
 
 		/*
-		 * Link-local and site-local IPv6 addresses may have a scope id 
+		 * Link-local IPv6 addresses may have a scope id 
 		 * in s6->sin6_addr.__u6_addr.__u6_addr16[1] as well as in s6->sin6_scope_id.
 		 * If they are both non-zero, they must be equal.
 		 * We zero s6->sin6_addr.__u6_addr.__u6_addr16[1] and set s6->sin6_scope_id.
 		 */
-		if ((isll != 0) || (issl != 0))
+		if (isll != 0)
 		{
 			ifnum = ntohs(s6->sin6_addr.__u6_addr.__u6_addr16[1]);
 			if (ifnum == 0) ifnum = s6->sin6_scope_id;
@@ -1436,17 +1470,17 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 		/* V4 mapped and compat addresses are converted to plain V4 */
 		if ((IN6_IS_ADDR_V4MAPPED(&s6->sin6_addr)) || (IN6_IS_ADDR_V4COMPAT(&s6->sin6_addr)))
 		{
-			s4 = (struct sockaddr_in *)calloc(1, sizeof(struct sockaddr_in));
+			memset(s4, 0, sizeof(struct sockaddr_in));
+
 			s4->sin_len = sizeof(struct sockaddr_in);
 			s4->sin_family = AF_INET;
 			s4->sin_port = s6->sin6_port;
 			memcpy(&(s4->sin_addr.s_addr), &(s6->sin6_addr.s6_addr[12]), 4);
 
-			i = getnameinfo((const struct sockaddr *)s4, s4->sin_len, host, hostlen, serv, servlen, flags);
-			free(s4);
-			return i;
+			return getnameinfo((const struct sockaddr *)s4, s4->sin_len, host, hostlen, serv, servlen, flags);
 		}
 	}
+	else return EAI_FAMILY;
 
 	wanth = 0;
 	if ((host != NULL) && (hostlen != 0)) wanth = 1;
@@ -1461,11 +1495,16 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 	 */
 	if ((wanth == 1) && (flags & NI_NUMERICHOST))
 	{
-		i = INET_NTOP_AF_INET_OFFSET;
-		if (sa->sa_family == PF_INET6) i = INET_NTOP_AF_INET6_OFFSET;
-		if (inet_ntop(sa->sa_family, (char *)(sa) + i, host, hostlen) == NULL) return EAI_FAIL;
+		if (sa->sa_family == AF_INET)
+		{
+			if (inet_ntop(AF_INET, a4, host, hostlen) == NULL) return EAI_FAIL;
+		}
+		else
+		{
+			if (inet_ntop(AF_INET6, a6, host, hostlen) == NULL) return EAI_FAIL;
+		}
 
-		if (((isll != 0) || (issl != 0)) && (ifnum != 0))
+		if ((isll != 0) && (ifnum != 0))
 		{
 			/* append interface name */
 			if (if_indextoname(ifnum, ifname) != NULL)
@@ -1482,29 +1521,21 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 	{
 		if (sa->sa_family == PF_INET)
 		{
-			s4 = (struct sockaddr_in *)sa;
 			n = snprintf(serv, servlen, "%hu", ntohs(s4->sin_port));
 			if (n >= servlen) return EAI_FAIL;
 		}
-		else if (sa->sa_family == PF_INET6)
+		else
 		{
-			s6 = (struct sockaddr_in6 *)sa;
 			n = snprintf(serv, servlen, "%hu", ntohs(s6->sin6_port));
 			if (n >= servlen) return EAI_FAIL;
 		}
-		else return EAI_FAMILY;
 
 		if (wanth == 0) return 0;
 	}
 
 	if ((wanth == 1) && (flags & NI_NUMERICHOST) && (wants == 1) && (flags & NI_NUMERICSERV)) return 0;
 
-	/*
-	 * Ask lookupd
-	 */
-	server_port = MACH_PORT_NULL;
-	if (_lu_running()) server_port = _lookupd_port(0);
-	if (server_port == MACH_PORT_NULL)
+	if (_ds_running() == 0)
 	{
 		errno = ECONNREFUSED;
 		return EAI_SYSTEM;
@@ -1512,7 +1543,7 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 
 	if (gni_proc < 0)
 	{
-		status = _lookup_link(server_port, "getnameinfo", &gni_proc);
+		status = LI_DSLookupGetProcedureNumber("getnameinfo", &gni_proc);
 		if (status != KERN_SUCCESS)
 		{
 			errno = ECONNREFUSED;
@@ -1520,87 +1551,76 @@ getnameinfo(const struct sockaddr * __restrict sa, socklen_t salen, char * __res
 		}
 	}
 
-	qlen = LU_QBUF_SIZE;
-	i = gni_make_query(sa, salen, wanth, wants, flags, qbuf, &qlen);
-	if (i != 0) return i;
+	request = gni_make_query(sa, salen, wanth, wants, flags);
+	if (request == NULL) return EAI_SYSTEM;
 
-	qlen /= BYTES_PER_XDR_UNIT;
+	reply = NULL;
+	status = LI_DSLookupQuery(gni_proc, request, &reply);
+	kvbuf_free(request);
 
-	rbuf = NULL;
-
-	status = _lookup_all(server_port, gni_proc, (unit *)qbuf, qlen, &rbuf, &rlen);
-	if (status != KERN_SUCCESS) return EAI_NONAME;
-
-	rlen *= BYTES_PER_XDR_UNIT;
-
-	xdrmem_create(&inxdr, rbuf, rlen, XDR_DECODE);
-
-	if (!xdr_int(&inxdr, (int32_t *)&n))
+	if (status != KERN_SUCCESS)
 	{
-		xdr_destroy(&inxdr);
-		errno = EIO;
+		errno = ECONNREFUSED;
 		return EAI_SYSTEM;
 	}
 
-	if (n != 1)
-	{
-		xdr_destroy(&inxdr);
-		return EAI_NONAME;
-	}
+	if (reply == NULL) return EAI_NONAME;
 
 	hval = NULL;
 	sval = NULL;
 
-	i = gni_lookupd_process_dictionary(&inxdr, &hval, &sval);
+	status = gni_extract(reply, &hval, &sval);
 
-	xdr_destroy(&inxdr);
-	if (rbuf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)rbuf, rlen);
-
-	if (i != 0) return i;
+	if (status != 0)
+	{
+		kvarray_free(reply);
+		return status;
+	}
 
 	i = 0;
 	if (hval != NULL) i = strlen(hval) + 1;
 	if ((host != NULL) && (hostlen != 0) && (i != 0))
 	{
-		if (i > hostlen) return EAI_FAIL;
+		if (i > hostlen)
+		{
+			kvarray_free(reply);
+			return EAI_FAIL;
+		}
+
 		memcpy(host, hval, i);
-		free(hval);
 	}
 
 	i = 0;
 	if (sval != NULL) i = strlen(sval) + 1;
 	if ((serv != NULL) && (servlen != 0) && (i != 0))
 	{
-		if (i > servlen) return EAI_FAIL;
+		if (i > servlen)
+		{
+			kvarray_free(reply);
+			return EAI_FAIL;
+		}
+
 		memcpy(serv, sval, i);
-		free(sval);
 	}
 
+	kvarray_free(reply);
 	return 0;
 }
 
 int32_t
 getnameinfo_async_start(mach_port_t *p, const struct sockaddr *sa, size_t salen, int flags, getnameinfo_async_callback callback, void *context)
 {
-	uint32_t i, qlen;
-	char qbuf[LU_QBUF_SIZE];
-	mach_port_t server_port;
-	kern_return_t status;
+	int32_t status;
+	kvbuf_t *request;
+
+	*p = MACH_PORT_NULL;
 
 	/* Check input */
 	if (sa == NULL) return EAI_FAIL;
 
-	server_port = MACH_PORT_NULL;
-	if (_lu_running()) server_port = _lookupd_port(0);
-	if (server_port == MACH_PORT_NULL)
-	{
-		errno = ECONNREFUSED;
-		return EAI_SYSTEM;
-	}
-
 	if (gni_proc < 0)
 	{
-		status = _lookup_link(server_port, "getnameinfo", &gni_proc);
+		status = LI_DSLookupGetProcedureNumber("getnameinfo", &gni_proc);
 		if (status != KERN_SUCCESS)
 		{
 			errno = ECONNREFUSED;
@@ -1608,20 +1628,26 @@ getnameinfo_async_start(mach_port_t *p, const struct sockaddr *sa, size_t salen,
 		}
 	}
 
-	qlen = LU_QBUF_SIZE;
-	i = gni_make_query(sa, salen, 1, 1, flags, qbuf, &qlen);
-	if (i != 0) return i;
+	request = gni_make_query(sa, salen, 1, 1, flags);
+	if (request == NULL) return EAI_SYSTEM;
 
-	qlen /= BYTES_PER_XDR_UNIT;
+	status = LI_async_start(p, gni_proc, request, (void *)callback, context);
 
-	status = lu_async_start(p, gni_proc, qbuf, qlen, (void *)callback, context);
-	if (status != 0)
+	kvbuf_free(request);
+
+	if (status != KERN_SUCCESS)
 	{
 		errno = ECONNREFUSED;
 		return EAI_SYSTEM;
 	}
 
 	return 0;
+}
+
+void
+getnameinfo_async_cancel(mach_port_t p)
+{
+	LI_async_call_cancel(p, NULL);
 }
 
 int32_t
@@ -1630,56 +1656,33 @@ getnameinfo_async_send(mach_port_t *p, const struct sockaddr *sa, size_t salen, 
 	return getnameinfo_async_start(p, sa, salen, flags, NULL, NULL);
 }
 
-static int
-gni_extract_data(char *buf, uint32_t len, char **host, char **serv)
-{
-	XDR xdr;
-	uint32_t n;
-	int i;
-
-	*host = NULL;
-	*serv = NULL;
-
-	if (buf == NULL) return EAI_NODATA;
-	if (len == 0) return EAI_NODATA;
-
-	xdrmem_create(&xdr, buf, len, XDR_DECODE);
-
-	if (!xdr_int(&xdr, (int32_t *)&n))
-	{
-		xdr_destroy(&xdr);
-		errno = EIO;
-		return EAI_SYSTEM;
-	}
-
-	if (n != 1)
-	{
-		xdr_destroy(&xdr);
-		return EAI_NONAME;
-	}
-
-	i = gni_lookupd_process_dictionary(&xdr, host, serv);
-	xdr_destroy(&xdr);
-	return i;
-}
-
 int32_t
 getnameinfo_async_receive(mach_port_t p, char **host, char **serv)
 {
 	kern_return_t status;
-	char *buf;
-	uint32_t len;
+	const char *hval, *sval;
+	kvarray_t *reply;
 
-	buf = NULL;
-	len = 0;
+	reply = NULL;
 
-	status = lu_async_receive(p, &buf, &len);
+	status = LI_async_receive(p, &reply);
 	if (status < 0) return EAI_FAIL;
+	if (reply == NULL) return EAI_NONAME;
 
-	status = gni_extract_data(buf, len, host, serv);
-	if (buf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)buf, len);
-	if (status != 0) return status;
+	hval = NULL;
+	sval = NULL;
 
+	status = gni_extract(reply, &hval, &sval);
+	if (status != 0)
+	{
+		kvarray_free(reply);
+		return status;
+	}
+
+	if (hval != NULL) *host = strdup(hval);
+	if (sval != NULL) *serv = strdup(sval);
+
+	kvarray_free(reply);
 	return 0;
 }
 
@@ -1688,17 +1691,19 @@ getnameinfo_async_handle_reply(void *msg)
 {
 	getnameinfo_async_callback callback;
 	void *context;
-	char *buf, *hval, *sval;
+	const char *hval, *sval;
+	char *host, *serv;
 	uint32_t len;
 	int status;
+	kvarray_t *reply;
 
 	callback = (getnameinfo_async_callback)NULL;
 	context = NULL;
-	buf = NULL;
+	reply = NULL;
 	len = 0;
 
-	status = lu_async_handle_reply(msg, &buf, &len, (void **)&callback, &context);
-	if (status != KERN_SUCCESS)
+	status = LI_async_handle_reply(msg, &reply, (void **)&callback, &context);
+	if ((status != KERN_SUCCESS) || (reply == NULL))
 	{
 		if (status == MIG_REPLY_MISMATCH) return 0;
 		if (callback != NULL) callback(EAI_NONAME, NULL, NULL, context);
@@ -1708,14 +1713,21 @@ getnameinfo_async_handle_reply(void *msg)
 	hval = NULL;
 	sval = NULL;
 
-	status = gni_extract_data(buf, len, &hval, &sval);
-	if (buf != NULL) vm_deallocate(mach_task_self(), (vm_address_t)buf, len);
+	status = gni_extract(reply, &hval, &sval);
 	if (status != 0)
 	{
 		if (callback != NULL) callback(status, NULL, NULL, context);
+		kvarray_free(reply);
 		return status;
 	}
 
-	callback(0, hval, sval, context);
+	host = NULL;
+	serv = NULL;
+
+	if (hval != NULL) host = strdup(hval);
+	if (sval != NULL) serv = strdup(sval);
+	kvarray_free(reply);
+
+	callback(0, host, serv, context);
 	return 0;
 }

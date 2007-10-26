@@ -38,6 +38,7 @@
 #include <netinet/ip.h>
 
 
+#include "../../../Family/ppp_domain.h"
 #include "pptp_rfc.h"
 #include "pptp_ip.h"
 
@@ -102,7 +103,7 @@ void pptp_ip_input(mbuf_t m, int len)
 {
     struct ip 		*ip;
     u_int32_t 		from;
-    mbuf_t			m1;
+	int				success;
 
 #if 0
     u_int8_t 		*d, i;
@@ -114,37 +115,25 @@ void pptp_ip_input(mbuf_t m, int len)
     }
 #endif
 
-    /* 
-    let's make life simpler for upper layers, and make everything contiguous
-    could be more efficient dealing with the original mbuf, but ppp doesn't like much
-    to mbuf chain, neither data compression nor IP layer
-    IP layer seems to expext IP header in a contiguous block
-    */
-   if (mbuf_getpacket(MBUF_WAITOK, &m1) != 0)
-        goto fail;    
-    mbuf_copydata(m, 0, mbuf_pkthdr_len(m), mbuf_data(m1));
-    mbuf_setlen(m1, mbuf_pkthdr_len(m));
-    mbuf_pkthdr_setlen(m1, mbuf_pkthdr_len(m));
-    
-    ip = mbuf_data(m1);
+	if (mbuf_len(m) < sizeof(struct ip) && 
+		mbuf_pullup(&m, sizeof(struct ip))) {
+			log(LOGVAL, "pptp_ip_input: cannot pullup ip header\n");
+			return;
+	}
+
+    ip = mbuf_data(m);
     from = ip->ip_src.s_addr;
 
     /* remove the IP header */
-    mbuf_adj(m1, ip->ip_hl * 4);
+    mbuf_adj(m, ip->ip_hl * 4);
 
 	lck_mtx_lock(ppp_domain_mutex);
-    if (pptp_rfc_lower_input(m1, from)) {
-		lck_mtx_unlock(ppp_domain_mutex);
-        // success, free the original mbuf
-        mbuf_freem(m);
-        return;
-    }
+    success = pptp_rfc_lower_input(m, from);
 	lck_mtx_unlock(ppp_domain_mutex);
+	if (success)
+        return;
 	
-fail:
     // the packet was not for us, just call the old hook
-    if (m1)
-	mbuf_freem(m1);
 	
 	if (!((*old_pr).pr_flags & PR_PROTOLOCK)) {
 		lck_mtx_lock(inet_domain_mutex);
@@ -187,7 +176,7 @@ int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
  
     bzero(&ro, sizeof(ro));
 	lck_mtx_unlock(ppp_domain_mutex);
-    ip_output((struct mbuf *)m, 0, &ro, 0, 0);
+    ip_output((struct mbuf *)m, 0, &ro, 0, 0, 0);
 	lck_mtx_lock(ppp_domain_mutex);
     return 0;
 }

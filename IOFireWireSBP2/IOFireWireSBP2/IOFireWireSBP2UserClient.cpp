@@ -28,342 +28,6 @@
 
 OSDefineMetaClassAndStructors(IOFireWireSBP2UserClient, IOUserClient)
 
-IOExternalMethod IOFireWireSBP2UserClient::sMethods[kIOFWSBP2UserClientNumCommands] =
-{
-    { //    kIOFWSBP2UserClientOpen
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::open,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-    { //    kIOFWSBP2UserClientClose
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::close,
-        kIOUCScalarIScalarO,
-        0,
-        0
-    },
-    { //    kIOFWSBP2UserClientCreateLogin
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::createLogin,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWSBP2UserClientReleaseLogin
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::releaseLogin,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSubmitLogin
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::submitLogin,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSubmitLogout
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::submitLogout,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetLoginFlags
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setLoginFlags,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientGetMaxCommandBlockSize
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::getMaxCommandBlockSize,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-    { //    kIOFWSBP2UserClientGetLoginID
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::getLoginID,
-        kIOUCScalarIScalarO,
-        1,
-        1
-    },
-    { //    kIOFWSBP2UserClientSetReconnectTime
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setReconnectTime,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetMaxPayloadSize
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMaxPayloadSize,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientCreateORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::createORB,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWSBP2UserClientReleaseORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::releaseORB,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSubmitORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::submitORB,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetCommandFlags
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setCommandFlags,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetMaxORBPayloadSize
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMaxORBPayloadSize,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetCommandTimeout
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setCommandTimeout,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetCommandGeneration
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setCommandGeneration,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetToDummy
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setToDummy,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetCommandBuffersAsRanges
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setCommandBuffersAsRanges,
-        kIOUCScalarIScalarO,
-        6,
-        0
-    },
-    { //    kIOFWSBP2UserClientReleaseCommandBuffers
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::releaseCommandBuffers,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSetCommandBlock
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setCommandBlock,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    },
-    { //    kIOFWSBP2UserClientCreateMgmtORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::createMgmtORB,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-    { //    kIOFWSBP2UserClientReleaseMgmtORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::releaseMgmtORB,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientSubmitMgmtORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::submitMgmtORB,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWSBP2UserClientMgmtORBSetCommandFunction
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMgmtORBCommandFunction,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientMgmtORBSetManageeORB
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMgmtORBManageeORB,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientMgmtORBSetManageeLogin
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMgmtORBManageeLogin,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    { //    kIOFWSBP2UserClientMgmtORBSetResponseBuffer
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setMgmtORBResponseBuffer,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    },
-    { //    kIOFWSBP2UserClientLSIWorkaroundSetCommandBuffersAsRanges
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::LSIWorkaroundSetCommandBuffersAsRanges,
-        kIOUCScalarIScalarO,
-        6,
-        0
-    },
-    { //    kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForOutput
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::LSIWorkaroundSyncBuffersForOutput,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-    { //    kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForInput
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::LSIWorkaroundSyncBuffersForInput,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWSBP2UserClientOpenWithSessionRef
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::openWithSessionRef,
-        kIOUCScalarIScalarO,
-        1,
-        0
-    },
-	{ //    kIOFWSBP2UserClientGetSessionRef
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::getSessionRef,
-        kIOUCScalarIScalarO,
-        0,
-        1
-    },
-	{   //    kIOFWSBP2UserClientRingDoorbell
-         0,
-         (IOMethod) &IOFireWireSBP2UserClient::ringDoorbell,
-         kIOUCScalarIScalarO,
-         1,
-         0
-    },
-    {   //    kIOFWSBP2UserClientEnableUnsolicitedStatusEnable
-         0,
-         (IOMethod) &IOFireWireSBP2UserClient::enableUnsolicitedStatus,
-         kIOUCScalarIScalarO,
-         1,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetBusyTimeoutRegisterValue
-         0,
-         (IOMethod) &IOFireWireSBP2UserClient::setBusyTimeoutRegisterValue,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetORBRefCon
-         0,
-         (IOMethod) &IOFireWireSBP2UserClient::setORBRefCon,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-	{   //    kIOFWSBP2UserClientSetPassword
-        0,
-        (IOMethod) &IOFireWireSBP2UserClient::setPassword,
-        kIOUCScalarIScalarO,
-        3,
-        0
-    }
-};
-
-IOExternalAsyncMethod IOFireWireSBP2UserClient::sAsyncMethods[kIOFWSBP2UserClientNumAsyncCommands] =
-{
-    {   //    kIOFWSBP2UserClientSetMessageCallback
-        0,
-        (IOAsyncMethod) &IOFireWireSBP2UserClient::setMessageCallback,
-        kIOUCScalarIScalarO,
-        2,
-        0
-    },
-    {   //    kIOFWSBP2UserClientSetLoginCallback
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setLoginCallback,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetLogoutCallback
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setLogoutCallback,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetUnsolicitedStatusNotify
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setUnsolicitedStatusNotify,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetStatusNotify
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setStatusNotify,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetMgmtORBCallback
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setMgmtORBCallback,
-         kIOUCScalarIScalarO,
-         3,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSubmitFetchAgentReset
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::submitFetchAgentReset,
-         kIOUCScalarIScalarO,
-         3,
-         0
-    },
-    {   //    kIOFWSBP2UserClientSetFetchAgentWriteCompletion
-         0,
-         (IOAsyncMethod) &IOFireWireSBP2UserClient::setFetchAgentWriteCompletion,
-         kIOUCScalarIScalarO,
-         2,
-         0
-    }
-};
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -371,31 +35,20 @@ IOExternalAsyncMethod IOFireWireSBP2UserClient::sAsyncMethods[kIOFWSBP2UserClien
 //
 //
 
-IOFireWireSBP2UserClient *IOFireWireSBP2UserClient::withTask(task_t owningTask)
+bool IOFireWireSBP2UserClient::initWithTask(
+                    task_t owningTask, void * securityToken, UInt32 type,
+                    OSDictionary * properties)
 {
-    IOFireWireSBP2UserClient* me = new IOFireWireSBP2UserClient;
+    if( properties )
+		properties->setObject( "IOUserClientCrossEndianCompatible" , kOSBooleanTrue);
 
-    if( me )
-    {
-        if( !me->init() )
-        {
-            me->release();
-            return NULL;
-        }
-        me->fTask = owningTask;
-    }
-
-    return me;
-}
-
-bool IOFireWireSBP2UserClient::init( OSDictionary * dictionary )
-{
-    bool res = IOService::init( dictionary );
-
+    bool res = IOUserClient::initWithTask(owningTask, securityToken, type, properties);
+	
     fOpened = false;
 	fStarted = false;
     fLogin = NULL;
-    
+    fTask = owningTask;
+	
     fMessageCallbackAsyncRef[0] = 0;
     fLoginCallbackAsyncRef[0] = 0;
     fLogoutCallbackAsyncRef[0] = 0;
@@ -426,31 +79,260 @@ bool IOFireWireSBP2UserClient::start( IOService * provider )
      return true;
 }
 
-// target/method lookups
+// externalMethod
 //
 //
 
-IOExternalMethod* IOFireWireSBP2UserClient::getTargetAndMethodForIndex(IOService **target, UInt32 index)
+ 
+IOReturn IOFireWireSBP2UserClient::externalMethod(	uint32_t selector, 
+										IOExternalMethodArguments * args,
+										IOExternalMethodDispatch * dispatch, 
+										OSObject * target, 
+										void * reference )
 {
-    if( index >= kIOFWSBP2UserClientNumCommands )
-        return NULL;
-    else
+	IOReturn status = kIOReturnSuccess;
+
+//	IOLog( "IOFireWireSBP2UserClient::externalMethod - selector = %d, scalarIn = %d, scalarOut = %d structInDesc = 0x%08lx structIn = %d structOutDesc = 0x%08lx structOut = %d\n", 
+//					selector, args->scalarInputCount, args->scalarOutputCount, args->structureInputDescriptor, args->structureInputSize, args->structureOutputDescriptor, args->structureOutputSize);
+	
+    switch( selector )
     {
-        *target = this;
-        return &sMethods[index];
-    }
+    	case kIOFWSBP2UserClientOpen:
+    		status = open( args );
+    		break;
+    	
+    	case kIOFWSBP2UserClientClose:
+    		status = close( args );
+    		break;
+    	
+    	case kIOFWSBP2UserClientCreateLogin:
+    		status = createLogin( args );
+    		break;
+    
+    	case kIOFWSBP2UserClientReleaseLogin:
+    		status = releaseLogin( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSubmitLogin:
+    		status = submitLogin( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSubmitLogout:
+    		status = submitLogout( args );
+    		break;
+    		
+  		case kIOFWSBP2UserClientSetLoginFlags:
+  			status = setLoginFlags( args );
+  			break;
+  			
+    	case kIOFWSBP2UserClientGetMaxCommandBlockSize:
+    		status = getMaxCommandBlockSize( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientGetLoginID:
+    		status = getLoginID( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetReconnectTime:
+    		status = setReconnectTime( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetMaxPayloadSize:
+    		status = setMaxPayloadSize( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientCreateORB:
+    		status = createORB( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientReleaseORB:
+    		status = releaseORB( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSubmitORB:
+    		status = submitORB( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetCommandFlags:
+    		status = setCommandFlags( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetMaxORBPayloadSize:
+    		status = setMaxORBPayloadSize( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetCommandTimeout:
+    		status = setCommandTimeout( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetCommandGeneration:
+    		status = setCommandGeneration( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetToDummy:
+    		status = setToDummy( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetCommandBuffersAsRanges:
+    		status = setCommandBuffersAsRanges( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientReleaseCommandBuffers:
+    		status = releaseCommandBuffers( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetCommandBlock:
+    		status = setCommandBlock( args );
+    		break;
+    		
+		case kIOFWSBP2UserClientCreateMgmtORB:
+			status = createMgmtORB( args );
+			break;
+			
+		case kIOFWSBP2UserClientReleaseMgmtORB:
+			status = releaseMgmtORB( args );
+			break;
+			
+		case kIOFWSBP2UserClientSubmitMgmtORB:
+			status = submitMgmtORB( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBSetCommandFunction:
+			status = setMgmtORBCommandFunction( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBSetManageeORB:
+			status = setMgmtORBManageeORB( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBSetManageeLogin:
+			status = setMgmtORBManageeLogin( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBSetResponseBuffer:
+			status = setMgmtORBResponseBuffer( args );
+			break;
+			
+		case kIOFWSBP2UserClientLSIWorkaroundSetCommandBuffersAsRanges:
+			status = LSIWorkaroundSetCommandBuffersAsRanges( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForOutput:
+			status = LSIWorkaroundSyncBuffersForOutput( args );
+			break;
+			
+		case kIOFWSBP2UserClientMgmtORBLSIWorkaroundSyncBuffersForInput:
+			status = LSIWorkaroundSyncBuffersForInput( args );
+			break;
+			
+    	case kIOFWSBP2UserClientOpenWithSessionRef:
+    		status = openWithSessionRef( args );
+    		break;
+    		
+		case kIOFWSBP2UserClientGetSessionRef:
+			status = getSessionRef( args );
+			break;
+			
+		case kIOFWSBP2UserClientRingDoorbell:
+			status = ringDoorbell( args );
+			break;
+			
+		case kIOFWSBP2UserClientEnableUnsolicitedStatus:
+			status = enableUnsolicitedStatus( args );
+			break;
+			
+		case kIOFWSBP2UserClientSetBusyTimeoutRegisterValue:
+			status = setBusyTimeoutRegisterValue( args );
+			break;
+			
+		case kIOFWSBP2UserClientSetORBRefCon:
+			status = setORBRefCon( args );
+			break;
+			
+		case kIOFWSBP2UserClientSetPassword:
+			status = setPassword( args );
+			break;
+			
+    	case kIOFWSBP2UserClientSetMessageCallback:
+    		status = setMessageCallback( args );
+    		break;
+    		
+   		case kIOFWSBP2UserClientSetLoginCallback:
+   			status = setLoginCallback( args );
+   			break;
+   			
+    	case kIOFWSBP2UserClientSetLogoutCallback:
+    		status = setLogoutCallback( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetUnsolicitedStatusNotify:
+    		status = setUnsolicitedStatusNotify( args );
+    		break;
+    		
+    	case kIOFWSBP2UserClientSetStatusNotify:
+    		status = setStatusNotify( args );
+    		break;
+    		
+		case kIOFWSBP2UserClientSetMgmtORBCallback:
+			status = setMgmtORBCallback( args );
+			break;
+			
+		case kIOFWSBP2UserClientSubmitFetchAgentReset:
+			status = submitFetchAgentReset( args );
+			break;
+			
+		case kIOFWSBP2UserClientSetFetchAgentWriteCompletion:
+			status = setFetchAgentWriteCompletion( args );
+			break;
+		
+		default:
+			status = kIOReturnBadArgument;
+	}
+	
+//	IOLog( "IOFireWireSBP2UserClient::externalMethod - selector = %d, status = 0x%08lx\n", selector, status );
+	
+	return status;
 }
 
-IOExternalAsyncMethod* IOFireWireSBP2UserClient::getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index)
+// checkArguments
+//
+//
+
+IOReturn IOFireWireSBP2UserClient::checkArguments( IOExternalMethodArguments * args, 
+												uint32_t scalarInCount, uint32_t structInCount, 
+    										    uint32_t scalarOutCount, uint32_t structOutCount )
 {
-    if( index >= kIOFWSBP2UserClientNumAsyncCommands )
-       return NULL;
-   else
-   {
-       *target = this;
-       return &sAsyncMethods[index];
-   }
-    return NULL;
+	IOReturn status = kIOReturnSuccess;
+	
+	if( (kIOUCVariableStructureSize != scalarInCount) && (scalarInCount != args->scalarInputCount) )
+	{
+		status = kIOReturnBadArgument;
+		//IOLog( "IOFireWireSBP2UserClient::checkArguments - (1) failed\n" );
+	}
+
+	if( (kIOUCVariableStructureSize != structInCount) 
+		&& (structInCount != ((args->structureInputDescriptor) 
+				? args->structureInputDescriptor->getLength() : args->structureInputSize)) )
+	{
+		status = kIOReturnBadArgument;
+		//IOLog( "IOFireWireSBP2UserClient::checkArguments - (2) failed\n" );
+	}
+
+	if ((kIOUCVariableStructureSize != scalarOutCount) && (scalarOutCount != args->scalarOutputCount))
+	{
+		status = kIOReturnBadArgument;
+		//IOLog( "IOFireWireSBP2UserClient::checkArguments - (3) failed\n" );
+	}
+
+	if ((kIOUCVariableStructureSize != structOutCount) 
+		&& (structOutCount != ((args->structureOutputDescriptor) 
+				? args->structureOutputDescriptor->getLength() : args->structureOutputSize)))
+	{
+		status = kIOReturnBadArgument;
+		//IOLog( "IOFireWireSBP2UserClient::checkArguments - (4) failed\n" );
+	}
+			
+	return status;
 }
 
 // clientClose / clientDied
@@ -511,16 +393,20 @@ IOReturn IOFireWireSBP2UserClient::clientDied( void )
 // IOFireWireSBP2LUN
 //
 
-IOReturn IOFireWireSBP2UserClient::open
-	( void *, void *, void *, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::open(  IOExternalMethodArguments * arguments )
 {
     IOReturn status = kIOReturnSuccess;
 
-    FWKLOG(( "IOFireWireSBP2UserClient : open\n" ));
+	FWKLOG(( "IOFireWireSBP2UserClient : open\n" ));
 
-    if( fOpened )
-        status = kIOReturnError;
-
+	status = checkArguments( arguments, 0, 0, 0, 0 );
+	
+    if( status == kIOReturnSuccess )
+    {
+    	if( fOpened )
+        	status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         if( fProviderLUN->open(this) )
@@ -531,22 +417,26 @@ IOReturn IOFireWireSBP2UserClient::open
             status = kIOReturnExclusiveAccess;
     }
     
-     return status;
+    return status;
 }
 
-IOReturn IOFireWireSBP2UserClient::openWithSessionRef( IOFireWireSessionRef sessionRef, void *, void *, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::openWithSessionRef(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
+
 	IOService * service = NULL;
 
     FWKLOG(( "IOFireWireSBP2UserClient : open\n" ));
 
-    if( fOpened || !fProviderLUN->isOpen() )
-        status = kIOReturnError;
+	if( status == kIOReturnSuccess )
+	{
+		if( fOpened || !fProviderLUN->isOpen() )
+			status = kIOReturnError;
+	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		service = OSDynamicCast( IOService, (OSObject*)sessionRef );
+		service = OSDynamicCast( IOService, (OSObject*)arguments->scalarInput[0] );
 		if( service == NULL )
 			status = kIOReturnBadArgument;
 	}
@@ -565,35 +455,44 @@ IOReturn IOFireWireSBP2UserClient::openWithSessionRef( IOFireWireSessionRef sess
 	return status;
 }
 
-IOReturn IOFireWireSBP2UserClient::getSessionRef( IOFireWireSessionRef * sessionRef, void *, void *, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::getSessionRef(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 0, 0, 1, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : getSessionRef\n" ));
 
-    if( !fOpened )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		if( !fOpened )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-		*sessionRef = (IOFireWireSessionRef)this;
+		arguments->scalarOutput[0] = (uint64_t)this;
 	}
     
 	return status;
 }
 
-IOReturn IOFireWireSBP2UserClient::close
-	( void *, void *, void *, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::close(  IOExternalMethodArguments * arguments )
 {
+    IOReturn status = kIOReturnSuccess;
+    
     FWKLOG(( "IOFireWireSBP2UserClient : close\n" ));
     
-    if( fOpened )
-    {
-        fProviderLUN->close(this);
-        fOpened = false;
-    }
-
-    return kIOReturnSuccess;
+    status = checkArguments( arguments, 0, 0, 0, 0 );
+	
+	if( status == kIOReturnSuccess )
+	{
+		if( fOpened )
+		{
+			fProviderLUN->close(this);
+			fOpened = false;
+		}
+	}
+	
+    return status;
 }
 
 // message callback methods
@@ -601,14 +500,16 @@ IOReturn IOFireWireSBP2UserClient::close
 //
 
 IOReturn IOFireWireSBP2UserClient::setMessageCallback
-	( OSAsyncReference asyncRef, void * refCon, void * callback, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
-    IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-    bcopy( asyncRef, fMessageCallbackAsyncRef, sizeof(OSAsyncReference) );
-
-    return kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
+	
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fMessageCallbackAsyncRef, sizeof(OSAsyncReference64) );
+	}
+	
+    return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, void * arg )
@@ -616,7 +517,7 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
     IOReturn status = kIOReturnUnsupported;
     UInt32 entries;
     FWSBP2ReconnectParams * params;
-    void * args[16];
+    io_user_reference_t args[16];
 
     FWKLOG(( "IOFireWireSBP2UserClient : message 0x%x, arg 0x%08lx\n", type, arg ));
 
@@ -626,11 +527,12 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
         switch( type )
         {
 			case kIOFWMessageServiceIsRequestingClose:
-				args[11] = (void*)kIOFWMessageServiceIsRequestingClose;
-                sendAsyncResult( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
+				args[11] = (io_user_reference_t)kIOFWMessageServiceIsRequestingClose;
+                sendAsyncResult64( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
+
 				// for compatibility
-				args[11] = (void*)kIOMessageServiceIsRequestingClose;
-                sendAsyncResult( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
+				args[11] = (io_user_reference_t)kIOMessageServiceIsRequestingClose;
+                sendAsyncResult64( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
                 status = kIOReturnSuccess;
                 break;
 
@@ -638,8 +540,8 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
             case kIOMessageServiceIsTerminated:
             case kIOMessageServiceIsSuspended:
             case kIOMessageServiceIsResumed:
-                args[11] = (void*)type;
-                sendAsyncResult( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
+                args[11] = (io_user_reference_t)type;
+                sendAsyncResult64( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
                 status = kIOReturnSuccess;
                 break;
 
@@ -674,21 +576,21 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
                     UInt32 i;
 
                     // fill out return parameters
-                    args[0] = (void*)params->generation;
-                    args[1] = (void*)params->status;
-                    args[2] = (void*)(entries * sizeof(UInt32));
+                    args[0] = (io_user_reference_t)params->generation;
+                    args[1] = (io_user_reference_t)params->status;
+                    args[2] = (io_user_reference_t)(entries * sizeof(UInt64));
 
                     // load up status block
                     UInt32 * statusBlock = (UInt32 *)params->reconnectStatusBlock;
                     for( i = 0; i < entries; i++ )
                     {
                         if( statusBlock )
-                            args[3+i] = (void*)statusBlock[i];
+                            args[3+i] = (io_user_reference_t)statusBlock[i];
                         else
                             args[3+i] = 0;
                     }
-                    args[11] = (void*)type;
-                    sendAsyncResult( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
+                    args[11] = (io_user_reference_t)type;
+                    sendAsyncResult64( fMessageCallbackAsyncRef, kIOReturnSuccess, args, 12 );
                 }
 
                 status = kIOReturnSuccess;
@@ -711,16 +613,16 @@ IOReturn IOFireWireSBP2UserClient::message( UInt32 type, IOService * provider, v
 //
 
 IOReturn IOFireWireSBP2UserClient::setLoginCallback
-	( OSAsyncReference asyncRef, void * refCon, void * callback, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
-    FWKLOG(( "IOFireWireSBP2UserClient : setLoginCallback\n" ));
-    
-    IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-    bcopy( asyncRef, fLoginCallbackAsyncRef, sizeof(OSAsyncReference) );
-
-    return kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
+	
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fLoginCallbackAsyncRef, sizeof(OSAsyncReference64) );
+	}
+	
+    return status;
 }
 
 void IOFireWireSBP2UserClient::staticLoginCallback( void * refCon, FWSBP2LoginCompleteParamsPtr params )
@@ -737,7 +639,7 @@ void IOFireWireSBP2UserClient::loginCallback( FWSBP2LoginCompleteParamsPtr param
 
     FWKLOG(( "IOFireWireSBP2UserClient : loginCompletion\n" ));
 
-#if 0
+#if 1
     FWKLOG(( "IOFireWireSBP2UserClient : login 0x%08lx\n", (UInt32)params->login ));
     FWKLOG(( "IOFireWireSBP2UserClient : generation %ld\n", params->generation ));
     FWKLOG(( "IOFireWireSBP2UserClient : status 0x%08x\n", params->status ));
@@ -765,38 +667,38 @@ void IOFireWireSBP2UserClient::loginCallback( FWSBP2LoginCompleteParamsPtr param
     }
 #endif
     
-    if( fLoginCallbackAsyncRef[0] != 0 )
+//    if( fLoginCallbackAsyncRef[0] != 0 )
     {
-        void * args[16];
+        UInt64 args[16];
         UInt32 i;
         
         // fill out return parameters
-        args[0] = (void*)params->generation;
-        args[1] = (void*)params->status;
+        args[0] = (UInt64)params->generation;
+        args[1] = (UInt64)params->status;
 
         // load up loginResponse
         UInt32 * loginResponse = (UInt32 *)params->loginResponse;
         for( i = 0; i < sizeof(FWSBP2LoginResponse) / sizeof(UInt32); i++ )
         {
             if( loginResponse )
-                args[2+i] = (void*)loginResponse[i];
+                args[2+i] = (UInt64)loginResponse[i];
             else
                 args[2+i] = 0;
         }
 
-        args[6] = (void*)(entries * sizeof(UInt32));
+        args[6] = (UInt64)(entries * sizeof(UInt32));
         
         // load up status block
         UInt32 * statusBlock = (UInt32 *)params->statusBlock;
         for( i = 0; i < 8; i++ )
         {
             if( statusBlock && i < entries )
-                args[7+i] = (void*)statusBlock[i];
+                args[7+i] = (UInt64)statusBlock[i];
             else
                 args[7+i] = 0;
         }
 
-        sendAsyncResult( fLoginCallbackAsyncRef, kIOReturnSuccess, args, 15 );
+        sendAsyncResult64( fLoginCallbackAsyncRef, kIOReturnSuccess, args, 15 );
     }
 
 }
@@ -806,16 +708,16 @@ void IOFireWireSBP2UserClient::loginCallback( FWSBP2LoginCompleteParamsPtr param
 //
 
 IOReturn IOFireWireSBP2UserClient::setLogoutCallback
-	( OSAsyncReference asyncRef, void * refCon, void * callback, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
-    FWKLOG(( "IOFireWireSBP2UserClient : setLogoutCallback\n" ));
-
-    IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-    bcopy( asyncRef, fLogoutCallbackAsyncRef, sizeof(OSAsyncReference) );
-
-    return kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
+	
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fLogoutCallbackAsyncRef, sizeof(OSAsyncReference64) );
+	}
+	
+    return status;
 }
 
 void IOFireWireSBP2UserClient::staticLogoutCallback( void * refCon, FWSBP2LogoutCompleteParamsPtr params )
@@ -849,25 +751,25 @@ void IOFireWireSBP2UserClient::logoutCallback( FWSBP2LogoutCompleteParamsPtr par
     
     if( fLogoutCallbackAsyncRef[0] != 0 )
     {
-        void * args[16];
+        UInt64 args[16];
         UInt32 i;
 
         // fill out return parameters
-        args[0] = (void*)params->generation;
-        args[1] = (void*)params->status;
-        args[2] = (void*)(entries * sizeof(UInt32));
+        args[0] = (UInt64)params->generation;
+        args[1] = (UInt64)params->status;
+        args[2] = (UInt64)(entries * sizeof(UInt32));
 
         // load up status block
         UInt32 * statusBlock = (UInt32 *)params->statusBlock;
         for( i = 0; i < entries; i++ )
         {
             if( statusBlock )
-                args[3+i] = (void*)statusBlock[i];
+                args[3+i] = (UInt64)statusBlock[i];
             else
                 args[3+i] = 0;
         }
 
-        sendAsyncResult( fLogoutCallbackAsyncRef, kIOReturnSuccess, args, 11 );
+        sendAsyncResult64( fLogoutCallbackAsyncRef, kIOReturnSuccess, args, 11 );
     }
 
 }
@@ -877,16 +779,18 @@ void IOFireWireSBP2UserClient::logoutCallback( FWSBP2LogoutCompleteParamsPtr par
 //
 
 IOReturn IOFireWireSBP2UserClient::setUnsolicitedStatusNotify
-	( OSAsyncReference asyncRef, void * refCon, void * callback, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
+	
     FWKLOG(( "IOFireWireSBP2UserClient : setUnsolicitedStatusNotify\n" ));
-
-    IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-    bcopy( asyncRef, fUnsolicitedStatusNotifyAsyncRef, sizeof(OSAsyncReference) );
-
-    return kIOReturnSuccess;
+	
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fUnsolicitedStatusNotifyAsyncRef, sizeof(OSAsyncReference64) );
+	}
+	
+    return status;
 }
 
 void IOFireWireSBP2UserClient::staticUnsolicitedNotify( void * refCon, FWSBP2NotifyParams * params )
@@ -910,25 +814,25 @@ void IOFireWireSBP2UserClient::unsolicitedNotify( FWSBP2NotifyParams * params )
 
     if( fUnsolicitedStatusNotifyAsyncRef[0] != 0 )
     {
-        void * args[16];
+        UInt64 args[16];
         UInt32 i;
 
         // fill out return parameters
-        args[0] = (void*)params->notificationEvent;
-        args[1] = (void*)params->generation;
-        args[2] = (void*)(entries * sizeof(UInt32));
+        args[0] = (UInt64)params->notificationEvent;
+        args[1] = (UInt64)params->generation;
+        args[2] = (UInt64)(entries * sizeof(UInt32));
 
         // load up status block
         UInt32 * statusBlock = (UInt32 *)params->message;
         for( i = 0; i < 8; i++ )
         {
             if( statusBlock && i < entries )
-                args[3+i] = (void*)statusBlock[i];
+                args[3+i] = (UInt32)statusBlock[i];
             else
                 args[3+i] = 0;
         }
 
-        sendAsyncResult( fUnsolicitedStatusNotifyAsyncRef, kIOReturnSuccess, args, 11 );
+        sendAsyncResult64( fUnsolicitedStatusNotifyAsyncRef, kIOReturnSuccess, args, 11 );
     }
 }
 
@@ -937,16 +841,18 @@ void IOFireWireSBP2UserClient::unsolicitedNotify( FWSBP2NotifyParams * params )
 //
 
 IOReturn IOFireWireSBP2UserClient::setStatusNotify
-	( OSAsyncReference asyncRef, void * refCon, void * callback, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
+	
     FWKLOG(( "IOFireWireSBP2UserClient : setStatusNotify\n" ));
 
-    IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-    bcopy( asyncRef, fStatusNotifyAsyncRef, sizeof(OSAsyncReference) );
-
-    return kIOReturnSuccess;
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fStatusNotifyAsyncRef, sizeof(OSAsyncReference64) );
+	}
+	
+    return status;
 }
 
 void IOFireWireSBP2UserClient::staticStatusNotify( void * refCon, FWSBP2NotifyParams * params )
@@ -972,26 +878,26 @@ void IOFireWireSBP2UserClient::statusNotify( FWSBP2NotifyParams * params )
 
     if( fStatusNotifyAsyncRef[0] != 0 )
     {
-        void * args[16];
+        UInt64 args[16];
         UInt32 i;
 
         // fill out return parameters
-        args[0] = (void*)params->notificationEvent;
-        args[1] = (void*)params->generation;
-        args[2] = (void*)(entries * sizeof(UInt32));
-		args[3] = (void*)((IOFireWireSBP2ORB*)(params->commandObject))->getRefCon();
+        args[0] = (UInt64)params->notificationEvent;
+        args[1] = (UInt64)params->generation;
+        args[2] = (UInt64)(entries * sizeof(UInt32));
+		args[3] = ((IOFireWireSBP2ORB*)(params->commandObject))->getRefCon64();
 		
         // load up status block
         UInt32 * statusBlock = (UInt32 *)params->message;
         for( i = 0; i < 8; i++ )
         {
             if( statusBlock && i < entries )
-                args[4+i] = (void*)statusBlock[i];
+                args[4+i] = (UInt32)statusBlock[i];
             else
                 args[4+i] = 0;
         }
 
-        sendAsyncResult( fStatusNotifyAsyncRef, kIOReturnSuccess, args, 12 );
+        sendAsyncResult64( fStatusNotifyAsyncRef, kIOReturnSuccess, args, 12 );
     }
 }
 
@@ -1000,13 +906,18 @@ void IOFireWireSBP2UserClient::statusNotify( FWSBP2NotifyParams * params )
 //
 
 IOReturn IOFireWireSBP2UserClient::createLogin
-	( IOFireWireSBP2Login ** outLoginRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
     IOReturn status = kIOReturnSuccess;
 
-    if( fLogin )
-        status = kIOReturnError;
-
+    status = checkArguments( arguments, 0, 0, 1, 0 );
+    
+    if( status == kIOReturnSuccess )
+    {
+		if( fLogin )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         fLogin = fProviderLUN->createLogin();
@@ -1016,7 +927,7 @@ IOReturn IOFireWireSBP2UserClient::createLogin
 
     if( status == kIOReturnSuccess )
     {
-        *outLoginRef = fLogin;
+		arguments->scalarOutput[0] = (uint64_t)fLogin;
     }
     
     if( status == kIOReturnSuccess )
@@ -1048,45 +959,62 @@ IOReturn IOFireWireSBP2UserClient::createLogin
 }
 
 IOReturn IOFireWireSBP2UserClient::releaseLogin
-	( IOFireWireSBP2Login* loginRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( login && fLogin == login )
-    {
-        fLogin->release();
-        fLogin = NULL;
-    }
-    return kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
+
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( login && fLogin == login )
+		{
+			fLogin->release();
+			fLogin = NULL;
+		}
+	}
+	
+    return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::submitLogin
-	( IOFireWireSBP2Login * loginRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
     IOReturn status = kIOReturnSuccess;
 
-    FWKLOG(( "IOFireWireSBP2UserClient : submitLogin\n" ));
+	FWKLOG(( "IOFireWireSBP2UserClient : submitLogin\n" ));
+	
+	status = checkArguments( arguments, 1, 0, 0, 0 );
 
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
+	IOFireWireSBP2Login * login = NULL;
+    if( status == kIOReturnSuccess )
+    {
+    	login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+    	if( !login || fLogin != login )
+        	status = kIOReturnError;
+    }
     
     if( status == kIOReturnSuccess )
-        status = login->submitLogin();
-
+    {
+    	status = login->submitLogin();
+	}
+	
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::submitLogout
-	( IOFireWireSBP2Login * loginRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : submitLogout\n" ));
 
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-      status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
         status = fLogin->submitLogout();
 
@@ -1094,19 +1022,22 @@ IOReturn IOFireWireSBP2UserClient::submitLogout
 }
 
 IOReturn IOFireWireSBP2UserClient::setLoginFlags
-	( IOFireWireSBP2Login * loginRef, UInt32 loginFlags, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
-    FWKLOG(( "IOFireWireSBP2UserClient : setLoginFlags : 0x%08lx\n", loginFlags ));
-
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		FWKLOG(( "IOFireWireSBP2UserClient : setLoginFlags : 0x%08lx\n", (UInt32)arguments->scalarInput[1] ));
+		
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        UInt32 flags = loginFlags;
+        UInt32 flags = (UInt32)arguments->scalarInput[1];
         fLogin->setLoginFlags( flags );
     }
 
@@ -1114,76 +1045,88 @@ IOReturn IOFireWireSBP2UserClient::setLoginFlags
 }
 
 IOReturn IOFireWireSBP2UserClient::getMaxCommandBlockSize
-	( IOFireWireSBP2Login * loginRef, UInt32 * blockSize, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 1, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : getMaxCommandBlockSize\n" ));
 
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        *blockSize = fLogin->getMaxCommandBlockSize();        
+        arguments->scalarOutput[0] = fLogin->getMaxCommandBlockSize();        
     }
 
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::getLoginID
-	( IOFireWireSBP2Login * loginRef, UInt32 * loginID, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 1, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : getLoginID\n" ));
 
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        *loginID = fLogin->getLoginID();
+		arguments->scalarOutput[0] = fLogin->getLoginID();
     }
 
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::setReconnectTime
-	( IOFireWireSBP2Login * loginRef, UInt32 time, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
-    FWKLOG(( "IOFireWireSBP2UserClient : setReconnectTime = %d\n", time ));
-
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		FWKLOG(( "IOFireWireSBP2UserClient : setReconnectTime = %d\n", (UInt32)arguments->scalarInput[1] ));
+		
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        fLogin->setReconnectTime( time );
+        fLogin->setReconnectTime( (UInt32)arguments->scalarInput[1] );
     }
     
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::setMaxPayloadSize
-	( IOFireWireSBP2Login * loginRef, UInt32 size, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
-    FWKLOG(( "IOFireWireSBP2UserClient : setMaxPayloadSize = %d\n", size ));
-
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		FWKLOG(( "IOFireWireSBP2UserClient : setMaxPayloadSize = %d\n", (UInt32)arguments->scalarInput[1] ));
+	
+		IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        fLogin->setMaxPayloadSize( size );
+        fLogin->setMaxPayloadSize( (UInt32)arguments->scalarInput[1] );
     }
 
     return status;
@@ -1193,22 +1136,23 @@ IOReturn IOFireWireSBP2UserClient::setMaxPayloadSize
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::submitFetchAgentReset( OSAsyncReference asyncRef, IOFireWireSBP2Login * loginRef,  void * refCon, void * callback, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::submitFetchAgentReset(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 	
-	mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
     FWKLOG(( "IOFireWireSBP2UserClient : submitFetchAgentReset\n" ));
-		
-	IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	
+	IOFireWireSBP2Login * login = NULL;
 	if( status == kIOReturnSuccess )
 	{
-		IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-		bcopy( asyncRef, fFetchAgentResetAsyncRef, sizeof(OSAsyncReference) );
+		login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		bcopy( arguments->asyncReference, fFetchAgentResetAsyncRef, sizeof(OSAsyncReference64) );
 	}
 
 	if( status == kIOReturnSuccess )
@@ -1230,9 +1174,9 @@ void IOFireWireSBP2UserClient::fetchAgentResetComplete( IOReturn status )
 {
 	if( fFetchAgentResetAsyncRef[0] != 0 )
     {
-        void * args[1];
-		args[0] = (void*)status;
-        sendAsyncResult( fFetchAgentResetAsyncRef, kIOReturnSuccess, args, 1 );
+        UInt64 args[1];
+		args[0] = (UInt64)status;
+        sendAsyncResult64( fFetchAgentResetAsyncRef, kIOReturnSuccess, args, 1 );
     }
 
 }
@@ -1241,16 +1185,20 @@ void IOFireWireSBP2UserClient::fetchAgentResetComplete( IOReturn status )
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::ringDoorbell( IOFireWireSBP2Login * loginRef, void *, void *,  void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::ringDoorbell(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 	
     FWKLOG(( "IOFireWireSBP2UserClient : ringDoorbell\n" ));
-		
-	IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
-
+	
+	IOFireWireSBP2Login * login = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
 	if( status == kIOReturnSuccess )
 	{
 		login->ringDoorbell();
@@ -1264,16 +1212,20 @@ IOReturn IOFireWireSBP2UserClient::ringDoorbell( IOFireWireSBP2Login * loginRef,
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::enableUnsolicitedStatus( IOFireWireSBP2Login * loginRef, void *, void *,  void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::enableUnsolicitedStatus(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
-	
-    FWKLOG(( "IOFireWireSBP2UserClient : enableUnsolicitedStatus\n" ));
-		
-	IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
+    FWKLOG(( "IOFireWireSBP2UserClient : enableUnsolicitedStatus\n" ));
+
+	IOFireWireSBP2Login * login = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
 	if( status == kIOReturnSuccess )
 	{
 		login->enableUnsolicitedStatus();
@@ -1287,19 +1239,23 @@ IOReturn IOFireWireSBP2UserClient::enableUnsolicitedStatus( IOFireWireSBP2Login 
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::setBusyTimeoutRegisterValue( IOFireWireSBP2Login * loginRef, UInt32 timeout, void *,  void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::setBusyTimeoutRegisterValue(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
-	
-    FWKLOG(( "IOFireWireSBP2UserClient : setBusyTimeoutRegisterValue\n" ));
-		
-	IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login || fLogin != login )
-        status = kIOReturnError;
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
+    FWKLOG(( "IOFireWireSBP2UserClient : setBusyTimeoutRegisterValue\n" ));
+	
+	IOFireWireSBP2Login * login = NULL;
 	if( status == kIOReturnSuccess )
 	{
-		login->setBusyTimeoutRegisterValue( timeout );
+		login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login || fLogin != login )
+			status = kIOReturnError;
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		login->setBusyTimeoutRegisterValue( (UInt32)arguments->scalarInput[1] );
 	}
 
     return status;
@@ -1309,19 +1265,16 @@ IOReturn IOFireWireSBP2UserClient::setBusyTimeoutRegisterValue( IOFireWireSBP2Lo
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::setFetchAgentWriteCompletion( OSAsyncReference asyncRef,  void * refCon, void * callback, void *, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::setFetchAgentWriteCompletion(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 0, 0, 0, 0 );
 	
-	mach_port_t wakePort = (mach_port_t) asyncRef[0];
-
-    FWKLOG(( "IOFireWireSBP2UserClient : setFetchAgentWriteCompletion\n" ));
-		
 	if( status == kIOReturnSuccess )
 	{
-		IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
-		bcopy( asyncRef, fFetchAgentWriteAsyncRef, sizeof(OSAsyncReference) );
+		bcopy( arguments->asyncReference, fFetchAgentWriteAsyncRef, sizeof(OSAsyncReference64) );
 	}
+	
+    FWKLOG(( "IOFireWireSBP2UserClient : setFetchAgentWriteCompletion\n" ));
 
     return status;
 
@@ -1336,10 +1289,10 @@ void IOFireWireSBP2UserClient::fetchAgentWriteComplete( IOReturn status, IOFireW
 {
 	if( fFetchAgentWriteAsyncRef[0] != 0 )
     {
-        void * args[2];
-		args[0] = (void*)status;
-		args[1] = (void*)orb;
-        sendAsyncResult( fFetchAgentWriteAsyncRef, kIOReturnSuccess, args, 2 );
+        uint64_t args[2];
+		args[0] = (uint64_t)status;
+		args[1] = (uint64_t)orb;
+        sendAsyncResult64( fFetchAgentWriteAsyncRef, kIOReturnSuccess, args, 2 );
     }
 
 }
@@ -1348,22 +1301,36 @@ void IOFireWireSBP2UserClient::fetchAgentWriteComplete( IOReturn status, IOFireW
 //
 //
 
-IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, vm_address_t buffer, 
-												IOByteCount length, void *, void *, void * )
+IOReturn IOFireWireSBP2UserClient::setPassword(  IOExternalMethodArguments * arguments )
 {
-    IOReturn 				status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 3, 0, 0, 0 );
+
     IOMemoryDescriptor *	memory = NULL;
 
     FWKLOG(( "IOFireWireSBP2UserClient : setPassword\n" ));
 
-    IOFireWireSBP2Login * login = OSDynamicCast( IOFireWireSBP2Login, loginRef );
-    if( !login )
-      status = kIOReturnError;
-
-    if( status == kIOReturnSuccess )
+	IOFireWireSBP2Login * login = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		login = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[0] );
+		if( !login )
+		  status = kIOReturnError;
+	}
+	
+	mach_vm_address_t buffer = 0;
+	mach_vm_size_t length = 0;
+	
+	if( status == kIOReturnSuccess )
+	{
+		buffer = arguments->scalarInput[1];
+		length = arguments->scalarInput[2];
+	}
+	
+	if( status == kIOReturnSuccess )
     {
-        memory = IOMemoryDescriptor::withAddress( buffer, length,
-												  kIODirectionOutIn,  fTask );
+		memory = IOMemoryDescriptor::withAddressRange(	buffer, 
+														length,
+														kIODirectionOutIn, fTask );
         if( !memory )
             status = kIOReturnNoMemory;
     }
@@ -1387,14 +1354,17 @@ IOReturn IOFireWireSBP2UserClient::setPassword( IOFireWireSBP2Login * loginRef, 
 //
 
 IOReturn IOFireWireSBP2UserClient::createORB
-	( IOFireWireSBP2ORB ** outORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
-    IOFireWireSBP2ORB * orb = NULL;
+	IOReturn status = checkArguments( arguments, 0, 0, 1, 0 );
+	IOFireWireSBP2ORB * orb = NULL;
     
-    if( !fLogin )
-        status = kIOReturnError;
-
+    if( status == kIOReturnSuccess )
+    {
+		if( !fLogin )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         orb = fLogin->createORB();
@@ -1404,21 +1374,26 @@ IOReturn IOFireWireSBP2UserClient::createORB
 
     if( status == kIOReturnSuccess )
     {
-        *outORBRef = orb;
+        arguments->scalarOutput[0] = (uint64_t)orb;
     }
 
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::releaseORB
-	( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    FWKLOG(( "IOFireWireSBP2UserClient : releaseORB\n" ));
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
+	
+	FWKLOG(( "IOFireWireSBP2UserClient : releaseORB\n" ));
     
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( orb )
-        orb->release();
-    
+    if( status == kIOReturnSuccess )
+    {
+		IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( orb )
+			orb->release();
+	}
+	
     return kIOReturnSuccess;
 }
 
@@ -1427,16 +1402,20 @@ IOReturn IOFireWireSBP2UserClient::releaseORB
 //
 
 IOReturn IOFireWireSBP2UserClient::submitORB
-	( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : submitORB\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
          status = fLogin->submitORB(orb);
@@ -1450,19 +1429,23 @@ IOReturn IOFireWireSBP2UserClient::submitORB
 //
 
 IOReturn IOFireWireSBP2UserClient::setCommandFlags
-	( IOFireWireSBP2ORB * ORBRef, UInt32 flags, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setCommandFlags\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-         orb->setCommandFlags( flags );
+         orb->setCommandFlags( (UInt32)arguments->scalarInput[1] );
     }
 
     return status;
@@ -1473,19 +1456,23 @@ IOReturn IOFireWireSBP2UserClient::setCommandFlags
 //
 
 IOReturn IOFireWireSBP2UserClient::setMaxORBPayloadSize
-	( IOFireWireSBP2ORB * ORBRef, UInt32 maxPayloadSize, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
-
+	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
+	
     FWKLOG(( "IOFireWireSBP2UserClient : setMaxPayloadSize\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        orb->setMaxPayloadSize( maxPayloadSize );
+        orb->setMaxPayloadSize( (UInt32)arguments->scalarInput[1] );
     }
 
     return status;
@@ -1496,19 +1483,23 @@ IOReturn IOFireWireSBP2UserClient::setMaxORBPayloadSize
 //
 
 IOReturn IOFireWireSBP2UserClient::setORBRefCon
-	( IOFireWireSBP2ORB * ORBRef, UInt32 refCon, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setORBRefCon\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        orb->setRefCon( (void*)refCon );
+        orb->setRefCon64( arguments->scalarInput[1] );
     }
 
     return status;
@@ -1519,19 +1510,23 @@ IOReturn IOFireWireSBP2UserClient::setORBRefCon
 //
 
 IOReturn IOFireWireSBP2UserClient::setCommandTimeout
-	( IOFireWireSBP2ORB * ORBRef, UInt32 timeout, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setCommandTimeout\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        orb->setCommandTimeout( timeout );
+        orb->setCommandTimeout( (UInt32)arguments->scalarInput[1] );
     }
 
     return status;
@@ -1542,19 +1537,23 @@ IOReturn IOFireWireSBP2UserClient::setCommandTimeout
 //
 
 IOReturn IOFireWireSBP2UserClient::setCommandGeneration
-	(IOFireWireSBP2ORB * ORBRef, UInt32 gen, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setCommandGeneration\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        orb->setCommandGeneration( gen );
+        orb->setCommandGeneration( (UInt32)arguments->scalarInput[1] );
     }
 
     return status;
@@ -1565,19 +1564,24 @@ IOReturn IOFireWireSBP2UserClient::setCommandGeneration
 //
 
 IOReturn IOFireWireSBP2UserClient::setToDummy
-	( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setToDummy\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-      //  orb->setToDummy();
+		//zzz why is this turned off?
+		
+		// orb->setToDummy();
     }
 
     return status;
@@ -1588,29 +1592,47 @@ IOReturn IOFireWireSBP2UserClient::setToDummy
 //
 
 IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
-	( IOFireWireSBP2ORB* ORBRef, vm_address_t ranges, IOByteCount withCount, 
-		IODirection withDirection, IOByteCount offset, IOByteCount length )
+		(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 6, 0, 0, 0 );
 	
  	IOMemoryDescriptor * 	rangeDesc = NULL;
 	IOFireWireSBP2ORB * 	orb = NULL;
-	IOVirtualRange * 		rangeBytes = NULL;
+	IOAddressRange * 		rangeBytes = NULL;
 	
     FWKLOG(( "IOFireWireSBP2UserClient : setCommandBuffersAsRanges\n" ));
 
 	if( status == kIOReturnSuccess )
 	{
-		orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
 		if( !orb )
 			status = kIOReturnError;
 	}
 	
+	mach_vm_address_t ranges = 0;
+	uint64_t withCount = 0;
+	uint64_t offset = 0;
+	uint64_t length = 0;
+	vm_size_t rangeSize = 0;
+	
 	if( status == kIOReturnSuccess )
 	{
-		rangeDesc = IOMemoryDescriptor::withAddress( ranges, 
-													(sizeof(IOVirtualRange) * withCount),
-													 kIODirectionOut, fTask );
+		ranges = arguments->scalarInput[1];
+		withCount = arguments->scalarInput[2];
+	//	IODirection withDirection = (IODirection)arguments->scalarInput[3];
+		offset = arguments->scalarInput[4];
+		length = arguments->scalarInput[5];
+		rangeSize = sizeof(IOAddressRange) * withCount;
+
+	//	IOLog( "IOFWSBPUC::setBuf - withCount = %lld length = %lld\n", withCount, length );
+
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+		rangeDesc = IOMemoryDescriptor::withAddressRange(	ranges, 
+															rangeSize,
+															kIODirectionOut, fTask );
 		if( !rangeDesc )
             status = kIOReturnNoMemory;
 	}
@@ -1622,29 +1644,39 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 	
 	if( status == kIOReturnSuccess )
 	{
-		rangeBytes = (IOVirtualRange*)IOMalloc( sizeof(IOVirtualRange) * withCount );
+		rangeBytes = (IOAddressRange*)IOMalloc( rangeSize );
 		if( rangeBytes == NULL )
 			status = kIOReturnNoMemory;
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		rangeDesc->readBytes( 0, rangeBytes, sizeof(IOVirtualRange) * withCount );
+		rangeDesc->readBytes( 0, rangeBytes, rangeSize );
+	}
+	
+	if( status == kIOReturnSuccess )
+	{
+	#if 0
+		for( UInt32 i = 0; i < withCount; i++ )
+		{
+			IOLog( "IOFWSBPUC::setBuf - %d : addr = 0x%016llx len =  0x%016llx\n", i, rangeBytes[i].address, rangeBytes[i].length );
+		}
+	#endif
 	}
 	
     if( status == kIOReturnSuccess )
     {
-		status = orb->setCommandBuffersAsRanges(rangeBytes,
-                                                withCount,
-												kIODirectionOutIn,
-												fTask,
-												offset,
-												length );
+		status = orb->setCommandBuffersAsRanges64(	rangeBytes,
+													withCount,
+													kIODirectionOutIn,
+													fTask,
+													offset,
+													length );
     }
 
 	if( rangeBytes )
 	{
-		IOFree( rangeBytes, sizeof(IOVirtualRange) * withCount );
+		IOFree( rangeBytes, rangeSize );
 	}
 	    
 	if( rangeDesc )
@@ -1661,16 +1693,20 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 //
 
 IOReturn IOFireWireSBP2UserClient::releaseCommandBuffers
-	( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : releaseCommandBuffers\n" ));
 
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         status = orb->releaseCommandBuffers();
@@ -1684,21 +1720,29 @@ IOReturn IOFireWireSBP2UserClient::releaseCommandBuffers
 //
 
 IOReturn IOFireWireSBP2UserClient::setCommandBlock
-	( IOFireWireSBP2ORB * ORBRef, vm_address_t buffer, IOByteCount length, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn 				status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 3, 0, 0, 0 );
+
     IOMemoryDescriptor *	memory = NULL;
+	
+	IOFireWireSBP2ORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		FWKLOG(( "IOFireWireSBP2UserClient : setCommandBlock - ORBRef = 0x%08lx buffer = 0x%08lx length = %d\n", (UInt32)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2] ));
 
-    FWKLOG(( "IOFireWireSBP2UserClient : setCommandBlock\n" ));
-
-    IOFireWireSBP2ORB * orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-        memory = IOMemoryDescriptor::withAddress( buffer, length,
-													kIODirectionOutIn,  fTask );
+		mach_vm_address_t buffer = arguments->scalarInput[1];
+		mach_vm_size_t length = arguments->scalarInput[2];
+		memory = IOMemoryDescriptor::withAddressRange(	buffer, 
+														length,
+														kIODirectionOut, fTask );
         if( !memory )
             status = kIOReturnNoMemory;
     }
@@ -1721,189 +1765,77 @@ IOReturn IOFireWireSBP2UserClient::setCommandBlock
 	
     return status;
 }
+// setCommandBuffersAsRanges
+//
+//
 
 IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSetCommandBuffersAsRanges
-				( IOFireWireSBP2ORB* ORBRef, vm_address_t ranges, IOByteCount withCount, 
-						IODirection withDirection, IOByteCount offset, IOByteCount length )
+	(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
-    
-	IOFireWireSBP2ORB * orb = NULL;
+	IOReturn status = checkArguments( arguments, 6, 0, 0, 0 );
 	
-	IOMemoryDescriptor * 	rangeDesc = NULL;
-	IOVirtualRange * 		rangeBytes = NULL;
-	IOMemoryDescriptor *	memoryDesc = NULL;
-    IOFireWireSBP2LSIWorkaroundDescriptor *	workaroundDesc = NULL;
+	IOFireWireSBP2ORB * 	orb = NULL;
 	
-    FWKLOG(( "IOFireWireSBP2UserClient : setCommandBuffersAsRangesWithLSIWorkaround\n" ));
+    FWKLOG(( "IOFireWireSBP2UserClient : LSIWorkaroundSetCommandBuffersAsRanges\n" ));
 
 	if( status == kIOReturnSuccess )
 	{
-		orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
+		orb = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[0] );
 		if( !orb )
 			status = kIOReturnError;
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		rangeDesc = IOMemoryDescriptor::withAddress( ranges, sizeof(IOVirtualRange) * withCount,
-													 kIODirectionOut, fTask );
-		if( !rangeDesc )
-            status = kIOReturnNoMemory;
+		orb->setBufferConstraints( kFWSBP2MaxPageClusterSize, PAGE_SIZE, kFWSBP2ConstraintForceDoubleBuffer );
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		status = rangeDesc->prepare();
-	}
-
-	if( status == kIOReturnSuccess )
-	{
-		rangeBytes = (IOVirtualRange*)IOMalloc( sizeof(IOVirtualRange) * withCount );
-		if( rangeBytes == NULL )
-			status = kIOReturnNoMemory;
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		rangeDesc->readBytes( 0, rangeBytes, sizeof(IOVirtualRange) * withCount );
-	}
-	
-    if( status == kIOReturnSuccess )
-    {
-		memoryDesc = IOMemoryDescriptor::withRanges( rangeBytes, withCount,
-														kIODirectionOutIn, fTask );
-        if( !memoryDesc )
-            status = kIOReturnNoMemory;
-    }
-
-	if( rangeBytes )
-	{
-		IOFree( rangeBytes, sizeof(IOVirtualRange) * withCount );
-	}
-	    
-	if( rangeDesc )
-	{
-		rangeDesc->complete();
-		rangeDesc->release();
-	}
-	
-    if( status == kIOReturnSuccess )
-    {
-        status = memoryDesc->prepare();
-    }
-
-    if( status == kIOReturnSuccess )
-    {
-		workaroundDesc = IOFireWireSBP2LSIWorkaroundDescriptor::withDescriptor
-													( memoryDesc, offset, length, kIODirectionOutIn ); 	   
-		if( !workaroundDesc )
-			status = kIOReturnError;
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		status = workaroundDesc->prepare();
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-	    status = orb->setCommandBuffers( workaroundDesc, 0, 0 );
-    }
-
-	if( workaroundDesc )
-	{
-		workaroundDesc->release();
-		workaroundDesc = NULL;
-	}
-	
-	if( memoryDesc )
-	{
-		memoryDesc->release();
-		memoryDesc = NULL;
+		status = setCommandBuffersAsRanges( arguments );
 	}
 	
     return status;
-
 }
 
-IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSyncBuffersForOutput
-						( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
-{
-	IOReturn status = kIOReturnSuccess;
-    
-	IOFireWireSBP2ORB * orb = NULL;
-	IOFireWireSBP2LSIWorkaroundDescriptor *	workaroundDesc = NULL;
-	
-    FWKLOG(( "IOFireWireSBP2UserClient : LSIWorkaroundSyncBuffersForOutput\n" ));
 
-	if( status == kIOReturnSuccess )
-	{
-		orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-		if( !orb )
-			status = kIOReturnError;
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		workaroundDesc = OSDynamicCast( IOFireWireSBP2LSIWorkaroundDescriptor,
-										orb->getCommandBufferDescriptor() );
-		if( !workaroundDesc )
-			status = kIOReturnError;
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		workaroundDesc->syncBuffersForOutput();
-	}
+IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSyncBuffersForOutput
+						(  IOExternalMethodArguments * arguments )
+{
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
+
+	// NOP
 	
 	return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::LSIWorkaroundSyncBuffersForInput
-					( IOFireWireSBP2ORB * ORBRef, void *, void *, void *, void *, void * )
+					(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
-    
-	IOFireWireSBP2ORB * orb = NULL;
-	IOFireWireSBP2LSIWorkaroundDescriptor *	workaroundDesc = NULL;
-	
-    FWKLOG(( "IOFireWireSBP2UserClient : LSIWorkaroundSyncBuffersForInput\n" ));
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
-	if( status == kIOReturnSuccess )
-	{
-		orb = OSDynamicCast( IOFireWireSBP2ORB, ORBRef );
-		if( !orb )
-			status = kIOReturnError;
-	}
+
+	// NOP
 	
-	if( status == kIOReturnSuccess )
-	{
-		workaroundDesc = OSDynamicCast( IOFireWireSBP2LSIWorkaroundDescriptor,
-										orb->getCommandBufferDescriptor() );
-		if( !workaroundDesc )
-			status = kIOReturnError;
-	}
-	
-	if( status == kIOReturnSuccess )
-	{
-		workaroundDesc->syncBuffersForInput();
-	}
-	
-	return status;}
+	return status;
+}
 
 /////////////////////////////////////////////////
 // IOFireWireSBP2MgmtORB
 
 IOReturn IOFireWireSBP2UserClient::createMgmtORB
-	( IOFireWireSBP2ManagementORB ** outORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 0, 0, 1, 0 );
+
     IOFireWireSBP2ManagementORB * orb = NULL;
     
-    if( !fProviderLUN )
-        status = kIOReturnError;
-
+    if( status == kIOReturnSuccess )
+    {
+		if( !fProviderLUN )
+			status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
         orb = fProviderLUN->createManagementORB( this, staticMgmtORBCallback );
@@ -1913,32 +1845,31 @@ IOReturn IOFireWireSBP2UserClient::createMgmtORB
 
     if( status == kIOReturnSuccess )
     {
-        *outORBRef = orb;
+        arguments->scalarOutput[0] = (uint64_t)orb;
     }
 
     return status;
 }
 
 IOReturn IOFireWireSBP2UserClient::setMgmtORBCallback
-	( OSAsyncReference asyncRef, IOFireWireSBP2ManagementORB * ORBRef, void * refCon, 
-								void * callback,  void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn 		status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
     IOFireWireSBP2ManagementORB * orb;
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBCallback\n" ));
 
     if( status == kIOReturnSuccess )
     {
-        orb = OSDynamicCast( IOFireWireSBP2ManagementORB, ORBRef );
+        orb = OSDynamicCast( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
         if( !orb )
             status = kIOReturnError;
     }
 
     if( status == kIOReturnSuccess )
     {
-        mach_port_t wakePort = (mach_port_t) asyncRef[0];
-        IOUserClient::setAsyncReference( asyncRef, wakePort, callback, refCon );
+		OSAsyncReference64 asyncRef;
+		bcopy( arguments->asyncReference, asyncRef, sizeof(OSAsyncReference64) );
         setMgmtORBAsyncCallbackReference( orb, asyncRef );
     }
 
@@ -1946,15 +1877,20 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBCallback
 }
 
 IOReturn IOFireWireSBP2UserClient::releaseMgmtORB
-	( IOFireWireSBP2ManagementORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
+	IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
+
     FWKLOG(( "IOFireWireSBP2UserClient : releaseMgmtORB\n" ));
 
-    IOFireWireSBP2ManagementORB * orb = OSDynamicCast( IOFireWireSBP2ManagementORB, ORBRef );
-    if( orb )
-        orb->release();
-    
-    return kIOReturnSuccess;
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2ManagementORB * orb = OSDynamicCast( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
+		if( orb )
+			orb->release();
+	}
+	
+    return status;
 }
 
 // submitORB
@@ -1962,16 +1898,20 @@ IOReturn IOFireWireSBP2UserClient::releaseMgmtORB
 //
 
 IOReturn IOFireWireSBP2UserClient::submitMgmtORB
-	( IOFireWireSBP2ManagementORB * ORBRef, void *, void *, void *, void *, void * )
+	(  IOExternalMethodArguments * arguments )
 {
-    IOReturn status = kIOReturnSuccess;
+    IOReturn status = checkArguments( arguments, 1, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : submitManagementORB\n" ));
 
-    IOFireWireSBP2ManagementORB * orb = OSDynamicCast( IOFireWireSBP2ManagementORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ManagementORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		IOFireWireSBP2ManagementORB * orb = OSDynamicCast( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
          status = orb->submit();
@@ -1985,20 +1925,24 @@ IOReturn IOFireWireSBP2UserClient::submitMgmtORB
 //
 
 IOReturn IOFireWireSBP2UserClient::setMgmtORBCommandFunction
-			( IOFireWireSBP2ManagementORB * ORBRef, UInt32 function, void *, void *, void *, void * )
+			(  IOExternalMethodArguments * arguments )
 {
-   IOReturn status = kIOReturnSuccess;
+  	IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBCommandFunction\n" ));
 
-    IOFireWireSBP2ManagementORB * orb = OSDynamicCast
-					( IOFireWireSBP2ManagementORB, ORBRef );
-    if( !orb )
-      status = kIOReturnError;
-
+	IOFireWireSBP2ManagementORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast
+						( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+		  status = kIOReturnError;
+	}
+	
     if( status == kIOReturnSuccess )
     {
-         status = orb->setCommandFunction( function );
+         status = orb->setCommandFunction( (UInt32)arguments->scalarInput[1] );
     }
     
     return status;
@@ -2009,10 +1953,9 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBCommandFunction
 //
 
 IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeORB
-			( IOFireWireSBP2ManagementORB * ORBRef, IOFireWireSBP2ORB * orb, void *, 
-																void *, void *, void * )
+			(  IOExternalMethodArguments * arguments )
 {
-   IOReturn status = kIOReturnSuccess;
+   IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeORB\n" ));
 	IOFireWireSBP2ManagementORB * mgmtORB;
@@ -2020,14 +1963,14 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeORB
 		
 	if( status == kIOReturnSuccess )
 	{
-		mgmtORB = OSDynamicCast( IOFireWireSBP2ManagementORB, ORBRef );
+		mgmtORB = OSDynamicCast( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
 		if( !mgmtORB )
 			status = kIOReturnError;
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		manageeORB = OSDynamicCast( IOFireWireSBP2ORB, orb );
+		manageeORB = OSDynamicCast( IOFireWireSBP2ORB, (OSObject*)arguments->scalarInput[1] );
 		if( !manageeORB )
 			status = kIOReturnError;
 	}
@@ -2045,10 +1988,10 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeORB
 //
 
 IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeLogin
-			( IOFireWireSBP2ManagementORB * ORBRef, IOFireWireSBP2Login * login, 
-												void *, void *, void *, void * )
+			(  IOExternalMethodArguments * arguments )
 {
-   IOReturn status = kIOReturnSuccess;
+   IOReturn status = checkArguments( arguments, 2, 0, 0, 0 );
+
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeLogin\n" ));
 	IOFireWireSBP2ManagementORB * orb;
@@ -2056,14 +1999,14 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeLogin
 		
 	if( status == kIOReturnSuccess )
 	{
-		orb = OSDynamicCast( IOFireWireSBP2ManagementORB, ORBRef );
+		orb = OSDynamicCast( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
 		if( !orb )
 		status = kIOReturnError;
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
-		manageeLogin = OSDynamicCast( IOFireWireSBP2Login, login );
+		manageeLogin = OSDynamicCast( IOFireWireSBP2Login, (OSObject*)arguments->scalarInput[1] );
 		if( !manageeLogin )
 			status = kIOReturnError;
 	}
@@ -2081,21 +2024,27 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeLogin
 //
 
 IOReturn IOFireWireSBP2UserClient::setMgmtORBResponseBuffer
-			( IOFireWireSBP2ManagementORB * ORBRef, vm_address_t buf, IOByteCount len, 
-															void *, void *, void * )
+			(  IOExternalMethodArguments * arguments )
 {
-	IOReturn status = kIOReturnSuccess;
+	IOReturn status = checkArguments( arguments, 3, 0, 0, 0 );
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBCommandFunction\n" ));
 
-    IOFireWireSBP2ManagementORB * orb = OSDynamicCast
-					( IOFireWireSBP2ManagementORB, ORBRef );
-    if( !orb )
-		status = kIOReturnError;
+	IOFireWireSBP2ManagementORB * orb = NULL;
+	if( status == kIOReturnSuccess )
+	{
+		orb = OSDynamicCast
+						( IOFireWireSBP2ManagementORB, (OSObject*)arguments->scalarInput[0] );
+		if( !orb )
+			status = kIOReturnError;
+	}
+	
+	mach_vm_address_t buffer = arguments->scalarInput[1];
+	mach_vm_size_t length = arguments->scalarInput[2];
 
 	if( status == kIOReturnSuccess )
 	{
-		if( !buf || len == 0 )
+		if( !buffer || length == 0 )
 		{
 			status = orb->setResponseBuffer( NULL );
 			return status;
@@ -2106,8 +2055,9 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBResponseBuffer
 	
 	if( status == kIOReturnSuccess )
     {
-        memory = IOMemoryDescriptor::withAddress
-						( buf, len, kIODirectionOutIn, fTask );
+		memory = IOMemoryDescriptor::withAddressRange(	buffer, 
+														length,
+														kIODirectionOutIn, fTask );
         if( !memory )
             status = kIOReturnNoMemory;
     }
@@ -2140,14 +2090,16 @@ void IOFireWireSBP2UserClient::mgmtORBCallback( IOReturn status, IOFireWireSBP2M
 {
     FWKLOG(( "IOFireWireSBP2UserClient : mgmtORBCallback\n" ));
 
-    OSAsyncReference asyncRef;
+    OSAsyncReference64 asyncRef;
 	
 	orb->setResponseBuffer( NULL );
     getMgmtORBAsyncCallbackReference( orb, asyncRef );
 
     if( asyncRef[0] != 0 )
     {
-        sendAsyncResult( asyncRef, kIOReturnSuccess, (void**)&status, 1 );
+		uint64_t args[1];
+		args[0] = status;
+        sendAsyncResult64( asyncRef, kIOReturnSuccess, args, 1 );
     }
 }
 

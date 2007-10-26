@@ -40,23 +40,23 @@
 #include <DirectoryService/DirectoryService.h>
 #include "dstools_version.h"
 
-#warning VERIFY the version string before each distinct build submission that changes the dsenablerootuser tool
-const char *version = "1.2.2";
+#warning VERIFY the version string before each major OS build submission
+const char *version = "10.5.0";
 	
-signed long EnableRootUser( const char *userName, const char *password, const char *rootPassword );
-signed long EnableRootUser( const char *userName, const char *password, const char *rootPassword )
+SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword );
+SInt32 EnableRootUser( const char *userName, const char *password, const char *rootPassword )
 {
-	signed long				siResult		= eDSAuthFailed;
+	SInt32					siResult		= eDSAuthFailed;
 	tDirReference			aDSRef			= 0;
 	tDataBufferPtr			dataBuff		= nil;
-	unsigned long			nodeCount		= 0;
-	tContextData			context			= nil;
+	UInt32					nodeCount		= 0;
+	tContextData			context			= 0;
 	tDataListPtr			nodeName		= nil;
 	tDirNodeReference		aSearchNodeRef	= 0;
 	tDataListPtr			recName			= nil;
 	tDataListPtr			recType			= nil;
 	tDataListPtr			attrTypes		= nil;
-	unsigned long			recCount		= 1;
+	UInt32					recCount		= 1;
 	tAttributeListRef		attrListRef		= 0;
 	tRecordEntry		   *pRecEntry		= nil;
 	tAttributeValueListRef	valueRef		= 0;
@@ -66,7 +66,7 @@ signed long EnableRootUser( const char *userName, const char *password, const ch
 	tDirNodeReference		nodeRef			= 0;
 	tDataNodePtr			authMethod		= nil;
 	tDataBufferPtr			authBuff		= nil;
-	unsigned long			length			= 0;
+	UInt32					length			= 0;
 	char*					ptr				= nil;
 	tDataNodePtr			recordName		= nil;
 	tDataNodePtr			recordType		= nil;
@@ -115,12 +115,12 @@ signed long EnableRootUser( const char *userName, const char *password, const ch
 																	attrTypes, false, &recCount, &context);
 			if (siResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
+				UInt32 bufSize = dataBuff->fBufferSize;
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
 			}
-		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != nil) ) );
+		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
 		
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -404,20 +404,20 @@ signed long EnableRootUser( const char *userName, const char *password, const ch
 }
 
 
-signed long DisableRootUser( const char *userName, const char *password );
-signed long DisableRootUser( const char *userName, const char *password )
+SInt32 DisableRootUser( const char *userName, const char *password );
+SInt32 DisableRootUser( const char *userName, const char *password )
 {
-	signed long				siResult		= eDSAuthFailed;
+	SInt32					siResult		= eDSAuthFailed;
 	tDirReference			aDSRef			= 0;
 	tDataBufferPtr			dataBuff		= nil;
-	unsigned long			nodeCount		= 0;
-	tContextData			context			= nil;
+	UInt32					nodeCount		= 0;
+	tContextData			context			= 0;
 	tDataListPtr			nodeName		= nil;
 	tDirNodeReference		aSearchNodeRef	= 0;
 	tDataListPtr			recName			= nil;
 	tDataListPtr			recType			= nil;
 	tDataListPtr			attrTypes		= nil;
-	unsigned long			recCount		= 1;
+	UInt32					recCount		= 1;
 	tAttributeListRef		attrListRef		= 0;
 	tRecordEntry		   *pRecEntry		= nil;
 	tAttributeValueListRef	valueRef		= 0;
@@ -427,7 +427,7 @@ signed long DisableRootUser( const char *userName, const char *password )
 	tDirNodeReference		nodeRef			= 0;
 	tDataNodePtr			authMethod		= nil;
 	tDataBufferPtr			authBuff		= nil;
-	unsigned long			length			= 0;
+	UInt32					length			= 0;
 	char*					ptr				= nil;
 	tDataNodePtr			recordName		= nil;
 	tDataNodePtr			recordType		= nil;
@@ -475,12 +475,12 @@ signed long DisableRootUser( const char *userName, const char *password )
 																	attrTypes, false, &recCount, &context);
 			if (siResult == eDSBufferTooSmall)
 			{
-				unsigned long bufSize = dataBuff->fBufferSize;
+				SInt32 bufSize = dataBuff->fBufferSize;
 				dsDataBufferDeAllocate( aDSRef, dataBuff );
 				dataBuff = nil;
 				dataBuff = ::dsDataBufferAllocate( aDSRef, bufSize * 2 );
 			}
-		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != nil) ) );
+		} while ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) );
 		//worry about multiple calls (ie. continue data) since we continue until first match or no more searching
 		
 		if ( (siResult == eDSNoErr) && (recCount > 0) )
@@ -814,7 +814,7 @@ int main(int argc, char *argv[])
 	char		   *pwd				= nil;
 	char		   *rootpwd			= nil;
 	char		   *verifyrootpwd	= nil;
-	signed long		result			= eDSAuthFailed;
+	SInt32			result			= eDSAuthFailed;
 	bool			bEchoName		= false;
 	bool			bDisableRootUser= false;
     

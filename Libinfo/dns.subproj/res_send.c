@@ -584,7 +584,7 @@ res_send(buf, buflen, ans, anssiz)
 			struct timeval timeout;
 			fd_set dsmask;
 			struct sockaddr_in from;
-			int fromlen;
+			unsigned int fromlen;
 
 			if ((s < 0) || vc) {
 				if (vc)

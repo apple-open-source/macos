@@ -2,8 +2,8 @@
 
   signal.c -
 
-  $Author: nobu $
-  $Date: 2004/06/29 01:31:37 $
+  $Author: knu $
+  $Date: 2007-03-11 17:31:53 +0900 (Sun, 11 Mar 2007) $
   created at: Tue Dec 20 10:13:44 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -33,6 +33,7 @@ static struct signals {
     char *signm;
     int  signo;
 } siglist [] = {
+    {"EXIT", 0},
 #ifdef SIGHUP
     {"HUP", SIGHUP},
 #endif
@@ -169,7 +170,7 @@ static struct signals {
 
 static int
 signm2signo(nm)
-    char *nm;
+    const char *nm;
 {
     struct signals *sigs;
 
@@ -196,6 +197,93 @@ ruby_signal_name(no)
     int no;
 {
     return signo2signm(no);
+}
+
+/*
+ * call-seq:
+ *    SignalException.new(sig)   =>  signal_exception
+ *
+ *  Construct a new SignalException object.  +sig+ should be a known
+ *  signal name, or a signal number.
+ */
+
+static VALUE
+esignal_init(argc, argv, self)
+    int argc;
+    VALUE *argv;
+    VALUE self;
+{
+    int argnum = 1;
+    VALUE sig = Qnil;
+    int signo;
+    const char *signm;
+    char tmpnm[(sizeof(int)*CHAR_BIT)/3+4];
+
+    if (argc > 0) {
+	sig = argv[0];
+	if (FIXNUM_P(sig)) argnum = 2;
+    }
+    if (argc < 1 || argnum < argc) {
+	rb_raise(rb_eArgError, "wrong number of arguments (%d for %d)",
+		 argc, argnum);
+    }
+    if (argnum == 2) {
+	signo = FIX2INT(sig);
+	if (signo < 0 || signo > NSIG) {
+	    rb_raise(rb_eArgError, "invalid signal number (%d)", signo);
+	}
+	if (argc > 1) {
+	    sig = argv[1];
+	}
+	else {
+	    signm = signo2signm(signo);
+	    if (signm) {
+		snprintf(tmpnm, sizeof(tmpnm), "SIG%s", signm);
+	    }
+	    else {
+		snprintf(tmpnm, sizeof(tmpnm), "SIG%u", signo);
+	    }
+	    sig = rb_str_new2(signm = tmpnm);
+	}
+    }
+    else {
+	signm = SYMBOL_P(sig) ? rb_id2name(SYM2ID(sig)) : StringValuePtr(sig);
+	if (strncmp(signm, "SIG", 3) == 0) signm += 3;
+	signo = signm2signo(signm);
+	if (!signo) {
+	    rb_raise(rb_eArgError, "unsupported name `SIG%s'", signm);
+	}
+	if (SYMBOL_P(sig)) {
+	    sig = rb_str_new2(signm);
+	}
+    }
+    rb_call_super(1, &sig);
+    rb_iv_set(self, "signo", INT2NUM(signo));
+
+    return self;
+}
+
+static VALUE
+interrupt_init(self, mesg)
+    VALUE self, mesg;
+{
+    VALUE argv[2];
+
+    argv[0] = INT2FIX(SIGINT);
+    argv[1] = mesg;
+    return rb_call_super(2, argv);
+}
+
+void
+ruby_default_signal(sig)
+    int sig;
+{
+#ifndef MACOS_UNUSE_SIGNAL
+    extern rb_pid_t getpid _((void));
+
+    signal(sig, SIG_DFL);
+    kill(getpid(), sig);
+#endif
 }
 
 /*
@@ -303,6 +391,7 @@ static struct {
     int safe;
 } trap_list[NSIG];
 static rb_atomic_t trap_pending_list[NSIG];
+static char rb_trap_accept_nativethreads[NSIG];
 rb_atomic_t rb_trap_pending;
 rb_atomic_t rb_trap_immediate;
 int rb_prohibit_interrupt = 1;
@@ -334,21 +423,15 @@ ruby_signal(signum, handler)
 {
     struct sigaction sigact, old;
 
+    rb_trap_accept_nativethreads[signum] = 0;
+
     sigact.sa_handler = handler;
     sigemptyset(&sigact.sa_mask);
     sigact.sa_flags = 0;
-#if defined(SA_RESTART)
-    /* All other signals but VTALRM shall restart restartable syscall
-       VTALRM will cause EINTR to syscall if interrupted.
-    */
-    if (signum != SIGVTALRM) {
-        sigact.sa_flags |= SA_RESTART; /* SVR4, 4.3+BSD */
-    }
-#endif
-#ifdef SA_NOCLDWAIT
+# ifdef SA_NOCLDWAIT
     if (signum == SIGCHLD && handler == SIG_IGN)
 	sigact.sa_flags |= SA_NOCLDWAIT;
-#endif
+# endif
     sigaction(signum, &sigact, &old);
     return old.sa_handler;
 }
@@ -360,9 +443,46 @@ posix_signal(signum, handler)
 {
     ruby_signal(signum, handler);
 }
-#else
-#define ruby_signal(sig,handler) signal((sig),(handler))
-#endif
+
+# ifdef HAVE_NATIVETHREAD
+static sighandler_t
+ruby_nativethread_signal(signum, handler)
+    int signum;
+    sighandler_t handler;
+{
+    sighandler_t old;
+
+    old = ruby_signal(signum, handler);
+    rb_trap_accept_nativethreads[signum] = 1;
+    return old;
+}
+
+void
+posix_nativethread_signal(signum, handler)
+    int signum;
+    sighandler_t handler;
+{
+    ruby_nativethread_signal(signum, handler);
+}
+# endif
+
+#else /* !POSIX_SIGNAL */
+#define ruby_signal(sig,handler) (rb_trap_accept_nativethreads[sig] = 0, signal((sig),(handler)))
+
+# ifdef HAVE_NATIVETHREAD
+static sighandler_t
+ruby_nativethread_signal(signum, handler)
+    int signum;
+    sighandler_t handler;
+{
+    sighandler_t old;
+
+    old = signal(signum, handler);
+    rb_trap_accept_nativethreads[signum] = 1;
+    return old;
+}
+# endif
+#endif /* POSIX_SIGNAL */
 
 static void signal_exec _((int sig));
 static void
@@ -380,6 +500,9 @@ signal_exec(sig)
 #ifdef SIGQUIT
 	  case SIGQUIT:
 #endif
+#ifdef SIGTERM
+	  case SIGTERM:
+#endif
 #ifdef SIGALRM
 	  case SIGALRM:
 #endif
@@ -389,14 +512,39 @@ signal_exec(sig)
 #ifdef SIGUSR2
 	  case SIGUSR2:
 #endif
-	    rb_thread_signal_raise(signo2signm(sig));
+	    rb_thread_signal_raise(sig);
 	    break;
 	}
+    }
+    else if (trap_list[sig].cmd == Qundef) {
+	rb_thread_signal_exit();
     }
     else {
 	rb_thread_trap_eval(trap_list[sig].cmd, sig, trap_list[sig].safe);
     }
 }
+
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+static void
+sigsend_to_ruby_thread(int sig)
+{
+# ifdef HAVE_SIGPROCMASK
+    sigset_t mask, old_mask;
+# else
+    int mask, old_mask;
+# endif
+
+# ifdef HAVE_SIGPROCMASK
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &old_mask);
+# else
+    mask = sigblock(~0);
+    sigsetmask(mask);
+# endif
+
+    ruby_native_thread_kill(sig);
+}
+#endif
 
 static RETSIGTYPE sighandler _((int));
 static RETSIGTYPE
@@ -413,17 +561,31 @@ sighandler(sig)
 	rb_bug("trap_handler: Bad signal %d", sig);
     }
 
-#if !defined(BSD_SIGNAL) && !defined(POSIX_SIGNAL)
-    ruby_signal(sig, sighandler);
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+    if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
+        sigsend_to_ruby_thread(sig);
+        return;
+    }
 #endif
 
-    if (ATOMIC_TEST(rb_trap_immediate)) {
+#if !defined(BSD_SIGNAL) && !defined(POSIX_SIGNAL)
+    if (rb_trap_accept_nativethreads[sig]) {
+        ruby_nativethread_signal(sig, sighandler);
+    } else {
+        ruby_signal(sig, sighandler);
+    }
+#endif
+
+    if (trap_list[sig].cmd == 0 && ATOMIC_TEST(rb_trap_immediate)) {
 	IN_MAIN_CONTEXT(signal_exec, sig);
 	ATOMIC_SET(rb_trap_immediate, 1);
     }
     else {
 	ATOMIC_INC(rb_trap_pending);
 	ATOMIC_INC(trap_pending_list[sig]);
+#ifdef _WIN32
+	rb_w32_interrupted();
+#endif
     }
 }
 
@@ -433,6 +595,13 @@ static RETSIGTYPE
 sigbus(sig)
     int sig;
 {
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+    if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
+        sigsend_to_ruby_thread(sig);
+        return;
+    }
+#endif
+
     rb_bug("Bus Error");
 }
 #endif
@@ -443,6 +612,13 @@ static RETSIGTYPE
 sigsegv(sig)
     int sig;
 {
+#if defined(HAVE_NATIVETHREAD) && defined(HAVE_NATIVETHREAD_KILL)
+    if (!is_ruby_native_thread() && !rb_trap_accept_nativethreads[sig]) {
+        sigsend_to_ruby_thread(sig);
+        return;
+    }
+#endif
+
     rb_bug("Segmentation fault");
 }
 #endif
@@ -508,7 +684,7 @@ static RETSIGTYPE
 sigexit(sig)
     int sig;
 {
-    rb_exit(0);
+    rb_thread_signal_exit();
 }
 
 static VALUE
@@ -577,12 +753,12 @@ trap(arg)
 	    rb_raise(rb_eArgError, "unsupported signal SIG%s", s);
     }
 
-    if (sig < 0 || sig > NSIG) {
+    if (sig < 0 || sig >= NSIG) {
 	rb_raise(rb_eArgError, "invalid signal number (%d)", sig);
     }
 #if defined(HAVE_SETITIMER)
     if (sig == SIGVTALRM) {
-	rb_raise(rb_eArgError, "SIGVTALRM reserved for Thread; cannot set handler");
+	rb_raise(rb_eArgError, "SIGVTALRM reserved for Thread; can't set handler");
     }
 #endif
     if (func == SIG_DFL) {
@@ -593,6 +769,9 @@ trap(arg)
 #endif
 #ifdef SIGQUIT
 	  case SIGQUIT:
+#endif
+#ifdef SIGTERM
+	  case SIGTERM:
 #endif
 #ifdef SIGALRM
 	  case SIGALRM:
@@ -771,6 +950,35 @@ install_sighandler(signum, handler)
     }
 }
 
+#if 0
+/* 
+ *   If you write a handler which works on any native thread
+ *   (even if the thread is NOT a ruby's one), please enable
+ *   this function and use it to install the handler, instead
+ *   of `install_sighandler()'.
+ */
+#ifdef HAVE_NATIVETHREAD
+static void
+install_nativethread_sighandler(signum, handler)
+    int signum;
+    sighandler_t handler;
+{
+    sighandler_t old;
+    int old_st;
+
+    old_st = rb_trap_accept_nativethreads[signum];
+    old = ruby_nativethread_signal(signum, handler);
+    if (old != SIG_DFL) {
+        if (old_st) {
+            ruby_nativethread_signal(signum, old);
+        } else {
+            ruby_signal(signum, old);
+        }
+    }
+}
+#endif
+#endif
+
 static void
 init_sigchld(sig)
     int sig;
@@ -860,12 +1068,20 @@ Init_signal()
     rb_define_module_function(mSignal, "trap", sig_trap, -1);
     rb_define_module_function(mSignal, "list", sig_list, 0);
 
+    rb_define_method(rb_eSignal, "initialize", esignal_init, -1);
+    rb_attr(rb_eSignal, rb_intern("signo"), 1, 0, 0);
+    rb_alias(rb_eSignal, rb_intern("signm"), rb_intern("message"));
+    rb_define_method(rb_eInterrupt, "initialize", interrupt_init, 1);
+
     install_sighandler(SIGINT, sighandler);
 #ifdef SIGHUP
     install_sighandler(SIGHUP, sighandler);
 #endif
 #ifdef SIGQUIT
     install_sighandler(SIGQUIT, sighandler);
+#endif
+#ifdef SIGTERM
+    install_sighandler(SIGTERM, sighandler);
 #endif
 #ifdef SIGALRM
     install_sighandler(SIGALRM, sighandler);
@@ -887,10 +1103,9 @@ Init_signal()
     install_sighandler(SIGPIPE, sigpipe);
 #endif
 
-#ifdef SIGCLD
+#if defined(SIGCLD)
     init_sigchld(SIGCLD);
-#endif
-#ifdef SIGCHLD
+#elif defined(SIGCHLD)
     init_sigchld(SIGCHLD);
 #endif
 

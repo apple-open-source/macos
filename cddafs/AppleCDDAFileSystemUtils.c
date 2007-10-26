@@ -50,6 +50,7 @@
 #include <sys/proc.h>
 #include <sys/mount.h>
 #include <sys/vnode.h>
+#include <sys/namei.h>
 #include <sys/malloc.h>
 #include <sys/attr.h>
 #include <sys/time.h>
@@ -60,7 +61,6 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Static Function Prototypes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
 
 static int 		BuildTrackName 					( mount_t mountPtr, AppleCDDANodeInfoPtr nodeInfoPtr );
 static UInt32	CalculateNumberOfDescriptors 	( const QTOCDataFormat10Ptr TOCDataPtr );
@@ -109,6 +109,21 @@ CreateNewCDDANode ( mount_t 				mountPtr,
 	vfsp.vnfs_cnp 		= compNamePtr;
 	vfsp.vnfs_vops 		= gCDDA_VNodeOp_p;
 	vfsp.vnfs_rdev 		= 0;
+
+#if DEBUG	
+	if ( compNamePtr != NULL )
+	{
+		
+		DebugLog ( ( "compNamePtr->cn_flags = 0x%08x\n", ( int ) compNamePtr->cn_flags ) );
+		DebugLog ( ( "compNamePtr->cn_nameiop = 0x%08x\n", ( int ) compNamePtr->cn_nameiop ) );
+		DebugLog ( ( "compNamePtr->cn_pnbuf = %s\n", compNamePtr->cn_pnbuf ) );
+		DebugLog ( ( "compNamePtr->cn_nameptr = %s\n", compNamePtr->cn_nameptr ) );
+		DebugLog ( ( "compNamePtr->cn_namelen = %ld\n", compNamePtr->cn_namelen ) );
+		DebugLog ( ( "compNamePtr->cn_hash = 0x%08x\n", ( int ) compNamePtr->cn_hash ) );
+		DebugLog ( ( "compNamePtr->cn_consume = %ld\n\n", compNamePtr->cn_consume ) );
+		
+	}
+#endif /* DEBUG */
 	
 	if ( ( parentVNodePtr != NULL ) && ( compNamePtr != NULL ) && ( compNamePtr->cn_flags & MAKEENTRY ) )
 		vfsp.vnfs_flags = 0;
@@ -201,6 +216,9 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 	AppleCDDANodePtr		cddaNodePtr			= NULL;
 	AppleCDDANodePtr		parentCDDANodePtr	= NULL;
 	AppleCDDAMountPtr		cddaMountPtr		= NULL;
+	struct componentname	cn;
+	
+	bzero ( &cn, sizeof ( cn ) );
 	
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( nodeInfoPtr != NULL ) );
@@ -212,12 +230,49 @@ CreateNewCDDAFile ( mount_t 				mountPtr,
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 	DebugAssert ( ( parentCDDANodePtr != NULL ) );
 	
+	if ( parentVNodePtr == NULL )
+	{
+		
+		DebugLog ( ( "CreateNewCDDAFile called with NULL parentVNodePtr\n" ) );
+		parentVNodePtr = cddaMountPtr->root;
+		
+	}
+	
+	if ( compNamePtr == NULL )
+	{
+		
+		DebugLog ( ( "CreateNewCDDAFile called with NULL compNamePtr\n" ) );
+		
+		MALLOC ( cn.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK );
+		
+		cn.cn_nameiop	= LOOKUP;
+		cn.cn_flags		= ISLASTCN | MAKEENTRY;
+		cn.cn_pnlen		= MAXPATHLEN;
+		cn.cn_nameptr	= cn.cn_pnbuf;
+		cn.cn_namelen	= nodeInfoPtr->nameSize;
+		cn.cn_hash		= 0;
+		cn.cn_consume	= 0;
+		
+		bcopy ( nodeInfoPtr->name, cn.cn_nameptr, nodeInfoPtr->nameSize + 1 );
+		
+		compNamePtr = &cn;
+		
+	}
+	
 	result = CreateNewCDDANode ( mountPtr, nodeID, VREG, parentVNodePtr, compNamePtr, &vNodePtr );
 	if ( result != 0 )
 	{
 		
 		DebugLog ( ( "Error = %d returned from CreatNewCDDANode\n", result ) );
 		return result;
+		
+	}
+	
+	if ( cn.cn_pnbuf != NULL )
+	{
+		
+		DebugLog ( ( "CreateNewCDDAFile: freeing cn_pnbuf\n" ) );
+		FREE ( cn.cn_pnbuf, M_TEMP );
 		
 	}
 	
@@ -264,15 +319,47 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 	AppleCDDANodePtr		cddaNodePtr			= NULL;
 	AppleCDDANodePtr		parentCDDANodePtr	= NULL;
 	AppleCDDAMountPtr		cddaMountPtr		= NULL;
+	struct componentname	cn;
+	
+	bzero ( &cn, sizeof ( cn ) );
 	
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
-
+	
 	cddaMountPtr		= VFSTOCDDA ( mountPtr );
 	parentCDDANodePtr	= VTOCDDA ( cddaMountPtr->root );
 
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 	DebugAssert ( ( parentCDDANodePtr != NULL ) );
+	
+	if ( parentVNodePtr == NULL )
+	{
+		
+		DebugLog ( ( "CreateNewXMLFile called with NULL parentVNodePtr\n" ) );
+		parentVNodePtr = cddaMountPtr->root;
+		
+	}
+	
+	if ( compNamePtr == NULL )
+	{
+
+		DebugLog ( ( "CreateNewXMLFile called with NULL compNamePtr\n" ) );
+		
+		MALLOC ( cn.cn_pnbuf, caddr_t, MAXPATHLEN, M_TEMP, M_WAITOK );
+		
+		cn.cn_nameiop	= LOOKUP;
+		cn.cn_flags		= ISLASTCN | MAKEENTRY;
+		cn.cn_pnlen		= MAXPATHLEN;
+		cn.cn_nameptr	= cn.cn_pnbuf;
+		cn.cn_namelen	= strlen ( ".TOC.plist" );
+		cn.cn_hash		= 0;
+		cn.cn_consume	= 0;
+		
+		snprintf ( cn.cn_nameptr, MAXPATHLEN, "%s", ".TOC.plist" );
+		
+		compNamePtr = &cn;
+		
+	}
 	
 	result = CreateNewCDDANode ( mountPtr, kAppleCDDAXMLFileID, VREG, parentVNodePtr, compNamePtr, &vNodePtr );
 	if ( result != 0 )
@@ -280,6 +367,14 @@ CreateNewXMLFile ( 	mount_t 				mountPtr,
 		
 		DebugLog ( ( "Error = %d returned from CreatNewCDDANode\n", result ) );
 		return result;
+		
+	}
+	
+	if ( cn.cn_pnbuf != NULL )
+	{
+		
+		DebugLog ( ( "CreateNewXMLFile: freeing cn_pnbuf\n" ) );
+		FREE ( cn.cn_pnbuf, M_TEMP );
 		
 	}
 	
@@ -525,7 +620,7 @@ FindName ( mount_t mountPtr, UInt8 trackNumber, char ** name, UInt8 * nameSize )
 			DebugLog ( ( "Found track = %d\n", trackNumber ) );
 			
 			*nameSize 	= ptr[1];
-			*name 		= &ptr[2];
+			*name 		= ( char * ) &ptr[2];
 			
 			bcopy ( &ptr[2], mylocalname, *nameSize );
 			mylocalname[*nameSize] = 0;
@@ -758,7 +853,7 @@ CalculateNumberOfDescriptors ( const QTOCDataFormat10Ptr TOCDataPtr )
 	DebugAssert ( ( TOCDataPtr != NULL ) );
 	
 	// Get the length of the TOC
-	length = TOCDataPtr->TOCDataLength;
+	length = OSSwapBigToHostInt16 ( TOCDataPtr->TOCDataLength );
 	
 	// Remove the first and last session numbers so all we are left with are track descriptors
 	length -= ( sizeof ( TOCDataPtr->firstSessionNumber ) +

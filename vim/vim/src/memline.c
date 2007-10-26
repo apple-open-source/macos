@@ -13,10 +13,11 @@
 
 /*
  * memline.c: Contains the functions for appending, deleting and changing the
- * text lines. The memfile functions are used to store the information in blocks
- * of memory, backed up by a file. The structure of the information is a tree.
- * The root of the tree is a pointer block. The leaves of the tree are data
- * blocks. In between may be several layers of pointer blocks, forming branches.
+ * text lines. The memfile functions are used to store the information in
+ * blocks of memory, backed up by a file. The structure of the information is
+ * a tree.  The root of the tree is a pointer block. The leaves of the tree
+ * are data blocks. In between may be several layers of pointer blocks,
+ * forming branches.
  *
  * Three types of blocks are used:
  * - Block nr 0 contains information for recovery
@@ -42,7 +43,7 @@
  */
 
 #if defined(MSDOS) || defined(WIN32) || defined(_WIN64)
-# include <io.h>
+# include "vimio.h"
 #endif
 
 #include "vim.h"
@@ -125,9 +126,10 @@ struct data_block
 #define INDEX_SIZE  (sizeof(unsigned))	    /* size of one db_index entry */
 #define HEADER_SIZE (sizeof(DATA_BL) - INDEX_SIZE)  /* size of data block header */
 
-#define B0_FNAME_SIZE	900
-#define B0_UNAME_SIZE	40
-#define B0_HNAME_SIZE	40
+#define B0_FNAME_SIZE_ORG	900	/* what it was in older versions */
+#define B0_FNAME_SIZE		898
+#define B0_UNAME_SIZE		40
+#define B0_HNAME_SIZE		40
 /*
  * Restrict the numbers to 32 bits, otherwise most compilers will complain.
  * This won't detect a 64 bit machine that only swaps a byte in the top 32
@@ -160,13 +162,39 @@ struct block0
     char_u	b0_pid[4];	/* process id of creator (or 0) */
     char_u	b0_uname[B0_UNAME_SIZE]; /* name of user (uid if no name) */
     char_u	b0_hname[B0_HNAME_SIZE]; /* host name (if it has a name) */
-    char_u	b0_fname[B0_FNAME_SIZE]; /* name of file being edited */
+    char_u	b0_fname[B0_FNAME_SIZE_ORG]; /* name of file being edited */
     long	b0_magic_long;	/* check for byte order of long */
     int		b0_magic_int;	/* check for byte order of int */
     short	b0_magic_short;	/* check for byte order of short */
     char_u	b0_magic_char;	/* check for last char */
 };
-#define   b0_dirty b0_fname[B0_FNAME_SIZE-1]
+
+/*
+ * Note: b0_dirty and b0_flags are put at the end of the file name.  For very
+ * long file names in older versions of Vim they are invalid.
+ * The 'fileencoding' comes before b0_flags, with a NUL in front.  But only
+ * when there is room, for very long file names it's omitted.
+ */
+#define B0_DIRTY	0x55
+#define b0_dirty	b0_fname[B0_FNAME_SIZE_ORG-1]
+
+/*
+ * The b0_flags field is new in Vim 7.0.
+ */
+#define b0_flags	b0_fname[B0_FNAME_SIZE_ORG-2]
+
+/* The lowest two bits contain the fileformat.  Zero means it's not set
+ * (compatible with Vim 6.x), otherwise it's EOL_UNIX + 1, EOL_DOS + 1 or
+ * EOL_MAC + 1. */
+#define B0_FF_MASK	3
+
+/* Swap file is in directory of edited file.  Used to find the file from
+ * different mount points. */
+#define B0_SAME_DIR	4
+
+/* The 'fileencoding' is at the end of b0_fname[], with a NUL in front of it.
+ * When empty there is only the NUL. */
+#define B0_HAS_FENC	8
 
 #define STACK_INCR	5	/* nr of entries added to ml_stack at a time */
 
@@ -187,7 +215,12 @@ static linenr_T	lowest_marked = 0;
 #define ML_FLUSH	0x02	    /* flush locked block */
 #define ML_SIMPLE(x)	(x & 0x10)  /* DEL, INS or FIND */
 
+static void ml_upd_block0 __ARGS((buf_T *buf, int setfname));
 static void set_b0_fname __ARGS((ZERO_BL *, buf_T *buf));
+static void set_b0_dir_flag __ARGS((ZERO_BL *b0p, buf_T *buf));
+#ifdef FEAT_MBYTE
+static void add_b0_fenc __ARGS((ZERO_BL *b0p, buf_T *buf));
+#endif
 static time_t swapfile_info __ARGS((char_u *));
 static int recov_file_names __ARGS((char_u **, char_u *, int prepend_dot));
 static int ml_append_int __ARGS((buf_T *, linenr_T, char_u *, colnr_T, int, int));
@@ -198,7 +231,6 @@ static bhdr_T *ml_new_data __ARGS((memfile_T *, int, int));
 static bhdr_T *ml_new_ptr __ARGS((memfile_T *));
 static bhdr_T *ml_find_line __ARGS((buf_T *, linenr_T, int));
 static int ml_add_stack __ARGS((buf_T *));
-static char_u *makeswapname __ARGS((buf_T *, char_u *));
 static void ml_lineadd __ARGS((buf_T *, int));
 static int b0_magic_wrong __ARGS((ZERO_BL *));
 #ifdef CHECK_INODE
@@ -214,12 +246,13 @@ static void ml_updatechunk __ARGS((buf_T *buf, long line, long len, int updtype)
 #endif
 
 /*
- * open a new memline for 'curbuf'
+ * Open a new memline for "buf".
  *
- * return FAIL for failure, OK otherwise
+ * Return FAIL for failure, OK otherwise.
  */
     int
-ml_open()
+ml_open(buf)
+    buf_T	*buf;
 {
     memfile_T	*mfp;
     bhdr_T	*hp = NULL;
@@ -227,42 +260,45 @@ ml_open()
     PTR_BL	*pp;
     DATA_BL	*dp;
 
-/*
- * init fields in memline struct
- */
-    curbuf->b_ml.ml_stack_size = 0;	/* no stack yet */
-    curbuf->b_ml.ml_stack = NULL;	/* no stack yet */
-    curbuf->b_ml.ml_stack_top = 0;	/* nothing in the stack */
-    curbuf->b_ml.ml_locked = NULL;	/* no cached block */
-    curbuf->b_ml.ml_line_lnum = 0;	/* no cached line */
+    /*
+     * init fields in memline struct
+     */
+    buf->b_ml.ml_stack_size = 0;	/* no stack yet */
+    buf->b_ml.ml_stack = NULL;	/* no stack yet */
+    buf->b_ml.ml_stack_top = 0;	/* nothing in the stack */
+    buf->b_ml.ml_locked = NULL;	/* no cached block */
+    buf->b_ml.ml_line_lnum = 0;	/* no cached line */
 #ifdef FEAT_BYTEOFF
-    curbuf->b_ml.ml_chunksize = NULL;
+    buf->b_ml.ml_chunksize = NULL;
 #endif
 
-/*
- * When 'updatecount' is non-zero, flag that a swap file may be opened later.
- */
-    if (p_uc && curbuf->b_p_swf)
-	curbuf->b_may_swap = TRUE;
+    /*
+     * When 'updatecount' is non-zero swap file may be opened later.
+     */
+    if (p_uc && buf->b_p_swf)
+	buf->b_may_swap = TRUE;
     else
-	curbuf->b_may_swap = FALSE;
+	buf->b_may_swap = FALSE;
 
-/*
- * Open the memfile.  No swap file is created yet.
- */
+    /*
+     * Open the memfile.  No swap file is created yet.
+     */
     mfp = mf_open(NULL, 0);
     if (mfp == NULL)
 	goto error;
 
-    curbuf->b_ml.ml_mfp = mfp;
-    curbuf->b_ml.ml_flags = ML_EMPTY;
-    curbuf->b_ml.ml_line_count = 1;
+    buf->b_ml.ml_mfp = mfp;
+    buf->b_ml.ml_flags = ML_EMPTY;
+    buf->b_ml.ml_line_count = 1;
+#ifdef FEAT_LINEBREAK
+    curwin->w_nrwidth_line_count = 0;
+#endif
 
 #if defined(MSDOS) && !defined(DJGPP)
     /* for 16 bit MS-DOS create a swapfile now, because we run out of
      * memory very quickly */
     if (p_uc != 0)
-	ml_open_file(curbuf);
+	ml_open_file(buf);
 #endif
 
 /*
@@ -279,35 +315,42 @@ ml_open()
 
     b0p->b0_id[0] = BLOCK0_ID0;
     b0p->b0_id[1] = BLOCK0_ID1;
-    b0p->b0_dirty = curbuf->b_changed ? 0x55 : 0;
     b0p->b0_magic_long = (long)B0_MAGIC_LONG;
     b0p->b0_magic_int = (int)B0_MAGIC_INT;
     b0p->b0_magic_short = (short)B0_MAGIC_SHORT;
     b0p->b0_magic_char = B0_MAGIC_CHAR;
-
     STRNCPY(b0p->b0_version, "VIM ", 4);
     STRNCPY(b0p->b0_version + 4, Version, 6);
-    set_b0_fname(b0p, curbuf);
     long_to_char((long)mfp->mf_page_size, b0p->b0_page_size);
-    (void)get_user_name(b0p->b0_uname, B0_UNAME_SIZE);
-    b0p->b0_uname[B0_UNAME_SIZE - 1] = NUL;
-    mch_get_host_name(b0p->b0_hname, B0_HNAME_SIZE);
-    b0p->b0_hname[B0_HNAME_SIZE - 1] = NUL;
-    long_to_char(mch_get_pid(), b0p->b0_pid);
+
+#ifdef FEAT_SPELL
+    if (!buf->b_spell)
+#endif
+    {
+	b0p->b0_dirty = buf->b_changed ? B0_DIRTY : 0;
+	b0p->b0_flags = get_fileformat(buf) + 1;
+	set_b0_fname(b0p, buf);
+	(void)get_user_name(b0p->b0_uname, B0_UNAME_SIZE);
+	b0p->b0_uname[B0_UNAME_SIZE - 1] = NUL;
+	mch_get_host_name(b0p->b0_hname, B0_HNAME_SIZE);
+	b0p->b0_hname[B0_HNAME_SIZE - 1] = NUL;
+	long_to_char(mch_get_pid(), b0p->b0_pid);
+    }
 
     /*
      * Always sync block number 0 to disk, so we can check the file name in
-     * the swap file in findswapname(). Don't do this for help files though.
+     * the swap file in findswapname(). Don't do this for help files though
+     * and spell buffer though.
      * Only works when there's a swapfile, otherwise it's done when the file
      * is created.
      */
     mf_put(mfp, hp, TRUE, FALSE);
-    if (!curbuf->b_help)
+    if (!buf->b_help && !B_SPELL(buf))
 	(void)mf_sync(mfp, 0);
 
-/*
- * fill in root pointer block and write page 1
- */
+    /*
+     * Fill in root pointer block and write page 1.
+     */
     if ((hp = ml_new_ptr(mfp)) == NULL)
 	goto error;
     if (hp->bh_bnum != 1)
@@ -323,9 +366,9 @@ ml_open()
     pp->pb_pointer[0].pe_line_count = 1;    /* line count after insertion */
     mf_put(mfp, hp, TRUE, FALSE);
 
-/*
- * allocate first data block and create an empty line 1.
- */
+    /*
+     * Allocate first data block and create an empty line 1.
+     */
     if ((hp = ml_new_data(mfp, FALSE, 1)) == NULL)
 	goto error;
     if (hp->bh_bnum != 2)
@@ -349,16 +392,17 @@ error:
 	    mf_put(mfp, hp, FALSE, FALSE);
 	mf_close(mfp, TRUE);	    /* will also free(mfp->mf_fname) */
     }
-    curbuf->b_ml.ml_mfp = NULL;
+    buf->b_ml.ml_mfp = NULL;
     return FAIL;
 }
 
 /*
- * ml_setname() is called when the file name has been changed.
+ * ml_setname() is called when the file name of "buf" has been changed.
  * It may rename the swap file.
  */
     void
-ml_setname()
+ml_setname(buf)
+    buf_T	*buf;
 {
     int		success = FALSE;
     memfile_T	*mfp;
@@ -368,7 +412,7 @@ ml_setname()
     char_u	*p;
 #endif
 
-    mfp = curbuf->b_ml.ml_mfp;
+    mfp = buf->b_ml.ml_mfp;
     if (mfp->mf_fd < 0)		    /* there is no swap file yet */
     {
 	/*
@@ -376,7 +420,7 @@ ml_setname()
 	 * For help files we will make a swap file now.
 	 */
 	if (p_uc != 0)
-	    ml_open_file(curbuf);	/* create a swap file */
+	    ml_open_file(buf);	    /* create a swap file */
 	return;
     }
 
@@ -388,7 +432,8 @@ ml_setname()
     {
 	if (*dirp == NUL)	    /* tried all directories, fail */
 	    break;
-	fname = findswapname(curbuf, &dirp, mfp->mf_fname); /* alloc's fname */
+	fname = findswapname(buf, &dirp, mfp->mf_fname);
+						    /* alloc's fname */
 	if (fname == NULL)	    /* no file name found for this dir */
 	    continue;
 
@@ -429,6 +474,7 @@ ml_setname()
 #else
 	    mf_set_ffname(mfp);
 #endif
+	    ml_upd_block0(buf, FALSE);
 	    break;
 	}
 	vim_free(fname);	    /* this fname didn't work, try another */
@@ -480,6 +526,18 @@ ml_open_file(buf)
     if (mfp == NULL || mfp->mf_fd >= 0 || !buf->b_p_swf)
 	return;		/* nothing to do */
 
+#ifdef FEAT_SPELL
+    /* For a spell buffer use a temp file name. */
+    if (buf->b_spell)
+    {
+	fname = vim_tempname('s');
+	if (fname != NULL)
+	    (void)mf_open_file(mfp, fname);	/* consumes fname! */
+	buf->b_may_swap = FALSE;
+	return;
+    }
+#endif
+
     /*
      * Try all directories in 'directory' option.
      */
@@ -491,7 +549,7 @@ ml_open_file(buf)
 	/* There is a small chance that between chosing the swap file name and
 	 * creating it, another Vim creates the file.  In that case the
 	 * creation will fail and we will use another directory. */
-	fname = findswapname(buf, &dirp, NULL);	/* allocates fname */
+	fname = findswapname(buf, &dirp, NULL); /* allocates fname */
 	if (fname == NULL)
 	    continue;
 	if (mf_open_file(mfp, fname) == OK)	/* consumes fname! */
@@ -503,9 +561,17 @@ ml_open_file(buf)
 	     */
 	    mf_fullname(mfp);
 #endif
+	    ml_upd_block0(buf, FALSE);
+
 	    /* Flush block zero, so others can read it */
 	    if (mf_sync(mfp, MFS_ZERO) == OK)
+	    {
+		/* Mark all blocks that should be in the swapfile as dirty.
+		 * Needed for when the 'swapfile' option was reset, so that
+		 * the swap file was deleted, and then on again. */
+		mf_set_dirty(mfp);
 		break;
+	    }
 	    /* Writing block 0 failed: close the file and try another dir */
 	    mf_close_file(buf, FALSE);
 	}
@@ -568,6 +634,7 @@ ml_close(buf, del_file)
  * Close all existing memlines and memfiles.
  * Only used when exiting.
  * When 'del_file' is TRUE, delete the memfiles.
+ * But don't delete files that were ":preserve"d when we are POSIX compatible.
  */
     void
 ml_close_all(del_file)
@@ -576,7 +643,8 @@ ml_close_all(del_file)
     buf_T	*buf;
 
     for (buf = firstbuf; buf != NULL; buf = buf->b_next)
-	ml_close(buf, del_file);
+	ml_close(buf, del_file && ((buf->b_flags & BF_PRESERVED) == 0
+				 || vim_strchr(p_cpo, CPO_PRESERVE) == NULL));
 #ifdef TEMPDIRNAMES
     vim_deltempdir();	    /* delete created temp directory */
 #endif
@@ -604,19 +672,34 @@ ml_close_notmod()
 ml_timestamp(buf)
     buf_T	*buf;
 {
+    ml_upd_block0(buf, TRUE);
+}
+
+/*
+ * Update the timestamp or the B0_SAME_DIR flag of the .swp file.
+ */
+    static void
+ml_upd_block0(buf, setfname)
+    buf_T	*buf;
+    int		setfname;
+{
     memfile_T	*mfp;
     bhdr_T	*hp;
     ZERO_BL	*b0p;
 
     mfp = buf->b_ml.ml_mfp;
-
     if (mfp == NULL || (hp = mf_get(mfp, (blocknr_T)0, 1)) == NULL)
 	return;
     b0p = (ZERO_BL *)(hp->bh_data);
     if (b0p->b0_id[0] != BLOCK0_ID0 || b0p->b0_id[1] != BLOCK0_ID1)
-	EMSG(_("E304: ml_timestamp: Didn't get block 0??"));
+	EMSG(_("E304: ml_upd_block0(): Didn't get block 0??"));
     else
-	set_b0_fname(b0p, buf);
+    {
+	if (setfname)
+	    set_b0_fname(b0p, buf);
+	else
+	    set_b0_dir_flag(b0p, buf);
+    }
     mf_put(mfp, hp, TRUE, FALSE);
 }
 
@@ -637,9 +720,13 @@ set_b0_fname(b0p, buf)
     else
     {
 #if defined(MSDOS) || defined(MSWIN) || defined(AMIGA) || defined(RISCOS)
-	/* systems that cannot translate "~user" back into a path: copy the
-	 * file name unmodified */
-	STRNCPY(b0p->b0_fname, buf->b_ffname, B0_FNAME_SIZE);
+	/* Systems that cannot translate "~user" back into a path: copy the
+	 * file name unmodified.  Do use slashes instead of backslashes for
+	 * portability. */
+	vim_strncpy(b0p->b0_fname, buf->b_ffname, B0_FNAME_SIZE - 1);
+# ifdef BACKSLASH_IN_FILENAME
+	forward_slash(b0p->b0_fname);
+# endif
 #else
 	size_t	flen, ulen;
 	char_u	uname[B0_UNAME_SIZE];
@@ -658,7 +745,7 @@ set_b0_fname(b0p, buf)
 	    /* If there is no user name or it is too long, don't use "~/" */
 	    if (get_user_name(uname, B0_UNAME_SIZE) == FAIL
 			 || (ulen = STRLEN(uname)) + flen > B0_FNAME_SIZE - 1)
-		STRNCPY(b0p->b0_fname, buf->b_ffname, B0_FNAME_SIZE);
+		vim_strncpy(b0p->b0_fname, buf->b_ffname, B0_FNAME_SIZE - 1);
 	    else
 	    {
 		mch_memmove(b0p->b0_fname + ulen + 1, b0p->b0_fname + 1, flen);
@@ -687,7 +774,54 @@ set_b0_fname(b0p, buf)
 	    buf->b_orig_mode = 0;
 	}
     }
+
+#ifdef FEAT_MBYTE
+    /* Also add the 'fileencoding' if there is room. */
+    add_b0_fenc(b0p, curbuf);
+#endif
 }
+
+/*
+ * Update the B0_SAME_DIR flag of the swap file.  It's set if the file and the
+ * swapfile for "buf" are in the same directory.
+ * This is fail safe: if we are not sure the directories are equal the flag is
+ * not set.
+ */
+    static void
+set_b0_dir_flag(b0p, buf)
+    ZERO_BL	*b0p;
+    buf_T	*buf;
+{
+    if (same_directory(buf->b_ml.ml_mfp->mf_fname, buf->b_ffname))
+	b0p->b0_flags |= B0_SAME_DIR;
+    else
+	b0p->b0_flags &= ~B0_SAME_DIR;
+}
+
+#ifdef FEAT_MBYTE
+/*
+ * When there is room, add the 'fileencoding' to block zero.
+ */
+    static void
+add_b0_fenc(b0p, buf)
+    ZERO_BL	*b0p;
+    buf_T	*buf;
+{
+    int		n;
+
+    n = (int)STRLEN(buf->b_p_fenc);
+    if (STRLEN(b0p->b0_fname) + n + 1 > B0_FNAME_SIZE)
+	b0p->b0_flags &= ~B0_HAS_FENC;
+    else
+    {
+	mch_memmove((char *)b0p->b0_fname + B0_FNAME_SIZE - n,
+					    (char *)buf->b_p_fenc, (size_t)n);
+	*(b0p->b0_fname + B0_FNAME_SIZE - n - 1) = NUL;
+	b0p->b0_flags |= B0_HAS_FENC;
+    }
+}
+#endif
+
 
 /*
  * try to recover curbuf from the .swp file
@@ -700,6 +834,8 @@ ml_recover()
     char_u	*fname;
     bhdr_T	*hp = NULL;
     ZERO_BL	*b0p;
+    int		b0_ff;
+    char_u	*b0_fenc = NULL;
     PTR_BL	*pp;
     DATA_BL	*dp;
     infoptr_T	*ip;
@@ -765,7 +901,7 @@ ml_recover()
 	    (void)recover_names(&fname, TRUE, 0);
 	    msg_putchar('\n');
 	    MSG_PUTS(_("Enter number of swap file to use (0 to quit): "));
-	    i = get_number(FALSE);
+	    i = get_number(FALSE, NULL);
 	    if (i < 1 || i > len)
 		goto theend;
 	}
@@ -776,7 +912,7 @@ ml_recover()
 	goto theend;			/* out of memory */
 
     /* When called from main() still need to initialize storage structure */
-    if (called_from_main && ml_open() == FAIL)
+    if (called_from_main && ml_open(curbuf) == FAIL)
 	getout(1);
 
 /*
@@ -895,18 +1031,18 @@ ml_recover()
     if (directly)
     {
 	expand_env(b0p->b0_fname, NameBuff, MAXPATHL);
-	if (setfname(NameBuff, NULL, TRUE) == FAIL)
+	if (setfname(curbuf, NameBuff, NULL, TRUE) == FAIL)
 	    goto theend;
     }
 
     home_replace(NULL, mfp->mf_fname, NameBuff, MAXPATHL, TRUE);
-    msg_str((char_u *)_("Using swap file \"%s\""), NameBuff);
+    smsg((char_u *)_("Using swap file \"%s\""), NameBuff);
 
     if (buf_spname(curbuf) != NULL)
 	STRCPY(NameBuff, buf_spname(curbuf));
     else
 	home_replace(NULL, curbuf->b_ffname, NameBuff, MAXPATHL, TRUE);
-    msg_str((char_u *)_("Original file \"%s\""), NameBuff);
+    smsg((char_u *)_("Original file \"%s\""), NameBuff);
     msg_putchar('\n');
 
 /*
@@ -922,6 +1058,17 @@ ml_recover()
 	EMSG(_("E308: Warning: Original file may have been changed"));
     }
     out_flush();
+
+    /* Get the 'fileformat' and 'fileencoding' from block zero. */
+    b0_ff = (b0p->b0_flags & B0_FF_MASK);
+    if (b0p->b0_flags & B0_HAS_FENC)
+    {
+	for (p = b0p->b0_fname + B0_FNAME_SIZE;
+				       p > b0p->b0_fname && p[-1] != NUL; --p)
+	    ;
+	b0_fenc = vim_strnsave(p, (int)(b0p->b0_fname + B0_FNAME_SIZE - p));
+    }
+
     mf_put(mfp, hp, FALSE, FALSE);	/* release block 0 */
     hp = NULL;
 
@@ -931,6 +1078,28 @@ ml_recover()
      */
     while (!(curbuf->b_ml.ml_flags & ML_EMPTY))
 	ml_delete((linenr_T)1, FALSE);
+
+    /*
+     * Try reading the original file to obtain the values of 'fileformat',
+     * 'fileencoding', etc.  Ignore errors.  The text itself is not used.
+     */
+    if (curbuf->b_ffname != NULL)
+    {
+	(void)readfile(curbuf->b_ffname, NULL, (linenr_T)0,
+			      (linenr_T)0, (linenr_T)MAXLNUM, NULL, READ_NEW);
+	while (!(curbuf->b_ml.ml_flags & ML_EMPTY))
+	    ml_delete((linenr_T)1, FALSE);
+    }
+
+    /* Use the 'fileformat' and 'fileencoding' as stored in the swap file. */
+    if (b0_ff != 0)
+	set_fileformat(b0_ff - 1, OPT_LOCAL);
+    if (b0_fenc != NULL)
+    {
+	set_option_value((char_u *)"fenc", 0L, b0_fenc, OPT_LOCAL);
+	vim_free(b0_fenc);
+    }
+    unchanged(curbuf, TRUE);
 
     bnum = 1;		/* start with block 1 */
     page_count = 1;	/* which is 1 page */
@@ -1130,13 +1299,21 @@ ml_recover()
     if (got_int)
 	EMSG(_("E311: Recovery Interrupted"));
     else if (error)
+    {
+	++no_wait_return;
+	MSG(">>>>>>>>>>>>>");
 	EMSG(_("E312: Errors detected while recovering; look for lines starting with ???"));
+	--no_wait_return;
+	MSG(_("See \":help E312\" for more information."));
+	MSG(">>>>>>>>>>>>>");
+    }
     else
     {
 	MSG(_("Recovery completed. You should check if everything is OK."));
 	MSG_PUTS(_("\n(You might want to write out this file under another name\n"));
 	MSG_PUTS(_("and run diff with the original file to check for changes)\n"));
-	MSG_PUTS(_("Delete the .swp file afterwards.\n\n"));
+	if (vim_strchr(p_cpo, CPO_PRESERVE) == NULL)
+	    MSG_PUTS(_("Delete the .swp file afterwards.\n\n"));
 	cmdline_row = msg_row;
     }
     redraw_curbuf_later(NOT_VALID);
@@ -1147,7 +1324,8 @@ theend:
     {
 	if (hp != NULL)
 	    mf_put(mfp, hp, FALSE, FALSE);
-	mf_close(mfp, FALSE);	    /* will also vim_free(mfp->mf_fname) */
+	/* PR-3936063: In POSIX preserve mode, delete the file after recovery */
+	mf_close(mfp, (vim_strchr(p_cpo, CPO_PRESERVE) != NULL));    /* will also vim_free(mfp->mf_fname) */
     }
     vim_free(buf);
     if (serious_error && called_from_main)
@@ -1272,7 +1450,7 @@ recover_names(fname, list, nr)
 	    {
 #if defined(UNIX) || defined(WIN3264)
 		p = dir_name + STRLEN(dir_name);
-		if (vim_ispathsep(p[-1]) && p[-1] == p[-2])
+		if (after_pathsep(dir_name, p) && p[-1] == p[-2])
 		{
 		    /* Ends with '//', Use Full path for swap name */
 		    tail = make_percent_swname(dir_name, *fname);
@@ -1356,7 +1534,7 @@ recover_names(fname, list, nr)
 			files[i] = files[i + 1];
 		}
 	}
-	if (nr)
+	if (nr > 0)
 	{
 	    file_count += num_files;
 	    if (nr <= file_count)
@@ -1402,7 +1580,8 @@ recover_names(fname, list, nr)
 
 	for (i = 0; i < num_names; ++i)
 	    vim_free(names[i]);
-	FreeWild(num_files, files);
+	if (num_files > 0)
+	    FreeWild(num_files, files);
     }
     vim_free(dir_name);
     return file_count;
@@ -1418,7 +1597,7 @@ make_percent_swname(dir, name)
     char_u	*dir;
     char_u	*name;
 {
-    char_u *d, *s, *f, *p;
+    char_u *d, *s, *f;
 
     f = fix_fname(name != NULL ? name : (char_u *) "");
     d = NULL;
@@ -1427,9 +1606,10 @@ make_percent_swname(dir, name)
 	s = alloc((unsigned)(STRLEN(f) + 1));
 	if (s != NULL)
 	{
-	    for (d = s, p = f; *p; p++, d++)
-		*d = vim_ispathsep(*p) ? '%' : *p;
-	    *d = 0;
+	    STRCPY(s, f);
+	    for (d = s; *d != NUL; mb_ptr_adv(d))
+		if (vim_ispathsep(*d))
+		    *d = '%';
 	    d = concat_fnames(dir, s, TRUE);
 	    vim_free(s);
 	}
@@ -1444,7 +1624,7 @@ static int process_still_running;
 #endif
 
 /*
- * Give information about an existing swap file
+ * Give information about an existing swap file.
  * Returns timestamp (0 when unknown).
  */
     static time_t
@@ -1498,7 +1678,7 @@ swapfile_info(fname)
 	    {
 		MSG_PUTS(_("         file name: "));
 		if (b0.b0_fname[0] == NUL)
-		    MSG_PUTS(_("[No File]"));
+		    MSG_PUTS(_("[No Name]"));
 		else
 		    msg_outtrans(b0.b0_fname);
 
@@ -1948,6 +2128,28 @@ ml_append(lnum, line, len, newfile)
 	ml_flush_line(curbuf);
     return ml_append_int(curbuf, lnum, line, len, newfile, FALSE);
 }
+
+#if defined(FEAT_SPELL) || defined(PROTO)
+/*
+ * Like ml_append() but for an arbitrary buffer.  The buffer must already have
+ * a memline.
+ */
+    int
+ml_append_buf(buf, lnum, line, len, newfile)
+    buf_T	*buf;
+    linenr_T	lnum;		/* append after this line (can be 0) */
+    char_u	*line;		/* text of the new line */
+    colnr_T	len;		/* length of new line, including NUL, or 0 */
+    int		newfile;	/* flag, see above */
+{
+    if (buf->b_ml.ml_mfp == NULL)
+	return FAIL;
+
+    if (buf->b_ml.ml_line_lnum != 0)
+	ml_flush_line(buf);
+    return ml_append_int(buf, lnum, line, len, newfile, FALSE);
+}
+#endif
 
     static int
 ml_append_int(buf, lnum, line, len, newfile, mark)
@@ -2439,8 +2641,8 @@ ml_append_int(buf, lnum, line, len, newfile, mark)
     if (usingNetbeans)
     {
 	if (STRLEN(line) > 0)
-	    netbeans_inserted(buf, lnum+1, (colnr_T)0, 0, line, STRLEN(line));
-	netbeans_inserted(buf, lnum+1, (colnr_T)STRLEN(line), 0,
+	    netbeans_inserted(buf, lnum+1, (colnr_T)0, line, (int)STRLEN(line));
+	netbeans_inserted(buf, lnum+1, (colnr_T)STRLEN(line),
 							   (char_u *)"\n", 1);
     }
 #endif
@@ -2448,9 +2650,9 @@ ml_append_int(buf, lnum, line, len, newfile, mark)
 }
 
 /*
- * replace line lnum, with buffering, in current buffer
+ * Replace line lnum, with buffering, in current buffer.
  *
- * If copy is TRUE, make a copy of the line, otherwise the line has been
+ * If "copy" is TRUE, make a copy of the line, otherwise the line has been
  * copied to allocated memory already.
  *
  * Check: The caller of this function should probably also call
@@ -2477,7 +2679,7 @@ ml_replace(lnum, line, copy)
     if (usingNetbeans)
     {
 	netbeans_removed(curbuf, lnum, 0, (long)STRLEN(ml_get(lnum)));
-	netbeans_inserted(curbuf, lnum, 0, 0, line, STRLEN(line));
+	netbeans_inserted(curbuf, lnum, 0, line, (int)STRLEN(line));
     }
 #endif
     if (curbuf->b_ml.ml_line_lnum != lnum)	    /* other line buffered */
@@ -2492,7 +2694,7 @@ ml_replace(lnum, line, copy)
 }
 
 /*
- * delete line 'lnum'
+ * Delete line 'lnum' in the current buffer.
  *
  * Check: The caller of this function should probably also call
  * deleted_lines() after this.
@@ -2543,10 +2745,8 @@ ml_delete_int(buf, lnum, message)
 		&& !netbeansSuppressNoLines
 #endif
 	   )
-	{
-	    set_keep_msg((char_u *)_(no_lines_msg));
-	    keep_msg_attr = 0;
-	}
+	    set_keep_msg((char_u *)_(no_lines_msg), 0);
+
 	/* FEAT_BYTEOFF already handled in there, dont worry 'bout it below */
 	i = ml_replace((linenr_T)1, (char_u *)"", TRUE);
 	buf->b_ml.ml_flags |= ML_EMPTY;
@@ -2582,7 +2782,7 @@ ml_delete_int(buf, lnum, message)
 
 #ifdef FEAT_NETBEANS_INTG
     if (usingNetbeans)
-	netbeans_removed(buf, lnum, 0, line_size);
+	netbeans_removed(buf, lnum, 0, (long)line_size);
 #endif
 
 /*
@@ -3231,28 +3431,127 @@ ml_lineadd(buf, count)
     }
 }
 
+#ifdef HAVE_READLINK
+static int resolve_symlink __ARGS((char_u *fname, char_u *buf));
+
 /*
- * make swap file name out of the file name and a directory name
+ * Resolve a symlink in the last component of a file name.
+ * Note that f_resolve() does it for every part of the path, we don't do that
+ * here.
+ * If it worked returns OK and the resolved link in "buf[MAXPATHL]".
+ * Otherwise returns FAIL.
  */
-    static char_u *
-makeswapname(buf, dir_name)
+    static int
+resolve_symlink(fname, buf)
+    char_u	*fname;
+    char_u	*buf;
+{
+    char_u	tmp[MAXPATHL];
+    int		ret;
+    int		depth = 0;
+
+    if (fname == NULL)
+	return FAIL;
+
+    /* Put the result so far in tmp[], starting with the original name. */
+    vim_strncpy(tmp, fname, MAXPATHL - 1);
+
+    for (;;)
+    {
+	/* Limit symlink depth to 100, catch recursive loops. */
+	if (++depth == 100)
+	{
+	    EMSG2(_("E773: Symlink loop for \"%s\""), fname);
+	    return FAIL;
+	}
+
+	ret = readlink((char *)tmp, (char *)buf, MAXPATHL - 1);
+	if (ret <= 0)
+	{
+	    if (errno == EINVAL || errno == ENOENT)
+	    {
+		/* Found non-symlink or not existing file, stop here.
+		 * When at the first level use the unmodifed name, skip the
+		 * call to vim_FullName(). */
+		if (depth == 1)
+		    return FAIL;
+
+		/* Use the resolved name in tmp[]. */
+		break;
+	    }
+
+	    /* There must be some error reading links, use original name. */
+	    return FAIL;
+	}
+	buf[ret] = NUL;
+
+	/*
+	 * Check whether the symlink is relative or absolute.
+	 * If it's relative, build a new path based on the directory
+	 * portion of the filename (if any) and the path the symlink
+	 * points to.
+	 */
+	if (mch_isFullName(buf))
+	    STRCPY(tmp, buf);
+	else
+	{
+	    char_u *tail;
+
+	    tail = gettail(tmp);
+	    if (STRLEN(tail) + STRLEN(buf) >= MAXPATHL)
+		return FAIL;
+	    STRCPY(tail, buf);
+	}
+    }
+
+    /*
+     * Try to resolve the full name of the file so that the swapfile name will
+     * be consistent even when opening a relative symlink from different
+     * working directories.
+     */
+    return vim_FullName(tmp, buf, MAXPATHL, TRUE);
+}
+#endif
+
+/*
+ * Make swap file name out of the file name and a directory name.
+ * Returns pointer to allocated memory or NULL.
+ */
+/*ARGSUSED*/
+    char_u *
+makeswapname(fname, ffname, buf, dir_name)
+    char_u	*fname;
+    char_u	*ffname;
     buf_T	*buf;
     char_u	*dir_name;
 {
     char_u	*r, *s;
+#ifdef HAVE_READLINK
+    char_u	fname_buf[MAXPATHL];
+    char_u	*fname_res;
+#endif
 
 #if defined(UNIX) || defined(WIN3264)  /* Need _very_ long file names */
     s = dir_name + STRLEN(dir_name);
-    if (vim_ispathsep(s[-1]) && s[-1] == s[-2])
+    if (after_pathsep(dir_name, s) && s[-1] == s[-2])
     {			       /* Ends with '//', Use Full path */
 	r = NULL;
-	if ((s = make_percent_swname(dir_name, buf->b_fname)) != NULL)
+	if ((s = make_percent_swname(dir_name, fname)) != NULL)
 	{
 	    r = modname(s, (char_u *)".swp", FALSE);
 	    vim_free(s);
 	}
 	return r;
     }
+#endif
+
+#ifdef HAVE_READLINK
+    /* Expand symlink in the file name, so that we put the swap file with the
+     * actual file instead of with the symlink. */
+    if (resolve_symlink(fname, fname_buf) == OK)
+	fname_res = fname_buf;
+    else
+	fname_res = fname;
 #endif
 
     r = buf_modname(
@@ -3263,9 +3562,13 @@ makeswapname(buf, dir_name)
 #endif
 #ifdef RISCOS
 	    /* Avoid problems if fname has special chars, eg <Wimp$Scrap> */
-	    buf->b_ffname,
+	    ffname,
 #else
-	    buf->b_fname,
+# ifdef HAVE_READLINK
+	    fname_res,
+# else
+	    fname,
+# endif
 #endif
 	    (char_u *)
 #if defined(VMS) || defined(RISCOS)
@@ -3339,10 +3642,98 @@ get_file_in_dir(fname, dname)
     return retval;
 }
 
+static void attention_message __ARGS((buf_T *buf, char_u *fname));
+
+/*
+ * Print the ATTENTION message: info about an existing swap file.
+ */
+    static void
+attention_message(buf, fname)
+    buf_T   *buf;	/* buffer being edited */
+    char_u  *fname;	/* swap file name */
+{
+    struct stat st;
+    time_t	x, sx;
+
+    ++no_wait_return;
+    (void)EMSG(_("E325: ATTENTION"));
+    MSG_PUTS(_("\nFound a swap file by the name \""));
+    msg_home_replace(fname);
+    MSG_PUTS("\"\n");
+    sx = swapfile_info(fname);
+    MSG_PUTS(_("While opening file \""));
+    msg_outtrans(buf->b_fname);
+    MSG_PUTS("\"\n");
+    if (mch_stat((char *)buf->b_fname, &st) != -1)
+    {
+	MSG_PUTS(_("             dated: "));
+	x = st.st_mtime;    /* Manx C can't do &st.st_mtime */
+	MSG_PUTS(ctime(&x));
+	if (sx != 0 && x > sx)
+	    MSG_PUTS(_("      NEWER than swap file!\n"));
+    }
+    /* Some of these messages are long to allow translation to
+     * other languages. */
+    MSG_PUTS(_("\n(1) Another program may be editing the same file.\n    If this is the case, be careful not to end up with two\n    different instances of the same file when making changes.\n"));
+    MSG_PUTS(_("    Quit, or continue with caution.\n"));
+    MSG_PUTS(_("\n(2) An edit session for this file crashed.\n"));
+    MSG_PUTS(_("    If this is the case, use \":recover\" or \"vim -r "));
+    msg_outtrans(buf->b_fname);
+    MSG_PUTS(_("\"\n    to recover the changes (see \":help recovery\").\n"));
+    MSG_PUTS(_("    If you did this already, delete the swap file \""));
+    msg_outtrans(fname);
+    MSG_PUTS(_("\"\n    to avoid this message.\n"));
+    cmdline_row = msg_row;
+    --no_wait_return;
+}
+
+#ifdef FEAT_AUTOCMD
+static int do_swapexists __ARGS((buf_T *buf, char_u *fname));
+
+/*
+ * Trigger the SwapExists autocommands.
+ * Returns a value for equivalent to do_dialog() (see below):
+ * 0: still need to ask for a choice
+ * 1: open read-only
+ * 2: edit anyway
+ * 3: recover
+ * 4: delete it
+ * 5: quit
+ * 6: abort
+ */
+    static int
+do_swapexists(buf, fname)
+    buf_T	*buf;
+    char_u	*fname;
+{
+    set_vim_var_string(VV_SWAPNAME, fname, -1);
+    set_vim_var_string(VV_SWAPCHOICE, NULL, -1);
+
+    /* Trigger SwapExists autocommands with <afile> set to the file being
+     * edited. */
+    apply_autocmds(EVENT_SWAPEXISTS, buf->b_fname, NULL, FALSE, NULL);
+
+    set_vim_var_string(VV_SWAPNAME, NULL, -1);
+
+    switch (*get_vim_var_str(VV_SWAPCHOICE))
+    {
+	case 'o': return 1;
+	case 'e': return 2;
+	case 'r': return 3;
+	case 'd': return 4;
+	case 'q': return 5;
+	case 'a': return 6;
+    }
+
+    return 0;
+}
+#endif
+
 /*
  * Find out what name to use for the swap file for buffer 'buf'.
  *
  * Several names are tried to find one that does not exist
+ * Returns the name in allocated memory or NULL.
  *
  * Note: If BASENAMELEN is not correct, you will get error messages for
  *	 not being able to open the swapfile
@@ -3355,7 +3746,6 @@ findswapname(buf, dirp, old_fname)
 {
     char_u	*fname;
     int		n;
-    time_t	x, sx;
     char_u	*dir_name;
 #ifdef AMIGA
     BPTR	fh;
@@ -3395,7 +3785,7 @@ findswapname(buf, dirp, old_fname)
     if (dir_name == NULL)	    /* out of memory */
 	fname = NULL;
     else
-	fname = makeswapname(buf, dir_name);
+	fname = makeswapname(buf->b_fname, buf->b_ffname, buf, dir_name);
 
     for (;;)
     {
@@ -3456,20 +3846,8 @@ findswapname(buf, dirp, old_fname)
 		    f1 = mch_open((char *)fname, O_RDONLY | O_EXTRA, 0);
 		    if (f1 < 0)
 		    {
-			f1 = open(
-#ifdef VMS
-				vms_fixfilename((char *)fname),
-#else
-				(char *)fname,
-#endif
-				O_RDWR|O_CREAT|O_EXCL|O_EXTRA
-#if defined(UNIX) || defined(VMS)  /* open in rw------- mode */
-							      , (mode_t)0600
-#endif
-#if defined(MSDOS) || defined(MSWIN) || defined(OS2)  /* open read/write */
-							, S_IREAD | S_IWRITE
-#endif
-									    );
+			f1 = mch_open_rw((char *)fname,
+					       O_RDWR|O_CREAT|O_EXCL|O_EXTRA);
 #if defined(OS2)
 			if (f1 < 0 && errno == ENOENT)
 			    same = TRUE;
@@ -3481,20 +3859,8 @@ findswapname(buf, dirp, old_fname)
 			f2 = mch_open((char *)fname2, O_RDONLY | O_EXTRA, 0);
 			if (f2 < 0)
 			{
-			    f2 = open(
-#ifdef VMS
-				    vms_fixfilename((char *)fname2),
-#else
-				    (char *)fname2,
-#endif
-				    O_RDWR|O_CREAT|O_EXCL|O_EXTRA
-#if defined(UNIX) || defined(VMS)  /* open in rw------- mode */
-							      , (mode_t)0600
-#endif
-#if defined(MSDOS) || defined(MSWIN) || defined(OS2)  /* open read/write */
-							, S_IREAD | S_IWRITE
-#endif
-									    );
+			    f2 = mch_open_rw((char *)fname2,
+					       O_RDWR|O_CREAT|O_EXCL|O_EXTRA);
 			    created2 = TRUE;
 			}
 			if (f2 >= 0)
@@ -3521,7 +3887,8 @@ findswapname(buf, dirp, old_fname)
 		    {
 			buf->b_shortname = TRUE;
 			vim_free(fname);
-			fname = makeswapname(buf, dir_name);
+			fname = makeswapname(buf->b_fname, buf->b_ffname,
+							       buf, dir_name);
 			continue;	/* try again with b_shortname set */
 		    }
 		}
@@ -3591,7 +3958,8 @@ findswapname(buf, dirp, old_fname)
 		{
 		    buf->b_shortname = TRUE;
 		    vim_free(fname);
-		    fname = makeswapname(buf, dir_name);
+		    fname = makeswapname(buf->b_fname, buf->b_ffname,
+							       buf, dir_name);
 		    continue;	    /* try again with '.' replaced with '_' */
 		}
 	    }
@@ -3602,7 +3970,8 @@ findswapname(buf, dirp, old_fname)
 	     * viewing a help file or when the path of the file is different
 	     * (happens when all .swp files are in one directory).
 	     */
-	    if (!recoverymode && buf->b_fname != NULL && !buf->b_help)
+	    if (!recoverymode && buf->b_fname != NULL
+				&& !buf->b_help && !(buf->b_flags & BF_DUMMY))
 	    {
 		int		fd;
 		struct block0	b0;
@@ -3618,18 +3987,43 @@ findswapname(buf, dirp, old_fname)
 		    if (read(fd, (char *)&b0, sizeof(b0)) == sizeof(b0))
 		    {
 			/*
-			 * The name in the swap file may be "~user/path/file".
-			 * Expand it first.
+			 * If the swapfile has the same directory as the
+			 * buffer don't compare the directory names, they can
+			 * have a different mountpoint.
 			 */
-			expand_env(b0.b0_fname, NameBuff, MAXPATHL);
+			if (b0.b0_flags & B0_SAME_DIR)
+			{
+			    if (fnamecmp(gettail(buf->b_ffname),
+						   gettail(b0.b0_fname)) != 0
+				    || !same_directory(fname, buf->b_ffname))
+			    {
 #ifdef CHECK_INODE
-			if (fnamecmp_ino(buf->b_ffname, NameBuff,
+				/* Symlinks may point to the same file even
+				 * when the name differs, need to check the
+				 * inode too. */
+				expand_env(b0.b0_fname, NameBuff, MAXPATHL);
+				if (fnamecmp_ino(buf->b_ffname, NameBuff,
 						     char_to_long(b0.b0_ino)))
-			    differ = TRUE;
-#else
-			if (fnamecmp(NameBuff, buf->b_ffname) != 0)
-			    differ = TRUE;
 #endif
+				    differ = TRUE;
+			    }
+			}
+			else
+			{
+			    /*
+			     * The name in the swap file may be
+			     * "~user/path/file".  Expand it first.
+			     */
+			    expand_env(b0.b0_fname, NameBuff, MAXPATHL);
+#ifdef CHECK_INODE
+			    if (fnamecmp_ino(buf->b_ffname, NameBuff,
+						     char_to_long(b0.b0_ino)))
+				differ = TRUE;
+#else
+			    if (fnamecmp(NameBuff, buf->b_ffname) != 0)
+				differ = TRUE;
+#endif
+			}
 		    }
 		    close(fd);
 		}
@@ -3647,7 +4041,9 @@ findswapname(buf, dirp, old_fname)
 		if (differ == FALSE && !(curbuf->b_flags & BF_RECOVERED)
 			&& vim_strchr(p_shm, SHM_ATTENTION) == NULL)
 		{
-		    struct stat st;
+#if defined(HAS_SWAP_EXISTS_ACTION)
+		    int		choice = 0;
+#endif
 #ifdef CREATE_DUMMY_FILE
 		    int		did_use_dummy = FALSE;
 
@@ -3663,55 +4059,41 @@ findswapname(buf, dirp, old_fname)
 			did_use_dummy = TRUE;
 		    }
 #endif
-#ifdef FEAT_GUI
-		    /* If we are supposed to start the GUI but it wasn't
-		     * completely started yet, start it now.  This makes the
-		     * messages displayed in the Vim window when loading a
-		     * session from the .gvimrc file. */
-		    if (gui.starting && !gui.in_use)
-			gui_start();
-#endif
 
 #if (defined(UNIX) || defined(__EMX__) || defined(VMS)) && (defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG))
 		    process_still_running = FALSE;
 #endif
-		    ++no_wait_return;
-		    (void)EMSG(_("E325: ATTENTION"));
-		    MSG_PUTS(_("\nFound a swap file by the name \""));
-		    msg_home_replace(fname);
-		    MSG_PUTS(_("\"\n"));
-		    sx = swapfile_info(fname);
-		    MSG_PUTS(_("While opening file \""));
-		    msg_outtrans(buf->b_fname);
-		    MSG_PUTS(_("\"\n"));
-		    if (mch_stat((char *)buf->b_fname, &st) != -1)
-		    {
-			MSG_PUTS(_("             dated: "));
-			x = st.st_mtime;    /* Manx C can't do &st.st_mtime */
-			MSG_PUTS(ctime(&x));
-			if (sx != 0 && x > sx)
-			    MSG_PUTS(_("      NEWER than swap file!\n"));
-		    }
-		    /* Some of these messages are long to allow translation to
-		     * other languages. */
-		    MSG_PUTS(_("\n(1) Another program may be editing the same file.\n    If this is the case, be careful not to end up with two\n    different instances of the same file when making changes.\n"));
-		    MSG_PUTS(_("    Quit, or continue with caution.\n"));
-		    MSG_PUTS(_("\n(2) An edit session for this file crashed.\n"));
-		    MSG_PUTS(_("    If this is the case, use \":recover\" or \"vim -r "));
-		    msg_outtrans(buf->b_fname);
-		    MSG_PUTS(_("\"\n    to recover the changes (see \":help recovery\").\n"));
-		    MSG_PUTS(_("    If you did this already, delete the swap file \""));
-		    msg_outtrans(fname);
-		    MSG_PUTS(_("\"\n    to avoid this message.\n"));
-		    cmdline_row = msg_row;
-		    --no_wait_return;
+#ifdef FEAT_AUTOCMD
+		    /*
+		     * If there is an SwapExists autocommand and we can handle
+		     * the response, trigger it.  It may return 0 to ask the
+		     * user anyway.
+		     */
+		    if (swap_exists_action != SEA_NONE
+			    && has_autocmd(EVENT_SWAPEXISTS, buf->b_fname, buf))
+			choice = do_swapexists(buf, fname);
 
-		    /* We don't want a 'q' typed at the more-prompt interrupt
-		     * loading a file. */
-		    got_int = FALSE;
+		    if (choice == 0)
+#endif
+		    {
+#ifdef FEAT_GUI
+			/* If we are supposed to start the GUI but it wasn't
+			 * completely started yet, start it now.  This makes
+			 * the messages displayed in the Vim window when
+			 * loading a session from the .gvimrc file. */
+			if (gui.starting && !gui.in_use)
+			    gui_start();
+#endif
+			/* Show info about the existing swap file. */
+			attention_message(buf, fname);
+
+			/* We don't want a 'q' typed at the more-prompt
+			 * interrupt loading a file. */
+			got_int = FALSE;
+		    }
 
 #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
-		    if (swap_exists_action)
+		    if (swap_exists_action != SEA_NONE && choice == 0)
 		    {
 			char_u	*name;
 
@@ -3725,16 +4107,33 @@ findswapname(buf, dirp, old_fname)
 								  1000, TRUE);
 			    STRCAT(name, _("\" already exists!"));
 			}
-			switch (do_dialog(VIM_WARNING,
+			choice = do_dialog(VIM_WARNING,
 				    (char_u *)_("VIM - ATTENTION"),
 				    name == NULL
 					?  (char_u *)_("Swap file already exists!")
 					: name,
 # if defined(UNIX) || defined(__EMX__) || defined(VMS)
 				    process_still_running
-					? (char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit") :
+					? (char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit\n&Abort") :
 # endif
-					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit\n&Delete it"), 1, NULL))
+					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Delete it\n&Quit\n&Abort"), 1, NULL);
+
+# if defined(UNIX) || defined(__EMX__) || defined(VMS)
+			if (process_still_running && choice >= 4)
+			    choice++;	/* Skip missing "Delete it" button */
+# endif
+			vim_free(name);
+
+			/* pretend screen didn't scroll, need redraw anyway */
+			msg_scrolled = 0;
+			redraw_all_later(NOT_VALID);
+		    }
+#endif
+
+#if defined(HAS_SWAP_EXISTS_ACTION)
+		    if (choice > 0)
+		    {
+			switch (choice)
 			{
 			    case 1:
 				buf->b_p_ro = TRUE;
@@ -3745,17 +4144,16 @@ findswapname(buf, dirp, old_fname)
 				swap_exists_action = SEA_RECOVER;
 				break;
 			    case 4:
-				swap_exists_action = SEA_QUIT;
-				break;
-			    case 5:
 				mch_remove(fname);
 				break;
+			    case 5:
+				swap_exists_action = SEA_QUIT;
+				break;
+			    case 6:
+				swap_exists_action = SEA_QUIT;
+				got_int = TRUE;
+				break;
 			}
-			vim_free(name);
-
-			/* pretend screen didn't scroll, need redraw anyway */
-			msg_scrolled = 0;
-			redraw_all_later(NOT_VALID);
 
 			/* If the file was deleted this fname can be used. */
 			if (mch_getperm(fname) < 0)
@@ -3765,7 +4163,9 @@ findswapname(buf, dirp, old_fname)
 #endif
 		    {
 			MSG_PUTS("\n");
-			need_wait_return = TRUE; /* call wait_return later */
+			if (msg_silent == 0)
+			    /* call wait_return() later */
+			    need_wait_return = TRUE;
 		    }
 
 #ifdef CREATE_DUMMY_FILE
@@ -3781,7 +4181,7 @@ findswapname(buf, dirp, old_fname)
 	 * Change the ".swp" extension to find another file that can be used.
 	 * First decrement the last char: ".swo", ".swn", etc.
 	 * If that still isn't enough decrement the last but one char: ".svz"
-	 * Can happen when editing many "No File" buffers.
+	 * Can happen when editing many "No Name" buffers.
 	 */
 	if (fname[n - 1] == 'a')	/* ".s?a" */
 	{
@@ -3953,10 +4353,15 @@ char_to_long(s)
     return retval;
 }
 
+/*
+ * Set the flags in the first block of the swap file:
+ * - file is modified or not: buf->b_changed
+ * - 'fileformat'
+ * - 'fileencoding'
+ */
     void
-ml_setdirty(buf, flag)
+ml_setflags(buf)
     buf_T	*buf;
-    int		flag;
 {
     bhdr_T	*hp;
     ZERO_BL	*b0p;
@@ -3968,7 +4373,12 @@ ml_setdirty(buf, flag)
 	if (hp->bh_bnum == 0)
 	{
 	    b0p = (ZERO_BL *)(hp->bh_data);
-	    b0p->b0_dirty = flag ? 0x55 : 0;
+	    b0p->b0_dirty = buf->b_changed ? B0_DIRTY : 0;
+	    b0p->b0_flags = (b0p->b0_flags & ~B0_FF_MASK)
+						  | (get_fileformat(buf) + 1);
+#ifdef FEAT_MBYTE
+	    add_b0_fenc(b0p, buf);
+#endif
 	    hp->bh_flags |= BH_DIRTY;
 	    mf_sync(buf->b_ml.ml_mfp, MFS_ZERO);
 	    break;
@@ -4223,14 +4633,14 @@ ml_updatechunk(buf, line, len, updtype)
 
 /*
  * Find offset for line or line with offset.
- * Find line with offset if line is 0; return remaining offset in offp
- * Find offset of line if line > 0
+ * Find line with offset if "lnum" is 0; return remaining offset in offp
+ * Find offset of line if "lnum" > 0
  * return -1 if information is not available
  */
     long
-ml_find_line_or_offset(buf, line, offp)
+ml_find_line_or_offset(buf, lnum, offp)
     buf_T	*buf;
-    linenr_T	line;
+    linenr_T	lnum;
     long	*offp;
 {
     linenr_T	curline;
@@ -4247,16 +4657,19 @@ ml_find_line_or_offset(buf, line, offp)
     int		ffdos = (get_fileformat(buf) == EOL_DOS);
     int		extra = 0;
 
+    /* take care of cached line first */
+    ml_flush_line(curbuf);
+
     if (buf->b_ml.ml_usedchunks == -1
 	    || buf->b_ml.ml_chunksize == NULL
-	    || line < 0)
+	    || lnum < 0)
 	return -1;
 
     if (offp == NULL)
 	offset = 0;
     else
 	offset = *offp;
-    if (line == 0 && offset <= 0)
+    if (lnum == 0 && offset <= 0)
 	return 1;   /* Not a "find offset" and offset 0 _must_ be in line 1 */
     /*
      * Find the last chunk before the one containing our line. Last chunk is
@@ -4265,8 +4678,8 @@ ml_find_line_or_offset(buf, line, offp)
     curline = 1;
     curix = size = 0;
     while (curix < buf->b_ml.ml_usedchunks - 1
-	    && ((line != 0
-	     && line >= curline + buf->b_ml.ml_chunksize[curix].mlcs_numlines)
+	    && ((lnum != 0
+	     && lnum >= curline + buf->b_ml.ml_chunksize[curix].mlcs_numlines)
 		|| (offset != 0
 	       && offset > size + buf->b_ml.ml_chunksize[curix].mlcs_totalsize
 		      + ffdos * buf->b_ml.ml_chunksize[curix].mlcs_numlines)))
@@ -4278,7 +4691,7 @@ ml_find_line_or_offset(buf, line, offp)
 	curix++;
     }
 
-    while ((line != 0 && curline < line) || (offset != 0 && size < offset))
+    while ((lnum != 0 && curline < lnum) || (offset != 0 && size < offset))
     {
 	if (curline > buf->b_ml.ml_line_count
 		|| (hp = ml_find_line(buf, curline, ML_FIND)) == NULL)
@@ -4292,10 +4705,10 @@ ml_find_line_or_offset(buf, line, offp)
 	else
 	    text_end = ((dp->db_index[idx - 1]) & DB_INDEX_MASK);
 	/* Compute index of last line to use in this MEMLINE */
-	if (line != 0)
+	if (lnum != 0)
 	{
-	    if (curline + (count - idx) >= line)
-		idx += line - curline - 1;
+	    if (curline + (count - idx) >= lnum)
+		idx += lnum - curline - 1;
 	    else
 		idx = count - 1;
 	}
@@ -4335,8 +4748,17 @@ ml_find_line_or_offset(buf, line, offp)
 	curline = buf->b_ml.ml_locked_high + 1;
     }
 
-    if (ffdos)
-	size += line - 1;
+    if (lnum != 0)
+    {
+	/* Count extra CR characters. */
+	if (ffdos)
+	    size += lnum - 1;
+
+	/* Don't count the last line break if 'bin' and 'noeol'. */
+	if (buf->b_p_bin && !buf->b_p_eol)
+	    size -= ffdos + 1;
+    }
+
     return size;
 }
 
@@ -4365,6 +4787,9 @@ goto_byte(cnt)
     {
 	curwin->w_cursor.lnum = lnum;
 	curwin->w_cursor.col = (colnr_T)boff;
+# ifdef FEAT_VIRTUALEDIT
+	curwin->w_cursor.coladd = 0;
+# endif
 	curwin->w_set_curswant = TRUE;
     }
     check_cursor();

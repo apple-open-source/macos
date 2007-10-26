@@ -56,7 +56,7 @@ MscTokenConnection::MscTokenConnection(const MSCTokenConnection &rTokenConnectio
 
 	// Now copy the strings
 	::strncpy(reinterpret_cast<char *>(pMac), reinterpret_cast<const char *>(rTokenConnection.pMac), 
-		min(reinterpret_cast<size_t>(rTokenConnection.macSize),sizeof(pMac)));		// Token name
+		min(static_cast<size_t>(rTokenConnection.macSize),sizeof(pMac)));		// Token name
 }
 
 // strncpy(char * restrict dst, const char * restrict src, size_t len);
@@ -76,7 +76,7 @@ MscTokenConnection &MscTokenConnection::operator = (const MSCTokenConnection &rT
 
 	// Now copy the strings
 	::strncpy(reinterpret_cast<char *>(pMac), reinterpret_cast<const char *>(rTokenConnection.pMac), 
-		min(reinterpret_cast<size_t>(rTokenConnection.macSize),sizeof(pMac)));		// Token name
+		min(static_cast<size_t>(rTokenConnection.macSize),sizeof(pMac)));		// Token name
 
 	return *this;
 }
@@ -271,6 +271,3 @@ void MscTokenConnection::getChallenge(const char *seed,size_t seedSize,const cha
 		MscError::throwMe(rv);
 }
 
-
-
-/* arch-tag: 953DC7C2-BE68-11D8-91A7-000A95C4302E */

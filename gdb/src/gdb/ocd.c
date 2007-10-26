@@ -29,6 +29,7 @@
 #include "bfd.h"
 #include "symfile.h"
 #include "target.h"
+#include "exceptions.h"
 #include "gdbcmd.h"
 #include "objfiles.h"
 #include "gdb-stabs.h"
@@ -37,6 +38,8 @@
 #include "serial.h"
 #include "ocd.h"
 #include "regcache.h"
+/* APPLE LOCAL - subroutine inlining  */
+#include "inlining.h"
 
 /* Prototypes for local functions */
 
@@ -127,7 +130,7 @@ ocd_error (char *s, int error_code)
       s = buf;
     }
 
-  error ("%s", s);
+  error (("%s"), s);
 }
 
 /*  Return nonzero if the thread TH is still alive on the remote system.  */
@@ -176,19 +179,19 @@ ocd_start_remote (void *dummy)
   p = ocd_get_packet (buf[0], &pktlen, remote_timeout);
 
   if (pktlen < 2)
-    error ("Truncated response packet from OCD device");
+    error (_("Truncated response packet from OCD device"));
 
   status = p[1];
   error_code = p[2];
 
   if (error_code != 0)
-    ocd_error ("OCD_INIT:", error_code);
+    ocd_error (_("OCD_INIT:"), error_code);
 
   ocd_do_command (OCD_AYT, &status, &pktlen);
 
   p = ocd_do_command (OCD_GET_VERSION, &status, &pktlen);
 
-  printf_unfiltered ("[Wiggler version %x.%x, capability 0x%x]\n",
+  printf_unfiltered (_("[Wiggler version %x.%x, capability 0x%x]\n"),
 		     p[0], p[1], (p[2] << 16) | p[3]);
 
   /* If processor is still running, stop it.  */
@@ -207,7 +210,7 @@ ocd_start_remote (void *dummy)
   p = ocd_get_packet (buf[0], &pktlen, remote_timeout);
 
   if (pktlen < 2)
-    error ("Truncated response packet from OCD device");
+    error (_("Truncated response packet from OCD device"));
 
   status = p[1];
   error_code = p[2];
@@ -225,7 +228,18 @@ ocd_start_remote (void *dummy)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  print_stack_frame (get_selected_frame (), -1, 1);
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* If the PC has changed since the last time we updated the
+     global_inlined_call_stack data, we need to verify the current
+     data and possibly update it.  */
+  if (stop_pc != inlined_function_call_stack_pc ())
+    inlined_function_update_call_stack (stop_pc);
+  /* APPLE LOCAL end subroutine inlining  */
+
+  print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC);
+  /* APPLE LOCAL begin subroutine inlining  */
+  clear_inlined_subroutine_print_frames ();
+  /* APPLE LOCAL end subroutine inlining  */
 
   buf[0] = OCD_LOG_FILE;
   buf[1] = 3;			/* close existing WIGGLERS.LOG */
@@ -251,8 +265,8 @@ ocd_open (char *name, int from_tty, enum ocd_target_type target_type,
   int pktlen;
 
   if (name == 0)
-    error ("To open an OCD connection, you need to specify the\n\
-device the OCD device is attached to (e.g. /dev/ttya).");
+    error (_("To open an OCD connection, you need to specify the\n\
+device the OCD device is attached to (e.g. /dev/ttya)."));
 
   target_preopen (from_tty);
 
@@ -303,7 +317,7 @@ device the OCD device is attached to (e.g. /dev/ttya).");
 		     RETURN_MASK_ALL))
     {
       pop_target ();
-      error ("Failed to connect to OCD.");
+      error (_("Failed to connect to OCD."));
     }
 }
 
@@ -316,7 +330,7 @@ void
 ocd_detach (char *args, int from_tty)
 {
   if (args)
-    error ("Argument given to \"detach\" when remotely debugging.");
+    error (_("Argument given to \"detach\" when remotely debugging."));
 
   pop_target ();
   if (from_tty)
@@ -345,7 +359,7 @@ ocd_stop (void)
   ocd_do_command (OCD_STOP, &status, &pktlen);
 
   if (!(status & OCD_FLAG_BDM))
-    error ("Can't stop target via BDM");
+    error (_("Can't stop target via BDM"));
 }
 
 static volatile int ocd_interrupt_flag;
@@ -396,7 +410,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      throw_exception (RETURN_QUIT);
+      deprecated_throw_reason (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -434,7 +448,7 @@ ocd_wait (void)
       signal (SIGINT, ofunc);
 
       if (pktlen < 2)
-	error ("Truncated response packet from OCD device");
+	error (_("Truncated response packet from OCD device"));
 
       last_run_status = p[1];
       error_code = p[2];
@@ -443,9 +457,9 @@ ocd_wait (void)
 	ocd_error ("target_wait:", error_code);
 
       if (last_run_status & OCD_FLAG_PWF)
-	error ("OCD device lost VCC at BDM interface.");
+	error (_("OCD device lost VCC at BDM interface."));
       else if (last_run_status & OCD_FLAG_CABLE_DISC)
-	error ("OCD device cable appears to have been disconnected.");
+	error (_("OCD device cable appears to have been disconnected."));
     }
 
   if (ocd_interrupt_flag)
@@ -489,7 +503,7 @@ ocd_read_bdm_registers (int first_bdm_regno, int last_bdm_regno, int *reglen)
 
   if (i > pktlen - 4
       || ((i & 3) != 0))
-    error ("Register block size bad:  %d", i);
+    error (_("Register block size bad:  %d"), i);
 
   *reglen = i;
 
@@ -533,7 +547,7 @@ ocd_write_bdm_registers (int first_bdm_regno, unsigned char *regptr, int reglen)
   p = ocd_get_packet (OCD_WRITE_REGS, &pktlen, remote_timeout);
 
   if (pktlen < 3)
-    error ("Truncated response packet from OCD device");
+    error (_("Truncated response packet from OCD device"));
 
   status = p[1];
   error_code = p[2];
@@ -599,7 +613,7 @@ ocd_write_bytes (CORE_ADDR memaddr, char *myaddr, int len)
       ocd_put_packet (buf, 8 + numbytes);
       p = ocd_get_packet (OCD_WRITE_MEM, &pktlen, remote_timeout);
       if (pktlen < 3)
-	error ("Truncated response packet from OCD device");
+	error (_("Truncated response packet from OCD device"));
 
       status = p[1];
       error_code = p[2];
@@ -669,7 +683,7 @@ ocd_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
       ocd_put_packet (buf, 7);
       p = ocd_get_packet (OCD_READ_MEM, &pktlen, remote_timeout);
       if (pktlen < 4)
-	error ("Truncated response packet from OCD device");
+	error (_("Truncated response packet from OCD device"));
 
       status = p[1];
       error_code = p[2];
@@ -743,9 +757,9 @@ readchar (int timeout)
   switch (ch)
     {
     case SERIAL_EOF:
-      error ("Remote connection closed");
+      error (_("Remote connection closed"));
     case SERIAL_ERROR:
-      perror_with_name ("Remote communication error");
+      perror_with_name (_("Remote communication error"));
     case SERIAL_TIMEOUT:
     default:
       return ch;
@@ -785,7 +799,7 @@ ocd_put_packet (unsigned char *buf, int len)
 
   *packet_ptr++ = -checksum;
   if (serial_write (ocd_desc, packet, packet_ptr - packet))
-    perror_with_name ("output_packet: write failed");
+    perror_with_name (_("output_packet: write failed"));
 }
 
 /* Get a packet from the OCD device.  Timeout is only enforced for the
@@ -806,10 +820,10 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
   ch = readchar (timeout);
 
   if (ch < 0)
-    error ("ocd_get_packet (readchar): %d", ch);
+    error (_("ocd_get_packet (readchar): %d"), ch);
 
   if (ch != 0x55)
-    error ("ocd_get_packet (readchar): %d", ch);
+    error (_("ocd_get_packet (readchar): %d"), ch);
 
 /* Found the start of a packet */
 
@@ -821,7 +835,7 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
   ch = readchar (timeout);
 
   if (ch < 0)
-    error ("ocd_get_packet (readchar): %d", ch);
+    error (_("ocd_get_packet (readchar): %d"), ch);
 
   *packet_ptr++ = ch;
   checksum += ch;
@@ -831,7 +845,7 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
   ch = readchar (timeout);
 
   if (ch < 0)
-    error ("ocd_get_packet (readchar): %d", ch);
+    error (_("ocd_get_packet (readchar): %d"), ch);
   *packet_ptr++ = ch;
   checksum += ch;
 
@@ -840,7 +854,7 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
   ch = readchar (timeout);
 
   if (ch < 0)
-    error ("ocd_get_packet (readchar): %d", ch);
+    error (_("ocd_get_packet (readchar): %d"), ch);
   *packet_ptr++ = ch;
   checksum += ch;
 
@@ -900,7 +914,7 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
 	  len = 257;
 	  break;
 	default:
-	  error ("ocd_get_packet: unknown packet type 0x%x\n", ch);
+	  error (_("ocd_get_packet: unknown packet type 0x%x."), ch);
 	}
     }
 
@@ -909,7 +923,7 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
       ch = readchar (timeout);
 
       if (ch < 0)
-	error ("ocd_get_packet (readchar): %d", ch);
+	error (_("ocd_get_packet (readchar): %d"), ch);
       *packet_ptr++ = ch;
       checksum += ch;
       len = ch;
@@ -922,16 +936,16 @@ ocd_get_packet (int cmd, int *lenp, int timeout)
       ch = readchar (timeout);
 
       if (ch < 0)
-	error ("ocd_get_packet (readchar): %d", ch);
+	error (_("ocd_get_packet (readchar): %d"), ch);
       *packet_ptr++ = ch;
       checksum += ch;
     }
 
   if (checksum != 0)
-    error ("ocd_get_packet: bad packet checksum");
+    error (_("ocd_get_packet: bad packet checksum"));
 
   if (cmd != -1 && cmd != packet[0])
-    error ("Response phase error.  Got 0x%x, expected 0x%x", packet[0], cmd);
+    error (_("Response phase error.  Got 0x%x, expected 0x%x"), packet[0], cmd);
 
   *lenp = packet_ptr - packet - 1;	/* Subtract checksum byte */
   return packet;
@@ -955,7 +969,7 @@ ocd_do_command (int cmd, int *statusp, int *lenp)
   p = ocd_get_packet (*buf, lenp, remote_timeout);
 
   if (*lenp < 3)
-    error ("Truncated response packet from OCD device");
+    error (_("Truncated response packet from OCD device"));
 
   status = p[1];
   error_code = p[2];
@@ -967,9 +981,9 @@ ocd_do_command (int cmd, int *statusp, int *lenp)
     }
 
   if (status & OCD_FLAG_PWF)
-    error ("OCD device can't detect VCC at BDM interface.");
+    error (_("OCD device can't detect VCC at BDM interface."));
   else if (status & OCD_FLAG_CABLE_DISC)
-    error ("BDM cable appears to be disconnected.");
+    error (_("BDM cable appears to be disconnected."));
 
   *statusp = status;
 
@@ -1014,10 +1028,10 @@ ocd_mourn (void)
    the program at that point.  */
 
 void
-ocd_create_inferior (char *exec_file, char *args, char **env)
+ocd_create_inferior (char *exec_file, char *args, char **env, int from_tty)
 {
   if (args && (*args != '\000'))
-    error ("Args are not supported by BDM.");
+    error (_("Args are not supported by BDM."));
 
   clear_proceed_status ();
   proceed (bfd_get_start_address (exec_bfd), TARGET_SIGNAL_0, 0);
@@ -1075,7 +1089,7 @@ ocd_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
 static void
 bdm_command (char *args, int from_tty)
 {
-  error ("bdm command must be followed by `reset'");
+  error (_("bdm command must be followed by `reset'"));
 }
 
 static void
@@ -1084,7 +1098,7 @@ bdm_reset_command (char *args, int from_tty)
   int status, pktlen;
 
   if (!ocd_desc)
-    error ("Not connected to OCD device.");
+    error (_("Not connected to OCD device."));
 
   ocd_do_command (OCD_RESET, &status, &pktlen);
   dcache_invalidate (target_dcache);
@@ -1097,7 +1111,7 @@ bdm_restart_command (char *args, int from_tty)
   int status, pktlen;
 
   if (!ocd_desc)
-    error ("Not connected to OCD device.");
+    error (_("Not connected to OCD device."));
 
   ocd_do_command (OCD_RESET_RUN, &status, &pktlen);
   last_run_status = status;
@@ -1122,10 +1136,10 @@ bdm_update_flash_command (char *args, int from_tty)
   void (*store_registers_tmp) (int);
 
   if (!ocd_desc)
-    error ("Not connected to OCD device.");
+    error (_("Not connected to OCD device."));
 
   if (!args)
-    error ("Must specify file containing new OCD code.");
+    error (_("Must specify file containing new OCD code."));
 
 /*  old_chain = make_cleanup (flash_cleanup, 0); */
 
@@ -1155,15 +1169,19 @@ _initialize_remote_ocd (void)
   extern struct cmd_list_element *cmdlist;
   static struct cmd_list_element *ocd_cmd_list = NULL;
 
-  add_show_from_set (add_set_cmd ("remotetimeout", no_class,
-				  var_integer, (char *) &remote_timeout,
-			  "Set timeout value for remote read.\n", &setlist),
-		     &showlist);
+  add_setshow_integer_cmd ("remotetimeout", no_class, &remote_timeout, _("\
+Set timeout value for remote read."), _("\
+Show timeout value for remote read."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 
-  add_prefix_cmd ("ocd", class_obscure, bdm_command, "", &ocd_cmd_list, "ocd ",
-		  0, &cmdlist);
+  /* FIXME: i18n: What documentation?  */
+  add_prefix_cmd ("ocd", class_obscure, bdm_command, (""), &ocd_cmd_list,
+		  "ocd ", 0, &cmdlist);
 
-  add_cmd ("reset", class_obscure, bdm_reset_command, "", &ocd_cmd_list);
-  add_cmd ("restart", class_obscure, bdm_restart_command, "", &ocd_cmd_list);
-  add_cmd ("update-flash", class_obscure, bdm_update_flash_command, "", &ocd_cmd_list);
+  /* FIXME: i18n: what documentation? */
+  add_cmd ("reset", class_obscure, bdm_reset_command, (""), &ocd_cmd_list);
+  add_cmd ("restart", class_obscure, bdm_restart_command, (""), &ocd_cmd_list);
+  add_cmd ("update-flash", class_obscure, bdm_update_flash_command, (""), &ocd_cmd_list);
 }

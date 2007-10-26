@@ -37,6 +37,12 @@ using namespace CssmClient;
 
 
 //
+// Access static constants
+//
+const CSSM_ACL_HANDLE Access::ownerHandle;
+
+
+//
 // Create a completely open Access (anyone can do anything)
 // Note that this means anyone can *change* the ACL at will, too.
 // These ACL entries contain no descriptor names.
@@ -178,11 +184,14 @@ void Access::setAccess(AclBearer &target, bool update /* = false */)
 
 void Access::setAccess(AclBearer &target, Maker &maker)
 {
-	// remove initial-setup ACL
-	target.deleteAcl(Maker::creationEntryTag, maker.cred());
-	
-	// insert our own ACL entries
-	editAccess(target, false, maker.cred());
+	if (maker.makerType() == Maker::kStandardMakerType)
+	{
+		// remove initial-setup ACL
+		target.deleteAcl(Maker::creationEntryTag, maker.cred());
+		
+		// insert our own ACL entries
+		editAccess(target, false, maker.cred());
+	}
 }
 
 void Access::editAccess(AclBearer &target, bool update, const AccessCredentials *cred)
@@ -324,20 +333,28 @@ void Access::compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 //
 const char Access::Maker::creationEntryTag[] = "___setup___";
 
-Access::Maker::Maker(Allocator &alloc)
-	: allocator(alloc), mKey(alloc), mCreds(allocator)
+Access::Maker::Maker(Allocator &alloc, MakerType makerType)
+	: allocator(alloc), mKey(alloc), mCreds(allocator), mMakerType(makerType)
 {
-	// generate random key
-	mKey.malloc(keySize);
-	UniformRandomBlobs<DevRandomGenerator>().random(mKey.get());
-	
-	// create entry info for resource creation
-	mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PASSWORD,
-		new(allocator) ListElement(mKey.get())));
-	mInput.proto().tag(creationEntryTag);
+	if (makerType == kStandardMakerType)
+	{
+		// generate random key
+		mKey.malloc(keySize);
+		UniformRandomBlobs<DevRandomGenerator>().random(mKey.get());
+		
+		// create entry info for resource creation
+		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_PASSWORD,
+			new(allocator) ListElement(mKey.get())));
+		mInput.proto().tag(creationEntryTag);
 
-	// create credential sample for access
-	mCreds += TypedList(allocator, CSSM_SAMPLE_TYPE_PASSWORD, new(allocator) ListElement(mKey.get()));
+		// create credential sample for access
+		mCreds += TypedList(allocator, CSSM_SAMPLE_TYPE_PASSWORD, new(allocator) ListElement(mKey.get()));
+	}
+	else
+	{
+		// just make it an CSSM_ACL_SUBJECT_TYPE_ANY list
+		mInput = AclEntryPrototype(TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_ANY));
+	}
 }
 
 void Access::Maker::initialOwner(ResourceControlContext &ctx, const AccessCredentials *creds)

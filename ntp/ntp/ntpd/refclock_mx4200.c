@@ -67,6 +67,8 @@
 # include <sys/ppsclock.h>
 #endif
 
+#include "ntp_sprintf.h"
+
 #ifndef HAVE_STRUCT_PPSCLOCKEV
 struct ppsclockev {
 # ifdef HAVE_STRUCT_TIMESPEC
@@ -78,13 +80,9 @@ struct ppsclockev {
 };
 #endif /* ! HAVE_STRUCT_PPSCLOCKEV */
 
-#ifdef HAVE_TIMEPPS_H
-#   include <timepps.h>
-#else
-# ifdef HAVE_SYS_TIMEPPS_H
-#   include <sys/timepps.h>
-# endif
-#endif
+#ifdef HAVE_PPSAPI
+# include "ppsapi_timepps.h"
+#endif /* HAVE_PPSAPI */
 
 /*
  * This driver supports the Magnavox Model MX 4200 GPS Receiver
@@ -892,7 +890,7 @@ mx4200_receive(
 		mx4200_debug(peer, "%4d-%03d %02d:%02d:%02d at %s, %.6f\n",
 		    pp->year, pp->day, pp->hour, pp->minute, pp->second,
 		    prettydate(&pp->lastrec), pp->offset);
-
+		pp->lastref = pp->lastrec;
 		refclock_receive(peer);
 
 		/*
@@ -947,7 +945,7 @@ mx4200_receive(
  *	10 int  User Time Bias: Operator specified bias, in nanoseconds
  *	11 int  Leap Second Flag: Indicates that a leap second will
  *			occur.  This value is usually zero, except during
- *			the week prior to the leap second occurence, when
+ *			the week prior to the leap second occurrence, when
  *			this value will be set to +1 or -1.  A value of
  *			+1 indicates that GPS time will be 1 second
  *			further ahead of UTC time.
@@ -1103,8 +1101,6 @@ mx4200_parse_t(
 	pp->hour   = hour;
 	pp->minute = minute;
 	pp->second = second;
-	pp->msec   = 0;
-	pp->usec   = 0;
 
 	/*
 	 * Toss if sentence is marked invalid
@@ -1524,15 +1520,15 @@ mx4200_pps(
 	if (time_pps_fetch(up->pps_h, PPS_TSFMT_TSPEC, &(up->pps_i),
 			&timeout) < 0) {
 		mx4200_debug(peer,
-		  "mx4200_pps: time_pps_fetch: serial=%d, %s\n",
-		     up->pps_i.assert_sequence, strerror(errno));
+		  "mx4200_pps: time_pps_fetch: serial=%ul, %s\n",
+		     (unsigned long)up->pps_i.assert_sequence, strerror(errno));
 		refclock_report(peer, CEVNT_FAULT);
 		return(1);
 	}
 	if (temp_serial == up->pps_i.assert_sequence) {
 		mx4200_debug(peer,
-		   "mx4200_pps: assert_sequence serial not incrementing: %d\n",
-			up->pps_i.assert_sequence);
+		   "mx4200_pps: assert_sequence serial not incrementing: %ul\n",
+			(unsigned long)up->pps_i.assert_sequence);
 		refclock_report(peer, CEVNT_FAULT);
 		return(1);
 	}
@@ -1544,8 +1540,8 @@ mx4200_pps(
 		if (up->pps_i.assert_sequence == up->lastserial) {
 			mx4200_debug(peer, "mx4200_pps: no new pps event\n");
 		} else {
-			mx4200_debug(peer, "mx4200_pps: missed %d pps events\n",
-			    up->pps_i.assert_sequence - up->lastserial - 1);
+			mx4200_debug(peer, "mx4200_pps: missed %ul pps events\n",
+			    up->pps_i.assert_sequence - up->lastserial - 1UL);
 		}
 		refclock_report(peer, CEVNT_FAULT);
 	}
@@ -1636,25 +1632,11 @@ mx4200_send(peer, fmt, va_alist)
 
 	cp = buf;
 	*cp++ = '$';
-#ifdef notdef
-	/* BSD is rational */
-	n = vsnprintf(cp, sizeof(buf) - 1, fmt, ap);
-#else
-	/* SunOS sucks */
-	(void)vsprintf(cp, fmt, ap);
-	n = strlen(cp);
-#endif /* notdef */
+	n = VSNPRINTF((cp, sizeof(buf) - 1, fmt, ap));
 	ck = mx4200_cksum(cp, n);
 	cp += n;
 	++n;
-#ifdef notdef
-	/* BSD is rational */
-	n += snprintf(cp, sizeof(buf) - n - 5, "*%02X\r\n", ck);
-#else
-	/* SunOS sucks */
-	sprintf(cp, "*%02X\r\n", ck);
-	n += strlen(cp);
-#endif /* notdef */
+	n += SNPRINTF((cp, sizeof(buf) - n - 5, "*%02X\r\n", ck));
 
 	m = write(pp->io.fd, buf, (unsigned)n);
 	if (m < 0)

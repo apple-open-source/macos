@@ -382,8 +382,9 @@ cancellation stack.
 .El
 .Sh INSTALLATION
 The default system libraries include
-.Nm
-funcitons. No additional libraries or CFLAGS are necessary to use this API.
+.Nm pthread
+functions.
+No additional libraries or CFLAGS are necessary to use this API.
 .Sh SEE ALSO
 .Xr pthread_cleanup_pop 3 ,
 .Xr pthread_cleanup_push 3 ,
@@ -406,15 +407,15 @@ funcitons. No additional libraries or CFLAGS are necessary to use this API.
 .Xr pthread_mutex_trylock 3 ,
 .Xr pthread_mutex_unlock 3 ,
 .Xr pthread_once 3 ,
-.Xr pthread_rwlockattr_destroy 3 ,
-.Xr pthread_rwlockattr_getpshared 3 ,
-.Xr pthread_rwlockattr_init 3 ,
-.Xr pthread_rwlockattr_setpshared 3 ,
 .Xr pthread_rwlock_destroy 3 ,
 .Xr pthread_rwlock_init 3 ,
 .Xr pthread_rwlock_rdlock 3 ,
 .Xr pthread_rwlock_unlock 3 ,
 .Xr pthread_rwlock_wrlock 3 ,
+.Xr pthread_rwlockattr_destroy 3 ,
+.Xr pthread_rwlockattr_getpshared 3 ,
+.Xr pthread_rwlockattr_init 3 ,
+.Xr pthread_rwlockattr_setpshared 3 ,
 .Xr pthread_self 3 ,
 .Xr pthread_setspecific 3
 .Sh STANDARDS

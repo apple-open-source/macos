@@ -4,7 +4,13 @@ AC_DEFUN([tar_GNULIB],[
 # alloca
 gl_FUNC_ALLOCA
 
+# allocsa
+gl_ALLOCSA
+
 # argmatch
+
+# argp
+gl_ARGP
 
 # backupfile
 gl_BACKUPFILE
@@ -43,6 +49,9 @@ gl_FUNC_FTRUNCATE
 
 # full-write
 
+# getcwd
+gl_FUNC_GETCWD
+
 # getdate
 gl_GETDATE
 
@@ -51,6 +60,9 @@ AM_FUNC_GETLINE
 
 # getopt
 gl_GETOPT
+
+# getpagesize
+gl_GETPAGESIZE
 
 # gettext
 
@@ -69,8 +81,11 @@ gl_HUMAN
 # lchown
 gl_FUNC_LCHOWN
 
-# malloc
-AC_FUNC_MALLOC
+# localcharset
+gl_LOCALCHARSET
+
+# mempcpy
+gl_FUNC_MEMPCPY
 
 # memset
 gl_FUNC_MEMSET
@@ -84,17 +99,11 @@ gl_MODECHANGE
 # obstack
 gl_OBSTACK
 
-# pathmax
-gl_PATHMAX
-
 # quote
 gl_QUOTE
 
 # quotearg
 gl_QUOTEARG
-
-# realloc
-AC_FUNC_REALLOC
 
 # restrict
 gl_C_RESTRICT
@@ -114,6 +123,9 @@ gl_SAVE_CWD
 # savedir
 gl_SAVEDIR
 
+# setenv
+gt_FUNC_SETENV
+
 # stdbool
 AM_STDBOOL_H
 
@@ -122,6 +134,15 @@ gl_FUNC_STPCPY
 
 # strcase
 gl_STRCASE
+
+# strchrnul
+gl_FUNC_STRCHRNUL
+
+# strndup
+gl_FUNC_STRNDUP
+
+# strnlen
+gl_FUNC_STRNLEN
 
 # strtoimax
 gl_FUNC_STRTOIMAX
@@ -141,6 +162,9 @@ gl_FUNC_STRTOULL
 # strtoumax
 gl_FUNC_STRTOUMAX
 
+# sysexits
+gl_SYSEXITS
+
 # time_r
 gl_TIME_R
 
@@ -155,6 +179,8 @@ gl_FUNC_UTIME
 
 # xalloc
 gl_XALLOC
+
+# xalloc-die
 
 # xgetcwd
 gl_XGETCWD

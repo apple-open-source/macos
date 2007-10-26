@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,16 +23,21 @@
 #ifndef _H_SS_TYPES
 #define _H_SS_TYPES
 
+#include <sys/syslimits.h>
+
 
 //
 // ss_types - common type definitions for securityd-related IPC services
 //
 #include "ssclient.h"
 
+#define __MigTypeCheck 1
 
-namespace Security {
-
-using namespace SecurityServer;
+typedef uint32_t IPCDbHandle;
+typedef uint32_t IPCKeyHandle;
+typedef uint32_t IPCRecordHandle;
+typedef uint32_t IPCSearchHandle;
+typedef uint32_t IPCGenericHandle;
 
 
 typedef void *Data;
@@ -40,6 +45,20 @@ typedef void *Pointer;
 typedef void *BasePointer;
 
 typedef const char *CssmString;
+
+typedef const char *FilePath;
+typedef char FilePathOut[PATH_MAX];
+typedef const char *RelationName;
+
+
+#ifdef __cplusplus
+
+namespace Security {
+
+using namespace SecurityServer;
+
+
+// @@@ OBSOLETE BEYOND THIS POINT (SecurityTokend uses this still)
 
 typedef void *ContextAttributes;
 typedef Context::Attr *ContextAttributesPointer;
@@ -64,9 +83,7 @@ typedef void *VoidPtr;
 
 typedef CssmKey::Header CssmKeyHeader;
 
-typedef const char *FilePath;
-typedef char FilePathOut[PATH_MAX];
-typedef const char *RelationName;
+typedef SecGuestRef *GuestChain;
 
 
 //
@@ -76,13 +93,15 @@ inline Context &inTrans(CSSM_CONTEXT &arg) { return Context::overlay(arg); }
 inline CssmKey &inTrans(CSSM_KEY &arg) { return CssmKey::overlay(arg); }
 inline CSSM_KEY &outTrans(CssmKey &key) { return key; }
 
+} // end namespace Security
+
+#endif //__cplusplus
+
 
 //
 // MIG-used byte swapping macros
 //
 #define __NDR_convert__int_rep__BasePointer__defined
 #define __NDR_convert__int_rep__BasePointer(a, f)	/* do not flip */
-
-} // end namespace Security
 
 #endif //_H_SS_TYPES

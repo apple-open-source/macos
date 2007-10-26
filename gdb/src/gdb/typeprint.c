@@ -92,7 +92,7 @@ typedef_print (struct type *type, struct symbol *new, struct ui_file *stream)
       break;
 #endif
     default:
-      error ("Language not supported.");
+      error (_("Language not supported."));
     }
   fprintf_filtered (stream, ";\n");
 }
@@ -151,6 +151,8 @@ whatis_exp (char *exp, int show)
 
   if (exp)
     {
+      /* APPLE LOCAL initialize innermost_block  */
+      innermost_block = NULL;
       expr = parse_expression (exp);
       old_chain = make_cleanup (free_current_contents, &expr);
       val = evaluate_type (expr);
@@ -158,7 +160,7 @@ whatis_exp (char *exp, int show)
   else
     val = access_value_history (0);
 
-  type = VALUE_TYPE (val);
+  type = value_type (val);
 
   if (objectprint)
     {
@@ -238,6 +240,8 @@ ptype_command (char *typename, int from_tty)
     }
   else
     {
+      /* APPLE LOCAL initialize innermost_block  */
+      innermost_block = NULL;
       expr = parse_expression (typename);
       old_chain = make_cleanup (free_current_contents, &expr);
       type = ptype_eval (expr);
@@ -331,11 +335,11 @@ print_type_scalar (struct type *type, LONGEST val, struct ui_file *stream)
     case TYPE_CODE_METHOD:
     case TYPE_CODE_REF:
     case TYPE_CODE_NAMESPACE:
-      error ("internal error: unhandled type in print_type_scalar");
+      error (_("internal error: unhandled type in print_type_scalar"));
       break;
 
     default:
-      error ("Invalid type code in symbol table.");
+      error (_("Invalid type code in symbol table."));
     }
   gdb_flush (stream);
 }
@@ -354,6 +358,8 @@ maintenance_print_type (char *typename, int from_tty)
 
   if (typename != NULL)
     {
+      /* APPLE LOCAL initialize innermost_block  */
+      innermost_block = NULL;
       expr = parse_expression (typename);
       old_chain = make_cleanup (free_current_contents, &expr);
       if (expr->elts[0].opcode == OP_TYPE)
@@ -366,7 +372,7 @@ maintenance_print_type (char *typename, int from_tty)
 	  /* The user expression may name a type indirectly by naming an
 	     object of that type.  Find that indirectly named type. */
 	  val = evaluate_type (expr);
-	  type = VALUE_TYPE (val);
+	  type = value_type (val);
 	}
       if (type != NULL)
 	{
@@ -381,13 +387,13 @@ void
 _initialize_typeprint (void)
 {
 
-  add_com ("ptype", class_vars, ptype_command,
-	   "Print definition of type TYPE.\n\
+  add_com ("ptype", class_vars, ptype_command, _("\
+Print definition of type TYPE.\n\
 Argument may be a type name defined by typedef, or \"struct STRUCT-TAG\"\n\
 or \"class CLASS-NAME\" or \"union UNION-TAG\" or \"enum ENUM-TAG\".\n\
-The selected stack frame's lexical context is used to look up the name.");
+The selected stack frame's lexical context is used to look up the name."));
 
   add_com ("whatis", class_vars, whatis_command,
-	   "Print data type of expression EXP.");
+	   _("Print data type of expression EXP."));
 
 }

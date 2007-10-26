@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Fault handling routines
@@ -63,30 +59,38 @@ static char	indone;
 */
 void	sh_fault(register int sig)
 {
-	register int 	flag=0;
-	register char	*trap;
-	register struct checkpt	*pp = (struct checkpt*)sh.jmplist;
+	register Shell_t	*shp = sh_getinterp();
+	register int 		flag=0;
+	register char		*trap;
+	register struct checkpt	*pp = (struct checkpt*)shp->jmplist;
 	int	action=0;
 	/* reset handler */
 	if(!(sig&SH_TRAP))
 		signal(sig, sh_fault);
 	sig &= ~SH_TRAP;
 #ifdef SIGWINCH
-	if(sig==SIGWINCH && !sh_isoption(SH_POSIX))
+	if(sig==SIGWINCH)
 	{
 		int rows=0, cols=0;
+		int32_t v;
 		astwinsize(2,&rows,&cols);
-		if(cols)
-			nv_putval(COLUMNS, (char*)&cols, NV_INTEGER);
-		if(rows)
-			nv_putval(LINES, (char*)&rows, NV_INTEGER);
+		if(v = cols)
+			nv_putval(COLUMNS, (char*)&v, NV_INT32);
+		if(v = rows)
+			nv_putval(LINES, (char*)&v, NV_INT32);
 	}
 #endif  /* SIGWINCH */
+	if(shp->savesig)
+	{
+		/* critical region, save and process later */
+		shp->savesig = sig;
+		return;
+	}
 
 	/* handle ignored signals */
-	if((trap=sh.st.trapcom[sig]) && *trap==0)
+	if((trap=shp->st.trapcom[sig]) && *trap==0)
 		return;
-	flag = sh.sigflag[sig]&~SH_SIGOFF;
+	flag = shp->sigflag[sig]&~SH_SIGOFF;
 	if(!trap)
 	{
 		if(flag&SH_SIGIGNORE)
@@ -94,14 +98,14 @@ void	sh_fault(register int sig)
 		if(flag&SH_SIGDONE)
 		{
 			void *ptr=0;
-			if((flag&SH_SIGINTERACTIVE) && sh_isstate(SH_INTERACTIVE) && !sh_isstate(SH_FORKED) && ! sh.subshell)
+			if((flag&SH_SIGINTERACTIVE) && sh_isstate(SH_INTERACTIVE) && !sh_isstate(SH_FORKED) && ! shp->subshell)
 			{
 				/* check for TERM signal between fork/exec */
 				if(sig==SIGTERM && job.in_critical)
-					sh.trapnote |= SH_SIGTERM;
+					shp->trapnote |= SH_SIGTERM;
 				return;
 			}
-			sh.lastsig = sig;
+			shp->lastsig = sig;
 			sigrelease(sig);
 			if(pp->mode < SH_JMPFUN)
 				pp->mode = SH_JMPFUN;
@@ -111,14 +115,14 @@ void	sh_fault(register int sig)
 			{
 				if(ptr)
 					free(ptr);
-				if(!sh.subshell)
+				if(!shp->subshell)
 					sh_done(sig);
 				sh_exit(SH_EXITSIG);
 			}
 			/* mark signal and continue */
-			sh.trapnote |= SH_SIGSET;
-			if(sig < sh.sigmax)
-				sh.sigflag[sig] |= SH_SIGSET;
+			shp->trapnote |= SH_SIGSET;
+			if(sig < shp->sigmax)
+				shp->sigflag[sig] |= SH_SIGSET;
 #if  defined(VMFL) && (VMALLOC_VERSION>=20031205L)
 			if(abortsig(sig))
 			{
@@ -134,7 +138,7 @@ void	sh_fault(register int sig)
 	}
 	errno = 0;
 	if(pp->mode==SH_JMPCMD)
-		sh.lastsig = sig;
+		shp->lastsig = sig;
 	if(trap)
 	{
 		/*
@@ -146,12 +150,12 @@ void	sh_fault(register int sig)
 	}
 	else
 	{
-		sh.lastsig = sig;
+		shp->lastsig = sig;
 		flag = SH_SIGSET;
 #ifdef SIGTSTP
 		if(sig==SIGTSTP)
 		{
-			sh.trapnote |= SH_SIGTSTP;
+			shp->trapnote |= SH_SIGTSTP;
 			if(pp->mode==SH_JMPCMD && sh_isstate(SH_STOPOK))
 			{
 				sigrelease(sig);
@@ -162,14 +166,20 @@ void	sh_fault(register int sig)
 #endif /* SIGTSTP */
 	}
 #ifdef ERROR_NOTIFY
-	if((error_info.flags&ERROR_NOTIFY) && sh.bltinfun)
-		action = (*sh.bltinfun)(-sig,(char**)0,(void*)0);
-#endif
+	/* This is obsolete */
+	if((error_info.flags&ERROR_NOTIFY) && shp->bltinfun)
+		action = (*shp->bltinfun)(-sig,(char**)0,(void*)0);
 	if(action>0)
 		return;
-	sh.trapnote |= flag;
-	if(sig < sh.sigmax)
-		sh.sigflag[sig] |= flag;
+#endif
+	if(shp->bltinfun && shp->bltindata.notify)
+	{
+		shp->bltindata.sigset = 1;
+		return;
+	}
+	shp->trapnote |= flag;
+	if(sig < shp->sigmax)
+		shp->sigflag[sig] |= flag;
 	if(pp->mode==SH_JMPCMD && sh_isstate(SH_STOPOK))
 	{
 		if(action<0)
@@ -350,7 +360,12 @@ void	sh_chktrap(void)
 		int	sav_trapnote = sh.trapnote;
 		sh.trapnote &= ~SH_SIGSET;
 		if(sh.st.trap[SH_ERRTRAP])
-			sh_trap(sh.st.trap[SH_ERRTRAP],0);
+		{
+			trap = sh.st.trap[SH_ERRTRAP];
+			sh.st.trap[SH_ERRTRAP] = 0;
+			sh_trap(trap,0);
+			sh.st.trap[SH_ERRTRAP] = trap;
+		}
 		sh.trapnote = sav_trapnote;
 		if(sh_isoption(SH_ERREXIT))
 		{
@@ -395,7 +410,7 @@ int sh_trap(const char *trap, int mode)
 	if(jmpval == 0)
 	{
 		if(mode==2)
-			sh_exec((union anynode*)trap,sh_isstate(SH_ERREXIT));
+			sh_exec((Shnode_t*)trap,sh_isstate(SH_ERREXIT));
 		else
 		{
 			Sfio_t *sp;

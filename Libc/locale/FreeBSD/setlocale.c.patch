@@ -1,5 +1,5 @@
 --- setlocale.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ setlocale.c	2005-02-17 12:42:40.000000000 -0800
++++ setlocale.c	2005-04-27 13:37:01.000000000 -0700
 @@ -41,6 +41,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.50 2004/01/31 19:15:32 ache Exp $");
@@ -18,7 +18,7 @@
  
  /*
   * Category names for getenv()
-@@ -99,7 +101,7 @@
+@@ -99,15 +101,16 @@
  
  static char	*currentlocale(void);
  static char	*loadlocale(int);
@@ -27,7 +27,42 @@
  
  char *
  setlocale(category, locale)
-@@ -237,7 +239,7 @@
+ 	int category;
+ 	const char *locale;
+ {
+-	int i, j, len, saverr;
++	int i, j, len, saverr, save__numeric_fp_cvt;
+         const char *env, *r;
++	locale_t save__lc_numeric_loc;
+ 
+ 	if (category < LC_ALL || category >= _LC_LAST) {
+ 		errno = EINVAL;
+@@ -193,6 +196,9 @@
+ 	if (category != LC_ALL)
+ 		return (loadlocale(category));
+ 
++	save__numeric_fp_cvt = __global_locale.__numeric_fp_cvt;
++	save__lc_numeric_loc = __global_locale.__lc_numeric_loc;
++	XL_RETAIN(save__lc_numeric_loc);
+ 	for (i = 1; i < _LC_LAST; ++i) {
+ 		(void)strcpy(saved_categories[i], current_categories[i]);
+ 		if (loadlocale(i) == NULL) {
+@@ -205,10 +211,14 @@
+ 					(void)loadlocale(j);
+ 				}
+ 			}
++			__global_locale.__numeric_fp_cvt = save__numeric_fp_cvt;
++			__global_locale.__lc_numeric_loc = save__lc_numeric_loc;
++			XL_RELEASE(save__lc_numeric_loc);
+ 			errno = saverr;
+ 			return (NULL);
+ 		}
+ 	}
++	XL_RELEASE(save__lc_numeric_loc);
+ 	return (currentlocale());
+ }
+ 
+@@ -237,7 +247,7 @@
  {
  	char *new = new_categories[category];
  	char *old = current_categories[category];
@@ -36,16 +71,27 @@
  	int saved_errno;
  
  	if ((new[0] == '.' &&
-@@ -280,7 +282,7 @@
+@@ -280,15 +290,26 @@
  	if (strcmp(new, old) == 0)
  		return (old);
  
 -	if (func(new) != _LDP_ERROR) {
 +	if (func(new, &__global_locale) != _LDP_ERROR) {
  		(void)strcpy(old, new);
++		switch (category) {
++		case LC_CTYPE:
++			if (__global_locale.__numeric_fp_cvt == LC_NUMERIC_FP_SAME_LOCALE)
++				__global_locale.__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
++			break;
++		case LC_NUMERIC:
++			__global_locale.__numeric_fp_cvt = LC_NUMERIC_FP_UNINITIALIZED;
++			XL_RELEASE(__global_locale.__lc_numeric_loc);
++			__global_locale.__lc_numeric_loc = NULL;
++			break;
++		}
  		return (old);
  	}
-@@ -288,7 +290,7 @@
+ 
  	return (NULL);
  }
  
@@ -54,7 +100,7 @@
  __get_locale_env(category)
          int category;
  {
-@@ -315,7 +317,7 @@
+@@ -315,7 +336,7 @@
  /*
   * Detect locale storage location and store its value to _PathLocale variable
   */

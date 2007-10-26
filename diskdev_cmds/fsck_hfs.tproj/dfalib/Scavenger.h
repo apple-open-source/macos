@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include "BTreeScanner.h"
 #include "hfs_endian.h"
 #include "../fsck_debug.h"
+#include "../fsck_hfs.h"
 
 #include <assert.h>
 #include <sys/xattr.h>
@@ -42,6 +43,10 @@
 #include <sys/kauth.h>
 #include <sys/errno.h>
 #include <sys/syslimits.h>
+#include <sys/param.h>
+#include <sys/sysctl.h>
+#include <sys/mount.h>
+#include <hfs/hfs_mount.h>
 
 #ifdef __cplusplus
 extern	"C" {
@@ -98,13 +103,6 @@ enum {
 #define	VAtrb_Cons	0x0100			/* volume consistency flag */
 #define kHFSCatalogNodeIDsReused 0x1000		
 
-/*
- *	File type and creator for symbolic links (from xnu/bsd/hfs/hfs.h)
- */
-enum {
-	kSymLinkFileType  = 0x736C6E6B,	/* 'slnk' */
-	kSymLinkCreator   = 0x72686170	/* 'rhap' */
-};
 
 /*
  *	File type and creator for TextEdit documents
@@ -112,6 +110,14 @@ enum {
 enum {
 	kTextFileType		= 0x54455854,	/* 'TEXT' */
 	kTextFileCreator	= 0x74747874,	/* 'ttxt' */
+};
+
+/* 
+ *	Alias type and creator for directory hard links
+ */
+enum {
+	kHFSAliasType		= 0x66647270, 	/* 'fdrp' */
+	kHFSAliasCreator	= 0x4D414353	/* 'MACS' */
 };
 
 /*------------------------------------------------------------------------------
@@ -608,7 +614,7 @@ typedef pascal void (*UserMessageProcPtr)(StringPtr message, SInt16 messageType,
 
 #endif
 
-/* 3843779 Structure to detemine consistency of attribute data and 
+/* 3843779 Structure to determine consistency of attribute data and 
  * corresponding bit in catalog record.  Based on Chinese Remainder
  * Theorem
  */
@@ -682,7 +688,7 @@ typedef struct SGlob {
 	UInt16				ABTStat;				//	scavenge status flags for Attributes BTree 
 	UInt16				EBTStat;				//	scavenge status flags for extent BTree 
 	UInt16				CBTStat;				//	scavenge status flags for catalog BTree 
-	UInt16				CatStat;				//	scavenge status flags for catalog file
+	UInt32				CatStat;				//	scavenge status flags for catalog file
 	UInt16				VeryMinorErrorsStat;	//	scavenge status flags for very minor errors
 	UInt16				JStat;					//	scavange status flags for journal errors
 	UInt16				PrintStat;				//	info about messages that should be displayed only once
@@ -746,19 +752,40 @@ typedef struct SGlob {
 	int				chkLevel;
 	int             repairLevel;
 	Boolean			minorRepairErrors;	// indicates some minor repairs failed
+	Boolean		minorRepairAfterThreadRec;	// indicates some minor repair failed and should be repaired after incorrect number of thread record repair	
+	Boolean		minorRepairFalseSuccess;	// indicates minor repair function is returning false success, do not delete from the list
 	int				canWrite;  	// we can safely write to the block device
+	int				writeRef;	// file descriptor with write access on the volume	
 	int				lostAndFoundMode;  // used when creating lost+found directory
+	int				liveVerifyState; // indicates if live verification is being done or not 
 	BTScanState		scanState;
+	int		scanCount;	/* Number of times fsck_hfs has looped */		
 
 	unsigned char	volumeName[256]; /* volume name in ASCII or UTF-8 */
+	char		deviceNode[256]; /* device node in ASCII */
 
+	/* Extended attribute check related stuff */
+	uint32_t	cat_ea_count;		/* number of catalog records that have attribute bit set */
+	uint32_t	cat_acl_count;		/* number of catalog records that have security bit set */
+	uint32_t	attr_ea_count;		/* number of unique fileID attributes found in attribute btree */
+	uint32_t	attr_acl_count;		/* number of acls found in attribute btree */
 	PrimeBuckets 	CBTAttrBucket;		/* prime number buckets for Attribute bit in Catalog btree */
 	PrimeBuckets 	CBTSecurityBucket;	/* prime number buckets for Security bit in Catalog btree */
 	PrimeBuckets 	ABTAttrBucket;		/* prime number buckets for Attribute bit in Attribute btree */
 	PrimeBuckets 	ABTSecurityBucket;	/* prime number buckets for Security bit in Attribute btree */
-	attributeInfo 	lastAttrInfo; 	/* Record last attribute ID checked, used in CheckAttributeRecord, initialized in ScavSetup */
+	attributeInfo 	lastAttrInfo; 		/* Record last attribute ID checked, used in CheckAttributeRecord, initialized in ScavSetup */
 	UInt16		securityAttrName[XATTR_MAXNAMELEN];	/* Store security attribute name in UTF16, to avoid frequent conversion */
 	size_t  	securityAttrLen;
+
+	/* File Hard Links related stuff */
+	uint32_t	filelink_priv_dir_id;
+
+	/* Directory Hard Links related stuff */
+	uint32_t	dirlink_priv_dir_id;
+	uint32_t	dirlink_priv_dir_valence;
+	uint32_t	calculated_dirinodes;
+	uint32_t	calculated_dirlinks;
+
 } SGlob, *SGlobPtr;
 
 
@@ -795,21 +822,26 @@ enum
 #define S_AttributeCount		0x0040	// incorrect number of xattr in attribute btree in comparison with attribute bit in catalog btree
 #define S_SecurityCount			0x0020	// incorrect number of security xattrs in attribute btree in comparison with security bit in catalog btree
 #define S_AttrRec				0x0010	// orphaned/unknown record in attribute BTree
+#define S_ParentHierarchy		0x0008	// bad parent hierarchy, could not lookup parent directory record */
 
 /* catalog file status flags (contents of CatStat) */
 
-#define	S_IllName			0x8000	/* illegal name found */
-#define	S_Valence			0x4000	/* a directory valence is out of sync */
-#define	S_FThd				0x2000	/* dangling file thread records exist */
-#define	S_DFCorruption		0x1000	/* disappearing folder corruption detected */
-#define	S_NoDir				0x0800	/* missing directory record */
-#define S_LockedDirName		0x0400  // locked dir name
-#define S_MissingThread		0x0200  /* missing thread record */
-#define S_UnlinkedFile		0x0100	/* orphaned link node */
-#define S_LinkCount			0x0080	/* data node link count needs repair */
-#define S_Permissions		0x0040	/* BSD permissions need repair */
-#define S_FileAllocation	0x0020	/* peof or leof needs adjustment */
-#define S_BadExtent			0x0010	/* invalid extent */
+#define	S_IllName			0x00008000	/* illegal name found */
+#define	S_Valence			0x00004000	/* a directory valence is out of sync */
+#define	S_FThd				0x00002000	/* dangling file thread records exist */
+#define	S_DFCorruption		0x00001000	/* disappearing folder corruption detected */
+#define	S_NoDir				0x00000800	/* missing directory record */
+#define S_LockedDirName		0x00000400  // locked dir name
+#define S_MissingThread		0x00000200  /* missing thread record */
+#define S_UnlinkedFile		0x00000100	/* orphaned link node */
+#define S_LinkCount			0x00000080	/* data node link count needs repair */
+#define S_Permissions		0x00000040	/* BSD permissions need repair */
+#define S_FileAllocation	0x00000020	/* peof or leof needs adjustment */
+#define S_BadExtent			0x00000010	/* invalid extent */
+#define	S_LinkErrRepair		0x00000008	/* repairable file/directory hard link corruption detected */
+#define	S_LinkErrNoRepair	0x00000004	/* un-repairable file/directory hard link corruptions detected */
+#define	S_FileHardLinkChain	0x00000002	/* incorrect number of file hard links, doubly linked list chain needs repair */
+#define S_DirHardLinkChain	0x00000001	/* incorrect number of directory hard links, doubly linked list chain needs repair */
 
 /* VeryMinorErrorsStat */
 
@@ -859,14 +891,14 @@ enum {
 	M_FirstMessage              =  1,
 
 	M_CheckingHFSVolume         =  1,
-	M_CheckingHFSPlusVolume     =  2,
+	M_CheckingNoJnlHFSPlusVolume=  2,
 	M_ExtBTChk                  =  3,
 	M_CatBTChk                  =  4,
 	M_CatHChk                   =  5,
 	M_AttrBTChk                 =  6,
 	M_VolumeBitMapChk           =  7,
 	M_VInfoChk                  =  8,
-	M_MultiLinkChk              =  9,
+	M_MultiLinkFileCheck        =  9,
 	M_Orphaned                  = 10,
 	M_RebuildingExtentsBTree    = 11,
 	M_RebuildingCatalogBTree    = 12,
@@ -879,12 +911,16 @@ enum {
 	M_CheckFailed               = 19,
 	M_Rescan	               	= 20,
 	M_Look		               	= 21,
-	M_OtherWriters		       	= 22,
+	M_RepairOtherWriters		= 22,
 	M_CaseSensitive		       	= 23,
 	M_ReRepairFailed			= 24,			
 	M_LookDamagedDir			= 25,
+	M_MultiLinkDirCheck         = 26,
+	M_CheckingJnlHFSPlusVolume  = 27,
+	M_LiveVerify                = 28,
+	M_VerifyOtherWriters        = 29,	
 
-	M_LastMessage               = 25
+	M_LastMessage               = 29
 };
 
 /*------------------------------------------------------------------------------
@@ -977,17 +1013,48 @@ enum {
 	E_UnlinkedFile		=  568,	/* Unlinked file needs to be deleted */
 	E_InvalidPermissions	=  569,
 
-	E_InvalidUID		=  570,
+	E_InvalidUID_Unused	=  570, /* Invalid UID/GID in BSD info - Unused (4538396) */
 	E_IllegalName		=  571,
 	E_IncorrectNumThdRcd	=  572,
 	E_SymlinkCreate		=  573,
-	E_IncorrectAttrCount	=  574,	/* Incorrect attributes in attr btree with attr bits in catalog btree */
-	E_IncorrectSecurityCount=  575, /* Incorrect security attributes in attr btree with security bits in catalog btree */
-	E_PEOAttr		=  576, /* Incorrect physical end of extended attribute data */
-	E_LEOAttr		=  577, /* Incorrect logical end of extended attribute data */
-	E_AttrRec		=  578, /* Invalid attribute record (overflow extent without original extent, unknown type) */
+	E_BadJournal		=  574, /* Bad Journal content */	
+	E_IncorrectAttrCount	=  575,	/* Incorrect attributes in attr btree with attr bits in catalog btree */
+	E_IncorrectSecurityCount=  576, /* Incorrect security attributes in attr btree with security bits in catalog btree */
+	E_PEOAttr		=  577, /* Incorrect physical end of extended attribute data */
+	E_LEOAttr		=  578, /* Incorrect logical end of extended attribute data */
+	E_AttrRec		=  579, /* Invalid attribute record (overflow extent without original extent, unknown type) */
 
-	E_LastError		=  578
+	E_FldCount		=  580,	/* Incorrect folder count in a directory */
+	E_HsFldCount		=  581,	/* HasFolderCount flag needs to be set */
+	E_BadPermPrivDir	=  582, /* Incorrect permissions for private directory for directory hard links */
+	E_DirInodeBadFlags	=  583, /* Incorrect flags for directory inode */
+	E_DirInodeBadParent	= -584, /* Invalid parent for directory inode */
+	E_DirInodeBadName	= -585, /* Invalid name for directory inode */
+	E_DirHardLinkChain	=  586, /* Incorrect number of directory hard link count */
+	E_DirHardLinkOwnerFlags	=  587, /* Incorrect owner flags for directory hard link */
+	E_DirHardLinkFinderInfo =  588, /* Invalid finder info for directory hard link */
+	E_DirLinkAncestorFlags	=  589, /* Invalid flags for directory hard link parent ancestor */
+	
+	E_BadParentHierarchy	= -590, /* Bad parent hierarchy, could not lookup parent directory record */
+	E_DirHardLinkNesting	= -591, /* Maximum nesting of folders and directory hard links reached */
+	E_MissingPrivDir	= -592,	/* Missing private directory for directory hard links */
+	E_InvalidLinkChainPrev	=  593, /* Previous ID in a hard lnk chain is incorrect */
+	E_InvalidLinkChainNext	=  594,	/* Next ID in a hard link chain is incorrect */
+	E_FileInodeBadFlags	=  595,	/* Incorrecgt flags for file inode */
+	E_FileInodeBadParent	= -596, /* Invalid parent for file inode */
+	E_FileInodeBadName	= -597, /* Invalid name for file inode */
+	E_FileHardLinkChain	=  598, /* Incorrect number of file hard link count */
+	E_FileHardLinkFinderInfo=  599, /* Invalid finder info for file hard link */
+
+	E_InvalidLinkChainFirst	=  600,	/* Invalid first link in hard link chain */
+	E_FileLinkBadFlags	=  601, /* Incorrect flags for file hard link */
+	E_DirLinkBadFlags	=  602, /* Incorrect flags for directory hard link */
+	E_OrphanFileLink	=  603, /* Orphan file hard link */
+	E_OrphanDirLink	 	=  604, /* Orphan directory hard link */
+	E_OrphanFileInode	=  605,	/* Orphan file inode, no file hard links pointing to this inode */
+	E_OrphanDirInode	=  606, /* Orphan directory inode, no directory hard links pointing to this inode */
+
+	E_LastError		=  606
 };
 
 
@@ -1080,6 +1147,10 @@ extern	void	RcdError( SGlobPtr GPtr, OSErr ErrCode );
 
 extern	RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int extraBytes );
 
+extern int IsDuplicateRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig);
+
+extern void DeleteRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig);
+
 extern	void	SetDFAStage( UInt32 stage );
 extern	UInt32	GetDFAGlobals( void );
 
@@ -1102,8 +1173,7 @@ extern Boolean 	VolumeObjectIsHFSPlus( void );
 extern Boolean 	VolumeObjectIsHFS( void );
 extern Boolean 	VolumeObjectIsEmbeddedHFSPlus( void );
 extern Boolean 	VolumeObjectIsPureHFSPlus( void );
-extern void 	RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid, UInt16 btreetype); 
-extern int ComparePrimeBuckets(SGlobPtr GPtr, UInt16 BitMask); 
+extern Boolean	VolumeObjectIsHFSX(SGlobPtr);
 
 extern	void	InvalidateCalculatedVolumeBitMap( SGlobPtr GPtr );
 
@@ -1113,10 +1183,17 @@ OSErr	FlushAlternateVolumeControlBlock( SVCB *vcb, Boolean isHFSPlus );
 
 extern	void	ConvertToHFSPlusExtent(const HFSExtentRecord oldExtents, HFSPlusExtentRecord newExtents);
 
+void add_prime_bucket_uint32(PrimeBuckets *cur, uint32_t num);
+
+void add_prime_bucket_uint64(PrimeBuckets *cur, uint64_t num);
+
+int compare_prime_buckets(PrimeBuckets *bucket1, PrimeBuckets *bucket2); 
 
 /* ------------------------------- From CatalogCheck.c -------------------------------- */
 
 extern	OSErr	CheckCatalogBTree( SGlobPtr GPtr );	//	catalog btree check
+
+extern	OSErr	CheckFolderCount( SGlobPtr GPtr );	//	Compute folderCount
 
 extern int  RecordBadAllocation(UInt32 parID, unsigned char * filename, UInt32 forkType, UInt32 oldBlkCnt, UInt32 newBlkCnt);
 
@@ -1136,9 +1213,15 @@ extern	OSErr	AttrBTChk( SGlobPtr GPtr );		//	attributes btree check
 
 extern	OSErr	IVChk( SGlobPtr GPtr );
 
-extern	int	CheckForClean( SGlobPtr GPtr, Boolean markClean );
+/* Operation type for CheckForClean */
+enum {
+	kCheckVolume,		// check if volume is clean/dirty
+	kMarkVolumeDirty,	// mark the volume dirty
+	kMarkVolumeClean	// mark the volume clean
+};
+extern	int	CheckForClean( SGlobPtr GPtr, UInt8 operation, Boolean *modified );
 
-extern  int	CheckIfJournaled(SGlobPtr GPtr);
+extern  int	CheckIfJournaled(SGlobPtr GPtr, Boolean journal_bit_only);
 
 extern	OSErr	VInfoChk( SGlobPtr GPtr );
 
@@ -1152,9 +1235,13 @@ extern	int		cmpLongs (const void *a, const void *b);
 
 extern  int CheckAttributeRecord(SGlobPtr GPtr, const HFSPlusAttrKey *key, const HFSPlusAttrRecord *rec, UInt16 reclen);
 
+extern void RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid, UInt16 btreetype); 
+
 extern  int FindOrigOverlapFiles(SGlobPtr GPtr);
 
 extern  void PrintOverlapFiles (SGlobPtr GPtr);
+
+extern int journal_replay(SGlobPtr gptr);
 
 /* ------------------------------- From SVerify2.c -------------------------------- */
 
@@ -1316,7 +1403,7 @@ EXTERN_API_C( UInt32 )
 GetDFAStage						(void);
 
 EXTERN_API_C(OSErr)
-DeleteCatalogNode(SVCB *vcb, UInt32 pid, const CatalogName * name, UInt32 hint);
+DeleteCatalogNode(SVCB *vcb, UInt32 pid, const CatalogName * name, UInt32 hint, Boolean for_rename);
 
 EXTERN_API_C(OSErr)
 GetCatalogNode(SVCB *vcb, UInt32 pid, const CatalogName * name, UInt32 hint, CatalogRecord *data);
@@ -1439,16 +1526,38 @@ Ptr	GetFCBSPtr( void );
 /* 
  * UTF-8 conversion routines
  */
-extern int utf_decodestr(const unsigned char *, size_t, u_int16_t *, size_t *);
-extern int utf_encodestr(const u_int16_t *, size_t, unsigned char *, size_t *);
+extern int utf_decodestr(const unsigned char *, size_t, u_int16_t *, size_t *, size_t);
+extern int utf_encodestr(const u_int16_t *, size_t, unsigned char *, size_t *, size_t);
 
 /* 
  * HardLink checking routines
  */
 extern int   HardLinkCheckBegin(SGlobPtr gp, void** cookie);
 extern void  HardLinkCheckEnd(void * cookie);
-extern void  CaptureHardLink(void * cookie, UInt32 linkID);
+extern void  CaptureHardLink(void * cookie, const HFSPlusCatalogFile *file);
 extern int   CheckHardLinks(void *cookie);
+
+extern void hardlink_add_bucket(PrimeBuckets *bucket, uint32_t inode_id, uint32_t cur_link_id);
+extern int inode_check(SGlobPtr, PrimeBuckets *, CatalogRecord *, CatalogKey *, Boolean);
+extern void record_link_badchain(SGlobPtr, Boolean);
+extern int record_link_badflags(SGlobPtr, uint32_t, Boolean, uint32_t, uint32_t);
+extern int record_inode_badflags(SGlobPtr, uint32_t, Boolean, uint32_t, uint32_t, Boolean);
+extern int record_dirlink_badownerflags(SGlobPtr, uint32_t, uint8_t, uint8_t, int);
+extern int record_link_badfinderinfo(SGlobPtr, uint32_t, Boolean);
+
+extern int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id, Boolean isdir, uint32_t *first_link_id);
+extern int filelink_hash_inode(UInt32 inode_id, UInt32 linkCount);
+
+/* 
+ * Directory Hard Link checking routines 
+ */
+extern int dirhardlink_init(SGlobPtr gptr);
+extern int dirhardlink_check(SGlobPtr gptr);
+
+extern OSErr GetCatalogRecordByID(SGlobPtr GPtr, UInt32 file_id, Boolean isHFSPlus, CatalogKey *key, CatalogRecord *rec, uint16_t *recsize);
+
+struct HardLinkInfo;
+extern int RepairHardLinkChains(SGlobPtr, Boolean);
 
 /*
  * Volume Bitmap checking routines

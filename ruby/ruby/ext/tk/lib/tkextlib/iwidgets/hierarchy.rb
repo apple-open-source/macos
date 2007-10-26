@@ -92,7 +92,7 @@ class Tk::Iwidgets::Hierarchy
   end
 
   def __validation_class_list
-    super << QueryCommand << IndicatorCommand << IconCommand
+    super() << QueryCommand << IndicatorCommand << IconCommand
   end
 
   Tk::ValidateConfigure.__def_validcmd(binding, QueryCommand)
@@ -100,6 +100,21 @@ class Tk::Iwidgets::Hierarchy
   Tk::ValidateConfigure.__def_validcmd(binding, IconCommand)
 
   ####################################
+
+  def __boolval_optkeys
+    super() << 'alwaysquery' << 'expanded' << 'filter'
+  end
+  private :__boolval_optkeys
+
+  def __strval_optkeys
+    super() << 'markbackground' << 'markforeground' << 'textbackground'
+  end
+  private :__strval_optkeys
+
+  def __font_optkeys
+    super() << 'textfont'
+  end
+  private :__font_optkeys
 
   def clear
     tk_call(@path, 'clear')
@@ -237,13 +252,13 @@ class Tk::Iwidgets::Hierarchy
         args << tags.shift.collect{|x|_get_eval_string(x)}.join(' ')  # taglist
         args << tags.shift if tags.size > 0                           # chars
       end
-      super index, *args
+      super(index, *args)
     else
       # single chars-taglist argument :: str, tag, tag, ...
       if tags.size == 0
-        super index, chars
+        super(index, chars)
       else
-        super index, chars, tags.collect{|x|_get_eval_string(x)}.join(' ')
+        super(index, chars, tags.collect{|x|_get_eval_string(x)}.join(' '))
       end
     end
   end

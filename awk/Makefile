@@ -9,7 +9,7 @@ ToolType          = Commands
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Extra_CC_Flags    = -DHAS_ISBLANK -mno-fused-madd -mdynamic-no-pic
+Extra_CC_Flags    = -DHAS_ISBLANK -mdynamic-no-pic
 Sources           = $(SRCROOT)/$(Project)
 
 install_source::
@@ -17,6 +17,15 @@ install_source::
 	$(TAR) -C $(Sources) -xzf $(SRCROOT)/awk.tar.gz
 	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/main.c.diff
 	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/makefile.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awk.h.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awkgram.y.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/b.c.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/lib.c.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/main.c.diff2
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/run.c.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/tran.c.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/run-makefile-gcc4.diff
+	cd $(Sources) && patch -p0 < $(SRCROOT)/patches/awk.1.diff
 
 build:: shadow_source
 	$(MAKE) -C $(BuildDirectory) $(Environment)

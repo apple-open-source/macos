@@ -1,8 +1,29 @@
-/* machine description file for Mips running RISCOS version 4.  */
+/* machine description file for Mips running RISCOS version 4.
+
+   Copyright (C) 1992, 1999, 2001, 2002, 2003, 2004, 2005, 2006,
+                 2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 #include "mips.h"
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -57,3 +78,6 @@ NOTE-END  */
 #undef HAVE_XSCREENRESOURCESTRING
 #undef HAVE_SETSID
 #endif
+
+/* arch-tag: 56050454-0df5-4de9-b1b7-0c6ab400313c
+   (do not change this comment) */

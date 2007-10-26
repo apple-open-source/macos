@@ -1,9 +1,9 @@
 " Vim syntax file
 " Language:	C-shell (csh)
-" Maintainer:	Dr. Charles E. Campbell, Jr. <Charles.E.Campbell.1@nasa.gov>
-" Version:	7
-" Last Change:	Nov 18, 2002
-" URL:	http://www.erols.com/astronaut/vim/index.html#vimlinks_syntax
+" Maintainer:	Dr. Charles E. Campbell, Jr. <NdrOchipS@PcampbellAfamily.Mbiz>
+" Version:	9
+" Last Change:	Sep 06, 2005
+" URL:	http://mysite.verizon.net/astronaut/vim/index.html#vimlinks_syntax
 
 " For version 5.x: Clear all syntax items
 " For version 6.x: Quit when a syntax file was already loaded
@@ -41,7 +41,7 @@ syn region  cshBckQuote	start=+[^\\]`+lc=1 skip=+\\\\\|\\`+ end=+`+	contains=csh
 syn region  cshDblQuote	start=+^"+ skip=+\\\\\|\\"+ end=+"+		contains=cshSpecial,cshExtVar,cshSelector,cshQtyWord,cshArgv,cshSubst,cshNoEndlineDQ
 syn region  cshSnglQuote	start=+^'+ skip=+\\\\\|\\'+ end=+'+		contains=cshNoEndlineSQ
 syn region  cshBckQuote	start=+^`+ skip=+\\\\\|\\`+ end=+`+		contains=cshNoEndlineBQ
-syn cluster cshCommentGroup	contains=cshTodo
+syn cluster cshCommentGroup	contains=cshTodo,@Spell
 syn match   cshComment	"#.*$" contains=@cshCommentGroup
 
 " A bunch of useful csh keywords

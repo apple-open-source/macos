@@ -38,9 +38,6 @@
 #include "gdb_string.h"
 #include <errno.h>
 
-/* Flag indicating target was compiled by HP compiler */
-extern int hp_som_som_object_present;
-
 static void cp_type_print_method_args (struct type *mtype, char *prefix,
 				       char *varstring, int staticp,
 				       struct ui_file *stream);
@@ -292,7 +289,7 @@ c_type_print_varspec_prefix (struct type *type, struct ui_file *stream,
          gcc -Wall will reveal any types that haven't been handled.  */
       break;
     default:
-      error ("type not handled in c_type_print_varspec_prefix()");
+      error (_("type not handled in c_type_print_varspec_prefix()"));
       break;
     }
 }
@@ -642,7 +639,7 @@ c_type_print_varspec_suffix (struct type *type, struct ui_file *stream,
          gcc -Wall will report types that may not have been considered.  */
       break;
     default:
-      error ("type not handled in c_type_print_varspec_suffix()");
+      error (_("type not handled in c_type_print_varspec_suffix()"));
       break;
     }
 }
@@ -686,7 +683,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
   wrap_here ("    ");
   if (type == NULL)
     {
-      fputs_filtered ("<type unknown>", stream);
+      fputs_filtered (_("<type unknown>"), stream);
       return;
     }
 
@@ -785,9 +782,9 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	  if ((TYPE_NFIELDS (type) == 0) && (TYPE_NFN_FIELDS (type) == 0))
 	    {
 	      if (TYPE_STUB (type))
-		fprintfi_filtered (level + 4, stream, "<incomplete type>\n");
+		fprintfi_filtered (level + 4, stream, _("<incomplete type>\n"));
 	      else
-		fprintfi_filtered (level + 4, stream, "<no data fields>\n");
+		fprintfi_filtered (level + 4, stream, _("<no data fields>\n"));
 	    }
 
 	  /* Start off with no specific section type, so we can print
@@ -1005,7 +1002,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 		  if (TYPE_TARGET_TYPE (TYPE_FN_FIELD_TYPE (f, j)) == 0)
 		    {
 		      /* Keep GDB from crashing here.  */
-		      fprintf_filtered (stream, "<undefined type> %s;\n",
+		      fprintf_filtered (stream, _("<undefined type> %s;\n"),
 					TYPE_FN_FIELD_PHYSNAME (f, j));
 		      break;
 		    }
@@ -1044,7 +1041,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 						     stream);
 			}
 		      else
-			fprintf_filtered (stream, "<badly mangled name '%s'>",
+			fprintf_filtered (stream, _("<badly mangled name '%s'>"),
 					  mangled_name);
 		    }
 		  else
@@ -1079,7 +1076,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	  fprintfi_filtered (level, stream, "}");
 
 	  if (TYPE_LOCALTYPE_PTR (type) && show >= 0)
-	    fprintfi_filtered (level, stream, " (Local at %s:%d)\n",
+	    fprintfi_filtered (level, stream, _(" (Local at %s:%d)\n"),
 			       TYPE_LOCALTYPE_FILE (type),
 			       TYPE_LOCALTYPE_LINE (type));
 	}
@@ -1090,7 +1087,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
     case TYPE_CODE_ENUM:
       c_type_print_modifier (type, stream, 0, 1);
       /* HP C supports sized enums */
-      if (hp_som_som_object_present)
+      if (deprecated_hp_som_som_object_present)
 	switch (TYPE_LENGTH (type))
 	  {
 	  case 1:
@@ -1156,16 +1153,16 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
       break;
 
     case TYPE_CODE_UNDEF:
-      fprintf_filtered (stream, "struct <unknown>");
+      fprintf_filtered (stream, _("struct <unknown>"));
       break;
 
     case TYPE_CODE_ERROR:
-      fprintf_filtered (stream, "<unknown type>");
+      fprintf_filtered (stream, _("<unknown type>"));
       break;
 
     case TYPE_CODE_RANGE:
       /* This should not occur */
-      fprintf_filtered (stream, "<range type>");
+      fprintf_filtered (stream, _("<range type>"));
       break;
 
     case TYPE_CODE_TEMPLATE:
@@ -1191,7 +1188,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
     go_back:
       if (TYPE_NINSTANTIATIONS (type) > 0)
 	{
-	  fprintf_filtered (stream, "\ntemplate instantiations:\n");
+	  fprintf_filtered (stream, _("\ntemplate instantiations:\n"));
 	  for (i = 0; i < TYPE_NINSTANTIATIONS (type); i++)
 	    {
 	      fprintf_filtered (stream, "  ");
@@ -1221,7 +1218,7 @@ c_type_print_base (struct type *type, struct ui_file *stream, int show,
 	{
 	  /* At least for dump_symtab, it is important that this not be
 	     an error ().  */
-	  fprintf_filtered (stream, "<invalid type code %d>",
+	  fprintf_filtered (stream, _("<invalid type code %d>"),
 			    TYPE_CODE (type));
 	}
       break;

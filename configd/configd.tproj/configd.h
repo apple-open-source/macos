@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,6 +42,7 @@
 
 /* configd doesn't need the preference keys */
 #define _SCSCHEMADEFINITIONS_H
+#define _SCSCHEMADEFINITIONSPRIVATE_H
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>

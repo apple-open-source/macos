@@ -1,4 +1,6 @@
 // { dg-do link  }
+// APPLE LOCAL mainline
+// { dg-options "-Wconversion" }
 
 #include <cstddef>
 

@@ -88,21 +88,8 @@ will return the entry following the previously nominated entry and so forth.
 .Sh RETURN VALUES
 If the
 .Fn acl_get_entry
-function successfully obtains an ACL entry, a value of 1 is returned.
-If the ACL has no ACL entries, the
-.Fn acl_get_entry
-returns a value of 0.  If the value of
-.Fa entry_id
-is
-.Dv ACL_NEXT_ENTRY
-and the last ACL entry in the ACL has already been returned by a
-previous call to
-.Fn acl_get_entry ,
-a value of 0 will be returned until a successful call with
-.Fa entry_id
-of
-.Dv ACL_FIRST_ENTRY
-is made.  Otherwise, a value of -1 will be returned and
+function successfully obtains an ACL entry, a value of 0 is returned.
+Otherwise, a value of -1 will be returned and
 the global variable
 .Va errno
 will be set to indicate the error.
@@ -120,6 +107,14 @@ is neither
 .Dv ACL_FIRST_ENTRY ,
 .Dv ACL_NEXT_ENTRY
 or a valid entry index.
+.It Bq Er EINVAL
+The value of
+.Fa entry_id
+is
+.Dv ACL_NEXT_ENTRY
+and the last ACL entry in the ACL has already been returned by a
+previous call to
+.Fn acl_get_entry .
 .El
 .Sh SEE ALSO
 .Xr acl 3 ,

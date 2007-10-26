@@ -35,20 +35,6 @@
 
 #include "COSUtils.h"
 
-/*
-	>***    [<date>.]<service-name>[.<level>][.<category>].log
-	>***
-	>*** Examples:
-	>***
-	>***    990727.FTP.1.errors.log
-	>***    990727.HTTP.access.log
-	>***    Apache.errors.log
-	>***    990727.SMB.critical.log
-	>***    AFP.log
-	>***
-	>*** Note: The date, level and category fields are optional.
-*/
-
 static const char	*appStrList [] =
 {
 	/* 01 */	"Frameworks/DirectoryService.framework/Resources/Plugins",
@@ -60,16 +46,16 @@ static const char	*appStrList [] =
 	/* 07 */	"debug.log",
 	/* 08 */	"info.log",
 	/* 09 */	"dsplug",
-	/* 10 */	"DirectoryServices/PlugIns"
+	/* 10 */	"DirectoryServices/PlugIns",
+	/* 11 */	"DirectoryService/Local"
 };
 
-// $(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Resources/Plugins
 // ---------------------------------------------------------------------------
 //	* GetStringFromList ()
 //
 // ---------------------------------------------------------------------------
 
-const char* COSUtils::GetStringFromList ( const uInt32 inListID, const sInt32 inIndex )
+const char* COSUtils::GetStringFromList ( const UInt32 inListID, const SInt32 inIndex )
 {
 	static const char	*_sNoMatch	= "<STRING NOT FOUND>";
 				 char	*pStr		= (char *)_sNoMatch;
@@ -77,7 +63,7 @@ const char* COSUtils::GetStringFromList ( const uInt32 inListID, const sInt32 in
 	switch ( inListID )
 	{
 		case kAppStringsListID:
-			if ( (inIndex - 1) < (sInt32)(sizeof (appStrList) / sizeof( char * )) )
+			if ( (inIndex - 1) < (SInt32)(sizeof (appStrList) / sizeof( char * )) )
 			{
 				pStr = (char *)appStrList[ inIndex - 1 ];
 			}

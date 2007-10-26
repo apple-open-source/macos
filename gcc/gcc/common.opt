@@ -104,6 +104,11 @@ Warn when padding is required to align structure members
 Wshadow
 Common Var(warn_shadow)
 Warn when one local variable shadows another
+; APPLE LOCAL begin mainline
+Wstack-protector
+Common Var(warn_stack_protect)
+Warn when not issuing stack smashing protection for some reason
+; APPLE LOCAL end mainline
 
 Wstrict-aliasing
 Common
@@ -201,6 +206,19 @@ Common Separate
 fabi-version=
 Common Joined UInteger Var(flag_abi_version) Init(2)
 
+; APPLE LOCAL begin ObjC new abi
+fobjc-abi-version=
+Common Joined UInteger Var(flag_objc_abi) Init(-1)
+
+fobjc-nilcheck
+Common Report Var(flag_objc_nilcheck,1)
+; APPLE LOCAL end ObjC new abi
+
+; APPLE LOCAL begin C* warnings to easy porting to new abi 
+Wobjc2
+Common Report Var(flag_objc2_check)
+; APPLE LOCAL end C* warnings to easy porting to new abi 
+
 falign-functions
 Common Report Var(align_functions,0)
 Align the start of functions
@@ -218,15 +236,17 @@ Align labels which are only reached by jumping
 falign-jumps=
 Common RejectNegative Joined UInteger Var(align_jumps) VarExists VarUint PerFunc
 
+; APPLE LOCAL begin 4760857 make align-jumps-max-skip PerFunc
 ; APPLE LOCAL begin falign-jumps-max-skip
 
 falign-jumps-max-skip
-Common Report Var(align_jumps_max_skip,0)
+Common Report Var(align_jumps_max_skip,0) VarUint PerFunc
 
 falign-jumps-max-skip=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Var(align_jumps_max_skip) PerFunc VarUint VarExists
 
 ; APPLE LOCAL end falign-jumps-max-skip
+; APPLE LOCAL end 4760857 make align-jumps-max-skip PerFunc
 
 falign-labels
 Common Report Var(align_labels,0) VarUint PerFunc
@@ -243,15 +263,17 @@ falign-loops=
 Common RejectNegative Joined UInteger Var(align_loops) VarExists PerFunc VarUint
 
 ; APPLE LOCAL end optimization pragmas 3124235/3420242
+; APPLE LOCAL begin 4760857 make align-loops-max-skip PerFunc
 ; APPLE LOCAL begin falign-loops-max-skip
 
 falign-loops-max-skip
-Common Report Var(align_loops_max_skip,0)
+Common Report Var(align_loops_max_skip,0) VarUint PerFunc
 
 falign-loops-max-skip=
-Common RejectNegative Joined UInteger
+Common RejectNegative Joined UInteger Var(align_loops_max_skip) VarExists PerFunc VarUint
 
 ; APPLE LOCAL end falign-loops-max-skip
+; APPLE LOCAL end 4760857 make align-loops-max-skip PerFunc
 
 ; APPLE LOCAL begin predictive compilation
 fpredictive-compilation
@@ -469,6 +491,12 @@ ffunction-sections
 Common Report Var(flag_function_sections)
 Place each function into its own section
 
+;; APPLE LOCAL begin ARM conditionally disable local RA
+flocal-alloc
+Common Report Var(flag_local_alloc) Init(1) PerFunc
+Run the local register allocator
+
+;; APPLE LOCAL end ARM conditionally disable local RA
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fgcse
 Common Report Var(flag_gcse) PerFunc
@@ -658,6 +686,11 @@ Common Report Var(flag_optimize_sibling_calls) PerFunc
 Optimize sibling and tail recursive calls
 ; APPLE LOCAL end optimization pragmas 3124235/3420242
 
+; APPLE LOCAL begin opt diary
+fopt-diary
+Common Report Var(flag_opt_diary)
+Enable optimization diary
+; APPLE LOCAL end opt diary
 fpack-struct
 Common Report Var(flag_pack_struct)
 Pack structure members together without holes
@@ -705,12 +738,6 @@ Generate position-independent code if possible (small mode)
 fpie
 Common Report Var(flag_pie,1) VarExists
 Generate position-independent code for executables if possible (small mode)
-
-; APPLE LOCAL begin -ffppc 2001-08-01 --sts
-fppc
-Common Var(flag_fppc) VarExists
-Perform floating-point precision-control pass
-; APPLE LOCAL end -ffppc 2001-08-01 --sts
 
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fprefetch-loop-arrays
@@ -776,6 +803,12 @@ frerun-cse-after-loop
 Common Report Var(flag_rerun_cse_after_loop) PerFunc
 Add a common subexpression elimination pass after loop optimizations
 
+;; APPLE LOCAL begin ARM rerun cse after combine
+frerun-cse-after-combine
+Common Report Var(flag_rerun_cse_after_combine) Init(0) PerFunc
+Perform common subexpression elimination after combining
+
+;; APPLE LOCAL end ARM rerun cse after combine
 frerun-loop-opt
 Common Report Var(flag_rerun_loop_opt) PerFunc
 Run the loop optimizer twice
@@ -889,7 +922,15 @@ Common RejectNegative Joined
 fstack-limit-symbol=
 Common RejectNegative Joined
 -fstack-limit-symbol=<name>	Trap if the stack goes past symbol <name>
+; APPLE LOCAL begin mainline
+fstack-protector
+Common Report Var(flag_stack_protect, 1)
+Use propolice as a stack protection method
 
+fstack-protector-all
+Common Report RejectNegative Var(flag_stack_protect, 2) VarExists
+Use a stack protection method for every function
+; APPLE LOCAL end mainline
 ; APPLE LOCAL begin optimization pragmas 3124235/3420242
 fstrength-reduce
 Common Report Var(flag_strength_reduce) PerFunc
@@ -1104,11 +1145,23 @@ Common Report Var(flag_writable_strings) VarExists
 Store strings in writable data section
 ; APPLE LOCAL end fwritable strings
 
-; APPLE LOCAL begin KEXT
+; APPLE LOCAL begin mainline in darwin.opt
+; APPLE LOCAL begin iframework for 4.3 add C++ 4094959
 fapple-kext
-C++ Report Var(flag_apple_kext)
+Target Report C++ Var(flag_apple_kext)
 Generate code for darwin loadable kernel extentions
-; APPLE LOCAL end KEXT
+; APPLE LOCAL end iframework for 4.3 add C++ 4094959
+
+mkernel
+Target Report Var(flag_mkernel)
+Generate code for the kernel or loadable kernel extentions
+; APPLE LOCAL end mainline in darwin.opt
+
+; APPLE LOCAL begin iframework for 4.3 darwin.opt 4094959
+iframework
+Target RejectNegative C ObjC C++ ObjC++ Joined Separate 
+-iframework <dir>	Add <dir> to the end of the system framework include path
+; APPLE LOCAL end iframework for 4.3 darwin.opt 4094959
 
 fzero-initialized-in-bss
 Common Report Var(flag_zero_initialized_in_bss) Init(1)

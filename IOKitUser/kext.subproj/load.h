@@ -1,9 +1,11 @@
+#if !__LP64__
+
 #ifndef __LOAD_H__
 #define __LOAD_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #include "dgraph.h"
 
@@ -89,6 +91,10 @@ kload_error kload_load_dgraph(dgraph_t * dgraph
 #endif /* not KERNEL */
     );
 
+#ifndef KERNEL
+char * kload_map_kernel_symbols(const char * kernel_file,
+    int use_running_kernel);
+#endif /* not KERNEL */
 
 kload_error kload_map_dgraph(dgraph_t * dgraph
 #ifndef KERNEL
@@ -101,11 +107,9 @@ kload_error kload_map_entry(dgraph_entry_t * entry);
 #ifndef KERNEL
 int kload_file_exists(const char * path);
 kload_error kload_request_load_addresses(
-    dgraph_t * dgraph,
-    const char * kernel_file);
+    dgraph_t * dgraph);
 kload_error kload_set_load_addresses_from_args(
     dgraph_t * dgraph,
-    const char * kernel_file,
     char ** addresses);
 #endif /* not KERNEL */
 
@@ -146,7 +150,6 @@ void kload_log_error(const char * format, ...);
 
 #endif /* __LOAD_H__ */
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
+#endif // !__LP64__

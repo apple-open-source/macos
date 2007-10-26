@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,9 +41,8 @@
 #include <sysexits.h>
 #include <sys/param.h>
 #include <sys/types.h>
-#include <sys/param.h>
 #include <sys/stat.h>
-#include <mach-o/dyld.h>
+#include <dlfcn.h>
 #include <grp.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -106,19 +105,19 @@ isAdmin()
 
 static void *
 __loadSecurity(void) {
-	static const void *image = NULL;
+	static void *image = NULL;
 	if (NULL == image) {
-		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Versions/A/Security";
 		struct stat	statbuf;
 		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
 		char		path[MAXPATHLEN];
 
-		strcpy(path, framework);
-		if (suffix) strcat(path, suffix);
+		strlcpy(path, framework, sizeof(path));
+		if (suffix) strlcat(path, suffix, sizeof(path));
 		if (0 <= stat(path, &statbuf)) {
-			image = NSAddImage(path, NSADDIMAGE_OPTION_NONE);
+			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
 		} else {
-			image = NSAddImage(framework, NSADDIMAGE_OPTION_NONE);
+			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
 		}
 	}
 	return (void *)image;
@@ -128,10 +127,11 @@ __loadSecurity(void) {
 static OSStatus
 _SessionGetInfo(SecuritySessionId session, SecuritySessionId *sessionId, SessionAttributeBits *attributes)
 {
-	static OSStatus (*dyfunc)(SecuritySessionId, SecuritySessionId *, SessionAttributeBits *) = NULL;
+	#undef SessionGetInfo
+	static typeof (SessionGetInfo) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadSecurity();
-		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SessionGetInfo", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+		if (image) dyfunc = dlsym(image, "SessionGetInfo");
 	}
 	return dyfunc ? dyfunc(session, sessionId, attributes) : -1;
 }

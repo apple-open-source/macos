@@ -198,6 +198,27 @@ typedef struct {
 extern const SecAsn1Template kSecAsn1AccessDescriptionTemplate[];
 extern const SecAsn1Template kSecAsn1AuthorityInfoAccessTemplate[];
 
+/*
+ * Qualified Certificate Statements support.
+ */
+typedef struct {
+	CSSM_OID				*semanticsIdentifier;			/* optional */
+	NSS_GeneralNames		*nameRegistrationAuthorities;	/* optional */
+} NSS_SemanticsInformation;
+
+typedef struct {
+	CSSM_OID				statementId;
+	CSSM_DATA				info;		/* optional, ANY */
+} NSS_QC_Statement;
+
+typedef struct {
+	NSS_QC_Statement		**qcStatements;
+} NSS_QC_Statements; 
+
+extern const SecAsn1Template kSecAsn1SemanticsInformationTemplate[];
+extern const SecAsn1Template kSecAsn1QC_StatementTemplate[];
+extern const SecAsn1Template kSecAsn1QC_StatementsTemplate[];
+
 #ifdef	__cplusplus
 }
 #endif

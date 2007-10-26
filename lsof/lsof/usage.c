@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.24 2006/03/27 23:04:25 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.26 2007/04/24 16:16:59 abe Exp $";
 #endif
 
 
@@ -414,11 +414,15 @@ usage(xv, fh, version)
 #endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
 	    (void) fprintf(stderr,
-	        " [+|-M] [-o [o]]\n [-p s] [+|-r [t]] [-S [t]] [-T [t]]");
+		" [+|-M] [-o [o]]\n [-p s] [+|-r [t]] [-S [t]] [-T [t]]");
 	    (void) fprintf(stderr, " [-u s] [+|-w] [-x [fl]]");
 
 #if	defined(HASZONES)
 	    (void) fprintf(stderr, " [-z [z]]");
+#else	/* !defined(HASZONES) */
+# if	defined(HASSELINUX)
+	    (void) fprintf(stderr, " [-Z [Z]]");
+# endif	/* defined(HASSELINUX) */
 #endif	/* defined(HASZONES) */
 
 	    (void) fprintf(stderr, " [--] [names]\n");
@@ -530,6 +534,11 @@ usage(xv, fh, version)
 #if	defined(HASZONES)
 	    (void) fprintf(stderr,
 		(buf[0]) ? "  %s\n" : "  %-25.25s", "-z z  zone [z]");
+#else	/* !defined(HASZONES) */
+# if	defined(HASSELINUX)
+	    (void) fprintf(stderr,
+		(buf[0]) ? "  %s\n" : "  %-25.25s", "-Z Z  context [Z]");
+# endif	/* defined(HASSELINUX) */
 #endif	/* defined(HASZONES) */
 
 	    (void) fprintf(stderr, "  %s\n", "-- end option scan");
@@ -657,7 +666,7 @@ usage(xv, fh, version)
 	    (void) snpf(buf, sizeof(buf),
 		"-T %s%ss%s TCP/TPI %s%sSt%s (s) info",
 
-#if     defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
+#if	defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
 		"f",
 #else	/* !defined(HASSOOPT) && !defined(HASSOSTATE) && !defined(HASTCPOPT)*/
 		"",
@@ -675,7 +684,7 @@ usage(xv, fh, version)
 		"",
 #endif	/* defined(HASTCPTPIW) */
 
-#if     defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
+#if	defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
 		"Fl,",
 #else	/* !defined(HASSOOPT) && !defined(HASSOSTATE) && !defined(HASTCPOPT)*/
 		"",
@@ -735,6 +744,11 @@ usage(xv, fh, version)
 	    (void) report_WARNDEVACCESS(NULL, NULL, ";");
 	    (void) report_HASKERNIDCK(" k", NULL);
 	    (void) report_HASDCACHE(0, NULL, NULL);
+
+#if	defined(DIALECT_WARNING)
+	    (void) fprintf(stderr, "WARNING: %s\n", DIALECT_WARNING);
+#endif	/* defined(DIALECT_WARNING) */
+
 	}
 	if (fh) {
 	    (void) fprintf(stderr, "%s:\tID    field description\n", Pn);
@@ -777,6 +791,11 @@ usage(xv, fh, version)
 		if (FieldSel[i].id == LSOF_FID_ZONE)
 		    continue;
 #endif	/* !defined(HASZONES) */
+ 
+#if	!defined(HASSELINUX)
+		if (FieldSel[i].id == LSOF_FID_CNTX)
+		    continue;
+#endif	/* !defined(HASSELINUX) */
 
 		(void) fprintf(stderr, "\t %c    %s\n",
 		    FieldSel[i].id, FieldSel[i].nm);
@@ -844,6 +863,11 @@ usage(xv, fh, version)
 	    (void) report_SECURITY("    ", ".\n");
 	    (void) report_WARNDEVACCESS("    ", "are", ".\n");
 	    (void) report_HASKERNIDCK("    K", "is");
+
+#if	defined(DIALECT_WARNING)
+	    (void) fprintf(stderr, "    WARNING: %s\n", DIALECT_WARNING);
+#endif	/* defined(DIALECT_WARNING) */
+
 	    (void) report_HASDCACHE(1, "    ", "\t");
 	}
 	Exit(xv);

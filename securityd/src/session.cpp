@@ -31,17 +31,21 @@
 //
 // Sessions are multi-threaded objects.
 //
+#include <pwd.h>
+#include <Security/AuthorizationPriv.h> // kAuthorizationFlagLeastPrivileged
+
 #include "session.h"
 #include "connection.h"
 #include "database.h"
 #include "server.h"
-
 
 //
 // The static session map
 //
 PortMap<Session> Session::mSessions;
 
+std::string Session::kUsername = "username";
+std::string Session::kRealname = "realname";
 
 //
 // Create a Session object from initial parameters (create)
@@ -164,21 +168,11 @@ RootSession::RootSession(Server &server, SessionAttributeBits attrs)
 	mSessions[mServicePort] = this;
 }
 
-uid_t RootSession::originatorUid() const
-{
-	return 0;	// it's root, obviously
-}
-
-CFDataRef RootSession::copyUserPrefs()
-{
-	return NULL;
-}
-
 //
 // Dynamic sessions use the given bootstrap and re-register in it
 //
 DynamicSession::DynamicSession(TaskPort taskPort)
-	: ReceivePort(Server::active().bootstrapName(), taskPort.bootstrap()),
+	: ReceivePort(Server::active().bootstrapName(), taskPort.bootstrap(), false),
 	  Session(taskPort.bootstrap(), *this),
 	  mOriginatorTask(taskPort), mHaveOriginatorUid(false)
 {
@@ -265,9 +259,18 @@ void DynamicSession::originatorUid(uid_t uid)
 		MacOSError::throwMe(errSessionAuthorizationDenied);
 	mHaveOriginatorUid = true;
 	mOriginatorUid = uid;
+
+	Server::active().longTermActivity();
+	struct passwd *pw = getpwuid(uid);
+
+	if (pw != NULL) {
+
+        mOriginatorCredential = Credential(uid, pw->pw_name ? pw->pw_name : "", pw->pw_gecos ? pw->pw_gecos : "", true/*shared*/);
+        endpwent();
+	}
+
 	secdebug("SSsession", "%p session uid set to %d", this, uid);
 }
-
 
 //
 // Authorization operations
@@ -282,7 +285,7 @@ OSStatus Session::authCreate(const AuthItemSet &rights,
 	CredentialSet resultCreds;
 	
 	// this will acquire the object lock, so we delay acquiring it (@@@ no longer needed)
-	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, auditToken));
+	auto_ptr<AuthorizationToken> auth(new AuthorizationToken(*this, resultCreds, auditToken, (flags&kAuthorizationFlagLeastPrivileged)));
 
     // Make a copy of the mSessionCreds
     CredentialSet sessionCreds;
@@ -336,8 +339,16 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
 	AuthorizationFlags flags,
 	AuthItemSet &grantedRights)
 {
+	AuthorizationToken &auth = authorization(authBlob);
+	return auth.session().authGetRights(auth, rights, environment, flags, grantedRights);
+}
+
+OSStatus Session::authGetRights(AuthorizationToken &auth,
+	const AuthItemSet &rights, const AuthItemSet &environment,
+	AuthorizationFlags flags,
+	AuthItemSet &grantedRights)
+{
     CredentialSet resultCreds;
-    AuthorizationToken &auth = authorization(authBlob);
     CredentialSet effective;
     {
         StLock<Mutex> _(mCredsLock);
@@ -355,7 +366,7 @@ OSStatus Session::authGetRights(const AuthorizationBlob &authBlob,
 	}
 
 	secdebug("SSauth", "Authorization %p copyRights asked for %d got %d",
-		&authorization(authBlob), int(rights.size()), int(grantedRights.size()));
+		&auth, int(rights.size()), int(grantedRights.size()));
 	return result;
 }
 
@@ -485,9 +496,9 @@ OSStatus Session::authorizationdbRemove(const AuthorizationBlob &authBlob, Autho
 void Session::mergeCredentials(CredentialSet &creds)
 {
     secdebug("SSsession", "%p merge creds @%p", this, &creds);
-    CredentialSet updatedCredentials = creds;
+	CredentialSet updatedCredentials = creds;
 	for (CredentialSet::const_iterator it = creds.begin(); it != creds.end(); it++)
-		if (((*it)->isShared() && (*it)->isValid())) {
+		if ((*it)->isShared() && (*it)->isValid()) {
 			CredentialSet::iterator old = mSessionCreds.find(*it);
 			if (old == mSessionCreds.end()) {
 				mSessionCreds.insert(*it);
@@ -498,7 +509,7 @@ void Session::mergeCredentials(CredentialSet &creds)
                 updatedCredentials.insert(*old);
             }
 		}
-    creds.swap(updatedCredentials);
+	creds.swap(updatedCredentials);
 }
 
 
@@ -542,6 +553,8 @@ Session::authhost(const AuthHostType hostType, const bool restart)
 void DynamicSession::setUserPrefs(CFDataRef userPrefsDict)
 {
 	checkOriginator();
+	if (Server::process().uid() != 0)
+		MacOSError::throwMe(errSessionAuthorizationDenied);
 	StLock<Mutex> _(*this);
 	mSessionAgentPrefs = userPrefsDict;
 }

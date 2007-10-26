@@ -1,45 +1,34 @@
-####################################################################
-#                                                                  #
-#             This software is part of the ast package             #
-#                Copyright (c) 1985-2004 AT&T Corp.                #
-#        and it may only be used by you under license from         #
-#                       AT&T Corp. ("AT&T")                        #
-#         A copy of the Source Code Agreement is available         #
-#                at the AT&T Internet web site URL                 #
-#                                                                  #
-#       http://www.research.att.com/sw/license/ast-open.html       #
-#                                                                  #
-#    If you have copied or used this software without agreeing     #
-#        to the terms of the license you are infringing on         #
-#           the license and copyright and are violating            #
-#               AT&T's intellectual property rights.               #
-#                                                                  #
-#            Information and Software Systems Research             #
-#                        AT&T Labs Research                        #
-#                         Florham Park NJ                          #
-#                                                                  #
-#               Glenn Fowler <gsf@research.att.com>                #
-#                David Korn <dgk@research.att.com>                 #
-#                 Phong Vo <kpv@research.att.com>                  #
-#                                                                  #
-####################################################################
-: generate conf info
+########################################################################
+#                                                                      #
+#               This software is part of the ast package               #
+#           Copyright (c) 1985-2007 AT&T Knowledge Ventures            #
+#                      and is licensed under the                       #
+#                  Common Public License, Version 1.0                  #
+#                      by AT&T Knowledge Ventures                      #
+#                                                                      #
+#                A copy of the License is available at                 #
+#            http://www.opensource.org/licenses/cpl1.0.txt             #
+#         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         #
+#                                                                      #
+#              Information and Software Systems Research               #
+#                            AT&T Research                             #
+#                           Florham Park NJ                            #
+#                                                                      #
+#                 Glenn Fowler <gsf@research.att.com>                  #
+#                  David Korn <dgk@research.att.com>                   #
+#                   Phong Vo <kpv@research.att.com>                    #
+#                                                                      #
+########################################################################
+: generate getconf and limits info
 #
-# @(#)conf.sh (AT&T Research) 2003-06-11
+# @(#)conf.sh (AT&T Research) 2007-04-20
 #
 # this script generates these files from the table file in the first arg
 # the remaining args are the C compiler name and flags
 #
-#	conflib.h	common generator definitions
-#	conflim.h	limits.h generator code
-#	confmap.c	internal index to external op map data
-#	confmap.h	internal index to external op map definitions
-#	confstr.c	confstr() implementation
-#	conftab.c	readonly string table data
+#	conflim.h	supplemental limits.h definitions
 #	conftab.h	readonly string table definitions
-#	confuni.h	unistd.h generator code
-#	pathconf.c	pathconf() and fpathconf() implementation
-#	sysconf.c	sysconf() implementation
+#	conftab.c	readonly string table data
 #
 # you may think it should be simpler
 # but you shall be confused anyway
@@ -49,6 +38,9 @@ case $-:$BASH_VERSION in
 *x*:[0123456789]*)	: bash set -x is broken :; set +ex ;;
 esac
 
+LC_ALL=C
+export LC_ALL
+
 command=conf
 
 shell=`eval 'x=123&&integer n=\${#x}\${x#1?}&&((n==330/(10)))&&echo ksh' 2>/dev/null`
@@ -56,7 +48,6 @@ shell=`eval 'x=123&&integer n=\${#x}\${x#1?}&&((n==330/(10)))&&echo ksh' 2>/dev/
 append=0
 debug=
 extra=0
-index=0
 keep_call='*'
 keep_name='*'
 trace=
@@ -68,15 +59,20 @@ do	case $1 in
 	-d*)	debug=$1 ;;
 	-l)	extra=1 ;;
 	-n*)	keep_name=${1#-?} ;;
-	-t*)	trace=${1#-?} ;;
+	-t)	trace=1 ;;
 	-v)	verbose=1 ;;
-	-*)	echo "Usage: $command [-a] [-ccall-pattern] [-dN] [-l] [-nname_pattern] [-t[s]] [-v] conf.tab" >&2; exit 2 ;;
+	-*)	echo "Usage: $command [-a] [-ccall-pattern] [-dN] [-l] [-nname_pattern] [-t] [-v] conf.tab" >&2; exit 2 ;;
 	*)	break ;;
 	esac
 	shift
 done
+head='#include "FEATURE/standards"
+#include "FEATURE/common"'
+tail='#include "FEATURE/param"'
 generated="/* : : generated by $command from $1 : : */"
-ifs=$IFS
+hdr=
+ifs=${IFS-'
+	 '}
 nl='
 '
 sp=' '
@@ -84,8 +80,11 @@ ob='{'
 cb='}'
 sym=[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]*
 tmp=conf.tmp
-case $verbose:$debug in
-1:?*)	echo "$command: debug=$debug keep_call=$keep_call keep_name=$keep_name" >&2 ;;
+case $verbose:$debug$trace in
+1:?*)	echo "$command: debug=$debug trace=$trace keep_call=$keep_call keep_name=$keep_name" >&2 ;;
+esac
+case $trace in
+1)	PS4='+$LINENO+ '; set -x ;;
 esac
 
 case $# in
@@ -111,17 +110,61 @@ esac
 
 rm -f $tmp.*
 case $debug in
-'')	trap "rm -f $tmp.*" 0 1 2 ;;
+'')	trap "code=\$?; rm -f $tmp.*; exit \$code" 0 1 2 ;;
 esac
+
+# determine the intmax_t printf format
+
+cat > $tmp.c <<!
+${head}
+int
+main()
+{
+#if _ast_intmax_long
+	return 1;
+#else
+	return 0;
+#endif
+}
+!
+if	$cc -o $tmp.exe $tmp.c >/dev/null 2>&1 && ./$tmp.exe
+then	LL_format='ll'
+else	LL_format='l'
+fi
+
+# determine the intmax_t constant suffix
+
+cat > $tmp.c <<!
+${head}
+int
+main()
+{
+#if _ast_intmax_long
+	return 1;
+#else
+	_ast_intmax_t		s = 0x7fffffffffffffffLL;
+	unsigned _ast_intmax_t	u = 0xffffffffffffffffLL;
+
+	return 0;
+#endif
+}
+!
+if	$cc -o $tmp.exe $tmp.c >/dev/null 2>&1
+then	if	./$tmp.exe
+	then	LL_suffix='LL'
+	else	LL_suffix='L'
+	fi
+else	LL_suffix=''
+fi
 
 # set up the names and keys
 
 keys=
-lastindex=0
+standards=
 
 case $append$extra in
 00)	case $verbose in
-	1)	echo "$command: reading $tab" >&2 ;;
+	1)	echo "$command: read $tab" >&2 ;;
 	esac
 	exec < $tab
 	while	:
@@ -135,72 +178,97 @@ case $append$extra in
 		esac
 		case $line in
 		""|\#*)	;;
-		"	"*)
-			set x $line
-			shift
-			echo "$*" >> $tmp.h
-			case $name in
-			?*)	local=LOCAL
-				case $section in
-				[01])	;;
-				*)	local=${local}${section} ;;
-				esac
-				eval CONF_values_${key}='${sp}_${local}_${name}$'CONF_values_${key}
-				name=
-				;;
-			esac
-			;;
 		*)	set x $line
 			shift; name=$1
-			shift; index=$1
 			shift; standard=$1
 			shift; call=$1
 			shift; section=$1
 			shift; flags=$1
+			alternates=
 			define=
 			values=
 			script=
+			headers=
 			while	:
 			do	shift
 				case $# in
 				0)	break ;;
 				esac
 				case $1 in
-				"{")	case $# in
-					1)	IFS=""
-						while	read line
-						do	case $line in
-							"}")	break ;;
-							esac
-							script=$script$nl$line
-						done
-						IFS=$ifs
-						eval script_$name='$'script
-						break
-						;;
-					*)	shift
-						eval script='$'script_$1
-						case $2 in
-						"}")	shift ;;
+				":")	shift
+					eval script='$'script_$1
+					break
+					;;
+				*"{")	case $1 in
+					"sh{")	script="# $name" ;;
+					*)	script= ;;
+					esac
+					shift
+					args="$*"
+					IFS=""
+					while	read line
+					do	case $line in
+						"}")	break ;;
 						esac
+						script=$script$nl$line
+					done
+					IFS=$ifs
+					break
+					;;
+				*.h)	case $shell in
+					ksh)	f=${1%.h} ;;
+					*)	f=`echo $1 | sed 's,\.h$,,'` ;;
+					esac
+					case " $hdr " in
+					*" $f "*)
+						headers=$headers$nl#include$sp'<'$1'>'
+						;;
+					*" -$f- "*)
+						;;
+					*)	if	iffe -n - hdr $f | grep _hdr_$f >/dev/null
+						then	hdr="$hdr $f"
+							headers=$headers$nl#include$sp'<'$1'>'
+						else	hdr="$hdr -$f-"
+						fi
 						;;
 					esac
 					;;
 				*)	values=$values$sp$1
+					case $1 in
+					$sym)	echo "$1" >> $tmp.v ;;
+					esac
 					;;
 				esac
 			done
-			case $call in
-			CS|SI)	key=CS ;;
-			*)	key=$call ;;
+			case " $standards " in
+			*" $standard "*)
+				;;
+			*)	standards="$standards $standard"
+				;;
+			esac
+			case $name:$flags in
+			*:*S*)	;;
+			VERSION)flags="${flags}S" ;;
 			esac
 			case $name in
-			*VERSION*)key=${key}_${standard}${section} ;;
+			*VERSION*)key=${standard}${section} ;;
+			*)	  key= ;;
 			esac
-			key=${key}_${name}
+			case $key in
+			''|*_)	key=${key}${name} ;;
+			*)	key=${key}_${name} ;;
+			esac
+			eval sys='$'CONF_call_${key}
+			case $sys in
+			?*)	call=$sys ;;
+			esac
+			case $call in
+			SI)	sys=CS ;;
+			*)	sys=$call ;;
+			esac
+			key=${sys}_${key}
 			keys="$keys$nl$key"
 			eval CONF_name_${key}='$'name
-			eval CONF_index_${key}='$'index
 			eval CONF_standard_${key}='$'standard
 			eval CONF_call_${key}='$'call
 			eval CONF_section_${key}='$'section
@@ -208,10 +276,9 @@ case $append$extra in
 			eval CONF_define_${key}='$'define
 			eval CONF_values_${key}='$'values
 			eval CONF_script_${key}='$'script
+			eval CONF_args_${key}='$'args
+			eval CONF_headers_${key}='$'headers
 			eval CONF_keys_${name}=\"'$'CONF_keys_${name} '$'key\"
-			if	test $index -gt $lastindex
-			then	lastindex=$index
-			fi
 			;;
 		esac
 	done
@@ -221,15 +288,16 @@ case $debug in
 -d1)	for key in $keys
 	do	eval name=\"'$'CONF_name_$key\"
 		case $name in
-		?*)	eval index=\"'$'CONF_index_$key\"
-			eval standard=\"'$'CONF_standard_$key\"
+		?*)	eval standard=\"'$'CONF_standard_$key\"
 			eval call=\"'$'CONF_call_$key\"
 			eval section=\"'$'CONF_section_$key\"
 			eval flags=\"'$'CONF_flags_$key\"
 			eval define=\"'$'CONF_define_$key\"
 			eval values=\"'$'CONF_values_$key\"
 			eval script=\"'$'CONF_script_$key\"
-			printf "%29s %35s %3d %8s %2s %1d %5s %s$nl" "$name" "$key" "$index" "$standard" "$call" "$section" "$flags" "$define${values:+$sp=$values}${script:+$sp$ob$script$nl$cb}"
+			eval args=\"'$'CONF_args_$key\"
+			eval headers=\"'$'CONF_headers_$key\"
+			printf "%29s %35s %8s %2s %1d %5s %s$nl" "$name" "$key" "$standard" "$call" "$section" "$flags" "$define${values:+$sp=$values}${headers:+$sp$headers$nl}${script:+$sp$ob$script$nl$cb}"
 			;;
 		esac
 	done
@@ -245,10 +313,29 @@ systeminfo='
 echo "$systeminfo" > $tmp.c
 $cc -E $tmp.c >/dev/null 2>&1 || systeminfo=
 
-# check for local additions
+# check for native getconf(1)
+
+CONF_getconf=
+CONF_getconf_a=
+for d in /usr/bin /bin /usr/sbin /sbin
+do	if	test -x $d/getconf
+	then	case `$d/getconf --?-version 2>&1` in
+		*"AT&T"*"Research"*)
+			: presumably an implementation also configured from conf.tab
+			;;
+		*)	CONF_getconf=$d/getconf
+			if	$CONF_getconf -a >/dev/null 2>&1
+			then	CONF_getconf_a=-a
+			fi
+			;;
+		esac
+		break
+	fi
+done
+export CONF_getconf CONF_getconf_a
 
 case $verbose in
-1)	echo "$command: check local confstr(),pathconf(),sysconf(),sysinfo() keys" >&2 ;;
+1)	echo "$command: check ${CONF_getconf:+$CONF_getconf(1),}confstr(2),pathconf(2),sysconf(2),sysinfo(2) configuration names" >&2 ;;
 esac
 {
 	echo "#include <unistd.h>$systeminfo
@@ -259,14 +346,33 @@ sed \
 	-e '/^#[^0123456789]*1[ 	]*".*".*/!d' \
 	-e 's/^#[^0123456789]*1[ 	]*"\(.*\)".*/\1/' |
 sort -u > $tmp.f
+{
 sed \
-	-e '/^[ 	]*#[ 	]*define[ 	][ 	]*[ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789]*[CPS][CIS]_/!d' \
-	-e 's,^[ 	]*#[ 	]*define[ 	]*,,' \
-	-e '/^[^ 	]*[ 	][ 	]*[0123456789]/!d' \
-	-e 's,[ 	].*,,' \
-	-e '/^[S_]/!d' \
+	-e 's/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789]/ /g' \
+	-e 's/[ 	][ 	]*/\n/g' \
 	`cat $tmp.f` 2>/dev/null |
-sort -u > $tmp.v
+	egrep '^(SI|_(CS|PC|SC|SI))_.'
+	case $CONF_getconf_a in
+	?*)	$CONF_getconf $CONF_getconf_a | sed 's,[=:    ].*,,'
+		;;
+	*)	case $CONF_getconf in
+		?*)	for v in `strings $CONF_getconf | grep '^[ABCDEFGHIJKLMNOPQRSTUVWXYZ_][ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789]*$'`
+			do	if	$CONF_getconf $v >/dev/null
+				then	echo $v
+				fi
+			done
+			;;
+		esac
+		;;
+	esac 2>/dev/null
+} |
+egrep -v '^_[ABCDEFGHIJKLMNOPQRSTUVWXYZ]+_(COUNT|LAST|N|STR)$' |
+sort -u > $tmp.g
+{
+	grep '^_' $tmp.g
+	grep '^[^_]' $tmp.g
+} > $tmp.t
+mv $tmp.t $tmp.g
 case $debug in
 -d2)	exit ;;
 esac
@@ -276,14 +382,12 @@ case $HOST in
 '')	HOST=SYSTEM ;;
 esac
 
-exec < $tmp.v
+exec < $tmp.g
 
 while	read line
-do	case $line in
-	*_[CS][SI]_*_STR|SI_*_STR)	continue ;;
-	esac
-	flags=F
+do	flags=F
 	section=
+	underscore=
 	define=$line
 	IFS=_
 	set $line
@@ -328,31 +432,37 @@ do	case $line in
 	case $standard in
 	_*)	standard=`echo $standard | sed 's,^_*,,'` ;;
 	esac
-	case $standard in
-	XBS5)	;;
-	[0123456789]*)
-		section=$standard
-		standard=POSIX
+	case " $standards " in
+	*" $standard "*)
 		;;
-	*[0123456789])
-		eval `echo $standard | sed 's,\(.*\)\([0123456789]*\),standard=\1 section=\2,'`
+	*)	case $standard in
+		[0123456789]*)
+			section=$standard
+			standard=POSIX
+			;;
+		*[0123456789])
+			eval `echo $standard | sed 's,\(.*\)\([0123456789]*\),standard=\1 section=\2,'`
+			;;
+		esac
 		;;
 	esac
 	case $flags in
 	*R*)	case $call in
 		SI)	;;
-		*)	flags=${flags}U ;;
+		*)	underscore=U ;;
 		esac
 		;;
-	*)	case $standard in
-		POSIX|SVID|XBS5|XOPEN|XPG|AES|AST)
+	*)	case " $standards " in
+		" C ")	shift
+			;;
+		*" $standard "*)
 			case $call in
 			SI)	;;
-			*)	flags=${flags}U ;;
+			*)	flags=${flags}P
+				underscore=U
+				;;
 			esac
 			shift
-			;;
-		C)	shift
 			;;
 		*)	standard=
 			;;
@@ -363,7 +473,7 @@ do	case $line in
 	'')	standard=$HOST
 		case $call in
 		SI)	;;
-		*)	flags=${flags}U ;;
+		*)	underscore=U ;;
 		esac
 		case $call in
 		CS|PC|SC)
@@ -376,8 +486,13 @@ do	case $line in
 		esac
 		;;
 	esac
+	part=$section
 	case $section in
-	'')	section=1 ;;
+	'')	section=1
+		case $standard in
+		POSIX|XOPEN) part=$section ;;
+		esac
+		;;
 	esac
 	name=
 	while	:
@@ -394,90 +509,106 @@ do	case $line in
 	'')	;;
 	CONFORMANCE|FS_3D|HOSTTYPE|LIBPATH|LIBPREFIX|LIBSUFFIX|PATH_ATTRIBUTES|PATH_RESOLVE|UNIVERSE)
 		;;
-	*)	lastindex=`expr $lastindex + 1`
-		index=$lastindex
-		values=
+	*)	values=
 		script=
+		args=
+		headers=
+		case $name in
+		V[123456789]_*|V[123456789][0123456789]_*)	underscore=VW ;;
+		esac
 		case $call in
 		CS|SI)	key=CS ;;
 		*)	key=$call ;;
 		esac
 		case $name in
-		*VERSION*)key=${key}_${standard}${section} ;;
+		*VERSION*)key=${key}_${standard}${part} ;;
 		esac
 		key=${key}_${name}
-		eval x='$'CONF_name_$key
+		eval x='$'CONF_keys_$name
 		case $x in
-		'')	case $call in
-			SI)	flags=O$flags ;;
-			esac
-			old=QQ
-			case $name in
-			*VERSION*)old=${old}_${standard}${section} ;;
-			esac
-			old=${old}_${name}
-			eval x='$'CONF_name_$old
+		'')	eval x='$'CONF_name_$key
 			case $x in
-			?*)	eval CONF_name_$old=
-				eval index='$'CONF_index_$old
-				eval flags='$'flags'$'CONF_flags_$old
-				eval values='$'CONF_values_$old
-				eval script='$'CONF_script_$old
-				;;
-			esac
-			keys="$keys$nl$key"
-			eval CONF_name_${key}='$'name
-			eval CONF_index_${key}='$'index
-			eval CONF_standard_${key}='$'standard
-			eval CONF_call_${key}='$'call
-			eval CONF_section_${key}='$'section
-			eval CONF_flags_${key}=D'$'flags
-			eval CONF_define_${key}='$'define
-			eval CONF_values_${key}='$'values
-			eval CONF_script_${key}='$'script
-			;;
-		*)	eval x='$'CONF_define_$key
-			case $x in
-			?*)	case $call in
-				CS)	eval x='$'CONF_call_$key
-					case $x in
-					SI)	;;
-					*)	define= ;;
-					esac
-					;;
-				*)	define=
-					;;
-				esac
-				;;
-			esac
-			case $define in
-			?*)	eval CONF_define_${key}='$'define
-				eval CONF_call_${key}='$'call
-				eval x='$'CONF_call_${key}
-				case $x in
-				QQ)	;;
-				*)	case $flags in
-					*R*)	flags=R ;;
-					*)	flags= ;;
-					esac
-					;;
-				esac
-				case $call in
+			'')	case $call in
 				SI)	flags=O$flags ;;
 				esac
-				eval CONF_flags_${key}=D'$'flags'$'CONF_flags_${key}
+				case $underscore in
+				?*)	flags=${flags}${underscore} ;;
+				esac
+				old=QQ
+				case $name in
+				*VERSION*)old=${old}_${standard}${part} ;;
+				esac
+				old=${old}_${name}
+				eval x='$'CONF_name_$old
+				case $x in
+				?*)	eval CONF_name_$old=
+					eval flags='$'flags'$'CONF_flags_$old
+					eval values='$'CONF_values_$old
+					eval script='$'CONF_script_$old
+					eval args='$'CONF_args_$old
+					eval headers='$'CONF_headers_$old
+					;;
+				esac
+				keys="$keys$nl$key"
+				eval CONF_name_${key}='$'name
+				eval CONF_standard_${key}='$'standard
+				eval CONF_call_${key}='$'call
+				eval CONF_section_${key}='$'section
+				eval CONF_flags_${key}=d'$'flags
+				eval CONF_define_${key}='$'define
+				eval CONF_values_${key}='$'values
+				eval CONF_script_${key}='$'script
+				eval CONF_args_${key}='$'args
+				eval CONF_headers_${key}='$'headers
 				;;
+			*)	eval x='$'CONF_define_$key
+				case $x in
+				?*)	case $call in
+					CS)	eval x='$'CONF_call_$key
+						case $x in
+						SI)	;;
+						*)	define= ;;
+						esac
+						;;
+					*)	define=
+						;;
+					esac
+					;;
+				esac
+				case $define in
+				?*)	eval CONF_define_${key}='$'define
+					eval CONF_call_${key}='$'call
+					eval x='$'CONF_call_${key}
+					case $x in
+					QQ)	;;
+					*)	case $flags in
+						*R*)	flags=R ;;
+						*)	flags= ;;
+						esac
+						;;
+					esac
+					case $call in
+					SI)	flags=O$flags ;;
+					esac
+					eval CONF_flags_${key}=d'$'flags'$'CONF_flags_${key}
+					;;
+				esac
+				old=QQ
+				case $name in
+				*VERSION*)old=${old}_${standard}${part} ;;
+				esac
+				old=${old}_${name}
+				eval CONF_name_$old=
 			esac
-			eval x='$'CONF_index_$key
-			if	test $index -lt $x
-			then	eval CONF_index_${key}='$'index
-			fi
-			old=QQ
-			case $name in
-			*VERSION*)old=${old}_${standard}${section} ;;
-			esac
-			old=${old}_${name}
-			eval CONF_name_$old=
+			;;
+		*)	for key in $x
+			do	eval x='$'CONF_call_${key}
+				case $x in
+				XX)	eval CONF_call_${key}=QQ
+					eval CONF_flags_${key}=S'$'CONF_flags_${key}
+					;;
+				esac
+			done
 		esac
 		;;
 	esac
@@ -492,33 +623,21 @@ case $debug in
 -d3)	for key in $keys
 	do	eval name=\"'$'CONF_name_$key\"
 		case $name in
-		?*)	eval index=\"'$'CONF_index_$key\"
-			eval standard=\"'$'CONF_standard_$key\"
+		?*)	eval standard=\"'$'CONF_standard_$key\"
 			eval call=\"'$'CONF_call_$key\"
 			eval section=\"'$'CONF_section_$key\"
 			eval flags=\"'$'CONF_flags_$key\"
 			eval define=\"'$'CONF_define_$key\"
 			eval values=\"'$'CONF_values_$key\"
 			eval script=\"'$'CONF_script_$key\"
-			printf "%29s %35s %3d %8s %2s %1d %5s %s$nl" "$name" "$key" "$index" "$standard" "$call" "$section" "$flags" "$define${values:+$sp=$values}${script:+$sp$ob$script$nl$cb}"
+			eval headers=\"'$'CONF_headers_$key\"
+			printf "%29s %35s %8s %2s %1d %5s %s$nl" "$name" "$key" "$standard" "$call" "$section" "$flags" "$define${values:+$sp=$values}${headers:+$sp$headers$nl}${script:+$sp$ob$script$nl$cb}"
 			;;
 		esac
 	done
 	exit
 	;;
 esac
-
-cat > $tmp.6 <<!
-	/*
-	 * some implementations (could it beee aix) think empty
-	 * definitions constitute symbolic constants
-	 */
-
-	{
-	long	num;
-	char*	str;
-	int	hit;
-!
 
 # mark the dups CONF_PREFIXED
 
@@ -530,23 +649,23 @@ do	eval name=\"'$'CONF_name_$key\"
 	'')	continue
 		;;
 	$prev_name)
-		eval CONF_flags_${prev_key}=P'$'CONF_flags_${prev_key}
-		eval CONF_flags_${key}=P'$'CONF_flags_${key}
+		eval p='$'CONF_flags_${prev_key}
+		eval c='$'CONF_flags_${key}
+		case $p:$c in
+		*L*:*L*);;
+		*L*:*)	c=L${c} ;;
+		*:*L*)	p=L${p} ;;
+		*)	p=P$p c=P$c ;;
+		esac
+		eval CONF_flags_${prev_key}=$p
+		eval CONF_flags_${key}=$c
 		;;
 	esac
 	prev_name=$name
 	prev_key=$key
 done
 
-# walk through the table
-
-case $shell in
-ksh)	integer len limit_max name_max ;;
-esac
-limit_max=1
-name_max=1
-standards=
-export tmp name index standard call cc
+# collect all the macros/enums
 
 for key in $keys
 do	eval name=\"'$'CONF_name_$key\"
@@ -560,40 +679,271 @@ do	eval name=\"'$'CONF_name_$key\"
 	$keep_call)	;;
 	*)		continue ;;
 	esac
-	eval index=\"'$'CONF_index_$key\"
 	eval standard=\"'$'CONF_standard_$key\"
 	eval section=\"'$'CONF_section_$key\"
 	eval flags=\"'$'CONF_flags_$key\"
 	eval define=\"'$'CONF_define_$key\"
 	eval values=\"'$'CONF_values_$key\"
 	eval script=\"'$'CONF_script_$key\"
+	eval args=\"'$'CONF_args_$key\"
+	eval headers=\"'$'CONF_headers_$key\"
 	conf_name=$name
-	conf_index=$index
 	case $call in
 	QQ)	call=XX
 		for c in SC PC CS
-		do	cat > $tmp.c <<!
-#ifndef _POSIX_SOURCE
-#define _POSIX_SOURCE	1
-#endif
+		do	case $flags in
+			*S*)	case $section in
+				1)	eval x='$'CONF_call_${c}_${standard}_${name} ;;
+				*)	eval x='$'CONF_call_${c}_${standard}${section}_${name} ;;
+				esac
+				;;
+			*)	eval x='$'CONF_call_${c}_${name}
+				;;
+			esac
+			case $x in
+			?*)	call=$x
+				break
+				;;
+			esac
+		done
+		case $call in
+		XX)	for c in SC PC CS
+			do	echo "_${c}_${name}"
+				case $flags in
+				*S*)	case $section in
+					1)	echo "_${c}_${standard}_${name}" ;;
+					*)	echo "_${c}_${standard}${section}_${name}" ;;
+					esac
+					;;
+				esac
+			done
+			;;
+		esac
+		;;
+	esac
+	case $call in
+	CS|PC|SC|SI|XX)
+		;;
+	*)	echo "$command: $name: $call: invalid call" >&2
+		exit 1
+		;;
+	esac
+	case $flags in
+	*[ABEGHIJQTYZabcefghijklmnopqrstuvwxyz_123456789]*)
+		echo "$command: $name: $flags: invalid flag(s)" >&2
+		exit 1
+		;;
+	esac
+	case $section in
+	[01])	;;
+	*)	case $flags in
+		*N*)	;;
+		*)	name=${section}_${name} ;;
+		esac
+		standard=${standard}${section}
+		;;
+	esac
+	case $call in
+	XX)	;;
+	*)	case $flags in
+		*d*)	conf_op=${define} ;;
+		*O*)	conf_op=${call}_${name} ;;
+		*R*)	conf_op=_${standard}_${call}_${name} ;;
+		*S*)	conf_op=_${call}_${standard}_${name} ;;
+		*)	conf_op=_${call}_${name} ;;
+		esac
+		echo "${conf_op}"
+		;;
+	esac
+	case $standard:$flags in
+	C:*)	;;
+	*:*L*)	echo "${conf_name}"
+		echo "_${standard}_${conf_name}"
+		;;
+	*:*M*)	case $section in
+		1)	echo "_${standard}_${conf_name}" ;;
+		*)	echo "_${standard}${section}_${conf_name}" ;;
+		esac
+		;;
+	esac
+done > $tmp.q
+sort -u < $tmp.q > $tmp.t
+mv $tmp.t $tmp.q
+sort -u < $tmp.v > $tmp.t
+mv $tmp.t $tmp.v
+case $debug in
+-d4)	exit ;;
+esac
+
+# test all the macros in a few batches (some compilers have an error limit)
+
+defined() # list-file
+{
+	: > $tmp.p
+	while	:
+	do	{
+			cat <<!
+${head}
 #include <sys/types.h>
 #include <limits.h>
-#include <unistd.h>$systeminfo
-#include <stdio.h>
-main()
-{
-	return _${c}_${name} == 0;
-}
+#include <unistd.h>$systeminfo$headers
+${tail}
+#undef conf
+unsigned int conf[] = {
 !
-			if	$cc -o $tmp.exe $tmp.c >/dev/null 2>&1
-			then	call=$c
-				case $standard in
-				C)	standard=POSIX ;;
+			sed 's/$/,/' $1
+			echo "};"
+		} > $tmp.c
+		[[ -f $tmp.1.c ]] || cp $tmp.c $tmp.1.c
+		if	$cc -c $tmp.c > $tmp.e 2>&1
+		then	break
+		fi
+		[[ -f $tmp.1.e ]] || cp $tmp.e $tmp.1.e
+		snl='\
+'
+		sed "s/[^_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789][^_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]*/${snl}/g" $tmp.e |
+		grep '^[_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz][_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789]*$' |
+		sort -u > $tmp.n
+		cmp -s $tmp.n $tmp.p && break
+		fgrep -x -v -f $tmp.n $1 > $tmp.y
+		mv $tmp.y $1
+		mv $tmp.n $tmp.p
+	done
+	{
+		cat <<!
+${head}
+#include <sys/types.h>
+#include <limits.h>
+#include <unistd.h>$systeminfo$headers
+${tail}
+#undef conf
+!
+		sed 's/.*/conf "&" = &/' $1
+	} > $tmp.c
+	$cc -E $tmp.c 2>/dev/null |
+	sed -e '/conf[ 	]*".*"[ 	]*=[ 	]*/!d' -e '/[_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789][ 	]*(/!d' -e 's/.*"\(.*\)".*/\1/' > $tmp.n
+	if	test -s $tmp.n
+	then	fgrep -x -v -f $tmp.n $1 > $tmp.y
+		mv $tmp.y $1
+	fi
+}
+
+case $verbose in
+1)	echo "$command: check macros/enums as static initializers" >&2 ;;
+esac
+defined $tmp.q
+defined $tmp.v
+case $debug in
+-d5)	exit ;;
+esac
+
+# mark the constant macros/enums
+
+exec < $tmp.q
+while	read line
+do	eval CONF_const_${line}=1
+done
+exec < $tmp.v
+while	read line
+do	eval CONF_const_${line}=1
+done
+
+# mark the string literal values
+
+{
+	cat <<!
+${head}
+#include <sys/types.h>
+#include <limits.h>
+#include <unistd.h>$systeminfo$headers
+${tail}
+#undef conf
+!
+	sed 's/.*/conf "&" = &/' $tmp.q
+} > $tmp.c
+$cc -E $tmp.c 2>/dev/null |
+sed -e '/conf[ 	]*".*"[ 	]*=[ 	]*"/!d' -e 's/.*"\([^"]*\)".*/\1/' > $tmp.e
+exec < $tmp.e
+while	read line
+do	eval CONF_string_${line}=1
+done
+
+# walk through the table
+
+case $shell in
+ksh)	integer len name_max ;;
+esac
+name_max=1
+export tmp name standard call cc
+
+for key in $keys
+do	eval name=\"'$'CONF_name_$key\"
+	case $name in
+	'')		continue ;;
+	$keep_name)	;;
+	*)		continue ;;
+	esac
+	eval call=\"'$'CONF_call_$key\"
+	case $call in
+	$keep_call)	;;
+	*)		continue ;;
+	esac
+	eval standard=\"'$'CONF_standard_$key\"
+	eval section=\"'$'CONF_section_$key\"
+	eval flags=\"'$'CONF_flags_$key\"
+	eval define=\"'$'CONF_define_$key\"
+	eval values=\"'$'CONF_values_$key\"
+	eval script=\"'$'CONF_script_$key\"
+	eval args=\"'$'CONF_args_$key\"
+	eval headers=\"'$'CONF_headers_$key\"
+	conf_name=$name
+	case $call in
+	QQ)	call=XX
+		for c in SC PC CS
+		do	case $flags in
+			*S*)	case $section in
+				1)	eval x='$'CONF_call_${c}_${standard}_${name} ;;
+				*)	eval x='$'CONF_call_${c}_${standard}${section}_${name} ;;
 				esac
-				flags=FU
+				;;
+			*)	eval x='$'CONF_call_${c}_${name}
+				;;
+			esac
+			case $x in
+			?*)	call=$x
 				break
-			fi
+				;;
+			esac
 		done
+		case $call in
+		XX)	for c in SC PC CS
+			do	case $flags in
+				*S*)	case $section in
+					1)	eval x='$'CONF_const__${c}_${standard}_${name} ;;
+					*)	eval x='$'CONF_const__${c}_${standard}${section}_${name} ;;
+					esac
+					;;
+				*)	eval x='$'CONF_const__${c}_${name}
+					;;
+				esac
+				case $x in
+				1)	call=$c
+					break
+					;;
+				esac
+			done
+			;;
+		esac
+		case $call in
+		XX)	case $standard in
+			C)	standard=POSIX ;;
+			esac
+			case $flags in
+			*L*)	flags=lFU ;;
+			*)	flags=FU ;;
+			esac
+			;;
+		esac
 		;;
 	esac
 	case " $standards " in
@@ -614,17 +964,23 @@ main()
 		;;
 	XX)	conf_call=CONF_nop
 		;;
-	*)	echo "$command: $name: $call: invalid call" >&2
-		exit 1
-		;;
 	esac
+	conf_op=-1
+	for s in _${call}_${standard}${section}_${name} _${call}_${standard}_${name} _${call}_${section}_${name} _${call}_${name} ${call}_${name}
+	do	eval x='$'CONF_const_${s}
+		case $x in
+		1)	conf_op=${s}
+			break
+			;;
+		esac
+	done
 	conf_section=$section
 	conf_flags=0
 	case $flags in
-	*[ABCEGHIJKQTVWYZabcdefghijklmnopqrstuvwxyz123456789_]*)
-		echo "$command: $name: $flags: invalid flag(s)" >&2
-		exit 1
-		;;
+	*C*)	conf_flags="${conf_flags}|CONF_DEFER_CALL" ;;
+	esac
+	case $flags in
+	*D*)	conf_flags="${conf_flags}|CONF_DEFER_MM" ;;
 	esac
 	case $flags in
 	*F*)	conf_flags="${conf_flags}|CONF_FEATURE" ;;
@@ -647,11 +1003,14 @@ main()
 	case $flags in
 	*U*)	conf_flags="${conf_flags}|CONF_UNDERSCORE" ;;
 	esac
-	case $shell in
-	ksh)	conf_flags=${conf_flags#0?} ;;
+	case $flags in
+	*V*)	conf_flags="${conf_flags}|CONF_NOUNDERSCORE" ;;
 	esac
-	case $verbose in
-	1)	case $standard in
+	case $flags in
+	*W*)	conf_flags="${conf_flags}|CONF_PREFIX_ONLY" ;;
+	esac
+	case $debug in
+	?*)	case $standard in
 		????)	sep=" " ;;
 		???)	sep="  " ;;
 		??)	sep="   " ;;
@@ -661,18 +1020,174 @@ main()
 		echo "$command: test: $sep$standard $call $name" >&2
 		;;
 	esac
-	case $script in
-	?*)	echo "$script" > $tmp.z
-		chmod +x $tmp.z
-		values="$values `./$tmp.z 2>/dev/null`"
+	case $call in
+	CS|SI)	conf_flags="${conf_flags}|CONF_STRING"
+		string=1
+		;;
+	*)	eval string='$'CONF_string_${key}
 		;;
 	esac
-	case $call in
-	CS|SI)	conf_flags="${conf_flags}|CONF_STRING" ;;
-	esac
+	conf_limit=0
 	case $flags in
-	*L*)	conf_value=$conf_name ;;
-	*)	conf_value=0 ;;
+	*[Ll]*)	d=
+		case ${conf_name} in
+		LONG_MAX|SSIZE_MAX)
+			x=
+			;;
+		*)	eval x='$'CONF_const_${conf_name}
+			;;
+		esac
+		case $x in
+		'')	for s in ${values}
+			do	case $s in
+				$sym)	eval x='$'CONF_const_${s}
+					case $x in
+					1)	eval a='$'CONF_const_${standard}_${s}
+						case $a in
+						$x)	x= ;;
+						*)	x=$s ;;
+						esac
+						break
+						;;
+					esac
+					;;
+				[0123456789]*|[-+][0123456789]*)
+					d=$s
+					break
+					;;
+				esac
+			done
+			case ${x:+1}:$flags:$conf_op in
+			:*:-1|:*X*:*)
+				case $verbose in
+				1)	echo "$command: probe for ${conf_name} <limits.h> value" >&2 ;;
+				esac
+				x=
+				case $CONF_getconf in
+				?*)	if	$CONF_getconf $conf_name > $tmp.x 2>/dev/null
+					then	x=`cat $tmp.x`
+						case $x in
+						undefined)	x= ;;
+						esac
+					fi
+					;;
+				esac
+				case ${x:+1} in
+				'')	case $script in
+					'#'*)	echo "$script" > $tmp.sh
+						chmod +x $tmp.sh
+						x=`./$tmp.sh 2>/dev/null`
+						;;
+					'')	case $conf_name in
+						SIZE_*|U*|*_MAX)	
+							f="%${LL_format}u"
+							t="unsigned _ast_intmax_t"
+							;;
+						*)	f="%${LL_format}d"
+							t="_ast_intmax_t"
+							;;
+						esac
+						cat > $tmp.c <<!
+${head}
+#include <stdio.h>
+#include <sys/types.h>
+#include <limits.h>
+#include <unistd.h>$systeminfo$headers
+${tail}
+int
+main()
+{
+	printf("$f\n", ($t)$conf_name);
+	return 0;
+}
+!
+						;;
+					*)	cat > $tmp.c <<!
+${head}
+#include <sys/types.h>
+#include <limits.h>
+#include <unistd.h>$systeminfo$headers
+${tail}
+${script}
+!
+						;;
+					esac
+					case $args in
+					'')	set "" ;;
+					*)	eval set '""' '"'$args'"'; shift ;;
+					esac
+					for a
+					do	case $script in
+						'#'*)	./$tmp.sh $a > $tmp.x 2>/dev/null
+							x=$?
+							;;
+						*)	$cc $a -o $tmp.exe $tmp.c >/dev/null 2>&1 && ./$tmp.exe > $tmp.x 2>/dev/null
+							x=$?
+							;;
+						esac
+						case $x in
+						0)	x=`cat $tmp.x`
+							case $x in
+							"-")	x=$a ;;
+							esac
+							break
+							;;
+						*)	x=
+							;;
+						esac
+					done
+					;;
+				esac
+				case $x in
+				'')	x=$d ;;
+				esac
+				;;
+			esac
+			case ${x:+1}:$flags:$conf_op in
+			1:*:-1|1:*X*:*)
+				conf_limit=$x
+				case $flags in
+				*L*)	;;
+				*)	conf_flags="${conf_flags}|CONF_LIMIT" ;;
+				esac
+				conf_flags="${conf_flags}|CONF_LIMIT_DEF"
+				case $string:$x in
+				1:*)	cat >> $tmp.l <<!
+printf("#ifndef ${conf_name}\n");
+printf("#define ${conf_name} \"${x}\"\n");
+printf("#endif\n");
+!
+					;;
+				*:U*)	cat >> $tmp.l <<!
+printf("#ifndef ${conf_name}\n");
+printf("#ifndef ${x}\n");
+printf("#define ${x} %lu\n", ${x});
+printf("#endif\n");
+printf("#define ${conf_name} ${x}\n");
+printf("#endif\n");
+!
+					;;
+				*:$sym)	cat >> $tmp.l <<!
+printf("#ifndef ${conf_name}\n");
+printf("#ifndef ${x}\n");
+printf("#define ${x} %ld\n", ${x});
+printf("#endif\n");
+printf("#define ${conf_name} ${x}\n");
+printf("#endif\n");
+!
+					;;
+				*)	cat >> $tmp.l <<!
+printf("#ifndef ${conf_name}\n");
+printf("#define ${conf_name} ${x}\n");
+printf("#endif\n");
+!
+					;;
+				esac
+				;;
+			esac
+			;;
+		esac
+		;;
 	esac
 	case $section in
 	[01])	;;
@@ -683,247 +1198,205 @@ main()
 		standard=${standard}${section}
 		;;
 	esac
-	case $call in
-	XX)	conf_op=0
+	conf_minmax=0
+	case $call:$standard:$flags in
+	*:C:*M*)for s in _${standard}_${conf_name} ${values}
+		do	case $s in
+			$sym)	;;
+			*)	conf_minmax=$s
+				conf_flags="${conf_flags}|CONF_MINMAX_DEF"
+				break
+				;;
+			esac
+		done
 		;;
-	*)	case $flags in
-		*D*)	conf_op=${define} ;;
-		*O*)	conf_op=${call}_${name} ;;
-		*R*)	conf_op=_${standard}_${call}_${name} ;;
-		*S*)	conf_op=_${call}_${standard}_${name} ;;
-		*U*)	conf_op=_${call}_${name} ;;
-		*)	conf_op=${call}_${name} ;;
-		esac
-		eval V='$'_dUp_$conf_op
-		case $V in
-		'')	eval _dUp_$conf_op=1 ;;
-		*)	continue ;;
-		esac
-		cat > $tmp.c <<!
-#ifndef _POSIX_SOURCE
-#define _POSIX_SOURCE	1
-#endif
+	*:C:*)	;;
+	[CPSX][CSX]:*:*[FM]*)
+		x=
+		for s in _${standard}_${conf_name} ${values}
+		do	case $s in
+			$sym)	eval x='$'CONF_const_${s} ;;
+			*)	x=1 ;;
+			esac
+			case $x in
+			1)	conf_minmax=$s
+				case $flags in
+				*M*)	conf_flags="${conf_flags}|CONF_MINMAX_DEF" ;;
+				esac
+				break
+				;;
+			esac
+		done
+		case ${x:+1}:${script:+1} in
+		:1)	case $verbose in
+			1)	echo "$command: probe for _${standard}_${conf_name} minmax value" >&2 ;;
+			esac
+			case $CONF_getconf in
+			?*)	if	$CONF_getconf _${standard}_${conf_name} > $tmp.x 2>/dev/null
+				then	x=`cat $tmp.x`
+					case $x in
+					undefined)	x= ;;
+					esac
+				fi
+				;;
+			esac
+			case $x in
+			'')	case $script in
+				'#'*)	echo "$script" > $tmp.sh
+					chmod +x $tmp.sh
+					x=`./$tmp.sh 2>/dev/null`
+					;;
+				*)	cat > $tmp.c <<!
+${head}
 #include <sys/types.h>
 #include <limits.h>
-#include <unistd.h>$systeminfo
-#include <stdio.h>
-main()
-{
-#ifdef TEST_enum
-#if ${conf_op}
-	(
-#endif
-#undef ${conf_op}
-	return ${conf_op} == 0;
-#endif
-#ifdef TEST_notmacro
-#ifdef ${conf_op}
-	(
-#endif
-	return 0;
-#endif
-#ifdef TEST_macro
-#ifdef ${conf_op}
-	return ${conf_op} == 1;
-#else
-	return 0;
-#endif
-#endif
-}
+#include <unistd.h>$systeminfo$headers
+${tail}
+${script}
 !
-		if	$cc -DTEST_enum -o $tmp.exe $tmp.c >/dev/null 2>&1
-		then	echo "#define _ENUM_${conf_op}	1" >> $tmp.e 2>/dev/null
-			if	$cc -DTEST_notmacro -o $tmp.exe $tmp.c >/dev/null 2>&1
-			then	echo "#define ${conf_op}	${conf_op}" >> $tmp.e 2>/dev/null
-			fi
-		elif	$cc -DTEST_macro -o $tmp.exe $tmp.c >/dev/null 2>&1
-		then	:
-		else	# not a number -- undefined or empty (who thunk that?)
-			continue
-		fi
-		echo ${index} ${conf_op} >> $tmp.m
-		case $call:$flags in
-		SI:*O*)	;;
-		*)	cat >> $tmp.6 <<!
-	printf("#undef	${conf_op}\n");
-	printf("#define ${conf_op}	(-${index})\n");
-!
+					;;
+				esac
+				case $args in
+				'')	set "" ;;
+				*)	eval set '""' "$args"; shift ;;
+				esac
+				for a
+				do	case $script in
+					'#'*)	./$tmp.sh $a > $tmp.x 2>/dev/null
+						x=$?
+						;;
+					*)	$cc $a -o $tmp.exe $tmp.c >/dev/null 2>&1 && ./$tmp.exe > $tmp.x 2>/dev/null
+						x=$?
+						;;
+					esac
+					case $x in
+					0)	x=`cat $tmp.x`
+						case $x in
+						"-")	x=$a ;;
+						esac
+						break
+						;;
+					*)	x=
+						;;
+					esac
+				done
+				;;
+			esac
+			case $x in
+			?*)	conf_minmax=$x
+				case $flags in
+				*M*)	conf_flags="${conf_flags}|CONF_MINMAX_DEF" ;;
+				esac
+				;;
+			esac
 			;;
 		esac
 		;;
 	esac
-	case $standard:$flags in
-	C:*)	;;
-	*:*L*)	
-		{
-		echo "	hit = 0;"
-		case $call in
-		PC)	cat <<!
-#if _lib_pathconf && defined(${conf_op})
-	if ((num = pathconf("/", ${conf_op})) != -1)
-		hit = 1;
-	else
-#endif
-!
+	case $string in
+	1)	conf_limit="{ 0, $conf_limit }" conf_minmax="{ 0, $conf_minmax }"
+		;;
+	*)	case $conf_limit in
+		0[xX]*|-*|+*|[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]*)
 			;;
-		SC)	cat <<!
-#if _lib_sysconf && defined(${conf_op})
-	if ((num = sysconf(${conf_op})) != -1)
-		hit = 1;
-	else
-#endif
-!
+		*[!0123456789abcdefABCDEF]*)
+			conf_limit=0
+			;;
+		*[!0123456789]*)
+			conf_limit=0x$conf_limit
 			;;
 		esac
-		echo "	{"
-		endif=
-		default=
-		for i in $conf_name $values
-		do	case $i in
-			_${standard}_${conf_name})
-				;;
-			$sym)	case $i in
-				_LOCAL_*)	cat <<!
-#if	defined(${i})
-!
+		case $conf_minmax in
+		0[xX]*|-*|+*|[ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_]*)
+			;;
+		*[!0123456789abcdefABCDEF]*)
+			conf_minmax=0
+			;;
+		*[!0123456789]*)
+			conf_minmax=0x$conf_minmax
+			;;
+		esac
+		case $conf_limit in
+		?*[-+]*|*['()']*)
+			;;
+		*[lLuU])
+			case $LL_suffix in
+			??)	case $conf_limit in
+				*[!lL][lL]|*[!lL][lL][uU])
+					conf_limit=${conf_limit}L
 					;;
-				*)	cat <<!
-#if	defined(${i})
-!
-					;;
-				esac
-				cat <<!
-	if (!hit && ${i} > 0)
-	{
-		hit = 1;
-		num = ${i};
-	}
-#else
-!
-				endif="#endif
-$endif"
-				case $conf_op:$flags:$i in
-				0*|*X*:*)
-					;;
-				*:*:$conf_name)
-					echo "#ifndef	${conf_op}"
-					endif="#endif
-$endif"
-					;;
-				esac
-				;;
-			*)	case $default in
-				"")	default=${i} ;;
 				esac
 				;;
 			esac
-		done
-		case $default in
-		?*)	cat <<!
-	if (!hit)
-	{
-		hit = 1;
-		num = ${default};
-	}
-!
+			;;
+		-*[2468])	
+			case $shell in
+			ksh)	p=${conf_limit%?}
+				s=${conf_limit#$p}
+				((s=s-1))
+				;;
+			*)	eval `echo '' $conf_limit | sed 's/ *\(.*\)\(.\) */p=\1 s=\2/'`
+				s=`expr $s - 1`
+				;;
+			esac
+			conf_limit=${p}${s}${LL_suffix}-1${LL_suffix}
+			;;
+		0[xX]*[abcdefABCDEF])
+			conf_limit=${conf_limit}${LL_suffix}
+			;;
+		-*[0123456789])
+			conf_limit=${conf_limit}${LL_suffix}
+			;;
+		*[0123456789])
+			conf_limit=${conf_limit}U${LL_suffix}
 			;;
 		esac
-		echo "${endif}	}"
-		cat <<!
-	if (hit)
-	{
-		printf("#undef	${conf_name}\n");
-		printf("#define ${conf_name}		%ld\n", num);
-	}
-	else
-		num = -1;
-	lim[${limit_max}] = num;
-#ifndef ${conf_name}
-#define ${conf_name}	(lim[${limit_max}])
-#endif
-!
-		} >> $tmp.l
-		case $shell in
-		ksh)	((limit_max=limit_max+1)) ;;
-		*)	limit_max=`expr $limit_max + 1` ;;
+		case $conf_minmax in
+		?*[-+]*|*['()']*)
+			;;
+		*[lLuU])
+			case $LL_suffix in
+			??)	case $conf_minmax in
+				*[!lL][lL]|*[!lL][lL][uU])
+					conf_minmax=${conf_minmax}L
+					;;
+				esac
+				;;
+			esac
+			;;
+		-*[2468])	
+			case $shell in
+			ksh)	p=${conf_minmax%?}
+				s=${conf_minmax#$p}
+				((s=s-1))
+				;;
+			*)	eval `echo '' $conf_minmax | sed 's/ *\(.*\)\(.\) */p=\1 s=\2/'`
+				s=`expr $s - 1`
+				;;
+			esac
+			conf_minmax=${p}${s}${LL_suffix}-1${LL_suffix}
+			;;
+		0[xX]*[abcdefABCDEF])
+			conf_minmax=${conf_minmax}${LL_suffix}
+			;;
+		-*[0123456789])
+			conf_minmax=${conf_minmax}${LL_suffix}
+			;;
+		*[0123456789])
+			conf_minmax=${conf_minmax}U${LL_suffix}
+			;;
+		esac
+		conf_limit="{ $conf_limit, 0 }" conf_minmax="{ $conf_minmax, 0 }"
+		;;
+	esac
+	case $conf_flags in
+	'0|'*)	case $shell in
+		ksh)	conf_flags=${conf_flags#0?} ;;
+		*)	conf_flags=`echo "$conf_flags" | sed 's/^0.//'` ;;
 		esac
 		;;
 	esac
-	case $call:$standard:$flags in
-	*:C:*)	;;
-	[PSX][CX]:*:*[FM]*)
-		case $flags in
-		*M*)	header=l ;;
-		*)	header=6 ;;
-		esac
-		minmax=
-		for i in $values
-		do	case $i in
-			$sym)	;;
-			*)	case $minmax in
-				''|'"'*'"')	minmax=${i} ;;
-				'"'*)		minmax="${minmax} ${i}" ;;
-				*)		minmax=${i} ;;
-				esac
-				;;
-			esac
-		done
-		macro=_${standard}_${conf_name}
-		conf_value=${macro}
-		values="$values ${macro}"
-		case $minmax in
-		"")	case $call in
-			CS|SI)	default=0 ;;
-			*)	default=1 ;;
-			esac
-			;;
-		*)	default=$minmax ;;
-		esac
-		{
-		case $call in
-		CS|SI)	type="char*" var=str fmt='\"%s\"' ;;
-		*)	type=long var=num fmt='%ld' ;;
-		esac
-		cat <<!
-#if defined(${macro})
-	{
-		static ${type}	x[] = { ${default}, ${macro} };
-		if ((sizeof(x)/sizeof(x[0])) == 1)
-		{
-			printf("#undef	${macro}\n");
-			${var} = x[0];
-		}
-		else
-			${var} = x[1];
-	}
-/* this comment works around a shell bug that loses a here doc newline */
-!
-		case $minmax in
-		?*)	cat <<!
-#else
-	${var} = ${minmax};
-#endif
-!
-			;;
-		esac
-		cat <<!
-	printf("#undef	${macro}\n");
-	printf("#define ${macro}	${fmt}\n", ${var});
-!
-		case $minmax in
-		"")	cat <<!
-#endif
-!
-			;;
-		esac
-		} >> $tmp.$header
-		;;
-	esac
-	case $call in
-	CS|SI)	conf_value=0 something= ;;
-	*)	something=-0 ;;
-	esac
-	echo $conf_name $conf_section $conf_standard $conf_value $conf_flags $conf_call $conf_op >> $tmp.G
+	echo "{ \"$conf_name\", $conf_limit, $conf_minmax, $conf_flags, $conf_standard, $conf_section, $conf_call, $conf_op },"
 	case $shell in
 	ksh)	len=${#conf_name}
 		if	((len>=name_max))
@@ -936,128 +1409,9 @@ $endif"
 		fi
 		;;
 	esac
-	case $conf_op in
-	0)	;;
-	*)	{
-		echo "#if	${conf_op}+0
-case ${conf_op}:"
-		endif="#endif"
-		minmax=
-		for i in $name $values
-		do	case $i in
-			$sym)	echo "#ifdef	$i
-		return($i${something});
-#else"
-				endif="$endif
-#endif"
-				;;
-			*)	case $flags in
-				*M*)	minmax=$i ;;
-				esac
-				;;
-			esac
-		done
-		case $minmax in
-		?*)	echo "		return($minmax${something});" ;;
-		*)	echo "		break;" ;;
-		esac
-		echo "$endif"
-		} >> $tmp.$call
-		;;
-	esac
-done
+done > $tmp.t
 case $debug in
--d4)	exit ;;
-esac
-
-# internal to external map
-
-base=confmap
-case $verbose in
-1)	echo "$command: generate ${base}.h internal to external map header" >&2 ;;
-esac
-{
-cat <<!
-#pragma prototyped
-#define ${base}		_conf_map
-${generated}
-extern const short	${base}[];
-!
-} | proto > $tmp.0
-case $debug in
--d5)	echo $command: $tmp.0 ${base}.h ;;
-*)	cmp -s $tmp.0 ${base}.h 2>/dev/null || mv $tmp.0 ${base}.h ;;
-esac
-
-case $verbose in
-1)	echo "$command: generate ${base}.c internal to external map" >&2 ;;
-esac
-sort -n $tmp.m | {
-case $shell in
-ksh)	integer next ;;
-esac
-next=0
-while	read index macro
-do	case $shell in
-	ksh)	while	:
-		do	((next=next+1))
-			((next>=$index)) && break
-			echo "	-1,"
-		done
-		;;
-	*)	while	:
-		do	next=`expr $next + 1`
-			expr $next \>= $index > /dev/null && break
-			echo "	-1,"
-		done
-		;;
-	esac
-	cat <<!
-#if	($macro+0) || _ENUM_$macro
-	$macro,
-#else
-	-1,
-#endif
-!
-done
-echo $next >&3
-} > $tmp.c 3> $tmp.x
-map_max=`cat $tmp.x`
-{
-cat <<!
-#pragma prototyped
-#include "FEATURE/limits.lcl"
-#include "FEATURE/unistd.lcl"
-#include "${base}.h"
-
-${generated}
-!
-if	test -s $tmp.e
-then	cat <<!
-
-/*
- * enum used on an extensible namespace -- bad idea
- */
-
-!
-	cat $tmp.e
-fi
-cat <<!
-
-/*
- * internal to external conf index map
- */
-
-const short ${base}[] =
-{
-	$map_max,
-!
-cat $tmp.c
-echo "};"
-} | proto > $tmp.1
-case $debug in
--d5)	echo $command: $tmp.1 ${base}.c ;;
-*)	cmp -s $tmp.1 ${base}.c 2>/dev/null || mv $tmp.1 ${base}.c ;;
+-d6)	exit ;;
 esac
 
 # conf string table
@@ -1072,19 +1426,21 @@ ksh)	((name_max=name_max+3)); ((name_max=name_max/4*4)) ;; # bsd /bin/sh !
 esac
 {
 cat <<!
-#pragma prototyped
-
 #ifndef _CONFTAB_H
 #define _CONFTAB_H
 $systeminfo
 
 ${generated}
 
-#define conf		_conf_data
-#define conf_elements	_conf_ndata
+#if !defined(const) && !defined(__STDC__) && !defined(__cplusplus) && !defined(c_plusplus)
+#define const
+#endif
 
-#define prefix		_conf_prefix
-#define prefix_elements	_conf_nprefix
+#define conf		_ast_conf_data
+#define conf_elements	_ast_conf_ndata
+
+#define prefix		_ast_conf_prefix
+#define prefix_elements	_ast_conf_nprefix
 
 #define CONF_nop	0
 #define	CONF_confstr	1
@@ -1102,33 +1458,55 @@ do	echo "#define CONF_${standard}	${index}"
 	esac
 done
 echo "#define CONF_call	${index}"
+case $CONF_getconf in
+?*)	echo
+	echo "#define _pth_getconf	\"$CONF_getconf\""
+	case $CONF_getconf_a in
+	?*)	echo "#define _pth_getconf_a	\"$CONF_getconf_a\"" ;;
+	esac
+	;;
+esac
 cat <<!
 
-#define CONF_DEFINED	(1<<0)
-#define CONF_FEATURE	(1<<1)
-#define CONF_LIMIT	(1<<2)
-#define CONF_MINMAX	(1<<3)
-#define CONF_NOSECTION	(1<<4)
-#define CONF_PREFIXED	(1<<5)
-#define CONF_STANDARD	(1<<6)
-#define CONF_STRING	(1<<7)
-#define CONF_UNDERSCORE	(1<<8)
-#define CONF_USER	(1<<9)
+#define CONF_DEFER_CALL		0x0001
+#define CONF_DEFER_MM		0x0002
+#define CONF_FEATURE		0x0004
+#define CONF_LIMIT		0x0008
+#define CONF_LIMIT_DEF		0x0010
+#define CONF_MINMAX		0x0020
+#define CONF_MINMAX_DEF		0x0040
+#define CONF_NOSECTION		0x0080
+#define CONF_NOUNDERSCORE	0x0100
+#define CONF_PREFIX_ONLY	0x0200
+#define CONF_PREFIXED		0x0400
+#define CONF_STANDARD		0x0800
+#define CONF_STRING		0x1000
+#define CONF_UNDERSCORE		0x2000
+#define CONF_USER		0x4000
 
-typedef struct
+struct Conf_s; typedef struct Conf_s Conf_t;
+
+typedef struct Value_s
+{
+	intmax_t	number;
+	const char*	string;
+} Value_t;
+
+struct Conf_s
 {
 	const char	name[${name_max}];
-	long		value;
+	Value_t		limit;
+	Value_t		minmax;
 	short		flags;
 	short		standard;
 	short		section;
 	short		call;
 	short		op;
-} Conf_t;
+};
 
-typedef struct
+typedef struct Prefix_s
 {
-	const char	name[8];
+	const char	name[16];
 	short		length;
 	short		standard;
 	short		call;
@@ -1142,9 +1520,9 @@ extern int		prefix_elements;
 
 #endif
 !
-} | proto > $tmp.2
+} > $tmp.2
 case $debug in
--d5)	echo $command: $tmp.2 ${base}.h ;;
+-d7)	echo $command: $tmp.2 ${base}.h ;;
 *)	cmp -s $tmp.2 ${base}.h 2>/dev/null || mv $tmp.2 ${base}.h ;;
 esac
 
@@ -1153,8 +1531,11 @@ case $verbose in
 esac
 {
 cat <<!
-#pragma prototyped
-#include <ast.h>
+${head}
+#include <sys/types.h>
+#include <limits.h>
+#include <unistd.h>$systeminfo$headers
+${tail}
 #include "${base}.h"
 
 ${generated}
@@ -1181,7 +1562,7 @@ cat <<!
 	"SI",		2,	CONF_SVID,	CONF_sysinfo,
 };
 
-int	prefix_elements = elementsof(prefix);
+int	prefix_elements = (int)sizeof(prefix) / (int)sizeof(prefix[0]);
 
 /*
  * conf strings sorted in ascending order
@@ -1190,336 +1571,37 @@ int	prefix_elements = elementsof(prefix);
 const Conf_t conf[] =
 {
 !
-if	test -f $tmp.G
-then	sort -u < $tmp.G |
-	while	read name section standard value flags call op
-	do	case $op in
-		$sym)	echo "#if	$op+0" ;;
-		esac
-		case $value in
-		$sym)	echo "\"$name\",
-#ifdef	$value
-	$value, $flags|CONF_DEFINED,
-#else
-	0, $flags,
-#endif
-	$standard, $section, $call, $op,"
-			;;
-		*)	echo \"$name\", $value, $flags, $standard, $section, $call, $op,
-			;;
-		esac
-		case $op in
-		$sym)	echo "#endif" ;;
-		esac
-	done
-else	echo '""'
-fi
+cat $tmp.t
 cat <<!
 };
 
-int	conf_elements = elementsof(conf);
+int	conf_elements = (int)sizeof(conf) / (int)sizeof(conf[0]);
 !
-} | proto > $tmp.3
+} > $tmp.4
 case $debug in
--d5)	echo $command: $tmp.3 ${base}.c ;;
-*)	cmp -s $tmp.3 ${base}.c 2>/dev/null || mv $tmp.3 ${base}.c ;;
-esac
-
-# conf generator definitions
-
-base=conflib
-case $verbose in
-1)	echo "$command: generate ${base}.h generator header" >&2 ;;
-esac
-{
-cat <<!
-#pragma prototyped
-#define _ast_sysconf(x)	0
-#undef	_sysconf
-#define _sysconf(x)	0
-
-${generated}
-
-!
-cat $tmp.h
-cat <<!
-
-#undef	_ast_sysconf
-#undef	_sysconf
-!
-} | proto > $tmp.4
-case $debug in
--d5)	echo $command: $tmp.4 ${base}.h ;;
-*)	cmp -s $tmp.4 ${base}.h 2>/dev/null || mv $tmp.4 ${base}.h ;;
+-d7)	echo $command: $tmp.4 ${base}.c ;;
+*)	cmp -s $tmp.4 ${base}.c 2>/dev/null || mv $tmp.4 ${base}.c ;;
 esac
 
 # limits.h generation code
 
 base=conflim
 case $verbose in
-1)	echo "$command: generate ${base}.c <limits.h> generator" >&2 ;;
+1)	echo "$command: generate ${base}.h supplemental <limits.h> values" >&2 ;;
 esac
 {
 cat <<!
-	/*
-	 * some implementations (could it beee aix) think empty
-	 * definitions constitute symbolic constants
-	 */
+${generated}
 
-	{
-	long	num;
-	char*	str;
-	int	hit;
-	long	lim[${limit_max}+1];
+/*
+ * supplemental <limits.h> values
+ */
 
 !
 test -f $tmp.l && cat $tmp.l
-echo "	}"
 } > $tmp.5
 case $debug in
--d5)	echo $command: $tmp.5 ${base}.h ;;
+-d7)	echo $command: $tmp.5 ${base}.h ;;
 *)	cmp -s $tmp.5 ${base}.h 2>/dev/null || mv $tmp.5 ${base}.h ;;
 esac
-
-# unistd.h generation code
-
-base=confuni
-case $verbose in
-1)	echo "$command: generate ${base}.c <unistd.h> generator" >&2 ;;
-esac
-echo "	}" >> $tmp.6
-case $debug in
--d5)	echo $command: $tmp.6 ${base}.h ;;
-*)	cmp -s $tmp.6 ${base}.h 2>/dev/null || mv $tmp.6 ${base}.h ;;
-esac
-
-# confstr implementation
-
-base=confstr pfx=CS
-case $verbose in
-1)	echo "$command: generate ${base}.c ${base}() implementation" >&2 ;;
-esac
-{
-cat <<!
-#pragma prototyped
-#include <ast.h>
-#include <error.h>
-
-#ifndef ${base}
-
-NoN(${base})
-
-#else
-
-${generated}
-
-#include "confmap.h"
-#include "conflib.h"
-
-static char*
-local_${base}(int op)
-{
-	switch (op)
-	{
-!
-test -f $tmp.${pfx} && cat $tmp.${pfx}
-cat <<!
-	default:
-		break;
-	}
-	return(0);
-}
-
-size_t
-${base}(int op, char* buf, size_t siz)
-{
-	char*	s;
-	int	n;
-#if _lib_${base}
-#undef	${base}
-	if (((n = op) >= 0 || -op <= confmap[0] && (n = confmap[-op]) >= 0) && (n = ${base}(n, buf, siz)) > 0)
-		return(n);
-#endif
-	if (s = local_${base}(op))
-	{
-		if ((n = strlen(s) + 1) >= siz)
-		{
-			if (siz == 0)
-				return(n + 1);
-			buf[n = siz - 1] = 0;
-		}
-		memcpy(buf, s, n);
-		return(n);
-	}
-	errno = EINVAL;
-	return(0);
-}
-
-#endif
-!
-} | proto > $tmp.7
-case $debug in
--d5)	echo $command: $tmp.7 ${base}.c ;;
-*)	cmp -s $tmp.7 ${base}.c 2>/dev/null || mv $tmp.7 ${base}.c ;;
-esac
-
-# pathconf implementation
-
-base=pathconf pfx=PC
-case $verbose in
-1)	echo "$command: generate ${base}.c ${base}() implementation" >&2 ;;
-esac
-{
-cat <<!
-#pragma prototyped
-#include <ast.h>
-#include <error.h>
-#include <ls.h>
-
-#ifndef ${base}
-
-NoN(${base})
-
-#else
-
-${generated}
-
-#include "confmap.h"
-#include "conflib.h"
-
-static long
-statconf(struct stat* st, int op)
-{
-	switch (op)
-	{
-!
-test -f $tmp.${pfx} && cat $tmp.${pfx}
-cat <<!
-	default:
-		break;
-	}
-	errno = EINVAL;
-	return(-1);
-}
-
-long
-f${base}(int fd, int op)
-{
-	int		n;
-	struct stat	st;
-#if _lib_f${base}
-#undef	f${base}
-	if ((n = op) >= 0 || -op <= confmap[0] && (n = confmap[-op]) >= 0)
-	{
-		long	val;
-		int	olderrno;
-		int	syserrno;
-
-		olderrno = errno;
-		errno = 0;
-		val = f${base}(fd, n);
-		syserrno = errno;
-		errno = olderrno;
-		if (val != -1L || syserrno == 0)
-			return(val);
-	}
-#endif
-	return((n = fstat(fd, &st)) ? n : statconf(&st, op));
-}
-
-long
-${base}(const char* path, int op)
-{
-	int		n;
-	struct stat	st;
-#if _lib_${base}
-#undef	${base}
-	if ((n = op) >= 0 || -op <= confmap[0] && (n = confmap[-op]) >= 0)
-	{
-		long	val;
-		int	olderrno;
-		int	syserrno;
-
-		olderrno = errno;
-		errno = 0;
-		val = ${base}(path, n);
-		syserrno = errno;
-		errno = olderrno;
-		if (val != -1L || syserrno == 0)
-			return(val);
-	}
-#endif
-	return((n = stat(path, &st)) ? n : statconf(&st, op));
-}
-
-#endif
-!
-} | proto > $tmp.8
-case $debug in
--d5)	echo $command: $tmp.8 ${base}.c ;;
-*)	cmp -s $tmp.8 ${base}.c 2>/dev/null || mv $tmp.8 ${base}.c ;;
-esac
-
-# sysconf implementation
-
-base=sysconf pfx=SC
-case $verbose in
-1)	echo "$command: generate ${base}.c ${base}() implementation" >&2 ;;
-esac
-{
-cat <<!
-#pragma prototyped
-#include <ast.h>
-#include <error.h>
-
-#ifndef ${base}
-
-NoN(${base})
-
-#else
-
-${generated}
-
-#include "confmap.h"
-#include "conflib.h"
-
-long
-${base}(int op)
-{
-	int	n;
-#if _lib_${base}
-#undef	${base}
-	if ((n = op) >= 0 || -op <= confmap[0] && (n = confmap[-op]) >= 0)
-	{
-		long	val;
-		int	olderrno;
-		int	syserrno;
-
-		olderrno = errno;
-		errno = 0;
-		val = ${base}(n);
-		syserrno = errno;
-		errno = olderrno;
-		if (val != -1L || syserrno == 0)
-			return(val);
-	}
-#endif
-	switch (op)
-	{
-!
-test -f $tmp.${pfx} && cat $tmp.${pfx}
-cat <<!
-	default:
-		break;
-	}
-	errno = EINVAL;
-	return(-1);
-}
-
-#endif
-!
-} | proto > $tmp.9
-case $debug in
--d5)	echo $command: $tmp.9 ${base}.c ;;
-*)	cmp -s $tmp.9 ${base}.c 2>/dev/null || mv $tmp.9 ${base}.c ;;
-esac
+exit 0

@@ -27,6 +27,7 @@
 #include <ndbm.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <math.h>
 
@@ -35,18 +36,18 @@
 
 typedef struct 
 {
-  unsigned long hashkey;
+  uint32_t hashkey;
 } hashkey_t;
 
 typedef struct 
 {
-  unsigned long played;
-  signed long score;
+  uint32_t played;
+  int32_t score;
 } posinfo_t;
 
 typedef struct 
 {
-  int result; /* 0: 1-0  1:1/2  2:0-1  3:? */
+  int32_t result; /* 0: 1-0  1:1/2  2:0-1  3:? */
 } pgn_header_t;
 
 unsigned long kksize;
@@ -120,7 +121,7 @@ void add_current(DBM * binbook, pgn_header_t pgn_header)
   int ret;
   
   /* fill in the key field */
-  key.hashkey = (hash ^ ToMove);
+  key.hashkey = htonl(hash ^ ToMove);
   
   if (keycache[key.hashkey % kksize] >= BUILDTHRESHOLD)
     {
@@ -128,7 +129,7 @@ void add_current(DBM * binbook, pgn_header_t pgn_header)
       index.dptr = (char*) &key;
       index.dsize = sizeof(key);
       
-      posinfo.played = 2;
+      posinfo.played = htonl(2);
       posinfo.score = 0;
       
       data.dptr = (char*) &posinfo;
@@ -143,7 +144,7 @@ void add_current(DBM * binbook, pgn_header_t pgn_header)
 	  data = dbm_fetch(binbook, index);
 	  
 	  pst = (posinfo_t *) data.dptr;
-	  pst->played++;
+	  pst->played = htonl(ntohl(pst->played)+1);
 	  
 	  dbm_store(binbook, index, data, DBM_REPLACE);
 	}
@@ -343,7 +344,7 @@ void weed_book(DBM * binbook)
 	  data = dbm_fetch(binbook, index);
 	  ps = (posinfo_t *) data.dptr;   
 	  
-	  if (ps && (ps->played) < PLAYTHRESHOLD) 
+	  if (ps && ntohl(ps->played) < PLAYTHRESHOLD) 
 	    {
 	      dbm_delete(binbook, index);
 	      weeds++;
@@ -499,7 +500,7 @@ move_s choose_binary_book_move (void)
 	    return dummy;
 	  }
 
-	  key.hashkey = (hash ^ ToMove);
+	  key.hashkey = htonl(hash ^ ToMove);
 	  index.dptr = (char*) &key;
 	  index.dsize = sizeof(key);
 	  
@@ -513,12 +514,12 @@ move_s choose_binary_book_move (void)
 			
 	      comp_to_coord(moves[i], output);
 	      
-	      printf("Move %s: %ld times played, %d learned\n", output,
-		     ps->played, ps->score);
+	      printf("Move %s: %lu times played, %d learned\n", output,
+		     (unsigned long)ntohl(ps->played), (int)ntohl(ps->score));
 	      
-	      if ((ps->played + ps->score) >=  PLAYTHRESHOLD)
+	      if ((ntohl(ps->played) + ntohl(ps->score)) >=  PLAYTHRESHOLD)
 		{
-		  scores[num_bookmoves] = ps->played + ps->score;
+			scores[num_bookmoves] = ntohl(ps->played) + ntohl(ps->score);
 		  bookmoves[num_bookmoves] = moves[i];
 		  num_bookmoves++;
 		}
@@ -618,7 +619,7 @@ void book_learning(int result)
 
     factor = factortable[iters-1];
   
-    key.hashkey = (bookpos[bookidx-iters] ^ booktomove[bookidx-iters]);
+    key.hashkey = htonl(bookpos[bookidx-iters] ^ booktomove[bookidx-iters]);
     index.dptr = (char*) &key;
     index.dsize = sizeof(key);
   
@@ -652,23 +653,25 @@ void book_learning(int result)
 	      playinc = 0.3 * factor;
 	  }
       
-        if (fabs((double)((ps->played + ps->score)) * playinc) < 1.0)
+        if (fabs((double)((ntohl(ps->played) + ntohl(ps->score))) * playinc) < 1.0)
 	  {
 	    pi = (int)(playinc * 10.0);
 	  }
         else
 	  {
-	    pi = (int)((float)(ps->played + ps->score)*(float)playinc);
+		  pi = (int)((float)(ntohl(ps->played) + ntohl(ps->score))*(float)playinc);
 	  }
 
 		/* don't 'overlearn' */
-	  if (abs((ps->score)+pi) < (ps->played*5))
+		if (abs((ps->score)+pi) < (ntohl(ps->played)*5))
 	  {
       
         printf("Learning opening %lu, played %lu, old score %ld, new score %ld\n", 
-	       bookpos[bookidx-iters], ps->played, ps->score, (ps->score)+pi);
+	       (unsigned long)bookpos[bookidx-iters], 
+	       (unsigned long)ntohl(ps->played), 
+	       (long)ntohl(ps->score), (long)ntohl(ps->score)+pi);
       
-        ps->score += pi;
+        ps->score = htonl(ntohl(ps->score)+pi);
       
         dbm_store(binbook, index, data, DBM_REPLACE);      
 	  }

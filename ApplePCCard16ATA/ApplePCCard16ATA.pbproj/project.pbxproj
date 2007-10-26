@@ -88,7 +88,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.ApplePCCard16ATA;
-				MODULE_VERSION = 1.1.1;
+				MODULE_VERSION = 1.1.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -112,6 +112,8 @@
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>ApplePCCard16ATA</string>
+	<key>CFBundleGetInfoString</key>
+	<string>ApplePCCard16ATA version 1.1.3, Copyright 2001-2007 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -123,11 +125,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1.1</string>
+	<string>1.1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ApplePCCard16ATA</key>
@@ -208,20 +210,6 @@
 			);
 			isa = PBXGroup;
 			name = Resources;
-			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
 			refType = 4;
 		};
 		089C1680FE841241C02AAC07 = {

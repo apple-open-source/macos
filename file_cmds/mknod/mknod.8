@@ -54,6 +54,9 @@
 .Ar name
 .Op Cm c | Cm b
 .Ar number
+.Nm
+.Ar name
+.Ar w
 .Sh DESCRIPTION
 The
 .Nm
@@ -74,12 +77,14 @@ Device name, for example
 for a SCSI disk on an HP300 or a
 .Dq pty
 for pseudo-devices.
-.It Cm b | Cm c
+.It Cm b | Cm c | Cm w
 Type of device. If the
 device is a block type device such as a tape or disk drive which needs
 both cooked and raw special files,
 the type is
 .Cm b .
+Whiteout nodes are type
+.Cm w .
 All other devices are character type devices, such as terminal
 and pseudo devices, and are type
 .Cm c .

@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 
@@ -97,9 +95,14 @@ BOOL cli_send_trans(struct cli_state *cli, int trans,
 		return False;
 	}
 
+	/* Note we're in a trans state. Save the sequence
+	 * numbers for replies. */
+	client_set_trans_sign_state_on(cli, mid);
+
 	if (this_ldata < ldata || this_lparam < lparam) {
 		/* receive interim response */
 		if (!cli_receive_smb(cli) || cli_is_error(cli)) {
+			client_set_trans_sign_state_off(cli, mid);
 			return(False);
 		}
 
@@ -141,6 +144,7 @@ BOOL cli_send_trans(struct cli_state *cli, int trans,
 
 			show_msg(cli->outbuf);
 			if (!cli_send_smb(cli)) {
+				client_set_trans_sign_state_off(cli, mid);
 				return False;
 			}
 
@@ -152,10 +156,6 @@ BOOL cli_send_trans(struct cli_state *cli, int trans,
 		}
 	}
 
-	/* Note we're in a trans state. Save the sequence
-	 * numbers for replies. */
-
-	cli_signing_trans_start(cli, mid);
 	return(True);
 }
 
@@ -171,13 +171,11 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 	unsigned int total_param=0;
 	unsigned int this_data,this_param;
 	NTSTATUS status;
-	char *tdata;
-	char *tparam;
+	BOOL ret = False;
 
 	*data_len = *param_len = 0;
 
 	if (!cli_receive_smb(cli)) {
-		cli_signing_trans_stop(cli);
 		return False;
 	}
 
@@ -188,20 +186,21 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 		DEBUG(0,("Expected %s response, got command 0x%02x\n",
 			 trans==SMBtrans?"SMBtrans":"SMBtrans2", 
 			 CVAL(cli->inbuf,smb_com)));
-		cli_signing_trans_stop(cli);
-		return(False);
+		return False;
 	}
 
 	/*
 	 * An NT RPC pipe call can return ERRDOS, ERRmoredata
 	 * to a trans call. This is not an error and should not
-	 * be treated as such.
+	 * be treated as such. Note that STATUS_NO_MORE_FILES is
+	 * returned when a trans2 findfirst/next finishes.
 	 */
 	status = cli_nt_error(cli);
 	
-	if (NT_STATUS_IS_ERR(status)) {
-		cli_signing_trans_stop(cli);
-		return False;
+	if (NT_STATUS_IS_ERR(status) ||
+            NT_STATUS_EQUAL(status,STATUS_NO_MORE_FILES) ||
+            NT_STATUS_EQUAL(status,STATUS_INACCESSIBLE_SYSTEM_SHORTCUT)) {
+		goto out;
 	}
 
 	/* parse out the lengths */
@@ -210,25 +209,19 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 
 	/* allocate it */
 	if (total_data!=0) {
-		tdata = SMB_REALLOC(*data,total_data);
-		if (!tdata) {
+		*data = (char *)SMB_REALLOC(*data,total_data);
+		if (!(*data)) {
 			DEBUG(0,("cli_receive_trans: failed to enlarge data buffer\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
-		else
-			*data = tdata;
 	}
 
 	if (total_param!=0) {
-		tparam = SMB_REALLOC(*param,total_param);
-		if (!tparam) {
+		*param = (char *)SMB_REALLOC(*param,total_param);
+		if (!(*param)) {
 			DEBUG(0,("cli_receive_trans: failed to enlarge param buffer\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
-		else
-			*param = tparam;
 	}
 
 	for (;;)  {
@@ -238,8 +231,7 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 		if (this_data + *data_len > total_data ||
 		    this_param + *param_len > total_param) {
 			DEBUG(1,("Data overflow in cli_receive_trans\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
 
 		if (this_data + *data_len < this_data ||
@@ -247,8 +239,7 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 				this_param + *param_len < this_param ||
 				this_param + *param_len < *param_len) {
 			DEBUG(1,("Data overflow in cli_receive_trans\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
 
 		if (this_data) {
@@ -260,16 +251,14 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 					data_offset_out + this_data < data_offset_out ||
 					data_offset_out + this_data < this_data) {
 				DEBUG(1,("Data overflow in cli_receive_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 			if (data_offset_in > cli->bufsize ||
 					data_offset_in + this_data >  cli->bufsize ||
 					data_offset_in + this_data < data_offset_in ||
 					data_offset_in + this_data < this_data) {
 				DEBUG(1,("Data overflow in cli_receive_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 
 			memcpy(*data + data_offset_out, smb_base(cli->inbuf) + data_offset_in, this_data);
@@ -283,16 +272,14 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 					param_offset_out + this_param < param_offset_out ||
 					param_offset_out + this_param < this_param) {
 				DEBUG(1,("Param overflow in cli_receive_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 			if (param_offset_in > cli->bufsize ||
 					param_offset_in + this_param >  cli->bufsize ||
 					param_offset_in + this_param < param_offset_in ||
 					param_offset_in + this_param < this_param) {
 				DEBUG(1,("Param overflow in cli_receive_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 
 			memcpy(*param + param_offset_out, smb_base(cli->inbuf) + param_offset_in, this_param);
@@ -300,12 +287,13 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 		*data_len += this_data;
 		*param_len += this_param;
 
-		if (total_data <= *data_len && total_param <= *param_len)
+		if (total_data <= *data_len && total_param <= *param_len) {
+			ret = True;
 			break;
+		}
 		
 		if (!cli_receive_smb(cli)) {
-			cli_signing_trans_stop(cli);
-			return False;	
+			goto out;
 		}
 
 		show_msg(cli->inbuf);
@@ -315,12 +303,10 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 			DEBUG(0,("Expected %s response, got command 0x%02x\n",
 				 trans==SMBtrans?"SMBtrans":"SMBtrans2", 
 				 CVAL(cli->inbuf,smb_com)));
-			cli_signing_trans_stop(cli);
-			return(False);
+			goto out;
 		}
 		if (NT_STATUS_IS_ERR(cli_nt_error(cli))) {
-			cli_signing_trans_stop(cli);
-			return(False);
+			goto out;
 		}
 
 		/* parse out the total lengths again - they can shrink! */
@@ -329,13 +315,16 @@ BOOL cli_receive_trans(struct cli_state *cli,int trans,
 		if (SVAL(cli->inbuf,smb_tprcnt) < total_param)
 			total_param = SVAL(cli->inbuf,smb_tprcnt);
 		
-		if (total_data <= *data_len && total_param <= *param_len)
+		if (total_data <= *data_len && total_param <= *param_len) {
+			ret = True;
 			break;
-		
+		}
 	}
-	
-	cli_signing_trans_stop(cli);
-	return(True);
+
+  out:
+
+	client_set_trans_sign_state_off(cli, SVAL(cli->inbuf,smb_mid));
+	return ret;
 }
 
 /****************************************************************************
@@ -402,9 +391,14 @@ BOOL cli_send_nt_trans(struct cli_state *cli,
 		return False;
 	}	
 
+	/* Note we're in a trans state. Save the sequence
+	 * numbers for replies. */
+	client_set_trans_sign_state_on(cli, mid);
+
 	if (this_ldata < ldata || this_lparam < lparam) {
 		/* receive interim response */
 		if (!cli_receive_smb(cli) || cli_is_error(cli)) {
+			client_set_trans_sign_state_off(cli, mid);
 			return(False);
 		}
 
@@ -446,6 +440,7 @@ BOOL cli_send_nt_trans(struct cli_state *cli,
 			show_msg(cli->outbuf);
 
 			if (!cli_send_smb(cli)) {
+				client_set_trans_sign_state_off(cli, mid);
 				return False;
 			}
 			
@@ -457,16 +452,12 @@ BOOL cli_send_nt_trans(struct cli_state *cli,
 		}
 	}
 
-	/* Note we're in a trans state. Save the sequence
-	 * numbers for replies. */
-
-	cli_signing_trans_start(cli, mid);
 	return(True);
 }
 
 /****************************************************************************
-  receive a SMB nttrans response allocating the necessary memory
-  ****************************************************************************/
+ Receive a SMB nttrans response allocating the necessary memory.
+****************************************************************************/
 
 BOOL cli_receive_nt_trans(struct cli_state *cli,
 			  char **param, unsigned int *param_len,
@@ -477,13 +468,11 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 	unsigned int this_data,this_param;
 	uint8 eclass;
 	uint32 ecode;
-	char *tdata;
-	char *tparam;
+	BOOL ret = False;
 
 	*data_len = *param_len = 0;
 
 	if (!cli_receive_smb(cli)) {
-		cli_signing_trans_stop(cli);
 		return False;
 	}
 
@@ -493,7 +482,6 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 	if (CVAL(cli->inbuf,smb_com) != SMBnttrans) {
 		DEBUG(0,("Expected SMBnttrans response, got command 0x%02x\n",
 			 CVAL(cli->inbuf,smb_com)));
-		cli_signing_trans_stop(cli);
 		return(False);
 	}
 
@@ -504,9 +492,8 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 	 */
 	if (cli_is_dos_error(cli)) {
                 cli_dos_error(cli, &eclass, &ecode);
-		if (cli->nt_pipe_fnum == 0 || !(eclass == ERRDOS && ecode == ERRmoredata)) {
-			cli_signing_trans_stop(cli);
-			return(False);
+		if (!(eclass == ERRDOS && ecode == ERRmoredata)) {
+			goto out;
 		}
 	}
 
@@ -516,8 +503,7 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 	if (cli_is_nt_error(cli)) {
 		if (!NT_STATUS_EQUAL(cli_nt_error(cli),
 				     NT_STATUS_BUFFER_TOO_SMALL)) {
-			cli_signing_trans_stop(cli);
-			return(False);
+			goto out;
 		}
 	}
 
@@ -527,24 +513,18 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 
 	/* allocate it */
 	if (total_data) {
-		tdata = SMB_REALLOC(*data,total_data);
-		if (!tdata) {
+		*data = (char *)SMB_REALLOC(*data,total_data);
+		if (!(*data)) {
 			DEBUG(0,("cli_receive_nt_trans: failed to enlarge data buffer to %d\n",total_data));
-			cli_signing_trans_stop(cli);
-			return False;
-		} else {
-			*data = tdata;
+			goto out;
 		}
 	}
 
 	if (total_param) {
-		tparam = SMB_REALLOC(*param,total_param);
-		if (!tparam) {
+		*param = (char *)SMB_REALLOC(*param,total_param);
+		if (!(*param)) {
 			DEBUG(0,("cli_receive_nt_trans: failed to enlarge param buffer to %d\n", total_param));
-			cli_signing_trans_stop(cli);
-			return False;
-		} else {
-			*param = tparam;
+			goto out;
 		}
 	}
 
@@ -555,8 +535,7 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 		if (this_data + *data_len > total_data ||
 		    this_param + *param_len > total_param) {
 			DEBUG(1,("Data overflow in cli_receive_nt_trans\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
 
 		if (this_data + *data_len < this_data ||
@@ -564,8 +543,7 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 				this_param + *param_len < this_param ||
 				this_param + *param_len < *param_len) {
 			DEBUG(1,("Data overflow in cli_receive_nt_trans\n"));
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
 
 		if (this_data) {
@@ -577,16 +555,14 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 					data_offset_out + this_data < data_offset_out ||
 					data_offset_out + this_data < this_data) {
 				DEBUG(1,("Data overflow in cli_receive_nt_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 			if (data_offset_in > cli->bufsize ||
 					data_offset_in + this_data >  cli->bufsize ||
 					data_offset_in + this_data < data_offset_in ||
 					data_offset_in + this_data < this_data) {
 				DEBUG(1,("Data overflow in cli_receive_nt_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 
 			memcpy(*data + data_offset_out, smb_base(cli->inbuf) + data_offset_in, this_data);
@@ -601,16 +577,14 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 					param_offset_out + this_param < param_offset_out ||
 					param_offset_out + this_param < this_param) {
 				DEBUG(1,("Param overflow in cli_receive_nt_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 			if (param_offset_in > cli->bufsize ||
 					param_offset_in + this_param >  cli->bufsize ||
 					param_offset_in + this_param < param_offset_in ||
 					param_offset_in + this_param < this_param) {
 				DEBUG(1,("Param overflow in cli_receive_nt_trans\n"));
-				cli_signing_trans_stop(cli);
-				return False;
+				goto out;
 			}
 
 			memcpy(*param + param_offset_out, smb_base(cli->inbuf) + param_offset_in, this_param);
@@ -619,12 +593,13 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 		*data_len += this_data;
 		*param_len += this_param;
 
-		if (total_data <= *data_len && total_param <= *param_len)
+		if (total_data <= *data_len && total_param <= *param_len) {
+			ret = True;
 			break;
+		}
 		
 		if (!cli_receive_smb(cli)) {
-			cli_signing_trans_stop(cli);
-			return False;
+			goto out;
 		}
 
 		show_msg(cli->inbuf);
@@ -633,26 +608,38 @@ BOOL cli_receive_nt_trans(struct cli_state *cli,
 		if (CVAL(cli->inbuf,smb_com) != SMBnttrans) {
 			DEBUG(0,("Expected SMBnttrans response, got command 0x%02x\n",
 				 CVAL(cli->inbuf,smb_com)));
-			cli_signing_trans_stop(cli);
-			return(False);
+			goto out;
 		}
 		if (cli_is_dos_error(cli)) {
                         cli_dos_error(cli, &eclass, &ecode);
-			if(cli->nt_pipe_fnum == 0 || !(eclass == ERRDOS && ecode == ERRmoredata)) {
-				cli_signing_trans_stop(cli);
-				return(False);
+			if(!(eclass == ERRDOS && ecode == ERRmoredata)) {
+				goto out;
 			}
 		}
+		/*
+		 * Likewise for NT_STATUS_BUFFER_TOO_SMALL
+		 */
+		if (cli_is_nt_error(cli)) {
+			if (!NT_STATUS_EQUAL(cli_nt_error(cli),
+					     NT_STATUS_BUFFER_TOO_SMALL)) {
+				goto out;
+			}
+		}
+
 		/* parse out the total lengths again - they can shrink! */
 		if (SVAL(cli->inbuf,smb_ntr_TotalDataCount) < total_data)
 			total_data = SVAL(cli->inbuf,smb_ntr_TotalDataCount);
 		if (SVAL(cli->inbuf,smb_ntr_TotalParameterCount) < total_param)
 			total_param = SVAL(cli->inbuf,smb_ntr_TotalParameterCount);
 		
-		if (total_data <= *data_len && total_param <= *param_len)
+		if (total_data <= *data_len && total_param <= *param_len) {
+			ret = True;
 			break;
+		}
 	}
-	
-	cli_signing_trans_stop(cli);
-	return(True);
+
+  out:
+
+	client_set_trans_sign_state_off(cli, SVAL(cli->inbuf,smb_mid));
+	return ret;
 }

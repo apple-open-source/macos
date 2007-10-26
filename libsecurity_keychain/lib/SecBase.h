@@ -156,7 +156,7 @@ typedef struct OpaqueSecPasswordRef *SecPasswordRef;
     @abstract Represents an attribute. 
     @field count The number of tag-format pairs in the respective arrays. 
     @field tag A pointer to the first attribute tag in the array.
-    @field format A pointer to the first attribute format in the array.
+    @field format A pointer to the first CSSM_DB_ATTRIBUTE_FORMAT in the array.
     @discussion Each tag and format item form a pair.  
 */
 struct SecKeychainAttributeInfo
@@ -166,6 +166,15 @@ struct SecKeychainAttributeInfo
 	UInt32 *format;
 };
 typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
+
+/*!
+    @function SecCopyErrorMessageString
+    @abstract Returns a string describing the specified error result code.
+    @param status An error result code of type OSStatus or CSSM_RETURN, as returned by a Security or CSSM function.
+    @reserved Reserved for future use. Your code should pass NULL in this parameter.
+    @result A reference to an error string, or NULL if no error string is available for the specified result code. Your code must release this reference by calling the CFRelease function.
+*/
+CFStringRef SecCopyErrorMessageString(OSStatus status, void *reserved);
 
 /*!
 @enum Security Error Codes 
@@ -200,7 +209,7 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 @constant errSecCreateChainFailed The attempt to create a certificate chain failed.
 @constant errSecACLNotSimple The access control list is not in standard simple form.
 @constant errSecPolicyNotFound The policy specified cannot be found.
-@constant errSecInvalidTrustSetting The trust setting is invalid.
+@constant errSecInvalidTrustSetting The specified trust setting is invalid.
 @constant errSecNoAccessForItem The specified item has no access control.
 @constant errSecInvalidOwnerEdit Invalid attempt to change the owner of this item.
 @constant errSecTrustNotAvailable No trust results are available.
@@ -209,6 +218,10 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 @constant errSecKeyIsSensitive Key material must be wrapped for export.
 @constant errSecMultiplePrivKeys An attempt was made to import multiple private keys.
 @constant errSecPassphraseRequired Passphrase is required for import/export.
+@constant errSecInvalidPasswordRef The password reference was invalid.
+@constant errSecInvalidTrustSettings The Trust Settings Record was corrupted.
+@constant errSecNoTrustSettings No Trust Settings were found. 
+@constant errSecPkcs12VerifyFailure MAC verification failed during PKCS12 Import.
 
 @discussion The assigned error space is discontinuous: -25240..-25279, -25290..25329.
 */
@@ -263,7 +276,10 @@ enum
 	errSecKeyIsSensitive		 = -25258,  /* Key material must be wrapped for export. */
 	errSecMultiplePrivKeys		 = -25259,  /* An attempt was made to import multiple private keys. */
 	errSecPassphraseRequired	 = -25260,  /* Passphrase is required for import/export. */
-    errSecInvalidPasswordRef     = -25261   /* Invalid SecPasswordRef */
+	errSecInvalidPasswordRef     = -25261,  /* The password reference was invalid. */
+	errSecInvalidTrustSettings 	 = -25262,	/* The Trust Settings Record was corrupted. */
+	errSecNoTrustSettings		 = -25263,	/* No Trust Settings were found. */
+	errSecPkcs12VerifyFailure 	 = -25264,	/* MAC verification failed during PKCS12 Import. */
 };
 
 #if defined(__cplusplus)

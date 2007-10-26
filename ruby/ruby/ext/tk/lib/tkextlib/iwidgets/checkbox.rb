@@ -32,6 +32,11 @@ class Tk::Iwidgets::Checkbox
   end
   private :__item_config_cmd
 
+  def __item_boolval_optkeys(id)
+    super(id) << 'defaultring'
+  end
+  private :__item_boolval_optkeys
+
   def tagid(tagOrId)
     if tagOrId.kind_of?(Tk::Itk::Component)
       tagOrId.name
@@ -82,7 +87,7 @@ class Tk::Iwidgets::Checkbox
 
   def get(idx)
     simplelist(tk_call(@path, 'get', index(idx))).collect{|id|
-      Tk::Itk::Component.id2obj(id)
+      Tk::Itk::Component.id2obj(self, id)
     }
   end
 

@@ -1,5 +1,6 @@
 /* machine description file for Whitechapel Computer Works MG1 (ns16000 based).
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
    MG-1 version by L.M.McLoughlin
 
 This file is part of GNU Emacs.
@@ -16,11 +17,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -92,16 +93,6 @@ NOTE-END  */
 /* hmmmm... not sure.  copied sequent.h */
 #undef VIRT_ADDR_VARIES
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-/* hmmmm... again not sure.  so copied sequent.h again! */
-#undef C_ALLOCA
-#undef HAVE_ALLOCA
-
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
    when Emacs is dumped.  If you define this, the preloaded Lisp
@@ -111,3 +102,6 @@ NOTE-END  */
 
 /* Avoids a compiler bug */
 /* borrowed from sequent.h */
+
+/* arch-tag: e15d9072-9e1a-44bf-8add-966be535967b
+   (do not change this comment) */

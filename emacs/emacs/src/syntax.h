@@ -1,5 +1,6 @@
 /* Declarations having to do with GNU Emacs syntax tables.
-   Copyright (C) 1985, 93, 94, 97, 1998 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1993, 1994, 1997, 1998, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 extern Lisp_Object Qsyntax_table_p;
@@ -58,7 +59,7 @@ enum syntaxcode
 /* Set the syntax entry VAL for char C in table TABLE.  */
 
 #define SET_RAW_SYNTAX_ENTRY(table, c, val)				\
-  ((c) < CHAR_TABLE_SINGLE_BYTE_SLOTS					\
+  ((((c) & 0xFF) == (c))						\
    ? (XCHAR_TABLE (table)->contents[(unsigned char) (c)] = (val))	\
    : Faset ((table), make_number (c), (val)))
 
@@ -68,16 +69,16 @@ enum syntaxcode
 
 #ifdef __GNUC__
 #define SYNTAX_ENTRY_FOLLOW_PARENT(table, c)			\
-  ({ Lisp_Object tbl = table;					\
-     Lisp_Object temp = XCHAR_TABLE (tbl)->contents[(c)];	\
-     while (NILP (temp))					\
+  ({ Lisp_Object _syntax_tbl = (table);				\
+     Lisp_Object _syntax_temp = XCHAR_TABLE (_syntax_tbl)->contents[(c)]; \
+     while (NILP (_syntax_temp))				\
        {							\
-	 tbl = XCHAR_TABLE (tbl)->parent;			\
-	 if (NILP (tbl))					\
+	 _syntax_tbl = XCHAR_TABLE (_syntax_tbl)->parent;	\
+	 if (NILP (_syntax_tbl))				\
 	   break;						\
-	 temp = XCHAR_TABLE (tbl)->contents[(c)];		\
+	 _syntax_temp = XCHAR_TABLE (_syntax_tbl)->contents[(c)]; \
        }							\
-     temp; })
+     _syntax_temp; })
 #else
 extern Lisp_Object syntax_temp;
 extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
@@ -90,7 +91,7 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 #endif
 
 /* SYNTAX_ENTRY fetches the information from the entry for character C
-   in syntax table TABLE, or from globally kept data (gl_state).  
+   in syntax table TABLE, or from globally kept data (gl_state).
    Does inheritance.  */
 /* CURRENT_SYNTAX_TABLE gives the syntax table valid for current
    position, it is either the buffer's syntax table, or syntax table
@@ -106,7 +107,7 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 #endif
 
 #define SYNTAX_ENTRY_INT(c)				\
-  ((c) < CHAR_TABLE_SINGLE_BYTE_SLOTS			\
+  ((((c) & 0xFF) == (c))				\
    ? SYNTAX_ENTRY_FOLLOW_PARENT (CURRENT_SYNTAX_TABLE,	\
 				 (unsigned char) (c))	\
    : Faref (CURRENT_SYNTAX_TABLE,			\
@@ -117,24 +118,24 @@ extern Lisp_Object syntax_parent_lookup P_ ((Lisp_Object, int));
 
 #ifdef __GNUC__
 #define SYNTAX(c)							\
-  ({ Lisp_Object temp;							\
-     temp = SYNTAX_ENTRY (c);						\
-     (CONSP (temp)							\
-      ? (enum syntaxcode) (XINT (XCAR (temp)) & 0xff)		\
+  ({ Lisp_Object _syntax_temp;						\
+     _syntax_temp = SYNTAX_ENTRY (c);					\
+     (CONSP (_syntax_temp)						\
+      ? (enum syntaxcode) (XINT (XCAR (_syntax_temp)) & 0xff)		\
       : Swhitespace); })
 
 #define SYNTAX_WITH_FLAGS(c)						\
-  ({ Lisp_Object temp;							\
-     temp = SYNTAX_ENTRY (c);						\
-     (CONSP (temp)							\
-      ? XINT (XCAR (temp))					\
+  ({ Lisp_Object _syntax_temp;						\
+     _syntax_temp = SYNTAX_ENTRY (c);					\
+     (CONSP (_syntax_temp)						\
+      ? XINT (XCAR (_syntax_temp))					\
       : (int) Swhitespace); })
 
 #define SYNTAX_MATCH(c)							\
-  ({ Lisp_Object temp;							\
-     temp = SYNTAX_ENTRY (c);						\
-     (CONSP (temp)							\
-      ? XCDR (temp)						\
+  ({ Lisp_Object _syntax_temp;						\
+     _syntax_temp = SYNTAX_ENTRY (c);					\
+     (CONSP (_syntax_temp)						\
+      ? XCDR (_syntax_temp)						\
       : Qnil); })
 #else
 #define SYNTAX(c)							\
@@ -252,7 +253,7 @@ extern char syntax_code_spec[16];
 
 #define UPDATE_SYNTAX_TABLE_BACKWARD(charpos)			\
   (parse_sexp_lookup_properties					\
-   && (charpos) <= gl_state.b_property				\
+   && (charpos) < gl_state.b_property				\
    ? (update_syntax_table ((charpos) + gl_state.offset, -1, 0,	\
 			   gl_state.object),			\
       1)							\
@@ -262,7 +263,7 @@ extern char syntax_code_spec[16];
 
 #define UPDATE_SYNTAX_TABLE(charpos)				\
   (parse_sexp_lookup_properties					\
-   && (charpos) <= gl_state.b_property				\
+   && (charpos) < gl_state.b_property				\
    ? (update_syntax_table ((charpos) + gl_state.offset, -1, 0,	\
 			   gl_state.object),			\
       1)							\
@@ -277,14 +278,14 @@ extern char syntax_code_spec[16];
    search, or after the last position of the backward search.  It
    makes sure that the first char is picked up with correct table, so
    one does not need to call UPDATE_SYNTAX_TABLE immediately after the
-   call. 
+   call.
    Sign of COUNT gives the direction of the search.
  */
 
 #define SETUP_SYNTAX_TABLE(FROM, COUNT)					\
 if (1)									\
   {									\
-    gl_state.b_property = BEGV - 1;					\
+    gl_state.b_property = BEGV;						\
     gl_state.e_property = ZV + 1;					\
     gl_state.object = Qnil;						\
     gl_state.use_global = 0;						\
@@ -311,26 +312,26 @@ if (1)									\
     if (BUFFERP (gl_state.object))					\
       {									\
 	struct buffer *buf = XBUFFER (gl_state.object);			\
-	gl_state.b_property = 0;					\
+	gl_state.b_property = 1;					\
 	gl_state.e_property = BUF_ZV (buf) - BUF_BEGV (buf) + 1;	\
 	gl_state.offset = BUF_BEGV (buf) - 1;				\
       }									\
     else if (NILP (gl_state.object))					\
       {									\
-	gl_state.b_property = 0;					\
+	gl_state.b_property = 1;					\
 	gl_state.e_property = ZV - BEGV + 1;				\
 	gl_state.offset = BEGV - 1;					\
       }									\
     else if (EQ (gl_state.object, Qt))					\
       {									\
-	gl_state.b_property = - 1;					\
+	gl_state.b_property = 0;					\
 	gl_state.e_property = 1500000000;				\
 	gl_state.offset = 0;						\
       }									\
     else								\
       {									\
-	gl_state.b_property = -1;					\
-	gl_state.e_property = 1 + XSTRING (gl_state.object)->size;	\
+	gl_state.b_property = 0;					\
+	gl_state.e_property = 1 + SCHARS (gl_state.object);		\
 	gl_state.offset = 0;						\
       }									\
     gl_state.use_global = 0;						\
@@ -352,8 +353,7 @@ struct gl_state_s
   Lisp_Object global_code;		/* Syntax code of current char. */
   Lisp_Object current_syntax_table;	/* Syntax table for current pos. */
   Lisp_Object old_prop;			/* Syntax-table prop at prev pos. */
-  int b_property;			/* Last index where c_s_t is 
-					   not valid. */
+  int b_property;			/* First index where c_s_t is valid. */
   int e_property;			/* First index where c_s_t is
 					   not valid. */
   INTERVAL forward_i;			/* Where to start lookup on forward */
@@ -365,8 +365,6 @@ struct gl_state_s
 					   on: */
   /* Offset for positions specified to UPDATE_SYNTAX_TABLE.  */
   int offset;
-  char left_ok;
-  char right_ok;
 };
 
 extern struct gl_state_s gl_state;
@@ -374,3 +372,6 @@ extern int parse_sexp_lookup_properties;
 extern INTERVAL interval_of P_ ((int, Lisp_Object));
 
 extern int scan_words P_ ((int, int));
+
+/* arch-tag: 28833cca-cd73-4741-8c85-a3111166a0e0
+   (do not change this comment) */

@@ -1,0 +1,260 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		32D94FC60562CBF700B6AF17 /* AppleKeyswitch.h in Headers */ = {isa = PBXBuildFile; fileRef = 1A224C3EFF42367911CA2CB7 /* AppleKeyswitch.h */; };
+		32D94FCA0562CBF700B6AF17 /* AppleKeyswitch.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1A224C3FFF42367911CA2CB7 /* AppleKeyswitch.cpp */; settings = {ATTRIBUTES = (); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		17CA3FA40A96B92700DF2F40 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Development;
+		};
+		17CA3FA50A96B92700DF2F40 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		1A224C3EFF42367911CA2CB7 /* AppleKeyswitch.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleKeyswitch.h; sourceTree = "<group>"; };
+		1A224C3FFF42367911CA2CB7 /* AppleKeyswitch.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleKeyswitch.cpp; sourceTree = "<group>"; };
+		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		32D94FD00562CBF700B6AF17 /* AppleKeyswitch.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleKeyswitch.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		32D94FCB0562CBF700B6AF17 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* AppleKeyswitch */ = {
+			isa = PBXGroup;
+			children = (
+				247142CAFF3F8F9811CA285C /* Source */,
+				8DA8362C06AD9B9200E5AC22 /* Kernel.framework */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+			);
+			name = AppleKeyswitch;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				32D94FCF0562CBF700B6AF17 /* Info.plist */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				32D94FD00562CBF700B6AF17 /* AppleKeyswitch.kext */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		247142CAFF3F8F9811CA285C /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				1A224C3EFF42367911CA2CB7 /* AppleKeyswitch.h */,
+				1A224C3FFF42367911CA2CB7 /* AppleKeyswitch.cpp */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		32D94FC50562CBF700B6AF17 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32D94FC60562CBF700B6AF17 /* AppleKeyswitch.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		32D94FC30562CBF700B6AF17 /* AppleKeyswitch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB91D908733DB10010E9CD /* Build configuration list for PBXNativeTarget "AppleKeyswitch" */;
+			buildPhases = (
+				32D94FC50562CBF700B6AF17 /* Headers */,
+				32D94FC90562CBF700B6AF17 /* Sources */,
+				32D94FCB0562CBF700B6AF17 /* Frameworks */,
+				32D94FCC0562CBF700B6AF17 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = AppleKeyswitch;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleKeyswitch;
+			productReference = 32D94FD00562CBF700B6AF17 /* AppleKeyswitch.kext */;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleKeyswitch" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				17CA3FA40A96B92700DF2F40 /* Development */,
+				17CA3FA50A96B92700DF2F40 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleKeyswitch */;
+			projectDirPath = "";
+			targets = (
+				32D94FC30562CBF700B6AF17 /* AppleKeyswitch */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		32D94FCC0562CBF700B6AF17 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		32D94FC90562CBF700B6AF17 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				32D94FCA0562CBF700B6AF17 /* AppleKeyswitch.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB91DA08733DB10010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1.0.4d1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = NO;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleKeyswitch;
+				MODULE_VERSION = 1.0.4d1;
+				PREBINDING = YES;
+				PRODUCT_NAME = AppleKeyswitch;
+				WRAPPER_EXTENSION = kext;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		1DEB91DB08733DB10010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				CURRENT_PROJECT_VERSION = 1.0.4d1;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_PREPROCESS = NO;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				MODULE_NAME = com.apple.driver.AppleKeyswitch;
+				MODULE_VERSION = 1.0.4d1;
+				PREBINDING = YES;
+				PRODUCT_NAME = AppleKeyswitch;
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Release;
+		};
+		1DEB91DE08733DB10010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Debug;
+		};
+		1DEB91DF08733DB10010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB91D908733DB10010E9CD /* Build configuration list for PBXNativeTarget "AppleKeyswitch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB91DA08733DB10010E9CD /* Debug */,
+				1DEB91DB08733DB10010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleKeyswitch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB91DE08733DB10010E9CD /* Debug */,
+				1DEB91DF08733DB10010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

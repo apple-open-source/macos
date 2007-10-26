@@ -26,31 +26,31 @@
  * - these are used for storing the in-core version of the 
  *   file-based host list and the in-core ignore list
  */
-#import <stdio.h>
-#import <stdlib.h>
-#import <unistd.h>
-#import <ctype.h>
-#import <errno.h>
-#import <mach/boolean.h>
-#import <netdb.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <net/if.h>
-#import <netinet/if_ether.h>
-#import <arpa/inet.h>
-#import <signal.h>
-#import <string.h>
-#import <sys/file.h>
-#import <sys/stat.h>
-#import <sys/time.h>
-#import <sys/types.h>
-#import <sys/uio.h>
-#import <syslog.h>
-#import "hostlist.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <errno.h>
+#include <mach/boolean.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <net/if.h>
+#include <netinet/if_ether.h>
+#include <arpa/inet.h>
+#include <signal.h>
+#include <string.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <syslog.h>
+#include "hostlist.h"
 
 void
 hostinsert(struct hosts * * hosts, struct hosts * hp)
@@ -125,7 +125,10 @@ hostadd(struct hosts * * hosts, struct timeval * tv_p, int htype,
 	hp->tv = *tv_p;
     hp->htype = htype;
     hp->hlen = hlen;
-    bcopy(haddr, &hp->haddr, MIN(hlen, sizeof(hp->haddr)));
+    if (hlen > sizeof(hp->haddr)) {
+	hlen = sizeof(hp->haddr);
+    }
+    bcopy(haddr, &hp->haddr, hlen);
     if (iaddr_p)
 	hp->iaddr = *iaddr_p;
     if (hostname)

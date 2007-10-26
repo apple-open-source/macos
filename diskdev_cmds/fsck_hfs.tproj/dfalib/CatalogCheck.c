@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,6 +23,9 @@
 #include "Scavenger.h"
 #include "DecompDataEnums.h"
 #include "DecompData.h"
+
+extern int RcdFCntErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID);
+extern int RcdHsFldCntErr( SGlobPtr GPtr, OSErr type, UInt32 correct, UInt32 incorrect, HFSCatalogNodeID);
 
 /*
  * information collected when visiting catalog records
@@ -52,7 +55,6 @@ static int  CheckCatalogRecord(SGlobPtr GPtr, const HFSPlusCatalogKey *key,
 static int  CheckCatalogRecord_HFS(const HFSCatalogKey *key,
                                    const CatalogRecord *rec, UInt16 reclen);
 
-static int  CheckIfAttributeExists(const UInt32 fileID); 
 static int  CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir);
 static int  CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file);
 static int  CheckThread(const HFSPlusCatalogKey * key, const HFSPlusCatalogThread * thread);
@@ -76,6 +78,416 @@ static 	OSErr	UniqueDotName( 	SGlobPtr GPtr,
 static Boolean 	FixDecomps(	u_int16_t charCount, const u_int16_t *inFilename, HFSUniStr255 *outFilename );
 
 /*
+ * This structure is used to keep track of the folderCount field in
+ * HFSPlusCatalogFolder records.  For now, this is only done on HFSX volumes.
+ */
+struct folderCountInfo {
+	UInt32 folderID;
+	UInt32 recordedCount;
+	UInt32 computedCount;
+	struct folderCountInfo *next;
+};
+
+/*
+ * CountFolderRecords - Counts the number of folder records contained within a
+ * given folder.  That is, how many direct subdirectories it has.  This is used
+ * to update the folderCount field, if necessary.
+ *
+ * CountFolderRecords is a straight-forward iteration:  given a HFSPlusCatalogFolder
+ * record, it iterates through the catalog BTree until it runs out of records that
+ * belong to it.  For each folder record it finds, it increments a count.  When it's
+ * done, it compares the two, and if there is a mismatch, requests a repair to be
+ * done.
+ */
+static OSErr
+CountFolderRecords(HFSPlusCatalogKey *myKey, HFSPlusCatalogFolder *folder, SGlobPtr GPtr)
+{
+	SFCB *fcb = GPtr->calculatedCatalogFCB;
+	OSErr err = 0;
+	BTreeIterator iterator;
+	FSBufferDescriptor btRecord;
+	union {
+		HFSPlusCatalogFolder catRecord;
+		HFSPlusCatalogFile catFile;
+	} catRecord;
+	HFSPlusCatalogKey *key;
+	UInt16 recordSize = 0;
+	UInt32 folderCount = 0;
+
+	ClearMemory(&iterator, sizeof(iterator));
+
+	key = (HFSPlusCatalogKey*)&iterator.key;
+	BuildCatalogKey(folder->folderID, NULL, true, (CatalogKey*)key);
+	btRecord.bufferAddress = &catRecord;
+	btRecord.itemCount = 1;
+	btRecord.itemSize = sizeof(catRecord);
+
+	for (err = BTSearchRecord(fcb, &iterator, kNoHint, &btRecord, &recordSize, &iterator);
+		err == 0;
+		err = BTIterateRecord(fcb, kBTreeNextRecord, &iterator, &btRecord, &recordSize)) {
+		switch (catRecord.catRecord.recordType) {
+		case kHFSPlusFolderThreadRecord:
+		case kHFSPlusFileThreadRecord:
+			continue;
+		}
+		if (key->parentID != folder->folderID)
+			break;
+		if (catRecord.catRecord.recordType == kHFSPlusFolderRecord) {
+			folderCount++;
+		} else if ((catRecord.catRecord.recordType == kHFSPlusFileRecord) && 
+			   (catRecord.catFile.flags & kHFSHasLinkChainMask) &&
+			   (catRecord.catFile.userInfo.fdType == kHFSAliasType) &&
+			   (catRecord.catFile.userInfo.fdCreator == kHFSAliasCreator) &&
+			   (key->parentID != GPtr->filelink_priv_dir_id)) {
+			/* A directory hard link is treated as normal directory	
+			 * for calculation of folder count.
+			 */
+			folderCount++;
+		}
+	}
+	if (err == btNotFound)
+		err = 0;
+	if (err == 0) {
+		if (folderCount != folder->folderCount) {
+			err = RcdFCntErr( GPtr,
+				E_FldCount,
+				folderCount,
+				folder->folderCount,
+				folder->folderID);
+		}
+	}
+	return err;
+}
+
+static void
+releaseFolderCountInfo(struct folderCountInfo *fcip, int numFolders)
+{
+	int i;
+
+	for (i = 0; i < numFolders; i++) {
+		struct folderCountInfo *f = &fcip[i];
+
+		f = f->next;
+		while (f) {
+			struct folderCountInfo *t = f->next;
+			free(f);
+			f = t;
+		}
+	}
+	free(fcip);
+}
+
+static struct folderCountInfo *
+findFolderEntry(struct folderCountInfo *fcip, int numFolders, UInt32 fid)
+{
+	struct folderCountInfo *retval = NULL;
+	int indx;
+
+	indx = fid % numFolders;	// Slot index
+
+	retval = &fcip[indx];
+	if (retval->folderID == fid) {
+		goto done;
+	}
+	while (retval->next != NULL) {
+		retval = retval->next;
+		if (retval->folderID == fid)
+			goto done;
+	}
+	retval = NULL;
+done:
+	return retval;
+}
+
+static struct folderCountInfo *
+addFolderEntry(struct folderCountInfo *fcip, int numFolders, UInt32 fid)
+{
+	struct folderCountInfo *retval = NULL;
+	int indx;
+
+	indx = fid % numFolders;
+	retval = &fcip[indx];
+
+	if (retval->folderID == fid)
+		goto done;
+	while (retval->folderID != 0) {
+		if (retval->next == NULL) {
+			retval->next = calloc(1, sizeof(struct folderCountInfo));
+			if (retval->next == NULL) {
+				retval = NULL;
+				goto done;
+			} else
+				retval = retval->next;
+		} else if (retval->folderID == fid) {
+			goto done;
+		} else
+			retval = retval->next;
+	}
+
+	retval->folderID = fid;
+
+done:
+	return retval;
+}
+
+/*
+ * folderCountAdd - Accounts for given folder record or directory hard link  
+ * for folder count of the given parent directory.  For directory hard links, 
+ * the folder ID and count should be zero.  For a folder record, the values 
+ * read from the catalog record are provided which are used to add the 
+ * given folderID to the cache (folderCountInfo *ficp).
+ */
+static int
+folderCountAdd(struct folderCountInfo *fcip, int numFolders, UInt32 parentID, UInt32 folderID, UInt32 count)
+{
+	int retval = 0;
+	struct folderCountInfo *curp = NULL;
+
+
+	/* Only add directories represented by folder record to the cache */
+	if (folderID != 0) {
+		/*
+		 * We track two things here.
+		 * First, we need to find the entry matching this folderID.  If we don't find it,
+		 * we add it.  If we do find it, or if we add it, we set the recordedCount.
+		 */
+
+		curp = findFolderEntry(fcip, numFolders, folderID);
+		if (curp == NULL) {
+			curp = addFolderEntry(fcip, numFolders, folderID);
+			if (curp == NULL) {
+				retval = ENOMEM;
+				goto done;
+			}
+		}
+		curp->recordedCount = count;
+
+	}
+
+	/*
+	 * After that, we try to find the parent to this entry.  When we find it
+	 * (or if we add it to the list), we increment the computedCount.
+	 */
+	curp = findFolderEntry(fcip, numFolders, parentID);
+	if (curp == NULL) {
+		curp = addFolderEntry(fcip, numFolders, parentID);
+		if (curp == NULL) {
+			retval = ENOMEM;
+			goto done;
+		}
+	}
+	curp->computedCount++;
+
+done:
+	return retval;
+}
+
+/*
+ * CheckFolderCount - Verify the folderCount fields of the HFSPlusCatalogFolder records
+ * in the catalog BTree.  This is currently only done for HFSX.
+ *
+ * Conceptually, this is a fairly simple routine:  simply iterate through the catalog
+ * BTree, and count the number of subfolders contained in each folder.  This value
+ * is used for the stat.st_nlink field, on HFSX.
+ *
+ * However, since scanning the entire catalog can be a very costly operation, we dot
+ * it one of two ways.  The first way is to simply iterate through the catalog once,
+ * and keep track of each folder ID we come across.  This uses a fair bit of memory,
+ * so we limit the cache to 5MBytes, which works out to some 400k folderCountInfo
+ * entries (at the current size of three 4-byte entries per folderCountInfo entry).
+ * If the filesystem has more than that, we instead use the slower (but significantly
+ * less memory-intensive) method in CountFolderRecords:  for each folder ID we
+ * come across, we call CountFolderRecords, which does its own iteration through the
+ * catalog, looking for children of the given folder.
+ */
+
+OSErr
+CheckFolderCount( SGlobPtr GPtr )
+{
+	OSErr err = 0;
+	int numFolders;
+	BTreeIterator iterator;
+	FSBufferDescriptor btRecord;
+	HFSPlusCatalogKey *key;
+	union {
+		HFSPlusCatalogFolder catRecord;
+		HFSPlusCatalogFile catFile;
+	} catRecord;
+	UInt16 recordSize = 0;
+	struct folderCountInfo *fcip = NULL;
+
+	ClearMemory(&iterator, sizeof(iterator));
+	if (!VolumeObjectIsHFSX(GPtr)) {
+		goto done;
+	}
+
+	if (GPtr->calculatedVCB == NULL) {
+		err = EINVAL;
+		goto done;
+	}
+
+#if 0
+	/*
+	 * We add two so we can account for the root folder, and
+	 * the root folder's parent.  Neither of which is real,
+	 * but they show up as parent IDs in the catalog.
+	 */
+	numFolders = GPtr->calculatedVCB->vcbFolderCount + 2;
+#else
+	/*
+	 * Since we're using a slightly smarter hash method,
+	 * we don't care so much about the number of folders
+	 * allegedly on the volume; instead, we'll pick a nice
+	 * prime number to use as the number of buckets.
+	 * This bears some performance checking later.
+	 */
+	numFolders = 257;
+#endif
+
+	/*
+	 * Limit the size of the folder count cache to 5Mbytes;
+	 * if the requested number of folders don't fit, then
+	 * we don't use the cache at all.
+	 */
+#define MAXCACHEMEM	(5 * 1024 * 1024)	/* 5Mbytes */
+#define LCALLOC(c, s, l)	\
+	({ __typeof(c) _count = (c); __typeof(s) _size = (s); __typeof(l) _lim = (l); \
+		((_count * _size) > _lim) ? NULL : calloc(_count, _size); })
+
+	fcip = LCALLOC(numFolders, sizeof(*fcip), MAXCACHEMEM);
+#undef MAXCACHEMEM
+#undef LCALLOC
+
+restart:
+	/* these objects are used by the BT* functions to iterate through the catalog */
+	key = (HFSPlusCatalogKey*)&iterator.key;
+	BuildCatalogKey(kHFSRootFolderID, NULL, true, (CatalogKey*)key);
+	btRecord.bufferAddress = &catRecord;
+	btRecord.itemCount = 1;
+	btRecord.itemSize = sizeof(catRecord);
+
+	/*
+	 * Iterate through the catalog BTree until the end.
+	 * For each folder we either cache the value, or we call CheckFolderCount.
+	 * We also check the kHFSHasFolderCountMask flag in the folder flags field;
+	 * if it's not set, we set it.  (When migrating a volume from an older version.
+	 * this will affect every folder entry; after that, it will only affect any
+	 * corrupted areas.)
+	 */
+	for (err = BTIterateRecord(GPtr->calculatedCatalogFCB, kBTreeFirstRecord,
+			&iterator, &btRecord, &recordSize);
+		err == 0;
+		err = BTIterateRecord(GPtr->calculatedCatalogFCB, kBTreeNextRecord,
+			&iterator, &btRecord, &recordSize)) {
+
+		switch (catRecord.catRecord.recordType) {
+		case kHFSPlusFolderRecord:
+			if (!(catRecord.catRecord.flags & kHFSHasFolderCountMask)) {
+				/* RcdHsFldCntErr requests a repair order to fix up the flags field */
+				err = RcdHsFldCntErr( GPtr,
+							E_HsFldCount,
+							catRecord.catRecord.flags | kHFSHasFolderCountMask,
+							catRecord.catRecord.flags,
+							catRecord.catRecord.folderID );
+				if (err != 0)
+					goto done;
+			}
+			if (fcip) {
+				if (folderCountAdd(fcip, numFolders,
+					key->parentID,
+					catRecord.catRecord.folderID,
+					catRecord.catRecord.folderCount)) {
+					/*
+					 * We got an error -- this only happens if folderCountAdd()
+					 * cannot allocate memory for a new node.  In that case, we
+					 * need to bail on the whole cache, and use the slow method.
+					 * This also lets us release the memory, which will hopefully
+					 * let some later allocations succeed.  We restart just after
+					 * the cache was allocated, and start over as if we had never
+					 * allocated a cache in the first place.
+					 */
+					releaseFolderCountInfo(fcip, numFolders);
+					fcip = NULL;
+					goto restart;
+				}
+			} else {
+				err = CountFolderRecords(key, &catRecord.catRecord, GPtr);
+				if (err != 0)
+					goto done;
+			}
+			break;
+		case kHFSPlusFileRecord:
+			/* If this file record is a directory hard link, count
+			 * it towards our folder count calculations.
+			 */
+			if ((catRecord.catFile.flags & kHFSHasLinkChainMask) &&
+			    (catRecord.catFile.userInfo.fdType == kHFSAliasType) &&
+			    (catRecord.catFile.userInfo.fdCreator == kHFSAliasCreator) &&
+			    (key->parentID != GPtr->filelink_priv_dir_id)) {
+			    	/* If we are using folder count cache, account
+				 * for directory hard links by incrementing
+				 * associated parentID in the cache.  If an 
+				 * extensive search for catalog is being 
+				 * performed, account for directory hard links 
+				 * in CountFolderRecords()
+				 */
+			    	if (fcip) {
+					if (folderCountAdd(fcip, numFolders, 
+						key->parentID, 0, 0)) {
+						/* See above for why we release & restart */
+						releaseFolderCountInfo(fcip, numFolders);
+						fcip = NULL;
+						goto restart;
+					}
+				}
+			}
+			break;
+		}
+	}
+
+	if (err == btNotFound)
+		err = 0;	// We hit the end of the file, which is okay
+	if (err == 0 && fcip != NULL) {
+		int i;
+
+		/*
+		 * At this point, we are itereating through the cache, looking for
+		 * mis-counts. (If we're not using the cache, then CountFolderRecords has
+		 * already dealt with any miscounts.)
+		 */
+		for (i = 0; i < numFolders; i++) {
+			struct folderCountInfo *curp;
+
+			for (curp = &fcip[i]; curp; curp = curp->next) {
+				if (curp->folderID == 0) {
+					// fplog(stderr, "fcip[%d] has a folderID of 0?\n", i);
+				} else if (curp->folderID == kHFSRootParentID) {
+					// Root's parent doesn't really exist
+					continue;
+				} else {
+					if (curp->recordedCount != curp->computedCount) {
+						/* RcdFCntErr requests a repair order to correct the folder count */
+						err = RcdFCntErr( GPtr,
+									E_FldCount,
+									curp->computedCount,
+									curp->recordedCount,
+									curp->folderID );
+						if (err != 0)
+							goto done;
+					}
+				}
+			}
+		}
+	}
+done:
+	if (fcip) {
+		releaseFolderCountInfo(fcip, numFolders);
+		fcip = NULL;
+	}
+	return err;
+}
+
+/*
  * CheckCatalogBTree - Verifies the catalog B-tree structure
  *
  * Causes CheckCatalogRecord to be called for every leaf record
@@ -93,8 +505,13 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	gCIS.parentID = kHFSRootParentID;
 	gCIS.nextCNID = kHFSFirstUserCatalogNodeID;
 
-	if (hfsplus)
+	if (hfsplus) {
+		/* Initialize check for file hard links */
         	HardLinkCheckBegin(gScavGlobals, &gCIS.hardLinkRef);
+
+		/* Initialize check for directory hard links */
+		dirhardlink_init(gScavGlobals);
+	}
 
 	/* for compatibility, init these globals */
 	gScavGlobals->TarID = kHFSCatalogFileID;
@@ -110,7 +527,7 @@ CheckCatalogBTree( SGlobPtr GPtr )
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;  /* a directory record is missing */
 		if (gScavGlobals->logLevel >= kDebugLog) {
-			printf ("\t%s: dirCount = %u, dirThread = %u\n", __FUNCTION__, gCIS.dirCount, gCIS.dirThreads);
+		plog ("\t%s: dirCount = %u, dirThread = %u\n", __FUNCTION__, gCIS.dirCount, gCIS.dirThreads);
 		}
 	}
 
@@ -118,7 +535,7 @@ CheckCatalogBTree( SGlobPtr GPtr )
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
 		if (gScavGlobals->logLevel >= kDebugLog) {
-			printf ("\t%s: fileCount = %u, fileThread = %u\n", __FUNCTION__, gCIS.fileCount, gCIS.fileThreads);
+		plog ("\t%s: fileCount = %u, fileThread = %u\n", __FUNCTION__, gCIS.fileCount, gCIS.fileThreads);
 		}
 	}
 
@@ -126,7 +543,7 @@ CheckCatalogBTree( SGlobPtr GPtr )
 		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
 		if (gScavGlobals->logLevel >= kDebugLog) {
-			printf ("\t%s: fileThreads = %u, filesWithThread = %u\n", __FUNCTION__, gCIS.fileThreads, gCIS.filesWithThreads);
+		plog ("\t%s: fileThreads = %u, filesWithThread = %u\n", __FUNCTION__, gCIS.fileThreads, gCIS.filesWithThreads);
 		}
 	}
 
@@ -156,8 +573,18 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	 */
 	err = CmpBTM(gScavGlobals, kCalculatedCatalogRefNum);
 
-	if (hfsplus)
+	if (hfsplus) {
 		(void) CheckHardLinks(gCIS.hardLinkRef);
+
+		/* If any unrepairable corruption was detected for file 
+		 * hard links, stop the verification process by returning 
+		 * negative value.
+		 */
+		if (gScavGlobals->CatStat & S_LinkErrNoRepair) {
+			err = -1;
+			goto exit;
+		}
+	}
 
  exit:
 	if (hfsplus)
@@ -324,50 +751,6 @@ CheckCatalogRecord_HFS(const HFSCatalogKey *key, const CatalogRecord *rec, UInt1
 	return (result);
 }
 
-/* CheckIfAttributeExists - check if atleast one extend attribute
- *                          exists for given file/folder ID 
- * 
- * Returns: 0 - if not extended attribute exists
- *          1 - if atleast one extended attribute exists
- *          n - some error occured 
- */
-static int 
-CheckIfAttributeExists(const UInt32 fileID) 
-{
-	int result = 0;
-	HFSPlusAttrKey *attrKey;
-	BTreeIterator iterator;
-
-	/* Initialize the iterator, note that other fields in iterator are initialized to zero */
-	ClearMemory(&iterator, sizeof(BTreeIterator));
-
-	/* Initialize attribute key to iterator key.  Other fields initialized to zero */
-	attrKey = (HFSPlusAttrKey *)&iterator.key;
-	attrKey->keyLength = kHFSPlusAttrKeyMinimumLength;
-	attrKey->fileID = fileID;
-
-	/* Search for attribute with NULL name.  This will place the iterator at correct fileID location in BTree */	
-	result = BTSearchRecord(gScavGlobals->calculatedAttributesFCB, &iterator, kInvalidMRUCacheKey, NULL, NULL, &iterator);
-	if (result && (result != btNotFound)) {
-#if 0 //DEBUG_XATTR
-		printf ("%s: No matching attribute record found\n", __FUNCTION__);
-#endif
-		goto out;
-	}
-
-	/* Iterate to next record and check there is a valid extended attribute for this file ID */ 
-	result = BTIterateRecord(gScavGlobals->calculatedAttributesFCB, kBTreeNextRecord, &iterator, NULL, NULL);
-	if ((result == noErr) && (attrKey->fileID == fileID)) {
-		/* Set success return value only if we did _find_ an attribute record for the current fileID */
-		result = 1;
-	} 
-out:
-#if 0 //DEBUG_XATTR
-	printf ("%s: Retval=%d for fileID=%d\n", __FUNCTION__, result, fileID); 
-#endif
-	return result;
-}
-
 /*
  * CheckDirectory - verify a catalog directory record
  *
@@ -388,25 +771,10 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 		gScavGlobals->CBTStat |= S_ReservedNotZero;
 	}
 
-	/* 3971173, 3977448 : HFS does not clear the attribute bit after it deletes the 
-	 * last attribute.  Fix it later in 3977448 by removing the call for checking attrs
-	 */
-	result = CheckIfAttributeExists(dir->folderID);
-	if (result == 1) {
-		/* Atleast one extended attribute exists for this folder ID */
-		/* 3843779 : Record if directory record has attribute and/or security bit set */
-		RecordXAttrBits(gScavGlobals, dir->flags, dir->folderID, kCalculatedCatalogRefNum);
+	RecordXAttrBits(gScavGlobals, dir->flags, dir->folderID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
-		printf ("%s: Record folderID=%d for prime modulus calculations\n", __FUNCTION__, dir->folderID); 
+plog ("%s: Record folderID=%d for prime modulus calculations\n", __FUNCTION__, dir->folderID); 
 #endif
-	}
-#if 0 //DEBUG_XATTR
-	else {
-		if (result == 0) 
-			printf ("%s: Ignoring folder ID %d from prime modulus calculuation\n", __FUNCTION__, dir->folderID); 
-	}
-#endif 
-	result = 0;	/* ignore result from record xattr */
 
 	if (dirID < kHFSFirstUserCatalogNodeID  &&
             dirID != kHFSRootFolderID) {
@@ -422,6 +790,11 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 	
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
 	
+	/* Keep track of the directory inodes found */
+	if (dir->flags & kHFSHasLinkChainMask) {
+	    	gScavGlobals->calculated_dirinodes++;
+	}
+
 	return (result);
 }
 
@@ -444,30 +817,13 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 
 	(void) utf_encodestr(key->nodeName.unicode,
 				key->nodeName.length * 2,
-				filename, &len);
+				filename, &len, sizeof(filename));
 	filename[len] = '\0';
 
-	/* 3843017 : Check for reserved field removed to support new bits in future */
-
-	/* 3971173, 3977448 : HFS does not clear the attribute bit after it deletes the 
-	 * last attribute.  Fix it later in 3977448 by removing the call for checking attrs
-	 */
-	result = CheckIfAttributeExists(file->fileID);
-	if (result == 1) {
-		/* Atleast one extended attribute exists for this file ID */
-		/* 3843779 : Record if file record has attribute and/or security bit set */
-		RecordXAttrBits(gScavGlobals, file->flags, file->fileID, kCalculatedCatalogRefNum);
+	RecordXAttrBits(gScavGlobals, file->flags, file->fileID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
-		printf ("%s: Record fileID=%d for prime modulus calculations\n", __FUNCTION__, file->fileID); 
+plog ("%s: Record fileID=%d for prime modulus calculations\n", __FUNCTION__, file->fileID); 
 #endif
-	}
-#if 0 //DEBUG_XATTR
-	else { 
-		if (result == 0) 
-			printf ("%s: Ignoring file ID %d from prime modulus calculuation\n", __FUNCTION__, file->fileID);
-	}
-#endif 
-	result = 0;	/* ignore result from record xattr */
 
 	fileID = file->fileID;
 	if (fileID < kHFSFirstUserCatalogNodeID) {
@@ -524,11 +880,18 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	}
 
 	/* Collect indirect link info for later */
-	if (SWAP_BE32(file->userInfo.fdType) == kHardLinkFileType  &&
-            SWAP_BE32(file->userInfo.fdCreator) == kHFSPlusCreator)
-		CaptureHardLink(gCIS.hardLinkRef, file->bsdInfo.special.iNodeNum);
+	if (file->userInfo.fdType == kHardLinkFileType  &&
+            file->userInfo.fdCreator == kHFSPlusCreator)
+		CaptureHardLink(gCIS.hardLinkRef, file);
 
 	CheckCatalogName(key->nodeName.length, &key->nodeName.unicode[0], key->parentID, false);
+
+	/* Keep track of the directory hard links found */
+	if ((file->flags & kHFSHasLinkChainMask) && 
+	    ((file->userInfo.fdType == kHFSAliasType) ||
+	    (file->userInfo.fdCreator == kHFSAliasCreator))) {
+	    	gScavGlobals->calculated_dirlinks++;
+	}
 
 	return (result);
 }
@@ -737,7 +1100,7 @@ CheckThread_HFS(const HFSCatalogKey * key, const HFSCatalogThread * thread)
 #define FT_SOCK    0140000	/* BSD domain socket. */
 
 /*
- * CheckBSDInfo - Check BSD Pemissions data
+ * CheckBSDInfo - Check BSD Permissions data
  * (HFS Plus volumes only)
  *
  * if repairable then log the error and create a repair order
@@ -745,8 +1108,6 @@ CheckThread_HFS(const HFSCatalogKey * key, const HFSCatalogThread * thread)
 static void
 CheckBSDInfo(const HFSPlusCatalogKey * key, const HFSPlusBSDInfo * bsdInfo, int isdir)
 {
-#define kObsoleteUnknownUID  (-3)
-#define kUnknownUID          (99)	
 
 	Boolean reset = false;
 
@@ -772,16 +1133,12 @@ CheckBSDInfo(const HFSPlusCatalogKey * key, const HFSPlusBSDInfo * bsdInfo, int 
 		reset = true;
 	}
 	
-	if (reset ||
-	    ((long)bsdInfo->ownerID == kObsoleteUnknownUID) ||
-	    ((long)bsdInfo->groupID == kObsoleteUnknownUID)) {
+	if (reset) {
 		RepairOrderPtr p;
 		int n;
 		
-		if (reset) {
-			gScavGlobals->TarBlock = bsdInfo->fileMode & FT_MASK;
-			RcdError(gScavGlobals, E_InvalidPermissions);
-		}
+		gScavGlobals->TarBlock = bsdInfo->fileMode & FT_MASK;
+		RcdError(gScavGlobals, E_InvalidPermissions);
 
 		n = CatalogNameSize( (CatalogName *) &key->nodeName, true );
 		
@@ -791,20 +1148,10 @@ CheckBSDInfo(const HFSPlusCatalogKey * key, const HFSPlusBSDInfo * bsdInfo, int 
  		CopyCatalogName((const CatalogName *)&key->nodeName,
 		(CatalogName*)&p->name, true);
 		
-		if (reset) {
-			p->type      = E_InvalidPermissions;
-			p->correct   = 0;
-			p->incorrect = bsdInfo->fileMode;
-		} else {
-			p->type      = E_InvalidUID;
-			p->correct   = kUnknownUID;
-			if ((long)bsdInfo->ownerID == kObsoleteUnknownUID)
-				p->incorrect = bsdInfo->ownerID;
-			else 
-				p->incorrect = bsdInfo->groupID;
-		}
-
-                p->parid = key->parentID;
+		p->type      = E_InvalidPermissions;
+		p->correct   = 0;
+		p->incorrect = bsdInfo->fileMode;
+		p->parid = key->parentID;
 		p->hint = 0;
 		
 		gScavGlobals->CatStat |= S_Permissions;
@@ -844,7 +1191,7 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
         {
 			PrintError( gScavGlobals, E_IllegalName, 0 );
             if ( gScavGlobals->logLevel >= kDebugLog ) {
-                printf( "\tillegal name is 0x" );
+               plog( "\tillegal name is 0x" );
                 PrintName( charCount, (UInt8 *) uniChars, true );
            }
           
@@ -874,7 +1221,7 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
             *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
             CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
             if ( gScavGlobals->logLevel >= kDebugLog ) {
-                printf( "\treplacement name is 0x" );
+               plog( "\treplacement name is 0x" );
                 PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
            }
 
@@ -890,7 +1237,7 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
     {
         PrintError( gScavGlobals, E_IllegalName, 0 );
         if ( gScavGlobals->logLevel >= kDebugLog ) {
-            printf( "\tillegal name is 0x" );
+           plog( "\tillegal name is 0x" );
             PrintName( charCount, (UInt8 *) uniChars, true );
         }
 
@@ -914,7 +1261,7 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
         *myPtr++ = newName.ustr.length; // copy in length of new name and bump past it
         CopyMemory( newName.ustr.unicode, myPtr, (newName.ustr.length * 2) ); // copy in new name
         if ( gScavGlobals->logLevel >= kDebugLog ) {
-            printf( "\treplacement name is 0x" );
+           plog( "\treplacement name is 0x" );
             PrintName( newName.ustr.length, (UInt8 *) &newName.ustr.unicode, true );
         }
 
@@ -961,7 +1308,7 @@ CheckCatalogName_HFS(u_int16_t charCount, const u_char *filename, u_int32_t pare
             OSErr 				result;
 			PrintError( gScavGlobals, E_IllegalName, 0 );
             if ( gScavGlobals->logLevel >= kDebugLog ) {
-                printf( "\tillegal name is 0x" );
+               plog( "\tillegal name is 0x" );
                 PrintName( charCount, filename, false );
             }
 
@@ -990,7 +1337,7 @@ CheckCatalogName_HFS(u_int16_t charCount, const u_char *filename, u_int32_t pare
             *myPtr++ = newName.pstr[0]; // copy in length of new name and bump past it
             CopyMemory( &newName.pstr[1], myPtr, newName.pstr[0] ); // copy in new name
             if ( gScavGlobals->logLevel >= kDebugLog ) {
-                printf( "\treplacement name is 0x" );
+               plog( "\treplacement name is 0x" );
                 PrintName( newName.pstr[0], &newName.pstr[1], false );
             }
 

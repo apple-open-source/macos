@@ -1,0 +1,91 @@
+#!/bin/sh
+#
+# Upgrade cyrus mail database
+#
+
+IMAPD_CONF="/etc/imapd.conf"
+CY_PATH="/usr/bin/cyrus/bin"
+CY_TOOLS_PATH="/usr/bin/cyrus/tools"
+OBOSLETE_DIR="/etc/postfix/obsolete_files"
+MASTER_CF="/etc/postfix/master.cf"
+MASTER_CF_PERSONAL="/etc/postfix/master.cf.personal"
+MASTER_CF_NULL_CLIENT="/etc/postfix/master.cf.nullclient"
+MASTER_CF_DEFAULT_SERVER="/etc/postfix/master.cf.defaultserver"
+MASTER_CF_TMP="/etc/postfix/master.cf.upgrade.tmp"
+
+###################
+# Upgrade master postfix master.cf
+
+if [ -e "$MASTER_CF" ] ; then
+  if /usr/bin/grep "user=cyrus " "$MASTER_CF" > /dev/null ; then
+    sed -e 's/user=cyrus /user=_cyrus /' "$MASTER_CF" > "$MASTER_CF_TMP"
+    if [ -e "$MASTER_CF_TMP" ] ; then
+      /bin/rm "$MASTER_CF"
+      /bin/mv "$MASTER_CF_TMP" "$MASTER_CF"
+    fi
+  fi
+fi
+
+
+###################
+# Create a directory for oboslete config files
+
+if [ ! -d "$OBOSLETE_DIR" ] ; then
+  /bin/mkdir "$OBOSLETE_DIR"
+fi
+
+
+###################
+# Move obsolete config files
+
+if [ -d "$OBOSLETE_DIR" ] ; then
+  if [ -e "$MASTER_CF_PERSONAL" ] ; then
+      /bin/mv "$MASTER_CF_PERSONAL" "$OBOSLETE_DIR/"
+  fi
+  if [ -e "$MASTER_CF_NULL_CLIENT" ] ; then
+      /bin/mv "$MASTER_CF_NULL_CLIENT" "$OBOSLETE_DIR/"
+  fi
+  if [ -e "$MASTER_CF_DEFAULT_SERVER" ] ; then
+      /bin/mv "$MASTER_CF_DEFAULT_SERVER" "$OBOSLETE_DIR/"
+  fi
+fi
+
+###################
+# Upgrade imapd.conf with new defaults
+
+if [ ! "`/usr/bin/grep berkeley_txns_max: $IMAPD_CONF`" ] ; then
+  echo "berkeley_txns_max: 400" >> $IMAPD_CONF
+fi
+
+if [ ! "`/usr/bin/grep berkeley_locks_max: $IMAPD_CONF`" ] ; then
+  echo "berkeley_locks_max: 20000" >> $IMAPD_CONF
+fi
+
+if [ ! "`/usr/bin/grep berkeley_cachesize: $IMAPD_CONF`" ] ; then
+  echo "berkeley_cachesize: 8192" >> $IMAPD_CONF
+fi
+
+if [ ! "`/usr/bin/grep berkeley_max_log_region: $IMAPD_CONF`" ] ; then
+  echo "berkeley_max_log_region: 2048" >> $IMAPD_CONF
+fi
+
+if [ ! "`/usr/bin/grep berkeley_max_log_file: $IMAPD_CONF`" ] ; then
+  echo "berkeley_max_log_file: 10240" >> $IMAPD_CONF
+fi
+
+if [ ! "`/usr/bin/grep berkeley_max_log_buffer: $IMAPD_CONF`" ] ; then
+  echo "berkeley_max_log_buffer: 2048" >> $IMAPD_CONF
+fi
+
+
+
+###################
+# Do we need to upgrade this mail database
+
+if [ -e "$CY_PATH"/ctl_mboxlist.old ] ; then
+  # Upgrading from Panther 
+  echo "Migrating from Panther Server"
+  sh /usr/bin/cyrus/tools/migrate_pan_db
+else
+  echo "Nothing to migrate"
+fi

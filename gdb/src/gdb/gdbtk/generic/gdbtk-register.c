@@ -1,5 +1,5 @@
 /* Tcl/Tk command definitions for Insight - Registers
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -202,8 +202,7 @@ static void
 get_register_size (int regnum, void *arg)
 {
   Tcl_ListObjAppendElement (gdbtk_interp, result_ptr->obj_ptr,
-			    Tcl_NewIntObj (DEPRECATED_REGISTER_RAW_SIZE
-					   (regnum)));
+			    Tcl_NewIntObj (register_size (current_gdbarch, regnum)));
 }
 
 /* returns a list of valid types for a register */
@@ -266,8 +265,7 @@ get_register (int regnum, void *arg)
   CORE_ADDR addr;
   enum lval_type lval;
   struct type *reg_vtype;
-  char raw_buffer[MAX_REGISTER_SIZE];
-  char virtual_buffer[MAX_REGISTER_SIZE];
+  gdb_byte buffer[MAX_REGISTER_SIZE];
   int optim, format;
   struct cleanup *old_chain = NULL;
   struct ui_file *stb;
@@ -291,8 +289,8 @@ get_register (int regnum, void *arg)
       return;
     }
 
-  frame_register (get_selected_frame (), regnum, &optim, &lval, 
-		  &addr, &realnum, raw_buffer);
+  frame_register (get_selected_frame (NULL), regnum, &optim, &lval, 
+		  &addr, &realnum, buffer);
 
   if (optim)
     {
@@ -300,16 +298,6 @@ get_register (int regnum, void *arg)
 				Tcl_NewStringObj ("Optimized out", -1));
       return;
     }
-
-  /* Convert raw data to virtual format if necessary.  */
-  if (DEPRECATED_REGISTER_CONVERTIBLE (regnum))
-    {
-      DEPRECATED_REGISTER_CONVERT_TO_VIRTUAL (regnum, reg_vtype,
-      				   raw_buffer, virtual_buffer);
-    }
-  else
-    memcpy (virtual_buffer, raw_buffer,
-	    DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum));
 
   stb = mem_fileopen ();
   old_chain = make_cleanup_ui_file_delete (stb);
@@ -322,11 +310,11 @@ get_register (int regnum, void *arg)
 
       strcpy (buf, "0x");
       ptr = buf + 2;
-      for (j = 0; j < DEPRECATED_REGISTER_RAW_SIZE (regnum); j++)
+      for (j = 0; j < register_size (current_gdbarch, regnum); j++)
 	{
 	  int idx = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? j
-	    : DEPRECATED_REGISTER_RAW_SIZE (regnum) - 1 - j;
-	  sprintf (ptr, "%02x", (unsigned char) raw_buffer[idx]);
+	    : register_size (current_gdbarch, regnum) - 1 - j;
+	  sprintf (ptr, "%02x", (unsigned char) buffer[idx]);
 	  ptr += 2;
 	}
       fputs_unfiltered (buf, stb);
@@ -337,11 +325,11 @@ get_register (int regnum, void *arg)
 	  && (strcmp (FIELD_NAME (TYPE_FIELD (reg_vtype, 0)), 
 		      REGISTER_NAME (regnum)) == 0))
 	{
-	  val_print (FIELD_TYPE (TYPE_FIELD (reg_vtype, 0)), virtual_buffer, 0, 0,
+	  val_print (FIELD_TYPE (TYPE_FIELD (reg_vtype, 0)), buffer, 0, 0,
 		     stb, format, 1, 0, Val_pretty_default);
 	}
       else
-	val_print (reg_vtype, virtual_buffer, 0, 0,
+	val_print (reg_vtype, buffer, 0, 0,
 		   stb, format, 1, 0, Val_pretty_default);
     }
   
@@ -425,9 +413,7 @@ map_arg_registers (Tcl_Interp *interp, int objc, Tcl_Obj **objv,
 	  return TCL_ERROR;
 	}
 
-      if (regnum >= 0  && regnum < numregs
-	  && REGISTER_NAME (regnum) != NULL
-	  && *REGISTER_NAME (regnum) != '\000')
+      if (regnum >= 0  && regnum < numregs)
 	func (regnum, argp);
       else
 	{
@@ -448,13 +434,13 @@ register_changed_p (int regnum, void *argp)
     return;
 
   if (memcmp (&old_regs[regnum * MAX_REGISTER_SIZE], raw_buffer,
-	      DEPRECATED_REGISTER_RAW_SIZE (regnum)) == 0)
+	      register_size (current_gdbarch, regnum)) == 0)
     return;
 
   /* Found a changed register.  Save new value and return its number. */
 
   memcpy (&old_regs[regnum * MAX_REGISTER_SIZE], raw_buffer,
-	  DEPRECATED_REGISTER_RAW_SIZE (regnum));
+	  register_size (current_gdbarch, regnum));
 
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewIntObj (regnum));
 }

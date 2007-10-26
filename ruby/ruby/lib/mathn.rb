@@ -43,6 +43,7 @@ class Integer
   end
   
   def prime_division
+    raise ZeroDivisionError if self == 0
     ps = Prime.new
     value = self
     pv = []
@@ -124,6 +125,7 @@ class Rational
 
   def ** (other)
     if other.kind_of?(Rational)
+      other2 = other
       if self < 0
 	return Complex.new!(self, 0) ** other
       elsif other == 0
@@ -144,7 +146,7 @@ class Rational
       for elm in npd
 	elm[1] = elm[1] * other
 	if !elm[1].kind_of?(Integer) and elm[1].denominator != 1
-	  return Float(self) ** other
+         return Float(self) ** other2
 	end
 	elm[1] = elm[1].to_i
       end
@@ -152,7 +154,7 @@ class Rational
       for elm in dpd
 	elm[1] = elm[1] * other
 	if !elm[1].kind_of?(Integer) and elm[1].denominator != 1
-	  return Float(self) ** other
+         return Float(self) ** other2
 	end
 	elm[1] = elm[1].to_i
       end

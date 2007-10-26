@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -24,8 +24,8 @@ U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(TitlecaseTransliterator)
 
-TitlecaseTransliterator::TitlecaseTransliterator(const Locale& theLoc) :
-    CaseMapTransliterator(theLoc, UNICODE_STRING("Any-Title", 9), NULL)
+TitlecaseTransliterator::TitlecaseTransliterator() :
+    CaseMapTransliterator(UNICODE_STRING("Any-Title", 9), NULL)
 {
     // Need to look back 2 characters in the case of "can't"
     setMaximumContextLength(2);
@@ -125,16 +125,17 @@ void TitlecaseTransliterator::handleTransliterate(
         type=ucase_getTypeOrIgnorable(fCsp, c);
         if(type>=0) { // not case-ignorable
             if(doTitle) {
-                result=ucase_toFullTitle(fCsp, c, utrans_rep_caseContextIterator, &csc, &s, fLocName, &locCache);
+                result=ucase_toFullTitle(fCsp, c, utrans_rep_caseContextIterator, &csc, &s, "", &locCache);
             } else {
-                result=ucase_toFullLower(fCsp, c, utrans_rep_caseContextIterator, &csc, &s, fLocName, &locCache);
+                result=ucase_toFullLower(fCsp, c, utrans_rep_caseContextIterator, &csc, &s, "", &locCache);
             }
             doTitle = (UBool)(type==0); // doTitle=isUncased
 
             if(csc.b1 && isIncremental) {
                 // fMap() tried to look beyond the context limit
                 // wait for more input
-                break;
+                offsets.start=csc.cpStart;
+                return;
             }
 
             if(result>=0) {

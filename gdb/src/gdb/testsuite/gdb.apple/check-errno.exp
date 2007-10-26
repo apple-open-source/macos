@@ -1,0 +1,104 @@
+# Copyright 2007 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# The shared cache in Leopard means that we have to deal with the
+# library slides differently between libraries in & out of the shared cache.
+# This file just tests that we can read the errno variable correctly.
+# Since libSystem is pretty surely going to be in the shared cache,
+# this is a good sniff test that we are getting the data sections of
+# libraries in the shared cache correctly.
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+
+set testfile "check-errno"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+    
+global srcdir objdir subdir gdb_prompt srcfile testfile binfile hex
+    
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug} ] != "" } {
+  gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+    
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+    
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+send_gdb "set locate-dsym 0\n"
+gdb_expect -re "$gdb_prompt $"
+    
+gdb_test "break [gdb_get_line_number "Good place to break first"]" "Breakpoint 1 at $hex: file.*, line.*\\." \
+  "Set breakpoint on line  'Good place to break first'"
+    
+gdb_test "break [gdb_get_line_number "Good place to break second"]" "Breakpoint 2 at $hex: file.*, line.*\\." \
+  "Set breakpoint on line  'Good place to break second'"
+    
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, main.*" \
+  "run to first breakpoint in main()"
+    
+send_gdb "print \(int\) errno\n" 
+gdb_expect {
+    -re {\$[0-9]+ = ([-]?[0-9]+)} {
+	set errno_first $expect_out(1,string)
+	if {$errno_first == 0} {
+	    pass "errno should be 0 after we set it to 0"
+	} else {
+	    fail "errno should be 0 after we set it to 0 - probably not getting shared cache correctly"
+	}
+    }
+    -re "$gdb_prompt $" {
+	fail "could not print errno after we set it"
+    }
+    timeout {fail "(timeout) printing errno after we set it"}
+}
+
+gdb_test "continue" {Continuing\.(\r\n)+Breakpoint 2, main.*} "continue to second breakpoint in main."
+    
+gdb_test {print result} {\$[0-9]+ = -1} "result of stat should be -1"
+
+send_gdb "print \(unsigned int\) errno\n" 
+gdb_expect {
+    -re {\$[0-9]+ = ([-]?[0-9]+)} {
+	set errno_second $expect_out(1,string)
+	if {$errno_first != $errno_second && $errno_second != 0} {
+	    pass "errno should have changed after the stat call"
+	} else {
+	    fail "errno should have changed after the stat call"
+	}
+    }
+    -re "$gdb_prompt $" {
+	fail "could not print errno after the stat call"
+    }
+    timeout {fail "(timeout) printing errno after the stat call"}
+}
+
+
+gdb_exit

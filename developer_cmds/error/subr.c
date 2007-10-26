@@ -388,7 +388,7 @@ wordvcmp(wordv1, wordc, wordv2)
 	for (i = 0; i < wordc; i++){
 		if (wordv1[i] == 0 || wordv2[i] == 0)
 			return(-1);
-		if ((back = strcmp(wordv1[i], wordv2[i])) != NULL)
+		if ((back = strcmp(wordv1[i], wordv2[i])) != 0)
 			return(back);
 	}
 	return(0);	/* they are equal */

@@ -1,8 +1,8 @@
 /* index.c - routines for dealing with attribute indexes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/index.c,v 1.83.2.4 2004/04/12 18:20:14 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/index.c,v 1.88.2.2 2006/01/03 22:16:19 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -173,14 +173,9 @@ static int indexer(
 	db = ldbm_cache_open( op->o_bd, dbname, LDBM_SUFFIX, LDBM_WRCREAT );
 	
 	if ( db == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( INDEX, ERR, 
-			   "index_read: Could not open db %s%s\n", dbname, LDBM_SUFFIX, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 		    "<= index_read NULL (could not open %s%s)\n",
 			dbname, LDBM_SUFFIX, 0 );
-#endif
 
 		return LDAP_OTHER;
 	}
@@ -312,15 +307,9 @@ index_entry(
 	Entry *e )
 {
 	Attribute *ap = e->e_attrs;
-#ifdef NEW_LOGGING
-	LDAP_LOG( INDEX, ENTRY, 
-		"index_entry: %s (%s)%ld\n", opid == SLAP_INDEX_ADD_OP ? "add" : "del",
-		e->e_dn, e->e_id );
-#else
 	Debug( LDAP_DEBUG_TRACE, "=> index_entry_%s( %ld, \"%s\" )\n",
 		opid == SLAP_INDEX_ADD_OP ? "add" : "del",
 		e->e_id, e->e_dn );
-#endif
 
 	/* add each attribute to the indexes */
 	for ( ; ap != NULL; ap = ap->a_next ) {
@@ -329,13 +318,9 @@ index_entry(
 			e->e_id, opid );
 	}
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( INDEX, ENTRY, "index_entry: success\n", 0, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "<= index_entry_%s( %ld, \"%s\" ) success\n",
 	    opid == SLAP_INDEX_ADD_OP ? "add" : "del",
 		e->e_id, e->e_dn );
-#endif
 
 	return LDAP_SUCCESS;
 }

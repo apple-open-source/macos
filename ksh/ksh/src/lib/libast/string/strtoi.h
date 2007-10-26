@@ -1,30 +1,26 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 /*
- * AT&T Labs Research
+ * AT&T Research
  * Glenn Fowler
  * Phong Vo
  *
@@ -39,6 +35,7 @@
  *
  *	S2I_function	the function name
  *	S2I_number	the signed number type
+ *	S2I_unumber	the unsigned number type
  *	S2I_unsigned	1 for unsigned, 0 for signed
  *	S2I_multiplier	1 for optional multiplier suffix, 0 otherwise
  *	S2I_size	the second argument is the input string size
@@ -74,7 +71,7 @@
  *			[lL][lL][uU]
  *			[uU][lL][lL]
  *
- *	multiplier:	.		pseudo-float (100) + subsequent digits
+ *	multiplier:	.		pseudo-float if m>1
  *			[bB]		block (512)
  *			[cC]		char (1)
  *			[gG]		giga (1024*1024*1024)
@@ -98,11 +95,10 @@
 #define QL		01
 #define QU		02
 
-#define S2I_utype	unsigned S2I_number
-#define S2I_umax	(~((S2I_utype)0))
+#define S2I_umax	(~((S2I_unumber)0))
 
 #if S2I_unsigned
-#define S2I_type	S2I_utype
+#define S2I_type	S2I_unumber
 #define S2I_min		0
 #define S2I_max		S2I_umax
 #else
@@ -117,10 +113,10 @@
 #define S2I_valid(s)	1
 #endif
 
-#define ADDOVER(n,c,s)	((S2I_umax-(n))<((S2I_utype)((c)+(s))))
-#define MPYOVER(n,c)	(((S2I_utype)(n))>(S2I_umax/(c)))
+#define ADDOVER(n,c,s)	((S2I_umax-(n))<((S2I_unumber)((c)+(s))))
+#define MPYOVER(n,c)	(((S2I_unumber)(n))>(S2I_umax/(c)))
 
-static const S2I_utype	mm[] =
+static const S2I_unumber	mm[] =
 {
 	0,
 	S2I_umax /  1,
@@ -228,15 +224,15 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 #if S2I_size
 	register unsigned char*	z = s + size;
 #endif
-	register S2I_utype	n;
-	register S2I_utype	x;
+	register S2I_unumber	n;
+	register S2I_unumber	x;
 	register int		c;
 	register int		shift;
 	register unsigned char*	p;
 	register unsigned char*	cv;
 	unsigned char*		b;
 	unsigned char*		k;
-	S2I_utype		v;
+	S2I_unumber		v;
 #if S2I_multiplier
 	register int		base;
 #endif
@@ -480,62 +476,77 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 			{
 			case 'b':
 			case 'B':
-				v = 512;
-				break;
-			case 'c':
-			case 'C':
-				break;
-			case 'g':
-			case 'G':
-				v = 1024 * 1024 * 1024;
+				shift = 9;
 				break;
 			case 'k':
 			case 'K':
-				v = 1024;
-				break;
-			case 'l':
-			case 'L':
-				v = 4;
+				shift = 10;
 				break;
 			case 'm':
 			case 'M':
-				v = 1024 * 1024;
+				shift = 20;
 				break;
-			case 'q':
-			case 'Q':
-				v = 8;
+			case 'g':
+			case 'G':
+				shift = 30;
 				break;
 			case 't':
 			case 'T':
-				if (sizeof(S2I_number) <= 4)
-					overflow = 1;
-				v *= 1024 * 1024;
-				v *= 1024 * 1024;
+				shift = 40;
 				break;
-			case 'w':
-			case 'W':
-				v = 2;
+			case 'p':
+			case 'P':
+				shift = 50;
+				break;
+			case 'e':
+			case 'E':
+				shift = 60;
 				break;
 			default:
-				if (c == decimal && *s >= '0' && *s <= '9')
-				{
-					if (MPYOVER(n, 100))
-						overflow = 1;
-					n *= 100;
+				if (m <= 1)
 					v = 0;
-					for (m = 10; (c = *s++) >= '0' && c <= '9'; m /= 10) 
-						v += m * (c - '0');
+				else if (c == decimal && S2I_valid(s))
+				{
+					if (MPYOVER(n, m))
+						overflow = 1;
+					n *= m;
+					v = 0;
+					while (S2I_valid(s) && (c = *s++) >= '0' && c <= '9')
+						v += (m /= 10) * (c - '0');
 					if (ADDOVER(n, v, negative))
 						overflow = 1;
 					n += v;
 					v = 0;
 				}
-				else if (m > 1)
-					v = m;
 				else
-					v = 0;
+					v = m;
 				s--;
+				shift = 0;
 				break;
+			}
+			if (shift)
+			{
+				if (S2I_valid(s))
+					switch (*s)
+					{
+					case 'b':
+					case 'B':
+					case 'i':
+					case 'I':
+						s++;
+						break;
+					}
+#if S2I_unsigned
+				if (shift >= (sizeof(S2I_type) * CHAR_BIT))
+#else
+				if (shift >= (sizeof(S2I_type) * CHAR_BIT - 1))
+#endif
+				{
+					v = 0;
+					overflow = 1;
+				}
+				else
+					v = ((S2I_unumber)1) << shift;
 			}
 			if (v)
 			{
@@ -557,8 +568,28 @@ S2I_function(a, e, base) const char* a; char** e; int base;
 #endif
 	}
 #if !S2I_unsigned
-	else if (!(qualifier & QU) && (n - negative) > S2I_max)
-		overflow = 1;
+	else if (!(qualifier & QU))
+	{
+		if (negative)
+		{
+			if (!n)
+			{
+				b = k;
+				do
+				{
+					if (b >= s)
+					{
+						negative = 0;
+						break;
+					}
+				} while (*b++ == '0');
+			}
+			if (negative && (n - 1) > S2I_max)
+				overflow = 1;
+		}
+		else if (n > S2I_max)
+			overflow = 1;
+	}
 #endif
 	if (e)
 		*e = (char*)s;

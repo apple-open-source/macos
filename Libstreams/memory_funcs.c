@@ -396,6 +396,7 @@ static void cheap_close(NXStream *s)
  *	result of a vm_allocate).  Address and size may be 0.
  */
 
+__private_extern__
 NXStream *NXOpenMemory(const char *addr, int size, int mode)
 {
     NXStream		*s;
@@ -439,6 +440,7 @@ NXStream *NXOpenMemory(const char *addr, int size, int mode)
   * otherwise it is vm_allocated. 
   */
 
+__private_extern__
 NXStream *NXOpenSmallMemory(int mode){
     NXStream		*s;
     int newMode = mode;
@@ -464,6 +466,7 @@ NXStream *NXOpenSmallMemory(int mode){
     return (s);
 }
 
+__private_extern__
 NXStream *NXMapFile(const char *name, int mode)
 {
     int             fd;
@@ -493,6 +496,7 @@ NXStream *NXMapFile(const char *name, int mode)
 }
 
 
+__private_extern__
 int NXSaveToFile(register NXStream *s, const char *name )
 {
     int             fd;
@@ -521,6 +525,7 @@ int NXSaveToFile(register NXStream *s, const char *name )
     return 0;
 }
 
+__private_extern__
 void NXCloseMemory(register NXStream *s, int option)
 {
     int userBuf;
@@ -553,6 +558,7 @@ void NXCloseMemory(register NXStream *s, int option)
 }
 
 
+__private_extern__
 void NXGetMemoryBuffer(NXStream *s, char **addr, int *len, int *maxlen)
 {
     int bufSize = s->buf_size - s->buf_left;
@@ -585,6 +591,7 @@ static int check_wellformed_header(struct mach_header *mhp, unsigned size, int f
     return 1;
 }
 
+__private_extern__
 NXStream *NXGetStreamOnSection(const char *fileName, const char *segmentName, const char *sectionName)
 {
     int             fd;
@@ -704,6 +711,7 @@ NXStream *NXGetStreamOnSection(const char *fileName, const char *segmentName, co
 
 
 
+__private_extern__
 NXStream *NXGetStreamOnSectionForBestArchitecture(
 	const char *fileName,
 	const char *segmentName,

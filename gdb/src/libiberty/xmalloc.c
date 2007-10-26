@@ -14,8 +14,8 @@ Library General Public License for more details.
 
 You should have received a copy of the GNU Library General Public
 License along with libiberty; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+not, write to the Free Software Foundation, Inc., 51 Franklin Street - Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*
 
@@ -77,24 +77,30 @@ function will be called to print an error message and terminate execution.
 
 #include <stdio.h>
 
-#ifdef ANSI_PROTOTYPES
 #include <stddef.h>
-#else
-#define size_t unsigned long
-#define ptrdiff_t long
-#endif
 
 #if VMS
 #include <stdlib.h>
 #include <unixlib.h>
 #else
 /* For systems with larger pointers than ints, these must be declared.  */
-PTR malloc PARAMS ((size_t));
-PTR realloc PARAMS ((PTR, size_t));
-PTR calloc PARAMS ((size_t, size_t));
-void free PARAMS ((PTR));
-PTR sbrk PARAMS ((ptrdiff_t));
-#endif
+#  if HAVE_STDLIB_H && HAVE_UNISTD_H && HAVE_DECL_MALLOC \
+      && HAVE_DECL_REALLOC && HAVE_DECL_CALLOC && HAVE_DECL_SBRK
+#    include <stdlib.h>
+#    include <unistd.h>
+#  else
+#    ifdef __cplusplus
+extern "C" {
+#    endif /* __cplusplus */
+void *malloc (size_t);
+void *realloc (void *, size_t);
+void *calloc (size_t, size_t);
+void *sbrk (ptrdiff_t);
+#    ifdef __cplusplus
+}
+#    endif /* __cplusplus */
+#  endif /* HAVE_STDLIB_H ...  */
+#endif /* VMS */
 
 /* The program name if set.  */
 static const char *name = "";
@@ -113,8 +119,7 @@ static char *first_break = NULL;
 #endif /* HAVE_SBRK */
 
 void
-xmalloc_set_program_name (s)
-     const char *s;
+xmalloc_set_program_name (const char *s)
 {
   name = s;
 #ifdef HAVE_SBRK
@@ -124,6 +129,7 @@ xmalloc_set_program_name (s)
 #endif /* HAVE_SBRK */
 }
 
+/* APPLE LOCAL begin xmalloc hooks */
 void
 xmalloc_set_malloc_hooks (nmalloc, ncalloc, nrealloc, nfree)
      PTR (*nmalloc) (size_t);
@@ -136,10 +142,10 @@ xmalloc_set_malloc_hooks (nmalloc, ncalloc, nrealloc, nfree)
   realloc_hook = nrealloc;
   free_hook = nfree;
 }
+/* APPLE LOCAL end xmalloc hooks */
 
 void
-xmalloc_failed (size)
-     size_t size;
+xmalloc_failed (size_t size)
 {
 #ifdef HAVE_SBRK
   extern char **environ;
@@ -163,8 +169,7 @@ xmalloc_failed (size)
 }  
 
 PTR
-xmalloc (size)
-    size_t size;
+xmalloc (size_t size)
 {
   PTR newmem;
 
@@ -178,8 +183,7 @@ xmalloc (size)
 }
 
 PTR
-xcalloc (nelem, elsize)
-  size_t nelem, elsize;
+xcalloc (size_t nelem, size_t elsize)
 {
   PTR newmem;
 
@@ -194,9 +198,7 @@ xcalloc (nelem, elsize)
 }
 
 PTR
-xrealloc (oldmem, size)
-    PTR oldmem;
-    size_t size;
+xrealloc (PTR oldmem, size_t size)
 {
   PTR newmem;
 

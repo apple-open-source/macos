@@ -1,6 +1,7 @@
 ;;; shadow.el --- locate Emacs Lisp file shadowings
 
-;; Copyright (C) 1995 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Terry Jones <terry@santafe.edu>
 ;; Keywords: lisp
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -53,7 +54,7 @@
 
 ;;; Code:
 
-(defgroup shadow nil
+(defgroup lisp-shadow nil
   "Locate Emacs Lisp file shadowings."
   :prefix "shadows-"
   :group 'lisp)
@@ -62,7 +63,7 @@
   "*If non-nil, then shadowing files are reported only if their text differs.
 This is slower, but filters out some innocuous shadowing."
   :type 'boolean
-  :group 'shadow)
+  :group 'lisp-shadow)
 
 (defun find-emacs-lisp-shadows (&optional path)
   "Return a list of Emacs Lisp files that create shadows.
@@ -74,7 +75,7 @@ the file in position 2i+1.  Emacs Lisp file suffixes \(.el and .elc\)
 are stripped from the file names in the list.
 
 See the documentation for `list-load-path-shadows' for further information."
-  
+
   (or path (setq path load-path))
 
   (let (true-names			; List of dirs considered.
@@ -86,13 +87,13 @@ See the documentation for `list-load-path-shadows' for further information."
 	files-seen-this-dir		; Files seen so far in this dir.
 	file)				; The current file.
 
-  
+
     (while path
 
       (setq dir (directory-file-name (file-truename (or (car path) "."))))
       (if (member dir true-names)
 	  ;; We have already considered this PATH redundant directory.
-	  ;; Show the redundancy if we are interactiver, unless the PATH
+	  ;; Show the redundancy if we are interactive, unless the PATH
 	  ;; dir is nil or "." (these redundant directories are just a
 	  ;; result of the current working directory, and are therefore
 	  ;; not always redundant).
@@ -104,7 +105,7 @@ See the documentation for `list-load-path-shadows' for further information."
 	(setq true-names (append true-names (list dir)))
 	(setq dir (directory-file-name (or (car path) ".")))
 	(setq curr-files (if (file-accessible-directory-p dir)
-			     (directory-files dir nil ".\\.elc?$" t)))
+			     (directory-files dir nil ".\\.elc?\\(\\.gz\\)?$" t)))
 	(and curr-files
 	     (not noninteractive)
 	     (message "Checking %d files in %s..." (length curr-files) dir))
@@ -114,6 +115,8 @@ See the documentation for `list-load-path-shadows' for further information."
 	(while curr-files
 
 	  (setq file (car curr-files))
+	  (if (string-match "\\.gz$" file)
+	      (setq file (substring file 0 -3)))
 	  (setq file (substring
 		      file 0 (if (string= (substring file -1) "c") -4 -3)))
 
@@ -125,7 +128,7 @@ See the documentation for `list-load-path-shadows' for further information."
 	    ;; This test prevents us declaring that XXX.el shadows
 	    ;; XXX.elc (or vice-versa) when they are in the same directory.
 	    (setq files-seen-this-dir (cons file files-seen-this-dir))
-	      
+
 	    (if (setq orig-dir (assoc file files))
 		;; This file was seen before, we have a shadowing.
 		;; Report it unless the files are identical.
@@ -161,14 +164,14 @@ See the documentation for `list-load-path-shadows' for further information."
 		 ;; sizes.
 		 (and (= (nth 7 (file-attributes f1))
 			 (nth 7 (file-attributes f2)))
-		      (zerop (call-process "cmp" nil nil nil "-s" f1 f2))))))))
+		      (eq 0 (call-process "cmp" nil nil nil "-s" f1 f2))))))))
 
 ;;;###autoload
 (defun list-load-path-shadows ()
   "Display a list of Emacs Lisp files that shadow other files.
 
-This function lists potential load-path problems.  Directories in the
-`load-path' variable are searched, in order, for Emacs Lisp
+This function lists potential load path problems.  Directories in
+the `load-path' variable are searched, in order, for Emacs Lisp
 files.  When a previously encountered file name is found again, a
 message is displayed indicating that the later file is \"hidden\" by
 the earlier.
@@ -181,17 +184,17 @@ and that each of these directories contains a file called XXX.el.  Then
 XXX.el in the site-lisp directory is referred to by all of:
 \(require 'XXX\), \(autoload .... \"XXX\"\), \(load-library \"XXX\"\) etc.
 
-The first XXX.el file prevents emacs from seeing the second \(unless
-the second is loaded explicitly via load-file\).
+The first XXX.el file prevents Emacs from seeing the second \(unless
+the second is loaded explicitly via `load-file'\).
 
 When not intended, such shadowings can be the source of subtle
 problems.  For example, the above situation may have arisen because the
-XXX package was not distributed with versions of emacs prior to
-19.30.  An emacs maintainer downloaded XXX from elsewhere and installed
-it.  Later, XXX was updated and included in the emacs distribution.
-Unless the emacs maintainer checks for this, the new version of XXX
+XXX package was not distributed with versions of Emacs prior to
+19.30.  An Emacs maintainer downloaded XXX from elsewhere and installed
+it.  Later, XXX was updated and included in the Emacs distribution.
+Unless the Emacs maintainer checks for this, the new version of XXX
 will be hidden behind the old \(which may no longer work with the new
-emacs version\).
+Emacs version\).
 
 This function performs these checks and flags all possible
 shadowings.  Because a .el file may exist without a corresponding .elc
@@ -202,22 +205,23 @@ considered to shadow a later file XXX.el, and vice-versa.
 When run interactively, the shadowings \(if any\) are displayed in a
 buffer called `*Shadows*'.  Shadowings are located by calling the
 \(non-interactive\) companion function, `find-emacs-lisp-shadows'."
-  
+
   (interactive)
   (let* ((path (copy-sequence load-path))
 	(tem path)
 	toplevs)
     ;; If we can find simple.el in two places,
     (while tem
-      (if (file-exists-p (expand-file-name "simple.el" (car tem)))
+      (if (or (file-exists-p (expand-file-name "simple.el" (car tem)))
+	      (file-exists-p (expand-file-name "simple.el.gz" (car tem))))
 	  (setq toplevs (cons (car tem) toplevs)))
       (setq tem (cdr tem)))
     (if (> (length toplevs) 1)
 	;; Cut off our copy of load-path right before
-	;; the second directory which has simple.el in it.
+	;; the last directory which has simple.el in it.
 	;; This avoids loads of duplications between the source dir
 	;; and the dir where these files were copied by installation.
-	(let ((break (nth (- (length toplevs) 2) toplevs)))
+	(let ((break (car toplevs)))
 	  (setq tem path)
 	  (while tem
 	    (if (eq (nth 1 tem) break)
@@ -257,4 +261,5 @@ version unless you know what you are doing.\n")
 
 (provide 'shadow)
 
+;;; arch-tag: 0480e8a7-62ed-4a12-a9f6-f44ded9b0830
 ;;; shadow.el ends here

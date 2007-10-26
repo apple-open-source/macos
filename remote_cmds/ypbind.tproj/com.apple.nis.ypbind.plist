@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.nis.ypbind</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/ypbind</string>
+	</array>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/etc/defaultdomain</key>
+			<true/>
+		</dict>
+	</dict>
+</dict>
+</plist>

@@ -1,6 +1,6 @@
 /* imclient.c -- Streaming IMxP client library
  *
- * $Id: imclient.c,v 1.5 2005/03/05 00:37:15 dasenbro Exp $
+ * $Id: imclient.c,v 1.88 2007/02/05 18:43:26 jeaton Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -78,6 +78,8 @@
 
 #include "exitcodes.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "imparse.h"
 #include "imclient.h"
 #include "nonblock.h"
@@ -1570,8 +1572,7 @@ static char issuer_CN[CCERT_BUFSIZ];
 static int set_cert_stuff(SSL_CTX * ctx, char *cert_file, char *key_file)
 {
     if (cert_file != NULL) {
-	if (SSL_CTX_use_certificate_file(ctx, cert_file,
-					 SSL_FILETYPE_PEM) <= 0) {
+	if (SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0) {
 	  printf("[ unable to get certificate from '%s' ]\n", cert_file);
 	  return (0);
 	}
@@ -1670,8 +1671,6 @@ static int tls_rand_init(void)
 #endif
 }
 
-char *var_tls_CAfile="";
-char *var_tls_CApath="";
  /*
   * This is the setup routine for the SSL client. 
   *
@@ -1679,7 +1678,10 @@ char *var_tls_CApath="";
   */
 
 static int tls_init_clientengine(struct imclient *imclient,
-				 int verifydepth, char *var_tls_cert_file, char *var_tls_key_file)
+				 int verifydepth, char *var_tls_cert_file,
+                                 char *var_tls_key_file,
+                                 char *var_tls_CAfile,
+                                 char *var_tls_CApath)
 {
     int     off = 0;
     int     verify_flags = SSL_VERIFY_NONE;
@@ -1707,11 +1709,11 @@ static int tls_init_clientengine(struct imclient *imclient,
     
     /* debugging   SSL_CTX_set_info_callback(imclient->tls_ctx, apps_ssl_info_callback); */
 
-    if (strlen(var_tls_CAfile) == 0)
+    if (var_tls_CAfile == NULL || strlen(var_tls_CAfile) == 0)
 	CAfile = NULL;
     else
 	CAfile = var_tls_CAfile;
-    if (strlen(var_tls_CApath) == 0)
+    if (var_tls_CApath == NULL || strlen(var_tls_CApath) == 0)
 	CApath = NULL;
     else
 	CApath = var_tls_CApath;
@@ -1722,11 +1724,11 @@ static int tls_init_clientengine(struct imclient *imclient,
 	    printf("[ TLS engine: cannot load CA data ]\n");
 	    return -1;
 	}
-    if (strlen(var_tls_cert_file) == 0)
+    if (var_tls_cert_file == NULL || strlen(var_tls_cert_file) == 0)
 	c_cert_file = NULL;
     else
 	c_cert_file = var_tls_cert_file;
-    if (strlen(var_tls_key_file) == 0)
+    if (var_tls_key_file == NULL || strlen(var_tls_key_file) == 0)
 	c_key_file = NULL;
     else
 	c_key_file = var_tls_key_file;
@@ -1973,13 +1975,23 @@ int tls_start_clienttls(struct imclient *imclient,
 	   tls_cipher_usebits, tls_cipher_algbits);*/
     return 0;
 }
+#endif /* HAVE_SSL */
+
+int imclient_havetls () {
+#ifdef HAVE_SSL
+  return 1;
+#else
+  return 0;
+#endif
+}
 
 int imclient_starttls(struct imclient *imclient,
-			     int verifydepth __attribute__((unused)),
-			     char *var_tls_cert_file, 
-			     char *var_tls_key_file,
-			     int *layer __attribute__((unused)))
+			     char *cert_file,
+			     char *key_file,
+                             char *CAfile,
+                             char *CApath)
 {
+#ifdef HAVE_SSL
   int result;
   struct authresult theresult;
   unsigned ssf;
@@ -1994,7 +2006,8 @@ int imclient_starttls(struct imclient *imclient,
     imclient_processoneevent(imclient);
   }
 
-  result=tls_init_clientengine(imclient, 10, var_tls_cert_file, var_tls_key_file);
+  result=tls_init_clientengine(imclient, 10, cert_file, key_file,
+                               CAfile, CApath);
   if (result!=0)
   {
     printf("[ TLS engine failed ]\n");
@@ -2030,5 +2043,8 @@ int imclient_starttls(struct imclient *imclient,
   if (result!=SASL_OK) return 1;
 
   return 0;
-}
+#else
+  printf("[ TLS support not present (imclient_starttls) ]\n");
+  return 1;
 #endif /* HAVE_SSL */
+}

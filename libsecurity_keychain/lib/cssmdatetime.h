@@ -37,16 +37,16 @@ namespace CSSMDateTimeUtils
 {
 
 // Get the current time.
-extern void GetCurrentMacLongDateTime(SInt64 &outMacDate);
+extern void GetCurrentMacLongDateTime(sint64 &outMacDate);
 
-extern void TimeStringToMacSeconds(const CSSM_DATA &inUTCTime, UInt32 &ioMacDate);
-extern void TimeStringToMacLongDateTime(const CSSM_DATA &inUTCTime, SInt64 &outMacDate);
+extern void TimeStringToMacSeconds(const CSSM_DATA &inUTCTime, uint32 &ioMacDate);
+extern void TimeStringToMacLongDateTime(const CSSM_DATA &inUTCTime, sint64 &outMacDate);
 
 // Length of inLength is an input parameter and must be 14 or 16.
 // The outData parameter must point to a buffer of at least inLength bytes.
-extern void MacSecondsToTimeString(UInt32 inMacDate, UInt32 inLength, void *outData);
-extern void MacLongDateTimeToTimeString(const SInt64 &inMacDate,
-                                        UInt32 inLength, void *outData);
+extern void MacSecondsToTimeString(uint32 inMacDate, uint32 inLength, void *outData);
+extern void MacLongDateTimeToTimeString(const sint64 &inMacDate,
+                                        uint32 inLength, void *outData);
 
 } // end namespace CSSMDateTimeUtils
 

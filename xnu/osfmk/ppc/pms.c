@@ -1,37 +1,47 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2006 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
-#include <ppc/machine_routines.h>
-#include <ppc/machine_cpu.h>
-#include <ppc/exception.h>
-#include <ppc/misc_protos.h>
-#include <ppc/Firmware.h>
-#include <ppc/pmap.h>
-#include <ppc/proc_reg.h>
-#include <ppc/pms.h>
-#include <ppc/savearea.h>
-#include <ppc/exception.h>
+#include <machine/machine_routines.h>
+#include <machine/machine_cpu.h>
+#ifdef __ppc__
+# include <ppc/exception.h>
+# include <ppc/misc_protos.h>
+# include <ppc/cpu_internal.h>
+#else
+# include <i386/cpu_data.h>
+# include <i386/misc_protos.h>
+#endif
+#include <machine/pmap.h>
+#include <kern/pms.h>
 #include <kern/processor.h>
+#include <kern/kalloc.h>
+#include <vm/vm_protos.h>
 
-extern int real_ncpus;
+extern int is_suser(void);
 
 static uint32_t pmsSyncrolator = 0;					/* Only one control operation at a time please */
 uint32_t pmsBroadcastWait = 0;						/* Number of outstanding broadcasts */
@@ -40,7 +50,7 @@ int pmsInstalled = 0;								/* Power Management Stepper can run and has table i
 int pmsExperimental = 0;							/* Power Management Stepper in experimental mode */
 decl_simple_lock_data(,pmsBuildLock)				/* Make sure only one guy can replace table  at the same time */
 
-static pmsDef *altDpmsTab = 0;						/* Alternate step definition table */
+static pmsDef *altDpmsTab;						/* Alternate step definition table */
 static uint32_t altDpmsTabSize = 0;					/* Size of alternate step definition table */
 
 pmsDef pmsDummy = {									/* This is the dummy step for initialization.  All it does is to park */
@@ -55,26 +65,36 @@ pmsDef pmsDummy = {									/* This is the dummy step for initialization.  All i
 pmsStat pmsStatsd[4][pmsMaxStates];					/* Generate enough statistics blocks for 4 processors */
 
 pmsCtl pmsCtls = {									/* Power Management Stepper control */
-	.pmsStats = &pmsStatsd
+	.pmsStats = pmsStatsd,
 };
 
-pmsSetFunc_t pmsFuncTab[pmsSetFuncMax] = {0};		/* This is the function index table */
-pmsQueryFunc_t pmsQueryFunc = 0;					/* Pointer to pmsQuery function */
+pmsSetFunc_t pmsFuncTab[pmsSetFuncMax] = {NULL};		/* This is the function index table */
+pmsQueryFunc_t pmsQueryFunc;					/* Pointer to pmsQuery function */
 uint32_t pmsPlatformData = 0;						/* Data provided by and passed to platform functions */
+
+#ifdef __ppc__
+# define PER_PROC_INFO		struct per_proc_info
+# define GET_PER_PROC_INFO()	getPerProc()
+#else
+# define PER_PROC_INFO 		cpu_data_t
+# define GET_PER_PROC_INFO()	current_cpu_datap()
+#endif
+
 
 
 /*
  *	Do any initialization needed
  */
  
-void pmsInit(void) {
-
+void
+pmsInit(void)
+{
 	int i;
 	
 	simple_lock_init(&pmsBuildLock, 0);				/* Initialize the build lock */
 	for(i = 0; i < pmsMaxStates; i++) pmsCtls.pmsDefs[i] = &pmsDummy;	/* Initialize the table to dummy steps */
 
-	return;
+	pmsCPUMachineInit();
 }
 
 
@@ -86,18 +106,17 @@ void pmsInit(void) {
  *
  */
  
- void pmsStart(void) {
-
+ void
+ pmsStart(void)
+{
  	boolean_t	intr;
 
-	if(!pmsInstalled) return;						/* We can't do this if no table installed */
+	if(!pmsInstalled)
+		return;						/* We can't do this if no table installed */
 
 	intr = ml_set_interrupts_enabled(FALSE);		/* No interruptions in here */
 	pmsRun(pmsStartUp);								/* Start running the stepper everywhere */
 	(void)ml_set_interrupts_enabled(intr);			/* Restore interruptions */
-
-	return;
- 
  }
  
 
@@ -111,18 +130,17 @@ void pmsInit(void) {
  *
  */
  
-void pmsPark(void) {
-
+void
+pmsPark(void)
+{
 	boolean_t	intr;
 
-	if(!pmsInstalled) return;						/* We can't do this if no table installed */
+	if(!pmsInstalled)
+		return;						/* We can't do this if no table installed */
 
 	intr = ml_set_interrupts_enabled(FALSE);		/* No interruptions in here */
 	pmsSetStep(pmsParked, 0);						/* Park the stepper */
 	(void)ml_set_interrupts_enabled(intr);			/* Restore interruptions */
-	
-	return;
-
 }
  
 
@@ -131,18 +149,19 @@ void pmsPark(void) {
  *	Interrupts must be off...
  */
 
-void pmsDown(void) {
-
-	struct per_proc_info *pp;
+void
+pmsDown(void)
+{
+	PER_PROC_INFO *pp;
 	uint32_t nstate;
 	
-	pp = getPerProc();								/* Get our per_proc */
+	pp = GET_PER_PROC_INFO();								/* Get our per_proc */
 	
-	if(!pmsInstalled || pp->pms.pmsState == pmsParked) return;		/* No stepping if parked or not installed */
+	if(!pmsInstalled || pp->pms.pmsState == pmsParked)
+		return;		/* No stepping if parked or not installed */
 	
 	nstate = pmsCtls.pmsDefs[pp->pms.pmsState]->pmsDown;	/* Get the downward step */
 	pmsSetStep(nstate, 0);							/* Step to it */
-	return;
 }
 
 
@@ -152,27 +171,84 @@ void pmsDown(void) {
  *
  *	Interrupts must be off...
  */
+
+int pmsStepIdleSneaks;
+int pmsStepIdleTries;
  
-void pmsStep(int timer) {
+void
+pmsStep(int timer)
+{
+	PER_PROC_INFO	*pp;
+	uint32_t	nstate;
+	uint32_t	tstate;
+	uint32_t	pkgstate;
+	int		dir;
+	int		i;
+	
+	pp = GET_PER_PROC_INFO();								/* Get our per_proc */
 
-	struct per_proc_info *pp;
-	uint32_t nstate;
-	int dir;
+	if(!pmsInstalled || pp->pms.pmsState == pmsParked)
+		return;	/* No stepping if parked or not installed */
 	
-	pp = getPerProc();								/* Get our per_proc */
+	/*
+	 * Assume a normal step.
+	 */
+	nstate = pmsCtls.pmsDefs[pp->pms.pmsState]->pmsNext;
 
-	if(!pmsInstalled || pp->pms.pmsState == pmsParked) return;	/* No stepping if parked or not installed */
-	
-	nstate = pmsCtls.pmsDefs[pp->pms.pmsState]->pmsNext;	/* Assume a normal step */
-	dir = 1;										/* A normal step is a step up */
-	
-	if(timer && (pmsCtls.pmsDefs[pp->pms.pmsState]->pmsSetCmd == pmsDelay)) {	/* If the timer expired and we are in a delay step, use the delay branch */
-		nstate = pmsCtls.pmsDefs[pp->pms.pmsState]->pmsTDelay;	/* Get the delayed step */
-		dir = 0;									/* Delayed steps are a step down for accounting purposes. */
+	/*
+	 * If we are idling and being asked to step up, check to see whether
+	 * the package we're in is already at a non-idle power state.  If so,
+	 * attempt to work out what state that is, and go there directly to
+	 * avoid wasting time ramping up.
+	 */
+	if ((pp->pms.pmsState == pmsIdle)
+	    && ((pkgstate = pmsCPUPackageQuery()) != ~(uint32_t)0)) {
+		/*
+		 * Search forward through the stepper program,
+		 * avoid looping for too long.
+		 */
+		tstate = nstate;
+		pmsStepIdleTries++;
+		for (i = 0; i < 32; i++) {
+		    /*
+		     * Compare command with current package state
+		     */
+		    if ((pmsCtls.pmsDefs[tstate]->pmsSetCmd & pmsCPU) == pkgstate) {
+			nstate = tstate;
+			pmsStepIdleSneaks++;
+			break;
+		    }
+
+		    /*
+		     * Advance to the next step in the program.
+		     */
+		    if (pmsCtls.pmsDefs[tstate]->pmsNext == tstate)
+			break;	/* infinite loop */
+		    tstate = pmsCtls.pmsDefs[tstate]->pmsNext;
+		}
+        }
+
+	/*
+	 * Default to a step up.
+	 */
+	dir = 1;
+
+	/*
+	 * If we are stepping as a consequence of timer expiry, select the
+	 * alternate exit path and note this as downward step for accounting
+	 * purposes.
+	 */
+	if (timer
+	    && (pmsCtls.pmsDefs[pp->pms.pmsState]->pmsSetCmd == pmsDelay)) {
+	    nstate = pmsCtls.pmsDefs[pp->pms.pmsState]->pmsTDelay;
+
+	    /*
+	     * Delayed steps are a step down for accounting purposes.
+	     */
+	    dir = 0;
 	}
 
-	pmsSetStep(nstate, dir);						/* Step to it  */
-	return;
+	pmsSetStep(nstate, dir);
 }
 
 
@@ -184,15 +260,16 @@ void pmsStep(int timer) {
  *
  */
 
-void pmsSetStep(uint32_t nstep, int dir) {
-
-	struct per_proc_info *pp;
-	uint32_t pstate, ret, nCSetCmd, mCSetCmd;
+void
+pmsSetStep(uint32_t nstep, int dir)
+{
+	PER_PROC_INFO *pp;
+	uint32_t pstate, nCSetCmd, mCSetCmd;
 	pmsDef *pnstate, *pcstate;
-	uint64_t tb, nt, dur;
-	int cpu, frompark;
+	uint64_t tb, dur;
+	int cpu;
 
-	pp = getPerProc();								/* Get our per_proc */
+	pp = GET_PER_PROC_INFO();								/* Get our per_proc */
 	cpu = cpu_number();								/* Get our processor */
 	
 	while(1) {										/* Keep stepping until we get a delay */
@@ -207,7 +284,7 @@ void pmsSetStep(uint32_t nstep, int dir) {
 			pp->pms.pmsStamp = tb;					/* Show transition now */
 			pp->pms.pmsPop = HalfwayToForever;		/* Set the pop way into the future */
 			pp->pms.pmsState = pmsParked;			/* Make sure we are parked */
-			setTimerReq();							/* Cancel our timer if going */
+			etimer_resync_deadlines();							/* Cancel our timer if going */
 			return;
 		}
 
@@ -252,15 +329,12 @@ void pmsSetStep(uint32_t nstep, int dir) {
  
 		if((pnstate->pmsSetCmd == pmsDelay) 
 			|| (!(pp->pms.pmsCSetCmd & pmsSync) && (pnstate->pmsLimit != 0))) {	/* Is this not syncronous and a non-zero delay or a delayed step? */
-			setTimerReq();							/* Start the timers ticking */
+			etimer_resync_deadlines();							/* Start the timers ticking */
 			break;									/* We've stepped as far as we're going to... */
 		}
 		
 		nstep = pnstate->pmsNext;					/* Chain on to the next */
 	}
-
-	return;
-
 }
 
 /*
@@ -268,20 +342,20 @@ void pmsSetStep(uint32_t nstep, int dir) {
  *
  */
  
-void pmsRunLocal(uint32_t nstep) {
-
-	struct per_proc_info *pp;
-	uint32_t cstate, ret, lastState;
-	pmsDef *pnstate, *pcstate;
-	uint64_t tb, nt, dur;
-	int cpu, i, j;
+void
+pmsRunLocal(uint32_t nstep)
+{
+	PER_PROC_INFO *pp;
+	uint32_t lastState;
+	int cpu, i;
 	boolean_t	intr;
 
-	if(!pmsInstalled) return;						/* Ignore this if no step programs installed... */
+	if(!pmsInstalled) /* Ignore this if no step programs installed... */
+		return;
 
 	intr = ml_set_interrupts_enabled(FALSE);		/* No interruptions in here */
 
-	pp = getPerProc();								/* Get our per_proc */
+	pp = GET_PER_PROC_INFO();								/* Get our per_proc */
 
 	if(nstep == pmsStartUp) {						/* Should we start up? */
 		pmsCPUInit();								/* Get us up to full with high voltage and park */
@@ -303,74 +377,83 @@ void pmsRunLocal(uint32_t nstep) {
 	}
 
 	(void)ml_set_interrupts_enabled(intr);			/* Restore interruptions */
-
-	return;
-
 }
 
 /*
  *	Control the Power Management Stepper.
- *	Called from user state by the superuser via a ppc system call.
+ *	Called from user state by the superuser.
  *	Interruptions disabled.
  *
  */
-
-int pmsCntrl(struct savearea *save) {
-
-	uint32_t request, nstep, reqsize, result, presult;
+kern_return_t
+pmsControl(uint32_t request, user_addr_t reqaddr, uint32_t reqsize)
+{
+	uint32_t nstep = 0, result, presult;
 	int ret, cpu;
-	kern_return_t kret;
+	kern_return_t kret = KERN_SUCCESS;
 	pmsDef *ndefs;
-	struct per_proc_info *pp;
+	PER_PROC_INFO *pp;
 
-	pp = getPerProc();								/* Get our per_proc */
+	pp = GET_PER_PROC_INFO();								/* Get our per_proc */
 	cpu = cpu_number();								/* Get our processor */
 	
 	if(!is_suser()) {								/* We are better than most, */
-		save->save_r3 = KERN_FAILURE;				/* so we will only talk to the superuser. */
-		return 1;									/* Turn up our noses, say "harrumph," and walk away... */
+		kret = KERN_FAILURE;
+		goto out;
 	}
-	
-	if(save->save_r3 >= pmsCFree) {					/* Can we understand the request? */
-		save->save_r3 = KERN_INVALID_ARGUMENT;		/* What language are these guys talking in, anyway? */
-		return 1;									/* Cock head like a confused puppy and run away... */
-	}
-	
-	request = (int)save->save_r3;					/* Remember the request */
-	reqsize = (uint32_t)save->save_r5;				/* Get the size of the config table */
 
+	if(request >= pmsCFree) {					/* Can we understand the request? */
+		kret = KERN_INVALID_ARGUMENT;
+		goto out;
+	}
+	
 	if(request == pmsCQuery) {						/* Are we just checking? */
-		result = pmsCPUquery() & pmsCPU;			/* Get the processor data and make sure there is no slop */
+		result = pmsCPUQuery() & pmsCPU;			/* Get the processor data and make sure there is no slop */
 		presult = 0;								/* Assume nothing */
-		if((uint32_t)pmsQueryFunc) presult = pmsQueryFunc(cpu, pmsPlatformData);	/* Go get the platform state */
-		result = result | (presult & (pmsXClk | pmsVoltage | pmsPowerID));	/* Merge the platform state with no slop */
-		save->save_r3 = result;						/* Tell 'em... */
-		return 1;
+		if((uint32_t)pmsQueryFunc)
+			presult = pmsQueryFunc(cpu, pmsPlatformData);	/* Go get the platform state */
+		kret = result | (presult & (pmsXClk | pmsVoltage | pmsPowerID));	/* Merge the platform state with no slop */
+		goto out;
 	}
 	
 	if(request == pmsCExperimental) {				/* Enter experimental mode? */
 	
 		if(pmsInstalled || (pmsExperimental & 1)) {	/* Are we already running or in experimental? */
-			save->save_r3 = KERN_FAILURE;			/* Fail, since we are already running */
-			return 1;
+			kret = KERN_FAILURE;
+			goto out;
 		}
 		
 		pmsExperimental |= 1;						/* Flip us into experimental but don't change other flags */
 		
 		pmsCPUConf();								/* Configure for this machine */
 		pmsStart();									/* Start stepping */
-		save->save_r3 = KERN_SUCCESS;				/* We are victorious... */
-		return 1;
-	
+		goto out;
 	}
 
 	if(request == pmsCCnfg) {						/* Do some up-front checking before we commit to doing this */
 		if((reqsize > (pmsMaxStates * sizeof(pmsDef))) || (reqsize < (pmsFree * sizeof(pmsDef)))) {	/* Check that the size is reasonable */
-			save->save_r3 = KERN_NO_SPACE;			/* Tell them that they messed up */
-			return 1;								/* l8r... */
+			kret = KERN_NO_SPACE;
+			goto out;
 		}
 	}
 
+	if (request == pmsGCtls) {
+		if (reqsize != sizeof(pmsCtls)) {
+			kret = KERN_FAILURE;
+			goto out;
+		}
+		ret = copyout(&pmsCtls, reqaddr, reqsize);
+		goto out;
+	}
+			
+	if (request == pmsGStats) {
+		if (reqsize != sizeof(pmsStatsd)) { /* request size is fixed */
+			kret = KERN_FAILURE;
+			goto out;
+		}
+		ret = copyout(&pmsStatsd, reqaddr, reqsize);
+		goto out;
+	}
 
 /*
  *	We are committed after here.  If there are any errors detected, we shouldn't die, but we
@@ -381,10 +464,10 @@ int pmsCntrl(struct savearea *save) {
  */
  		
 	if(!hw_compare_and_store(0, 1, &pmsSyncrolator)) {	/* Are we already doing this? */
-		save->save_r3 = KERN_RESOURCE_SHORTAGE;		/* Tell them that we are already busy and to try again */
-		return 1;									/* G'wan away and don't bother me... */
+		/* Tell them that we are already busy and to try again */
+		kret = KERN_RESOURCE_SHORTAGE;
+		goto out;
 	}
-	save->save_r3 = KERN_SUCCESS;					/* Assume success */
 
 //	NOTE:  We will block in the following code until everyone has finished the prepare
 
@@ -392,7 +475,7 @@ int pmsCntrl(struct savearea *save) {
 	
 	if(request == pmsCPark) {						/* Is all we're supposed to do park? */
 		pmsSyncrolator = 0;							/* Free us up */
-		return 1;									/* Well, then we're done... */
+		goto out;
 	}
 	
 	switch(request) {								/* Select the routine */
@@ -412,25 +495,24 @@ int pmsCntrl(struct savearea *save) {
 		case pmsCCnfg:								/* Loads new stepper program */
 			
 			if(!(ndefs = (pmsDef *)kalloc(reqsize))) {	/* Get memory for the whole thing */
-				save->save_r3 = KERN_INVALID_ADDRESS;	/* Return invalid address */
 				pmsSyncrolator = 0;					/* Free us up */
-				return 1;							/* All done... */
+				kret = KERN_INVALID_ADDRESS;
+				goto out;
 			}
 			
-			ret = copyin((user_addr_t)((unsigned int)(save->save_r4)), (void *)ndefs, reqsize);	/* Get the new config table */
+			ret = copyin(reqaddr, (void *)ndefs, reqsize);	/* Get the new config table */
 			if(ret) {								/* Hmmm, something went wrong with the copyin */
-				save->save_r3 = KERN_INVALID_ADDRESS;	/* Return invalid address */
-				kfree((vm_offset_t)ndefs, reqsize);	/* Free up the copied in data */
+				kfree(ndefs, reqsize);	/* Free up the copied in data */
 				pmsSyncrolator = 0;					/* Free us up */
-				return 1;							/* All done... */
+				kret = KERN_INVALID_ADDRESS;
+				goto out;
 			}
 
-			kret = pmsBuild(ndefs, reqsize, 0, 0, 0);	/* Go build and replace the tables.  Make sure we keep the old platform stuff */
+			kret = pmsBuild(ndefs, reqsize, NULL, 0, NULL);	/* Go build and replace the tables.  Make sure we keep the old platform stuff */
 			if(kret) {								/* Hmmm, something went wrong with the compilation */
-				save->save_r3 = kret;				/* Pass back the passed back return code */
-				kfree((vm_offset_t)ndefs, reqsize);	/* Free up the copied in data */
+				kfree(ndefs, reqsize);	/* Free up the copied in data */
 				pmsSyncrolator = 0;					/* Free us up */
-				return 1;							/* All done... */
+				goto out;
 			}
 
 			nstep = pmsNormHigh;					/* Set the request */
@@ -443,45 +525,22 @@ int pmsCntrl(struct savearea *save) {
 
 	pmsRun(nstep);									/* Get everyone into step */
 	pmsSyncrolator = 0;								/* Free us up */
-	return 1;										/* All done... */
+out:
+	return kret;
 
 }
 
 /*
  *	Broadcast a change to all processors including ourselves.
- *	This must transition before broadcasting because we may block and end up on a different processor.
  *
- *	This will block until all processors have transitioned, so
- *	obviously, this can block.
- *
- *	Called with interruptions disabled.
- *
+ *	Interruptions are disabled.
  */
  
-void pmsRun(uint32_t nstep) {
-
-	pmsRunLocal(nstep);								/* If we aren't parking (we are already parked), transition ourselves */
-	(void)cpu_broadcast(&pmsBroadcastWait, pmsRemote, nstep);	/* Tell everyone else to do it too */
-
-	return;
-	
+void
+pmsRun(uint32_t nstep)
+{
+	pmsCPURun(nstep);
 }
-
-/*
- *	Receive a broadcast and react.
- *	This is called from the interprocessor signal handler.
- *	We wake up the initiator after we are finished.
- *
- */
-	
-void pmsRemote(uint32_t nstep) {
-
-	pmsRunLocal(nstep);								/* Go set the step */
-	if(!hw_atomic_sub(&pmsBroadcastWait, 1)) {		/* Drop the wait count */
-		thread_wakeup((event_t)&pmsBroadcastWait);	/* If we were the last, wake up the signaller */
-	}
-	return;
-}	
 
 
 /*
@@ -512,20 +571,21 @@ void pmsRemote(uint32_t nstep) {
  
 kern_return_t pmsBuild(pmsDef *pd, uint32_t pdsize, pmsSetFunc_t *functab, uint32_t platformData, pmsQueryFunc_t queryFunc) {
 
-	int steps, newsize, i, cstp, nstps, oldAltSize, xdsply;
-	uint32_t setf;
+	int newsize, cstp, oldAltSize, xdsply;
+	uint32_t setf, steps, i, nstps;
 	uint64_t nlimit;
 	pmsDef *newpd, *oldAlt;
 	boolean_t intr;
 
 	xdsply = (pmsExperimental & 3) != 0;			/* Turn on kprintfs if requested or in experimental mode */
 
-	if(pdsize % sizeof(pmsDef)) return KERN_INVALID_ARGUMENT;	/* Length not multiple of definition size */
+	if(pdsize % sizeof(pmsDef))
+		return KERN_INVALID_ARGUMENT;	/* Length not multiple of definition size */
 	
 	steps = pdsize / sizeof(pmsDef);				/* Get the number of steps supplied */
 
 	if((steps >= pmsMaxStates) || (steps < pmsFree))	/* Complain if too big or too small */
-			return KERN_INVALID_ARGUMENT;			/* Squeak loudly!!! */
+		return KERN_INVALID_ARGUMENT;			/* Squeak loudly!!! */
 			
 	if((uint32_t)functab && (uint32_t)functab[0])	/* Verify that if they supplied a new function table, entry 0 is 0 */
 		return KERN_INVALID_ARGUMENT;				/* Fail because they didn't reserve entry 0 */
@@ -666,15 +726,16 @@ kern_return_t pmsBuild(pmsDef *pd, uint32_t pdsize, pmsSetFunc_t *functab, uint3
 		newpd[i].pmsTDelay  = pd[i].pmsTDelay;		/* Set the delayed setp */
 		pmsCtls.pmsDefs[i]  = &newpd[i];			/* Copy it in */
 	}
-	
+#ifdef __ppc__	
 	pmsCtlp = (uint32_t)&pmsCtls;					/* Point to the new pms table */
-	
+#endif
  	pmsInstalled = 1;								/* The stepper has been born or born again... */
 
 	simple_unlock(&pmsBuildLock);					/* Free play! */
 	(void)ml_set_interrupts_enabled(intr);			/* Interrupts back the way there were */
 
-	if((uint32_t)oldAlt) kfree((vm_offset_t)oldAlt, oldAltSize);	/* If we already had an alternate, free it */
+	if((uint32_t)oldAlt) /* If we already had an alternate, free it */
+		kfree(oldAlt, oldAltSize);
 
 	if(xdsply) kprintf("Stepper table installed\n");
 	

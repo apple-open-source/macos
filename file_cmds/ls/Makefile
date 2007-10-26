@@ -14,11 +14,11 @@ PROJECT_TYPE = Tool
 
 HFILES = extern.h ls.h
 
-CFILES = cmp.c ls.c print.c util.c
+CFILES = cmp.c ls.c print.c util.c humanize_number.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble ls.1
 
-OTHER_CFLAGS = -DCOLORLS -I/System/Library/Frameworks/System.framework/PrivateHeaders
+OTHER_CFLAGS = -DCOLORLS -I/System/Library/Frameworks/System.framework/PrivateHeaders -D__FBSDID=__RCSID -D_DARWIN_USE_64_BIT_INODE
 OTHER_LDFLAGS = -lncurses
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

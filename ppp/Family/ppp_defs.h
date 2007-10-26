@@ -124,12 +124,18 @@ enum NPmode {
 };
 
 /*
- * Source filter address for network protocol (NP) packets.
+ *  Filter address for network protocol (NP) packets.
  */
 enum NPAFmode {
     NPAFMODE_SRC_IN = 1,	/* filter source address of incoming packets */
-    NPAFMODE_SRC_OUT = 2	/* filter source address of outgoing packets */
+    NPAFMODE_SRC_OUT = 2,	/* filter source address of outgoing packets */
+    NPAFMODE_DHCP_INTERCEPT_SERVER = 4,	/* intercept DHCP packets as server */
+    NPAFMODE_DHCP_INTERCEPT_CLIENT = 8	/* intercept DHCP packets as client */
 };
+
+#if __DARWIN_ALIGN_POWER
+#pragma options align=power
+#endif
 
 /*
  * Statistics for LQRP and pppstats
@@ -191,9 +197,13 @@ struct ppp_comp_stats {
  * the last NP packet was sent or received.
  */
 struct ppp_idle {
-    time_t xmit_idle;		/* time since last NP packet sent */
-    time_t recv_idle;		/* time since last NP packet received */
+    u_int32_t xmit_idle;		/* time since last NP packet sent */
+    u_int32_t recv_idle;		/* time since last NP packet received */
 };
+
+#if __DARWIN_ALIGN_POWER
+#pragma options align=reset
+#endif
 
 #ifndef __P
 #ifdef __STDC__

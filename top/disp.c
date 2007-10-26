@@ -33,25 +33,23 @@
 #define DISP_SIG		SIGTERM
 #define DISP_SIGNAME		"TERM"
 
-/* Value to ungetch() when a signal should cause resize. */
-#define DISP_KEY_RESIZE		(KEY_MAX + 1)
 /* Value to ungetch() when a signal should cause shutdown. */
-#define DISP_KEY_EXIT		(KEY_MAX + 2)
+#define DISP_KEY_EXIT		(KEY_MAX + 1)
 
 /*
  * Buffer large enough to hold a full line of text, plus a '\0'.  This is
  * dynamically resized as necessary.
  */
-static char	*disp_lbuf;
+char	*disp_lbuf;
 
 /*
  * Buffer for interactive command line large enough to hold a full line of text,
  * plus a '\0'. This is dynamically resized as necessary (same as disp_lbuf).
  */
-static char	*disp_sbuf;
+char	*disp_sbuf;
 
 /* Size of disp_lbuf and disp_sbuf. */
-static int	disp_bufsize;
+int	disp_bufsize;
 
 /*
  * Buffer large enough to hold any of the following, plus a '\0':
@@ -98,6 +96,7 @@ static unsigned disp_curline;
 static int		disp_iline;
 static struct timeval	disp_ilinetime;
 static boolean_t	disp_ilineclear;
+static boolean_t        disp_pending_resize = false;
 
 static boolean_t
 disp_p_skipl(void);
@@ -138,12 +137,12 @@ static boolean_t
 disp_p_help(void);
 static void
 disp_p_sigwinch(int a_signal);
-static boolean_t
-disp_p_resize(void);
+static void
+disp_p_resize(int a_signal);
 static boolean_t
 disp_p_interp_c(void);
 static boolean_t
-disp_p_interp_ns(const char *a_name, int *r_int);
+disp_p_interp_ns(const char *a_name, unsigned int *r_int);
 static boolean_t
 disp_p_interp_Oo(const char *a_name, top_sort_key_t *r_key,
     boolean_t *r_ascend);
@@ -175,16 +174,13 @@ disp_run(void)
 	gettimeofday(&curtime, NULL);
 
 	for (;;) {
-#ifdef TOP_DEPRECATED
-		/*
-		 * Short circuit commands that were not supported in the old top
-		 * if deprecated mode is enabled.
-		 */
-		AGAIN:
-#endif
 		/* If detached, quit */
-		if (!isatty(0))
-			exit(1);
+		if (!isatty(0)) exit(1);
+
+		if (disp_pending_resize) {
+		  disp_p_resize(0);
+		  disp_pending_resize = false;
+		}
 
 		/* Take a sample and print it. */
 		disp_curline = 0;
@@ -232,7 +228,7 @@ disp_run(void)
 			retval = TRUE;
 			goto RETURN;
 		}
-
+	GET_CHAR:
 		/* Read a character. */
 		c = wgetch(disp_dwin);
 
@@ -257,11 +253,6 @@ disp_run(void)
 		/* Interpret the typed character. */
 		switch (c) {
 		case 'c':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Set the output mode. */
 			if (disp_p_interp_c()) {
 				retval = TRUE;
@@ -272,11 +263,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'f':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Toggle shared library reporting. */
 			top_opt_f = !top_opt_f;
 
@@ -292,11 +278,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'n':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Set the update interval. */
 			if (disp_p_interp_ns("number of processes",
 			    &top_opt_n)) {
@@ -308,11 +289,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'O':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Set the secondary sort key. */
 			if (disp_p_interp_Oo("secondary", &top_opt_O,
 			    &top_opt_O_ascend)) {
@@ -324,11 +300,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'o':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Set the primary sort key. */
 			if (disp_p_interp_Oo("primary", &top_opt_o,
 			    &top_opt_o_ascend)) {
@@ -346,11 +317,6 @@ disp_run(void)
 			retval = FALSE;
 			goto RETURN;
 		case 'r':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Toggle memory object map reporting. */
 			top_opt_r = !top_opt_r;
 
@@ -366,11 +332,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'S':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Send a signal. */
 			if (disp_p_interp_S()) {
 				retval = TRUE;
@@ -381,11 +342,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 's':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Set the update interval. */
 			if (disp_p_interp_ns("update interval", &top_opt_s)) {
 				retval = TRUE;
@@ -398,11 +354,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 't':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Toggle memory object map reporting for pid 0. */
 			top_opt_t = !top_opt_t;
 
@@ -417,11 +368,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'U':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Only display processes owned by a particular user. */
 			if (disp_p_interp_U()) {
 				retval = TRUE;
@@ -432,11 +378,6 @@ disp_run(void)
 			disp_ilineclear = TRUE;
 			break;
 		case 'w':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Toggle wide/narrow delta mode. */
 			top_opt_w = !top_opt_w;
 
@@ -450,14 +391,13 @@ disp_run(void)
 			gettimeofday(&disp_ilinetime, NULL);
 			disp_ilineclear = TRUE;
 			break;
-#ifdef TOP_DEPRECATED
 		case 'x':
-			/* Toggle compatibility mode. */
+			/* Toggle display format. */
 			top_opt_x = !top_opt_x;
 
 			if (disp_p_iline_set(top_opt_x
-			    ? "Normal (non-compatibility) mode"
-			    : "Compatibility mode")) {
+			    ? "Normal display"
+			    : "legacy display")) {
 				retval = TRUE;
 				goto RETURN;
 			}
@@ -470,13 +410,9 @@ disp_run(void)
 			gettimeofday(&disp_ilinetime, NULL);
 			disp_ilineclear = TRUE;
 			break;
-#endif
 		case '\x0c': /* C-l */
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
+		case ' ':    /* space */
+		case '\r':   /* return */
 			/* Redraw. */
 			if (disp_ilineclear) {
 				if (disp_p_iline_set("")) {
@@ -486,24 +422,13 @@ disp_run(void)
 				disp_ilineclear = FALSE;
 			}
 
-			if (disp_p_resize()
-			    || redrawwin(disp_dwin) == ERR) {
-				retval = TRUE;
-				goto RETURN;
-			}
-			break;
-		case DISP_KEY_RESIZE: /* SIGWINCH. */
-			if (disp_p_resize()) {
+			disp_p_resize(0);
+			if (redrawwin(disp_dwin) == ERR) {
 				retval = TRUE;
 				goto RETURN;
 			}
 			break;
 		case '?':
-#ifdef TOP_DEPRECATED
-			if (top_opt_x) {
-				goto AGAIN;
-			}
-#endif
 			/* Display the help panel. */
 			if (disp_p_help()) {
 				retval = TRUE;
@@ -511,9 +436,10 @@ disp_run(void)
 			}
 			/* Fall through. */
 		case ERR: /* Timeout. */
-		default:
-			/* Just redisplay. */
 			break;
+		default:
+			/* Ignore this keypress.  */
+		  goto GET_CHAR;
 		}
 	}
 	assert(0); /* Not reached. */
@@ -651,9 +577,13 @@ disp_p_vwprintln(WINDOW *a_window, boolean_t a_newline, const char *a_format,
 		assert(maxlen + 1 <= disp_bufsize);
 	}
 #ifdef TOP_DBG
-	else {
-		assert(0);
-	}
+	else assert(0);
+#endif
+
+#ifdef TOP_DBG
+	assert(maxlen + 1 <= disp_bufsize);
+#else
+	if (maxlen > disp_bufsize - 1) maxlen = disp_bufsize - 1;
 #endif
 
 	if (maxlen > 0) {
@@ -664,7 +594,7 @@ disp_p_vwprintln(WINDOW *a_window, boolean_t a_newline, const char *a_format,
 		}
 
 		/* Print. */
-		if (vsnprintf(disp_lbuf, maxlen + 1, a_format, a_p) == -1
+		if (vsnprintf(disp_lbuf, disp_bufsize, a_format, a_p) == -1
 		    || waddnstr(a_window, disp_lbuf, maxlen) == ERR) {
 			retval = TRUE;
 			goto RETURN;
@@ -769,7 +699,7 @@ disp_p_iline_prompt(const char *a_format, ...)
 {
 	const char *	retval;
 	va_list		ap;
-	boolean_t	done, resized = FALSE, exited = FALSE;
+	boolean_t	done, exited = FALSE;
 	int		c, y, x, ysize, xsize, ilen, tcurline;
 
 	getmaxyx(disp_dwin, ysize, xsize);
@@ -811,6 +741,23 @@ disp_p_iline_prompt(const char *a_format, ...)
 			goto RETURN;
 		}
 
+		if (disp_pending_resize) {
+		        disp_p_resize(0);
+
+			/* Display the prompt. */
+			va_start(ap, a_format);
+			if (disp_p_iline_vset(a_format, ap)) {
+				retval = NULL;
+				goto RETURN;
+			}
+			va_end(ap);
+
+			/*
+			 * Get the starting position for displaying user input.
+			 */
+			getyx(disp_dwin, y, x);
+		}
+		  
 		/* Read a character. */
 		c = wgetch(disp_dwin);
 
@@ -863,27 +810,6 @@ disp_p_iline_prompt(const char *a_format, ...)
 			}
 			done = TRUE;
 			break;
-		case DISP_KEY_RESIZE: /* SIGWINCH. */
-			if (disp_p_resize()) {
-				retval = NULL;
-				goto RETURN;
-			}
-
-			/* Display the prompt. */
-			va_start(ap, a_format);
-			if (disp_p_iline_vset(a_format, ap)) {
-				retval = NULL;
-				goto RETURN;
-			}
-			va_end(ap);
-
-			/*
-			 * Get the starting position for displaying user input.
-			 */
-			getyx(disp_dwin, y, x);
-
-			resized = TRUE;
-			break;
 		case DISP_KEY_EXIT: /* SIGINT or SIGQUIT. */
 			done = TRUE;
 			exited = TRUE;
@@ -917,15 +843,6 @@ disp_p_iline_prompt(const char *a_format, ...)
 	 */
 	if (exited) {
 		if (ungetch(DISP_KEY_EXIT) == ERR) {
-			retval = NULL;
-		}
-	}
-	/*
-	 * Unget DISP_KEY_RESIZE if we processed a resize event, so that the
-	 * main event loop knows to resize.
-	 */
-	if (resized) {
-		if (ungetch(DISP_KEY_RESIZE) == ERR) {
 			retval = NULL;
 		}
 	}
@@ -1036,11 +953,12 @@ disp_p_init(void)
 
 	/*
 	 * Initialize signal handlers.  SIGWINCH is taken care of by ncurses,
-	 * via DISP_KEY_RESIZE.
+	 * via disp_pending_resize.
 	 */
 	signal(SIGINT, disp_p_shutdown);
 	signal(SIGQUIT, disp_p_shutdown);
 	signal(SIGWINCH, disp_p_sigwinch);
+	signal(SIGCONT, disp_p_resize);
 
 	/* Initialize windows and panels. */
 	if ((disp_dwin = newwin(0, 0, 0, 0)) == NULL) {
@@ -1067,6 +985,7 @@ disp_p_init(void)
 		goto RETURN;
 	}
 
+	disp_sbuf[0]='\0'; disp_lbuf[0]='\0';
 	disp_bufsize = COLS + 1;
 
 	/* Initialize the default signal. */
@@ -1121,7 +1040,7 @@ disp_p_shutdown(int a_signal)
 static boolean_t
 disp_p_help(void)
 {
-	boolean_t	retval, again, resized = FALSE, exited = FALSE;
+	boolean_t	retval, again, exited = FALSE;
 	int		c, y, tcurline;
 	WINDOW		*hwin;
 	PANEL		*hpan;
@@ -1230,25 +1149,24 @@ Press any key to continue...")) {
 			goto RETURN;
 		}
 
+		if (disp_pending_resize) {
+		  /*
+		   * Resize, but preserve the resize event for the main
+		   * event loop so that the main window can be redone.
+		   */
+		  again = TRUE;
+		  
+		  disp_p_resize(0);
+		  if (wresize(hwin, LINES, COLS) == ERR
+		      || replace_panel(hpan, hwin) == ERR) {
+		    retval = TRUE;
+		    goto RETURN;
+		  }
+		}
+
 		/* Get a keypress. */
 		c = wgetch(hwin);
 		switch (c) {
-		case DISP_KEY_RESIZE:
-			/*
-			 * Resize, but preserve the resize event for the main
-			 * event loop so that the main window can be redone.
-			 */
-			again = TRUE;
-			resized = TRUE;
-
-			if (disp_p_resize()
-			    || wresize(hwin, LINES, COLS) == ERR
-			    || replace_panel(hpan, hwin) == ERR) {
-				retval = TRUE;
-				goto RETURN;
-			}
-
-			break;
 		case DISP_KEY_EXIT: /* SIGINT or SIGQUIT. */
 			exited = TRUE;
 			break;
@@ -1283,20 +1201,7 @@ Press any key to continue...")) {
 	 * Unget DISP_KEY_EXIT if we processed an exit event, so that the main
 	 * event loop knows to exit.
 	 */
-	if (exited) {
-		if (ungetch(DISP_KEY_EXIT) == ERR) {
-			retval = NULL;
-		}
-	}
-	/*
-	 * Unget DISP_KEY_RESIZE if we processed a resize event, so that the
-	 * main event loop knows to resize.
-	 */
-	if (resized) {
-		if (ungetch(DISP_KEY_RESIZE) == ERR) {
-			retval = TRUE;
-		}
-	}
+	if (exited && (ungetch(DISP_KEY_EXIT) == ERR)) return FALSE;
 
 	return retval;
 }
@@ -1305,43 +1210,32 @@ Press any key to continue...")) {
 static void
 disp_p_sigwinch(int a_signal)
 {
-	if (ungetch(DISP_KEY_RESIZE) == ERR) {
-		_exit(1);
-	}
+  disp_pending_resize = true;
 }
 
 /*
- * Resize the terminal.  This is done in response to DISP_KEY_RESIZE, which
+ * Resize the terminal.  This is done in response to disp_pending_resize, which
  * happens when a SIGWINCH signal was received by the process.
  */
-static boolean_t
-disp_p_resize(void)
+static void
+disp_p_resize(int a_signal)
 {
-	boolean_t	retval;
 	struct winsize	size;
 	char		*p, *q;
 
 	if (ioctl(1, TIOCGWINSZ, &size) == -1
 	    || resizeterm(size.ws_row, size.ws_col) == ERR
 	    || (p = (char *)realloc(disp_lbuf, size.ws_col + 1)) == NULL
-	    || (q = (char *)realloc(disp_sbuf, size.ws_col + 1)) == NULL) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	    || (q = (char *)realloc(disp_sbuf, size.ws_col + 1)) == NULL) return;
+
 	disp_lbuf = p;
 	disp_sbuf = q;
 	disp_bufsize = size.ws_col + 1;
 
 	if (wresize(disp_dwin, size.ws_row, size.ws_col) == ERR
-	    || replace_panel(disp_dpan, disp_dwin) == ERR) {
-		retval = TRUE;
-		goto RETURN;
-	}
+	    || replace_panel(disp_dpan, disp_dwin) == ERR) return;
 
 	redrawwin(disp_dwin);
-	retval = FALSE;
-	RETURN:
-	return retval;
 }
 
 /* Interpret the 'm' (mode) command. */
@@ -1375,7 +1269,7 @@ disp_p_interp_c(void)
  * Interpret the 'n' (max number of processes) or 's' (update interval) command.
  */
 static boolean_t
-disp_p_interp_ns(const char *a_name, int *r_int)
+disp_p_interp_ns(const char *a_name, unsigned int *r_int)
 {
 	boolean_t	retval;
 	const char	*s;

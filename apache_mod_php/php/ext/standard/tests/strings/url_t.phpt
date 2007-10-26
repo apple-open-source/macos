@@ -1,7 +1,5 @@
 --TEST--
 parse_url() function
---POST--
---GET--
 --FILE--
 <?php
 $sample_urls = array (
@@ -72,11 +70,17 @@ $sample_urls = array (
 'http://foo.com#bar',
 'scheme:',
 'foo+bar://baz@bang/bla',
+'gg:9130731',
 'http://user:@pass@host/path?argument?value#etc',
 );
 
     foreach ($sample_urls as $url) {
         var_dump(@parse_url($url));
+    }
+
+    $url = 'http://secret:hideout@www.php.net:80/index.php?test=1&test2=char&test3=mixesCI#some_page_ref123';
+    foreach (array(PHP_URL_SCHEME,PHP_URL_HOST,PHP_URL_PORT,PHP_URL_USER,PHP_URL_PASS,PHP_URL_PATH,PHP_URL_QUERY,PHP_URL_FRAGMENT) as $v) {
+	var_dump(parse_url($url, $v));
     }
 ?>
 --EXPECT--
@@ -676,6 +680,12 @@ array(4) {
   ["path"]=>
   string(4) "/bla"
 }
+array(2) {
+  ["scheme"]=>
+  string(2) "gg"
+  ["path"]=>
+  string(7) "9130731"
+}
 array(7) {
   ["scheme"]=>
   string(4) "http"
@@ -692,3 +702,11 @@ array(7) {
   ["fragment"]=>
   string(3) "etc"
 }
+string(4) "http"
+string(11) "www.php.net"
+int(80)
+string(6) "secret"
+string(7) "hideout"
+string(10) "/index.php"
+string(31) "test=1&test2=char&test3=mixesCI"
+string(16) "some_page_ref123"

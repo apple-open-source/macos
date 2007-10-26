@@ -2,16 +2,20 @@
 #  Makefile.am
 #
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
-#  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -25,8 +29,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,7 +39,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -67,30 +71,30 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+
 SUBDIRS			= trace .
 
-INCLUDES		= -I$(top_srcdir)/include
+INCLUDES		= -I$(top_srcdir)/include -I$(top_srcdir)/iodbcinst
 
 lib_LTLIBRARIES		= libiodbc.la
 
 libiodbc_la_LDFLAGS	= -version-info @lib_version@ \
 	                  -export-symbols $(srcdir)/iodbc.exp
 libiodbc_la_LIBADD	= trace/libiodbctrace.la \
-			  ../iodbcinst/libiodbcinst.la \
+			  ../iodbcinst/libiodbc_common.la \
 			  $(LIBADD_DL) $(LIBADD_OS)
-libiodbc_la_SOURCES	= catalog.c connect.c dlf.c dlproc.c execute.c \
+libiodbc_la_SOURCES	= catalog.c connect.c dlproc.c execute.c \
 			  fetch.c hdbc.c henv.c herr.c hstmt.c info.c \
-			  misc.c prepare.c result.c odbc3.c \
-			  unicode.c
+			  misc.c prepare.c result.c odbc3.c
 
-noinst_HEADERS		= dlf.h dlproc.h hdbc.h henv.h herr.h \
-			  hstmt.h itrace.h henv.ci herr.ci hdesc.h ithread.h \
-			  unicode.h
+noinst_HEADERS		= dlproc.h hdbc.h henv.h herr.h iodbc_misc.h \
+			  hstmt.h itrace.h henv.ci herr.ci hdesc.h ithread.h
+			  
 
+if DARWIN
 libiodbc.la: $(libiodbc_la_OBJECTS) $(libiodbc_la_DEPENDENCIES)
 	$(LINK) -rpath $(libdir) $(libiodbc_la_LDFLAGS) $(libiodbc_la_OBJECTS) $(libiodbc_la_LIBADD) $(LIBS)
-if DARWIN
-	$(STRIP) -s $(top_srcdir)/mac/iodbc.exp -u .libs/*.dylib
+	-$(STRIP) -s $(top_srcdir)/mac/iodbc.exp -u .libs/*.dylib
 endif
 
 EXTRA_DIST		= iodbc.def iodbc.exp main.c vmscompile.com \
@@ -101,5 +105,7 @@ EXTRA_DIST		= iodbc.def iodbc.exp main.c vmscompile.com \
 #  Add symbolic link for libodbc.so as some apps need this
 #
 install-exec-hook:
-	$(SHELL) $(srcdir)/install_libodbc.sh $(prefix)
+if INSTALL_LIBODBC
+	$(SHELL) $(srcdir)/install_libodbc.sh $(DESTDIR)$(libdir)
+endif
 

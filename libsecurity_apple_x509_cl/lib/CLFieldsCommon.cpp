@@ -28,7 +28,7 @@
 #include <Security/oidscert.h>
 #include <Security/nameTemplates.h>
 #include <Security/certExtensionTemplates.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 
 /* 
  * Table to map an OID to the info needed to decode the 
@@ -98,7 +98,10 @@ static const NssExtenInfo nssExtenInfo[] = {
 	  kSecAsn1IntegerTemplate },
 	{ CSSMOID_InvalidityDate,
 	  sizeof(CSSM_DATA),
-	  kSecAsn1GeneralizedTimeTemplate }
+	  kSecAsn1GeneralizedTimeTemplate },
+	{ CSSMOID_QC_Statements,
+	  sizeof(NSS_QC_Statements),
+	  kSecAsn1QC_StatementsTemplate }
 };
 
 #define NUM_NSS_EXTEN_INFOS	(sizeof(nssExtenInfo) / sizeof(nssExtenInfo[0]))

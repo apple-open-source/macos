@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
 
 */
 
@@ -33,9 +33,11 @@
 #include <Security/SecureTransport.h>
 #include "sslBuildFlags.h"
 #include <Security/cssmtype.h>
+#include <CommonCrypto/CommonCryptor.h>
 
 #include "sslPriv.h"
 #include "tls_ssl.h"
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -80,8 +82,23 @@ struct CipherContext
      */
     CSSM_KEY_PTR				symKey;	
     CSSM_CSP_HANDLE				cspHand;
+	
+	/* 
+	 * At most one of the following two are nonzero after a cipher 
+	 * context has been initialized
+	 */
+	 
+	/* crypto handle for CDSA-based symmetric ciphers */
     CSSM_CC_HANDLE				ccHand;
 
+	/* 
+	 * Crypto context for CommonCrypto-based symmetric ciphers
+	 */
+	union {
+		CCCryptorRef			cryptorRef;
+		void					*aes;		/* for AES only */
+	} cc;
+	
 	/* needed in CDSASymmInit */
 	uint8						encrypting;
 	
@@ -98,8 +115,14 @@ struct CipherContext
 
 typedef struct WaitingRecord
 {   struct WaitingRecord    *next;
-    SSLBuffer				data;
-    uint32                  sent;
+    size_t                  sent;
+	/*
+	 * These two fields replace a dynamically allocated SSLBuffer;
+	 * the payload to write is contained in the variable-length
+	 * array data[].
+	 */
+	size_t					length;
+	UInt8					data[1];	
 } WaitingRecord;
 
 typedef struct DNListElem
@@ -166,13 +189,15 @@ struct SSLContext
 	SecTrustRef			peerSecTrust;
 	
     /* 
-     * trusted root certs; specific to this implementation, we'll store
-     * them conveniently...these will be used as AnchorCerts in a TP
-     * call. 
+     * trusted root certs as specified in SSLSetTrustedRoots()
      */
-    uint32				numTrustedCerts;
-    CSSM_DATA_PTR		trustedCerts;
+    CFArrayRef			trustedCerts;
     
+    /* 
+     * trusted leaf certs as specified in SSLSetTrustedLeafCertificates()
+     */
+    CFArrayRef			trustedLeafCerts;
+
     /* for symmetric cipher and RNG */
     CSSM_CSP_HANDLE		cspHand;
     
@@ -210,6 +235,8 @@ struct SSLContext
     const SSLCipherSpec *selectedCipherSpec;	/* ditto */
     SSLCipherSpec		*validCipherSpecs;		/* context's valid specs */ 
     unsigned			numValidCipherSpecs;	/* size of validCipherSpecs */
+	unsigned			numValidNonSSLv2Specs;	/* number of entries in validCipherSpecs that
+												 * are *not* SSLv2 only */
     SSLHandshakeState   state;
     
 	/* server-side only */
@@ -219,7 +246,8 @@ struct SSLContext
 	/* client and server */
 	SSLClientCertificateState	clientCertState;
 	
-    DNListElem          *acceptableDNList;
+    DNListElem          *acceptableDNList;		/* client and server */
+	CFMutableArrayRef	acceptableCAs;			/* server only - SecCertificateRefs */
 
     int                 certRequested;
     int                 certSent;
@@ -265,8 +293,10 @@ struct SSLContext
 	
 	#if 	SSL_PAC_SERVER_ENABLE
 	/* server PAC resume sets serverRandom early to allow for secret acquisition */
-	uint8				serverRandomValid;
+	uint8				serverRandomValid;	
 	#endif
+
+	Boolean				anonCipherEnable;
 };
 
 #ifdef __cplusplus

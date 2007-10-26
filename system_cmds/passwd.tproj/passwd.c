@@ -1,30 +1,32 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#define INFO_NETINFO 0
+#include <TargetConditionals.h>
+
 #define INFO_FILE 1
 #define INFO_NIS 2
-#define INFO_DIRECTORYSERVICES 3
+#if !TARGET_OS_EMBEDDED
+#define INFO_OPEN_DIRECTORY 3
+#endif
 
 #ifndef __SLICK__
 #define _PASSWD_FILE "/etc/master.passwd"
@@ -38,19 +40,21 @@
 #include <libc.h>
 #include <ctype.h>
 #include <string.h>
-#include <netinfo/ni.h>
 #include "stringops.h"
 
 #ifdef __SLICK__
 #define _PASSWORD_LEN 8
 #endif
 
+char* progname = "passwd";
+
 static char *saltchars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789./";
 
 extern int file_passwd(char *, char *);
-extern int netinfo_passwd(char *, char *);
 extern int nis_passwd(char *, char *);
-extern int ds_passwd(char *, char *);
+#ifdef INFO_OPEN_DIRECTORY
+extern int od_passwd(char *, char *, char*);
+#endif
 
 void
 getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
@@ -159,70 +163,71 @@ getpasswd(char *name, int isroot, int minlen, int mixcase, int nonalpha,
 void
 usage()
 {
-	fprintf(stderr, "usage: passwd [-i infosystem] [-l location] [name]\n");
-	fprintf(stderr, "supported infosystems are:\n");
-	fprintf(stderr, "    netinfo\n");
+	fprintf(stderr, "usage: %s [-i infosystem] [-l location] [-u authname] [name]\n", progname);
+	fprintf(stderr, "  infosystem:\n");
 	fprintf(stderr, "    file\n");
-	fprintf(stderr, "    nis\n");
-	fprintf(stderr, "    opendirectory\n");
-	fprintf(stderr, "for netinfo, location may be a domain name or server/tag\n");
-	fprintf(stderr, "for file, location may be a file name (%s is the default)\n",
-		_PASSWD_FILE);
-	fprintf(stderr, "for nis, location may be a NIS domainname\n");
-	fprintf(stderr, "for opendirectory, location may be a directory node name\n");
+	fprintf(stderr, "    NIS\n");
+	fprintf(stderr, "    OpenDirectory\n");
+	fprintf(stderr, "  location (for infosystem):\n");
+	fprintf(stderr, "    file           location is path to file (default is %s)\n", _PASSWD_FILE);
+	fprintf(stderr, "    NIS            location is NIS domain name\n");
+	fprintf(stderr, "    OpenDirectory  location is directory node name\n");
 	exit(1);
 }
 
 int
 main(int argc, char *argv[])
 {
-	char *user, *locn;
-	int i, infosystem;
+	char* user = NULL;
+	char* locn = NULL;
+	char* auth = NULL;
+	int infosystem, ch;
 	int free_user = 0;
 	
-	/* since DS works for most infosystems, make it the default */
-	//infosystem = INFO_NETINFO;
-	infosystem = INFO_DIRECTORYSERVICES;
-	user = NULL;
-	locn = NULL;
+#ifdef INFO_OPEN_DIRECTORY
+	/* since OpenDirectory works for most infosystems, make it the default */
+	infosystem = INFO_OPEN_DIRECTORY;
+#else
+	infosystem = INFO_FILE;
+#endif
 	
-	for (i = 1; i < argc; i++)
-	{
-		if (!strcmp(argv[i], "-i"))
-		{
-			if (++i >= argc)
-			{
-				fprintf(stderr, "no argument for -i option\n");
+	while ((ch = getopt(argc, argv, "i:l:u:")) != -1)
+		switch(ch) {
+		case 'i':
+			if (!strcasecmp(optarg, "file")) {
+				infosystem = INFO_FILE;
+			} else if (!strcasecmp(optarg, "NIS")) {
+				infosystem = INFO_NIS;
+			} else if (!strcasecmp(optarg, "YP")) {
+				infosystem = INFO_NIS;
+#ifdef INFO_OPEN_DIRECTORY
+			} else if (!strcasecmp(optarg, "opendirectory")) {
+				infosystem = INFO_OPEN_DIRECTORY;
+#endif
+			} else {
+				fprintf(stderr, "%s: Unknown info system \'%s\'.\n",
+					progname, optarg);
 				usage();
 			}
+			break;
+		case 'l':
+			locn = optarg;
+			break;
+		case 'u':
+			auth = optarg;
+			break;
+		case '?':
+		default:
+			usage();
+			break;
+	}
+	argc -= optind;
+	argv += optind;
 
-			if (!strcmp(argv[i], "NetInfo")) infosystem = INFO_NETINFO;
-			else if (!strcmp(argv[i], "netinfo")) infosystem = INFO_NETINFO;
-			else if (!strcmp(argv[i], "File")) infosystem = INFO_FILE;
-			else if (!strcmp(argv[i], "file")) infosystem = INFO_FILE;
-			else if (!strcmp(argv[i], "NIS")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "nis")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "YP")) infosystem = INFO_NIS;
-			else if (!strcmp(argv[i], "yp")) infosystem = INFO_NIS;
-			else if (!strcasecmp(argv[i], "opendirectory")) infosystem = INFO_DIRECTORYSERVICES;
-			else
-			{
-				fprintf(stderr, "unknown info system \"%s\"\n", argv[i]);
-				usage();
-			}
-		}
-
-		else if (!strcmp(argv[i], "-l"))
-		{
-			if (++i >= argc)
-			{
-				fprintf(stderr, "no argument for -l option\n");
-				usage();
-			}
-			locn = argv[i];
-		}
-		else if (user == NULL) user = argv[i];
-		else usage();
+	if (argc > 1) {
+		usage();
+	} else if (argc == 1) {
+		user = argv[0];
 	}
 
 	if (user == NULL)
@@ -251,18 +256,17 @@ main(int argc, char *argv[])
 	
 	switch (infosystem)
 	{
-		case INFO_NETINFO:
-			netinfo_passwd(user, locn);
-			break;
 		case INFO_FILE:
 			file_passwd(user, locn);
 			break;
 		case INFO_NIS:
 			nis_passwd(user, locn);
 			break;
-		case INFO_DIRECTORYSERVICES:
-			ds_passwd(user, locn);
+#ifdef INFO_OPEN_DIRECTORY
+		case INFO_OPEN_DIRECTORY:
+			od_passwd(user, locn, auth);
 			break;
+#endif
 	}
 	
 	if (free_user == 1)

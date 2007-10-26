@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2006-01-15</string>
+	<key>OpenSourceLicense</key>
+	<string>GNU General Public License</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>mailman.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>none</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>mailman</string>
+	<key>OpenSourceSHA1</key>
+	<string></string>
+	<key>OpenSourceURL</key>
+	<string>http://downloads.sourceforge.net/mailman/mailman-2.1.9.tgz</string>
+	<key>OpenSourceVersion</key>
+	<string>mailman 2.1.9</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.list.org</string>
+</dict>
+</plist>

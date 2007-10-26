@@ -67,7 +67,7 @@ fi
 # increment the build version if that's what's required
 
 if [ -n "$inc_build" ]; then
-	build_ver=`expr $build_ver + 1`
+	build_ver=`expr 1 + $build_ver`
 fi
 
 # what's the patch level?
@@ -96,11 +96,11 @@ echo "/* Version control for the shell.  This file gets changed when you say"
 echo "   \`make version.h' to the Makefile.  It is created by mkversion. */"
 
 # Output the distribution version.  Single numbers are converted to x.00.
-# Allow, as a special case, `[:digit:].[:digit:][:digit:][:alpha:]' for
-# intermediate versions (e.g., `2.05a').
+# Allow, as a special case, `[:digit:].[:digit:][:alpha:]' for
+# intermediate versions (e.g., `2.5a').
 # Any characters other than digits and `.' are invalid.
 case "$dist_version" in
-[0-9].[0-9][0-9][a-z])	;;	# special case
+[0-9].[0-9][a-z])	;;	# special case
 *[!0-9.]*)	echo "mkversion.sh: ${dist_version}: bad distribution version" >&2
 		exit 1 ;;
 *.*)	;;
@@ -112,9 +112,9 @@ dist_major=`echo $dist_version | sed 's:\..*$::'`
 
 dist_minor=`echo $dist_version | sed 's:^.*\.::'`
 case "$dist_minor" in
-"")	dist_minor=00 ;;
-[a-z])	dist_minor=00${dist_minor} ;;
-?)	dist_minor=0${dist_minor} ;;
+"")	dist_minor=0 ;;
+[a-z])	dist_minor=0${dist_minor} ;;
+?)	dist_minor=${dist_minor} ;;
 *)	;;
 esac
 
@@ -147,10 +147,10 @@ echo "/* A version string for use by sccs and the what command. */"
 echo "#define SCCSVERSION \"@(#)Bash version ${sccs_string}\""
 
 # extern function declarations
-echo
-echo '/* Functions from version.c. */'
-echo 'extern char *shell_version_string __P((void));'
-echo 'extern void show_shell_version __P((int));'
+#echo
+#echo '/* Functions from version.c. */'
+#echo 'extern char *shell_version_string __P((void));'
+#echo 'extern void show_shell_version __P((int));'
 
 if [ -n "$inc_build" ]; then
 	# Make sure we can write to .build

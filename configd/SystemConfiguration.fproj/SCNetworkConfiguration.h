@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,9 +45,13 @@
 		SCPreferencesCommitChanges function.
  */
 
+
 /*!
 	@group Interface configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkInterface configuration (typedefs, consts)
 
 /*!
 	@typedef SCNetworkInterfaceRef
@@ -121,6 +125,11 @@ extern const CFStringRef kSCNetworkInterfaceTypeSerial						AVAILABLE_MAC_OS_X_V
  */
 extern const CFStringRef kSCNetworkInterfaceTypeVLAN						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
+/*!
+	@const kSCNetworkInterfaceTypeWWAN
+ */
+extern const CFStringRef kSCNetworkInterfaceTypeWWAN						AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
 /* special network interfaces (and types) */
 
 /*!
@@ -131,15 +140,91 @@ extern const CFStringRef kSCNetworkInterfaceTypeIPv4						AVAILABLE_MAC_OS_X_VER
 /*!
 	@const kSCNetworkInterfaceIPv4
 	@discussion A network interface that can used for layering other
-		interfaces (e.g. 6to4, PPP, PPTP, L2TP) over an existing
+		interfaces (e.g. 6to4, PPTP, L2TP) over an existing
 		IPv4 network.
  */
 extern const SCNetworkInterfaceRef kSCNetworkInterfaceIPv4					AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@group Interface configuration (Bond)
+ */
+
+#pragma mark -
+
+/*!
+	@typedef SCBondInterfaceRef
+	@discussion This is the type of a reference to an object that represents
+		an Ethernet Bond interface.
+ */
+typedef SCNetworkInterfaceRef SCBondInterfaceRef;
+
+/*!
+	@typedef SCBondStatusRef
+	@discussion This is the type of a reference to an object that represents
+		the status of an Ethernet Bond interface.
+ */
+typedef const struct __SCBondStatus *		SCBondStatusRef;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+
+/*!
+	@enum Ethernet Bond Aggregation Status (kSCBondStatusDeviceAggregationStatus) codes
+	@discussion Returned status codes.
+	@constant kSCBondStatusOK		Enabled, active, running, ...
+	@constant kSCBondStatusLinkInvalid	The link state was not valid (i.e. down, half-duplex, wrong speed)
+	@constant kSCBondStatusNoPartner	The port on the switch that the device is connected doesn't seem to have 802.3ad Link Aggregation enabled
+	@constant kSCBondStatusNotInActiveGroup	We're talking to a partner, but the link aggregation group is different from the one that's active
+	@constant kSCBondStatusUnknown		Non-specific failure
+ */
+enum {
+	kSCBondStatusOK			= 0,	/* enabled, active, running, ... */
+	kSCBondStatusLinkInvalid	= 1,	/* The link state was not valid (i.e. down, half-duplex, wrong speed) */
+	kSCBondStatusNoPartner		= 2,	/* The port on the switch that the device is connected doesn't seem to have 802.3ad Link Aggregation enabled */
+	kSCBondStatusNotInActiveGroup	= 3,	/* We're talking to a partner, but the link aggregation group is different from the one that's active */
+	kSCBondStatusUnknown		= 999	/* Non-specific failure */
+};
+
+/*!
+  @const kSCBondStatusDeviceAggregationStatus
+ */
+extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+  @const kSCBondStatusDeviceCollecting
+ */
+extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
+  @const kSCBondStatusDeviceDistributing
+ */
+extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@group Interface configuration (VLAN)
+ */
+
+#pragma mark -
+
+/*!
+	@typedef SCVLANInterfaceRef
+	@discussion This is the type of a reference to an object that represents
+		a Virtual LAN (VLAN) interface.
+ */
+typedef SCNetworkInterfaceRef SCVLANInterfaceRef;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
 
 
 /*!
 	@group Protocol configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkProtocol configuration (typedefs, consts)
 
 /*!
 	@typedef SCNetworkProtocolRef
@@ -175,10 +260,22 @@ extern const CFStringRef kSCNetworkProtocolTypeIPv6						AVAILABLE_MAC_OS_X_VERS
  */
 extern const CFStringRef kSCNetworkProtocolTypeProxies						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@const kSCNetworkProtocolTypeSMB
+ */
+extern const CFStringRef kSCNetworkProtocolTypeSMB						AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+
 
 /*!
 	@group Service configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkService configuration (typedefs, consts)
 
 /*!
 	@typedef SCNetworkServiceRef
@@ -191,6 +288,9 @@ typedef const struct __SCNetworkService * SCNetworkServiceRef;
 /*!
 	@group Set configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkSet configuration (typedefs, consts)
 
 /*!
 	@typedef SCNetworkSetRef
@@ -211,6 +311,9 @@ __BEGIN_DECLS
 	@group Interface configuration
  */
 
+#pragma mark -
+#pragma mark SCNetworkInterface configuration (APIs)
+
 /*!
 	@function SCNetworkInterfaceGetTypeID
 	@discussion Returns the type identifier of all SCNetworkInterface instances.
@@ -220,8 +323,8 @@ SCNetworkInterfaceGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LA
 
 /*!
 	@function SCNetworkInterfaceCopyAll
-	@discussion Returns all network capable devices on the system.
-	@result The list of SCNetworkInterface devices on the system.
+	@discussion Returns all network capable interfaces on the system.
+	@result The list of interfaces on the system.
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
@@ -280,10 +383,28 @@ SCNetworkInterfaceGetBSDName			(SCNetworkInterfaceRef		interface)	AVAILABLE_MAC_
 	@discussion Returns the configuration settings associated with a interface.
 	@param interface The network interface.
 	@result The configuration settings associated with the interface;
-		NULL if no changes to the default configuration have been saved.
+		NULL if no configuration settings are associated with the interface
+		or an error was encountered.
  */
 CFDictionaryRef
 SCNetworkInterfaceGetConfiguration		(SCNetworkInterfaceRef		interface)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@function SCNetworkInterfaceGetExtendedConfiguration
+	@discussion Returns the configuration settings associated with a interface.
+	@param interface The network interface.
+	@param extendedType A string representing the type of extended information (e.g. EAPOL).
+	@result The configuration settings associated with the interface;
+		NULL if no configuration settings are associated with the interface
+		or an error was encountered.
+ */
+CFDictionaryRef
+SCNetworkInterfaceGetExtendedConfiguration	(SCNetworkInterfaceRef		interface,
+						 CFStringRef			extendedType)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
 
 /*!
 	@function SCNetworkInterfaceGetHardwareAddressString
@@ -315,7 +436,7 @@ SCNetworkInterfaceGetInterfaceType		(SCNetworkInterfaceRef		interface)	AVAILABLE
 
 /*!
 	@function SCNetworkInterfaceGetLocalizedDisplayName
-	@discussion Returns the localized name (e.g. "Built-in Ethernet") for
+	@discussion Returns the localized name (e.g. "Ethernet", "FireWire") for
 		the interface.
 	@param interface The network interface.
 	@result A localized, display name for the interface;
@@ -335,6 +456,417 @@ Boolean
 SCNetworkInterfaceSetConfiguration		(SCNetworkInterfaceRef		interface,
 						 CFDictionaryRef		config)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@function SCNetworkInterfaceSetExtendedConfiguration
+	@discussion Stores the configuration settings for the interface.
+	@param interface The network interface.
+	@param config The configuration settings to associate with this interface.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCNetworkInterfaceSetExtendedConfiguration	(SCNetworkInterfaceRef		interface,
+						 CFStringRef			extendedType,
+						 CFDictionaryRef		config)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+#pragma mark -
+
+/*!
+	@function SCNetworkInterfaceCopyMediaOptions
+	@discussion For the specified network interface, returns information
+		about the currently requested media options, the active media
+		options, and the media options which are available.
+	@param interface The desired network interface.
+	@param current A pointer to memory that will be filled with a CFDictionaryRef
+		representing the currently requested media options (subtype, options).
+		If NULL, the current options will not be returned.
+	@param active A pointer to memory that will be filled with a CFDictionaryRef
+		representing the active media options (subtype, options).
+		If NULL, the active options will not be returned.
+	@param available A pointer to memory that will be filled with a CFArrayRef
+		representing the possible media options (subtype, options).
+		If NULL, the available options will not be returned.
+	@param filter A boolean indicating whether the available options should be
+		filtered to exclude those options which would not normally be
+		requested by a user/admin (e.g. hw-loopback).
+	@result TRUE if requested information has been returned.
+ */
+Boolean
+SCNetworkInterfaceCopyMediaOptions		(SCNetworkInterfaceRef		interface,
+						 CFDictionaryRef		*current,
+						 CFDictionaryRef		*active,
+						 CFArrayRef			*available,
+						 Boolean			filter)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceCopyMediaSubTypes
+	@discussion For the provided interface configuration options, return a list
+		of available media subtypes.
+	@param available The available options as returned by the
+		SCNetworkInterfaceCopyMediaOptions function.
+	@result An array of available media subtypes CFString's (e.g. 10BaseT/UTP,
+		100baseTX, etc).  NULL if no subtypes are available.
+ */
+CFArrayRef
+SCNetworkInterfaceCopyMediaSubTypes		(CFArrayRef			available)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceCopyMediaSubTypeOptions
+	@discussion For the provided interface configuration options and specific
+		subtype, return a list of available media options.
+	@param available The available options as returned by the
+		NetworkInterfaceCopyMediaOptions function.
+	@param subType The subtype
+	@result An array of available media options.  Each of the available options
+		is returned as an array of CFString's (e.g. <half-duplex>,
+		<full-duplex,flow-control>).  NULL if no options are available.
+ */
+CFArrayRef
+SCNetworkInterfaceCopyMediaSubTypeOptions	(CFArrayRef			available,
+						 CFStringRef			subType)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceCopyMTU
+	@discussion For the specified network interface, returns information
+		about the currently MTU setting and the range of allowable
+		values.
+	@param interface The desired network interface.
+	@param mtu_cur A pointer to memory that will be filled with the current
+		MTU setting for the interface.
+	@param mtu_min A pointer to memory that will be filled with the minimum
+		MTU setting for the interface.  If negative, the minimum setting
+		could not be determined.
+	@param mtu_max A pointer to memory that will be filled with the maximum
+		MTU setting for the interface.  If negative, the maximum setting
+		could not be determined.
+	@result TRUE if requested information has been returned.
+ */
+Boolean
+SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef		interface,
+						 int				*mtu_cur,
+						 int				*mtu_min,
+						 int				*mtu_max)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceSetMediaOptions
+	@discussion For the specified network interface, sets the requested
+		media subtype and options.
+	@param interface The desired network interface.
+	@param subtype The desired media subtype (e.g. "autoselect", "100baseTX", ...).
+	@param options The desired media options (e.g. "half-duplex", "full-duplex", ...).
+		If NULL, the active options will not be returned.
+	@result TRUE if the configuration was updated; FALSE if an error was encountered.
+ */
+Boolean
+SCNetworkInterfaceSetMediaOptions		(SCNetworkInterfaceRef		interface,
+						 CFStringRef			subtype,
+						 CFArrayRef			options)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceSetMTU
+	@discussion For the specified network interface, sets the
+		requested MTU setting.
+	@param interface The desired network interface.
+	@param mtu The desired MTU setting for the interface.
+	@result TRUE if the configuration was updated; FALSE if an error was encountered.
+ */
+Boolean
+SCNetworkInterfaceSetMTU			(SCNetworkInterfaceRef		interface,
+						 int				mtu)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCNetworkInterfaceForceConfigurationRefresh
+	@discussion Sends a notification to interested network configuration
+		agents to immediately retry their configuration. For example,
+		calling this function will cause the DHCP client to contact
+		the DHCP server immediately rather than waiting until its
+		timeout has expired.  The utility of this function is to
+		allow the caller to give a hint to the system that the
+		network infrastructure or configuration has changed.
+
+
+		Note: This function requires root (euid==0) privilege or,
+		alternatively, you may pass an SCNetworkInterface which
+		is derived from a sequence of calls to :
+
+			SCPreferencesCreateWithAuthorization
+			SCNetworkSetCopy...
+			SCNetworkServiceGetInterface
+	@param interface The desired network interface.
+	@result Returns TRUE if the notification was sent; FALSE otherwise.
+ */
+Boolean
+SCNetworkInterfaceForceConfigurationRefresh	(SCNetworkInterfaceRef		interface)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@group Interface configuration (Bond)
+ */
+
+#pragma mark -
+#pragma mark SCBondInterface configuration (APIs)
+
+/*!
+	@function SCBondInterfaceCopyAll
+	@discussion Returns all Ethernet Bond interfaces on the system.
+	@param prefs The "preferences" session.
+	@result The list of Ethernet Bond interfaces on the system.
+		You must release the returned value.
+ */
+CFArrayRef /* of SCBondInterfaceRef's */
+SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceCopyAvailableMemberInterfaces
+	@discussion Returns all network capable devices on the system
+		that can be added to an Ethernet Bond interface.
+	@param prefs The "preferences" session.
+	@result The list of interfaces.
+		You must release the returned value.
+ */
+CFArrayRef /* of SCNetworkInterfaceRef's */
+SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceCreate
+	@discussion Create a new SCBondInterface interface.
+	@param prefs The "preferences" session.
+	@result A reference to the new SCBondInterface.
+		You must release the returned value.
+ */
+SCBondInterfaceRef
+SCBondInterfaceCreate				(SCPreferencesRef		prefs)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceRemove
+	@discussion Removes the SCBondInterface from the configuration.
+	@param bond The SCBondInterface interface.
+	@result TRUE if the interface was removed; FALSE if an error was encountered.
+ */
+Boolean
+SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceGetMemberInterfaces
+	@discussion Returns the member interfaces for the specified Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@result The list of interfaces.
+ */
+CFArrayRef /* of SCNetworkInterfaceRef's */
+SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceGetOptions
+	@discussion Returns the configuration settings associated with a Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@result The configuration settings associated with the Ethernet Bond interface;
+		NULL if no changes to the default configuration have been saved.
+ */
+CFDictionaryRef
+SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceSetMemberInterfaces
+	@discussion Sets the member interfaces for the specified Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@param members The desired member interfaces.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef		bond,
+						 CFArrayRef			members) /* of SCNetworkInterfaceRef's */
+												AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceSetLocalizedDisplayName
+	@discussion Sets the localized display name for the specified Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@param newName The new display name.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCBondInterfaceSetLocalizedDisplayName		(SCBondInterfaceRef		bond,
+						 CFStringRef			newName)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondInterfaceSetOptions
+	@discussion Sets the configuration settings for the specified Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@param newOptions The new configuration settings.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCBondInterfaceSetOptions			(SCBondInterfaceRef		bond,
+						 CFDictionaryRef		newOptions)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#pragma mark -
+
+/*!
+	@function SCBondInterfaceCopyStatus
+	@discussion Returns the status of the specified Ethernet Bond interface.
+	@param bond The SCBondInterface interface.
+	@result The status associated with the interface.
+		You must release the returned value.
+ */
+SCBondStatusRef
+SCBondInterfaceCopyStatus			(SCBondInterfaceRef	bond)			AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondStatusGetTypeID
+	@discussion Returns the type identifier of all SCBondStatus instances.
+ */
+CFTypeID
+SCBondStatusGetTypeID				(void)						AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondStatusGetMemberInterfaces
+	@discussion Returns the member interfaces that are represented with the
+		Ethernet Bond interface.
+	@param bondStatus The Ethernet Bond status.
+	@result The list of interfaces.
+ */
+CFArrayRef /* of SCNetworkInterfaceRef's */
+SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCBondStatusGetInterfaceStatus
+	@discussion Returns the status of a specific member interface of an
+		Ethernet Bond or the status of the bond as a whole.
+	@param bondStatus The Ethernet Bond status.
+	@param interface The specific member interface; NULL if you want the
+		status of the Ethernet Bond.
+	@result The interface status.
+ */
+CFDictionaryRef
+SCBondStatusGetInterfaceStatus			(SCBondStatusRef	bondStatus,
+						 SCNetworkInterfaceRef	interface)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@group Interface configuration (VLAN)
+ */
+
+#pragma mark -
+#pragma mark SCVLANInterface configuration (APIs)
+
+/*!
+	@function SCVLANInterfaceCopyAll
+	@discussion Returns all VLAN interfaces on the system.
+	@result The list of VLAN interfaces on the system.
+		You must release the returned value.
+ */
+CFArrayRef /* of SCVLANInterfaceRef's */
+SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceCopyAvailablePhysicalInterfaces
+	@discussion Returns the network capable devices on the system
+		that can be associated with a VLAN interface.
+	@result The list of interfaces.
+		You must release the returned value.
+ */
+CFArrayRef /* of SCNetworkInterfaceRef's */
+SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceCreate
+	@discussion Create a new SCVLANInterface interface.
+	@param prefs The "preferences" session.
+	@param physical The physical interface to associate with the VLAN.
+	@param tag The tag to associate with the VLAN.
+	@result A reference to the new SCVLANInterface.
+		You must release the returned value.
+
+	Note: the tag must be in the range (1 <= tag <= 4094)
+ */
+SCVLANInterfaceRef
+SCVLANInterfaceCreate				(SCPreferencesRef		prefs,
+						 SCNetworkInterfaceRef		physical,
+						 CFNumberRef			tag)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceRemove
+	@discussion Removes the SCVLANInterface from the configuration.
+	@param vlan The SCVLANInterface interface.
+	@result TRUE if the interface was removed; FALSE if an error was encountered.
+ */
+Boolean
+SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceGetPhysicalInterface
+	@discussion Returns the physical interface for the specified VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@result The list of interfaces.
+ */
+SCNetworkInterfaceRef
+SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceGetTag
+	@discussion Returns the tag for the specified VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@result The tag.
+ */
+CFNumberRef
+SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceGetOptions
+	@discussion Returns the configuration settings associated with the VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@result The configuration settings associated with the VLAN interface;
+		NULL if no changes to the default configuration have been saved.
+ */
+CFDictionaryRef
+SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceSetPhysicalInterfaceAndTag
+	@discussion Updates the specified VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@param physical The physical interface to associate with the VLAN.
+	@param tag The tag to associate with the VLAN.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+
+	Note: the tag must be in the range (1 <= tag <= 4094)
+ */
+Boolean
+SCVLANInterfaceSetPhysicalInterfaceAndTag	(SCVLANInterfaceRef		vlan,
+						 SCNetworkInterfaceRef		physical,
+						 CFNumberRef			tag)		AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceSetLocalizedDisplayName
+	@discussion Sets the localized display name for the specified VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@param newName The new display name.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCVLANInterfaceSetLocalizedDisplayName		(SCVLANInterfaceRef		vlan,
+						 CFStringRef			newName)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+/*!
+	@function SCVLANInterfaceSetOptions
+	@discussion Sets the configuration settings for the specified VLAN interface.
+	@param vlan The SCVLANInterface interface.
+	@param newOptions The new configuration settings.
+	@result TRUE if the configuration was stored; FALSE if an error was encountered.
+ */
+Boolean
+SCVLANInterfaceSetOptions			(SCVLANInterfaceRef		vlan,
+						 CFDictionaryRef		newOptions)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
+
 /* --------------------------------------------------------------------------------
  * PROTOCOLS
  * -------------------------------------------------------------------------------- */
@@ -342,6 +874,9 @@ SCNetworkInterfaceSetConfiguration		(SCNetworkInterfaceRef		interface,
 /*!
 	@group Protocol configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkProtocol configuration (APIs)
 
 /*!
 	@function SCNetworkProtocolGetTypeID
@@ -355,7 +890,8 @@ SCNetworkProtocolGetTypeID			(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LAT
 	@discussion Returns the configuration settings associated with the protocol.
 	@param protocol The network protocol.
 	@result The configuration settings associated with the protocol;
-		NULL if no changes to the default configuration have been saved.
+		NULL if no configuration settings are associated with the protocol
+		or an error was encountered.
  */
 CFDictionaryRef
 SCNetworkProtocolGetConfiguration		(SCNetworkProtocolRef		protocol)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
@@ -407,6 +943,9 @@ SCNetworkProtocolSetEnabled			(SCNetworkProtocolRef		protocol,
 /*!
 	@group Service configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkService configuration (APIs)
 
 /*!
 	@function SCNetworkServiceGetTypeID
@@ -475,6 +1014,22 @@ SCNetworkServiceCreate				(SCPreferencesRef		prefs,
 SCNetworkServiceRef
 SCNetworkServiceCopy				(SCPreferencesRef		prefs,
 						 CFStringRef			serviceID)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@function SCNetworkServiceEstablishDefaultConfiguration
+	@discussion Establishes the "default" configuration for a network
+		service.  This configuration includes the addition of
+		network protocols for the service (with "default"
+		configuration options).
+	@param service The network service.
+	@result TRUE if the configuration was updated; FALSE if an error was encountered.
+*/
+Boolean
+SCNetworkServiceEstablishDefaultConfiguration		(SCNetworkServiceRef		service)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
 
 /*!
 	@function SCNetworkServiceGetEnabled
@@ -574,6 +1129,7 @@ Boolean
 SCNetworkServiceSetName				(SCNetworkServiceRef		service,
 						 CFStringRef			name)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
+
 /* --------------------------------------------------------------------------------
  * SETS
  * -------------------------------------------------------------------------------- */
@@ -581,6 +1137,9 @@ SCNetworkServiceSetName				(SCNetworkServiceRef		service,
 /*!
 	@group Set configuration
  */
+
+#pragma mark -
+#pragma mark SCNetworkSet configuration (APIs)
 
 /*!
 	@function SCNetworkSetGetTypeID
@@ -597,14 +1156,30 @@ SCNetworkSetGetTypeID				(void)						AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 	@result TRUE if the service was added to the set; FALSE if the
 		service was already present or an error was encountered.
 
-	Note: at the present time, the Network Prefs UI does not
-	support having a single service be a member of more than
-	one set.  As such, an error will be returned if you attempt
-	to add a service to more than one set.
+	Note: prior to Mac OS X 10.5, the Network Preferences UI
+	did not support having a single service being a member of
+	more than one set.  An error will be returned if you attempt
+	to add a service to more than one set on a pre-10.5 system.
  */
 Boolean
 SCNetworkSetAddService				(SCNetworkSetRef		set,
 						 SCNetworkServiceRef		service)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1050
+
+/*!
+	@function SCNetworkSetContainsInterface
+	@discussion Checks if an interface is represented by at least one
+		network service in the specified set.
+	@param set The network set.
+	@param interface The network interface.
+	@result TRUE if the interface is represented in the set; FALSE if not.
+ */
+Boolean
+SCNetworkSetContainsInterface			(SCNetworkSetRef		set,
+						 SCNetworkInterfaceRef		interface)	AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
+
+#endif	/* MAC_OS_X_VERSION_MAX_ALLOWED >= 1050 */
 
 /*!
 	@function SCNetworkSetCopyAll
@@ -737,7 +1312,7 @@ SCNetworkSetSetName				(SCNetworkSetRef		set,
 						 CFStringRef			name)		AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 /*!
-	@function SCNetworkSetGetServiceOrder
+	@function SCNetworkSetSetServiceOrder
 	@discussion Stores the [user specified] ordering of network services for the set.
 	@param set The network set.
 	@param newOrder The ordered list of CFStringRef service identifiers for the set.

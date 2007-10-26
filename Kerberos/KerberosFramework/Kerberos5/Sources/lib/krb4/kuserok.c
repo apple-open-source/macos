@@ -37,7 +37,7 @@
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <string.h>
-#include "krb5/autoconf.h"
+#include "autoconf.h"
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -159,9 +159,11 @@ kuserok(kdata, luser)
 	 */
         if(getuid() == 0) {
 	  uid_t old_euid = geteuid();
-	  seteuid(pwd->pw_uid);
+	  if (seteuid(pwd->pw_uid) < 0)
+	      return NOTOK;
 	  fp = fopen(pbuf, "r");
-	  seteuid(old_euid);	  
+	  if (seteuid(old_euid) < 0)
+	      return NOTOK;
 	  if ((fp) == NULL) {
 	    return(NOTOK);
 	  }

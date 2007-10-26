@@ -1,7 +1,7 @@
 /* Target-dependent code for AMD64.
 
-   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
-   Contributed by Jiri Smid, SuSE Labs.
+   Copyright 2001, 2002, 2003, 2004, 2005 Free Software Foundation,
+   Inc.  Contributed by Jiri Smid, SuSE Labs.
 
    This file is part of GDB.
 
@@ -39,6 +39,7 @@
 
 #include "amd64-tdep.h"
 #include "i387-tdep.h"
+#include "i386-amd64-shared-tdep.h"
 
 /* Note that the AMD64 architecture was previously known as x86-64.
    The latter is (forever) engraved into the canonical system name as
@@ -55,7 +56,10 @@ struct amd64_register_info
   struct type **type;
 };
 
-static struct amd64_register_info amd64_register_info[] =
+/* APPLE LOCAL: We'll compare this to NULL later on.  */
+static struct type *amd64_sse_type = NULL;
+
+static struct amd64_register_info const amd64_register_info[] =
 {
   { "rax", &builtin_type_int64 },
   { "rbx", &builtin_type_int64 },
@@ -103,22 +107,22 @@ static struct amd64_register_info amd64_register_info[] =
   { "fop", &builtin_type_int32 },
 
   /* %xmm0 is register number 40.  */
-  { "xmm0", &builtin_type_v4sf },
-  { "xmm1", &builtin_type_v4sf },
-  { "xmm2", &builtin_type_v4sf },
-  { "xmm3", &builtin_type_v4sf },
-  { "xmm4", &builtin_type_v4sf },
-  { "xmm5", &builtin_type_v4sf },
-  { "xmm6", &builtin_type_v4sf },
-  { "xmm7", &builtin_type_v4sf },
-  { "xmm8", &builtin_type_v4sf },
-  { "xmm9", &builtin_type_v4sf },
-  { "xmm10", &builtin_type_v4sf },
-  { "xmm11", &builtin_type_v4sf },
-  { "xmm12", &builtin_type_v4sf },
-  { "xmm13", &builtin_type_v4sf },
-  { "xmm14", &builtin_type_v4sf },
-  { "xmm15", &builtin_type_v4sf },
+  { "xmm0", &amd64_sse_type },
+  { "xmm1", &amd64_sse_type },
+  { "xmm2", &amd64_sse_type },
+  { "xmm3", &amd64_sse_type },
+  { "xmm4", &amd64_sse_type },
+  { "xmm5", &amd64_sse_type },
+  { "xmm6", &amd64_sse_type },
+  { "xmm7", &amd64_sse_type },
+  { "xmm8", &amd64_sse_type },
+  { "xmm9", &amd64_sse_type },
+  { "xmm10", &amd64_sse_type },
+  { "xmm11", &amd64_sse_type },
+  { "xmm12", &amd64_sse_type },
+  { "xmm13", &amd64_sse_type },
+  { "xmm14", &amd64_sse_type },
+  { "xmm15", &amd64_sse_type },
   { "mxcsr", &builtin_type_int32 }
 };
 
@@ -144,6 +148,14 @@ static struct type *
 amd64_register_type (struct gdbarch *gdbarch, int regnum)
 {
   gdb_assert (regnum >= 0 && regnum < AMD64_NUM_REGS);
+
+  /* APPLE LOCAL: This would more appropriately be done in
+     amd64_init_abi() but the type system isn't initialized far
+     enough for build_builtin_type_vec128i_big () to execute at
+     that point so we need to do it lazily here.  */
+
+  if (amd64_sse_type == NULL)
+    amd64_sse_type = build_builtin_type_vec128i_big ();
 
   return *amd64_register_info[regnum].type;
 }
@@ -200,13 +212,96 @@ amd64_dwarf_reg_to_regnum (int reg)
 {
   int regnum = -1;
 
-  if (reg >= 0 || reg < amd64_dwarf_regmap_len)
+  if (reg >= 0 && reg < amd64_dwarf_regmap_len)
     regnum = amd64_dwarf_regmap[reg];
 
   if (regnum == -1)
-    warning ("Unmapped DWARF Register #%d encountered\n", reg);
+    warning (_("Unmapped DWARF Register #%d encountered."), reg);
 
   return regnum;
+}
+
+/* APPLE LOCAL: Read part of a register with extra swapping.
+
+   The developer's view of the XMM registers is byteswapped from how
+   it actually is -- an extra swapping on top of the usual little endian
+   fun -- and so when we fetch/store the registers from the inferior
+   we swap them so we're using the "user's view" of the registers.
+
+   The main problem that this causes is that several functions in this file
+   know how to store/retrieve values from the XMM registers as per the ABI
+   conventions - and those conventions are written to the actual byte order
+   of the XMM registers, not the user's expected view.  So we do an extra
+   swapping of the reg values we've retrieved before/after changing them
+   for ABI reasons.  */
+
+static void
+swapped_regcache_raw_write_part (struct regcache *regcache, int regnum,
+                                 int offset, int len, const gdb_byte *buf)
+{
+  int j;
+  gdb_byte swapper_buf[16];
+
+  if (regnum < AMD64_XMM0_REGNUM || regnum > AMD64_XMM0_REGNUM + 15)
+    {
+       regcache_raw_write_part (regcache, regnum, offset, len, buf);
+       return;
+    }
+
+  regcache_raw_read (regcache, regnum, swapper_buf);
+  for (j = 0; j < 8; j++)
+    {
+      gdb_byte tmp = swapper_buf[j];
+      swapper_buf[j] = swapper_buf[16 - j - 1];
+      swapper_buf[16 - j - 1] = tmp;
+    }
+
+  memcpy (&swapper_buf[offset], buf, len);
+  for (j = 0; j < 8; j++)
+     {
+       gdb_byte tmp = swapper_buf[j];
+       swapper_buf[j] = swapper_buf[16 - j - 1];
+       swapper_buf[16 - j - 1] = tmp;
+     }
+  regcache_raw_write (regcache, regnum, swapper_buf);
+}
+
+/* APPLE LOCAL: Read part of a register with extra swapping.
+
+   The developer's view of the XMM registers is byteswapped from how
+   it actually is -- an extra swapping on top of the usual little endian
+   fun -- and so when we fetch/store the registers from the inferior
+   we swap them so we're using the "user's view" of the registers.
+
+   The main problem that this causes is that several functions in this file
+   know how to store/retrieve values from the XMM registers as per the ABI
+   conventions - and those conventions are written to the actual byte order
+   of the XMM registers, not the user's expected view.  So we do an extra
+   swapping of the reg values we've retrieved before/after changing them
+   for ABI reasons.  */
+
+static void
+swapped_regcache_raw_read_part (struct regcache *regcache, int regnum,
+                                int offset, int len, gdb_byte *buf)
+{
+  int j;
+  gdb_byte swapper_buf[16];
+
+  if (regnum < AMD64_XMM0_REGNUM || regnum > AMD64_XMM0_REGNUM + 15)
+    {
+       regcache_raw_read_part (regcache, regnum, offset, len, buf);
+       return;
+    }
+
+  regcache_raw_read (regcache, regnum, swapper_buf);
+  for (j = 0; j < 8; j++)
+    {
+      gdb_byte tmp = swapper_buf[j];
+      swapper_buf[j] = swapper_buf[16 - j - 1];
+      swapper_buf[16 - j - 1] = tmp;
+    }
+
+  memcpy (buf, &swapper_buf[offset], len);
 }
 
 /* Return nonzero if a value of type TYPE stored in register REGNUM
@@ -371,8 +466,11 @@ amd64_classify (struct type *type, enum amd64_reg_class class[2])
   class[0] = class[1] = AMD64_NO_CLASS;
 
   /* Arguments of types (signed and unsigned) _Bool, char, short, int,
-     long, long long, and pointers are in the INTEGER class.  */
+     long, long long, and pointers are in the INTEGER class.  Similarly,
+     range types, used by languages such as Ada, are also in the INTEGER
+     class.  */
   if ((code == TYPE_CODE_INT || code == TYPE_CODE_ENUM
+       || code == TYPE_CODE_RANGE
        || code == TYPE_CODE_PTR || code == TYPE_CODE_REF)
       && (len == 1 || len == 2 || len == 4 || len == 8))
     class[0] = AMD64_INTEGER;
@@ -403,7 +501,7 @@ amd64_classify (struct type *type, enum amd64_reg_class class[2])
 static enum return_value_convention
 amd64_return_value (struct gdbarch *gdbarch, struct type *type,
 		    struct regcache *regcache,
-		    void *readbuf, const void *writebuf)
+		    gdb_byte *readbuf, const gdb_byte *writebuf)
 {
   enum amd64_reg_class class[2];
   int len = TYPE_LENGTH (type);
@@ -419,11 +517,28 @@ amd64_return_value (struct gdbarch *gdbarch, struct type *type,
   amd64_classify (type, class);
 
   /* 2. If the type has class MEMORY, then the caller provides space
-        for the return value and passes the address of this storage in
-        %rdi as if it were the first argument to the function. In
-        effect, this address becomes a hidden first argument.  */
+     for the return value and passes the address of this storage in
+     %rdi as if it were the first argument to the function. In effect,
+     this address becomes a hidden first argument.
+
+     On return %rax will contain the address that has been passed in
+     by the caller in %rdi.  */
   if (class[0] == AMD64_MEMORY)
-    return RETURN_VALUE_STRUCT_CONVENTION;
+    {
+      /* As indicated by the comment above, the ABI guarantees that we
+         can always find the return value just after the function has
+         returned.  */
+
+      if (readbuf)
+	{
+	  ULONGEST addr;
+
+	  regcache_raw_read_unsigned (regcache, AMD64_RAX_REGNUM, &addr);
+	  read_memory (addr, readbuf, TYPE_LENGTH (type));
+	}
+
+      return RETURN_VALUE_ABI_RETURNS_ADDRESS;
+    }
 
   gdb_assert (class[1] != AMD64_MEMORY);
   gdb_assert (len <= 16);
@@ -481,12 +596,28 @@ amd64_return_value (struct gdbarch *gdbarch, struct type *type,
 
       gdb_assert (regnum != -1);
 
+      /* APPLE LOCAL: We keep the XMM registers in the "user's view"
+         byte order inside gdb so we need to unswap them before the
+         ABI read/writes which assume the actual machine byte order.  */
+
+      if ((readbuf || writebuf) 
+          && (regnum == sse_regnum[0] || regnum == sse_regnum[1]))
+        {
+          if (readbuf)
+	    swapped_regcache_raw_read_part (regcache, regnum, offset, 
+                                    min (len, 8), readbuf + i * 8);
+          if (writebuf)
+	    swapped_regcache_raw_write_part (regcache, regnum, offset, 
+                                     min (len, 8), writebuf + i * 8);
+          continue;
+        }
+
       if (readbuf)
 	regcache_raw_read_part (regcache, regnum, offset, min (len, 8),
-				(char *) readbuf + i * 8);
+				readbuf + i * 8);
       if (writebuf)
 	regcache_raw_write_part (regcache, regnum, offset, min (len, 8),
-				 (const char *) writebuf + i * 8);
+				 writebuf + i * 8);
     }
 
   return RETURN_VALUE_REGISTER_CONVENTION;
@@ -528,7 +659,7 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
 
   for (i = 0; i < nargs; i++)
     {
-      struct type *type = VALUE_TYPE (args[i]);
+      struct type *type = value_type (args[i]);
       int len = TYPE_LENGTH (type);
       enum amd64_reg_class class[2];
       int needed_integer_regs = 0;
@@ -561,8 +692,8 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
       else
 	{
 	  /* The argument will be passed in registers.  */
-	  char *valbuf = VALUE_CONTENTS (args[i]);
-	  char buf[8];
+	  const gdb_byte *valbuf = value_contents (args[i]);
+	  gdb_byte buf[8];
 
 	  gdb_assert (len <= 16);
 
@@ -594,7 +725,16 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
 	      gdb_assert (regnum != -1);
 	      memset (buf, 0, sizeof buf);
 	      memcpy (buf, valbuf + j * 8, min (len, 8));
-	      regcache_raw_write_part (regcache, regnum, offset, 8, buf);
+
+              /* APPLE LOCAL: We keep the XMM registers in the "user's view"
+                 byte order inside gdb so we need to unswap them before the  
+                 ABI read/writes which assume the actual machine byte order.  */
+
+              if (class[j] == AMD64_SSE || class[j] == AMD64_SSEUP)
+	        swapped_regcache_raw_write_part (regcache, regnum, offset, 8, 
+                                                 buf);
+              else
+	        regcache_raw_write_part (regcache, regnum, offset, 8, buf);
 	    }
 	}
     }
@@ -609,8 +749,8 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
   /* Write out the arguments to the stack.  */
   for (i = 0; i < num_stack_args; i++)
     {
-      struct type *type = VALUE_TYPE (stack_args[i]);
-      char *valbuf = VALUE_CONTENTS (stack_args[i]);
+      struct type *type = value_type (stack_args[i]);
+      const gdb_byte *valbuf = value_contents (stack_args[i]);
       int len = TYPE_LENGTH (type);
 
       write_memory (sp + element * 8, valbuf, len);
@@ -626,12 +766,12 @@ amd64_push_arguments (struct regcache *regcache, int nargs,
 }
 
 static CORE_ADDR
-amd64_push_dummy_call (struct gdbarch *gdbarch, CORE_ADDR func_addr,
+amd64_push_dummy_call (struct gdbarch *gdbarch, struct value *function,
 		       struct regcache *regcache, CORE_ADDR bp_addr,
 		       int nargs, struct value **args,	CORE_ADDR sp,
 		       int struct_return, CORE_ADDR struct_addr)
 {
-  char buf[8];
+  gdb_byte buf[8];
 
   /* Pass arguments.  */
   sp = amd64_push_arguments (regcache, nargs, args, sp, struct_return);
@@ -716,20 +856,62 @@ amd64_alloc_frame_cache (void)
    Any function that doesn't start with this sequence will be assumed
    to have no prologue and thus no valid frame pointer in %rbp.  */
 
+/* APPLE LOCAL: Optionally pass in a NEXT_FRAME if it is available
+   which is used to determine the context of this frame, i.e. is it
+   possible for it to be frameless at all, so we can make a more
+   educated guess.  */
+
 static CORE_ADDR
 amd64_analyze_prologue (CORE_ADDR pc, CORE_ADDR current_pc,
-			struct amd64_frame_cache *cache)
+			struct frame_info *next_frame,
+                        struct amd64_frame_cache *cache)
 {
-  static unsigned char proto[3] = { 0x48, 0x89, 0xe5 };
-  unsigned char buf[3];
-  unsigned char op;
+  static gdb_byte proto[3] = { 0x48, 0x89, 0xe5 }; /* movq %rsp, %rbp */
+  gdb_byte buf[3];
+  gdb_byte op;
+  int non_prologue_insn_limit = 64; /* Stop looking after 64 unknown insn */
+  int insn_seen;
+  int must_have_stack_frame = 0;
 
+  /* APPLE LOCAL: Could this be a frameless function?
+     If this is the 0th frame, or it was interrupted by a signal
+     or gdb did an inferior function call, it could be frameless.
+     If none of those are true then it must have a stack frame.  */
+  if (next_frame
+      && frame_relative_level (next_frame) > -1
+      && get_frame_type (next_frame) != SIGTRAMP_FRAME
+      && get_frame_type (next_frame) != DUMMY_FRAME)
+    must_have_stack_frame = 1;
+
+  /* If we must have a stack frame, assume this function follows
+     the convention of pushing rbp in the prologue even though it's
+     not necessarily required.  short of the EH frames/CFI info
+     we can't handle the case where the rbp isn't saved/used so
+     we assume it is.  */
+  if (must_have_stack_frame)
+    {
+      cache->saved_regs[AMD64_RBP_REGNUM] = 0;
+      cache->sp_offset += 8;
+      cache->frameless_p = 0;
+      /* Don't return here because this function could be expected
+         to return the CORE_ADDR following the last prologue frame
+         setup insn.  */
+    }
+
+  /* Haven't executed any prologue instructions yet - no stack frame
+     has been set up.  */
   if (current_pc <= pc)
     return current_pc;
 
-  op = read_memory_unsigned_integer (pc, 1);
+  /* Skip over non-prologue instructions looking for a pushq %rbp */
+  insn_seen = 0;
+  while (!i386_push_ebp_pattern_p (pc) 
+         && !i386_ret_pattern_p (pc)
+         && pc < current_pc
+         && insn_seen++ < non_prologue_insn_limit)
+    pc += i386_length_of_this_instruction (pc);
 
-  if (op == 0x55)		/* pushq %rbp */
+  if (i386_push_ebp_pattern_p (pc))		/* pushq %rbp */
     {
       /* Take into account that we've executed the `pushq %rbp' that
          starts this instruction sequence.  */
@@ -741,13 +923,19 @@ amd64_analyze_prologue (CORE_ADDR pc, CORE_ADDR current_pc,
         return current_pc;
 
       /* Check for `movq %rsp, %rbp'.  */
-      read_memory (pc + 1, buf, 3);
-      if (memcmp (buf, proto, 3) != 0)
-	return pc + 1;
+      insn_seen = 0;
+      while (!i386_mov_esp_ebp_pattern_p (pc) 
+             && !i386_ret_pattern_p (pc)
+             && pc < current_pc
+             && insn_seen++ < non_prologue_insn_limit)
+        pc += i386_length_of_this_instruction (pc);
+
+      if (!i386_mov_esp_ebp_pattern_p (pc))
+	return pc;
 
       /* OK, we actually have a frame.  */
       cache->frameless_p = 0;
-      return pc + 4;
+      return pc + 3;
     }
 
   return pc;
@@ -761,7 +949,7 @@ amd64_skip_prologue (CORE_ADDR start_pc)
   struct amd64_frame_cache cache;
   CORE_ADDR pc;
 
-  pc = amd64_analyze_prologue (start_pc, 0xffffffffffffffff, &cache);
+  pc = amd64_analyze_prologue (start_pc, 0xffffffffffffffffLL, NULL, &cache);
   if (cache.frameless_p)
     return start_pc;
 
@@ -775,7 +963,7 @@ static struct amd64_frame_cache *
 amd64_frame_cache (struct frame_info *next_frame, void **this_cache)
 {
   struct amd64_frame_cache *cache;
-  char buf[8];
+  gdb_byte buf[8];
   int i;
 
   if (*this_cache)
@@ -786,7 +974,8 @@ amd64_frame_cache (struct frame_info *next_frame, void **this_cache)
 
   cache->pc = frame_func_unwind (next_frame);
   if (cache->pc != 0)
-    amd64_analyze_prologue (cache->pc, frame_pc_unwind (next_frame), cache);
+    amd64_analyze_prologue (cache->pc, frame_pc_unwind (next_frame), 
+                            next_frame, cache);
 
   if (cache->frameless_p)
     {
@@ -835,14 +1024,20 @@ amd64_frame_this_id (struct frame_info *next_frame, void **this_cache,
   if (cache->base == 0)
     return;
 
+  if (get_frame_type (next_frame) != SENTINEL_FRAME
+      && get_prev_frame (next_frame) != NULL
+      && frame_pc_unwind (get_prev_frame (next_frame)) == 0)
+    return;
+
   (*this_id) = frame_id_build (cache->base + 16, cache->pc);
 }
 
 static void
 amd64_frame_prev_register (struct frame_info *next_frame, void **this_cache,
-			   int regnum, int *optimizedp,
+			   /* APPLE LOCAL variable opt states.  */
+			   int regnum, enum opt_state *optimizedp,
 			   enum lval_type *lvalp, CORE_ADDR *addrp,
-			   int *realnump, void *valuep)
+			   int *realnump, gdb_byte *valuep)
 {
   struct amd64_frame_cache *cache =
     amd64_frame_cache (next_frame, this_cache);
@@ -851,7 +1046,8 @@ amd64_frame_prev_register (struct frame_info *next_frame, void **this_cache,
 
   if (regnum == SP_REGNUM && cache->saved_sp)
     {
-      *optimizedp = 0;
+      /* APPLE LOCAL variable opt states.  */
+      *optimizedp = opt_okay;
       *lvalp = not_lval;
       *addrp = 0;
       *realnump = -1;
@@ -865,7 +1061,8 @@ amd64_frame_prev_register (struct frame_info *next_frame, void **this_cache,
 
   if (regnum < AMD64_NUM_SAVED_REGS && cache->saved_regs[regnum] != -1)
     {
-      *optimizedp = 0;
+      /* APPLE LOCAL variable opt states.  */
+      *optimizedp = opt_okay;
       *lvalp = lval_memory;
       *addrp = cache->saved_regs[regnum];
       *realnump = -1;
@@ -878,8 +1075,13 @@ amd64_frame_prev_register (struct frame_info *next_frame, void **this_cache,
       return;
     }
 
-  frame_register_unwind (next_frame, regnum,
-			 optimizedp, lvalp, addrp, realnump, valuep);
+  /* APPLE LOCAL variable opt states.  */
+  *optimizedp = opt_okay;
+  *lvalp = lval_register;
+  *addrp = 0;
+  *realnump = regnum;
+  if (valuep)
+    frame_unwind_register (next_frame, (*realnump), valuep);
 }
 
 static const struct frame_unwind amd64_frame_unwind =
@@ -908,7 +1110,7 @@ amd64_sigtramp_frame_cache (struct frame_info *next_frame, void **this_cache)
   struct amd64_frame_cache *cache;
   struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch);
   CORE_ADDR addr;
-  char buf[8];
+  gdb_byte buf[8];
   int i;
 
   if (*this_cache)
@@ -943,9 +1145,10 @@ amd64_sigtramp_frame_this_id (struct frame_info *next_frame,
 static void
 amd64_sigtramp_frame_prev_register (struct frame_info *next_frame,
 				    void **this_cache,
-				    int regnum, int *optimizedp,
+				    /* APPLE LOCAL variable opt states.  */
+				    int regnum, enum opt_state *optimizedp,
 				    enum lval_type *lvalp, CORE_ADDR *addrp,
-				    int *realnump, void *valuep)
+				    int *realnump, gdb_byte *valuep)
 {
   /* Make sure we've initialized the cache.  */
   amd64_sigtramp_frame_cache (next_frame, this_cache);
@@ -964,15 +1167,26 @@ static const struct frame_unwind amd64_sigtramp_frame_unwind =
 static const struct frame_unwind *
 amd64_sigtramp_frame_sniffer (struct frame_info *next_frame)
 {
-  CORE_ADDR pc = frame_pc_unwind (next_frame);
-  char *name;
+  struct gdbarch_tdep *tdep = gdbarch_tdep (get_frame_arch (next_frame));
 
-  find_pc_partial_function (pc, &name, NULL, NULL);
-  if (PC_IN_SIGTRAMP (pc, name))
+  /* We shouldn't even bother if we don't have a sigcontext_addr
+     handler.  */
+  if (tdep->sigcontext_addr == NULL)
+    return NULL;
+
+  if (tdep->sigtramp_p != NULL)
     {
-      gdb_assert (gdbarch_tdep (current_gdbarch)->sigcontext_addr);
+      if (tdep->sigtramp_p (next_frame))
+	return &amd64_sigtramp_frame_unwind;
+    }
 
-      return &amd64_sigtramp_frame_unwind;
+  if (tdep->sigtramp_start != 0)
+    {
+      CORE_ADDR pc = frame_pc_unwind (next_frame);
+
+      gdb_assert (tdep->sigtramp_end != 0);
+      if (pc >= tdep->sigtramp_start && pc < tdep->sigtramp_end)
+	return &amd64_sigtramp_frame_unwind;
     }
 
   return NULL;
@@ -999,7 +1213,7 @@ static const struct frame_base amd64_frame_base =
 static struct frame_id
 amd64_unwind_dummy_id (struct gdbarch *gdbarch, struct frame_info *next_frame)
 {
-  char buf[8];
+  gdb_byte buf[8];
   CORE_ADDR fp;
 
   frame_unwind_register (next_frame, AMD64_RBP_REGNUM, buf);
@@ -1017,18 +1231,54 @@ amd64_frame_align (struct gdbarch *gdbarch, CORE_ADDR sp)
 }
 
 
-/* Supply register REGNUM from the floating-point register set REGSET
-   to register cache REGCACHE.  If REGNUM is -1, do this for all
-   registers in REGSET.  */
+/* Supply register REGNUM from the buffer specified by FPREGS and LEN
+   in the floating-point register set REGSET to register cache
+   REGCACHE.  If REGNUM is -1, do this for all registers in REGSET.  */
 
 static void
 amd64_supply_fpregset (const struct regset *regset, struct regcache *regcache,
 		       int regnum, const void *fpregs, size_t len)
 {
-  const struct gdbarch_tdep *tdep = regset->descr;
+  const struct gdbarch_tdep *tdep = gdbarch_tdep (regset->arch);
 
   gdb_assert (len == tdep->sizeof_fpregset);
   amd64_supply_fxsave (regcache, regnum, fpregs);
+}
+
+/* Collect register REGNUM from the register cache REGCACHE and store
+   it in the buffer specified by FPREGS and LEN as described by the
+   floating-point register set REGSET.  If REGNUM is -1, do this for
+   all registers in REGSET.  */
+
+static void
+amd64_collect_fpregset (const struct regset *regset,
+			const struct regcache *regcache,
+			int regnum, void *fpregs, size_t len)
+{
+  const struct gdbarch_tdep *tdep = gdbarch_tdep (regset->arch);
+
+  gdb_assert (len == tdep->sizeof_fpregset);
+  amd64_collect_fxsave (regcache, regnum, fpregs);
+}
+
+static CORE_ADDR
+amd64_fetch_pointer_argument (struct frame_info *frame, int argi,
+                              struct type *type)
+{
+  static int integer_regnum[] =
+  {
+    AMD64_RDI_REGNUM,           /* %rdi */
+    AMD64_RSI_REGNUM,           /* %rsi */
+    AMD64_RDX_REGNUM,           /* %rdx */
+    AMD64_RCX_REGNUM,           /* %rcx */
+    8,                          /* %r8 */
+    9                           /* %r9 */
+  };
+
+  if (argi < 6)
+    return get_frame_register_unsigned (frame, integer_regnum[argi]);
+  else
+    return 0;
 }
 
 /* Return the appropriate register set for the core section identified
@@ -1043,11 +1293,8 @@ amd64_regset_from_core_section (struct gdbarch *gdbarch,
   if (strcmp (sect_name, ".reg2") == 0 && sect_size == tdep->sizeof_fpregset)
     {
       if (tdep->fpregset == NULL)
-	{
-	  tdep->fpregset = XMALLOC (struct regset);
-	  tdep->fpregset->descr = tdep;
-	  tdep->fpregset->supply_regset = amd64_supply_fpregset;
-	}
+	tdep->fpregset = regset_alloc (gdbarch, amd64_supply_fpregset,
+				       amd64_collect_fpregset);
 
       return tdep->fpregset;
     }
@@ -1088,6 +1335,9 @@ amd64_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   set_gdbarch_pc_regnum (gdbarch, AMD64_RIP_REGNUM); /* %rip */
   set_gdbarch_ps_regnum (gdbarch, AMD64_EFLAGS_REGNUM); /* %eflags */
   set_gdbarch_fp0_regnum (gdbarch, AMD64_ST0_REGNUM); /* %st(0) */
+  /* APPLE LOCAL: Add the frame pointer register so it can be modified
+     in expressions.  */
+  set_gdbarch_deprecated_fp_regnum (gdbarch, AMD64_RBP_REGNUM); /* %rbp */
 
   /* The "default" register numbering scheme for AMD64 is referred to
      as the "DWARF Register Number Mapping" in the System V psABI.
@@ -1121,11 +1371,6 @@ amd64_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 
   set_gdbarch_unwind_dummy_id (gdbarch, amd64_unwind_dummy_id);
 
-  /* FIXME: kettenis/20021026: This is ELF-specific.  Fine for now,
-     since all supported AMD64 targets are ELF, but that might change
-     in the future.  */
-  set_gdbarch_in_solib_call_trampoline (gdbarch, in_plt_section);
-
   frame_unwind_append_sniffer (gdbarch, amd64_sigtramp_frame_sniffer);
   frame_unwind_append_sniffer (gdbarch, amd64_frame_sniffer);
   frame_base_set_default (gdbarch, &amd64_frame_base);
@@ -1134,6 +1379,9 @@ amd64_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   if (tdep->gregset_reg_offset)
     set_gdbarch_regset_from_core_section (gdbarch,
 					  amd64_regset_from_core_section);
+  /* APPLE LOCAL: A handy little function.  */
+  set_gdbarch_fetch_pointer_argument (gdbarch, amd64_fetch_pointer_argument);
+
 }
 
 
@@ -1157,9 +1405,9 @@ amd64_supply_fxsave (struct regcache *regcache, int regnum,
 {
   i387_supply_fxsave (regcache, regnum, fxsave);
 
-  if (fxsave)
+  if (fxsave && gdbarch_ptr_bit (get_regcache_arch (regcache)) == 64)
     {
-      const char *regs = fxsave;
+      const gdb_byte *regs = fxsave;
 
       if (regnum == -1 || regnum == I387_FISEG_REGNUM)
 	regcache_raw_supply (regcache, I387_FISEG_REGNUM, regs + 12);
@@ -1177,23 +1425,15 @@ void
 amd64_collect_fxsave (const struct regcache *regcache, int regnum,
 		      void *fxsave)
 {
-  char *regs = fxsave;
+  gdb_byte *regs = fxsave;
 
   i387_collect_fxsave (regcache, regnum, fxsave);
 
-  if (regnum == -1 || regnum == I387_FISEG_REGNUM)
-    regcache_raw_collect (regcache, I387_FISEG_REGNUM, regs + 12);
-  if (regnum == -1 || regnum == I387_FOSEG_REGNUM)
-    regcache_raw_collect (regcache, I387_FOSEG_REGNUM, regs + 20);
-}
-
-/* Fill register REGNUM (if it is a floating-point or SSE register) in
-   *FXSAVE with the value in GDB's register cache.  If REGNUM is -1, do
-   this for all registers.  This function doesn't touch any of the
-   reserved bits in *FXSAVE.  */
-
-void
-amd64_fill_fxsave (char *fxsave, int regnum)
-{
-  amd64_collect_fxsave (current_regcache, regnum, fxsave);
+  if (gdbarch_ptr_bit (get_regcache_arch (regcache)) == 64)
+    {
+      if (regnum == -1 || regnum == I387_FISEG_REGNUM)
+	regcache_raw_collect (regcache, I387_FISEG_REGNUM, regs + 12);
+      if (regnum == -1 || regnum == I387_FOSEG_REGNUM)
+	regcache_raw_collect (regcache, I387_FOSEG_REGNUM, regs + 20);
+    }
 }

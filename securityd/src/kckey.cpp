@@ -43,10 +43,10 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
     blob->validate(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
     switch (blob->version()) {
 #if defined(COMPAT_OSX_10_0)
-    case blob->version_MacOS_10_0:
+    case KeyBlob::version_MacOS_10_0:
         break;
 #endif
-    case blob->version_MacOS_10_1:
+    case KeyBlob::version_MacOS_10_1:
         break;
     default:
         CssmError::throwMe(CSSMERR_APPLEDL_INCOMPATIBLE_KEY_BLOB);
@@ -56,7 +56,7 @@ KeychainKey::KeychainKey(Database &db, const KeyBlob *blob)
     mBlob = blob->copy(Allocator::standard());
 	mValidBlob = true;
 	db.addReference(*this);
-    secdebug("SSkey", "%p (handle 0x%lx) created from blob version %lx",
+    secdebug("SSkey", "%p (handle 0x%lx) created from blob version %x",
 		this, handle(), blob->version());
 }
 
@@ -195,9 +195,13 @@ void KeychainKey::changedAcl()
 void KeychainKey::validate(AclAuthorization auth, const AccessCredentials *cred,
 	Database *relatedDatabase)
 {
-	if (KeychainDatabase *db = dynamic_cast<KeychainDatabase *>(relatedDatabase))
-		db->unlockDb();
+	if(!mBlob->isClearText()) {
+		/* unlock not needed for cleartext keys */
+		if (KeychainDatabase *db = dynamic_cast<KeychainDatabase *>(relatedDatabase))
+			db->unlockDb();
+	}
 	SecurityServerAcl::validate(auth, cred, relatedDatabase);
+	database().activity();		// upon successful validation
 }
 
 

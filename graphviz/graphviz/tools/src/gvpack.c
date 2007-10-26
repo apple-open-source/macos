@@ -62,7 +62,7 @@ static int     margin = 8;           /* Default margin in packing */
 static boolean doSplines = TRUE;     /* Use edges in packing */
 static pack_mode packMode = l_clust; /* Default packing mode - use clusters */
 static int verbose = 0;
-static char**  Files = 0;
+/* static char**  Files = 0; */
 static int     nGraphs = 0;          /* Guess as to no. of graphs */
 static FILE*   outfp;                /* output; stdout by default */
 static int     kind = -1;            /* type of graph; -1 = undefined */

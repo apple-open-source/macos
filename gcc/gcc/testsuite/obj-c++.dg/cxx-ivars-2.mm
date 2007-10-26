@@ -4,7 +4,8 @@
 // { dg-do run }
 // { dg-options "-fobjc-call-cxx-cdtors" }
 
-#include <objc/Object.h>
+/* APPLE LOCAL radar 4894756 */
+#include "../objc/execute/Object2.h"
 #include <stdlib.h>
 #define CHECK_IF(expr) if(!(expr)) abort()
 

@@ -1,8 +1,8 @@
 /* referral.c - LDBM backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/referral.c,v 1.18.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/referral.c,v 1.24.2.3 2006/01/06 19:46:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,8 @@ ldbm_back_referrals(
     SlapReply	*rs )
 {
 	struct ldbminfo	*li = (struct ldbminfo *) op->o_bd->be_private;
-	Entry *e, *matched;
+	Entry		*e, *matched;
+	int		rc = LDAP_SUCCESS;
 
 	if( op->o_tag == LDAP_REQ_SEARCH ) {
 		/* let search take care of itself */
@@ -51,46 +52,44 @@ ldbm_back_referrals(
 		if ( matched != NULL ) {
 			rs->sr_matched = ch_strdup( matched->e_dn );
 
-#ifdef NEW_LOGGING
-			LDAP_LOG( BACK_LDBM, DETAIL1,
-				"ldbm_back_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-				op->o_tag, op->o_req_dn.bv_val, rs->sr_matched );
-#else
 			Debug( LDAP_DEBUG_TRACE,
 				"ldbm_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
 				op->o_tag, op->o_req_dn.bv_val, rs->sr_matched );
-#endif
 
-			if( is_entry_referral( matched ) ) {
-				rs->sr_err = LDAP_OTHER;
+			if ( is_entry_referral( matched ) ) {
+				rc = rs->sr_err = LDAP_OTHER;
 				rs->sr_ref = get_entry_referrals( op, matched );
 			}
 
 			cache_return_entry_r( &li->li_cache, matched );
 
-		} else if ( default_referral != NULL ) {
-			rs->sr_err = LDAP_OTHER;
+		} else if ( !be_issuffix( op->o_bd, &op->o_req_ndn ) && default_referral != NULL ) {
+			rc = rs->sr_err = LDAP_OTHER;
 			rs->sr_ref = referral_rewrite( default_referral,
 				NULL, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 		}
 
 		ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
 
-		if( rs->sr_ref != NULL ) {
+		if ( rs->sr_ref != NULL ) {
 			/* send referrals */
-			rs->sr_err = LDAP_REFERRAL;
-			send_ldap_result( op, rs );
-			ber_bvarray_free( rs->sr_ref );
+			rc = rs->sr_err = LDAP_REFERRAL;
 
-		} else if ( rs->sr_err != LDAP_SUCCESS ) {
+		} else {
 			rs->sr_text = rs->sr_matched ? "bad referral object" : "bad default referral";
+		}
+
+		if ( rc != LDAP_SUCCESS ) {
 			send_ldap_result( op, rs );
 		}
 
 		if ( rs->sr_matched ) free( (char *)rs->sr_matched );
+		if ( rs->sr_ref ) ber_bvarray_free( rs->sr_ref );
+		rs->sr_text = NULL;
 		rs->sr_ref = NULL;
 		rs->sr_matched = NULL;
-		return rs->sr_err;
+
+		return rc;
 	}
 
 	if ( is_entry_referral( e ) ) {
@@ -99,35 +98,30 @@ ldbm_back_referrals(
 		rs->sr_ref = referral_rewrite(
 			refs, &e->e_name, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDBM, DETAIL1,
-			"ldbm_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			op->o_tag, op->o_req_dn.bv_val, e->e_dn );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldbm_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
 			op->o_tag, op->o_req_dn.bv_val, e->e_dn );
-#endif
 
 		rs->sr_matched = e->e_name.bv_val;
 		if( rs->sr_ref != NULL ) {
-			rs->sr_err = LDAP_REFERRAL;
-			send_ldap_result( op, rs );
-
-			ber_bvarray_free( rs->sr_ref );
+			rc = rs->sr_err = LDAP_REFERRAL;
+			rs->sr_text = NULL;
 
 		} else {
-			send_ldap_error( op, rs, LDAP_OTHER,
-				"bad referral object" );
+			rc = rs->sr_err = LDAP_OTHER;
+			rs->sr_text = "bad referral object";
 		}
+		send_ldap_result( op, rs );
 
-		if( refs != NULL ) ber_bvarray_free( refs );
+		if ( refs != NULL ) ber_bvarray_free( refs );
+		rs->sr_err = rc;
 		rs->sr_ref = NULL;
+		rs->sr_text = NULL;
 		rs->sr_matched = NULL;
 	}
 
 	cache_return_entry_r( &li->li_cache, e );
 	ldap_pvt_thread_rdwr_runlock(&li->li_giant_rwlock);
 
-	return rs->sr_err;
+	return rc;
 }

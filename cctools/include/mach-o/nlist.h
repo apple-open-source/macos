@@ -161,8 +161,14 @@ struct nlist_64 {
  * Common symbols are represented by undefined (N_UNDF) external (N_EXT) types
  * who's values (n_value) are non-zero.  In which case the value of the n_value
  * field is the size (in bytes) of the common symbol.  The n_sect field is set
- * to NO_SECT.
+ * to NO_SECT.  The alignment of a common symbol may be set as a power of 2
+ * between 2^1 and 2^15 as part of the n_desc field using the macros below. If
+ * the alignment is not set (a value of zero) then natural alignment based on
+ * the size is used.
  */
+#define GET_COMM_ALIGN(n_desc) (((n_desc) >> 8) & 0x0f)
+#define SET_COMM_ALIGN(n_desc,align) \
+    (n_desc) = (((n_desc) & 0xf0ff) | (((align) & 0x0f) << 8))
 
 /*
  * To support the lazy binding of undefined symbols in the dynamic link-editor,

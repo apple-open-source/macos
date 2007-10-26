@@ -14,8 +14,6 @@ PROJECT_TYPE = Tool
 
 CFILES = cmd.c disk.c fdisk.c getrawpartition.c mbr.c misc.c opendev.c part.c user.c auto.c
 HFILES = cmd.h disk.h mbr.h misc.h part.h user.h util.h auto.h
-OTHER_GENERATED_SOURCEFILES += manual.c
-OTHER_GENERATED_OFILES += manual.o
 
 OTHERSRCS = fdisk.8 Makefile Makefile.postamble PB.project
 
@@ -31,6 +29,7 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD
+NEXTSTEP_PB_CFLAGS += -Wall
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

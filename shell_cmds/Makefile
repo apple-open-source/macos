@@ -19,7 +19,7 @@ TOOLS = alias apply basename chroot date dirname echo env expr false\
         nice nohup printenv printf pwd renice script shlock sleep su\
         tee test time true uname users w whereis which who xargs yes
 
-OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble Manpages/*.1
+OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble Manpages/builtin.1
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -29,7 +29,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wall 
+NEXTSTEP_PB_CFLAGS = -Wall -mdynamic-no-pic
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

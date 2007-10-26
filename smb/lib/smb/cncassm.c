@@ -3,6 +3,9 @@
  * (c) Copyright 1990 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1990 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1990 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2004 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -54,7 +57,6 @@
 #include <cnfbuf.h>     /* NCA Connection fragment buffer service */
 #include <cnclsm.h>     /* NCA Connection call state machine */
 #include <cnassm.h>     /* NCA Connection association state machine */
-
 
 /******************************************************************************/
 /*
@@ -111,7 +113,7 @@ INTERNAL void send_pdu(
     rpc_cn_assoc_p_t            /*assoc*/,
     unsigned32                  /*pdu_type*/,
     rpc_cn_syntax_p_t           /*pres_context*/,
-    unsigned32                  /*grp_id*/,
+    unsigned long                  /*grp_id*/,
     rpc_cn_sec_context_p_t      /*sec_context*/,
     boolean                     /*old_server*/,
     unsigned32 *               /*st*/);
@@ -2848,7 +2850,7 @@ INTERNAL unsigned32     mark_syntax_and_sec_action_rtn
                         break;
                     }
                 }
-#if DEBUG
+#if DEBUG_DCE_RPC
                 if (i == pres_context->syntax_vector->count)
                 {
 		    
@@ -4106,7 +4108,7 @@ INTERNAL void send_pdu
   rpc_cn_assoc_p_t        assoc,
   unsigned32              pdu_type,
   rpc_cn_syntax_p_t       pres_context,
-  unsigned32              grp_id,
+  unsigned long              grp_id,
   rpc_cn_sec_context_p_t  sec_context,
   boolean                 old_server,
   unsigned32              *st
@@ -4170,7 +4172,7 @@ INTERNAL void send_pdu
         pres_cont_list->pres_cont_elem[0].abstract_syntax.id =  pres_context->syntax_abstract_id.id;
         pres_cont_list->pres_cont_elem[0].abstract_syntax.version = pres_context->syntax_abstract_id.version;
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
         if (RPC_DBG2 (rpc_e_dbg_general, RPC_C_CN_DBG_GENERAL))
         {
             unsigned_char_t     *abstract;
@@ -4199,7 +4201,7 @@ INTERNAL void send_pdu
             pres_cont_list->pres_cont_elem[0].transfer_syntaxes[i].version = 
                 pres_context->syntax_vector->syntax_id[i].version;
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
             if (RPC_DBG2 (rpc_e_dbg_general, RPC_C_CN_DBG_GENERAL))
             {
                 unsigned_char_t     *transfer;
@@ -4241,7 +4243,7 @@ INTERNAL void send_pdu
     RPC_CN_PKT_MAX_XMIT_FRAG (header) = rpc_g_cn_large_frag_size;
     RPC_CN_PKT_MAX_RECV_FRAG (header) = rpc_g_cn_large_frag_size;
     RPC_CN_PKT_ASSOC_GROUP_ID (header) = grp_id;
-
+	
     /* use negotiated minor version number */
     version = assoc->assoc_vers_minor;
     assoc->bind_packets_sent = 0;
@@ -4324,7 +4326,7 @@ INTERNAL void send_pdu
 
     }
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
     if (RPC_DBG_EXACT(rpc_es_dbg_cn_errors, RPC_C_CN_DBG_FRAG_BIND))
     {
         char *x;
@@ -4346,7 +4348,7 @@ INTERNAL void send_pdu
             first_frag = false;
         }
 
-        memset(auth_tlr->auth_value, auth_len, 0);
+        memset(auth_tlr->auth_value, 0, auth_len);
 
         RPC_CN_AUTH_FMT_CLIENT_REQ (&assoc->security, 
                                     sec_context,

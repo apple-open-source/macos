@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -16,6 +16,8 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: zend_dynamic_array.c,v 1.13.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 #include "zend.h"
 
@@ -60,3 +62,11 @@ ZEND_API void *zend_dynamic_array_get_element(dynamic_array *da, unsigned int in
 	}
 	return (void *)(da->array+index*da->element_size);
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

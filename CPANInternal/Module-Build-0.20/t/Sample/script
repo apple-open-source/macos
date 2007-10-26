@@ -1,0 +1,6 @@
+#!perl -w
+
+# NOTE: the manifypods test expects no pod in this file
+
+print "Hello, world";
+

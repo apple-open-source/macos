@@ -1,7 +1,9 @@
 /* Abstraction of various C++ ABI's we support, and the info we need
    to get from them.
+
    Contributed by Daniel Berlin <dberlin@redhat.com>
-   Copyright 2001 Free Software Foundation, Inc.
+
+   Copyright 2001, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -121,7 +123,7 @@ extern struct value *value_virtual_fn_field (struct value **valuep,
        of the complete object to the start of the embedded subobject
        VALUE represents.  In other words, the enclosing object starts
        at VALUE_ADDR (VALUE) + VALUE_OFFSET (VALUE) +
-       VALUE_EMBEDDED_OFFSET (VALUE) + *TOP
+       value_embedded_offset (VALUE) + *TOP
      - If *USING_ENC is non-zero, then *TOP is the offset from the
        address of the complete object to the enclosing object stored
        in VALUE.  In other words, the enclosing object starts at
@@ -142,8 +144,8 @@ extern struct type *value_rtti_type (struct value *value,
 
    -1 is returned on error. */
 
-extern int baseclass_offset (struct type *type, int index, char *valaddr,
-			     CORE_ADDR address);
+extern int baseclass_offset (struct type *type, int index,
+			     const bfd_byte *valaddr, CORE_ADDR address);
                   
 struct cp_abi_ops
 {
@@ -164,8 +166,8 @@ struct cp_abi_ops
 				     int j, struct type * type, int offset);
   struct type *(*rtti_type) (struct value *v, int *full, int *top,
 			     int *using_enc);
-  int (*baseclass_offset) (struct type *type, int index, char *valaddr,
-			   CORE_ADDR address);
+  int (*baseclass_offset) (struct type *type, int index,
+			   const bfd_byte *valaddr, CORE_ADDR address);
 };
 
 

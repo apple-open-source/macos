@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,10 +21,35 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOPartitionScheme.h>
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOPartitionScheme, IOStorage)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern IOStorageAttributes gIOStorageAttributesUnsupported;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static SInt32 partitionComparison( const OSMetaClassBase * object1,
+                                   const OSMetaClassBase * object2,
+                                   void *                  context )
+{
+    //
+    // Internal comparison routine for sorting partitions in an ordered set.
+    //
+
+    UInt64 base1 = ( ( IOMedia * ) object1 )->getBase( );
+    UInt64 base2 = ( ( IOMedia * ) object2 )->getBase( );
+
+    if ( base1 < base2 ) return  1;
+    if ( base1 > base2 ) return -1;
+
+    return 0;
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -262,10 +287,11 @@ void IOPartitionScheme::handleClose(IOService * client, IOOptionBits options)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOPartitionScheme::read(IOService *          /* client */,
-                             UInt64               byteStart,
-                             IOMemoryDescriptor * buffer,
-                             IOStorageCompletion  completion)
+void IOPartitionScheme::read(IOService *           client,
+                             UInt64                byteStart,
+                             IOMemoryDescriptor *  buffer,
+                             IOStorageAttributes * attributes,
+                             IOStorageCompletion * completion)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -279,15 +305,30 @@ void IOPartitionScheme::read(IOService *          /* client */,
     // as RAID will need to do extra processing here.
     //
 
-    getProvider()->read(this, byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::read( client, byteStart, buffer, attributes, completion );
+
+            return;
+        }
+    }
+
+    getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOPartitionScheme::write(IOService *          /* client */,
-                              UInt64               byteStart,
-                              IOMemoryDescriptor * buffer,
-                              IOStorageCompletion  completion)
+void IOPartitionScheme::write(IOService *           client,
+                              UInt64                byteStart,
+                              IOMemoryDescriptor *  buffer,
+                              IOStorageAttributes * attributes,
+                              IOStorageCompletion * completion)
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -301,7 +342,21 @@ void IOPartitionScheme::write(IOService *          /* client */,
     // as RAID will need to do extra processing here.
     //
 
-    getProvider()->write(this, byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::write( client, byteStart, buffer, attributes, completion );
+
+            return;
+        }
+    }
+
+    getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -317,15 +372,364 @@ IOReturn IOPartitionScheme::synchronizeCache(IOService * client)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOPartitionScheme,  0);
+bool IOPartitionScheme::attachMediaObjectToDeviceTree(IOMedia *    media,
+                                                      IOOptionBits options)
+{
+    //
+    // Attach the given media object to the device tree plane.
+    //
+
+    IORegistryEntry * parent = this;
+
+    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
+    {
+        if ( parent->inPlane(gIODTPlane) )
+        {
+            char         location[ 32 ];
+            const char * locationOfParent = parent->getLocation(gIODTPlane);
+            const char * nameOfParent     = parent->getName(gIODTPlane);
+
+            if ( locationOfParent == 0 )  break;
+
+            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
+
+            parent = parent->getParentEntry(gIODTPlane);
+
+            if ( parent == 0 )  break;
+
+            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
+
+            strlcpy(location, locationOfParent, sizeof(location));
+            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
+            strlcat(location, media->getLocation(), sizeof(location) - strlen(location));
+            media->setLocation(location, gIODTPlane);
+            media->setName(nameOfParent, gIODTPlane);
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+OSMetaClassDefineReservedUsed(IOPartitionScheme, 0);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOPartitionScheme,  1);
+void IOPartitionScheme::detachMediaObjectFromDeviceTree(IOMedia *    media,
+                                                        IOOptionBits options)
+{
+    //
+    // Detach the given media object from the device tree plane.
+    //
+
+    IORegistryEntry * parent;
+
+    if ( (parent = media->getParentEntry(gIODTPlane)) )
+    {
+        media->detachFromParent(parent, gIODTPlane);
+    }
+}
+
+OSMetaClassDefineReservedUsed(IOPartitionScheme, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOPartitionScheme,  2);
+OSSet * IOPartitionScheme::juxtaposeMediaObjects(OSSet * partitionsOld,
+                                                 OSSet * partitionsNew)
+{
+    //
+    // Updates a set of existing partitions, represented by partitionsOld,
+    // with possible updates from a rescan of the disk, represented by
+    // partitionsNew.  It returns a new set of partitions with the results,
+    // removing partitions from partitionsOld where applicable, adding
+    // partitions from partitionsNew where applicable, and folding in property
+    // changes to partitions from partitionsNew into partitionsOld where
+    // applicable.
+    //
+
+    OSIterator *   iterator    = 0;
+    OSIterator *   iterator1   = 0;
+    OSIterator *   iterator2   = 0;
+    OSSymbol *     key;
+    OSSet *        keys        = 0;
+    IOMedia *      partition;
+    IOMedia *      partition1;
+    IOMedia *      partition2;
+    OSSet *        partitions  = 0;
+    OSOrderedSet * partitions1 = 0;
+    OSOrderedSet * partitions2 = 0;
+    UInt32         partitionID = 0;
+    OSDictionary * properties;
+
+    // Allocate a set to hold the set of media objects representing partitions.
+
+    partitions = OSSet::withCapacity( partitionsNew->getCapacity( ) );
+    if ( partitions == 0 ) goto juxtaposeErr;
+
+    // Prepare the reference set of partitions.
+
+    partitions1 = OSOrderedSet::withCapacity( partitionsOld->getCapacity( ), partitionComparison, 0 );
+    if ( partitions1 == 0 ) goto juxtaposeErr;
+
+    iterator1 = OSCollectionIterator::withCollection( partitionsOld );
+    if ( iterator1 == 0 ) goto juxtaposeErr;
+
+    while ( ( partition1 = ( IOMedia * ) iterator1->getNextObject( ) ) )
+    {
+        partitionID = max( partitionID, strtoul( partition1->getLocation( ), NULL, 10 ) );
+
+        partitions1->setObject( partition1 );
+    }
+
+    iterator1->release( );
+    iterator1 = 0;
+
+    // Prepare the comparison set of partitions.
+
+    partitions2 = OSOrderedSet::withCapacity( partitionsNew->getCapacity( ), partitionComparison, 0 );
+    if ( partitions2 == 0 ) goto juxtaposeErr;
+
+    iterator2 = OSCollectionIterator::withCollection( partitionsNew );
+    if ( iterator2 == 0 ) goto juxtaposeErr;
+
+    while ( ( partition2 = ( IOMedia * ) iterator2->getNextObject( ) ) )
+    {
+        partitionID = max( partitionID, strtoul( partition2->getLocation( ), NULL, 10 ) );
+
+        partitions2->setObject( partition2 );
+    }
+
+    iterator2->release( );
+    iterator2 = 0;
+
+    // Juxtapose the partitions.
+
+    iterator1 = OSCollectionIterator::withCollection( partitions1 );
+    if ( iterator1 == 0 ) goto juxtaposeErr;
+
+    iterator2 = OSCollectionIterator::withCollection( partitions2 );
+    if ( iterator2 == 0 ) goto juxtaposeErr;
+
+    partition1 = ( IOMedia * ) iterator1->getNextObject( );
+    partition2 = ( IOMedia * ) iterator2->getNextObject( );
+
+    while ( partition1 || partition2 )
+    {
+        UInt64 base1;
+        UInt64 base2;
+
+        base1 = partition1 ? partition1->getBase( ) : UINT64_MAX;
+        base2 = partition2 ? partition2->getBase( ) : UINT64_MAX;
+
+        if ( base1 > base2 )
+        {
+            // A partition was added.
+
+            partition2->setProperty( kIOMediaLiveKey, true );
+
+            iterator = OSCollectionIterator::withCollection( partitions1 );
+            if ( iterator == 0 ) goto juxtaposeErr;
+
+            while ( ( partition = ( IOMedia * ) iterator->getNextObject( ) ) )
+            {
+                if ( strcmp( partition->getLocation( ), partition2->getLocation( ) ) == 0 )
+                {
+                    // Set a location value for this partition.
+
+                    char location[ 12 ];
+
+                    partitionID++;
+
+                    snprintf( location, sizeof( location ), "%ld", partitionID );
+
+                    partition2->setLocation( location );
+
+                    partition2->setProperty( kIOMediaLiveKey, false );
+
+                    break;
+                }
+            }
+
+            iterator->release( );
+            iterator = 0;
+
+            if ( partition2->attach( this ) )
+            {
+                attachMediaObjectToDeviceTree( partition2 );
+
+                partition2->registerService( kIOServiceAsynchronous );
+            }
+
+            partitions->setObject( partition2 );
+
+            partition2 = ( IOMedia * ) iterator2->getNextObject( );
+        }
+        else if ( base1 < base2 )
+        {
+            // A partition was removed.
+
+            partition1->setProperty( kIOMediaLiveKey, false );
+
+            if ( handleIsOpen( partition1 ) == false )
+            {
+                partition1->terminate( kIOServiceSynchronous );
+
+                detachMediaObjectFromDeviceTree( partition1 );
+            }
+            else
+            {
+                partition1->removeProperty( kIOMediaPartitionIDKey );
+
+                partitions->setObject( partition1 );
+            }
+
+            partition1 = ( IOMedia * ) iterator1->getNextObject( );
+        }
+        else
+        {
+            // A partition was matched.
+
+            bool edit;
+            bool move;
+
+            edit = false;
+            move = false;
+
+            keys = OSSet::withCapacity( 1 );
+            if ( keys == 0 ) goto juxtaposeErr;
+
+            properties = partition2->getPropertyTable( );
+
+            // Determine which properties were updated.
+
+            if ( partition1->getBase( )               != partition2->getBase( )               ||
+                 partition1->getSize( )               != partition2->getSize( )               ||
+                 partition1->getPreferredBlockSize( ) != partition2->getPreferredBlockSize( ) ||
+                 partition1->getAttributes( )         != partition2->getAttributes( )         ||
+                 partition1->isWhole( )               != partition2->isWhole( )               ||
+                 partition1->isWritable( )            != partition2->isWritable( )            ||
+                 strcmp( partition1->getContentHint( ), partition2->getContentHint( ) )       )
+            {
+                edit = true;
+            }
+
+            if ( strcmp( partition1->getName( ),     partition2->getName( )     ) ||
+                 strcmp( partition1->getLocation( ), partition2->getLocation( ) ) )
+            {
+                move = true;
+            }
+
+            iterator = OSCollectionIterator::withCollection( properties );
+            if ( iterator == 0 ) goto juxtaposeErr;
+
+            while ( ( key = ( OSSymbol * ) iterator->getNextObject( ) ) )
+            {
+                OSObject * value1;
+                OSObject * value2;
+
+                if ( key->isEqualTo( kIOMediaContentHintKey        ) ||
+                     key->isEqualTo( kIOMediaEjectableKey          ) ||
+                     key->isEqualTo( kIOMediaPreferredBlockSizeKey ) ||
+                     key->isEqualTo( kIOMediaRemovableKey          ) ||
+                     key->isEqualTo( kIOMediaSizeKey               ) ||
+                     key->isEqualTo( kIOMediaWholeKey              ) ||
+                     key->isEqualTo( kIOMediaWritableKey           ) )
+                {
+                    continue;
+                }
+
+                if ( key->isEqualTo( kIOMediaContentKey ) ||
+                     key->isEqualTo( kIOMediaLeafKey    ) ||
+                     key->isEqualTo( kIOMediaLiveKey    ) ||
+                     key->isEqualTo( kIOMediaOpenKey    ) )
+                {
+                    continue;
+                }
+
+                value1 = partition1->getProperty( key );
+                value2 = partition2->getProperty( key );
+
+                if ( value1 == 0 || value1->isEqualTo( value2 ) == false )
+                {
+                    keys->setObject( key );
+                }
+            }
+
+            iterator->release( );
+            iterator = 0;
+
+            // A partition was updated.
+
+            partition1->setProperty( kIOMediaLiveKey, ( move == false ) );
+
+            if ( edit )
+            {
+                partition1->init( partition2->getBase( ),
+                                  partition2->getSize( ),
+                                  partition2->getPreferredBlockSize( ),
+                                  partition2->getAttributes( ),
+                                  partition2->isWhole( ),
+                                  partition2->isWritable( ),
+                                  partition2->getContentHint( ) );
+            }
+
+            if ( keys->getCount( ) )
+            {
+                iterator = OSCollectionIterator::withCollection( keys );
+                if ( iterator == 0 ) goto juxtaposeErr;
+
+                while ( ( key = ( OSSymbol * ) iterator->getNextObject( ) ) )
+                {
+                    partition1->setProperty( key, partition2->getProperty( key ) );
+                }
+
+                iterator->release( );
+                iterator = 0;
+            }
+
+            if ( edit || keys->getCount( ) )
+            {
+                partition1->messageClients( kIOMessageServicePropertyChange );
+
+                partition1->registerService( kIOServiceAsynchronous );
+            }
+
+            keys->release( );
+            keys = 0;
+
+            partitions->setObject( partition1 );
+
+            partition1 = ( IOMedia * ) iterator1->getNextObject( );
+            partition2 = ( IOMedia * ) iterator2->getNextObject( );
+        }
+    }
+
+    // Release our resources.
+
+    iterator1->release( );
+    iterator2->release( );
+    partitions1->release( );
+    partitions2->release( );
+
+    return partitions;
+
+juxtaposeErr:
+
+    // Release our resources.
+
+    if ( iterator    ) iterator->release( );
+    if ( iterator1   ) iterator1->release( );
+    if ( iterator2   ) iterator2->release( );
+    if ( keys        ) keys->release( );
+    if ( partitions  ) partitions->release( );
+    if ( partitions1 ) partitions1->release( );
+    if ( partitions2 ) partitions2->release( );
+
+    return 0;
+}
+
+OSMetaClassDefineReservedUsed(IOPartitionScheme, 2);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -442,3 +846,17 @@ OSMetaClassDefineReservedUnused(IOPartitionScheme, 30);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 31);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN17IOPartitionScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    scheme->read( client, byteStart, buffer, NULL, &completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN17IOPartitionScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOPartitionScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    scheme->write( client, byteStart, buffer, NULL, &completion );
+}

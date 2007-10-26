@@ -47,6 +47,8 @@
 
 #include "at_proto.h"
 
+
+
 extern int ATsocket(int protocol);
 	/* Used to create an old-style (pre-BSD) AppleTalk socket */
 
@@ -56,6 +58,7 @@ atp_open(socket)
 	int 		fd;
 	int 		len;
 	at_socket	newsock;
+	
 
 	newsock = socket ? *socket : 0;
 

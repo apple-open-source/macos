@@ -234,8 +234,8 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 		{
 #if DEBUG_REBUILD 
 			{
-				printf( "%s - ValidateRecordLength failed! \n", __FUNCTION__ );
-				printf( "%s - record %d in node %d is not recoverable. \n", 
+			plog( "%s - ValidateRecordLength failed! \n", __FUNCTION__ );
+			plog( "%s - record %d in node %d is not recoverable. \n", 
 						__FUNCTION__, (theSGlobPtr->scanState.recordNum - 1), 
 						theSGlobPtr->scanState.nodeNum );
 			}
@@ -251,9 +251,9 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 		{
 #if DEBUG_REBUILD 
 			{
-				printf( "%s - InsertBTreeRecord failed with err %d 0x%02X \n", 
+			plog( "%s - InsertBTreeRecord failed with err %d 0x%02X \n", 
 					__FUNCTION__, myErr, myErr );
-				printf( "%s - record %d in node %d is not recoverable. \n", 
+			plog( "%s - record %d in node %d is not recoverable. \n", 
 						__FUNCTION__, (theSGlobPtr->scanState.recordNum - 1), 
 						theSGlobPtr->scanState.nodeNum );
 				PrintBTreeKey( myCurrentKeyPtr, theSGlobPtr->calculatedCatalogBTCB );
@@ -267,8 +267,8 @@ OSErr	RebuildCatalogBTree( SGlobPtr theSGlobPtr )
 #if SHOW_ELAPSED_TIMES
 	gettimeofday( &myEndTime, &zone );
 	timersub( &myEndTime, &myStartTime, &myElapsedTime );
-	printf( "\n%s - rebuild catalog elapsed time \n", __FUNCTION__ );
-	printf( ">>>>>>>>>>>>> secs %d msecs %d \n\n", myElapsedTime.tv_sec, myElapsedTime.tv_usec );
+plog( "\n%s - rebuild catalog elapsed time \n", __FUNCTION__ );
+plog( ">>>>>>>>>>>>> secs %d msecs %d \n\n", myElapsedTime.tv_sec, myElapsedTime.tv_usec );
 #endif
 
 	if ( btNotFound == myErr )
@@ -895,41 +895,41 @@ static OSErr ValidateRecordLength( 	SGlobPtr theSGlobPtr,
 #if DEBUG_REBUILD 
 static void PrintNodeDescriptor( NodeDescPtr thePtr )
 {
-	printf( "\n xxxxxxxx BTNodeDescriptor xxxxxxxx \n" );
-	printf( "   fLink %d \n", thePtr->fLink );
-	printf( "   bLink %d \n", thePtr->bLink );
-	printf( "   kind %d ", thePtr->kind );
+plog( "\n xxxxxxxx BTNodeDescriptor xxxxxxxx \n" );
+plog( "   fLink %d \n", thePtr->fLink );
+plog( "   bLink %d \n", thePtr->bLink );
+plog( "   kind %d ", thePtr->kind );
 	if ( thePtr->kind == kBTLeafNode )
-		printf( "%s \n", "kBTLeafNode" );
+	plog( "%s \n", "kBTLeafNode" );
 	else if ( thePtr->kind == kBTIndexNode )
-		printf( "%s \n", "kBTIndexNode" );
+	plog( "%s \n", "kBTIndexNode" );
 	else if ( thePtr->kind == kBTHeaderNode )
-		printf( "%s \n", "kBTHeaderNode" );
+	plog( "%s \n", "kBTHeaderNode" );
 	else if ( thePtr->kind == kBTMapNode )
-		printf( "%s \n", "kBTMapNode" );
+	plog( "%s \n", "kBTMapNode" );
 	else
-		printf( "do not know?? \n" );
-	printf( "   height %d \n", thePtr->height );
-	printf( "   numRecords %d \n", thePtr->numRecords );
+	plog( "do not know?? \n" );
+plog( "   height %d \n", thePtr->height );
+plog( "   numRecords %d \n", thePtr->numRecords );
 
 } /* PrintNodeDescriptor */
 
 
 static void PrintBTHeaderRec( BTHeaderRec * thePtr )
 {
-	printf( "\n xxxxxxxx BTHeaderRec xxxxxxxx \n" );
-	printf( "   treeDepth %d \n", thePtr->treeDepth );
-	printf( "   rootNode %d \n", thePtr->rootNode );
-	printf( "   leafRecords %d \n", thePtr->leafRecords );
-	printf( "   firstLeafNode %d \n", thePtr->firstLeafNode );
-	printf( "   lastLeafNode %d \n", thePtr->lastLeafNode );
-	printf( "   nodeSize %d \n", thePtr->nodeSize );
-	printf( "   maxKeyLength %d \n", thePtr->maxKeyLength );
-	printf( "   totalNodes %d \n", thePtr->totalNodes );
-	printf( "   freeNodes %d \n", thePtr->freeNodes );
-	printf( "   clumpSize %d \n", thePtr->clumpSize );
-	printf( "   btreeType 0x%02X \n", thePtr->btreeType );
-	printf( "   attributes 0x%02X \n", thePtr->attributes );
+plog( "\n xxxxxxxx BTHeaderRec xxxxxxxx \n" );
+plog( "   treeDepth %d \n", thePtr->treeDepth );
+plog( "   rootNode %d \n", thePtr->rootNode );
+plog( "   leafRecords %d \n", thePtr->leafRecords );
+plog( "   firstLeafNode %d \n", thePtr->firstLeafNode );
+plog( "   lastLeafNode %d \n", thePtr->lastLeafNode );
+plog( "   nodeSize %d \n", thePtr->nodeSize );
+plog( "   maxKeyLength %d \n", thePtr->maxKeyLength );
+plog( "   totalNodes %d \n", thePtr->totalNodes );
+plog( "   freeNodes %d \n", thePtr->freeNodes );
+plog( "   clumpSize %d \n", thePtr->clumpSize );
+plog( "   btreeType 0x%02X \n", thePtr->btreeType );
+plog( "   attributes 0x%02X \n", thePtr->attributes );
 
 } /* PrintBTHeaderRec */
 
@@ -940,35 +940,35 @@ static void PrintBTreeKey( KeyPtr thePtr, BTreeControlBlock * theBTreeCBPtr )
 	UInt8 *	myPtr = (UInt8 *)thePtr;
 
 	myKeyLength = CalcKeySize( theBTreeCBPtr, thePtr) ;
-	printf( "\n xxxxxxxx BTreeKey xxxxxxxx \n" );
-	printf( "   length %d \n", myKeyLength );
+plog( "\n xxxxxxxx BTreeKey xxxxxxxx \n" );
+plog( "   length %d \n", myKeyLength );
 	for ( i = 0; i < myKeyLength; i++ )
-		printf( "%02X", *(myPtr + i) );
-	printf( "\n" );
+	plog( "%02X", *(myPtr + i) );
+plog( "\n" );
 	
 } /* PrintBTreeKey */
 			
 static void PrintIndexNodeRec( UInt32 theNodeNum )
 {
-	printf( "\n xxxxxxxx IndexNodeRec xxxxxxxx \n" );
-	printf( "   node number %d \n", theNodeNum );
+plog( "\n xxxxxxxx IndexNodeRec xxxxxxxx \n" );
+plog( "   node number %d \n", theNodeNum );
 
 } /* PrintIndexNodeRec */
 			
 static void PrintLeafNodeRec( HFSPlusCatalogFolder * thePtr )
 {
-	printf( "\n xxxxxxxx LeafNodeRec xxxxxxxx \n" );
-	printf( "   recordType %d ", thePtr->recordType );
+plog( "\n xxxxxxxx LeafNodeRec xxxxxxxx \n" );
+plog( "   recordType %d ", thePtr->recordType );
 	if ( thePtr->recordType == kHFSPlusFolderRecord )
-		printf( "%s \n", "kHFSPlusFolderRecord" );
+	plog( "%s \n", "kHFSPlusFolderRecord" );
 	else if ( thePtr->recordType == kHFSPlusFileRecord )
-		printf( "%s \n", "kHFSPlusFileRecord" );
+	plog( "%s \n", "kHFSPlusFileRecord" );
 	else if ( thePtr->recordType == kHFSPlusFolderThreadRecord )
-		printf( "%s \n", "kHFSPlusFolderThreadRecord" );
+	plog( "%s \n", "kHFSPlusFolderThreadRecord" );
 	else if ( thePtr->recordType == kHFSPlusFileThreadRecord )
-		printf( "%s \n", "kHFSPlusFileThreadRecord" );
+	plog( "%s \n", "kHFSPlusFileThreadRecord" );
 	else
-		printf( "do not know?? \n" );
+	plog( "do not know?? \n" );
 
 } /* PrintLeafNodeRec */
 

@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: fetchnews.c,v 1.4 2005/03/05 00:36:48 dasenbro Exp $
+ * $Id: fetchnews.c,v 1.16 2006/11/30 17:11:17 murch Exp $
  */
 
 #include <config.h>
@@ -60,6 +60,7 @@
 #include "cyrusdb.h"
 #include "exitcodes.h"
 #include "global.h"
+#include "gmtoff.h"
 #include "lock.h"
 #include "prot.h"
 #include "xmalloc.h"
@@ -125,7 +126,7 @@ int newsrc_done(void)
 void usage(void)
 {
     fprintf(stderr,
-	    "fetchnews [-C <altconfig>] [-s <server>] [-n] [-w <wildmat>] [-f <tstamp file>]\n"
+	    "fetchnews [-C <altconfig>] [-s <server>] [-n] [-y] [-w <wildmat>] [-f <tstamp file>]\n"
 	    "          [-a <authname> [-p <password>]] <peer>\n");
     exit(-1);
 }
@@ -262,13 +263,13 @@ int main(int argc, char *argv[])
     char sfile[1024] = "";
     int fd = -1, i, n, offered, rejected, accepted, failed;
     time_t stamp;
-    struct tm *tm;
     char **resp = NULL;
     int newnews = 1;
+    char *datefmt = "%y%m%d %H%M%S";
 
     if (geteuid() == 0) fatal("must run as the Cyrus user", EC_USAGE);
 
-    while ((opt = getopt(argc, argv, "C:s:w:f:a:p:n")) != EOF) {
+    while ((opt = getopt(argc, argv, "C:s:w:f:a:p:ny")) != EOF) {
 	switch (opt) {
 	case 'C': /* alt config file */
 	    alt_config = optarg;
@@ -300,6 +301,10 @@ int main(int argc, char *argv[])
 
 	case 'n': /* no newnews */
 	    newnews = 0;
+	    break;
+
+	case 'y': /* newsserver is y2k compliant */
+	    datefmt = "%Y%m%d %H%M%S";
 	    break;
 
 	default:
@@ -367,6 +372,25 @@ int main(int argc, char *argv[])
     prot_fgets(buf, sizeof(buf), pin);
 
     if (newnews) {
+	struct tm ctime, *ptime;
+
+	/* fetch the server's current time */
+	prot_printf(pout, "DATE\r\n");
+
+	if (!prot_fgets(buf, sizeof(buf), pin) || strncmp("111 ", buf, 4)) {
+	    syslog(LOG_ERR, "error fetching DATE");
+	    goto quit;
+	}
+
+	/* parse and normalize the server time */
+	memset(&ctime, 0, sizeof(struct tm));
+	sscanf(buf+4, "%4d%02d%02d%02d%02d%02d",
+	       &ctime.tm_year, &ctime.tm_mon, &ctime.tm_mday,
+	       &ctime.tm_hour, &ctime.tm_min, &ctime.tm_sec);
+	ctime.tm_year -= 1900;
+	ctime.tm_mon--;
+	ctime.tm_isdst = -1;
+
 	/* read the previous timestamp */
 	if (!sfile[0]) {
 	    char oldfile[1024];
@@ -393,8 +417,10 @@ int main(int argc, char *argv[])
 	}
 
 	/* ask for new articles */
-	tm = gmtime(&stamp);
-	strftime(buf, sizeof(buf), "%Y%m%d %H%M%S", tm);
+	if (stamp) stamp -= 180; /* adjust back 3 minutes */
+	ptime = gmtime(&stamp);
+	ptime->tm_isdst = -1;
+	strftime(buf, sizeof(buf), datefmt, ptime);
 	prot_printf(pout, "NEWNEWS %s %s GMT\r\n", wildmat, buf);
 	
 	if (!prot_fgets(buf, sizeof(buf), pin) || strncmp("230", buf, 3)) {
@@ -402,7 +428,15 @@ int main(int argc, char *argv[])
 	    newnews = 0;
 	}
 
-	stamp = time(NULL);
+	/* prepare server's current time as new timestamp */
+	stamp = mktime(&ctime);
+	/* adjust for local timezone
+
+	   XXX  We need to do this because we use gmtime() above.
+	   We can't change this, otherwise we'd be incompatible
+	   with an old localtime timestamp.
+	*/
+	stamp += gmtoff_of(&ctime, stamp);
     }
 
     if (!newnews) {

@@ -20,6 +20,7 @@
 #include "vim.h"
 
 static void comp_botline __ARGS((win_T *wp));
+static int scrolljump_value __ARGS((void));
 static int check_top_offset __ARGS((void));
 static void curs_rows __ARGS((win_T *wp, int do_botline));
 static void validate_botline_win __ARGS((win_T *wp));
@@ -207,13 +208,13 @@ update_topline()
 		check_topline = TRUE;
 	    else if (check_top_offset())
 		check_topline = TRUE;
+	}
 #ifdef FEAT_DIFF
 	    /* Check if there are more filler lines than allowed. */
-	    else if (curwin->w_topfill > diff_check_fill(curwin,
+	if (!check_topline && curwin->w_topfill > diff_check_fill(curwin,
 							   curwin->w_topline))
-		check_topline = TRUE;
+	    check_topline = TRUE;
 #endif
-	}
 
 	if (check_topline)
 	{
@@ -249,7 +250,7 @@ update_topline()
 		scroll_cursor_halfway(FALSE);
 	    else
 	    {
-		scroll_cursor_top((int)p_sj, FALSE);
+		scroll_cursor_top(scrolljump_value(), FALSE);
 		check_botline = TRUE;
 	    }
 	}
@@ -341,7 +342,7 @@ update_topline()
 		    line_count = curwin->w_cursor.lnum - curwin->w_botline
 								   + 1 + p_so;
 		if (line_count <= curwin->w_height + 1)
-		    scroll_cursor_bot((int)p_sj, FALSE);
+		    scroll_cursor_bot(scrolljump_value(), FALSE);
 		else
 		    scroll_cursor_halfway(FALSE);
 	    }
@@ -359,7 +360,7 @@ update_topline()
 	    )
     {
 	dollar_vcol = 0;
-	if (curwin->w_skipcol)
+	if (curwin->w_skipcol != 0)
 	{
 	    curwin->w_skipcol = 0;
 	    redraw_later(NOT_VALID);
@@ -374,6 +375,19 @@ update_topline()
 #ifdef FEAT_MOUSE
     p_so = save_so;
 #endif
+}
+
+/*
+ * Return the scrolljump value to use for the current window.
+ * When 'scrolljump' is positive use it as-is.
+ * When 'scrolljump' is negative use it as a percentage of the window height.
+ */
+    static int
+scrolljump_value()
+{
+    if (p_sj >= 0)
+	return (int)p_sj;
+    return (curwin->w_height * -p_sj) / 100;
 }
 
 /*
@@ -467,10 +481,17 @@ check_cursor_moved(wp)
     void
 changed_window_setting()
 {
-    curwin->w_lines_valid = 0;
-    changed_line_abv_curs();
-    curwin->w_valid &= ~(VALID_BOTLINE|VALID_BOTLINE_AP|VALID_TOPLINE);
-    redraw_later(NOT_VALID);
+    changed_window_setting_win(curwin);
+}
+
+    void
+changed_window_setting_win(wp)
+    win_T	*wp;
+{
+    wp->w_lines_valid = 0;
+    changed_line_abv_curs_win(wp);
+    wp->w_valid &= ~(VALID_BOTLINE|VALID_BOTLINE_AP|VALID_TOPLINE);
+    redraw_win_later(wp, NOT_VALID);
 }
 
 /*
@@ -746,7 +767,7 @@ curs_rows(wp, do_botline)
 #ifdef FEAT_DIFF
 		if (lnum == wp->w_topline)
 		    wp->w_cline_row += plines_win_nofill(wp, lnum++, TRUE)
-			+ wp->w_topfill;
+							      + wp->w_topfill;
 		else
 #endif
 		    wp->w_cline_row += plines_win(wp, lnum++, TRUE);
@@ -820,6 +841,14 @@ validate_virtcol_win(wp)
     {
 	getvvcol(wp, &wp->w_cursor, NULL, &(wp->w_virtcol), NULL);
 	wp->w_valid |= VALID_VIRTCOL;
+#ifdef FEAT_SYN_HL
+	if (wp->w_p_cuc
+# ifdef FEAT_INS_EXPAND
+		&& !pum_visible()
+# endif
+		)
+	    redraw_win_later(wp, SOME_VALID);
+#endif
     }
 }
 
@@ -864,10 +893,7 @@ validate_cursor_col()
 
 	/* long line wrapping, adjust curwin->w_wrow */
 	if (curwin->w_p_wrap && col >= (colnr_T)W_WIDTH(curwin)
-#ifdef FEAT_VERTSPLIT
-		&& curwin->w_width != 0
-#endif
-		)
+		&& W_WIDTH(curwin) - off + curwin_col_off2() > 0)
 	{
 	    col -= W_WIDTH(curwin);
 	    col = col % (W_WIDTH(curwin) - off + curwin_col_off2());
@@ -885,7 +911,7 @@ validate_cursor_col()
 win_col_off(wp)
     win_T	*wp;
 {
-    return ((wp->w_p_nu ? 8 : 0)
+    return ((wp->w_p_nu ? number_width(wp) + 1 : 0)
 #ifdef FEAT_CMDWIN
 	    + (cmdwin_type == 0 || wp != curwin ? 0 : 1)
 #endif
@@ -918,7 +944,7 @@ win_col_off2(wp)
     win_T	*wp;
 {
     if (wp->w_p_nu && vim_strchr(p_cpo, CPO_NUMCOL) != NULL)
-	return 8;
+	return number_width(wp) + 1;
     return 0;
 }
 
@@ -1178,6 +1204,18 @@ curs_columns(scroll)
 	curwin->w_skipcol = 0;
     if (prev_skipcol != curwin->w_skipcol)
 	redraw_later(NOT_VALID);
+
+#ifdef FEAT_SYN_HL
+    /* Redraw when w_virtcol changes and 'cursorcolumn' is set, or when w_row
+     * changes and 'cursorline' is set. */
+    if (((curwin->w_p_cuc && (curwin->w_valid & VALID_VIRTCOL) == 0)
+		|| (curwin->w_p_cul && (curwin->w_valid & VALID_WROW) == 0))
+# ifdef FEAT_INS_EXPAND
+	    && !pum_visible()
+# endif
+	    )
+	redraw_later(SOME_VALID);
+#endif
 
     curwin->w_valid |= VALID_WCOL|VALID_WROW|VALID_VIRTCOL;
 }
@@ -1544,7 +1582,12 @@ scrollup_clamp()
 	    --curwin->w_topfill;
 	else
 #endif
+	{
+#ifdef FEAT_FOLDING
+	    (void)hasFolding(curwin->w_topline, NULL, &curwin->w_topline);
+#endif
 	    ++curwin->w_topline;
+	}
 	++curwin->w_botline;		/* approximate w_botline */
 	curwin->w_valid &= ~(VALID_WROW|VALID_CROW|VALID_BOTLINE);
     }
@@ -2323,9 +2366,20 @@ onepage(dir, count)
 #endif
 	if (dir == FORWARD)
 	{
-					/* at end of file */
-	    if (curwin->w_botline > curbuf->b_ml.ml_line_count)
+	    if (firstwin == lastwin && p_window > 0 && p_window < Rows - 1)
 	    {
+		/* Vi compatible scrolling */
+		if (p_window <= 2)
+		    ++curwin->w_topline;
+		else
+		    curwin->w_topline += p_window - 2;
+		if (curwin->w_topline > curbuf->b_ml.ml_line_count)
+		    curwin->w_topline = curbuf->b_ml.ml_line_count;
+		curwin->w_cursor.lnum = curwin->w_topline;
+	    }
+	    else if (curwin->w_botline > curbuf->b_ml.ml_line_count)
+	    {
+		/* at end of file */
 		curwin->w_topline = curbuf->b_ml.ml_line_count;
 #ifdef FEAT_DIFF
 		curwin->w_topfill = 0;
@@ -2362,6 +2416,21 @@ onepage(dir, count)
 		continue;
 	    }
 #endif
+	    if (firstwin == lastwin && p_window > 0 && p_window < Rows - 1)
+	    {
+		/* Vi compatible scrolling (sort of) */
+		if (p_window <= 2)
+		    --curwin->w_topline;
+		else
+		    curwin->w_topline -= p_window - 2;
+		if (curwin->w_topline < 1)
+		    curwin->w_topline = 1;
+		curwin->w_cursor.lnum = curwin->w_topline + p_window - 1;
+		if (curwin->w_cursor.lnum > curbuf->b_ml.ml_line_count)
+		    curwin->w_cursor.lnum = curbuf->b_ml.ml_line_count;
+		continue;
+	    }
+
 	    /* Find the line at the top of the window that is going to be the
 	     * line at the bottom of the window.  Make sure this results in
 	     * the same line as before doing CTRL-F. */
@@ -2462,7 +2531,8 @@ onepage(dir, count)
     foldAdjustCursor();
 #endif
     cursor_correct();
-    beginline(BL_SOL | BL_FIX);
+    if (retval == OK)
+	beginline(BL_SOL | BL_FIX);
     curwin->w_valid &= ~(VALID_WCOL|VALID_WROW|VALID_VIRTCOL);
 
     /*
@@ -2544,6 +2614,12 @@ get_scroll_overlap(lp, dir)
 	return;
     }
 
+    if (Unix2003_compat) {
+	if (p_window_unix2003) {
+		*lp = loff1;	/* one line overlap only */
+		return;
+	}
+    }
     loff2 = *lp;
     if (dir > 0)
 	botline_forw(lp);

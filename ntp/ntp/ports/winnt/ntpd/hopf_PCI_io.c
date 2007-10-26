@@ -8,6 +8,14 @@
  * 
  */
 
+/*
+ * Ignore nonstandard extension warning.
+ * This happens when including winioctl.h
+ */
+#pragma warning( disable : 4201)
+#define _FILESYSTEMFSCTL_
+
+#include <config.h>
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,12 +24,12 @@
 
 #include <stddef.h>
 
-#define ATL_PASSTHROUGH_READ_TOSIZE		3*sizeof(ULONG)		
+#define ATL_PASSTHROUGH_READ_TOSIZE	3*sizeof(ULONG)		
 #define ATL_PASSTHROUGH_READ_FROMSIZE	0				
 #define IOCTL_ATLSOFT_PASSTHROUGH_READ	CTL_CODE(	\
-						FILE_DEVICE_UNKNOWN,		\
-						0x805,						\
-						METHOD_BUFFERED,			\
+						FILE_DEVICE_UNKNOWN,	\
+						0x805,			\
+						METHOD_BUFFERED,	\
 						FILE_ANY_ACCESS)
 
 
@@ -46,10 +54,6 @@ BOOL OpenHopfDevice()
 		OSVERSIONINFO			VersionInfo;
 		ULONG					deviceNumber;
 		CHAR					deviceName[255];
-
-	    typedef DWORD(WINAPI *OPENVXDHANDLE)(HANDLE);
-		OPENVXDHANDLE  OpenVxDHandle = (OPENVXDHANDLE) GetProcAddress(GetModuleHandle("KERNEL32"),"OpenVxDHandle");
-
 				
 		VersionInfo.dwOSVersionInfoSize=sizeof(OSVERSIONINFO);
 		GetVersionEx(&VersionInfo);

@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -26,6 +26,7 @@
 
 #include <IOKit/IOService.h>
 #include <IOKit/usb/IOUSBLog.h>
+#include <IOKit/usb/IOUSBHubPolicyMaker.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
 
 #include "AppleUSBOHCIMemoryBlocks.h"
@@ -34,7 +35,7 @@
 #define nil (0)
 #define DEBUGGING_LEVEL 0	// 1 = low; 2 = high; 3 = extreme
 
-#define super IOUSBController
+#define super IOUSBControllerV3
 #define self this
 
 
@@ -70,16 +71,15 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
         //setPowerState(1, self);
         _remote_wakeup_occurred = true; //needed by ::callPlatformFunction()
 		
-        USBLog(3,"AppleUSBOHCI[%p] ResumeDetected Interrupt on bus %ld", this, _busNumber );
-        if ( _idleSuspend )
-            setPowerState(kOHCISetPowerLevelRunning, self);
+        USBLog(3,"AppleUSBOHCI[%p]::PollInterrupts -  ResumeDetected Interrupt on bus %ld - ensuring usability", this, _busNumber );
+		EnsureUsability();
     }
 	
     // Unrecoverable Error Interrupt
     //
     if (_unrecoverableErrorInterrupt & kOHCIHcInterrupt_UE)
     {
-        USBError(1,"USB Controller on bus %ld received and unrecoverable error interrupt.  Attempting to recover (%d,%d,%d)", _busNumber,_onCardBus, _pcCardEjected, isInactive() );
+        USBError(1,"USB Controller on bus %ld received an unrecoverable error interrupt.  Attempting to fix (%d,%d,%d)", _busNumber, _onCardBus, _pcCardEjected, isInactive() );
         _unrecoverableErrorInterrupt = 0;
 		
         _errors.unrecoverableError++;
@@ -95,14 +95,18 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 				// Let's do a SW reset to recover from this condition.
 				// We could make sure all OCHI registers and in-memory
 				// data structures are valid, too.
+				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  setting kOHCIHcCommandStatus_HCR to reset controller on bus %ld", this, _busNumber );
 				_pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_HCR);
-				delay(10 * MICROSECOND);
+				IODelay(10);				// 10 microsecond delay
 				_pOHCIRegisters->hcControl = HostToUSBLong((kOHCIFunctionalState_Operational << kOHCIHcControl_HCFSPhase) | kOHCIHcControl_PLE);
 			}
 			else
 			{
 				// For NEC controllers, we unload all drivers
 				//
+				USBLog(2,"AppleUSBOHCI[%p]::PollInterrupts -  ignoring unrecoverable error on bus %ld", this, _busNumber );
+#if 0
+				// this needs to be done using the power manager
 				if ( _rootHubDevice )
 				{
 					_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
@@ -112,25 +116,20 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
 				}
 				SuspendUSBBus();
 				UIMFinalizeForPowerDown();
-				_ohciAvailable = false;									// tell the interrupt filter routine that we are off
 				
 				IOSleep(100);
 				UIMInitializeForPowerUp();
 				
-				_ohciAvailable = true;                          // tell the interrupt filter routine that we are on
-				_ohciBusState = kOHCIBusStateRunning;
+				_myBusState = kUSBBusStateRunning;
 				if ( _rootHubDevice == NULL )
 				{
-					err = CreateRootHubDevice( _device, &_rootHubDevice );
+					err = super::CreateRootHubDevice( _device, &_rootHubDevice );
 					if ( err != kIOReturnSuccess )
 					{
 						USBError(1,"AppleUSBOHCI[%p] Could not create root hub device upon wakeup (%x)!", this, err);
 					}
-					else
-					{
-						_rootHubDevice->registerService(kIOServiceRequired | kIOServiceSynchronous);
-					}
 				}
+#endif
 			}
 		}
     }
@@ -139,17 +138,23 @@ void AppleUSBOHCI::PollInterrupts(IOUSBCompletionAction safeAction)
     //
     if (_rootHubStatusChangeInterrupt & kOHCIHcInterrupt_RHSC)
     {
-        
-        _rootHubStatusChangeInterrupt = 0;
+		// this interrupt should just always be disabled, as the timer will check the root hub status
+		_rootHubStatusChangeInterrupt = 0;
         _remote_wakeup_occurred = true;						//needed by ::callPlatformFunction()
 		
-        USBLog(3,"AppleUSBOHCI[%p] RootHub Status Change Interrupt on bus %ld", this, _busNumber );
-		
-        UIMRootHubStatusChange( false );
-        LastRootHubPortStatusChanged ( true );
-		
-        // We let the RootHub driver enable this interrupt once it gets another interrupt read
-        //
+	}
+	
+	// Frame Rollover Interrupt
+    if (_frameNumberOverflowInterrupt & kOHCIHcInterrupt_FNO)
+    {
+	
+        _frameNumberOverflowInterrupt = 0;
+		// copy the temporary variables over to the real thing
+		// we do this because this method is protected by the workloop gate whereas the FilterInterrupt one is not
+		_anchorTime = _tempAnchorTime;
+		_anchorFrame = _tempAnchorFrame;
+       
+		USBLog(5, "AppleUSBEOHCI[%p]::PollInterrupts - frame rollover interrupt frame (0x08%qx) ",  this, _anchorFrame);
     }
 }
 
@@ -160,7 +165,7 @@ AppleUSBOHCI::InterruptHandler(OSObject *owner, IOInterruptEventSource * /*sourc
 {
     register AppleUSBOHCI		*controller = (AppleUSBOHCI *) owner;
 	
-    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
+    if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
         return;
 	
     // Finish pending transactions first.
@@ -195,7 +200,7 @@ AppleUSBOHCI::PrimaryInterruptFilter(OSObject *owner, IOFilterInterruptEventSour
 	// If we our controller has gone away, or it's going away, or if we're on a PC Card and we have been ejected,
 	// then don't process this interrupt.
 	//
-	if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_ohciAvailable)
+	if (!controller || controller->isInactive() || (controller->_onCardBus && controller->_pcCardEjected) || !controller->_controllerAvailable)
 		return false;
 	
 	// Process this interrupt
@@ -272,10 +277,15 @@ AppleUSBOHCI::FilterInterrupt(int index)
 		// One of our 8 interrupts fired.  Need to see which one it is
 		//
 		
-		// Frame Number Overflow
-		//
+		// Frame Number Overflow (sec 7.4.1 ohci spec)
+		
 		if (activeInterrupts & kOHCIHcInterrupt_FNO)
 		{
+			uint64_t		tempTime;
+			UInt16	        framenumber16;
+	    
+			framenumber16 = USBToHostWord(*(UInt16*)(_pHCCA + 0x80));
+
 			// not really an error, but close enough
 			//
 			_errors.frameNumberOverflow++;
@@ -283,6 +293,17 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			if ( (USBToHostWord(*(UInt16*)(_pHCCA + kHCCAFrameNumberOffset)) & kOHCIFmNumberMask) < kOHCIBit15 )
 				_frameNumber += kOHCIFrameOverflowBit;
 			
+			// update the get fn with time shadow regs here
+			// note that this code will execute differently on a power PC vs an an Intel platform with 
+			// an OHCI add-in card.
+			_tempAnchorFrame = _frameNumber + framenumber16;
+			clock_get_uptime(&_tempAnchorTime);
+			
+			// Set the shadow field that will tell the secondary interrput that we had an FNO (rollover)
+			// Interrupt event -- the software int handler will read the shadow regs for get fn with time
+			//
+			_frameNumberOverflowInterrupt = kOHCIHcInterrupt_FNO;
+		
 			// Clear the interrupt
 			//
 			_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_FNO);
@@ -294,7 +315,6 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				while ((count++ < 10) && (newValue & kOHCIHcInterrupt_FNO))
 				{
 					// can't log in the FilterInterrupt routine
-					// USBError(1, "OHCI driver: UIMInitializeForPowerUp - DRWE bit not sticking. Retrying.");
 					_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_FNO);
 					IOSync();
 					newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);
@@ -344,7 +364,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			IOSync();
 												
 		}
-		
+	
+			
 		// RootHub Status Change Interrupt
 		//
 		if (activeInterrupts & kOHCIHcInterrupt_RHSC)
@@ -356,6 +377,8 @@ AppleUSBOHCI::FilterInterrupt(int index)
 			
 			// disable the RHSC interrupt until we process it at secondary interrupt
 			// time. some controllers do not respond to the clear bit
+			
+			// go ahead and disable it - it should always be disabled.
 			_pOHCIRegisters->hcInterruptDisable = HostToUSBLong(kOHCIHcInterrupt_RHSC);
 			IOSync();
 			
@@ -370,7 +393,6 @@ AppleUSBOHCI::FilterInterrupt(int index)
 				while ((count++ < 10) && (newValue & kOHCIHcInterrupt_RHSC))
 				{
 					// can't log in the FilterInterrupt routine
-					// USBError(1, "OHCI driver: UIMInitializeForPowerUp - DRWE bit not sticking. Retrying.");
 					_pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_RHSC);
 					IOSync();
 					newValue = USBToHostLong(_pOHCIRegisters->hcInterruptStatus);

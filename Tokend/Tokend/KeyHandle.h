@@ -109,5 +109,4 @@ public:
 
 #endif /* !_TOKEND_KEYHANDLE_H_ */
 
-/* arch-tag: 689EDCA0-05B2-11D9-AAAA-000393D5F80A */
 

@@ -29,6 +29,8 @@ Boston, MA 02111-1307, USA.  */
 #include "tm_p.h"
 #include "ggc.h"
 #include "basic-block.h"
+/* APPLE LOCAL 4538899 mainline */
+#include "cfgloop.h"
 #include "output.h"
 #include "errors.h"
 #include "expr.h"
@@ -416,6 +418,17 @@ tree_ssa_dominator_optimize (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
 
+  /* APPLE LOCAL begin 4538899 mainline */
+  /* We need to know which edges exit loops so that we can
+     aggressively thread through loop headers to an exit
+     edge.  */
+  mark_loop_exit_edges ();
+
+  /* Clean up the CFG so that any forwarder blocks created by loop
+     canonicalization are removed.  */
+  cleanup_tree_cfg ();
+  /* APPLE LOCAL end 4538899 mainline */
+
   /* If we prove certain blocks are unreachable, then we want to
      repeat the dominator optimization process as PHI nodes may
      have turned into copies which allows better propagation of
@@ -425,6 +438,14 @@ tree_ssa_dominator_optimize (void)
     {
       /* Optimize the dominator tree.  */
       cfg_altered = false;
+
+      /* APPLE LOCAL begin 4538899 mainline */
+      calculate_dominance_info (CDI_DOMINATORS);
+
+      /* We need accurate information regarding back edges in the CFG
+	 for jump threading.  */
+      mark_dfs_back_edges ();
+      /* APPLE LOCAL end 4538899 mainline */
 
       /* Recursively walk the dominator tree optimizing statements.  */
       walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
@@ -453,8 +474,26 @@ tree_ssa_dominator_optimize (void)
 	  bitmap_zero (need_eh_cleanup);
 	}
 
-      free_dominance_info (CDI_DOMINATORS);
+      /* APPLE LOCAL begin mainline 4538899 */
+      if (cfg_altered)
+	free_dominance_info (CDI_DOMINATORS);
+      /* APPLE LOCAL end mainline 4538899 */
       cfg_altered = cleanup_tree_cfg ();
+
+      /* APPLE LOCAL begin mainline 4538899 */
+      if (rediscover_loops_after_threading)
+	{
+	  /* Rerun basic loop analysis to discover any newly
+	     created loops and update the set of exit edges.  */
+	  rediscover_loops_after_threading = false;
+	  mark_loop_exit_edges ();
+
+	  /* Remove any forwarder blocks inserted by loop
+	     header canonicalization.  */
+	  cleanup_tree_cfg ();
+	}
+      /* APPLE LOCAL end mainline 4538899 */
+
       calculate_dominance_info (CDI_DOMINATORS);
 
       rewrite_ssa_into_ssa ();

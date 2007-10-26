@@ -39,7 +39,9 @@
 #include <sys/param.h>
 #include <sys/wait.h>
 #include <net/if.h>
+#include <netinet/in.h>
 #include <net/if_types.h>
+#include <ifaddrs.h>
 #include <mach-o/dyld.h>
 #include <dirent.h>
 #include <NSSystemDirectories.h>
@@ -54,6 +56,7 @@
 #include "vpnd.h"
 #include "vpnoptions.h"
 #include "cf_utils.h"
+#include "ipsec_utils.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -189,4 +192,147 @@ error:
     CFRelease(store);
     return 0;
 }
+
+/* ----------------------------------------------------------------------------
+	find the interface that has address target_address assigned and return
+	the interface name and its primary_address
+	Return code:
+	0 if successful, -1 otherwise.
+ ---------------------------------------------------------------------------- */
+int get_interface(struct sockaddr_in *primary_address, const struct sockaddr_in *target_address, char *interface) 
+{
+    struct ifaddrs *ifap = NULL;
+	int				ret = -1;
+	
+	
+	if (getifaddrs(&ifap) == 0) {
+		struct ifaddrs *ifa, *ifa1;
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+
+			if (ifa->ifa_name  
+					&& ifa->ifa_addr
+					&& ifa->ifa_addr->sa_family == target_address->sin_family
+					&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr == target_address->sin_addr.s_addr) {
+					
+				strncpy(interface, ifa->ifa_name, IF_NAMESIZE);
+				
+				if (primary_address) {
+					for (ifa1 = ifap; ifa1; ifa1 = ifa1->ifa_next) {
+						
+						if (ifa1->ifa_name 
+							&& !strncmp(ifa1->ifa_name, interface, IFNAMSIZ)
+							&& ifa1->ifa_addr->sa_family == target_address->sin_family) {
+								
+							bcopy(ifa1->ifa_addr, primary_address, sizeof(*primary_address));
+							break;
+						}
+					}
+				}
+				ret = 0;
+				break;
+			}
+					
+		}
+		
+		freeifaddrs(ifap);
+	}
+
+	return ret;
+}
+
+/* ----------------------------------------------------------------------------
+	check if a given interface (or any if null) has the address assigned
+	Return code:
+	1 if address is found.
+ ---------------------------------------------------------------------------- */
+int find_address(const struct sockaddr_in *address, char *interface) 
+{
+    struct ifaddrs *ifap = NULL;
+	int				found = 0;
+	
+	if (getifaddrs(&ifap) == 0) {
+		struct ifaddrs *ifa;
+		for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+
+			if (ifa->ifa_name  
+					&& ifa->ifa_addr
+					&& (!interface || !strncmp(interface, ifa->ifa_name, IFNAMSIZ))
+					&& ifa->ifa_addr->sa_family == address->sin_family
+					&& ((struct sockaddr_in *)ifa->ifa_addr)->sin_addr.s_addr ==  address->sin_addr.s_addr) {
+									
+				found = 1;
+				break;
+			}
+					
+		}
+		
+		freeifaddrs(ifap);
+	}
+
+	return found;
+}
+
+/* ----------------------------------------------------------------------------
+	get the address and return the interface name and main address of the interface
+	Return code:
+	0 if successful, -1 otherwise.
+ ---------------------------------------------------------------------------- */
+int get_route_interface(struct sockaddr *src, const struct sockaddr *dst, char *if_name) 
+{
+	int				ret = -1;
+	
+	// look if the cluster address is already assigned to an interface			
+	if (ret = get_interface((struct sockaddr_in *)src, (struct sockaddr_in *)dst, if_name)) {
+	
+		// if not, then look ask the routing table for the interface to the cluster address is already assigned to an interface			
+		ret = get_src_address(src, dst, if_name);
+				
+	}
+
+	return ret;
+}
+
+
+// ----------------------------------------------------------------------------
+//	read function
+// ----------------------------------------------------------------------------
+int readn(int ref, void *data, int len)
+{
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = read(ref, p, left)) < 0) {
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        else if (n == 0)
+            break; /* EOF */
+            
+        left -= n;
+        p += n;
+    }
+    return (len - left);
+}        
+
+// ----------------------------------------------------------------------------
+//	write function
+// ----------------------------------------------------------------------------
+int writen(int ref, void *data, int len)
+{	
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = write(ref, p, left)) <= 0) {
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        left -= n;
+        p += n;
+    }
+    return len;
+}        
 

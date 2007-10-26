@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test006-acls,v 1.37.2.4 2004/01/01 18:16:43 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test006-acls,v 1.47.2.6 2006/07/31 22:38:44 quanah Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2004 The OpenLDAP Foundation.
+## Copyright 1998-2006 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -12,6 +12,14 @@
 ## A copy of this license is available in the file LICENSE in the
 ## top-level directory of the distribution or, alternatively, at
 ## <http://www.OpenLDAP.org/license.html>.
+
+case "$BACKEND" in
+bdb|hdb|ldbm)
+	;;
+*)
+	echo "Test does not support $BACKEND backend"
+	exit 0
+esac
 
 echo "running defines.sh"
 . $SRCDIR/scripts/defines.sh
@@ -36,6 +44,8 @@ if test $WAIT != 0 ; then
 fi
 KILLPIDS="$PID"
 
+sleep 1
+
 echo "Testing slapd access control..."
 for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT1 \
@@ -56,16 +66,149 @@ fi
 
 cat /dev/null > $SEARCHOUT
 
-#
-# Try to read an entry inside the Alumni Association container.  It should
-# give us nothing if we're not bound, and should return all attributes
-# if we're bound as anyone under UM.
-#
-$LDAPSEARCH -b "$JAJDN" -h $LOCALHOST -p $PORT1 "objectclass=*" \
-	>> $SEARCHOUT 2>&1
+echo "# Try to read an entry inside the Alumni Association container.
+# It should give us noSuchObject if we're not bound..." \
+>> $SEARCHOUT
+# FIXME: temporarily remove the "No such object" message to make
+# the test succeed even if SLAP_ACL_HONOR_DISCLOSE is not #define'd
+$LDAPSEARCH -b "$JAJDN" -h $LOCALHOST -p $PORT1 "(objectclass=*)" \
+	2>&1 | grep -v "^No such object" >> $SEARCHOUT
 
+echo "# ... and should return all attributes if we're bound as anyone
+# under Example." \
+>> $SEARCHOUT
 $LDAPSEARCH -b "$JAJDN" -h $LOCALHOST -p $PORT1 \
-	-D "$BABSDN" -w bjensen "objectclass=*"  >> $SEARCHOUT 2>&1
+	-D "$BABSDN" -w bjensen "(objectclass=*)"  >> $SEARCHOUT 2>&1
+
+# check selfwrite access (ITS#4587).  6 attempts are made:
+# 1) delete someone else (should fail)
+# 2) delete self (should succeed)
+# 3) add someone else (should fail)
+# 4) add someone else and self (should fail)
+# 5) add self and someone else (should fail)
+# 6) add self (should succeed)
+#
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+delete: member
+member: $BABSDN
+EOMODS
+RC=$?
+case $RC in
+50)
+	;;
+0)
+	echo "ldapmodify should have failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit -1
+	;;
+*)
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+	;;
+esac
+
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+delete: member
+member: $JAJDN
+EOMODS
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+fi
+ 	 
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+add: member
+member: cn=Foo,ou=Bar
+EOMODS
+RC=$?
+case $RC in
+50)
+	;;
+0)
+	echo "ldapmodify should have failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit -1
+	;;
+*)
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+	;;
+esac
+ 	 
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+add: member
+member: cn=Foo,ou=Bar
+member: $JAJDN
+EOMODS
+RC=$?
+case $RC in
+50)
+	;;
+0)
+	echo "ldapmodify should have failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit -1
+	;;
+*)
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+	;;
+esac
+ 	 
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+add: member
+member: $JAJDN
+member: cn=Foo,ou=Bar
+EOMODS
+RC=$?
+case $RC in
+50)
+	;;
+0)
+	echo "ldapmodify should have failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit -1
+	;;
+*)
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+	;;
+esac
+ 	 
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS
+dn: cn=All Staff,ou=Groups,dc=example,dc=com
+changetype: modify
+add: member
+member: $JAJDN
+EOMODS
+RC=$?
+if test $RC != 0 ; then
+	echo "ldapmodify failed ($RC)!"
+	test $KILLSERVERS != no && kill -HUP $KILLPIDS
+	exit $RC
+fi
 
 #
 # Check group access. Try to modify Babs' entry. Two attempts:
@@ -92,17 +235,17 @@ homephone: +1 313 555 5444
 EOMODS6
 
 #
-# Try to add a "member" attribute to the "All Staff" group.  It should
+# Try to add a "member" attribute to the "ITD Staff" group.  It should
 # fail when we add some DN other than our own, and should succeed when
 # we add our own DN.
 # bjensen
 $LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj > \
 	$TESTOUT 2>&1 << EOMODS1
 version: 1
-dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
+dn: cn=ITD Staff, ou=Groups, dc=example, dc=com
 changetype: modify
 add: uniquemember
-uniquemember: cn=Barbara Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US
+uniquemember: cn=Barbara Jensen,ou=Information Technology Division,ou=People,dc=example,dc=com
 
 EOMODS1
 
@@ -110,21 +253,21 @@ $LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
 	$TESTOUT 2>&1 << EOMODS2
 version: 1
 
-dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
+dn: cn=ITD Staff, ou=Groups, dc=example, dc=com
 changetype: modify
 add: uniquemember
-uniquemember: cn=James A Jones 1, ou=Alumni Association, ou=People, o=University of Michigan, c=US
+uniquemember: cn=James A Jones 1, ou=Alumni Association, ou=People, dc=example, dc=com
 EOMODS2
 
 #
-# Try to modify the "All Staff" group.  Two attempts are made:
+# Try to modify the "ITD Staff" group.  Two attempts are made:
 # 1) bound as "James A Jones 1" - should fail
-# 2) bound as "Barbara Jensen" - should succeed
+# 2) bound as "Bjorn Jensen" - should succeed
 #
 $LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
 	$TESTOUT 2>&1 << EOMODS3
 
-dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
+dn: cn=ITD Staff, ou=Groups, dc=example, dc=com
 changetype: modify
 delete: description
 
@@ -135,7 +278,7 @@ $LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT1 -w bjorn >> \
 # COMMENT
 version: 1
 # comment
-dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
+dn: cn=ITD Staff, ou=Groups, dc=example, dc=com
 # comment
 changetype: modify
 # comment
@@ -145,7 +288,129 @@ ou: Groups
 # comment
 EOMODS4
 
+#
+# Try to modify the "ITD Staff" group.  Two attempts are made:
+# 1) bound as "James A Jones 1" - should succeed
+# 2) bound as "Barbara Jensen" - should fail
+# should exploit sets
+#
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS5
+dn: cn=Alumni Assoc Staff, ou=Groups, dc=example, dc=com
+changetype: modify
+add: description
+description: added by jaj (should succeed)
+-
+EOMODS5
+
+$LDAPMODIFY -D "$BABSDN" -h $LOCALHOST -p $PORT1 -w bjensen >> \
+	$TESTOUT 2>&1 << EOMODS6
+dn: cn=Alumni Assoc Staff, ou=Groups, dc=example, dc=com
+changetype: modify
+add: description
+description: added by bjensen (should fail)
+-
+EOMODS6
+
+$LDAPMODIFY -D "$MANAGERDN" -h $LOCALHOST -p $PORT1 -w $PASSWD >> \
+	$TESTOUT 2>&1 << EOMODS7
+dn: ou=Add & Delete,dc=example,dc=com
+changetype: add
+objectClass: organizationalUnit
+ou: Add & Delete
+EOMODS7
+
+$LDAPMODIFY -D "$BABSDN" -h $LOCALHOST -p $PORT1 -w bjensen >> \
+	$TESTOUT 2>&1 << EOMODS8
+dn: cn=Added by Babs (must fail),ou=Add & Delete,dc=example,dc=com
+changetype: add
+objectClass: inetOrgPerson
+cn: Added by Babs (must fail)
+sn: None
+EOMODS8
+
+$LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT1 -w bjorn >> \
+	$TESTOUT 2>&1 << EOMODS9
+dn: cn=Added by Bjorn (must succeed),ou=Add & Delete,dc=example,dc=com
+changetype: add
+objectClass: inetOrgPerson
+cn: Added by Bjorn (must succeed)
+sn: None
+
+dn: cn=Added by Bjorn (will be deleted),ou=Add & Delete,dc=example,dc=com
+changetype: add
+objectClass: inetOrgPerson
+cn: Added by Bjorn (will be deleted)
+sn: None
+
+dn: cn=Added by Bjorn (will be renamed),ou=Add & Delete,dc=example,dc=com
+changetype: add
+objectClass: inetOrgPerson
+cn: Added by Bjorn (will be renamed)
+sn: None
+
+dn: cn=Added by Bjorn (must succeed),ou=Add & Delete,dc=example,dc=com
+changetype: modify
+add: description
+description: this attribute value has been added __after__entry creation
+description: this attribute value will be deleted by Babs (must succeed)
+description: Bjorn will try to delete this attribute value (should fail)
+-
+EOMODS9
+
+$LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT1 -w bjorn >> \
+	$TESTOUT 2>&1 << EOMODS10
+dn: cn=Added by Bjorn (will be deleted),ou=Add & Delete,dc=example,dc=com
+changetype: delete
+EOMODS10
+
+$LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT1 -w bjorn >> \
+	$TESTOUT 2>&1 << EOMODS11
+dn: cn=Added by Bjorn (will be renamed),ou=Add & Delete,dc=example,dc=com
+changetype: modrdn
+newrdn: cn=Added by Bjorn (renamed by Bjorn)
+deleteoldrdn: 1
+EOMODS11
+
+$LDAPMODIFY -D "$BABSDN" -h $LOCALHOST -p $PORT1 -w bjensen >> \
+	$TESTOUT 2>&1 << EOMODS12
+dn: cn=Added by Bjorn (will be renamed),ou=Add & Delete,dc=example,dc=com
+changetype: modrdn
+newrdn: cn=Added by Bjorn (renamed by Babs)
+deleteoldrdn: 1
+EOMODS12
+
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT1 -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS13
+dn: cn=Added by Bjorn (will be renamed),ou=Add & Delete,dc=example,dc=com
+changetype: modrdn
+newrdn: cn=Added by Bjorn (renamed by Jaj)
+deleteoldrdn: 1
+EOMODS13
+
+$LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT1 -w bjorn >> \
+	$TESTOUT 2>&1 << EOMODS14
+dn: cn=Added by Bjorn (must succeed),ou=Add & Delete,dc=example,dc=com
+changetype: modify
+delete: description
+description: Bjorn will try to delete this attribute value (should fail)
+-
+EOMODS14
+
+$LDAPMODIFY -D "$BABSDN" -h $LOCALHOST -p $PORT1 -w bjensen >> \
+	$TESTOUT 2>&1 << EOMODS15
+dn: cn=Added by Bjorn (will be deleted),ou=Add & Delete,dc=example,dc=com
+changetype: delete
+
+dn: cn=Added by Bjorn (must succeed),ou=Add & Delete,dc=example,dc=com
+changetype: modify
+delete: description
+description: this attribute value will be deleted by Babs (must succeed)
+-
+EOMODS15
+
 echo "Using ldapsearch to retrieve all the entries..."
+echo "# Using ldapsearch to retrieve all the entries..." >> $SEARCHOUT
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT1 \
 	    'objectClass=*' >> $SEARCHOUT 2>&1
 RC=$?
@@ -165,7 +430,7 @@ echo "Comparing filter output..."
 $CMP $SEARCHFLT $LDIFFLT > $CMPOUT
 
 if test $? != 0 ; then
-	echo "comparison failed - modify operations did not complete correctly"
+	echo "comparison failed - operations did not complete correctly"
 	exit 1
 fi
 

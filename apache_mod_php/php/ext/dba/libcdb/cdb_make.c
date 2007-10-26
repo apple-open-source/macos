@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cdb_make.c,v 1.2.2.4.8.2 2007/01/01 09:46:41 sebastian Exp $ */
+/* $Id: cdb_make.c,v 1.9.2.1.2.1 2007/01/01 09:36:00 sebastian Exp $ */
 
 /* incorporated from D.J.Bernstein's cdb-0.75 (http://cr.yp.to/cdb.html)*/
 
@@ -240,5 +240,5 @@ int cdb_make_finish(struct cdb_make *c TSRMLS_DC)
 /* {{{ cdb_make_version */
 char *cdb_make_version() 
 {
-	return "0.75, $Revision: 1.2.2.4.8.2 $";
+	return "0.75, $Revision: 1.9.2.1.2.1 $";
 }

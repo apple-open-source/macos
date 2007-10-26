@@ -1,0 +1,96 @@
+; Configuration file for the Samba software suite.
+; ============================================================================
+;
+; For the format of this file and comprehensive descriptions of all the
+; configuration option, please refer to the man page for smb.conf(5).
+;
+; The following configuration should suit most systems for basic usage and
+; initial testing. It gives all clients access to their home directories and
+; allows access to all printers specified in /etc/printcap.
+
+; BEGIN required configuration
+
+; Parameters inside the required configuration block should not be altered.
+; They may be changed at any time by upgrades or other automated processes.
+;
+; Site-specific customizations will only be preserved if they are done
+; outside this block. If you choose to make customizations, it is your
+; own responsibility to verify that they work correctly with the supported
+; configuration tools.
+
+[global]
+    debug pid = yes
+    log level = 1
+    server string = Mac OS X
+
+    printcap name = cups
+    printing = cups
+
+    encrypt passwords = yes
+    use spnego = yes
+
+    passdb backend = odsam
+
+    idmap domains = default
+    idmap config default: default = yes
+    idmap config default: backend = odsam
+    idmap alloc backend = odsam
+    idmap negative cache time = 5
+
+    map to guest = Bad User
+    guest account = nobody
+
+    unix charset = UTF-8-MAC
+    display charset = UTF-8-MAC
+    dos charset = 437
+
+    vfs objects = darwinacl,darwin_streams
+
+    ; Don't become a master browser unless absolutely necessary.
+    os level = 2
+    domain master = no
+
+    ; For performance reasons, set the transmit buffer size
+    ; to the maximum and enable sendfile support.
+    max xmit = 131072
+    use sendfile = yes
+
+    ; The darwin_streams module gives us named streams support.
+    stream support = yes
+    ea support = yes
+
+    ; Enable locking coherency with AFP.
+    darwin_streams:brlm = yes
+
+    ; Core files are invariably disabled system-wide, but attempting to
+    ; dump core will trigger a crash report, so we still want to try.
+    enable core files = yes
+
+    ; Configure usershares for use by the synchronize-shares tool.
+    usershare max shares = 1000
+    usershare path = /var/samba/shares
+    usershare owner only = no
+    usershare allow guests = yes
+    usershare allow full config = yes
+
+    ; Filter inaccessible shares from the browse list.
+    com.apple:filter shares by access = yes
+
+    ; Check in with PAM to enforce SACL access policy.
+    obey pam restrictions = yes
+
+    ; Pull in system-wide preference settings. These are managed by
+    ; synchronize-preferences tool.
+    include = /var/run/smb.conf
+
+[printers]
+    comment = All Printers
+    path = /tmp
+    printable = yes
+    guest ok = no
+    create mode = 0700
+    writeable = no
+    browseable = no
+
+; Site-specific parameters can be added below this comment.
+; END required configuration.

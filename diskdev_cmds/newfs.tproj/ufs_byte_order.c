@@ -103,7 +103,7 @@ byte_swap_sbin(struct fs *sb)
 	if (sb->fs_nrpos != 8 || sb->fs_cpc > 16) {
 		usptr = (u_int16_t *)((u_int8_t *)(sb) + (sb)->fs_postbloff);
 		size = sb->fs_cpc * sb->fs_nrpos;
-		byte_swap_shorts(usptr,size);	/* fs_postbloff */
+		byte_swap_shorts((short *)usptr,size);	/* fs_postbloff */
 	}
 }
 
@@ -116,7 +116,7 @@ byte_swap_sbout(struct fs *sb)
 	if (sb->fs_nrpos != 8 || sb->fs_cpc > 16) {
 		usptr = (u_int16_t *)((u_int8_t *)(sb) + (sb)->fs_postbloff);
 		size = sb->fs_cpc * sb->fs_nrpos;
-		byte_swap_shorts(usptr,size);	/* fs_postbloff */
+		byte_swap_shorts((short *)usptr,size);	/* fs_postbloff */
 	}
 
 	byte_swap_ints(((int32_t *)&sb->fs_firstfield), 52);

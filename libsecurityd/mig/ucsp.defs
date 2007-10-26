@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2001-2004 Apple Computer, Inc. All Rights Reserved.
+// Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
 //
 // @APPLE_LICENSE_HEADER_START@
 // 
@@ -30,7 +30,6 @@ subsystem ucsp 1000;
 serverprefix ucsp_server_;
 userprefix ucsp_client_;
 
-import <securityd_client/ssclient.h>;
 import <securityd_client/ucsp_types.h>;
 
 
@@ -40,6 +39,7 @@ import <securityd_client/ucsp_types.h>;
 #define UCSP_PORTS	requestport sport: mach_port_t; \
 					replyport rport: mach_port_make_send_t; \
                     serveraudittoken sourceAudit: audit_token_t; \
+					usersectoken securitydCreds: security_token_t; \
 					out rcode: CSSM_RETURN
 
 
@@ -55,147 +55,152 @@ routine setupThread(UCSP_PORTS; in tport: mach_port_t);
 //
 // Common database functions
 //
-routine authenticateDb(UCSP_PORTS; in db: DbHandle; in accessType: CSSM_DB_ACCESS_TYPE; IN_BLOB(accessCredentials,AccessCredentials));
-routine releaseDb(UCSP_PORTS; in db: DbHandle);
-routine getDbName(UCSP_PORTS; in db: DbHandle; out name: FilePathOut);
-routine setDbName(UCSP_PORTS; in db: DbHandle; in name: FilePath);
+routine authenticateDb(UCSP_PORTS; in db: IPCDbHandle; in accessType: CSSM_DB_ACCESS_TYPE; in accessCredentials: Data);
+routine releaseDb(UCSP_PORTS; in db: IPCDbHandle);
+routine getDbName(UCSP_PORTS; in db: IPCDbHandle; out name: FilePathOut);
+routine setDbName(UCSP_PORTS; in db: IPCDbHandle; in name: FilePath);
 
 
 //
 // External database interface
 //
 routine openToken(UCSP_PORTS; in ssid: uint32; in name: FilePath;
-	IN_BLOB(accessCredentials,AccessCredentials); out db: DbHandle);
+	in accessCredentials: Data; out db: IPCDbHandle);
 	
-routine findFirst(UCSP_PORTS; in db: DbHandle; IN_BLOB(query,CssmQuery);
-	IN_BLOB(inAttributes,CssmDbRecordAttributeData); OUT_BLOB(outAttributes,CssmDbRecordAttributeData);
-	in getData: boolean_t; out data: Data; out key: KeyHandle; out search: SearchHandle; out record: RecordHandle);
-routine findNext(UCSP_PORTS; in search: SearchHandle;
-	IN_BLOB(inAttributes,CssmDbRecordAttributeData); OUT_BLOB(outAttributes,CssmDbRecordAttributeData);
-	in getData: boolean_t; out data: Data; out key: KeyHandle; out record: RecordHandle);
-routine findRecordHandle(UCSP_PORTS; in record: RecordHandle;
-	IN_BLOB(inAttributes,CssmDbRecordAttributeData); OUT_BLOB(outAttributes,CssmDbRecordAttributeData);
-	in getData: boolean_t; out data: Data; out key: KeyHandle);
-routine insertRecord(UCSP_PORTS; in db: DbHandle; in recordType: CSSM_DB_RECORDTYPE;
-	IN_BLOB(attributes,CssmDbRecordAttributeData); in data: Data; out record: RecordHandle);
-routine deleteRecord(UCSP_PORTS; in db: DbHandle; in record: RecordHandle);
-routine modifyRecord(UCSP_PORTS; in db: DbHandle; inout record: RecordHandle; in recordType: CSSM_DB_RECORDTYPE;
-	IN_BLOB(attributes,CssmDbRecordAttributeData); in setData: boolean_t; in data: Data;
+routine findFirst(UCSP_PORTS; in db: IPCDbHandle; in query: Data;
+	in inAttributes : Data; out outAttributes: Data;
+	in getData: boolean_t; out data: Data; out key: IPCKeyHandle; out search: IPCSearchHandle; out record: IPCRecordHandle);
+routine findNext(UCSP_PORTS; in search: IPCSearchHandle;
+	in inAttributes : Data; out outAttributes: Data;
+	in getData: boolean_t; out data: Data; out key: IPCKeyHandle; out record: IPCRecordHandle);
+routine findRecordHandle(UCSP_PORTS; in record: IPCRecordHandle;
+	in inAttributes : Data; out outAttributes: Data;
+	in getData: boolean_t; out data: Data; out key: IPCKeyHandle);
+routine insertRecord(UCSP_PORTS; in db: IPCDbHandle; in recordType: CSSM_DB_RECORDTYPE;
+	in attributes : Data; in data: Data; out record: IPCRecordHandle);
+routine deleteRecord(UCSP_PORTS; in db: IPCDbHandle; in record: IPCRecordHandle);
+routine modifyRecord(UCSP_PORTS; in db: IPCDbHandle; inout record: IPCRecordHandle; in recordType: CSSM_DB_RECORDTYPE;
+	in attributes : Data; in setData: boolean_t; in data: Data;
 	in modifyMode: CSSM_DB_MODIFY_MODE);
-routine releaseSearch(UCSP_PORTS; in search: SearchHandle);
-routine releaseRecord(UCSP_PORTS; in record: RecordHandle);
+routine releaseSearch(UCSP_PORTS; in search: IPCSearchHandle);
+routine releaseRecord(UCSP_PORTS; in record: IPCRecordHandle);
 
 
 
 //
 // Internal database interface
 //
-routine createDb(UCSP_PORTS; out db: DbHandle; IN_BLOB(ident,DLDbIdent);
-    IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+routine createDb(UCSP_PORTS; out db: IPCDbHandle; in ident: Data;
+    in accessCredentials: Data; in aclEntryPrototype: Data;
     in params: DBParameters);
 routine cloneDbForSync(UCSP_PORTS; in secretsBlob: DbBlob; 
-    in srcDb: DbHandle; in agentData: Data; out newDb: DbHandle);
-routine decodeDb(UCSP_PORTS; out db: DbHandle; IN_BLOB(ident,DLDbIdent);
-    IN_BLOB(accessCredentials,AccessCredentials); in blob: DbBlob);
-routine encodeDb(UCSP_PORTS; in db: DbHandle; out blob: DbBlob);
-routine setDbParameters(UCSP_PORTS; in db: DbHandle; in params: DBParameters);
-routine getDbParameters(UCSP_PORTS; in db: DbHandle; out params: DBParameters);
-routine changePassphrase(UCSP_PORTS; in db: DbHandle; 
-	IN_BLOB(accessCredentials,AccessCredentials));
+    in srcDb: IPCDbHandle; in agentData: Data; out newDb: IPCDbHandle);
+#if 0
+// should move here from below, next time we break compatibility for another reason
+routine commitDbForSync(UCSP_PORTS; in srcDb: IPCDbHandle; in cloneDb: IPCDbHandle;
+    out blob: DbBlob);
+#endif
+routine decodeDb(UCSP_PORTS; out db: IPCDbHandle; in ident: Data;
+    in accessCredentials: Data; in blob: DbBlob);
+routine encodeDb(UCSP_PORTS; in db: IPCDbHandle; out blob: DbBlob);
+routine setDbParameters(UCSP_PORTS; in db: IPCDbHandle; in params: DBParameters);
+routine getDbParameters(UCSP_PORTS; in db: IPCDbHandle; out params: DBParameters);
+routine changePassphrase(UCSP_PORTS; in db: IPCDbHandle; 
+	in accessCredentials: Data);
 routine lockAll(UCSP_PORTS; in forSleep: boolean_t);
-routine unlockDb(UCSP_PORTS; in db: DbHandle);
-routine unlockDbWithPassphrase(UCSP_PORTS; in db: DbHandle; in passPhrase: Data);
-routine isLocked(UCSP_PORTS; in db: DbHandle; out locked: boolean_t);
+routine unlockDb(UCSP_PORTS; in db: IPCDbHandle);
+routine unlockDbWithPassphrase(UCSP_PORTS; in db: IPCDbHandle; in passPhrase: Data);
+routine isLocked(UCSP_PORTS; in db: IPCDbHandle; out locked: boolean_t);
 
-
+	
 //
 // Key management
 //
-routine encodeKey(UCSP_PORTS; in key: KeyHandle; out blob: KeyBlob;
+routine encodeKey(UCSP_PORTS; in key: IPCKeyHandle; out blob: KeyBlob;
     in wantUid: boolean_t; out uid: Data);
-routine decodeKey(UCSP_PORTS; out key: KeyHandle; out header: CssmKeyHeader;
-    in db: DbHandle; in blob: KeyBlob);
+routine decodeKey(UCSP_PORTS; out key: IPCKeyHandle; out header: Data;
+    in db: IPCDbHandle; in blob: KeyBlob);
 // keychain synchronization
-routine recodeKey(UCSP_PORTS; in oldDb: DbHandle; in key: KeyHandle; 
-    in newDb: DbHandle; out newBlob: KeyBlob);
-routine releaseKey(UCSP_PORTS; in key: KeyHandle);
+routine recodeKey(UCSP_PORTS; in oldDb: IPCDbHandle; in key: IPCKeyHandle; 
+    in newDb: IPCDbHandle; out newBlob: KeyBlob);
+routine releaseKey(UCSP_PORTS; in key: IPCKeyHandle);
 
-routine queryKeySizeInBits(UCSP_PORTS; in key: KeyHandle; out length: CSSM_KEY_SIZE);
-routine getOutputSize(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+routine queryKeySizeInBits(UCSP_PORTS; in key: IPCKeyHandle; out length: CSSM_KEY_SIZE);
+routine getOutputSize(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
     in inputSize: uint32; in encrypt: boolean_t; out outputSize: uint32);
 
-routine getKeyDigest(UCSP_PORTS; in key: KeyHandle; out digest: Data);
+routine getKeyDigest(UCSP_PORTS; in key: IPCKeyHandle; out digest: Data);
 
 
 //
 // Cryptographic operations
 //
-routine generateSignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+routine generateSignature(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
     in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; out signature: Data);
-routine verifySignature(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+routine verifySignature(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
 	in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; in signature: Data);
-routine generateMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+routine generateMac(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
 	in data: Data; out signature: Data);
-routine verifyMac(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
+routine verifyMac(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
 	in data: Data; in signature: Data);
 
-routine encrypt(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle; in clear: Data; out cipher: Data);
-routine decrypt(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle; in cipher: Data; out clear: Data);
+routine encrypt(UCSP_PORTS; in context: Data; in key: IPCKeyHandle; in clear: Data; out cipher: Data);
+routine decrypt(UCSP_PORTS; in context: Data; in key: IPCKeyHandle; in cipher: Data; out clear: Data);
 
-routine generateKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
-	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
-routine generateKeyPair(UCSP_PORTS; in db: DbHandle; IN_CONTEXT;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+routine generateKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data;
+	in accessCredentials: Data; in aclEntryPrototype: Data;
+	in keyUsage: uint32; in keyAttrs: uint32; out key: IPCKeyHandle; out header: Data);
+routine generateKeyPair(UCSP_PORTS; in db: IPCDbHandle; in context: Data;
+	in accessCredentials: Data; in aclEntryPrototype: Data;
 	in pubUsage: uint32; in pubAttrs: uint32; in privUsage: uint32; in privAttrs: uint32;
-	out pubKey: KeyHandle; out pubHeader: CssmKeyHeader;
-    out privKey: KeyHandle; out privHeader: CssmKeyHeader);
+	out pubKey: IPCKeyHandle; out pubHeader: Data;
+    out privKey: IPCKeyHandle; out privHeader: Data);
 
-routine wrapKey(UCSP_PORTS; IN_CONTEXT; in key: KeyHandle;
-    IN_BLOB(accessCredentials,AccessCredentials); in keyToBeWrapped: KeyHandle;
-	in data: Data; out wrappedKey: CssmKey; out wrappedKeyData: Data);
-routine unwrapKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in key: KeyHandle;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
-	in publicKey: KeyHandle; in wrappedKey: CssmKey; in wrappedKeyData: Data;
+routine wrapKey(UCSP_PORTS; in context: Data; in key: IPCKeyHandle;
+    in accessCredentials: Data; in keyToBeWrapped: IPCKeyHandle;
+	in descriptiveData: Data; out wrappedKey: Data);
+routine unwrapKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data; in key: IPCKeyHandle;
+	in accessCredentials: Data; in aclEntryPrototype: Data;
+	in publicKey: IPCKeyHandle; in wrappedKey: Data;
 	in usage: uint32; in attributes: uint32; out data: Data; 
-    out resultKey: KeyHandle; out header: CssmKeyHeader);
+    out resultKey: IPCKeyHandle; out header: Data);
 
-routine deriveKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in baseKey: KeyHandle;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
-    IN_BLOB(paramInput,CssmDeriveData); out paramOutput: Data;
-	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
+routine deriveKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data; in baseKey: IPCKeyHandle;
+	in accessCredentials: Data; in aclEntryPrototype: Data;
+    in paramInput: Data; out paramOutput: Data;
+	in keyUsage: uint32; in keyAttrs: uint32; out key: IPCKeyHandle; out header: Data);
 
-routine generateRandom(UCSP_PORTS; in ssid: uint32; IN_CONTEXT; out data: Data);
+routine generateRandom(UCSP_PORTS; in ssid: uint32; in context: Data; out data: Data);
 
 
 //
 // ACL management
 //
-routine getOwner(UCSP_PORTS; in kind: AclKind; in key: GenericHandle;
-	out proto: AclOwnerPrototypeBlob; out protoBase: AclOwnerPrototypePtr);
-routine setOwner(UCSP_PORTS; in kind: AclKind; in key: GenericHandle;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclOwnerPrototype,AclOwnerPrototype));
-routine getAcl(UCSP_PORTS; in kind: AclKind; in key: GenericHandle;
+routine getOwner(UCSP_PORTS; in kind: AclKind; in key: IPCGenericHandle;
+	out proto: Data);
+routine setOwner(UCSP_PORTS; in kind: AclKind; in key: IPCGenericHandle;
+	in accessCredentials: Data; in aclOwnerPrototype: Data);
+routine getAcl(UCSP_PORTS; in kind: AclKind; in key: IPCGenericHandle;
 	in haveTag: boolean_t; in tag: CssmString;
-	out count: uint32; out acls: AclEntryInfoBlob; out aclsBase: AclEntryInfoPtr);
-routine changeAcl(UCSP_PORTS; in kind: AclKind; in key: GenericHandle;
-	IN_BLOB(accessCredentials,AccessCredentials);
-	in mode: CSSM_ACL_EDIT_MODE; in handle: CSSM_ACL_HANDLE;
-	IN_BLOB(aclEntryInput,AclEntryInput));
+	out count: uint32; out acls: Data);
+routine changeAcl(UCSP_PORTS; in kind: AclKind; in key: IPCGenericHandle;
+	in accessCredentials: Data;
+	in mode: CSSM_ACL_EDIT_MODE; in handle: IPCGenericHandle;
+	in aclEntryInput: Data);
 
-routine login(UCSP_PORTS; IN_BLOB(accessCredentials,AccessCredentials); in name: Data);
+routine login(UCSP_PORTS; in accessCredentials: Data; in name: Data);
 routine logout(UCSP_PORTS);
 
 
 //
 // Miscellanea
 //
-routine getStatistics(UCSP_PORTS; in ssid: uint32; out statistics: CSPOperationalStatistics);
+routine getStatistics(UCSP_PORTS; in ssid: uint32; out statistics: CSSM_CSP_OPERATIONAL_STATISTICS);
 routine getTime(UCSP_PORTS; in ssid: uint32; in algorithm: CSSM_ALGORITHMS; out data: Data);
 routine getCounter(UCSP_PORTS; in ssid: uint32; out data: Data);
 routine selfVerify(UCSP_PORTS; in ssid: uint32);
 
-routine cspPassThrough(UCSP_PORTS; in ssid: uint32; in id: uint32; IN_CONTEXT; in hKey: KeyHandle;
+routine cspPassThrough(UCSP_PORTS; in ssid: uint32; in id: uint32; in context: Data; in hKey: IPCKeyHandle;
 	in inData: Data; out outData: Data);
 routine dlPassThrough(UCSP_PORTS; in ssid: uint32; in id: uint32; in inData: Data; out outData: Data);
 
@@ -203,22 +208,24 @@ routine dlPassThrough(UCSP_PORTS; in ssid: uint32; in id: uint32; in inData: Dat
 //
 // Authorization subsystem
 //
-routine authorizationCreate(UCSP_PORTS; IN_BLOB(rights,AuthorizationItemSet);
+routine authorizationCreate(UCSP_PORTS; 
+	in rights: Data;
 	in flags: uint32;
-	IN_BLOB(environment,AuthorizationItemSet);
+	in environment: Data;
 	out authorization: AuthorizationBlob);
 
 routine authorizationRelease(UCSP_PORTS; in authorization: AuthorizationBlob;
 	in flags: uint32);
 
 routine authorizationCopyRights(UCSP_PORTS; in authorization: AuthorizationBlob;
-	IN_BLOB(rights,AuthorizationItemSet); in flags: uint32;
-	IN_BLOB(environment,AuthorizationItemSet);
-	OUT_BLOB(result,AuthorizationItemSet));
+	in rights: Data;
+	in flags: uint32;
+	in environment: Data;
+	out result: Data);
 
 routine authorizationCopyInfo(UCSP_PORTS; in authorization: AuthorizationBlob;
 	in tag: AuthorizationString;
-	OUT_BLOB(info,AuthorizationItemSet));
+	out info: Data);
 
 routine authorizationExternalize(UCSP_PORTS; in authorization: AuthorizationBlob;
 	out form: AuthorizationExternalForm);
@@ -243,20 +250,16 @@ routine setSessionUserPrefs(UCSP_PORTS; in sessionId: SecuritySessionId; in user
 //
 // Notification subsystem
 //
-routine requestNotification(UCSP_PORTS; in receiver: mach_port_make_send_t; in domain: uint32; in events: uint32);
-routine stopNotification(UCSP_PORTS; in receiver: mach_port_t);
-
-waittime 0;
-simpleroutine postNotification(requestport receiver: mach_port_t; in domain: uint32; in event: uint32; in data: Data);
-nowaittime;
+routine postNotification(UCSP_PORTS; in domain: uint32; in event: uint32; in data: Data;
+	in sequence: uint32);
 
 
 //
 // Database key management
 //
-routine extractMasterKey(UCSP_PORTS; in db: DbHandle; IN_CONTEXT; in sourceDb: DbHandle;
-	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
-	in keyUsage: uint32; in keyAttrs: uint32; out key: KeyHandle; out header: CssmKeyHeader);
+routine extractMasterKey(UCSP_PORTS; in db: IPCDbHandle; in context: Data; in sourceDb: IPCDbHandle;
+	in accessCredentials: Data; in aclEntryPrototype: Data;
+	in keyUsage: uint32; in keyAttrs: uint32; out key: IPCKeyHandle; out header: Data);
 
 
 //
@@ -284,9 +287,28 @@ routine setAlternateSystemRoot(UCSP_PORTS; in path: FilePath);
 simpleroutine childCheckIn(requestport sport: mach_port_t;
 	in servicePort: mach_port_make_send_t; in task_port: mach_port_t);
 
-//
-// late keychain syncing addition: force new operational secrets into 
-// existing securityd keychain database
-//
-routine commitDbForSync(UCSP_PORTS; in srcDb: DbHandle; in cloneDb: DbHandle;
+#if 1
+// This should move up to be with its buddies (see #if 0 above), but it won't move
+// until we need to force an incompatible change for some other reason.
+routine commitDbForSync(UCSP_PORTS; in srcDb: IPCDbHandle; in cloneDb: IPCDbHandle;
     out blob: DbBlob);
+#endif
+
+
+//
+// Code Signing Hosting protocol part 1: registration services.
+//
+routine registerHosting(UCSP_PORTS;
+	in hostingPort: mach_port_make_send_t; in flags: uint32);
+routine hostingPort(UCSP_PORTS;
+	in hostPid: pid_t; out hostingPort: mach_port_make_send_t);
+routine setGuest(UCSP_PORTS; in guest: SecGuestRef; in flags: uint32);
+
+//
+// Code Signing Hosting protocol part 2: proxy services.
+//
+routine createGuest(UCSP_PORTS; in host: SecGuestRef; in status: uint32_t;
+	in path: FilePath; in attributes: Data; in flags: uint32; out guest: SecGuestRef);
+routine setGuestStatus(UCSP_PORTS; in guest: SecGuestRef;
+	in status: uint32_t; in attributes: Data);
+routine removeGuest(UCSP_PORTS; in host: SecGuestRef; in guest: SecGuestRef);

@@ -1,4 +1,4 @@
-/* Copyright (C) 2000 Free Software Foundation, Inc.
+/* Copyright (C) 2000, 2004-2005 Free Software Foundation, Inc.
    This file is part of the GNU LIBICONV Library.
 
    The GNU LIBICONV Library is free software; you can redistribute it
@@ -13,17 +13,23 @@
 
    You should have received a copy of the GNU Library General Public
    License along with the GNU LIBICONV Library; see the file COPYING.LIB.
-   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
-   Suite 330, Boston, MA 02111-1307, USA.  */
+   If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+   Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Creates the UTF-8.TXT reference table. */
 
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "binary-io.h"
+
 int main ()
 {
   int i1, i2, i3;
+
+#if O_BINARY
+  SET_BINARY(fileno(stdout));
+#endif
 
   /* Range 0x0000..0x007f */
   for (i1 = 0; i1 < 0x80; i1++)
@@ -38,8 +44,7 @@ int main ()
       for (i3 = 0; i3 < 64; i3++)
         printf("0x%02X%02X%02X\t0x%04X\n", 0xe0+i1,0x80+i2,0x80+i3, (i1<<12)+(i2<<6)+i3);
 
-  fflush(stdout);
-  if (ferror(stdout))
+  if (ferror(stdout) || fclose(stdout))
     exit(1);
   exit(0);
 }

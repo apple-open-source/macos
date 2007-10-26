@@ -60,6 +60,12 @@ typedef enum
 	SSL_HE_SessionTicket = 35
 } SSLHelloExtensionType;
 
+/* SSL_HE_ServerName NameType values */
+typedef enum 
+{
+	SSL_NT_HostName = 0
+} SSLServerNameType;
+
 typedef enum
 {   SSL_read,
     SSL_write
@@ -109,44 +115,44 @@ typedef struct
 #define SSL_Finished_Sender_Client  0x434C4E54
 
 /** sslHandshake.c **/
-typedef OSStatus (*EncodeMessageFunc)(SSLRecord &rec, SSLContext *ctx);
+typedef OSStatus (*EncodeMessageFunc)(SSLRecord *rec, SSLContext *ctx);
 OSStatus SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx);
 OSStatus SSLPrepareAndQueueMessage(EncodeMessageFunc msgFunc, SSLContext *ctx);
 OSStatus SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx);
 OSStatus SSL3ReceiveSSL2ClientHello(SSLRecord rec, SSLContext *ctx);
 
 /** sslChangeCipher.c **/
-OSStatus SSLEncodeChangeCipherSpec(SSLRecord &rec, SSLContext *ctx);
+OSStatus SSLEncodeChangeCipherSpec(SSLRecord *rec, SSLContext *ctx);
 OSStatus SSLProcessChangeCipherSpec(SSLRecord rec, SSLContext *ctx);
 OSStatus SSLDisposeCipherSuite(CipherContext *cipher, SSLContext *ctx);
 
 /** sslCert.c **/
-OSStatus SSLEncodeCertificate(SSLRecord &certificate, SSLContext *ctx);
+OSStatus SSLEncodeCertificate(SSLRecord *certificate, SSLContext *ctx);
 OSStatus SSLProcessCertificate(SSLBuffer message, SSLContext *ctx);
-OSStatus SSLEncodeCertificateRequest(SSLRecord &request, SSLContext *ctx);
+OSStatus SSLEncodeCertificateRequest(SSLRecord *request, SSLContext *ctx);
 OSStatus SSLProcessCertificateRequest(SSLBuffer message, SSLContext *ctx);
-OSStatus SSLEncodeCertificateVerify(SSLRecord &verify, SSLContext *ctx);
+OSStatus SSLEncodeCertificateVerify(SSLRecord *verify, SSLContext *ctx);
 OSStatus SSLProcessCertificateVerify(SSLBuffer message, SSLContext *ctx);
 
 /** sslHandshakeHello.c **/
-OSStatus SSLEncodeServerHello(SSLRecord &serverHello, SSLContext *ctx);
+OSStatus SSLEncodeServerHello(SSLRecord *serverHello, SSLContext *ctx);
 OSStatus SSLProcessServerHello(SSLBuffer message, SSLContext *ctx);
-OSStatus SSLEncodeClientHello(SSLRecord &clientHello, SSLContext *ctx);
+OSStatus SSLEncodeClientHello(SSLRecord *clientHello, SSLContext *ctx);
 OSStatus SSLProcessClientHello(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLInitMessageHashes(SSLContext *ctx);
 OSStatus SSLEncodeRandom(unsigned char *p, SSLContext *ctx);
 
 /** sslKeyExchange.c **/
-OSStatus SSLEncodeServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx);
+OSStatus SSLEncodeServerKeyExchange(SSLRecord *keyExch, SSLContext *ctx);
 OSStatus SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx);
-OSStatus SSLEncodeKeyExchange(SSLRecord &keyExchange, SSLContext *ctx);
+OSStatus SSLEncodeKeyExchange(SSLRecord *keyExchange, SSLContext *ctx);
 OSStatus SSLProcessKeyExchange(SSLBuffer keyExchange, SSLContext *ctx);
 OSStatus SSLInitPendingCiphers(SSLContext *ctx);
 
 /** sslHandshakeFinish.c **/
-OSStatus SSLEncodeFinishedMessage(SSLRecord &finished, SSLContext *ctx);
+OSStatus SSLEncodeFinishedMessage(SSLRecord *finished, SSLContext *ctx);
 OSStatus SSLProcessFinished(SSLBuffer message, SSLContext *ctx);
-OSStatus SSLEncodeServerHelloDone(SSLRecord &helloDone, SSLContext *ctx);
+OSStatus SSLEncodeServerHelloDone(SSLRecord *helloDone, SSLContext *ctx);
 OSStatus SSLProcessServerHelloDone(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLCalculateFinishedMessage(SSLBuffer finished, SSLBuffer shaMsgState, SSLBuffer md5MsgState, UInt32 senderID, SSLContext *ctx);
 

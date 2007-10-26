@@ -50,17 +50,17 @@ extern const HashReference SSLHashMD5;
 extern const HashReference SSLHashSHA1;
 
 extern OSStatus CloneHashState(
-	const HashReference &ref, 
-	const SSLBuffer &state, 
-	SSLBuffer &newState, 
+	const HashReference *ref, 
+	const SSLBuffer *state, 
+	SSLBuffer *newState, 
 	SSLContext *ctx);
 extern OSStatus ReadyHash(
-	const HashReference &ref, 
-	SSLBuffer &state, 
+	const HashReference *ref, 
+	SSLBuffer *state, 
 	SSLContext *ctx);
 extern OSStatus CloseHash(
-	const HashReference &ref, 
-	SSLBuffer &state, 
+	const HashReference *ref, 
+	SSLBuffer *state, 
 	SSLContext *ctx);
 
 #ifdef __cplusplus

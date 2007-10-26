@@ -1,7 +1,7 @@
 {
     APPCLASS = NSApplication; 
     FILESTABLE = {
-        FRAMEWORKS = (); 
+        FRAMEWORKS = (IOKit.framework); 
         H_FILES = (pathnames.h); 
         M_FILES = (); 
         OTHER_LIBS = (bsm); 

@@ -1,6 +1,7 @@
 ;;; autoarg.el --- make digit keys supply prefix args
 
-;; Copyright (C) 1998, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author:  Dave Love <fx@gnu.org>
 ;; Created: 1998-09-04
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -110,7 +111,7 @@ then invokes the normal binding of \\[autoarg-terminate].
 `C-u \\[autoarg-terminate]' invokes the normal binding of \\[autoarg-terminate] four times.
 
 \\{autoarg-mode-map}"
-  nil " Aarg" autoarg-mode-map :global t)
+  nil " Aarg" autoarg-mode-map :global t :group 'keyboard)
 
 ;;;###autoload
 (define-minor-mode autoarg-kp-mode
@@ -118,10 +119,10 @@ then invokes the normal binding of \\[autoarg-terminate].
 With ARG, turn Autoarg mode on if ARG is positive, off otherwise.
 \\<autoarg-kp-mode-map>
 This is similar to \\[autoarg-mode] but rebinds the keypad keys `kp-1'
-&c to supply digit arguments.
+etc. to supply digit arguments.
 
 \\{autoarg-kp-mode-map}"
-  nil " Aakp" autoarg-kp-mode-map :global t
+  nil " Aakp" autoarg-kp-mode-map :global t :group 'keyboard
   (if autoarg-kp-mode
       (dotimes (i 10)
 	(let ((sym (intern (format "kp-%d" i))))
@@ -145,4 +146,5 @@ which invoked this function, excluding the Autoarg keymap."
 
 (provide 'autoarg)
 
+;;; arch-tag: 2ba2ab4f-d60e-402a-ae4d-37e29af723c2
 ;;; autoarg.el ends here

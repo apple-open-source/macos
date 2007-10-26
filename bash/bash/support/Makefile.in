@@ -36,6 +36,7 @@ BUILD_DIR = @BUILD_DIR@
 RM	= rm -f
 SHELL	= @MAKE_SHELL@
 CC = @CC@
+CC_FOR_BUILD = @CC_FOR_BUILD@
 
 EXEEXT = @EXEEXT@
 
@@ -52,8 +53,10 @@ LOCAL_CFLAGS = @LOCAL_CFLAGS@
 DEFS = @DEFS@
 LOCAL_DEFS = @LOCAL_DEFS@
 
-LOCAL_LDFLAGS = @LOCAL_LDFLAGS@
 LIBS = @LIBS@
+LIBS_FOR_BUILD = ${LIBS}		# XXX
+
+LOCAL_LDFLAGS = @LOCAL_LDFLAGS@
 LDFLAGS = @LDFLAGS@ $(LOCAL_LDFLAGS) $(CFLAGS)
 LDFLAGS_FOR_BUILD = $(LDFLAGS)
 
@@ -75,9 +78,12 @@ OBJ1 =	man2html.o
 all: man2html$(EXEEXT)
 
 man2html$(EXEEXT): $(OBJ1)
-	$(CC) $(CCFLAGS) $(OBJ1) -o $@ ${LIBS}
+	$(CC_FOR_BUILD) $(CCFLAGS_FOR_BUILD) $(OBJ1) -o $@ ${LIBS_FOR_BUILD}
 
 clean:
-	rm man2html
+	$(RM) man2html$(EXEEXT)
+
+distclean maintainer-clean mostlyclean: clean
+	$(RM) $(OBJ1)
 
 man2html.o: man2html.c

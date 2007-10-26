@@ -140,10 +140,16 @@ statuidprint(uid_t uid, char *outbuf, int flags)
 #ifdef HAVE_GETPWUID
 	struct passwd *pwd;
 	pwd = getpwuid(uid);
-	strcat(outbuf, pwd ? pwd->pw_name : "???");
-#else /* !HAVE_GETPWUID */
-	strcat(outbuf, "???");
+	if (pwd)
+	    strcat(outbuf, pwd->pw_name);
+	else
 #endif /* !HAVE_GETPWUID */
+	{
+	    char *optr;
+	    for (optr = outbuf; *optr; optr++)
+		;
+	    sprintf(optr, "%lu", (unsigned long)uid);
+	}
 	if (flags & STF_RAW)
 	    strcat(outbuf, ")");
     }
@@ -160,13 +166,19 @@ statgidprint(gid_t gid, char *outbuf, int flags)
 	    strcat(outbuf, " (");
     }
     if (flags & STF_STRING) {
-#ifdef HAVE_GETGRGID
+#ifdef USE_GETGRGID
 	struct group *gr;
 	gr = getgrgid(gid);
-	strcat(outbuf, gr ? gr->gr_name : "???");
-#else /* !HAVE_GETGRGID */
-	strcat(outbuf, "???");
-#endif /* !HAVE_GETGRGID */
+	if (gr)
+	    strcat(outbuf, gr->gr_name);
+	else
+#endif /* !USE_GETGRGID */
+	{
+	    char *optr;
+	    for (optr = outbuf; *optr; optr++)
+		;
+	    sprintf(optr, "%lu", (unsigned long)gid);
+	}
 	if (flags & STF_RAW)
 	    strcat(outbuf, ")");
     }
@@ -188,7 +200,7 @@ stattimeprint(time_t tim, char *outbuf, int flags)
 	ztrftime(oend, 40, timefmt, (flags & STF_GMT) ? gmtime(&tim) :
 		 localtime(&tim));
 	if (flags & STF_RAW)
-	    strcat(outbuf, ")");
+	    strcat(oend, ")");
     }
 }
 
@@ -239,7 +251,7 @@ statprint(struct stat *sbuf, char *outbuf, char *fname, int iwhich, int flags)
 #ifdef INO_T_IS_64_BIT
 	convbase(optr, sbuf->st_ino, 0);
 #else
-	DPUTS(sizeof(sbuf->st_ino) > 4,
+	DPUTS(sizeof(sbuf->st_ino) > sizeof(unsigned long),
 	      "Shell compiled with wrong ino_t size");
 	statulprint((unsigned long)sbuf->st_ino, optr);
 #endif
@@ -269,7 +281,7 @@ statprint(struct stat *sbuf, char *outbuf, char *fname, int iwhich, int flags)
 #ifdef OFF_T_IS_64_BIT
 	convbase(optr, sbuf->st_size, 0);
 #else
-	DPUTS(sizeof(sbuf->st_size) > 4,
+	DPUTS(sizeof(sbuf->st_size) > sizeof(unsigned long),
 	      "Shell compiled with wrong off_t size");
 	statulprint((unsigned long)sbuf->st_size, optr);
 #endif
@@ -368,10 +380,10 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 		    iwhich = aptr - statelts;
 		}
 	    if (found > 1) {
-		zwarnnam(name, "%s: ambiguous stat element", arg, 0);
+		zwarnnam(name, "%s: ambiguous stat element", arg);
 		return 1;
 	    } else if (found == 0) {
-		zwarnnam(name, "%s: no such stat element", arg, 0);
+		zwarnnam(name, "%s: no such stat element", arg);
 		return 1;
 	    }
 	    /* if name of link requested, turn on lstat */
@@ -386,8 +398,7 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 		    if (arg[1]) {
 			arrnam = arg+1;
 		    } else if (!(arrnam = *++args)) {
-			zwarnnam(name, "missing parameter name",
-				NULL, 0);
+			zwarnnam(name, "missing parameter name");
 			return 1;
 		    }
 		    flags |= STF_ARRAY;
@@ -396,8 +407,7 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 		    if (arg[1]) {
 			hashnam = arg+1;
 		    } else if (!(hashnam = *++args)) {
-			zwarnnam(name, "missing parameter name",
-				NULL, 0);
+			zwarnnam(name, "missing parameter name");
 			return 1;
 		    }
 		    flags |= STF_HASH;
@@ -408,12 +418,12 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 		    if (arg[1]) {
 			sfd = arg+1;
 		    } else if (!(sfd = *++args)) {
-			zwarnnam(name, "missing file descriptor", NULL, 0);
+			zwarnnam(name, "missing file descriptor");
 			return 1;
 		    }
 		    fd = zstrtol(sfd, &sfd, 10);
 		    if (*sfd) {
-			zwarnnam(name, "bad file descriptor", NULL, 0);
+			zwarnnam(name, "bad file descriptor");
 			return 1;
 		    }
 		    break;
@@ -421,14 +431,14 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 		    if (arg[1]) {
 			timefmt = arg+1;
 		    } else if (!(timefmt = *++args)) {
-			zwarnnam(name, "missing time format", NULL, 0);
+			zwarnnam(name, "missing time format");
 			return 1;
 		    }
 		    /* force string format in order to use time format */
 		    ops->ind['s'] = 1;
 		    break;
 		} else {
-		    zwarnnam(name, "bad option: -%c", NULL, *arg);
+		    zwarnnam(name, "bad option: -%c", *arg);
 		    return 1;
 		}
 	    }
@@ -437,7 +447,7 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 
     if ((flags & STF_ARRAY) && (flags & STF_HASH)) {
     	/* We don't implement setting multiple variables at once */
-	zwarnnam(name, "both array and hash requested", NULL, 0);
+	zwarnnam(name, "both array and hash requested");
 	return 1;
 	/* Alternate method would be to make -H blank arrnam etc etc *
 	 * and so get 'silent loss' of earlier choice, which would   *
@@ -469,10 +479,10 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
     }
 
     if (!*args && !OPT_ISSET(ops,'f')) {
-	zwarnnam(name, "no files given", NULL, 0);
+	zwarnnam(name, "no files given");
 	return 1;
     } else if (*args && OPT_ISSET(ops,'f')) {
-	zwarnnam(name, "no files allowed with -f", NULL, 0);
+	zwarnnam(name, "no files allowed with -f");
 	return 1;
     }
 
@@ -512,7 +522,7 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 
     if (hashnam) {
     	if (nargs > 1) {
-	    zwarnnam(name, "only one file allowed with -H", NULL, 0);
+	    zwarnnam(name, "only one file allowed with -H");
 	    return 1;
 	}
 	arrsize = (flags & STF_PICK) ? 1 : ST_COUNT;
@@ -532,8 +542,8 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
     for (; OPT_ISSET(ops,'f') || *args; args++) {
 	char outbuf[PATH_MAX + 9]; /* "link   " + link name + NULL */
 	int rval = OPT_ISSET(ops,'f') ? fstat(fd, &statbuf) :
-	    OPT_ISSET(ops,'L') ? lstat(*args, &statbuf) :
-	    stat(*args, &statbuf);
+	    OPT_ISSET(ops,'L') ? lstat(unmeta(*args), &statbuf) :
+	    stat(unmeta(*args), &statbuf);
 	if (rval) {
 	    if (OPT_ISSET(ops,'f'))
 		sprintf(outbuf, "%d", fd);
@@ -558,11 +568,11 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 	if (iwhich > -1) {
 	    statprint(&statbuf, outbuf, *args, iwhich, flags);
 	    if (arrnam)
-		*arrptr++ = ztrdup(outbuf);
+		*arrptr++ = metafy(outbuf, -1, META_DUP);
 	    else if (hashnam) {
 		/* STF_NAME explicitly turned off for ops.ind['H'] above */
 	    	*hashptr++ = ztrdup(statelts[iwhich]);
-		*hashptr++ = ztrdup(outbuf);
+		*hashptr++ = metafy(outbuf, -1, META_DUP);
 	    } else
 		printf("%s\n", outbuf);
 	} else {
@@ -570,11 +580,11 @@ bin_stat(char *name, char **args, Options ops, UNUSED(int func))
 	    for (i = 0; i < ST_COUNT; i++) {
 		statprint(&statbuf, outbuf, *args, i, flags);
 		if (arrnam)
-		    *arrptr++= ztrdup(outbuf);
+		    *arrptr++= metafy(outbuf, -1, META_DUP);
 		else if (hashnam) {
 		    /* STF_NAME explicitly turned off for ops.ind['H'] above */
 		    *hashptr++ = ztrdup(statelts[i]);
-		    *hashptr++ = ztrdup(outbuf);
+		    *hashptr++ = metafy(outbuf, -1, META_DUP);
 		} else
 		    printf("%s\n", outbuf);
 	    }

@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:44 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -14,12 +16,10 @@
 <a href="#FILES">FILES</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:17 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -27,27 +27,27 @@
 <p>fetchnews &minus; retrieve new articles from peer and
 feed to Cyrus</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>fetchnews</b> [ <b>&minus;C</b> <i>config-file</i> ] [
 <b>&minus;s</b> <i>servername[:port]</i> ]<br>
-[ <b>&minus;n</b> ] [ <b>&minus;w</b> <i>wildmat</i> ] [
-<b>&minus;f</b> <i>tstampfile</i> ]<br>
+[ <b>&minus;n</b> ] [ <b>&minus;y</b> ] [ <b>&minus;w</b>
+<i>wildmat</i> ] [ <b>&minus;f</b> <i>tstampfile</i> ]<br>
 [ <b>&minus;a</b> <i>authname</i> [ <b>&minus;p</b>
 <i>password</i> ] ] <i>peername</i></p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -62,17 +62,17 @@ feeds them to <i>servername</i>.</p>
 the <i>imapd.conf</i>(5) file unless specified otherwise by
 <b>-C</b>.</p>
 </td>
-</table></p>
+</table>
 <a name="OPTIONS"></a>
 <h2>OPTIONS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;C</b> <i>config-file</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -83,13 +83,13 @@ the <i>imapd.conf</i>(5) file unless specified otherwise by
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;s</b> <i>servername</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -102,7 +102,7 @@ which articles should be fed. Defaults to
 </td>
 </table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="4" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="11%"></td>
@@ -117,15 +117,27 @@ which articles should be fed. Defaults to
 will keep track of the high and low water marks for each
 group and use them to fetch new articles.</p>
 </td>
-</table></p>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="2%">
+
+<p><b>&minus;y</b></p>
+</td>
+<td width="7%"></td>
+<td width="77%">
+
+<p>Use 4 instead of 2 digits for year. 2-digits are rfc977-
+but not y2k-compliant.</p>
+</td>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;w</b> <i>wildmat</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -137,13 +149,13 @@ new articles. Defaults to &quot;*&quot;.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;f</b> <i>tstampfile</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -157,13 +169,13 @@ specified by the configuration options.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;a</b> <i>authname</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -174,13 +186,13 @@ specified by the configuration options.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;p</b> <i>password</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -193,13 +205,13 @@ specified by the configuration options.</p>
 <a name="FILES"></a>
 <h2>FILES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>/etc/imapd.conf</b></p></td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

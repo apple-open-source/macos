@@ -38,15 +38,24 @@ struct addremove_args {
 
     /* Should we set the default?  This is here for passing among various
        routines in watch.c (a good place for it if there is ever any reason
-       to make the stuff reentrant), not for watch_modify_watchers.  */
+       to make the stuff reentrant), not for watch_modify_watchers. 
+       This is only set if there are no arguments specified, e.g. 'cvs watch add' */
     int setting_default;
+
+    /* List of directories specified on the command line, to set the
+       default attributes. */
+    const char ** dirs;
+    int num_dirs;
+
+    /* Is this recursive? */
+    int local;
+
 };
 
 /* Modify the watchers for FILE.  *WHAT tells what to do to them.
    If FILE is NULL, modify default args (WHAT->SETTING_DEFAULT is
    not used).  */
-extern void watch_modify_watchers PROTO ((const char *file,
-					  struct addremove_args *what));
+void watch_modify_watchers (const char *file, struct addremove_args *what);
 
-extern int watch_add PROTO ((int argc, char **argv));
-extern int watch_remove PROTO ((int argc, char **argv));
+int watch_add (int argc, char **argv);
+int watch_remove (int argc, char **argv);

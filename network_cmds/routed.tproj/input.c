@@ -66,6 +66,7 @@
 /*
  * Process a newly received packet.
  */
+void
 rip_input(from, rip, size)
 	struct sockaddr *from;
 	register struct rip *rip;
@@ -105,16 +106,6 @@ rip_input(from, rip, size)
 			if (count < sizeof (struct netinfo))
 				break;
 			count -= sizeof (struct netinfo);
-
-#if BSD < 198810
-			if (sizeof(n->rip_dst.sa_family) > 1)	/* XXX */
-			    n->rip_dst.sa_family = ntohs(n->rip_dst.sa_family);
-#else
-#define osa(x) ((struct osockaddr *)(&(x)))
-			    n->rip_dst.sa_family =
-					ntohs(osa(n->rip_dst)->sa_family);
-			    n->rip_dst.sa_len = sizeof(n->rip_dst);
-#endif
 			n->rip_metric = ntohl(n->rip_metric);
 			/* 
 			 * A single entry with sa_family == AF_UNSPEC and
@@ -137,13 +128,6 @@ rip_input(from, rip, size)
 #define min(a, b) (a < b ? a : b)
 			n->rip_metric = rt == 0 ? HOPCNT_INFINITY :
 				min(rt->rt_metric + 1, HOPCNT_INFINITY);
-#if BSD < 198810
-			if (sizeof(n->rip_dst.sa_family) > 1)	/* XXX */
-			    n->rip_dst.sa_family = htons(n->rip_dst.sa_family);
-#else
-			    osa(n->rip_dst)->sa_family =
-						htons(n->rip_dst.sa_family);
-#endif
 			n->rip_metric = htonl(n->rip_metric);
 		}
 		rip->rip_cmd = RIPCMD_RESPONSE;
@@ -225,15 +209,6 @@ rip_input(from, rip, size)
 		for (; size > 0; size -= sizeof (struct netinfo), n++) {
 			if (size < sizeof (struct netinfo))
 				break;
-#if BSD < 198810
-			if (sizeof(n->rip_dst.sa_family) > 1)	/* XXX */
-				n->rip_dst.sa_family =
-					ntohs(n->rip_dst.sa_family);
-#else
-			    n->rip_dst.sa_family =
-					ntohs(osa(n->rip_dst)->sa_family);
-			    n->rip_dst.sa_len = sizeof(n->rip_dst);
-#endif
 			n->rip_metric = ntohl(n->rip_metric);
 			if (n->rip_dst.sa_family >= af_max ||
 			    (afp = &afswitch[n->rip_dst.sa_family])->af_hash ==
@@ -346,7 +321,7 @@ rip_input(from, rip, size)
 		    timercmp(&nextbcast, &now, <)) {
 			if (traceactions)
 				fprintf(ftrace, "send dynamic update\n");
-			toall(supply, RTS_CHANGED, ifp);
+			toall((int (*)())supply, RTS_CHANGED, ifp);
 			lastbcast = now;
 			needupdate = 0;
 			nextbcast.tv_sec = 0;
@@ -362,7 +337,7 @@ rip_input(from, rip, size)
 			delay = RANDOMDELAY();
 			if (traceactions)
 				fprintf(ftrace,
-				    "inhibit dynamic update for %d usec\n",
+				    "inhibit dynamic update for %lu usec\n",
 				    delay);
 			nextbcast.tv_sec = delay / 1000000;
 			nextbcast.tv_usec = delay % 1000000;

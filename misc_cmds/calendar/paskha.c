@@ -32,6 +32,10 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/paskha.c,v 1.7 2001/12/10 21:13:03 dwmal
 #include <string.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+
 #include "calendar.h"
 
 #define PASKHA "paskha"

@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -32,7 +28,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: chmod (AT&T Labs Research) 2002-11-14 $\n]"
+"[-?\n@(#)$Id: chmod (AT&T Research) 2007-07-26 $\n]"
 USAGE_LICENSE
 "[+NAME?chmod - change the access permissions of files]"
 "[+DESCRIPTION?\bchmod\b changes the permission of each file "
@@ -68,6 +64,8 @@ USAGE_LICENSE
 	"[+=?Cause the permission to be set to the given permissions.]"
 	"[+&?Cause the permission selected to be \aand\aed with the existing "
 		"permissions.]"
+	"[+^?Cause the permission selected to be propagated to more "
+		"restrictive groups.]"
 	"}"
 "[+?Symbolic modes with the \auser\a portion omitted are subject to "
 	"\bumask\b(2) settings unless the \b=\b \aop\a or the "
@@ -113,6 +111,8 @@ USAGE_LICENSE
 	"support this.]"
 "[i:ignore-umask?Ignore the \bumask\b(2) value in symbolic mode "
 	"expressions. This is probably how you expect \bchmod\b to work.]"
+"[F:reference?Omit the \amode\a operand and use the mode of \afile\a "
+	"instead.]:[file]"
 "[v:verbose?Describe changed permissions of all files.]"
 "\n"
 "\nmode file ...\n"
@@ -132,7 +132,7 @@ __STDPP__directive pragma pp:hide lchmod
 #define lchmod		______lchmod
 #endif
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <ls.h>
 #include <fts.h>
 
@@ -144,23 +144,15 @@ __STDPP__directive pragma pp:nohide lchmod
 #undef	lchmod
 #endif
 
-#define OPT_FORCE	(1<<2)		/* ignore errors		*/
-#define OPT_LCHOWN	(1<<5)		/* lchown			*/
-
 extern int	lchmod(const char*, mode_t);
 
-static struct State_s
-{
-	int		interrupt;
-} state;
-
 int
-b_chmod(int argc, char* argv[], void* context)
+b_chmod(int argc, char** argv, void* context)
 {
 	register int	mode;
 	register int	force = 0;
 	register int	flags;
-	register char*	amode;
+	register char*	amode = 0;
 	register FTS*	fts;
 	register FTSENT*ent;
 	char*		last;
@@ -170,14 +162,9 @@ b_chmod(int argc, char* argv[], void* context)
 #if _lib_lchmod
 	int		chlink = 0;
 #endif
+	struct stat	st;
 
-	if (argc < 0)
-	{
-		state.interrupt = 1;
-		return -1;
-	}
-	state.interrupt = 0;
-	cmdinit(argv, context, ERROR_CATALOG, ERROR_NOTIFY);
+	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
 	flags = fts_flags() | FTS_TOP | FTS_NOPOSTORDER | FTS_NOSEEDOTDIR;
 
 	/*
@@ -189,6 +176,9 @@ b_chmod(int argc, char* argv[], void* context)
 	{
 		switch (optget(argv, usage))
 		{
+		case 'c':
+			notify = 1;
+			continue;
 		case 'f':
 			force = 1;
 			continue;
@@ -197,14 +187,17 @@ b_chmod(int argc, char* argv[], void* context)
 			chlink = 1;
 #endif
 			continue;
-		case 'c':
-			notify = 1;
+		case 'i':
+			ignore = 1;
 			continue;
 		case 'v':
 			notify = 2;
 			continue;
-		case 'i':
-			ignore = 1;
+		case 'F':
+			if (stat(opt_info.arg, &st))
+				error(ERROR_exit(1), "%s: cannot stat", opt_info.arg);
+			mode = st.st_mode;
+			amode = "";
 			continue;
 		case 'H':
 			flags |= FTS_META|FTS_PHYSICAL;
@@ -226,46 +219,57 @@ b_chmod(int argc, char* argv[], void* context)
 		break;
 	}
 	argv += opt_info.index;
-	argc -= opt_info.index;
-	if (error_info.errors || argc < 2)
+	if (error_info.errors || !*argv || !amode && !*(argv + 1))
 		error(ERROR_usage(2), "%s", optusage(NiL));
-	amode = *argv;
 	if (ignore)
 		ignore = umask(0);
-	mode = strperm(amode, &last, 0);
-	if (*last)
+	if (amode)
+		amode = 0;
+	else
 	{
-		if (ignore)
-			umask(ignore);
-		error(ERROR_exit(1), "%s: invalid mode", amode);
+		amode = *argv++;
+		mode = strperm(amode, &last, 0);
+		if (*last)
+		{
+			if (ignore)
+				umask(ignore);
+			error(ERROR_exit(1), "%s: invalid mode", amode);
+		}
 	}
 	chmodf =
 #if _lib_lchmod
 		chlink ? lchmod :
 #endif
 		chmod;
-	if (!(fts = fts_open(argv + 1, flags, NiL)))
+	if (!(fts = fts_open(argv, flags, NiL)))
 	{
 		if (ignore)
 			umask(ignore);
-		error(ERROR_system(1), "%s: not found", argv[1]);
+		error(ERROR_system(1), "%s: not found", *argv);
 	}
-	while (!state.interrupt && (ent = fts_read(fts)))
+	while (!sh_checksig(context) && (ent = fts_read(fts)))
 		switch (ent->fts_info)
 		{
+		case FTS_SL:
+			if (chmodf == chmod)
+			{
+				if (!(flags & FTS_PHYSICAL) || (flags & FTS_META) && ent->fts_level == 1)
+					fts_set(NiL, ent, FTS_FOLLOW);
+				break;
+			}
+			/*FALLTHROUGH*/
 		case FTS_F:
 		case FTS_D:
-		case FTS_SL:
 		case FTS_SLNONE:
 		anyway:
 			if (amode)
 				mode = strperm(amode, &last, ent->fts_statp->st_mode);
-			if ((*chmodf)(ent->fts_accpath, mode) >= 0 )
+			if ((*chmodf)(ent->fts_accpath, mode) >= 0)
 			{
-				if(notify==2 || (notify==1 && (mode!=(ent->fts_statp->st_mode&S_IPERM))))
-					sfprintf(sfstdout,"mode of %s changed to %0.4o (%s)\n" ,ent->fts_accpath,mode,fmtmode(mode,1)+1);
+				if (notify == 2 || notify == 1 && (mode&S_IPERM) != (ent->fts_statp->st_mode&S_IPERM))
+					sfprintf(sfstdout, "%s: mode changed to %0.4o (%s)\n", ent->fts_path, mode, fmtmode(mode, 1)+1);
 			}
-			else if(!force)
+			else if (!force)
 				error(ERROR_system(0), "%s: cannot change mode", ent->fts_accpath);
 			break;
 		case FTS_DC:

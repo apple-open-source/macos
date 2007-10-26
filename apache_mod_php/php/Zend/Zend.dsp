@@ -131,6 +131,14 @@ SOURCE=.\zend_constants.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_default_classes.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_dynamic_array.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_execute.c
 # End Source File
 # Begin Source File
@@ -167,6 +175,10 @@ SOURCE=.\zend_ini_scanner.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_interfaces.c
+# End Source File
+# Begin Source File
+
 SOURCE=".\zend_language_parser.c"
 # End Source File
 # Begin Source File
@@ -183,7 +195,15 @@ SOURCE=.\zend_llist.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\zend_multibyte.c
+SOURCE=.\zend_object_handlers.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_objects.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_objects_API.c
 # End Source File
 # Begin Source File
 
@@ -211,7 +231,15 @@ SOURCE=.\zend_stack.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_stream.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_strtod.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_ts_hash.c
 # End Source File
 # Begin Source File
 
@@ -255,11 +283,23 @@ SOURCE=.\zend_constants.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_default_classes.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_dynamic_array.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_errors.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\zend_execute.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_execute_locks.h
 # End Source File
 # Begin Source File
 
@@ -272,6 +312,10 @@ SOURCE=.\zend_fast_cache.h
 # Begin Source File
 
 SOURCE=.\zend_globals.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_globals_macros.h
 # End Source File
 # Begin Source File
 
@@ -288,6 +332,22 @@ SOURCE=.\zend_indent.h
 # Begin Source File
 
 SOURCE=.\zend_ini.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_ini_parser.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_ini_scanner.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_interfaces.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_istdiostream.h
 # End Source File
 # Begin Source File
 
@@ -311,7 +371,15 @@ SOURCE=.\zend_modules.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\zend_multibyte.h
+SOURCE=.\zend_object_handlers.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_objects.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_objects_API.h
 # End Source File
 # Begin Source File
 
@@ -331,7 +399,15 @@ SOURCE=.\zend_stack.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\zend_stream.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\zend_strtod.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zend_ts_hash.h
 # End Source File
 # Begin Source File
 

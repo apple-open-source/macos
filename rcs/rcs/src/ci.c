@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: ci.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:37  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:37  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:31  wsanchez
  * Import of RCS 5.7
@@ -281,7 +281,7 @@ static struct hshentry newdelta;	/* new delta to be inserted	*/
 static struct stat workstat;
 static struct Symrev *assoclst, **nextassoc;
 
-mainProg(ciId, "ci", "$Id: ci.c,v 1.1.1.1 1999/04/23 01:43:37 wsanchez Exp $")
+mainProg(ciId, "ci", "$Id: ci.c,v 1.1 1999/04/23 01:43:37 wsanchez Exp $")
 {
 	static char const cmdusage[] =
 		"\nci usage: ci -{fIklMqru}[rev] -d[date] -mmsg -{nN}name -sstate -ttext -T -Vn -wwho -xsuff -zzone file ...";

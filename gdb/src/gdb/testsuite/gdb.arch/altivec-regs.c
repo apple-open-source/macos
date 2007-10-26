@@ -1,7 +1,3 @@
-#ifndef __APPLE__
-#include <altivec.h>
-#endif
-
 #include <stdio.h>
 
 vector unsigned int

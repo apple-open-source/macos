@@ -196,7 +196,7 @@ enum {
     kIONetworkEventTypeLinkDown  = 0xff000003
 };
 
-/*! @class IONetworkInterface : public IOService
+/*! @class IONetworkInterface
     @abstract An IONetworkInterface object manages the connection between
     an IONetworkController and the data link interface layer (DLIL).
     All interactions between the controller and DLIL must go through an

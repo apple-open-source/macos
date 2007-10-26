@@ -33,7 +33,9 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlock_destroy "pthread_rwlock_t *lock"
+.Fo pthread_rwlock_destroy
+.Fa "pthread_rwlock_t *rwlock"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlock_destroy
@@ -42,8 +44,8 @@ function is used to destroy a read/write lock previously created with
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlock_destroy
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
 .Xr pthread_rwlock_init 3
 .Sh STANDARDS
@@ -66,11 +68,11 @@ function may fail if:
 .Bl -tag -width Er
 .It Bq Er EBUSY
 The system has detected an attempt to destroy the object referenced by
-.Fa lock
+.Fa rwlock
 while it is locked.
 .It Bq Er EINVAL
 The value specified by
-.Fa lock
+.Fa rwlock
 is invalid.
 .El
 .Sh HISTORY

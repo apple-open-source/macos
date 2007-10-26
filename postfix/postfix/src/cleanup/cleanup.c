@@ -6,11 +6,11 @@
 /* SYNOPSIS
 /*	\fBcleanup\fR [generic Postfix daemon options]
 /* DESCRIPTION
-/*	The \fBcleanup\fR daemon processes inbound mail, inserts it
+/*	The \fBcleanup\fR(8) daemon processes inbound mail, inserts it
 /*	into the \fBincoming\fR mail queue, and informs the queue
 /*	manager of its arrival.
 /*
-/*	The \fBcleanup\fR daemon always performs the following transformations:
+/*	The \fBcleanup\fR(8) daemon always performs the following transformations:
 /* .IP \(bu
 /*	Insert missing message headers: (\fBResent-\fR) \fBFrom:\fR,
 /*	\fBTo:\fR, \fBMessage-Id:\fR, and \fBDate:\fR.
@@ -36,16 +36,18 @@
 /*	Optionally, expand envelope recipients according to information
 /*	found in the \fBvirtual\fR(5) lookup tables.
 /* .PP
-/*	The \fBcleanup\fR daemon performs sanity checks on the content of
+/*	The \fBcleanup\fR(8) daemon performs sanity checks on the content of
 /*	each message. When it finds a problem, by default it returns a
 /*	diagnostic status to the client, and leaves it up to the client
 /*	to deal with the problem. Alternatively, the client can request
-/*	the \fBcleanup\fR daemon to bounce the message back to the sender
+/*	the \fBcleanup\fR(8) daemon to bounce the message back to the sender
 /*	in case of trouble.
 /* STANDARDS
 /*	RFC 822 (ARPA Internet Text Messages)
 /*	RFC 2045 (MIME: Format of Internet Message Bodies)
 /*	RFC 2046 (MIME: Media Types)
+/*	RFC 3463 (Enhanced Status Codes)
+/*	RFC 3464 (Delivery status notifications)
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /* BUGS
@@ -54,24 +56,27 @@
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically, as cleanup(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically, as
+/*	\fBcleanup\fR(8)
 /*	processes run for only a limited amount of time. Use the command
 /*	"\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /* COMPATIBILITY CONTROLS
 /* .ad
 /* .fi
 /* .IP "\fBundisclosed_recipients_header (To: undisclosed-recipients:;)\fR"
-/*	Message header that the Postfix cleanup(8) server inserts when a
+/*	Message header that the Postfix \fBcleanup\fR(8) server inserts when a
 /*	message contains no To: or Cc: message header.
 /* .PP
-/*	Available in Postfix version 2.1 and later:
+/*	Available in Postfix version 2.1 only:
 /* .IP "\fBenable_errors_to (no)\fR"
 /*	Report mail delivery errors to the address specified with the
 /*	non-standard Errors-To: message header, instead of the envelope
-/*	sender address.
+/*	sender address (this feature is removed with Postfix version 2.2, is
+/*	turned off by default with Postfix version 2.1, and is always turned on
+/*	with older Postfix versions).
 /* BUILT-IN CONTENT FILTERING CONTROLS
 /* .ad
 /* .fi
@@ -79,10 +84,10 @@
 /*	worms or viruses. It is not a general content filter.
 /* .IP "\fBbody_checks (empty)\fR"
 /*	Optional lookup tables for content inspection as specified in
-/*	the body_checks(5) manual page.
+/*	the \fBbody_checks\fR(5) manual page.
 /* .IP "\fBheader_checks (empty)\fR"
 /*	Optional lookup tables for content inspection of primary non-MIME
-/*	message headers, as specified in the header_checks(5) manual page.
+/*	message headers, as specified in the \fBheader_checks\fR(5) manual page.
 /* .PP
 /*	Available in Postfix version 2.0 and later:
 /* .IP "\fBbody_checks_size_limit (51200)\fR"
@@ -90,11 +95,70 @@
 /*	prefer to use that term) is subjected to body_checks inspection.
 /* .IP "\fBmime_header_checks ($header_checks)\fR"
 /*	Optional lookup tables for content inspection of MIME related
-/*	message headers, as described in the header_checks(5) manual page.
+/*	message headers, as described in the \fBheader_checks\fR(5) manual page.
 /* .IP "\fBnested_header_checks ($header_checks)\fR"
 /*	Optional lookup tables for content inspection of non-MIME message
-/*	headers in attached messages, as described in the header_checks(5)
+/*	headers in attached messages, as described in the \fBheader_checks\fR(5)
 /*	manual page.
+/* .PP
+/*	Available in Postfix version 2.3 and later:
+/* .IP "\fBmessage_reject_characters (empty)\fR"
+/*	The set of characters that Postfix will reject in message
+/*	content.
+/* .IP "\fBmessage_strip_characters (empty)\fR"
+/*	The set of characters that Postfix will remove from message
+/*	content.
+/* BEFORE QUEUE MILTER CONTROLS
+/* .ad
+/* .fi
+/*	As of version 2.3, Postfix supports the Sendmail version 8
+/*	Milter (mail filter) protocol. When mail is not received via
+/*	the smtpd(8) server, the cleanup(8) server will simulate
+/*	SMTP events to the extent that this is possible. For details
+/*	see the MILTER_README document.
+/* .IP "\fBnon_smtpd_milters (empty)\fR"
+/*	A list of Milter (mail filter) applications for new mail that
+/*	does not arrive via the Postfix \fBsmtpd\fR(8) server.
+/* .IP "\fBmilter_protocol (2)\fR"
+/*	The mail filter protocol version and optional protocol extensions
+/*	for communication with a Milter (mail filter) application.
+/* .IP "\fBmilter_default_action (tempfail)\fR"
+/*	The default action when a Milter (mail filter) application is
+/*	unavailable or mis-configured.
+/* .IP "\fBmilter_macro_daemon_name ($myhostname)\fR"
+/*	The {daemon_name} macro value for Milter (mail filter) applications.
+/* .IP "\fBmilter_macro_v ($mail_name $mail_version)\fR"
+/*	The {v} macro value for Milter (mail filter) applications.
+/* .IP "\fBmilter_connect_timeout (30s)\fR"
+/*	The time limit for connecting to a Milter (mail filter)
+/*	application, and for negotiating protocol options.
+/* .IP "\fBmilter_command_timeout (30s)\fR"
+/*	The time limit for sending an SMTP command to a Milter (mail
+/*	filter) application, and for receiving the response.
+/* .IP "\fBmilter_content_timeout (300s)\fR"
+/*	The time limit for sending message content to a Milter (mail
+/*	filter) application, and for receiving the response.
+/* .IP "\fBmilter_connect_macros (see postconf -n output)\fR"
+/*	The macros that are sent to Milter (mail filter) applications
+/*	after completion of an SMTP connection.
+/* .IP "\fBmilter_helo_macros (see postconf -n output)\fR"
+/*	The macros that are sent to Milter (mail filter) applications
+/*	after the SMTP HELO or EHLO command.
+/* .IP "\fBmilter_mail_macros (see postconf -n output)\fR"
+/*	The macros that are sent to Milter (mail filter) applications
+/*	after the SMTP MAIL FROM command.
+/* .IP "\fBmilter_rcpt_macros (see postconf -n output)\fR"
+/*	The macros that are sent to Milter (mail filter) applications
+/*	after the SMTP RCPT TO command.
+/* .IP "\fBmilter_data_macros (see postconf -n output)\fR"
+/*	The macros that are sent to version 4 or higher Milter (mail
+/*	filter) applications after the SMTP DATA command.
+/* .IP "\fBmilter_unknown_command_macros (see postconf -n output)\fR"
+/*	The macros that are sent to version 3 or higher Milter (mail
+/*	filter) applications after an unknown SMTP command.
+/* .IP "\fBmilter_end_of_data_macros (see postconf -n output)\fR"
+/*	The macros that are sent to Milter (mail filter) applications
+/*	after the message end-of-data.
 /* MIME PROCESSING CONTROLS
 /* .ad
 /* .fi
@@ -104,8 +168,7 @@
 /* .IP "\fBmime_boundary_length_limit (2048)\fR"
 /*	The maximal length of MIME multipart boundary strings.
 /* .IP "\fBmime_nesting_limit (100)\fR"
-/*	The maximal nesting level of multipart mail that the MIME processor
-/*	will handle.
+/*	The maximal recursion level that the MIME processor will handle.
 /* .IP "\fBstrict_8bitmime (no)\fR"
 /*	Enable both strict_7bit_headers and strict_8bitmime_body.
 /* .IP "\fBstrict_7bit_headers (no)\fR"
@@ -135,8 +198,8 @@
 /* ADDRESS TRANSFORMATION CONTROLS
 /* .ad
 /* .fi
-/*	Address rewriting is delegated to the trivial-rewrite(8) daemon.
-/*	The cleanup(8) server implements table driven address mapping.
+/*	Address rewriting is delegated to the \fBtrivial-rewrite\fR(8) daemon.
+/*	The \fBcleanup\fR(8) server implements table driven address mapping.
 /* .IP "\fBempty_address_recipient (MAILER-DAEMON)\fR"
 /*	The recipient of mail addressed to the null address.
 /* .IP "\fBcanonical_maps (empty)\fR"
@@ -171,13 +234,27 @@
 /* .IP "\fBvirtual_alias_maps ($virtual_maps)\fR"
 /*	Optional lookup tables that alias specific mail addresses or domains
 /*	to other local or remote address.
+/* .PP
+/*	Available in Postfix version 2.2 and later:
+/* .IP "\fBcanonical_classes (envelope_sender, envelope_recipient, header_sender, header_recipient)\fR"
+/*	What addresses are subject to canonical_maps address mapping.
+/* .IP "\fBrecipient_canonical_classes (envelope_recipient, header_recipient)\fR"
+/*	What addresses are subject to recipient_canonical_maps address
+/*	mapping.
+/* .IP "\fBsender_canonical_classes (envelope_sender, header_sender)\fR"
+/*	What addresses are subject to sender_canonical_maps address
+/*	mapping.
+/* .IP "\fBremote_header_rewrite_domain (empty)\fR"
+/*	Don't rewrite message headers from remote clients at all when
+/*	this parameter is empty; otherwise, rewrite message headers and
+/*	append the specified domain name to incomplete addresses.
 /* RESOURCE AND RATE CONTROLS
 /* .ad
 /* .fi
 /* .IP "\fBduplicate_filter_limit (1000)\fR"
 /*	The maximal number of addresses remembered by the address
-/*	duplicate filter for aliases(5) or virtual(5) alias expansion, or
-/*	for showq(8) queue displays.
+/*	duplicate filter for \fBaliases\fR(5) or \fBvirtual\fR(5) alias expansion, or
+/*	for \fBshowq\fR(8) queue displays.
 /* .IP "\fBheader_size_limit (102400)\fR"
 /*	The maximal amount of memory in bytes for storing a message header.
 /* .IP "\fBhopcount_limit (50)\fR"
@@ -196,8 +273,7 @@
 /* .IP "\fBmime_boundary_length_limit (2048)\fR"
 /*	The maximal length of MIME multipart boundary strings.
 /* .IP "\fBmime_nesting_limit (100)\fR"
-/*	The maximal nesting level of multipart mail that the MIME processor
-/*	will handle.
+/*	The maximal recursion level that the MIME processor will handle.
 /* .IP "\fBqueue_file_attribute_count_limit (100)\fR"
 /*	The maximal number of (name=value) attributes that may be stored
 /*	in a Postfix queue file.
@@ -217,6 +293,9 @@
 /* .IP "\fBdaemon_timeout (18000s)\fR"
 /*	How much time a Postfix daemon process may take to handle a
 /*	request before it is terminated by a built-in watchdog timer.
+/* .IP "\fBdelay_logging_resolution_limit (2)\fR"
+/*	The maximal number of digits after the decimal point when logging
+/*	sub-second delay values.
 /* .IP "\fBdelay_warning_time (0h)\fR"
 /*	The time after which the sender receives the message headers of
 /*	mail that is still queued.
@@ -224,15 +303,15 @@
 /*	The time limit for sending or receiving information over an internal
 /*	communication channel.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBmyhostname (see 'postconf -d' output)\fR"
 /*	The internet hostname of this mail system.
 /* .IP "\fBmyorigin ($myhostname)\fR"
-/*	The default domain name that locally-posted mail appears to come
+/*	The domain name that locally-posted mail appears to come
 /*	from, and that locally posted mail is delivered to.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
@@ -263,6 +342,7 @@
 /*	canonical(5), canonical address lookup table format
 /*	virtual(5), virtual alias lookup table format
 /*	postconf(5), configuration parameters
+/*	master(5), generic daemon options
 /*	master(8), process manager
 /*	syslogd(8), system logging
 /* README FILES
@@ -273,6 +353,7 @@
 /* .na
 /* .nf
 /*	ADDRESS_REWRITING_README Postfix address manipulation
+/*	CONTENT_INSPECTION_README content inspection
 /* LICENSE
 /* .ad
 /* .fi
@@ -305,6 +386,7 @@
 #include <mail_params.h>
 #include <record.h>
 #include <rec_type.h>
+#include <mail_version.h>
 
 /* Single-threaded server skeleton. */
 
@@ -322,6 +404,7 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
     CLEANUP_STATE *state;
     int     flags;
     int     type = 0;
+    int     status;
 
     /*
      * Sanity check. This service takes no command-line arguments.
@@ -332,7 +415,7 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
     /*
      * Open a queue file and initialize state.
      */
-    state = cleanup_open();
+    state = cleanup_open(src);
 
     /*
      * Send the queue id to the client. Read client processing options. If we
@@ -343,7 +426,7 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
 	       ATTR_TYPE_STR, MAIL_ATTR_QUEUEID, state->queue_id,
 	       ATTR_TYPE_END);
     if (attr_scan(src, ATTR_FLAG_STRICT,
-		  ATTR_TYPE_NUM, MAIL_ATTR_FLAGS, &flags,
+		  ATTR_TYPE_INT, MAIL_ATTR_FLAGS, &flags,
 		  ATTR_TYPE_END) != 1) {
 	state->errs |= CLEANUP_STAT_BAD;
 	flags = 0;
@@ -358,7 +441,14 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
      * extracted from message headers.
      */
     while (CLEANUP_OUT_OK(state)) {
-	if ((type = rec_get(src, buf, 0)) < 0) {
+	if ((type = rec_get_raw(src, buf, 0, REC_FLAG_NONE)) < 0) {
+	    state->errs |= CLEANUP_STAT_BAD;
+	    break;
+	}
+	if (type == REC_TYPE_PTR || type == REC_TYPE_DTXT
+	    || type == REC_TYPE_DRCP) {
+	    msg_warn("%s: record type %d not allowed - discarding this message",
+		     state->queue_id, type);
 	    state->errs |= CLEANUP_STAT_BAD;
 	    break;
 	}
@@ -387,8 +477,9 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
     /*
      * Finish this message, and report the result status to the client.
      */
+    status = cleanup_flush(state);		/* in case state is modified */
     attr_print(src, ATTR_FLAG_NONE,
-	       ATTR_TYPE_NUM, MAIL_ATTR_STATUS, cleanup_flush(state),
+	       ATTR_TYPE_INT, MAIL_ATTR_STATUS, status,
 	       ATTR_TYPE_STR, MAIL_ATTR_WHY, state->reason ?
 	       state->reason : "",
 	       ATTR_TYPE_END);
@@ -398,14 +489,6 @@ static void cleanup_service(VSTREAM *src, char *unused_service, char **argv)
      * Cleanup.
      */
     vstring_free(buf);
-}
-
-/* cleanup_sig - cleanup after signal */
-
-static void cleanup_sig(int sig)
-{
-    cleanup_all();
-    exit(sig);
 }
 
 /* pre_accept - see if tables have changed */
@@ -420,10 +503,17 @@ static void pre_accept(char *unused_name, char **unused_argv)
     }
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - the main program */
 
 int     main(int argc, char **argv)
 {
+
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
 
     /*
      * Clean up an incomplete queue file in case of a fatal run-time error,

@@ -1,29 +1,20 @@
-# serial 2
+##                                                          -*- Autoconf -*-
+# Copyright (C) 1999, 2000, 2001, 2003, 2004, 2005
+# Free Software Foundation, Inc.
+#
+# This file is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# serial 5
 
 # AM_PROG_CC_C_O
 # --------------
 # Like AC_PROG_CC_C_O, but changed for automake.
-
-# Copyright 1999, 2000, 2001 Free Software Foundation, Inc.
-
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2, or (at your option)
-# any later version.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
-
 AC_DEFUN([AM_PROG_CC_C_O],
 [AC_REQUIRE([AC_PROG_CC_C_O])dnl
 AC_REQUIRE([AM_AUX_DIR_EXPAND])dnl
+AC_REQUIRE_AUX_FILE([compile])dnl
 # FIXME: we rely on the cache variable name because
 # there is no other way.
 set dummy $CC
@@ -36,4 +27,8 @@ if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" != yes"; then
    # and then we could set am__CC="\$(top_srcdir)/compile \$(CC)"
    CC="$am_aux_dir/compile $CC"
 fi
+dnl Make sure AC_PROG_CC is never called again, or it will override our
+dnl setting of CC.
+m4_define([AC_PROG_CC],
+          [m4_fatal([AC_PROG_CC cannot be called after AM_PROG_CC_C_O])])
 ])

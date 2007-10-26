@@ -1,4 +1,26 @@
 #!/bin/sh
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+# $Id: buildconf,v 1.47 2006-10-27 03:47:57 yangtse Exp $
+###########################################################################
 
 die(){
 	echo "$@"
@@ -13,7 +35,8 @@ findtool(){
   IFS=":"
   for path in $PATH
   do
-    if test -r "$path/$file"; then
+    # echo "checks for $file in $path" >&2
+    if test -f "$path/$file"; then
       echo "$path/$file"
       return
     fi
@@ -24,7 +47,7 @@ findtool(){
 # autoconf 2.57 or newer
 #
 need_autoconf="2.57"
-ac_version=`${AUTOCONF:-autoconf} --version 2>/dev/null|head -1| sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
+ac_version=`${AUTOCONF:-autoconf} --version 2>/dev/null|head -n 1| sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
 if test -z "$ac_version"; then
   echo "buildconf: autoconf not found."
   echo "            You need autoconf version $need_autoconf or newer installed."
@@ -45,7 +68,7 @@ echo "buildconf: autoconf version $ac_version (ok)"
 #--------------------------------------------------------------------------
 # autoheader 2.50 or newer
 #
-ah_version=`${AUTOHEADER:-autoheader} --version 2>/dev/null|head -1| sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
+ah_version=`${AUTOHEADER:-autoheader} --version 2>/dev/null|head -n 1| sed -e 's/^[^0-9]*//' -e 's/[a-z]* *$//'`
 if test -z "$ah_version"; then
   echo "buildconf: autoheader not found."
   echo "            You need autoheader version 2.50 or newer installed."
@@ -67,7 +90,7 @@ echo "buildconf: autoheader version $ah_version (ok)"
 # automake 1.7 or newer
 #
 need_automake="1.7"
-am_version=`${AUTOMAKE:-automake} --version 2>/dev/null|head -1| sed -e 's/^.* \([0-9]\)/\1/' -e 's/[a-z]* *$//' -e 's/\(.*\)\(-p.*\)/\1/'`
+am_version=`${AUTOMAKE:-automake} --version 2>/dev/null|head -n 1| sed -e 's/^.* \([0-9]\)/\1/' -e 's/[a-z]* *$//' -e 's/\(.*\)\(-p.*\)/\1/'`
 if test -z "$am_version"; then
   echo "buildconf: automake not found."
   echo "            You need automake version $need_automake or newer installed."
@@ -85,6 +108,13 @@ fi
 
 echo "buildconf: automake version $am_version (ok)"
 
+ac=`findtool ${ACLOCAL:-aclocal}`
+if test -z "$ac"; then
+  echo "buildconf: aclocal not found. Weird automake installation!"
+  exit 1
+else
+  echo "buildconf: aclocal found"
+fi
 
 #--------------------------------------------------------------------------
 # libtool check
@@ -99,13 +129,18 @@ LIBTOOL_WANTED_VERSION=1.4.2
 # glibtool, with 'libtool' being something completely different.
 libtool=`findtool glibtool 2>/dev/null`
 if test ! -x "$libtool"; then
-  libtool=`findtool libtool`
+  libtool=`findtool ${LIBTOOL:-libtool}`
 fi
 
-# set the LIBTOOLIZE here so that glibtoolize is used if glibtool was found
-LIBTOOLIZE="${libtool}ize"
+if test -z "$LIBTOOLIZE"; then
+  # set the LIBTOOLIZE here so that glibtoolize is used if glibtool was found
+  # $libtool is already the full path
+  libtoolize="${libtool}ize"
+else
+  libtoolize=`findtool $LIBTOOLIZE`
+fi
 
-lt_pversion=`$libtool --version 2>/dev/null|head -1|sed -e 's/^[^0-9]*//g' -e 's/[- ].*//'`
+lt_pversion=`$libtool --version 2>/dev/null|head -n 2|sed -e 's/^[^0-9]*//g' -e 's/[- ].*//'`
 if test -z "$lt_pversion"; then
   echo "buildconf: libtool not found."
   echo "            You need libtool version $LIBTOOL_WANTED_VERSION or newer installed"
@@ -142,10 +177,17 @@ fi
 
 echo "buildconf: libtool version $lt_version (ok)"
 
+if test -f "$libtoolize"; then
+  echo "buildconf: libtoolize found"
+else
+  echo "buildconf: libtoolize not found. Weird libtool installation!"
+  exit 1
+fi
+
 #--------------------------------------------------------------------------
 # m4 check
 #
-m4=`${M4:-m4} --version 2>/dev/null|head -1`;
+m4=`${M4:-m4} --version 2>/dev/null|head -n 1`;
 m4_version=`echo $m4 | sed -e 's/^.* \([0-9]\)/\1/' -e 's/[a-z]* *$//'`
 
 if { echo $m4 | grep "GNU" >/dev/null 2>&1; } then
@@ -155,17 +197,26 @@ else
   exit 1
 fi
 
+#--------------------------------------------------------------------------
+# perl check
+#
+PERL=`findtool ${PERL:-perl}`
 
 # ------------------------------------------------------------
 
 # run the correct scripts now
 
 echo "buildconf: running libtoolize"
-${LIBTOOLIZE:-libtoolize} --copy --automake --force || die "The libtool command failed"
+$libtoolize --copy --automake --force || die "The libtoolize command failed"
 echo "buildconf: running aclocal"
 ${ACLOCAL:-aclocal} $ACLOCAL_FLAGS || die "The aclocal command line failed"
-echo "buildconf: running aclocal hack to convert all mv to mv -f"
-perl -i.bak -pe 's/\bmv +([^-\s])/mv -f $1/g' aclocal.m4
+if test -n "$PERL"; then
+  echo "buildconf: running aclocal hack to convert all mv to mv -f"
+  $PERL -i.bak -pe 's/\bmv +([^-\s])/mv -f $1/g' aclocal.m4
+else
+  echo "buildconf: perl not found"
+  exit 1
+fi
 echo "buildconf: running autoheader"
 ${AUTOHEADER:-autoheader} || die "The autoheader command failed"
 echo "buildconf: cp lib/config.h.in src/config.h.in"
@@ -175,15 +226,13 @@ ${AUTOCONF:-autoconf}     || die "The autoconf command failed"
 
 if test -d ares; then
   cd ares
-  echo "buildconf: running aclocal in the ares directory"
-  ${ACLOCAL:-aclocal} $ACLOCAL_FLAGS || die "The ares aclocal command failed"
-  echo "buildconf: running autoconf in the ares directory"
-  ${AUTOCONF:-autoconf}     || die "The ares autoconf command failed"
+  echo "buildconf: running in ares"
+  ./buildconf
   cd ..
 fi
 
 echo "buildconf: running automake"
-${AUTOMAKE:-automake} -a  || die "The automake command failed"
+${AUTOMAKE:-automake} -a -c  || die "The automake command failed"
 
 echo "buildconf: OK"
 exit 0

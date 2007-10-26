@@ -1,0 +1,160 @@
+PR-5243958 cannot copy into dropbox
+
+The OS X client uses the findfirst call to get some file attributes,
+but this code path depends on being able to open the containing
+directory even though it might not be necessary.
+
+In the specific case where we know we are searching for a filename
+(not a wildcard), we now allow the directory open to fail. This
+assumes that a subsequent stat will give us an authoritative result
+(which is true for case-insensitive file systems).
+
+This should be viewed as an interim fix to make dropboxes work. The
+real fix involves tearing apart the whole findfirst code path so
+we can propagate state and error correctly.
+
+Index: samba/source/smbd/dir.c
+===================================================================
+--- samba/source/smbd/dir.c.orig
++++ samba/source/smbd/dir.c
+@@ -160,10 +160,8 @@ static void dptr_idleoldest(void)
+ 	 */
+ 
+ 	for(; dptr; dptr = dptr->prev) {
+-		if (dptr->dir_hnd) {
+-			dptr_idle(dptr);
+-			return;
+-		}
++		dptr_idle(dptr);
++		return;
+ 	}
+ }
+ 
+@@ -318,8 +316,9 @@ void dptr_idlecnum(connection_struct *co
+ {
+ 	struct dptr_struct *dptr;
+ 	for(dptr = dirptrs; dptr; dptr = dptr->next) {
+-		if (dptr->conn == conn && dptr->dir_hnd)
++		if (dptr->conn == conn) {
+ 			dptr_idle(dptr);
++		}
+ 	}
+ }
+ 
+@@ -332,8 +331,9 @@ void dptr_closepath(char *path,uint16 sp
+ 	struct dptr_struct *dptr, *next;
+ 	for(dptr = dirptrs; dptr; dptr = next) {
+ 		next = dptr->next;
+-		if (spid == dptr->spid && strequal(dptr->path,path))
++		if (spid == dptr->spid && strequal(dptr->path,path)) {
+ 			dptr_close_internal(dptr);
++		}
+ 	}
+ }
+ 
+@@ -643,6 +643,22 @@ const char *dptr_ReadDirName(struct dptr
+ 			return NULL;
+ 		}
+ 	}
++
++	/* We can get here if we were searching for a filename (not a wildcard)
++	 * but we weren't able to open the containing directory. We have no
++	 * hope of iterating, so we can only return NULL here.
++	 */
++	if (dptr->dir_hnd->dir == NULL) {
++		/* XXX What we should be doing here is saving the errno from
++		 * when we originally failed to open the directory. We need to
++		 * return an NT_STATUS at this point so we can faithfully tell
++		 * the client that we couldn't search for the file (distinct
++		 * from the file not being found).
++		 */
++		dptr->dir_hnd->offset = *poffset = END_OF_DIRECTORY_OFFSET;
++		return NULL;
++	}
++
+ 	return dptr_normal_ReadDirName(dptr, poffset, pst);
+ }
+ 
+@@ -1063,7 +1079,7 @@ BOOL is_visible_file(connection_struct *
+  Open a directory.
+ ********************************************************************/
+ 
+-struct smb_Dir *OpenDir(connection_struct *conn, const char *name, const char *mask, uint32 attr)
++struct smb_Dir *OpenDir(connection_struct *conn, const char *path, const char *mask, uint32 attr)
+ {
+ 	struct smb_Dir *dirp = SMB_MALLOC_P(struct smb_Dir);
+ 	if (!dirp) {
+@@ -1073,14 +1089,30 @@ struct smb_Dir *OpenDir(connection_struc
+ 
+ 	dirp->conn = conn;
+ 
+-	dirp->dir_path = SMB_STRDUP(name);
++	dirp->dir_path = SMB_STRDUP(path);
+ 	if (!dirp->dir_path) {
+ 		goto fail;
+ 	}
++
+ 	dirp->dir = SMB_VFS_OPENDIR(conn, dirp->dir_path, mask, attr);
+ 	if (!dirp->dir) {
+-		DEBUG(5,("OpenDir: Can't open %s. %s\n", dirp->dir_path, strerror(errno) ));
+-		goto fail;
++		/* Unless we will be doing a wildcard search, iterating over
++		 * the whole directory, or the path isn't a directory,
++		 * we can try to muddle on without a directory handle.
++		 */
++		if (errno == ENOENT || errno == ENOTDIR ||
++		    mask == NULL || ms_has_wild(mask)) {
++			DEBUG(5, ("OpenDir: can't open directory '%s': %s\n",
++				dirp->dir_path, strerror(errno) ));
++			goto fail;
++		}
++
++		/* We now have a directory handle that is not backed by an open
++		 * directory. The only valid operation is to close or to read
++		 * the (non-wildcard) name.
++		 */
++		DEBUG(5, ("OpenDir: can't open directory '%s': %s, continuing\n",
++			dirp->dir_path, strerror(errno) ));
+ 	}
+ 
+ 	dirp->name_cache = SMB_CALLOC_ARRAY(struct name_cache_entry, NAME_CACHE_SIZE);
+@@ -1138,6 +1170,8 @@ const char *ReadDirName(struct smb_Dir *
+ 	const char *n;
+ 	connection_struct *conn = dirp->conn;
+ 
++	SMB_ASSERT(dirp->dir != NULL);
++
+ 	/* Cheat to allow . and .. to be the first entries returned. */
+ 	if (((*poffset == START_OF_DIRECTORY_OFFSET) || (*poffset == DOT_DOT_DIRECTORY_OFFSET)) && (dirp->file_number < 2)) {
+ 		if (dirp->file_number == 0) {
+@@ -1178,7 +1212,10 @@ const char *ReadDirName(struct smb_Dir *
+ 
+ void RewindDir(struct smb_Dir *dirp, long *poffset)
+ {
++	SMB_ASSERT(dirp->dir != NULL);
++
+ 	SMB_VFS_REWINDDIR(dirp->conn, dirp->dir);
++
+ 	dirp->file_number = 0;
+ 	dirp->offset = START_OF_DIRECTORY_OFFSET;
+ 	*poffset = START_OF_DIRECTORY_OFFSET;
+@@ -1190,6 +1227,7 @@ void RewindDir(struct smb_Dir *dirp, lon
+ 
+ void SeekDir(struct smb_Dir *dirp, long offset)
+ {
++	SMB_ASSERT(dirp->dir != NULL);
+ 	if (offset != dirp->offset) {
+ 		if (offset == START_OF_DIRECTORY_OFFSET) {
+ 			RewindDir(dirp, &offset);
+@@ -1252,6 +1290,11 @@ BOOL SearchDir(struct smb_Dir *dirp, con
+ 	const char *entry;
+ 	connection_struct *conn = dirp->conn;
+ 
++	/* Search is only valid for wildcards and we must have an open
++	 * directory for those.
++	 */
++	SMB_ASSERT(dirp->dir != NULL);
++
+ 	/* Search back in the name cache. */
+ 	for (i = dirp->name_cache_index; i >= 0; i--) {
+ 		struct name_cache_entry *e = &dirp->name_cache[i];

@@ -36,20 +36,11 @@
 .Dt HEXDUMP 1
 .Os
 .Sh NAME
-.Nm hexdump , hd
+.Nm hexdump
 .Nd ASCII, decimal, hexadecimal, octal dump
 .Sh SYNOPSIS
 .Nm
 .Op Fl bcCdovx
-.Op Fl e Ar format_string
-.Op Fl f Ar format_file
-.Op Fl n Ar length
-.Bk -words
-.Op Fl s Ar skip
-.Ek
-.Ar
-.Nm hd
-.Op Fl bcdovx
 .Op Fl e Ar format_string
 .Op Fl f Ar format_file
 .Op Fl n Ar length
@@ -71,20 +62,16 @@ The options are as follows:
 Display the input offset in hexadecimal, followed by sixteen
 space-separated, three column, zero-filled, bytes of input data,
 in octal, per line.
-.It Fl c
-.Em One-byte character display .
-Display the input offset in hexadecimal, followed by sixteen
-space-separated, three column, space-filled, characters of input
-data per line.
 .It Fl C
 .Em Canonical hex+ASCII display .
 Display the input offset in hexadecimal, followed by sixteen
 space-separated, two column, hexadecimal bytes, followed by the
 same sixteen bytes in %_p format enclosed in ``|'' characters.
-.Pp
-Calling the command
-.Nm hd
-implies this option.
+.It Fl c
+.Em One-byte character display .
+Display the input offset in hexadecimal, followed by sixteen
+space-separated, three column, space-filled, characters of input
+data per line.
 .It Fl d
 .Em Two-byte decimal display .
 Display the input offset in hexadecimal, followed by eight
@@ -327,13 +314,15 @@ string but with any
 conversion flag characters
 removed, and referencing a NULL string.
 .Pp
-If no format strings are specified, the default display is equivalent
-to specifying the
-.Fl x
-option.
+If no format strings are specified, the default display is a
+one-byte hexadecimal display.
 .Sh DIAGNOSTICS
-.Ex -std hexdump hd
+.Ex -std
 .Sh EXAMPLES
+Note that the following format strings, used with
+.Fl e ,
+must be enclosed in single quotes.
+.Pp
 Display the input in perusal format:
 .Bd -literal -offset indent
 "%06.6_ao "  12/1 "%3_u "

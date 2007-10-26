@@ -15,7 +15,6 @@
   * System library.
   */
 #include <time.h>
-#include <stdarg.h>
 
  /*
   * Global library.
@@ -25,14 +24,8 @@
  /*
   * External interface.
   */
-extern int PRINTFLIKE(8, 9) verify_append(const char *, const char *,
-					          const char *, const char *,
-					          time_t, const char *,
-					          int, const char *,...);
-extern int vverify_append(const char *, const char *,
-			         const char *, const char *,
-			         time_t, const char *,
-			         int, const char *, va_list);
+extern int verify_append(const char *, MSG_STATS *, RECIPIENT *,
+			         const char *, DSN *, int);
 
 /* LICENSE
 /* .ad

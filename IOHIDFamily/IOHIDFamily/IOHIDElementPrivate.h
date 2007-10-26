@@ -86,6 +86,7 @@ protected:
     IOHIDElementPrivate *	 _duplicateReportHandler;
     
     IOHIDElementPrivate *	 _arrayReportHandler;
+    IOHIDElementPrivate **	 _rollOverElementPtr;
     OSDictionary *       _colArrayReportHandlers;
     OSArray *       	 _arrayItems;
     OSArray *		 _duplicateElements;
@@ -144,6 +145,8 @@ public:
 
     virtual bool serialize( OSSerialize * s ) const;
 
+    virtual bool fillElementStruct(IOHIDElementStruct *element);
+
     virtual bool addChildElement( IOHIDElementPrivate * child, bool arrayHeader = false );
 
     virtual bool processReport( UInt8                       reportID,
@@ -179,6 +182,7 @@ public:
 
     virtual IOHIDElementPrivate * setNextReportHandler( IOHIDElementPrivate * element );
 
+    virtual void setRollOverElementPtr(IOHIDElementPrivate ** rollOverElementPtr);
     virtual UInt32 getElementValueSize() const;
 
     virtual UInt32 getRangeCount() const;
@@ -239,7 +243,6 @@ public:
 	virtual OSData *					getDataValue();
 	virtual void						setValue(UInt32 value);
 	virtual void						setDataValue(OSData * value);
-
 };
 
 #endif /* !_IOKIT_HID_IOHIDELEMENTPRIVATE_H */

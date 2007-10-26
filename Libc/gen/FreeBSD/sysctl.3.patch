@@ -1,5 +1,5 @@
---- sysctl.3.orig	2004-07-02 16:52:10.000000000 -0700
-+++ sysctl.3	2004-10-24 17:35:54.000000000 -0700
+--- sysctl.3.orig	2006-08-17 22:44:01.000000000 -0700
++++ sysctl.3	2006-08-17 22:45:34.000000000 -0700
 @@ -182,13 +182,21 @@
  }
  .Ed
@@ -33,3 +33,29 @@
  .El
  .Pp
  For example, the following retrieves the maximum number of processes allowed
+@@ -453,16 +462,6 @@
+ .It "KERN_PROC_UID	A user ID"
+ .It "KERN_PROC_RUID	A real user ID"
+ .El
+-.Pp
+-If the third level name is KERN_PROC_ARGS then the command line argument
+-array is returned in a flattened form, i.e., zero-terminated arguments
+-follow each other.
+-The total size of array is returned.
+-It is also possible for a process to set its own process title this way.
+-.Bl -column "Third level nameXXXXXX" "Fourth level is:XXXXXX" -offset indent
+-.It Sy "Third level name	Fourth level is:"
+-.It "KERN_PROC_ARGS	A process ID"
+-.El
+ .It Li KERN_PROF
+ Return profiling information about the kernel.
+ If the kernel is not compiled for profiling,
+@@ -845,7 +844,7 @@
+ definitions for second level network identifiers
+ .It In sys/gmon.h
+ definitions for third level profiling identifiers
+-.It In vm/vm_param.h
++.It In mach/vm_param.h
+ definitions for second level virtual memory identifiers
+ .It In netinet/in.h
+ definitions for third level IPv4/IPv6 identifiers and

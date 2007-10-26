@@ -1,3 +1,5 @@
+#if !__LP64__
+
 #ifdef KERNEL
 #include <libsa/vers_rsrc.h>
 #else
@@ -25,14 +27,14 @@ static void __dgraph_entry_free(dgraph_entry_t * entry);
 char * strdup(const char * string)
 {
     char * dup = 0;
-    unsigned int length;
+    unsigned int size;
 
-    length = strlen(string);
-    dup = (char *)malloc((1+length) * sizeof(char));
+    size = (1+ strlen(string)) * sizeof(char);
+    dup = (char *)malloc(size);
     if (!dup) {
         return NULL;
     }
-    strcpy(dup, string);
+    strlcpy(dup, string, size);
     return dup;
 }
 
@@ -81,8 +83,8 @@ static void __dgraph_entry_free(dgraph_entry_t * entry)
         entry->dependencies = NULL;
     }
     if (entry->symbols_malloc) {
-        free((void *) entry->symbols_malloc);
-        entry->symbols_malloc = NULL;
+        free((void *)entry->symbols_malloc);
+        entry->symbols_malloc = 0;
     }
     free(entry);
     return;
@@ -202,7 +204,7 @@ dgraph_entry_t ** fill_backward_load_order(
     dgraph_entry_t * first_entry,
     unsigned int * last_index /* out param */)
 {
-    int i;
+    unsigned i;
     unsigned int scan_index = 0;
     unsigned int add_index = 0;
     dgraph_entry_t * scan_entry;
@@ -657,3 +659,4 @@ dgraph_entry_t * dgraph_add_dependency(
 
     return dependency;
 }
+#endif // !__LP64__

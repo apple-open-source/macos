@@ -1,0 +1,11 @@
+--- icuSources/common/unicode/uconfig.h	2005-08-11 17:40:22.000000000 -0700
++++ build/common/unicode/uconfig.h	2005-09-15 16:58:56.000000000 -0700
+@@ -180,7 +180,7 @@
+  * @draft ICU 3.2
+  */
+ #ifndef UCONFIG_NO_SERVICE
+-#   define UCONFIG_NO_SERVICE 0
++#   define UCONFIG_NO_SERVICE 1
+ #endif
+ 
+ #endif

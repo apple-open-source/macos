@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@ void	interface_update_ipv4	(struct ifaddrs *ifap, const char *if_name);
 void	interface_collision_ipv4(const char *if_name,
 				 struct in_addr ip_addr,
 				 int hw_len, const void * hw_addr);
+void	port_in_use_ipv4(uint16_t port, pid_t req_pid);
 __END_DECLS
 
 #endif /* _EV_IPV4_H */

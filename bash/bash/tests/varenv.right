@@ -30,7 +30,7 @@ unset
 declare -x ivar="42"
 hB
 braceexpand:hashall:interactive-comments
-hPB
+hBP
 braceexpand:hashall:interactive-comments:physical
 declare -r SHELLOPTS="braceexpand:hashall:interactive-comments:physical"
 abcde
@@ -51,3 +51,6 @@ after fff3: x=4
 |0|12|
 |y|
 |y|
+a=z
+a=b
+a=z

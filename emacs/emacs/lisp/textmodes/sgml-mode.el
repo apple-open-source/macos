@@ -1,8 +1,10 @@
-;;; sgml-mode.el --- SGML- and HTML-editing modes
+;;; sgml-mode.el --- SGML- and HTML-editing modes -*- coding: iso-2022-7bit -*-
 
-;; Copyright (C) 1992,95,96,98,2001  Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1995, 1996, 1998, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: James Clark <jjc@jclark.com>
+;; Maintainer: FSF
 ;; Adapted-By: ESR, Daniel Pfeiffer <occitan@esperanto.org>,
 ;;             F.Potorti@cnuce.cnr.it
 ;; Keywords: wp, hypermedia, comm, languages
@@ -21,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -34,19 +36,27 @@
 
 (eval-when-compile
   (require 'skeleton)
-  (require 'outline))
+  (require 'outline)
+  (require 'cl))
 
 (defgroup sgml nil
-  "SGML editing mode"
+  "SGML editing mode."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'languages)
 
-(defcustom sgml-transformation 'identity
-  "*Default value for `skeleton-transformation' (which see) in SGML mode."
+(defcustom sgml-basic-offset 2
+  "*Specifies the basic indentation level for `sgml-indent-line'."
+  :type 'integer
+  :group 'sgml)
+
+(defcustom sgml-transformation-function 'identity
+  "*Default value for `skeleton-transformation-function' in SGML mode."
   :type 'function
   :group 'sgml)
 
-(put 'sgml-transformation 'variable-interactive
+(put 'sgml-transformation-function 'variable-interactive
      "aTransformation function: ")
+(defvaralias 'sgml-transformation 'sgml-transformation-function)
 
 (defcustom sgml-mode-hook nil
   "Hook run by command `sgml-mode'.
@@ -59,7 +69,7 @@
 ;; kludgy kind of tradeoff.
 (defvar sgml-specials '(?\")
   "List of characters that have a special meaning for SGML mode.
-This list is used when first loading the sgml-mode library.
+This list is used when first loading the `sgml-mode' library.
 The supported characters and potential disadvantages are:
 
   ?\\\"	Makes \" in text start a string.
@@ -74,9 +84,8 @@ Including ?- has the problem of affecting dashes that have nothing to do
 with comments, so we normally turn it off.")
 
 (defvar sgml-quick-keys nil
-  "Use <, >, &, SPC and `sgml-specials' keys \"electrically\" when non-nil.
-This takes effect when first loading the sgml-mode library.")
-
+  "Use <, >, &, /, SPC and `sgml-specials' keys \"electrically\" when non-nil.
+This takes effect when first loading the `sgml-mode' library.")
 
 (defvar sgml-mode-map
   (let ((map (make-keymap))	;`sparse' doesn't allow binding to charsets.
@@ -93,18 +102,18 @@ This takes effect when first loading the sgml-mode library.")
     (define-key map "\C-c\C-d" 'sgml-delete-tag)
     (define-key map "\C-c\^?" 'sgml-delete-tag)
     (define-key map "\C-c?" 'sgml-tag-help)
+    (define-key map "\C-c/" 'sgml-close-tag)
     (define-key map "\C-c8" 'sgml-name-8bit-mode)
     (define-key map "\C-c\C-v" 'sgml-validate)
-    (if sgml-quick-keys
-	(progn
-	  (define-key map "&" 'sgml-name-char)
-	  (define-key map "<" 'sgml-tag)
-	  (define-key map " " 'sgml-auto-attributes)
-	  (define-key map ">" 'sgml-maybe-end-tag)
-	  (if (memq ?\" sgml-specials)
-	      (define-key map "\"" 'sgml-name-self))
-	  (if (memq ?' sgml-specials)
-	      (define-key map "'" 'sgml-name-self))))
+    (when sgml-quick-keys
+      (define-key map "&" 'sgml-name-char)
+      (define-key map "<" 'sgml-tag)
+      (define-key map " " 'sgml-auto-attributes)
+      (define-key map ">" 'sgml-maybe-end-tag)
+      (when (memq ?\" sgml-specials)
+        (define-key map "\"" 'sgml-name-self))
+      (when (memq ?' sgml-specials)
+        (define-key map "'" 'sgml-name-self)))
     (define-key map (vector (make-char 'latin-iso8859-1))
       'sgml-maybe-name-self)
     (let ((c 127)
@@ -131,20 +140,30 @@ This takes effect when first loading the sgml-mode library.")
     map)
   "Keymap for SGML mode.  See also `sgml-specials'.")
 
-
-(defvar sgml-mode-syntax-table
-  (let ((table (copy-syntax-table text-mode-syntax-table)))
+(defun sgml-make-syntax-table (specials)
+  (let ((table (make-syntax-table text-mode-syntax-table)))
     (modify-syntax-entry ?< "(>" table)
     (modify-syntax-entry ?> ")<" table)
-    (if (memq ?- sgml-specials)
+    (modify-syntax-entry ?: "_" table)
+    (modify-syntax-entry ?_ "_" table)
+    (modify-syntax-entry ?. "_" table)
+    (if (memq ?- specials)
 	(modify-syntax-entry ?- "_ 1234" table))
-    (if (memq ?\" sgml-specials)
+    (if (memq ?\" specials)
 	(modify-syntax-entry ?\" "\"\"" table))
-    (if (memq ?' sgml-specials)
+    (if (memq ?' specials)
 	(modify-syntax-entry ?\' "\"'" table))
-    table)
+    table))
+
+(defvar sgml-mode-syntax-table (sgml-make-syntax-table sgml-specials)
   "Syntax table used in SGML mode.  See also `sgml-specials'.")
 
+(defconst sgml-tag-syntax-table
+  (let ((table (sgml-make-syntax-table '(?- ?\" ?\'))))
+    (dolist (char '(?\( ?\) ?\{ ?\} ?\[ ?\] ?$ ?% ?& ?* ?+ ?/))
+      (modify-syntax-entry char "." table))
+    table)
+  "Syntax table used to parse SGML tags.")
 
 (defcustom sgml-name-8bit-mode nil
   "*When non-nil, insert non-ASCII characters as named entities."
@@ -200,7 +219,6 @@ This takes effect when first loading the sgml-mode library.")
   "A table for mapping non-ASCII characters into SGML entity names.
 Currently, only Latin-1 characters are supported.")
 
-
 ;; nsgmls is a free SGML parser in the SP suite available from
 ;; ftp.jclark.com and otherwise packaged for GNU systems.
 ;; Its error messages can be parsed by next-error.
@@ -217,7 +235,6 @@ separated by a space."
 (defvar sgml-saved-validate-command nil
   "The command last used to validate in this buffer.")
 
-
 ;; I doubt that null end tags are used much for large elements,
 ;; so use a small distance here.
 (defcustom sgml-slash-distance 1000
@@ -225,24 +242,60 @@ separated by a space."
   :type '(choice (const nil) integer)
   :group 'sgml)
 
-(defconst sgml-start-tag-regex
-  "<[[:alnum:]]\\([-_.:[:alnum:]= \n\t]\\|\"[^\"]*\"\\|'[^']*'\\)*"
+(defconst sgml-namespace-re "[_[:alpha:]][-_.[:alnum:]]*")
+(defconst sgml-name-re "[_:[:alpha:]][-_.:[:alnum:]]*")
+(defconst sgml-tag-name-re (concat "<\\([!/?]?" sgml-name-re "\\)"))
+(defconst sgml-attrs-re "\\(?:[^\"'/><]\\|\"[^\"]*\"\\|'[^']*'\\)*")
+(defconst sgml-start-tag-regex (concat "<" sgml-name-re sgml-attrs-re)
   "Regular expression that matches a non-empty start tag.
 Any terminating `>' or `/' is not matched.")
 
+(defface sgml-namespace
+  '((t (:inherit font-lock-builtin-face)))
+  "`sgml-mode' face used to highlight the namespace part of identifiers."
+  :group 'sgml)
+(defvar sgml-namespace-face 'sgml-namespace)
 
 ;; internal
 (defconst sgml-font-lock-keywords-1
-  '(("<\\([!?][[:alnum:]][-_.:[:alnum:]]*\\)" 1 font-lock-keyword-face)
-    ("<\\(/?[[:alnum:]][-_.:[:alnum:]]*\\)" 1 font-lock-function-name-face)
-    ("[&%][[:alpha:]][-_.:[:alnum:]]*;?" . font-lock-variable-name-face)))
+  `((,(concat "<\\([!?]" sgml-name-re "\\)") 1 font-lock-keyword-face)
+    ;; We could use the simpler "\\(" sgml-namespace-re ":\\)?" instead,
+    ;; but it would cause a bit more backtracking in the re-matcher.
+    (,(concat "</?\\(" sgml-namespace-re "\\)\\(?::\\(" sgml-name-re "\\)\\)?")
+     (1 (if (match-end 2) sgml-namespace-face font-lock-function-name-face))
+     (2 font-lock-function-name-face nil t))
+    ;; FIXME: this doesn't cover the variables using a default value.
+    ;; The first shy-group is an important anchor: it prevents an O(n^2)
+    ;; pathological case where we otherwise keep retrying a failing match
+    ;; against a very long word at every possible position within the word.
+    (,(concat "\\(?:^\\|[ \t]\\)\\(" sgml-namespace-re "\\)\\(?::\\("
+	      sgml-name-re "\\)\\)?=[\"']")
+     (1 (if (match-end 2) sgml-namespace-face font-lock-variable-name-face))
+     (2 font-lock-variable-name-face nil t))
+    (,(concat "[&%]" sgml-name-re ";?") . font-lock-variable-name-face)))
 
-(defconst sgml-font-lock-keywords-2 ())
+(defconst sgml-font-lock-keywords-2
+  (append
+   sgml-font-lock-keywords-1
+   '((eval
+      . (cons (concat "<"
+		      (regexp-opt (mapcar 'car sgml-tag-face-alist) t)
+		      "\\([ \t][^>]*\\)?>\\([^<]+\\)</\\1>")
+	      '(3 (cdr (assoc (downcase (match-string 1))
+			      sgml-tag-face-alist)) prepend))))))
 
 ;; for font-lock, but must be defvar'ed after
 ;; sgml-font-lock-keywords-1 and sgml-font-lock-keywords-2 above
 (defvar sgml-font-lock-keywords sgml-font-lock-keywords-1
   "*Rules for highlighting SGML code.  See also `sgml-tag-face-alist'.")
+
+(defvar sgml-font-lock-syntactic-keywords
+  ;; Use the `b' style of comments to avoid interference with the -- ... --
+  ;; comments recognized when `sgml-specials' includes ?-.
+  ;; FIXME: beware of <!--> blabla <!--> !!
+  '(("\\(<\\)!--" (1 "< b"))
+    ("--[ \t\n]*\\(>\\)" (1 "> b")))
+  "Syntactic keywords for `sgml-mode'.")
 
 ;; internal
 (defvar sgml-face-tag-alist ()
@@ -253,13 +306,11 @@ Any terminating `>' or `/' is not matched.")
 When `font-lock-maximum-decoration' is 1 this is always used for fontifying.
 When more these are fontified together with `sgml-font-lock-keywords'.")
 
-
 (defvar sgml-display-text ()
   "Tag names as lowercase symbols, and display string when invisible.")
 
 ;; internal
 (defvar sgml-tags-invisible nil)
-
 
 (defcustom sgml-tag-alist
   '(("![" ("ignore" t) ("include" t))
@@ -273,8 +324,8 @@ This alist is made up as
   ((\"tag\" . TAGRULE)
    ...)
 
-TAGRULE is a list of optionally `t' (no endtag) or `\\n' (separate endtag by
-newlines) or a skeleton with `nil', `t' or `\\n' in place of the interactor
+TAGRULE is a list of optionally t (no endtag) or `\\n' (separate endtag by
+newlines) or a skeleton with nil, t or `\\n' in place of the interactor
 followed by an ATTRIBUTERULE (for an always present attribute) or an
 attribute alist.
 
@@ -283,11 +334,12 @@ The attribute alist is made up as
   ((\"attribute\" . ATTRIBUTERULE)
    ...)
 
-ATTRIBUTERULE is a list of optionally `t' (no value when no input) followed by
+ATTRIBUTERULE is a list of optionally t (no value when no input) followed by
 an optional alist of possible values."
   :type '(repeat (cons (string :tag "Tag Name")
 		       (repeat :tag "Tag Rule" sexp)))
   :group 'sgml)
+(put 'sgml-tag-alist 'risky-local-variable t)
 
 (defcustom sgml-tag-help
   '(("!" . "Empty declaration for comment")
@@ -301,128 +353,166 @@ an optional alist of possible values."
 		       (string :tag "Description")))
   :group 'sgml)
 
+(defcustom sgml-xml-mode nil
+  "*When non-nil, tag insertion functions will be XML-compliant.
+If this variable is customized, the custom value is used always.
+Otherwise, it is set to be buffer-local when the file has
+a DOCTYPE or an XML declaration."
+  :type 'boolean
+  :version "22.1"
+  :group 'sgml)
+
+(defvar sgml-empty-tags nil
+  "List of tags whose !ELEMENT definition says EMPTY.")
+
+(defvar sgml-unclosed-tags nil
+  "List of tags whose !ELEMENT definition says the end-tag is optional.")
+
+(defun sgml-xml-guess ()
+  "Guess whether the current buffer is XML."
+  (save-excursion
+    (goto-char (point-min))
+    (when (or (string= "xml" (file-name-extension (or buffer-file-name "")))
+	      (looking-at "\\s-*<\\?xml")
+	      (when (re-search-forward
+		     (eval-when-compile
+		 (mapconcat 'identity
+			    '("<!DOCTYPE" "\\(\\w+\\)" "\\(\\w+\\)"
+				    "\"\\([^\"]+\\)\"" "\"\\([^\"]+\\)\"")
+				  "\\s-+"))
+		     nil t)
+		(string-match "X\\(HT\\)?ML" (match-string 3))))
+      (set (make-local-variable 'sgml-xml-mode) t))))
+
 (defvar v2)				; free for skeleton
 
-(defun sgml-mode-common (sgml-tag-face-alist sgml-display-text)
-  "Common code for setting up `sgml-mode' and derived modes.
-SGML-TAG-FACE-ALIST is used for calculating `sgml-font-lock-keywords-2'.
-SGML-DISPLAY-TEXT sets up alternate text for when tags are invisible (see
-varables of same name)."
-  (setq local-abbrev-table text-mode-abbrev-table)
-  (set-syntax-table sgml-mode-syntax-table)
-  (make-local-variable 'indent-line-function)
-  (make-local-variable 'paragraph-start)
-  (make-local-variable 'paragraph-separate)
-  (make-local-variable 'adaptive-fill-regexp)
-  (make-local-variable 'sgml-saved-validate-command)
-  (make-local-variable 'comment-start)
-  (make-local-variable 'comment-end)
-  (make-local-variable 'comment-indent-function)
-  (make-local-variable 'comment-indent-function)
-  (make-local-variable 'sgml-tags-invisible)
-  (make-local-variable 'skeleton-transformation)
-  (make-local-variable 'skeleton-further-elements)
-  (make-local-variable 'skeleton-end-hook)
-  (make-local-variable 'font-lock-defaults)
-  (make-local-variable 'sgml-font-lock-keywords-1)
-  (make-local-variable 'sgml-font-lock-keywords-2)
-  (make-local-variable 'facemenu-add-face-function)
-  (make-local-variable 'facemenu-end-add-face)
-  ;;(make-local-variable 'facemenu-remove-face-function)
-  (and sgml-tag-face-alist
-       (not (assq 1 sgml-tag-face-alist))
-       (nconc sgml-tag-face-alist
-	      `((1 (,(concat "<\\("
-			     (mapconcat 'car sgml-tag-face-alist "\\|")
-			     "\\)\\([ \t].+\\)?>\\(.+\\)</\\1>")
-		    3 (cdr (assoc (downcase (match-string 1))
-                                  ',sgml-tag-face-alist)))))))
-  (setq indent-line-function 'indent-relative-maybe
-	;; A start or end tag by itself on a line separates a paragraph.
-	;; This is desirable because SGML discards a newline that appears
-	;; immediately after a start tag or immediately before an end tag.
-	paragraph-separate "[ \t]*$\\|\
-\[ \t]*</?\\([A-Za-z]\\([-_.:[:alnum:]= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>$"
-	paragraph-start "[ \t]*$\\|\
-\[ \t]*</?\\([A-Za-z]\\([-_.:[:alnum:]]= \t\n]\\|\"[^\"]*\"\\|'[^']*'\\)*\\)?>"
-	adaptive-fill-regexp "[ \t]*"
-	comment-start "<!-- "
-	comment-end " -->"
-	comment-indent-function 'sgml-comment-indent
-	skeleton-transformation sgml-transformation
-	skeleton-further-elements '((completion-ignore-case t))
-	skeleton-end-hook (lambda ()
-			    (or (eolp)
-				(not (or (eq v2 '\n)
-					 (eq (car-safe v2) '\n)))
-				(newline-and-indent)))
-	sgml-font-lock-keywords-2 (append
-				   sgml-font-lock-keywords-1
-				   (cdr (assq 1 sgml-tag-face-alist)))
-	font-lock-defaults '((sgml-font-lock-keywords
-			      sgml-font-lock-keywords-1
-			      sgml-font-lock-keywords-2)
-			     nil
-			     t)
-	facemenu-add-face-function 'sgml-mode-facemenu-add-face-function)
-  (set (make-local-variable 'font-lock-syntactic-keywords)
-       '(("\\(<\\)! *--.*-- *\\(>\\)" (1 "!") (2 "!"))))
-  ;; This will allow existing comments within declarations to be
-  ;; recognized.
-  (set (make-local-variable 'comment-start-skip) "\\(?:<!\\)?--[ \t]*")
-  (set (make-local-variable 'comment-end-skip) "[ \t]*--\\([ \t\n]*>\\)?")
-  (dolist (pair sgml-display-text)
-    (put (car pair) 'before-string (cdr pair))))
-
+(defun sgml-comment-indent-new-line (&optional soft)
+  (let ((comment-start "-- ")
+	(comment-start-skip "\\(<!\\)?--[ \t]*")
+	(comment-end " --")
+	(comment-style 'plain))
+    (comment-indent-new-line soft)))
 
 (defun sgml-mode-facemenu-add-face-function (face end)
   (if (setq face (cdr (assq face sgml-face-tag-alist)))
       (progn
-	(setq face (funcall skeleton-transformation face))
+	(setq face (funcall skeleton-transformation-function face))
 	(setq facemenu-end-add-face (concat "</" face ">"))
 	(concat "<" face ">"))
     (error "Face not configured for %s mode" mode-name)))
 
+(defun sgml-fill-nobreak ()
+  ;; Don't break between a tag name and its first argument.
+  (save-excursion
+    (skip-chars-backward " \t")
+    (and (not (zerop (skip-syntax-backward "w_")))
+	 (skip-chars-backward "/?!")
+	 (eq (char-before) ?<))))
 
 ;;;###autoload
-(defun sgml-mode ()
+(define-derived-mode sgml-mode text-mode "SGML"
   "Major mode for editing SGML documents.
-Makes > match <.  Makes / blink matching /.
-Keys <, &, SPC within <>, \" and ' can be electric depending on
+Makes > match <.
+Keys <, &, SPC within <>, \", / and ' can be electric depending on
 `sgml-quick-keys'.
 
 An argument of N to a tag-inserting command means to wrap it around
 the next N words.  In Transient Mark mode, when the mark is active,
 N defaults to -1, which means to wrap it around the current region.
 
-If you like upcased tags, put (setq sgml-transformation 'upcase) in
-your `.emacs' file.
+If you like upcased tags, put (setq sgml-transformation-function 'upcase)
+in your `.emacs' file.
 
 Use \\[sgml-validate] to validate your document with an SGML parser.
 
 Do \\[describe-variable] sgml- SPC to see available variables.
 Do \\[describe-key] on the following bindings to discover what they do.
 \\{sgml-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (setq mode-name "SGML"
-	major-mode 'sgml-mode)
-  (sgml-mode-common sgml-tag-face-alist sgml-display-text)
-  ;; Set imenu-generic-expression here, rather than in sgml-mode-common,
-  ;; because this definition probably is not useful in HTML mode.
-  (make-local-variable 'imenu-generic-expression)
+  (make-local-variable 'sgml-saved-validate-command)
+  (make-local-variable 'facemenu-end-add-face)
+  ;;(make-local-variable 'facemenu-remove-face-function)
+  ;; A start or end tag by itself on a line separates a paragraph.
+  ;; This is desirable because SGML discards a newline that appears
+  ;; immediately after a start tag or immediately before an end tag.
+  (set (make-local-variable 'paragraph-start) (concat "[ \t]*$\\|\
+\[ \t]*</?\\(" sgml-name-re sgml-attrs-re "\\)?>"))
+  (set (make-local-variable 'paragraph-separate)
+       (concat paragraph-start "$"))
+  (set (make-local-variable 'adaptive-fill-regexp) "[ \t]*")
+  (add-hook 'fill-nobreak-predicate 'sgml-fill-nobreak nil t)
+  (set (make-local-variable 'indent-line-function) 'sgml-indent-line)
+  (set (make-local-variable 'comment-start) "<!-- ")
+  (set (make-local-variable 'comment-end) " -->")
+  (set (make-local-variable 'comment-indent-function) 'sgml-comment-indent)
+  (set (make-local-variable 'comment-line-break-function)
+       'sgml-comment-indent-new-line)
+  (set (make-local-variable 'skeleton-further-elements)
+       '((completion-ignore-case t)))
+  (set (make-local-variable 'skeleton-end-hook)
+       (lambda ()
+         (or (eolp)
+             (not (or (eq v2 '\n) (eq (car-safe v2) '\n)))
+             (newline-and-indent))))
+  (set (make-local-variable 'font-lock-defaults)
+       '((sgml-font-lock-keywords
+          sgml-font-lock-keywords-1
+          sgml-font-lock-keywords-2)
+         nil t nil nil
+         (font-lock-syntactic-keywords
+          . sgml-font-lock-syntactic-keywords)))
+  (set (make-local-variable 'facemenu-add-face-function)
+       'sgml-mode-facemenu-add-face-function)
+  (sgml-xml-guess)
+  (if sgml-xml-mode
+      (setq mode-name "XML")
+    (set (make-local-variable 'skeleton-transformation-function)
+         sgml-transformation-function))
+  ;; This will allow existing comments within declarations to be
+  ;; recognized.
+  (set (make-local-variable 'comment-start-skip) "\\(?:<!\\)?--[ \t]*")
+  (set (make-local-variable 'comment-end-skip) "[ \t]*--\\([ \t\n]*>\\)?")
+  ;; This definition has an HTML leaning but probably fits well for other modes.
   (setq imenu-generic-expression
-	"<!\\(element\\|entity\\)[ \t\n]+%?[ \t\n]*\\([A-Za-z][-A-Za-z.0-9]*\\)")
-  (use-local-map sgml-mode-map)
-  (run-hooks 'text-mode-hook 'sgml-mode-hook))
+	`((nil
+	   ,(concat "<!\\(element\\|entity\\)[ \t\n]+%?[ \t\n]*\\("
+		    sgml-name-re "\\)")
+	   2)
+	  ("Id"
+	   ,(concat "<[^>]+[ \t\n]+[Ii][Dd]=\\(['\"]"
+		    (if sgml-xml-mode "" "?")
+		    "\\)\\(" sgml-name-re "\\)\\1")
+	   2)
+	  ("Name"
+	   ,(concat "<[^>]+[ \t\n]+[Nn][Aa][Mm][Ee]=\\(['\"]"
+		    (if sgml-xml-mode "" "?")
+		    "\\)\\(" sgml-name-re "\\)\\1")
+	   2))))
 
+;; Some programs (such as Glade 2) generate XML which has
+;; -*- mode: xml -*-.
+;;;###autoload
+(defalias 'xml-mode 'sgml-mode)
 
 (defun sgml-comment-indent ()
   (if (looking-at "--") comment-column 0))
 
-
-
 (defun sgml-slash (arg)
+  "Insert ARG slash characters.
+Behaves electrically if `sgml-quick-keys' is non-nil."
+  (interactive "p")
+  (cond
+   ((not (and (eq (char-before) ?<) (= arg 1)))
+    (sgml-slash-matching arg))
+   ((eq sgml-quick-keys 'indent)
+    (insert-char ?/ 1)
+    (indent-according-to-mode))
+   ((eq sgml-quick-keys 'close)
+    (delete-backward-char 1)
+    (sgml-close-tag))
+   (t
+    (sgml-slash-matching arg))))
+
+(defun sgml-slash-matching (arg)
   "Insert `/' and display any previous matching `/'.
 Two `/'s are treated as matching if the first `/' ends a net-enabling
 start tag, and the second `/' is the corresponding null end tag."
@@ -454,16 +544,13 @@ start tag, and the second `/' is the corresponding null end tag."
 			  (setq blinkpos (point))
 			(setq level (1- level)))
 		    (setq level (1+ level)))))))
-	  (if blinkpos
-	      (progn
-		(goto-char blinkpos)
-		(if (pos-visible-in-window-p)
-		    (sit-for 1)
-		  (message "Matches %s"
-			   (buffer-substring (progn
-					       (beginning-of-line)
-					       (point))
-					     (1+ blinkpos))))))))))
+	  (when blinkpos
+            (goto-char blinkpos)
+            (if (pos-visible-in-window-p)
+                (sit-for 1)
+              (message "Matches %s"
+                       (buffer-substring (line-beginning-position)
+                                         (1+ blinkpos)))))))))
 
 ;; Why doesn't this use the iso-cvt table or, preferably, generate the
 ;; inverse of the extensive table in the SGML Quail input method?  -- fx
@@ -480,21 +567,23 @@ encoded keyboard operation."
   (delete-backward-char 1)
   (insert char)
   (undo-boundary)
-  (delete-backward-char 1)
-  (cond
-   ((< char 256)
-    (insert ?&
-	    (or (aref sgml-char-names char)
-		(format "#%d" char))
-	    ?\;))
-   ((aref sgml-char-names-table char)
-    (insert ?& (aref sgml-char-names-table char) ?\;))
-   ((let ((c (encode-char char 'ucs)))
-      (when c
-	(insert (format "&#%d;" c))
-	t)))
-   (t					; should be an error?  -- fx
-    (insert char))))
+  (sgml-namify-char))
+
+(defun sgml-namify-char ()
+  "Change the char before point into its `&name;' equivalent.
+Uses `sgml-char-names'."
+  (interactive)
+  (let* ((char (char-before))
+	 (name
+	  (cond
+	   ((null char) (error "No char before point"))
+	   ((< char 256) (or (aref sgml-char-names char) char))
+	   ((aref sgml-char-names-table char))
+	   ((encode-char char 'ucs)))))
+    (if (not name)
+	(error "Don't know the name of `%c'" char)
+      (delete-backward-char 1)
+      (insert (format (if (numberp name) "&#%d;" "&%s;") name)))))
 
 (defun sgml-name-self ()
   "Insert a symbolic character name according to `sgml-char-names'."
@@ -512,7 +601,6 @@ encoded keyboard operation."
 	(sgml-name-char mc))
     (self-insert-command 1)))
 
-;; Fixme: This should sanity-check for use of Latin-1.
 (defun sgml-name-8bit-mode ()
   "Toggle whether to insert named entities instead of non-ASCII characters.
 This only works for Latin-1 input."
@@ -521,38 +609,51 @@ This only works for Latin-1 input."
   (message "sgml name entity mode is now %s"
 	   (if sgml-name-8bit-mode "ON" "OFF")))
 
-
 ;; When an element of a skeleton is a string "str", it is passed
-;; through skeleton-transformation and inserted.  If "str" is to be
-;; inserted literally, one should obtain it as the return value of a
-;; function, e.g. (identity "str").
+;; through `skeleton-transformation-function' and inserted.
+;; If "str" is to be inserted literally, one should obtain it as
+;; the return value of a function, e.g. (identity "str").
 
+(defvar sgml-tag-last nil)
+(defvar sgml-tag-history nil)
 (define-skeleton sgml-tag
   "Prompt for a tag and insert it, optionally with attributes.
 Completion and configuration are done according to `sgml-tag-alist'.
 If you like tags and attributes in uppercase do \\[set-variable]
-skeleton-transformation RET upcase RET, or put this in your `.emacs':
-  (setq sgml-transformation 'upcase)"
-  (funcall skeleton-transformation
-	   (completing-read "Tag: " sgml-tag-alist))
+`skeleton-transformation-function' RET `upcase' RET, or put this
+in your `.emacs':
+  (setq sgml-transformation-function 'upcase)"
+  (funcall (or skeleton-transformation-function 'identity)
+           (setq sgml-tag-last
+		 (completing-read
+		  (if (> (length sgml-tag-last) 0)
+		      (format "Tag (default %s): " sgml-tag-last)
+		    "Tag: ")
+		  sgml-tag-alist nil nil nil 'sgml-tag-history sgml-tag-last)))
   ?< str |
   (("") -1 '(undo-boundary) (identity "&lt;")) |	; see comment above
   `(("") '(setq v2 (sgml-attributes ,str t)) ?>
-    (if (string= "![" ,str)
-	(prog1 '(("") " [ " _ " ]]")
-	  (backward-char))
-      (if (or (eq v2 t)
-	      (string-match "^[/!?]" ,str))
-	  ()
-	(if (symbolp v2)
-	    ;; We go use `identity' to prevent skeleton from passing
-	    ;; `str' through skeleton-transformation a second time.
-	    '(("") v2 _ v2 "</" (identity ',str) ?>)
-	  (if (eq (car v2) t)
-	      (cons '("") (cdr v2))
-	    (append '(("") (car v2))
-		    (cdr v2)
-		    '(resume: (car v2) _ "</" (identity ',str) ?>))))))))
+    (cond
+     ((string= "![" ,str)
+      (backward-char)
+      '(("") " [ " _ " ]]"))
+     ((and (eq v2 t) sgml-xml-mode (member ,str sgml-empty-tags))
+      '(("") -1 " />"))
+     ((or (and (eq v2 t) (not sgml-xml-mode)) (string-match "^[/!?]" ,str))
+      nil)
+     ((symbolp v2)
+      ;; Make sure we don't fall into an infinite loop.
+      ;; For xhtml's `tr' tag, we should maybe use \n instead.
+      (if (eq v2 t) (setq v2 nil))
+      ;; We use `identity' to prevent skeleton from passing
+      ;; `str' through `skeleton-transformation-function' a second time.
+      '(("") v2 _ v2 "</" (identity ',str) ?>))
+     ((eq (car v2) t)
+      (cons '("") (cdr v2)))
+     (t
+      (append '(("") (car v2))
+	      (cdr v2)
+	      '(resume: (car v2) _ "</" (identity ',str) ?>))))))
 
 (autoload 'skeleton-read "skeleton")
 
@@ -575,13 +676,13 @@ If QUIET, do not print a message when there are no attributes for TAG."
 	    (message "No attributes configured."))
 	(if (stringp (car alist))
 	    (progn
-	      (insert (if (eq (preceding-char) ? ) "" ? )
-		      (funcall skeleton-transformation (car alist)))
+	      (insert (if (eq (preceding-char) ?\s) "" ?\s)
+		      (funcall skeleton-transformation-function (car alist)))
 	      (sgml-value alist))
 	  (setq i (length alist))
 	  (while (> i 0)
-	    (insert ? )
-	    (insert (funcall skeleton-transformation
+	    (insert ?\s)
+	    (insert (funcall skeleton-transformation-function
 			     (setq attribute
 				   (skeleton-read '(completing-read
 						    "Attribute: "
@@ -590,7 +691,7 @@ If QUIET, do not print a message when there are no attributes for TAG."
 		(setq i 0)
 	      (sgml-value (assoc (downcase attribute) alist))
 	      (setq i (1- i))))
-	  (if (eq (preceding-char) ? )
+	  (if (eq (preceding-char) ?\s)
 	      (delete-backward-char 1)))
 	car)))
 
@@ -606,10 +707,9 @@ With prefix argument, only self insert."
 	    (eq (aref tag 0) ?/))
 	(self-insert-command (prefix-numeric-value arg))
       (sgml-attributes tag)
-      (setq last-command-char ? )
+      (setq last-command-char ?\s)
       (or (> (point) point)
 	  (self-insert-command 1)))))
-
 
 (defun sgml-tag-help (&optional tag)
   "Display description of tag TAG.  If TAG is omitted, use the tag at point."
@@ -628,70 +728,72 @@ With prefix argument, only self insert."
 		    (cdr (assoc (downcase (substring tag 1)) sgml-tag-help)))
 	       "No description available")))
 
-
-(defun sgml-maybe-end-tag ()
-  "Name self unless in position to end a tag."
-  (interactive)
-  (or (condition-case nil
-	  (save-excursion (up-list -1))
-	(error
-	 (sgml-name-self)
-	 t))
-      (condition-case nil
-	  (progn
-	    (save-excursion (up-list 1))
-	    (sgml-name-self))
-	(error (self-insert-command 1)))))
-
+(defun sgml-maybe-end-tag (&optional arg)
+  "Name self unless in position to end a tag or a prefix ARG is given."
+  (interactive "P")
+  (if (or arg (eq (car (sgml-lexical-context)) 'tag))
+      (self-insert-command (prefix-numeric-value arg))
+    (sgml-name-self)))
 
 (defun sgml-skip-tag-backward (arg)
   "Skip to beginning of tag or matching opening tag if present.
 With prefix argument ARG, repeat this ARG times."
   (interactive "p")
+  ;; FIXME: use sgml-get-context or something similar.
   (while (>= arg 1)
     (search-backward "<" nil t)
     (if (looking-at "</\\([^ \n\t>]+\\)")
 	;; end tag, skip any nested pairs
 	(let ((case-fold-search t)
-	      (re (concat "</?" (regexp-quote (match-string 1)))))
+	      (re (concat "</?" (regexp-quote (match-string 1))
+			  ;; Ignore empty tags like <foo/>.
+			  "\\([^>]*[^/>]\\)?>")))
 	  (while (and (re-search-backward re nil t)
 		      (eq (char-after (1+ (point))) ?/))
 	    (forward-char 1)
 	    (sgml-skip-tag-backward 1))))
     (setq arg (1- arg))))
 
-(defun sgml-skip-tag-forward (arg &optional return)
+(defun sgml-skip-tag-forward (arg)
   "Skip to end of tag or matching closing tag if present.
 With prefix argument ARG, repeat this ARG times.
 Return t iff after a closing tag."
   (interactive "p")
-  (setq return t)
-  (while (>= arg 1)
-    (skip-chars-forward "^<>")
-    (if (eq (following-char) ?>)
-	(up-list -1))
-    (if (looking-at "<\\([^/ \n\t>]+\\)")
-	;; start tag, skip any nested same pairs _and_ closing tag
-	(let ((case-fold-search t)
-	      (re (concat "</?" (regexp-quote (match-string 1))))
-	      point close)
-	  (forward-list 1)
-	  (setq point (point))
-	  (while (and (re-search-forward re nil t)
-		      (not (setq close
-				 (eq (char-after (1+ (match-beginning 0))) ?/)))
-		      (not (up-list -1))
-		      (sgml-skip-tag-forward 1))
-	    (setq close nil))
-	  (if close
-	      (up-list 1)
-	    (goto-char point)
-	    (setq return)))
-      (forward-list 1))
-    (setq arg (1- arg)))
-  return)
+  ;; FIXME: Use sgml-get-context or something similar.
+  ;; It currently might jump to an unrelated </P> if the <P>
+  ;; we're skipping has no matching </P>.
+  (let ((return t))
+    (with-syntax-table sgml-tag-syntax-table
+      (while (>= arg 1)
+	(skip-chars-forward "^<>")
+	(if (eq (following-char) ?>)
+	    (up-list -1))
+	(if (looking-at "<\\([^/ \n\t>]+\\)\\([^>]*[^/>]\\)?>")
+	    ;; start tag, skip any nested same pairs _and_ closing tag
+	    (let ((case-fold-search t)
+		  (re (concat "</?" (regexp-quote (match-string 1))
+			      ;; Ignore empty tags like <foo/>.
+			      "\\([^>]*[^/>]\\)?>"))
+		  point close)
+	      (forward-list 1)
+	      (setq point (point))
+	      ;; FIXME: This re-search-forward will mistakenly match
+	      ;; tag-like text inside attributes.
+	      (while (and (re-search-forward re nil t)
+			  (not (setq close
+				     (eq (char-after (1+ (match-beginning 0))) ?/)))
+			  (goto-char (match-beginning 0))
+			  (sgml-skip-tag-forward 1))
+		(setq close nil))
+	      (unless close
+		(goto-char point)
+		(setq return nil)))
+	  (forward-list 1))
+	(setq arg (1- arg)))
+      return)))
 
 (defun sgml-delete-tag (arg)
+  ;; FIXME: Should be called sgml-kill-tag or should not touch the kill-ring.
   "Delete tag on or after cursor, and matching closing or opening tag.
 With prefix argument ARG, repeat this ARG times."
   (interactive "p")
@@ -725,20 +827,24 @@ With prefix argument ARG, repeat this ARG times."
 	      (goto-char close)
 	      (kill-sexp 1))
 	  (setq open (point))
-	  (sgml-skip-tag-forward 1)
-	  (backward-list)
-	  (forward-char)
-	  (if (eq (aref (sgml-beginning-of-tag) 0) ?/)
-	      (kill-sexp 1)))
+	  (when (and (sgml-skip-tag-forward 1)
+		     (not (looking-back "/>")))
+	    (kill-sexp -1)))
+	;; Delete any resulting empty line.  If we didn't kill-sexp,
+	;; this *should* do nothing, because we're right after the tag.
+	(if (progn (forward-line 0) (looking-at "\\(?:[ \t]*$\\)\n?"))
+	    (delete-region (match-beginning 0) (match-end 0)))
 	(goto-char open)
-	(kill-sexp 1)))
+	(kill-sexp 1)
+	(if (progn (forward-line 0) (looking-at "\\(?:[ \t]*$\\)\n?"))
+	    (delete-region (match-beginning 0) (match-end 0)))))
     (setq arg (1- arg))))
+
 
 ;; Put read-only last to enable setting this even when read-only enabled.
 (or (get 'sgml-tag 'invisible)
     (setplist 'sgml-tag
 	      (append '(invisible t
-			intangible t
 			point-entered sgml-point-entered
 			rear-nonsticky t
 			read-only t)
@@ -754,32 +860,35 @@ With prefix argument ARG, repeat this ARG times."
 	(buffer-file-name nil)
 	;; This is needed in case font lock gets called,
 	;; since it moves point and might call sgml-point-entered.
+	;; How could it get called?  -stef
 	(inhibit-point-motion-hooks t)
-	symbol)
+	string)
     (unwind-protect
 	(save-excursion
 	  (goto-char (point-min))
-	  (if (setq sgml-tags-invisible
-		    (if arg
-			(>= (prefix-numeric-value arg) 0)
-		      (not sgml-tags-invisible)))
-	      (while (re-search-forward "<\\([!/?A-Za-z][-A-Za-z0-9]*\\)"
-					nil t)
-		(setq symbol (intern-soft (downcase (match-string 1))))
+	  (if (set (make-local-variable 'sgml-tags-invisible)
+		   (if arg
+		       (>= (prefix-numeric-value arg) 0)
+		     (not sgml-tags-invisible)))
+	      (while (re-search-forward sgml-tag-name-re nil t)
+		(setq string
+		      (cdr (assq (intern-soft (downcase (match-string 1)))
+				 sgml-display-text)))
 		(goto-char (match-beginning 0))
-		(and (get symbol 'before-string)
+		(and (stringp string)
 		     (not (overlays-at (point)))
-		     (overlay-put (make-overlay (point)
-						(match-beginning 1))
-				  'category symbol))
+		     (let ((ol (make-overlay (point) (match-beginning 1))))
+		       (overlay-put ol 'before-string string)
+		       (overlay-put ol 'sgml-tag t)))
 		(put-text-property (point)
 				   (progn (forward-list) (point))
 				   'category 'sgml-tag))
-	    (let ((pos (point)))
+	    (let ((pos (point-min)))
 	      (while (< (setq pos (next-overlay-change pos)) (point-max))
-		(delete-overlay (car (overlays-at pos)))))
-	    (remove-text-properties (point-min) (point-max)
-				    '(category sgml-tag intangible t))))
+		(dolist (ol (overlays-at pos))
+		  (if (overlay-get ol 'sgml-tag)
+		      (delete-overlay ol)))))
+	    (remove-text-properties (point-min) (point-max) '(category nil))))
       (restore-buffer-modified-p modified))
     (run-hooks 'sgml-tags-invisible-hook)
     (message "")))
@@ -788,19 +897,21 @@ With prefix argument ARG, repeat this ARG times."
   ;; Show preceding or following hidden tag, depending of cursor direction.
   (let ((inhibit-point-motion-hooks t))
     (save-excursion
-      (message "Invisible tag: %s"
-	       ;; Strip properties, otherwise, the text is invisible.
-	       (buffer-substring-no-properties
-		(point)
-		(if (or (and (> x y)
-			     (not (eq (following-char) ?<)))
-			(and (< x y)
-			     (eq (preceding-char) ?>)))
-		    (backward-list)
-		  (forward-list)))))))
-
-(autoload 'compile-internal "compile")
+      (condition-case nil
+	  (message "Invisible tag: %s"
+		   ;; Strip properties, otherwise, the text is invisible.
+		   (buffer-substring-no-properties
+		    (point)
+		    (if (or (and (> x y)
+				 (not (eq (following-char) ?<)))
+			    (and (< x y)
+				 (eq (preceding-char) ?>)))
+			(backward-list)
+		      (forward-list))))
+	(error nil)))))
 
+
+
 (defun sgml-validate (command)
   "Validate an SGML document.
 Runs COMMAND, a shell command, in a separate process asynchronously
@@ -812,53 +923,526 @@ and move to the line in the SGML document that caused it."
 		      (or sgml-saved-validate-command
 			  (concat sgml-validate-command
 				  " "
-				  (let ((name (buffer-file-name)))
-				    (and name
-					 (file-name-nondirectory name))))))))
+				  (shell-quote-argument
+				   (let ((name (buffer-file-name)))
+				     (and name
+					  (file-name-nondirectory name)))))))))
   (setq sgml-saved-validate-command command)
   (save-some-buffers (not compilation-ask-about-save) nil)
-  (compile-internal command "No more errors"))
+  (compilation-start command))
 
+(defsubst sgml-at-indentation-p ()
+  "Return true if point is at the first non-whitespace character on the line."
+  (save-excursion
+    (skip-chars-backward " \t")
+    (bolp)))
+
+(defun sgml-lexical-context (&optional limit)
+  "Return the lexical context at point as (TYPE . START).
+START is the location of the start of the lexical element.
+TYPE is one of `string', `comment', `tag', `cdata', or `text'.
+
+Optional argument LIMIT is the position to start parsing from.
+If nil, start from a preceding tag at indentation."
+  (save-excursion
+    (let ((pos (point))
+	  text-start state)
+      (if limit
+          (goto-char limit)
+        ;; Skip tags backwards until we find one at indentation
+        (while (and (ignore-errors (sgml-parse-tag-backward))
+                    (not (sgml-at-indentation-p)))))
+      (with-syntax-table sgml-tag-syntax-table
+	(while (< (point) pos)
+	  ;; When entering this loop we're inside text.
+	  (setq text-start (point))
+	  (skip-chars-forward "^<" pos)
+          (setq state
+                (cond
+                 ((= (point) pos)
+                  ;; We got to the end without seeing a tag.
+                  nil)
+                 ((looking-at "<!\\[[A-Z]+\\[")
+                  ;; We've found a CDATA section or similar.
+                  (let ((cdata-start (point)))
+                    (unless (search-forward "]]>" pos 'move)
+                      (list 0 nil nil 'cdata nil nil nil nil cdata-start))))
+                 (t
+                  ;; We've reached a tag.  Parse it.
+                  ;; FIXME: Handle net-enabling start-tags
+                  (parse-partial-sexp (point) pos 0))))))
+      (cond
+       ((eq (nth 3 state) 'cdata) (cons 'cdata (nth 8 state)))
+       ((nth 3 state) (cons 'string (nth 8 state)))
+       ((nth 4 state) (cons 'comment (nth 8 state)))
+       ((and state (> (nth 0 state) 0)) (cons 'tag (nth 1 state)))
+       (t (cons 'text text-start))))))
 
 (defun sgml-beginning-of-tag (&optional top-level)
   "Skip to beginning of tag and return its name.
-If this can't be done, return t."
-  (or (if top-level
-	  (condition-case nil
-	      (up-list -1)
-	    (error t))
-	(>= (point)
-	    (if (search-backward "<" nil t)
-		(save-excursion
-		  (forward-list)
-		  (point))
-	      0)))
-      (if (looking-at "<[!?/]?[[A-Za-z][A-Za-z0-9]*")
-	  (buffer-substring-no-properties
-	   (1+ (point))
-	   (match-end 0))
-	t)))
+If this can't be done, return nil."
+  (let ((context (sgml-lexical-context)))
+    (if (eq (car context) 'tag)
+	(progn
+	  (goto-char (cdr context))
+	  (when (looking-at sgml-tag-name-re)
+	    (match-string-no-properties 1)))
+      (if top-level nil
+	(when (not (eq (car context) 'text))
+	  (goto-char (cdr context))
+	  (sgml-beginning-of-tag t))))))
 
 (defun sgml-value (alist)
-  "Interactively insert value taken from attributerule ALIST.
-See `sgml-tag-alist' for info about attributerules.."
+  "Interactively insert value taken from attribute-rule ALIST.
+See `sgml-tag-alist' for info about attribute rules."
   (setq alist (cdr alist))
   (if (stringp (car alist))
       (insert "=\"" (car alist) ?\")
-    (if (eq (car alist) t)
-	(if (cdr alist)
-	    (progn
-	      (insert "=\"")
-	      (setq alist (skeleton-read '(completing-read
-					   "Value: " (cdr alist))))
-	      (if (string< "" alist)
-		  (insert alist ?\")
-		(delete-backward-char 2))))
+    (if (and (eq (car alist) t) (not sgml-xml-mode))
+	(when (cdr alist)
+	  (insert "=\"")
+	  (setq alist (skeleton-read '(completing-read "Value: " (cdr alist))))
+	  (if (string< "" alist)
+	      (insert alist ?\")
+	    (delete-backward-char 2)))
       (insert "=\"")
-      (if alist
-	  (insert (skeleton-read '(completing-read "Value: " alist))))
+      (when alist
+        (insert (skeleton-read '(completing-read "Value: " alist))))
       (insert ?\"))))
+
+(defun sgml-quote (start end &optional unquotep)
+  "Quote SGML text in region START ... END.
+Only &, < and > are quoted, the rest is left untouched.
+With prefix argument UNQUOTEP, unquote the region."
+  (interactive "r\nP")
+  (save-restriction
+    (narrow-to-region start end)
+    (goto-char (point-min))
+    (if unquotep
+	;; FIXME: We should unquote other named character references as well.
+	(while (re-search-forward
+		"\\(&\\(amp\\|\\(l\\|\\(g\\)\\)t\\)\\)[][<>&;\n\t \"%!'(),/=?]"
+		nil t)
+	  (replace-match (if (match-end 4) ">" (if (match-end 3) "<" "&")) t t
+			 nil (if (eq (char-before (match-end 0)) ?\;) 0 1)))
+      (while (re-search-forward "[&<>]" nil t)
+	(replace-match (cdr (assq (char-before) '((?& . "&amp;")
+						  (?< . "&lt;")
+						  (?> . "&gt;"))))
+		       t t)))))
+
+(defun sgml-pretty-print (beg end)
+  "Simple-minded pretty printer for SGML.
+Re-indents the code and inserts newlines between BEG and END.
+You might want to turn on `auto-fill-mode' to get better results."
+  ;; TODO:
+  ;; - insert newline between some start-tag and text.
+  ;; - don't insert newline in front of some end-tags.
+  (interactive "r")
+  (save-excursion
+    (if (< beg end)
+	(goto-char beg)
+      (goto-char end)
+      (setq end beg)
+      (setq beg (point)))
+    ;; Don't use narrowing because it screws up auto-indent.
+    (setq end (copy-marker end t))
+    (with-syntax-table sgml-tag-syntax-table
+      (while (re-search-forward "<" end t)
+	(goto-char (match-beginning 0))
+	(unless (or ;;(looking-at "</")
+		    (progn (skip-chars-backward " \t") (bolp)))
+	  (reindent-then-newline-and-indent))
+	(forward-sexp 1)))
+    ;; (indent-region beg end)
+    ))
+
 
+;; Parsing
+
+(defstruct (sgml-tag
+            (:constructor sgml-make-tag (type start end name)))
+  type start end name)
+
+(defsubst sgml-parse-tag-name ()
+  "Skip past a tag-name, and return the name."
+  (buffer-substring-no-properties
+   (point) (progn (skip-syntax-forward "w_") (point))))
+
+(defsubst sgml-looking-back-at (str)
+  "Return t if the test before point matches STR."
+  (let ((start (- (point) (length str))))
+    (and (>= start (point-min))
+         (equal str (buffer-substring-no-properties start (point))))))
+
+(defun sgml-tag-text-p (start end)
+  "Return non-nil if text between START and END is a tag.
+Checks among other things that the tag does not contain spurious
+unquoted < or > chars inside, which would indicate that it
+really isn't a tag after all."
+  (save-excursion
+    (with-syntax-table sgml-tag-syntax-table
+      (let ((pps (parse-partial-sexp start end 2)))
+	(and (= (nth 0 pps) 0))))))
+
+(defun sgml-parse-tag-backward (&optional limit)
+  "Parse an SGML tag backward, and return information about the tag.
+Assume that parsing starts from within a textual context.
+Leave point at the beginning of the tag."
+  (catch 'found
+    (let (tag-type tag-start tag-end name)
+      (or (re-search-backward "[<>]" limit 'move)
+	  (error "No tag found"))
+      (when (eq (char-after) ?<)
+	;; Oops!! Looks like we were not in a textual context after all!.
+	;; Let's try to recover.
+	(with-syntax-table sgml-tag-syntax-table
+	  (let ((pos (point)))
+	    (condition-case nil
+		(forward-sexp)
+	      (scan-error
+	       ;; This < seems to be just a spurious one, let's ignore it.
+	       (goto-char pos)
+	       (throw 'found (sgml-parse-tag-backward limit))))
+	    ;; Check it is really a tag, without any extra < or > inside.
+	    (unless (sgml-tag-text-p pos (point))
+	      (goto-char pos)
+	      (throw 'found (sgml-parse-tag-backward limit)))
+	    (forward-char -1))))
+      (setq tag-end (1+ (point)))
+      (cond
+       ((sgml-looking-back-at "--")	; comment
+	(setq tag-type 'comment
+	      tag-start (search-backward "<!--" nil t)))
+       ((sgml-looking-back-at "]]")	; cdata
+	(setq tag-type 'cdata
+	      tag-start (re-search-backward "<!\\[[A-Z]+\\[" nil t)))
+       (t
+	(setq tag-start
+	      (with-syntax-table sgml-tag-syntax-table
+		(goto-char tag-end)
+		(condition-case nil
+		    (backward-sexp)
+		  (scan-error
+		   ;; This > isn't really the end of a tag. Skip it.
+		   (goto-char (1- tag-end))
+		   (throw 'found (sgml-parse-tag-backward limit))))
+		(point)))
+	(goto-char (1+ tag-start))
+	(case (char-after)
+	  (?!				; declaration
+	   (setq tag-type 'decl))
+	  (??				; processing-instruction
+	   (setq tag-type 'pi))
+	  (?/				; close-tag
+	   (forward-char 1)
+	   (setq tag-type 'close
+		 name (sgml-parse-tag-name)))
+	  (?%				; JSP tags
+	   (setq tag-type 'jsp))
+	  (t				; open or empty tag
+	   (setq tag-type 'open
+		 name (sgml-parse-tag-name))
+	   (if (or (eq ?/ (char-before (- tag-end 1)))
+		   (sgml-empty-tag-p name))
+	       (setq tag-type 'empty))))))
+      (goto-char tag-start)
+      (sgml-make-tag tag-type tag-start tag-end name))))
+
+(defun sgml-get-context (&optional until)
+  "Determine the context of the current position.
+By default, parse until we find a start-tag as the first thing on a line.
+If UNTIL is `empty', return even if the context is empty (i.e.
+we just skipped over some element and got to a beginning of line).
+
+The context is a list of tag-info structures.  The last one is the tag
+immediately enclosing the current position.
+
+Point is assumed to be outside of any tag.  If we discover that it's
+not the case, the first tag returned is the one inside which we are."
+  (let ((here (point))
+	(stack nil)
+	(ignore nil)
+	(context nil)
+	tag-info)
+    ;; CONTEXT keeps track of the tag-stack
+    ;; STACK keeps track of the end tags we've seen (and thus the start-tags
+    ;;   we'll have to ignore) when skipping over matching open..close pairs.
+    ;; IGNORE is a list of tags that can be ignored because they have been
+    ;;   closed implicitly.
+    (skip-chars-backward " \t\n")      ; Make sure we're not at indentation.
+    (while
+	(and (not (eq until 'now))
+	     (or stack
+		 (not (if until (eq until 'empty) context))
+		 (not (sgml-at-indentation-p))
+		 (and context
+		      (/= (point) (sgml-tag-start (car context)))
+		      (sgml-unclosed-tag-p (sgml-tag-name (car context)))))
+	     (setq tag-info (ignore-errors (sgml-parse-tag-backward))))
+
+      ;; This tag may enclose things we thought were tags.  If so,
+      ;; discard them.
+      (while (and context
+                  (> (sgml-tag-end tag-info)
+                     (sgml-tag-end (car context))))
+        (setq context (cdr context)))
+
+      (cond
+       ((> (sgml-tag-end tag-info) here)
+	;; Oops!!  Looks like we were not outside of any tag, after all.
+	(push tag-info context)
+	(setq until 'now))
+
+       ;; start-tag
+       ((eq (sgml-tag-type tag-info) 'open)
+	(cond
+	 ((null stack)
+	  (if (member-ignore-case (sgml-tag-name tag-info) ignore)
+	      ;; There was an implicit end-tag.
+	      nil
+	    (push tag-info context)
+	    ;; We're changing context so the tags implicitly closed inside
+	    ;; the previous context aren't implicitly closed here any more.
+	    ;; [ Well, actually it depends, but we don't have the info about
+	    ;; when it doesn't and when it does.   --Stef ]
+	    (setq ignore nil)))
+	 ((eq t (compare-strings (sgml-tag-name tag-info) nil nil
+				 (car stack) nil nil t))
+	  (setq stack (cdr stack)))
+	 (t
+	  ;; The open and close tags don't match.
+	  (if (not sgml-xml-mode)
+	      (unless (sgml-unclosed-tag-p (sgml-tag-name tag-info))
+		(message "Unclosed tag <%s>" (sgml-tag-name tag-info))
+		(let ((tmp stack))
+		  ;; We could just assume that the tag is simply not closed
+		  ;; but it's a bad assumption when tags *are* closed but
+		  ;; not properly nested.
+		  (while (and (cdr tmp)
+			      (not (eq t (compare-strings
+					  (sgml-tag-name tag-info) nil nil
+					  (cadr tmp) nil nil t))))
+		    (setq tmp (cdr tmp)))
+		  (if (cdr tmp) (setcdr tmp (cddr tmp)))))
+	    (message "Unmatched tags <%s> and </%s>"
+		     (sgml-tag-name tag-info) (pop stack)))))
+
+	(if (and (null stack) (sgml-unclosed-tag-p (sgml-tag-name tag-info)))
+	    ;; This is a top-level open of an implicitly closed tag, so any
+	    ;; occurrence of such an open tag at the same level can be ignored
+	    ;; because it's been implicitly closed.
+	    (push (sgml-tag-name tag-info) ignore)))
+
+       ;; end-tag
+       ((eq (sgml-tag-type tag-info) 'close)
+	(if (sgml-empty-tag-p (sgml-tag-name tag-info))
+	    (message "Spurious </%s>: empty tag" (sgml-tag-name tag-info))
+	  (push (sgml-tag-name tag-info) stack)))
+       ))
+
+    ;; return context
+    context))
+
+(defun sgml-show-context (&optional full)
+  "Display the current context.
+If FULL is non-nil, parse back to the beginning of the buffer."
+  (interactive "P")
+  (with-output-to-temp-buffer "*XML Context*"
+    (save-excursion
+      (let ((context (sgml-get-context)))
+	(when full
+	  (let ((more nil))
+	    (while (setq more (sgml-get-context))
+	      (setq context (nconc more context)))))
+	(pp context)))))
+
+
+;; Editing shortcuts
+
+(defun sgml-close-tag ()
+  "Close current element.
+Depending on context, inserts a matching close-tag, or closes
+the current start-tag or the current comment or the current cdata, ..."
+  (interactive)
+  (case (car (sgml-lexical-context))
+    (comment 	(insert " -->"))
+    (cdata 	(insert "]]>"))
+    (pi 	(insert " ?>"))
+    (jsp 	(insert " %>"))
+    (tag 	(insert " />"))
+    (text
+     (let ((context (save-excursion (sgml-get-context))))
+       (if context
+           (progn
+             (insert "</" (sgml-tag-name (car (last context))) ">")
+             (indent-according-to-mode)))))
+    (otherwise
+     (error "Nothing to close"))))
+
+(defun sgml-empty-tag-p (tag-name)
+  "Return non-nil if TAG-NAME is an implicitly empty tag."
+  (and (not sgml-xml-mode)
+       (member-ignore-case tag-name sgml-empty-tags)))
+
+(defun sgml-unclosed-tag-p (tag-name)
+  "Return non-nil if TAG-NAME is a tag for which an end-tag is optional."
+  (and (not sgml-xml-mode)
+       (member-ignore-case tag-name sgml-unclosed-tags)))
+
+(defun sgml-calculate-indent (&optional lcon)
+  "Calculate the column to which this line should be indented.
+LCON is the lexical context, if any."
+  (unless lcon (setq lcon (sgml-lexical-context)))
+
+  ;; Indent comment-start markers inside <!-- just like comment-end markers.
+  (if (and (eq (car lcon) 'tag)
+	   (looking-at "--")
+	   (save-excursion (goto-char (cdr lcon)) (looking-at "<!--")))
+      (setq lcon (cons 'comment (+ (cdr lcon) 2))))
+
+  (case (car lcon)
+
+    (string
+     ;; Go back to previous non-empty line.
+     (while (and (> (point) (cdr lcon))
+		 (zerop (forward-line -1))
+		 (looking-at "[ \t]*$")))
+     (if (> (point) (cdr lcon))
+	 ;; Previous line is inside the string.
+	 (current-indentation)
+       (goto-char (cdr lcon))
+       (1+ (current-column))))
+
+    (comment
+     (let ((mark (looking-at "--")))
+       ;; Go back to previous non-empty line.
+       (while (and (> (point) (cdr lcon))
+		   (zerop (forward-line -1))
+		   (or (looking-at "[ \t]*$")
+		       (if mark (not (looking-at "[ \t]*--"))))))
+       (if (> (point) (cdr lcon))
+	   ;; Previous line is inside the comment.
+	   (skip-chars-forward " \t")
+	 (goto-char (cdr lcon))
+	 ;; Skip `<!' to get to the `--' with which we want to align.
+	 (search-forward "--")
+	 (goto-char (match-beginning 0)))
+       (when (and (not mark) (looking-at "--"))
+	 (forward-char 2) (skip-chars-forward " \t"))
+       (current-column)))
+
+    ;; We don't know how to indent it.  Let's be honest about it.
+    (cdata nil)
+
+    (tag
+     (goto-char (1+ (cdr lcon)))
+     (skip-chars-forward "^ \t\n")	;Skip tag name.
+     (skip-chars-forward " \t")
+     (if (not (eolp))
+	 (current-column)
+       ;; This is the first attribute: indent.
+       (goto-char (1+ (cdr lcon)))
+       (+ (current-column) sgml-basic-offset)))
+
+    (text
+     (while (looking-at "</")
+       (forward-sexp 1)
+       (skip-chars-forward " \t"))
+     (let* ((here (point))
+	    (unclosed (and ;; (not sgml-xml-mode)
+		       (looking-at sgml-tag-name-re)
+		       (member-ignore-case (match-string 1)
+					   sgml-unclosed-tags)
+		       (match-string 1)))
+	    (context
+	     ;; If possible, align on the previous non-empty text line.
+	     ;; Otherwise, do a more serious parsing to find the
+	     ;; tag(s) relative to which we should be indenting.
+	     (if (and (not unclosed) (skip-chars-backward " \t")
+		      (< (skip-chars-backward " \t\n") 0)
+		      (back-to-indentation)
+		      (> (point) (cdr lcon)))
+		 nil
+	       (goto-char here)
+	       (nreverse (sgml-get-context (if unclosed nil 'empty)))))
+	    (there (point)))
+       ;; Ignore previous unclosed start-tag in context.
+       (while (and context unclosed
+		   (eq t (compare-strings
+			  (sgml-tag-name (car context)) nil nil
+			  unclosed nil nil t)))
+	 (setq context (cdr context)))
+       ;; Indent to reflect nesting.
+       (cond
+	;; If we were not in a text context after all, let's try again.
+	((and context (> (sgml-tag-end (car context)) here))
+	 (goto-char here)
+	 (sgml-calculate-indent
+	  (cons (if (memq (sgml-tag-type (car context)) '(comment cdata))
+		    (sgml-tag-type (car context)) 'tag)
+		(sgml-tag-start (car context)))))
+	;; Align on the first element after the nearest open-tag, if any.
+	((and context
+	      (goto-char (sgml-tag-end (car context)))
+	      (skip-chars-forward " \t\n")
+	      (< (point) here) (sgml-at-indentation-p))
+	 (current-column))
+	(t
+	 (goto-char there)
+	 (+ (current-column)
+	    (* sgml-basic-offset (length context)))))))
+
+    (otherwise
+     (error "Unrecognized context %s" (car lcon)))
+
+    ))
+
+(defun sgml-indent-line ()
+  "Indent the current line as SGML."
+  (interactive)
+  (let* ((savep (point))
+	 (indent-col
+	  (save-excursion
+	    (back-to-indentation)
+	    (if (>= (point) savep) (setq savep nil))
+	    (sgml-calculate-indent))))
+    (if (null indent-col)
+	'noindent
+      (if savep
+	  (save-excursion (indent-line-to indent-col))
+	(indent-line-to indent-col)))))
+
+(defun sgml-guess-indent ()
+  "Guess an appropriate value for `sgml-basic-offset'.
+Base the guessed identation level on the first indented tag in the buffer.
+Add this to `sgml-mode-hook' for convenience."
+  (interactive)
+  (save-excursion
+    (goto-char (point-min))
+    (if (re-search-forward "^\\([ \t]+\\)<" 500 'noerror)
+        (progn
+          (set (make-local-variable 'sgml-basic-offset)
+               (1- (current-column)))
+          (message "Guessed sgml-basic-offset = %d"
+                   sgml-basic-offset)
+          ))))
+
+(defun sgml-parse-dtd ()
+  "Simplistic parse of the current buffer as a DTD.
+Currently just returns (EMPTY-TAGS UNCLOSED-TAGS)."
+  (goto-char (point-min))
+  (let ((empty nil)
+	(unclosed nil))
+    (while (re-search-forward "<!ELEMENT[ \t\n]+\\([^ \t\n]+\\)[ \t\n]+[-O][ \t\n]+\\([-O]\\)[ \t\n]+\\([^ \t\n]+\\)" nil t)
+      (cond
+       ((string= (match-string 3) "EMPTY")
+	(push (match-string-no-properties 1) empty))
+       ((string= (match-string 2) "O")
+	(push (match-string-no-properties 1) unclosed))))
+    (setq empty (sort (mapcar 'downcase empty) 'string<))
+    (setq unclosed (sort (mapcar 'downcase unclosed) 'string<))
+    (list empty unclosed)))
 
 ;;; HTML mode
 
@@ -895,17 +1479,16 @@ This takes effect when first loading the library.")
     (define-key map "\C-c\C-ch" 'html-href-anchor)
     (define-key map "\C-c\C-cn" 'html-name-anchor)
     (define-key map "\C-c\C-ci" 'html-image)
-    (if html-quick-keys
-	(progn
-	  (define-key map "\C-c-" 'html-horizontal-rule)
-	  (define-key map "\C-co" 'html-ordered-list)
-	  (define-key map "\C-cu" 'html-unordered-list)
-	  (define-key map "\C-cr" 'html-radio-buttons)
-	  (define-key map "\C-cc" 'html-checkboxes)
-	  (define-key map "\C-cl" 'html-list-item)
-	  (define-key map "\C-ch" 'html-href-anchor)
-	  (define-key map "\C-cn" 'html-name-anchor)
-	  (define-key map "\C-ci" 'html-image)))
+    (when html-quick-keys
+      (define-key map "\C-c-" 'html-horizontal-rule)
+      (define-key map "\C-co" 'html-ordered-list)
+      (define-key map "\C-cu" 'html-unordered-list)
+      (define-key map "\C-cr" 'html-radio-buttons)
+      (define-key map "\C-cc" 'html-checkboxes)
+      (define-key map "\C-cl" 'html-list-item)
+      (define-key map "\C-ch" 'html-href-anchor)
+      (define-key map "\C-cn" 'html-name-anchor)
+      (define-key map "\C-ci" 'html-image))
     (define-key map "\C-c\C-s" 'html-autoview-mode)
     (define-key map "\C-c\C-v" 'browse-url-of-buffer)
     (define-key map [menu-bar html] (cons "HTML" menu-map))
@@ -933,7 +1516,6 @@ This takes effect when first loading the library.")
     (define-key menu-map "n" '("Name Anchor" . html-name-anchor))
     map)
   "Keymap for commands for use in HTML mode.")
-
 
 (defvar html-face-tag-alist
   '((bold . "b")
@@ -965,12 +1547,12 @@ This takes effect when first loading the library.")
     ("var" . italic))
   "Value of `sgml-tag-face-alist' for HTML mode.")
 
-
 (defvar html-display-text
   '((img . "[/]")
     (hr . "----------")
     (li . "o "))
   "Value of `sgml-display-text' for HTML mode.")
+
 
 ;; should code exactly HTML 3 here when that is finished
 (defvar html-tag-alist
@@ -987,7 +1569,8 @@ This takes effect when first loading the library.")
 		 ("rel" ,@rel)
 		 ("rev" ,@rel)
 		 ("title")))
-	 (list '((nil \n ("List item: " "<li>" str \n))))
+	 (list '((nil \n ("List item: " "<li>" str
+                          (if sgml-xml-mode "</li>") \n))))
 	 (cell `(t
 		 ,@align
 		 ("valign" ,@valign)
@@ -1000,7 +1583,8 @@ This takes effect when first loading the library.")
       ("base" t ,@href)
       ("dir" ,@list)
       ("font" nil "size" ("-1") ("+1") ("-2") ("+2") ,@1-7)
-      ("form" (\n _ \n "<input type=\"submit\" value=\"\">")
+      ("form" (\n _ \n "<input type=\"submit\" value=\"\""
+	       (if sgml-xml-mode " />" ">"))
        ("action" ,@(cdr href)) ("method" ("get") ("post")))
       ("h1" ,@align)
       ("h2" ,@align)
@@ -1022,12 +1606,13 @@ This takes effect when first loading the library.")
       ("p" t ,@align)
       ("select" (nil \n
 		     ("Text: "
-		      "<option>" str \n))
+		      "<option>" str (if sgml-xml-mode "</option>") \n))
        ,name ("size" ,@1-9) ("multiple" t))
       ("table" (nil \n
 		    ((completing-read "Cell kind: " '(("td") ("th"))
 				      nil t "t")
-		     "<tr><" str ?> _ \n))
+		     "<tr><" str ?> _
+		     (if sgml-xml-mode (concat "<" str "></tr>")) \n))
        ("border" t ,@1-9) ("width" "10") ("cellpadding"))
       ("td" ,@cell)
       ("textarea" ,name ("rows" ,@1-9) ("cols" ,@1-9))
@@ -1040,7 +1625,7 @@ This takes effect when first loading the library.")
       ("acronym")
       ("address")
       ("array" (nil \n
-		    ("Item: " "<item>" str \n))
+		    ("Item: " "<item>" str (if sgml-xml-mode "</item>") \n))
        "align")
       ("au")
       ("b")
@@ -1049,20 +1634,22 @@ This takes effect when first loading the library.")
       ("blockquote" \n)
       ("body" \n ("background" ".gif") ("bgcolor" "#") ("text" "#")
        ("link" "#") ("alink" "#") ("vlink" "#"))
-      ("box" (nil _ "<over>" _))
+      ("box" (nil _ "<over>" _ (if sgml-xml-mode "</over>")))
       ("br" t ("clear" ("left") ("right")))
       ("caption" ("valign" ("top") ("bottom")))
       ("center" \n)
       ("cite")
       ("code" \n)
-      ("dd" t)
+      ("dd" ,(not sgml-xml-mode))
       ("del")
       ("dfn")
       ("div")
       ("dl" (nil \n
 		 ( "Term: "
-		   "<dt>" str "<dd>" _ \n)))
-      ("dt" (t _ "<dd>"))
+		   "<dt>" str (if sgml-xml-mode "</dt>")
+                   "<dd>" _ (if sgml-xml-mode "</dd>") \n)))
+      ("dt" (t _ (if sgml-xml-mode "</dt>")
+             "<dd>" (if sgml-xml-mode "</dd>") \n))
       ("em")
       ;("fn" "id" "fn")  ; ???
       ("head" \n)
@@ -1081,7 +1668,7 @@ This takes effect when first loading the library.")
       ("isindex" t ("action") ("prompt"))
       ("kbd")
       ("lang")
-      ("li" t)
+      ("li" ,(not sgml-xml-mode))
       ("math" \n)
       ("nobr")
       ("option" t ("value") ("label") ("selected" t))
@@ -1093,7 +1680,17 @@ This takes effect when first loading the library.")
       ("s")
       ("samp")
       ("small")
-      ("span")
+      ("span" nil
+	("class"
+	 ("builtin")
+	 ("comment")
+	 ("constant")
+	 ("function-name")
+	 ("keyword")
+	 ("string")
+	 ("type")
+	 ("variable-name")
+	 ("warning")))
       ("strong")
       ("sub")
       ("sup")
@@ -1132,7 +1729,7 @@ This takes effect when first loading the library.")
     ("dir" . "Directory list (obsolete)")
     ("dl" . "Definition list")
     ("dt" . "Term to be definined")
-    ("em" . "Emphasised") 
+    ("em" . "Emphasized")
     ("embed" . "Embedded data in foreign format")
     ("fig" . "Figure")
     ("figa" . "Figure anchor")
@@ -1195,9 +1792,10 @@ This takes effect when first loading the library.")
     ("var" . "Math variable face")
     ("wbr" . "Enable <br> within <nobr>"))
 "*Value of `sgml-tag-help' for HTML mode.")
+
 
 ;;;###autoload
-(defun html-mode ()
+(define-derived-mode html-mode sgml-mode "HTML"
   "Major mode based on SGML mode for editing HTML documents.
 This allows inserting skeleton constructs used in hypertext documents with
 completion.  See below for an introduction to HTML.  Use
@@ -1217,7 +1815,7 @@ have <h1>Very Major Headlines</h1> through <h6>Very Minor Headlines</h6>
 
 <p>Paragraphs only need an opening tag.  Line breaks and multiple spaces are
 ignored unless the text is <pre>preformatted.</pre>  Text can be marked as
-<b>bold</b>, <i>italic</i> or <u>underlined</u> using the normal  M-g  or
+<b>bold</b>, <i>italic</i> or <u>underlined</u> using the normal M-o or
 Edit/Text Properties/Face commands.
 
 Pages can have <a name=\"SOMENAME\">named points</a> and can link other points
@@ -1233,37 +1831,39 @@ To work around that, do:
    (eval-after-load \"sgml-mode\" '(aset sgml-char-names ?' nil))
 
 \\{html-mode-map}"
-  (interactive)
-  (kill-all-local-variables)
-  (setq mode-name "HTML"
-        major-mode 'html-mode)
-  (sgml-mode-common html-tag-face-alist html-display-text)
-  (use-local-map html-mode-map)
+  (set (make-local-variable 'sgml-display-text) html-display-text)
+  (set (make-local-variable 'sgml-tag-face-alist) html-tag-face-alist)
   (make-local-variable 'sgml-tag-alist)
   (make-local-variable 'sgml-face-tag-alist)
   (make-local-variable 'sgml-tag-help)
   (make-local-variable 'outline-regexp)
   (make-local-variable 'outline-heading-end-regexp)
   (make-local-variable 'outline-level)
-  (make-local-variable 'sentence-end)
-  (setq sentence-end
-	(if sentence-end-double-space
-	    "[.?!][]\"')}]*\\(<[^>]*>\\)*\\($\\| $\\|\t\\|  \\)[ \t\n]*"
-	    
-	  "[.?!][]\"')}]*\\(<[^>]*>\\)*\\($\\| \\|\t\\)[ \t\n]*"))
-  (setq sgml-tag-alist html-tag-alist
+  (make-local-variable 'sentence-end-base)
+  (setq sentence-end-base "[.?!][]\"'$B!I$,1r}(B)}]*\\(<[^>]*>\\)*"
+	sgml-tag-alist html-tag-alist
 	sgml-face-tag-alist html-face-tag-alist
 	sgml-tag-help html-tag-help
 	outline-regexp "^.*<[Hh][1-6]\\>"
 	outline-heading-end-regexp "</[Hh][1-6]>"
 	outline-level (lambda ()
-			(char-after (1- (match-end 0)))))
+			(char-before (match-end 0))))
   (setq imenu-create-index-function 'html-imenu-index)
+  (when sgml-xml-mode (setq mode-name "XHTML"))
+  (set (make-local-variable 'sgml-empty-tags)
+       ;; From HTML-4.01's loose.dtd, parsed with `sgml-parse-dtd',
+       ;; plus manual addition of "wbr".
+       '("area" "base" "basefont" "br" "col" "frame" "hr" "img" "input"
+	 "isindex" "link" "meta" "param" "wbr"))
+  (set (make-local-variable 'sgml-unclosed-tags)
+       ;; From HTML-4.01's loose.dtd, parsed with `sgml-parse-dtd'.
+       '("body" "colgroup" "dd" "dt" "head" "html" "li" "option"
+	 "p" "tbody" "td" "tfoot" "th" "thead" "tr"))
   ;; It's for the user to decide if it defeats it or not  -stef
   ;; (make-local-variable 'imenu-sort-function)
   ;; (setq imenu-sort-function nil) ; sorting the menu defeats the purpose
-  (run-hooks 'text-mode-hook 'sgml-mode-hook 'html-mode-hook))
-
+  )
+
 (defvar html-imenu-regexp
   "\\s-*<h\\([1-9]\\)[^\n<>]*>\\(<[^\n<>]*>\\)*\\s-*\\([^\n<>]*\\)"
   "*A regular expression matching a head line to be added to the menu.
@@ -1272,7 +1872,7 @@ The second `match-string' matches extra tags and is ignored.
 The third `match-string' will be the used in the menu.")
 
 (defun html-imenu-index ()
-  "Return an table of contents for an HTML buffer for use with Imenu."
+  "Return a table of contents for an HTML buffer for use with Imenu."
   (let (toc-index)
     (save-excursion
       (goto-char (point-min))
@@ -1280,36 +1880,35 @@ The third `match-string' will be the used in the menu.")
 	(setq toc-index
 	      (cons (cons (concat (make-string
 				   (* 2 (1- (string-to-number (match-string 1))))
-				   ?\ )
+				   ?\s)
 				  (match-string 3))
-			  (save-excursion (beginning-of-line) (point)))
+			  (line-beginning-position))
 		    toc-index))))
     (nreverse toc-index)))
 
-(defun html-autoview-mode (&optional arg)
+(define-minor-mode html-autoview-mode
   "Toggle automatic viewing via `browse-url-of-buffer' upon saving buffer.
 With positive prefix ARG always turns viewing on, with negative ARG always off.
 Can be used as a value for `html-mode-hook'."
-  (interactive "P")
-  (if (setq arg (if arg
-		    (< (prefix-numeric-value arg) 0)
-		  (and (boundp 'after-save-hook)
-		       (memq 'browse-url-of-buffer after-save-hook))))
-      (setq after-save-hook (delq 'browse-url-of-buffer after-save-hook))
-    (add-hook 'after-save-hook 'browse-url-of-buffer nil t))
-  (message "Autoviewing turned %s."
-	   (if arg "off" "on")))
+  nil nil nil
+  :group 'sgml
+  (if html-autoview-mode
+      (add-hook 'after-save-hook 'browse-url-of-buffer nil t)
+    (remove-hook 'after-save-hook 'browse-url-of-buffer t)))
+
 
 (define-skeleton html-href-anchor
   "HTML anchor tag with href attribute."
   "URL: "
-  '(setq input "http:")
+  ;; '(setq input "http:")
   "<a href=\"" str "\">" _ "</a>")
 
 (define-skeleton html-name-anchor
   "HTML anchor tag with name attribute."
   "Name: "
-  "<a name=\"" str "\">" _ "</a>")
+  "<a name=\"" str "\""
+  (if sgml-xml-mode (concat " id=\"" str "\""))
+  ">" _ "</a>")
 
 (define-skeleton html-headline-1
   "HTML level 1 headline tags."
@@ -1344,43 +1943,44 @@ Can be used as a value for `html-mode-hook'."
 (define-skeleton html-horizontal-rule
   "HTML horizontal rule tag."
   nil
-  "<hr>" \n)
+  (if sgml-xml-mode "<hr />" "<hr>") \n)
 
 (define-skeleton html-image
   "HTML image tag."
-  nil
-  "<img src=\"" _ "\">")
+  "Image URL: "
+  "<img src=\"" str "\" alt=\"" _ "\""
+  (if sgml-xml-mode " />" ">"))
 
 (define-skeleton html-line
   "HTML line break tag."
   nil
-  "<br>" \n)
+  (if sgml-xml-mode "<br />" "<br>") \n)
 
 (define-skeleton html-ordered-list
   "HTML ordered list tags."
   nil
   "<ol>" \n
-  "<li>" _ \n
+  "<li>" _ (if sgml-xml-mode "</li>") \n
   "</ol>")
 
 (define-skeleton html-unordered-list
   "HTML unordered list tags."
   nil
   "<ul>" \n
-  "<li>" _ \n
+  "<li>" _ (if sgml-xml-mode "</li>") \n
   "</ul>")
 
 (define-skeleton html-list-item
   "HTML list item tag."
   nil
   (if (bolp) nil '\n)
-  "<li>")
+  "<li>" _ (if sgml-xml-mode "</li>"))
 
 (define-skeleton html-paragraph
   "HTML paragraph tag."
   nil
   (if (bolp) nil ?\n)
-  \n "<p>")
+  "<p>" _ (if sgml-xml-mode "</p>"))
 
 (define-skeleton html-checkboxes
   "Group of connected checkbox inputs."
@@ -1391,11 +1991,14 @@ Can be used as a value for `html-mode-hook'."
    "<input type=\"" (identity "checkbox") ; see comment above about identity
    "\" name=\"" (or v1 (setq v1 (skeleton-read "Name: ")))
    "\" value=\"" str ?\"
-   (if (y-or-n-p "Set \"checked\" attribute? ")
-        (funcall skeleton-transformation " checked")) ">"
+   (when (y-or-n-p "Set \"checked\" attribute? ")
+     (funcall skeleton-transformation-function
+	      (if sgml-xml-mode " checked=\"checked\"" " checked")))
+   (if sgml-xml-mode " />" ">")
    (skeleton-read "Text: " (capitalize str))
    (or v2 (setq v2 (if (y-or-n-p "Newline after text? ")
-		       (funcall skeleton-transformation "<br>")
+		       (funcall skeleton-transformation-function
+                                (if sgml-xml-mode "<br />" "<br>"))
 		     "")))
    \n))
 
@@ -1408,14 +2011,18 @@ Can be used as a value for `html-mode-hook'."
    "<input type=\"" (identity "radio") ; see comment above about identity
    "\" name=\"" (or (car v2) (setcar v2 (skeleton-read "Name: ")))
    "\" value=\"" str ?\"
-   (if (and (not v1) (setq v1 (y-or-n-p "Set \"checked\" attribute? ")))
-       (funcall skeleton-transformation " checked") ">")
+   (when (and (not v1) (setq v1 (y-or-n-p "Set \"checked\" attribute? ")))
+     (funcall skeleton-transformation-function
+	      (if sgml-xml-mode " checked=\"checked\"" " checked")))
+   (if sgml-xml-mode " />" ">")
    (skeleton-read "Text: " (capitalize str))
    (or (cdr v2) (setcdr v2 (if (y-or-n-p "Newline after text? ")
-			       (funcall skeleton-transformation "<br>")
+			       (funcall skeleton-transformation-function
+                                        (if sgml-xml-mode "<br />" "<br>"))
 			     "")))
    \n))
 
 (provide 'sgml-mode)
 
+;; arch-tag: 9675da94-b7f9-4bda-ad19-73ed7b4fb401
 ;;; sgml-mode.el ends here

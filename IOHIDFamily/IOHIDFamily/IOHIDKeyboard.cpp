@@ -50,8 +50,8 @@
 
 OSDefineMetaClassAndStructors(IOHIDKeyboard, super)
 
-extern unsigned char hid_usb_2_adb_keymap[];  //In Cosmo_USB2ADB.cpp
-extern unsigned char hid_usb_apple_2_adb_keymap[];  //In Cosmo_USB2ADB.cpp
+extern unsigned int hid_usb_2_adb_keymap[];  //In Cosmo_USB2ADB.cpp
+extern unsigned int hid_usb_apple_2_adb_keymap[];  //In Cosmo_USB2ADB.cpp
 
 IOHIDKeyboard * 
 IOHIDKeyboard::Keyboard(UInt32 supportedModifiers, bool isDispatcher) 
@@ -88,8 +88,8 @@ IOHIDKeyboard::init(OSDictionary *properties)
     //This makes separate copy of ADB translation table.  Needed to allow ISO
     //  keyboards to swap two keys without affecting non-ISO keys that are
     //  also connected, or that will be plugged in later through USB ports
-    bcopy(hid_usb_2_adb_keymap, _usb_2_adb_keymap, ADB_CONVERTER_LEN);
-    bcopy(hid_usb_apple_2_adb_keymap, _usb_apple_2_adb_keymap, APPLE_ADB_CONVERTER_LEN);
+    bcopy(hid_usb_2_adb_keymap, _usb_2_adb_keymap, sizeof(unsigned int ) * ADB_CONVERTER_LEN);
+    bcopy(hid_usb_apple_2_adb_keymap, _usb_apple_2_adb_keymap, sizeof(unsigned int) * APPLE_ADB_CONVERTER_LEN);
       
     return true;
 }
@@ -115,12 +115,6 @@ IOHIDKeyboard::start(IOService *provider)
 
     productIDVal    = _provider->getProductID();
     vendorIDVal     = _provider->getVendorID();
-
-    setProperty(kIOHIDTransportKey, _provider->getTransport());
-    setProperty(kIOHIDVendorIDKey, vendorIDVal, 32);
-    setProperty(kIOHIDProductIDKey, productIDVal, 32);
-    setProperty(kIOHIDLocationIDKey, _provider->getLocationID(), 32);
-    setProperty(kIOHIDCountryCodeKey, _provider->getCountryCode(), 32);
 
     xml_swap_CTRL_CAPSLOCK = OSDynamicCast( OSNumber, provider->getProperty("Swap control and capslock"));
     if (xml_swap_CTRL_CAPSLOCK)
@@ -220,7 +214,7 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
 	{
 		case kHIDPage_KeyboardOrKeypad:
         case kHIDPage_AppleVendorKeyboard:
-            UInt8 keycode;
+            unsigned int keycode;
             
             if (repeat != _repeat)
             {
@@ -238,7 +232,7 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
                 super::dispatchKeyboardEvent(keycode, keyDown, timeStamp);
             break;
         case kHIDPage_AppleVendorTopCase:
-            if ((usage == kHIDUsage_AppleVendor_KeyboardFn) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
+            if ((usage == kHIDUsage_AV_TopCase_KeyboardFn) && (_provider->getVendorID() == kIOUSBVendorIDAppleComputer))
                 super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
 			break;
 	}

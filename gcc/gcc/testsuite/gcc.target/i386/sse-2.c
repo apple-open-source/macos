@@ -1,5 +1,7 @@
 /* APPLE LOCAL begin radar 4043818 */
 /* { dg-do compile { target i?86*-*-* } } */
+/* APPLE LOCAL x86_64 */
+/* { dg-require-effective-target ilp32 } */
 /* { dg-options "-O3 -msse" } */
 /* { dg-final { scan-assembler-times "movq" 4 } } */
 
@@ -8,7 +10,7 @@ typedef int __m64 __attribute__ ((__vector_size__ (8)));
 static __inline __m64 __attribute__((__always_inline__))
 _mm_add_si64 (__m64 __m1, __m64 __m2)
 {
-  return (__m64) __builtin_ia32_paddq ((long long)__m1, (long long)__m2);
+  return (__m64) __builtin_ia32_paddq (__m1, __m2);
 }
 
 

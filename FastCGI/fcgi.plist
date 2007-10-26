@@ -1,0 +1,42 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>fcgi</string>
+	<key>OpenSourceVersion</key>
+	<string>2.4.0</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.fastcgi.com/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.fastcgi.com/dist/fcgi-2.4.0.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>2329404159e8b8315e524b9eaf1de763202c6e6a</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-05-24</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>OTHER</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>fcgi.txt</string>
+</dict>
+<dict>
+  <key>OpenSourceProject</key>
+  <string>ruby-fcgi</string>
+  <key>OpenSourceVersion</key>
+  <string>0.8.7</string>
+  <key>OpenSourceWebsiteURL</key>
+  <string>http://sugi.nemui.org/prod/ruby-fcgi/</string>
+  <key>OpenSourceImportDate</key>
+  <string>2006-11-30</string>
+  <key>OpenSourceModifications</key>
+  <array>
+  </array>
+  <key>OpenSourceLicense</key>
+  <string>OTHER</string>
+  <key>OpenSourceLicenseFile</key>
+  <string>ruby-fcgi.txt</string>
+</dict>
+</array>
+</plist>

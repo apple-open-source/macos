@@ -1,0 +1,13 @@
+SHLIB_VERPFX = $(srcdir)/config/i386/darwin-libgcc
+# APPLE LOCAL begin 4099000
+LIB1ASMSRC = i386/lib1funcs.asm
+LIB1ASMFUNCS = _get_pc_thunk_ax _get_pc_thunk_dx _get_pc_thunk_cx _get_pc_thunk_bx _get_pc_thunk_si _get_pc_thunk_di _get_pc_thunk_bp
+# APPLE LOCAL end 4099000
+# APPLE LOCAL avoid try fat on thin system
+ifneq ($(shell lipo -info /usr/lib/libSystem.B.dylib | grep x86_64),)
+MULTILIB_OPTIONS = m64
+MULTILIB_DIRNAMES = x86_64
+# APPLE LOCAL avoid try fat on thin system
+endif
+LIB2_SIDITI_CONV_FUNCS=yes
+LIB2FUNCS_EXTRA = $(srcdir)/config/darwin-64.c

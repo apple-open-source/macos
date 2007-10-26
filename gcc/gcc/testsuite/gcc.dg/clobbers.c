@@ -1,3 +1,4 @@
+/* APPLE LOCAL file mainline */
 /* Test asm clobbers on x86. */
 
 /* { dg-do run { target i?86-*-* } } */
@@ -10,9 +11,14 @@ int main ()
         __asm__ ("movl $1,%0\n\txorl %%eax,%%eax" : "=r" (i) : : "eax");
         if (i != 1)
                 abort ();
+	/* On darwin you can't call external functions from non-pic code,
+	   however, clobbering ebx isn't valid in pic code. Instead of disabling
+	   the whole test, just disable the ebx clobbering part.  */
+#if !(defined (__MACH__))
         __asm__ ("movl $1,%0\n\txorl %%ebx,%%ebx" : "=r" (i) : : "ebx");
         if (i != 1)
                 abort ();
+#endif
         __asm__ ("movl $1,%0\n\txorl %%ecx,%%ecx" : "=r" (i) : : "ecx");
         if (i != 1)
                 abort ();

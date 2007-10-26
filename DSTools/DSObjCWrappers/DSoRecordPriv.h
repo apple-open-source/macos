@@ -35,5 +35,6 @@
 - (DSoRecord*)initInNode:(DSoNode*)inParent recordRef:(tRecordReference)inRecRef;
 - (DSoRecord*)initInNode:(DSoNode*)inParent type:(const char*)inType name:(NSString*)inName create:(BOOL)inShouldCreate;
 - (id)_getAllAttributesIncludeValues:(BOOL)inIncludeVals;
+- (id)_getAttributes:(NSArray*)inAttributes includeValues:(BOOL)inIncludeVals;
 - (tAttributeValueEntryPtr) getAttrValuePtrForTypeNode:(DSoDataNode*)inAttrType value:(id)inAttrValue;
 @end

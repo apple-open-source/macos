@@ -1,3 +1,81 @@
+2007-05-09  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c (print_insn, OP_sI, OP_J): Reapply Eric's Apple local
+	change.
+
+2007-05-09  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c: Update to stock FSF TOT version on 2007-05-09.
+	None of the Apple local mods applied yet.
+	* i386-opc.c: New file.
+	* i386-opc.h: New file.
+	* configure.in: Build new file.
+	* Makefile.am: Build new file.
+	* Makefile.in, configure, aclocal.m4: Updated.
+
+2007-02-09  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c: Reapply the changes from 2007-01-26 -- I can't reproduce
+	the failure that caused me to revert them now.
+
+2007-01-26  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c: Revert today's changes for now.  There is another
+	sign extension bug in the current version sources, either from a
+	merge mistake or another problem on the type Eric fixed in March
+	last year.
+
+2007-01-26  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c (OP_E): Display negative offsets as decimal regardless
+	of whether we're using riprel mode or not.
+
+2007-01-26  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c (OP_E): My 2005-04-14 changes to print disp8/disp32
+	displacement offsets as integers, not hex values.
+	(print_insn, OP_J): Eric's 2006-03-25 changes to fix an improper
+	sign extension.
+
+2007-01-26  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c: Imported today's version of i386-dis.c from
+	the src.apple.com opcodes CVS source repository.  No Apple
+	local modifications applied in this checkin.
+
+2006-06-22  Jason Molenda  (jmolenda@apple.com)
+
+	* i386-dis.c: Imported two patches from HJ Lu from
+		http://sourceware.org/ml/binutils/2006-02/msg00149.html
+		http://sourceware.org/ml/binutils/2006-02/msg00150.html
+	His changelog entry:
+
+	2006-02-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+		* i386-dis.c ('Z'): Add a new macro.
+		(dis386_twobyte): Use "movZ" for control register moves.
+	2006-02-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+		* i386-dis.c (dis386_twobyte): Use "movZ" for debug register
+		moves.
+
+2006-05-02  Eric Albert (ejalbert@apple.com)
+
+	* i386-dis.c: Add MNI instruction disassembly support.
+	(THREE_BYTE_0, THREE_BYTE_1): New.
+	(dis386_twobyte[]): Updated.
+	(twobyte_has_modrm[]): Updated.
+	(three_byte_table[]): New.
+	(print_insn): Updated.
+
+2006-03-25  Eric Albert  (ejalbert@apple.com)
+
+	* i386-dis.c (OP_J): Displacements here are signed 32-bit values,
+	not unsigned.  Also, do math on them as signed values rather than
+	unsigned values.
+	(print_insn): Do math on RIP-relative offsets as signed values
+	rather than unsigned values.
+
 2005-04-14  Jason Molenda  (jmolenda@apple.com)
 
 	* i386-dis.c (OP_E): Print disp8 and disp32 displacement offsets

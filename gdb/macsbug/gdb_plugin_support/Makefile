@@ -106,7 +106,8 @@ INCLUDES 			= 	\
 
 OPT				=	-O2
 
-CFLAGS 				= 	-g 			\
+CFLAGS 				= 	-gdwarf-2		\
+					-D__DARWIN_UNIX03=0     \
 					$(OPT)			\
 					-c			\
 					-w			\

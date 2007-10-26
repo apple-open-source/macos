@@ -18,52 +18,48 @@
 .IP "\\$1" \\$2
 ..
 .TH "PROFILES" 1 "" "" ""
-.SH NAME
-profiles \- A utility to report and change SIDs in registry files
+.SH "NAME"
+profiles - A utility to report and change SIDs in registry files
 .SH "SYNOPSIS"
-.ad l
-.hy 0
-.HP 9
-\fBprofiles\fR [\-v] [\-c\ SID] [\-n\ SID] {file}
-.ad
-.hy
-
+.HP 1
+profiles [-v] [-c SID] [-n SID] {file}
 .SH "DESCRIPTION"
-
 .PP
-This tool is part of the \fBsamba\fR(7) suite\&.
-
+This tool is part of the
+\fBsamba\fR(7)
+suite.
 .PP
-\fBprofiles\fR is a utility that reports and changes SIDs in windows registry files\&. It currently only supports NT\&.
-
+profiles
+is a utility that reports and changes SIDs in windows registry files. It currently only supports NT.
 .SH "OPTIONS"
-
-.TP
+.PP
 file
-Registry file to view or edit\&.
-
-.TP
-\-v,\-\-verbose
-Increases verbosity of messages\&.
-
-.TP
-\-c SID1 \-n SID2
-Change all occurences of SID1 in \fIfile\fR by SID2\&.
-
-.TP
-\-h|\-\-help
-Print a summary of command line options\&.
-
+.RS 3n
+Registry file to view or edit.
+.RE
+.PP
+-v,--verbose
+.RS 3n
+Increases verbosity of messages.
+.RE
+.PP
+-c SID1 -n SID2
+.RS 3n
+Change all occurences of SID1 in
+\fIfile\fR
+by SID2.
+.RE
+.PP
+-h|--help
+.RS 3n
+Print a summary of command line options.
+.RE
 .SH "VERSION"
-
 .PP
-This man page is correct for version 3\&.0 of the Samba suite\&.
-
+This man page is correct for version 3.0 of the Samba suite.
 .SH "AUTHOR"
-
 .PP
-The original Samba software and related utilities were created by Andrew Tridgell\&. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed\&.
-
+The original Samba software and related utilities were created by Andrew Tridgell. Samba is now developed by the Samba Team as an Open Source project similar to the way the Linux kernel is developed.
 .PP
-The profiles man page was written by Jelmer Vernooij\&.
+The profiles man page was written by Jelmer Vernooij.
 

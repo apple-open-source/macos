@@ -187,8 +187,8 @@ checkinode(inumber, idesc)
 #endif	/* REV_ENDIAN_FS */
 			if (debug) {
 				symbuf[dp->di_size] = 0;
-				printf("convert symlink %d(%s) of size %d\n",
-					inumber, symbuf, (long)dp->di_size);
+				printf("convert symlink %d(%s) of size %qu\n",
+					inumber, symbuf, dp->di_size);
 			}
 			dp = ginode(inumber);
 			memmove(dp->di_shortlink, symbuf, (long)dp->di_size);
@@ -212,7 +212,7 @@ checkinode(inumber, idesc)
 	for (j = ndb; j < NDADDR; j++)
 		if (dp->di_db[j] != 0) {
 			if (debug)
-				printf("bad direct addr: %ld\n", dp->di_db[j]);
+				printf("bad direct addr: %u\n", dp->di_db[j]);
 			goto unknown;
 		}
 	for (j = 0, ndb -= NDADDR; ndb > 0; j++)
@@ -220,8 +220,7 @@ checkinode(inumber, idesc)
 	for (; j < NIADDR; j++)
 		if (dp->di_ib[j] != 0) {
 			if (debug)
-				printf("bad indirect addr: %ld\n",
-					dp->di_ib[j]);
+				printf("bad indirect addr: %u\n", dp->di_ib[j]);
 			goto unknown;
 		}
 	if (ftypeok(dp) == 0)

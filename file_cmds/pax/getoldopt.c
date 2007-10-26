@@ -1,4 +1,4 @@
-/*	$OpenBSD: getoldopt.c,v 1.3 1997/09/01 18:29:52 deraadt Exp $	*/
+/*	$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $	*/
 /*	$NetBSD: getoldopt.c,v 1.3 1995/03/21 09:07:28 cgd Exp $	*/
 
 /*
@@ -7,25 +7,24 @@
  * otherwise, it uses the old rules used by tar, dump, and ps.
  *
  * Written 25 August 1985 by John Gilmore (ihnp4!hoptoad!gnu) and placed
- * in the Pubic Domain for your edification and enjoyment.
+ * in the Public Domain for your edification and enjoyment.
  */
 
 #ifndef lint
-static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: getoldopt.c,v 1.3 1997/09/01 18:29:52 deraadt Exp $";
+static const char rcsid[] __attribute__((__unused__)) = "$OpenBSD: getoldopt.c,v 1.8 2003/07/02 21:19:33 deraadt Exp $";
 #endif /* not lint */
 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include "pax.h"
+#include "extern.h"
 
 int
-getoldopt(argc, argv, optstring)
-	int	argc;
-	char	**argv;
-	char	*optstring;
+getoldopt(int argc, char **argv, const char *optstring)
 {
-	extern char	*optarg;	/* Points to next arg */
-	extern int	optind;		/* Global argv index */
 	static char	*key;		/* Points to next keyletter */
 	static char	use_getopt;	/* !=0 if argv[1][0] was '-' */
 	char		c;
@@ -34,7 +33,8 @@ getoldopt(argc, argv, optstring)
 	optarg = NULL;
 
 	if (key == NULL) {		/* First time */
-		if (argc < 2) return EOF;
+		if (argc < 2)
+			return (-1);
 		key = argv[1];
 		if (*key == '-')
 			use_getopt++;
@@ -43,18 +43,18 @@ getoldopt(argc, argv, optstring)
 	}
 
 	if (use_getopt)
-		return getopt(argc, argv, optstring);
+		return (getopt(argc, argv, optstring));
 
 	c = *key++;
 	if (c == '\0') {
 		key--;
-		return EOF;
+		return (-1);
 	}
 	place = strchr(optstring, c);
 
 	if (place == NULL || c == ':') {
 		fprintf(stderr, "%s: unknown option %c\n", argv[0], c);
-		return('?');
+		return ('?');
 	}
 
 	place++;
@@ -65,9 +65,9 @@ getoldopt(argc, argv, optstring)
 		} else {
 			fprintf(stderr, "%s: %c argument missing\n",
 				argv[0], c);
-			return('?');
+			return ('?');
 		}
 	}
 
-	return(c);
+	return (c);
 }

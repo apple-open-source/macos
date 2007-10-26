@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,12 +32,9 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCNetworkConfigurationInternal.h>
+#include "SCNetworkConfigurationInternal.h"
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
-
-#include "SCNetworkConfiguration.h"
-#include "SCNetworkConfigurationInternal.h"
 
 #include <pthread.h>
 
@@ -45,6 +42,7 @@
 static CFStringRef	__SCNetworkProtocolCopyDescription	(CFTypeRef cf);
 static void		__SCNetworkProtocolDeallocate		(CFTypeRef cf);
 static Boolean		__SCNetworkProtocolEqual		(CFTypeRef cf1, CFTypeRef cf2);
+static CFHashCode	__SCNetworkProtocolHash			(CFTypeRef cf);
 
 
 const CFStringRef kSCNetworkProtocolTypeAppleTalk       = CFSTR("AppleTalk");
@@ -52,6 +50,7 @@ const CFStringRef kSCNetworkProtocolTypeDNS		= CFSTR("DNS");
 const CFStringRef kSCNetworkProtocolTypeIPv4		= CFSTR("IPv4");
 const CFStringRef kSCNetworkProtocolTypeIPv6		= CFSTR("IPv6");
 const CFStringRef kSCNetworkProtocolTypeProxies		= CFSTR("Proxies");
+const CFStringRef kSCNetworkProtocolTypeSMB		= CFSTR("SMB");
 
 
 static CFTypeID __kSCNetworkProtocolTypeID	= _kCFRuntimeNotATypeID;
@@ -64,20 +63,13 @@ static const CFRuntimeClass __SCNetworkProtocolClass = {
 	NULL,					// copy
 	__SCNetworkProtocolDeallocate,		// dealloc
 	__SCNetworkProtocolEqual,		// equal
-	NULL,					// hash
+	__SCNetworkProtocolHash,		// hash
 	NULL,					// copyFormattingDesc
 	__SCNetworkProtocolCopyDescription	// copyDebugDesc
 };
 
 
 static pthread_once_t		initialized	= PTHREAD_ONCE_INIT;
-
-
-static __inline__ CFTypeRef
-isA_SCNetworkProtocol(CFTypeRef obj)
-{
-	return (isA_CFType(obj, SCNetworkProtocolGetTypeID()));
-}
 
 
 static CFStringRef
@@ -88,10 +80,13 @@ __SCNetworkProtocolCopyDescription(CFTypeRef cf)
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)cf;
 
 	result = CFStringCreateMutable(allocator, 0);
-	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkProtocol %p [%p]> { "), cf, allocator);
-	CFStringAppendFormat(result, NULL, CFSTR("id=%@"), protocolPrivate->entityID);
-	CFStringAppendFormat(result, NULL, CFSTR(", service=%@"), protocolPrivate->service);
-	CFStringAppendFormat(result, NULL, CFSTR(" }"));
+	CFStringAppendFormat(result, NULL, CFSTR("<SCNetworkProtocol %p [%p]> {"), cf, allocator);
+	CFStringAppendFormat(result, NULL, CFSTR("id = %@"), protocolPrivate->entityID);
+	CFStringAppendFormat(result, NULL, CFSTR(", service = %p"), protocolPrivate->service);
+	CFStringAppendFormat(result, NULL,
+			     CFSTR(", prefs = %p"),
+			     ((SCNetworkServicePrivateRef)protocolPrivate->service)->prefs);
+	CFStringAppendFormat(result, NULL, CFSTR("}"));
 
 	return result;
 }
@@ -104,6 +99,7 @@ __SCNetworkProtocolDeallocate(CFTypeRef cf)
 
 	/* release resources */
 	CFRelease(protocolPrivate->entityID);
+	CFRelease(protocolPrivate->service);
 
 	return;
 }
@@ -128,6 +124,15 @@ __SCNetworkProtocolEqual(CFTypeRef cf1, CFTypeRef cf2)
 		return TRUE;    // if both effectively point to the same service
 
 	return FALSE;
+}
+
+
+static CFHashCode
+__SCNetworkProtocolHash(CFTypeRef cf)
+{
+	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)cf;
+
+	return CFHash(protocolPrivate->entityID);
 }
 
 
@@ -161,7 +166,7 @@ __SCNetworkProtocolCreatePrivate(CFAllocatorRef		allocator,
 	}
 
 	protocolPrivate->entityID       = CFStringCreateCopy(NULL, entityID);
-	protocolPrivate->service	= service;
+	protocolPrivate->service	= CFRetain(service);
 
 	return protocolPrivate;
 }
@@ -176,7 +181,8 @@ __SCNetworkProtocolIsValidType(CFStringRef protocolType)
 		&kSCNetworkProtocolTypeDNS,
 		&kSCNetworkProtocolTypeIPv4,
 		&kSCNetworkProtocolTypeIPv6,
-		&kSCNetworkProtocolTypeProxies
+		&kSCNetworkProtocolTypeProxies,
+		&kSCNetworkProtocolTypeSMB
 	};
 
 	for (i = 0; i < sizeof(valid_types)/sizeof(valid_types[0]); i++) {
@@ -213,7 +219,8 @@ copyProtocolConfigurationPath(SCNetworkProtocolPrivateRef protocolPrivate)
 }
 
 
-/* ---------- SCNetworkProtocol APIs ---------- */
+#pragma mark -
+#pragma mark SCNetworkProtocol APIs
 
 
 CFTypeID
@@ -232,6 +239,11 @@ SCNetworkProtocolGetConfiguration(SCNetworkProtocolRef protocol)
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)protocolPrivate->service;
 
+	if (!isA_SCNetworkProtocol(protocol)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	config = __getPrefsConfiguration(servicePrivate->prefs, path);
 	CFRelease(path);
@@ -248,6 +260,11 @@ SCNetworkProtocolGetEnabled(SCNetworkProtocolRef protocol)
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)protocolPrivate->service;
 
+	if (!isA_SCNetworkProtocol(protocol)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	enabled = __getPrefsEnabled(servicePrivate->prefs, path);
 	CFRelease(path);
@@ -261,6 +278,11 @@ SCNetworkProtocolGetProtocolType(SCNetworkProtocolRef protocol)
 {
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
 
+	if (!isA_SCNetworkProtocol(protocol)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
 	return protocolPrivate->entityID;
 }
 
@@ -272,6 +294,11 @@ SCNetworkProtocolSetConfiguration(SCNetworkProtocolRef protocol, CFDictionaryRef
 	CFStringRef			path;
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)protocolPrivate->service;
+
+	if (!isA_SCNetworkProtocol(protocol)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
 
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	ok = __setPrefsConfiguration(servicePrivate->prefs, path, config, TRUE);
@@ -288,6 +315,11 @@ SCNetworkProtocolSetEnabled(SCNetworkProtocolRef protocol, Boolean enabled)
 	CFStringRef			path;
 	SCNetworkProtocolPrivateRef	protocolPrivate	= (SCNetworkProtocolPrivateRef)protocol;
 	SCNetworkServicePrivateRef      servicePrivate  = (SCNetworkServicePrivateRef)protocolPrivate->service;
+
+	if (!isA_SCNetworkProtocol(protocol)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
 
 	path = copyProtocolConfigurationPath(protocolPrivate);
 	ok = __setPrefsEnabled(servicePrivate->prefs, path, enabled);

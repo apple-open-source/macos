@@ -4,6 +4,7 @@
 
 /* { dg-options "-fno-constant-cfstrings -fconstant-string-class=Foo" } */
 /* { dg-do compile { target *-*-darwin* } } */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 
@@ -18,7 +19,13 @@
 + (Foo *) getString: (int) which;
 @end
 
+/* APPLE LOCAL begin objc2 */
+#if OBJC_API_VERSION >= 2
+Class _FooClassReference;
+#else
 struct objc_class _FooClassReference;
+#endif
+/* APPLE LOCAL end objc2 */
 
 @implementation Bar
 + (Foo *) getString: (int) which {

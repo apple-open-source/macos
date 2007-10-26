@@ -30,26 +30,25 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)getty.8	8.1 (Berkeley) 6/4/93
-.\"	$Id: getty.8,v 1.1 1999/05/02 04:21:29 wsanchez Exp $
-.\"
+.\" $FreeBSD: src/libexec/getty/getty.8,v 1.16 2005/01/18 09:29:39 ru Exp $
+.\" "
 .Dd June 4, 1993
 .Dt GETTY 8
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm getty
 .Nd set terminal mode
 .Sh SYNOPSIS
-.Nm getty
-.Oo 
+.Nm
+.Oo
 .Ar type
 .Op Ar tty
 .Oc
 .Sh DESCRIPTION
 The
-.Nm getty
-program
-is called by
-.Xr init 8
+.Nm
+utility is called by
+.Xr launchd 8
 to open and initialize the tty line, read a login name, and invoke
 .Xr login 1 .
 .Pp
@@ -59,16 +58,16 @@ is the special device file in
 .Pa /dev
 to open for the terminal (for example, ``ttyh0'').
 If there is no argument or the argument is
-.Ql Fl ,
+.Sq Fl ,
 the tty line is assumed to be open as file descriptor 0.
 .Pp
 The
 .Ar type
 argument can be used to make
-.Nm getty
+.Nm
 treat the terminal line specially.
 This argument is used as an index into the
-.Nm gettytab 5
+.Xr gettytab 5
 database, to determine the characteristics of the line.
 If there is no argument, or there is no such table, the
 .Em default
@@ -77,7 +76,7 @@ If there is no
 .Pa /etc/gettytab
 a set of system defaults is used.
 If indicated by the table located,
-.Nm getty
+.Nm
 will clear the terminal screen,
 print a banner heading,
 and prompt for a login name.
@@ -85,24 +84,29 @@ Usually either the banner or the login prompt will include
 the system hostname.
 .Pp
 Most of the default actions of
-.Nm getty
+.Nm
 can be circumvented, or modified, by a suitable
-.Nm gettytab
+.Pa gettytab
 table.
 .Pp
 The
-.Nm getty
-program
-can be set to timeout after some interval,
+.Nm
+utility can be set to timeout after some interval,
 which will cause dial up lines to hang up
 if the login name is not entered reasonably quickly.
+.Sh FILES
+.Bl -tag -width /etc/gettytab -compact
+.It Pa /etc/gettytab
+.It Pa /etc/ttys
+.El
 .Sh DIAGNOSTICS
 .Bl -diag
 .It "ttyxx: No such device or address."
 .It "ttyxx: No such file or address."
+.Pp
 A terminal which is turned
 on in the
-.Xr ttys
+.Pa ttys
 file cannot be opened, likely because the requisite
 lines are either not configured into the system, the associated device
 was not attached during boot-time system configuration,
@@ -110,19 +114,15 @@ or the special file in
 .Pa /dev
 does not exist.
 .El
-.Sh FILES
-.Bl -tag -width /etc/gettytab -compact
-.It Pa /etc/gettytab
-.El
 .Sh SEE ALSO
-.Xr gettytab 5 ,
-.Xr init 8 ,
 .Xr login 1 ,
 .Xr ioctl 2 ,
 .Xr tty 4 ,
-.Xr ttys 5
+.Xr gettytab 5 ,
+.Xr ttys 5 ,
+.Xr launchd 8
 .Sh HISTORY
 A
-.Nm getty
-program appeared in
+.Nm
+utility appeared in
 .At v6 .

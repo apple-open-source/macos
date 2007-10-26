@@ -1,6 +1,6 @@
 #
 #               tk/text.rb - Tk text classes
-#                       $Date: 2004/12/20 05:10:33 $
+#                       $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
 #                       by Yukihiro Matsumoto <matz@caelum.co.jp>
 require 'tk'
 require 'tk/itemfont'
@@ -69,43 +69,163 @@ class TkText<TkTextWin
   #######################################
 
   module IndexModMethods
+    def +(mod)
+      return chars(mod) if mod.kind_of?(Numeric)
+
+      mod = mod.to_s
+      if mod =~ /^\s*[+-]?\d/
+        TkText::IndexString.new(String.new(id) << ' + ' << mod)
+      else
+        TkText::IndexString.new(String.new(id) << ' ' << mod)
+      end
+    end
+
+    def -(mod)
+      return chars(-mod) if mod.kind_of?(Numeric)
+
+      mod = mod.to_s
+      if mod =~ /^\s*[+-]?\d/
+        TkText::IndexString.new(String.new(id) << ' - ' << mod)
+      elsif mod =~ /^\s*[-]\s+(\d.*)$/
+        TkText::IndexString.new(String.new(id) << ' - -' << $1)
+      else
+        TkText::IndexString.new(String.new(id) << ' ' << mod)
+      end
+    end
+
     def chars(mod)
       fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
       if mod < 0
-        TkText::IndexString.new(id + ' ' << mod.to_s << ' chars')
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' chars')
       else
-        TkText::IndexString.new(id + ' + ' << mod.to_s << ' chars')
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' chars')
       end
     end
     alias char chars
 
+    def display_chars(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' display chars')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' display chars')
+      end
+    end
+    alias display_char display_chars
+
+    def any_chars(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' any chars')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' any chars')
+      end
+    end
+    alias any_char any_chars
+
+    def indices(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' indices')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' indices')
+      end
+    end
+
+    def display_indices(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' display indices')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' display indices')
+      end
+    end
+
+    def any_indices(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' any indices')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' any indices')
+      end
+    end
+
     def lines(mod)
       fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
       if mod < 0
-        TkText::IndexString.new(id + ' ' << mod.to_s << ' lines')
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' lines')
       else
-        TkText::IndexString.new(id + ' + ' << mod.to_s << ' lines')
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' lines')
       end
     end
     alias line lines
 
+    def display_lines(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' display_lines')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' display lines')
+      end
+    end
+    alias display_line display_lines
+
+    def any_lines(mod)
+      # Tk8.5 feature
+      fail ArgumentError, 'expect Integer'  unless mod.kind_of?(Integer)
+      if mod < 0
+        TkText::IndexString.new(String.new(id) << ' ' << mod.to_s << ' any_lines')
+      else
+        TkText::IndexString.new(String.new(id) << ' + ' << mod.to_s << ' any lines')
+      end
+    end
+    alias any_line any_lines
+
     def linestart
-      TkText::IndexString.new(id + ' linestart')
+      TkText::IndexString.new(String.new(id) << ' linestart')
     end
     def lineend
-      TkText::IndexString.new(id + ' lineend')
+      TkText::IndexString.new(String.new(id) << ' lineend')
+    end
+
+    def display_linestart
+      # Tk8.5 feature
+      TkText::IndexString.new(String.new(id) << ' display linestart')
+    end
+    def display_lineend
+      # Tk8.5 feature
+      TkText::IndexString.new(String.new(id) << ' display lineend')
     end
 
     def wordstart
-      TkText::IndexString.new(id + ' wordstart')
+      TkText::IndexString.new(String.new(id) << ' wordstart')
     end
     def wordend
-      TkText::IndexString.new(id + ' wordend')
+      TkText::IndexString.new(String.new(id) << ' wordend')
+    end
+
+    def display_wordstart
+      # Tk8.5 feature
+      TkText::IndexString.new(String.new(id) << ' display wordstart')
+    end
+    def display_wordend
+      # Tk8.5 feature
+      TkText::IndexString.new(String.new(id) << ' display wordend')
     end
   end
 
   class IndexString < String
     include IndexModMethods
+
+    def self.at(x,y)
+      self.new("@#{x},#{y}")
+    end
 
     def self.new(str)
       if str.kind_of?(String)
@@ -159,9 +279,22 @@ class TkText<TkTextWin
   end
   private :create_self
 
-  def index(index)
+  def __strval_optkeys
+    super() << 'inactiveseletcionbackground'
+  end
+  private :__strval_optkeys
+
+  def self.at(x, y)
+    TkText::IndexString.at(x, y)
+  end
+
+  def at(x, y)
+    TkText::IndexString.at(x, y)
+  end
+
+  def index(idx)
     TkText::IndexString.new(tk_send_without_enc('index', 
-                                                _get_eval_enc_str(index)))
+                                                _get_eval_enc_str(idx)))
   end
 
   def get_displaychars(*index)
@@ -214,13 +347,15 @@ class TkText<TkTextWin
   end
 
   def tag_names(index=None)
-    tk_split_simplelist(_fromUTF8(tk_send_without_enc('tag', 'names', _get_eval_enc_str(index)))).collect{|elt|
+    #tk_split_simplelist(_fromUTF8(tk_send_without_enc('tag', 'names', _get_eval_enc_str(index)))).collect{|elt|
+    tk_split_simplelist(tk_send_without_enc('tag', 'names', _get_eval_enc_str(index)), false, true).collect{|elt|
       tagid2obj(elt)
     }
   end
 
   def mark_names
-    tk_split_simplelist(_fromUTF8(tk_send_without_enc('mark', 'names'))).collect{|elt|
+    #tk_split_simplelist(_fromUTF8(tk_send_without_enc('mark', 'names'))).collect{|elt|
+    tk_split_simplelist(tk_send_without_enc('mark', 'names'), false, true).collect{|elt|
       tagid2obj(elt)
     }
   end
@@ -292,15 +427,19 @@ class TkText<TkTextWin
       if slot
         case slot.to_s
         when 'text', 'label', 'show', 'data', 'file'
-          conf = tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          #conf = tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          conf = tk_split_simplelist(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}"), false, true)
         else
-          conf = tk_split_list(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          #conf = tk_split_list(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          conf = tk_split_list(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}"), 0, false, true)
         end
         conf[0] = conf[0][1..-1]
         conf
       else
-        tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)))).collect{|conflist|
-          conf = tk_split_simplelist(conflist)
+        # tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)))).collect{|conflist|
+        #  conf = tk_split_simplelist(conflist)
+        tk_split_simplelist(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)), false, false).collect{|conflist|
+          conf = tk_split_simplelist(conflist, false, true)
           conf[0] = conf[0][1..-1]
           case conf[0]
           when 'text', 'label', 'show', 'data', 'file'
@@ -328,16 +467,20 @@ class TkText<TkTextWin
       if slot
         case slot.to_s
         when 'text', 'label', 'show', 'data', 'file'
-          conf = tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          #conf = tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          conf = tk_split_simplelist(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}"), false, true)
         else
-          conf = tk_split_list(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          #conf = tk_split_list(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}")))
+          conf = tk_split_list(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index), "-#{slot}"), 0, false, true)
         end
         key = conf.shift[1..-1]
         { key => conf }
       else
         ret = {}
-        tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)))).each{|conflist|
-          conf = tk_split_simplelist(conflist)
+        #tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)))).each{|conflist|
+        #  conf = tk_split_simplelist(conflist)
+        tk_split_simplelist(tk_send_without_enc('image', 'configure', _get_eval_enc_str(index)), false, false).each{|conflist|
+          conf = tk_split_simplelist(conflist, false, true)
           key = conf.shift[1..-1]
           case key
           when 'text', 'label', 'show', 'data', 'file'
@@ -390,7 +533,8 @@ class TkText<TkTextWin
   end
 
   def image_names
-    tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'names'))).collect{|elt|
+    #tk_split_simplelist(_fromUTF8(tk_send_without_enc('image', 'names'))).collect{|elt|
+    tk_split_simplelist(tk_send_without_enc('image', 'names'), false, true).collect{|elt|
       tagid2obj(elt)
     }
   end
@@ -413,13 +557,13 @@ class TkText<TkTextWin
         args << tags.shift.collect{|x|_get_eval_string(x)}.join(' ')  # taglist
         args << tags.shift if tags.size > 0                           # chars
       end
-      super index, *args
+      super(index, *args)
     else
       # single chars-taglist argument :: str, tag, tag, ...
       if tags.size == 0
-        super index, chars
+        super(index, chars)
       else
-        super index, chars, tags.collect{|x|_get_eval_string(x)}.join(' ')
+        super(index, chars, tags.collect{|x|_get_eval_string(x)}.join(' '))
       end
     end
   end
@@ -429,7 +573,7 @@ class TkText<TkTextWin
     @tags.each_value do |t|
       t.destroy
     end
-    super
+    super()
   end
 
   def backspace
@@ -589,7 +733,7 @@ class TkText<TkTextWin
   #end
   def tag_bind(tag, seq, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -604,7 +748,7 @@ class TkText<TkTextWin
   #end
   def tag_bind_append(tag, seq, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -817,8 +961,11 @@ class TkText<TkTextWin
   end
 
   def tag_ranges(tag)
+    #l = tk_split_simplelist(tk_send_without_enc('tag', 'ranges',
+    #                                            _get_eval_enc_str(tag)))
     l = tk_split_simplelist(tk_send_without_enc('tag', 'ranges',
-                                                _get_eval_enc_str(tag)))
+                                                _get_eval_enc_str(tag)), 
+                            false, true)
     r = []
     while key=l.shift
       r.push [TkText::IndexString.new(key), TkText::IndexString.new(l.shift)]
@@ -1029,7 +1176,8 @@ class TkText<TkTextWin
 =end
 
   def window_names
-    tk_split_simplelist(_fromUTF8(tk_send_without_enc('window', 'names'))).collect{|elt|
+    # tk_split_simplelist(_fromUTF8(tk_send_without_enc('window', 'names'))).collect{|elt|
+    tk_split_simplelist(tk_send_without_enc('window', 'names'), false, true).collect{|elt|
       tagid2obj(elt)
     }
   end

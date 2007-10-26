@@ -9,7 +9,7 @@
 		<key>UFS</key>
 		<dict>
 			<key>FSName</key>
-			<string>UNIX File System</string>
+			<string>UNIX File System (UFS)</string>
 		</dict>
 	</dict>
 </dict>

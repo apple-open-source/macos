@@ -1,8 +1,8 @@
 /* thr_thr.c - wrappers around solaris threads */
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_thr.c,v 1.13.2.2 2004/01/01 18:16:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_thr.c,v 1.15.2.3 2006/01/03 22:16:10 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -18,7 +18,9 @@
 
 #if defined( HAVE_THR )
 
-#include "ldap_pvt_thread.h"
+#include "ldap_pvt_thread.h" /* Get the thread interface */
+#define LDAP_THREAD_IMPLEMENTATION
+#include "ldap_thr_debug.h"	 /* May rename the symbols defined below */
 
 /*******************
  *                 *

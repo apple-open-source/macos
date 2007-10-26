@@ -28,7 +28,7 @@
 .Op Ar t n              \" [t n]
 .Sh DESCRIPTION          \" Section Header - required - don't modify
 The
-.Nm
+.Nm sa1
 command is a shell script used to invoke the system
 activity data collector,
 .Nm sadc .
@@ -44,7 +44,7 @@ where the
 .Ar dd
 represents the current day of the month.
 .Pp                      \" Inserts a space
-.Nm
+.Nm sa1
 is intended to be started by cron.
 .Sh EXAMPLE CRON ENTRY
 .Bd -literal
@@ -72,14 +72,14 @@ are digits that represent the day of the month.
 .El
 .Sh SEE ALSO 
 .\" List links in ascending order by section, alphabetically within a section.
-.Xr sa2 8 , 
-.Xr sadc 8 ,
-.Xr sar 1 ,
-.Xr iostat 8 ,
-.Xr vm_stat 1 ,
-.Xr netstat 1 ,
-.Xr top 1 , 
-.Xr sc_usage 1 ,
-.Xr fs_usage 1 ,
 .Xr crontab 1 ,
-.Xr crontab 5
+.Xr fs_usage 1 ,
+.Xr netstat 1 ,
+.Xr sar 1 ,
+.Xr sc_usage 1 ,
+.Xr top 1 , 
+.Xr vm_stat 1 ,
+.Xr crontab 5 ,
+.Xr iostat 8 ,
+.Xr sa2 8 , 
+.Xr sadc 8

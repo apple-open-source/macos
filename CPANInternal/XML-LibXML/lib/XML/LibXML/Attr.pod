@@ -1,0 +1,108 @@
+=head1 NAME
+
+XML::LibXML::Attr - XML::LibXML Attribute Class
+
+=head1 SYNOPSIS
+
+  $attr = XML::LibXML::Attr->new($name [,$value]);
+  $string = $attr->getValue();
+  $value = $attr->value;
+  $attr->setValue( $string );
+  $node = $attr->getOwnerElement();
+  $attr->setNamespace($nsURI, $prefix);
+
+
+=head1 DESCRIPTION
+
+This is the interface to handle Attributes like ordinary nodes. The naming of
+the class relies on the W3C DOM documentation.
+
+=over 4
+
+=item B<new>
+
+  $attr = XML::LibXML::Attr->new($name [,$value]);
+
+Class constructor. If you need to work with iso encoded strings, you should
+always use the createAttrbute of XML::LibXML::Document.
+
+
+=item B<getValue>
+
+  $string = $attr->getValue();
+
+Returns the value stored for the attribute. If undef is returned, the attribute
+has no value, which is different of being not specified.
+
+
+
+=back
+
+=over 4
+
+=item B<value>
+
+  $value = $attr->value;
+
+Alias for getValue()
+
+
+
+=back
+
+=over 4
+
+=item B<setValue>
+
+  $attr->setValue( $string );
+
+This is needed to set a new attribute value. If iso encoded strings are passed
+as parameter, the node has to be bound to a document, otherwise the encoding
+might be done incorrectly.
+
+
+
+=back
+
+=over 4
+
+=item B<getOwnerElement>
+
+  $node = $attr->getOwnerElement();
+
+returns the node the attribute belongs to. If the attribute is not bound to a
+node, undef will be returned. Overwriting the underlying implementation, the
+parentNode function will return undef, instead of the owner element.
+
+
+
+=back
+
+=over 4
+
+=item B<setNamespace>
+
+  $attr->setNamespace($nsURI, $prefix);
+
+This function activates a namespace for the given attribute. If the attribute
+was not previously declared in the context of the attribute this function will
+be silently ignored. In this case you may wish to call setNamespace() on the
+ownerElement.
+
+
+
+=back
+
+=head1 AUTHORS
+
+Matt Sergeant, 
+Christian Glahn, 
+=head1 VERSION
+
+1.58
+
+=head1 COPYRIGHT
+
+2001-2004, AxKit.com Ltd; 2002-2004 Christian Glahn, All rights reserved.
+
+=cut

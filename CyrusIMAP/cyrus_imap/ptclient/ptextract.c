@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: ptextract.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $ */
+/* $Id: ptextract.c,v 1.4 2003/02/13 20:15:56 rjs3 Exp $ */
 
 #include <sys/types.h>
 #include <krb.h>

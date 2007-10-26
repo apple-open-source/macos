@@ -457,7 +457,7 @@ linklocal_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 					goto stop;
 				}
  				ret = inet6_attach_interface(s, if_name(if_p));
- 				if (ret != 0) {
+ 				if (ret && ret != EEXIST) {
  					my_log(LOG_ERR, "LINKLOCAL: inet6_attach_interface(%s) failed, %s (%d)",
  						if_name(if_p), strerror(ret), ret);
 		                }

@@ -1,8 +1,9 @@
 ;;; viper-init.el --- some common definitions for Viper
 
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Michael Kifer <kifer@cs.sunysb.edu>
+;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 
 ;; This file is part of GNU Emacs.
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -37,6 +38,9 @@
 (defvar current-input-method)
 (defvar default-input-method)
 (defvar describe-current-input-method-function)
+(defvar bar-cursor)
+(defvar default-cursor-type)
+(defvar cursor-type)
 ;; end pacifier
 
 
@@ -50,10 +54,33 @@
 ;; Is it Emacs?
 (defconst viper-emacs-p (not viper-xemacs-p))
 ;; Tell whether we are running as a window application or on a TTY
+
+;; This is used to avoid compilation warnings. When emacs/xemacs forms can
+;; generate compile time warnings, we use this macro.
+;; In this case, the macro will expand into the form that is appropriate to the
+;; compiler at hand.
+;; Suggested by rms.
+(defmacro viper-cond-compile-for-xemacs-or-emacs (xemacs-form emacs-form)
+  (if (string-match "XEmacs" emacs-version)
+      xemacs-form emacs-form))
+
+
 (defsubst viper-device-type ()
-  (if viper-emacs-p
-      window-system
-    (device-type (selected-device))))
+  (viper-cond-compile-for-xemacs-or-emacs
+   (device-type (selected-device))
+   window-system
+   ))
+
+(defun viper-color-display-p ()
+  (condition-case nil
+      (viper-cond-compile-for-xemacs-or-emacs
+       (eq (device-class (selected-device)) 'color) ; xemacs form
+       (if (fboundp 'display-color-p) ; emacs form
+	   (display-color-p)
+	 (x-display-color-p))
+	)
+    (error nil)))
+
 ;; in XEmacs: device-type is tty on tty and stream in batch.
 (defun viper-window-display-p ()
   (and (viper-device-type) (not (memq (viper-device-type) '(tty stream pc)))))
@@ -81,6 +108,7 @@ In all likelihood, you don't need to bother with this setting."
 (defun viper-has-face-support-p ()
   (cond ((viper-window-display-p))
 	(viper-force-faces)
+	((viper-color-display-p))
 	(viper-emacs-p (memq (viper-device-type) '(pc)))
 	(viper-xemacs-p (memq (viper-device-type) '(tty pc)))))
 
@@ -335,8 +363,8 @@ Use `M-x viper-set-expert-level' to change this.")
 (defun viper-activate-input-method ()
   (cond ((and viper-emacs-p (fboundp 'activate-input-method))
 	 (activate-input-method default-input-method))
-	((and viper-xemacs-p (fboundp 'quail-mode))
-	 (quail-mode 1))))
+	((featurep 'xemacs)
+	 (if (fboundp 'quail-mode) (quail-mode 1)))))
 
 ;; Set quail-mode to ARG
 (defun viper-set-input-method (arg)
@@ -396,13 +424,30 @@ delete the text being replaced, as in standard Vi."
   "*Cursor color when Viper is in Replace state."
   :type 'string
   :group 'viper)
+(if (fboundp 'make-variable-frame-local)
+    (make-variable-frame-local 'viper-replace-overlay-cursor-color))
+
 (defcustom viper-insert-state-cursor-color "Green"
   "Cursor color when Viper is in insert state."
   :type 'string
   :group 'viper)
+(if (fboundp 'make-variable-frame-local)
+    (make-variable-frame-local 'viper-insert-state-cursor-color))
+
+;; viper-emacs-state-cursor-color doesn't work well. Causes cursor colors to be
+;; confused in some cases. So, this var is nulled for now.
+;; (defcustom viper-emacs-state-cursor-color "Magenta"
+(defcustom viper-emacs-state-cursor-color nil
+  "Cursor color when Viper is in Emacs state."
+  :type 'string
+  :group 'viper)
+(if (fboundp 'make-variable-frame-local)
+    (make-variable-frame-local 'viper-emacs-state-cursor-color))
 
 ;; internal var, used to remember the default cursor color of emacs frames
 (defvar viper-vi-state-cursor-color nil)
+(if (fboundp 'make-variable-frame-local)
+    (make-variable-frame-local 'viper-vi-state-cursor-color))
 
 (viper-deflocalvar viper-replace-overlay nil "")
 (put 'viper-replace-overlay 'permanent-local t)
@@ -434,15 +479,18 @@ color displays.  By default, the delimiters are used only on TTYs."
   :group 'viper)
 
 ;; XEmacs requires glyphs
-(if viper-xemacs-p
-    (progn
-      (or (glyphp viper-replace-region-end-delimiter)
-	  (setq viper-replace-region-end-delimiter
-		(make-glyph viper-replace-region-end-delimiter)))
-      (or (glyphp viper-replace-region-start-delimiter)
-	  (setq viper-replace-region-start-delimiter
-		(make-glyph viper-replace-region-start-delimiter)))
-      ))
+(viper-cond-compile-for-xemacs-or-emacs
+ (progn ; xemacs
+   (or (glyphp viper-replace-region-end-delimiter)
+       (setq viper-replace-region-end-delimiter
+	     (make-glyph viper-replace-region-end-delimiter)))
+   (or (glyphp viper-replace-region-start-delimiter)
+       (setq viper-replace-region-start-delimiter
+	     (make-glyph viper-replace-region-start-delimiter)))
+   )
+  nil ; emacs
+ )
+
 
 
 ;; These are local marker that must be initialized to nil and moved with
@@ -516,7 +564,7 @@ defined in the low-level key-translation-map or function-key-map, such as those
 emitted by the arrow and function keys. Other sequences, e.g., \\e/, are
 treated as ESC command followed by a `/'. This is done for people who type fast
 and tend to hit other characters right after they hit ESC. Other people like
-Emacs to translate ESC sequences all the time. 
+Emacs to translate ESC sequences all the time.
 The default is to translate all sequences only when using a dumb terminal.
 This permits you to use ESC as a meta key in insert mode."
   :type 'boolean
@@ -809,85 +857,71 @@ Related buffers can be cycled through via :R and :P commands."
 
 ;;; Face-saving tricks
 
-(defun viper-hide-face (face)
-  (if (and (viper-has-face-support-p) viper-emacs-p)
-      (add-to-list 'facemenu-unlisted-faces face)))
-
-
 (defgroup viper-highlighting nil
   "Hilighting of replace region, search pattern, minibuffer, etc."
   :prefix "viper-"
   :group 'viper)
 
 
-(defface viper-search-face
+(defface viper-search
   '((((class color)) (:foreground "Black" :background "khaki"))
     (t (:underline t :stipple "gray3")))
   "*Face used to flash out the search pattern."
   :group 'viper-highlighting)
 ;; An internal variable.  Viper takes the face from here.
-(defvar viper-search-face 'viper-search-face
+(defvar viper-search-face 'viper-search
   "Face used to flash out the search pattern.
 DO NOT CHANGE this variable.  Instead, use the customization widget
-to customize the actual face object `viper-search-face'
+to customize the actual face object `viper-search'
 this variable represents.")
-(viper-hide-face 'viper-search-face)
 
-
-(defface viper-replace-overlay-face
+(defface viper-replace-overlay
   '((((class color)) (:foreground "Black" :background "darkseagreen2"))
     (t (:underline t :stipple "gray3")))
   "*Face for highlighting replace regions on a window display."
   :group 'viper-highlighting)
 ;; An internal variable.  Viper takes the face from here.
-(defvar viper-replace-overlay-face 'viper-replace-overlay-face
+(defvar viper-replace-overlay-face 'viper-replace-overlay
   "Face for highlighting replace regions on a window display.
 DO NOT CHANGE this variable.  Instead, use the customization widget
-to customize the actual face object `viper-replace-overlay-face'
+to customize the actual face object `viper-replace-overlay'
 this variable represents.")
-(viper-hide-face 'viper-replace-overlay-face)
 
-
-(defface viper-minibuffer-emacs-face
+(defface viper-minibuffer-emacs
   '((((class color)) (:foreground "Black" :background "darkseagreen2"))
-    (t (:bold t)))
+    (t (:weight bold)))
   "Face used in the Minibuffer when it is in Emacs state."
   :group 'viper-highlighting)
 ;; An internal variable.  Viper takes the face from here.
-(defvar viper-minibuffer-emacs-face 'viper-minibuffer-emacs-face
+(defvar viper-minibuffer-emacs-face 'viper-minibuffer-emacs
   "Face used in the Minibuffer when it is in Emacs state.
 DO NOT CHANGE this variable.  Instead, use the customization widget
-to customize the actual face object `viper-minibuffer-emacs-face'
+to customize the actual face object `viper-minibuffer-emacs'
 this variable represents.")
-(viper-hide-face 'viper-minibuffer-emacs-face)
 
-
-(defface viper-minibuffer-insert-face
+(defface viper-minibuffer-insert
   '((((class color)) (:foreground "Black" :background "pink"))
-    (t (:italic t)))
+    (t (:slant italic)))
   "Face used in the Minibuffer when it is in Insert state."
   :group 'viper-highlighting)
 ;; An internal variable.  Viper takes the face from here.
-(defvar viper-minibuffer-insert-face 'viper-minibuffer-insert-face
+(defvar viper-minibuffer-insert-face 'viper-minibuffer-insert
   "Face used in the Minibuffer when it is in Insert state.
 DO NOT CHANGE this variable.  Instead, use the customization widget
-to customize the actual face object `viper-minibuffer-insert-face'
+to customize the actual face object `viper-minibuffer-insert'
 this variable represents.")
-(viper-hide-face 'viper-minibuffer-insert-face)
 
-
-(defface viper-minibuffer-vi-face
+(defface viper-minibuffer-vi
   '((((class color)) (:foreground "DarkGreen" :background "grey"))
     (t (:inverse-video t)))
   "Face used in the Minibuffer when it is in Vi state."
   :group 'viper-highlighting)
 ;; An internal variable.  Viper takes the face from here.
-(defvar viper-minibuffer-vi-face 'viper-minibuffer-vi-face
+(defvar viper-minibuffer-vi-face 'viper-minibuffer-vi
   "Face used in the Minibuffer when it is in Vi state.
 DO NOT CHANGE this variable.  Instead, use the customization widget
-to customize the actual face object `viper-minibuffer-vi-face'
+to customize the actual face object `viper-minibuffer-vi'
 this variable represents.")
-(viper-hide-face 'viper-minibuffer-vi-face)
 
 ;; the current face to be used in the minibuffer
 (viper-deflocalvar
@@ -976,18 +1010,19 @@ Should be set in `~/.viper' file."
 (defun viper-restore-cursor-type ()
   (condition-case nil
       (if viper-xemacs-p
-	  (setq bar-cursor nil)
+	  (set (make-local-variable 'bar-cursor) nil)
 	(setq cursor-type default-cursor-type))
-    (error)))
+    (error nil)))
 
 (defun viper-set-insert-cursor-type ()
   (if viper-xemacs-p
-      (setq bar-cursor 2)
+      (set (make-local-variable 'bar-cursor) 2)
     (setq cursor-type '(bar . 2))))
 
 
-;;; Local Variables:
-;;; eval: (put 'viper-deflocalvar 'lisp-indent-hook 'defun)
-;;; End:
+;; Local Variables:
+;; eval: (put 'viper-deflocalvar 'lisp-indent-hook 'defun)
+;; End:
 
+;; arch-tag: 4efa2416-1fcb-4690-be10-1a2a0248d250
 ;;; viper-init.el ends here

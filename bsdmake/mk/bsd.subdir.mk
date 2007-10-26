@@ -1,8 +1,8 @@
 #	from: @(#)bsd.subdir.mk	5.9 (Berkeley) 2/1/91
-# $FreeBSD: src/share/mk/bsd.subdir.mk,v 1.47 2004/09/07 15:27:10 imp Exp $
+# $FreeBSD: src/share/mk/bsd.subdir.mk,v 1.50 2005/05/31 07:14:51 ru Exp $
 #
 # The include file <bsd.subdir.mk> contains the default targets
-# for building subdirectories. 
+# for building subdirectories.
 #
 # For all of the directories listed in the variable SUBDIRS, the
 # specified directory will be visited and the target made. There is
@@ -57,18 +57,19 @@ _SUBDIR: .USE
 	done
 .endif
 
-${SUBDIR}::
+${SUBDIR}: .PHONY
 	${_+_}@if test -d ${.TARGET}.${MACHINE_ARCH}; then \
 		cd ${.CURDIR}/${.TARGET}.${MACHINE_ARCH}; \
 	else \
 		cd ${.CURDIR}/${.TARGET}; \
 	fi; \
-	${_+_}${MAKE} all
+	${MAKE} all
 
 
 .for __target in all all-man checkdpadd clean cleandepend cleandir \
     depend distribute lint maninstall \
-    obj objlink realinstall regress tags
+    obj objlink realinstall regress tags \
+    ${SUBDIR_TARGETS}
 ${__target}: _SUBDIR
 .endfor
 

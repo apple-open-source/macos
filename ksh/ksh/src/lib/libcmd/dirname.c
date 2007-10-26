@@ -1,27 +1,23 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -33,7 +29,7 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: dirname (AT&T Labs Research) 2000-03-07 $\n]"
+"[-?\n@(#)$Id: dirname (AT&T Research) 2000-03-07 $\n]"
 USAGE_LICENSE
 "[+NAME?dirname - return directory portion of file name]"
 "[+DESCRIPTION?\bdirname\b treats \astring\a as a file name and returns "
@@ -62,9 +58,9 @@ USAGE_LICENSE
 "[+SEE ALSO?\bbasename\b(1), \bgetconf\b(1), \bdirname\b(3)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
 
-static void dirname(register Sfio_t *outfile, register const char *pathname)
+static void l_dirname(register Sfio_t *outfile, register const char *pathname)
 {
 	register const char  *last;
 	/* go to end of path */
@@ -101,7 +97,7 @@ b_dirname(int argc,register char *argv[], void* context)
 {
 	register int n;
 
-	cmdinit(argv, context, ERROR_CATALOG, 0);
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
 	while (n = optget(argv, usage)) switch (n)
 	{
 	case ':':
@@ -115,6 +111,6 @@ b_dirname(int argc,register char *argv[], void* context)
 	argc -= opt_info.index;
 	if(error_info.errors || argc != 1)
 		error(ERROR_usage(2),"%s", optusage(NiL));
-	dirname(sfstdout,argv[0]);
+	l_dirname(sfstdout,argv[0]);
 	return(0);
 }

@@ -55,5 +55,3 @@ void CACDataAttributeCoder::decode(TokenContext *tokenContext,
 		cacRecord.getDataAttribute(tokenContext));
 }
 
-
-/* arch-tag: 36510900-0DBC-11D9-9CFC-000A9595DEEE */

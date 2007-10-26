@@ -96,7 +96,6 @@ Includes
 #include <sys/syslog.h>
 #include <sys/sockio.h>
 #include <sys/kauth.h>
-#include <sys/proc_internal.h>
 #include <machine/spl.h>
 
 #include <kern/thread.h>
@@ -328,7 +327,7 @@ int pppserial_dispose()
     if (!pppsoft_net_terminate) {
         pppsoft_net_terminate = 1;
         wakeup(&pppsoft_net_wakeup);
-        sleep(&pppsoft_net_terminate, PZERO+1);
+        msleep(&pppsoft_net_terminate, 0, PZERO+1, 0, 0);
         linesw[PPPDISC] = pppserial_disc;
     }
 	
@@ -444,7 +443,7 @@ int pppserial_detach(struct ppp_link *link)
     ld->state |= STATE_CLOSING; 
     
     while (ld->state & STATE_LKBUSY) {
-        sleep(&ld->state, PZERO+1);
+        msleep(&ld->state, 0, PZERO+1, 0, 0);
     }
 
     for (;;) {
@@ -504,7 +503,7 @@ void pppisr_thread(void)
             pppserial_intr();
         }
 
-        sleep(&pppsoft_net_wakeup, PZERO+1);
+        msleep(&pppsoft_net_wakeup, 0, PZERO+1, 0, 0);
     }
 
     wakeup(&pppsoft_net_terminate);

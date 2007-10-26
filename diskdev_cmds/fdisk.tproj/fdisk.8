@@ -59,6 +59,8 @@
 .Op Fl c Ar cylinders
 .Op Fl h Ar heads
 .Op Fl s Ar sectors
+.Op Fl S Ar size
+.Op Fl b Ar size
 .Ar device
 .Sh DESCRIPTION
 In order for the BIOS to boot the kernel, certain conventions must be
@@ -108,6 +110,8 @@ Specifies an alternate BIOS geometry for
 to use.
 .It Fl S Ar size
 Specify the disk size in blocks.
+.It Fl b Ar size
+Specify the number of bytes per disk block.
 .El
 .Pp
 The DOS
@@ -136,8 +140,10 @@ The geometry displayed is a synthetic geometry unless another geometry
 has been selected using the
 .Fl c ,
 .Fl h ,
+.Fl s ,
+.Fl S ,
 and
-.Fl s
+.Fl b
 options.
 In the future, 
 .Nm
@@ -211,9 +217,9 @@ a Darwin HFS partition (type AF hex).
 Creates an 8Mb boot partition (type AB hex)
 and makes the rest of the disk
 a Darwin UFS partition (type A8 hex).
-.It Em "hfs"
-Makes the entire disk one Darwin UFS partition (type A8 hex).
 .It Em "ufs"
+Makes the entire disk one Darwin UFS partition (type A8 hex).
+.It Em "hfs"
 Makes the entire disk one HFS+ partition (type AF hex).
 .It Em "dos"
 Makes the entire disk one DOS partition (type 0C hex).

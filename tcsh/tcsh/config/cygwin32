@@ -59,18 +59,12 @@
  *		This may or may not be true.  For example, Apple Unix
  *		(OREO) has BSDJOBS and BSDSIGS but not BSDTIMES.
  */
-/* #undef BSDTIMES */
+#define BSDTIMES
 
 /*
  * BSDLIMIT	You have BSD-style resource limit stuff (getrlimit/setrlimit)
  */
-/* #undef BSDLIMIT */
-
-/*
- * BSDNICE	Your system uses setpriority() instead of nice, to
- *		change a processes scheduling priority
- */
-/* #undef BSDNICE */
+#define BSDLIMIT
 
 /*
  * TERMIO	You have struct termio instead of struct sgttyb.
@@ -97,31 +91,10 @@
  */
 /* #undef YPBUGS */
 
-/*
- * SIGVOID	Define this if your signal handlers return void.  On older
- *		systems, signal returns int, but on newer ones, it returns void.
- */
-#define SIGVOID 
-
-/*
- * HAVEDUP2	Define this if your system supports dup2().
- */
-#define HAVEDUP2
-
-/*
- * UTHOST	Does the utmp file have a host field?
- */
-#define UTHOST
-
-/*
- * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
- */
-#define DIRENT
 /****************** local defines *********************/
 
 #define HAVENOLIMIT
 
-#undef PW_SHADOW
 #ifndef _PATH_TCSHELL
 #define _PATH_TCSHELL "/bin/tcsh"
 #endif
@@ -129,10 +102,6 @@
 #ifdef BSDSIGS
 # define __USE_BSD_SIGNAL
 #endif
-
-/****************** configurable hacks ****************/
-/* have been moved to config_f.h */
-#include "config_f.h"
 
 /* that gives too long startup delays for me */
 

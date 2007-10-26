@@ -546,7 +546,7 @@ KLStatus __KLPreferencesGetKerberosLoginName (char **outName)
     if (outName == NULL) { err = KLError_ (klParameterErr); }
     
     if (err == klNoErr) {
-        struct passwd *pw = getpwuid (LoginSessionGetSessionUID ());
+        struct passwd *pw = getpwuid (kipc_session_get_session_uid ());
         if (pw != NULL) {
             err = __KLCreateString (pw->pw_name, &osName);
         }
@@ -901,8 +901,7 @@ static KLStatus __KLPreferencesGetKerberosDefaultRealm (char **outDefaultRealm)
     krb5_context context;
     const char  *defaultRealm = NULL;
     char        *defaultRealmV5 = NULL;
-    char         defaultRealmV4[REALM_SZ];
-	
+    
     if (err == klNoErr) {
         err = krb5_init_context (&context);
     }
@@ -910,8 +909,6 @@ static KLStatus __KLPreferencesGetKerberosDefaultRealm (char **outDefaultRealm)
     if (err == klNoErr) {
     	if (krb5_get_default_realm(context, &defaultRealmV5) == 0) {
             defaultRealm = defaultRealmV5;
-        } else if (krb_get_lrealm (defaultRealmV4, 1) == KSUCCESS) {
-            defaultRealm = defaultRealmV4;
         } else {
             defaultRealm = kNoDefaultRealm;
         }
@@ -934,7 +931,7 @@ static KLStatus __KLPreferencesEnsureKerberosDefaultRealmIsInFavorites (KLString
     KLStatus err = klNoErr;
     char *defaultRealm = NULL;
     char *defaultKerberosRealm = NULL;
-    KLIndex index;
+    KLIndex realmIndex;
 
     if (inRealmList == NULL) { err = KLError_ (klParameterErr); }
     
@@ -945,7 +942,7 @@ static KLStatus __KLPreferencesEnsureKerberosDefaultRealmIsInFavorites (KLString
 
     if (err == klNoErr) {
         if (defaultKerberosRealm[0] != '\0') {  // Not an empty realm
-            if (__KLStringArrayGetIndexForString (inRealmList, defaultKerberosRealm, &index) != klNoErr) {
+            if (__KLStringArrayGetIndexForString (inRealmList, defaultKerberosRealm, &realmIndex) != klNoErr) {
                 // realm not present... Add it.
                 err = __KLStringArrayInsertStringBeforeIndex (inRealmList, defaultKerberosRealm, 0);
             }
@@ -960,7 +957,7 @@ static KLStatus __KLPreferencesEnsureKerberosDefaultRealmIsInFavorites (KLString
 
     if (err == klNoErr) {
         if (defaultRealm[0] != '\0') {  // Not an empty realm
-            if (__KLStringArrayGetIndexForString (inRealmList, defaultRealm, &index) != klNoErr) {
+            if (__KLStringArrayGetIndexForString (inRealmList, defaultRealm, &realmIndex) != klNoErr) {
                 // realm not present and no other realms in the list... Add it.
                 err = __KLStringArrayInsertStringBeforeIndex (inRealmList, defaultRealm, 0);
             }
@@ -1028,7 +1025,7 @@ KLStatus __KLPreferencesSetKerberosLoginRealm (KLIndex inIndex, const char *inNa
     KLStatus err = klNoErr;
     KLStringArray realmList = NULL;
     KLIndex count, i;
-    KLIndex index = inIndex;
+    KLIndex realmIndex = inIndex;
     
     if (inName == NULL) { err = KLError_ (klParameterErr); }
     
@@ -1041,13 +1038,13 @@ KLStatus __KLPreferencesSetKerberosLoginRealm (KLIndex inIndex, const char *inNa
     }
     
     if (err == klNoErr) {
-        err = __KLStringArraySetStringAtIndex (realmList, inName, index);
+        err = __KLStringArraySetStringAtIndex (realmList, inName, realmIndex);
         if (err != klNoErr) { err = KLError_ (klRealmDoesNotExistErr); }
     }
     
     // Find duplicates before the new realm and remove them
     if (err == klNoErr) {
-        for (i = 0; i < index; i++) {
+        for (i = 0; i < realmIndex; i++) {
             char *string = NULL;
             
             if (err == klNoErr) {
@@ -1057,7 +1054,7 @@ KLStatus __KLPreferencesSetKerberosLoginRealm (KLIndex inIndex, const char *inNa
             if (err == klNoErr) {
                 if (strcmp (string, inName) == 0) {
                     err = __KLStringArrayRemoveStringAtIndex (realmList, i);
-                    if (err == klNoErr) { i--; index--; }
+                    if (err == klNoErr) { i--; realmIndex--; }
                 }
             }
         }
@@ -1065,7 +1062,7 @@ KLStatus __KLPreferencesSetKerberosLoginRealm (KLIndex inIndex, const char *inNa
 
     // Find duplicates after the new realm and remove them
     if (err == klNoErr) {
-        for (i = index + 1; i < count; i++) {
+        for (i = realmIndex + 1; i < count; i++) {
             char *string = NULL;
             
             if (err == klNoErr) {
@@ -1121,7 +1118,7 @@ KLStatus __KLPreferencesInsertKerberosLoginRealm (KLIndex inIndex, const char *i
 {
     KLStatus err = klNoErr;
     KLStringArray realmList = NULL;
-    KLIndex index = 0;
+    KLIndex realmIndex = 0;
     KLIndex count, i;
     
     if (inName == NULL) { err = KLError_ (klParameterErr); }
@@ -1135,16 +1132,16 @@ KLStatus __KLPreferencesInsertKerberosLoginRealm (KLIndex inIndex, const char *i
     }
 
     if (err == klNoErr) {
-        index = (inIndex > count) ? count : inIndex;  // make sure the index isn't greater than the count
+        realmIndex = (inIndex > count) ? count : inIndex;  // make sure the realmIndex isn't greater than the count
     }
     
     if (err == klNoErr) {
-        err = __KLStringArrayInsertStringBeforeIndex (realmList, inName, index);
+        err = __KLStringArrayInsertStringBeforeIndex (realmList, inName, realmIndex);
     }
 
     // Find duplicates before the new realm and remove them
     if (err == klNoErr) {
-        for (i = 0; i < index; i++) {
+        for (i = 0; i < realmIndex; i++) {
             char *string = NULL;
             
             if (err == klNoErr) {
@@ -1154,7 +1151,7 @@ KLStatus __KLPreferencesInsertKerberosLoginRealm (KLIndex inIndex, const char *i
             if (err == klNoErr) {
                 if (strcmp (string, inName) == 0) {
                     err = __KLStringArrayRemoveStringAtIndex (realmList, i);
-                    if (err == klNoErr) { i--; index--; }
+                    if (err == klNoErr) { i--; realmIndex--; }
                 }
             }
         }
@@ -1162,7 +1159,7 @@ KLStatus __KLPreferencesInsertKerberosLoginRealm (KLIndex inIndex, const char *i
 
     // Find duplicates after the new realm and remove them
     if (err == klNoErr) {
-        for (i = index + 1; i < count; i++) {
+        for (i = realmIndex + 1; i < count; i++) {
             char *string = NULL;
             
             if (err == klNoErr) {
@@ -1296,7 +1293,7 @@ KLStatus __KLPreferencesSetKerberosLoginDefaultRealmByName (const char *inName)
 {
     KLStatus err = klNoErr;
     KLStringArray realmList = NULL;
-    KLIndex index;
+    KLIndex realmIndex;
     
     if (err == klNoErr) {
         err = __KLPreferencesGetFavoriteRealmList (&realmList);
@@ -1304,7 +1301,7 @@ KLStatus __KLPreferencesSetKerberosLoginDefaultRealmByName (const char *inName)
     
     if (err == klNoErr) {
         if (inName[0] != '\0') { // Allow empty default realm
-            err = __KLStringArrayGetIndexForString (realmList, inName, &index);
+            err = __KLStringArrayGetIndexForString (realmList, inName, &realmIndex);
             if (err != klNoErr) { err = KLError_ (klRealmDoesNotExistErr); }
         }
     }

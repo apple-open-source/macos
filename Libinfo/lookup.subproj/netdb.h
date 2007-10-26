@@ -81,8 +81,8 @@
 #ifndef _NETDB_H_
 #define _NETDB_H_
 
-#include <stdint.h>
 #include <_types.h>
+#include <stdint.h>
 #include <netinet/in.h>		/* IPPORT_RESERVED */
 
 #ifndef	_SIZE_T
@@ -118,9 +118,9 @@ struct	hostent {
 	int	h_addrtype;	/* host address type */
 	int	h_length;	/* length of address */
 	char	**h_addr_list;	/* list of addresses from name server */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	h_addr	h_addr_list[0]	/* address, for backward compatiblity */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 };
 
 /*
@@ -158,54 +158,54 @@ struct addrinfo {
 	struct addrinfo *ai_next;	/* next structure in linked list */
 };
 
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 struct rpcent {
         char    *r_name;        /* name of server for this rpc program */
         char    **r_aliases;    /* alias list */
         int     r_number;       /* rpc program number */
 };
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 /*
  * Error return codes from gethostbyname() and gethostbyaddr()
  * (left in extern int h_errno).
  */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	NETDB_INTERNAL	-1	/* see errno */
 #define	NETDB_SUCCESS	0	/* no problem */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	HOST_NOT_FOUND	1 /* Authoritative Answer Host not found */
 #define	TRY_AGAIN	2 /* Non-Authoritative Host not found, or SERVERFAIL */
 #define	NO_RECOVERY	3 /* Non recoverable errors, FORMERR, REFUSED, NOTIMP */
 #define	NO_DATA		4 /* Valid name, no data record of requested type */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	NO_ADDRESS	NO_DATA		/* no address, look for MX record */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 /*
  * Error return codes from getaddrinfo()
  */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	EAI_ADDRFAMILY	 1	/* address family for hostname not supported */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	EAI_AGAIN	 2	/* temporary failure in name resolution */
 #define	EAI_BADFLAGS	 3	/* invalid value for ai_flags */
 #define	EAI_FAIL	 4	/* non-recoverable failure in name resolution */
 #define	EAI_FAMILY	 5	/* ai_family not supported */
 #define	EAI_MEMORY	 6	/* memory allocation failure */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	EAI_NODATA	 7	/* no address associated with hostname */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	EAI_NONAME	 8	/* hostname nor servname provided, or not known */
 #define	EAI_SERVICE	 9	/* servname not supported for ai_socktype */
 #define	EAI_SOCKTYPE	10	/* ai_socktype not supported */
 #define	EAI_SYSTEM	11	/* system error returned in errno */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define EAI_BADHINTS	12
 #define EAI_PROTOCOL	13
 #define EAI_MAX		14
-#else  /* _POSIX_C_SOURCE */
+#else  /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
 #define EAI_OVERFLOW    14	/* An argument buffer overflowed */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 /*
  * Flag values for getaddrinfo()
@@ -214,27 +214,27 @@ struct rpcent {
 #define	AI_CANONNAME	0x00000002 /* fill ai_canonname */
 #define	AI_NUMERICHOST	0x00000004 /* prevent name resolution */
 /* valid flags for addrinfo */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	AI_MASK		(AI_PASSIVE | AI_CANONNAME | AI_NUMERICHOST)
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	AI_ALL		0x00000100 /* IPv6 and IPv4-mapped (with AI_V4MAPPED) */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	AI_V4MAPPED_CFG	0x00000200 /* accept IPv4-mapped if kernel supports */
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 #define	AI_ADDRCONFIG	0x00000400 /* only if any address is assigned */
 #define	AI_V4MAPPED	0x00000800 /* accept IPv4-mapped IPv6 address */
 /* special recommended flags for getipnodebyname */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	AI_DEFAULT	(AI_V4MAPPED_CFG | AI_ADDRCONFIG)
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 /*
  * Constants for getnameinfo()
  */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	NI_MAXHOST	1025
 #define	NI_MAXSERV	32
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 /*
  * Flag values for getnameinfo()
  */
@@ -243,16 +243,17 @@ struct rpcent {
 #define	NI_NAMEREQD	0x00000004
 #define	NI_NUMERICSERV	0x00000008
 #define	NI_DGRAM	0x00000010
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define NI_WITHSCOPEID	0x00000020
 
 /*
  * Scope delimit character
  */
 #define SCOPE_DELIMITER	'%'
-#endif /* !_POSIX_C_SOURCE */
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 __BEGIN_DECLS
+
 void		endhostent(void);
 void		endnetent(void);
 void		endprotoent(void);
@@ -283,20 +284,29 @@ void		sethostent(int);
 void		setnetent(int);
 void		setprotoent(int);
 void		setservent(int);
-#ifndef _POSIX_C_SOURCE
+
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 void		freehostent(struct hostent *);
 struct hostent	*gethostbyname2(const char *, int);
 struct hostent	*getipnodebyaddr(const void *, size_t, int, int *);
 struct hostent	*getipnodebyname(const char *, int, int, int *);
 struct rpcent	*getrpcbyname(const char *name);
+#ifdef __LP64__
+struct rpcent	*getrpcbynumber(int number);
+#else
 struct rpcent	*getrpcbynumber(long number);
+#endif
 struct rpcent	*getrpcent(void);
 void		setrpcent(int stayopen);
 void		endrpcent(void);
 void		herror(const char *);
 const char	*hstrerror(int);
-int		innetgr(const char *, const char *, const char *, const char *);
-#endif /* !_POSIX_C_SOURCE */
+int			innetgr(const char *, const char *, const char *, const char *);
+int			getnetgrent(char **, char **, char **);
+void		endnetgrent(void);
+void		setnetgrent(const char *);
+#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+
 __END_DECLS
 
 #endif /* !_NETDB_H_ */

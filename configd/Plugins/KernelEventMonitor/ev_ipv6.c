@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,18 +34,6 @@
 #include "ev_ipv6.h"
 
 #define s6_addr16 __u6_addr.__u6_addr16
-
-#ifndef	kSCPropNetIPv6DestAddresses
-#define kSCPropNetIPv6DestAddresses		SCSTR("DestAddresses")
-#endif
-
-#ifndef	kSCPropNetIPv6Flags
-#define kSCPropNetIPv6Flags			SCSTR("Flags")
-#endif
-
-#ifndef	kSCPropNetIPv6PrefixLength
-#define kSCPropNetIPv6PrefixLength		SCSTR("PrefixLength")
-#endif
 
 #ifdef	NOTYET
 #ifndef	kSCPropNetIPv6ScopeID
@@ -248,6 +236,7 @@ updateStore(const void *key, const void *value, void *context)
 		} else if (dict) {
 			cache_SCDynamicStoreRemoveValue(store, key);
 		}
+		network_changed = TRUE;
 	}
 
 	return;
@@ -278,7 +267,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 					   &kCFTypeDictionaryValueCallBacks);
 
 	if (!ifap) {
-		if (getifaddrs(&ifap_temp) < 0) {
+		if (getifaddrs(&ifap_temp) == -1) {
 			SCLog(TRUE, LOG_ERR, CFSTR("getifaddrs() failed: %s"), strerror(errno));
 			goto error;
 		}
@@ -303,9 +292,9 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
 			}
 		}
 
-		if (sock < 0) {
+		if (sock == -1) {
 			sock = dgram_socket(AF_INET6);
-			if (sock < 0) {
+			if (sock == -1) {
 				SCLog(TRUE, LOG_NOTICE, CFSTR("interface_update_ipv6: socket open failed, %s"), strerror(errno));
 				goto error;
 			}
@@ -399,7 +388,7 @@ interface_update_ipv6(struct ifaddrs *ifap, const char *if_name)
     error :
 
 	if (ifap_temp)	freeifaddrs(ifap_temp);
-	if (sock >= 0)	close(sock);
+	if (sock != -1)	close(sock);
 	CFRelease(oldIFs);
 	CFRelease(newIFs);
 

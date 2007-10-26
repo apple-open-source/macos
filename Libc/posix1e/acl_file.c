@@ -73,6 +73,10 @@ acl_get_fd_np(int fd, acl_type_t type)
 	acl_t		acl;
 	struct stat	sb;
 
+	if (type != ACL_TYPE_EXTENDED) {
+		errno = EINVAL;
+		return(NULL);
+	}
 	if ((fsec = filesec_init()) == NULL)
 		return(NULL);
 
@@ -90,6 +94,10 @@ acl_get_file1(const char *path, acl_type_t acl_type, int follow)
 	acl_t		acl;
 	struct stat	sb;
 
+	if (acl_type != ACL_TYPE_EXTENDED) {
+		errno = EINVAL;
+		return(NULL);
+	}
 	if ((fsec = filesec_init()) == NULL)
 		return(NULL);
 

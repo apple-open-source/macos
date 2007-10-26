@@ -137,13 +137,15 @@ enum bool force_weak)
 	for(i = 0; i < mh->ncmds; i++){
 	    if(lc->cmd == LC_ID_DYLIB ||
 	       lc->cmd == LC_LOAD_DYLIB ||
-	       lc->cmd == LC_LOAD_WEAK_DYLIB){
+	       lc->cmd == LC_LOAD_WEAK_DYLIB ||
+	       lc->cmd == LC_REEXPORT_DYLIB){
 		/*
 		 * Do not record dynamic libraries dependencies in the output
 		 * file.  Only record the library itself.
 		 */
 		if((lc->cmd != LC_LOAD_DYLIB &&
-		    lc->cmd != LC_LOAD_WEAK_DYLIB) ||
+		    lc->cmd != LC_LOAD_WEAK_DYLIB &&
+		    lc->cmd != LC_REEXPORT_DYLIB) ||
 		   (mh->filetype != MH_DYLIB &&
 		    mh->filetype != MH_DYLIB_STUB) ){
 		    dl = (struct dylib_command *)lc;

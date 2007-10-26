@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>TargetArchitectures</key>
+	<dict>
+		<key>ppc</key>
+		<dict>
+			<key>TARGET_CPU_PPC</key>
+			<true/>
+			<key>TARGET_RT_BIG_ENDIAN</key>
+			<true/>
+		</dict>
+		<key>ppc64</key>
+		<dict>
+			<key>TARGET_CPU_PPC64</key>
+			<true/>
+			<key>TARGET_RT_64_BIT</key>
+			<true/>
+			<key>TARGET_RT_BIG_ENDIAN</key>
+			<true/>
+		</dict>
+		<key>i386</key>
+		<dict>
+			<key>TARGET_CPU_X86</key>
+			<true/>
+			<key>TARGET_RT_LITTLE_ENDIAN</key>
+			<true/>
+		</dict>
+		<key>x86_64</key>
+		<dict>
+			<key>TARGET_CPU_X86_64</key>
+			<true/>
+			<key>TARGET_RT_64_BIT</key>
+			<true/>
+			<key>TARGET_RT_LITTLE_ENDIAN</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>TargetConditionals</key>
+	<dict>
+        	<key>TARGET_OS_MAC</key>
+        	<true/>
+        	<key>TARGET_RT_MAC_MACHO</key>
+        	<true/>
+	</dict>
+	<key>TargetConfiguration</key>
+	<dict>
+	</dict>
+	<key>TargetConfigProduct</key>
+	<string>MacOSX</string>
+	<key>TargetConfigVersion</key>
+	<integer>0</integer>
+</dict>
+</plist>

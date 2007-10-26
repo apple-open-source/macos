@@ -32,7 +32,8 @@ set testfile "charset"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
-     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+    untested "couldn't compile ${srcdir}/${subdir}/${srcfile}"
+    return -1
 }
 
 # Start with a fresh gdb.
@@ -140,7 +141,7 @@ gdb_expect {
 	# We got some output that ended with a regular prompt
         fail "get valid character sets"
     }
-    -re "^set charset.*$" {
+    -re ".*$gdb_prompt set charset.*$" {
 	# We got some other output, send a cntrl-c to gdb to get us back
         # to the prompt.
 	send_gdb "\003"
@@ -200,7 +201,6 @@ gdb_expect {
 
     -re "\\.\r\n$gdb_prompt $" {
 	#set host_charset_list $expect_out(1,string)
-	set charsets($expect_out(1,string)) 1
 	pass "capture valid host charsets"
     }
 
@@ -211,7 +211,6 @@ gdb_expect {
 	fail "(timeout) capture valid host charsets"
     }
 }
-
 
 send_gdb "set target-charset\n"
 gdb_expect {
@@ -243,6 +242,16 @@ gdb_expect {
     timeout {
 	fail "(timeout) capture valid target charsets"
     }
+}
+
+# APPLE LOCAL: We can't convert from UTF-8 to anything else but UTF-8,
+# since we don't do multi-byte conversions.  BUT we don't really care about
+# this, since we only intend UTF-8 to be used when both target & host are
+# UTF-8.  Otherwise we are happy with the errors.  So just leave this out
+# of the valid charsets.
+
+if {[info exists charsets(UTF-8)]} {
+    set charsets(UTF-8) 0
 }
 
 # Make sure that GDB supports every host/target charset combination.
@@ -281,6 +290,7 @@ foreach host_charset [all_charset_names] {
         # Now try setting every possible target character set,
         # given that host charset.
         foreach target_charset [all_charset_names] {
+	    # APPLE LOCAL: Don't try to convert to utf-8
             set testname "try `set target-charset $target_charset'"
             send_gdb "set target-charset $target_charset\n"
             gdb_expect {

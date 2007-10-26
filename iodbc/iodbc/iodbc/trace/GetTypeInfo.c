@@ -1,20 +1,24 @@
 /*
  *  GetTypeInfo.c
  *
- *  $Id: GetTypeInfo.c,v 1.1 2004/08/10 22:20:26 luesang Exp $
+ *  $Id: GetTypeInfo.c,v 1.4 2006/01/20 15:58:35 source Exp $
  *
  *  SQLGetTypeInfo trace functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "trace.h"
 
 
@@ -108,9 +113,11 @@ _trace_typeinfo (SQLSMALLINT type)
 #endif
       _S (SQL_TIMESTAMP);
       _S (SQL_TINYINT);
+#if ODBCVER >= 0x0300
       _S (SQL_TYPE_DATE);
       _S (SQL_TYPE_TIME);
       _S (SQL_TYPE_TIMESTAMP);
+#endif
       _S (SQL_VARBINARY);
       _S (SQL_VARCHAR);
       _S (SQL_WCHAR);
@@ -136,6 +143,7 @@ trace_SQLGetTypeInfo (int trace_leave, int retcode,
 }
 
 
+#if ODBCVER >= 0x0300
 void 
 trace_SQLGetTypeInfoW (int trace_leave, int retcode,
   SQLHSTMT		  hstmt,
@@ -148,3 +156,4 @@ trace_SQLGetTypeInfoW (int trace_leave, int retcode,
   _trace_handle (SQL_HANDLE_STMT, hstmt);
   _trace_typeinfo (fSqlType);
 }
+#endif

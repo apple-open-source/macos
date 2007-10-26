@@ -23,8 +23,6 @@
 #include "config.h"
 #include "Base64.h"
 
-#include <limits.h>
-
 #include <wtf/Platform.h>
 #include <wtf/StringExtras.h>
 

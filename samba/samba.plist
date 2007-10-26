@@ -3,15 +3,15 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2005-1-6</string>
+	<string>2006-6-26</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceProject</key>
 	<string>samba</string>
 	<key>OpenSourceURL</key>
-	<string>http://us1.samba.org/samba/ftp/samba-3.0.10.tar.gz</string>
+	<string>http://www.samba.org/samba/ftp/old-versions/samba-3.0.25b.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>3.0.10</string>
+	<string>3.0.25b</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.samba.org/</string>
 </dict>

@@ -49,6 +49,7 @@
 		};
 		0867D691FE84028FC02AAC07 = {
 			children = (
+				CD0056F708B12B6C006E73DA,
 				08FB77ACFE841707C02AAC07,
 				089C1665FE841158C02AAC07,
 				0867D69AFE84028FC02AAC07,
@@ -82,9 +83,9 @@
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				EXPORTED_SYMBOLS_FILE = ../../mac/iodbc.exp;
-				FRAMEWORK_SEARCH_PATHS = "../..//mac/iODBCinst/build";
-				FRAMEWORK_VERSION = 3.0.6;
-				HEADER_SEARCH_PATHS = "";
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBCinst/build/Deployment ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
+				HEADER_SEARCH_PATHS = "../../include ../../iodbc ../../iodbcinst";
 				INSTALL_PATH = /Library/Frameworks;
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-O2";
@@ -123,11 +124,11 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.51.0</string>
+	<string>3.52.5</string>
 	<key>CFBundleSignature</key>
 	<string>odbc</string>
 	<key>CFBundleVersion</key>
-	<string>3.51.0</string>
+	<string>3.52.5</string>
 	<key>CSResourcesFileMapped</key>
 	<true/>
 </dict>
@@ -158,6 +159,7 @@
 				F586819704949C2101000FFE,
 				F578097604CED1970194ADB8,
 				F578098604CED1970194ADB8,
+				71DF011E06A3E1DD007AF56B,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -340,16 +342,17 @@
 		4F0BB7EC011F40E904CA0E50 = {
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3.51.2;
+				CURRENT_PROJECT_VERSION = 3.52.5;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 3.51.2;
+				DYLIB_CURRENT_VERSION = 3.52.5;
 				EXPORTED_SYMBOLS_FILE = "";
-				FRAMEWORK_SEARCH_PATHS = ../../mac/iODBCinst/build;
-				FRAMEWORK_VERSION = 3.51;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBCinst/build/Development ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "../../include ../../iodbcinst ../../iodbc";
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "-D_REENTRANT -DWITH_PTHREADS -D_MACX -DDLDAPI_MACX";
 				RESMERGER_SOURCES_FORK = data;
@@ -361,12 +364,12 @@
 		4F0BB7ED011F40E904CA0E50 = {
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 3.51.2;
+				CURRENT_PROJECT_VERSION = 3.52.5;
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 3.51.2;
+				DYLIB_CURRENT_VERSION = 3.52.5;
 				EXPORTED_SYMBOLS_FILE = ../../mac/iodbc.exp;
-				FRAMEWORK_SEARCH_PATHS = ../../mac/iODBCinst/build;
-				FRAMEWORK_VERSION = 3.51;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBCinst/build/Deployment ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				OTHER_CFLAGS = "-D_REENTRANT -DWITH_PTHREADS -D_MACX -DDLDAPI_MACX";
@@ -401,11 +404,54 @@
 			settings = {
 			};
 		};
+		71DF011C06A3E1DD007AF56B = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = iodbcunix.h;
+			path = ../include/iodbcunix.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		71DF011E06A3E1DD007AF56B = {
+			fileRef = 71DF011C06A3E1DD007AF56B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
 //710
 //711
 //712
 //713
 //714
+//CD0
+//CD1
+//CD2
+//CD3
+//CD4
+		CD0056F708B12B6C006E73DA = {
+			children = (
+				F535B34F0277FC2E01A801DE,
+				F535B3510277FC2E01A801DE,
+				F535B3520277FC2E01A801DE,
+				F535B3500277FC2E01A801DE,
+				F535B3530277FC2E01A801DE,
+				F535B3540277FC2E01A801DE,
+				71DF011C06A3E1DD007AF56B,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//CD0
+//CD1
+//CD2
+//CD3
+//CD4
 //F50
 //F51
 //F52
@@ -414,12 +460,6 @@
 		F535B3150277FB3501A801DE = {
 			children = (
 				F57808F104CED1010194ADB8,
-				F535B34F0277FC2E01A801DE,
-				F535B3500277FC2E01A801DE,
-				F535B3510277FC2E01A801DE,
-				F535B3520277FC2E01A801DE,
-				F535B3530277FC2E01A801DE,
-				F535B3540277FC2E01A801DE,
 				F535B3160277FBC601A801DE,
 				F535B3170277FBC601A801DE,
 				F535B3180277FBC601A801DE,
@@ -491,7 +531,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.c;
 			name = dlf.c;
-			path = ../../iodbc/dlf.c;
+			path = ../../iodbcinst/dlf.c;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -500,7 +540,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = dlf.h;
-			path = ../../iodbc/dlf.h;
+			path = ../../iodbcinst/dlf.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -757,6 +797,8 @@
 			fileRef = F535B32C0277FBC601A801DE;
 			isa = PBXBuildFile;
 			settings = {
+				ATTRIBUTES = (
+				);
 			};
 		};
 		F535B33C0277FBC601A801DE = {
@@ -866,7 +908,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = isqltypes.h;
-			path = ../../include/isqltypes.h;
+			path = ../include/isqltypes.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -875,7 +917,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = isql.h;
-			path = ../../include/isql.h;
+			path = ../include/isql.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -884,7 +926,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = isqlext.h;
-			path = ../../include/isqlext.h;
+			path = ../include/isqlext.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -893,7 +935,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = sql.h;
-			path = ../../include/sql.h;
+			path = ../include/sql.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -902,7 +944,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = sqlext.h;
-			path = ../../include/sqlext.h;
+			path = ../include/sqlext.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -911,7 +953,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = sqltypes.h;
-			path = ../../include/sqltypes.h;
+			path = ../include/sqltypes.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -989,7 +1031,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = sqlucode.h;
-			path = ../../include/sqlucode.h;
+			path = ../include/sqlucode.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -997,6 +1039,9 @@
 			fileRef = F55DDABC04949A6001000FFE;
 			isa = PBXBuildFile;
 			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
 			};
 		};
 		F57808F104CED1010194ADB8 = {
@@ -2214,7 +2259,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = iodbcext.h;
-			path = ../../include/iodbcext.h;
+			path = ../include/iodbcext.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -2222,6 +2267,9 @@
 			fileRef = F586819204949B4701000FFE;
 			isa = PBXBuildFile;
 			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
 			};
 		};
 		F586819404949C2101000FFE = {
@@ -2229,7 +2277,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.c;
 			name = unicode.c;
-			path = ../../iodbc/unicode.c;
+			path = ../../iodbcinst/unicode.c;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
@@ -2238,7 +2286,7 @@
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = unicode.h;
-			path = ../../iodbc/unicode.h;
+			path = ../../iodbcinst/unicode.h;
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};

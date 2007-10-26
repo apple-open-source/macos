@@ -25,7 +25,7 @@ static const char copyright[] =
 The Regents of the University of California.  All rights reserved.\n";
 #if 0
 static const char rcsid[] =
-    "@(#)$Id: traceroute.c,v 1.2 2004/08/08 00:27:54 lindak Exp $ (LBL)";
+    "@(#)$Id: traceroute.c,v 1.4 2006/02/07 06:22:57 lindak Exp $ (LBL)";
 #endif
 static const char rcsid[] =
     "$FreeBSD: src/contrib/traceroute/traceroute.c,v 1.26 2004/04/17 18:44:23 pb Exp $";
@@ -347,6 +347,7 @@ int options;			/* socket options */
 int verbose;
 int waittime = 5;		/* time to wait for response (in seconds) */
 int nflag;			/* print addresses numerically */
+int disable_seq = 0;
 #ifdef CANT_HACK_IPCKSUM
 int doipcksum = 0;		/* don't calculate ip checksums by default */
 #else
@@ -473,7 +474,7 @@ main(int argc, char **argv)
 	char errbuf[132];
 	int requestPort = -1;
 	int sump = 0;
-	int sockerrno;
+	int sockerrno = 0;
 
 	/* Insure the socket fds won't be 0, 1 or 2 */
 	if (open(devnull, O_RDONLY) < 0 ||
@@ -558,6 +559,10 @@ main(int argc, char **argv)
 
 		case 'm':
 			max_ttl = str2val(optarg, "max ttl", 1, 255);
+			break;
+
+		case 'N':
+			++disable_seq;
 			break;
 
 		case 'n':
@@ -922,7 +927,11 @@ main(int argc, char **argv)
 			if (sentfirst && pausemsecs > 0)
 				usleep(pausemsecs * 1000);
 			/* Prepare outgoing data */
-			outdata.seq = ++seq;
+			if (disable_seq) {
+				outdata.seq = seq;
+			} else {
+				outdata.seq = ++seq;
+			}
 			outdata.ttl = ttl;
 
 			/* Avoid alignment problems by copying bytewise: */
@@ -1060,7 +1069,7 @@ wait_for_reply(register int sock, register struct sockaddr_in *fromp,
 	struct timezone tz;
 	register int cc = 0;
 	register int error;
-	int fromlen = sizeof(*fromp);
+	socklen_t fromlen = sizeof(*fromp);
 
 	nfds = howmany(sock + 1, NFDBITS);
 	if ((fdsp = malloc(nfds * sizeof(fd_mask))) == NULL)
@@ -1671,7 +1680,7 @@ usage(void)
 
 	Fprintf(stderr, "Version %s\n", version);
 	Fprintf(stderr,
-	    "Usage: %s [-dFInrSvx] [-g gateway] [-i iface] [-f first_ttl]\n"
+	    "Usage: %s [-dFINnrSvx] [-g gateway] [-i iface] [-f first_ttl]\n"
 	    "\t[-m max_ttl] [-p port] [-P proto] [-q nqueries] [-s src_addr]\n"
 	    "\t[-t tos] [-w waittime] [-z pausemsecs] host [packetlen]\n", prog);
 	exit(1);

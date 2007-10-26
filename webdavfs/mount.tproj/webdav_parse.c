@@ -30,6 +30,7 @@
 #include "webdav_parse.h"
 #include "webdav_cache.h"
 #include "webdav_network.h"
+#include "LogMessage.h"
 
 extern long long
 	 strtoq(const char *, char **, int);
@@ -387,6 +388,17 @@ static void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, voi
 			return_ptr->data_ptr = text_ptr;
 			break;
 
+		case kCFXMLNodeTypeDocument:
+			/* 
+			 * This case statement block is a workaround for:
+			 * <rdar://problem/2483534> XML: endXMLStructure not being called for kCFXMLNodeTypeDocument
+			 *
+			 * This entire case statement block can be removed once 2483534 is fixed.
+			 */
+			free(return_ptr);
+			return_value = NULL;
+			break;
+		
 		default:
 			break;
 
@@ -530,18 +542,27 @@ static void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void
 			++comparison_range.location;
 			comparison_range.length = nodeStringLength - comparison_range.location;
 
-			if (((CFStringCompareWithOptions(nodeString, CFSTR("quota"), comparison_range,
+			/* handle the "quota-available-bytes" and "quota-used-bytes" properties in the "DAV:" namespace */
+			if (((CFStringCompareWithOptions(nodeString, CFSTR("quota-available-bytes"), comparison_range,
 				kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				return_val = (void *)WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES;
+			}
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("quota-used-bytes"),
+					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				return_val = (void *)WEBDAV_STATFS_QUOTA_USED_BYTES;
+			}
+			/* handle the deprecated "quota" and "quotaused" properties in the "DAV:" namespace */
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("quota"),
+					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
 			{
 				return_val = (void *)WEBDAV_STATFS_QUOTA;
 			}
-			else
-			{
-				if (((CFStringCompareWithOptions(nodeString, CFSTR("quotaused"),
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("quotaused"),
 					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
-				{
-					return_val = (void *)WEBDAV_STATFS_QUOTAUSED;
-				}
+			{
+				return_val = (void *)WEBDAV_STATFS_QUOTAUSED;
 			}
 			break;
 
@@ -895,7 +916,7 @@ static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, 
 {
 	#pragma unused(parser)
 	char *text_ptr = (char *)child;
-	struct statfs *statfsbuf = (struct statfs *)context;
+	struct webdav_quotas *quotas = (struct webdav_quotas *)context;
 	char *ep;
 
 	/*
@@ -904,11 +925,38 @@ static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, 
 	 */
 	switch ((int)parent)
 	{
-		case WEBDAV_STATFS_QUOTA:
-			/* the text pointer is the length in blocks so put it in the statfs buffer */
+		case WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES:
+			/* the text pointer is the data so put it in the quotas buffer */
 			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
 			{
-				statfsbuf->f_blocks = strtoq(text_ptr, &ep, 10);
+				quotas->quota_available_bytes = strtouq(text_ptr, &ep, 10);
+				quotas->use_bytes_values = TRUE;
+				free(text_ptr);
+			}
+			else
+			{
+				/* if we got a string set to NULL we could not fit the value in our buffer, do nothing */
+			}
+			break;
+
+		case WEBDAV_STATFS_QUOTA_USED_BYTES:
+			/* the text pointer is the data so put it in the quotas buffer */
+			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
+			{
+				quotas->quota_used_bytes = strtouq(text_ptr, &ep, 10);
+				free(text_ptr);
+			}
+			else
+			{
+				/* if we got a string set to NULL we could not fit the value in our buffer, do nothing */
+			}
+			break;
+
+		case WEBDAV_STATFS_QUOTA:
+			/* the text pointer is the data so put it in the quotas buffer */
+			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
+			{
+				quotas->quota = strtouq(text_ptr, &ep, 10);
 				free(text_ptr);
 			}
 			else
@@ -918,10 +966,10 @@ static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, 
 			break;
 
 		case WEBDAV_STATFS_QUOTAUSED:
-			/* the text pointer is the data so translate it so put it in the statfs buffer */
+			/* the text pointer is the data so put it in the quotas buffer */
 			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
 			{
-				statfsbuf->f_bavail = statfsbuf->f_bfree = strtoq(text_ptr, &ep, 10);
+				quotas->quotaused = strtouq(text_ptr, &ep, 10);
 				free(text_ptr);
 			}
 			else
@@ -937,6 +985,8 @@ static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, 
 			 */
 			if (text_ptr &&
 				text_ptr != (char *)WEBDAV_STATFS_IGNORE &&
+				text_ptr != (char *)WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES && 
+				text_ptr != (char *)WEBDAV_STATFS_QUOTA_USED_BYTES && 
 				text_ptr != (char *)WEBDAV_STATFS_QUOTA && 
 				text_ptr != (char *)WEBDAV_STATFS_QUOTAUSED)
 			{
@@ -1099,9 +1149,9 @@ static Boolean GetComponentName(	/* <- TRUE if http URI was not parent and compo
 	char *componentName)			/* <-> point to buffer of MAXNAMLEN + 1 bytes where URI's LastPathComponent is returned if result it TRUE */
 {
 	Boolean result;
-	CFStringRef uriString;	/* URI as CFString */
-	CFURLRef uriURL;		/* URI converted to full URL */
-	CFStringRef uriName;	/* URI's LastPathComponent as CFString */
+	CFStringRef uriString;				/* URI as CFString */
+	CFURLRef uriURL;					/* URI converted to full URL */
+	CFStringRef uriName;				/* URI's LastPathComponent as CFString */
 	
 	result = FALSE;
 	
@@ -1111,31 +1161,48 @@ static Boolean GetComponentName(	/* <- TRUE if http URI was not parent and compo
 	
 	/* create a CFURL from the URI CFString and the parent URL */
 	uriURL = CFURLCreateWithString(kCFAllocatorDefault, uriString, urlRef);
-	CFRelease(uriString);
-	require(uriURL != NULL, CFURLCreateWithString);
-	
+	if (uriURL != NULL) {
+		/* CFURLCreateWithString worked fine, so release uriString and keep going */ 
+		CFRelease(uriString);
+	}
+	else {
+		/* Fix for Windows servers.  They tend to send over names that have a space in them instead of the correct %20.  This causes 
+		CFURLCreateWithString to fail.  Since it might be a partially escaped URL string, try to unescape the string, then re-escape it */
+		CFStringRef unEscapedString;		/* URI as CFString with un-escaped chars */
+		CFStringRef reEscapedString;		/* URI as CFString with re-escaped chars */
+
+		unEscapedString = CFURLCreateStringByReplacingPercentEscapesUsingEncoding (kCFAllocatorDefault, uriString, NULL, kCFStringEncodingUTF8);
+		CFRelease(uriString);
+		require(unEscapedString != NULL, CFURLCreateWithString);
+
+		reEscapedString = CFURLCreateStringByAddingPercentEscapes (kCFAllocatorDefault, unEscapedString, NULL, NULL, kCFStringEncodingUTF8);
+		CFRelease(unEscapedString);
+		require(reEscapedString != NULL, CFURLCreateWithString);
+
+		/* try again to create a CFURL from the reEscapedString and the parent URL */
+		uriURL = CFURLCreateWithString(kCFAllocatorDefault, reEscapedString, urlRef);
+		CFRelease(reEscapedString);
+		require(uriURL != NULL, CFURLCreateWithString);
+	}
+
 	/* see if this is the parent or a child */
-	if ( GetNormalizedPathLength(uriURL) > parentPathLength )
-	{
+	if ( GetNormalizedPathLength(uriURL) > parentPathLength ) {
 		/* this is a child */
 		
 		/* get the child's name */
 		uriName = CFURLCopyLastPathComponent(uriURL);
 		require_string(uriName != NULL, CFURLCopyLastPathComponent, "name was not legal UTF8");
 		
-		if ( CFStringGetCString(uriName, componentName, MAXNAMLEN + 1, kCFStringEncodingUTF8) )
-		{
+		if ( CFStringGetCString(uriName, componentName, MAXNAMLEN + 1, kCFStringEncodingUTF8) ) {
 			/* we have the child name */
 			result = TRUE;
 		}
-		else
-		{
+		else {
 			debug_string("could not get child name (too long?)");
 		}
 		CFRelease(uriName);
 	}
-	else
-	{
+	else {
 		/* this is the parent, skip it */
 	}
 
@@ -1299,14 +1366,14 @@ int parse_opendir(
 			
 			if (element_ptr->dir_data.d_type == DT_DIR)
 			{
-				statbuf.st_mode = S_IFDIR | ACCESSPERMS;
+				statbuf.st_mode = S_IFDIR | S_IRWXU;
 				statbuf.st_size = WEBDAV_DIR_SIZE;
 				/* appledoubleheadervalid is never valid for directories */
 				element_ptr->appledoubleheadervalid = FALSE;
 			}
 			else
 			{
-				statbuf.st_mode = S_IFREG | ACCESSPERMS;
+				statbuf.st_mode = S_IFREG | S_IRWXU;
 				statbuf.st_size = element_ptr->statsize;
 				/* appledoubleheadervalid is valid for files only if the server
 				 * returned the appledoubleheader property and file size is
@@ -1364,7 +1431,7 @@ int parse_opendir(
 			/* set all times to the last modified time since we cannot get the other times */
 			statbuf.st_atimespec = statbuf.st_mtimespec = statbuf.st_ctimespec = element_ptr->stattime;
 			
-			statbuf.st_mode = S_IFDIR | ACCESSPERMS;
+			statbuf.st_mode = S_IFDIR | S_IRWXU;
 			statbuf.st_size = WEBDAV_DIR_SIZE;
 
 			/* calculate number of S_BLKSIZE blocks */
@@ -1519,7 +1586,7 @@ int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct stat *statbuf)
 	if ( S_ISDIR(statbuf->st_mode) )
 	{
 		/* yes - add the directory access permissions */
-		statbuf->st_mode |= ACCESSPERMS;
+		statbuf->st_mode |= S_IRWXU;
 		/* fake up the directory size */
 		statbuf->st_size = WEBDAV_DIR_SIZE;
 	}
@@ -1528,7 +1595,7 @@ int parse_stat(const UInt8 *xmlp, CFIndex xmlp_len, struct stat *statbuf)
 		/* no - mark it as a regular file and set the file access permissions
 		 * (for now, everything is either a file or a directory)
 		 */
-		statbuf->st_mode = S_IFREG | ACCESSPERMS;
+		statbuf->st_mode = S_IFREG | S_IRWXU;
 	}
 
 	/* calculate number of S_BLKSIZE blocks */
@@ -1545,14 +1612,16 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 	{
 		0, parser_statfs_create, parser_statfs_add, parser_end, parser_resolve, NULL
 	};
+	struct webdav_quotas quotas;
 	CFXMLParserContext context =
 	{
-		0, statfsbuf, NULL, NULL, NULL
+		0, &quotas, NULL, NULL, NULL
 	};
 	CFDataRef xml_dataref;
 	CFXMLParserRef parser;
 
 	bzero((void *)statfsbuf, sizeof(struct statfs));
+	bzero((void *)&quotas, sizeof(struct webdav_quotas));
 	
 	/* get the xml data into a form Core Foundation can understand */
 	xml_dataref = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, xmlp,
@@ -1570,18 +1639,49 @@ int parse_statfs(const UInt8 *xmlp, CFIndex xmlp_len, struct statfs *statfsbuf)
 		}
 		CFRelease(xml_dataref);
 	}
-
-	/*
-	 * now turn quota-used (which we temporarily stored in f_bfree) into 
-	 * f_bavail with a little subtraction
-	 */
-	if (statfsbuf->f_blocks && (statfsbuf->f_blocks > statfsbuf->f_bfree))
+	
+	/* were the IETF quota properties returned? */
+	if ( quotas.use_bytes_values )
 	{
-		statfsbuf->f_bavail = statfsbuf->f_bfree = (statfsbuf->f_blocks - statfsbuf->f_bfree);
+		uint64_t total_bytes;
+		uint64_t total_blocks;
+		long bsize;
+		
+		/* calculate the total bytes (available + used) */
+		total_bytes = quotas.quota_available_bytes + quotas.quota_used_bytes;
+		if ( (total_bytes >= quotas.quota_available_bytes) && (total_bytes >= quotas.quota_used_bytes) )
+		{
+			/*
+			 * calculate the smallest file system block size (bsize) that's a
+			 * multiple of S_BLKSIZE, is >= S_BLKSIZE, and is <= LONG_MAX
+			 */
+			bsize = S_BLKSIZE / 2;
+			do
+			{
+				bsize *= 2;
+				total_blocks = ((total_bytes + bsize - 1) / bsize);
+			} while ( total_blocks > LONG_MAX );
+			
+			/* stuff the results into statfsbuf */ 
+			statfsbuf->f_bsize = bsize;
+			statfsbuf->f_blocks = total_blocks;
+			statfsbuf->f_bavail = statfsbuf->f_bfree = quotas.quota_available_bytes / bsize;
+		}
+		/* else we were handed values we cannot represent so leave statfsbuf zeroed (no quota support for this file system) */
 	}
 	else
 	{
-		statfsbuf->f_bavail = statfsbuf->f_bfree = 0;
+		/* use the deprecated quota and quotaused if they were returned */
+		if ( (quotas.quota != 0) && (quotas.quota > quotas.quotaused) )
+		{
+			statfsbuf->f_bavail = statfsbuf->f_bfree = (quotas.quota - quotas.quotaused);
+		}
+		else
+		{
+			statfsbuf->f_bavail = statfsbuf->f_bfree = 0;
+		}
+		statfsbuf->f_blocks = quotas.quota;
+		statfsbuf->f_bsize = S_BLKSIZE;
 	}
 	
 	statfsbuf->f_iosize = WEBDAV_IOSIZE;

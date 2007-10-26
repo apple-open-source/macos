@@ -15,20 +15,18 @@
 #include "cvs.h"
 
 #ifndef HAVE_UNISTD_H
-extern int execvp PROTO((char *file, char **argv));
+extern int execvp (char *file, char **argv);
 #endif
 
-static void run_add_arg PROTO((const char *s));
 
-extern char *strtok ();
 
 /*
  * To exec a program under CVS, first call run_setup() to setup initial
  * arguments.  The argument to run_setup will be parsed into whitespace 
  * separated words and added to the global run_argv list.
  * 
- * Then, optionally call run_arg() for each additional argument that you'd like
- * to pass to the executed program.
+ * Then, optionally call run_add_arg() for each additional argument that you'd
+ * like to pass to the executed program.
  * 
  * Finally, call run_exec() to execute the program with the specified arguments.
  * The execvp() syscall will be used, so that the PATH is searched correctly.
@@ -36,69 +34,115 @@ extern char *strtok ();
  */
 static char **run_argv;
 static int run_argc;
-static int run_argc_allocated;
+static size_t run_arg_allocated;
+
+
+
+void
+run_arg_free_p (int argc, char **argv)
+{
+    int i;
+    for (i = 0; i < argc; i++)
+	free (argv[i]);
+}
+
+
 
 /* VARARGS */
 void 
-run_setup (prog)
-    const char *prog;
+run_setup (const char *prog)
 {
-    char *cp;
-    int i;
     char *run_prog;
+    char *buf, *d, *s;
+    size_t length;
+    size_t doff;
+    char inquotes;
+    int dolastarg;
 
     /* clean out any malloc'ed values from run_argv */
-    for (i = 0; i < run_argc; i++)
-    {
-	if (run_argv[i])
-	{
-	    free (run_argv[i]);
-	    run_argv[i] = (char *) 0;
-	}
-    }
+    run_arg_free_p (run_argc, run_argv);
     run_argc = 0;
 
     run_prog = xstrdup (prog);
 
+    s = run_prog;
+    d = buf = NULL;
+    length = 0;
+    dolastarg = 1;
+    inquotes = '\0';
+    doff = d - buf;
+    expand_string(&buf, &length, doff + 1);
+    d = buf + doff;
+    while ((*d = *s++) != '\0')
+    {
+	switch (*d)
+	{
+	    case '\\':
+		if (*s) *d = *s++;
+		d++;
+		break;
+	    case '"':
+	    case '\'':
+		if (inquotes == *d) inquotes = '\0';
+		else inquotes = *d;
+		break;
+	    case ' ':
+	    case '\t':
+		if (inquotes) d++;
+		else
+		{
+		    *d = '\0';
+		    run_add_arg (buf);
+		    d = buf;
+		    while (isspace(*s)) s++;
+		    if (!*s) dolastarg = 0;
+		}
+		break;
+	    default:
+		d++;
+		break;
+	}
+	doff = d - buf;
+	expand_string(&buf, &length, doff + 1);
+	d = buf + doff;
+    }
+    if (dolastarg) run_add_arg (buf);
     /* put each word into run_argv, allocating it as we go */
-    for (cp = strtok (run_prog, " \t"); cp; cp = strtok ((char *) NULL, " \t"))
-	run_add_arg (cp);
+    if (buf) free (buf);
     free (run_prog);
 }
 
-void
-run_arg (s)
-    const char *s;
-{
-    run_add_arg (s);
-}
 
-static void
-run_add_arg (s)
-    const char *s;
+
+void
+run_add_arg_p (int *iargc, size_t *iarg_allocated, char ***iargv,
+	       const char *s)
 {
     /* allocate more argv entries if we've run out */
-    if (run_argc >= run_argc_allocated)
+    if (*iargc >= *iarg_allocated)
     {
-	run_argc_allocated += 50;
-	run_argv = (char **) xrealloc ((char *) run_argv,
-				     run_argc_allocated * sizeof (char **));
+	*iarg_allocated += 50;
+	*iargv = xnrealloc (*iargv, *iarg_allocated, sizeof (char **));
     }
 
     if (s)
-	run_argv[run_argc++] = xstrdup (s);
+	(*iargv)[(*iargc)++] = xstrdup (s);
     else
-	run_argv[run_argc] = (char *) 0;	/* not post-incremented on purpose! */
+	(*iargv)[*iargc] = NULL;	/* not post-incremented on purpose! */
+}
+
+
+
+void
+run_add_arg (const char *s)
+{
+    run_add_arg_p (&run_argc, &run_arg_allocated, &run_argv, s);
 }
 
 
 
 int
-run_exec (stin, stout, sterr, flags)
-    const char *stin;
-    const char *stout;
-    const char *sterr;
-    int flags;
+run_exec (const char *stin, const char *stout, const char *sterr, int flags)
 {
     int shin, shout, sherr;
     int mode_out, mode_err;
@@ -123,10 +167,12 @@ run_exec (stin, stout, sterr, flags)
 
     if (trace)
     {
+	cvs_outerr (
 #ifdef SERVER_SUPPORT
-	cvs_outerr (server_active ? "S" : " ", 1);
+		    server_active ? "S" :
 #endif
-	cvs_outerr ("-> system(", 0);
+		    " ", 1);
+	cvs_outerr (" -> system (", 0);
 	run_print (stderr);
 	cvs_outerr (")\n", 0);
     }
@@ -134,7 +180,7 @@ run_exec (stin, stout, sterr, flags)
 	return 0;
 
     /* make sure that we are null terminated, since we didn't calloc */
-    run_add_arg ((char *)0);
+    run_add_arg (NULL);
 
     /* setup default file descriptor numbers */
     shin = 0;
@@ -253,7 +299,7 @@ run_exec (stin, stout, sterr, flags)
 #ifdef BSD_SIGNALS
     if (flags & RUN_SIGIGNORE)
     {
-	memset ((char *)&vec, 0, sizeof (vec));
+	memset (&vec, 0, sizeof vec);
 	vec.sv_handler = SIG_IGN;
 	(void) sigvec (SIGINT, &vec, &ivec);
 	(void) sigvec (SIGQUIT, &vec, &qvec);
@@ -302,17 +348,17 @@ run_exec (stin, stout, sterr, flags)
 #ifdef POSIX_SIGNALS
     if (flags & RUN_SIGIGNORE)
     {
-	(void) sigaction (SIGINT, &iact, (struct sigaction *)NULL);
-	(void) sigaction (SIGQUIT, &qact, (struct sigaction *)NULL);
+	(void) sigaction (SIGINT, &iact, NULL);
+	(void) sigaction (SIGQUIT, &qact, NULL);
     }
     else
-	(void) sigprocmask (SIG_SETMASK, &sigset_omask, (sigset_t *)NULL);
+	(void) sigprocmask (SIG_SETMASK, &sigset_omask, NULL);
 #else
 #ifdef BSD_SIGNALS
     if (flags & RUN_SIGIGNORE)
     {
-	(void) sigvec (SIGINT, &ivec, (struct sigvec *)NULL);
-	(void) sigvec (SIGQUIT, &qvec, (struct sigvec *)NULL);
+	(void) sigvec (SIGINT, &ivec, NULL);
+	(void) sigvec (SIGQUIT, &qvec, NULL);
     }
     else
 	(void) sigsetmask (mask);
@@ -352,11 +398,10 @@ run_exec (stin, stout, sterr, flags)
 
 
 void
-run_print (fp)
-    FILE *fp;
+run_print (FILE *fp)
 {
     int i;
-    void (*outfn) PROTO ((const char *, size_t));
+    void (*outfn) (const char *, size_t);
 
     if (fp == stderr)
 	outfn = cvs_outerr;
@@ -381,30 +426,119 @@ run_print (fp)
     }
 }
 
+
+
 /* Return value is NULL for error, or if noexec was set.  If there was an
    error, return NULL and I'm not sure whether errno was set (the Red Hat
    Linux 4.1 popen manpage was kind of vague but discouraging; and the noexec
    case complicates this even aside from popen behavior).  */
-
 FILE *
-run_popen (cmd, mode)
-    const char *cmd;
-    const char *mode;
+run_popen (const char *cmd, const char *mode)
 {
-    if (trace)
-	(void) fprintf (stderr, "%s-> run_popen(%s,%s)\n",
-			CLIENT_SERVER_STR, cmd, mode);
+    TRACE (TRACE_FUNCTION, "run_popen (%s,%s)", cmd, mode);
     if (noexec)
-	return (NULL);
+	return NULL;
 
-    return (popen (cmd, mode));
+    return popen (cmd, mode);
 }
 
+
+
+/* Work around an OpenSSH problem: it can put its standard file
+   descriptors into nonblocking mode, which will mess us up if we
+   share file descriptions with it.  The simplest workaround is
+   to create an intervening process between OpenSSH and the
+   actual stderr.  */
+
+static void
+work_around_openssh_glitch (void)
+{
+    pid_t pid;
+    int stderr_pipe[2];
+    struct stat sb;
+
+    /* Do nothing unless stderr is a file that is affected by
+       nonblocking mode.  */
+    if (!(fstat (STDERR_FILENO, &sb) == 0
+          && (S_ISFIFO (sb.st_mode) || S_ISSOCK (sb.st_mode)
+              || S_ISCHR (sb.st_mode) || S_ISBLK (sb.st_mode))))
+       return;
+
+    if (pipe (stderr_pipe) < 0)
+       error (1, errno, "cannot create pipe");
+    pid = fork ();
+    if (pid < 0)
+       error (1, errno, "cannot fork");
+    if (pid != 0)
+    {
+       /* Still in child of original process.  Act like "cat -u".  */
+       char buf[1 << 13];
+       ssize_t inbytes;
+       pid_t w;
+       int status;
+
+       if (close (stderr_pipe[1]) < 0)
+           error (1, errno, "cannot close pipe");
+
+       while ((inbytes = read (stderr_pipe[0], buf, sizeof buf)) != 0)
+       {
+           size_t outbytes = 0;
+
+           if (inbytes < 0)
+           {
+               if (errno == EINTR)
+                   continue;
+               error (1, errno, "reading from pipe");
+           }
+
+           do
+           {
+               ssize_t w = write (STDERR_FILENO,
+                                  buf + outbytes, inbytes - outbytes);
+               if (w < 0)
+               {
+                   if (errno == EINTR)
+                     w = 0;
+                   if (w < 0)
+                     _exit (1);
+               }
+               outbytes += w;
+           }
+           while (inbytes != outbytes);
+       }
+
+       /* Done processing output from grandchild.  Propagate
+          its exit status back to the parent.  */
+       while ((w = waitpid (pid, &status, 0)) == -1 && errno == EINTR)
+           continue;
+       if (w < 0)
+           error (1, errno, "waiting for child");
+       if (!WIFEXITED (status))
+       {
+           if (WIFSIGNALED (status))
+               raise (WTERMSIG (status));
+           error (1, errno, "child did not exit cleanly");
+       }
+       _exit (WEXITSTATUS (status));
+    }
+
+    /* Grandchild of original process.  */
+    if (close (stderr_pipe[0]) < 0)
+       error (1, errno, "cannot close pipe");
+
+    if (stderr_pipe[1] != STDERR_FILENO)
+    {
+       if (dup2 (stderr_pipe[1], STDERR_FILENO) < 0)
+           error (1, errno, "cannot dup2 pipe");
+       if (close (stderr_pipe[1]) < 0)
+           error (1, errno, "cannot close pipe");
+    }
+}
+
+
+
 int
-piped_child (command, tofdp, fromfdp)
-     const char **command;
-     int *tofdp;
-     int *fromfdp;
+piped_child (char *const *command, int *tofdp, int *fromfdp, bool fix_stderr)
 {
     int pid;
     int to_child_pipe[2];
@@ -422,11 +556,7 @@ piped_child (command, tofdp, fromfdp)
     setmode (from_child_pipe[1], O_BINARY);
 #endif
 
-#ifdef HAVE_VFORK
-    pid = vfork ();
-#else
     pid = fork ();
-#endif
     if (pid < 0)
 	error (1, errno, "cannot fork");
     if (pid == 0)
@@ -440,7 +570,10 @@ piped_child (command, tofdp, fromfdp)
 	if (dup2 (from_child_pipe[1], STDOUT_FILENO) < 0)
 	    error (1, errno, "cannot dup2 pipe");
 
-	/* Okay to cast out const below - execvp don't return anyhow.  */
+        if (fix_stderr)
+	    work_around_openssh_glitch ();
+
+	/* Okay to cast out const below - execvp don't return nohow.  */
 	execvp ((char *)command[0], (char **)command);
 	error (1, errno, "cannot exec %s", command[0]);
     }
@@ -455,9 +588,18 @@ piped_child (command, tofdp, fromfdp)
 }
 
 
+
+int
+run_piped (int *tofdp, int *fromfdp)
+{
+    run_add_arg (NULL);
+    return piped_child (run_argv, tofdp, fromfdp, false);
+}
+
+
+
 void
-close_on_exec (fd)
-     int fd;
+close_on_exec (int fd)
 {
 #ifdef F_SETFD
     if (fcntl (fd, F_SETFD, 1) == -1)

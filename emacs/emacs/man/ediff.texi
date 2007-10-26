@@ -15,25 +15,22 @@
 @synindex pg cp
 @synindex ky cp
 
-@dircategory Emacs
-@direntry
-* Ediff: (ediff).       A visual interface for comparing and merging programs.
-@end direntry
-
 @iftex
 @finalout
 @end iftex
 @c      @smallbook
 @comment %**end of header (This is for running Texinfo on a region.)
 
-@ifinfo
-This file documents Ediff, a comprehensive visual interface to diff
+@copying
+This file documents Ediff, a comprehensive visual interface to Unix diff
 and patch utilities.
 
-Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
+@quotation
 Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
+under the terms of the GNU Free Documentation License, Version 1.2 or
 any later version published by the Free Software Foundation; with no
 Invariant Sections, with the Front-Cover texts being ``A GNU
 Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
@@ -48,42 +45,28 @@ This document is part of a collection distributed under the GNU Free
 Documentation License.  If you want to distribute this document
 separately from the collection, you can do so by adding a copy of the
 license to the document, as described in section 6 of the license.
-@end ifinfo
+@end quotation
+@end copying
 
-@iftex
+@dircategory Emacs
+@direntry
+* Ediff: (ediff).       A visual interface for comparing and merging programs.
+@end direntry
+
 @titlepage
 @title Ediff User's Manual
 @sp 4
-@subtitle Ediff version 2.70
+@subtitle Ediff version 2.81.1
 @sp 1
-@subtitle March 1998
+@subtitle April 2007
 @sp 5
 @author Michael Kifer
 @page
 
 @vskip 0pt plus 1filll
-@noindent
-Copyright @copyright{} 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with no
-Invariant Sections, with the Front-Cover texts being ``A GNU
-Manual'', and with the Back-Cover Texts as in (a) below.  A copy of the
-license is included in the section entitled ``GNU Free Documentation
-License'' in the Emacs manual.
-
-(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
-this GNU Manual, like GNU software.  Copies published by the Free
-Software Foundation raise funds for GNU development.''
-
-This document is part of a collection distributed under the GNU Free
-Documentation License.  If you want to distribute this document
-separately from the collection, you can do so by adding a copy of the
-license to the document, as described in section 6 of the license.
+@insertcopying
 @end titlepage
-@page
-@end iftex
+
 
 @node Top, Introduction, (dir), (dir)
 
@@ -97,6 +80,7 @@ license to the document, as described in section 6 of the license.
 * Remote and Compressed Files::  You may want to know about this.
 * Customization::               How to make Ediff work the way YOU want.
 * Credits::                     Thanks to those who helped.
+* GNU Free Documentation License:: The license for this documentation.
 * Index::
 @end menu
 
@@ -123,7 +107,7 @@ Furthermore, Ediff is equipped with directory-level capabilities that
 allow the user to conveniently launch browsing or merging sessions on
 groups of files in two (or three) different directories.
 
-In addition, Ediff can apply a patch to a file and then let you step though
+In addition, Ediff can apply a patch to a file and then let you step through
 both files, the patched and the original one, simultaneously,
 difference-by-difference.  You can even apply a patch right out of a mail
 buffer, i.e., patches received by mail don't even have to be saved.  Since
@@ -152,7 +136,7 @@ The architecture and the interface are, of course, drastically different.
 @chapter Major Entry Points
 
 When Ediff starts up, it displays a small control window, which accepts the
-Ediff commands and two or three windows displaying the files to be compared
+Ediff commands, and two or three windows displaying the files to be compared
 or merged. The control window can be in its own small frame or it can be
 part of a bigger frame that displays other buffers. In any case, it is
 important that the control window be active (i.e., be the one receiving the
@@ -171,6 +155,12 @@ Compare, Merge, and Apply Patch.
 @findex ediff-files
 @findex ediff
 Compare two files.
+
+@item ediff-backup
+@findex ediff-backup
+Compare a file with its backup. If there are several numerical backups, use
+the latest. If the file is itself a backup, then compare it with its
+original.
 
 @item ediff-buffers
 @findex ediff-buffers
@@ -225,11 +215,16 @@ Compare windows line-by-line.
 
 @item ediff-regions-wordwise
 @findex ediff-regions-wordwise
-Compare regions word-by-word.
+Compare regions word-by-word.  The regions can come from the same buffer
+and they can even overlap.  You will be asked to specify the buffers that
+contain the regions, which you want to compare. For each buffer, you will
+also be asked to mark the regions to be compared. Pay attention to the
+messages that appear in the minibuffer.
 
 @item ediff-regions-linewise
 @findex ediff-regions-linewise
-Compare regions line-by-line.
+Similar to @code{ediff-windows-linewise}, but compares the regions
+line-by-line. See @code{ediff-windows-linewise} for more details.
 
 @item ediff-revision
 @findex ediff-revision
@@ -257,8 +252,8 @@ utility to change the original files on disk.  This is not that
 dangerous, since you will always have the original contents of the file
 saved in another file that has the extension @file{.orig}.
 Furthermore, if the file is under version control, then you can always back
-out to one of the previous versions (see the section on Version Countrol in
-Emacs manual).
+out to one of the previous versions (see the section on Version Control in
+the Emacs manual).
 
 @code{ediff-patch-file} is careful about versions control: if the file
 to be patched is checked in, then Ediff will offer to check it out, because
@@ -384,15 +379,14 @@ On a color display, fine differences are highlighted with color; on a
 monochrome display, they are underlined.  @xref{Highlighting Difference
 Regions}, for information on how to customize this.
 
-The functions @code{ediff-windows-wordwise},
+The commands @code{ediff-windows-wordwise},
 @code{ediff-windows-linewise}, @code{ediff-regions-wordwise} and
 @code{ediff-regions-linewise} do comparison on parts of existing Emacs
-buffers.  Since @code{ediff-windows-wordwise} and
+buffers.  The commands @code{ediff-windows-wordwise} and
 @code{ediff-regions-wordwise} are intended for relatively small segments
-of buffers, comparison is done on the basis of words rather than lines.
-No refinement is necessary in this case.  These commands are recommended
-only for relatively small regions (perhaps, up to 100 lines), because
-these functions have a relatively slow startup.
+of buffers (e.g., up to 100 lines, depending on the speed of your machine),
+as they perform comparison on the basis of words rather than lines.
+(Word-wise comparison of large chunks of text can be slow.)
 
 To compare large regions, use @code{ediff-regions-linewise}.  This
 command displays differences much like @code{ediff-files} and
@@ -654,7 +648,7 @@ user can always forcefully refine specific difference regions by typing
 @kindex h
 Cycles between full highlighting, the mode where fine differences are not
 highlighted (but computed), and the mode where highlighting is done with
-ASCII strings.  The latter is not really recommended, unless on a dumb TTY.
+@acronym{ASCII} strings.  The latter is not really recommended, unless on a dumb TTY.
 
 @item r
 @kindex r
@@ -692,6 +686,16 @@ amount of white space and line breaks.
 Even though such regions will be skipped over, you can still jump to any
 one of them by typing the region number and then `j'.  Typing @kbd{##}
 again puts Ediff back in the original state.
+
+@item #c
+@kindex #c
+@vindex ediff-ignore-case-option
+@vindex ediff-ignore-case-option3
+@vindex ediff-ignore-case
+Toggle case sensitivity in the diff program. All diffs are recomputed.
+Case sensitivity is controlled by the variables
+@code{ediff-ignore-case-option}, @code{ediff-ignore-case-option3},
+and @code{ediff-ignore-case}, which are explained elsewhere.
 
 @item #h
 @itemx #f
@@ -826,7 +830,7 @@ identical to its default setting, as originally decided by Ediff.  For
 instance, if Ediff is merging according to the `combined' policy, then the
 merge region is skipped over if it is different from the combination of the
 regions in buffers A and B.  (Warning: swapping buffers A and B will confuse
-things in this respect).  If the merge region is marked as `prefer-A' then
+things in this respect.)  If the merge region is marked as `prefer-A' then
 this region will be skipped if it differs from the current difference
 region in buffer A, etc.
 
@@ -890,31 +894,30 @@ what exactly differs inside these chunks.  Since eyeballing large pieces of
 text is contrary to human nature, Ediff has a special command to help
 reduce the risk of developing a cataract.
 
-The above command compares regions within Ediff buffers.  This creates a
-child Ediff session for comparing current Emacs regions in buffers A, B, or
-C as follows:
+In other situations, the currently highlighted region might be big and you
+might want to reconcile of them interactively.
+
+All of this can be done with the above command, @kbd{=}, which
+compares regions within Ediff buffers.  Typing @kbd{=} creates a
+child Ediff session for comparing regions in buffers A, B, or
+C as follows.
+
+First, you will be asked whether you want to compare the fine differences
+between the currently highlighted buffers on a word-by-word basis. If you
+accept, a child Ediff session will start using the currently highlighted
+regions. Ediff will let you step over the differences word-wise.
+
+If you reject the offer, you will be asked to select regions of your choice.
 
 @emph{If you are comparing 2 files or buffers:}
-Ediff would compare current Emacs regions in buffers A and B.
+Ediff will ask you to select regions in buffers A and B.
 
-@emph{If you are comparing 3 files or buffers simultaneously:} Ediff would
-compare the current Emacs regions in the buffers of your choice (you will
-be asked which two of the three buffers to use).
+@emph{If you are comparing 3 files or buffers simultaneously:} Ediff will
+ask you to choose buffers and then select regions inside those buffers.
 
 @emph{If you are merging files or buffers (with or without ancestor):}
-Ediff would take the current region in the merge buffer and compare
-it to the current region in the buffer of your choice (A or B).
-
-@emph{Note: In all these cases you must first switch to the appropriate
-Emacs buffers and manually set the regions that you want to compare.}
-
-Highlighting set by the parent Ediff session is removed, to avoid interference
-with highlighting of the child session.  When done with the child session, type
-@kbd{C-l} in the parent's control panel to restore the original highlighting.
-
-If you temporarily switch to the parent session, parent highlighting will be
-restored.  If you then come back to the child session, you may want to remove
-parent highlighting, so it won't interfere.  Typing @kbd{h} may help here.
+Ediff will ask you to choose which buffer (A or B) to compare with the
+merge buffer and then select regions in those buffers.
 
 @end table
 
@@ -948,6 +951,21 @@ these modes the default one.
 This function can also be invoked from the Menubar.  However, in some
 cases, the change will take place only after you execute one of the Ediff
 commands, such as going to the next difference or redisplaying.
+
+@item ediff-toggle-use-toolbar
+@findex ediff-toggle-use-toolbar
+Available in XEmacs only.  The Ediff toolbar provides quick access to some
+of the common Ediff functions.  This function toggles the display of the
+toolbar.  If invoked from the menubar, the function may take sometimes
+effect only after you execute an Ediff command, such as going to the next
+difference.
+
+@item ediff-use-toolbar-p
+@vindex ediff-use-toolbar-p
+The use of the toolbar can also be specified via the variable
+@code{ediff-use-toolbar-p} (default is @code{t}).  This variable can be set
+only in @file{.emacs} --- do @strong{not} change it interactively.  Use the
+function @code{ediff-toggle-use-toolbar} instead.
 
 @item ediff-revert-buffers-then-recompute-diffs
 @findex ediff-revert-buffers-then-recompute-diffs
@@ -1031,9 +1049,20 @@ memorize them.
 
 In directory comparison or merging, a session group panel displays only the
 files common to all directories involved.  The differences are kept in a
-separate buffer and are conveniently displayed by typing @kbd{D} to the
-corresponding session group panel.  Thus, as an added benefit, Ediff can be
-used to compare the contents of up to three directories.
+separate @emph{directory difference buffer} and are conveniently displayed
+by typing @kbd{D} to the corresponding session group panel.  Thus, as an
+added benefit, Ediff can be used to compare the contents of up to three
+directories.
+
+@cindex Directory difference buffer
+Sometimes it is desirable to copy some files from one directory to another
+without exiting Ediff. The @emph{directory difference buffer}, which is
+displayed by typing @kbd{D} as discussed above, can be used for this
+purpose. If a file is, say, in Ediff's Directory A, but is missing in
+Ediff's Directory B (Ediff will refuse to override existing files), then
+typing @kbd{C} or clicking mouse button 2 over that file (which must be
+displayed in directory difference buffer) will copy that file from
+Directory A to Directory B.
 
 Session records in session group panels are also marked with @kbd{+}, for
 active sessions, and with @kbd{-}, for finished sessions.
@@ -1055,7 +1084,7 @@ the only such group-level operation is the creation of a multi-file patch.
 @vindex ediff-autostore-merges
 For group sessions created to merge files, Ediff can store all merges
 automatically in a directory.  The user is asked to specify such directory
-if the value of @code{ediff-autostore-merges} is non-nil.  If the value is
+if the value of @code{ediff-autostore-merges} is non-@code{nil}.  If the value is
 @code{nil}, nothing is done to the merge buffers---it will be the user's
 responsibility to save them.  If the value is @code{t}, the user will be
 asked where to save the merge buffers in all merge jobs, even those that do
@@ -1071,7 +1100,7 @@ set on a per-buffer basis.  Therefore, use @code{setq-default} to change
 this variable globally.
 
 @cindex Multi-file patches
-A multi-file patch is a concatenated output of several runs of the
+A multi-file patch is a concatenated output of several runs of the Unix
 @code{diff} command (some versions of @code{diff} let you create a
 multi-file patch in just one run).  Ediff facilitates creation of
 multi-file patches as follows.  If you are in a session group buffer
@@ -1094,10 +1123,18 @@ multi-file patch.  This is because, in the latter-style sessions, there are
 many ways to create diff output, and it is easier to handle by running
 Ediff on the inactive sessions.
 
-Last, but not least, by typing @kbd{=}, you can quickly find out which
-sessions have identical files, so you won't have to run Ediff on those
+Last, but not least, by typing @kbd{==}, you can quickly find out which
+sessions have identical entries, so you won't have to run Ediff on those
 sessions.  This, however, works only on local, uncompressed files.
 For compressed or remote files, this command won't report anything.
+Likewise, you can use @kbd{=h} to mark sessions with identical entries
+for hiding or, with @kbd{=m}, for further operations.
+
+The comparison operations @kbd{==}, @kbd{=h}, and @kbd{=m} can recurse into
+subdirectories to see if they have identical contents (so the user will not
+need to descend into those subdirectories manually). These commands ask the
+user whether or not to do a recursive descent.
+
 
 
 @node Remote and Compressed Files, Customization, Session Groups, Top
@@ -1419,7 +1456,7 @@ the control frame.
 To start Ediff with an iconified Control Panel, you should set this
 variable to @code{t} and @code{ediff-prefer-long-help-message} to
 @code{nil} (@pxref{Quick Help Customization}).  This behavior is useful
-only if icons are allowed to accept keybord input (which depend on the
+only if icons are allowed to accept keyboard input (which depends on the
 window manager and other factors).
 @end table
 
@@ -1546,7 +1583,7 @@ white space and newlines.  This feature can be toggled on/off interactively,
 via the command @kbd{##}.
 @end table
 
-@strong{Note:} In order for this feature to work, auto-refining of
+@strong{Please note:} in order for this feature to work, auto-refining of
 difference regions must be on, since otherwise Ediff won't know if there
 are fine differences between regions.  On devices where Emacs can display
 faces, auto-refining is a default, but it is not turned on by default on
@@ -1557,6 +1594,29 @@ on (such as, by typing @kbd{@@}).
 Ediff may take a long time to skip over them because it has to compute fine
 differences of all intermediate regions.  This delay does not indicate any
 problem.
+
+@vindex ediff-ignore-case-option
+@vindex ediff-ignore-case-option3
+@vindex ediff-ignore-case
+Finally, Ediff can be told to ignore the case of the letters. This behavior
+can be toggled with @kbd{#c} and it is controlled with three variables:
+@code{ediff-ignore-case-option}, @code{ediff-ignore-case-option3}, and
+@code{ediff-ignore-case}.
+
+The variable @code{ediff-ignore-case-option} specifies the option to pass
+to the diff program for comparing two files or buffers. For GNU
+@code{diff}, this option is @code{"-i"}. The variable
+@code{ediff-ignore-case-option3} specifies the option to pass to the
+@code{diff3} program in order to make it case-insensitive. GNU @code{diff3}
+does not have such an option, so when merging or comparing three files with
+this program, ignoring the letter case is not supported.
+
+The variable @code{ediff-ignore-case} controls whether Ediff starts out by
+ignoring letter case or not. It can be set in @file{.emacs} using
+@code{setq-default}.
+
+When case sensitivity is toggled, all difference
+regions are recomputed.
 
 @node Highlighting Difference Regions, Narrowing, Selective Browsing, Customization
 @section Highlighting Difference Regions
@@ -1624,7 +1684,7 @@ Ediff uses faces to highlight differences.
 
 @item ediff-highlight-all-diffs
 @vindex ediff-highlight-all-diffs
-Indicates whether---on a windowind display---Ediff should highlight
+Indicates whether---on a windowing display---Ediff should highlight
 differences using inserted strings (as on text-only terminals) or using
 colors and highlighting.  Normally, Ediff highlights all differences, but
 the selected difference is highlighted more visibly.  One can cycle through
@@ -1663,7 +1723,7 @@ some Lisp code in @file{~/.emacs}.  For instance,
 @end example
 
 @noindent
-would use the pre-defined fase @code{bold-italic} to highlight the current
+would use the pre-defined face @code{bold-italic} to highlight the current
 difference region in buffer A (this face is not a good choice, by the way).
 
 If you are unhappy with just @emph{some} of the aspects of the default
@@ -1681,8 +1741,8 @@ faces, you can modify them when Ediff is being loaded using
               ediff-current-diff-face-B)))
 @end smallexample
 
-@strong{Note:} To set Ediff's faces, use only @code{copy-face} or
-@code{set/make-face-@dots{}} as shown above. Emacs' low-level
+@strong{Please note:} to set Ediff's faces, use only @code{copy-face}
+or @code{set/make-face-@dots{}} as shown above. Emacs' low-level
 face-manipulation functions should be avoided.
 
 @node Narrowing, Refinement of Difference Regions, Highlighting Difference Regions, Customization
@@ -1821,8 +1881,8 @@ format yet.
 @vindex ediff-coding-system-for-read
 This variable specifies the coding system to use when reading the output
 that the programs @code{diff3} and @code{diff} send to Emacs. The default
-is @code{raw-text}, and this should work fine on GNU, Unix, and in most
-cases under Windows NT/95/98/2000.  There are @code{diff} programs
+is @code{raw-text}, and this should work fine in Unix and in most
+cases under Windows NT/95/98/2000. There are @code{diff} programs
 for which the default option doesn't work under Windows. In such cases,
 @code{raw-text-dos} might work. If not, you will have to experiment with
 other coding systems or use GNU diff.
@@ -2240,7 +2300,7 @@ version control, Ediff first tries to check the file out.
 
 @item ediff-make-buffers-readonly-at-startup nil
 @vindex ediff-make-buffers-readonly-at-startup
-If t, all variant buffers are made read-only at Ediff startup.
+If @code{t}, all variant buffers are made read-only at Ediff startup.
 
 @item ediff-keep-variants
 @vindex @code{ediff-keep-variants}
@@ -2260,6 +2320,14 @@ prior to starting Ediff, so Ediff just preserves status quo here.
 
 Using @code{ediff-cleanup-hook}, one can make Ediff delete the variants
 unconditionally (e.g., by making @code{ediff-janitor} into one of these hooks).
+
+@item ediff-keep-tmp-versions
+@vindex @code{ediff-keep-tmp-versions}
+Default is @code{nil}. If @code{t}, the versions of the files being
+compared or merged using operations such as @code{ediff-revision} or
+@code{ediff-merge-revisions} are not deleted on exit. The normal action is
+to clean up and delete these version files.
+
 @item ediff-grab-mouse
 @vindex @code{ediff-grab-mouse}
 Default is @code{t}.  Normally, Ediff grabs mouse and puts it in its
@@ -2326,11 +2394,11 @@ The second of the data buffers being compared.
 @item ediff-buffer-C
 In three-way comparisons, this is the third buffer being compared.
 In merging, this is the merge buffer.
-In two-way comparison, this variable is nil.
+In two-way comparison, this variable is @code{nil}.
 
 @item ediff-window-A
 The window displaying buffer A.  If buffer A is not visible, this variable
-is nil or it may be a dead window.
+is @code{nil} or it may be a dead window.
 
 @item ediff-window-B
 The window displaying buffer B.
@@ -2339,15 +2407,15 @@ The window displaying buffer B.
 The window displaying buffer C, if any.
 
 @item ediff-control-frame
-A dedicated frame displaying the control buffer, if it exists.
-It is non-nil only if Ediff uses the multiframe display, i.e., when the
-control buffer is in its own frame.
+A dedicated frame displaying the control buffer, if it exists.  It is
+non-@code{nil} only if Ediff uses the multiframe display, i.e., when
+the control buffer is in its own frame.
 @end table
 
-@node Credits, Index, Customization, Top
+@node Credits, GNU Free Documentation License, Customization, Top
 @chapter Credits
 
-Ediff was written by Michael Kifer <kifer@@cs.sunysb.edu>.  It was inspired
+Ediff was written by Michael Kifer <kifer@@cs.stonybrook.edu>.  It was inspired
 by emerge.el written by Dale R.@: Worley <drw@@math.mit.edu>.  An idea due to
 Boris Goldowsky <boris@@cs.rochester.edu> made it possible to highlight
 fine differences in Ediff buffers.  Alastair Burt <burt@@dfki.uni-kl.de>
@@ -2356,12 +2424,13 @@ made it work with VC, Marc Paquette <marcpa@@cam.org> wrote the
 toolbar support package for Ediff, and Hrvoje Niksic <hniksic@@xemacs.org>
 adapted it to the Emacs customization package.
 
-Many people provided help with bug reports, patches, and advice.
+Many people provided help with bug reports, feature suggestions, and advice.
 Without them, Ediff would not be nearly as useful as it is today.
-Here is a full list of contributors (I hope I didn't miss anyone):
+Here is a hopefully full list of contributors:
 
 @example
 Adrian Aichner (aichner@@ecf.teradyne.com),
+Drew Adams (drew.adams@@oracle.com),
 Steve Baur (steve@@xemacs.org),
 Neal Becker (neal@@ctd.comsat.com),
 E.@: Jay Berkenbilt (ejb@@ql.org),
@@ -2383,10 +2452,14 @@ Jay Finger (jayf@@microsoft.com),
 Xavier Fornari (xavier@@europe.cma.fr),
 Eric Freudenthal (freudent@@jan.ultra.nyu.edu),
 Job Ganzevoort (Job.Ganzevoort@@cwi.nl),
+Felix Heinrich Gatzemeier (felix.g@@tzemeier.info),
 Boris Goldowsky (boris@@cs.rochester.edu),
 Allan Gottlieb (gottlieb@@allan.ultra.nyu.edu),
 Aaron Gross (aaron@@bfr.co.il),
 Thorbjoern Hansen (thorbjoern.hansen@@mchp.siemens.de),
+Marcus Harnisch (marcus_harnisch@@mint-tech.com),
+Steven E. Harris (seh@@panix.com),
+Aaron S. Hawley (Aaron.Hawley@@uvm.edu),
 Xiaoli Huang (hxl@@epic.com),
 Andreas Jaeger (aj@@suse.de),
 Lars Magne Ingebrigtsen (larsi@@ifi.uio.no),
@@ -2396,7 +2469,7 @@ Karl Heuer (kwzh@@gnu.org),
 (jaffe@@chipmunk.cita.utoronto.ca),
 David Karr (dkarr@@nmo.gtegsc.com),
 Norbert Kiesel (norbert@@i3.informatik.rwth-aachen.de),
-Sam Steingold (sds@@goems.com),
+Steffen Kilb (skilb@@gmx.net),
 Leigh L Klotz (klotz@@adoc.xerox.com),
 Fritz Knabe (Fritz.Knabe@@ecrc.de),
 Heinz Knutzen (hk@@informatik.uni-kiel.d400.de),
@@ -2406,6 +2479,7 @@ Ken Laprade (laprade@@dw3f.ess.harris.com),
 Will C Lauer (wcl@@cadre.com),
 Richard Levitte (levitte@@e.kth.se),
 Mike Long (mike.long@@analog.com),
+Dave Love (d.love@@dl.ac.uk),
 Martin Maechler (maechler@@stat.math.ethz.ch),
 Simon Marshall (simon@@gnu.org),
 Paul C. Meuse (pmeuse@@delcomsys.com),
@@ -2415,12 +2489,15 @@ Chris Murphy (murphycm@@sun.aston.ac.uk),
 Erik Naggum (erik@@naggum.no),
 Eyvind Ness (Eyvind.Ness@@hrp.no),
 Ray Nickson (nickson@@cs.uq.oz.au),
+Dan Nicolaescu (dann@@ics.uci.edu),
 David Petchey (petchey_david@@jpmorgan.com),
 Benjamin Pierce (benjamin.pierce@@cl.cam.ac.uk),
 Francois Pinard (pinard@@iro.umontreal.ca),
 Tibor Polgar (tlp00@@spg.amdahl.com),
 David Prince (dave0d@@fegs.co.uk),
 Paul Raines (raines@@slac.stanford.edu),
+Stefan Reicher (xsteve@@riic.at),
+Charles Rich (rich@@merl.com),
 Bill Richter (richter@@math.nwu.edu),
 C.S.@: Roberson (roberson@@aur.alcatel.com),
 Kevin Rodgers (kevin.rodgers@@ihs.com),
@@ -2432,12 +2509,14 @@ Vin Shelton (acs@@xemacs.org),
 Scott O. Sherman (Scott.Sherman@@mci.com),
 Richard Stallman (rms@@gnu.org),
 Richard Stanton (stanton@@haas.berkeley.edu),
+Sam Steingold (sds@@goems.com),
 Ake Stenhoff (etxaksf@@aom.ericsson.se),
 Stig (stig@@hackvan.com),
 Peter Stout (Peter_Stout@@cs.cmu.edu),
 Chuck Thompson (cthomp@@cs.uiuc.edu),
 Ray Tomlinson (tomlinso@@bbn.com),
 Raymond Toy (toy@@rtp.ericsson.se),
+Stephen J. Turnbull  (stephen@@xemacs.org),
 Jan Vroonhof (vroonhof@@math.ethz.ch),
 Colin Walters (walters@@cis.ohio-state.edu),
 Philippe Waroquiers (philippe.waroquiers@@eurocontrol.be),
@@ -2449,10 +2528,19 @@ Ilya Zakharevich (ilya@@math.ohio-state.edu),
 Eli Zaretskii (eliz@@is.elta.co.il)
 @end example
 
-@node Index, , Credits, Top
+@node GNU Free Documentation License, Index, Credits, Top
+@appendix GNU Free Documentation License
+@include doclicense.texi
+
+
+@node Index, , GNU Free Documentation License, Top
 @unnumbered Index
 @printindex cp
 
 @setchapternewpage odd
 @contents
 @bye
+
+@ignore
+   arch-tag: 165ecb88-d03c-44b1-a921-b93f50b05b46
+@end ignore

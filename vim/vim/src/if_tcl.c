@@ -106,11 +106,17 @@ static tcl_info tclinfo = { NULL, 0, 0, 0, NULL, NULL };
 #define VIMOUT	((ClientData)1)
 #define VIMERR	((ClientData)2)
 
+/* This appears to be new in Tcl 8.4. */
+#ifndef CONST84
+# define CONST84
+#endif
+
 /*
  *  List of Tcl interpreters who reference a vim window or buffer.
- *  Each buffer and window has it's own list in the tcl_ref struct member.
- *  We need this because Tcl can create sub-interpreters with the "interp"
- *  command, and each interpreter can reference all windows and buffers.
+ *  Each buffer and window has it's own list in the w_tcl_ref or b_tcl_ref
+ *  struct member.  We need this because Tcl can create sub-interpreters with
+ *  the "interp" command, and each interpreter can reference all windows and
+ *  buffers.
  */
 struct ref
 {
@@ -384,9 +390,8 @@ buffercmd(dummy, interp, objc, objv)
     buf_T	*buf;
     Tcl_Obj	*resobj;
     int		err, n, idx;
-
     enum {BCMD_EXISTS, BCMD_LIST};
-    static char *bcmdoptions[] =
+    static CONST84 char *bcmdoptions[] =
     {
 	"exists", "list", (char *)0
     };
@@ -533,7 +538,7 @@ bufselfcmd(ref, interp, objc, objv)
 	BUF_GET, BUF_INSERT, BUF_LAST, BUF_MARK, BUF_NAME, BUF_NUMBER,
 	BUF_OPTION, BUF_SET, BUF_WINDOWS
     };
-    static char *bufoptions[] =
+    static CONST84 char *bufoptions[] =
     {
 	"append", "command", "count", "delcmd", "delete", "expr",
 	"get", "insert", "last", "mark", "name", "number",
@@ -848,7 +853,9 @@ bufselfcmd(ref, interp, objc, objv)
 	    else
 	    {
 		char rbuf[64];
-		sprintf(rbuf, _("row %d column %d"), (int)row2tcl(pos->lnum), (int)col2tcl(pos->col));
+
+		sprintf(rbuf, _("row %d column %d"),
+			     (int)row2tcl(pos->lnum), (int)col2tcl(pos->col));
 		Tcl_SetResult(interp, rbuf, TCL_VOLATILE);
 	    }
 	    break;
@@ -870,7 +877,8 @@ bufselfcmd(ref, interp, objc, objv)
 		--val1;
 	    if (u_save((linenr_T)val1, (linenr_T)(val1+1)) != OK)
 	    {
-		Tcl_SetResult(interp, _("cannot save undo information"), TCL_STATIC);
+		Tcl_SetResult(interp, _("cannot save undo information"),
+								  TCL_STATIC);
 		err = TCL_ERROR;
 		break;
 	    }
@@ -878,7 +886,8 @@ bufselfcmd(ref, interp, objc, objv)
 	    line = Tcl_GetStringFromObj(objv[3], NULL);
 	    if (ml_append((linenr_T)val1, (char_u *)line, 0, FALSE) != OK)
 	    {
-		Tcl_SetResult(interp, _("cannot insert/append line"), TCL_STATIC);
+		Tcl_SetResult(interp, _("cannot insert/append line"),
+								  TCL_STATIC);
 		err = TCL_ERROR;
 		break;
 	    }
@@ -924,7 +933,7 @@ bufselfcmd(ref, interp, objc, objv)
 		err = TCL_ERROR;
 		break;
 	    }
-	    err = tclsetdelcmd(interp, buf->tcl_ref, (void *)buf, objv[2]);
+	    err = tclsetdelcmd(interp, buf->b_tcl_ref, (void *)buf, objv[2]);
 	    break;
 
 	default:
@@ -966,7 +975,7 @@ winselfcmd(ref, interp, objc, objv)
 	WIN_BUFFER, WIN_COMMAND, WIN_CURSOR, WIN_DELCMD, WIN_EXPR,
 	WIN_HEIGHT, WIN_OPTION
     };
-    static char *winoptions[] =
+    static CONST84 char *winoptions[] =
     {
 	"buffer", "command", "cursor", "delcmd", "expr",
 	"height", "option", (char *)0
@@ -1050,7 +1059,7 @@ winselfcmd(ref, interp, objc, objv)
 		err = TCL_ERROR;
 		break;
 	    }
-	    err = tclsetdelcmd(interp, win->tcl_ref, (void *)win, objv[2]);
+	    err = tclsetdelcmd(interp, win->w_tcl_ref, (void *)win, objv[2]);
 	    break;
 
 	case WIN_CURSOR:
@@ -1063,6 +1072,7 @@ winselfcmd(ref, interp, objc, objv)
 	    if (objc == 2)
 	    {
 		char buf[64];
+
 		sprintf(buf, _("row %d column %d"), (int)row2tcl(win->w_cursor.lnum), (int)col2tcl(win->w_cursor.col));
 		Tcl_SetResult(interp, buf, TCL_VOLATILE);
 		break;
@@ -1179,7 +1189,7 @@ tclgetlinenum(interp, obj, valueP, buf)
 
     enum { LN_BEGIN, LN_BOTTOM, LN_END, LN_FIRST, LN_LAST, LN_START, LN_TOP };
 
-    static char *keyw[] =
+    static CONST84 char *keyw[] =
     {
 	"begin", "bottom", "end", "first", "last", "start", "top", (char *)0
     };
@@ -1311,7 +1321,7 @@ tclsetoption(interp, objc, objv, objn)
     Tcl_Obj	*resobj;
 
     enum { OPT_OFF, OPT_ON, OPT_TOGGLE };
-    static char *optkw[] = { "off", "on", "toggle", (char *)0 };
+    static CONST84 char *optkw[] = { "off", "on", "toggle", (char *)0 };
 
     nobjs = objc - objn;
     if (nobjs != 1 && nobjs != 2)
@@ -1397,7 +1407,7 @@ tclvimexpr(interp, objc, objv, objn)
 
 #ifdef FEAT_EVAL
     expr = Tcl_GetStringFromObj(objv[objn], NULL);
-    str = (char *)eval_to_string((char_u *)expr, NULL);
+    str = (char *)eval_to_string((char_u *)expr, NULL, TRUE);
     if (str == NULL)
 	Tcl_SetResult(interp, _("invalid expression"), TCL_STATIC);
     else
@@ -1456,7 +1466,8 @@ delref(cref)
     static char *
 tclgetref(interp, refstartP, prefix, vimobj, proc)
     Tcl_Interp	*interp;
-    void	**refstartP;	/* ptr to tcl_ref member of win_T/buf_T struct */
+    void	**refstartP;	/* ptr to w_tcl_ref/b_tcl-ref member of
+				   win_T/buf_T struct */
     char	*prefix;	/* "win" or "buf" */
     void	*vimobj;	/* win_T* or buf_T* */
     Tcl_ObjCmdProc *proc;	/* winselfcmd or bufselfcmd */
@@ -1482,7 +1493,8 @@ tclgetref(interp, refstartP, prefix, vimobj, proc)
     }
 
     if (ref)
-	sprintf(name, "::vim::%s", Tcl_GetCommandName(interp, ref->cmd));
+	vim_snprintf(name, sizeof(name), "::vim::%s",
+					Tcl_GetCommandName(interp, ref->cmd));
     else
     {
 	if (unused)
@@ -1503,7 +1515,8 @@ tclgetref(interp, refstartP, prefix, vimobj, proc)
 	}
 
 	/* This might break on some exotic systems... */
-	sprintf(name, "::vim::%s_%lx", prefix, (unsigned long)vimobj);
+	vim_snprintf(name, sizeof(name), "::vim::%s_%lx",
+					       prefix, (unsigned long)vimobj);
 	cmd = Tcl_CreateObjCommand(interp, name, proc,
 	    (ClientData)ref, (Tcl_CmdDeleteProc *)delref);
 	if (!cmd)
@@ -1522,7 +1535,7 @@ tclgetwindow(interp, win)
     Tcl_Interp	*interp;
     win_T	*win;
 {
-    return tclgetref(interp, &(win->tcl_ref), "win", (void *)win, winselfcmd);
+    return tclgetref(interp, &(win->w_tcl_ref), "win", (void *)win, winselfcmd);
 }
 
     static char *
@@ -1530,7 +1543,7 @@ tclgetbuffer(interp, buf)
     Tcl_Interp	*interp;
     buf_T	*buf;
 {
-    return tclgetref(interp, &(buf->tcl_ref), "buf", (void *)buf, bufselfcmd);
+    return tclgetref(interp, &(buf->b_tcl_ref), "buf", (void *)buf, bufselfcmd);
 }
 
     static int
@@ -1877,7 +1890,7 @@ tclexit(error)
     if (error == TCL_EXIT )
     {
 	int retval;
-	char buf[32];
+	char buf[50];
 	Tcl_Obj *robj;
 
 	robj = Tcl_GetObjResult(tclinfo.interp);
@@ -1888,7 +1901,7 @@ tclexit(error)
 	}
 	else
 	{
-	    sprintf(buf, "E572: exit code %d", retval);
+	    sprintf(buf, _("E572: exit code %d"), retval);
 	    tclerrmsg(buf);
 	    if (retval == 0 )
 	    {
@@ -1905,7 +1918,7 @@ tclexit(error)
     {
 	char *result;
 
-	result = Tcl_GetStringResult(tclinfo.interp);
+	result = (char *)Tcl_GetStringResult(tclinfo.interp);
 	if (error == TCL_OK)
 	{
 	    tclmsg(result);
@@ -1931,20 +1944,21 @@ ex_tcl(eap)
     char_u	*script;
     int		err;
 
-    err = tclinit(eap);
-    if (err == OK)
+    script = script_get(eap, eap->arg);
+    if (!eap->skip)
     {
-	Tcl_AllowExceptions(tclinfo.interp);
-	script = script_get(eap, eap->arg);
-	if (script == NULL)
-	    err = Tcl_Eval(tclinfo.interp, (char *)eap->arg);
-	else
+	err = tclinit(eap);
+	if (err == OK)
 	{
-	    err = Tcl_Eval(tclinfo.interp, (char *)script);
-	    vim_free(script);
+	    Tcl_AllowExceptions(tclinfo.interp);
+	    if (script == NULL)
+		err = Tcl_Eval(tclinfo.interp, (char *)eap->arg);
+	    else
+		err = Tcl_Eval(tclinfo.interp, (char *)script);
+	    err = tclexit(err);
 	}
-	err = tclexit(err);
     }
+    vim_free(script);
 }
 
 /*
@@ -2012,7 +2026,7 @@ ex_tcldo(eap)
 	err = Tcl_Eval(tclinfo.interp, script);
 	if (err != TCL_OK)
 	    break;
-	line = Tcl_GetVar(tclinfo.interp, var_line, 0);
+	line = (char *)Tcl_GetVar(tclinfo.interp, var_line, 0);
 	if (line)
 	{
 	    if (ml_replace((linenr_T)rs, (char_u *)line, TRUE) != OK)
@@ -2058,7 +2072,7 @@ tcldelallrefs(ref)
 		err = Tcl_GlobalEvalObj(ref->interp, ref->delcmd);
 		if (err != TCL_OK)
 		{
-		    result = Tcl_GetStringResult(ref->interp);
+		    result = (char *)Tcl_GetStringResult(ref->interp);
 		    if (result)
 			tclerrmsg(result);
 		}
@@ -2083,12 +2097,12 @@ tcl_buffer_free(buf)
 	return;
 #endif
 
-    reflist = (struct ref*)(buf->tcl_ref);
+    reflist = (struct ref *)(buf->b_tcl_ref);
     if (reflist != &refsdeleted)
     {
-	buf->tcl_ref = (void *)&refsdeleted;
+	buf->b_tcl_ref = (void *)&refsdeleted;
 	tcldelallrefs(reflist);
-	buf->tcl_ref = NULL;
+	buf->b_tcl_ref = NULL;
     }
 }
 
@@ -2104,12 +2118,12 @@ tcl_window_free(win)
 	return;
 #endif
 
-    reflist = (struct ref*)(win->tcl_ref);
+    reflist = (struct ref*)(win->w_tcl_ref);
     if (reflist != &refsdeleted)
     {
-	win->tcl_ref = (void *)&refsdeleted;
+	win->w_tcl_ref = (void *)&refsdeleted;
 	tcldelallrefs(reflist);
-	win->tcl_ref = NULL;
+	win->w_tcl_ref = NULL;
     }
 }
 #endif

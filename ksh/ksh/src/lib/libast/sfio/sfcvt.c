@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	Convert a floating point value to ASCII.
@@ -30,10 +26,27 @@
 **	Written by Kiem-Phong Vo and Glenn Fowler (SFFMT_AFORMAT)
 */
 
-static char		*Inf = "Inf", *Zero = "0";
+static char		*lc_inf = "inf", *uc_inf = "INF";
+static char		*lc_nan = "nan", *uc_nan = "NAN";
+static char		*Zero = "0";
+#define SF_INF		((_Sfi = 3), strncpy(buf, (format & SFFMT_UPPER) ? uc_inf : lc_inf, size))
+#define SF_NAN		((_Sfi = 3), strncpy(buf, (format & SFFMT_UPPER) ? uc_nan : lc_nan, size))
+#define SF_ZERO		((_Sfi = 1), strncpy(buf, Zero, size))
 #define SF_INTPART	(SF_IDIGITS/2)
-#define SF_INFINITE	((_Sfi = 3), Inf)
-#define SF_ZERO		((_Sfi = 1), Zero)
+
+#if ! _lib_isnan
+#if _lib_fpclassify
+#define isnan(n)	(fpclassify(n)==FP_NAN)
+#define isnanl(n)	(fpclassify(n)==FP_NAN)
+#else
+#define isnan(n)	(memcmp((void*)&n,(void*)&_Sfdnan,sizeof(n))==0)
+#define isnanl(n)	(memcmp((void*)&n,(void*)&_Sflnan,sizeof(n))==0)
+#endif
+#else
+#if ! _lib_isnanl
+#define isnanl(n)	isnan(n)
+#endif
+#endif
 
 #if __STD_C
 char* _sfcvt(Sfdouble_t dv, char* buf, size_t size, int n_digit,
@@ -60,18 +73,56 @@ int		format;		/* conversion format		*/
 
 	*sign = *decpt = 0;
 
+	if(isnanl(dv))
+		return SF_NAN;
+#if _lib_isinf
+	if (n = isinf(dv))
+	{	if (n < 0)
+			*sign = 1;
+		return SF_INF;
+	}
+#endif
 #if !_ast_fltmax_double
 	if(format&SFFMT_LDOUBLE)
 	{	Sfdouble_t	f = dv;
-
-		if(f == 0.)
+#if _c99_in_the_wild
+#if _lib_signbit
+		if (signbit(f))
+#else
+#if _lib_copysignl
+		if (copysignl(1.0, f) < 0.0)
+#else
+#if _lib_copysign
+		if (copysign(1.0, (double)f) < 0.0)
+#else
+		if (f < 0.0)
+#endif
+#endif
+#endif
+		{	f = -f;
+			*sign = 1;
+		}
+#if _lib_fpclassify
+		switch (fpclassify(f))
+		{
+		case FP_INFINITE:
+			return SF_INF;
+		case FP_NAN:
+			return SF_NAN;
+		case FP_ZERO:
 			return SF_ZERO;
-		else if((*sign = (f < 0.)) )	/* assignment = */
-			f = -f;
+		}
+#endif
+#else
+		if (f < 0.0)
+		{	f = -f;
+			*sign = 1;
+		}
+#endif
 		if(f < LDBL_MIN)
 			return SF_ZERO;
-		else if(f > LDBL_MAX)
-			return SF_INFINITE;
+		if(f > LDBL_MAX)
+			return SF_INF;
 
 		if(format & SFFMT_AFORMAT)
 		{	Sfdouble_t	g;
@@ -112,14 +163,14 @@ int		format;		/* conversion format		*/
 				{
 					f *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
-						return SF_INFINITE;
+						return SF_INF;
 				}
 			} while(f >= (Sfdouble_t)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
 		b = sp = buf + SF_INTPART;
-		if((v = (int)f) != 0)
+		if((v = (long)f) != 0)
 		{	/* translate the integer part */
 			f -= (Sfdouble_t)v;
 
@@ -127,7 +178,7 @@ int		format;		/* conversion format		*/
 
 			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
-				return SF_INFINITE;
+				return SF_INF;
 			b = sp;
 			sp = buf + SF_INTPART;
 		}
@@ -149,7 +200,7 @@ int		format;		/* conversion format		*/
 		{
 			if((format&SFFMT_EFORMAT) && *decpt == 0 && f > 0.)
 			{	Sfdouble_t	d;
-				while((int)(d = f*10.) == 0)
+				while((long)(d = f*10.) == 0)
 				{	f = d;
 					*decpt -= 1;
 				}
@@ -175,14 +226,47 @@ int		format;		/* conversion format		*/
 #endif
 	{	double	f = (double)dv;
 
-		if(f == 0.)
+#if _lib_isinf
+		if (n = isinf(f))
+		{	if (n < 0)
+				*sign = 1;
+			return SF_INF;
+		}
+#endif
+#if _c99_in_the_wild
+#if _lib_signbit
+		if (signbit(f))
+#else
+#if _lib_copysign
+		if (copysign(1.0, f) < 0.0)
+#else
+		if (f < 0.0)
+#endif
+#endif
+		{	f = -f;
+			*sign = 1;
+		}
+#if _lib_fpclassify
+		switch (fpclassify(f))
+		{
+		case FP_INFINITE:
+			return SF_INF;
+		case FP_NAN:
+			return SF_NAN;
+		case FP_ZERO:
 			return SF_ZERO;
-		else if((*sign = (f < 0.)) )	/* assignment = */
-			f = -f;
+		}
+#endif
+#else
+		if (f < 0.0)
+		{	f = -f;
+			*sign = 1;
+		}
+#endif
 		if(f < DBL_MIN)
 			return SF_ZERO;
-		else if(f > DBL_MAX)
-			return SF_INFINITE;
+		if(f > DBL_MAX)
+			return SF_INF;
 
 		if(format & SFFMT_AFORMAT)
 		{	double	g;
@@ -221,14 +305,14 @@ int		format;		/* conversion format		*/
 				else
 				{	f *= _Sfneg10[v];
 					if((n += (1<<v)) >= SF_IDIGITS)
-						return SF_INFINITE;
+						return SF_INF;
 				}
 			} while(f >= (double)SF_MAXLONG);
 		}
 		*decpt = (int)n;
 
 		b = sp = buf + SF_INTPART;
-		if((v = (int)f) != 0)
+		if((v = (long)f) != 0)
 		{	/* translate the integer part */
 			f -= (double)v;
 
@@ -236,7 +320,7 @@ int		format;		/* conversion format		*/
 
 			n = b-sp;
 			if((*decpt += (int)n) >= SF_IDIGITS)
-				return SF_INFINITE;
+				return SF_INF;
 			b = sp;
 			sp = buf + SF_INTPART;
 		}
@@ -258,7 +342,7 @@ int		format;		/* conversion format		*/
 		{
 			if((format&SFFMT_EFORMAT) && *decpt == 0 && f > 0.)
 			{	reg double	d;
-				while((int)(d = f*10.) == 0)
+				while((long)(d = f*10.) == 0)
 				{	f = d;
 					*decpt -= 1;
 				}
@@ -271,7 +355,7 @@ int		format;		/* conversion format		*/
 					do { *sp++ = '0'; } while(sp < ep);
 					goto done;
 				}
-				else if((n = (int)(f *= 10.)) < 10)
+				else if((n = (long)(f *= 10.)) < 10)
 				{	*sp++ = (char)('0' + n);
 					f -= n;
 				}

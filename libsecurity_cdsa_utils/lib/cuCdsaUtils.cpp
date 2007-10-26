@@ -29,7 +29,8 @@
 #include <stdio.h>
 #include <Security/SecCertificate.h>
 #include <Security/cssmapple.h>				/* for cssmPerror() */
-#include <Security/oidsalg.h>				/* for cssmPerror() */
+#include <Security/oidsalg.h>
+#include <Security/TrustSettingsSchema.h>
 #include <strings.h>
 
 static CSSM_VERSION vers = {2, 0};
@@ -38,7 +39,7 @@ static const CSSM_GUID testGuid = { 0xFADE, 0, 0, { 1,2,3,4,5,6,7,0 }};
 /*
  * Standard app-level memory functions required by CDSA.
  */
-void * cuAppMalloc (uint32 size, void *allocRef) {
+void * cuAppMalloc (CSSM_SIZE size, void *allocRef) {
 	return( malloc(size) );
 }
 
@@ -47,11 +48,11 @@ void cuAppFree (void *mem_ptr, void *allocRef) {
  	return;
 }
 
-void * cuAppRealloc (void *ptr, uint32 size, void *allocRef) {
+void * cuAppRealloc (void *ptr, CSSM_SIZE size, void *allocRef) {
 	return( realloc( ptr, size ) );
 }
 
-void * cuAppCalloc (uint32 num, uint32 size, void *allocRef) {
+void * cuAppCalloc (uint32 num, CSSM_SIZE size, void *allocRef) {
 	return( calloc( num, size ) );
 }
 
@@ -639,7 +640,7 @@ CSSM_RETURN cuCrlVerify(
 	CSSM_CSP_HANDLE 		cspHand,
 	const CSSM_DATA			*crlData,
 	CSSM_DL_DB_HANDLE_PTR	certKeychain,	// intermediate certs
-	const CSSM_DATA 		*anchors,
+	const CSSM_DATA 		*anchors,		// optional - if NULL, use Trust Settings
 	uint32 					anchorCount)
 {
 	/* main job is building a CSSM_TP_VERIFY_CONTEXT and its components */
@@ -684,16 +685,36 @@ CSSM_RETURN cuCrlVerify(
 	authCtx.NumberOfAnchorCerts = anchorCount;
 	authCtx.AnchorCerts = const_cast<CSSM_DATA_PTR>(anchors);
 	
-	/* DBList of intermediate certs */
-	CSSM_DL_DB_HANDLE handles[1];
+	/* DBList of intermediate certs, plus possible System.keychain and 
+   	 * system roots */
+	CSSM_DL_DB_HANDLE handles[3];
 	unsigned numDbs = 0;
+	CSSM_DL_HANDLE dlHand = 0;
 	if(certKeychain != NULL) {
 		handles[0] = *certKeychain;
 		numDbs++;
 	}
+	if(anchors == NULL) {
+		/* Trust Settings requires two more DBs */
+		if(numDbs == 0) {
+			/* new DL handle */
+			dlHand = cuDlStartup();
+			handles[numDbs].DLHandle = dlHand;
+			handles[numDbs + 1].DLHandle = dlHand;
+		}
+		else {
+			/* use the same one passed in for certKeychain */
+			handles[numDbs].DLHandle = handles[0].DLHandle;
+			handles[numDbs + 1].DLHandle = handles[0].DLHandle;
+		}
+		handles[numDbs++].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
+			ADMIN_CERT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
+		handles[numDbs++].DBHandle = cuDbStartupByName(handles[numDbs].DLHandle,
+			SYSTEM_ROOT_STORE_PATH, CSSM_FALSE, CSSM_TRUE);
+	}
 	CSSM_DL_DB_LIST dlDbList;
-	dlDbList.DLDBHandle = certKeychain;
-	dlDbList.NumHandles = (certKeychain ? 1 : 0);
+	dlDbList.DLDBHandle = handles;
+	dlDbList.NumHandles = numDbs;
 	
 	authCtx.DBList = &dlDbList; 
 	authCtx.CallerCredentials = NULL;
@@ -703,6 +724,16 @@ CSSM_RETURN cuCrlVerify(
 	vfyCtx.ActionData.Length = 0;
 	vfyCtx.Action = CSSM_TP_ACTION_DEFAULT;
 	vfyCtx.Cred = &authCtx;
+
+	/* CSSM_APPLE_TP_ACTION_DATA */
+	CSSM_APPLE_TP_ACTION_DATA tpAction;
+	if(anchors == NULL) {
+		/* enable Trust Settings */
+		tpAction.Version = CSSM_APPLE_TP_ACTION_VERSION;
+		tpAction.ActionFlags = CSSM_TP_ACTION_TRUST_SETTINGS;
+		vfyCtx.ActionData.Data   = (uint8 *)&tpAction;
+		vfyCtx.ActionData.Length = sizeof(tpAction);
+	}
 	
 	/* cook up CSSM_ENCODED_CRL */
 	CSSM_ENCODED_CRL encCrl;
@@ -728,6 +759,15 @@ CSSM_RETURN cuCrlVerify(
 		NULL);			// RevokerVerifyResult
 	if(crtn) {
 		cuPrintError("CSSM_TP_CrlVerify", crtn);
+	}
+	if(anchors == NULL) {
+		/* close the DBs and maybe the DL we opened */
+		unsigned dexToClose = (certKeychain == NULL) ? 0 : 1;
+		CSSM_DL_DbClose(handles[dexToClose++]);
+		CSSM_DL_DbClose(handles[dexToClose]);
+		if(dlHand != 0) {
+			cuDlDetachUnload(dlHand);
+		}
 	}
 	return crtn;
 }

@@ -1,6 +1,6 @@
 /* MI Interpreter Definitions and Commands for GDB, the GNU debugger.
 
-   Copyright 2002, 2003, 2003 Free Software Foundation, Inc.
+   Copyright 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,11 +29,15 @@
 #include "inferior.h"
 #include "ui-out.h"
 #include "top.h"
-
+#include "exceptions.h"
 #include "mi-main.h"
 #include "mi-cmds.h"
 #include "mi-out.h"
 #include "mi-console.h"
+/* APPLE LOCAL begin subroutine inlining  */
+#include "mi-common.h"
+#include "inlining.h"
+/* APPLE LOCAL end subroutine inlining  */
 
 struct mi_interp
 {
@@ -64,12 +68,12 @@ struct gdb_events mi_async_hooks =
 
 /* These are the interpreter setup, etc. functions for the MI interpreter */
 static void mi_command_loop (int mi_version);
-static char *mi_input (char *);
 
 /* These are hooks that we put in place while doing interpreter_exec
    so we can report interesting things that happened "behind the mi's
    back" in this command */
-static int mi_interp_query_hook (const char *ctlstr, va_list ap);
+static int mi_interp_query_hook (const char *ctlstr, va_list ap)
+     ATTR_FORMAT (printf, 1, 0);
 
 static void mi3_command_loop (void);
 static void mi2_command_loop (void);
@@ -123,22 +127,19 @@ mi_interpreter_resume (void *data)
 
   gdb_setup_readline ();
 
-  if (event_loop_p)
-    {
-      /* These overwrite some of the initialization done in
-         _intialize_event_loop. */
-      call_readline = gdb_readline2;
-      input_handler = mi_execute_command_wrapper;
-      add_file_handler (input_fd, stdin_event_handler, 0);
-      async_command_editing_p = 0;
-      /* FIXME: This is a total hack for now.  PB's use of the MI implicitly
-         relies on a bug in the async support which allows asynchronous
-         commands to leak through the commmand loop.  The bug involves
-         (but is not limited to) the fact that sync_execution was
-         erroneously initialized to 0.  Duplicate by initializing it
-         thus here... */
-      sync_execution = 0;
-    }
+  /* These overwrite some of the initialization done in
+     _intialize_event_loop.  */
+  call_readline = gdb_readline2;
+  input_handler = mi_execute_command_wrapper;
+  add_file_handler (input_fd, stdin_event_handler, 0);
+  async_command_editing_p = 0;
+  /* FIXME: This is a total hack for now.  PB's use of the MI
+     implicitly relies on a bug in the async support which allows
+     asynchronous commands to leak through the commmand loop.  The bug
+     involves (but is not limited to) the fact that sync_execution was
+     erroneously initialized to 0.  Duplicate by initializing it thus
+     here...  */
+  sync_execution = 0;
 
   gdb_stdout = mi->out;
   /* Route error and log output through the MI */
@@ -151,21 +152,21 @@ mi_interpreter_resume (void *data)
      be a better way of doing this... */
   clear_interpreter_hooks ();
 
-  show_load_progress = mi_load_progress;
+  deprecated_show_load_progress = mi_load_progress;
   print_frame_more_info_hook = mi_print_frame_more_info;
 
   /* If we're _the_ interpreter, take control. */
   if (current_interp_named_p (INTERP_MI1))
-    command_loop_hook = mi1_command_loop;
+    deprecated_command_loop_hook = mi1_command_loop;
   else if (current_interp_named_p (INTERP_MI2))
-    command_loop_hook = mi2_command_loop;
+    deprecated_command_loop_hook = mi2_command_loop;
   else if (current_interp_named_p (INTERP_MI3))
-    command_loop_hook = mi3_command_loop;
+    deprecated_command_loop_hook = mi3_command_loop;
   else
     /* APPLE LOCAL: The default needs to be mi0,
        because that's what CodeWarrior expects.  */
-    command_loop_hook = mi0_command_loop;
-  set_gdb_event_hooks (&mi_async_hooks);
+    deprecated_command_loop_hook = mi0_command_loop;
+  deprecated_set_gdb_event_hooks (&mi_async_hooks);
 
   return 1;
 }
@@ -177,13 +178,14 @@ mi_interpreter_suspend (void *data)
   return 1;
 }
 
-static int
+static struct gdb_exception
 mi_interpreter_exec (void *data, const char *command)
 {
+  static struct gdb_exception ok;
   char *tmp = alloca (strlen (command) + 1);
   strcpy (tmp, command);
   mi_execute_command_wrapper (tmp);
-  return 1;
+  return exception_none;
 }
 
 /* Never display the default gdb prompt in mi case.  */
@@ -206,25 +208,21 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
 
   if (argc < 2)
     {
-      xasprintf (&mi_error_message,
-		 "mi_cmd_interpreter_exec: Usage: -interpreter-exec interp command");
+      mi_error_message = xstrprintf ("mi_cmd_interpreter_exec: Usage: -interpreter-exec interp command");
       return MI_CMD_ERROR;
     }
 
   interp_to_use = interp_lookup (argv[0]);
   if (interp_to_use == NULL)
     {
-      xasprintf (&mi_error_message,
-		 "mi_cmd_interpreter_exec: could not find interpreter \"%s\"",
-		 argv[0]);
+      mi_error_message = xstrprintf ("mi_cmd_interpreter_exec: could not find interpreter \"%s\"", argv[0]);
       return MI_CMD_ERROR;
     }
 
   if (!interp_exec_p (interp_to_use))
     {
-      xasprintf (&mi_error_message,
-		 "mi_cmd_interpreter_exec: interpreter \"%s\" does not support command execution",
-		 argv[0]);
+      mi_error_message = xstrprintf ("mi_cmd_interpreter_exec: interpreter \"%s\" does not support command execution",
+				     argv[0]);
       return MI_CMD_ERROR;
     }
   
@@ -280,12 +278,15 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
          since that is what the cli expects - before running the command,
          and then set it back to 0 when we are done. */
       sync_execution = 1;
-      if (interp_exec (interp_to_use, argv[i]) < 0)
-	{
-	  mi_error_last_message ();
-	  result = MI_CMD_ERROR;
-	  break;
-	}
+      {
+	struct gdb_exception e = interp_exec (interp_to_use, argv[i]);
+	if (e.reason < 0)
+	  {
+	    mi_error_message = xstrdup (e.message);
+	    result = MI_CMD_ERROR;
+	    break;
+	  }
+      }
       xfree (buff);
       do_exec_error_cleanups (ALL_CLEANUPS);
       sync_execution = 0;
@@ -303,6 +304,25 @@ mi_cmd_interpreter_exec (char *command, char **argv, int argc)
   mi_remove_notify_hooks ();
   interp_set_quiet (interp_to_use, old_quiet);
   
+  /* APPLE LOCAL begin subroutine inlining  */
+
+  if (argc >= 2
+      && strcmp (argv[0], "console-quoted") == 0
+      && strcmp (argv[1], "step") ==  0
+      && stepping_into_inlined_subroutine)
+    {
+      stop_step = 1;
+      if (current_command_token)
+	fputs_unfiltered (current_command_token, raw_stdout);
+      fputs_unfiltered ("^running\n", raw_stdout);
+      
+      ui_out_field_string (uiout, "reason",
+			   async_reason_lookup
+			   (EXEC_ASYNC_END_STEPPING_RANGE));
+    }
+
+  /* APPLE LOCAL end subroutine inlining  */
+
   /* Okay, now let's see if the command set the inferior going...
      Tricky point - have to do this AFTER resetting the interpreter, since
      changing the interpreter will clear out all the continuations for
@@ -373,6 +393,7 @@ mi_cmd_interpreter_complete (char *command, char **argv, int argc)
 {
   struct interp *interp_to_use;
   int cursor;
+  int limit = 200;
   
   if (argc < 2 || argc > 3)
     {
@@ -399,7 +420,7 @@ mi_cmd_interpreter_complete (char *command, char **argv, int argc)
       cursor = strlen (argv[1]);
     }
 
-  if (interp_complete (interp_to_use, argv[1], argv[1], cursor) == 0)
+  if (interp_complete (interp_to_use, argv[1], argv[1], cursor, limit) == 0)
       return MI_CMD_ERROR;
   else
     return MI_CMD_DONE;
@@ -422,42 +443,46 @@ mi_cmd_interpreter_complete (char *command, char **argv, int argc)
 void
 mi_insert_notify_hooks (void)
 {
-  create_breakpoint_hook = mi_interp_create_breakpoint_hook;
-  delete_breakpoint_hook = mi_interp_delete_breakpoint_hook;
-  modify_breakpoint_hook = mi_interp_modify_breakpoint_hook;
+  deprecated_create_breakpoint_hook = mi_interp_create_breakpoint_hook;
+  deprecated_delete_breakpoint_hook = mi_interp_delete_breakpoint_hook;
+  deprecated_modify_breakpoint_hook = mi_interp_modify_breakpoint_hook;
 
   frame_changed_hook = mi_interp_frame_changed_hook;
   stack_changed_hook = mi_interp_stack_changed_hook;
-  context_hook = mi_interp_context_hook;
+  deprecated_context_hook = mi_interp_context_hook;
 
   /* command_line_input_hook = mi_interp_command_line_input; */
-  query_hook = mi_interp_query_hook;
+  deprecated_query_hook = mi_interp_query_hook;
   command_line_input_hook = mi_interp_read_one_line_hook;
 
   stepping_command_hook = mi_interp_stepping_command_hook;
   continue_command_hook = mi_interp_continue_command_hook;
   run_command_hook = mi_interp_run_command_hook;
+
+  hand_call_function_hook = mi_interp_hand_call_function_hook;
+
 }
 
 void
 mi_remove_notify_hooks ()
 {
-  create_breakpoint_hook = NULL;
-  delete_breakpoint_hook = NULL;
-  modify_breakpoint_hook = NULL;
+  deprecated_create_breakpoint_hook = NULL;
+  deprecated_delete_breakpoint_hook = NULL;
+  deprecated_modify_breakpoint_hook = NULL;
 
   frame_changed_hook = NULL;
   stack_changed_hook = NULL;
-  context_hook = NULL;
+  deprecated_context_hook = NULL;
 
   /* command_line_input_hook = NULL; */
-  query_hook = NULL;
+  deprecated_query_hook = NULL;
   command_line_input_hook = NULL;
 
   stepping_command_hook = NULL;
   continue_command_hook = NULL;
   run_command_hook = NULL;
 
+  hand_call_function_hook = NULL;
 }
 
 int
@@ -533,27 +558,28 @@ mi_command_loop (int mi_version)
 #endif
   /* HACK: Override any other interpreter hooks.  We need to create a
      real event table and pass in that. */
-  init_ui_hook = 0;
-  /* command_loop_hook = 0; */
-  print_frame_info_listing_hook = 0;
-  query_hook = 0;
-  warning_hook = 0;
-  create_breakpoint_hook = 0;
-  delete_breakpoint_hook = 0;
-  modify_breakpoint_hook = 0;
-  interactive_hook = 0;
-  registers_changed_hook = 0;
-  readline_begin_hook = 0;
-  readline_hook = 0;
-  readline_end_hook = 0;
-  register_changed_hook = 0;
-  memory_changed_hook = 0;
-  context_hook = 0;
-  target_wait_hook = 0;
-  call_command_hook = 0;
-  error_hook = 0;
-  error_begin_hook = 0;
-  show_load_progress = mi_load_progress;
+  deprecated_init_ui_hook = 0;
+  /* deprecated_command_loop_hook = 0; */
+  deprecated_print_frame_info_listing_hook = 0;
+  deprecated_query_hook = 0;
+  deprecated_warning_hook = 0;
+  deprecated_create_breakpoint_hook = 0;
+  deprecated_delete_breakpoint_hook = 0;
+  deprecated_modify_breakpoint_hook = 0;
+  deprecated_interactive_hook = 0;
+  deprecated_registers_changed_hook = 0;
+  deprecated_readline_begin_hook = 0;
+  deprecated_readline_hook = 0;
+  deprecated_readline_end_hook = 0;
+  deprecated_register_changed_hook = 0;
+  deprecated_memory_changed_hook = 0;
+  deprecated_context_hook = 0;
+  deprecated_target_wait_hook = 0;
+  deprecated_call_command_hook = 0;
+  deprecated_error_hook = 0;
+  deprecated_error_begin_hook = 0;
+  deprecated_show_load_progress = mi_load_progress;
+
   print_frame_more_info_hook = mi_print_frame_more_info;
 
   /* Set the uiout to the interpreter's uiout.  */
@@ -565,10 +591,7 @@ mi_command_loop (int mi_version)
   /* Tell the world that we're alive */
   fputs_unfiltered ("(gdb) \n", raw_stdout);
   gdb_flush (raw_stdout);
-  if (!event_loop_p)
-    simplified_command_loop (mi_input, mi_execute_command);
-  else
-    start_event_loop ();
+  start_event_loop ();
 }
 
 static char *

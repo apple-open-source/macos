@@ -1,5 +1,3 @@
-/*	$NetBSD: colrm.c,v 1.5 1997/10/18 13:00:20 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,43 +31,45 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1991, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+static const char copyright[] =
+"@(#) Copyright (c) 1991, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)colrm.c	8.2 (Berkeley) 5/4/95";
 #endif
-__RCSID("$NetBSD: colrm.c,v 1.5 1997/10/18 13:00:20 lukem Exp $");
-#endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/colrm/colrm.c,v 1.12 2004/07/29 09:09:22 tjr Exp $");
 
 #include <sys/types.h>
-
 #include <err.h>
 #include <errno.h>
 #include <limits.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
 #define	TAB	8
 
-void	check __P((FILE *));
-int	main __P((int, char **));
-void	usage __P((void));
+void check(FILE *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	u_long column, start, stop;
-	int ch;
+	int ch, width;
 	char *p;
+
+	setlocale(LC_ALL, "");
 
 	while ((ch = getopt(argc, argv, "")) != -1)
 		switch(ch) {
@@ -83,12 +83,12 @@ main(argc, argv)
 	start = stop = 0;
 	switch(argc) {
 	case 2:
-		stop = strtol(argv[1], &p, 10);
+                if(argv[1]) stop = strtol(argv[1], &p, 10);
 		if (stop <= 0 || *p)
 			errx(1, "illegal column -- %s", argv[1]);
 		/* FALLTHROUGH */
 	case 1:
-		start = strtol(argv[0], &p, 10);
+	        if(argv[0]) start = strtol(argv[0], &p, 10);
 		if (start <= 0 || *p)
 			errx(1, "illegal column -- %s", argv[0]);
 		break;
@@ -99,11 +99,11 @@ main(argc, argv)
 	}
 
 	if (stop && start > stop)
-		err(1, "illegal start and stop columns");
+		errx(1, "illegal start and stop columns");
 
 	for (column = 0;;) {
-		switch (ch = getchar()) {
-		case EOF:
+		switch (ch = getwchar()) {
+		case WEOF:
 			check(stdin);
 			break;
 		case '\b':
@@ -117,19 +117,19 @@ main(argc, argv)
 			column = (column + TAB) & ~(TAB - 1);
 			break;
 		default:
-			++column;
+			if ((width = wcwidth(ch)) > 0)
+				column += width;
 			break;
 		}
 
 		if ((!start || column < start || (stop && column > stop)) &&
-		    putchar(ch) == EOF)
+		    putwchar(ch) == WEOF)
 			check(stdout);
 	}
 }
 
 void
-check(stream)
-	FILE *stream;
+check(FILE *stream)
 {
 	if (feof(stream))
 		exit(0);
@@ -138,8 +138,9 @@ check(stream)
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "usage: colrm [start [stop]]\n");
 	exit(1);
 }
+

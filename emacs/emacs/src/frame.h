@@ -1,5 +1,6 @@
 /* Define frame-object for GNU Emacs.
-   Copyright (C) 1993, 1994, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1999, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Don't multiply include: dispextern.h includes macterm.h which
    includes frame.h some emacs source includes both dispextern.h and
@@ -57,11 +58,21 @@ enum vertical_scroll_bar_type
   vertical_scroll_bar_right
 };
 
-#if !defined(MSDOS) && !defined(WINDOWSNT) && !defined(macintosh)
+enum text_cursor_kinds
+{
+  DEFAULT_CURSOR = -2,
+  NO_CURSOR = -1,
+  FILLED_BOX_CURSOR,
+  HOLLOW_BOX_CURSOR,
+  BAR_CURSOR,
+  HBAR_CURSOR
+};
+
+#if !defined(MSDOS) && !defined(WINDOWSNT) && !defined(MAC_OS)
 
 #if !defined(HAVE_X_WINDOWS)
 
-#define PIX_TYPE int
+#define PIX_TYPE unsigned long
 
 /* A (mostly empty) x_output structure definition for building Emacs
    on Unix and GNU/Linux without X support.  */
@@ -70,8 +81,6 @@ struct x_output
   PIX_TYPE background_pixel;
   PIX_TYPE foreground_pixel;
 };
-
-#define FRAME_INTERNAL_BORDER_WIDTH(f) 0
 
 #endif /* ! HAVE_X_WINDOWS */
 
@@ -82,7 +91,7 @@ struct x_output
 /* A structure describing a termcap frame display.  */
 extern struct x_output tty_display;
 
-#endif /* ! MSDOS && ! WINDOWSNT && ! macintosh */
+#endif /* ! MSDOS && ! WINDOWSNT && ! MAC_OS */
 
 struct frame
 {
@@ -140,7 +149,7 @@ struct frame
      or modified with modify-frame-parameters.  */
   Lisp_Object param_alist;
 
-  /* List of scroll bars on this frame.  
+  /* List of scroll bars on this frame.
      Actually, we don't specify exactly what is stored here at all; the
      scroll bar implementation code can use it to store anything it likes.
      This field is marked by the garbage collector.  It is here
@@ -205,11 +214,17 @@ struct frame
      be used for output.  */
   unsigned glyphs_initialized_p : 1;
 
+#if defined (USE_GTK)
+  /* Nonzero means using a tool bar that comes from the toolkit.  */
+  int external_tool_bar;
+#endif
+
   /* Margin at the top of the frame.  Used to display the tool-bar.  */
   int tool_bar_lines;
 
+  int n_tool_bar_rows;
   int n_tool_bar_items;
-  
+
   /* A buffer for decode_mode_line. */
   char *decode_mode_spec_buffer;
 
@@ -223,14 +238,50 @@ struct frame
   /* Cost of deleting n lines on this frame */
   int *delete_n_lines_cost;
 
-  /* Size of this frame, in units of characters.  */
-  EMACS_INT height;
-  EMACS_INT width;
-  EMACS_INT window_width;
-  EMACS_INT window_height;
+  /* Size of this frame, excluding fringes, scroll bars etc.,
+     in units of canonical characters.  */
+  EMACS_INT text_lines, text_cols;
 
-  /* New height and width for pending size change.  0 if no change pending.  */
-  int new_height, new_width;
+  /* Total size of this frame (i.e. its native window), in units of
+     canonical characters.  */
+  EMACS_INT total_lines, total_cols;
+
+  /* New text height and width for pending size change.
+     0 if no change pending.  */
+  int new_text_lines, new_text_cols;
+
+  /* Pixel position of the frame window (x and y offsets in root window).  */
+  int left_pos, top_pos;
+
+  /* Size of the frame window in pixels.  */
+  int pixel_height, pixel_width;
+
+  /* These many pixels are the difference between the outer window (i.e. the
+     left and top of the window manager decoration) and FRAME_X_WINDOW. */
+  int x_pixels_diff, y_pixels_diff;
+
+  /* This is the gravity value for the specified window position.  */
+  int win_gravity;
+
+  /* The geometry flags for this window.  */
+  int size_hint_flags;
+
+  /* Border width of the frame window as known by the (X) window system.  */
+  int border_width;
+
+  /* Width of the internal border.  This is a line of background color
+     just inside the window's border.  When the frame is selected,
+     a highlighting is displayed inside the internal border.  */
+  int internal_border_width;
+
+  /* Canonical X unit.  Width of default font, in pixels.  */
+  int column_width;
+
+  /* Widht of space glyph of default font, in pixels.  */
+  int space_width;
+
+  /* Canonical Y unit.  Height of a line, in pixels.  */
+  int line_height;
 
   /* The output method says how the contents of this frame
      are displayed.  It could be using termcap, or using an X window.  */
@@ -238,7 +289,7 @@ struct frame
 
   /* A structure of auxiliary data used for displaying the contents.
      struct x_output is used for X window frames;
-     it is defined in xterm.h.  
+     it is defined in xterm.h.
      struct w32_output is used for W32 window frames;
      it is defined in w32term.h.  */
   union output_data
@@ -250,6 +301,16 @@ struct frame
   }
   output_data;
 
+  /* Total width of fringes reserved for drawing truncation bitmaps,
+     continuation bitmaps and alike.  The width is in canonical char
+     units of the frame.  This must currently be the case because window
+     sizes aren't pixel values.  If it weren't the case, we wouldn't be
+     able to split windows horizontally nicely.  */
+  int fringe_cols;
+
+  /* The extra width (in pixels) currently allotted for fringes.  */
+  int left_fringe_width, right_fringe_width;
+
 #ifdef MULTI_KBOARD
   /* A pointer to the kboard structure associated with this frame.
      For termcap frames, this points to initial_kboard.  For X frames,
@@ -257,10 +318,14 @@ struct frame
   struct kboard *kboard;
 #endif
 
+  /* See FULLSCREEN_ enum below */
+  int want_fullscreen;
+
   /* Number of lines of menu bar.  */
   int menu_bar_lines;
 
-#if defined (USE_X_TOOLKIT) || defined (HAVE_NTGUI) || defined (macintosh)
+#if defined (USE_X_TOOLKIT) || defined (HAVE_NTGUI) || defined (MAC_OS) \
+    || defined (USE_GTK)
   /* Nonzero means using a menu bar that comes from the X toolkit.  */
   int external_menu_bar;
 #endif
@@ -309,7 +374,7 @@ struct frame
   /* True if frame actually has a minibuffer window on it.
      0 if using a minibuffer window that isn't on this frame.  */
   char has_minibuffer;
-     
+
   /* 0 means, if this frame has just one window,
      show no modeline for that window.  */
   char wants_modeline;
@@ -321,6 +386,20 @@ struct frame
   /* If can_have_scroll_bars is non-zero, this is non-zero if we should
      actually display them on this frame.  */
   enum vertical_scroll_bar_type vertical_scroll_bar_type;
+
+  /* What kind of text cursor should we draw in the future?
+     This should always be filled_box_cursor or bar_cursor.  */
+  enum text_cursor_kinds desired_cursor;
+
+  /* Width of bar cursor (if we are using that).  */
+  int cursor_width;
+
+  /* What kind of text cursor should we draw when the cursor blinks off?
+     This can be filled_box_cursor or bar_cursor or no_cursor.  */
+  enum text_cursor_kinds blink_off_cursor;
+
+  /* Width of bar cursor (if we are using that) for blink-off state.  */
+  int blink_off_cursor_width;
 
   /* Non-0 means raise this frame to the top of the heap when selected.  */
   char auto_raise;
@@ -347,15 +426,17 @@ struct frame
      for lines beyond a certain vpos.  This is the vpos.  */
   int scroll_bottom_vpos;
 
-  /* Width of the scroll bar, in pixels and in characters.
-     scroll_bar_cols tracks scroll_bar_pixel_width if the latter is positive;
-     a zero value in scroll_bar_pixel_width means to compute the actual width
-     on the fly, using scroll_bar_cols and the current font width.  */
-  int scroll_bar_pixel_width;
-  int scroll_bar_cols;
+  /* Configured width of the scroll bar, in pixels and in characters.
+     config_scroll_bar_cols tracks config_scroll_bar_width if the
+     latter is positive; a zero value in config_scroll_bar_width means
+     to compute the actual width on the fly, using config_scroll_bar_cols
+     and the current font width.  */
+  int config_scroll_bar_width;
+  int config_scroll_bar_cols;
 
-  /* Width of area for drawing truncation marks and overlay arrow.  */
-  int trunc_area_pixel_width, trunc_area_cols;
+  /* The size of the extra width currently allotted for vertical
+     scroll bars in this frame, in pixels.  */
+  int scroll_bar_actual_width;
 
   /* The baud rate that was used to calculate costs for this frame.  */
   int cost_calculation_baud_rate;
@@ -375,6 +456,26 @@ struct frame
   /* Set to non-zero in change_frame_size when size of frame changed
      Clear the frame in clear_garbaged_frames if set.  */
   unsigned resized_p : 1;
+
+  /* Set to non-zero in when we want for force a flush_display in
+     update_frame, usually after resizing the frame.  */
+  unsigned force_flush_display_p : 1;
+
+  /* Set to non-zero if the default face for the frame has been
+     realized.  Reset to zero whenever the default face changes.
+     Used to see the difference between a font change and face change.  */
+  unsigned default_face_done_p : 1;
+
+  /* Set to non-zero if this frame has already been hscrolled during
+     current redisplay.  */
+  unsigned already_hscrolled_p : 1;
+
+  /* Set to non-zero when current redisplay has updated frame.  */
+  unsigned updated_p : 1;
+
+  /* Set to non-zero to minimize tool-bar height even when
+     auto-resize-tool-bar is set to grow-only.  */
+  unsigned minimize_tool_bar_window_p : 1;
 };
 
 #ifdef MULTI_KBOARD
@@ -407,7 +508,7 @@ typedef struct frame *FRAME_PTR;
 #ifdef HAVE_NTGUI
 #define FRAME_WINDOW_P(f) FRAME_W32_P (f)
 #endif
-#ifdef macintosh
+#ifdef MAC_OS
 #define FRAME_WINDOW_P(f) FRAME_MAC_P (f)
 #endif
 #ifndef FRAME_WINDOW_P
@@ -424,21 +525,40 @@ typedef struct frame *FRAME_PTR;
 /* Nonzero if frame F contains a minibuffer window.
    (If this is 0, F must use some other minibuffer window.)  */
 #define FRAME_HAS_MINIBUF_P(f) ((f)->has_minibuffer)
-#define FRAME_HEIGHT(f) (f)->height
 
-/* Width of frame F, measured in character columns,
+/* Pixel height of frame F, including non-toolkit menu bar and
+   non-toolkit tool bar lines.  */
+#define FRAME_PIXEL_HEIGHT(f) ((f)->pixel_height)
+
+/* Pixel width of frame F.  */
+#define FRAME_PIXEL_WIDTH(f) ((f)->pixel_width)
+
+/* Height of frame F, measured in canonical lines, including
+   non-toolkit menu bar and non-toolkit tool bar lines.  */
+#define FRAME_LINES(f) (f)->text_lines
+
+/* Width of frame F, measured in canonical character columns,
    not including scroll bars if any.  */
-#define FRAME_WIDTH(f) (f)->width
+#define FRAME_COLS(f) (f)->text_cols
 
 /* Number of lines of frame F used for menu bar.
    This is relevant on terminal frames and on
    X Windows when not using the X toolkit.
-   These lines are counted in FRAME_HEIGHT.  */
+   These lines are counted in FRAME_LINES.  */
 #define FRAME_MENU_BAR_LINES(f) (f)->menu_bar_lines
+
+/* Nonzero if this frame should display a tool bar
+   in a way that does not use any text lines.  */
+#if defined (USE_GTK)
+#define FRAME_EXTERNAL_TOOL_BAR(f) (f)->external_tool_bar
+#else
+#define FRAME_EXTERNAL_TOOL_BAR(f) 0
+#endif
 
 /* Number of lines of frame F used for the tool-bar.  */
 
 #define FRAME_TOOL_BAR_LINES(f) (f)->tool_bar_lines
+
 
 /* Lines above the top-most window in frame F.  */
 
@@ -447,7 +567,8 @@ typedef struct frame *FRAME_PTR;
 
 /* Nonzero if this frame should display a menu bar
    in a way that does not use any text lines.  */
-#if defined (USE_X_TOOLKIT) || defined (HAVE_NTGUI) || defined (macintosh)
+#if defined (USE_X_TOOLKIT) || defined (HAVE_NTGUI) || defined (MAC_OS) \
+    || defined (USE_GTK)
 #define FRAME_EXTERNAL_MENU_BAR(f) (f)->external_menu_bar
 #else
 #define FRAME_EXTERNAL_MENU_BAR(f) 0
@@ -475,9 +596,6 @@ typedef struct frame *FRAME_PTR;
    but not yet really put into effect.  This can be true temporarily
    when an X event comes in at a bad time.  */
 #define FRAME_WINDOW_SIZES_CHANGED(f) (f)->window_sizes_changed
-/* When a size change is pending, these are the requested new sizes.  */
-#define FRAME_NEW_HEIGHT(f) (f)->new_height
-#define FRAME_NEW_WIDTH(f) (f)->new_width
 
 /* The minibuffer window of frame F, if it has one; otherwise nil.  */
 #define FRAME_MINIBUF_WINDOW(f) (f)->minibuffer_window
@@ -488,8 +606,8 @@ typedef struct frame *FRAME_PTR;
 /* The currently selected window of the window tree of frame F.  */
 #define FRAME_SELECTED_WINDOW(f) (f)->selected_window
 
-#define FRAME_INSERT_COST(f) (f)->insert_line_cost    
-#define FRAME_DELETE_COST(f) (f)->delete_line_cost    
+#define FRAME_INSERT_COST(f) (f)->insert_line_cost
+#define FRAME_DELETE_COST(f) (f)->delete_line_cost
 #define FRAME_INSERTN_COST(f) (f)->insert_n_lines_cost
 #define FRAME_DELETEN_COST(f) (f)->delete_n_lines_cost
 #define FRAME_MESSAGE_BUF(f) (f)->message_buf
@@ -514,65 +632,97 @@ typedef struct frame *FRAME_PTR;
 /* Width that a scroll bar in frame F should have, if there is one.
    Measured in pixels.
    If scroll bars are turned off, this is still nonzero.  */
-#define FRAME_SCROLL_BAR_PIXEL_WIDTH(f) ((f)->scroll_bar_pixel_width)
+#define FRAME_CONFIG_SCROLL_BAR_WIDTH(f) ((f)->config_scroll_bar_width)
 
 /* Width that a scroll bar in frame F should have, if there is one.
    Measured in columns (characters).
    If scroll bars are turned off, this is still nonzero.  */
-#define FRAME_SCROLL_BAR_COLS(f) ((f)->scroll_bar_cols)
+#define FRAME_CONFIG_SCROLL_BAR_COLS(f) ((f)->config_scroll_bar_cols)
 
 /* Width of a scroll bar in frame F, measured in columns (characters),
    but only if scroll bars are on the left.  If scroll bars are on
    the right in this frame, or there are no scroll bars, value is 0.  */
 
-#define FRAME_LEFT_SCROLL_BAR_WIDTH(f)			\
+#define FRAME_LEFT_SCROLL_BAR_COLS(f)			\
      (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_LEFT (f)	\
-      ? FRAME_SCROLL_BAR_COLS (f)			\
+      ? FRAME_CONFIG_SCROLL_BAR_COLS (f)		\
       : 0)
+
+/* Width of a left scroll bar in frame F, measured in pixels */
+
+#define FRAME_LEFT_SCROLL_BAR_AREA_WIDTH(f)					\
+  (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_LEFT (f)				\
+   ? (FRAME_CONFIG_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f))	\
+   : 0)
 
 /* Width of a scroll bar in frame F, measured in columns (characters),
    but only if scroll bars are on the right.  If scroll bars are on
    the left in this frame, or there are no scroll bars, value is 0.  */
 
-#define FRAME_RIGHT_SCROLL_BAR_WIDTH(f)			\
+#define FRAME_RIGHT_SCROLL_BAR_COLS(f)			\
      (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_RIGHT (f)	\
-      ? FRAME_SCROLL_BAR_COLS (f)			\
+      ? FRAME_CONFIG_SCROLL_BAR_COLS (f)		\
       : 0)
 
-/* Width of a scroll bar in frame F, measured in columns (characters).  */
-#define FRAME_SCROLL_BAR_WIDTH(f) \
-     (FRAME_HAS_VERTICAL_SCROLL_BARS (f) \
-      ? FRAME_SCROLL_BAR_COLS (f) \
+/* Width of a right scroll bar area in frame F, measured in pixels */
+
+#define FRAME_RIGHT_SCROLL_BAR_AREA_WIDTH(f)					\
+  (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_RIGHT (f)				\
+   ? (FRAME_CONFIG_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f))	\
+   : 0)
+
+/* Actual width of a scroll bar in frame F, measured in columns.  */
+
+#define FRAME_SCROLL_BAR_COLS(f)			\
+     (FRAME_HAS_VERTICAL_SCROLL_BARS (f)		\
+      ? FRAME_CONFIG_SCROLL_BAR_COLS (f)		\
       : 0)
+
+/* Actual width of a scroll bar area in frame F, measured in pixels.  */
+
+#define FRAME_SCROLL_BAR_AREA_WIDTH(f)					\
+  (FRAME_HAS_VERTICAL_SCROLL_BARS (f)					\
+   ? (FRAME_CONFIG_SCROLL_BAR_COLS (f) * FRAME_COLUMN_WIDTH (f))	\
+   : 0)
 
 /* Total width of frame F, in columns (characters),
    including the width used by scroll bars if any.  */
-#define FRAME_WINDOW_WIDTH(f) ((f)->window_width)
+
+#define FRAME_TOTAL_COLS(f) ((f)->total_cols)
 
 /* Set the width of frame F to VAL.
    VAL is the width of a full-frame window,
-   not including scroll bars.  */
-#define SET_FRAME_WIDTH(f, val)						\
-     ((f)->width = (val),						\
-      (f)->window_width = FRAME_WINDOW_WIDTH_ARG (f, (f)->width))
+   not including scroll bars and fringes.  */
+
+#define SET_FRAME_COLS(f, val)						\
+     (FRAME_COLS (f) = (val),						\
+      (f)->total_cols = FRAME_TOTAL_COLS_ARG (f, FRAME_COLS (f)))
 
 /* Given a value WIDTH for frame F's nominal width,
-   return the value that FRAME_WINDOW_WIDTH should have.  */
-#define FRAME_WINDOW_WIDTH_ARG(f, width)	\
+   return the value that FRAME_TOTAL_COLS should have.  */
+
+#define FRAME_TOTAL_COLS_ARG(f, width)		\
      ((width)					\
-      + FRAME_SCROLL_BAR_WIDTH (f)		\
-      + FRAME_FLAGS_AREA_COLS (f))
+      + FRAME_SCROLL_BAR_COLS (f)		\
+      + FRAME_FRINGE_COLS (f))
 
 /* Maximum + 1 legitimate value for FRAME_CURSOR_X.  */
+
 #define FRAME_CURSOR_X_LIMIT(f) \
-     (FRAME_WIDTH (f) + FRAME_LEFT_SCROLL_BAR_WIDTH (f))
+     (FRAME_COLS (f) + FRAME_LEFT_SCROLL_BAR_COLS (f))
 
 /* Nonzero if frame F has scroll bars.  */
+
 #define FRAME_SCROLL_BARS(f) ((f)->scroll_bars)
 
 #define FRAME_CONDEMNED_SCROLL_BARS(f) ((f)->condemned_scroll_bars)
 #define FRAME_MENU_BAR_ITEMS(f) ((f)->menu_bar_items)
 #define FRAME_COST_BAUD_RATE(f) ((f)->cost_calculation_baud_rate)
+
+#define FRAME_DESIRED_CURSOR(f) ((f)->desired_cursor)
+#define FRAME_BLINK_OFF_CURSOR(f) ((f)->blink_off_cursor)
+#define FRAME_CURSOR_WIDTH(f) ((f)->cursor_width)
+#define FRAME_BLINK_OFF_CURSOR_WIDTH(f) ((f)->blink_off_cursor_width)
 
 /* Return a pointer to the face cache of frame F.  */
 
@@ -581,8 +731,8 @@ typedef struct frame *FRAME_PTR;
 /* Return the size of message_buf of the frame F.  We multiply the
    width of the frame by 4 because multi-byte form may require at most
    4-byte for a character.  */
-     
-#define FRAME_MESSAGE_BUF_SIZE(f) (((int) (f)->width) * 4)
+
+#define FRAME_MESSAGE_BUF_SIZE(f) (((int) FRAME_COLS (f)) * 4)
 
 /* Emacs's redisplay code could become confused if a frame's
    visibility changes at arbitrary times.  For example, if a frame is
@@ -607,32 +757,25 @@ typedef struct frame *FRAME_PTR;
    Also, if a frame used to be invisible, but has just become visible,
    it must be marked as garbaged, since redisplay hasn't been keeping
    up its contents.  */
-     
+
 #define FRAME_SAMPLE_VISIBILITY(f) \
   (((f)->async_visible && (f)->visible != (f)->async_visible) ? \
    SET_FRAME_GARBAGED (f) : 0, \
    (f)->visible = (f)->async_visible, \
    (f)->iconified = (f)->async_iconified)
 
-#define CHECK_FRAME(x, i)				\
-     do {						\
-       if (! FRAMEP (x))				\
-         x = wrong_type_argument (Qframep, (x));	\
-     } while (0)
+#define CHECK_FRAME(x) \
+  CHECK_TYPE (FRAMEP (x), Qframep, x)
 
-#define CHECK_LIVE_FRAME(x, i)				\
-     do {						\
-       if (! FRAMEP (x)					\
-	   || ! FRAME_LIVE_P (XFRAME (x)))		\
-         x = wrong_type_argument (Qframe_live_p, (x));	\
-     } while (0)
+#define CHECK_LIVE_FRAME(x) \
+  CHECK_TYPE (FRAMEP (x) && FRAME_LIVE_P (XFRAME (x)), Qframe_live_p, x)
 
 /* FOR_EACH_FRAME (LIST_VAR, FRAME_VAR) followed by a statement is a
    `for' loop which iterates over the elements of Vframe_list.  The
    loop will set FRAME_VAR, a Lisp_Object, to each frame in
    Vframe_list in succession and execute the statement.  LIST_VAR
    should be a Lisp_Object too; it is used to iterate through the
-   Vframe_list.  
+   Vframe_list.
 
    This macro is a holdover from a time when multiple frames weren't always
    supported.  An alternate definition of the macro would expand to
@@ -645,7 +788,7 @@ typedef struct frame *FRAME_PTR;
        list_var = XCDR (list_var))
 
 
-extern Lisp_Object Qframep, Qframe_live_p, Qicon;
+extern Lisp_Object Qframep, Qframe_live_p;
 
 extern struct frame *last_nonminibuf_frame;
 
@@ -663,29 +806,9 @@ extern Lisp_Object Vframe_list;
 extern Lisp_Object Vdefault_frame_alist;
 
 extern Lisp_Object Vterminal_frame;
+
+extern Lisp_Object Vmouse_highlight;
 
-/* Device-independent scroll bar stuff.  */
-
-/* Return the starting column (zero-based) of the vertical scroll bar
-   for window W.  The column before this one is the last column we can
-   use for text.  If the window touches the right edge of the frame,
-   we have extra space allocated for it.  Otherwise, the scroll bar
-   takes over the window's rightmost columns.  */
-
-#define WINDOW_VERTICAL_SCROLL_BAR_COLUMN(w) \
-  (FRAME_HAS_VERTICAL_SCROLL_BARS_ON_RIGHT (XFRAME (WINDOW_FRAME (w))) ? \
-    (((XINT ((w)->left) + XINT ((w)->width)) \
-      < FRAME_WIDTH (XFRAME (WINDOW_FRAME (w)))) \
-     ? (XINT ((w)->left) + XINT ((w)->width) \
-       - FRAME_SCROLL_BAR_COLS (XFRAME (WINDOW_FRAME (w)))) \
-     : FRAME_WIDTH (XFRAME (WINDOW_FRAME (w)))) \
-  : XINT ((w)->left))
-
-/* Return the height in lines of the vertical scroll bar in w.  If the
-   window has a mode line, don't make the scroll bar extend that far.  */
-     
-#define WINDOW_VERTICAL_SCROLL_BAR_HEIGHT(w) (window_internal_height (w))
-
 /* The currently selected frame.  */
 
 extern Lisp_Object selected_frame;
@@ -704,40 +827,60 @@ extern Lisp_Object selected_frame;
 			Display-related Macros
  ***********************************************************************/
 
-/* Canonical y-unit on frame F.  This value currently equals the line
-   height of the frame.  Terminal specific header files are expected
-   to define the macro FRAME_LINE_HEIGHT.  */
+/* Canonical y-unit on frame F.
+   This value currently equals the line height of the frame (which is
+   the height of the default font of F).  */
 
-#define CANON_Y_UNIT(F) \
-     (FRAME_WINDOW_P (F) ? FRAME_LINE_HEIGHT (F) : 1)
+#define FRAME_LINE_HEIGHT(F) ((F)->line_height)
 
-/* Canonical x-unit on frame F.  This is currently equal to the width
-   of the default font of F.  Terminal specific headers are expected
-   to define the macro FRAME_DEFAULT_FONT_WIDTH.  */
+/* Canonical x-unit on frame F.
+   This value currently equals the average width of the default font of F.  */
 
-#define CANON_X_UNIT(F) \
-     (FRAME_WINDOW_P (F) ? FRAME_DEFAULT_FONT_WIDTH (F) : 1)
+#define FRAME_COLUMN_WIDTH(F) ((F)->column_width)
+
+/* Space glyph width of the default font of frame F.  */
+
+#define FRAME_SPACE_WIDTH(F) ((F)->space_width)
+
 
 /* Pixel width of areas used to display truncation marks, continuation
    marks, overlay arrows.  This is 0 for terminal frames.  */
 
 #ifdef HAVE_WINDOW_SYSTEM
 
-#define FRAME_FLAGS_AREA_COLS(F) \
-     (FRAME_WINDOW_P (F) ? FRAME_X_FLAGS_AREA_COLS (F) : 0)
-#define FRAME_FLAGS_AREA_WIDTH(F) \
-     (FRAME_WINDOW_P (F) ? FRAME_X_FLAGS_AREA_WIDTH (F) : 0)
-#define FRAME_LEFT_FLAGS_AREA_WIDTH(F) \
-     (FRAME_WINDOW_P (F) ? FRAME_X_LEFT_FLAGS_AREA_WIDTH (F) : 0)
-     
+/* Total width of fringes reserved for drawing truncation bitmaps,
+   continuation bitmaps and alike.  The width is in canonical char
+   units of the frame.  This must currently be the case because window
+   sizes aren't pixel values.  If it weren't the case, we wouldn't be
+   able to split windows horizontally nicely.  */
+
+#define FRAME_FRINGE_COLS(F) ((F)->fringe_cols)
+
+/* Pixel-width of the left and right fringe.  */
+
+#define FRAME_LEFT_FRINGE_WIDTH(F) ((F)->left_fringe_width)
+#define FRAME_RIGHT_FRINGE_WIDTH(F) ((F)->right_fringe_width)
+
+/* Total width of fringes in pixels.  */
+
+#define FRAME_TOTAL_FRINGE_WIDTH(F) \
+  (FRAME_LEFT_FRINGE_WIDTH (F) + FRAME_RIGHT_FRINGE_WIDTH (F))
+
+
+/* Pixel-width of internal border lines */
+
+#define FRAME_INTERNAL_BORDER_WIDTH(F) ((F)->internal_border_width)
+
 #else /* not HAVE_WINDOW_SYSTEM */
 
-#define FRAME_FLAGS_AREA_WIDTH(F)	0
-#define FRAME_FLAGS_AREA_COLS(F)	0
-#define FRAME_LEFT_FLAGS_AREA_WIDTH(F)  0
+#define FRAME_FRINGE_COLS(F)	0
+#define FRAME_TOTAL_FRINGE_WIDTH(F)	0
+#define FRAME_LEFT_FRINGE_WIDTH(F)  0
+#define FRAME_RIGHT_FRINGE_WIDTH(F) 0
+#define FRAME_INTERNAL_BORDER_WIDTH(F) 0
 
 #endif /* not HAVE_WINDOW_SYSTEM */
-     
+
 
 
 
@@ -745,46 +888,209 @@ extern Lisp_Object selected_frame;
 	    Conversion between canonical units and pixels
  ***********************************************************************/
 
-/* Canonical x-values are fractions of CANON_X_UNIT, canonical y-unit
-   are fractions of CANON_Y_UNIT of a frame.  Both are represented as
-   Lisp numbers, i.e. integers or floats.  */
+/* Canonical x-values are fractions of FRAME_COLUMN_WIDTH, canonical
+   y-unit are fractions of FRAME_LINE_HEIGHT of a frame.  Both are
+   represented as Lisp numbers, i.e. integers or floats.  */
 
 /* Convert canonical value X to pixels.  F is the frame whose
    canonical char width is to be used.  X must be a Lisp integer or
    float.  Value is a C integer.  */
-     
-#define PIXEL_X_FROM_CANON_X(F, X)			\
+
+#define FRAME_PIXEL_X_FROM_CANON_X(F, X)		\
      (INTEGERP (X)					\
-      ? XINT (X) * CANON_X_UNIT (F)			\
-      : (int) (XFLOAT_DATA (X) * CANON_X_UNIT (F)))
-      
+      ? XINT (X) * FRAME_COLUMN_WIDTH (F)		\
+      : (int) (XFLOAT_DATA (X) * FRAME_COLUMN_WIDTH (F)))
+
 /* Convert canonical value Y to pixels.  F is the frame whose
    canonical character height is to be used.  X must be a Lisp integer
    or float.  Value is a C integer.  */
-     
-#define PIXEL_Y_FROM_CANON_Y(F, Y)			\
+
+#define FRAME_PIXEL_Y_FROM_CANON_Y(F, Y)		\
      (INTEGERP (Y)					\
-      ? XINT (Y) * CANON_Y_UNIT (F)			\
-      : (int) (XFLOAT_DATA (Y) * CANON_Y_UNIT (F)))
+      ? XINT (Y) * FRAME_LINE_HEIGHT (F)		\
+      : (int) (XFLOAT_DATA (Y) * FRAME_LINE_HEIGHT (F)))
 
 /* Convert pixel-value X to canonical units.  F is the frame whose
    canonical character width is to be used.  X is a C integer.  Result
    is a Lisp float if X is not a multiple of the canon width,
    otherwise it's a Lisp integer.  */
 
-#define CANON_X_FROM_PIXEL_X(F, X)			\
-     ((X) % CANON_X_UNIT (F) != 0			\
-      ? make_float ((double) (X) / CANON_X_UNIT (F))	\
-      : make_number ((X) / CANON_X_UNIT (F)))
+#define FRAME_CANON_X_FROM_PIXEL_X(F, X)			\
+     ((X) % FRAME_COLUMN_WIDTH (F) != 0				\
+      ? make_float ((double) (X) / FRAME_COLUMN_WIDTH (F))	\
+      : make_number ((X) / FRAME_COLUMN_WIDTH (F)))
 
 /* Convert pixel-value Y to canonical units.  F is the frame whose
    canonical character height is to be used.  Y is a C integer.
    Result is a Lisp float if Y is not a multiple of the canon width,
    otherwise it's a Lisp integer.  */
 
-#define CANON_Y_FROM_PIXEL_Y(F, Y)			\
-     ((Y) % CANON_Y_UNIT (F) 				\
-      ? make_float ((double) (Y) / CANON_Y_UNIT (F))	\
-      : make_number ((Y) / CANON_Y_UNIT (F)))	
-			     
+#define FRAME_CANON_Y_FROM_PIXEL_Y(F, Y)			\
+     ((Y) % FRAME_LINE_HEIGHT (F) 				\
+      ? make_float ((double) (Y) / FRAME_LINE_HEIGHT (F))	\
+      : make_number ((Y) / FRAME_LINE_HEIGHT (F)))
+
+
+
+/* Manipulating pixel sizes and character sizes.
+   Knowledge of which factors affect the overall size of the window should
+   be hidden in these macros, if that's possible.
+
+   Return the upper/left pixel position of the character cell on frame F
+   at ROW/COL.  */
+
+#define FRAME_LINE_TO_PIXEL_Y(f, row) \
+  (FRAME_INTERNAL_BORDER_WIDTH (f)  \
+   + (row) * FRAME_LINE_HEIGHT (f))
+
+#define FRAME_COL_TO_PIXEL_X(f, col) \
+  (FRAME_INTERNAL_BORDER_WIDTH (f) \
+   + (col) * FRAME_COLUMN_WIDTH (f))
+
+/* Return the pixel width/height of frame F if it has
+   COLS columns/LINES rows.  */
+
+#define FRAME_TEXT_COLS_TO_PIXEL_WIDTH(f, cols) \
+  (FRAME_COL_TO_PIXEL_X (f, cols) \
+   + (f)->scroll_bar_actual_width \
+   + FRAME_TOTAL_FRINGE_WIDTH (f)      \
+   + FRAME_INTERNAL_BORDER_WIDTH (f))
+
+#define FRAME_TEXT_LINES_TO_PIXEL_HEIGHT(f, lines) \
+  (FRAME_LINE_TO_PIXEL_Y (f, lines) \
+   + FRAME_INTERNAL_BORDER_WIDTH (f))
+
+
+/* Return the row/column (zero-based) of the character cell containing
+   the pixel on FRAME at Y/X.  */
+
+#define FRAME_PIXEL_Y_TO_LINE(f, y) \
+  (((y) - FRAME_INTERNAL_BORDER_WIDTH (f))	\
+   / FRAME_LINE_HEIGHT (f))
+
+#define FRAME_PIXEL_X_TO_COL(f, x) \
+  (((x) - FRAME_INTERNAL_BORDER_WIDTH (f))	\
+   / FRAME_COLUMN_WIDTH (f))
+
+/* How many columns/rows of text can we fit in WIDTH/HEIGHT pixels on
+   frame F?  */
+
+#define FRAME_PIXEL_WIDTH_TO_TEXT_COLS(f, width)		\
+  (FRAME_PIXEL_X_TO_COL (f, ((width)				\
+			     - FRAME_INTERNAL_BORDER_WIDTH (f)	\
+			     - FRAME_TOTAL_FRINGE_WIDTH (f)	\
+			     - (f)->scroll_bar_actual_width)))
+
+#define FRAME_PIXEL_HEIGHT_TO_TEXT_LINES(f, height) \
+  (FRAME_PIXEL_Y_TO_LINE (f, ((height) \
+			      - FRAME_INTERNAL_BORDER_WIDTH (f))))
+
+
+/***********************************************************************
+				Frame Parameters
+ ***********************************************************************/
+
+extern Lisp_Object Qauto_raise, Qauto_lower;
+extern Lisp_Object Qborder_color, Qborder_width;
+extern Lisp_Object Qbuffer_predicate, Qbuffer_list;
+extern Lisp_Object Qcursor_color, Qcursor_type;
+extern Lisp_Object Qfont;
+extern Lisp_Object Qbackground_color, Qforeground_color;
+extern Lisp_Object Qicon, Qicon_name, Qicon_type, Qicon_left, Qicon_top;
+extern Lisp_Object Qinternal_border_width;
+extern Lisp_Object Qmenu_bar_lines, Qtool_bar_lines;
+extern Lisp_Object Qmouse_color;
+extern Lisp_Object Qname, Qtitle;
+extern Lisp_Object Qparent_id;
+extern Lisp_Object Qunsplittable, Qvisibility;
+extern Lisp_Object Qscroll_bar_width, Qvertical_scroll_bars;
+extern Lisp_Object Qscroll_bar_foreground, Qscroll_bar_background;
+extern Lisp_Object Qscreen_gamma;
+extern Lisp_Object Qline_spacing;
+extern Lisp_Object Qwait_for_wm;
+extern Lisp_Object Qfullscreen;
+
+extern Lisp_Object Qleft_fringe, Qright_fringe;
+extern Lisp_Object Qheight, Qwidth;
+extern Lisp_Object Qminibuffer, Qmodeline;
+extern Lisp_Object Qonly;
+extern Lisp_Object Qx, Qw32, Qmac, Qpc;
+extern Lisp_Object Qvisible;
+extern Lisp_Object Qdisplay_type;
+extern Lisp_Object Qbackground_mode;
+
+extern Lisp_Object Qx_resource_name;
+
+extern Lisp_Object Qleft, Qright, Qtop, Qbox;
+extern Lisp_Object Qdisplay;
+
+#ifdef HAVE_WINDOW_SYSTEM
+
+/* The class of this X application.  */
+#define EMACS_CLASS "Emacs"
+
+enum
+{
+  /* Values used as a bit mask, BOTH == WIDTH | HEIGHT.  */
+  FULLSCREEN_NONE       = 0,
+  FULLSCREEN_WIDTH      = 1,
+  FULLSCREEN_HEIGHT     = 2,
+  FULLSCREEN_BOTH       = 3,
+  FULLSCREEN_WAIT       = 4,
+};
+
+
+/* These are in xterm.c, w32term.c, etc.  */
+
+extern void x_set_scroll_bar_default_width P_ ((struct frame *));
+extern void x_set_offset P_ ((struct frame *, int, int, int));
+extern void x_wm_set_icon_position P_ ((struct frame *, int, int));
+
+extern Lisp_Object x_new_font P_ ((struct frame *, char *));
+extern Lisp_Object x_new_fontset P_ ((struct frame *, char *));
+
+
+/* These are in frame.c  */
+
+extern Lisp_Object Vx_resource_name;
+extern Lisp_Object Vx_resource_class;
+
+
+extern Lisp_Object Qface_set_after_frame_default;
+
+extern void x_fullscreen_adjust P_ ((struct frame *f, int *, int *,
+				     int *, int *));
+
+extern void x_set_frame_parameters P_ ((struct frame *, Lisp_Object));
+extern void x_report_frame_params P_ ((struct frame *, Lisp_Object *));
+
+extern void x_set_fullscreen P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_line_spacing P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_screen_gamma P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_font P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_fringe_width P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_border_width P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_internal_border_width P_ ((struct frame *, Lisp_Object,
+					     Lisp_Object));
+extern void x_set_visibility P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_autoraise P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_autolower P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_unsplittable P_ ((struct frame *, Lisp_Object, Lisp_Object));
+extern void x_set_vertical_scroll_bars P_ ((struct frame *, Lisp_Object,
+					    Lisp_Object));
+extern void x_set_scroll_bar_width P_ ((struct frame *, Lisp_Object,
+					Lisp_Object));
+
+extern Lisp_Object x_icon_type P_ ((struct frame *));
+
+extern int x_figure_window_size P_ ((struct frame *, Lisp_Object, int));
+
+
+extern void validate_x_resource_name P_ ((void));
+
+#endif /* HAVE_WINDOW_SYSTEM */
+
 #endif /* not EMACS_FRAME_H */
+
+/* arch-tag: 0df048ee-e6bf-4f48-bd56-e3cd055dd8c4
+   (do not change this comment) */

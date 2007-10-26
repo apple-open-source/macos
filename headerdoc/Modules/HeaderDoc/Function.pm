@@ -4,7 +4,7 @@
 # Synopsis: Holds function info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/12/04 00:22:52 $
+# Last Updated: $Date: 2007/07/19 18:44:59 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -30,14 +30,14 @@
 ######################################################################
 package HeaderDoc::Function;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
 
 @ISA = qw( HeaderDoc::HeaderElement );
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.10.2.10.2.29 $';
+$VERSION = '$Revision: 1.10.2.10.2.37 $';
 
 use strict;
 
@@ -95,9 +95,17 @@ sub getParamSignature
 {
     my $self = shift;
 
-    my $localDebug = 0;
+    my $formatted = 0;
+    if (@_) {
+	$formatted = shift;
+    }
 
-    print "Function name: ".$self->name()."\n" if ($localDebug);
+    my $localDebug = 0;
+    my $space = "";
+    if ($formatted) { $space = " "; }
+
+    # To avoid infinite recursion with debugging on, do NOT change this to $self->name()!
+    print "Function name: ".$self->{NAME}."\n" if ($localDebug);
 
     my @params = $self->parsedParameters();
     my $signature = "";
@@ -113,18 +121,31 @@ sub getParamSignature
 
 	print "PARAM NAME: $name\nTYPE: $type\n" if ($localDebug);
 
-	$type =~ s/\s//sgo;
+	if (!$formatted) {
+		$type =~ s/\s//sgo;
+	} else {
+		$type =~ s/\s+/ /sgo;
+	}
 	if (!length($type)) {
 		# Safety valve, just in case
 		$type = $name;
-		$type =~ s/\s//sgo;
-	}
-	if (length($type)) {
-		$signature .= ",".$type;
+		if (!$formatted) {
+			$type =~ s/\s//sgo;
+		} else {
+			$type =~ s/\s+/ /sgo;
+		}
+	} else {
+		$signature .= ",".$space.$type;
+		if ($name =~ /^\s*([*&]+)/) {
+			$signature .= $space.$1;
+		}
 	}
     }
-    $signature =~ s/^,//s;
-    $signature = $returntype.'/('.$signature.')';
+    $signature =~ s/^,\s*//s;
+
+    if (!$formatted) {
+	$signature = $returntype.'/('.$signature.')';
+    }
 
     print "RETURN TYPE WAS $returntype\n" if ($localDebug);
 
@@ -140,51 +161,45 @@ sub processComment {
     my $linenum = $self->linenum();
 
 	foreach my $field (@fields) {
+		my $fieldname = "";
+		my $top_level_field = 0;
+		if ($field =~ /^(\w+)(\s|$)/) {
+			$fieldname = $1;
+			# print "FIELDNAME: $fieldname\n";
+			$top_level_field = validTag($fieldname, 1);
+		}
+		# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
 		SWITCH: {
             		($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
                                 $copy =~ s/^\/\*\!\s*//s;
+                                $copy =~ s/^s*\*\/\s*$//s; # eliminate a weird edge case for operators --DAG
                                 if (length($copy)) {
                                         $self->discussion($copy);
                                 }
                         last SWITCH;
                         };
-			($field =~ s/^method(\s+)/$1/o) && 
-			do {
-				my ($name, $disc);
-				($name, $disc) = &getAPINameAndDisc($field); 
-				$self->name($name);
-				if (length($disc)) {$self->discussion($disc);};
-				last SWITCH;
-			};
-			($field =~ s/^function(\s+)/$1/o) && 
-			do {
-				my ($name, $disc);
-				($name, $disc) = &getAPINameAndDisc($field); 
-				$self->name($name);
-				if (length($disc)) {$self->discussion($disc);};
-				last SWITCH;
-			};
 			($field =~ s/^serialData\s+//io) && do {$self->attribute("Serial Data", $field, 1); last SWITCH;};
-			($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
-			($field =~ s/^throws\s+//o) && do {$self->throws($field); last SWITCH;};
-			($field =~ s/^exception\s+//o) && do {$self->throws($field); last SWITCH;};
-			($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
-            		($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-			($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            		($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-			($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+			($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
+			($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
+			($field =~ s/^throws\s+//io) && do {$self->throws($field); last SWITCH;};
+			($field =~ s/^exception\s+//io) && do {$self->throws($field); last SWITCH;};
+			($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
+            		($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
+            		($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+			($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            		($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+			($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributelist\s+//o) && do {
+	    ($field =~ s/^attributelist\s+//io) && do {
 		    $field =~ s/^\s*//so;
 		    $field =~ s/\s*$//so;
 		    my ($name, $lines) = split(/\n/, $field, 2);
@@ -198,30 +213,30 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributeblock\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+	    ($field =~ s/^attributeblock\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
-			($field =~ /^see(also|)\s+/o) &&
+			($field =~ /^see(also|)\s+/io) &&
 				do {
 				    $self->see($field);
 				    last SWITCH;
 				};
-			($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
-			($field =~ s/^templatefield\s+//o) && do {
+			($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
+			($field =~ s/^templatefield\s+//io) && do {
 					$self->attributelist("Template Field", $field);
                                         last SWITCH;
 			};
-			($field =~ s/^param\s+//o) && 
+			($field =~ s/^(param|field)\s+//io) && 
 			do {
 				$field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
 	            # $field =~ /(\w*)\s*(.*)/so;
@@ -235,12 +250,32 @@ sub processComment {
 	            $self->addTaggedParameter($param);
 				last SWITCH;
 			};
-			($field =~ s/^return\s+//o) && do {$self->result($field); last SWITCH;};
-			($field =~ s/^result\s+//o) && do {$self->result($field); last SWITCH;};
+			($field =~ s/^return\s+//io) && do {$self->result($field); last SWITCH;};
+			($field =~ s/^result\s+//io) && do {$self->result($field); last SWITCH;};
+			($top_level_field == 1) && do {
+				my $keepname = 1;
+ 				if ($field =~ s/^(method|function)(\s+|$)/$2/io) {
+					$keepname = 1;
+				} else {
+					$field =~ s/(\w+)(\s|$)/$2/io;
+					$keepname = 0;
+				}
+				my ($name, $disc, $namedisc);
+				($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
+				$self->name($name);
+                		if (length($disc)) {
+					if ($namedisc) {
+						$self->nameline_discussion($disc);
+					} else {
+						$self->discussion($disc);
+					}
+				}
+				last SWITCH;
+			};
 			# my $filename = $HeaderDoc::headerObject->filename();
 			my $filename = $self->filename();
 			my $linenum = $self->linenum();
-			if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in function comment (".$self->name().")\n"; }
+			if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in function comment (".$self->name().")\n"; }
 		}
 	}
 }

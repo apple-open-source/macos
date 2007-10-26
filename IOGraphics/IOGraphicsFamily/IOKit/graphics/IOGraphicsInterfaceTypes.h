@@ -206,10 +206,12 @@ enum {
 };
 
 /* Non Quickdraw.h pixel formats*/
-
 enum {
-        kIO16LE4444PixelFormat	= IO_FOUR_CHAR_CODE('L444'),	/* 16 bit LE argb 4444*/
-        kIO16BE4444PixelFormat	= IO_FOUR_CHAR_CODE('B444')	/* 16 bit BE argb 4444*/
+        kIO16LE4444PixelFormat	   = IO_FOUR_CHAR_CODE('L444'),	/* 16 bit LE argb 4444*/
+        kIO16BE4444PixelFormat	   = IO_FOUR_CHAR_CODE('B444'),	/* 16 bit BE argb 4444*/
+        kIO64BGRAPixelFormat	   = IO_FOUR_CHAR_CODE('B16I'),	/* 64 bit bgra	*/
+        kIO64RGBAFloatPixelFormat  = IO_FOUR_CHAR_CODE('B16F'),	/* 64 bit rgba	*/
+        kIO128RGBAFloatPixelFormat = IO_FOUR_CHAR_CODE('B32F')	/* 128 bit rgba float */
 };
 
 enum {

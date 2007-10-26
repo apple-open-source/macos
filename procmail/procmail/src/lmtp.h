@@ -1,4 +1,4 @@
-/* $Id: lmtp.h,v 1.1.1.1 2001/07/20 19:38:17 bbraun Exp $ */
+/* $Id: lmtp.h,v 1.1 2001/07/20 19:38:17 bbraun Exp $ */
 
 extern int childserverpid;
 

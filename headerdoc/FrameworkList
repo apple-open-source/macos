@@ -2,7 +2,13 @@
 /System/Library/Frameworks/Kernel.framework/Headers/libkern libkern
 /System/Library/Frameworks/IOKit.framework/Versions/Current/Headers iokit_fw
 /System/Library/Frameworks/Security.framework/Headers/ SecurityFramework
-/System/Library/Frameworks/SystemConfiguration.framework/Headers/ sysconfig_fw
-/System/Library/Frameworks/ForceFeedback.framework/Headers/ force_feedback
+/System/Library/Frameworks/SystemConfiguration.framework/Headers/ SystemConfigurationFramework
+/System/Library/Frameworks/ForceFeedback.framework/Headers/ ForceFeedbackFramework
 /usr/include/DNSServiceDiscovery/ DNSServiceDiscovery
 
+/usr/include/notify.h DarwinNotify
+/System/Library/Frameworks/Message.framework/Headers/ message_framework
+/System/Library/Frameworks/DirectoryService.framework/Headers directory_services
+/System/Library/Frameworks/DiskArbitration.framework/Headers diskarb
+
+# /usr/include misc_headers

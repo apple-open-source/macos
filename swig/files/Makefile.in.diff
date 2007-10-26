@@ -1,0 +1,20 @@
+--- Makefile.in.orig	2006-04-11 11:13:59.000000000 -0700
++++ Makefile.in	2006-04-11 11:25:58.000000000 -0700
+@@ -24,7 +24,7 @@
+ source:
+ 	@cd $(SOURCE) && $(MAKE)
+ 
+-libfiles: $(srcdir)/Lib/swigwarn.swg
++libfiles: Lib/swigwarn.swg
+ 
+ .PHONY: source libfiles
+ 
+@@ -355,7 +355,7 @@
+ # Note: Generated into the source tree rather than build tree
+ #####################################################################
+ 
+-$(srcdir)/Lib/swigwarn.swg: $(srcdir)/Source/Include/swigwarn.h
++Lib/swigwarn.swg: $(srcdir)/Source/Include/swigwarn.h
+ 	mkdir -p Lib
+ 	echo "/* Automatically generated file containing all the swig warning codes.  */" > $@
+ 	echo "/* Do not modify this file by hand, change 'Source/Include/swigwarn.h'  */" >> $@

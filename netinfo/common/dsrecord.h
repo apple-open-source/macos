@@ -117,4 +117,4 @@ int dsrecord_match_key_val(dsrecord *, dsdata *, dsdata *, u_int32_t);
 
 dsstatus dsrecord_fstats(FILE *f, u_int32_t *dsid, u_int32_t *vers, u_int32_t *serial, u_int32_t *super);
 
-#endif __DSRECORD_H__
+#endif /* __DSRECORD_H__ */

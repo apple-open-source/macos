@@ -24,13 +24,13 @@
 #ifdef __APPLE_PR3375657_HACK__
 
 #include <stdio.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <alloca.h>
 #include <string.h>
 
 __private_extern__ int _sem_match(const char *name);
+extern int __sem_unlink(const char *);
 
 int
 sem_unlink (const char *name)
@@ -51,7 +51,7 @@ sem_unlink (const char *name)
 		name = buffer;
         }
 
-	return syscall (SYS_sem_unlink, name);
+	return __sem_unlink(name);
 }
 
 #endif /* __APPLE_PR3375657_HACK__ */

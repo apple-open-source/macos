@@ -61,10 +61,10 @@ static void getclumpopts __P((char* optlist));
 static gid_t a_gid __P((char *));
 static uid_t a_uid __P((char *));
 static mode_t a_mask __P((char *));
-static int hfs_newfs __P((char *device, int forceHFS, int isRaw));
+static int hfs_newfs __P((char *device, int forceHFS));
 static void validate_hfsplus_block_size __P((UInt64 sectorCount, UInt32 sectorSize));
-static void hfsplus_params __P((UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
-static void hfs_params __P((UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
+static void hfsplus_params __P((const DriveInfo* dip, hfsparams_t *defaults));
+static void hfs_params __P((const DriveInfo* dip, hfsparams_t *defaults));
 static UInt32 clumpsizecalc __P((UInt32 clumpblocks));
 static UInt32 CalcBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt32 driveBlocks, int catalog));
 static UInt32 CalcHFSPlusBTreeClumpSize __P((UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int catalog));
@@ -94,6 +94,8 @@ uid_t	gUserID = (uid_t)NOVAL;
 gid_t	gGroupID = (gid_t)NOVAL;
 mode_t	gModeMask = (mode_t)NOVAL;
 
+UInt64	gPartitionSize = 0;
+
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
 UInt32	atrnodesiz = 4096;
@@ -107,24 +109,42 @@ UInt32	datclumpblks = 0;
 UInt32	hfsgrowblks = 0;      /* maximum growable size of wrapper */
 
 
-int
+UInt64
 get_num(char *str)
 {
-    int num;
+    UInt64 num;
     char *ptr;
 
-    num = strtoul(str, &ptr, 0);
+    num = strtoull(str, &ptr, 0);
 
     if (*ptr) {
-	if (tolower(*ptr) == 'k') {
-	    num *= 1024;
-	} else if (tolower(*ptr) == 'm') {
-	    num *= (1024 * 1024);
-	} else if (tolower(*ptr) == 'g') {
-	    num *= (1024 * 1024 * 1024);
+	    char scale = tolower(*ptr);
+
+	    switch(scale) {
+	    case 'b':
+		    num *= 512ULL;
+		    break;
+	    case 'p':
+		    num *= 1024ULL;
+		    /* fall through */
+	    case 't':
+		    num *= 1024ULL;
+		    /* fall through */
+	    case 'g':
+		    num *= 1024ULL;
+		    /* fall through */
+	    case 'm':
+		    num *= 1024ULL;
+		    /* fall through */
+	    case 'k':
+		    num *= 1024ULL;
+		    break;
+
+	    default:
+		    num = 0ULL;
+		    break;
 	}
     }
-
     return num;
 }
 
@@ -148,7 +168,7 @@ main(argc, argv)
 
 	forceHFS = FALSE;
 
-	while ((ch = getopt(argc, argv, "G:J:M:NU:hswb:c:i:n:v:")) != EOF)
+	while ((ch = getopt(argc, argv, "G:J:M:N:U:hswb:c:i:n:v:")) != EOF)
 		switch (ch) {
 		case 'G':
 			gGroupID = a_gid(optarg);
@@ -171,6 +191,12 @@ main(argc, argv)
 			
 		case 'N':
 			gNoCreate = TRUE;
+			if (isdigit(optarg[0])) {
+				gPartitionSize = get_num(optarg);
+			} else {
+				/* back up because there was no size argument */
+				optind--;
+			}
 			break;
 
 		case 'M':
@@ -236,17 +262,27 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 1)
-		usage();
+	if (gPartitionSize != 0) {
+		/*
+		 * If we are given -N, a size, and a device, that's a usage error.
+		 */
+		if (argc != 0)
+			usage();
 
-	special = argv[0];
-	cp = strrchr(special, '/');
-	if (cp != 0)
-		special = cp + 1;
-	if (*special == 'r')
-		special++;
-	(void) sprintf(rawdevice, "%sr%s", _PATH_DEV, special);
-	(void) sprintf(blkdevice, "%s%s", _PATH_DEV, special);
+		rawdevice[0] = blkdevice[0] = 0;
+	} else {
+		if (argc != 1)
+			usage();
+
+		special = argv[0];
+		cp = strrchr(special, '/');
+		if (cp != 0)
+			special = cp + 1;
+		if (*special == 'r')
+			special++;
+		(void) snprintf(rawdevice, sizeof(rawdevice), "%sr%s", _PATH_DEV, special);
+		(void) snprintf(blkdevice, sizeof(blkdevice), "%s%s", _PATH_DEV, special);
+	}
 
 	if (forceHFS && gJournaled) {
 		fprintf(stderr, "-h -J: incompatible options specified\n");
@@ -265,26 +301,23 @@ main(argc, argv)
 		exit(1);
 	}
 
-	/*
-	 * Check if target device is aready mounted
-	 */
-	n = getmntinfo(&mp, MNT_NOWAIT);
-	if (n == 0)
-		fatal("%s: getmntinfo: %s", blkdevice, strerror(errno));
+	if (gPartitionSize == 0) {
+		/*
+		 * Check if target device is aready mounted
+		 */
+		n = getmntinfo(&mp, MNT_NOWAIT);
+		if (n == 0)
+			fatal("%s: getmntinfo: %s", blkdevice, strerror(errno));
 
-	while (--n >= 0) {
-		if (strcmp(blkdevice, mp->f_mntfromname) == 0)
-			fatal("%s is mounted on %s", blkdevice, mp->f_mntonname);
-		++mp;
+		while (--n >= 0) {
+			if (strcmp(blkdevice, mp->f_mntfromname) == 0)
+				fatal("%s is mounted on %s", blkdevice, mp->f_mntonname);
+			++mp;
+		}
 	}
 
-	if (hfs_newfs(rawdevice, forceHFS, true) < 0) {
-		/* On ENXIO error use the block device (to get de-blocking) */
-		if (errno == ENXIO) {
-			if (hfs_newfs(blkdevice, forceHFS, false) < 0)
-				err(1, NULL);
-		} else
-			err(1, NULL);
+	if (hfs_newfs(rawdevice, forceHFS) < 0) {
+		err(1, NULL);
 	}
 
 	exit(0);
@@ -465,58 +498,62 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 
 
 static int
-hfs_newfs(char *device, int forceHFS, int isRaw)
+hfs_newfs(char *device, int forceHFS)
 {
 	struct stat stbuf;
-	DriveInfo dip;
+	DriveInfo dip = { 0 };
 	int fso = 0;
 	int retval = 0;
 	hfsparams_t defaults = {0};
-	u_int64_t maxSectorsPerIO;
+	UInt64 maxPhysSectorsPerIO;
+	UInt64 physSectorsPerRead;
+	UInt64 physSectorsPerWrite;
 
-	if (gNoCreate) {
-		fso = open( device, O_RDONLY | O_NDELAY, 0 );
+	if (gPartitionSize) {
+		dip.sectorSize = kBytesPerSector;
+		dip.physTotalSectors = dip.totalSectors = gPartitionSize / kBytesPerSector;
+		dip.physSectorSize = (128 * 1024) / kBytesPerSector;
+		dip.fd = 0;
 	} else {
-		fso = open( device, O_WRONLY | O_NDELAY, 0 );
+		if (gNoCreate) {
+			fso = open( device, O_RDONLY | O_NDELAY, 0 );
+		} else {
+			fso = open( device, O_RDWR | O_NDELAY, 0 );
+		}
+		dip.fd = fso;
+
+		if (fso < 0)
+			fatal("%s: %s", device, strerror(errno));
+
+		if (fstat( fso, &stbuf) < 0)
+			fatal("%s: %s", device, strerror(errno));
+
+		if (ioctl(fso, DKIOCGETBLOCKSIZE, &dip.physSectorSize) < 0)
+			fatal("%s: %s", device, strerror(errno));
+
+		if ((dip.physSectorSize % kBytesPerSector) != 0)
+			fatal("%d is an unsupported sector size\n", dip.physSectorSize);
+
+		if (ioctl(fso, DKIOCGETBLOCKCOUNT, &dip.physTotalSectors) < 0)
+			fatal("%s: %s", device, strerror(errno));
+
 	}
 
-	if (fso < 0)
-		fatal("%s: %s", device, strerror(errno));
-
-	if (fstat( fso, &stbuf) < 0)
-		fatal("%s: %s", device, strerror(errno));
-
-	if (ioctl(fso, DKIOCGETBLOCKCOUNT, &dip.totalSectors) < 0)
-		fatal("%s: %s", device, strerror(errno));
-
-	if (ioctl(fso, DKIOCGETBLOCKSIZE, &dip.sectorSize) < 0)
-		fatal("%s: %s", device, strerror(errno));
-
-	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxSectorsPerIO) < 0)
-		dip.sectorsPerIO = (128 * 1024) / dip.sectorSize;  /* use 128K as default */
+	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTREAD, &maxPhysSectorsPerIO) < 0)
+		physSectorsPerRead = (128 * 1024) / dip.physSectorSize;  /* use 128K as default */
 	else
-		dip.sectorsPerIO = MIN(maxSectorsPerIO, (1024 * 1024) / dip.sectorSize);
-        /*
-         * The make_hfs code currentlydoes 512 byte sized I/O.
-         * If the sector size is bigger than 512, start over
-         * using the block device (to get de-blocking).
-         */       
-        if (dip.sectorSize != kBytesPerSector) {
-		if (isRaw) {
-			close(fso);
-			errno = ENXIO;
-			return (-1);
-		} else {
-			if ((dip.sectorSize % kBytesPerSector) != 0)
-				fatal("%d is an unsupported sector size\n", dip.sectorSize);
+		physSectorsPerRead = MIN(maxPhysSectorsPerIO, (1024 * 1024) / dip.physSectorSize);
 
-			dip.totalSectors *= (dip.sectorSize / kBytesPerSector);
-			dip.sectorsPerIO *= (dip.sectorSize / kBytesPerSector);
-			dip.sectorSize = kBytesPerSector;
-		}
-        }
-  
-	dip.fd = fso;
+	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxPhysSectorsPerIO) < 0)
+		physSectorsPerWrite = (128 * 1024) / dip.physSectorSize;  /* use 128K as default */
+	else
+		physSectorsPerWrite = MIN(maxPhysSectorsPerIO, (1024 * 1024) / dip.physSectorSize);
+
+	dip.physSectorsPerIO = MIN ( physSectorsPerRead, physSectorsPerWrite );
+
+	dip.sectorSize = kBytesPerSector;
+	dip.totalSectors = dip.physTotalSectors * dip.physSectorSize / dip.sectorSize;
+
 	dip.sectorOffset = 0;
 	time(&createtime);
 
@@ -531,11 +568,11 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
          * block size if none (or zero) was specified.
          */
         if (!forceHFS)
-            validate_hfsplus_block_size(dip.totalSectors, dip.sectorSize);
+		validate_hfsplus_block_size(dip.totalSectors, dip.sectorSize);
         
 	/* Make an HFS disk */
 	if (forceHFS || gWrapper) {
-		hfs_params(dip.totalSectors, dip.sectorSize, &defaults);
+		hfs_params(&dip, &defaults);
 		if (gNoCreate == 0) {
 			UInt32 totalSectors, sectorOffset;
 
@@ -569,7 +606,7 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 		if ((dip.totalSectors >= 0x40000000) && (dip.totalSectors & 7))
 		    fatal("%s: partition size not a multiple of 4K.", device);
 
-		hfsplus_params(dip.totalSectors, dip.sectorSize, &defaults);
+		hfsplus_params(&dip, &defaults);
 		if (gNoCreate == 0) {
 			retval = make_hfsplus(&dip, &defaults);
 			if (retval == 0) {
@@ -603,8 +640,10 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 }
 
 
-static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *defaults)
+static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 {
+	UInt64  sectorCount = dip->totalSectors;
+	UInt32  sectorSize = dip->sectorSize;
 	UInt32	totalBlocks;
 	UInt32	minClumpSize;
 	UInt32	clumpSize;
@@ -753,8 +792,8 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 		defaults->flags |= kMakeCaseSensitive;
 
 	if (gNoCreate) {
-		if (!gWrapper)
-			printf("%qd sectors (%lu bytes per sector)\n", sectorCount, sectorSize);
+		if (!gWrapper && gPartitionSize == 0)
+			printf("%llu sectors (%lu bytes per sector)\n", dip->physTotalSectors, dip->physSectorSize);
 		printf("HFS Plus format parameters:\n");
 		printf("\tvolume name: \"%s\"\n", gVolumeName);
 		printf("\tblock-size: %lu\n", defaults->blockSize);
@@ -779,8 +818,10 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 }
 
 
-static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defaults)
+static void hfs_params(const DriveInfo* dip, hfsparams_t *defaults)
 {
+	UInt64  sectorCount = dip->totalSectors;
+	UInt32  sectorSize = dip->sectorSize;
 	UInt32	alBlkSize;
 	UInt32	vSectorCount;
 	UInt32	defaultBlockSize;
@@ -844,17 +885,18 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 	}
 	
 	if (gNoCreate) {
-		printf("%ld sectors at %ld bytes per sector\n", sectorCount, sectorSize);
+		printf("%lld sectors at %ld bytes per sector\n", dip->physTotalSectors, dip->physSectorSize);
 		printf("%s format parameters:\n", gWrapper ? "HFS Wrapper" : "HFS");
 		printf("\tvolume name: \"%s\"\n", gVolumeName);
 		printf("\tblock-size: %ld\n", defaults->blockSize);
-		printf("\ttotal blocks: %ld\n", sectorCount / (alBlkSize / sectorSize) );
+		printf("\ttotal blocks: %lld\n", sectorCount / (alBlkSize / sectorSize) );
 		printf("\tfirst free catalog node id: %ld\n", defaults->nextFreeFileID);
 		printf("\tinitial catalog file size: %ld\n", defaults->catalogClumpSize);
 		printf("\tinitial extents file size: %ld\n", defaults->extentsClumpSize);
 		printf("\tfile clump size: %ld\n", defaults->dataClumpSize);
+		/* hfsgrowblks is in terms of 512-byte sectors */
 		if (hfsgrowblks)
-			printf("\twrapper growable from %ld to %ld sectors\n", sectorCount, hfsgrowblks);
+			printf("\twrapper growable from %lld to %ld sectors\n", dip->physTotalSectors, hfsgrowblks * kBytesPerSector / dip->physSectorSize);
 	}
 }
 
@@ -1083,14 +1125,15 @@ void usage()
 	fprintf(stderr, "\t-J [journal-size] make this HFS+ volume journaled\n");
 	fprintf(stderr, "\t-G group-id (for root directory)\n");
 	fprintf(stderr, "\t-U user-id (for root directory)\n");
-	fprintf(stderr, "\t-M access-mask (for root directory)\n");
+	fprintf(stderr, "\t-M octal access-mask (for root directory)\n");
 	fprintf(stderr, "\t-b allocation block size (4096 optimal)\n");
 	fprintf(stderr, "\t-c clump size list (comma separated)\n");
-	fprintf(stderr, "\t\te=blocks (extents file)\n");
-	fprintf(stderr, "\t\tc=blocks (catalog file)\n");
 	fprintf(stderr, "\t\ta=blocks (attributes file)\n");
 	fprintf(stderr, "\t\tb=blocks (bitmap file)\n");
+	fprintf(stderr, "\t\tc=blocks (catalog file)\n");
 	fprintf(stderr, "\t\td=blocks (user data fork)\n");
+	fprintf(stderr, "\t\te=blocks (extents file)\n");
+	fprintf(stderr, "\t\tg=blocks (hfs wrapper)\n");
 	fprintf(stderr, "\t\tr=blocks (user resource fork)\n");
 	fprintf(stderr, "\t-i starting catalog node id\n");
 	fprintf(stderr, "\t-n b-tree node size list (comma separated)\n");

@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved. 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv.c,v 1.11 2004/12/13 00:25:16 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -41,19 +42,13 @@
 
 #include "iconv_converter_if.h"
 
-#ifdef SYSCTL_DECL
 SYSCTL_DECL(_net_smb_fs);
-SYSCTL_DECL(_kern_iconv);
-#endif
+SYSCTL_DECL(_net_smb_fs_iconv);
 
 SYSCTL_NODE(_net_smb_fs, OID_AUTO, iconv, CTLFLAG_RW, NULL, "kernel iconv interface");
 
 MALLOC_DEFINE(M_ICONV, "ICONV", "ICONV structures");
 MALLOC_DEFINE(M_ICONVDATA, "ICONV data", "ICONV data");
-
-#ifdef MODULE_VERSION
-MODULE_VERSION(libiconv, 1);
-#endif
 
 #ifdef notnow
 /*
@@ -150,7 +145,7 @@ iconv_lookupconv(const char *name, struct iconv_converter_class **dcpp)
 	TAILQ_FOREACH(dcp, &iconv_converters, cc_link) {
 		if (name == NULL)
 			continue;
-		if (strcmp(name, ICONV_CONVERTER_NAME(dcp)) == 0) {
+		if (strncmp(name, ICONV_CONVERTER_NAME(dcp), ICONV_CNVNMAXLEN) == 0) {
 			if (dcpp)
 				*dcpp = dcp;
 			return 0;
@@ -165,8 +160,8 @@ iconv_lookupcs(const char *to, const char *from, struct iconv_cspair **cspp)
 	struct iconv_cspair *csp;
 
 	TAILQ_FOREACH(csp, &iconv_cslist, cp_link) {
-		if (strcmp(csp->cp_to, to) == 0 &&
-		    strcmp(csp->cp_from, from) == 0) {
+		if (strncmp(csp->cp_to, to, ICONV_CSNMAXLEN) == 0 &&
+		    strncmp(csp->cp_from, from, ICONV_CSNMAXLEN) == 0) {
 			if (cspp)
 				*cspp = csp;
 			return 0;
@@ -187,10 +182,10 @@ iconv_register_cspair(const char *to, const char *from,
 	if (iconv_lookupcs(to, from, NULL) == 0)
 		return EEXIST;
 	csize = sizeof(*csp);
-	ucsto = strcmp(to, iconv_unicode_string) == 0;
+	ucsto = strncmp(to, iconv_unicode_string, ICONV_CNVNMAXLEN) == 0;
 	if (!ucsto)
 		csize += strlen(to) + 1;
-	ucsfrom = strcmp(from, iconv_unicode_string) == 0;
+	ucsfrom = strncmp(from, iconv_unicode_string, ICONV_CNVNMAXLEN) == 0;
 	if (!ucsfrom)
 		csize += strlen(from) + 1;
 	csp = malloc(csize, M_ICONV, M_WAITOK);
@@ -199,13 +194,15 @@ iconv_register_cspair(const char *to, const char *from,
 	csp->cp_dcp = dcp;
 	cp = (char*)(csp + 1);
 	if (!ucsto) {
-		strcpy(cp, to);
+		/* We malloc this above */
+		strlcpy(cp, to, strlen(to) + 1);
 		csp->cp_to = cp;
 		cp += strlen(cp) + 1;
 	} else
 		csp->cp_to = iconv_unicode_string;
 	if (!ucsfrom) {
-		strcpy(cp, from);
+		/* We malloc this above */
+		strlcpy(cp, from, strlen(from) + 1);
 		csp->cp_from = cp;
 	} else
 		csp->cp_from = iconv_unicode_string;
@@ -274,22 +271,17 @@ iconv_close(void *handle)
 }
 
 PRIVSYM int
-iconv_conv(void *handle, const char **inbuf,
-	size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
+iconv_conv(void *handle, const char **inbuf, size_t *inbytesleft, char **outbuf, 
+		size_t *outbytesleft, int flags)
 {
-	return ICONV_CONVERTER_CONV(handle, inbuf, inbytesleft, outbuf, outbytesleft);
+	return ICONV_CONVERTER_CONV(handle, inbuf, inbytesleft, outbuf, outbytesleft, flags);
 }
 
 /*
  * Give a list of loaded converters. Each name terminated with 0.
  * An empty string terminates the list.
  */
-static int
-#ifdef NEW_SYSCTL_ARGS
-iconv_sysctl_drvlist(SYSCTL_HANDLER_ARGS)
-#else
-iconv_sysctl_drvlist SYSCTL_HANDLER_ARGS
-#endif
+static int iconv_sysctl_drvlist SYSCTL_HANDLER_ARGS
 {
 	#pragma unused(oidp, arg1, arg2)
 	struct iconv_converter_class *dcp;
@@ -314,27 +306,13 @@ iconv_sysctl_drvlist SYSCTL_HANDLER_ARGS
 	return error;
 }
 
-static int
-iconv_sysctl_drvlist0 SYSCTL_HANDLER_ARGS
-{
-	int error;
-
-	error = iconv_sysctl_drvlist(oidp, arg1, arg2, req);
-	return (error);
-}
-
-SYSCTL_PROC(_kern_iconv, OID_AUTO, drvlist, CTLFLAG_RD | CTLTYPE_OPAQUE,
-	    NULL, 0, iconv_sysctl_drvlist0, "S,xlat", "registered converters");
+SYSCTL_PROC(_net_smb_fs_iconv, OID_AUTO, drvlist, CTLFLAG_RD | CTLTYPE_OPAQUE,
+	    NULL, 0, iconv_sysctl_drvlist, "S,xlat", "registered converters");
 
 /*
  * List all available charset pairs.
  */
-static int
-#ifdef NEW_SYSCTL_ARGS
-iconv_sysctl_cslist(SYSCTL_HANDLER_ARGS)
-#else
-iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
-#endif
+static int iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 {
 	#pragma unused(oidp, arg1, arg2)
 	struct iconv_cspair *csp;
@@ -349,8 +327,8 @@ iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 		csi.cs_id = csp->cp_id;
 		csi.cs_refcount = csp->cp_refcount;
 		csi.cs_base = csp->cp_base ? csp->cp_base->cp_id : 0;
-		strcpy(csi.cs_to, csp->cp_to);
-		strcpy(csi.cs_from, csp->cp_from);
+		strlcpy(csi.cs_to, csp->cp_to, sizeof(csi.cs_to));
+		strlcpy(csi.cs_from, csp->cp_from, sizeof(csi.cs_from));
 		error = SYSCTL_OUT(req, &csi, sizeof(csi));
 		if (error)
 			break;
@@ -358,7 +336,7 @@ iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 	return error;
 }
 
-SYSCTL_PROC(_kern_iconv, OID_AUTO, cslist, CTLFLAG_RD | CTLTYPE_OPAQUE,
+SYSCTL_PROC(_net_smb_fs_iconv, OID_AUTO, cslist, CTLFLAG_RD | CTLTYPE_OPAQUE,
 	    NULL, 0, iconv_sysctl_cslist, "S,xlat", "registered charset pairs");
 
 PRIVSYM int
@@ -376,12 +354,7 @@ iconv_add(const char *converter, const char *to, const char *from)
 /*
  * Add new charset pair
  */
-static int
-#ifdef NEW_SYSCTL_ARGS
-iconv_sysctl_add(SYSCTL_HANDLER_ARGS)
-#else
-iconv_sysctl_add SYSCTL_HANDLER_ARGS
-#endif
+static int iconv_sysctl_add SYSCTL_HANDLER_ARGS
 {
 	#pragma unused(oidp, arg1, arg2)
 	struct iconv_converter_class *dcp;
@@ -419,18 +392,8 @@ bad:
 	return error;
 }
 
-
-static int
-iconv_sysctl_add0 SYSCTL_HANDLER_ARGS
-{
-	int error;
-
-	error = iconv_sysctl_add(oidp, arg1, arg2, req);
-	return (error);
-}
-
-SYSCTL_PROC(_kern_iconv, OID_AUTO, add, CTLFLAG_RW | CTLTYPE_OPAQUE,
-	    NULL, 0, iconv_sysctl_add0, "S,xlat", "register charset pair");
+SYSCTL_PROC(_net_smb_fs_iconv, OID_AUTO, add, CTLFLAG_RW | CTLTYPE_OPAQUE,
+	    NULL, 0, iconv_sysctl_add, "S,xlat", "register charset pair");
 
 /*
  * Default stubs for converters
@@ -479,22 +442,23 @@ iconv_converter_handler(module_t mod, int type, void *data)
  * Common used functions
  */
 PRIVSYM char *
-iconv_convstr(void *handle, char *dst, const char *src, size_t len)
+iconv_convstr(void *handle, char *dst, const char *src, size_t len, int flags)
 {
 	char *p = dst;
 	size_t inlen, outlen;
 	int error;
 
 	if (handle == NULL) {
-		strcpy(dst, src);
+		
+		strlcpy(dst, src, len+1);
 		return dst;
 	}
 	inlen = outlen = strlen(src);
 	outlen = len;
-	error = iconv_conv(handle, NULL, NULL, &p, &outlen);
+	error = iconv_conv(handle, NULL, NULL, &p, &outlen, flags);
 	if (error)
 		return NULL;
-	error = iconv_conv(handle, &src, &inlen, &p, &outlen);
+	error = iconv_conv(handle, &src, &inlen, &p, &outlen, flags);
 	if (error)
 		return NULL;
 	*p = 0;
@@ -510,7 +474,7 @@ iconv_lookupcp(char **cpp, const char *s)
 		return ENOENT;
 	}
 	for (; *cpp; cpp++)
-		if (strcmp(*cpp, s) == 0)
+		if (strncmp(*cpp, s, ICONV_CNVNMAXLEN) == 0)
 			return 0;
 	return ENOENT;
 }

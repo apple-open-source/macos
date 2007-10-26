@@ -14,76 +14,27 @@
 # include "config.h"
 #endif /* HAVE_CONFIG_H */
 
-#include <assert.h>
 #include "cvs.h"
 #include "getline.h"
 #include "edit.h"
 #include "buffer.h"
-#include "savecwd.h"
+#include "save-cwd.h"
 
 #ifdef CLIENT_SUPPORT
 
+# include "log-buffer.h"
 # include "md5.h"
 
-# if defined(AUTH_CLIENT_SUPPORT) || defined(HAVE_KERBEROS) || defined(HAVE_GSSAPI) || defined(SOCK_ERRNO) || defined(SOCK_STRERROR)
-#   ifdef HAVE_WINSOCK_H
-#     include <winsock.h>
-#   else /* No winsock.h */
-#     include <sys/socket.h>
-#     include <netinet/in.h>
-#     include <arpa/inet.h>
-#     include <netdb.h>
-#   endif /* No winsock.h */
-# endif
-
-/* If SOCK_ERRNO is defined, then send()/recv() and other socket calls
-   do not set errno, but that this macro should be used to obtain an
-   error code.  This probably doesn't make sense unless
-   NO_SOCKET_TO_FD is also defined. */
-# ifndef SOCK_ERRNO
-#   define SOCK_ERRNO errno
-# endif
-
-/* If SOCK_STRERROR is defined, then the error codes returned by
-   socket operations are not known to strerror, and this macro must be
-   used instead to convert those error codes to strings. */
-# ifndef SOCK_STRERROR
-#   define SOCK_STRERROR strerror
-
-#   if STDC_HEADERS
-#     include <string.h>
-#   endif
-
-#   ifndef strerror
-extern char *strerror ();
-#   endif
-# endif /* ! SOCK_STRERROR */
-
-# if HAVE_KERBEROS
-
-#   include <krb.h>
-
-extern char *krb_realmofhost ();
-#   ifndef HAVE_KRB_GET_ERR_TEXT
-#     define krb_get_err_text(status) krb_err_txt[status]
-#   endif /* HAVE_KRB_GET_ERR_TEXT */
-
-/* Information we need if we are going to use Kerberos encryption.  */
-static C_Block kblock;
-static Key_schedule sched;
-
-# endif /* HAVE_KERBEROS */
+#include "socket-client.h"
+#include "rsh-client.h"
 
 # ifdef HAVE_GSSAPI
+#   include "gssapi-client.h"
+# endif
 
-#   include "xgssapi.h"
-
-/* This is needed for GSSAPI encryption.  */
-static gss_ctx_id_t gcontext;
-
-static int connect_to_gserver PROTO((cvsroot_t *, int, struct hostent *));
-
-# endif /* HAVE_GSSAPI */
+# ifdef HAVE_KERBEROS
+#   include "kerberos4-client.h"
+# endif
 
 
 
@@ -94,93 +45,68 @@ static int connect_to_gserver PROTO((cvsroot_t *, int, struct hostent *));
  * path map on the client side.  This would be generic enough to be applied to
  * absolute paths supplied by the user too.
  */
-static List *uppaths = NULL;
+static List *uppaths;
 
 
 
-static void add_prune_candidate PROTO((const char *));
+static void add_prune_candidate (const char *);
 
 /* All the commands.  */
-int add PROTO((int argc, char **argv));
-int admin PROTO((int argc, char **argv));
-int checkout PROTO((int argc, char **argv));
-int commit PROTO((int argc, char **argv));
-int diff PROTO((int argc, char **argv));
-int history PROTO((int argc, char **argv));
-int import PROTO((int argc, char **argv));
-int cvslog PROTO((int argc, char **argv));
-int patch PROTO((int argc, char **argv));
-int release PROTO((int argc, char **argv));
-int cvsremove PROTO((int argc, char **argv));
-int rtag PROTO((int argc, char **argv));
-int status PROTO((int argc, char **argv));
-int tag PROTO((int argc, char **argv));
-int update PROTO((int argc, char **argv));
+int add (int argc, char **argv);
+int admin (int argc, char **argv);
+int checkout (int argc, char **argv);
+int commit (int argc, char **argv);
+int diff (int argc, char **argv);
+int history (int argc, char **argv);
+int import (int argc, char **argv);
+int cvslog (int argc, char **argv);
+int patch (int argc, char **argv);
+int release (int argc, char **argv);
+int cvsremove (int argc, char **argv);
+int rtag (int argc, char **argv);
+int status (int argc, char **argv);
+int tag (int argc, char **argv);
+int update (int argc, char **argv);
 
-/* All the response handling functions.  */
-static void handle_ok PROTO((char *, int));
-static void handle_error PROTO((char *, int));
-static void handle_valid_requests PROTO((char *, int));
-static void handle_checked_in PROTO((char *, int));
-static void handle_new_entry PROTO((char *, int));
-static void handle_checksum PROTO((char *, int));
-static void handle_copy_file PROTO((char *, int));
-static void handle_updated PROTO((char *, int));
-static void handle_merged PROTO((char *, int));
-static void handle_patched PROTO((char *, int));
-static void handle_rcs_diff PROTO((char *, int));
-static void handle_removed PROTO((char *, int));
-static void handle_remove_entry PROTO((char *, int));
-static void handle_set_static_directory PROTO((char *, int));
-static void handle_clear_static_directory PROTO((char *, int));
-static void handle_set_sticky PROTO((char *, int));
-static void handle_clear_sticky PROTO((char *, int));
-static void handle_module_expansion PROTO((char *, int));
-static void handle_wrapper_rcs_option PROTO((char *, int));
-static void handle_m PROTO((char *, int));
-static void handle_e PROTO((char *, int));
-static void handle_f PROTO((char *, int));
-static void handle_notified PROTO((char *, int));
+static size_t try_read_from_server (char *, size_t);
 
-static size_t try_read_from_server PROTO ((char *, size_t));
+static void auth_server (cvsroot_t *, struct buffer *, struct buffer *,
+			 int, int, struct hostent *);
 
-static void auth_server PROTO ((cvsroot_t *, struct buffer *, struct buffer *,
-				int, int, struct hostent *));
+
+
+/* This is the referrer who referred us to a primary, or write server, using
+ * the "Redirect" request.
+ */
+static cvsroot_t *client_referrer;
 
 /* We need to keep track of the list of directories we've sent to the
    server.  This list, along with the current CVSROOT, will help us
    decide which command-line arguments to send.  */
-List *dirs_sent_to_server = NULL;
-
-static int is_arg_a_parent_or_listed_dir PROTO((Node *, void *));
-
+List *dirs_sent_to_server;
 static int
-is_arg_a_parent_or_listed_dir (n, d)
-    Node *n;
-    void *d;
+is_arg_a_parent_or_listed_dir (Node *n, void *d)
 {
     char *directory = n->key;	/* name of the dir sent to server */
-    char *this_argv_elem = (char *) d;	/* this argv element */
+    char *this_argv_elem = d;	/* this argv element */
 
     /* Say we should send this argument if the argument matches the
        beginning of a directory name sent to the server.  This way,
        the server will know to start at the top of that directory
        hierarchy and descend. */
 
-    if (strncmp (directory, this_argv_elem, strlen (this_argv_elem)) == 0)
+    if (!strncmp (directory, this_argv_elem, strlen (this_argv_elem)))
 	return 1;
 
     return 0;
 }
 
-static int arg_should_not_be_sent_to_server PROTO((char *));
+
 
 /* Return nonzero if this argument should not be sent to the
    server. */
-
 static int
-arg_should_not_be_sent_to_server (arg)
-    char *arg;
+arg_should_not_be_sent_to_server (char *arg)
 {
     /* Decide if we should send this directory name to the server.  We
        should always send argv[i] if:
@@ -201,7 +127,7 @@ arg_should_not_be_sent_to_server (arg)
     if (list_isempty (dirs_sent_to_server))
 	return 0;		/* always send it */
 
-    if (strcmp (arg, ".") == 0)
+    if (!strcmp (arg, "."))
 	return 0;		/* always send it */
 
     /* We should send arg if it is one of the directories sent to the
@@ -227,7 +153,7 @@ arg_should_not_be_sent_to_server (arg)
 	/* Calculate "dirname arg" */
 	for (t = arg + strlen (arg) - 1; t >= arg; t--)
 	{
-	    if (ISDIRSEP(*t))
+	    if (ISSLASH (*t))
 		break;
 	}
 
@@ -251,7 +177,7 @@ arg_should_not_be_sent_to_server (arg)
 
 	    /* Since we didn't find it in the list, check the CVSADM
                files on disk.  */
-	    this_root = Name_Root (arg, (char *) NULL);
+	    this_root = Name_Root (arg, NULL);
 	    root_string = this_root->original;
 	    *t = c;
 	}
@@ -263,28 +189,23 @@ arg_should_not_be_sent_to_server (arg)
 		root_string = CVSroot_cmdline;
 	    else
 	    {
-		this_root = Name_Root ((char *) NULL, (char *) NULL);
+		this_root = Name_Root (NULL, NULL);
 		root_string = this_root->original;
 	    }
 	}
 
 	/* Now check the value for root. */
 	if (root_string && current_parsed_root
-	    && (strcmp (root_string, current_parsed_root->original) != 0))
+	    && strcmp (root_string, original_parsed_root->original))
 	{
 	    /* Don't send this, since the CVSROOTs don't match. */
-	    if (this_root) free_cvsroot_t (this_root);
 	    return 1;
 	}
-	if (this_root) free_cvsroot_t (this_root);
     }
     
     /* OK, let's send it. */
     return 0;
 }
-
-
-
 #endif /* CLIENT_SUPPORT */
 
 
@@ -298,14 +219,9 @@ arg_should_not_be_sent_to_server (arg)
  * corresponding to the mode in SB.
  */
 char *
-#ifdef __STDC__
 mode_to_string (mode_t mode)
-#else /* ! __STDC__ */
-mode_to_string (mode)
-	mode_t mode;
-#endif /* __STDC__ */
 {
-    char buf[18], u[4], g[4], o[4];
+    char u[4], g[4], o[4];
     int i;
 
     i = 0;
@@ -326,9 +242,10 @@ mode_to_string (mode)
     if (mode & S_IXOTH) o[i++] = 'x';
     o[i] = '\0';
 
-    sprintf(buf, "u=%s,g=%s,o=%s", u, g, o);
-    return xstrdup(buf);
+    return Xasprintf ("u=%s,g=%s,o=%s", u, g, o);
 }
+
+
 
 /*
  * Change mode of FILENAME to MODE_STRING.
@@ -336,10 +253,7 @@ mode_to_string (mode)
  * If RESPECT_UMASK is set, then honor the umask.
  */
 int
-change_mode (filename, mode_string, respect_umask)
-    char *filename;
-    char *mode_string;
-    int respect_umask;
+change_mode (const char *filename, const char *mode_string, int respect_umask)
 {
 #ifdef CHMOD_BROKEN
     char *p;
@@ -379,7 +293,7 @@ change_mode (filename, mode_string, respect_umask)
 
 #else /* ! CHMOD_BROKEN */
 
-    char *p;
+    const char *p;
     mode_t mode = 0;
     mode_t oumask;
 
@@ -389,7 +303,7 @@ change_mode (filename, mode_string, respect_umask)
 	if ((p[0] == 'u' || p[0] == 'g' || p[0] == 'o') && p[1] == '=')
 	{
 	    int can_read = 0, can_write = 0, can_execute = 0;
-	    char *q = p + 2;
+	    const char *q = p + 2;
 	    while (*q != ',' && *q != '\0')
 	    {
 		if (*q == 'r')
@@ -447,407 +361,22 @@ change_mode (filename, mode_string, respect_umask)
     return 0;
 #endif /* ! CHMOD_BROKEN */
 }
-
 #endif /* CLIENT_SUPPORT or SERVER_SUPPORT */
-
-#ifdef CLIENT_SUPPORT
 
+
+
+#ifdef CLIENT_SUPPORT
 int client_prune_dirs;
 
-static List *ignlist = (List *) NULL;
+static List *ignlist = NULL;
 
 /* Buffer to write to the server.  */
-static struct buffer *to_server;
+static struct buffer *global_to_server;
 
 /* Buffer used to read from the server.  */
-static struct buffer *from_server;
+static struct buffer *global_from_server;
 
-
-/* We want to be able to log data sent between us and the server.  We
-   do it using log buffers.  Each log buffer has another buffer which
-   handles the actual I/O, and a file to log information to.
 
-   This structure is the closure field of a log buffer.  */
-
-struct log_buffer
-{
-    /* The underlying buffer.  */
-    struct buffer *buf;
-    /* The file to log information to.  */
-    FILE *log;
-};
-
-static struct buffer *log_buffer_initialize
-  PROTO((struct buffer *, FILE *, int, void (*) (struct buffer *)));
-static int log_buffer_input PROTO((void *, char *, int, int, int *));
-static int log_buffer_output PROTO((void *, const char *, int, int *));
-static int log_buffer_flush PROTO((void *));
-static int log_buffer_block PROTO((void *, int));
-static int log_buffer_shutdown PROTO((struct buffer *));
-
-/* Create a log buffer.  */
-
-static struct buffer *
-log_buffer_initialize (buf, fp, input, memory)
-     struct buffer *buf;
-     FILE *fp;
-     int input;
-     void (*memory) PROTO((struct buffer *));
-{
-    struct log_buffer *n;
-
-    n = (struct log_buffer *) xmalloc (sizeof *n);
-    n->buf = buf;
-    n->log = fp;
-    return buf_initialize (input ? log_buffer_input : NULL,
-			   input ? NULL : log_buffer_output,
-			   input ? NULL : log_buffer_flush,
-			   log_buffer_block,
-			   log_buffer_shutdown,
-			   memory,
-			   n);
-}
-
-/* The input function for a log buffer.  */
-
-static int
-log_buffer_input (closure, data, need, size, got)
-     void *closure;
-     char *data;
-     int need;
-     int size;
-     int *got;
-{
-    struct log_buffer *lb = (struct log_buffer *) closure;
-    int status;
-    size_t n_to_write;
-
-    if (lb->buf->input == NULL)
-	abort ();
-
-    status = (*lb->buf->input) (lb->buf->closure, data, need, size, got);
-    if (status != 0)
-	return status;
-
-    if (*got > 0)
-    {
-	n_to_write = *got;
-	if (fwrite (data, 1, n_to_write, lb->log) != n_to_write)
-	    error (0, errno, "writing to log file");
-    }
-
-    return 0;
-}
-
-/* The output function for a log buffer.  */
-
-static int
-log_buffer_output (closure, data, have, wrote)
-     void *closure;
-     const char *data;
-     int have;
-     int *wrote;
-{
-    struct log_buffer *lb = (struct log_buffer *) closure;
-    int status;
-    size_t n_to_write;
-
-    if (lb->buf->output == NULL)
-	abort ();
-
-    status = (*lb->buf->output) (lb->buf->closure, data, have, wrote);
-    if (status != 0)
-	return status;
-
-    if (*wrote > 0)
-    {
-	n_to_write = *wrote;
-	if (fwrite (data, 1, n_to_write, lb->log) != n_to_write)
-	    error (0, errno, "writing to log file");
-    }
-
-    return 0;
-}
-
-/* The flush function for a log buffer.  */
-
-static int
-log_buffer_flush (closure)
-     void *closure;
-{
-    struct log_buffer *lb = (struct log_buffer *) closure;
-
-    if (lb->buf->flush == NULL)
-	abort ();
-
-    /* We don't really have to flush the log file here, but doing it
-       will let tail -f on the log file show what is sent to the
-       network as it is sent.  */
-    if (fflush (lb->log) != 0)
-        error (0, errno, "flushing log file");
-
-    return (*lb->buf->flush) (lb->buf->closure);
-}
-
-/* The block function for a log buffer.  */
-
-static int
-log_buffer_block (closure, block)
-     void *closure;
-     int block;
-{
-    struct log_buffer *lb = (struct log_buffer *) closure;
-
-    if (block)
-	return set_block (lb->buf);
-    else
-	return set_nonblock (lb->buf);
-}
-
-/* The shutdown function for a log buffer.  */
-
-static int
-log_buffer_shutdown (buf)
-     struct buffer *buf;
-{
-    struct log_buffer *lb = (struct log_buffer *) buf->closure;
-    int retval;
-
-    retval = buf_shutdown (lb->buf);
-    if (fclose (lb->log) < 0)
-	error (0, errno, "closing log file");
-    return retval;
-}
-
-#ifdef NO_SOCKET_TO_FD
-
-/* Under certain circumstances, we must communicate with the server
-   via a socket using send() and recv().  This is because under some
-   operating systems (OS/2 and Windows 95 come to mind), a socket
-   cannot be converted to a file descriptor -- it must be treated as a
-   socket and nothing else.
-   
-   We may also need to deal with socket routine error codes differently
-   in these cases.  This is handled through the SOCK_ERRNO and
-   SOCK_STRERROR macros. */
-
-/* These routines implement a buffer structure which uses send and
-   recv.  The buffer is always in blocking mode so we don't implement
-   the block routine.  */
-
-/* Note that it is important that these routines always handle errors
-   internally and never return a positive errno code, since it would in
-   general be impossible for the caller to know in general whether any
-   error code came from a socket routine (to decide whether to use
-   SOCK_STRERROR or simply strerror to print an error message). */
-
-/* We use an instance of this structure as the closure field.  */
-
-struct socket_buffer
-{
-    /* The socket number.  */
-    int socket;
-};
-
-static struct buffer *socket_buffer_initialize
-  PROTO ((int, int, void (*) (struct buffer *)));
-static int socket_buffer_input PROTO((void *, char *, int, int, int *));
-static int socket_buffer_output PROTO((void *, const char *, int, int *));
-static int socket_buffer_flush PROTO((void *));
-static int socket_buffer_shutdown PROTO((struct buffer *));
-
-
-
-/* Create a buffer based on a socket.  */
-
-static struct buffer *
-socket_buffer_initialize (socket, input, memory)
-    int socket;
-    int input;
-    void (*memory) PROTO((struct buffer *));
-{
-    struct socket_buffer *n;
-
-    n = (struct socket_buffer *) xmalloc (sizeof *n);
-    n->socket = socket;
-    return buf_initialize (input ? socket_buffer_input : NULL,
-			   input ? NULL : socket_buffer_output,
-			   input ? NULL : socket_buffer_flush,
-			   (int (*) PROTO((void *, int))) NULL,
-			   socket_buffer_shutdown,
-			   memory,
-			   n);
-}
-
-
-
-/* The buffer input function for a buffer built on a socket.  */
-
-static int
-socket_buffer_input (closure, data, need, size, got)
-     void *closure;
-     char *data;
-     int need;
-     int size;
-     int *got;
-{
-    struct socket_buffer *sb = (struct socket_buffer *) closure;
-    int nbytes;
-
-    /* I believe that the recv function gives us exactly the semantics
-       we want.  If there is a message, it returns immediately with
-       whatever it could get.  If there is no message, it waits until
-       one comes in.  In other words, it is not like read, which in
-       blocking mode normally waits until all the requested data is
-       available.  */
-
-    *got = 0;
-
-    do
-    {
-
-	/* Note that for certain (broken?) networking stacks, like
-	   VMS's UCX (not sure what version, problem reported with
-	   recv() in 1997), and (according to windows-NT/config.h)
-	   Windows NT 3.51, we must call recv or send with a
-	   moderately sized buffer (say, less than 200K or something),
-	   or else there may be network errors (somewhat hard to
-	   produce, e.g. WAN not LAN or some such).  buf_read_data
-	   makes sure that we only recv() BUFFER_DATA_SIZE bytes at
-	   a time.  */
-
-	nbytes = recv (sb->socket, data, size, 0);
-	if (nbytes < 0)
-	    error (1, 0, "reading from server: %s", SOCK_STRERROR (SOCK_ERRNO));
-	if (nbytes == 0)
-	{
-	    /* End of file (for example, the server has closed
-	       the connection).  If we've already read something, we
-	       just tell the caller about the data, not about the end of
-	       file.  If we've read nothing, we return end of file.  */
-	    if (*got == 0)
-		return -1;
-	    else
-		return 0;
-	}
-	need -= nbytes;
-	size -= nbytes;
-	data += nbytes;
-	*got += nbytes;
-    }
-    while (need > 0);
-
-    return 0;
-}
-
-
-
-/* The buffer output function for a buffer built on a socket.  */
-
-static int
-socket_buffer_output (closure, data, have, wrote)
-     void *closure;
-     const char *data;
-     int have;
-     int *wrote;
-{
-    struct socket_buffer *sb = (struct socket_buffer *) closure;
-
-    *wrote = have;
-
-    /* See comment in socket_buffer_input regarding buffer size we pass
-       to send and recv.  */
-
-#ifdef SEND_NEVER_PARTIAL
-    /* If send() never will produce a partial write, then just do it.  This
-       is needed for systems where its return value is something other than
-       the number of bytes written.  */
-    if (send (sb->socket, data, have, 0) < 0)
-	error (1, 0, "writing to server socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-#else
-    while (have > 0)
-    {
-	int nbytes;
-
-	nbytes = send (sb->socket, data, have, 0);
-	if (nbytes < 0)
-	    error (1, 0, "writing to server socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-
-	have -= nbytes;
-	data += nbytes;
-    }
-#endif
-
-    return 0;
-}
-
-
-
-/* The buffer flush function for a buffer built on a socket.  */
-
-/*ARGSUSED*/
-static int
-socket_buffer_flush (closure)
-     void *closure;
-{
-    /* Nothing to do.  Sockets are always flushed.  */
-    return 0;
-}
-
-
-
-static int
-socket_buffer_shutdown (buf)
-    struct buffer *buf;
-{
-    struct socket_buffer *n = (struct socket_buffer *) buf->closure;
-    char tmp;
-
-    /* no need to flush children of an endpoint buffer here */
-
-    if (buf->input)
-    {
-	int err = 0;
-	if (! buf_empty_p (buf)
-	    || (err = recv (n->socket, &tmp, 1, 0)) > 0)
-	    error (0, 0, "dying gasps from %s unexpected", current_parsed_root->hostname);
-	else if (err == -1)
-	    error (0, 0, "reading from %s: %s", current_parsed_root->hostname, SOCK_STRERROR (SOCK_ERRNO));
-
-	/* shutdown() socket */
-# ifdef SHUTDOWN_SERVER
-	if (current_parsed_root->method != server_method)
-# endif
-	if (shutdown (n->socket, 0) < 0)
-	{
-	    error (1, 0, "shutting down server socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-	}
-
-	buf->input = NULL;
-    }
-    else if (buf->output)
-    {
-	/* shutdown() socket */
-# ifdef SHUTDOWN_SERVER
-	/* FIXME:  Should have a SHUTDOWN_SERVER_INPUT &
-	 * SHUTDOWN_SERVER_OUTPUT
-	 */
-	if (current_parsed_root->method == server_method)
-	    SHUTDOWN_SERVER (n->socket);
-	else
-# endif
-	if (shutdown (n->socket, 1) < 0)
-	{
-	    error (1, 0, "shutting down server socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-	}
-
-	buf->output = NULL;
-    }
-
-    return 0;
-}
-
-#endif /* NO_SOCKET_TO_FD */
 
 /*
  * Read a line from the server.  Result does not include the terminating \n.
@@ -856,30 +385,31 @@ socket_buffer_shutdown (buf)
  *
  * Returns number of bytes read.
  */
-static int
-read_line (resultp)
-    char **resultp;
+static size_t
+read_line_via (struct buffer *via_from_buffer, struct buffer *via_to_buffer,
+               char **resultp)
 {
     int status;
     char *result;
-    int len;
+    size_t len;
 
-    status = buf_flush (to_server, 1);
+    status = buf_flush (via_to_buffer, 1);
     if (status != 0)
 	error (1, status, "writing to server");
 
-    status = buf_read_line (from_server, &result, &len);
+    status = buf_read_line (via_from_buffer, &result, &len);
     if (status != 0)
     {
 	if (status == -1)
-	    error (1, 0, "end of file from server (consult above messages if any)");
+	    error (1, 0,
+                   "end of file from server (consult above messages if any)");
 	else if (status == -2)
 	    error (1, 0, "out of memory");
 	else
 	    error (1, status, "reading from server");
     }
 
-    if (resultp != NULL)
+    if (resultp)
 	*resultp = result;
     else
 	free (result);
@@ -887,11 +417,18 @@ read_line (resultp)
     return len;
 }
 
+
+
+static size_t
+read_line (char **resultp)
+{
+  return read_line_via (global_from_server, global_to_server, resultp);
+}
 #endif /* CLIENT_SUPPORT */
 
-
-#if defined(CLIENT_SUPPORT) || defined(SERVER_SUPPORT)
 
+
+#if defined(CLIENT_SUPPORT) || defined(SERVER_SUPPORT)
 /*
  * Zero if compression isn't supported or requested; non-zero to indicate
  * a compression level to request from gzip.
@@ -907,29 +444,32 @@ int file_gzip_level;
 
 #ifdef CLIENT_SUPPORT
 
+/* Whether the server asked us to force compression.  */
+static bool force_gzip;
+
 /*
  * The Repository for the top level of this command (not necessarily
  * the CVSROOT, just the current directory at the time we do it).
  */
-static char *toplevel_repos = NULL;
+static char *toplevel_repos;
 
 /* Working directory when we first started.  Note: we could speed things
    up on some systems by using savecwd.h here instead of just always
    storing a name.  */
 char *toplevel_wd;
-
+
+
+
 static void
-handle_ok (args, len)
-    char *args;
-    int len;
+handle_ok (char *args, size_t len)
 {
     return;
 }
 
+
+
 static void
-handle_error (args, len)
-    char *args;
-    int len;
+handle_error (char *args, size_t len)
 {
     int something_printed;
     
@@ -938,7 +478,7 @@ handle_error (args, len)
      * we ignore.
      */
     char *p = strchr (args, ' ');
-    if (p == NULL)
+    if (!p)
     {
 	error (0, 0, "invalid data from cvs server");
 	return;
@@ -962,10 +502,10 @@ handle_error (args, len)
 	putc ('\n', stderr);
 }
 
+
+
 static void
-handle_valid_requests (args, len)
-    char *args;
-    int len;
+handle_valid_requests (char *args, size_t len)
 {
     char *p = args;
     char *q;
@@ -973,14 +513,14 @@ handle_valid_requests (args, len)
     do
     {
 	q = strchr (p, ' ');
-	if (q != NULL)
+	if (q)
 	    *q++ = '\0';
-	for (rq = requests; rq->name != NULL; ++rq)
+	for (rq = requests; rq->name; ++rq)
 	{
-	    if (strcmp (rq->name, p) == 0)
+	    if (!strcmp (rq->name, p))
 		break;
 	}
-	if (rq->name == NULL)
+	if (!rq->name)
 	    /*
 	     * It is a request we have never heard of (and thus never
 	     * will want to use).  So don't worry about it.
@@ -1001,8 +541,8 @@ handle_valid_requests (args, len)
 		rq->flags |= RQ_SUPPORTED;
 	}
 	p = q;
-    } while (q != NULL);
-    for (rq = requests; rq->name != NULL; ++rq)
+    } while (q);
+    for (rq = requests; rq->name; ++rq)
     {
 	if ((rq->flags & RQ_SUPPORTED)
 	    || (rq->flags & RQ_ENABLEME))
@@ -1010,6 +550,100 @@ handle_valid_requests (args, len)
 	if (rq->flags & RQ_ESSENTIAL)
 	    error (1, 0, "request `%s' not supported by server", rq->name);
     }
+}
+
+static void
+handle_force_gzip (char *args, size_t len)
+{
+    force_gzip = true;
+}
+
+
+
+/* Has the server told us its name since the last redirect?
+ */
+static bool referred_since_last_redirect = false;
+static bool free_client_referrer = false;
+
+
+
+static void
+handle_referrer (char *args, size_t len)
+{
+    TRACE (TRACE_FUNCTION, "handle_referrer (%s)", args);
+    client_referrer = parse_cvsroot (args);
+    referred_since_last_redirect = true;
+    free_client_referrer = true;
+}
+
+
+
+/* Redirect our connection to a different server and start over.
+ *
+ * GLOBALS
+ *   current_parsed_root	The CVSROOT being accessed.
+ *   client_referrer		Used to track the server which referred us to a
+ *				new server.  Can be supplied by the referring
+ *				server.
+ *   free_client_referrer	Used to track whether the client_referrer needs
+ *				to be freed before changing it.
+ *   referred_since_last_redirect	
+ *				Tracks whether the currect server told us how
+ *				to refer to it.
+ *
+ * OUTPUTS
+ *   current_parsed_root	Updated to point to the new CVSROOT.
+ *   referred_since_last_redirect
+ *				Always cleared.
+ *   client_referrer		Set automatically to current_parsed_root if
+ *				the current server did not give us a name to
+ *				refer to it by.
+ *   free_client_referrer	Reset when necessary.
+ */
+static void
+handle_redirect (char *args, size_t len)
+{
+    static List *redirects = NULL;
+
+    TRACE (TRACE_FUNCTION, "handle_redirect (%s)", args);
+
+    if (redirects && findnode (redirects, args))
+	error (1, 0, "`Redirect' loop detected.  Server misconfiguration?");
+    else
+    {
+	if (!redirects) redirects = getlist();
+	push_string (redirects, args);
+    }
+
+    if (referred_since_last_redirect)
+	referred_since_last_redirect = false;
+    else
+    {
+	if (free_client_referrer) free (client_referrer);
+	client_referrer = current_parsed_root;
+	free_client_referrer = false;
+    }
+
+    current_parsed_root = parse_cvsroot (args);
+
+    /* We deliberately do not set ORIGINAL_PARSED_ROOT here.
+     * ORIGINAL_PARSED_ROOT is used by the client to determine the current root
+     * being processed for the purpose of looking it up in lists and such, even
+     * after a redirect.
+     *
+     * FIXME
+     *   CURRENT_PARSED_ROOT should not be reset by this function.  Redirects
+     *   should be "added" to it.  The REDIRECTS list should also be replaced
+     *   by this new CURRENT_PARSED_ROOT element.  This way, if, for instance,
+     *   a multi-root workspace had two secondaries pointing to the same
+     *   primary, then the client would not report a looping error.
+     *
+     *   There is also a potential memory leak above and storing new roots as
+     *   part of the original could help avoid it fairly elegantly.
+     */
+    if (!current_parsed_root)
+	error (1, 0, "Server requested redirect to invalid root: `%s'",
+	       args);
 }
 
 
@@ -1024,15 +658,13 @@ handle_valid_requests (args, len)
  *   False      Otherwise.
  */
 static
-int path_list_prefixed (p, closure)
-    Node *p;
-    void *closure;
+int path_list_prefixed (Node *p, void *closure)
 {
     const char *questionable = closure;
     const char *prefix = p->key;
     if (strncmp (prefix, questionable, strlen (prefix))) return 0;
     questionable += strlen (prefix);
-    while (ISDIRSEP (*questionable)) questionable++;
+    while (ISSLASH (*questionable)) questionable++;
     if (*questionable == '\0') return 1;
     return pathname_levels (questionable);
 }
@@ -1054,15 +686,14 @@ int path_list_prefixed (p, closure)
  *   False      Otherwise.
  */
 static
-int is_valid_client_path (pathname)
-    const char *pathname;
+int is_valid_client_path (const char *pathname)
 {
     /* 1. Absolute paths. */
-    if (isabsolute (pathname)) return 0;
+    if (ISABSOLUTE (pathname)) return 0;
     /* 2. No up-references in path.  */
     if (pathname_levels (pathname) == 0) return 1;
     /* 2. No Max-dotdot paths registered.  */
-    if (uppaths == NULL) return 0;
+    if (!uppaths) return 0;
 
     return walklist (uppaths, path_list_prefixed, (void *)pathname);
 }
@@ -1079,13 +710,10 @@ int is_valid_client_path (pathname)
  * taking place; and FILENAME is the filename portion only of
  * SHORT_PATHNAME.  When we call FUNC, the curent directory points to
  * the directory portion of SHORT_PATHNAME.  */
-
 static void
-call_in_directory (pathname, func, data)
-    char *pathname;
-    void (*func) PROTO((char *data, List *ent_list, char *short_pathname,
-			  char *filename));
-    char *data;
+call_in_directory (const char *pathname,
+                   void (*func) (void *, List *, const char *, const char *),
+                   void *data)
 {
     /* This variable holds the result of Entries_Open. */
     List *last_entries = NULL;
@@ -1120,12 +748,14 @@ call_in_directory (pathname, func, data)
     int reposdirname_absolute;
     int newdir = 0;
 
+    assert (pathname);
+
     reposname = NULL;
     read_line (&reposname);
-    assert (reposname != NULL);
+    assert (reposname);
 
     reposdirname_absolute = 0;
-    if (strncmp (reposname, toplevel_repos, strlen (toplevel_repos)) != 0)
+    if (strncmp (reposname, toplevel_repos, strlen (toplevel_repos)))
     {
 	reposdirname_absolute = 1;
 	short_repos = reposname;
@@ -1144,7 +774,7 @@ call_in_directory (pathname, func, data)
     * are being requested to operate on.
     */
     filename = strrchr (short_repos, '/');
-    if (filename == NULL)
+    if (!filename)
 	filename = short_repos;
     else
 	++filename;
@@ -1171,7 +801,7 @@ call_in_directory (pathname, func, data)
 
     reposdirname = xstrdup (short_repos);
     p = strrchr (reposdirname, '/');
-    if (p == NULL)
+    if (!p)
     {
 	reposdirname = xrealloc (reposdirname, 2);
 	reposdirname[0] = '.'; reposdirname[1] = '\0';
@@ -1181,7 +811,7 @@ call_in_directory (pathname, func, data)
 
     dir_name = xstrdup (pathname);
     p = strrchr (dir_name, '/');
-    if (p == NULL)
+    if (!p)
     {
 	dir_name = xrealloc (dir_name, 2);
 	dir_name[0] = '.'; dir_name[1] = '\0';
@@ -1191,10 +821,10 @@ call_in_directory (pathname, func, data)
     if (client_prune_dirs)
 	add_prune_candidate (dir_name);
 
-    if (toplevel_wd == NULL)
+    if (!toplevel_wd)
     {
-	toplevel_wd = xgetwd ();
-	if (toplevel_wd == NULL)
+	toplevel_wd = xgetcwd ();
+	if (!toplevel_wd)
 	    error (1, errno, "could not get working directory");
     }
 
@@ -1218,13 +848,18 @@ call_in_directory (pathname, func, data)
 	   CVS/Repository is almost surely unsuited to
 	   the reposdirname_absolute case.  */
 	!reposdirname_absolute
-	&& (strcmp (dir_name, ".") == 0)
+	&& !strcmp (dir_name, ".")
 	&& ! isdir (CVSADM))
     {
 	char *repo;
 	char *r;
 
 	newdir = 1;
+
+	/* If toplevel_repos doesn't have at least one character, then the
+	 * reference to r[-1] below could be out of bounds.
+	 */
+	assert (*toplevel_repos);
 
 	repo = xmalloc (strlen (toplevel_repos)
 			+ 10);
@@ -1233,8 +868,7 @@ call_in_directory (pathname, func, data)
 	if (r[-1] != '.' || r[-2] != '/')
 	    strcpy (r, "/.");
 
-	Create_Admin (".", ".", repo, (char *) NULL,
-		      (char *) NULL, 0, 1, 1);
+	Create_Admin (".", ".", repo, NULL, NULL, 0, 1, 1);
 
 	free (repo);
     }
@@ -1288,7 +922,7 @@ call_in_directory (pathname, func, data)
 		dir[dirp - dir_name] = '\0';
 		/* Skip the slash.  */
 		++dirp;
-		if (rdirp == NULL)
+		if (!rdirp)
 		    /* This just means that the repository string has
 		       fewer components than the dir_name string.  But
 		       that is OK (e.g. see modules3-8 in testsuite).  */
@@ -1329,7 +963,7 @@ call_in_directory (pathname, func, data)
 	    {
 		/* It already existed, fine.  Just keep going.  */
 	    }
-	    else if (strcmp (cvs_cmd_name, "export") == 0)
+	    else if (!strcmp (cvs_cmd_name, "export"))
 		/* Don't create CVSADM directories if this is export.  */
 		;
 	    else
@@ -1370,34 +1004,33 @@ warning: server is not creating directories one at a time");
 		else
 		    strcpy (r, reposdirname);
 
-		Create_Admin (dir, dir, repo,
-			      (char *)NULL, (char *)NULL, 0, 0, 1);
+		Create_Admin (dir, dir, repo, NULL, NULL, 0, 0, 1);
 		free (repo);
 
 		b = strrchr (dir, '/');
-		if (b == NULL)
-		    Subdir_Register ((List *) NULL, (char *) NULL, dir);
+		if (!b)
+		    Subdir_Register (NULL, NULL, dir);
 		else
 		{
 		    *b = '\0';
-		    Subdir_Register ((List *) NULL, dir, b + 1);
+		    Subdir_Register (NULL, dir, b + 1);
 		    *b = '/';
 		}
 	    }
 
-	    if (rdirp != NULL)
+	    if (rdirp)
 	    {
 		/* Skip the slash.  */
 		++rdirp;
 	    }
 
-	} while (dirp != NULL);
+	} while (dirp);
 	free (dir);
 	/* Now it better work.  */
-	if ( CVS_CHDIR (dir_name) < 0)
+	if (CVS_CHDIR (dir_name) < 0)
 	    error (1, errno, "could not chdir to %s", dir_name);
     }
-    else if (strcmp (cvs_cmd_name, "export") == 0)
+    else if (!strcmp (cvs_cmd_name, "export"))
 	/* Don't create CVSADM directories if this is export.  */
 	;
     else if (!isdir (CVSADM))
@@ -1413,21 +1046,14 @@ warning: server is not creating directories one at a time");
 	if (reposdirname_absolute)
 	    repo = reposdirname;
 	else
-	{
-	    repo = xmalloc (strlen (reposdirname)
-			    + strlen (toplevel_repos)
-			    + 10);
-	    strcpy (repo, toplevel_repos);
-	    strcat (repo, "/");
-	    strcat (repo, reposdirname);
-	}
+	    repo = Xasprintf ("%s/%s", toplevel_repos, reposdirname);
 
-	Create_Admin (".", ".", repo, (char *)NULL, (char *)NULL, 0, 1, 1);
+	Create_Admin (".", ".", repo, NULL, NULL, 0, 1, 1);
 	if (repo != reposdirname)
 	    free (repo);
     }
 
-    if (strcmp (cvs_cmd_name, "export") != 0)
+    if (strcmp (cvs_cmd_name, "export"))
     {
 	last_entries = Entries_Open (0, dir_name);
 
@@ -1447,38 +1073,36 @@ warning: server is not creating directories one at a time");
 	{
 	    List *dirlist;
 
-	    dirlist = Find_Directories ((char *) NULL, W_LOCAL,
-					last_entries);
+	    dirlist = Find_Directories (NULL, W_LOCAL, last_entries);
 	    dellist (&dirlist);
 	}
     }
     free (reposdirname);
     (*func) (data, last_entries, short_pathname, filename);
-    if (last_entries != NULL)
+    if (last_entries)
 	Entries_Close (last_entries);
     free (dir_name);
     free (short_pathname);
     free (reposname);
 }
-
+
+
+
 static void
-copy_a_file (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+copy_a_file (void *data, List *ent_list, const char *short_pathname,
+	     const char *filename)
 {
     char *newname;
-#ifdef USE_VMS_FILENAMES
-    char *p;
-#endif
 
     read_line (&newname);
 
 #ifdef USE_VMS_FILENAMES
-    /* Mogrify the filename so VMS is happy with it. */
-    for(p = newname; *p; p++)
-       if(*p == '.' || *p == '#') *p = '_';
+    {
+	/* Mogrify the filename so VMS is happy with it. */
+	char *p;
+	for(p = newname; *p; p++)
+	   if(*p == '.' || *p == '#') *p = '_';
+    }
 #endif
     /* cvsclient.texi has said for a long time that newname must be in the
        same directory.  Wouldn't want a malicious or buggy server overwriting
@@ -1492,16 +1116,15 @@ copy_a_file (data, ent_list, short_pathname, filename)
     free (newname);
 }
 
-static void
-handle_copy_file (args, len)
-    char *args;
-    int len;
-{
-    call_in_directory (args, copy_a_file, (char *)NULL);
-}
-
 
-static void read_counted_file PROTO ((char *, char *));
+
+static void
+handle_copy_file (char *args, size_t len)
+{
+    call_in_directory (args, copy_a_file, NULL);
+}
+
+
 
 /* Read from the server the count for the length of a file, then read
    the contents of that file and write them to FILENAME.  FULLNAME is
@@ -1509,9 +1132,7 @@ static void read_counted_file PROTO ((char *, char *));
    extend this to deal with compressed files and make update_entries
    use it.  On error, gives a fatal error.  */
 static void
-read_counted_file (filename, fullname)
-    char *filename;
-    char *fullname;
+read_counted_file (char *filename, char *fullname)
 {
     char *size_string;
     size_t size;
@@ -1548,7 +1169,7 @@ protocol error: compressed files not supported for that operation");
        CVS/Template files should use local text file conventions or
        not.  */
     fp = CVS_FOPEN (filename, "wb");
-    if (fp == NULL)
+    if (!fp)
 	error (1, errno, "cannot write %s", fullname);
     nread = size;
     nwrite = 0;
@@ -1568,7 +1189,7 @@ protocol error: compressed files not supported for that operation");
 
 	if (nwrite > 0)
 	{
-	    n = fwrite (pwrite, 1, nwrite, fp);
+	    n = fwrite (pwrite, sizeof *pwrite, nwrite, fp);
 	    if (ferror (fp))
 		error (1, errno, "cannot write %s", fullname);
 	    nwrite -= n;
@@ -1579,7 +1200,9 @@ protocol error: compressed files not supported for that operation");
     if (fclose (fp) < 0)
 	error (1, errno, "cannot close %s", fullname);
 }
-
+
+
+
 /* OK, we want to swallow the "U foo.c" response and then output it only
    if we can update the file.  In the future we probably want some more
    systematic approach to parsing tagged text, but for now we keep it
@@ -1613,7 +1236,7 @@ static struct
 } importmergecmd;
 
 /* Nonzero if we should arrange to return with a failure exit status.  */
-static int failure_exit;
+static bool failure_exit;
 
 
 /*
@@ -1621,19 +1244,17 @@ static int failure_exit;
  */
 static time_t last_register_time;
 
+
+
 /*
  * The Checksum response gives the checksum for the file transferred
  * over by the next Updated, Merged or Patch response.  We just store
  * it here, and then check it in update_entries.
  */
-
 static int stored_checksum_valid;
 static unsigned char stored_checksum[16];
-
 static void
-handle_checksum (args, len)
-    char *args;
-    int len;
+handle_checksum (char *args, size_t len)
 {
     char *s;
     char buf[3];
@@ -1661,42 +1282,42 @@ handle_checksum (args, len)
     stored_checksum_valid = 1;
 }
 
+
+
 /* Mode that we got in a "Mode" response (malloc'd), or NULL if none.  */
 static char *stored_mode;
-
-static void handle_mode PROTO ((char *, int));
-
 static void
-handle_mode (args, len)
-    char *args;
-    int len;
+handle_mode (char *args, size_t len)
 {
-    if (stored_mode != NULL)
+    if (stored_mode)
 	error (1, 0, "protocol error: duplicate Mode");
     stored_mode = xstrdup (args);
 }
-
+
+
+
 /* Nonzero if time was specified in Mod-time.  */
 static int stored_modtime_valid;
 /* Time specified in Mod-time.  */
 static time_t stored_modtime;
-
-static void handle_mod_time PROTO ((char *, int));
-
 static void
-handle_mod_time (args, len)
-    char *args;
-    int len;
+handle_mod_time (char *args, size_t len)
 {
+    struct timespec newtime;
     if (stored_modtime_valid)
 	error (0, 0, "protocol error: duplicate Mod-time");
-    stored_modtime = get_date (args, NULL);
-    if (stored_modtime == (time_t) -1)
-	error (0, 0, "protocol error: cannot parse date %s", args);
-    else
+    if (get_date (&newtime, args, NULL))
+    {
+	/* Truncate nanoseconds.  */
+	stored_modtime = newtime.tv_sec;
 	stored_modtime_valid = 1;
+    }
+    else
+	error (0, 0, "protocol error: cannot parse date %s", args);
 }
-
+
+
+
 /*
  * If we receive a patch, but the patch program fails to apply it, we
  * want to request the original file.  We keep a list of files whose
@@ -1744,16 +1365,15 @@ struct update_entries_data
     char *timestamp;
 };
 
+
+
 /* Update the Entries line for this file.  */
 static void
-update_entries (data_arg, ent_list, short_pathname, filename)
-    char *data_arg;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+update_entries (void *data_arg, List *ent_list, const char *short_pathname,
+                const char *filename)
 {
     char *entries_line;
-    struct update_entries_data *data = (struct update_entries_data *)data_arg;
+    struct update_entries_data *data = data_arg;
 
     char *cp;
     char *user;
@@ -1781,27 +1401,27 @@ update_entries (data_arg, ent_list, short_pathname, filename)
     if (scratch_entries[0] != '/')
         error (1, 0, "bad entries line `%s' from server", entries_line);
     user = scratch_entries + 1;
-    if ((cp = strchr (user, '/')) == NULL)
+    if (!(cp = strchr (user, '/')))
         error (1, 0, "bad entries line `%s' from server", entries_line);
     *cp++ = '\0';
     vn = cp;
-    if ((cp = strchr (vn, '/')) == NULL)
+    if (!(cp = strchr (vn, '/')))
         error (1, 0, "bad entries line `%s' from server", entries_line);
     *cp++ = '\0';
     
     ts = cp;
-    if ((cp = strchr (ts, '/')) == NULL)
+    if (!(cp = strchr (ts, '/')))
         error (1, 0, "bad entries line `%s' from server", entries_line);
     *cp++ = '\0';
     options = cp;
-    if ((cp = strchr (options, '/')) == NULL)
+    if (!(cp = strchr (options, '/')))
         error (1, 0, "bad entries line `%s' from server", entries_line);
     *cp++ = '\0';
     tag_or_date = cp;
     
     /* If a slash ends the tag_or_date, ignore everything after it.  */
     cp = strchr (tag_or_date, '/');
-    if (cp != NULL)
+    if (cp)
         *cp = '\0';
     if (*tag_or_date == 'T')
         tag = tag_or_date + 1;
@@ -1884,14 +1504,14 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 
 	       I hope the above paragraph makes it clear that making this
 	       clearer is not a one-line fix.  */
-	    error (0, 0, "move away %s; it is in the way", short_pathname);
-	    if (updated_fname != NULL)
+	    error (0, 0, "move away `%s'; it is in the way", short_pathname);
+	    if (updated_fname)
 	    {
 		cvs_output ("C ", 0);
 		cvs_output (updated_fname, 0);
 		cvs_output ("\n", 1);
 	    }
-	    failure_exit = 1;
+	    failure_exit = true;
 
 	discard_file_and_return:
 	    /* Now read and discard the file contents.  */
@@ -1915,7 +1535,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	    /* The Mode, Mod-time, and Checksum responses should not carry
 	       over to a subsequent Created (or whatever) response, even
 	       in the error case.  */
-	    if (stored_mode != NULL)
+	    if (stored_mode)
 	    {
 		free (stored_mode);
 		stored_mode = NULL;
@@ -1923,7 +1543,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	    stored_modtime_valid = 0;
 	    stored_checksum_valid = 0;
 
-	    if (updated_fname != NULL)
+	    if (updated_fname)
 	    {
 		free (updated_fname);
 		updated_fname = NULL;
@@ -1935,10 +1555,11 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 #ifdef USE_VMS_FILENAMES
         /* A VMS rename of "blah.dat" to "foo" to implies a
            destination of "foo.dat" which is unfortinate for CVS */
-       sprintf (temp_filename, "%s_new_", filename);
+	sprintf (temp_filename, "%s_new_", filename);
 #else
 #ifdef _POSIX_NO_TRUNC
-	sprintf (temp_filename, ".new.%.9s", filename);
+	sprintf (temp_filename, ".new.XXXXXX");
+	mktemp (temp_filename);
 #else /* _POSIX_NO_TRUNC */
 	sprintf (temp_filename, ".new.%s", filename);
 #endif /* _POSIX_NO_TRUNC */
@@ -1954,7 +1575,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
            CVS assumes text files by default). */
 
 	if (options)
-	    bin = !(strcmp (options, "-kb"));
+	    bin = !strcmp (options, "-kb");
 	else
 	    bin = 0;
 
@@ -1988,6 +1609,8 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 		   entirely possible that future files will not have
 		   the same problem.  */
 		error (0, errno, "cannot write %s", short_pathname);
+		free (temp_filename);
+		free (buf);
 		goto discard_file_and_return;
 	    }
 
@@ -2016,7 +1639,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	   affects a user who wants status info about how far we have
 	   gotten, and also affects whether "U foo.c" appears in addition
 	   to various error messages.  */
-	if (updated_fname != NULL)
+	if (updated_fname)
 	{
 	    cvs_output ("U ", 0);
 	    cvs_output (updated_fname, 0);
@@ -2073,20 +1696,16 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	    {
 		if (stored_checksum_valid)
 		{
-		    struct cvs_MD5Context context;
 		    unsigned char checksum[16];
 
 		    /* We have a checksum.  Check it before writing
 		       the file out, so that we don't have to read it
 		       back in again.  */
-		    cvs_MD5Init (&context);
-		    cvs_MD5Update (&context,
-				   (unsigned char *) patchedbuf, patchedlen);
-		    cvs_MD5Final (checksum, &context);
+		    md5_buffer (patchedbuf, patchedlen, checksum);
 		    if (memcmp (checksum, stored_checksum, 16) != 0)
 		    {
 			error (0, 0,
-			       "checksum failure after patch to %s; will refetch",
+"checksum failure after patch to %s; will refetch",
 			       short_pathname);
 
 			patch_failed = 1;
@@ -2099,9 +1718,10 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 		{
 		    FILE *e;
 
-		    e = open_file (temp_filename,
-				   bin ? FOPEN_BINARY_WRITE : "w");
-		    if (fwrite (patchedbuf, 1, patchedlen, e) != patchedlen)
+		    e = xfopen (temp_filename,
+				bin ? FOPEN_BINARY_WRITE : "w");
+		    if (fwrite (patchedbuf, sizeof *patchedbuf, patchedlen, e)
+			!= patchedlen)
 			error (1, errno, "cannot write %s", temp_filename);
 		    if (fclose (e) == EOF)
 			error (1, errno, "cannot close %s", temp_filename);
@@ -2119,7 +1739,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	if (stored_checksum_valid && ! patch_failed)
 	{
 	    FILE *e;
-	    struct cvs_MD5Context context;
+	    struct md5_ctx context;
 	    unsigned char buf[8192];
 	    unsigned len;
 	    unsigned char checksum[16];
@@ -2135,15 +1755,15 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	     * way they were transmitted.
 	     */
 	    e = CVS_FOPEN (filename, "r");
-	    if (e == NULL)
+	    if (!e)
 	        error (1, errno, "could not open %s", short_pathname);
 
-	    cvs_MD5Init (&context);
+	    md5_init_ctx (&context);
 	    while ((len = fread (buf, 1, sizeof buf, e)) != 0)
-		cvs_MD5Update (&context, buf, len);
+		md5_process_bytes (buf, len, &context);
 	    if (ferror (e))
 		error (1, errno, "could not read %s", short_pathname);
-	    cvs_MD5Final (checksum, &context);
+	    md5_finish_ctx (&context, checksum);
 
 	    fclose (e);
 
@@ -2166,9 +1786,9 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	if (patch_failed)
 	{
 	    /* Save this file to retrieve later.  */
-	    failed_patches = (char **) xrealloc ((char *) failed_patches,
-						 ((failed_patches_count + 1)
-						  * sizeof (char *)));
+	    failed_patches = xnrealloc (failed_patches,
+					failed_patches_count + 1,
+					sizeof (char *));
 	    failed_patches[failed_patches_count] = xstrdup (short_pathname);
 	    ++failed_patches_count;
 
@@ -2192,7 +1812,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	free (buf);
     }
 
-    if (stored_mode != NULL)
+    if (stored_mode)
     {
 	change_mode (filename, stored_mode, 1);
 	free (stored_mode);
@@ -2233,7 +1853,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
      * Process the entries line.  Do this after we've written the file,
      * since we need the timestamp.
      */
-    if (strcmp (cvs_cmd_name, "export") != 0)
+    if (strcmp (cvs_cmd_name, "export"))
     {
 	char *local_timestamp;
 	char *file_timestamp;
@@ -2241,7 +1861,7 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	(void) time (&last_register_time);
 
 	local_timestamp = data->timestamp;
-	if (local_timestamp == NULL || ts[0] == '+')
+	if (!local_timestamp || ts[0] == '+')
 	    file_timestamp = time_stamp (filename);
 	else
 	    file_timestamp = NULL;
@@ -2251,9 +1871,9 @@ update_entries (data_arg, ent_list, short_pathname, filename)
 	 * date.  Create a dummy timestamp which will never compare
 	 * equal to the timestamp of the file.
 	 */
-	if (vn[0] == '\0' || strcmp (vn, "0") == 0 || vn[0] == '-')
+	if (vn[0] == '\0' || !strcmp (vn, "0") || vn[0] == '-')
 	    local_timestamp = "dummy timestamp";
-	else if (local_timestamp == NULL)
+	else if (!local_timestamp)
 	{
 	    local_timestamp = file_timestamp;
 
@@ -2280,133 +1900,127 @@ update_entries (data_arg, ent_list, short_pathname, filename)
     free (entries_line);
 }
 
+
+
 static void
-handle_checked_in (args, len)
-    char *args;
-    int len;
+handle_checked_in (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_CHECKIN;
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
+
+
 static void
-handle_new_entry (args, len)
-    char *args;
-    int len;
+handle_new_entry (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_CHECKIN;
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = "dummy timestamp from new-entry";
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
+
+
 static void
-handle_updated (args, len)
-    char *args;
-    int len;
+handle_updated (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_UPDATE;
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
-static void handle_created PROTO((char *, int));
+
 
 static void
-handle_created (args, len)
-    char *args;
-    int len;
+handle_created (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_UPDATE;
     dat.existp = UPDATE_ENTRIES_NEW;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
-static void handle_update_existing PROTO((char *, int));
+
 
 static void
-handle_update_existing (args, len)
-    char *args;
-    int len;
+handle_update_existing (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_UPDATE;
     dat.existp = UPDATE_ENTRIES_EXISTING;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
+
+
 static void
-handle_merged (args, len)
-    char *args;
-    int len;
+handle_merged (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_UPDATE;
     /* Think this could be UPDATE_ENTRIES_EXISTING, but just in case...  */
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = "Result of merge";
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
+
+
 static void
-handle_patched (args, len)
-     char *args;
-     int len;
+handle_patched (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_PATCH;
     /* Think this could be UPDATE_ENTRIES_EXISTING, but just in case...  */
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
 
+
+
 static void
-handle_rcs_diff (args, len)
-     char *args;
-     int len;
+handle_rcs_diff (char *args, size_t len)
 {
     struct update_entries_data dat;
     dat.contents = UPDATE_ENTRIES_RCS_DIFF;
     /* Think this could be UPDATE_ENTRIES_EXISTING, but just in case...  */
     dat.existp = UPDATE_ENTRIES_EXISTING_OR_NEW;
     dat.timestamp = NULL;
-    call_in_directory (args, update_entries, (char *)&dat);
+    call_in_directory (args, update_entries, &dat);
 }
-
+
+
+
 static void
-remove_entry (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+remove_entry (void *data, List *ent_list, const char *short_pathname,
+              const char *filename)
 {
     Scratch_Entry (ent_list, filename);
 }
 
+
+
 static void
-handle_remove_entry (args, len)
-    char *args;
-    int len;
+handle_remove_entry (char *args, size_t len)
 {
-    call_in_directory (args, remove_entry, (char *)NULL);
+    call_in_directory (args, remove_entry, NULL);
 }
-
+
+
+
 static void
-remove_entry_and_file (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+remove_entry_and_file (void *data, List *ent_list, const char *short_pathname,
+                       const char *filename)
 {
     Scratch_Entry (ent_list, filename);
     /* Note that we don't ignore existence_error's here.  The server
@@ -2418,69 +2032,68 @@ remove_entry_and_file (data, ent_list, short_pathname, filename)
 	error (0, errno, "unable to remove %s", short_pathname);
 }
 
+
+
 static void
-handle_removed (args, len)
-    char *args;
-    int len;
+handle_removed (char *args, size_t len)
 {
-    call_in_directory (args, remove_entry_and_file, (char *)NULL);
+    call_in_directory (args, remove_entry_and_file, NULL);
 }
-
+
+
+
 /* Is this the top level (directory containing CVSROOT)?  */
 static int
-is_cvsroot_level (pathname)
-    char *pathname;
+is_cvsroot_level (char *pathname)
 {
-    if (strcmp (toplevel_repos, current_parsed_root->directory) != 0)
+    if (strcmp (toplevel_repos, current_parsed_root->directory))
 	return 0;
 
-    return strchr (pathname, '/') == NULL;
+    return !strchr (pathname, '/');
 }
-
+
+
+
 static void
-set_static (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+set_static (void *data, List *ent_list, const char *short_pathname,
+	    const char *filename)
 {
     FILE *fp;
-    fp = open_file (CVSADM_ENTSTAT, "w+");
+    fp = xfopen (CVSADM_ENTSTAT, "w+");
     if (fclose (fp) == EOF)
         error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
 }
 
+
+
 static void
-handle_set_static_directory (args, len)
-    char *args;
-    int len;
+handle_set_static_directory (char *args, size_t len)
 {
-    if (strcmp (cvs_cmd_name, "export") == 0)
+    if (!strcmp (cvs_cmd_name, "export"))
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
 	return;
     }
-    call_in_directory (args, set_static, (char *)NULL);
+    call_in_directory (args, set_static, NULL);
 }
 
+
+
 static void
-clear_static (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+clear_static (void *data, List *ent_list, const char *short_pathname,
+              const char *filename)
 {
     if (unlink_file (CVSADM_ENTSTAT) < 0 && ! existence_error (errno))
         error (1, errno, "cannot remove file %s", CVSADM_ENTSTAT);
 }
 
+
+
 static void
-handle_clear_static_directory (pathname, len)
-    char *pathname;
-    int len;
+handle_clear_static_directory (char *pathname, size_t len)
 {
-    if (strcmp (cvs_cmd_name, "export") == 0)
+    if (!strcmp (cvs_cmd_name, "export"))
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2495,15 +2108,14 @@ handle_clear_static_directory (pathname, len)
 	 */
 	return;
     }
-    call_in_directory (pathname, clear_static, (char *)NULL);
+    call_in_directory (pathname, clear_static, NULL);
 }
-
+
+
+
 static void
-set_sticky (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+set_sticky (void *data, List *ent_list, const char *short_pathname,
+	    const char *filename)
 {
     char *tagspec;
     FILE *f;
@@ -2512,7 +2124,7 @@ set_sticky (data, ent_list, short_pathname, filename)
 
     /* FIXME-update-dir: error messages should include the directory.  */
     f = CVS_FOPEN (CVSADM_TAG, "w+");
-    if (f == NULL)
+    if (!f)
     {
 	/* Making this non-fatal is a bit of a kludge (see dirs2
 	   in testsuite).  A better solution would be to avoid having
@@ -2530,12 +2142,12 @@ set_sticky (data, ent_list, short_pathname, filename)
     free (tagspec);
 }
 
+
+
 static void
-handle_set_sticky (pathname, len)
-    char *pathname;
-    int len;
+handle_set_sticky (char *pathname, size_t len)
 {
-    if (strcmp (cvs_cmd_name, "export") == 0)
+    if (!strcmp (cvs_cmd_name, "export"))
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2557,26 +2169,25 @@ handle_set_sticky (pathname, len)
 	return;
     }
 
-    call_in_directory (pathname, set_sticky, (char *)NULL);
+    call_in_directory (pathname, set_sticky, NULL);
 }
 
+
+
 static void
-clear_sticky (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+clear_sticky (void *data, List *ent_list, const char *short_pathname,
+              const char *filename)
 {
     if (unlink_file (CVSADM_TAG) < 0 && ! existence_error (errno))
 	error (1, errno, "cannot remove %s", CVSADM_TAG);
 }
 
+
+
 static void
-handle_clear_sticky (pathname, len)
-    char *pathname;
-    int len;
+handle_clear_sticky (char *pathname, size_t len)
 {
-    if (strcmp (cvs_cmd_name, "export") == 0)
+    if (!strcmp (cvs_cmd_name, "export"))
     {
 	/* Swallow the repository.  */
 	read_line (NULL);
@@ -2592,35 +2203,54 @@ handle_clear_sticky (pathname, len)
 	return;
     }
 
-    call_in_directory (pathname, clear_sticky, (char *)NULL);
+    call_in_directory (pathname, clear_sticky, NULL);
 }
-
 
-static void template PROTO ((char *, List *, char *, char *));
 
+
+/* Handle the client-side support for a successful edit.
+ */
 static void
-template (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
+handle_edit_file (char *pathname, size_t len)
 {
-    char *buf = xmalloc ( strlen ( short_pathname )
-	    		  + strlen ( CVSADM_TEMPLATE )
-			  + 2 );
-    sprintf ( buf, "%s/%s", short_pathname, CVSADM_TEMPLATE );
-    read_counted_file ( CVSADM_TEMPLATE, buf );
-    free ( buf );
+    call_in_directory (pathname, edit_file, NULL);
 }
 
-static void handle_template PROTO ((char *, int));
+
 
 static void
-handle_template (pathname, len)
-    char *pathname;
-    int len;
+template (void *data, List *ent_list, const char *short_pathname,
+	  const char *filename)
+{
+    char *buf = Xasprintf ("%s/%s", short_pathname, CVSADM_TEMPLATE);
+    read_counted_file (CVSADM_TEMPLATE, buf);
+    free (buf);
+}
+
+
+
+static void
+handle_template (char *pathname, size_t len)
 {
     call_in_directory (pathname, template, NULL);
+}
+
+
+
+static void
+clear_template (void *data, List *ent_list, const char *short_pathname,
+                const char *filename)
+{
+    if (unlink_file (CVSADM_TEMPLATE) < 0 && ! existence_error (errno))
+	error (1, errno, "cannot remove %s", CVSADM_TEMPLATE);
+}
+
+
+
+static void
+handle_clear_template (char *pathname, size_t len)
+{
+    call_in_directory (pathname, clear_template, NULL);
 }
 
 
@@ -2633,35 +2263,33 @@ struct save_dir {
 struct save_dir *prune_candidates;
 
 static void
-add_prune_candidate (dir)
-    const char *dir;
+add_prune_candidate (const char *dir)
 {
     struct save_dir *p;
 
     if ((dir[0] == '.' && dir[1] == '\0')
-	|| (prune_candidates != NULL
-	    && strcmp (dir, prune_candidates->dir) == 0))
+	|| (prune_candidates && !strcmp (dir, prune_candidates->dir)))
 	return;
-    p = (struct save_dir *) xmalloc (sizeof (struct save_dir));
+    p = xmalloc (sizeof (struct save_dir));
     p->dir = xstrdup (dir);
     p->next = prune_candidates;
     prune_candidates = p;
 }
 
-static void process_prune_candidates PROTO((void));
+
 
 static void
-process_prune_candidates ()
+process_prune_candidates (void)
 {
     struct save_dir *p;
     struct save_dir *q;
 
-    if (toplevel_wd != NULL)
+    if (toplevel_wd)
     {
 	if (CVS_CHDIR (toplevel_wd) < 0)
 	    error (1, errno, "could not chdir to %s", toplevel_wd);
     }
-    for (p = prune_candidates; p != NULL; )
+    for (p = prune_candidates; p; )
     {
 	if (isemptydir (p->dir, 1))
 	{
@@ -2670,12 +2298,12 @@ process_prune_candidates ()
 	    if (unlink_file_dir (p->dir) < 0)
 		error (0, errno, "cannot remove %s", p->dir);
 	    b = strrchr (p->dir, '/');
-	    if (b == NULL)
-		Subdir_Deregister ((List *) NULL, (char *) NULL, p->dir);
+	    if (!b)
+		Subdir_Deregister (NULL, NULL, p->dir);
 	    else
 	    {
 		*b = '\0';
-		Subdir_Deregister ((List *) NULL, p->dir, b + 1);
+		Subdir_Deregister (NULL, p->dir, b + 1);
 	    }
 	}
 	free (p->dir);
@@ -2685,19 +2313,14 @@ process_prune_candidates ()
     }
     prune_candidates = NULL;
 }
-
-/* Send a Repository line.  */
 
+
+
+/* Send a Repository line.  */
 static char *last_repos;
 static char *last_update_dir;
-
-static void send_repository PROTO((const char *, const char *, const char *));
-
 static void
-send_repository (dir, repos, update_dir)
-    const char *dir;
-    const char *repos;
-    const char *update_dir;
+send_repository (const char *dir, const char *repos, const char *update_dir)
 {
     char *adm_name;
 
@@ -2715,20 +2338,18 @@ send_repository (dir, repos, update_dir)
      * get set because there's no CVSADM dir, and somehow it's not
      * getting set from the -d argument either... ?
      */
-    if (repos == NULL)
+    if (!repos)
     {
         /* Lame error.  I want a real fix but can't stay up to track
            this down right now. */
         error (1, 0, "no repository");
     }
 
-    if (update_dir == NULL || update_dir[0] == '\0')
+    if (!update_dir || update_dir[0] == '\0')
 	update_dir = ".";
 
-    if (last_repos != NULL
-	&& strcmp (repos, last_repos) == 0
-	&& last_update_dir != NULL
-	&& strcmp (update_dir, last_update_dir) == 0)
+    if (last_repos && !strcmp (repos, last_repos)
+	&& last_update_dir && !strcmp (update_dir, last_update_dir))
 	/* We've already sent it.  */
 	return;
 
@@ -2737,9 +2358,8 @@ send_repository (dir, repos, update_dir)
 
     /* Add a directory name to the list of those sent to the
        server. */
-    if (update_dir && (*update_dir != '\0')
-	&& (strcmp (update_dir, ".") != 0)
-	&& (findnode (dirs_sent_to_server, update_dir) == NULL))
+    if (update_dir && *update_dir != '\0' && strcmp (update_dir, ".")
+	&& !findnode (dirs_sent_to_server, update_dir))
     {
 	Node *n;
 	n = getnode ();
@@ -2764,7 +2384,7 @@ send_repository (dir, repos, update_dir)
 	while (*p != '\0')
 	{
 	    assert (*p != '\012');
-	    if (ISDIRSEP (*p))
+	    if (ISSLASH (*p))
 	    {
 		buf[0] = '/';
 		send_to_server (buf, 1);
@@ -2778,7 +2398,13 @@ send_repository (dir, repos, update_dir)
 	}
     }
     send_to_server ("\012", 1);
-    send_to_server (repos, 0);
+    if (supported_request ("Relative-directory"))
+    {
+	const char *short_repos = Short_Repository (repos);
+	send_to_server (short_repos, 0);
+    }
+    else
+	send_to_server (repos, 0);
     send_to_server ("\012", 1);
 
     if (supported_request ("Static-directory"))
@@ -2804,7 +2430,7 @@ send_repository (dir, repos, update_dir)
 	    sprintf (adm_name, "%s/%s", dir, CVSADM_TAG);
 
 	f = CVS_FOPEN (adm_name, "r");
-	if (f == NULL)
+	if (!f)
 	{
 	    if (! existence_error (errno))
 		error (1, errno, "reading %s", adm_name);
@@ -2814,39 +2440,36 @@ send_repository (dir, repos, update_dir)
 	    char line[80];
 	    char *nl = NULL;
 	    send_to_server ("Sticky ", 0);
-	    while (fgets (line, sizeof (line), f) != NULL)
+	    while (fgets (line, sizeof (line), f))
 	    {
 		send_to_server (line, 0);
 		nl = strchr (line, '\n');
-		if (nl != NULL)
+		if (nl)
 		    break;
 	    }
-	    if (nl == NULL)
+	    if (!nl)
                 send_to_server ("\012", 1);
 	    if (fclose (f) == EOF)
 		error (0, errno, "closing %s", adm_name);
 	}
     }
     free (adm_name);
-    if (last_repos != NULL)
-	free (last_repos);
-    if (last_update_dir != NULL)
-	free (last_update_dir);
+    if (last_repos) free (last_repos);
+    if (last_update_dir) free (last_update_dir);
     last_repos = xstrdup (repos);
     last_update_dir = xstrdup (update_dir);
 }
 
-/* Send a Repository line and set toplevel_repos.  */
 
+
+/* Send a Repository line and set toplevel_repos.  */
 void
-send_a_repository (dir, repository, update_dir_in)
-    const char *dir;
-    const char *repository;
-    const char *update_dir_in;
+send_a_repository (const char *dir, const char *repository,
+                   const char *update_dir_in)
 {
     char *update_dir = xstrdup (update_dir_in);
 
-    if (toplevel_repos == NULL && repository != NULL)
+    if (!toplevel_repos && repository)
     {
 	if (update_dir[0] == '\0'
 	    || (update_dir[0] == '.' && update_dir[1] == '\0'))
@@ -2905,9 +2528,9 @@ send_a_repository (dir, repository, update_dir_in)
                    elements mean that we "step above"
                    current_parsed_root->directory, set toplevel_repos to
                    current_parsed_root->directory. */
-		if ((repository_len > update_dir_len)
-		    && (strcmp (repository + repository_len - update_dir_len,
-				update_dir) == 0)
+		if (repository_len > update_dir_len
+		    && !strcmp (repository + repository_len - update_dir_len,
+				update_dir)
 		    /* TOPLEVEL_REPOS shouldn't be above current_parsed_root->directory */
 		    && ((size_t)(repository_len - update_dir_len)
 			> strlen (current_parsed_root->directory)))
@@ -2936,49 +2559,158 @@ send_a_repository (dir, repository, update_dir_in)
 
 
 
+static void
+notified_a_file (void *data, List *ent_list, const char *short_pathname,
+                 const char *filename)
+{
+    FILE *fp;
+    FILE *newf;
+    size_t line_len = 8192;
+    char *line = xmalloc (line_len);
+    char *cp;
+    int nread;
+    int nwritten;
+    char *p;
+
+    fp = xfopen (CVSADM_NOTIFY, "r");
+    if (getline (&line, &line_len, fp) < 0)
+    {
+	if (feof (fp))
+	    error (0, 0, "cannot read %s: end of file", CVSADM_NOTIFY);
+	else
+	    error (0, errno, "cannot read %s", CVSADM_NOTIFY);
+	goto error_exit;
+    }
+    cp = strchr (line, '\t');
+    if (!cp)
+    {
+	error (0, 0, "malformed %s file", CVSADM_NOTIFY);
+	goto error_exit;
+    }
+    *cp = '\0';
+    if (strcmp (filename, line + 1))
+	error (0, 0, "protocol error: notified %s, expected %s", filename,
+	       line + 1);
+
+    if (getline (&line, &line_len, fp) < 0)
+    {
+	if (feof (fp))
+	{
+	    free (line);
+	    if (fclose (fp) < 0)
+		error (0, errno, "cannot close %s", CVSADM_NOTIFY);
+	    if ( CVS_UNLINK (CVSADM_NOTIFY) < 0)
+		error (0, errno, "cannot remove %s", CVSADM_NOTIFY);
+	    return;
+	}
+	else
+	{
+	    error (0, errno, "cannot read %s", CVSADM_NOTIFY);
+	    goto error_exit;
+	}
+    }
+    newf = xfopen (CVSADM_NOTIFYTMP, "w");
+    if (fputs (line, newf) < 0)
+    {
+	error (0, errno, "cannot write %s", CVSADM_NOTIFYTMP);
+	goto error2;
+    }
+    while ((nread = fread (line, 1, line_len, fp)) > 0)
+    {
+	p = line;
+	while ((nwritten = fwrite (p, sizeof *p, nread, newf)) > 0)
+	{
+	    nread -= nwritten;
+	    p += nwritten;
+	}
+	if (ferror (newf))
+	{
+	    error (0, errno, "cannot write %s", CVSADM_NOTIFYTMP);
+	    goto error2;
+	}
+    }
+    if (ferror (fp))
+    {
+	error (0, errno, "cannot read %s", CVSADM_NOTIFY);
+	goto error2;
+    }
+    if (fclose (newf) < 0)
+    {
+	error (0, errno, "cannot close %s", CVSADM_NOTIFYTMP);
+	goto error_exit;
+    }
+    free (line);
+    if (fclose (fp) < 0)
+    {
+	error (0, errno, "cannot close %s", CVSADM_NOTIFY);
+	return;
+    }
+
+    {
+        /* In this case, we want rename_file() to ignore noexec. */
+        int saved_noexec = noexec;
+        noexec = 0;
+        rename_file (CVSADM_NOTIFYTMP, CVSADM_NOTIFY);
+        noexec = saved_noexec;
+    }
+
+    return;
+  error2:
+    (void)fclose (newf);
+  error_exit:
+    free (line);
+    (void)fclose (fp);
+}
+
+
+
+static void
+handle_notified (char *args, size_t len)
+{
+    call_in_directory (args, notified_a_file, NULL);
+}
+
+
+
 /* The "expanded" modules.  */
 static int modules_count;
 static int modules_allocated;
 static char **modules_vector;
 
 static void
-handle_module_expansion (args, len)
-    char *args;
-    int len;
+handle_module_expansion (char *args, size_t len)
 {
-    if (modules_vector == NULL)
+    if (!modules_vector)
     {
 	modules_allocated = 1; /* Small for testing */
-	modules_vector = (char **) xmalloc
-	  (modules_allocated * sizeof (modules_vector[0]));
+	modules_vector = xnmalloc (modules_allocated,
+				   sizeof (modules_vector[0]));
     }
     else if (modules_count >= modules_allocated)
     {
 	modules_allocated *= 2;
-	modules_vector = (char **) xrealloc
-	  ((char *) modules_vector,
-	   modules_allocated * sizeof (modules_vector[0]));
+	modules_vector = xnrealloc (modules_vector,
+				    modules_allocated,
+				    sizeof (modules_vector[0]));
     }
-    modules_vector[modules_count] = xmalloc (strlen (args) + 1);
-    strcpy (modules_vector[modules_count], args);
+    modules_vector[modules_count] = xstrdup (args);
     ++modules_count;
 }
+
+
 
 /* Original, not "expanded" modules.  */
 static int module_argc;
 static char **module_argv;
 
 void
-client_expand_modules (argc, argv, local)
-    int argc;
-    char **argv;
-    int local;
+client_expand_modules (int argc, char **argv, int local)
 {
     int errs;
     int i;
 
     module_argc = argc;
-    module_argv = (char **) xmalloc ((argc + 1) * sizeof (module_argv[0]));
+    module_argv = xnmalloc (argc + 1, sizeof (module_argv[0]));
     for (i = 0; i < argc; ++i)
 	module_argv[i] = xstrdup (argv[i]);
     module_argv[argc] = NULL;
@@ -2990,21 +2722,21 @@ client_expand_modules (argc, argv, local)
     send_to_server ("expand-modules\012", 0);
 
     errs = get_server_responses ();
-    if (last_repos != NULL)
-        free (last_repos);
+
+    if (last_repos) free (last_repos);
     last_repos = NULL;
-    if (last_update_dir != NULL)
-        free (last_update_dir);
+
+    if (last_update_dir) free (last_update_dir);
     last_update_dir = NULL;
+
     if (errs)
 	error (errs, 0, "cannot expand modules");
 }
 
+
+
 void
-client_send_expansions (local, where, build_dirs)
-    int local;
-    char *where;
-    int build_dirs;
+client_send_expansions (int local, char *where, int build_dirs)
 {
     int i;
     char *argv[1];
@@ -3026,12 +2758,16 @@ client_send_expansions (local, where, build_dirs)
     send_a_repository ("", current_parsed_root->directory, "");
 }
 
+
+
 void
-client_nonexpanded_setup ()
+client_nonexpanded_setup (void)
 {
     send_a_repository ("", current_parsed_root->directory, "");
 }
-
+
+
+
 /* Receive a cvswrappers line from the server; it must be a line
    containing an RCS option (e.g., "*.exe   -k 'b'").
 
@@ -3041,25 +2777,22 @@ client_nonexpanded_setup ()
 
    We need to know the keyword expansion mode so we know whether to
    read the file in text or binary mode.  */
-
 static void
-handle_wrapper_rcs_option (args, len)
-    char *args;
-    int len;
+handle_wrapper_rcs_option (char *args, size_t len)
 {
     char *p;
 
     /* Enforce the notes in cvsclient.texi about how the response is not
        as free-form as it looks.  */
     p = strchr (args, ' ');
-    if (p == NULL)
+    if (!p)
 	goto handle_error;
     if (*++p != '-'
 	|| *++p != 'k'
 	|| *++p != ' '
 	|| *++p != '\'')
 	goto handle_error;
-    if (strchr (p, '\'') == NULL)
+    if (!strchr (p, '\''))
 	goto handle_error;
 
     /* Add server-side cvswrappers line to our wrapper list. */
@@ -3069,15 +2802,12 @@ handle_wrapper_rcs_option (args, len)
     error (0, errno, "protocol error: ignoring invalid wrappers %s", args);
 }
 
-
-static void
-handle_m (args, len)
-    char *args;
-    int len;
-{
-    fd_set wfds;
-    int s;
 
+
+
+static void
+handle_m (char *args, size_t len)
+{
     /* In the case where stdout and stderr point to the same place,
        fflushing stderr will make output happen in the correct order.
        Often stderr will be line-buffered and this won't be needed,
@@ -3085,21 +2815,14 @@ handle_m (args, len)
        based on being confused between default buffering between
        stdout and stderr.  But I'm not sure).  */
     fflush (stderr);
-    FD_ZERO (&wfds);
-    FD_SET (STDOUT_FILENO, &wfds);
-    s = select (STDOUT_FILENO+1, NULL, &wfds, NULL, NULL);
-    if (s < 1)
-        perror ("cannot write to stdout");
-    fwrite (args, len, sizeof (*args), stdout);
+    fwrite (args, sizeof *args, len, stdout);
     putc ('\n', stdout);
 }
 
-static void handle_mbinary PROTO ((char *, int));
+
 
 static void
-handle_mbinary (args, len)
-    char *args;
-    int len;
+handle_mbinary (char *args, size_t len)
 {
     char *size_string;
     size_t size;
@@ -3132,47 +2855,31 @@ handle_mbinary (args, len)
     }
 }
 
-static void
-handle_e (args, len)
-    char *args;
-    int len;
-{
-    fd_set wfds;
-    int s;
 
+
+static void
+handle_e (char *args, size_t len)
+{
     /* In the case where stdout and stderr point to the same place,
        fflushing stdout will make output happen in the correct order.  */
     fflush (stdout);
-    FD_ZERO (&wfds);
-    FD_SET (STDERR_FILENO, &wfds);
-    s = select (STDERR_FILENO+1, NULL, &wfds, NULL, NULL);
-    /*
-     * If stderr has problems, then adding a call to
-     *   perror ("cannot write to stderr")
-     * will not work. So, try to write a message on stdout and
-     * terminate cvs.
-     */
-    if (s < 1)
-        fperrmsg (stdout, 1, errno, "cannot write to stderr");
-    fwrite (args, len, sizeof (*args), stderr);
+    fwrite (args, sizeof *args, len, stderr);
     putc ('\n', stderr);
 }
 
+
+
 /*ARGSUSED*/
 static void
-handle_f (args, len)
-    char *args;
-    int len;
+handle_f  (char *args, size_t len)
 {
     fflush (stderr);
 }
 
-static void handle_mt PROTO ((char *, int));
+
 
 static void
-handle_mt (args, len)
-    char *args;
-    int len;
+handle_mt (char *args, size_t len)
 {
     char *p;
     char *tag = args;
@@ -3182,7 +2889,7 @@ handle_mt (args, len)
     fflush (stderr);
 
     p = strchr (args, ' ');
-    if (p == NULL)
+    if (!p)
 	text = NULL;
     else
     {
@@ -3193,15 +2900,15 @@ handle_mt (args, len)
     switch (tag[0])
     {
 	case '+':
-	    if (strcmp (tag, "+updated") == 0)
+	    if (!strcmp (tag, "+updated"))
 		updated_seen = 1;
-	    else if (strcmp (tag, "+importmergecmd") == 0)
+	    else if (!strcmp (tag, "+importmergecmd"))
 		importmergecmd.seen = 1;
 	    break;
 	case '-':
-	    if (strcmp (tag, "-updated") == 0)
+	    if (!strcmp (tag, "-updated"))
 		updated_seen = 0;
-	    else if (strcmp (tag, "-importmergecmd") == 0)
+	    else if (!strcmp (tag, "-importmergecmd"))
 	    {
 		char buf[80];
 
@@ -3209,23 +2916,26 @@ handle_mt (args, len)
                    output the suggested merge command.  */
 
 		if (importmergecmd.conflicts == 0
-		    || importmergecmd.mergetag1 == NULL
-		    || importmergecmd.mergetag2 == NULL
-		    || importmergecmd.repository == NULL)
+		    || !importmergecmd.mergetag1
+		    || !importmergecmd.mergetag2
+		    || !importmergecmd.repository)
 		{
 		    error (0, 0,
 			   "invalid server: incomplete importmergecmd tags");
 		    break;
 		}
 
-		sprintf (buf, "\n%d conflicts created by this import.\n",
-			 importmergecmd.conflicts);
+		if (importmergecmd.conflicts == -1)
+ 		    sprintf (buf, "\nNo conflicts created by this import.\n");
+		else
+		    sprintf (buf, "\n%d conflicts created by this import.\n",
+			     importmergecmd.conflicts);
 		cvs_output (buf, 0);
 		cvs_output ("Use the following command to help the merge:\n\n",
 			    0);
 		cvs_output ("\t", 1);
 		cvs_output (program_name, 0);
-		if (CVSroot_cmdline != NULL)
+		if (CVSroot_cmdline)
 		{
 		    cvs_output (" -d ", 0);
 		    cvs_output (CVSroot_cmdline, 0);
@@ -3254,9 +2964,9 @@ handle_mt (args, len)
 	default:
 	    if (updated_seen)
 	    {
-		if (strcmp (tag, "fname") == 0)
+		if (!strcmp (tag, "fname"))
 		{
-		    if (updated_fname != NULL)
+		    if (updated_fname)
 		    {
 			/* Output the previous message now.  This can happen
 			   if there was no Update-existing or other such
@@ -3274,25 +2984,38 @@ handle_mt (args, len)
 	    }
 	    else if (importmergecmd.seen)
 	    {
-		if (strcmp (tag, "conflicts") == 0)
-		    importmergecmd.conflicts = atoi (text);
-		else if (strcmp (tag, "mergetag1") == 0)
+		if (!strcmp (tag, "conflicts"))
+		{
+		    if (!strcmp (text, "No"))
+			importmergecmd.conflicts = -1;
+		    else
+			importmergecmd.conflicts = atoi (text);
+		}
+		else if (!strcmp (tag, "mergetag1"))
 		    importmergecmd.mergetag1 = xstrdup (text);
-		else if (strcmp (tag, "mergetag2") == 0)
+		else if (!strcmp (tag, "mergetag2"))
 		    importmergecmd.mergetag2 = xstrdup (text);
-		else if (strcmp (tag, "repository") == 0)
+		else if (!strcmp (tag, "repository"))
 		    importmergecmd.repository = xstrdup (text);
 		/* Swallow all other tags.  Either they are text for
                    which we are going to print our own version when we
                    see -importmergecmd, or they are future extensions
                    we can safely ignore.  */
 	    }
-	    else if (strcmp (tag, "newline") == 0)
+	    else if (!strcmp (tag, "newline"))
 		printf ("\n");
-	    else if (text != NULL)
+	    else if (!strcmp (tag, "date"))
+	    {
+		char *date = format_date_alloc (text);
+		printf ("%s", date);
+		free (date);
+	    }
+	    else if (text)
 		printf ("%s", text);
     }
 }
+
+
 
 #endif /* CLIENT_SUPPORT */
 #if defined(CLIENT_SUPPORT) || defined(SERVER_SUPPORT)
@@ -3310,6 +3033,10 @@ struct response responses[] =
     RSP_LINE("error", handle_error, response_type_error, rs_essential),
     RSP_LINE("Valid-requests", handle_valid_requests, response_type_normal,
        rs_essential),
+    RSP_LINE("Force-gzip", handle_force_gzip, response_type_normal,
+       rs_optional),
+    RSP_LINE("Referrer", handle_referrer, response_type_normal, rs_optional),
+    RSP_LINE("Redirect", handle_redirect, response_type_redirect, rs_optional),
     RSP_LINE("Checked-in", handle_checked_in, response_type_normal,
        rs_essential),
     RSP_LINE("New-entry", handle_new_entry, response_type_normal, rs_optional),
@@ -3337,7 +3064,11 @@ struct response responses[] =
        rs_optional),
     RSP_LINE("Clear-sticky", handle_clear_sticky, response_type_normal,
        rs_optional),
+    RSP_LINE("Edit-file", handle_edit_file, response_type_normal,
+       rs_optional),
     RSP_LINE("Template", handle_template, response_type_normal,
+       rs_optional),
+    RSP_LINE("Clear-template", handle_clear_template, response_type_normal,
        rs_optional),
     RSP_LINE("Notified", handle_notified, response_type_normal, rs_optional),
     RSP_LINE("Module-expansion", handle_module_expansion, response_type_normal,
@@ -3359,23 +3090,23 @@ struct response responses[] =
 #endif /* CLIENT_SUPPORT or SERVER_SUPPORT */
 #ifdef CLIENT_SUPPORT
 
+
+
 /* 
- * If LEN is 0, then send_to_server() computes string's length itself.
+ * If LEN is 0, then send_to_server_via() computes string's length itself.
  *
  * Therefore, pass the real length when transmitting data that might
  * contain 0's.
  */
 void
-send_to_server (str, len)
-     const char *str;
-     size_t len;
+send_to_server_via (struct buffer *via_buffer, const char *str, size_t len)
 {
     static int nbytes;
 
     if (len == 0)
 	len = strlen (str);
 
-    buf_output (to_server, str, len);
+    buf_output (via_buffer, str, len);
       
     /* There is no reason not to send data to the server, so do it
        whenever we've accumulated enough information in the buffer to
@@ -3385,25 +3116,34 @@ send_to_server (str, len)
     {
 	int status;
 
-        status = buf_send_output (to_server);
+        status = buf_send_output (via_buffer);
 	if (status != 0)
 	    error (1, status, "error writing to server");
 	nbytes = 0;
     }
 }
 
+
+
+void
+send_to_server (const char *str, size_t len)
+{
+  send_to_server_via (global_to_server, str, len);
+}
+
+
+
 /* Read up to LEN bytes from the server.  Returns actual number of
    bytes read, which will always be at least one; blocks if there is
    no data available at all.  Gives a fatal error on EOF or error.  */
 static size_t
-try_read_from_server (buf, len)
-    char *buf;
-    size_t len;
+try_read_from_server( char *buf, size_t len )
 {
-    int status, nread;
+    int status;
+    size_t nread;
     char *data;
 
-    status = buf_read_data (from_server, len, &data, &nread);
+    status = buf_read_data (global_from_server, len, &data, &nread);
     if (status != 0)
     {
 	if (status == -1)
@@ -3420,13 +3160,13 @@ try_read_from_server (buf, len)
     return nread;
 }
 
+
+
 /*
  * Read LEN bytes from the server or die trying.
  */
 void
-read_from_server (buf, len)
-    char *buf;
-    size_t len;
+read_from_server (char *buf, size_t len)
 {
     size_t red = 0;
     while (red < len)
@@ -3437,23 +3177,29 @@ read_from_server (buf, len)
     }
 }
 
-/*
- * Get some server responses and process them.  Returns nonzero for
- * error, 0 for success.  */
+
+
+/* Get some server responses and process them.
+ *
+ * RETURNS
+ *   0		Success
+ *   1		Error
+ *   2		Redirect
+ */
 int
-get_server_responses ()
+get_server_responses (void)
 {
     struct response *rs;
     do
     {
 	char *cmd;
-	int len;
+	size_t len;
 	
 	len = read_line (&cmd);
-	for (rs = responses; rs->name != NULL; ++rs)
-	    if (strncmp (cmd, rs->name, strlen (rs->name)) == 0)
+	for (rs = responses; rs->name; ++rs)
+	    if (!strncmp (cmd, rs->name, strlen (rs->name)))
 	    {
-		int cmdlen = strlen (rs->name);
+		size_t cmdlen = strlen (rs->name);
 		if (cmd[cmdlen] == '\0')
 		    ;
 		else if (cmd[cmdlen] == ' ')
@@ -3468,7 +3214,7 @@ get_server_responses ()
 		(*rs->func) (cmd + cmdlen, len - cmdlen);
 		break;
 	    }
-	if (rs->name == NULL)
+	if (!rs->name)
 	    /* It's OK to print just to the first '\0'.  */
 	    /* We might want to handle control characters and the like
 	       in some other way other than just sending them to stdout.
@@ -3486,7 +3232,7 @@ get_server_responses ()
 	free (cmd);
     } while (rs->type == response_type_normal);
 
-    if (updated_fname != NULL)
+    if (updated_fname)
     {
 	/* Output the previous message now.  This can happen
 	   if there was no Update-existing or other such
@@ -3498,11 +3244,37 @@ get_server_responses ()
 	updated_fname = NULL;
     }
 
-    if (rs->type == response_type_error)
-	return 1;
-    if (failure_exit)
-	return 1;
+    if (rs->type == response_type_redirect) return 2;
+    if (rs->type == response_type_error) return 1;
+    if (failure_exit) return 1;
     return 0;
+}
+
+
+
+static inline void
+close_connection_to_server (struct buffer **to, struct buffer **from)
+{
+    int status;
+
+    /* First we shut down GLOBAL_TO_SERVER.  That tells the server that its
+     * input is finished.  It then shuts down the buffer it is sending to us,
+     * at which point our shut down of GLOBAL_FROM_SERVER will complete.
+     */
+
+    TRACE (TRACE_FUNCTION, "close_connection_to_server ()");
+
+    status = buf_shutdown (*to);
+    if (status != 0)
+	error (0, status, "shutting down buffer to server");
+    buf_free (*to);
+    *to = NULL;
+
+    status = buf_shutdown (*from);
+    if (status != 0)
+	error (0, status, "shutting down buffer from server");
+    buf_free (*from);
+    *from = NULL;
 }
 
 
@@ -3520,10 +3292,9 @@ get_server_responses ()
 int server_started = 0;
 
 int
-get_responses_and_close ()
+get_responses_and_close (void)
 {
     int errs = get_server_responses ();
-    int status;
 
     /* The following is necessary when working with multiple cvsroots, at least
      * with commit.  It used to be buried nicely in do_deferred_progs() before
@@ -3533,88 +3304,43 @@ get_responses_and_close ()
      * restore_cwd() before exiting.  Of course, calling CVS_CHDIR only once,
      * here, may be more efficient.
      */
-    if( toplevel_wd != NULL )
+    if (toplevel_wd)
     {
-	if( CVS_CHDIR( toplevel_wd ) < 0 )
-	    error( 1, errno, "could not chdir to %s", toplevel_wd );
+	if (CVS_CHDIR (toplevel_wd) < 0)
+	    error (1, errno, "could not chdir to %s", toplevel_wd);
     }
 
     if (client_prune_dirs)
 	process_prune_candidates ();
 
-    /* First we shut down TO_SERVER.  That tells the server that its input is
-     * finished.  It then shuts down the buffer it is sending to us, at which
-     * point our shut down of FROM_SERVER will complete.
-     */
-
-    status = buf_shutdown (to_server);
-    if (status != 0)
-	error (0, status, "shutting down buffer to server");
-    buf_free (to_server);
-    to_server = NULL;
-
-    status = buf_shutdown (from_server);
-    if (status != 0)
-	error (0, status, "shutting down buffer from server");
-    buf_free (from_server);
-    from_server = NULL;
+    close_connection_to_server (&global_to_server, &global_from_server);
     server_started = 0;
 
     /* see if we need to sleep before returning to avoid time-stamp races */
     if (last_register_time)
-    {
 	sleep_past (last_register_time);
-    }
 
     return errs;
 }
-	
-#ifndef NO_EXT_METHOD
-static void start_rsh_server PROTO((cvsroot_t *, struct buffer **, struct buffer **));
-#endif
 
-int
-supported_request (name)
-    char *name;
+
+
+bool
+supported_request (const char *name)
 {
     struct request *rq;
 
     for (rq = requests; rq->name; rq++)
 	if (!strcmp (rq->name, name))
 	    return (rq->flags & RQ_SUPPORTED) != 0;
-    error (1, 0, "internal error: testing support for unknown option?");
+    error (1, 0, "internal error: testing support for unknown request?");
     /* NOTREACHED */
     return 0;
 }
 
 
 
-#if defined (AUTH_CLIENT_SUPPORT) || defined (HAVE_KERBEROS) || defined (HAVE_GSSAPI)
-static struct hostent *init_sockaddr PROTO ((struct sockaddr_in *, char *,
-					     unsigned int));
-
-static struct hostent *
-init_sockaddr (name, hostname, port)
-    struct sockaddr_in *name;
-    char *hostname;
-    unsigned int port;
-{
-    struct hostent *hostinfo;
-    unsigned short shortport = port;
-
-    memset (name, 0, sizeof (*name));
-    name->sin_family = AF_INET;
-    name->sin_port = htons (shortport);
-    hostinfo = gethostbyname (hostname);
-    if (hostinfo == NULL)
-    {
-	fprintf (stderr, "Unknown host %s.\n", hostname);
-	error_exit ();
-    }
-    name->sin_addr = *(struct in_addr *) hostinfo->h_addr;
-    return hostinfo;
-}
-
+#if defined (AUTH_CLIENT_SUPPORT) || defined (SERVER_SUPPORT) || defined (HAVE_KERBEROS) || defined (HAVE_GSSAPI)
 
 
 /* Generic function to do port number lookup tasks.
@@ -3625,10 +3351,7 @@ init_sockaddr (name, hostname, port)
  * 	defaultport
  */
 static int
-get_port_number (envname, portname, defaultport)
-    const char *envname;
-    const char *portname;
-    int defaultport;
+get_port_number (const char *envname, const char *portname, int defaultport)
 {
     struct servent *s;
     char *port_s;
@@ -3664,17 +3387,9 @@ get_port_number (envname, portname, defaultport)
  *
  * and yes, I know none of the commands do that now, but here's to planning
  * for the future, eh?  cheers.
- *
- * FIXME - We could cache the port lookup safely right now as we never change
- * it for a single root on the fly, but we'd have to un'const some other
- * functions - REMOVE_FIXME? This may be unecessary.  We're talking about,
- * what, usually one, sometimes two lookups of the port per invocation.  I
- * think twice is by far the rarer of the two cases - only the login function
- * will need to do it to save the canonical CVSROOT. -DRP
  */
 int
-get_cvs_port_number (root)
-    const cvsroot_t *root;
+get_cvs_port_number (const cvsroot_t *root)
 {
 
     if (root->port) return root->port;
@@ -3688,15 +3403,17 @@ get_cvs_port_number (root)
 	case pserver_method:
 # endif /* AUTH_CLIENT_SUPPORT */
 # if defined (AUTH_CLIENT_SUPPORT) || defined (HAVE_GSSAPI)
-	    return get_port_number ("CVS_CLIENT_PORT", "cvspserver", CVS_AUTH_PORT);
+	    return get_port_number ("CVS_CLIENT_PORT", "cvspserver",
+                                    CVS_AUTH_PORT);
 # endif /* defined (AUTH_CLIENT_SUPPORT) || defined (HAVE_GSSAPI) */
 # ifdef HAVE_KERBEROS
 	case kserver_method:
 	    return get_port_number ("CVS_CLIENT_PORT", "cvs", CVS_PORT);
 # endif /* HAVE_KERBEROS */
 	default:
-	    error(1, EINVAL, "internal error: get_cvs_port_number called for invalid connection method (%s)",
-		    method_names[root->method]);
+	    error(1, EINVAL,
+"internal error: get_cvs_port_number called for invalid connection method (%s)",
+		  method_names[root->method]);
 	    break;
     }
     /* NOTREACHED */
@@ -3705,26 +3422,31 @@ get_cvs_port_number (root)
 
 
 
-void
-make_bufs_from_fds (tofd, fromfd, child_pid, to_server, from_server, is_sock)
-    int tofd;
-    int fromfd;
-    int child_pid;
-    struct buffer **to_server;
-    struct buffer **from_server;
-    int is_sock;
+/* get the port number for a client to connect to based on the proxy port
+ * of a cvsroot_t.
+ */
+static int
+get_proxy_port_number (const cvsroot_t *root)
 {
-    FILE *to_server_fp;
-    FILE *from_server_fp;
 
+    if (root->proxy_port) return root->proxy_port;
+
+    return get_port_number ("CVS_PROXY_PORT", NULL, CVS_PROXY_PORT);
+}
+
+
+
+void
+make_bufs_from_fds(int tofd, int fromfd, int child_pid, cvsroot_t *root,
+                   struct buffer **to_server_p,
+                   struct buffer **from_server_p, int is_sock)
+{
 # ifdef NO_SOCKET_TO_FD
     if (is_sock)
     {
 	assert (tofd == fromfd);
-	*to_server = socket_buffer_initialize (tofd, 0,
-					      (BUFMEMERRPROC) NULL);
-	*from_server = socket_buffer_initialize (tofd, 1,
-						(BUFMEMERRPROC) NULL);
+	*to_server_p = socket_buffer_initialize (tofd, 0, NULL);
+	*from_server_p = socket_buffer_initialize (tofd, 1, NULL);
     }
     else
 # endif /* NO_SOCKET_TO_FD */
@@ -3749,20 +3471,12 @@ make_bufs_from_fds (tofd, fromfd, child_pid, to_server, from_server, is_sock)
 	 * child_pid in there.  In theory, it should be stored in both
 	 * buffers with a ref count...
 	 */
-	to_server_fp = fdopen (tofd, FOPEN_BINARY_WRITE);
-	if (to_server_fp == NULL)
-	    error (1, errno, "cannot fdopen %d for write", tofd);
-	*to_server = stdio_buffer_initialize (to_server_fp, 0, 0,
-					     (BUFMEMERRPROC) NULL);
-
-	from_server_fp = fdopen (fromfd, FOPEN_BINARY_READ);
-	if (from_server_fp == NULL)
-	    error (1, errno, "cannot fdopen %d for read", fromfd);
-	*from_server = stdio_buffer_initialize (from_server_fp, child_pid, 1,
-					       (BUFMEMERRPROC) NULL);
+	*to_server_p = fd_buffer_initialize (tofd, 0, root, false, NULL);
+	*from_server_p = fd_buffer_initialize (fromfd, child_pid, root,
+                                               true, NULL);
     }
 }
-#endif /* defined (AUTH_CLIENT_SUPPORT) || defined (HAVE_KERBEROS) || defined(HAVE_GSSAPI) */
+#endif /* defined (AUTH_CLIENT_SUPPORT) || defined (SERVER_SUPPORT) || defined (HAVE_KERBEROS) || defined(HAVE_GSSAPI) */
 
 
 
@@ -3780,42 +3494,94 @@ make_bufs_from_fds (tofd, fromfd, child_pid, to_server, from_server, is_sock)
    If we fail to connect or if access is denied, then die with fatal
    error.  */
 void
-connect_to_pserver (root, to_server_p, from_server_p, verify_only, do_gssapi)
-    cvsroot_t *root;
-    struct buffer **to_server_p;
-    struct buffer **from_server_p;
-    int verify_only;
-    int do_gssapi;
+connect_to_pserver (cvsroot_t *root, struct buffer **to_server_p,
+                    struct buffer **from_server_p, int verify_only,
+                    int do_gssapi)
 {
     int sock;
-    int port_number;
-    struct sockaddr_in client_sai;
+    int port_number,
+	proxy_port_number = 0; /* Initialize to silence -Wall.  Dumb.  */
+    union sai {
+	struct sockaddr_in addr_in;
+	struct sockaddr addr;
+    } client_sai;
     struct hostent *hostinfo;
     struct buffer *to_server, *from_server;
 
     sock = socket (AF_INET, SOCK_STREAM, 0);
     if (sock == -1)
-    {
 	error (1, 0, "cannot create socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-    }
     port_number = get_cvs_port_number (root);
-    hostinfo = init_sockaddr (&client_sai, root->hostname, port_number);
-    if (trace)
+
+    /* if we have a proxy connect to that instead */
+    if (root->proxy_hostname)
     {
-	fprintf (stderr, " -> Connecting to %s(%s):%d\n",
-		 root->hostname,
-		 inet_ntoa (client_sai.sin_addr), port_number);
+        proxy_port_number = get_proxy_port_number (root);
+	hostinfo = init_sockaddr (&client_sai.addr_in, root->proxy_hostname,
+                                  proxy_port_number);
+        TRACE (TRACE_FUNCTION, "Connecting to %s:%d via proxy %s(%s):%d.",
+               root->hostname, port_number, root->proxy_hostname,
+               inet_ntoa (client_sai.addr_in.sin_addr), proxy_port_number);
     }
-    if (connect (sock, (struct sockaddr *) &client_sai, sizeof (client_sai))
+    else
+    {
+	hostinfo = init_sockaddr (&client_sai.addr_in, root->hostname,
+				  port_number);
+        TRACE (TRACE_FUNCTION, "Connecting to %s(%s):%d.",
+               root->hostname,
+               inet_ntoa (client_sai.addr_in.sin_addr), port_number);
+    }
+
+    if (connect (sock, &client_sai.addr, sizeof (client_sai))
 	< 0)
 	error (1, 0, "connect to %s(%s):%d failed: %s",
-	       root->hostname,
-	       inet_ntoa (client_sai.sin_addr),
-	       port_number, SOCK_STRERROR (SOCK_ERRNO));
+	       root->proxy_hostname ? root->proxy_hostname : root->hostname,
+	       inet_ntoa (client_sai.addr_in.sin_addr),
+	       root->proxy_hostname ? proxy_port_number : port_number,
+               SOCK_STRERROR (SOCK_ERRNO));
 
-    make_bufs_from_fds (sock, sock, 0, &to_server, &from_server, 1);
+    make_bufs_from_fds (sock, sock, 0, root, &to_server, &from_server, 1);
 
-    auth_server (root, to_server, from_server, verify_only, do_gssapi, hostinfo);
+    /* if we have proxy then connect to the proxy first */
+    if (root->proxy_hostname)
+    {
+#define CONNECT_STRING "CONNECT %s:%d HTTP/1.0\r\n\r\n"
+	/* Send a "CONNECT" command to proxy: */
+	char* read_buf;
+	int codenum;
+	size_t count;
+	/* 4 characters for port covered by the length of %s & %d */
+	char* write_buf = Xasnprintf (NULL, &count, CONNECT_STRING,
+                                      root->hostname, port_number);
+	send_to_server_via (to_server, write_buf, count);
+
+	/* Wait for HTTP status code, bail out if you don't get back a 2xx
+         * code.
+         */
+	read_line_via (from_server, to_server, &read_buf);
+	sscanf (read_buf, "%s %d", write_buf, &codenum);
+
+	if ((codenum / 100) != 2)
+	    error (1, 0, "proxy server %s:%d does not support http tunnelling",
+		   root->proxy_hostname, proxy_port_number);
+	free (read_buf);
+	free (write_buf);
+
+	/* Skip through remaining part of MIME header, recv_line
+           consumes the trailing \n */
+	while (read_line_via (from_server, to_server, &read_buf) > 0)
+	{
+	    if (read_buf[0] == '\r' || read_buf[0] == 0)
+	    {
+		free (read_buf);
+		break;
+	    }
+	    free (read_buf);
+	}
+    }
+
+    auth_server (root, to_server, from_server, verify_only, do_gssapi,
+                 hostinfo);
 
     if (verify_only)
     {
@@ -3849,40 +3615,24 @@ connect_to_pserver (root, to_server_p, from_server_p, verify_only, do_gssapi)
 
 
 static void
-auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
-    cvsroot_t *root;
-    struct buffer *lto_server;
-    struct buffer *lfrom_server;
-    int verify_only;
-    int do_gssapi;
-    struct hostent *hostinfo;
+auth_server (cvsroot_t *root, struct buffer *to_server,
+             struct buffer *from_server, int verify_only, int do_gssapi,
+             struct hostent *hostinfo)
 {
-    char *username;			/* the username we use to connect */
+    char *username = NULL;		/* the username we use to connect */
     char no_passwd = 0;			/* gets set if no password found */
-
-    /* FIXME!!!!!!!!!!!!!!!!!!
-     *
-     * THIS IS REALLY UGLY!
-     *
-     * I'm setting the globals here so we can make calls to send_to_server &
-     * read_line.  This happens again _after_ we return if we're not in
-     * verify_only mode.  We should be relying on the values we passed in, but
-     * sent_to_server and read_line don't require an outside buf yet.
-     */
-    to_server = lto_server;
-    from_server = lfrom_server;
 
     /* Run the authorization mini-protocol before anything else. */
     if (do_gssapi)
     {
 # ifdef HAVE_GSSAPI
-	FILE *fp = stdio_buffer_get_file(lto_server);
-	int fd = fp ? fileno(fp) : -1;
+	int fd = buf_get_fd (to_server);
 	struct stat s;
 
 	if ((fd < 0) || (fstat (fd, &s) < 0) || !S_ISSOCK(s.st_mode))
 	{
-	    error (1, 0, "gserver currently only enabled for socket connections");
+	    error (1, 0,
+                   "gserver currently only enabled for socket connections");
 	}
 
 	if (! connect_to_gserver (root, fd, hostinfo))
@@ -3892,7 +3642,8 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 		    root->hostname, root->directory);
 	}
 # else /* ! HAVE_GSSAPI */
-	error (1, 0, "INTERNAL ERROR: This client does not support GSSAPI authentication");
+	error (1, 0,
+"INTERNAL ERROR: This client does not support GSSAPI authentication");
 # endif /* HAVE_GSSAPI */
     }
     else /* ! do_gssapi */
@@ -3919,27 +3670,27 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 
 	/* Send the empty string by default.  This is so anonymous CVS
 	   access doesn't require client to have done "cvs login". */
-	if (password == NULL) 
+	if (!password) 
 	{
 	    no_passwd = 1;
 	    password = scramble ("");
 	}
 
 	/* Announce that we're starting the authorization protocol. */
-	send_to_server(begin, 0);
-	send_to_server("\012", 1);
+	send_to_server_via(to_server, begin, 0);
+	send_to_server_via(to_server, "\012", 1);
 
 	/* Send the data the server needs. */
-	send_to_server(root->directory, 0);
-	send_to_server("\012", 1);
-	send_to_server(username, 0);
-	send_to_server("\012", 1);
-	send_to_server(password, 0);
-	send_to_server("\012", 1);
+	send_to_server_via(to_server, root->directory, 0);
+	send_to_server_via(to_server, "\012", 1);
+	send_to_server_via(to_server, username, 0);
+	send_to_server_via(to_server, "\012", 1);
+	send_to_server_via(to_server, password, 0);
+	send_to_server_via(to_server, "\012", 1);
 
 	/* Announce that we're ending the authorization protocol. */
-	send_to_server(end, 0);
-	send_to_server("\012", 1);
+	send_to_server_via(to_server, end, 0);
+	send_to_server_via(to_server, "\012", 1);
 
         /* Paranoia. */
         memset (password, 0, strlen (password));
@@ -3954,24 +3705,28 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 	/* Loop, getting responses from the server.  */
 	while (1)
 	{
-	    read_line (&read_buf);
+	    read_line_via (from_server, to_server, &read_buf);
 
-	    if (strcmp (read_buf, "I HATE YOU") == 0)
+	    if (!strcmp (read_buf, "I HATE YOU"))
 	    {
 		/* Authorization not granted.
 		 *
-		 * This is a little confusing since we can reach this while loop in GSSAPI
-		 * mode, but if GSSAPI authentication failed, we already jumped to the
-		 * rejected label (there is no case where the connect_to_gserver function
-		 * can return 1 and we will not receive "I LOVE YOU" from the server, barring
-		 * broken connections and garbled messages, of course).
+		 * This is a little confusing since we can reach this while
+		 * loop in GSSAPI mode, but if GSSAPI authentication failed,
+		 * we already jumped to the rejected label (there is no case
+		 * where the connect_to_gserver function can return 1 and we
+		 * will not receive "I LOVE YOU" from the server, barring
+		 * broken connections and garbled messages, of course).  The
+		 * GSSAPI case is also the case where username can be NULL
+		 * since username is initialized in the !gssapi section.
 		 *
-		 * i.e. This is a pserver specific error message and should be since
-		 * GSSAPI doesn't use username.
+		 * i.e. This is a pserver specific error message and should be
+		 * since GSSAPI doesn't use username.
 		 */
 		error (0, 0,
-			"authorization failed: server %s rejected access to %s for user %s",
-			root->hostname, root->directory, username);
+"authorization failed: server %s rejected access to %s for user %s",
+		       root->hostname, root->directory,
+		       username ? username : "(null)");
 
 		/* Output a special error message if authentication was attempted
 		with no password -- the user should be made aware that they may
@@ -3979,17 +3734,17 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 		if (no_passwd)
 		{
 		    error (0, 0,
-			    "used empty password; try \"cvs login\" with a real password");
+"used empty password; try \"cvs login\" with a real password");
 		}
-		error_exit();
+		exit (EXIT_FAILURE);
 	    }
-	    else if (strncmp (read_buf, "E ", 2) == 0)
+	    else if (!strncmp (read_buf, "E ", 2))
 	    {
 		fprintf (stderr, "%s\n", read_buf + 2);
 
 		/* Continue with the authentication protocol.  */
 	    }
-	    else if (strncmp (read_buf, "error ", 6) == 0)
+	    else if (!strncmp (read_buf, "error ", 6))
 	    {
 		char *p;
 
@@ -4004,9 +3759,9 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 
 		/* Now output the text.  */
 		fprintf (stderr, "%s\n", p);
-		error_exit();
+		exit (EXIT_FAILURE);
 	    }
-	    else if (strcmp (read_buf, "I LOVE YOU") == 0)
+	    else if (!strcmp (read_buf, "I LOVE YOU"))
 	    {
 		free (read_buf);
 		break;
@@ -4025,17 +3780,13 @@ auth_server (root, lto_server, lfrom_server, verify_only, do_gssapi, hostinfo)
 
 
 
-#ifdef CLIENT_SUPPORT
-/* void
- * connect_to_forked_server ( struct buffer **to_server,
- *                            struct buffer **from_server )
- *
+#if defined (CLIENT_SUPPORT) || defined (SERVER_SUPPORT)
+/* 
  * Connect to a forked server process.
  */
-void
-connect_to_forked_server (to_server, from_server)
-    struct buffer **to_server;
-    struct buffer **from_server;
+static void
+connect_to_forked_server (cvsroot_t *root, struct buffer **to_server_p,
+                          struct buffer **from_server_p)
 {
     int tofd, fromfd;
     int child_pid;
@@ -4043,273 +3794,51 @@ connect_to_forked_server (to_server, from_server)
     /* This is pretty simple.  All we need to do is choose the correct
        cvs binary and call piped_child. */
 
-     const char *command[3];
+     char *command[3];
 
-    command[0] = getenv ("CVS_SERVER");
-    if (! command[0])
-	command[0] = program_path;
+    command[0] = (root->cvs_server
+		  ? root->cvs_server : getenv ("CVS_SERVER"));
+    if (!command[0])
+# ifdef SERVER_SUPPORT
+        /* FIXME:
+         * I'm casting out the const below because I know that piped_child, the
+         * only function we pass COMMAND to, accepts COMMAND as a
+         * (char *const *) and won't alter it, and we don't alter it in this
+         * function.  This is yucky, there should be a way to declare COMMAND
+         * such that this casting isn't needed, but I don't know how.  If I
+         * declare it as (const char *command[]), the compiler complains about
+         * an incompatible arg 1 being passed to piped_child and if I declare
+         * it as (char *const command[3]), then the compiler complains when I
+         * assign values to command[i].
+         */
+	command[0] = (char *)program_path;
+# else /* SERVER_SUPPORT */
+    {
+	error( 0, 0, "You must set the CVS_SERVER environment variable when" );
+	error( 0, 0, "using the :fork: access method." );
+	error( 1, 0, "This CVS was not compiled with server support." );
+    }
+# endif /* SERVER_SUPPORT */
     
     command[1] = "server";
     command[2] = NULL;
 
-    if (trace)
-    {
-	fprintf (stderr, " -> Forking server: %s %s\n", command[0], command[1]);
-    }
+    TRACE (TRACE_FUNCTION, "Forking server: %s %s",
+	   command[0] ? command[0] : "(null)", command[1]);
 
-    child_pid = piped_child (command, &tofd, &fromfd);
+    child_pid = piped_child (command, &tofd, &fromfd, false);
     if (child_pid < 0)
 	error (1, 0, "could not fork server process");
 
-    make_bufs_from_fds (tofd, fromfd, child_pid, to_server, from_server, 0);
+    make_bufs_from_fds (tofd, fromfd, child_pid, root, to_server_p,
+                        from_server_p, 0);
 }
-#endif /* CLIENT_SUPPORT */
+#endif /* CLIENT_SUPPORT || SERVER_SUPPORT */
 
 
-
-#ifdef HAVE_KERBEROS
-/* This function has not been changed to deal with NO_SOCKET_TO_FD
-   (i.e., systems on which sockets cannot be converted to file
-   descriptors).  The first person to try building a kerberos client
-   on such a system (OS/2, Windows 95, and maybe others) will have to
-   take care of this.  */
-void
-start_tcp_server (root, to_server, from_server)
-    cvsroot_t *root;
-    struct buffer **to_server;
-    struct buffer **from_server;
-{
-    int s;
-    const char *portenv;
-    int port;
-    struct hostent *hp;
-    struct sockaddr_in sin;
-    char *hname;
-
-    s = socket (AF_INET, SOCK_STREAM, 0);
-    if (s < 0)
-	error (1, 0, "cannot create socket: %s", SOCK_STRERROR (SOCK_ERRNO));
-
-    port = get_cvs_port_number (root);
-
-    hp = init_sockaddr (&sin, root->hostname, port);
-
-    hname = xstrdup (hp->h_name);
-  
-    if (trace)
-    {
-	fprintf (stderr, " -> Connecting to %s(%s):%d\n",
-		 root->hostname,
-		 inet_ntoa (sin.sin_addr), port);
-    }
-
-    if (connect (s, (struct sockaddr *) &sin, sizeof sin) < 0)
-	error (1, 0, "connect to %s(%s):%d failed: %s",
-	       root->hostname,
-	       inet_ntoa (sin.sin_addr),
-	       port, SOCK_STRERROR (SOCK_ERRNO));
-
-    {
-	const char *realm;
-	struct sockaddr_in laddr;
-	int laddrlen;
-	KTEXT_ST ticket;
-	MSG_DAT msg_data;
-	CREDENTIALS cred;
-	int status;
-
-	realm = krb_realmofhost (hname);
-
-	laddrlen = sizeof (laddr);
-	if (getsockname (s, (struct sockaddr *) &laddr, &laddrlen) < 0)
-	    error (1, 0, "getsockname failed: %s", SOCK_STRERROR (SOCK_ERRNO));
-
-	/* We don't care about the checksum, and pass it as zero.  */
-	status = krb_sendauth (KOPT_DO_MUTUAL, s, &ticket, "rcmd",
-			       hname, realm, (unsigned long) 0, &msg_data,
-			       &cred, sched, &laddr, &sin, "KCVSV1.0");
-	if (status != KSUCCESS)
-	    error (1, 0, "kerberos authentication failed: %s",
-		   krb_get_err_text (status));
-	memcpy (kblock, cred.session, sizeof (C_Block));
-    }
-
-    close_on_exec (s);
-
-    free (hname);
-
-    /* Give caller the values it wants. */
-    make_bufs_from_fds (s, s, 0, to_server, from_server, 1);
-}
-
-#endif /* HAVE_KERBEROS */
-
-#ifdef HAVE_GSSAPI
-
-/* Receive a given number of bytes.  */
-
-static void
-recv_bytes (sock, buf, need)
-     int sock;
-     char *buf;
-     int need;
-{
-    while (need > 0)
-    {
-	int got;
-
-	got = recv (sock, buf, need, 0);
-	if (got <= 0)
-	    error (1, 0, "recv() from server %s: %s", current_parsed_root->hostname,
-		   got == 0 ? "EOF" : SOCK_STRERROR (SOCK_ERRNO));
-
-	buf += got;
-	need -= got;
-    }
-}
-
-/* Connect to the server using GSSAPI authentication.  */
-
-/* FIXME
- *
- * This really needs to be rewritten to use a buffer and not a socket.
- * This would enable gserver to work with the SSL code I'm about to commit
- * since the SSL connection is going to look like a FIFO and not a socket.
- *
- * I think, basically, it will need to use buf_output and buf_read directly
- * since I don't think there is a read_bytes function - only read_line.
- *
- * recv_bytes could then be removed too.
- *
- * Besides, I added some cruft to reenable the socket which shouldn't be
- * there.  This would also enable its removal.
- */
-#define BUFSIZE 1024
-static int
-connect_to_gserver (root, sock, hostinfo)
-    cvsroot_t *root;
-    int sock;
-    struct hostent *hostinfo;
-{
-    char *str;
-    char buf[BUFSIZE];
-    gss_buffer_desc *tok_in_ptr, tok_in, tok_out;
-    OM_uint32 stat_min, stat_maj;
-    gss_name_t server_name;
-
-    str = "BEGIN GSSAPI REQUEST\012";
-
-    if (send (sock, str, strlen (str), 0) < 0)
-	error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
-
-    if (strlen (hostinfo->h_name) > BUFSIZE - 5)
-	error (1, 0, "Internal error: hostname exceeds length of buffer");
-    sprintf (buf, "cvs@%s", hostinfo->h_name);
-    tok_in.length = strlen (buf);
-    tok_in.value = buf;
-    gss_import_name (&stat_min, &tok_in, GSS_C_NT_HOSTBASED_SERVICE,
-		     &server_name);
-
-    tok_in_ptr = GSS_C_NO_BUFFER;
-    gcontext = GSS_C_NO_CONTEXT;
-
-    do
-    {
-	stat_maj = gss_init_sec_context (&stat_min, GSS_C_NO_CREDENTIAL,
-					 &gcontext, server_name,
-					 GSS_C_NULL_OID,
-					 (GSS_C_MUTUAL_FLAG
-					  | GSS_C_REPLAY_FLAG),
-					 0, NULL, tok_in_ptr, NULL, &tok_out,
-					 NULL, NULL);
-	if (stat_maj != GSS_S_COMPLETE && stat_maj != GSS_S_CONTINUE_NEEDED)
-	{
-	    OM_uint32 message_context;
-	    OM_uint32 new_stat_min;
-
-	    message_context = 0;
-	    gss_display_status (&new_stat_min, stat_maj, GSS_C_GSS_CODE,
-                                GSS_C_NULL_OID, &message_context, &tok_out);
-	    error (0, 0, "GSSAPI authentication failed: %s",
-		   (char *) tok_out.value);
-
-	    message_context = 0;
-	    gss_display_status (&new_stat_min, stat_min, GSS_C_MECH_CODE,
-				GSS_C_NULL_OID, &message_context, &tok_out);
-	    error (1, 0, "GSSAPI authentication failed: %s",
-		   (char *) tok_out.value);
-	}
-
-	if (tok_out.length == 0)
-	{
-	    tok_in.length = 0;
-	}
-	else
-	{
-	    char cbuf[2];
-	    int need;
-
-	    cbuf[0] = (tok_out.length >> 8) & 0xff;
-	    cbuf[1] = tok_out.length & 0xff;
-	    if (send (sock, cbuf, 2, 0) < 0)
-		error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
-	    if (send (sock, tok_out.value, tok_out.length, 0) < 0)
-		error (1, 0, "cannot send: %s", SOCK_STRERROR (SOCK_ERRNO));
-
-	    recv_bytes (sock, cbuf, 2);
-	    need = ((cbuf[0] & 0xff) << 8) | (cbuf[1] & 0xff);
-
-	    if (need > sizeof buf)
-	    {
-		ssize_t got;
-		size_t total;
-
-		/* This usually means that the server sent us an error
-		   message.  Read it byte by byte and print it out.
-		   FIXME: This is a terrible error handling strategy.
-		   However, even if we fix the server, we will still
-		   want to do this to work with older servers.  */
-		buf[0] = cbuf[0];
-		buf[1] = cbuf[1];
-		total = 2;
-		while (got = recv (sock, buf + total, sizeof buf - total, 0))
-		{
-		    if (got < 0)
-			error (1, 0, "recv() from server %s: %s",
-			       root->hostname, SOCK_STRERROR (SOCK_ERRNO));
-		    total += got;
-		    if (strrchr (buf + total - got, '\n'))
-			break;
-		}
-		buf[total] = '\0';
-		if (buf[total - 1] == '\n')
-		    buf[total - 1] = '\0';
-		error (1, 0, "error from server %s: %s", root->hostname,
-		       buf);
-	    }
-
-	    recv_bytes (sock, buf, need);
-	    tok_in.length = need;
-	}
-
-	tok_in.value = buf;
-	tok_in_ptr = &tok_in;
-    }
-    while (stat_maj == GSS_S_CONTINUE_NEEDED);
-
-    return 1;
-}
-
-#endif /* HAVE_GSSAPI */
-
-
-
-static int send_variable_proc PROTO ((Node *, void *));
 
 static int
-send_variable_proc (node, closure)
-    Node *node;
-    void *closure;
+send_variable_proc (Node *node, void *closure)
 {
     send_to_server ("Set ", 0);
     send_to_server (node->key, 0);
@@ -4321,54 +3850,62 @@ send_variable_proc (node, closure)
 
 
 
-/* Contact the server.  */
+/* Open up the connection to the server and perform any necessary
+ * authentication.
+ */
 void
-start_server ()
+open_connection_to_server (cvsroot_t *root, struct buffer **to_server_p,
+                           struct buffer **from_server_p)
 {
-    int rootless;
-    char *log = getenv ("CVS_CLIENT_LOG");
-
-    /* Clear our static variables for this invocation. */
-    if (toplevel_repos != NULL)
-	free (toplevel_repos);
-    toplevel_repos = NULL;
-
     /* Note that generally speaking we do *not* fall back to a different
        way of connecting if the first one does not work.  This is slow
        (*really* slow on a 14.4kbps link); the clean way to have a CVS
        which supports several ways of connecting is with access methods.  */
 
-    switch (current_parsed_root->method)
-    {
+    TRACE (TRACE_FUNCTION, "open_connection_to_server (%s)", root->original);
 
-#ifdef AUTH_CLIENT_SUPPORT
+    switch (root->method)
+    {
 	case pserver_method:
+#ifdef AUTH_CLIENT_SUPPORT
 	    /* Toss the return value.  It will die with an error message if
 	     * anything goes wrong anyway.
 	     */
-	    connect_to_pserver (current_parsed_root, &to_server, &from_server, 0, 0);
-	    break;
+	    connect_to_pserver (root, to_server_p, from_server_p, 0, 0);
+#else /* AUTH_CLIENT_SUPPORT */
+	    error (0, 0, "CVSROOT is set for a pserver access method but your");
+	    error (1, 0, "CVS executable doesn't support it.");
 #endif /* AUTH_CLIENT_SUPPORT */
+	    break;
 
-#if HAVE_KERBEROS
 	case kserver_method:
-	    start_tcp_server (current_parsed_root, &to_server, &from_server);
-	    break;
+#if HAVE_KERBEROS
+	    start_kerberos4_server (root, to_server_p, 
+                                    from_server_p);
+#else /* !HAVE_KERBEROS */
+	    error (0, 0,
+	           "CVSROOT is set for a kerberos access method but your");
+	    error (1, 0, "CVS executable doesn't support it.");
 #endif /* HAVE_KERBEROS */
-
-#ifdef HAVE_GSSAPI
-	case gserver_method:
-	    /* GSSAPI authentication is handled by the pserver.  */
-	    connect_to_pserver (current_parsed_root, &to_server, &from_server, 0, 1);
 	    break;
+
+	case gserver_method:
+#ifdef HAVE_GSSAPI
+	    /* GSSAPI authentication is handled by the pserver.  */
+	    connect_to_pserver (root, to_server_p, from_server_p, 0, 1);
+#else /* !HAVE_GSSAPI */
+	    error (0, 0, "CVSROOT is set for a GSSAPI access method but your");
+	    error (1, 0, "CVS executable doesn't support it.");
 #endif /* HAVE_GSSAPI */
+	    break;
 
 	case ext_method:
 #ifdef NO_EXT_METHOD
 	    error (0, 0, ":ext: method not supported by this port of CVS");
 	    error (1, 0, "try :server: instead");
 #else /* ! NO_EXT_METHOD */
-	    start_rsh_server (current_parsed_root, &to_server, &from_server);
+	    start_rsh_server (root, to_server_p,
+                              from_server_p);
 #endif /* NO_EXT_METHOD */
 	    break;
 
@@ -4377,12 +3914,15 @@ start_server ()
 	    {
 	    int tofd, fromfd;
 	    START_SERVER (&tofd, &fromfd, getcaller (),
-			  current_parsed_root->username, current_parsed_root->hostname,
-			  current_parsed_root->directory);
+			  root->username,
+                          root->hostname,
+			  root->directory);
 # ifdef START_SERVER_RETURNS_SOCKET
-	    make_bufs_from_fds (tofd, fromfd, 0, &to_server, &from_server, 1);
+	    make_bufs_from_fds (tofd, fromfd, 0, root, to_server_p,
+                                from_server_p, 1);
 # else /* ! START_SERVER_RETURNS_SOCKET */
-	    make_bufs_from_fds (tofd, fromfd, 0, &to_server, &from_server, 0);
+	    make_bufs_from_fds (tofd, fromfd, 0, root, to_server_p,
+                                from_server_p, 0);
 # endif /* START_SERVER_RETURNS_SOCKET */
 	    }
 #else /* ! START_SERVER */
@@ -4395,128 +3935,140 @@ start_server ()
 	    break;
 
         case fork_method:
-	    connect_to_forked_server (&to_server, &from_server);
+	    connect_to_forked_server (root, to_server_p, from_server_p);
 	    break;
 
 	default:
-	    error (1, 0, "\
-(start_server internal error): unknown access method");
+	    error (1, 0,
+                   "(start_server internal error): unknown access method");
 	    break;
     }
 
     /* "Hi, I'm Darlene and I'll be your server tonight..." */
     server_started = 1;
+}
 
-    /* Set up logfiles, if any.
-     *
-     * We do this _after_ authentication on purpose.  Wouldn't really like to
-     * worry about logging passwords...
-     */
-    if (log)
+
+
+/* Contact the server.  */
+void
+start_server (void)
+{
+    bool rootless;
+    int status;
+    bool have_global;
+
+    do
     {
-	int len = strlen (log);
-	char *buf = xmalloc (len + 5);
-	char *p;
-	FILE *fp;
+	/* Clear our static variables for this invocation. */
+	if (toplevel_repos)
+	    free (toplevel_repos);
+	toplevel_repos = NULL;
 
-	strcpy (buf, log);
-	p = buf + len;
+	open_connection_to_server (current_parsed_root, &global_to_server,
+				   &global_from_server);
+	setup_logfiles ("CVS_CLIENT_LOG", &global_to_server,
+			&global_from_server);
 
-	/* Open logfiles in binary mode so that they reflect
-	   exactly what was transmitted and received (that is
-	   more important than that they be maximally
-	   convenient to view).  */
-	/* Note that if we create several connections in a single CVS client
-	   (currently used by update.c), then the last set of logfiles will
-	   overwrite the others.  There is currently no way around this.  */
-	strcpy (p, ".in");
-	fp = open_file (buf, "wb");
-        if (fp == NULL)
-	    error (0, errno, "opening to-server logfile %s", buf);
-	else
-	    to_server = log_buffer_initialize (to_server, fp, 0,
-					       (BUFMEMERRPROC) NULL);
-
-	strcpy (p, ".out");
-	fp = open_file (buf, "wb");
-        if (fp == NULL)
-	    error (0, errno, "opening from-server logfile %s", buf);
-	else
-	    from_server = log_buffer_initialize (from_server, fp, 1,
-						 (BUFMEMERRPROC) NULL);
-
-	free (buf);
-    }
-
-    /* Clear static variables.  */
-    if (toplevel_repos != NULL)
-	free (toplevel_repos);
-    toplevel_repos = NULL;
-    if (last_repos != NULL)
-	free (last_repos);
-    last_repos = NULL;
-    if (last_update_dir != NULL)
-	free (last_update_dir);
-    last_update_dir = NULL;
-    stored_checksum_valid = 0;
-    if (stored_mode != NULL)
-    {
-	free (stored_mode);
-	stored_mode = NULL;
-    }
-
-    rootless = (strcmp (cvs_cmd_name, "init") == 0);
-    if (!rootless)
-    {
-	send_to_server ("Root ", 0);
-	send_to_server (current_parsed_root->directory, 0);
-	send_to_server ("\012", 1);
-    }
-
-    {
-	struct response *rs;
-
-	send_to_server ("Valid-responses", 0);
-
-	for (rs = responses; rs->name != NULL; ++rs)
+	/* Clear static variables.  */
+	if (toplevel_repos)
 	{
-	    send_to_server (" ", 0);
-	    send_to_server (rs->name, 0);
+	    free (toplevel_repos);
+	    toplevel_repos = NULL;
 	}
-	send_to_server ("\012", 1);
-    }
-    send_to_server ("valid-requests\012", 0);
-
-    if (get_server_responses ())
-	error_exit ();
-
-    /*
-     * Now handle global options.
-     *
-     * -H, -f, -d, -e should be handled OK locally.
-     *
-     * -b we ignore (treating it as a server installation issue).
-     * FIXME: should be an error message.
-     *
-     * -v we print local version info; FIXME: Add a protocol request to get
-     * the version from the server so we can print that too.
-     *
-     * -l -t -r -w -q -n and -Q need to go to the server.
-     */
-
-    {
-	int have_global = supported_request ("Global_option");
-
-	if (noexec)
+	if (last_repos)
 	{
-	    if (have_global)
+	    free (last_repos);
+	    last_repos = NULL;
+	}
+	if (last_update_dir)
+	{
+	    free (last_update_dir);
+	    last_update_dir = NULL;
+	}
+	stored_checksum_valid = 0;
+	if (stored_mode)
+	{
+	    free (stored_mode);
+	    stored_mode = NULL;
+	}
+
+	rootless = !strcmp (cvs_cmd_name, "init");
+	if (!rootless)
+	{
+	    send_to_server ("Root ", 0);
+	    send_to_server (current_parsed_root->directory, 0);
+	    send_to_server ("\012", 1);
+	}
+
+	{
+	    struct response *rs;
+	    bool suppress_redirect = !current_parsed_root->redirect;
+
+	    send_to_server ("Valid-responses", 0);
+
+	    for (rs = responses; rs->name; ++rs)
 	    {
-		send_to_server ("Global_option -n\012", 0);
+		if (suppress_redirect && !strcmp (rs->name, "Redirect"))
+		    continue;
+
+		send_to_server (" ", 0);
+		send_to_server (rs->name, 0);
+	    }
+	    send_to_server ("\012", 1);
+	}
+	send_to_server ("valid-requests\012", 0);
+
+	if (get_server_responses ())
+	    exit (EXIT_FAILURE);
+
+	have_global = supported_request ("Global_option");
+
+	/* Encryption needs to come before compression.  Good encryption can
+	 * render compression useless in the other direction.
+	 */
+	if (cvsencrypt && !rootless)
+	{
+#ifdef ENCRYPTION
+	    /* Turn on encryption before turning on compression.  We do
+	     * not want to try to compress the encrypted stream.  Instead,
+	     * we want to encrypt the compressed stream.  If we can't turn
+	     * on encryption, bomb out; don't let the user think the data
+	     * is being encrypted when it is not.
+	     */
+#  ifdef HAVE_KERBEROS
+	    if (current_parsed_root->method == kserver_method)
+	    {
+		if (!supported_request ("Kerberos-encrypt"))
+		    error (1, 0, "This server does not support encryption");
+		send_to_server ("Kerberos-encrypt\012", 0);
+	       initialize_kerberos4_encryption_buffers (&global_to_server,
+							&global_from_server);
 	    }
 	    else
+#  endif /* HAVE_KERBEROS */
+#  ifdef HAVE_GSSAPI
+	    if (current_parsed_root->method == gserver_method)
+	    {
+		if (!supported_request ("Gssapi-encrypt"))
+		    error (1, 0, "This server does not support encryption");
+		send_to_server ("Gssapi-encrypt\012", 0);
+		initialize_gssapi_buffers (&global_to_server,
+					   &global_from_server);
+		cvs_gssapi_encrypt = 1;
+	    }
+	    else
+#  endif /* HAVE_GSSAPI */
 		error (1, 0,
-		       "This server does not support the global -n option.");
+"Encryption is only supported when using GSSAPI or Kerberos");
+#else /* ! ENCRYPTION */
+	    error (1, 0, "This client does not support encryption");
+#endif /* ! ENCRYPTION */
 	}
+
+	/* Send this before compression to enable supression of the
+	 * "Forcing compression level Z" messages.
+	 */
 	if (quiet)
 	{
 	    if (have_global)
@@ -4537,26 +4089,117 @@ start_server ()
 		error (1, 0,
 		       "This server does not support the global -Q option.");
 	}
-	if (!cvswrite)
+
+	/* Compression needs to come before any of the rooted requests to
+	 * work with compression limits.
+	 */
+	if (!rootless && (gzip_level || force_gzip))
 	{
-	    if (have_global)
+	    if (supported_request ("Gzip-stream"))
 	    {
-		send_to_server ("Global_option -r\012", 0);
+		char *gzip_level_buf = Xasprintf ("%d", gzip_level);
+		send_to_server ("Gzip-stream ", 0);
+		send_to_server (gzip_level_buf, 0);
+		free (gzip_level_buf);
+		send_to_server ("\012", 1);
+
+		/* All further communication with the server will be
+		   compressed.  */
+
+		global_to_server =
+		    compress_buffer_initialize (global_to_server, 0,
+					        gzip_level, NULL);
+		global_from_server =
+		    compress_buffer_initialize (global_from_server, 1,
+						gzip_level, NULL);
 	    }
+#ifndef NO_CLIENT_GZIP_PROCESS
+	    else if (supported_request ("gzip-file-contents"))
+	    {
+		char *gzip_level_buf = Xasprintf ("%d", gzip_level);
+		send_to_server ("gzip-file-contents ", 0);
+		send_to_server (gzip_level_buf, 0);
+		free (gzip_level_buf);
+		send_to_server ("\012", 1);
+
+		file_gzip_level = gzip_level;
+	    }
+#endif
 	    else
-		error (1, 0,
-		       "This server does not support the global -r option.");
+	    {
+		fprintf (stderr, "server doesn't support gzip-file-contents\n");
+		/* Setting gzip_level to 0 prevents us from giving the
+		   error twice if update has to contact the server again
+		   to fetch unpatchable files.  */
+		gzip_level = 0;
+	    }
 	}
-	if (trace)
+
+	if (client_referrer && supported_request ("Referrer"))
 	{
-	    if (have_global)
-	    {
-		send_to_server ("Global_option -t\012", 0);
-	    }
-	    else
-		error (1, 0,
-		       "This server does not support the global -t option.");
+	    send_to_server ("Referrer ", 0);
+	    send_to_server (client_referrer->original, 0);
+	    send_to_server ("\012", 0);
 	}
+
+	/* FIXME: I think we should still be sending this for init.  */
+	if (!rootless && supported_request ("Command-prep"))
+	{
+	    send_to_server ("Command-prep ", 0);
+	    send_to_server (cvs_cmd_name, 0);
+	    send_to_server ("\012", 0);
+	    status = get_server_responses ();
+	    if (status == 1) exit (EXIT_FAILURE);
+	    if (status == 2) close_connection_to_server (&global_to_server,
+							 &global_from_server);
+	}
+	else status = 0;
+    } while (status == 2);
+
+
+    /*
+     * Now handle global options.
+     *
+     * -H, -f, -d, -e should be handled OK locally.
+     *
+     * -b we ignore (treating it as a server installation issue).
+     * FIXME: should be an error message.
+     *
+     * -v we print local version info; FIXME: Add a protocol request to get
+     * the version from the server so we can print that too.
+     *
+     * -l -t -r -w -q -n and -Q need to go to the server.
+     */
+    if (noexec)
+    {
+	if (have_global)
+	{
+	    send_to_server ("Global_option -n\012", 0);
+	}
+	else
+	    error (1, 0,
+		   "This server does not support the global -n option.");
+    }
+    if (!cvswrite)
+    {
+	if (have_global)
+	{
+	    send_to_server ("Global_option -r\012", 0);
+	}
+	else
+	    error (1, 0,
+		   "This server does not support the global -r option.");
+    }
+    if (trace)
+    {
+	if (have_global)
+	{
+	    int count = trace;
+	    while (count--) send_to_server ("Global_option -t\012", 0);
+	}
+	else
+	    error (1, 0,
+		   "This server does not support the global -t option.");
     }
 
     /* Find out about server-side cvswrappers.  An extra network
@@ -4567,8 +4210,7 @@ start_server ()
        reason to bother would be so we could make add work without
        contacting the server, I suspect).  */
 
-    if ((strcmp (cvs_cmd_name, "import") == 0)
-        || (strcmp (cvs_cmd_name, "add") == 0))
+    if (!strcmp (cvs_cmd_name, "import") || !strcmp (cvs_cmd_name, "add"))
     {
 	if (supported_request ("wrapper-sendme-rcsOptions"))
 	{
@@ -4577,95 +4219,6 @@ start_server ()
 	    err = get_server_responses ();
 	    if (err != 0)
 		error (err, 0, "error reading from server");
-	}
-    }
-
-    if (cvsencrypt && !rootless)
-    {
-#ifdef ENCRYPTION
-	/* Turn on encryption before turning on compression.  We do
-           not want to try to compress the encrypted stream.  Instead,
-           we want to encrypt the compressed stream.  If we can't turn
-           on encryption, bomb out; don't let the user think the data
-           is being encrypted when it is not.  */
-#ifdef HAVE_KERBEROS
-	if (current_parsed_root->method == kserver_method)
-	{
-	    if (! supported_request ("Kerberos-encrypt"))
-		error (1, 0, "This server does not support encryption");
-	    send_to_server ("Kerberos-encrypt\012", 0);
-	    to_server = krb_encrypt_buffer_initialize (to_server, 0, sched,
-						       kblock,
-						       (BUFMEMERRPROC) NULL);
-	    from_server = krb_encrypt_buffer_initialize (from_server, 1,
-							 sched, kblock,
-							 (BUFMEMERRPROC) NULL);
-	}
-	else
-#endif /* HAVE_KERBEROS */
-#ifdef HAVE_GSSAPI
-	if (current_parsed_root->method == gserver_method)
-	{
-	    if (! supported_request ("Gssapi-encrypt"))
-		error (1, 0, "This server does not support encryption");
-	    send_to_server ("Gssapi-encrypt\012", 0);
-	    to_server = cvs_gssapi_wrap_buffer_initialize (to_server, 0,
-							   gcontext,
-							   ((BUFMEMERRPROC)
-							    NULL));
-	    from_server = cvs_gssapi_wrap_buffer_initialize (from_server, 1,
-							     gcontext,
-							     ((BUFMEMERRPROC)
-							      NULL));
-	    cvs_gssapi_encrypt = 1;
-	}
-	else
-#endif /* HAVE_GSSAPI */
-	    error (1, 0, "Encryption is only supported when using GSSAPI or Kerberos");
-#else /* ! ENCRYPTION */
-	error (1, 0, "This client does not support encryption");
-#endif /* ! ENCRYPTION */
-    }
-
-    if (gzip_level && !rootless)
-    {
-	if (supported_request ("Gzip-stream"))
-	{
-	    char gzip_level_buf[5];
-	    send_to_server ("Gzip-stream ", 0);
-	    sprintf (gzip_level_buf, "%d", gzip_level);
-	    send_to_server (gzip_level_buf, 0);
-	    send_to_server ("\012", 1);
-
-	    /* All further communication with the server will be
-               compressed.  */
-
-	    to_server = compress_buffer_initialize (to_server, 0, gzip_level,
-						    (BUFMEMERRPROC) NULL);
-	    from_server = compress_buffer_initialize (from_server, 1,
-						      gzip_level,
-						      (BUFMEMERRPROC) NULL);
-	}
-#ifndef NO_CLIENT_GZIP_PROCESS
-	else if (supported_request ("gzip-file-contents"))
-	{
-            char gzip_level_buf[5];
-	    send_to_server ("gzip-file-contents ", 0);
-            sprintf (gzip_level_buf, "%d", gzip_level);
-	    send_to_server (gzip_level_buf, 0);
-
-	    send_to_server ("\012", 1);
-
-	    file_gzip_level = gzip_level;
-	}
-#endif
-	else
-	{
-	    fprintf (stderr, "server doesn't support gzip-file-contents\n");
-	    /* Setting gzip_level to 0 prevents us from giving the
-               error twice if update has to contact the server again
-               to fetch unpatchable files.  */
-	    gzip_level = 0;
 	}
     }
 
@@ -4683,14 +4236,8 @@ start_server ()
 		error (1, 0,
 		       "This server does not support stream authentication");
 	    send_to_server ("Gssapi-authenticate\012", 0);
-	    to_server = cvs_gssapi_wrap_buffer_initialize (to_server, 0,
-							   gcontext,
-							   ((BUFMEMERRPROC)
-							    NULL));
-	    from_server = cvs_gssapi_wrap_buffer_initialize (from_server, 1,
-							     gcontext,
-							     ((BUFMEMERRPROC)
-							      NULL));
+	    initialize_gssapi_buffers(&global_to_server, &global_from_server);
+
 	}
 	else
 	    error (1, 0, "Stream authentication is only supported when using GSSAPI");
@@ -4710,206 +4257,20 @@ start_server ()
 
 
 
-#ifndef NO_EXT_METHOD
-
-/* Contact the server by starting it with rsh.  */
-
-/* Right now, we have two different definitions for this function,
-   depending on whether we start the rsh server using popenRW or not.
-   This isn't ideal, and the best thing would probably be to change
-   the OS/2 port to be more like the regular Unix client (i.e., by
-   implementing piped_child)... but I'm doing something else at the
-   moment, and wish to make only one change at a time.  -Karl */
-
-# ifdef START_RSH_WITH_POPEN_RW
-
-/* This is actually a crock -- it's OS/2-specific, for no one else
-   uses it.  If I get time, I want to make piped_child and all the
-   other stuff in os2/run.c work right.  In the meantime, this gets us
-   up and running, and that's most important. */
-
-static void
-start_rsh_server (root, to_server, from_server)
-    cvsroot_t *root;
-    struct buffer **to_server;
-    struct buffer **from_server;
-{
-    int pipes[2];
-    int child_pid;
-
-    /* If you're working through firewalls, you can set the
-       CVS_RSH environment variable to a script which uses rsh to
-       invoke another rsh on a proxy machine.  */
-    char *cvs_rsh = getenv ("CVS_RSH");
-    char *cvs_server = getenv ("CVS_SERVER");
-    int i = 0;
-    /* This needs to fit "rsh", "-b", "-l", "USER", "host",
-       "cmd (w/ args)", and NULL.  We leave some room to grow. */
-    char *rsh_argv[10];
-
-    if (!cvs_rsh)
-	/* People sometimes suggest or assume that this should default
-	   to "remsh" on systems like HPUX in which that is the
-	   system-supplied name for the rsh program.  However, that
-	   causes various problems (keep in mind that systems such as
-	   HPUX might have non-system-supplied versions of "rsh", like
-	   a Kerberized one, which one might want to use).  If we
-	   based the name on what is found in the PATH of the person
-	   who runs configure, that would make it harder to
-	   consistently produce the same result in the face of
-	   different people producing binary distributions.  If we
-	   based it on "remsh" always being the default for HPUX
-	   (e.g. based on uname), that might be slightly better but
-	   would require us to keep track of what the defaults are for
-	   each system type, and probably would cope poorly if the
-	   existence of remsh or rsh varies from OS version to OS
-	   version.  Therefore, it seems best to have the default
-	   remain "rsh", and tell HPUX users to specify remsh, for
-	   example in CVS_RSH or other such mechanisms to be devised,
-	   if that is what they want (the manual already tells them
-	   that).  */
-	cvs_rsh = "rsh";
-    if (!cvs_server)
-	cvs_server = "cvs";
-
-    /* The command line starts out with rsh. */
-    rsh_argv[i++] = cvs_rsh;
-
-#   ifdef RSH_NEEDS_BINARY_FLAG
-    /* "-b" for binary, under OS/2. */
-    rsh_argv[i++] = "-b";
-#   endif /* RSH_NEEDS_BINARY_FLAG */
-
-    /* Then we strcat more things on the end one by one. */
-    if (root->username != NULL)
-    {
-	rsh_argv[i++] = "-l";
-	rsh_argv[i++] = root->username;
-    }
-
-    rsh_argv[i++] = root->hostname;
-    rsh_argv[i++] = cvs_server;
-    rsh_argv[i++] = "server";
-
-    /* Mark the end of the arg list. */
-    rsh_argv[i]   = (char *) NULL;
-
-    if (trace)
-    {
-	fprintf (stderr, " -> Starting server: ");
-	for (i = 0; rsh_argv[i]; i++)
-	    fprintf (stderr, "%s ", rsh_argv[i]);
-	putc ('\n', stderr);
-    }
-
-    /* Do the deed. */
-    child_pid = popenRW (rsh_argv, pipes);
-    if (child_pid < 0)
-	error (1, errno, "cannot start server via rsh");
-
-    /* Give caller the file descriptors in a form it can deal with. */
-    make_bufs_from_fds (pipes[0], pipes[1], child_pid, to_server, from_server, 0);
-}
-
-# else /* ! START_RSH_WITH_POPEN_RW */
-
-static void
-start_rsh_server (root, to_server, from_server)
-    cvsroot_t *root;
-    struct buffer **to_server;
-    struct buffer **from_server;
-{
-    /* If you're working through firewalls, you can set the
-       CVS_RSH environment variable to a script which uses rsh to
-       invoke another rsh on a proxy machine.  */
-    char *cvs_rsh = getenv ("CVS_RSH");
-    char *cvs_server = getenv ("CVS_SERVER");
-    char *command;
-    int tofd, fromfd;
-    int child_pid;
-
-    if (!cvs_rsh)
-	cvs_rsh = "rsh";
-    if (!cvs_server)
-	cvs_server = "cvs";
-
-    /* Pass the command to rsh as a single string.  This shouldn't
-       affect most rsh servers at all, and will pacify some buggy
-       versions of rsh that grab switches out of the middle of the
-       command (they're calling the GNU getopt routines incorrectly).  */
-    command = xmalloc (strlen (cvs_server) + 8);
-
-    /* If you are running a very old (Nov 3, 1994, before 1.5)
-     * version of the server, you need to make sure that your .bashrc
-     * on the server machine does not set CVSROOT to something
-     * containing a colon (or better yet, upgrade the server).  */
-    sprintf (command, "%s server", cvs_server);
-
-    {
-        const char *argv[10];
-	const char **p = argv;
-
-	*p++ = cvs_rsh;
-
-	/* If the login names differ between client and server
-	 * pass it on to rsh.
-	 */
-	if (root->username != NULL)
-	{
-	    *p++ = "-l";
-	    *p++ = root->username;
-	}
-
-	*p++ = root->hostname;
-	*p++ = command;
-	*p++ = NULL;
-
-	if (trace)
-        {
-	    int i;
-
-            fprintf (stderr, " -> Starting server: ");
-	    for (i = 0; argv[i]; i++)
-	        fprintf (stderr, "%s ", argv[i]);
-	    putc ('\n', stderr);
-	}
-	child_pid = piped_child (argv, &tofd, &fromfd);
-
-	if (child_pid < 0)
-	    error (1, errno, "cannot start server via rsh");
-    }
-    free (command);
-
-    make_bufs_from_fds (tofd, fromfd, child_pid, to_server, from_server, 0);
-}
-
-# endif /* START_RSH_WITH_POPEN_RW */
-
-#endif /* NO_EXT_METHOD */
-
-
-
 /* Send an argument STRING.  */
 void
-send_arg (string)
-    char *string;
+send_arg (const char *string)
 {
-    char buf[1];
-    char *p = string;
+    const char *p = string;
 
     send_to_server ("Argument ", 0);
 
     while (*p)
     {
 	if (*p == '\n')
-	{
 	    send_to_server ("\012Argumentx ", 0);
-	}
 	else
-        {
-	    buf[0] = *p;
-	    send_to_server (buf, 1);
-        }
+	    send_to_server (p, 1);
 	++p;
     }
     send_to_server ("\012", 1);
@@ -4917,31 +4278,24 @@ send_arg (string)
 
 
 
-static void send_modified PROTO ((const char *, const char *, Vers_TS *));
-
 /* VERS->OPTIONS specifies whether the file is binary or not.  NOTE: BEFORE
    using any other fields of the struct vers, we would need to fix
    client_process_import_file to set them up.  */
-
 static void
-send_modified (file, short_pathname, vers)
-    const char *file;
-    const char *short_pathname;
-    Vers_TS *vers;
+send_modified (const char *file, const char *short_pathname, Vers_TS *vers)
 {
     /* File was modified, send it.  */
     struct stat sb;
     int fd;
-    char *buf;
+    unsigned char *buf;
     char *mode_string;
     size_t bufsize;
     int bin;
 
-    if (trace)
-	(void) fprintf (stderr, " -> Sending file `%s' to server\n", file);
+    TRACE (TRACE_FUNCTION, "Sending file `%s' to server", file);
 
     /* Don't think we can assume fstat exists.  */
-    if ( CVS_STAT (file, &sb) < 0)
+    if (stat (file, &sb) < 0)
 	error (1, errno, "reading %s", short_pathname);
 
     mode_string = mode_to_string (sb.st_mode);
@@ -4958,7 +4312,7 @@ send_modified (file, short_pathname, vers)
        If so, make sure to open it in binary mode: */
 
     if (vers && vers->options)
-      bin = !(strcmp (vers->options, "-kb"));
+      bin = !strcmp (vers->options, "-kb");
     else
       bin = 0;
 
@@ -4969,12 +4323,13 @@ send_modified (file, short_pathname, vers)
 	   conversion, use convert_file which can compensate
 	   (FIXME: we could just use stdio instead which would
 	   avoid the whole problem).  */
-	char tfile[1024]; strcpy(tfile, file); strcat(tfile, ".CVSBFCTMP");
+	char *tfile = Xasprintf ("%s.CVSBFCTMP", file);
 	convert_file (file, O_RDONLY,
 		      tfile, O_WRONLY | O_CREAT | O_TRUNC | OPEN_BINARY);
 	fd = CVS_OPEN (tfile, O_RDONLY | OPEN_BINARY);
 	if (fd < 0)
 	    error (1, errno, "reading %s", short_pathname);
+	free (tfile);
     }
     else
 	fd = CVS_OPEN (file, O_RDONLY | OPEN_BINARY);
@@ -4989,7 +4344,7 @@ send_modified (file, short_pathname, vers)
     {
 	size_t newsize = 0;
 
-	if (read_and_gzip (fd, short_pathname, (unsigned char **)&buf,
+	if (read_and_gzip (fd, short_pathname, &buf,
 			   &bufsize, &newsize,
 			   file_gzip_level))
 	    error (1, 0, "aborting due to compression error");
@@ -5016,7 +4371,7 @@ send_modified (file, short_pathname, vers)
     	int newsize;
 
         {
-	    char *bufp = buf;
+	    unsigned char *bufp = buf;
 	    int len;
 
 	    /* FIXME: This is gross.  It assumes that we might read
@@ -5049,9 +4404,10 @@ send_modified (file, short_pathname, vers)
 #ifdef BROKEN_READWRITE_CONVERSION
 	if (!bin)
 	{
-	    char tfile[1024]; strcpy(tfile, file); strcat(tfile, ".CVSBFCTMP");
+	    char *tfile = Xasprintf ("%s.CVSBFCTMP", file);
 	    if (CVS_UNLINK (tfile) < 0)
 		error (0, errno, "warning: can't remove temp file %s", tfile);
+	    free (tfile);
 	}
 #endif
 
@@ -5066,10 +4422,11 @@ send_modified (file, short_pathname, vers)
     free (mode_string);
 }
 
+
+
 /* The address of an instance of this structure is passed to
    send_fileproc, send_filesdoneproc, and send_direntproc, as the
    callerdat parameter.  */
-
 struct send_data
 {
     /* Each of the following flags are zero for clear or nonzero for set.  */
@@ -5079,15 +4436,11 @@ struct send_data
     int backup_modified;
 };
 
-static int send_fileproc PROTO ((void *callerdat, struct file_info *finfo));
-
 /* Deal with one file.  */
 static int
-send_fileproc (callerdat, finfo)
-    void *callerdat;
-    struct file_info *finfo;
+send_fileproc (void *callerdat, struct file_info *finfo)
 {
-    struct send_data *args = (struct send_data *) callerdat;
+    struct send_data *args = callerdat;
     Vers_TS *vers;
     struct file_info xfinfo;
     /* File name to actually use.  Might differ in case from
@@ -5101,12 +4454,12 @@ send_fileproc (callerdat, finfo)
     xfinfo.rcs = NULL;
     vers = Version_TS (&xfinfo, NULL, NULL, NULL, 0, 0);
 
-    if (vers->entdata != NULL)
+    if (vers->entdata)
 	filename = vers->entdata->user;
     else
 	filename = finfo->file;
 
-    if (vers->vn_user != NULL)
+    if (vers->vn_user)
     {
 	/* The Entries request.  */
 	send_to_server ("Entry /", 0);
@@ -5114,26 +4467,23 @@ send_fileproc (callerdat, finfo)
 	send_to_server ("/", 0);
 	send_to_server (vers->vn_user, 0);
 	send_to_server ("/", 0);
-	if (vers->ts_conflict != NULL)
+	if (vers->ts_conflict)
 	{
-	    if (vers->ts_user != NULL &&
-		strcmp (vers->ts_conflict, vers->ts_user) == 0)
+	    if (vers->ts_user && !strcmp (vers->ts_conflict, vers->ts_user))
 		send_to_server ("+=", 0);
 	    else
 		send_to_server ("+modified", 0);
 	}
 	send_to_server ("/", 0);
-	send_to_server (vers->entdata != NULL
-			? vers->entdata->options
-			: vers->options,
+	send_to_server (vers->entdata ? vers->entdata->options : vers->options,
 			0);
 	send_to_server ("/", 0);
-	if (vers->entdata != NULL && vers->entdata->tag)
+	if (vers->entdata && vers->entdata->tag)
 	{
 	    send_to_server ("T", 0);
 	    send_to_server (vers->entdata->tag, 0);
 	}
-	else if (vers->entdata != NULL && vers->entdata->date)
+	else if (vers->entdata && vers->entdata->date)
           {
 	    send_to_server ("D", 0);
 	    send_to_server (vers->entdata->date, 0);
@@ -5170,13 +4520,12 @@ send_fileproc (callerdat, finfo)
 		free (opt);
 	    }
 	    else
-		error (0, 0,
-		       "\
+		error (0, 0, "\
 warning: ignoring -k options due to server limitations");
 	}
     }
 
-    if (vers->ts_user == NULL)
+    if (!vers->ts_user)
     {
 	/*
 	 * Do we want to print "file was lost" like normal CVS?
@@ -5185,9 +4534,10 @@ warning: ignoring -k options due to server limitations");
 	/* File no longer exists.  Don't do anything, missing files
 	   just happen.  */
     }
-    else if (vers->ts_rcs == NULL
-	     || args->force
-	     || strcmp (vers->ts_user, vers->ts_rcs) != 0)
+    else if (!vers->ts_rcs || args->force
+	     || strcmp (vers->ts_conflict
+		        ? vers->ts_conflict : vers->ts_rcs, vers->ts_user)
+	     || (vers->ts_conflict && !strcmp (cvs_cmd_name, "diff")))
     {
 	if (args->no_contents
 	    && supported_request ("Is-modified"))
@@ -5235,12 +4585,8 @@ warning: ignoring -k options due to server limitations");
 
 
 
-static void send_ignproc PROTO ((const char *, const char *));
-
 static void
-send_ignproc (file, dir)
-    const char *file;
-    const char *dir;
+send_ignproc (const char *file, const char *dir)
 {
     if (ign_inhibit_server || !supported_request ("Questionable"))
     {
@@ -5259,16 +4605,9 @@ send_ignproc (file, dir)
 
 
 
-static int send_filesdoneproc PROTO ((void *, int, const char *, const char *,
-                                      List *));
-
 static int
-send_filesdoneproc (callerdat, err, repository, update_dir, entries)
-    void *callerdat;
-    int err;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+send_filesdoneproc (void *callerdat, int err, const char *repository,
+                    const char *update_dir, List *entries)
 {
     /* if this directory has an ignore list, process it then free it */
     if (ignlist)
@@ -5277,11 +4616,10 @@ send_filesdoneproc (callerdat, err, repository, update_dir, entries)
 	dellist (&ignlist);
     }
 
-    return (err);
+    return err;
 }
 
-static Dtype send_dirent_proc PROTO ((void *, const char *, const char *,
-                                      const char *, List *));
+
 
 /*
  * send_dirent_proc () is called back by the recursion processor before a
@@ -5292,14 +4630,10 @@ static Dtype send_dirent_proc PROTO ((void *, const char *, const char *,
  *
  */
 static Dtype
-send_dirent_proc (callerdat, dir, repository, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    const char *repository;
-    const char *update_dir;
-    List *entries;
+send_dirent_proc (void *callerdat, const char *dir, const char *repository,
+                  const char *update_dir, List *entries)
 {
-    struct send_data *args = (struct send_data *) callerdat;
+    struct send_data *args = callerdat;
     int dir_exists;
     char *cvsadm_name;
 
@@ -5308,7 +4642,7 @@ send_dirent_proc (callerdat, dir, repository, update_dir, entries)
 	/* print the warm fuzzy message */
 	if (!quiet)
 	    error (0, 0, "Ignoring %s", update_dir);
-        return (R_SKIP_ALL);
+        return R_SKIP_ALL;
     }
 
     /*
@@ -5319,8 +4653,7 @@ send_dirent_proc (callerdat, dir, repository, update_dir, entries)
      * This case will happen when checking out a module defined as
      * ``-a .''.
      */
-    cvsadm_name = xmalloc (strlen (dir) + sizeof (CVSADM) + 10);
-    sprintf (cvsadm_name, "%s/%s", dir, CVSADM);
+    cvsadm_name = Xasprintf ("%s/%s", dir, CVSADM);
     dir_exists = isdir (cvsadm_name);
     free (cvsadm_name);
 
@@ -5363,13 +4696,10 @@ send_dirent_proc (callerdat, dir, repository, update_dir, entries)
 	    send_a_repository (dir, repository, update_dir);
     }
 
-    return (dir_exists ? R_PROCESS : R_SKIP_ALL);
+    return dir_exists ? R_PROCESS : R_SKIP_ALL;
 }
 
 
-
-static int send_dirleave_proc PROTO ((void *, const char *, int, const char *,
-                                      List *));
 
 /*
  * send_dirleave_proc () is called back by the recursion code upon leaving
@@ -5378,12 +4708,8 @@ static int send_dirleave_proc PROTO ((void *, const char *, int, const char *,
  */
 /* ARGSUSED */
 static int
-send_dirleave_proc (callerdat, dir, err, update_dir, entries)
-    void *callerdat;
-    const char *dir;
-    int err;
-    const char *update_dir;
-    List *entries;
+send_dirleave_proc (void *callerdat, const char *dir, int err,
+                    const char *update_dir, List *entries )
 {
 
     /* Delete the ignore list if it hasn't already been done.  */
@@ -5392,47 +4718,26 @@ send_dirleave_proc (callerdat, dir, err, update_dir, entries)
     return err;
 }
 
+
+
 /*
- * Send each option in a string to the server, one by one.
- * This assumes that the options are separated by spaces, for example
- * STRING might be "--foo -C5 -y".
+ * Send each option in an array to the server, one by one.
+ * argv might be "--foo=bar",  "-C", "5", "-y".
  */
 
 void
-send_option_string (string)
-    char *string;
+send_options (int argc, char * const *argv)
 {
-    char *copy;
-    char *p;
-
-    copy = xstrdup (string);
-    p = copy;
-    while (1)
-    {
-        char *s;
-	char l;
-
-	for (s = p; *s != ' ' && *s != '\0'; s++)
-	    ;
-	l = *s;
-	*s = '\0';
-	if (s != p)
-	    send_arg (p);
-	if (l == '\0')
-	    break;
-	p = s + 1;
-    }
-    free (copy);
+    int i;
+    for (i = 0; i < argc; i++)
+	send_arg (argv[i]);
 }
 
 
 
 /* Send the names of all the argument files to the server.  */
 void
-send_file_names (argc, argv, flags)
-    int argc;
-    char **argv;
-    unsigned int flags;
+send_file_names (int argc, char **argv, unsigned int flags)
 {
     int i;
     
@@ -5446,8 +4751,7 @@ send_file_names (argc, argv, flags)
 	char buf[1];
 	char *p;
 #ifdef FILENAMES_CASE_INSENSITIVE
-	char *line = xmalloc (1);
-	*line = '\0';
+	char *line = NULL;
 #endif /* FILENAMES_CASE_INSENSITIVE */
 
 	if (arg_should_not_be_sent_to_server (argv[i]))
@@ -5499,7 +4803,7 @@ send_file_names (argc, argv, flags)
 		       is correct behavior.  */
 		    entries = Entries_Open (0, NULL);
 		    node = findnode_fn (entries, q);
-		    if (node != NULL)
+		    if (node)
 		    {
 			/* Add the slash unless this is our first element. */
 			if (line_len)
@@ -5513,7 +4817,7 @@ send_file_names (argc, argv, flags)
 		/* If node is still NULL then we either didn't find CVSADM or
 		 * we didn't find an entry there.
 		 */
-		if (node == NULL)
+		if (!node)
 		{
 		    /* Add the slash unless this is our first element. */
 		    if (line_len)
@@ -5527,7 +4831,7 @@ send_file_names (argc, argv, flags)
 		    CVS_CHDIR (q);
 		free (q);
 	    }
-	    restore_cwd (&sdir, NULL);
+	    restore_cwd (&sdir);
 	    free_cwd (&sdir);
 
 	    /* Now put everything we didn't find entries for back on. */
@@ -5555,7 +4859,7 @@ send_file_names (argc, argv, flags)
 	    {
 		send_to_server ("\012Argumentx ", 0);
 	    }
-	    else if (ISDIRSEP (*p))
+	    else if (ISSLASH (*p))
 	    {
 		buf[0] = '/';
 		send_to_server (buf, 1);
@@ -5600,7 +4904,7 @@ send_max_dotdot (argc, argv)
         level = pathname_levels (argv[i]);
 	if (level > 0)
 	{
-            if (uppaths == NULL) uppaths = getlist();
+            if (!uppaths) uppaths = getlist();
 	    push_string (uppaths, xstrdup (argv[i]));
 	}
         if (level > max_level)
@@ -5638,12 +4942,7 @@ send_max_dotdot (argc, argv)
   _whether_ a file is modified, not the contents.  Also sends Argument
   lines for argc and argv, so should be called after options are sent.  */
 void
-send_files (argc, argv, local, aflag, flags)
-    int argc;
-    char **argv;
-    int local;
-    int aflag;
-    unsigned int flags;
+send_files (int argc, char **argv, int local, int aflag, unsigned int flags)
 {
     struct send_data args;
     int err;
@@ -5660,13 +4959,12 @@ send_files (argc, argv, local, aflag, flags)
     args.no_contents = flags & SEND_NO_CONTENTS;
     args.backup_modified = flags & BACKUP_MODIFIED_FILES;
     err = start_recursion
-	(send_fileproc, send_filesdoneproc,
-	 send_dirent_proc, send_dirleave_proc, (void *) &args,
-	 argc, argv, local, W_LOCAL, aflag, CVS_LOCK_NONE, (char *) NULL, 0,
-	 (char *) NULL);
+	(send_fileproc, send_filesdoneproc, send_dirent_proc,
+         send_dirleave_proc, &args, argc, argv, local, W_LOCAL, aflag,
+         CVS_LOCK_NONE, NULL, 0, NULL);
     if (err)
-	error_exit ();
-    if (toplevel_repos == NULL)
+	exit (EXIT_FAILURE);
+    if (!toplevel_repos)
 	/*
 	 * This happens if we are not processing any files,
 	 * or for checkouts in directories without any existing stuff
@@ -5677,44 +4975,39 @@ send_files (argc, argv, local, aflag, flags)
 	toplevel_repos = xstrdup (current_parsed_root->directory);
     send_repository ("", toplevel_repos, ".");
 }
-
+
+
+
 void
-client_import_setup (repository)
-    char *repository;
+client_import_setup (char *repository)
 {
-    if (toplevel_repos == NULL)		/* should always be true */
+    if (!toplevel_repos)		/* should always be true */
         send_a_repository ("", repository, "");
 }
+
+
 
 /*
  * Process the argument import file.
  */
 int
-client_process_import_file (message, vfile, vtag, targc, targv, repository,
-                            all_files_binary, modtime)
-    char *message;
-    char *vfile;
-    char *vtag;
-    int targc;
-    char *targv[];
-    char *repository;
-    int all_files_binary;
-
-    /* Nonzero for "import -d".  */
-    int modtime;
+client_process_import_file (char *message, char *vfile, char *vtag, int targc,
+                            char *targv[], char *repository,
+                            int all_files_binary,
+                            int modtime /* Nonzero for "import -d".  */ )
 {
     char *update_dir;
     char *fullname;
     Vers_TS vers;
 
-    assert (toplevel_repos != NULL);
+    assert (toplevel_repos);
 
-    if (strncmp (repository, toplevel_repos, strlen (toplevel_repos)) != 0)
+    if (strncmp (repository, toplevel_repos, strlen (toplevel_repos)))
 	error (1, 0,
 	       "internal error: pathname `%s' doesn't specify file in `%s'",
 	       repository, toplevel_repos);
 
-    if (strcmp (repository, toplevel_repos) == 0)
+    if (!strcmp (repository, toplevel_repos))
     {
 	update_dir = "";
 	fullname = xstrdup (vfile);
@@ -5723,23 +5016,16 @@ client_process_import_file (message, vfile, vtag, targc, targv, repository,
     {
 	update_dir = repository + strlen (toplevel_repos) + 1;
 
-	fullname = xmalloc (strlen (vfile) + strlen (update_dir) + 10);
-	strcpy (fullname, update_dir);
-	strcat (fullname, "/");
-	strcat (fullname, vfile);
+	fullname = Xasprintf ("%s/%s", update_dir, vfile);
     }
 
     send_a_repository ("", repository, update_dir);
     if (all_files_binary)
-    {
-	vers.options = xmalloc (4); /* strlen("-kb") + 1 */
-	strcpy (vers.options, "-kb");
-    }
+	vers.options = xstrdup ("-kb");
     else
-    {
 	vers.options = wrap_rcsoption (vfile, 1);
-    }
-    if (vers.options != NULL)
+
+    if (vers.options)
     {
 	if (supported_request ("Kopt"))
 	{
@@ -5759,7 +5045,7 @@ client_process_import_file (message, vfile, vtag, targc, targv, repository,
 	    char *rcsdate;
 	    char netdate[MAXDATELEN];
 
-	    if (CVS_STAT (vfile, &sb) < 0)
+	    if (stat (vfile, &sb) < 0)
 		error (1, errno, "cannot stat %s", fullname);
 	    rcsdate = date_from_time_t (sb.st_mtime);
 	    date_to_internet (netdate, rcsdate);
@@ -5774,16 +5060,18 @@ client_process_import_file (message, vfile, vtag, targc, targv, repository,
 		   "warning: ignoring -d option due to server limitations");
     }
     send_modified (vfile, fullname, &vers);
-    if (vers.options != NULL)
+    if (vers.options)
 	free (vers.options);
     free (fullname);
     return 0;
 }
 
+
+
 void
-client_import_done ()
+client_import_done (void)
 {
-    if (toplevel_repos == NULL)
+    if (!toplevel_repos)
 	/*
 	 * This happens if we are not processing any files,
 	 * or for checkouts in directories without any existing stuff
@@ -5799,129 +5087,9 @@ client_import_done ()
 
 
 
-static void
-notified_a_file (data, ent_list, short_pathname, filename)
-    char *data;
-    List *ent_list;
-    char *short_pathname;
-    char *filename;
-{
-    FILE *fp;
-    FILE *newf;
-    size_t line_len = 8192;
-    char *line = xmalloc (line_len);
-    char *cp;
-    int nread;
-    int nwritten;
-    char *p;
-
-    fp = open_file (CVSADM_NOTIFY, "r");
-    if (getline (&line, &line_len, fp) < 0)
-    {
-	if (feof (fp))
-	    error (0, 0, "cannot read %s: end of file", CVSADM_NOTIFY);
-	else
-	    error (0, errno, "cannot read %s", CVSADM_NOTIFY);
-	goto error_exit;
-    }
-    cp = strchr (line, '\t');
-    if (cp == NULL)
-    {
-	error (0, 0, "malformed %s file", CVSADM_NOTIFY);
-	goto error_exit;
-    }
-    *cp = '\0';
-    if (strcmp (filename, line + 1) != 0)
-    {
-	error (0, 0, "protocol error: notified %s, expected %s", filename,
-	       line + 1);
-    }
-
-    if (getline (&line, &line_len, fp) < 0)
-    {
-	if (feof (fp))
-	{
-	    free (line);
-	    if (fclose (fp) < 0)
-		error (0, errno, "cannot close %s", CVSADM_NOTIFY);
-	    if ( CVS_UNLINK (CVSADM_NOTIFY) < 0)
-		error (0, errno, "cannot remove %s", CVSADM_NOTIFY);
-	    return;
-	}
-	else
-	{
-	    error (0, errno, "cannot read %s", CVSADM_NOTIFY);
-	    goto error_exit;
-	}
-    }
-    newf = open_file (CVSADM_NOTIFYTMP, "w");
-    if (fputs (line, newf) < 0)
-    {
-	error (0, errno, "cannot write %s", CVSADM_NOTIFYTMP);
-	goto error2;
-    }
-    while ((nread = fread (line, 1, line_len, fp)) > 0)
-    {
-	p = line;
-	while ((nwritten = fwrite (p, 1, nread, newf)) > 0)
-	{
-	    nread -= nwritten;
-	    p += nwritten;
-	}
-	if (ferror (newf))
-	{
-	    error (0, errno, "cannot write %s", CVSADM_NOTIFYTMP);
-	    goto error2;
-	}
-    }
-    if (ferror (fp))
-    {
-	error (0, errno, "cannot read %s", CVSADM_NOTIFY);
-	goto error2;
-    }
-    if (fclose (newf) < 0)
-    {
-	error (0, errno, "cannot close %s", CVSADM_NOTIFYTMP);
-	goto error_exit;
-    }
-    free (line);
-    if (fclose (fp) < 0)
-    {
-	error (0, errno, "cannot close %s", CVSADM_NOTIFY);
-	return;
-    }
-
-    {
-        /* In this case, we want rename_file() to ignore noexec. */
-        int saved_noexec = noexec;
-        noexec = 0;
-        rename_file (CVSADM_NOTIFYTMP, CVSADM_NOTIFY);
-        noexec = saved_noexec;
-    }
-
-    return;
-  error2:
-    (void) fclose (newf);
-  error_exit:
-    free (line);
-    (void) fclose (fp);
-}
-
-static void
-handle_notified (args, len)
-    char *args;
-    int len;
-{
-    call_in_directory (args, notified_a_file, NULL);
-}
-
 void
-client_notify (repository, update_dir, filename, notif_type, val)
-    const char *repository;
-    const char *update_dir;
-    const char *filename;
-    int notif_type;
-    const char *val;
+client_notify (const char *repository, const char *update_dir,
+               const char *filename, int notif_type, const char *val)
 {
     char buf[2];
 
@@ -5935,17 +5103,17 @@ client_notify (repository, update_dir, filename, notif_type, val)
     send_to_server ("\t", 1);
     send_to_server (val, 0);
 }
-
+
+
+
 /*
  * Send an option with an argument, dealing correctly with newlines in
  * the argument.  If ARG is NULL, forget the whole thing.
  */
 void
-option_with_arg (option, arg)
-    char *option;
-    char *arg;
+option_with_arg (const char *option, const char *arg)
 {
-    if (arg == NULL)
+    if (!arg)
 	return;
 
     send_to_server ("Argument ", 0);
@@ -5955,30 +5123,59 @@ option_with_arg (option, arg)
     send_arg (arg);
 }
 
+
+
 /* Send a date to the server.  The input DATE is in RCS format.
    The time will be GMT.
 
    We then convert that to the format required in the protocol
    (including the "-D" option) and send it.  According to
    cvsclient.texi, RFC 822/1123 format is preferred.  */
-
 void
-client_senddate (date)
-    const char *date;
+client_senddate (const char *date)
 {
     char buf[MAXDATELEN];
 
-    date_to_internet (buf, (char *)date);
+    date_to_internet (buf, date);
     option_with_arg ("-D", buf);
 }
-
+
+
+
 void
-send_init_command ()
+send_init_command (void)
 {
     /* This is here because we need the current_parsed_root->directory variable.  */
     send_to_server ("init ", 0);
     send_to_server (current_parsed_root->directory, 0);
     send_to_server ("\012", 0);
 }
+
+
+
+#if defined AUTH_CLIENT_SUPPORT || defined HAVE_KERBEROS || defined HAVE_GSSAPI
+
+struct hostent *
+init_sockaddr (struct sockaddr_in *name, char *hostname, unsigned int port)
+{
+    struct hostent *hostinfo;
+    unsigned short shortport = port;
+
+    memset (name, 0, sizeof (*name));
+    name->sin_family = AF_INET;
+    name->sin_port = htons (shortport);
+    hostinfo = gethostbyname (hostname);
+    if (!hostinfo)
+    {
+	fprintf (stderr, "Unknown host %s.\n", hostname);
+	exit (EXIT_FAILURE);
+    }
+    name->sin_addr = *(struct in_addr *) hostinfo->h_addr;
+    return hostinfo;
+}
+
+#endif /* defined AUTH_CLIENT_SUPPORT || defined HAVE_KERBEROS
+	* || defined HAVE_GSSAPI
+	*/
 
 #endif /* CLIENT_SUPPORT */

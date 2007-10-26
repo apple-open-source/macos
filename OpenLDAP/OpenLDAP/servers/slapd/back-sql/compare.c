@@ -1,8 +1,9 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/compare.c,v 1.1.2.3 2004/09/24 14:09:15 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/compare.c,v 1.10.2.4 2006/01/03 22:16:24 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
+ * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -15,12 +16,11 @@
  */
 /* ACKNOWLEDGEMENTS:
  * This work was initially developed by Dmitry Kovalev for inclusion
- * by OpenLDAP Software.
+ * by OpenLDAP Software.  Additional significant contributors include
+ * Pierangelo Masarati.
  */
 
 #include "portable.h"
-
-#ifdef SLAPD_SQL
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -31,26 +31,18 @@
 int
 backsql_compare( Operation *op, SlapReply *rs )
 {
-	backsql_info		*bi = (backsql_info*)op->o_bd->be_private;
-	backsql_entryID		user_id = BACKSQL_ENTRYID_INIT;
-	SQLHDBC			dbh;
-	Entry			*e = NULL, user_entry;
+	SQLHDBC			dbh = SQL_NULL_HDBC;
+	Entry			e = { 0 };
 	Attribute		*a = NULL;
-	backsql_srch_info	bsi;
+	backsql_srch_info	bsi = { 0 };
 	int			rc;
+	int			manageDSAit = get_manageDSAit( op );
 	AttributeName		anlist[2];
-	struct berval		dn;
 
-	user_entry.e_name.bv_val = NULL;
-	user_entry.e_name.bv_len = 0;
-	user_entry.e_nname.bv_val = NULL;
-	user_entry.e_nname.bv_len = 0;
-	user_entry.e_attrs = NULL;
- 
  	Debug( LDAP_DEBUG_TRACE, "==>backsql_compare()\n", 0, 0, 0 );
 
 	rs->sr_err = backsql_get_db_conn( op, &dbh );
-	if (!dbh) {
+	if ( !dbh ) {
      		Debug( LDAP_DEBUG_TRACE, "backsql_compare(): "
 			"could not get connection handle - exiting\n",
 			0, 0, 0 );
@@ -60,73 +52,83 @@ backsql_compare( Operation *op, SlapReply *rs )
 		goto return_results;
 	}
 
-	dn = op->o_req_dn;
-	if ( backsql_api_dn2odbc( op, rs, &dn ) ) {
-		Debug( LDAP_DEBUG_TRACE, "backsql_search(): "
-			"backsql_api_dn2odbc failed\n", 
-			0, 0, 0 );
-		rs->sr_err = LDAP_OTHER;
-		rs->sr_text = "SQL-backend error";
-		goto return_results;
-	}
+	anlist[ 0 ].an_name = op->oq_compare.rs_ava->aa_desc->ad_cname;
+	anlist[ 0 ].an_desc = op->oq_compare.rs_ava->aa_desc;
+	BER_BVZERO( &anlist[ 1 ].an_name );
 
-	rc = backsql_dn2id( bi, &user_id, dbh, &dn );
-	if ( rc != LDAP_SUCCESS ) {
+	/*
+	 * Get the entry
+	 */
+	bsi.bsi_e = &e;
+	rc = backsql_init_search( &bsi, &op->o_req_ndn, LDAP_SCOPE_BASE,
+			(time_t)(-1), NULL, dbh, op, rs, anlist,
+			( BACKSQL_ISF_MATCHED | BACKSQL_ISF_GET_ENTRY ) );
+	switch ( rc ) {
+	case LDAP_SUCCESS:
+		break;
+
+	case LDAP_REFERRAL:
+		if ( manageDSAit && !BER_BVISNULL( &bsi.bsi_e->e_nname ) &&
+				dn_match( &op->o_req_ndn, &bsi.bsi_e->e_nname ) )
+		{
+			rs->sr_err = LDAP_SUCCESS;
+			rs->sr_text = NULL;
+			rs->sr_matched = NULL;
+			if ( rs->sr_ref ) {
+				ber_bvarray_free( rs->sr_ref );
+				rs->sr_ref = NULL;
+			}
+			break;
+		}
+		/* fallthru */
+
+	default:
 		Debug( LDAP_DEBUG_TRACE, "backsql_compare(): "
-			"could not retrieve compare dn id - no such entry\n", 
+			"could not retrieve compareDN ID - no such entry\n", 
 			0, 0, 0 );
-		rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		goto return_results;
 	}
 
-	memset( &anlist[0], 0, 2 * sizeof( AttributeName ) );
-	anlist[0].an_name = op->oq_compare.rs_ava->aa_desc->ad_cname;
-	anlist[0].an_desc = op->oq_compare.rs_ava->aa_desc;
+	if ( get_assert( op ) &&
+			( test_filter( op, &e, get_assertion( op ) )
+			  != LDAP_COMPARE_TRUE ) )
+	{
+		rs->sr_err = LDAP_ASSERTION_FAILED;
+		goto return_results;
+	}
 
- 	/*
- 	 * Try to get attr as dynamic operational
- 	 */
- 	if ( is_at_operational( op->oq_compare.rs_ava->aa_desc->ad_type ) ) {
+	if ( is_at_operational( op->oq_compare.rs_ava->aa_desc->ad_type ) ) {
 		SlapReply	nrs = { 0 };
- 
- 		user_entry.e_attrs = NULL;
- 		user_entry.e_name = op->o_req_dn;
- 		user_entry.e_nname = op->o_req_ndn;
- 
+		Attribute	**ap;
+
+		for ( ap = &e.e_attrs; *ap; ap = &(*ap)->a_next )
+			;
+
 		nrs.sr_attrs = anlist;
-		nrs.sr_entry = &user_entry;
-		rs->sr_err = backsql_operational( op, &nrs, 0, &user_entry.e_attrs );
- 
- 		if ( rs->sr_err != LDAP_SUCCESS ) {
- 			goto return_results;
- 		}
- 		
- 	} else {
-		backsql_init_search( &bsi, &dn, LDAP_SCOPE_BASE, 
-					-1, -1, -1, NULL, dbh, op, rs, anlist );
-		bsi.bsi_e = &user_entry;
-		rc = backsql_id2entry( &bsi, &user_id );
-		if ( rc != LDAP_SUCCESS ) {
-			Debug( LDAP_DEBUG_TRACE, "backsql_compare(): "
-				"error %d in backsql_id2entry() "
-				"- compare failed\n", rc, 0, 0 );
-			rs->sr_err = rc;
+		nrs.sr_entry = &e;
+		nrs.sr_attr_flags = SLAP_OPATTRS_NO;
+		nrs.sr_operational_attrs = NULL;
+
+		rs->sr_err = backsql_operational( op, &nrs );
+		if ( rs->sr_err != LDAP_SUCCESS ) {
 			goto return_results;
 		}
+		
+		*ap = nrs.sr_operational_attrs;
 	}
-	e = &user_entry;
 
-	if ( ! access_allowed( op, e, op->oq_compare.rs_ava->aa_desc, 
+	if ( ! access_allowed( op, &e, op->oq_compare.rs_ava->aa_desc,
 				&op->oq_compare.rs_ava->aa_value,
-				ACL_COMPARE, NULL ) ) {
+				ACL_COMPARE, NULL ) )
+	{
 		rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
 		goto return_results;
 	}
 
 	rs->sr_err = LDAP_NO_SUCH_ATTRIBUTE;
-	for ( a = attrs_find( e->e_attrs, op->oq_compare.rs_ava->aa_desc );
+	for ( a = attrs_find( e.e_attrs, op->oq_compare.rs_ava->aa_desc );
 			a != NULL;
-			a = attrs_find( a->a_next, op->oq_compare.rs_ava->aa_desc ))
+			a = attrs_find( a->a_next, op->oq_compare.rs_ava->aa_desc ) )
 	{
 		rs->sr_err = LDAP_COMPARE_FALSE;
 		if ( value_find_ex( op->oq_compare.rs_ava->aa_desc,
@@ -142,26 +144,56 @@ backsql_compare( Operation *op, SlapReply *rs )
 	}
 
 return_results:;
-	send_ldap_result( op, rs );
+	switch ( rs->sr_err ) {
+	case LDAP_COMPARE_TRUE:
+	case LDAP_COMPARE_FALSE:
+		break;
 
-	if ( dn.bv_val != op->o_req_dn.bv_val ) {
-		ch_free( dn.bv_val );
+	default:
+#ifdef SLAP_ACL_HONOR_DISCLOSE
+		if ( !BER_BVISNULL( &e.e_nname ) &&
+				! access_allowed( op, &e,
+					slap_schema.si_ad_entry, NULL,
+					ACL_DISCLOSE, NULL ) )
+		{
+			rs->sr_err = LDAP_NO_SUCH_OBJECT;
+			rs->sr_text = NULL;
+		}
+#endif /* SLAP_ACL_HONOR_DISCLOSE */
+		break;
 	}
 
-	if ( e != NULL ) {
-		entry_clean( e );
+	send_ldap_result( op, rs );
+
+	if ( rs->sr_matched ) {
+		rs->sr_matched = NULL;
+	}
+
+	if ( rs->sr_ref ) {
+		ber_bvarray_free( rs->sr_ref );
+		rs->sr_ref = NULL;
+	}
+
+	if ( !BER_BVISNULL( &bsi.bsi_base_id.eid_ndn ) ) {
+		(void)backsql_free_entryID( op, &bsi.bsi_base_id, 0 );
+	}
+
+	if ( !BER_BVISNULL( &e.e_nname ) ) {
+		backsql_entry_clean( op, &e );
+	}
+
+	if ( bsi.bsi_attrs != NULL ) {
+		op->o_tmpfree( bsi.bsi_attrs, op->o_tmpmemctx );
 	}
 
 	Debug(LDAP_DEBUG_TRACE,"<==backsql_compare()\n",0,0,0);
 	switch ( rs->sr_err ) {
 	case LDAP_COMPARE_TRUE:
 	case LDAP_COMPARE_FALSE:
-		return 0;
+		return LDAP_SUCCESS;
 
 	default:
-		return 1;
+		return rs->sr_err;
 	}
 }
  
-#endif /* SLAPD_SQL */
-

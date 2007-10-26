@@ -72,6 +72,12 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 #include <sys/mount.h>
 #endif
 
+#ifdef __APPLE__ 
+#include <get_compat.h>
+#else   
+#define COMPAT_MODE(a,b) (1) 
+#endif /* __APPLE__ */ 
+
 #include "pathnames.h"
 
 int fflg, iflg, nflg, vflg;
@@ -201,8 +207,27 @@ main(int argc, char *argv[])
 			rval = 1;
 		} else {
 			memmove(endp, p, (size_t)len + 1);
-			if (do_move(*argv, path))
-				rval = 1;
+			if (COMPAT_MODE("bin/mv", "unix2003")) {
+				/* 
+				 * For Unix 2003 compatibility, check if old and new are 
+				 * same file, and produce an error * (like on Sun) that 
+				 * conformance test 66 in mv.ex expects.
+				 */
+				if (!stat(*argv, &fsb) && !stat(path, &tsb) &&
+					fsb.st_ino == tsb.st_ino && 
+					fsb.st_dev == tsb.st_dev &&
+					fsb.st_gen == tsb.st_gen) {
+					(void)fprintf(stderr, "mv: %s and %s are identical\n", 
+								*argv, path);
+					rval = 2; /* Like the Sun */
+				} else {
+					if (do_move(*argv, path))
+						rval = 1;
+				}
+			} else {
+				if (do_move(*argv, path))
+					rval = 1;
+			}
 		}
 	}
 	exit(rval);
@@ -324,25 +349,25 @@ fastcopy(char *from, char *to, struct stat *sbp)
 		return (1);
 	}
 #ifdef __APPLE__
-	{
-		struct statfs sfs;
+       {
+               struct statfs sfs;
 
-		/*
-		 * Pre-allocate blocks for the destination file if it
-		 * resides on Xsan.
-		 */
-		if (fstatfs(to_fd, &sfs) == 0 &&
-		    strcmp(sfs.f_fstypename, "acfs") == 0) {
-			fstore_t fst;
+               /*
+                * Pre-allocate blocks for the destination file if it
+                * resides on Xsan.
+                */
+               if (fstatfs(to_fd, &sfs) == 0 &&
+                   strcmp(sfs.f_fstypename, "acfs") == 0) {
+                       fstore_t fst;
 
-			fst.fst_flags = 0;
-			fst.fst_posmode = F_PEOFPOSMODE;
-			fst.fst_offset = 0;
-			fst.fst_length = sbp->st_size;
+                       fst.fst_flags = 0;
+                       fst.fst_posmode = F_PEOFPOSMODE;
+                       fst.fst_offset = 0;
+                       fst.fst_length = sbp->st_size;
 
-			(void) fcntl(to_fd, F_PREALLOCATE, &fst);
-		}
-	}
+                       (void) fcntl(to_fd, F_PREALLOCATE, &fst);
+               }
+       }
 #endif /* __APPLE__ */
 	while ((nread = read(from_fd, bp, (size_t)blen)) > 0)
 		if (write(to_fd, bp, (size_t)nread) != nread) {
@@ -358,7 +383,11 @@ err:		if (unlink(to))
 		return (1);
 	}
 #ifdef __APPLE__
-	copyfile(from, to, 0, COPYFILE_ACL | COPYFILE_XATTR);
+	/* XATTR can fail if to_fd has mode 000 */
+	if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL | COPYFILE_XATTR) < 0) {
+		warn("%s: unable to move extended attributes and ACL from %s",
+		     to, from);
+	}
 #endif
 	(void)close(from_fd);
 
@@ -384,7 +413,7 @@ err:		if (unlink(to))
 	 */
 	errno = 0;
 	if (fchflags(to_fd, (u_long)sbp->st_flags))
-		if (errno != EOPNOTSUPP || sbp->st_flags != 0)
+		if (errno != ENOTSUP || sbp->st_flags != 0)
 			warn("%s: set flags (was: 0%07o)", to, sbp->st_flags);
 
 	tval[0].tv_sec = sbp->st_atime;

@@ -1,5 +1,6 @@
 /* system description header for VMS
-   Copyright (C) 1986 Free Software Foundation, Inc.
+   Copyright (C) 1986, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*
  *	Define symbols to identify the version of Unix this is.
@@ -109,6 +110,11 @@ Boston, MA 02111-1307, USA.  */
    your system and must be used only through an encapsulation
    (Which you should place, by convention, in sysdep.c).  */
 
+/* In olden days, VMS filenames did not support hyphen (i.e., the "-"
+   character).  You can #undef this in vmsX-Y.h for newer versions.  */
+
+#define NO_HYPHENS_IN_FILENAMES
+
 /* Do you have the sharable library bug?  If you link with a sharable
    library that contains psects with the NOSHR attribute and also refer to
    those psects in your program, the linker give you a private version of
@@ -130,10 +136,14 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_CRTL_SHARE
 
 /* Define this if you want to read the file SYS$SYSTEM:SYSUAF.DAT for user
-   information.  If you do use this, you must either make SYSUAF.DAT world 
+   information.  If you do use this, you must either make SYSUAF.DAT world
    readable or install Emacs with SYSPRV.  */
 
 /* #define READ_SYSUAF */
+
+/* Traditionally, filenames on VMS are always upper case.  */
+
+#define FILE_SYSTEM_CASE Fupcase
 
 /* On VMS these have a different name */
 
@@ -192,7 +202,7 @@ extern double mth$dmod(double, double);
 
 /* If user asks for TERM, check first for EMACS_TERM.  */
 #define getenv sys_getenv
-  
+
 /* Standard C abort is less useful than it should be. */
 #define abort sys_abort
 
@@ -246,3 +256,6 @@ globalref char sdata[];
 
 /* What separator do we use in paths?  */
 #define SEPCHAR ','
+
+/* arch-tag: 76bc2b70-46d1-4334-8f12-955c0d0ca6d4
+   (do not change this comment) */

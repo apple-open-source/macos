@@ -1,5 +1,5 @@
 /* dbconverter-2.c -- convert libsasl v1 sasldb's to SASLv2 format
- * $Id: dbconverter-2.c,v 1.3 2004/07/07 22:51:51 snsimon Exp $
+ * $Id: dbconverter-2.c,v 1.4 2006/01/20 20:20:33 snsimon Exp $
  * Rob Siemborski
  * based on SASLv1 sasldblistusers
  */

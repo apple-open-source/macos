@@ -477,7 +477,7 @@ NSS_P12_SafeBag *P12Coder::keyBagBuild(
 		shroudedBits);
 	if(crtn) {
 		p12ErrorLog("Error wrapping private key\n");
-		P12_THROW_ENCODE;
+		CssmError::throwMe(crtn);
 	}
 	
 	keyInfo->encryptedData = shroudedBits;

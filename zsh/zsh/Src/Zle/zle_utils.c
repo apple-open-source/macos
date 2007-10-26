@@ -51,7 +51,7 @@ struct cutbuffer vibuf[35];
 /* the line before last mod (for undo purposes) */
 
 /**/
-char *lastline;
+ZLE_STRING_T lastline;
 /**/
 int lastlinesz, lastll, lastcs;
 
@@ -66,9 +66,286 @@ int linesz;
 void
 sizeline(int sz)
 {
-    while (sz > linesz)
-	line = (unsigned char *)realloc(line, (linesz *= 4) + 2);
+    int cursz = (zlemetaline != NULL) ? metalinesz : linesz;
+
+    while (sz > cursz) {
+	if (cursz < 256)
+	    cursz = 256;
+	else
+	    cursz *= 4;
+
+	if (zlemetaline != NULL) {
+	    /* One spare character for the NULL */
+	    zlemetaline = realloc(zlemetaline, cursz + 1);
+	} else {
+	    /* One spare character for the NULL, one for the newline */
+	    zleline =
+		(ZLE_STRING_T)realloc(zleline,
+				      (cursz + 2) * ZLE_CHAR_SIZE);
+	}
+    }
+
+    if (zlemetaline != NULL)
+	metalinesz = cursz;
+    else
+	linesz = cursz;
 }
+
+/*
+ * Insert a character, called from main shell.
+ * Note this always operates on the metafied multibyte version of the
+ * line.
+ */
+
+/**/
+mod_export void
+zleaddtoline(int chr)
+{
+    spaceinline(1);
+    zlemetaline[zlemetacs++] = chr;
+}
+
+/*
+ * Input a line in internal zle format, possibly using wide characters,
+ * possibly not, together with its length and the cursor position.
+ * The length must be accurate and includes all characters (no NULL
+ * termination is expected).  The input cursor position is only
+ * significant if outcs is non-NULL.
+ *
+ * Output an ordinary NULL-terminated string, using multibyte characters
+ * instead of wide characters where appropriate and with the contents
+ * metafied.
+ *
+ * If outll is non-NULL, assign the new length.  If outcs is non-NULL,
+ * assign the new character position.  This is the conventional string
+ * length, without the NULL byte.
+ *
+ * If useheap is 1, memory is returned from the heap, else is allocated
+ * for later freeing.
+ */
+
+/**/
+mod_export char *
+zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
+		int *outcsp, int useheap)
+{
+    int outcs, outll;
+
+#ifdef MULTIBYTE_SUPPORT
+    char *s;
+    int i, j;
+    size_t mb_len = 0;
+    mbstate_t mbs;
+
+    s = zalloc(inll * MB_CUR_MAX + 1);
+
+    outcs = 0;
+    memset(&mbs, 0, sizeof(mbs));
+    for (i=0; i < inll; i++, incs--) {
+	if (incs == 0)
+	    outcs = mb_len;
+	j = wcrtomb(s + mb_len, instr[i], &mbs);
+	if (j == -1) {
+	    /* invalid char; what to do? */
+	    s[mb_len++] = ZWC('?');
+	    memset(&mbs, 0, sizeof(mbs));
+	} else {
+	    mb_len += j;
+	}
+    }
+    if (incs == 0)
+	outcs = mb_len;
+    s[mb_len] = '\0';
+
+    outll = mb_len;
+#else
+    outll = inll;
+    outcs = incs;
+#endif
+
+    /*
+     * *outcsp and *outllp are to be indexes into the final string,
+     * not character offsets, so we need to take account of any
+     * metafiable characters.
+     */
+    if (outcsp != NULL || outllp != NULL) {
+#ifdef MULTIBYTE_SUPPORT
+	char *strp = s;
+#else
+	char *strp = instr;
+#endif
+	char *stopcs = strp + outcs;
+	char *stopll = strp + outll;
+
+	while (strp < stopll) {
+	    if (imeta(*strp)) {
+		if (strp < stopcs)
+		    outcs++;
+		outll++;
+	    }
+	    strp++;
+	}
+	if (outcsp != NULL)
+	    *outcsp = outcs;
+	if (outllp != NULL)
+	    *outllp = outll;
+    }
+
+#ifdef MULTIBYTE_SUPPORT
+    if (useheap) {
+	char *ret = metafy(s, mb_len, META_HEAPDUP);
+
+	zfree(s, inll * MB_CUR_MAX + 1);
+
+	return ret;
+    }
+    return metafy(s, mb_len, META_REALLOC);
+#else
+    return metafy(instr, inll, useheap ? META_HEAPDUP : META_DUP);
+#endif
+}
+
+
+/*
+ * Input a NULL-terminated metafied string instr.
+ * Output a line in internal zle format, together with its length
+ * in the appropriate character units.  Note that outll may not be NULL.
+ *
+ * If outsz is non-NULL, the number of allocated characters in the
+ * string is written there.  For compatibility with use of the linesz
+ * variable (allocate size of zleline), at least two characters are
+ * allocated more than needed for immediate use.  (The extra characters
+ * may take a newline and a null at a later stage.)  These are not
+ * included in *outsz.
+ *
+ * If outcs is non-NULL, the character position in the original
+ * string incs (a standard string offset, i.e. incremented 2 for
+ * each metafied character) is converted into the corresponding
+ * character position in *outcs.
+ *
+ * Note that instr is modified in place, hence should be copied
+ * first if necessary;
+ *
+ * Memory for the returned string is permanently allocated.  *outsz may
+ * be longer than the *outll returned.  Hence it should be freed with
+ * zfree(outstr, *outsz) or free(outstr), not zfree(outstr, *outll).
+ */
+
+/**/
+mod_export ZLE_STRING_T
+stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
+{
+    ZLE_STRING_T outstr;
+    int ll, sz;
+#ifdef MULTIBYTE_SUPPORT
+    mbstate_t mbs;
+#endif
+
+    if (outcs) {
+	/*
+	 * Take account of Meta characters in the input string
+	 * before we unmetafy it.  This does not yet take account
+	 * of multibyte characters.  If there are none, this
+	 * is all the processing required to calculate outcs.
+	 */
+	char *inptr = instr, *cspos = instr + incs;
+	while (*inptr && inptr < cspos) {
+	    if (*inptr == Meta) {
+		inptr++;
+		incs--;
+	    }
+	    inptr++;
+	}
+    }
+    unmetafy(instr, &ll);
+
+    /*
+     * ll is the maximum number of characters there can be in
+     * the output string; the closer to ASCII the string, the
+     * better the guess.  For the 2 see above.
+     */
+    sz = (ll + 2) * ZLE_CHAR_SIZE;
+    if (outsz)
+	*outsz = ll;
+    outstr = (ZLE_STRING_T)zalloc(sz);
+
+#ifdef MULTIBYTE_SUPPORT
+    if (ll) {
+	char *inptr = instr;
+	wchar_t *outptr = outstr;
+
+	/* Reset shift state to input complete string */
+	memset(&mbs, '\0', sizeof mbs);
+
+	while (ll > 0) {
+	    size_t cnt = mbrtowc(outptr, inptr, ll, &mbs);
+
+	    /*
+	     * At this point we don't handle either incomplete (-2) or
+	     * invalid (-1) multibyte sequences.  Use the current length
+	     * and return.
+	     */
+	    if (cnt == MB_INCOMPLETE || cnt == MB_INVALID)
+		break;
+
+	    if (cnt == 0) {
+		/* Converting '\0' returns 0, but a '\0' is a real
+		 * character for us, so we should consume 1 byte
+		 * (certainly true for Unicode and unlikely to be false
+		 * in any non-pathological multibyte representation). */
+		cnt = 1;
+	    }
+
+	    if (outcs) {
+		int offs = inptr - instr;
+		if (offs <= incs && incs < offs + (int)cnt)
+		    *outcs = outptr - outstr;
+	    }
+
+	    inptr += cnt;
+	    outptr++;
+	    ll -= cnt;
+	}
+	if (outcs && inptr <= instr + incs)
+	    *outcs = outptr - outstr;
+	*outll = outptr - outstr;
+    } else {
+	*outll = 0;
+	if (outcs)
+	    *outcs = 0;
+    }
+#else
+    memcpy(outstr, instr, ll);
+    *outll = ll;
+    if (outcs)
+	*outcs = incs;
+#endif
+
+    return outstr;
+}
+
+/*
+ * This function is called when we are playing very nasty tricks
+ * indeed: see bufferwords in hist.c.  Consequently we can make
+ * absolutely no assumption about the state whatsoever, except
+ * that it has one.
+ */
+
+/**/
+mod_export char *
+zlegetline(int *ll, int *cs)
+{
+    if (zlemetaline != NULL) {
+	*ll = zlemetall;
+	*cs = zlemetacs;
+	return ztrdup(zlemetaline);
+    }
+    if (zleline)
+	return zlelineasstring(zleline, zlell, zlecs, ll, cs, 0);
+    *ll = *cs = 0;
+    return ztrdup("");
+}
+
 
 /* insert space for ct chars at cursor position */
 
@@ -78,14 +355,25 @@ spaceinline(int ct)
 {
     int i;
 
-    sizeline(ct + ll);
-    for (i = ll; --i >= cs;)
-	line[i + ct] = line[i];
-    ll += ct;
-    line[ll] = '\0';
+    if (zlemetaline) {
+	sizeline(ct + zlemetall);
+	for (i = zlemetall; --i >= zlemetacs;)
+	    zlemetaline[i + ct] = zlemetaline[i];
+	zlemetall += ct;
+	zlemetaline[zlemetall] = '\0';
 
-    if (mark > cs)
-	mark += ct;
+	if (mark > zlemetacs)
+	    mark += ct;
+    } else {
+	sizeline(ct + zlell);
+	for (i = zlell; --i >= zlecs;)
+	    zleline[i + ct] = zleline[i];
+	zlell += ct;
+	zleline[zlell] = ZWC('\0');
+
+	if (mark > zlecs)
+	    mark += ct;
+    }
 }
 
 /**/
@@ -97,18 +385,26 @@ shiftchars(int to, int cnt)
     else if (mark > to)
 	mark = to;
 
-    while (to + cnt < ll) {
-	line[to] = line[to + cnt];
-	to++;
+    if (zlemetaline) {
+	while (to + cnt < zlemetall) {
+	    zlemetaline[to] = zlemetaline[to + cnt];
+	    to++;
+	}
+	zlemetaline[zlemetall = to] = '\0';
+    } else {
+	while (to + cnt < zlell) {
+	    zleline[to] = zleline[to + cnt];
+	    to++;
+	}
+	zleline[zlell = to] = ZWC('\0');
     }
-    line[ll = to] = '\0';
 }
 
 /**/
 mod_export void
 backkill(int ct, int dir)
 {
-    int i = (cs -= ct);
+    int i = (zlecs -= ct);
 
     cut(i, ct, dir);
     shiftchars(i, ct);
@@ -118,7 +414,7 @@ backkill(int ct, int dir)
 mod_export void
 forekill(int ct, int dir)
 {
-    int i = cs;
+    int i = zlecs;
 
     cut(i, ct, dir);
     shiftchars(i, ct);
@@ -131,13 +427,14 @@ cut(int i, int ct, int dir)
     if (!ct)
 	return;
 
+    UNMETACHECK();
     if (zmod.flags & MOD_VIBUF) {
 	struct cutbuffer *b = &vibuf[zmod.vibuf];
 
 	if (!(zmod.flags & MOD_VIAPP) || !b->buf) {
-	    zfree(b->buf, b->len);
-	    b->buf = (char *)zalloc(ct);
-	    memcpy(b->buf, (char *) line + i, ct);
+	    free(b->buf);
+	    b->buf = (ZLE_STRING_T)zalloc(ct * ZLE_CHAR_SIZE);
+	    ZS_memcpy(b->buf, zleline + i, ct);
 	    b->len = ct;
 	    b->flags = vilinerange ? CUTBUFFER_LINE : 0;
 	} else {
@@ -145,26 +442,30 @@ cut(int i, int ct, int dir)
 
 	    if(vilinerange)
 		b->flags |= CUTBUFFER_LINE;
-	    b->buf = realloc(b->buf, ct + len + !!(b->flags & CUTBUFFER_LINE));
+	    b->buf = (ZLE_STRING_T)
+		realloc((char *)b->buf,
+			(ct + len + !!(b->flags & CUTBUFFER_LINE))
+			* ZLE_CHAR_SIZE);
 	    if (b->flags & CUTBUFFER_LINE)
-		b->buf[len++] = '\n';
-	    memcpy(b->buf + len, (char *) line + i, ct);
+		b->buf[len++] = ZWC('\n');
+	    ZS_memcpy(b->buf + len, zleline + i, ct);
 	    b->len = len + ct;
 	}
 	return;
     } else {
 	/* Save in "1, shifting "1-"8 along to "2-"9 */
 	int n;
-	zfree(vibuf[34].buf, vibuf[34].len);
+	free(vibuf[34].buf);
 	for(n=34; n>26; n--)
 	    vibuf[n] = vibuf[n-1];
-	vibuf[26].buf = (char *)zalloc(ct);
-	memcpy(vibuf[26].buf, (char *) line + i, ct);
+	vibuf[26].buf = (ZLE_STRING_T)zalloc(ct * ZLE_CHAR_SIZE);
+	ZS_memcpy(vibuf[26].buf, zleline + i, ct);
 	vibuf[26].len = ct;
 	vibuf[26].flags = vilinerange ? CUTBUFFER_LINE : 0;
     }
     if (!cutbuf.buf) {
-	cutbuf.buf = ztrdup("");
+	cutbuf.buf = (ZLE_STRING_T)zalloc(ZLE_CHAR_SIZE);
+	cutbuf.buf[0] = ZWC('\0');
 	cutbuf.len = cutbuf.flags = 0;
     } else if (!(lastcmd & ZLE_KILL)) {
 	Cutbuffer kptr;
@@ -175,22 +476,24 @@ cut(int i, int ct, int dir)
 	    kringnum = (kringnum + 1) % kringsize;
 	kptr = kring + kringnum;
 	if (kptr->buf)
-	    zfree(kptr->buf, kptr->len);
+	    free(kptr->buf);
 	*kptr = cutbuf;
-	cutbuf.buf = ztrdup("");
+	cutbuf.buf = (ZLE_STRING_T)zalloc(ZLE_CHAR_SIZE);
+	cutbuf.buf[0] = ZWC('\0');
 	cutbuf.len = cutbuf.flags = 0;
     }
     if (dir) {
-	char *s = (char *)zalloc(cutbuf.len + ct);
+	ZLE_STRING_T s = (ZLE_STRING_T)zalloc((cutbuf.len + ct)*ZLE_CHAR_SIZE);
 
-	memcpy(s, (char *) line + i, ct);
-	memcpy(s + ct, cutbuf.buf, cutbuf.len);
+	ZS_memcpy(s, zleline + i, ct);
+	ZS_memcpy(s + ct, cutbuf.buf, cutbuf.len);
 	free(cutbuf.buf);
 	cutbuf.buf = s;
 	cutbuf.len += ct;
     } else {
-	cutbuf.buf = realloc(cutbuf.buf, cutbuf.len + ct);
-	memcpy(cutbuf.buf + cutbuf.len, (char *) line + i, ct);
+	cutbuf.buf = realloc((char *)cutbuf.buf,
+			     (cutbuf.len + ct) * ZLE_CHAR_SIZE);
+	ZS_memcpy(cutbuf.buf + cutbuf.len, zleline + i, ct);
 	cutbuf.len += ct;
     }
     if(vilinerange)
@@ -203,34 +506,56 @@ cut(int i, int ct, int dir)
 mod_export void
 backdel(int ct)
 {
-    shiftchars(cs -= ct, ct);
+    if (zlemetaline != NULL)
+	shiftchars(zlemetacs -= ct, ct);
+    else
+	shiftchars(zlecs -= ct, ct);
 }
 
 /**/
 mod_export void
 foredel(int ct)
 {
-    shiftchars(cs, ct);
+    if (zlemetaline != NULL)
+	shiftchars(zlemetacs, ct);
+    else
+	shiftchars(zlecs, ct);
 }
 
 /**/
 void
-setline(char const *s)
+setline(char *s, int flags)
 {
-    sizeline(strlen(s));
-    strcpy((char *) line, s);
-    unmetafy((char *) line, &ll);
-    if ((cs = ll) && invicmdmode())
-	cs--;
+    char *scp;
+
+    if (flags & ZSL_COPY)
+	scp = ztrdup(s);
+    else
+	scp = s;
+    /*
+     * TBD: we could make this more efficient by passing the existing
+     * allocated line to stringaszleline.
+     */
+    free(zleline);
+
+    zleline = stringaszleline(scp, 0, &zlell, &linesz, NULL);
+
+    if ((flags & ZSL_TOEND) && (zlecs = zlell) && invicmdmode())
+	zlecs--;
+    else if (zlecs > zlell)
+	zlecs = zlell;
+
+    if (flags & ZSL_COPY)
+	free(scp);
 }
 
 /**/
 int
 findbol(void)
 {
-    int x = cs;
+    int x = zlecs;
 
-    while (x > 0 && line[x - 1] != '\n')
+    while (x > 0 && zleline[x - 1] != ZWC('\n'))
 	x--;
     return x;
 }
@@ -239,9 +564,9 @@ findbol(void)
 int
 findeol(void)
 {
-    int x = cs;
+    int x = zlecs;
 
-    while (x != ll && line[x] != '\n')
+    while (x != zlell && zleline[x] != ZWC('\n'))
 	x++;
     return x;
 }
@@ -254,76 +579,119 @@ findline(int *a, int *b)
     *b = findeol();
 }
 
-/* Search for needle in haystack.  Haystack is a metafied string while *
- * needle is unmetafied and len-long.  Start the search at position    *
- * pos.  Search forward if dir > 0 otherwise search backward.          */
+/*
+ * Return zero if the ZLE string histp length histl and the ZLE string
+ * inputp length inputl are the same.  Return -1 if inputp is a prefix
+ * of histp.  Return 1 if inputp is the lowercase version of histp.
+ * Return 2 if inputp is the lowercase prefix of histp and return 3
+ * otherwise.
+ */
 
 /**/
-char *
-hstrnstr(char *haystack, int pos, char *needle, int len, int dir, int sens)
+int
+zlinecmp(ZLE_STRING_T histp, int histl, ZLE_STRING_T inputp, int inputl)
 {
-    char *s = haystack + pos;
+    int cnt;
+
+    if (histl < inputl) {
+	/* Not identical, second string is not a prefix. */
+	return 3;
+    }
+
+    if (!ZS_memcmp(histp, inputp, inputl)) {
+	/* Common prefix is identical */
+	/* If lines are identical return 0 */
+	if (histl == inputl)
+	    return 0;
+	/* Second string is a prefix of the first */
+	return -1;
+    }
+
+    for (cnt = inputl; cnt; cnt--) {
+	if ((ZLE_INT_T)*inputp++ != ZC_tolower(*histp++))
+	    return 3;
+    }
+    /* Is second string is lowercase version of first? */
+    if (histl == inputl)
+	return 1;
+    /* Second string is lowercase prefix of first */
+    return 2;
+}
+
+
+/*
+ * Search for needle in haystack.  Haystack and needle are ZLE strings
+ * of the indicated length.  Start the search at position
+ * pos in haystack.  Search forward if dir > 0, otherwise search
+ * backward.  sens is used to test against the return value of linecmp.
+ */
+
+/**/
+ZLE_STRING_T
+zlinefind(ZLE_STRING_T haystack, int haylen, int pos,
+	  ZLE_STRING_T needle, int needlen, int dir, int sens)
+{
+    ZLE_STRING_T s = haystack + pos;
+    int slen = haylen - pos;
 
     if (dir > 0) {
-	while (*s) {
-	    if (metadiffer(s, needle, len) < sens)
+	while (slen) {
+	    if (zlinecmp(s, slen, needle, needlen) < sens)
 		return s;
-	    s += 1 + (*s == Meta);
+	    s++;
+	    slen--;
 	}
     } else {
 	for (;;) {
-	    if (metadiffer(s, needle, len) < sens)
+	    if (zlinecmp(s, slen, needle, needlen) < sens)
 		return s;
 	    if (s == haystack)
 		break;
-	    s -= 1 + (s != haystack+1 && s[-2] == Meta);
+	    s--;
+	    slen++;
 	}
     }
+
     return NULL;
 }
 
-/* Query the user, and return a single character response.  The *
- * question is assumed to have been printed already, and the    *
- * cursor is left immediately after the response echoed.        *
- * (Might cause a problem if this takes it onto the next line.) *
- * If yesno is non-zero:                                        *
- * <Tab> is interpreted as 'y'; any other control character is  *
- * interpreted as 'n'.  If there are any characters in the      *
- * buffer, this is taken as a negative response, and no         *
- * characters are read.  Case is folded.                        */
+/*
+ * Query the user, and return 1 for yes, 0 for no.  The question is assumed to
+ * have been printed already, and the cursor is left immediately after the
+ * response echoed.  (Might cause a problem if this takes it onto the next
+ * line.)  <Tab> is interpreted as 'y'; any other control character is
+ * interpreted as 'n'.  If there are any characters in the buffer, this is
+ * taken as a negative response, and no characters are read.  Case is folded.
+ */
 
 /**/
 mod_export int
-getzlequery(int yesno)
+getzlequery(void)
 {
-    int c;
+    ZLE_INT_T c;
 #ifdef FIONREAD
     int val;
 
-    if (yesno) {
-	/* check for typeahead, which is treated as a negative response */
-	ioctl(SHTTY, FIONREAD, (char *)&val);
-	if (val) {
-	    putc('n', shout);
-	    return 'n';
-	}
+    /* check for typeahead, which is treated as a negative response */
+    ioctl(SHTTY, FIONREAD, (char *)&val);
+    if (val) {
+	putc('n', shout);
+	return 0;
     }
 #endif
 
     /* get a character from the tty and interpret it */
-    c = getkey(0);
-    if (yesno) {
-	if (c == '\t')
-	    c = 'y';
-	else if (icntrl(c) || c == EOF)
-	    c = 'n';
-	else
-	    c = tulower(c);
-    }
+    c = getfullchar(0);
+    if (c == ZWC('\t'))
+	c = ZWC('y');
+    else if (ZC_icntrl(c) || c == ZLEEOF)
+	c = ZWC('n');
+    else
+	c = ZC_tolower(c);
     /* echo response and return */
-    if (c != '\n')
-	putc(c, shout);
-    return c;
+    if (c != ZWC('\n'))
+	zwcputc(c);
+    return c == ZWC('y');
 }
 
 /* Format a string, keybinding style. */
@@ -384,19 +752,85 @@ printbind(char *str, FILE *stream)
     return ret;
 }
 
-/* Display a message where the completion list normally goes. *
- * The message must be metafied.                              */
+/*
+ * Display a message where the completion list normally goes.
+ * The message must be metafied.
+ *
+ * TODO: there's some advantage in using a ZLE_STRING_T array here,
+ * together with improvements in other places, but messages don't
+ * need to be particularly efficient.
+ */
 
 /**/
 mod_export void
 showmsg(char const *msg)
 {
     char const *p;
-    int up = 0, cc = 0, c;
+    int up = 0, cc = 0;
+    ZLE_CHAR_T c;
+#ifdef MULTIBYTE_SUPPORT
+    char *umsg;
+    int ulen, eol = 0;
+    size_t width;
+    mbstate_t mbs;
+#endif
 
     trashzle();
     clearflag = isset(USEZLE) && !termflags && isset(ALWAYSLASTPROMPT);
 
+#ifdef MULTIBYTE_SUPPORT
+    umsg = ztrdup(msg);
+    p = unmetafy(umsg, &ulen);
+    memset(&mbs, 0, sizeof mbs);
+
+    mb_metacharinit();
+    while (ulen > 0) {
+	char const *n;
+	if (*p == '\n') {
+	    ulen--;
+	    p++;
+
+	    putc('\n', shout);
+	    up += 1 + cc / columns;
+	    cc = 0;
+	} else {
+	    /*
+	     * Extract the next wide character from the multibyte string.
+	     */
+	    size_t cnt = eol ? MB_INVALID : mbrtowc(&c, p, ulen, &mbs);
+
+	    switch (cnt) {
+	    case MB_INCOMPLETE:
+		eol = 1;
+		/* FALL THROUGH */
+	    case MB_INVALID:
+		/*
+		 * This really shouldn't be happening here, but...
+		 * Treat it as a single byte character; it may get
+		 * prettified.
+		 */
+		memset(&mbs, 0, sizeof mbs);
+		n = nicechar(*p);
+		cnt = 1;
+		width = strlen(n);
+		break;
+	    case 0:
+		cnt = 1;
+		/* FALL THROUGH */
+	    default:
+		n = wcs_nicechar(c, &width, NULL);
+		break;
+	    }
+	    ulen -= cnt;
+	    p += cnt;
+
+	    zputs(n, shout);
+	    cc += width;
+	}
+    }
+
+    free(umsg);
+#else
     for(p = msg; (c = *p); p++) {
 	if(c == Meta)
 	    c = *++p ^ 32;
@@ -406,10 +840,11 @@ showmsg(char const *msg)
 	    cc = 0;
 	} else {
 	    char const *n = nicechar(c);
-	    fputs(n, shout);
+	    zputs(n, shout);
 	    cc += strlen(n);
 	}
     }
+#endif
     up += cc / columns;
 
     if (clearflag) {
@@ -428,6 +863,15 @@ handlefeep(UNUSED(char **args))
 {
     zbeep();
     return 0;
+}
+
+/* user control of auto-suffixes -- see iwidgets.list */
+
+/**/
+int
+handlesuffix(UNUSED(char **args))
+{
+  return 0;
 }
 
 /***************/
@@ -450,9 +894,10 @@ initundo(void)
     changes = curchange = zalloc(sizeof(*curchange));
     curchange->prev = curchange->next = NULL;
     curchange->del = curchange->ins = NULL;
-    lastline = zalloc(lastlinesz = linesz);
-    memcpy(lastline, line, lastll = ll);
-    lastcs = cs;
+    curchange->dell = curchange->insl = 0;
+    lastline = zalloc((lastlinesz = linesz) * ZLE_CHAR_SIZE);
+    ZS_memcpy(lastline, zleline, (lastll = zlell));
+    lastcs = zlecs;
 }
 
 /**/
@@ -472,8 +917,8 @@ freechanges(struct change *p)
 
     for(; p; p = n) {
 	n = p->next;
-	zsfree(p->del);
-	zsfree(p->ins);
+	free(p->del);
+	free(p->ins);
 	zfree(p, sizeof(*p));
     }
 }
@@ -484,25 +929,42 @@ freechanges(struct change *p)
 mod_export void
 handleundo(void)
 {
+    int remetafy;
+
+    /*
+     * Yuk: we call this from within the completion system,
+     * so we need to convert back to the form which can be
+     * copied into undo entries.
+     */
+    if (zlemetaline != NULL) {
+	unmetafy_line();
+	remetafy = 1;
+    } else
+	remetafy = 0;
+
     mkundoent();
-    if(!nextchanges)
-	return;
-    setlastline();
-    if(curchange->next) {
-	freechanges(curchange->next);
-	curchange->next = NULL;
-	zsfree(curchange->del);
-	zsfree(curchange->ins);
-	curchange->del = curchange->ins = NULL;
+    if(nextchanges) {
+	setlastline();
+	if(curchange->next) {
+	    freechanges(curchange->next);
+	    curchange->next = NULL;
+	    free(curchange->del);
+	    free(curchange->ins);
+	    curchange->del = curchange->ins = NULL;
+	    curchange->dell = curchange->insl = 0;
+	}
+	nextchanges->prev = curchange->prev;
+	if(curchange->prev)
+	    curchange->prev->next = nextchanges;
+	else
+	    changes = nextchanges;
+	curchange->prev = endnextchanges;
+	endnextchanges->next = curchange;
+	nextchanges = endnextchanges = NULL;
     }
-    nextchanges->prev = curchange->prev;
-    if(curchange->prev)
-	curchange->prev->next = nextchanges;
-    else
-	changes = nextchanges;
-    curchange->prev = endnextchanges;
-    endnextchanges->next = curchange;
-    nextchanges = endnextchanges = NULL;
+
+    if (remetafy)
+	metafy_line();
 }
 
 /* add an entry to the undo system, if anything has changed */
@@ -512,30 +974,39 @@ void
 mkundoent(void)
 {
     int pre, suf;
-    int sh = ll < lastll ? ll : lastll;
+    int sh = zlell < lastll ? zlell : lastll;
     struct change *ch;
 
-    if(lastll == ll && !memcmp(lastline, line, ll))
+    UNMETACHECK();
+    if(lastll == zlell && !ZS_memcmp(lastline, zleline, zlell))
 	return;
-    for(pre = 0; pre < sh && line[pre] == lastline[pre]; )
+    for(pre = 0; pre < sh && zleline[pre] == lastline[pre]; )
 	pre++;
     for(suf = 0; suf < sh - pre &&
-	line[ll - 1 - suf] == lastline[lastll - 1 - suf]; )
+	zleline[zlell - 1 - suf] == lastline[lastll - 1 - suf]; )
 	suf++;
     ch = zalloc(sizeof(*ch));
     ch->next = NULL;
     ch->hist = histline;
     ch->off = pre;
     ch->old_cs = lastcs;
-    ch->new_cs = cs;
-    if(suf + pre == lastll)
+    ch->new_cs = zlecs;
+    if(suf + pre == lastll) {
 	ch->del = NULL;
-    else
-	ch->del = metafy(lastline + pre, lastll - pre - suf, META_DUP);
-    if(suf + pre == ll)
+	ch->dell = 0;
+    } else {
+	ch->dell = lastll - pre - suf;
+	ch->del = (ZLE_STRING_T)zalloc(ch->dell * ZLE_CHAR_SIZE);
+	ZS_memcpy(ch->del, lastline + pre, ch->dell);
+    }
+    if(suf + pre == zlell) {
 	ch->ins = NULL;
-    else
-	ch->ins = metafy((char *)line + pre, ll - pre - suf, META_DUP);
+	ch->insl = 0;
+    } else {
+	ch->insl = zlell - pre - suf;
+	ch->ins = (ZLE_STRING_T)zalloc(ch->insl * ZLE_CHAR_SIZE);
+	ZS_memcpy(ch->ins, zleline + pre, ch->insl);
+    }
     if(nextchanges) {
 	ch->flags = CH_PREV;
 	ch->prev = endnextchanges;
@@ -555,10 +1026,11 @@ mkundoent(void)
 void
 setlastline(void)
 {
+    UNMETACHECK();
     if(lastlinesz != linesz)
-	lastline = realloc(lastline, lastlinesz = linesz);
-    memcpy(lastline, line, lastll = ll);
-    lastcs = cs;
+	lastline = realloc(lastline, (lastlinesz = linesz) * ZLE_CHAR_SIZE);
+    ZS_memcpy(lastline, zleline, (lastll = zlell));
+    lastcs = zlecs;
 }
 
 /* move backwards through the change list */
@@ -586,23 +1058,18 @@ unapplychange(struct change *ch)
 {
     if(ch->hist != histline) {
 	zle_setline(quietgethist(ch->hist));
-	cs = ch->new_cs;
+	zlecs = ch->new_cs;
 	return 0;
     }
-    cs = ch->off;
+    zlecs = ch->off;
     if(ch->ins)
-	foredel(ztrlen(ch->ins));
+	foredel(ch->insl);
     if(ch->del) {
-	char *c = ch->del;
-
-	spaceinline(ztrlen(c));
-	for(; *c; c++)
-	    if(*c == Meta)
-		line[cs++] = STOUC(*++c) ^ 32;
-	    else
-		line[cs++] = STOUC(*c);
+	spaceinline(ch->dell);
+	ZS_memcpy(zleline + zlecs, ch->del, ch->dell);
+	zlecs += ch->dell;
     }
-    cs = ch->old_cs;
+    zlecs = ch->old_cs;
     return 1;
 }
 
@@ -631,23 +1098,18 @@ applychange(struct change *ch)
 {
     if(ch->hist != histline) {
 	zle_setline(quietgethist(ch->hist));
-	cs = ch->old_cs;
+	zlecs = ch->old_cs;
 	return 0;
     }
-    cs = ch->off;
+    zlecs = ch->off;
     if(ch->del)
-	foredel(ztrlen(ch->del));
+	foredel(ch->dell);
     if(ch->ins) {
-	char *c = ch->ins;
-
-	spaceinline(ztrlen(c));
-	for(; *c; c++)
-	    if(*c == Meta)
-		line[cs++] = STOUC(*++c) ^ 32;
-	    else
-		line[cs++] = STOUC(*c);
+	spaceinline(ch->insl);
+	ZS_memcpy(zleline + zlecs, ch->ins, ch->insl);
+	zlecs += ch->insl;
     }
-    cs = ch->new_cs;
+    zlecs = ch->new_cs;
     return 1;
 }
 

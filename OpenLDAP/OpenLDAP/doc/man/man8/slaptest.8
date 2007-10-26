@@ -1,29 +1,28 @@
 .TH SLAPTEST 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 2004 The OpenLDAP Foundation All Rights Reserved.
+.\" Copyright 2004-2006 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slaptest \- Check the suitability of the slapd.conf file.
 .SH SYNOPSIS
 .B SBINDIR/slaptest
-.B [\-v]
 .B [\-d level]
 .B [\-f slapd.conf]
+.B [\-F confdir]
+.B [\-u]
+.B [\-v]
 .LP
 .SH DESCRIPTION
 .LP
 .B Slaptest
 is used to check the conformance of the
 .BR slapd.conf (5)
-configurtion file.
+configuration file.
 It opens the
 .BR slapd.conf (5)
 configuration file, and parses it according to the general 
 and the backend-specific rules, checking its sanity.
 .LP
 .SH OPTIONS
-.TP
-.B \-v
-enable verbose mode.
 .TP
 .BI \-d " level"
 enable debugging messages as defined by the specified
@@ -33,6 +32,27 @@ enable debugging messages as defined by the specified
 specify an alternative
 .BR slapd.conf (5)
 file.
+.TP
+.BI \-F " confdir"
+specify a config directory.
+If both
+.B -f
+and
+.B -F
+are specified, the config file will be read and converted to
+config directory format and written to the specified directory.
+If neither option is specified, slaptest will attempt to read the
+default config directory before trying to use the default
+config file. If a valid config directory exists then the
+default config file is ignored. If dryrun mode is also specified,
+no conversion will occur.
+.TP
+.B \-u
+enable dryrun mode (i.e. don't fail if databases cannot be opened,
+but config is fine).
+.TP
+.B \-v
+enable verbose mode.
 .SH EXAMPLES
 To check a 
 .BR slapd.conf (5)

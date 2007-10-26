@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -34,19 +34,17 @@ class AppleUSBOpticalMouse : public IOUSBHIDDriver
     OSDeclareDefaultStructors(AppleUSBOpticalMouse)
 
 private:
-    IONotifier * 		_notifier;
-    bool			_switchTo800dpiFlag;
-    bool			_switchTo2000fpsFlag;
+    bool				_switchTo800dpiFlag;
+    bool				_switchTo2000fpsFlag;
+	bool				_switchBackOnRestart;
     
     // IOKit methods
-    bool		willTerminate(IOService * provider, IOOptionBits options);
+	virtual IOReturn	setPowerState ( unsigned long powerStateOrdinal, IOService* whatDevice );
+    virtual bool		willTerminate(IOService * provider, IOOptionBits options);
     
     // IOUSBHIDDriver methods
     virtual IOReturn	StartFinalProcessing(void);
     
-    // leaf class methods
-    static IOReturn 	PowerDownHandler(void *target, void *refCon, UInt32 messageType, IOService *service,
-                                      void *messageArgument, vm_size_t argSize);
 };
 
 #endif _IOKIT_APPLEUSBOPTICALMOUSE_H

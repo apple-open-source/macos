@@ -18,7 +18,7 @@ HFILES = hfs_endian.h BTree.h BTreePrivate.h BTreeScanner.h CaseFolding.h\
 CFILES = hfs_endian.c BlockCache.c\
          BTree.c BTreeAllocate.c BTreeMiscOps.c \
          BTreeNodeOps.c BTreeScanner.c BTreeTreeOps.c\
-         CatalogCheck.c HardLinkCheck.c\
+         CatalogCheck.c HardLinkCheck.c dirhardlink.c \
          SBTree.c SControl.c SVerify1.c SVerify2.c\
          SRepair.c SRebuildCatalogBTree.c\
          SUtils.c SKeyCompare.c SDevice.c SExtents.c SAllocate.c\

@@ -87,5 +87,4 @@ public:
 
 #endif /* !_MUSCLECARDKEYHANDLE_H_ */
 
-/* arch-tag: 4129AC40-05E0-11D9-9563-000A9595DEEE */
 

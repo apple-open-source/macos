@@ -36,11 +36,11 @@
 .Dt UUENCODE 1
 .Os
 .Sh NAME
-.Nm uuencode ,
-.Nm uudecode
+.Nm uudecode ,
+.Nm uuencode
 .Nd encode/decode a binary file
 .Sh SYNOPSIS
-.Nm
+.Nm uuencode
 .Op Fl m
 .Op Fl o Ar output_file
 .Op Ar file
@@ -54,7 +54,7 @@
 .Op Ar file
 .Sh DESCRIPTION
 The
-.Nm
+.Nm uuencode
 and
 .Nm uudecode
 utilities are used to transmit binary files over transmission mediums
@@ -63,7 +63,7 @@ that do not support other than simple
 data.
 .Pp
 The
-.Nm
+.Nm uuencode
 utility reads
 .Ar file
 (or by default the standard input) and writes an encoded version
@@ -95,24 +95,11 @@ The
 utility ignores any leading and trailing lines.
 .Pp
 The following options are available for
-.Nm :
+.Nm uuencode :
 .Bl -tag -width ident
 .It Fl m
 Use the Base64 method of encoding, rather than the traditional
-.Nm
-algorithm.
-.It Fl o Ar output_file
-Output to
-.Ar output_file
-instead of standard output.
-.El
-.Pp
-The following options are available for
-.Nm :
-.Bl -tag -width ident
-.It Fl m
-Use the Base64 method of encoding, rather than the traditional
-.Nm
+.Nm uuencode
 algorithm.
 .It Fl o Ar output_file
 Output to
@@ -171,19 +158,32 @@ archive from your mailbox
 .Bd -literal -offset indent -compact
 uudecode -o /dev/stdout < $MAIL | zcat | tar xfv -
 .Ed
+.Sh LEGACY DESCRIPTION
+In legacy operation,
+.Nm uudecode
+masks file modes with 0666,
+preventing the creation of executable files.
+.Pp
+.Nm uudecode
+cannot change the mode of a created file
+which is not owned by the current user (unless that user is root).
+In legacy operation,
+.Xr fchmod 2
+allows the mode to be changed.
 .Sh SEE ALSO
 .Xr basename 1 ,
 .Xr compress 1 ,
 .Xr mail 1 ,
 .Xr uucp 1 ,
+.Xr fchmod 2 ,
 .Xr uuencode 5
 .Sh BUGS
-Files encoded using the traditional algorithm are expanded by 35% (3
-bytes become 4 plus control information).
+Files encoded using the traditional algorithm are expanded by 35%
+(3 bytes become 4, plus control information).
 .Sh HISTORY
 The
 .Nm uudecode
 and
-.Nm
+.Nm uuencode
 utilities appeared in
 .Bx 4.0 .

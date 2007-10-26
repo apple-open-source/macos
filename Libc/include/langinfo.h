@@ -29,7 +29,6 @@
 #ifndef _LANGINFO_H_
 #define	_LANGINFO_H_
 
-#include <sys/cdefs.h>
 #include <_types.h>
 
 #ifndef _NL_ITEM
@@ -110,7 +109,7 @@ typedef	__darwin_nl_item	nl_item;
 
 #define	CRNCYSTR	56	/* currency symbol */
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #define	D_MD_ORDER	57	/* month/day order (local extension) */
 #endif
 

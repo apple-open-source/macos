@@ -1,21 +1,25 @@
 /*
  *  misc.c
  *
- *  $Id: misc.c,v 1.6 2004/11/11 01:52:37 luesang Exp $
+ *  $Id: misc.c,v 1.23 2006/07/10 13:49:29 source Exp $
  *
  *  Miscellaneous functions
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -29,8 +33,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +43,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -75,7 +79,7 @@
 
 #include <sql.h>
 #include <sqlext.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -87,71 +91,41 @@
 #include <sys/stat.h>
 
 #include "herr.h"
+#include "misc.h"
+#include "iodbc_misc.h"
 
 #ifdef _MAC
 #include <getfpn.h>
 #endif /* _MAC */
 
-static int
-upper_strneq (
-    char *s1,
-    char *s2,
-    int n)
+
+/*
+ *  Parse a configuration from string (internal)
+ */
+int
+_iodbcdm_cfg_parse_str_Internal (PCONFIG pconfig, char *str)
 {
-  int i;
-  char c1 = 0 , c2 = 0;
-
-  for (i = 1; i < n; i++)
-    {
-      c1 = s1[i];
-      c2 = s2[i];
-
-      if (c1 >= 'a' && c1 <= 'z')
-	{
-	  c1 += ('A' - 'a');
-	}
-      else if (c1 == '\n')
-	{
-	  c1 = '\0';
-	}
-
-      if (c2 >= 'a' && c2 <= 'z')
-	{
-	  c2 += ('A' - 'a');
-	}
-      else if (c2 == '\n')
-	{
-	  c2 = '\0';
-	}
-
-      if ((c1 - c2) || !c1 || !c2)
-	{
-	  break;
-	}
-    }
-
-  return (int) !(c1 - c2);
-}
-
-
-static char *
-_iodbcdm_getkeyvalinstr_Internal (char *str,
-    int cnlen,
-    void *keywd,
-    void *value,
-    int size)
-{
-  char *cp, *n;
-  char *s, *tmp;
+  char *s;
   int count;
 
-  cnlen=cnlen; /*UNUSED*/ 
+  /* init image */
+  _iodbcdm_cfg_freeimage (pconfig);
+  if (str == NULL)
+    {
+      /* NULL string is ok */
+      return 0;
+    }
+  s = pconfig->image = strdup (str);
 
-  if (str == NULL || (s = tmp = strdup (str)) == NULL)
-    return NULL;
+  /* Add [ODBC] section */
+  if (_iodbcdm_cfg_storeentry (pconfig, "ODBC", NULL, NULL, NULL, 0) == -1)
+    return -1;
 
   for (count = 0; *s; count++)
     {
+      char *keywd = NULL, *value;
+      char *cp, *n;
+
       /* 
        *  Extract KEY=VALUE upto first ';'
        */
@@ -181,18 +155,11 @@ _iodbcdm_getkeyvalinstr_Internal (char *str,
       for (cp = s; *cp && *cp != '='; cp++)
 	;
 
-      /*
-       *  Check if this is keyword we are searching for
-       */
       if (*cp)
 	{
 	  *cp++ = 0;
-	  if (upper_strneq ((char *) s, (char *) keywd, STRLEN (keywd)))
-	    {
-	      strncpy ((char *) value, (char *) cp, size);
-	      free (tmp);
-	      return (char *) value;
-	    }
+          keywd = s;
+          value = cp;
 	}
       else if (count == 0)
 	{
@@ -200,63 +167,113 @@ _iodbcdm_getkeyvalinstr_Internal (char *str,
 	   *  Handle missing DSN=... from the beginning of the string, e.g.:
 	   *  'dsn_ora7;UID=scott;PWD=tiger'
 	   */
-	  if (upper_strneq ("DSN", (char *) keywd, STRLEN (keywd)))
-	    {
-	      strncpy ((char *) value, (char *) s, size);
-	      free (tmp);
-	      return (char *) value;
-	    }
+          keywd = "DSN";
+	  value = s;
+	}
+
+      if (keywd != NULL)
+        {
+          /* store entry */
+          if (_iodbcdm_cfg_storeentry (pconfig, NULL,
+		  keywd, value, NULL, 0) == -1)
+            return -1;
 	}
 
       /*
-       *  Else continue with next token
+       *  Continue with next token
        */
       s = n;
     }
 
-  free (tmp);
-  return NULL;
+  /* we're done */
+  pconfig->flags |= CFG_VALID;
+  pconfig->dirty = 1;
+  return 0;
 }
 
 
-char *
-_iodbcdm_getkeyvalinstr (char *cnstr,
-    int cnlen, char *keywd, char *value, int size)
+/*
+ *  Initialize a configuration from string
+ */
+int
+_iodbcdm_cfg_init_str (PCONFIG *ppconf, void *str, int size, int wide)
 {
-  return _iodbcdm_getkeyvalinstr_Internal(cnstr, cnlen, keywd, value, size);
+  PCONFIG pconfig;
+
+  *ppconf = NULL;
+
+  /* init config */
+  if ((pconfig = (PCONFIG) calloc (1, sizeof (TCONFIG))) == NULL)
+    return -1;
+
+  /* parse */
+  if (_iodbcdm_cfg_parse_str (pconfig, str, size, wide) == -1)
+    {
+      _iodbcdm_cfg_done (pconfig);
+      return -1;
+    }
+
+  /* we're done */
+  *ppconf = pconfig;
+  return 0;
 }
 
-wchar_t *
-_iodbcdm_getkeyvalinstrw (wchar_t *cnstr,
-    int cnlen, wchar_t *keywd, wchar_t *value, int size)
+
+/*
+ *  Parse a configuration from string
+ */
+int
+_iodbcdm_cfg_parse_str (PCONFIG pconfig, void *str, int size, int wide)
 {
-  char *ret = NULL;
-  char *_cnstr;
-  char *_keywd;
-  char *buf = NULL;
+  int ret;
+  char *_str;
 
-  if (size > 0)
+  _str = wide ? (char *) dm_SQL_WtoU8 (str, size) : str;
+
+  ret = _iodbcdm_cfg_parse_str_Internal (pconfig, _str);
+
+  if (wide)
+    MEM_FREE (_str);
+
+  return ret;
+}
+
+
+#define CATBUF(buf, str, buf_sz)					\
+  do {									\
+    if (_iodbcdm_strlcat (buf, str, buf_sz) >= buf_sz)			\
+      return -1;							\
+  } while (0)
+
+int
+_iodbcdm_cfg_to_string (PCONFIG pconfig, char *section,
+			char *buf, size_t buf_sz)
+{
+  BOOL atsection;
+
+  if (_iodbcdm_cfg_rewind (pconfig) == -1)
+    return -1;
+
+  atsection = FALSE;
+  buf[0] = '\0';
+  while (_iodbcdm_cfg_nextentry (pconfig) == 0)
     {
-      if ((buf = (char *) malloc (size * UTF8_MAX_CHAR_LEN + 1)) == NULL)
-	return NULL;
+      if (atsection)
+        {
+          if (_iodbcdm_cfg_section (pconfig))
+            break;
+          else if (_iodbcdm_cfg_define (pconfig))
+            {
+              if (buf[0] != '\0')
+                CATBUF (buf, ";", buf_sz);
+              CATBUF (buf, pconfig->id, buf_sz);
+              CATBUF (buf, "=", buf_sz);
+              CATBUF (buf, pconfig->value, buf_sz);
+            }
+        }
+      else if (_iodbcdm_cfg_section (pconfig) &&
+	       !strcasecmp (pconfig->section, section))
+        atsection = TRUE;
     }
-
-  _cnstr = (char *) dm_SQL_WtoU8 (cnstr, cnlen);
-  _keywd = (char *) dm_SQL_WtoU8 (keywd, SQL_NTS);
-
-  ret = _iodbcdm_getkeyvalinstr_Internal (_cnstr, SQL_NTS, _keywd, buf,
-      size * UTF8_MAX_CHAR_LEN);
-
-  MEM_FREE (_cnstr);
-  MEM_FREE (_keywd);
-
-  if (ret != NULL)
-    {
-      dm_StrCopyOut2_U8toW ((SQLCHAR *) ret, value, size, NULL);
-      MEM_FREE (buf);
-      return value;
-    }
-
-  MEM_FREE (buf);
-  return NULL;
+  return 0;
 }

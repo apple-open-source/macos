@@ -138,8 +138,10 @@ krb5_verify_init_creds(krb5_context context,
 
       /* insert the initial cred into the ccache */
 
-      if ((ret = krb5_cc_resolve(context, "MEMORY:rd_req", &ccache)))
-	 goto cleanup;
+      if ((ret = krb5_cc_new_unique(context, "MEMORY", NULL, &ccache))) {
+	  ccache = NULL;
+	  goto cleanup;
+      }
 
       if ((ret = krb5_cc_initialize(context, ccache, creds->client)))
 	 goto cleanup;

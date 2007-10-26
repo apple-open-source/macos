@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: crc32.c,v 1.12.8.1.8.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: crc32.c,v 1.16.2.4.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -26,19 +26,20 @@
    Calculate the crc32 polynomial of a string */
 PHP_NAMED_FUNCTION(php_if_crc32)
 {
-	unsigned int crc = ~0;
 	char *p;
 	int len, nr;
-	
+	php_uint32 crcinit = 0;
+	register php_uint32 crc;
+
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &p, &nr) == FAILURE) {
 		return;
 	}
+	crc = crcinit^0xFFFFFFFF;
 
-	len = 0 ;
-	for (len += nr; nr--; ++p) {
-	    CRC32(crc, *p);
+	for (len =+nr; nr--; ++p) {
+		crc = ((crc >> 8) & 0x00FFFFFF) ^ crc32tab[(crc ^ (*p)) & 0xFF ];
 	}
-	RETVAL_LONG(~crc);
+	RETVAL_LONG(crc^0xFFFFFFFF);
 }
 /* }}} */
 

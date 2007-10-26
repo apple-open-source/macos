@@ -1,5 +1,5 @@
 dnl
-dnl $Id: config.m4,v 1.49.2.15.2.2 2007/02/10 20:57:29 nlopess Exp $
+dnl $Id: config.m4,v 1.69.4.7 2007/02/11 09:25:32 tony2001 Exp $
 dnl
 
 AC_DEFUN([IMAP_INC_CHK],[if test -r "$i$1/c-client.h"; then
@@ -20,11 +20,10 @@ AC_DEFUN([IMAP_LIB_CHK],[
   done
 ])
 
-dnl PHP_IMAP_TEST_BUILD(function, action-if-ok, action-if-not-ok [, extra-libs])
+dnl PHP_IMAP_TEST_BUILD(function, action-if-ok, action-if-not-ok, extra-libs)
 AC_DEFUN([PHP_IMAP_TEST_BUILD], [
-  old_LIBS=$LIBS
-  LIBS="$4 $LIBS"
-  AC_TRY_RUN([
+  PHP_TEST_BUILD([$1], [$2], [$3], [$4],
+  [
     void mm_log(void){}
     void mm_dlog(void){}
     void mm_flags(void){}
@@ -40,17 +39,6 @@ AC_DEFUN([PHP_IMAP_TEST_BUILD], [
     void mm_exists(void){}
     void mm_searched(void){}
     void mm_expunged(void){}
-    char $1();
-    int main() {
-      $1();
-      return 0;
-    }
-  ], [
-    LIBS=$old_LIBS
-    $2
-  ],[
-    LIBS=$old_LIBS
-    $3
   ])
 ])
 
@@ -77,6 +65,9 @@ AC_DEFUN([PHP_IMAP_KRB_CHK], [
 
 AC_DEFUN([PHP_IMAP_SSL_CHK], [
   if test "$PHP_IMAP_SSL" != "no"; then
+    if test "$PHP_OPENSSL" = ""; then
+      PHP_OPENSSL='no'
+    fi
     PHP_SETUP_OPENSSL(IMAP_SHARED_LIBADD,
     [
       AC_DEFINE(HAVE_IMAP_SSL,1,[ ])
@@ -98,13 +89,13 @@ AC_DEFUN([PHP_IMAP_SSL_CHK], [
 
 
 PHP_ARG_WITH(imap,for IMAP support,
-[  --with-imap[=DIR]       Include IMAP support. DIR is the c-client install prefix.])
+[  --with-imap[=DIR]       Include IMAP support. DIR is the c-client install prefix])
 
 PHP_ARG_WITH(kerberos,for IMAP Kerberos support,
-[  --with-kerberos[=DIR]     IMAP: Include Kerberos support. DIR is the Kerberos install prefix.], no, no)
+[  --with-kerberos[=DIR]     IMAP: Include Kerberos support. DIR is the Kerberos install prefix], no, no)
 
 PHP_ARG_WITH(imap-ssl,for IMAP SSL support,
-[  --with-imap-ssl[=DIR]     IMAP: Include SSL support. DIR is the OpenSSL install prefix.], no, no)
+[  --with-imap-ssl[=DIR]     IMAP: Include SSL support. DIR is the OpenSSL install prefix], no, no)
 
 
 if test "$PHP_IMAP" != "no"; then  
@@ -164,10 +155,10 @@ if test "$PHP_IMAP" != "no"; then
     CFLAGS=$old_CFLAGS
 
     if test "$ac_cv_u8t_canonical" = "no" && test "$ac_cv_utf8_mime2text" = "new"; then
-        AC_MSG_ERROR([utf8_mime2text() has new signature, but U8T_CANONICAL is missing. This should not happen. Check config.log for additional information.])
+		AC_MSG_ERROR([utf8_mime2text() has new signature, but U8T_CANONICAL is missing. This should not happen. Check config.log for additional information.])
     fi
     if test "$ac_cv_u8t_canonical" = "yes" && test "$ac_cv_utf8_mime2text" = "old"; then
-        AC_MSG_ERROR([utf8_mime2text() has old signature, but U8T_CANONICAL is present. This should not happen. Check config.log for additional information.])
+		AC_MSG_ERROR([utf8_mime2text() has old signature, but U8T_CANONICAL is present. This should not happen. Check config.log for additional information.])
     fi
 
     dnl Check for c-client version 2001
@@ -203,13 +194,13 @@ if test "$PHP_IMAP" != "no"; then
 
     if test -r "$IMAP_DIR/c-client/c-client.a"; then
       ln -s "$IMAP_DIR/c-client/c-client.a" "$IMAP_DIR/c-client/libc-client.a" >/dev/null 2>&1
-    elif test -r "$IMAP_DIR/lib/c-client.a"; then
-      ln -s "$IMAP_DIR/lib/c-client.a" "$IMAP_DIR/lib/libc-client.a" >/dev/null 2>&1
+    elif test -r "$IMAP_DIR/$PHP_LIBDIR/c-client.a"; then
+      ln -s "$IMAP_DIR/$PHP_LIBDIR/c-client.a" "$IMAP_DIR/$PHP_LIBDIR/libc-client.a" >/dev/null 2>&1
     fi
 
     for lib in c-client4 c-client imap; do
       IMAP_LIB=$lib
-      IMAP_LIB_CHK(lib)
+      IMAP_LIB_CHK($PHP_LIBDIR)
       IMAP_LIB_CHK(c-client)
     done
 
@@ -231,7 +222,7 @@ if test "$PHP_IMAP" != "no"; then
       AC_DEFINE(HAVE_IMAP_AUTH_GSS, 1, [ ])
     ], [], $TST_LIBS)
 
-    AC_MSG_CHECKING(whether IMAP works)
+    AC_MSG_CHECKING(whether build with IMAP works)
     PHP_IMAP_TEST_BUILD(mail_newbody, [
       AC_MSG_RESULT(yes)
     ], [

@@ -1,25 +1,22 @@
-Index: samba/source/passdb/pdb_interface.c
+Index: PR-4741524/samba/source/passdb/pdb_interface.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/passdb/pdb_interface.c,v
-retrieving revision 1.4
-diff -u -d -b -r1.4 pdb_interface.c
---- samba/source/passdb/pdb_interface.c.orig	2004/02/11 18:51:55	1.4
-+++ samba/source/passdb/pdb_interface.c	2004/06/04 21:33:49
-@@ -277,7 +277,7 @@
+--- PR-4741524.orig/samba/source/passdb/pdb_interface.c
++++ PR-4741524/samba/source/passdb/pdb_interface.c
+@@ -276,7 +276,7 @@ static NTSTATUS context_update_sam_accou
  
  	/* disable acccounts with no passwords (that has not 
  	   been allowed by the  ACB_PWNOTREQ bit */
 -	
-+	if (!lp_opendirectory()) {	
++	if (!lp_opendirectory()) {
  	lm_pw = pdb_get_lanman_passwd( sam_acct );
- 	nt_pw = pdb_get_lanman_passwd( sam_acct );
+ 	nt_pw = pdb_get_nt_passwd( sam_acct );
  	acb_flags = pdb_get_acct_ctrl( sam_acct );
-@@ -286,7 +286,7 @@
- 		pdb_set_acct_ctrl( sam_acct, acb_flags, PDB_SET );
- 		pdb_set_init_flags(sam_acct, PDB_ACCTCTRL, PDB_SET);
+@@ -284,7 +284,7 @@ static NTSTATUS context_update_sam_accou
+ 		acb_flags |= ACB_DISABLED;
+ 		pdb_set_acct_ctrl( sam_acct, acb_flags, PDB_CHANGED );
  	}
 -	
-+	}	
++	}
  	/** @todo  This is where a 're-read on update' should be done */
  
  	return sam_acct->methods->update_sam_account(sam_acct->methods, sam_acct);

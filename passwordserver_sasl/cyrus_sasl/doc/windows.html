@@ -14,8 +14,8 @@ and two applications (saslpasswd2.exe and sasldblistusers2.exe) can be built.
 
 <ul>
 <li>Visual Studio. We have tested Visual Studio 6 and Visual Studio 7 (.NET).
-By default we are using Visual Studio 7. If you want to use Visual Studio 6,
-you need to remove /Wp64 compiler flag from win32/common.mak
+By default we are using Visual Studio 7 (both 2002 and 2003 versions were tested). If you want to use Visual Studio 6,
+you need to remove the leading # character from the line containing "<tt>#VCVER=6</tt>" in win32/common.mak.
 
 <li>The latest Platform SDK. We've tested November 2001.
 
@@ -110,13 +110,20 @@ Defaulting SleepyCat library path to c:\work\isode\db\build_win32\Release_static
 
 </pre>
 
-<h3>Building additional plugins</h3>
+<h3>building additional plugins</h3>
 
 <p>Specify "GSSAPI=&lt;type&gt;" parameter if you want to enable GSSAPI plugin.
 Currently only &lt;type&gt;=CyberSafe is supported and this will build the plugin
 that links against CyberSafe Kerberos.
 
 GSSAPI depends on <tt>GSSAPI_INCLUDE</tt> and <tt>GSSAPI_LIBPATH</tt> parameters.
+You can either specify them on the command line or edit the defaults in win32\common.mak
+
+<p>Specify "SQL=&lt;type&gt;" parameter if you want to enable SQL plugin.
+Currently only &lt;type&gt;=SQLITE is supported and this will build the plugin
+that links against SQLITE (www.sqlite.org).
+
+SQL=&lt;SQLITE&gt; depends on <tt>SQLITE_INCLUDES</tt> and <tt>SQLITE_LIBPATH</tt> parameters.
 You can either specify them on the command line or edit the defaults in win32\common.mak
 
 <p>Specify "NTLM=1" parameter if you want to enable NTLM plugin.
@@ -130,22 +137,20 @@ You can also specify "DO_SRP_SETPASS=1" if you want to enable SRP setpass functi
 <p>NTLM, SRP and OTP plugins depend on OpenSSL. You can either specify
 <tt>OPENSSL_INCLUDE</tt> and <tt>OPENSSL_LIBPATH</tt> parameters on the command
 line or edit the defaults in win32\common.mak
+Note, that unless you are building one of those plugins, OpenSSL is not required!
+
+<p>If you want to build multiple additional plugins at once, you can specify
+multiple parameters described above, for example "<tt>nmake /f NTMakefile NTLM=1 SRP=1 OPT=1</tt>"
 
 <h3>limitations</h3>
 
-Currently only the following plugins build:
+Currently all plugins but KerberosV4 (kerberos4.c) and PASSDSS (passdss.c) can be built on Windows.
+However limited testings was done for some plugins as listed below:
 
 <ul>
-<li>ANONYMOUS,
-<li>LOGIN,
-<li>PLAIN,
-<li>CRAM-MD5,
-<li>DIGEST-MD5
-<li>SASLDB (using SleepyCat),
-<li>NTLM,
-<li>GSSAPI (tested using CyberSafe),
-<li>SRP (not tested)
-<li>OTP (not tested)
+<li>GSSAPI - tested using CyberSafe,
+<li>SASLDB - only SleepyCat version can be built,
+<li>SQL - using SQLITE, not tested
 </ul>
 
 The following executables were built and tested (to some extend):
@@ -161,7 +166,7 @@ In utils:
 <li>testsuite
 </ul>
 
-Yes, saslauthd is NOT in this list.
+Note that saslauthd is <em>NOT</em> in this list.
 
 <h3>testing</h3>
 

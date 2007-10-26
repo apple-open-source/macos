@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkcs7.h,v 1.1 2003/07/23 16:11:29 gotoyuzo Exp $
+ * $Id: ossl_pkcs7.h 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -13,7 +13,8 @@
 
 extern VALUE mPKCS7;
 extern VALUE cPKCS7;
-extern VALUE cPKCS7SignerInfo;
+extern VALUE cPKCS7Signer;
+extern VALUE cPKCS7Recipient;
 extern VALUE ePKCS7Error;
 
 void Init_ossl_pkcs7(void);

@@ -31,7 +31,8 @@ Extra_Configure_Flags = --enable-fakeroot="$(DSTROOT)" \
 			--enable-read-both-confs \
 			--enable-sconfigdir=/private/etc/pam \
 			--enable-securedir=/usr/lib/pam \
-			--enable-giant-libpam
+			--enable-giant-libpam \
+			--disable-libcrack
 
 build:: lazy_install_source configure
 

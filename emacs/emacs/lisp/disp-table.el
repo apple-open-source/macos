@@ -1,6 +1,7 @@
 ;;; disp-table.el --- functions for dealing with char tables
 
-;; Copyright (C) 1987, 1994, 1995, 1999 Free Software Foundation, Inc.
+;; Copyright (C) 1987, 1994, 1995, 1999, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Erik Naggum <erik@naggum.no>
 ;; Based on a previous version by Howard Gayle
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -113,17 +114,19 @@ Valid symbols are `truncation', `wrap', `escape', `control',
 ;;;###autoload
 (defun standard-display-8bit (l h)
   "Display characters in the range L to H literally."
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (while (<= l h)
-    (if (and (>= l ?\ ) (< l 127))
-	(aset standard-display-table l nil)
-      (aset standard-display-table l (vector l)))
+    (aset standard-display-table l (if (or (< l ?\s) (>= l 127)) (vector l)))
     (setq l (1+ l))))
 
 ;;;###autoload
 (defun standard-display-default (l h)
   "Display characters in the range L to H using the default notation."
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (while (<= l h)
-    (if (and (>= l ?\ ) (char-valid-p l))
+    (if (and (>= l ?\s) (char-valid-p l))
 	(aset standard-display-table l nil))
     (setq l (1+ l))))
 
@@ -133,6 +136,8 @@ Valid symbols are `truncation', `wrap', `escape', `control',
 ;;;###autoload
 (defun standard-display-ascii (c s)
   "Display character C using printable string S."
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (aset standard-display-table c (vconcat s)))
 
 ;;;###autoload
@@ -140,8 +145,10 @@ Valid symbols are `truncation', `wrap', `escape', `control',
   "Display character C as character SC in the g1 character set.
 This function assumes that your terminal uses the SO/SI characters;
 it is meaningless for an X frame."
-  (if (memq window-system '(x w32))
+  (if (memq window-system '(x w32 mac))
       (error "Cannot use string glyphs in a windowing system"))
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (aset standard-display-table c
 	(vector (create-glyph (concat "\016" (char-to-string sc) "\017")))))
 
@@ -150,18 +157,22 @@ it is meaningless for an X frame."
   "Display character C as character GC in graphics character set.
 This function assumes VT100-compatible escapes; it is meaningless for an
 X frame."
-  (if (memq window-system '(x w32))
+  (if (memq window-system '(x w32 mac))
       (error "Cannot use string glyphs in a windowing system"))
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (aset standard-display-table c
 	(vector (create-glyph (concat "\e(0" (char-to-string gc) "\e(B")))))
 
 ;;;###autoload
 (defun standard-display-underline (c uc)
   "Display character C as character UC plus underlining."
+  (or standard-display-table
+      (setq standard-display-table (make-display-table)))
   (aset standard-display-table c
-	(vector 
+	(vector
 	 (if window-system
-	     (logior uc (lsh (face-id 'underline) 19))
+	     (make-glyph-code uc 'underline)
 	   (create-glyph (concat "\e[4m" (char-to-string uc) "\e[m"))))))
 
 ;;;###autoload
@@ -174,6 +185,30 @@ X frame."
       (setq glyph-table (vconcat glyph-table (make-vector 224 nil))))
   (setq glyph-table (vconcat glyph-table (list string)))
   (1- (length glyph-table)))
+
+;;;###autoload
+(defun make-glyph-code (char &optional face)
+  "Return a glyph code representing char CHAR with face FACE."
+  ;; Due to limitations on Emacs integer values, faces with
+  ;; face id greater that 4091 are silently ignored.
+  (if (and face (<= (face-id face) #xfff))
+      (logior char (lsh (face-id face) 19))
+    char))
+
+;;;###autoload
+(defun glyph-char (glyph)
+  "Return the character of glyph code GLYPH."
+  (logand glyph #x7ffff))
+
+;;;###autoload
+(defun glyph-face (glyph)
+  "Return the face of glyph code GLYPH, or nil if glyph has default face."
+  (let ((face-id (lsh glyph -19)))
+    (and (> face-id 0)
+	 (car (delq nil (mapcar (lambda (face)
+				  (and (eq (get face 'face) face-id)
+				       face))
+				(face-list)))))))
 
 ;;;###autoload
 (defun standard-display-european (arg)
@@ -206,27 +241,19 @@ for users who call this function in `.emacs'."
 	       (equal (aref standard-display-table 161) [161])))
       (progn
 	(standard-display-default 160 255)
-	(unless (or (memq window-system '(x w32))
-		    (interactive-p))
+	(unless (or (memq window-system '(x w32 mac)))
 	  (and (terminal-coding-system)
 	       (set-terminal-coding-system nil))))
-    ;; If the user does this explicitly from Lisp (as in .emacs),
-    ;; turn off multibyte chars for more compatibility.
-    (unless (interactive-p)
-      (setq-default enable-multibyte-characters nil)
-      (mapcar (lambda (buffer)
-		(with-current-buffer buffer
-		  (if enable-multibyte-characters
-		      (set-buffer-multibyte nil))))
-	      (buffer-list)))
-    ;; If the user does this explicitly,
-    ;; switch to Latin-1 language environment
+
+    (display-warning 'i18n
+		     "`standard-display-european' is semi-obsolete; see its doc string for details"
+		     :warning)
+
+    ;; Switch to Latin-1 language environment
     ;; unless some other has been specified.
-    (unless (interactive-p)
-      (if (equal current-language-environment "English")
-	  (set-language-environment "latin-1")))
-    (unless (or noninteractive (memq window-system '(x w32))
-		(interactive-p))
+    (if (equal current-language-environment "English")
+	(set-language-environment "latin-1"))
+    (unless (or noninteractive (memq window-system '(x w32 mac)))
       ;; Send those codes literally to a character-based terminal.
       ;; If we are using single-byte characters,
       ;; it doesn't matter which coding system we use.
@@ -237,4 +264,5 @@ for users who call this function in `.emacs'."
 
 (provide 'disp-table)
 
+;;; arch-tag: ffe4c28c-960c-47aa-b8a8-ae89d371ffc7
 ;;; disp-table.el ends here

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2006, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -32,6 +32,7 @@
 #include <math.h>
 
 static void TestExtremeDates(void);
+static void TestAllLocales(void);
 
 #define LEN(a) (sizeof(a)/sizeof(a[0]))
 
@@ -45,6 +46,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestSymbols);
     TESTCASE(TestDateFormatCalendar);
     TESTCASE(TestExtremeDates);
+    TESTCASE(TestAllLocales);
 }
 /* Testing the DateFormat API */
 static void TestDateFormat()
@@ -124,9 +126,9 @@ static void TestDateFormat()
     for(i=0;i<numlocales;i++) {
       UErrorCode subStatus = U_ZERO_ERROR;
       log_verbose("Testing open of %s\n", udat_getAvailable(i));
-      any = udat_open(UDAT_SHORT, UDAT_SHORT, udat_getAvailable(i), NULL ,0, NULL, 0, &status);
+      any = udat_open(UDAT_SHORT, UDAT_SHORT, udat_getAvailable(i), NULL ,0, NULL, 0, &subStatus);
       if(U_FAILURE(subStatus)) {
-    log_data_err("FAIL: date format %s (getAvailable(%d)) is not instantiable: %s\n", udat_getAvailable(i), i, u_errorName(subStatus));
+        log_data_err("FAIL: date format %s (getAvailable(%d)) is not instantiable: %s\n", udat_getAvailable(i), i, u_errorName(subStatus));
       }
       udat_close(any);
     }
@@ -393,6 +395,7 @@ static void TestSymbols()
     if(udat_countSymbols(def, UDAT_ERAS)!=2 || udat_countSymbols(def, UDAT_MONTHS)!=12 || 
         udat_countSymbols(def, UDAT_SHORT_MONTHS)!=12 || udat_countSymbols(def, UDAT_WEEKDAYS)!=8 ||
         udat_countSymbols(def, UDAT_SHORT_WEEKDAYS)!=8 || udat_countSymbols(def, UDAT_AM_PMS)!=2 ||
+        udat_countSymbols(def, UDAT_QUARTERS) != 4 || udat_countSymbols(def, UDAT_SHORT_QUARTERS) != 4 ||
         udat_countSymbols(def, UDAT_LOCALIZED_CHARS)!=1)
     {
         log_err("FAIL: error in udat_countSymbols\n");
@@ -443,7 +446,11 @@ static void TestSymbols()
     VerifygetSymbols(def, UDAT_AM_PMS, 1, "PM");
     VerifygetSymbols(fr, UDAT_SHORT_MONTHS, 0, "janv.");
     VerifygetSymbols(def, UDAT_SHORT_MONTHS, 11, "Dec");
-    VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZ");
+    VerifygetSymbols(fr, UDAT_QUARTERS, 0, "1er trimestre");
+    VerifygetSymbols(def, UDAT_QUARTERS, 3, "4th quarter");
+    VerifygetSymbols(fr, UDAT_SHORT_QUARTERS, 1, "T2");
+    VerifygetSymbols(def, UDAT_SHORT_QUARTERS, 2, "Q3");
+    VerifygetSymbols(def,UDAT_LOCALIZED_CHARS, 0, "GyMdkHmsSEDFwWahKzYeugAZvcL");
 
 
     if(result != NULL) {
@@ -539,11 +546,24 @@ free(pattern);
     
     /*run series of tests to test setSymbols regressively*/
     log_verbose("\nTesting setSymbols regressively\n");
-    VerifysetSymbols(def, UDAT_WEEKDAYS, 1, "Sundayweek");
     VerifysetSymbols(def, UDAT_ERAS, 0, "BeforeChrist");
+    VerifysetSymbols(def, UDAT_ERA_NAMES, 1, "AnnoDomini");
+    VerifysetSymbols(def, UDAT_WEEKDAYS, 1, "Sundayweek");
     VerifysetSymbols(def, UDAT_SHORT_WEEKDAYS, 7, "Satweek");
+    VerifysetSymbols(def, UDAT_NARROW_WEEKDAYS, 4, "M");
+    VerifysetSymbols(def, UDAT_STANDALONE_WEEKDAYS, 1, "Sonntagweek");
+    VerifysetSymbols(def, UDAT_STANDALONE_SHORT_WEEKDAYS, 7, "Sams");
+    VerifysetSymbols(def, UDAT_STANDALONE_NARROW_WEEKDAYS, 4, "V");
     VerifysetSymbols(fr, UDAT_MONTHS, 11, "december");
     VerifysetSymbols(fr, UDAT_SHORT_MONTHS, 0, "Jan");
+    VerifysetSymbols(fr, UDAT_NARROW_MONTHS, 1, "R");
+    VerifysetSymbols(fr, UDAT_STANDALONE_MONTHS, 11, "dezember");
+    VerifysetSymbols(fr, UDAT_STANDALONE_SHORT_MONTHS, 7, "Aug");
+    VerifysetSymbols(fr, UDAT_STANDALONE_NARROW_MONTHS, 2, "M");
+    VerifysetSymbols(fr, UDAT_QUARTERS, 0, "1. Quart");
+    VerifysetSymbols(fr, UDAT_SHORT_QUARTERS, 1, "QQ2");
+    VerifysetSymbols(fr, UDAT_STANDALONE_QUARTERS, 2, "3rd Quar.");
+    VerifysetSymbols(fr, UDAT_STANDALONE_SHORT_QUARTERS, 3, "4QQ");
 
     
     /*run series of tests to test get and setSymbols regressively*/
@@ -902,6 +922,27 @@ static void TestExtremeDates() {
     _aux2ExtremeDates(fmt, small, large, buf, LEN(buf), cbuf, 0, &ec);
 
     udat_close(fmt);
+}
+
+static void TestAllLocales(void) {
+    int32_t idx, dateIdx, timeIdx, localeCount;
+    static const UDateFormatStyle style[] = {
+        UDAT_FULL, UDAT_LONG, UDAT_MEDIUM, UDAT_SHORT
+    };
+    localeCount = uloc_countAvailable();
+    for (idx = 0; idx < localeCount; idx++) {
+        for (dateIdx = 0; dateIdx < (int32_t)(sizeof(style)/sizeof(style[0])); dateIdx++) {
+            for (timeIdx = 0; timeIdx < (int32_t)(sizeof(style)/sizeof(style[0])); timeIdx++) {
+                UErrorCode status = U_ZERO_ERROR;
+                udat_close(udat_open(style[dateIdx], style[timeIdx],
+                    uloc_getAvailable(idx), NULL, 0, NULL, 0, &status));
+                if (U_FAILURE(status)) {
+                    log_err("FAIL: udat_open(%s) failed with (%s) dateIdx=%d, timeIdx=%d\n",
+                        uloc_getAvailable(idx), u_errorName(status), dateIdx, timeIdx);
+                }
+            }
+        }
+    }
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

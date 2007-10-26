@@ -1,0 +1,3 @@
+The point of this test is a check that ld
+can figure out which architecture is needed 
+by looking at the .o files when -arch is not used.

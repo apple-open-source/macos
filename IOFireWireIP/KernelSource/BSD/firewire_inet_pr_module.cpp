@@ -34,7 +34,6 @@ extern "C"{
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/sysctl.h>
-#include <kern/lock.h>
 
 #include <net/dlil.h>
 #include <net/if.h>
@@ -104,8 +103,13 @@ inet_firewire_input(
 			mbuf_pullup(&m, sizeof(struct ip));
             if (m == NULL)
                 return EJUSTRETURN;
+			
+			errno_t ret = proto_input(PF_INET, m);
+			
+			if( ret )
+				mbuf_freem(m);
 
-			return proto_input(PF_INET, m);
+			return ret;
 
         case FWTYPE_ARP:
             firewire_arpintr(m);
@@ -148,14 +152,14 @@ inet_firewire_pre_output(
 	char						*type,
 	char						*edst)
 {
-    struct mbuf* m = (struct mbuf*)*m0;
+    mbuf_t m = *m0;
     errno_t	result = 0;
 	    
     if ((ifnet_flags(interface) & (IFF_UP|IFF_RUNNING)) != (IFF_UP|IFF_RUNNING)) 
 		return ENETDOWN;
 	
 	// Tell firewire_frameout it's ok to loop packet unless negated below.
-    m->m_flags |= M_LOOP;
+    mbuf_setflags(m, mbuf_flags(m) | M_LOOP);
 
     switch (dst_netaddr->sa_family) 
 	{
@@ -174,7 +178,7 @@ inet_firewire_pre_output(
 
         case AF_UNSPEC:
 		{
-            m->m_flags &= ~M_LOOP;
+            mbuf_setflags(m, mbuf_flags(m) & ~M_LOOP);
             register struct firewire_header *fwh = (struct firewire_header *)dst_netaddr->sa_data;
 			(void)memcpy(edst, fwh->fw_dhost, FIREWIRE_ADDR_LEN);
             *(u_short *)type = fwh->fw_type;
@@ -182,9 +186,6 @@ inet_firewire_pre_output(
 		break;
 
         default:
-            log(LOG_DEBUG,"%s%d: can't handle af%d\n", ifnet_name(interface), 
-                                    ifnet_unit(interface), dst_netaddr->sa_family);
-
             return EAFNOSUPPORT;
     }
 
@@ -260,7 +261,7 @@ firewire_inet_resolve_multi(
 //
 ////////////////////////////////////////////////////////////////////////////////
 int
-firewire_attach_inet(ifnet_t ifp, u_long protocol_family)
+firewire_attach_inet(ifnet_t ifp, protocol_family_t protocol_family)
 {
 	struct ifnet_attach_proto_param	proto;
 	struct ifnet_demux_desc demux[2];
@@ -294,16 +295,4 @@ firewire_attach_inet(ifnet_t ifp, u_long protocol_family)
 	}
 	
 	return error;
-}
-
-int
-firewire_detach_inet(
-	struct ifnet *ifp,
-	u_long proto_family)
-{
-    int         stat;
-
-	stat = dlil_detach_protocol(ifp, proto_family);
-
-    return stat;
 }

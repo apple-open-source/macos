@@ -27,15 +27,8 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <printerdb.h>
-
-#define strdup(x)  strcpy(malloc(strlen(x) + 1), x)
-
-extern size_t strlen(const char *);
-extern char *index(const char *, int);
-extern char *strcpy(char *, const char *);
-extern int strcmp(const char *, const char*);
-extern void *bcopy(void *, void *, unsigned);
 
 static FILE *pf;
 static char *getline(FILE *);

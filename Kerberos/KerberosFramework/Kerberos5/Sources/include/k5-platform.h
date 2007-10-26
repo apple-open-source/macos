@@ -1,7 +1,7 @@
 /*
  * k5-platform.h
  *
- * Copyright 2003, 2004 Massachusetts Institute of Technology.
+ * Copyright 2003, 2004, 2005 Massachusetts Institute of Technology.
  * All Rights Reserved.
  *
  * Export of this software from the United States of America may
@@ -32,6 +32,7 @@
  * + 64-bit types and load/store code
  * + SIZE_MAX
  * + shared library init/fini hooks
+ * + consistent getpwnam/getpwuid interfaces
  */
 
 #ifndef K5_PLATFORM_H
@@ -195,22 +196,6 @@ typedef struct { k5_once_t once; int error, did_run; void (*fn)(void); } k5_init
 # else
 #  define MAYBE_DUMMY_INIT(NAME)
 # endif
-# define MAKE_INIT_FUNCTION(NAME)				\
-	static int NAME(void);					\
-	MAYBE_DUMMY_INIT(NAME)					\
-	/* forward declaration for use in initializer */	\
-	static void JOIN__2(NAME, aux) (void);			\
-	static k5_init_t JOIN__2(NAME, once) =			\
-		{ K5_ONCE_INIT, 0, 0, JOIN__2(NAME, aux) };	\
-	static void JOIN__2(NAME, aux) (void)			\
-	{							\
-	    JOIN__2(NAME, once).did_run = 1;			\
-	    JOIN__2(NAME, once).error = NAME();			\
-	}							\
-	/* so ';' following macro use won't get error */	\
-	static int NAME(void)
-# define CALL_INIT_FUNCTION(NAME)	\
-	k5_call_init_function(& JOIN__2(NAME, once))
 # ifdef __GNUC__
 /* Do it in macro form so we get the file/line of the invocation if
    the assertion fails.  */
@@ -222,17 +207,36 @@ typedef struct { k5_once_t once; int error, did_run; void (*fn)(void); } k5_init
 		 ? k5int_err						\
 		 : (assert(k5int_i->did_run != 0), k5int_i->error));	\
 	    }))
+#  define MAYBE_DEFINE_CALLINIT_FUNCTION
 # else
-static inline int k5_call_init_function(k5_init_t *i)
-{
-    int err;
-    err = k5_once(&i->once, i->fn);
-    if (err)
-	return err;
-    assert (i->did_run != 0);
-    return i->error;
-}
+#  define MAYBE_DEFINE_CALLINIT_FUNCTION			\
+	static inline int k5_call_init_function(k5_init_t *i)	\
+	{							\
+	    int err;						\
+	    err = k5_once(&i->once, i->fn);			\
+	    if (err)						\
+		return err;					\
+	    assert (i->did_run != 0);				\
+	    return i->error;					\
+	}
 # endif
+# define MAKE_INIT_FUNCTION(NAME)				\
+	static int NAME(void);					\
+	MAYBE_DUMMY_INIT(NAME)					\
+	/* forward declaration for use in initializer */	\
+	static void JOIN__2(NAME, aux) (void);			\
+	static k5_init_t JOIN__2(NAME, once) =			\
+		{ K5_ONCE_INIT, 0, 0, JOIN__2(NAME, aux) };	\
+	MAYBE_DEFINE_CALLINIT_FUNCTION				\
+	static void JOIN__2(NAME, aux) (void)			\
+	{							\
+	    JOIN__2(NAME, once).did_run = 1;			\
+	    JOIN__2(NAME, once).error = NAME();			\
+	}							\
+	/* so ';' following macro use won't get error */	\
+	static int NAME(void)
+# define CALL_INIT_FUNCTION(NAME)	\
+	k5_call_init_function(& JOIN__2(NAME, once))
 /* This should be called in finalization only, so we shouldn't have
    multiple active threads mucking around in our library at this
    point.  So ignore the once_t object and just look at the flag.
@@ -403,43 +407,131 @@ typedef struct { int error; unsigned char did_run; } k5_init_t;
 #endif
 
 /* Read and write integer values as (unaligned) octet strings in
-   specific byte orders.
+   specific byte orders.  Add per-platform optimizations as
+   needed.  */
 
-   Add per-platform optimizations later if needed.  (E.g., maybe x86
-   unaligned word stores and gcc/asm instructions for byte swaps,
-   etc.)  */
+#if HAVE_ENDIAN_H
+# include <endian.h>
+#elif HAVE_MACHINE_ENDIAN_H
+# include <machine/endian.h>
+#endif
+/* Check for BIG/LITTLE_ENDIAN macros.  If exactly one is defined, use
+   it.  If both are defined, then BYTE_ORDER should be defined and
+   match one of them.  Try those symbols, then try again with an
+   underscore prefix.  */
+#if defined(BIG_ENDIAN) && defined(LITTLE_ENDIAN)
+# if BYTE_ORDER == BIG_ENDIAN
+#  define K5_BE
+# endif
+# if BYTE_ORDER == LITTLE_ENDIAN
+#  define K5_LE
+# endif
+#elif defined(BIG_ENDIAN)
+# define K5_BE
+#elif defined(LITTLE_ENDIAN)
+# define K5_LE
+#elif defined(_BIG_ENDIAN) && defined(_LITTLE_ENDIAN)
+# if _BYTE_ORDER == _BIG_ENDIAN
+#  define K5_BE
+# endif
+# if _BYTE_ORDER == _LITTLE_ENDIAN
+#  define K5_LE
+# endif
+#elif defined(_BIG_ENDIAN)
+# define K5_BE
+#elif defined(_LITTLE_ENDIAN)
+# define K5_LE
+#endif
+#if !defined(K5_BE) && !defined(K5_LE)
+/* Look for some architectures we know about.
+
+   MIPS can use either byte order, but the preprocessor tells us which
+   mode we're compiling for.  The GCC config files indicate that
+   variants of Alpha and IA64 might be out there with both byte
+   orders, but until we encounter the "wrong" ones in the real world,
+   just go with the default (unless there are cpp predefines to help
+   us there too).
+
+   As far as I know, only PDP11 and ARM (which we don't handle here)
+   have strange byte orders where an 8-byte value isn't laid out as
+   either 12345678 or 87654321.  */
+# if defined(__i386__) || defined(_MIPSEL) || defined(__alpha__) || defined(__ia64__)
+#  define K5_LE
+# endif
+# if defined(__hppa__) || defined(__rs6000__) || defined(__sparc__) || defined(_MIPSEB) || defined(__m68k__) || defined(__sparc64__) || defined(__ppc__) || defined(__ppc64__)
+#  define K5_BE
+# endif
+#endif
+#if defined(K5_BE) && defined(K5_LE)
+# error "oops, check the byte order macros"
+#endif
+
+/* Optimize for GCC on platforms with known byte orders.
+
+   GCC's packed structures can be written to with any alignment; the
+   compiler will use byte operations, unaligned-word operations, or
+   normal memory ops as appropriate for the architecture.
+
+   This assumes the availability of uint##_t types, which should work
+   on most of our platforms except Windows, where we're not using
+   GCC.  */
+#ifdef __GNUC__
+# define PUT(SIZE,PTR,VAL)	(((struct { uint##SIZE##_t i; } __attribute__((packed)) *)(PTR))->i = (VAL))
+# define GET(SIZE,PTR)		(((const struct { uint##SIZE##_t i; } __attribute__((packed)) *)(PTR))->i)
+# define PUTSWAPPED(SIZE,PTR,VAL)	PUT(SIZE,PTR,SWAP##SIZE(VAL))
+# define GETSWAPPED(SIZE,PTR)		SWAP##SIZE(GET(SIZE,PTR))
+#endif
+/* To do: Define SWAP16, SWAP32, SWAP64 macros to byte-swap values
+   with the indicated numbers of bits.
+
+   Linux: byteswap.h, bswap_16 etc.
+   Solaris 10: none
+   Mac OS X: machine/endian.h or byte_order.h, NXSwap{Short,Int,LongLong}
+   NetBSD: sys/bswap.h, bswap16 etc.  */
+
+#if defined(HAVE_BYTESWAP_H) && defined(HAVE_BSWAP_16)
+# include <byteswap.h>
+# define SWAP16			bswap_16
+# define SWAP32			bswap_32
+# ifdef HAVE_BSWAP_64
+#  define SWAP64		bswap_64
+# endif
+#endif
 
 static inline void
 store_16_be (unsigned int val, unsigned char *p)
 {
+#if defined(__GNUC__) && defined(K5_BE)
+    PUT(16,p,val);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP16)
+    PUTSWAPPED(16,p,val);
+#else
     p[0] = (val >>  8) & 0xff;
     p[1] = (val      ) & 0xff;
-}
-static inline void
-store_16_le (unsigned int val, unsigned char *p)
-{
-    p[1] = (val >>  8) & 0xff;
-    p[0] = (val      ) & 0xff;
+#endif
 }
 static inline void
 store_32_be (unsigned int val, unsigned char *p)
 {
+#if defined(__GNUC__) && defined(K5_BE)
+    PUT(32,p,val);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP32)
+    PUTSWAPPED(32,p,val);
+#else
     p[0] = (val >> 24) & 0xff;
     p[1] = (val >> 16) & 0xff;
     p[2] = (val >>  8) & 0xff;
     p[3] = (val      ) & 0xff;
-}
-static inline void
-store_32_le (unsigned int val, unsigned char *p)
-{
-    p[3] = (val >> 24) & 0xff;
-    p[2] = (val >> 16) & 0xff;
-    p[1] = (val >>  8) & 0xff;
-    p[0] = (val      ) & 0xff;
+#endif
 }
 static inline void
 store_64_be (UINT64_TYPE val, unsigned char *p)
 {
+#if defined(__GNUC__) && defined(K5_BE)
+    PUT(64,p,val);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP64)
+    PUTSWAPPED(64,p,val);
+#else
     p[0] = (unsigned char)((val >> 56) & 0xff);
     p[1] = (unsigned char)((val >> 48) & 0xff);
     p[2] = (unsigned char)((val >> 40) & 0xff);
@@ -448,10 +540,77 @@ store_64_be (UINT64_TYPE val, unsigned char *p)
     p[5] = (unsigned char)((val >> 16) & 0xff);
     p[6] = (unsigned char)((val >>  8) & 0xff);
     p[7] = (unsigned char)((val      ) & 0xff);
+#endif
+}
+static inline unsigned short
+load_16_be (const unsigned char *p)
+{
+#if defined(__GNUC__) && defined(K5_BE)
+    return GET(16,p);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP16)
+    return GETSWAPPED(16,p);
+#else
+    return (p[1] | (p[0] << 8));
+#endif
+}
+static inline unsigned int
+load_32_be (const unsigned char *p)
+{
+#if defined(__GNUC__) && defined(K5_BE)
+    return GET(32,p);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP32)
+    return GETSWAPPED(32,p);
+#else
+    return (p[3] | (p[2] << 8)
+	    | ((uint32_t) p[1] << 16)
+	    | ((uint32_t) p[0] << 24));
+#endif
+}
+static inline UINT64_TYPE
+load_64_be (const unsigned char *p)
+{
+#if defined(__GNUC__) && defined(K5_BE)
+    return GET(64,p);
+#elif defined(__GNUC__) && defined(K5_LE) && defined(SWAP64)
+    return GETSWAPPED(64,p);
+#else
+    return ((UINT64_TYPE)load_32_be(p) << 32) | load_32_be(p+4);
+#endif
+}
+static inline void
+store_16_le (unsigned int val, unsigned char *p)
+{
+#if defined(__GNUC__) && defined(K5_LE)
+    PUT(16,p,val);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP16)
+    PUTSWAPPED(16,p,val);
+#else
+    p[1] = (val >>  8) & 0xff;
+    p[0] = (val      ) & 0xff;
+#endif
+}
+static inline void
+store_32_le (unsigned int val, unsigned char *p)
+{
+#if defined(__GNUC__) && defined(K5_LE)
+    PUT(32,p,val);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP32)
+    PUTSWAPPED(32,p,val);
+#else
+    p[3] = (val >> 24) & 0xff;
+    p[2] = (val >> 16) & 0xff;
+    p[1] = (val >>  8) & 0xff;
+    p[0] = (val      ) & 0xff;
+#endif
 }
 static inline void
 store_64_le (UINT64_TYPE val, unsigned char *p)
 {
+#if defined(__GNUC__) && defined(K5_LE)
+    PUT(64,p,val);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP64)
+    PUTSWAPPED(64,p,val);
+#else
     p[7] = (unsigned char)((val >> 56) & 0xff);
     p[6] = (unsigned char)((val >> 48) & 0xff);
     p[5] = (unsigned char)((val >> 40) & 0xff);
@@ -460,36 +619,97 @@ store_64_le (UINT64_TYPE val, unsigned char *p)
     p[2] = (unsigned char)((val >> 16) & 0xff);
     p[1] = (unsigned char)((val >>  8) & 0xff);
     p[0] = (unsigned char)((val      ) & 0xff);
+#endif
 }
 static inline unsigned short
-load_16_be (unsigned char *p)
+load_16_le (const unsigned char *p)
 {
-    return (p[1] | (p[0] << 8));
-}
-static inline unsigned short
-load_16_le (unsigned char *p)
-{
+#if defined(__GNUC__) && defined(K5_LE)
+    return GET(16,p);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP16)
+    return GETSWAPPED(16,p);
+#else
     return (p[0] | (p[1] << 8));
+#endif
 }
 static inline unsigned int
-load_32_be (unsigned char *p)
+load_32_le (const unsigned char *p)
 {
-    return (p[3] | (p[2] << 8) | (p[1] << 16) | (p[0] << 24));
-}
-static inline unsigned int
-load_32_le (unsigned char *p)
-{
+#if defined(__GNUC__) && defined(K5_LE)
+    return GET(32,p);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP32)
+    return GETSWAPPED(32,p);
+#else
     return (p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24));
+#endif
 }
 static inline UINT64_TYPE
-load_64_be (unsigned char *p)
+load_64_le (const unsigned char *p)
 {
-    return ((UINT64_TYPE)load_32_be(p) << 32) | load_32_be(p+4);
-}
-static inline UINT64_TYPE
-load_64_le (unsigned char *p)
-{
+#if defined(__GNUC__) && defined(K5_LE)
+    return GET(64,p);
+#elif defined(__GNUC__) && defined(K5_BE) && defined(SWAP64)
+    return GETSWAPPED(64,p);
+#else
     return ((UINT64_TYPE)load_32_le(p+4) << 32) | load_32_le(p);
+#endif
 }
+
+/* Make the interfaces to getpwnam and getpwuid consistent.
+   Model the wrappers on the POSIX thread-safe versions, but
+   use the unsafe system versions if the safe ones don't exist
+   or we can't figure out their interfaces.  */
+
+/* int k5_getpwnam_r(const char *, blah blah) */
+#ifdef HAVE_GETPWNAM_R
+# ifndef GETPWNAM_R_4_ARGS
+/* POSIX */
+#  define k5_getpwnam_r(NAME, REC, BUF, BUFSIZE, OUT)	\
+	(getpwnam_r(NAME,REC,BUF,BUFSIZE,OUT) == 0	\
+	 ? (*(OUT) == NULL ? -1 : 0) : -1)
+# else
+/* POSIX drafts? */
+#  ifdef GETPWNAM_R_RETURNS_INT
+#   define k5_getpwnam_r(NAME, REC, BUF, BUFSIZE, OUT)	\
+	(getpwnam_r(NAME,REC,BUF,BUFSIZE) == 0		\
+	 ? (*(OUT) = REC, 0)				\
+	 : (*(OUT) = NULL, -1))
+#  else
+#   define k5_getpwnam_r(NAME, REC, BUF, BUFSIZE, OUT)  \
+	(*(OUT) = getpwnam_r(NAME,REC,BUF,BUFSIZE), *(OUT) == NULL ? -1 : 0)
+#  endif
+# endif
+#else /* no getpwnam_r, or can't figure out #args or return type */
+/* Will get warnings about unused variables.  */
+# define k5_getpwnam_r(NAME, REC, BUF, BUFSIZE, OUT) \
+	(*(OUT) = getpwnam(NAME), *(OUT) == NULL ? -1 : 0)
+#endif
+
+/* int k5_getpwuid_r(uid_t, blah blah) */
+#ifdef HAVE_GETPWUID_R
+# ifndef GETPWUID_R_4_ARGS
+/* POSIX */
+#  define k5_getpwuid_r(UID, REC, BUF, BUFSIZE, OUT)	\
+	(getpwuid_r(UID,REC,BUF,BUFSIZE,OUT) == 0	\
+	 ? (*(OUT) == NULL ? -1 : 0) : -1)
+# else
+/* POSIX drafts?  Yes, I mean to test GETPWNAM... here.  Less junk to
+   do at configure time.  */
+#  ifdef GETPWNAM_R_RETURNS_INT
+#   define k5_getpwuid_r(UID, REC, BUF, BUFSIZE, OUT)	\
+	(getpwuid_r(UID,REC,BUF,BUFSIZE) == 0		\
+	 ? (*(OUT) = REC, 0)				\
+	 : (*(OUT) = NULL, -1))
+#  else
+#   define k5_getpwuid_r(UID, REC, BUF, BUFSIZE, OUT)  \
+	(*(OUT) = getpwuid_r(UID,REC,BUF,BUFSIZE), *(OUT) == NULL ? -1 : 0)
+#  endif
+# endif
+#else /* no getpwuid_r, or can't figure out #args or return type */
+/* Will get warnings about unused variables.  */
+# define k5_getpwuid_r(UID, REC, BUF, BUFSIZE, OUT) \
+	(*(OUT) = getpwuid(UID), *(OUT) == NULL ? -1 : 0)
+#endif
+
 
 #endif /* K5_PLATFORM_H */

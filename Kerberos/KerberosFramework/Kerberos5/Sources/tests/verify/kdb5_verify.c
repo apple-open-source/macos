@@ -28,6 +28,7 @@
  */
 
 #include "k5-int.h"
+#include "kdb.h"
 #include "com_err.h"
 #include <ss/ss.h>
 #include <stdio.h>
@@ -213,6 +214,7 @@ main(argc, argv)
     if (str_master_princ) {
 	krb5_free_unparsed_name(context, str_master_princ);
     }
+    krb5_free_principal(context, master_princ);
     krb5_free_context(context);
     exit(0);
 }
@@ -360,12 +362,8 @@ set_dbname_help(context, pname, dbname)
     int nentries;
     krb5_boolean more;
     krb5_data pwd, scratch;
+    char *args[2];
 
-    if ((retval = krb5_db_set_name(context, dbname))) {
-	com_err(pname, retval, "while setting active database to '%s'",
-		dbname);
-	return(1);
-    }
     /* assemble & parse the master key name */
 
     if ((retval = krb5_db_setup_mkey_name(context, mkey_name, cur_realm, 0,
@@ -397,7 +395,23 @@ set_dbname_help(context, pname, dbname)
 	    return(1);
 	}
     }
-    if ((retval = krb5_db_init(context ))) {
+
+    /* Ick!  Current DAL interface requires that the default_realm
+       field be set in the krb5_context.  */
+    if ((retval = krb5_set_default_realm(context, cur_realm))) {
+	com_err(pname, retval, "setting default realm");
+	return 1;
+    }
+    /* Pathname is passed to db2 via 'args' parameter.  */
+    args[1] = NULL;
+    args[0] = malloc(sizeof("dbname=") + strlen(dbname));
+    if (args[0] == NULL) {
+	com_err(pname, errno, "while setting up db parameters");
+	return 1;
+    }
+    sprintf(args[0], "dbname=%s", dbname);
+
+    if ((retval = krb5_db_open(context, args, KRB5_KDB_OPEN_RO))) {
 	com_err(pname, retval, "while initializing database");
 	return(1);
     }

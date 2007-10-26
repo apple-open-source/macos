@@ -1,13 +1,13 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/id.xml
+// * Source File:<path>/common/main/id.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/id.xml
+ *  ICU <specials> source: <path>/xml/main/id.xml
  */
 id{
     Countries{
@@ -207,7 +207,6 @@ id{
         SM{"San Marino"}
         SN{"Senegal"}
         SO{"Somalia"}
-        SP{"Serbia"}
         SR{"Suriname"}
         ST{"Sao Tome dan Principe"}
         SV{"El Salvador"}
@@ -242,7 +241,6 @@ id{
         WS{"Samoa"}
         YE{"Yaman"}
         YT{"Mayotte"}
-        YU{"Yugoslavia"}
         ZA{"Afrika Selatan"}
         ZM{"Zambia"}
         ZW{"Zimbabwe"}
@@ -253,7 +251,7 @@ id{
             "IDR",
         }
     }
-    ExemplarCharacters{"[a-z]"}
+    ExemplarCharacters{"[a-n {ng} {ny} o p r-w y]"}
     Languages{
         aa{"Afar"}
         ab{"Abkhaz"}
@@ -497,22 +495,18 @@ id{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
     NumberPatterns{
-        "#,##0.###;-#,##0.###",
-        "¤#,##0.00;-¤#,##0.00",
+        "#,##0.###",
+        "¤#,##0.00",
         "#,##0%",
         "#E0",
     }
-    Version{"1.2"}
+    Version{"1.52"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                2,
-                1,
-            }
             dayNames{
                 format{
                     abbreviated{
@@ -564,6 +558,22 @@ id{
                         "Oktober",
                         "November",
                         "Desember",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "K1",
+                        "K2",
+                        "K3",
+                        "K4",
+                    }
+                    wide{
+                        "kuartal pertama",
+                        "kuartal kedua",
+                        "kuartal ketiga",
+                        "kuartal keempat",
                     }
                 }
             }

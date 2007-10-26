@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2005 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,7 +12,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
 """MIME-stripping filter for Mailman.
 
@@ -26,6 +27,7 @@ contents.
 import os
 import errno
 import tempfile
+from os.path import splitext
 
 from email.Iterators import typed_subpart_iterator
 
@@ -36,6 +38,7 @@ from Mailman.Queue.sbcache import get_switchboard
 from Mailman.Logging.Syslog import syslog
 from Mailman.Version import VERSION
 from Mailman.i18n import _
+from Mailman.Utils import oneline
 
 
 
@@ -59,12 +62,23 @@ def process(mlist, msg, msgdata):
     if passtypes and not (ctype in passtypes or mtype in passtypes):
         dispose(mlist, msg, msgdata,
                 _("The message's content type was not explicitly allowed"))
+    # Filter by file extensions
+    filterexts = mlist.filter_filename_extensions
+    passexts = mlist.pass_filename_extensions
+    fext = get_file_ext(msg)
+    if fext:
+        if fext in filterexts:
+            dispose(mlist, msg, msgdata,
+                 _("The message's file extension was explicitly disallowed"))
+        if passexts and not (fext in passexts):
+            dispose(mlist, msg, msgdata,
+                 _("The message's file extension was not explicitly allowed"))
     numparts = len([subpart for subpart in msg.walk()])
     # If the message is a multipart, filter out matching subparts
     if msg.is_multipart():
         # Recursively filter out any subparts that match the filter list
         prelen = len(msg.get_payload())
-        filter_parts(msg, filtertypes, passtypes)
+        filter_parts(msg, filtertypes, passtypes, filterexts, passexts)
         # If the outer message is now an empty multipart (and it wasn't
         # before!) then, again it gets discarded.
         postlen = len(msg.get_payload())
@@ -77,10 +91,11 @@ def process(mlist, msg, msgdata):
     # headers.  For now we'll move the subpart's payload into the outer part,
     # and then copy over its Content-Type: and Content-Transfer-Encoding:
     # headers (any others?).
-    collapse_multipart_alternatives(msg)
-    if ctype == 'multipart/alternative':
-        firstalt = msg.get_payload(0)
-        reset_payload(msg, firstalt)
+    if mlist.collapse_alternatives:
+        collapse_multipart_alternatives(msg)
+        if ctype == 'multipart/alternative':
+            firstalt = msg.get_payload(0)
+            reset_payload(msg, firstalt)
     # If we removed some parts, make note of this
     changedp = 0
     if numparts <> len([subpart for subpart in msg.walk()]):
@@ -121,7 +136,7 @@ def reset_payload(msg, subpart):
 
 
 
-def filter_parts(msg, filtertypes, passtypes):
+def filter_parts(msg, filtertypes, passtypes, filterexts, passexts):
     # Look at all the message's subparts, and recursively filter
     if not msg.is_multipart():
         return 1
@@ -129,7 +144,8 @@ def filter_parts(msg, filtertypes, passtypes):
     prelen = len(payload)
     newpayload = []
     for subpart in payload:
-        keep = filter_parts(subpart, filtertypes, passtypes)
+        keep = filter_parts(subpart, filtertypes, passtypes,
+                            filterexts, passexts)
         if not keep:
             continue
         ctype = subpart.get_content_type()
@@ -140,6 +156,13 @@ def filter_parts(msg, filtertypes, passtypes):
         if passtypes and not (ctype in passtypes or mtype in passtypes):
             # Throw this subpart away
             continue
+        # check file extension
+        fext = get_file_ext(subpart)
+        if fext:
+            if fext in filterexts:
+                continue
+            if passexts and not (fext in passexts):
+                continue
         newpayload.append(subpart)
     # Check to see if we discarded all the subparts
     postlen = len(newpayload)
@@ -174,7 +197,7 @@ def to_plaintext(msg):
         filename = tempfile.mktemp('.html')
         fp = open(filename, 'w')
         try:
-            fp.write(subpart.get_payload())
+            fp.write(subpart.get_payload(decode=1))
             fp.close()
             cmd = os.popen(mm_cfg.HTML_TO_PLAIN_TEXT_COMMAND %
                            {'filename': filename})
@@ -188,6 +211,7 @@ def to_plaintext(msg):
             except OSError, e:
                 if e.errno <> errno.ENOENT: raise
         # Now replace the payload of the subpart and twiddle the Content-Type:
+        del subpart['content-transfer-encoding']
         subpart.set_payload(plaintext)
         subpart.set_type('text/plain')
         changedp = 1
@@ -218,3 +242,18 @@ are receiving the only remaining copy of the discarded message.
         badq.enqueue(msg, msgdata)
     # Most cases also discard the message
     raise Errors.DiscardMessage
+
+def get_file_ext(m):
+    """
+    Get filename extension. Caution: some virus don't put filename
+    in 'Content-Disposition' header.
+"""
+    fext = ''
+    filename = m.get_filename('') or m.get_param('name', '')
+    if filename:
+        fext = splitext(oneline(filename,'utf-8'))[1]
+        if len(fext) > 1:
+            fext = fext[1:]
+        else:
+            fext = ''
+    return fext

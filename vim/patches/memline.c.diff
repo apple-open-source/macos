@@ -1,0 +1,22 @@
+--- src/memline.c.orig	2005-02-17 01:59:21.000000000 -0800
++++ src/memline.c	2005-05-25 13:43:36.000000000 -0700
+@@ -1312,7 +1312,8 @@
+ 	MSG(_("Recovery completed. You should check if everything is OK."));
+ 	MSG_PUTS(_("\n(You might want to write out this file under another name\n"));
+ 	MSG_PUTS(_("and run diff with the original file to check for changes)\n"));
+-	MSG_PUTS(_("Delete the .swp file afterwards.\n\n"));
++	if (vim_strchr(p_cpo, CPO_PRESERVE) == NULL)
++	    MSG_PUTS(_("Delete the .swp file afterwards.\n\n"));
+ 	cmdline_row = msg_row;
+     }
+     redraw_curbuf_later(NOT_VALID);
+@@ -1323,7 +1324,8 @@
+     {
+ 	if (hp != NULL)
+ 	    mf_put(mfp, hp, FALSE, FALSE);
+-	mf_close(mfp, FALSE);	    /* will also vim_free(mfp->mf_fname) */
++	/* PR-3936063: In POSIX preserve mode, delete the file after recovery */
++	mf_close(mfp, (vim_strchr(p_cpo, CPO_PRESERVE) != NULL));    /* will also vim_free(mfp->mf_fname) */
+     }
+     vim_free(buf);
+     if (serious_error && called_from_main)

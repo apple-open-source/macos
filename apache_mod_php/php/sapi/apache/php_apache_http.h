@@ -1,7 +1,28 @@
+/*
+  +----------------------------------------------------------------------+
+  | PHP Version 5                                                        |
+  +----------------------------------------------------------------------+
+  | Copyright (c) 1997-2007 The PHP Group                                |
+  +----------------------------------------------------------------------+
+  | This source file is subject to version 3.01 of the PHP license,      |
+  | that is bundled with this package in the file LICENSE, and is        |
+  | available through the world-wide-web at the following url:           |
+  | http://www.php.net/license/3_01.txt                                  |
+  | If you did not receive a copy of the PHP license and are unable to   |
+  | obtain it through the world-wide-web, please send a note to          |
+  | license@php.net so we can mail you a copy immediately.               |
+  +----------------------------------------------------------------------+
+  | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+  |          Stig Sæther Bakken <ssb@php.net>                            |
+  |          David Sklar <sklar@student.net>                             |
+  +----------------------------------------------------------------------+
+*/
+
+/* $Id: php_apache_http.h,v 1.13.2.1.2.1 2007/01/01 09:36:12 sebastian Exp $ */
+
 #define NO_REGEX_EXTRA_H
 
 #ifdef WIN32
-#include <winsock2.h>
 #include <stddef.h>
 #endif
 
@@ -17,6 +38,10 @@
 /* zlib typedefs free_func which causes problems if the SSL includes happen
  * after zlib.h is included */
 # include <openssl/ssl.h>
+#endif
+
+#ifdef regex_t
+#undef regex_t
 #endif
 
 #include "httpd.h"
@@ -42,4 +67,4 @@
 #include "php_ini.h"
 #include "ext/standard/php_standard.h"
 
-#include "mod_php4.h"
+#include "mod_php5.h"

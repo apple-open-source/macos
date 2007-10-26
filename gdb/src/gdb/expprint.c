@@ -205,7 +205,7 @@ print_subexp_standard (struct expression *exp, int *pos,
 	if (0 == target_read_string (exp->elts[pc + 1].longconst,
 				     &selector, 1024, NULL))
 	  {
-	    error ("bad selector");
+	    error (_("bad selector"));
 	    return;
 	  }
 	if (nargs)
@@ -388,8 +388,7 @@ print_subexp_standard (struct expression *exp, int *pos,
 	     its type; print the value in the type of the MEMVAL.  */
 	  (*pos) += 4;
 	  val = value_at_lazy (exp->elts[pc + 1].type,
-			       (CORE_ADDR) exp->elts[pc + 5].longconst,
-			       NULL);
+			       (CORE_ADDR) exp->elts[pc + 5].longconst);
 	  value_print (val, stream, 0, Val_no_prettyprint);
 	}
       else
@@ -419,7 +418,7 @@ print_subexp_standard (struct expression *exp, int *pos,
       if (op_print_tab[tem].opcode != opcode)
 	/* Not found; don't try to keep going because we don't know how
 	   to interpret further elements.  */
-	error ("Invalid expression");
+	error (_("Invalid expression"));
       break;
 
       /* C++ ops */
@@ -463,7 +462,7 @@ print_subexp_standard (struct expression *exp, int *pos,
 
     case BINOP_INCL:
     case BINOP_EXCL:
-      error ("print_subexp:  Not implemented.");
+      error (_("print_subexp:  Not implemented."));
 
       /* Default ops */
 
@@ -481,7 +480,7 @@ print_subexp_standard (struct expression *exp, int *pos,
 	/* Not found; don't try to keep going because we don't know how
 	   to interpret further elements.  For example, this happens
 	   if opcode is OP_TYPE.  */
-	error ("Invalid expression");
+	error (_("Invalid expression"));
     }
 
   /* Note that PREC_BUILTIN will always emit parentheses. */

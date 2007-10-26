@@ -1,3 +1,25 @@
+/*
+Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
+
 #include "hpux9shr.h"
 
 #define HPUX10
@@ -10,7 +32,7 @@
 #undef srandom
 #undef random
 #undef HAVE_RANDOM
-#define HPUX10
+
 #define FORCE_ALLOCA_H
 
 /* AlainF 20-Jul-1996 says this is right.  */
@@ -52,3 +74,14 @@
    on HP-UX.  (You get duplicate symbol errors on linking). */
 
 #undef _FILE_OFFSET_BITS
+
+/* Don't define _BSD */
+#undef C_SWITCH_SYSTEM
+
+/* HP-UX 10.10 seem to have problems with signals coming in
+   Causes "poll: interrupted system call" messages when Emacs is run
+   in an X window (see process.c) */
+#define POLL_INTERRUPTED_SYS_CALL
+
+/* arch-tag: 1b95d569-a3c1-4fb0-8f69-fef264c17c24
+   (do not change this comment) */

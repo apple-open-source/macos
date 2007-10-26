@@ -51,11 +51,11 @@ typedef enum {
 // dsGetDirNodeList
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirReference			fInDirRef;
 	tDataBufferPtr			fOutDataBuff;
-	unsigned long			fOutNodeCount;
+	UInt32					fOutNodeCount;
 	tContextData			fIOContinueData;
 } sGetDirNodeList;
 
@@ -64,8 +64,8 @@ typedef struct {
 // dsReleaseContinueData
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirReference			fInDirReference;
 	tContextData			fInContinueData;
 } sReleaseContinueData;
@@ -75,13 +75,13 @@ typedef struct {
 // dsFindDirNodes
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirReference			fInDirRef;
 	tDataBufferPtr			fOutDataBuff;
 	tDataListPtr			fInNodeNamePattern;
 	tDirPatternMatch		fInPatternMatchType;
-	unsigned long			fOutDirNodeCount;
+	UInt32					fOutDirNodeCount;
 	tContextData			fOutContinueData;
 } sFindDirNodes;
 
@@ -90,8 +90,8 @@ typedef struct {
 // dsOpenDirNode
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirReference			fInDirRef;
 	tDataListPtr			fInDirNodeName;
 	tDirNodeReference		fOutNodeRef;
@@ -104,8 +104,8 @@ typedef struct {
 // dsCloseDirNode
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirReference			fInNodeRef;
 } sCloseDirNode;
 
@@ -114,13 +114,13 @@ typedef struct {
 // dsGetDirNodeInfo
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataListPtr			fInDirNodeInfoTypeList;
 	tDataBufferPtr			fOutDataBuff;
 	bool					fInAttrInfoOnly;
-	unsigned long			fOutAttrInfoCount;
+	UInt32					fOutAttrInfoCount;
 	tAttributeListRef		fOutAttrListRef;
 	tContextData			fOutContinueData;
 } sGetDirNodeInfo;
@@ -130,8 +130,8 @@ typedef struct {
 // dsGetRecordList
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fInDataBuff;
 	tDataListPtr			fInRecNameList;
@@ -139,7 +139,7 @@ typedef struct {
 	tDataListPtr			fInRecTypeList;
 	tDataListPtr			fInAttribTypeList;
 	bool					fInAttribInfoOnly;
-	unsigned long			fOutRecEntryCount;
+	UInt32					fOutRecEntryCount;
 	tContextData			fIOContinueData;
 } sGetRecordList;
 
@@ -148,11 +148,11 @@ typedef struct {
 // dsGetRecordEntry
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fInOutDataBuff;
-	unsigned long			fInRecEntryIndex;
+	UInt32					fInRecEntryIndex;
 	tAttributeListRef		fOutAttrListRef;
 	tRecordEntryPtr			fOutRecEntryPtr;
 } sGetRecordEntry;
@@ -162,12 +162,12 @@ typedef struct {
 // dsGetAttributeEntry
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fInOutDataBuff;
 	tAttributeListRef		fInAttrListRef;
-	unsigned long			fInAttrInfoIndex;
+	UInt32					fInAttrInfoIndex;
 	tAttributeValueListRef	fOutAttrValueListRef;
 	tAttributeEntryPtr		fOutAttrInfoPtr;
 } sGetAttributeEntry;
@@ -177,11 +177,11 @@ typedef struct {
 // dsGetAttributeValue
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fInOutDataBuff;
-	unsigned long			fInAttrValueIndex;
+	UInt32					fInAttrValueIndex;
 	tAttributeValueListRef	fInAttrValueListRef;
 	tAttributeValueEntryPtr	fOutAttrValue;
 } sGetAttributeValue;
@@ -191,8 +191,8 @@ typedef struct {
 // dsCloseAttributeList
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tAttributeListRef		fInAttributeListRef;
 } sCloseAttributeList;
 
@@ -201,8 +201,8 @@ typedef struct {
 // dsCloseAttributeValueList
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tAttributeValueListRef	fInAttributeValueListRef;
 } sCloseAttributeValueList;
 
@@ -211,8 +211,8 @@ typedef struct {
 // dsOpenRecord
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataNodePtr			fInRecType;
 	tDataNodePtr			fInRecName;
@@ -224,8 +224,8 @@ typedef struct {
 // dsGetRecordReferenceInfo
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tRecordEntryPtr			fOutRecInfo;
 } sGetRecRefInfo;
@@ -235,8 +235,8 @@ typedef struct {
 // dsGetRecordAttributeInfo
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
 	tAttributeEntryPtr		fOutAttrInfoPtr;
@@ -248,11 +248,11 @@ typedef struct {
 // dsGetRecordAttributeValueByID
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
-	unsigned long			fInValueID;
+	UInt32					fInValueID;
 	tAttributeValueEntryPtr	fOutEntryPtr;
 } sGetRecordAttributeValueByID;
 
@@ -261,11 +261,11 @@ typedef struct {
 // dsGetRecordAttributeValueByIndex
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
-	unsigned long			fInAttrValueIndex;
+	UInt32					fInAttrValueIndex;
 	tAttributeValueEntryPtr	fOutEntryPtr;
 } sGetRecordAttributeValueByIndex;
 
@@ -274,8 +274,8 @@ typedef struct {
 // dsGetRecordAttributeValueByValue
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
 	tDataNodePtr			fInAttrValue;
@@ -287,8 +287,8 @@ typedef struct {
 // dsFlushRecord
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 } sFlushRecord;
 
@@ -297,8 +297,8 @@ typedef struct {
 // dsCloseRecord
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 } sCloseRecord;
 
@@ -307,8 +307,8 @@ typedef struct {
 // dsSetRecordName
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInNewRecName;
 } sSetRecordName;
@@ -318,8 +318,8 @@ typedef struct {
 // dsSetRecordType
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInNewRecType;
 } sSetRecordType;
@@ -329,8 +329,8 @@ typedef struct {
 // dsDeleteRecord
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 } sDeleteRecord;
 
@@ -340,8 +340,8 @@ typedef struct {
 // dsCreateRecordAndOpen
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataNodePtr			fInRecType;
 	tDataNodePtr			fInRecName;
@@ -354,8 +354,8 @@ typedef struct {
 // dsAddAttribute
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInNewAttr;
 	tAccessControlEntryPtr	fInNewAttrAccess;
@@ -367,8 +367,8 @@ typedef struct {
 // dsRemoveAttribute
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttribute;
 } sRemoveAttribute;
@@ -379,8 +379,8 @@ typedef struct {
 // dsAddAttributeValue
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
 	tDataNodePtr			fInAttrValue;
@@ -391,11 +391,11 @@ typedef struct {
 // dsRemoveAttributeValue
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
-	unsigned long			fInAttrValueID;
+	UInt32					fInAttrValueID;
 } sRemoveAttributeValue;
 
 
@@ -403,8 +403,8 @@ typedef struct {
 // dsSetAttributeValue
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
 	tAttributeValueEntryPtr	fInAttrValueEntry;
@@ -415,8 +415,8 @@ typedef struct {
 // dsSetAttributeValues
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tRecordReference		fInRecRef;
 	tDataNodePtr			fInAttrType;
 	tDataListPtr			fInAttrValueList;
@@ -427,8 +427,8 @@ typedef struct {
 // dsDoDirNodeAuth
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataNodePtr			fInAuthMethod;
 	bool					fInDirNodeAuthOnlyFlag;
@@ -442,8 +442,8 @@ typedef struct {
 // dsDoDirNodeAuthOnRecordType
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataNodePtr			fInAuthMethod;
 	bool					fInDirNodeAuthOnlyFlag;
@@ -458,15 +458,15 @@ typedef struct {
 // dsDoAttributeValueSearch
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fOutDataBuff;
 	tDataListPtr			fInRecTypeList;
 	tDataNodePtr			fInAttrType;
 	tDirPatternMatch		fInPattMatchType;
 	tDataNodePtr			fInPatt2Match;
-	unsigned long			fOutMatchRecordCount;
+	UInt32					fOutMatchRecordCount;
 	tContextData			fIOContinueData;
 } sDoAttrValueSearch;
 
@@ -475,15 +475,15 @@ typedef struct {
 // dsDoMultipleAttributeValueSearch
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fOutDataBuff;
 	tDataListPtr			fInRecTypeList;
 	tDataNodePtr			fInAttrType;
 	tDirPatternMatch		fInPattMatchType;
 	tDataListPtr			fInPatterns2MatchList;
-	unsigned long			fOutMatchRecordCount;
+	UInt32					fOutMatchRecordCount;
 	tContextData			fIOContinueData;
 } sDoMultiAttrValueSearch;
 
@@ -492,15 +492,15 @@ typedef struct {
 // dsDoAttributeValueSearchWithData
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fOutDataBuff;
 	tDataListPtr			fInRecTypeList;
 	tDataNodePtr			fInAttrType;
 	tDirPatternMatch		fInPattMatchType;
 	tDataNodePtr			fInPatt2Match;
-	unsigned long			fOutMatchRecordCount;
+	UInt32					fOutMatchRecordCount;
 	tContextData			fIOContinueData;
 	tDataListPtr			fInAttrTypeRequestList;
 	bool					fInAttrInfoOnly;
@@ -511,15 +511,15 @@ typedef struct {
 // dsDoMultipleAttributeValueSearchWithData
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
 	tDataBufferPtr			fOutDataBuff;
 	tDataListPtr			fInRecTypeList;
 	tDataNodePtr			fInAttrType;
 	tDirPatternMatch		fInPattMatchType;
 	tDataListPtr			fInPatterns2MatchList;
-	unsigned long			fOutMatchRecordCount;
+	UInt32					fOutMatchRecordCount;
 	tContextData			fIOContinueData;
 	tDataListPtr			fInAttrTypeRequestList;
 	bool					fInAttrInfoOnly;
@@ -530,10 +530,10 @@ typedef struct {
 // dsDoPlugInCustomCall
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	tDirNodeReference		fInNodeRef;
-	unsigned long			fInRequestCode;
+	UInt32					fInRequestCode;
 	tDataBufferPtr			fInRequestData;
 	tDataBufferPtr			fOutRequestResponse;
 	tDirNodeReference		fInNodeRefMap; //used for endian byte swapping only 
@@ -543,8 +543,8 @@ typedef struct {
 // Internal Network Transition Call Thru
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 //future distinguishing of type of transition
 } sNetworkTransitionValue;
 
@@ -553,8 +553,8 @@ typedef struct {
 // Header
 
 typedef struct {
-	uInt32					fType;
-	sInt32					fResult;
+	UInt32					fType;
+	SInt32					fResult;
 	void				   *fContextData;
 } sHeader;
 

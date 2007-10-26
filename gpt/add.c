@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/add.c,v 1.10 2004/10/25 03:44:10 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/add.c,v 1.11.2.3 2006/10/07 18:35:48 marcel Exp $");
 
 #include <sys/types.h>
 
@@ -51,7 +48,7 @@ usage_add(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s [-b lba] [-i index] [-s lba] [-t uuid] device\n",
+	    "usage: %s [-b lba] [-i index] [-s lba] [-t uuid] device ...\n",
 	    getprogname());
 	exit(1);
 }
@@ -59,6 +56,7 @@ usage_add(void)
 static void
 add(int fd)
 {
+	uuid_t uuid;
 	map_t *gpt, *tpg;
 	map_t *tbl, *lbt;
 	map_t *map;
@@ -67,6 +65,7 @@ add(int fd)
 	unsigned int i;
 
 	gpt = map_find(MAP_TYPE_PRI_GPT_HDR);
+	ent = NULL;
 	if (gpt == NULL) {
 		warnx("%s: error: no primary GPT header; run create or recover",
 		    device_name);
@@ -98,26 +97,17 @@ add(int fd)
 		i = entry - 1;
 		ent = (void*)((char*)tbl->map_data + i *
 		    le32toh(hdr->hdr_entsz));
-#ifdef __APPLE__
-		if (!uuid_is_null(ent->ent_type)) {
-#else
 		if (!uuid_is_nil(&ent->ent_type, NULL)) {
-#endif
 			warnx("%s: error: entry at index %u is not free",
 			    device_name, entry);
 			return;
 		}
 	} else {
 		/* Find empty slot in GPT table. */
-		ent = NULL;
 		for (i = 0; i < le32toh(hdr->hdr_entries); i++) {
 			ent = (void*)((char*)tbl->map_data + i *
 			    le32toh(hdr->hdr_entsz));
-#ifdef __APPLE__
-			if (uuid_is_null(ent->ent_type))
-#else
 			if (uuid_is_nil(&ent->ent_type, NULL))
-#endif
 				break;
 		}
 		if (i == le32toh(hdr->hdr_entries)) {
@@ -133,11 +123,13 @@ add(int fd)
 		return;
 	}
 
-#ifdef __APPLE__
-	le_uuid_enc(ent->ent_type, type);
-#else
+	le_uuid_dec(&ent->ent_uuid, &uuid);
+	if (uuid_is_nil(&uuid, NULL)) {
+		uuid_create(&uuid, NULL);
+	}
+
 	le_uuid_enc(&ent->ent_type, &type);
-#endif
+	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
 
@@ -152,11 +144,8 @@ add(int fd)
 	hdr = tpg->map_data;
 	ent = (void*)((char*)lbt->map_data + i * le32toh(hdr->hdr_entsz));
 
-#ifdef __APPLE__
-	le_uuid_enc(ent->ent_type, type);
-#else
 	le_uuid_enc(&ent->ent_type, &type);
-#endif
+	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
 
@@ -167,6 +156,12 @@ add(int fd)
 
 	gpt_write(fd, lbt);
 	gpt_write(fd, tpg);
+
+#ifdef __APPLE__
+	printf("%ss%u added\n", device_name, i + 1);
+#else
+	printf("%sp%u added\n", device_name, i + 1);
+#endif
 }
 
 int
@@ -174,7 +169,6 @@ cmd_add(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
-	uint32_t status;
 
 	/* Get the migrate options */
 	while ((ch = getopt(argc, argv, "b:i:s:t:")) != -1) {
@@ -182,7 +176,7 @@ cmd_add(int argc, char *argv[])
 		case 'b':
 			if (block > 0)
 				usage_add();
-			block = strtol(optarg, &p, 10);
+			block = strtoll(optarg, &p, 10);
 			if (*p != 0 || block < 1)
 				usage_add();
 			break;
@@ -196,51 +190,15 @@ cmd_add(int argc, char *argv[])
 		case 's':
 			if (size > 0)
 				usage_add();
-			size = strtol(optarg, &p, 10);
+			size = strtoll(optarg, &p, 10);
 			if (*p != 0 || size < 1)
 				usage_add();
 			break;
 		case 't':
-#ifdef __APPLE__
-			if (!uuid_is_null(type))
-				usage_add();
-			status = uuid_parse(optarg, type);
-			if (status) {
-				if (strcmp(optarg, "efi") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_EFI);
-				else if (strcmp(optarg, "hfs") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_APPLE_HFS);
-				else if (strcmp(optarg, "ufs") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_APPLE_UFS);
-				else if (strcmp(optarg, "linux") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_MS_BASIC_DATA);
-				else if (strcmp(optarg, "windows") == 0)
-					uuid_copy(type, GPT_ENT_TYPE_MS_BASIC_DATA);
-				else
-					usage_add();
-			}
-#else
 			if (!uuid_is_nil(&type, NULL))
 				usage_add();
-			uuid_from_string(optarg, &type, &status);
-			if (status != uuid_s_ok) {
-				if (strcmp(optarg, "efi") == 0) {
-					uuid_t efi = GPT_ENT_TYPE_EFI;
-					type = efi;
-				} else if (strcmp(optarg, "swap") == 0) {
-					uuid_t sw = GPT_ENT_TYPE_FREEBSD_SWAP;
-					type = sw;
-				} else if (strcmp(optarg, "ufs") == 0) {
-					uuid_t ufs = GPT_ENT_TYPE_FREEBSD_UFS;
-					type = ufs;
-				} else if (strcmp(optarg, "linux") == 0 ||
-				    strcmp(optarg, "windows") == 0) {
-					uuid_t m = GPT_ENT_TYPE_MS_BASIC_DATA;
-					type = m;
-				} else
-					usage_add();
-			}
-#endif
+			if (parse_uuid(optarg, &type) != 0)
+				usage_add();
 			break;
 		default:
 			usage_add();

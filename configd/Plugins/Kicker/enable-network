@@ -8,8 +8,16 @@ logger -i -p daemon.debug -t enable-network "process network configuration chang
 CheckForNetwork
 if [ "${NETWORKUP}" = "-NO-" ]; then exit 0; fi
 
-/System/Library/StartupItems/NetworkTime/NetworkTime start
-/System/Library/StartupItems/NIS/NIS start
-/System/Library/StartupItems/NFS/NFS start
+if [ -x /System/Library/StartupItems/NetworkTime/NetworkTime ]; then
+	/System/Library/StartupItems/NetworkTime/NetworkTime start
+fi
+
+if [ -x /System/Library/StartupItems/NIS/NIS ]; then
+	/System/Library/StartupItems/NIS/NIS start
+fi
+
+if [ -x /System/Library/StartupItems/NFS/NFS ]; then
+	/System/Library/StartupItems/NFS/NFS start
+fi
 
 exit 1

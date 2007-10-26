@@ -27,7 +27,11 @@
 #include "config/host-darwin.h"
 
 /* Yes, this is really supposed to work.  */
-static char pch_address_space[1024*1024*1024] __attribute__((aligned (4096)));
+/* APPLE LOCAL begin ARM native compiler support */
+/* Not all Darwins are created equal.  */
+static char pch_address_space[DARWIN_PCH_ADDR_SPACE_SIZE]
+  __attribute__((aligned (4096)));
+/* APPLE LOCAL end ARM native compiler support */
 
 /* Return the address of the PCH address space, if the PCH will fit in it.  */
 

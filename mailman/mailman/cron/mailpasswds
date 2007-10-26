@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Send password reminders for all lists to all users.
 
@@ -193,9 +193,6 @@ def main():
                     poplang = lang
                     langcnt = cnt
             enc = Utils.GetCharSet(poplang)
-            # Craft the table header
-            header = '%-40s %-10s\n%-40s %-10s' % (
-                _('List'), _('Password // URL'), '----', '--------')
             # Now we're finally ready to send the email!
             siteowner = Utils.get_site_email(host, 'owner')
             sitereq = Utils.get_site_email(host, 'request')
@@ -210,16 +207,22 @@ def main():
             # Coerce everything to Unicode
             text = tounicode(text, enc)
             table = [tounicode(_t, enc) for _t in table]
-            # Add the table to the end so it doesn't get wrapped/filled
-            text += (header + '\n' + NL.join(table))
             # Translate the message and headers to user's suggested lang
             otrans = i18n.get_translation()
             try:
                 i18n.set_language(poplang)
+                # Craft table header after language was set
+                header = '%-40s %-10s\n%-40s %-10s' % (
+                         _('List'), _('Password // URL'), '----', '--------')
+                header = tounicode(header, enc)
+                # Add the table to the end so it doesn't get wrapped/filled
+                text += (header + '\n' + NL.join(table))
                 msg = Message.UserNotification(
                     addr, siteowner,
                     _('%(host)s mailing list memberships reminder'),
-                    text, poplang)
+                    text.encode(enc, 'replace'), poplang)
+                # Note that text must be encoded into 'enc' because unicode
+                # cause error within email module in some language (Japanese).
             finally:
                 i18n.set_translation(otrans)
             msg['X-No-Archive'] = 'yes'

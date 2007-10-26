@@ -2,7 +2,7 @@
 " Language:	JSP (Java Server Pages)
 " Maintainer:	Rafael Garcia-Suarez <rgarciasuarez@free.fr>
 " URL:		http://rgarciasuarez.free.fr/vim/syntax/jsp.vim
-" Last change:	2003 May 11
+" Last change:	2004 Feb 02
 " Credits : Patch by Darren Greaves (recognizes <jsp:...> tags)
 "	    Patch by Thomas Kimpton (recognizes jspExpr inside HTML tags)
 
@@ -48,7 +48,7 @@ syn keyword jspCommandArg contained code codebase name archive align height
 syn keyword jspCommandArg contained width hspace vspace jreversion nspluginurl iepluginurl
 
 " Redefine htmlTag so that it can contain jspExpr
-syn region htmlTag start=+<[^/]+ end=+>+ contains=htmlTagN,htmlString,htmlArg,htmlValue,htmlTagError,htmlEvent,htmlCssDefinition,@htmlPreproc,@htmlArgCluster,jspExpr
+syn region htmlTag start=+<[^/%]+ end=+>+ contains=htmlTagN,htmlString,htmlArg,htmlValue,htmlTagError,htmlEvent,htmlCssDefinition,@htmlPreproc,@htmlArgCluster,jspExpr
 
 " Define the default highlighting.
 " For version 5.7 and earlier: only when not done already

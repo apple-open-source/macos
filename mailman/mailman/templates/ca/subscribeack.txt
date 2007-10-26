@@ -1,36 +1,41 @@
 Benvingut a la llista de correu de %(real_name)s@%(host_name)s!
-%(welcome)s
-Per enviar missatges en aquesta llista, envii la seva adreça de email a:
 
-  %(emailaddr)s
+     %(welcome)s
 
-Podrà trobar informació general sobre aquesta llista a:
+Per enviar missatges a aquesta llista, envieu-los a:  
 
-  %(listinfo_url)s
+     %(emailaddr)s
 
-Si mai vol donar-se de baixa o canviar les seves opcions ( per exemple,
-canviar a mode de compilació, canviar la seva clau de pas, etc), visiti
-la seva pàgina de subscripció a:
+Podreu trobar informació general sobre aquesta llista a: 
 
-  %(optionsurl)s
-%(umbrella)s
+     %(listinfo_url)s
 
-També pot fer aquests mateixos canvis via email, senzillament envii un missatge a:
+Si mai voleu donar-vos de baixa o canviar les vostres opcions ( per exemple,
+canviar a mode de compilació, canviar la vostra clau de pas, etc), visiteu
+la vostra pàgina de subscripció a: 
 
-  %(real_name)s-request@%(host_name)s
+     %(optionsurl)s%(umbrella)s
 
-amb la paraula 'ajuda' en el títol o en el cos del missatge (sense les cometes),
-i rebrà un email de resposta amb instruccions.
+També podeu fer aquests mateixos canvis via correu electrònic. Senzillament
+envieu un missatge a: 
 
-Necessita saber la seva clau de pas per poder canviar les seves opcions (fins 
-i tot per a canviar la mateixa clau de pas) o per donar-se de baixa. La seva clau és:
+     %(real_name)s-request@%(host_name)s
 
-  %(password)s
+amb la paraula 'help' en el subjecte o en el cos del missatge (sense les cometes)
+i rebreu un correu de resposta amb més instruccions.
 
-Normalment, Mailman li enviarà un email mensual recordant-li la seva clau de
-pas, tot i que vostè pot deshabilitar aquesta opció si ho prefereix.
-Aquest recordatori inclourà també instruccions sobre com donar-se de baixa o 
-canviar les opcions del seu compte.
-En la seva pàgina d'opcions, hi trobarà també un botó que li permet enviar un mail
-a la seva adreça amb la seva actual clau de pas.
+Necessiteu saber la vostra clau de pas per poder canviar les vostres opcions (fins
+i tot per a canviar la mateixa clau de pas) o per donar-vos de baixa.
 
+La vostra clau de pas és:  
+
+     %(password)s
+
+Normalment, Mailman us enviarà un correu mensual recordant-vos la clau de
+pas, tot i que, si ho preferiu, podeu deshabilitar aquesta opció.
+
+Aquest recordatori inclourà també instruccions sobre com donar-vos de baixa o
+canviar les opcions del vostre compte.
+
+A la vostra pàgina d'opcions hi trobareu també un botó que us permet enviar-vos un
+missatge a la vostra adreça amb la vostra clau de pas actual.

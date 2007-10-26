@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,6 +44,8 @@ UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
 bool ClientSession::mSetupSession;
 const char *ClientSession::mContactName;
+SecGuestRef ClientSession::mDedicatedGuest = kSecNoGuest;
+
 
 //
 // Construct a client session
@@ -68,8 +70,9 @@ ClientSession::registerForAclEdits(DidChangeKeyAclCallback *callback, void *cont
 }
 
 //
-// Activate a client session: This connects to the SecurityServer and executes
-// application authentication
+// Perform any preambles required to be a securityd client in good standing.
+// This includes initial setup calls, thread registration, fork management,
+// and (Code Signing) guest status.
 //
 void ClientSession::activate()
 {
@@ -89,6 +92,13 @@ void ClientSession::activate()
 		IPCN(ucsp_client_setupThread(UCSP_ARGS, mach_task_self()));
         thread.registered = true;
         secdebug("SSclnt", "Thread registered with %s", mContactName);
+	}
+	
+	// if the thread's guest state has changed, tell securityd
+	if (thread.currentGuest != thread.lastGuest) {
+		IPCN(ucsp_client_setGuest(UCSP_ARGS, thread.currentGuest, kSecCSDefaultFlags));
+		thread.lastGuest = thread.currentGuest;
+		secdebug("SSclnt", "switched guest state to 0x%x", thread.currentGuest);
 	}
 }
 
@@ -142,11 +152,11 @@ ClientSession::Global::Global()
 	if (mSetupSession) {
 		secdebug("SSclnt", "sending session setup request");
 		mSetupSession = false;	// reset global
-		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &rcode,
+		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &securitydCreds, &rcode,
 			mach_task_self(), info, extForm.c_str(), &serverPort.port()));
 		secdebug("SSclnt", "new session server port is %d", serverPort.port());
 	} else {
-		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &rcode,
+		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &securitydCreds, &rcode,
 			mach_task_self(), info, extForm.c_str()));
 	}
     thread.registered = true;	// as a side-effect of setup call above
@@ -202,21 +212,18 @@ void ClientSession::childCheckIn(Port serverPort, Port taskPort)
 
 
 //
-// Temporary hack - deal with securityd-generated special error codes by
-// calling a special callback for ACL editing. This facility will move entirely
-// into securityd at some point (hopefully near), after which this call will
-// disappear with a contented sigh.
+// Notify an (interested) caller that a securityd-mediated ACL change
+// MAY have happened on a key object involved in an operation. This allows
+// such callers to re-encode key blobs for storage.
 //
-void ClientSession::addApplicationAclSubject(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag)
+void ClientSession::notifyAclChange(KeyHandle key, CSSM_ACL_AUTHORIZATION_TAG tag)
 {
-	/* Notify our client if they are interested. */
-	if (mCallback)
-	{
-		secdebug("keyacl", "ClientSession::addApplicationAclSubject(keyHandle: %lu tag: %lu)", key, tag);
+	if (mCallback) {
+		secdebug("keyacl", "ACL change key %lu operation %u", key, tag);
 		mCallback(mCallbackContext, *this, key, tag);
-	}
-	else
-		secdebug("keyacl", "ClientSession::addApplicationAclSubject() with NULL mCallback");
+	} else
+		secdebug("keyacl", "dropped ACL change notice for key %lu operation %u",
+			key, tag);
 }
 
 

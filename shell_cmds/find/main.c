@@ -43,11 +43,11 @@ char copyright[] =
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 5/4/95";
-#else
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/find/main.c,v 1.9.6.2 2001/02/25 21:56:59 knu Exp $";
 #endif
 #endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/find/main.c,v 1.15 2003/06/14 13:00:21 markm Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -76,14 +76,12 @@ int isxargs;			/* don't permit xargs delimiting chars */
 int mindepth = -1, maxdepth = -1; /* minimum and maximum depth */
 int regexp_flags = REG_BASIC;	/* use the "basic" regexp by default*/
 
-static void usage __P((void));
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	register char **p, **start;
+	char **p, **start;
 	int Hflag, Lflag, ch;
 
 	(void)setlocale(LC_ALL, "");
@@ -163,7 +161,7 @@ main(argc, argv)
 }
 
 static void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr,
 "usage: find [-H | -L | -P] [-EXdsx] [-f file] [file ...] [expression]\n");

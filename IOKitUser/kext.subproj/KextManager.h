@@ -3,16 +3,14 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 CFURLRef KextManagerCreateURLForBundleIdentifier(
     CFAllocatorRef allocator,
     CFStringRef    bundleIdentifier);
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KEXTMANAGER_H__

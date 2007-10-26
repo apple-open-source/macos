@@ -1,3 +1,26 @@
+/*
+Copyright (C) 1992, 1993 Lucid, Inc.
+Copyright (C) 1994, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007  Free Software Foundation, Inc.
+
+This file is part of the Lucid Widget Library.
+
+The Lucid Widget Library is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 1, or (at your option)
+any later version.
+
+The Lucid Widget Library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
+
 #ifndef LWLIB_H
 #define LWLIB_H
 
@@ -5,12 +28,12 @@
 
 /*
 ** Widget values depend on the Widget type:
-** 
+**
 ** widget:   (name value key enabled data contents/selected)
 **
 ** label:    ("name" "string" NULL NULL NULL NULL)
 ** button:   ("name" "string" "key" T/F data <default-button-p>)
-** button w/menu: 
+** button w/menu:
 **           ("name" "string" "key" T/F data (label|button|button w/menu...))
 ** menubar:  ("name" NULL NULL T/F data (button w/menu))
 ** selectable thing:
@@ -54,7 +77,7 @@ enum menu_separator
   SEPARATOR_SHADOW_ETCHED_IN_DASH,
   SEPARATOR_SHADOW_ETCHED_OUT_DASH,
 
-  /* The following are supported by XEmacs' Lucid menus.  */
+  /* The following are supported by Lucid menus.  */
   SEPARATOR_SHADOW_DOUBLE_ETCHED_IN,
   SEPARATOR_SHADOW_DOUBLE_ETCHED_OUT,
   SEPARATOR_SHADOW_DOUBLE_ETCHED_IN_DASH,
@@ -64,13 +87,17 @@ enum menu_separator
 typedef struct _widget_value
 {
   /* name of widget */
+  Lisp_Object   lname;
   char*		name;
   /* value (meaning depend on widget type) */
   char*		value;
-  /* keyboard equivalent. no implications for XtTranslations */ 
+  /* keyboard equivalent. no implications for XtTranslations */
+  Lisp_Object   lkey;
   char*		key;
-  /* Help string or null if none.  */
-  char		*help;
+  /* Help string or nil if none.
+     GC finds this string through the frame's menu_bar_vector
+     or through menu_items.  */
+  Lisp_Object	help;
   /* true if enabled */
   Boolean	enabled;
   /* true if selected */
@@ -165,3 +192,6 @@ int lw_separator_p __P ((char *label, enum menu_separator *type,
 void lwlib_bcopy __P ((char*, char*, int));
 
 #endif /* LWLIB_H */
+
+/* arch-tag: 44d818d5-7eb2-4d87-acd7-b992bb0d5d20
+   (do not change this comment) */

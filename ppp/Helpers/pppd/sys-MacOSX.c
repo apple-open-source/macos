@@ -42,7 +42,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: sys-MacOSX.c,v 1.38 2005/03/11 05:48:32 lindak Exp $"
+#define RCSID	"$Id: sys-MacOSX.c,v 1.40 2006/02/16 01:47:04 lindak Exp $"
 
 /* -----------------------------------------------------------------------------
   Includes
@@ -158,7 +158,7 @@ int publish_dictnumentry(CFStringRef dict, CFStringRef entry, int val);
 int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int encoding);
 int unpublish_keyentry(CFStringRef key, CFStringRef entry);
 int unpublish_dict(CFStringRef dict);
-int publish_dns_entry(CFStringRef property1, CFTypeRef ref1, 
+int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
 						CFStringRef property3, CFTypeRef ref3, int clean);
 int unpublish_dictentry(CFStringRef dict, CFStringRef entry);
@@ -209,6 +209,7 @@ int			looped;			/* 1 if using loop */
 int	 		ppp_sockfd = -1;	/* fd for PF_PPP socket */
 char 			*serviceid = NULL; 	/* configuration service ID to publish */
 char 			*serverid = NULL; 	/* server ID that spwaned this service */
+static char 	*network_signature = NULL; 	/* network signature */
 bool	 		noload = 0;		/* don't load the kernel extension */
 bool                    looplocal = 0;  /* Don't loop local traffic destined to the local address some applications rely on this default behavior */
 bool            addifroute = 0;  /* install route for the netmask of the interface */
@@ -253,6 +254,29 @@ void closeall()
     dup(0);
     dup(0);
     return;
+}
+
+/* -----------------------------------------------------------------------------
+close all file descriptor above 'from'
+----------------------------------------------------------------------------- */
+void closeallfrom(int from)
+{
+	int fd;
+	struct dirent entry, *entryp;
+	
+	DIR *dirp = opendir("/dev/fd");
+	if (dirp == NULL) {
+		/* perhaps fall back on getdtablesize method */ ;
+		for (fd = from; fd < getdtablesize(); ++fd) close(fd);
+		return;
+	}
+	
+	while (readdir_r(dirp, &entry, &entryp) == 0 && entryp != NULL) {
+		fd = atoi(entryp->d_name);
+		if (fd >= from && fd != dirp->__dd_fd)
+			close(fd);
+	}
+	closedir(dirp);
 }
 
 /* -----------------------------------------------------------------------------
@@ -355,6 +379,8 @@ void CopyControllerData()
 	void				*data			= NULL;
 	int				datalen;
 	int				result			= kSCStatusFailed;
+	audit_token_t		audit_token;
+	uid_t               euid;
 
 	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
 	switch (status) {
@@ -368,21 +394,47 @@ void CopyControllerData()
 			return;
 	}
 
-	status = pppcontroller_copyprivoptions(server, mach_task_self(), 0, (xmlDataOut_t *)&data, &datalen, &result);
+	status = pppcontroller_copyprivoptions(server, 0, (xmlDataOut_t *)&data, &datalen, &result, &audit_token);
 
 	if (status != KERN_SUCCESS
 		|| result != kSCStatusOK) {
 		error("cannot get private system options from controller\n");
 		return;
 	}
+	audit_token_to_au32(audit_token,
+				NULL,			// auidp
+				&euid,			// euid
+				NULL,			// egid
+				NULL,			// ruid
+				NULL,			// rgid
+				NULL,			// pid
+				NULL,			// asid
+				NULL);			// tid
+	if (euid != 0) {
+		error("cannot authenticate private system options from controller\n");
+		return;
+	}
 
 	systemOptions = Unserialize(data, datalen);
 
-	status = pppcontroller_copyprivoptions(server, mach_task_self(), 1, (xmlDataOut_t *)&data, &datalen, &result);
+	status = pppcontroller_copyprivoptions(server, 1, (xmlDataOut_t *)&data, &datalen, &result, &audit_token);
 
 	if (status != KERN_SUCCESS
 		|| result != kSCStatusOK) {
 		error("cannot get private user options from controller\n");
+		return;
+	}
+	audit_token_to_au32(audit_token,
+				NULL,			// auidp
+				&euid,			// euid
+				NULL,			// egid
+				NULL,			// ruid
+				NULL,			// rgid
+				NULL,			// pid
+				NULL,			// asid
+				NULL);			// tid
+	if (euid != 0) {
+		error("cannot authenticate private user options from controller\n");
 		return;
 	}
 
@@ -574,6 +626,46 @@ void sys_cleanup()
     if (proxy_arp_addr)
 	cifproxyarp(0, proxy_arp_addr);
 }
+
+/* ----------------------------------------------------------------------------- 
+----------------------------------------------------------------------------- */
+void set_network_signature(char *key1, char *val1, char *key2, char *val2)
+{
+	int len = 0;
+	
+	if (network_signature) {
+		free(network_signature);
+		network_signature = 0;
+	}
+	
+	if (key1) 
+		len += strlen(key1) + strlen(val1) + 1; 
+	if (key2) {
+		if (key1) len++; // add separator ";"
+		len += strlen(key2) + strlen(val2) + 1; 
+	}
+	
+	 if (len) {
+		network_signature = malloc(len + 1);
+		if (!network_signature) {
+			warning("no memory to create network signature");
+			return;
+		}
+		network_signature[0] = 0;
+        if (key1) {
+			strlcat(network_signature, key1, len + 1);
+			strlcat(network_signature, "=", len + 1);
+			strlcat(network_signature, val1, len + 1);
+		}
+        if (key2) {
+			if (key1) strlcat(network_signature, ";", len + 1);
+			strlcat(network_signature, key2, len + 1);
+			strlcat(network_signature, "=", len + 1);
+			strlcat(network_signature, val2, len + 1);
+		}
+	 }
+}
+
 
 /* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
@@ -1203,7 +1295,7 @@ void output(int unit, u_char *p, int len)
     
     // link protocol are sent to the link
     // other protocols are send to the bundle
-    if (write((*(u_short*)p >= 0xC000) ? ppp_fd : ppp_sockfd, p, len) < 0) {
+    if (write((ntohs(*(u_short*)p) >= 0xC000) ? ppp_fd : ppp_sockfd, p, len) < 0) {
 	if (errno != EIO)
 	    error("write: %m");
     }
@@ -2214,6 +2306,14 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
         CFRelease(str);
     }
 
+    /* add the network signature */
+    if (network_signature) {
+		if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), network_signature)) {
+			CFDictionarySetValue(ipv4_dict, CFSTR("NetworkSignature"), str);
+			CFRelease(str);
+		}
+	}
+
     /* update the store now */
     if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4)) {
         
@@ -2230,7 +2330,7 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 /* -----------------------------------------------------------------------------
  add a search domain, using configd cache mechanism.
 ----------------------------------------------------------------------------- */
-int publish_dns_entry(CFStringRef property1, CFTypeRef ref1, 
+int publish_dns_wins_entry(CFStringRef entity, CFStringRef property1, CFTypeRef ref1, CFTypeRef ref1a, 
 						CFStringRef property2, CFTypeRef ref2,
 						CFStringRef property3, CFTypeRef ref3, int clean)
 {
@@ -2244,7 +2344,7 @@ int publish_dns_entry(CFStringRef property1, CFTypeRef ref1,
     if (cfgCache == NULL)
         return 0;
 
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetDNS);
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, entity);
     if (!key) 
         goto end;
         
@@ -2268,6 +2368,8 @@ int publish_dns_entry(CFStringRef property1, CFTypeRef ref1,
         goto end;
 
     CFArrayAppendValue(mutable_array, ref1);
+	if (ref1a)
+		CFArrayAppendValue(mutable_array, ref1a);
     CFDictionarySetValue(dict, property1, mutable_array);
     CFRelease(mutable_array);
 
@@ -2306,7 +2408,7 @@ int publish_dns_entry(CFStringRef property1, CFTypeRef ref1,
     if (SCDynamicStoreSetValue(cfgCache, key, dict))
         ret = 1;
     else
-        warning("SCDynamicStoreSetValue DNS %s failed: %s\n", ifname, SCErrorString(SCError()));
+        warning("SCDynamicStoreSetValue DNS/WINS %s failed: %s\n", ifname, SCErrorString(SCError()));
 
 end:
     if (key)  
@@ -2322,26 +2424,70 @@ set dns information
 ----------------------------------------------------------------------------- */
 int sifdns(u_int32_t dns1, u_int32_t dns2)
 {    
-    CFStringRef		str;
-    struct in_addr	dnsaddr[2];
-    int			result, i, clean = 1;
-    
-    dnsaddr[0].s_addr = dns1;
-    dnsaddr[1].s_addr = dns2;
+    CFStringRef		str1 = 0, str2 = 0, strname = 0;
+    int				result = 0, clean = 1;
+	long			order = 100000;
+	CFNumberRef		num = 0;
+
+	num = CFNumberCreate(NULL, kCFNumberLongType, &order);
+	if (!num)
+		goto done;
+	
+	strname = CFStringCreateWithCString(NULL, "", kCFStringEncodingUTF8);
+	if (!strname)
+		goto done;
 
 	/* warn lookupd of upcoming change */
 	notify_post("com.apple.system.dns.delay");
-    for (i = 0; i < 2; i++) {
-        result = 0;
-        if (dnsaddr[i].s_addr && (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dnsaddr[i])))) {
-            result = publish_dns_entry(kSCPropNetDNSServerAddresses, str, 0, 0, 0, 0, clean);
-            CFRelease(str);
-			clean = 0;
-        }
-        if (result == 0)
-            break;
-    }
-    return result;
+	
+	if (dns1)
+		str1 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns1));
+	if (!str1)
+		goto done;
+		
+	if (dns2)
+		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dns2));
+		
+	result = publish_dns_wins_entry(kSCEntNetDNS, kSCPropNetDNSServerAddresses, str1, str2, kSCPropNetDNSSupplementalMatchDomains, strname, kSCPropNetDNSSupplementalMatchOrders, num, clean);
+
+done:
+	if (num)
+		CFRelease(num);
+	if (str1)
+		CFRelease(str1);
+	if (str2)
+		CFRelease(str2);
+	if (strname)
+		CFRelease(strname);
+
+	return result;
+}
+
+/* -----------------------------------------------------------------------------
+set wins information
+----------------------------------------------------------------------------- */
+int sifwins(u_int32_t wins1, u_int32_t wins2)
+{    
+    CFStringRef		str1 = 0, str2 = 0;
+    int				result = 0, clean = 1;
+
+	if (wins1)
+		str1 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&wins1));
+	if (!str1)
+		goto done;
+		
+	if (wins2)
+		str2 = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&wins2));
+		
+	result = publish_dns_wins_entry(kSCEntNetSMB, kSCPropNetSMBWINSAddresses, str1, str2, 0, 0, 0, 0, clean);
+
+done:
+	if (str1)
+		CFRelease(str1);
+	if (str2)
+		CFRelease(str2);
+
+	return result;
 }
 
 /* -----------------------------------------------------------------------------
@@ -2350,6 +2496,14 @@ clear dns information
 int cifdns(u_int32_t dns1, u_int32_t dns2)
 {
     return unpublish_dict(kSCEntNetDNS);
+}
+
+/* -----------------------------------------------------------------------------
+clear wins information
+----------------------------------------------------------------------------- */
+int cifwins(u_int32_t wins1, u_int32_t wins2)
+{
+    return unpublish_dict(kSCEntNetSMB);
 }
 
 
@@ -2693,11 +2847,11 @@ int sys_loadplugin(char *arg)
 
 
     if (arg[0] == '/') {
-        strcpy(path, arg);
+        strlcpy(path, arg, sizeof(path));
     }
     else {
         strcpy(path, "/System/Library/Extensions/");
-        strcat(path, arg);
+        strlcat(path, arg, sizeof(path));
     } 
 
     url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE);
@@ -3072,6 +3226,7 @@ void sys_exitnotify(void *arg, int exitcode)
     // unpublish the various info about the connection
     unpublish_dict(kSCEntNetPPP);
     unpublish_dict(kSCEntNetDNS);
+    unpublish_dict(kSCEntNetSMB);
     unpublish_dict(kSCEntNetInterface);
 
     sys_eventnotify((void*)PPP_EVT_DISCONNECTED, exitcode);

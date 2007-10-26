@@ -3,9 +3,9 @@ Abonnenmentsbestätigung für die Mailing-Liste %(listname)s
 Wir haben einen Auftrag %(remote)s zur Aufnahme Ihrer e-Mail-Adresse
 "%(email)s" in die Mailing-Liste %(listaddr)s erhalten.
 
-Um sicherzustellen, dass Sie diese Mailing-Liste tatsaechlich abonnieren
-wollen, antworten Sie bitte einfach auf diese EMail, wobei Sie bitte darauf
-achten, dass das "Subject:" bzw. "Betreff:" intakt bleibt.
+Um sicherzustellen, dass Sie diese Mailingliste tatsächlich abonnieren
+wollen, antworten Sie bitte einfach auf diese e-Mail und achten Sie bitte
+darauf, dass der Betreff intakt bleibt.
 
 Alternativ können Sie auch die folgende Webseite besuchen:
 

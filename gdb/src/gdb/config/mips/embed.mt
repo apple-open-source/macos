@@ -1,4 +1,3 @@
-TDEPFILES= mips-tdep.o remote-mips.o
-TM_FILE= tm-mips.h
+TDEPFILES= mips-tdep.o mips-mdebug-tdep.o
 SIM_OBS = remote-sim.o
 SIM = ../sim/mips/libsim.a

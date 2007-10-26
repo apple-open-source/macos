@@ -41,7 +41,7 @@ static const char copyright[] =
 static const char sccsid[] = "@(#)cut.c	8.3 (Berkeley) 5/4/95";
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/cut/cut.c,v 1.29 2004/06/28 06:05:36 tjr Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/cut/cut.c,v 1.30 2004/11/05 10:45:23 tjr Exp $");
 
 #include <ctype.h>
 #include <err.h>
@@ -371,10 +371,11 @@ f_cut(FILE *fp, const char *fname)
 	wchar_t sep;
 	int output;
 	char *lbuf, *mlbuf;
-	size_t clen, lbuflen;
+	size_t clen, lbuflen, reallen;
 
 	mlbuf = NULL;
 	for (sep = dchar; (lbuf = fgetln(fp, &lbuflen)) != NULL;) {
+		reallen = lbuflen;
 		/* Assert EOL has a newline. */
 		if (*(lbuf + lbuflen - 1) != '\n') {
 			/* Can't have > 1 line with no trailing newline. */
@@ -384,10 +385,11 @@ f_cut(FILE *fp, const char *fname)
 			memcpy(mlbuf, lbuf, lbuflen);
 			*(mlbuf + lbuflen) = '\n';
 			lbuf = mlbuf;
+			reallen++;
 		}
 		output = 0;
 		for (isdelim = 0, p = lbuf;; p += clen) {
-			clen = mbrtowc(&ch, p, lbuf + lbuflen - p, NULL);
+			clen = mbrtowc(&ch, p, lbuf + reallen - p, NULL);
 			if (clen == (size_t)-1 || clen == (size_t)-2) {
 				warnc(EILSEQ, "%s", fname);
 				free(mlbuf);
@@ -413,7 +415,7 @@ f_cut(FILE *fp, const char *fname)
 				for (i = 0; dcharmb[i] != '\0'; i++)
 					putchar(dcharmb[i]);
 			for (;;) {
-				clen = mbrtowc(&ch, p, lbuf + lbuflen - p,
+				clen = mbrtowc(&ch, p, lbuf + reallen - p,
 				    NULL);
 				if (clen == (size_t)-1 || clen == (size_t)-2) {
 					warnc(EILSEQ, "%s", fname);

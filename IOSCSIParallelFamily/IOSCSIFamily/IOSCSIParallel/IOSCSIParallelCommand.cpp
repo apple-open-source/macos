@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -364,7 +364,7 @@ void IOSCSIParallelCommand::getCDB( CDBInfo *cdbInfo )
     bzero( cdbInfo, sizeof(CDBInfo) );
 
     getCDB( &scsiCDBInfo );
-    cdbInfo->cdb       = scsiCDBInfo.cdb;
+    bcopy ( scsiCDBInfo.cdb, cdbInfo->cdb, scsiCDBInfo.cdbLength );
     cdbInfo->cdbLength = scsiCDBInfo.cdbLength;
 }
 
@@ -375,7 +375,7 @@ void IOSCSIParallelCommand::setCDB( CDBInfo *cdbInfo )
     bzero( &scsiCDBInfo, sizeof(SCSICDBInfo) );
 
     scsiCDBInfo.cdbLength = cdbInfo->cdbLength;
-    scsiCDBInfo.cdb       = cdbInfo->cdb;
+	bcopy ( cdbInfo->cdb, scsiCDBInfo.cdb, cdbInfo->cdbLength );
     setCDB( &scsiCDBInfo );    
 }
 

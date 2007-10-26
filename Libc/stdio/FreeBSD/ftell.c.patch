@@ -1,10 +1,16 @@
---- ftell.c.orig	Tue May 20 15:22:42 2003
-+++ ftell.c	Tue May 25 13:14:32 2004
-@@ -105,6 +105,7 @@
+Index: ftell.c
+===================================================================
+RCS file: /cvs/root/Libc/stdio/FreeBSD/ftell.c,v
+retrieving revision 1.2
+diff -u -d -b -w -p -p -r1.2 ftell.c
+--- ftell.c	2003/05/20 22:22:42	1.2
++++ ftell.c	2005/03/14 03:10:02
+@@ -105,6 +105,8 @@ _ftello(fp, offset)
  	 * Find offset of underlying I/O object, then
  	 * adjust for buffered bytes.
  	 */
-+	__sflush(fp);		/* may adjust seek offset on append stream */
++	if (__sflush(fp))		/* may adjust seek offset on append stream */
++		return (1);
  	if (fp->_flags & __SOFF)
  		pos = fp->_offset;
  	else {

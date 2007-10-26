@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2005, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -15,7 +15,12 @@
 */
 
 /**
- * \file
+ * \file 
+ * \brief C API: Deprecated macros for Unicode string handling
+ */
+
+/**
+ * 
  * The macros in utf_old.h are all deprecated and their use discouraged.
  * Some of the design principles behind the set of UTF macros
  * have changed or proved impractical.
@@ -84,9 +89,10 @@
  * accordingly. UTF-16 was the default.</p>
  *
  * <p>This concept has been abandoned.
- * A lot of the ICU source code &#8212; especially low-level code like
- * conversion, normalization, and collation &#8212; assumes UTF-16,
- * utf.h enforces the default of UTF-16.
+ * A lot of the ICU source code assumes UChar strings are in UTF-16.
+ * This is especially true for low-level code like
+ * conversion, normalization, and collation.
+ * The utf.h header enforces the default of UTF-16.
  * The UTF-8 and UTF-32 macros remain for now for completeness and backward compatibility.</p>
  *
  * <p>Accordingly, utf.h defines UChar to be an unsigned 16-bit integer. If this matches wchar_t, then

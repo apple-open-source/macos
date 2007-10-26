@@ -22,8 +22,16 @@
 // There is function-name conflitct, so we rename it
 #if !defined(IN) && !defined(FLOAT)
 #define OpenFile  WINAPI_OpenFile
+#ifdef __BORLANDC__
+#define USE_WINSOCK2
+#endif
+#ifdef USE_WINSOCK2
+#include <winsock2.h>
+#include <windows.h>
+#else
 #include <windows.h>
 #include <winsock.h>
+#endif
 #undef OpenFile
 #endif
 
@@ -69,9 +77,21 @@ extern "C++" {
 }
 #endif
 
-#define UIDTYPE int
-#define GIDTYPE int
-#define pid_t   int
+#ifdef _M_IX86
+# define WIN95 1
+#else
+# undef  WIN95
+#endif
+
+#ifdef WIN95
+extern DWORD rb_w32_osid(void);
+#define rb_w32_iswinnt()  (rb_w32_osid() == VER_PLATFORM_WIN32_NT)
+#define rb_w32_iswin95()  (rb_w32_osid() == VER_PLATFORM_WIN32_WINDOWS)
+#else
+#define rb_w32_iswinnt()  TRUE
+#define rb_w32_iswin95()  FALSE
+#endif
+
 #define WNOHANG -1
 
 #undef getc
@@ -98,6 +118,8 @@ extern "C++" {
 
 #define close(h)		rb_w32_close(h)
 #define fclose(f)		rb_w32_fclose(f)
+#define read(f, b, s)		rb_w32_read(f, b, s)
+#define write(f, b, s)		rb_w32_write(f, b, s)
 #define getpid()		rb_w32_getpid()
 #define sleep(x)		rb_w32_sleep((x)*1000)
 #ifdef __BORLANDC__
@@ -105,10 +127,8 @@ extern "C++" {
 #define eof()			_eof()
 #define filelength(h)		_filelength(h)
 #define mktemp(t)		_mktemp(t)
-#define read(h, b, l)		_read(h, b, l)
 #define tell(h)			_tell(h)
 #define unlink(p)		_unlink(p)
-#define write(h, b, l)		_write(h, b, l)
 #define _open			_sopen
 #define sopen			_sopen
 #undef fopen
@@ -127,16 +147,24 @@ extern "C++" {
 #undef isatty
 #define isatty(h)		rb_w32_isatty(h)
 #endif
+#undef mkdir
+#define mkdir(p, m)		rb_w32_mkdir(p, m)
+#undef rmdir
+#define rmdir(p)		rb_w32_rmdir(p)
+#undef unlink
+#define unlink(p)		rb_w32_unlink(p)
 
 #ifdef __MINGW32__
 struct timezone {
   int tz_minuteswest;
   int tz_dsttime;
 };
+#undef isascii
+#define isascii __isascii
 #endif
 extern void   NtInitialize(int *, char ***);
 extern int    rb_w32_cmdvector(const char *, char ***);
-extern pid_t  pipe_exec(char *, int, FILE **, FILE **);
+extern rb_pid_t pipe_exec(char *, int, FILE **, FILE **);
 extern int    flock(int fd, int oper);
 extern int    rb_w32_accept(int, struct sockaddr *, int *);
 extern int    rb_w32_bind(int, struct sockaddr *, int);
@@ -152,8 +180,8 @@ extern int    rb_w32_ioctlsocket(int, long, u_long *);
 extern int    rb_w32_listen(int, int);
 extern int    rb_w32_recv(int, char *, int, int);
 extern int    rb_w32_recvfrom(int, char *, int, int, struct sockaddr *, int *);
-extern int    rb_w32_send(int, char *, int, int);
-extern int    rb_w32_sendto(int, char *, int, int, struct sockaddr *, int);
+extern int    rb_w32_send(int, const char *, int, int);
+extern int    rb_w32_sendto(int, const char *, int, int, struct sockaddr *, int);
 extern int    rb_w32_setsockopt(int, int, int, char *, int);
 extern int    rb_w32_shutdown(int, int);
 extern int    rb_w32_socket(int, int, int);
@@ -167,6 +195,7 @@ extern struct servent  * rb_w32_getservbyname(char *, char *);
 extern struct servent  * rb_w32_getservbyport(int, char *);
 extern char * rb_w32_getenv(const char *);
 extern int    rb_w32_rename(const char *, const char *);
+extern int    rb_w32_stat(const char *, struct stat *);
 extern char **rb_w32_get_environ(void);
 extern void   rb_w32_free_environ(char **);
 
@@ -178,19 +207,23 @@ extern int rb_w32_snprintf(char *, size_t, const char *, ...);
 extern int chown(const char *, int, int);
 extern int link(char *, char *);
 extern int gettimeofday(struct timeval *, struct timezone *);
-extern pid_t waitpid (pid_t, int *, int);
+extern rb_pid_t waitpid (rb_pid_t, int *, int);
 extern int do_spawn(int, char *);
 extern int do_aspawn(int, char *, char **);
 extern int kill(int, int);
-extern pid_t rb_w32_getpid(void);
+extern int fcntl(int, int, ...);
+extern rb_pid_t rb_w32_getpid(void);
 
 #if !defined(__BORLANDC__) && !defined(_WIN32_WCE)
 extern int rb_w32_isatty(int);
 #endif
+extern int rb_w32_mkdir(const char *, int);
+extern int rb_w32_rmdir(const char *);
+extern int rb_w32_unlink(const char*);
 
 #ifdef __BORLANDC__
 extern FILE *rb_w32_fopen(const char *, const char *);
-extern FILE *rb_w32_fdopen(int, char *);
+extern FILE *rb_w32_fdopen(int, const char *);
 extern FILE *rb_w32_fsopen(const char *, const char *, int);
 #endif
 
@@ -202,6 +235,16 @@ extern FILE *rb_w32_fsopen(const char *, const char *, int);
 #ifndef finite
 #define finite(x) _finite(x)
 #endif
+#ifndef copysign
+#define copysign(a, b) _copysign(a, b)
+#endif
+#ifndef scalb
+#define scalb(a, b) _scalb(a, b)
+#endif
+#endif
+
+#if !defined S_IFIFO && defined _S_IFIFO
+#define S_IFIFO _S_IFIFO
 #endif
 
 #ifdef __BORLANDC__
@@ -259,12 +302,12 @@ extern FILE *rb_w32_fsopen(const char *, const char *, int);
 #if !defined(__BORLANDC__)
 extern int       ioctl (int, unsigned int, long);
 #endif
-extern UIDTYPE   getuid (void);
-extern UIDTYPE   geteuid (void);
-extern GIDTYPE   getgid (void);
-extern GIDTYPE   getegid (void);
-extern int       setuid (int);
-extern int       setgid (int);
+extern rb_uid_t  getuid (void);
+extern rb_uid_t  geteuid (void);
+extern rb_gid_t  getgid (void);
+extern rb_gid_t  getegid (void);
+extern int       setuid (rb_uid_t);
+extern int       setgid (rb_gid_t);
 
 extern char *rb_w32_strerror(int);
 
@@ -327,6 +370,9 @@ extern char *rb_w32_strerror(int);
 #define EDQUOT		WSAEDQUOT
 #define ESTALE		WSAESTALE
 #define EREMOTE		WSAEREMOTE
+
+#define F_SETFL 1
+#define O_NONBLOCK 1
 
 #ifdef accept
 #undef accept
@@ -485,6 +531,7 @@ int rb_w32_times(struct tms *);
 
 /* thread stuff */
 HANDLE GetCurrentThreadHandle(void);
+void rb_w32_interrupted(void);
 int  rb_w32_main_context(int arg, void (*handler)(int));
 int  rb_w32_sleep(unsigned long msec);
 void rb_w32_enter_critical(void);
@@ -493,6 +540,8 @@ int  rb_w32_putc(int, FILE*);
 int  rb_w32_getc(FILE*);
 int  rb_w32_close(int);
 int  rb_w32_fclose(FILE*);
+size_t rb_w32_read(int, void *, size_t);
+size_t rb_w32_write(int, const void *, size_t);
 int  rb_w32_utime(const char *, struct utimbuf *);
 #define Sleep(msec) (void)rb_w32_sleep(msec)
 

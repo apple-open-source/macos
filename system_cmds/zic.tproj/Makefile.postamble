@@ -160,7 +160,15 @@ TDATA=		$(YDATA) $(NDATA) $(SDATA)
 DATA=		$(YDATA) $(NDATA) $(SDATA) leapseconds # yearistype.sh
 USNO=		usno1988 usno1989
 
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+
+# Embedded zic is probably not built with the same architecture as
+# the build host, so we can't use the recently built copy.
+ifeq "$(Embedded)" "YES"
+ZIC=/usr/sbin/zic
+else
 ZIC=${DSTROOT}/usr/sbin/zic
+endif
 
 ${YEARISTYPECOPY}:
 	cp ${YEARISTYPE} ${YEARISTYPECOPY}
@@ -199,8 +207,9 @@ ZONEINFO = ${DSTROOT}/usr/share/zoneinfo
 
 # ftp://elsie.nci.nih.gov/pub/tzdata*.tar.gz
 # the tzdata*.tar.gz file is automatically unpacked and a version file created
+# /usr/local/share/tz/tzdata*.tar.gz is installed by the TimeZoneData project
 DATFILES = ${OFILE_DIR}/datfiles
-TARBALL = $(shell echo `pwd`/datfiles/tzdata*)
+TARBALL = $(shell echo /usr/local/share/tz/tzdata*)
 DATVERS = $(shell basename ${TARBALL} | sed -e 's,\..*,,' -e 's/^tzdata//')
 VERSIONFILE = ${ZONEINFO}/+VERSION
 
@@ -222,9 +231,15 @@ after_install:: ${DATFILES}
 	chmod -R og-w ${ZONEINFO}
 	install -c -m 444 ${DATFILES}/zone.tab ${ZONEINFO}
 	install -c -m 444 ${DATFILES}/iso3166.tab ${ZONEINFO}
+ifeq "$(Embedded)" "YES"
+	-mkdir -p ${DSTROOT}/private/var/db
+	-rm -f ${DSTROOT}/private/var/db/localtime
+	ln -fs /usr/share/zoneinfo/${LOCALTIME} ${DSTROOT}/private/var/db/localtime
+else
 	-mkdir -p ${DSTROOT}/private/etc
 	-rm -f ${DSTROOT}/private/etc/localtime
 	ln -fs /usr/share/zoneinfo/${LOCALTIME} ${DSTROOT}/private/etc/localtime
+endif
 	mkdir -p ${DSTROOT}/usr/share/man/man8
 	install -c -m 444 zic.8 ${DSTROOT}/usr/share/man/man8
 	echo ${DATVERS} > ${VERSIONFILE}

@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/root/tcpdump/tcpdump/sctpConstants.h,v 1.1.1.3 2004/02/05 19:30:57 rbraun Exp $ (LBL) */
+/* @(#) $Header: /tcpdump/master/tcpdump/sctpConstants.h,v 1.4 2003/06/03 23:49:23 guy Exp $ (LBL) */
 
 /* SCTP reference Implementation Copyright (C) 1999 Cisco And Motorola
  *

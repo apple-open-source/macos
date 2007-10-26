@@ -1,0 +1,14 @@
+--- bin/svk.orig	2007-04-02 18:41:08.000000000 -0700
++++ bin/svk	2007-04-02 18:42:14.000000000 -0700
+@@ -51,6 +51,11 @@
+ # END BPS TAGGED BLOCK }}}
+ use strict;
+ 
++my $apple_perl_version;
++BEGIN { $apple_perl_version = sprintf "%vd", $^V; }
++no lib "/AppleInternal/Library/Perl/$apple_perl_version";
++use lib "/System/Library/Perl/Extras/$apple_perl_version";
++
+ BEGIN {
+     eval {
+         my $x = '';

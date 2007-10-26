@@ -80,7 +80,7 @@ static int			sock_fd;     /* descriptor for the socket          */
 static int			accept_fd;   /* descriptor for the accept lock     */
 static struct sockaddr_un	server;      /* domain socket control, server side */
 static struct sockaddr_un	client;      /* domain socket control, client side */
-static SALEN_TYPE		len;         /* length for the client sockaddr_un  */
+static socklen_t		len;         /* length for the client sockaddr_un  */
 static char			*sock_file;  /* path to the AF_UNIX socket         */
 static char			*accept_file;/* path to the accept() lock file     */
 
@@ -232,7 +232,7 @@ void ipc_loop() {
 			continue;
 		}
 
-        	conn_fd = accept(sock_fd, (struct sockaddr *)&client, &len);
+		conn_fd = accept(sock_fd, (struct sockaddr *)&client, &len);
 		rc = errno;
 
 		rel_accept_lock();

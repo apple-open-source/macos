@@ -1,0 +1,182 @@
+--- uuxqt.c.ORIG	2006-12-21 18:09:17.000000000 -0800
++++ uuxqt.c	2006-12-21 18:53:29.000000000 -0800
+@@ -96,6 +96,12 @@
+   boolean fsys;
+   struct uuconf_system ssys;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uuxqt";
++      uqusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv, "c:I:s:vx:", asQlongopts,
+
+
+--- uucico.c.ORIG	2006-12-21 18:11:33.000000000 -0800
++++ uucico.c	2006-12-21 19:07:05.000000000 -0800
+@@ -241,6 +241,12 @@
+   int iholddebug;
+ #endif
+ 
++  if (argc < 1)
++  {
++      zProgram = "uucico";
++      uusage ();
++  }
++
+   zProgram = argv[0];
+ 
+   /* When uucico is invoked by login, the first character of the
+
+
+--- uux.c.ORIG	2006-12-21 18:11:48.000000000 -0800
++++ uux.c	2006-12-21 19:08:31.000000000 -0800
+@@ -235,6 +235,12 @@
+   boolean fpoll;
+   char aboptions[10];
+ 
++  if (argc < 1)
++  {
++      zProgram = "uux";
++      uxusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   ulog_fatal_fn (uxfatal);
+
+
+--- uustat.c.ORIG	2006-12-21 18:15:28.000000000 -0800
++++ uustat.c	2006-12-21 19:09:01.000000000 -0800
+@@ -236,6 +236,12 @@
+   const char *azoneuser[1];
+   boolean fret;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uustat";
++      ususage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv,
+
+
+--- uuname.c.ORIG	2006-12-21 18:16:44.000000000 -0800
++++ uuname.c	2006-12-21 19:09:55.000000000 -0800
+@@ -66,6 +66,12 @@
+   pointer puuconf;
+   int iuuconf;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uuname";
++      unusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv, "alI:vx:", asNlongopts,
+
+
+--- uucp.c.ORIG	2006-12-21 18:16:59.000000000 -0800
++++ uucp.c	2006-12-21 19:10:23.000000000 -0800
+@@ -169,6 +169,12 @@
+   char *zoptions;
+   boolean fexit;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uucp";
++      ucusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv, "cCdfg:I:jmn:prRs:tu:Wvx:",
+
+
+--- cu.c.ORIG	2006-12-21 18:17:10.000000000 -0800
++++ cu.c	2006-12-21 19:10:49.000000000 -0800
+@@ -274,6 +274,12 @@
+   struct uuconf_dialer *qdialer;
+   char bcmd;
+ 
++  if (argc < 1)
++  {
++      zProgram = "cu";
++      ucuusage ();
++  }
++      
+   zProgram = argv[0];
+ 
+   /* We want to accept -# as a speed.  It's easiest to look through
+
+
+--- uuchk.c.ORIG	2006-12-21 19:13:38.000000000 -0800
++++ uuchk.c	2006-12-21 19:16:41.000000000 -0800
+@@ -89,6 +89,12 @@
+   int iret;
+   pointer puuconf;
+ 
++  if (argc < 1)
++  {
++      zKprogram = "uuchk";
++      ukusage ();
++  }
++  
+   zKprogram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv, "I:s:vx:", asKlongopts,
+
+
+--- uuconv.c.ORIG	2006-12-21 19:17:08.000000000 -0800
++++ uuconv.c	2006-12-21 19:20:01.000000000 -0800
+@@ -122,6 +122,12 @@
+   int iret;
+   pointer pinput;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uuconv";
++      uvusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   while ((iopt = getopt_long (argc, argv, "i:I:o:p:vx:", asVlongopts,
+
+
+--- uulog.c.ORIG	2006-12-21 19:26:10.000000000 -0800
++++ uulog.c	2006-12-21 19:21:03.000000000 -0800
+@@ -100,6 +100,12 @@
+   char *zline;
+   size_t cline;
+ 
++  if (argc < 1)
++  {
++      zProgram = "uulog";
++      ulusage ();
++  }
++  
+   zProgram = argv[0];
+ 
+   /* Look for a straight number argument, and convert it to -n before
+
+
+--- uupick.c.ORIG	2006-12-21 19:17:54.000000000 -0800
++++ uupick.c	2006-12-21 19:22:32.000000000 -0800
+@@ -78,6 +78,9 @@
+ 
+   zProgram = "uupick";
+ 
++  if (argc < 1)
++      upusage ();
++
+   while ((iopt = getopt_long (argc, argv, "I:s:vx:", asPlongopts,
+ 			      (int *) NULL)) != EOF)
+     {

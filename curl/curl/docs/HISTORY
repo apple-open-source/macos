@@ -114,6 +114,8 @@ distributions and otherwise retrieved as part of other software.
 September 2002, with the release of curl 7.10 it is released under the MIT
 license only.
 
+January 2003. Started working on the distributed curl tests. The autobuilds.
+
 February 2003, the curl site averages at 20000 visits weekly. At any given
 moment, there's an average of 3 people browsing the curl.haxx.se site.
 
@@ -139,3 +141,13 @@ August 2004:
  Number of public functions in libcurl:    36
  Amount of public web site mirrors:        12
  Number of known libcurl bindings:         26
+
+April 2005:
+
+GnuTLS can now optionally be used for the secure layer when curl is built.
+
+September 2005:
+
+TFTP support was added.
+
+More than 100,000 unique visitors of the curl web site. 25 mirrors.

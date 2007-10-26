@@ -1,257 +1,342 @@
 ========================================================================
 Credentials Cache Library Version History
 ========================================================================
-Current version: 3.5.2fc2
-Date:            November 30, 2005
+Current version: 4.0fc2
+Date:            March 28, 2007
 Author:          meeroh@mit.edu, smcguire@mit.edu, fdabek@mit.edu, lxs@mit.edu
 ========================================================================
+
+CredentialsCache 4.0
+To be released with KfM 6.0
+
+========================================================================
+
+    CCacheLib 4.0fc2
+    March 28, 2007
+
+	[RT 5472] Memory leak in cci_identifier_read()
+	[RT 5473] Updated CCAPI test lib
+	[RT 5479] memory leak in CCAPI Mach IPC layer
+	[RT 5485] Use inline buffers for Mach IPC when data is small
+	
+
+    ========================================================================
+
+    CCacheLib 4.0fc1
+    February 16, 2007
+
+    Moved to final candidate
+
+    ========================================================================
+
+    CCacheLib 4.0b3
+    February 2, 2007
+
+    [RT 5383] cc_ccache_get_change_time and losing default status
+    [RT 5405] Mark all CCAPI v2 interfaces as deprecated on Leopard
+    [RT 5406] cc_ccache_*_kdc_time_offset needs to have an invalid state
+    [RT 5415] cc_ccache_get_last_default_time should return ccErrNeverDefault when 
+              cache has never been default
+    [RT 5416] Remove unused ccs_list functions
+    [RT 5417] Added inline to identifier comparison wrapper functions
+    [RT 5422] cci_identifier_uninitialized should be declared extern
+    [RT 5424] Add identifiers to ccs_client objects
+
+    ========================================================================
+
+    CCacheLib 4.0b2
+    December 22, 2006
+
+    [RT 5075] cc_context_get_default_ccache_name fails with empty ccacheserver
+    [RT 5076] cc_context_create_ccache should not accept cc_credentials_v4_v5
+    [RT 5100] cc_ccache_iterator_t skips ccaches
+
+    ========================================================================
+
+    CCacheLib 4.0b1
+    December 13, 2006
+
+    [RT 4301] Add Mach type checking
+    [RT 4801] CCacheServer should zero creds before freeing.
+    [RT 4940] Use UUIDs for object identifiers
+    [RT 5033] cc_context_t should survive CCacheServer crash and relaunch
+    [RT 5059] CCacheServer should check for length overflow when allocating buffers
+
+    ========================================================================
+
+    CCacheLib 4.0a2
+    November 16, 2006
+
+    [RT 4596] cc_context_get_default_ccache* returns ccErrBadParam when cache 
+              collection is empty
+    [RT 4597] Move Mac-specific debugging code into a platform-specific file
+    [RT 4636] CCAPI should continue using unsigned 32 bit times
+    [RT 4637] Most CCAPI library routines should call cci_ipc_send
+    [RT 4643] CCAPI client library not detecting server restart
+
+    ========================================================================
+
+    CCacheLib 4.0a1
+    October 27, 2006
+
+    Full rewrite in C.
+    [RT 4301] Add Mach type checking
+
+    ========================================================================
+
+    CCacheLib 3.6a1
+    August 23, 2006
+
+    [RT 4150] Mach IPC servers should use /System/Library/LaunchAgents plists
+
+    ========================================================================
 
 CredentialsCache 3.5.2
 Released with KfM 5.5.2
 
 ========================================================================
 
-	CCacheLib 3.5.2fc2
-	November 30, 2005
-	
-	[RT 3255] Don't byte swap addresses in krb4 tickets.
-	
-	========================================================================
+    CCacheLib 3.5.2fc2
+    November 30, 2005
 
-	CCacheLib 3.5.2fc1
-	October 6, 2005
-	
-	[RT 3188] CCAPI IPC layer should use network byte order
-	
-	========================================================================
+    [RT 3255] Don't byte swap addresses in krb4 tickets.
+
+    ========================================================================
+
+    CCacheLib 3.5.2fc1
+    October 6, 2005
+
+    [RT 3188] CCAPI IPC layer should use network byte order
+
+    ========================================================================
 
 CredentialsCache 3.5.1
 Released with KfM 5.5.1
 
 ========================================================================
 
-	CCacheLib 3.5.1fc1
-	June 15, 2005
-	
-	[RT 3061] CCAPI server relaunch handling code can't handle on-demand servers
-	
-	========================================================================
+    CCacheLib 3.5.1fc1
+    June 15, 2005
+    
+    [RT 3061] CCAPI server relaunch handling code can't handle on-demand servers
+    
+    ========================================================================
 
 CredentialsCache 3.5
 Released with KfM 5.5
 
 ========================================================================
 
-	CCacheLib 3.5fc5
-	February 1, 2005
-	
-	[RT 2904] gcc-4.0 fixes for CCAPI -- just let it figure out to instantiate the globals
-	
-	========================================================================
+    CCacheLib 3.5fc5
+    February 1, 2005
+    
+    [RT 2904] gcc-4.0 fixes for CCAPI -- just let it figure out to instantiate the globals
+    
+    ========================================================================
 
-	CCacheLib 3.5fc4
-	January 23, 2005
-	
-	[RT 2896] CCacheServer should not manually link against libstdc++.a (gcc 4.0)
-	[RT 2897] gcc-4.0 requires new syntax to instantiate static members of template classes
-	
-	========================================================================
+    CCacheLib 3.5fc4
+    January 23, 2005
+    
+    [RT 2896] CCacheServer should not manually link against libstdc++.a (gcc 4.0)
+    [RT 2897] gcc-4.0 requires new syntax to instantiate static members of template classes
+    
+    ========================================================================
 
-	CCacheLib 3.5fc3
-	December 17, 2004
-	
-	[RT 2810] CCAPI error codes don't have error strings
-	
-	========================================================================
+    CCacheLib 3.5fc3
+    December 17, 2004
+    
+    [RT 2810] CCAPI error codes don't have error strings
+    
+    ========================================================================
 
-	CCacheLib 3.5fc2
-	December 13, 2004
-	
-	[RT 2800] Use Apple System Logger and set debugging at runtime
-	
-	========================================================================
+    CCacheLib 3.5fc2
+    December 13, 2004
+    
+    [RT 2800] Use Apple System Logger and set debugging at runtime
+    
+    ========================================================================
 
-	CCacheLib 3.5fc1
-	December 6, 2004
-	
-	Moved to final candidate.
-	
-	========================================================================
+    CCacheLib 3.5fc1
+    December 6, 2004
+    
+    Moved to final candidate.
+    
+    ========================================================================
 
-	CCacheLib 3.5b3
-	September 8, 2004
-	
-	[RT 2698] CCAPI doesn't remember ccache lastDefaultTime 
-	[RT 2699] CCAPI can't store principals with spaces in their names 
-	
-	========================================================================
+    CCacheLib 3.5b3
+    September 8, 2004
+    
+    [RT 2698] CCAPI doesn't remember ccache lastDefaultTime 
+    [RT 2699] CCAPI can't store principals with spaces in their names 
+    
+    ========================================================================
 
-	CCacheLib 3.5b2
-	August 20, 2004
-	
-	[RT 2670] Clients should register on-demand servers if they get unregistered 
-	
-	========================================================================
+    CCacheLib 3.5b2
+    August 20, 2004
+    
+    [RT 2670] Clients should register on-demand servers if they get unregistered 
+    
+    ========================================================================
 
-	CCacheLib 3.5b1
-	March 18, 2004
-	
-	[RT 1661] KfM should use Panther mach init per user mechanism 
-	[RT 2416] KfM should not check OS version because it breaks configure tests in B&I 
-	
-	========================================================================
+    CCacheLib 3.5b1
+    March 18, 2004
+    
+    [RT 1661] KfM should use Panther mach init per user mechanism 
+    [RT 2416] KfM should not check OS version because it breaks configure tests in B&I 
+    
+    ========================================================================
 
 CredentialsCache 3.4
 September 18, 2003
 
 ========================================================================
 
-	CCacheLib 3.4fc3
-	September 18, 2003
-	
-	[RT 1866] Improper use of std::allocator in the CCacheServer
-		
-	========================================================================
-	CCacheLib 3.4fc2
-	August 19, 2003
-	
-	[RT 1742] CCacheClassic server should be LSVisibleInClassic=1
-		
-	========================================================================
-	CCacheLib 3.4fc1
-	July 16, 2003
-	
-	Moved to final candidate
-		
-	========================================================================
-	CCacheLib 3.4a1
-	January 14, 2003
-	
-	[RT 1313] CCache needs cache KDC time for KDC timesyncing support
-	
-	========================================================================
+    CCacheLib 3.4fc3
+    September 18, 2003
+    
+    [RT 1866] Improper use of std::allocator in the CCacheServer
+            
+    ========================================================================
+    CCacheLib 3.4fc2
+    August 19, 2003
+    
+    [RT 1742] CCacheClassic server should be LSVisibleInClassic=1
+            
+    ========================================================================
+    CCacheLib 3.4fc1
+    July 16, 2003
+    
+    Moved to final candidate
+            
+    ========================================================================
+    CCacheLib 3.4a1
+    January 14, 2003
+    
+    [RT 1313] CCache needs cache KDC time for KDC timesyncing support
+    
+    ========================================================================
 	
 CredentialsCache 3.3
 June 19, 2002
 
 ========================================================================
 
-	CCacheLib 3.3
-	June 19, 2002
-	
-	Moved to GM.
-	
-	========================================================================
-	CCacheLib 3.3fc1
-	June 17, 2002
-	
-	[BZ 772]	CredentialsCache library leaks creds when destroying caches
-	
-	========================================================================
-	CCacheLib 3.3a2
-	June 14, 2002
-	
-	Removed CCacheServer quiting when there are no tickets because it was
-	exposing a bug in Classic Ticket Sharing.  This will be turned back on
-	once that bug is fixed.
-	
-	Added Miro's explanatory comments and documentation.
-	
-	========================================================================
-	CCacheLib 3.3a1
-	June 10, 2002
-	
-	[BZ 736]	__CredentialsCacheInternalTellCCacheServerToBecomeUser
-	[BZ 766]	client side change time updates too frequently
-	
-	========================================================================
+    CCacheLib 3.3
+    June 19, 2002
+    
+    Moved to GM.
+    
+    ========================================================================
+    CCacheLib 3.3fc1
+    June 17, 2002
+    
+    [BZ 772]	CredentialsCache library leaks creds when destroying caches
+    
+    ========================================================================
+    CCacheLib 3.3a2
+    June 14, 2002
+    
+    Removed CCacheServer quiting when there are no tickets because it was
+    exposing a bug in Classic Ticket Sharing.  This will be turned back on
+    once that bug is fixed.
+    
+    Added Miro's explanatory comments and documentation.
+    
+    ========================================================================
+    CCacheLib 3.3a1
+    June 10, 2002
+    
+    [BZ 736]	__CredentialsCacheInternalTellCCacheServerToBecomeUser
+    [BZ 766]	client side change time updates too frequently
+    
+    ========================================================================
 	
 CCacheLib 3.2
 Feb 19, 2002
 
 ========================================================================
 
-	CCacheLib 3.2fc3
-	Feb 18, 2002
+    CCacheLib 3.2fc3
+    Feb 18, 2002
 
-	Bugs fixed in this release
-		- [BZ 707]	Duplicate replies from __InitiateSync
+    Bugs fixed in this release
+            - [BZ 707]	Duplicate replies from __InitiateSync
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2fc2
-	Feb 14, 2002
+    CCacheLib 3.2fc2
+    Feb 14, 2002
 
-	Fixed CCacheClassicServer memory leaks
-	Added check for Classic compatibility
+    Fixed CCacheClassicServer memory leaks
+    Added check for Classic compatibility
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2fc1
-	Feb 7, 2002
+    CCacheLib 3.2fc1
+    Feb 7, 2002
 
-	Moved to final candidate
+    Moved to final candidate
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b6
-	Jan 31, 2002
+    CCacheLib 3.2b6
+    Jan 31, 2002
 
-	Bugs fixed in this release:
-		- [BZ 672]	Launching classic with MZ always asks for password
+    Bugs fixed in this release:
+            - [BZ 672]	Launching classic with MZ always asks for password
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b5
-	Jan 14, 2002
+    CCacheLib 3.2b5
+    Jan 14, 2002
 
-	Bugs fixed in this release:
-		- [BZ 671]	Launching Classic with MZ and no tix give error
+    Bugs fixed in this release:
+            - [BZ 671]	Launching Classic with MZ and no tix give error
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b4
-	Dec 13, 2002
+    CCacheLib 3.2b4
+    Dec 13, 2002
 
-	Eliminated lots of warnings
-	Added more useful errors in Classic code to aid debugging
+    Eliminated lots of warnings
+    Added more useful errors in Classic code to aid debugging
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b3
-	Dec 3, 2001
+    CCacheLib 3.2b3
+    Dec 3, 2001
 
-	Prebinding fixed on X
+    Prebinding fixed on X
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b2
-	Nov 20, 2001
+    CCacheLib 3.2b2
+    Nov 20, 2001
 
-	Added a synchronous API to sync with yellow ccache
+    Added a synchronous API to sync with yellow ccache
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2b1
-	Nov 7, 2001
+    CCacheLib 3.2b1
+    Nov 7, 2001
 
-	Enabled Classic support
+    Enabled Classic support
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2a2
-	Sep 27, 2001
+    CCacheLib 3.2a2
+    Sep 27, 2001
 
-	Preliminary Classic support with mirrored cache
+    Preliminary Classic support with mirrored cache
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.2a2
-	Aug 7, 2001
+    CCacheLib 3.2a2
+    Aug 7, 2001
 
-	Added support for quitting the server from the authenticator
+    Added support for quitting the server from the authenticator
 
-	========================================================================
+    ========================================================================
 
 CCacheLib 3.1
 June 25, 2001
@@ -263,314 +348,314 @@ Bugs fixed in this revision:
 
 ========================================================================
 
-	CCacheLib 3.1fc1
-	June 13, 2001
+    CCacheLib 3.1fc1
+    June 13, 2001
 
-	Final candidate for 3.5
-	
-	Changes for Apple B&I
-	Changes to let AE code build under Carbon and X
+    Final candidate for 3.5
+    
+    Changes for Apple B&I
+    Changes to let AE code build under Carbon and X
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1b2
-	April 30, 2001
+    CCacheLib 3.1b2
+    April 30, 2001
 
-	Bugs fixed in this release:
-	 - [BZ 596]	Fixed problems unmounting after server launches
+    Bugs fixed in this release:
+     - [BZ 596]	Fixed problems unmounting after server launches
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1b1
-	April 2, 2001
+    CCacheLib 3.1b1
+    April 2, 2001
 
-	Moved to beta
+    Moved to beta
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a7
-	March 21, 2001
+    CCacheLib 3.1a7
+    March 21, 2001
 
-	Changed includes for new header layout
+    Changed includes for new header layout
 
-	Bugs fixed in this release:
-	 - [BZ 586]	Does not work in BlueBox
+    Bugs fixed in this release:
+     - [BZ 586]	Does not work in BlueBox
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a6
-	March 16, 2001
+    CCacheLib 3.1a6
+    March 16, 2001
 
-	Many changes to the AE client code to work under classic
-	Documentation update
-	Changed includes for new header layout
+    Many changes to the AE client code to work under classic
+    Documentation update
+    Changed includes for new header layout
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a5
-	February 1, 2001
+    CCacheLib 3.1a5
+    February 1, 2001
 
-	Eliminated some warnings
+    Eliminated some warnings
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a4
-	December 28, 2000
+    CCacheLib 3.1a4
+    December 28, 2000
 
-	Make strings read only
+    Make strings read only
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a3
-	December 26, 2000
+    CCacheLib 3.1a3
+    December 26, 2000
 
-	Bugs fixed in this release:
-	 - [BZ 525]	Heap corruption on Mac OS X
-	 - [BZ 524]	Bus error in cc_initialize on Mac OS X
+    Bugs fixed in this release:
+     - [BZ 525]	Heap corruption on Mac OS X
+     - [BZ 524]	Bus error in cc_initialize on Mac OS X
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a2
-	December 14, 2000
+    CCacheLib 3.1a2
+    December 14, 2000
 
-	Bugs fixed in this release:
-		- [BZ 512] Fetch crashes under 9 when using GSS
-		- [BZ 513] KM cannot launch under X, spins forever
+    Bugs fixed in this release:
+            - [BZ 512] Fetch crashes under 9 when using GSS
+            - [BZ 513] KM cannot launch under X, spins forever
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1a1
-	December 9, 2000
+    CCacheLib 3.1a1
+    December 9, 2000
 
-	Refactored client code to use factory classes
-	
-	Bugs fixed in this release:
-		- [BZ 501] CFM initializer fails under Carbon 9
+    Refactored client code to use factory classes
+    
+    Bugs fixed in this release:
+            - [BZ 501] CFM initializer fails under Carbon 9
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d7
-	November 30, 2000
+    CCacheLib 3.1d7
+    November 30, 2000
 
-	Added v4 long lifetime support
-	Use precompiled headers
+    Added v4 long lifetime support
+    Use precompiled headers
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d6
-	November 3, 2000
+    CCacheLib 3.1d6
+    November 3, 2000
 
-	Bugs fixed in this release:
-	 - [BZ 473] Crashes when constructing compat v5 creds from stream
+    Bugs fixed in this release:
+     - [BZ 473] Crashes when constructing compat v5 creds from stream
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d5
-	October 30, 2000
+    CCacheLib 3.1d5
+    October 30, 2000
 
-	Bugs fixed in this release:
-	 - [BZ 457] Mach IPC FlattenCredentials returns radnom errors
+    Bugs fixed in this release:
+     - [BZ 457] Mach IPC FlattenCredentials returns radnom errors
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d4
-	October 27, 2000
+    CCacheLib 3.1d4
+    October 27, 2000
 
-	First release of Mach-O libraries
+    First release of Mach-O libraries
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d3
-	October 16, 2000
+    CCacheLib 3.1d3
+    October 16, 2000
 
-	Conditionalized time coversion for CFM
+    Conditionalized time coversion for CFM
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d2
-	September 28, 2000
+    CCacheLib 3.1d2
+    September 28, 2000
 
-	Fixed dispatch glue to recognize non-classic
-	Brought in compare functions from the 3.x branch
-	Brought in per-context current time code from the 3.x branch
-	Rebuilt with fixed CWP 6 fcntl.h
+    Fixed dispatch glue to recognize non-classic
+    Brought in compare functions from the 3.x branch
+    Brought in per-context current time code from the 3.x branch
+    Rebuilt with fixed CWP 6 fcntl.h
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.1d1
-	September 26, 2000
+    CCacheLib 3.1d1
+    September 26, 2000
 
-	Carbonized and moved to CWP 6. Added AE client implementation
-	and BlueBox dispatch glue. Added Mach IPC implementation and PBX
-	builds.	
+    Carbonized and moved to CWP 6. Added AE client implementation
+    and BlueBox dispatch glue. Added Mach IPC implementation and PBX
+    builds.	
 
-	========================================================================
+    ========================================================================
 
 CCacheLib 3.0
 June 30, 2000
 
 Changes since 2.0.2:
-	Complete rewrite, now implements CCache API v3
+    Complete rewrite, now implements CCache API v3
 
 ========================================================================
 
-	CCacheLib 3.0fc2
-	June 28, 2000
-	
-	Bugs fixed in this release:
-		[BZ 365]	Moved strings into code section
-	========================================================================
+    CCacheLib 3.0fc2
+    June 28, 2000
+    
+    Bugs fixed in this release:
+            [BZ 365]	Moved strings into code section
+    ========================================================================
 
-	CCacheLib 3.0fc1
-	June 16, 2000
-	
-	Some more VC++ compatibility fixes
-	========================================================================
+    CCacheLib 3.0fc1
+    June 16, 2000
+    
+    Some more VC++ compatibility fixes
+    ========================================================================
 
-	CCacheLib 3.0b3
-	June 14, 2000
-	
-	Bugs fixed in this release:
-		[BZ 332]	Assertion when initializing v4 for the second time
-	========================================================================
+    CCacheLib 3.0b3
+    June 14, 2000
+    
+    Bugs fixed in this release:
+            [BZ 332]	Assertion when initializing v4 for the second time
+    ========================================================================
 
-	CCacheLib 3.0b2
-	June 13, 2000
-	
-	More code changes to compile under VC++
-	Bugs fixed in this release:
-		[BZ 330]	crash in cc_initialize
-	========================================================================
+    CCacheLib 3.0b2
+    June 13, 2000
+    
+    More code changes to compile under VC++
+    Bugs fixed in this release:
+            [BZ 330]	crash in cc_initialize
+    ========================================================================
 
-	CCacheLib 3.0b1
-	June 3, 2000
-	
-	Code changes to compile under VC++
-	Bugs fixed in this release:
-		[BZ 270]	c_context_create_next_ccache leaks 128 bytes
-		[BZ 267]	Logging in twice causes a memory leak
+    CCacheLib 3.0b1
+    June 3, 2000
+    
+    Code changes to compile under VC++
+    Bugs fixed in this release:
+            [BZ 270]	c_context_create_next_ccache leaks 128 bytes
+            [BZ 267]	Logging in twice causes a memory leak
 
-	========================================================================
+    ========================================================================
 
-	CCacheLib 3.0a2
-	May 22, 2000
-	
-	Bugs fixed in this release:
-		[BZ 273]	Crashes & exceptions launching MZ after launching TK
-			
-	========================================================================
+    CCacheLib 3.0a2
+    May 22, 2000
+    
+    Bugs fixed in this release:
+            [BZ 273]	Crashes & exceptions launching MZ after launching TK
+                    
+    ========================================================================
 
-	CCacheLib 3.0a1
-	May 22, 2000
-	
-	Bugs fixed in this release:
-		[BZ 252]	Static data refcount not incremented correcty
-		[BZ 259]	Buffer overrun when copying cc_data arrays
-			
-	========================================================================
+    CCacheLib 3.0a1
+    May 22, 2000
+    
+    Bugs fixed in this release:
+            [BZ 252]	Static data refcount not incremented correcty
+            [BZ 259]	Buffer overrun when copying cc_data arrays
+                    
+    ========================================================================
 
-	CCacheLib 3.0d7
-	May 6, 2000
-	
-	Documentation update
+    CCacheLib 3.0d7
+    May 6, 2000
+    
+    Documentation update
 
-	Bugs fixed in this release:
-		[BZ 195]	get/free_NC_info unimplemented
-			
-	========================================================================
+    Bugs fixed in this release:
+            [BZ 195]	get/free_NC_info unimplemented
+                    
+    ========================================================================
 
-	CCacheLib 3.0d6
-	April 29, 2000
+    CCacheLib 3.0d6
+    April 29, 2000
 
-	Bugs fixed in this release:
-		[BZ 140]	Uninitialized variables in compat layer
-			
-	========================================================================
+    Bugs fixed in this release:
+            [BZ 140]	Uninitialized variables in compat layer
+                    
+    ========================================================================
 
-	CCacheLib 3.0d5
-	April 20, 2000
+    CCacheLib 3.0d5
+    April 20, 2000
 
-	Bugs fixed in this release:
-		[BZ 107]	cc_fetch_creds_next returns NULL creds
-		[BZ 108]	cc_fetch_creds_next returning v4 and v5 creds
-					in one ccache
-		[BZ 123]	non-debugging version crashes in
-					std::iso_base::~ios_base
-		[BZ 103]	cc_open doesn't deal with caches with both
-					v4 and v5 tickets
-		[BZ 104]	cc_free_principal() results in an access exception
-			
-	========================================================================
+    Bugs fixed in this release:
+            [BZ 107]	cc_fetch_creds_next returns NULL creds
+            [BZ 108]	cc_fetch_creds_next returning v4 and v5 creds
+                                    in one ccache
+            [BZ 123]	non-debugging version crashes in
+                                    std::iso_base::~ios_base
+            [BZ 103]	cc_open doesn't deal with caches with both
+                                    v4 and v5 tickets
+            [BZ 104]	cc_free_principal() results in an access exception
+                    
+    ========================================================================
 
-	CCacheLib 3.0d4
-	April 9, 2000
+    CCacheLib 3.0d4
+    April 9, 2000
 
-	Complete rewrite in C++ with interface/data factoring
-			
-	========================================================================
+    Complete rewrite in C++ with interface/data factoring
+                    
+    ========================================================================
 
-	CCacheLib 3.0d3
-	March 11, 2000
-	
-	Bugs fixed in this revision:
-		[BZ  38]	crash in creds_iter_release if ccache handle freed
-		[BZ  25]	creds_deep_free crashes under low memory conditions
-		[BZ  11]	New ccache not created with default name
-		[BZ   4]	Service credentials left behind on create
-			
-	========================================================================
+    CCacheLib 3.0d3
+    March 11, 2000
+    
+    Bugs fixed in this revision:
+            [BZ  38]	crash in creds_iter_release if ccache handle freed
+            [BZ  25]	creds_deep_free crashes under low memory conditions
+            [BZ  11]	New ccache not created with default name
+            [BZ   4]	Service credentials left behind on create
+                    
+    ========================================================================
 
-	CCacheLib 3.0d2
-	February 27, 2000
-	
-	Bugs fixed in this revision:
-	 - [    14] handle empty creds correctly in deep_free
-	 - [    15] correctly fail storing wrong creds in a ccache
-	 - [    16] don't read past end of ccache array in compat ccache iter
-	 
-	 Changed to use MIT Runtime.Lib
-			
-	========================================================================
+    CCacheLib 3.0d2
+    February 27, 2000
+    
+    Bugs fixed in this revision:
+     - [    14] handle empty creds correctly in deep_free
+     - [    15] correctly fail storing wrong creds in a ccache
+     - [    16] don't read past end of ccache array in compat ccache iter
+     
+     Changed to use MIT Runtime.Lib
+                    
+    ========================================================================
 
-	CCacheLib 3.0d1
-	February 10, 2000
-	
-	First implementation of CCache API v3 draft
-			
-	========================================================================
+    CCacheLib 3.0d1
+    February 10, 2000
+    
+    First implementation of CCache API v3 draft
+                    
+    ========================================================================
 
 CCacheLib 2.0.2
 September 14, 1999
 
 Changes since 2.0.1:
-	Changed locking function to work per-context, not per-process
-	Fixed heap corruption in cci_realloc
-	Updated to use TicketKeeperLib
+    Changed locking function to work per-context, not per-process
+    Fixed heap corruption in cci_realloc
+    Updated to use TicketKeeperLib
 
 ========================================================================
 
-	CCacheLib 2.0.2b2
-	September 2, 1999
-	
-	Updated to use TicketKeeperLib
-			
-	========================================================================
+    CCacheLib 2.0.2b2
+    September 2, 1999
+    
+    Updated to use TicketKeeperLib
+                    
+    ========================================================================
 
-	CCacheLib 2.0.2b1
-	August 21, 1999
-	
-	Bugs fixed in this revision:
-	 - [    13] No more heap corruption in cci_realloc	
-			
-	========================================================================
+    CCacheLib 2.0.2b1
+    August 21, 1999
+    
+    Bugs fixed in this revision:
+     - [    13] No more heap corruption in cci_realloc	
+                    
+    ========================================================================
 
-	CCacheLib 2.0.2a1
-	August 8, 1999
-	
-	Changed locking functions to lock per-context, not per-process.
-	Updated to the new tree
-			
-	========================================================================
+    CCacheLib 2.0.2a1
+    August 8, 1999
+    
+    Changed locking functions to lock per-context, not per-process.
+    Updated to the new tree
+                    
+    ========================================================================
 
 CCacheLib 2.0.1
 June 23, 1999
@@ -579,15 +664,15 @@ This is the first bug-fix version to 2.0, released in MIT Kerberos for the
 Macintosh 2.0.2
 
 Bug fixed in this version:
-	 - [    12]	Fixed heap corruption in cci_deep_copy_v5_creds
+     - [    12]	Fixed heap corruption in cci_deep_copy_v5_creds
 
 
-	CCacheLib 2.0.1d1
-	May 28, 1999
-	
-	Rebuilt from the new tree
-			
-	========================================================================
+    CCacheLib 2.0.1d1
+    May 28, 1999
+    
+    Rebuilt from the new tree
+                    
+    ========================================================================
 
 CCacheLib 2.0
 April 199, 1999
@@ -597,120 +682,120 @@ had several problems that came from misunderstandings about intended use of
 the API, which required a major reingeneering to fix.
 
 New features in this version:
-	- CCAPI v2 support
-	- leak checking and reporting
+    - CCAPI v2 support
+    - leak checking and reporting
 
 Bugs fixed in this version:
-	- all bugs related to API misunderstandings
-	- miscellaneous edge cases and boundary conditions
+    - all bugs related to API misunderstandings
+    - miscellaneous edge cases and boundary conditions
 
-	CCacheLib 2.0fc3
-	April 23, 1999
-	
-	New features in this revision: none
-	
-	Bugs fixed in this revision:
-	 [    11] Fixed MIT Ticket Keeper and Kerberos Manager names in 
-	 notification string
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0fc2
-	April 23, 1999
-	
-	New features in this revision:
-	 - Error notification not displayed when CCacheLib is laoded by the
-	 Kerberos Manager
-	
-	Bugs fixed in this revision: none
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0fc1
-	April 21, 1999
-	
-	Changed fragment names according to the new MIT Kerberos convention
-	
-	New features in this revision: none
-	
-	Bugs fixed in this revision:
-		- [    10] Fixed CFM initializer to not crash and reinitialize
-		  QuickDraw
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0b5
-	April 8, 1999
-	
-	New features in this revision:
-		- Added code to launch Ticket Keeper and complain if we can't
-	
-	Bugs fixed in this revision: none
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0b4
-	March 22, 1999
-	
-	New features in this revision: none
-	
-	Bugs fixed in this revision:
-		- [     9] fixed v5 credential corruption resulting from memcpy
-		  confusion
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0b3
-	March 11, 1999
-	
-	New features in this revision: none
-	
-	Bugs fixed in this revision:
-		- [     3] assertions from __terminate no longer try to use dialogs
-		- [     4] cci_deep_copy_v5_creds and cci_deep_free_v5_creds are no
-		  longer freeing -> client and -> server incorrectly
-		- [     5] cc_cred_vers typedef fixed
-		- [     6] ccache count now corectly decremented on cc_destroy
-		- [     7] added null checks in cci_deep_free_creds
-		- [     8] cc_destroy freeing ccache and ccache reference in right
-		  order
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0b2
-	February 26, 1999
-	
-	New features in this revision: none
-	
-	Bugs fixed in this revision:
-		- [     1] bogus assertion for leaking ccache infos
-		- [     2] bogus assertion for leaking ccache handles
-		
-	========================================================================
-	
-	
-	CCacheLib 2.0b1
-	February 24, 1999
-	
-	New features in this revision:
-		- CCAPI v2 support
-		- Added leak checking and appropriate assertions
-	
-	Bugs fixed in this revision:
-		- cc_close deletes ccache
-		- ccache_p to a deleted cache is a dangling pointer
-		- credential caches not destroyed when globals library unloaded
-		- return values do not follow spec
-		- miscellaneous boundary conditions not checked all over the place
-		
-	========================================================================
-	
+    CCacheLib 2.0fc3
+    April 23, 1999
+    
+    New features in this revision: none
+    
+    Bugs fixed in this revision:
+     [    11] Fixed MIT Ticket Keeper and Kerberos Manager names in 
+     notification string
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0fc2
+    April 23, 1999
+    
+    New features in this revision:
+     - Error notification not displayed when CCacheLib is laoded by the
+     Kerberos Manager
+    
+    Bugs fixed in this revision: none
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0fc1
+    April 21, 1999
+    
+    Changed fragment names according to the new MIT Kerberos convention
+    
+    New features in this revision: none
+    
+    Bugs fixed in this revision:
+            - [    10] Fixed CFM initializer to not crash and reinitialize
+              QuickDraw
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0b5
+    April 8, 1999
+    
+    New features in this revision:
+            - Added code to launch Ticket Keeper and complain if we can't
+    
+    Bugs fixed in this revision: none
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0b4
+    March 22, 1999
+    
+    New features in this revision: none
+    
+    Bugs fixed in this revision:
+            - [     9] fixed v5 credential corruption resulting from memcpy
+              confusion
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0b3
+    March 11, 1999
+    
+    New features in this revision: none
+    
+    Bugs fixed in this revision:
+            - [     3] assertions from __terminate no longer try to use dialogs
+            - [     4] cci_deep_copy_v5_creds and cci_deep_free_v5_creds are no
+              longer freeing -> client and -> server incorrectly
+            - [     5] cc_cred_vers typedef fixed
+            - [     6] ccache count now corectly decremented on cc_destroy
+            - [     7] added null checks in cci_deep_free_creds
+            - [     8] cc_destroy freeing ccache and ccache reference in right
+              order
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0b2
+    February 26, 1999
+    
+    New features in this revision: none
+    
+    Bugs fixed in this revision:
+            - [     1] bogus assertion for leaking ccache infos
+            - [     2] bogus assertion for leaking ccache handles
+            
+    ========================================================================
+    
+    
+    CCacheLib 2.0b1
+    February 24, 1999
+    
+    New features in this revision:
+            - CCAPI v2 support
+            - Added leak checking and appropriate assertions
+    
+    Bugs fixed in this revision:
+            - cc_close deletes ccache
+            - ccache_p to a deleted cache is a dangling pointer
+            - credential caches not destroyed when globals library unloaded
+            - return values do not follow spec
+            - miscellaneous boundary conditions not checked all over the place
+            
+    ========================================================================
+    
 CCacheLib 1.0
 Summer/Fall 1998
 by Frank Dabek and Scott McGuire

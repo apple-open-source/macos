@@ -33,6 +33,7 @@
 #include "gdb_dirent.h"
 #include <sys/netmgr.h>
 
+#include "exceptions.h"
 #include "gdb_string.h"
 #include "gdbcore.h"
 #include "inferior.h"
@@ -97,18 +98,24 @@ static unsigned nto_procfs_node = ND_LOCAL_NODE;
    is required is because QNX node descriptors are transient so
    we have to re-acquire them every time.  */
 static unsigned
-nto_node(void)
+nto_node (void)
 {
   unsigned node;
 
-  if (ND_NODE_CMP(nto_procfs_node, ND_LOCAL_NODE) == 0)
+  if (ND_NODE_CMP (nto_procfs_node, ND_LOCAL_NODE) == 0)
     return ND_LOCAL_NODE;
 
-  node = netmgr_strtond(nto_procfs_path,0);
+  node = netmgr_strtond (nto_procfs_path, 0);
   if (node == -1)
-      error ("Lost the QNX node.  Debug session probably over.");
+    error (_("Lost the QNX node.  Debug session probably over."));
 
   return (node);
+}
+
+static enum gdb_osabi
+procfs_is_nto_target (bfd *abfd)
+{
+  return GDB_OSABI_QNXNTO;
 }
 
 /* This is called when we call 'target procfs <arg>' from the (gdb) prompt.
@@ -123,6 +130,8 @@ procfs_open (char *arg, int from_tty)
   char buffer[50];
   int fd, total_size;
   procfs_sysinfo *sysinfo;
+
+  nto_is_nto_target = procfs_is_nto_target;
 
   /* Set the default node used for spawning to this one,
      and only override it if there is a valid arg.  */
@@ -153,7 +162,8 @@ procfs_open (char *arg, int from_tty)
 	    *endstr = 0;
 	}
     }
-  snprintf (nto_procfs_path, PATH_MAX - 1, "%s%s", nodestr ? nodestr : "", "/proc");
+  snprintf (nto_procfs_path, PATH_MAX - 1, "%s%s", nodestr ? nodestr : "",
+	    "/proc");
   if (nodestr)
     xfree (nodestr);
 
@@ -162,7 +172,7 @@ procfs_open (char *arg, int from_tty)
     {
       printf_filtered ("Error opening %s : %d (%s)\n", nto_procfs_path, errno,
 		       safe_strerror (errno));
-      error ("Invalid procfs arg");
+      error (_("Invalid procfs arg"));
     }
 
   sysinfo = (void *) buffer;
@@ -171,7 +181,7 @@ procfs_open (char *arg, int from_tty)
       printf_filtered ("Error getting size: %d (%s)\n", errno,
 		       safe_strerror (errno));
       close (fd);
-      error ("Devctl failed.");
+      error (_("Devctl failed."));
     }
   else
     {
@@ -182,7 +192,7 @@ procfs_open (char *arg, int from_tty)
 	  printf_filtered ("Memory error: %d (%s)\n", errno,
 			   safe_strerror (errno));
 	  close (fd);
-	  error ("alloca failed.");
+	  error (_("alloca failed."));
 	}
       else
 	{
@@ -191,7 +201,7 @@ procfs_open (char *arg, int from_tty)
 	      printf_filtered ("Error getting sysinfo: %d (%s)\n", errno,
 			       safe_strerror (errno));
 	      close (fd);
-	      error ("Devctl failed.");
+	      error (_("Devctl failed."));
 	    }
 	  else
 	    {
@@ -199,7 +209,7 @@ procfs_open (char *arg, int from_tty)
 		  nto_map_arch_to_cputype (TARGET_ARCHITECTURE->arch_name))
 		{
 		  close (fd);
-		  error ("Invalid target CPU.");
+		  error (_("Invalid target CPU."));
 		}
 	    }
 	}
@@ -271,7 +281,7 @@ procfs_pidlist (char *args, int from_tty)
   if (dp == NULL)
     {
       fprintf_unfiltered (gdb_stderr, "failed to opendir \"%s\" - %d (%s)",
-	      nto_procfs_path, errno, safe_strerror (errno));
+			  nto_procfs_path, errno, safe_strerror (errno));
       return;
     }
 
@@ -299,7 +309,7 @@ procfs_pidlist (char *args, int from_tty)
       if (fd == -1)
 	{
 	  fprintf_unfiltered (gdb_stderr, "failed to open %s - %d (%s)\n",
-		  buf, errno, safe_strerror (errno));
+			      buf, errno, safe_strerror (errno));
 	  closedir (dp);
 	  return;
 	}
@@ -308,8 +318,8 @@ procfs_pidlist (char *args, int from_tty)
       if (devctl (fd, DCMD_PROC_INFO, pidinfo, sizeof (buf), 0) != EOK)
 	{
 	  fprintf_unfiltered (gdb_stderr,
-		  "devctl DCMD_PROC_INFO failed - %d (%s)\n", errno,
-		  safe_strerror (errno));
+			      "devctl DCMD_PROC_INFO failed - %d (%s)\n",
+			      errno, safe_strerror (errno));
 	  break;
 	}
       num_threads = pidinfo->num_threads;
@@ -375,7 +385,8 @@ procfs_meminfo (char *args, int from_tty)
   err = devctl (ctl_fd, DCMD_PROC_MAPINFO, NULL, 0, &num);
   if (err != EOK)
     {
-      printf ("failed devctl num mapinfos - %d (%s)\n", err, safe_strerror (err));
+      printf ("failed devctl num mapinfos - %d (%s)\n", err,
+	      safe_strerror (err));
       return;
     }
 
@@ -507,12 +518,12 @@ procfs_attach (char *args, int from_tty)
   int pid;
 
   if (!args)
-    error_no_arg ("process-id to attach");
+    error_no_arg (_("process-id to attach"));
 
   pid = atoi (args);
 
   if (pid == getpid ())
-    error ("Attaching GDB to itself is not a good idea...");
+    error (_("Attaching GDB to itself is not a good idea..."));
 
   if (from_tty)
     {
@@ -534,10 +545,8 @@ procfs_attach (char *args, int from_tty)
 static void
 procfs_post_attach (pid_t pid)
 {
-#ifdef SOLIB_CREATE_INFERIOR_HOOK
   if (exec_bfd)
-    SOLIB_CREATE_INFERIOR_HOOK (pid);
-#endif
+    solib_create_inferior_hook ();
 }
 
 static ptid_t
@@ -550,10 +559,10 @@ do_attach (ptid_t ptid)
   snprintf (path, PATH_MAX - 1, "%s/%d/as", nto_procfs_path, PIDGET (ptid));
   ctl_fd = open (path, O_RDWR);
   if (ctl_fd == -1)
-    error ("Couldn't open proc file %s, error %d (%s)", path, errno,
+    error (_("Couldn't open proc file %s, error %d (%s)"), path, errno,
 	   safe_strerror (errno));
   if (devctl (ctl_fd, DCMD_PROC_STOP, &status, sizeof (status), 0) != EOK)
-    error ("Couldn't stop process");
+    error (_("Couldn't stop process"));
 
   /* Define a sigevent for process stopped notification.  */
   event.sigev_notify = SIGEV_SIGNAL_THREAD;
@@ -565,7 +574,7 @@ do_attach (ptid_t ptid)
 
   if (devctl (ctl_fd, DCMD_PROC_STATUS, &status, sizeof (status), 0) == EOK
       && status.flags & _DEBUG_FLAG_STOPPED)
-    SignalKill (nto_node(), PIDGET (ptid), 0, SIGCONT, 0, 0);
+    SignalKill (nto_node (), PIDGET (ptid), 0, SIGCONT, 0, 0);
   attach_flag = 1;
   nto_init_solib_absolute_prefix ();
   return ptid;
@@ -581,7 +590,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      throw_exception (RETURN_QUIT);
+      deprecated_throw_reason (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -778,7 +787,7 @@ procfs_detach (char *args, int from_tty)
     siggnal = atoi (args);
 
   if (siggnal)
-    SignalKill (nto_node(), PIDGET (inferior_ptid), 0, siggnal, 0, 0);
+    SignalKill (nto_node (), PIDGET (inferior_ptid), 0, siggnal, 0, 0);
 
   close (ctl_fd);
   ctl_fd = -1;
@@ -868,8 +877,8 @@ procfs_resume (ptid_t ptid, int step, enum target_signal signo)
 	{
 	  if (signal_to_pass != status.info.si_signo)
 	    {
-	      SignalKill (nto_node(), PIDGET (inferior_ptid), 0, signal_to_pass,
-			  0, 0);
+	      SignalKill (nto_node (), PIDGET (inferior_ptid), 0,
+			  signal_to_pass, 0, 0);
 	      run.flags |= _DEBUG_RUN_CLRFLT | _DEBUG_RUN_CLRSIG;
 	    }
 	  else			/* Let it kill the program without telling us.  */
@@ -892,7 +901,7 @@ procfs_mourn_inferior (void)
 {
   if (!ptid_equal (inferior_ptid, null_ptid))
     {
-      SignalKill (nto_node(), PIDGET (inferior_ptid), 0, SIGKILL, 0, 0);
+      SignalKill (nto_node (), PIDGET (inferior_ptid), 0, SIGKILL, 0, 0);
       close (ctl_fd);
     }
   inferior_ptid = null_ptid;
@@ -963,15 +972,17 @@ breakup_args (char *scratch, char **argv)
 }
 
 static void
-procfs_create_inferior (char *exec_file, char *allargs, char **env)
+procfs_create_inferior (char *exec_file, char *allargs, char **env,
+			int from_tty)
 {
   struct inheritance inherit;
   pid_t pid;
   int flags, errn;
   char **argv, *args;
-  char *in = "", *out = "", *err = "";
+  const char *in = "", *out = "", *err = "";
   int fd, fds[3];
   sigset_t set;
+  const char *inferior_io_terminal = get_inferior_io_terminal ();
 
   argv = xmalloc (((strlen (allargs) + 1) / (unsigned) 2 + 2) *
 		  sizeof (*argv));
@@ -1041,7 +1052,7 @@ procfs_create_inferior (char *exec_file, char *allargs, char **env)
 
   if (ND_NODE_CMP (nto_procfs_node, ND_LOCAL_NODE) != 0)
     {
-      inherit.nd = nto_node();
+      inherit.nd = nto_node ();
       inherit.flags |= SPAWN_SETND;
       inherit.flags &= ~SPAWN_EXEC;
     }
@@ -1054,7 +1065,8 @@ procfs_create_inferior (char *exec_file, char *allargs, char **env)
   sigprocmask (SIG_BLOCK, &set, NULL);
 
   if (pid == -1)
-    error ("Error spawning %s: %d (%s)", argv[0], errno, safe_strerror (errno));
+    error (_("Error spawning %s: %d (%s)"), argv[0], errno,
+	   safe_strerror (errno));
 
   if (fds[0] != STDIN_FILENO)
     close (fds[0]);
@@ -1077,11 +1089,11 @@ procfs_create_inferior (char *exec_file, char *allargs, char **env)
   push_target (&procfs_ops);
   target_terminal_init ();
 
-#ifdef SOLIB_CREATE_INFERIOR_HOOK
   if (exec_bfd != NULL
       || (symfile_objfile != NULL && symfile_objfile->obfd != NULL))
-    SOLIB_CREATE_INFERIOR_HOOK (pid);
-#endif
+    solib_create_inferior_hook ();
+  stop_soon = 0;
+  proceed (-1, TARGET_SIGNAL_DEFAULT, 0);
 }
 
 static void
@@ -1188,7 +1200,7 @@ procfs_store_registers (int regno)
       if (len < 1)
 	return;
 
-      regcache_collect (regno, (char *) &reg + off);
+      regcache_raw_collect (current_regcache, regno, (char *) &reg + off);
 
       err = devctl (ctl_fd, dev_set, &reg, regsize, 0);
       if (err != EOK)
@@ -1271,7 +1283,7 @@ init_procfs_ops (void)
   procfs_ops.to_fetch_registers = procfs_fetch_registers;
   procfs_ops.to_store_registers = procfs_store_registers;
   procfs_ops.to_prepare_to_store = procfs_prepare_to_store;
-  procfs_ops.to_xfer_memory = procfs_xfer_memory;
+  procfs_ops.deprecated_xfer_memory = procfs_xfer_memory;
   procfs_ops.to_files_info = procfs_files_info;
   procfs_ops.to_insert_breakpoint = procfs_insert_breakpoint;
   procfs_ops.to_remove_breakpoint = procfs_remove_breakpoint;
@@ -1323,14 +1335,15 @@ _initialize_procfs (void)
 
   /* Set up trace and fault sets, as gdb expects them.  */
   sigemptyset (&run.trace);
-  notice_signals ();
 
   /* Stuff some information.  */
   nto_cpuinfo_flags = SYSPAGE_ENTRY (cpuinfo)->flags;
   nto_cpuinfo_valid = 1;
 
-  add_info ("pidlist", procfs_pidlist, "pidlist");
-  add_info ("meminfo", procfs_meminfo, "memory information");
+  add_info ("pidlist", procfs_pidlist, _("pidlist"));
+  add_info ("meminfo", procfs_meminfo, _("memory information"));
+
+  nto_is_nto_target = procfs_is_nto_target;
 }
 
 

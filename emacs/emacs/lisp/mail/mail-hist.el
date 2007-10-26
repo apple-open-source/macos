@@ -1,6 +1,7 @@
 ;;; mail-hist.el --- headers and message body history for outgoing mail
 
-;; Copyright (C) 1994 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Karl Fogel <kfogel@red-bean.com>
 ;; Created: March, 1994
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -122,7 +123,7 @@ the message."
 (defsubst mail-hist-forward-header (count)
   "Move forward COUNT headers (backward if COUNT is negative).
 If last/first header is encountered first, stop there and returns
-nil.  
+nil.
 
 Places point on the first non-whitespace on the line following the
 colon after the header name, or on the second space following that if
@@ -212,11 +213,11 @@ Optional argument CONTENTS is a string which will be the contents
 
 ;;;###autoload
 (defun mail-hist-put-headers-into-history ()
-  "Put headers and contents of this message into mail header history. 
+  "Put headers and contents of this message into mail header history.
 Each header has its own independent history, as does the body of the
 message.
 
-This function normally would be called when the message is sent." 
+This function normally would be called when the message is sent."
   (and
    mail-hist-keep-history
    (save-excursion
@@ -260,7 +261,7 @@ This function normally would be called when the message is sent."
           ;; bottom is often just the same quoted history for every
           ;; message in the thread, differing only in indentation
           ;; level.
-          (if (string-equal header "body") 
+          (if (string-equal header "body")
               (goto-char start)))
         ))))
 
@@ -283,7 +284,7 @@ its own independent history, as does the body of the message.
 
 Although you can do so, it does not make much sense to call this
 without having called `mail-hist-previous-header' first
-(\\[mail-hist-previous-header]).
+\(\\[mail-hist-previous-header]).
 
 The history only contains the contents of outgoing messages, not
 received mail."
@@ -293,4 +294,5 @@ received mail."
 
 (provide 'mail-hist)
 
+;;; arch-tag: 9ff9a07c-9dca-482d-ba87-54f42778559d
 ;;; mail-hist.el ends here

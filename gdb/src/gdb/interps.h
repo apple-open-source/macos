@@ -24,6 +24,8 @@
 #ifndef INTERPS_H
 #define INTERPS_H
 
+#include "exceptions.h"
+
 struct ui_out;
 struct interp;
 
@@ -31,23 +33,25 @@ extern int interp_resume (struct interp *interp);
 extern int interp_suspend (struct interp *interp);
 extern int interp_prompt_p (struct interp *interp);
 extern int interp_exec_p (struct interp *interp);
-extern int interp_exec (struct interp *interp, const char *command);
+extern struct gdb_exception interp_exec (struct interp *interp,
+					 const char *command);
 extern int interp_quiet_p (struct interp *interp);
 /* APPLE LOCAL: The complete function...  */
 extern int interp_complete (struct interp *interp, 
 			    char *word, char *command_buffer,
-			    int cursor);
+			    int cursor, int limit);
 
 typedef void *(interp_init_ftype) (void);
 typedef int (interp_resume_ftype) (void *data);
 typedef int (interp_suspend_ftype) (void *data);
 typedef int (interp_prompt_p_ftype) (void *data);
-typedef int (interp_exec_ftype) (void *data, const char *command);
+typedef struct gdb_exception (interp_exec_ftype) (void *data,
+						  const char *command);
 typedef void (interp_command_loop_ftype) (void *data);
 
-/* APPLE LOCAL: The complete function is important for cross-interpreter calls when
-   one interpreter (like the CLI) has does auto-completions.  */
-typedef int (interp_complete_ftype) (void *data, char *word, char *command_buffer, int cursor);
+/* APPLE LOCAL: The complete function is important for cross-interpreter calls
+   when one interpreter (like the CLI) has does auto-completions.  */
+typedef int (interp_complete_ftype) (void *data, char *word, char *command_buffer, int cursor, int limit);
 
 
 struct interp_procs
@@ -71,6 +75,9 @@ extern struct interp *interp_lookup (const char *name);
 /* APPLE LOCAL: This is a useful function.  */
 extern struct interp *current_interp ();
 extern struct ui_out *interp_ui_out (struct interp *interp);
+/* APPLE LOCAL: Use for redirection an extant interpreter's output.  */
+extern struct ui_out *interp_set_ui_out (struct interp *interp, 
+					 struct ui_out *new_uiout);
 
 extern int current_interp_named_p (const char *name);
 extern int current_interp_display_prompt_p (void);
@@ -85,7 +92,5 @@ extern void clear_interpreter_hooks (void);
 #define INTERP_MI3             "mi3"
 #define INTERP_MI		"mi"
 #define INTERP_TUI		"tui"
-
-extern int interpreter_do_one_event ();
 
 #endif

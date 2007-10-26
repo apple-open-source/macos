@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 2002-2003 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -434,6 +434,7 @@ void AppleU3::uniNSetPowerState (UInt32 state)
 bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 			void *cpfParam2, void *cpfParam3, void *cpfParam4)
 {
+	static IOLock				*pfLock;
 	bool						ret;
 	IOPlatformFunctionIterator 	*iter;
 	UInt32 						offset, value, valueLen, mask, maskLen, data = 0, writeLen, 
@@ -444,9 +445,20 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 	IOPCIDevice					*nub = NULL;
 	
 	if (func == 0) return(false);
+	
+	if (!pfLock)
+		// Use a static lock here as there is only ever one instance of U3
+		pfLock = IOLockAlloc();
+	
+	if (pfLock)
+		IOLockLock (pfLock);
 
-	if (!(iter = ((IOPlatformFunction *)func)->getCommandIterator()))
+	if (!(iter = ((IOPlatformFunction *)func)->getCommandIterator())) {
+		if (pfLock)
+			IOLockUnlock (pfLock);
+
 		return false;
+	}
 
 	pHandle = func->getCommandPHandle();
 	
@@ -557,6 +569,10 @@ bool AppleU3::performFunction(const IOPlatformFunction *func, void *cpfParam1,
 	}
 	
 	iter->release();
+
+	if (pfLock)
+		IOLockUnlock (pfLock);
+
 	return(ret);
 }
 

@@ -1,13 +1,9 @@
-SCRIPTS=        localedef
+SCRIPTS=        ${.CURDIR}/localedef
 MAN1=            localedef.1
 SCRIPTSNAME=    localedef
 BINDIR= /usr/bin
 
 localedef all clean:
 	true
-
-# This can be removed when we update bsd.prog.mk
-install: maninstall
-	${INSTALL} ${COPY} -o ${BINOWN} -g ${BINGRP} -m ${BINMODE} ${_INSTALLFLAGS} ${.CURDIR}/${SCRIPTS} ${DESTDIR}${BINDIR}
 
 .include <bsd.prog.mk>

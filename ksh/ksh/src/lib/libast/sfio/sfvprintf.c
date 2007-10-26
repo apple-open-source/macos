@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"sfhdr.h"
 
 /*	The engine for formatting data.
@@ -34,7 +30,6 @@
 **
 **	Written by Kiem-Phong Vo.
 */
-
 #define HIGHBITI	(~((~((uint)0)) >> 1))
 #define HIGHBITL	(~((~((Sfulong_t)0)) >> 1))
 
@@ -106,10 +101,13 @@ char*	form;		/* format to use	*/
 va_list	args;		/* arg list if !argf	*/
 #endif
 {
-	int		n, v, k, n_s, base, fmt, flags;
+	int		n, v, w, k, n_s, base, fmt, flags;
 	Sflong_t	lv;
 	char		*sp, *ssp, *endsp, *ep, *endep;
 	int		dot, width, precis, sign, decpt;
+#if _PACKAGE_ast
+	int		scale;
+#endif
 	ssize_t		size;
 	Sfdouble_t	dval;
 	char		*tls[2], **ls;	/* for %..[separ]s		*/
@@ -126,25 +124,29 @@ va_list	args;		/* arg list if !argf	*/
 	int		argp, argn;	/* arg position and number	*/
 
 #define SLACK		1024
-	char		buf[SF_MAXDIGITS+SLACK], tmp[SF_MAXDIGITS], data[SF_GRAIN];
+	char		buf[SF_MAXDIGITS+SLACK], tmp[SF_MAXDIGITS+1], data[SF_GRAIN];
 	int		decimal = 0, thousand = 0;
 
 #if _has_multibyte
 	wchar_t*	wsp;
 	SFMBDCL(fmbs)			/* state of format string	*/
 	SFMBDCL(mbs)			/* state of some string		*/
+#ifdef mbwidth
+	char*		osp;
+	int		n_w, sf_wcwidth;
+#endif
 #endif
 
 	/* local io system */
-	int		w, n_output;
-#define SMputc(f,c)	{ if((w = SFFLSBUF(f,c)) >= 0 ) n_output += 1; \
+	int		o, n_output;
+#define SMputc(f,c)	{ if((o = SFFLSBUF(f,c)) >= 0 ) n_output += 1; \
 			  else		{ SFBUF(f); goto done; } \
 			}
-#define SMnputc(f,c,n)	{ if((w = SFNPUTC(f,c,n)) > 0 ) n_output += 1; \
-			  if(w != n)	{ SFBUF(f); goto done; } \
+#define SMnputc(f,c,n)	{ if((o = SFNPUTC(f,c,n)) > 0 ) n_output += 1; \
+			  if(o != n)	{ SFBUF(f); goto done; } \
 			}
-#define SMwrite(f,s,n)	{ if((w = SFWRITE(f,(Void_t*)s,n)) > 0 ) n_output += w; \
-			  if(w != n)	{ SFBUF(f); goto done; } \
+#define SMwrite(f,s,n)	{ if((o = SFWRITE(f,(Void_t*)s,n)) > 0 ) n_output += o; \
+			  if(o != n)	{ SFBUF(f); goto done; } \
 			}
 #if _sffmt_small /* these macros are made smaller at some performance cost */
 #define SFBUF(f)
@@ -187,6 +189,9 @@ va_list	args;		/* arg list if !argf	*/
 		f->endb = f->data+sizeof(data);
 	}
 	SFINIT(f);
+#if _has_multibyte && defined(mbwidth)
+	sf_wcwidth = f->flags & SF_WCWIDTH;
+#endif
 
 	tls[1] = NIL(char*);
 
@@ -203,11 +208,12 @@ loop_fmt :
 	while((n = *form) )
 	{	if(n != '%') /* collect the non-pattern chars */
 		{	sp = (char*)form;
-			for(;;)
-			{	form += SFMBLEN(form, &fmbs);
-				if(*form == 0 || *form == '%')
-					break;
-			}
+			do
+			{	if((n = SFMBLEN(form, &fmbs)) <= 0)
+				{	n = 1;
+					SFMBCLR(&fmbs);
+				}
+			} while(*(form += n) && *form != '%');
 
 			n = form-sp;
 			SFwrite(f,sp,n);
@@ -216,6 +222,9 @@ loop_fmt :
 		else	form += 1;
 
 		flags = 0;
+#if _PACKAGE_ast
+		scale = 0;
+#endif
 		size = width = precis = base = n_s = argp = -1;
 		ssp = _Sfdigits;
 		endep = ep = NIL(char*);
@@ -291,10 +300,10 @@ loop_fmt :
 			}
 
 		case '-' :
-			flags = (flags & ~SFFMT_ZERO) | SFFMT_LEFT;
+			flags = (flags & ~(SFFMT_CENTER|SFFMT_ZERO)) | SFFMT_LEFT;
 			goto loop_flags;
 		case '0' :
-			if(!(flags&SFFMT_LEFT) )
+			if(!(flags&(SFFMT_LEFT|SFFMT_CENTER)) )
 				flags |= SFFMT_ZERO;
 			goto loop_flags;
 		case ' ' :
@@ -304,12 +313,15 @@ loop_fmt :
 		case '+' :
 			flags = (flags & ~SFFMT_BLANK) | SFFMT_SIGN;
 			goto loop_flags;
+		case '=' :
+			flags = (flags & ~(SFFMT_LEFT|SFFMT_ZERO)) | SFFMT_CENTER;
+			goto loop_flags;
 		case '#' :
 			flags |= SFFMT_ALTER;
 			goto loop_flags;
 		case QUOTE:
 			SFSETLOCALE(&decimal,&thousand);
-			if(thousand)
+			if(thousand > 0)
 				flags |= SFFMT_THOUSAND;
 			goto loop_flags;
 
@@ -388,7 +400,7 @@ loop_fmt :
 			if(dot == 0)
 			{	if((width = v) < 0)
 				{	width = -width;
-					flags = (flags & ~SFFMT_ZERO) | SFFMT_LEFT;
+					flags = (flags & ~(SFFMT_CENTER|SFFMT_ZERO)) | SFFMT_LEFT;
 				}
 			}
 			else if(dot == 1)
@@ -486,10 +498,10 @@ loop_fmt :
 					size = sizeof(int);
 			}
 			else if(_Sftype[fmt]&SFFMT_FLOAT)
-			{	if(flags&(SFFMT_LONG|SFFMT_LLONG))
-					size = sizeof(double);
-				else if(flags&SFFMT_LDOUBLE)
+			{	if(flags&SFFMT_LDOUBLE)
 					size = sizeof(Sfdouble_t);
+				else if(flags&(SFFMT_LONG|SFFMT_LLONG))
+					size = sizeof(double);
 				else if(flags&SFFMT_IFLAG)
 				{	if(size <= 0)
 						size = sizeof(Sfdouble_t);
@@ -661,13 +673,23 @@ loop_fmt :
 				{	sp = "(null)";
 					flags &= ~SFFMT_LONG;
 				}
+#if _PACKAGE_ast
+		str_cvt:
+				if(scale)
+				{	size = base = -1;
+					flags &= ~SFFMT_LONG;
+				}
+#endif
 				ls = tls; tls[0] = sp;
 			}
 			for(sp = *ls;;)
-			{	/* set v to the number of bytes to output */
+			{	/* v: number of bytes  w: print width of those v bytes */
 #if _has_multibyte
 				if(flags & SFFMT_LONG)
 				{	v = 0;
+#ifdef mbwidth
+					w = 0;
+#endif
 					SFMBCLR(&mbs);
 					for(n = 0, wsp = (wchar_t*)sp;; ++wsp, ++n)
 					{	if((size >= 0 && n >= size) ||
@@ -675,28 +697,70 @@ loop_fmt :
 							break;
 						if((n_s = wcrtomb(buf, *wsp, &mbs)) <= 0)
 							break;
+#ifdef mbwidth
+						if(sf_wcwidth )
+						{	n_w = mbwidth(*wsp);
+							if(precis >= 0 && (w+n_w) > precis )
+								break;
+							w += n_w;
+						}
+						else
+#endif
 						if(precis >= 0 && (v+n_s) > precis )
 							break;
 						v += n_s;
 					}
+#ifdef mbwidth
+					if(!sf_wcwidth )
+						w = v;
+#endif
 				}
+#if defined(mbwide) && defined(mbchar) && defined(mbwidth)
+				else if (!(flags & SFFMT_SHORT) && mbwide())
+				{	w = 0;
+					SFMBCLR(&mbs);
+					ssp = sp;
+					for(;;)
+					{	if((size >= 0 && w >= size) ||
+						   (size <  0 && *ssp == 0) )
+							break;
+						osp = ssp;
+						n = mbchar(osp);
+						n_w = sf_wcwidth ? mbwidth(n) : 1;
+						if(precis >= 0 && (w+n_w) > precis )
+							break;
+						w += n_w;
+						ssp = osp;
+					}
+					v = ssp - sp;
+				}
+#endif
 				else
 #endif
 				{	if((v = size) < 0)
 						for(v = 0; sp[v]; ++v)
 							if(v == precis)
 								break;
+					if(precis >= 0 && v > precis)
+						v = precis;
+					w = v;
 				}
 
-				if(precis >= 0 && v > precis)
-					v = precis;
-
-				if((n = width - v) > 0 && !(flags&SFFMT_LEFT) )
-					{ SFnputc(f, ' ', n); n = 0; }
+				if((n = width - w) > 0 && !(flags&SFFMT_LEFT) )
+				{	if(flags&SFFMT_CENTER)
+					{	n -= (k = n/2);
+						SFnputc(f, ' ', k);
+					}
+					else
+					{
+						SFnputc(f, ' ', n);
+						n = 0;
+					}
+				}
 #if _has_multibyte
 				if(flags & SFFMT_LONG)
 				{	SFMBCLR(&mbs);
-					for(wsp = (wchar_t*)sp; v > 0; ++wsp, v -= n_s)
+					for(wsp = (wchar_t*)sp; w > 0; ++wsp, --w)
 					{	if((n_s = wcrtomb(buf, *wsp, &mbs)) <= 0)
 							break;
 						sp = buf; SFwrite(f, sp, n_s);
@@ -753,6 +817,10 @@ loop_fmt :
 				{	SFMBCLR(&mbs);
 					if((n_s = wcrtomb(buf, *wsp++, &mbs)) <= 0)
 						break;
+#ifdef mbwidth
+					if(sf_wcwidth)
+						n_s = mbwidth(*(wsp - 1));
+#endif
 					n = width - precis*n_s; /* padding amount */
 				}
 				else
@@ -767,7 +835,15 @@ loop_fmt :
 				}
 
 				if(n > 0 && !(flags&SFFMT_LEFT) )
-					{ SFnputc(f,' ',n); n = 0; };
+				{	if(flags&SFFMT_CENTER)
+					{	n -= (k = n/2);
+						SFnputc(f, ' ', k);
+					}
+					else
+					{	SFnputc(f, ' ', n);
+						n = 0;
+					}
+				}
 
 				v = precis; /* need this because SFnputc may clear it */
 #if _has_multibyte
@@ -832,12 +908,24 @@ loop_fmt :
 			flags &= ~(SFFMT_SIGN|SFFMT_BLANK);
 			goto int_arg;
 		case 'i':
+#if _PACKAGE_ast
+			if((flags&SFFMT_ALTER) && base < 0)
+			{	flags &= ~SFFMT_ALTER;
+				scale = 1024;
+			}
+#endif
 			fmt = 'd';
 			goto d_format;
 		case 'u':
 			flags &= ~(SFFMT_SIGN|SFFMT_BLANK);
 		case 'd':
 		d_format:
+#if _PACKAGE_ast
+			if((flags&SFFMT_ALTER) && base < 0)
+			{	flags &= ~SFFMT_ALTER;
+				scale = 1000;
+			}
+#endif
 			if(base < 2 || base > SF_RADIX)
 				base = 10;
 			if((base&(n_s = base-1)) == 0)
@@ -860,6 +948,12 @@ loop_fmt :
 					lv = (Sflong_t)argv.l;
 				else	lv = (Sflong_t)argv.ul;
 			long_cvt:
+#if _PACKAGE_ast
+				if(scale)
+				{	sp = fmtscale(lv, scale);
+					goto str_cvt;
+				}
+#endif
 				if(lv == 0 && precis == 0)
 					break;
 				if(lv < 0 && fmt == 'd' )
@@ -911,6 +1005,12 @@ loop_fmt :
 			else
 			{	v = argv.i;
 			int_cvt:
+#if _PACKAGE_ast
+				if(scale)
+				{	sp = fmtscale(v, scale);
+					goto str_cvt;
+				}
+#endif
 				if(v == 0 && precis == 0)
 					break;
 				if(v < 0 && fmt == 'd' )
@@ -999,7 +1099,7 @@ loop_fmt :
 		case 'g': case 'G': /* these ultimately become %e or %f */
 		case 'a': case 'A':
 		case 'e': case 'E':
-		case 'f':
+		case 'f': case 'F':
 #if !_ast_fltmax_double
 			if(size == sizeof(Sfdouble_t) )
 			{	v = SFFMT_LDOUBLE;
@@ -1011,28 +1111,28 @@ loop_fmt :
 				dval = argv.d;
 			}
 
-			if(fmt == 'e' || fmt == 'E')
-			{	n = (precis = precis < 0 ? FPRECIS : precis)+1;
-				v |= SFFMT_EFORMAT;
-				ep = _sfcvt(dval,tmp,sizeof(tmp), min(n,SF_FDIGITS),
+			if(fmt == 'e' || fmt == 'E' && (v |= SFFMT_UPPER))
+			{	v |= SFFMT_EFORMAT;
+				n = (precis = precis < 0 ? FPRECIS : precis)+1;
+				ep = _sfcvt(dval,tmp+1,sizeof(tmp)-1, min(n,SF_FDIGITS),
 					    &decpt, &sign, &n_s, v);
 				goto e_format;
 			}
-			else if(fmt == 'f' || fmt == 'F')
+			else if(fmt == 'f' || fmt == 'F' && (v |= SFFMT_UPPER))
 			{	precis = precis < 0 ? FPRECIS : precis;
-				ep = _sfcvt(dval,tmp,sizeof(tmp), min(precis,SF_FDIGITS),
+				ep = _sfcvt(dval,tmp+1,sizeof(tmp)-1, min(precis,SF_FDIGITS),
 					    &decpt, &sign, &n_s, v);
 				goto f_format;
 			}
-			else if(fmt == 'a' || fmt == 'A')
-			{	if(precis < 0)
-				{	if(v == SFFMT_LDOUBLE)
+			else if(fmt == 'a' || fmt == 'A' && (v |= SFFMT_UPPER))
+			{	v |= SFFMT_AFORMAT;
+				if(precis < 0)
+				{	if(v & SFFMT_LDOUBLE)
 						precis = 2*(sizeof(Sfdouble_t) - 2);
 					else	precis = 2*(sizeof(double) - 2);
 				}
 				n = precis + 1;
-				v |= SFFMT_AFORMAT | (fmt == 'A' ? SFFMT_UPPER : 0);
-				ep = _sfcvt(dval,tmp,sizeof(tmp), min(n,SF_FDIGITS),
+				ep = _sfcvt(dval,tmp+1,sizeof(tmp)-1, min(n,SF_FDIGITS),
 					    &decpt, &sign, &n_s, v);
 
 				sp = endsp = buf+1;	/* reserve space for sign */
@@ -1044,8 +1144,10 @@ loop_fmt :
 			}
 			else /* 'g' or 'G' format */
 			{	precis = precis < 0 ? FPRECIS : precis == 0 ? 1 : precis;
+				if(fmt == 'G')
+					v |= SFFMT_UPPER;
 				v |= SFFMT_EFORMAT;
-				ep = _sfcvt(dval,tmp,sizeof(tmp), min(precis,SF_FDIGITS),
+				ep = _sfcvt(dval,tmp+1,sizeof(tmp)-1, min(precis,SF_FDIGITS),
 					    &decpt, &sign, &n_s, v);
 				if(dval == 0.)
 					decpt = 1;
@@ -1114,6 +1216,7 @@ loop_fmt :
 			if(isalpha(*ep))
 			{
 			infinite:
+				flags &= ~SFFMT_ZERO;
 				endsp = (sp = ep)+sfslen();
 				ep = endep;
 				precis = 0;
@@ -1215,7 +1318,7 @@ loop_fmt :
 
 			/* SFFMT_LEFT: right padding */
 			if((n = -v) > 0)
-				SFnputc(f,' ',n);
+				{ SFnputc(f,' ',n); }
 		}
 	}
 

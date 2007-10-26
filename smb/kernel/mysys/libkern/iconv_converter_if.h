@@ -38,14 +38,14 @@ static __inline int ICONV_CONVERTER_CLOSE(void *handle)
 extern struct kobjop_desc iconv_converter_conv_desc;
 typedef int iconv_converter_conv_t(void *handle, const char **inbuf,
                                    size_t *inbytesleft, char **outbuf,
-                                   size_t *outbytesleft);
+                                   size_t *outbytesleft, int flags);
 static __inline int ICONV_CONVERTER_CONV(void *handle, const char **inbuf,
                          size_t *inbytesleft, char **outbuf,
-                         size_t *outbytesleft)
+                         size_t *outbytesleft, int flags)
 {
 	kobjop_t _m;
 	KOBJOPLOOKUP(((kobj_t)handle)->ops,iconv_converter_conv);
-	return ((iconv_converter_conv_t *) _m)(handle, inbuf, inbytesleft, outbuf, outbytesleft);
+	return ((iconv_converter_conv_t *) _m)(handle, inbuf, inbytesleft, outbuf, outbytesleft, flags);
 }
 
 extern struct kobjop_desc iconv_converter_init_desc;

@@ -1,7 +1,7 @@
 ;;; ange-ftp.el --- transparent FTP support for GNU Emacs
 
-;; Copyright (C) 1989,90,91,92,93,94,95,96,98, 2000, 2001
-;;  Free Software Foundation, Inc.
+;; Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Andy Norman (ange@hplb.hpl.hp.com)
 ;; Maintainer: FSF
@@ -21,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -385,6 +385,66 @@
 ;; 2. Ange-ftp cannot send "write passwords" for a minidisk. Hopefully, we
 ;;    can fix this.
 ;;
+;; BS2000 support:
+;;
+;; Ange-ftp has full support for BS2000 hosts.  It should be able to
+;; automatically recognize any BS2000 machine. However, if it fails to
+;; do this, you can use the command ange-ftp-add-bs2000-host.  As well,
+;; you can set the variable ange-ftp-bs2000-host-regexp in your .emacs
+;; file. We would be grateful if you would report any failures to auto-
+;; matically recognize a BS2000 host as a bug.
+;;
+;; If you want to access the POSIX subsystem on BS2000 you MUST use
+;; command ange-ftp-add-bs2000-posix-host for that particular
+;; hostname.  ange-ftp can't decide if you want to access the native
+;; filesystem or the POSIX filesystem, so it accesses the native
+;; filesystem by default.  And if you have an ASCII filesystem in
+;; your BS2000 POSIX subsystem you must use
+;; ange-ftp-binary-file-name-regexp to access its files.
+;;
+;; Filename Syntax:
+;;
+;; For ease of *implementation*, the user enters the BS2000 filename
+;; syntax in a UNIX-y way.  For example:
+;;  :PUB:$PUBLIC.ANONYMOUS.SDSCPUB.NEXT.README.TXT
+;; would be entered as:
+;;  /:PUB:/$$PUBLIC/ANONYMOUS.SDSCPUB.NEXT.README.TXT
+;; You dont't have to type pubset and account, if they have default values,
+;; i.e. to log in as anonymous on bs2000.anywhere.com and grab the file
+;; IMPORTANT.TEXT.ON.BS2000 on the default pubset X on userid PUBLIC
+;; (there are only 8 characters in a valid username), you could type:
+;;  C-x C-f /public@bs2000.anywhere.com:/IMPORTANT.TEXT.ON.BS2000
+;; or
+;;  C-x C-f /anonym@bs2000.anywhere.com:/:X:/$$PUBLIC/IMPORTANT.TEXT.ON.BS2000
+;;
+;; If X is not your default pubset, you could add it as 'subdirectory' (BS2000
+;; has a flat architecture) with the command
+;; (setq ange-ftp-bs2000-additional-pubsets '(":X:"))
+;; and then you could type:
+;;  C-x C-f /anonym@bs2000.anywhere.com:/:X:/IMPORTANT.TEXT.ON.BS2000
+;;
+;; Valid characters in an BS2000 filename are A-Z 0-9 $ # @ . -
+;; If the first character in a filename is # or @, this is replaced with
+;; ange-ftp-bs2000-special-prefix because names starting with # or @
+;; are reserved for temporary files.
+;; This is especially important for auto-save files.
+;; Valid file generations are ending with ([+|-|*]0-9...) .
+;; File generations are not supported yet!
+;; A filename must at least contain one character (A-Z) and cannot be longer
+;; than 41 characters.
+;;
+;; Tips:
+;; 1. Although BS2000 is not case sensitive, EMACS running under UNIX is.
+;;    Therefore, to access a BS2000 file, you must enter the filename with
+;;    upper case letters.
+;; 2. EMACS has a feature in which it does environment variable substitution
+;;    in filenames. Therefore, to enter a $ in a filename, you must quote it
+;;    by typing $$.
+;; 3. BS2000 machines, with the exception of anonymous accounts, nearly
+;;    always need an account password. To have ange-ftp send an account
+;;    password, you can either include it in your .netrc file, or use
+;;    ange-ftp-set-account.
+;;
 ;; ------------------------------------------------------------------
 ;; Bugs:
 ;; ------------------------------------------------------------------
@@ -483,32 +543,22 @@
 ;; aspects of ange-ftp.  New versions of ange-ftp are posted periodically to
 ;; the mailing list.
 
-;; [The following information about lists may be obsolete.]
-
 ;; To [un]subscribe to ange-ftp-lovers, or to report mailer problems with the
 ;; list, please mail one of the following addresses:
 ;;
-;;     ange-ftp-lovers-request@anorman.hpl.hp.com
-;; or
-;;     ange-ftp-lovers-request%anorman.hpl.hp.com@hplb.hpl.hp.com
+;;     ange-ftp-lovers-request@hplb.hpl.hp.com
 ;;
 ;; Please don't forget the -request part.
 ;;
 ;; For mail to be posted directly to ange-ftp-lovers, send to one of the
 ;; following addresses:
 ;;
-;;     ange-ftp-lovers@anorman.hpl.hp.com
-;; or
-;;     ange-ftp-lovers%anorman.hpl.hp.com@hplb.hpl.hp.com
+;;     ange-ftp-lovers@hplb.hpl.hp.com
 ;;
 ;; Alternatively, there is a mailing list that only gets announcements of new
 ;; ange-ftp releases.  This is called ange-ftp-lovers-announce, and can be
 ;; subscribed to by e-mailing to the -request address as above.  Please make
 ;; it clear in the request which mailing list you wish to join.
-
-;; The archives for ange-ftp-lovers can be found via anonymous ftp under:
-;;
-;;     ftp.reed.edu:pub/mailing-lists/ange-ftp/
 
 ;; -----------------------------------------------------------
 ;; Technical information on this package:
@@ -636,7 +686,7 @@
   :prefix "ange-ftp-")
 
 (defcustom ange-ftp-name-format
-  '("^/\\(\\([^@/:]*\\)@\\)?\\([^@/:]*[^@/:.]\\):\\(.*\\)" . (3 2 4))
+  '("\\`/\\(\\([^/:]*\\)@\\)?\\([^@/:]*[^@/:.]\\):\\(.*\\)" . (3 2 4))
   "*Format of a fully expanded remote file name.
 
 This is a list of the form \(REGEXP HOST USER NAME\),
@@ -644,7 +694,7 @@ where REGEXP is a regular expression matching
 the full remote name, and HOST, USER, and NAME are the numbers of
 parenthesized expressions in REGEXP for the components (in that order)."
   :group 'ange-ftp
-  :type '(list regexp
+  :type '(list (regexp  :tag "Name regexp")
 	       (integer :tag "Host group")
 	       (integer :tag "User group")
 	       (integer :tag "Name group")))
@@ -678,6 +728,7 @@ parenthesized expressions in REGEXP for the components (in that order)."
 	  "^Data connection \\|"
 	  "^local:\\|^Trying\\|^125 \\|^550-\\|^221 .*oodbye\\|"
           "^500 .*AUTH \\(KERBEROS\\|GSSAPI\\)\\|^KERBEROS\\|"
+	  "^530 Please login with USER and PASS\\|" ; non kerberised vsFTPd
 	  "^22[789] .*[Pp]assive\\|^200 EPRT\\|^500 .*EPRT")
   "*Regular expression matching ftp messages that can be ignored."
   :group 'ange-ftp
@@ -689,6 +740,21 @@ parenthesized expressions in REGEXP for the components (in that order)."
   "*Regular expression matching ftp messages that indicate serious errors.
 
 These mean that the FTP process should (or already has) been killed."
+  :group 'ange-ftp
+  :type 'regexp)
+
+(defcustom ange-ftp-potential-error-msgs
+  ;; On Mac OS X we sometimes get things like:
+  ;;
+  ;;     ftp> open ftp.nluug.nl
+  ;;     Trying 2001:610:1:80aa:192:87:102:36...
+  ;;     ftp: connect to address 2001:610:1:80aa:192:87:102:36: No route to host
+  ;;     Trying 192.87.102.36...
+  ;;     Connected to ftp.nluug.nl.
+  "^ftp: connect to address .*: No route to host"
+  "*Regular expression matching ftp messages that can indicate serious errors.
+These mean that something went wrong, but they may be followed by more
+messages indicating that the error was somehow corrected."
   :group 'ange-ftp
   :type 'regexp)
 
@@ -797,10 +863,11 @@ If nil, prompt the user for a password."
 		 string))
 
 (defcustom ange-ftp-binary-file-name-regexp
-  (concat "\\.[zZ]$\\|\\.lzh$\\|\\.arc$\\|\\.zip$\\|\\.zoo$\\|\\.tar$\\|"
-	  "\\.dvi$\\|\\.ps$\\|\\.elc$\\|TAGS$\\|\\.gif$\\|"
-	  "\\.EXE\\(;[0-9]+\\)?$\\|\\.[zZ]-part-..$\\|\\.gz$\\|"
-	  "\\.taz$\\|\\.tgz$")
+  (concat "TAGS\\'\\|\\.\\(?:"
+          (eval-when-compile
+            (regexp-opt '("z" "Z" "lzh" "arc" "zip" "zoo" "tar" "dvi"
+                          "ps" "elc" "gif" "gz" "taz" "tgz")))
+	  "\\|EXE\\(;[0-9]+\\)?\\|[zZ]-part-..\\)\\'")
   "*If a file matches this regexp then it is transferred in binary mode."
   :group 'ange-ftp
   :type 'regexp)
@@ -856,10 +923,11 @@ This command should stop the terminal from echoing each command, and
 arrange to strip out trailing ^M characters.")
 
 (defcustom ange-ftp-smart-gateway nil
-  "*Non-nil means the ftp gateway and/or the gateway ftp program is smart.
+  "*Non-nil says the ftp gateway (proxy) or gateway ftp program is smart.
 
 Don't bother telnetting, etc., already connected to desired host transparently,
-or just issue a user@host command in case \`ange-ftp-gateway-host\' is non-nil."
+or just issue a user@host command in case \`ange-ftp-gateway-host\' is non-nil.
+See also `ange-ftp-smart-gateway-port'."
   :group 'ange-ftp
   :type 'boolean)
 
@@ -937,12 +1005,22 @@ Don't use any other value."
 		 (const :tag "Allow" 1)))
 
 (defcustom ange-ftp-try-passive-mode nil
-  "It t, try to use passive mode in ftp, if the client program
-supports the `passive' command."
+  "If t, try to use passive mode in ftp, if the client program supports it."
   :group 'ange-ftp
   :type 'boolean
-  :version 21.1)
+  :version "21.1")
 
+(defcustom ange-ftp-passive-host-alist nil
+  "Alist of FTP servers that need \"passive\" mode.
+Each element is of the form (HOSTNAME . SETTING).
+HOSTNAME is a regular expression to match the FTP server host name(s).
+SETTING is \"on\" to turn passive mode on, \"off\" to turn it off,
+or nil meaning don't change it."
+  :group 'ange-ftp
+  :type '(repeat (cons regexp (choice (const :tag "On" "on")
+				      (const :tag "Off" "off")
+				      (const :tag "Don't change" nil))))
+  :version "22.1")
 
 ;;;; ------------------------------------------------------------
 ;;;; Hash table support.
@@ -950,60 +1028,16 @@ supports the `passive' command."
 
 (require 'backquote)
 
-(defun ange-ftp-make-hashtable (&optional size)
-  "Make an obarray suitable for use as a hashtable.
-SIZE, if supplied, should be a prime number."
-  (make-vector (or size 31) 0))
-
-(defun ange-ftp-map-hashtable (fun tbl)
-  "Call FUNCTION on each key and value in HASHTABLE."
-  (mapatoms
-   (function
-    (lambda (sym)
-      (funcall fun (get sym 'key) (get sym 'val))))
-   tbl))
-
-(defmacro ange-ftp-make-hash-key (key)
-  "Convert KEY into a suitable key for a hashtable."
-  `(if (stringp ,key)
-       ,key
-     (prin1-to-string ,key)))
-
-(defun ange-ftp-get-hash-entry (key tbl)
-  "Return the value associated with KEY in HASHTABLE."
-  (let ((sym (intern-soft (ange-ftp-make-hash-key key) tbl)))
-    (and sym (get sym 'val))))
-
-(defun ange-ftp-put-hash-entry (key val tbl)
-  "Record an association between KEY and VALUE in HASHTABLE."
-  (let ((sym (intern (ange-ftp-make-hash-key key) tbl)))
-    (put sym 'val val)
-    (put sym 'key key)))
-
-(defun ange-ftp-del-hash-entry (key tbl)
-  "Copy all symbols except KEY in HASHTABLE and return modified hashtable."
-  (let* ((len (length tbl))
-	 (new-tbl (ange-ftp-make-hashtable len))
-	 (i (1- len)))
-    (ange-ftp-map-hashtable
-     (function
-      (lambda (k v)
-	(or (equal k key)
-	    (ange-ftp-put-hash-entry k v new-tbl))))
-     tbl)
-    (while (>= i 0)
-      (aset tbl i (aref new-tbl i))
-      (setq i (1- i)))
-    tbl))
-
 (defun ange-ftp-hash-entry-exists-p (key tbl)
   "Return whether there is an association for KEY in TABLE."
-  (intern-soft (ange-ftp-make-hash-key key) tbl))
+  (and tbl (not (eq (gethash key tbl 'unknown) 'unknown))))
 
 (defun ange-ftp-hash-table-keys (tbl)
   "Return a sorted list of all the active keys in TABLE, as strings."
-  (sort (all-completions "" tbl)
-	(function string-lessp)))
+  ;; (let ((keys nil))
+  ;;   (maphash (lambda (k v) (push k keys)) tbl)
+  ;;   (sort keys 'string-lessp))
+  (sort (all-completions "" tbl) 'string-lessp))
 
 ;;;; ------------------------------------------------------------
 ;;;; Internal variables.
@@ -1015,20 +1049,20 @@ SIZE, if supplied, should be a prime number."
 (defvar ange-ftp-netrc-modtime nil
   "Last modified time of the netrc file from file-attributes.")
 
-(defvar ange-ftp-user-hashtable (ange-ftp-make-hashtable)
+(defvar ange-ftp-user-hashtable (make-hash-table :test 'equal)
   "Hash table holding associations between HOST, USER pairs.")
 
-(defvar ange-ftp-passwd-hashtable (ange-ftp-make-hashtable)
+(defvar ange-ftp-passwd-hashtable (make-hash-table :test 'equal)
   "Mapping between a HOST, USER pair and a PASSWORD for them.
 All HOST values should be in lower case.")
 
-(defvar ange-ftp-account-hashtable (ange-ftp-make-hashtable)
+(defvar ange-ftp-account-hashtable (make-hash-table :test 'equal)
   "Mapping between a HOST, USER pair and a ACCOUNT password for them.")
 
-(defvar ange-ftp-files-hashtable (ange-ftp-make-hashtable 97)
+(defvar ange-ftp-files-hashtable (make-hash-table :test 'equal :size 97)
   "Hash table for storing directories and their respective files.")
 
-(defvar ange-ftp-inodes-hashtable (ange-ftp-make-hashtable 97)
+(defvar ange-ftp-inodes-hashtable (make-hash-table :test 'equal :size 97)
   "Hash table for storing file names and their \"inode numbers\".")
 
 (defvar ange-ftp-next-inode-number 1
@@ -1043,7 +1077,7 @@ All HOST values should be in lower case.")
 (defvar ange-ftp-ls-cache-res nil
   "Last result returned from ange-ftp-ls.")
 
-(defconst ange-ftp-expand-dir-hashtable (ange-ftp-make-hashtable))
+(defconst ange-ftp-expand-dir-hashtable (make-hash-table :test 'equal))
 
 (defconst ange-ftp-expand-dir-regexp "^5.0 \\([^: ]+\\):")
 
@@ -1053,6 +1087,7 @@ All HOST values should be in lower case.")
 (defvar ange-ftp-xfer-size nil)
 (defvar ange-ftp-process-string nil)
 (defvar ange-ftp-process-result-line nil)
+(defvar ange-ftp-pending-error-line nil)
 (defvar ange-ftp-process-busy nil)
 (defvar ange-ftp-process-result nil)
 (defvar ange-ftp-process-multi-skip nil)
@@ -1081,7 +1116,7 @@ All HOST values should be in lower case.")
 (defun ange-ftp-message (fmt &rest args)
   "Display message in echo area, but indicate if truncated.
 Args are as in `message': a format string, plus arguments to be formatted."
-  (let ((msg (apply (function format) fmt args))
+  (let ((msg (apply 'format fmt args))
 	(max (window-width (minibuffer-window))))
     (if noninteractive
 	msg
@@ -1096,7 +1131,7 @@ If the optional parameter NEW is given and the non-directory parts match,
 only return the directory part of FILE."
   (save-match-data
     (if (and default-directory
-	     (string-match (concat "^"
+	     (string-match (concat "\\`"
 				   (regexp-quote default-directory)
 				   ".") file))
 	(setq file (substring file (1- (match-end 0)))))
@@ -1113,12 +1148,12 @@ only return the directory part of FILE."
 (defun ange-ftp-set-user (host user)
   "For a given HOST, set or change the default USER."
   (interactive "sHost: \nsUser: ")
-  (ange-ftp-put-hash-entry host user ange-ftp-user-hashtable))
+  (puthash host user ange-ftp-user-hashtable))
 
 (defun ange-ftp-get-user (host)
   "Given a HOST, return the default USER."
   (ange-ftp-parse-netrc)
-  (let ((user (ange-ftp-get-hash-entry host ange-ftp-user-hashtable)))
+  (let ((user (gethash host ange-ftp-user-hashtable)))
     (or user
 	(prog1
 	    (setq user
@@ -1144,36 +1179,33 @@ only return the directory part of FILE."
   `(concat (downcase ,host) "/" ,user))
 
 (defmacro ange-ftp-lookup-passwd (host user)
-  `(ange-ftp-get-hash-entry (ange-ftp-generate-passwd-key ,host ,user)
-                            ange-ftp-passwd-hashtable))
+  `(gethash (ange-ftp-generate-passwd-key ,host ,user)
+	    ange-ftp-passwd-hashtable))
 
 (defun ange-ftp-set-passwd (host user passwd)
   "For a given HOST and USER, set or change the associated PASSWORD."
   (interactive (list (read-string "Host: ")
 		     (read-string "User: ")
 		     (read-passwd "Password: ")))
-  (ange-ftp-put-hash-entry (ange-ftp-generate-passwd-key host user)
-			   passwd
-			   ange-ftp-passwd-hashtable))
+  (puthash (ange-ftp-generate-passwd-key host user)
+	   passwd ange-ftp-passwd-hashtable))
 
 (defun ange-ftp-get-host-with-passwd (user)
   "Given a USER, return a host we know the password for."
   (ange-ftp-parse-netrc)
   (catch 'found-one
-    (ange-ftp-map-hashtable
-     (function (lambda (host val)
-		 (if (ange-ftp-lookup-passwd host user)
-		     (throw 'found-one host))))
+    (maphash
+     (lambda (host val)
+       (if (ange-ftp-lookup-passwd host user) (throw 'found-one host)))
      ange-ftp-user-hashtable)
     (save-match-data
-      (ange-ftp-map-hashtable
-       (function
-	(lambda (key value)
-	  (if (string-match "^[^/]*\\(/\\).*$" key)
-	      (let ((host (substring key 0 (match-beginning 1))))
-		(if (and (string-equal user (substring key (match-end 1)))
-			 value)
-		    (throw 'found-one host))))))
+      (maphash
+       (lambda (key value)
+	 (if (string-match "\\`[^/]*\\(/\\).*\\'" key)
+	     (let ((host (substring key 0 (match-beginning 1))))
+	       (if (and (string-equal user (substring key (match-end 1)))
+			value)
+		   (throw 'found-one host)))))
        ange-ftp-passwd-hashtable))
     nil))
 
@@ -1240,15 +1272,14 @@ only return the directory part of FILE."
   (interactive (list (read-string "Host: ")
 		     (read-string "User: ")
 		     (read-passwd "Account password: ")))
-  (ange-ftp-put-hash-entry (ange-ftp-generate-passwd-key host user)
-			   account
-			   ange-ftp-account-hashtable))
+  (puthash (ange-ftp-generate-passwd-key host user)
+	   account ange-ftp-account-hashtable))
 
 (defun ange-ftp-get-account (host user)
   "Given a HOST and USER, return the FTP account."
   (ange-ftp-parse-netrc)
-  (or (ange-ftp-get-hash-entry (ange-ftp-generate-passwd-key host user)
-			       ange-ftp-account-hashtable)
+  (or (gethash (ange-ftp-generate-passwd-key host user)
+	       ange-ftp-account-hashtable)
       (and (stringp ange-ftp-default-user)
 	   (string-equal user ange-ftp-default-user)
 	   ange-ftp-default-account)
@@ -1267,6 +1298,8 @@ only return the directory part of FILE."
       (setq file
 	    (if (file-name-absolute-p temp)
 		temp
+	      ;; Wouldn't `expand-file-name' be better than `concat' ?
+	      ;; It would fail when `a/b/..' != `a', tho.  --Stef
 	      (concat (file-name-directory file) temp)))))
   file)
 
@@ -1354,17 +1387,17 @@ only return the directory part of FILE."
 	  (if (or ange-ftp-disable-netrc-security-check
 		  (and (eq (nth 2 attr) (user-uid)) ; Same uids.
 		       (string-match ".r..------" (nth 8 attr))))
-	      (save-excursion
+	      (with-current-buffer
 		;; we are cheating a bit here.  I'm trying to do the equivalent
 		;; of find-file on the .netrc file, but then nuke it afterwards.
 		;; with the bit of logic below we should be able to have
 		;; encrypted .netrc files.
-		(set-buffer (generate-new-buffer "*ftp-.netrc*"))
+                  (generate-new-buffer "*ftp-.netrc*")
 		(ange-ftp-real-insert-file-contents file)
 		(setq buffer-file-name file)
 		(setq default-directory (file-name-directory file))
 		(normal-mode t)
-		(mapcar 'funcall find-file-hooks)
+		(run-hooks 'find-file-hook)
 		(setq buffer-file-name nil)
 		(goto-char (point-min))
 		(skip-chars-forward " \t\r\n")
@@ -1383,19 +1416,15 @@ only return the directory part of FILE."
   (ange-ftp-parse-netrc)
   (save-match-data
     (let (res)
-      (ange-ftp-map-hashtable
-       (function
-	(lambda (key value)
-	  (if (string-match "^[^/]*\\(/\\).*$" key)
-	      (let ((host (substring key 0 (match-beginning 1)))
-		    (user (substring key (match-end 1))))
-		(setq res (cons (list (concat user "@" host ":"))
-				res))))))
+      (maphash
+       (lambda (key value)
+	 (if (string-match "\\`[^/]*\\(/\\).*\\'" key)
+	     (let ((host (substring key 0 (match-beginning 1)))
+		   (user (substring key (match-end 1))))
+	       (push (concat user "@" host ":") res))))
        ange-ftp-passwd-hashtable)
-      (ange-ftp-map-hashtable
-       (function (lambda (host user)
-		   (setq res (cons (list (concat host ":"))
-				   res))))
+      (maphash
+       (lambda (host user) (push (concat host ":") res))
        ange-ftp-user-hashtable)
       (or res (list nil)))))
 
@@ -1406,8 +1435,7 @@ only return the directory part of FILE."
 (defmacro ange-ftp-ftp-name-component (n ns name)
   "Extract the Nth ftp file name component from NS."
   `(let ((elt (nth ,n ,ns)))
-    (if (match-beginning elt)
-        (substring ,name (match-beginning elt) (match-end elt)))))
+     (match-string elt ,name)))
 
 (defvar ange-ftp-ftp-name-arg "")
 (defvar ange-ftp-ftp-name-res nil)
@@ -1460,14 +1488,15 @@ only return the directory part of FILE."
 ;; Display the last chunk of output from the ftp process for the given HOST
 ;; USER pair, and signal an error including MSG in the text.
 (defun ange-ftp-error (host user msg)
-  (let ((cur (selected-window))
-	(pop-up-windows t))
-    (pop-to-buffer
-     (get-buffer-create
-      (ange-ftp-ftp-process-buffer host user)))
-    (goto-char (point-max))
-    (select-window cur))
-  (signal 'ftp-error (list (format "FTP Error: %s" msg))))
+  (save-excursion  ;; Prevent pop-to-buffer from changing current buffer.
+    (let ((cur (selected-window))
+	  (pop-up-windows t))
+      (pop-to-buffer
+       (get-buffer-create
+	(ange-ftp-ftp-process-buffer host user)))
+      (goto-char (point-max))
+      (select-window cur))
+    (signal 'ftp-error (list (format "FTP Error: %s" msg)))))
 
 (defun ange-ftp-set-buffer-mode ()
   "Set correct modes for the current buffer if visiting a remote file."
@@ -1484,7 +1513,7 @@ then kill the related ftp process."
       (setq buffer (current-buffer))
     (setq buffer (get-buffer buffer)))
   (let ((file (or (buffer-file-name buffer)
-		  (save-excursion (set-buffer buffer) default-directory))))
+		  (with-current-buffer buffer default-directory))))
     (if file
 	(let ((parsed (ange-ftp-ftp-name (expand-file-name file))))
 	  (if parsed
@@ -1494,19 +1523,18 @@ then kill the related ftp process."
 
 (defun ange-ftp-quote-string (string)
   "Quote any characters in STRING that may confuse the ftp process."
-  (apply (function concat)
-	 (mapcar (function
-		  ;; This is said to be wrong; ftp is said to
-		  ;; need quoting only for ", and that by doubling it.
-		  ;; But experiment says this kind of quoting is correct
-		  ;; when talking to ftp on GNU/Linux systems.
-		   (lambda (char)
-		     (if (or (<= char ? )
-			     (> char ?\~)
-		             (= char ?\")
-			     (= char ?\\))
-			 (vector ?\\ char)
-		       (vector char))))
+  (apply 'concat
+	 (mapcar (lambda (char)
+		   ;; This is said to be wrong; ftp is said to
+		   ;; need quoting only for ", and that by doubling it.
+		   ;; But experiment says this kind of quoting is correct
+		   ;; when talking to ftp on GNU/Linux systems.
+		   (if (or (<= char ? )
+			   (> char ?\~)
+			   (= char ?\")
+			   (= char ?\\))
+		       (vector ?\\ char)
+		     (vector char)))
 		 string)))
 
 (defun ange-ftp-barf-if-not-directory (directory)
@@ -1528,15 +1556,14 @@ Try to categorize it into one of four categories:
 good, skip, fatal, or unknown."
   (cond ((string-match ange-ftp-xfer-size-msgs line)
 	 (setq ange-ftp-xfer-size
-	       (/ (string-to-number (substring line
-					       (match-beginning 1)
-					       (match-end 1)))
+	       (/ (string-to-number (match-string 1 line))
 		  1024)))
 	((string-match ange-ftp-skip-msgs line)
 	 t)
 	((string-match ange-ftp-good-msgs line)
 	 (setq ange-ftp-process-busy nil
 	       ange-ftp-process-result t
+               ange-ftp-pending-error-line nil
 	       ange-ftp-process-result-line line))
 	;; Check this before checking for errors.
 	;; Otherwise the last line of these three seems to be an error:
@@ -1545,11 +1572,17 @@ good, skip, fatal, or unknown."
 	;; 230-"ftp.stsci.edu: unknown host", the new IP address will be...
 	((string-match ange-ftp-multi-msgs line)
 	 (setq ange-ftp-process-multi-skip t))
+	((string-match ange-ftp-potential-error-msgs line)
+         ;; This looks like an error, but we have to keep reading the output
+         ;; to see if it was fixed or not.  E.g. it may indicate that IPv6
+         ;; failed, but maybe a subsequent IPv4 fallback succeeded.
+         (set (make-local-variable 'ange-ftp-pending-error-line) line)
+         t)
 	((string-match ange-ftp-fatal-msgs line)
 	 (delete-process proc)
 	 (setq ange-ftp-process-busy nil
 	       ange-ftp-process-result-line line))
-	(ange-ftp-process-multi-skip
+        (ange-ftp-process-multi-skip
 	 t)
 	(t
 	 (setq ange-ftp-process-busy nil
@@ -1561,8 +1594,7 @@ good, skip, fatal, or unknown."
     (if proc
 	(let ((buf (process-buffer proc)))
 	  (if buf
-	      (save-excursion
-		(set-buffer buf)
+	      (with-current-buffer buf
 		(setq ange-ftp-xfer-size
 		      ;; For very large files, BYTES can be a float.
 		      (if (integerp bytes)
@@ -1585,14 +1617,13 @@ good, skip, fatal, or unknown."
        (let ((kbytes (ash (* ange-ftp-hash-mark-unit
 			     ange-ftp-hash-mark-count)
 			  -6)))
-       (if (zerop ange-ftp-xfer-size)
-	   (ange-ftp-message "%s...%dk" ange-ftp-process-msg kbytes)
-	 (let ((percent (/ (* 100 kbytes) ange-ftp-xfer-size)))
-	   ;; cut out the redisplay of identical %-age messages.
-	   (if (not (eq percent ange-ftp-last-percent))
-	       (progn
-		 (setq ange-ftp-last-percent percent)
-		 (ange-ftp-message "%s...%d%%" ange-ftp-process-msg percent)))))))
+	 (if (zerop ange-ftp-xfer-size)
+	     (ange-ftp-message "%s...%dk" ange-ftp-process-msg kbytes)
+	   (let ((percent (/ (* 100 kbytes) ange-ftp-xfer-size)))
+	     ;; cut out the redisplay of identical %-age messages.
+	     (unless (eq percent ange-ftp-last-percent)
+	       (setq ange-ftp-last-percent percent)
+	       (ange-ftp-message "%s...%d%%" ange-ftp-process-msg percent))))))
   str)
 
 ;; Call the function specified by CONT.  CONT can be either a function
@@ -1611,79 +1642,82 @@ good, skip, fatal, or unknown."
 ;; on to ange-ftp-process-handle-line to deal with.
 
 (defun ange-ftp-process-filter (proc str)
-  (let ((buffer (process-buffer proc))
-	(old-buffer (current-buffer)))
+  ;; Eliminate nulls.
+  (while (string-match "\000+" str)
+    (setq str (replace-match "" nil nil str)))
 
-    ;; Eliminate nulls.
-    (while (string-match "\000+" str)
-      (setq str (replace-match "" nil nil str)))
+  ;; see if the buffer is still around... it could have been deleted.
+  (when (buffer-live-p (process-buffer proc))
+    (with-current-buffer (process-buffer proc)
 
-    ;; see if the buffer is still around... it could have been deleted.
-    (if (buffer-name buffer)
-	(unwind-protect
-	    (progn
-	      (set-buffer (process-buffer proc))
+      ;; handle hash mark printing
+      (and ange-ftp-process-busy
+           (string-match "^#+$" str)
+           (setq str (ange-ftp-process-handle-hash str)))
+      (comint-output-filter proc str)
+      ;; Replace STR by the result of the comint processing.
+      (setq str (buffer-substring comint-last-output-start
+                                  (process-mark proc)))
+      (if ange-ftp-process-busy
+          (progn
+            (setq ange-ftp-process-string (concat ange-ftp-process-string
+                                                  str))
 
-	      ;; handle hash mark printing
-	      (and ange-ftp-process-busy
-		   (string-match "^#+$" str)
-		   (setq str (ange-ftp-process-handle-hash str)))
-	      (comint-output-filter proc str)
-	      ;; Replace STR by the result of the comint processing.
-	      (setq str (buffer-substring comint-last-output-start
-					  (process-mark proc)))
-	      (if ange-ftp-process-busy
-		  (progn
-		    (setq ange-ftp-process-string (concat ange-ftp-process-string
-							  str))
+            ;; if we gave an empty password to the USER command earlier
+            ;; then we should send a null password now.
+            (if (string-match "Password: *$" ange-ftp-process-string)
+                (process-send-string proc "\n"))))
+      (while (and ange-ftp-process-busy
+                  (string-match "\n" ange-ftp-process-string))
+        (let ((line (substring ange-ftp-process-string
+                               0
+                               (match-beginning 0)))
+              (seen-prompt nil))
+          (setq ange-ftp-process-string (substring ange-ftp-process-string
+                                                   (match-end 0)))
+          (while (string-match "\\`ftp> *" line)
+            (setq seen-prompt t)
+            (setq line (substring line (match-end 0))))
+          (if (not (and seen-prompt ange-ftp-pending-error-line))
+              (ange-ftp-process-handle-line line proc)
+            ;; If we've seen a potential error message and it
+            ;; hasn't been cancelled by a good message before
+            ;; seeing a propt, then the error was real.
+            (delete-process proc)
+            (setq ange-ftp-process-busy nil
+                  ange-ftp-process-result-line ange-ftp-pending-error-line))))
 
-		    ;; if we gave an empty password to the USER command earlier
-		    ;; then we should send a null password now.
-		    (if (string-match "Password: *$" ange-ftp-process-string)
-			(send-string proc "\n"))))
-	      (while (and ange-ftp-process-busy
-			  (string-match "\n" ange-ftp-process-string))
-		(let ((line (substring ange-ftp-process-string
-				       0
-				       (match-beginning 0))))
-		  (setq ange-ftp-process-string (substring ange-ftp-process-string
-							   (match-end 0)))
-		  (while (string-match "^ftp> *" line)
-		    (setq line (substring line (match-end 0))))
-		  (ange-ftp-process-handle-line line proc)))
+      ;; has the ftp client finished?  if so then do some clean-up
+      ;; actions.
+      (if (not ange-ftp-process-busy)
+          (progn
+            ;; reset the xfer size
+            (setq ange-ftp-xfer-size 0)
 
-	      ;; has the ftp client finished?  if so then do some clean-up
-	      ;; actions.
-	      (if (not ange-ftp-process-busy)
-		  (progn
-		    ;; reset the xfer size
-		    (setq ange-ftp-xfer-size 0)
+            ;; issue the "done" message since we've finished.
+            (if (and ange-ftp-process-msg
+                     ange-ftp-process-verbose
+                     ange-ftp-process-result)
+                (progn
+                  (ange-ftp-message "%s...done" ange-ftp-process-msg)
+                  (ange-ftp-repaint-minibuffer)
+                  (setq ange-ftp-process-msg nil)))
 
-		    ;; issue the "done" message since we've finished.
-		    (if (and ange-ftp-process-msg
-			     ange-ftp-process-verbose
-			     ange-ftp-process-result)
-			(progn
-			  (ange-ftp-message "%s...done" ange-ftp-process-msg)
-			  (ange-ftp-repaint-minibuffer)
-			  (setq ange-ftp-process-msg nil)))
-
-		    ;; is there a continuation we should be calling?  if so,
-		    ;; we'd better call it, making sure we only call it once.
-		    (if ange-ftp-process-continue
-			(let ((cont ange-ftp-process-continue))
-			  (setq ange-ftp-process-continue nil)
-			  (ange-ftp-call-cont cont
-					      ange-ftp-process-result
-					      ange-ftp-process-result-line))))))
-	  (set-buffer old-buffer)))))
+            ;; is there a continuation we should be calling?  if so,
+            ;; we'd better call it, making sure we only call it once.
+            (if ange-ftp-process-continue
+                (let ((cont ange-ftp-process-continue))
+                  (setq ange-ftp-process-continue nil)
+                  (ange-ftp-call-cont cont
+                                      ange-ftp-process-result
+                                      ange-ftp-process-result-line))))))))
 
 (defun ange-ftp-process-sentinel (proc str)
   "When ftp process changes state, nuke all file-entries in cache."
   (let ((name (process-name proc)))
     (if (string-match "\\*ftp \\([^@]+\\)@\\([^*]+\\)\\*" name)
-	(let ((user (substring name (match-beginning 1) (match-end 1)))
-	      (host (substring name (match-beginning 2) (match-end 2))))
+	(let ((user (match-string 1 name))
+	      (host (match-string 2 name)))
 	  (ange-ftp-wipe-file-entries host user))))
   (setq ange-ftp-ls-cache-file nil))
 
@@ -1713,8 +1747,8 @@ good, skip, fatal, or unknown."
 (defun ange-ftp-make-tmp-name (host)
   "This routine will return the name of a new file."
   (make-temp-file (if (ange-ftp-use-gateway-p host)
-		       ange-ftp-gateway-tmp-name-template
-		     ange-ftp-tmp-name-template)))
+		      ange-ftp-gateway-tmp-name-template
+		    ange-ftp-tmp-name-template)))
 
 (defalias 'ange-ftp-del-tmp-name 'delete-file)
 
@@ -1730,23 +1764,22 @@ good, skip, fatal, or unknown."
 
 (defun ange-ftp-gwp-filter (proc str)
   (comint-output-filter proc str)
-  (save-excursion
-    (set-buffer (process-buffer proc))
+  (with-current-buffer (process-buffer proc)
     ;; Replace STR by the result of the comint processing.
     (setq str (buffer-substring comint-last-output-start (process-mark proc))))
   (cond ((string-match "login: *$" str)
-	 (send-string proc
-		      (concat
-		       (let ((ange-ftp-default-user t))
-			 (ange-ftp-get-user ange-ftp-gateway-host))
-		       "\n")))
+	 (process-send-string proc
+                              (concat
+                               (let ((ange-ftp-default-user t))
+                                 (ange-ftp-get-user ange-ftp-gateway-host))
+                               "\n")))
 	((string-match "Password: *$" str)
-	 (send-string proc
-		      (concat
-		       (ange-ftp-get-passwd ange-ftp-gateway-host
-					    (ange-ftp-get-user
-					     ange-ftp-gateway-host))
-		       "\n")))
+	 (process-send-string proc
+                              (concat
+                               (ange-ftp-get-passwd ange-ftp-gateway-host
+                                                    (ange-ftp-get-user
+                                                     ange-ftp-gateway-host))
+                               "\n")))
 	((string-match ange-ftp-gateway-fatal-msgs str)
 	 (delete-process proc)
 	 (setq ange-ftp-gwp-running nil))
@@ -1756,20 +1789,18 @@ good, skip, fatal, or unknown."
 
 (defun ange-ftp-gwp-start (host user name args)
   "Login to the gateway machine and fire up an ftp process."
-  (let* ((gw-user (ange-ftp-get-user ange-ftp-gateway-host))
-	 ;; It would be nice to make process-connection-type nil,
+  (let* (;; It would be nice to make process-connection-type nil,
 	 ;; but that doesn't work: ftp never responds.
 	 ;; Can anyone find a fix for that?
 	 (proc (let ((process-connection-type t))
 		 (start-process name name
 				ange-ftp-gateway-program
 				ange-ftp-gateway-host)))
-	 (ftp (mapconcat (function identity) args " ")))
-    (process-kill-without-query proc)
-    (set-process-sentinel proc (function ange-ftp-gwp-sentinel))
-    (set-process-filter proc (function ange-ftp-gwp-filter))
-    (save-excursion
-      (set-buffer (process-buffer proc))
+	 (ftp (mapconcat 'identity args " ")))
+    (set-process-query-on-exit-flag proc nil)
+    (set-process-sentinel proc 'ange-ftp-gwp-sentinel)
+    (set-process-filter proc 'ange-ftp-gwp-filter)
+    (with-current-buffer (process-buffer proc)
       (goto-char (point-max))
       (set-marker (process-mark proc) (point)))
     (setq ange-ftp-gwp-running t
@@ -1808,8 +1839,7 @@ process that caused the command to complete.
 If NOWAIT is given then the routine will return immediately the command has
 been queued with no result.  CONT will still be called, however."
   (if (memq (process-status proc) '(run open))
-      (save-excursion
-	(set-buffer (process-buffer proc))
+      (with-current-buffer (process-buffer proc)
 	(ange-ftp-wait-not-busy proc)
 	(setq ange-ftp-process-string ""
 	      ange-ftp-process-result-line ""
@@ -1826,11 +1856,11 @@ been queued with no result.  CONT will still be called, however."
 	(move-marker comint-last-input-start (point))
 	;; don't insert the password into the buffer on the USER command.
 	(save-match-data
-	  (if (string-match "^user \"[^\"]*\"" cmd)
+	  (if (string-match "\\`user \"[^\"]*\"" cmd)
 	      (insert (substring cmd 0 (match-end 0)) " Turtle Power!\n")
 	    (insert cmd)))
 	(move-marker comint-last-input-end (point))
-	(send-string proc cmd)
+	(process-send-string proc cmd)
 	(set-marker (process-mark proc) (point))
 	(if nowait
 	    nil
@@ -1841,8 +1871,7 @@ been queued with no result.  CONT will still be called, however."
 
 ;; Wait for the ange-ftp process PROC not to be busy.
 (defun ange-ftp-wait-not-busy (proc)
-  (save-excursion
-    (set-buffer (process-buffer proc))
+  (with-current-buffer (process-buffer proc)
     (condition-case nil
 	;; This is a kludge to let user quit in case ftp gets hung.
 	;; It matters because this function can be called from the filter.
@@ -1876,15 +1905,13 @@ been queued with no result.  CONT will still be called, however."
 		    (start-process " *nslookup*" " *nslookup*"
 				   ange-ftp-nslookup-program host)))
 	    (res host))
-	(process-kill-without-query proc)
-	(save-excursion
-	  (set-buffer (process-buffer proc))
+	(set-process-query-on-exit-flag proc nil)
+	(with-current-buffer (process-buffer proc)
 	  (while (memq (process-status proc) '(run open))
 	    (accept-process-output proc))
 	  (goto-char (point-min))
 	  (if (re-search-forward "Name:.*\nAddress: *\\(.*\\)$" nil t)
-	      (setq res (buffer-substring (match-beginning 1)
-					  (match-end 1))))
+	      (setq res (match-string 1)))
 	  (kill-buffer (current-buffer)))
 	res)
     host))
@@ -1915,10 +1942,10 @@ on the gateway machine to do the ftp instead."
     ;; but that doesn't work: ftp never responds.
     ;; Can anyone find a fix for that?
     (let ((process-connection-type t)
-	  (process-environment process-environment)
+	  ;; Copy this so we don't alter it permanently.
+	  (process-environment (copy-tree process-environment))
 	  (buffer (get-buffer-create name)))
-      (save-excursion
-	(set-buffer buffer)
+      (with-current-buffer buffer
 	(internal-ange-ftp-mode))
       ;; This tells GNU ftp not to output any fancy escape sequences.
       (setenv "TERM" "dumb")
@@ -1930,13 +1957,12 @@ on the gateway machine to do the ftp instead."
 					    ange-ftp-gateway-host)
 				      args))))
 	(setq proc (apply 'start-process name name args))))
-    (save-excursion
-      (set-buffer (process-buffer proc))
+    (with-current-buffer (process-buffer proc)
       (goto-char (point-max))
       (set-marker (process-mark proc) (point)))
-    (process-kill-without-query proc)
-    (set-process-sentinel proc (function ange-ftp-process-sentinel))
-    (set-process-filter proc (function ange-ftp-process-filter))
+    (set-process-query-on-exit-flag proc nil)
+    (set-process-sentinel proc 'ange-ftp-process-sentinel)
+    (set-process-filter proc 'ange-ftp-process-filter)
     ;; On Windows, the standard ftp client buffers its output (because
     ;; stdout is a pipe handle) so the startup message may never appear:
     ;; `accept-process-output' at this point would hang indefinitely.
@@ -1960,35 +1986,41 @@ on the gateway machine to do the ftp instead."
 
 \\{comint-mode-map}"
   (interactive)
-  (comint-mode)
+  (delay-mode-hooks (comint-mode))
   (setq major-mode 'internal-ange-ftp-mode)
   (setq mode-name "Internal Ange-ftp")
-  (let ((proc (get-buffer-process (current-buffer))))
-    (make-local-variable 'ange-ftp-process-string)
-    (setq ange-ftp-process-string "")
-    (make-local-variable 'ange-ftp-process-busy)
-    (make-local-variable 'ange-ftp-process-result)
-    (make-local-variable 'ange-ftp-process-msg)
-    (make-local-variable 'ange-ftp-process-multi-skip)
-    (make-local-variable 'ange-ftp-process-result-line)
-    (make-local-variable 'ange-ftp-process-continue)
-    (make-local-variable 'ange-ftp-hash-mark-count)
-    (make-local-variable 'ange-ftp-binary-hash-mark-size)
-    (make-local-variable 'ange-ftp-ascii-hash-mark-size)
-    (make-local-variable 'ange-ftp-hash-mark-unit)
-    (make-local-variable 'ange-ftp-xfer-size)
-    (make-local-variable 'ange-ftp-last-percent)
-    (setq ange-ftp-hash-mark-count 0)
-    (setq ange-ftp-xfer-size 0)
-    (setq ange-ftp-process-result-line "")
+  (make-local-variable 'ange-ftp-process-string)
+  (setq ange-ftp-process-string "")
+  (make-local-variable 'ange-ftp-process-busy)
+  (make-local-variable 'ange-ftp-process-result)
+  (make-local-variable 'ange-ftp-process-msg)
+  (make-local-variable 'ange-ftp-process-multi-skip)
+  (make-local-variable 'ange-ftp-process-result-line)
+  (make-local-variable 'ange-ftp-process-continue)
+  (make-local-variable 'ange-ftp-hash-mark-count)
+  (make-local-variable 'ange-ftp-binary-hash-mark-size)
+  (make-local-variable 'ange-ftp-ascii-hash-mark-size)
+  (make-local-variable 'ange-ftp-hash-mark-unit)
+  (make-local-variable 'ange-ftp-xfer-size)
+  (make-local-variable 'ange-ftp-last-percent)
+  (setq ange-ftp-hash-mark-count 0)
+  (setq ange-ftp-xfer-size 0)
+  (setq ange-ftp-process-result-line "")
+  (setq comint-prompt-regexp "^ftp> ")
+  (make-local-variable 'comint-password-prompt-regexp)
+  ;; This is a regexp that can't match anything.
+  ;; ange-ftp has its own ways of handling passwords.
+  (setq comint-password-prompt-regexp "\\`a\\`")
+  (make-local-variable 'paragraph-start)
+  (setq paragraph-start comint-prompt-regexp)
+  (run-mode-hooks 'internal-ange-ftp-mode-hook))
 
-    (setq comint-prompt-regexp "^ftp> ")
-    (make-local-variable 'comint-password-prompt-regexp)
-    ;; This is a regexp that can't match anything.
-    ;; ange-ftp has its own ways of handling passwords.
-    (setq comint-password-prompt-regexp "^a\\'z")
-    (make-local-variable 'paragraph-start)
-    (setq paragraph-start comint-prompt-regexp)))
+(defcustom ange-ftp-raw-login nil
+  "*Use raw ftp commands for login, if account password is not nil.
+Some ftp implementations need this, e.g. ftp in NT 4.0."
+  :group 'ange-ftp
+  :version "21.3"
+  :type 'boolean)
 
 (defun ange-ftp-smart-login (host user pass account proc)
   "Connect to the FTP-server on HOST as USER using PASSWORD and ACCOUNT.
@@ -2027,7 +2059,7 @@ host specified in `ange-ftp-gateway-host'."
 PROC is the process to the FTP-client.  HOST may have an optional
 suffix of the form #PORT to specify a non-default port"
   (save-match-data
-    (string-match "^\\([^#]+\\)\\(#\\([0-9]+\\)\\)?\\'" host)
+    (string-match "\\`\\([^#]+\\)\\(#\\([0-9]+\\)\\)?\\'" host)
     (let* ((nshost (ange-ftp-nslookup-host (match-string 1 host)))
 	   (port (match-string 3 host))
 	   (result (ange-ftp-raw-send-cmd
@@ -2040,16 +2072,45 @@ suffix of the form #PORT to specify a non-default port"
 	  (ange-ftp-error host user
 			  (concat "OPEN request failed: "
 				  (cdr result))))
-      (setq result (ange-ftp-raw-send-cmd
-		    proc
-		    (if (and (ange-ftp-use-smart-gateway-p host)
-			     ange-ftp-gateway-host)
-			(format "user \"%s\"@%s %s %s" user nshost pass account)
-		      (format "user \"%s\" %s %s" user pass account))
-		    (format "Logging in as user %s@%s" user host)))
+      (if (not (and ange-ftp-raw-login (string< "" account)))
+	  (setq result (ange-ftp-raw-send-cmd
+			proc
+			(if (and (ange-ftp-use-smart-gateway-p host)
+				 ange-ftp-gateway-host)
+			    (format "user \"%s\"@%s %s %s"
+				    user nshost pass account)
+			  (format "user \"%s\" %s %s" user pass account))
+			(format "Logging in as user %s@%s" user host)))
+	(let ((good ange-ftp-good-msgs)
+	      (skip ange-ftp-skip-msgs))
+	  (setq ange-ftp-good-msgs (concat ange-ftp-good-msgs
+					   "\\|^331 \\|^332 "))
+	  (if (string-match (regexp-quote "\\|^331 ") ange-ftp-skip-msgs)
+	      (setq ange-ftp-skip-msgs
+		    (replace-match "" t t ange-ftp-skip-msgs)))
+	  (if (string-match (regexp-quote "\\|^332 ") ange-ftp-skip-msgs)
+	      (setq ange-ftp-skip-msgs
+		    (replace-match "" t t ange-ftp-skip-msgs)))
+	  (setq result (ange-ftp-raw-send-cmd
+			proc
+			(format "quote \"USER %s\"" user)
+			(format "Logging in as user %s@%s" user host)))
+	  (and (car result)
+	       (setq result (ange-ftp-raw-send-cmd
+			     proc
+			     (format "quote \"PASS %s\"" pass)
+			     (format "Logging in as user %s@%s" user host)))
+	       (and (car result)
+		    (setq result (ange-ftp-raw-send-cmd
+				  proc
+				  (format "quote \"ACCT %s\"" account)
+				  (format "Logging in as user %s@%s" user host)))
+		    ))
+	  (setq ange-ftp-good-msgs good
+		ange-ftp-skip-msgs skip)))
       (or (car result)
 	  (progn
-	    (ange-ftp-set-passwd host user nil) ;reset password.
+	    (ange-ftp-set-passwd host user nil)	;reset password.
 	    (ange-ftp-set-account host user nil) ;reset account.
 	    (ange-ftp-error host user
 			    (concat "USER request failed: "
@@ -2062,23 +2123,20 @@ suffix of the form #PORT to specify a non-default port"
 
 (defun ange-ftp-guess-hash-mark-size (proc)
   (if ange-ftp-send-hash
-      (save-excursion
-	(set-buffer (process-buffer proc))
+      (with-current-buffer (process-buffer proc)
 	(let* ((status (ange-ftp-raw-send-cmd proc "hash"))
-	       (result (car status))
 	       (line (cdr status)))
 	  (save-match-data
 	    (if (string-match ange-ftp-hash-mark-msgs line)
-		(let ((size (string-to-int
-			    (substring line
-				       (match-beginning 1)
-				       (match-end 1)))))
+		(let ((size (string-to-number (match-string 1 line))))
 		  (setq ange-ftp-ascii-hash-mark-size size
 			ange-ftp-hash-mark-unit (ash size -4))
 
 		  ;; if a default value for this is set, use that value.
 		  (or ange-ftp-binary-hash-mark-size
 		      (setq ange-ftp-binary-hash-mark-size size)))))))))
+
+(defvar ange-ftp-process-startup-hook nil)
 
 (defun ange-ftp-get-process (host user)
   "Return an FTP subprocess connected to HOST and logged in as USER.
@@ -2096,32 +2154,42 @@ Create a new process if needed."
 	;; grab a suitable process.
 	(setq proc (ange-ftp-start-process host user name))
 
-	(save-match-data
-	  ;; login to FTP server.
-	  (if (and (ange-ftp-use-smart-gateway-p host)
-		   ange-ftp-gateway-host)
-	      (ange-ftp-smart-login host user pass account proc)
-	    (ange-ftp-normal-login host user pass account proc))
+	;; login to FTP server.
+	(if (and (ange-ftp-use-smart-gateway-p host)
+		 ange-ftp-gateway-host)
+	    (ange-ftp-smart-login host user pass account proc)
+	  (ange-ftp-normal-login host user pass account proc))
 
-	  ;; Tell client to send back hash-marks as progress.  It isn't usually
-	  ;; fatal if this command fails.
-	  (ange-ftp-guess-hash-mark-size proc)
+	;; Tell client to send back hash-marks as progress.  It isn't usually
+	;; fatal if this command fails.
+	(ange-ftp-guess-hash-mark-size proc)
 
-	  ;; Guess at the host type.
-	  (ange-ftp-guess-host-type host user)
+	;; Guess at the host type.
+	(ange-ftp-guess-host-type host user)
 
-	  ;; Try to use passive mode if asked to.
-	  (when ange-ftp-try-passive-mode
-	    (let ((answer (cdr (ange-ftp-raw-send-cmd
-				proc "passive" "Trying passive mode..." nil))))
-	      (if (string-match "\\?\\|refused" answer)
-		  (message "Trying passive mode...ok")
-		(message "Trying passive mode...failed"))))
+	;; Turn passive mode on or off as requested.
+	(let* ((case-fold-search t)
+	       (passive
+		(or (assoc-default host ange-ftp-passive-host-alist
+				   'string-match)
+		    (if ange-ftp-try-passive-mode "on"))))
+	  (if passive
+	      (ange-ftp-passive-mode proc passive)))
 
-	  ;; Run any user-specified hooks.  Note that proc, host and user are
-	  ;; dynamically bound at this point.
+	;; Run any user-specified hooks.  Note that proc, host and user are
+	;; dynamically bound at this point.
+	(let ((ange-ftp-this-user user)
+	      (ange-ftp-this-host host))
 	  (run-hooks 'ange-ftp-process-startup-hook)))
       proc)))
+
+(defun ange-ftp-passive-mode (proc on-or-off)
+  (if (string-match (concat "Passive mode " on-or-off)
+                    (cdr (ange-ftp-raw-send-cmd
+                          proc (concat "passive " on-or-off)
+                          "Trying passive mode..." nil)))
+      (ange-ftp-message (concat "Trying passive mode..." on-or-off))
+    (error "Trying passive mode...failed")))
 
 ;; Variables for caching host and host-type
 (defvar ange-ftp-host-cache nil)
@@ -2162,6 +2230,12 @@ host-type by logging in as USER."
 		     ((and (fboundp 'ange-ftp-cms-host)
 			   (ange-ftp-cms-host host))
 		      'cms)
+		     ((and (fboundp 'ange-ftp-bs2000-posix-host)
+			   (ange-ftp-bs2000-posix-host host))
+		      'text-unix)	; POSIX is a non-ASCII Unix
+		     ((and (fboundp 'ange-ftp-bs2000-host)
+			   (ange-ftp-bs2000-host host))
+		      'bs2000)
 		     (t
 		      'unix))))))
 
@@ -2203,7 +2277,7 @@ and NOWAIT."
 	(ange-ftp-this-user user)
 	(ange-ftp-this-host host)
 	(ange-ftp-this-msg msg)
-	cmd2 cmd3 host-type fix-name-func)
+	cmd2 cmd3 host-type fix-name-func result)
 
     (cond
 
@@ -2216,31 +2290,56 @@ and NOWAIT."
 	     host-type (ange-ftp-host-type host user))
        ;; This will trigger an FTP login, if one doesn't exist
        (eq cmd0 'dir))
-      (save-match-data
-	(setq cmd1 (funcall
-		    (or (cdr (assq host-type ange-ftp-fix-dir-name-func-alist))
-			'identity)
-		    cmd1)
-	      cmd3 (nth 3 cmd))
-	;; Need to deal with the HP-UX ftp bug. This should also allow
-	;; us to resolve symlinks to directories on SysV machines. (Sebastian will
-	;; be happy.)
-	(and (eq host-type 'unix)
-	     (string-match "/$" cmd1)
-	     (not (string-match "R" cmd3))
-	     (setq cmd1 (concat cmd1 ".")))
+      (setq cmd1 (funcall
+		  (or (cdr (assq host-type ange-ftp-fix-dir-name-func-alist))
+		      'identity)
+		  cmd1)
+	    cmd3 (nth 3 cmd))
+      ;; Need to deal with the HP-UX ftp bug. This should also allow us to
+      ;; resolve symlinks to directories on SysV machines. (Sebastian will
+      ;; be happy.)
+      (and (eq host-type 'unix)
+	   (string-match "/\\'" cmd1)
+	   (not (string-match "R" cmd3))
+	   (setq cmd1 (concat cmd1 ".")))
 
-	;; If the dir name contains a space, some ftp servers will
-	;; refuse to list it.  We instead change directory to the
-	;; directory in question and ls ".".
-	(when (string-match " " cmd1)
-	  (ange-ftp-cd host user (nth 1 cmd))
-	  (setq cmd1 "."))
+      ;; Using "ls -flags foo" has several problems:
+      ;; - if foo is a symlink, we may get a single line showing the symlink
+      ;;   rather than the listing of the directory it points to.
+      ;; - if "foo" has spaces, the parsing of the command may be done wrong.
+      ;; - some version of netbsd's ftpd only accept a single argument after
+      ;;   `ls', which can either be the directory or the flags.
+      ;; So to work around those problems, we use "cd foo; ls -flags".
 
-	;; If the remote ls can take switches, put them in
-	(or (memq host-type ange-ftp-dumb-host-types)
-	    (setq cmd0 'ls
-		  cmd1 (format "\"%s %s\"" cmd3 cmd1)))))
+      ;; If the dir name contains a space, some ftp servers will
+      ;; refuse to list it.  We instead change directory to the
+      ;; directory in question and ls ".".
+      (when (string-match " " cmd1)
+	;; Keep the result.  In case of failure, we will (see below)
+	;; short-circuit CMD and return this result directly.
+	(setq result (ange-ftp-cd host user (nth 1 cmd) 'noerror))
+	(setq cmd1 "."))
+
+      ;; If the remote ls can take switches, put them in
+      (unless (memq host-type ange-ftp-dumb-host-types)
+	(setq cmd0 'ls)
+	;; We cd and then use `ls' with no directory argument.
+	;; This works around a misfeature of some versions of netbsd ftpd
+	;; where `ls' can only take one argument: either one set of flags
+	;; or a file/directory name.
+	;; If we're trying to `ls' a single file, this fails since we
+	;; can't cd to a file.  We can't fix this problem here, tho, because
+	;; at this point we don't know whether the argument is a file or
+	;; a directory.  Such an `ls' is only ever used (apparently) from
+	;; `insert-directory' when the `full-directory-p' argument is nil
+	;; (which seems to only be used by dired when updating its display
+	;; after operating on a set of files).  So we've changed
+	;; `ange-ftp-insert-directory' such that in this case it gets
+	;; a full listing of the directory and extracting the line
+	;; corresponding to the requested file.
+	(unless (equal cmd1 ".")
+	  (setq result (ange-ftp-cd host user (nth 1 cmd) 'noerror)))
+	(setq cmd1 cmd3)))
 
      ;; First argument is the remote name
      ((progn
@@ -2266,16 +2365,19 @@ and NOWAIT."
 		      (and cmd2 (concat " " cmd2))))
 
     ;; Actually send the resulting command.
-    (let (afsc-result
-	  afsc-line)
-      (ange-ftp-raw-send-cmd
-       (ange-ftp-get-process host user)
-       cmd
-       msg
-       (list (lambda (result line host user cmd msg cont nowait)
-               (or cont (setq afsc-result result
-                              afsc-line line))
-               (if result (ange-ftp-call-cont cont result line)
+    (if (and (consp result) (null (car result)))
+	;; `ange-ftp-cd' has failed, so there's no point sending `cmd'.
+	result
+      (let (afsc-result
+	    afsc-line)
+	(ange-ftp-raw-send-cmd
+	 (ange-ftp-get-process host user)
+	 cmd
+	 msg
+	 (list (lambda (result line host user cmd msg cont nowait)
+		 (or cont (setq afsc-result result
+				afsc-line line))
+		 (if result (ange-ftp-call-cont cont result line)
                    (ange-ftp-raw-send-cmd
                     (ange-ftp-get-process host user)
                     cmd
@@ -2284,16 +2386,16 @@ and NOWAIT."
                             (or cont (setq afsc-result result
                                            afsc-line line))
                             (ange-ftp-call-cont cont result line))
-                          cont))
-                   nowait))
-             host user cmd msg cont nowait)
-       nowait)
+                          cont)
+		    nowait)))
+	       host user cmd msg cont nowait)
+	 nowait)
 
-      (if nowait
-	  nil
-	(if cont
+	(if nowait
 	    nil
-	  (cons afsc-result afsc-line))))))
+	  (if cont
+	      nil
+	    (cons afsc-result afsc-line)))))))
 
 ;; It might be nice to message users about the host type identified,
 ;; but there is so much other messaging going on, it would not be
@@ -2308,9 +2410,23 @@ and NOWAIT."
   "^[-A-Z0-9_$]+:\\[[-A-Z0-9_$]+\\(\\.[-A-Z0-9_$]+\\)*\\]$")
 (defconst ange-ftp-mts-name-template
   "^[A-Z0-9._][A-Z0-9._][A-Z0-9._][A-Z0-9._]:$")
+(defconst ange-ftp-bs2000-filename-pubset-regexp
+  ":[A-Z0-9]+:"
+  "Valid pubset for an BS2000 file name.")
+(defconst ange-ftp-bs2000-filename-username-regexp
+  (concat
+   "\\$[A-Z0-9]*\\.")
+  "Valid username for an BS2000 file name.")
+(defconst ange-ftp-bs2000-filename-prefix-regexp
+  (concat
+   ange-ftp-bs2000-filename-pubset-regexp
+   ange-ftp-bs2000-filename-username-regexp)
+  "Valid prefix for an BS2000 file name (pubset and user).")
+(defconst ange-ftp-bs2000-name-template
+  (concat "^" ange-ftp-bs2000-filename-prefix-regexp "$"))
 
 (defun ange-ftp-guess-host-type (host user)
-  "Guess at the the host type of HOST.
+  "Guess the host type of HOST.
 Works by doing a pwd and examining the directory syntax."
   (let ((host-type (ange-ftp-host-type host))
 	(key (concat host "/" user "/~")))
@@ -2354,6 +2470,17 @@ Works by doing a pwd and examining the directory syntax."
 		   (setq ange-ftp-host-cache host
 			 ange-ftp-host-type-cache 'cms))
 
+		  ;; try for BS2000-POSIX
+		  ((ange-ftp-bs2000-posix-host host)
+		   (ange-ftp-add-bs2000-host host)
+		   (setq ange-ftp-host-cache host
+			 ange-ftp-host-type-cache 'text-unix))
+		  ;; try for BS2000
+		  ((and (string-match ange-ftp-bs2000-name-template dir)
+			(not (ange-ftp-bs2000-posix-host host)))
+		   (ange-ftp-add-bs2000-host host)
+		   (setq ange-ftp-host-cache host
+			 ange-ftp-host-type-cache 'bs2000))
 		  ;; assume UN*X
 		  (t
 		   (setq ange-ftp-host-cache host
@@ -2367,8 +2494,7 @@ Works by doing a pwd and examining the directory syntax."
 					     ange-ftp-fix-name-func-alist)))
 	      (if fix-name-func
 		  (setq dir (funcall fix-name-func dir 'reverse))))
-	    (ange-ftp-put-hash-entry key dir
-				     ange-ftp-expand-dir-hashtable))))
+	    (puthash key dir ange-ftp-expand-dir-hashtable))))
 
     ;; In the special case of CMS make sure that know the
     ;; expansion of the home minidisk now, because we will
@@ -2378,8 +2504,7 @@ Works by doing a pwd and examining the directory syntax."
 		   key ange-ftp-expand-dir-hashtable)))
 	(let ((dir (car (ange-ftp-get-pwd host user))))
 	  (if dir
-	      (ange-ftp-put-hash-entry key (concat "/" dir)
-				       ange-ftp-expand-dir-hashtable)
+	      (puthash key (concat "/" dir) ange-ftp-expand-dir-hashtable)
 	    (message "Warning! Unable to get home directory")
 	    (sit-for 1))))))
 
@@ -2441,10 +2566,12 @@ which can parse the output from a DIR listing for a host of type TYPE.")
   "Normal hook run after parsing the text of an ftp directory listing.")
 
 (defun ange-ftp-ls (file lsargs parse &optional no-error wildcard)
-  "Return the output of an `DIR' or `ls' command done over ftp.
+  "Return the output of a `DIR' or `ls' command done over ftp.
 FILE is the full name of the remote file, LSARGS is any args to pass to the
 `ls' command, and PARSE specifies that the output should be parsed and stored
 away in the internal cache."
+  (when (string-match "^--dired\\s-+" lsargs)
+    (setq lsargs (replace-match "" nil t lsargs)))
   ;; If parse is t, we assume that file is a directory. i.e. we only parse
   ;; full directory listings.
   (let* ((ange-ftp-this-file (ange-ftp-expand-file-name file))
@@ -2462,7 +2589,7 @@ away in the internal cache."
 	  (if (string-equal name "")
 	      (setq name
 		    (ange-ftp-real-file-name-as-directory
-		          (ange-ftp-expand-dir host user "~"))))
+		     (ange-ftp-expand-dir host user "~"))))
 	  (if (and ange-ftp-ls-cache-file
 		   (string-equal key ange-ftp-ls-cache-file)
 		   ;; Don't care about lsargs for dumb hosts.
@@ -2472,7 +2599,7 @@ away in the internal cache."
 	    (if wildcard
 		(progn
 		  (ange-ftp-cd host user (file-name-directory name))
-		  (setq lscmd (list 'dir file temp lsargs)))
+		  (setq lscmd (list 'ls file temp lsargs)))
 	      (setq lscmd (list 'dir name temp lsargs)))
 	    (unwind-protect
 		(if (car (setq result (ange-ftp-send-cmd
@@ -2482,9 +2609,8 @@ away in the internal cache."
 				       (format "Listing %s"
 					       (ange-ftp-abbreviate-filename
 						ange-ftp-this-file)))))
-		    (save-excursion
-		      (set-buffer (get-buffer-create
-				   ange-ftp-data-buffer-name))
+		    (with-current-buffer (get-buffer-create
+                                          ange-ftp-data-buffer-name)
 		      (erase-buffer)
 		      (if (ange-ftp-real-file-readable-p temp)
 			  (ange-ftp-real-insert-file-contents temp)
@@ -2522,7 +2648,13 @@ away in the internal cache."
 					; meaningless but harmless.
 			    ange-ftp-ls-cache-res (buffer-string))
 		      ;; (kill-buffer (current-buffer))
-		      ange-ftp-ls-cache-res)
+		      (if (equal ange-ftp-ls-cache-res "total 0\n")
+			  ;; wu-ftpd seems to return a successful result
+			  ;; with an empty file-listing when doing a
+			  ;; `DIR /some/file/.' which leads ange-ftp to
+			  ;; believe that /some/file is a directory ;-(
+			  nil
+			ange-ftp-ls-cache-res))
 		  (if no-error
 		      nil
 		    (ange-ftp-error host user
@@ -2533,31 +2665,6 @@ away in the internal cache."
 ;;;; ------------------------------------------------------------
 ;;;; Directory information caching support.
 ;;;; ------------------------------------------------------------
-
-(defconst ange-ftp-date-regexp
-  (let* ((l "\\([A-Za-z]\\|[^\0-\177]\\)")
-	 ;; In some locales, month abbreviations are as short as 2 letters,
-	 ;; and they can be padded on the right with spaces.
-	 ;; weiand: changed: month ends with . or , or .,
-;;old	 (month (concat l l "+ *"))
-	 (month (concat l l "+[.]?,? *"))
-	 ;; Recognize any non-ASCII character.
-	 ;; The purpose is to match a Kanji character.
-	 (k "[^\0-\177]")
-	 (s " ")
-	 (mm "[ 0-1][0-9]")
-	 ;; weiand: changed: day ends with .
-;;old	 (dd "[ 0-3][0-9]")
-	 (dd "[ 0-3][0-9][.]?")
-	 (western (concat "\\(" month s dd "\\|" dd s month "\\)"))
-	 (japanese (concat mm k s dd k)))
-	 ;; Require the previous column to end in a digit.
-	 ;; This avoids recognizing `1 may 1997' as a date in the line:
-	 ;; -r--r--r--   1 may      1997        1168 Oct 19 16:49 README
-    (concat "[0-9]" s "\\(" western "\\|" japanese "\\)" s))
-  "Regular expression to match up to the column before the file name in a
-directory listing.  This regular expression is designed to recognize dates
-regardless of the language.")
 
 (defvar ange-ftp-add-file-entry-alist nil
   "Alist saying how to add file entries on certain OS types.
@@ -2593,65 +2700,59 @@ The main reason for this alist is to deal with file versions in VMS.")
   ;;Extract the filename from the current line of a dired-like listing.
   `(let ((eol (progn (end-of-line) (point))))
      (beginning-of-line)
-     (if (re-search-forward ange-ftp-date-regexp eol t)
-         (progn
-           (skip-chars-forward " ")
-           (skip-chars-forward "^ " eol)
-           (skip-chars-forward " " eol)
-           ;; We bomb on filenames starting with a space.
-           (buffer-substring (point) eol)))))
+     (if (re-search-forward directory-listing-before-filename-regexp eol t)
+	 (buffer-substring (point) eol))))
 
 ;; This deals with the F switch. Should also do something about
 ;; unquoting names obtained with the SysV b switch and the GNU Q
 ;; switch. See Sebastian's dired-get-filename.
 
-(defmacro ange-ftp-ls-parser ()
-  ;; Note that switches is dynamically bound.
+(defun ange-ftp-ls-parser (switches)
   ;; Meant to be called by ange-ftp-parse-dired-listing
-  `(let ((tbl (ange-ftp-make-hashtable))
-         (used-F (and (stringp switches)
-                      (string-match "F" switches)))
-         file-type symlink directory file)
-     (while (setq file (ange-ftp-parse-filename))
-       (beginning-of-line)
-       (skip-chars-forward "\t 0-9")
-       (setq file-type (following-char)
-             directory (eq file-type ?d))
-       (if (eq file-type ?l)
-           (if (string-match " -> " file)
-               (setq symlink (substring file (match-end 0))
-                     file (substring file 0 (match-beginning 0)))
-             ;; Shouldn't happen
-	     (setq symlink ""))
-         (setq symlink nil))
-       ;; Only do a costly regexp search if the F switch was used.
-       (if (and used-F
-                (not (string-equal file ""))
-                (looking-at
-                 ".[-r][-w]\\([^ ]\\)[-r][-w]\\([^ ]\\)[-r][-w]\\([^ ]\\)"))
-           (let ((socket (eq file-type ?s))
-                 (executable
-                  (and (not symlink) ; x bits don't mean a thing for symlinks
-                       (string-match
-                        "[xst]"
-                        (concat (buffer-substring
-                                 (match-beginning 1) (match-end 1))
-                                (buffer-substring
-                                 (match-beginning 2) (match-end 2))
-                                (buffer-substring
-                                 (match-beginning 3) (match-end 3)))))))
-             ;; Some ls's with the F switch mark symlinks with an @ (ULTRIX)
-             ;; and others don't. (sigh...) Beware, that some Unix's don't
-             ;; seem to believe in the F-switch
-             (if (or (and symlink (string-match "@$" file))
-                     (and directory (string-match "/$" file))
-                     (and executable (string-match "*$" file))
-                     (and socket (string-match "=$" file)))
-                 (setq file (substring file 0 -1)))))
-       (ange-ftp-put-hash-entry file (or symlink directory) tbl)
-       (forward-line 1))
-    (ange-ftp-put-hash-entry "." t tbl)
-    (ange-ftp-put-hash-entry ".." t tbl)
+  (let ((tbl (make-hash-table :test 'equal))
+	(used-F (and (stringp switches)
+		     (string-match "F" switches)))
+	file-type symlink directory file)
+    (while (setq file (ange-ftp-parse-filename))
+      (beginning-of-line)
+      (skip-chars-forward "\t 0-9")
+      (setq file-type (following-char)
+	    directory (eq file-type ?d))
+      (if (eq file-type ?l)
+	  (let ((end (string-match " -> " file)))
+	    (if end
+		;; Sometimes `ls' appends a @ at the end of the target.
+		(setq symlink (substring file (match-end 0)
+					 (string-match "@\\'" file))
+		      file (substring file 0 end))
+	      ;; Shouldn't happen
+	      (setq symlink "")))
+	(setq symlink nil))
+      ;; Only do a costly regexp search if the F switch was used.
+      (if (and used-F
+	       (not (string-equal file ""))
+	       (looking-at
+		".[-r][-w]\\([^ ]\\)[-r][-w]\\([^ ]\\)[-r][-w]\\([^ ]\\)"))
+	  (let ((socket (eq file-type ?s))
+		(executable
+		 (and (not symlink) ; x bits don't mean a thing for symlinks
+		      (string-match
+		       "[xst]"
+		       (concat (match-string 1)
+			       (match-string 2)
+			       (match-string 3))))))
+	    ;; Some ls's with the F switch mark symlinks with an @ (ULTRIX)
+	    ;; and others don't. (sigh...) Beware, that some Unix's don't
+	    ;; seem to believe in the F-switch
+	    (if (or (and symlink (string-match "@\\'" file))
+		    (and directory (string-match "/\\'" file))
+		    (and executable (string-match "*\\'" file))
+		    (and socket (string-match "=\\'" file)))
+		(setq file (substring file 0 -1)))))
+      (puthash file (or symlink directory) tbl)
+      (forward-line 1))
+    (puthash "." t tbl)
+    (puthash ".." t tbl)
     tbl))
 
 ;;; The dl stuff for descriptive listings
@@ -2678,9 +2779,9 @@ match subdirectories as well.")
 (defmacro ange-ftp-dl-parser ()
   ;; Parse the current buffer, which is assumed to be a descriptive
   ;; listing, and return a hashtable.
-  `(let ((tbl (ange-ftp-make-hashtable)))
+  `(let ((tbl (make-hash-table :test 'equal)))
      (while (not (eobp))
-       (ange-ftp-put-hash-entry
+       (puthash
         (buffer-substring (point)
                           (progn
                             (skip-chars-forward "^ /\n")
@@ -2688,9 +2789,9 @@ match subdirectories as well.")
         (eq (following-char) ?/)
         tbl)
        (forward-line 1))
-    (ange-ftp-put-hash-entry "." t tbl)
-    (ange-ftp-put-hash-entry ".." t tbl)
-    tbl))
+     (puthash "." t tbl)
+     (puthash ".." t tbl)
+     tbl))
 
 ;; Parse the current buffer which is assumed to be in a dired-like listing
 ;; format, and return a hashtable as the result. If the listing is not really
@@ -2703,7 +2804,7 @@ match subdirectories as well.")
       (forward-line 1)
       ;; Some systems put in a blank line here.
       (if (eolp) (forward-line 1))
-      (ange-ftp-ls-parser))
+      (ange-ftp-ls-parser switches))
      ((looking-at "[^\n]+\\( not found\\|: Not a directory\\)\n\\'")
       ;; It's an ls error message.
       nil)
@@ -2715,9 +2816,9 @@ match subdirectories as well.")
       ;; (3) The twilight zone.
       ;; We'll assume (1) for now.
       nil)
-     ((re-search-forward ange-ftp-date-regexp nil t)
+     ((re-search-forward directory-listing-before-filename-regexp nil t)
       (beginning-of-line)
-      (ange-ftp-ls-parser))
+      (ange-ftp-ls-parser switches))
      ((re-search-forward "^[^ \n\t]+ +\\([0-9]+\\|-\\|=\\) " nil t)
       ;; It's a dl listing (I hope).
       ;; file is bound by the call to ange-ftp-ls
@@ -2728,15 +2829,15 @@ match subdirectories as well.")
 
 (defun ange-ftp-set-files (directory files)
   "For a given DIRECTORY, set or change the associated FILES hashtable."
-  (and files (ange-ftp-put-hash-entry (file-name-as-directory directory)
-				      files ange-ftp-files-hashtable)))
+  (and files (puthash (file-name-as-directory directory)
+		      files ange-ftp-files-hashtable)))
 
 (defun ange-ftp-get-files (directory &optional no-error)
   "Given a given DIRECTORY, return a hashtable of file entries.
 This will give an error or return nil, depending on the value of
 NO-ERROR, if a listing for DIRECTORY cannot be obtained."
   (setq directory (file-name-as-directory directory)) ;normalize
-  (or (ange-ftp-get-hash-entry directory ange-ftp-files-hashtable)
+  (or (gethash directory ange-ftp-files-hashtable)
       (save-match-data
 	(and (ange-ftp-ls directory
 			  ;; This is an efficiency hack. We try to
@@ -2767,15 +2868,14 @@ NO-ERROR, if a listing for DIRECTORY cannot be obtained."
 				dired-listing-switches
 			      "-al"))
 			  t no-error)
-	     (ange-ftp-get-hash-entry
-	      directory ange-ftp-files-hashtable)))))
+	     (gethash directory ange-ftp-files-hashtable)))))
 
 ;; Given NAME, return the file part that can be used for looking up the
 ;; file's entry in a hashtable.
 (defmacro ange-ftp-get-file-part (name)
   `(let ((file (file-name-nondirectory ,name)))
      (if (string-equal file "")
-        "."
+	 "."
        file)))
 
 ;; Return whether ange-ftp-file-entry-p and ange-ftp-get-file-entry are
@@ -2786,37 +2886,34 @@ NO-ERROR, if a listing for DIRECTORY cannot be obtained."
 ;; 2. The syntax of FILE and DIR make it impossible that FILE could be a valid
 ;;     subdirectory. This is of course an OS dependent judgement.
 
-;;; Nowadays, the judgement for #2 is always "no".
-;;; With today's ftp servers on Unix and GNU systems,
-;;; it appears to be impossible to tell from the result
-;;; of the directory listing whether the argument is a directory.
-;;; This appears to be true even in Emacs 20.7
-
+(defvar dired-local-variables-file)
 (defmacro ange-ftp-allow-child-lookup (dir file)
-  nil)
-;;;   `(not
-;;;     (let* ((efile ,file) ; expand once.
-;;;            (edir ,dir)
-;;;            (parsed (ange-ftp-ftp-name edir))
-;;;            (host-type (ange-ftp-host-type
-;;;                        (car parsed))))
-;;;       (or
-;;;        ;; Deal with dired
-;;;        (and (boundp 'dired-local-variables-file) ; in the dired-x package
-;;;             (stringp dired-local-variables-file)
-;;;             (string-equal dired-local-variables-file efile))
-;;;        ;; No dots in dir names in vms.
-;;;        (and (eq host-type 'vms)
-;;;             (string-match "\\." efile))
-;;;        ;; No subdirs in mts of cms.
-;;;        (and (memq host-type '(mts cms))
-;;;             (not (string-equal "/" (nth 2 parsed))))))))
+  `(not
+    (let* ((efile ,file)		; expand once.
+           (edir ,dir)
+           (parsed (ange-ftp-ftp-name edir))
+           (host-type (ange-ftp-host-type
+                       (car parsed))))
+      (or
+       ;; Deal with dired
+       (and (boundp 'dired-local-variables-file) ; in the dired-x package
+	    (stringp dired-local-variables-file)
+	    (string-equal dired-local-variables-file efile))
+       ;; No dots in dir names in vms.
+       (and (eq host-type 'vms)
+	    (string-match "\\." efile))
+       ;; No subdirs in mts of cms.
+       (and (memq host-type '(mts cms))
+	    (not (string-equal "/" (nth 2 parsed))))
+       ;; No dots in pseudo-dir names in bs2000.
+       (and (eq host-type 'bs2000)
+	    (string-match "\\." efile))))))
 
 (defun ange-ftp-file-entry-p (name)
   "Given NAME, return whether there is a file entry for it."
   (let* ((name (directory-file-name name))
 	 (dir (file-name-directory name))
-	 (ent (ange-ftp-get-hash-entry dir ange-ftp-files-hashtable))
+	 (ent (gethash dir ange-ftp-files-hashtable))
 	 (file (ange-ftp-get-file-part name)))
     (if ent
 	(ange-ftp-hash-entry-exists-p file ent)
@@ -2830,13 +2927,10 @@ NO-ERROR, if a listing for DIRECTORY cannot be obtained."
 	       ;; then dumb hosts will give an ftp error. Smart unix hosts
 	       ;; will simply send back the ls
 	       ;; error message.
-	       (ange-ftp-get-hash-entry "." ent))
+	       (gethash "." ent))
 	  ;; Child lookup failed, so try the parent.
-	  (let ((table (ange-ftp-get-files dir)))
-	    ;; If the dir doesn't exist, don't use it as a hash table.
-	    (and table
-		 (ange-ftp-hash-entry-exists-p file
-					       table)))))))
+	  (ange-ftp-hash-entry-exists-p
+	   file (ange-ftp-get-files dir 'no-error))))))
 
 (defun ange-ftp-get-file-entry (name)
   "Given NAME, return the given file entry.
@@ -2845,53 +2939,49 @@ or a string for a symlink. If the file isn't in the hashtable,
 this also returns nil."
   (let* ((name (directory-file-name name))
 	 (dir (file-name-directory name))
-	 (ent (ange-ftp-get-hash-entry dir ange-ftp-files-hashtable))
+	 (ent (gethash dir ange-ftp-files-hashtable))
 	 (file (ange-ftp-get-file-part name)))
     (if ent
-	(ange-ftp-get-hash-entry file ent)
+	(gethash file ent)
       (or (and (ange-ftp-allow-child-lookup dir file)
 	       (setq ent (ange-ftp-get-files name t))
-	       (ange-ftp-get-hash-entry "." ent))
-	       ;; i.e. it's a directory by child lookup
-	  (ange-ftp-get-hash-entry file
-				   (ange-ftp-get-files dir))))))
+	       (gethash "." ent))
+	  ;; i.e. it's a directory by child lookup
+	  (and (setq ent (ange-ftp-get-files dir t))
+	       (gethash file ent))))))
 
 (defun ange-ftp-internal-delete-file-entry (name &optional dir-p)
-  (if dir-p
-      (progn
-	(setq name (file-name-as-directory name))
-	(ange-ftp-del-hash-entry name ange-ftp-files-hashtable)
-	(setq name (directory-file-name name))))
+  (when dir-p
+    (setq name (file-name-as-directory name))
+    (remhash name ange-ftp-files-hashtable)
+    (setq name (directory-file-name name)))
   ;; Note that file-name-as-directory followed by directory-file-name
   ;; serves to canonicalize directory file names to their unix form.
   ;; i.e. in VMS, FOO.DIR -> FOO/ -> FOO
-  (let ((files (ange-ftp-get-hash-entry (file-name-directory name)
-					ange-ftp-files-hashtable)))
+  (let ((files (gethash (file-name-directory name) ange-ftp-files-hashtable)))
     (if files
-	(ange-ftp-del-hash-entry (ange-ftp-get-file-part name)
-				 files))))
+	(remhash (ange-ftp-get-file-part name) files))))
 
 (defun ange-ftp-internal-add-file-entry (name &optional dir-p)
   (and dir-p
        (setq name (directory-file-name name)))
-  (let ((files (ange-ftp-get-hash-entry (file-name-directory name)
-					ange-ftp-files-hashtable)))
+  (let ((files (gethash (file-name-directory name) ange-ftp-files-hashtable)))
     (if files
-	(ange-ftp-put-hash-entry (ange-ftp-get-file-part name)
-				 dir-p
-				 files))))
+	(puthash (ange-ftp-get-file-part name) dir-p files))))
 
 (defun ange-ftp-wipe-file-entries (host user)
   "Get rid of entry for HOST, USER pair from file entry information hashtable."
-  (let ((new-tbl (ange-ftp-make-hashtable (length ange-ftp-files-hashtable))))
-    (ange-ftp-map-hashtable
+  (let ((new-tbl (make-hash-table :test 'equal
+				  :size (hash-table-size
+					 ange-ftp-files-hashtable))))
+    (maphash
      (lambda (key val)
        (let ((parsed (ange-ftp-ftp-name key)))
          (if parsed
              (let ((h (nth 0 parsed))
                    (u (nth 1 parsed)))
                (or (and (equal host h) (equal user u))
-                   (ange-ftp-put-hash-entry key val new-tbl))))))
+                   (puthash key val new-tbl))))))
      ange-ftp-files-hashtable)
     (setq ange-ftp-files-hashtable new-tbl)))
 
@@ -2904,8 +2994,7 @@ this also returns nil."
   (let ((result (ange-ftp-send-cmd host user '(type "binary"))))
     (if (not (car result))
 	(ange-ftp-error host user (concat "BINARY failed: " (cdr result)))
-      (save-excursion
-	(set-buffer (process-buffer (ange-ftp-get-process host user)))
+      (with-current-buffer (process-buffer (ange-ftp-get-process host user))
 	(and ange-ftp-binary-hash-mark-size
 	     (setq ange-ftp-hash-mark-unit
 		   (ash ange-ftp-binary-hash-mark-size -4)))))))
@@ -2915,16 +3004,16 @@ this also returns nil."
   (let ((result (ange-ftp-send-cmd host user '(type "ascii"))))
     (if (not (car result))
 	(ange-ftp-error host user (concat "ASCII failed: " (cdr result)))
-      (save-excursion
-	(set-buffer (process-buffer (ange-ftp-get-process host user)))
+      (with-current-buffer (process-buffer (ange-ftp-get-process host user))
 	(and ange-ftp-ascii-hash-mark-size
 	     (setq ange-ftp-hash-mark-unit
 		   (ash ange-ftp-ascii-hash-mark-size -4)))))))
 
-(defun ange-ftp-cd (host user dir)
+(defun ange-ftp-cd (host user dir &optional noerror)
   (let ((result (ange-ftp-send-cmd host user (list 'cd dir) "Doing CD")))
-    (or (car result)
-	(ange-ftp-error host user (concat "CD failed: " (cdr result))))))
+    (if noerror result
+      (or (car result)
+	  (ange-ftp-error host user (concat "CD failed: " (cdr result)))))))
 
 (defun ange-ftp-get-pwd (host user)
   "Attempts to get the current working directory for the given HOST/USER pair.
@@ -2936,10 +3025,8 @@ and LINE is the relevant success or fail line from the FTP-client."
     (if (car result)
 	(save-match-data
 	  (and (or (string-match "\"\\([^\"]*\\)\"" line)
-		   (string-match " \\([^ ]+\\) " line)) ; stone-age VMS servers!
-	       (setq dir (substring line
-				    (match-beginning 1)
-				    (match-end 1))))))
+		   (string-match " \\([^ ]+\\) " line))	; stone-age VMS servers!
+	       (setq dir (match-string 1 line)))))
     (cons dir line)))
 
 ;;; ------------------------------------------------------------
@@ -2957,7 +3044,7 @@ logged in as user USER and cd'd to directory DIR."
 	 (fix-name-func
 	  (cdr (assq host-type ange-ftp-fix-name-func-alist)))
 	 (key (concat host "/" user "/" dir))
-	 (res (ange-ftp-get-hash-entry key ange-ftp-expand-dir-hashtable)))
+	 (res (gethash key ange-ftp-expand-dir-hashtable)))
     (or res
 	(progn
 	  (or
@@ -2973,9 +3060,7 @@ logged in as user USER and cd'd to directory DIR."
 		  (line (cdr result)))
 	     (setq res
 		   (if (string-match ange-ftp-expand-dir-regexp line)
-		       (substring line
-				  (match-beginning 1)
-				  (match-end 1))))))
+		       (match-string 1 line)))))
 	  (or res
 	      (if (string-equal dir "~")
 		  (setq res (car (ange-ftp-get-pwd host user)))
@@ -2989,8 +3074,7 @@ logged in as user USER and cd'd to directory DIR."
 		    (ange-ftp-this-host host))
 		(if fix-name-func
 		    (setq res (funcall fix-name-func res 'reverse)))
-		(ange-ftp-put-hash-entry
-		 key res ange-ftp-expand-dir-hashtable)))
+		(puthash key res ange-ftp-expand-dir-hashtable)))
 	  res))))
 
 (defun ange-ftp-canonize-filename (n)
@@ -3005,19 +3089,24 @@ logged in as user USER and cd'd to directory DIR."
 
 	  ;; See if remote name is absolute.  If so then just expand it and
 	  ;; replace the name component of the overall name.
-	  (cond ((string-match "^/" name)
+	  (cond ((string-match "\\`/" name)
 		 name)
 
 		;; Name starts with ~ or ~user.  Resolve that part of the name
 		;; making it absolute then re-expand it.
-		((string-match "^~[^/]*" name)
-		 (let* ((tilda (substring name
-					  (match-beginning 0)
-					  (match-end 0)))
+		((string-match "\\`~[^/]*" name)
+		 (let* ((tilda (match-string 0 name))
 			(rest (substring name (match-end 0)))
 			(dir (ange-ftp-expand-dir host user tilda)))
 		   (if dir
-		       (setq name (concat dir rest))
+                       ;; C-x d /ftp:anonymous@ftp.gnu.org:~/ RET
+                       ;; seems to cause `rest' to sometimes be empty.
+                       ;; Maybe it's an error for `rest' to be empty here,
+                       ;; but until we figure this out, this quick fix
+                       ;; seems to do the trick.
+		       (setq name (cond ((string-equal rest "") dir)
+					((string-equal dir "/") rest)
+					(t (concat dir rest))))
 		     (error "User \"%s\" is not known"
 			    (substring tilda 1)))))
 
@@ -3031,19 +3120,18 @@ logged in as user USER and cd'd to directory DIR."
 		     (error "Unable to obtain CWD")))))
 
 	  ;; If name starts with //, preserve that, for apollo system.
-	  (if (not (string-match "^//" name))
-	      (progn
-		(if (not (eq system-type 'windows-nt))
-		    (setq name (ange-ftp-real-expand-file-name name))
-		  ;; Windows UNC default dirs do not make sense for ftp.
-		  (if (string-match "^//" default-directory)
-		      (setq name (ange-ftp-real-expand-file-name name "c:/"))
-		    (setq name (ange-ftp-real-expand-file-name name)))
-		  ;; Strip off possible drive specifier.
-		  (if (string-match "^[a-zA-Z]:" name)
-		      (setq name (substring name 2))))
-		(if (string-match "^//" name)
-		    (setq name (substring name 1)))))
+	  (unless (string-match "\\`//" name)
+            (if (not (eq system-type 'windows-nt))
+                (setq name (ange-ftp-real-expand-file-name name))
+              ;; Windows UNC default dirs do not make sense for ftp.
+              (setq name (if (string-match "\\`//" default-directory)
+                             (ange-ftp-real-expand-file-name name "c:/")
+                           (ange-ftp-real-expand-file-name name)))
+              ;; Strip off possible drive specifier.
+              (if (string-match "\\`[a-zA-Z]:" name)
+                  (setq name (substring name 2))))
+            (if (string-match "\\`//" name)
+                (setq name (substring name 1))))
 
 	  ;; Now substitute the expanded name back into the overall filename.
 	  (ange-ftp-replace-name-component n name))
@@ -3056,7 +3144,7 @@ logged in as user USER and cd'd to directory DIR."
 	 (ange-ftp-real-file-name-directory n))))))
 
 (defun ange-ftp-expand-file-name (name &optional default)
-  "Documented as original."
+  "Documented as `expand-file-name'."
   (save-match-data
     (setq default (or default default-directory))
     (cond ((eq (string-to-char name) ?~)
@@ -3067,8 +3155,8 @@ logged in as user USER and cd'd to directory DIR."
 		(eq (string-to-char name) ?\\))
 	   (ange-ftp-canonize-filename name))
 	  ((and (eq system-type 'windows-nt)
-		(or (string-match "^[a-zA-Z]:" name)
-		    (string-match "^[a-zA-Z]:" default)))
+		(or (string-match "\\`[a-zA-Z]:" name)
+		    (string-match "\\`[a-zA-Z]:" default)))
 	   (ange-ftp-real-expand-file-name name default))
 	  ((zerop (length name))
 	   (ange-ftp-canonize-filename default))
@@ -3101,7 +3189,7 @@ system TYPE.")
     (if parsed
 	(let ((filename (nth 2 parsed)))
 	  (if (save-match-data
-		(string-match "^~[^/]*$" filename))
+		(string-match "\\`~[^/]*\\'" filename))
 	      name
 	    (ange-ftp-replace-name-component
 	     name
@@ -3114,7 +3202,7 @@ system TYPE.")
     (if parsed
 	(let ((filename (nth 2 parsed)))
 	  (if (save-match-data
-		(string-match "^~[^/]*$" filename))
+		(string-match "\\`~[^/]*\\'" filename))
 	      ""
 	    (ange-ftp-real-file-name-nondirectory filename)))
       (ange-ftp-real-file-name-nondirectory name))))
@@ -3124,8 +3212,8 @@ system TYPE.")
   (let ((parsed (ange-ftp-ftp-name dir)))
     (if parsed
 	(ange-ftp-replace-name-component
-	   dir
-	   (ange-ftp-real-directory-file-name (nth 2 parsed)))
+	 dir
+	 (ange-ftp-real-directory-file-name (nth 2 parsed)))
       (ange-ftp-real-directory-file-name dir))))
 
 
@@ -3148,8 +3236,10 @@ system TYPE.")
 	       ;; of the transfer is irrelevant, i.e. we can use binary mode
 	       ;; regardless. Maybe a system-type to host-type lookup?
 	       (binary (or (ange-ftp-binary-file filename)
-			   (memq (ange-ftp-host-type host user)
-				 '(unix dumb-unix))))
+			   (and (not (memq system-type
+					   '(ms-dos windows-nt macos vax-vms)))
+				(memq (ange-ftp-host-type host user)
+				      '(unix dumb-unix)))))
 	       (cmd (if append 'append 'put))
 	       (abbr (ange-ftp-abbreviate-filename filename))
 	       ;; we need to reset `last-coding-system-used' to its
@@ -3159,17 +3249,17 @@ system TYPE.")
 	       (coding-system-used last-coding-system-used))
 	  (unwind-protect
 	      (progn
-		(let ((executing-kbd-macro t)
-		      (filename (buffer-file-name))
+		(let ((filename (buffer-file-name))
 		      (mod-p (buffer-modified-p)))
 		  (unwind-protect
 		      (progn
-			(ange-ftp-real-write-region start end temp nil visit)
+			(ange-ftp-real-write-region start end temp nil
+						    (or visit 'quiet))
 			(setq coding-system-used last-coding-system-used))
 		    ;; cleanup forms
 		    (setq coding-system-used last-coding-system-used)
 		    (setq buffer-file-name filename)
-		    (set-buffer-modified-p mod-p)))
+		    (restore-buffer-modified-p mod-p)))
 		(if binary
 		    (ange-ftp-set-binary-mode host user))
 
@@ -3214,8 +3304,8 @@ system TYPE.")
 	  (if (or (file-exists-p filename)
 		  (progn
 		    (setq ange-ftp-ls-cache-file nil)
-		    (ange-ftp-del-hash-entry (file-name-directory filename)
-					     ange-ftp-files-hashtable)
+		    (remhash (file-name-directory filename)
+			     ange-ftp-files-hashtable)
 		    (file-exists-p filename)))
 	      (let* ((host (nth 0 parsed))
 		     (user (nth 1 parsed))
@@ -3278,9 +3368,14 @@ system TYPE.")
       (ange-ftp-real-insert-file-contents filename visit beg end replace))))
 
 (defun ange-ftp-expand-symlink (file dir)
-  (if (file-name-absolute-p file)
-      (ange-ftp-replace-name-component dir file)
-    (expand-file-name file dir)))
+  (let ((res (if (file-name-absolute-p file)
+		 (ange-ftp-replace-name-component dir file)
+	       (expand-file-name file dir))))
+    (if (file-symlink-p res)
+	(ange-ftp-expand-symlink
+	 (ange-ftp-get-file-entry res)
+	 (file-name-directory (directory-file-name res)))
+      res)))
 
 (defun ange-ftp-file-symlink-p (file)
   ;; call ange-ftp-expand-file-name rather than the normal
@@ -3288,15 +3383,17 @@ system TYPE.")
   ;; redefines both file-symlink-p and expand-file-name.
   (setq file (ange-ftp-expand-file-name file))
   (if (ange-ftp-ftp-name file)
-      (let ((file-ent
-	     (ange-ftp-get-hash-entry
-	      (ange-ftp-get-file-part file)
-	      (ange-ftp-get-files (file-name-directory file)))))
-	(if (stringp file-ent)
-	    (if (file-name-absolute-p file-ent)
-		(ange-ftp-replace-name-component
-		      (file-name-directory file) file-ent)
-	      file-ent)))
+      (condition-case nil
+	  (let ((ent (ange-ftp-get-files (file-name-directory file))))
+	    (and ent
+		 (stringp (setq ent
+				(gethash (ange-ftp-get-file-part file) ent)))
+		 ent))
+	;; If we can't read the parent directory, just assume
+	;; this file is not a symlink.
+	;; This makes it possible to access a directory that
+	;; whose parent is not readable.
+	(file-error nil))
     (ange-ftp-real-file-symlink-p file)))
 
 (defun ange-ftp-file-exists-p (name)
@@ -3321,7 +3418,9 @@ system TYPE.")
       (let ((file-ent (ange-ftp-get-file-entry
 		       (ange-ftp-file-name-as-directory name))))
 	(if (stringp file-ent)
-	    (file-directory-p
+	    ;; Calling file-directory-p doesn't work because ange-ftp
+	    ;; is temporarily disabled for this operation.
+	    (ange-ftp-file-directory-p
 	     (ange-ftp-expand-symlink file-ent
 				      (file-name-directory
 				       (directory-file-name name))))
@@ -3348,7 +3447,7 @@ system TYPE.")
 	  (nreverse files)))
     (apply 'ange-ftp-real-directory-files directory full match v19-args)))
 
-(defun ange-ftp-file-attributes (file)
+(defun ange-ftp-file-attributes (file &optional id-format)
   (setq file (expand-file-name file))
   (let ((parsed (ange-ftp-ftp-name file)))
     (if parsed
@@ -3358,13 +3457,12 @@ system TYPE.")
 	      (let ((host (nth 0 parsed))
 		    (user (nth 1 parsed))
 		    (name (nth 2 parsed))
-		    (dirp (ange-ftp-get-hash-entry part files))
-		    (inode (ange-ftp-get-hash-entry
-			    file ange-ftp-inodes-hashtable)))
+		    (dirp (gethash part files))
+		    (inode (gethash file ange-ftp-inodes-hashtable)))
 		(unless inode
 		  (setq inode ange-ftp-next-inode-number
 			ange-ftp-next-inode-number (1+ inode))
-		  (ange-ftp-put-hash-entry file inode ange-ftp-inodes-hashtable))
+		  (puthash file inode ange-ftp-inodes-hashtable))
 		(list (if (and (stringp dirp) (file-name-absolute-p dirp))
 			  (ange-ftp-expand-symlink dirp
 						   (file-name-directory file))
@@ -3382,7 +3480,9 @@ system TYPE.")
 		      inode		;10 "inode number".
 		      -1		;11 device number [v19 only]
 		      ))))
-      (ange-ftp-real-file-attributes file))))
+      (if id-format
+	  (ange-ftp-real-file-attributes file id-format)
+	(ange-ftp-real-file-attributes file)))))
 
 (defun ange-ftp-file-newer-than-file-p (f1 f2)
   (let ((f1-parsed (ange-ftp-ftp-name f1))
@@ -3506,16 +3606,13 @@ Value is (0 0) if the modification time cannot be determined."
 ;; 			     filename
 ;; 			     newname))
 ;; 	res)
-;;     (set-process-sentinel proc (function ange-ftp-copy-file-locally-sentinel))
+;;     (set-process-sentinel proc 'ange-ftp-copy-file-locally-sentinel)
 ;;     (process-kill-without-query proc)
-;;     (save-excursion
-;;       (set-buffer (process-buffer proc))
-;;       (make-variable-buffer-local 'copy-cont)
-;;       (setq copy-cont cont))))
+;;     (with-current-buffer (process-buffer proc)
+;;       (set (make-local-variable 'copy-cont) cont))))
 ;;
 ;; (defun ange-ftp-copy-file-locally-sentinel (proc status)
-;;   (save-excursion
-;;     (set-buffer (process-buffer proc))
+;;   (with-current-buffer (process-buffer proc)
 ;;     (let ((cont copy-cont)
 ;; 	  (result (buffer-string)))
 ;;       (unwind-protect
@@ -3596,7 +3693,7 @@ Value is (0 0) if the modification time cannot be determined."
 		   (if (and temp1 t-parsed)
 		       (format "Getting %s" f-abbr)
 		     (format "Copying %s to %s" f-abbr t-abbr)))
-	       (list (function ange-ftp-cf1)
+	       (list 'ange-ftp-cf1
 		     filename newname binary msg
 		     f-parsed f-host f-user f-name f-abbr
 		     t-parsed t-host t-user t-name t-abbr
@@ -3674,7 +3771,7 @@ Value is (0 0) if the modification time cannot be determined."
 		 (if (and temp2 f-parsed)
 		     (format "Putting %s" newname)
 		   (format "Copying %s to %s" f-abbr t-abbr)))
-	     (list (function ange-ftp-cf2)
+	     (list 'ange-ftp-cf2
 		   newname t-host t-user binary temp1 temp2 cont)
 	     nowait))
 
@@ -3725,6 +3822,32 @@ Value is (0 0) if the modification time cannot be determined."
 			       nil
 			       nil
 			       (interactive-p)))
+
+(defun ange-ftp-copy-files-async (okay-p line verbose-p files)
+  "Copy some files in the background.
+Arguments: (OKAY-P LINE VERBOSE-P FILES)
+OKAY-P must be T, and LINE does not matter.  They are here to make this
+ function a valid CONT argument for `ange-ftp-raw-send-cmd'.
+If VERBOSE-P is non-nil, print progress report in the echo area.
+ When all the files have been copied already, a message is shown anyway.
+FILES is a list of files to copy in the form
+  (from-file to-file ok-if-already-exists keep-date)
+E.g.,
+  (ange-ftp-copy-files-async t nil t '((\"a\" \"b\" t t) (\"c\" \"d\" t t)))"
+  (unless okay-p (error "%s: %s" 'ange-ftp-copy-files-async line))
+  (if files
+      (let* ((ff (car files))
+             (from-file    (nth 0 ff))
+             (to-file      (nth 1 ff))
+             (ok-if-exists (nth 2 ff))
+             (keep-date    (nth 3 ff)))
+        (ange-ftp-copy-file-internal
+         from-file to-file ok-if-exists keep-date
+         (and verbose-p (format "%s --> %s" from-file to-file))
+         (list 'ange-ftp-copy-files-async verbose-p (cdr files))
+         t))
+    (message "%s: done" 'ange-ftp-copy-files-async)))
+
 
 ;;;; ------------------------------------------------------------
 ;;;; File renaming support.
@@ -3803,29 +3926,27 @@ Value is (0 0) if the modification time cannot be determined."
 ;;;; File name completion support.
 ;;;; ------------------------------------------------------------
 
-;; If the file entry SYM is a symlink, returns whether its file exists.
-;; Note that `ange-ftp-this-dir' is used as a free variable.
-(defun ange-ftp-file-entry-active-p (sym)
-  (let ((val (get sym 'val)))
-    (or (not (stringp val))
-	(file-exists-p (ange-ftp-expand-symlink val ange-ftp-this-dir)))))
-
 ;; If the file entry is not a directory (nor a symlink pointing to a directory)
 ;; returns whether the file (or file pointed to by the symlink) is ignored
 ;; by completion-ignored-extensions.
 ;; Note that `ange-ftp-this-dir' and `ange-ftp-completion-ignored-pattern'
 ;; are used as free variables.
-(defun ange-ftp-file-entry-not-ignored-p (sym)
-  (let ((val (get sym 'val))
-	(symname (symbol-name sym)))
-    (if (stringp val)
-	(let ((file (ange-ftp-expand-symlink val ange-ftp-this-dir)))
-	  (or (file-directory-p file)
-	      (and (file-exists-p file)
-		   (not (string-match ange-ftp-completion-ignored-pattern
-				      symname)))))
-      (or val ; is a directory name
-	  (not (string-match ange-ftp-completion-ignored-pattern symname))))))
+(defun ange-ftp-file-entry-not-ignored-p (symname val)
+  (if (stringp val)
+      (let ((file (ange-ftp-expand-symlink val ange-ftp-this-dir)))
+	(or (file-directory-p file)
+	    (and (file-exists-p file)
+		 (not (string-match ange-ftp-completion-ignored-pattern
+				    symname)))))
+    (or val				; is a directory name
+	(not (string-match ange-ftp-completion-ignored-pattern symname)))))
+
+(defun ange-ftp-root-dir-p (dir)
+  ;; Maybe we should use something more like
+  ;; (equal dir (file-name-directory (directory-file-name dir)))  -stef
+  (or (and (eq system-type 'windows-nt)
+	   (string-match "\\`[a-zA-Z]:[/\\]\\'" dir))
+      (string-equal "/" dir)))
 
 (defun ange-ftp-file-name-all-completions (file dir)
   (let ((ange-ftp-this-dir (expand-file-name dir)))
@@ -3835,33 +3956,28 @@ Value is (0 0) if the modification time cannot be determined."
 	  (setq ange-ftp-this-dir
 		(ange-ftp-real-file-name-as-directory ange-ftp-this-dir))
 	  (let* ((tbl (ange-ftp-get-files ange-ftp-this-dir))
-		 (completions
-		  (all-completions file tbl
-				   (function ange-ftp-file-entry-active-p))))
+		 (completions (all-completions file tbl)))
 
 	    ;; see whether each matching file is a directory or not...
 	    (mapcar
              (lambda (file)
-               (let ((ent (ange-ftp-get-hash-entry file tbl)))
+               (let ((ent (gethash file tbl)))
                  (if (and ent
                           (or (not (stringp ent))
                               (file-directory-p
                                (ange-ftp-expand-symlink ent
                                                         ange-ftp-this-dir))))
                      (concat file "/")
-                    file)))
+		   file)))
 	     completions)))
 
-      (if (or (and (eq system-type 'windows-nt)
-		   (save-match-data
-		     (string-match "^[a-zA-Z]:[/\\]$" ange-ftp-this-dir)))
-	      (string-equal "/" ange-ftp-this-dir))
+      (if (ange-ftp-root-dir-p ange-ftp-this-dir)
 	  (nconc (all-completions file (ange-ftp-generate-root-prefixes))
 		 (ange-ftp-real-file-name-all-completions file
 							  ange-ftp-this-dir))
 	(ange-ftp-real-file-name-all-completions file ange-ftp-this-dir)))))
 
-(defun ange-ftp-file-name-completion (file dir)
+(defun ange-ftp-file-name-completion (file dir &optional predicate)
   (let ((ange-ftp-this-dir (expand-file-name dir)))
     (if (ange-ftp-ftp-name ange-ftp-this-dir)
 	(progn
@@ -3873,32 +3989,32 @@ Value is (0 0) if the modification time cannot be determined."
 	    (let* ((tbl (ange-ftp-get-files ange-ftp-this-dir))
 		   (ange-ftp-completion-ignored-pattern
 		    (mapconcat (lambda (s) (if (stringp s)
-                                               (concat (regexp-quote s) "$")
-					     "/")) ; / never in filename
+                                          (concat (regexp-quote s) "$")
+                                        "/")) ; / never in filename
 			       completion-ignored-extensions
 			       "\\|")))
 	      (save-match-data
 		(or (ange-ftp-file-name-completion-1
 		     file tbl ange-ftp-this-dir
-		     (function ange-ftp-file-entry-not-ignored-p))
+		     'ange-ftp-file-entry-not-ignored-p)
 		    (ange-ftp-file-name-completion-1
-		     file tbl ange-ftp-this-dir
-		     (function ange-ftp-file-entry-active-p)))))))
+		     file tbl ange-ftp-this-dir))))))
 
-      (if (or (and (eq system-type 'windows-nt)
-		   (save-match-data
-		     (string-match "^[a-zA-Z]:[/\\]$" ange-ftp-this-dir)))
-	      (string-equal "/" ange-ftp-this-dir))
+      (if (ange-ftp-root-dir-p ange-ftp-this-dir)
 	  (try-completion
 	   file
 	   (nconc (ange-ftp-generate-root-prefixes)
-		  (mapcar 'list
-			  (ange-ftp-real-file-name-all-completions
-			   file ange-ftp-this-dir))))
-	(ange-ftp-real-file-name-completion file ange-ftp-this-dir)))))
+		  (ange-ftp-real-file-name-all-completions
+		   file ange-ftp-this-dir))
+	   predicate)
+	(if predicate
+	    (ange-ftp-real-file-name-completion
+	     file ange-ftp-this-dir predicate)
+	  (ange-ftp-real-file-name-completion
+	   file ange-ftp-this-dir))))))
 
 
-(defun ange-ftp-file-name-completion-1 (file tbl dir predicate)
+(defun ange-ftp-file-name-completion-1 (file tbl dir &optional predicate)
   (let ((bestmatch (try-completion file tbl predicate)))
     (if bestmatch
 	(if (eq bestmatch t)
@@ -3917,8 +4033,9 @@ Value is (0 0) if the modification time cannot be determined."
 ;;(define-key minibuffer-local-completion-map "\C-r" 'ange-ftp-re-read-dir)
 ;;(define-key minibuffer-local-must-match-map "\C-r" 'ange-ftp-re-read-dir)
 
-;; The autoload cookie is to make sure the doc is always available.
-;;;###autoload (defalias 'ange-ftp-re-read-dir 'ange-ftp-reread-dir)
+;;;###autoload
+(defalias 'ange-ftp-re-read-dir 'ange-ftp-reread-dir)
+
 ;;;###autoload
 (defun ange-ftp-reread-dir (&optional dir)
   "Reread remote directory DIR to update the directory cache.
@@ -3933,7 +4050,7 @@ directory, so that Emacs will know its current contents."
   (if (ange-ftp-ftp-name dir)
       (progn
 	(setq ange-ftp-ls-cache-file nil)
-	(ange-ftp-del-hash-entry dir ange-ftp-files-hashtable)
+	(remhash dir ange-ftp-files-hashtable)
 	(ange-ftp-get-files dir t))))
 
 (defun ange-ftp-make-directory (dir &optional parents)
@@ -3990,11 +4107,11 @@ directory, so that Emacs will know its current contents."
 			       (nth 2 parsed))
 			    (ange-ftp-real-file-name-as-directory
 			     (nth 2 parsed)))))
-		  (abbr (ange-ftp-abbreviate-filename dir))
-		  (result (ange-ftp-send-cmd host user
-					     (list 'rmdir name)
-					     (format "Removing directory %s"
-						     abbr))))
+		   (abbr (ange-ftp-abbreviate-filename dir))
+		   (result (ange-ftp-send-cmd host user
+					      (list 'rmdir name)
+					      (format "Removing directory %s"
+						      abbr))))
 	      (or (car result)
 		  (ange-ftp-error host user
 				  (format "Could not remove directory %s: %s"
@@ -4014,6 +4131,9 @@ directory, so that Emacs will know its current contents."
 	  (ange-ftp-copy-file-internal fn1 tmp1 t nil
 				       (format "Getting %s" fn1))
 	  tmp1))))
+
+(defun ange-ftp-file-remote-p (file)
+  (ange-ftp-replace-name-component file ""))
 
 (defun ange-ftp-load (file &optional noerror nomessage nosuffix)
   (if (ange-ftp-ftp-name file)
@@ -4154,45 +4274,45 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;;###autoload
 (defun ange-ftp-hook-function (operation &rest args)
   (let ((fn (get operation 'ange-ftp)))
-    (if fn (apply fn args)
+    (if fn (save-match-data (apply fn args))
       (ange-ftp-run-real-handler operation args))))
 
+;; The following code is commented out because Tramp now deals with
+;; Ange-FTP filenames, too.
 
-;;; This regexp takes care of real ange-ftp file names (with a slash
-;;; and colon).
-;;; Don't allow the host name to end in a period--some systems use /.:
-;;;###autoload
-(or (assoc "^/[^/:]*[^/:.]:" file-name-handler-alist)
-    (setq file-name-handler-alist
-	  (cons '("^/[^/:]*[^/:.]:" . ange-ftp-hook-function)
-		file-name-handler-alist)))
-
-;;; This regexp recognizes absolute filenames with only one component,
-;;; for the sake of hostname completion.
-;;;###autoload
-(or (assoc "^/[^/:]*\\'" file-name-handler-alist)
-    (setq file-name-handler-alist
-	  (cons '("^/[^/:]*\\'" . ange-ftp-completion-hook-function)
-		file-name-handler-alist)))
-
-;;; This regexp recognizes absolute filenames with only one component
-;;; on Windows, for the sake of hostname completion.
-;;; NB. Do not mark this as autoload, because it is very common to
-;;; do completions in the root directory of drives on Windows.
-(and (memq system-type '(ms-dos windows-nt))
-     (or (assoc "^[a-zA-Z]:/[^/:]*\\'" file-name-handler-alist)
-	 (setq file-name-handler-alist
-	       (cons '("^[a-zA-Z]:/[^/:]*\\'" .
-		       ange-ftp-completion-hook-function)
-		     file-name-handler-alist))))
+;;-;;; This regexp takes care of real ange-ftp file names (with a slash
+;;-;;; and colon).
+;;-;;; Don't allow the host name to end in a period--some systems use /.:
+;;-;;;###autoload
+;;-(or (assoc "^/[^/:]*[^/:.]:" file-name-handler-alist)
+;;-    (setq file-name-handler-alist
+;;-	  (cons '("^/[^/:]*[^/:.]:" . ange-ftp-hook-function)
+;;-		file-name-handler-alist)))
+;;-
+;;-;;; This regexp recognizes absolute filenames with only one component,
+;;-;;; for the sake of hostname completion.
+;;-;;;###autoload
+;;-(or (assoc "^/[^/:]*\\'" file-name-handler-alist)
+;;-    (setq file-name-handler-alist
+;;-	  (cons '("^/[^/:]*\\'" . ange-ftp-completion-hook-function)
+;;-		file-name-handler-alist)))
+;;-
+;;-;;; This regexp recognizes absolute filenames with only one component
+;;-;;; on Windows, for the sake of hostname completion.
+;;-;;; NB. Do not mark this as autoload, because it is very common to
+;;-;;; do completions in the root directory of drives on Windows.
+;;-(and (memq system-type '(ms-dos windows-nt))
+;;-     (or (assoc "^[a-zA-Z]:/[^/:]*\\'" file-name-handler-alist)
+;;-	 (setq file-name-handler-alist
+;;-	       (cons '("^[a-zA-Z]:/[^/:]*\\'" .
+;;-		       ange-ftp-completion-hook-function)
+;;-		     file-name-handler-alist))))
 
 ;;; The above two forms are sufficient to cause this file to be loaded
 ;;; if the user ever uses a file name with a colon in it.
 
 ;;; This sets the mode
-(or (memq 'ange-ftp-set-buffer-mode find-file-hooks)
-    (setq find-file-hooks
-	  (cons 'ange-ftp-set-buffer-mode find-file-hooks)))
+(add-hook 'find-file-hook 'ange-ftp-set-buffer-mode)
 
 ;;; Now say where to find the handlers for particular operations.
 
@@ -4211,12 +4331,10 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 (put 'file-executable-p 'ange-ftp 'ange-ftp-file-executable-p)
 (put 'file-symlink-p 'ange-ftp 'ange-ftp-file-symlink-p)
 (put 'delete-file 'ange-ftp 'ange-ftp-delete-file)
-(put 'read-file-name-internal 'ange-ftp 'ange-ftp-read-file-name-internal)
 (put 'verify-visited-file-modtime 'ange-ftp
      'ange-ftp-verify-visited-file-modtime)
 (put 'file-exists-p 'ange-ftp 'ange-ftp-file-exists-p)
 (put 'write-region 'ange-ftp 'ange-ftp-write-region)
-(put 'backup-buffer 'ange-ftp 'ange-ftp-backup-buffer)
 (put 'copy-file 'ange-ftp 'ange-ftp-copy-file)
 (put 'rename-file 'ange-ftp 'ange-ftp-rename-file)
 (put 'file-attributes 'ange-ftp 'ange-ftp-file-attributes)
@@ -4225,6 +4343,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 (put 'file-name-completion 'ange-ftp 'ange-ftp-file-name-completion)
 (put 'insert-directory 'ange-ftp 'ange-ftp-insert-directory)
 (put 'file-local-copy 'ange-ftp 'ange-ftp-file-local-copy)
+(put 'file-remote-p 'ange-ftp 'ange-ftp-file-remote-p)
 (put 'unhandled-file-name-directory 'ange-ftp
      'ange-ftp-unhandled-file-name-directory)
 (put 'file-name-sans-versions 'ange-ftp 'ange-ftp-file-name-sans-versions)
@@ -4286,8 +4405,6 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
   (ange-ftp-run-real-handler 'file-symlink-p args))
 (defun ange-ftp-real-delete-file (&rest args)
   (ange-ftp-run-real-handler 'delete-file args))
-(defun ange-ftp-real-read-file-name-internal (&rest args)
-  (ange-ftp-run-real-handler 'read-file-name-internal args))
 (defun ange-ftp-real-verify-visited-file-modtime (&rest args)
   (ange-ftp-run-real-handler 'verify-visited-file-modtime args))
 (defun ange-ftp-real-file-exists-p (&rest args)
@@ -4331,24 +4448,42 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;; I have preserved (and modernized) those hooks.
 ;; So the format conversion should be all that is needed.
 
+;; When called from dired, SWITCHES may start with "--dired".
+;; `ange-ftp-ls' handles this.
+
 (defun ange-ftp-insert-directory (file switches &optional wildcard full)
-  (save-match-data
-    (let ((short (ange-ftp-abbreviate-filename file))
-	  (parsed (ange-ftp-ftp-name (expand-file-name file)))
-	  tem)
-      (if parsed
-	  (if (and (not wildcard)
-		   (setq tem (file-symlink-p (directory-file-name file))))
-	      (ange-ftp-insert-directory
-	       (ange-ftp-replace-name-component file tem)
-	       switches wildcard full)
-	    (insert
-	     (if wildcard
-		 (let ((default-directory (file-name-directory file)))
-		   (ange-ftp-ls (file-name-nondirectory file)
-				switches nil nil t))
-	       (ange-ftp-ls file switches full))))
-	       (ange-ftp-real-insert-directory file switches wildcard full)))))
+  (if (not (ange-ftp-ftp-name (expand-file-name file)))
+      (ange-ftp-real-insert-directory file switches wildcard full)
+    ;; We used to follow symlinks on `file' here.  Apparently it was done
+    ;; because some FTP servers react to "ls foo" by listing the symlink foo
+    ;; rather than the directory it points to.  Now that ange-ftp-ls uses
+    ;; "cd foo; ls" instead, this is not necesssary any more.
+    (insert
+     (cond
+      (wildcard
+       (let ((default-directory (file-name-directory file)))
+         (ange-ftp-ls (file-name-nondirectory file) switches nil nil t)))
+      (full
+       (ange-ftp-ls file switches 'parse))
+      (t
+       ;; If `full' is nil we're going to do `ls' for a single file.
+       ;; Problem is that for various reasons, ange-ftp-ls needs to cd and
+       ;; then do an ls of current dir, which obviously won't work if we
+       ;; want to ls a file.  So instead, we get a full listing of the
+       ;; parent directory and extract the line corresponding to `file'.
+       (when (string-match "d\\'" switches)
+         ;; Remove "d" which dired added to `switches'.
+         (setq switches (substring switches 0 (match-beginning 0))))
+       (let* ((dirlist (ange-ftp-ls (or (file-name-directory file) ".")
+                                    switches nil))
+              (filename (file-name-nondirectory (directory-file-name file)))
+              (case-fold-search nil))
+         ;; FIXME: This presumes a particular output format, which is
+         ;; basically Unix.
+         (if (string-match (concat "^.+[^ ] " (regexp-quote filename)
+                                   "\\( -> .*\\)?[@/*=]?\n") dirlist)
+             (match-string 0 dirlist)
+           "")))))))
 
 (defun ange-ftp-dired-uncache (dir)
   (if (ange-ftp-ftp-name (expand-file-name dir))
@@ -4360,11 +4495,8 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 (defun ange-ftp-file-name-sans-versions (file keep-backup-version)
   (let* ((short (ange-ftp-abbreviate-filename file))
 	 (parsed (ange-ftp-ftp-name short))
-	 host-type func)
-    (if parsed
-	(setq host-type (ange-ftp-host-type (car parsed))
-	      func (cdr (assq (ange-ftp-host-type (car parsed))
-			      ange-ftp-sans-version-alist))))
+	 (func (if parsed (cdr (assq (ange-ftp-host-type (car parsed))
+                                     ange-ftp-sans-version-alist)))))
     (if func (funcall func file keep-backup-version)
       (ange-ftp-real-file-name-sans-versions file keep-backup-version))))
 
@@ -4378,10 +4510,9 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 	(ange-ftp-real-shell-command command output-buffer error-buffer)
       (if (> (length name) 0)		; else it's $HOME
 	  (setq command (concat "cd " name "; " command)))
-      ;; Remove port from the hostname.
-      (save-match-data
-	(when (string-match "\\(.*\\)#" host)
-	  (setq host (match-string 1 host))))
+      ;; Remove port from the hostname
+      (when (string-match "\\(.*\\)#" host)
+	(setq host (match-string 1 host)))
       (setq command
 	    (format  "%s %s \"%s\""	; remsh -l USER does not work well
 					; on a hp-ux machine I tried
@@ -4406,17 +4537,14 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 		;; ((equal dired-chown-program program))
 		(t (error "Unknown remote command: %s" program)))
 	(ftp-error (insert (format "%s: %s, %s\n"
-				    (nth 1 oops)
-				    (nth 2 oops)
-				    (nth 3 oops)))
+				   (nth 1 oops)
+				   (nth 2 oops)
+				   (nth 3 oops)))
 		   ;; Caller expects nonzero value to mean failure.
 		   1)
 	(error (insert (format "%s\n" (nth 1 oops)))
 	       1))
     (apply 'call-process program nil (not discard) nil arguments)))
-
-(defvar ange-ftp-remote-shell "rsh"
-  "Remote shell to use for chmod, if FTP server rejects the `chmod' command.")
 
 ;; Handle an attempt to run chmod on a remote file
 ;; by using the ftp chmod command.
@@ -4442,15 +4570,15 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
                                                        abbr))))
                (or (car result)
                    (call-process
-                    ange-ftp-remote-shell
+                    remote-shell-program
                     nil t nil host dired-chmod-program mode name))))))
      rest))
   (setq ange-ftp-ls-cache-file nil)	;Stop confusing Dired.
   0)
 
-;;; This is turned off because it has nothing properly to do
-;;; with dired.  It could be reasonable to adapt this to
-;;; replace ange-ftp-copy-file.
+;; This is turned off because it has nothing properly to do
+;; with dired.  It could be reasonable to adapt this to
+;; replace ange-ftp-copy-file.
 
 ;;;;; ------------------------------------------------------------
 ;;;;; Noddy support for async copy-file within dired.
@@ -4512,10 +4640,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;		       target marker-char buffer overwrite-query
 ;;		       overwrite-backup-query failures skipped
 ;;		       success-count total)
-;;  (let ((old-buf (current-buffer)))
-;;    (unwind-protect
-;;	(progn
-;;	  (set-buffer buffer)
+;;  (with-current-buffer buffer
 ;;	  (if (null fn-list)
 ;;	      (ange-ftp-dcf-3 failures operation total skipped
 ;;			      success-count buffer)
@@ -4559,7 +4684,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;			       (t nil))))
 ;;		  (condition-case err
 ;;		      (funcall file-creator from to overwrite-confirmed
-;;			       (list (function ange-ftp-dcf-2)
+;;			       (list 'ange-ftp-dcf-2
 ;;				     nil	;err
 ;;				     file-creator operation fn-list
 ;;				     name-constructor
@@ -4587,8 +4712,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;				     overwrite-query
 ;;				     overwrite-backup-query
 ;;				     failures skipped success-count
-;;				     total))))))))
-;;      (set-buffer old-buf))))
+;;				     total)))))))))
 
 ;;(defun ange-ftp-dcf-2 (result line err
 ;;			      file-creator operation fn-list
@@ -4602,10 +4726,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;			      overwrite-backup-query
 ;;			      failures skipped success-count
 ;;			      total)
-;;  (let ((old-buf (current-buffer)))
-;;    (unwind-protect
-;;	(progn
-;;	  (set-buffer buffer)
+;;  (with-current-buffer buffer
 ;;	  (if (or err (not result))
 ;;	      (progn
 ;;		(setq failures (cons (dired-make-relative from) failures))
@@ -4628,15 +4749,11 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;			  overwrite-query
 ;;			  overwrite-backup-query
 ;;			  failures skipped success-count
-;;			  total))
-;;      (set-buffer old-buf))))
+;;			  total)))
 
 ;;(defun ange-ftp-dcf-3 (failures operation total skipped success-count
 ;;				buffer)
-;;  (let ((old-buf (current-buffer)))
-;;    (unwind-protect
-;;	(progn
-;;	  (set-buffer buffer)
+;;  (with-current-buffer buffer
 ;;	  (cond
 ;;	   (failures
 ;;	    (dired-log-summary
@@ -4651,8 +4768,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;;	   (t
 ;;	    (message "%s: %s file%s."
 ;;		     operation success-count (dired-plural-s success-count))))
-;;	  (dired-move-to-filename))
-;;      (set-buffer old-buf))))
+;;	  (dired-move-to-filename)))
 
 ;;;; -----------------------------------------------
 ;;;; Unix Descriptive Listing (dl) Support
@@ -4783,10 +4899,10 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 ;					   (progn
 ;					     (end-of-line 1)
 ;					     (point))))
-;	      (ange-ftp-put-hash-entry file type-is-dir tbl)
+;	      (puthash file type-is-dir tbl)
 ;	      (forward-line 1))))
-;      (ange-ftp-put-hash-entry "." 'vosdir tbl)
-;      (ange-ftp-put-hash-entry ".." 'vosdir tbl))
+;      (puthash "." 'vosdir tbl)
+;      (puthash ".." 'vosdir tbl))
 ;    tbl))
 ;
 ;(or (assq 'vos ange-ftp-parse-list-func-alist)
@@ -4803,18 +4919,11 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 (defun ange-ftp-fix-name-for-vms (name &optional reverse)
   (save-match-data
     (if reverse
-	(if (string-match "^\\([^:]+:\\)?\\(\\[.*\\]\\)?\\([^][]*\\)$" name)
+	(if (string-match "\\`\\([^:]+:\\)?\\(\\[.*\\]\\)?\\([^][]*\\)\\'" name)
 	    (let (drive dir file)
-	      (if (match-beginning 1)
-		  (setq drive (substring name
-					 (match-beginning 1)
-					 (match-end 1))))
-	      (if (match-beginning 2)
-		  (setq dir
-			(substring name (match-beginning 2) (match-end 2))))
-	      (if (match-beginning 3)
-		  (setq file
-			(substring name (match-beginning 3) (match-end 3))))
+	      (setq drive (match-string 1 name))
+	      (setq dir (match-string 2 name))
+	      (setq file (match-string 3 name))
 	      (and dir
 		   (setq dir (subst-char-in-string
                               ?/ ?. (substring dir 1 -1) t)))
@@ -4824,7 +4933,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
 		      file))
 	  (error "name %s didn't match" name))
       (let (drive dir file tmp)
-	(if (string-match "^/[^:]+:/" name)
+	(if (string-match "\\`/[^:]+:/" name)
 	    (setq drive (substring name 1
 				   (1- (match-end 0)))
 		  name (substring name (match-end 0))))
@@ -4862,7 +4971,7 @@ NEWNAME should be the name to give the new compressed or uncompressed file.")
   ;; them.
   (cond ((string-equal dir-name "/")
 	 (error "Cannot get listing for fictitious \"/\" directory"))
-	((string-match "^/[-A-Z0-9_$]+:/$" dir-name)
+	((string-match "\\`/[-A-Z0-9_$]+:/\\'" dir-name)
 	 (error "Cannot get listing for device"))
 	((ange-ftp-fix-name-for-vms dir-name))))
 
@@ -4900,40 +5009,36 @@ Other orders of $ and _ seem to all work just fine.")
 ;; Extract the next filename from a VMS dired-like listing.
 (defun ange-ftp-parse-vms-filename ()
   (if (re-search-forward
-	 ange-ftp-vms-filename-regexp
-	 nil t)
-	(buffer-substring (match-beginning 0) (match-end 0))))
+       ange-ftp-vms-filename-regexp
+       nil t)
+      (match-string 0)))
 
 ;; Parse the current buffer which is assumed to be in MultiNet FTP dir
 ;; format, and return a hashtable as the result.
 (defun ange-ftp-parse-vms-listing ()
-  (let ((tbl (ange-ftp-make-hashtable))
+  (let ((tbl (make-hash-table :test 'equal))
 	file)
     (goto-char (point-min))
     (save-match-data
       (while (setq file (ange-ftp-parse-vms-filename))
 	(if (string-match "\\.\\(DIR\\|dir\\);[0-9]+" file)
 	    ;; deal with directories
-	    (ange-ftp-put-hash-entry
-	     (substring file 0 (match-beginning 0)) t tbl)
-	  (ange-ftp-put-hash-entry file nil tbl)
-	  (if (string-match ";[0-9]+$" file) ; deal with extension
+	    (puthash (substring file 0 (match-beginning 0)) t tbl)
+	  (puthash file nil tbl)
+	  (if (string-match ";[0-9]+\\'" file) ; deal with extension
 	      ;; sans extension
-	      (ange-ftp-put-hash-entry
-	       (substring file 0 (match-beginning 0)) nil tbl)))
+	      (puthash (substring file 0 (match-beginning 0)) nil tbl)))
 	(forward-line 1))
       ;; Would like to look for a "Total" line, or a "Directory" line to
       ;; make sure that the listing isn't complete garbage before putting
       ;; in "." and "..", but we can't even count on all VAX's giving us
       ;; either of these.
-	   (ange-ftp-put-hash-entry "." t tbl)
-	   (ange-ftp-put-hash-entry ".." t tbl))
+      (puthash "." t tbl)
+      (puthash ".." t tbl))
     tbl))
 
-(or (assq 'vms ange-ftp-parse-list-func-alist)
-    (setq ange-ftp-parse-list-func-alist
-	  (cons '(vms . ange-ftp-parse-vms-listing)
-		ange-ftp-parse-list-func-alist)))
+(add-to-list 'ange-ftp-parse-list-func-alist
+	     '(vms . ange-ftp-parse-vms-listing))
 
 ;; This version only deletes file entries which have
 ;; explicit version numbers, because that is all VMS allows.
@@ -4946,13 +5051,12 @@ Other orders of $ and _ seem to all work just fine.")
       (ange-ftp-internal-delete-file-entry name t)
     (save-match-data
       (let ((file (ange-ftp-get-file-part name)))
-	(if (string-match ";[0-9]+$" file)
+	(if (string-match ";[0-9]+\\'" file)
 	    ;; In VMS you can't delete a file without an explicit
 	    ;; version number, or wild-card (e.g. FOO;*)
 	    ;; For now, we give up on wildcards.
-	    (let ((files (ange-ftp-get-hash-entry
-			  (file-name-directory name)
-			  ange-ftp-files-hashtable)))
+	    (let ((files (gethash (file-name-directory name)
+				  ange-ftp-files-hashtable)))
 	      (if files
 		  (let* ((root (substring file 0
 					  (match-beginning 0)))
@@ -4960,17 +5064,17 @@ Other orders of $ and _ seem to all work just fine.")
 					 (regexp-quote root)
 					 ";[0-9]+$"))
 			 versions)
-		    (ange-ftp-del-hash-entry file files)
+		    (remhash file files)
 		    ;; Now we need to check if there are any
 		    ;; versions left. If not, then delete the
 		    ;; root entry.
-		    (mapatoms
-		     (lambda (sym)
-		       (and (string-match regexp (get sym 'key))
+		    (maphash
+		     (lambda (key val)
+		       (and (string-match regexp key)
 			    (setq versions t)))
 		     files)
 		    (or versions
-			(ange-ftp-del-hash-entry root files))))))))))
+			(remhash root files))))))))))
 
 (or (assq 'vms ange-ftp-delete-file-entry-alist)
     (setq ange-ftp-delete-file-entry-alist
@@ -4980,38 +5084,31 @@ Other orders of $ and _ seem to all work just fine.")
 (defun ange-ftp-vms-add-file-entry (name &optional dir-p)
   (if dir-p
       (ange-ftp-internal-add-file-entry name t)
-    (let ((files (ange-ftp-get-hash-entry
-		  (file-name-directory name)
-		  ange-ftp-files-hashtable)))
+    (let ((files (gethash (file-name-directory name)
+			  ange-ftp-files-hashtable)))
       (if files
 	  (let ((file (ange-ftp-get-file-part name)))
 	    (save-match-data
-	      (if (string-match ";[0-9]+$" file)
-		  (ange-ftp-put-hash-entry
-		   (substring file 0 (match-beginning 0))
-		   nil files)
+	      (if (string-match ";[0-9]+\\'" file)
+		  (puthash (substring file 0 (match-beginning 0)) nil files)
 		;; Need to figure out what version of the file
 		;; is being added.
 		(let ((regexp (concat "^"
 				      (regexp-quote file)
 				      ";\\([0-9]+\\)$"))
 		      (version 0))
-		  (mapatoms
-		   (lambda (sym)
-		     (let ((name (get sym 'key)))
-		       (and (string-match regexp name)
-			    (setq version
-				  (max version
-				       (string-to-int
-					(substring name
-						   (match-beginning 1)
-						   (match-end 1))))))))
+		  (maphash
+		   (lambda (name val)
+		     (and (string-match regexp name)
+			  (setq version
+				(max version
+				     (string-to-number (match-string 1 name))))))
 		   files)
 		  (setq version (1+ version))
-		  (ange-ftp-put-hash-entry
+		  (puthash
 		   (concat file ";" (int-to-string version))
 		   nil files))))
-	    (ange-ftp-put-hash-entry file nil files))))))
+	    (puthash file nil files))))))
 
 (or (assq 'vms ange-ftp-add-file-entry-alist)
     (setq ange-ftp-add-file-entry-alist
@@ -5035,7 +5132,7 @@ Other orders of $ and _ seem to all work just fine.")
 
 (defun ange-ftp-vms-file-name-as-directory (name)
   (save-match-data
-    (if (string-match "\\.\\(DIR\\|dir\\)\\(;[0-9]+\\)?$" name)
+    (if (string-match "\\.\\(DIR\\|dir\\)\\(;[0-9]+\\)?\\'" name)
 	(setq name (substring name 0 (match-beginning 0))))
     (ange-ftp-real-file-name-as-directory name)))
 
@@ -5156,15 +5253,15 @@ Other orders of $ and _ seem to all work just fine.")
 
 (defun ange-ftp-vms-make-compressed-filename (name &optional reverse)
   (cond
-   ((string-match "-Z;[0-9]+$" name)
+   ((string-match "-Z;[0-9]+\\'" name)
     (list nil (substring name 0 (match-beginning 0))))
-   ((string-match ";[0-9]+$" name)
+   ((string-match ";[0-9]+\\'" name)
     (list nil (substring name 0 (match-beginning 0))))
-   ((string-match "-Z$" name)
+   ((string-match "-Z\\'" name)
     (list nil (substring name 0 -2)))
    (t
     (list t
-	  (if (string-match ";[0-9]+$" name)
+	  (if (string-match ";[0-9]+\\'" name)
 	      (concat (substring name 0 (match-beginning 0))
 		      "-Z")
 	    (concat name "-Z"))))))
@@ -5197,7 +5294,7 @@ Other orders of $ and _ seem to all work just fine.")
 
 (defun ange-ftp-vms-sans-version (name &rest args)
   (save-match-data
-    (if (string-match ";[0-9]+$" name)
+    (if (string-match ";[0-9]+\\'" name)
 	(substring name 0 (match-beginning 0))
       name)))
 
@@ -5236,8 +5333,7 @@ Other orders of $ and _ seem to all work just fine.")
 ;;    ;; If the file has numeric backup versions,
 ;;    ;; put on ange-ftp-file-version-alist an element of the form
 ;;    ;; (FILENAME . VERSION-NUMBER-LIST)
-;;    (dired-map-dired-file-lines (function
-;;				 ange-ftp-dired-vms-collect-file-versions))
+;;    (dired-map-dired-file-lines 'ange-ftp-dired-vms-collect-file-versions)
 ;;    ;; Sort each VERSION-NUMBER-LIST,
 ;;    ;; and remove the versions not to be deleted.
 ;;    (let ((fval ange-ftp-file-version-alist))
@@ -5254,8 +5350,7 @@ Other orders of $ and _ seem to all work just fine.")
 ;;    ;; Look at each file.  If it is a numeric backup file,
 ;;    ;; find it in a VERSION-NUMBER-LIST and maybe flag it for deletion.
 ;;    (dired-map-dired-file-lines
-;;     (function
-;;      ange-ftp-dired-vms-trample-file-versions mark))
+;;     'ange-ftp-dired-vms-trample-file-versions mark)
 ;;    (message (concat action " numerical backups...done"))))
 
 ;;(or (assq 'vms ange-ftp-dired-clean-directory-alist)
@@ -5355,19 +5450,15 @@ Other orders of $ and _ seem to all work just fine.")
 (defun ange-ftp-fix-name-for-mts (name &optional reverse)
   (save-match-data
     (if reverse
-	(if (string-match "^\\([^:]+:\\)?\\(.*\\)$" name)
+	(if (string-match "\\`\\([^:]+:\\)?\\(.*\\)\\'" name)
 	    (let (acct file)
-	      (if (match-beginning 1)
-		  (setq acct (substring name 0 (match-end 1))))
-	      (if (match-beginning 2)
-		  (setq file (substring name
-					(match-beginning 2) (match-end 2))))
+	      (setq acct (match-string 1 name))
+	      (setq file (match-string 2 name))
 	      (concat (and acct (concat "/" acct "/"))
 		      file))
 	  (error "name %s didn't match" name))
-      (if (string-match "^/\\([^:]+:\\)/\\(.*\\)$" name)
-	  (concat (substring name 1 (match-end 1))
-		  (substring name (match-beginning 2) (match-end 2)))
+      (if (string-match "\\`/\\([^:]+:\\)/\\(.*\\)\\'" name)
+	  (concat (match-string 1 name) (match-string 2 name))
 	;; Let's hope that mts will recognize it anyway.
 	name))))
 
@@ -5385,7 +5476,7 @@ Other orders of $ and _ seem to all work just fine.")
       (cond
        ((string-equal dir-name "")
 	"?")
-       ((string-match ":$" dir-name)
+       ((string-match ":\\'" dir-name)
 	(concat dir-name "?"))
        (dir-name))))) ; It's just a single file.
 
@@ -5408,24 +5499,22 @@ Other orders of $ and _ seem to all work just fine.")
 
 ;; Parse the current buffer which is assumed to be in mts ftp dir format.
 (defun ange-ftp-parse-mts-listing ()
-  (let ((tbl (ange-ftp-make-hashtable)))
+  (let ((tbl (make-hash-table :test 'equal)))
     (goto-char (point-min))
     (save-match-data
-      (while (re-search-forward ange-ftp-date-regexp nil t)
+      (while (re-search-forward directory-listing-before-filename-regexp nil t)
 	(end-of-line)
 	(skip-chars-backward " ")
 	(let ((end (point)))
 	  (skip-chars-backward "-A-Z0-9_.!")
-	  (ange-ftp-put-hash-entry (buffer-substring (point) end) nil tbl))
+	  (puthash (buffer-substring (point) end) nil tbl))
 	(forward-line 1)))
-      ;; Don't need to bother with ..
-    (ange-ftp-put-hash-entry "." t tbl)
+    ;; Don't need to bother with ..
+    (puthash "." t tbl)
     tbl))
 
-(or (assq 'mts ange-ftp-parse-list-func-alist)
-    (setq ange-ftp-parse-list-func-alist
-	  (cons '(mts . ange-ftp-parse-mts-listing)
-		ange-ftp-parse-list-func-alist)))
+(add-to-list 'ange-ftp-parse-list-func-alist
+	     '(mts . ange-ftp-parse-mts-listing))
 
 (defun ange-ftp-add-mts-host (host)
   "Mark HOST as the name of a machine running MTS."
@@ -5524,12 +5613,11 @@ Other orders of $ and _ seem to all work just fine.")
 	;; stores directories without the trailing /. Is this
 	;; consistent?
 	(concat "/" name)
-      (if (string-match "^/\\([-A-Z0-9$*._]+\\)/\\([-A-Z0-9$._]+\\)?$"
+      (if (string-match "\\`/\\([-A-Z0-9$*._]+\\)/\\([-A-Z0-9$._]+\\)?\\'"
 			name)
-	  (let ((minidisk (substring name 1 (match-end 1))))
+	  (let ((minidisk (match-string 1 name)))
 	    (if (match-beginning 2)
-		(let ((file (substring name (match-beginning 2)
-				       (match-end 2)))
+		(let ((file (match-string 2 name))
 		      (cmd (concat "cd " minidisk))
 
 		      ;; Note that host and user are bound in the call
@@ -5570,15 +5658,14 @@ Other orders of $ and _ seem to all work just fine.")
   (cond
    ((string-equal "/" dir-name)
     (error "Cannot get listing for fictitious \"/\" directory"))
-   ((string-match "^/\\([-A-Z0-9$*._]+\\)/\\([-A-Z0-9$._]+\\)?$" dir-name)
-    (let* ((minidisk (substring dir-name (match-beginning 1) (match-end 1)))
+   ((string-match "\\`/\\([-A-Z0-9$*._]+\\)/\\([-A-Z0-9$._]+\\)?\\'" dir-name)
+    (let* ((minidisk (match-string 1 dir-name))
 	   ;; host and user are bound in the call to ange-ftp-send-cmd
 	   (proc (ange-ftp-get-process ange-ftp-this-host ange-ftp-this-user))
 	   (cmd (concat "cd " minidisk))
 	   (file (if (match-beginning 2)
 		     ;; it's a single file
-		     (substring dir-name (match-beginning 2)
-				(match-end 2))
+		     (match-string 2 dir-name)
 		   ;; use the wild-card
 		   "*")))
       (if (car (ange-ftp-raw-send-cmd proc cmd))
@@ -5635,33 +5722,25 @@ Other orders of $ and _ seem to all work just fine.")
 ;	 (minidisk (ange-ftp-get-file-part dir-file))
 ;	 (root-tbl (ange-ftp-get-hash-entry root ange-ftp-files-hashtable)))
 ;    (if root-tbl
-;	(ange-ftp-put-hash-entry minidisk t root-tbl)
+;	(puthash minidisk t root-tbl)
 ;      (setq root-tbl (ange-ftp-make-hashtable))
-;      (ange-ftp-put-hash-entry minidisk t root-tbl)
-;      (ange-ftp-put-hash-entry "." t root-tbl)
+;      (puthash minidisk t root-tbl)
+;      (puthash "." t root-tbl)
 ;      (ange-ftp-set-files root root-tbl)))
   ;; Now do the usual parsing
-  (let ((tbl (ange-ftp-make-hashtable)))
+  (let ((tbl (make-hash-table :test 'equal)))
     (goto-char (point-min))
     (save-match-data
       (while
 	  (re-search-forward
 	   "^\\([-A-Z0-9$_]+\\) +\\([-A-Z0-9$_]+\\) +[VF] +[0-9]+ " nil t)
-	(ange-ftp-put-hash-entry
-	 (concat (buffer-substring (match-beginning 1)
-				   (match-end 1))
-		 "."
-		 (buffer-substring (match-beginning 2)
-				   (match-end 2)))
-	 nil tbl)
+	(puthash (concat (match-string 1) "." (match-string 2)) nil tbl)
 	(forward-line 1))
-      (ange-ftp-put-hash-entry "." t tbl))
+      (puthash "." t tbl))
     tbl))
 
-(or (assq 'cms ange-ftp-parse-list-func-alist)
-    (setq ange-ftp-parse-list-func-alist
-	  (cons '(cms . ange-ftp-parse-cms-listing)
-		ange-ftp-parse-list-func-alist)))
+(add-to-list 'ange-ftp-parse-list-func-alist
+	     '(cms . ange-ftp-parse-cms-listing))
 
 ;;;;; Tree dired support:
 
@@ -5737,7 +5816,7 @@ Other orders of $ and _ seem to all work just fine.")
 ;;		ange-ftp-dired-move-to-end-of-filename-alist)))
 
 (defun ange-ftp-cms-make-compressed-filename (name &optional reverse)
-  (if (string-match "-Z$" name)
+  (if (string-match "-Z\\'" name)
       (list nil (substring name 0 -2))
     (list t (concat name "-Z"))))
 
@@ -5761,9 +5840,232 @@ Other orders of $ and _ seem to all work just fine.")
 ;;		ange-ftp-dired-get-filename-alist)))
 
 ;;;; ------------------------------------------------------------
+;;;; BS2000 support
+;;;; ------------------------------------------------------------
+
+;; There seems to be an error with regexps. '-' has to be the first
+;; character inside of the square brackets.
+(defconst ange-ftp-bs2000-short-filename-regexp
+  "[-A-Z0-9$#@.]*[A-Z][-A-Z0-9$#@.]*"
+  "Regular expression to match for a valid short BS2000 file name.")
+
+(defconst ange-ftp-bs2000-fix-name-regexp-reverse
+  (concat
+   "^\\(" ange-ftp-bs2000-filename-pubset-regexp "\\)?"
+   "\\(" ange-ftp-bs2000-filename-username-regexp "\\)?"
+   "\\(" ange-ftp-bs2000-short-filename-regexp "\\)?")
+  "Regular expression used in ange-ftp-fix-name-for-bs2000.")
+
+(defconst ange-ftp-bs2000-fix-name-regexp
+  (concat
+   "/?\\(" ange-ftp-bs2000-filename-pubset-regexp "/\\)?"
+   "\\(\\$[A-Z0-9]*/\\)?"
+   "\\(" ange-ftp-bs2000-short-filename-regexp "\\)?")
+  "Regular expression used in ange-ftp-fix-name-for-bs2000.")
+
+(defcustom ange-ftp-bs2000-special-prefix
+  "X"
+  "*Prefix used for filenames starting with '#' or '@'."
+  :group 'ange-ftp
+  :type 'string)
+
+;; Convert NAME from UNIX-ish to BS2000. If REVERSE given then convert from
+;; BS2000 to UNIX-ish.
+(defun ange-ftp-fix-name-for-bs2000 (name &optional reverse)
+  (save-match-data
+    (if reverse
+	(if (string-match
+	     ange-ftp-bs2000-fix-name-regexp-reverse
+	     name)
+	    (let ((pubset (if (match-beginning 1)
+			      (substring name 0 (match-end 1))))
+		  (userid (if (match-beginning 2)
+			      (substring name
+					 (match-beginning 2)
+					 (1- (match-end 2)))))
+		  (filename (if (match-beginning 3)
+				(substring name (match-beginning 3)))))
+	      (concat
+	       "/"
+	       ;; we have to insert "_/" here to prevent expand-file-name to
+	       ;; interpret BS2000 pubsets as the special escape prefix:
+	       (and pubset (concat "_/" pubset "/"))
+	       (and userid (concat userid "/"))
+	       filename))
+	  (error "name %s didn't match" name))
+      ;; and here we (maybe) have to remove the inserted "_/" 'cause
+      ;; of our prevention of the special escape prefix above:
+      (if (string-match (concat "^/_/") name)
+	  (setq name (substring name 2)))
+      (if (string-match
+	   ange-ftp-bs2000-fix-name-regexp
+	   name)
+	  (let ((pubset (if (match-beginning 1)
+			    (substring name
+				       (match-beginning 1)
+				       (1- (match-end 1)))))
+		(userid (if (match-beginning 2)
+			    (substring name
+				       (match-beginning 2)
+				       (1- (match-end 2)))))
+		(filename (if (match-beginning 3)
+			      (substring name (match-beginning 3)))))
+	    (if (and (boundp 'filename)
+		     (stringp filename)
+		     (string-match "[#@].+" filename))
+		(setq filename (concat ange-ftp-bs2000-special-prefix
+				       (substring filename 1))))
+	    (upcase
+	     (concat
+	      pubset
+	      (and userid (concat userid "."))
+	      ;; change every '/' in filename to a '.', normally not neccessary
+	      (and filename
+		   (subst-char-in-string ?/ ?. filename)))))
+	;; Let's hope that BS2000 recognize this anyway:
+	name))))
+
+(or (assq 'bs2000 ange-ftp-fix-name-func-alist)
+    (setq ange-ftp-fix-name-func-alist
+	  (cons '(bs2000 . ange-ftp-fix-name-for-bs2000)
+		ange-ftp-fix-name-func-alist)))
+
+;; Convert name from UNIX-ish to BS2000 ready for a DIRectory listing.
+;; Remember that there are no directories in BS2000.
+(defun ange-ftp-fix-dir-name-for-bs2000 (dir-name)
+  (if (string-equal dir-name "/")
+      "*" ;; Don't use an empty string here!
+    (ange-ftp-fix-name-for-bs2000 dir-name)))
+
+(or (assq 'bs2000 ange-ftp-fix-dir-name-func-alist)
+    (setq ange-ftp-fix-dir-name-func-alist
+	  (cons '(bs2000 . ange-ftp-fix-dir-name-for-bs2000)
+		ange-ftp-fix-dir-name-func-alist)))
+
+(or (memq 'bs2000 ange-ftp-dumb-host-types)
+    (setq ange-ftp-dumb-host-types
+	  (cons 'bs2000 ange-ftp-dumb-host-types)))
+
+(defvar ange-ftp-bs2000-host-regexp nil)
+(defvar ange-ftp-bs2000-posix-host-regexp nil)
+
+;; Return non-nil if HOST is running BS2000.
+(defun ange-ftp-bs2000-host (host)
+  (and ange-ftp-bs2000-host-regexp
+       (save-match-data
+	 (string-match ange-ftp-bs2000-host-regexp host))))
+;; Return non-nil if HOST is running BS2000 with POSIX subsystem.
+(defun ange-ftp-bs2000-posix-host (host)
+  (and ange-ftp-bs2000-posix-host-regexp
+       (save-match-data
+	 (string-match ange-ftp-bs2000-posix-host-regexp host))))
+
+(defun ange-ftp-add-bs2000-host (host)
+  "Mark HOST as the name of a machine running BS2000."
+  (interactive
+   (list (read-string "Host: "
+		      (let ((name (or (buffer-file-name) default-directory)))
+			(and name (car (ange-ftp-ftp-name name)))))))
+  (if (not (ange-ftp-bs2000-host host))
+      (setq ange-ftp-bs2000-host-regexp
+	    (concat "^" (regexp-quote host) "$"
+		    (and ange-ftp-bs2000-host-regexp "\\|")
+		    ange-ftp-bs2000-host-regexp)
+	    ange-ftp-host-cache nil)))
+
+(defun ange-ftp-add-bs2000-posix-host (host)
+  "Mark HOST as the name of a machine running BS2000 with POSIX subsystem."
+  (interactive
+   (list (read-string "Host: "
+		      (let ((name (or (buffer-file-name) default-directory)))
+			(and name (car (ange-ftp-ftp-name name)))))))
+  (if (not (ange-ftp-bs2000-posix-host host))
+      (setq ange-ftp-bs2000-posix-host-regexp
+	    (concat "^" (regexp-quote host) "$"
+		    (and ange-ftp-bs2000-posix-host-regexp "\\|")
+		    ange-ftp-bs2000-posix-host-regexp)
+	    ange-ftp-host-cache nil))
+  ;; Install CD hook to cd to posix on connecting:
+  (add-hook 'ange-ftp-process-startup-hook 'ange-ftp-bs2000-cd-to-posix)
+  host)
+
+(defconst ange-ftp-bs2000-filename-regexp
+  (concat
+   "\\(" ange-ftp-bs2000-filename-prefix-regexp "\\)?"
+   "\\(" ange-ftp-bs2000-short-filename-regexp "\\)")
+  "Regular expression to match for a valid BS2000 file name.")
+
+(defcustom ange-ftp-bs2000-additional-pubsets
+  nil
+  "*List of additional pubsets available to all users."
+  :group 'ange-ftp
+  :type '(repeat string))
+
+;; These parsing functions are as general as possible because the syntax
+;; of ftp listings from BS2000 hosts is a bit erratic. What saves us is that
+;; the BS2000 filename syntax is so rigid.
+
+;; Extract the next filename from a BS2000 dired-like listing.
+(defun ange-ftp-parse-bs2000-filename ()
+  (if (re-search-forward ange-ftp-bs2000-filename-regexp nil t)
+      (match-string 2)))
+
+;; Parse the current buffer which is assumed to be in (some) BS2000 FTP dir
+;; format, and return a hashtable as the result.
+(defun ange-ftp-parse-bs2000-listing ()
+  (let ((tbl (make-hash-table :test 'equal))
+	pubset
+	file)
+    ;; get current pubset
+    (goto-char (point-min))
+    (if (re-search-forward ange-ftp-bs2000-filename-pubset-regexp nil t)
+	(setq pubset (match-string 0)))
+    ;; add files to hashtable
+    (goto-char (point-min))
+    (save-match-data
+      (while (setq file (ange-ftp-parse-bs2000-filename))
+	(puthash file nil tbl)))
+    ;; add . and ..
+    (puthash "." t tbl)
+    (puthash ".." t tbl)
+    ;; add all additional pubsets, if not listing one of them
+    (if (not (member pubset ange-ftp-bs2000-additional-pubsets))
+	(mapcar (lambda (pubset) (puthash pubset t tbl))
+		ange-ftp-bs2000-additional-pubsets))
+    tbl))
+
+(add-to-list 'ange-ftp-parse-list-func-alist
+	     '(bs2000 . ange-ftp-parse-bs2000-listing))
+
+(defun ange-ftp-bs2000-cd-to-posix ()
+  "cd to POSIX subsystem if the current host matches
+`ange-ftp-bs2000-posix-host-regexp'.  All BS2000 hosts with POSIX subsystem
+MUST BE EXPLICITLY SET with `ange-ftp-add-bs2000-posix-host' for they cannot
+be recognized automatically (they are all valid BS2000 hosts too)."
+  (if (and ange-ftp-this-host (ange-ftp-bs2000-posix-host ange-ftp-this-host))
+      (progn
+	;; change to POSIX:
+;	(ange-ftp-raw-send-cmd proc "cd %POSIX")
+	(ange-ftp-cd ange-ftp-this-host ange-ftp-this-user "%POSIX")
+	;; put new home directory in the expand-dir hashtable.
+	;; `ange-ftp-this-host' and `ange-ftp-this-user' are bound in
+	;; ange-ftp-get-process.
+	(puthash (concat ange-ftp-this-host "/" ange-ftp-this-user "/~")
+		 (car (ange-ftp-get-pwd ange-ftp-this-host ange-ftp-this-user))
+		 ange-ftp-expand-dir-hashtable))))
+
+;; Not available yet:
+;; ange-ftp-bs2000-delete-file-entry
+;; ange-ftp-bs2000-add-file-entry
+;; ange-ftp-bs2000-file-name-as-directory
+;; ange-ftp-bs2000-make-compressed-filename
+;; ange-ftp-bs2000-file-name-sans-versions
+
+;;;; ------------------------------------------------------------
 ;;;; Finally provide package.
 ;;;; ------------------------------------------------------------
 
 (provide 'ange-ftp)
 
+;; arch-tag: 2987ef88-cb56-4ec1-87a9-79132572e316
 ;;; ange-ftp.el ends here

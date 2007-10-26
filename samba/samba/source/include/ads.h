@@ -1,11 +1,25 @@
+#ifndef _INCLUDE_ADS_H_
+#define _INCLUDE_ADS_H_
 /*
   header for ads (active directory) library routines
 
   basically this is a wrapper around ldap
 */
 
+enum wb_posix_mapping {
+	WB_POSIX_MAP_UNKNOWN    = -1,
+	WB_POSIX_MAP_TEMPLATE 	= 0, 
+	WB_POSIX_MAP_SFU 	= 1, 
+	WB_POSIX_MAP_RFC2307 	= 2,
+	WB_POSIX_MAP_UNIXINFO	= 3
+};
+
 typedef struct {
+#ifdef HAVE_LDAP
+	LDAP *ld;
+#else
 	void *ld; /* the active ldap structure */
+#endif
 	struct in_addr ldap_ip; /* the ip of the active connection, if any */
 	time_t last_attempt; /* last attempt to reconnect */
 	int ldap_port;
@@ -17,7 +31,6 @@ typedef struct {
 		char *realm;
 		char *workgroup;
 		char *ldap_server;
-		char *ldap_uri;
 		int foreign; /* set to 1 if connecting to a foreign realm */
 	} server;
 
@@ -29,17 +42,35 @@ typedef struct {
 		char *kdc_server;
 		unsigned flags;
 		int time_offset;
-		time_t expire;
+		time_t tgt_expire;
+		time_t tgs_expire;
+		time_t renewable;
 	} auth;
 
 	/* info derived from the servers config */
 	struct {
+		uint32 flags; /* cldap flags identifying the services. */
 		char *realm;
 		char *bind_path;
 		char *ldap_server_name;
+		char *server_site_name;
+		char *client_site_name;
 		time_t current_time;
+		int tried_closest_dc;
 	} config;
 } ADS_STRUCT;
+
+/* used to remember the names of the posix attributes in AD */
+/* see the rfc2307 & sfu nss backends */
+
+struct posix_schema {
+	char *posix_homedir_attr;
+	char *posix_shell_attr;
+	char *posix_uidnumber_attr;
+	char *posix_gidnumber_attr;
+	char *posix_gecos_attr;
+};
+
 
 /* there are 5 possible types of errors the ads subsystem can produce */
 enum ads_error_type {ENUM_ADS_ERROR_KRB5, ENUM_ADS_ERROR_GSS, 
@@ -73,17 +104,41 @@ typedef void **ADS_MODLIST;
 #define ADS_ERR_OK(status) ((status.error_type == ENUM_ADS_ERROR_NT) ? NT_STATUS_IS_OK(status.err.nt_status):(status.err.rc == 0))
 #define ADS_SUCCESS ADS_ERROR(0)
 
+#define ADS_ERROR_HAVE_NO_MEMORY(x) do { \
+        if (!(x)) {\
+                return ADS_ERROR(LDAP_NO_MEMORY);\
+        }\
+} while (0)
+
+
 /* time between reconnect attempts */
 #define ADS_RECONNECT_TIME 5
 
-/* timeout on searches */
-#define ADS_SEARCH_TIMEOUT 10
-
 /* ldap control oids */
-#define ADS_PAGE_CTL_OID "1.2.840.113556.1.4.319"
-#define ADS_NO_REFERRALS_OID "1.2.840.113556.1.4.1339"
-#define ADS_SERVER_SORT_OID "1.2.840.113556.1.4.473"
-#define ADS_PERMIT_MODIFY_OID "1.2.840.113556.1.4.1413"
+#define ADS_PAGE_CTL_OID 	"1.2.840.113556.1.4.319"
+#define ADS_NO_REFERRALS_OID 	"1.2.840.113556.1.4.1339"
+#define ADS_SERVER_SORT_OID 	"1.2.840.113556.1.4.473"
+#define ADS_PERMIT_MODIFY_OID 	"1.2.840.113556.1.4.1413"
+#define ADS_ASQ_OID		"1.2.840.113556.1.4.1504"
+#define ADS_EXTENDED_DN_OID	"1.2.840.113556.1.4.529"
+
+/* ldap attribute oids (Services for Unix) */
+#define ADS_ATTR_SFU_UIDNUMBER_OID 	"1.2.840.113556.1.6.18.1.310"
+#define ADS_ATTR_SFU_GIDNUMBER_OID 	"1.2.840.113556.1.6.18.1.311"
+#define ADS_ATTR_SFU_HOMEDIR_OID 	"1.2.840.113556.1.6.18.1.344"
+#define ADS_ATTR_SFU_SHELL_OID 		"1.2.840.113556.1.6.18.1.312"
+#define ADS_ATTR_SFU_GECOS_OID 		"1.2.840.113556.1.6.18.1.337"
+
+/* ldap attribute oids (RFC2307) */
+#define ADS_ATTR_RFC2307_UIDNUMBER_OID	"1.3.6.1.1.1.1.0"
+#define ADS_ATTR_RFC2307_GIDNUMBER_OID	"1.3.6.1.1.1.1.1"
+#define ADS_ATTR_RFC2307_HOMEDIR_OID	"1.3.6.1.1.1.1.3"
+#define ADS_ATTR_RFC2307_SHELL_OID	"1.3.6.1.1.1.1.4"
+#define ADS_ATTR_RFC2307_GECOS_OID	"1.3.6.1.1.1.1.2"
+
+/* ldap bitwise searches */
+#define ADS_LDAP_MATCHING_RULE_BIT_AND	"1.2.840.113556.1.4.803"
+#define ADS_LDAP_MATCHING_RULE_BIT_OR	"1.2.840.113556.1.4.804"
 
 /* UserFlags for userAccountControl */
 #define UF_SCRIPT	 			0x00000001
@@ -114,10 +169,10 @@ typedef void **ADS_MODLIST;
 #define UF_NOT_DELEGATED			0x00100000
 #define UF_USE_DES_KEY_ONLY			0x00200000
 #define UF_DONT_REQUIRE_PREAUTH			0x00400000
-#define UF_UNUSED_5				0x00800000
+#define UF_PASSWORD_EXPIRED			0x00800000
 
-#define UF_UNUSED_6				0x01000000
-#define UF_UNUSED_7				0x02000000
+#define UF_TRUSTED_TO_AUTHENTICATE_FOR_DELEGATION 0x01000000
+#define UF_NO_AUTH_DATA_REQUIRED		0x02000000
 #define UF_UNUSED_8				0x04000000
 #define UF_UNUSED_9				0x08000000
 
@@ -173,32 +228,37 @@ typedef void **ADS_MODLIST;
 #define ATYPE_LOCAL_GROUP	ATYPE_SECURITY_LOCAL_GROUP 	/* 0x20000000 536870912 */
 
 /* groupType */
-#define GTYPE_SECURITY_BUILTIN_LOCAL_GROUP	0x80000005	/* -2147483643 */
-#define GTYPE_SECURITY_DOMAIN_LOCAL_GROUP	0x80000004	/* -2147483644 */
-#define GTYPE_SECURITY_GLOBAL_GROUP		0x80000002	/* -2147483646 */
+#define GROUP_TYPE_BUILTIN_LOCAL_GROUP		0x00000001
+#define GROUP_TYPE_ACCOUNT_GROUP		0x00000002
+#define GROUP_TYPE_RESOURCE_GROUP		0x00000004
+#define GROUP_TYPE_UNIVERSAL_GROUP		0x00000008
+#define GROUP_TYPE_APP_BASIC_GROUP		0x00000010
+#define GROUP_TYPE_APP_QUERY_GROUP		0x00000020
+#define GROUP_TYPE_SECURITY_ENABLED		0x80000000
+
+#define GTYPE_SECURITY_BUILTIN_LOCAL_GROUP ( 	/* 0x80000005 -2147483643 */ \
+		GROUP_TYPE_BUILTIN_LOCAL_GROUP| \
+		GROUP_TYPE_RESOURCE_GROUP| \
+		GROUP_TYPE_SECURITY_ENABLED \
+		)
+#define GTYPE_SECURITY_DOMAIN_LOCAL_GROUP ( 	/* 0x80000004 -2147483644 */ \
+		GROUP_TYPE_RESOURCE_GROUP| \
+		GROUP_TYPE_SECURITY_ENABLED \
+		)
+#define GTYPE_SECURITY_GLOBAL_GROUP ( 		/* 0x80000002 -2147483646 */ \
+		GROUP_TYPE_ACCOUNT_GROUP| \
+		GROUP_TYPE_SECURITY_ENABLED \
+		)
 #define GTYPE_DISTRIBUTION_GLOBAL_GROUP		0x00000002	/* 2 */
 #define GTYPE_DISTRIBUTION_DOMAIN_LOCAL_GROUP	0x00000004	/* 4 */
 #define GTYPE_DISTRIBUTION_UNIVERSAL_GROUP	0x00000008	/* 8 */
 
-/* Mailslot or cldap getdcname response flags */
-#define ADS_PDC            0x00000001  /* DC is PDC */
-#define ADS_GC             0x00000004  /* DC is a GC of forest */
-#define ADS_LDAP           0x00000008  /* DC is an LDAP server */
-#define ADS_DS             0x00000010  /* DC supports DS */
-#define ADS_KDC            0x00000020  /* DC is running KDC */
-#define ADS_TIMESERV       0x00000040  /* DC is running time services */
-#define ADS_CLOSEST        0x00000080  /* DC is closest to client */
-#define ADS_WRITABLE       0x00000100  /* DC has writable DS */
-#define ADS_GOOD_TIMESERV  0x00000200  /* DC has hardware clock
-	  				 (and running time) */
-#define ADS_NDNC           0x00000400  /* DomainName is non-domain NC serviced
-	  				 by LDAP server */
 #define ADS_PINGS          0x0000FFFF  /* Ping response */
 #define ADS_DNS_CONTROLLER 0x20000000  /* DomainControllerName is a DNS name*/
 #define ADS_DNS_DOMAIN     0x40000000  /* DomainName is a DNS name */
 #define ADS_DNS_FOREST     0x80000000  /* DnsForestName is a DNS name */
 
-/* DomainCntrollerAddressType */
+/* DomainControllerAddressType */
 #define ADS_INET_ADDRESS      0x00000001
 #define ADS_NETBIOS_ADDRESS   0x00000002
 
@@ -227,3 +287,38 @@ typedef void **ADS_MODLIST;
 
 #define WELL_KNOWN_GUID_COMPUTERS	"AA312825768811D1ADED00C04FD8D5CD" 
 #define WELL_KNOWN_GUID_USERS		"A9D1CA15768811D1ADED00C04FD8D5CD"
+
+#ifndef KRB5_ADDR_NETBIOS
+#define KRB5_ADDR_NETBIOS 0x14
+#endif
+
+#ifndef KRB5KRB_ERR_RESPONSE_TOO_BIG
+#define KRB5KRB_ERR_RESPONSE_TOO_BIG (-1765328332L)
+#endif
+
+#ifdef HAVE_KRB5
+typedef struct {
+#if defined(HAVE_MAGIC_IN_KRB5_ADDRESS) && defined(HAVE_ADDRTYPE_IN_KRB5_ADDRESS) /* MIT */
+	krb5_address **addrs;
+#elif defined(HAVE_KRB5_ADDRESSES) /* Heimdal */
+	krb5_addresses *addrs;
+#else
+#error UNKNOWN_KRB5_ADDRESS_TYPE
+#endif
+} smb_krb5_addresses;
+#endif
+
+enum ads_extended_dn_flags {
+	ADS_EXTENDED_DN_HEX_STRING	= 0,
+	ADS_EXTENDED_DN_STRING		= 1 /* not supported on win2k */
+};
+
+/* this is probably not very well suited to pass other controls generically but
+ * is good enough for the extended dn control where it is only used for atm */
+
+typedef struct {
+	const char *control;
+	int val;
+	int critical;
+} ads_control;
+#endif	/* _INCLUDE_ADS_H_ */

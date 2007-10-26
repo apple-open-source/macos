@@ -17,10 +17,12 @@
 ## Subdirectories to run make in for the primary targets.
 # Unix source subdirs, where we'll want to run lint and etags:
 # This is a legacy variable from b4 Automake
-USOURCE_SUBDIRS = lib zlib diff src
+USOURCE_SUBDIRS = lib $(ZLIB_SUBDIRS) diff src
 # All other subdirs:
 SUBDIRS = $(USOURCE_SUBDIRS) man doc contrib tools \
-	windows-NT os2 emx vms
+	windows-NT os2 emx vms maint-aux
+
+ACLOCAL_AMFLAGS = -I m4
 
 EXTRA_DIST = \
 	.cvsignore \
@@ -40,13 +42,15 @@ EXTRA_DIST = \
 	cvsnt.dsw \
 	cvsnt.mak \
 	cvs.spec \
-	mktemp.sh
+	mktemp.sh \
+	m4/ChangeLog \
+	m4/README
 
 
 ## MAINTAINER Targets
 
-.PHONY: localcheck remotecheck
-localcheck remotecheck: all
+.PHONY: localcheck remotecheck proxycheck
+localcheck remotecheck proxycheck: all
 	cd src && $(MAKE) $(AM_MAKEFLAGS) "$@"
 
 .PHONY: doc

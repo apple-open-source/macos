@@ -67,6 +67,12 @@ __FBSDID("$FreeBSD: src/usr.bin/pr/pr.c,v 1.18 2004/07/26 20:24:59 charnier Exp 
 #include "pr.h"
 #include "extern.h"
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+
 /*
  * pr:	a printing and pagination filter. If multiple input files
  *	are specified, each is read, formatted, and written to standard
@@ -115,6 +121,8 @@ char	digs[] = "0123456789";	/* page number translation map */
 
 char	fnamedefault[] = FNAME;
 
+static char first_char;	/* first fill character */
+
 int
 main(int argc, char *argv[])
 {
@@ -123,6 +131,7 @@ main(int argc, char *argv[])
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
 		(void)signal(SIGINT, terminate);
 	ret_val = setup(argc, argv);
+	first_char = (COMPAT_MODE("bin/pr", "Unix2003") ? ochar : ' ');
 	if (!ret_val) {
 		/*
 		 * select the output format based on options
@@ -1140,8 +1149,8 @@ otln(char *buf, int cnt, int *svips, int *svops, int mor)
 				 */
 				if ((tbps = ops + gap - (ops % gap)) > ips)
 					break;
-				if (gap-1 == (ops % gap)) /* use space to get to immediately following tab stop */
-					putchar(' ');
+				if (gap - 1 == (ops % gap)) /* use space to get to immediately following tab stop */
+					putchar(first_char);
 				else if (putchar(ochar) == EOF) {
 					pfail();
 					return(1);
@@ -1299,7 +1308,7 @@ nxtfile(int argc, char **argv, const char **fname, char *buf, int dt)
 		tv_sec = tv.tv_sec;
 		timeptr = localtime(&tv_sec);
 	}
-	for (; eoptind < argc; ++eoptind) {
+	for (; eoptind < argc && argv[eoptind]; ++eoptind) {
 		if (strcmp(argv[eoptind], "-") == 0) {
 			/*
 			 * process a "-" for filename

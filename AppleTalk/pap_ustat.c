@@ -49,6 +49,8 @@
 #define	IW2_SHFDRFLG	0x4000
 #define	IW2_COLORFLG	0x8000
 
+static	nocase_strncmp(char *str1, char *str2, int count);
+
 static const struct stat_msg {
 	unsigned short flag;
 	char *string;

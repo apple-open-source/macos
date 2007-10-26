@@ -15,7 +15,7 @@ alguses meeldetuletusena juhuks kui ta peaks meelest minema.
 
 3) Kui teil on ligipääs WWW-le, siis saate seda parooli kasutada
 listist lahkumiseks, listi tellimuse seadete muutmiseks 
-(referaadid või üksikkirjad) ning listi arhiiviga tutvumiseks.
+(kokkuvõtted või üksikkirjad) ning listi arhiivi lugemiseks.
 Kõiki neid tegevusi saab teha aadressil:
     
     %(listinfo_url)s

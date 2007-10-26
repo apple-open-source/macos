@@ -1,0 +1,2435 @@
+<?xml version='1.0'?>
+<!DOCTYPE signatures SYSTEM "file://localhost/System/Library/DTDs/BridgeSupport.dtd">
+<signatures version='0.9'>
+  <struct name='BluetoothDeviceAddress' type='{BluetoothDeviceAddress="data"[6C]}' type64='{BluetoothDeviceAddress="data"[6C]}' />
+  <struct name='BluetoothHCIAutomaticFlushTimeoutInfo' type='{BluetoothHCIAutomaticFlushTimeoutInfo="handle"S"timeout"S}' type64='{BluetoothHCIAutomaticFlushTimeoutInfo="handle"S"timeout"S}' />
+  <struct name='BluetoothHCIBufferSize' type='{BluetoothHCIBufferSize="ACLDataPacketLength"S"SCODataPacketLength"C"totalNumACLDataPackets"S"totalNumSCODataPackets"S}' type64='{BluetoothHCIBufferSize="ACLDataPacketLength"S"SCODataPacketLength"C"totalNumACLDataPackets"S"totalNumSCODataPackets"S}' />
+  <struct name='BluetoothHCICurrentInquiryAccessCodes' type='{BluetoothHCICurrentInquiryAccessCodes="count"C"codes"^{BluetoothHCIInquiryAccessCode}}' type64='{BluetoothHCICurrentInquiryAccessCodes="count"C"codes"^{BluetoothHCIInquiryAccessCode}}' />
+  <struct name='BluetoothHCIEventAuthenticationCompleteResults' type='{BluetoothHCIEventAuthenticationCompleteResults="connectionHandle"S}' type64='{BluetoothHCIEventAuthenticationCompleteResults="connectionHandle"S}' />
+  <struct name='BluetoothHCIEventChangeConnectionLinkKeyCompleteResults' type='{BluetoothHCIEventChangeConnectionLinkKeyCompleteResults="connectionHandle"S}' type64='{BluetoothHCIEventChangeConnectionLinkKeyCompleteResults="connectionHandle"S}' />
+  <struct name='BluetoothHCIEventConnectionCompleteResults' type='{BluetoothHCIEventConnectionCompleteResults="connectionHandle"S"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkType"C"encryptionMode"C}' type64='{BluetoothHCIEventConnectionCompleteResults="connectionHandle"S"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkType"C"encryptionMode"C}' />
+  <struct name='BluetoothHCIEventConnectionPacketTypeResults' type='{BluetoothHCIEventConnectionPacketTypeResults="connectionHandle"S"packetType"S}' type64='{BluetoothHCIEventConnectionPacketTypeResults="connectionHandle"S"packetType"S}' />
+  <struct name='BluetoothHCIEventConnectionRequestResults' type='{BluetoothHCIEventConnectionRequestResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"classOfDevice"I"linkType"C}' type64='{BluetoothHCIEventConnectionRequestResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"classOfDevice"I"linkType"C}' />
+  <struct name='BluetoothHCIEventDataBufferOverflowResults' type='{BluetoothHCIEventDataBufferOverflowResults="linkType"C}' type64='{BluetoothHCIEventDataBufferOverflowResults="linkType"C}' />
+  <struct name='BluetoothHCIEventDisconnectionCompleteResults' type='{BluetoothHCIEventDisconnectionCompleteResults="connectionHandle"S"reason"C}' type64='{BluetoothHCIEventDisconnectionCompleteResults="connectionHandle"S"reason"C}' />
+  <struct name='BluetoothHCIEventEncryptionChangeResults' type='{BluetoothHCIEventEncryptionChangeResults="connectionHandle"S"enable"C}' type64='{BluetoothHCIEventEncryptionChangeResults="connectionHandle"S"enable"C}' />
+  <struct name='BluetoothHCIEventFlushOccurredResults' type='{BluetoothHCIEventFlushOccurredResults="connectionHandle"S}' type64='{BluetoothHCIEventFlushOccurredResults="connectionHandle"S}' />
+  <struct name='BluetoothHCIEventHardwareErrorResults' type='{BluetoothHCIEventHardwareErrorResults="error"C}' type64='{BluetoothHCIEventHardwareErrorResults="error"C}' />
+  <struct name='BluetoothHCIEventLinkKeyNotificationResults' type='{BluetoothHCIEventLinkKeyNotificationResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkKey"{BluetoothKey="data"[16C]}"keyType"C}' type64='{BluetoothHCIEventLinkKeyNotificationResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkKey"{BluetoothKey="data"[16C]}"keyType"C}' />
+  <struct name='BluetoothHCIEventMasterLinkKeyCompleteResults' type='{BluetoothHCIEventMasterLinkKeyCompleteResults="connectionHandle"S"keyFlag"C}' type64='{BluetoothHCIEventMasterLinkKeyCompleteResults="connectionHandle"S"keyFlag"C}' />
+  <struct name='BluetoothHCIEventMaxSlotsChangeResults' type='{BluetoothHCIEventMaxSlotsChangeResults="connectionHandle"S"maxSlots"C}' type64='{BluetoothHCIEventMaxSlotsChangeResults="connectionHandle"S"maxSlots"C}' />
+  <struct name='BluetoothHCIEventModeChangeResults' type='{BluetoothHCIEventModeChangeResults="connectionHandle"S"mode"C"modeInterval"S}' type64='{BluetoothHCIEventModeChangeResults="connectionHandle"S"mode"C"modeInterval"S}' />
+  <struct name='BluetoothHCIEventPageScanModeChangeResults' type='{BluetoothHCIEventPageScanModeChangeResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanMode"C}' type64='{BluetoothHCIEventPageScanModeChangeResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanMode"C}' />
+  <struct name='BluetoothHCIEventPageScanRepetitionModeChangeResults' type='{BluetoothHCIEventPageScanRepetitionModeChangeResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C}' type64='{BluetoothHCIEventPageScanRepetitionModeChangeResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C}' />
+  <struct name='BluetoothHCIEventQoSSetupCompleteResults' type='{BluetoothHCIEventQoSSetupCompleteResults="connectionHandle"S"setupParams"{BluetoothHCIQualityOfServiceSetupParams="flags"C"serviceType"C"tokenRate"I"peakBandwidth"I"latency"I"delayVariation"I}}' type64='{BluetoothHCIEventQoSSetupCompleteResults="connectionHandle"S"setupParams"{BluetoothHCIQualityOfServiceSetupParams="flags"C"serviceType"C"tokenRate"I"peakBandwidth"I"latency"I"delayVariation"I}}' />
+  <struct name='BluetoothHCIEventQoSViolationResults' type='{BluetoothHCIEventQoSViolationResults="connectionHandle"S}' type64='{BluetoothHCIEventQoSViolationResults="connectionHandle"S}' />
+  <struct name='BluetoothHCIEventReadClockOffsetResults' type='{BluetoothHCIEventReadClockOffsetResults="connectionHandle"S"clockOffset"S}' type64='{BluetoothHCIEventReadClockOffsetResults="connectionHandle"S"clockOffset"S}' />
+  <struct name='BluetoothHCIEventReadRemoteSupportedFeaturesResults' type='{BluetoothHCIEventReadRemoteSupportedFeaturesResults="error"C"connectionHandle"S"lmpFeatures"{BluetoothHCISupportedFeatures="data"[8C]}}' type64='{BluetoothHCIEventReadRemoteSupportedFeaturesResults="error"C"connectionHandle"S"lmpFeatures"{BluetoothHCISupportedFeatures="data"[8C]}}' />
+  <struct name='BluetoothHCIEventReadRemoteVersionInfoResults' type='{BluetoothHCIEventReadRemoteVersionInfoResults="connectionHandle"S"lmpVersion"C"manufacturerName"S"lmpSubversion"S}' type64='{BluetoothHCIEventReadRemoteVersionInfoResults="connectionHandle"S"lmpVersion"C"manufacturerName"S"lmpSubversion"S}' />
+  <struct name='BluetoothHCIEventReadSupportedFeaturesResults' type='{BluetoothHCIEventReadSupportedFeaturesResults="connectionHandle"S"supportedFeatures"{BluetoothHCISupportedFeatures="data"[8C]}}' type64='{BluetoothHCIEventReadSupportedFeaturesResults="connectionHandle"S"supportedFeatures"{BluetoothHCISupportedFeatures="data"[8C]}}' />
+  <struct name='BluetoothHCIEventRemoteNameRequestResults' type='{BluetoothHCIEventRemoteNameRequestResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"deviceName"[256C]}' type64='{BluetoothHCIEventRemoteNameRequestResults="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"deviceName"[256C]}' />
+  <struct name='BluetoothHCIEventReturnLinkKeysResults' type='{BluetoothHCIEventReturnLinkKeysResults="numLinkKeys"C"linkKeys"[1{?="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkKey"{BluetoothKey="data"[16C]}}]}' type64='{BluetoothHCIEventReturnLinkKeysResults="numLinkKeys"C"linkKeys"[1{?="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"linkKey"{BluetoothKey="data"[16C]}}]}' />
+  <struct name='BluetoothHCIEventRoleChangeResults' type='{BluetoothHCIEventRoleChangeResults="connectionHandle"S"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"role"C}' type64='{BluetoothHCIEventRoleChangeResults="connectionHandle"S"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"role"C}' />
+  <struct name='BluetoothHCIEventVendorSpecificResults' type='{BluetoothHCIEventVendorSpecificResults="length"C"data"[255C]}' type64='{BluetoothHCIEventVendorSpecificResults="length"C"data"[255C]}' />
+  <struct name='BluetoothHCIExtendedInquiryResponse' type='{BluetoothHCIExtendedInquiryResponse="data"[240C]}' type64='{BluetoothHCIExtendedInquiryResponse="data"[240C]}' />
+  <struct name='BluetoothHCIExtendedInquiryResult' type='{BluetoothHCIExtendedInquiryResult="numberOfReponses"C"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c"extendedInquiryResponse"{BluetoothHCIExtendedInquiryResponse="data"[240C]}}' type64='{BluetoothHCIExtendedInquiryResult="numberOfReponses"C"deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c"extendedInquiryResponse"{BluetoothHCIExtendedInquiryResponse="data"[240C]}}' />
+  <struct name='BluetoothHCIFailedContactInfo' type='{BluetoothHCIFailedContactInfo="count"S"handle"S}' type64='{BluetoothHCIFailedContactInfo="count"S"handle"S}' />
+  <struct name='BluetoothHCIInquiryAccessCode' type='{BluetoothHCIInquiryAccessCode="data"[3C]}' type64='{BluetoothHCIInquiryAccessCode="data"[3C]}' />
+  <struct name='BluetoothHCIInquiryResult' type='{BluetoothHCIInquiryResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"pageScanPeriodMode"C"pageScanMode"C"classOfDevice"I"clockOffset"S}' type64='{BluetoothHCIInquiryResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"pageScanPeriodMode"C"pageScanMode"C"classOfDevice"I"clockOffset"S}' />
+  <struct name='BluetoothHCIInquiryResults' type='{BluetoothHCIInquiryResults="results"[50{BluetoothHCIInquiryResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"pageScanPeriodMode"C"pageScanMode"C"classOfDevice"I"clockOffset"S}]"count"I}' type64='{BluetoothHCIInquiryResults="results"[50{BluetoothHCIInquiryResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"pageScanPeriodMode"C"pageScanMode"C"classOfDevice"I"clockOffset"S}]"count"I}' />
+  <struct name='BluetoothHCIInquiryWithRSSIResult' type='{BluetoothHCIInquiryWithRSSIResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c}' type64='{BluetoothHCIInquiryWithRSSIResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c}' />
+  <struct name='BluetoothHCIInquiryWithRSSIResults' type='{BluetoothHCIInquiryWithRSSIResults="results"[50{BluetoothHCIInquiryWithRSSIResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c}]"count"I}' type64='{BluetoothHCIInquiryWithRSSIResults="results"[50{BluetoothHCIInquiryWithRSSIResult="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"pageScanRepetitionMode"C"reserved"C"classOfDevice"I"clockOffset"S"RSSIValue"c}]"count"I}' />
+  <struct name='BluetoothHCILinkPolicySettingsInfo' type='{BluetoothHCILinkPolicySettingsInfo="settings"S"handle"S}' type64='{BluetoothHCILinkPolicySettingsInfo="settings"S"handle"S}' />
+  <struct name='BluetoothHCILinkQualityInfo' type='{BluetoothHCILinkQualityInfo="handle"S"qualityValue"C}' type64='{BluetoothHCILinkQualityInfo="handle"S"qualityValue"C}' />
+  <struct name='BluetoothHCILinkSupervisionTimeout' type='{BluetoothHCILinkSupervisionTimeout="handle"S"timeout"S}' type64='{BluetoothHCILinkSupervisionTimeout="handle"S"timeout"S}' />
+  <struct name='BluetoothHCIQualityOfServiceSetupParams' type='{BluetoothHCIQualityOfServiceSetupParams="flags"C"serviceType"C"tokenRate"I"peakBandwidth"I"latency"I"delayVariation"I}' type64='{BluetoothHCIQualityOfServiceSetupParams="flags"C"serviceType"C"tokenRate"I"peakBandwidth"I"latency"I"delayVariation"I}' />
+  <struct name='BluetoothHCIRSSIInfo' type='{BluetoothHCIRSSIInfo="handle"S"RSSIValue"c}' type64='{BluetoothHCIRSSIInfo="handle"S"RSSIValue"c}' />
+  <struct name='BluetoothHCIReadExtendedInquiryResponseResults' type='{BluetoothHCIReadExtendedInquiryResponseResults="outFECRequired"C"extendedInquiryResponse"{BluetoothHCIExtendedInquiryResponse="data"[240C]}}' type64='{BluetoothHCIReadExtendedInquiryResponseResults="outFECRequired"C"extendedInquiryResponse"{BluetoothHCIExtendedInquiryResponse="data"[240C]}}' />
+  <struct name='BluetoothHCIReadLocalOOBDataResults' type='{BluetoothHCIReadLocalOOBDataResults="hash"{BluetoothHCISimplePairingOOBData="data"[16C]}"randomizer"{BluetoothHCISimplePairingOOBData="data"[16C]}}' type64='{BluetoothHCIReadLocalOOBDataResults="hash"{BluetoothHCISimplePairingOOBData="data"[16C]}"randomizer"{BluetoothHCISimplePairingOOBData="data"[16C]}}' />
+  <struct name='BluetoothHCIRequestCallbackInfo' type='{BluetoothHCIRequestCallbackInfo="userCallback"^v"userRefCon"^v"internalRefCon"^v"asyncIDRefCon"^v"reserved"^v}' type64='{BluetoothHCIRequestCallbackInfo="userCallback"^v"userRefCon"^v"internalRefCon"^v"asyncIDRefCon"^v"reserved"^v}' />
+  <struct name='BluetoothHCIRequestNotificationInfo' type='{BluetoothHCIRequestNotificationInfo="HCIRequestID"^{OpaqueBluetoothHCIRequestID}"refCon"^v"reserved1"^v"eventCode"C"eventStatus"C"status"C"reserved2"C"opCode"S"dataSize"I"data"*}' type64='{BluetoothHCIRequestNotificationInfo="HCIRequestID"^{OpaqueBluetoothHCIRequestID}"refCon"^v"reserved1"^v"eventCode"C"eventStatus"C"status"C"reserved2"C"opCode"S"dataSize"I"data"*}' />
+  <struct name='BluetoothHCIRoleInfo' type='{BluetoothHCIRoleInfo="role"C"handle"S}' type64='{BluetoothHCIRoleInfo="role"C"handle"S}' />
+  <struct name='BluetoothHCIScanActivity' type='{BluetoothHCIScanActivity="scanInterval"S"scanWindow"S}' type64='{BluetoothHCIScanActivity="scanInterval"S"scanWindow"S}' />
+  <struct name='BluetoothHCISimplePairingOOBData' type='{BluetoothHCISimplePairingOOBData="data"[16C]}' type64='{BluetoothHCISimplePairingOOBData="data"[16C]}' />
+  <struct name='BluetoothHCIStoredLinkKeysInfo' type='{BluetoothHCIStoredLinkKeysInfo="numLinkKeysRead"S"maxNumLinkKeysAllowedInDevice"S}' type64='{BluetoothHCIStoredLinkKeysInfo="numLinkKeysRead"S"maxNumLinkKeysAllowedInDevice"S}' />
+  <struct name='BluetoothHCISupportedFeatures' type='{BluetoothHCISupportedFeatures="data"[8C]}' type64='{BluetoothHCISupportedFeatures="data"[8C]}' />
+  <struct name='BluetoothHCITransmitPowerLevelInfo' type='{BluetoothHCITransmitPowerLevelInfo="handle"S"level"c}' type64='{BluetoothHCITransmitPowerLevelInfo="handle"S"level"c}' />
+  <struct name='BluetoothHCIVersionInfo' type='{BluetoothHCIVersionInfo="manufacturerName"S"lmpVersion"C"lmpSubVersion"S"hciVersion"C"hciRevision"S}' type64='{BluetoothHCIVersionInfo="manufacturerName"S"lmpVersion"C"lmpSubVersion"S"hciVersion"C"hciRevision"S}' />
+  <struct name='BluetoothIOCapabilityResponse' type='{BluetoothIOCapabilityResponse="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"ioCapability"C"OOBDataPresence"C"authenticationRequirements"C}' type64='{BluetoothIOCapabilityResponse="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"ioCapability"C"OOBDataPresence"C"authenticationRequirements"C}' />
+  <struct name='BluetoothKey' type='{BluetoothKey="data"[16C]}' type64='{BluetoothKey="data"[16C]}' />
+  <struct name='BluetoothL2CAPQualityOfServiceOptions' type='{BluetoothL2CAPQualityOfServiceOptions="flags"C"serviceType"C"tokenRate"I"tokenBucketSize"I"peakBandwidth"I"latency"I"delayVariation"I}' type64='{BluetoothL2CAPQualityOfServiceOptions="flags"C"serviceType"C"tokenRate"I"tokenBucketSize"I"peakBandwidth"I"latency"I"delayVariation"I}' />
+  <struct name='BluetoothL2CAPRetransmissionAndFlowControlOptions' type='{BluetoothL2CAPRetransmissionAndFlowControlOptions="flags"C"txWindowSize"C"maxTransmit"C"retransmissionTimeout"S"monitorTimeout"S"maxPDUPayloadSize"S}' type64='{BluetoothL2CAPRetransmissionAndFlowControlOptions="flags"C"txWindowSize"C"maxTransmit"C"retransmissionTimeout"S"monitorTimeout"S"maxPDUPayloadSize"S}' />
+  <struct name='BluetoothPINCode' type='{BluetoothPINCode="data"[16C]}' type64='{BluetoothPINCode="data"[16C]}' />
+  <struct name='BluetoothSetEventMask' type='{BluetoothSetEventMask="data"[8C]}' type64='{BluetoothSetEventMask="data"[8C]}' />
+  <struct name='BluetoothTransportInfo' type='{BluetoothTransportInfo="productID"I"vendorID"I"type"I"productName"[25c]"vendorName"[25c]}' type64='{BluetoothTransportInfo="productID"I"vendorID"I"type"I"productName"[25c]"vendorName"[25c]}' />
+  <struct name='BluetoothUserPasskeyNotification' type='{BluetoothUserPasskeyNotification="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"passkey"I}' type64='{BluetoothUserPasskeyNotification="deviceAddress"{BluetoothDeviceAddress="data"[6C]}"passkey"I}' />
+  <struct name='IOBluetoothDeviceSearchAttributes' type='{IOBluetoothDeviceSearchAttributes="options"I"maxResults"I"deviceAttributeCount"I"attributeList"^{IOBluetoothDeviceSearchDeviceAttributes}}' type64='{IOBluetoothDeviceSearchAttributes="options"I"maxResults"I"deviceAttributeCount"I"attributeList"^{IOBluetoothDeviceSearchDeviceAttributes}}' />
+  <struct name='IOBluetoothDeviceSearchDeviceAttributes' type='{IOBluetoothDeviceSearchDeviceAttributes="address"{BluetoothDeviceAddress="data"[6C]}"name"[256C]"serviceClassMajor"I"deviceClassMajor"I"deviceClassMinor"I}' type64='{IOBluetoothDeviceSearchDeviceAttributes="address"{BluetoothDeviceAddress="data"[6C]}"name"[256C]"serviceClassMajor"I"deviceClassMajor"I"deviceClassMinor"I}' />
+  <struct name='IOBluetoothL2CAPChannelDataBlock' type='{IOBluetoothL2CAPChannelDataBlock="dataPtr"^v"dataSize"I}' type64='{IOBluetoothL2CAPChannelDataBlock="dataPtr"^v"dataSize"Q}' />
+  <struct name='IOBluetoothL2CAPChannelEvent' type='{IOBluetoothL2CAPChannelEvent="eventType"i"u"(?="data"{IOBluetoothL2CAPChannelDataBlock="dataPtr"^v"dataSize"I}"writeRefCon"^v"padding"[32C])"status"i}' type64='{IOBluetoothL2CAPChannelEvent="eventType"i"u"(?="data"{IOBluetoothL2CAPChannelDataBlock="dataPtr"^v"dataSize"Q}"writeRefCon"^v"padding"[32C])"status"i}' />
+  <struct name='IOBluetoothRFCOMMChannelEvent' type='{IOBluetoothRFCOMMChannelEvent="eventType"i"u"(?="data"{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"I}"flowStatus"i"terminatedChannel"^{OpaqueIOBluetoothObjectRef}"writeRefCon"^v"padding"[32C]"newData"{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"I})"status"i}' type64='{IOBluetoothRFCOMMChannelEvent="eventType"i"u"(?="data"{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"Q}"flowStatus"i"terminatedChannel"^{OpaqueIOBluetoothObjectRef}"writeRefCon"^v"padding"[32C]"newData"{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"Q})"status"i}' />
+  <struct name='IOBluetoothRFCOMMDataBlock' type='{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"I}' type64='{IOBluetoothRFCOMMDataBlock="dataPtr"^v"dataSize"Q}' />
+  <struct name='OBEXAbortCommandData' type='{OBEXAbortCommandData="headerDataPtr"^v"headerDataLength"I}' type64='{OBEXAbortCommandData="headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXAbortCommandResponseData' type='{OBEXAbortCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}' type64='{OBEXAbortCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXConnectCommandData' type='{OBEXConnectCommandData="headerDataPtr"^v"headerDataLength"I"maxPacketSize"S"version"C"flags"C}' type64='{OBEXConnectCommandData="headerDataPtr"^v"headerDataLength"Q"maxPacketSize"S"version"C"flags"C}' />
+  <struct name='OBEXConnectCommandResponseData' type='{OBEXConnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I"maxPacketSize"S"version"C"flags"C}' type64='{OBEXConnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q"maxPacketSize"S"version"C"flags"C}' />
+  <struct name='OBEXDisconnectCommandData' type='{OBEXDisconnectCommandData="headerDataPtr"^v"headerDataLength"I}' type64='{OBEXDisconnectCommandData="headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXDisconnectCommandResponseData' type='{OBEXDisconnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}' type64='{OBEXDisconnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXErrorData' type='{OBEXErrorData="error"i"dataPtr"^v"dataLength"I}' type64='{OBEXErrorData="error"i"dataPtr"^v"dataLength"Q}' />
+  <struct name='OBEXGetCommandData' type='{OBEXGetCommandData="headerDataPtr"^v"headerDataLength"I}' type64='{OBEXGetCommandData="headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXGetCommandResponseData' type='{OBEXGetCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}' type64='{OBEXGetCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXPutCommandData' type='{OBEXPutCommandData="headerDataPtr"^v"headerDataLength"I"bodyDataLeftToSend"I}' type64='{OBEXPutCommandData="headerDataPtr"^v"headerDataLength"Q"bodyDataLeftToSend"Q}' />
+  <struct name='OBEXPutCommandResponseData' type='{OBEXPutCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}' type64='{OBEXPutCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}' />
+  <struct name='OBEXSessionEvent' type='{OBEXSessionEvent="type"I"session"^{OpaqueOBEXSessionRef}"refCon"^v"isEndOfEventData"C"reserved1"^v"reserved2"^v"u"(?="connectCommandResponseData"{OBEXConnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I"maxPacketSize"S"version"C"flags"C}"disconnectCommandResponseData"{OBEXDisconnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}"putCommandResponseData"{OBEXPutCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}"getCommandResponseData"{OBEXGetCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}"setPathCommandResponseData"{OBEXSetPathCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I"flags"C"constants"C}"abortCommandResponseData"{OBEXAbortCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I}"connectCommandData"{OBEXConnectCommandData="headerDataPtr"^v"headerDataLength"I"maxPacketSize"S"version"C"flags"C}"disconnectCommandData"{OBEXDisconnectCommandData="headerDataPtr"^v"headerDataLength"I}"putCommandData"{OBEXPutCommandData="headerDataPtr"^v"headerDataLength"I"bodyDataLeftToSend"I}"getCommandData"{OBEXGetCommandData="headerDataPtr"^v"headerDataLength"I}"setPathCommandData"{OBEXSetPathCommandData="headerDataPtr"^v"headerDataLength"I"flags"C"constants"C}"abortCommandData"{OBEXAbortCommandData="headerDataPtr"^v"headerDataLength"I}"errorData"{OBEXErrorData="error"i"dataPtr"^v"dataLength"I})}' type64='{OBEXSessionEvent="type"I"session"^{OpaqueOBEXSessionRef}"refCon"^v"isEndOfEventData"C"reserved1"^v"reserved2"^v"u"(?="connectCommandResponseData"{OBEXConnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q"maxPacketSize"S"version"C"flags"C}"disconnectCommandResponseData"{OBEXDisconnectCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}"putCommandResponseData"{OBEXPutCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}"getCommandResponseData"{OBEXGetCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}"setPathCommandResponseData"{OBEXSetPathCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q"flags"C"constants"C}"abortCommandResponseData"{OBEXAbortCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q}"connectCommandData"{OBEXConnectCommandData="headerDataPtr"^v"headerDataLength"Q"maxPacketSize"S"version"C"flags"C}"disconnectCommandData"{OBEXDisconnectCommandData="headerDataPtr"^v"headerDataLength"Q}"putCommandData"{OBEXPutCommandData="headerDataPtr"^v"headerDataLength"Q"bodyDataLeftToSend"Q}"getCommandData"{OBEXGetCommandData="headerDataPtr"^v"headerDataLength"Q}"setPathCommandData"{OBEXSetPathCommandData="headerDataPtr"^v"headerDataLength"Q"flags"C"constants"C}"abortCommandData"{OBEXAbortCommandData="headerDataPtr"^v"headerDataLength"Q}"errorData"{OBEXErrorData="error"i"dataPtr"^v"dataLength"Q})}' />
+  <struct name='OBEXSetPathCommandData' type='{OBEXSetPathCommandData="headerDataPtr"^v"headerDataLength"I"flags"C"constants"C}' type64='{OBEXSetPathCommandData="headerDataPtr"^v"headerDataLength"Q"flags"C"constants"C}' />
+  <struct name='OBEXSetPathCommandResponseData' type='{OBEXSetPathCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"I"flags"C"constants"C}' type64='{OBEXSetPathCommandResponseData="serverResponseOpCode"C"headerDataPtr"^v"headerDataLength"Q"flags"C"constants"C}' />
+  <opaque name='BluetoothHCIOperationID' type='^{OpaqueBluetoothHCIOperationID=}' type64='^{OpaqueBluetoothHCIOperationID=}' />
+  <opaque name='BluetoothHCIRequestID' type='^{OpaqueBluetoothHCIRequestID=}' type64='^{OpaqueBluetoothHCIRequestID=}' />
+  <opaque name='BluetoothHCITransportCommandID' type='^{OpaqueBluetoothHCITransportCommandID=}' type64='^{OpaqueBluetoothHCITransportCommandID=}' />
+  <opaque name='BluetoothHCITransportID' type='^{OpaqueBluetoothHCITransportID=}' type64='^{OpaqueBluetoothHCITransportID=}' />
+  <opaque name='IOBluetoothDeviceInquiryRef' type='^{OpaqueIOBluetoothDeviceInquiryRef=}' type64='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  <opaque name='IOBluetoothDeviceRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothL2CAPChannelRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothObjectRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothRFCOMMChannelRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothSDPDataElementRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothSDPServiceRecordRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothSDPUUIDRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='IOBluetoothUserNotificationRef' type='^{OpaqueIOBluetoothObjectRef=}' type64='^{OpaqueIOBluetoothObjectRef=}' />
+  <opaque name='OBEXSessionRef' type='^{OpaqueOBEXSessionRef=}' type64='^{OpaqueOBEXSessionRef=}' />
+  <constant name='kOBEXHeaderIDKeyAppParameters' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyAuthorizationChallenge' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyAuthorizationResponse' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyBody' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyByteSequence' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyConnectionID' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyCount' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyDescription' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyEndOfBody' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyHTTP' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyLength' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyName' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyObjectClass' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyTarget' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyTime4Byte' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyTimeISO' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyType' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyUnknown1ByteQuantity' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyUnknown4ByteQuantity' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyUnknownByteSequence' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyUnknownUnicodeText' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyUserDefined' type='^{__CFString=}' />
+  <constant name='kOBEXHeaderIDKeyWho' type='^{__CFString=}' />
+  <enum name='BLUETOOTH_VERSION_1_0' value='10000' />
+  <enum name='BLUETOOTH_VERSION_1_0_0' value='10000' />
+  <enum name='BLUETOOTH_VERSION_1_0_1' value='10001' />
+  <enum name='BLUETOOTH_VERSION_1_1' value='10100' />
+  <enum name='BLUETOOTH_VERSION_1_1_0' value='10100' />
+  <enum name='BLUETOOTH_VERSION_1_2' value='10200' />
+  <enum name='BLUETOOTH_VERSION_1_2_0' value='10200' />
+  <enum name='BLUETOOTH_VERSION_1_2_1' value='10201' />
+  <enum name='BLUETOOTH_VERSION_1_3' value='10300' />
+  <enum name='BLUETOOTH_VERSION_1_3_0' value='10300' />
+  <enum name='BLUETOOTH_VERSION_1_3_1' value='10301' />
+  <enum name='BLUETOOTH_VERSION_1_6' value='10600' />
+  <enum name='BLUETOOTH_VERSION_1_6_0' value='10600' />
+  <enum name='BLUETOOTH_VERSION_1_6_3' value='10603' />
+  <enum name='BLUETOOTH_VERSION_1_8' value='10800' />
+  <enum name='BLUETOOTH_VERSION_1_8_0' value='10800' />
+  <enum name='BLUETOOTH_VERSION_CURRENT' value='10800' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MAX_ALLOWED' value='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BLUETOOTH_VERSION_MIN_REQUIRED' value-be='10000' value-le='10301' />
+  <enum name='BluetoothRFCOMMLineStatusFramingError' value='3' />
+  <enum name='BluetoothRFCOMMLineStatusNoError' value='0' />
+  <enum name='BluetoothRFCOMMLineStatusOverrunError' value='1' />
+  <enum name='BluetoothRFCOMMLineStatusParityError' value='2' />
+  <enum name='MAC_OS_X_VERSION_10_2_1' value='1021' />
+  <enum name='MAC_OS_X_VERSION_10_2_2' value='1022' />
+  <enum name='MAC_OS_X_VERSION_10_2_3' value='1023' />
+  <enum name='MAC_OS_X_VERSION_10_2_4' value='1024' />
+  <enum name='MAC_OS_X_VERSION_10_2_5' value='1025' />
+  <enum name='MAC_OS_X_VERSION_10_2_6' value='1026' />
+  <enum name='MAC_OS_X_VERSION_10_2_7' value='1027' />
+  <enum name='MAC_OS_X_VERSION_MIN_REQUIRED' value-be='1020' value-le='1040' value64='1050' />
+  <enum name='kAuthenticationDisabled' value='0' />
+  <enum name='kAuthenticationEnabled' value='1' />
+  <enum name='kBluetoothACLConnection' value='1' />
+  <enum name='kBluetoothACLLogicalChannelL2CAPContinue' value='1' />
+  <enum name='kBluetoothACLLogicalChannelL2CAPStart' value='2' />
+  <enum name='kBluetoothACLLogicalChannelLMP' value='3' />
+  <enum name='kBluetoothACLLogicalChannelReserved' value='0' />
+  <enum name='kBluetoothAllowRoleSwitch' value='1' />
+  <enum name='kBluetoothAuthenticationRequirementsMITMProtectionNotRequired' value='0' />
+  <enum name='kBluetoothAuthenticationRequirementsMITMProtectionRequired' value='1' />
+  <enum name='kBluetoothCapabilityTypeDisplayOnly' value='0' />
+  <enum name='kBluetoothCapabilityTypeDisplayYesNo' value='1' />
+  <enum name='kBluetoothCapabilityTypeKeyboardOnly' value='2' />
+  <enum name='kBluetoothCapabilityTypeNoInputNoOutput' value='3' />
+  <enum name='kBluetoothConnectionHandleNone' value='65535' />
+  <enum name='kBluetoothDeviceClassMajorAny' value='707406378' />
+  <enum name='kBluetoothDeviceClassMajorAudio' value='4' />
+  <enum name='kBluetoothDeviceClassMajorComputer' value='1' />
+  <enum name='kBluetoothDeviceClassMajorEnd' value='1852796518' />
+  <enum name='kBluetoothDeviceClassMajorImaging' value='6' />
+  <enum name='kBluetoothDeviceClassMajorLANAccessPoint' value='3' />
+  <enum name='kBluetoothDeviceClassMajorMiscellaneous' value='0' />
+  <enum name='kBluetoothDeviceClassMajorNone' value='1852796517' />
+  <enum name='kBluetoothDeviceClassMajorPeripheral' value='5' />
+  <enum name='kBluetoothDeviceClassMajorPhone' value='2' />
+  <enum name='kBluetoothDeviceClassMajorUnclassified' value='31' />
+  <enum name='kBluetoothDeviceClassMinorAny' value='707406378' />
+  <enum name='kBluetoothDeviceClassMinorAudioCamcorder' value='13' />
+  <enum name='kBluetoothDeviceClassMinorAudioCar' value='8' />
+  <enum name='kBluetoothDeviceClassMinorAudioGamingToy' value='18' />
+  <enum name='kBluetoothDeviceClassMinorAudioHandsFree' value='2' />
+  <enum name='kBluetoothDeviceClassMinorAudioHeadphones' value='6' />
+  <enum name='kBluetoothDeviceClassMinorAudioHeadset' value='1' />
+  <enum name='kBluetoothDeviceClassMinorAudioHiFi' value='10' />
+  <enum name='kBluetoothDeviceClassMinorAudioLoudspeaker' value='5' />
+  <enum name='kBluetoothDeviceClassMinorAudioMicrophone' value='4' />
+  <enum name='kBluetoothDeviceClassMinorAudioPortable' value='7' />
+  <enum name='kBluetoothDeviceClassMinorAudioReserved1' value='3' />
+  <enum name='kBluetoothDeviceClassMinorAudioReserved2' value='17' />
+  <enum name='kBluetoothDeviceClassMinorAudioSetTopBox' value='9' />
+  <enum name='kBluetoothDeviceClassMinorAudioUnclassified' value='0' />
+  <enum name='kBluetoothDeviceClassMinorAudioVCR' value='11' />
+  <enum name='kBluetoothDeviceClassMinorAudioVideoCamera' value='12' />
+  <enum name='kBluetoothDeviceClassMinorAudioVideoConferencing' value='16' />
+  <enum name='kBluetoothDeviceClassMinorAudioVideoDisplayAndLoudspeaker' value='15' />
+  <enum name='kBluetoothDeviceClassMinorAudioVideoMonitor' value='14' />
+  <enum name='kBluetoothDeviceClassMinorComputerDesktopWorkstation' value='1' />
+  <enum name='kBluetoothDeviceClassMinorComputerHandheld' value='4' />
+  <enum name='kBluetoothDeviceClassMinorComputerLaptop' value='3' />
+  <enum name='kBluetoothDeviceClassMinorComputerPalmSized' value='5' />
+  <enum name='kBluetoothDeviceClassMinorComputerServer' value='2' />
+  <enum name='kBluetoothDeviceClassMinorComputerUnclassified' value='0' />
+  <enum name='kBluetoothDeviceClassMinorComputerWearable' value='6' />
+  <enum name='kBluetoothDeviceClassMinorEnd' value='1852796518' />
+  <enum name='kBluetoothDeviceClassMinorImaging1Camera' value='8' />
+  <enum name='kBluetoothDeviceClassMinorImaging1Display' value='4' />
+  <enum name='kBluetoothDeviceClassMinorImaging1Printer' value='32' />
+  <enum name='kBluetoothDeviceClassMinorImaging1Scanner' value='16' />
+  <enum name='kBluetoothDeviceClassMinorImaging2Unclassified' value='0' />
+  <enum name='kBluetoothDeviceClassMinorNone' value='1852796517' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral1Combo' value='48' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral1Keyboard' value='16' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral1Pointing' value='32' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral2Gamepad' value='2' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral2Joystick' value='1' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral2RemoteControl' value='3' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral2SensingDevice' value='4' />
+  <enum name='kBluetoothDeviceClassMinorPeripheral2Unclassified' value='0' />
+  <enum name='kBluetoothDeviceClassMinorPhoneCellular' value='1' />
+  <enum name='kBluetoothDeviceClassMinorPhoneCommonISDNAccess' value='5' />
+  <enum name='kBluetoothDeviceClassMinorPhoneCordless' value='2' />
+  <enum name='kBluetoothDeviceClassMinorPhoneSmartPhone' value='3' />
+  <enum name='kBluetoothDeviceClassMinorPhoneUnclassified' value='0' />
+  <enum name='kBluetoothDeviceClassMinorPhoneWiredModemOrVoiceGateway' value='4' />
+  <enum name='kBluetoothDeviceNameMaxLength' value='248' />
+  <enum name='kBluetoothDontAllowRoleSwitch' value='0' />
+  <enum name='kBluetoothESCOConnection' value='2' />
+  <enum name='kBluetoothEncryptionEnableOff' value='0' />
+  <enum name='kBluetoothEncryptionEnableOn' value='1' />
+  <enum name='kBluetoothFECNotRequired' value='1' />
+  <enum name='kBluetoothFECRequired' value='0' />
+  <enum name='kBluetoothFeature3SlotEnhancedDataRateACLPackets' value='128' />
+  <enum name='kBluetoothFeature5SlotEnhancedDataRateACLPackets' value='64' />
+  <enum name='kBluetoothFeatureAFHCapableMaster' value='8' />
+  <enum name='kBluetoothFeatureAFHCapableSlave' value='8' />
+  <enum name='kBluetoothFeatureAFHClassificationMaster' value='16' />
+  <enum name='kBluetoothFeatureAFHClassificationSlave' value='16' />
+  <enum name='kBluetoothFeatureALawLog' value='128' />
+  <enum name='kBluetoothFeatureAbsenceMasks' value='4' />
+  <enum name='kBluetoothFeatureAliasAuhentication' value='32' />
+  <enum name='kBluetoothFeatureAnonymityMode' value='64' />
+  <enum name='kBluetoothFeatureBroadcastEncryption' value='128' />
+  <enum name='kBluetoothFeatureCVSD' value='1' />
+  <enum name='kBluetoothFeatureChannelQuality' value='4' />
+  <enum name='kBluetoothFeatureEV4Packets' value='1' />
+  <enum name='kBluetoothFeatureEV5Packets' value='2' />
+  <enum name='kBluetoothFeatureEncapsulatedPDU' value='16' />
+  <enum name='kBluetoothFeatureEncryption' value='4' />
+  <enum name='kBluetoothFeatureEnhancedDataRateACL2MbpsMode' value='2' />
+  <enum name='kBluetoothFeatureEnhancedDataRateACL3MbpsMode' value='4' />
+  <enum name='kBluetoothFeatureEnhancedDataRateeSCO2MbpsMode' value='32' />
+  <enum name='kBluetoothFeatureEnhancedDataRateeSCO3MbpsMode' value='64' />
+  <enum name='kBluetoothFeatureEnhancedInquiryScan' value='8' />
+  <enum name='kBluetoothFeatureErroneousDataReporting' value='32' />
+  <enum name='kBluetoothFeatureExtendedFeatures' value='128' />
+  <enum name='kBluetoothFeatureExtendedInquiryResponse' value='1' />
+  <enum name='kBluetoothFeatureExtendedSCOLink' value='128' />
+  <enum name='kBluetoothFeatureFiveSlotPackets' value='2' />
+  <enum name='kBluetoothFeatureFlowControlLagBit0' value='16' />
+  <enum name='kBluetoothFeatureFlowControlLagBit1' value='32' />
+  <enum name='kBluetoothFeatureFlowControlLagBit2' value='64' />
+  <enum name='kBluetoothFeatureHV2Packets' value='16' />
+  <enum name='kBluetoothFeatureHV3Packets' value='32' />
+  <enum name='kBluetoothFeatureHoldMode' value='64' />
+  <enum name='kBluetoothFeatureInquiryTransmissionPowerLevel' value='2' />
+  <enum name='kBluetoothFeatureInterlacedInquiryScan' value='16' />
+  <enum name='kBluetoothFeatureInterlacedPageScan' value='32' />
+  <enum name='kBluetoothFeatureLinkSupervisionTimeoutChangedEvent' value='1' />
+  <enum name='kBluetoothFeatureNonFlushablePacketBoundaryFlag' value='64' />
+  <enum name='kBluetoothFeaturePagingScheme' value='2' />
+  <enum name='kBluetoothFeatureParkMode' value='1' />
+  <enum name='kBluetoothFeaturePauseEncryption' value='4' />
+  <enum name='kBluetoothFeaturePowerControl' value='4' />
+  <enum name='kBluetoothFeatureRSSI' value='2' />
+  <enum name='kBluetoothFeatureRSSIWithInquiryResult' value='64' />
+  <enum name='kBluetoothFeatureReserved1' value='2' />
+  <enum name='kBluetoothFeatureReserved1' value='2' />
+  <enum name='kBluetoothFeatureReserved2' value='4' />
+  <enum name='kBluetoothFeatureReserved2' value='4' />
+  <enum name='kBluetoothFeatureSCOLink' value='8' />
+  <enum name='kBluetoothFeatureScatterMode' value='1' />
+  <enum name='kBluetoothFeatureSecureSimplePairing' value='8' />
+  <enum name='kBluetoothFeatureSlotOffset' value='8' />
+  <enum name='kBluetoothFeatureSniffMode' value='128' />
+  <enum name='kBluetoothFeatureSwitchRoles' value='32' />
+  <enum name='kBluetoothFeatureThreeSlotPackets' value='1' />
+  <enum name='kBluetoothFeatureTimingAccuracy' value='16' />
+  <enum name='kBluetoothFeatureTransparentSCOData' value='8' />
+  <enum name='kBluetoothFeatureULawLog' value='64' />
+  <enum name='kBluetoothGeneralInquiryAccessCodeIndex' value='0' />
+  <enum name='kBluetoothGeneralInquiryAccessCodeLAPValue' value='10390323' />
+  <enum name='kBluetoothHCICommandAcceptConnectionRequest' value='9' />
+  <enum name='kBluetoothHCICommandAcceptSniffRequest' value='49' />
+  <enum name='kBluetoothHCICommandAcceptSynchronousConnectionRequest' value='41' />
+  <enum name='kBluetoothHCICommandAddSCOConnection' value='7' />
+  <enum name='kBluetoothHCICommandAuthenticationRequested' value='17' />
+  <enum name='kBluetoothHCICommandChangeConnectionLinkKey' value='21' />
+  <enum name='kBluetoothHCICommandChangeConnectionPacketType' value='15' />
+  <enum name='kBluetoothHCICommandChangeLocalName' value='19' />
+  <enum name='kBluetoothHCICommandCreateConnection' value='5' />
+  <enum name='kBluetoothHCICommandCreateNewUnitKey' value='11' />
+  <enum name='kBluetoothHCICommandDeletePersistentSniffInterval' value='94' />
+  <enum name='kBluetoothHCICommandDeleteStoredLinkKey' value='18' />
+  <enum name='kBluetoothHCICommandDisconnect' value='6' />
+  <enum name='kBluetoothHCICommandEnableDeviceUnderTestMode' value='3' />
+  <enum name='kBluetoothHCICommandEnhancedFlush' value='95' />
+  <enum name='kBluetoothHCICommandExitParkMode' value='6' />
+  <enum name='kBluetoothHCICommandExitPeriodicInquiryMode' value='4' />
+  <enum name='kBluetoothHCICommandExitSniffMode' value='4' />
+  <enum name='kBluetoothHCICommandFlowSpecification' value='16' />
+  <enum name='kBluetoothHCICommandFlush' value='8' />
+  <enum name='kBluetoothHCICommandGetLinkQuality' value='3' />
+  <enum name='kBluetoothHCICommandGroupHostController' value='3' />
+  <enum name='kBluetoothHCICommandGroupInformational' value='4' />
+  <enum name='kBluetoothHCICommandGroupLinkControl' value='1' />
+  <enum name='kBluetoothHCICommandGroupLinkPolicy' value='2' />
+  <enum name='kBluetoothHCICommandGroupLogoTesting' value='62' />
+  <enum name='kBluetoothHCICommandGroupMax' value='64' />
+  <enum name='kBluetoothHCICommandGroupNoOp' value='0' />
+  <enum name='kBluetoothHCICommandGroupStatus' value='5' />
+  <enum name='kBluetoothHCICommandGroupTesting' value='6' />
+  <enum name='kBluetoothHCICommandGroupVendorSpecific' value='63' />
+  <enum name='kBluetoothHCICommandHoldMode' value='1' />
+  <enum name='kBluetoothHCICommandHostBufferSize' value='51' />
+  <enum name='kBluetoothHCICommandHostNumberOfCompletedPackets' value='53' />
+  <enum name='kBluetoothHCICommandIOCapabilityResponse' value='43' />
+  <enum name='kBluetoothHCICommandInquiry' value='1' />
+  <enum name='kBluetoothHCICommandInquiryCancel' value='2' />
+  <enum name='kBluetoothHCICommandInvalidateFlashAndReboot' value='23' />
+  <enum name='kBluetoothHCICommandLinkKeyRequestNegativeReply' value='12' />
+  <enum name='kBluetoothHCICommandLinkKeyRequestReply' value='11' />
+  <enum name='kBluetoothHCICommandMasterLinkKey' value='23' />
+  <enum name='kBluetoothHCICommandMax' value='1023' />
+  <enum name='kBluetoothHCICommandNoOp' value='0' />
+  <enum name='kBluetoothHCICommandPINCodeRequestNegativeReply' value='14' />
+  <enum name='kBluetoothHCICommandPINCodeRequestReply' value='13' />
+  <enum name='kBluetoothHCICommandPacketHeaderSize' value='3' />
+  <enum name='kBluetoothHCICommandPacketMaxDataSize' value='255' />
+  <enum name='kBluetoothHCICommandParkMode' value='5' />
+  <enum name='kBluetoothHCICommandPeriodicInquiryMode' value='3' />
+  <enum name='kBluetoothHCICommandQoSSetup' value='7' />
+  <enum name='kBluetoothHCICommandReadAFHChannelAssessmentMode' value='72' />
+  <enum name='kBluetoothHCICommandReadAFHMappings' value='6' />
+  <enum name='kBluetoothHCICommandReadAuthenticationEnable' value='31' />
+  <enum name='kBluetoothHCICommandReadAutomaticFlushTimeout' value='39' />
+  <enum name='kBluetoothHCICommandReadBufferSize' value='5' />
+  <enum name='kBluetoothHCICommandReadClassOfDevice' value='35' />
+  <enum name='kBluetoothHCICommandReadClock' value='7' />
+  <enum name='kBluetoothHCICommandReadClockOffset' value='31' />
+  <enum name='kBluetoothHCICommandReadConnectionAcceptTimeout' value='21' />
+  <enum name='kBluetoothHCICommandReadCountryCode' value='7' />
+  <enum name='kBluetoothHCICommandReadCurrentIACLAP' value='57' />
+  <enum name='kBluetoothHCICommandReadDefaultErroneousDataReporting' value='90' />
+  <enum name='kBluetoothHCICommandReadDefaultLinkPolicySettings' value='14' />
+  <enum name='kBluetoothHCICommandReadDeviceAddress' value='9' />
+  <enum name='kBluetoothHCICommandReadEncryptionMode' value='33' />
+  <enum name='kBluetoothHCICommandReadExtendedInquiryResponse' value='81' />
+  <enum name='kBluetoothHCICommandReadFailedContactCounter' value='1' />
+  <enum name='kBluetoothHCICommandReadHoldModeActivity' value='43' />
+  <enum name='kBluetoothHCICommandReadInquiryMode' value='68' />
+  <enum name='kBluetoothHCICommandReadInquiryResponseTransmitPower' value='88' />
+  <enum name='kBluetoothHCICommandReadInquiryScanActivity' value='29' />
+  <enum name='kBluetoothHCICommandReadInquiryScanType' value='66' />
+  <enum name='kBluetoothHCICommandReadLMPHandle' value='32' />
+  <enum name='kBluetoothHCICommandReadLinkPolicySettings' value='12' />
+  <enum name='kBluetoothHCICommandReadLinkSupervisionTimeout' value='54' />
+  <enum name='kBluetoothHCICommandReadLocalExtendedFeatures' value='4' />
+  <enum name='kBluetoothHCICommandReadLocalName' value='20' />
+  <enum name='kBluetoothHCICommandReadLocalOOBData' value='87' />
+  <enum name='kBluetoothHCICommandReadLocalSupportedCommands' value='2' />
+  <enum name='kBluetoothHCICommandReadLocalSupportedFeatures' value='3' />
+  <enum name='kBluetoothHCICommandReadLocalVersionInformation' value='1' />
+  <enum name='kBluetoothHCICommandReadLoopbackMode' value='1' />
+  <enum name='kBluetoothHCICommandReadNumberOfBroadcastRetransmissions' value='41' />
+  <enum name='kBluetoothHCICommandReadNumberOfSupportedIAC' value='56' />
+  <enum name='kBluetoothHCICommandReadPINType' value='9' />
+  <enum name='kBluetoothHCICommandReadPageScanActivity' value='27' />
+  <enum name='kBluetoothHCICommandReadPageScanMode' value='61' />
+  <enum name='kBluetoothHCICommandReadPageScanPeriodMode' value='59' />
+  <enum name='kBluetoothHCICommandReadPageScanType' value='70' />
+  <enum name='kBluetoothHCICommandReadPageTimeout' value='23' />
+  <enum name='kBluetoothHCICommandReadPersistentSniffInterval' value='92' />
+  <enum name='kBluetoothHCICommandReadRSSI' value='5' />
+  <enum name='kBluetoothHCICommandReadRemoteSupportedFeatures' value='27' />
+  <enum name='kBluetoothHCICommandReadRemoteVersionInformation' value='29' />
+  <enum name='kBluetoothHCICommandReadSCOFlowControlEnable' value='46' />
+  <enum name='kBluetoothHCICommandReadScanEnable' value='25' />
+  <enum name='kBluetoothHCICommandReadSimplePairingMode' value='85' />
+  <enum name='kBluetoothHCICommandReadStoredLinkKey' value='13' />
+  <enum name='kBluetoothHCICommandReadTransmitPowerLevel' value='45' />
+  <enum name='kBluetoothHCICommandReadVoiceSetting' value='37' />
+  <enum name='kBluetoothHCICommandRejectConnectionRequest' value='10' />
+  <enum name='kBluetoothHCICommandRejectSniffRequest' value='50' />
+  <enum name='kBluetoothHCICommandRejectSynchronousConnectionRequest' value='42' />
+  <enum name='kBluetoothHCICommandRemoteNameRequest' value='25' />
+  <enum name='kBluetoothHCICommandRemoteOOBDataRequestNegativeReply' value='51' />
+  <enum name='kBluetoothHCICommandRemoteOOBDataRequestReply' value='48' />
+  <enum name='kBluetoothHCICommandReset' value='3' />
+  <enum name='kBluetoothHCICommandResetFailedContactCounter' value='2' />
+  <enum name='kBluetoothHCICommandRoleDiscovery' value='9' />
+  <enum name='kBluetoothHCICommandSendKeypressNotification' value='96' />
+  <enum name='kBluetoothHCICommandSetAFHClassification' value='63' />
+  <enum name='kBluetoothHCICommandSetConnectionEncryption' value='19' />
+  <enum name='kBluetoothHCICommandSetEventFilter' value='5' />
+  <enum name='kBluetoothHCICommandSetEventMask' value='1' />
+  <enum name='kBluetoothHCICommandSetHostControllerToHostFlowControl' value='49' />
+  <enum name='kBluetoothHCICommandSetupSynchronousConnection' value='40' />
+  <enum name='kBluetoothHCICommandSniffMode' value='3' />
+  <enum name='kBluetoothHCICommandSniffSubrating' value='17' />
+  <enum name='kBluetoothHCICommandSwitchRole' value='11' />
+  <enum name='kBluetoothHCICommandUserConfirmationRequestNegativeReply' value='45' />
+  <enum name='kBluetoothHCICommandUserConfirmationRequestReply' value='44' />
+  <enum name='kBluetoothHCICommandUserPasskeyRequestNegativeReply' value='47' />
+  <enum name='kBluetoothHCICommandUserPasskeyRequestReply' value='46' />
+  <enum name='kBluetoothHCICommandWriteAFHChannelAssessmentMode' value='73' />
+  <enum name='kBluetoothHCICommandWriteAuthenticationEnable' value='32' />
+  <enum name='kBluetoothHCICommandWriteAutomaticFlushTimeout' value='40' />
+  <enum name='kBluetoothHCICommandWriteClassOfDevice' value='36' />
+  <enum name='kBluetoothHCICommandWriteConnectionAcceptTimeout' value='22' />
+  <enum name='kBluetoothHCICommandWriteCurrentIACLAP' value='58' />
+  <enum name='kBluetoothHCICommandWriteDefaultErroneousDataReporting' value='91' />
+  <enum name='kBluetoothHCICommandWriteDefaultLinkPolicySettings' value='15' />
+  <enum name='kBluetoothHCICommandWriteDeviceAddress' value='1' />
+  <enum name='kBluetoothHCICommandWriteEncryptionMode' value='34' />
+  <enum name='kBluetoothHCICommandWriteExtendedInquiryResponse' value='82' />
+  <enum name='kBluetoothHCICommandWriteHoldModeActivity' value='44' />
+  <enum name='kBluetoothHCICommandWriteHoppingChannels' value='18' />
+  <enum name='kBluetoothHCICommandWriteInquiryMode' value='69' />
+  <enum name='kBluetoothHCICommandWriteInquiryResponseTransmitPower' value='89' />
+  <enum name='kBluetoothHCICommandWriteInquiryScanActivity' value='30' />
+  <enum name='kBluetoothHCICommandWriteInquiryScanType' value='67' />
+  <enum name='kBluetoothHCICommandWriteLinkPolicySettings' value='13' />
+  <enum name='kBluetoothHCICommandWriteLinkSupervisionTimeout' value='55' />
+  <enum name='kBluetoothHCICommandWriteLoopbackMode' value='2' />
+  <enum name='kBluetoothHCICommandWriteNumberOfBroadcastRetransmissions' value='42' />
+  <enum name='kBluetoothHCICommandWritePINType' value='10' />
+  <enum name='kBluetoothHCICommandWritePageScanActivity' value='28' />
+  <enum name='kBluetoothHCICommandWritePageScanMode' value='62' />
+  <enum name='kBluetoothHCICommandWritePageScanPeriodMode' value='60' />
+  <enum name='kBluetoothHCICommandWritePageScanType' value='71' />
+  <enum name='kBluetoothHCICommandWritePageTimeout' value='24' />
+  <enum name='kBluetoothHCICommandWritePersistentSniffInterval' value='93' />
+  <enum name='kBluetoothHCICommandWriteSCOFlowControlEnable' value='47' />
+  <enum name='kBluetoothHCICommandWriteScanEnable' value='26' />
+  <enum name='kBluetoothHCICommandWriteSimplePairingDebugMode' value='86' />
+  <enum name='kBluetoothHCICommandWriteSimplePairingMode' value='86' />
+  <enum name='kBluetoothHCICommandWriteStoredLinkKey' value='17' />
+  <enum name='kBluetoothHCICommandWriteVoiceSetting' value='38' />
+  <enum name='kBluetoothHCIDataPacketHeaderSize' value='4' />
+  <enum name='kBluetoothHCIDataPacketMaxDataSize' value='65535' />
+  <enum name='kBluetoothHCIErrorACLConnectionAlreadyExists' value='11' />
+  <enum name='kBluetoothHCIErrorAuthenticationFailure' value='5' />
+  <enum name='kBluetoothHCIErrorChannelClassificationNotSupported' value='46' />
+  <enum name='kBluetoothHCIErrorCommandDisallowed' value='12' />
+  <enum name='kBluetoothHCIErrorConnectionTerminatedByLocalHost' value='22' />
+  <enum name='kBluetoothHCIErrorConnectionTimeout' value='8' />
+  <enum name='kBluetoothHCIErrorDifferentTransactionCollision' value='42' />
+  <enum name='kBluetoothHCIErrorEncryptionModeNotAcceptable' value='37' />
+  <enum name='kBluetoothHCIErrorExtendedInquiryResponseTooLarge' value='54' />
+  <enum name='kBluetoothHCIErrorHardwareFailure' value='3' />
+  <enum name='kBluetoothHCIErrorHostRejectedLimitedResources' value='13' />
+  <enum name='kBluetoothHCIErrorHostRejectedRemoteDeviceIsPersonal' value='15' />
+  <enum name='kBluetoothHCIErrorHostRejectedSecurityReasons' value='14' />
+  <enum name='kBluetoothHCIErrorHostTimeout' value='16' />
+  <enum name='kBluetoothHCIErrorInstantPassed' value='40' />
+  <enum name='kBluetoothHCIErrorInsufficientSecurity' value='47' />
+  <enum name='kBluetoothHCIErrorInvalidHCICommandParameters' value='18' />
+  <enum name='kBluetoothHCIErrorInvalidLMPParameters' value='30' />
+  <enum name='kBluetoothHCIErrorKeyMissing' value='6' />
+  <enum name='kBluetoothHCIErrorLMPErrorTransactionCollision' value='35' />
+  <enum name='kBluetoothHCIErrorLMPPDUNotAllowed' value='36' />
+  <enum name='kBluetoothHCIErrorLMPResponseTimeout' value='34' />
+  <enum name='kBluetoothHCIErrorMax' value='55' />
+  <enum name='kBluetoothHCIErrorMaxNumberOfConnections' value='9' />
+  <enum name='kBluetoothHCIErrorMaxNumberOfSCOConnectionsToADevice' value='10' />
+  <enum name='kBluetoothHCIErrorMemoryFull' value='7' />
+  <enum name='kBluetoothHCIErrorNoConnection' value='2' />
+  <enum name='kBluetoothHCIErrorOtherEndTerminatedConnectionAboutToPowerOff' value='21' />
+  <enum name='kBluetoothHCIErrorOtherEndTerminatedConnectionLowResources' value='20' />
+  <enum name='kBluetoothHCIErrorOtherEndTerminatedConnectionUserEnded' value='19' />
+  <enum name='kBluetoothHCIErrorPageTimeout' value='4' />
+  <enum name='kBluetoothHCIErrorPairingNotAllowed' value='24' />
+  <enum name='kBluetoothHCIErrorPairingWithUnitKeyNotSupported' value='41' />
+  <enum name='kBluetoothHCIErrorParameterOutOfMandatoryRange' value='48' />
+  <enum name='kBluetoothHCIErrorPowerIsOFF' value='56' />
+  <enum name='kBluetoothHCIErrorQoSNotSupported' value='39' />
+  <enum name='kBluetoothHCIErrorQoSRejected' value='45' />
+  <enum name='kBluetoothHCIErrorQoSUnacceptableParameter' value='44' />
+  <enum name='kBluetoothHCIErrorRepeatedAttempts' value='23' />
+  <enum name='kBluetoothHCIErrorReservedSlotViolation' value='52' />
+  <enum name='kBluetoothHCIErrorRoleChangeNotAllowed' value='33' />
+  <enum name='kBluetoothHCIErrorRoleSwitchFailed' value='53' />
+  <enum name='kBluetoothHCIErrorRoleSwitchPending' value='49' />
+  <enum name='kBluetoothHCIErrorSCOAirModeRejected' value='29' />
+  <enum name='kBluetoothHCIErrorSCOIntervalRejected' value='28' />
+  <enum name='kBluetoothHCIErrorSCOOffsetRejected' value='27' />
+  <enum name='kBluetoothHCIErrorSecureSimplePairingNotSupportedByHost' value='55' />
+  <enum name='kBluetoothHCIErrorSuccess' value='0' />
+  <enum name='kBluetoothHCIErrorUnitKeyUsed' value='38' />
+  <enum name='kBluetoothHCIErrorUnknownHCICommand' value='1' />
+  <enum name='kBluetoothHCIErrorUnknownLMPPDU' value='25' />
+  <enum name='kBluetoothHCIErrorUnspecifiedError' value='31' />
+  <enum name='kBluetoothHCIErrorUnsupportedFeatureOrParameterValue' value='17' />
+  <enum name='kBluetoothHCIErrorUnsupportedLMPParameterValue' value='32' />
+  <enum name='kBluetoothHCIErrorUnsupportedRemoteFeature' value='26' />
+  <enum name='kBluetoothHCIEventAuthenticationComplete' value='6' />
+  <enum name='kBluetoothHCIEventChangeConnectionLinkKeyComplete' value='9' />
+  <enum name='kBluetoothHCIEventCommandComplete' value='14' />
+  <enum name='kBluetoothHCIEventCommandStatus' value='15' />
+  <enum name='kBluetoothHCIEventConnectionComplete' value='3' />
+  <enum name='kBluetoothHCIEventConnectionPacketType' value='29' />
+  <enum name='kBluetoothHCIEventConnectionRequest' value='4' />
+  <enum name='kBluetoothHCIEventDataBufferOverflow' value='26' />
+  <enum name='kBluetoothHCIEventDisconnectionComplete' value='5' />
+  <enum name='kBluetoothHCIEventEncryptionChange' value='8' />
+  <enum name='kBluetoothHCIEventEnhancedFlushComplete' value='57' />
+  <enum name='kBluetoothHCIEventExtendedInquiryResult' value='47' />
+  <enum name='kBluetoothHCIEventFlowSpecificationComplete' value='33' />
+  <enum name='kBluetoothHCIEventFlushOccurred' value='17' />
+  <enum name='kBluetoothHCIEventHardwareError' value='16' />
+  <enum name='kBluetoothHCIEventIOCapabilityRequest' value='49' />
+  <enum name='kBluetoothHCIEventIOCapabilityResponse' value='50' />
+  <enum name='kBluetoothHCIEventInquiryComplete' value='1' />
+  <enum name='kBluetoothHCIEventInquiryResult' value='2' />
+  <enum name='kBluetoothHCIEventInquiryResultWithRSSI' value='34' />
+  <enum name='kBluetoothHCIEventKeypressNotification' value='60' />
+  <enum name='kBluetoothHCIEventLinkKeyNotification' value='24' />
+  <enum name='kBluetoothHCIEventLinkKeyRequest' value='23' />
+  <enum name='kBluetoothHCIEventLinkSupervisionTimeoutChanged' value='56' />
+  <enum name='kBluetoothHCIEventLogoTesting' value='254' />
+  <enum name='kBluetoothHCIEventLoopbackCommand' value='25' />
+  <enum name='kBluetoothHCIEventMaskAll' value='-1' />
+  <enum name='kBluetoothHCIEventMaskAll64Bit' value='18446744073709551615' />
+  <enum name='kBluetoothHCIEventMaskAuthenticationComplete' value='32' />
+  <enum name='kBluetoothHCIEventMaskChangeConnectionLinkKeyComplete' value='256' />
+  <enum name='kBluetoothHCIEventMaskCommandComplete' value='8192' />
+  <enum name='kBluetoothHCIEventMaskCommandStatus' value='16384' />
+  <enum name='kBluetoothHCIEventMaskConnectionComplete' value='4' />
+  <enum name='kBluetoothHCIEventMaskConnectionPacketTypeChanged' value='268435456' />
+  <enum name='kBluetoothHCIEventMaskConnectionRequest' value='8' />
+  <enum name='kBluetoothHCIEventMaskDataBufferOverflow' value='33554432' />
+  <enum name='kBluetoothHCIEventMaskDefault' value='-1' />
+  <enum name='kBluetoothHCIEventMaskDefault64Bit' value='35184372088831' />
+  <enum name='kBluetoothHCIEventMaskDisconnectionComplete' value='16' />
+  <enum name='kBluetoothHCIEventMaskEncryptionChange' value='128' />
+  <enum name='kBluetoothHCIEventMaskEnhancedFlushCompleteEvent' value='72057594037927936' />
+  <enum name='kBluetoothHCIEventMaskExtendedInquiryResultEvent' value='70368744177664' />
+  <enum name='kBluetoothHCIEventMaskFlowSpecificationCompleteEvent' value='4294967296' />
+  <enum name='kBluetoothHCIEventMaskFlushOccurred' value='65536' />
+  <enum name='kBluetoothHCIEventMaskHardwareError' value='32768' />
+  <enum name='kBluetoothHCIEventMaskInquiryComplete' value='1' />
+  <enum name='kBluetoothHCIEventMaskInquiryResult' value='2' />
+  <enum name='kBluetoothHCIEventMaskInquiryResultWithRSSIEvent' value='8589934592' />
+  <enum name='kBluetoothHCIEventMaskLinkKeyNotification' value='8388608' />
+  <enum name='kBluetoothHCIEventMaskLinkKeyRequest' value='4194304' />
+  <enum name='kBluetoothHCIEventMaskLinkSupervisionTimeoutChangedEvent' value='36028797018963968' />
+  <enum name='kBluetoothHCIEventMaskLoopbackCommand' value='16777216' />
+  <enum name='kBluetoothHCIEventMaskMasterLinkKeyComplete' value='512' />
+  <enum name='kBluetoothHCIEventMaskMaxSlotsChange' value='67108864' />
+  <enum name='kBluetoothHCIEventMaskModeChange' value='524288' />
+  <enum name='kBluetoothHCIEventMaskNone' value='0' />
+  <enum name='kBluetoothHCIEventMaskNumberOfCompletedPackets' value='262144' />
+  <enum name='kBluetoothHCIEventMaskPINCodeRequest' value='2097152' />
+  <enum name='kBluetoothHCIEventMaskPageScanModeChange' value='1073741824' />
+  <enum name='kBluetoothHCIEventMaskPageScanRepetitionModeChange' value='-2147483648' />
+  <enum name='kBluetoothHCIEventMaskQoSSetupComplete' value='4096' />
+  <enum name='kBluetoothHCIEventMaskQoSViolation' value='536870912' />
+  <enum name='kBluetoothHCIEventMaskReadClockOffsetComplete' value='134217728' />
+  <enum name='kBluetoothHCIEventMaskReadRemoteExtendedFeaturesCompleteEvent' value='17179869184' />
+  <enum name='kBluetoothHCIEventMaskReadRemoteSupportedFeaturesComplete' value='1024' />
+  <enum name='kBluetoothHCIEventMaskReadRemoteVersionInformationComplete' value='2048' />
+  <enum name='kBluetoothHCIEventMaskRemoteNameRequestComplete' value='64' />
+  <enum name='kBluetoothHCIEventMaskReturnLinkKeys' value='1048576' />
+  <enum name='kBluetoothHCIEventMaskRoleChange' value='131072' />
+  <enum name='kBluetoothHCIEventMaskSniffSubstrateEvent' value='35184372088832' />
+  <enum name='kBluetoothHCIEventMaskSynchronousConnectionChangedEvent' value='17592186044416' />
+  <enum name='kBluetoothHCIEventMaskSynchronousConnectionCompleteEvent' value='8796093022208' />
+  <enum name='kBluetoothHCIEventMasterLinkKeyComplete' value='10' />
+  <enum name='kBluetoothHCIEventMaxSlotsChange' value='27' />
+  <enum name='kBluetoothHCIEventModeChange' value='20' />
+  <enum name='kBluetoothHCIEventNumberOfCompletedPackets' value='19' />
+  <enum name='kBluetoothHCIEventPINCodeRequest' value='22' />
+  <enum name='kBluetoothHCIEventPacketHeaderSize' value='2' />
+  <enum name='kBluetoothHCIEventPacketMaxDataSize' value='255' />
+  <enum name='kBluetoothHCIEventPageScanModeChange' value='31' />
+  <enum name='kBluetoothHCIEventPageScanRepetitionModeChange' value='32' />
+  <enum name='kBluetoothHCIEventQoSSetupComplete' value='13' />
+  <enum name='kBluetoothHCIEventQoSViolation' value='30' />
+  <enum name='kBluetoothHCIEventReadClockOffsetComplete' value='28' />
+  <enum name='kBluetoothHCIEventReadRemoteExtendedFeaturesComplete' value='35' />
+  <enum name='kBluetoothHCIEventReadRemoteSupportedFeaturesComplete' value='11' />
+  <enum name='kBluetoothHCIEventReadRemoteVersionInformationComplete' value='12' />
+  <enum name='kBluetoothHCIEventRemoteNameRequestComplete' value='7' />
+  <enum name='kBluetoothHCIEventRemoteOOBDataRequest' value='53' />
+  <enum name='kBluetoothHCIEventReturnLinkKeys' value='21' />
+  <enum name='kBluetoothHCIEventRoleChange' value='18' />
+  <enum name='kBluetoothHCIEventSimplePairingComplete' value='54' />
+  <enum name='kBluetoothHCIEventSniffRequest' value='58' />
+  <enum name='kBluetoothHCIEventSniffSubstrate' value='46' />
+  <enum name='kBluetoothHCIEventSynchronousConnectionChanged' value='45' />
+  <enum name='kBluetoothHCIEventSynchronousConnectionComplete' value='44' />
+  <enum name='kBluetoothHCIEventUserConfirmationRequest' value='51' />
+  <enum name='kBluetoothHCIEventUserPasskeyNotification' value='59' />
+  <enum name='kBluetoothHCIEventUserPasskeyRequest' value='52' />
+  <enum name='kBluetoothHCIEventVendorSpecific' value='255' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType128BitServiceClassUUIDsCompleteList' value='7' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType128BitServiceClassUUIDsWithMoreAvailable' value='6' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType16BitServiceClassUUIDsCompleteList' value='3' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType16BitServiceClassUUIDsWithMoreAvailable' value='2' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType32BitServiceClassUUIDsCompleteList' value='5' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataType32BitServiceClassUUIDsWithMoreAvailable' value='4' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataTypeCompleteLocalName' value='9' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataTypeFlags' value='1' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataTypeManufacturerSpecificData' value='255' />
+  <enum name='kBluetoothHCIExtendedInquiryResponseDataTypeShortenedLocalName' value='8' />
+  <enum name='kBluetoothHCIInquiryModeResultFormatStandard' value='0' />
+  <enum name='kBluetoothHCIInquiryModeResultFormatWithRSSI' value='1' />
+  <enum name='kBluetoothHCIInquiryModeResultFormatWithRSSIOrExtendedInquiryResultFormat' value='2' />
+  <enum name='kBluetoothHCILoopbackModeLocal' value='1' />
+  <enum name='kBluetoothHCILoopbackModeOff' value='0' />
+  <enum name='kBluetoothHCILoopbackModeRemote' value='2' />
+  <enum name='kBluetoothHCIMasterRole' value='0' />
+  <enum name='kBluetoothHCIMaxCommandPacketSize' value='258' />
+  <enum name='kBluetoothHCIMaxDataPacketSize' value='65539' />
+  <enum name='kBluetoothHCIMaxEventPacketSize' value='257' />
+  <enum name='kBluetoothHCIOpCodeNoOp' value='0' />
+  <enum name='kBluetoothHCIPowerStateOFF' value='0' />
+  <enum name='kBluetoothHCIPowerStateON' value='1' />
+  <enum name='kBluetoothHCIPowerStateUnintialized' value='255' />
+  <enum name='kBluetoothHCISimplePairingDebugModeDisabled' value='0' />
+  <enum name='kBluetoothHCISimplePairingDebugModeEnabled' value='1' />
+  <enum name='kBluetoothHCISimplePairingModeEnabled' value='1' />
+  <enum name='kBluetoothHCISimplePairingModeNotSet' value='0' />
+  <enum name='kBluetoothHCISlaveRole' value='1' />
+  <enum name='kBluetoothHCITransportUSBClassCode' value='224' />
+  <enum name='kBluetoothHCITransportUSBProtocolCode' value='1' />
+  <enum name='kBluetoothHCITransportUSBSubClassCode' value='1' />
+  <enum name='kBluetoothKeyFlagSemiPermanent' value='0' />
+  <enum name='kBluetoothKeyFlagTemporary' value='1' />
+  <enum name='kBluetoothKeyTypeAuthenticatedCombination' value='5' />
+  <enum name='kBluetoothKeyTypeChangedCombination' value='6' />
+  <enum name='kBluetoothKeyTypeCombination' value='0' />
+  <enum name='kBluetoothKeyTypeDebugCombination' value='3' />
+  <enum name='kBluetoothKeyTypeLocalUnit' value='1' />
+  <enum name='kBluetoothKeyTypeRemoteUnit' value='2' />
+  <enum name='kBluetoothKeyTypeUnauthenticatedCombination' value='4' />
+  <enum name='kBluetoothKeypressNotificationTypePasskeyCleared' value='3' />
+  <enum name='kBluetoothKeypressNotificationTypePasskeyDigitEntered' value='1' />
+  <enum name='kBluetoothKeypressNotificationTypePasskeyDigitErased' value='2' />
+  <enum name='kBluetoothKeypressNotificationTypePasskeyEntryCompleted' value='4' />
+  <enum name='kBluetoothKeypressNotificationTypePasskeyEntryStarted' value='0' />
+  <enum name='kBluetoothL2CAPChannelConnectionLessData' value='2' />
+  <enum name='kBluetoothL2CAPChannelDynamicEnd' value='65535' />
+  <enum name='kBluetoothL2CAPChannelDynamicStart' value='64' />
+  <enum name='kBluetoothL2CAPChannelEnd' value='65535' />
+  <enum name='kBluetoothL2CAPChannelNull' value='0' />
+  <enum name='kBluetoothL2CAPChannelReservedEnd' value='63' />
+  <enum name='kBluetoothL2CAPChannelReservedStart' value='3' />
+  <enum name='kBluetoothL2CAPChannelSignalling' value='1' />
+  <enum name='kBluetoothL2CAPCommandCodeCommandReject' value='1' />
+  <enum name='kBluetoothL2CAPCommandCodeConfigureRequest' value='4' />
+  <enum name='kBluetoothL2CAPCommandCodeConfigureResponse' value='5' />
+  <enum name='kBluetoothL2CAPCommandCodeConnectionRequest' value='2' />
+  <enum name='kBluetoothL2CAPCommandCodeConnectionResponse' value='3' />
+  <enum name='kBluetoothL2CAPCommandCodeDisconnectionRequest' value='6' />
+  <enum name='kBluetoothL2CAPCommandCodeDisconnectionResponse' value='7' />
+  <enum name='kBluetoothL2CAPCommandCodeEchoRequest' value='8' />
+  <enum name='kBluetoothL2CAPCommandCodeEchoResponse' value='9' />
+  <enum name='kBluetoothL2CAPCommandCodeInformationRequest' value='10' />
+  <enum name='kBluetoothL2CAPCommandCodeInformationResponse' value='11' />
+  <enum name='kBluetoothL2CAPCommandCodeReserved' value='0' />
+  <enum name='kBluetoothL2CAPCommandRejectReasonCommandNotUnderstood' value='0' />
+  <enum name='kBluetoothL2CAPCommandRejectReasonInvalidCIDInRequest' value='2' />
+  <enum name='kBluetoothL2CAPCommandRejectReasonSignallingMTUExceeded' value='1' />
+  <enum name='kBluetoothL2CAPConfigurationBasicL2CAPModeFlag' value='0' />
+  <enum name='kBluetoothL2CAPConfigurationFlowControlModeFlag' value='2' />
+  <enum name='kBluetoothL2CAPConfigurationOptionFlushTimeout' value='2' />
+  <enum name='kBluetoothL2CAPConfigurationOptionFlushTimeoutLength' value='2' />
+  <enum name='kBluetoothL2CAPConfigurationOptionMTU' value='1' />
+  <enum name='kBluetoothL2CAPConfigurationOptionMTULength' value='2' />
+  <enum name='kBluetoothL2CAPConfigurationOptionQoS' value='3' />
+  <enum name='kBluetoothL2CAPConfigurationOptionQoSLength' value='22' />
+  <enum name='kBluetoothL2CAPConfigurationOptionRetransmissionAndFlowControl' value='4' />
+  <enum name='kBluetoothL2CAPConfigurationOptionRetransmissionAndFlowControlLength' value='9' />
+  <enum name='kBluetoothL2CAPConfigurationResultRejected' value='2' />
+  <enum name='kBluetoothL2CAPConfigurationResultSuccess' value='0' />
+  <enum name='kBluetoothL2CAPConfigurationResultUnacceptableParams' value='1' />
+  <enum name='kBluetoothL2CAPConfigurationResultUnknownOptions' value='3' />
+  <enum name='kBluetoothL2CAPConfigurationRetransmissionModeFlag' value='1' />
+  <enum name='kBluetoothL2CAPConnectionResultPending' value='1' />
+  <enum name='kBluetoothL2CAPConnectionResultRefusedNoResources' value='4' />
+  <enum name='kBluetoothL2CAPConnectionResultRefusedPSMNotSupported' value='2' />
+  <enum name='kBluetoothL2CAPConnectionResultRefusedSecurityBlock' value='3' />
+  <enum name='kBluetoothL2CAPConnectionResultSuccessful' value='0' />
+  <enum name='kBluetoothL2CAPConnectionStatusAuthenticationPending' value='1' />
+  <enum name='kBluetoothL2CAPConnectionStatusAuthorizationPending' value='2' />
+  <enum name='kBluetoothL2CAPConnectionStatusNoInfoAvailable' value='0' />
+  <enum name='kBluetoothL2CAPFlushTimeoutDefault' value='65535' />
+  <enum name='kBluetoothL2CAPFlushTimeoutEnd' value='65536' />
+  <enum name='kBluetoothL2CAPFlushTimeoutForever' value='65535' />
+  <enum name='kBluetoothL2CAPFlushTimeoutImmediate' value='1' />
+  <enum name='kBluetoothL2CAPFlushTimeoutUseExisting' value='0' />
+  <enum name='kBluetoothL2CAPInfoTypeMaxConnectionlessMTUSize' value='1' />
+  <enum name='kBluetoothL2CAPInformationBidirectionalQoS' value='4' />
+  <enum name='kBluetoothL2CAPInformationFlowControlMode' value='1' />
+  <enum name='kBluetoothL2CAPInformationNoExtendedFeatures' value='0' />
+  <enum name='kBluetoothL2CAPInformationResultNotSupported' value='1' />
+  <enum name='kBluetoothL2CAPInformationResultSuccess' value='0' />
+  <enum name='kBluetoothL2CAPInformationRetransmissionMode' value='2' />
+  <enum name='kBluetoothL2CAPInformationTypeConnectionlessMTU' value='1' />
+  <enum name='kBluetoothL2CAPInformationTypeExtendedFeatures' value='2' />
+  <enum name='kBluetoothL2CAPMTUDefault' value='672' />
+  <enum name='kBluetoothL2CAPMTUMaximum' value='65535' />
+  <enum name='kBluetoothL2CAPMTUMinimum' value='48' />
+  <enum name='kBluetoothL2CAPMTUSIG' value='48' />
+  <enum name='kBluetoothL2CAPMTUStart' value='32767' />
+  <enum name='kBluetoothL2CAPMaxPacketSize' value='65535' />
+  <enum name='kBluetoothL2CAPPSMAVCTP' value='23' />
+  <enum name='kBluetoothL2CAPPSMAVDTP' value='25' />
+  <enum name='kBluetoothL2CAPPSMBNEP' value='15' />
+  <enum name='kBluetoothL2CAPPSMDynamicEnd' value='65535' />
+  <enum name='kBluetoothL2CAPPSMDynamicStart' value='4097' />
+  <enum name='kBluetoothL2CAPPSMHIDControl' value='17' />
+  <enum name='kBluetoothL2CAPPSMHIDInterrupt' value='19' />
+  <enum name='kBluetoothL2CAPPSMNone' value='0' />
+  <enum name='kBluetoothL2CAPPSMRFCOMM' value='3' />
+  <enum name='kBluetoothL2CAPPSMReservedEnd' value='4096' />
+  <enum name='kBluetoothL2CAPPSMReservedStart' value='1' />
+  <enum name='kBluetoothL2CAPPSMSDP' value='1' />
+  <enum name='kBluetoothL2CAPPSMTCS_BIN' value='5' />
+  <enum name='kBluetoothL2CAPPSMTCS_BIN_Cordless' value='7' />
+  <enum name='kBluetoothL2CAPPSMUID_C_Plane' value='29' />
+  <enum name='kBluetoothL2CAPPacketHeaderSize' value='4' />
+  <enum name='kBluetoothL2CAPQoSDelayVariationDefault' value='-1' />
+  <enum name='kBluetoothL2CAPQoSFlagsDefault' value='0' />
+  <enum name='kBluetoothL2CAPQoSLatencyDefault' value='-1' />
+  <enum name='kBluetoothL2CAPQoSPeakBandwidthDefault' value='0' />
+  <enum name='kBluetoothL2CAPQoSTokenBucketSizeDefault' value='0' />
+  <enum name='kBluetoothL2CAPQoSTokenRateDefault' value='0' />
+  <enum name='kBluetoothL2CAPQoSTypeBestEffort' value='1' />
+  <enum name='kBluetoothL2CAPQoSTypeDefault' value='1' />
+  <enum name='kBluetoothL2CAPQoSTypeGuaranteed' value='2' />
+  <enum name='kBluetoothL2CAPQoSTypeNoTraffic' value='0' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_ConfigReq' value='3' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_ConfigResp' value='19' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_ConnectReq' value='1' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_ConnectResp' value='17' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_DisableCLT' value='4' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_DisconnectReq' value='2' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_DisconnectResp' value='18' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_EnableCLT' value='5' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GetInfo' value='14' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GroupAddMember' value='8' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GroupClose' value='7' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GroupCreate' value='6' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GroupMembership' value='10' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_GroupRemoveMember' value='9' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_Ping' value='13' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_ReadData' value='12' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_Reserved1' value='15' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_Reserved2' value='16' />
+  <enum name='kBluetoothL2CAPTCICommandL2CA_WriteData' value='11' />
+  <enum name='kBluetoothL2CAPTCICommandReserved' value='0' />
+  <enum name='kBluetoothL2CAPTCIEventIDL2CA_ConfigInd' value='2' />
+  <enum name='kBluetoothL2CAPTCIEventIDL2CA_ConnectInd' value='1' />
+  <enum name='kBluetoothL2CAPTCIEventIDL2CA_DisconnectInd' value='3' />
+  <enum name='kBluetoothL2CAPTCIEventIDL2CA_QoSViolationInd' value='4' />
+  <enum name='kBluetoothL2CAPTCIEventIDL2CA_TimeOutInd' value='5' />
+  <enum name='kBluetoothL2CAPTCIEventIDReserved' value='0' />
+  <enum name='kBluetoothLimitedInquiryAccessCodeEnd' value='10390273' />
+  <enum name='kBluetoothLimitedInquiryAccessCodeIndex' value='1' />
+  <enum name='kBluetoothLimitedInquiryAccessCodeLAPValue' value='10390272' />
+  <enum name='kBluetoothLinkTypeNone' value='255' />
+  <enum name='kBluetoothOOBAuthenticationDataFromRemoteDevicePresent' value='1' />
+  <enum name='kBluetoothOOBAuthenticationDataNotPresent' value='0' />
+  <enum name='kBluetoothPacketTypeAUX' value='512' />
+  <enum name='kBluetoothPacketTypeDH1' value='16' />
+  <enum name='kBluetoothPacketTypeDH3' value='2048' />
+  <enum name='kBluetoothPacketTypeDH5' value='32768' />
+  <enum name='kBluetoothPacketTypeDM1' value='8' />
+  <enum name='kBluetoothPacketTypeDM3' value='1024' />
+  <enum name='kBluetoothPacketTypeDM5' value='16384' />
+  <enum name='kBluetoothPacketTypeDV' value='256' />
+  <enum name='kBluetoothPacketTypeEnd' value='32769' />
+  <enum name='kBluetoothPacketTypeHV1' value='32' />
+  <enum name='kBluetoothPacketTypeHV2' value='64' />
+  <enum name='kBluetoothPacketTypeHV3' value='128' />
+  <enum name='kBluetoothPageScanModeMandatory' value='0' />
+  <enum name='kBluetoothPageScanModeOptional1' value='1' />
+  <enum name='kBluetoothPageScanModeOptional2' value='2' />
+  <enum name='kBluetoothPageScanModeOptional3' value='3' />
+  <enum name='kBluetoothPageScanPeriodModeP0' value='0' />
+  <enum name='kBluetoothPageScanPeriodModeP1' value='1' />
+  <enum name='kBluetoothPageScanPeriodModeP2' value='2' />
+  <enum name='kBluetoothPageScanRepetitionModeR0' value='0' />
+  <enum name='kBluetoothPageScanRepetitionModeR1' value='1' />
+  <enum name='kBluetoothPageScanRepetitionModeR2' value='2' />
+  <enum name='kBluetoothRFCOMMParityTypeEvenParity' value='2' />
+  <enum name='kBluetoothRFCOMMParityTypeMaxParity' value='3' />
+  <enum name='kBluetoothRFCOMMParityTypeNoParity' value='0' />
+  <enum name='kBluetoothRFCOMMParityTypeOddParity' value='1' />
+  <enum name='kBluetoothRoleBecomeMaster' value='0' />
+  <enum name='kBluetoothRoleRemainSlave' value='1' />
+  <enum name='kBluetoothSCOConnection' value='0' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierClientExecutableURL' value='11' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierDocumentationURL' value='10' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierPrimaryRecord' value='516' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierProductID' value='514' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierReservedRangeEnd' value='767' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierReservedRangeStart' value='518' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierServiceDescription' value='1' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierSpecificationID' value='512' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierVendorID' value='513' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierVendorIDSource' value='517' />
+  <enum name='kBluetoothSDPAttributeDeviceIdentifierVersion' value='515' />
+  <enum name='kBluetoothSDPAttributeIdentifierAdditionalProtocolsDescriptorList' value='13' />
+  <enum name='kBluetoothSDPAttributeIdentifierAudioFeedbackSupport' value='773' />
+  <enum name='kBluetoothSDPAttributeIdentifierBluetoothProfileDescriptorList' value='9' />
+  <enum name='kBluetoothSDPAttributeIdentifierBrowseGroupList' value='5' />
+  <enum name='kBluetoothSDPAttributeIdentifierClientExecutableURL' value='11' />
+  <enum name='kBluetoothSDPAttributeIdentifierDocumentationURL' value='10' />
+  <enum name='kBluetoothSDPAttributeIdentifierExternalNetwork' value='769' />
+  <enum name='kBluetoothSDPAttributeIdentifierFaxClass1Support' value='770' />
+  <enum name='kBluetoothSDPAttributeIdentifierFaxClass2Support' value='772' />
+  <enum name='kBluetoothSDPAttributeIdentifierFaxClass2_0Support' value='771' />
+  <enum name='kBluetoothSDPAttributeIdentifierGroupID' value='512' />
+  <enum name='kBluetoothSDPAttributeIdentifierHomepageURL' value='776' />
+  <enum name='kBluetoothSDPAttributeIdentifierIPSubnet' value='512' />
+  <enum name='kBluetoothSDPAttributeIdentifierIconURL' value='12' />
+  <enum name='kBluetoothSDPAttributeIdentifierLanguageBaseAttributeIDList' value='6' />
+  <enum name='kBluetoothSDPAttributeIdentifierMaxNetAccessRate' value='780' />
+  <enum name='kBluetoothSDPAttributeIdentifierNetAccessType' value='779' />
+  <enum name='kBluetoothSDPAttributeIdentifierNetwork' value='769' />
+  <enum name='kBluetoothSDPAttributeIdentifierNetworkAddress' value='774' />
+  <enum name='kBluetoothSDPAttributeIdentifierProtocolDescriptorList' value='4' />
+  <enum name='kBluetoothSDPAttributeIdentifierProviderName' value='2' />
+  <enum name='kBluetoothSDPAttributeIdentifierRemoteAudioVolumeControl' value='770' />
+  <enum name='kBluetoothSDPAttributeIdentifierSecurityDescription' value='778' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceAvailability' value='8' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceClassIDList' value='1' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceDatabaseState' value='513' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceDescription' value='1' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceID' value='3' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceInfoTimeToLive' value='7' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceName' value='0' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceRecordHandle' value='0' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceRecordState' value='2' />
+  <enum name='kBluetoothSDPAttributeIdentifierServiceVersion' value='768' />
+  <enum name='kBluetoothSDPAttributeIdentifierSupportedCapabilities' value='784' />
+  <enum name='kBluetoothSDPAttributeIdentifierSupportedDataStoresList' value='769' />
+  <enum name='kBluetoothSDPAttributeIdentifierSupportedFeatures' value='785' />
+  <enum name='kBluetoothSDPAttributeIdentifierSupportedFunctions' value='786' />
+  <enum name='kBluetoothSDPAttributeIdentifierSupporterFormatsList' value='771' />
+  <enum name='kBluetoothSDPAttributeIdentifierTotalImagingDataCapacity' value='787' />
+  <enum name='kBluetoothSDPAttributeIdentifierVersionNumberList' value='512' />
+  <enum name='kBluetoothSDPAttributeIdentifierWAPGateway' value='775' />
+  <enum name='kBluetoothSDPAttributeIdentifierWAPStackType' value='777' />
+  <enum name='kBluetoothSDPDataElementTypeBoolean' value='5' />
+  <enum name='kBluetoothSDPDataElementTypeDataElementAlternative' value='7' />
+  <enum name='kBluetoothSDPDataElementTypeDataElementSequence' value='6' />
+  <enum name='kBluetoothSDPDataElementTypeNil' value='0' />
+  <enum name='kBluetoothSDPDataElementTypeReservedEnd' value='31' />
+  <enum name='kBluetoothSDPDataElementTypeReservedStart' value='9' />
+  <enum name='kBluetoothSDPDataElementTypeSignedInt' value='2' />
+  <enum name='kBluetoothSDPDataElementTypeString' value='4' />
+  <enum name='kBluetoothSDPDataElementTypeURL' value='8' />
+  <enum name='kBluetoothSDPDataElementTypeUUID' value='3' />
+  <enum name='kBluetoothSDPDataElementTypeUnsignedInt' value='1' />
+  <enum name='kBluetoothSDPErrorCodeInsufficientResources' value='6' />
+  <enum name='kBluetoothSDPErrorCodeInvalidContinuationState' value='5' />
+  <enum name='kBluetoothSDPErrorCodeInvalidPDUSize' value='4' />
+  <enum name='kBluetoothSDPErrorCodeInvalidRequestSyntax' value='3' />
+  <enum name='kBluetoothSDPErrorCodeInvalidSDPVersion' value='1' />
+  <enum name='kBluetoothSDPErrorCodeInvalidServiceRecordHandle' value='2' />
+  <enum name='kBluetoothSDPErrorCodeReserved' value='0' />
+  <enum name='kBluetoothSDPErrorCodeReservedEnd' value='65535' />
+  <enum name='kBluetoothSDPErrorCodeReservedStart' value='7' />
+  <enum name='kBluetoothSDPErrorCodeSuccess' value='0' />
+  <enum name='kBluetoothSDPPDUIDErrorResponse' value='1' />
+  <enum name='kBluetoothSDPPDUIDReserved' value='0' />
+  <enum name='kBluetoothSDPPDUIDServiceAttributeRequest' value='4' />
+  <enum name='kBluetoothSDPPDUIDServiceAttributeResponse' value='5' />
+  <enum name='kBluetoothSDPPDUIDServiceSearchAttributeRequest' value='6' />
+  <enum name='kBluetoothSDPPDUIDServiceSearchAttributeResponse' value='7' />
+  <enum name='kBluetoothSDPPDUIDServiceSearchRequest' value='2' />
+  <enum name='kBluetoothSDPPDUIDServiceSearchResponse' value='3' />
+  <enum name='kBluetoothSDPProtocolParameterBNEPSupportedNetworkPacketTypeList' value='2' />
+  <enum name='kBluetoothSDPProtocolParameterBNEPVersion' value='1' />
+  <enum name='kBluetoothSDPProtocolParameterL2CAPPSM' value='1' />
+  <enum name='kBluetoothSDPProtocolParameterRFCOMMChannel' value='1' />
+  <enum name='kBluetoothSDPProtocolParameterTCPPort' value='1' />
+  <enum name='kBluetoothSDPProtocolParameterUDPPort' value='1' />
+  <enum name='kBluetoothSDPUUID16AVCTP' value='23' />
+  <enum name='kBluetoothSDPUUID16AVDTP' value='25' />
+  <enum name='kBluetoothSDPUUID16BNEP' value='15' />
+  <enum name='kBluetoothSDPUUID16Base' value='0' />
+  <enum name='kBluetoothSDPUUID16CMPT' value='27' />
+  <enum name='kBluetoothSDPUUID16FTP' value='10' />
+  <enum name='kBluetoothSDPUUID16HIDP' value='17' />
+  <enum name='kBluetoothSDPUUID16HTTP' value='12' />
+  <enum name='kBluetoothSDPUUID16HardcopyControlChannel' value='18' />
+  <enum name='kBluetoothSDPUUID16HardcopyDataChannel' value='20' />
+  <enum name='kBluetoothSDPUUID16HardcopyNotification' value='22' />
+  <enum name='kBluetoothSDPUUID16IP' value='9' />
+  <enum name='kBluetoothSDPUUID16L2CAP' value='256' />
+  <enum name='kBluetoothSDPUUID16OBEX' value='8' />
+  <enum name='kBluetoothSDPUUID16RFCOMM' value='3' />
+  <enum name='kBluetoothSDPUUID16SDP' value='1' />
+  <enum name='kBluetoothSDPUUID16ServiceClassAVRemoteControl' value='4366' />
+  <enum name='kBluetoothSDPUUID16ServiceClassAVRemoteControlTarget' value='4364' />
+  <enum name='kBluetoothSDPUUID16ServiceClassAdvancedAudioDistribution' value='4365' />
+  <enum name='kBluetoothSDPUUID16ServiceClassAudioSink' value='4363' />
+  <enum name='kBluetoothSDPUUID16ServiceClassAudioSource' value='4362' />
+  <enum name='kBluetoothSDPUUID16ServiceClassBasicPrinting' value='4386' />
+  <enum name='kBluetoothSDPUUID16ServiceClassBrowseGroupDescriptor' value='4097' />
+  <enum name='kBluetoothSDPUUID16ServiceClassCommonISDNAccess' value='4392' />
+  <enum name='kBluetoothSDPUUID16ServiceClassCordlessTelephony' value='4361' />
+  <enum name='kBluetoothSDPUUID16ServiceClassDialupNetworking' value='4355' />
+  <enum name='kBluetoothSDPUUID16ServiceClassDirectPrinting' value='4376' />
+  <enum name='kBluetoothSDPUUID16ServiceClassDirectPrintingReferenceObjectsService' value='4384' />
+  <enum name='kBluetoothSDPUUID16ServiceClassFax' value='4369' />
+  <enum name='kBluetoothSDPUUID16ServiceClassGN' value='4375' />
+  <enum name='kBluetoothSDPUUID16ServiceClassGenericAudio' value='4611' />
+  <enum name='kBluetoothSDPUUID16ServiceClassGenericFileTransfer' value='4610' />
+  <enum name='kBluetoothSDPUUID16ServiceClassGenericNetworking' value='4609' />
+  <enum name='kBluetoothSDPUUID16ServiceClassGenericTelephony' value='4612' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHCR_Print' value='4390' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHCR_Scan' value='4391' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHandsfree' value='4382' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHandsfreeAudioGateway' value='4383' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHardcopyCableReplacement' value='4389' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHeadset' value='4360' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHeadsetAudioGateway' value='4370' />
+  <enum name='kBluetoothSDPUUID16ServiceClassHumanInterfaceDeviceService' value='4388' />
+  <enum name='kBluetoothSDPUUID16ServiceClassImaging' value='4378' />
+  <enum name='kBluetoothSDPUUID16ServiceClassImagingAutomaticArchive' value='4380' />
+  <enum name='kBluetoothSDPUUID16ServiceClassImagingReferencedObjects' value='4381' />
+  <enum name='kBluetoothSDPUUID16ServiceClassImagingResponder' value='4379' />
+  <enum name='kBluetoothSDPUUID16ServiceClassIntercom' value='4368' />
+  <enum name='kBluetoothSDPUUID16ServiceClassIrMCSync' value='4356' />
+  <enum name='kBluetoothSDPUUID16ServiceClassIrMCSyncCommand' value='4359' />
+  <enum name='kBluetoothSDPUUID16ServiceClassLANAccessUsingPPP' value='4354' />
+  <enum name='kBluetoothSDPUUID16ServiceClassNAP' value='4374' />
+  <enum name='kBluetoothSDPUUID16ServiceClassOBEXFileTransfer' value='4358' />
+  <enum name='kBluetoothSDPUUID16ServiceClassOBEXObjectPush' value='4357' />
+  <enum name='kBluetoothSDPUUID16ServiceClassPANU' value='4373' />
+  <enum name='kBluetoothSDPUUID16ServiceClassPnPInformation' value='4608' />
+  <enum name='kBluetoothSDPUUID16ServiceClassPrintingStatus' value='4387' />
+  <enum name='kBluetoothSDPUUID16ServiceClassPublicBrowseGroup' value='4098' />
+  <enum name='kBluetoothSDPUUID16ServiceClassReferencePrinting' value='4377' />
+  <enum name='kBluetoothSDPUUID16ServiceClassReflectedUI' value='4385' />
+  <enum name='kBluetoothSDPUUID16ServiceClassSerialPort' value='4353' />
+  <enum name='kBluetoothSDPUUID16ServiceClassServiceDiscoveryServer' value='4096' />
+  <enum name='kBluetoothSDPUUID16ServiceClassUDI_MT' value='4394' />
+  <enum name='kBluetoothSDPUUID16ServiceClassUDI_TA' value='4395' />
+  <enum name='kBluetoothSDPUUID16ServiceClassVideoConferencing' value='4367' />
+  <enum name='kBluetoothSDPUUID16ServiceClassVideoConferencingGW' value='4393' />
+  <enum name='kBluetoothSDPUUID16ServiceClassWAP' value='4371' />
+  <enum name='kBluetoothSDPUUID16ServiceClassWAPClient' value='4372' />
+  <enum name='kBluetoothSDPUUID16TCP' value='4' />
+  <enum name='kBluetoothSDPUUID16TCSAT' value='6' />
+  <enum name='kBluetoothSDPUUID16TCSBIN' value='5' />
+  <enum name='kBluetoothSDPUUID16UDI_C_Plane' value='29' />
+  <enum name='kBluetoothSDPUUID16UDP' value='2' />
+  <enum name='kBluetoothSDPUUID16UPNP' value='16' />
+  <enum name='kBluetoothSDPUUID16WSP' value='14' />
+  <enum name='kBluetoothServiceClassMajorAny' value='707406378' />
+  <enum name='kBluetoothServiceClassMajorAudio' value='256' />
+  <enum name='kBluetoothServiceClassMajorCapturing' value='64' />
+  <enum name='kBluetoothServiceClassMajorEnd' value='1852796518' />
+  <enum name='kBluetoothServiceClassMajorInformation' value='1024' />
+  <enum name='kBluetoothServiceClassMajorLimitedDiscoverableMode' value='1' />
+  <enum name='kBluetoothServiceClassMajorNetworking' value='16' />
+  <enum name='kBluetoothServiceClassMajorNone' value='1852796517' />
+  <enum name='kBluetoothServiceClassMajorObjectTransfer' value='128' />
+  <enum name='kBluetoothServiceClassMajorPositioning' value='8' />
+  <enum name='kBluetoothServiceClassMajorRendering' value='32' />
+  <enum name='kBluetoothServiceClassMajorReserved1' value='2' />
+  <enum name='kBluetoothServiceClassMajorReserved2' value='4' />
+  <enum name='kBluetoothServiceClassMajorTelephony' value='512' />
+  <enum name='kBluetoothTransportTypePCCard' value='2' />
+  <enum name='kBluetoothTransportTypePCICard' value='3' />
+  <enum name='kBluetoothTransportTypeUSB' value='1' />
+  <enum name='kConnectionActiveMode' value='0' />
+  <enum name='kConnectionHoldMode' value='1' />
+  <enum name='kConnectionModeReservedForFutureUse' value='4' />
+  <enum name='kConnectionParkMode' value='3' />
+  <enum name='kConnectionSniffMode' value='2' />
+  <enum name='kDefaultPageTimeout' value='8192' />
+  <enum name='kDeleteAllStoredLinkKeys' value='1' />
+  <enum name='kDeleteKeyForSpecifiedDeviceOnly' value='0' />
+  <enum name='kDisableAllLMModes' value='0' />
+  <enum name='kEnableHoldMode' value='2' />
+  <enum name='kEnableMasterSlaveSwitch' value='1' />
+  <enum name='kEnableParkMode' value='8' />
+  <enum name='kEnableSniffMode' value='4' />
+  <enum name='kEncryptionDisabled' value='0' />
+  <enum name='kEncryptionForBothPointToPointAndBroadcastPackets' value='2' />
+  <enum name='kEncryptionOnlyForPointToPointPackets' value='1' />
+  <enum name='kHCIACLDataPacketsOffHCISCODataPacketsOn' value='2' />
+  <enum name='kHCIACLDataPacketsOnHCISCODataPacketsOff' value='1' />
+  <enum name='kHCIACLDataPacketsOnHCISCODataPacketsOn' value='3' />
+  <enum name='kHostControllerToHostFlowControlOff' value='0' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeClosed' value='3' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeData' value='1' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeOpenComplete' value='2' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeQueueSpaceAvailable' value='6' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeReconfigured' value='4' />
+  <enum name='kIOBluetoothL2CAPChannelEventTypeWriteComplete' value='5' />
+  <enum name='kIOBluetoothObjectIDNULL' value='0' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeClosed' value='2' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeControlSignalsChanged' value='4' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeData' value='0' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeFlowControlChanged' value='1' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeOpenComplete' value='3' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeQueueSpaceAvailable' value='6' />
+  <enum name='kIOBluetoothRFCOMMChannelEventTypeWriteComplete' value='5' />
+  <enum name='kIOBluetoothRFCOMMChannelFlowControlStatusIsOff' value='0' />
+  <enum name='kIOBluetoothRFCOMMChannelFlowControlStatusIsOn' value='1' />
+  <enum name='kIOBluetoothRFCOMMChannelTerminatedEvent' value='2' />
+  <enum name='kIOBluetoothRFCOMMFlowControlChangedEvent' value='1' />
+  <enum name='kIOBluetoothRFCOMMNewDataEvent' value='0' />
+  <enum name='kIOBluetoothUserNotificationChannelDirectionAny' value='0' />
+  <enum name='kIOBluetoothUserNotificationChannelDirectionIncoming' value='1' />
+  <enum name='kIOBluetoothUserNotificationChannelDirectionOutgoing' value='2' />
+  <enum name='kInfoStringMaxLength' value='25' />
+  <enum name='kInquiryScanDisabledPageScanEnabled' value='2' />
+  <enum name='kInquiryScanEnabledPageScanDisabled' value='1' />
+  <enum name='kInquiryScanEnabledPageScanEnabled' value='3' />
+  <enum name='kMaintainCurrentPowerState' value='0' />
+  <enum name='kMandatoryPageScanMode' value='0' />
+  <enum name='kMaxChannelIDPerSide' value='31' />
+  <enum name='kNoScansEnabled' value='0' />
+  <enum name='kOBEXBadArgumentError' value='-21854' />
+  <enum name='kOBEXBadRequestError' value='-21856' />
+  <enum name='kOBEXCancelledError' value='-21857' />
+  <enum name='kOBEXConnectFlag1Reserved' value='2' />
+  <enum name='kOBEXConnectFlag2Reserved' value='4' />
+  <enum name='kOBEXConnectFlag3Reserved' value='8' />
+  <enum name='kOBEXConnectFlag4Reserved' value='16' />
+  <enum name='kOBEXConnectFlag5Reserved' value='32' />
+  <enum name='kOBEXConnectFlag6Reserved' value='64' />
+  <enum name='kOBEXConnectFlag7Reserved' value='128' />
+  <enum name='kOBEXConnectFlagNone' value='0' />
+  <enum name='kOBEXConnectFlagSupportMultipleItLMPConnections' value='1' />
+  <enum name='kOBEXErrorRangeMax' value='-21899' />
+  <enum name='kOBEXErrorRangeMin' value='-21850' />
+  <enum name='kOBEXGeneralError' value='-21850' />
+  <enum name='kOBEXHeaderIDAppParameters' value='76' />
+  <enum name='kOBEXHeaderIDAuthorizationChallenge' value='77' />
+  <enum name='kOBEXHeaderIDAuthorizationResponse' value='78' />
+  <enum name='kOBEXHeaderIDBody' value='72' />
+  <enum name='kOBEXHeaderIDConnectionID' value='203' />
+  <enum name='kOBEXHeaderIDCount' value='192' />
+  <enum name='kOBEXHeaderIDDescription' value='5' />
+  <enum name='kOBEXHeaderIDEndOfBody' value='73' />
+  <enum name='kOBEXHeaderIDHTTP' value='71' />
+  <enum name='kOBEXHeaderIDLength' value='195' />
+  <enum name='kOBEXHeaderIDName' value='1' />
+  <enum name='kOBEXHeaderIDObjectClass' value='79' />
+  <enum name='kOBEXHeaderIDReservedRangeEnd' value='47' />
+  <enum name='kOBEXHeaderIDReservedRangeStart' value='16' />
+  <enum name='kOBEXHeaderIDTarget' value='70' />
+  <enum name='kOBEXHeaderIDTime4Byte' value='196' />
+  <enum name='kOBEXHeaderIDTimeISO' value='68' />
+  <enum name='kOBEXHeaderIDType' value='66' />
+  <enum name='kOBEXHeaderIDUserDefinedRangeEnd' value='63' />
+  <enum name='kOBEXHeaderIDUserDefinedRangeStart' value='48' />
+  <enum name='kOBEXHeaderIDWho' value='74' />
+  <enum name='kOBEXInternalError' value='-21853' />
+  <enum name='kOBEXNoResourcesError' value='-21851' />
+  <enum name='kOBEXNonceFlag2Reserved' value='4' />
+  <enum name='kOBEXNonceFlag3Reserved' value='8' />
+  <enum name='kOBEXNonceFlag4Reserved' value='16' />
+  <enum name='kOBEXNonceFlag5Reserved' value='32' />
+  <enum name='kOBEXNonceFlag6Reserved' value='64' />
+  <enum name='kOBEXNonceFlag7Reserved' value='128' />
+  <enum name='kOBEXNonceFlagAccessModeReadOnly' value='2' />
+  <enum name='kOBEXNonceFlagNone' value='0' />
+  <enum name='kOBEXNonceFlagSendUserIDInResponse' value='1' />
+  <enum name='kOBEXOpCodeAbort' value='255' />
+  <enum name='kOBEXOpCodeConnect' value='128' />
+  <enum name='kOBEXOpCodeDisconnect' value='129' />
+  <enum name='kOBEXOpCodeGet' value='3' />
+  <enum name='kOBEXOpCodeGetWithHighBitSet' value='131' />
+  <enum name='kOBEXOpCodePut' value='2' />
+  <enum name='kOBEXOpCodePutWithHighBitSet' value='130' />
+  <enum name='kOBEXOpCodeReserved' value='4' />
+  <enum name='kOBEXOpCodeReservedRangeEnd' value='15' />
+  <enum name='kOBEXOpCodeReservedRangeStart' value='6' />
+  <enum name='kOBEXOpCodeReservedWithHighBitSet' value='132' />
+  <enum name='kOBEXOpCodeSetPath' value='133' />
+  <enum name='kOBEXOpCodeUserDefinedEnd' value='31' />
+  <enum name='kOBEXOpCodeUserDefinedStart' value='16' />
+  <enum name='kOBEXPutFlag2Reserved' value='4' />
+  <enum name='kOBEXPutFlag3Reserved' value='8' />
+  <enum name='kOBEXPutFlag4Reserved' value='16' />
+  <enum name='kOBEXPutFlag5Reserved' value='32' />
+  <enum name='kOBEXPutFlag6Reserved' value='64' />
+  <enum name='kOBEXPutFlag7Reserved' value='128' />
+  <enum name='kOBEXPutFlagDontCreateDirectory' value='2' />
+  <enum name='kOBEXPutFlagGoToParentDirFirst' value='1' />
+  <enum name='kOBEXPutFlagNone' value='0' />
+  <enum name='kOBEXRealmASCII' value='0' />
+  <enum name='kOBEXRealmISO88591' value='1' />
+  <enum name='kOBEXRealmISO88592' value='2' />
+  <enum name='kOBEXRealmISO88593' value='3' />
+  <enum name='kOBEXRealmISO88594' value='4' />
+  <enum name='kOBEXRealmISO88595' value='5' />
+  <enum name='kOBEXRealmISO88596' value='6' />
+  <enum name='kOBEXRealmISO88597' value='7' />
+  <enum name='kOBEXRealmISO88598' value='8' />
+  <enum name='kOBEXRealmISO88599' value='9' />
+  <enum name='kOBEXRealmUNICODE' value='255' />
+  <enum name='kOBEXResponseCodeAccepted' value='34' />
+  <enum name='kOBEXResponseCodeAcceptedWithFinalBit' value='162' />
+  <enum name='kOBEXResponseCodeBadGateway' value='82' />
+  <enum name='kOBEXResponseCodeBadGatewayWithFinalBit' value='210' />
+  <enum name='kOBEXResponseCodeBadRequest' value='64' />
+  <enum name='kOBEXResponseCodeBadRequestWithFinalBit' value='192' />
+  <enum name='kOBEXResponseCodeConflict' value='73' />
+  <enum name='kOBEXResponseCodeConflictWithFinalBit' value='201' />
+  <enum name='kOBEXResponseCodeContinue' value='16' />
+  <enum name='kOBEXResponseCodeContinueWithFinalBit' value='144' />
+  <enum name='kOBEXResponseCodeCreated' value='33' />
+  <enum name='kOBEXResponseCodeCreatedWithFinalBit' value='161' />
+  <enum name='kOBEXResponseCodeDatabaseFull' value='96' />
+  <enum name='kOBEXResponseCodeDatabaseFullWithFinalBit' value='224' />
+  <enum name='kOBEXResponseCodeDatabaseLocked' value='97' />
+  <enum name='kOBEXResponseCodeDatabaseLockedWithFinalBit' value='225' />
+  <enum name='kOBEXResponseCodeForbidden' value='67' />
+  <enum name='kOBEXResponseCodeForbiddenWithFinalBit' value='195' />
+  <enum name='kOBEXResponseCodeGatewayTimeout' value='84' />
+  <enum name='kOBEXResponseCodeGatewayTimeoutWithFinalBit' value='212' />
+  <enum name='kOBEXResponseCodeGone' value='74' />
+  <enum name='kOBEXResponseCodeGoneWithFinalBit' value='202' />
+  <enum name='kOBEXResponseCodeHTTPVersionNotSupported' value='85' />
+  <enum name='kOBEXResponseCodeHTTPVersionNotSupportedWithFinalBit' value='213' />
+  <enum name='kOBEXResponseCodeInternalServerError' value='80' />
+  <enum name='kOBEXResponseCodeInternalServerErrorWithFinalBit' value='208' />
+  <enum name='kOBEXResponseCodeLengthRequired' value='75' />
+  <enum name='kOBEXResponseCodeLengthRequiredFinalBit' value='203' />
+  <enum name='kOBEXResponseCodeMethodNotAllowed' value='69' />
+  <enum name='kOBEXResponseCodeMethodNotAllowedWithFinalBit' value='197' />
+  <enum name='kOBEXResponseCodeMovedPermanently' value='49' />
+  <enum name='kOBEXResponseCodeMovedPermanentlyWithFinalBit' value='177' />
+  <enum name='kOBEXResponseCodeMovedTemporarily' value='50' />
+  <enum name='kOBEXResponseCodeMovedTemporarilyWithFinalBit' value='178' />
+  <enum name='kOBEXResponseCodeMultipleChoices' value='48' />
+  <enum name='kOBEXResponseCodeMultipleChoicesWithFinalBit' value='176' />
+  <enum name='kOBEXResponseCodeNoContent' value='36' />
+  <enum name='kOBEXResponseCodeNoContentWithFinalBit' value='164' />
+  <enum name='kOBEXResponseCodeNonAuthoritativeInfo' value='35' />
+  <enum name='kOBEXResponseCodeNonAuthoritativeInfoWithFinalBit' value='163' />
+  <enum name='kOBEXResponseCodeNotAcceptable' value='70' />
+  <enum name='kOBEXResponseCodeNotAcceptableWithFinalBit' value='198' />
+  <enum name='kOBEXResponseCodeNotFound' value='68' />
+  <enum name='kOBEXResponseCodeNotFoundWithFinalBit' value='196' />
+  <enum name='kOBEXResponseCodeNotImplemented' value='81' />
+  <enum name='kOBEXResponseCodeNotImplementedWithFinalBit' value='209' />
+  <enum name='kOBEXResponseCodeNotModified' value='52' />
+  <enum name='kOBEXResponseCodeNotModifiedWithFinalBit' value='180' />
+  <enum name='kOBEXResponseCodePartialContent' value='38' />
+  <enum name='kOBEXResponseCodePartialContentWithFinalBit' value='166' />
+  <enum name='kOBEXResponseCodePaymentRequired' value='66' />
+  <enum name='kOBEXResponseCodePaymentRequiredWithFinalBit' value='194' />
+  <enum name='kOBEXResponseCodePreconditionFailed' value='76' />
+  <enum name='kOBEXResponseCodePreconditionFailedWithFinalBit' value='204' />
+  <enum name='kOBEXResponseCodeProxyAuthenticationRequired' value='71' />
+  <enum name='kOBEXResponseCodeProxyAuthenticationRequiredWithFinalBit' value='199' />
+  <enum name='kOBEXResponseCodeRequestTimeOut' value='72' />
+  <enum name='kOBEXResponseCodeRequestTimeOutWithFinalBit' value='200' />
+  <enum name='kOBEXResponseCodeRequestURLTooLarge' value='78' />
+  <enum name='kOBEXResponseCodeRequestURLTooLargeWithFinalBit' value='206' />
+  <enum name='kOBEXResponseCodeRequestedEntityTooLarge' value='77' />
+  <enum name='kOBEXResponseCodeRequestedEntityTooLargeWithFinalBit' value='205' />
+  <enum name='kOBEXResponseCodeReservedRangeEnd' value='15' />
+  <enum name='kOBEXResponseCodeReservedRangeStart' value='0' />
+  <enum name='kOBEXResponseCodeResetContent' value='37' />
+  <enum name='kOBEXResponseCodeResetContentWithFinalBit' value='165' />
+  <enum name='kOBEXResponseCodeSeeOther' value='51' />
+  <enum name='kOBEXResponseCodeSeeOtherWithFinalBit' value='179' />
+  <enum name='kOBEXResponseCodeServiceUnavailable' value='83' />
+  <enum name='kOBEXResponseCodeServiceUnavailableWithFinalBit' value='211' />
+  <enum name='kOBEXResponseCodeSuccess' value='32' />
+  <enum name='kOBEXResponseCodeSuccessWithFinalBit' value='160' />
+  <enum name='kOBEXResponseCodeUnauthorized' value='65' />
+  <enum name='kOBEXResponseCodeUnauthorizedWithFinalBit' value='193' />
+  <enum name='kOBEXResponseCodeUnsupportedMediaType' value='79' />
+  <enum name='kOBEXResponseCodeUnsupportedMediaTypeWithFinalBit' value='207' />
+  <enum name='kOBEXResponseCodeUseProxy' value='53' />
+  <enum name='kOBEXResponseCodeUseProxyWithFinalBit' value='181' />
+  <enum name='kOBEXSessionAlreadyConnectedError' value='-21882' />
+  <enum name='kOBEXSessionBadRequestError' value='-21877' />
+  <enum name='kOBEXSessionBadResponseError' value='-21878' />
+  <enum name='kOBEXSessionBusyError' value='-21875' />
+  <enum name='kOBEXSessionEventTypeAbortCommandReceived' value='1330857281' />
+  <enum name='kOBEXSessionEventTypeAbortCommandResponseReceived' value='1329808705' />
+  <enum name='kOBEXSessionEventTypeConnectCommandReceived' value='1330857283' />
+  <enum name='kOBEXSessionEventTypeConnectCommandResponseReceived' value='1329808707' />
+  <enum name='kOBEXSessionEventTypeDisconnectCommandReceived' value='1330857284' />
+  <enum name='kOBEXSessionEventTypeDisconnectCommandResponseReceived' value='1329808708' />
+  <enum name='kOBEXSessionEventTypeError' value='1330070853' />
+  <enum name='kOBEXSessionEventTypeGetCommandReceived' value='1330857287' />
+  <enum name='kOBEXSessionEventTypeGetCommandResponseReceived' value='1329808711' />
+  <enum name='kOBEXSessionEventTypePutCommandReceived' value='1330857296' />
+  <enum name='kOBEXSessionEventTypePutCommandResponseReceived' value='1329808720' />
+  <enum name='kOBEXSessionEventTypeSetPathCommandReceived' value='1330857299' />
+  <enum name='kOBEXSessionEventTypeSetPathCommandResponseReceived' value='1329808723' />
+  <enum name='kOBEXSessionNoTransportError' value='-21879' />
+  <enum name='kOBEXSessionNotConnectedError' value='-21876' />
+  <enum name='kOBEXSessionTimeoutError' value='-21881' />
+  <enum name='kOBEXSessionTransportDiedError' value='-21880' />
+  <enum name='kOBEXSuccess' value='0' />
+  <enum name='kOBEXTimeoutError' value='-21855' />
+  <enum name='kOBEXUnsupportedError' value='-21852' />
+  <enum name='kOBEXVersion10' value='16' />
+  <enum name='kOptionalPageScanMode1' value='1' />
+  <enum name='kOptionalPageScanMode2' value='2' />
+  <enum name='kOptionalPageScanMode3' value='3' />
+  <enum name='kP0Mode' value='0' />
+  <enum name='kP1Mode' value='1' />
+  <enum name='kP2Mode' value='2' />
+  <enum name='kReadAllStoredLinkKeys' value='1' />
+  <enum name='kReadCurrentTransmitPowerLevel' value='0' />
+  <enum name='kReadMaximumTransmitPowerLevel' value='1' />
+  <enum name='kReservedForFutureUse' value='16' />
+  <enum name='kReturnLinkKeyForSpecifiedDeviceOnly' value='0' />
+  <enum name='kSCOFlowControlDisabled' value='0' />
+  <enum name='kSCOFlowControlEnabled' value='1' />
+  <enum name='kSearchOptionsAlwaysStartInquiry' value='1' />
+  <enum name='kSearchOptionsDiscardCachedResults' value='2' />
+  <enum name='kSearchOptionsNone' value='0' />
+  <enum name='kSuspendInquiryScan' value='2' />
+  <enum name='kSuspendPageScan' value='1' />
+  <enum name='kSuspendPeriodicInquiries' value='3' />
+  <string_constant name='kCharsetStringISO88591' value='CHARSET=ISO-8859-1' />
+  <string_constant name='kCharsetStringUTF8' value='UTF-8' />
+  <string_constant name='kEncodingString8Bit' value='8BIT' />
+  <string_constant name='kEncodingStringBase64' value='BASE-64' />
+  <string_constant name='kEncodingStringQuotedPrintable' value='QUOTED-PRINTABLE' />
+  <null_const name='kNoNotifyProc' />
+  <null_const name='kNoUserRefCon' />
+  <function name='IOBluetoothAddSCOAudioDevice'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='IOBluetoothAddServiceDict'>
+    <retval type='i' />
+    <arg type='^{__CFDictionary=}' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothCFStringFromDeviceAddress'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='n' />
+  </function>
+  <function name='IOBluetoothCFStringToDeviceAddress'>
+    <retval type='i' />
+    <arg type='^{__CFString=}' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothDeviceAddToFavorites'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceCloseConnection'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceCreateWithAddress'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='n' />
+  </function>
+  <function name='IOBluetoothDeviceGetAddress'>
+    <retval type='^{BluetoothDeviceAddress=[6C]}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetAddressString'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetClassOfDevice'>
+    <retval type='L' type64='I' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetClockOffset'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetConnectionHandle'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetDeviceClassMajor'>
+    <retval type='L' type64='I' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetDeviceClassMinor'>
+    <retval type='L' type64='I' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetEncryptionMode'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetLastInquiryUpdate'>
+    <retval type='^{__CFDate=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetLastNameUpdate'>
+    <retval type='^{__CFDate=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetLastServicesUpdate'>
+    <retval type='^{__CFDate=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetLinkType'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetName'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetNameOrAddress'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetPageScanMode'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetPageScanPeriodMode'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetPageScanRepetitionMode'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetRecentAccessDate'>
+    <retval type='^{__CFDate=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetServiceClassMajor'>
+    <retval type='L' type64='I' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetServiceRecordForUUID'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceGetServices'>
+    <retval type='^{__CFArray=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryClearFoundDevices'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryCreateWithCallbackRefCon'>
+    <retval type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryDelete'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryGetFoundDevices'>
+    <retval type='^{__CFArray=}' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryGetInquiryLength'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryGetUpdateNewDeviceNames'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryGetUserRefCon'>
+    <retval type='^v' type64='^v' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetCompleteCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^?' type64='^?' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetDeviceFoundCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^?' type64='^?' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetDeviceNameUpdatedCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^?' type64='^?' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetInquiryLength'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='c' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetSearchCriteria'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='L' type64='L' />
+    <arg type='L' type64='L' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetStartedCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^?' type64='^?' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetUpdateNewDeviceNames'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='B' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetUpdatingNamesStartedCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^?' type64='^?' />
+  </function>
+  <function name='IOBluetoothDeviceInquirySetUserRefCon'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryStart'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceInquiryStop'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothDeviceInquiryRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceIsConnected'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceIsFavorite'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceIsPaired'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceOpenConnection'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceOpenConnectionWithOptions'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='S' />
+    <arg type='B' />
+  </function>
+  <function name='IOBluetoothDeviceOpenL2CAPChannel'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='S' />
+    <arg type='B' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothDeviceOpenL2CAPChannelAsync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' />
+    <arg type='S' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceOpenL2CAPChannelSync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' type_modifier='o' />
+    <arg type='S' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceOpenRFCOMMChannel'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='C' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothDeviceOpenRFCOMMChannelAsync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' />
+    <arg type='C' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceOpenRFCOMMChannelSync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^^{OpaqueIOBluetoothObjectRef}' type64='^^{OpaqueIOBluetoothObjectRef}' />
+    <arg type='C' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDevicePerformSDPQuery'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceRegisterForDisconnectNotification'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothDeviceRemoteNameRequest'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='[256C]' />
+  </function>
+  <function name='IOBluetoothDeviceRemoteNameRequestWithTimeout'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='[256C]' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothDeviceRemoveFromFavorites'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceRequestAuthentication'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothDeviceSendL2CAPEchoRequest'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothFavoriteDevices'>
+    <retval type='^{__CFArray=}' />
+  </function>
+  <function name='IOBluetoothFindNumberOfRegistryEntriesOfClassName'>
+    <retval type='l' type64='q' />
+    <arg type='r*' type64='r*' />
+  </function>
+  <function name='IOBluetoothGetObjectIDFromArguments'>
+    <retval type='L' type64='Q' />
+    <arg type='i' />
+    <arg c_array_length_in_arg='0' type='r^*' type64='r^*' type_modifier='n' />
+  </function>
+  <function name='IOBluetoothGetUniqueFileNameAndPath'>
+    <retval type='@' />
+    <arg type='@' />
+    <arg type='@' />
+  </function>
+  <function name='IOBluetoothGetUniqueFileNameAndWithCFStringPath'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{__CFString=}' />
+    <arg type='^{__CFString=}' />
+  </function>
+  <function name='IOBluetoothGetVersion'>
+    <retval type='i' />
+    <arg type='^{NumVersion=CCCC}' type64='^{NumVersion=CCCC}' type_modifier='o' />
+    <arg type='^{BluetoothHCIVersionInfo=SCSCS}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothIsFileAppleDesignatedPIMData'>
+    <retval type='B' />
+    <arg type='@' />
+  </function>
+  <function name='IOBluetoothIsFileAppleDesignatedPIMDataAtCFStringPath'>
+    <retval type='B' />
+    <arg type='^{__CFString=}' />
+  </function>
+  <function name='IOBluetoothIsOptionKeyDown'>
+    <retval type='B' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelCloseChannel'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelCreateFromObjectID'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetDevice'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetIncomingMTU'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetLocalChannelID'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetObjectID'>
+    <retval type='L' type64='Q' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetOutgoingMTU'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetPSM'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelGetRemoteChannelID'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelIsIncoming'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelRegisterForChannelCloseNotification'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelRegisterIncomingDataListener'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelRegisterIncomingEventListener'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelRequestRemoteMTU'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelWrite'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelWriteAsync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothL2CAPChannelWriteSync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothLocalDeviceAvailable'>
+    <retval type='B' />
+  </function>
+  <function name='IOBluetoothLocalDeviceGetDiscoverable'>
+    <retval type='i' />
+    <arg type='^B' type64='^B' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothLocalDeviceGetPowerState'>
+    <retval type='i' />
+    <arg type='^i' type64='^i' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadAddress'>
+    <retval type='i' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='n' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadAuthenticationEnable'>
+    <retval type='i' />
+    <arg type='*' type64='*' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadClassOfDevice'>
+    <retval type='i' />
+    <arg type='^I' type64='^I' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadConnectionAcceptTimeout'>
+    <retval type='i' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadEncryptionMode'>
+    <retval type='i' />
+    <arg type='*' type64='*' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadName'>
+    <retval type='i' />
+    <arg type='[256C]' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadPageScanMode'>
+    <retval type='i' />
+    <arg type='*' type64='*' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadPageScanPeriodMode'>
+    <retval type='i' />
+    <arg type='*' type64='*' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadPageTimeout'>
+    <retval type='i' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadScanEnable'>
+    <retval type='i' />
+    <arg type='*' type64='*' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadSupportedFeatures'>
+    <retval type='i' />
+    <arg type='^{BluetoothHCISupportedFeatures=[8C]}' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothLocalDeviceReadVersionInformation'>
+    <retval type='i' />
+    <arg type='^{BluetoothHCIVersionInfo=SCSCS}' type_modifier='o' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothNSStringFromDeviceAddress'>
+    <retval type='@' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='n' />
+  </function>
+  <function name='IOBluetoothNSStringToDeviceAddress'>
+    <retval type='i' />
+    <arg type='@' />
+    <arg type='^{BluetoothDeviceAddress=[6C]}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothNumberOfAvailableHIDDevices'>
+    <retval type='l' type64='q' />
+  </function>
+  <function name='IOBluetoothNumberOfKeyboardHIDDevices'>
+    <retval type='l' type64='q' />
+  </function>
+  <function name='IOBluetoothNumberOfPointingHIDDevices'>
+    <retval type='l' type64='q' />
+  </function>
+  <function name='IOBluetoothNumberOfTabletHIDDevices'>
+    <retval type='l' type64='q' />
+  </function>
+  <function name='IOBluetoothOBEXSessionCreateWithIOBluetoothDeviceRefAndChannelNumber'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='C' />
+    <arg type='^^{OpaqueOBEXSessionRef}' type64='^^{OpaqueOBEXSessionRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothOBEXSessionCreateWithIOBluetoothSDPServiceRecordRef'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^^{OpaqueOBEXSessionRef}' type64='^^{OpaqueOBEXSessionRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothOBEXSessionCreateWithIncomingIOBluetoothRFCOMMChannel'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='^^{OpaqueOBEXSessionRef}' type64='^^{OpaqueOBEXSessionRef}' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothOBEXSessionOpenTransportConnection'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothObjectRelease'>
+    <retval type='v' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothObjectRetain'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function comment='fixme' name='IOBluetoothPackData' variadic='true'>
+    <retval type='l' type64='q' />
+    <arg type='^v' type64='^v' />
+    <arg type='r*' type64='r*' />
+  </function>
+  <function comment='fixme' name='IOBluetoothPackDataList'>
+    <retval type='l' type64='q' />
+    <arg type='^v' type64='^v' />
+    <arg type='r*' type64='r*' />
+    <arg type='*' type64='[1{?=II^v^v}]' />
+  </function>
+  <function name='IOBluetoothPairedDevices'>
+    <retval type='^{__CFArray=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelCloseChannel'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelCreateFromObjectID'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelGetChannelID'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelGetDevice'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelGetMTU'>
+    <retval type='S' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelGetObjectID'>
+    <retval type='L' type64='Q' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelIsIncoming'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelIsOpen'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelIsTransmissionPaused'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelRegisterForChannelCloseNotification'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelRegisterIncomingDataListener'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelRegisterIncomingEventListener'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelWrite'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+    <arg type='B' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelWriteAsync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelWriteSimple'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+    <arg type='B' />
+    <arg type='^I' type64='^I' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothRFCOMMChannelWriteSync'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='2' type='^v' type64='^v' type_modifier='n' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothRFCOMMSendRemoteLineStatus'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='i' />
+  </function>
+  <function name='IOBluetoothRFCOMMSetSerialParameters'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='L' type64='L' />
+    <arg type='C' />
+    <arg type='i' />
+    <arg type='C' />
+  </function>
+  <function name='IOBluetoothRecentDevices'>
+    <retval type='^{__CFArray=}' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothRegisterForDeviceConnectNotifications'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRegisterForFilteredL2CAPChannelOpenNotifications'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='S' />
+    <arg type='i' />
+  </function>
+  <function name='IOBluetoothRegisterForFilteredRFCOMMChannelOpenNotifications'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+    <arg type='C' />
+    <arg type='i' />
+  </function>
+  <function name='IOBluetoothRegisterForL2CAPChannelOpenNotifications'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRegisterForRFCOMMChannelOpenNotifications'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='IOBluetoothRemoveSCOAudioDevice'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothRemoveServiceWithRecordHandle'>
+    <retval type='i' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothSDPDataElementContainsDataElement'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetArrayValue'>
+    <retval type='^{__CFArray=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetDataValue'>
+    <retval type='^{__CFData=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetNumberValue'>
+    <retval type='^{__CFNumber=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetSize'>
+    <retval type='L' type64='I' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetSizeDescriptor'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetStringValue'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetTypeDescriptor'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementGetUUIDValue'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPDataElementIsEqualToDataElement'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetAttributeDataElement'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetAttributes'>
+    <retval type='^{__CFDictionary=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetDevice'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetL2CAPPSM'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetRFCOMMChannelID'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='*' type64='*' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetServiceName'>
+    <retval type='^{__CFString=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordGetServiceRecordHandle'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^I' type64='^I' type_modifier='o' />
+  </function>
+  <function name='IOBluetoothSDPServiceRecordHasServiceFromArray'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{__CFArray=}' />
+  </function>
+  <function name='IOBluetoothSDPUUIDCreateUUID16'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='S' />
+  </function>
+  <function name='IOBluetoothSDPUUIDCreateUUID32'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='IOBluetoothSDPUUIDCreateWithBytes'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='C' />
+  </function>
+  <function name='IOBluetoothSDPUUIDCreateWithData'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{__CFData=}' />
+  </function>
+  <function name='IOBluetoothSDPUUIDGetBytes'>
+    <retval c_array_of_variable_length='true' type='^v' type64='^v' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPUUIDGetLength'>
+    <retval type='C' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSDPUUIDGetUUIDWithLength'>
+    <retval type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='C' />
+  </function>
+  <function name='IOBluetoothSDPUUIDIsEqualToUUID'>
+    <retval type='B' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='IOBluetoothSetSupervisionTimeout'>
+    <retval type='i' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+    <arg type='S' />
+  </function>
+  <function comment='fixme' name='IOBluetoothUnpackData' variadic='true'>
+    <retval type='l' type64='q' />
+    <arg type='L' type64='L' />
+    <arg type='^v' type64='^v' />
+    <arg type='r*' type64='r*' />
+  </function>
+  <function comment='fixme' name='IOBluetoothUnpackDataList'>
+    <retval type='l' type64='q' />
+    <arg type='L' type64='L' />
+    <arg type='^v' type64='^v' />
+    <arg type='r*' type64='r*' />
+    <arg type='*' type64='[1{?=II^v^v}]' />
+  </function>
+  <function name='IOBluetoothUpdateSystemActivity'>
+    <retval type='v' />
+    <arg type='I' />
+  </function>
+  <function name='IOBluetoothUserNotificationUnregister'>
+    <retval type='v' />
+    <arg type='^{OpaqueIOBluetoothObjectRef=}' />
+  </function>
+  <function name='OBEXAddApplicationParameterHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddAuthorizationChallengeHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddAuthorizationResponseHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddBodyHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='B' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddByteSequenceHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddConnectionIDHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddCountHeader'>
+    <retval type='i' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddDescriptionHeader'>
+    <retval type='i' />
+    <arg type='^{__CFString=}' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddHTTPHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddLengthHeader'>
+    <retval type='i' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddNameHeader'>
+    <retval type='i' />
+    <arg type='^{__CFString=}' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddObjectClassHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddTargetHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddTime4ByteHeader'>
+    <retval type='i' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddTimeISOHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddTypeHeader'>
+    <retval type='i' />
+    <arg type='^{__CFString=}' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddUserDefinedHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXAddWhoHeader'>
+    <retval type='i' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXCreateVCard'>
+    <retval type='@' />
+    <arg c_array_length_in_arg='1' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='3' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='5' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='7' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='9' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='11' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='13' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='15' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='17' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='19' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='21' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='23' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='25' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='27' type='^v' type64='^v' type_modifier='n' />
+    <arg type='I' />
+  </function>
+  <function name='OBEXCreateVEvent'>
+    <retval type='@' />
+    <arg c_array_length_in_arg='1' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='3' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='5' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='7' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='9' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='11' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='13' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='15' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+    <arg c_array_length_in_arg='17' type='r*' type64='r*' type_modifier='n' />
+    <arg type='I' />
+  </function>
+  <function name='OBEXGetHeaders'>
+    <retval type='^{__CFDictionary=}' />
+    <arg type='^v' type64='^v' type_modifier='n' />
+    <arg type='L' type64='L' />
+  </function>
+  <function name='OBEXHeadersToBytes'>
+    <retval type='^{__CFData=}' />
+    <arg type='^{__CFDictionary=}' />
+  </function>
+  <function name='OBEXSessionAbort'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionAbortResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionConnect'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='S' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionConnectResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='C' />
+    <arg type='S' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionDelete'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+  </function>
+  <function name='OBEXSessionDisconnect'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionDisconnectResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionGet'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='B' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionGetAvailableCommandPayloadLength'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+  </function>
+  <function name='OBEXSessionGetAvailableCommandResponsePayloadLength'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+  </function>
+  <function name='OBEXSessionGetMaxPacketLength'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^S' type64='^S' type_modifier='o' />
+  </function>
+  <function name='OBEXSessionGetResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionHasOpenOBEXConnection'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^B' type64='^B' type_modifier='o' />
+  </function>
+  <function name='OBEXSessionPut'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='B' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionPutResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionSetPath'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionSetPathResponse'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='C' />
+    <arg type='^v' type64='^v' />
+    <arg type='L' type64='L' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+  <function name='OBEXSessionSetServerCallback'>
+    <retval type='i' />
+    <arg type='^{OpaqueOBEXSessionRef=}' />
+    <arg type='^?' type64='^?' />
+    <arg type='^v' type64='^v' />
+  </function>
+</signatures>
+

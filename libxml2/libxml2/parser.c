@@ -5358,6 +5358,19 @@ xmlParseExternalSubset(xmlParserCtxtPtr ctxt, const xmlChar *ExternalID,
                        const xmlChar *SystemID) {
     xmlDetectSAX2(ctxt);
     GROW;
+
+    if (ctxt->input->end - ctxt->input->cur >= 4) {
+        xmlChar start[4];
+        xmlCharEncoding enc;
+        start[0] = RAW;
+        start[1] = NXT(1);
+        start[2] = NXT(2);
+        start[3] = NXT(3);
+        enc = xmlDetectCharEncoding(start, 4);
+        if (enc != XML_CHAR_ENCODING_NONE)
+            xmlSwitchEncoding(ctxt, enc);
+    }
+
     if (CMP5(CUR_PTR, '<', '?', 'x', 'm', 'l')) {
 	xmlParseTextDecl(ctxt);
 	if (ctxt->errNo == XML_ERR_UNSUPPORTED_ENCODING) {
@@ -7337,7 +7350,7 @@ xmlParseStartTag2(xmlParserCtxtPtr ctxt, const xmlChar **pref,
     const xmlChar **atts = ctxt->atts;
     int maxatts = ctxt->maxatts;
     int nratts, nbatts, nbdef;
-    int i, j, nbNs, attval;
+    int i, j, nbNs, attval, oldline, oldcol;
     const xmlChar *base;
     unsigned long cur;
 
@@ -7355,6 +7368,8 @@ reparse:
     SHRINK;
     base = ctxt->input->base;
     cur = ctxt->input->cur - ctxt->input->base;
+    oldline = ctxt->input->line;
+    oldcol = ctxt->input->col;
     nbatts = 0;
     nratts = 0;
     nbdef = 0;
@@ -7387,6 +7402,12 @@ reparse:
 
 	attname = xmlParseAttribute2(ctxt, prefix, localname,
 	                             &aprefix, &attvalue, &len, &alloc);
+	if (ctxt->input->base != base) {
+	    if ((attvalue != NULL) && (alloc != 0))
+	        xmlFree(attvalue);
+	    attvalue = NULL;
+	    goto base_changed;
+	}
         if ((attname != NULL) && (attvalue != NULL)) {
 	    if (len < 0) len = xmlStrlen(attvalue);
             if ((attname == ctxt->str_xmlns) && (aprefix == NULL)) {
@@ -7672,6 +7693,8 @@ base_changed:
 	        xmlFree((xmlChar *) atts[i]);
     }
     ctxt->input->cur = ctxt->input->base + cur;
+    ctxt->input->line = oldline;
+    ctxt->input->col = oldcol;
     if (ctxt->wellFormed == 1) {
 	goto reparse;
     }

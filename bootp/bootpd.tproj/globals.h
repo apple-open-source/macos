@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,23 +24,20 @@
 #ifndef _S_GLOBALS_H
 #define _S_GLOBALS_H
 
-#import <objc/Object.h>
-#include "NIDomain.h"
-#include "NICache.h"
+#include "subnets.h"
 
-extern NICache_t	cache;
 extern int		bootp_socket;
 extern int		debug;
-extern int		detect_other_dhcp_server;
-extern NIDomain_t *	ni_local;
-extern NIDomainList_t	niSearchDomains;
+extern bool		dhcp_ignore_client_identifier;
+extern bool		detect_other_dhcp_server;
 extern int		quiet;
 extern unsigned short	server_priority;
-extern u_int16_t	reply_threshold_seconds;
-extern u_char		rfc_magic[4];
+extern uint32_t		reply_threshold_seconds;
+extern const uint8_t	rfc_magic[4];
 extern char		server_name[MAXHOSTNAMELEN + 1];
-extern id		subnets;
+extern SubnetListRef	subnets;
 extern char *		testing_control;
 extern char		transmit_buffer[];
+extern bool		use_open_directory;
 extern int		verbose;
 #endif _S_GLOBALS_H

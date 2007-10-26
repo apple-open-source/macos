@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -135,48 +135,13 @@ DAReturn DAAuthorize( DASessionRef       session,
         status = kDAReturnNotPrivileged;
     }
 
-///w:start
-    if ( session )
-    {
-        if ( DASessionGetRights( session ) == NULL )
-        {
-            extern Boolean _gDAAuthorize;
-
-            if ( _gDAAuthorize == FALSE )
-            {
-                status = kDAReturnSuccess;
-            }
-        }
-    }
-///w:stop
     if ( status )
     {
-        AuthorizationItem   item;
-        AuthorizationFlags  flags;
-        AuthorizationRights rights;
-
-        item.flags       = 0;
-        item.name        = right;
-        item.value       = NULL;
-        item.valueLength = 0;
-
-        flags = kAuthorizationFlagExtendRights;
+        AuthorizationRef authorization;
 
 ///w:start
-//      if ( ( options & kDAAuthorizeOptionForce ) )
-//      {
-//          flags |= kAuthorizationFlagDestroyRights;
-//      }
-///w:stop
-        if ( ( options & kDAAuthorizeOptionInteract ) )
-        {
-            flags |= kAuthorizationFlagInteractionAllowed;
-        }
+        authorization = NULL;
 
-        rights.count = 1;
-        rights.items = &item;
-
-///w:start
         if ( session == NULL )
         {
             CFIndex count;
@@ -197,11 +162,41 @@ DAReturn DAAuthorize( DASessionRef       session,
 
         if ( session )
 ///w:stop
-        status = AuthorizationCopyRights( DASessionGetRights( session ), &rights, NULL, flags, NULL );
+        authorization = DASessionGetAuthorization( session );
 
-        if ( status )
+        if ( authorization )
         {
-            status = kDAReturnNotPrivileged;
+            AuthorizationFlags  flags;
+            AuthorizationItem   item;
+            AuthorizationRights rights;
+
+            flags = kAuthorizationFlagExtendRights;
+
+///w:start
+//          if ( ( options & kDAAuthorizeOptionForce ) )
+//          {
+//              flags |= kAuthorizationFlagDestroyRights;
+//          }
+///w:stop
+            if ( ( options & kDAAuthorizeOptionInteract ) )
+            {
+                flags |= kAuthorizationFlagInteractionAllowed;
+            }
+
+            item.flags       = 0;
+            item.name        = right;
+            item.value       = NULL;
+            item.valueLength = 0;
+
+            rights.count = 1;
+            rights.items = &item;
+
+            status = AuthorizationCopyRights( authorization, &rights, NULL, flags, NULL );
+
+            if ( status )
+            {
+                status = kDAReturnNotPrivileged;
+            }
         }
     }
 
@@ -344,7 +339,7 @@ void DAFileSystemListRefresh( void )
                                 CFURLRef path;
 
                                 path = CFURLCreateFromFileSystemRepresentationRelativeToBase( kCFAllocatorDefault,
-                                                                                              item->d_name,
+                                                                                              ( void * ) item->d_name,
                                                                                               strlen( item->d_name ),
                                                                                               TRUE,
                                                                                               base );
@@ -418,7 +413,7 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
 {
     CFMutableDictionaryRef map = NULL;
 
-    if ( strcmp( fs->fs_type, FSTAB_RO ) == 0 || strcmp( fs->fs_type, FSTAB_RW ) == 0 )
+    if ( strcmp( fs->fs_type, FSTAB_SW ) )
     {
         char * idAsCString = fs->fs_spec;
 
@@ -449,78 +444,81 @@ static CFDictionaryRef __DAMountMapCreate1( CFAllocatorRef allocator, struct fst
 
                 if ( id )
                 {
-                    CFStringRef kind;
+                    map = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
-                    kind = CFStringCreateWithCString( kCFAllocatorDefault, fs->fs_vfstype, kCFStringEncodingUTF8 );
-
-                    if ( kind )
+                    if ( map )
                     {
-                        map = CFDictionaryCreateMutable( kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+                        CFMutableStringRef options;
 
-                        if ( map )
+                        options = CFStringCreateMutable( kCFAllocatorDefault, 0 );
+
+                        if ( options )
                         {
-                            CFMutableStringRef options;
+                            char *       argument  = NULL;
+                            char *       arguments = fs->fs_mntops;
+                            CFBooleanRef automatic = NULL;
 
-                            options = CFStringCreateMutable( kCFAllocatorDefault, 0 );
-
-                            if ( options )
+                            while ( ( argument = strsep( &arguments, "," ) ) )
                             {
-                                char *       argument  = NULL;
-                                char *       arguments = fs->fs_mntops;
-                                CFBooleanRef automatic = NULL;
-
-                                while ( ( argument = strsep( &arguments, "," ) ) )
+                                if ( strcmp( argument, "auto" ) == 0 )
                                 {
-                                    if ( strcmp( argument, "auto" ) == 0 )
-                                    {
-                                        automatic = kCFBooleanTrue;
-                                    }
-                                    else if ( strcmp( argument, "noauto" ) == 0 )
-                                    {
-                                        automatic = kCFBooleanFalse;
-                                    }
-                                    else
-                                    {
-                                        CFStringAppendCString( options, argument, kCFStringEncodingUTF8 );    
-                                        CFStringAppendCString( options, ",", kCFStringEncodingUTF8 );
-                                    }
+                                    automatic = kCFBooleanTrue;
                                 }
-
-                                if ( automatic )
+                                else if ( strcmp( argument, "noauto" ) == 0 )
                                 {
-                                    CFDictionarySetValue( map, kDAMountMapMountAutomaticKey, automatic );
+                                    automatic = kCFBooleanFalse;
                                 }
-
-                                if ( CFStringGetLength( options ) )
+                                else
                                 {
-                                    CFStringTrim( options, CFSTR( "," ) );
-
-                                    CFDictionarySetValue( map, kDAMountMapMountOptionsKey, options );
-                                }
-
-                                CFRelease( options );
-                            }
-
-                            if ( strcmp( fs->fs_file, "none" ) )
-                            {
-                                CFURLRef path;
-
-                                path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, fs->fs_file, strlen( fs->fs_file ), TRUE );
-
-                                if ( path )
-                                {
-                                    CFDictionarySetValue( map, kDAMountMapMountPathKey, path );
-
-                                    CFRelease( path );
+                                    CFStringAppendCString( options, argument, kCFStringEncodingUTF8 );    
+                                    CFStringAppendCString( options, ",", kCFStringEncodingUTF8 );
                                 }
                             }
 
-                            CFDictionarySetValue( map, kDAMountMapProbeIDKey, id );
+                            if ( automatic )
+                            {
+                                CFDictionarySetValue( map, kDAMountMapMountAutomaticKey, automatic );
+                            }
 
-                            CFDictionarySetValue( map, kDAMountMapProbeKindKey, kind );
+                            if ( CFStringGetLength( options ) )
+                            {
+                                CFStringTrim( options, CFSTR( "," ) );
+
+                                CFDictionarySetValue( map, kDAMountMapMountOptionsKey, options );
+                            }
+
+                            CFRelease( options );
                         }
 
-                        CFRelease( kind );
+                        if ( strcmp( fs->fs_file, "none" ) )
+                        {
+                            CFURLRef path;
+
+                            path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, ( void * ) fs->fs_file, strlen( fs->fs_file ), TRUE );
+
+                            if ( path )
+                            {
+                                CFDictionarySetValue( map, kDAMountMapMountPathKey, path );
+
+                                CFRelease( path );
+                            }
+                        }
+
+                        if ( strcmp( fs->fs_vfstype, "auto" ) )
+                        {
+                            CFStringRef kind;
+
+                            kind = CFStringCreateWithCString( kCFAllocatorDefault, fs->fs_vfstype, kCFStringEncodingUTF8 );
+
+                            if ( kind )
+                            {
+                                CFDictionarySetValue( map, kDAMountMapProbeKindKey, kind );
+
+                                CFRelease( kind );
+                            }
+                        }
+
+                        CFDictionarySetValue( map, kDAMountMapProbeIDKey, id );
                     }
 
                     CFRelease( id );
@@ -566,19 +564,15 @@ void DAMountMapListRefresh1( void )
 
                 while ( ( item = getfsent( ) ) )
                 {
-                    if ( strcmp( item->fs_type, FSTAB_RO ) == 0 ||
-                         strcmp( item->fs_type, FSTAB_RW ) == 0 )
+                    CFDictionaryRef map;
+
+                    map = __DAMountMapCreate1( kCFAllocatorDefault, item );
+
+                    if ( map )
                     {
-                        CFDictionaryRef map;
+                        CFArrayAppendValue( gDAMountMapList1, map );
 
-                        map = __DAMountMapCreate1( kCFAllocatorDefault, item );
-
-                        if ( map )
-                        {
-                            CFArrayAppendValue( gDAMountMapList1, map );
-
-                            CFRelease( map );
-                        }
+                        CFRelease( map );
                     }
                 }
 
@@ -615,12 +609,12 @@ static CFDictionaryRef __DAMountMapCreate2( CFAllocatorRef allocator, struct vsd
                 {
                     if ( ( vs->vs_ops & VSDB_PERM ) )
                     {
-                        CFStringAppend( options, CFSTR( "perm" ) );
+                        CFStringAppend( options, CFSTR( "owners" ) );
                         CFStringAppend( options, CFSTR( "," ) );
                     }
                     else
                     {
-                        CFStringAppend( options, CFSTR( "noperm" ) );
+                        CFStringAppend( options, CFSTR( "noowners" ) );
                         CFStringAppend( options, CFSTR( "," ) );
                     }
 
@@ -699,6 +693,7 @@ void DAMountMapListRefresh2( void )
 const CFStringRef kDAPreferenceMountDeferExternalKey  = CFSTR( "DAMountDeferExternal"  );
 const CFStringRef kDAPreferenceMountDeferRemovableKey = CFSTR( "DAMountDeferRemovable" );
 const CFStringRef kDAPreferenceMountTrustExternalKey  = CFSTR( "DAMountTrustExternal"  );
+const CFStringRef kDAPreferenceMountTrustRemovableKey = CFSTR( "DAMountTrustRemovable" );
 
 void DAPreferenceListRefresh( void )
 {
@@ -717,6 +712,7 @@ void DAPreferenceListRefresh( void )
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferExternalKey,  kCFBooleanTrue  );
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountDeferRemovableKey, kCFBooleanTrue  );
     CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey,  kCFBooleanFalse );
+    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, kCFBooleanFalse );
 
     preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( "autodiskmount" ), CFSTR( "autodiskmount.xml" ) );
 
@@ -775,6 +771,16 @@ void DAPreferenceListRefresh( void )
             if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
             {
                 CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustExternalKey, value );
+            }
+        }
+
+        value = SCPreferencesGetValue( preferences, kDAPreferenceMountTrustRemovableKey );
+
+        if ( value )
+        {
+            if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+            {
+                CFDictionarySetValue( gDAPreferenceList, kDAPreferenceMountTrustRemovableKey, value );
             }
         }
 

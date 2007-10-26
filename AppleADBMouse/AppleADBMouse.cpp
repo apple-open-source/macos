@@ -291,7 +291,7 @@ bool AppleADBMouseType4::start(IOService * provider)
   _mouseLock = IOLockAlloc(); 
 
   adbDevice->readRegister(1, adbdata, &adblength);
-  if( (adbdata[0] == 't') && (adbdata[1] = 'p') && (adbdata[2] == 'a') && (adbdata[3] == 'd') )
+  if( (adbdata[0] == 't') && (adbdata[1] == 'p') && (adbdata[2] == 'a') && (adbdata[3] == 'd') )
   {
     mach_timespec_t     t;
     OSNumber 		*jitter_num;
@@ -495,7 +495,7 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
 	    clock_get_uptime(&now);
 	    absolutetime_to_nanoseconds(now, &nowtime64);
 	    absolutetime_to_nanoseconds(keyboardtime, &keytime64);
-	    if (nowtime64 - keytime64 > _jitterclicktime64)
+	    if ((nowtime64 - keytime64 > _jitterclicktime64) || (_oldButtonState & 0x1))
 	    {
 		buttonState |= 1;
 	    }
@@ -648,7 +648,7 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
 		(void *)&_keyboardTimeAB, 0, 0, 0);
 	    clock_get_uptime(&now);
 	    SUB_ABSOLUTETIME(&now, &_keyboardTimeAB);
-	    if ( CMP_ABSOLUTETIME(&now, &_jitterclicktimeAB) == 1)	    
+	    if ((CMP_ABSOLUTETIME(&now, &_jitterclicktimeAB) == 1) || (_oldButtonState & 0x1))	    
 	    //if (nowtime64 - keytime64 > _jitterclicktime64)
 	    {
 		buttonState |= 1;
@@ -854,7 +854,7 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 	    clock_get_uptime(&now);
 	    absolutetime_to_nanoseconds(now, &nowtime64);
 	    absolutetime_to_nanoseconds(keyboardtime, &keytime64);
-	    if (nowtime64 - keytime64 > _jitterclicktime64)
+	    if ((nowtime64 - keytime64 > _jitterclicktime64) || (_oldButtonState & 0x1))
 	    {
 		buttonState |= 1;
 	    }

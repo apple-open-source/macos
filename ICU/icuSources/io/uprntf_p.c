@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2004, International Business Machines
+*   Copyright (C) 1998-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -225,16 +225,11 @@ u_printf_string_handler(const u_printf_stream_handler  *handler,
 
     /* width = minimum # of characters to write */
     /* precision = maximum # of characters to write */
+    if (info->fPrecision != -1 && info->fPrecision < len) {
+        len = info->fPrecision;
+    }
 
-    /* precision takes precedence over width */
-    /* determine if the string should be truncated */
-    if(info->fPrecision != -1 && len > info->fPrecision) {
-        written = handler->write(context, s, info->fPrecision);
-    }
-    /* determine if the string should be padded */
-    else {
-        written = handler->pad_and_justify(context, info, s, len);
-    }
+    written = handler->pad_and_justify(context, info, s, len);
 
     /* clean up */
     if (gNullStr != s && buffer != s) {
@@ -265,16 +260,9 @@ u_printf_char_handler(const u_printf_stream_handler  *handler,
 
     /* width = minimum # of characters to write */
     /* precision = maximum # of characters to write */
+    /* precision is ignored when handling a char */
 
-    /* precision takes precedence over width */
-    /* determine if the string should be truncated */
-    if(info->fPrecision != -1 && len > info->fPrecision) {
-        written = handler->write(context, s, info->fPrecision);
-    }
-    else {
-        /* determine if the string should be padded */
-        written = handler->pad_and_justify(context, info, s, len);
-    }
+    written = handler->pad_and_justify(context, info, s, len);
 
     return written;
 }
@@ -627,7 +615,13 @@ u_printf_scientific_handler(const u_printf_stream_handler  *handler,
     /* set the appropriate flags and number of decimal digits on the formatter */
     if(info->fPrecision != -1) {
         /* set the # of decimal digits */
-        unum_setAttribute(format, UNUM_FRACTION_DIGITS, info->fPrecision);
+        if (info->fOrigSpec == (UChar)0x65 /* e */ || info->fOrigSpec == (UChar)0x45 /* E */) {
+            unum_setAttribute(format, UNUM_FRACTION_DIGITS, info->fPrecision);
+        }
+        else {
+            unum_setAttribute(format, UNUM_MIN_FRACTION_DIGITS, 1);
+            unum_setAttribute(format, UNUM_MAX_FRACTION_DIGITS, info->fPrecision);
+        }
     }
     else if(info->fAlt) {
         /* '#' means always show decimal point */
@@ -766,16 +760,12 @@ u_printf_ustring_handler(const u_printf_stream_handler  *handler,
 
     /* width = minimum # of characters to write */
     /* precision = maximum # of characters to write */
+    if (info->fPrecision != -1 && info->fPrecision < len) {
+        len = info->fPrecision;
+    }
 
-    /* precision takes precedence over width */
-    /* determine if the string should be truncated */
-    if(info->fPrecision != -1 && len > info->fPrecision) {
-        written = handler->write(context, arg, info->fPrecision);
-    }
-    else {
-        /* determine if the string should be padded */
-        written = handler->pad_and_justify(context, info, arg, len);
-    }
+    /* determine if the string should be padded */
+    written = handler->pad_and_justify(context, info, arg, len);
 
     return written;
 }
@@ -790,20 +780,12 @@ u_printf_uchar_handler(const u_printf_stream_handler  *handler,
     int32_t written = 0;
     UChar arg = (UChar)(args[0].int64Value);
 
-
     /* width = minimum # of characters to write */
     /* precision = maximum # of characters to write */
+    /* precision is ignored when handling a uchar */
 
-    /* precision takes precedence over width */
-    /* determine if the char should be printed */
-    if(info->fPrecision != -1 && info->fPrecision < 1) {
-        /* write nothing */
-        written = 0;
-    }
-    else {
-        /* determine if the string should be padded */
-        written = handler->pad_and_justify(context, info, &arg, 1);
-    }
+    /* determine if the string should be padded */
+    written = handler->pad_and_justify(context, info, &arg, 1);
 
     return written;
 }
@@ -1100,19 +1082,10 @@ u_printf_parse(const u_printf_stream_handler *streamHandler,
         spec.fPrecisionPos = -1;
         spec.fArgPos       = -1;
 
+        uprv_memset(info, 0, sizeof(*info));
         info->fPrecision    = -1;
         info->fWidth        = -1;
-        info->fSpec         = 0x0000;
         info->fPadChar      = 0x0020;
-        info->fAlt          = FALSE;
-        info->fSpace        = FALSE;
-        info->fLeft         = FALSE;
-        info->fShowSign     = FALSE;
-        info->fZero         = FALSE;
-        info->fIsLongDouble = FALSE;
-        info->fIsShort      = FALSE;
-        info->fIsLong       = FALSE;
-        info->fIsLongLong   = FALSE;
 
         /* skip over the initial '%' */
         alias++;
@@ -1311,6 +1284,7 @@ u_printf_parse(const u_printf_stream_handler *streamHandler,
 
         /* finally, get the specifier letter */
         info->fSpec = *alias++;
+        info->fOrigSpec = info->fSpec;
 
         /* fill in the precision and width, if specified out of line */
 
@@ -1320,14 +1294,12 @@ u_printf_parse(const u_printf_stream_handler *streamHandler,
                 /* read the width from the argument list */
                 info->fWidth = va_arg(ap, int32_t);
             }
-            else {
-                /* handle positional parameter */
-            }
+            /* else handle positional parameter */
 
             /* if it's negative, take the absolute value and set left alignment */
             if(info->fWidth < 0) {
-                info->fWidth     *= -1;
-                info->fLeft     = TRUE;
+                info->fWidth *= -1; /* Make positive */
+                info->fLeft = TRUE;
             }
         }
 
@@ -1337,9 +1309,7 @@ u_printf_parse(const u_printf_stream_handler *streamHandler,
                 /* read the precision from the argument list */
                 info->fPrecision = va_arg(ap, int32_t);
             }
-            else {
-                /* handle positional parameter */
-            }
+            /* else handle positional parameter */
 
             /* if it's negative, set it to zero */
             if(info->fPrecision < 0)

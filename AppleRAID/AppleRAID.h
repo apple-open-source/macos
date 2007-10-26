@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -61,7 +61,6 @@
 #include <IOKit/IOService.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOEventSource.h>
-#include <IOKit/IOTimerEventSource.h>
 #include <IOKit/IOCommand.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/IOCommandGate.h>
@@ -69,7 +68,6 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOUserClient.h>
-
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
 
@@ -77,16 +75,20 @@ class AppleRAID;
 class AppleRAIDSet;
 class AppleRAIDEventSource;
 class AppleRAIDStorageRequest;
+class AppleLVMStorageRequest;
 
 #include "AppleRAIDGlobals.h"
 #include "AppleRAIDMember.h"
 #include "AppleRAIDMemoryDescriptor.h"
 #include "AppleRAIDStorageRequest.h"
+#include "AppleLVMStorageRequest.h"
 #include "AppleRAIDEventSource.h"
 #include "AppleRAIDSet.h"
 #include "AppleRAIDConcatSet.h"
 #include "AppleRAIDMirrorSet.h"
 #include "AppleRAIDStripeSet.h"
+#include "AppleLVMVolume.h"
+#include "AppleLVMGroup.h"
 #include "AppleRAIDUserClient.h"
 #include "AppleRAIDUserLib.h"
 
@@ -98,13 +100,14 @@ class AppleRAID : public IOService
 private:
     OSDictionary	* raidSets;
     OSDictionary	* raidMembers;
+    OSDictionary	* logicalVolumes;
     
     void addSet(AppleRAIDSet * set);
     void removeSet(AppleRAIDSet * set);
 
     void addMember(AppleRAIDMember * member);
     void removeMember(AppleRAIDMember * member);
-    AppleRAIDMember * findMember(const OSString * name);
+    AppleRAIDMember * findMember(const OSString * uuid);
 
     void startSet(AppleRAIDSet * set);
 
@@ -116,6 +119,10 @@ public:
     AppleRAIDSet * findSet(const OSString * uuid);
     AppleRAIDSet * findSet(AppleRAIDMember * member);
 
+    void addLogicalVolume(AppleLVMVolume * volume);
+    void removeLogicalVolume(AppleLVMVolume * volume);
+    AppleLVMVolume * findLogicalVolume(const OSString * uuid);
+
     IOReturn newMember(IORegistryEntry * child);
     IOReturn oldMember(IORegistryEntry * child);
     void recoverMember(IORegistryEntry * child);
@@ -123,11 +130,17 @@ public:
     void degradeSet(AppleRAIDSet * set);
     void restartSet(AppleRAIDSet * set, bool bump);
 
-    IOReturn updateSet(char * setBuffer, char * retBuffer, IOByteCount setBufferSize, IOByteCount * retBufferSize);
+    IOReturn updateSet(char * setBuffer, uint32_t setBufferSize, char * retBuffer, uint32_t * retBufferSize);
 
-    IOReturn getListOfSets(UInt32 inFlags, char * outList, IOByteCount * outListSize);
-    IOReturn getSetProperties(char * setString, char * outProp, IOByteCount setStringSize, IOByteCount * outPropSize);
-    IOReturn getMemberProperties(char * memberString, char * outProp, IOByteCount memberStringSize, IOByteCount * outPropSize);
+    IOReturn getListOfSets(UInt32 inFlags, char * outList, uint32_t * outListSize);
+    IOReturn getSetProperties(char * setString, uint32_t setStringSize, char * outProp, uint32_t * outPropSize);
+    IOReturn getMemberProperties(char * memberString, uint32_t memberStringSize, char * outProp, uint32_t * outPropSize);
+
+    IOReturn getVolumesForGroup(char * lvgString, uint32_t lvgStringSize, char * outProp, uint32_t * outPropSize);
+    IOReturn getVolumeProperties(char * lvString, uint32_t lvStringSize, char * outProp, uint32_t * outPropSize);
+    IOReturn getVolumeExtents(char * lvString, uint32_t lvStringSize, char * extentsBuffer, uint32_t * extentsSize);
+    IOReturn updateLogicalVolume(char * lveBuffer, uint32_t lveBufferSize, char * retBuffer, uint32_t * retBufferSize);
+    IOReturn destroyLogicalVolume(char * lvString, uint32_t lvStringSize, char * retBuffer, uint32_t * retBufferSize);
 };
 
 #endif /* KERNEL */

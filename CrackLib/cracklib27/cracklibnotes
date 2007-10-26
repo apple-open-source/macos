@@ -1,0 +1,18 @@
+
+
+The current version of cracklib is 2.7. These sources can be found at Alec Muffett's homepage:
+
+    http://www.crypticide.org/users/alecm/.
+    
+The sources compile as is on Jaguar and OS X, and we include the dictionaries, 
+which are part of Crack 5.0. The dictionaries will be located at: 
+
+	/usr/local/lib/pw_dict.pwd
+	/usr/local/lib/pw_dict.pwi
+	/usr/local/lib/pw_dict.hwm
+
+and the library is installed by default into /usr/local/libdata/cracklib
+
+The libcrack.h is also from the Crack 5.0 distribution.
+
+

@@ -191,7 +191,9 @@ layout(void)
 	memset(&output_dysymtab_info, '\0', sizeof(struct dysymtab_info));
 	memset(&output_hints_info, '\0', sizeof(struct hints_info));
 	memset(&output_cksum_info, '\0', sizeof(struct cksum_info));
+#ifndef KLD
 	memset(&output_uuid_info, '\0', sizeof(struct uuid_info));
+#endif
 	memset(&output_thread_info, '\0', sizeof(struct thread_info));
 	memset(&mc680x0, '\0', sizeof(struct m68k_thread_state_regs));
 	memset(&powerpc,     '\0', sizeof(ppc_thread_state_t));
@@ -1160,8 +1162,7 @@ layout_segments(void)
 	/*
 	 * Create the prebind cksum load command.
 	 */
-	if(prebinding == TRUE &&
-	   macosx_deployment_target >= MACOSX_DEPLOYMENT_TARGET_10_2){
+	if(prebinding == TRUE && macosx_deployment_target.major >= 2){
 	    output_cksum_info.prebind_cksum_command.cmd = LC_PREBIND_CKSUM;
 	    output_cksum_info.prebind_cksum_command.cmdsize =
 					sizeof(struct prebind_cksum_command);
@@ -1172,6 +1173,7 @@ layout_segments(void)
 	/*
 	 * Create the uuid load command.
 	 */
+#ifndef KLD
 	if(output_uuid_info.suppress != TRUE && output_uuid_info.emit == TRUE){
 	    output_uuid_info.uuid_command.cmd = LC_UUID;
 	    output_uuid_info.uuid_command.cmdsize = sizeof(struct uuid_command);
@@ -1179,6 +1181,12 @@ layout_segments(void)
 	    ncmds++;
 	    sizeofcmds += output_uuid_info.uuid_command.cmdsize;
 	}
+#else
+	if(output_uuid_info.uuid_command.cmdsize != 0){
+	    ncmds++;
+	    sizeofcmds += output_uuid_info.uuid_command.cmdsize;
+	}
+#endif /* KLD */
 
 	/*
 	 * Create the thread command if this is filetype is to have one.

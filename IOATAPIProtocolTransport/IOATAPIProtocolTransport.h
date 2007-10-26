@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,15 +21,6 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-
- /*
- * Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- *
- *		09.20.2000	CJS  Started ATAPI Transport Layer
- *
  */
 
 /*!
@@ -59,7 +50,7 @@
 #include <IOKit/storage/ata/IOATAStorageDefines.h>
 
 /* SCSI Architecture Model Family includes */
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 // Forward class declaration
 class IOATAPIProtocolTransport;
@@ -114,6 +105,7 @@ public:
 	// This method is our last chance to free all resources allocated.
 	virtual void	free	( void );
 	
+	
 protected:
 
 	// ---- member variables ----
@@ -147,6 +139,7 @@ protected:
 	struct ExpansionData
 	{
 		UInt32		fSemaphore;
+		UInt32		fMediaNotifyValue;
 	};
 	ExpansionData * reserved;
 	
@@ -338,6 +331,10 @@ protected:
 	
 	// Callback method for the polling of the status register.
 	virtual void			PollStatusRegisterCallback ( IOATACommand * cmd );
+	
+	// The TurnDrivePowerOff method is called to turn power to the drive OFF
+	IOReturn				TurnDrivePowerOff ( void );
+	
 	
 private:
 	

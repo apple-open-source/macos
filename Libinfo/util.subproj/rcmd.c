@@ -66,9 +66,7 @@ static char sccsid[] = "@(#)rcmd.c	8.3 (Berkeley) 3/26/94";
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netinfo/ni_util.h>
 
 #include <signal.h>
 #include <fcntl.h>
@@ -79,6 +77,7 @@ static char sccsid[] = "@(#)rcmd.c	8.3 (Berkeley) 3/26/94";
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <time.h>
 #ifdef YP
 #include <rpc/rpc.h>
 #include <rpcsvc/yp_prot.h>
@@ -234,7 +233,7 @@ rcmd_af(ahost, rport, locuser, remuser, cmd, fd2p, af)
 	} else {
 		char num[8];
 		int s2 = rresvport_af(&lport, ai->ai_family), s3;
-		int len = ai->ai_addrlen;
+		unsigned int len = ai->ai_addrlen;
 		int nfds;
 
 		if (s2 < 0)
@@ -404,6 +403,9 @@ rresvport_af(alport, family)
 int	__check_rhosts_file = 1;
 char	*__rcmd_errstr;
 
+/*  Guess at the size of a password buffer for getpwnam_r (see lookup.subproj/lu_group.c) */
+#define MAXPWBUF (MAXLOGNAME + 1 + _PASSWORD_LEN + 1 + MAXPATHLEN + 1 + MAXPATHLEN + 1 + 4098)
+
 /*
  * AF independent extension of iruserok.
  *
@@ -418,13 +420,14 @@ iruserok_sa(ra, rlen, superuser, ruser, luser)
 {
 	register char *cp;
 	struct stat sbuf;
-	struct passwd *pwd;
+	struct passwd p, *pwd;
 	FILE *hostf;
 	uid_t uid;
-	int first;
+	int first, status;
 	char pbuf[MAXPATHLEN];
 	const struct sockaddr *raddr;
 	struct sockaddr_storage ss;
+	char pwbuf[MAXPWBUF];
 
 	/* avoid alignment issue */
 	if (rlen > sizeof(ss)) 
@@ -444,8 +447,14 @@ again:
 	}
 	if (first == 1 && (__check_rhosts_file || superuser)) {
 		first = 0;
-		if ((pwd = getpwnam(luser)) == NULL)
-			return (-1);
+
+		memset(&p, 0, sizeof(struct passwd));
+		memset(pwbuf, 0, sizeof(pwbuf));
+		pwd = NULL;
+
+		status = getpwnam_r(luser, &p, pwbuf, MAXPWBUF, &pwd);
+		if (status != 0) return -1;
+
 		(void)strcpy(pbuf, pwd->pw_dir);
 		(void)strcat(pbuf, "/.rhosts");
 

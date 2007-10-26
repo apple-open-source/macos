@@ -164,7 +164,7 @@ CSSM_RETURN CSSMAPI
 CSSM_CSP_CreateRandomGenContext (CSSM_CSP_HANDLE CSPHandle,
                                  CSSM_ALGORITHMS AlgorithmID,
                                  const CSSM_CRYPTO_DATA *Seed,
-                                 uint32 Length,
+                                 CSSM_SIZE Length,
                                  CSSM_CC_HANDLE *NewContextHandle)
 {
     BEGIN_API

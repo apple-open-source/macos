@@ -1,0 +1,181 @@
+# Polish translation for libidn.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+# This file is distributed under the same license as the libidn package.
+# Jakub Bogusz <qboosh@pld-linux.org>, 2004.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: libidn 0.5.6\n"
+"Report-Msgid-Bugs-To: bug-libidn@gnu.org\n"
+"POT-Creation-Date: 2005-12-03 11:36+0100\n"
+"PO-Revision-Date: 2004-10-15 22:20+0200\n"
+"Last-Translator: Jakub Bogusz <qboosh@pld-linux.org>\n"
+"Language-Team: Polish <translation-team-pl@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Success"
+msgstr "Sukces"
+
+msgid "String preparation failed"
+msgstr "Przygotowanie ³añcucha nie powiod³o siê"
+
+msgid "Punycode failed"
+msgstr "Punycode zawiod³o"
+
+msgid "Non-digit/letter/hyphen in input"
+msgstr "Znak nie bêd±cy cyfr±, liter± ani kresk± na wej¶ciu"
+
+msgid "Forbidden leading or trailing minus sign (`-')"
+msgstr "Zabroniony wiod±cy lub koñcz±cy znak minus (`-')"
+
+msgid "Output would be too large or too small"
+msgstr "Wyj¶cie mo¿e byæ zbyt du¿e lub zbyt ma³e"
+
+msgid "Input does not start with ACE prefix (`xn--')"
+msgstr "Wej¶cie nie zaczyna siê przedrostkiem ACE (`xn--')"
+
+msgid "String not idempotent under ToASCII"
+msgstr "£añcuch nie idempotentny wzglêdem ToASCII"
+
+msgid "Input already contain ACE prefix (`xn--')"
+msgstr "Wej¶cie ju¿ zawiera przedrostek ACE (`xn--')"
+
+msgid "System iconv failed"
+msgstr "Systemowa funkcja iconv nie powiod³a siê"
+
+msgid "Cannot allocate memory"
+msgstr "Nie mo¿na przydzieliæ pamiêci"
+
+msgid "System dlopen failed"
+msgstr "Systemowa funkcja dlopen nie powiod³a siê"
+
+msgid "Unknown error"
+msgstr "Nieznany b³±d"
+
+msgid "String not idempotent under Unicode NFKC normalization"
+msgstr "£añcuch nie idempotentny wzglêdem normalizacji Unikodu NFKC"
+
+msgid "Invalid input"
+msgstr "B³êdne wej¶cie"
+
+msgid "Output would exceed the buffer space provided"
+msgstr "Wyj¶cie przekroczy³oby dostarczone miejsce w buforze"
+
+msgid "String size limit exceeded"
+msgstr "Przekroczony limit rozmiaru ³añcucha"
+
+msgid "Forbidden unassigned code points in input"
+msgstr "Zabronione nieprzypisane znaki na wej¶ciu"
+
+msgid "Prohibited code points in input"
+msgstr "Zabronione znaki na wej¶ciu"
+
+msgid "Conflicting bidirectional properties in input"
+msgstr "Konfliktowe w³asno¶ci dwukierunkowego pisma na wej¶ciu"
+
+msgid "Malformed bidirectional string"
+msgstr "¬le sformu³owany ³añcuch dwukierunkowy"
+
+msgid "Prohibited bidirectional code points in input"
+msgstr "Zabronione znaki dwukierunkowe na wej¶ciu"
+
+msgid "Error in stringprep profile definition"
+msgstr "B³±d w definicji profilu stringprep"
+
+msgid "Flag conflict with profile"
+msgstr "Konflikt flag z profilem"
+
+msgid "Unknown profile"
+msgstr "Nieznany profil"
+
+msgid "Unicode normalization failed (internal error)"
+msgstr "Normalizacja Unikodu nie powiod³a siê (b³±d wewnêtrzny)"
+
+msgid "Code points prohibited by top-level domain"
+msgstr "Znaki zabronione przez domenê najwy¿szego poziomu"
+
+msgid "Missing input"
+msgstr "Brak wej¶cia"
+
+msgid "No top-level domain found in input"
+msgstr "Nie znaleziono domeny najwy¿szego poziomu na wej¶ciu"
+
+msgid "Only one of -s, -e, -d, -a or -u can be specified."
+msgstr "Mo¿na podaæ tylko jedno z -s, -e, -d, -a lub -u."
+
+#, c-format
+msgid "Charset `%s'.\n"
+msgstr "Zestaw znaków `%s'.\n"
+
+#, c-format
+msgid ""
+"Type each input string on a line by itself, terminated by a newline "
+"character.\n"
+msgstr ""
+"Nale¿y podaæ ka¿dy ³añcuch w osobnej linii, zakoñczony znakiem nowej linii.\n"
+
+msgid "Input error"
+msgstr "B³±d wej¶cia"
+
+#, c-format
+msgid "Could not convert from %s to UTF-8."
+msgstr "Nie mo¿na przekonwertowaæ z %s na UTF-8."
+
+msgid "Could not convert from UTF-8 to UCS-4."
+msgstr "Nie mo¿na przekonwertowaæ z UTF-8 na UCS-4."
+
+#, c-format
+msgid "input[%d] = U+%04x\n"
+msgstr "wej¶cie[%d] = U+%04x\n"
+
+#, c-format
+msgid "stringprep_profile: %s"
+msgstr "stringprep_profile: %s"
+
+#, c-format
+msgid "output[%d] = U+%04x\n"
+msgstr "wyj¶cie[%d] = U+%04x\n"
+
+#, c-format
+msgid "Could not convert from UTF-8 to %s."
+msgstr "Nie mo¿na przekonwertowaæ z UTF-8 na %s."
+
+#, c-format
+msgid "punycode_encode: %s"
+msgstr "punycode_encode: %s"
+
+msgid "malloc"
+msgstr "malloc"
+
+#, c-format
+msgid "punycode_decode: %s"
+msgstr "punycode_decode: %s"
+
+msgid "Could not convert from UCS-4 to UTF-8."
+msgstr "Nie mo¿na przekonwertowaæ z UCS-4 na UTF-8."
+
+#, c-format
+msgid "idna_to_ascii_4z: %s"
+msgstr "idna_to_ascii_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z (TLD): %s"
+msgstr "idna_to_unicode_8z4z (TLD): %s"
+
+#, c-format
+msgid "tld[%d] = U+%04x\n"
+msgstr "tld[%d] = U+%04x\n"
+
+#, c-format
+msgid "tld_check_4z (position %d): %s"
+msgstr "tld_check_4z (pozycja %d): %s"
+
+#, c-format
+msgid "tld_check_4z: %s"
+msgstr "tld_check_4z: %s"
+
+#, c-format
+msgid "idna_to_unicode_8z4z: %s"
+msgstr "idna_to_unicode_8z4z: %s"

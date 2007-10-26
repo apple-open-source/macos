@@ -1,9 +1,1312 @@
+2006-08-25  Eric Blake  <ebb9@byu.net>
+
+	Release 1.4.6:
+
+	* configure.ac (AC_INIT): Bump version number.
+	* NEWS: Describe changes since 1.4.5.
+
+	* Makefile.maint (web-manual): Give up on VPATH build during
+	distribution.  But distributions are made so infrequently that
+	this is not too much of a hardship.
+	* Makefile.am (MAINTAINERCLEANFILES): Avoid error if lib/CVS/
+	exists.
+
+2006-08-24  Eric Blake  <ebb9@byu.net>
+
+	* src/builtin.c (m4_index, m4_substr, m4_translit): Similar to
+	Solaris, produce output on just one argument.
+	(m4_regexp, m4_patsubst): For consistency, do likewise.
+	(m4_patsubst): Allow zero-length match at end of string.
+	* doc/m4.texinfo (Sysval): Fix overfull hbox.
+	(Bugs, Macro Arguments): Minor fixes.
+	(Other tokens): Rearrange node order.
+	(Index macro, Substr, Translit, Regexp, Patsubst): Add tests.
+	* NEWS: Document these fixes.
+
+2006-08-22  Eric Blake  <ebb9@byu.net>
+
+	* src/input.c (pop_input): Avoid empty filename with -di option.
+	* src/debug.c (debug_message_prefix): Put space before message.
+
+	* m4/gnulib-cache.m4: We don't explicitly use alloca module.
+
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import gnupload.
+	* Makefile.maint (fetch): Simplify, now that we can use gnupload.
+
+	* checks/check-them: State why a test is skipped.
+	* doc/m4.texinfo (Changeword, Sysval, Maketemp): Likewise.
+
+	* ChangeLog: Add copyright.
+	* AUTHORS: Likewise.
+	* BACKLOG: Likewise.
+	* README: Likewise.
+	* THANKS: Likewise.
+	* TODO: Likewise.
+	* examples/COPYING: New file, add copyright for all the examples.
+	* checks/get-them: Put copyright on testsuite files.
+
+2006-08-18  Eric Blake  <ebb9@byu.net>
+
+	Don't let unrelated child processes see too many files.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import cloexec.
+	* src/builtin.c (m4_esyscmd, m4_regexp, m4_patsubst): Fix
+	spelling in error message.
+	* src/debug.c [!__STDC__]: Assume C89, and nuke old varargs.h.
+	(debug_set_output): Close debug file on exec.
+	* src/m4.h (includes): Add cloexec.h.
+	* src/output.c (make_room_for): Close diversions on exec.
+	* src/path.c (path_search): Close include files on exec.
+	* NEWS: Document this.
+
+	Regular expressions were leaking memory.
+	* src/builtin.c (init_pattern_buffer, free_pattern_buffer): New
+	helper methods.
+	(m4_regexp, m4_patsubst): Avoid memory leak.
+	* src/input.c (init_pattern_buffer) [ENABLE_CHANGEWORD]: Make
+	static.
+	(set_word_regexp) [ENABLE_CHANGEWORD]: Avoid memory leak.  Change
+	from O(n^2) to O(n) for calculating word_start.
+	(next_token, peek_token) [ENABLE_CHANGEWORD]: Treat word_start as
+	O(1) bitmap, not O(n) search string.
+	* NEWS: Document this fix.
+
+2006-08-17  Eric Blake  <ebb9@byu.net>
+
+	* NEWS: Document previous checkin.
+
+	* src/builtin.c (substitute): Avoid core dump when accessing
+	beyond bound of regular expression.
+	Reported by Karl Nelson.
+	* doc/m4.texinfo (Regexp): Add example that causes core dump on
+	some architectures prior to this patch.
+	* THANKS: Updated.
+
+2006-08-16  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Invoking m4, Debug Output): Fix wording to be
+	clear that dumpdef does not always go to stderr.
+
+	* src/builtin.c (m4_errprint): Flush buffers before printing to
+	stderr.
+	* THANKS: Updated.
+
+2006-08-15  Eric Blake  <ebb9@byu.net>
+
+	* src/builtin.c (m4_m4wrap, m4_errprint, m4_shift): Make blind,
+	per debian bug 96075.
+	* doc/m4.texinfo (Loops, M4wrap, Errprint): Document this change.
+	(Changeword): Don't use shift as an example of a swallowed word.
+	(Divert): Discuss fact that divert is an English word.
+	Reported by Richard A Nelson.
+
+2006-08-14  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Invoking m4): Minor fixes.
+
+2006-08-12  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Arguments): Hint at better exch macro.
+	(Answers): Provide a better definition.
+
+2006-08-09  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Incompatibilities): Document that m4 does not
+	yet understand locales.
+	* NEWS: Fix wording of a few items.
+
+2006-08-08  Eric Blake  <ebb9@byu.net>
+
+	Avoid printing `NONE:0:' in error messages.
+	* src/m4.h (m4_error_at_line): New function.
+	* src/m4.c (m4_error_at_line): Implement.
+	* src/input.c (skip_line, input_init, next_token): Use "", not
+	"NONE", for no file, since NONE can be a real file name.
+	* src/macro.c (expand_argument): Likewise.
+	* src/debug.c (debug_message_prefix, trace_header): Check for
+	current file.
+	* doc/m4.texinfo (Dnl, M4wrap): Adjust accordingly.
+	(Location): Document that synclines and internal message format
+	are not impacted by redefining these macros.
+	(M4exit): Hint at bug in fatal_error.
+	(Answers): Provide workaround to match m4 output.
+
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import verror.
+	* src/m4.h (m4_error): New function.
+	(M4ERROR, M4ERROR_AT_LINE): Reimplement without hacking around
+	error module deficiencies.
+	(reference_error, suppress_line): No longer needed.
+	* src/m4.c (m4_error): Implement.
+	(main): No longer need to install error callback.
+
+2006-08-04  Eric Blake  <ebb9@byu.net>
+
+	* src/m4.h (program_name): Declare.
+	(suppress_line): New variable.
+	(M4ERROR_AT_LINE): New macro.
+	* src/m4.c (reference_error, main): Follow GNU Coding Standards
+	for error message format.
+	* src/input.c (skip_line, next_token): Use M4ERROR_AT_LINE.
+	* src/macro.c (expand_argument): Likewise.
+	* checks/check-them (examples): Adjust to new message format.
+	* src/builtin.c (m4___program__): New builtin.
+	* doc/m4.texinfo (Location): Split from Errprint into new node,
+	and document __program__.
+	(Builtin, Ifdef, Ifelse, Dumpdef, Trace, Debug Output, Dnl)
+	(Include, Regexp, Patsubst, Incr, Eval): Adjust error message
+	format.
+	(Extensions): Document __program__.
+	* NEWS: Document this change.
+
+2006-08-03  Eric Blake  <ebb9@byu.net>
+
+	Don't confuse leading `(' in comment or quote with start of
+	argument collection.
+	* src/m4.h (enum token_type): Add TOKEN_OPEN, TOKEN_COMMA,
+	TOKEN_CLOSE.
+	(peek_input): Make private to input.c.
+	(peek_token): New prototype.
+	* src/input.c (default_word_regexp): Reduce ifdefs.
+	(peek_input): Make static.
+	(next_token): Return new token types.
+	(match_input, MATCH): Add argument consume, which controls
+	whether match should be pushed back.
+	(peek_token): New function.
+	(token_type_string) [DEBUG_INPUT]: New function.
+	* src/macro.c (expand_token, expand_argument, collect_arguments):
+	Handle new token types.
+	* doc/m4.texinfo (Changequote, Changecom): Document this.
+	* NEWS: Document this.
+
+	* src/stackovf.c (setup_stackovf_trap): Free memory on failure.
+
+	* src/stackovf.c (setup_stackovf_trap): Gracefully avoid stack
+	overflow detection when sigstack exists but is not implemented.
+	Fixes debian bug 154053.
+	* THANKS: Updated.
+	Reported by David Perlin.
+
+2006-08-02  Eric Blake  <ebb9@byu.net>
+
+	* src/input.c (MATCH): Fix EOF detection on multi-byte comment
+	close.
+
+2006-08-01  Eric Blake  <ebb9@byu.net>
+
+	* src/input.c (skip_line, next_token): Remember current file in
+	case input file ends abruptly.  Addresses debian bug 175365.
+	(pop_input): Defer freeing storage that holds previous file
+	name...
+	(pop_wrapup): to here, after error message is issued.
+	* src/macro.c (expand_argument): Remember current file in case
+	input file ends abruptly.
+	* doc/m4.texinfo (Macro Arguments, Dnl, Changequote, Changecom)
+	(M4wrap): Adjust testsuite accordingly.
+	(Errprint): Document line number limitation of m4wrap.
+	* NEWS: Document this fix.
+	* THANKS: Update.
+
+2006-07-31  Eric Blake  <ebb9@byu.net>
+
+	* src/input.c (peek_input, next_char, match_input): Be eight-bit
+	clean; fixes debian bug 311378.
+	* doc/m4.texinfo (Syntax): Describe eight-bit handling.
+	(Changequote, Changecom): Add examples to test this.
+	* NEWS: Document this fix.
+	* THANKS: Update.
+	Reported by Steven Augart.
+
+	* doc/m4.texinfo: Whitespace fix.
+	* checks/get-them: Avoid exceeding 14-char file name limit.
+	* THANKS: Update.
+
+2006-07-30  Eric Blake  <ebb9@byu.net>
+
+	* src/path.c (path_search): Detect allocation failure.
+
+	Use native free when it is good enough.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import free.
+	* src/builtin.c (define_user_macro, m4_regexp, m4_patsubst):
+	Adjust calls.
+	* src/symtab.c (free_symbol): Likewise.
+	* src/m4.c (xfree, main): Likewise.
+	* src/m4.h (obstack_chunk_free): Likewise.
+	* src/path.c (path_search): Likewise.
+	* src/input.c (pop_wrapup, set_quotes, set_comment): Likewise.
+
+	* doc/m4.texinfo (Errprint): Add example for last patch.
+	* checks/check-them: Account for VPATH in latest example.
+
+2006-07-29  Eric Blake  <ebb9@byu.net>
+
+	* src/path.c (path_search): Add result parameter, so that
+	-I can be accounted for.  Debian bug 53685.
+	* src/m4.h (path_search): Update prototype.
+	* src/m4.c (main): Adjust callers.
+	* src/freeze.c (reload_frozen_state): Likewise.
+	* src/builtin.c (include, m4_undivert): Likewise.
+	* NEWS: Document this change.
+	Reported by Nicolas Lichtmaier.
+
+2006-07-28  Eric Blake  <ebb9@byu.net>
+
+	* Makefile.am (MAINTAINERCLEANFILES): Fix typo that tripped up
+	several non-GNU makes.
+	* src/stackovf.c (setup_stackovf_trap): Missed _ from yesterday.
+	* src/m4.h: Likewise.
+	* src/input.c (push_wrapup): Avoid compiler warning with Solaris
+	/usr/ccs/bin/ucbcc.
+
+2006-07-27  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo: Use @acronym{GNU} throughout.
+	(History): Update for 1.4.6.
+
+	* src/m4.h (_): Remove K&R cruft.
+	* src/builtin.c: Likewise.
+	* src/debug.c: Likewise.
+	* src/eval.c: Likewise.
+	* src/macro.c: Likewise.
+	* src/stackovf.c: Likewise.
+
+	* doc/Makefile.am (m4.1): Improve man page.
+	* src/m4.c (usage): Improve --help output, including adding the
+	bug reporting address.
+	(main): Follow GNU Coding Standards for --version output.
+
+2006-07-26  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo: Use begin-quote, end-quote, begin-comment, and
+	end-comment consistently, to match POSIX.
+
+	* doc/m4.texinfo (Macro Arguments, Changequote, Changecom)
+	(Dnl, M4wrap, Include): Document EOF issues, and add examples.
+	(Incompatibilities): Document incompatibility of changecom
+	vs. macro names, and of EOF in include.
+	* src/input.c (next_token): Reject unterminated comments at EOF.
+	(skip_line): Warn on unterminated dnl at EOF.
+	* NEWS: Document these changes.
+
+2006-07-25  Eric Blake  <ebb9@byu.net>
+
+	* m4/gnulib-cache.m4: Update to reflect gnulib's split of
+	stdio-safer into fopen-safer and tmpfile-safer.
+	* src/m4.c: Remove redundant include.
+
+2006-07-24  Eric Blake  <ebb9@byu.net>
+
+	Fix bugs related to stream handling.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import
+	unlocked-io stdio-safer stdlib-safer close-stream.
+	* configure.ac (AC_CHECK_FUNCS_ONCE): Assume tmpfile; it can be
+	provided by gnulib if needed.
+	* src/output.c [! HAVE_TMPFILE]: Likewise.
+	* src/m4.h (includes): Replace unistd, stdio, and stdlib with
+	their safer counterparts.
+	(retcode): New global variable.
+	* src/input.c (pop_input): Check for read failure.
+	* src/freeze.c (reload_frozen_state): Likewise.
+	(produce_frozen_state): Check for write failure.
+	* src/debug.c (debug_set_file): Likewise.
+	* src/m4.c (usage, main): Likewise.
+	(retcode): Make global.
+	* src/builtin.c (m4_m4exit): Likewise.  Ensure that the exit
+	status is non-zero except when everything succeeds.
+	* doc/m4.texinfo (M4exit): Document these changes.
+	(Incompatibilities): Remove documentation of bug now fixed.
+	* NEWS: Document these fixes.
+
+2006-07-22  Eric Blake  <ebb9@byu.net>
+
+	* src/format.c (format): Avoid compiler warning that str may be
+	used uninitialized.
+
+2006-07-21  Eric Blake  <ebb9@byu.net>
+
+	* src/m4.h [UNIX]: Add more platforms that are close enough to
+	categorize as UNIX, but which don't predefine __unix__.
+	Reported by Nelson H. F. Beebe.
+
+2006-07-20  Eric Blake  <ebb9@byu.net>
+
+	* m4/gnulib-cache.m4: gnulib-tool has changed again.  Regenerate
+	to explicitly ask for --assume-autoconf=2.60.
+
+2006-07-19  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Sysval): Avoid kill -1, since ksh traps SIGHUP
+	and exits normally with 129.
+	Reported by Nelson H. F. Beebe.
+	* THANKS: Update.
+
+	* src/m4.h (EXIT_MISMATCH): Define.
+	* src/freeze.c (reload_frozen_state): Detect version mismatch, by
+	exiting with status 63.
+	* src/m4.c (usage): Document this.
+	* doc/m4.texinfo (Invoking m4, Using frozen files): Likewise.
+	* NEWS: Likewise.
+
+	* doc/m4.texinfo (copying): Relax restriction on front-cover and
+	back-cover texts.
+
+2006-07-17  Eric Blake  <ebb9@byu.net>
+
+	* src/format.c (format): Support F, g, and G specifiers.
+	* doc/m4.texinfo (Format): Document this.
+	* NEWS: Document this addition.
+
+	* doc/m4.texinfo (Builtin): Delete redundant text.
+
+	* configure.ac (AC_INIT): Bump version number.
+	* src/builtin.c (substitute): Bah.  Fix buffer overrun.
+	* NEWS: Document this fix.
+
+2006-07-15  Eric Blake  <ebb9@byu.net>
+
+	Release 1.4.5:
+
+	* configure.ac (AC_INIT): Bump version number.
+	* NEWS: Describe changes since 1.4.4.
+
+	* src/m4.c (usage): Document exit status.
+	* doc/m4.texinfo: Use `exit status', not `exit code'.
+	(Invoking m4): Document exit status.
+
+	* bootstrap: Backport --help, --version from head.
+	(func_update): New function, for easily grabbing up-to-date files
+	from gnulib.
+	* Makefile.maint (web-manual): Fix for VPATH builds.
+
+2006-07-14  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo: Global cleanup.  Avoid @code{...}'d, as it
+	looks bad in info.  Use @deffn rather than @example for
+	describing prototypes.  Fix awkward wording and grammar.
+
+	* src/builtin.c (substitute): Warn on bad escape sequences.
+	Ignore trailing backslash.
+	* doc/m4.texinfo (Regexp): Add documentation for this.
+	* NEWS: Document this change.
+
+	* src/builtin.c (m4_format, m4_indir): Warn on too few arguments.
+	* doc/m4.texinfo (Defn, Builtin, Debug Levels, Debug Output): Add
+	more examples.
+	(Dnl): Update example to show side effects.
+	* checks/get-them: Generate three digit test names.
+	* checks/Makefile.in (CHECKS): Accomodate 100+ tests.
+
+2006-07-13  Eric Blake  <ebb9@byu.net>
+
+	* src/input.c (input_init): Simplify.
+	(set_word_regexp): Treat empty string as default, since empty
+	regexp would disable word parsing.
+	* src/m4.c (user_word_regexp): Default to empty string.
+	* src/builtin.c (builtin_tab): Make changeword blind.
+	* doc/m4.texinfo (Changeword): Document this.
+	* NEWS: Document this.
+	* TODO: Knock off completed items.
+
+	* src/builtin.c (m4_undefine, m4_popdef): Visit all arguments, not
+	just the first.
+	* doc/m4.texinfo (Undefine, Pushdef): Test this.
+	* NEWS: Document this change.
+
+	* src/builtin.c (numeric_arg): Treat empty string as 0, with a
+	warning.  Detect quoted leading space and overflow as warnings.
+	(m4_eval): Treat empty radix as 10, and allow output in radix 1.
+	Treat width as minimum number of digits, as required by POSIX.
+	(m4_ifdef, m4_divert, m4_m4exit, m4_translit): Ignore extra
+	arguments.
+	(m4_substr): Likewise.  Silently treat empty start as 0.
+	(m4_undivert): Treat ` 1a' as file, not diversion 1.
+	* src/eval.c (eval_lex): Parse radix 1 numbers.
+	* doc/m4.texinfo (Invoking m4): Fix wording; there is more than
+	one type of warning.
+	(Manual): Document behavior of numeric parsing of empty string.
+	(Divert, Incr): Document error handling.
+	(Eval): Document radices better.
+	(Incompatibilities): Document translit incompatibility.
+	* NEWS: Document these changes.
+
+	* Makefile.maint (fetch): Get gendocs from gnulib, not texinfo.
+	(web-manual): Simplify.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import gendocs.
+	* Makefile.am (EXTRA_DIST): Distribute gendocs.sh.
+	(MAINTAINERCLEANFILES): Clean it as well.
+	* doc/Makefile.am (EXTRA_DIST): Distribute gendocs_template.
+	(MAINTAINERCLEANFILES): Clean it as well.
+
+2006-07-12  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Extensions): Document how to overcome
+	implementation difference in > 9 positional parameters.
+
+	* src/m4.c (usage): Sort within sections.
+	(nesting_limit): Raise default from 250 to 1024.
+	* doc/m4.texinfo: Use file name, not filename, per GNU coding
+	standard.  Use @option where appropriate.
+	(Invoking m4): Sort to match --help output.
+	(Debug Levels): Sort.
+	(Frozen files): Sort and break into two nodes.
+
+	* src/m4.c (nesting_limit): Raise default from 250 to 1024.
+	* NEWS: Document raised -L limit.
+
+2006-07-11  Eric Blake  <ebb9@byu.net>
+
+	* Makefile.am (DISTCHECK_CONFIGURE_FLAGS): New macro, to
+	stress-test changeword before a release.
+	* doc/m4.texinfo: More doc cleanups.
+	(Copying This Manual): New node; actually include the FDL in the
+	documentation.
+	* doc/Makefile.am (m4_TEXINFOS): Mention dependence on fdl.texi.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import fdl.
+	* NEWS: Mention documentation improvements.
+
+	* src/m4.h (OS2): New platform macro.
+	* src/builtin.c (predefined_tab) [OS2]: Use it to give OS/2 a
+	platform macro.
+	* doc/m4.texinfo (Platform macros): Document it.
+	(Sysval): Remove non-portable test of system("").
+	* NEWS: Document this change.
+	Reported by Andreas Buening.
+
+2006-07-09  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Undivert): Fix typo in last commit.
+	* src/m4.c (usage): Document M4PATH.
+	* src/path.c (path_search): Reject empty string.
+	* src/output.c (insert_diversion): Ignore diversion 0.
+	* src/builtin.c (m4_undivert): Ignore empty string.
+	* NEWS: Document this fix.
+
+2006-07-08  Eric Blake  <ebb9@byu.net>
+
+	* checks/get-them: Make filtering easier.
+	* checks/check-them: Filter non-input lines, so line counts are
+	more realistic in the documentation, and so changeword tests work
+	even when dnl is disabled.
+	* doc/m4.texinfo: Adjust example line numbers.  Clean up
+	front-matter, following autoconf's example.
+	(Changeword): Enable tests, skipping if changeword not supported.
+	(Define, Defn, Ifelse): Backport more examples from head.
+	(Input processing, Answers): New nodes, backported from head.
+	(Include): Expand test to cover empty filename.
+	(Undivert): Add test of undivert(0).
+
+2006-07-07  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
+
+	* doc/m4.texinfo: Fix spelling errors.
+
+2006-07-07  Eric Blake  <ebb9@byu.net>
+
+	* THANKS: Update.
+
+	* doc/Makefile.am (m4.1): No need to go through a temporary file;
+	this also ensures timestamps are updated.
+	* src/m4.h (includes): Require config.h.  Assume string.h,
+	stdlib.h, errno.  Include error.h, exit.h, and xalloc.h rather
+	than prototyping ourselves.
+	(builtin_func): Add parameter type-checking.
+	(voidstar): Delete, now that we assume C89.
+	* src/builtin.c, src/m4.c, src/macro.c, src/symtab.c: All users of
+	voidstar changed.
+	* src/m4.c (xfree) [WITH_DMALLOC]: Avoid clash with dmalloc's
+	xfree.
+
+2006-07-06  Eric Blake  <ebb9@byu.net>
+
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import
+	binary-io.
+	* src/m4.h (includes): Add binary-io.h for O_BINARY.
+	* src/freeze.c (produce_frozen_state): Use O_BINARY to remove
+	#ifdef.  Fixes patch from 2005-02-03 for cygwin.
+	* NEWS: Mention this fix.
+
+	* configure.ac (FUNC_SYSTEM_BROKEN): New check for OS/2 bug.
+	* src/builtin.c (m4_syscmd): Work around OS/2 bug.
+
+	* Makefile.am (SUBDIRS): Build . before src, so that autoheader
+	runs first when needed.
+	* doc/Makefile.am (m4.1): Backport rule from CVS head: build m4.1
+	once in srcdir rather than multiple times in VPATH builds.
+
+2006-07-03  Eric Blake  <ebb9@byu.net>
+
+	* checks/check-them: Use portable = in test.
+	* src/Makefile.am (AM_CPPFLAGS): Omit space between -I and
+	directory, as required by Solaris cc.  Include built headers, as
+	required by Solaris make in VPATH build.
+	* checks/Makefile.in: Use $(srcdir) where needed.
+	(CHECKS): Factor $(srcdir) into macro.
+	(DISTFILES): Likewise.  Automake takes care of distributing
+	Makefile.in.
+	(dist): Simplify.
+	(Makefile): Use modern syntax of config.status.
+	* doc/m4.texinfo (Loops, Include, Undivert, Incompatibilities):
+	Avoid overfull and underfull hboxes in dvi.
+
+	Fix 'make check' in VPATH build.  All files included by testsuite
+	now live in a single directory.  Use forloop.m4 in testsuite.
+	* checks/incl.m4, checks/foo, checks/wrapfifo.m4: Move from
+	here...
+	* examples/incl.m4, examples/foo, examples/wrapfifo.m4: ...to
+	here.
+	* checks/Makefile.in (DISTFILES): Don't distribute moved files.
+	* examples/Makefile.am (EXTRA_DIST): Distribute new files.
+	* checks/check-them: Avoid s/// when filename is in pattern.
+	* examples/forloop.m4: Fix to match documentation.
+	* doc/m4.texinfo (Include, Undivert, Incompatibilities): Reflect
+	new locations.
+	(Loops, Format): Actually use forloop.m4 in tests.
+
+2006-07-02  Eric Blake  <ebb9@byu.net>
+
+	* checks/Makefile.in (exec_prefix, prefix): New macros, so that
+	$(bindir) works in installcheck.
+	(check, installcheck): No longer change directory, so that
+	distcheck works with a read-only builddir.
+	* checks/check-them: Work when pwd is no longer builddir.
+
+2006-07-01  Eric Blake  <ebb9@byu.net>
+
+	* GNUmakefile: New file, borrowed from coreutils.
+	* Makefile.am (EXTRA_DIST): Distribute GNUmakefile.
+	* Makefile.maint (Makefile): Delete this rule, now that
+	GNUmakefile includes Makefile.
+
+2006-06-30  Eric Blake  <ebb9@byu.net>
+
+	For compatibility with other m4 implementations, sysval returns
+	signal<<8 rather than 0 if syscmd is terminated by a signal.
+	* configure.ac (AC_CHECK_HEADERS_ONCE): Check for sys/wait.h.
+	* src/builtin.c (include): Include sys/wait.h when stdlib.h does
+	not provide wait macros.
+	(WTERMSIG, WIFSIGNALED, WIFEXITED): More fallback macros.
+	(M4SYSVAL_EXITBITS, M4SYSVAL_TERMSIGBITS): New helper macros.
+	(m4_esyscmd): Set sysval to -1 on failure.
+	(m4_sysval): Print 127 on failure, and accomodate signals if they
+	are detectable.
+	* NEWS: Document this change.
+	* doc/m4.texinfo (Platform macros, Esyscmd, Sysval): Fix typos in
+	last commit.
+	* checks/check-them: Likewise.
+	* src/debug.c (debug_set_file): Work around mingw fstat bug.
+
+	* src/m4.h (UNIX, W32_NATIVE): Improve platform detection macros.
+	* src/freeze.c (produce_frozen_state): Use new spelling of
+	platform macro.
+	* src/builtin.c (predefined_tab): Add __windows__ on non-unix
+	platforms.
+	(m4_syscmd, m4_esyscmd): The empty command is successful.
+	* doc/m4.texinfo (Shell commands): Rename from UNIX commands.
+	Document platform-dependence of system().
+	(Syscmd): Add example.
+	(Esyscmd): Make example more robust, and actually demonstrate
+	rescanning.
+	(Sysval): Expand test to cover esyscmd code path, and to check
+	that empty command is successful.  Add conditional check for
+	signal behavior.
+	(Other Incompatibilities): Move platform macros from here...
+	(Platform macros): ...to this new node.  Add windows macro.
+	Check that exactly one platform macro is provided.
+	* checks/check-them: Improve trap cleanup.  Tolerate dirname and
+	.exe in error messages.  Allow for skipping checks.
+	* configure.ac (HAVE_EFGCVT): Kill dead configure check.
+	* NEWS: Document platform macros.
+
+2006-06-29  Eric Blake  <ebb9@byu.net>
+
+	Fix buffer overrun bug.
+	* m4/gnulib-cache.m4: Augment with gnulib-tool --import
+	xvasprintf.
+	* src/format.c [HAVE_EFGCVT]: Delete this code, and use *printf
+	variant instead, since [efg]cvt are obsolete and our use of them
+	was buggy (savannah sr #104303).
+	(format): Fix buffer overflow by using xasprintf.
+	* doc/m4.texinfo (Format): Expand format test to catch both bugs.
+	* NEWS: Document this fix.
+
+	* configure.ac (AC_CANONICAL_HOST, AC_CANONICAL_BUILD): Allow
+	cross-compilation.
+	(AC_CACHE_CHECK): Cache search for ecvt.
+
+2006-06-27  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Eval): Document 32-bit signed limitations
+	required by POSIX, and add example that exposed core dump on x86
+	architectures.
+	(Incompatibilities): Document incompatibility in eval precedence.
+	* src/eval.c (shift_term): Explicitly mask, to avoid undefined
+	behavior.
+	(mult_term): Explicitly check for -1, to avoid SIGFPE on x86.
+	* NEWS: Document this change.
+
+	* doc/m4.texinfo: Use @noindent consistently.
+	(Quoting Arguments): Document that unquoted parentheses group
+	arguments.
+	(Pseudo Arguments): Expand tests to show this.
+	(Incompatibilities): Contrast traditional behavior of
+	changequote.
+
+2006-06-24  Eric Blake  <ebb9@byu.net>
+
+	* configure.ac (AC_PREREQ): Autoconf 2.60 is now released.
+	(AC_CHECK_HEADERS_ONCE): Use this new feature.
+	(AC_CHECK_FUNCS_ONCE): Likewise.
+
+2006-06-23  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo: Quoting cleanup throughout - follow
+	autoconf-recommended style of one level of quote per parenthesis
+	in the normal case.  Adjust error messages to match GNU coding
+	standards (and to allow 'make check' to pass again).
+	(Quoted strings, Inhibiting Invocation): Turn more examples into
+	tests.
+	(Comments): Resolve FIXME by adding example.
+	(Define): Add example about underquoting.
+	(Defn): Add example about use of $0.
+	(Indir, Format): Resolve FIXME done in last commit.
+	(Ifelse): Add example about creating blind macro.
+	(Debugging): Fix grammar.
+	(Dnl): Add example about dnl with arguments.
+	(M4wrap): Be explicit that LIFO order is non compliant, and will
+	change in m4 2.0.
+	(Undivert): Resolve FIXME by adding example.
+	(Frozen files): Document that m4wrap and sysval will not work
+	consistently until m4 2.0.
+	(Incompatibilities): Document another POSIX compliance bug, this
+	time with changequote.  Document a traditional incompatibility
+	with partial input spanning file boundaries.
+
+	Make error messages more consistent with GNU coding standards -
+	start with lower case, and don't end sentence with punctuation.
+	* src/debug.c (trace_pre): Update message wording.
+	* src/eval.c (evaluate, cmp_term, shift_term, mult_term):
+	Likewise.
+	* src/freeze.c (produce_frozen_state, issue_expect_message),
+	(reload_frozen_state): Likewise.
+	* src/input.c (push_string_init, pop_init, init_macro_token),
+	(peek_input, next_char_1, set_word_regexp, next_token): Likewise.
+	* src/m4.c (stackovf_handler, main): Likewise.
+	* src/macro.c (expand_token, expand_argument, call_macro),
+	(expand_macro): Likewise.
+	* src/output.c (make_room_for, output_text, insert_file),
+	(freeze_diversions): Likewise.
+	* src/symtab.c (symtab_init, lookup_symbol): Likewise.
+
+	* src/builtin.c (builtin_tab): Make format and indir blind.
+	(substitute): Prefer "Warning:" vs. "ERROR:" in messages.
+	* NEWS: Mention the change to builtins.
+
+2006-06-22  Eric Blake  <ebb9@byu.net>
+
+	Robustify frozen file format.
+	* src/freeze.c (reload_frozen_state): Add GET_DIRECTIVE helper
+	macro.  Require V first, and only accept it once.  For F, use
+	placeholder if builtin is not found, rather than warning.
+	* src/m4.h (m4_placeholder): New prototype.
+	* src/builtin.c: Unify error message style.
+	(m4_placeholder): New function, warn if invoked.
+	(builtin_tab): Add m4_placeholder.
+	(m4_defn): Warn if placeholder is encountered.
+	(find_builtin_by_addr): Handle placeholder.
+	(find_builtin_by_name): Return placeholder on failure.
+	(m4_builtin): Treat placeholder as undefined.
+	* doc/m4.texinfo (Frozen files): Document changes in V and F.
+	* NEWS: Document this change.
+	Reported by Bruno Haible.
+
+	* doc/m4.texinfo: Whitespace cleanup.  TABs are evil in texinfo.
+	(tabchar): New macro, so that 'make check' still works.
+	(Invoking m4): Document that ignored compatibility options -B, -S,
+	and -T each consume an argument.
+	* checks/get-them: Honor @tabchar{}.
+
+	Avoid compiler warnings during -DDEBUG.
+	* src/m4.h (M4_GNUC_ATTRIBUTE, M4_GNUC_UNUSED): New macros.
+	[DEBUG]: Also imply DEBUG_OUTPUT and DEBUG_STKOVF.
+	* src/input.c (print_token) [DEBUG_INPUT]: Use correct format.
+	(lex_debug) [DEBUG_INPUT]: Fix to compile.  Mark unused.
+	(next_token) [DEBUG_INPUT]: Print before returning.
+	* src/path.c (include_dump) [DEBUG_INCL]: Mark unused.
+	* src/symtab.c (symtab_debug) [DEBUG_SYM]: Mark unused.
+
+	Avoid mkstemp bugs on various platforms.
+	* m4/gnulib-cache.c: Augment with gnulib-tool --import mkstemp.
+	* src/output.c [! HAVE_MKSTEMP]: Delete.
+	* configure.ac (AC_CHECK_FUNCS): Don't check for mkstemp.
+	* src/m4.h (mkstemp) [! HAVE_MKSTEMP]: Prototype, if needed.
+	* NEWS: Document this.
+
+	* Makefile.am (EXTRA_DIST): Distribute gnulib-cache.m4.
+	Reported by Bruno Haible.
+
+2006-06-21  Eric Blake  <ebb9@byu.net>
+
+	Avoid obsolete sigstack when POSIX sigaltstack is available.
+	* src/m4.c: Blindly assume signal.h, since stackovf.c and gnulib
+	do likewise.
+	* configure.ac (AC_CHECK_HEADERS): Likewise.
+	(AC_CHECK_TYPES): New check for siginfo_t, since siginfo.h is
+	obsolete and most hosts now have it in signal.h.
+	(AC_CHECK_MEMBERS): New check for sigaction.sa_sigaction.
+	(AC_CACHE_CHECK): Cache decision to use stackovf.
+	(AC_EGREP_HEADER): Switch to AC_CHECK_TYPES.
+	* src/stackovf.c (DEBUG_STACKOVF): Remove unused define.
+	(SA_RESETHAND, SA_SIGINFO): Provide fallback definitions, to
+	simplify later code.
+	(PARAM_STACKOVF, PARAM_NOSTACKOVF): Move further away from NULL,
+	in case of dereferencing a member of a NULL pointer.
+	(sigsegv_handler) [HAVE_STRUCT_SIGACTION_SA_SIGACTION]: Define a
+	POSIX handler.
+	(setup_stackovf_trap): Use NULL instead of 0 for pointers, use
+	EXIT_FAILURE in error, indent preprocessor directives.
+	[HAVE_SIGALTSTACK && HAVE_SIGINFO_T]: Depend on siginfo_t, not
+	siginfo.h.
+	[HAVE_SIGACTION && defined SA_ONSTACK]: Prefer POSIX handler.
+	Reported by Santiago Vila.
+
+2006-06-19  Eric Blake  <ebb9@byu.net>
+
+	* THANKS: Update.
+
+2006-06-18  Andreas Buening  <andreas.buening@nexgo.de>  (tiny change)
+
+	* checks/Makefile.in (PATH_SEPARATOR): New macro.
+	(check, installcheck): Use it, for OS/2.
+
+2006-06-18  Eric Blake  <ebb9@byu.net>
+
+	Consistently use "GNU M4" as package name, "m4" as executable
+	name.
+	* NEWS: Document previous fix.
+	* THANKS: Update.
+	* README: Fix grammar.  Document that --enable-changeword is on
+	its last leg.
+	* doc/m4.texinfo (Top, Changeword): Likewise.
+	(Sysval): Enhance this test.
+	(History): Backport this section from CVS head, and update.
+
+2006-06-18  Bruno Haible  <bruno@clisp.org>  (tiny change)
+	    Eric Blake  <ebb9@byu.net>
+
+	* src/builtin.c (WEXITSTATUS): Provide fallback definition.
+	(m4_esyscmd): Set sysval to 0xffff, to accomodate both
+	big-endian and little-endian wait status definitions.
+	(m4_sysval): Use WEXITSTATUS.
+	Reported by Andreas Buening.
+
+2006-06-18  Eric Blake  <ebb9@byu.net>
+
+	* configure.ac (AC_INIT): Bump version number.
+	* NEWS: Describe changes in 1.4.4c.
+
+2006-06-17  Eric Blake  <ebb9@byu.net>
+
+	Release 1.4.4b:
+
+	* configure.ac (AC_INIT): Bump version number.
+	* NEWS: Describe changes since 1.4.4.
+	* Makefile.maint (cvs-news): Accomodate copyright line wrapping.
+
+	* Makefile.am (MAINTAINERCLEANFILES): Clean files added by
+	bootstrap.
+	* checks/Makefile.in (maintainer-clean): Add missing target.
+	* COPYING: Remove generated file from CVS.
+
+2006-06-16  Eric Blake  <ebb9@byu.net>
+
+	* checks/Makefile.in (DISTFILES): Distribute wrapfifo.m4.
+
+2006-06-15  Eric Blake  <ebb9@byu.net>
+
+	* checks/wrapfifo.m4: New file.  Use it...
+	* doc/m4.texinfo (Incompatibilities): here, in a new test case to
+	demonstrate how to get POSIX behavior of m4wrap prior to m4 2.0.
+
+	* src/m4.h (to_uchar): New function.
+	* src/eval.c (eval_lex): Use it to avoid passing signed char to
+	isdigit, isalpha, isupper, islower, isspace, isalnum.
+	* src/builtin.c (expand_user_macro): Likewise.
+	* src/format.c (format): Likewise.
+	* src/macro.c (expand_argument): Likewise.
+	* NEWS: Document this security fix.
+
+	Message cleanup.
+	* src/symtab.c (lookup_symbol): Use invalid, not illegal.
+	* src/freeze.c (reload_frozen_state): Fix typo in message.
+	(produce_frozen_state): Standardize on builtin, not built-in.
+	* src/builtin.c (numeric_arg, bad_argc): Likewise.
+
+	* configure.ac (M4_EARLY, M4_INIT): Use gnulib.
+	(AC_PROG_RANLIB, AC_AIX, AC_MINIX, AC_CHECK_HEADERS),
+	(AC_FUNC_ALLOCA, AC_REPLACE_FUNCS): Avoid checks now done by
+	gnulib.
+	* Makefile.am (ACLOCAL_AMFLAGS): New entry, for gnulib.
+	* m4/gnulib-cache.m4: New file, from gnulib.
+	* bootstrap: Invoke gnulib-tool --update.
+	* src/m4.c (main): Cast away const.
+	* NEWS: Document that regex is updated.
+	* THANKS: Update.
+
+2006-06-08  Eric Blake  <ebb9@byu.net>
+
+	* configure.ac (changeword): Work even when changeword is not a
+	macro.
+	(AC_PROG_AWK, AC_PROG_INSTALL, AC_PROG_MAKE_SET, AC_HEADER_STDC):
+	Delete; now done by automake.
+	(AC_ISC_POSIX, AC_C_CONST): Delete; now obsolete.
+
+2006-06-07  Eric Blake  <ebb9@byu.net>
+
+	* lib/regex.c (bcmp_translate): Canonicalize type name.
+	* doc/Makefile.am (MAINTAINERCLEANFILES): Fix typo.
+	* configure.ac (changeword): Disable changeword for the creation
+	of configure, in case of bootstrapping with an m4 configured with
+	--enable-changeword.
+
+	Distribute a rudimentary man page.
+	* Makefile.am (SUBDIRS): Move doc after src so that 'm4 --help'
+	can feed help2man.
+	* doc/Makefile.am (man_MANS, EXTRA_DIST, MAINTAINERDISTCLEAN),
+	(SUFFIXES, m4.1): New macros and rules to build m4.1.
+
+2006-06-06  Eric Blake  <ebb9@byu.net>
+
+	* lib/regex.c (re_match_2_internal, bcmp_translate): Avoid
+	compiler warnings at -O2.
+	* lib/getopt.c (_getopt_internal): Likewise.
+
+	Cleanup of previous patches.
+	* src/input.c (struct input_block): Remove traced member.
+	(push_macro, init_macro_token): Don't pass trace status around.
+	* src/m4.h (struct token_data): Remove traced member.
+	(struct symbol, struct builtin): Reduce unused space.
+	(TOKEN_DATA_FUNC): Simplify.
+	(TOKEN_DATA_FUNC_TRACED): Remove unused macro.
+	(push_macro, define_builtin): Remove unused parameter.
+	* src/builtin.c (define_builtin, builtin_init, define_macro),
+	(m4_defn): Don't pass trace status around.
+	* src/macro.c (expand_argument): Likewise.
+	* src/freeze.c (reload_frozen_state): Likewise.
+	* src/symtab.c: Whitespace cleanup.
+	* NEWS: Clean up wording.
+	* doc/m4.texinfo (Undefine, Dumpdef, Trace): Cleanup wording;
+	ensure tests actually expose bugs prior to today's patches.
+
+	Trace status of builtins is no longer inherited across
+	define(...,defn(...)).  Fixes bug that autom4te had been working
+	around.
+	* src/builtin.c (define_builtin): Don't override trace status.
+	* doc/m4.texinfo (Trace): Add test for this.
+	* NEWS: Document this.
+
+	When changing macro definitions inside the arguments to the macro,
+	consistently preserve the old definition that was in effect before
+	argument collection, similar to the C pre-processor.
+	Reported by John Brzustowski.
+	* NEWS: Document this change.
+	* doc/m4.texinfo (Macro Arguments, Undefine, Dumpdef): Document
+	this policy, and add tests that expose core dumps prior to this
+	patch.
+	* src/m4.h (struct symbol): New members to track when a symbol is
+	still in use after removal from the symbol table.
+	(SYMBOL_PENDING_EXPANSIONS, SYMBOL_DELETED): Define.
+	(free_symbol): Prototype.
+	* src/macro.c (expand_macro): Track pending expansions of a
+	symbol.  On completion, if a symbol is deleted and no longer
+	pending, free its memory.
+	* src/symtab.c (free_symbol): Export.  Don't free memory if symbol
+	is still in use.
+	(lookup_symbol) <SYMBOL_INSERT>: Create new entry when old entry
+	is still in use.
+	(lookup_symbol) <SYMBOL_DELETE, SYMBOL_POPDEF>: Mark entries still
+	in use as deleted and remove from the table without freeing
+	memory.
+	(symtab_print_list) [DEBUG_SYM]: More debug output.
+
+	* src/symtab.c (hack_all_symbols): Allow certain modifications of
+	the symbol table during traversal.
+	* src/builtin.c (set_trace): Replace SYMBOL_DELETE with
+	SYMBOL_POPDEF, since only the latter is safe with
+	hack_all_symbols.
+
+	Solve crash when passing "indir(`foo')" to "m4 -tfoo".
+	* src/symtab.c (lookup_symbol) <SYMBOL_DELETE, SYMBOL_POPDEF>:
+	Preserve placeholder when macro is being traced.
+	* src/builtin.c (m4_ifdef, m4_indir): A traced but undefined
+	symbol is not defined.
+	(set_trace): Remove placeholder when no longer traced.
+	(m4_traceon): On named traces, always reserve a slot in the
+	symbol table.
+	(m4_traceoff): Don't warn about untracing a nonexistent symbol.
+	* NEWS: Document new trace behavior.
+	* doc/m4.texinfo (Trace): Tracing by name now consistently works
+	no matter whether that macro is currently defined.
+	(Incompatibilities): Document differences between traditional and
+	GNU trace.
+
+2006-06-04  Paul Eggert  <eggert@cs.ucla.edu>  (tiny change)
+	    Eric Blake  <ebb9@byu.net>
+
+	* src/m4.h (hash_table_size): Now size_t instead of int.
+	* src/m4.c (hash_table_size): Likewise.
+	(main): Adjust to this; use atol rather than atoi.
+	* src/symtab.c: Include <limits.h>, for CHAR_BIT.
+	(symtab_init, lookup_symbol, hack_all_symbols):
+	Use size_t for sizes and indexes, not int.
+	(symtab_print_list) [DEBUG_SYM]: Likewise.
+	(hash): Likewise.  Don't case-fold in the hash function.
+	Shift by 7, not 3, for consistency with gnulib/lib/hash.c.
+	Don't assume hash word is 32 bits.
+	* NEWS: Document this change.
+
+2006-06-04  Eric Blake  <ebb9@byu.net>
+
+	* src/symtab.c (symtab_debug, symtab_print_list) [DEBUG_SYM]: Fix
+	to allow compilation, for use in debugger.
+	(profiles, current_mode) [DEBUG_SYM]: New variables.
+	(show_profile, profile_strcmp) [DEBUG_SYM]: New methods for
+	determining hash table performance.
+
+2006-05-31  Eric Blake  <ebb9@byu.net>
+	    John Brzustowski  <jbrzusto@fastmail.fm>
+
+	* src/input.c (input_stack): Delete; use current_input instead.
+	(wrapup_stack): Dynamically allocate, so that recursion is handled
+	properly.
+	(push_wrapup): Use current wrapup stack.
+	(pop_wrapup): Rotate wrapup stack to current, and create new
+	wrapup stack.
+	(input_init): Dynamically allocate stacks.
+	* NEWS: Update, now that recursive m4wrap can no longer cause
+	core dump.
+
+2006-05-31  Eric Blake  <ebb9@byu.net>
+
+	* lib/getopt.c: Fix copyright year.
+	* lib/obstack.c: Ditto.
+	* src/builtin.c: Ditto.
+
+2006-05-30  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (M4wrap): Add test to expose m4wrap bug.
+	Reported by John Brzustowski.
+	(Incompatibilities): Document known POSIX incompatibilities.
+	* THANKS: Update.
+
+2006-05-29  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo (Maketemp): Work even when running 'make check'
+	in read-only dir.
+
+	Use automake.
+	* Makefile.am: New file.
+	* doc/Makefile.am: Ditto.
+	* examples/Makefile.am: Ditto.
+	* lib/Makefile.am: Ditto.
+	* src/Makefile.am: Ditto.
+	* acinclude.m4: New file, renamed from aclocal.m4.
+	* configure.ac (AM_INIT_AUTOMAKE): Invoke new macro.
+	(AC_ARG_PROGRAM): Now redundant.
+	(STACKOVF): Turn into automake conditional.
+	(AC_CONFIG_COMMANDS): stamp-h is a command, not a file.
+	* checks/Makefile.in: Converting this dir to automake was not
+	trivial; for now, just add missing targets demanded by top-level.
+	* INSTALL: Remove files that are now generated from CVS.
+	* Makefile.in: Ditto.
+	* aclocal.m4: Ditto.
+	* install-sh: Ditto.
+	* mkinstalldirs: Ditto.
+	* doc/Makefile.in: Ditto.
+	* doc/texinfo.tex: Ditto.
+	* examples/Makefile.in: Ditto.
+	* lib/Makefile.in: Ditto.
+	* src/Makefile.in: Ditto.
+
+	* AUTHORS: Backport from CVS head, and update.
+	* doc/m4.texinfo (Changeword): Fix examples to match behavior.
+
+2006-05-27  Eric Blake  <ebb9@byu.net>
+
+	* lib/regex.c (regex_compile): Kill compiler warnings.
+	* lib/getopt.c: Likewise.
+	* lib/obstack.c: Likewise.
+	* src/builtin.c (builtin_init): Likewise.
+	* src/path.c (path_search): Likewise.
+
+	* doc/m4.texinfo: Fix usage of a vs. an.
+	(Loops, Include, Cleardiv, Patsubst, Format, M4exit): Kill
+	overfull hbox warnings.
+	(Inhibiting Invocation, Divert, Maketemp, M4exit): Add new tests.
+
+	* configure.ac: Update to autoconf 2.59.  Forbid ^M4_.  Fix
+	quoting.
+	* aclocal.m4 (fp_PROG_CC_STDC): Delete; now covered by autoconf.
+	(fp_C_PROTOTYPES): Delete, GNU Coding Standards state we can now
+	assume C89.
+	(M4_WITH_DMALLOC): Rename from fp_WITH_DMALLOC. Fix quoting.
+	* src/m4.h (_): PROTOTYPES is no longer provided, assume C89.
+	* src/Makefile.in: Delete remains of ansi2knr.
+	* src/ansi2knr.1: Delete.
+	* src/ansi2knr.c: Delete.
+
+2006-05-25  Eric Blake  <ebb9@byu.net>
+
+	* doc/m4.texinfo: Fix spelling errors.  Use `invalid' instead of
+	`illegal'.
+
+	* doc/m4.texinfo (Francois): No longer needed as a tex variable.
+	Reported by Karl Berry.
+
+2006-05-24  Eric Blake  <ebb9@byu.net>
+
+	* Makefile.in (html): New target.
+	* doc/Makefile.in (html, m4.html): Likewise.
+	(MAKEINFOHTML): New macro.
+	* doc/m4.texinfo (Francois) [ifnottex]: Use newer texinfo
+	rendering.
+	(Regexp) [ifhtml]: Make cross-reference to emacs manual an
+	absolute URL.
+	Reported by Bob Badour.
+
+	* THANKS: Update.  Move reporter's email addresses here, instead
+	of in ChangeLog.
+
+2006-05-11  Eric Blake  <ebb9@byu.net>
+
+	* THANKS: Update.
+	* doc/m4.texinfo (Changequote): Give testsuite exposure to bug
+	patched on 2005-12-04.
+	Reported by Ilya N. Golubev.
+
+	* bootstrap: New file, so that generated files need not be stored
+	in CVS.
+	* Makefile.in (DISTFILES): Add bootstrap.
+
+	Make testsuite less sensitive to doc changes.
+	* doc/m4.texinfo: Use m4.input instead of filename.
+	* checks/check-them (xerr): Turn m4.input into filename.
+	* checks/Makefile.in (dist): Depend on stamp-checks.
+
+	Portability updates for OS/2.
+	* src/Makefile.in (EXEEXT, OBJEXT): Define.
+	(LINK): Use CFLAGS.
+	(.c.obj): Define.
+	* lib/Makefile.in (OBJEXT): Define.
+	(.c.obj): Define.
+	* doc/Makefile.in (install, uninstall): Install info files into
+	the dir listing.
+	Reported by Andreas Buening.
+
+2006-05-09  Eric Blake  <ebb9@byu.net>
+
+	* install-sh: Update to newer upstream version.
+	* mkinstalldirs: Likewise.
+	Reported by Andreas Buening.
+
+	* src/m4.c (main): Bump copyright year.
+	* Makefile.in (datarootdir): Define, for autoconf 2.59c.
+	* doc/Makefile.in (datarootdir): Likewise.
+
+2006-05-08  Eric Blake  <ebb9@byu.net>
+
+	* THANKS: Update.
+	* doc/m4.texinfo (Bugs): Backport bug email address from head.
+	Reported by Stepan Kasal.
+
+2005-12-04  Ilya N. Golubev  <gin@mo.msk.ru>  (tiny change)
+
+	* input.c (match_input): Do not pass expression with side effect
+	to `obstack_grow'.  Fix <INTERNAL ERROR: Recursive push_string!>.
+	* NEWS: Updated.
+
+2005-12-04  Gary V. Vaughan  <gary@gnu.org>  (tiny change)
+
+	* doc/m4.texinfo (How to debug macros and input): s/woould/would/
+	Reported by Damian Menscher.
+
+2005-10-19  Gary V. Vaughan  <gary@gnu.org>  (tiny change)
+
+	* configure.ac (AC_INIT): Bump to 1.4.4a.
+
+2005-10-19  Gary V. Vaughan  <gary@gnu.org>  (tiny change)
+
+	Release 1.4.4:
+
+	* configure.ac (AC_INIT): Bump to 1.4.4.
+	* NEWS: Describe 1.4.4's changes.
+	* INSTALL, install-sh, doc/texinfo.tex: Updated from upstream.
+
+2005-10-17  John Gatewood Ham  <zappaman@buraphalinux.org>  (tiny change)
+
+	* src/m4.c: fix return code when non-existent files are processed
+
+2005-10-17  John Gatewood Ham  <zappaman@buraphalinux.org>  (tiny change)
+
+	* README: update email address for bug reports.
+
+2005-10-17  Gary V. Vaughan  <gary@gnu.org>
+
+	* doc/m4.info: Generated files are not kept in the repository.
+
+2005-05-01  Gary V. Vaughan  <gary@gnu.org>
+
+	The FSF are moving offices today.  Changed their contact address
+	in all files from `59 Temple Place, Suite 330, MA 02111-1307' to
+	`51 Franklin Street, Fifth Floor, MA 02110-1301'.
+
+	Also, some of the files here were never updated from the previous
+	'675 Mass Ave, Cambridge, MA 02139', so changed those to the
+	'51 Franklin Street, Fifth Floor, MA 02110-1301' address too.
+
+2005-03-31  Mike Frysinger  <vapier@gentoo.org>
+
+	* Makefile.in (bindir, infodir): Substitute from configure rather
+	than hardcode.
+	* doc/Makefile.in (infodir): Ditto.
+	* src/Makefile.in (bindir): Ditto.
+	* NEWS: Updated.
+
+2005-03-31  Gary V. Vaughan  <gary@gnu.org>
+
+	Changes needed to automate the release process for 1.4.3:
+
+	* Makefile.in (dist): Make .tar.bz2 tarball too.
+	* Makefile.maint (TSDEPS_DIST): Remove m4/libtool.m4.
+	(cvs-news): Look 1 line further down for NEWS release number.
+	(cvs-dist): We don't use automake, so make dist is fine.
+	Remove double . before suffixes.
+	(cvs-release): Don't mention manual.html.
+	(fetch): Get latest gendocs files.
+	(web-manual): Rewritten to use gendoc for multiformat manuals.
+	* doc/gendocs.sh: Don't save an old version in m4 CVS!
+	* doc/m4.texinfo (Index): HFS+ (the file system on my Mac) is case
+	preserving, but case insensitive, so generating html docs per node
+	clashes between Index.html, the node file, and index.html, the
+	top-level of the document tree...
+	(Index macro): ...so renamed to this.  Changed all references.
+
+2005-03-31  Gary V. Vaughan  <gary@gnu.org>  (tiny change)
+
+	* configure.ac (AC_INIT): Bump to 1.4.3a.
+
+2005-03-31  Gary V. Vaughan  <gary@gnu.org>  (tiny change)
+
+	Release 1.4.3:
+
+	* configure.in (AC_INIT): Bump to 1.4.3.
+	* NEWS: Describe 1.4.3's changes.
+
+2005-03-31  Gary V. Vaughan  <gary@gnu.org>
+
+	* Makefile.maint: New file with release rules, from CVS libtool.
+	* Makefile.in (DISTFILES): Add Makefile.maint.
+	* INSTALL, install-sh, doc/texinfo.tex: Updated to latest
+	canonical versions.
+
+2005-03-31  Eric Blake  <ebb9@byu.net>  (tiny change)
+
+	* doc/m4.texinfo (Patsubst): Re-add trailing space required by
+	checks/47.patsubst, with a redundant @comment to prevent emacs
+	from removing it accidentally again.
+	* checks/get-them: Allow for trailing spaces tucked behind
+	@comment marks.
+
+2005-03-31  Eric Blake  <ebb9@byu.net>  (tiny change)
+
+	* doc/Makefile.in (install, uninstall): Accomodate DESTDIR.
+	* src/Makefile.in (install, uninstall): Likewise.
+
+2005-02-07  Gary V. Vaughan  <gary@gnu.org>
+
+	* lib/regex.c, lib/regex.h:  Reverted gnulib update, which broke
+	on Cygwin.
+	Reported by Eric Blake.
+
+2005-02-04  Gary V. Vaughan  <gary@gnu.org>
+
+	* lib/regex.c, lib/regex.h: Updated from gnulib.
+	* src/input.c (set_word_regexp):  Don't change the word_regexp
+	unless it compiles correctly.
+	* NEWS: Updated.
+	Reported by Frank Schwidom.
+
+	* Makefile.in (stamp-h): Regenerate config.h properly.
+
+2005-02-03  Gary V. Vaughan  <gary@gnu.org>
+
+	* configure.ac (AC_DEFINE): Fix overquoting of description
+	argument.
+
+	* src/m4.h (__CYGWIN__, WIN32): Canonicalise Windows and Cygwin
+	recognition macros.
+	* src/freeze.c (produce_frozen_state): Use \n line-endings even
+	on Windows, so that the frozen file reader will work.
+	Reported by Josef T. Burger.
+
+	* src/m4.c (main): Modernise the --version output.
+
+2005-02-03  Gary V. Vaughan  <gary@gnu.org>
+
+	Modernise the configury a little to prevent spurious errors from
+	Autoconf-2.59's autoreconf:
+
+	* config.h.in: Renamed to...
+	* config-h.in: ...this to better support DOS 8.3 file systems.
+	* acconfig.h: Removed.
+	* configure.in: Renamed to...
+	* configure.ac: ...this, and AC_DEFINE used to declare config.h
+	entry comments.  Slight reorganisation and reformatting.
+	* aclocal.m4: Use third argument to AC_DEFINE to declare config.h
+	entry comments.
+	(AC_INIT): Use a modern 3 argument call.
+	* Makefile.in, checks/Makefile.in, doc/Makefile.in,
+	examples/Makefile.in, lib/Makefile.in, src/Makefile.in:
+	s/PRODUCT/PACKAGE/g.
+	* Makefile.in (DISTFILES): Removed acconfig.h, configure.in,
+	config.h.in.  Added configure.ac, config-h.in.
+	(stamp-h.in): Removed acconfig.h from dependencies.
+	(configure): Depends on configure.ac, not configure.in.
+	* doc/Makefile.in (stamp-vti): Ditto.
+	* src/freeze.c (produce_frozen_state), src/m4.c (main): Adjust for
+	difference between PRODUCT="m4" and PACKAGE="GNU M4".
+	* configure: Regenerated.
+
+2005-02-03  Noah Misch  <noah@cs.caltech.edu>
+
+	* src/output.c (mkstemp): Make non-static, and build regardless of
+	HAVE_TMPFILE; src/builtin.c also needs this replacement.
+	* NEWS: Update.
+
+2004-09-09  Vincent Lonngren  <Vincent.lonngren.759@student.lu.se>
+
+	* configure.in (AC_CHECK_HEADERS): Commit works best when you save
+	changes from your editor buffer first.
+
+	* configure.in (AC_CHECK_HEADERS):  Add signal.h, sys/signal.h.
+	* src/m4.c: And include them as appropriate.
+	* NEWS: Updated.
+
+2004-09-09  Andreas Schwab  <schwab@suse.de>
+
+	Refactoring of the string read case in next_char provides about a
+	20% speedup of M4 as typically used by autoconf:
+
+	* src/input.c (next_char_1): Renamed from next_char.
+	(next_char): New macro.
+	* NEWS: Updated.
+
+2004-08-21  Gary V. Vaughan  <gary@gnu.org>
+
+	* configure.in (VERSION): Bump to 1.4.2a.
+
 2004-08-19  Paul Eggert  <eggert@twinsun.com>
 
 	* Release 1.4.2.
 
 	* configure.in (VERSION): Bump to 1.4.2.
-	* NEWS: Describe 1.4.2's changes.
+	* News: Describe 1.4.2's changes.
 
 	* src/m4.c (reference_error): Preserve errno, since M4ERROR
 	relies on this.
@@ -300,7 +1603,7 @@ Wed Aug 31 11:17:21 1994  Francois Pinard  (pinard@icule)
 	* Makefile.in (distclean-local): Delete config.log.
 	Reported by Jim Meyering.
 
-        Solidify frozen files with respect to -P:
+	Solidify frozen files with respect to -P:
 	* src/m4.c: Have -P set prefix_all_buitins variable instead of
 	calling a function by that name.  Declare the variable.
 	* src/m4.h: Adjust declaration for prefix_all_buitins.
@@ -1299,19 +2602,19 @@ Mon Nov 16 20:42:56 1992  Francois Pinard  (pinard at icule)
 
 Mon Nov 16 07:48:52 1992  Jim Meyering  (meyering@idefix)
 
-        * m4.h [__GNUC__]: Use __volatile__ instead of `volatile.'
-        And use that only if __GNUC__ since we're using it's GCC-specific
-        semantics that tell the compiler the associated function doesn't
-        return.
+	* m4.h [__GNUC__]: Use __volatile__ instead of `volatile.'
+	And use that only if __GNUC__ since we're using it's GCC-specific
+	semantics that tell the compiler the associated function doesn't
+	return.
 
-        * builtin.c (substitute): Don't use character as an array index.
-        (dumpdef_cmp): Make formal arguments `const void *' to avoid
-        warnings with gcc -W -Wall on systems with qsort prototype.
-        (m4_errprint): Cast obstack_finish to `char *' to avoid warnings
-        from gcc -W -Wall.
+	* builtin.c (substitute): Don't use character as an array index.
+	(dumpdef_cmp): Make formal arguments `const void *' to avoid
+	warnings with gcc -W -Wall on systems with qsort prototype.
+	(m4_errprint): Cast obstack_finish to `char *' to avoid warnings
+	from gcc -W -Wall.
 
-        * eval.c (most functions): Add parentheses to assignments used
-        as truth values go avoid warnings from gcc -Wall.
+	* eval.c (most functions): Add parentheses to assignments used
+	as truth values go avoid warnings from gcc -Wall.
 
 	* input.c, m4.c, output.c, path.c, symtab.c: Declare static
 	any functions that don't need external scope.
@@ -1598,3 +2901,18 @@ Thu Nov 15 21:51:06 1990  Rene' Seindal (seindal at diku.dk)
 Mon Jan 22 21:08:52 1990  Rene' Seindal (seindal at diku.dk)
 
 	* Initial beta release.  Release 0.50, manual 0.05.
+
+	-----
+
+	$Revision: 1.1.1.1.2.169 $ $Date: 2006/08/25 14:08:32 $
+
+	Local Variables:
+	coding: utf-8
+	End:
+
+	Copyright (C) 1990, 1991, 1992, 1993, 1994, 2000, 2001, 2003,
+	2005, 2006 Free Software Foundation, Inc.
+
+	Copying and distribution of this file, with or without
+	modification, are permitted provided the copyright notice
+	and this notice are preserved.

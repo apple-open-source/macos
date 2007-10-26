@@ -1,0 +1,6 @@
+#! /bin/bash
+
+defaults write com.apple.Xcode XCAutoClearRunDebugStdIOLogs YES
+defaults write com.apple.Xcode PBXGDBDebuggerLogToFile YES
+defaults write com.apple.Xcode PBXGDBDebuggerLogFileName /tmp/XCGDB.txt
+

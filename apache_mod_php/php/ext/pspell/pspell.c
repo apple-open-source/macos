@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pspell.c,v 1.28.8.5.4.5 2007/01/01 09:46:46 sebastian Exp $ */
+/* $Id: pspell.c,v 1.45.2.4.2.7 2007/02/24 02:17:25 helly Exp $ */
 
 #define IS_EXT_MODULE
 
@@ -50,9 +50,31 @@
  */
 #define PSPELL_LARGEST_WORD 3
 
+static PHP_MINIT_FUNCTION(pspell);
+static PHP_MINFO_FUNCTION(pspell);
+static PHP_FUNCTION(pspell_new);
+static PHP_FUNCTION(pspell_new_personal);
+static PHP_FUNCTION(pspell_new_config);
+static PHP_FUNCTION(pspell_check);
+static PHP_FUNCTION(pspell_suggest);
+static PHP_FUNCTION(pspell_store_replacement);
+static PHP_FUNCTION(pspell_add_to_personal);
+static PHP_FUNCTION(pspell_add_to_session);
+static PHP_FUNCTION(pspell_clear_session);
+static PHP_FUNCTION(pspell_save_wordlist);
+static PHP_FUNCTION(pspell_config_create);
+static PHP_FUNCTION(pspell_config_runtogether);
+static PHP_FUNCTION(pspell_config_mode);
+static PHP_FUNCTION(pspell_config_ignore);
+static PHP_FUNCTION(pspell_config_personal);
+static PHP_FUNCTION(pspell_config_dict_dir);
+static PHP_FUNCTION(pspell_config_data_dir);
+static PHP_FUNCTION(pspell_config_repl);
+static PHP_FUNCTION(pspell_config_save_repl);
+
 /* {{{ pspell_functions[]
  */
-function_entry pspell_functions[] = {
+static zend_function_entry pspell_functions[] = {
 	PHP_FE(pspell_new,		NULL)
 	PHP_FE(pspell_new_personal,		NULL)
 	PHP_FE(pspell_new_config,		NULL)
@@ -68,6 +90,8 @@ function_entry pspell_functions[] = {
 	PHP_FE(pspell_config_mode,		NULL)
 	PHP_FE(pspell_config_ignore,		NULL)
 	PHP_FE(pspell_config_personal,		NULL)
+	PHP_FE(pspell_config_dict_dir,		NULL)
+	PHP_FE(pspell_config_data_dir,		NULL)
 	PHP_FE(pspell_config_repl,		NULL)
 	PHP_FE(pspell_config_save_repl,		NULL)
 	{NULL, NULL, NULL} 
@@ -117,7 +141,7 @@ static void php_pspell_close_config(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 /* {{{ PHP_MINIT_FUNCTION
  */
-PHP_MINIT_FUNCTION(pspell)
+static PHP_MINIT_FUNCTION(pspell)
 {
 	REGISTER_LONG_CONSTANT("PSPELL_FAST", PSPELL_FAST, CONST_PERSISTENT | CONST_CS);
 	REGISTER_LONG_CONSTANT("PSPELL_NORMAL", PSPELL_NORMAL, CONST_PERSISTENT | CONST_CS);
@@ -131,7 +155,7 @@ PHP_MINIT_FUNCTION(pspell)
 
 /* {{{ proto int pspell_new(string language [, string spelling [, string jargon [, string encoding [, int mode]]]])
    Load a dictionary */
-PHP_FUNCTION(pspell_new)
+static PHP_FUNCTION(pspell_new)
 {
 	zval **language,**spelling,**jargon,**encoding,**pmode;
 	long mode = 0L,  speed = 0L;
@@ -162,15 +186,19 @@ PHP_FUNCTION(pspell_new)
 	 * pointing to the location of the dictionaries
 	 */
 	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
-		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		LONG result;
+		dwLen = sizeof(aspell_dir) - 1;
+		result = RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
 		RegCloseKey(hkey);
-		strcpy(data_dir, aspell_dir);
-		strcat(data_dir, "\\data");
-		strcpy(dict_dir, aspell_dir);
-		strcat(dict_dir, "\\dict");
+		if(result == ERROR_SUCCESS) {
+			strlcpy(data_dir, aspell_dir, sizeof(data_dir));
+			strlcat(data_dir, "\\data", sizeof(data_dir));
+			strlcpy(dict_dir, aspell_dir, sizeof(dict_dir));
+			strlcat(dict_dir, "\\dict", sizeof(dict_dir));
 
-		pspell_config_replace(config, "data-dir", data_dir);
-		pspell_config_replace(config, "dict-dir", dict_dir);
+			pspell_config_replace(config, "data-dir", data_dir);
+			pspell_config_replace(config, "dict-dir", dict_dir);
+		}
 	}
 #endif
 
@@ -222,7 +250,8 @@ PHP_FUNCTION(pspell_new)
 	delete_pspell_config(config);
 
 	if(pspell_error_number(ret) != 0){
-		php_error(E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -234,7 +263,7 @@ PHP_FUNCTION(pspell_new)
 
 /* {{{ proto int pspell_new_personal(string personal, string language [, string spelling [, string jargon [, string encoding [, int mode]]]])
    Load a dictionary with a personal wordlist*/
-PHP_FUNCTION(pspell_new_personal)
+static PHP_FUNCTION(pspell_new_personal)
 {
 	zval **personal, **language,**spelling,**jargon,**encoding,**pmode;
 	long mode = 0L,  speed = 0L;
@@ -265,25 +294,31 @@ PHP_FUNCTION(pspell_new_personal)
 	 * pointing to the location of the dictionaries
 	 */
 	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
-		RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		LONG result;
+		dwLen = sizeof(aspell_dir) - 1;
+		result = RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
 		RegCloseKey(hkey);
-		strcpy(data_dir, aspell_dir);
-		strcat(data_dir, "\\data");
-		strcpy(dict_dir, aspell_dir);
-		strcat(dict_dir, "\\dict");
+		if(result == ERROR_SUCCESS) {
+			strlcpy(data_dir, aspell_dir, sizeof(data_dir));
+			strlcat(data_dir, "\\data", sizeof(data_dir));
+			strlcpy(dict_dir, aspell_dir, sizeof(dict_dir));
+			strlcat(dict_dir, "\\dict", sizeof(dict_dir));
 
-		pspell_config_replace(config, "data-dir", data_dir);
-		pspell_config_replace(config, "dict-dir", dict_dir);
+			pspell_config_replace(config, "data-dir", data_dir);
+			pspell_config_replace(config, "dict-dir", dict_dir);
+		}
 	}
 #endif
 
 	convert_to_string_ex(personal);
 
 	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(personal), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+		delete_pspell_config(config);
 		RETURN_FALSE;
 	}
 
 	if (php_check_open_basedir(Z_STRVAL_PP(personal) TSRMLS_CC)) {
+		delete_pspell_config(config);
 		RETURN_FALSE;
 	}
 
@@ -338,7 +373,8 @@ PHP_FUNCTION(pspell_new_personal)
 	delete_pspell_config(config);
 
 	if(pspell_error_number(ret) != 0){
-		php_error(E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -350,7 +386,7 @@ PHP_FUNCTION(pspell_new_personal)
 
 /* {{{ proto int pspell_new_config(int config)
    Load a dictionary based on the given config */
-PHP_FUNCTION(pspell_new_config)
+static PHP_FUNCTION(pspell_new_config)
 {
 	int type;
 	zval **conf;
@@ -366,12 +402,13 @@ PHP_FUNCTION(pspell_new_config)
 		WRONG_PARAM_COUNT;
 	}
 
-	PSPELL_FETCH_CONFIG;	
+	PSPELL_FETCH_CONFIG;
 
 	ret = new_pspell_manager(config);
 
 	if(pspell_error_number(ret) != 0){
-		php_error(E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL couldn't open the dictionary. reason: %s ", pspell_error_message(ret));
+		delete_pspell_manager(ret);
 		RETURN_FALSE;
 	}
 	
@@ -381,9 +418,9 @@ PHP_FUNCTION(pspell_new_config)
 }
 /* }}} */
 
-/* {{{ proto int pspell_check(int pspell, string word)
+/* {{{ proto bool pspell_check(int pspell, string word)
    Returns true if word is valid */
-PHP_FUNCTION(pspell_check)
+static PHP_FUNCTION(pspell_check)
 {
 	int type;
 	zval **scin,**word;
@@ -409,7 +446,7 @@ PHP_FUNCTION(pspell_check)
 
 /* {{{ proto array pspell_suggest(int pspell, string word)
    Returns array of suggestions */
-PHP_FUNCTION(pspell_suggest)
+static PHP_FUNCTION(pspell_suggest)
 {
 	zval **scin, **word;
 	int argc;
@@ -424,7 +461,6 @@ PHP_FUNCTION(pspell_suggest)
 	}
     
 	convert_to_string_ex(word);
-
 	PSPELL_FETCH_MANAGER;
 
 	array_init(return_value);
@@ -437,15 +473,15 @@ PHP_FUNCTION(pspell_suggest)
 		}
 		delete_pspell_string_emulation(els);
 	}else{
-		php_error(E_WARNING, "PSPELL had a problem. details: %s ", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "PSPELL had a problem. details: %s ", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
-/* {{{ proto int pspell_store_replacement(int pspell, string misspell, string correct)
+/* {{{ proto bool pspell_store_replacement(int pspell, string misspell, string correct)
    Notify the dictionary of a user-selected replacement */
-PHP_FUNCTION(pspell_store_replacement)
+static PHP_FUNCTION(pspell_store_replacement)
 {
 	int type;
 	zval **scin,**miss,**corr;
@@ -459,22 +495,21 @@ PHP_FUNCTION(pspell_store_replacement)
     
 	convert_to_string_ex(miss);
 	convert_to_string_ex(corr);
-
 	PSPELL_FETCH_MANAGER;
 
 	pspell_manager_store_replacement(manager, Z_STRVAL_PP(miss), Z_STRVAL_PP(corr));
 	if(pspell_manager_error_number(manager) == 0){
 		RETURN_TRUE;
 	}else{
-		php_error(E_WARNING, "pspell_store_replacement() gave error: %s", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "pspell_store_replacement() gave error: %s", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
-/* {{{ proto int pspell_add_to_personal(int pspell, string word)
+/* {{{ proto bool pspell_add_to_personal(int pspell, string word)
    Adds a word to a personal list */
-PHP_FUNCTION(pspell_add_to_personal)
+static PHP_FUNCTION(pspell_add_to_personal)
 {
 	int type;
 	zval **scin,**word;
@@ -487,7 +522,6 @@ PHP_FUNCTION(pspell_add_to_personal)
 	}
     
 	convert_to_string_ex(word);
-
 	PSPELL_FETCH_MANAGER;
 
 	/*If the word is empty, we have to return; otherwise we'll segfault! ouch!*/
@@ -499,15 +533,15 @@ PHP_FUNCTION(pspell_add_to_personal)
 	if(pspell_manager_error_number(manager) == 0){
 		RETURN_TRUE;
 	}else{
-		php_error(E_WARNING, "pspell_add_to_personal() gave error: %s", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "pspell_add_to_personal() gave error: %s", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
-/* {{{ proto int pspell_add_to_session(int pspell, string word)
+/* {{{ proto bool pspell_add_to_session(int pspell, string word)
    Adds a word to the current session */
-PHP_FUNCTION(pspell_add_to_session)
+static PHP_FUNCTION(pspell_add_to_session)
 {
 	int type;
 	zval **scin,**word;
@@ -520,7 +554,6 @@ PHP_FUNCTION(pspell_add_to_session)
 	}
     
 	convert_to_string_ex(word);
-
 	PSPELL_FETCH_MANAGER;
 
 	/*If the word is empty, we have to return; otherwise we'll segfault! ouch!*/
@@ -532,15 +565,15 @@ PHP_FUNCTION(pspell_add_to_session)
 	if(pspell_manager_error_number(manager) == 0){
 		RETURN_TRUE;
 	}else{
-		php_error(E_WARNING, "pspell_add_to_session() gave error: %s", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "pspell_add_to_session() gave error: %s", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
-/* {{{ proto int pspell_clear_session(int pspell)
+/* {{{ proto bool pspell_clear_session(int pspell)
    Clears the current session */
-PHP_FUNCTION(pspell_clear_session)
+static PHP_FUNCTION(pspell_clear_session)
 {
 	int type;
 	zval **scin;
@@ -552,21 +585,21 @@ PHP_FUNCTION(pspell_clear_session)
 		WRONG_PARAM_COUNT;
 	}
     
-	PSPELL_FETCH_MANAGER;
+	PSPELL_FETCH_MANAGER;	
 
 	pspell_manager_clear_session(manager);
 	if(pspell_manager_error_number(manager) == 0){
 		RETURN_TRUE;
 	}else{
-		php_error(E_WARNING, "pspell_clear_session() gave error: %s", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "pspell_clear_session() gave error: %s", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 }
 /* }}} */
 
-/* {{{ proto int pspell_save_wordlist(int pspell)
+/* {{{ proto bool pspell_save_wordlist(int pspell)
    Saves the current (personal) wordlist */
-PHP_FUNCTION(pspell_save_wordlist)
+static PHP_FUNCTION(pspell_save_wordlist)
 {
 	int type;
 	zval **scin;
@@ -578,14 +611,14 @@ PHP_FUNCTION(pspell_save_wordlist)
 		WRONG_PARAM_COUNT;
 	}
     
-	PSPELL_FETCH_MANAGER;
+	PSPELL_FETCH_MANAGER;	
 
 	pspell_manager_save_all_word_lists(manager);
 
 	if(pspell_manager_error_number(manager) == 0){
 		RETURN_TRUE;
 	}else{
-		php_error(E_WARNING, "pspell_save_wordlist() gave error: %s", pspell_manager_error_message(manager));
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "pspell_save_wordlist() gave error: %s", pspell_manager_error_message(manager));
 		RETURN_FALSE;
 	}
 
@@ -594,13 +627,21 @@ PHP_FUNCTION(pspell_save_wordlist)
 
 /* {{{ proto int pspell_config_create(string language [, string spelling [, string jargon [, string encoding]]])
    Create a new config to be used later to create a manager */
-PHP_FUNCTION(pspell_config_create)
+static PHP_FUNCTION(pspell_config_create)
 {
 	zval **language,**spelling,**jargon,**encoding;
 	int argc;
 	int ind;
 
 	PspellConfig *config;
+
+#ifdef PHP_WIN32
+	TCHAR aspell_dir[200];
+	TCHAR data_dir[220];
+	TCHAR dict_dir[220];
+	HKEY hkey;
+	DWORD dwType,dwLen;
+#endif
 	
 	argc = ZEND_NUM_ARGS();
 	if (argc < 1 || argc > 4 || zend_get_parameters_ex(argc,&language,&spelling,&jargon,&encoding) == FAILURE) {
@@ -608,6 +649,28 @@ PHP_FUNCTION(pspell_config_create)
 	}
 
 	config = new_pspell_config();
+
+#ifdef PHP_WIN32
+    /* If aspell was installed using installer, we should have a key
+     * pointing to the location of the dictionaries
+     */
+	if(0 == RegOpenKey(HKEY_LOCAL_MACHINE, "Software\\Aspell", &hkey)) {
+		LONG result;
+		dwLen = sizeof(aspell_dir) - 1;
+		result = RegQueryValueEx(hkey, "", NULL, &dwType, (LPBYTE)&aspell_dir, &dwLen);
+		RegCloseKey(hkey);
+		if(result == ERROR_SUCCESS) {
+			strlcpy(data_dir, aspell_dir, sizeof(data_dir));
+			strlcat(data_dir, "\\data", sizeof(data_dir));
+			strlcpy(dict_dir, aspell_dir, sizeof(dict_dir));
+			strlcat(dict_dir, "\\dict", sizeof(dict_dir));
+
+			pspell_config_replace(config, "data-dir", data_dir);
+			pspell_config_replace(config, "dict-dir", dict_dir);
+		}
+	}
+#endif
+
 	convert_to_string_ex(language);
 	pspell_config_replace(config, "language-tag", Z_STRVAL_PP(language));
 
@@ -641,9 +704,9 @@ PHP_FUNCTION(pspell_config_create)
 }
 /* }}} */
 
-/* {{{ proto int pspell_config_runtogether(int conf, bool runtogether)
+/* {{{ proto bool pspell_config_runtogether(int conf, bool runtogether)
    Consider run-together words as valid components */
-PHP_FUNCTION(pspell_config_runtogether)
+static PHP_FUNCTION(pspell_config_runtogether)
 {
 	int type;
 	zval **conf, **runtogether;
@@ -656,7 +719,7 @@ PHP_FUNCTION(pspell_config_runtogether)
 		WRONG_PARAM_COUNT;
 	}
 
-	PSPELL_FETCH_CONFIG;
+	PSPELL_FETCH_CONFIG;	
 
 	convert_to_boolean_ex(runtogether);
 	pspell_config_replace(config, "run-together", Z_LVAL_PP(runtogether) ? "true" : "false");
@@ -665,9 +728,9 @@ PHP_FUNCTION(pspell_config_runtogether)
 }
 /* }}} */
 
-/* {{{ proto int pspell_config_mode(int conf, long mode)
+/* {{{ proto bool pspell_config_mode(int conf, long mode)
    Select mode for config (PSPELL_FAST, PSPELL_NORMAL or PSPELL_BAD_SPELLERS) */
-PHP_FUNCTION(pspell_config_mode)
+static PHP_FUNCTION(pspell_config_mode)
 {
 	int type;
 	zval **conf, **mode;
@@ -697,9 +760,9 @@ PHP_FUNCTION(pspell_config_mode)
 }
 /* }}} */
 
-/* {{{ proto int pspell_config_ignore(int conf, int ignore)
+/* {{{ proto bool pspell_config_ignore(int conf, int ignore)
    Ignore words <= n chars */
-PHP_FUNCTION(pspell_config_ignore)
+static PHP_FUNCTION(pspell_config_ignore)
 {
 	int type;
 	zval **conf, **pignore;
@@ -720,49 +783,69 @@ PHP_FUNCTION(pspell_config_ignore)
 	convert_to_long_ex(pignore);
 	ignore = Z_LVAL_PP(pignore);
 
-	sprintf(ignore_str, "%ld", ignore);
+	snprintf(ignore_str, sizeof(ignore_str), "%ld", ignore);
 
 	pspell_config_replace(config, "ignore", ignore_str);
 	RETURN_TRUE;
 }
 /* }}} */
 
-/* {{{ proto int pspell_config_personal(int conf, string personal)
-   Use a personal dictionary for this config */
-PHP_FUNCTION(pspell_config_personal)
+static void pspell_config_path(INTERNAL_FUNCTION_PARAMETERS, char *option)
 {
 	int type;
-	zval **conf, **personal;
+	zval **conf, **value;
 	int argc;
-
 	PspellConfig *config;
 	
 	argc = ZEND_NUM_ARGS();
-	if (argc != 2 || zend_get_parameters_ex(argc,&conf,&personal) == FAILURE) {
+	if (argc != 2 || zend_get_parameters_ex(argc, &conf, &value) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	PSPELL_FETCH_CONFIG;
 
-	convert_to_string_ex(personal);
+	convert_to_string_ex(value);
 
-	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(personal), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
+	if (PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(value), NULL, CHECKUID_CHECK_FILE_AND_DIR))) {
 		RETURN_FALSE;
 	}
 
-	if (php_check_open_basedir(Z_STRVAL_PP(personal) TSRMLS_CC)) {
+	if (php_check_open_basedir(Z_STRVAL_PP(value) TSRMLS_CC)) {
 		RETURN_FALSE;
 	}
 
-	pspell_config_replace(config, "personal", Z_STRVAL_PP(personal));
+	pspell_config_replace(config, option, Z_STRVAL_PP(value));
 
 	RETURN_TRUE;
 }
+
+/* {{{ proto bool pspell_config_personal(int conf, string personal)
+   Use a personal dictionary for this config */
+static PHP_FUNCTION(pspell_config_personal)
+{
+	pspell_config_path(INTERNAL_FUNCTION_PARAM_PASSTHRU, "personal");
+}
 /* }}} */
 
-/* {{{ proto int pspell_config_repl(int conf, string repl)
+/* {{{ proto bool pspell_config_dict_dir(int conf, string directory)
+   location of the main word list */
+static PHP_FUNCTION(pspell_config_dict_dir)
+{
+	pspell_config_path(INTERNAL_FUNCTION_PARAM_PASSTHRU, "dict-dir");
+}
+/* }}} */
+
+/* {{{ proto bool pspell_config_data_dir(int conf, string directory)
+    location of language data files */
+static PHP_FUNCTION(pspell_config_data_dir)
+{
+	pspell_config_path(INTERNAL_FUNCTION_PARAM_PASSTHRU, "data-dir");
+}
+/* }}} */
+
+/* {{{ proto bool pspell_config_repl(int conf, string repl)
    Use a personal dictionary with replacement pairs for this config */
-PHP_FUNCTION(pspell_config_repl)
+static PHP_FUNCTION(pspell_config_repl)
 {
 	int type;
 	zval **conf, **repl;
@@ -795,9 +878,9 @@ PHP_FUNCTION(pspell_config_repl)
 }
 /* }}} */
 
-/* {{{ proto int pspell_config_save_repl(int conf, bool save)
+/* {{{ proto bool pspell_config_save_repl(int conf, bool save)
    Save replacement pairs when personal list is saved for this config */
-PHP_FUNCTION(pspell_config_save_repl)
+static PHP_FUNCTION(pspell_config_save_repl)
 {
 	int type;
 	zval **conf, **save;
@@ -821,7 +904,7 @@ PHP_FUNCTION(pspell_config_save_repl)
 
 /* {{{ PHP_MINFO_FUNCTION
  */
-PHP_MINFO_FUNCTION(pspell)
+static PHP_MINFO_FUNCTION(pspell)
 {
 	php_info_print_table_start();
 	php_info_print_table_row(2, "PSpell Support", "enabled");

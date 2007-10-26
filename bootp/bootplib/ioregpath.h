@@ -29,6 +29,9 @@
 CFDictionaryRef
 myIORegistryEntryCopyValue(const char * path);
 
+CFTypeRef
+myIORegistryEntryCopyProperty(const char * path, CFStringRef prop);
+
 CFDictionaryRef
 myIORegistryEntryBSDNameMatchingCopyValue(const char * devname, Boolean parent);
 

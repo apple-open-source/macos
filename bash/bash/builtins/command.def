@@ -1,7 +1,7 @@
 This file is command.def, from which is created command.c.
 It implements the builtin "command" in Bash.
 
-Copyright (C) 1987-2002 Free Software Foundation, Inc.
+Copyright (C) 1987-2004 Free Software Foundation, Inc.
 
 This file is part of GNU Bash, the Bourne Again SHell.
 
@@ -54,7 +54,6 @@ extern size_t confstr __P((int, char *, size_t));
 #endif
 
 extern int subshell_environment;
-extern int posixly_correct;
 
 static void restore_path __P((char *));
 static char *get_standard_path __P((void));
@@ -79,7 +78,7 @@ command_builtin (list)
 	  use_standard_path = 1;
 	  break;
 	case 'V':
-	  verbose = CDESC_SHORTDESC;	/* look in common.h for constants */
+	  verbose = CDESC_SHORTDESC|CDESC_ABSPATH;	/* look in common.h for constants */
 	  break;
 	case 'v':
 	  verbose = CDESC_REUSABLE;	/* ditto */
@@ -102,7 +101,7 @@ command_builtin (list)
 	{
 	  found = describe_command (list->word->word, verbose);
 
-	  if (found == 0 && posixly_correct && verbose != CDESC_REUSABLE)
+	  if (found == 0 && verbose != CDESC_REUSABLE)
 	    sh_notfound (list->word->word);
 
 	  any_found += found;
@@ -132,7 +131,7 @@ command_builtin (list)
       add_unwind_protect ((Function *)restore_path, old_path);
 
       standard_path = get_standard_path ();
-      bind_variable ("PATH", standard_path ? standard_path : "");
+      bind_variable ("PATH", standard_path ? standard_path : "", 0);
       FREE (standard_path);
     }
 
@@ -171,7 +170,7 @@ restore_path (var)
 {
   if (var)
     {
-      bind_variable ("PATH", var);
+      bind_variable ("PATH", var, 0);
       free (var);
     }
   else

@@ -1,0 +1,21 @@
+--- _SB/Libc/string/FreeBSD/strtok.3	2003-05-20 15:23:55.000000000 -0700
++++ _SB/Libc/string/FreeBSD/strtok.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -61,9 +61,16 @@
+ .Sh SYNOPSIS
+ .In string.h
+ .Ft char *
+-.Fn strtok "char *str" "const char *sep"
++.Fo strtok
++.Fa "char *restrict str"
++.Fa "const char *restrict sep"
++.Fc
+ .Ft char *
+-.Fn strtok_r "char *str" "const char *sep" "char **last"
++.Fo strtok_r
++.Fa "char *restrict str"
++.Fa "const char *restrict sep"
++.Fa "char **restrict lasts"
++.Fc
+ .Sh DESCRIPTION
+ .Bf -symbolic
+ This interface is obsoleted by

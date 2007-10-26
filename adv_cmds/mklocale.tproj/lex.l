@@ -138,6 +138,8 @@ VARIABLE[\t ]			{ static char vbuf[1024];
 
 ENCODING			{ return(ENCODING); }
 
+CHARCLASS			{ return(CHARCLASS); }
+
 \".*\"				{ char *e = yytext + 1;
 				  yylval.str = e;
 				  while (*e && *e != '"')

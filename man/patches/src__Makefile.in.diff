@@ -1,6 +1,6 @@
 --- src/Makefile.in.orig	Sat Jun 26 11:00:47 2004
 +++ src/Makefile.in	Wed Sep  8 13:50:28 2004
-@@ -28,7 +28,7 @@
+@@ -29,7 +29,7 @@
  
  LIBOBJS = @LIBOBJS@
  
@@ -9,7 +9,7 @@
  
  MANOBJS = man.o manfile.o manpath.o man-config.o man-getopt.o \
  	man-iconv.o to_cat.o different.o gripes.o glob.o util.o msg.o
-@@ -93,14 +93,11 @@
+@@ -99,14 +99,11 @@
  
  MANCONFIG=$(DESTDIR)$(PREFIX)@man_config_file@
  

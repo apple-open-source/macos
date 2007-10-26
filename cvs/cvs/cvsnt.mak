@@ -28,9 +28,6 @@ NULL=
 NULL=nul
 !ENDIF 
 
-CPP=cl.exe
-RSC=rc.exe
-
 !IF  "$(CFG)" == "cvsnt - Win32 Release"
 
 OUTDIR=.\WinRel
@@ -69,6 +66,7 @@ CLEAN :
 	-@erase "$(INTDIR)\edit.obj"
 	-@erase "$(INTDIR)\entries.obj"
 	-@erase "$(INTDIR)\error.obj"
+	-@erase "$(INTDIR)\exithandle.obj"
 	-@erase "$(INTDIR)\expand_path.obj"
 	-@erase "$(INTDIR)\fileattr.obj"
 	-@erase "$(INTDIR)\filesubr.obj"
@@ -79,9 +77,11 @@ CLEAN :
 	-@erase "$(INTDIR)\import.obj"
 	-@erase "$(INTDIR)\JmgStat.obj"
 	-@erase "$(INTDIR)\lock.obj"
+	-@erase "$(INTDIR)\log-buffer.obj"
 	-@erase "$(INTDIR)\log.obj"
 	-@erase "$(INTDIR)\login.obj"
 	-@erase "$(INTDIR)\logmsg.obj"
+	-@erase "$(INTDIR)\ls.obj"
 	-@erase "$(INTDIR)\main.obj"
 	-@erase "$(INTDIR)\mkdir.obj"
 	-@erase "$(INTDIR)\mkmodules.obj"
@@ -100,15 +100,18 @@ CLEAN :
 	-@erase "$(INTDIR)\remove.obj"
 	-@erase "$(INTDIR)\repos.obj"
 	-@erase "$(INTDIR)\root.obj"
+	-@erase "$(INTDIR)\rsh-client.obj"
 	-@erase "$(INTDIR)\run.obj"
 	-@erase "$(INTDIR)\scramble.obj"
 	-@erase "$(INTDIR)\server.obj"
 	-@erase "$(INTDIR)\sockerror.obj"
+	-@erase "$(INTDIR)\socket-client.obj"
 	-@erase "$(INTDIR)\stack.obj"
 	-@erase "$(INTDIR)\startserver.obj"
 	-@erase "$(INTDIR)\status.obj"
 	-@erase "$(INTDIR)\subr.obj"
 	-@erase "$(INTDIR)\tag.obj"
+	-@erase "$(INTDIR)\unistd.obj"
 	-@erase "$(INTDIR)\update.obj"
 	-@erase "$(INTDIR)\vc60.idb"
 	-@erase "$(INTDIR)\vers_ts.obj"
@@ -123,7 +126,40 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
+CPP=cl.exe
 CPP_PROJ=/nologo /ML /W3 /GX /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /I ".\WinDebug" /D "NDEBUG" /D "WANT_WIN_COMPILER_VERSION" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /Fp"$(INTDIR)\cvsnt.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+
+.c{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.obj::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.c{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cpp{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+.cxx{$(INTDIR)}.sbr::
+   $(CPP) @<<
+   $(CPP_PROJ) $< 
+<<
+
+RSC=rc.exe
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\cvsnt.bsc" 
 BSC32_SBRS= \
@@ -146,6 +182,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\edit.obj" \
 	"$(INTDIR)\entries.obj" \
 	"$(INTDIR)\error.obj" \
+	"$(INTDIR)\exithandle.obj" \
 	"$(INTDIR)\expand_path.obj" \
 	"$(INTDIR)\fileattr.obj" \
 	"$(INTDIR)\filesubr.obj" \
@@ -156,9 +193,11 @@ LINK32_OBJS= \
 	"$(INTDIR)\import.obj" \
 	"$(INTDIR)\JmgStat.obj" \
 	"$(INTDIR)\lock.obj" \
+	"$(INTDIR)\log-buffer.obj" \
 	"$(INTDIR)\log.obj" \
 	"$(INTDIR)\login.obj" \
 	"$(INTDIR)\logmsg.obj" \
+	"$(INTDIR)\ls.obj" \
 	"$(INTDIR)\main.obj" \
 	"$(INTDIR)\mkdir.obj" \
 	"$(INTDIR)\mkmodules.obj" \
@@ -177,15 +216,18 @@ LINK32_OBJS= \
 	"$(INTDIR)\remove.obj" \
 	"$(INTDIR)\repos.obj" \
 	"$(INTDIR)\root.obj" \
+	"$(INTDIR)\rsh-client.obj" \
 	"$(INTDIR)\run.obj" \
 	"$(INTDIR)\scramble.obj" \
 	"$(INTDIR)\server.obj" \
 	"$(INTDIR)\sockerror.obj" \
+	"$(INTDIR)\socket-client.obj" \
 	"$(INTDIR)\stack.obj" \
 	"$(INTDIR)\startserver.obj" \
 	"$(INTDIR)\status.obj" \
 	"$(INTDIR)\subr.obj" \
 	"$(INTDIR)\tag.obj" \
+	"$(INTDIR)\unistd.obj" \
 	"$(INTDIR)\update.obj" \
 	"$(INTDIR)\vers_ts.obj" \
 	"$(INTDIR)\version.obj" \
@@ -241,6 +283,7 @@ CLEAN :
 	-@erase "$(INTDIR)\edit.obj"
 	-@erase "$(INTDIR)\entries.obj"
 	-@erase "$(INTDIR)\error.obj"
+	-@erase "$(INTDIR)\exithandle.obj"
 	-@erase "$(INTDIR)\expand_path.obj"
 	-@erase "$(INTDIR)\fileattr.obj"
 	-@erase "$(INTDIR)\filesubr.obj"
@@ -251,9 +294,11 @@ CLEAN :
 	-@erase "$(INTDIR)\import.obj"
 	-@erase "$(INTDIR)\JmgStat.obj"
 	-@erase "$(INTDIR)\lock.obj"
+	-@erase "$(INTDIR)\log-buffer.obj"
 	-@erase "$(INTDIR)\log.obj"
 	-@erase "$(INTDIR)\login.obj"
 	-@erase "$(INTDIR)\logmsg.obj"
+	-@erase "$(INTDIR)\ls.obj"
 	-@erase "$(INTDIR)\main.obj"
 	-@erase "$(INTDIR)\mkdir.obj"
 	-@erase "$(INTDIR)\mkmodules.obj"
@@ -272,15 +317,18 @@ CLEAN :
 	-@erase "$(INTDIR)\remove.obj"
 	-@erase "$(INTDIR)\repos.obj"
 	-@erase "$(INTDIR)\root.obj"
+	-@erase "$(INTDIR)\rsh-client.obj"
 	-@erase "$(INTDIR)\run.obj"
 	-@erase "$(INTDIR)\scramble.obj"
 	-@erase "$(INTDIR)\server.obj"
 	-@erase "$(INTDIR)\sockerror.obj"
+	-@erase "$(INTDIR)\socket-client.obj"
 	-@erase "$(INTDIR)\stack.obj"
 	-@erase "$(INTDIR)\startserver.obj"
 	-@erase "$(INTDIR)\status.obj"
 	-@erase "$(INTDIR)\subr.obj"
 	-@erase "$(INTDIR)\tag.obj"
+	-@erase "$(INTDIR)\unistd.obj"
 	-@erase "$(INTDIR)\update.obj"
 	-@erase "$(INTDIR)\vc60.idb"
 	-@erase "$(INTDIR)\vc60.pdb"
@@ -298,87 +346,8 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
+CPP=cl.exe
 CPP_PROJ=/nologo /MLd /W3 /Gm /GX /Zi /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /D "_DEBUG" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /D "WANT_WIN_COMPILER_VERSION" /Fp"$(INTDIR)\cvsnt.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
-BSC32=bscmake.exe
-BSC32_FLAGS=/nologo /o"$(OUTDIR)\cvsnt.bsc" 
-BSC32_SBRS= \
-	
-LINK32=link.exe
-LINK32_FLAGS=diff\WinDebug\libdiff.lib lib\WinDebug\libcvs.lib zlib\WinDebug\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /incremental:yes /pdb:"$(OUTDIR)\cvs.pdb" /debug /machine:I386 /out:"$(OUTDIR)\cvs.exe" 
-LINK32_OBJS= \
-	"$(INTDIR)\add.obj" \
-	"$(INTDIR)\admin.obj" \
-	"$(INTDIR)\annotate.obj" \
-	"$(INTDIR)\buffer.obj" \
-	"$(INTDIR)\checkin.obj" \
-	"$(INTDIR)\checkout.obj" \
-	"$(INTDIR)\classify.obj" \
-	"$(INTDIR)\client.obj" \
-	"$(INTDIR)\commit.obj" \
-	"$(INTDIR)\create_adm.obj" \
-	"$(INTDIR)\cvsrc.obj" \
-	"$(INTDIR)\diff.obj" \
-	"$(INTDIR)\edit.obj" \
-	"$(INTDIR)\entries.obj" \
-	"$(INTDIR)\error.obj" \
-	"$(INTDIR)\expand_path.obj" \
-	"$(INTDIR)\fileattr.obj" \
-	"$(INTDIR)\filesubr.obj" \
-	"$(INTDIR)\find_names.obj" \
-	"$(INTDIR)\hash.obj" \
-	"$(INTDIR)\history.obj" \
-	"$(INTDIR)\ignore.obj" \
-	"$(INTDIR)\import.obj" \
-	"$(INTDIR)\JmgStat.obj" \
-	"$(INTDIR)\lock.obj" \
-	"$(INTDIR)\log.obj" \
-	"$(INTDIR)\login.obj" \
-	"$(INTDIR)\logmsg.obj" \
-	"$(INTDIR)\main.obj" \
-	"$(INTDIR)\mkdir.obj" \
-	"$(INTDIR)\mkmodules.obj" \
-	"$(INTDIR)\modules.obj" \
-	"$(INTDIR)\myndbm.obj" \
-	"$(INTDIR)\ndir.obj" \
-	"$(INTDIR)\no_diff.obj" \
-	"$(INTDIR)\parseinfo.obj" \
-	"$(INTDIR)\patch.obj" \
-	"$(INTDIR)\pwd.obj" \
-	"$(INTDIR)\rcmd.obj" \
-	"$(INTDIR)\rcs.obj" \
-	"$(INTDIR)\rcscmds.obj" \
-	"$(INTDIR)\recurse.obj" \
-	"$(INTDIR)\release.obj" \
-	"$(INTDIR)\remove.obj" \
-	"$(INTDIR)\repos.obj" \
-	"$(INTDIR)\root.obj" \
-	"$(INTDIR)\run.obj" \
-	"$(INTDIR)\scramble.obj" \
-	"$(INTDIR)\server.obj" \
-	"$(INTDIR)\sockerror.obj" \
-	"$(INTDIR)\stack.obj" \
-	"$(INTDIR)\startserver.obj" \
-	"$(INTDIR)\status.obj" \
-	"$(INTDIR)\subr.obj" \
-	"$(INTDIR)\tag.obj" \
-	"$(INTDIR)\update.obj" \
-	"$(INTDIR)\vers_ts.obj" \
-	"$(INTDIR)\version.obj" \
-	"$(INTDIR)\waitpid.obj" \
-	"$(INTDIR)\watch.obj" \
-	"$(INTDIR)\woe32.obj" \
-	"$(INTDIR)\wrapper.obj" \
-	"$(INTDIR)\zlib.obj" \
-	".\diff\WinDebug\libdiff.lib" \
-	".\zlib\WinDebug\libz.lib" \
-	".\lib\WinDebug\libcvs.lib"
-
-"$(OUTDIR)\cvs.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
-    $(LINK32) @<<
-  $(LINK32_FLAGS) $(LINK32_OBJS)
-<<
-
-!ENDIF 
 
 .c{$(INTDIR)}.obj::
    $(CPP) @<<
@@ -409,6 +378,94 @@ LINK32_OBJS= \
    $(CPP) @<<
    $(CPP_PROJ) $< 
 <<
+
+RSC=rc.exe
+BSC32=bscmake.exe
+BSC32_FLAGS=/nologo /o"$(OUTDIR)\cvsnt.bsc" 
+BSC32_SBRS= \
+	
+LINK32=link.exe
+LINK32_FLAGS=diff\WinDebug\libdiff.lib lib\WinDebug\libcvs.lib zlib\WinDebug\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /incremental:yes /pdb:"$(OUTDIR)\cvs.pdb" /debug /machine:I386 /out:"$(OUTDIR)\cvs.exe" 
+LINK32_OBJS= \
+	"$(INTDIR)\add.obj" \
+	"$(INTDIR)\admin.obj" \
+	"$(INTDIR)\annotate.obj" \
+	"$(INTDIR)\buffer.obj" \
+	"$(INTDIR)\checkin.obj" \
+	"$(INTDIR)\checkout.obj" \
+	"$(INTDIR)\classify.obj" \
+	"$(INTDIR)\client.obj" \
+	"$(INTDIR)\commit.obj" \
+	"$(INTDIR)\create_adm.obj" \
+	"$(INTDIR)\cvsrc.obj" \
+	"$(INTDIR)\diff.obj" \
+	"$(INTDIR)\edit.obj" \
+	"$(INTDIR)\entries.obj" \
+	"$(INTDIR)\error.obj" \
+	"$(INTDIR)\exithandle.obj" \
+	"$(INTDIR)\expand_path.obj" \
+	"$(INTDIR)\fileattr.obj" \
+	"$(INTDIR)\filesubr.obj" \
+	"$(INTDIR)\find_names.obj" \
+	"$(INTDIR)\hash.obj" \
+	"$(INTDIR)\history.obj" \
+	"$(INTDIR)\ignore.obj" \
+	"$(INTDIR)\import.obj" \
+	"$(INTDIR)\JmgStat.obj" \
+	"$(INTDIR)\lock.obj" \
+	"$(INTDIR)\log-buffer.obj" \
+	"$(INTDIR)\log.obj" \
+	"$(INTDIR)\login.obj" \
+	"$(INTDIR)\logmsg.obj" \
+	"$(INTDIR)\ls.obj" \
+	"$(INTDIR)\main.obj" \
+	"$(INTDIR)\mkdir.obj" \
+	"$(INTDIR)\mkmodules.obj" \
+	"$(INTDIR)\modules.obj" \
+	"$(INTDIR)\myndbm.obj" \
+	"$(INTDIR)\ndir.obj" \
+	"$(INTDIR)\no_diff.obj" \
+	"$(INTDIR)\parseinfo.obj" \
+	"$(INTDIR)\patch.obj" \
+	"$(INTDIR)\pwd.obj" \
+	"$(INTDIR)\rcmd.obj" \
+	"$(INTDIR)\rcs.obj" \
+	"$(INTDIR)\rcscmds.obj" \
+	"$(INTDIR)\recurse.obj" \
+	"$(INTDIR)\release.obj" \
+	"$(INTDIR)\remove.obj" \
+	"$(INTDIR)\repos.obj" \
+	"$(INTDIR)\root.obj" \
+	"$(INTDIR)\rsh-client.obj" \
+	"$(INTDIR)\run.obj" \
+	"$(INTDIR)\scramble.obj" \
+	"$(INTDIR)\server.obj" \
+	"$(INTDIR)\sockerror.obj" \
+	"$(INTDIR)\socket-client.obj" \
+	"$(INTDIR)\stack.obj" \
+	"$(INTDIR)\startserver.obj" \
+	"$(INTDIR)\status.obj" \
+	"$(INTDIR)\subr.obj" \
+	"$(INTDIR)\tag.obj" \
+	"$(INTDIR)\unistd.obj" \
+	"$(INTDIR)\update.obj" \
+	"$(INTDIR)\vers_ts.obj" \
+	"$(INTDIR)\version.obj" \
+	"$(INTDIR)\waitpid.obj" \
+	"$(INTDIR)\watch.obj" \
+	"$(INTDIR)\woe32.obj" \
+	"$(INTDIR)\wrapper.obj" \
+	"$(INTDIR)\zlib.obj" \
+	".\diff\WinDebug\libdiff.lib" \
+	".\zlib\WinDebug\libz.lib" \
+	".\lib\WinDebug\libcvs.lib"
+
+"$(OUTDIR)\cvs.exe" : "$(OUTDIR)" $(DEF_FILE) $(LINK32_OBJS)
+    $(LINK32) @<<
+  $(LINK32_FLAGS) $(LINK32_OBJS)
+<<
+
+!ENDIF 
 
 
 !IF "$(NO_EXTERNAL_DEPS)" != "1"
@@ -511,6 +568,12 @@ SOURCE=.\src\error.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=.\src\exithandle.c
+
+"$(INTDIR)\exithandle.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\src\expand_path.c
 
 "$(INTDIR)\expand_path.obj" : $(SOURCE) "$(INTDIR)"
@@ -571,6 +634,12 @@ SOURCE=.\src\lock.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=".\src\log-buffer.c"
+
+"$(INTDIR)\log-buffer.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=.\src\log.c
 
 "$(INTDIR)\log.obj" : $(SOURCE) "$(INTDIR)"
@@ -586,6 +655,12 @@ SOURCE=.\src\login.c
 SOURCE=.\src\logmsg.c
 
 "$(INTDIR)\logmsg.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=.\src\ls.c
+
+"$(INTDIR)\ls.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -697,6 +772,12 @@ SOURCE=.\src\root.c
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
+SOURCE=".\src\rsh-client.c"
+
+"$(INTDIR)\rsh-client.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
 SOURCE=".\windows-NT\run.c"
 
 "$(INTDIR)\run.obj" : $(SOURCE) "$(INTDIR)"
@@ -718,6 +799,12 @@ SOURCE=.\src\server.c
 SOURCE=".\windows-NT\sockerror.c"
 
 "$(INTDIR)\sockerror.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=".\src\socket-client.c"
+
+"$(INTDIR)\socket-client.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -748,6 +835,12 @@ SOURCE=.\src\subr.c
 SOURCE=.\src\tag.c
 
 "$(INTDIR)\tag.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+SOURCE=".\windows-NT\unistd.c"
+
+"$(INTDIR)\unistd.obj" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

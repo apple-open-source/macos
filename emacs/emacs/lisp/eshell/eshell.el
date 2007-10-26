@@ -1,6 +1,7 @@
 ;;; eshell.el --- the Emacs command shell
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 ;; Version: 2.4.2
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'eshell)
 
@@ -34,7 +35,7 @@ is intended to be a functional replacement for command shells such as
 bash, zsh, rc, 4dos; since Emacs itself is capable of handling most of
 the tasks accomplished by such tools."
   :tag "The Emacs shell"
-  :link '(info-link "(eshell)The Emacs shell")
+  :link '(info-link "(eshell)Top")
   :version "21.1"
   :group 'applications)
 
@@ -64,7 +65,7 @@ the tasks accomplished by such tools."
 ;; @ Command argument completion (tcsh, zsh)
 ;; @ Input history management (bash)
 ;; @ Intelligent output scrolling
-;; @ Psuedo-devices (such as "/dev/clip" for copying to the clipboard)
+;; @ Pseudo-devices (such as "/dev/clip" for copying to the clipboard)
 ;; @ Extended globbing (zsh)
 ;; @ Argument and globbing predication (zsh)
 ;; @ I/O redirection to buffers, files, symbols, processes, etc.
@@ -86,8 +87,8 @@ the tasks accomplished by such tools."
 ;;
 ;; You should have received a copy of the GNU General Public License
 ;; along with Eshell; see the file COPYING.  If not, write to the Free
-;; Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-;; 02111-1307, USA.
+;; Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 ;;
 ;;;_* How to begin
 ;;
@@ -322,24 +323,6 @@ the tasks accomplished by such tools."
       (= (file-modes eshell-directory-name)
 	 eshell-private-directory-modes)))
 
-(defcustom eshell-prefer-to-shell nil
-  "*If non-nil, \\[shell-command] will use Eshell instead of shell-mode."
-  :set (lambda (symbol value)
-	 ;; modifying the global keymap directly is odious, but how
-	 ;; else to achieve the takeover?
-	 (if value
-	     (progn
-	       (define-key global-map [(meta ?!)] 'eshell-command)
-;;;            (define-key global-map [(meta ?|)] 'eshell-command-on-region)
-	       )
-	   (define-key global-map [(meta ?!)] 'shell-command)
-;;;        (define-key global-map [(meta ?|)] 'shell-command-on-region)
-	   )
-	 (set symbol value))
-  :type 'boolean
-  :require 'eshell
-  :group 'eshell)
-
 ;;;_* Running Eshell
 ;;
 ;; There are only three commands used to invoke Eshell.  The first two
@@ -352,13 +335,20 @@ the tasks accomplished by such tools."
 The buffer used for Eshell sessions is determined by the value of
 `eshell-buffer-name'.  If there is already an Eshell session active in
 that buffer, Emacs will simply switch to it.  Otherwise, a new session
-will begin.  A new session is always created if the the prefix
-argument ARG is specified.  Returns the buffer selected (or created)."
+will begin.  A numeric prefix arg (as in `C-u 42 M-x eshell RET')
+switches to the session with that number, creating it if necessary.  A
+nonnumeric prefix arg means to create a new session.  Returns the
+buffer selected (or created)."
   (interactive "P")
   (assert eshell-buffer-name)
-  (let ((buf (if arg
-		 (generate-new-buffer eshell-buffer-name)
-	       (get-buffer-create eshell-buffer-name))))
+  (let ((buf (cond ((numberp arg)
+		    (get-buffer-create (format "%s<%d>"
+					       eshell-buffer-name
+					       arg)))
+		   (arg
+		    (generate-new-buffer eshell-buffer-name))
+		   (t
+		    (get-buffer-create eshell-buffer-name)))))
     ;; Simply calling `pop-to-buffer' will not mimic the way that
     ;; shell-mode buffers appear, since they always reuse the same
     ;; window that that command was invoked from.  To achieve this,
@@ -366,11 +356,10 @@ argument ARG is specified.  Returns the buffer selected (or created)."
     ;; `same-window-buffer-names', which is done when Eshell is loaded
     (assert (and buf (buffer-live-p buf)))
     (pop-to-buffer buf)
-    (unless (fboundp 'eshell-mode)
+    (if (fboundp 'eshell-mode)
+	(unless (eq major-mode 'eshell-mode)
+	  (eshell-mode))
       (error "`eshell-auto' must be loaded before Eshell can be used"))
-    (unless (eq major-mode 'eshell-mode)
-      (eshell-mode))
-    (assert (eq major-mode 'eshell-mode))
     buf))
 
 (defun eshell-return-exits-minibuffer ()
@@ -397,10 +386,12 @@ With prefix ARG, insert output into the current buffer at point."
   (unwind-protect
       (let ((eshell-non-interactive-p t))
 	(add-hook 'minibuffer-setup-hook 'eshell-mode)
+	(add-hook 'minibuffer-exit-hook 'eshell-add-command-to-history)
 	(add-hook 'eshell-mode-hook 'eshell-return-exits-minibuffer)
 	(unless command
 	  (setq command (read-from-minibuffer "Emacs shell command: "))))
     (remove-hook 'eshell-mode-hook 'eshell-return-exits-minibuffer)
+    (remove-hook 'minibuffer-exit-hook 'eshell-add-command-to-history)
     (remove-hook 'minibuffer-setup-hook 'eshell-mode))
   (unless command
     (error "No command specified!"))
@@ -552,4 +543,5 @@ Emacs."
 
 (run-hooks 'eshell-load-hook)
 
+;;; arch-tag: 9d4d5214-0e4e-4e02-b349-39add640d63f
 ;;; eshell.el ends here

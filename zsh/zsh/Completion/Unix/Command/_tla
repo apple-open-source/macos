@@ -8,8 +8,13 @@ local hide_short
 # ask the user which version of tla this is
 if ! zstyle -s ":completion:${curcontext}" tla-version tla_version; then
   # ask tla instead
-  tla_version="${${$($TLA --version)#tla tla-}%% from regexps.com*}"
-  [[ $tla_version == *[a-zA-Z]* ]] && tla_version=1.3 # tla doesn't know
+  tla_version="$($TLA --version)"
+  if [[ "${${(f)tla_version}[1]}" == The\ GNU\ Arch\ Revision\ Control\ System\ \(tla\)\ (#b)([0-9.]##) ]]; then
+    tla_version="$match[1]"
+  else
+    tla_version="${${$($TLA --version)#tla tla-}%% from regexps.com*}"
+    [[ $tla_version == *[a-zA-Z]* ]] && tla_version=1.3 # tla doesn't know
+  fi
 fi
 
 # test whether to hide short options from completion
@@ -23,30 +28,19 @@ fi
 # completion functions
 
 (( $+functions[_tla_archives] )) ||
-_tla_archives () {
-  local expl completions library name_arg='-n'
-  if [[ -n $argv[(r)--library] ]]; then
-    library='library-'
-    # remove parameter from $@ before calling compadd
-    argv[(r)--library]=()
-    name_arg=
-  fi
-  completions=($(_call_program tla $TLA ${library:-}archives $name_arg))
-  _description -V archives expl "${library:-}archives"
-  compadd "$@" "$expl[@]" -- "$completions[@]"
-}
+_tla_archives () { _arch_archives tla "$@" }
 
 (( $+functions[_tla_categories] )) ||
-_tla_categories () { _tla_namespace 1 "$argv[@]" }
+_tla_categories () { _arch_namespace tla 1 "$argv[@]" }
 
 (( $+functions[_tla_branches] )) ||
-_tla_branches () {_tla_namespace 2 "$argv[@]" }
+_tla_branches () {_arch_namespace tla 2 "$argv[@]" }
 
 (( $+functions[_tla_versions] )) ||
-_tla_versions () { _tla_namespace 3 "$argv[@]" }
+_tla_versions () { _arch_namespace tla 3 "$argv[@]" }
 
 (( $+functions[_tla_revisions] )) ||
-_tla_revisions () { _tla_namespace 4 "$argv[@]" }
+_tla_revisions () { _arch_namespace tla 4 "$argv[@]" }
 
 (( $+functions[_tla_local_revisions] )) ||
 _tla_local_revisions () {
@@ -57,102 +51,6 @@ _tla_local_revisions () {
   compadd "$expl2[@]" `$TLA logs --full $($TLA log-versions | grep -v $tree_version)`
   # This is incredibly slow.
   # Should complete based on -A, -R, -d
-}
-
-(( $+functions[_tla_namespace] )) ||
-_tla_namespace () { #double as arch_namespace_categories
-# takes an integer argument specifying how many components:
-# 1: category
-# 2: branch
-# 3: version
-# 4: revision
-  local suffix expl archive=`$TLA my-default-archive 2> /dev/null`
-  local trailing_dashes=0
-  [[ -n $argv[(r)--trailing-dashes] ]] && trailing_dashes=1
-  local library
-  [[ -n $argv[(r)--library] ]] && library='library-';
-  local exclude_library_revisions=0
-  [[ -n $argv[(r)--exclude-library-revisions] ]] && exclude_library_revisions=1
-
-  if [ $1 -gt 1 ] || (( trailing_dashes )); then
-    suffix=(-q -S --)
-  fi
-  if [[ $PREFIX = */* ]]; then
-    compset -P '*/'
-    archive=${IPREFIX%/*}
-    _description -V categories expl "${library:-}categories in $archive"
-    compadd $suffix "$expl[@]" `$TLA ${library:-}categories -A $archive`
-  elif [ -z $IPREFIX ]; then
-    local index=$(( words[(i)-A] + 1 ))
-    (( index < CURRENT )) || index=$(( words[(i)--archive] + 1 ))
-    (( index < CURRENT )) && archive=$words[$index]
-
-    if [ $archive ]; then
-      _description -V categories expl "${library:-}categories in $archive"
-      compadd "$expl[@]" $suffix `$TLA ${library:-}categories -A $archive`
-    fi
-
-    _tla_archives -S / ${library:+--library}
-  fi
-  if [ $archive ] && [ $1 -gt 1 ] && [[ $PREFIX != *@* ]] \
-     && [[ $PREFIX = *--* ]]; then
-  #this match could be better
-    _tla_namespace_branches $(($1 - 1))
-  fi
-}
-
-(( $+functions[_tla_namespace_branches] )) ||
-_tla_namespace_branches () {
-  local suffix expl
-  if [ $1 -gt 1 ] || (( $trailing_dashes )); then
-    suffix=(-q -S --)
-  fi
-  if [[ $IPREFIX != *-- ]]; then
-    compset -P 1 '*--'
-    local category=${IPREFIX%--}
-    _description -V branches expl "${library:-}branches"
-    compadd $suffix "$expl[@]" \
-      ${${(@)$($TLA ${library:-}branches -A $archive $category)}##*--}
-  fi
-  if [ $1 -gt 1 ] && [[ $IPREFIX = *-- ]] && [[ $PREFIX = *--* ]]; then
-    _tla_namespace_versions $(($1 - 1))
-  fi
-}
-
-(( $+functions[_tla_namespace_versions] )) ||
-_tla_namespace_versions () {
-  local suffix expl
-  if [ $1 -gt 1 ]; then
-    suffix=(-q -S --)
-  fi
-  if [[ $IPREFIX != *--*-- ]] || [[ $IPREFIX != */*--*-- ]]; then
-    compset -P 1 '*--'
-    local branch=${IPREFIX%--}
-    _description -V versions expl "${library:-}versions"
-    compadd $suffix "$expl[@]" \
-      ${${(@)$($TLA ${library:-}versions -A $archive $branch)}##*--}
-  fi
-  if [ $1 -gt 1 ] && [[ $IPREFIX = *--*-- ]] && ([[ $IPREFIX = */*--*-- ]] \
-    || [[ $PREFIX != */* ]]) && [[ $PREFIX = *--* ]]; then
-    _tla_namespace_revisions
-  fi
-}
-
-(( $+functions[_tla_namespace_revisions] )) ||
-_tla_namespace_revisions () {
-  local expl
-  if [[ $IPREFIX != *--*--*-- ]] || [[ $IPREFIX != */*--*--*-- ]]; then
-    compset -P 1 '*--'
-    local version=${IPREFIX%--}
-    _description -V revisions expl "${library:-}revisions"
-    local completions c
-    completions=(
-      ${${(@)$($TLA ${library:-}revisions -A $archive $version)}##*--}
-    )
-    (( exclude_library_revisions )) && \
-        foreach c ($($TLA library-revisions -A $archive $version)); do completions[(r)$c]=(); done
-    compadd "$expl[@]" -a completions
-  fi
 }
 
 (( $+functions[_tla_config] )) ||
@@ -244,6 +142,7 @@ local cmd_log_ls cmd_update cmd_join_branch cmd_replay cmd_deltapatch
 local cmd_delta_patch cmd_apply_delta cmd_sync_tree cmd_make_sync_tree
 local cmd_delta cmd_revdelta cmd_library_categories cmd_library_branches
 local cmd_library_versions cmd_library_revisions
+local cmd_archive_register
 
 cmd_log_ls=('*:version:_tla_log_versions')
 cmd_log_versions=()
@@ -251,6 +150,7 @@ cmd_log_versions=()
 
 if is-at-least 1.1 $tla_version; then
   cmd_register_archive=('::archive:_tla_archives' ':location:_files -/')
+  cmd_archive_register=($cmd_register_archive)
   cmd_archives=('::regex:')
   cmd_redo=('::changeset:_files -/')
   cmd_changes=('::revision:_tla_revisions'
@@ -359,8 +259,9 @@ local cmd_inventory cmd_srcfind
 cmd_inventory=('::separator:(--)' '*:directory:_files -/')
 cmd_srcfind=($cmd_inventory)
 
-local cmd_tree_lint
+local cmd_tree_lint cmd_lint
 cmd_tree_lint=('::directory:_files -/')
+cmd_lint=($cmd_tree_lint)
 
 local cmd_id cmd_invtag
 cmd_id=('*:file:_files')
@@ -524,9 +425,10 @@ cmd_merges=(':INTO:_tla_revisions' '::FROM:_tla_revisions')
 local cmd_new_merges
 cmd_new_merges=('::version:_tla_versions')
 
-local cmd_tag cmd_tagrev
+local cmd_tag cmd_tagrev cmd_branch
 cmd_tag=(':SOURCE-REVISION:_tla_revisions' ':TAG-VERSION:_tla_versions')
 cmd_tagrev=($cmd_tag)
+cmd_branch=($cmd_tag)
 
 local cmd_star_merge
 cmd_star_merge=(':FROM:_tla_revisions')
@@ -548,8 +450,9 @@ cmd_add_pristine=(':revision:_tla_revisions')
 local cmd_find_pristine
 cmd_find_pristine=(':revision:_tla_revisions')
 
-local cmd_my_revision_library
+local cmd_my_revision_library cmd_library_dir
 cmd_my_revision_library=(':library:_tla_my_revision_library')
+cmd_library_dir=($my_revision_library)
 
 local cmd_library_find
 cmd_library_find=(':revision:_tla_revisions --library')
@@ -589,6 +492,12 @@ cmd_rm=('*:file:_files')
 
 local cmd_escape
 cmd_escape=(':string:')
+
+local cmd_diff
+cmd_diff=('::revision:_tla_revisions')
+
+local cmd_export
+cmd_export=(':revision:_tla_revisions' ':dir:_files -/')
 
 #mutually exclusive options
 
@@ -634,8 +543,7 @@ _tla_main () {
 
     arguments=()
     local input
-    input=(${${(f)"$($TLA $cmd -h)"}#  })
-    shift 6 input
+    input=(${${(M)${(f)"$($TLA $cmd -h)"}:#  *}#  })
 
     local i j=1
     local short long arg desc action
@@ -657,6 +565,7 @@ _tla_main () {
         (( i++ ))
         desc[j]="$desc[j] ${input[i]##*  }"
       fi
+      [[ "$short[j]" == -[hHV] ]] && continue
       desc[j]="${${desc[j]//\[/\\[}//\]/\\]}" # escape brackets
 
       case $arg[j] in

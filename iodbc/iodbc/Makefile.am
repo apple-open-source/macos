@@ -2,16 +2,20 @@
 #  Makefile.am
 #
 #  The iODBC driver manager.
-#  
-#  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
-#  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+#
+#  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+#  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
 #  All Rights Reserved.
 #
 #  This software is released under the terms of either of the following
 #  licenses:
 #
-#      - GNU Library General Public License (see LICENSE.LGPL) 
+#      - GNU Library General Public License (see LICENSE.LGPL)
 #      - The BSD License (see LICENSE.BSD).
+#
+#  Note that the only valid version of the LGPL license as far as this
+#  project is concerned is the original GNU Library General Public License
+#  Version 2, dated June 1991.
 #
 #  While not mandated by the BSD license, any patches you make to the
 #  iODBC source code may be contributed back into the iODBC project
@@ -25,8 +29,8 @@
 #  ============================================
 #  This library is free software; you can redistribute it and/or
 #  modify it under the terms of the GNU Library General Public
-#  License as published by the Free Software Foundation; either
-#  version 2 of the License, or (at your option) any later version.
+#  License as published by the Free Software Foundation; only
+#  Version 2 of the License dated June 1991.
 #
 #  This library is distributed in the hope that it will be useful,
 #  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,7 +39,7 @@
 #
 #  You should have received a copy of the GNU Library General Public
 #  License along with this library; if not, write to the Free
-#  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #
 #
 #  The BSD License
@@ -65,6 +69,7 @@
 #  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
 
 AUTOMAKE_OPTIONS	= gnu dist-zip 1.4-p5
 
@@ -75,33 +80,49 @@ EXTRA_DIST		= \
 	LICENSE LICENSE.LGPL LICENSE.BSD \
 	README.CVS \
 	README.MACOSX \
+	bootstrap.sh \
+	PORT.OpenLink \
 	acinclude.m4 \
 	mac/Makefile \
 	mac/link-inclibs.sh \
+	mac/iodbc-config.macosx \
 	mac/README.MYODBC \
 	mac/myodbc.configure.diff \
 	mac/framework-include.sh \
 	mac/iodbc.exp \
 	mac/iodbcinst.exp \
 	mac/iODBC/English.lproj/InfoPlist.strings \
+	mac/iODBC/Info-iODBC.plist \
 	mac/iODBC/iODBC.pbproj/project.pbxproj \
+	mac/iODBC/iODBC.xcodeproj/project.pbxproj \
 	mac/iODBCinst/English.lproj/InfoPlist.strings \
+	mac/iODBCinst/Info-iODBCinst.plist \
 	mac/iODBCinst/iODBCinst.pbproj/project.pbxproj \
+	mac/iODBCinst/iODBCinst.xcodeproj/project.pbxproj \
 	mac/iODBCtest/iODBCtest.pbproj/project.pbxproj \
+	mac/iODBCtest/iODBCtest.xcodeproj/project.pbxproj \
 	mac/iODBCtestw/iODBCtestw.pbproj/project.pbxproj \
+	mac/iODBCtestw/iODBCtestw.xcodeproj/project.pbxproj \
 	debian/changelog \
+	debian/compat \
 	debian/control \
 	debian/copyright \
 	debian/iodbc.files \
+	debian/iodbc.install \
+	debian/iodbc.lintian-overrides \
 	debian/iodbc.undocumented \
 	debian/libiodbc2-dev.examples \
 	debian/libiodbc2-dev.files \
+	debian/libiodbc2-dev.install \
 	debian/libiodbc2.docs \
 	debian/libiodbc2.examples \
 	debian/libiodbc2.files \
+	debian/libiodbc2.install \
+	debian/libiodbc2.lintian-overrides \
 	debian/libiodbc2.undocumented \
-	debian/rules
-
+	debian/README.Debian \
+	debian/rules \
+	debian/watch 
 
 # ----------------------------------------------------------------------
 #

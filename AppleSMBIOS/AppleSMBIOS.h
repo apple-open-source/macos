@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -24,71 +24,126 @@
 #define _APPLE_SMBIOS_H
 
 #include <IOKit/IOService.h>
+#include <IOKit/IOKitKeys.h>
 #include "SMBIOS.h"
 
 class SMBPackedStrings;
+
+struct SystemSlotEntry {
+    queue_chain_t   chain;
+    UInt16          slotID;
+    UInt8           slotType;
+    UInt8           slotUsage;
+    const char *    slotName;
+};
 
 class AppleSMBIOS : public IOService
 {
     OSDeclareDefaultStructors( AppleSMBIOS )
 
 protected:
-    IOService *  _provider;
-    IOService *  _platform;
-    int          _verbose;
+    IOService *             fRoot;
+    int                     fVerbose;
+    IOMemoryMap *           fDMIMemoryMap;
+    queue_head_t *          fSlotQueueHead;
+    IOService *             fROMNode;
 
-    // memory node properties.
+    OSData *                memSlotsData;
+    OSData *                memTypesData;
+    OSData *                memSizesData;
+    OSData *                memSpeedData;
+    OSData *                memInfoData;
+    UInt64                  memSizeTotal;
+	
+	void *					SMBIOSTable;
+	UInt16					SMBIOSTableLength;
 
-    OSData * memSlotsData;
-    OSData * memTypesData;
-    OSData * memSizesData;
+    enum { kMemDataSize = 64 };
+
 
     enum {
         kNoMemoryInfo,
         kMemoryModuleInfo,
         kMemoryDeviceInfo
-    } memInfoSource;
+    }                       memInfoSource;
+	
+	const SMBStructHeader *	getSMBIOSRecord( SMBWord record );
 
-    // SMBIOS table search.
+    static bool             serializeSMBIOS(
+                                void *                  target,
+                                void *                  refcon,
+                                OSSerialize *           s );
 
-    bool fetchSMBIOSTable();
+    bool                    findSMBIOSTableEFI( void );
 
-    // SMBIOS table/structure decoding.
+    OSData *                getSlotNameWithSlotId( int  slotId );
 
-    void decodeSMBIOSTable( const void * tableData, UInt16 tableLength,
-                            UInt16 structureCount );
+    void                    adjustPCIDeviceEFI(
+                                IOService *             pciDevice );
 
-    void decodeSMBIOSStructure( const SMBStructHeader * structureHeader,
+    IOReturn                callPlatformFunction(
+                                const char *            functionName,
+                                bool                    waitForFunction,
+                                void *                  param1,
+                                void *                  param2,
+                                void *                  param3,
+                                void *                  param4 );
+
+    void                    decodeSMBIOSTable(
+                                const void *            tableData,
+                                UInt16                  tableLength,
+                                UInt16                  structureCount );
+
+    void                    decodeSMBIOSStructure(
+                                const SMBStructHeader * structureHeader,
                                 const void *            tableBoundary );
 
-    // Handlers for each type of SMBIOS structure.
+    void                    processSMBIOSStructure(
+                                const SMBBIOSInformation *      bios,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructBIOSInformation * bios,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBSystemInformation *    sys,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructSystemInformation * sys,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBProcessorInformation * cpu,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructSystemEnclosure * enclosure,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBCacheInformation *     cache,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructProcessorInformation * cpu,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBMemoryDevice *         memory,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructCacheInformation * cache,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBMemoryModule *         memory,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructMemoryDevice * memory,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBSystemSlot *           slot,
+                                SMBPackedStrings *              strings );
 
-    void processSMBIOSStructure( const SMBStructMemoryModule * memory,
-                                 SMBPackedStrings * strings );
+    void                    processSMBIOSStructure(
+                                const SMBFirmwareVolume *       fv,
+                                SMBPackedStrings *              strings );
+								
+	void					processSMBIOSStructure(
+								const SMBMemorySPD *			spd,
+								SMBPackedStrings *              strings );
 
-    void updateDeviceTree();
+    void                    processSMBIOSStructure(
+                                const SMBOemProcessorType *     cpu,
+                                SMBPackedStrings *              strings );
+
+    void                    updateDeviceTree( void );
 
 public:
-    virtual bool start( IOService * provider );
-    virtual void free();
+    virtual bool            start( IOService * provider );
+
+    virtual void            free( void );
 };
 
 #endif /* !_APPLE_SMBIOS_H */

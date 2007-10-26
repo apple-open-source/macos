@@ -1,8 +1,9 @@
 ;;; viper-ex.el --- functions implementing the Ex commands for Viper
 
-;; Copyright (C) 1994, 1995, 1996, 1997, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Michael Kifer <kifer@cs.sunysb.edu>
+;; Author: Michael Kifer <kifer@cs.stonybrook.edu>
 
 ;; This file is part of GNU Emacs.
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -39,6 +40,7 @@
 (defvar viper-custom-file-name)
 (defvar viper-case-fold-search)
 (defvar explicit-shell-file-name)
+(defvar compile-command)
 
 ;; loading happens only in non-interactive compilation
 ;; in order to spare non-viperized emacs from being viperized
@@ -57,7 +59,7 @@
 (require 'viper-util)
 
 (defgroup viper-ex nil
-  "Viper support for Ex commands"
+  "Viper support for Ex commands."
   :prefix "ex-"
   :group 'viper)
 
@@ -66,8 +68,10 @@
 ;;; Variables
 
 (defconst viper-ex-work-buf-name " *ex-working-space*")
-(defconst viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
+(defvar viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
 (defconst viper-ex-tmp-buf-name " *ex-tmp*")
+(defconst viper-ex-print-buf-name " *ex-print*")
+(defvar viper-ex-print-buf (get-buffer-create viper-ex-print-buf-name))
 
 
 ;;; ex-commands...
@@ -115,7 +119,7 @@
 	("customize"	    	(customize-group "viper"))
 	("delete"		(ex-delete))
 	("edit"			(ex-edit))
-	("file"			(viper-info-on-file))
+	("file"			(ex-set-visited-file-name))
 	("g"			"global")
 	("global"		(ex-global nil) is-mashed)
 	("goto"			(ex-goto))
@@ -132,6 +136,7 @@
 	("next"			(ex-next ex-cycle-other-window))
 	("p"			"print")
 	("preserve"		(ex-preserve))
+	("print"		(ex-print))
 	("put"			(ex-put))
 	("pwd"			(ex-pwd))
 	("quit"			(ex-quit))
@@ -146,7 +151,7 @@
 	("set"			(ex-set))
 	("shell"		(ex-shell))
 	("source"		(ex-source))
-	("stop"			(suspend-emacs)) 
+	("stop"			(suspend-emacs))
 	("sr"			(ex-substitute t t))
 	("submitReport"	    	(viper-submit-report))
 	("substitute"	    	(ex-substitute) is-mashed)
@@ -161,7 +166,7 @@
 	("v"			"vglobal")
 	("version"		(viper-version))
 	("vglobal"		(ex-global t) is-mashed)
-	("visual"		(ex-edit)) 
+	("visual"		(ex-edit))
 	("w"			"write")
 	("wq"			(ex-write t))
 	("write"		(ex-write nil))
@@ -175,7 +180,6 @@
 	("open"			(ex-cmd-obsolete "open"))
 
 	("list"			(ex-cmd-not-yet "list"))
-	("print"		(ex-cmd-not-yet "print"))
 	("z"			(ex-cmd-not-yet "z"))
 	("#"			(ex-cmd-not-yet "#"))
 
@@ -204,12 +208,12 @@
 
 ;; If this is a one-letter magic command, splice in args.
 (defun ex-splice-args-in-1-letr-cmd (key list)
-  (let ((onelet (ex-cmd-is-one-letter (assoc (substring key 0 1) list))))
-    (if onelet
+  (let ((oneletter (ex-cmd-is-one-letter (assoc (substring key 0 1) list))))
+    (if oneletter
 	(list key
-	      (append (cadr onelet)
+	      (append (cadr oneletter)
 		      (if (< 1 (length key)) (list (substring key 1))))
-	      (caddr onelet)))
+	      (car (cdr (cdr oneletter))) ))
 	))
 
 
@@ -235,26 +239,26 @@
 
 
 ;; A-list of Ex variables that can be set using the :set command.
-(defconst ex-variable-alist 
+(defconst ex-variable-alist
   '(("wrapscan") ("ws") ("wrapmargin") ("wm")
     ("tabstop-global") ("ts-g") ("tabstop") ("ts")
     ("showmatch") ("sm") ("shiftwidth") ("sw") ("shell") ("sh")
-    ("readonly") ("ro") 
+    ("readonly") ("ro")
     ("nowrapscan") ("nows") ("noshowmatch") ("nosm")
     ("noreadonly") ("noro") ("nomagic") ("noma")
     ("noignorecase") ("noic")
     ("noautoindent-global") ("noai-g") ("noautoindent") ("noai")
     ("magic") ("ma") ("ignorecase") ("ic")
-    ("autoindent-global") ("ai-g") ("autoindent") ("ai") 
-    ("all") 
+    ("autoindent-global") ("ai-g") ("autoindent") ("ai")
+    ("all")
     ))
 
-  
+
 
 ;; Token recognized during parsing of Ex commands (e.g., "read", "comma")
 (defvar ex-token nil)
 
-;; Type of token. 
+;; Type of token.
 ;; If non-nil, gives type of address; if nil, it is a command.
 (defvar ex-token-type nil)
 
@@ -278,6 +282,8 @@
 (defvar ex-g-flag nil)
 ;; Flag indicating that :vglobal Ex command is being executed.
 (defvar ex-g-variant nil)
+;; Marks to operate on during a :global Ex command.
+(defvar ex-g-marks nil)
 
 ;; Save reg-exp used in substitute.
 (defvar ex-reg-exp nil)
@@ -318,13 +324,13 @@
 	      ((string-match "\\(bash$\\|bash.exe$\\)" shell-file-name)
 	       "-noprofile") ; bash: ignore .profile
 	      )))
-  "Options to pass to the Unix-style shell. 
+  "Options to pass to the Unix-style shell.
 Don't put `-c' here, as it is added automatically."
   :type '(choice (const nil) string)
   :group 'viper-ex)
 
 (defcustom ex-compile-command "make"
-  "The comand to run when the user types :make."
+  "The command to run when the user types :make."
   :type 'string
   :group 'viper-ex)
 
@@ -339,7 +345,7 @@ Don't put `-c' here, as it is added automatically."
 The default tries to set this variable to work with Unix, Windows,
 OS/2, and VMS.
 
-However, if it doesn't work right for some types of Unix shells or some OS, 
+However, if it doesn't work right for some types of Unix shells or some OS,
 the user should supply the appropriate function and set this variable to the
 corresponding function symbol."
   :type 'symbol
@@ -365,7 +371,7 @@ corresponding function symbol."
 ;; e.g., :r !date
 (defvar ex-cmdfile nil)
 (defvar ex-cmdfile-args "")
-  
+
 ;; flag used in viper-ex-read-file-name to indicate that we may be reading
 ;; multiple file names.  Used for :edit and :next
 (defvar viper-keep-reading-filename nil)
@@ -384,10 +390,10 @@ reversed."
 
 ;; Last shell command executed with :! command.
 (defvar viper-ex-last-shell-com nil)
-  
+
 ;; Indicates if Minibuffer was exited temporarily in Ex-command.
 (defvar viper-incomplete-ex-cmd nil)
-  
+
 ;; Remembers the last ex-command prompt.
 (defvar viper-last-ex-prompt "")
 
@@ -409,7 +415,7 @@ reversed."
 ;; A token has a type, \(command, address, end-mark\), and a value
 (defun viper-get-ex-token ()
   (save-window-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (skip-chars-forward " \t|")
     (let ((case-fold-search t))
@@ -429,7 +435,7 @@ reversed."
 			 ((eq ex-token-type 'minus) 'sub-number)
 			 (t 'abs-number)))
 	     (setq ex-token
-		   (string-to-int (buffer-substring (point) (mark t)))))
+		   (string-to-number (buffer-substring (point) (mark t)))))
 	    ((looking-at "\\$")
 	     (forward-char 1)
 	     (setq ex-token-type 'end))
@@ -551,25 +557,25 @@ reversed."
 		     "\\|" "![ \t]*[a-zA-Z].*"
 		     "\\)"
 		     "!*")))
-	
+
     (save-window-excursion ;; put cursor at the end of the Ex working buffer
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       (goto-char (point-max)))
     (cond ((viper-looking-back quit-regex1) (exit-minibuffer))
 	  ((viper-looking-back stay-regex)  (insert " "))
 	  ((viper-looking-back quit-regex2) (exit-minibuffer))
 	  (t (insert " ")))))
-  
+
 ;; complete Ex command
 (defun ex-cmd-complete ()
   (interactive)
   (let (save-pos dist compl-list string-to-complete completion-result)
-    
+
     (save-excursion
       (setq dist (skip-chars-backward "[a-zA-Z!=>&~]")
 	    save-pos (point)))
-	
+
     (if (or (= dist 0)
 	    (viper-looking-back "\\([ \t]*['`][ \t]*[a-z]*\\)")
 	    (viper-looking-back
@@ -581,14 +587,14 @@ reversed."
 		(viper-looking-back "\\([ \t]*['`][ \t]*[a-z]*\\)")
 		(looking-at "[^ \t\n\C-m]"))
 	    nil
-	  (with-output-to-temp-buffer "*Completions*" 
+	  (with-output-to-temp-buffer "*Completions*"
 	    (display-completion-list
 	     (viper-alist-to-list ex-token-alist))))
       ;; Preceding chars may be part of a command name
       (setq string-to-complete (buffer-substring save-pos (point)))
       (setq completion-result
 	    (try-completion string-to-complete ex-token-alist))
-      
+
       (cond ((eq completion-result t)  ; exact match--do nothing
 	     (viper-tmp-insert-at-eob " (Sole completion)"))
 	    ((eq completion-result nil)
@@ -602,17 +608,17 @@ reversed."
 		     (viper-filter-alist (concat "^" completion-result)
 				       ex-token-alist)))
 	     (if (> (length compl-list) 1)
-		 (with-output-to-temp-buffer "*Completions*" 
+		 (with-output-to-temp-buffer "*Completions*"
 		   (display-completion-list
 		    (viper-alist-to-list (reverse compl-list)))))))
       )))
-    
 
-;; Read Ex commands 
+
+;; Read Ex commands
 ;; ARG is a prefix argument. If given, the ex command runs on the region
 ;;(without the user having to specify the address :a,b
 ;; STRING is the command to execute. If nil, then Viper asks you to enter the
-;; command. 
+;; command.
 (defun viper-ex (arg &optional string)
   (interactive "P")
   (or string
@@ -643,10 +649,10 @@ reversed."
 		  (+ reg-beg-line (count-lines reg-beg reg-end) -1)))))
     (if reg-beg-line
 	(setq initial-str (format "%d,%d" reg-beg-line reg-end-line)))
-    
-    (setq com-str 
+
+    (setq com-str
 	  (or string (viper-read-string-with-history
-		      ":" 
+		      ":"
 		      initial-str
 		      'viper-ex-history
 		      ;; no default when working on region
@@ -658,7 +664,7 @@ reversed."
 			  " [Type command to execute on current region]"))))
     (save-window-excursion
       ;; just a precaution
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       (delete-region (point-min) (point-max))
       (insert com-str "\n")
@@ -713,9 +719,11 @@ reversed."
 	    (t (let ((ans (viper-get-ex-address-subr address dot)))
 		 (if ans (setq address ans)))))
       (setq prev-token-type ex-token-type))))
-      
+
 
 ;; Get a regular expression and set `ex-variant', if found
+;; Viper doesn't parse the substitution or search patterns.
+;; In particular, it doesn't expand ~ into the last substitution.
 (defun viper-get-ex-pat ()
   (save-window-excursion
     (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
@@ -776,7 +784,7 @@ reversed."
 ;; Get an Ex option g or c
 (defun viper-get-ex-opt-gc (c)
   (save-window-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (if (looking-at (format "%c" c)) (forward-char 1))
     (skip-chars-forward " \t")
@@ -848,7 +856,9 @@ reversed."
 	       (forward-line (1- ex-token))
 	       (setq address (point-marker)))))
 	  ((eq ex-token-type 'end)
-	   (setq address (point-max-marker)))
+	   (save-excursion
+	     (goto-char (1- (point-max)))
+	     (setq address (point-marker))))
 	  ((eq ex-token-type 'plus) t)  ; do nothing
 	  ((eq ex-token-type 'minus) t) ; do nothing
 	  ((eq ex-token-type 'search-forward)
@@ -863,7 +873,7 @@ reversed."
 	   (save-excursion
 	     (if (null ex-token)
 		 (exchange-point-and-mark)
-	       (goto-char 
+	       (goto-char
 		(viper-register-to-point
 		 (viper-int-to-char (1+ (- ex-token ?a))) 'enforce-buffer)))
 	     (setq address (point-marker)))))
@@ -871,6 +881,7 @@ reversed."
 
 
 ;; Search pattern and set address
+;; Doesn't wrap around. Should it?
 (defun ex-search-address (forward)
   (if (string= ex-token "")
       (if (null viper-s-string)
@@ -890,7 +901,7 @@ reversed."
   (setq ex-count nil)
   (setq ex-flag nil)
   (save-window-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (skip-chars-forward " \t")
     (if (looking-at "[a-zA-Z]")
@@ -902,7 +913,7 @@ reversed."
 	(progn
 	  (set-mark (point))
 	  (re-search-forward "[0-9][0-9]*")
-	  (setq ex-count (string-to-int (buffer-substring (point) (mark t))))
+	  (setq ex-count (string-to-number (buffer-substring (point) (mark t))))
 	  (skip-chars-forward " \t")))
     (if (looking-at "[pl#]")
 	(progn
@@ -916,7 +927,7 @@ reversed."
 	ex-count nil
 	ex-flag nil)
   (save-window-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (skip-chars-forward " \t")
     (if (looking-at "!")
@@ -928,7 +939,7 @@ reversed."
 	(progn
 	  (set-mark (point))
 	  (re-search-forward "[0-9][0-9]*")
-	  (setq ex-count (string-to-int (buffer-substring (point) (mark t))))
+	  (setq ex-count (string-to-number (buffer-substring (point) (mark t))))
 	  (skip-chars-forward " \t")))
     (if (looking-at "[pl#]")
 	(progn
@@ -942,7 +953,7 @@ reversed."
 ;; Expand \% and \# in ex command
 (defun ex-expand-filsyms (cmd buf)
   (let (cf pf ret)
-    (save-excursion 
+    (save-excursion
       (set-buffer buf)
       (setq cf buffer-file-name)
       (setq pf (ex-next nil t))) ; this finds alternative file name
@@ -956,7 +967,7 @@ reversed."
       (insert cmd)
       (goto-char (point-min))
       (while (re-search-forward "%\\|#" nil t)
-	(let ((data (match-data)) 
+	(let ((data (match-data))
 	      (char (buffer-substring (match-beginning 0) (match-end 0))))
 	  (if (viper-looking-back (concat "\\\\" char))
 	      (replace-match char)
@@ -981,7 +992,7 @@ reversed."
 	  ex-cmdfile-args "")
     (save-excursion
       (save-window-excursion
-	(setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+	(setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
 	(set-buffer viper-ex-work-buf)
 	(skip-chars-forward " \t")
 	(if (looking-at "!")
@@ -1042,9 +1053,9 @@ reversed."
 	(skip-chars-backward " \t\n")
 	(setq prompt (buffer-substring (point-min) (point)))
 	))
-    
+
     (setq viper-last-ex-prompt prompt)
-    
+
     ;; If we just finished reading command, redisplay prompt
     (if viper-incomplete-ex-cmd
 	(setq ex-file (viper-ex-read-file-name (format ":%s " prompt)))
@@ -1057,8 +1068,8 @@ reversed."
 ;; file names, arranges to re-enter the minibuffer.
 (defun viper-complete-filename-or-exit ()
   (interactive)
-  (setq viper-keep-reading-filename t) 
-  ;; don't exit if directory---ex-commands don't 
+  (setq viper-keep-reading-filename t)
+  ;; don't exit if directory---ex-commands don't
   (cond ((ex-cmd-accepts-multiple-files-p ex-token) (exit-minibuffer))
 	;; apparently the argument to an Ex command is
 	;; supposed to be a shell command
@@ -1088,12 +1099,12 @@ reversed."
 	 (minibuffer-local-completion-map
 	  (copy-keymap minibuffer-local-completion-map))
 	 beg end cont val)
-    
+
     (viper-add-keymap ex-read-filename-map
-		    (if viper-emacs-p 
+		    (if viper-emacs-p
 			minibuffer-local-completion-map
-		      read-file-name-map)) 
-		    
+		      read-file-name-map))
+
     (setq cont (setq viper-keep-reading-filename t))
     (while cont
       (setq viper-keep-reading-filename nil
@@ -1104,14 +1115,14 @@ reversed."
 	  (setq val (concat "\"" val "\"")))
       (setq str  (concat str (if (equal val "") "" " ")
 			 val (if (equal val "") "" " ")))
-			 
+
       ;; Only edit, next, and Next commands accept multiple files.
       ;; viper-keep-reading-filename is set in the anonymous function that is
       ;; bound to " " in ex-read-filename-map.
       (setq cont (and viper-keep-reading-filename
 		      (ex-cmd-accepts-multiple-files-p ex-token)))
       )
-    
+
     (setq beg (string-match "[^ \t]" str)   ; delete leading blanks
 	  end (string-match "[ \t]*$" str)) ; delete trailing blanks
     (if (member ex-token '("read" "write"))
@@ -1127,11 +1138,11 @@ reversed."
 
 (defun viper-undisplayed-files ()
   (mapcar
-   (lambda (b) 
+   (lambda (b)
      (if (null (get-buffer-window b))
 	 (let ((f (buffer-file-name b)))
 	   (if f f
-	     (if ex-cycle-through-non-files 
+	     (if ex-cycle-through-non-files
 		 (let ((s (buffer-name b)))
 		   (if (string= " " (substring s 0 1))
 		       nil
@@ -1146,7 +1157,7 @@ reversed."
 	(args "")
 	(file-count 1))
     (while (not (null l))
-      (if (car l) 
+      (if (car l)
 	  (setq args (format "%s %d) %s\n" args file-count (car l))
 		file-count (1+ file-count)))
       (setq l (cdr l)))
@@ -1250,31 +1261,31 @@ reversed."
 	 (setq ex-file  (viper-abbreviate-file-name (buffer-file-name))))
 	((string= ex-file "")
 	 (error viper-NoFileSpecified)))
-      
-;;;  (let (msg do-edit)
-;;;    (if buffer-file-name
-;;;	(cond ((buffer-modified-p)
-;;;	       (setq msg
-;;;		     (format "Buffer %s is modified.  Discard changes? "
-;;;			     (buffer-name))
-;;;		     do-edit t))
-;;;	      ((not (verify-visited-file-modtime (current-buffer)))
-;;;	       (setq msg
-;;;		     (format "File %s changed on disk.  Reread from disk? "
-;;;			     buffer-file-name)
-;;;		     do-edit t))
-;;;	      (t (setq do-edit nil))))
-;;;      
-;;;    (if do-edit
-;;;	(if (yes-or-no-p msg)
-;;;	    (progn
-;;;	      (set-buffer-modified-p nil)
-;;;	      (kill-buffer (current-buffer)))
-;;;	  (message "Buffer %s was left intact" (buffer-name))))
-;;;    ) ; let
-  
+
+     (let (msg do-edit)
+       (if buffer-file-name
+   	(cond ((buffer-modified-p)
+   	       (setq msg
+   		     (format "Buffer %s is modified.  Discard changes? "
+   			     (buffer-name))
+   		     do-edit t))
+   	      ((not (verify-visited-file-modtime (current-buffer)))
+   	       (setq msg
+   		     (format "File %s changed on disk.  Reread from disk? "
+   			     buffer-file-name)
+   		     do-edit t))
+   	      (t (setq do-edit nil))))
+
+       (if do-edit
+   	(if (yes-or-no-p msg)
+   	    (progn
+   	      (set-buffer-modified-p nil)
+   	      (kill-buffer (current-buffer)))
+   	  (message "Buffer %s was left intact" (buffer-name))))
+       ) ; let
+
   (if (null (setq file (get-file-buffer ex-file)))
-      (progn 
+      (progn
 	;; this also does shell-style globbing
 	(ex-find-file
 	 ;; replace # and % with the previous/current file
@@ -1286,7 +1297,7 @@ reversed."
   (if ex-offset
       (progn
 	(save-window-excursion
-	  (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+	  (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
 	  (set-buffer viper-ex-work-buf)
 	  (delete-region (point-min) (point-max))
 	  (insert ex-offset "\n")
@@ -1329,7 +1340,7 @@ reversed."
     (viper-get-ex-pat)
     (if (null ex-token)
 	(error "`%s': Missing regular expression" gcommand)))
-  
+
   (if (string= ex-token "")
       (if (null viper-s-string)
 	  (error viper-NoPrevSearch)
@@ -1339,8 +1350,8 @@ reversed."
   (if (null ex-addresses)
       (setq ex-addresses (list (point-max) (point-min)))
     (viper-default-ex-addresses))
-  (let ((marks nil)
-	(mark-count 0)
+  (setq ex-g-marks nil)
+  (let ((mark-count 0)
 	(end (car ex-addresses))
 	(beg (car (cdr ex-addresses)))
 	com-str)
@@ -1363,21 +1374,21 @@ reversed."
 		(progn
 		  (end-of-line)
 		  (setq mark-count (1+ mark-count))
-		  (setq marks (cons (point-marker) marks)))))
+		  (setq ex-g-marks (cons (point-marker) ex-g-marks)))))
 	  (beginning-of-line)
 	  (if (bobp) (setq cont nil)
 	    (forward-line -1)
 	    (end-of-line)))))
     (save-window-excursion
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       ;; com-str is the command string, i.e., g/pattern/ or v/pattern'
       (setq com-str (buffer-substring (1+ (point)) (1- (point-max)))))
-    (while marks
-      (goto-char (car marks))
+    (while ex-g-marks
+      (goto-char (car ex-g-marks))
       (viper-ex nil com-str)
       (setq mark-count (1- mark-count))
-      (setq marks (cdr marks)))))
+      (setq ex-g-marks (cdr ex-g-marks)))))
 
 ;; Ex goto command
 (defun ex-goto ()
@@ -1448,9 +1459,9 @@ reversed."
 	(if (eq 1 (length name))
 	    (setq char (string-to-char name))
 	  (error "`%s': Spurious text \"%s\" after mark name"
-		 name (substring name 1) viper-SpuriousText))
+		 name (substring name 1)))
     (save-window-excursion
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       (skip-chars-forward " \t")
       (if (looking-at "[a-z]")
@@ -1465,22 +1476,22 @@ reversed."
       (goto-char (car ex-addresses))
       (point-to-register (viper-int-to-char (1+ (- char ?a)))))))
 
-    
-      
+
+
 ;; Alternate file is the file next to the first one in the buffer ring
 (defun ex-next (cycle-other-window &optional find-alt-file)
   (catch 'ex-edit
     (let (count l)
-      (if (not find-alt-file) 
+      (if (not find-alt-file)
 	  (progn
 	    (viper-get-ex-file)
 	    (if (or (char-or-string-p ex-offset)
-		    (and (not (string= "" ex-file)) 
+		    (and (not (string= "" ex-file))
 		         (not (string-match "^[0-9]+$" ex-file))))
 		(progn
 		  (ex-edit t)
 		  (throw 'ex-edit nil))
-	      (setq count (string-to-int ex-file))
+	      (setq count (string-to-number ex-file))
 	      (if (= count 0) (setq count 1))
 	      (if (< count 0) (error "Usage: `next <count>' (count >= 0)"))))
 	(setq count 1))
@@ -1505,41 +1516,41 @@ reversed."
 
 
 (defun ex-next-related-buffer (direction &optional no-recursion)
-  
+
   (viper-ring-rotate1 viper-related-files-and-buffers-ring direction)
-  
-  (let ((file-or-buffer-name 
+
+  (let ((file-or-buffer-name
 	 (viper-current-ring-item viper-related-files-and-buffers-ring))
 	(old-ring viper-related-files-and-buffers-ring)
 	(old-win (selected-window))
 	skip-rest buf wind)
-    
+
     (or (and (ring-p viper-related-files-and-buffers-ring)
 	     (> (ring-length viper-related-files-and-buffers-ring) 0))
 	(error "This buffer has no related files or buffers"))
-	
+
     (or (stringp file-or-buffer-name)
 	(error
 	 "File and buffer names must be strings, %S" file-or-buffer-name))
-    
+
     (setq buf (cond ((get-buffer file-or-buffer-name))
 		    ((file-exists-p file-or-buffer-name)
 		     (find-file-noselect file-or-buffer-name))
 		    ))
-    
+
     (if (not (viper-buffer-live-p buf))
 	(error "Didn't find buffer %S or file %S"
 	       file-or-buffer-name
 	       (viper-abbreviate-file-name
 		(expand-file-name file-or-buffer-name))))
-	  
+
     (if (equal buf (current-buffer))
 	(or no-recursion
 	    ;; try again
 	    (progn
 	      (setq skip-rest t)
 	      (ex-next-related-buffer direction 'norecursion))))
-	
+
     (if skip-rest
 	()
       ;; setup buffer
@@ -1547,7 +1558,7 @@ reversed."
 	  ()
 	(setq wind (get-lru-window (if viper-xemacs-p nil 'visible)))
 	(set-window-buffer wind buf))
-	    
+
       (if (viper-window-display-p)
 	  (progn
 	    (raise-frame (window-frame wind))
@@ -1555,15 +1566,15 @@ reversed."
 		(save-window-excursion (select-window wind) (sit-for 1))
 	      (select-window wind)))
 	(save-window-excursion (select-window wind) (sit-for 1)))
-	
+
       (save-excursion
 	(set-buffer buf)
 	(setq viper-related-files-and-buffers-ring old-ring))
-      
+
       (setq viper-local-search-start-marker (point-marker))
       )))
-  
-    
+
+
 ;; Force auto save
 (defun ex-preserve ()
   (message "Autosaving all buffers that need to be saved...")
@@ -1579,13 +1590,13 @@ reversed."
 
 ;; Ex print working directory
 (defun ex-pwd ()
-  (message default-directory))
+  (message "%s" default-directory))
 
 ;; Ex quit command
 (defun ex-quit ()
   ;; skip "!", if it is q!.  In Viper q!, w!, etc., behave as q, w, etc.
   (save-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (if (looking-at "!") (forward-char 1)))
   (if (< viper-expert-level 3)
@@ -1611,19 +1622,20 @@ reversed."
 	  (setq ex-file buffer-file-name)))
     (if ex-cmdfile
 	(progn
-	  (setq command 
+	  (setq command
 		;; replace # and % with the previous/current file
-		(ex-expand-filsyms (concat ex-file ex-cmdfile-args)
-				   (current-buffer)))
+		(ex-expand-filsyms
+		 (concat (shell-quote-argument ex-file) ex-cmdfile-args)
+		 (current-buffer)))
 	  (shell-command command t))
       (insert-file-contents ex-file)))
   (ex-fixup-history viper-last-ex-prompt ex-file ex-cmdfile-args))
-  
+
 ;; this function fixes ex-history for some commands like ex-read, ex-edit
-(defun ex-fixup-history (&rest args)  
+(defun ex-fixup-history (&rest args)
   (setq viper-ex-history
 	(cons (mapconcat 'identity args " ") (cdr viper-ex-history))))
-  
+
 
 ;; Ex recover from emacs \#file\#
 (defun ex-recover ()
@@ -1664,7 +1676,7 @@ reversed."
 	  (viper-set-unread-command-events ?\C-m)))
     (message ":set  <Variable> [= <Value>]")
     (or batch (sit-for 2))
-    
+
     (while (string-match "^[ \\t\\n]*$"
 			 (setq str
 			       (completing-read ":set " ex-variable-alist)))
@@ -1745,19 +1757,19 @@ reversed."
 	  (or (viper-set-unread-command-events "") (sit-for 2))
 	  (setq val (read-string (format ":set %s = " var)))
 	  (ex-fixup-history "set" orig-var val)
-	  
+
 	  ;; check numerical values
 	  (if (member var
 		      '("sw" "shiftwidth"
 			"ts" "tabstop"
 			"ts-g" "tabstop-global"
-			"wm" "wrapmargin")) 
+			"wm" "wrapmargin"))
 	      (condition-case nil
 		  (or (numberp (setq val2 (car (read-from-string val))))
 		      (error "%s: Invalid value, numberp, %S" var val))
 		(error
 		 (error "%s: Invalid value, numberp, %S" var val))))
-		  
+
 	  (cond
 	   ((member var '("sw" "shiftwidth"))
 	    (setq var "viper-shift-width"))
@@ -1772,27 +1784,27 @@ reversed."
 		  set-cmd "setq-default"))
 	   ((member var '("wm" "wrapmargin"))
 	    ;; make it take effect in curr buff and new bufs
-	    (kill-local-variable 'fill-column) 
-	    (setq var "fill-column" 
+	    (kill-local-variable 'fill-column)
+	    (setq var "fill-column"
 		  val (format "(- (window-width) %s)" val)
 		  set-cmd "setq-default"))
 	   ((member var '("sh" "shell"))
 	    (setq var "explicit-shell-file-name"
 		  val (format "\"%s\"" val)))))
       (ex-fixup-history "set" orig-var))
-    
+
     (if set-cmd
 	(setq actual-lisp-cmd
 	      (format "\n(%s %s %s) %s" set-cmd var val auto-cmd-label)
 	      lisp-cmd-del-pattern
 	      (format "^\n?[ \t]*([ \t]*%s[ \t]+%s[ \t].*)[ \t]*%s"
 		      set-cmd var auto-cmd-label)))
-    
+
     (if (and ask-if-save
 	     (y-or-n-p (format "Do you want to save this setting in %s "
 			       viper-custom-file-name)))
 	(progn
-	  (viper-save-string-in-file 
+	  (viper-save-string-in-file
 	   actual-lisp-cmd viper-custom-file-name
 	   ;; del pattern
 	   lisp-cmd-del-pattern)
@@ -1812,7 +1824,7 @@ reversed."
 		 lisp-cmd-del-pattern)
 		))
 	  ))
-    
+
     (if set-cmd
 	(message "%s %s %s"
 		 set-cmd var
@@ -1833,7 +1845,7 @@ reversed."
 ;; special meaning
 (defun ex-get-inline-cmd-args (regex-forw &optional chars-back replace-str)
   (save-excursion
-    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+    (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
     (set-buffer viper-ex-work-buf)
     (goto-char (point-min))
     (re-search-forward regex-forw nil t)
@@ -1858,7 +1870,7 @@ reversed."
 ;; Ex shell command
 (defun ex-shell ()
   (shell))
-  
+
 ;; Viper help.  Invokes Info
 (defun ex-help ()
   (condition-case nil
@@ -1885,7 +1897,7 @@ Please contact your system administrator. "
 
 ;; Ex substitute command
 ;; If REPEAT use previous regexp which is ex-reg-exp or viper-s-string
-(defun ex-substitute (&optional repeat r-flag) 
+(defun ex-substitute (&optional repeat r-flag)
   (let ((opt-g nil)
 	(opt-c nil)
 	(matched-pos nil)
@@ -1983,7 +1995,7 @@ Please contact your system administrator. "
 (defun ex-tag ()
   (let (tag)
     (save-window-excursion
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       (skip-chars-forward " \t")
       (set-mark (point))
@@ -2003,31 +2015,31 @@ Please contact your system administrator. "
 
 ;; Ex write command
 ;; ex-write doesn't support wildcards, because file completion is a better
-;; mechanism. We also don't support # and % 
+;; mechanism. We also don't support # and %
 ;; because file history is a better mechanism.
 (defun ex-write (q-flag)
   (viper-default-ex-addresses t)
   (viper-get-ex-file)
   (let ((end (car ex-addresses))
-	(beg (car (cdr ex-addresses))) 
+	(beg (car (cdr ex-addresses)))
 	(orig-buf (current-buffer))
-	(orig-buf-file-name (buffer-file-name))
-	(orig-buf-name (buffer-name))
-	(buff-changed-p (buffer-modified-p))
+	;;(orig-buf-file-name (buffer-file-name))
+	;;(orig-buf-name (buffer-name))
+	;;(buff-changed-p (buffer-modified-p))
 	temp-buf writing-same-file region
 	file-exists writing-whole-file)
     (if (> beg end) (error viper-FirstAddrExceedsSecond))
     (if ex-cmdfile
 	(progn
 	  (viper-enlarge-region beg end)
-	  (shell-command-on-region (point) (mark t) 
+	  (shell-command-on-region (point) (mark t)
 				   (concat ex-file ex-cmdfile-args)))
       (if (and (string= ex-file "") (not (buffer-file-name)))
 	  (setq ex-file
 		(read-file-name
 		 (format "Buffer %s isn't visiting any file.  File to save in: "
 			 (buffer-name)))))
-      
+
       (setq writing-whole-file (and (= (point-min) beg) (= (point-max) end))
 	    ex-file (if (string= ex-file "")
 			(buffer-file-name)
@@ -2039,7 +2051,7 @@ Please contact your system administrator. "
 	  (setq ex-file
 		(concat (file-name-as-directory ex-file)
 			(file-name-nondirectory buffer-file-name))))
-      
+
       (setq file-exists (file-exists-p ex-file)
 	    writing-same-file (string= ex-file (buffer-file-name)))
 
@@ -2060,16 +2072,17 @@ Please contact your system administrator. "
 		       (format "File %s exists.  Overwrite? " ex-file))))
 	    (error "Quit"))
 	;; writing a region or whole buffer to non-visited file
-	(unwind-protect 
+	(unwind-protect
 	    (save-excursion
 	      (viper-enlarge-region beg end)
 	      (setq region (buffer-substring (point) (mark t)))
 	      ;; create temp buffer for the region
 	      (setq temp-buf (get-buffer-create " *ex-write*"))
 	      (set-buffer temp-buf)
-	      (if viper-xemacs-p
-		  (set-visited-file-name ex-file)
-		(set-visited-file-name ex-file 'noquerry))
+	      (viper-cond-compile-for-xemacs-or-emacs
+	       (set-visited-file-name ex-file) ; xemacs
+	       (set-visited-file-name ex-file 'noquerry) ; emacs
+	       )
 	      (erase-buffer)
 	      (if (and file-exists ex-append)
 		  (insert-file-contents ex-file))
@@ -2093,7 +2106,7 @@ Please contact your system administrator. "
       (if (and (buffer-file-name) writing-same-file)
 	  (set-visited-file-modtime))
       ;; prevent loss of data if saving part of the buffer in visited file
-      (or writing-whole-file 
+      (or writing-whole-file
 	  (not writing-same-file)
 	  (progn
 	    (sit-for 2)
@@ -2104,7 +2117,7 @@ Please contact your system administrator. "
 	      (save-buffers-kill-emacs)
 	    (kill-buffer (current-buffer))))
       )))
-	  
+
 
 (defun ex-write-info (exists file-name beg end)
   (message "`%s'%s %d lines, %d characters"
@@ -2144,7 +2157,7 @@ Please contact your system administrator. "
 (defun ex-command ()
   (let (command)
     (save-window-excursion
-      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name)) 
+      (setq viper-ex-work-buf (get-buffer-create viper-ex-work-buf-name))
       (set-buffer viper-ex-work-buf)
       (skip-chars-forward " \t")
       (setq command (buffer-substring (point) (point-max)))
@@ -2218,7 +2231,7 @@ Type 'mak ' (including the space) to run make with no args."
 		       (if (buffer-modified-p) "[Modified]" "[Unchanged]")))
     (if (< (+ 1 (length info) (length file))
 	   (window-width (minibuffer-window)))
-	(message (concat file " " info))
+	(message "%s" (concat file " " info))
       (save-window-excursion
 	(with-output-to-temp-buffer " *viper-info*"
 	  (princ (concat "\n" file "\n\n\t" info "\n\n")))
@@ -2227,12 +2240,31 @@ Type 'mak ' (including the space) to run make with no args."
 	(kill-buffer " *viper-info*")))
     ))
 
+
+;; Without arguments displays info on file. With an arg, sets the visited file
+;; name to that arg
+(defun ex-set-visited-file-name ()
+  (viper-get-ex-file)
+  (if (string= ex-file "")
+      (viper-info-on-file)
+    ;; If ex-file is a directory, use the file portion of the buffer
+    ;; file name (like ex-write).  Do this even if ex-file is a
+    ;; non-existent directory, since set-visited-file-name signals an
+    ;; error on this condition, too.
+    (if (and (string= (file-name-nondirectory ex-file) "")
+	     buffer-file-name
+	     (not (file-directory-p buffer-file-name)))
+	(setq ex-file (concat (file-name-as-directory ex-file)
+			      (file-name-nondirectory buffer-file-name))))
+    (set-visited-file-name ex-file)))
+
+
 ;; display all variables set through :set
 (defun ex-show-vars ()
   (with-output-to-temp-buffer " *viper-info*"
     (princ (if viper-auto-indent
 	       "autoindent (local)\n" "noautoindent (local)\n"))
-    (princ (if (default-value 'viper-auto-indent) 
+    (princ (if (default-value 'viper-auto-indent)
 	       "autoindent (global) \n" "noautoindent (global) \n"))
     (princ (if viper-case-fold-search "ignorecase\n" "noignorecase\n"))
     (princ (if viper-re-search "magic\n" "nomagic\n"))
@@ -2251,8 +2283,42 @@ Type 'mak ' (including the space) to run make with no args."
 					  'none)))
     ))
 
+(defun ex-print ()
+  (viper-default-ex-addresses)
+  (let ((end (car ex-addresses))
+	(beg (car (cdr ex-addresses))))
+    (if (> beg end) (error viper-FirstAddrExceedsSecond))
+    (save-excursion
+      (viper-enlarge-region beg end)
+      (if (or ex-g-flag ex-g-variant)
+	  ;; When executing a global command, collect output of each
+	  ;; print in viper-ex-print-buf.
+	  (progn
+	    (append-to-buffer viper-ex-print-buf (point) (mark t))
+	    ;; Is this the last mark for the global command?
+	    (unless (cdr ex-g-marks)
+	      (with-current-buffer viper-ex-print-buf
+		(ex-print-display-lines (buffer-string))
+		(erase-buffer))))
+	(ex-print-display-lines (buffer-substring (point) (mark t)))))))
+
+(defun ex-print-display-lines (lines)
+  (cond
+   ;; String doesn't contain a newline.
+   ((not (string-match "\n" lines))
+    (message "%s" lines))
+   ;; String contains only one newline at the end.  Strip it off.
+   ((= (string-match "\n" lines) (1- (length lines)))
+    (message "%s" (substring lines 0 -1)))
+   ;; String spans more than one line.  Use a temporary buffer.
+   (t
+    (save-current-buffer
+      (with-output-to-temp-buffer " *viper-info*"
+	(princ lines))))))
 
 
 
 
+
+;;; arch-tag: 56b80d36-f880-4d10-bd66-85ad91a295db
 ;;; viper-ex.el ends here

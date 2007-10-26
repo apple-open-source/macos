@@ -61,6 +61,7 @@
 #define kRASEntPPTP						kSCEntNetPPTP				/* CFSTR("PPTP")		CFDictionary */
 #define	kRASEntServer					CFSTR("Server")				/*						CFDictionary */
 #define kRASEntDSACL					CFSTR("DSACL")				/*						CFDictionary */
+#define kRASEntRadius					CFSTR("Radius")				/*						CFDictionary */
 #define kRASEntEAP						CFSTR("EAP")				/* CFDictionary - Prefix followed by protocol Number */
 #define kRASEntIPSec					CFSTR("IPSec")				/* CFDictionary */
 
@@ -127,6 +128,7 @@
 #define kRASPropPPPSessionTimer				kSCPropNetPPPSessionTimer			/* CFSTR("SessionTimer")			CFNumber */
 #define kRASPropPPPUseSessionTimer			kSCPropNetPPPUseSessionTimer		/* CFSTR("UseSessionTimer")			CFNumber (0 or 1) */
 #define kRASPropPPPVerboseLogging			kSCPropNetPPPVerboseLogging			/* CFSTR("VerboseLogging")			CFNumber (0 or 1) */
+#define kRASPropPPPInterceptDHCP			CFSTR("InterceptDHCP")				/*									CFNumber (0 or 1) */
 
 /* Comm */
 #define kRASPropPPPCommRemoteAddress		kSCPropNetPPPCommRemoteAddress		/* CFSTR("CommRemoteAddress")		CFString */
@@ -182,6 +184,30 @@
 #define kRASPropPPPoEServiceName           	CFSTR("ServiceName")				/*									CFString */
 #define kRASPropPPPoEAccessConcentratorName CFSTR("AccessConcentratorName")		/*									CFString */
 
+
+/*
+ * kRASEntRadius Entity Keys
+ */
+#define kRASPropRadiusServers				CFSTR("Servers")					/*									CFArray */
+#define kRASPropRadiusNASIPAddress			CFSTR("NASIPAddress")				/*									CFString */
+#define kRASPropRadiusNASIdentifier			CFSTR("NASIdentifier")				/*									CFString */
+#define kRASPropRadiusNASPortType			CFSTR("NASPortType")				/*									Integer */
+#define kRASPropRadiusTunnelType			CFSTR("TunnelType")					/*									Integer */
+
+
+#define kRASPropRadiusServerAddress			CFSTR("Address")					/*									CFString */
+#define kRASPropRadiusServerSharedSecret	CFSTR("SharedSecret")				/*									CFString */
+#define kRASPropRadiusServerSharedSecretEncryption CFSTR("SharedSecretEncryption")	/*								CFString */
+#define kRASPropRadiusServerPort			CFSTR("Port")						/*									CFNumber */
+#define kRASPropRadiusServerTimeout			CFSTR("Timeout")					/*									CFNumber */
+#define kRASPropRadiusServerRetries			CFSTR("Retries")					/*									CFNumber */
+#define kRASPropRadiusServerAuthProtocol	CFSTR("AuthProtocol")				/*									CFArray */
+/* kRASPropRadiusServerAuthProtocols values are listed in kRASPropPPPAuthProtocol */
+
+/* kRASPropRadiusSharedSecretEncryption values */
+#define kRASValRadiusSharedSecretEncryptionKey		CFSTR("Key")                       
+#define kRASValRadiusSharedSecretEncryptionKeychain	CFSTR("Keychain")                       
+
 /*
  * kRASEntPPPSerial Entity Keys
  */
@@ -224,6 +250,7 @@
 #define kRASPropIPSecNonceSize					CFSTR("NonceSize")				/*									CFNumber */
 #define kRASPropIPSecIdentifierVerification		CFSTR("IdentifierVerification") /*									CFString */
 #define kRASPropIPSecLocalCertificate			CFSTR("LocalCertificate") 		/*									CFData */
+#define kRASPropIPSecNattMultipleUsersEnabled	CFSTR("NattMultipleUsersEnabled")	/*						CFNumber (0 or 1) */
 
 /* kRASPropIPSecExchangeMode values */
 #define kRASValIPSecExchangeModeMain				CFSTR("Main")                       
@@ -329,6 +356,11 @@
 #define kRASPropServerMaximumSessions		CFSTR("MaximumSessions")		/*					CFNumber */
 #define kRASPropServerLogfile				CFSTR("Logfile")				/* 					CFString */
 #define kRASPropServerVerboseLogging		CFSTR("VerboseLogging")			/* 					CFNumber (0 or 1) */
+#define kRASPropServerLoadBalancingEnabled	CFSTR("LoadBalancingEnabled")	/* 					CFNumber (0 or 1) */
+#define kRASPropServerLoadBalancingAddress	CFSTR("LoadBalancingAddress")	/* 					CFString */
+//#define kRASPropServerLoadBalancingInterface	CFSTR("LoadBalancingInterface")	/* 					CFString */
+//#define kRASPropServerLoadBalancingPriority	CFSTR("LoadBalancingPriority")	/* 					CFNumber (1 or 10) */
+#define kRASPropServerLoadBalancingPort		CFSTR("LoadBalancingPort")		/*					CFNumber */
 
 #endif
 

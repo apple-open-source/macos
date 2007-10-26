@@ -28,7 +28,6 @@
 #include <security_keychain/Policies.h>
 #include <Security/oidsalg.h>
 #include <security_cdsa_client/tpclient.h>
-#include <Security/cssmapplePriv.h>
 
 using namespace KeychainCore;
 using namespace CssmClient;
@@ -49,12 +48,16 @@ static const CssmOid *theOidList[] = {
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SSL),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SMIME),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_EAP),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_CODE_SIGN),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_SW_UPDATE_SIGNING),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_IP_SEC),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_ICHAT),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_RESOURCE_SIGN),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_CLIENT),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PKINIT_SERVER),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_CODE_SIGNING),
+	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_PACKAGE_SIGNING),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_CRL),
 	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_REVOCATION_OCSP),
-	static_cast<const CssmOid *>(&CSSMOID_APPLE_TP_RESOURCE_SIGN),
     NULL	// sentinel
 };
 

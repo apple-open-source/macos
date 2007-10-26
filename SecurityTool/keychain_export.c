@@ -354,8 +354,11 @@ keychain_export(int argc, char * const *argv)
 			if(!strcmp("openssl", optarg)) {
 				externFormat = kSecFormatOpenSSL;
 			}
-			else if(!strcmp("openssh", optarg)) {
+			else if(!strcmp("openssh1", optarg)) {
 				externFormat = kSecFormatSSH;
+			}
+			else if(!strcmp("openssh2", optarg)) {
+				externFormat = kSecFormatSSHv2;
 			}
 			else if(!strcmp("bsafe", optarg)) {
 				externFormat = kSecFormatBSAFE;
@@ -408,6 +411,10 @@ keychain_export(int argc, char * const *argv)
 				break;
 			case kSecFormatSSH:
 				externFormat = kSecFormatWrappedSSH;
+				break;
+			case kSecFormatSSHv2:
+				/* there is no wrappedSSHv2 */
+				externFormat = kSecFormatWrappedOpenSSL;
 				break;
 			case kSecFormatWrappedPKCS8:
 				/* proceed */

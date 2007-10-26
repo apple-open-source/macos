@@ -1,6 +1,7 @@
 ;;; mouse-copy.el --- one-click text copy and move
 
-;; Copyright (C) 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1996, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Heidemann <johnh@ISI.EDU>
 ;; Keywords: mouse
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -110,17 +111,17 @@
 See `mouse-copy-work-around-drag-bug' for details.")
 
 (defun mouse-copy-work-around-drag-bug (start-event end-event)
-  "Code to work around a bug in post-19.29 emacs:  it drops mouse-drag events.
+  "Code to work around a bug in post-19.29 Emacs: it drops mouse-drag events.
 The problem occurs under XFree86-3.1.1 (X11R6pl11) but not under X11R5,
-and under post-19.29 but not early versions of emacs.
+and under post-19.29 but not early versions of Emacs.
 
 19.29 and 19.30 seems to drop mouse drag events
-sometimes. (Reproducable under XFree86-3.1.1 (X11R6pl11) and
+sometimes. (Reproducible under XFree86-3.1.1 (X11R6pl11) and
 XFree86-3.1.2 under Linux 1.2.x.  Doesn't occur under X11R5 and SunOS
 4.1.1.)
 
 To see if you have the problem:
-Disable this routine (with (setq mouse-copy-have-drag-bug nil))..
+Disable this routine (with (setq mouse-copy-have-drag-bug nil)).
 Click and drag for a while.
 If highlighting stops tracking, you have the bug.
 If you have the bug (or the real fix :-), please let me know."
@@ -151,7 +152,7 @@ If you have the bug (or the real fix :-), please let me know."
       (set-buffer end-buffer)
       (x-set-selection 'SECONDARY (buffer-substring beg end)))))
 
-    
+
 (defun mouse-drag-secondary-pasting (start-event)
   "Drag out a secondary selection, then paste it at the current point.
 
@@ -182,7 +183,7 @@ put the point at one place, then click and drag over some other region."
 	(insert (x-get-selection 'SECONDARY))
 	(setq mouse-copy-last-paste-end (point)))
     (setq mouse-copy-last-paste-start nil)))
-  
+
 
 (defun mouse-kill-preserving-secondary ()
   "Kill the text in the secondary selection, but leave the selection set.
@@ -224,4 +225,5 @@ by johnh@ficus.cs.ucla.edu."
 
 (provide 'mouse-copy)
 
+;;; arch-tag: 3d50293b-c089-4273-b412-4fc96a5f26ff
 ;;; mouse-copy.el ends here

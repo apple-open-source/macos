@@ -34,7 +34,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: main.c,v 1.50 2006/03/27 23:04:25 abe Exp $";
+static char *rcsid = "$Id: main.c,v 1.51 2006/09/15 18:56:03 abe Exp $";
 #endif
 
 
@@ -65,7 +65,7 @@ main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	int c, i, n, rv;
+	int ad, c, i, n, rv, se1, se2, ss;
 	char *cp;
 	int err = 0;
 	int ev = 0;
@@ -83,6 +83,10 @@ main(argc, argv)
 	struct str_lst *str;
 	int version = 0;
 	int xover = 0;
+
+#if	defined(HASSELINUX)
+	cntxlist_t *cntxp;
+#endif	/* defined(HASSELINUX) */
 
 #if	defined(HASZONES)
 	znhash_t *zp;
@@ -138,7 +142,7 @@ main(argc, argv)
  * Create option mask.
  */
 	(void) snpf(options, sizeof(options),
-	    "?a%sbc:D:d:%sf:F:g:hi:%slL:%sMnNo:Op:Pr:%ssS:tT:u:UvVwx:%s%s",
+	    "?a%sbc:D:d:%sf:F:g:hi:%slL:%sMnNo:Op:Pr:%ssS:tT:u:UvVwx:%s%s%s",
 
 #if	defined(HAS_AFS) && defined(HASAOPT)
 	    "A:",
@@ -181,10 +185,16 @@ main(argc, argv)
 #endif	/* defined(HASXOPT) */
 
 #if	defined(HASZONES)
-	    "z:"
+	    "z:",
 #else	/* !defined(HASZONES) */
-	    ""
+	    "",
 #endif	/* defined(HASZONES) */
+ 
+#if	defined(HASSELINUX)
+	    "Z:"
+#else	/* !defined(HASSELINUX) */
+	    ""
+#endif	/* defined(HASSELINUX) */
 
 	    );
 /*
@@ -253,7 +263,7 @@ main(argc, argv)
 
 #if	defined(MAXSYSCMDL)
 		    else if (Cmdl->len > MAXSYSCMDL) {
-		        (void) fprintf(stderr, "%s: \"-c ", Pn);
+			(void) fprintf(stderr, "%s: \"-c ", Pn);
 			(void) safestrprt(Cmdl->str, stderr, 2);
 			(void) fprintf(stderr, "\" length (%d) > what system",
 			    Cmdl->len);
@@ -403,6 +413,11 @@ main(argc, argv)
 			if (FieldSel[i].id == LSOF_FID_ZONE)
 			    continue;
 #endif	/* !defined(HASZONES) */
+ 
+#if	!defined(HASSELINUX)
+			if (FieldSel[i].id == LSOF_FID_CNTX)
+			    continue;
+#endif	/* !defined(HASSELINUX) */
 
 			if (FieldSel[i].id == LSOF_FID_RDEV)
 			    continue;	/* for compatibility */
@@ -804,6 +819,28 @@ main(argc, argv)
 		}
 		break;
 #endif	/* defined(HASZONES) */
+ 
+#if	defined(HASSELINUX)
+	    case 'Z':
+		if (!is_selinux_enabled()) {
+		   (void) fprintf(stderr, "%s: -Z limited to SELinux\n", Pn);
+		    err = 1;
+		} else {
+		    Fcntx = 1;
+		    if (GOv && (*GOv != '-') && (*GOv != '+')) {
+
+		    /*
+		     * Add to the context name argument hash.
+		     */
+			if (enter_cntx_arg(GOv))
+			    err = 1;
+		    } else if (GOv) {
+			GOx1 = GObk[0];
+			GOx2 = GObk[1];
+		    }
+		}
+		break;
+#endif	/* defined(HASSELINUX) */
 
 	    default:
 		(void) fprintf(stderr, "%s: unknown option (%c)\n", Pn, c);
@@ -849,6 +886,12 @@ main(argc, argv)
  */
 	if (Cmdl || CmdRx)
 	    Selflags |= SELCMD;
+ 
+#if	defined(HASSELINUX)
+	if (CntxArg)
+	    Selflags |= SELCNTX;
+#endif	/* defined(HASSELINUX) */
+
 	if (Fdl)
 	    Selflags |= SELFD;
 	if (Fnet)
@@ -890,9 +933,23 @@ main(argc, argv)
  * Get the device for DEVDEV_PATH.
  */
 	if (stat(DEVDEV_PATH, &sb)) {
-	    (void) fprintf(stderr, "%s: can't stat(%s): %s\n", Pn,
-		DEVDEV_PATH, strerror(errno));
-	    Exit(1);
+	    se1 = errno;
+ 	    if ((ad = strcmp(DEVDEV_PATH, "/dev"))) {
+		if ((ss = stat("/dev", &sb)))
+		    se2 = errno;
+		else
+		    se2 = 0;
+	    } else
+		ss = 1;
+	    if (ss) {
+		(void) fprintf(stderr, "%s: can't stat(%s): %s\n", Pn,
+		    DEVDEV_PATH, strerror(se1));
+		if (ad) {
+		    (void) fprintf(stderr, "%s: can't stat(/dev): %s\n", Pn,
+		    strerror(se2));
+		}
+		Exit(1);
+	    }
 	}
 	DevDev = sb.st_dev;
 /*
@@ -1204,6 +1261,24 @@ main(argc, argv)
 	    }
 	}
 #endif	/* defined(HASZONES) */
+ 
+#if	defined(HASSELINUX)
+	if (CntxArg) {
+
+	/*
+	 * Check context argument results.
+	 */
+	    for (cntxp = CntxArg; cntxp; cntxp = cntxp->next) {
+		if (!cntxp->f) {
+		    rv = 1;
+		    if (Fverbose) {
+			(void) printf("%s: context not located: ", Pn);
+			safestrprt(cntxp->cntx, stdout, 1);
+		    }
+		}
+	    }
+	}
+#endif	/* defined(HASSELINUX) */
 
 	for (i = 0; i < Npgid; i++) {
 

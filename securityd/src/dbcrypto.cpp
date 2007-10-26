@@ -238,7 +238,7 @@ DbBlob *DatabaseCryptoCore::encodeCore(const DbBlob &blobTemplate,
 // Throws exceptions if decoding fails.
 // Memory returned in privateAclBlob is allocated and becomes owned by caller.
 //
-void DatabaseCryptoCore::decodeCore(DbBlob *blob, void **privateAclBlob)
+void DatabaseCryptoCore::decodeCore(const DbBlob *blob, void **privateAclBlob)
 {
 	assert(mHaveMaster);	// must have master key installed
     
@@ -247,8 +247,8 @@ void DatabaseCryptoCore::decodeCore(DbBlob *blob, void **privateAclBlob)
     decryptor.mode(CSSM_ALGMODE_CBCPadIV8);
     decryptor.padding(CSSM_PADDING_PKCS1);
     decryptor.key(mMasterKey);
-    CssmData ivd(blob->iv, sizeof(blob->iv)); decryptor.initVector(ivd);
-    CssmData cryptoBlob(blob->cryptoBlob(), blob->cryptoBlobLength());
+    CssmData ivd = CssmData::wrap(blob->iv); decryptor.initVector(ivd);
+    CssmData cryptoBlob = CssmData::wrap(blob->cryptoBlob(), blob->cryptoBlobLength());
     CssmData decryptedBlob, remData;
     decryptor.decrypt(cryptoBlob, decryptedBlob, remData);
     DbBlob::PrivateBlob *privateBlob = decryptedBlob.interpretedAs<DbBlob::PrivateBlob>();
@@ -263,8 +263,8 @@ void DatabaseCryptoCore::decodeCore(DbBlob *blob, void **privateAclBlob)
     
     // verify signature on the whole blob
     CssmData signChunk[] = {
-		CssmData(blob->data(), fieldOffsetOf(&DbBlob::blobSignature)),
-    	CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
+		CssmData::wrap(blob->data(), fieldOffsetOf(&DbBlob::blobSignature)),
+    	CssmData::wrap(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
 	};
     CSSM_ALGORITHMS verifyAlgorithm = CSSM_ALGID_SHA1HMAC;
 #if defined(COMPAT_OSX_10_0)
@@ -273,7 +273,7 @@ void DatabaseCryptoCore::decodeCore(DbBlob *blob, void **privateAclBlob)
 #endif
     VerifyMac verifier(Server::csp(), verifyAlgorithm);
     verifier.key(mSigningKey);
-    verifier.verify(signChunk, 2, CssmData(blob->blobSignature, sizeof(blob->blobSignature)));
+    verifier.verify(signChunk, 2, CssmData::wrap(blob->blobSignature));
     
     // all checks out; start extracting fields
     if (privateAclBlob) {
@@ -306,31 +306,45 @@ void DatabaseCryptoCore::importSecrets(const DatabaseCryptoCore &src)
 // Encode a key blob
 //
 KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
-    const CssmData &publicAcl, const CssmData &privateAcl) const
+    const CssmData &publicAcl, const CssmData &privateAcl,
+	bool inTheClear) const
 {
-    assert(isValid());		// need our database secrets
-    
-    // create new IV
-    uint8 iv[8];
-    Server::active().random(iv);
-    
-    // extract and hold some header bits the CSP does not want to see
     CssmKey key = inKey;
+	uint8 iv[8];
+	CssmKey wrappedKey;
+
+	if(inTheClear && (privateAcl.Length != 0)) {
+		/* can't store private ACL component in the clear */
+		CssmError::throwMe(CSSMERR_DL_INVALID_ACCESS_CREDENTIALS);
+	}
+	
+    // extract and hold some header bits the CSP does not want to see
     uint32 heldAttributes = key.attributes() & managedAttributes;
     key.clearAttribute(managedAttributes);
 	key.setAttribute(forcedAttributes);
     
-    // use a CMS wrap to encrypt the key
-    WrapKey wrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
-    wrap.key(mEncryptionKey);
-    wrap.mode(CSSM_ALGMODE_CBCPadIV8);
-    wrap.padding(CSSM_PADDING_PKCS1);
-    CssmData ivd(iv, sizeof(iv)); wrap.initVector(ivd);
-    wrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT,
-        uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM));
-    CssmKey wrappedKey;
-    wrap(key, wrappedKey, &privateAcl);
-    
+	if(inTheClear) {
+		/* NULL wrap of public key */
+		WrapKey wrap(Server::csp(), CSSM_ALGID_NONE);
+		wrap(key, wrappedKey, NULL);
+	}
+	else {
+		assert(isValid());		// need our database secrets
+		
+		// create new IV
+		Server::active().random(iv);
+		
+	   // use a CMS wrap to encrypt the key
+		WrapKey wrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
+		wrap.key(mEncryptionKey);
+		wrap.mode(CSSM_ALGMODE_CBCPadIV8);
+		wrap.padding(CSSM_PADDING_PKCS1);
+		CssmData ivd(iv, sizeof(iv)); wrap.initVector(ivd);
+		wrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT,
+			uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM));
+		wrap(key, wrappedKey, &privateAcl);
+    }
+	
     // stick the held attribute bits back in
 	key.clearAttribute(forcedAttributes);
     key.setAttribute(heldAttributes);
@@ -342,7 +356,9 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     // assemble the KeyBlob
     memset(blob, 0, sizeof(KeyBlob));	// fill alignment gaps
     blob->initialize();
-    memcpy(blob->iv, iv, sizeof(iv));
+	if(!inTheClear) {
+		memcpy(blob->iv, iv, sizeof(iv));
+	}
     blob->header = key.header();
 	h2ni(blob->header);	// endian-correct the header
     blob->wrappedHeader.blobType = wrappedKey.blobType();
@@ -354,17 +370,23 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
     memcpy(blob->cryptoBlob(), wrappedKey.data(), wrappedKey.length());
     blob->totalLength = blob->startCryptoBlob + wrappedKey.length();
     
-    // sign the blob
-    CssmData signChunk[] = {
-		CssmData(blob->data(), fieldOffsetOf(&KeyBlob::blobSignature)),
-    	CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
-	};
-    CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
-    GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);	//@@@!!! CRUD
-    signer.key(mSigningKey);
-    signer.sign(signChunk, 2, signature);
-    assert(signature.length() == sizeof(blob->blobSignature));
-    
+ 	if(inTheClear) {
+		/* indicate that this is cleartext for decoding */
+		blob->setClearTextSignature();
+	}
+	else {
+		// sign the blob
+		CssmData signChunk[] = {
+			CssmData(blob->data(), fieldOffsetOf(&KeyBlob::blobSignature)),
+			CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
+		};
+		CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
+		GenerateMac signer(Server::csp(), CSSM_ALGID_SHA1HMAC_LEGACY);	//@@@!!! CRUD
+		signer.key(mSigningKey);
+		signer.sign(signChunk, 2, signature);
+		assert(signature.length() == sizeof(blob->blobSignature));
+    }
+	
     // all done. Clean up
     Server::csp()->allocator().free(wrappedKey);
     return blob;
@@ -376,9 +398,7 @@ KeyBlob *DatabaseCryptoCore::encodeKeyCore(const CssmKey &inKey,
 //
 void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     CssmKey &key, void * &pubAcl, void * &privAcl) const
-{
-    assert(isValid());		// need our database secrets
-    
+{    
     // Assemble the encrypted blob as a CSSM "wrapped key"
     CssmKey wrappedKey;
     wrappedKey.KeyHeader = blob->header;
@@ -389,39 +409,55 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     wrappedKey.wrapMode(blob->wrappedHeader.wrapMode);
     wrappedKey.KeyData = CssmData(blob->cryptoBlob(), blob->cryptoBlobLength());
 	
-    // verify signature (check against corruption)
-    CssmData signChunk[] = {
-    	CssmData::wrap(blob, fieldOffsetOf(&KeyBlob::blobSignature)),
-    	CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
-	};
-    CSSM_ALGORITHMS verifyAlgorithm = CSSM_ALGID_SHA1HMAC;
-#if defined(COMPAT_OSX_10_0)
-    if (blob->version() == blob->version_MacOS_10_0)
-        verifyAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
-#endif
-    VerifyMac verifier(Server::csp(), verifyAlgorithm);
-    verifier.key(mSigningKey);
-    CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
-    verifier.verify(signChunk, 2, signature);
-    
+	bool inTheClear = blob->isClearText();
+	if(!inTheClear) {
+		// verify signature (check against corruption)
+		assert(isValid());		// need our database secrets
+		CssmData signChunk[] = {
+			CssmData::wrap(blob, fieldOffsetOf(&KeyBlob::blobSignature)),
+			CssmData(blob->publicAclBlob(), blob->publicAclBlobLength() + blob->cryptoBlobLength())
+		};
+		CSSM_ALGORITHMS verifyAlgorithm = CSSM_ALGID_SHA1HMAC;
+	#if defined(COMPAT_OSX_10_0)
+		if (blob->version() == blob->version_MacOS_10_0)
+			verifyAlgorithm = CSSM_ALGID_SHA1HMAC_LEGACY;	// BSafe bug compatibility
+	#endif
+		VerifyMac verifier(Server::csp(), verifyAlgorithm);
+		verifier.key(mSigningKey);
+		CssmData signature(blob->blobSignature, sizeof(blob->blobSignature));
+		verifier.verify(signChunk, 2, signature);
+    }
+	/* else signature indicates cleartext */
+	
     // extract and hold some header bits the CSP does not want to see
     uint32 heldAttributes = n2h(blob->header.attributes()) & managedAttributes;
    
-    // decrypt the key using an unwrapping operation
-    UnwrapKey unwrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
-    unwrap.key(mEncryptionKey);
-    unwrap.mode(CSSM_ALGMODE_CBCPadIV8);
-    unwrap.padding(CSSM_PADDING_PKCS1);
-    CssmData ivd(blob->iv, sizeof(blob->iv)); unwrap.initVector(ivd);
-    unwrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT,
-        uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM));
-    CssmData privAclData;
-    wrappedKey.clearAttribute(managedAttributes);    //@@@ shouldn't be needed(?)
-    unwrap(wrappedKey,
-        KeySpec(n2h(blob->header.usage()),
-			(n2h(blob->header.attributes()) & ~managedAttributes) | forcedAttributes),
-        key, &privAclData);
-    
+	CssmData privAclData;
+	if(inTheClear) {
+		/* NULL unwrap */
+		UnwrapKey unwrap(Server::csp(), CSSM_ALGID_NONE);
+		wrappedKey.clearAttribute(managedAttributes);    //@@@ shouldn't be needed(?)
+		unwrap(wrappedKey,
+			KeySpec(n2h(blob->header.usage()),
+				(n2h(blob->header.attributes()) & ~managedAttributes) | forcedAttributes),
+			key, &privAclData);
+	}
+	else {
+		// decrypt the key using an unwrapping operation
+		UnwrapKey unwrap(Server::csp(), CSSM_ALGID_3DES_3KEY_EDE);
+		unwrap.key(mEncryptionKey);
+		unwrap.mode(CSSM_ALGMODE_CBCPadIV8);
+		unwrap.padding(CSSM_PADDING_PKCS1);
+		CssmData ivd(blob->iv, sizeof(blob->iv)); unwrap.initVector(ivd);
+		unwrap.add(CSSM_ATTRIBUTE_WRAPPED_KEY_FORMAT,
+			uint32(CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM));
+		wrappedKey.clearAttribute(managedAttributes);    //@@@ shouldn't be needed(?)
+		unwrap(wrappedKey,
+			KeySpec(n2h(blob->header.usage()),
+				(n2h(blob->header.attributes()) & ~managedAttributes) | forcedAttributes),
+			key, &privAclData);
+    }
+	
     // compare retrieved key headers with blob headers (sanity check)
     // @@@ this should probably be checked over carefully
     CssmKey::Header &real = key.header();
@@ -437,9 +473,15 @@ void DatabaseCryptoCore::decodeKeyCore(KeyBlob *blob,
     // re-insert held bits
     key.header().KeyAttr |= heldAttributes;
     
+	if(inTheClear && (real.keyClass() != CSSM_KEYCLASS_PUBLIC_KEY)) {
+		/* Spoof - cleartext KeyBlob passed off as private key */
+        CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
+	}
+	
     // got a valid key: return the pieces
     pubAcl = blob->publicAclBlob();		// points into blob (shared)
-    privAcl = privAclData;				// was allocated by CSP decrypt
+    privAcl = privAclData;				// was allocated by CSP decrypt, else NULL for
+										// cleatext keys
     // key was set by unwrap operation
 }
 

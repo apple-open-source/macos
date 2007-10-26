@@ -30,14 +30,17 @@
 #include "DirServicesUtils.h"
 #include "DirServicesTypesPriv.h"
 #include "PrivateTypes.h"
+#include "CDSRefMap.h"
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
 #include "CRCCalc.h"
 
-extern sInt32 gProcessPID;
+extern pid_t		gProcessPID;
+extern CDSRefMap	*gFWRefMap;
+extern CDSRefTable	*gFWRefTable;
 
-static const	uInt32	kFWBuffPad	= 16;
+static const	UInt32	kFWBuffPad	= 16;
 
 //--------------------------------------------------------------------------------------------------
 //
@@ -95,17 +98,17 @@ tDirStatus IsStdBuffer ( tDataBufferPtr inOutDataBuff )
 
 {
 	tDirStatus	outResult	= eDSNoErr;
-	sInt32		siResult	= eDSNoErr;
+	SInt32		siResult	= eDSNoErr;
 	CBuff		inBuff;
-    uInt32		bufTag		= 0;
+    UInt32		bufTag		= 0;
 
     //check to determine whether we employ client side buffer parsing
     //ie. look for 'StdA' OR 'StdB' tags
 
 	try
 	{
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSEmptyBuffer );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSEmptyBuffer );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		siResult = inBuff.Initialize( inOutDataBuff );
 		if ( siResult != eDSNoErr ) throw( siResult );
@@ -121,7 +124,7 @@ tDirStatus IsStdBuffer ( tDataBufferPtr inOutDataBuff )
 
     }
     
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		outResult = (tDirStatus)err;
 	}
@@ -134,7 +137,7 @@ tDirStatus IsStdBuffer ( tDataBufferPtr inOutDataBuff )
 //	Name: IsFWReference
 //------------------------------------------------------------------------------------
 
-tDirStatus IsFWReference ( uInt32 inRef )
+tDirStatus IsFWReference ( UInt32 inRef )
 
 {
 	tDirStatus	outResult	= eDSInvalidReference;
@@ -156,32 +159,32 @@ tDirStatus IsFWReference ( uInt32 inRef )
 //------------------------------------------------------------------------------------
 
 tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
-								unsigned long		inRecordEntryIndex,
+								UInt32				inRecordEntryIndex,
 								tAttributeListRef	*outAttributeListRef,
 								tRecordEntryPtr		*outRecEntryPtr )
 
 {
-	sInt32					siResult		= eDSNoErr;
-	uInt32					uiIndex			= 0;
-	uInt32					uiCount			= 0;
-	uInt32					uiOffset		= 0;
-	uInt32					uberOffset		= 0;
+	SInt32					siResult		= eDSNoErr;
+	UInt32					uiIndex			= 0;
+	UInt32					uiCount			= 0;
+	UInt32					uiOffset		= 0;
+	UInt32					uberOffset		= 0;
 	char 				   *pData			= nil;
 	tRecordEntryPtr			pRecEntry		= nil;
 	CBuff					inBuff;
-	uInt32					offset			= 0;
-	uInt16					usTypeLen		= 0;
+	UInt32					offset			= 0;
+	UInt16					usTypeLen		= 0;
 	char				   *pRecType		= nil;
-	uInt16					usNameLen		= 0;
+	UInt16					usNameLen		= 0;
 	char				   *pRecName		= nil;
-	uInt16					usAttrCnt		= 0;
-	uInt32					buffLen			= 0;
-    uInt32					bufTag			= 0;
+	UInt16					usAttrCnt		= 0;
+	UInt32					buffLen			= 0;
+    UInt32					bufTag			= 0;
 
 	try
 	{
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSNullDataBuff );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		siResult = inBuff.Initialize( inOutDataBuff );
 		if ( siResult != eDSNoErr ) throw( siResult );
@@ -193,10 +196,12 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inRecordEntryIndex;
-		if ((uiIndex > uiCount) || (uiIndex == 0)) throw( (sInt32)eDSInvalidIndex );
+		if ( uiIndex == 0 ) throw( (SInt32)eDSInvalidIndex );
+		
+		if ( uiIndex > uiCount ) throw( (SInt32)eDSIndexOutOfRange );
 
 		pData = inBuff.GetDataBlock( uiIndex, &uberOffset );
-		if ( pData == nil ) throw( (sInt32)eDSCorruptBuffer );
+		if ( pData == nil ) throw( (SInt32)eDSCorruptBuffer );
 
 		//assume that the length retrieved is valid
 		buffLen = inBuff.GetDataBlockLength( uiIndex );
@@ -206,7 +211,7 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		offset	= 0; //buffLen does not include first four bytes
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the length for the record type
 		::memcpy( &usTypeLen, pData, 2 );
@@ -220,7 +225,7 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		offset	+= usTypeLen;
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the length for the record name
 		::memcpy( &usNameLen, pData, 2 );
@@ -234,7 +239,7 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		offset	+= usNameLen;
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the attribute count
 		::memcpy( &usAttrCnt, pData, 2 );
@@ -262,26 +267,26 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 		pRecEntry->fRecordAttributeCount = usAttrCnt;
 
         //create a reference here
-        siResult = CDSRefTable::NewAttrListRef( outAttributeListRef, 0, gProcessPID );
+        siResult = gFWRefTable->NewAttrListRef( outAttributeListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetRecordEntry:ExtractRecordEntry:CDSRefTable::NewAttrListRef ref = %d", *outAttributeListRef);
+			syslog(LOG_CRIT, "DS:dsGetRecordEntry:ExtractRecordEntry:gFWRefTable->NewAttrListRef ref = %d", *outAttributeListRef);
 		}
 		        
 		//uberOffset + offset + 4;	// context used by next calls of GetAttributeEntry
 									// include the four bytes of the buffLen
-		siResult = CDSRefTable::SetOffset( *outAttributeListRef, eAttrListRefType, uberOffset + offset + 4, gProcessPID );
+		siResult = gFWRefTable->SetOffset( *outAttributeListRef, eAttrListRefType, uberOffset + offset + 4, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = CDSRefTable::SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable->SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outRecEntryPtr = pRecEntry;
         pRecEntry = nil;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -304,46 +309,46 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
 
 tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 									tAttributeListRef		inAttrListRef,
-									unsigned long			inAttrInfoIndex,
+									UInt32					inAttrInfoIndex,
 									tAttributeValueListRef	*outAttrValueListRef,
 									tAttributeEntryPtr		*outAttrInfoPtr )
 {
-	sInt32					siResult			= eDSNoErr;
-	uInt16					usAttrTypeLen		= 0;
-	uInt16					usAttrCnt			= 0;
-	uInt16					usAttrLen16			= 0;
-	uInt32					usAttrLen			= 0;
-	uInt16					usValueCnt			= 0;
-	uInt16					usValueLen16		= 0;
-	uInt32					usValueLen			= 0;
-	uInt32					i					= 0;
-	uInt32					uiIndex				= 0;
-	uInt32					uiAttrEntrySize		= 0;
-	uInt32					uiOffset			= 0;
-	uInt32					uiTotalValueSize	= 0;
-	uInt32					offset				= 0;
-	uInt32					buffSize			= 0;
-	uInt32					buffLen				= 0;
+	SInt32					siResult			= eDSNoErr;
+	UInt16					usAttrTypeLen		= 0;
+	UInt16					usAttrCnt			= 0;
+	UInt16					usAttrLen16			= 0;
+	UInt32					usAttrLen			= 0;
+	UInt16					usValueCnt			= 0;
+	UInt16					usValueLen16		= 0;
+	UInt32					usValueLen			= 0;
+	UInt32					i					= 0;
+	UInt32					uiIndex				= 0;
+	UInt32					uiAttrEntrySize		= 0;
+	UInt32					uiOffset			= 0;
+	UInt32					uiTotalValueSize	= 0;
+	UInt32					offset				= 0;
+	UInt32					buffSize			= 0;
+	UInt32					buffLen				= 0;
 	char				   *p			   		= nil;
 	char				   *pAttrType	   		= nil;
 	tAttributeEntryPtr		pAttribInfo			= nil;
-	uInt32					attrListOffset		= 0;
-	uInt32					bufTag				= 0;
+	UInt32					attrListOffset		= 0;
+	UInt32					bufTag				= 0;
 
 	try
 	{
 	
-		siResult = CDSRefTable::GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
+		siResult = gFWRefTable->GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = CDSRefTable::GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable->GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrInfoIndex;
-		if (uiIndex == 0) throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex == 0) throw( (SInt32)eDSInvalidIndex );
 				
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSNullDataBuff );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		buffSize	= inOutDataBuff->fBufferSize;
 		//here we can't use fBufferLength for the buffLen SINCE the buffer is packed at the END of the data block
@@ -355,11 +360,11 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		offset	= attrListOffset;
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 				
 		// Get the attribute count
 		::memcpy( &usAttrCnt, p, 2 );
-		if (uiIndex > usAttrCnt) throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex > usAttrCnt) throw( (SInt32)eDSIndexOutOfRange );
 
 		// Move 2 bytes
 		p		+= 2;
@@ -371,7 +376,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			for ( i = 1; i < uiIndex; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the attribute
 				::memcpy( &usAttrLen16, p, 2 );
@@ -385,7 +390,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			uiOffset = offset;
 	
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 			// Get the length for the attribute block
 			::memcpy( &usAttrLen16, p, 2 );
@@ -394,7 +399,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			p		+= 2;
 			offset	+= 2;
 			
-			usAttrLen = (uInt32)usAttrLen16;
+			usAttrLen = (UInt32)usAttrLen16;
 		}
 		else
 		{
@@ -402,7 +407,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			for ( i = 1; i < uiIndex; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (4 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (4 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the attribute
 				::memcpy( &usAttrLen, p, 4 );
@@ -416,7 +421,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			uiOffset = offset;
 	
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (4 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (4 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 			// Get the length for the attribute block
 			::memcpy( &usAttrLen, p, 4 );
@@ -428,9 +433,10 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 
 		//set the bufLen to stricter range
 		buffLen = offset + usAttrLen;
+		if ( buffLen > buffSize ) throw ( (SInt32)eDSInvalidBuffFormat );
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the length for the attribute type
 		::memcpy( &usAttrTypeLen, p, 2 );
@@ -440,7 +446,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		offset	+= 2 + usAttrTypeLen;
 		
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get number of values for this attribute
 		::memcpy( &usValueCnt, p, 2 );
@@ -453,7 +459,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			for ( i = 0; i < usValueCnt; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the value
 				::memcpy( &usValueLen16, p, 2 );
@@ -469,7 +475,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 			for ( i = 0; i < usValueCnt; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (4 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (4 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the value
 				::memcpy( &usValueLen, p, 4 );
@@ -492,24 +498,24 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		::memcpy( pAttribInfo->fAttributeSignature.fBufferData, pAttrType, usAttrTypeLen );
 
         //create a reference here
-        siResult = CDSRefTable::NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
+        siResult = gFWRefTable->NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 		
 		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
 		{
-			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractAttributeEntry:CDSRefTable::NewAttrValueRef ref = %d", *outAttrValueListRef);
+			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractAttributeEntry:gFWRefTable->NewAttrValueRef ref = %d", *outAttrValueListRef);
 		}
 		        
-		siResult = CDSRefTable::SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
+		siResult = gFWRefTable->SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
-		siResult = CDSRefTable::SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
+		siResult = gFWRefTable->SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		*outAttrInfoPtr = pAttribInfo;
 		pAttribInfo = nil;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -532,39 +538,39 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 
 tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 									tAttributeValueListRef	 inAttrValueListRef,
-									unsigned long			 inAttrValueIndex,
+									UInt32					 inAttrValueIndex,
 									tAttributeValueEntryPtr	*outAttrValue )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt16						usValueCnt		= 0;
-	uInt16						usValueLen16	= 0;
-	uInt32						usValueLen		= 0;
-	uInt16						usAttrNameLen	= 0;
-	uInt32						i				= 0;
-	uInt32						uiIndex			= 0;
-	uInt32						offset			= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt16						usValueCnt		= 0;
+	UInt16						usValueLen16	= 0;
+	UInt32						usValueLen		= 0;
+	UInt16						usAttrNameLen	= 0;
+	UInt32						i				= 0;
+	UInt32						uiIndex			= 0;
+	UInt32						offset			= 0;
 	char					   *p				= nil;
 	tAttributeValueEntry	   *pAttrValue		= nil;
-	uInt32						buffSize		= 0;
-	uInt32						buffLen			= 0;
-	uInt16						attrLen16		= 0;
-	uInt32						attrLen			= 0;
-	uInt32						attrValueOffset	= 0;
-	uInt32						bufTag			= 0;
+	UInt32						buffSize		= 0;
+	UInt32						buffLen			= 0;
+	UInt16						attrLen16		= 0;
+	UInt32						attrLen			= 0;
+	UInt32						attrValueOffset	= 0;
+	UInt32						bufTag			= 0;
 
 	try
 	{
-		siResult = CDSRefTable::GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
+		siResult = gFWRefTable->GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
-		siResult = CDSRefTable::GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
+		siResult = gFWRefTable->GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
 
 		uiIndex = inAttrValueIndex;
-		if (uiIndex == 0) throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex == 0) throw( (SInt32)eDSInvalidIndex );
 
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSNullDataBuff );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		buffSize	= inOutDataBuff->fBufferSize;
 		//here we can't use fBufferLength for the buffLen SINCE the buffer is packed at the END of the data block
@@ -578,7 +584,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 					
 			// Get the buffer length
 			::memcpy( &attrLen16, p, 2 );
@@ -586,7 +592,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			//now add the offset to the attr length for the value of buffLen to be used to check for buffer overruns
 			//AND add the length of the buffer length var as stored ie. 2 bytes
 			buffLen		= attrLen16 + attrValueOffset + 2;
-			if (buffLen > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (buffLen > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 	
 			// Skip past the attribute length
 			p		+= 2;
@@ -595,7 +601,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		else
 		{
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (4 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (4 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 					
 			// Get the buffer length
 			::memcpy( &attrLen, p, 4 );
@@ -603,7 +609,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			//now add the offset to the attr length for the value of buffLen to be used to check for buffer overruns
 			//AND add the length of the buffer length var as stored ie. 4 bytes
 			buffLen		= attrLen + attrValueOffset + 4;
-			if (buffLen > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (buffLen > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 	
 			// Skip past the attribute length
 			p		+= 4;
@@ -611,7 +617,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		}
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the attribute name length
 		::memcpy( &usAttrNameLen, p, 2 );
@@ -620,7 +626,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		offset	+= 2 + usAttrNameLen;
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		// Get the value count
 		::memcpy( &usValueCnt, p, 2 );
@@ -628,7 +634,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		p		+= 2;
 		offset	+= 2;
 
-		if (uiIndex > usValueCnt)  throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex > usValueCnt)  throw( (SInt32)eDSIndexOutOfRange );
 
 		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
@@ -636,7 +642,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			for ( i = 1; i < uiIndex; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the value
 				::memcpy( &usValueLen16, p, 2 );
@@ -646,14 +652,14 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			}
 	
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (2 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 			::memcpy( &usValueLen16, p, 2 );
 			
 			p		+= 2;
 			offset	+= 2;
 			
-			usValueLen = (uInt32)usValueLen16;
+			usValueLen = (UInt32)usValueLen16;
 		}
 		else
 		{
@@ -661,7 +667,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			for ( i = 1; i < uiIndex; i++ )
 			{
 				// Do record check, verify that offset is not past end of buffer, etc.
-				if (4 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+				if (4 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 				// Get the length for the value
 				::memcpy( &usValueLen, p, 4 );
@@ -671,7 +677,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			}
 	
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if (4 + offset > buffLen)  throw( (sInt32)eDSInvalidBuffFormat );
+			if (4 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
 			
 			::memcpy( &usValueLen, p, 4 );
 			
@@ -679,7 +685,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 			offset	+= 4;
 		}
 
-		//if (usValueLen == 0)  throw( (sInt32)eDSInvalidBuffFormat ); //if zero is it okay?
+		//if (usValueLen == 0)  throw( (SInt32)eDSInvalidBuffFormat ); //if zero is it okay?
 
 		pAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + usValueLen + kFWBuffPad );
 
@@ -687,18 +693,18 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		pAttrValue->fAttributeValueData.fBufferLength	= usValueLen;
 		
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if ( usValueLen + offset > buffLen ) throw( (sInt32)eDSInvalidBuffFormat );
+		if ( usValueLen + offset > buffLen ) throw( (SInt32)eDSInvalidBuffFormat );
 		
 		::memcpy( pAttrValue->fAttributeValueData.fBufferData, p, usValueLen );
 
 		// Set the attribute value ID
-		pAttrValue->fAttributeValueID = CalcCRC( pAttrValue->fAttributeValueData.fBufferData );
+		pAttrValue->fAttributeValueID = CalcCRCWithLength( pAttrValue->fAttributeValueData.fBufferData, usValueLen );
 
 		*outAttrValue = pAttrValue;
 		pAttrValue = nil;
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -714,33 +720,386 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 
 } // ExtractAttributeValue
 
-// ---------------------------------------------------------------------------
-//	* CalcCRC
-// ---------------------------------------------------------------------------
+//------------------------------------------------------------------------------------
+//	Name: ExtractNextAttributeEntry
+//------------------------------------------------------------------------------------
 
-uInt32 CalcCRC ( const char *inStr )
+tDirStatus ExtractNextAttributeEntry (	tDataBufferPtr				inOutDataBuff,
+										tAttributeListRef			inAttrListRef,
+										UInt32						inAttrInfoIndex,
+										SInt32					   *inOutOffset,
+										tAttributeValueListRef	   *outAttrValueListRef,
+										tAttributeEntryPtr		   *outAttrInfoPtr )
 {
-	const char 	   *p			= inStr;
-	sInt32			siI			= 0;
-	sInt32			siStrLen	= 0;
-	uInt32			uiCRC		= 0xFFFFFFFF;
-	CRCCalc			aCRCCalc;
+	SInt32					siResult			= eDSNoErr;
+	UInt16					usAttrTypeLen		= 0;
+	UInt16					usAttrCnt			= 0;
+	UInt16					usAttrLen16			= 0;
+	UInt32					usAttrLen			= 0;
+	UInt16					usValueCnt			= 0;
+	UInt32					uiIndex				= 0;
+	UInt32					uiAttrEntrySize		= 0;
+	UInt32					uiOffset			= 0;
+	UInt32					uiTotalValueSize	= 0;
+	UInt32					offset				= 0;
+	UInt32					buffSize			= 0;
+	UInt32					buffLen				= 0;
+	char				   *p			   		= nil;
+	char				   *pAttrType	   		= nil;
+	tAttributeEntryPtr		pAttribInfo			= nil;
+	UInt32					attrListOffset		= 0;
+	UInt32					bufTag				= 0;
 
-	if ( inStr != nil )
+	try
 	{
-		siStrLen = ::strlen( inStr );
+		siResult = gFWRefTable->GetOffset( inAttrListRef, eAttrListRefType, &attrListOffset, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
 
-		for ( siI = 0; siI < siStrLen; ++siI )
+		siResult = gFWRefTable->GetBufTag( inAttrListRef, eAttrListRefType, &bufTag, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		uiIndex = inAttrInfoIndex;
+		if (uiIndex == 0) throw( (SInt32)eDSInvalidIndex );
+				
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
+
+		buffSize	= inOutDataBuff->fBufferSize;
+		//here we can't use fBufferLength for the buffLen SINCE the buffer is packed at the END of the data block
+		//and the fBufferLength is the overall length of the data for all blocks at the end of the data block
+		//the value ALSO includes the bookkeeping data at the start of the data block
+		//so we need to read it here
+
+		p		= inOutDataBuff->fBufferData + attrListOffset;
+		offset	= attrListOffset;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+				
+		// Get the attribute count
+		::memcpy( &usAttrCnt, p, 2 );
+		if (uiIndex > usAttrCnt) throw( (SInt32)eDSIndexOutOfRange );
+
+		// Move 2 bytes
+		p		+= 2;
+		offset	+= 2;
+		
+		//add the inOutOffset which should place us at the correct attribute
+		p		+= *inOutOffset;
+		offset	+= *inOutOffset;
+		//set the offset to the length of attribute value block for ExtractNextAttributeValue
+		uiOffset = offset;
+
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
-			uiCRC = aCRCCalc.UPDC32( *p, uiCRC );
-			p++;
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+			
+			// Get the length for the attribute block
+			::memcpy( &usAttrLen16, p, 2 );
+	
+			// Skip past the attribute length
+			p		+= 2;
+			offset	+= 2;
+			
+			usAttrLen = (UInt32)usAttrLen16;
+		}
+		else
+		{
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (4 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+			
+			// Get the length for the attribute block
+			::memcpy( &usAttrLen, p, 4 );
+	
+			// Skip past the attribute length
+			p		+= 4;
+			offset	+= 4;
+		}
+
+		//set the bufLen to stricter range
+		buffLen = offset + usAttrLen;
+		
+		//now start calculating the attr value(s) length instead of iterating acrosss the values
+		uiTotalValueSize += usAttrLen;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get the length for the attribute type
+		::memcpy( &usAttrTypeLen, p, 2 );
+		
+		pAttrType = p + 2;
+		p		+= 2 + usAttrTypeLen;
+		offset	+= 2 + usAttrTypeLen;
+		uiTotalValueSize -= 2;
+		uiTotalValueSize -= usAttrTypeLen;
+		
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get number of values for this attribute
+		::memcpy( &usValueCnt, p, 2 );
+		
+		p		+= 2;
+		offset	+= 2;
+		uiTotalValueSize -= 2;
+		
+		//decrement the total value length
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
+		{
+			uiTotalValueSize -= (2 * usValueCnt);
+		}
+		else
+		{
+			uiTotalValueSize -= (4 * usValueCnt);
+		}
+
+		uiAttrEntrySize = sizeof( tAttributeEntry ) + usAttrTypeLen + kFWBuffPad;
+		pAttribInfo = (tAttributeEntry *)::calloc( 1, uiAttrEntrySize );
+
+		pAttribInfo->fAttributeValueCount				= usValueCnt;
+		pAttribInfo->fAttributeDataSize					= uiTotalValueSize;	// KW this is likely never used by any client but it is the actual length of all the values
+		pAttribInfo->fAttributeValueMaxSize				= 512;				// KW this is not used anywhere
+		pAttribInfo->fAttributeSignature.fBufferSize	= usAttrTypeLen + kFWBuffPad;
+		pAttribInfo->fAttributeSignature.fBufferLength	= usAttrTypeLen;
+		::memcpy( pAttribInfo->fAttributeSignature.fBufferData, pAttrType, usAttrTypeLen );
+
+        //create a reference here
+        siResult = gFWRefTable->NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+		
+		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
+		{
+			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractNextAttributeEntry:gFWRefTable->NewAttrValueRef ref = %d", *outAttrValueListRef);
+		}
+		        
+		siResult = gFWRefTable->SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+		siResult = gFWRefTable->SetBufTag( *outAttrValueListRef, eAttrValueListRefType, bufTag, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		*outAttrInfoPtr = pAttribInfo;
+		pAttribInfo = nil;
+
+		//check if we have more attrs
+		if ( (uiIndex + 1) > usAttrCnt )
+		{
+			*inOutOffset = -1;
+		}
+		else
+		{
+			*inOutOffset += usAttrLen;
+			if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
+			{
+				*inOutOffset += 2;
+			}
+			else
+			{
+				*inOutOffset += 4;
+			}
 		}
 	}
 
-	return( uiCRC );
+	catch( SInt32 err )
+	{
+		siResult = err;
+	}
 
-} // CalcCRC
+    //clean up pRecEntry if throwing an error
+    if (pAttribInfo != nil)
+    {
+        dsDeallocAttributeEntry(0,pAttribInfo);
+        pAttribInfo = nil;
+    }
 
+	return( (tDirStatus)siResult );
+
+} // ExtractNextAttributeEntry
+
+
+//------------------------------------------------------------------------------------
+//	Name: ExtractNextAttributeValue
+//------------------------------------------------------------------------------------
+
+tDirStatus ExtractNextAttributeValue (	tDataBufferPtr				inOutDataBuff,
+										tAttributeValueListRef		inAttrValueListRef,
+										UInt32						inAttrValueIndex,
+										SInt32					   *inOutOffset,
+										tAttributeValueEntryPtr	   *outAttrValue )
+{
+	SInt32						siResult		= eDSNoErr;
+	UInt16						usValueCnt		= 0;
+	UInt16						usValueLen16	= 0;
+	UInt32						usValueLen		= 0;
+	UInt16						usAttrNameLen	= 0;
+	UInt32						uiIndex			= 0;
+	UInt32						offset			= 0;
+	char					   *p				= nil;
+	tAttributeValueEntry	   *pAttrValue		= nil;
+	UInt32						buffSize		= 0;
+	UInt32						buffLen			= 0;
+	UInt16						attrLen16		= 0;
+	UInt32						attrLen			= 0;
+	UInt32						attrValueOffset	= 0;
+	UInt32						bufTag			= 0;
+
+	try
+	{
+		siResult = gFWRefTable->GetOffset( inAttrValueListRef, eAttrValueListRefType, &attrValueOffset, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		siResult = gFWRefTable->GetBufTag( inAttrValueListRef, eAttrValueListRefType, &bufTag, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		uiIndex = inAttrValueIndex;
+		if (uiIndex == 0) throw( (SInt32)eDSInvalidIndex );
+
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
+
+		buffSize	= inOutDataBuff->fBufferSize;
+		//here we can't use fBufferLength for the buffLen SINCE the buffer is packed at the END of the data block
+		//and the fBufferLength is the overall length of the data for all blocks at the end of the data block
+		//the value ALSO includes the bookkeeping data at the start of the data block
+		//so we need to read it here
+
+		p		= inOutDataBuff->fBufferData + attrValueOffset;
+		offset	= attrValueOffset;
+
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
+		{
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+					
+			// Get the buffer length
+			::memcpy( &attrLen16, p, 2 );
+	
+			//now add the offset to the attr length for the value of buffLen to be used to check for buffer overruns
+			//AND add the length of the buffer length var as stored ie. 2 bytes
+			buffLen		= attrLen16 + attrValueOffset + 2;
+			if (buffLen > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+	
+			// Skip past the attribute length
+			p		+= 2;
+			offset	+= 2;
+		}
+		else
+		{
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (4 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+					
+			// Get the buffer length
+			::memcpy( &attrLen, p, 4 );
+	
+			//now add the offset to the attr length for the value of buffLen to be used to check for buffer overruns
+			//AND add the length of the buffer length var as stored ie. 4 bytes
+			buffLen		= attrLen + attrValueOffset + 4;
+			if (buffLen > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
+	
+			// Skip past the attribute length
+			p		+= 4;
+			offset	+= 4;
+		}
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get the attribute name length
+		::memcpy( &usAttrNameLen, p, 2 );
+		
+		p		+= 2 + usAttrNameLen;
+		offset	+= 2 + usAttrNameLen;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get the value count
+		::memcpy( &usValueCnt, p, 2 );
+		
+		p		+= 2;
+		offset	+= 2;
+
+		if (uiIndex > usValueCnt)  throw( (SInt32)eDSIndexOutOfRange );
+		
+		//use the passed in offset
+		offset	+= *inOutOffset;
+		p		+= *inOutOffset;
+
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
+		{
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+			
+			::memcpy( &usValueLen16, p, 2 );
+			
+			p		+= 2;
+			offset	+= 2;
+			
+			usValueLen = (UInt32)usValueLen16;
+		}
+		else
+		{
+			// Do record check, verify that offset is not past end of buffer, etc.
+			if (4 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+			
+			::memcpy( &usValueLen, p, 4 );
+			
+			p		+= 4;
+			offset	+= 4;
+		}
+
+		//if (usValueLen == 0)  throw( (SInt32)eDSInvalidBuffFormat ); //if zero is it okay?
+
+		pAttrValue = (tAttributeValueEntry *)::calloc( 1, sizeof( tAttributeValueEntry ) + usValueLen + kFWBuffPad );
+
+		pAttrValue->fAttributeValueData.fBufferSize		= usValueLen + kFWBuffPad;
+		pAttrValue->fAttributeValueData.fBufferLength	= usValueLen;
+		
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if ( usValueLen + offset > buffLen ) throw( (SInt32)eDSInvalidBuffFormat );
+		
+		::memcpy( pAttrValue->fAttributeValueData.fBufferData, p, usValueLen );
+
+		// Set the attribute value ID
+		pAttrValue->fAttributeValueID = CalcCRC( pAttrValue->fAttributeValueData.fBufferData );
+
+		*outAttrValue = pAttrValue;
+		pAttrValue = nil;
+		
+		if ( (uiIndex + 1) > usValueCnt )
+		{
+			*inOutOffset = -1;
+		}
+		else
+		{
+			*inOutOffset += usValueLen;
+			if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
+			{
+				*inOutOffset += 2;
+			}
+			else
+			{
+				*inOutOffset += 4;
+			}
+		}
+	}
+
+	catch( SInt32 err )
+	{
+		siResult = err;
+	}
+
+    //clean up pRecEntry if throwing an error
+    if (pAttrValue != nil)
+    {
+        dsDeallocAttributeValueEntry(0,pAttrValue);
+        pAttrValue = nil;
+    }
+
+	return( (tDirStatus)siResult );
+
+} // ExtractNextAttributeValue
 
 //------------------------------------------------------------------------------------
 //	Name: IsNodePathStrBuffer
@@ -750,17 +1109,17 @@ tDirStatus IsNodePathStrBuffer ( tDataBufferPtr inOutDataBuff )
 
 {
 	tDirStatus	outResult	= eDSNoErr;
-	sInt32		siResult	= eDSNoErr;
+	SInt32		siResult	= eDSNoErr;
 	CBuff		inBuff;
-    uInt32		bufTag		= 0;
+    UInt32		bufTag		= 0;
 
     //check to determine whether we can use client side buffer parsing of node path strings
     //ie. look for 'npss' tag
 
 	try
 	{
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSEmptyBuffer );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSEmptyBuffer );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		siResult = inBuff.Initialize( inOutDataBuff );
 		if ( siResult != eDSNoErr ) throw( siResult );
@@ -775,7 +1134,7 @@ tDirStatus IsNodePathStrBuffer ( tDataBufferPtr inOutDataBuff )
 
     }
     
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		outResult = (tDirStatus)err;
 	}
@@ -790,19 +1149,19 @@ tDirStatus IsNodePathStrBuffer ( tDataBufferPtr inOutDataBuff )
 //------------------------------------------------------------------------------------
 
 tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
-								unsigned long	inDirNodeIndex,
+								UInt32			inDirNodeIndex,
 								tDataListPtr   *outDataList )
 {
-	sInt32						siResult		= eDSNoErr;
-	uInt16						usValueLen		= 0;
-	uInt32						iSegment		= 0;
-	uInt32						uiIndex			= 0;
-	uInt32						uiCount			= 0;
-	uInt32						offset			= 0;
+	SInt32						siResult		= eDSNoErr;
+	UInt16						usValueLen		= 0;
+	UInt32						iSegment		= 0;
+	UInt32						uiIndex			= 0;
+	UInt32						uiCount			= 0;
+	UInt32						offset			= 0;
 	char					   *p				= nil;
-	uInt32						buffSize		= 0;
+	UInt32						buffSize		= 0;
 	char					   *outNodePathStr	= nil;
-	uInt16						segmentCount	= 0;
+	UInt16						segmentCount	= 0;
 
 	try
 	{
@@ -818,15 +1177,15 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 		// offsets for each node path in reverse order from end of buffer
 		// note that buffer length is length of data aboved tagged with ttt
 		uiIndex = inDirNodeIndex;
-		if (uiIndex == 0) throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex == 0) throw( (SInt32)eDSInvalidIndex );
 
-		if ( inOutDataBuff == nil ) throw( (sInt32)eDSNullDataBuff );
-		if (inOutDataBuff->fBufferSize == 0) throw( (sInt32)eDSEmptyBuffer );
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
 		
-		if ( outDataList == nil ) throw( (sInt32)eDSNullDataList );
+		if ( outDataList == nil ) throw( (SInt32)eDSNullDataList );
 
 		//validate count and tag together are not past end of buffer
-		if (inOutDataBuff->fBufferSize < 8) throw( (sInt32)eDSInvalidBuffFormat );
+		if (inOutDataBuff->fBufferSize < 8) throw( (SInt32)eDSInvalidBuffFormat );
 
 		buffSize	= inOutDataBuff->fBufferSize;
 
@@ -837,17 +1196,17 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 		::memcpy( &uiCount, p, 4 );
 
 		//validate count contains number
-		if (uiCount == 0) throw( (sInt32)eDSEmptyBuffer );
+		if (uiCount == 0) throw( (SInt32)eDSEmptyBuffer );
 
 		//validate that index requested is in this buffer
-		if (uiIndex > uiCount)  throw( (sInt32)eDSInvalidIndex );
+		if (uiIndex > uiCount)  throw( (SInt32)eDSIndexOutOfRange );
 		
 		//retrieve the offset into the data for this index
 		::memcpy(&offset,inOutDataBuff->fBufferData + buffSize - (uiIndex * 4) , 4);
 		p = inOutDataBuff->fBufferData + offset;
 
 		// Do record check, verify that offset is not past end of buffer, etc.
-		if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
+		if (2 + offset > buffSize)  throw( (SInt32)eDSInvalidBuffFormat );
 		
 		//retrieve number of segments in node path string
 		::memcpy( &segmentCount, p, 2 );
@@ -856,13 +1215,13 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 		offset	+= 2;
 
 		//build the tDataList here
-		*outDataList = dsDataListAllocate(0x00F0F0F0);
+		*outDataList = dsDataListAllocate(0);
 
 		//retrieve each segment and add it to the data list
 		for (iSegment = 1; iSegment <= segmentCount; iSegment++)
 		{
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if ( 2 + offset > buffSize ) throw( (sInt32)eDSInvalidBuffFormat );
+			if ( 2 + offset > buffSize ) throw( (SInt32)eDSInvalidBuffFormat );
 		
 			//retrieve the segment's length
 			::memcpy( &usValueLen, p, 2 );
@@ -871,13 +1230,13 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 			offset	+= 2;
 
 			// Do record check, verify that offset is not past end of buffer, etc.
-			if ( usValueLen > (sInt32)(buffSize - offset) ) throw( (sInt32)eDSInvalidBuffFormat );
+			if ( usValueLen > (SInt32)(buffSize - offset) ) throw( (SInt32)eDSInvalidBuffFormat );
 		
 			outNodePathStr = (char *) calloc( 1, usValueLen + 1);
 			::memcpy( outNodePathStr, p, usValueLen );
 	
 			//add to the tDataList here
-			dsAppendStringToListAlloc( 0x00F0F0F0, *outDataList, outNodePathStr );
+			dsAppendStringToListAlloc( 0, *outDataList, outNodePathStr );
 			
 			free(outNodePathStr);
 			outNodePathStr = nil;
@@ -889,7 +1248,7 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 		
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		siResult = err;
 	}
@@ -902,7 +1261,7 @@ tDirStatus ExtractDirNodeName (	tDataBufferPtr	inOutDataBuff,
 //	Name: IsRemoteReferenceMap
 //------------------------------------------------------------------------------------
 
-tDirStatus IsRemoteReferenceMap ( uInt32 inRef )
+tDirStatus IsRemoteReferenceMap ( UInt32 inRef )
 
 {
 	tDirStatus	outResult	= eDSInvalidReference;
@@ -920,3 +1279,102 @@ tDirStatus IsRemoteReferenceMap ( uInt32 inRef )
 } // IsRemoteReferenceMap
 
 
+//------------------------------------------------------------------------------------
+//	Name: MakeGDNIFWRef
+//------------------------------------------------------------------------------------
+
+tDirStatus MakeGDNIFWRef (	tDataBufferPtr		inOutDataBuff,
+							tAttributeListRef	*outAttributeListRef )
+
+{
+	SInt32					siResult		= eDSNoErr;
+	char 				   *pData			= nil;
+	CBuff					inBuff;
+	UInt32					offset			= 0;
+	UInt16					usTypeLen		= 0;
+	UInt16					usNameLen		= 0;
+	UInt32					buffLen			= 0;
+    UInt32					bufTag			= 0;
+	UInt32					uiOffset		= 0;
+
+	try
+	{
+		if ( inOutDataBuff == nil ) throw( (SInt32)eDSNullDataBuff );
+		if (inOutDataBuff->fBufferSize == 0) throw( (SInt32)eDSEmptyBuffer );
+
+		siResult = inBuff.Initialize( inOutDataBuff );
+		if ( siResult != eDSNoErr ) throw( siResult );
+
+		siResult = inBuff.GetBuffType( &bufTag );
+		if ( siResult != eDSNoErr ) throw( siResult );
+        
+		buffLen = inBuff.GetDataBlockLength(1);
+		
+		pData = inBuff.GetDataBlock( 1, &uiOffset );
+		
+		//add to the offset for the attr list the length of the usually GetDirNodeInfo fixed record labels
+//		record length = 4
+//		aRecData->AppendShort( ::strlen( recordType ) ); = 2
+//		aRecData->AppendString( recordType ); = ??
+//		aRecData->AppendShort( ::strlen( recordName ) ); = 2
+//		aRecData->AppendString( recordName ); = ??
+//		total adjustment = 4 + 2 + ?? + 2 + ?? = ?? (60 for all known DS plugins using std buffer)
+
+		// Skip past the record length
+		pData	+= 4;
+		offset	= 4;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get the length for the record type
+		::memcpy( &usTypeLen, pData, 2 );
+		
+		pData	+= 2;
+		offset	+= 2;
+
+		pData	+= usTypeLen;
+		offset	+= usTypeLen;
+
+		// Do record check, verify that offset is not past end of buffer, etc.
+		if (2 + offset > buffLen)  throw( (SInt32)eDSInvalidBuffFormat );
+		
+		// Get the length for the record name
+		::memcpy( &usNameLen, pData, 2 );
+		
+		pData	+= 2;
+		offset	+= 2;
+
+		pData	+= usNameLen;
+		offset	+= usNameLen;
+
+        //create a reference here
+        siResult = gFWRefTable->NewAttrListRef( outAttributeListRef, 0, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+		
+		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
+		{
+			syslog(LOG_CRIT, "DS:dsGetDirNodeInfo:MakeGDNIFWRef:gFWRefTable->NewAttrListRef ref = %d", *outAttributeListRef);
+		}
+		        
+		//uiOffset + offset;	// context used by next calls of GetAttributeEntry
+								// include the four bytes of the buffLen
+		siResult = gFWRefTable->SetOffset( *outAttributeListRef, eAttrListRefType, offset + uiOffset, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+		siResult = gFWRefTable->SetBufTag( *outAttributeListRef, eAttrListRefType, bufTag, gProcessPID );
+		if ( siResult != eDSNoErr ) throw( siResult );
+	}
+
+	catch( SInt32 err )
+	{
+		siResult = err;
+	}
+    
+	return( (tDirStatus)siResult );
+
+} // MakeGDNIFWRef
+
+const char *dsGetPluginNamePriv( UInt32 inNodeRefNum, UInt32 inPID )
+{
+	return gFWRefMap->GetPluginName( inNodeRefNum, inPID );
+}

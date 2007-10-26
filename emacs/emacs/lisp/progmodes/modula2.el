@@ -1,6 +1,6 @@
 ;;; modula2.el --- Modula-2 editing support package
 
-;; Author: Michael Schmidt <michael@pbinfo.UUCP> 
+;; Author: Michael Schmidt <michael@pbinfo.UUCP>
 ;;	Tom Perrine <Perrin@LOGICON.ARPA>
 ;; Maintainer: FSF
 ;; Keywords: languages
@@ -24,6 +24,7 @@
 
 (defgroup modula2 nil
   "Major mode for editing Modula-2 code."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :prefix "m2-"
   :group 'languages)
 
@@ -104,11 +105,11 @@
     (define-key map "\C-c\C-c" 'm2-compile)
     (setq m2-mode-map map)))
 
-(defcustom m2-indent 5 
+(defcustom m2-indent 5
   "*This variable gives the indentation in Modula-2-Mode."
   :type 'integer
   :group 'modula2)
-  
+
 ;;;###autoload
 (defun modula-2-mode ()
   "This is a mode intended to support program development in Modula-2.
@@ -151,7 +152,7 @@ followed by the first character of the construct.
 ;  (make-local-variable 'indent-line-function)
 ;  (setq indent-line-function 'c-indent-line)
   (make-local-variable 'require-final-newline)
-  (setq require-final-newline t)
+  (setq require-final-newline mode-require-final-newline)
   (make-local-variable 'comment-start)
   (setq comment-start "(* ")
   (make-local-variable 'comment-end)
@@ -172,7 +173,7 @@ followed by the first character of the construct.
 	  ;; Obsoleted by Emacs 19.35 parse-partial-sexp's COMMENTSTOP.
 	  ;(font-lock-comment-start-regexp . "(\\*")
 	  ))
-  (run-hooks 'm2-mode-hook))
+  (run-mode-hooks 'm2-mode-hook))
 
 ;; Regexps written with help from Ron Forrester <ron@orcad.com>
 ;; and Spencer Allain <sallain@teknowledge.com>.
@@ -309,7 +310,7 @@ followed by the first character of the construct.
   "Build skeleton FOR loop statement, prompting for the loop parameters."
   (interactive)
   (insert "FOR ")
-  (let ((name (read-string "Loop Initialiser: ")) limit by)
+  (let ((name (read-string "Loop Initializer: ")) limit by)
     (insert name " TO ")
     (setq limit (read-string "Limit: "))
     (insert limit)
@@ -429,7 +430,7 @@ followed by the first character of the construct.
 (defun m2-stdio ()
   (interactive)
   (insert "
-FROM TextIO IMPORT 
+FROM TextIO IMPORT
    WriteCHAR, ReadCHAR, WriteINTEGER, ReadINTEGER,
    WriteCARDINAL, ReadCARDINAL, WriteBOOLEAN, ReadBOOLEAN,
    WriteREAL, ReadREAL, WriteBITSET, ReadBITSET,
@@ -563,4 +564,5 @@ FROM SysStreams IMPORT sysIn, sysOut, sysErr;
 
 (provide 'modula2)
 
+;;; arch-tag: a21df1cb-5ece-4709-9219-1e7cd2d85d90
 ;;; modula2.el ends here

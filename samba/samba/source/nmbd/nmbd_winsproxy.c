@@ -33,7 +33,7 @@ static void wins_proxy_name_query_request_success( struct subnet_record *subrec,
 	unstring name;
 	struct packet_struct *original_packet;
 	struct subnet_record *orig_broadcast_subnet;
-	struct name_record *namerec;
+	struct name_record *namerec = NULL;
 	uint16 nb_flags;
 	int num_ips;
 	int i;
@@ -47,9 +47,14 @@ static void wins_proxy_name_query_request_success( struct subnet_record *subrec,
 	memcpy( (char *)&original_packet, &userdata->data[sizeof(struct subnet_record *)],
 			sizeof(struct packet_struct *) );
 
-	nb_flags = get_nb_flags( rrec->rdata );
+	if (rrec) {
+		nb_flags = get_nb_flags( rrec->rdata );
+		num_ips = rrec->rdlength / 6;
+	} else {
+		nb_flags = 0;
+		num_ips = 0;
+	}
 
-	num_ips = rrec->rdlength / 6;
 	if(num_ips == 0) {
 		DEBUG(0,("wins_proxy_name_query_request_success: Invalid number of IP records (0) \
 returned for name %s.\n", nmb_namestr(nmbname) ));
@@ -64,22 +69,34 @@ returned for name %s.\n", nmb_namestr(nmbname) ));
 			return;
 		}
 
-		for(i = 0; i < num_ips; i++)
+		for(i = 0; i < num_ips; i++) {
 			putip( (char *)&iplist[i], (char *)&rrec->rdata[ (i*6) + 2]);
+		}
 	}
 
 	/* Add the queried name to the original subnet as a WINS_PROXY_NAME. */
 
-	if(rrec == PERMANENT_TTL)
+	if(rrec->ttl == PERMANENT_TTL) {
 		ttl = lp_max_ttl();
+	}
 
 	pull_ascii_nstring(name, sizeof(name), nmbname->name);
-	namerec = add_name_to_subnet( orig_broadcast_subnet, name,
+	add_name_to_subnet( orig_broadcast_subnet, name,
 					nmbname->name_type, nb_flags, ttl,
 					WINS_PROXY_NAME, num_ips, iplist );
 
-	if(iplist != &ip)
+	if(iplist != &ip) {
 		SAFE_FREE(iplist);
+	}
+
+	namerec = find_name_on_subnet(orig_broadcast_subnet, nmbname, FIND_ANY_NAME);
+	if (!namerec) {
+		DEBUG(0,("wins_proxy_name_query_request_success: failed to add "
+			"name %s to subnet %s !\n",
+			name,
+			orig_broadcast_subnet->subnet_name ));
+		return;
+	}
 
 	/*
 	 * Check that none of the IP addresses we are returning is on the
@@ -190,12 +207,15 @@ void make_wins_proxy_name_query_request( struct subnet_record *subrec,
                                          struct packet_struct *incoming_packet,
                                          struct nmb_name *question_name)
 {
-	long *ud[(sizeof(struct userdata_struct) + sizeof(struct subrec *) + 
-		sizeof(struct packet_struct *))/sizeof(long *) + 1];
-	struct userdata_struct *userdata = (struct userdata_struct *)ud;
+	union {
+	    struct userdata_struct ud;
+	    char c[sizeof(struct userdata_struct) + sizeof(struct subrec *) + 
+		sizeof(struct packet_struct *)+sizeof(long*)];
+	} ud;
+	struct userdata_struct *userdata = &ud.ud;
 	unstring qname;
 
-	memset(ud, '\0', sizeof(ud));
+	memset(&ud, '\0', sizeof(ud));
  
 	userdata->copy_fn = wins_proxy_userdata_copy_fn;
 	userdata->free_fn = wins_proxy_userdata_free_fn;

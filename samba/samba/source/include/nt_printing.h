@@ -245,7 +245,7 @@ typedef struct nt_printer_driver_info_level
 
 typedef struct {
 	char		*name;
-	REGVAL_CTR 	values;
+	REGVAL_CTR 	*values;
 } NT_PRINTER_KEY;
 
 /* container for all printer data */
@@ -295,7 +295,7 @@ typedef struct ntdevicemode
 	uint32	reserved2;
 	uint32	panningwidth;
 	uint32	panningheight;
-	uint8 	*private;
+	uint8 	*nt_dev_private;
 } NT_DEVICEMODE;
 
 typedef struct nt_printer_info_level_2
@@ -320,7 +320,7 @@ typedef struct nt_printer_info_level_2
 	fstring printprocessor;
 	fstring datatype;
 	fstring parameters;
-	NT_PRINTER_DATA data;
+	NT_PRINTER_DATA *data;
 	SEC_DESC_BUF *secdesc_buf;
 	uint32 changeid;
 	uint32 c_setprinter;
@@ -344,24 +344,31 @@ typedef struct
 	uint32 bottom;
 } nt_forms_struct;
 
-/*
-typedef struct _form
-{
-       uint32 flags;
-       uint32 name_ptr;
-       uint32 size_x;
-       uint32 size_y;
-       uint32 left;
-       uint32 top;
-       uint32 right;
-       uint32 bottom;
-       UNISTR2 name;
-} FORM;
-*/
-
 #ifndef SAMBA_PRINTER_PORT_NAME
 #define SAMBA_PRINTER_PORT_NAME "Samba Printer Port"
 #endif
+
+
+/*
+ * Structures for the XcvDataPort() calls
+ */
+
+#define PORT_PROTOCOL_DIRECT	1
+#define PORT_PROTOCOL_LPR	2
+
+typedef struct {
+	fstring name;
+	uint32 version;
+	uint32 protocol;
+	fstring hostaddr;
+	fstring snmpcommunity;
+	fstring queue;
+	uint32 dblspool;
+	fstring ipaddr;
+	uint32 port;
+	BOOL enable_snmp;
+	uint32 snmp_index;
+} NT_PORT_DATA_1;
 
 /* DOS header format */
 #define DOS_HEADER_SIZE                 64
@@ -379,18 +386,13 @@ typedef struct _form
 #define NE_HEADER_MAJOR_VER_OFFSET      63
 
 /* Portable Executable format */
-#define PE_HEADER_SIZE                  248
+#define PE_HEADER_SIZE                  24
 #define PE_HEADER_SIGNATURE_OFFSET      0
 #define PE_HEADER_SIGNATURE             0x00004550
 #define PE_HEADER_MACHINE_OFFSET        4
 #define PE_HEADER_MACHINE_I386          0x14c
 #define PE_HEADER_NUMBER_OF_SECTIONS    6
-#define PE_HEADER_MAJOR_OS_VER_OFFSET   64
-#define PE_HEADER_MINOR_OS_VER_OFFSET   66
-#define PE_HEADER_MAJOR_IMG_VER_OFFSET  68
-#define PE_HEADER_MINOR_IMG_VER_OFFSET  70
-#define PE_HEADER_MAJOR_SS_VER_OFFSET   72
-#define PE_HEADER_MINOR_SS_VER_OFFSET   74
+#define PE_HEADER_OPTIONAL_HEADER_SIZE  20
 #define PE_HEADER_SECT_HEADER_SIZE      40
 #define PE_HEADER_SECT_NAME_OFFSET      0
 #define PE_HEADER_SECT_SIZE_DATA_OFFSET 16
@@ -436,8 +438,10 @@ typedef struct {
 	SPOOLSS_NOTIFY_MSG_GROUP	*msg_groups;
 } SPOOLSS_NOTIFY_MSG_CTR;
 
-#define PRINTER_HANDLE_IS_PRINTER	0
-#define PRINTER_HANDLE_IS_PRINTSERVER	1
+#define SPLHND_PRINTER		1
+#define SPLHND_SERVER	 	2
+#define SPLHND_PORTMON_TCP	3
+#define SPLHND_PORTMON_LOCAL	4
 
 /* structure to store the printer handles */
 /* and a reference to what it's pointing to */

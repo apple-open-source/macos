@@ -18,8 +18,6 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 extern BOOL torture_showall;
@@ -1414,7 +1412,7 @@ BOOL torture_denytest1(int dummy)
 	BOOL correct = True;
 	const char *fnames[2] = {"\\denytest1.dat", "\\denytest1.exe"};
 
-	if (!torture_open_connection(&cli1)) {
+	if (!torture_open_connection(&cli1, 0)) {
 		return False;
 	}
 
@@ -1449,10 +1447,10 @@ BOOL torture_denytest1(int dummy)
 		} else {
 			char x = 1;
 			res = A_0;
-			if (cli_read(cli1, fnum2, (void *)&x, 0, 1) == 1) {
+			if (cli_read(cli1, fnum2, (char *)&x, 0, 1) == 1) {
 				res += A_R;
 			}
-			if (cli_write(cli1, fnum2, 0, (void *)&x, 0, 1) == 1) {
+			if (cli_write(cli1, fnum2, 0, (char *)&x, 0, 1) == 1) {
 				res += A_W;
 			}
 		}
@@ -1500,7 +1498,7 @@ BOOL torture_denytest2(int dummy)
 	BOOL correct = True;
 	const char *fnames[2] = {"\\denytest2.dat", "\\denytest2.exe"};
 
-	if (!torture_open_connection(&cli1) || !torture_open_connection(&cli2)) {
+	if (!torture_open_connection(&cli1, 0) || !torture_open_connection(&cli2, 1)) {
 		return False;
 	}
 
@@ -1517,7 +1515,7 @@ BOOL torture_denytest2(int dummy)
 		enum deny_result res;
 		const char *fname = fnames[denytable2[i].isexe];
 
-		progress_bar(i, ARRAY_SIZE(denytable1));
+		progress_bar(i, ARRAY_SIZE(denytable2));
 
 		fnum1 = cli_open(cli1, fname, 
 				 denytable2[i].mode1,
@@ -1533,10 +1531,10 @@ BOOL torture_denytest2(int dummy)
 		} else {
 			char x = 1;
 			res = A_0;
-			if (cli_read(cli2, fnum2, (void *)&x, 0, 1) == 1) {
+			if (cli_read(cli2, fnum2, (char *)&x, 0, 1) == 1) {
 				res += A_R;
 			}
-			if (cli_write(cli2, fnum2, 0, (void *)&x, 0, 1) == 1) {
+			if (cli_write(cli2, fnum2, 0, (char *)&x, 0, 1) == 1) {
 				res += A_W;
 			}
 		}
@@ -1556,8 +1554,8 @@ BOOL torture_denytest2(int dummy)
 			       resultstr(denytable2[i].result));
 		}
 
-		cli_close(cli1, fnum1);
-		cli_close(cli2, fnum2);
+		if (fnum1 != -1) cli_close(cli1, fnum1);
+		if (fnum2 != -1) cli_close(cli2, fnum2);
 	}
 		
 	for (i=0;i<2;i++) {

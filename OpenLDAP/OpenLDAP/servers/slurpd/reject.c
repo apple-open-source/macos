@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/reject.c,v 1.14.2.3 2004/01/01 18:16:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/reject.c,v 1.18.2.3 2006/02/13 17:28:44 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #include <stdio.h>
 
 #include <ac/stdlib.h>
+#include <ac/string.h>
 #include <ac/errno.h>
 #include <ac/unistd.h>
 
@@ -47,6 +48,9 @@
 
 #include "slurp.h"
 #include "globals.h"
+
+#include "lber_pvt.h"
+#include "lutil.h"
 
 #ifdef _WIN32
 #define	PORTSEP	","
@@ -83,15 +87,9 @@ write_reject(
 	int rjfd;
 	if (( rjfd = open( rejfile, O_RDWR|O_APPEND|O_CREAT|O_EXCL,
 		S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP )) < 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "write_reject: "
-			"Error: Cannot create \"%s\":%s\n", 
-			rejfile, sys_errlist[ errno ], 0 );
-#else
 	    Debug( LDAP_DEBUG_ANY,
 		"Error: write_reject: Cannot create \"%s\": %s\n",
 		rejfile, sys_errlist[ errno ], 0 );
-#endif
 	    ldap_pvt_thread_mutex_unlock( &sglob->rej_mutex );
 	    return;
 	} else {
@@ -99,40 +97,57 @@ write_reject(
 	}
     }
     if (( rc = acquire_lock( rejfile, &rfp, &lfp )) < 0 ) {
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "write_reject: "
-		"Error: Cannot open reject file \"%s\"\n", rejfile, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY, "Error: cannot open reject file \"%s\"\n",
 		rejfile, 0, 0 );
-#endif
     } else {
-	fseek( rfp, 0, 2 );
-	fprintf( rfp, "%s: %s", ERROR_STR, ldap_err2string( lderr ));
+	struct berval	bv = BER_BVNULL,
+			errstrbv,
+			errmsgbv = BER_BVNULL;
+	char		*ptr;
+
+	ber_str2bv( ldap_err2string( lderr ), 0, 0, &errstrbv );
 	if ( errmsg && *errmsg ) {
-	    fprintf( rfp, ": %s", errmsg );
+		ber_str2bv( errmsg, 0, 0, &errmsgbv );
+		bv.bv_len = errstrbv.bv_len
+			+ STRLENOF( ": " ) + errmsgbv.bv_len;
+
+		ptr = bv.bv_val = ber_memalloc( bv.bv_len + 1 );
+		ptr = lutil_strcopy( ptr, errstrbv.bv_val );
+		ptr = lutil_strcopy( ptr, ": " );
+		ptr = lutil_strcopy( ptr, errmsgbv.bv_val );
+
+	} else {
+		bv = errstrbv;
 	}
-	fprintf( rfp, "\n" );
+
+	fseek( rfp, 0, 2 );
+
+	ptr = ldif_put( LDIF_PUT_VALUE, ERROR_STR, bv.bv_val, bv.bv_len );
+	if ( bv.bv_val != errstrbv.bv_val ) {
+		ber_memfree( bv.bv_val );
+	}
+	if ( ptr == NULL ) {
+		Debug( LDAP_DEBUG_ANY,
+			"Error: cannot convert error message(s) \"%s%s%s\" "
+			"into LDIF format\n",
+			errstrbv.bv_val,
+			BER_BVISNULL( &errmsgbv ) ? "" : ": ",
+			BER_BVISNULL( &errmsgbv ) ? "" : errmsgbv.bv_val );
+		return;
+	}
+
+	fputs( ptr, rfp );
+	ber_memfree( ptr );
+
 	if ((rc = re->re_write( ri, re, rfp )) < 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( SLURPD, ERR, "write_reject: "
-			"Error: Cannot write reject file \"%s\"\n", rejfile, 0, 0 );
-#else
 	    Debug( LDAP_DEBUG_ANY,
 		    "Error: cannot write reject file \"%s\"\n",
 		    rejfile, 0, 0 );
-#endif
 	}
 	(void) relinquish_lock( rejfile, rfp, lfp );
-#ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "write_reject: "
-		"Error: ldap operation failed, data written to \"%s\"\n", 
-		rejfile, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: ldap operation failed, data written to \"%s\"\n",
 		rejfile, 0, 0 );
-#endif
     }
     ldap_pvt_thread_mutex_unlock( &sglob->rej_mutex );
     return;

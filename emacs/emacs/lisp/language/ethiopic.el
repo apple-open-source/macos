@@ -1,7 +1,11 @@
 ;;; ethiopic.el --- support for Ethiopic -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1995, 2001 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multilingual, Ethiopic
 
@@ -19,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Author: TAKAHASHI Naoto <ntakahas@m17n.org>
 
@@ -59,7 +63,7 @@
 	      (input-method . "ethiopic")
 	      (features ethio-util)
 	      (sample-text . "$(3$Q#U!.(B")
-	      (documentation . 
+	      (documentation .
 "This language envrironment provides these function key bindings
     \(old bindings are shown in parentheses):
     [f3]   ethio-fidel-to-sera-buffer         (f5)
@@ -80,4 +84,5 @@
 
 (provide 'ethiopic)
 
+;;; arch-tag: e81329d9-1286-43ba-92fd-54ce5c7b213c
 ;;; ethiopic.el ends here

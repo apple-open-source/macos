@@ -38,9 +38,9 @@ void RC2Context::init(
 	const Context &context, 
 	bool encrypting)
 {
-	UInt32 		keyLen;
-	UInt8 		*keyData 	= NULL;
-	UInt32		effectiveBits;
+	CSSM_SIZE	keyLen;
+	uint8 		*keyData 	= NULL;
+	uint32		effectiveBits;
 	
 	/* obtain key from context */
 	symmetricKeyBits(context, session(), CSSM_ALGID_RC2, 
@@ -90,16 +90,19 @@ void RC2Context::encryptBlock(
 	 */
 	RC2_INT	d[2];
 	RC2_INT l;
-	c2l((unsigned char *)plainText, l); d[0]=l;
-	c2l((unsigned char *)plainText, l); d[1]=l;
+	const unsigned char *pt = (const unsigned char *)plainText;
+	c2l(pt, l); d[0]=l;
+	c2l(pt, l); d[1]=l;
 	RC2_encrypt(d, &rc2Key);
-	l=d[0]; l2c(l, (unsigned char *)cipherText);
-	l=d[1]; l2c(l, (unsigned char *)cipherText);
+	unsigned char *ct = (unsigned char *)cipherText;
+	l=d[0]; l2c(l, ct);
+	l=d[1]; l2c(l, ct);
 	cipherTextLen = RC2_BLOCK_SIZE_BYTES;
 }
 
 void RC2Context::decryptBlock(
 	const void		*cipherText,		// length implied (one block)
+	size_t			cipherTextLen,
 	void			*plainText,	
 	size_t			&plainTextLen,		// in/out, throws on overflow
 	bool			final)				// ignored
@@ -112,11 +115,13 @@ void RC2Context::decryptBlock(
 	 */
 	RC2_INT	d[2];
 	RC2_INT l;
-	c2l((unsigned char *)cipherText, l); d[0]=l;
-	c2l((unsigned char *)cipherText, l); d[1]=l;
+	const unsigned char *ct = (const unsigned char *)cipherText;
+	c2l(ct, l); d[0]=l;
+	c2l(ct, l); d[1]=l;
 	RC2_decrypt(d, &rc2Key);
-	l=d[0]; l2c(l, (unsigned char *)plainText);
-	l=d[1]; l2c(l, (unsigned char *)plainText);
+	unsigned char *pt = (unsigned char *)plainText;
+	l=d[0]; l2c(l, pt);
+	l=d[1]; l2c(l, pt);
 	plainTextLen = RC2_BLOCK_SIZE_BYTES;
 }
 

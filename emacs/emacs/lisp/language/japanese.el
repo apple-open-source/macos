@@ -1,7 +1,11 @@
-;;; japanese.el --- support for Japanese -*- coding: iso-2022-7bit; -*-
+;;; japanese.el --- support for Japanese -*- coding: iso-2022-7bit; no-byte-compile: t -*-
 
-;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multilingual, Japanese
 
@@ -19,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -31,7 +35,7 @@
 
 (make-coding-system
  'iso-2022-jp 2 ?J
- "ISO 2022 based 7bit encoding for Japanese (MIME:ISO-2022-JP)"
+ "ISO 2022 based 7bit encoding for Japanese (MIME:ISO-2022-JP)."
  '((ascii japanese-jisx0208-1978 japanese-jisx0208
 	  latin-jisx0201 japanese-jisx0212) nil nil nil
    short ascii-eol ascii-cntl seven)
@@ -43,7 +47,7 @@
 
 (make-coding-system
  'iso-2022-jp-2 2 ?J
- "ISO 2022 based 7bit encoding for CJK, Latin-1, and Greek (MIME:ISO-2022-JP-2)"
+ "ISO 2022 based 7bit encoding for CJK, Latin-1, and Greek (MIME:ISO-2022-JP-2)."
  '((ascii japanese-jisx0208-1978 japanese-jisx0208
 	  latin-jisx0201 japanese-jisx0212
 	  chinese-gb2312 korean-ksc5601) nil
@@ -57,7 +61,7 @@
 
 (make-coding-system
  'japanese-shift-jis 1 ?S
- "Shift-JIS 8-bit encoding for Japanese (MIME:SHIFT_JIS)"
+ "Shift-JIS 8-bit encoding for Japanese (MIME:SHIFT_JIS)."
  nil
  '((safe-charsets ascii japanese-jisx0208 japanese-jisx0208-1978
 		  latin-jisx0201 katakana-jisx0201)
@@ -67,10 +71,11 @@
 
 (define-coding-system-alias 'shift_jis 'japanese-shift-jis)
 (define-coding-system-alias 'sjis 'japanese-shift-jis)
+(define-coding-system-alias 'cp932 'japanese-shift-jis)
 
 (make-coding-system
  'japanese-iso-7bit-1978-irv 2 ?j
- "ISO 2022 based 7-bit encoding for Japanese JISX0208-1978 and JISX0201-Roman"
+ "ISO 2022 based 7-bit encoding for Japanese JISX0208-1978 and JISX0201-Roman."
  '((ascii japanese-jisx0208-1978 japanese-jisx0208
 	  latin-jisx0201 japanese-jisx0212 katakana-jisx0201 t) nil nil nil
    short ascii-eol ascii-cntl seven nil nil use-roman use-oldjis)
@@ -81,7 +86,7 @@
 
 (make-coding-system
  'japanese-iso-8bit 2 ?E
- "ISO 2022 based EUC encoding for Japanese (MIME:EUC-JP)"
+ "ISO 2022 based EUC encoding for Japanese (MIME:EUC-JP)."
  '(ascii japanese-jisx0208 katakana-jisx0201 japanese-jisx0212
    short ascii-eol ascii-cntl nil nil single-shift)
  '((safe-charsets ascii latin-jisx0201 japanese-jisx0208 japanese-jisx0208-1978
@@ -94,7 +99,6 @@
 
 (set-language-info-alist
  "Japanese" '((setup-function . setup-japanese-environment-internal)
-	      (exit-function . exit-japanese-environment)
 	      (tutorial . "TUTORIAL.ja")
 	      (charset japanese-jisx0208 japanese-jisx0208-1978
 		       japanese-jisx0212 latin-jisx0201 katakana-jisx0201
@@ -110,4 +114,5 @@
 
 (provide 'japanese)
 
+;;; arch-tag: 450f5537-9d53-4d5e-b731-4cf116d8cbc9
 ;;; japanese.el ends here

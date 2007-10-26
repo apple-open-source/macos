@@ -7,16 +7,14 @@ mydir=util
 ##WIN32### below in the 'all-windows' target anyways, so just hide this.
 ##WIN32##!if 0
 LOCAL_SUBDIRS=support $(MAYBE_ET_@COM_ERR_VERSION@) $(MAYBE_SS_@SS_VERSION@) \
-	profile pty $(MAYBE_DB_@DB_VERSION@) send-pr
+	profile send-pr
 ##WIN32##!endif
 BUILDTOP=$(REL)..
 
 MAYBE_ET_k5 = et
 MAYBE_SS_k5 = ss
-MAYBE_DB_k5 = db2
 MAYBE_ET_sys =
 MAYBE_SS_sys =
-MAYBE_DB_sys =
 
 editsh = sed -e 's,@''ARADD''@,$(ARADD),g' -e 's,@''ARCHIVE''@,$(ARCHIVE),g'
 HOST_TYPE=@HOST_TYPE@
@@ -27,10 +25,6 @@ DL_COMPILE=@DL_COMPILE@
 DL_COMPILE_TAIL=@DL_COMPILE_TAIL@
 
 all-recurse:
-all-unix:: $(FAKEPREFIX)/lib
-
-$(FAKEPREFIX)/lib:
-	$(SRCTOP)/config/mkinstalldirs $(FAKEPREFIX) && ln -s `pwd`/../lib $(FAKEPREFIX)
 
 clean-unix::
 	$(RM) -r $(FAKEPREFIX)

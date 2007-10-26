@@ -88,9 +88,6 @@ static void check_for_codes_from_term __ARGS((void));
     || (defined(FEAT_MOUSE) && (!defined(UNIX) || defined(FEAT_MOUSE_XTERM)))
 static int get_bytes_from_buf __ARGS((char_u *, char_u *, int));
 #endif
-#ifdef FEAT_TERMRESPONSE
-static void may_req_termresponse __ARGS((void));
-#endif
 static void del_termcode_idx __ARGS((int idx));
 static int term_is_builtin __ARGS((char_u *name));
 static int term_7to8bit __ARGS((char_u *p));
@@ -144,7 +141,7 @@ static char_u *vim_tgetstr __ARGS((char *s, char_u **pp));
 
 static int  detected_8bit = FALSE;	/* detected 8-bit terminal */
 
-struct builtin_term builtin_termcaps[] =
+static struct builtin_term builtin_termcaps[] =
 {
 
 #if defined(FEAT_GUI)
@@ -182,6 +179,8 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_SO,	IF_EB("\033|16h", ESC_STR "|16h")}, /* HL_STANDOUT */
     {(int)KS_UE,	IF_EB("\033|8H", ESC_STR "|8H")},   /* HL_UNDERLINE */
     {(int)KS_US,	IF_EB("\033|8h", ESC_STR "|8h")},   /* HL_UNDERLINE */
+    {(int)KS_UCE,	IF_EB("\033|8C", ESC_STR "|8C")},   /* HL_UNDERCURL */
+    {(int)KS_UCS,	IF_EB("\033|8c", ESC_STR "|8c")},   /* HL_UNDERCURL */
     {(int)KS_CZR,	IF_EB("\033|4H", ESC_STR "|4H")},   /* HL_ITALIC */
     {(int)KS_CZH,	IF_EB("\033|4h", ESC_STR "|4h")},   /* HL_ITALIC */
     {(int)KS_VB,	IF_EB("\033|f", ESC_STR "|f")},
@@ -195,7 +194,7 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_CM,	IF_EB("\033|%d;%dM", ESC_STR "|%d;%dM")},
 # endif
 	/* there are no key sequences here, the GUI sequences are recognized
-	 * in check_termcodes() */
+	 * in check_termcode() */
 #endif
 
 #ifndef NO_BUILTIN_TCAPS
@@ -296,6 +295,17 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_UE,	"\033[0m"},
     {(int)KS_CZH,	"\033[3m"},
     {(int)KS_CZR,	"\033[0m"},
+#if defined(__MORPHOS__) || defined(__AROS__)
+    {(int)KS_CCO,	"8"},		/* allow 8 colors */
+#  ifdef TERMINFO
+    {(int)KS_CAB,	"\033[4%p1%dm"},/* set background color */
+    {(int)KS_CAF,	"\033[3%p1%dm"},/* set foreground color */
+#  else
+    {(int)KS_CAB,	"\033[4%dm"},	/* set background color */
+    {(int)KS_CAF,	"\033[3%dm"},	/* set foreground color */
+#  endif
+    {(int)KS_OP,	"\033[m"},	/* reset colors */
+#endif
     {(int)KS_MS,	"y"},
     {(int)KS_UT,	"y"},		/* guessed */
     {(int)KS_LE,	"\b"},
@@ -304,6 +314,9 @@ struct builtin_term builtin_termcaps[] =
 #  else
     {(int)KS_CM,	"\033[%i%d;%dH"},
 #  endif
+#if defined(__MORPHOS__)
+    {(int)KS_SR,	"\033M"},
+#endif
 #  ifdef TERMINFO
     {(int)KS_CRI,	"\033[%p1%dC"},
 #  else
@@ -794,8 +807,20 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_CDL,	IF_EB("\033[%dM", ESC_STR "[%dM")},
 #  endif
     {(int)KS_CL,	IF_EB("\033[H\033[2J", ESC_STR "[H" ESC_STR_nc "[2J")},
+    {(int)KS_CD,	IF_EB("\033[J", ESC_STR "[J")},
+    {(int)KS_CCO,	"8"},			/* allow 8 colors */
     {(int)KS_ME,	IF_EB("\033[0m", ESC_STR "[0m")},
     {(int)KS_MR,	IF_EB("\033[7m", ESC_STR "[7m")},
+    {(int)KS_MD,	IF_EB("\033[1m", ESC_STR "[1m")},  /* bold mode */
+    {(int)KS_SE,	IF_EB("\033[22m", ESC_STR "[22m")},/* normal mode */
+    {(int)KS_UE,	IF_EB("\033[24m", ESC_STR "[24m")},/* exit underscore mode */
+    {(int)KS_US,	IF_EB("\033[4m", ESC_STR "[4m")},  /* underscore mode */
+    {(int)KS_CZH,	IF_EB("\033[34;43m", ESC_STR "[34;43m")},  /* italic mode: blue text on yellow */
+    {(int)KS_CZR,	IF_EB("\033[0m", ESC_STR "[0m")},	    /* italic mode end */
+    {(int)KS_CAB,	IF_EB("\033[4%dm", ESC_STR "[4%dm")},	    /* set background color (ANSI) */
+    {(int)KS_CAF,	IF_EB("\033[3%dm", ESC_STR "[3%dm")},	    /* set foreground color (ANSI) */
+    {(int)KS_CSB,	IF_EB("\033[102;%dm", ESC_STR "[102;%dm")},	/* set screen background color */
+    {(int)KS_CSF,	IF_EB("\033[101;%dm", ESC_STR "[101;%dm")},	/* set screen foreground color */
     {(int)KS_MS,	"y"},
     {(int)KS_UT,	"y"},
     {(int)KS_LE,	"\b"},
@@ -814,13 +839,17 @@ struct builtin_term builtin_termcaps[] =
     {K_DOWN,		IF_EB("\033[B", ESC_STR "[B")},
     {K_RIGHT,		IF_EB("\033[C", ESC_STR "[C")},
     {K_LEFT,		IF_EB("\033[D", ESC_STR "[D")},
+    {K_F1,		IF_EB("\033[11~", ESC_STR "[11~")},
+    {K_F2,		IF_EB("\033[12~", ESC_STR "[12~")},
+    {K_F3,		IF_EB("\033[13~", ESC_STR "[13~")},
+    {K_F4,		IF_EB("\033[14~", ESC_STR "[14~")},
+    {K_F5,		IF_EB("\033[15~", ESC_STR "[15~")},
     {K_F6,		IF_EB("\033[17~", ESC_STR "[17~")},
     {K_F7,		IF_EB("\033[18~", ESC_STR "[18~")},
     {K_F8,		IF_EB("\033[19~", ESC_STR "[19~")},
     {K_F9,		IF_EB("\033[20~", ESC_STR "[20~")},
     {K_F10,		IF_EB("\033[21~", ESC_STR "[21~")},
-/*  {K_F11,		IF_EB("\033[23~", ESC_STR "[23~")},
-			*  (ESC) should not define, sometimes does not work */
+    {K_F11,		IF_EB("\033[23~", ESC_STR "[23~")},
     {K_F12,		IF_EB("\033[24~", ESC_STR "[24~")},
     {K_F13,		IF_EB("\033[25~", ESC_STR "[25~")},
     {K_F14,		IF_EB("\033[26~", ESC_STR "[26~")},
@@ -905,10 +934,6 @@ struct builtin_term builtin_termcaps[] =
 # endif
 
 # if defined(UNIX) || defined(ALL_BUILTIN_TCAPS) || defined(SOME_BUILTIN_TCAPS) || defined(__EMX__)
-/*
- * The xterm termcap is missing F14 and F15, because they send the same
- * codes as the undo and help key, although they don't work on all keyboards.
- */
     {(int)KS_NAME,	"xterm"},
     {(int)KS_CE,	IF_EB("\033[K", ESC_STR "[K")},
     {(int)KS_AL,	IF_EB("\033[L", ESC_STR "[L")},
@@ -972,80 +997,88 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_CWP,	IF_EB("\033[3;%d;%dt", ESC_STR "[3;%d;%dt")},
 #  endif
     {(int)KS_CRV,	IF_EB("\033[>c", ESC_STR "[>c")},
-    {K_UP,		IF_EB("\033OA", ESC_STR "OA")},
-    {K_DOWN,		IF_EB("\033OB", ESC_STR "OB")},
-    {K_RIGHT,		IF_EB("\033OC", ESC_STR "OC")},
-    {K_LEFT,		IF_EB("\033OD", ESC_STR "OD")},
-    {K_S_UP,		IF_EB("\033O2A", ESC_STR "O2A")},
-    {K_S_DOWN,		IF_EB("\033O2B", ESC_STR "O2B")},
-    {K_S_RIGHT,		IF_EB("\033O2C", ESC_STR "O2C")},
-    {K_C_RIGHT,		IF_EB("\033O5C", ESC_STR "O5C")},
-    {K_S_LEFT,		IF_EB("\033O2D", ESC_STR "O2D")},
-    {K_C_LEFT,		IF_EB("\033O5D", ESC_STR "O5D")},
+
+    {K_UP,		IF_EB("\033O*A", ESC_STR "O*A")},
+    {K_DOWN,		IF_EB("\033O*B", ESC_STR "O*B")},
+    {K_RIGHT,		IF_EB("\033O*C", ESC_STR "O*C")},
+    {K_LEFT,		IF_EB("\033O*D", ESC_STR "O*D")},
+    /* An extra set of cursor keys for vt100 mode */
+    {K_XUP,		IF_EB("\033[1;*A", ESC_STR "[1;*A")},
+    {K_XDOWN,		IF_EB("\033[1;*B", ESC_STR "[1;*B")},
+    {K_XRIGHT,		IF_EB("\033[1;*C", ESC_STR "[1;*C")},
+    {K_XLEFT,		IF_EB("\033[1;*D", ESC_STR "[1;*D")},
     /* An extra set of function keys for vt100 mode */
-    {K_XF1,		IF_EB("\033OP", ESC_STR "OP")},
-    {K_XF2,		IF_EB("\033OQ", ESC_STR "OQ")},
-    {K_XF3,		IF_EB("\033OR", ESC_STR "OR")},
-    {K_XF4,		IF_EB("\033OS", ESC_STR "OS")},
-    {K_F1,		IF_EB("\033[11~", ESC_STR "[11~")},
-    {K_F2,		IF_EB("\033[12~", ESC_STR "[12~")},
-    {K_F3,		IF_EB("\033[13~", ESC_STR "[13~")},
-    {K_F4,		IF_EB("\033[14~", ESC_STR "[14~")},
-    {K_F5,		IF_EB("\033[15~", ESC_STR "[15~")},
-    {K_F6,		IF_EB("\033[17~", ESC_STR "[17~")},
-    {K_F7,		IF_EB("\033[18~", ESC_STR "[18~")},
-    {K_F8,		IF_EB("\033[19~", ESC_STR "[19~")},
-    {K_F9,		IF_EB("\033[20~", ESC_STR "[20~")},
-    {K_F10,		IF_EB("\033[21~", ESC_STR "[21~")},
-    {K_F11,		IF_EB("\033[23~", ESC_STR "[23~")},
-    {K_F12,		IF_EB("\033[24~", ESC_STR "[24~")},
-    {K_S_XF1,		IF_EB("\033O2P", ESC_STR "O2P")},
-    {K_S_XF2,		IF_EB("\033O2Q", ESC_STR "O2Q")},
-    {K_S_XF3,		IF_EB("\033O2R", ESC_STR "O2R")},
-    {K_S_XF4,		IF_EB("\033O2S", ESC_STR "O2S")},
-    {K_S_F1,		IF_EB("\033[11;2~", ESC_STR "[11;2~")},
-    {K_S_F2,		IF_EB("\033[12;2~", ESC_STR "[12;2~")},
-    {K_S_F3,		IF_EB("\033[13;2~", ESC_STR "[13;2~")},
-    {K_S_F4,		IF_EB("\033[14;2~", ESC_STR "[14;2~")},
-    {K_S_F5,		IF_EB("\033[15;2~", ESC_STR "[15;2~")},
-    {K_S_F6,		IF_EB("\033[17;2~", ESC_STR "[17;2~")},
-    {K_S_F7,		IF_EB("\033[18;2~", ESC_STR "[18;2~")},
-    {K_S_F8,		IF_EB("\033[19;2~", ESC_STR "[19;2~")},
-    {K_S_F9,		IF_EB("\033[20;2~", ESC_STR "[20;2~")},
-    {K_S_F10,		IF_EB("\033[21;2~", ESC_STR "[21;2~")},
-    {K_S_F11,		IF_EB("\033[23;2~", ESC_STR "[23;2~")},
-    {K_S_F12,		IF_EB("\033[24;2~", ESC_STR "[24;2~")},
+    {K_XF1,		IF_EB("\033O*P", ESC_STR "O*P")},
+    {K_XF2,		IF_EB("\033O*Q", ESC_STR "O*Q")},
+    {K_XF3,		IF_EB("\033O*R", ESC_STR "O*R")},
+    {K_XF4,		IF_EB("\033O*S", ESC_STR "O*S")},
+    {K_F1,		IF_EB("\033[11;*~", ESC_STR "[11;*~")},
+    {K_F2,		IF_EB("\033[12;*~", ESC_STR "[12;*~")},
+    {K_F3,		IF_EB("\033[13;*~", ESC_STR "[13;*~")},
+    {K_F4,		IF_EB("\033[14;*~", ESC_STR "[14;*~")},
+    {K_F5,		IF_EB("\033[15;*~", ESC_STR "[15;*~")},
+    {K_F6,		IF_EB("\033[17;*~", ESC_STR "[17;*~")},
+    {K_F7,		IF_EB("\033[18;*~", ESC_STR "[18;*~")},
+    {K_F8,		IF_EB("\033[19;*~", ESC_STR "[19;*~")},
+    {K_F9,		IF_EB("\033[20;*~", ESC_STR "[20;*~")},
+    {K_F10,		IF_EB("\033[21;*~", ESC_STR "[21;*~")},
+    {K_F11,		IF_EB("\033[23;*~", ESC_STR "[23;*~")},
+    {K_F12,		IF_EB("\033[24;*~", ESC_STR "[24;*~")},
     {K_S_TAB,		IF_EB("\033[Z", ESC_STR "[Z")},
-    {K_HELP,		IF_EB("\033[28~", ESC_STR "[28~")},
-    {K_UNDO,		IF_EB("\033[26~", ESC_STR "[26~")},
-    {K_INS,		IF_EB("\033[2~", ESC_STR "[2~")},
-    {K_HOME,		IF_EB("\033[7~", ESC_STR "[7~")},
-    {K_S_HOME,		IF_EB("\033O2H", ESC_STR "O2H")},
-    {K_C_HOME,		IF_EB("\033O5H", ESC_STR "O5H")},
-    {K_KHOME,		IF_EB("\033[1~", ESC_STR "[1~")},
-    {K_XHOME,		IF_EB("\033OH", ESC_STR "OH")},	/* alternate Home */
-    {K_END,		IF_EB("\033[8~", ESC_STR "[8~")},
-    {K_S_END,		IF_EB("\033O2F", ESC_STR "O2F")},
-    {K_C_END,		IF_EB("\033O5F", ESC_STR "O5F")},
-    {K_KEND,		IF_EB("\033[4~", ESC_STR "[4~")},
-    {K_XEND,		IF_EB("\033OF", ESC_STR "OF")},	/* alternate End */
-    {K_PAGEUP,		IF_EB("\033[5~", ESC_STR "[5~")},
-    {K_PAGEDOWN,	IF_EB("\033[6~", ESC_STR "[6~")},
-    {K_KPLUS,		IF_EB("\033Ok", ESC_STR "Ok")},	/* keypad plus */
-    {K_KMINUS,		IF_EB("\033Om", ESC_STR "Om")},	/* keypad minus */
-    {K_KDIVIDE,		IF_EB("\033Oo", ESC_STR "Oo")},	/* keypad / */
-    {K_KMULTIPLY,	IF_EB("\033Oj", ESC_STR "Oj")},	/* keypad * */
-    {K_KENTER,		IF_EB("\033OM", ESC_STR "OM")},	/* keypad Enter */
-    {K_KDEL,		IF_EB("\033[3~", ESC_STR "[3~")},	/* keypad Del */
+    {K_HELP,		IF_EB("\033[28;*~", ESC_STR "[28;*~")},
+    {K_UNDO,		IF_EB("\033[26;*~", ESC_STR "[26;*~")},
+    {K_INS,		IF_EB("\033[2;*~", ESC_STR "[2;*~")},
+    {K_HOME,		IF_EB("\033[1;*H", ESC_STR "[1;*H")},
+    /* {K_S_HOME,		IF_EB("\033O2H", ESC_STR "O2H")}, */
+    /* {K_C_HOME,		IF_EB("\033O5H", ESC_STR "O5H")}, */
+    {K_KHOME,		IF_EB("\033[1;*~", ESC_STR "[1;*~")},
+    {K_XHOME,		IF_EB("\033O*H", ESC_STR "O*H")},	/* other Home */
+    {K_ZHOME,		IF_EB("\033[7;*~", ESC_STR "[7;*~")},	/* other Home */
+    {K_END,		IF_EB("\033[1;*F", ESC_STR "[1;*F")},
+    /* {K_S_END,		IF_EB("\033O2F", ESC_STR "O2F")}, */
+    /* {K_C_END,		IF_EB("\033O5F", ESC_STR "O5F")}, */
+    {K_KEND,		IF_EB("\033[4;*~", ESC_STR "[4;*~")},
+    {K_XEND,		IF_EB("\033O*F", ESC_STR "O*F")},	/* other End */
+    {K_ZEND,		IF_EB("\033[8;*~", ESC_STR "[8;*~")},
+    {K_PAGEUP,		IF_EB("\033[5;*~", ESC_STR "[5;*~")},
+    {K_PAGEDOWN,	IF_EB("\033[6;*~", ESC_STR "[6;*~")},
+    {K_KPLUS,		IF_EB("\033O*k", ESC_STR "O*k")},	/* keypad plus */
+    {K_KMINUS,		IF_EB("\033O*m", ESC_STR "O*m")},	/* keypad minus */
+    {K_KDIVIDE,		IF_EB("\033O*o", ESC_STR "O*o")},	/* keypad / */
+    {K_KMULTIPLY,	IF_EB("\033O*j", ESC_STR "O*j")},	/* keypad * */
+    {K_KENTER,		IF_EB("\033O*M", ESC_STR "O*M")},	/* keypad Enter */
+    {K_KPOINT,		IF_EB("\033O*n", ESC_STR "O*n")},	/* keypad . */
+    {K_KDEL,		IF_EB("\033[3;*~", ESC_STR "[3;*~")},	/* keypad Del */
 
     {BT_EXTRA_KEYS,   ""},
-    {TERMCAP2KEY('k', '0'), IF_EB("\033[10~", ESC_STR "[10~")},	/* F0 */
-    {TERMCAP2KEY('F', '3'), IF_EB("\033[25~", ESC_STR "[25~")},	/* F13 */
-    {TERMCAP2KEY('F', '6'), IF_EB("\033[29~", ESC_STR "[29~")},	/* F16 */
-    {TERMCAP2KEY('F', '7'), IF_EB("\033[31~", ESC_STR "[31~")},	/* F17 */
-    {TERMCAP2KEY('F', '8'), IF_EB("\033[32~", ESC_STR "[32~")},	/* F18 */
-    {TERMCAP2KEY('F', '9'), IF_EB("\033[33~", ESC_STR "[33~")},	/* F19 */
-    {TERMCAP2KEY('F', 'A'), IF_EB("\033[34~", ESC_STR "[34~")},	/* F20 */
+    {TERMCAP2KEY('k', '0'), IF_EB("\033[10;*~", ESC_STR "[10;*~")}, /* F0 */
+    {TERMCAP2KEY('F', '3'), IF_EB("\033[25;*~", ESC_STR "[25;*~")}, /* F13 */
+    /* F14 and F15 are missing, because they send the same codes as the undo
+     * and help key, although they don't work on all keyboards. */
+    {TERMCAP2KEY('F', '6'), IF_EB("\033[29;*~", ESC_STR "[29;*~")}, /* F16 */
+    {TERMCAP2KEY('F', '7'), IF_EB("\033[31;*~", ESC_STR "[31;*~")}, /* F17 */
+    {TERMCAP2KEY('F', '8'), IF_EB("\033[32;*~", ESC_STR "[32;*~")}, /* F18 */
+    {TERMCAP2KEY('F', '9'), IF_EB("\033[33;*~", ESC_STR "[33;*~")}, /* F19 */
+    {TERMCAP2KEY('F', 'A'), IF_EB("\033[34;*~", ESC_STR "[34;*~")}, /* F20 */
+
+    {TERMCAP2KEY('F', 'B'), IF_EB("\033[42;*~", ESC_STR "[42;*~")}, /* F21 */
+    {TERMCAP2KEY('F', 'C'), IF_EB("\033[43;*~", ESC_STR "[43;*~")}, /* F22 */
+    {TERMCAP2KEY('F', 'D'), IF_EB("\033[44;*~", ESC_STR "[44;*~")}, /* F23 */
+    {TERMCAP2KEY('F', 'E'), IF_EB("\033[45;*~", ESC_STR "[45;*~")}, /* F24 */
+    {TERMCAP2KEY('F', 'F'), IF_EB("\033[46;*~", ESC_STR "[46;*~")}, /* F25 */
+    {TERMCAP2KEY('F', 'G'), IF_EB("\033[47;*~", ESC_STR "[47;*~")}, /* F26 */
+    {TERMCAP2KEY('F', 'H'), IF_EB("\033[48;*~", ESC_STR "[48;*~")}, /* F27 */
+    {TERMCAP2KEY('F', 'I'), IF_EB("\033[49;*~", ESC_STR "[49;*~")}, /* F28 */
+    {TERMCAP2KEY('F', 'J'), IF_EB("\033[50;*~", ESC_STR "[50;*~")}, /* F29 */
+    {TERMCAP2KEY('F', 'K'), IF_EB("\033[51;*~", ESC_STR "[51;*~")}, /* F30 */
+
+    {TERMCAP2KEY('F', 'L'), IF_EB("\033[52;*~", ESC_STR "[52;*~")}, /* F31 */
+    {TERMCAP2KEY('F', 'M'), IF_EB("\033[53;*~", ESC_STR "[53;*~")}, /* F32 */
+    {TERMCAP2KEY('F', 'N'), IF_EB("\033[54;*~", ESC_STR "[54;*~")}, /* F33 */
+    {TERMCAP2KEY('F', 'O'), IF_EB("\033[55;*~", ESC_STR "[55;*~")}, /* F34 */
+    {TERMCAP2KEY('F', 'P'), IF_EB("\033[56;*~", ESC_STR "[56;*~")}, /* F35 */
+    {TERMCAP2KEY('F', 'Q'), IF_EB("\033[57;*~", ESC_STR "[57;*~")}, /* F36 */
+    {TERMCAP2KEY('F', 'R'), IF_EB("\033[58;*~", ESC_STR "[58;*~")}, /* F37 */
 # endif
 
 # if defined(UNIX) || defined(ALL_BUILTIN_TCAPS)
@@ -1220,6 +1253,8 @@ struct builtin_term builtin_termcaps[] =
     {(int)KS_SO,	"[SO]"},
     {(int)KS_UE,	"[UE]"},
     {(int)KS_US,	"[US]"},
+    {(int)KS_UCE,	"[UCE]"},
+    {(int)KS_UCS,	"[UCS]"},
     {(int)KS_MS,	"[MS]"},
     {(int)KS_UT,	"[UT]"},
 #  ifdef TERMINFO
@@ -1254,6 +1289,10 @@ struct builtin_term builtin_termcaps[] =
     {K_DOWN,		"[KD]"},
     {K_LEFT,		"[KL]"},
     {K_RIGHT,		"[KR]"},
+    {K_XUP,		"[xKU]"},
+    {K_XDOWN,		"[xKD]"},
+    {K_XLEFT,		"[xKL]"},
+    {K_XRIGHT,		"[xKR]"},
     {K_S_UP,		"[S-KU]"},
     {K_S_DOWN,		"[S-KD]"},
     {K_S_LEFT,		"[S-KL]"},
@@ -1304,11 +1343,13 @@ struct builtin_term builtin_termcaps[] =
     {K_C_HOME,		"[C-HOME]"},
     {K_KHOME,		"[KHOME]"},
     {K_XHOME,		"[XHOME]"},
+    {K_ZHOME,		"[ZHOME]"},
     {K_END,		"[END]"},
     {K_S_END,		"[C-END]"},
     {K_C_END,		"[C-END]"},
     {K_KEND,		"[KEND]"},
     {K_XEND,		"[XEND]"},
+    {K_ZEND,		"[ZEND]"},
     {K_PAGEUP,		"[PAGEUP]"},
     {K_PAGEDOWN,	"[PAGEDOWN]"},
     {K_KPAGEUP,		"[KPAGEUP]"},
@@ -1394,7 +1435,7 @@ struct builtin_term builtin_termcaps[] =
 # define DEFAULT_TERM	(char_u *)"beos-ansi"
 #endif
 
-#if defined(MACOS)
+#ifndef DEFAULT_TERM
 # define DEFAULT_TERM	(char_u *)"dumb"
 #endif
 
@@ -1520,7 +1561,7 @@ set_color_count(nr)
 	sprintf((char *)nr_colors, "%d", t_colors);
     else
 	*nr_colors = NUL;
-    set_string_option_direct((char_u *)"t_Co", -1, nr_colors, OPT_FREE);
+    set_string_option_direct((char_u *)"t_Co", -1, nr_colors, OPT_FREE, 0);
 }
 #endif
 
@@ -1563,6 +1604,10 @@ set_termname(term)
     int		width = 0, height = 0;
     char_u	*error_msg = NULL;
     char_u	*bs_p, *del_p;
+
+    /* In silect mode (ex -s) we don't use the 'term' option. */
+    if (silent_mode)
+	return OK;
 
     detected_8bit = FALSE;		/* reset 8-bit detection */
 
@@ -1608,7 +1653,8 @@ set_termname(term)
 				{KS_VS, "vs"}, {KS_ME, "me"}, {KS_MR, "mr"},
 				{KS_MD, "md"}, {KS_SE, "se"}, {KS_SO, "so"},
 				{KS_CZH,"ZH"}, {KS_CZR,"ZR"}, {KS_UE, "ue"},
-				{KS_US, "us"}, {KS_CM, "cm"}, {KS_SR, "sr"},
+				{KS_US, "us"}, {KS_UCE, "Ce"}, {KS_UCS, "Cs"},
+				{KS_CM, "cm"}, {KS_SR, "sr"},
 				{KS_CRI,"RI"}, {KS_VB, "vb"}, {KS_KS, "ks"},
 				{KS_KE, "ke"}, {KS_TI, "ti"}, {KS_TE, "te"},
 				{KS_BC, "bc"}, {KS_CSB,"Sb"}, {KS_CSF,"Sf"},
@@ -1617,6 +1663,7 @@ set_termname(term)
 				{KS_CIS, "IS"}, {KS_CIE, "IE"},
 				{KS_TS, "ts"}, {KS_FS, "fs"},
 				{KS_CWP, "WP"}, {KS_CWS, "WS"},
+				{KS_CSI, "SI"}, {KS_CEI, "EI"},
 				{(enum SpecialKey)0, NULL}
 			    };
 
@@ -1775,7 +1822,8 @@ set_termname(term)
 		    out_flush();
 		    ui_delay(2000L, TRUE);
 		}
-		set_string_option_direct((char_u *)"term", -1, term, OPT_FREE);
+		set_string_option_direct((char_u *)"term", -1, term,
+								 OPT_FREE, 0);
 		display_errors();
 	    }
 	    out_flush();
@@ -2372,9 +2420,9 @@ tltoa(i)
  * minimal tgoto() implementation.
  * no padding and we only parse for %i %d and %+char
  */
-char *tgoto __ARGS((char *, int, int));
+static char *tgoto __ARGS((char *, int, int));
 
-    char *
+    static char *
 tgoto(cm, x, y)
     char *cm;
     int x, y;
@@ -2453,7 +2501,7 @@ termcapinit(name)
 #endif
     if (term == NULL || *term == NUL)
 	term = DEFAULT_TERM;
-    set_string_option_direct((char_u *)"term", -1, term, OPT_FREE);
+    set_string_option_direct((char_u *)"term", -1, term, OPT_FREE, 0);
 
     /* Set the default terminal name. */
     set_string_default("term", term);
@@ -2933,6 +2981,10 @@ get_bytes_from_buf(buf, bytes, num_bytes)
 	    ++len;	/* skip KE_FILLER */
 	    /* else it should be KS_SPECIAL, and c already equals K_SPECIAL */
 	}
+	else if (c == CSI && buf[len] == KS_EXTRA && buf[len + 1] == (int)KE_CSI)
+	    /* CSI is stored as CSI KS_SPECIAL KE_CSI to avoid confusion with
+	     * the start of a special key, see add_to_input_buf_csi(). */
+	    len += 2;
 	bytes[i] = c;
     }
     return len;
@@ -2951,6 +3003,9 @@ check_shellsize()
 	Rows = min_rows();
 }
 
+/*
+ * Invoked just before the screen structures are going to be (re)allocated.
+ */
     void
 win_new_shellsize()
 {
@@ -2961,6 +3016,9 @@ win_new_shellsize()
 	ui_new_shellsize();
     if (old_Rows != Rows)
     {
+	/* if 'window' uses the whole screen, keep it using that */
+	if (p_window == old_Rows - 1 || old_Rows == 0)
+	    p_window = Rows - 1;
 	old_Rows = Rows;
 	shell_new_rows();	/* update window sizes */
     }
@@ -3045,7 +3103,10 @@ set_shellsize(width, height, mustset)
     }
     else
 	check_shellsize();
-    win_new_shellsize();    /* fit the windows in the new sized shell */
+
+    /* The window layout used to be adjusted here, but it now happens in
+     * screenalloc() (also invoked from screenclear()).  That is because the
+     * "busy" check above may skip this, but not screenalloc(). */
 
     if (State != ASKMORE && State != EXTERNCMD && State != CONFIRM)
 	screenclear();
@@ -3084,7 +3145,15 @@ set_shellsize(width, height, mustset)
 	else
 	{
 	    update_topline();
-	    update_screen(NOT_VALID);
+#if defined(FEAT_INS_EXPAND)
+	    if (pum_visible())
+	    {
+		redraw_later(NOT_VALID);
+		ins_compl_show_pum(); /* This includes the redraw. */
+	    }
+	    else
+#endif
+		update_screen(NOT_VALID);
 	    if (redrawing())
 		setcursor();
 	}
@@ -3110,10 +3179,6 @@ settmode(tmode)
 
     if (full_screen)
     {
-	/* In Ex mode, never set to RAW */
-	if (exmode_active == EXMODE_NORMAL)
-	    tmode = TMODE_COOK;
-
 	/*
 	 * When returning after calling a shell we want to really set the
 	 * terminal to raw mode, even though we think it already is, because
@@ -3194,24 +3259,33 @@ stoptermcap()
     }
 }
 
-#ifdef FEAT_TERMRESPONSE
+#if defined(FEAT_TERMRESPONSE) || defined(PROTO)
 /*
  * Request version string (for xterm) when needed.
  * Only do this after switching to raw mode, otherwise the result will be
  * echoed.
+ * Only do this after startup has finished, to avoid that the response comes
+ * while excuting "-c !cmd" or even after "-c quit".
  * Only do this after termcap mode has been started, otherwise the codes for
  * the cursor keys may be wrong.
+ * Only do this when 'esckeys' is on, otherwise the response causes trouble in
+ * Insert mode.
+ * On Unix only do it when both output and input are a tty (avoid writing
+ * request to terminal while reading from a file).
  * The result is caught in check_termcode().
  */
-    static void
+    void
 may_req_termresponse()
 {
     if (crv_status == CRV_GET
 	    && cur_tmode == TMODE_RAW
+	    && starting == 0
 	    && termcap_active
-#ifdef UNIX
+	    && p_ek
+# ifdef UNIX
 	    && isatty(1)
-#endif
+	    && isatty(read_cmd_fd)
+# endif
 	    && *T_CRV != NUL)
     {
 	out_str(T_CRV);
@@ -3370,6 +3444,33 @@ cursor_off()
     }
 }
 
+#if defined(CURSOR_SHAPE) || defined(PROTO)
+/*
+ * Set cursor shape to match Insert mode.
+ */
+    void
+term_cursor_shape()
+{
+    static int showing_insert_mode = MAYBE;
+
+    if (!full_screen || *T_CSI == NUL || *T_CEI == NUL)
+	return;
+
+    if (State & INSERT)
+    {
+	if (showing_insert_mode != TRUE)
+	    out_str(T_CSI);	    /* Insert mode cursor */
+	showing_insert_mode = TRUE;
+    }
+    else
+    {
+	if (showing_insert_mode != FALSE)
+	    out_str(T_CEI);	    /* non-Insert mode cursor */
+	showing_insert_mode = FALSE;
+    }
+}
+#endif
+
 /*
  * Set scrolling region for window 'wp'.
  * The region starts 'off' lines from the start of the window.
@@ -3410,15 +3511,18 @@ scroll_region_reset()
  * List of terminal codes that are currently recognized.
  */
 
-struct termcode
+static struct termcode
 {
     char_u  name[2];	    /* termcap name of entry */
     char_u  *code;	    /* terminal code (in allocated memory) */
     int	    len;	    /* STRLEN(code) */
+    int	    modlen;	    /* length of part before ";*~". */
 } *termcodes = NULL;
 
 static int  tc_max_len = 0; /* number of entries that termcodes[] can hold */
 static int  tc_len = 0;	    /* current number of entries in termcodes[] */
+
+static int termcode_star __ARGS((char_u *code, int len));
 
     void
 clear_termcodes()
@@ -3439,19 +3543,24 @@ clear_termcodes()
     need_gather = TRUE;		/* need to fill termleader[] */
 }
 
+#define ATC_FROM_TERM 55
+
 /*
  * Add a new entry to the list of terminal codes.
  * The list is kept alphabetical for ":set termcap"
+ * "flags" is TRUE when replacing 7-bit by 8-bit controls is desired.
+ * "flags" can also be ATC_FROM_TERM for got_code_from_term().
  */
     void
-add_termcode(name, string, use_8bit)
+add_termcode(name, string, flags)
     char_u	*name;
     char_u	*string;
-    int		use_8bit;	/* replace 7-bit control by 8-bit one */
+    int		flags;
 {
     struct termcode *new_tc;
     int		    i, j;
     char_u	    *s;
+    int		    len;
 
     if (string == NULL || *string == NUL)
     {
@@ -3464,11 +3573,12 @@ add_termcode(name, string, use_8bit)
 	return;
 
     /* Change leading <Esc>[ to CSI, change <Esc>O to <M-O>. */
-    if (use_8bit && term_7to8bit(string) != 0)
+    if (flags != 0 && flags != ATC_FROM_TERM && term_7to8bit(string) != 0)
     {
 	mch_memmove(s, s + 1, STRLEN(s));
 	s[0] = term_7to8bit(string);
     }
+    len = (int)STRLEN(s);
 
     need_gather = TRUE;		/* need to fill termleader[] */
 
@@ -3505,13 +3615,32 @@ add_termcode(name, string, use_8bit)
 	    if (termcodes[i].name[1] < name[1])
 		continue;
 	    /*
-	     * Exact match: Replace old code.
+	     * Exact match: May replace old code.
 	     */
 	    if (termcodes[i].name[1] == name[1])
 	    {
-		vim_free(termcodes[i].code);
-		--tc_len;
-		break;
+		if (flags == ATC_FROM_TERM && (j = termcode_star(
+				    termcodes[i].code, termcodes[i].len)) > 0)
+		{
+		    /* Don't replace ESC[123;*X or ESC O*X with another when
+		     * invoked from got_code_from_term(). */
+		    if (len == termcodes[i].len - j
+			    && STRNCMP(s, termcodes[i].code, len - 1) == 0
+			    && s[len - 1]
+				   == termcodes[i].code[termcodes[i].len - 1])
+		    {
+			/* They are equal but for the ";*": don't add it. */
+			vim_free(s);
+			return;
+		    }
+		}
+		else
+		{
+		    /* Replace old code. */
+		    vim_free(termcodes[i].code);
+		    --tc_len;
+		    break;
+		}
 	    }
 	}
 	/*
@@ -3525,8 +3654,36 @@ add_termcode(name, string, use_8bit)
     termcodes[i].name[0] = name[0];
     termcodes[i].name[1] = name[1];
     termcodes[i].code = s;
-    termcodes[i].len = (int)STRLEN(s);
+    termcodes[i].len = len;
+
+    /* For xterm we recognize special codes like "ESC[42;*X" and "ESC O*X" that
+     * accept modifiers. */
+    termcodes[i].modlen = 0;
+    j = termcode_star(s, len);
+    if (j > 0)
+	termcodes[i].modlen = len - 1 - j;
     ++tc_len;
+}
+
+/*
+ * Check termcode "code[len]" for ending in ;*X, <Esc>O*X or <M-O>*X.
+ * The "X" can be any character.
+ * Return 0 if not found, 2 for ;*X and 1 for O*X and <M-O>*X.
+ */
+    static int
+termcode_star(code, len)
+    char_u	*code;
+    int		len;
+{
+    /* Shortest is <M-O>*X.  With ; shortest is <CSI>1;*X */
+    if (len >= 3 && code[len - 2] == '*')
+    {
+	if (len >= 5 && code[len - 3] == ';')
+	    return 2;
+	if ((len >= 4 && code[len - 3] == 'O') || code[len - 3] == 'O' + 128)
+	    return 1;
+    }
+    return 0;
 }
 
     char_u  *
@@ -3661,9 +3818,12 @@ check_termcode(max_offset, buf, buflen)
     char_u	*tp;
     char_u	*p;
     int		slen = 0;	/* init for GCC */
+    int		modslen;
     int		len;
     int		offset;
     char_u	key_name[2];
+    int		modifiers;
+    int		key;
     int		new_slen;
     int		extra;
     char_u	string[MAX_KEY_CODE_LEN + 1];
@@ -3675,7 +3835,6 @@ check_termcode(max_offset, buf, buflen)
     int		num_bytes;
 # endif
     int		mouse_code = 0;	    /* init for GCC */
-    int		modifiers;
     int		is_click, is_drag;
     int		wheel_code = 0;
     int		current_button;
@@ -3758,8 +3917,9 @@ check_termcode(max_offset, buf, buflen)
 	if (*tp == ESC && !p_ek && (State & INSERT))
 	    continue;
 
-	new_slen = 0;		/* Length of what will replace the termcode */
 	key_name[0] = NUL;	/* no key name found yet */
+	key_name[1] = NUL;	/* no key name found yet */
+	modifiers = 0;		/* no modifiers yet */
 
 #ifdef FEAT_GUI
 	if (gui.in_use)
@@ -3803,7 +3963,7 @@ check_termcode(max_offset, buf, buflen)
 		     * key code.
 		     */
 		    if (termcodes[idx].name[0] == 'K'
-					   && isdigit(termcodes[idx].name[1]))
+				       && VIM_ISDIGIT(termcodes[idx].name[1]))
 		    {
 			for (j = idx + 1; j < tc_len; ++j)
 			    if (termcodes[j].len == slen &&
@@ -3817,8 +3977,62 @@ check_termcode(max_offset, buf, buflen)
 
 		    key_name[0] = termcodes[idx].name[0];
 		    key_name[1] = termcodes[idx].name[1];
-
 		    break;
+		}
+
+		/*
+		 * Check for code with modifier, like xterm uses:
+		 * <Esc>[123;*X  (modslen == slen - 3)
+		 * Also <Esc>O*X and <M-O>*X (modslen == slen - 2).
+		 * When there is a modifier the * matches a number.
+		 * When there is no modifier the ;* or * is omitted.
+		 */
+		if (termcodes[idx].modlen > 0)
+		{
+		    modslen = termcodes[idx].modlen;
+		    if (cpo_koffset && offset && len < modslen)
+			continue;
+		    if (STRNCMP(termcodes[idx].code, tp,
+				(size_t)(modslen > len ? len : modslen)) == 0)
+		    {
+			int	    n;
+
+			if (len <= modslen)	/* got a partial sequence */
+			    return -1;		/* need to get more chars */
+
+			if (tp[modslen] == termcodes[idx].code[slen - 1])
+			    slen = modslen + 1;	/* no modifiers */
+			else if (tp[modslen] != ';' && modslen == slen - 3)
+			    continue;	/* no match */
+			else
+			{
+			    /* Skip over the digits, the final char must
+			     * follow. */
+			    for (j = slen - 2; j < len && isdigit(tp[j]); ++j)
+				;
+			    ++j;
+			    if (len < j)	/* got a partial sequence */
+				return -1;	/* need to get more chars */
+			    if (tp[j - 1] != termcodes[idx].code[slen - 1])
+				continue;	/* no match */
+
+			    /* Match!  Convert modifier bits. */
+			    n = atoi((char *)tp + slen - 2) - 1;
+			    if (n & 1)
+				modifiers |= MOD_MASK_SHIFT;
+			    if (n & 2)
+				modifiers |= MOD_MASK_ALT;
+			    if (n & 4)
+				modifiers |= MOD_MASK_CTRL;
+			    if (n & 8)
+				modifiers |= MOD_MASK_META;
+
+			    slen = j;
+			}
+			key_name[0] = termcodes[idx].name[0];
+			key_name[1] = termcodes[idx].name[1];
+			break;
+		    }
 		}
 	    }
 	}
@@ -3835,7 +4049,7 @@ check_termcode(max_offset, buf, buflen)
 		j = 0;
 		extra = 0;
 		for (i = 2 + (tp[0] != CSI);
-			i < len && (isdigit(tp[i])
+			i < len && (VIM_ISDIGIT(tp[i])
 			    || tp[i] == ';' || tp[i] == '.'); ++i)
 		    if (tp[i] == ';' && ++j == 1)
 			extra = atoi((char *)tp + i + 1);
@@ -4053,6 +4267,9 @@ check_termcode(max_offset, buf, buflen)
 		}
 #   ifdef FEAT_MOUSE_XTERM
 		else if (held_button == MOUSE_RELEASE
+#    ifdef FEAT_GUI
+			&& !gui.in_use
+#    endif
 			&& (mouse_code == 0x23 || mouse_code == 0x24))
 		{
 		    /* Apparently used by rxvt scroll wheel. */
@@ -4329,23 +4546,23 @@ check_termcode(max_offset, buf, buflen)
 			 {
 			     held_button = mouse_code;
 			     mouse_code |= MOUSE_DRAG;
-			     WantQueryMouse = 1;
+			     WantQueryMouse = TRUE;
 			 }
 			 is_drag = TRUE;
 			 showmode();
 			 break;
 		case  2: mouse_code = MOUSE_LEFT;
-			 WantQueryMouse = 1;
+			 WantQueryMouse = TRUE;
 			 break;
 		case  3: mouse_code = MOUSE_RELEASE | MOUSE_LEFT;
 			 break;
 		case  4: mouse_code = MOUSE_MIDDLE;
-			 WantQueryMouse = 1;
+			 WantQueryMouse = TRUE;
 			 break;
 		case  5: mouse_code = MOUSE_RELEASE | MOUSE_MIDDLE;
 			 break;
 		case  6: mouse_code = MOUSE_RIGHT;
-			 WantQueryMouse = 1;
+			 WantQueryMouse = TRUE;
 			 break;
 		case  7: mouse_code = MOUSE_RELEASE | MOUSE_RIGHT;
 			 break;
@@ -4474,10 +4691,18 @@ check_termcode(max_offset, buf, buflen)
 			    && orig_num_clicks != 4
 			    && orig_mouse_col == mouse_col
 			    && orig_mouse_row == mouse_row
+			    && ((orig_topline == curwin->w_topline
 #ifdef FEAT_DIFF
-			    && orig_topfill == curwin->w_topfill
+				    && orig_topfill == curwin->w_topfill
 #endif
-			    && orig_topline == curwin->w_topline)
+				)
+#ifdef FEAT_WINDOWS
+				/* Double click in tab pages line also works
+				 * when window contents changes. */
+				|| (mouse_row == 0 && firstwin->w_winrow > 0)
+#endif
+			       )
+			    )
 			++orig_num_clicks;
 		    else
 			orig_num_clicks = 1;
@@ -4505,7 +4730,6 @@ check_termcode(max_offset, buf, buflen)
 	     * Translate the actual mouse event into a pseudo mouse event.
 	     * First work out what modifiers are to be used.
 	     */
-	    modifiers = 0x0;
 	    if (orig_mouse_code & MOUSE_SHIFT)
 		modifiers |= MOD_MASK_SHIFT;
 	    if (orig_mouse_code & MOUSE_CTRL)
@@ -4518,14 +4742,6 @@ check_termcode(max_offset, buf, buflen)
 		modifiers |= MOD_MASK_3CLICK;
 	    else if (orig_num_clicks == 4)
 		modifiers |= MOD_MASK_4CLICK;
-
-	    /* Add the modifier codes to our string */
-	    if (modifiers != 0)
-	    {
-		string[new_slen++] = K_SPECIAL;
-		string[new_slen++] = (int)KS_MODIFIER;
-		string[new_slen++] = modifiers;
-	    }
 
 	    /* Work out our pseudo mouse event */
 	    key_name[0] = (int)KS_EXTRA;
@@ -4546,6 +4762,9 @@ check_termcode(max_offset, buf, buflen)
 	 * four bytes which are to be taken as a pointer to the vimmenu_T
 	 * structure.
 	 *
+	 * A tab line event is encodded as K_SPECIAL KS_TABLINE nr, where "nr"
+	 * is one byte with the tab index.
+	 *
 	 * A scrollbar event is K_SPECIAL, KS_VER_SCROLLBAR, KE_FILLER followed
 	 * by one byte representing the scrollbar number, and then four bytes
 	 * representing a long_u which is the new value of the scrollbar.
@@ -4563,6 +4782,27 @@ check_termcode(max_offset, buf, buflen)
 	    if (num_bytes == -1)
 		return -1;
 	    current_menu = (vimmenu_T *)val;
+	    slen += num_bytes;
+	}
+# endif
+# ifdef FEAT_GUI_TABLINE
+	else if (key_name[0] == (int)KS_TABLINE)
+	{
+	    /* Selecting tabline tab or using its menu. */
+	    num_bytes = get_bytes_from_buf(tp + slen, bytes, 1);
+	    if (num_bytes == -1)
+		return -1;
+	    current_tab = (int)bytes[0];
+	    slen += num_bytes;
+	}
+	else if (key_name[0] == (int)KS_TABMENU)
+	{
+	    /* Selecting tabline tab or using its menu. */
+	    num_bytes = get_bytes_from_buf(tp + slen, bytes, 2);
+	    if (num_bytes == -1)
+		return -1;
+	    current_tab = (int)bytes[0];
+	    current_tabmenu = (int)bytes[1];
 	    slen += num_bytes;
 	}
 # endif
@@ -4618,7 +4858,31 @@ check_termcode(max_offset, buf, buflen)
 # endif /* !USE_ON_FLY_SCROLL */
 #endif /* FEAT_GUI */
 
+	/*
+	 * Change <xHome> to <Home>, <xUp> to <Up>, etc.
+	 */
+	key = handle_x_keys(TERMCAP2KEY(key_name[0], key_name[1]));
+
+	/*
+	 * Add any modifier codes to our string.
+	 */
+	new_slen = 0;		/* Length of what will replace the termcode */
+	if (modifiers != 0)
+	{
+	    /* Some keys have the modifier included.  Need to handle that here
+	     * to make mappings work. */
+	    key = simplify_key(key, &modifiers);
+	    if (modifiers != 0)
+	    {
+		string[new_slen++] = K_SPECIAL;
+		string[new_slen++] = (int)KS_MODIFIER;
+		string[new_slen++] = modifiers;
+	    }
+	}
+
 	/* Finally, add the special key code to our string */
+	key_name[0] = KEY2TERMCAP0(key);
+	key_name[1] = KEY2TERMCAP1(key);
 	if (key_name[0] == KS_KEY)
 	    string[new_slen++] = key_name[1];	/* from ":set <M-b>=xx" */
 	else
@@ -4681,12 +4945,13 @@ check_termcode(max_offset, buf, buflen)
  * nothing).  When 'cpoptions' does not contain 'B', a backslash can be used
  * instead of a CTRL-V.
  */
-    char_u  *
-replace_termcodes(from, bufp, from_part, do_lt)
+    char_u *
+replace_termcodes(from, bufp, from_part, do_lt, special)
     char_u	*from;
     char_u	**bufp;
     int		from_part;
     int		do_lt;		/* also translate <lt> */
+    int		special;	/* always accept <key> notation */
 {
     int		i;
     int		slen;
@@ -4699,7 +4964,7 @@ replace_termcodes(from, bufp, from_part, do_lt)
     char_u	*result;	/* buffer for resulting string */
 
     do_backslash = (vim_strchr(p_cpo, CPO_BSLASH) == NULL);
-    do_special = (vim_strchr(p_cpo, CPO_SPECI) == NULL);
+    do_special = (vim_strchr(p_cpo, CPO_SPECI) == NULL) || special;
     do_key_code = (vim_strchr(p_cpo, CPO_KEYCODE) == NULL);
 
     /*
@@ -4718,7 +4983,7 @@ replace_termcodes(from, bufp, from_part, do_lt)
     /*
      * Check for #n at start only: function key n
      */
-    if (from_part && src[0] == '#' && isdigit(src[1]))	    /* function key */
+    if (from_part && src[0] == '#' && VIM_ISDIGIT(src[1]))  /* function key */
     {
 	result[dlen++] = K_SPECIAL;
 	result[dlen++] = 'k';
@@ -4851,7 +5116,7 @@ replace_termcodes(from, bufp, from_part, do_lt)
 
 #ifdef FEAT_MBYTE
 	/* skip multibyte char correctly */
-	for (i = (*mb_ptr2len_check)(src); i > 0; --i)
+	for (i = (*mb_ptr2len)(src); i > 0; --i)
 #endif
 	{
 	    /*
@@ -4957,7 +5222,8 @@ show_termcodes()
     int		i;
     int		len;
 
-#define INC 27	    /* try to make three columns */
+#define INC3 27	    /* try to make three columns */
+#define INC2 40	    /* try to make two columns */
 #define GAP 2	    /* spaces between columns */
 
     if (tc_len == 0)	    /* no terminal codes (must be GUI) */
@@ -4972,9 +5238,10 @@ show_termcodes()
     /*
      * do the loop two times:
      * 1. display the short items (non-strings and short strings)
-     * 2. display the long items (strings)
+     * 2. display the medium items (medium length strings)
+     * 3. display the long items (remaining strings)
      */
-    for (run = 1; run <= 2 && !got_int; ++run)
+    for (run = 1; run <= 3 && !got_int; ++run)
     {
 	/*
 	 * collect the items in items[]
@@ -4984,21 +5251,23 @@ show_termcodes()
 	{
 	    len = show_one_termcode(termcodes[i].name,
 						    termcodes[i].code, FALSE);
-	    if ((len <= INC - GAP && run == 1) || (len > INC - GAP && run == 2))
+	    if (len <= INC3 - GAP ? run == 1
+			: len <= INC2 - GAP ? run == 2
+			: run == 3)
 		items[item_count++] = i;
 	}
 
 	/*
 	 * display the items
 	 */
-	if (run == 1)
+	if (run <= 2)
 	{
-	    cols = (Columns + GAP) / INC;
+	    cols = (Columns + GAP) / (run == 1 ? INC3 : INC2);
 	    if (cols == 0)
 		cols = 1;
 	    rows = (item_count + cols - 1) / cols;
 	}
-	else	/* run == 2 */
+	else	/* run == 3 */
 	    rows = item_count;
 	for (row = 0; row < rows && !got_int; ++row)
 	{
@@ -5011,7 +5280,10 @@ show_termcodes()
 		msg_col = col;			/* make columns */
 		show_one_termcode(termcodes[items[i]].name,
 					      termcodes[items[i]].code, TRUE);
-		col += INC;
+		if (run == 2)
+		    col += INC2;
+		else
+		    col += INC3;
 	    }
 	    out_flush();
 	    ui_breakcheck();
@@ -5164,7 +5436,10 @@ got_code_from_term(code, len)
 		if (i != t_colors)
 		{
 		    /* Nr of colors changed, initialize highlighting and
-		     * redraw everything. */
+		     * redraw everything.  This causes a redraw, which usually
+		     * clears the message.  Try keeping the message if it
+		     * might work. */
+		    set_keep_msg_from_hist();
 		    set_color_count(i);
 		    init_highlight(TRUE, FALSE);
 		    redraw_later(CLEAR);
@@ -5176,7 +5451,7 @@ got_code_from_term(code, len)
 		i = find_term_bykeys(str);
 		if (i >= 0)
 		    del_termcode_idx(i);
-		add_termcode(name, str, FALSE);
+		add_termcode(name, str, ATC_FROM_TERM);
 	    }
 	}
     }

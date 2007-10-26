@@ -11,6 +11,14 @@
  */
 
 /*
+ * Control over standard conformance
+ */
+
+EXTERN int Unix2003_compat;
+/* Copy of -w value for unix2003 compatible use */
+EXTERN int p_window_unix2003;
+
+/*
  * Number of Rows and Columns in the screen.
  * Must be long to be able to use them as options in option.c.
  * Note: Use screen_Rows and screen_Columns to access items in ScreenLines[].
@@ -35,10 +43,14 @@ EXTERN long	Columns INIT(= 80);	/* nr of columns in the screen */
  *
  * "LineOffset[n]" is the offset from ScreenLines[] for the start of line 'n'.
  * The same value is used for ScreenLinesUC[] and ScreenAttrs[].
+ *
+ * Note: before the screen is initialized and when out of memory these can be
+ * NULL.
  */
 EXTERN schar_T	*ScreenLines INIT(= NULL);
 EXTERN sattr_T	*ScreenAttrs INIT(= NULL);
 EXTERN unsigned	*LineOffset INIT(= NULL);
+EXTERN char_u	*LineWraps INIT(= NULL);	/* line wraps to next line */
 
 #ifdef FEAT_MBYTE
 /*
@@ -49,12 +61,24 @@ EXTERN unsigned	*LineOffset INIT(= NULL);
  * Note: These three are only allocated when enc_utf8 is set!
  */
 EXTERN u8char_T	*ScreenLinesUC INIT(= NULL);	/* decoded UTF-8 characters */
-EXTERN u8char_T	*ScreenLinesC1 INIT(= NULL);	/* first composing char */
-EXTERN u8char_T	*ScreenLinesC2 INIT(= NULL);	/* second composing char */
+EXTERN u8char_T	*ScreenLinesC[MAX_MCO];		/* composing characters */
+EXTERN int	Screen_mco INIT(= 0);		/* value of p_mco used when
+						   allocating ScreenLinesC[] */
 
 /* Only used for euc-jp: Second byte of a character that starts with 0x8e.
  * These are single-width. */
 EXTERN schar_T	*ScreenLines2 INIT(= NULL);
+#endif
+
+#ifdef FEAT_WINDOWS
+/*
+ * Indexes for tab page line:
+ *	N > 0 for label of tab page N
+ *	N == 0 for no label
+ *	N < 0 for closing tab page -N
+ *	N == -999 for closing current tab page
+ */
+EXTERN short	*TabPageIdxs INIT(= NULL);
 #endif
 
 EXTERN int	screen_Rows INIT(= 0);	    /* actual size of ScreenLines[] */
@@ -62,7 +86,7 @@ EXTERN int	screen_Columns INIT(= 0);   /* actual size of ScreenLines[] */
 
 /*
  * When vgetc() is called, it sets mod_mask to the set of modifiers that are
- * held down based on the KSMOD_* symbols that are read first.
+ * held down based on the MOD_MASK_* symbols that are read first.
  */
 EXTERN int	mod_mask INIT(= 0x0);		/* current key modifiers */
 
@@ -79,13 +103,13 @@ EXTERN int	cmdline_row;
 
 EXTERN int	redraw_cmdline INIT(= FALSE);	/* cmdline must be redrawn */
 EXTERN int	clear_cmdline INIT(= FALSE);	/* cmdline must be cleared */
+EXTERN int	mode_displayed INIT(= FALSE);	/* mode is being displayed */
 #if defined(FEAT_CRYPT) || defined(FEAT_EVAL)
 EXTERN int	cmdline_star INIT(= FALSE);	/* cmdline is crypted */
 #endif
+
 EXTERN int	exec_from_reg INIT(= FALSE);	/* executing register */
 
-EXTERN int	global_changedtick INIT(= 0);	/* incremented for each
-						   change, also for undo */
 EXTERN int	screen_cleared INIT(= FALSE);	/* screen has been cleared */
 
 /*
@@ -98,22 +122,28 @@ EXTERN colnr_T	dollar_vcol INIT(= 0);
 
 #ifdef FEAT_INS_EXPAND
 /*
- * used for Insert mode completion
+ * Variables for Insert mode completion.
  */
-EXTERN int	completion_length INIT(= 0);
-EXTERN int	continue_status   INIT(= 0);
-EXTERN int	completion_interrupted INIT(= FALSE);
 
-/* flags for continue_status */
-#define CONT_ADDING	1	/* "normal" or "adding" expansion */
-#define CONT_INTRPT	(2 + 4)	/* a ^X interrupted the current expansion */
+/* Length in bytes of the text being completed (this is deleted to be replaced
+ * by the match.) */
+EXTERN int	compl_length INIT(= 0);
+
+/* Set when character typed while looking for matches and it means we should
+ * stop looking for matches. */
+EXTERN int	compl_interrupted INIT(= FALSE);
+
+/* List of flags for method of completion. */
+EXTERN int	compl_cont_status INIT(= 0);
+# define CONT_ADDING	1	/* "normal" or "adding" expansion */
+# define CONT_INTRPT	(2 + 4)	/* a ^X interrupted the current expansion */
 				/* it's set only iff N_ADDS is set */
-#define CONT_N_ADDS	4	/* next ^X<> will add-new or expand-current */
-#define CONT_S_IPOS	8	/* next ^X<> will set initial_pos?
+# define CONT_N_ADDS	4	/* next ^X<> will add-new or expand-current */
+# define CONT_S_IPOS	8	/* next ^X<> will set initial_pos?
 				 * if so, word-wise-expansion will set SOL */
-#define CONT_SOL	16	/* pattern includes start of line, just for
+# define CONT_SOL	16	/* pattern includes start of line, just for
 				 * word-wise expansion, not set for ^X^L */
-#define CONT_LOCAL	32	/* for ctrl_x_mode 0, ^X^P/^X^N do a local
+# define CONT_LOCAL	32	/* for ctrl_x_mode 0, ^X^P/^X^N do a local
 				 * expansion, (eg use complete=.) */
 #endif
 
@@ -135,6 +165,7 @@ EXTERN int	msg_scrolled_ign INIT(= FALSE);
 
 EXTERN char_u	*keep_msg INIT(= NULL);	    /* msg to be shown after redraw */
 EXTERN int	keep_msg_attr INIT(= 0);    /* highlight attr for keep_msg */
+EXTERN int	keep_msg_more INIT(= FALSE); /* keep_msg was set by msgmore() */
 EXTERN int	need_fileinfo INIT(= FALSE);/* do fileinfo() after redraw */
 EXTERN int	msg_scroll INIT(= FALSE);   /* msg_start() will scroll */
 EXTERN int	msg_didout INIT(= FALSE);   /* msg_outstr() was used in line */
@@ -146,13 +177,14 @@ EXTERN int	info_message INIT(= FALSE); /* printing informative message */
 #ifdef FEAT_EVAL
 EXTERN int	emsg_skip INIT(= 0);	    /* don't display errors for
 					       expression that is skipped */
-EXTERN int	emsg_severe INIT(=FALSE);   /* use message of next of several
+EXTERN int	emsg_severe INIT(= FALSE);   /* use message of next of several
 					       emsg() calls for throw */
 EXTERN int	did_endif INIT(= FALSE);    /* just had ":endif" */
 #endif
 EXTERN int	did_emsg;		    /* set by emsg() when the message
 					       is displayed or thrown */
 EXTERN int	called_emsg;		    /* always set by emsg() */
+EXTERN int	ex_exitval INIT(= 0);	    /* exit value for ex mode */
 EXTERN int	emsg_on_display INIT(= FALSE);	/* there is an error message */
 EXTERN int	rc_did_emsg INIT(= FALSE);  /* vim_regcomp() called emsg() */
 
@@ -165,16 +197,20 @@ EXTERN int	need_maketitle INIT(= TRUE); /* call maketitle() soon */
 #endif
 
 EXTERN int	quit_more INIT(= FALSE);    /* 'q' hit at "--more--" msg */
-EXTERN int	more_back INIT(= 0);	    /* 'b' or 'u' at "--more--" msg */
-EXTERN int	more_back_used INIT(= FALSE); /* using more_back */
 #if defined(UNIX) || defined(__EMX__) || defined(VMS) || defined(MACOS_X)
 EXTERN int	newline_on_exit INIT(= FALSE);	/* did msg in altern. screen */
 EXTERN int	intr_char INIT(= 0);	    /* extra interrupt character */
 #endif
 #if (defined(UNIX) || defined(VMS)) && defined(FEAT_X11)
 EXTERN int	x_no_connect INIT(= FALSE); /* don't connect to X server */
+# if defined(FEAT_CLIENTSERVER)
+EXTERN int	x_force_connect INIT(= FALSE); /* Do connect to X server.
+						  Overrules x_no_connect and
+						  "exclude" in 'clipboard'. */
+# endif
 #endif
-EXTERN int	vgetc_busy INIT(= FALSE);   /* inside vgetc() now */
+EXTERN int	ex_keep_indent INIT(= FALSE); /* getexmodeline(): keep indent */
+EXTERN int	vgetc_busy INIT(= 0);	    /* when inside vgetc() then > 0 */
 
 EXTERN int	didset_vim INIT(= FALSE);   /* did set $VIM ourselves */
 EXTERN int	didset_vimruntime INIT(= FALSE);   /* idem for $VIMRUNTIME */
@@ -195,6 +231,9 @@ EXTERN int	ex_nesting_level INIT(= 0);	/* nesting level */
 EXTERN int	debug_break_level INIT(= -1);	/* break below this level */
 EXTERN int	debug_did_msg INIT(= FALSE);	/* did "debug mode" message */
 EXTERN int	debug_tick INIT(= 0);		/* breakpoint change count */
+# ifdef FEAT_PROFILE
+EXTERN int	do_profiling INIT(= PROF_NONE);	/* PROF_ values */
+# endif
 
 /*
  * The exception currently being thrown.  Used to pass an exception to
@@ -230,12 +269,11 @@ EXTERN int trylevel INIT(= 0);
 
 /*
  * When "force_abort" is TRUE, always skip commands after an error message,
- * even after the outermost ":endif" or ":endwhile" or for a function whithout
- * the "abort" flag.  It is set to TRUE when "trylevel" is non-zero (and
- * ":silent!" was not used) or an exception is being thrown at the time an
- * error is detected.  It is set to FALSE when "trylevel" gets zero again and
- * there was no error or interrupt or throw.
- *
+ * even after the outermost ":endif", ":endwhile" or ":endfor" or for a
+ * function whithout the "abort" flag.  It is set to TRUE when "trylevel" is
+ * non-zero (and ":silent!" was not used) or an exception is being thrown at
+ * the time an error is detected.  It is set to FALSE when "trylevel" gets
+ * zero again and there was no error or interrupt or throw.
  */
 EXTERN int force_abort INIT(= FALSE);
 
@@ -274,6 +312,14 @@ EXTERN scid_T	current_SID INIT(= 0);	    /* ID of script being sourced or
 					       was sourced to define the
 					       current function. */
 #endif
+
+#if defined(FEAT_EVAL) || defined(FEAT_SYN_HL)
+/* Magic number used for hashitem "hi_key" value indicating a deleted item.
+ * Only the address is used. */
+EXTERN char_u	hash_removed;
+#endif
+
+
 EXTERN int	scroll_region INIT(= FALSE); /* term supports scroll region */
 EXTERN int	t_colors INIT(= 0);	    /* int value of T_CCO */
 
@@ -343,7 +389,7 @@ EXTERN int	mouse_dragging INIT(= 0);	/* extending Visual area with
  * When the DEC mouse has been pressed but not yet released we enable
  * automatic querys for the mouse position.
  */
-EXTERN int	WantQueryMouse INIT(= 0);
+EXTERN int	WantQueryMouse INIT(= FALSE);
 # endif
 
 # ifdef FEAT_GUI
@@ -372,7 +418,9 @@ EXTERN int	drag_sep_line INIT(= FALSE);	/* dragging vert separator */
 
 #ifdef FEAT_DIFF
 /* Value set from 'diffopt'. */
-EXTERN int	diff_context INIT(= 6);	/* context for folds */
+EXTERN int	diff_context INIT(= 6);		/* context for folds */
+EXTERN int	diff_foldcolumn INIT(= 2);	/* 'foldcolumn' for diff mode */
+EXTERN int	diff_need_scrollbind INIT(= FALSE);
 #endif
 
 #ifdef FEAT_MENU
@@ -396,6 +444,16 @@ EXTERN vimmenu_T	*current_menu;
 
 /* Set to TRUE after adding/removing menus to ensure they are updated */
 EXTERN int force_menu_update INIT(= FALSE);
+# endif
+# ifdef FEAT_GUI_TABLINE
+/* Tab in tab pages line just selected, set by check_termcode() */
+EXTERN int	    current_tab;
+
+/* Menu entry in tab pages line menu just selected, set by check_termcode() */
+EXTERN int	    current_tabmenu;
+#  define TABLINE_MENU_CLOSE	1
+#  define TABLINE_MENU_NEW	2
+#  define TABLINE_MENU_OPEN	3
 # endif
 
 /* Scrollbar moved and new value, set by check_termcode() */
@@ -441,6 +499,10 @@ EXTERN VimClipboard clip_plus;	/* CLIPBOARD selection in X11 */
 # else
 #  define clip_plus clip_star	/* there is only one clipboard */
 # endif
+EXTERN int	clip_unnamed INIT(= FALSE);
+EXTERN int	clip_autoselect INIT(= FALSE);
+EXTERN int	clip_autoselectml INIT(= FALSE);
+EXTERN regprog_T *clip_exclude_prog INIT(= NULL);
 #endif
 
 /*
@@ -455,12 +517,18 @@ EXTERN win_T	*lastwin;		/* last window */
 EXTERN win_T	*prevwin INIT(= NULL);	/* previous window */
 # define W_NEXT(wp) ((wp)->w_next)
 # define FOR_ALL_WINDOWS(wp) for (wp = firstwin; wp != NULL; wp = wp->w_next)
+#define FOR_ALL_TAB_WINDOWS(tp, wp) \
+    for ((tp) = first_tabpage; (tp) != NULL; (tp) = (tp)->tp_next) \
+	for ((wp) = ((tp) == curtab) \
+		? firstwin : (tp)->tp_firstwin; (wp); (wp) = (wp)->w_next)
 #else
 # define firstwin curwin
 # define lastwin curwin
 # define W_NEXT(wp) NULL
 # define FOR_ALL_WINDOWS(wp) wp = curwin;
+# define FOR_ALL_TAB_WINDOWS(tp, wp) wp = curwin;
 #endif
+
 EXTERN win_T	*curwin;	/* currently active window */
 
 /*
@@ -468,6 +536,16 @@ EXTERN win_T	*curwin;	/* currently active window */
  * of the tree.
  */
 EXTERN frame_T	*topframe;	/* top of the window frame tree */
+
+#ifdef FEAT_WINDOWS
+/*
+ * Tab pages are alternative topframes.  "first_tabpage" points to the first
+ * one in the list, "curtab" is the current one.
+ */
+EXTERN tabpage_T    *first_tabpage;
+EXTERN tabpage_T    *curtab;
+EXTERN int	    redraw_tabline INIT(= FALSE);  /* need to redraw tabline */
+#endif
 
 /*
  * All buffers are linked in a list. 'firstbuf' points to the first entry,
@@ -504,7 +582,12 @@ EXTERN int	starting INIT(= NO_SCREEN);
 				/* first NO_SCREEN, then NO_BUFFERS and then
 				 * set to 0 when starting up finished */
 EXTERN int	exiting INIT(= FALSE);
-				/* TRUE when abandoning Vim */
+				/* TRUE when planning to exit Vim.  Might
+				 * still keep on running if there is a changed
+				 * buffer. */
+EXTERN int	really_exiting INIT(= FALSE);
+				/* TRUE when we are sure to exit, e.g., after
+				 * a deadly signal */
 EXTERN int	full_screen INIT(= FALSE);
 				/* TRUE when doing full-screen output
 				 * otherwise only writing some messages */
@@ -516,12 +599,21 @@ EXTERN int	secure INIT(= FALSE);
 				 * allowed, e.g. when sourcing .exrc or .vimrc
 				 * in current directory */
 
+EXTERN int	textlock INIT(= 0);
+				/* non-zero when changing text and jumping to
+				 * another window or buffer is not allowed */
+
+#ifdef FEAT_AUTOCMD
+EXTERN int	curbuf_lock INIT(= 0);
+				/* non-zero when the current buffer can't be
+				 * changed.  Used for FileChangedRO. */
+#endif
 #ifdef FEAT_EVAL
 # define HAVE_SANDBOX
 EXTERN int	sandbox INIT(= 0);
-				/* non-zero when evaluating an expression in a
-				 * "sandbox".  Not allowed to change the
-				 * buffer. */
+				/* Non-zero when evaluating an expression in a
+				 * "sandbox".  Several things are not allowed
+				 * then. */
 #endif
 
 EXTERN int	silent_mode INIT(= FALSE);
@@ -607,6 +699,12 @@ EXTERN int	can_si INIT(= FALSE);
 EXTERN int	can_si_back INIT(= FALSE);
 #endif
 
+EXTERN pos_T	saved_cursor		/* w_cursor before formatting text. */
+# ifdef DO_INIT
+	= INIT_POS_T
+# endif
+	;
+
 /*
  * Stuff for insert mode.
  */
@@ -631,10 +729,10 @@ EXTERN JMP_BUF x_jump_env;
  * Used to protect areas where we could crash.
  */
 EXTERN JMP_BUF lc_jump_env;	/* argument to SETJMP() */
-#ifdef SIGHASARG
+# ifdef SIGHASARG
 EXTERN int lc_signal;		/* catched signal number, 0 when no was signal
 				   catched; used for mch_libcall() */
-#endif
+# endif
 EXTERN int lc_active INIT(= FALSE); /* TRUE when lc_jump_env is valid. */
 #endif
 
@@ -661,10 +759,18 @@ EXTERN int	enc_dbcs INIT(= 0);		/* One of DBCS_xxx values if
 						   DBCS encoding */
 EXTERN int	enc_unicode INIT(= 0);	/* 2: UCS-2 or UTF-16, 4: UCS-4 */
 EXTERN int	enc_utf8 INIT(= FALSE);		/* UTF-8 encoded Unicode */
+EXTERN int	enc_latin1like INIT(= TRUE);	/* 'encoding' is latin1 comp. */
 # ifdef WIN3264
-EXTERN int	enc_codepage INIT(= 0);		/* codepage nr of 'encoding' */
+/* Codepage nr of 'encoding'.  Negative means it's not been set yet, zero
+ * means 'encoding' is not a valid codepage. */
+EXTERN int	enc_codepage INIT(= -1);
+EXTERN int	enc_latin9 INIT(= FALSE);	/* 'encoding' is latin9 */
 # endif
 EXTERN int	has_mbyte INIT(= 0);		/* any multi-byte encoding */
+
+#if defined(WIN3264) && defined(FEAT_MBYTE)
+EXTERN int	wide_WindowProc INIT(= FALSE);	/* use wide WindowProc() */
+#endif
 
 /*
  * To speed up BYTELEN() we fill a table with the byte lengths whenever
@@ -683,8 +789,11 @@ EXTERN vimconv_T output_conv;			/* type of output conversion */
  * (DBCS).
  * The value is set in mb_init();
  */
-EXTERN int (*mb_ptr2len_check) __ARGS((char_u *p)) INIT(= latin_ptr2len_check);
+/* length of char in bytes, including following composing chars */
+EXTERN int (*mb_ptr2len) __ARGS((char_u *p)) INIT(= latin_ptr2len);
+/* byte length of char */
 EXTERN int (*mb_char2len) __ARGS((int c)) INIT(= latin_char2len);
+/* convert char to bytes, return the length */
 EXTERN int (*mb_char2bytes) __ARGS((int c, char_u *buf)) INIT(= latin_char2bytes);
 EXTERN int (*mb_ptr2cells) __ARGS((char_u *p)) INIT(= latin_ptr2cells);
 EXTERN int (*mb_char2cells) __ARGS((int c)) INIT(= latin_char2cells);
@@ -712,12 +821,26 @@ EXTERN GdkICAttr	*xic_attr INIT(= NULL);
 EXTERN GdkIC		*xic INIT(= NULL);
 EXTERN char		*draw_feedback INIT(= NULL);
 #  endif
+/*
+ * Start and end column of the preedit area in virtual columns from the start
+ * of the text line.  When there is no preedit area they are set to MAXCOL.
+ * "preedit_end_col" is needed for coloring the preedited string.  Drawing the
+ * color between "preedit_start_col" and curpos did not work, because some XIM
+ * set the cursor position to the first char of the string.
+ */
 EXTERN colnr_T		preedit_start_col INIT(= MAXCOL);
+EXTERN colnr_T		preedit_end_col INIT(= MAXCOL);
+
+/* "xim_changed_while_preediting" is set when changed() can set the 'modified'
+ * flag even while preediting. */
+EXTERN int		xim_changed_while_preediting INIT(= FALSE);
 # else
 EXTERN XIC		xic INIT(= NULL);
 # endif
+# ifdef FEAT_GUI
 EXTERN guicolor_T	xim_fg_color INIT(= INVALCOLOR);
 EXTERN guicolor_T	xim_bg_color INIT(= INVALCOLOR);
+# endif
 #endif
 
 #ifdef FEAT_HANGULIN
@@ -743,24 +866,27 @@ EXTERN int	finish_op INIT(= FALSE);/* TRUE while an operator is pending */
 EXTERN int exmode_active INIT(= 0);	/* zero, EXMODE_NORMAL or EXMODE_VIM */
 EXTERN int ex_no_reprint INIT(= FALSE); /* no need to print after z or p */
 
-EXTERN int	Recording INIT(= FALSE);/* TRUE when recording into a reg. */
-EXTERN int	Exec_reg INIT(= FALSE);	/* TRUE when executing a register */
+EXTERN int Recording INIT(= FALSE);	/* TRUE when recording into a reg. */
+EXTERN int Exec_reg INIT(= FALSE);	/* TRUE when executing a register */
 
-EXTERN int	no_mapping INIT(= FALSE);   /* currently no mapping allowed */
-EXTERN int	allow_keys INIT(= FALSE);   /* allow key codes when no_mapping
+EXTERN int no_mapping INIT(= FALSE);	/* currently no mapping allowed */
+EXTERN int no_zero_mapping INIT(= 0);	/* mapping zero not allowed */
+EXTERN int allow_keys INIT(= FALSE);	/* allow key codes when no_mapping
 					     * is set */
-EXTERN int	no_u_sync INIT(= 0);	/* Don't call u_sync() */
+EXTERN int no_u_sync INIT(= 0);		/* Don't call u_sync() */
 
-EXTERN int	restart_edit INIT(= 0);	/* call edit when next cmd finished */
-EXTERN int	arrow_used;		/* Normally FALSE, set to TRUE after
+EXTERN int restart_edit INIT(= 0);	/* call edit when next cmd finished */
+EXTERN int arrow_used;			/* Normally FALSE, set to TRUE after
 					 * hitting cursor key in insert mode.
 					 * Used by vgetorpeek() to decide when
 					 * to call u_sync() */
+EXTERN int	ins_at_eol INIT(= FALSE); /* put cursor after eol when
+					   restarting edit after CTRL-O */
 #ifdef FEAT_INS_EXPAND
 EXTERN char_u	*edit_submode INIT(= NULL); /* msg for CTRL-X submode */
 EXTERN char_u	*edit_submode_pre INIT(= NULL); /* prepended to edit_submode */
 EXTERN char_u	*edit_submode_extra INIT(= NULL);/* appended to edit_submode */
-EXTERN enum hlf_value	edit_submode_highl; /* highl. method for extra info */
+EXTERN hlf_T	edit_submode_highl;	/* highl. method for extra info */
 EXTERN int	ctrl_x_mode INIT(= 0);	/* Which Ctrl-X mode are we in? */
 #endif
 
@@ -785,9 +911,14 @@ EXTERN int	msg_silent INIT(= 0);	/* don't print messages */
 EXTERN int	emsg_silent INIT(= 0);	/* don't print error messages */
 EXTERN int	cmd_silent INIT(= FALSE); /* don't echo the command line */
 
-#if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
-EXTERN int	swap_exists_action INIT(= 0);	/* use dialog when swap file
-						   already exists */
+#if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG) \
+	|| defined(FEAT_AUTOCMD)
+# define HAS_SWAP_EXISTS_ACTION
+EXTERN int	swap_exists_action INIT(= SEA_NONE);
+					/* For dialog when swap file already
+					 * exists. */
+EXTERN int	swap_exists_did_quit INIT(= FALSE);
+					/* Selected "quit" at the dialog. */
 #endif
 
 EXTERN char_u	*IObuff;		/* sprintf's are done in this buffer,
@@ -814,8 +945,9 @@ EXTERN typebuf_T typebuf		/* typeahead buffer */
 		    ;
 #ifdef FEAT_EX_EXTRA
 EXTERN int	ex_normal_busy INIT(= 0); /* recursivenes of ex_normal() */
-EXTERN int	stop_insert_mode;	/* for ":stopinsert" */
+EXTERN int	ex_normal_lock INIT(= 0); /* forbid use of ex_normal() */
 #endif
+EXTERN int	stop_insert_mode;	/* for ":stopinsert" and 'insertmode' */
 
 EXTERN int	KeyTyped;		/* TRUE if user typed current char */
 EXTERN int	KeyStuffed;		/* TRUE if current char from stuffbuf */
@@ -850,7 +982,6 @@ EXTERN int	termcap_active INIT(= FALSE);	/* set by starttermcap() */
 EXTERN int	cur_tmode INIT(= TMODE_COOK);	/* input terminal mode */
 EXTERN int	bangredo INIT(= FALSE);	    /* set to TRUE whith ! command */
 EXTERN int	searchcmdlen;		    /* length of previous search cmd */
-EXTERN int	reg_syn INIT(= 0);	    /* vim_regexec() used for syntax */
 #ifdef FEAT_SYN_HL
 EXTERN int	reg_do_extmatch INIT(= 0);  /* Used when compiling regexp:
 					     * REX_SET to allow \z\(...\),
@@ -867,11 +998,13 @@ EXTERN int	did_swapwrite_msg INIT(= FALSE);
 					    /* set after swap write error msg */
 EXTERN int	undo_off INIT(= FALSE);	    /* undo switched off for now */
 EXTERN int	global_busy INIT(= 0);	    /* set when :global is executing */
+EXTERN int	global_last_cmd INIT(= 0);  /* set when :global was last cmd */
 EXTERN int	listcmd_busy INIT(= FALSE); /* set when :argdo, :windo or
 					       :bufdo is executing */
 EXTERN int	need_start_insertmode INIT(= FALSE);
 					    /* start insert mode soon */
 EXTERN char_u	*last_cmdline INIT(= NULL); /* last command line (for ":) */
+EXTERN char_u	*repeat_cmdline INIT(= NULL); /* command line for "." */
 #ifdef FEAT_CMDHIST
 EXTERN char_u	*new_last_cmdline INIT(= NULL);	/* new value for last_cmdline */
 #endif
@@ -879,10 +1012,21 @@ EXTERN char_u	*new_last_cmdline INIT(= NULL);	/* new value for last_cmdline */
 EXTERN char_u	*autocmd_fname INIT(= NULL); /* fname for <afile> on cmdline */
 EXTERN int	autocmd_bufnr INIT(= 0);     /* fnum for <abuf> on cmdline */
 EXTERN char_u	*autocmd_match INIT(= NULL); /* name for <amatch> on cmdline */
+EXTERN int	did_cursorhold INIT(= FALSE); /* set when CursorHold t'gerd */
+EXTERN pos_T	last_cursormoved	    /* for CursorMoved event */
+# ifdef DO_INIT
+			= INIT_POS_T
+# endif
+			;
 #endif
+
+EXTERN linenr_T	write_no_eol_lnum INIT(= 0); /* non-zero lnum when last line
+						of next binary write should
+						not have an end-of-line */
 
 #ifdef FEAT_WINDOWS
 EXTERN int	postponed_split INIT(= 0);  /* for CTRL-W CTRL-] command */
+EXTERN int	postponed_split_flags INIT(= 0);  /* args for win_split() */
 # ifdef FEAT_QUICKFIX
 EXTERN int	g_do_tagpreview INIT(= 0);  /* for tag preview commands:
 					       height of preview window */
@@ -902,14 +1046,11 @@ EXTERN int	keep_help_flag INIT(= FALSE); /* doing :ta from help file */
  */
 EXTERN char_u	*empty_option INIT(= (char_u *)"");
 
-#ifdef DEBUG
-EXTERN FILE *debugfp INIT(= NULL);
-#endif
-
 EXTERN int  redir_off INIT(= FALSE);	/* no redirection for a moment */
 EXTERN FILE *redir_fd INIT(= NULL);	/* message redirection file */
 #ifdef FEAT_EVAL
 EXTERN int  redir_reg INIT(= 0);	/* message redirection register */
+EXTERN int  redir_vname INIT(= 0);	/* message redirection variable */
 #endif
 
 #ifdef FEAT_LANGMAP
@@ -935,7 +1076,6 @@ EXTERN char	breakat_flags[256];	/* which characters are in 'breakat' */
 
 /* these are in version.c */
 extern char *Version;
-extern char *mediumVersion;
 #if defined(HAVE_DATE_TIME) && defined(VMS) && defined(VAXC)
 extern char longVersion[];
 #else
@@ -967,6 +1107,7 @@ EXTERN char_u	*globaldir INIT(= NULL);
 EXTERN int	lcs_eol INIT(= '$');
 EXTERN int	lcs_ext INIT(= NUL);
 EXTERN int	lcs_prec INIT(= NUL);
+EXTERN int	lcs_nbsp INIT(= NUL);
 EXTERN int	lcs_tab1 INIT(= NUL);
 EXTERN int	lcs_tab2 INIT(= NUL);
 EXTERN int	lcs_trail INIT(= NUL);
@@ -997,6 +1138,14 @@ EXTERN int	cmdwin_result INIT(= 0); /* result of cmdline window or 0 */
 
 EXTERN char_u no_lines_msg[]	INIT(= N_("--No lines in buffer--"));
 
+/*
+ * When ":global" is used to number of substitutions and changed lines is
+ * accumulated until it's finished.
+ * Also used for ":spellrepall".
+ */
+EXTERN long	sub_nsubs;	/* total number of substitutions */
+EXTERN linenr_T	sub_nlines;	/* total number of lines changed */
+
 /* table to store parsed 'wildmode' */
 EXTERN char_u	wim_flags[4];
 
@@ -1012,12 +1161,24 @@ EXTERN int      stl_syntax INIT(= 0);
 EXTERN int	no_hlsearch INIT(= FALSE);
 #endif
 
+#ifdef FEAT_BEVAL
+EXTERN BalloonEval	*balloonEval INIT(= NULL);
+# if defined(FEAT_NETBEANS_INTG) || defined(FEAT_SUN_WORKSHOP)
+EXTERN int bevalServers INIT(= 0);
+#  define BEVAL_NETBEANS		0x01
+#  define BEVAL_WORKSHOP		0x02
+# endif
+#endif
+
 #ifdef CURSOR_SHAPE
 /* the table is in misc2.c, because of initializations */
 extern cursorentry_T shape_table[SHAPE_IDX_COUNT];
 #endif
 
 #ifdef FEAT_PRINTER
+/*
+ * Printer stuff shared between hardcopy.c and machine-specific printing code.
+ */
 # define OPT_PRINT_TOP		0
 # define OPT_PRINT_BOT		1
 # define OPT_PRINT_LEFT		2
@@ -1066,8 +1227,15 @@ EXTERN option_table_T printer_opts[OPT_PRINT_NUM_OPTIONS]
 # define PRT_UNIT_NAMES {"pc", "in", "mm", "pt"}
 #endif
 
+#if (defined(FEAT_PRINTER) && defined(FEAT_STL_OPT)) \
+	    || defined(FEAT_GUI_TABLINE)
+/* Page number used for %N in 'pageheader' and 'guitablabel'. */
+EXTERN linenr_T printer_page_num;
+#endif
+
 #ifdef FEAT_XCLIPBOARD
-EXTERN char	*xterm_display INIT(= NULL);	/* xterm display name */
+EXTERN char	*xterm_display INIT(= NULL);	/* xterm display name; points
+						   into argv[] */
 EXTERN Display	*xterm_dpy INIT(= NULL);	/* xterm display pointer */
 #endif
 #if defined(FEAT_XCLIPBOARD) || defined(FEAT_GUI_X11)
@@ -1079,10 +1247,13 @@ EXTERN guint32	gtk_socket_id INIT(= 0);
 EXTERN int	echo_wid_arg INIT(= FALSE);	/* --echo-wid argument */
 #endif
 
+#if defined(FEAT_CLIENTSERVER) || defined(FEAT_EVAL)
+EXTERN int	typebuf_was_filled INIT(= FALSE); /* received text from client
+						     or from feedkeys() */
+#endif
+
 #ifdef FEAT_CLIENTSERVER
 EXTERN char_u	*serverName INIT(= NULL);	/* name of the server */
-EXTERN int	received_from_client INIT(= FALSE);	/* received text from
-							   client */
 # ifdef FEAT_X11
 EXTERN Window	commWindow INIT(= None);
 EXTERN Window	clientWindow INIT(= None);
@@ -1108,11 +1279,6 @@ EXTERN char	pseps[2]		/* normal path separator string */
 			= {'\\', 0}
 # endif
 			;
-EXTERN char	psepsN[2]		/* abnormal path separator string */
-# ifdef DO_INIT
-			= {'/', 0}
-# endif
-			;
 #endif
 
 #ifdef FEAT_VIRTUALEDIT
@@ -1124,6 +1290,12 @@ EXTERN int	virtual_op INIT(= MAYBE);
 #ifdef FEAT_SYN_HL
 /* Display tick, incremented for each call to update_screen() */
 EXTERN disptick_T	display_tick INIT(= 0);
+#endif
+
+#ifdef FEAT_SPELL
+/* Line in which spell checking wasn't highlighted because it touched the
+ * cursor position in Insert mode. */
+EXTERN linenr_T		spell_redraw_lnum INIT(= 0);
 #endif
 
 #ifdef ALT_X_INPUT
@@ -1144,11 +1316,10 @@ EXTERN garray_T error_ga
 #endif
 
 #ifdef FEAT_NETBEANS_INTG
-EXTERN char *netbeansArg INIT(= 0);	/* the -nb[:host:port:passwd] arg */
+EXTERN char *netbeansArg INIT(= NULL);	/* the -nb[:host:port:passwd] arg */
 EXTERN int netbeansCloseFile INIT(= 0);	/* send killed if != 0 */
 EXTERN int netbeansFireChanges INIT(= 1); /* send buffer changes if != 0 */
 EXTERN int netbeansForcedQuit INIT(= 0);/* don't write modified files */
-EXTERN int netbeansOpenFile INIT(= 1);	/* send fileOpened if != 0 */
 EXTERN int netbeansReadFile INIT(= 1);	/* OK to read from disk if != 0 */
 EXTERN int netbeansSuppressNoLines INIT(= 0); /* skip "No lines in buffer" */
 EXTERN int usingNetbeans INIT(= 0);	/* set if -nb flag is used */
@@ -1158,173 +1329,191 @@ EXTERN int usingNetbeans INIT(= 0);	/* set if -nb flag is used */
  * The error messages that can be shared are included here.
  * Excluded are errors that are only used once and debugging messages.
  */
-EXTERN char_u e_abort[]		INIT(=N_("E470: Command aborted"));
-EXTERN char_u e_argreq[]	INIT(=N_("E471: Argument required"));
-EXTERN char_u e_backslash[]	INIT(=N_("E10: \\ should be followed by /, ? or &"));
+EXTERN char_u e_abort[]		INIT(= N_("E470: Command aborted"));
+EXTERN char_u e_argreq[]	INIT(= N_("E471: Argument required"));
+EXTERN char_u e_backslash[]	INIT(= N_("E10: \\ should be followed by /, ? or &"));
 #ifdef FEAT_CMDWIN
-EXTERN char_u e_cmdwin[]	INIT(=N_("E11: Invalid in command-line window; <CR> executes, CTRL-C quits"));
+EXTERN char_u e_cmdwin[]	INIT(= N_("E11: Invalid in command-line window; <CR> executes, CTRL-C quits"));
 #endif
-EXTERN char_u e_curdir[]	INIT(=N_("E12: Command not allowed from exrc/vimrc in current dir or tag search"));
+EXTERN char_u e_curdir[]	INIT(= N_("E12: Command not allowed from exrc/vimrc in current dir or tag search"));
 #ifdef FEAT_EVAL
-EXTERN char_u e_endif[]		INIT(=N_("E171: Missing :endif"));
-EXTERN char_u e_endtry[]	INIT(=N_("E600: Missing :endtry"));
-EXTERN char_u e_endwhile[]	INIT(=N_("E170: Missing :endwhile"));
-EXTERN char_u e_while[]		INIT(=N_("E588: :endwhile without :while"));
+EXTERN char_u e_endif[]		INIT(= N_("E171: Missing :endif"));
+EXTERN char_u e_endtry[]	INIT(= N_("E600: Missing :endtry"));
+EXTERN char_u e_endwhile[]	INIT(= N_("E170: Missing :endwhile"));
+EXTERN char_u e_endfor[]	INIT(= N_("E170: Missing :endfor"));
+EXTERN char_u e_while[]		INIT(= N_("E588: :endwhile without :while"));
+EXTERN char_u e_for[]		INIT(= N_("E588: :endfor without :for"));
 #endif
-EXTERN char_u e_exists[]	INIT(=N_("E13: File exists (add ! to override)"));
-EXTERN char_u e_failed[]	INIT(=N_("E472: Command failed"));
+EXTERN char_u e_exists[]	INIT(= N_("E13: File exists (add ! to override)"));
+EXTERN char_u e_failed[]	INIT(= N_("E472: Command failed"));
 #if defined(FEAT_GUI) && defined(FEAT_XFONTSET)
-EXTERN char_u e_fontset[]	INIT(=N_("E234: Unknown fontset: %s"));
+EXTERN char_u e_fontset[]	INIT(= N_("E234: Unknown fontset: %s"));
 #endif
 #if defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK) || defined(MACOS) \
 	|| defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MSWIN)
-EXTERN char_u e_font[]		INIT(=N_("E235: Unknown font: %s"));
+EXTERN char_u e_font[]		INIT(= N_("E235: Unknown font: %s"));
 #endif
 #if (defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK)) && !defined(HAVE_GTK2)
-EXTERN char_u e_fontwidth[]	INIT(=N_("E236: Font \"%s\" is not fixed-width"));
+EXTERN char_u e_fontwidth[]	INIT(= N_("E236: Font \"%s\" is not fixed-width"));
 #endif
-EXTERN char_u e_internal[]	INIT(=N_("E473: Internal error"));
-EXTERN char_u e_interr[]	INIT(=N_("Interrupted"));
-EXTERN char_u e_invaddr[]	INIT(=N_("E14: Invalid address"));
-EXTERN char_u e_invarg[]	INIT(=N_("E474: Invalid argument"));
-EXTERN char_u e_invarg2[]	INIT(=N_("E475: Invalid argument: %s"));
+EXTERN char_u e_internal[]	INIT(= N_("E473: Internal error"));
+EXTERN char_u e_interr[]	INIT(= N_("Interrupted"));
+EXTERN char_u e_invaddr[]	INIT(= N_("E14: Invalid address"));
+EXTERN char_u e_invarg[]	INIT(= N_("E474: Invalid argument"));
+EXTERN char_u e_invarg2[]	INIT(= N_("E475: Invalid argument: %s"));
 #ifdef FEAT_EVAL
-EXTERN char_u e_invexpr2[]	INIT(=N_("E15: Invalid expression: %s"));
+EXTERN char_u e_invexpr2[]	INIT(= N_("E15: Invalid expression: %s"));
 #endif
-EXTERN char_u e_invrange[]	INIT(=N_("E16: Invalid range"));
-EXTERN char_u e_invcmd[]	INIT(=N_("E476: Invalid command"));
-#ifdef UNIX
-EXTERN char_u e_isadir2[]	INIT(=N_("E17: \"%s\" is a directory"));
-#endif
-#ifdef FEAT_EVAL
-EXTERN char_u e_letunexp[]	INIT(=N_("E18: Unexpected characters before '='"));
+EXTERN char_u e_invrange[]	INIT(= N_("E16: Invalid range"));
+EXTERN char_u e_invcmd[]	INIT(= N_("E476: Invalid command"));
+#if defined(UNIX) || defined(FEAT_SYN_HL)
+EXTERN char_u e_isadir2[]	INIT(= N_("E17: \"%s\" is a directory"));
 #endif
 #ifdef FEAT_LIBCALL
-EXTERN char_u e_libcall[]	INIT(=N_("E364: Library call failed for \"%s()\""));
+EXTERN char_u e_libcall[]	INIT(= N_("E364: Library call failed for \"%s()\""));
 #endif
 #if defined(DYNAMIC_PERL) || defined(DYNAMIC_PYTHON) || defined(DYNAMIC_RUBY) \
 	|| defined(DYNAMIC_TCL) || defined(DYNAMIC_ICONV) \
-	|| defined(DYNAMIC_GETTEXT)
-EXTERN char_u e_loadlib[]	INIT(=N_("E370: Could not load library %s"));
-EXTERN char_u e_loadfunc[]	INIT(=N_("E448: Could not load library function %s"));
+	|| defined(DYNAMIC_GETTEXT) || defined(DYNAMIC_MZSCHEME)
+EXTERN char_u e_loadlib[]	INIT(= N_("E370: Could not load library %s"));
+EXTERN char_u e_loadfunc[]	INIT(= N_("E448: Could not load library function %s"));
 #endif
-EXTERN char_u e_markinval[]	INIT(=N_("E19: Mark has invalid line number"));
-EXTERN char_u e_marknotset[]	INIT(=N_("E20: Mark not set"));
-EXTERN char_u e_modifiable[]	INIT(=N_("E21: Cannot make changes, 'modifiable' is off"));
-EXTERN char_u e_nesting[]	INIT(=N_("E22: Scripts nested too deep"));
-EXTERN char_u e_noalt[]		INIT(=N_("E23: No alternate file"));
-EXTERN char_u e_noabbr[]	INIT(=N_("E24: No such abbreviation"));
-EXTERN char_u e_nobang[]	INIT(=N_("E477: No ! allowed"));
+EXTERN char_u e_markinval[]	INIT(= N_("E19: Mark has invalid line number"));
+EXTERN char_u e_marknotset[]	INIT(= N_("E20: Mark not set"));
+EXTERN char_u e_modifiable[]	INIT(= N_("E21: Cannot make changes, 'modifiable' is off"));
+EXTERN char_u e_nesting[]	INIT(= N_("E22: Scripts nested too deep"));
+EXTERN char_u e_noalt[]		INIT(= N_("E23: No alternate file"));
+EXTERN char_u e_noabbr[]	INIT(= N_("E24: No such abbreviation"));
+EXTERN char_u e_nobang[]	INIT(= N_("E477: No ! allowed"));
 #ifndef FEAT_GUI
-EXTERN char_u e_nogvim[]	INIT(=N_("E25: GUI cannot be used: Not enabled at compile time"));
+EXTERN char_u e_nogvim[]	INIT(= N_("E25: GUI cannot be used: Not enabled at compile time"));
 #endif
 #ifndef FEAT_RIGHTLEFT
-EXTERN char_u e_nohebrew[]	INIT(=N_("E26: Hebrew cannot be used: Not enabled at compile time\n"));
+EXTERN char_u e_nohebrew[]	INIT(= N_("E26: Hebrew cannot be used: Not enabled at compile time\n"));
 #endif
 #ifndef FEAT_FKMAP
-EXTERN char_u e_nofarsi[]	INIT(=N_("E27: Farsi cannot be used: Not enabled at compile time\n"));
+EXTERN char_u e_nofarsi[]	INIT(= N_("E27: Farsi cannot be used: Not enabled at compile time\n"));
 #endif
 #ifndef FEAT_ARABIC
-EXTERN char_u e_noarabic[]	INIT(=N_("E800: Arabic cannot be used: Not enabled at compile time\n"));
+EXTERN char_u e_noarabic[]	INIT(= N_("E800: Arabic cannot be used: Not enabled at compile time\n"));
 #endif
 #if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_SYN_HL)
-EXTERN char_u e_nogroup[]	INIT(=N_("E28: No such highlight group name: %s"));
+EXTERN char_u e_nogroup[]	INIT(= N_("E28: No such highlight group name: %s"));
 #endif
-EXTERN char_u e_noinstext[]	INIT(=N_("E29: No inserted text yet"));
-EXTERN char_u e_nolastcmd[]	INIT(=N_("E30: No previous command line"));
-EXTERN char_u e_nomap[]		INIT(=N_("E31: No such mapping"));
-EXTERN char_u e_nomatch[]	INIT(=N_("E479: No match"));
-EXTERN char_u e_nomatch2[]	INIT(=N_("E480: No match: %s"));
-EXTERN char_u e_noname[]	INIT(=N_("E32: No file name"));
-EXTERN char_u e_nopresub[]	INIT(=N_("E33: No previous substitute regular expression"));
-EXTERN char_u e_noprev[]	INIT(=N_("E34: No previous command"));
-EXTERN char_u e_noprevre[]	INIT(=N_("E35: No previous regular expression"));
-EXTERN char_u e_norange[]	INIT(=N_("E481: No range allowed"));
+EXTERN char_u e_noinstext[]	INIT(= N_("E29: No inserted text yet"));
+EXTERN char_u e_nolastcmd[]	INIT(= N_("E30: No previous command line"));
+EXTERN char_u e_nomap[]		INIT(= N_("E31: No such mapping"));
+EXTERN char_u e_nomatch[]	INIT(= N_("E479: No match"));
+EXTERN char_u e_nomatch2[]	INIT(= N_("E480: No match: %s"));
+EXTERN char_u e_noname[]	INIT(= N_("E32: No file name"));
+EXTERN char_u e_nopresub[]	INIT(= N_("E33: No previous substitute regular expression"));
+EXTERN char_u e_noprev[]	INIT(= N_("E34: No previous command"));
+EXTERN char_u e_noprevre[]	INIT(= N_("E35: No previous regular expression"));
+EXTERN char_u e_norange[]	INIT(= N_("E481: No range allowed"));
 #ifdef FEAT_WINDOWS
-EXTERN char_u e_noroom[]	INIT(=N_("E36: Not enough room"));
+EXTERN char_u e_noroom[]	INIT(= N_("E36: Not enough room"));
 #endif
 #ifdef FEAT_CLIENTSERVER
-EXTERN char_u e_noserver[]	INIT(=N_("E247: no registered server named \"%s\""));
+EXTERN char_u e_noserver[]	INIT(= N_("E247: no registered server named \"%s\""));
 #endif
-EXTERN char_u e_notcreate[]	INIT(=N_("E482: Can't create file %s"));
-EXTERN char_u e_notmp[]		INIT(=N_("E483: Can't get temp file name"));
-EXTERN char_u e_notopen[]	INIT(=N_("E484: Can't open file %s"));
-EXTERN char_u e_notread[]	INIT(=N_("E485: Can't read file %s"));
-EXTERN char_u e_nowrtmsg[]	INIT(=N_("E37: No write since last change (add ! to override)"));
-EXTERN char_u e_null[]		INIT(=N_("E38: Null argument"));
+EXTERN char_u e_notcreate[]	INIT(= N_("E482: Can't create file %s"));
+EXTERN char_u e_notmp[]		INIT(= N_("E483: Can't get temp file name"));
+EXTERN char_u e_notopen[]	INIT(= N_("E484: Can't open file %s"));
+EXTERN char_u e_notread[]	INIT(= N_("E485: Can't read file %s"));
+EXTERN char_u e_nowrtmsg[]	INIT(= N_("E37: No write since last change (add ! to override)"));
+EXTERN char_u e_null[]		INIT(= N_("E38: Null argument"));
 #ifdef FEAT_DIGRAPHS
-EXTERN char_u e_number[]	INIT(=N_("E39: Number expected"));
+EXTERN char_u e_number_exp[]	INIT(= N_("E39: Number expected"));
 #endif
 #ifdef FEAT_QUICKFIX
-EXTERN char_u e_openerrf[]	INIT(=N_("E40: Can't open errorfile %s"));
+EXTERN char_u e_openerrf[]	INIT(= N_("E40: Can't open errorfile %s"));
 #endif
 #if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)
-EXTERN char_u e_opendisp[]	INIT(=N_("E233: cannot open display"));
+EXTERN char_u e_opendisp[]	INIT(= N_("E233: cannot open display"));
 #endif
-EXTERN char_u e_outofmem[]	INIT(=N_("E41: Out of memory!"));
+EXTERN char_u e_outofmem[]	INIT(= N_("E41: Out of memory!"));
 #ifdef FEAT_INS_EXPAND
-EXTERN char_u e_patnotf[]	INIT(=N_("Pattern not found"));
+EXTERN char_u e_patnotf[]	INIT(= N_("Pattern not found"));
 #endif
-EXTERN char_u e_patnotf2[]	INIT(=N_("E486: Pattern not found: %s"));
-EXTERN char_u e_positive[]	INIT(=N_("E487: Argument must be positive"));
+EXTERN char_u e_patnotf2[]	INIT(= N_("E486: Pattern not found: %s"));
+EXTERN char_u e_positive[]	INIT(= N_("E487: Argument must be positive"));
 #if defined(UNIX) || defined(FEAT_SESSION)
-EXTERN char_u e_prev_dir[]	INIT(=N_("E459: Cannot go back to previous directory"));
+EXTERN char_u e_prev_dir[]	INIT(= N_("E459: Cannot go back to previous directory"));
 #endif
 
 #ifdef FEAT_QUICKFIX
-EXTERN char_u e_quickfix[]	INIT(=N_("E42: No Errors"));
+EXTERN char_u e_quickfix[]	INIT(= N_("E42: No Errors"));
+EXTERN char_u e_loclist[]	INIT(= N_("E776: No location list"));
 #endif
-EXTERN char_u e_re_damg[]	INIT(=N_("E43: Damaged match string"));
-EXTERN char_u e_re_corr[]	INIT(=N_("E44: Corrupted regexp program"));
-EXTERN char_u e_readonly[]	INIT(=N_("E45: 'readonly' option is set (add ! to override)"));
+EXTERN char_u e_re_damg[]	INIT(= N_("E43: Damaged match string"));
+EXTERN char_u e_re_corr[]	INIT(= N_("E44: Corrupted regexp program"));
+EXTERN char_u e_readonly[]	INIT(= N_("E45: 'readonly' option is set (add ! to override)"));
 #ifdef FEAT_EVAL
-EXTERN char_u e_readonlyvar[]	INIT(=N_("E46: Cannot set read-only variable \"%s\""));
+EXTERN char_u e_readonlyvar[]	INIT(= N_("E46: Cannot change read-only variable \"%s\""));
+EXTERN char_u e_readonlysbx[]	INIT(= N_("E46: Cannot set variable in the sandbox: \"%s\""));
 #endif
 #ifdef FEAT_QUICKFIX
-EXTERN char_u e_readerrf[]	INIT(=N_("E47: Error while reading errorfile"));
+EXTERN char_u e_readerrf[]	INIT(= N_("E47: Error while reading errorfile"));
 #endif
 #ifdef HAVE_SANDBOX
-EXTERN char_u e_sandbox[]	INIT(=N_("E48: Not allowed in sandbox"));
+EXTERN char_u e_sandbox[]	INIT(= N_("E48: Not allowed in sandbox"));
 #endif
-EXTERN char_u e_secure[]	INIT(=N_("E523: Not allowed here"));
+EXTERN char_u e_secure[]	INIT(= N_("E523: Not allowed here"));
 #if defined(AMIGA) || defined(MACOS) || defined(MSWIN) || defined(RISCOS) \
-	|| defined(UNIX) || defined(VMS)
-EXTERN char_u e_screenmode[]	INIT(=N_("E359: Screen mode setting not supported"));
+	|| defined(UNIX) || defined(VMS) || defined(OS2)
+EXTERN char_u e_screenmode[]	INIT(= N_("E359: Screen mode setting not supported"));
 #endif
-EXTERN char_u e_scroll[]	INIT(=N_("E49: Invalid scroll size"));
-EXTERN char_u e_shellempty[]	INIT(=N_("E91: 'shell' option is empty"));
+EXTERN char_u e_scroll[]	INIT(= N_("E49: Invalid scroll size"));
+EXTERN char_u e_shellempty[]	INIT(= N_("E91: 'shell' option is empty"));
 #if defined(FEAT_SIGN_ICONS) && !defined(HAVE_GTK2)
-EXTERN char_u e_signdata[]	INIT(=N_("E255: Couldn't read in sign data!"));
+EXTERN char_u e_signdata[]	INIT(= N_("E255: Couldn't read in sign data!"));
 #endif
-EXTERN char_u e_swapclose[]	INIT(=N_("E72: Close error on swap file"));
-EXTERN char_u e_tagstack[]	INIT(=N_("E73: tag stack empty"));
-EXTERN char_u e_toocompl[]	INIT(=N_("E74: Command too complex"));
-EXTERN char_u e_longname[]	INIT(=N_("E75: Name too long"));
-EXTERN char_u e_toomsbra[]	INIT(=N_("E76: Too many ["));
-EXTERN char_u e_toomany[]	INIT(=N_("E77: Too many file names"));
-EXTERN char_u e_trailing[]	INIT(=N_("E488: Trailing characters"));
-EXTERN char_u e_umark[]		INIT(=N_("E78: Unknown mark"));
-EXTERN char_u e_wildexpand[]	INIT(=N_("E79: Cannot expand wildcards"));
+EXTERN char_u e_swapclose[]	INIT(= N_("E72: Close error on swap file"));
+EXTERN char_u e_tagstack[]	INIT(= N_("E73: tag stack empty"));
+EXTERN char_u e_toocompl[]	INIT(= N_("E74: Command too complex"));
+EXTERN char_u e_longname[]	INIT(= N_("E75: Name too long"));
+EXTERN char_u e_toomsbra[]	INIT(= N_("E76: Too many ["));
+EXTERN char_u e_toomany[]	INIT(= N_("E77: Too many file names"));
+EXTERN char_u e_trailing[]	INIT(= N_("E488: Trailing characters"));
+EXTERN char_u e_umark[]		INIT(= N_("E78: Unknown mark"));
+EXTERN char_u e_wildexpand[]	INIT(= N_("E79: Cannot expand wildcards"));
 #ifdef FEAT_WINDOWS
-EXTERN char_u e_winheight[]	INIT(=N_("E591: 'winheight' cannot be smaller than 'winminheight'"));
+EXTERN char_u e_winheight[]	INIT(= N_("E591: 'winheight' cannot be smaller than 'winminheight'"));
 # ifdef FEAT_VERTSPLIT
-EXTERN char_u e_winwidth[]	INIT(=N_("E592: 'winwidth' cannot be smaller than 'winminwidth'"));
+EXTERN char_u e_winwidth[]	INIT(= N_("E592: 'winwidth' cannot be smaller than 'winminwidth'"));
 # endif
 #endif
-EXTERN char_u e_write[]		INIT(=N_("E80: Error while writing"));
-EXTERN char_u e_zerocount[]	INIT(=N_("Zero count"));
+EXTERN char_u e_write[]		INIT(= N_("E80: Error while writing"));
+EXTERN char_u e_zerocount[]	INIT(= N_("Zero count"));
 #ifdef FEAT_EVAL
-EXTERN char_u e_usingsid[]	INIT(=N_("E81: Using <SID> not in a script context"));
+EXTERN char_u e_usingsid[]	INIT(= N_("E81: Using <SID> not in a script context"));
 #endif
 #ifdef FEAT_CLIENTSERVER
-EXTERN char_u e_invexprmsg[]	INIT(=N_("E449: Invalid expression received"));
+EXTERN char_u e_invexprmsg[]	INIT(= N_("E449: Invalid expression received"));
 #endif
 #ifdef FEAT_NETBEANS_INTG
-EXTERN char_u e_guarded[]	INIT(=N_("E463: Region is guarded, cannot modify"));
+EXTERN char_u e_guarded[]	INIT(= N_("E463: Region is guarded, cannot modify"));
+EXTERN char_u e_nbreadonly[]	INIT(= N_("E744: NetBeans does not allow changes in read-only files"));
 #endif
+EXTERN char_u e_intern2[]	INIT(= N_("E685: Internal error: %s"));
+EXTERN char_u e_maxmempat[]	INIT(= N_("E363: pattern uses more memory than 'maxmempattern'"));
+EXTERN char_u e_emptybuf[]	INIT(= N_("E749: empty buffer"));
+
+#ifdef FEAT_EX_EXTRA
+EXTERN char_u e_invalpat[]	INIT(= N_("E682: Invalid search pattern or delimiter"));
+#endif
+EXTERN char_u e_bufloaded[]	INIT(= N_("E139: File is loaded in another buffer"));
+#if defined(FEAT_SYN_HL) || \
+	(defined(FEAT_INS_EXPAND) && defined(FEAT_COMPL_FUNC))
+EXTERN char_u e_notset[]	INIT(= N_("E764: Option '%s' is not set"));
+#endif
+
 #ifdef MACOS_X_UNIX
 EXTERN short disallow_gui	INIT(= FALSE);
 #endif
+
+EXTERN char top_bot_msg[] INIT(= N_("search hit TOP, continuing at BOTTOM"));
+EXTERN char bot_top_msg[] INIT(= N_("search hit BOTTOM, continuing at TOP"));
 
 /*
  * Comms. with the session manager (XSMP)
@@ -1332,6 +1521,9 @@ EXTERN short disallow_gui	INIT(= FALSE);
 #ifdef USE_XSMP
 EXTERN int xsmp_icefd INIT(= -1);   /* The actual connection */
 #endif
+
+/* For undo we need to know the lowest time possible. */
+EXTERN time_t starttime;
 
 /*
  * Optional Farsi support.  Include it here, so EXTERN and INIT are defined.

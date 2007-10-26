@@ -15,9 +15,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>7.1</string>
+	<string>7.2</string>
 	<key>CFBundleShortVersionString</key>
-	<string>7.1</string>
+	<string>7.2</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>55465300-0000-11AA-AA11-00306543ECAC</key>
@@ -80,7 +80,7 @@
 			<key>FSFormatExecutable</key>
 			<string>../../../../../../sbin/newfs</string>
 			<key>FSFormatMinimumSize</key>
-			<integer>0</integer>
+			<integer>131072</integer>
 			<key>FSFormatMaximumSize</key>
 			<integer>1099511627264</integer>
 			<key>FSMountArguments</key>
@@ -88,7 +88,7 @@
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount</string>
 			<key>FSName</key>
-			<string>UNIX File System</string>
+			<string>UNIX File System (UFS)</string>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
 			<key>FSRepairExecutable</key>
@@ -97,6 +97,8 @@
 			<string>-n</string>
 			<key>FSVerificationExecutable</key>
 			<string>../../../../../../sbin/fsck</string>
+			<key>FSFormatInteractive</key>
+			<false/>
 		</dict>
 	</dict>
 </dict>

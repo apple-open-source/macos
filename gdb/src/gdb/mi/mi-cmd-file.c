@@ -25,7 +25,7 @@
 #include "ui-out.h"
 #include "symtab.h"
 #include "source.h"
-#include "gdbcore.h"
+#include "objfiles.h"
 
 /* APPLE LOCAL: -file-core-file
    Takes one argument - a path to the core file, and sets
@@ -52,9 +52,8 @@ mi_cmd_file_list_exec_source_file(char *command, char **argv, int argc)
   char *optarg;
 
   if ( !mi_valid_noargs("mi_cmd_file_list_exec_source_file", argc, argv) )
-    error ("mi_cmd_file_list_exec_source_file: Usage: No args");
+    error (_("mi_cmd_file_list_exec_source_file: Usage: No args"));
 
-  
   /* Set the default file and line, also get them */
   set_default_source_symtab_and_line();
   st = get_current_source_symtab_and_line();
@@ -63,11 +62,11 @@ mi_cmd_file_list_exec_source_file(char *command, char **argv, int argc)
      Apparently, filename does not need to be tested for NULL.
      The documentation in symtab.h suggests it will always be correct */
   if (!st.symtab)
-    error ("mi_cmd_file_list_exec_source_file: No symtab");
+    error (_("mi_cmd_file_list_exec_source_file: No symtab"));
 
   /* Extract the fullname if it is not known yet */
   if (st.symtab->fullname == NULL)
-    symtab_to_filename (st.symtab);
+    symtab_to_fullname (st.symtab);
 
   /* We may not be able to open the file (not available). */
   if (st.symtab->fullname == NULL)
@@ -76,7 +75,63 @@ mi_cmd_file_list_exec_source_file(char *command, char **argv, int argc)
   /* Print to the user the line, filename and fullname */
   ui_out_field_int (uiout, "line", st.line);
   ui_out_field_string (uiout, "file", st.symtab->filename);
+
+  /* We may not be able to open the file (not available). */
+  if (st.symtab->fullname)
   ui_out_field_string (uiout, "fullname", st.symtab->fullname);
+
+  return MI_CMD_DONE;
+}
+
+enum mi_cmd_result
+mi_cmd_file_list_exec_source_files (char *command, char **argv, int argc)
+{
+  struct symtab *s;
+  struct partial_symtab *ps;
+  struct objfile *objfile;
+
+  if (!mi_valid_noargs ("mi_cmd_file_list_exec_source_files", argc, argv))
+    error (_("mi_cmd_file_list_exec_source_files: Usage: No args"));
+
+  /* Print the table header */
+  ui_out_begin (uiout, ui_out_type_list, "files");
+
+  /* Look at all of the symtabs */
+  ALL_SYMTABS (objfile, s)
+  {
+    ui_out_begin (uiout, ui_out_type_tuple, NULL);
+
+    ui_out_field_string (uiout, "file", s->filename);
+
+    /* Extract the fullname if it is not known yet */
+    symtab_to_fullname (s);
+
+    if (s->fullname)
+      ui_out_field_string (uiout, "fullname", s->fullname);
+
+    ui_out_end (uiout, ui_out_type_tuple);
+  }
+
+  /* Look at all of the psymtabs */
+  ALL_PSYMTABS (objfile, ps)
+  {
+    if (!ps->readin)
+      {
+	ui_out_begin (uiout, ui_out_type_tuple, NULL);
+
+	ui_out_field_string (uiout, "file", ps->filename);
+
+	/* Extract the fullname if it is not known yet */
+	psymtab_to_fullname (ps);
+
+	if (ps->fullname)
+	  ui_out_field_string (uiout, "fullname", ps->fullname);
+
+	ui_out_end (uiout, ui_out_type_tuple);
+      }
+  }
+
+  ui_out_end (uiout, ui_out_type_list);
 
   return MI_CMD_DONE;
 }

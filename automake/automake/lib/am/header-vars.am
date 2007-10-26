@@ -1,5 +1,5 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000
+## Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2003, 2005
 ## Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
@@ -14,28 +14,10 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
-SHELL = @SHELL@
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
-srcdir = @srcdir@
-top_srcdir = @top_srcdir@
 VPATH = @srcdir@
-prefix = @prefix@
-exec_prefix = @exec_prefix@
-
-bindir = @bindir@
-sbindir = @sbindir@
-libexecdir = @libexecdir@
-datadir = @datadir@
-sysconfdir = @sysconfdir@
-sharedstatedir = @sharedstatedir@
-localstatedir = @localstatedir@
-libdir = @libdir@
-infodir = @infodir@
-mandir = @mandir@
-includedir = @includedir@
-oldincludedir = /usr/include
 
 @SET_MAKE@
 
@@ -52,24 +34,12 @@ pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
 
-## Location of top build directory relative to this one.
-top_builddir = %TOPDIR%
-
-ACLOCAL = @ACLOCAL@
-AUTOCONF = @AUTOCONF@
-AUTOMAKE = @AUTOMAKE@
-AUTOHEADER = @AUTOHEADER@
-
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = @INSTALL@
-INSTALL_PROGRAM = @INSTALL_PROGRAM@
-INSTALL_DATA = @INSTALL_DATA@
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
-INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_HEADER = $(INSTALL_DATA)
-transform = @program_transform_name@
+transform = $(program_transform_name)
 
 ## These are defined because otherwise make on NetBSD V1.1 will print
 ## (eg): $(NORMAL_INSTALL) expands to empty string.
@@ -80,17 +50,7 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 
-## FIXME: Why the heck are _triplet variables not defined from the
-## _triplet values?
-## FIXME: this should probably use generic %configure_vars method.
-## Let's wait until we rely upon traces.
-?BUILD?build_alias = @build_alias@
+## dejagnu.am uses these variables.  Some users might rely on them too.
 ?BUILD?build_triplet = @build@
-?HOST?host_alias = @host_alias@
 ?HOST?host_triplet = @host@
-?TARGET?target_alias = @target_alias@
 ?TARGET?target_triplet = @target@
-
-EXEEXT = @EXEEXT@
-OBJEXT = @OBJEXT@
-PATH_SEPARATOR = @PATH_SEPARATOR@

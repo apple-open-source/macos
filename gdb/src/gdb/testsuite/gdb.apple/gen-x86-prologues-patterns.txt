@@ -11,8 +11,10 @@
    push %ebp
    or   $0xffffffff, %ecx  # [ 0x83 0xc9 0xff ]
    mov  %esp,%ebp
+   sub $0x8, %esp
    test %edx,%edx
 # EPILOGUE
+   add $0x8, %esp
    pop %ebp
    ret
 
@@ -47,7 +49,9 @@ L1:
    push %ebp
    movzwl %ax,%eax # [ 0x0f 0xb7 0xc0 ]
    mov %esp, %ebp
+   sub $0x8, %esp
 # EPILOGUE
+   add $0x8, %esp
    pop %ebp
    ret
 
@@ -56,7 +60,9 @@ L1:
    push %ebp
    movzwl %dx,%edx # [ 0x0f 0xb7 0xd2 ]
    mov %esp, %ebp
+   sub $0x8, %esp
 # EPILOGUE
+   add $0x8, %esp
    pop %ebp
    ret
 
@@ -65,7 +71,9 @@ L1:
    push %ebp
    test %eax, %eax # [ 0x85 0xc0 ]
    mov  %esp, %ebp
+   sub $0x8, %esp
 # EPILOGUE
+   add $0x8, %esp
    pop %ebp
    ret
 
@@ -74,7 +82,9 @@ L1:
    push %ebp
    test %edx,%edx  # [ 0x85 0xd2 ]
    mov %esp,%ebp
+   sub $0x8, %esp
 # EPILOGUE
+   add $0x8, %esp
    pop %ebp
    ret
 
@@ -83,7 +93,9 @@ L1:
   push %ebp
   test $0xffffff80,%eax  # [ 0xa9 0x80 0xff 0xff 0xff ]
   mov %esp,%ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -92,7 +104,9 @@ L1:
   push %ebp
   inc %eax # [ 0x40 ]
   mov %esp,%ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -101,7 +115,9 @@ L1:
   push %ebp
   add  $0x3, %ecx # [ 0x83 0xc1 0x03 ]
   mov %esp,%ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -110,7 +126,9 @@ L1:
   push %ebp
   mov %eax,%ecx # [ 0x89 0xc1 ]
   mov %esp,%ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -120,7 +138,9 @@ L1:
   cld # [ 0xfc ]
   xor  %eax,%eax
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -129,7 +149,9 @@ L1:
   push %ebp
   dec %edx # [ 0x4a ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -141,7 +163,9 @@ L1:
   div  %ecx # [ 0xf7 0xf1 ]
   push %ebp
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -150,7 +174,9 @@ L1:
   push  %ebp
   fldz # [ 0xd9 0xee ]
   mov   %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -160,7 +186,9 @@ L1:
   push %ebp
   sub  $0x8, %eax # [ 0x83 0xe8 0x08 ]
   mov  %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop  %ebp
   ret
 
@@ -169,7 +197,9 @@ L1:
   push  %ebp
   cmpl  $0x0,_main # From mach_kernel: [ 0x83 0x3d 0x54 0x42 0x3a 0xc0 0x00 ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -178,18 +208,22 @@ L1:
   push %ebp
   mov $0xffffffce, %eax # [ 0xb8 0xce 0xff 0xff 0xff ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
 # SOURCE: Karma8V10 libobjc.A.dylib _objc_msgForward
 # PROLOGUE
   cmp $0x0, %edx # [ 0x83 0xfa 0x00 ]
-  je LM2  # [ 0x74 0x54 (54 being a disp8, so 0x00 in this case) ]
-LM2:
+  je LM288  # [ 0x74 0x54 (54 being a disp8, so 0x00 in this case) ]
+LM288:
   push %ebp
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -201,12 +235,14 @@ LM2:
   pushl 0x104(%eax) # [ 0xff 0xb0 0x7f 0xf8 0xff 0x0f ]
   pop  %eax
   push %ebp
-  jmp LM3   # Skip over some instructions that aren't actually correct here..
+  jmp LM388   # Skip over some instructions that aren't actually correct here..
   mov 268436759(%eax), %eax # [ 0x8b 0x80 0x27 0x05 0x00 0x10 ]
   jmp *%eax # [ 0xff 0xe0 ]
-LM3:
+LM388:
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -215,7 +251,9 @@ LM3:
   push %ebp
   mov  $0x18, %dx # [ 0x66 0xba 0x18 0x00 ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -229,7 +267,9 @@ LM3:
   nop
   push %ebp
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -238,7 +278,9 @@ LM3:
   push %ebp
   movzbl %al, %eax # [ 0x0f 0xb6 0xc0 ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -248,7 +290,9 @@ LM3:
   mov %eax, %edx # [ 0x89 0xc2 ]
   sar $0x8, %eax # [ 0xc1 0xf8 0x08 ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -257,7 +301,9 @@ LM3:
   push %ebp
   and  $0xffffff, %eax # [ 0x25 0xff 0xff 0xff 0x00 ]
   mov %esp, %ebp
+  sub $0x8, %esp
 # EPILOGUE
+  add $0x8, %esp
   pop %ebp
   ret
 
@@ -276,6 +322,7 @@ LM3:
 # SOURCE: RedHat FedoraCore2 libc.so.6 _nl_remove_locale
 # PROLOGUE
   push %ebp
+  mov  $_main, %edx    # Added instruction so edx has a valid addr
   mov 0x18(%edx), %eax # [ 0x8b 0x42 0x18 ]
   mov %esp, %ebp
   sub $0x8, %esp

@@ -4,7 +4,7 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2004/10/13 00:09:33 $
+# Last Updated: $Date: 2007/07/19 18:45:00 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -30,7 +30,7 @@
 ######################################################################
 package HeaderDoc::Struct;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
@@ -38,7 +38,7 @@ use HeaderDoc::APIOwner;
 @ISA = qw( HeaderDoc::HeaderElement );
 
 use vars qw($VERSION @ISA);
-$VERSION = '$Revision: 1.11.2.10.2.25 $';
+$VERSION = '$Revision: 1.11.2.10.2.33 $';
 
 use strict;
 
@@ -120,6 +120,14 @@ sub processComment {
 	my $field = $fields[$fieldCounter];
 
 	print "FIELD WAS $field\n" if ($localDebug);
+	my $fieldname = "";
+	my $top_level_field = 0;
+	if ($field =~ /^(\w+)(\s|$)/) {
+		$fieldname = $1;
+		# print "FIELDNAME: $fieldname\n";
+		$top_level_field = validTag($fieldname, 1);
+	}
+	# print "TLF: $top_level_field, FN: \"$fieldname\"\n";
 	SWITCH: {
             ($field =~ /^\/\*\!/o)&& do {
                                 my $copy = $field;
@@ -129,32 +137,25 @@ sub processComment {
                                 }
                         last SWITCH;
                         };
-            (($field =~ s/^struct(\s+)/$1/o)  || ($field =~ s/^union(\s+)/$1/o))&& 
-            do {
-                my ($name, $disc);
-                ($name, $disc) = &getAPINameAndDisc($field); 
-                $self->name($name);
-                if (length($disc)) {$self->discussion($disc);};
-                last SWITCH;
-            };
-            ($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-	    ($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
+            ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
+            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 0);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attribute\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributelist\s+//o) && do {
+	    ($field =~ s/^attributelist\s+//io) && do {
 		    $field =~ s/^\s*//so;
 		    $field =~ s/\s*$//so;
 		    my ($name, $lines) = split(/\n/, $field, 2);
@@ -168,25 +169,25 @@ sub processComment {
 			    $self->attributelist($name, $line);
 			}
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributelist\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributeblock\s+//o) && do {
-		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+	    ($field =~ s/^attributeblock\s+//io) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
-			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+			warn "$filename:$linenum: warning: Missing name/discussion for attributeblock\n";
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ /^see(also|)\s+/o) &&
+	    ($field =~ /^see(also|)\s+/io) &&
 		do {
 		    $self->see($field);
 		    last SWITCH;
 		};
-            ($field =~ s/^field\s+//o) && 
+            ($field =~ s/^field\s+//io) && 
             do {
 				$field =~ s/^\s+|\s+$//go;
 	            $field =~ /(\w*)\s*(.*)/so;
@@ -201,7 +202,7 @@ sub processComment {
 				last SWITCH;
 			};
             # To handle callbacks and their params and results, have to set up loop
-            ($field =~ s/^callback\s+//o) &&
+            ($field =~ s/^callback\s+//io) &&
                 do {
                     $field =~ s/^\s+|\s+$//go;
                     $field =~ /(\w*)\s*(.*)/so;
@@ -219,13 +220,19 @@ sub processComment {
                         my $nextField = $fields[$fieldCounter];
                         print "In callback: next field is '$nextField'\n" if ($localDebug);
                         
-                        if ($nextField =~ s/^param\s+//o) {
+                        if ($nextField =~ s/^param\s+//io) {
                             $nextField =~ s/^\s+|\s+$//go;
                             $nextField =~ /(\w*)\s*(.*)/so;
                             my $paramName = $1;
                             my $paramDesc = $2;
                             $callbackObj->addToUserDictArray({"$paramName" => "$paramDesc"});
-                        } elsif ($nextField eq "result") {
+                        } elsif ($nextField =~ s/^return\s+//io) {
+                            $nextField =~ s/^\s+|\s+$//go;
+                            $nextField =~ /(\w*)\s*(.*)/so;
+                            my $resultName = $1;
+                            my $resultDesc = $2;
+                            $callbackObj->addToUserDictArray({"$resultName" => "$resultDesc"});
+                        } elsif ($nextField =~ s/^result\s+//io) {
                             $nextField =~ s/^\s+|\s+$//go;
                             $nextField =~ /(\w*)\s*(.*)/so;
                             my $resultName = $1;
@@ -243,7 +250,7 @@ sub processComment {
             # param and result have to come last, since they should be handled differently, if part of a callback
             # which is inside a struct (as above).  Otherwise, these cases below handle the simple typedef'd callback 
             # (i.e., a typedef'd function pointer without an enclosing struct.
-            ($field =~ s/^param\s+//o) && 
+            ($field =~ s/^param\s+//io) && 
                 do {
                     $self->isFunctionPointer(1);
                     $field =~ s/^\s+|\s+$//go;
@@ -259,13 +266,33 @@ sub processComment {
                     print "Adding param for function-pointer typedef.  Param name: $fName.\n" if ($localDebug);
                     last SWITCH;
                 };
+		($top_level_field == 1) && do {
+			my $keepname = 1;
+ 			if ($field =~ s/^(struct|union)(\s+|$)/$2/io) {
+				$keepname = 1;
+			} else {
+				$field =~ s/(\w+)(\s|$)/$2/io;
+				$keepname = 0;
+			}
+                	my ($name, $disc, $namedisc);
+                	($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
+                	$self->name($name);
+               		if (length($disc)) {
+				if ($namedisc) {
+					$self->nameline_discussion($disc);
+				} else {
+					$self->discussion($disc);
+				}
+			}
+                	last SWITCH;
+            	};
 	    {
 		# default case
 		# my $filename = $HeaderDoc::headerObject->name();
 	        # print "$filename:$linenum:Unknown field in Struct comment: $field\n";
 		my $struct_or_union = "struct";
 		if ($self->isUnion()) { $struct_or_union = "union"; }
-		if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in $struct_or_union comment (".$self->name().")\n"; }
+		if (length($field)) { warn "$filename:$linenum: warning: Unknown field (\@$field) in $struct_or_union comment (".$self->name().")\n"; }
 	    }
 	}
 	++$fieldCounter;
@@ -300,7 +327,7 @@ sub printObject {
  
     print "Struct\n";
     $self->SUPER::printObject();
-    print "Field Descriptions:\n";
+    print "Fields:\n";
     my $fieldArrayRef = $self->{FIELDS};
     if ($fieldArrayRef) {
 	my $arrayLength = @{$fieldArrayRef};

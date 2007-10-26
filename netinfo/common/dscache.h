@@ -56,4 +56,4 @@ dsrecord *dscache_fetch(dscache *, uint32_t);
 
 void dscache_print_statistics(dscache *, FILE *);
 
-#endif __DSCACHE_H__
+#endif /* __DSCACHE_H__ */

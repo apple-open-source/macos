@@ -81,10 +81,10 @@ char *MDSCFStringToCString(
 	CFStringRef cfStr)
 {
 	char *rtn = NULL;
-	unsigned len = CFStringGetLength(cfStr) + 1;
+	CFIndex len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr), kCFStringEncodingUTF8) + 1/*nul terminator*/;
 	rtn = new char[len];
 	if(rtn) {
-		CFStringGetCString(cfStr, rtn, len, CFStringGetSystemEncoding());
+		CFStringGetCString(cfStr, rtn, len, kCFStringEncodingUTF8);
 	}
 	return rtn;
 }
@@ -120,7 +120,7 @@ bool MDSCfTypeToInt(
 			MPDebug("cfTypeToInt: key %s uint32 form, string data (%s), "
 				"bad conv", key, 
 				CFStringGetCStringPtr((CFStringRef)cfValue, 
-					CFStringGetSystemEncoding()));
+					kCFStringEncodingUTF8));
 			return false;
 		} 
 		return true;

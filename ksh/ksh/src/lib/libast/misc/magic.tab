@@ -1,5 +1,5 @@
 #
-# @(#)magic (AT&T Research) 2004-02-29
+# @(#)magic (AT&T Research) 2005-05-27
 #
 # magic number database for file(1) and magic(3)
 #
@@ -28,9 +28,6 @@
 # the description string may have one printf format spec for the
 # matched magic number
 #
-
-0	string		VOL1
-&24	string		POSIX		posix archive			application/pax
 
 0	short		070707		binary cpio archive		application/pax
 0	string		070707		cpio archive			application/pax
@@ -104,6 +101,9 @@ o()
 &22	short		0xfdc4
 +32	byte		*		, version %ld
 +33	byte		*		.%ld
+
+0	string		\326\303\304\330				vcodex data		application/x-vczip
++5	void		vcodex()
 
 0	long		0x080456
 {
@@ -1017,22 +1017,23 @@ v()
 &156	match		[gx]
 o{
 &99	byte		0
-&107	byte		' '
-&115	byte		' '
-&100	match		+([ 0-7])[gx]
+&100	match		+([ 0-7])?
 }
 
-257	string		ustar		ustar archive			application/pax
+257	string		ustar\ \ 	gnu tar archive			application/pax
 o{
 &99	byte		0
-&107	byte		' '
-&115	byte		' '
-&100	match		+([ 0-7])
-&0	string		*		, [ %s ... ]
+&100	match		+([ 0-7])?
++0	match		???*		, [ %s ... ]
 }
 
-99	byte		0		tar archive			application/pax
+257	string		ustar		tar archive			application/pax
 o()
+
+99	byte		0		old tar archive			application/pax
+o()
+
+0	string		\301\304\331\100\323\311\302\331\306	ca librarian archive	application/pax
 
 0	match		<[hH][tT][mM][lL]>	html input		text/html
 0	match		<!?(--)[Dd][Oo][Cc][Tt][Yy][Pp][Ee] [Hh][Tt][Mm][Ll]	html input		text/html
@@ -1178,16 +1179,37 @@ o()
 0	long	0x13579ace	dbm 1.x database	application/x-dbm
 0	string	GDBM		gnu dbm 2.x database	application/x-gdbm
 
-0	belong	0x061561	bsd db hash		application/x-bsd-db
-+4	belong	>0		, version %d
-+8	belong	1234		, little endian
-+8	belong	4321		, big endian
-+56	belong	*		, %d keys
+12	long	0x00042253	bsd db queue
++16	long	>0		version %d
++12	belong	0x00042253	, big-endian
++12	lelong	0x00042253	, little-endian
 
-0	long	0x053162	bsd db btree		application/x-bsd-db
+0	long	0x00053162	bsd db btree		application/x-bsd-db
++4	long	>2		1.86
++4	long	<3		1.85
 +4	long	>0		, version %d
++0	belong	0x00053162	, big-endian
++0	lelong	0x00053162	, little-endian
 +16	long	*		, %d records
 +20	long	*		, flags 0x%x
+
+12	long	0x00053162	bsd db btree
++16	long	>0		version %d
++12	belong	0x00053162	, big-endian
++12	lelong	0x00053162	, little-endian
+
+0	long	0x00061561	bsd db hash		application/x-bsd-db
++4	long	>2		1.86
++4	long	<3		1.85
++4	long	>0		version %d
++8	long	4321		, big-endian
++8	long	1234		, little-endian
++56	long	*		, %d keys
+
+12	long	0x00061561	bsd db hash
++16	long	>0		version %d
++12	belong	0x00061561	, big-endian
++12	lelong	0x00061561	, little-endian
 
 0	long	0x950412de	gnu message catalog	application/x-locale
 +4	long	*		, revision %d
@@ -1382,252 +1404,279 @@ name	match		core.*			unknown core dump	x-system/core
 #
 
 0	void	registry()
-|name	match	*.acp	Office.ActorPreview	application/x-ms-office
-|name	match	*.act	Office.Actor	application/x-ms-office
-|name	match	*.aif	AIFF Audio	audio/x-aiff
-|name	match	*.aifc	AIFF Audio	audio/aiff
-|name	match	*.aiff	AIFF Audio	audio/aiff
-|name	match	*.aim	AOL Instant Messenger Launch	application/x-aim
-|name	match	*.ani	Animated Cursor	application/x-ms-anifile
-|name	match	*.app	Microsoft Visual FoxPro Application	application/x-ms-visual
-|name	match	*.arc	WinZip File	application/x-ms-winzip
-|name	match	*.arj	WinZip File	application/x-ms-winzip
-|name	match	*.art	ART Image	image/x-jg
-|name	match	*.au	Sound Clip	audio/basic
-|name	match	*.avi	Video Clip	video/avi
-|name	match	*.awx	Custom AppWizard	application/x-ms-awxfile
-|name	match	*.b64	WinZip File	application/x-ms-winzip
-|name	match	*.bat	MS-DOS Batch File	application/x-ms-batfile
-|name	match	*.bfc	Briefcase	application/x-ms-briefcase
-|name	match	*.bhx	WinZip File	application/x-ms-winzip
-|name	match	*.bmp	Bitmap Image	image/bmp
-|name	match	*.bpg	Borland Project Group	application/x-ms-borlandprojectgroup
-|name	match	*.bpk	C++Builder Package	application/x-ms-bcbpackage
-|name	match	*.bpr	C++Builder Project	application/x-ms-bcbproject
-|name	match	*.bsc	Browser Information	application/x-ms-bscfile
-|name	match	*.cda	CD Audio Track	application/x-ms-cdafile
-|name	match	*.cdf	Channel File	application/x-netcdf
-|name	match	*.cer	Internet Security Certificate	application/x-x509-ca-cert
-|name	match	*.cfg	CFG File	application/x-ms-cfg_auto_file
-|name	match	*.chm	Compiled HTML file	application/x-ms-chm
-|name	match	*.cil	Clip Gallery Download Package	application/x-ms-clipgallerydownloadpackage
-|name	match	*.clp	Clipboard Clip	application/x-ms-clpfile
-|name	match	*.cmd	Windows NT Command Script	application/x-ms-cmdfile
-|name	match	*.com	MS-DOS Application	application/x-ms-comfile
-|name	match	*.cpl	Control Panel extension	application/x-ms-cplfile
-|name	match	*.cpp	C++Builder Source File	application/x-ms-bcbunit
-|name	match	*.crt	Internet Security Certificate	application/x-x509-ca-cert
-|name	match	*.css	HyperText Style Sheet	text/css
+|name	match	*.acp	Office.ActorPreview			application/x-ms-office
+|name	match	*.act	Office.Actor				application/x-ms-office
+|name	match	*.ade	Microsoft Access project extension	application/x-ms
+|name	match	*.adp	Microsoft Access project		application/x-ms
+|name	match	*.aif	AIFF Audio				audio/x-aiff
+|name	match	*.aifc	AIFF Audio				audio/aiff
+|name	match	*.aiff	AIFF Audio				audio/aiff
+|name	match	*.aim	AOL Instant Messenger Launch		application/x-aim
+|name	match	*.ani	Animated Cursor				application/x-ms-anifile
+|name	match	*.app	Application file			application/x-ms
+|name	match	*.arc	WinZip File				application/x-ms-winzip
+|name	match	*.arj	WinZip File				application/x-ms-winzip
+|name	match	*.art	ART Image				image/x-jg
+|name	match	*.asp	Active Server Page			application/x-ms
+|name	match	*.asx	Windows Media Audio / Video		application/x-ms
+|name	match	*.au	Sound Clip				audio/basic
+|name	match	*.avi	Video Clip				video/avi
+|name	match	*.awx	Custom AppWizard			application/x-ms-awxfile
+|name	match	*.b64	WinZip File				application/x-ms-winzip
+|name	match	*.bas	Microsoft Visual Basic class module	application/x-ms
+|name	match	*.bat	MS-DOS Batch File			application/x-ms-batfile
+|name	match	*.bfc	Briefcase				application/x-ms-briefcase
+|name	match	*.bhx	WinZip File				application/x-ms-winzip
+|name	match	*.bmp	Bitmap Image				image/bmp
+|name	match	*.bpg	Borland Project Group			application/x-ms-borlandprojectgroup
+|name	match	*.bpk	C++Builder Package			application/x-ms-bcbpackage
+|name	match	*.bpr	C++Builder Project			application/x-ms-bcbproject
+|name	match	*.bsc	Browser Information			application/x-ms-bscfile
+|name	match	*.cda	CD Audio Track				application/x-ms-cdafile
+|name	match	*.cdf	Channel File				application/x-netcdf
+|name	match	*.cer	Internet Security Certificate		application/x-x509-ca-cert
+|name	match	*.cfg	CFG File				application/x-ms-cfg_auto_file
+|name	match	*.chm	Compiled HTML Help file			application/x-ms-help
+|name	match	*.cil	Clip Gallery Download Package		application/x-ms-clipgallerydownloadpackage
+|name	match	*.class	Java class file				application/x-java
+|name	match	*.clp	Clipboard Clip				application/x-ms-clpfile
+|name	match	*.cmd	Windows Command Script			application/x-ms-cmdfile
+|name	match	*.com	MS-DOS Application			application/x-ms-comfile
+|name	match	*.cpl	Control Panel extension			application/x-ms-cplfile
+|name	match	*.cpp	C++ Source File				application/x-c++
+|name	match	*.crt	Internet Security Certificate		application/x-x509-ca-cert
+|name	match	*.css	HyperText Style Sheet			text/css
 |name	match	*.csv	Microsoft Excel Comma Separated Values File	application/x-ms-excel
-|name	match	*.cur	Cursor	application/x-ms-curfile
-|name	match	*.cxx	C++ Source File	application/x-ms-cppfile
-|name	match	*.dcx	DCX Image Document	application/x-ms-dcximage
-|name	match	*.der	Internet Security Certificate	application/x-x509-ca-cert
-|name	match	*.dfm	C++Builder Form	application/x-ms-bcbform
-|name	match	*.dic	Text Document	application/x-ms-txtfile
-|name	match	*.dif	DV	video/x-dv
-|name	match	*.dll	Application Extension	application/x-msdownload
-|name	match	*.doc	Microsoft Word Document	application/x-ms-word
-|name	match	*.dot	Microsoft Word Template	application/x-ms-word
-|name	match	*.drv	Device driver	application/x-ms-drvfile
-|name	match	*.dsm	Developer Studio Macro File	application/x-ms-dsmfile
+|name	match	*.cur	Cursor					application/x-ms-curfile
+|name	match	*.cxx	C++ Source File				application/x-c++
+|name	match	*.dcx	DCX Image Document			application/x-ms-dcximage
+|name	match	*.der	Internet Security Certificate		application/x-x509-ca-cert
+|name	match	*.dfm	C++Builder Form				application/x-ms-bcbform
+|name	match	*.dic	Text Document				application/x-ms-txtfile
+|name	match	*.dif	DV					video/x-dv
+|name	match	*.dll	Windows dynamic link library		application/x-ms-dll
+|name	match	*.doc	Microsoft Word Document			application/x-ms-word
+|name	match	*.dot	Microsoft Word Template			application/x-ms-word
+|name	match	*.drv	Device driver				application/x-ms-drvfile
+|name	match	*.dsm	Developer Studio Macro File		application/x-ms-dsmfile
 |name	match	*.dsn	Microsoft OLE DB Provider for ODBC Drivers	application/x-ms-msdasql
-|name	match	*.dsp	Project File	application/x-ms-dspfile
-|name	match	*.dsw	Project Workspace	application/x-ms-dswfile
-|name	match	*.dv	DV	video/x-dv
-|name	match	*.ebh	Ebasic Files	application/x-ms-hclebasich
-|name	match	*.ebx	Ebrun Files	application/x-ms-hclebrun
-|name	match	*.exc	Text Document	application/x-ms-txtfile
-|name	match	*.exe	Application	application/x-msdownload
-|name	match	*.fav	Outlook Bar Shortcuts	application/x-ms-outlook
-|name	match	*.fdf	Adobe Acrobat Forms Document	application/x-ms-acroexch
-|name	match	*.fnd	Saved Search	application/x-ms-fndfile
-|name	match	*.fon	Font file	application/x-ms-fonfile
-|name	match	*.fs	Ftp Files	application/x-ms-hclftp
-|name	match	*.gfi	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gfx	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gif	GIF Image	image/gif
-|name	match	*.gim	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gix	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gna	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gnx	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gra	Microsoft Graph 97 Chart	application/x-ms-msgraph
-|name	match	*.grp	Microsoft Program Group	application/x-ms-msprogramgroup
-|name	match	*.gst	MSMap.Datainst.8	application/x-ms-msmap
-|name	match	*.gwx	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gwz	Genigraphics GraphicsLink	application/x-ms-graphicslink
-|name	match	*.gz	WinZip File	application/gzip
-|name	match	*.hep	HostExplorer Session Profile	application/x-ms-hostexplorer
-|name	match	*.hlp	Help File	application/x-ms-hlpfile
-|name	match	*.hpp	C++ Header File	application/x-ms-hppfile
-|name	match	*.hqx	WinZip File	application/mac-binhex40
-|name	match	*.hs3	HostExplorer Hotspot Definition	application/x-ms-hostexplorer
-|name	match	*.hs5	HostExplorer Hotspot Definition	application/x-ms-hostexplorer
-|name	match	*.hsv	HostExplorer Hotspot Definition	application/x-ms-hostexplorer
-|name	match	*.ht	HyperTerminal File	application/x-ms-htfile
-|name	match	*.htm	html input	text/html
+|name	match	*.dsp	Project File				application/x-ms-dspfile
+|name	match	*.dsw	Project Workspace			application/x-ms-dswfile
+|name	match	*.dv	DV					video/x-dv
+|name	match	*.ebh	Ebasic Files				application/x-ms-hclebasich
+|name	match	*.ebx	Ebrun Files				application/x-ms-hclebrun
+|name	match	*.exc	Text Document				application/x-ms-txtfile
+|name	match	*.exe	Application				application/x-msdownload
+|name	match	*.fav	Outlook Bar Shortcuts			application/x-ms-outlook
+|name	match	*.fdf	Adobe Acrobat Forms Document		application/x-ms-acroexch
+|name	match	*.fnd	Saved Search				application/x-ms-fndfile
+|name	match	*.fon	Font file				application/x-ms-fonfile
+|name	match	*.fs	Ftp Files				application/x-ms-hclftp
+|name	match	*.fxp	Microsoft Visual FoxPro compiled program	application/x-ms-foxpro
+|name	match	*.gfi	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gfx	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gif	GIF Image				image/gif
+|name	match	*.gim	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gix	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gna	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gnx	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gra	Microsoft Graph 97 Chart		application/x-ms-msgraph
+|name	match	*.grp	Microsoft Program Group			application/x-ms-msprogramgroup
+|name	match	*.gst	MSMap.Datainst.8			application/x-ms-msmap
+|name	match	*.gwx	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gwz	Genigraphics GraphicsLink		application/x-ms-graphicslink
+|name	match	*.gz	WinZip File				application/gzip
+|name	match	*.hep	HostExplorer Session Profile		application/x-ms-hostexplorer
+|name	match	*.hlp	Help File				application/x-ms-help
+|name	match	*.hpp	C++ Header File				application/x-c++
+|name	match	*.hqx	WinZip File				application/mac-binhex40
+|name	match	*.hs3	HostExplorer Hotspot Definition		application/x-ms-hostexplorer
+|name	match	*.hs5	HostExplorer Hotspot Definition		application/x-ms-hostexplorer
+|name	match	*.hsv	HostExplorer Hotspot Definition		application/x-ms-hostexplorer
+|name	match	*.ht	HyperTerminal File			application/x-ms-htfile
+|name	match	*.hta	HTML program				application/x-ms
+|name	match	*.htm	html source				text/html
 |name	match	*.hts	Hummingbird Telnet Program v6.0.0.0	application/x-ms-hummingbird
-|name	match	*.htt	HyperText Template	text/webviewhtml
-|name	match	*.htw	HTML Document	application/x-ms-htmlfile
-|name	match	*.htx	HTML Document	text/html
-|name	match	*.hxx	C++ Header File	application/x-ms-hppfile
-|name	match	*.ico	Icon	application/x-ms-icofile
-|name	match	*.idb	Intermediate File	application/x-ms-mdpxfile
-|name	match	*.ilk	Intermediate File	application/x-ms-mdpxfile
-|name	match	*.inf	Setup Information	application/x-ms-inffile
-|name	match	*.ini	Configuration Settings	application/x-ms-inifile
-|name	match	*.ins	Internet Communication Settings	application/x-internet-signup
-|name	match	*.iqy	Microsoft Excel Web Query File	application/x-ms-iqyfile
-|name	match	*.isp	Internet Communication Settings	application/x-internet-signup
-|name	match	*.its	Internet Document Set	application/x-ms-its
-|name	match	*.ivt	InfoViewer Title	application/x-ms-ivt
-|name	match	*.jfif	JPEG Image	image/jpeg
-|name	match	*.job	Scheduler Job Object	application/x-ms-jobobject
-|name	match	*.jod	Microsoft.Jet.OLEDB.3.51	application/x-ms-microsoft
-|name	match	*.jpe	JPEG Image	image/jpeg
-|name	match	*.jpeg	JPEG Image	image/jpeg
-|name	match	*.jpg	JPEG Image	image/jpeg
-|name	match	*.km3	HostExplorer KeyMap Definition	application/x-ms-hostexplorer
-|name	match	*.km5	HostExplorer KeyMap Definition	application/x-ms-hostexplorer
-|name	match	*.kmv	HostExplorer KeyMap Definition	application/x-ms-hostexplorer
-|name	match	*.lam	LAMDocument	application/x-ms-lamdocument
+|name	match	*.htt	HyperText Template			text/webviewhtml
+|name	match	*.htw	HTML Document				application/x-ms-htmlfile
+|name	match	*.htx	HTML Document				text/html
+|name	match	*.hxx	C++ Header File				application/x-c++
+|name	match	*.ico	Icon					application/x-ms-icon
+|name	match	*.idb	Intermediate File			application/x-ms-mdpxfile
+|name	match	*.ilk	Intermediate File			application/x-ms-mdpxfile
+|name	match	*.inf	Setup Information			application/x-ms-setup
+|name	match	*.ini	Configuration Settings			application/x-ms-config
+|name	match	*.ins	Internet Communication Settings		application/x-internet-signup
+|name	match	*.iqy	Microsoft Excel Web Query File		application/x-ms-iqyfile
+|name	match	*.isp	Internet Communication Settings		application/x-internet-signup
+|name	match	*.its	Internet Document Set			application/x-ms-its
+|name	match	*.ivt	InfoViewer Title			application/x-ms-ivt
+|name	match	*.jfif	JPEG Image				image/jpeg
+|name	match	*.job	Scheduler Job Object			application/x-ms-jobobject
+|name	match	*.jod	Microsoft.Jet.OLEDB.3.51		application/x-ms-microsoft
+|name	match	*.jpe	JPEG Image				image/jpeg
+|name	match	*.jpeg	JPEG Image				image/jpeg
+|name	match	*.jpg	JPEG Image				image/jpeg
+|name	match	*.js	JavaScript file				application/x-java
+|name	match	*.jse	JavaScript Encoded Script file		application/x-ms
+|name	match	*.jsp	JavaScript Page				application/x-ms
+|name	match	*.km3	HostExplorer KeyMap Definition		application/x-ms-hostexplorer
+|name	match	*.km5	HostExplorer KeyMap Definition		application/x-ms-hostexplorer
+|name	match	*.kmv	HostExplorer KeyMap Definition		application/x-ms-hostexplorer
+|name	match	*.lam	LAMDocument				application/x-ms-lamdocument
 |name	match	*.ldb	Microsoft Access Record-Locking Information	application/x-ms-access
-|name	match	*.lnk	Shortcut	application/x-ms-lnkfile
-|name	match	*.log	Text Document	application/x-ms-txtfile
-|name	match	*.lzh	WinZip File	application/x-ms-winzip
-|name	match	*.m1v	Movie Clip	video/mpeg
-|name	match	*.mac	MacPaint Image	image/x-macpaint
+|name	match	*.lnk	Shortcut				application/x-ms
+|name	match	*.log	Text Document				application/x-text
+|name	match	*.lzh	WinZip File				application/x-ms-winzip
+|name	match	*.m1v	Movie Clip				video/mpeg
+|name	match	*.mac	MacPaint Image				image/x-macpaint
 |name	match	*.mad	Microsoft Access Module Shortcut	application/x-ms-access
-|name	match	*.maf	Microsoft Access Form Shortcut	application/x-ms-access
-|name	match	*.mam	Microsoft Access Macro Shortcut	application/x-ms-access
-|name	match	*.maq	Microsoft Access Query Shortcut	application/x-ms-access
+|name	match	*.maf	Microsoft Access Form Shortcut		application/x-ms-access
+|name	match	*.mam	Microsoft Access Macro Shortcut		application/x-ms-access
+|name	match	*.maq	Microsoft Access Query Shortcut		application/x-ms-access
 |name	match	*.mar	Microsoft Access Report Shortcut	application/x-ms-access
-|name	match	*.mat	Microsoft Access Table Shortcut	application/x-ms-access
-|name	match	*.mda	Microsoft Access Add-in	application/x-ms-access
-|name	match	*.mdb	Microsoft Access Database	application/x-ms-access
-|name	match	*.mde	Microsoft Access MDE Database	application/x-ms-access
+|name	match	*.mat	Microsoft Access Table Shortcut		application/x-ms-access
+|name	match	*.mda	Microsoft Access Add-in			application/x-ms-access
+|name	match	*.mdb	Microsoft Access Database		application/x-ms-access
+|name	match	*.mdb	Microsoft Access program		application/x-ms
+|name	match	*.mde	Microsoft Access MDE Database		application/x-ms-access
 |name	match	*.mdn	Microsoft Access Blank Database Template	application/x-ms-access
-|name	match	*.mdp	Project Workspace	application/x-ms-mdpfile
-|name	match	*.mdt	Microsoft Access Add-in Data	application/x-ms-access
+|name	match	*.mdp	Project Workspace			application/x-ms-mdpfile
+|name	match	*.mdt	Microsoft Access Add-in Data		application/x-ms-access
 |name	match	*.mdw	Microsoft Access Workgroup Information	application/x-ms-access
 |name	match	*.mdz	Microsoft Access Database Wizard Template	application/x-ms-access
-|name	match	*.mht	Microsoft MHTML Document 4.0	message/rfc822
-|name	match	*.mhtml	Microsoft MHTML Document 4.0	message/rfc822
-|name	match	*.mid	MIDI Sequence	audio/mid
-|name	match	*.mmm	Media Clip	application/x-ms-mplayer
-|name	match	*.mov	QuickTime Movie	video/quicktime
-|name	match	*.mp2	Movie Clip	video/mpeg
-|name	match	*.mpa	Movie Clip	video/mpeg
-|name	match	*.mpe	Movie Clip	video/mpeg
-|name	match	*.mpeg	Movie Clip	video/mpeg
-|name	match	*.mpg	Movie Clip	video/mpeg
-|name	match	*.msc	MMC Document	application/x-ms-mmc
-|name	match	*.msg	Outlook Item	application/x-ms-msgfile
-|name	match	*.nsc	Netscape Conference Call File	application/x-conference
-|name	match	*.obd	Microsoft Office Binder	application/x-ms-office
+|name	match	*.mht	Microsoft MHTML Document 4.0		message/rfc822
+|name	match	*.mhtml	Microsoft MHTML Document 4.0		message/rfc822
+|name	match	*.mid	MIDI Sequence				audio/mid
+|name	match	*.mmm	Media Clip				application/x-ms-mplayer
+|name	match	*.mov	QuickTime Movie				video/quicktime
+|name	match	*.mp2	Movie Clip				video/mpeg
+|name	match	*.mpa	Movie Clip				video/mpeg
+|name	match	*.mpe	Movie Clip				video/mpeg
+|name	match	*.mpeg	Movie Clip				video/mpeg
+|name	match	*.mpg	Movie Clip				video/mpeg
+|name	match	*.msc	Microsoft Common Console Document	application/x-ms-mmc
+|name	match	*.msg	Outlook Item				application/x-ms-msgfile
+|name	match	*.msi	Microsoft Windows Installer package	application/x-ms
+|name	match	*.msp	Windows Installer patch			application/x-ms
+|name	match	*.mst	Visual Test source files		application/x-ms
+|name	match	*.nsc	Netscape Conference Call File		application/x-conference
+|name	match	*.obd	Microsoft Office Binder			application/x-ms-office
 |name	match	*.obt	Microsoft Office Binder Template	application/x-ms-office
-|name	match	*.obz	Microsoft Office Binder Wizard	application/x-ms-office
-|name	match	*.odl	Object Definition Language File	application/x-ms-odlfile
-|name	match	*.ofn	Other Office Documents...	application/x-ms-office
-|name	match	*.oft	Outlook Item Template	application/x-ms-outlook
-|name	match	*.opx	MS Organization Chart 2.0	application/x-ms-orgpluswopx
-|name	match	*.oss	Office Search	application/x-ms-ossfile
-|name	match	*.pcd	Photo CD Image	application/x-ms-pcdfile
-|name	match	*.pch	Intermediate File	application/x-ms-mdpxfile
-|name	match	*.pct	PICT Image	image/pict
-|name	match	*.pcx	PCX Image	application/x-ms-pcxfile
-|name	match	*.pdb	Intermediate File	application/x-ms-mdpxfile
-|name	match	*.pdf	Adobe Acrobat Document	application/pdf
-|name	match	*.pfm	Type 1 Font file	application/x-ms-pfmfile
-|name	match	*.pic	PICT Image	image/pict
-|name	match	*.pict	PICT Image	image/pict
-|name	match	*.pif	Shortcut to MS-DOS Program	application/x-ms-piffile
-|name	match	*.pkg	Microsoft Developer Extension	application/x-ms-pkgfile
-|name	match	*.pma	Performance Monitor File	application/x-ms-perffile
-|name	match	*.pmc	Performance Monitor File	application/x-ms-perffile
-|name	match	*.pml	Performance Monitor File	application/x-ms-perffile
-|name	match	*.pmr	Performance Monitor File	application/x-ms-perffile
-|name	match	*.pmw	Performance Monitor File	application/x-ms-perffile
-|name	match	*.pnf	Precompiled Setup Information	application/x-ms-pnffile
-|name	match	*.png	PNG Image	application/x-ms-pngfile
-|name	match	*.pntg	MacPaint Image	image/x-macpaint
-|name	match	*.pop	HostExplorer Poppad Definition	application/x-ms-hostexplorer
-|name	match	*.pot	Microsoft PowerPoint Template	application/vnd.ms-powerpoint
-|name	match	*.ppa	Microsoft PowerPoint Addin	application/vnd.ms-powerpoint
-|name	match	*.pps	Microsoft PowerPoint SlideShow	application/vnd.ms-powerpoint
+|name	match	*.obz	Microsoft Office Binder Wizard		application/x-ms-office
+|name	match	*.odl	Object Definition Language File		application/x-ms-odlfile
+|name	match	*.ofn	Other Office Documents...		application/x-ms-office
+|name	match	*.oft	Outlook Item Template			application/x-ms-outlook
+|name	match	*.ops	Microsoft Office profile settings file	application/x-ms
+|name	match	*.opx	MS Organization Chart 2.0		application/x-ms-orgpluswopx
+|name	match	*.oss	Office Search				application/x-ms-ossfile
+|name	match	*.pcd	Photo CD Image				application/x-ms-pcdfile
+|name	match	*.pch	Intermediate File			application/x-ms-mdpxfile
+|name	match	*.pct	PICT Image				image/pict
+|name	match	*.pcx	PCX Image				application/x-ms-pcxfile
+|name	match	*.pdb	Intermediate File			application/x-ms-mdpxfile
+|name	match	*.pdf	Adobe Acrobat Document			application/pdf
+|name	match	*.pfm	Type 1 Font file			application/x-ms-pfmfile
+|name	match	*.php	Perl CGI Script File			application/x-perl
+|name	match	*.pic	PICT Image				image/pict
+|name	match	*.pict	PICT Image				image/pict
+|name	match	*.pif	Shortcut to MS-DOS Program		application/x-ms-piffile
+|name	match	*.pif	Shortcut to MS-DOS program		application/x-ms
+|name	match	*.pkg	Microsoft Developer Extension		application/x-ms-pkgfile
+|name	match	*.pma	Performance Monitor File		application/x-ms-perffile
+|name	match	*.pmc	Performance Monitor File		application/x-ms-perffile
+|name	match	*.pml	Performance Monitor File		application/x-ms-perffile
+|name	match	*.pmr	Performance Monitor File		application/x-ms-perffile
+|name	match	*.pmw	Performance Monitor File		application/x-ms-perffile
+|name	match	*.pnf	Precompiled Setup Information		application/x-ms-pnffile
+|name	match	*.png	PNG Image				application/x-ms-pngfile
+|name	match	*.pntg	MacPaint Image				image/x-macpaint
+|name	match	*.pop	HostExplorer Poppad Definition		application/x-ms-hostexplorer
+|name	match	*.pot	Microsoft PowerPoint Template		application/vnd.ms-powerpoint
+|name	match	*.ppa	Microsoft PowerPoint Addin		application/vnd.ms-powerpoint
+|name	match	*.pps	Microsoft PowerPoint SlideShow		application/vnd.ms-powerpoint
 |name	match	*.ppt	Microsoft PowerPoint Presentation	application/vnd.ms-powerpoint
-|name	match	*.psd	Photoshop Image	image/x-photoshop
-|name	match	*.pwz	Microsoft PowerPoint Wizard	application/vnd.ms-powerpoint
-|name	match	*.qif	QuickTime Image	image/x-quicktime
-|name	match	*.qk3	HostExplorer QuickKeys	application/x-ms-hostexplorer
-|name	match	*.qk5	HostExplorer QuickKeys	application/x-ms-hostexplorer
-|name	match	*.qkv	HostExplorer QuickKeys	application/x-ms-hostexplorer
-|name	match	*.qt	QuickTime Movie	video/quicktime
-|name	match	*.qti	QuickTime Image	image/x-quicktime
-|name	match	*.qtif	QuickTime Image	image/x-quicktime
-|name	match	*.qtp	QuickTime Preferences	application/x-ms-quicktimepreferences
-|name	match	*.qts	QuickTime	application/x-ms-quicktimesystem
-|name	match	*.qtx	QuickTime Extension	application/x-ms-quicktimeextension
-|name	match	*.que	Scheduler Queue Object	application/x-ms-queueobject
-|name	match	*.rc	Resource Template	application/x-ms-rcfile
-|name	match	*.rct	Resource Template	application/x-ms-rcfile
-|name	match	*.reg	Registration Entries	application/x-ms-regfile
-|name	match	*.res	Intermediate File	application/x-ms-mdpxfile
-|name	match	*.rmi	MIDI Sequence	audio/mid
-|name	match	*.rnk	Dial-Up Shortcut	application/x-ms-rnkfile
-|name	match	*.rtf	Rich Text Format	application/x-ms-word
-|name	match	*.rx	XRX Files	application/x-ms-hclbroadway
-|name	match	*.sbr	Intermediate File	application/x-ms-mdpxfile
+|name	match	*.prf	System file				application/x-ms
+|name	match	*.prg	Program source file			application/x-ms
+|name	match	*.psd	Photoshop Image				image/x-photoshop
+|name	match	*.pwz	Microsoft PowerPoint Wizard		application/vnd.ms-powerpoint
+|name	match	*.qif	QuickTime Image				image/x-quicktime
+|name	match	*.qk3	HostExplorer QuickKeys			application/x-ms-hostexplorer
+|name	match	*.qk5	HostExplorer QuickKeys			application/x-ms-hostexplorer
+|name	match	*.qkv	HostExplorer QuickKeys			application/x-ms-hostexplorer
+|name	match	*.qt	QuickTime Movie				video/quicktime
+|name	match	*.qti	QuickTime Image				image/x-quicktime
+|name	match	*.qtif	QuickTime Image				image/x-quicktime
+|name	match	*.qtp	QuickTime Preferences			application/x-ms-quicktimepreferences
+|name	match	*.qts	QuickTime				application/x-ms-quicktimesystem
+|name	match	*.qtx	QuickTime Extension			application/x-ms-quicktimeextension
+|name	match	*.que	Scheduler Queue Object			application/x-ms-queueobject
+|name	match	*.rc	Resource Template			application/x-ms-rcfile
+|name	match	*.rct	Resource Template			application/x-ms-rcfile
+|name	match	*.reg	Registration Entries			application/x-ms-regfile
+|name	match	*.res	Intermediate File			application/x-ms-mdpxfile
+|name	match	*.rmi	MIDI Sequence				audio/mid
+|name	match	*.rnk	Dial-Up Shortcut			application/x-ms-rnkfile
+|name	match	*.rtf	Rich Text Format			application/x-ms-word
+|name	match	*.rx	XRX Files				application/x-ms-hclbroadway
+|name	match	*.sbr	Intermediate File			application/x-ms-mdpxfile
 |name	match	*.sc2	Microsoft Schedule+ 7.0 Application	application/x-ms-scheduleplus
 |name	match	*.scd	Microsoft Schedule+ 7.0 Application	application/x-ms-scheduleplus
-|name	match	*.scf	Windows Explorer Command	application/x-ms-shcmdfile
+|name	match	*.scf	Windows Explorer Command		application/x-ms-explorer
 |name	match	*.sch	Microsoft Schedule+ 7.0 Application	application/x-ms-scheduleplus
-|name	match	*.scp	Text Document	application/x-ms-txtfile
-|name	match	*.scr	Screen Saver	application/x-ms-scrfile
-|name	match	*.sd2	Sound Designer 2	audio/x-sd2
-|name	match	*.ses	Xsession Files	application/x-ms-hclxsession
-|name	match	*.shb	Shortcut into a document	application/x-ms-docshortcut
-|name	match	*.shs	Scrap object	application/x-ms-shellscrap
-|name	match	*.shtml	Netscape Hypertext Document	application/x-ms-netscapemarkup
+|name	match	*.scp	Text Document				application/x-ms-txtfile
+|name	match	*.scr	Screen Saver				application/x-ms-scrfile
+|name	match	*.sct	Windows Script Component		application/x-ms
+|name	match	*.sd2	Sound Designer 2			audio/x-sd2
+|name	match	*.ses	Xsession Files				application/x-ms-hclxsession
+|name	match	*.shb	Shortcut into a document		application/x-ms-docshortcut
+|name	match	*.shs	Scrap object				application/x-ms-shellscrap
+|name	match	*.shtml	Netscape Hypertext Document		application/x-ms-netscapemarkup
 |name	match	*.slk	Microsoft Excel SLK Data Import Format	application/x-ms-excel
-|name	match	*.snd	Sound Clip	audio/basic
-|name	match	*.stm	HTML Document	text/html
-|name	match	*.sys	System file	application/x-ms-sysfile
-|name	match	*.taz	WinZip File	application/x-ms-winzip
-|name	match	*.tga	TGA Image	application/x-ms-tgafile
-|name	match	*.tif	TIF Image Document	image/tiff
-|name	match	*.tlb	Type Library	application/x-ms-tlbfile
-|name	match	*.ttf	TrueType Font file	application/x-ms-ttffile
-|name	match	*.txt	Text Document	text/plain
-|name	match	*.tz	WinZip File	application/x-ms-winzip
-|name	match	*.udl	Microsoft Data Link	application/x-ms-msdasc
-|name	match	*.url	Internet Shortcut	application/x-ms-internetshortcut
-|name	match	*.uue	WinZip File	application/x-ms-winzip
-|name	match	*.vir	Virus Infected File	application/x-ms-virfile
-|name	match	*.wav	Wave Sound	audio/x-wav
-|name	match	*.wbk	Microsoft Word Backup Document	application/x-ms-word
-|name	match	*.wiz	Microsoft Word Wizard	application/x-ms-word
-|name	match	*.wll	Microsoft Word Addin	application/x-ms-word
-|name	match	*.wpd	corel wordperfect document	application/x-wordperfect
-|name	match	*.wri	Write Document	application/x-ms-wrifile
-|name	match	*.wrl	SGI.CosmoPlayer.1	application/x-ms-sgi
-|name	match	*.wrz	SGI.CosmoPlayer.1	application/x-ms-sgi
-|name	match	*.ws	Wstart Files	application/x-ms-hclwstart
-|name	match	*.wtx	Text Document	application/x-ms-txtfile
-|name	match	*.xbm	Netscape Hypertext Document	image/x-xbitmap
-|name	match	*.xif	XIF Image Document	application/x-ms-xifimage
-|name	match	*.xla	Microsoft Excel Add-In	application/x-ms-excel
-|name	match	*.xlb	Microsoft Excel Worksheet	application/x-ms-excel
-|name	match	*.xlc	Microsoft Excel Chart	application/x-ms-excel
-|name	match	*.xld	Microsoft Excel 5.0 DialogSheet	application/x-ms-excel
-|name	match	*.xlk	Microsoft Excel Backup File	application/x-ms-excel
-|name	match	*.xll	Microsoft Excel XLL Add-In	application/x-ms-excel
-|name	match	*.xlm	Microsoft Excel 4.0 Macro	application/x-ms-excel
-|name	match	*.xls	Microsoft Excel Worksheet	application/vnd.ms-excel
-|name	match	*.xlt	Microsoft Excel Template	application/x-ms-excel
-|name	match	*.xlv	Microsoft Excel VBA Module	application/x-ms-excel
-|name	match	*.xlw	Microsoft Excel Workspace	application/x-ms-excel
-|name	match	*.xnk	Exchange Shortcut	application/x-ms-xnkfile
-|name	match	*.xs	Xstart Files	application/x-ms-hclxstart
-|name	match	*.xxe	WinZip File	application/x-ms-winzip
-|name	match	*.zip	WinZip File	application/x-zip-compressed
+|name	match	*.snd	Sound Clip				audio/basic
+|name	match	*.stm	HTML Document				text/html
+|name	match	*.sys	System file				application/x-ms-sysfile
+|name	match	*.taz	WinZip File				application/x-ms-winzip
+|name	match	*.tga	TGA Image				application/x-ms-tgafile
+|name	match	*.tif	TIF Image Document			image/tiff
+|name	match	*.tlb	Type Library				application/x-ms-tlbfile
+|name	match	*.ttf	TrueType Font file			application/x-ms-ttffile
+|name	match	*.txt	Text Document				text/plain
+|name	match	*.tz	WinZip File				application/x-ms-winzip
+|name	match	*.udl	Microsoft Data Link			application/x-ms-msdasc
+|name	match	*.url	Internet Shortcut			application/x-ms-internetshortcut
+|name	match	*.uue	WinZip File				application/x-ms-winzip
+|name	match	*.vb	Microsoft Visual Basic Scripting Edition (VBScript) file	application/x-ms
+|name	match	*.vbe	VBScript Encoded Script file		application/x-ms
+|name	match	*.vbs	VBScript file				application/x-ms
+|name	match	*.vir	Virus Infected File			application/x-ms-virus
+|name	match	*.wav	Wave Sound				audio/x-wav
+|name	match	*.wbk	Microsoft Word Backup Document		application/x-ms-word
+|name	match	*.wiz	Microsoft Word Wizard			application/x-ms-word
+|name	match	*.wll	Microsoft Word Addin			application/x-ms-word
+|name	match	*.wpd	corel wordperfect document		application/x-wordperfect
+|name	match	*.wri	Write Document				application/x-ms-wrifile
+|name	match	*.wrl	SGI.CosmoPlayer.1			application/x-ms-sgi
+|name	match	*.wrz	SGI.CosmoPlayer.1			application/x-ms-sgi
+|name	match	*.ws	Wstart Files				application/x-ms-hclwstart
+|name	match	*.wsc	Windows Script Component		application/x-ms
+|name	match	*.wsf	Windows Script file			application/x-ms
+|name	match	*.wsh	Windows Script Host Settings file	application/x-ms
+|name	match	*.wtx	Text Document				application/x-ms-txtfile
+|name	match	*.xbm	Netscape Hypertext Document		image/x-xbitmap
+|name	match	*.xif	XIF Image Document			application/x-ms-xifimage
+|name	match	*.xla	Microsoft Excel Add-In			application/x-ms-excel
+|name	match	*.xlb	Microsoft Excel Worksheet		application/x-ms-excel
+|name	match	*.xlc	Microsoft Excel Chart			application/x-ms-excel
+|name	match	*.xld	Microsoft Excel 5.0 DialogSheet		application/x-ms-excel
+|name	match	*.xlk	Microsoft Excel Backup File		application/x-ms-excel
+|name	match	*.xll	Microsoft Excel XLL Add-In		application/x-ms-excel
+|name	match	*.xlm	Microsoft Excel 4.0 Macro		application/x-ms-excel
+|name	match	*.xls	Microsoft Excel Worksheet		application/vnd.ms-excel
+|name	match	*.xlt	Microsoft Excel Template		application/x-ms-excel
+|name	match	*.xlv	Microsoft Excel VBA Module		application/x-ms-excel
+|name	match	*.xlw	Microsoft Excel Workspace		application/x-ms-excel
+|name	match	*.xnk	Microsoft Exchange Shortcut		application/x-ms-exchange
+|name	match	*.xs	Microsoft Exchange start Files		application/x-ms-exchange
+|name	match	*.xxe	WinZip File				application/x-ms-winzip
+|name	match	*.zip	WinZip File				application/x-zip-compressed

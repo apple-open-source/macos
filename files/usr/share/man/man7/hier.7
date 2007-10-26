@@ -33,14 +33,16 @@
 .\"
 .\"	@(#)hier.7	8.1 (Berkeley) 6/5/93
 .\"
-.Dd June 5, 1993
+.Dd July 23, 2007
 .Dt HIER 7
 .Os
 .Sh NAME
 .Nm hier
 .Nd layout of filesystems
 .Sh DESCRIPTION
-A sketch of the filesystem hierarchy.
+A historical sketch of the filesystem hierarchy.
+.Pa http://developer.apple.com/documentation/MacOSX/Conceptual/BPFileSystem/
+outlines the modern Mac OS X filesystem.
 .Bl -tag -width "/mach_kernel"
 .It Li /
 root directory of the filesystem
@@ -163,13 +165,6 @@ misc. automatically generated system-specific database files
 .It Li log/ 
 misc. system log files
 .Pp
-.Bl -tag -width Fl -compact
-.It Li wtmp
-login/logout log;
-see
-.Xr wtmp 5
-.El
-.Pp
 .It Li mail/ 
 user mailbox files
 .It Li run/
@@ -177,10 +172,10 @@ system information files describing various info about
 system since it was booted
 .Pp
 .Bl -tag -width Fl -compact
-.It Li utmp
+.It Li utmpx
 database of current users;
 see
-.Xr utmp 5
+.Xr utmpx 5
 .El
 .Pp
 .It Li rwho/ 
@@ -202,6 +197,8 @@ see
 .Pp
 .It Li tmp/ 
 temporary files that are kept between system reboots
+.It Li folders/
+per-user temporary files and caches
 .El
 .El
 .Sh SEE ALSO

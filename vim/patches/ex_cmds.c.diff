@@ -1,0 +1,22 @@
+--- src/ex_cmds.c.orig	2005-05-18 17:32:29.000000000 -0700
++++ src/ex_cmds.c	2005-05-18 17:06:56.000000000 -0700
+@@ -2765,7 +2765,7 @@
+ 	    }
+ 	    swapname = makeswapname(fname, ffname, curbuf, dir);
+ 	    r = vim_fexists(swapname);
+-	    if (r)
++	    if (r && !eap->forceit)
+ 	    {
+ #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
+ 		if (p_confirm || cmdmod.confirm)
+@@ -5179,7 +5179,10 @@
+	    smsg((char_u *)_(e_patnotf2), pat);
+     }
+     else
++    {
++	global_last_cmd = 1;
+ 	global_exe(cmd);
++    }
+ 
+     ml_clearmarked();	   /* clear rest of the marks */
+     vim_free(regmatch.regprog);

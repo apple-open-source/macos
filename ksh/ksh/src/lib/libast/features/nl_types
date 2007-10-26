@@ -12,6 +12,7 @@ tst	output{
 	#include <nl_types.h>
 	#endif
 
+	int
 	main()
 	{
 		printf("#include <limits.h>\n");

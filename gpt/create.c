@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -25,10 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-
-#ifdef __FBSDID
-__FBSDID("$FreeBSD: src/sbin/gpt/create.c,v 1.9 2004/11/12 04:34:46 marcel Exp $");
-#endif
+__FBSDID("$FreeBSD: src/sbin/gpt/create.c,v 1.10.2.1 2005/09/06 23:59:01 marcel Exp $");
 
 #include <sys/types.h>
 
@@ -42,6 +39,7 @@ __FBSDID("$FreeBSD: src/sbin/gpt/create.c,v 1.9 2004/11/12 04:34:46 marcel Exp $
 #include "map.h"
 #include "gpt.h"
 
+static int force;
 static int primary_only;
 
 static void
@@ -49,7 +47,7 @@ usage_create(void)
 {
 
 	fprintf(stderr,
-	    "usage: %s [-p] device ...\n", getprogname());
+	    "usage: %s [-fp] device ...\n", getprogname());
 	exit(1);
 }
 
@@ -73,9 +71,15 @@ create(int fd)
 		warnx("%s: error: device already contains a GPT", device_name);
 		return;
 	}
-	if (map_find(MAP_TYPE_MBR) != NULL) {
-		warnx("%s: error: device contains a MBR", device_name);
-		return;
+	map = map_find(MAP_TYPE_MBR);
+	if (map != NULL) {
+		if (!force) {
+			warnx("%s: error: device contains a MBR", device_name);
+			return;
+		}
+
+		/* Nuke the MBR in our internal map. */
+		map->map_type = MAP_TYPE_UNUSED;
 	}
 
 	/*
@@ -163,13 +167,8 @@ create(int fd)
 	hdr->hdr_lba_alt = htole64(last);
 	hdr->hdr_lba_start = htole64(tbl->map_start + blocks);
 	hdr->hdr_lba_end = htole64(last - blocks - 1LL);
-#ifdef __APPLE__
-	uuid_generate(uuid);
-	le_uuid_enc(hdr->hdr_uuid, uuid);
-#else
 	uuid_create(&uuid, NULL);
 	le_uuid_enc(&hdr->hdr_uuid, &uuid);
-#endif
 	hdr->hdr_lba_table = htole64(tbl->map_start);
 	hdr->hdr_entries = htole32((blocks * secsz) / sizeof(struct gpt_ent));
 	if (le32toh(hdr->hdr_entries) > parts)
@@ -178,13 +177,8 @@ create(int fd)
 
 	ent = tbl->map_data;
 	for (i = 0; i < le32toh(hdr->hdr_entries); i++) {
-#ifdef __APPLE__
-		uuid_generate(uuid);
-		le_uuid_enc(ent[i].ent_uuid, uuid);
-#else
 		uuid_create(&uuid, NULL);
 		le_uuid_enc(&ent[i].ent_uuid, &uuid);
-#endif
 	}
 
 	hdr->hdr_crc_table = htole32(crc32(ent, le32toh(hdr->hdr_entries) *
@@ -219,8 +213,11 @@ cmd_create(int argc, char *argv[])
 {
 	int ch, fd;
 
-	while ((ch = getopt(argc, argv, "p")) != -1) {
+	while ((ch = getopt(argc, argv, "fp")) != -1) {
 		switch(ch) {
+		case 'f':
+			force = 1;
+			break;
 		case 'p':
 			primary_only = 1;
 			break;

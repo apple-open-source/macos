@@ -13,7 +13,8 @@ Postfix virtual domain mail delivery agent
 .ad
 .fi
 The \fBvirtual\fR(8) delivery agent is designed for virtual mail
-hosting services. Originally based on the Postfix local(8) delivery
+hosting services. Originally based on the Postfix \fBlocal\fR(8)
+delivery
 agent, this agent looks up recipients with map lookups of their
 full recipient address, instead of using hard-coded unix password
 file lookups of the address local part only.
@@ -33,8 +34,9 @@ address as described under TABLE SEARCH ORDER below.
 
 The mailbox pathname is constructed as follows:
 
-.ti +2
-\fB$virtual_mailbox_base/$virtual_mailbox_maps(\fIrecipient\fB)\fR
+.nf
+  \fB$virtual_mailbox_base/$virtual_mailbox_maps(\fIrecipient\fB)\fR
+.fi
 
 where \fIrecipient\fR is the full recipient address.
 .SH "UNIX MAILBOX FORMAT"
@@ -46,7 +48,7 @@ When the mailbox location does not end in \fB/\fR, the message
 is delivered in UNIX mailbox format.   This format stores multiple
 messages in one textfile.
 
-The \fBvirtual\fR delivery agent prepends a "\fBFrom \fIsender
+The \fBvirtual\fR(8) delivery agent prepends a "\fBFrom \fIsender
 time_stamp\fR" envelope header to each message, prepends a
 \fBDelivered-To:\fR message header with the envelope recipient
 address,
@@ -67,7 +69,7 @@ mailbox to its original length.
 When the mailbox location ends in \fB/\fR, the message is delivered
 in qmail \fBmaildir\fR format. This format stores one message per file.
 
-The \fBvirtual\fR delivery agent daemon prepends a \fBDelivered-To:\fR
+The \fBvirtual\fR(8) delivery agent prepends a \fBDelivered-To:\fR
 message header with the final envelope recipient address,
 prepends an \fBX-Original-To:\fR header with the recipient address as
 given to Postfix, and prepends a
@@ -88,6 +90,14 @@ a string with the numerical user and group ID, respectively.
 The \fBvirtual_minimum_uid\fR parameter imposes a lower bound on
 numerical user ID values that may be specified in any
 \fBvirtual_uid_maps\fR.
+.SH "CASE FOLDING"
+.na
+.nf
+.ad
+.fi
+All delivery decisions are made using the full recipient
+address, folded to lower case. See also the next section
+for a few exceptions with optional address extensions.
 .SH "TABLE SEARCH ORDER"
 .na
 .nf
@@ -124,9 +134,18 @@ map.
 .nf
 .ad
 .fi
-The virtual delivery agent is not security sensitive, provided
+The \fBvirtual\fR(8) delivery agent is not security sensitive, provided
 that the lookup tables with recipient user/group ID information are
 adequately protected. This program is not designed to run chrooted.
+
+The \fBvirtual\fR(8) delivery agent disallows regular expression
+substitution of $1 etc. in regular expression lookup tables,
+because that would open a security hole.
+
+The \fBvirtual\fR(8) delivery agent will silently ignore requests
+to use the \fBproxymap\fR(8) server. Instead it will open the
+table directly. Before Postfix version 2.2, the virtual
+delivery agent will terminate with a fatal error.
 .SH "STANDARDS"
 .na
 .nf
@@ -159,54 +178,55 @@ three tables, use an LDAP or MYSQL database.
 .nf
 .ad
 .fi
-Changes to \fBmain.cf\fR are picked up automatically, as virtual(8)
+Changes to \fBmain.cf\fR are picked up automatically, as
+\fBvirtual\fR(8)
 processes run for only a limited amount of time. Use the command
 "\fBpostfix reload\fR" to speed up a change.
 
 The text below provides only a parameter summary. See
-postconf(5) for more details including examples.
+\fBpostconf\fR(5) for more details including examples.
 .SH "MAILBOX DELIVERY CONTROLS"
 .na
 .nf
 .ad
 .fi
 .IP "\fBvirtual_mailbox_base (empty)\fR"
-A prefix that the virtual(8) delivery agent prepends to all pathname
+A prefix that the \fBvirtual\fR(8) delivery agent prepends to all pathname
 results from $virtual_mailbox_maps table lookups.
 .IP "\fBvirtual_mailbox_maps (empty)\fR"
 Optional lookup tables with all valid addresses in the domains that
 match $virtual_mailbox_domains.
 .IP "\fBvirtual_minimum_uid (100)\fR"
-The minimum user ID value that the virtual(8) delivery agent accepts
-as a result from \fB$virtual_uid_maps\fR table lookup.
+The minimum user ID value that the \fBvirtual\fR(8) delivery agent accepts
+as a result from $virtual_uid_maps table lookup.
 .IP "\fBvirtual_uid_maps (empty)\fR"
-Lookup tables with the per-recipient user ID that the virtual(8)
+Lookup tables with the per-recipient user ID that the \fBvirtual\fR(8)
 delivery agent uses while writing to the recipient's mailbox.
 .IP "\fBvirtual_gid_maps (empty)\fR"
-Lookup tables with the per-recipient group ID for virtual(8) mailbox
+Lookup tables with the per-recipient group ID for \fBvirtual\fR(8) mailbox
 delivery.
 .PP
 Available in Postfix version 2.0 and later:
 .IP "\fBvirtual_mailbox_domains ($virtual_mailbox_maps)\fR"
-The list of domains that are delivered via the $virtual_transport
-mail delivery transport.
+Postfix is final destination for the specified list of domains;
+mail is delivered via the $virtual_transport mail delivery transport.
 .IP "\fBvirtual_transport (virtual)\fR"
-The default mail delivery transport for domains that match the
-$virtual_mailbox_domains parameter value.
+The default mail delivery transport and next-hop destination for
+final delivery to domains listed with $virtual_mailbox_domains.
 .SH "LOCKING CONTROLS"
 .na
 .nf
 .ad
 .fi
 .IP "\fBvirtual_mailbox_lock (see 'postconf -d' output)\fR"
-How to lock a UNIX-style virtual(8) mailbox before attempting
+How to lock a UNIX-style \fBvirtual\fR(8) mailbox before attempting
 delivery.
 .IP "\fBdeliver_lock_attempts (20)\fR"
 The maximal number of attempts to acquire an exclusive lock on a
-mailbox file or bounce(8) logfile.
+mailbox file or \fBbounce\fR(8) logfile.
 .IP "\fBdeliver_lock_delay (1s)\fR"
 The time between attempts to acquire an exclusive lock on a mailbox
-file or bounce(8) logfile.
+file or \fBbounce\fR(8) logfile.
 .IP "\fBstale_lock_time (500s)\fR"
 The time after which a stale exclusive mailbox lockfile is removed.
 .SH "RESOURCE AND RATE CONTROLS"
@@ -234,15 +254,18 @@ configuration files.
 .IP "\fBdaemon_timeout (18000s)\fR"
 How much time a Postfix daemon process may take to handle a
 request before it is terminated by a built-in watchdog timer.
+.IP "\fBdelay_logging_resolution_limit (2)\fR"
+The maximal number of digits after the decimal point when logging
+sub-second delay values.
 .IP "\fBipc_timeout (3600s)\fR"
 The time limit for sending or receiving information over an internal
 communication channel.
 .IP "\fBmax_idle (100s)\fR"
-The maximum amount of time that an idle Postfix daemon process
-waits for the next service request before exiting.
+The maximum amount of time that an idle Postfix daemon process waits
+for an incoming connection before terminating voluntarily.
 .IP "\fBmax_use (100)\fR"
-The maximal number of connection requests before a Postfix daemon
-process terminates.
+The maximal number of incoming connections that a Postfix daemon
+process will service before terminating voluntarily.
 .IP "\fBprocess_id (read-only)\fR"
 The process ID of a Postfix command or daemon process.
 .IP "\fBprocess_name (read-only)\fR"

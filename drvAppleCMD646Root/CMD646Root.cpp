@@ -228,7 +228,7 @@ OSDefineMetaClassAndStructors(CMD646Device, IOService);
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 bool CMD646Device::compareName( OSString * name,
-					OSString ** matched = 0 ) const
+					OSString ** matched ) const
 {
     return( ((CMD646Root *)getProvider())->
 		compareNubName( this, name, matched ));

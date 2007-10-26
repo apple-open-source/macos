@@ -785,7 +785,7 @@ rm -f confinc confmf
 
 dnl init_automake.m4--cmulocal automake setup macro
 dnl Rob Earhart
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
 AC_DEFUN([CMU_INIT_AUTOMAKE], [
 	AC_REQUIRE([AM_INIT_AUTOMAKE])
@@ -793,7 +793,7 @@ AC_DEFUN([CMU_INIT_AUTOMAKE], [
 	])
 
 dnl
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 dnl
 
 dnl
@@ -826,7 +826,7 @@ AC_MSG_RESULT($ac_cv___attribute__)
 
 dnl
 dnl Additional macros for configure.in packaged up for easier theft.
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 dnl tjs@andrew.cmu.edu 6-may-1998
 dnl
 
@@ -873,7 +873,7 @@ AC_DEFUN([CMU_GUESS_RUNPATH_SWITCH], [
 dnl bsd_sockets.m4--which socket libraries do we need? 
 dnl Derrick Brashear
 dnl from Zephyr
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
 dnl Hacked on by Rob Earhart to not just toss stuff in LIBS
 dnl It now puts everything required for sockets into LIB_SOCKET
@@ -889,8 +889,20 @@ AC_DEFUN([CMU_SOCKETS], [
 	)
 	LIBS="$LIB_SOCKET $save_LIBS"
 	AC_CHECK_FUNC(res_search, :,
-                AC_CHECK_LIB(resolv, res_search,
-                              LIB_SOCKET="-lresolv $LIB_SOCKET") 
+		LIBS="-lresolv $LIB_SOCKET $save_LIBS"
+		AC_TRY_LINK([[
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/nameser.h>
+#ifdef HAVE_ARPA_NAMESER_COMPAT_H
+#include <arpa/nameser_compat.h>
+#endif
+#include <resolv.h>]],[[
+const char host[12]="openafs.org";
+u_char ans[1024];
+res_search( host, C_IN, T_MX, (u_char *)&ans, sizeof(ans));
+return 0;
+]], LIB_SOCKET="-lresolv $LIB_SOCKET")
         )
 	LIBS="$LIB_SOCKET $save_LIBS"
 	AC_CHECK_FUNCS(dn_expand dns_lookup)
@@ -900,10 +912,11 @@ AC_DEFUN([CMU_SOCKETS], [
 
 dnl
 dnl macros for configure.in to detect openssl
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 dnl
 
 AC_DEFUN([CMU_HAVE_OPENSSL], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(openssl,[  --with-openssl=PATH     use OpenSSL from PATH],
 	with_openssl=$withval, with_openssl="yes")
 
@@ -912,7 +925,7 @@ AC_ARG_WITH(openssl,[  --with-openssl=PATH     use OpenSSL from PATH],
 
 	if test -d $with_openssl; then
 	  CPPFLAGS="${CPPFLAGS} -I${with_openssl}/include"
-	  CMU_ADD_LIBPATH(${with_openssl}/lib)
+	  CMU_ADD_LIBPATH(${with_openssl}/$CMU_LIB_SUBDIR)
 	fi
 
 case "$with_openssl" in
@@ -940,6 +953,68 @@ esac
 		CPPFLAGS=$save_CPPFLAGS
 		LDFLAGS=$save_LDFLAGS
 	fi
+])
+
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
+
+AC_DEFUN([CMU_TEST_LIBPATH], [
+changequote(<<, >>)
+define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_lib, <<- *>>, <<__p>>))
+changequote([, ])
+if test "$CMU_AC_CV_FOUND" = "yes"; then
+  if test \! -r "$1/lib$2.a" -a \! -r "$1/lib$2.so" -a \! -r "$1/lib$2.sl"; then
+    CMU_AC_CV_FOUND=no
+  fi
+fi
+])
+
+AC_DEFUN([CMU_TEST_INCPATH], [
+changequote(<<, >>)
+define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_inc, [ *], [_p]))
+changequote([, ])
+if test "$CMU_AC_CV_FOUND" = "yes"; then
+  if test \! -r "$1/$2.h"; then
+    CMU_AC_CV_FOUND=no
+  fi
+fi
+])
+
+dnl CMU_CHECK_HEADER_NOCACHE(HEADER-FILE, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]])
+AC_DEFUN([CMU_CHECK_HEADER_NOCACHE],
+[dnl Do the transliteration at runtime so arg 1 can be a shell variable.
+ac_safe=`echo "$1" | sed 'y%./+-%__p_%'`
+AC_MSG_CHECKING([for $1])
+AC_TRY_CPP([#include <$1>], eval "ac_cv_header_$ac_safe=yes",
+  eval "ac_cv_header_$ac_safe=no")
+if eval "test \"`echo '$ac_cv_header_'$ac_safe`\" = yes"; then
+  AC_MSG_RESULT(yes)
+  ifelse([$2], , :, [$2])
+else
+  AC_MSG_RESULT(no)
+ifelse([$3], , , [$3
+])dnl
+fi
+])
+
+AC_DEFUN([CMU_FIND_LIB_SUBDIR],
+[dnl
+AC_ARG_WITH([lib-subdir], AC_HELP_STRING([--with-lib-subdir=DIR],[Find libraries in DIR instead of lib]))
+AC_CHECK_SIZEOF(long)
+AC_CACHE_CHECK([what directory libraries are found in], [ac_cv_cmu_lib_subdir],
+[test "X$with_lib_subdir" = "Xyes" && with_lib_subdir=
+test "X$with_lib_subdir" = "Xno" && with_lib_subdir=
+if test "X$with_lib_subdir" = "X" ; then
+  ac_cv_cmu_lib_subdir=lib
+  if test $ac_cv_sizeof_long -eq 4 ; then
+    test -d /usr/lib32 && ac_cv_cmu_lib_subdir=lib32
+  fi
+  if test $ac_cv_sizeof_long -eq 8 ; then
+    test -d /usr/lib64 && ac_cv_cmu_lib_subdir=lib64
+  fi
+else
+  ac_cv_cmu_lib_subdir=$with_lib_subdir
+fi])
+AC_SUBST(CMU_LIB_SUBDIR, $ac_cv_cmu_lib_subdir)
 ])
 
 dnl checking for kerberos 4 libraries (and DES)
@@ -1084,7 +1159,8 @@ AC_DEFUN([SASL_KERBEROS_V4_CHK], [
   if test "$krb4" != no; then
     AC_MSG_RESULT(enabled)
     SASL_MECHS="$SASL_MECHS libkerberos4.la"
-    SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/kerberos4.o"
+    SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/kerberos4.c"
+    SASL_STATIC_OBJS="$SASL_STATIC_OBJS kerberos4.o"
     AC_DEFINE(STATIC_KERBEROS4,[],[User KERBEROS_V4 Staticly])
     AC_DEFINE(HAVE_KRB,[],[Do we have Kerberos 4 Support?])
     SASL_KRB_LIB="$SASL_KRB_LIB $LIB_DES $COM_ERR"
@@ -1095,74 +1171,88 @@ AC_DEFUN([SASL_KERBEROS_V4_CHK], [
 ])
 
 
-dnl sasl2.m4--sasl2 libraries and includes
-dnl Rob Siemborski
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+# sasl2.m4--sasl2 libraries and includes
+# Rob Siemborski
+# $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
-AC_DEFUN([SASL_GSSAPI_CHK],[
- AC_ARG_ENABLE(gssapi, [  --enable-gssapi=<DIR>   enable GSSAPI authentication [yes] ],
-    gssapi=$enableval,
-    gssapi=yes)
- AC_ARG_WITH(gss_impl, [  --with-gss_impl={heimdal|mit|cybersafe|seam|auto}                                                       choose specific GSSAPI implementation [[auto]] ],
-    gss_impl=$withval,
-    gss_impl=auto)
- AC_REQUIRE([SASL2_CRYPT_CHK])
- AC_REQUIRE([CMU_SOCKETS])
+# SASL2_CRYPT_CHK
+# ---------------
+AC_DEFUN([SASL_GSSAPI_CHK],
+[AC_REQUIRE([SASL2_CRYPT_CHK])
+AC_REQUIRE([CMU_SOCKETS])
+AC_ARG_ENABLE([gssapi],
+              [AC_HELP_STRING([--enable-gssapi=<DIR>],
+                              [enable GSSAPI authentication [yes]])],
+              [gssapi=$enableval],
+              [gssapi=yes])
+AC_ARG_WITH([gss_impl],
+            [AC_HELP_STRING([--with-gss_impl={heimdal|mit|cybersafe|seam|auto}],
+                            [choose specific GSSAPI implementation [[auto]]])],
+            [gss_impl=$withval],
+            [gss_impl=auto])
 
- if test "$gssapi" != no; then
-    platform=
-    case "${host}" in
-      *-*-linux*)
-        platform=__linux
-        ;;
-      *-*-hpux*)
-        platform=__hpux
-        ;;
-      *-*-irix*)
-        platform=__irix
-        ;;
-      *-*-solaris2*)
+if test "$gssapi" != no; then
+  platform=
+  case "${host}" in
+    *-*-linux*)
+      platform=__linux
+      ;;
+    *-*-hpux*)
+      platform=__hpux
+      ;;
+    *-*-irix*)
+      platform=__irix
+      ;;
+    *-*-solaris2*)
 # When should we use __sunos?
-        platform=__solaris
-        ;;
-      *-*-aix*)
-        platform=__aix
-        ;;
-      *)
-        AC_WARN([The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script])
-        ;;
-    esac
+      platform=__solaris
+      ;;
+    *-*-aix*)
+      platform=__aix
+      ;;
+    *)
+      AC_WARN([The system type is not recognized. If you believe that CyberSafe GSSAPI works on this platform, please update the configure script])
+      if test "$gss_impl" = "cybersafe"; then
+        AC_ERROR([CyberSafe was forced, cannot continue as platform is not supported])
+      fi
+      ;;
+  esac
 
-    cmu_saved_CPPFLAGS=$CPPFLAGS
+  cmu_saved_CPPFLAGS=$CPPFLAGS
 
-    if test -d ${gssapi}; then
-       CPPFLAGS="$CPPFLAGS -I$gssapi/include"
+  if test -d ${gssapi}; then
+    CPPFLAGS="$CPPFLAGS -I$gssapi/include"
 # We want to keep -I in our CPPFLAGS, but only if we succeed
-       cmu_saved_CPPFLAGS=$CPPFLAGS
-       LDFLAGS="$LDFLAGS -L$gssapi/lib"
+    cmu_saved_CPPFLAGS=$CPPFLAGS
+    LDFLAGS="$LDFLAGS -L$gssapi/lib"
 
-       if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
-         CPPFLAGS="$CPPFLAGS -D$platform"
-         if test -d "${gssapi}/appsec-sdk/include"; then
-           CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
-         fi
-       fi
+    if test -n "$platform"; then
+      if test "$gss_impl" = "auto" -o "$gss_impl" = "cybersafe"; then
+        CPPFLAGS="$CPPFLAGS -D$platform"
+        if test -d "${gssapi}/appsec-sdk/include"; then
+          CPPFLAGS="$CPPFLAGS -I${gssapi}/appsec-sdk/include"
+        fi
+      fi
     fi
-    AC_CHECK_HEADER(gssapi.h, AC_DEFINE(HAVE_GSSAPI_H,,[Define if you have the gssapi.h header file]), [
-      AC_CHECK_HEADER(gssapi/gssapi.h,, AC_WARN(Disabling GSSAPI - no include files found); gssapi=no)])
+  fi
+  AC_CHECK_HEADER([gssapi.h],
+                  [AC_DEFINE(HAVE_GSSAPI_H,,
+                             [Define if you have the gssapi.h header file])],
+                  [AC_CHECK_HEADER([gssapi/gssapi.h],,
+                                   [AC_WARN([Disabling GSSAPI - no include files found]); gssapi=no])])
 
-    CPPFLAGS=$cmu_saved_CPPFLAGS
+  CPPFLAGS=$cmu_saved_CPPFLAGS
 
- fi
+fi
 
- if test "$gssapi" != no; then
-  dnl We need to find out which gssapi implementation we are
-  dnl using. Supported alternatives are: MIT Kerberos 5,
-  dnl Heimdal Kerberos 5 (http://www.pdc.kth.se/heimdal),
-  dnl CyberSafe Kerberos 5 (http://www.cybersafe.com/)
-  dnl and Sun SEAM (http://wwws.sun.com/software/security/kerberos/)
-  dnl
-  dnl The choice is reflected in GSSAPIBASE_LIBS
+if test "$gssapi" != no; then
+  # We need to find out which gssapi implementation we are
+  # using. Supported alternatives are: MIT Kerberos 5,
+  # Heimdal Kerberos 5 (http://www.pdc.kth.se/heimdal),
+  # CyberSafe Kerberos 5 (http://www.cybersafe.com/)
+  # and Sun SEAM (http://wwws.sun.com/software/security/kerberos/)
+  #
+  # The choice is reflected in GSSAPIBASE_LIBS
 
   AC_CHECK_LIB(resolv,res_search)
   if test -d ${gssapi}; then
@@ -1170,8 +1260,8 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
      GSSAPIBASE_LIBS="-L$gssapi_dir"
      GSSAPIBASE_STATIC_LIBS="-L$gssapi_dir"
   else
-     dnl FIXME: This is only used for building cyrus, and then only as
-     dnl a real hack.  it needs to be fixed.
+     # FIXME: This is only used for building cyrus, and then only as
+     # a real hack.  it needs to be fixed.
      gssapi_dir="/usr/local/lib"
   fi
 
@@ -1182,7 +1272,8 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
 
   if test "$gss_impl" = "auto" -o "$gss_impl" = "heimdal"; then
     gss_failed=0
-    AC_CHECK_LIB(gssapi,gss_unwrap,gss_impl="heimdal",gss_failed=1,$GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err ${LIB_SOCKET})
+    AC_CHECK_LIB(gssapi,gss_unwrap,gss_impl="heimdal",gss_failed=1,
+                 ${GSSAPIBASE_LIBS} -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err ${LIB_SOCKET})
     if test "$gss_impl" != "auto" -a "$gss_failed" = "1"; then
       gss_impl="failed"
     fi
@@ -1190,7 +1281,8 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
 
   if test "$gss_impl" = "auto" -o "$gss_impl" = "mit"; then
     gss_failed=0
-    AC_CHECK_LIB(gssapi_krb5,gss_unwrap,gss_impl="mit",gss_failed=1,$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err ${LIB_SOCKET})
+    AC_CHECK_LIB(gssapi_krb5,gss_unwrap,gss_impl="mit",gss_failed=1,
+                 ${GSSAPIBASE_LIBS} -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err ${LIB_SOCKET})
     if test "$gss_impl" != "auto" -a "$gss_failed" = "1"; then
       gss_impl="failed"
     fi
@@ -1201,7 +1293,7 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
 
     cmu_saved_CPPFLAGS=$CPPFLAGS
     cmu_saved_GSSAPIBASE_LIBS=$GSSAPIBASE_LIBS
-# FIX ME - Note that the libraries are in .../lib/64 for 64bit kernels
+# FIXME - Note that the libraries are in .../lib64 for 64bit kernels
     if test -d "${gssapi}/appsec-rt/lib"; then
       GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -L${gssapi}/appsec-rt/lib"
     fi
@@ -1216,8 +1308,11 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
 # library (older CyberSafe)
 
     unset ac_cv_lib_gss_csf_gss_acq_user
-    AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe03",[
-      unset ac_cv_lib_gss_csf_gss_acq_user;AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe",gss_failed=1,$GSSAPIBASE_LIBS -lgss)],$GSSAPIBASE_LIBS -lgss -lcstbk5)
+    AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe03",
+                 [unset ac_cv_lib_gss_csf_gss_acq_user;
+                  AC_CHECK_LIB(gss,csf_gss_acq_user,gss_impl="cybersafe",
+                               gss_failed=1,$GSSAPIBASE_LIBS -lgss)],
+                 [${GSSAPIBASE_LIBS} -lgss -lcstbk5])
 
     if test "$gss_failed" = "1"; then
 # Restore variables
@@ -1242,6 +1337,7 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi_krb5 -lkrb5 -lk5crypto -lcom_err"
     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_LIBS $gssapi_dir/libgssapi_krb5.a $gssapi_dir/libkrb5.a $gssapi_dir/libk5crypto.a $gssapi_dir/libcom_err.a"
   elif test "$gss_impl" = "heimdal"; then
+    CPPFLAGS="$CPPFLAGS -DKRB5_HEIMDAL"
     GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lgssapi -lkrb5 -lasn1 -lroken ${LIB_CRYPT} ${LIB_DES} -lcom_err"
     GSSAPIBASE_STATIC_LIBS="$GSSAPIBASE_STATIC_LIBS $gssapi_dir/libgssapi.a $gssapi_dir/libkrb5.a $gssapi_dir/libasn1.a $gssapi_dir/libroken.a $gssapi_dir/libcom_err.a ${LIB_CRYPT}"
   elif test "$gss_impl" = "cybersafe03"; then
@@ -1263,214 +1359,236 @@ AC_DEFUN([SASL_GSSAPI_CHK],[
     gssapi="no"
     GSSAPIBASE_LIBS=
     GSSAPIBASE_STATIC_LIBS=
-    AC_WARN(Disabling GSSAPI - specified library not found)
+    AC_WARN([Disabling GSSAPI - specified library not found])
   else
     gssapi="no"
     GSSAPIBASE_LIBS=
     GSSAPIBASE_STATIC_LIBS=
-    AC_WARN(Disabling GSSAPI - no library)
+    AC_WARN([Disabling GSSAPI - no library])
   fi
- fi
+fi
 
 #
-# Cybersafe defines both GSS_C_NT_HOSTBASED_SERVICE and GSS_C_NT_USER_NAME in gssapi\rfckrb5.h
+# Cybersafe defines both GSS_C_NT_HOSTBASED_SERVICE and GSS_C_NT_USER_NAME
+# in gssapi\rfckrb5.h
 #
- if test "$gssapi" != "no"; then
+if test "$gssapi" != "no"; then
   if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
-   AC_EGREP_CPP(hostbased_service_gss_nt_yes,
-    [#include <gssapi/gssapi.h>
-     #ifdef GSS_C_NT_HOSTBASED_SERVICE
-      hostbased_service_gss_nt_yes
-     #endif
-    ], AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]), AC_WARN(Cybersafe define not found))
+    AC_EGREP_CPP(hostbased_service_gss_nt_yes,
+                 [#include <gssapi/gssapi.h>
+                  #ifdef GSS_C_NT_HOSTBASED_SERVICE
+                    hostbased_service_gss_nt_yes
+                  #endif],
+                 [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
+                            [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])],
+                 [AC_WARN([Cybersafe define not found])])
 
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
-   AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h,
-     AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]))
+    AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi.h,
+                    [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
+                               [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])])
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
-
-   AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h,
-     AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,[Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE]))
+    AC_EGREP_HEADER(GSS_C_NT_HOSTBASED_SERVICE, gssapi/gssapi.h,
+                    [AC_DEFINE(HAVE_GSS_C_NT_HOSTBASED_SERVICE,,
+                               [Define if your GSSAPI implimentation defines GSS_C_NT_HOSTBASED_SERVICE])])
   fi
 
   if test "$gss_impl" = "cybersafe" -o "$gss_impl" = "cybersafe03"; then
-   AC_EGREP_CPP(user_name_yes_gss_nt,
-    [#include <gssapi/gssapi.h>
-     #ifdef GSS_C_NT_USER_NAME
-      user_name_yes_gss_nt
-     #endif
-    ], AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]), AC_WARN(Cybersafe define not found))
+    AC_EGREP_CPP(user_name_yes_gss_nt,
+                 [#include <gssapi/gssapi.h>
+                  #ifdef GSS_C_NT_USER_NAME
+                   user_name_yes_gss_nt
+                  #endif],
+                 [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
+                            [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])],
+                 [AC_WARN([Cybersafe define not found])])
   elif test "$ac_cv_header_gssapi_h" = "yes"; then
-   AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi.h,
-    AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]))
+    AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi.h,
+                    [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
+                               [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])])
   elif test "$ac_cv_header_gssapi_gssapi_h"; then
-   AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi/gssapi.h,
-    AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,[Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME]))
+    AC_EGREP_HEADER(GSS_C_NT_USER_NAME, gssapi/gssapi.h,
+                    [AC_DEFINE(HAVE_GSS_C_NT_USER_NAME,,
+                               [Define if your GSSAPI implimentation defines GSS_C_NT_USER_NAME])])
   fi
- fi
+fi
 
- GSSAPI_LIBS=""
- AC_MSG_CHECKING(GSSAPI)
- if test "$gssapi" != no; then
-  AC_MSG_RESULT(with implementation ${gss_impl})
+GSSAPI_LIBS=""
+AC_MSG_CHECKING([GSSAPI])
+if test "$gssapi" != no; then
+  AC_MSG_RESULT([with implementation ${gss_impl}])
   AC_CHECK_LIB(resolv,res_search,GSSAPIBASE_LIBS="$GSSAPIBASE_LIBS -lresolv")
   SASL_MECHS="$SASL_MECHS libgssapiv2.la"
-  SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/gssapi.o"
+  SASL_STATIC_OBJS="$SASL_STATIC_OBJS gssapi.o"
+  SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/gssapi.c"
 
   cmu_save_LIBS="$LIBS"
   LIBS="$LIBS $GSSAPIBASE_LIBS"
   AC_CHECK_FUNCS(gsskrb5_register_acceptor_identity)
   LIBS="$cmu_save_LIBS"
 else
-  AC_MSG_RESULT(disabled)
+  AC_MSG_RESULT([disabled])
 fi
 AC_SUBST(GSSAPI_LIBS)
 AC_SUBST(GSSAPIBASE_LIBS)
+])# SASL_GSSAPI_CHK
+
+
+# SASL_SET_GSSAPI_LIBS
+# --------------------
+AC_DEFUN([SASL_SET_GSSAPI_LIBS],
+[SASL_GSSAPI_LIBS_SET="yes"
 ])
 
-AC_DEFUN([SASL_SET_GSSAPI_LIBS], [
-    SASL_GSSAPI_LIBS_SET="yes"
-])
 
-dnl What we want to do here is setup LIB_SASL with what one would
-dnl generally want to have (e.g. if static is requested, make it that,
-dnl otherwise make it dynamic.
-
-dnl We also want to create LIB_DYN_SASL and DYNSASLFLAGS.
-
-dnl Also sets using_static_sasl to "no" "static" or "staticonly"
-
-AC_DEFUN([CMU_SASL2], [
-	AC_REQUIRE([SASL_GSSAPI_CHK])
+# CMU_SASL2
+# ---------
+# What we want to do here is setup LIB_SASL with what one would
+# generally want to have (e.g. if static is requested, make it that,
+# otherwise make it dynamic.
+#
+# We also want to create LIB_DYN_SASL and DYNSASLFLAGS.
+#
+# Also sets using_static_sasl to "no" "static" or "staticonly"
+#
+AC_DEFUN([CMU_SASL2],
+[AC_REQUIRE([SASL_GSSAPI_CHK])
 
 AC_ARG_WITH(sasl,
-            [  --with-sasl=DIR         Compile with libsasl2 in <DIR>],
-	    with_sasl="$withval",
+            [AC_HELP_STRING([--with-sasl=DIR],[Compile with libsasl2 in <DIR>])],
+            with_sasl="$withval",
             with_sasl="yes")
 
 AC_ARG_WITH(staticsasl,
-	    [  --with-staticsasl=DIR   Compile with staticly linked libsasl2 in <DIR>],
-	    with_staticsasl="$withval";
-	    if test $with_staticsasl != "no"; then
-		using_static_sasl="static"
-	    fi,
-	    with_staticsasl="no"; using_static_sasl="no")
+            [AC_HELP_STRING([--with-staticsasl=DIR],
+                            [Compile with staticly linked libsasl2 in <DIR>])],
+            [with_staticsasl="$withval";
+             if test $with_staticsasl != "no"; then
+               using_static_sasl="static"
+             fi],
+            [with_staticsasl="no"; using_static_sasl="no"])
 
-	SASLFLAGS=""
-	LIB_SASL=""
+SASLFLAGS=""
+LIB_SASL=""
 
-	cmu_saved_CPPFLAGS=$CPPFLAGS
-	cmu_saved_LDFLAGS=$LDFLAGS
-	cmu_saved_LIBS=$LIBS
+cmu_saved_CPPFLAGS=$CPPFLAGS
+cmu_saved_LDFLAGS=$LDFLAGS
+cmu_saved_LIBS=$LIBS
 
-	if test ${with_staticsasl} != "no"; then
-	  if test -d ${with_staticsasl}; then
-	    if test -d ${with_staticsasl}/lib64 ; then
-	      ac_cv_sasl_where_lib=${with_staticsasl}/lib64
-	    else
-	      ac_cv_sasl_where_lib=${with_staticsasl}/lib
-	    fi
-	    ac_cv_sasl_where_lib=${with_staticsasl}/lib
-	    ac_cv_sasl_where_inc=${with_staticsasl}/include
+if test ${with_staticsasl} != "no"; then
+  if test -d ${with_staticsasl}; then
+    if test -d ${with_staticsasl}/lib64 ; then
+      ac_cv_sasl_where_lib=${with_staticsasl}/lib64
+    else
+      ac_cv_sasl_where_lib=${with_staticsasl}/lib
+    fi
+    ac_cv_sasl_where_lib=${with_staticsasl}/lib
+    ac_cv_sasl_where_inc=${with_staticsasl}/include
 
-	    SASLFLAGS="-I$ac_cv_sasl_where_inc"
-	    LIB_SASL="-L$ac_cv_sasl_where_lib"
-	    CPPFLAGS="${cmu_saved_CPPFLAGS} -I${ac_cv_sasl_where_inc}"
-	    LDFLAGS="${cmu_saved_LDFLAGS} -L${ac_cv_sasl_where_lib}"
-	  else
-	    with_staticsasl="/usr"
-	  fi
+    SASLFLAGS="-I$ac_cv_sasl_where_inc"
+    LIB_SASL="-L$ac_cv_sasl_where_lib"
+    CPPFLAGS="${cmu_saved_CPPFLAGS} -I${ac_cv_sasl_where_inc}"
+    LDFLAGS="${cmu_saved_LDFLAGS} -L${ac_cv_sasl_where_lib}"
+  else
+    with_staticsasl="/usr"
+  fi
 
-	  AC_CHECK_HEADER(sasl/sasl.h, [
-	    AC_CHECK_HEADER(sasl/saslutil.h, [
-	     for i42 in lib64 lib; do
-	        if test -r ${with_staticsasl}/$i42/libsasl2.a; then
-		  ac_cv_found_sasl=yes
-		  AC_MSG_CHECKING(for static libsasl)
-		  LIB_SASL="$LIB_SASL ${with_staticsasl}/$i42/libsasl2.a"
-		fi
-	     done
-             if test ! "$ac_cv_found_sasl" = "yes"; then
-	          AC_MSG_CHECKING(for static libsasl)
-		  AC_ERROR([Could not find ${with_staticsasl}/lib*/libsasl2.a])
-             fi
-	    ])])
+  AC_CHECK_HEADER(sasl/sasl.h,
+                  [AC_CHECK_HEADER(sasl/saslutil.h,
+                                   [for i42 in lib64 lib; do
+                                      if test -r ${with_staticsasl}/$i42/libsasl2.a; then
+                                        ac_cv_found_sasl=yes
+                                        AC_MSG_CHECKING([for static libsasl])
+                                        LIB_SASL="$LIB_SASL ${with_staticsasl}/$i42/libsasl2.a"
+                                      fi
+                                    done
+                                    if test ! "$ac_cv_found_sasl" = "yes"; then
+                                      AC_MSG_CHECKING([for static libsasl])
+                                      AC_ERROR([Could not find ${with_staticsasl}/lib*/libsasl2.a])
+                                    fi])])
 
-	  AC_MSG_RESULT(found)
+  AC_MSG_RESULT([found])
 
-          if test "x$SASL_GSSAPI_LIBS_SET" = "x"; then
-	    LIB_SASL="$LIB_SASL $GSSAPIBASE_STATIC_LIBS"
-	  else
-	    SASL_GSSAPI_LIBS_SET=""
-	    cmu_saved_LIBS="$GSSAPIBASE_STATIC_LIBS $cmu_saved_LIBS" 
-	  fi
-	fi
+  if test "x$SASL_GSSAPI_LIBS_SET" = "x"; then
+    LIB_SASL="$LIB_SASL $GSSAPIBASE_STATIC_LIBS"
+  else
+    SASL_GSSAPI_LIBS_SET=""
+    cmu_saved_LIBS="$GSSAPIBASE_STATIC_LIBS $cmu_saved_LIBS" 
+  fi
+fi
 
-	if test -d ${with_sasl}; then
-            ac_cv_sasl_where_lib=${with_sasl}/lib
-            ac_cv_sasl_where_inc=${with_sasl}/include
+if test -d ${with_sasl}; then
+  ac_cv_sasl_where_lib=${with_sasl}/lib
+  ac_cv_sasl_where_inc=${with_sasl}/include
 
-	    DYNSASLFLAGS="-I$ac_cv_sasl_where_inc"
-	    if test "$ac_cv_sasl_where_lib" != ""; then
-		CMU_ADD_LIBPATH_TO($ac_cv_sasl_where_lib, LIB_DYN_SASL)
-	    fi
-	    LIB_DYN_SASL="$LIB_DYN_SASL -lsasl2"
-	    CPPFLAGS="${cmu_saved_CPPFLAGS} -I${ac_cv_sasl_where_inc}"
-	    LDFLAGS="${cmu_saved_LDFLAGS} -L${ac_cv_sasl_where_lib}"
-	fi
+  DYNSASLFLAGS="-I$ac_cv_sasl_where_inc"
+  if test "$ac_cv_sasl_where_lib" != ""; then
+    CMU_ADD_LIBPATH_TO($ac_cv_sasl_where_lib, LIB_DYN_SASL)
+  fi
+  LIB_DYN_SASL="$LIB_DYN_SASL -lsasl2"
+  CPPFLAGS="${cmu_saved_CPPFLAGS} -I${ac_cv_sasl_where_inc}"
+  LDFLAGS="${cmu_saved_LDFLAGS} -L${ac_cv_sasl_where_lib}"
+fi
 
-	dnl be sure to check for a SASLv2 specific function
-	AC_CHECK_HEADER(sasl/sasl.h, [
-	    AC_CHECK_HEADER(sasl/saslutil.h, [
-	      AC_CHECK_LIB(sasl2, prop_get, 
-                           ac_cv_found_sasl=yes,
-		           ac_cv_found_sasl=no)],
-	                   ac_cv_found_sasl=no)], ac_cv_found_sasl=no)
+# be sure to check for a SASLv2 specific function
+AC_CHECK_HEADER(sasl/sasl.h,
+                [AC_CHECK_HEADER(sasl/saslutil.h,
+                                 [AC_CHECK_LIB(sasl2, prop_get, 
+                                               ac_cv_found_sasl=yes,
+                                               ac_cv_found_sasl=no)],
+                                 ac_cv_found_sasl=no)],
+                ac_cv_found_sasl=no)
 
-	if test "$ac_cv_found_sasl" = "yes"; then
-	    if test "$ac_cv_sasl_where_lib" != ""; then
-	        CMU_ADD_LIBPATH_TO($ac_cv_sasl_where_lib, DYNLIB_SASL)
-	    fi
-	    DYNLIB_SASL="$DYNLIB_SASL -lsasl2"
-	    if test "$using_static_sasl" != "static"; then
-		LIB_SASL=$DYNLIB_SASL
-		SASLFLAGS=$DYNSASLFLAGS
-	    fi
-	else
-	    DYNLIB_SASL=""
-	    DYNSASLFLAGS=""
-	    using_static_sasl="staticonly"
-	fi
+if test "$ac_cv_found_sasl" = "yes"; then
+  if test "$ac_cv_sasl_where_lib" != ""; then
+    CMU_ADD_LIBPATH_TO($ac_cv_sasl_where_lib, DYNLIB_SASL)
+  fi
+  DYNLIB_SASL="$DYNLIB_SASL -lsasl2"
+  if test "$using_static_sasl" != "static"; then
+    LIB_SASL=$DYNLIB_SASL
+    SASLFLAGS=$DYNSASLFLAGS
+  fi
+else
+  DYNLIB_SASL=""
+  DYNSASLFLAGS=""
+  using_static_sasl="staticonly"
+fi
 
-        if test "x$SASL_GSSAPI_LIBS_SET" != "x"; then
-	    SASL_GSSAPI_LIBS_SET=""
-	    cmu_saved_LIBS="$GSSAPIBASE_LIBS $cmu_saved_LIBS" 
-	fi
+if test "x$SASL_GSSAPI_LIBS_SET" != "x"; then
+  SASL_GSSAPI_LIBS_SET=""
+  cmu_saved_LIBS="$GSSAPIBASE_LIBS $cmu_saved_LIBS" 
+fi
 
-	LIBS="$cmu_saved_LIBS"
-	LDFLAGS="$cmu_saved_LDFLAGS"
-	CPPFLAGS="$cmu_saved_CPPFLAGS"
+LIBS="$cmu_saved_LIBS"
+LDFLAGS="$cmu_saved_LDFLAGS"
+CPPFLAGS="$cmu_saved_CPPFLAGS"
 
-	AC_SUBST(LIB_DYN_SASL)
-	AC_SUBST(DYNSASLFLAGS)
-	AC_SUBST(LIB_SASL)
-	AC_SUBST(SASLFLAGS)
-	])
+AC_SUBST(LIB_DYN_SASL)
+AC_SUBST(DYNSASLFLAGS)
+AC_SUBST(LIB_SASL)
+AC_SUBST(SASLFLAGS)
+])# CMU_SASL2
 
+
+# CMU_SASL2_REQUIRED
+# ------------------
 AC_DEFUN([CMU_SASL2_REQUIRED],
 [AC_REQUIRE([CMU_SASL2])
 if test "$ac_cv_found_sasl" != "yes"; then
-        AC_ERROR([Cannot continue without libsasl2.
+  AC_ERROR([Cannot continue without libsasl2.
 Get it from ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/.])
 fi])
 
-AC_DEFUN([CMU_SASL2_REQUIRE_VER], [
-	AC_REQUIRE([CMU_SASL2_REQUIRED])
 
-	cmu_saved_CPPFLAGS=$CPPFLAGS
-	CPPFLAGS="$CPPFLAGS $SASLFLAGS"
+# CMU_SASL2_REQUIRE_VER
+# ---------------------
+AC_DEFUN([CMU_SASL2_REQUIRE_VER],
+[AC_REQUIRE([CMU_SASL2_REQUIRED])
 
-	AC_TRY_CPP([
+cmu_saved_CPPFLAGS=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $SASLFLAGS"
+
+AC_TRY_CPP([
 #include <sasl/sasl.h>
 
 #ifndef SASL_VERSION_MAJOR
@@ -1486,31 +1604,39 @@ AC_DEFUN([CMU_SASL2_REQUIRE_VER], [
 #if SASL_VERSION_MAJOR < $1 || SASL_VERSION_MINOR < $2 || SASL_VERSION_STEP < $3
 #error SASL version is less than $1.$2.$3
 #endif
-	],,AC_ERROR([Incorrect SASL headers found.  This package requires SASL $1.$2.$3 or newer.]))
+],,
+           [AC_ERROR([Incorrect SASL headers found.  This package requires SASL $1.$2.$3 or newer.])])
 
-	CPPFLAGS=$cmu_saved_CPPFLAGS
-])
+CPPFLAGS=$cmu_saved_CPPFLAGS
+])# CMU_SASL2_REQUIRE_VER
 
-AC_DEFUN([CMU_SASL2_CHECKAPOP_REQUIRED], [
-	AC_REQUIRE([CMU_SASL2_REQUIRED])
 
-	cmu_saved_LDFLAGS=$LDFLAGS
+# CMU_SASL2_CHECKAPOP_REQUIRED
+# ----------------------------
+AC_DEFUN([CMU_SASL2_CHECKAPOP_REQUIRED],
+[AC_REQUIRE([CMU_SASL2_REQUIRED])
 
-	LDFLAGS="$LDFLAGS $LIB_SASL"
+cmu_saved_LDFLAGS=$LDFLAGS
 
-	AC_CHECK_LIB(sasl2, sasl_checkapop, AC_DEFINE(HAVE_APOP,[],[Does SASL support APOP?]),
-		AC_MSG_ERROR([libsasl2 without working sasl_checkapop.  Cannot continue.]))
+LDFLAGS="$LDFLAGS $LIB_SASL"
 
-	LDFLAGS=$cmu_saved_LDFLAGS
-])
+AC_CHECK_LIB(sasl2, sasl_checkapop,
+             [AC_DEFINE(HAVE_APOP,[],[Does SASL support APOP?])],
+             [AC_MSG_ERROR([libsasl2 without working sasl_checkapop.  Cannot continue.])])
 
-AC_DEFUN([SASL2_CRYPT_CHK],[
- AC_CHECK_FUNC(crypt, cmu_have_crypt=yes, [
-  AC_CHECK_LIB(crypt, crypt,
-	       LIB_CRYPT="-lcrypt"; cmu_have_crypt=yes,
-	       cmu_have_crypt=no)])
- AC_SUBST(LIB_CRYPT)
-])
+LDFLAGS=$cmu_saved_LDFLAGS
+])# CMU_SASL2_CHECKAPOP_REQUIRED
+
+
+# SASL2_CRYPT_CHK
+# ---------------
+AC_DEFUN([SASL2_CRYPT_CHK],
+[AC_CHECK_FUNC(crypt, cmu_have_crypt=yes,
+               [AC_CHECK_LIB(crypt, crypt,
+                             LIB_CRYPT="-lcrypt"; cmu_have_crypt=yes,
+                             cmu_have_crypt=no)])
+AC_SUBST(LIB_CRYPT)
+])# SASL2_CRYPT_CHK
 
 dnl Functions to check what database to use for libsasldb
 
@@ -1610,7 +1736,8 @@ AC_MSG_CHECKING(DB library to use)
 AC_MSG_RESULT($dblib)
 
 SASL_DB_BACKEND="db_${dblib}.lo"
-SASL_DB_BACKEND_STATIC="../sasldb/db_${dblib}.o ../sasldb/allockey.o"
+SASL_DB_BACKEND_STATIC="db_${dblib}.o allockey.o"
+SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_${dblib}.c ../sasldb/allockey.c"
 SASL_DB_UTILS="saslpasswd2 sasldblistusers2"
 SASL_DB_MANS="saslpasswd2.8 sasldblistusers2.8"
 
@@ -1632,7 +1759,8 @@ case "$dblib" in
     dnl note that we do not add libsasldb.la to SASL_MECHS, since it
     dnl will just fail to load anyway.
     SASL_DB_BACKEND="db_none.lo"
-    SASL_DB_BACKEND_STATIC="../sasldb/db_none.o"
+    SASL_DB_BACKEND_STATIC="db_none.o"
+    SASL_DB_BACKEND_STATIC_SRCS="../sasldb/db_none.c"
     SASL_DB_UTILS=""
     SASL_DB_MANS=""
     SASL_DB_LIB=""
@@ -1641,12 +1769,15 @@ esac
 
 if test "$enable_static" = yes; then
     if test "$dblib" != "none"; then
-      SASL_STATIC_OBJS="$SASL_STATIC_OBJS ../plugins/sasldb.o $SASL_DB_BACKEND_STATIC"
+      SASL_STATIC_SRCS="$SASL_STATIC_SRCS ../plugins/sasldb.c $SASL_DB_BACKEND_STATIC_SRCS"
+      SASL_STATIC_OBJS="$SASL_STATIC_OBJS sasldb.o $SASL_DB_BACKEND_STATIC"
       AC_DEFINE(STATIC_SASLDB,[],[Link SASLdb Staticly])
     else
       SASL_STATIC_OBJS="$SASL_STATIC_OBJS $SASL_DB_BACKEND_STATIC"
+      SASL_STATIC_SRCS="$SASL_STATIC_SRCS $SASL_DB_BACKEND_STATIC_SRCS"
     fi
 fi
+
 AC_SUBST(SASL_DB_UTILS)
 AC_SUBST(SASL_DB_MANS)
 AC_SUBST(SASL_DB_BACKEND)
@@ -1664,7 +1795,7 @@ AC_MSG_CHECKING(DB path to use)
 AC_MSG_RESULT($dbpath)
 AC_DEFINE_UNQUOTED(SASL_DB_PATH, "$dbpath", [Path to default SASLdb database])])
 
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
 AC_DEFUN([CMU_DB_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
@@ -1743,6 +1874,7 @@ fi
 ])
 
 AC_DEFUN([CMU_USE_DB], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(db,
 	[  --with-db=PREFIX      Compile with db support],
 	[if test "X$with_db" = "X"; then
@@ -1763,7 +1895,7 @@ AC_ARG_ENABLE(db4,
 	
 	if test "X$with_db" != "X"; then
 	  if test "$with_db" != "yes"; then
-	    ac_cv_db_where_lib=$with_db/lib
+	    ac_cv_db_where_lib=$with_db/$CMU_LIB_SUBDIR
 	    ac_cv_db_where_inc=$with_db/include
 	  fi
 	fi
@@ -1772,7 +1904,7 @@ AC_ARG_ENABLE(db4,
 	  ac_cv_db_where_lib=$with_db_lib
 	fi
 	if test "X$ac_cv_db_where_lib" = "X"; then
-	  CMU_DB_LIB_WHERE(/usr/athena/lib /usr/lib /usr/local/lib)
+	  CMU_DB_LIB_WHERE(/usr/athena/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR)
 	fi
 
 	if test "X$with_db_include" != "X"; then
@@ -1868,27 +2000,35 @@ dnl this is unbelievably painful due to confusion over what db-3 should be
 dnl named and where the db-3 header file is located.  arg.
 AC_DEFUN([CYRUS_BERKELEY_DB_CHK_LIB],
 [
-	BDB_SAVE_LIBS=$LIBS
+	BDB_SAVE_LDFLAGS=$LDFLAGS
 
 	if test -d $with_bdb_lib; then
-	    CMU_ADD_LIBPATH_TO($with_bdb_lib, LIBS)
+	    CMU_ADD_LIBPATH_TO($with_bdb_lib, LDFLAGS)
 	    CMU_ADD_LIBPATH_TO($with_bdb_lib, BDB_LIBADD)
 	else
 	    BDB_LIBADD=""
 	fi
 
-        for dbname in db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
+	saved_LIBS=$LIBS
+        for dbname in db-4.4 db4.4 db44 db-4.3 db4.3 db43 db-4.2 db4.2 db42 db-4.1 db4.1 db41 db-4.0 db4.0 db-4 db40 db4 db-3.3 db3.3 db33 db-3.2 db3.2 db32 db-3.1 db3.1 db31 db-3 db30 db3 db
           do
-            AC_CHECK_LIB($dbname, db_create, BDB_LIBADD="$BDB_LIBADD -l$dbname";
-              dblib="berkeley"; break, dblib="no")
+	    LIBS="$saved_LIBS -l$dbname"
+	    AC_TRY_LINK([#include <db.h>],
+	    [db_create(NULL, NULL, 0);],
+	    BDB_LIBADD="$BDB_LIBADD -l$dbname"; dblib="berkeley"; dbname=db,
+            dblib="no")
+	    if test "$dblib" = "berkeley"; then break; fi
           done
         if test "$dblib" = "no"; then
-          AC_CHECK_LIB(db, db_open, BDB_LIBADD="$BDB_LIBADD -ldb";
-            dblib="berkeley"; dbname=db,
+	    LIBS="$saved_LIBS -ldb"
+	    AC_TRY_LINK([#include <db.h>],
+	    [db_open(NULL, 0, 0, 0, NULL, NULL, NULL);],
+	    BDB_LIBADD="$BDB_LIBADD -ldb"; dblib="berkeley"; dbname=db,
             dblib="no")
         fi
+	LIBS=$saved_LIBS
 
-	LIBS=$BDB_SAVE_LIBS
+	LDFLAGS=$BDB_SAVE_LDFLAGS
 ])
 
 AC_DEFUN([CYRUS_BERKELEY_DB_OPTS],
@@ -1919,55 +2059,14 @@ AC_DEFUN([CYRUS_BERKELEY_DB_CHK],
 	dnl Note that FreeBSD puts it in a wierd place
         dnl (but they should use with-bdb-incdir)
         AC_CHECK_HEADER(db.h,
-                        CYRUS_BERKELEY_DB_CHK_LIB(),
+                        [CYRUS_BERKELEY_DB_CHK_LIB()],
                         dblib="no")
 
 	CPPFLAGS=$cmu_save_CPPFLAGS
 ])
 
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
-
-AC_DEFUN([CMU_TEST_LIBPATH], [
-changequote(<<, >>)
-define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_lib, <<- *>>, <<__p>>))
-changequote([, ])
-if test "$CMU_AC_CV_FOUND" = "yes"; then
-  if test \! -r "$1/lib$2.a" -a \! -r "$1/lib$2.so" -a \! -r "$1/lib$2.sl"; then
-    CMU_AC_CV_FOUND=no
-  fi
-fi
-])
-
-AC_DEFUN([CMU_TEST_INCPATH], [
-changequote(<<, >>)
-define(<<CMU_AC_CV_FOUND>>, translit(ac_cv_found_$2_inc, [ *], [_p]))
-changequote([, ])
-if test "$CMU_AC_CV_FOUND" = "yes"; then
-  if test \! -r "$1/$2.h"; then
-    CMU_AC_CV_FOUND=no
-  fi
-fi
-])
-
-dnl CMU_CHECK_HEADER_NOCACHE(HEADER-FILE, [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]])
-AC_DEFUN([CMU_CHECK_HEADER_NOCACHE],
-[dnl Do the transliteration at runtime so arg 1 can be a shell variable.
-ac_safe=`echo "$1" | sed 'y%./+-%__p_%'`
-AC_MSG_CHECKING([for $1])
-AC_TRY_CPP([#include <$1>], eval "ac_cv_header_$ac_safe=yes",
-  eval "ac_cv_header_$ac_safe=no")
-if eval "test \"`echo '$ac_cv_header_'$ac_safe`\" = yes"; then
-  AC_MSG_RESULT(yes)
-  ifelse([$2], , :, [$2])
-else
-  AC_MSG_RESULT(no)
-ifelse([$3], , , [$3
-])dnl
-fi
-])
-
 dnl afs.m4--AFS libraries, includes, and dependencies
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 dnl Chaskiel Grundman
 dnl based on kerberos_v4.m4
 dnl Derrick Brashear
@@ -1999,6 +2098,7 @@ LDFLAGS="$save_LDFLAGS"
 ])
 
 AC_DEFUN([CMU_AFS_WHERE], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
    for i in $1; do
       AC_MSG_CHECKING(for AFS in $i)
       CMU_AFS_INC_WHERE1("$i/include")
@@ -2006,7 +2106,7 @@ AC_DEFUN([CMU_AFS_WHERE], [
       CMU_TEST_INCPATH($i/include, lwp) 
       ac_cv_found_afs_inc=$ac_cv_found_lwp_inc
       if test "$ac_cv_found_afs_inc" = "yes"; then
-        CMU_AFS_LIB_WHERE1("$i/lib")
+        CMU_AFS_LIB_WHERE1("$i/$CMU_LIB_SUBDIR")
         if test "$ac_cv_found_afs_lib" = "yes"; then
           ac_cv_afs_where=$i
           AC_MSG_RESULT(found)
@@ -2021,6 +2121,7 @@ AC_DEFUN([CMU_AFS_WHERE], [
 ])
 
 AC_DEFUN([CMU_AFS], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_REQUIRE([CMU_LIBSSL])
 AC_ARG_WITH(AFS,
@@ -2044,7 +2145,7 @@ AC_ARG_WITH(AFS,
 	  ac_cv_found_afs=yes
 	  AC_MSG_RESULT(yes)
 	  AFS_INC_DIR="$ac_cv_afs_where/include"
-	  AFS_LIB_DIR="$ac_cv_afs_where/lib"
+	  AFS_LIB_DIR="$ac_cv_afs_where/$CMU_LIB_SUBDIR"
 	  AFS_TOP_DIR="$ac_cv_afs_where"
 	  AFS_INC_FLAGS="-I${AFS_INC_DIR}"
           AFS_LIB_FLAGS="-L${AFS_LIB_DIR} -L${AFS_LIB_DIR}/afs"
@@ -2073,9 +2174,18 @@ AC_ARG_WITH(AFS,
 	              AC_MSG_RESULT([libcrypto])
 		      AFS_LIBDES="$LIBSSL_LIB_FLAGS"
 	              AFS_LIBDESA="$LIBSSL_LIB_FLAGS"
-	          else
-         	      AC_MSG_RESULT([unknown])
-	              AC_MSG_ERROR([Could not use -ldes])
+    	          else
+   	              LIBS="$cmu_save_LIBS -L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+ 	              AC_TRY_LINK([],
+	              [des_quad_cksum();],AFS_DES_LIB="libcrypto+descompat")
+	              if test "X$AFS_DES_LIB" = "Xlibcrypto+descompat"; then
+	                  AC_MSG_RESULT([libcrypto+descompat])
+		          AFS_LIBDES="-L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+	                  AFS_LIBDESA="-L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+	              else
+         	          AC_MSG_RESULT([unknown])
+	                  AC_MSG_ERROR([Could not use -ldes])
+	              fi 
 	          fi 
 	      fi 
 	  else
@@ -2088,6 +2198,36 @@ AC_ARG_WITH(AFS,
 	  AFS_CLIENT_LIBS="-lvolser -lvldb -lkauth -lprot -lubik -lauth -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a"
 	  AFS_RX_LIBS="-lauth -lrxkad -lrx ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcmd -lcom_err ${AFS_LIB_DIR}/afs/util.a"
           AFS_KTC_LIBS="-lauth ${AFS_LIB_DIR}/afs/libsys.a -lrx -llwp ${AFS_LIBDES} -lcom_err ${AFS_LIB_DIR}/afs/util.a"
+
+          LIBS="$cmu_save_LIBS $AFS_CLIENT_LIBS ${LIB_SOCKET}"
+          AC_CHECK_FUNC(des_pcbc_init)
+          if test "X$ac_cv_func_des_pcbc_init" != "Xyes"; then
+           AC_CHECK_LIB(descompat, des_pcbc_init, AFS_DESCOMPAT_LIB="-ldescompat")
+           if test "X$AFS_DESCOMPAT_LIB" != "X" ; then
+                AFS_CLIENT_LIBS_STATIC="$AFS_CLIENT_LIBS_STATIC $AFS_DESCOMPAT_LIB"
+                AFS_KTC_LIBS_STATIC="$AFS_KTC_LIBS_STATIC $AFS_DESCOMPAT_LIB"
+                AFS_CLIENT_LIBS="$AFS_CLIENT_LIBS $AFS_DESCOMPAT_LIB"
+                AFS_KTC_LIBS="$AFS_KTC_LIBS $AFS_DESCOMPAT_LIB"
+           else
+
+           AC_MSG_CHECKING([if rxkad needs des_pcbc_init])
+           AC_TRY_LINK(,[tkt_DecodeTicket();],RXKAD_PROBLEM=no,RXKAD_PROBLEM=maybe)
+            if test "$RXKAD_PROBLEM" = "maybe"; then
+              AC_TRY_LINK([int des_pcbc_init() { return 0;}],
+              [tkt_DecodeTicket();],RXKAD_PROBLEM=yes,RXKAD_PROBLEM=error)
+              if test "$RXKAD_PROBLEM" = "yes"; then
+                    AC_MSG_RESULT([yes])
+                    AC_MSG_ERROR([cannot use rxkad])
+              else
+                    AC_MSG_RESULT([unknown])        
+                    AC_MSG_ERROR([Unknown error testing rxkad])
+              fi
+            else
+              AC_MSG_RESULT([no])
+            fi
+           fi
+          fi
+
           LIBS="$cmu_save_LIBS"
           AC_CHECK_FUNC(flock)
           LIBS="$cmu_save_LIBS ${AFS_CLIENT_LIBS} ${LIB_SOCKET}"
@@ -2156,34 +2296,6 @@ extern int UV_SetSecurity();],
                 AFS_CLIENT_LIBS="$AFS_CLIENT_LIBS $AFS_BSD_LIB"
                 AFS_RX_LIBS="$AFS_CLIENT_LIBS $AFS_BSD_LIB"
                 AFS_KTC_LIBS="$AFS_KTC_LIBS $AFS_BSD_LIB"
-          fi
-          LIBS="$cmu_save_LIBS $AFS_CLIENT_LIBS ${LIB_SOCKET}"
-          AC_CHECK_FUNC(des_pcbc_init)
-          if test "X$ac_cv_func_des_pcbc_init" != "Xyes"; then
-           AC_CHECK_LIB(descompat, des_pcbc_init, AFS_DESCOMPAT_LIB="-ldescompat")
-           if test "X$AFS_DESCOMPAT_LIB" != "X" ; then
-                AFS_CLIENT_LIBS_STATIC="$AFS_CLIENT_LIBS_STATIC $AFS_DESCOMPAT_LIB"
-                AFS_KTC_LIBS_STATIC="$AFS_KTC_LIBS_STATIC $AFS_DESCOMPAT_LIB"
-                AFS_CLIENT_LIBS="$AFS_CLIENT_LIBS $AFS_DESCOMPAT_LIB"
-                AFS_KTC_LIBS="$AFS_KTC_LIBS $AFS_DESCOMPAT_LIB"
-           else
-
-           AC_MSG_CHECKING([if rxkad needs des_pcbc_init])
-           AC_TRY_LINK(,[tkt_DecodeTicket();],RXKAD_PROBLEM=no,RXKAD_PROBLEM=maybe)
-            if test "$RXKAD_PROBLEM" = "maybe"; then
-              AC_TRY_LINK([int des_pcbc_init() { return 0;}],
-              [tkt_DecodeTicket();],RXKAD_PROBLEM=yes,RXKAD_PROBLEM=error)
-              if test "$RXKAD_PROBLEM" = "yes"; then
-                    AC_MSG_RESULT([yes])
-                    AC_MSG_ERROR([cannot use rxkad])
-              else
-                    AC_MSG_RESULT([unknown])        
-                    AC_MSG_ERROR([Unknown error testing rxkad])
-              fi
-            else
-              AC_MSG_RESULT([no])
-            fi
-           fi
           fi
 
           AC_MSG_CHECKING([if libaudit is needed])
@@ -2271,7 +2383,7 @@ fi])
 dnl libssl.m4--Ssl libraries and includes
 dnl Derrick Brashear
 dnl from KTH kafs and Arla
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
 AC_DEFUN([CMU_LIBSSL_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
@@ -2324,6 +2436,7 @@ AC_DEFUN([CMU_LIBSSL_LIB_WHERE], [
 ])
 
 AC_DEFUN([CMU_LIBSSL], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_ARG_WITH(libssl,
 	[  --with-libssl=PREFIX      Compile with Libssl support],
@@ -2343,7 +2456,7 @@ AC_ARG_WITH(libssl-include,
 
 	if test "X$with_libssl" != "X"; then
 	  if test "$with_libssl" != "yes" -a "$with_libssl" != no; then
-	    ac_cv_libssl_where_lib=$with_libssl/lib
+	    ac_cv_libssl_where_lib=$with_libssl/$CMU_LIB_SUBDIR
 	    ac_cv_libssl_where_inc=$with_libssl/include
 	  fi
 	fi
@@ -2353,7 +2466,7 @@ AC_ARG_WITH(libssl-include,
 	    ac_cv_libssl_where_lib=$with_libssl_lib
 	  fi
 	  if test "X$ac_cv_libssl_where_lib" = "X"; then
-	    CMU_LIBSSL_LIB_WHERE(/usr/local/lib/openssl /usr/lib/openssl /usr/local/lib /usr/lib)
+	    CMU_LIBSSL_LIB_WHERE(/usr/local/$CMU_LIB_SUBDIR/openssl /usr/$CMU_LIB_SUBDIR/openssl /usr/local/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR)
 	  fi
 
 	  if test "X$with_libssl_include" != "X"; then
@@ -2424,7 +2537,7 @@ AC_ARG_WITH(libssl-include,
 dnl kerberos_v4.m4--Kerberos 4 libraries and includes
 dnl Derrick Brashear
 dnl from KTH krb and Arla
-dnl $Id: aclocal.m4,v 1.5 2005/01/10 19:01:35 snsimon Exp $
+dnl $Id: aclocal.m4,v 1.9 2006/01/24 00:16:03 snsimon Exp $
 
 AC_DEFUN([CMU_KRB_SENDAUTH_PROTO], [
 AC_MSG_CHECKING(for krb_sendauth prototype)
@@ -2566,6 +2679,7 @@ AC_DEFUN([CMU_KRB_LIB_WHERE], [
 ])
 
 AC_DEFUN([CMU_KRB4], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_REQUIRE([CMU_SOCKETS])
 AC_REQUIRE([CMU_LIBSSL])
 AC_ARG_WITH(krb4,
@@ -2586,7 +2700,7 @@ AC_ARG_WITH(krb4-include,
 
 	if test "X$with_krb4" != "X"; then
 	  if test "$with_krb4" != "yes" -a "$with_krb4" != "no"; then
-	    ac_cv_krb_where_lib=$with_krb4/lib
+	    ac_cv_krb_where_lib=$with_krb4/$CMU_LIB_SUBDIR
 	    ac_cv_krb_where_inc=$with_krb4/include
 	  fi
 	fi
@@ -2620,15 +2734,24 @@ AC_ARG_WITH(krb4-include,
                       KRB_LIBDES="$LIBSSL_LIB_FLAGS"
                       KRB_LIBDESA="$LIBSSL_LIB_FLAGS"
                   else
-                      AC_MSG_RESULT([unknown])
-                      AC_MSG_ERROR([Could not use -ldes])
+                      LIBS="$cmu_save_LIBS -L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+                      AC_TRY_LINK([],
+                      [des_quad_cksum();],KRB_DES_LIB="libcrypto+descompat")
+                      if test "X$KRB_DES_LIB" = "Xlibcrypto+descompat"; then
+                          AC_MSG_RESULT([libcrypto+descompat])
+                          KRB_LIBDES="-L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+                          KRB_LIBDESA="-L$LIBSSL_LIB_DIR -ldescompat $LIBSSL_LIB_FLAGS"
+                      else
+                          AC_MSG_RESULT([unknown])
+                          AC_MSG_ERROR([Could not use -ldes])
+                      fi 
                   fi 
               fi 
           else
              AC_MSG_RESULT([no])
           fi
           if test "X$ac_cv_krb_where_lib" = "X"; then
-            CMU_KRB_LIB_WHERE(/usr/athena/lib /usr/local/lib /usr/lib)
+            CMU_KRB_LIB_WHERE(/usr/athena/$CMU_LIB_SUBDIR /usr/local/$CMU_LIB_SUBDIR /usr/$CMU_LIB_SUBDIR)
           fi
 	fi
 	  LIBS="${cmu_save_LIBS}"
@@ -2653,6 +2776,7 @@ AC_ARG_WITH(krb4-include,
           AC_SUBST(KRB_INC_FLAGS)
           AC_SUBST(KRB_LIB_FLAGS)
 	  LIBS="${cmu_save_LIBS}"
+	  AC_DEFINE(HAVE_KRB4,,[Kerberos V4 is present])dnl zephyr uses this
 	  AC_DEFINE(KERBEROS,,[Use kerberos 4. find out what needs this symbol])
 	  if test "X$RPATH" = "X"; then
 		RPATH=""

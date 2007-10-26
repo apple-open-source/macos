@@ -1,5 +1,6 @@
 /* Asynchronous timers.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,17 +16,17 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include <config.h>
-#include <lisp.h>
 #include <signal.h>
+#include <stdio.h>
+#include <lisp.h>
 #include <syssignal.h>
 #include <systime.h>
 #include <blockinput.h>
 #include <atimer.h>
-#include <stdio.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -34,11 +35,6 @@ Boston, MA 02111-1307, USA.  */
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
-
-/* The ubiquitous min/max macros.  */
-
-#define max(X, Y) ((X) > (Y) ? (X) : (Y))
-#define min(X, Y) ((X) < (Y) ? (X) : (Y))
 
 /* Free-list of atimer structures.  */
 
@@ -62,7 +58,7 @@ static struct atimer *atimers;
 
 int pending_atimers;
 
-/* Block/unblock SIGALRM.. */
+/* Block/unblock SIGALRM.  */
 
 #define BLOCK_ATIMERS   sigblock (sigmask (SIGALRM))
 #define UNBLOCK_ATIMERS sigunblock (sigmask (SIGALRM))
@@ -137,12 +133,12 @@ start_atimer (type, time, fn, client_data)
     case ATIMER_ABSOLUTE:
       t->expiration = time;
       break;
-      
+
     case ATIMER_RELATIVE:
       EMACS_GET_TIME (t->expiration);
       EMACS_ADD_TIME (t->expiration, t->expiration, time);
       break;
-      
+
     case ATIMER_CONTINUOUS:
       EMACS_GET_TIME (t->expiration);
       EMACS_ADD_TIME (t->expiration, t->expiration, time);
@@ -156,7 +152,7 @@ start_atimer (type, time, fn, client_data)
 
   /* Arrange for a SIGALRM at the time the next atimer is ripe.  */
   set_alarm ();
-  
+
   return t;
 }
 
@@ -168,14 +164,14 @@ cancel_atimer (timer)
      struct atimer *timer;
 {
   int i;
-  
+
   BLOCK_ATIMERS;
 
   for (i = 0; i < 2; ++i)
     {
       struct atimer *t, *prev;
       struct atimer **list = i ? &stopped_atimers : &atimers;
-      
+
       /* See if TIMER is active or stopped.  */
       for (t = *list, prev = NULL; t && t != timer; prev = t, t = t->next)
 	;
@@ -189,7 +185,7 @@ cancel_atimer (timer)
 	    prev->next = t->next;
 	  else
 	    *list = t->next;
-	  
+
 	  t->next = free_atimers;
 	  free_atimers = t;
 	  break;
@@ -214,7 +210,7 @@ append_atimer_lists (list1, list2)
   else
     {
       struct atimer *p;
-      
+
       for (p = list1; p->next; p = p->next)
 	;
       p->next = list2;
@@ -230,13 +226,13 @@ stop_other_atimers (t)
      struct atimer *t;
 {
   BLOCK_ATIMERS;
-  
+
   if (t)
     {
       struct atimer *p, *prev;
-      
+
       /* See if T is active.  */
-      for (p = atimers, prev = 0; p && p != t; p = p->next)
+      for (p = atimers, prev = NULL; p && p != t; prev = p, p = p->next)
 	;
 
       if (p == t)
@@ -251,7 +247,7 @@ stop_other_atimers (t)
 	/* T is not active.  Let's handle this like T == 0.  */
 	t = NULL;
     }
-  
+
   stopped_atimers = append_atimer_lists (atimers, stopped_atimers);
   atimers = t;
   UNBLOCK_ATIMERS;
@@ -268,18 +264,18 @@ run_all_atimers ()
     {
       struct atimer *t = atimers;
       struct atimer *next;
-      
+
       BLOCK_ATIMERS;
       atimers = stopped_atimers;
       stopped_atimers = NULL;
-      
+
       while (t)
 	{
 	  next = t->next;
 	  schedule_atimer (t);
 	  t = next;
 	}
-      
+
       UNBLOCK_ATIMERS;
     }
 }
@@ -306,7 +302,7 @@ set_alarm ()
      must reestablish each time.  */
   signal (SIGALRM, alarm_signal_handler);
 #endif /* USG */
-  
+
   if (atimers)
     {
       EMACS_TIME now, time;
@@ -325,7 +321,7 @@ set_alarm ()
 	  EMACS_SET_SECS (time, 0);
 	  EMACS_SET_USECS (time, 1000);
 	}
-      
+
       bzero (&it, sizeof it);
       it.it_value = time;
       setitimer (ITIMER_REAL, &it, 0);
@@ -355,7 +351,7 @@ schedule_atimer (t)
     prev->next = t;
   else
     atimers = t;
-  
+
   t->next = a;
 }
 
@@ -368,20 +364,24 @@ alarm_signal_handler (signo)
      int signo;
 {
   EMACS_TIME now;
-  
+
+  SIGNAL_THREAD_CHECK (signo);
+
   EMACS_GET_TIME (now);
   pending_atimers = 0;
-  
+
   while (atimers
 	 && (pending_atimers = interrupt_input_blocked) == 0
 	 && EMACS_TIME_LE (atimers->expiration, now))
     {
       struct atimer *t;
-      
+
       t = atimers;
       atimers = atimers->next;
+#ifndef MAC_OSX
       t->fn (t);
-      
+#endif
+
       if (t->type == ATIMER_CONTINUOUS)
 	{
 	  EMACS_ADD_TIME (t->expiration, now, t->interval);
@@ -392,17 +392,16 @@ alarm_signal_handler (signo)
 	  t->next = free_atimers;
 	  free_atimers = t;
 	}
-      
+#ifdef MAC_OSX
+      /* Fix for Ctrl-G.  Perhaps this should apply to all platforms. */
+      t->fn (t); 
+#endif
+
       EMACS_GET_TIME (now);
     }
-  
-#if defined (USG) && !defined (POSIX_SIGNALS)
-  /* USG systems forget handlers when they are used;
-     must reestablish each time.  */
-  signal (SIGALRM, alarm_signal_handler);
-#endif /* USG */
-  
-  set_alarm ();
+
+  if (! pending_atimers)
+    set_alarm ();
 }
 
 
@@ -444,3 +443,6 @@ init_atimer ()
   pending_atimers = 0;
   signal (SIGALRM, alarm_signal_handler);
 }
+
+/* arch-tag: e6308261-eec6-404b-89fb-6e5909518d70
+   (do not change this comment) */

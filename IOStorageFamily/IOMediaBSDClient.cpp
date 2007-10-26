@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
 #include <sys/conf.h>                        // (bdevsw_add, ...)
 #include <sys/fcntl.h>                       // (FWRITE, ...)
 #include <sys/ioccom.h>                      // (IOCGROUP, ...)
+#include <sys/proc.h>                        // (proc_is64bit, ...)
 #include <sys/stat.h>                        // (S_ISBLK, ...)
 #include <sys/systm.h>                       // (DEV_BSIZE, ...)
 #include <sys/uio_internal.h>                // (uio_t, ...)
@@ -115,6 +116,11 @@ typedef enum { DKRTYPE_BUF, DKRTYPE_DIO } dkrtype_t;
 
 static int  dkreadwrite(dkr_t dkr, dkrtype_t dkrtype);
 static void dkreadwritecompletion(void *, void *, IOReturn, UInt64);
+
+inline int32_t getminor(dev_t dev)
+{
+    return minor(dev);
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -584,36 +590,36 @@ createNodesErr:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/* DEPRECATED */ AnchorTable * IOMediaBSDClient::getAnchors()
-/* DEPRECATED */ {
-/* DEPRECATED */     //
-/* DEPRECATED */     // Obtain the table of anchors.
-/* DEPRECATED */     //
-/* DEPRECATED */ 
-/* DEPRECATED */     return _anchors;
-/* DEPRECATED */ }
+AnchorTable * IOMediaBSDClient::getAnchors()
+{
+    //
+    // Obtain the table of anchors.
+    //
+ 
+    return _anchors;
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/* DEPRECATED */ MinorTable * IOMediaBSDClient::getMinors()
-/* DEPRECATED */ {
-/* DEPRECATED */     //
-/* DEPRECATED */     // Obtain the table of anchors.
-/* DEPRECATED */     //
-/* DEPRECATED */ 
-/* DEPRECATED */     return _minors;
-/* DEPRECATED */ }
+MinorTable * IOMediaBSDClient::getMinors()
+{
+    //
+    // Obtain the table of anchors.
+    //
+
+    return _minors;
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/* DEPRECATED */ MinorSlot * IOMediaBSDClient::getMinor(UInt32 minorID)
-/* DEPRECATED */ {
-/* DEPRECATED */     //
-/* DEPRECATED */     // Obtain information for the specified minor ID.
-/* DEPRECATED */     //
-/* DEPRECATED */ 
-/* DEPRECATED */     return _minors->getMinor(minorID);
-/* DEPRECATED */ }
+MinorSlot * IOMediaBSDClient::getMinor(UInt32 minorID)
+{
+    //
+    // Obtain information for the specified minor ID.
+    //
+
+    return _minors->getMinor(minorID);
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -651,7 +657,7 @@ int IOMediaBSDClient::ioctl( dev_t   dev,
             //
 
             IOLog( "%s: ioctl(%s\'%c\',%d,%d) is unsupported.\n",
-                   gIOMediaBSDClientGlobals.getMinor(minor(dev))->name,
+                   gIOMediaBSDClientGlobals.getMinor(getminor(dev))->name,
                    ((cmd & IOC_INOUT) == IOC_INOUT) ? ("_IOWR,") :
                      ( ((cmd & IOC_OUT) == IOC_OUT) ? ("_IOR,") :
                        ( ((cmd & IOC_IN) == IOC_IN) ? ("_IOW,") :
@@ -757,7 +763,7 @@ static IOStorageAccess DK_ADD_ACCESS(IOStorageAccess a1, IOStorageAccess a2)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 {
     UInt32 index;
 
@@ -799,7 +805,7 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
 
     error = 0;
     media = 0;
-    minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     //
     // Process the open.
@@ -878,7 +884,7 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
 
                 if ( !minor->bdevOpen && !minor->cdevOpen && minor->isObsolete )
                 {
-                    gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+                    gIOMediaBSDClientGlobals.getMinors()->remove(getminor(dev));
                 }
 
                 gIOMediaBSDClientGlobals.unlockState();       // (enable access)
@@ -929,7 +935,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
     gIOMediaBSDClientGlobals.lockState();   // (disable access to state, tables)
 
     media = 0;
-    minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     level = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
 
@@ -967,7 +973,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
 
         if ( minor->isObsolete )
         {
-            gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+            gIOMediaBSDClientGlobals.getMinors()->remove(getminor(dev));
         }
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
@@ -993,7 +999,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
 
         if ( minor->isObsolete )
         {
-            gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+            gIOMediaBSDClientGlobals.getMinors()->remove(getminor(dev));
         }
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
@@ -1085,7 +1091,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     //
 
     int         error = 0;
-    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
 
@@ -1095,17 +1101,17 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
     switch ( cmd )
     {
-        case DKIOCGETBLOCKSIZE:                                 // (u_int32_t *)
+        case DKIOCGETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
             // This ioctl returns the preferred block size of the media object.
             //
 
-            *(u_int32_t *)data = minor->media->getPreferredBlockSize();
+            *(uint32_t *)data = minor->media->getPreferredBlockSize();
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT32:                              // (u_int32_t *)
+        case DKIOCGETBLOCKCOUNT32:                               // (uint32_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1113,14 +1119,14 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
 
             if ( minor->media->getPreferredBlockSize() )
-                *(u_int32_t *)data = ( minor->media->getSize()               / 
-                                       minor->media->getPreferredBlockSize() );
+                *(uint32_t *)data = ( minor->media->getSize()               / 
+                                      minor->media->getPreferredBlockSize() );
             else
-                *(u_int32_t *)data = 0;
+                *(uint32_t *)data = 0;
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT:                                // (u_int64_t *)
+        case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1128,14 +1134,14 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
 
             if ( minor->media->getPreferredBlockSize() )
-                *(u_int64_t *)data = ( minor->media->getSize()               / 
-                                       minor->media->getPreferredBlockSize() );
+                *(uint64_t *)data = ( minor->media->getSize()               / 
+                                      minor->media->getPreferredBlockSize() );
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXBLOCKCOUNTREAD:                         // (u_int64_t *)
+        case DKIOCGETMAXBLOCKCOUNTREAD:                          // (uint64_t *)
         {
             //
             // This ioctl returns the maximum block count for reads.
@@ -1147,13 +1153,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumBlockCountReadKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXBLOCKCOUNTWRITE:                        // (u_int64_t *)
+        case DKIOCGETMAXBLOCKCOUNTWRITE:                         // (uint64_t *)
         {
             //
             // This ioctl returns the maximum block count for writes.
@@ -1165,13 +1171,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumBlockCountWriteKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXBYTECOUNTREAD:                          // (u_int64_t *)
+        case DKIOCGETMAXBYTECOUNTREAD:                           // (uint64_t *)
         {
             //
             // This ioctl returns the maximum byte count for reads.
@@ -1183,13 +1189,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumByteCountReadKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXBYTECOUNTWRITE:                         // (u_int64_t *)
+        case DKIOCGETMAXBYTECOUNTWRITE:                          // (uint64_t *)
         {
             //
             // This ioctl returns the maximum byte count for writes.
@@ -1201,13 +1207,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumByteCountWriteKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXSEGMENTCOUNTREAD:                       // (u_int64_t *)
+        case DKIOCGETMAXSEGMENTCOUNTREAD:                        // (uint64_t *)
         {
             //
             // This ioctl returns the maximum segment count for reads.
@@ -1219,13 +1225,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumSegmentCountReadKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXSEGMENTCOUNTWRITE:                      // (u_int64_t *)
+        case DKIOCGETMAXSEGMENTCOUNTWRITE:                       // (uint64_t *)
         {
             //
             // This ioctl returns the maximum segment count for writes.
@@ -1237,13 +1243,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumSegmentCountWriteKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXSEGMENTBYTECOUNTREAD:                   // (u_int64_t *)
+        case DKIOCGETMAXSEGMENTBYTECOUNTREAD:                    // (uint64_t *)
         {
             //
             // This ioctl returns the maximum segment byte count for reads.
@@ -1255,13 +1261,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumSegmentByteCountReadKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:                  // (u_int64_t *)
+        case DKIOCGETMAXSEGMENTBYTECOUNTWRITE:                   // (uint64_t *)
         {
             //
             // This ioctl returns the maximum segment byte count for writes.
@@ -1273,29 +1279,65 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOMaximumSegmentByteCountWriteKey,
                                  /* plane */ gIOServicePlane ) );
             if ( number )
-                *(u_int64_t *)data = number->unsigned64BitValue();
+                *(uint64_t *)data = number->unsigned64BitValue();
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
-        case DKIOCISFORMATTED:                                  // (u_int32_t *)
+        case DKIOCGETMINSEGMENTALIGNMENTBYTECOUNT:               // (uint64_t *)
+        {
+            //
+            // This ioctl returns the minimum segment alignment in bytes.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMinimumSegmentAlignmentByteCountKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint64_t *)data = number->unsigned64BitValue();
+            else
+                *(uint64_t *)data = 0;
+
+        } break;
+
+        case DKIOCGETMAXSEGMENTADDRESSABLEBITCOUNT:              // (uint64_t *)
+        {
+            //
+            // This ioctl returns the maximum segment width in bits.
+            //
+
+            OSNumber * number = OSDynamicCast(
+                         /* class  */ OSNumber,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOMaximumSegmentAddressableBitCountKey,
+                                 /* plane */ gIOServicePlane ) );
+            if ( number )
+                *(uint64_t *)data = number->unsigned64BitValue();
+            else
+                *(uint64_t *)data = 0;
+
+        } break;
+
+        case DKIOCISFORMATTED:                                   // (uint32_t *)
         {
             //
             // This ioctl returns truth if the media object is formatted.
             //
 
-            *(u_int32_t *)data = minor->media->isFormatted();
+            *(uint32_t *)data = minor->media->isFormatted();
 
         } break;
 
-        case DKIOCISWRITABLE:                                   // (u_int32_t *)
+        case DKIOCISWRITABLE:                                    // (uint32_t *)
         {
             //
             // This ioctl returns truth if the media object is writable.
             //
 
-            *(u_int32_t *)data = minor->media->isWritable();
+            *(uint32_t *)data = minor->media->isWritable();
 
         } break;
 
@@ -1481,18 +1523,37 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             // object.
             //
 
-            UInt64                   blockSize;
-            UInt64 *                 capacities;
-            UInt32                   capacitiesCount;
-            UInt32                   capacitiesMaxCount;
-            IOBlockStorageDriver *   driver;
-            dk_format_capacities_t * request;
+            typedef struct
+            {
+                user_addr_t capacities;
+                uint32_t    capacitiesCount;
 
-            driver  = (IOBlockStorageDriver *) minor->media->getProvider();
-            driver  = OSDynamicCast(IOBlockStorageDriver, driver);
-            request = (dk_format_capacities_t *) data;
+                uint8_t     reserved0096[4];
+            } dk_format_capacities_64_t;
 
-            if ( DKIOC_IS_RESERVED(data, 0xFF00) )  { error = EINVAL;  break; }
+            UInt64                      blockSize;
+            UInt64 *                    capacities;
+            UInt32                      capacitiesCount;
+            UInt32                      capacitiesMaxCount;
+            IOBlockStorageDriver *      driver;
+            dk_format_capacities_64_t * request;
+            dk_format_capacities_t *    request32;
+            dk_format_capacities_64_t   request64 = { 0 };
+
+            driver    = (IOBlockStorageDriver *) minor->media->getProvider();
+            driver    = OSDynamicCast(IOBlockStorageDriver, driver);
+            request   = (dk_format_capacities_64_t *) data;
+            request32 = (dk_format_capacities_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )
+            {
+                request64.capacities      = CAST_USER_ADDR_T(request32->capacities);
+                request64.capacitiesCount = request32->capacitiesCount;
+
+                request = &request64;
+            }
+
+            if ( DKIOC_IS_RESERVED(data, 0xF000) )  { error = EINVAL;  break; }
 
             // Determine whether this media has an IOBlockStorageDriver parent.
 
@@ -1528,7 +1589,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
                     error = copyout(
                       /* kaddr */ &capacity,
-                      /* uaddr */ CAST_USER_ADDR_T(request->capacities + index),
+                      /* uaddr */ request->capacities + index * sizeof(dk_format_capacity_t),
                       /* len   */ sizeof(dk_format_capacity_t) );
                     if ( error )  break; 
                 }
@@ -1539,6 +1600,11 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             }
 
             request->capacitiesCount = capacitiesMaxCount;
+
+            if ( proc_is64bit(proc) == 0 )
+            {
+                request32->capacitiesCount = request64.capacitiesCount;
+            }
 
         } break;
 
@@ -1557,7 +1623,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
         } break;
 
-        case DKIOCGETBSDUNIT:                                   // (u_int32_t *)
+        case DKIOCGETBSDUNIT:                                    // (uint32_t *)
         {
             //
             // This ioctl returns the BSD unit of the media object.
@@ -1568,9 +1634,9 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                          /* object */ minor->media->getProperty(
                                  /* key   */ kIOBSDUnitKey ) );
             if ( number )
-                *(u_int32_t *)data = number->unsigned32BitValue();
+                *(uint32_t *)data = number->unsigned32BitValue();
             else
-                *(u_int32_t *)data = 0;
+                *(uint32_t *)data = 0;
 
         } break;
 
@@ -1584,13 +1650,13 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             char * p = ((dk_firmware_path_t *)data)->path;
 
             if ( minor->media->getPath(p, &l, gIODTPlane) && strchr(p, ':') )
-                strcpy(p, strchr(p, ':') + 1);         // (strip the plane name)
+                strlcpy(p, strchr(p, ':') + 1, l);     // (strip the plane name)
             else
                 error = EINVAL;
 
         } break;
 
-        case DKIOCISVIRTUAL:                                    // (u_int32_t *)
+        case DKIOCISVIRTUAL:                                     // (uint32_t *)
         {
             //
             // This ioctl returns truth if the device is virtual.
@@ -1602,7 +1668,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOPropertyProtocolCharacteristicsKey,
                                  /* plane */ gIOServicePlane ) );
 
-            *(u_int32_t *)data = false;
+            *(uint32_t *)data = false;
 
             if ( dictionary )
             {
@@ -1612,18 +1678,45 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
                                  /* key   */ kIOPropertyPhysicalInterconnectTypeKey ) );
 
                 if ( string && string->isEqualTo( kIOPropertyPhysicalInterconnectTypeVirtual ) )
-                    *(u_int32_t *)data = true;
+                    *(uint32_t *)data = true;
             }
 
         } break;
 
-        case DKIOCGETBASE:                                      // (u_int64_t *)
+        case DKIOCGETBASE:                                       // (uint64_t *)
         {
             //
             // This ioctl returns the base of the media object.
             //
 
-            *(u_int64_t *)data = minor->media->getBase();
+            *(uint64_t *)data = minor->media->getBase();
+
+        } break;
+
+        case DKIOCGETFEATURES:                                   // (uint32_t *)
+        {
+            //
+            // This ioctl returns the features of the media object.
+            //
+
+            OSDictionary * dictionary = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOStorageFeaturesKey,
+                                 /* plane */ gIOServicePlane ) );
+
+            *(uint32_t *)data = 0;
+
+            if ( dictionary )
+            {
+                OSBoolean * boolean = OSDynamicCast( 
+                         /* class  */ OSBoolean,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOStorageFeatureForceUnitAccess ) );
+
+                if ( boolean == kOSBooleanTrue )
+                    *(uint32_t *)data |= DK_FEATURE_FORCE_UNIT_ACCESS;
+            }
 
         } break;
 
@@ -1651,7 +1744,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
     //
 
     int         error = 0;
-    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     if ( minor->isOrphaned )  return EBADF;               // (is minor in flux?)
 
@@ -1661,32 +1754,32 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 
     switch ( cmd )
     {
-        case DKIOCGETBLOCKSIZE:                                 // (u_int32_t *)
+        case DKIOCGETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
             // This ioctl returns the preferred (or overrided) block size of the
             // media object.
             //
 
-            *(u_int32_t *)data = minor->bdevBlockSize;
+            *(uint32_t *)data = minor->bdevBlockSize;
 
         } break;
 
-        case DKIOCSETBLOCKSIZE:                                 // (u_int32_t *)
+        case DKIOCSETBLOCKSIZE:                                  // (uint32_t *)
         {
             //
             // This ioctl overrides the block size for the media object, for the
             // duration of all block device opens at this minor.
             //
 
-            if ( *(u_int32_t *)data > 0 )
-                minor->bdevBlockSize = (UInt64) (*(u_int32_t *)data);
+            if ( *(uint32_t *)data > 0 )
+                minor->bdevBlockSize = (UInt64) (*(uint32_t *)data);
             else
                 error = EINVAL;
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT32:                              // (u_int32_t *)
+        case DKIOCGETBLOCKCOUNT32:                               // (uint32_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1694,14 +1787,14 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
 
             if ( minor->bdevBlockSize )
-                *(u_int32_t *)data = ( minor->media->getSize() /
-                                       minor->bdevBlockSize    );
+                *(uint32_t *)data = ( minor->media->getSize() /
+                                      minor->bdevBlockSize    );
             else
-                *(u_int32_t *)data = 0;
+                *(uint32_t *)data = 0;
 
         } break;
 
-        case DKIOCGETBLOCKCOUNT:                                // (u_int64_t *)
+        case DKIOCGETBLOCKCOUNT:                                 // (uint64_t *)
         {
             //
             // This ioctl returns the size of the media object in blocks.  The
@@ -1709,10 +1802,10 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
             //
 
             if ( minor->bdevBlockSize )
-                *(u_int64_t *)data = ( minor->media->getSize() /
-                                       minor->bdevBlockSize    );
+                *(uint64_t *)data = ( minor->media->getSize() /
+                                      minor->bdevBlockSize    );
             else
-                *(u_int64_t *)data = 0;
+                *(uint64_t *)data = 0;
 
         } break;
 
@@ -1742,7 +1835,7 @@ int dksize(dev_t dev)
     // in a BSD 4.4 implementation.
     //
 
-    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    MinorSlot * minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     if ( minor->isOrphaned )  return 0;                   // (is minor in flux?)
 
@@ -1801,7 +1894,7 @@ inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
         buf_t       bp = (buf_t)dkr;
         MinorSlot * minor;
 
-        minor = gIOMediaBSDClientGlobals.getMinor(minor(buf_device(bp)));
+        minor = gIOMediaBSDClientGlobals.getMinor(getminor(buf_device(bp)));
 
         return (UInt64)buf_blkno(bp) * minor->bdevBlockSize;
     }
@@ -1826,7 +1919,6 @@ inline bool DKR_IS_ASYNCHRONOUS(dkr_t dkr, dkrtype_t dkrtype)
            ? true
            : false;
 }
-
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -1856,7 +1948,7 @@ inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, IOReturn status)
         buf_t       bp = (buf_t)dkr;
         MinorSlot * minor;
 
-        minor = gIOMediaBSDClientGlobals.getMinor(minor(buf_device(bp)));
+        minor = gIOMediaBSDClientGlobals.getMinor(getminor(buf_device(bp)));
 
         buf_seterror(bp, minor->media->errnoFromReturn(status));     // (error?)
         buf_biodone(bp);                                   // (complete request)
@@ -1877,6 +1969,7 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
         if ( (flags & B_CLUSTER) )
         {
             IOOptionBits options = kIOMemoryTypeUPL | kIOMemoryAsReference;
+
             options |= (flags & B_READ) ? kIODirectionIn : kIODirectionOut;
 
             return IOMemoryDescriptor::withOptions(          // (multiple-range)
@@ -1886,25 +1979,28 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
                 0,
                 options );
         }
-
-        return IOMemoryDescriptor::withAddress(                // (single-range)
-            (vm_address_t) buf_dataptr(bp),
-            (vm_size_t)    buf_count(bp),
-            (flags & B_READ) ? kIODirectionIn : kIODirectionOut,
-            (flags & B_PHYS) ? get_user_task() : get_kernel_task() );
+        else
+        {
+            return IOMemoryDescriptor::withAddress(            // (single-range)
+                buf_dataptr(bp),
+                buf_count(bp),
+                (flags & B_READ) ? kIODirectionIn : kIODirectionOut,
+                (flags & B_PHYS) ? get_user_task() : get_kernel_task() );
+        }
     }
     else
     {
-	// Create a type uio memory descriptor, this will support 64bit UIOs
-        uio_t uio = ((dio_t)dkr)->uio;
-	task_t task = (uio_isuserspace(uio))
-			    ? get_user_task() : get_kernel_task(); 
+        IOOptionBits options = kIOMemoryTypeUIO | kIOMemoryAsReference;
+        uio_t        uio     = ((dio_t)dkr)->uio;
 
-	IOOptionBits options = kIOMemoryTypeUIO | kIOMemoryAsReference;
-	options |= uio_rw(uio) == UIO_READ ? kIODirectionIn : kIODirectionOut;
+        options |= (uio_rw(uio) == UIO_READ) ? kIODirectionIn : kIODirectionOut;
 
-	return IOMemoryDescriptor::
-	    withOptions(uio, uio_iovcnt(uio), 0, task, options);
+        return IOMemoryDescriptor::withOptions(              // (multiple-range)
+            uio,
+            uio_iovcnt(uio),
+            0,
+            (uio_isuserspace(uio)) ? get_user_task() : get_kernel_task(),
+            options );
     }
 }
 
@@ -1929,6 +2025,25 @@ inline void DKR_SET_DRIVER_DATA(dkr_t dkr, dkrtype_t dkrtype, void * drvdata)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+inline IOStorageAttributes DKR_GET_ATTRIBUTES(dkr_t dkr, dkrtype_t dkrtype)
+{
+    IOStorageAttributes attributes = { 0 };
+
+    if (dkrtype == DKRTYPE_BUF)
+    {
+        buf_t bp = (buf_t)dkr;
+        int   flags;
+
+        flags = buf_flags(bp);
+
+        attributes.options |= (flags & B_FUA) ? kIOStorageOptionForceUnitAccess : 0;
+    }
+
+    return attributes;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 {
     //
@@ -1944,7 +2059,7 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     DKR_SET_DRIVER_DATA(dkr, dkrtype, 0);
 
-    minor = gIOMediaBSDClientGlobals.getMinor(minor(DKR_GET_DEV(dkr, dkrtype)));
+    minor = gIOMediaBSDClientGlobals.getMinor(getminor(DKR_GET_DEV(dkr, dkrtype)));
 
     if ( minor->isOrphaned )                              // (is minor in flux?)
     {
@@ -2051,7 +2166,10 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
 
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
+        IOStorageAttributes attributes;
         IOStorageCompletion completion;
+
+        attributes           = DKR_GET_ATTRIBUTES(dkr, dkrtype);
 
         completion.target    = dkr;
         completion.action    = dkreadwritecompletion;
@@ -2062,14 +2180,16 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
             minor->media->read(  /* client     */ minor->client,
                                  /* byteStart  */ byteStart,
                                  /* buffer     */ buffer,
-                                 /* completion */ completion );          // (go)
+                                 /* attributes */ &attributes,
+                                 /* completion */ &completion );         // (go)
         }
         else                                                       // (a write?)
         {
             minor->media->write( /* client     */ minor->client,
                                  /* byteStart  */ byteStart,
                                  /* buffer     */ buffer,
-                                 /* completion */ completion );          // (go)
+                                 /* attributes */ &attributes,
+                                 /* completion */ &completion );         // (go)
         }
 
         status = kIOReturnSuccess;
@@ -2116,11 +2236,11 @@ void dkreadwritecompletion( void *   target,
     // dkreadwritecompletion cleans up after a read or write operation.
     //
 
-    dkr_t       dkr      = (dkr_t) target;
-    dkrtype_t   dkrtype  = (dkrtype_t) (int) parameter;
-    dev_t       dev      = DKR_GET_DEV(dkr, dkrtype);
-    void *      drvdata  = DKR_GET_DRIVER_DATA(dkr, dkrtype);
-    MinorSlot * minor    = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+    dkr_t       dkr     = (dkr_t) target;
+    dkrtype_t   dkrtype = (dkrtype_t) (int) parameter;
+    dev_t       dev     = DKR_GET_DEV(dkr, dkrtype);
+    void *      drvdata = DKR_GET_DRIVER_DATA(dkr, dkrtype);
+    MinorSlot * minor   = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
 
     if ( drvdata )                                            // (has a buffer?)
     {
@@ -2532,7 +2652,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
                                 /* type       */ DEVFS_BLOCK, 
                                 /* owner      */ UID_ROOT,
                                 /* group      */ GID_OPERATOR,
-                                /* permission */ media->isWritable()?0640:0440, 
+                                /* permission */ 0640,
                                 /* name (fmt) */ "disk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
@@ -2541,7 +2661,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
                                 /* type       */ DEVFS_CHAR, 
                                 /* owner      */ UID_ROOT,
                                 /* group      */ GID_OPERATOR,
-                                /* permission */ media->isWritable()?0640:0440,
+                                /* permission */ 0640,
                                 /* name (fmt) */ "rdisk%d%s",
                                 /* name (arg) */ anchorID,
                                 /* name (arg) */ slicePath );
@@ -2557,7 +2677,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
 
     // Construct a name for the node.
 
-    sprintf(minorName, "disk%ld%s", anchorID, slicePath);
+    snprintf(minorName, minorNameSize, "disk%ld%s", anchorID, slicePath);
     assert(strlen(minorName) + 1 == minorNameSize);
 
     // Zero the new slot, fill it in, and retain the appropriate objects.
@@ -2664,7 +2784,7 @@ UInt32 MinorTable::update( IOMedia *          media,
 
     // Construct a name for the node.
 
-    sprintf(minorName, "disk%ld%s", anchorID, slicePath);
+    snprintf(minorName, minorNameSize, "disk%ld%s", anchorID, slicePath);
     assert(strlen(minorName) + 1 == minorNameSize);
 
     // Search for an orphaned slot in the minor table with our minor name.

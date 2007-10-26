@@ -1,5 +1,5 @@
---- fgetws.3.orig	Fri Mar 11 11:51:15 2005
-+++ fgetws.3	Fri Mar 11 11:52:41 2005
+--- fgetws.3	2003-05-20 15:22:41.000000000 -0700
++++ fgetws.3.edit	2006-08-12 09:44:23.000000000 -0700
 @@ -41,7 +41,8 @@
  .Dt FGETWS 3
  .Os
@@ -10,17 +10,39 @@
  .Nd get a line of wide characters from a stream
  .Sh LIBRARY
  .Lb libc
-@@ -50,6 +51,9 @@
+@@ -49,7 +50,21 @@
+ .In stdio.h
  .In wchar.h
  .Ft "wchar_t *"
- .Fn fgetws "wchar_t * restrict ws" "int n" "FILE * restrict fp"
+-.Fn fgetws "wchar_t * restrict ws" "int n" "FILE * restrict fp"
++.Fo fgetws
++.Fa "wchar_t *restrict ws"
++.Fa "int n"
++.Fa "FILE *restrict stream"
++.Fc
++.In stdio.h
++.In wchar.h
 +.In xlocale.h
 +.Ft "wchar_t *"
-+.Fn fgetws_l "wchar_t * restrict ws" "int n" "FILE * restrict fp" "locale_t loc"
++.Fo fgetws_l
++.Fa "wchar_t *restrict ws"
++.Fa "int n"
++.Fa "FILE *restrict stream"
++.Fa "locale_t loc"
++.Fc
  .Sh DESCRIPTION
  The
  .Fn fgetws
-@@ -66,6 +70,14 @@
+@@ -57,7 +72,7 @@
+ reads at most one less than the number of characters specified by
+ .Fa n
+ from the given
+-.Fa fp
++.Fa stream
+ and stores them in the wide character string
+ .Fa ws .
+ Reading stops when a newline character is found,
+@@ -66,6 +81,14 @@
  If any characters are read and there is no error, a
  .Ql \e0
  character is appended to end the string.
@@ -35,7 +57,26 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn fgetws
-@@ -116,7 +128,8 @@
+@@ -84,7 +107,8 @@
+ The
+ .Fn fgetws
+ function
+-does not distinguish between end-of-file and error, and callers must use
++does not distinguish between end-of-file and error;
++callers must use
+ .Xr feof 3
+ and
+ .Xr ferror 3
+@@ -96,7 +120,7 @@
+ .Bl -tag -width Er
+ .It Bq Er EBADF
+ The given
+-.Fa fp
++.Fa stream
+ argument is not a readable stream.
+ .It Bq Er EILSEQ
+ The data obtained from the input stream does not form a valid
+@@ -116,7 +140,8 @@
  .Sh SEE ALSO
  .Xr feof 3 ,
  .Xr ferror 3 ,

@@ -17,7 +17,7 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 #include <getline.h>
 #include <hash.h>
 #include <quotearg.h>
@@ -39,7 +39,7 @@ struct directory
     enum children children;
     bool nfs;
     bool found;
-    char name[1];		/* path name of directory */
+    char name[1];		/* file name of directory */
   };
 
 static Hash_table *directory_table;
@@ -95,7 +95,7 @@ note_directory (char const *name, dev_t dev, ino_t ino, bool nfs, bool found)
   return directory;
 }
 
-/* Return a directory entry for a given path NAME, or zero if none found.  */
+/* Return a directory entry for a given file NAME, or zero if none found.  */
 static struct directory *
 find_directory (char *name)
 {
@@ -117,11 +117,11 @@ compare_dirents (const void *first, const void *second)
 		 (*(char *const *) second) + 1);
 }
 
-/* Recursively scan the given PATH.  */
+/* Recursively scan the given directory. */
 static void
-scan_path (struct obstack *stk, char *path, dev_t device)
+scan_directory (struct obstack *stk, char *dir_name, dev_t device)
 {
-  char *dirp = savedir (path);	/* for scanning directory */
+  char *dirp = savedir (dir_name);	/* for scanning directory */
   char const *entry;	/* directory entry being scanned */
   size_t entrylen;	/* length of directory entry */
   char *name_buffer;		/* directory, `/', and directory member */
@@ -132,18 +132,18 @@ scan_path (struct obstack *stk, char *path, dev_t device)
 
   if (! dirp)
     {
-      savedir_error (path);
+      savedir_error (dir_name);
     }
   errno = 0;
 
-  name_buffer_size = strlen (path) + NAME_FIELD_SIZE;
+  name_buffer_size = strlen (dir_name) + NAME_FIELD_SIZE;
   name_buffer = xmalloc (name_buffer_size + 2);
-  strcpy (name_buffer, path);
-  if (! ISSLASH (path[strlen (path) - 1]))
+  strcpy (name_buffer, dir_name);
+  if (! ISSLASH (dir_name[strlen (dir_name) - 1]))
     strcat (name_buffer, "/");
   name_length = strlen (name_buffer);
 
-  directory = find_directory (path);
+  directory = find_directory (dir_name);
   children = directory ? directory->children : CHANGED_CHILDREN;
 
   if (dirp && children != NO_CHILDREN)
@@ -298,13 +298,13 @@ sort_obstack (struct obstack *stk)
 }
 
 char *
-get_directory_contents (char *path, dev_t device)
+get_directory_contents (char *dir_name, dev_t device)
 {
   struct obstack stk;
   char *buffer;
 
   obstack_init (&stk);
-  scan_path (&stk, path, device);
+  scan_directory (&stk, dir_name, device);
   buffer = sort_obstack (&stk);
   obstack_free (&stk, NULL);
   return buffer;
@@ -460,10 +460,9 @@ write_directory_file (void)
 /* Restoration of incremental dumps.  */
 
 /* Examine the directories under directory_name and delete any
-   files that were not there at the time of the back-up.
-   FIXME: The function name is obviously a misnomer */
+   files that were not there at the time of the back-up. */
 void
-gnu_restore (char const *directory_name)
+purge_directory (char const *directory_name)
 {
   char *archive_dir;
   char *current_dir;
@@ -516,13 +515,30 @@ gnu_restore (char const *directory_name)
 	}
       if (*arc == '\0')
 	{
+	  struct stat st;
 	  char *p = new_name (directory_name, cur);
+
+	  if (deref_stat (true, p, &st))
+	    {
+	      stat_diag (p);
+	      WARN((0, 0, _("%s: Not purging directory: unable to stat"),
+		    quotearg_colon (p)));
+	      continue; 
+	    }
+	  else if (one_file_system_option && st.st_dev != root_device)
+	    {
+	      WARN((0, 0,
+		    _("%s: directory is on a different device: not purging"),
+		    quotearg_colon (p)));
+	      continue;
+	    }
+	    
 	  if (! interactive_option || confirm ("delete", p))
 	    {
 	      if (verbose_option)
 		fprintf (stdlis, _("%s: Deleting %s\n"),
 			 program_name, quote (p));
-	      if (! remove_any_file (p, 1))
+	      if (! remove_any_file (p, RECURSIVE_REMOVE_OPTION))
 		{
 		  int e = errno;
 		  ERROR ((0, e, _("%s: Cannot remove"), quotearg_colon (p)));

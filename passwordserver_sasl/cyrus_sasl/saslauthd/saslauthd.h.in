@@ -200,6 +200,9 @@
 /* Use NDBM for SASLdb */
 #undef SASL_NDBM
 
+/* The size of a `long', as computed by sizeof. */
+#undef SIZEOF_LONG
+
 /* User KERBEROS_V4 Staticly */
 #undef STATIC_KERBEROS4
 
@@ -287,6 +290,13 @@ struct iovec {
 #define getnameinfo     sasl_getnameinfo
 #define gai_strerror    sasl_gai_strerror
 #include "gai.h"
+#endif
+
+#ifndef AI_NUMERICHOST   /* support glibc 2.0.x */
+#define	AI_NUMERICHOST	4
+#define NI_NUMERICHOST	2
+#define NI_NAMEREQD	4
+#define NI_NUMERICSERV	8
 #endif
 
 /* handy string manipulation functions */

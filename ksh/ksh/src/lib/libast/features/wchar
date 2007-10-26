@@ -27,6 +27,7 @@ cat <<!
 	#undef	fputws
 	#undef	getwc
 	#undef	getwchar
+	#undef	getws
 	#undef	putwc
 	#undef	putwchar
 	#undef	ungetwc
@@ -40,6 +41,7 @@ cat <<!
 	#define fwscanf		_ast_fwscanf
 	#define getwc		_ast_getwc
 	#define getwchar	_ast_getwchar
+	#define getws		_ast_getws
 	#define putwc		_ast_putwc
 	#define putwchar	_ast_putwchar
 	#define swprintf	_ast_swprintf
@@ -89,17 +91,18 @@ cat <<!
 	extern int		fwide(FILE*, int);
 	extern wint_t		getwc(FILE*);
 	extern wint_t		getwchar(void);
+	extern wchar_t*		getws(wchar_t*);
 	extern wint_t		putwc(wchar_t, FILE*);
 	extern wint_t		putwchar(wchar_t);
 	extern int		swprintf(wchar_t*, size_t, const wchar_t*, ...);
 	extern int		swscanf(const wchar_t*, const wchar_t*, ...);
 	extern wint_t		ungetwc(wint_t, FILE*);
-	extern int		vfwprintf(FILE*, const wchar_t*, _ast_va_list);
-	extern int		vfwscanf(FILE*, const wchar_t*, _ast_va_list);
-	extern int		vwprintf(const wchar_t*, _ast_va_list);
-	extern int		vwscanf(const wchar_t*, _ast_va_list);
-	extern int		vswprintf(wchar_t*, size_t, const wchar_t*, _ast_va_list);
-	extern int		vswscanf(const wchar_t*, const wchar_t*, _ast_va_list);
+	extern int		vfwprintf(FILE*, const wchar_t*, va_list);
+	extern int		vfwscanf(FILE*, const wchar_t*, va_list);
+	extern int		vwprintf(const wchar_t*, va_list);
+	extern int		vwscanf(const wchar_t*, va_list);
+	extern int		vswprintf(wchar_t*, size_t, const wchar_t*, va_list);
+	extern int		vswscanf(const wchar_t*, const wchar_t*, va_list);
 	extern int		wprintf(const wchar_t*, ...);
 	extern int		wscanf(const wchar_t*, ...);
 

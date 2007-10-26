@@ -1,9 +1,10 @@
 dnl
 dnl macros for configure.in to detect openssl
-dnl $Id: openssl.m4,v 1.1 2004/12/02 21:50:38 snsimon Exp $
+dnl $Id: openssl.m4,v 1.2 2006/01/20 20:21:09 snsimon Exp $
 dnl
 
 AC_DEFUN([CMU_HAVE_OPENSSL], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(openssl,[  --with-openssl=PATH     use OpenSSL from PATH],
 	with_openssl=$withval, with_openssl="yes")
 
@@ -12,7 +13,7 @@ AC_ARG_WITH(openssl,[  --with-openssl=PATH     use OpenSSL from PATH],
 
 	if test -d $with_openssl; then
 	  CPPFLAGS="${CPPFLAGS} -I${with_openssl}/include"
-	  CMU_ADD_LIBPATH(${with_openssl}/lib)
+	  CMU_ADD_LIBPATH(${with_openssl}/$CMU_LIB_SUBDIR)
 	fi
 
 case "$with_openssl" in

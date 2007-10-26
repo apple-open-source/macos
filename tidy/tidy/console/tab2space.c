@@ -92,7 +92,7 @@ static void FreeStream(Stream *in)
     MemFree(in);
 }
 
-void AddByte(Stream *in, uint c)
+static void AddByte(Stream *in, uint c)
 {
     if (in->size + 1 >= in->length)
     {

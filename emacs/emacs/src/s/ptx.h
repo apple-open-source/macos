@@ -1,5 +1,6 @@
 /* Definitions file for GNU Emacs running on Sequent DYNIX/ptx 1.x/2.x
-   Copyright (C) 1987, 1990, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1990, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* This file was written by Bill Burton <billb@progress.com>.  Parts were
    adapted from m-ptx1-2.h and process.c as distributed with the Emacs 18.57
@@ -41,8 +42,8 @@ Boston, MA 02111-1307, USA.  */
 
 /* PTX has System V streams.  */
 #define SYSV_STREAMS
- 
-/* Leave out -lPW since it conflicts with term.o and because we're not sure 
+
+/* Leave out -lPW since it conflicts with term.o and because we're not sure
    if the alloca found there by autoconf should be trusted on PTX.  */
 #define LIB_STANDARD -lc
 
@@ -159,7 +160,7 @@ struct timezone
   }								\
   strcpy (pty_name, slavename);
 
-/* Define these to prevent the default logic in process.c:allocate_pty 
+/* Define these to prevent the default logic in process.c:allocate_pty
    from being used.  */
 #define PTY_NAME_SPRINTF
 #define PTY_TTY_NAME_SPRINTF
@@ -169,3 +170,6 @@ struct timezone
 
 /* Kenneth Stailey <kstailey@eagle.dol-esa.gov> says this is needed.  */
 #define POSIX_SIGNALS
+
+/* arch-tag: 4f5e3abc-643b-413a-bae6-ed212d3af997
+   (do not change this comment) */

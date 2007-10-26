@@ -30,13 +30,61 @@
 #include <stdlib.h>
 #include <string.h>
 #include <membership.h>
+#include <membershipPriv.h>
 #include <pwd.h>
 #include <grp.h>
 
+#include <libkern/OSByteOrder.h>
+
 #include "aclvar.h"
 
+/*
+ * NOTE: the copy_int/copy_ext functions are duplicated here, one version of each for
+ * each of native and portable endianity.  A more elegant solution might be called for
+ * if the functions become much more complicated.
+ */
+
+/*
+ * acl_t -> external representation, portable endianity
+ */
 ssize_t
 acl_copy_ext(void *buf, acl_t acl, ssize_t size)
+{
+	struct kauth_filesec *ext = (struct kauth_filesec *)buf;
+	ssize_t		reqsize;
+	int		i;
+
+	/* validate arguments, compute required size */
+	reqsize = acl_size(acl);
+	if (reqsize < 0)
+		return(-1);
+	if (reqsize > size) {
+		errno = ERANGE;
+		return(-1);
+	}
+		
+	/* export the header */
+	ext->fsec_magic = OSSwapHostToBigInt32(KAUTH_FILESEC_MAGIC);
+	ext->fsec_entrycount = OSSwapHostToBigInt32(acl->a_entries);
+	ext->fsec_flags = OSSwapHostToBigInt32(acl->a_flags);
+	
+	/* copy ACEs */
+	for (i = 0; i < acl->a_entries; i++) {
+		/* ACE contents are almost identical */
+		ext->fsec_ace[i].ace_applicable = acl->a_ace[i].ae_applicable;
+		ext->fsec_ace[i].ace_flags =
+		    OSSwapHostToBigInt32((acl->a_ace[i].ae_tag & KAUTH_ACE_KINDMASK) | (acl->a_ace[i].ae_flags & ~KAUTH_ACE_KINDMASK));
+		ext->fsec_ace[i].ace_rights = OSSwapHostToBigInt32(acl->a_ace[i].ae_perms);
+	}		
+
+	return(reqsize);
+}
+
+/*
+ * acl_t -> external representation, native system endianity
+ */
+ssize_t
+acl_copy_ext_native(void *buf, acl_t acl, ssize_t size)
 {
 	struct kauth_filesec *ext = (struct kauth_filesec *)buf;
 	ssize_t		reqsize;
@@ -70,8 +118,45 @@ acl_copy_ext(void *buf, acl_t acl, ssize_t size)
 	return(reqsize);
 }
 
+/*
+ * external representation, portable system endianity -> acl_t
+ *
+ * Unlike acl_copy_ext, we can't mung the buffer as it doesn't belong to us.
+ */
 acl_t
 acl_copy_int(const void *buf)
+{
+	struct kauth_filesec *ext = (struct kauth_filesec *)buf;
+	acl_t		ap;
+	int		i;
+
+	if (ext->fsec_magic != OSSwapHostToBigInt32(KAUTH_FILESEC_MAGIC)) {
+		errno = EINVAL;
+		return(NULL);
+	}
+
+	if ((ap = acl_init(OSSwapBigToHostInt32(ext->fsec_entrycount))) != NULL) {
+		/* copy useful header fields */
+		ap->a_flags = OSSwapBigToHostInt32(ext->fsec_flags);
+		ap->a_entries = OSSwapBigToHostInt32(ext->fsec_entrycount);
+		/* copy ACEs */
+		for (i = 0; i < ap->a_entries; i++) {
+			/* ACE contents are literally identical */
+			ap->a_ace[i].ae_magic = _ACL_ENTRY_MAGIC;
+			ap->a_ace[i].ae_applicable = ext->fsec_ace[i].ace_applicable;
+			ap->a_ace[i].ae_flags = OSSwapBigToHostInt32(ext->fsec_ace[i].ace_flags) & ~KAUTH_ACE_KINDMASK;
+			ap->a_ace[i].ae_tag = OSSwapBigToHostInt32(ext->fsec_ace[i].ace_flags) & KAUTH_ACE_KINDMASK;
+			ap->a_ace[i].ae_perms = OSSwapBigToHostInt32(ext->fsec_ace[i].ace_rights);
+		}
+	}
+	return(ap);
+}
+
+/*
+ * external representation, native system endianity -> acl_t
+ */
+acl_t
+acl_copy_int_native(const void *buf)
 {
 	struct kauth_filesec *ext = (struct kauth_filesec *)buf;
 	acl_t		ap;
@@ -89,9 +174,6 @@ acl_copy_int(const void *buf)
 		/* copy ACEs */
 		for (i = 0; i < ap->a_entries; i++) {
 			/* ACE contents are literally identical */
-/* XXX Consider writing the magic out to the persistent store  
- * to detect corruption
- */
 			ap->a_ace[i].ae_magic = _ACL_ENTRY_MAGIC;
 			ap->a_ace[i].ae_applicable = ext->fsec_ace[i].ace_applicable;
 			ap->a_ace[i].ae_flags = ext->fsec_ace[i].ace_flags & ~KAUTH_ACE_KINDMASK;
@@ -199,16 +281,15 @@ uuid_to_name(uuid_t *uu, uid_t *id, int *isgid)
 errout:		;    //warn("Unable to translate qualifier on ACL\n");
 	}
     }
-    return strdup("");
+    return NULL;
 }
 
 acl_t
 acl_from_text(const char *buf_p)
 {
-    int i, error = 0, need_tag = 1, ug_tag = -1;
-    char *buf;
-    char *entry, *field, *sub,
-	*last_field, *last_entry, *last_sub;
+    int i, error = 0, need_tag, ug_tag;
+    char *buf, *orig_buf;
+    char *entry, *field, *sub;
     uuid_t *uu;
     struct passwd *tpass = NULL;
     struct group *tgrp = NULL;
@@ -218,41 +299,51 @@ acl_from_text(const char *buf_p)
     acl_tag_t tag;
     acl_t acl_ret;
 
-    if ((acl_ret = acl_init(1)) == NULL)
-	return NULL;
-
     if (buf_p == NULL)
+    {
+	errno = EINVAL;
 	return NULL;
+    }
 
     if ((buf = strdup(buf_p)) == NULL)
 	return NULL;
 
-    /* acl flags */
-    if ((entry = strtok_r(buf, "\n", &last_entry)) != NULL)
+    if ((acl_ret = acl_init(1)) == NULL)
+	return NULL;
+
+    orig_buf = buf;
+
+    /* global acl flags
+     * format: !#acl <version> [<flags>]
+     */
+    if ((entry = strsep(&buf, "\n")) != NULL && *entry)
     {
-	/* stamp */
-	field = strtok_r(entry, " ", &last_field);
-	if (field && strncmp(field, "!#acl", strlen("!#acl")))
+	/* field 1: !#acl */
+	field = strsep(&entry, " ");
+	if (*field && strncmp(field, "!#acl", strlen("!#acl")))
 	{
 	    error = EINVAL;
 	    goto exit;
 	}
 
-	/* version */
-	field = strtok_r(NULL, " ", &last_field);
+	/* field 2: <version>
+	 * currently only accepts 1
+	 */
+	field = strsep(&entry, " ");
 	errno = 0;
-	if (field == NULL || strtol(field, NULL, 0) != 1)
+	if (!*field || strtol(field, NULL, 0) != 1)
 	{
 	    error = EINVAL;
 	    goto exit;
 	}
 
-	/* optional flags */
-	if((field = strtok_r(NULL, " ", &last_field)) != NULL)
+	/* field 3: <flags>
+	 * optional
+	 */
+	if((field = strsep(&entry, " ")) != NULL && *field)
 	{
 	    acl_get_flagset_np(acl_ret, &flags);
-	    for (sub = strtok_r(field, ",", &last_sub); sub;
-		 sub = strtok_r(NULL, ",", &last_sub))
+	    while ((sub = strsep(&field, ",")) && *sub)
 	    {
 		for (i = 0; acl_flags[i].name != NULL; ++i)
 		{
@@ -271,45 +362,73 @@ acl_from_text(const char *buf_p)
 		}
 	    }
 	}
+    } else {
+	error = EINVAL;
+	goto exit;
     }
 
-    for (entry = strtok_r(NULL, "\n", &last_entry); entry;
-	 entry = strtok_r(NULL, "\n", &last_entry))
+    /* parse each acl line
+     * format: <user|group>:
+     *	    [<uuid>]:
+     *	    [<user|group>]:
+     *	    [<uid|gid>]:
+     *	    <allow|deny>[,<flags>]
+     *	    [:<permissions>[,<permissions>]]
+     *
+     * only one of the user/group identifies is required
+     * the first one found is used
+     */
+    while ((entry = strsep(&buf, "\n")) && *entry)
     {
-	field = strtok_r(entry, ":", &last_field);
+	need_tag = 1;
+	ug_tag = -1;
+
+	/* field 1: <user|group> */
+	field = strsep(&entry, ":");
 
 	if((uu = calloc(1, sizeof(uuid_t))) == NULL)
+	{
+	    error = errno;
 	    goto exit;
+	}
 
 	if(acl_create_entry(&acl_ret, &acl_entry))
+	{
+	    error = errno;
 	    goto exit;
+	}
 
-	acl_get_flagset_np(acl_entry, &flags);
-	acl_get_permset(acl_entry, &perms);
+	if (-1 == acl_get_flagset_np(acl_entry, &flags)
+	 || -1 == acl_get_permset(acl_entry, &perms))
+	{
+	    error = errno;
+	    goto exit;
+	}
 
 	switch(*field)
 	{
 	    case 'u':
-		if(!strncmp(buf, "user", strlen(field)))
+		if(!strcmp(field, "user"))
 		    ug_tag = ID_TYPE_UID;
 		break;
 	    case 'g':
-		if(!strncmp(buf, "group", strlen(field)))
+		if(!strcmp(field, "group"))
 		    ug_tag = ID_TYPE_GID;
 		break;
-	    
+	    default:
+		error = EINVAL;
+		goto exit;
 	}
 
-	/* uuid */
-	if ((field = strtok_r(NULL, ":", &last_field)) != NULL)
+	/* field 2: <uuid> */
+	if ((field = strsep(&entry, ":")) != NULL && *field)
 	{
 	    mbr_string_to_uuid(field, *uu);
 	    need_tag = 0;
 	}
-	/* name */
-	if (*last_field == ':')  // empty username field
-	    last_field++;
-	else if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
+
+	/* field 3: <username|groupname> */
+	if ((field = strsep(&entry, ":")) != NULL && *field && need_tag)
 	{
 	    switch(ug_tag)
 	    {
@@ -329,13 +448,15 @@ acl_from_text(const char *buf_p)
 			    goto exit;
 			}
 		    break;
+		default:
+		    error = EINVAL;
+		    goto exit;
 	    }
 	    need_tag = 0;
 	}
-	/* uid */
-	if (*last_field == ':') // empty uid field
-	    last_field++;
-	else if ((field = strtok_r(NULL, ":", &last_field)) != NULL && need_tag)
+
+	/* field 4: <uid|gid> */
+	if ((field = strsep(&entry, ":")) != NULL && *field && need_tag)
 	{
 	    uid_t id;
 	    error = 0;
@@ -368,30 +489,35 @@ acl_from_text(const char *buf_p)
 	    need_tag = 0;
 	}
 
-	/* nothing do set as qualifier */
+	/* sanity check: nothing set as qualifier */
 	if (need_tag)
 	{
 	    error = EINVAL;
 	    goto exit;
 	}
 
-	/* flags */
-	if((field = strtok_r(NULL, ":", &last_field)) == NULL)
+	/* field 5: <flags> */
+	if((field = strsep(&entry, ":")) == NULL || !*field)
 	{
 	    error = EINVAL;
 	    goto exit;
 	}
 
-	for (tag = 0, sub = strtok_r(field, ",", &last_sub); sub;
-	     sub = strtok_r(NULL, ",", &last_sub))
+	for (tag = 0; (sub = strsep(&field, ",")) && *sub;)
 	{
-	    if (!tag && !strcmp(sub, "allow")) {
+	    if (!tag)
+	    {
+		if (!strcmp(sub, "allow"))
 		    tag = ACL_EXTENDED_ALLOW;
-		    continue;
-	    } else if (!tag && !strcmp(sub, "deny")) {
+		else if (!strcmp(sub, "deny"))
 		    tag = ACL_EXTENDED_DENY;
-		    continue;
+		else {
+		    error = EINVAL;
+		    goto exit;
+		}
+		continue;
 	    }
+
 	    for (i = 0; acl_flags[i].name != NULL; ++i)
 	    {
 		if (acl_flags[i].type & (ACL_TYPE_FILE | ACL_TYPE_DIR)
@@ -409,9 +535,10 @@ acl_from_text(const char *buf_p)
 	    }
 	}
 
-	if((field = strtok_r(NULL, ":", &last_field)) != NULL) {
-	    for (sub = strtok_r(field, ",", &last_sub); sub;
-		 sub = strtok_r(NULL, ",", &last_sub))
+	/* field 6: <perms> (can be empty) */
+	if((field = strsep(&entry, ":")) != NULL && *field)
+	{
+	    while ((sub = strsep(&field, ",")) && *sub)
 	    {
 		for (i = 0; acl_perms[i].name != NULL; i++)
 		{
@@ -434,7 +561,7 @@ acl_from_text(const char *buf_p)
 	acl_set_qualifier(acl_entry, *uu);
     }
 exit:
-    free(buf);
+    free(orig_buf);
     if (error)
     {
 	acl_free(acl_ret);
@@ -447,31 +574,32 @@ exit:
 char *
 acl_to_text(acl_t acl, ssize_t *len_p)
 {
-	uuid_t *uu;
 	acl_tag_t tag;
 	acl_entry_t entry = NULL;
 	acl_flagset_t flags;
 	acl_permset_t perms;
 	uid_t id;
-	char *str, uu_str[256];
 	int i, first;
 	int isgid;
 	size_t bufsize = 1024;
-	char *buf;
+	char *buf = NULL;
 
 	if (!_ACL_VALID_ACL(acl)) {
 		errno = EINVAL;
 		return NULL;
 	}
 
-	buf = malloc(bufsize);
 	if (len_p == NULL)
-	    len_p = alloca(sizeof(ssize_t));
+	    if ((len_p = alloca(sizeof(ssize_t))) == NULL)
+		goto err_nomem;
 
 	*len_p = 0;
 
+	if ((buf = malloc(bufsize)) == NULL)
+	    goto err_nomem;
+
 	if (!raosnprintf(&buf, &bufsize, len_p, "!#acl %d", 1))
-	    return NULL;
+	    goto err_nomem;
 
 	if (acl_get_flagset_np(acl, &flags) == 0)
 	{
@@ -482,31 +610,40 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 		{
 		    if(!raosnprintf(&buf, &bufsize, len_p, "%s%s",
 			    first++ ? "," : " ", acl_flags[i].name))
-			return NULL;
+			goto err_nomem;
 		}
 	    }
 	}
 	for (;acl_get_entry(acl,
 		    entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0;)
 	{
+	    int valid;
+	    uuid_t *uu;
+	    char *str, uu_str[37];
+
 	    if (((uu = (uuid_t *) acl_get_qualifier(entry)) == NULL)
 		|| (acl_get_tag_type(entry, &tag) != 0)
 		|| (acl_get_flagset_np(entry, &flags) != 0)
-		|| (acl_get_permset(entry, &perms) != 0))
+		|| (acl_get_permset(entry, &perms) != 0)
+		|| ((str = uuid_to_name(uu, &id, &isgid)) == NULL)) {
+		if (uu != NULL) acl_free(uu);
 		continue;
+	    }
 
-	    str = uuid_to_name(uu, &id, &isgid);
-	    mbr_uuid_to_string(uu, uu_str); // XXX how big should uu_str be? // XXX error?
+	    uuid_unparse_upper(*uu, uu_str);
 
-	    if(!raosnprintf(&buf, &bufsize, len_p, "\n%s:%s:%s:%d:%s",
+	    valid = raosnprintf(&buf, &bufsize, len_p, "\n%s:%s:%s:%d:%s",
 		isgid ? "group" : "user",
 		uu_str,
 		str,
 		id,
-		(tag == ACL_EXTENDED_ALLOW) ? "allow" : "deny"))
-		return NULL;
+		(tag == ACL_EXTENDED_ALLOW) ? "allow" : "deny");
 
 	    free(str);
+	    acl_free(uu);
+
+	    if (!valid)
+		goto err_nomem;
 
 	    for (i = 0; acl_flags[i].name != NULL; ++i)
 	    {
@@ -516,7 +653,7 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 		    {
 			if(!raosnprintf(&buf, &bufsize, len_p, ",%s",
 			    acl_flags[i].name))
-			    return NULL;
+			    goto err_nomem;
 		    }
 		}
 	    }
@@ -528,9 +665,8 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 		    if(acl_get_perm_np(perms, acl_perms[i].perm) != 0)
 		    {
 			if(!raosnprintf(&buf, &bufsize, len_p, "%s%s",
-			    first++ ? "," : ":",
-			    acl_perms[i].name))
-			    return NULL;
+			    first++ ? "," : ":", acl_perms[i].name))
+			    goto err_nomem;
 		    }
 		}
 	    }
@@ -538,6 +674,13 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 	buf[(*len_p)++] = '\n';
 	buf[(*len_p)] = 0;
 	return buf;
+
+err_nomem:
+	if (buf != NULL)
+	    free(buf);
+
+	errno = ENOMEM;
+	return NULL;
 }
 
 ssize_t

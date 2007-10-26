@@ -82,7 +82,6 @@ KLBoolean __KLTranslatePrincipal (const char       *inName,
     const char  *libdefaultRealmList[4] = { "libdefaults", inRealm, "principal_translation", NULL };
     const char  *libdefaultList[3]      = { "libdefaults", "principal_translation", NULL };
     const char  *v5RealmsList[4]        = { "realms", inRealm, "principal_translation", NULL };
-    const char  *v4RealmsList[4]        = { REALMS_V4_PROF_REALMS_SECTION, inRealm, "principal_translation", NULL };
     char       **values = NULL;
     
     CFBundleRef				translatorBundle = NULL;
@@ -104,12 +103,8 @@ KLBoolean __KLTranslatePrincipal (const char       *inName,
             err = profile_get_values (profile, libdefaultList, &values);
         }
 
-        if ((err != klNoErr) && __KLRealmHasKerberos5Profile (inRealm)) {
+        if (err != klNoErr) {
             err = profile_get_values (profile, v5RealmsList, &values);
-        }
-        
-        if ((err != klNoErr) && __KLRealmHasKerberos4Profile (inRealm)) {
-            err = profile_get_values (profile, v4RealmsList, &values);
         }
     }
         

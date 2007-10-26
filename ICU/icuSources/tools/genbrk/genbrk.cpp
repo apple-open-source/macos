@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -37,12 +37,12 @@
 #include "uoptions.h"
 #include "unewdata.h"
 #include "ucmndata.h"
+#include "rbbidata.h"
+#include "cmemory.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define DATA_TYPE "brk"
 
 static char *progName;
 static UOption options[]={
@@ -108,8 +108,10 @@ DataHeader dh ={
         0,                          //     reserved
 
     { 0x42, 0x72, 0x6b, 0x20 },     //     dataFormat="Brk "
-    { 3, 0, 0, 0 },                 //     formatVersion
-        { 4, 0, 0, 0 }                //   dataVersion (Unicode version)
+    { 0xff, 0, 0, 0 },              //     formatVersion.  Filled in later with values
+                                    //      from the RBBI rule builder.  The  values declared
+                                    //      here should never appear in any real RBBI data.
+        { 4, 1, 0, 0 }              //   dataVersion (Unicode version)
     }};
 
 #endif
@@ -175,35 +177,14 @@ int  main(int argc, char **argv) {
 #if UCONFIG_NO_BREAK_ITERATION
 
     UNewDataMemory *pData;
-    char msg[2048], folder[2048], name[32];
-    char *basename;
-    int length;
-
-    /* split the outFileName into folder + name + type */
-    strcpy(folder, outFileName);
-    basename = strrchr(folder, U_FILE_SEP_CHAR);
-    if(basename == NULL) {
-        basename = folder;
-    } else {
-        ++basename;
-    }
-
-    /* copy the data name and remove it from the folder */
-    strcpy(name, basename);
-    *basename = 0;
+    char msg[1024];
 
     /* write message with just the name */
-    sprintf(msg, "genbrk writes dummy %s because of UCONFIG_NO_BREAK_ITERATION, see uconfig.h", name);
+    sprintf(msg, "genbrk writes dummy %s because of UCONFIG_NO_BREAK_ITERATION, see uconfig.h", outFileName);
     fprintf(stderr, "%s\n", msg);
 
-    /* remove the type suffix (hardcode to DATA_TYPE) */
-    length = strlen(name);
-    if(length > 4 && name[length - 4] == '.') {
-        name[length - 4] = 0;
-    }
-
     /* write the dummy data file */
-    pData = udata_create(folder, DATA_TYPE, name, &dummyDataInfo, NULL, &status);
+    pData = udata_create(outDir, NULL, outFileName, &dummyDataInfo, NULL, &status);
     udata_writeBlock(pData, msg, strlen(msg));
     udata_finish(pData, &status);
     return (int)status;
@@ -318,6 +299,8 @@ int  main(int argc, char **argv) {
     const uint8_t  *outData;
     outData = bi->getBinaryRules(outDataSize);
 
+    // Copy the data format version numbers from the RBBI data header into the UDataMemory header.
+    uprv_memcpy(dh.info.formatVersion, ((RBBIDataHeader *)outData)->fFormatVersion, sizeof(dh.info.formatVersion));
 
     //
     //  Create the output file
@@ -330,6 +313,8 @@ int  main(int argc, char **argv) {
                          outFileName, u_errorName(status));
         exit(status);
     }
+
+
     //  Write the data itself.
     udata_writeBlock(pData, outData, outDataSize);
     // finish up 

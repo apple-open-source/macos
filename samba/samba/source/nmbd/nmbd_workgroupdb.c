@@ -23,8 +23,6 @@
 
 #include "includes.h"
 
-extern int ClientNMB;
-
 extern uint16 samba_nb_type;
 
 int workgroup_count = 0; /* unique index key: one for each workgroup */
@@ -322,7 +320,7 @@ void expire_workgroups_and_servers(time_t t)
 			expire_servers(work, t);
 
 			if ((work->serverlist == NULL) && (work->death_time != PERMANENT_TTL) && 
-					((t == -1) || (work->death_time < t))) {
+					((t == (time_t)-1) || (work->death_time < t))) {
 				DEBUG(3,("expire_workgroups_and_servers: Removing timed out workgroup %s\n",
 						work->work_group));
 				remove_workgroup_from_subnet(subrec, work);

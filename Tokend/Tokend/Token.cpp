@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *  Copyright (c) 2004,2007 Apple Inc. All Rights Reserved.
  * 
  *  @APPLE_LICENSE_HEADER_START@
  *  
@@ -93,7 +93,7 @@ CSSM_RETURN Token::_probe(SecTokendProbeFlags flags, uint32 *score,
 {
 	BEGIN
 	*score = token->probe(flags, tokenUid);
-	secdebug("tokend", "flags=%ld returning score=%ld  uid='%s'",
+	secdebug("tokend", "flags=%d returning score=%d  uid='%s'",
 		flags, *score, tokenUid);
 	END(CSSM)
 }
@@ -113,7 +113,7 @@ CSSM_RETURN Token::_establish(const CSSM_GUID *guid, uint32 subserviceID,
 	char printName[PATH_MAX])
 {
 	BEGIN
-	secdebug("tokend", "establish(%s,%ld,0x%lX)",
+	secdebug("tokend", "establish(%s,%d,0x%X)",
 		Guid::required(guid).toString().c_str(), subserviceID, flags);
 
 	token->establish(guid, subserviceID, flags, cacheDirectory, workDirectory,
@@ -133,7 +133,7 @@ CSSM_RETURN Token::_establish(const CSSM_GUID *guid, uint32 subserviceID,
 CSSM_RETURN Token::_terminate(uint32 reason, uint32 options)
 {
 	BEGIN
-	secdebug("tokend", "terminate(%ld,0x%ld)", reason, options);
+	secdebug("tokend", "terminate(%d,0x%d)", reason, options);
 	token->terminate(reason, options);
 	END(CSSM)
 }
@@ -692,6 +692,7 @@ CSSM_RETURN Token::_isLocked(uint32 *locked)
 	BEGIN
 	secdebug("tokend", "_isLocked");
 	Required(locked) = token->isLocked();
+	secdebug("tokend", "_isLocked: ", *locked);
 	END(DL)
 }
 
@@ -796,7 +797,7 @@ std::string Token::cachedObjectPath(CSSM_DB_RECORDTYPE relationId,
 	const std::string &name) const
 {
 	char buffer[9];
-	sprintf(buffer, "%lX", relationId);
+	sprintf(buffer, "%X", relationId);
 
 	return mCacheDirectory + "/" + buffer + "-" + name;
 }
@@ -819,8 +820,8 @@ Cursor *Token::createCursor(const CSSM_QUERY *inQuery)
 void Token::authenticate(CSSM_DB_ACCESS_TYPE mode,
 	const AccessCredentials *cred)
 {
-	int pinNum;
-	if (!cred || sscanf(cred->EntryTag, "PIN%d", &pinNum) != 1)
+	int pinNum = pinFromAclTag(cred->EntryTag);
+	if (!pinNum || !cred)
 		pinNum = -1; // No PIN in tag.
 
 	if (mode == CSSM_DB_ACCESS_RESET)
@@ -891,8 +892,8 @@ void Token::changeAcl(const AccessCredentials &cred, const AclEdit &edit)
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_INPUT_POINTER);
 	const AclEntryPrototype &newProto = newEntry->proto();
 
-	unsigned int pinNum;
-	if (sscanf(newProto.EntryTag, "PIN%d", &pinNum) != 1)
+	unsigned int pinNum = pinFromAclTag(newProto.EntryTag);
+	if (!pinNum)
 		CssmError::throwMe(CSSM_ERRCODE_OBJECT_ACL_NOT_SUPPORTED);
 
 	const TypedList &subject = newProto.subject();
@@ -1121,5 +1122,3 @@ void ISO7816Token::name(const char *printName)
 
 } // end namespace Tokend
 
-
-/* arch-tag: E93A5DC0-DF80-11D8-9F16-000A95C4302E */

@@ -1,5 +1,6 @@
 /*-
  * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2007 Apple Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -42,6 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 char **args;
 u_int cargs, nargs;
@@ -59,110 +61,118 @@ void record_undef(const char *);
 void add_def(const char *);
 void combine_and_addarg (const char *, const char *);
 
-int dash_dash_seen = 0;
-
 int
 main(int argc, char *argv[])
 {
-	int ch, i;
 	int link = 1;
 	int inputs = 0;
-
-	args = NULL;
-	cargs = nargs = 0;
-
-	while ((ch = getopt(argc, argv, "cD:EgI:L:o:O:sU:l:")) != -1) {
-		if (ch == 'l') {
-			/* Gone too far. Back up and get out. */
-			if (argv[optind - 1][0] == '-')
-				optind -= 1;
-			else
-				optind -= 2;
-			break;
-		} else if (ch == '?')
-			usage();
-	}
+	int verbose = 0;
 
 	addarg("cc");
 	addarg("-std=iso9899:1999");
 	addarg("-pedantic");
-	addarg("-Wextra-tokens");
+	addarg("-Wextra-tokens"); /* Radar 4205857 */
+#if defined (__ppc__) || defined (__ppc64__)
+	/* on ppc long double doesn't work */
 	addarg("-mlong-double-64");
-	addarg("-fmath-errno");
+#endif
+	addarg("-fmath-errno");  /* Radar 4011622 */
 	addarg("-fno-builtin-pow");
 	addarg("-fno-builtin-powl");
 	addarg("-fno-builtin-powf");
 
-	for (i = 1; i < optind; i++) {
-	  /* "--" indicates end of options. Radar 3761967.  */
-	  if (strcmp (argv[i], "--") == 0)
-	    dash_dash_seen = 1;
-	  /* White space is OK between -O and 1 or 2. Radar 3762315.  */
-	  else if (strcmp (argv[i], "-O") == 0) {
-	    if (i+1 < argc) {
-	      if (strcmp (argv[i+1], "1") == 0 || strcmp (argv[i+1], "0") == 0) {
-		combine_and_addarg(argv[i], argv[i+1]);
-		i++;
-	      } else
-		addarg(argv[i]);
-	    }
-	  } else if (strcmp (argv[i], "-U") == 0) {
-	    /* Record undefined macros.  */
-	    record_undef (argv[i+1]);
-	    addarg(argv[i]);
-	    addarg(argv[i+1]);
-	    i++;
-	  } else if (strncmp (argv[i], "-U", 2) == 0) {
-	    /* Record undefined macros.  */
-	    record_undef (argv[i]+2);
-	    addarg(argv[i]);
-	  } else if (strcmp (argv[i], "-L") == 0 && i+1 < argc) {
-	    combine_and_addarg(argv[i], argv[i+1]);
-	    i++;
-	  } else if (strcmp (argv[i], "-D") == 0) {
-	    add_def (argv[i+1]);
-	    i++;
-	  } else if (strncmp (argv[i], "-D", 2) == 0)
-	    add_def (argv[i]+2);
-	  else {
-	    addarg(argv[i]);
-	    if (argv[i][0] == '-') {
-	      if (argv[i][1] == 'c' ||
-		  argv[i][1] == 'E')
+	for (;;)
+	  {
+	    int ch = getopt(argc, argv, "cD:EgI:L:o:O:sU:W:l:");
+	    if (optind >= argc && ch == -1)
+	      break;
+	    switch (ch)
+	      {
+	      case 'c':
+		addarg ("-c");
 		link = 0;
-            } else
-	      inputs++;
+		break;
+	      case 'D':
+		add_def (optarg);
+		break;
+	      case 'E':
+		addarg ("-E");
+		link = 0;
+		break;
+	      case 'g':
+		addarg ("-g");
+		break;
+	      case 'I':
+		combine_and_addarg ("-I", optarg);
+		break;
+	      case 'L':
+		combine_and_addarg ("-L", optarg);
+		break;
+	      case 'o':
+		addarg ("-o");
+		addarg (optarg);
+		break;
+	      case 'O':
+		combine_and_addarg ("-O", optarg);
+		break;
+	      case 's':
+		addarg ("-s");
+		break;
+	      case 'U':
+		record_undef (optarg);
+		combine_and_addarg ("-U", optarg);
+		break;
+	      case 'W':
+		if (strcmp (optarg, "64") == 0)
+		  addarg ("-m64");
+		else if (strcmp (optarg, "verbose") == 0)
+		  {
+		    addarg ("-v");
+		    verbose = 1;
+		  }
+		else
+		  errx(EX_USAGE, "invalid argument `%s' to -W", optarg);
+		break;
+	      case 'l':
+		addlib (optarg);
+		break;
+	      case -1:
+		if (strcmp (argv[optind-1], "--") == 0)
+		  {
+		    while (optind < argc)
+		      {
+			if (argv[optind][0] == '-')
+			  combine_and_addarg ("./", argv[optind]);
+			else
+			  addarg (argv[optind]);
+			inputs++;
+			optind++;
+		      }
+		  }
+		else
+		  {
+		    addarg (argv[optind++]);
+		    inputs++;
+		  }
+		break;
+	      case '?':
+		usage ();
+		break;
+	      }
 	  }
-	}
-	while (i < argc) {
-		if (strncmp(argv[i], "-l", 2) == 0) {
-			if (argv[i][2] != '\0')
-				addlib(argv[i++] + 2);
-			else {
-				if (argv[++i] == NULL)
-					usage();
-				addlib(argv[i++]);
-			}
-		}
-		else if (strcmp (argv[i], "-L") == 0 && i+1 < argc) {
-		    combine_and_addarg(argv[i], argv[i+1]);
-		    i++;
-		    i++;
-		}
-		else if (strcmp (argv[i], "--") == 0) {
-		  dash_dash_seen = 1;
-		  i++;
-		} else {
-                  addarg(argv[i++]);
-		  inputs++;
-		}
-	}
+
 	if (link && inputs > 0) {
-		dash_dash_seen = 0; /* don't ./ -liconv */
-		addlib("iconv");
+	  addarg("-liconv");
 	}
+	if (verbose)
+	  {
+	    int i;
+	    for (i = 0; args[i]; i++)
+	      printf ("\"%s\" ", args[i]);
+	    putchar ('\n');
+	  }
 	execv("/usr/bin/cc", args);
-	err(1, "/usr/bin/cc");
+	err(EX_OSERR, "/usr/bin/cc");
 }
 
 /* Combine item1 and item2 and used them as one argument.
@@ -171,6 +181,8 @@ void
 combine_and_addarg (const char *item1, const char *item2)
 {
   char *item = (char *) malloc (sizeof (char) * (strlen(item1) + strlen(item2) + 1));
+  if (item == NULL)
+    err (EX_OSERR, "malloc");
   strcpy (item, item1);
   strcat (item, item2);
   addarg (item);
@@ -182,12 +194,13 @@ record_undef (const char *item)
 {
   if (undef_nargs + 1 > undef_cargs) {
     undef_cargs += 16;
-    if ((undef_args = realloc(undef_args, sizeof(*undef_args) * undef_cargs)) == NULL)
-      err(1, "malloc");
+    undef_args = realloc(undef_args, sizeof(*undef_args) * undef_cargs);
+    if (undef_args == NULL)
+      err(EX_OSERR, "malloc");
   }
 
   if ((undef_args[undef_nargs++] = strdup(item)) == NULL)
-    err(1, "strdup");
+    err(EX_OSERR, "strdup");
   undef_args[undef_nargs] = NULL;
 }
 
@@ -197,28 +210,17 @@ void
 add_def (const char *item)
 {
   u_int i;
-  char *updated_def;
-  if (strlen (item) > 2)
-    for (i = 0; i < undef_nargs; i++)
-      {
-	if (strcmp (item, undef_args[i]) == 0)
-	  return;
-	else {
-	  int undef_len = strlen (undef_args[i]);
-	  int def_len = strlen (item);
-	  if (undef_len < def_len) {
-	    const char *p = item + undef_len;
-	    if (*p == '=') {
-	      if (strncmp (item, undef_args[i], undef_len) == 0)
-		return;
-	    }
-	  }
-	    
-	}
-      }
-  updated_def = (char *) malloc (strlen (item) + 3);
-  sprintf (updated_def,"-D%s",item);
-  addarg (updated_def);
+  const char * equ_pos;
+  
+  equ_pos = strchr (item, '=');
+  if (equ_pos == NULL)
+    equ_pos = item + strlen (item);
+
+  for (i = 0; i < undef_nargs; i++)
+    if (strncmp (item, undef_args[i], equ_pos - item) == 0
+	&& undef_args[i][equ_pos - item] == '\0')
+      return;
+  combine_and_addarg ("-D", item);
 }
 
 void
@@ -227,42 +229,30 @@ addarg(const char *item)
   if (nargs + 2 > cargs) {
     cargs += 16;
     if ((args = realloc(args, sizeof(*args) * cargs)) == NULL)
-      err(1, "malloc");
+      err(EX_OSERR, "malloc");
   }
   
-  if (dash_dash_seen && strncmp (item, "-", 1) == 0)
-    {
-      char *updated_item = (char *) malloc (strlen (item) + 3);
-      sprintf (updated_item,"./%s",item);
-      args[nargs++] = updated_item;
-    }
-  else 
-    {
-      args[nargs++] = strdup (item);
-    }
+  args[nargs++] = strdup (item);
   
   if (args[nargs-1] == NULL)
-    err(1, "strdup");
+    err(EX_OSERR, "strdup");
   args[nargs] = NULL;
 }
 
 void
 addlib(const char *lib)
 {
+  if (strcmp(lib, "pthread") == 0)
+    /* pthread functionality is in libc. */
+    return;
+  if (strcmp(lib, "rt") == 0)
+    /* librt functionality is in libc or unimplemented. */
+    return;
+  if (strcmp(lib, "xnet") == 0)
+    /* xnet functionality is in libc. */
+    return;
 
-	if (strcmp(lib, "pthread") == 0)
-		/* pthread functionality is in libc. */
-                ;
-	else if (strcmp(lib, "rt") == 0)
-		/* librt functionality is in libc or unimplemented. */
-		;
-	else if (strcmp(lib, "xnet") == 0)
-		/* xnet functionality is in libc. */
-		;
-	else {
-		addarg("-l");
-		addarg(lib);
-	}
+  combine_and_addarg("-l", lib);
 }
 
 void
@@ -271,6 +261,6 @@ usage(void)
 	fprintf(stderr,
 "usage: c99 [-cEgs] [-D name[=value]] [-I directory] ... [-L directory] ...\n");
 	fprintf(stderr,
-"       [-o outfile] [-O optlevel] [-U name]... operand ...\n");
+"       [-o outfile] [-O optlevel] [-U name]... [-W 64] operand ...\n");
 	exit(1);
 }

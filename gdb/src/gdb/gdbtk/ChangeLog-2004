@@ -1,0 +1,209 @@
+2004-12-13  Ben Elliston  <bje@au.ibm.com>
+
+	Remove some warnings:
+	* generic/gdbtk-hooks.c (gdbtk_pre_add_symbol): Cast `name'.
+	* generic/gdbtk-cmds.c (gdbtk_dis_asm_read_memory): Remove.
+
+2004-12-08  Keith Seitz  <kseitz@sources.redhat.com>
+
+	* library/download.ith (completed_steps): New variable.
+	* library/download.itb (Download::constructor): Remove
+	"-fraction" option from iwidgets feedback widget. It's not a valid
+	option!
+	(update_download): Compute the step number and use that to
+	update the feedback widget.
+	(done): Use completed_steps to figure out how many steps
+	the dumb feedback meter needs to show full.
+	(download_it): Initialize completed_steps.
+	
+2004-11-18  Keith Seitz  <kseitz@sources.redhat.com>
+
+	* generic/gdbtk-wrapper.c (wrap_type_print): Use value_type instead
+	of VALUE_TYPE.
+	* generic/gdbtk-cmds.c (gdb_eval): Likewise.
+
+2004-10-31  David Lecomber <dsl@sources.redhat.com>
+	* generic/gdbtk-register.c: Add message parameter
+	to call of get_selected_frame.
+
+2004-08-27  Martin Hunt  <hunt@redhat.com>
+
+	* library/ipc.tcl: New file.
+	* library/ipcpref.ith: New file.
+	* library/ipcpref.itb: New file.
+
+	* library/srcwin.itb (SrcWin::inferior): Call ipc
+	send if enabled.
+	
+	* library/prefs.tcl (pref_set_defaults): Enable color
+	schemes by default. Add IPC defaults.
+	
+	* library/srcbar.itcl (create_pref_menu): Create
+	"Advanced" cascade menu and put "Edit Color Schemes"
+	and "IPC Support" under it.
+
+	* library/managedwin.itb (ManagedWin::destructor): 
+	If IPC enabled then send "quit" on exit.
+	
+	* library/main.tcl: Start IPC if enabled.
+
+	* library/prefs.tcl (pref_set_defaults): Add IPC defaults.
+
+	* library/gdbmenubar.itcl (menubar_get_current_menu): 
+	New method.
+
+2004-08-09  Ben Elliston  <bje@au.ibm.com>
+
+	* generic/gdbtk-register.c (get_register_size): Use
+	register_size() instead of DEPRECATED_REGISTER_RAW_SIZE.
+	(get_register): Likewise.
+	(register_changed_p): Likewise.
+
+2004-07-02  Martin Hunt  <hunt@redhat.com>
+
+	* library/targetselection.itb: Use /dev/comX for
+	cygwin instead of just comX.
+
+	* library/interface.tcl (gdbtk_tcl_preloop): Set baud rate.
+
+2004-07-02  Martin Hunt  <hunt@redhat.com>
+	
+	* generic/gdbtk-cmds.c (symtab_to_filename): New function. Like
+	symtab_to_fullname() but returns the filename if the fullname 
+	cannot be found.
+	
+	* generic/gdbtk-cmds.c (gdb_find_file_command): Revert
+	patch of 2004-06-11. Use symtab_to_filename() again.
+	(gdb_loc): Ditto.
+	(gdb_loadfile): Ditto.
+	* generic/gdbtk-bp.c (gdb_get_breakpoint_info): Ditto.
+	(gdb_get_tracepoint_info): Ditto.
+
+	* generic/gdbtk-cmds.h: Declare symtab_to_filename().
+
+2004-06-26  Andrew Cagney  <cagney@gnu.org>
+
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): Call
+	deprecated_set_gdb_event_hooks.
+
+2004-06-25  Andrew Cagney  <cagney@gnu.org>
+
+	* generic/gdbtk.h: "ui_loop_hook" was deprecated, update.
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks, x_event): Ditto.
+	* generic/gdbtk-cmds.c: Ditto.
+
+2004-06-24  Andrew Cagney  <cagney@gnu.org>
+
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): Update references to
+	pre_add_symbol_hook and post_add_symbol_hook, both deprecated.
+	* library/interface.tcl (gdbtk_memory_changed): Update comments.
+	
+2004-06-24  Andrew Cagney  <cagney@gnu.org>
+
+	* generic/gdbtk-hooks.c (ui_loop_hook, pre_add_symbol_hook)
+	(post_add_symbol_hook, selected_frame_level_changed_hook): Delete
+	extern declarations.
+
+2004-06-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* generic/gdbtk-cmds.c (gdb_load_info): Use bfd_get_section_size
+	instead of bfd_get_section_size_before_reloc.
+
+2004-06-11  Martin Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_find_file_command): Use
+	symtab_to_fullname() instead of symtab_to_filename().
+	(gdb_loc): Ditto.
+	(gdb_loadfile): Ditto.
+	* generic/gdbtk-bp.c (gdb_get_breakpoint_info): Ditto.
+	(gdb_get_tracepoint_info): Ditto.	
+
+	* generic/gdbtk-register.c (get_register): Simplify and remove
+	references to DEPRECATED_REGISTER_CONVERT_TO_VIRTUAL.
+
+2004-05-27  Martin Hunt  <hunt@redhat.com>
+
+	* library/tdump.tcl (build_win): Remove old nonworking
+	code to select scrolledtext mode.  Just use "dynamic".
+
+2004-04-22  Keith Seitz  <kseitz@sources.redhat.com>
+
+	* generic/gdbtk-hooks.c (gdbtk_add_hooks): "Update" deprecated hooks.
+	"Houston... We have a problem."
+	* generic/gdbtk-interp.c (gdbtk_interpreter_resume): Likewise.
+ 	* generic/gdbtk.c (gdbtk_init_1): Likewise.
+	
+2004-04-19  Roland McGrath  <roland@redhat.com>
+
+	* generic/gdbtk-hooks.c: Update gdbtk_pre_add_symbol forward decl to
+	match defn type change.
+
+2004-04-15  Roland McGrath  <roland@redhat.com>
+
+	* generic/gdbtk-hooks.c (gdbtk_pre_add_symbol): Add const to arg type.
+	(pre_add_symbol): Likewise in extern decl.
+
+2004-04-05  Martin Hunt  <hunt@redhat.com>
+
+	* library/session.tcl: Make hostname and portname
+	session-dependent. Add gdb_bg_num (the color
+	scheme number) as a per-session variable.
+
+	* library/prefs.tcl (pref_read): If color schemes are in use,
+	set colors based on the current scheme.
+	(pref_save): Add "bg" section.
+	(pref_set_defaults): Define new variable gdb/use_color_schemes
+	and define 16 default background colors.
+
+	* library/managedwin.itb (ManagedWin::window_name): Append
+	window "instance" string to window name.
+	(ManagedWin::window_instance): Set window instance string.
+
+	* library/debugwin.itb: Add a reconfig method to restore
+	unique black textbackground, overriding color scheme.
+
+	* library/csprefs.itb:
+	* library/csprefs.ith: New files. Implement color scheme
+	preferences.
+
+	* library/util.tcl (set_bg_colors): New function.
+	(r_setcolors): New function.
+
+	* library/regwin.itb (_prefs_changed): Deleted.
+	(reconfig): New function.  Updates tkTable color tags
+	if color scheme changes.
+	* library/regwin.ith: Update to reflect above changes.
+
+	* library/srcbar.itcl (create_pref_menu): Add pulldown
+	menus for "Edit Color Schemes..." and "Use Color Schemes".
+	(reconfig): Fix up menu items for color schemes.
+
+	* library/globalpref.itb (_init_var): Add
+	gdb/use_color_schemes to variable list.
+	(_build_win): Add a checkbutton to enable/disable
+	color schemes.
+
+	* library/gdbmenubar.itcl (menubar_add_cascade): Add a class
+	argument so cascade menus can be managed by class too.
+
+	* library/interface.tcl (gdbtk_tcl_fputs): Check for
+	existence of gdbtk_state(console).  Stops annoying error
+	messages.
+	(gdbtk_tcl_fputs_error): Ditto.
+	(gdbtk_tcl_fputs_log): Ditto.
+
+2004-03-29  Martin Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-register.c (map_arg_registers): If a specific
+	register was requested, just return it without validating it
+	has a name.
+	(get_register): Check DEPRECATED_REGISTER_CONVERTIBLE_P ().
+
+2004-02-17  Martin Hunt  <hunt@redhat.com>
+
+	* generic/gdbtk-register.c (Gdbtk_Register_Init): Replace
+	calls to register_gdbarch_swap with deprecated_register_gdbarch_swap.
+
+	* library/srcwin.itb: Remove an apparently redundant call
+	to gdbtk_locate_main and location. This actually broke in
+	situations where no source files were found.

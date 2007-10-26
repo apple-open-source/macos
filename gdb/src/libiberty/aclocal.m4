@@ -1,4 +1,3 @@
-sinclude(../config/accross.m4)
 sinclude(../config/acx.m4)
 sinclude(../config/no-executables.m4)
 
@@ -7,7 +6,7 @@ dnl On some versions of SunOS4 at least, strncmp reads a word at a time
 dnl but erroneously reads past the end of strings.  This can cause
 dnl a SEGV in some cases.
 AC_DEFUN(libiberty_AC_FUNC_STRNCMP,
-[AC_REQUIRE([AC_FUNC_MMAP])
+[
 AC_CACHE_CHECK([for working strncmp], ac_cv_func_strncmp_works,
 [AC_TRY_RUN([
 /* Test by Jim Wilson and Kaveh Ghazi.
@@ -119,15 +118,6 @@ if test $libiberty_cv_decl_needed_$1 = yes; then
             [Define if $1 is not declared in system header files.])
 fi
 ])dnl
-
-# Work around a bug in autoheader.  This can go away when we switch to
-# autoconf >2.50.  The use of define instead of AC_DEFUN is
-# deliberate.
-define(AC_DEFINE_NOAUTOHEADER,
-[cat >> confdefs.h <<\EOF
-[#define] $1 ifelse($#, 2, [$2], $#, 3, [$2], 1)
-EOF
-])
 
 # We always want a C version of alloca() compiled into libiberty,
 # because native-compiler support for the real alloca is so !@#$%

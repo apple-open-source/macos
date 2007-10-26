@@ -2,8 +2,8 @@
 
   string.c -
 
-  $Author: nobu $
-  $Date: 2004/12/09 05:38:59 $
+  $Author: shyouhei $
+  $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -146,7 +146,6 @@ str_new3(klass, str)
     RSTRING(str2)->ptr = RSTRING(str)->ptr;
     RSTRING(str2)->aux.shared = str;
     FL_SET(str2, ELTS_SHARED);
-    OBJ_INFECT(str2, str);
 
     return str2;
 }
@@ -155,7 +154,10 @@ VALUE
 rb_str_new3(str)
     VALUE str;
 {
-    return str_new3(rb_obj_class(str), str);
+    VALUE str2 = str_new3(rb_obj_class(str), str);
+
+    OBJ_INFECT(str2, str);
+    return str2;
 }
 
 static VALUE
@@ -189,7 +191,7 @@ rb_str_new4(orig)
     if (FL_TEST(orig, ELTS_SHARED) && (str = RSTRING(orig)->aux.shared) && klass == RBASIC(str)->klass) {
 	long ofs;
 	ofs = RSTRING(str)->len - RSTRING(orig)->len;
-	if (ofs > 0) {
+	if ((ofs > 0) || (!OBJ_TAINTED(str) && OBJ_TAINTED(orig))) {
 	    str = str_new3(klass, str);
 	    RSTRING(str)->ptr += ofs;
 	    RSTRING(str)->len -= ofs;
@@ -201,6 +203,7 @@ rb_str_new4(orig)
     else {
 	str = str_new4(klass, orig);
     }
+    OBJ_INFECT(str, orig);
     OBJ_FREEZE(str);
     return str;
 }
@@ -415,17 +418,16 @@ rb_str_times(str, times)
     long i, len;
 
     len = NUM2LONG(times);
-    if (len == 0) return rb_str_new5(str,0,0);
     if (len < 0) {
 	rb_raise(rb_eArgError, "negative argument");
     }
-    if (LONG_MAX/len <  RSTRING(str)->len) {
+    if (len && LONG_MAX/len <  RSTRING(str)->len) {
 	rb_raise(rb_eArgError, "argument too big");
     }
 
-    str2 = rb_str_new5(str,0, RSTRING(str)->len*len);
-    for (i=0; i<len; i++) {
-	memcpy(RSTRING(str2)->ptr+(i*RSTRING(str)->len),
+    str2 = rb_str_new5(str,0, len *= RSTRING(str)->len);
+    for (i = 0; i < len; i += RSTRING(str)->len) {
+	memcpy(RSTRING(str2)->ptr + i,
 	       RSTRING(str)->ptr, RSTRING(str)->len);
     }
     RSTRING(str2)->ptr[RSTRING(str2)->len] = '\0';
@@ -605,11 +607,13 @@ rb_str_substr(str, beg, len)
     if (len < 0) {
 	len = 0;
     }
-    if (len == 0) return rb_str_new5(str,0,0);
-
-    if (len > sizeof(struct RString)/2 &&
+    if (len == 0) {
+	str2 = rb_str_new5(str,0,0);
+    }
+    else if (len > sizeof(struct RString)/2 &&
 	beg + len == RSTRING(str)->len && !FL_TEST(str, STR_ASSOC)) {
-	str2 = rb_str_new3(rb_str_new4(str));
+	str2 = rb_str_new4(str);
+	str2 = str_new3(rb_obj_class(str2), str2);
 	RSTRING(str2)->ptr += RSTRING(str2)->len - len;
 	RSTRING(str2)->len = len;
     }
@@ -855,7 +859,7 @@ rb_str_hash(str)
     register char *p = RSTRING(str)->ptr;
     register int key = 0;
 
-#ifdef HASH_ELFHASH
+#if defined(HASH_ELFHASH)
     register unsigned int g;
 
     while (len--) {
@@ -864,7 +868,7 @@ rb_str_hash(str)
 	    key ^= g >> 24;
 	key &= ~g;
     }
-#elif HASH_PERL
+#elif defined(HASH_PERL)
     while (len--) {
 	key += *p++;
 	key += (key << 10);
@@ -1002,7 +1006,7 @@ rb_str_cmp_m(str1, str2)
 
     if (TYPE(str2) != T_STRING) {
 	if (!rb_respond_to(str2, rb_intern("to_str"))) {
-	    return Qfalse;
+	    return Qnil;
 	}
 	else if (!rb_respond_to(str2, rb_intern("<=>"))) {
 	    return Qnil;
@@ -1129,7 +1133,7 @@ rb_str_index_m(argc, argv, str)
       {
 	  int c = FIX2INT(sub);
 	  long len = RSTRING(str)->len;
-	  unsigned char *p = RSTRING(str)->ptr;
+	  unsigned char *p = (unsigned char*)RSTRING(str)->ptr;
 
 	  for (;pos<len;pos++) {
 	      if (p[pos] == c) return LONG2NUM(pos);
@@ -1251,8 +1255,8 @@ rb_str_rindex_m(argc, argv, str)
       case T_FIXNUM:
       {
 	  int c = FIX2INT(sub);
-	  unsigned char *p = RSTRING(str)->ptr + pos;
-	  unsigned char *pbeg = RSTRING(str)->ptr;
+	  unsigned char *p = (unsigned char*)RSTRING(str)->ptr + pos;
+	  unsigned char *pbeg = (unsigned char*)RSTRING(str)->ptr;
 
 	  if (pos == RSTRING(str)->len) {
 	      if (pos == 0) return Qnil;
@@ -1277,13 +1281,11 @@ rb_str_rindex_m(argc, argv, str)
  *     str =~ obj   => fixnum or nil
  *  
  *  Match---If <i>obj</i> is a <code>Regexp</code>, use it as a pattern to match
- *  against <i>str</i>. If <i>obj</i> is a <code>String</code>, look for it in
- *  <i>str</i> (similar to <code>String#index</code>). Returns the position the
- *  match starts, or <code>nil</code> if there is no match. Otherwise, invokes
+ *  against <i>str</i>,and returns the position the match starts, or 
+ *  <code>nil</code> if there is no match. Otherwise, invokes
  *  <i>obj.=~</i>, passing <i>str</i> as an argument. The default
  *  <code>=~</code> in <code>Object</code> returns <code>false</code>.
  *     
- *     "cat o' 9 tails" =~ '\d'   #=> nil
  *     "cat o' 9 tails" =~ /\d/   #=> 7
  *     "cat o' 9 tails" =~ 9      #=> false
  */
@@ -1461,7 +1463,7 @@ rb_str_upto(beg, end, excl)
 	StringValue(current);
 	if (excl && rb_str_equal(current, end)) break;
 	StringValue(current);
-	if (RSTRING(current)->len > RSTRING(end)->len)
+	if (RSTRING(current)->len > RSTRING(end)->len || RSTRING(current)->len == 0)
 	    break;
     }
 
@@ -1539,13 +1541,17 @@ rb_str_aref(str, indx)
 	/* check if indx is Range */
 	{
 	    long beg, len;
+	    VALUE tmp;
+
 	    switch (rb_range_beg_len(indx, &beg, &len, RSTRING(str)->len, 0)) {
 	      case Qfalse:
 		break;
 	      case Qnil:
 		return Qnil;
 	      default:
-		return rb_str_substr(str, beg, len);
+		tmp = rb_str_substr(str, beg, len);
+		OBJ_INFECT(tmp, indx);
+		return tmp;
 	    }
 	}
 	idx = NUM2LONG(indx);
@@ -1719,8 +1725,8 @@ rb_str_aset(str, indx, val)
 
     switch (TYPE(indx)) {
       case T_FIXNUM:
-      num_index:
 	idx = FIX2LONG(indx);
+      num_index:
 	if (RSTRING(str)->len <= idx) {
 	  out_of_range:
 	    rb_raise(rb_eIndexError, "index %ld out of string", idx);
@@ -1960,7 +1966,6 @@ rb_str_sub_bang(argc, argv, str)
 
     pat = get_pat(argv[0], 1);
     if (rb_reg_search(pat, str, 0, 0) >= 0) {
-	rb_str_modify(str);
 	match = rb_backref_get();
 	regs = RMATCH(match)->regs;
 
@@ -1976,6 +1981,7 @@ rb_str_sub_bang(argc, argv, str)
 	else {
 	    repl = rb_reg_regsub(repl, str, regs);
 	}
+	rb_str_modify(str);
 	if (OBJ_TAINTED(repl)) tainted = 1;
 	plen = END(0) - BEG(0);
 	if (RSTRING(repl)->len > plen) {
@@ -2542,7 +2548,6 @@ rb_str_to_s(str)
     return str;
 }
 
-VALUE
 /*
  * call-seq:
  *   str.inspect   => string
@@ -2555,6 +2560,7 @@ VALUE
  *    str.inspect       #=> "hel\010o"
  */
 
+VALUE
 rb_str_inspect(str)
     VALUE str;
 {
@@ -2596,6 +2602,10 @@ rb_str_inspect(str)
 	}
 	else if (c == '\013') {
 	    s[0] = '\\'; s[1] = 'v';
+	    rb_str_buf_cat(result, s, 2);
+	}
+	else if (c == '\010') {
+	    s[0] = '\\'; s[1] = 'b';
 	    rb_str_buf_cat(result, s, 2);
 	}
 	else if (c == '\007') {
@@ -2643,7 +2653,7 @@ rb_str_dump(str)
 	  case '"':  case '\\':
 	  case '\n': case '\r':
 	  case '\t': case '\f':
-	  case '\013': case '\007': case '\033':
+	  case '\013': case '\010': case '\007': case '\033':
 	    len += 2;
 	    break;
 
@@ -2700,6 +2710,10 @@ rb_str_dump(str)
 	else if (c == '\013') {
 	    *q++ = '\\';
 	    *q++ = 'v';
+	}
+	else if (c == '\010') {
+	    *q++ = '\\';
+	    *q++ = 'b';
 	}
 	else if (c == '\007') {
 	    *q++ = '\\';
@@ -4184,7 +4198,7 @@ scan_once(str, pat, start)
 	    /*
 	     * Always consume at least one character of the input string
 	     */
-	    if (RSTRING(str)->len < END(0))
+	    if (RSTRING(str)->len > END(0))
 		*start = END(0)+mbclen2(RSTRING(str)->ptr[END(0)],pat);
 	    else
 		*start = END(0)+1;
@@ -4228,7 +4242,7 @@ scan_once(str, pat, start)
  *     
  *     a.scan(/\w+/) {|w| print "<<#{w}>> " }
  *     print "\n"
- *     a.scan(/(.)(.)/) {|a,b| print b, a }
+ *     a.scan(/(.)(.)/) {|x,y| print y, x }
  *     print "\n"
  *     
  *  <em>produces:</em>
@@ -4244,6 +4258,7 @@ rb_str_scan(str, pat)
     VALUE result;
     long start = 0;
     VALUE match = Qnil;
+    char *p = RSTRING(str)->ptr; long len = RSTRING(str)->len;
 
     pat = get_pat(pat, 1);
     if (!rb_block_given_p()) {
@@ -4261,6 +4276,7 @@ rb_str_scan(str, pat)
 	match = rb_backref_get();
 	rb_match_busy(match);
 	rb_yield(result);
+	str_mod_check(str, p, len);
 	rb_backref_set(match);	/* restore $~ value */
     }
     rb_backref_set(match);
@@ -4391,6 +4407,9 @@ rb_str_intern(s)
     }
     if (strlen(RSTRING(str)->ptr) != RSTRING(str)->len)
 	rb_raise(rb_eArgError, "symbol string may not contain `\\0'");
+    if (OBJ_TAINTED(str) && rb_safe_level() >= 1 && !rb_sym_interned_p(str)) {
+	rb_raise(rb_eSecurityError, "Insecure: can't intern tainted string");
+    }
     id = rb_intern(RSTRING(str)->ptr);
     return ID2SYM(id);
 }
@@ -4474,8 +4493,6 @@ rb_str_justify(argc, argv, str, jflag)
 
     rb_scan_args(argc, argv, "11", &w, &pad);
     width = NUM2LONG(w);
-    if (width < 0 || RSTRING(str)->len >= width) return rb_str_dup(str);
-    res = rb_str_new5(str, 0, width);
     if (argc == 2) {
 	StringValue(pad);
 	f = RSTRING(pad)->ptr;
@@ -4484,6 +4501,8 @@ rb_str_justify(argc, argv, str, jflag)
 	    rb_raise(rb_eArgError, "zero width padding");
 	}
     }
+    if (width < 0 || RSTRING(str)->len >= width) return rb_str_dup(str);
+    res = rb_str_new5(str, 0, width);
     p = RSTRING(res)->ptr;
     if (jflag != 'l') {
 	n = width - RSTRING(str)->len;
@@ -4530,14 +4549,15 @@ rb_str_justify(argc, argv, str, jflag)
 
 /*
  *  call-seq:
- *     str.ljust(integer)   => new_str
+ *     str.ljust(integer, padstr=' ')   => new_str
  *  
  *  If <i>integer</i> is greater than the length of <i>str</i>, returns a new
  *  <code>String</code> of length <i>integer</i> with <i>str</i> left justified
- *  and space padded; otherwise, returns <i>str</i>.
+ *  and padded with <i>padstr</i>; otherwise, returns <i>str</i>.
  *     
- *     "hello".ljust(4)    #=> "hello"
- *     "hello".ljust(20)   #=> "hello               "
+ *     "hello".ljust(4)            #=> "hello"
+ *     "hello".ljust(20)           #=> "hello               "
+ *     "hello".ljust(20, '1234')   #=> "hello123412341234123"
  */
 
 static VALUE
@@ -4552,14 +4572,15 @@ rb_str_ljust(argc, argv, str)
 
 /*
  *  call-seq:
- *     str.rjust(integer)   => new_str
+ *     str.rjust(integer, padstr=' ')   => new_str
  *  
  *  If <i>integer</i> is greater than the length of <i>str</i>, returns a new
  *  <code>String</code> of length <i>integer</i> with <i>str</i> right justified
- *  and space padded; otherwise, returns <i>str</i>.
+ *  and padded with <i>padstr</i>; otherwise, returns <i>str</i>.
  *     
- *     "hello".rjust(4)    #=> "hello"
- *     "hello".rjust(20)   #=> "               hello"
+ *     "hello".rjust(4)            #=> "hello"
+ *     "hello".rjust(20)           #=> "               hello"
+ *     "hello".rjust(20, '1234')   #=> "123412341234123hello"
  */
 
 static VALUE
@@ -4574,14 +4595,15 @@ rb_str_rjust(argc, argv, str)
 
 /*
  *  call-seq:
- *     str.center(integer)   => new_str
+ *     str.center(integer, padstr)   => new_str
  *  
  *  If <i>integer</i> is greater than the length of <i>str</i>, returns a new
- *  <code>String</code> of length <i>integer</i> with <i>str</i> centered
- *  between spaces; otherwise, returns <i>str</i>.
+ *  <code>String</code> of length <i>integer</i> with <i>str</i> centered and
+ *  padded with <i>padstr</i>; otherwise, returns <i>str</i>.
  *     
- *     "hello".center(4)    #=> "hello"
- *     "hello".center(20)   #=> "       hello        "
+ *     "hello".center(4)         #=> "hello"
+ *     "hello".center(20)        #=> "       hello        "
+ *     "hello".center(20, '123') #=> "1231231hello12312312"
  */
 
 static VALUE

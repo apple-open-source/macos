@@ -37,8 +37,10 @@
 .Sh NAME
 .Nm newfs 
 .Nd construct a new file system
+.Sh ALERT
+UFS SUPPORT IS IN THE PROCESS OF BEING DEPRECATED.
 .Sh SYNOPSIS
-.Nm newfs
+.Nm
 .Op Fl NO
 .Op Fl S Ar sector-size
 .Op Fl T Ar disktype
@@ -59,22 +61,21 @@
 .Op Fl s Ar size
 .Op Fl t Ar tracks
 .Op Fl u Ar sectors
+.Op Fl v Ar volume name
 .Op Fl x Ar sectors
 .Ar special
 .Sh DESCRIPTION
-.Nm Newfs
-replaces the more obtuse
+The
+.Nm
+utility replaces the more obtuse
 .Xr mkfs 8
 program.
-Before running 
-.Nm newfs
-the disk must be labeled using 
-.Xr disklabel 8 .
-.Nm Newfs
-builds a file system on the specified special device
+The
+.Nm
+utility builds a file system on the specified special device
 basing its defaults on the information in the disk label.
 Typically the defaults are reasonable, however
-.Nm newfs
+.Nm
 has numerous options to allow the defaults to be selectively overridden.
 .Pp
 The following options define the general layout policies.
@@ -86,10 +87,8 @@ without really creating the file system.
 Creates a 4.3BSD format filesystem.
 This options is primarily used to build root filesystems
 that can be understood by older boot ROMs.
-.It Fl T
-Uses information for the specified disk from
-.Pa /etc/disktab
-instead of trying to get the information from a disklabel.
+.It Fl T Ar disktype
+This specifies the disk type.
 .It Fl a Ar maxcontig
 This specifies the maximum number of contiguous blocks that will be
 laid out before forcing a rotational delay (see the
@@ -198,6 +197,10 @@ This does not include sectors reserved at the end of each track for bad
 block replacement (see the
 .Fl p
 option.)
+.It Fl v Ar volume name
+Volume name (file system name) in ASCII or UTF-8 format.
+The default is
+.Qo untitled Qc .
 .It Fl x Ar spare sectors per cylinder
 Spare sectors (bad sector replacements) are physical sectors that occupy
 space at the end of the last track in the cylinder.

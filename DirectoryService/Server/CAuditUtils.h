@@ -80,8 +80,8 @@ enum {
 extern "C" {
 #endif
 
-uInt32		AuditForThisEvent			( uInt32 inType, void *inData, char **outTextStr );
-tDirStatus	AuditUserOrGroupRecord		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, uInt32 *outEventCode );
+UInt32		AuditForThisEvent			( UInt32 inType, void *inData, char **outTextStr );
+tDirStatus	AuditUserOrGroupRecord		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, UInt32 *outEventCode );
 tDirStatus	AuditGetRecordRefInfo		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr );
 tDirStatus	AuditGetNameFromAuthBuffer	( tDataNodePtr inAuthMethod, tDataBufferPtr inAuthBuffer, char **outUserNameStr );
 

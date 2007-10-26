@@ -1,4 +1,4 @@
-$ $Id: set15,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ $Id: set15,v 1.1 2000/01/14 22:57:32 christos Exp $
 $ sh.func.c
 $set 15 
 1 %s: %s: rajoitusta ei voida %s %s\n

@@ -4,6 +4,8 @@
 
 /* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-mdynamic-no-pic -fdump-rtl-jump" } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 typedef struct objc_object { } *id ;
 int x = 41 ;

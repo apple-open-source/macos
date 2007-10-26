@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)finger.1	8.3 (Berkeley) 5/5/94
-.\" $FreeBSD: src/usr.bin/finger/finger.1,v 1.27 2002/12/24 13:41:47 ru Exp $
+.\" $FreeBSD: src/usr.bin/finger/finger.1,v 1.31 2005/09/19 10:11:46 dds Exp $
 .\"
-.Dd July 22, 2002
+.Dd July 17, 2004
 .Dt FINGER 1
 .Os
 .Sh NAME
@@ -40,7 +40,7 @@
 .Nd user information lookup program
 .Sh SYNOPSIS
 .Nm
-.Op Fl 46glmpshoT
+.Op Fl 46gklmpsho
 .Op Ar user ...\&
 .Op Ar user@host ...\&
 .Sh DESCRIPTION
@@ -58,46 +58,21 @@ to use IPv4 addresses only.
 Forces
 .Nm
 to use IPv6 addresses only.
-.It Fl s
-Display the user's login name, real name, terminal name and write
-status (as a ``*'' before the terminal name if write permission is
-denied), idle time, login time, and either office location and office
-phone number, or the remote host.
-If
-.Fl o
-is given, the office location and office phone number is printed
-(the default).
-If
+.It Fl g
+This option restricts the gecos output to only the users' real
+name.
+It also has the side-effect of restricting the output
+of the remote host when used in conjunction with the
 .Fl h
-is given, the remote host is printed instead.
-.Pp
-Idle time is in minutes if it is a single integer, hours and minutes
-if a ``:'' is present, or days if a ``d'' is present.
-If it is an
-.Dq * ,
-the login time indicates the time of last login.
-Login time is displayed as the day name if less than 6 days, else month, day;
-hours and minutes, unless more than six months ago, in which case the year
-is displayed rather than the hours and minutes.
-.Pp
-Unknown devices as well as nonexistent idle and login times are
-displayed as single asterisks.
+option.
 .It Fl h
 When used in conjunction with the
 .Fl s
 option, the name of the remote host is displayed instead of the office
 location and office phone.
-.It Fl o
-When used in conjunction with the
-.Fl s
-option, the office location and office phone information is displayed
-instead of the name of the remote host.
-.It Fl g
-This option restricts the gecos output to only the users' real
-name. It also has the side-effect of restricting the output
-of the remote host when used in conjunction with the
-.Fl h
-option.
+.It Fl k
+Disable all use of
+.Xr utmpx 5 .
 .It Fl l
 Produce a multi-line format displaying all of the information
 described for the
@@ -132,6 +107,23 @@ Mail status is shown as ``No Mail.'' if there is no mail at all, ``Mail
 last read DDD MMM ## HH:MM YYYY (TZ)'' if the person has looked at their
 mailbox since new mail arriving, or ``New mail received ...'', ``Unread
 since ...'' if they have new mail.
+.It Fl m
+Prevent matching of
+.Ar user
+names.
+.Ar User
+is usually a login name; however, matching will also be done on the
+users' real names, unless the
+.Fl m
+option is supplied.
+All name matching performed by
+.Nm
+is case insensitive.
+.It Fl o
+When used in conjunction with the
+.Fl s
+option, the office location and office phone information is displayed
+instead of the name of the remote host.
 .It Fl p
 Prevent
 the
@@ -145,21 +137,30 @@ from displaying the contents of the
 and
 .Pa .pubkey
 files.
-.It Fl m
-Prevent matching of
-.Ar user
-names.
-.Ar User
-is usually a login name; however, matching will also be done on the
-users' real names, unless the
-.Fl m
-option is supplied.
-All name matching performed by
-.Nm
-is case insensitive.
-.It Fl T
-Disable the piggybacking of data on the initial connection request.
-This option is needed to finger hosts with a broken TCP implementation.
+.It Fl s
+Display the user's login name, real name, terminal name and write
+status (as a ``*'' before the terminal name if write permission is
+denied), idle time, login time, and either office location and office
+phone number, or the remote host.
+If
+.Fl o
+is given, the office location and office phone number is printed
+(the default).
+If
+.Fl h
+is given, the remote host is printed instead.
+.Pp
+Idle time is in minutes if it is a single integer, hours and minutes
+if a ``:'' is present, or days if a ``d'' is present.
+If it is an
+.Dq * ,
+the login time indicates the time of last login.
+Login time is displayed as the day name if less than 6 days, else month, day;
+hours and minutes, unless more than six months ago, in which case the year
+is displayed rather than the hours and minutes.
+.Pp
+Unknown devices as well as nonexistent idle and login times are
+displayed as single asterisks.
 .El
 .Pp
 If no options are specified,
@@ -198,6 +199,7 @@ option is the only option that may be passed to a remote machine.
 If the file
 .Pa .nofinger
 exists in the user's home directory,
+and the program is not run with superuser privileges,
 .Nm
 behaves as if the user in question does not exist.
 .Pp
@@ -244,6 +246,12 @@ command appeared in
 .Bx 3.0 .
 .Sh BUGS
 The current FINGER protocol RFC requires that the client keep the connection
-fully open until the server closes.  This prevents the use of the optimal
-three-packet T/TCP exchange.  (Servers which depend on this requirement are
+fully open until the server closes.
+This prevents the use of the optimal
+three-packet T/TCP exchange.
+(Servers which depend on this requirement are
 bogus but have nonetheless been observed in the Internet at large.)
+.Pp
+The
+.Nm
+utility does not recognize multibyte characters.

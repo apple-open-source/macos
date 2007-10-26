@@ -1,0 +1,22 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {search = id; selectionChanged = id; }; 
+            CLASS = AppController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                fileView = NSTableView; 
+                mdItemController = NSArrayController; 
+                metaDataView = NSTextView; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {"" = id; }; 
+            CLASS = FirstResponder; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

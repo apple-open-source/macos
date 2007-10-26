@@ -1,0 +1,1005 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		6B20DB9D0B9D04FD00FF23B0 /* Root */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 6B20DBA30B9D050E00FF23B0 /* Build configuration list for PBXAggregateTarget "Root" */;
+			buildPhases = (
+			);
+			dependencies = (
+				6B20DBA10B9D050400FF23B0 /* PBXTargetDependency */,
+				6B20DB9F0B9D050400FF23B0 /* PBXTargetDependency */,
+			);
+			name = Root;
+			productName = Root;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		6B1011B209A7D0FF00D799E8 /* TestApp.c in Sources */ = {isa = PBXBuildFile; fileRef = 6B587E4809A53D0100146231 /* TestApp.c */; };
+		6B33D33D0B74D1D100DE5CDA /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B3E4C9708E58A2F00BF138E /* DirectoryService.framework */; };
+		6B33D3970B74D1D800DE5CDA /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */; };
+		6B33D4B60B74D29900DE5CDA /* CFOpenDirectory.c in Sources */ = {isa = PBXBuildFile; fileRef = 6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */; };
+		6B33D4C70B74D33B00DE5CDA /* libobjc.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B21F23209071C3600316662 /* libobjc.A.dylib */; };
+		6B517C8B0B9C9FB600B87A18 /* OpenDirectoryConsts.h in Headers */ = {isa = PBXBuildFile; fileRef = 6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6B587E5009A53D7D00146231 /* TestApp.m in Sources */ = {isa = PBXBuildFile; fileRef = 6B587E4A09A53D0100146231 /* TestApp.m */; };
+		6B6902F50B74DB77008C4845 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6B6902F10B74DB77008C4845 /* InfoPlist.strings */; };
+		6B6902F60B74DB77008C4845 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 6B6902F30B74DB77008C4845 /* Localizable.strings */; };
+		6B9C3B9D09A8E0C5005094E5 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6BC94774090698FB007A99B0 /* Foundation.framework */; };
+		6B9C3C6309A8E0CA005094E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */; };
+		6BC6F5CE0B74D17100D41589 /* CFOpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConsts.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BC6F5D00B74D17100D41589 /* CFOpenDirectoryPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6BD59AC7090C9F6300784250 /* NSOpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BD59F85090DA32100784250 /* NSOpenDirectory.m in Sources */ = {isa = PBXBuildFile; fileRef = 6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */; };
+		6BD6D05F0B7647B3006342BE /* OpenDirectory.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BD6D05D0B7647B3006342BE /* OpenDirectory.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6BD6D0600B7647B3006342BE /* OpenDirectoryPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		8DC2EF530486A6940098B216 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C1666FE841158C02AAC07 /* InfoPlist.strings */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6B20DB9E0B9D050400FF23B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6B0B4CE80B74CF9D002D37C1;
+			remoteInfo = CFOpenDirectory;
+		};
+		6B20DBA00B9D050400FF23B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DC2EF4F0486A6940098B216;
+			remoteInfo = OpenDirectory;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		6B0B4CE90B74CF9D002D37C1 /* CFOpenDirectory.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = CFOpenDirectory.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		6B0B4CEA0B74CF9D002D37C1 /* CFOpenDirectory-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "CFOpenDirectory-Info.plist"; path = "../CFOpenDirectory-Info.plist"; sourceTree = "<group>"; };
+		6B1011A709A7D0E500D799E8 /* TestAppCF */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestAppCF; sourceTree = BUILT_PRODUCTS_DIR; };
+		6B21F23209071C3600316662 /* libobjc.A.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libobjc.A.dylib; path = /usr/lib/libobjc.A.dylib; sourceTree = "<absolute>"; };
+		6B2DC53709477F1A00EFBD57 /* OpenDirectory.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = OpenDirectory.exp; sourceTree = "<group>"; };
+		6B33D4F30B74D3E700DE5CDA /* CFOpenDirectory.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = CFOpenDirectory.exp; sourceTree = "<group>"; };
+		6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectory.h; sourceTree = "<group>"; usesTabs = 0; };
+		6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CFOpenDirectory.c; sourceTree = "<group>"; usesTabs = 0; };
+		6B3E4C9708E58A2F00BF138E /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
+		6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryConsts.h; sourceTree = "<group>"; };
+		6B587E4809A53D0100146231 /* TestApp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TestApp.c; sourceTree = "<group>"; };
+		6B587E4A09A53D0100146231 /* TestApp.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = TestApp.m; sourceTree = "<group>"; };
+		6B587E4E09A53D7200146231 /* TestAppCocoa */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestAppCocoa; sourceTree = BUILT_PRODUCTS_DIR; };
+		6B6902F20B74DB77008C4845 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		6B6902F40B74DB77008C4845 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryPriv.h; sourceTree = "<group>"; usesTabs = 0; };
+		6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NSOpenDirectory.h; sourceTree = "<group>"; usesTabs = 0; };
+		6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NSOpenDirectory.m; sourceTree = "<group>"; usesTabs = 0; };
+		6BC94774090698FB007A99B0 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		6BD59EBE090D84D100784250 /* PasswordServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PasswordServer.framework; path = /System/Library/PrivateFrameworks/PasswordServer.framework; sourceTree = "<absolute>"; };
+		6BD6D05D0B7647B3006342BE /* OpenDirectory.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectory.h; sourceTree = "<group>"; };
+		6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = OpenDirectoryPriv.h; sourceTree = "<group>"; };
+		6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CFOpenDirectoryConsts.h; sourceTree = "<group>"; usesTabs = 0; };
+		6BF7CD4B0AC1A9E6006F36F1 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		8DC2EF5A0486A6940098B216 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8DC2EF5B0486A6940098B216 /* OpenDirectory.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = OpenDirectory.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		6B0B4CE70B74CF9D002D37C1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B33D4C70B74D33B00DE5CDA /* libobjc.A.dylib in Frameworks */,
+				6B33D3970B74D1D800DE5CDA /* CoreFoundation.framework in Frameworks */,
+				6B33D33D0B74D1D100DE5CDA /* DirectoryService.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6B1011A509A7D0E500D799E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B9C3C6309A8E0CA005094E5 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6B587E4C09A53D7200146231 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B9C3B9D09A8E0C5005094E5 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DC2EF560486A6940098B216 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		034768DFFF38A50411DB9C8B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DC2EF5B0486A6940098B216 /* OpenDirectory.framework */,
+				6B587E4E09A53D7200146231 /* TestAppCocoa */,
+				6B1011A709A7D0E500D799E8 /* TestAppCF */,
+				6B0B4CE90B74CF9D002D37C1 /* CFOpenDirectory.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		0867D691FE84028FC02AAC07 /* OpenDirectoryCoreFoundation */ = {
+			isa = PBXGroup;
+			children = (
+				08FB77AEFE84172EC02AAC07 /* Classes */,
+				6B587E4509A53C9100146231 /* TestSuite */,
+				6BE7962B0B74DA8F00136EBB /* CFOpenDirectoryResources */,
+				089C1665FE841158C02AAC07 /* OpenDirectoryResources */,
+				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
+				034768DFFF38A50411DB9C8B /* Products */,
+				6B2DC53709477F1A00EFBD57 /* OpenDirectory.exp */,
+				6B33D4F30B74D3E700DE5CDA /* CFOpenDirectory.exp */,
+			);
+			name = OpenDirectoryCoreFoundation;
+			sourceTree = "<group>";
+		};
+		0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */,
+				1058C7B2FEA5585E11CA2CBB /* Other Frameworks */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		089C1665FE841158C02AAC07 /* OpenDirectoryResources */ = {
+			isa = PBXGroup;
+			children = (
+				8DC2EF5A0486A6940098B216 /* Info.plist */,
+				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
+			);
+			name = OpenDirectoryResources;
+			sourceTree = "<group>";
+		};
+		08FB77AEFE84172EC02AAC07 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				6BF7203A094D2BE90087E547 /* CFOpenDirectoryConsts.h */,
+				6BC4F7E0094E9B2600C2C83C /* CFOpenDirectoryPriv.h */,
+				6B3E4C7908E586DE00BF138E /* CFOpenDirectory.h */,
+				6B3E4C7A08E586DE00BF138E /* CFOpenDirectory.c */,
+				6BC9470D090691AB007A99B0 /* NSOpenDirectory.h */,
+				6BC9470E090691AB007A99B0 /* NSOpenDirectory.m */,
+				6BD6D05D0B7647B3006342BE /* OpenDirectory.h */,
+				6BD6D05E0B7647B3006342BE /* OpenDirectoryPriv.h */,
+				6B517C8A0B9C9FB600B87A18 /* OpenDirectoryConsts.h */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6BD59EBE090D84D100784250 /* PasswordServer.framework */,
+				6BC94774090698FB007A99B0 /* Foundation.framework */,
+				6B3E4EA508E59B5000BF138E /* CoreFoundation.framework */,
+				6B3E4C9708E58A2F00BF138E /* DirectoryService.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7B2FEA5585E11CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6BF7CD4B0AC1A9E6006F36F1 /* Kerberos.framework */,
+				6B21F23209071C3600316662 /* libobjc.A.dylib */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		6B587E4509A53C9100146231 /* TestSuite */ = {
+			isa = PBXGroup;
+			children = (
+				6B587E4809A53D0100146231 /* TestApp.c */,
+				6B587E4A09A53D0100146231 /* TestApp.m */,
+			);
+			path = TestSuite;
+			sourceTree = "<group>";
+			usesTabs = 0;
+		};
+		6BE7962B0B74DA8F00136EBB /* CFOpenDirectoryResources */ = {
+			isa = PBXGroup;
+			children = (
+				6B6902F10B74DB77008C4845 /* InfoPlist.strings */,
+				6B6902F30B74DB77008C4845 /* Localizable.strings */,
+				6B0B4CEA0B74CF9D002D37C1 /* CFOpenDirectory-Info.plist */,
+			);
+			path = CFOpenDirectoryResources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		6B0B4CE40B74CF9D002D37C1 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6BC6F5CE0B74D17100D41589 /* CFOpenDirectory.h in Headers */,
+				6BC6F5CF0B74D17100D41589 /* CFOpenDirectoryConsts.h in Headers */,
+				6BC6F5D00B74D17100D41589 /* CFOpenDirectoryPriv.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DC2EF500486A6940098B216 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6BD59AC7090C9F6300784250 /* NSOpenDirectory.h in Headers */,
+				6BD6D05F0B7647B3006342BE /* OpenDirectory.h in Headers */,
+				6BD6D0600B7647B3006342BE /* OpenDirectoryPriv.h in Headers */,
+				6B517C8B0B9C9FB600B87A18 /* OpenDirectoryConsts.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		6B0B4CE80B74CF9D002D37C1 /* CFOpenDirectory */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B0B4CEB0B74CF9E002D37C1 /* Build configuration list for PBXNativeTarget "CFOpenDirectory" */;
+			buildPhases = (
+				6B0B4CE40B74CF9D002D37C1 /* Headers */,
+				6B0B4CE50B74CF9D002D37C1 /* Resources */,
+				6B0B4CE60B74CF9D002D37C1 /* Sources */,
+				6B0B4CE70B74CF9D002D37C1 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = CFOpenDirectory;
+			productName = CFOpenDirectory;
+			productReference = 6B0B4CE90B74CF9D002D37C1 /* CFOpenDirectory.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		6B1011A609A7D0E500D799E8 /* TestAppCF */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B1011B309A7D11800D799E8 /* Build configuration list for PBXNativeTarget "TestAppCF" */;
+			buildPhases = (
+				6B1011A409A7D0E500D799E8 /* Sources */,
+				6B1011A509A7D0E500D799E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TestAppCF;
+			productName = TestAppCF;
+			productReference = 6B1011A709A7D0E500D799E8 /* TestAppCF */;
+			productType = "com.apple.product-type.tool";
+		};
+		6B587E4D09A53D7200146231 /* TestAppCocoa */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B587E5F09A53D9C00146231 /* Build configuration list for PBXNativeTarget "TestAppCocoa" */;
+			buildPhases = (
+				6B587E4B09A53D7200146231 /* Sources */,
+				6B587E4C09A53D7200146231 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TestAppCocoa;
+			productName = TestAppCocoa;
+			productReference = 6B587E4E09A53D7200146231 /* TestAppCocoa */;
+			productType = "com.apple.product-type.tool";
+		};
+		8DC2EF4F0486A6940098B216 /* OpenDirectory */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B3E4C7008E5866D00BF138E /* Build configuration list for PBXNativeTarget "OpenDirectory" */;
+			buildPhases = (
+				8DC2EF500486A6940098B216 /* Headers */,
+				8DC2EF520486A6940098B216 /* Resources */,
+				8DC2EF540486A6940098B216 /* Sources */,
+				8DC2EF560486A6940098B216 /* Frameworks */,
+				6B843E610BE83B70004709FC /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenDirectory;
+			productInstallPath = "$(HOME)/Library/Frameworks";
+			productName = OpenDirectoryCoreFoundation;
+			productReference = 8DC2EF5B0486A6940098B216 /* OpenDirectory.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0867D690FE84028FC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 6B3E4C7408E5866D00BF138E /* Build configuration list for PBXProject "OpenDirectory" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 0867D691FE84028FC02AAC07 /* OpenDirectoryCoreFoundation */;
+			productRefGroup = 034768DFFF38A50411DB9C8B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DC2EF4F0486A6940098B216 /* OpenDirectory */,
+				6B0B4CE80B74CF9D002D37C1 /* CFOpenDirectory */,
+				6B587E4D09A53D7200146231 /* TestAppCocoa */,
+				6B1011A609A7D0E500D799E8 /* TestAppCF */,
+				6B20DB9D0B9D04FD00FF23B0 /* Root */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6B0B4CE50B74CF9D002D37C1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B6902F50B74DB77008C4845 /* InfoPlist.strings in Resources */,
+				6B6902F60B74DB77008C4845 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DC2EF520486A6940098B216 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8DC2EF530486A6940098B216 /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		6B843E610BE83B70004709FC /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cd \"${DSTROOT}/System/Library/PrivateFrameworks/OpenDirectory.framework\"\nln -s Versions/Current/Frameworks Frameworks\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6B0B4CE60B74CF9D002D37C1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B33D4B60B74D29900DE5CDA /* CFOpenDirectory.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6B1011A409A7D0E500D799E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B1011B209A7D0FF00D799E8 /* TestApp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6B587E4B09A53D7200146231 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B587E5009A53D7D00146231 /* TestApp.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8DC2EF540486A6940098B216 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6BD59F85090DA32100784250 /* NSOpenDirectory.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6B20DB9F0B9D050400FF23B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6B0B4CE80B74CF9D002D37C1 /* CFOpenDirectory */;
+			targetProxy = 6B20DB9E0B9D050400FF23B0 /* PBXContainerItemProxy */;
+		};
+		6B20DBA10B9D050400FF23B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DC2EF4F0486A6940098B216 /* OpenDirectory */;
+			targetProxy = 6B20DBA00B9D050400FF23B0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		089C1666FE841158C02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C1667FE841158C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		6B6902F10B74DB77008C4845 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				6B6902F20B74DB77008C4845 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		6B6902F30B74DB77008C4845 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				6B6902F40B74DB77008C4845 /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		6B0B4CEC0B74CF9E002D37C1 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					ppc64,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = CFOpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				OTHER_CFLAGS = "-fconstant-cfstrings";
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					Kerberos,
+					"-weak_framework",
+					PasswordServer,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = CFOpenDirectory;
+				VALID_ARCHS = "64bit ppc64 i386 x86_64 32bit ppc";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		6B0B4CED0B74CF9E002D37C1 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					ppc64,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = CFOpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				OTHER_CFLAGS = "-fconstant-cfstrings";
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					Kerberos,
+					"-weak_framework",
+					PasswordServer,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = CFOpenDirectory;
+				VALID_ARCHS = "64bit ppc64 i386 x86_64 32bit ppc";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		6B0B4CEE0B74CF9E002D37C1 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+					ppc64,
+					x86_64,
+				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = CFOpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INFOPLIST_FILE = "CFOpenDirectory-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks";
+				OTHER_CFLAGS = "-fconstant-cfstrings";
+				OTHER_LDFLAGS = (
+					"-weak_framework",
+					Kerberos,
+					"-weak_framework",
+					PasswordServer,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = CFOpenDirectory;
+				VALID_ARCHS = "64bit ppc64 i386 x86_64 32bit ppc";
+			};
+			name = Default;
+		};
+		6B1011B409A7D11800D799E8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					CFOpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCF;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		6B1011B509A7D11800D799E8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					CFOpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCF;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		6B1011B609A7D11800D799E8 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					CFOpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCF;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+		6B20DBA40B9D050E00FF23B0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = Root;
+			};
+			name = Development;
+		};
+		6B20DBA50B9D050E00FF23B0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = Root;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		6B20DBA60B9D050E00FF23B0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = Root;
+			};
+			name = Default;
+		};
+		6B3E4C7108E5866D00BF138E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					ppc64,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_LOCATION = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = OpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/build/Development\"";
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				LIBRARY_STYLE = DYNAMIC;
+				MACH_O_TYPE = mh_dylib;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				OTHER_CFLAGS = (
+					"-fconstant-cfstrings",
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Foundation,
+					"-sub_umbrella",
+					CFOpenDirectory,
+					"-framework",
+					CFOpenDirectory,
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = OpenDirectory;
+				VALID_ARCHS = "ppc64 i386 x86_64 ppc";
+				VERSIONING_SYSTEM = "apple-generic";
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		6B3E4C7208E5866D00BF138E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_LOCATION = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = OpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks\"";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				LIBRARY_STYLE = DYNAMIC;
+				MACH_O_TYPE = mh_dylib;
+				OTHER_CFLAGS = (
+					"-fconstant-cfstrings",
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Foundation,
+					"-sub_umbrella",
+					CFOpenDirectory,
+					"-framework",
+					CFOpenDirectory,
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = OpenDirectory;
+				VALID_ARCHS = "ppc64 i386 x86_64 ppc";
+				VERSIONING_SYSTEM = "apple-generic";
+				WRAPPER_EXTENSION = framework;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		6B3E4C7308E5866D00BF138E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					ppc64,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 20;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_LOCATION = NO;
+				DSTROOT = "/tmp/$(PROJECT_NAME).dst";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = OpenDirectory.exp;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SRCROOT)/build/Development\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/OpenDirectory.framework/Frameworks\"";
+				FRAMEWORK_VERSION = A;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_ENABLE_OBJC_GC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				LIBRARY_STYLE = DYNAMIC;
+				MACH_O_TYPE = mh_dylib;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+				OTHER_CFLAGS = (
+					"-fconstant-cfstrings",
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-framework",
+					Foundation,
+					"-sub_umbrella",
+					CFOpenDirectory,
+					"-framework",
+					CFOpenDirectory,
+					"-F/System/Library/PrivateFrameworks/OpenDirectory.framework/Versions/A/Frameworks",
+				);
+				PREBINDING = NO;
+				PRESERVE_DEAD_CODE_INITS_AND_TERMS = YES;
+				PRODUCT_NAME = OpenDirectory;
+				VALID_ARCHS = "ppc64 i386 x86_64 ppc";
+				VERSIONING_SYSTEM = "apple-generic";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Default;
+		};
+		6B3E4C7508E5866D00BF138E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
+			};
+			name = Development;
+		};
+		6B3E4C7608E5866D00BF138E /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		6B3E4C7708E5866D00BF138E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		6B587E6009A53D9C00146231 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-framework",
+					OpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCocoa;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		6B587E6109A53D9C00146231 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-framework",
+					OpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCocoa;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		6B587E6209A53D9C00146231 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = "$(HOME)/bin";
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+					"-framework",
+					OpenDirectory,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = TestAppCocoa;
+				ZERO_LINK = YES;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6B0B4CEB0B74CF9E002D37C1 /* Build configuration list for PBXNativeTarget "CFOpenDirectory" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B0B4CEC0B74CF9E002D37C1 /* Development */,
+				6B0B4CED0B74CF9E002D37C1 /* Deployment */,
+				6B0B4CEE0B74CF9E002D37C1 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		6B1011B309A7D11800D799E8 /* Build configuration list for PBXNativeTarget "TestAppCF" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B1011B409A7D11800D799E8 /* Development */,
+				6B1011B509A7D11800D799E8 /* Deployment */,
+				6B1011B609A7D11800D799E8 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		6B20DBA30B9D050E00FF23B0 /* Build configuration list for PBXAggregateTarget "Root" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B20DBA40B9D050E00FF23B0 /* Development */,
+				6B20DBA50B9D050E00FF23B0 /* Deployment */,
+				6B20DBA60B9D050E00FF23B0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		6B3E4C7008E5866D00BF138E /* Build configuration list for PBXNativeTarget "OpenDirectory" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B3E4C7108E5866D00BF138E /* Development */,
+				6B3E4C7208E5866D00BF138E /* Deployment */,
+				6B3E4C7308E5866D00BF138E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		6B3E4C7408E5866D00BF138E /* Build configuration list for PBXProject "OpenDirectory" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B3E4C7508E5866D00BF138E /* Development */,
+				6B3E4C7608E5866D00BF138E /* Deployment */,
+				6B3E4C7708E5866D00BF138E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		6B587E5F09A53D9C00146231 /* Build configuration list for PBXNativeTarget "TestAppCocoa" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6B587E6009A53D9C00146231 /* Development */,
+				6B587E6109A53D9C00146231 /* Deployment */,
+				6B587E6209A53D9C00146231 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0867D690FE84028FC02AAC07 /* Project object */;
+}

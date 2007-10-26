@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,6 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_llist.c,v 1.35.2.1.2.2 2007/02/16 08:33:28 dmitry Exp $ */
 
 #include "zend.h"
 #include "zend_llist.h"
@@ -82,9 +83,10 @@ ZEND_API void zend_llist_prepend_element(zend_llist *l, void *element)
 			}\
 			if ((l)->dtor) {\
 				(l)->dtor((current)->data);\
-				pefree((current), (l)->persistent);\
-			} \
-			--(l)->count;
+			}\
+			pefree((current), (l)->persistent);\
+			--l->count;
+
 
 ZEND_API void zend_llist_del_element(zend_llist *l, void *element, int (*compare)(void *element1, void *element2))
 {
@@ -132,13 +134,15 @@ ZEND_API void *zend_llist_remove_tail(zend_llist *l)
 	void *data;
 
 	if ((old_tail = l->tail)) {
-		if (l->tail->prev) {
-			l->tail->prev->next = NULL;
+		if (old_tail->prev) {
+			old_tail->prev->next = NULL;
+		} else {
+			l->head = NULL;
 		}
-
+        
 		data = old_tail->data;
 
-		l->tail = l->tail->prev;
+		l->tail = old_tail->prev;
 		if (l->dtor) {
 			l->dtor(data);
 		}
@@ -251,7 +255,8 @@ ZEND_API int zend_llist_count(zend_llist *l)
 {
 	return l->count;
 }
-    
+
+
 ZEND_API void *zend_llist_get_first_ex(zend_llist *l, zend_llist_position *pos)
 {
 	zend_llist_position *current = pos ? pos : &l->traverse_ptr;
@@ -304,3 +309,11 @@ ZEND_API void *zend_llist_get_prev_ex(zend_llist *l, zend_llist_position *pos)
 	}
 	return NULL;
 }
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

@@ -225,6 +225,12 @@ SecCmsSignedDataDecodeAfterData(SecCmsSignedDataRef sigd);
 extern OSStatus
 SecCmsSignedDataDecodeAfterEnd(SecCmsSignedDataRef sigd);
 
+/*
+ * Get SecCmsSignedDataRawCerts - obtain raw certs as a NULL_terminated array 
+ * of pointers.
+ */
+extern OSStatus SecCmsSignedDataRawCerts(SecCmsSignedDataRef sigd,
+    CSSM_DATA_PTR **rawCerts);
 
 /************************************************************************
  * cmssiginfo.c - CMS signerInfo methods

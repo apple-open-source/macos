@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 long long 
 blah (long long *longlongptr)
 {

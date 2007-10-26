@@ -61,6 +61,7 @@ public:
   virtual IOHIDKind hidKind();
   virtual UInt32    interfaceID();
   virtual bool 	    updateProperties(void);
+  virtual IOReturn  setProperties( OSObject * properties );
   virtual IOReturn  setParamProperties(OSDictionary * dict);
   virtual UInt64    getGUID();
 };

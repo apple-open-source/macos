@@ -1,0 +1,208 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A108E7810A41EE4A008545E5 /* LoginTest.c in Sources */ = {isa = PBXBuildFile; fileRef = F549EFD3023CFE4601650119 /* LoginTest.c */; };
+		A108E7830A41EE4A008545E5 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F549EFE3023D002801650119 /* Carbon.framework */; };
+		A108E7840A41EE4A008545E5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A12C4A7E04472A9000D11EB3 /* Security.framework */; };
+		A108E7850A41EE4A008545E5 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A141D11A04E55ACC00137A94 /* Kerberos.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A108E7700A41EE16008545E5 /* Release.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = ../../../../../Common/Resources/Release.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E7710A41EE16008545E5 /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = ../../../../../Common/Resources/Debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A108E78A0A41EE4A008545E5 /* LoginTestInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = LoginTestInfo.plist; sourceTree = "<group>"; };
+		A108E78B0A41EE4A008545E5 /* LoginTest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LoginTest.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F30447287F00D11EB3 /* libCredentialsCache.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libCredentialsCache.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F40447287F00D11EB3 /* libKerberos4.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberos4.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F50447287F00D11EB3 /* libKerberos5.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberos5.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F60447287F00D11EB3 /* libKerberosDebug.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosDebug.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F70447287F00D11EB3 /* libKerberosDES.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosDES.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F80447287F00D11EB3 /* libKerberosErrors.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosErrors.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48F90447287F00D11EB3 /* libKerberosIPC.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosIPC.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48FA0447287F00D11EB3 /* libKerberosLogin.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosLogin.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C48FB0447287F00D11EB3 /* libKerberosProfile.a */ = {isa = PBXFileReference; lastKnownFileType = file; path = libKerberosProfile.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		A12C4A7E04472A9000D11EB3 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		A12C4AE204472B2900D11EB3 /* libstdc++.a */ = {isa = PBXFileReference; lastKnownFileType = file; name = "libstdc++.a"; path = "/usr/lib/libstdc++.a"; sourceTree = "<absolute>"; };
+		A141D11A04E55ACC00137A94 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		F549EFD3023CFE4601650119 /* LoginTest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = LoginTest.c; sourceTree = "<group>"; };
+		F549EFD4023CFE4601650119 /* TerminalLoginTest.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = TerminalLoginTest.c; sourceTree = "<group>"; };
+		F549EFE3023D002801650119 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A108E7820A41EE4A008545E5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A108E7830A41EE4A008545E5 /* Carbon.framework in Frameworks */,
+				A108E7840A41EE4A008545E5 /* Security.framework in Frameworks */,
+				A108E7850A41EE4A008545E5 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A12C49050447288700D11EB3 /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				A12C4AE204472B2900D11EB3 /* libstdc++.a */,
+				F549EFE3023D002801650119 /* Carbon.framework */,
+				A12C4A7E04472A9000D11EB3 /* Security.framework */,
+				A141D11A04E55ACC00137A94 /* Kerberos.framework */,
+				A12C48F30447287F00D11EB3 /* libCredentialsCache.a */,
+				A12C48F40447287F00D11EB3 /* libKerberos4.a */,
+				A12C48F50447287F00D11EB3 /* libKerberos5.a */,
+				A12C48F60447287F00D11EB3 /* libKerberosDebug.a */,
+				A12C48F70447287F00D11EB3 /* libKerberosDES.a */,
+				A12C48F80447287F00D11EB3 /* libKerberosErrors.a */,
+				A12C48F90447287F00D11EB3 /* libKerberosIPC.a */,
+				A12C48FA0447287F00D11EB3 /* libKerberosLogin.a */,
+				A12C48FB0447287F00D11EB3 /* libKerberosProfile.a */,
+			);
+			name = Libraries;
+			sourceTree = "<group>";
+		};
+		F549EFCF023CFDF901650119 = {
+			isa = PBXGroup;
+			children = (
+				A108E7700A41EE16008545E5 /* Release.xcconfig */,
+				A108E7710A41EE16008545E5 /* Debug.xcconfig */,
+				F549EFD2023CFE4601650119 /* Sources */,
+				A12C49050447288700D11EB3 /* Libraries */,
+				F549EFD5023CFE4601650119 /* Products */,
+				A108E78A0A41EE4A008545E5 /* LoginTestInfo.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		F549EFD2023CFE4601650119 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				F549EFD3023CFE4601650119 /* LoginTest.c */,
+				F549EFD4023CFE4601650119 /* TerminalLoginTest.c */,
+			);
+			name = Sources;
+			path = ../Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		F549EFD5023CFE4601650119 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A108E78B0A41EE4A008545E5 /* LoginTest.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A108E77D0A41EE4A008545E5 /* LoginTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A108E7870A41EE4A008545E5 /* Build configuration list for PBXNativeTarget "LoginTest" */;
+			buildPhases = (
+				A108E7800A41EE4A008545E5 /* Sources */,
+				A108E7820A41EE4A008545E5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LoginTest;
+			productInstallPath = "$(USER_APPS_DIR)";
+			productName = LoginTest;
+			productReference = A108E78B0A41EE4A008545E5 /* LoginTest.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F549EFCE023CFDF901650119 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A108E7760A41EE16008545E5 /* Build configuration list for PBXProject "KerberosLoginTest" */;
+			hasScannedForEncodings = 1;
+			mainGroup = F549EFCF023CFDF901650119;
+			productRefGroup = F549EFD5023CFE4601650119 /* Products */;
+			projectDirPath = "";
+			targets = (
+				A108E77D0A41EE4A008545E5 /* LoginTest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A108E7800A41EE4A008545E5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A108E7810A41EE4A008545E5 /* LoginTest.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A108E7770A41EE16008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7710A41EE16008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A108E7780A41EE16008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7700A41EE16008545E5 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		A108E7880A41EE4A008545E5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7710A41EE16008545E5 /* Debug.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INFOPLIST_FILE = LoginTestInfo.plist;
+				PRODUCT_NAME = LoginTest;
+			};
+			name = Debug;
+		};
+		A108E7890A41EE4A008545E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A108E7700A41EE16008545E5 /* Release.xcconfig */;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = YES;
+				INFOPLIST_FILE = LoginTestInfo.plist;
+				PRODUCT_NAME = LoginTest;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A108E7760A41EE16008545E5 /* Build configuration list for PBXProject "KerberosLoginTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E7770A41EE16008545E5 /* Debug */,
+				A108E7780A41EE16008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A108E7870A41EE4A008545E5 /* Build configuration list for PBXNativeTarget "LoginTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A108E7880A41EE4A008545E5 /* Debug */,
+				A108E7890A41EE4A008545E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F549EFCE023CFDF901650119 /* Project object */;
+}

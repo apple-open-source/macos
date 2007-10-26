@@ -1,8 +1,8 @@
 Alguém, ou alguém se fazendo passar por você, solicitou o lembrete de 
 senha para seu membro na lista de discussão %(fqdn_lname)s. Você 
 precisará desta senha para modificar suas opções de membro (e.g. você 
-deseja fazer entrega regular ou entrega digest) e tendo esta senha 
-torna simples desinscrever você da lista de discussão.
+prefere receber entregas regulares ou modo digest) e tendo esta senha 
+torna simples a desinscrição da lista de discussão.
 
 Você está inscrito com o endereço: %(user)s
 

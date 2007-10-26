@@ -1,16 +1,49 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2005 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: /Users/deglocal/Desktop/Totoro/icucvs/locale/common/main//tr.xml
+// * Source File:<path>/common/main/tr.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: /Users/deglocal/Desktop/Totoro/icucvs/icu/source/data/xml/main/tr.xml
+ *  ICU <specials> source: <path>/xml/main/tr.xml
  */
 tr{
+    AuxExemplarCharacters{
+        "[á à ă â å ä ā æ é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ø ō œ q ß ú ù ŭ û ū w x ÿ"
+        "]"
+    }
     Countries{
+        001{"Dünya"}
+        002{"Afrika"}
+        005{"Güney Amerika"}
+        009{"Okyanusya"}
+        011{"Batı Afrika"}
+        013{"Orta Amerika"}
+        014{"Doğu Afrika"}
+        015{"Kuzey Afrika"}
+        017{"Orta Afrika"}
+        018{"Güney Afrika [018]"}
+        019{"Amerika"}
+        021{"Kuzey Amerika"}
+        029{"Karayipler"}
+        030{"Doğu Asya"}
+        035{"Güney Doğu Asya"}
+        039{"Güney Avrupa"}
+        053{"Avustralya ve Yeni Zelanda"}
+        054{"Melanezya"}
+        057{"Mikronezya"}
+        061{"Polinezya"}
+        062{"Güney Orta Asya"}
+        142{"Asya"}
+        145{"Batı Asya"}
+        150{"Avrupa"}
+        151{"Doğu Avrupa"}
+        154{"Kuzey Avrupa"}
+        155{"Batı Avrupa"}
+        830{"Kanal Adaları"}
+        833{"Man Adası"}
         AD{"Andora"}
         AE{"Birleşik Arap Emirlikleri"}
         AF{"Afganistan"}
@@ -26,6 +59,7 @@ tr{
         AT{"Avusturya"}
         AU{"Avustralya"}
         AW{"Aruba"}
+        AX{"Aland Adaları"}
         AZ{"Azerbaycan"}
         BA{"Bosna Hersek"}
         BB{"Barbados"}
@@ -59,6 +93,7 @@ tr{
         CN{"Çin"}
         CO{"Kolombiya"}
         CR{"Kosta Rika"}
+        CS{"Sırbistan-Karadağ"}
         CU{"Küba"}
         CV{"Cape Verde"}
         CX{"Christmas Adası"}
@@ -190,6 +225,7 @@ tr{
         PW{"Palau"}
         PY{"Paraguay"}
         QA{"Katar"}
+        QO{"Uzak Okyanusya"}
         RE{"Reunion"}
         RO{"Romanya"}
         RU{"Rusya Federasyonu"}
@@ -208,7 +244,6 @@ tr{
         SM{"San Marino"}
         SN{"Senegal"}
         SO{"Somali"}
-        SP{"Sırbistan"}
         SR{"Surinam"}
         ST{"Sao Tome ve Principe"}
         SV{"El Salvador"}
@@ -247,16 +282,11 @@ tr{
         WS{"Samoa"}
         YE{"Yemen"}
         YT{"Mayotte"}
-        YU{"Yugoslavya"}
         ZA{"Güney Afrika"}
         ZM{"Zambiya"}
         ZW{"Zimbabwe"}
     }
     Currencies{
-        ADD{
-            "ADD",
-            "Andora Dinarı",
-        }
         ADP{
             "ADP",
             "Andora Pezetası",
@@ -273,25 +303,9 @@ tr{
             "Af",
             "Afganistan Afganisi",
         }
-        AIF{
-            "AIF",
-            "Afarlar ve İssalar Frangı",
-        }
-        ALK{
-            "ALK",
-            "Arnavutluk Leki (1946-1961)",
-        }
         ALL{
             "lek",
             "Arnavutluk Leki",
-        }
-        ALV{
-            "ALV",
-            "Arnavutluk Leki Valute",
-        }
-        ALX{
-            "ALX",
-            "Arnavut Doları FEC",
         }
         AMD{
             "dram",
@@ -317,17 +331,9 @@ tr{
             "AOR",
             "Angola Kvanzası Reajustado (1995-1999)",
         }
-        AOS{
-            "AOS",
-            "Angola Esküdosu",
-        }
         ARA{
             "ARA",
             "Arjantin Australi",
-        }
-        ARM{
-            "ARM",
-            "Arjantin Pezosu Moneda Nacional",
         }
         ARP{
             "ARP",
@@ -345,10 +351,6 @@ tr{
             "$A",
             "Avustralya Doları",
         }
-        AUP{
-            "AUP",
-            "Avustralya Lirası",
-        }
         AWG{
             "AWG",
             "Aruba Florini",
@@ -364,10 +366,6 @@ tr{
         BAM{
             "KM",
             "Konvertibl Bosna Hersek Markı",
-        }
-        BAN{
-            "BAN",
-            "Yeni Bosna Hersek Dinarı",
         }
         BBD{
             "BDS$",
@@ -393,21 +391,9 @@ tr{
             "lev",
             "Bulgar Levası (Hard)",
         }
-        BGM{
-            "BGM",
-            "Sosyalist Bulgar Levası",
-        }
         BGN{
             "BGN",
             "Yeni Bulgar Levası",
-        }
-        BGO{
-            "BGO",
-            "Bulgar Levası (1879-1952)",
-        }
-        BGX{
-            "BGX",
-            "Bulgar Levası FEC",
         }
         BHD{
             "BD",
@@ -421,10 +407,6 @@ tr{
             "Ber$",
             "Bermuda Doları",
         }
-        BMP{
-            "BMP",
-            "Bermuda Lirası",
-        }
         BND{
             "BND",
             "Brunei Doları",
@@ -432,10 +414,6 @@ tr{
         BOB{
             "Bs",
             "Bolivya Bolivyanosu",
-        }
-        BOL{
-            "BOL",
-            "Bolivya Bolivyanosu (1863-1962)",
         }
         BOP{
             "BOP",
@@ -469,33 +447,17 @@ tr{
             "BRR",
             "Brezilya Kruzeirosu",
         }
-        BRZ{
-            "BRZ",
-            "Brezilya Kruzeirosu (1942-1967)",
-        }
         BSD{
             "BSD",
             "Bahama Doları",
-        }
-        BSP{
-            "BSP",
-            "Bahama Lirası",
         }
         BTN{
             "Nu",
             "Bhutan Ngultrumu",
         }
-        BTR{
-            "BTR",
-            "Bhutan Rupisi",
-        }
         BUK{
             "BUK",
             "Burma Kyatı",
-        }
-        BUR{
-            "BUR",
-            "Burma Rupisi",
         }
         BWP{
             "BWP",
@@ -505,10 +467,6 @@ tr{
             "BYB",
             "Yeni Beyaz Rusya Rublesi (1994-1999)",
         }
-        BYL{
-            "BYL",
-            "Beyaz Rusya Rublesi (1992-1994)",
-        }
         BYR{
             "Rbl",
             "Beyaz Rusya Rublesi",
@@ -516,10 +474,6 @@ tr{
         BZD{
             "BZ$",
             "Belize Doları",
-        }
-        BZH{
-            "BZH",
-            "İngiliz Hondurası Doları",
         }
         CAD{
             "Can$",
@@ -529,33 +483,9 @@ tr{
             "CDF",
             "Kongo Frangı",
         }
-        CDG{
-            "CDG",
-            "Kongo Cumhuriyeti Frangı",
-        }
-        CDL{
-            "CDL",
-            "Kongo Zairesi",
-        }
-        CFF{
-            "CFF",
-            "Orta Afrika Cumhuriyeti Frangı",
-        }
         CHF{
             "SwF",
             "İsviçre Frangı",
-        }
-        CKD{
-            "CKD",
-            "Cook Adaları Doları",
-        }
-        CLC{
-            "CLC",
-            "Şili Condor",
-        }
-        CLE{
-            "CLE",
-            "Şili Esküdosu",
         }
         CLF{
             "CLF",
@@ -565,29 +495,9 @@ tr{
             "Ch$",
             "Şili Pezosu",
         }
-        CMF{
-            "CMF",
-            "Kamerun CFA Frangı",
-        }
-        CNP{
-            "CNP",
-            "Çin Jen Min Piao Yuanı",
-        }
-        CNX{
-            "CNX",
-            "Çin ABD Doları FEC",
-        }
         CNY{
             "Y",
             "Çin Yuanı Renminbi",
-        }
-        COB{
-            "COB",
-            "Kolombiya Kağıt Pezosu",
-        }
-        COF{
-            "COF",
-            "Kongo CFA Frangı",
         }
         COP{
             "Col$",
@@ -597,10 +507,6 @@ tr{
             "C",
             "Kosta Rika Kolonu",
         }
-        CSC{
-            "CSC",
-            "Çekoslavak Korunası",
-        }
         CSK{
             "CSK",
             "Çekoslavak Korunası (Hard)",
@@ -609,17 +515,9 @@ tr{
             "CUP",
             "Küba Pezosu",
         }
-        CUX{
-            "CUX",
-            "Küba FEC",
-        }
         CVE{
             "CVEsc",
             "Cape Verde Esküdosu",
-        }
-        CWG{
-            "CWG",
-            "Kurasao Florini",
         }
         CYP{
             "£C",
@@ -637,10 +535,6 @@ tr{
             "DEM",
             "Alman Markı",
         }
-        DES{
-            "DES",
-            "Alman Sperrmark",
-        }
         DJF{
             "DF",
             "Cibuti Frangı",
@@ -656,14 +550,6 @@ tr{
         DZD{
             "DA",
             "Cezayir Dinarı",
-        }
-        DZF{
-            "DZF",
-            "Yeni Cezayir Frangı",
-        }
-        DZG{
-            "DZG",
-            "Cezayir Frangı (Germinal)",
         }
         ECS{
             "ECS",
@@ -693,10 +579,6 @@ tr{
             "Br",
             "Etiyopya Birri",
         }
-        ETD{
-            "ETD",
-            "Etiyopya Doları",
-        }
         EUR{
             "€",
             "Euro",
@@ -705,37 +587,17 @@ tr{
             "FIM",
             "Fin Markkası",
         }
-        FIN{
-            "FIN",
-            "Fin Markkası (1860-1962)",
-        }
         FJD{
             "F$",
             "Fiji Doları",
-        }
-        FJP{
-            "FJP",
-            "Fiji Lirası",
         }
         FKP{
             "FKP",
             "Falkland Adaları Lirası",
         }
-        FOK{
-            "FOK",
-            "Faroe Adaları Kronu",
-        }
         FRF{
             "FRF",
             "Fransız Frangı",
-        }
-        FRG{
-            "FRG",
-            "Fransız Frangı (Germinal/Franc Poincare)",
-        }
-        GAF{
-            "GAF",
-            "Gabon CFA Frangı",
         }
         GBP{
             "£",
@@ -753,85 +615,37 @@ tr{
             "GHC",
             "Gana Sedisi",
         }
-        GHO{
-            "GHO",
-            "Eski Gana Sedisi",
-        }
-        GHP{
-            "GHP",
-            "Gana Lirası",
-        }
-        GHR{
-            "GHR",
-            "Yeni Gana Sedisi",
-        }
         GIP{
             "GIP",
             "Cebelitarık Lirası",
-        }
-        GLK{
-            "GLK",
-            "Grönland Kronu",
         }
         GMD{
             "GMD",
             "Gambiya Dalasisi",
         }
-        GMP{
-            "GMP",
-            "Gambiya Lirası",
-        }
         GNF{
             "GF",
             "Gine Frangı",
-        }
-        GNI{
-            "GNI",
-            "Gine Frangı (1960-1972)",
         }
         GNS{
             "GNS",
             "Gine Syli",
         }
-        GPF{
-            "GPF",
-            "Guadeloupe Frangı",
-        }
         GQE{
             "GQE",
             "Ekvator Ginesi Ekuelesi",
-        }
-        GQF{
-            "GQF",
-            "Ekvator Ginesi Frangı",
-        }
-        GQP{
-            "GQP",
-            "Ekvator Ginesi Pezetası",
         }
         GRD{
             "GRD",
             "Yunan Drahmisi",
         }
-        GRN{
-            "GRN",
-            "Yeni Yunan Drahmisi",
-        }
         GTQ{
             "Q",
             "Guatemala Ketzali",
         }
-        GUF{
-            "GUF",
-            "Fransız Guyanası Frangı",
-        }
         GWE{
             "GWE",
             "Portekiz Ginesi Esküdosu",
-        }
-        GWM{
-            "GWM",
-            "Portekiz Ginesi Mil Reis",
         }
         GWP{
             "GWP",
@@ -865,22 +679,6 @@ tr{
             "Ft",
             "Macar Forinti",
         }
-        IBP{
-            "IBP",
-            "Kuzey İrlanda Lirası",
-        }
-        IDG{
-            "IDG",
-            "Endonezya Nica Florini",
-        }
-        IDJ{
-            "IDJ",
-            "Endonezya Java Rupiahı",
-        }
-        IDN{
-            "IDN",
-            "Yeni Endonezya Rupiahı",
-        }
         IDR{
             "Rp",
             "Endonezya Rupiahı",
@@ -889,10 +687,6 @@ tr{
             "IR£",
             "İrlanda Lirası",
         }
-        ILL{
-            "ILL",
-            "İsrail Şekeli",
-        }
         ILP{
             "ILP",
             "İsrail Lirası",
@@ -900,10 +694,6 @@ tr{
         ILS{
             "ILS",
             "Yeni İsrail Şekeli",
-        }
-        IMP{
-            "IMP",
-            "Man Adası Sterlini",
         }
         INR{
             "INR",
@@ -925,17 +715,9 @@ tr{
             "₤",
             "İtalyan Lireti",
         }
-        JEP{
-            "JEP",
-            "Jersey Sterlini",
-        }
         JMD{
             "J$",
             "Jamaika Doları",
-        }
-        JMP{
-            "JMP",
-            "Jamaika Lirası",
         }
         JOD{
             "JD",
@@ -953,37 +735,17 @@ tr{
             "som",
             "Kırgız Somu",
         }
-        KHO{
-            "KHO",
-            "Eski Kamboçya Rieli",
-        }
         KHR{
             "CR",
             "Kamboçya Rieli",
-        }
-        KID{
-            "KID",
-            "Kiribati Doları",
         }
         KMF{
             "CF",
             "Komorlar Frangı",
         }
-        KPP{
-            "KPP",
-            "Kuzey Kore Halk Cumhuriyeti Wonu",
-        }
         KPW{
             "KPW",
             "Kuzey Kore Wonu",
-        }
-        KRH{
-            "KRH",
-            "Güney Kore Hwanı",
-        }
-        KRO{
-            "KRO",
-            "Eski Güney Kore Wonu",
         }
         KRW{
             "KRW",
@@ -997,10 +759,6 @@ tr{
             "KYD",
             "Kayman Adaları Doları",
         }
-        KZR{
-            "KZR",
-            "Kazakistan Rublesi",
-        }
         KZT{
             "T",
             "Kazakistan Tengesi",
@@ -1013,17 +771,9 @@ tr{
             "LL",
             "Lübnan Lirası",
         }
-        LIF{
-            "LIF",
-            "Liechtenstein Frangı",
-        }
         LKR{
             "SL Re",
             "Sri Lanka Rupisi",
-        }
-        LNR{
-            "LNR",
-            "Seylan Rupisi",
         }
         LRD{
             "LRD",
@@ -1053,17 +803,9 @@ tr{
             "LVR",
             "Letonya Rublesi",
         }
-        LYB{
-            "LYB",
-            "Libya İngiliz Askeri Yönetimi Lirası",
-        }
         LYD{
             "LD",
             "Libya Dinarı",
-        }
-        LYP{
-            "LYP",
-            "Libya Lirası",
         }
         MAD{
             "MAD",
@@ -1073,25 +815,9 @@ tr{
             "MAF",
             "Fas Frangı",
         }
-        MCF{
-            "MCF",
-            "Yeni Fas Frangı",
-        }
-        MCG{
-            "MCG",
-            "Fas Frangı (Germinal)",
-        }
-        MDC{
-            "MDC",
-            "Moldova Leyi (Cupon)",
-        }
         MDL{
             "MDL",
             "Moldova Leyi",
-        }
-        MDR{
-            "MDR",
-            "Moldova Rublesi (Cupon)",
         }
         MGA{
             "MGA",
@@ -1101,17 +827,9 @@ tr{
             "MGF",
             "Madagaskar Frangı",
         }
-        MHD{
-            "MHD",
-            "Marshall Adaları Doları",
-        }
         MKD{
             "MDen",
             "Makedonya Dinarı",
-        }
-        MKN{
-            "MKN",
-            "Makedonya Dinarı (1992-1993)",
         }
         MLF{
             "MLF",
@@ -1121,10 +839,6 @@ tr{
             "MMK",
             "Myanmar Kyatı",
         }
-        MMX{
-            "MMX",
-            "Myanmar Doları FEC",
-        }
         MNT{
             "Tug",
             "Moğol Tugriki",
@@ -1132,10 +846,6 @@ tr{
         MOP{
             "MOP",
             "Makao Patacası",
-        }
-        MQF{
-            "MQF",
-            "Martinik Frangı",
         }
         MRO{
             "UM",
@@ -1145,17 +855,9 @@ tr{
             "Lm",
             "Malta Lirası",
         }
-        MTP{
-            "MTP",
-            "Malta Lirası",
-        }
         MUR{
             "MUR",
             "Mauritius Rupisi",
-        }
-        MVP{
-            "MVP",
-            "Maldiv Adaları Rupisi",
         }
         MVR{
             "MVR",
@@ -1164,10 +866,6 @@ tr{
         MWK{
             "MK",
             "Malavi Kvaçası",
-        }
-        MWP{
-            "MWP",
-            "Malavi Lirası",
         }
         MXN{
             "MEX$",
@@ -1197,29 +895,13 @@ tr{
             "N$",
             "Namibya Doları",
         }
-        NCF{
-            "NCF",
-            "Yeni Kaledonya Frangı (Germinal)",
-        }
         NGN{
             "NGN",
             "Nijerya Nairası",
         }
-        NGP{
-            "NGP",
-            "Nijerya Lirası",
-        }
-        NHF{
-            "NHF",
-            "Yeni Hebridler CFP Frangı",
-        }
         NIC{
             "NIC",
             "Nikaragua Kordobası",
-        }
-        NIG{
-            "NIG",
-            "Altın Nikaragua Kordobası",
         }
         NIO{
             "NIO",
@@ -1241,33 +923,13 @@ tr{
             "$NZ",
             "Yeni Zelanda Doları",
         }
-        NZP{
-            "NZP",
-            "Yeni Zelanda Lirası",
-        }
         OMR{
             "RO",
             "Umman Riyali",
         }
-        OMS{
-            "OMS",
-            "Umman Riyali (Saidi)",
-        }
         PAB{
             "PAB",
             "Panama Balboası",
-        }
-        PDK{
-            "PDK",
-            "Transdniestria Rublesi (Kupon)",
-        }
-        PDN{
-            "PDN",
-            "Yeni Transdniestria Rublesi",
-        }
-        PDR{
-            "PDR",
-            "Transdniestria Rublesi",
         }
         PEI{
             "PEI",
@@ -1297,21 +959,9 @@ tr{
             "Zl",
             "Polonya Zlotisi",
         }
-        PLX{
-            "PLX",
-            "Polonya ABD Doları FEC",
-        }
         PLZ{
             "PLZ",
             "Polonya Zlotisi (1950-1995)",
-        }
-        PSP{
-            "PSP",
-            "Filistin Lirası",
-        }
-        PTC{
-            "PTC",
-            "Portekiz Conto",
         }
         PTE{
             "PTE",
@@ -1325,17 +975,9 @@ tr{
             "QR",
             "Katar Riyali",
         }
-        REF{
-            "REF",
-            "Reunion Frangı",
-        }
         ROL{
             "leu",
             "Romen Leyi",
-        }
-        RON{
-            "RON",
-            "Yeni Romen Leyi",
         }
         RUB{
             "RUB",
@@ -1352,10 +994,6 @@ tr{
         SAR{
             "SRl",
             "Suudi Arabistan Riyali",
-        }
-        SAS{
-            "SAS",
-            "Suudi Arabistan Riyali (Sovereign)",
         }
         SBD{
             "SI$",
@@ -1385,10 +1023,6 @@ tr{
             "SHP",
             "Saint Helena Lirası",
         }
-        SIB{
-            "SIB",
-            "Slovenya Toları (Bons)",
-        }
         SIT{
             "SIT",
             "Slovenya Toları",
@@ -1401,37 +1035,17 @@ tr{
             "SLL",
             "Sierra Leone Leonesi",
         }
-        SML{
-            "SML",
-            "San Marino Lirası",
-        }
         SOS{
             "So. Sh.",
             "Somali Şilini",
-        }
-        SQS{
-            "SQS",
-            "Somaliland Şilini",
         }
         SRG{
             "Sf",
             "Surinam Guldeni",
         }
-        SSP{
-            "SSP",
-            "İskoçya Lirası",
-        }
         STD{
             "Db",
             "Sao Tome ve Principe Dobrası",
-        }
-        STE{
-            "STE",
-            "Sao Tome ve Principe Esküdosu",
-        }
-        SUN{
-            "SUN",
-            "Yeni Sovyet Rublesi",
         }
         SUR{
             "SUR",
@@ -1448,14 +1062,6 @@ tr{
         SZL{
             "E",
             "Swaziland Lilangenisi",
-        }
-        TCC{
-            "TCC",
-            "Turks ve Caicos Adaları Crownu",
-        }
-        TDF{
-            "TDF",
-            "Çad CFA Frangı",
         }
         THB{
             "THB",
@@ -1481,37 +1087,21 @@ tr{
             "T$",
             "Tonga Paʻangası",
         }
-        TOS{
-            "TOS",
-            "Tonga Sterlini",
-        }
         TPE{
             "TPE",
             "Timor Esküdosu",
-        }
-        TPP{
-            "TPP",
-            "Timor Patacası",
         }
         TRL{
             "TL",
             "Türk Lirası",
         }
         TRY{
-            "YTL",
+            "TRY",
             "Yeni Türk Lirası",
         }
         TTD{
             "TT$",
             "Trinidad ve Tobago Doları",
-        }
-        TTO{
-            "TTO",
-            "Eski Trinidad ve Tobago Doları",
-        }
-        TVD{
-            "TVD",
-            "Tuvalu Doları",
         }
         TWD{
             "NT$",
@@ -1549,10 +1139,6 @@ tr{
             "USS",
             "ABD Doları (Aynı gün)",
         }
-        UYF{
-            "UYF",
-            "Uruguay Pezosu (Fuerte)",
-        }
         UYP{
             "UYP",
             "Uruguay Pezosu (1975-1993)",
@@ -1561,77 +1147,29 @@ tr{
             "Ur$",
             "Uruguay Pezosu (Uruguayo)",
         }
-        UZC{
-            "UZC",
-            "Özbekistan Sumu (Coupon)",
-        }
         UZS{
             "UZS",
             "Özbekistan Sumu",
-        }
-        VAL{
-            "VAL",
-            "Vatikan Şehir Devleti Lirası",
-        }
-        VDD{
-            "VDD",
-            "Kuzey Vietnam Piastre Dong Viet",
-        }
-        VDN{
-            "VDN",
-            "Yeni Kuzey Vietnam Dongu",
-        }
-        VDP{
-            "VDP",
-            "Kuzey Vietnam Viet Minh Piastre Dong Viet",
         }
         VEB{
             "Be",
             "Venezuela Bolivarı",
         }
-        VGD{
-            "VGD",
-            "İngiliz Virgin Adaları Doları",
-        }
         VND{
             "VND",
             "Vietnam Dongu",
-        }
-        VNN{
-            "VNN",
-            "Yeni Vietnam Dongu",
-        }
-        VNR{
-            "VNR",
-            "Vietnam Cumhuriyeti Dongu",
-        }
-        VNS{
-            "VNS",
-            "Vietnam Ulusal Dongu",
         }
         VUV{
             "VT",
             "Vanuatu Vatusu",
         }
-        WSP{
-            "WSP",
-            "Batı Samoa Lirası",
-        }
         WST{
             "WST",
             "Batı Samoa Talası",
         }
-        XAD{
-            "XAD",
-            "Asya Hesap Birimi Dinarı",
-        }
         XAF{
             "XAF",
             "CFA Frangı BEAC",
-        }
-        XAM{
-            "XAM",
-            "Asya Para Birimi",
         }
         XAU{
             "XAU",
@@ -1640,10 +1178,6 @@ tr{
         XBA{
             "XBA",
             "Birleşik Avrupa Birimi",
-        }
-        XBB{
-            "XBB",
-            "Avrupa Para Birimi",
         }
         XBC{
             "XBC",
@@ -1657,17 +1191,9 @@ tr{
             "EC$",
             "Doğu Karayip Doları",
         }
-        XCF{
-            "XCF",
-            "CFA Yeni Frank",
-        }
         XDR{
             "XDR",
             "Özel Çekme Hakkı (SDR)",
-        }
-        XEF{
-            "XEF",
-            "CFA Frank BCEAEC",
         }
         XEU{
             "XEU",
@@ -1681,18 +1207,6 @@ tr{
             "XFU",
             "Fransız UIC-Frangı",
         }
-        XID{
-            "XID",
-            "İslam Dinarı",
-        }
-        XMF{
-            "XMF",
-            "Ana Fransa yeni Frangı",
-        }
-        XNF{
-            "XNF",
-            "Fransız Antilleri CFA Frangı",
-        }
         XOF{
             "XOF",
             "CFA Frangı BCEAO",
@@ -1701,17 +1215,9 @@ tr{
             "CFPF",
             "CFP Frangı",
         }
-        XTR{
-            "XTR",
-            "COMECON Transfer Edilebilir Rublesi",
-        }
         YDD{
             "YDD",
             "Yemen Dinarı",
-        }
-        YEI{
-            "YEI",
-            "Yemen Riyali (Imadi)",
         }
         YER{
             "YRl",
@@ -1721,14 +1227,6 @@ tr{
             "YUD",
             "Yugoslav Dinarı (Hard)",
         }
-        YUF{
-            "YUF",
-            "Yugoslav Federasyonu Dinarı",
-        }
-        YUG{
-            "YUG",
-            "Yugoslav 1994 Dinarı",
-        }
         YUM{
             "YUM",
             "Yeni Yugoslav Dinarı",
@@ -1737,21 +1235,9 @@ tr{
             "YUN",
             "Konvertibl Yugoslav Dinarı",
         }
-        YUO{
-            "YUO",
-            "Yugoslav Ekim Dinarı",
-        }
-        YUR{
-            "YUR",
-            "Yugoslav Dinarı (Reformed)",
-        }
         ZAL{
             "ZAL",
             "Güney Afrika Randı (finansal)",
-        }
-        ZAP{
-            "ZAP",
-            "Güney Afrika Lirası",
         }
         ZAR{
             "R",
@@ -1760,10 +1246,6 @@ tr{
         ZMK{
             "ZMK",
             "Zambiya Kvaçası",
-        }
-        ZMP{
-            "ZMP",
-            "Zambiya Lirası",
         }
         ZRN{
             "ZRN",
@@ -1778,7 +1260,7 @@ tr{
             "Zimbabwe Doları",
         }
     }
-    ExemplarCharacters{"[a-zâûöüıçşğ]"}
+    ExemplarCharacters{"[a-c ç d-g ğ h ı i İ j-o ö p r s ş t u ü v y z]"}
     Keys{
         calendar{"Takvim"}
         collation{"Sıralama"}
@@ -1834,7 +1316,7 @@ tr{
         crh{"Kırım Türkçesi; Kırım Tatarcası"}
         crp{"Creoles ve Pidgins (Diğer)"}
         cs{"Çekçe"}
-        cu{"Slav Kilisesi"}
+        cu{"Kilise Slavcası"}
         cus{"Cushitic (Diğer)"}
         cv{"Çuvaş"}
         cy{"Gal Dili"}
@@ -1882,6 +1364,7 @@ tr{
         ht{"Haiti Dili"}
         hu{"Macarca"}
         hy{"Ermenice"}
+        ia{"Interlingua"}
         id{"Endonezya Dili"}
         ie{"Interlingue"}
         ik{"Inupiak"}
@@ -1937,7 +1420,7 @@ tr{
         nai{"Kuzey Amerika Yerlileri Dili (Diğer)"}
         nb{"Norveç Kitap Dili"}
         nd{"Kuzey Ndebele"}
-        nds{"Alçak Almanca; Alçak Sakson"}
+        nds{"Aşağı Almanca; Aşağı Sakson"}
         ne{"Nepal Dili"}
         nic{"Nijer - Kordofanian (Diğer)"}
         nl{"Hollanda Dili"}
@@ -1945,7 +1428,7 @@ tr{
         no{"Norveççe"}
         nr{"Güney Ndebele"}
         nub{"Nubian Dilleri"}
-        oc{"Occitan"}
+        oc{"Occitan (1500 sonrası); Provençal"}
         oj{"Ojibwa"}
         om{"Oromo (Afan)"}
         or{"Oriya"}
@@ -2016,7 +1499,7 @@ tr{
         tk{"Türkmence"}
         tl{"Tagalog"}
         tn{"Setswana"}
-        to{"Tonga"}
+        to{"Tonga (Tonga Adaları)"}
         tr{"Türkçe"}
         ts{"Tsonga"}
         tt{"Tatarca"}
@@ -2056,8 +1539,14 @@ tr{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
+    }
+    NumberPatterns{
+        "#,##0.###",
+        "¤ #,##0.00",
+        "#,##0%",
+        "#E0",
     }
     Scripts{
         Arab{"Arapça"}
@@ -2100,13 +1589,9 @@ tr{
             traditional{"Geleneksel"}
         }
     }
-    Version{"1.3"}
+    Version{"1.70"}
     calendar{
         gregorian{
-            DateTimeElements:intvector{
-                2,
-                1,
-            }
             DateTimePatterns{
                 "HH:mm:ss z",
                 "HH:mm:ss z",
@@ -2129,15 +1614,6 @@ tr{
                         "Cum",
                         "Cmt",
                     }
-                    narrow{
-                        "P",
-                        "P",
-                        "S",
-                        "Ç",
-                        "P",
-                        "C",
-                        "C",
-                    }
                     wide{
                         "Pazar",
                         "Pazartesi",
@@ -2148,11 +1624,57 @@ tr{
                         "Cumartesi",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "P",
+                        "P",
+                        "S",
+                        "Ç",
+                        "P",
+                        "C",
+                        "C",
+                    }
+                }
             }
             eras{
                 abbreviated{
                     "MÖ",
                     "MS",
+                }
+            }
+            fields{
+                day{
+                    dn{"Gün"}
+                }
+                dayperiod{
+                    dn{"Günün Bölümü"}
+                }
+                era{
+                    dn{"Miladi Dönem"}
+                }
+                hour{
+                    dn{"Saat"}
+                }
+                minute{
+                    dn{"Dakika"}
+                }
+                month{
+                    dn{"Ay"}
+                }
+                second{
+                    dn{"Saniye"}
+                }
+                week{
+                    dn{"Hafta"}
+                }
+                weekday{
+                    dn{"Haftanın Günü"}
+                }
+                year{
+                    dn{"Yıl"}
+                }
+                zone{
+                    dn{"Saat Dilimi"}
                 }
             }
             monthNames{
@@ -2171,20 +1693,6 @@ tr{
                         "Kas",
                         "Ara",
                     }
-                    narrow{
-                        "O",
-                        "Ş",
-                        "M",
-                        "N",
-                        "M",
-                        "H",
-                        "T",
-                        "A",
-                        "E",
-                        "E",
-                        "K",
-                        "A",
-                    }
                     wide{
                         "Ocak",
                         "Şubat",
@@ -2200,138 +1708,311 @@ tr{
                         "Aralık",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "O",
+                        "Ş",
+                        "M",
+                        "N",
+                        "M",
+                        "H",
+                        "T",
+                        "A",
+                        "E",
+                        "E",
+                        "K",
+                        "A",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "Ç1",
+                        "Ç2",
+                        "Ç3",
+                        "Ç4",
+                    }
+                    wide{
+                        "1. çeyrek",
+                        "2. çeyrek",
+                        "3. çeyrek",
+                        "4. çeyrek",
+                    }
+                }
+            }
+        }
+        hebrew{
+            monthNames{
+                format{
+                    abbreviated{
+                        "Tişri",
+                        "Heşvan",
+                        "Kislev",
+                        "Tevet",
+                        "Şevat",
+                        "Veadar",
+                        "Adar",
+                        "Nisan",
+                        "Iyar",
+                        "Sivan",
+                        "Tamuz",
+                        "Av",
+                        "Ellul",
+                    }
+                    wide{
+                        "Tişri",
+                        "Heşvan",
+                        "Kislev",
+                        "Tevet",
+                        "Şevat",
+                        "Veadar",
+                        "Adar",
+                        "Nisan",
+                        "İyar",
+                        "Sivan",
+                        "Tamuz",
+                        "Av",
+                        "Ellul",
+                    }
+                }
+            }
+        }
+        islamic{
+            monthNames{
+                format{
+                    abbreviated{
+                        "Muharrem",
+                        "Safer",
+                        "Rebiülevvel",
+                        "Rebiülahir",
+                        "Cemaziyelevvel",
+                        "Cemaziyelahir",
+                        "Recep",
+                        "Shaʻban",
+                        "Ramadan",
+                        "Shawwal",
+                        "Zilkade",
+                        "Dhuʻl-Hijjah",
+                    }
+                    wide{
+                        "Muharrem",
+                        "Safer",
+                        "Rebiülevvel",
+                        "Rebiülahir",
+                        "Cemaziyelevvel",
+                        "Cemaziyelahir",
+                        "Recep",
+                        "Şaban",
+                        "Ramazan",
+                        "Şevval",
+                        "Zilkade",
+                        "Zilhicce",
+                    }
+                }
+            }
+        }
+        islamic-civil{
+            monthNames{
+                format{
+                    wide{
+                        "Muharrem",
+                        "Safer",
+                        "Rebiülevvel",
+                        "Rebiülahir",
+                        "Cemaziyelevvel",
+                        "Cemaziyelahir",
+                        "Recep",
+                        "Şaban",
+                        "Ramazan",
+                        "Şevval",
+                        "Zilkade",
+                        "Zilhicce",
+                    }
+                }
+            }
+        }
+        persian{
+            monthNames{
+                format{
+                    abbreviated{
+                        "Ferwerdin",
+                        "Ordibeheşt",
+                        "Hordâd",
+                        "Tir",
+                        "Mordâd",
+                        "Şehrivar",
+                        "Mehr",
+                        "Aban",
+                        "Azar",
+                        "Dey",
+                        "Behman",
+                        "Esfand",
+                    }
+                    wide{
+                        "Ferwerdin",
+                        "Ordibeheşt",
+                        "Hordâd",
+                        "Tir",
+                        "Mordâd",
+                        "Şehrivar",
+                        "Mehr",
+                        "Âbân",
+                        "Âzar",
+                        "Daî",
+                        "Behman",
+                        "İsfand",
+                    }
+                }
             }
         }
     }
-    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZ"}
+    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZvcL"}
     zoneStrings{
-        {
-            "America/Los_Angeles",
-            "Pasifik Standart Saati",
-            "PST",
-            "Pasifik Yaz Saati",
-            "PDT",
-            "Los Angeles",
+        "Africa:Ceuta"{
+            ec{"Septe"}
         }
-        {
-            "America/Denver",
-            "ABD Sıradağlar Standart Saati",
-            "MST",
-            "ABD Sıradağlar Yaz Saati",
-            "MDT",
-            "Denver",
+        "Africa:Kinshasa"{
+            ec{"Kinşasa"}
         }
-        {
-            "America/Phoenix",
-            "ABD Sıradağlar Standart Saati",
-            "MST",
-            "ABD Sıradağlar Standart Saati",
-            "MST",
-            "Phoenix",
+        "Africa:Lubumbashi"{
+            ec{"Lubumbaşi"}
         }
-        {
-            "America/Chicago",
-            "Merkezi Standart Saati",
-            "CST",
-            "Merkezi Yaz Saati",
-            "CDT",
-            "Şikago",
+        "America:Anchorage"{
+            ec{"Anchorage"}
+            ld{"Alaska Yaz Saati"}
+            ls{"Alaska Standart Saati"}
         }
-        {
-            "America/New_York",
-            "Doğu Standart Saati",
-            "EST",
-            "Doğu Yaz Saati",
-            "EDT",
-            "New York",
+        "America:Cancun"{
+            ec{"Kankun"}
         }
-        {
-            "America/Indianapolis",
-            "Doğu Standart Saati",
-            "EST",
-            "Doğu Standart Saati",
-            "EST",
-            "Indianapolis",
+        "America:Chicago"{
+            ec{"Şikago"}
+            ld{"Merkezi Yaz Saati"}
+            ls{"Merkezi Standart Saati"}
         }
-        {
-            "Pacific/Honolulu",
-            "Hawaii Standart Saati",
-            "HST",
-            "Hawaii Standart Saati",
-            "HST",
-            "Honolulu",
+        "America:Denver"{
+            ec{"Denver"}
+            ld{"ABD Sıradağlar Yaz Saati"}
+            ls{"ABD Sıradağlar Standart Saati"}
         }
-        {
-            "America/Anchorage",
-            "Alaska Standart Saati",
-            "AST",
-            "Alaska Yaz Saati",
-            "ADT",
-            "Anchorage",
+        "America:Halifax"{
+            ec{"Halifax"}
+            ld{"Atlantik Yaz Saati"}
+            ls{"Atlantik Standart Saati"}
         }
-        {
-            "America/Halifax",
-            "Atlantik Standart Saati",
-            "AST",
-            "Atlantik Yaz Saati",
-            "ADT",
-            "Halifax",
+        "America:Indianapolis"{
+            ec{"Indianapolis"}
+            ld{"Doğu (Indianapolis) Yaz Saati"}
+            ls{"Doğu Standart Saati"}
         }
-        {
-            "America/St_Johns",
-            "Newfoundland Standart Saati",
-            "CNT",
-            "Newfoundland Yaz Saati",
-            "CDT",
-            "St. Johns",
+        "America:Los_Angeles"{
+            ec{"Los Angeles"}
+            ld{"Pasifik Yaz Saati"}
+            ls{"Pasifik Standart Saati"}
         }
-        {
-            "Europe/Paris",
-            "Orta Avrupa Standart Saati",
-            "CET",
-            "Orta Avrupa Yaz Saati",
-            "CEST",
-            "Paris",
+        "America:Mexico_City"{
+            ec{"Meksiko City"}
         }
-        {
-            "Africa/Casablanca",
-            "Greenwich  Saati",
-            "GMT",
-            "Greenwich  Saati",
-            "GMT",
-            "Kasablanka",
+        "America:New_York"{
+            ec{"New York"}
+            ld{"Doğu Yaz Saati"}
+            ls{"Doğu Standart Saati"}
         }
-        {
-            "Asia/Jerusalem",
-            "İsrail Standart Saati",
-            "IST",
-            "İsrail Standart Saati",
-            "IDT",
-            "Kudüs",
+        "America:Phoenix"{
+            ec{"Phoenix"}
+            ld{"ABD Sıradağlar Standart Saati"}
+            ls{"ABD Sıradağlar Standart Saati"}
         }
-        {
-            "Asia/Tokyo",
-            "Japonya Standart Saati",
-            "JST",
-            "Japonya Standart Saati",
-            "JST",
-            "Tokyo",
+        "America:St_Johns"{
+            ec{"St Johns"}
+            ld{"Newfoundland Yaz Saati"}
+            ls{"Newfoundland Standart Saati"}
         }
-        {
-            "Europe/Bucharest",
-            "Doğu Avrupa Standart Saati",
-            "EET",
-            "Doğu Avrupa Yaz Saati",
-            "EEST",
-            "Bükreş",
+        "Antarctica:South_Pole"{
+            ec{"Güney Kutbu"}
         }
-        {
-            "Asia/Shanghai",
-            "Çin Standart Saati",
-            "CTT",
-            "Çin Standart Saati",
-            "CDT",
-            "Şangay",
+        "Asia:Almaty"{
+            ec{"Almatı"}
+        }
+        "Asia:Aqtau"{
+            ec{"Şevçenko"}
+        }
+        "Asia:Aqtobe"{
+            ec{"Aktyubinsk"}
+        }
+        "Asia:Choibalsan"{
+            ec{"Çoybalsan"}
+        }
+        "Asia:Chongqing"{
+            ec{"Çunking"}
+        }
+        "Asia:Hovd"{
+            ec{"Kobdo"}
+        }
+        "Asia:Jakarta"{
+            ec{"Cakarta"}
+        }
+        "Asia:Kamchatka"{
+            ec{"Kamçatka"}
+        }
+        "Asia:Kashgar"{
+            ec{"Kaşgar"}
+        }
+        "Asia:Kuching"{
+            ec{"Kuçing"}
+        }
+        "Asia:Oral"{
+            ec{"Uralsk"}
+        }
+        "Asia:Qyzylorda"{
+            ec{"Kızıl-Orda"}
+        }
+        "Asia:Samarkand"{
+            ec{"Semerkand"}
+        }
+        "Asia:Shanghai"{
+            ec{"Şangay"}
+            ld{"Çin Standart Saati"}
+            ls{"Çin Standart Saati"}
+        }
+        "Asia:Tashkent"{
+            ec{"Taşkent"}
+        }
+        "Asia:Ulaanbaatar"{
+            ec{"Ulanbator"}
+        }
+        "Asia:Urumqi"{
+            ec{"Urumçi"}
+        }
+        "Atlantic:Azores"{
+            ec{"Azor Adaları"}
+        }
+        "Atlantic:Canary"{
+            ec{"Kanarya"}
+        }
+        "Australia:Melbourne"{
+            ec{"Melborn"}
+        }
+        "Australia:Sydney"{
+            ec{"Sidney"}
+        }
+        "Europe:Lisbon"{
+            ec{"Lizbon"}
+        }
+        "Europe:London"{
+            ec{"Londra"}
+        }
+        "Europe:Moscow"{
+            ec{"Moskova"}
+        }
+        "Pacific:Honolulu"{
+            ec{"Honolulu"}
+            ld{"Hawaii Standart Saati"}
+            ls{"Hawaii Standart Saati"}
+        }
+        "Pacific:Marquesas"{
+            ec{"Markiz"}
         }
     }
 }

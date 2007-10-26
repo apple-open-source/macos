@@ -27,8 +27,9 @@
     Note that results "res" may be allocated on return so that the
     results can be used.  It should be freed using ads_msgfree.
 */
-ADS_STATUS ads_find_printer_on_server(ADS_STRUCT *ads, void **res,
-				      const char *printer, const char *servername)
+ ADS_STATUS ads_find_printer_on_server(ADS_STRUCT *ads, LDAPMessage **res,
+				       const char *printer,
+				       const char *servername)
 {
 	ADS_STATUS status;
 	char *srv_dn, **srv_cn, *s;
@@ -40,8 +41,18 @@ ADS_STATUS ads_find_printer_on_server(ADS_STRUCT *ads, void **res,
 			  servername));
 		return status;
 	}
+	if (ads_count_replies(ads, *res) != 1) {
+		return ADS_ERROR(LDAP_NO_SUCH_OBJECT);
+	}
 	srv_dn = ldap_get_dn(ads->ld, *res);
+	if (srv_dn == NULL) {
+		return ADS_ERROR(LDAP_NO_MEMORY);
+	}
 	srv_cn = ldap_explode_dn(srv_dn, 1);
+	if (srv_cn == NULL) {
+		ldap_memfree(srv_dn);
+		return ADS_ERROR(LDAP_INVALID_DN_SYNTAX);
+	}
 	ads_msgfree(ads, *res);
 
 	asprintf(&s, "(cn=%s-%s)", srv_cn[0], printer);
@@ -53,9 +64,9 @@ ADS_STATUS ads_find_printer_on_server(ADS_STRUCT *ads, void **res,
 	return status;	
 }
 
-ADS_STATUS ads_find_printers(ADS_STRUCT *ads, void **res)
+ ADS_STATUS ads_find_printers(ADS_STRUCT *ads, LDAPMessage **res)
 {
-	char *ldap_expr;
+	const char *ldap_expr;
 	const char *attrs[] = { "objectClass", "printerName", "location", "driverName",
 				"serverName", "description", NULL };
 
@@ -119,6 +130,9 @@ static BOOL map_dword(TALLOC_CTX *ctx, ADS_MODLIST *mods,
 	if (value->type != REG_DWORD)
 		return False;
 	str_value = talloc_asprintf(ctx, "%d", *((uint32 *) value->data_p));
+	if (!str_value) {
+		return False;
+	}
 	status = ads_mod_str(ctx, mods, value->valuename, str_value);
 	return ADS_ERR_OK(status);
 }
@@ -136,6 +150,9 @@ static BOOL map_bool(TALLOC_CTX *ctx, ADS_MODLIST *mods,
 		return False;
 	str_value =  talloc_asprintf(ctx, "%s", 
 				     *(value->data_p) ? "TRUE" : "FALSE");
+	if (!str_value) {
+		return False;
+	}
 	status = ads_mod_str(ctx, mods, value->valuename, str_value);
 	return ADS_ERR_OK(status);
 }
@@ -162,6 +179,9 @@ static BOOL map_multi_sz(TALLOC_CTX *ctx, ADS_MODLIST *mods,
 
 	if (num_vals) {
 		str_values = TALLOC_ARRAY(ctx, char *, num_vals + 1);
+		if (!str_values) {
+			return False;
+		}
 		memset(str_values, '\0', 
 		       (num_vals + 1) * sizeof(char *));
 
@@ -258,80 +278,72 @@ static void map_regval_to_ads(TALLOC_CTX *ctx, ADS_MODLIST *mods,
 }
 
 
-WERROR get_remote_printer_publishing_data(struct cli_state *cli, 
+WERROR get_remote_printer_publishing_data(struct rpc_pipe_client *cli, 
 					  TALLOC_CTX *mem_ctx,
 					  ADS_MODLIST *mods,
 					  const char *printer)
 {
 	WERROR result;
 	char *printername, *servername;
-	REGVAL_CTR dsdriver_ctr, dsspooler_ctr;
-	BOOL got_dsdriver = False, got_dsspooler = False;
-	uint32 needed, i;
+	REGVAL_CTR *dsdriver_ctr, *dsspooler_ctr;
+	uint32 i;
 	POLICY_HND pol;
 
-	asprintf(&servername, "\\\\%s", cli->desthost);
+	asprintf(&servername, "\\\\%s", cli->cli->desthost);
 	asprintf(&printername, "%s\\%s", servername, printer);
 	if (!servername || !printername) {
 		DEBUG(3, ("Insufficient memory\n"));
 		return WERR_NOMEM;
 	}
 	
-	result = cli_spoolss_open_printer_ex(cli, mem_ctx, printername, 
+	result = rpccli_spoolss_open_printer_ex(cli, mem_ctx, printername, 
 					     "", MAXIMUM_ALLOWED_ACCESS, 
-					     servername, cli->user_name, &pol);
+					     servername, cli->cli->user_name, &pol);
 	if (!W_ERROR_IS_OK(result)) {
 		DEBUG(3, ("Unable to open printer %s, error is %s.\n",
 			  printername, dos_errstr(result)));
 		return result;
 	}
 	
-	result = cli_spoolss_enumprinterdataex(cli, mem_ctx, 0, &needed, 
-					       &pol, SPOOL_DSDRIVER_KEY, NULL);
+	if ( !(dsdriver_ctr = TALLOC_ZERO_P( mem_ctx, REGVAL_CTR )) ) 
+		return WERR_NOMEM;
 
-	if (W_ERROR_V(result) == ERRmoredata)
-		result = cli_spoolss_enumprinterdataex(cli, mem_ctx, needed, 
-						       NULL, &pol, 
-						       SPOOL_DSDRIVER_KEY,
-						       &dsdriver_ctr);
+	result = rpccli_spoolss_enumprinterdataex(cli, mem_ctx, &pol, SPOOL_DSDRIVER_KEY, dsdriver_ctr);
 
 	if (!W_ERROR_IS_OK(result)) {
 		DEBUG(3, ("Unable to do enumdataex on %s, error is %s.\n",
 			  printername, dos_errstr(result)));
 	} else {
+		uint32 num_values = regval_ctr_numvals( dsdriver_ctr );
 
 		/* Have the data we need now, so start building */
-		got_dsdriver = True;
-		for (i=0; i < dsdriver_ctr.num_values; i++)
-			map_regval_to_ads(mem_ctx, mods, 
-					  dsdriver_ctr.values[i]);
+		for (i=0; i < num_values; i++) {
+			map_regval_to_ads(mem_ctx, mods, dsdriver_ctr->values[i]);
+		}
 	}
 	
-	result = cli_spoolss_enumprinterdataex(cli, mem_ctx, 0, &needed, 
-					       &pol, SPOOL_DSSPOOLER_KEY, 
-					       NULL);
+	if ( !(dsspooler_ctr = TALLOC_ZERO_P( mem_ctx, REGVAL_CTR )) )
+		return WERR_NOMEM;
 
-	if (W_ERROR_V(result) == ERRmoredata)
-		result = cli_spoolss_enumprinterdataex(cli, mem_ctx, needed, 
-						       NULL, &pol, 
-						       SPOOL_DSSPOOLER_KEY,
-						       &dsspooler_ctr);
+	result = rpccli_spoolss_enumprinterdataex(cli, mem_ctx, &pol, SPOOL_DSSPOOLER_KEY, dsspooler_ctr);
 
 	if (!W_ERROR_IS_OK(result)) {
 		DEBUG(3, ("Unable to do enumdataex on %s, error is %s.\n",
 			  printername, dos_errstr(result)));
 	} else {
-		got_dsspooler = True;
-		for (i=0; i < dsspooler_ctr.num_values; i++)
-			map_regval_to_ads(mem_ctx, mods, 
-					  dsspooler_ctr.values[i]);
+		uint32 num_values = regval_ctr_numvals( dsspooler_ctr );
+
+		for (i=0; i<num_values; i++) {
+			map_regval_to_ads(mem_ctx, mods, dsspooler_ctr->values[i]);
+		}
 	}
 	
 	ads_mod_str(mem_ctx, mods, SPOOL_REG_PRINTERNAME, printer);
 
-	if (got_dsdriver) regval_ctr_destroy(&dsdriver_ctr);
-	if (got_dsspooler) regval_ctr_destroy(&dsspooler_ctr);
-	cli_spoolss_close_printer(cli, mem_ctx, &pol);
+	TALLOC_FREE( dsdriver_ctr );
+	TALLOC_FREE( dsspooler_ctr );
+
+	rpccli_spoolss_close_printer(cli, mem_ctx, &pol);
 
 	return result;
 }
@@ -343,9 +355,9 @@ BOOL get_local_printer_publishing_data(TALLOC_CTX *mem_ctx,
 	uint32 key,val;
 
 	for (key=0; key < data->num_keys; key++) {
-		REGVAL_CTR ctr = data->keys[key].values;
-		for (val=0; val < ctr.num_values; val++)
-			map_regval_to_ads(mem_ctx, mods, ctr.values[val]);
+		REGVAL_CTR *ctr = data->keys[key].values;
+		for (val=0; val < ctr->num_values; val++)
+			map_regval_to_ads(mem_ctx, mods, ctr->values[val]);
 	}
 	return True;
 }

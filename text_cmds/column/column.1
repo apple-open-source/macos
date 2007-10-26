@@ -1,5 +1,3 @@
-.\"	$NetBSD: column.1,v 1.4 1997/10/18 13:02:59 lukem Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,8 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)column.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/column/column.1,v 1.14 2005/01/18 13:43:48 ru Exp $
 .\"
-.Dd June 6, 1993
+.Dd July 29, 2004
 .Os
 .Dt COLUMN 1
 .Sh NAME
@@ -56,7 +55,7 @@ operands, or, by default, from the standard input.
 Empty lines are ignored.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width indent
 .It Fl c
 Output is formatted for a display
 .Ar columns
@@ -75,19 +74,20 @@ Useful for pretty-printing displays.
 .It Fl x
 Fill columns before filling rows.
 .El
-.Pp
-.Nm
-exits 0 on success, >0 if an error occurred.
 .Sh ENVIRONMENT
-.Bl -tag -width COLUMNS
-.It Ev COLUMNS
-The environment variable
-.Ev COLUMNS
-is used to determine the size of
-the screen if no other information is available.
-.El
+The
+.Ev COLUMNS , LANG , LC_ALL
+and
+.Ev LC_CTYPE
+environment variables affect the execution of
+.Nm
+as described in
+.Xr environ 7 .
+.Sh EXIT STATUS
+.Ex -std
 .Sh EXAMPLES
-.Dl (printf \&"PERM LINKS OWNER SIZE MONTH DAY HH:MM/YEAR NAME\en\&"\ \&;\ \&\e
+.Dl (printf \&"PERM LINKS OWNER GROUP SIZE MONTH DAY \&"\ \&;\ \&\e
+.Dl printf \&"HH:MM/YEAR NAME\en\&"\ \&;\ \&\e
 .Dl ls -l \&| sed 1d) \&| column -t
 .Sh SEE ALSO
 .Xr colrm 1 ,
@@ -97,5 +97,9 @@ the screen if no other information is available.
 .Sh HISTORY
 The
 .Nm
-command appeared in 
+command appeared in
 .Bx 4.3 Reno .
+.Sh BUGS
+Input lines are limited to
+.Dv LINE_MAX
+(2048) bytes in length.

@@ -63,16 +63,25 @@
   "wandn%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")])
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_insn "*iwmmxt_arm_movdi"
   [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r, r, m,y,y,yr,y,yrUy")
 	(match_operand:DI 1 "di_operand"              "rIK,mi,r,y,yr,y,yrUy,y"))]
-  "TARGET_REALLY_IWMMXT"
+  "TARGET_REALLY_IWMMXT
+   && (   register_operand (operands[0], DImode)
+       || register_operand (operands[1], DImode))"
   "*
 {
   switch (which_alternative)
     {
     default:
       return output_move_double (operands);
+    case 0:
+      return \"#\";
     case 3:
       return \"wmov%?\\t%0,%1\";
     case 4:
@@ -90,6 +99,7 @@
    (set_attr "pool_range"     "*,1020,*,*,*,*,*,*")
    (set_attr "neg_pool_range" "*,1012,*,*,*,*,*,*")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 (define_insn "*iwmmxt_movsi_insn"
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r, m,z,r,?z,Uy,z")
@@ -153,9 +163,13 @@
    (set_attr "neg_pool_range" "*,*,4084,     *,*,*")]
 )
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
 (define_insn "movv8qi_internal"
   [(set (match_operand:V8QI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V8QI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V8QI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -175,7 +189,7 @@
 
 (define_insn "movv4hi_internal"
   [(set (match_operand:V4HI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V4HI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V4HI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -195,7 +209,7 @@
 
 (define_insn "movv2si_internal"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=y,m,y,?r,?y,?r")
-	(match_operand:V2SI 1 "general_operand"       "y,y,m,y,r,i"))]
+	(match_operand:V2SI 1 "general_operand"       "y,y,mi,y,r,mi"))]
   "TARGET_REALLY_IWMMXT"
   "*
    switch (which_alternative)
@@ -220,7 +234,7 @@
 ;; deliberately omitted.
 (define_insn "movv2si_internal_2"
   [(set (match_operand:V2SI 0 "nonimmediate_operand" "=?r")
-	(match_operand      1 "immediate_operand"      "i"))]
+	(match_operand      1 "immediate_operand"      "mi"))]
   "TARGET_REALLY_IWMMXT"
   "* return output_move_double (operands);"
   [(set_attr "predicable"     "yes")
@@ -228,6 +242,8 @@
    (set_attr "type"           "load1")
    (set_attr "pool_range"     "256")
    (set_attr "neg_pool_range" "244")])
+
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; Vector add/subtract
 

@@ -33,13 +33,13 @@ void DigestContext::init(const Context &context, bool)
 
 void DigestContext::update(const CssmData &data)
 {
-	mDigest.digestUpdate((const UInt8 *)data.data(), data.length());
+	mDigest.digestUpdate((const uint8 *)data.data(), data.length());
 }
 
 void DigestContext::final(CssmData &data)
 {
 	data.length(mDigest.digestSizeInBytes());
-	mDigest.digestFinal((UInt8 *)data.data());
+	mDigest.digestFinal((uint8 *)data.data());
 }
 
 CSPFullPluginSession::CSPContext *DigestContext::clone(Allocator &)

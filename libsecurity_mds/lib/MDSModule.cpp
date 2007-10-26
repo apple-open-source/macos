@@ -85,7 +85,8 @@ MDSModule::get ()
 
 MDSModule::MDSModule ()
     :	mDatabaseManager(kTableNames),
-	    mLastScanTime((time_t)0)
+	    mLastScanTime((time_t)0),
+		mServerMode(false)
 {
 	mDbPath[0] = '\0';
 }
@@ -122,6 +123,12 @@ void MDSModule::setDbPath(const char *path)
 	/* caller assures this, and this is private to this module */
 	assert(strlen(path) <= MAXPATHLEN);
 	strcpy(mDbPath, path);
+}
+
+void MDSModule::setServerMode()
+{
+	secdebug("MDSModule", "setting global server mode");
+	mServerMode = true;
 }
 
 } // end namespace Security

@@ -1,4 +1,4 @@
-/* #ident  "@(#)g_dsp_name.c 1.2     96/02/06 SMI" */
+/* #pragma ident	"@(#)g_dsp_name.c	1.13	04/02/23 SMI" */
 
 /*
  * Copyright 1996 by Sun Microsystems, Inc.
@@ -34,6 +34,42 @@
 #endif
 #include <string.h>
 
+static OM_uint32
+val_dsp_name_args(
+    OM_uint32 *minor_status,
+    gss_name_t input_name,
+    gss_buffer_t output_name_buffer,
+    gss_OID *output_name_type)
+{
+
+    /* Initialize outputs. */
+
+    if (minor_status != NULL)
+	*minor_status = 0;
+
+    if (output_name_buffer != GSS_C_NO_BUFFER) {
+	output_name_buffer->length = 0;
+	output_name_buffer->value = NULL;
+    }
+
+    if (output_name_type != NULL)
+	*output_name_type = GSS_C_NO_OID;
+
+    /* Validate arguments. */
+
+    if (minor_status == NULL)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+
+    if (output_name_buffer == GSS_C_NO_BUFFER)
+	return (GSS_S_CALL_INACCESSIBLE_WRITE);
+
+    if (input_name == GSS_C_NO_NAME)
+	return (GSS_S_CALL_INACCESSIBLE_READ | GSS_S_BAD_NAME);
+
+    return (GSS_S_COMPLETE);
+}
+
+
 OM_uint32 KRB5_CALLCONV
 gss_display_name (minor_status,
                   input_name,
@@ -48,9 +84,11 @@ gss_OID *		output_name_type;
 {
     OM_uint32		major_status;
     gss_union_name_t	union_name;
-    
-    if (input_name == 0)
-	return GSS_S_BAD_NAME;
+
+    major_status = val_dsp_name_args(minor_status, input_name,
+				     output_name_buffer, output_name_type);
+    if (major_status != GSS_S_COMPLETE)
+	return (major_status);
 
     union_name = (gss_union_name_t) input_name;
 
@@ -58,7 +96,7 @@ gss_OID *		output_name_type;
 	/*
 	 * OK, we have a mechanism-specific name; let's use it!
 	 */
-	return (__gss_display_internal_name(minor_status,
+	return (gssint_display_internal_name(minor_status,
 					    union_name->mech_type,
 					    union_name->mech_name,
 					    output_name_buffer,
@@ -70,27 +108,29 @@ gss_OID *		output_name_type;
      * name into the output_name_buffer and point the output_name_type
      * to the name_type component of union_name
      */
-    if (output_name_type != NULL) {
+    if (output_name_type != NULL &&
+	union_name->name_type != GSS_C_NULL_OID) {
 	major_status = generic_gss_copy_oid(minor_status,
 					    union_name->name_type,
 					    output_name_type);
-	if (major_status)
+	if (major_status != GSS_S_COMPLETE)
 	    return (major_status);
     }
-    
-    if (output_name_buffer != NULL) {
-	output_name_buffer->length = union_name->external_name->length;
 
-	output_name_buffer->value =
-	    (void *) malloc(output_name_buffer->length);
-
-	memcpy(output_name_buffer->value,
-	       union_name->external_name->value,
-	       output_name_buffer->length);
+    if ((output_name_buffer->value =
+	 malloc(union_name->external_name->length + 1)) == NULL) {
+	if (output_name_type && *output_name_type != GSS_C_NULL_OID) {
+	    (void) generic_gss_release_oid(minor_status,
+					   output_name_type);
+	    *output_name_type = NULL;
+	}
+	return (GSS_S_FAILURE);
     }
-    
-    if (minor_status)
-	*minor_status = 0;
+    output_name_buffer->length = union_name->external_name->length;
+    (void) memcpy(output_name_buffer->value,
+		  union_name->external_name->value,
+		  union_name->external_name->length);
+    ((char *)output_name_buffer->value)[output_name_buffer->length] = '\0';
 
     return(GSS_S_COMPLETE);
 }

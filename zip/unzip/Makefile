@@ -1,35 +1,53 @@
-##
-# CoreOS Makefile for unzip
-##
+PROJECT		= unzip
+VERSION		= 5.52
+DISTFILE	= $(PROJECT)$(shell echo $(VERSION)  | tr -d '.').tar.gz
 
-Project		= unzip
-UserType	= Developer
-ToolType	= Commands
+OSLICENSES	= /usr/local/OpenSourceLicenses
+PATCHFILES	= patch-unix_unix.c
 
-GnuNoConfigure	= YES
-GnuNoBuild	= YES
+SRCROOT		?= $(shell pwd)
+OBJROOT		?= $(SRCROOT)/obj
+SYMROOT		?= $(SRCROOT)/sym
+DSTROOT		?= $(SRCROOT)/dst
 
-GnuAfterInstall	= destroot ossinfo
+ifndef CoreOSMakefiles
+CoreOSMakefiles = $(MAKEFILEPATH)/CoreOS
+endif
 
-OSLICENSES     = /usr/local/OpenSourceLicenses
+include $(MAKEFILEPATH)/CoreOS/Standard/Standard.make
 
-include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+all: install
 
-Install_Target	= -f unix/Makefile macosx
-Extra_CC_Flags	= -mdynamic-no-pic
-CC_Optimize	=	# project handles this
-Extra_Install_Flags	=	LOC="$(CC_Flags)" LD="$(CC) $(LDFLAGS)"
+installhdrs:
 
-build:: install_source_local
+clean:
+	rm -rf $(SYMROOT) $(OBJROOT)
 
-destroot:
-	$(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) \
-		-f unix/Makefile install \
-		MANDIR=$(RC_Install_Man)/'man$$(manext)'
+install: destroot manpages ossinfo
 
-ossinfo:
+installsrc:
+	pax -rw . $(SRCROOT)
+
+destroot: patchsrc unpacksrc
+	$(MAKE) -C $(OBJROOT)/$(PROJECT)-$(VERSION) \
+		-f unix/Makefile macosx install \
+		prefix=$(DSTROOT)/usr \
+		MANDIR=$(DSTROOT)/usr/share/man/'man$$(manext)' \
+		LOC="-Os -mdynamic-no-pic $(RC_CFLAGS)" LD="$(CC) $(RC_CFLAGS)" \
+		CC="$(CC) -fno-builtin -x c"  INSTALL="$(INSTALL)" DESTDIR=$(DSTROOT)
+
+manpages: destroot
+	$(COMPRESSMANPAGES) /usr/share/man
+
+ossinfo: unpacksrc
 	$(MKDIR) $(DSTROOT)/$(OSLICENSES)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(Project).txt
+	$(INSTALL_FILE) $(OBJROOT)/$(PROJECT)-$(VERSION)/LICENSE $(DSTROOT)/$(OSLICENSES)/$(PROJECT).txt
 
-install_source_local:
-	cd $(Project) && $(PAX) -rw . $(BuildDirectory)
+unpacksrc:
+	mkdir -p $(OBJROOT)
+	tar zxvf $(SRCROOT)/$(DISTFILE) -C $(OBJROOT)
+
+patchsrc: unpacksrc
+	for p in $(PATCHFILES); do			\
+		cd $(OBJROOT)/$(PROJECT)-$(VERSION) && patch -f -p0 --posix < $(SRCROOT)/$${p};	\
+	done

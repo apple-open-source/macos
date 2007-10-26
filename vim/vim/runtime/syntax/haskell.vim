@@ -1,9 +1,14 @@
 " Vim syntax file
-" Language:	Haskell
-" Maintainer:	John Williams <jrw@pobox.com>
-" Last Change:	2003 May 04
+" Language:		Haskell
+" Maintainer:		Haskell Cafe mailinglist <haskell-cafe@haskell.org>
+" Last Change:		2004 Feb 23
+" Original Author:	John Williams <jrw@pobox.com>
+"
 " Thanks to Ryan Crumley for suggestions and John Meacham for
-" pointing out bugs.
+" pointing out bugs. Also thanks to Ian Lynagh and Donald Bruce Stewart
+" for providing the inspiration for the inclusion of the handling
+" of C preprocessor directives, and for pointing out a bug in the
+" end-of-line comment handling.
 "
 " Options-assign a value to these variables to turn the option on:
 "
@@ -14,6 +19,17 @@
 " hs_highlight_types - Treat names of primitive types as keywords.
 " hs_highlight_more_types - Treat names of other common types as keywords.
 " hs_highlight_debug - Highlight names of debugging functions.
+" hs_allow_hash_operator - Don't highlight seemingly incorrect C
+"			   preprocessor directives but assume them to be
+"			   operators
+"
+" 2004 Feb 19: Added C preprocessor directive handling, corrected eol comments
+"	       cleaned away literate haskell support (should be entirely in
+"	       lhaskell.vim)
+" 2004 Feb 20: Cleaned up C preprocessor directive handling, fixed single \
+"	       in eol comment character class
+" 2004 Feb 23: Made the leading comments somewhat clearer where it comes
+"	       to attribution of work.
 
 " Remove any old syntax stuff hanging around
 if version < 600
@@ -82,20 +98,36 @@ endif
 
 
 " Comments
-syn match   hsLineComment      "--.*"
+syn match   hsLineComment      "---*\([^-!#$%&\*\+./<=>\?@\\^|~].*\)\?$"
 syn region  hsBlockComment     start="{-"  end="-}" contains=hsBlockComment
 syn region  hsPragma	       start="{-#" end="#-}"
 
-" Literate comments--any line not starting with '>' is a comment.
-if exists("b:hs_literate_comments")
-  syn region  hsLiterateComment   start="^" end="^>"
+" C Preprocessor directives. Shamelessly ripped from c.vim and trimmed
+" First, see whether to flag directive-like lines or not
+if (!exists("hs_allow_hash_operator"))
+    syn match	cError		display "^\s*\(%:\|#\).*$"
 endif
+" Accept %: for # (C99)
+syn region	cPreCondit	start="^\s*\(%:\|#\)\s*\(if\|ifdef\|ifndef\|elif\)\>" skip="\\$" end="$" end="//"me=s-1 contains=cComment,cCppString,cCommentError
+syn match	cPreCondit	display "^\s*\(%:\|#\)\s*\(else\|endif\)\>"
+syn region	cCppOut		start="^\s*\(%:\|#\)\s*if\s\+0\+\>" end=".\@=\|$" contains=cCppOut2
+syn region	cCppOut2	contained start="0" end="^\s*\(%:\|#\)\s*\(endif\>\|else\>\|elif\>\)" contains=cCppSkip
+syn region	cCppSkip	contained start="^\s*\(%:\|#\)\s*\(if\>\|ifdef\>\|ifndef\>\)" skip="\\$" end="^\s*\(%:\|#\)\s*endif\>" contains=cCppSkip
+syn region	cIncluded	display contained start=+"+ skip=+\\\\\|\\"+ end=+"+
+syn match	cIncluded	display contained "<[^>]*>"
+syn match	cInclude	display "^\s*\(%:\|#\)\s*include\>\s*["<]" contains=cIncluded
+syn cluster	cPreProcGroup	contains=cPreCondit,cIncluded,cInclude,cDefine,cCppOut,cCppOut2,cCppSkip,cCommentStartError
+syn region	cDefine		matchgroup=cPreCondit start="^\s*\(%:\|#\)\s*\(define\|undef\)\>" skip="\\$" end="$"
+syn region	cPreProc	matchgroup=cPreCondit start="^\s*\(%:\|#\)\s*\(pragma\>\|line\>\|warning\>\|warn\>\|error\>\)" skip="\\$" end="$" keepend
 
-if !exists("hs_minlines")
-  let hs_minlines = 50
-endif
-exec "syn sync lines=" . hs_minlines
+syn region	cComment	matchgroup=cCommentStart start="/\*" end="\*/" contains=cCommentStartError,cSpaceError contained
+syntax match	cCommentError	display "\*/" contained
+syntax match	cCommentStartError display "/\*"me=e-1 contained
+syn region	cCppString	start=+L\="+ skip=+\\\\\|\\"\|\\$+ excludenl end=+"+ end='$' contains=cSpecial contained
 
+" Define the default highlighting.
+" For version 5.7 and earlier: only when not done already
+" For version 5.8 and later: only when an item doesn't have highlighting yet
 if version >= 508 || !exists("did_hs_syntax_inits")
   if version < 508
     let did_hs_syntax_inits = 1
@@ -104,39 +136,54 @@ if version >= 508 || !exists("did_hs_syntax_inits")
     command -nargs=+ HiLink hi def link <args>
   endif
 
-  hi link hsModule			  hsStructure
-  hi link hsImport			  Include
-  hi link hsImportMod			  hsImport
-  hi link hsInfix			  PreProc
-  hi link hsStructure			  Structure
-  hi link hsStatement			  Statement
-  hi link hsConditional			  Conditional
-  hi link hsSpecialChar			  SpecialChar
-  hi link hsTypedef			  Typedef
-  hi link hsVarSym			  hsOperator
-  hi link hsConSym			  hsOperator
-  hi link hsOperator			  Operator
+  HiLink hsModule			  hsStructure
+  HiLink hsImport			  Include
+  HiLink hsImportMod			  hsImport
+  HiLink hsInfix			  PreProc
+  HiLink hsStructure			  Structure
+  HiLink hsStatement			  Statement
+  HiLink hsConditional			  Conditional
+  HiLink hsSpecialChar			  SpecialChar
+  HiLink hsTypedef			  Typedef
+  HiLink hsVarSym			  hsOperator
+  HiLink hsConSym			  hsOperator
+  HiLink hsOperator			  Operator
   if exists("hs_highlight_delimiters")
     " Some people find this highlighting distracting.
-    hi link hsDelimiter			  Delimiter
+    HiLink hsDelimiter			  Delimiter
   endif
-  hi link hsSpecialCharError		  Error
-  hi link hsString			  String
-  hi link hsCharacter			  Character
-  hi link hsNumber			  Number
-  hi link hsFloat			  Float
-  hi link hsConditional			  Conditional
-  hi link hsLiterateComment		  hsComment
-  hi link hsBlockComment		  hsComment
-  hi link hsLineComment			  hsComment
-  hi link hsComment			  Comment
-  hi link hsPragma			  SpecialComment
-  hi link hsBoolean			  Boolean
-  hi link hsType			  Type
-  hi link hsMaybe			  hsEnumConst
-  hi link hsOrdering			  hsEnumConst
-  hi link hsEnumConst			  Constant
-  hi link hsDebug			  Debug
+  HiLink hsSpecialCharError		  Error
+  HiLink hsString			  String
+  HiLink hsCharacter			  Character
+  HiLink hsNumber			  Number
+  HiLink hsFloat			  Float
+  HiLink hsConditional			  Conditional
+  HiLink hsLiterateComment		  hsComment
+  HiLink hsBlockComment		  hsComment
+  HiLink hsLineComment			  hsComment
+  HiLink hsComment			  Comment
+  HiLink hsPragma			  SpecialComment
+  HiLink hsBoolean			  Boolean
+  HiLink hsType			  Type
+  HiLink hsMaybe			  hsEnumConst
+  HiLink hsOrdering			  hsEnumConst
+  HiLink hsEnumConst			  Constant
+  HiLink hsDebug			  Debug
+
+  HiLink cCppString		hsString
+  HiLink cCommentStart		hsComment
+  HiLink cCommentError		hsError
+  HiLink cCommentStartError	hsError
+  HiLink cInclude		Include
+  HiLink cPreProc		PreProc
+  HiLink cDefine		Macro
+  HiLink cIncluded		hsString
+  HiLink cError			Error
+  HiLink cPreCondit		PreCondit
+  HiLink cComment		Comment
+  HiLink cCppSkip		cCppOut
+  HiLink cCppOut2		cCppOut
+  HiLink cCppOut		Comment
 
   delcommand HiLink
 endif

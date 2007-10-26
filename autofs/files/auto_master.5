@@ -1,0 +1,269 @@
+.Dd April 20, 2007
+.Dt AUTO_MASTER 5
+.Os Darwin
+.Sh NAME
+.Nm auto_master
+.Nd
+automounter master map
+.Sh DESCRIPTION
+The
+.Nm
+file contains a list of the directories that are to be automounted.
+Associated with each directory is the name of a map that lists the
+locations of the filesystems to be automounted there.
+The default map looks like this:
+.Bd -literal -offset indent
+#
+# Automounter master map
+#
++auto_master		# Use directory service
+/net			-hosts		-nobrowse,nosuid
+/home			auto_home	-nobrowse
+/Network/Servers	-fstab
+/-			-static
+.Ed
+.Pp
+A
+.Dq #
+is the comment character. All characters from it to the end of
+line are ignored.
+A line beginning with
+.Dq +
+and followed by a name, indicates the name of a file or map accessible
+from a Directory Service source such as NIS or LDAP;
+the master map entries in that file or map are included at this point
+in the master map.
+A line that specifies a map to be mounted has the format:
+.Pp
+.Dl Va mountpoint map -options
+.Pp
+where
+.Va mountpoint
+is the directory on which the map is to be mounted,
+.Va map
+is the name of the map to be mounted, and
+.Va options
+is an optional, comma-separated list of default
+mount options to be used by any entries in the map
+that do not have their own mount options.
+The
+.Fl nobrowse
+option is used on maps that have the potential to
+produce entries too numerous for browsing to
+be practical. This option as used in the master
+map is distinct from nobrowse used as a Mac OS X
+mount option, which affects the visibility of the
+mount to the Finder.
+.Pp
+A
+.Va map
+name beginning with / is
+the pathname of a file containing the map, otherwise
+the name represents a map to be found as a file in
+.Pa /etc
+or to be read from Directory Services.
+.Pp
+If more than one entry in the master map has the same
+.Va mountpoint
+then all but the first are ignored.
+For instance, in the following master map:
+.Bd -literal -offset indent
+	/shared		my_auto_shared
+	+auto_master
+.Ed
+.Pp
+The
+.Pa /shared
+entry overrides any
+.Pa /shared
+specification imported from the network
+.Nm .
+.Sh AUTOMOUNTER MAPS
+Automounter maps associate directories with the locations of
+filesystems that are to be mounted when the directory is accessed.
+Map entries have the general form:
+.Pp
+.Dl Va key location
+.Pp
+These map entries may be represented by lines in a file,
+NIS or LDAP tables indexed by the key, or from output of
+an executable map.
+Most commonly, the
+.Va location
+is simply the name of an NFS
+server and the path to an exported file system, e.g.
+.Pp
+	local	mynfs:/export/local
+.Pp
+A
+.Va location
+can also represent multiple mounts, where each
+is associated with a relative path, for example:
+.Bd -literal -offset indent
+pkg	\\
+	/data	mynfs:/export/pkg/data \\
+	/bin	mynfs:/export/pkg/bin  \\
+	/man	mynfs:/export/pkg/man
+.Ed
+.Pp
+Reference to this entry will provide access to any
+of three exported file systems from the server, each via
+its own subdirectory.
+Each of these sub-mounts will be done only when referenced.
+Note the use of a backslash to escape the newline so that
+the automounter will read these lines as a single map entry.
+.Pp
+The
+.Va location
+can be preceded by a comma-separated list of mount options
+with a prepended
+.Dq - .
+For example:
+.Pp
+	bin	-ro,nosuid  mynfs:/export/bin
+.Pp
+.Sh Direct Map
+A
+.Em direct
+map associates filesystem locations directly with directories.
+The entry key is the full path name of a directory.
+For example:
+.Bd -literal -offset indent
+/usr/local	eng4:/export/local
+/src		eng4:/export/src
+.Ed
+.Pp
+Since the direct map as a whole isn't associated with a single
+directory, it is specified in the master map with a dummy
+directory name of
+.Pa /- .
+.Sh Indirect Map
+An
+.Em indirect
+map is used where a large number of entries are to be associated
+with a single directory.  Each map entry key is the simple name of a
+directory entry.  A good example of this is the
+.Pa auto_home
+map which determines the entries under the /home directory.
+For example:
+.Bd -literal -offset indent
+bill	argon:/export/home/bill
+brent	depot:/export/home/brent
+guy	depot:/export/home/guy
+.Ed
+.Pp
+.Sh Executable Map
+An
+.Em executable
+map is an indirect map represented by a file that has its execute bit set.
+Instead of reading entries from the file directly, the automounter
+executes the program or script passing the
+.Va key
+as an argument and receiving the
+.Va location
+string on stdout.
+If the automounter needs to enumerate map keys for a directory listing,
+it invokes the map with no arguments and expects a newline-separated
+list of keys on stdout.  For example:
+.Bd -literal
+	#!/bin/sh
+	if [ $# = 0 ]; then # List keys
+		ypcat -k auto_entries | awk '{print $1}'
+		exit
+	fi
+	# Return location
+	ypmatch $1 auto_entries
+.Ed
+.Pp
+If an error occurs, the executable map must return a non-zero
+exit status and no output.
+.Sh Special Maps
+The special maps have reserved names and are built into the automounter.
+.Bl -tag
+.It Dv -fstab
+This map would normally be mounted on
+.Pa /Network/Servers .
+The key is the host name of a server; the contents of the map entry are
+generated from corresponding entries in
+.Xr fstab 5
+data (as provided by
+.Xr getfsent 3 Ns )
+that have the
+.Li net
+option and that specify mounts from that server.  An entry of the form
+.Pp
+	server:/path mountpoint fstype options 0 0
+.Pp
+will be mounted in
+.Va server Ns / Ns Va path
+under the mount point of the
+.Dv -fstab
+map, using the specified
+.Va fstype
+file system type and the specified
+.Va options .
+The
+.Va mountpoint
+is ignored.
+.It Dv -hosts
+This map would normally be mounted on
+.Pa /net .
+The key is the host name of an NFS server; the contents of the map are
+generated from the list of file systems exported by that server.
+For example, a server that exports three NFS filesystems might have
+an equivalent map entry of:
+.Bd -literal -offset indent
+myserv	\\
+	/export/home	myserv:/export/home \\
+	/export/local	myserv:/export/local \\
+	/export/pkg	myserv:/export/pkg
+.Ed
+.Pp
+To access the first mount, the path would be
+.Pa /net/myserv/export/home
+if the map was associated with
+.Pa /net .
+.It Dv -null
+This map has no entries.
+It is used to disable entries that occur later in the
+.Nm
+file.
+For example:
+.Bd -literal -offset indent
+	/shared		-null
+	+auto_master
+.Ed
+.Pp
+The -null entry disables any
+.Pa /shared
+entry in +auto_master.
+.It Dv -static
+This map is a direct map, so the mount point must be specified as
+.Pa /- Ns .
+The contents are generated from all entries in
+.Xr fstab 5
+data (as provided by
+.Xr getfsent 3 Ns )
+that do not have the
+.Li net
+option.  An
+.Xr fstab 5
+entry of the form
+.Pp
+	server:/path mountpoint fstype options rw 0 0
+.Pp
+will generate a direct map entry of the form
+.Pp
+	mountpoint options server:/path
+.Pp
+.El
+.Sh FILES
+.Bl -tag -width /etc/auto_master -compact
+.It Pa /etc/auto_master
+The master map file.
+.El
+.Sh SEE ALSO
+.Xr automount 8 ,
+.Xr automountd 8 ,
+.Xr autofsd 8 ,
+.Xr autofs.conf 5

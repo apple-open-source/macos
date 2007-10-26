@@ -64,7 +64,6 @@ itcl::class RegWin {
     method _build_win {}
     method _layout_table {}
     method _load_prefs {}
-    method _prefs_changed {pref value}
     method _size_cell_column {cell down}
     method _size_column {col down}
 
@@ -99,5 +98,6 @@ itcl::class RegWin {
     method set_variable {event}
     method update {event}
     method arch_changed {event}
+    method reconfig {}
   }
 }

@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"dthdr.h"
 
 /*	Hash table.
@@ -42,14 +38,36 @@ Dt_t*	dt;
 #endif
 {
 	reg Dtlink_t	*t, *r, *p, **s, **hs, **is, **olds;
-	reg int		n;
+	int		n, k;
+
+	if(dt->data->minp > 0 && dt->data->ntab > 0) /* fixed table size */
+		return;
+	dt->data->minp = 0;
+
+	n = dt->data->ntab;
+	if(dt->disc && dt->disc->eventf &&
+	   (*dt->disc->eventf)(dt, DT_HASHSIZE, &n, dt->disc) > 0 )
+	{	if(n < 0) /* fix table size */
+		{	dt->data->minp = 1;
+			if(dt->data->ntab > 0 )
+				return;
+		}
+		else /* set a particular size */
+		{	for(k = 2; k < n; k *= 2)
+				;
+			n = k;
+		}
+	}
+	else	n = 0;
 
 	/* compute new table size */
-	if((n = dt->data->ntab) == 0)
-		n = HSLOT;
-	while(dt->data->size > HLOAD(n))
-		n = HRESIZE(n);
-	if(n <= dt->data->ntab)
+	if(n <= 0)
+	{	if((n = dt->data->ntab) == 0)
+			n = HSLOT;
+		while(dt->data->size > HLOAD(n))
+			n = HRESIZE(n);
+	}
+	if(n == dt->data->ntab)
 		return;
 
 	/* allocate new table */
@@ -99,6 +117,7 @@ int		type;
 
 	/* initialize discipline data */
 	disc = dt->disc; _DTDSC(disc,ky,sz,lk,cmpf);
+	dt->type &= ~DT_FOUND;
 
 	if(!obj)
 	{	if(type&(DT_NEXT|DT_PREV))
@@ -195,6 +214,9 @@ int		type;
 			}
 		}
 	}
+
+	if(t) /* found matching object */
+		dt->type |= DT_FOUND;
 
 	if(type&(DT_MATCH|DT_SEARCH|DT_VSEARCH))
 	{	if(!t)

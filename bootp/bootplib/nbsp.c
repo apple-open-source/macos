@@ -41,7 +41,8 @@
 static void
 NBSPEntry_print(NBSPEntryRef entry)
 {
-    printf("%s: path %s\n", entry->name, entry->path);
+    printf("%s: path %s%s\n", entry->name, entry->path,
+	   entry->is_readonly ? " [read-only]" : "");
     return;
 }
 
@@ -113,7 +114,7 @@ get_fsstat_list(int * number)
 }
 
 NBSPListRef
-NBSPList_init(const char * symlink_name)
+NBSPList_init(const char * symlink_name, bool readonly_ok)
 {
     int				i;
     dynarray_t *		list = NULL;			
@@ -138,6 +139,10 @@ NBSPList_init(const char * symlink_name)
 
 	if ((p->f_flags & MNT_LOCAL) == 0) {
 	    /* skip non-local filesystems */
+	    continue;
+	}
+	if ((p->f_flags & MNT_RDONLY) != 0 && readonly_ok == FALSE) {
+	    /* skip read-only filesystems if not explicitly allowed */
 	    continue;
 	}
 	if (strcmp(p->f_fstypename, "devfs") == 0
@@ -183,6 +188,9 @@ NBSPList_init(const char * symlink_name)
 	if (strcmp(p->f_fstypename, "hfs") == 0) {
 	    entry->is_hfs = TRUE;
 	}
+	if ((p->f_flags & MNT_RDONLY) != 0) {
+	    entry->is_readonly = TRUE;
+	}
 	entry->name = (char *)(entry + 1);
 	strncpy(entry->name, sharename, sharename_len);
 	entry->name[sharename_len] = '\0';
@@ -207,9 +215,21 @@ NBSPList_init(const char * symlink_name)
 #ifdef TEST_NBSP
 
 int
-main()
+main(int argc, char * argv[])
 {
-    NBSPListRef list = NBSPList_init(".sharepoint");
+    bool		allow_readonly;
+    NBSPListRef 	list;
+    const char *	which;
+
+    if (argc == 1) {
+	which = ".sharepoint";
+	allow_readonly = NBSP_READONLY_OK;
+    }
+    else {
+	which = ".clients";
+	allow_readonly = NBSP_NO_READONLY;
+    }
+    list = NBSPList_init(which, allow_readonly);
 
     if (list != NULL) {
 	NBSPList_print(list);

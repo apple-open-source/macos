@@ -47,7 +47,7 @@
 #ifndef _GSSAPIP_KRB5_H_
 #define _GSSAPIP_KRB5_H_
 
-#include <krb5.h>
+#include <k5-int.h>
 
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
@@ -73,6 +73,17 @@
 #undef CFX_EXERCISE
 
 /** constants **/
+
+#define GSS_MECH_KRB5_OID_LENGTH 9
+#define GSS_MECH_KRB5_OID "\052\206\110\206\367\022\001\002\002"
+
+#define GSS_MECH_KRB5_OLD_OID_LENGTH 5
+#define GSS_MECH_KRB5_OLD_OID "\053\005\001\005\002"
+
+/* Incorrect krb5 mech OID emitted by MS. */
+#define GSS_MECH_KRB5_WRONG_OID_LENGTH 9
+#define GSS_MECH_KRB5_WRONG_OID "\052\206\110\202\367\022\001\002\002"
+
 
 #define CKSUMTYPE_KG_CB		0x8003
 
@@ -196,6 +207,7 @@ typedef struct _krb5_gss_ctx_id_rec {
    krb5_keyblock *acceptor_subkey; /* CFX only */
    krb5_cksumtype acceptor_subkey_cksumtype;
    int cred_rcache;		/* did we get rcache from creds? */
+   krb5_authdata **apple_authdata_if_relevant; /* added by Apple for pac information */
 } krb5_gss_ctx_id_rec, *krb5_gss_ctx_id_t;
 
 extern g_set kg_vdb;
@@ -307,6 +319,9 @@ krb5_error_code kg_ctx_internalize (krb5_context kcontext,
 					      size_t *lenremain);
 
 OM_uint32 kg_sync_ccache_name (krb5_context context, OM_uint32 *minor_status);
+
+OM_uint32 kg_caller_provided_ccache_name (OM_uint32 *minor_status, 
+                                          int *out_caller_provided_name);
 
 OM_uint32 kg_get_ccache_name (OM_uint32 *minor_status, 
                               const char **out_name);
@@ -580,6 +595,11 @@ OM_uint32 krb5_gss_release_oid
 	    gss_OID *			/* oid */
 	   );
 
+OM_uint32 krb5_gss_internal_release_oid
+(OM_uint32 *,		/* minor_status */
+	    gss_OID *			/* oid */
+	   );
+
 OM_uint32 krb5_gss_inquire_names_for_mech
 (OM_uint32 *,		/* minor_status */
 	    gss_OID,			/* mechanism */
@@ -630,5 +650,42 @@ OM_uint32 gss_krb5int_unseal_token_v3(krb5_context *contextptr,
 				      gss_buffer_t message_buffer,
 				      int *conf_state, int *qop_state, 
 				      int toktype);
+
+/*
+ * These take unglued krb5-mech-specific contexts.
+ */
+
+OM_uint32 KRB5_CALLCONV gss_krb5int_get_tkt_flags 
+	(OM_uint32 *minor_status,
+		   gss_ctx_id_t context_handle,
+		   krb5_flags *ticket_flags);
+
+OM_uint32 KRB5_CALLCONV gss_krb5int_copy_ccache
+	(OM_uint32 *minor_status,
+		   gss_cred_id_t cred_handle,
+		   krb5_ccache out_ccache);
+
+OM_uint32 KRB5_CALLCONV
+gss_krb5int_set_allowable_enctypes(OM_uint32 *minor_status, 
+				   gss_cred_id_t cred,
+				   OM_uint32 num_ktypes,
+				   krb5_enctype *ktypes);
+
+OM_uint32 KRB5_CALLCONV
+gss_krb5int_export_lucid_sec_context(OM_uint32 *minor_status,
+				     gss_ctx_id_t *context_handle,
+				     OM_uint32 version,
+				     void **kctx);
+OM_uint32 KRB5_CALLCONV
+apple_gss_krb5int_export_authdata_if_relevant_context(OM_uint32 *minor_status,
+				     gss_ctx_id_t *context_handle,
+				     OM_uint32 version,
+				     void **kctx);
+
+
+extern k5_mutex_t kg_kdc_flag_mutex;
+krb5_error_code krb5_gss_init_context (krb5_context *ctxp);
+
+krb5_error_code krb5_gss_use_kdc_context(void);
 
 #endif /* _GSSAPIP_KRB5_H_ */

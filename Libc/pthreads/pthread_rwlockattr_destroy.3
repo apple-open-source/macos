@@ -33,18 +33,20 @@
 .Sh SYNOPSIS
 .In pthread.h
 .Ft int
-.Fn pthread_rwlockattr_destroy "pthread_rwlockattr_t *attr"
+.Fo pthread_rwlockattr_destroy
+.Fa "pthread_rwlockattr_t *attr"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn pthread_rwlockattr_destroy
-function is used to destroy a read/write lock attribute object
+function is used to destroy a read/write lock attribute object,
 previously created with
 .Fn pthread_rwlockattr_init .
 .Sh RETURN VALUES
 If successful, the
 .Fn pthread_rwlockattr_destroy
-function will return zero.  Otherwise an error number will be returned
-to indicate the error.
+function will return zero.
+Otherwise, an error number will be returned to indicate the error.
 .Sh SEE ALSO
 .Xr pthread_rwlockattr_init 3
 .Sh STANDARDS

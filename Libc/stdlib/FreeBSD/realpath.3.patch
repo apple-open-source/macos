@@ -1,0 +1,107 @@
+--- realpath.3	2003-05-20 15:23:25.000000000 -0700
++++ realpath.3.edit	2006-09-06 15:43:17.000000000 -0700
+@@ -44,26 +44,28 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In sys/param.h
+ .In stdlib.h
+ .Ft "char *"
+-.Fn realpath "const char *pathname" "char resolved_path[PATH_MAX]"
++.Fo realpath
++.Fa "const char *restrict file_name"
++.Fa "char *restrict resolved_name"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn realpath
+ function resolves all symbolic links, extra
+ .Dq /
+-characters and references to
++characters, and references to
+ .Pa /./
+ and
+ .Pa /../
+ in
+-.Fa pathname ,
++.Fa file_name ,
+ and copies the resulting absolute pathname into
+ the memory referenced by
+-.Fa resolved_path .
++.Fa resolved_name .
+ The
+-.Fa resolved_path
++.Fa resolved_name
+ argument
+ .Em must
+ refer to a buffer capable of storing at least
+@@ -74,9 +76,9 @@
+ .Fn realpath
+ function will resolve both absolute and relative paths
+ and return the absolute pathname corresponding to
+-.Fa pathname .
+-All but the last component of
+-.Fa pathname
++.Fa file_name .
++All components of
++.Fa file_name
+ must exist when
+ .Fn realpath
+ is called.
+@@ -84,14 +86,14 @@
+ The
+ .Fn realpath
+ function returns
+-.Fa resolved_path
++.Fa resolved_name
+ on success.
+ If an error occurs,
+ .Fn realpath
+ returns
+-.Dv NULL ,
++.Dv NULL
+ and
+-.Fa resolved_path
++.Fa resolved_name
+ contains the pathname which caused the problem.
+ .Sh ERRORS
+ The function
+@@ -100,7 +102,7 @@
+ .Va errno
+ for any of the errors specified for the library functions
+ .Xr lstat 2 ,
+-.Xr readlink 2
++.Xr readlink 2 ,
+ and
+ .Xr getcwd 3 .
+ .Sh CAVEATS
+@@ -112,11 +114,26 @@
+ version always returns absolute pathnames,
+ whereas the Solaris implementation will,
+ under certain circumstances, return a relative
+-.Fa resolved_path
++.Fa resolved_name
+ when given a relative
+-.Fa pathname .
++.Fa file_name .
++.Sh LEGACY SYNOPSIS
++.Fd #include <sys/param.h>
++.Fd #include <stdlib.h>
++.Pp
++The include file
++.In sys/param.h
++is necessary.
++.Sh LEGACY DESCRIPTION
++In legacy mode,
++the last component of
++.Fa file_name
++does not need to exist when
++.Fn realpath
++is called.
+ .Sh "SEE ALSO"
+-.Xr getcwd 3
++.Xr getcwd 3 ,
++.Xr compat 5
+ .Sh HISTORY
+ The
+ .Fn realpath

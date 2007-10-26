@@ -1,0 +1,106 @@
+--- net-snmp-5.3.1/agent/mibgroup/host/hr_filesys.c	2005-02-28 04:52:58.000000000 -0800
++++ net-snmp/agent/mibgroup/host/hr_filesys.c	2006-07-05 23:41:47.000000000 -0700
+@@ -39,15 +39,14 @@
+ #include <stdlib.h>
+ #endif
+ 
+-#if defined(bsdi4) || defined(freebsd3) || defined(freebsd4) || defined(freebsd5)
+-#if HAVE_GETFSSTAT
+-#if defined(MFSNAMELEN)
+-#define MOUNT_NFS	"nfs"
++#if defined(bsdi4) || defined(freebsd3) || defined(freebsd4) || defined(freebsd5) || defined(darwin)
++#if HAVE_GETFSSTAT && defined(MFSNAMELEN)
+ #define MNTTYPE_UFS	"ufs"
+ #define BerkelyFS
+ #define MNTTYPE_FFS	"ffs"
+ #define MNTTYPE_NFS	"nfs"
+ #define MNTTYPE_NFS3	"nfs"
++#define MNTTYPE_HFS	"hfs"
+ #define MNTTYPE_MFS	"mfs"
+ #define MNTTYPE_MSDOS	"msdos"
+ #define MNTTYPE_LFS	"lfs"
+@@ -65,7 +64,6 @@
+ #define MNTTYPE_CFS	"coda"
+ #define MNTTYPE_NTFS	"ntfs"
+ #endif
+-#endif
+ #endif                          /* freebsd3 */
+ 
+ #define HRFS_MONOTONICALLY_INCREASING
+@@ -320,6 +318,9 @@
+         case MOUNT_NFS:
+             fsys_type_id[fsys_type_len - 1] = 14;
+             break;
++        case MOUNT_HFS:
++            fsys_type_id[fsys_type_len - 1] = 7;
++            break;
+         case MOUNT_MFS:
+             fsys_type_id[fsys_type_len - 1] = 8;
+             break;
+@@ -378,12 +379,8 @@
+         if (mnt_type == NULL)
+             fsys_type_id[fsys_type_len - 1] = 2;        /* unknown */
+ #ifdef MNTTYPE_HFS
+-        else if (!strcmp(mnt_type, MNTTYPE_HFS))
+-#ifdef BerkelyFS
+-            fsys_type_id[fsys_type_len - 1] = 3;
+-#else                           /* SysV */
+-            fsys_type_id[fsys_type_len - 1] = 4;
+-#endif
++        else if (!strncmp(mnt_type, MNTTYPE_HFS, strlen(MNTTYPE_HFS)))
++            fsys_type_id[fsys_type_len - 1] = 7;
+ #endif
+ #ifdef MNTTYPE_UFS
+         else if (!strcmp(mnt_type, MNTTYPE_UFS))
+@@ -624,12 +621,9 @@
+ int
+ Check_HR_FileSys_NFS (void)
+ {
+-#if HAVE_GETFSSTAT
+-#if defined(MFSNAMELEN)
+-    if (!strcmp(HRFS_entry->HRFS_type, MOUNT_NFS))
+-#else
+-    if (HRFS_entry->HRFS_type == MOUNT_NFS)
+-#endif
++#if HAVE_GETFSSTAT && !defined(MFSNAMELEN)
++    if ((HRFS_entry->HRFS_type == MOUNT_NFS) ||
++        (HRFS_entry->HRFS_type == MOUNT_AFS))
+ #else /* HAVE_GETFSSTAT */
+     if ( HRFS_entry->HRFS_type != NULL && (
+ #if defined(MNTTYPE_NFS)
+@@ -638,22 +632,25 @@
+ 	!strcmp( HRFS_entry->HRFS_type, "nfs") ||
+ #endif
+ #if defined(MNTTYPE_NFS3)
+-	    !strcmp( HRFS_entry->HRFS_type, MNTTYPE_NFS3) ||
++        !strcmp( HRFS_entry->HRFS_type, MNTTYPE_NFS3) ||
+ #endif
+ #if defined(MNTTYPE_SMBFS)
+-	    !strcmp( HRFS_entry->HRFS_type, MNTTYPE_SMBFS) ||
++        !strcmp( HRFS_entry->HRFS_type, MNTTYPE_SMBFS) ||
+ #endif
+ #if defined(MNTTYPE_LOFS)
+-	    !strcmp( HRFS_entry->HRFS_type, MNTTYPE_LOFS) ||
++        !strcmp( HRFS_entry->HRFS_type, MNTTYPE_LOFS) ||
+ #endif
+-	    /*
+-	     * MVFS is Rational ClearCase's view file system
+-	     * it is similiar to NFS file systems in that it is mounted
+-	     * locally or remotely from the ClearCase server
+-	     */
+-	    !strcmp( HRFS_entry->HRFS_type, "mvfs")))
++#if defined(MNTTYPE_AFP)
++        !strcmp( HRFS_entry->HRFS_type, MNTTYPE_AFP) ||
++#endif
++        /*
++         * MVFS is Rational ClearCase's view file system
++         * it is similiar to NFS file systems in that it is mounted
++         * locally or remotely from the ClearCase server
++         */
++        !strcmp( HRFS_entry->HRFS_type, "mvfs")))
+ #endif /* HAVE_GETFSSTAT */
+-	return 1;	/* NFS file system */
++        return 1;	/* NFS file system */
+ 
+     return 0;		/* no NFS file system */
+ }

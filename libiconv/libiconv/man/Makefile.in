@@ -9,10 +9,11 @@ srcdir = @srcdir@
 prefix = @prefix@
 local_prefix = /usr/local
 exec_prefix = @exec_prefix@
+datarootdir = @datarootdir@
 datadir = @datadir@
 mandir = @mandir@
-docdir = $(datadir)/doc/libiconv
-htmldir = $(docdir)
+docdir = @docdir@
+htmldir = @htmldir@
 
 # Programs used by "make":
 RM = rm -f
@@ -22,7 +23,7 @@ RM = rm -f
 INSTALL = @INSTALL@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_DATA = @INSTALL_DATA@
-mkinstalldirs = $(SHELL) @top_srcdir@/autoconf/mkinstalldirs
+mkinstalldirs = $(SHELL) @top_srcdir@/build-aux/mkinstalldirs
 
 #### End of system configuration section. ####
 

@@ -53,7 +53,7 @@ private:
 static ModuleNexus<CSPAttacher> cspAttacher;
 
 static void *CL_malloc(
-	 uint32 size,
+	 CSSM_SIZE size,
      void *allocref)
 {
 	return Allocator::standard().malloc(size);
@@ -68,7 +68,7 @@ static void CL_free(
 
 static void *CL_realloc(
      void *memblock,
-     uint32 size,
+     CSSM_SIZE size,
      void *allocref)
 {
 	return Allocator::standard().realloc(memblock, size);
@@ -76,7 +76,7 @@ static void *CL_realloc(
 
 static void *CL_calloc(
      uint32 num,
-     uint32 size,
+     CSSM_SIZE size,
      void *allocref)
 {
 	return Allocator::standard().calloc(num, size);

@@ -60,7 +60,8 @@ static const unsigned char mblen_table_eucjp[] = { /* 0xA1-0xFE */
 };
 
 
-static const char *mbfl_encoding_eucjp_win_aliases[] = {"eucJP-open", NULL};
+static const char *mbfl_encoding_eucjp_win_aliases[] = {"eucJP-open", 
+							"eucJP-ms", NULL};
 
 const struct mbfl_identify_vtbl vtbl_identify_eucjpwin = {
 	mbfl_no_encoding_eucjp_win,
@@ -203,6 +204,9 @@ mbfl_filt_conv_eucjpwin_wchar(int c, mbfl_convert_filter *filter)
 			s = (c1 - 0xa1)*94 + c - 0xa1;
 			if (s >= 0 && s < jisx0212_ucs_table_size) {
 				w = jisx0212_ucs_table[s];
+				if (w == 0x007e) {
+					w = 0xff5e;		/* FULLWIDTH TILDE */
+				}
 			} else if (s >= (82*94) && s < (84*94)) {	/* vender ext3 (83ku - 84ku) <-> CP932 (115ku -120ku) */
 				s = (c1<< 8) | c;
 				w = 0;
@@ -220,6 +224,9 @@ mbfl_filt_conv_eucjpwin_wchar(int c, mbfl_convert_filter *filter)
 				w = s - (84*94) + (0xe000 + (94*10));
 			} else {
 				w = 0;
+			}
+			if (w == 0x00A6) {
+				w = 0xFFE4;		/* FULLWIDTH BROKEN BAR */
 			}
 			if (w <= 0) {
 				w = ((c1 & 0x7f) << 8) | (c & 0x7f);
@@ -273,6 +280,9 @@ mbfl_filt_conv_wchar_eucjpwin(int c, mbfl_convert_filter *filter)
 		c2 = s1%94 + 0xa1;
 		s1 = (c1 << 8) | c2;
 	}
+	if (s1 == 0xa2f1) {
+		s1 = 0x2d62;		/* NUMERO SIGN */
+	}
 	if (s1 <= 0) {
 		c1 = c & ~MBFL_WCSPLANE_MASK;
 		if (c1 == MBFL_WCSPLANE_WINCP932) {
@@ -310,6 +320,8 @@ mbfl_filt_conv_wchar_eucjpwin(int c, mbfl_convert_filter *filter)
 			s1 = 0x2172;
 		} else if (c == 0xffe2) {	/* FULLWIDTH NOT SIGN */
 			s1 = 0x224c;
+		} else if (c == 0xff5e) {	/* FULLWIDTH TILDE */
+			s1 = 0x2141;
 		} else {
 			s1 = -1;
 			c1 = 0;

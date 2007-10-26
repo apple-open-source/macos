@@ -15,203 +15,234 @@
 /* Brian Berliner added support for CVS */
 
 #include "cvs.h"
+#include "vasnprintf.h"
 
-#include <stdio.h>
+/* Out of memory errors which could not be forwarded to the client are sent to
+ * the syslog when it is available.
+ */
+#ifdef HAVE_SYSLOG_H
+# include <syslog.h>
+# ifndef LOG_DAEMON   /* for ancient syslogs */
+#   define LOG_DAEMON 0
+# endif
+#endif /* HAVE_SYSLOG_H */
+
+
 
 /* If non-zero, error will use the CVS protocol to stdout to report error
-   messages.  This will only be set in the CVS server parent process;
-   most other code is run via do_cvs_command, which forks off a child
-   process and packages up its stderr in the protocol.  */
+ * messages.  This will only be set in the CVS server parent process.
+ *
+ * Most other code is run via do_cvs_command, which forks off a child
+ * process and packages up its stderr in the protocol.
+ */
 int error_use_protocol; 
 
-#ifdef HAVE_VPRINTF
-
-#ifdef __STDC__
-#include <stdarg.h>
-#define VA_START(args, lastarg) va_start(args, lastarg)
-#else /* ! __STDC__ */
-#include <varargs.h>
-#define VA_START(args, lastarg) va_start(args)
-#endif /* __STDC__ */
-
-#else /* ! HAVE_VPRINTF */ 
-
-#ifdef HAVE_DOPRNT
-#define va_alist args
-#define va_dcl int args;
-#else /* ! HAVE_DOPRNT */
-#define va_alist a1, a2, a3, a4, a5, a6, a7, a8
-#define va_dcl char *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8;
-#endif /* HAVE_DOPRNT */
-
-#endif /* HAVE_VPRINTF */ 
-
-#if STDC_HEADERS
-#include <stdlib.h>
-#include <string.h>
-#else /* ! STDC_HEADERS */
-#ifdef __STDC__
-void exit(int status);
-#else /* ! __STDC__ */
-void exit ();
-#endif /* __STDC__ */
-#endif /* STDC_HEADERS */
-
 #ifndef strerror
-extern char *strerror ();
+extern char *strerror (int);
 #endif
 
+
+
+/* Print the program name and error message MESSAGE, which is a printf-style
+ * format string with optional args, like:
+ *
+ *   PROGRAM_NAME CVS_CMD_NAME: MESSAGE: ERRNUM
+ *
+ * or, when STATUS is non-zero:
+ *
+ *   PROGRAM_NAME [CVS_CMD_NAME aborted]: MESSAGE: ERRNUM
+ *
+ * CVS_CMD_NAME & ERRMSG may or may not appear in the output (the `:' before
+ * ERRMSG will disappear as well when ERRNUM is not present).  ERRMSG
+ * represents the system dependent message returned by strerror (ERRNUM), when
+ * ERRNUM is non-zero.
+ *
+ * Exit with status EXIT_FAILURE if STATUS is nonzero.
+ *
+ * If this function fails to get any memory it might request, it attempts to
+ * log a "memory exhausted" message to the syslog, when syslog is available,
+ * without any further attempts to allocate memory, before exiting.  See NOTES
+ * below for more information on this functions memory allocation.
+ *
+ * INPUTS
+ *   status	When non-zero, exit with EXIT_FAILURE rather than returning.
+ *   errnum	When non-zero, interpret as global ERRNO for the purpose of
+ *		generating additional error text.
+ *   message	A printf style format string.
+ *   ...	Variable number of args, as printf.
+ *
+ * GLOBALS
+ *   program_name	The name of this executable, for the output message.
+ *   cvs_cmd_name	Output in the error message, when it exists.
+ *   errno		Accessed simply to save and restore it before
+ *			returning.
+ *
+ * NOTES
+ *   This function goes to fairly great lengths to avoid allocating memory so
+ *   that it can relay out-of-memory error messages to the client.  Any error
+ *   messages which fit in under 256 characters (after expanding MESSAGE with
+ *   ARGS but before adding any ERRNUM text) should not require memory
+ *   allocation before they are sent on to cvs_outerr().  Unfortunately,
+ *   cvs_outerr() and the buffer functions it uses to send messages to the
+ *   client still don't make this same sort of effort, so in local mode
+ *   out-of-memory errors will probably get printed properly to stderr but if a
+ *   memory outage happens on the server, the admin will need to consult the
+ *   syslog to find out what went wrong.
+ *
+ *   I think this is largely cleaned up to the point where it does the right
+ *   thing for the server, whether the normal server_active (child process)
+ *   case or the error_use_protocol (parent process) case.  The one exception
+ *   is that STATUS nonzero for error_use_protocol probably doesn't work yet;
+ *   in that case still need to use the pending_error machinery in server.c.
+ *
+ *   error() does not molest errno; some code (e.g. Entries_Open) depends
+ *   on being able to say something like:
+ *
+ *      error (0, 0, "foo");
+ *      error (0, errno, "bar");
+ *
+ * RETURNS
+ *   Sometimes.  ;)
+ */
 void
-error_exit PROTO ((void))
+error (int status, int errnum, const char *message, ...)
 {
-    rcs_cleanup ();
-    Lock_Cleanup ();
-#ifdef SERVER_SUPPORT
-    if (server_active)
-	server_cleanup (0);
-#endif
-#ifdef SYSTEM_CLEANUP
-    /* Hook for OS-specific behavior, for example socket subsystems on
-       NT and OS2 or dealing with windows and arguments on Mac.  */
-    SYSTEM_CLEANUP ();
-#endif
+    va_list args;
+    int save_errno = errno;
+
+    /* Various buffers we attempt to use to generate the error message.  */
+    char statbuf[256];
+    char *buf;
+    size_t length;
+    char statbuf2[384];
+    char *buf2;
+    char statcmdbuf[32];
+    char *cmdbuf;
+    char *emptybuf = "";
+
+    static const char *last_message = NULL;
+    static int last_status;
+    static int last_errnum;
+
+    /* Initialize these to avoid a lot of special case error handling.  */
+    buf = statbuf;
+    buf2 = statbuf2;
+    cmdbuf = emptybuf;
+
+    /* Expand the message the user passed us.  */
+    length = sizeof (statbuf);
+    va_start (args, message);
+    buf = vasnprintf (statbuf, &length, message, args);
+    va_end (args);
+    if (!buf) goto memerror;
+
+    /* Expand the cvs commmand name to <cmd> or [<cmd> aborted].
+     *
+     * I could squeeze this into the buf2 printf below, but this makes the code
+     * easier to read and I don't think error messages are printed often enough
+     * to make this a major performance hit.  I think the memory cost is about
+     * 40 bytes.
+     */
+    if (cvs_cmd_name)
+    {
+	length = sizeof (statcmdbuf);
+	cmdbuf = asnprintf (statcmdbuf, &length, " %s%s%s",
+			    status ? "[" : "",
+			    cvs_cmd_name,
+			    status ? " aborted]" : "");
+	/* Else cmdbuf still = emptybuf.  */
+	if (!cmdbuf) goto memerror;
+    }
+    /* Else cmdbuf still = emptybuf.  */
+
+    /* Now put it all together.  */
+    length = sizeof (statbuf2);
+    buf2 = asnprintf (statbuf2, &length, "%s%s: %s%s%s\n",
+                      program_name, cmdbuf, buf,
+                      errnum ? ": " : "", errnum ? strerror (errnum) : "");
+    if (!buf2) goto memerror;
+
+    /* Send the final message to the client or log it.
+     *
+     * Set this recursion block first since this is the only function called
+     * here which can cause error() to be called a second time.
+     */
+    if (last_message) goto recursion_error;
+    last_message = buf2;
+    last_status = status;
+    last_errnum = errnum;
+    cvs_outerr (buf2, length);
+
+    /* Reset our recursion lock.  This needs to be done before the call to
+     * exit() to allow the exit handlers to make calls to error().
+     */
+    last_message = NULL;
+
+    /* Done, if we're exiting.  */
+    if (status)
+	exit (EXIT_FAILURE);
+
+    /* Free anything we may have allocated.  */
+    if (buf != statbuf) free (buf);
+    if (buf2 != statbuf2) free (buf2);
+    if (cmdbuf != statcmdbuf && cmdbuf != emptybuf) free (cmdbuf);
+
+    /* Restore errno per our charter.  */
+    errno = save_errno;
+
+    /* Done.  */
+    return;
+
+memerror:
+    /* Make one last attempt to log the problem in the syslog since that
+     * should not require new memory, then abort.
+     *
+     * No second attempt is made to send the information to the client - if we
+     * got here then that already failed once and this prevents us from
+     * entering an infinite loop.
+     *
+     * FIXME
+     *   If the buffer routines can be altered in such a way that a single,
+     *   short, statically allocated message could be sent without needing to
+     *   allocate new memory, then it would still be safe to call cvs_outerr
+     *   with the message here.
+     */
+#if HAVE_SYSLOG_H
+    syslog (LOG_DAEMON | LOG_ERR, "Memory exhausted.  Aborting.");
+#endif /* HAVE_SYSLOG_H */
+
+    goto sidestep_done;
+
+recursion_error:
+#if HAVE_SYSLOG_H
+    /* Syslog the problem since recursion probably means that we encountered an
+     * error while attempting to send the last error message to the client.
+     */
+
+    syslog (LOG_DAEMON | LOG_ERR,
+	    "error (%d, %d) called recursively.  Original message was:",
+	    last_status, last_errnum);
+    syslog (LOG_DAEMON | LOG_ERR, "%s", last_message);
+
+
+    syslog (LOG_DAEMON | LOG_ERR,
+            "error (%d, %d) called recursively.  Second message was:",
+	    status, errnum);
+    syslog (LOG_DAEMON | LOG_ERR, "%s", buf2);
+
+    syslog (LOG_DAEMON | LOG_ERR, "Aborting.");
+#endif /* HAVE_SYSLOG_H */
+
+sidestep_done:
+    /* Reset our recursion lock.  This needs to be done before the call to
+     * exit() to allow the exit handlers to make calls to error().
+     */
+    last_message = NULL;
+
     exit (EXIT_FAILURE);
 }
 
-/* Print the program name and error message MESSAGE, which is a printf-style
-   format string with optional args.  This is a very limited printf subset:
-   %s, %d, %c, %x and %% only (without anything between the % and the s,
-   d, &c).  Callers who want something fancier can use sprintf.
 
-   If ERRNUM is nonzero, print its corresponding system error message.
-   Exit with status EXIT_FAILURE if STATUS is nonzero.  If MESSAGE is "",
-   no need to print a message.
-
-   I think this is largely cleaned up to the point where it does the right
-   thing for the server, whether the normal server_active (child process)
-   case or the error_use_protocol (parent process) case.  The one exception
-   is that STATUS nonzero for error_use_protocol probably doesn't work yet;
-   in that case still need to use the pending_error machinery in server.c.
-
-   error() does not molest errno; some code (e.g. Entries_Open) depends
-   on being able to say something like:
-      error (0, 0, "foo");
-      error (0, errno, "bar");
-
-   */
-
-/* VARARGS */
-void
-#if defined (__STDC__)
-error (int status, int errnum, const char *message, ...)
-#else
-error (status, errnum, message, va_alist)
-    int status;
-    int errnum;
-    const char *message;
-    va_dcl
-#endif
-{
-    int save_errno = errno;
-
-    if (message[0] != '\0')
-    {
-	va_list args;
-	const char *p;
-	char *q;
-	char *str;
-	int num;
-	long lnum;
-	unsigned int unum;
-	unsigned long ulnum;
-	int ch;
-	char buf[100];
-
-	cvs_outerr (program_name, 0);
-	if (cvs_cmd_name && *cvs_cmd_name)
-	{
-	    cvs_outerr (" ", 1);
-	    if (status != 0)
-		cvs_outerr ("[", 1);
-	    cvs_outerr (cvs_cmd_name, 0);
-	    if (status != 0)
-		cvs_outerr (" aborted]", 0);
-	}
-	cvs_outerr (": ", 2);
-
-	VA_START (args, message);
-	p = message;
-	while ((q = strchr (p, '%')) != NULL)
-	{
-	    static const char msg[] =
-		"\ninternal error: bad % in error()\n";
-	    if (q - p > 0)
-		cvs_outerr (p, q - p);
-
-	    switch (q[1])
-	    {
-	    case 's':
-		str = va_arg (args, char *);
-		cvs_outerr (str, strlen (str));
-		break;
-	    case 'd':
-		num = va_arg (args, int);
-		sprintf (buf, "%d", num);
-		cvs_outerr (buf, strlen (buf));
-		break;
-	    case 'l':
-		if (q[2] == 'd')
-		{
-		    lnum = va_arg (args, long);
-		    sprintf (buf, "%ld", lnum);
-		}
-		else if (q[2] == 'u')
-		{
-		    ulnum = va_arg (args, unsigned long);
-		    sprintf (buf, "%lu", ulnum);
-		}
-		else goto bad;
-		cvs_outerr (buf, strlen (buf));
-		q++;
-		break;
-	    case 'x':
-		unum = va_arg (args, unsigned int);
-		sprintf (buf, "%x", unum);
-		cvs_outerr (buf, strlen (buf));
-		break;
-	    case 'c':
-		ch = va_arg (args, int);
-		buf[0] = ch;
-		cvs_outerr (buf, 1);
-		break;
-	    case '%':
-		cvs_outerr ("%", 1);
-		break;
-	    default:
-	    bad:
-		cvs_outerr (msg, sizeof (msg) - 1);
-		/* Don't just keep going, because q + 1 might point to the
-		   terminating '\0'.  */
-		goto out;
-	    }
-	    p = q + 2;
-	}
-	cvs_outerr (p, strlen (p));
-    out:
-	va_end (args);
-
-	if (errnum != 0)
-	{
-	    cvs_outerr (": ", 2);
-	    cvs_outerr (strerror (errnum), 0);
-	}
-	cvs_outerr ("\n", 1);
-    }
-
-    if (status)
-	error_exit ();
-    errno = save_errno;
-}
 
 /* Print the program name and error message MESSAGE, which is a printf-style
    format string with optional args to the file specified by FP.
@@ -219,37 +250,18 @@ error (status, errnum, message, va_alist)
    Exit with status EXIT_FAILURE if STATUS is nonzero.  */
 /* VARARGS */
 void
-#if defined (HAVE_VPRINTF) && defined (__STDC__)
 fperrmsg (FILE *fp, int status, int errnum, char *message, ...)
-#else
-fperrmsg (fp, status, errnum, message, va_alist)
-    FILE *fp;
-    int status;
-    int errnum;
-    char *message;
-    va_dcl
-#endif
 {
-#ifdef HAVE_VPRINTF
     va_list args;
-#endif
 
     fprintf (fp, "%s: ", program_name);
-#ifdef HAVE_VPRINTF
-    VA_START (args, message);
+    va_start (args, message);
     vfprintf (fp, message, args);
     va_end (args);
-#else
-#ifdef HAVE_DOPRNT
-    _doprnt (message, &args, fp);
-#else
-    fprintf (fp, message, a1, a2, a3, a4, a5, a6, a7, a8);
-#endif
-#endif
     if (errnum)
 	fprintf (fp, ": %s", strerror (errnum));
     putc ('\n', fp);
     fflush (fp);
     if (status)
-	error_exit ();
+	exit (EXIT_FAILURE);
 }

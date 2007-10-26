@@ -1,15 +1,16 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2004 International Business Machines
+// * Copyright (C) 2006 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
-// * Source File: ../../../locale/common/main/sq.xml
+// * Source File:<path>/common/main/sq.xml
 // *
 // ***************************************************************************
 /**
- *  ICU <specials> source: ../../../locale/icu/main/sq.xml
+ *  ICU <specials> source: <path>/xml/main/sq.xml
  */
 sq{
+    AuxExemplarCharacters{"[w]"}
     Countries{
         AD{"Andorrë"}
         AE{"Emiratet Arabe te Bashkuara"}
@@ -28,6 +29,7 @@ sq{
         BH{"Bahrein"}
         BN{"Brunej"}
         BO{"Bolivi"}
+        BR{"Brazili"}
         BT{"Butan"}
         BW{"Botsvana"}
         BY{"Bjellorusi"}
@@ -41,6 +43,7 @@ sq{
         CN{"Kinë"}
         CO{"Kolumbi"}
         CR{"Kosta Rika"}
+        CS{"Serbië en Montenegro"}
         CU{"Kubë"}
         CV{"Kap Verde"}
         CY{"Qipro"}
@@ -63,6 +66,7 @@ sq{
         FM{"Mikronezi"}
         FR{"Francë"}
         GA{"Gjabon"}
+        GB{"Mbretëria e Bashkuar"}
         GE{"Gjeorgji"}
         GH{"Ganë"}
         GM{"Gambi"}
@@ -140,7 +144,6 @@ sq{
         SK{"Sllovaki"}
         SL{"Siera Leone"}
         SO{"Somali"}
-        SP{"Serbië"}
         ST{"Sao Tome e Prinsipe"}
         SY{"Siri"}
         SZ{"Svazilandë"}
@@ -169,10 +172,56 @@ sq{
             "Lek",
             "ALL",
         }
+        BRL{
+            "BRL",
+            "Real Brazilian",
+        }
+        CNY{
+            "CNY",
+            "Renminbi(Yuan) Kinez",
+        }
+        EUR{
+            "€",
+            "Euro",
+        }
+        GBP{
+            "£",
+            "Paund Sterlina Britanike",
+        }
+        INR{
+            "=0#Rs.|1#Re.|1<Rs.",
+            "Rupee indiane",
+        }
+        JPY{
+            "¥",
+            "Jeni Japonez",
+        }
+        RUB{
+            "RUB",
+            "Rubla ruse",
+        }
+        USD{
+            "$",
+            "Dollar amerikan",
+        }
     }
-    ExemplarCharacters{"[a-zçë{dh}{gj}{ll}{nj}{rr}{sh}{th}{xh}{zh}]"}
+    ExemplarCharacters{
+        "[a-c ç d {dh} e ë f g {gj} h-l {ll} m n {nj} o-r {rr} s {sh} t {th} u v x {x"
+        "h} y z {zh}]"
+    }
     Languages{
+        ar{"Arabisht"}
+        de{"Gjermanisht"}
+        en{"Anglisht"}
+        es{"Spanjisht"}
+        fr{"Frengjisht"}
+        hi{"Hindi"}
+        it{"Italisht"}
+        ja{"Japanisht"}
+        pt{"Portugeze"}
+        ru{"Rusisht"}
         sq{"shqipe"}
+        zh{"Kineze"}
     }
     LocaleScript{
         "Latn",
@@ -188,19 +237,18 @@ sq{
         "E",
         "‰",
         "∞",
-        "�",
+        "NaN",
         "+",
     }
-    Version{"1.2"}
+    Scripts{
+        Latn{"Latine"}
+    }
+    Version{"1.55"}
     calendar{
         gregorian{
             AmPmMarkers{
                 "PD",
                 "MD",
-            }
-            DateTimeElements:intvector{
-                2,
-                1,
             }
             DateTimePatterns{
                 "h.mm.ss.a z",
@@ -232,6 +280,17 @@ sq{
                         "e enjte",
                         "e premte",
                         "e shtunë",
+                    }
+                }
+                stand-alone{
+                    narrow{
+                        "D",
+                        "H",
+                        "M",
+                        "M",
+                        "E",
+                        "P",
+                        "S",
                     }
                 }
             }
@@ -272,8 +331,24 @@ sq{
                         "dhjetor",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "J",
+                        "S",
+                        "M",
+                        "P",
+                        "M",
+                        "Q",
+                        "K",
+                        "G",
+                        "S",
+                        "T",
+                        "N",
+                        "D",
+                    }
+                }
             }
         }
     }
-    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZ"}
+    localPatternChars{"GanjkHmsSEDFwWxhKzAeugXZvcL"}
 }

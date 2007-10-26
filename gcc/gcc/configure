@@ -8708,13 +8708,15 @@ vax-*-*)
     stage1_cflags="-J"
   fi
   ;;
-powerpc-*-darwin*)
+# APPLE LOCAL begin mainline
+powerpc*-*-darwin*)
   # The spiffy cpp-precomp chokes on some legitimate constructs in GCC
   # sources; use -no-cpp-precomp to get to GNU cpp.
   # Apple's GCC has bugs in designated initializer handling, so disable
   # that too.
   stage1_cflags="-no-cpp-precomp -DHAVE_DESIGNATED_INITIALIZERS=0"
   ;;
+# APPLE LOCAL end mainline
 esac
 
 
@@ -11288,6 +11290,7 @@ _ACEOF
 # We will need to find libiberty.h and ansidecl.h
 saved_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
+# APPLE LOCAL begin mainline llvm
 
 
 
@@ -11325,7 +11328,8 @@ CFLAGS="$CFLAGS -I${srcdir} -I${srcdir}/../include"
 
 
 
-for ac_func in getenv atol sbrk abort atof getcwd getwd strsignal \
+
+for ac_func in getenv atol asprintf sbrk abort atof getcwd getwd strsignal \
 	strverscmp \
 	strstr errno snprintf vasprintf malloc realloc calloc free \
 	basename getopt clock getpagesize clearerr_unlocked feof_unlocked   ferror_unlocked fflush_unlocked fgetc_unlocked fgets_unlocked   fileno_unlocked fprintf_unlocked fputc_unlocked fputs_unlocked   fread_unlocked fwrite_unlocked getchar_unlocked getc_unlocked   putchar_unlocked putc_unlocked
@@ -11406,6 +11410,7 @@ fi
 
 done
 
+# APPLE LOCAL end mainline llvm
 
 
 
@@ -11722,6 +11727,90 @@ fi
 
 done
 
+
+# APPLE LOCAL begin mainline 2006-06-02 4508814
+
+for ac_func in sigaltstack
+do
+  ac_tr_decl=`echo "HAVE_DECL_$ac_func" | $as_tr_cpp`
+echo "$as_me:$LINENO: checking whether $ac_func is declared" >&5
+echo $ECHO_N "checking whether $ac_func is declared... $ECHO_C" >&6
+if eval "test \"\${gcc_cv_have_decl_$ac_func+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#undef $ac_tr_decl
+#define $ac_tr_decl 1
+
+#include "ansidecl.h"
+#include "system.h"
+#include <signal.h>
+
+
+int
+main ()
+{
+#ifndef $ac_func
+char *(*pfn) = (char *(*)) $ac_func ;
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "gcc_cv_have_decl_$ac_func=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+eval "gcc_cv_have_decl_$ac_func=no"
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+
+if eval "test \"`echo '$gcc_cv_have_decl_'$ac_func`\" = yes"; then
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6 ; cat >>confdefs.h <<_ACEOF
+#define $ac_tr_decl 1
+_ACEOF
+
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6 ; cat >>confdefs.h <<_ACEOF
+#define $ac_tr_decl 0
+_ACEOF
+
+fi
+
+done
+
+# APPLE LOCAL end mainline 2006-06-02 4508814
 
 # More time-related stuff.
 echo "$as_me:$LINENO: checking for struct tms" >&5
@@ -12162,6 +12251,64 @@ if test "$host_xm_file" != "$build_xm_file"; then
 	fi
 fi
 
+# APPLE LOCAL begin mainline 2006-06-02 4508814
+case ${host} in
+  powerpc*-*-darwin*)
+    echo "$as_me:$LINENO: checking whether mcontext_t fields have underscores" >&5
+echo $ECHO_N "checking whether mcontext_t fields have underscores... $ECHO_C" >&6
+if test "${gcc_cv_mcontext_underscores+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+
+#include <ucontext.h>
+int main() { mcontext_t m; if (m->ss.srr0) return 0; return 0; }
+
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  gcc_cv_mcontext_underscores=no
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+gcc_cv_mcontext_underscores=yes
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_mcontext_underscores" >&5
+echo "${ECHO_T}$gcc_cv_mcontext_underscores" >&6
+      if test $gcc_cv_mcontext_underscores = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAS_MCONTEXT_T_UNDERSCORES
+_ACEOF
+
+      fi
+    ;;
+esac
+# APPLE LOCAL end mainline 2006-06-02 4508814
+
 # ---------
 # Threading
 # ---------
@@ -12313,7 +12460,7 @@ fi
   if test x$use_cxa_atexit = xyes; then
 
 cat >>confdefs.h <<\_ACEOF
-#define DEFAULT_USE_CXA_ATEXIT 1
+#define DEFAULT_USE_CXA_ATEXIT 2
 _ACEOF
 
   fi
@@ -12802,14 +12949,15 @@ for f in $build_xm_file; do
   esac
 done
 
-# Define macro CROSS_COMPILE in compilation if this is a cross-compiler.
+# Define macro CROSS_DIRECTORY_STRUCTURE in compilation if this is a
+# cross-compiler which does not use the native headers and libraries.
 # Also use all.cross instead of all.internal and adjust SYSTEM_HEADER_DIR.
 CROSS=
 ALL=all.internal
 SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
 if test x$host != x$target
 then
-	CROSS="-DCROSS_COMPILE"
+	CROSS="-DCROSS_DIRECTORY_STRUCTURE"
 	ALL=all.cross
 	SYSTEM_HEADER_DIR='$(CROSS_SYSTEM_HEADER_DIR)'
 	case "$host","$target" in
@@ -13307,6 +13455,45 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+
+# APPLE LOCAL begin x86_64 literal16
+echo "$as_me:$LINENO: checking assembler for .literal16" >&5
+echo $ECHO_N "checking assembler for .literal16... $ECHO_C" >&6
+if test "${gcc_cv_as_literal16+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  gcc_cv_as_literal16=no
+    if test $in_tree_gas = yes; then
+    if test $gcc_cv_gas_vers -ge `expr \( \( 2 \* 1000 \) + 8 \) \* 1000 + 0`
+  then gcc_cv_as_literal16=yes
+fi
+  elif test x$gcc_cv_as != x; then
+    echo '.literal16' > conftest.s
+    if { ac_try='$gcc_cv_as  -o conftest.o conftest.s >&5'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }
+    then
+	gcc_cv_as_literal16=yes
+    else
+      echo "configure: failed program was" >&5
+      cat conftest.s >&5
+    fi
+    rm -f conftest.o conftest.s
+  fi
+fi
+echo "$as_me:$LINENO: result: $gcc_cv_as_literal16" >&5
+echo "${ECHO_T}$gcc_cv_as_literal16" >&6
+if test $gcc_cv_as_literal16 = yes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_GAS_LITERAL16 1
+_ACEOF
+
+fi
+# APPLE LOCAL end x86_64 literal16
 
 echo "$as_me:$LINENO: checking assembler for working .subsection -1" >&5
 echo $ECHO_N "checking assembler for working .subsection -1... $ECHO_C" >&6

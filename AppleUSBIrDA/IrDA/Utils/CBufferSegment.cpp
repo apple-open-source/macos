@@ -43,7 +43,7 @@ EventTraceCauseDesc TraceEvents[] = {
     {kLogIOFreeBuf,     "CBufferSegment: iofree, buffer="},
     {kLogIOFreeSize,    "CBufferSegment: iofree, size="}
 };
-#define XTRACE(x, y, z) IrDALogAdd( x, y, z, TraceEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, TraceEvents, true )
 #else
 #define XTRACE(x, y, z) ((void) 0)
 #endif
@@ -66,7 +66,7 @@ CBufferSegment * CBufferSegment::New(Size len)
 
     CBufferSegment *obj = new CBufferSegment;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->Init(nil, kDefaultCBufferSize)) {  // alloc a big buffer
 	obj->release();
@@ -80,8 +80,8 @@ CBufferSegment * CBufferSegment::New(UByte *buffer, Size len)
 {
     CBufferSegment *obj = new CBufferSegment;
     
-    XTRACE(kLogNewWith, (int)obj >> 16, (short)obj);
-    XTRACE(kLogNewWith, (int)buffer >> 16, (short)buffer);
+    XTRACE(kLogNewWith, (int)obj >> 16, obj);
+    XTRACE(kLogNewWith, (int)buffer >> 16, buffer);
     
     if (obj && !obj->Init(buffer, len)) {
 	obj->release();
@@ -109,13 +109,13 @@ CBufferSegment::Delete()
 void
 CBufferSegment::free(void)
 {
-    XTRACE(kLogFree1, (int)this >> 16, (short)this);
-    XTRACE(kLogFree2, (int)fBufBase>>16, (short)fBufBase);
+    XTRACE(kLogFree1, (int)this >> 16, this);
+    XTRACE(kLogFree2, (int)fBufBase>>16, fBufBase);
     
     if (fFreeMe && fBufBase) {
 	check(fSize);
-	XTRACE(kLogIOFreeBuf, (int)fBufBase >> 16, (short)fBufBase);
-	XTRACE(kLogIOFreeSize, fSize >> 16, (short)fSize);
+	XTRACE(kLogIOFreeBuf, (int)fBufBase >> 16, fBufBase);
+	XTRACE(kLogIOFreeSize, fSize >> 16, fSize);
 	IOFree(fBufBase, fSize);
 	fBufBase = nil;
 	fSize = 0;
@@ -138,8 +138,8 @@ Boolean CBufferSegment::Init(UByte *buffer, Size len)
     
     if (buffer == nil) {            // callers wants us to alloc and free
 	fBufBase = (UByte*)IOMalloc(len);
-	XTRACE(kLogIOAllocBuf, (int)fBufBase >> 16, (short)fBufBase);
-	XTRACE(kLogIOAllocSize, len >> 16, (short)len);
+	XTRACE(kLogIOAllocBuf, (int)fBufBase >> 16, fBufBase);
+	XTRACE(kLogIOAllocSize, len >> 16, len);
 	require(fBufBase, Fail);
 	fFreeMe = true;
     } else {
@@ -147,7 +147,7 @@ Boolean CBufferSegment::Init(UByte *buffer, Size len)
 	fFreeMe = false;
     }
     
-    XTRACE(kLogCBInit2, (int)fBufBase>>16, (short)fBufBase);
+    XTRACE(kLogCBInit2, (int)fBufBase>>16, fBufBase);
 
     fSize = len;
     fBufEnd = fBufBase + fSize;

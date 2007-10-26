@@ -4,7 +4,7 @@
 # Synopsis: Root class for Function, Typedef, Constant, etc. -- used by HeaderDoc.
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2005/01/14 08:11:26 $
+# Last Updated: $Date: 2007/09/17 22:45:51 $
 #
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -31,11 +31,14 @@
 
 package HeaderDoc::HeaderElement;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize parseTokens);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize parseTokens unregister_force_uid_clear dereferenceUIDObject);
+use File::Basename;
 use strict;
 use vars qw($VERSION @ISA);
-use POSIX qw(strftime);
-$VERSION = '$Revision: 1.7.2.11.2.113 $';
+use POSIX qw(strftime mktime localtime);
+use Carp qw(cluck);
+
+$VERSION = '$Revision: 1.7.2.11.2.161 $';
 
 sub new {
     my($param) = shift;
@@ -94,6 +97,9 @@ sub _initialize {
     # $self->{MASTERENUM} = 0;
     # $self->{APIREFSETUPDONE} = 0;
     # $self->{TPCDONE} = 0;
+    # $self->{NOREGISTERUID} = 0;
+    # $self->{SUPPRESSCHILDREN} = 0;
+    # $self->{NAMELINE_DISCUSSION} = undef;
 }
 
 my %CSS_STYLES = ();
@@ -182,6 +188,9 @@ sub clone {
     $clone->{KEYWORDHASH} = $self->{KEYWORDHASH};
     $clone->{MASTERENUM} = 0; # clones are never the master # $self->{MASTERENUM};
     $clone->{APIREFSETUPDONE} = 0;
+    $clone->{APPLEREFISDOC} = $self->{APPLEREFISDOC};
+    # $clone->{NOREGISTERUID} = 0;
+    # $clone->{SUPPRESSCHILDREN} = 0;
 
     return $clone;
 }
@@ -246,7 +255,8 @@ sub constructor_or_destructor {
 	print "FUNCTION\n" if ($localDebug);
 	return 0;
     } elsif ($self->{CLASS} eq "HeaderDoc::Method") {
-	# @@@ FOR NOW @@@
+	# @@@ DAG: If ObjC methods ever get any syntactically-special
+	# constructors or destructors, add the checks here.
 	return 0;
     } else {
 	return 0;
@@ -366,6 +376,8 @@ sub name {
     my $self = shift;
     my $localDebug = 0;
 
+    # cluck("namebacktracec\n");
+
     my($class) = ref($self) || $self;
 
     print "$class\n" if ($localDebug);
@@ -377,6 +389,8 @@ sub name {
 	my $linenum = $self->linenum();
 	my $class = ref($self) || $self;
 
+	print "NAMESET: $self -> $name\n" if ($localDebug);
+
 	if (!($class eq "HeaderDoc::Header") && ($oldname && length($oldname))) {
 		# Don't warn for headers, as they always change if you add
 		# text after @header.  Also, don't warn if the new name
@@ -385,14 +399,25 @@ sub name {
 		# probably put multiple @function tags in the same comment
 		# block or similar....
 
-		$oldname = quote($oldname);
+		my $nsoname = $oldname;
+		my $nsname = $name;
+		if ($class =~ /^HeaderDoc::ObjC/) {
+			$nsname =~ s/\s//g;
+			$nsoname =~ s/\s//g;
+		} elsif ($class =~ /^HeaderDoc::Method/) {
+			$nsname =~ s/:$//g;
+			$nsoname =~ s/:$//g;
+		# } else {
+			# warn("CLASS: $class\n");
+		}
+		my $qnsoname = quote($nsoname);
 
-		if ($name !~ /$oldname/) {
+		if ($nsname !~ /$qnsoname/) {
 			if (!$HeaderDoc::ignore_apiuid_errors) {
-				warn("$filename:$linenum:Name being changed ($oldname -> $name)\n");
+				warn("$filename:$linenum: warning: Name being changed ($oldname -> $name)\n");
 			}
-		} elsif (($class eq "HeaderDoc::CPPClass" || $class =~ /^ObjC/o) && $name =~ /:/o) {
-			warn("$filename:$linenum:Class name contains colon, which is probably not what you want.\n");
+		} elsif (($class eq "HeaderDoc::CPPClass" || $class =~ /^HeaderDoc::ObjC/o) && $name =~ /:/o) {
+			warn("$filename:$linenum: warning: Class name contains colon, which is probably not what you want.\n");
 		}
 	}
 
@@ -404,24 +429,17 @@ sub name {
 
     my $n = $self->{NAME};
 
-    if (($class eq "HeaderDoc::Function") || 
-	($class eq "HeaderDoc::Method")) {
-	  my @params = $self->parsedParameters();
-	  my $arrayLength = @params;
-	  if ($self->conflict() && $arrayLength) {
-		# print "CONFLICT for $n!\n";
-		$n .= "(";
-		my $first = 1;
-		foreach my $param (@params) {
-			if (!$first) {
-				$n .= ", ".$param->type();
-			} else {
-				$n .= $param->type();
-				$first = 0;
-			}
-		}
-		$n .= ")";
-	  }
+    # Append the rest of the name line if necessary.
+    if ($self->{DISCUSSION}) {
+	print "NAMELINE DISCUSSION for $self CONCATENATED (".$self->{NAMELINE_DISCUSSION}.")\n" if ($localDebug);
+	print "ORIGINAL NAME WAS \"$n\"\n" if ($localDebug);
+	$n .= " ".$self->{NAMELINE_DISCUSSION};
+    }
+
+    if ($class eq "HeaderDoc::Function" && $self->conflict()) {
+	$n .= "(";
+	$n .= $self->getParamSignature(1);
+	$n .= ")";
     }
 
     return $n;
@@ -436,37 +454,52 @@ sub see {
     my $type = "See";
     my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();    
 
-    $liststring =~ s/<br>/\n/sg;
+#    $liststring =~ s/<br>/\n/sg; # WARNING \n would break attributelist!
 
     # Is it a see or seealso?
 
-    if ($liststring =~ s/^seealso\s+//so) {
+    if ($liststring =~ s/^seealso\s+//iso) {
 	$type = "See Also";
     } else {
-	$liststring =~ s/^see\s+//so;
+	$liststring =~ s/^see\s+//iso;
     }
+    # $liststring =~ s/(\n|\r|\<br\>|\s)+$//sgi;
+    my @items = split(/[\n\r]/, $liststring);
 
 # print "LS: $liststring\n";
+    foreach my $item (@items) {
+      if ($item !~ /^\/\/\w+\// && $item =~ /\S/) { ## API anchor (apple_ref or other)
+	my @list = split(/\s+/, $item, 2);
 
-    if ($liststring !~ /^\/\/$apiUIDPrefix\//) {
-	my @list = split(/\s+/, $liststring);
-	foreach my $see (@list) {
-		my $apiref = $self->genRef("", $see, $see);
-		my $apiuid = $apiref;
-		$apiuid =~ s/^<!--\s*a\s+logicalPath\s*=\s*\"//so;
-		$apiuid =~ s/"\s*-->\s*$see\s*<!--\s*\/a\s*-->//s;
-		$self->attributelist($type, "$see $apiuid");
-	}
-    } else {
-	$liststring =~ s/^\s*//s;
-	$liststring =~ s/\s+/ /s;
-	my @parts = split(/\s+/, $liststring, 2);
+	# Generate it with its own name as the title.  We're just going
+	# to rip it back apart anyway.
+	my $see = $list[0];
+	my $name = $list[1];
+	my $apiref = $self->genRef("", $see, $see);
+	my $apiuid = $apiref;
+	$name =~ s/\s+/ /sg;
+	$name =~ s/\s+$//sg;
+	$apiuid =~ s/^<!--\s*a\s+logicalPath\s*=\s*\"//so;
+	$apiuid =~ s/"\s*-->\s*\Q$see\E\s*<!--\s*\/a\s*-->//s;
+	$self->attributelist($type, $name."\n$apiuid");
+      } elsif ($item =~ /\S/) {
+	$item =~ s/^\s*//s;
+	$item =~ s/\s+/ /sg;
+	my @parts = split(/\s+/, $item, 2);
+	my $name = $parts[1];
+	$name =~ s/\s+$//sg;
 
-	# print "$type -> ".$parts[1]." -> ".$parts[0]."\n";
-	
-	$self->attributelist($type, $parts[1]."\n".$parts[0]);
+	# print "$type -> '".$name."' -> '".$parts[0]."'\n";
+
+        $self->attributelist($type, $name."\n".$parts[0]);
+      }
     }
 
+}
+
+sub mediumrarename {
+    my $self = shift;
+    return $self->{NAME};
 }
 
 sub rawname {
@@ -527,7 +560,7 @@ sub attribute {
 	$attribute =~ s/\s*$//so;
     }
 
-    %attlist->{$name}=$attribute;
+    $attlist{$name}=$attribute;
 
     if ($long) {
         $self->{LONGATTRIBUTES} = \%attlist;
@@ -536,7 +569,7 @@ sub attribute {
     }
 
     my $temp = $self->getAttributes(2);
-    print "Attributes: $temp\n" if ($localDebug);;
+    print "Attributes: $temp\n" if ($localDebug);
 
 }
 
@@ -550,9 +583,19 @@ sub getAttributes
     my %attlist = ();
     my $localDebug = 0;
     my $xml = 0;
+    my $newTOC = $HeaderDoc::newTOC;
+
+    my $class = ref($self) || $self;
+
+    # Only use this style for API Owners.
+    if (!$self->isAPIOwner()) { $newTOC = 0; }
 
     my $apiowner = $self->apiOwner();
     if ($apiowner->outputformat() eq "hdxml") { $xml = 1; }
+    my $first = 1;
+
+    my $declaredin = $self->declaredIn();
+	# print "DECLARED IN: $declaredin\n";
 
     my $retval = "";
     if ($long != 1) {
@@ -561,31 +604,60 @@ sub getAttributes
         }
 
         foreach my $key (sort strcasecmp keys %attlist) {
-	    my $value = %attlist->{$key};
+	    my $keyname = $key; # printed name.
+	    if ($key eq "Superclass") { $keyname = $HeaderDoc::superclassName; }
+
+	    my $value = $attlist{$key};
 	    my $newatt = $value;
-	    if (($key eq "Superclass" || $key eq "Extends&nbsp;Class") && !$xml) {
+	    if (($key eq "Superclass" || $key eq "Extends&nbsp;Class" || $key eq "Extends&nbsp;Protocol" || $key eq "Conforms&nbsp;to") && !$xml) {
+		my $classtype = "class";
+		my $selfclass = ref($self) || $self;
+		if ($selfclass =~ /HeaderDoc::ObjCProtocol/) {
+			$classtype = "protocol";
+		}
 		my @valparts = split(/\cA/, $value);
 		$newatt = "";
+		# print "CLASSTYPE: $classtype\n";
 		foreach my $valpart (@valparts) {
 			if (length($valpart)) {
 				$valpart =~ s/^\s*//s;
 				if ($valpart =~ /^(\w+)(\W.*)$/) {
-					$newatt .= $self->genRef("class", $1, $1).$self->textToXML($2).", ";
+					$newatt .= $self->genRef("$classtype", $1, $1).$self->textToXML($2).", ";
 				} else {
-					$newatt .= $self->genRef("class", $valpart, $valpart).", ";
+					$newatt .= $self->genRef("$classtype", $valpart, $valpart).", ";
 				}
 			}
 		}
 		$newatt =~ s/, $//s;
+	    } elsif ($key eq "Framework Path") {
+		$newatt = "<!-- headerDoc=frameworkpath;name=start -->\n$value\n<!-- headerDoc=frameworkpath;name=end -->\n";
 	    } else {
 		print "KEY: $key\n" if ($localDebug);
 	    }
 	    if ($xml) {
-		$retval .= "<attribute><name>$key</name><value>$newatt</value></attribute>\n";
+		$retval .= "<attribute><name>$keyname</name><value>$newatt</value></attribute>\n";
 	    } else {
-		$retval .= "<b>$key:</b> $newatt<br>\n";
+		if ($newTOC) {
+			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
+			$retval .= "<tr><td scope=\"row\"><b>$keyname:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$newatt</div></div></td></tr>\n";
+		} else {
+			$retval .= "<b>$keyname:</b> $newatt<br>\n";
+		}
 	    }
         }
+	if ($declaredin) {
+	    if (!$xml) {
+		if ($newTOC) {
+			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
+			$retval .= "<tr><td scope=\"row\"><b>Declared In:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$declaredin</div></div></td></tr>\n";
+		} else {
+			$retval .= "<b>Declared In:</b> $declaredin<br>\n";
+		}
+	    }
+	# cluck("Backtrace\n");
+	# warn "DECLAREDIN: $declaredin\n";
+	# warn "RV: $retval\n";
+	}
     }
 
     if ($long != 0) {
@@ -594,14 +666,21 @@ sub getAttributes
         }
 
         foreach my $key (sort strcasecmp keys %attlist) {
-	    my $value = %attlist->{$key};
+	    my $value = $attlist{$key};
 	    if ($xml) {
 		$retval .= "<longattribute><name>$key</name><value>$value</value></longattribute>\n";
 	    } else {
-		$retval .= "<b>$key:</b>\n\n<p>$value<p>\n";
+		if ($newTOC) {
+			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
+			$retval .= "<tr><td scope=\"row\"><b>$key:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$value</div></div></td></tr>\n";
+		} else {
+			$retval .= "<b>$key:</b>\n\n<p>$value<p>\n";
+		}
 	    }
         }
     }
+    if ($newTOC && !$first) { $retval .= "</table></div>\n"; }
+    elsif (!$newTOC) { $retval = "<p>$retval</p>"; } # libxml parser quirk workaround
 
     return $retval;
 }
@@ -624,7 +703,7 @@ sub checkShortLongAttributes
     my $value = $singleatts{$name};
     if ($value && length($value)) {return $value;}
 
-    my $value = $longatts{$name};
+    $value = $longatts{$name};
     if ($value && length($value)) {return $value;}
 
     return 0;
@@ -656,6 +735,15 @@ sub getAttributeLists
     my $composite = shift;
     my $localDebug = 0;
     my $xml = 0;
+    my $newTOC = $HeaderDoc::newTOC;
+
+    my $isFramework = 0;
+    if ($self->can('isFramework') && $self->isFramework()) {
+	$isFramework = 1;
+    }
+
+    # Only use this style for API Owners.
+    if (!$self->isAPIOwner()) { $newTOC = 0; }
 
     my $apiowner = $self->apiOwner();
     if ($apiowner->outputformat() eq "hdxml") { $xml = 1; }
@@ -667,17 +755,33 @@ sub getAttributeLists
 
     # print "list\n";
     my $retval = "";
+    my $first = 1;
     foreach my $key (sort strcasecmp keys %attlists) {
+	my $prefix = "";
+	my $suffix = "";
+
+	if ($isFramework && ($key eq "See" || $key eq "See Also")) {
+		$prefix = "<!-- headerDoc=frameworkrelated;name=start -->\n";
+		$suffix = "\n<!-- headerDoc=frameworkrelated;name=end -->\n";
+	}
+
 	if ($xml) {
 	    $retval .= "<listattribute><name>$key</name><list>\n";
 	} else {
-	    $retval .= "<b>$key:</b><br><blockquote><dl>\n";
+	    $retval .= $prefix;
+	    if ($newTOC) {
+		if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
+		$retval .= "<tr><td scope=\"row\"><b>$key:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\"><dl>\n";
+	    } else {
+		$retval .= "<b>$key:</b><blockquote><dl>\n";
+	    }
 	}
 	print "key $key\n" if ($localDebug);
-	my @list = @{%attlists->{$key}};
+	my @list = @{$attlists{$key}};
 	foreach my $item (@list) {
+	    if ($item !~ /\S/s) { next; }
 	    print "item: $item\n" if ($localDebug);
-	    my ($name, $disc) = &getAPINameAndDisc($item);
+	    my ($name, $disc, $namedisc) = &getAPINameAndDisc($item);
 
 	    if ($key eq "Included Defines") {
 		# @@@ CHECK SIGNATURE
@@ -685,8 +789,8 @@ sub getAttributeLists
 		$name .= "$apiref";
 	    }
 	    if (($key eq "See Also" || $key eq "See") && !$xml) {
-		$disc =~ s/^\s*//sgo;
-		$disc =~ s/\s*$//sgo;
+		$disc =~ s/^(\s|<br>)+//sgio;
+		$disc =~ s/(\s|<br>)+$//sgio;
 		$name =~ s/\cD/ /sgo;
 		$name = "<!-- a logicalPath=\"$disc\" -->$name<!-- /a -->";
 		$disc = "";
@@ -700,8 +804,16 @@ sub getAttributeLists
 	if ($xml) {
 	    $retval .= "</list></listattribute>\n";
 	} else {
-	    $retval .= "</dl></blockquote>\n";
+	    if ($newTOC) {
+		$retval .= "</dl></div></div></td></tr>\n";
+	    } else {
+		$retval .= "</dl></blockquote>\n";
+	    }
+	    $retval .= $suffix;
 	}
+    }
+    if ($newTOC) {
+	if (!$first) { $retval .= "</table></div>\n"; }
     }
     # print "done\n";
     return $retval;
@@ -721,18 +833,21 @@ sub attributelist {
     my $attribute = shift;
 
     my %attlists = ();
+
+    # cluck "Add attributelist MAPPING $name -> $attribute\n";
+
     if ($self->{ATTRIBUTELISTS}) {
         %attlists = %{$self->{ATTRIBUTELISTS}};
     }
 
     my @list = ();
-    my $listref = %attlists->{$name};
+    my $listref = $attlists{$name};
     if ($listref) {
 	@list = @{$listref};
     }
     push(@list, $attribute);
 
-    %attlists->{$name}=\@list;
+    $attlists{$name}=\@list;
     $self->{ATTRIBUTELISTS} = \%attlists;
     # print "AL = $self->{ATTRIBUTELISTS}\n";
 
@@ -748,16 +863,21 @@ sub apiOwner {
     return $self->{APIOWNER};
 }
 
+# use Devel::Peek;
+
 sub apiref {
     my $self = shift;
+    # print "IY0\n"; Dump($self);
     my $filename = $self->filename();
     my $linenum = $self->linenum();
     my $composite = shift;
     my $args = 0;
     my $type = "";
     my $apiowner = $self->apiOwner();
+    # print "IY0a\n"; Dump($self);
     my $owningclass = ref($apiowner) || $self;
     my $paramSignature = "";
+    # print "IY1\n"; Dump($self);
 
     if (@_) {
       $args = 1;
@@ -784,6 +904,7 @@ sub apiref {
 	# return "";
     # }
 
+    # print "IY3\n"; Dump($self);
     my $uid = "";
     if ($args && !$forceuid) {
       # Do this first to assign a UID, even if we're doing the composite page.
@@ -791,10 +912,16 @@ sub apiref {
     } else {
       $uid = $self->apiuid();
     }
+    # print "IY4\n"; Dump($self);
     if ($composite && !$HeaderDoc::ClassAsComposite) {
+	$uid = $self->compositePageUID();
+    } elsif (!$composite && $HeaderDoc::ClassAsComposite) {
+	# The composite page is the master, so give the individual
+	# pages composite page UIDs.
 	$uid = $self->compositePageUID();
     }
     if ($forceuid) { $uid = $forceuid; }
+    # print "IY5\n"; Dump($self);
 
     my $ret = "";
     if (length($uid)) {
@@ -815,6 +942,9 @@ sub apiref {
 	$ret .= "<!-- headerDoc=$type; $uidstring name=$extendedname -->\n";
 	if (length($uid)) { $ret .= "<a name=\"$uid\"></a>\n"; }
     }
+    # print "IY8\n"; Dump($self);
+    $owningclass = undef;
+    # print "IY9\n"; Dump($self);
     return $ret;
 }
 
@@ -856,7 +986,7 @@ sub generateLinkUID
     }
 
     my $classname = sanitize($self->apiOwner()->rawname());
-    my $name = sanitize($self->rawname());
+    my $name = sanitize($self->rawname(), 1);
     my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();    
     my $uniquenumber = $HeaderDoc::uniquenumber++;
     my $uid = "//$apiUIDPrefix/doc/inheritedContent/$classname/$name/$uniquenumber";
@@ -878,22 +1008,32 @@ sub apiuid {
     my $filename = $self->filename();
     my $linenum = $self->linenum();
 
+    my $localDebug = 0;
+
     if (@_) {
 	$type = shift;
 	if (@_) {
 		$paramSignature_or_alt_define_name = shift;
 	}
     } else {
-# print "RETURNING APIUID ".$self->{APIUID}."\n";
-	if ($self->{LINKUID}) { return $self->{LINKUID}; }
-	return $self->{APIUID};
+	if ($self->{LINKUID}) {
+		print "RETURNING CACHED LINKUID ".$self->{APIUID}."\n" if ($localDebug);
+		return $self->{LINKUID};
+	}
+	# if (!$self->{APIUID}) {
+		# $self->apirefSetup(1);
+	# }
+	# if ($self->{APIUID}) {
+		print "RETURNING CACHED APIUID ".$self->{APIUID}."\n" if ($localDebug);
+		return $self->{APIUID};
+	# }
     }
 
     my $olduid = $self->{APIUID};
     if ($self->{LINKUID}) { $olduid = $self->{LINKUID}; }
 
-    my $name = $self->name();
-    my $localDebug = 0;
+    my $name = $self->mediumrarename();
+    $localDebug = 0;
     my $className; 
     my $lang = $self->sublang();
     my $class = ref($self) || $self;
@@ -901,9 +1041,9 @@ sub apiuid {
     if (!($self->can("conflict")) || ($self->can("conflict") && !($self->conflict()))) {
 	$name = $self->rawname();
 	if ($class eq "HeaderDoc::ObjCCategory") {
-		# Category names are in the form "ClassName (DelegateName)"
+		# Category names are in the form "ClassName(DelegateName)"
 		if ($name =~ /\s*\w+\s*\(.+\).*/o) {
-			$name =~ s/.*\((.*)\)/$1/o;
+			$name =~ s/\s*(\w+)\s*\(\s*(\w+)\s*\).*/$1($2)/o;
 		}
 	}
 	# Silently drop leading and trailing space
@@ -967,6 +1107,12 @@ sub apiuid {
 
     $name =~ s/\n//smgo;
 
+    if ($name =~ /^operator\s+\w/) {
+	$name =~ s/^operator\s+/operator_/;
+    } else {
+	$name =~ s/^operator\s+/operator/;
+    }
+
     # my $lang = "c";
     # my $class = ref($HeaderDoc::APIOwner) || $HeaderDoc::APIOwner;
 
@@ -979,7 +1125,7 @@ sub apiuid {
     print "LANG: $lang\n" if ($localDebug);
     # my $classHeaderObject = HeaderDoc::APIOwner->headerObject();
     # if (!$classHeaderObject) { }
-    if ($parentClassType eq "HeaderDoc::Header" || $lang eq "c") {
+    if ($parentClassType eq "HeaderDoc::Header") {
         # We're not in a class.  We used to give the file name here.
 
 	if (!$HeaderDoc::headerObject) {
@@ -999,7 +1145,7 @@ sub apiuid {
     $className =~ s/<.*?>//sgo;
 
     # Macros are not part of a class in any way.
-    my $class = ref($self) || $self;
+    $class = ref($self) || $self;
     if ($class eq "HeaderDoc::PDefine") {
 	$className = "";
 	if ($paramSignature_or_alt_define_name) {
@@ -1019,20 +1165,52 @@ sub apiuid {
 	$name = $self->filename();
     }
 
+    my $apio = $self->apiOwner();
+    my $sublang = $self->sublang();
+    if ($type eq "intfm" && ($sublang eq "c" || $sublang eq "C") && $apio =~ /HeaderDoc::CPPClass/) {
+	$lang = "doc/com";
+	$type = "intfm";
+    }
+
+    if ($self->appleRefIsDoc()) {
+	$lang = "doc";
+	$type = "title:$type";
+    }
+
 # warn("genRefSub: \"$lang\" \"$type\" \"$name\" \"$className\" \"$paramSignature_or_alt_define_name\"\n");
 
     my $uid = $self->genRefSub($lang, $type, $name, $className, $paramSignature_or_alt_define_name);
 
+    if (length($name)) {
+	unregisterUID($olduid, $name, $self);
+	$uid = registerUID($uid, $name, $self); # This call resolves conflicts where needed....
+    }
+
+    print "APIUID SET TO $uid\n" if ($localDebug);
     $self->{APIUID} = $uid;
-    unregisterUID($olduid, $name);
-    registerUID($uid, $name);
-# print "APIUID SET TO $uid\n";
+
     return $uid;
 
     # my $ret .= "<a name=\"$uid\"></a>\n";
     # return $ret;
 }
 
+# /*! @function appleRefIsDoc
+#     @param value
+#     @abstract Sets or gets a state flag.
+#     @discussion The APPLEREFISDOC state flag controls whether to use a
+#     language-specific or doc-specific apple_ref marker for a doc block.
+#  */
+sub appleRefIsDoc
+{
+    my $self = shift;
+    if (@_) {
+	my $value = shift;
+	$self->{APPLEREFISDOC} = $value;
+    }
+	# print "ARID: ".$self->{APPLEREFISDOC}." for $self\n";
+    return $self->{APPLEREFISDOC};
+}
 
 # /*! @function genRefSub
 #     @param lang Language
@@ -1054,7 +1232,7 @@ sub genRefSub($$$$)
 
     my $lang = sanitize($orig_lang);
     my $type = sanitize($orig_type);
-    my $name = sanitize($orig_name);
+    my $name = sanitize($orig_name, 1);
     my $className = sanitize($orig_className);
     my $paramSignature = sanitize($orig_paramSignature);
 
@@ -1070,16 +1248,29 @@ sub genRefSub($$$$)
 sub throws {
     my $self = shift;
 
+    my $newTOC = $HeaderDoc::newTOC;
+    if (!$self->isAPIOwner()) { $newTOC = 0; }
+
     if (@_) {
 	my $new = shift;
-	$new =~ s/\n//smgo;
-        $self->{THROWS} .= "<li>$new</li>\n";
+	# $new =~ s/\n//smgo;
+	$new =~ s/\n/ /smgo; # Replace line returns by spaces
+	$new =~ s/\s+$//smgo; # Remove trailing spaces
+	if ($newTOC) {
+        	$self->{THROWS} .= "$new<br>\n";
+	} else {
+        	$self->{THROWS} .= "<li>$new</li>\n";
+	}
 	$self->{XMLTHROWS} .= "<throw>$new</throw>\n";
 	# print "Added $new to throw list.\n";
     }
     # print "dumping throw list.\n";
     if (length($self->{THROWS})) {
-    	return ("<ul>\n" . $self->{THROWS} . "</ul>");
+	if ($newTOC) {
+    		return $self->{THROWS};
+	} else {
+    		return ("<ul>\n" . $self->{THROWS} . "</ul>");
+	}
     } else {
 	return "";
     }
@@ -1101,9 +1292,21 @@ sub XMLthrows {
 
 sub abstract {
     my $self = shift;
+    my $isbrief = 0;
 
     if (@_) {
-        $self->{ABSTRACT} = $self->linkfix(shift);
+	my $abs = shift;
+
+	if (@_) {
+		$isbrief = 1;
+	}
+	if ($isbrief) {
+		my ($newabs, $newdisc) = split(/[\n\r]/, $abs, 2);
+		$abs = $newabs;
+		$newdisc =~ s/^(\n|\r|< *br *\/? *>)*//si;
+        	$self->discussion($newdisc);
+	}
+        $self->{ABSTRACT} = $self->linkfix($abs);
     }
 
     my $ret = $self->{ABSTRACT};
@@ -1126,56 +1329,76 @@ sub XMLabstract {
     return $self->htmlToXML($self->{ABSTRACT});
 }
 
+sub nameline_discussion {
+    my $self = shift;
+    my $localDebug = 0;
+
+    if (@_) {
+        $self->{NAMELINE_DISCUSSION} = shift;
+	print "nameline discussion set to ".$self->{NAMELINE_DISCUSSION}."\n" if ($localDebug);
+    }
+    return $self->htmlToXML($self->{NAMELINE_DISCUSSION});
+}
 
 sub discussion {
     my $self = shift;
+    my $discDebug = 0;
 
     if (@_) {
 	my $olddisc = $self->{DISCUSSION};
-	if ($olddisc && length($olddisc)) {
-		$olddisc =~ s/<br>/\n/smgo;
 
-		my $oldname = $self->name();
-
-		if ($olddisc =~ /\n/o) {
-		    my $nlcheck = $olddisc;
-		    my $firstline = "";
-		    if ($nlcheck =~ s/(.*?)\n//sog) {
-			$firstline = $1;
-		    } else {
-			$firstline = $nlcheck;
-			$nlcheck = "";
-		    }
-		    $nlcheck =~ s/\s//sog;
-		    if (length($nlcheck)) {
-			my $filename = $self->filename();
-			my $linenum = $self->linenum();
-			if (!$self->inDefineBlock()) {
-				# We'll be quiet if we're in a define block, as
-				# This is just the natural course of things.
-				warn("$filename:$linenum:Multiple discussions found for $oldname.  Ignoring first.\n");
-			}
-			# It's bad, so don't include it at all.
-			$firstline = "";
-		    }
-		    if (length($firstline)) {
-			$self->name($oldname." ".$firstline);
-		    }
-		} else {
-		    $self->name($oldname." ".$olddisc);
-		}
-	}
+	print "DISCUSSION SET: $self : $olddisc -> \n" if ($discDebug);
 
         my $discussion = "";
-        $discussion = shift;
+
+	if ($olddisc ne "" && $discussion ne "") {
+		# Warn if we have multiple discussions.
+		# We'll be quiet if we're in a define block, as
+		# This is just the natural course of things.
+		# Clear the old value out first, though.
+		if (!$self->inDefineBlock()) {
+			my $filename = $self->filename();
+			my $linenum = $self->linenum();
+
+			warn("$filename:$linenum: warning: Multiple discussions found for ".$self->name()." ($self).  Merging.\n");
+			# print "OLDDISC: \"$olddisc\"\n";
+			# print "DISC: \"$discussion\"\n";
+
+			$discussion = $olddisc."<br /><br />\n";;
+		}
+	}
+        $discussion .= shift;
+
+	print "$discussion\n" if ($discDebug);
 
 	# $discussion =~ s/<br>/\n/sgo;
 	$discussion = $self->listfixup($discussion);
 
         $discussion =~ s/\n\n/<br>\n/go;
         $self->{DISCUSSION} = $self->linkfix($discussion);
+
+	# Ensure that the discussion is not completely blank.
+	if ($self->{DISCUSSION} eq "") {
+		$self->{DISCUSSION} .= " ";
+	}
     }
-    return $self->{DISCUSSION};
+
+    # cluck("backtrace\n");
+    print "OBJ is \"".$self."\"\n" if ($discDebug);
+    print "NAME is \"".$self->{NAME}."\"\n" if ($discDebug);
+    print "DISC WAS \"".$self->{DISCUSSION}."\"\n" if ($discDebug);
+    print "NAMELINE DISC WAS \"".$self->{NAMELINE_DISCUSSION}."\"\n" if ($discDebug);
+
+    # Return the real discussion if one exists.
+    if ($self->{DISCUSSION}) {
+	return $self->{DISCUSSION};
+    } else {
+	print "RETURNING NAMELINE DISC\n" if ($discDebug);
+    }
+
+    # Return the contents of the name line (e.g. @struct foo Discussion goes here.)
+    # beginning after the first token if no discussion exists.
+    return $self->{NAMELINE_DISCUSSION};
 }
 
 sub listfixup
@@ -1201,34 +1424,43 @@ sub listfixup
     my $oldinList = 0;
     while ($curpos < $nlines) {
 	my $line = $disclines[$curpos];
+	print "LINE: \"$line\"\n" if ($numListDebug);
+			print "TOP OLDINLIST: $oldinList\n" if ($numListDebug);
 	if ($line =~ /^\s*((?:-)?\d+)[\)\.\:\s]/o) {
 		# this might be the first entry in a list.
-	print "MAYBELIST\n" if ($numListDebug);
+	print "MAYBELIST: $line\n" if ($numListDebug);
 		my $inList = 1;
 		my $foundblank = 0;
 		my $basenum = $1;
 		$seekpos = $curpos + 1;
+		my $added = 0;
 		if (($seekpos >= $nlines) && !$oldinList) {
 			$discussion .= "$line";
+			$added = 1;
 		} else {
 		    while (($seekpos < $nlines) && ($inList == 1)) {
-			my $scanline = @disclines[$seekpos];
+			my $scanline = $disclines[$seekpos];
+			print "INLIST: $inList, OLDINLIST: $oldinList\n" if ($numListDebug);
 			if ($scanline =~ /^<br><br>$/o) {
 				# empty line
 				$foundblank = 1;
-				# print "BLANKLINE\n" if ($numListDebug);
+				print "BLANKLINE\n" if ($numListDebug);
 			} elsif ($scanline =~ /^\s*((?:-)?\d+)[\)\.\:\s]/o) {
 				# line starting with a number
 				$foundblank = 0;
 	# print "D1 is $1\n";
 				if ($1 != ($basenum + 1)) {
 					# They're noncontiguous.  Not a list.
+					print "NONCONTIG\n" if ($numListDebug);
 					if (!$oldinList) {
+						print "ADDED $line\n" if ($numListDebug);
 						$discussion .= "$line";
+						$added = 1;
 					}
 					$inList = 0;
 				} else {
 					# They're contiguous.  It's a list.
+					print "CONTIG\n" if ($numListDebug);
 					$inList = 2;
 				}
 			} else {
@@ -1260,6 +1492,8 @@ sub listfixup
 			$basenum = $1;
 			$discussion .= "<ol start=\"$basenum\"><li>$line";
 			print "FIRSTENTRY: $line\n" if ($numListDebug);
+		} elsif (!$added) {
+			$discussion .= $line;
 		}
 		$oldinList = $inList;
 	} elsif ($line =~ /^<br><br>$/o) {
@@ -1278,6 +1512,7 @@ sub listfixup
 			$discussion .= "$line";
 		}
 	} else {
+		# $oldinList = 0;
 		print "TEXTLINE: \"$line\"\n" if ($numListDebug);
 		$discussion .= $line;
 	}
@@ -1369,9 +1604,10 @@ sub genRef($$$)
     my $lang = $self->sublang();
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
 	$typedefname, $varname, $constname, $structisbrace, $macronamesref,
 	$classregexp, $classbraceregexp, $classclosebraceregexp,
-	$accessregexp) = parseTokens($self->lang(), $self->sublang());
+	$accessregexp, $propname) = parseTokens($self->lang(), $self->sublang());
 
     if ($name =~ /^[\d\[\]]/o) {
 	# Silently fail for [4] and similar.
@@ -1395,7 +1631,7 @@ sub genRef($$$)
 	if ($linktext =~ s/\)\s*$//o) {
 		$tail = ")";
 	} else {
-		warn("$filename:$linenum:WARNING: Parenthesis in ref name, not in link text\n");
+		warn("$filename:$linenum: warning: Parenthesis in ref name, not in link text\n");
 		warn("name: $name) linktext: $linktext\n");
 	}
     }
@@ -1408,13 +1644,13 @@ sub genRef($$$)
 	my $class = ref($self) || $self;
 	my $declaration = $self->declaration();
 	if (($name eq "(") && $class eq "HeaderDoc::PDefine") {
-		warn("$filename:$linenum: bogus paren in #define\n");
+		warn("$filename:$linenum: warning: bogus paren in #define\n");
 	} elsif (($name eq "(") && $class eq "HeaderDoc::Function") {
-		warn("$filename:$linenum: bogus paren in function\n");
+		warn("$filename:$linenum: warning: bogus paren in function\n");
 	} elsif ($class eq "HeaderDoc::Function") {
-		warn("$filename:$linenum: bogus paren in function\n");
+		warn("$filename:$linenum: warning: bogus paren in function\n");
 	} else {
-		warn("$filename:$linenum: $filename $classname $class $keystring generates bad crossreference ($name).  Dumping trace.\n");
+		warn("$filename:$linenum: warning: $filename $classname $class $keystring generates bad crossreference ($name).  Dumping trace.\n");
 		# my $declaration = $self->declaration();
 		# warn("BEGINDEC\n$declaration\nENDDEC\n");
 		$self->printObject();
@@ -1425,7 +1661,7 @@ sub genRef($$$)
 	my $classpart = $1;
 	my $type = $2;
 	if ($linktext !~ /::/o) {
-		warn("$filename:$linenum:Bogus link text generated for item containing class separator.  Ignoring.\n");
+		warn("$filename:$linenum: warning: Bogus link text generated for item containing class separator.  Ignoring.\n");
 	}
 	my $ret = $self->genRef("class", $classpart, $classpart);
 	$ret .= "::";
@@ -1450,10 +1686,11 @@ sub genRef($$$)
         my $ref11 = $self->genRefSub($lang, "struct", $type, "");
         my $ref12 = $self->genRefSub($lang, "data", $type, $classpart);
         my $ref13 = $self->genRefSub($lang, "clconst", $type, $classpart);
+	my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $classpart);
 	if (!$xml) {
-        	$ret .= "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13\" -->$type<!-- /a -->";
+        	$ret .= "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref99\" -->$type<!-- /a -->";
 	} else {
-        	$ret .= "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13\">$type</hd_link>";
+        	$ret .= "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref99\">$type</hd_link>";
 	}
 
 	return $ret.$tail;
@@ -1515,6 +1752,7 @@ sub genRef($$$)
 	    ($keystring =~ /union/o) && do { $type = "tag"; last SWITCH; };
 	    ($keystring =~ /operator/o) && do { $type = "*"; last SWITCH; };
 	    ($keystring =~ /enum/o) && do { $type = "tag"; last SWITCH; };
+	    ($keystring =~ /protocol/o) && do { $type = "intf"; $className=$name; $name=""; last SWITCH; };
 	    ($keystring =~ /class/o) && do { $type = "cl"; $className=$name; $name=""; last SWITCH; };
 	    ($keystring =~ /#(define|ifdef|ifndef|if|endif|pragma|include|import)/o) && do {
 		    # Used to include || $keystring =~ /class/o
@@ -1524,7 +1762,7 @@ sub genRef($$$)
 	    {
 		$type = "";
 		my $name = $self->name();
-		warn "$filename:$linenum keystring ($keystring) in $name type link markup\n";
+		warn "$filename:$linenum: warning: keystring ($keystring) in $name type link markup\n";
 		return $linktext.$tail;
 	    }
 	}
@@ -1538,11 +1776,12 @@ sub genRef($$$)
 	    my $ref4 = $self->genRefSub($lang, "ftmplt", $name, $className);
 	    my $ref5 = $self->genRefSub($lang, "defn", $name, $className);
 	    my $ref6 = $self->genRefSub($lang, "macro", $name, $className);
+	    my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $className);
 
 	    if (!$xml) {
-	        return "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6\" -->$linktext<!-- /a -->".$tail;
+	        return "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref99\" -->$linktext<!-- /a -->".$tail;
 	    } else {
-	        return "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6\">$linktext</hd_link>".$tail;
+	        return "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref99\">$linktext</hd_link>".$tail;
 	    }
 	} else {
 	    if (!$xml) {
@@ -1557,23 +1796,27 @@ sub genRef($$$)
 
         # allow classes within classes for certain languages.
         my $ref7 = $self->genRefSub($lang, "cl", $name, "");
-        my $ref7a = $self->genRefSub($lang, "cl", $name, $className);
+        my $ref7a = "";
+	$ref7a = $self->genRefSub($lang, "cl", $name, $className) if ($className ne "");
         my $ref8 = $self->genRefSub($lang, "tdef", $name, "");
         my $ref9 = $self->genRefSub($lang, "tag", $name, "");
         my $ref10 = $self->genRefSub($lang, "econst", $name, "");
         my $ref11 = $self->genRefSub($lang, "struct", $name, "");
         my $ref12 = $self->genRefSub($lang, "data", $name, $className);
         my $ref13 = $self->genRefSub($lang, "clconst", $name, $className);
+        my $ref14 = $self->genRefSub($lang, "intf", $name, "");
 
         my $ref1 = $self->genRefSub($lang, "instm", $name, $className);
         my $ref2 = $self->genRefSub($lang, "clm", $name, $className);
         my $ref2a = $self->genRefSub($lang, "intfcm", $name, $className);
+        my $ref2b = $self->genRefSub($lang, "intfm", $name, $className);
         my $ref3 = $self->genRefSub($lang, "func", $name, $className);
         my $ref4 = $self->genRefSub($lang, "ftmplt", $name, $className);
         my $ref5 = $self->genRefSub($lang, "defn", $name, "");
         my $ref6 = $self->genRefSub($lang, "macro", $name, "");
+	my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $className);
 
-	my $masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref1 $ref2 $ref2a $ref3 $ref4 $ref5 $ref6";
+	my $masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref14 $ref1 $ref2 $ref2a $ref2b $ref3 $ref4 $ref5 $ref6 $ref99";
 
 	if (length($optional_expected_type)) {
 		SWITCH: {
@@ -1598,7 +1841,7 @@ sub genRef($$$)
 					return $linktext.$tail;
 				};
 			($optional_expected_type eq "function") && do {
-					$masterref = "$ref1 $ref2 $ref2a $ref3 $ref4 $ref5 $ref6";
+					$masterref = "$ref1 $ref2 $ref2a $ref2b $ref3 $ref4 $ref5 $ref6";
 					last SWITCH;
 				};
 			($optional_expected_type eq "var") && do {
@@ -1613,11 +1856,11 @@ sub genRef($$$)
 					# something (ideally, it shouldn't),
 					# we'll just assume we're getting a
 					# type and be done with it.
-					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13";
+					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13 $ref14";
 					last SWITCH;
 				};
 			($optional_expected_type eq "type") && do {
-					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13";
+					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13 $ref14";
 					last SWITCH;
 				};
 			($optional_expected_type eq "param") && do {
@@ -1629,11 +1872,12 @@ sub genRef($$$)
 					return $linktext.$tail;
 				};
 			{
-				warn("Unknown reference class \"$optional_expected_type\" in genRef\n");
+				warn("$filename:$linenum: warning: Unknown reference class \"$optional_expected_type\" in genRef\n");
 			}
 		}
 	}
 
+    $masterref =~ s/\s+/ /g;
 	if ($xml) {
             return "<hd_link logicalPath=\"$masterref\">$linktext</hd_link>".$tail;
 	} else {
@@ -1690,6 +1934,7 @@ sub keywords
     my %CppKeywords = (%CKeywords,
 	("class" => 1, 
 	"friend" => 1,
+	"mutable" => 1,
 	"namespace" => 1,
 	"operator" => 1,
 	"private" => 1,
@@ -1701,6 +1946,7 @@ sub keywords
 	("\@class" => 1,
 	"\@interface" => 1,
 	"\@protocol" => 1,
+	"\@property" => 1,
 	"nil" => 1,
 	"YES" => 1,
 	"NO" => 1 ));
@@ -1739,6 +1985,29 @@ sub keywords
 	"repeat" => 1, "restricted" => 1, "set" => 1, "shl" => 1, "shr" => 1, "then" => 1, "to" => 1,
 	"type" => 1, "unit" => 1, "until" => 1, "uses" => 1, "value" => 1, "var" => 1, "view" => 1,
 	"virtual" => 1, "while" => 1, "with" => 1, "xor"  => 1);
+    my %IDLKeywords = (
+	"abstract" => 1, "any" => 1, "attribute" => 1, "case" => 1,
+# char
+	"component" => 1, "const" => 1, "consumes" => 1, "context" => 1, "custom" => 1, "default" => 1,
+# double
+	"exception" => 1, "emits" => 1, "enum" => 1, "eventtype" => 1, "factory" => 1, "FALSE" => 1,
+	"finder" => 1, "fixed" => 1,
+# float
+	"getraises" => 1, "home" => 1, "import" => 1, "in" => 1, "inout" => 1, "interface" => 1,
+	"local" => 1, "long" => 1, "module" => 1, "multiple" => 1, "native" => 1, "Object" => 1,
+	"octet" => 1, "oneway" => 1, "out" => 1, "primarykey" => 1, "private" => 1, "provides" => 1,
+	"public" => 1, "publishes" => 1, "raises" => 1, "readonly" => 1, "setraises" => 1, "sequence" => 1,
+# short
+# string
+	"struct" => 1, "supports" => 1, "switch" => 1, "TRUE" => 1, "truncatable" => 1, "typedef" => 1,
+	"typeid" => 1, "typeprefix" => 1, "unsigned" => 1, "union" => 1, "uses" => 1, "ValueBase" => 1,
+	"valuetype" => 1,
+# void
+# wchar
+# wstring
+	"#define" => 1,
+	"#ifdef" => 1, "#ifndef" => 1, "#if" => 1, "#endif" => 1,
+ 	"#pragma" => 1, "#include" => 1, "#import" => 1 );
     my %MIGKeywords = (
 	"routine" => 1, "simpleroutine" => 1, "countinout" => 1, "inout" => 1, "in" => 1, "out" => 1,
 	"subsystem" => 1, "skip" => 1, "#define" => 1,
@@ -1756,38 +2025,39 @@ sub keywords
 	    ($sublang =~ /^occ/o) && do { %keywords = %ObjCKeywords; $objC = 1; last SWITCH; }; #occ, occCat
 	    ($sublang eq "intf") && do { %keywords = %ObjCKeywords; $objC = 1; last SWITCH; };
 	    ($sublang eq "MIG") && do { %keywords = %MIGKeywords; last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    ($sublang eq "IDL") && do { %keywords = %IDLKeywords; last SWITCH; };
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "Csource") {
 	SWITCH: {
 	    ($sublang eq "Csource") && do { last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "php") {
 	SWITCH: {
 	    ($sublang eq "php") && do { %keywords = %phpKeywords; last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "java") {
 	SWITCH: {
 	    ($sublang eq "java") && do { %keywords = %javaKeywords; last SWITCH; };
 	    ($sublang eq "javascript") && do { %keywords = %javaKeywords; last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "perl") {
 	SWITCH: {
 	    ($sublang eq "perl") && do { %keywords = %perlKeywords; last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "shell") {
 	SWITCH: {
 	    ($sublang eq "shell") && do { %keywords = %shellKeywords; last SWITCH; };
-	    warn "$filename:$linenum:Unknown language ($lang:$sublang)\n";
+	    warn "$filename:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
     if ($lang eq "pascal") {
@@ -1857,7 +2127,7 @@ sub declarationInHTML {
 	if ($xml) {
 		my $xmldec = shift;
 
-		if ($HeaderDoc::use_styles && !$disable_styles) {
+		if (1 || $HeaderDoc::use_styles && !$disable_styles) {
 			my $parseTree_ref = $self->parseTree();
 			my $parseTree = ${$parseTree_ref};
 			bless($parseTree, "HeaderDoc::ParseTree");
@@ -1885,7 +2155,7 @@ sub declarationInHTML {
 		
 	my $declaration = shift;
 
-	if ($HeaderDoc::use_styles && !$disable_styles) {
+	if (1 || $HeaderDoc::use_styles && !$disable_styles) {
 	  # print "I AM ".$self->name()." ($self)\n";
 	  if ($self->can("isBlock") && $self->isBlock()) {
 		my $declaration = "";
@@ -1901,7 +2171,9 @@ sub declarationInHTML {
 		my $parseTree = ${$parseTree_ref};
 		bless($parseTree, "HeaderDoc::ParseTree");
 		# print "PT: ".$parseTree."\n";
+		# $parseTree->printTree();
 		$declaration = $parseTree->htmlTree();
+		# print "HTMLTREE: $declaration\n";
 	  }
 	}
 
@@ -1923,13 +2195,53 @@ sub parseTree {
     return $self->{PARSETREE};
 }
 
+sub availabilityAuto
+{
+    my $self = shift;
+    my $orig = shift;
+
+    my $filename = $self->filename();
+    my $rangeref = $HeaderDoc::perHeaderRanges{$filename};
+    my @ranges = @{$rangeref};
+    my $linenum = $self->linenum();
+
+    my $string = "";
+    foreach my $rangeref (@ranges) {
+	my $range = ${$rangeref};
+	bless($range, "HeaderDoc::LineRange");
+	if ($range->inrange($linenum)) {
+	    my $newbit = $range->text();
+	    my @pieces = split(/\;/, $newbit);
+	    foreach my $piece (@pieces) {
+	      my $nvpiece = $piece; $nvpiece =~ s/10\..*$//s;
+		# print "SEARCH $string $newbit";
+	      my $found = -1;
+	      if (($found = index(lc $orig, lc $nvpiece)) == -1) {
+	        if (($found = index(lc $string, lc $nvpiece)) == -1) {
+		    if (length($string)) {
+			$string .= "  ";
+		    }
+		    $string .= $piece.".";
+		}
+	      }
+	    }
+	}
+    }
+    return $string;
+}
+
 sub availability {
     my $self = shift;
 
     if (@_) {
         $self->{AVAILABILITY} = shift;
     }
-    return $self->{AVAILABILITY};
+    my $string = $self->{AVAILABILITY};
+    my $add = $self->availabilityAuto($string);
+    if (length($string) && length($add)) {
+	$string .= "  ";
+    }
+    return $string.$add;
 }
 
 sub lang {
@@ -1971,8 +2283,8 @@ sub updated {
 		    # my $filename = $HeaderDoc::headerObject->filename();
 		    my $filename = $self->filename();
 		    my $linenum = $self->linenum();
-		    warn "$filename:$linenum:Bogus date format: $updated.\n";
-		    warn "$filename:$linenum:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		    warn "$filename:$linenum: warning: Bogus date format: $updated.\n";
+		    warn "$filename:$linenum: warning: Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		    return $self->{UPDATED};
 		} else {
 		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smog;
@@ -2035,24 +2347,15 @@ sub updated {
 		# my $filename = $HeaderDoc::headerObject->filename();
 		my $filename = $self->filename();
 		my $linenum = $self->linenum();
-		warn "$filename:$linenum:Invalid date (year = $year, month = $month, day = $day).\n";
-		warn "$filename:$linenum:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		warn "$filename:$linenum: warning: Invalid date (year = $year, month = $month, day = $day).\n";
+		warn "$filename:$linenum: warning: Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month, $day, $year);
+		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
 		print "date set to ".$self->{UPDATED}."\n" if ($localdebug);
 	}
     }
     return $self->{UPDATED};
-}
-
-sub linkageState {
-    my $self = shift;
-    
-    if (@_) {
-        $self->{LINKAGESTATE} = shift;
-    }
-    return $self->{LINKAGESTATE};
 }
 
 sub linkageState {
@@ -2087,7 +2390,7 @@ sub printObject {
     print "discussion: $self->{DISCUSSION}\n";
     print "linkageState: $self->{LINKAGESTATE}\n";
     print "accessControl: $self->{ACCESSCONTROL}\n\n";
-    print "Tagged Parameter Descriptions:\n";
+    print "Tagged Parameters:\n";
     my $taggedParamArrayRef = $self->{TAGGEDPARAMETERS};
     if ($taggedParamArrayRef) {
 	my $arrayLength = @{$taggedParamArrayRef};
@@ -2147,15 +2450,21 @@ sub linkfix {
     return $outString;
 }
 
+# /*! strdate WARNING: Month is 0-11, not 1-12. */
 sub strdate
 {
     my $month = shift;
     my $day = shift;
     my $year = shift;
     my $format = $HeaderDoc::datefmt;
+    if (!defined $format) {
+	$format = "%B %d, %Y";
+    }
 
-    my $time = strftime($format, 0, 0, 0,
-	$day, $month, $year-1900, 0, 0, 0);
+    my $time_t = mktime(0, 0, 0, $day, $month, $year-1900);
+    my ($sec,$min,$hour,$mday,$mon,$yr,$wday,$yday,$isdst) = localtime($time_t);
+    my $time = strftime($format, $sec, $min, $hour,
+	$mday, $mon, $yr, $wday, $yday, $isdst);
     return $time;
 
     # print "format $format\n";
@@ -2212,7 +2521,7 @@ sub setStyle
     $style =~ s/\s*$//sgo;
 
     if (length($style)) {
-	%CSS_STYLES->{$name} = $style;
+	$CSS_STYLES{$name} = $style;
 	$HeaderDoc::use_styles = 1;
     }
 }
@@ -2337,11 +2646,11 @@ sub checkDeclaration
     if ($declaration !~ /^\s*$keyword/m &&
         ($lang ne "pascal" || $declaration !~ /\W$keyword\W/m)) {
 		if ($class eq "HeaderDoc::Typedef") {
-			warn("$filename:$line:Keyword $keyword not found in $name declaration.\n");
+			warn("$filename:$line: warning: Keyword $keyword not found in $name declaration.\n");
 			return 0;
 		} else {
 			if ($declaration !~ /^\s*typedef\s+$keyword/m) {
-				warn("$filename:$line:Keyword $keyword not found in $name declaration.\n");
+				warn("$filename:$line: warning: Keyword $keyword not found in $name declaration.\n");
 				print "DEC is $declaration\n";
 				return 0;
 			}
@@ -2356,7 +2665,7 @@ sub getStyle
     my $self = shift;
     my $name = shift;
 
-   return %CSS_STYLES->{$name};
+   return $CSS_STYLES{$name};
 }
 
 sub styleSheet
@@ -2376,14 +2685,36 @@ sub styleSheet
 # }
 
 
+    if ($TOC) {
+	if (defined($HeaderDoc::externalTOCStyleSheets)) {
+		$css .= $self->doExternalStyle($HeaderDoc::externalTOCStyleSheets);
+		$stdstyles = 0;
+	} elsif ($HeaderDoc::externalStyleSheets) {
+		$css .= $self->doExternalStyle($HeaderDoc::externalStyleSheets);
+		$stdstyles = 0;
+	}
+    } elsif ($HeaderDoc::externalStyleSheets) {
+	$css .= $self->doExternalStyle($HeaderDoc::externalStyleSheets);
+	$stdstyles = 0;
+    }
     $css .= "<style type=\"text/css\">";
     $css .= "<!--";
-    if ($HeaderDoc::styleImports) {
-	$css .= "$HeaderDoc::styleImports ";
-	if (!$TOC) { $stdstyles = 0; }
+    if ($TOC) {
+	if (defined($HeaderDoc::tocStyleImports)) {
+		$css .= "$HeaderDoc::tocStyleImports ";
+		$stdstyles = 0;
+	} elsif ($HeaderDoc::styleImports) {
+		$css .= "$HeaderDoc::styleImports ";
+		$stdstyles = 0;
+	}
+    } else {
+	if ($HeaderDoc::styleImports) {
+		$css .= "$HeaderDoc::styleImports ";
+		$stdstyles = 0;
+	}
     }
     foreach my $stylename (sort strcasecmp keys %CSS_STYLES) {
-	my $styletext = %CSS_STYLES->{$stylename};
+	my $styletext = $CSS_STYLES{$stylename};
 	$css .= ".$stylename {$styletext}";
     }
 
@@ -2396,6 +2727,11 @@ sub styleSheet
 	$css .= "h4 {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: tiny; font-weight: bold;}"; # bold
 	$css .= "body {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: 10pt;}"; # bold
     }
+
+    if ($HeaderDoc::styleSheetExtras) {
+	$css .= $HeaderDoc::styleSheetExtras;
+    }
+
     $css .= "-->";
     $css .= "</style>";
 
@@ -2412,8 +2748,9 @@ sub documentationBlock
     my $throws = "";
     my $abstract = $self->abstract();
     my $availability = $self->availability();
+    my $namespace = ""; if ($self->can("namespace")) { $namespace = $self->namespace(); }
     my $updated = $self->updated();
-    my $declaration = $self->declarationInHTML();
+    my $declaration = "";
     my $result = "";
     my $localDebug = 0;
     # my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
@@ -2426,11 +2763,30 @@ sub documentationBlock
     my $apio = $self->apiOwner();
     my $apioclass = ref($apio) || $apio;
     my $apiref = "";
+    my $headlevel = "h3";
+
+    my $newTOC = $HeaderDoc::newTOC;
+    my $showDiscussionHeading = 1;
+
+    # Only use this style for API Owners.
+    if ($self->isAPIOwner()) {
+	$headlevel = "h1";
+	if ($newTOC) {
+		$showDiscussionHeading = 0;
+	}
+    } else {
+	$newTOC = 0;
+	$declaration = $self->declarationInHTML();
+    }
 
 # print "NAME: $name APIOCLASS: $apioclass APIUID: ".$self->apiuid()."\n";
 
     if ($self->can("result")) { $result = $self->result(); }
     if ($self->can("throws")) { $throws = $self->throws(); }
+
+    if ($self->noRegisterUID()) {
+	die("Unexpected unregistered object being inserted into content.  Object is $self, name is ".$self->name().", header is ".$apio->name()."\n");
+    }
 
 
     # $name =~ s/\s*//smgo;
@@ -2445,42 +2801,157 @@ sub documentationBlock
     my @constants = @{$constantsref};
     my @fields = @{$fieldsref};
     my @params = @{$paramsref};
+
     $apiref = $self->apiref($composite);
 
-    $contentString .= $apiref;
+    if (!$self->isAPIOwner()) {
+	$contentString .= $apiref;
+    }
 
     $contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
     $contentString .= "<tr>";
     $contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-    my $urlname = sanitize($name);
-    $contentString .= "<h3><a name=\"$urlname\">$name</a></h3>\n";
+    my $urlname = sanitize($name, 1);
+    $contentString .= "<$headlevel><a name=\"$urlname\">$name</a></$headlevel>\n";
     $contentString .= "</td>";
     $contentString .= "</tr></table>";
-    $contentString .= "<hr>";
-    $contentString .= "<dl>";
-    if (length($throws)) {
-        $contentString .= "<dt><i>Throws:</i></dt>\n<dd>$throws</dd>\n";
+    if (!$newTOC) { $contentString .= "<hr>"; }
+    my $attstring = ""; my $c = 0;
+    if (length($short_attributes)) {
+        $attstring .= $short_attributes;
+	$c++;
     }
+    if (length($list_attributes)) {
+        $attstring .= $list_attributes;
+	$c++;
+    }
+    # print "ATS: $attstring\n";
+    if ($newTOC) {
+	if ($c == 2) {
+		$attstring =~ s/<\/table><\/div>\s*<div.*?><table.*?>//s;
+	}
+	$attstring =~ s/<\/table><\/div>\s*$//s;
+    }
+    if (!$newTOC) { $attstring .= "<dl>"; }
+    if (length($throws)) {
+	if ($newTOC) {
+		if (!$c) {
+			$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+		}
+		$attstring .= "<tr><td scope=\"row\"><b>Throws:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$throws</div></div></td></tr>\n";
+	} else {
+        	$attstring .= "<dt><i>Throws:</i></dt>\n<dd>$throws</dd>\n";
+	}
+	$c++;
+    }
+	my $includeList = "";
+	if ($class eq "HeaderDoc::Header") {
+	    my $includeref = $HeaderDoc::perHeaderIncludes{$filename};
+	    if ($includeref) {
+		my @includes = @{$includeref};
+
+		my $first = 1;
+		foreach my $include (@includes) {
+			my $localDebug = 0;
+			print "Included file: $include\n" if ($localDebug);
+
+			if (!$first) {
+				if ($newTOC) {$includeList .= "<br>\n"; }
+				else {$includeList .= ",\n"; }
+			}
+			my $xmlinc = $self->textToXML($include);
+
+			my $includeguts = $include;
+			$includeguts =~ s/[<\"](.*)[>\"]/$1/so;
+
+			my $includefile = basename($includeguts);
+
+			my $ref = $self->genRefSub("doc", "header", $includefile, "");
+
+			$includeList .= "<!-- a logicalPath=\"$ref\" -->$xmlinc<!-- /a -->";
+			$first = 0;
+		}
+
+	    }
+	}
+	if (length($includeList)) {
+		if ($newTOC) {
+			if (!$c) {
+				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
+			}
+			$attstring .= "<tr><td scope=\"row\"><b>Includes:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$includeList</div></div></td></tr>\n";
+		} else {
+			$attstring .= "<b>Includes:</b> ";
+			$attstring .= $includeList;
+			$attstring .= "<br>\n";
+		}
+		$c++;
+	}
+
+
     # if (length($abstract)) {
         # $contentString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
     # }
-    $contentString .= "</dl>";
-    if (length($abstract)) {
-        # $contentString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
-        $contentString .= "<p>$abstract</p>\n";
+    if ($newTOC) { 
+	if ($c) { $attstring .= "</table></div>\n"; }
+
+	# Otherwise we do this later.
+	$contentString .= $attstring;
+    } else {
+	if ($attstring =~ /<dl>\s*$/s) {
+		$attstring =~ s/<dl>\s*$//s;
+	} else {
+		$attstring .= "</dl>";
+	}
     }
 
-    if (length($short_attributes)) {
-        $contentString .= $short_attributes;
+    if ($newTOC) {
+	$contentString .= "<h2>".$HeaderDoc::introductionName."</h2>\n";
     }
-    if (length($list_attributes)) {
-        $contentString .= $list_attributes;
+
+    if (length($abstract)) {
+	$showDiscussionHeading = 1;
+        # $contentString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
+        $contentString .= "<p><!-- begin abstract -->";
+	if ($self->can("isFramework") && $self->isFramework()) {
+		$contentString .= "<!-- headerDoc=frameworkabstract;name=start -->\n";
+	}
+	$contentString .= "$abstract";
+	if ($self->can("isFramework") && $self->isFramework()) {
+		$contentString .= "<!-- headerDoc=frameworkabstract;name=end -->\n";
+	}
+	$contentString .= "<!-- end abstract --></p>\n";
     }
-    $contentString .= "<blockquote><pre>$declaration</pre></blockquote>\n";
+
+    if (!$newTOC) {
+	# Otherwise we do this earlier.
+	$contentString .= $attstring;
+    }
+
+    my $accessControl = "";
+    if ($self->can("accessControl")) {
+	$accessControl = $self->accessControl();
+    }
+    my $includeAccess = 0;
+    if ($accessControl ne "") { $includeAccess = 1; }
+    if ($self->can("isProperty") && $self->isProperty()) { $includeAccess = 0; }
+    if ($self->class eq "HeaderDoc::Method") { $includeAccess = 0; }
+
+    # $contentString .= "<blockquote>\n";
+    if (!$self->isAPIOwner()) {
+	if ($includeAccess) {
+		$contentString .= "<pre><tt>$accessControl</tt>\n<br>$declaration</pre>\n";
+	} else {
+		$contentString .= "<pre>$declaration</pre>\n";
+	}
+    }
+    # $contentString .= "</blockquote>\n";
 
     my $arrayLength = @params;
     if (($arrayLength > 0) && (length($fieldHeading))) {
         my $paramContentString;
+
+	$showDiscussionHeading = 1;
         foreach my $element (@params) {
             my $fName = $element->name();
             my $fDesc = $element->discussion();
@@ -2495,7 +2966,7 @@ sub documentationBlock
 		(($fType eq 'field') || ($fType eq 'constant') || ($fType eq 'funcPtr') ||
 		 ($fType eq ''))) {
                     # $paramContentString .= "<tr><td align=\"center\"><code>$fName</code></td><td>$fDesc</td></tr>\n";
-                    $paramContentString .= "<dt>$apiref<code><i>$fName</i></code></dt><dd>$fDesc</dd>\n";
+                    $paramContentString .= "<dt>$apiref<code>$fName</code></dt><dd>$fDesc</dd>\n";
             } elsif ($fType eq 'callback') {
 		my @userDictArray = $element->userDictArray(); # contains elements that are hashes of param name to param doc
 		my $paramString;
@@ -2514,23 +2985,25 @@ sub documentationBlock
 		my $classname = ref($self) || $self;
 		$classname =~ s/^HeaderDoc:://o;
 		if (!$HeaderDoc::ignore_apiuid_errors) {
-			print "$filename:$linenum:warning: $classname ($name) field with name $fName has unknown type: $fType\n";
+			print "$filename:$linenum: warning: $classname ($name) field with name $fName has unknown type: $fType\n";
 		}
 	    }
         }
         if (length ($paramContentString)){
-            $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";       
-            $contentString .= "<blockquote>\n";
+            $contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";       
+            # $contentString .= "<blockquote>\n";
             # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
             # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
             $contentString .= "<dl>\n";
             $contentString .= $paramContentString;
             # $contentString .= "</table>\n</blockquote>\n";
-            $contentString .= "</dl>\n</blockquote>\n";
+            $contentString .= "</dl>\n";
+	    # $contentString .= "</blockquote>\n";
         }
     }
     if (@constants) {
-        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Constants</font></h5>\n";       
+	$showDiscussionHeading = 1;
+        $contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Constants</font></h5>\n";       
         $contentString .= "<blockquote>\n";
         $contentString .= "<dl>\n";
         # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
@@ -2556,7 +3029,8 @@ sub documentationBlock
     }
 
     if (scalar(@fields)) {
-        $contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";
+	$showDiscussionHeading = 1;
+        $contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">$fieldHeading</font></h5>\n";
         $contentString .= "<blockquote>\n";
         # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
         # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
@@ -2588,7 +3062,7 @@ sub documentationBlock
             } else {
                 my $filename = $HeaderDoc::headerObject->name();
 		if (!$HeaderDoc::ignore_apiuid_errors) {
-                	print "$filename:$linenum:warning: struct/typdef/union ($name) field with name $fName has unknown type: $fType\n";
+                	print "$filename:$linenum: warning: struct/typdef/union ($name) field with name $fName has unknown type: $fType\n";
 			# $element->printObject();
 		}
             }
@@ -2599,24 +3073,49 @@ sub documentationBlock
     }
 
     # if (length($desc)) {$contentString .= "<p>$desc</p>\n"; }
-    $contentString .= "<dl>";
+    # $contentString .= "<dl>"; # MOVED LOWER
     if (length($result)) { 
-        $contentString .= "<dt><i>$func_or_method result</i></dt><dd>$result</dd>\n";
+	$showDiscussionHeading = 1;
+	$contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Return Value</font></h5><p><!-- begin return value -->";
+        # $contentString .= "$func_or_method result</i></dt><dd>
+	$contentString .= "$result\n";
+	$contentString .= "<!-- end return value --></p>";
     }
-    if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
+    my $stripdesc = $desc;
+    $stripdesc =~ s/<br>/\n/sg;
+    if ($stripdesc =~ /\S/) {
+	if ($showDiscussionHeading) {
+		$contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font>\n";
+	}
+	$contentString .= "</h5><p><!-- begin discussion -->";
+	if ($self->can("isFramework") && $self->isFramework()) {
+		$contentString .= "<!-- headerDoc=frameworkdiscussion;name=start -->\n";
+	}
+	$contentString .= $desc;
+	if ($self->can("isFramework") && $self->isFramework()) {
+		$contentString .= "<!-- headerDoc=frameworkdiscussion;name=end -->\n";
+	}
+	$contentString .= "<!-- end discussion --></p>\n";
+    }
 
     # if (length($desc)) {$contentString .= "<p>$desc</p>\n"; }
     if (length($long_attributes)) {
         $contentString .= $long_attributes;
     }
 
+    my $late_attributes = "";
+    if (length($namespace)) {
+            $late_attributes .= "<dt><i>Namespace</i></dt><dd>$namespace</dd>\n";
+    }
     if (length($availability)) {
-        $contentString .= "<dt><i>Availability</i></dt><dd>$availability</dd>\n";
+        $late_attributes .= "<dt><i>Availability</i></dt><dd>$availability</dd>\n";
     }
     if (length($updated)) {
-        $contentString .= "<dt><i>Updated:</i></dt><dd>$updated</dd>\n";
+        $late_attributes .= "<dt><i>Updated:</i></dt><dd>$updated</dd>\n";
     }
-    $contentString .= "</dl>\n";
+    if (length($late_attributes)) {
+	$contentString .= "<dl>".$late_attributes."</dl>\n";
+    }
     # $contentString .= "<hr>\n";
 
     my $value_fixed_contentString = $self->fixup_values($contentString);
@@ -2658,11 +3157,11 @@ sub addTaggedParameter {
     return @{ $self->{TAGGEDPARAMETERS} };
 }
 
-sub parsedParameters
-{
-    # Override this in subclasses where relevant.
-    return ();
-}
+# sub parsedParameters
+# {
+    # # Override this in subclasses where relevant.
+    # return ();
+# }
 
 # Compare tagged parameters to parsed parameters (for validation)
 sub taggedParsedCompare {
@@ -2679,7 +3178,9 @@ sub taggedParsedCompare {
     my %parsednames = ();
 
     if ($self->{TPCDONE}) { return; }
-    $self->{TPCDONE} = 1;
+    if (!$HeaderDoc::ignore_apiuid_errors) {
+	$self->{TPCDONE} = 1;
+    }
 
     my @fields = ();
     if ($self->can("fields")) {
@@ -2691,8 +3192,9 @@ sub taggedParsedCompare {
 
     my $apiOwner = $self->isAPIOwner();
 
-    foreach my $myfield (@fields) { 
-	$taggednames{$myfield} = $myfield;
+    if (!$self->suppressChildren()) {
+      foreach my $myfield (@fields) { 
+	# $taggednames{$myfield} = $myfield;
 	my $nscomp = $myfield->name();
 	$nscomp =~ s/\s*//sgo;
 	$nscomp =~ s/^\**//sso;
@@ -2701,10 +3203,12 @@ sub taggedParsedCompare {
 		$nscomp =~ s/\s*//sgo;
 	}
 	$taggednames{$nscomp}=$myfield;
-    }
-    if (!$apiOwner) {
+	print "Mapped Field $nscomp -> $myfield\n" if ($tpcDebug);
+      }
+      if (!$apiOwner) {
 	foreach my $myconstant (@constants) {
 		my $nscomp = $myconstant->name();
+		print "CONST: $nscomp\n" if ($tpcDebug);
 		$nscomp =~ s/\s*//sgo;
 		$nscomp =~ s/^\**//sso;
 		if (!length($nscomp)) {
@@ -2712,7 +3216,10 @@ sub taggedParsedCompare {
 			$nscomp =~ s/\s*//sgo;
 		}
 		$taggednames{$nscomp}=$myconstant;
+		print "COUNT: ".(keys %taggednames)."\n" if ($tpcDebug);
+		print "Mapped Constant $nscomp -> $myconstant\n" if ($tpcDebug);
 	}
+      }
     }
     foreach my $mytaggedparm (@tagged) { 
 		my $nscomp = $mytaggedparm->name();
@@ -2723,6 +3230,7 @@ sub taggedParsedCompare {
 			$nscomp =~ s/\s*//sgo;
 		}
 		$taggednames{$nscomp}=$mytaggedparm;
+		print "Mapped Tagged Parm $nscomp -> $mytaggedparm\n" if ($tpcDebug);
     }
 
     if ($HeaderDoc::ignore_apiuid_errors) {
@@ -2738,7 +3246,6 @@ sub taggedParsedCompare {
 	return;
     }
 
-
     if ($tpcDebug) {
 	print "Tagged Parms:\n" if ($tpcDebug);
 	foreach my $obj (@tagged) {
@@ -2752,22 +3259,32 @@ sub taggedParsedCompare {
 	foreach my $obj (@parsed) {
 		bless($obj, "HeaderDoc::HeaderElement");
 		bless($obj, $obj->class());
-		print "TYPE:" .$obj->type . "\nNAME:" . $obj->name()."\n" if ($tpcDebug);
+		my $type = "";
+		if ($obj->can("type")) { $type = $obj->type(); }
+		print "TYPE:" .$type . "\nNAME:\"" . $obj->name()."\"\n" if ($tpcDebug);
 		my $nscomp = $obj->name();
 		$nscomp =~ s/\s*//sgo;
 		$nscomp =~ s/^\**//sso;
 		if (!length($nscomp)) {
-			$nscomp = $obj->type();
+			$nscomp = $type;
 			$nscomp =~ s/\s*//sgo;
 		}
 		$parsednames{$nscomp}=$obj;
 	}
 
+    print "Checking Parameters and Stuff.\n" if ($tpcDebug);
     foreach my $taggedname (keys %taggednames) {
-	    if (!$parsednames{$taggedname}) {
-		my $tp = $taggednames{$taggedname};
+	    my $searchname = $taggedname;
+	    my $tp = $taggednames{$taggedname};
+	    if ($tp->type eq "funcPtr") {
+		$searchname = $tp->name();
+		$searchname =~ s/\s*//sgo;
+	    }
+	    print "TN: $taggedname\n" if ($tpcDebug);
+	    print "SN: $searchname\n" if ($tpcDebug);
+	    if (!$parsednames{$searchname}) {
 		my $apio = $tp->apiOwner();
-		print "APIO: $apio\n" if ($tpcDebug);
+		print "APIO: $apio SN: \"$searchname\"\n" if ($tpcDebug);
 		my $tpname = $tp->type . " " . $tp->name();
 		my $oldfud = $self->{PPFIXUPDONE};
 		if (!$self->fixupParsedParameters($tp->name)) {
@@ -2791,11 +3308,15 @@ sub taggedParsedCompare {
 		    }
 
     		    if (!$HeaderDoc::ignore_apiuid_errors) {
-			warn("$filename:$linenum:Parameter $tpname does not appear in $funcname declaration.\n");
+			warn("$filename:$linenum: warning: Parameter $tpname does not appear in $funcname declaration ($self).\n");
 			print "---------------\n";
 			print "Candidates are:\n";
 			foreach my $ppiter (@parsed) {
-				print "   \"".$ppiter->name()."\"\n";
+				my $ppname = $ppiter->name();
+				if (!length($ppname)) {
+					$ppname = $ppiter->type();
+				}
+				print "   \"".$ppname."\"\n";
 			}
 			print "---------------\n";
 		    }
@@ -2803,12 +3324,16 @@ sub taggedParsedCompare {
 	    }
     }
     if ($strict) { #  && !$struct
+	print "STRICT CHECK\n" if ($tpcDebug);
 	foreach my $parsedname (keys %parsednames) {
+		print "PN: $parsedname\n" if ($tpcDebug);
 		if (!$taggednames{$parsedname}) {
 			my $pp = $parsednames{$parsedname};
 			my $ppname = $pp->type . " " . $pp->name();
     			if (!$HeaderDoc::ignore_apiuid_errors) {
-			    warn("$filename:$linenum:Parameter $ppname in $funcname declaration is not tagged.\n");
+			    warn("$filename:$linenum: warning: Parameter $ppname in $funcname declaration is not tagged.\n");
+			} elsif ($tpcDebug) {
+			    warn("Warning skipped\n");
 			}
 		}
 	}
@@ -2873,6 +3398,15 @@ sub addParsedParameter {
     return @{ $self->{PARSEDPARAMETERS} };
 }
 
+# Drop the last parsed parameter.  Used for rollback support.
+sub dropParsedParameter {
+    my $self = shift;
+    my $last = pop(@{$self->{PARSEDPARAMETERS}});
+    # print "DROPPED $last\n";
+    # $last->dbprint();
+    return $last;
+}
+
 
 # for subclass/superclass merging
 sub parsedParamCompare {
@@ -2893,8 +3427,8 @@ sub parsedParamCompare {
     my $pos = 0;
     my $nparams = scalar(@params);
     while ($pos < $nparams) {
-	my $compareparam = @comparelist[$pos];
-	my $param = @params[$pos];
+	my $compareparam = $comparelist[$pos];
+	my $param = $params[$pos];
 	if ($compareparam->type() ne $param->type()) {
 	    print "parsedParamCompare: function $name no match for argument " .
 		$param->name() . ".\n" if ($localDebug);
@@ -3077,16 +3611,21 @@ sub XMLdocumentationBlock {
 		if ($apioclass eq "HeaderDoc::Header") {
 			$type = "func";
 		} else {
-			$type = "clm";
+			# if ($langstring eq "c") {
+				# $type = "intfm";
+			# } else {
+				# $type = "clm";
+			# }
+			$type = $apio->getMethodType($self->declaration)
 		}
-		if ($self->isTemplate()) {
-			$type = "ftmplt";
-		}
+		# if ($self->isTemplate()) {
+			# $type = "ftmplt";
+		# }
 		if ($apioclass eq "HeaderDoc::CPPClass") {
 			my $paramSignature = $self->getParamSignature();
 
 			if (length($paramSignature)) {
-				$paramSignature = "/$paramSignature"; # @@@SIGNATURE
+				$paramSignature = "/$paramSignature"; # @@@ SIGNATURE appended here
 			}
 
 			if ($self->sublang() eq "C") { $paramSignature = ""; }
@@ -3532,7 +4071,7 @@ sub XMLdocumentationBlock {
 		$compositePageString .= "<defines>$contentString</defines>";
 	}  
 
-	# @@@ CLASSES!
+	# @@@ Class generation code.  Important debug checkpoint.
 	my $classContent = "";
 	$contentString= $self->_getClassXMLDetailString();
 	if (length($contentString)) {
@@ -3592,13 +4131,16 @@ sub apirefSetup
     if (@_) {
 	$force = shift;
     }
-
-    if (!$force && $self->{APIREFSETUPDONE}) {
-	# print "SHORTCUT: $self\n";
-	return ($self->{KEEPCONSTANTS}, $self->{KEEPFIELDS}, $self->{KEEPPARAMS},
+    if ($self->noRegisterUID()) { return ($self->{KEEPCONSTANTS},
+		$self->{KEEPFIELDS}, $self->{KEEPPARAMS},
 		$self->{FIELDHEADING}, $self->{FUNCORMETHOD});
     }
-	# print "REDO: $self\n";
+
+    my $subreftitle = 0;
+    if ($self->appleRefIsDoc()) {
+	$subreftitle = 1;
+    }
+    # print "OBJ: $self NAME: ".$self->name()." SRT: $subreftitle\n";
 
     my $class = ref($self) || $self;
     my $apio = $self->apiOwner();
@@ -3618,7 +4160,6 @@ sub apirefSetup
     my $func_or_method = "";
 
 
-    if ($self->can("fields")) { @origfields = $self->fields(); }
     if ($self->can("taggedParameters")){ 
 	print "setting params\n" if ($localDebug);
 	@params = $self->taggedParameters();
@@ -3633,12 +4174,22 @@ sub apirefSetup
 	print "type $class has no taggedParameters function\n" if ($localDebug);
     }
 
+    if (!$force && $self->{APIREFSETUPDONE}) {
+	# print "SHORTCUT: $self\n";
+	return ($self->{KEEPCONSTANTS}, $self->{KEEPFIELDS}, $self->{KEEPPARAMS},
+		$self->{FIELDHEADING}, $self->{FUNCORMETHOD});
+    }
+	# print "REDO: $self\n";
+
+    if ($self->can("fields")) { @origfields = $self->fields(); }
+
     # my @constants = @origconstants;
     # my @fields = @origfields;
     my @constants = ();
     my @fields = ();
 
-    foreach my $copyfield (@origfields) {
+    if (!$self->suppressChildren()) {
+      foreach my $copyfield (@origfields) {
         bless($copyfield, "HeaderDoc::HeaderElement");
 	bless($copyfield, $copyfield->class()); # MinorAPIElement");
 	print "FIELD: ".$copyfield->name."\n" if ($localDebug);
@@ -3649,9 +4200,9 @@ sub apirefSetup
 		print "HIDDEN\n" if ($localDebug);
 	    }
 	}
-    }
+      }
 
-    foreach my $copyconstant (@origconstants) {
+      foreach my $copyconstant (@origconstants) {
         bless($copyconstant, "HeaderDoc::HeaderElement");
 	bless($copyconstant, $copyconstant->class()); # MinorAPIElement");
 	# print "CONST: ".$copyconstant->name."\n";
@@ -3661,11 +4212,15 @@ sub apirefSetup
 	    }
 	}
 	# print "HIDDEN: ".$copyconstant->hidden()."\n";
-    }
+      }
 	# print "SELF WAS $self\n";
+    # } else {
+	# warn "CHILDREN SUPPRESSED\n";
+    }
 
     SWITCH: {
 	($class eq "HeaderDoc::Function") && do {
+			print "FUNCTION\n" if ($localDebug);
 			if ($apioclass eq "HeaderDoc::Header") {
 				$typename = "func";
 			} else {
@@ -3684,7 +4239,7 @@ sub apirefSetup
 				print "paramSignature: $paramSignature\n" if ($localDebug);
 
 				if (length($paramSignature)) {
-					$paramSignature = "/$paramSignature"; # @@@SIGNATURE
+					$paramSignature = "/$paramSignature"; # @@@SIGNATURE appended here
 				}
 
 				if ($self->sublang() eq "C") { $paramSignature = ""; }
@@ -3697,20 +4252,22 @@ sub apirefSetup
 					$apiref = $self->apiref(0, $methodType, "$paramSignature");
 				}
 			}
-			$fieldHeading = "Parameter Descriptions";
+			$fieldHeading = "Parameters";
 			$apiRefType = "";
 			$func_or_method = "function";
 		};
 	($class eq "HeaderDoc::Constant") && do {
+			print "CONSTANT\n" if ($localDebug);
 			if ($apioclass eq "HeaderDoc::Header") {
 				$typename = "data";
 			} else {
 				$typename = "clconst";
 			}
-			$fieldHeading = "Field Descriptions";
+			$fieldHeading = "Fields";
 			$apiRefType = "";
 		};
 	($class eq "HeaderDoc::Enum") && do {
+			print "ENUM\n" if ($localDebug);
 			$typename = "tag";
 			$fieldHeading = "Constants";
 			# if ($self->masterEnum()) {
@@ -3720,13 +4277,15 @@ sub apirefSetup
 			# }
 		};
 	($class eq "HeaderDoc::PDefine") && do {
+			print "PDEFINE\n" if ($localDebug);
 			$typename = "macro";
-			$fieldHeading = "Parameter Descriptions";
+			$fieldHeading = "Parameters";
 			$apiRefType = "";
 		};
 	($class eq "HeaderDoc::Method") && do {
+			print "METHOD\n" if ($localDebug);
 			$typename = $self->getMethodType($declarationRaw);
-			$fieldHeading = "Parameter Descriptions";
+			$fieldHeading = "Parameters";
 			$apiRefType = "";
 			if ($apio->can("className")) {  # to get the class name from Category objects
 				$className = $apio->className();
@@ -3736,32 +4295,35 @@ sub apirefSetup
 			$func_or_method = "method";
 		};
 	($class eq "HeaderDoc::Struct") && do {
+			print "TAG\n" if ($localDebug);
 			$typename = "tag";
-			$fieldHeading = "Field Descriptions";
+			$fieldHeading = "Fields";
 			$apiRefType = "";
 		};
 	($class eq "HeaderDoc::Typedef") && do {
+			print "TDEF\n" if ($localDebug);
 			$typename = "tdef";
 
         		if ($self->isFunctionPointer()) {
-				$fieldHeading = "Parameter Descriptions";
+				$fieldHeading = "Parameters";
 				last SWITCH;
 			}
         		if ($self->isEnumList()) {
 				$fieldHeading = "Constants";
 				last SWITCH;
 			}
-        		$fieldHeading = "Field Descriptions";
+        		$fieldHeading = "Fields";
 
 			$apiRefType = "";
 			$func_or_method = "function";
 		};
 	($class eq "HeaderDoc::Var") && do {
+			print "VAR\n" if ($localDebug);
 			$typename = "data";
-			$fieldHeading = "Field Descriptions";
+			$fieldHeading = "Fields";
 			if ($self->can('isFunctionPointer')) {
 			    if ($self->isFunctionPointer()) {
-				$fieldHeading = "Parameter Descriptions";
+				$fieldHeading = "Parameters";
 			    }
 			}
 			$apiRefType = "";
@@ -3771,8 +4333,10 @@ sub apirefSetup
 	$apiref = $self->apiref(0, $typename);
     }
 
+
     if (@constants) {
 	foreach my $element (@constants) {
+	    $element->appleRefIsDoc($subreftitle);
 	    my $uid = $element->apiuid("econst");
 	}
     }
@@ -3780,6 +4344,8 @@ sub apirefSetup
     if (@params) {
       foreach my $element (@params) {
 	if (length($apiRefType)) {
+	# print "APIREFTYPE: $apiRefType\n";
+	    $element->appleRefIsDoc($subreftitle);
 	    $apiref = $element->apiref(0, $apiRefType);
 	}
       }
@@ -3816,6 +4382,173 @@ sub strcasecmp
     my $b = shift;
 
     return (lc($a) cmp lc($b));
+}
+
+sub unregister
+{
+    my $self = shift;
+
+    my @arr = ();
+    my $localDebug = 0;
+
+    foreach my $tp ($self->taggedParameters()) {
+	push(@arr, $tp);
+    }
+    foreach my $const ($self->constants()) {
+	push(@arr, $const);
+    }
+    if ($self->can("fields")) {
+	foreach my $field ($self->fields()) {
+		push(@arr, $field);
+	}
+    }
+    foreach my $obj (@arr) {
+	my $uid = $obj->apiuid();
+	print "Unregistering UID $uid\n" if ($localDebug);
+	unregisterUID($uid, $obj->name(), $obj);
+	unregister_force_uid_clear($uid);
+    }
+    $self->noRegisterUID(1);
+}
+
+sub noRegisterUID
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    if (@_) {
+	my $val = shift;
+	print "No register uid set to $val ($self).\n" if ($localDebug);
+	$self->{NOREGISTERUID} = $val;
+    }
+    return $self->{NOREGISTERUID};
+}
+
+sub wipeUIDCache
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    print "APIUID and LINKUID wiped ($self).\n" if ($localDebug);
+    $self->{APIUID} = undef;
+    $self->{LINKUID} = undef;
+}
+
+sub suppressChildren
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    if (@_) {
+	my $val = shift;
+	print "Suppress children set to $val ($self).\n" if ($localDebug);
+	$self->{SUPPRESSCHILDREN} = $val;
+    }
+    return $self->{SUPPRESSCHILDREN};
+}
+
+sub declaredIn
+{
+    my $self = shift;
+    my $class = ref($self) || $self;
+    my $apio = $self->apiOwner();
+
+	# warn $self->name()."\n";
+    if (!$apio) { return ""; }
+    if ($apio->outputformat() eq "hdxml") {
+	# blank for XML.
+	return "";
+    }
+
+    if ($self->isAPIOwner()) {
+	if ($class =~ /HeaderDoc::Header/) {
+		# warn $self->name.": Header\n";
+		return "";
+	} else {
+		my $name = $apio->name();
+		return "<a href=\"../../index.html\" target=\"_top\">$name</a>";
+	}
+    }
+
+    return "";
+}
+
+sub doExternalStyle
+{
+    my $self = shift;
+    my $liststring = shift;
+    my @list = split(/\s/, $liststring);
+    my $string = "";
+
+    foreach my $styleSheet (@list) {
+	$string .= "<link rel=\"stylesheet\" type=\"text/css\" href=\"$styleSheet\">\n";
+    }
+    return $string;
+}
+
+sub free
+{
+	my $self = shift;
+	my $parseTree_ref = $self->parseTree();
+
+	if ($parseTree_ref) {
+		my $parseTree = ${$parseTree_ref};
+		bless($parseTree, "HeaderDoc::ParseTree");
+
+		$parseTree->dispose();
+	}
+	if (!$self->noRegisterUID()) {
+		dereferenceUIDObject($self->apiuid(), $self);
+	}
+}
+
+sub DESTROY
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    print "Destroying $self\n" if ($localDebug);
+}
+
+sub dbprint_expanded
+{
+    my $unknown_var = shift;
+    my $leadspace = "";
+    if ($_) {
+	$leadspace = shift;
+    }
+    if ($unknown_var =~ "REF") { $unknown_var = ref($unknown_var); }
+
+    my $retstring = $unknown_var;
+    if (ref($unknown_var) eq "ARRAY") {
+	print "REF IS ".ref($unknown_var)."\n";
+	$retstring .= "\n".$leadspace."ARRAY ELEMENTS:\n";
+	my $pos = 0;
+	while ($pos < scalar(@{$unknown_var})) {
+		$retstring .= $leadspace."     ".sprintf("%08d : ", $pos). dbprint_expanded(@{$unknown_var}[$pos], $leadspace."    ")."\n";
+		$pos++;
+	}
+    } elsif (ref($unknown_var) ne "") {
+	$retstring .= "\n".$leadspace."HASH ELEMENTS:\n";
+	# print "REF IS ".ref($unknown_var)."\n";
+	foreach my $elt (keys %{$unknown_var}) {
+		if ($elt =~ "APIOWNER" || $elt =~ "MASTERENUM") { next; }
+		$retstring .= $leadspace."     ".sprintf("%8s : ", $elt). dbprint_expanded($unknown_var->{$elt}, $leadspace."    ")."\n";
+	}
+    }
+
+    return $retstring;;
+}
+
+sub dbprint
+{
+    my $self = shift;
+    my @keys = keys %{$self};
+
+    foreach my $key (@keys) {
+	print "$key => ".dbprint_expanded($self->{$key})."\n";
+    }
+
 }
 
 1;

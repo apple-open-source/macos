@@ -1,5 +1,5 @@
-/* APPLE LOCAL  nested functions */
-/* { dg-xfail-if "" { "*-*-darwin*" } { "*" } { "" } } */
+/* APPLE LOCAL testsuite nested functions */
+/* { dg-options "-fnested-functions" } */
 /* APPLE LOCAL begin mainline 2005-08-08 */
 /* PR 21894 */
 

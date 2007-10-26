@@ -55,4 +55,3 @@ public:
 
 #endif /* !_MSCACL_H_ */
 
-/* arch-tag: 952A79D0-BE68-11D8-BF9F-000A95C4302E */

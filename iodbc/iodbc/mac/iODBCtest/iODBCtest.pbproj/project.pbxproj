@@ -6,19 +6,18 @@
 	objectVersion = 39;
 	objects = {
 		014CEA520018CE5811CA2923 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 3.51.2;
-				DYLIB_CURRENT_VERSION = 3.51.2;
-				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build ../../mac/iODBCinst/build";
-				FRAMEWORK_VERSION = 3.51;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Development ../../mac/iODBC/build ../../mac/iODBCinst/build/Development ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = "../../include ../../../include ../include";
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = "../../include";
 				OPTIMIZATION_CFLAGS = "-O0";
 				OTHER_CFLAGS = "";
 				RESMERGER_SOURCES_FORK = data;
@@ -28,17 +27,17 @@
 			name = Development;
 		};
 		014CEA530018CE5811CA2923 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 3.51.2;
-				DYLIB_CURRENT_VERSION = 3.51.2;
-				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build ../../mac/iODBCinst/build";
-				FRAMEWORK_VERSION = 3.51;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DEPLOYMENT_LOCATION = NO;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Deployment ../../mac/iODBC/build ../../mac/iODBCinst/build/Deployment ../../mac/iODBCinst/build";
+				FRAMEWORK_VERSION = 3.52;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				HEADER_SEARCH_PATHS = "../include ../../include";
+				HEADER_SEARCH_PATHS = "../../include";
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
 				RESMERGER_SOURCES_FORK = data;
 				ZERO_LINK = NO;
 			};
@@ -57,8 +56,7 @@
 //034
 		034768E8FF38A79811DB9C8B = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = iodbctest;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -117,9 +115,9 @@
 			);
 			buildSettings = {
 				DEBUGGING_SYMBOLS = NO;
-				FRAMEWORK_SEARCH_PATHS = "../iODBC/build ../iODBCinst/build";
-				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = "$(HOME)/bin";
+				FRAMEWORK_SEARCH_PATHS = "../../mac/iODBC/build/Development ../../mac/iODBC/build ../../mac/iODBCinst/build/Development ../../mac/iODBCinst/build";
+				HEADER_SEARCH_PATHS = "../../include";
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
 				LIBRARY_SEARCH_PATHS = "";
 				OPTIMIZATION_CFLAGS = "-O2";
 				OTHER_CFLAGS = "";
@@ -134,7 +132,7 @@
 			);
 			isa = PBXToolTarget;
 			name = iodbctest;
-			productInstallPath = "$(HOME)/bin";
+			productInstallPath = "/Library/Application Support/iODBC/bin";
 			productName = iodbctest;
 			productReference = 034768E8FF38A79811DB9C8B;
 		};
@@ -225,8 +223,7 @@
 			};
 		};
 		F5CD65030497672D01A801EC = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = iODBC.framework;
 			path = ../iODBC/build/iODBC.framework;
@@ -240,8 +237,7 @@
 			};
 		};
 		F5CD650E0497673F01A801EC = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = iODBCinst.framework;
 			path = ../iODBCinst/build/iODBCinst.framework;

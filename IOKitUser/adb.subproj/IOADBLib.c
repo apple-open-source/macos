@@ -1,3 +1,4 @@
+#if __ppc__
 /*
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
@@ -22,6 +23,7 @@
 
 #include <Kernel/IOKit/adb/IOADBLib.h>
 
+#define arrayCnt(var) (sizeof(var) / sizeof(var[0]))
 
 //*************************************************************************************************************
 // IOPMFindADBController
@@ -60,14 +62,15 @@ return 0;
 // IOPMClaimADBDevice
 //
 //*************************************************************************************************************
-IOReturn IOPMClaimADBDevice ( io_connect_t fb, unsigned long ADBaddress )
+IOReturn IOPMClaimADBDevice ( io_connect_t fb, UInt32  ADBaddress )
 {
-    IOByteCount	len = 0;
+    uint64_t address = ADBaddress;
 
-    if ( (ADBaddress > 15) || (ADBaddress == 0) ) {
+    if (0 < ADBaddress && ADBaddress <= 15) 
+	return IOConnectCallScalarMethod(fb, kADBClaimDevice,
+					&address, 1, NULL, NULL);
+    else
         return kIOReturnBadArgument;
-    }
-    return (io_connect_method_scalarI_scalarO( fb, kADBClaimDevice, &ADBaddress, 1, NULL, &len));
 }
 
 
@@ -75,15 +78,15 @@ IOReturn IOPMClaimADBDevice ( io_connect_t fb, unsigned long ADBaddress )
 // IOPMReleaseADBDevice
 //
 //*************************************************************************************************************
-IOReturn IOPMReleaseADBDevice ( io_connect_t fb, unsigned long ADBaddress )
+IOReturn IOPMReleaseADBDevice ( io_connect_t fb, UInt32  ADBaddress )
 {
-    IOByteCount	len = 0;
-
-    if ( (ADBaddress > 15) || (ADBaddress == 0) ) {
+    uint64_t address = ADBaddress;
+    
+    if (0 < ADBaddress && ADBaddress <= 15) 
+	return IOConnectCallScalarMethod(fb, kADBReleaseDevice,
+					&address, 1, NULL, NULL);
+    else
         return kIOReturnBadArgument;
-    }
-
-    return (io_connect_method_scalarI_scalarO( fb, kADBReleaseDevice, &ADBaddress, 1, NULL, &len));
 }
 
 
@@ -91,20 +94,23 @@ IOReturn IOPMReleaseADBDevice ( io_connect_t fb, unsigned long ADBaddress )
 // IOPMReadADBDevice
 //
 //*************************************************************************************************************
-IOReturn IOPMReadADBDevice ( io_connect_t fb, unsigned long ADBaddress, unsigned long ADBregister,
-                             			unsigned char * buffer, unsigned long * length )
+IOReturn
+IOPMReadADBDevice ( io_connect_t fb, UInt32 ADBaddress, UInt32 ADBregister,
+				    unsigned char * buffer, UInt32 * length )
 {
-    void * input_params[2];
-
     if ( (ADBaddress > 15) || (ADBaddress == 0) ||  (ADBregister > 3) ) {
         return kIOReturnBadArgument;
     }
 
-    input_params[0] = (void *)ADBaddress;
-    input_params[1] = (void *)ADBregister;
-
-    *length = 8;
-    return (io_connect_method_scalarI_structureO( fb, kADBReadDevice, input_params, 2, buffer, length));
+    uint64_t input[] = { ADBaddress, ADBregister };
+    size_t bufLen = 8;
+    kern_return_t rtn = IOConnectCallMethod(fb,     kADBReadDevice,
+					input,  arrayCnt(input), // In Scalar
+					NULL,   0,		 // In Struct
+					NULL,   NULL,		 // Out Scalar
+					buffer, &bufLen);	 // Out Struct
+    *length = (UInt32) bufLen;
+    return rtn;
 }
 
 
@@ -112,20 +118,20 @@ IOReturn IOPMReadADBDevice ( io_connect_t fb, unsigned long ADBaddress, unsigned
 // IOPMWriteADBDevice
 //
 //*************************************************************************************************************
-IOReturn IOPMWriteADBDevice ( io_connect_t fb, unsigned long ADBaddress, unsigned long ADBregister,
-                              			unsigned char * buffer, unsigned long length)
+// XXX rob: wtf Used to pass the &length rather than length
+IOReturn
+IOPMWriteADBDevice ( io_connect_t fb,
+		     unsigned long ADBaddress, unsigned long ADBregister,
+		     unsigned char * buffer, unsigned long length)
 {
-    IOByteCount	len = 0;
-    void *		input_params[4];
-
-    if ( (ADBaddress > 15) || (ADBaddress == 0) ||  (ADBregister > 3) ) {
+    if ( (ADBaddress > 15) || (ADBaddress == 0) ||  (ADBregister > 3) )
         return kIOReturnBadArgument;
-    }
 
-    input_params[0] = (void *)ADBaddress;
-    input_params[1] = (void *)ADBregister;
-    input_params[2] = (void *)buffer;
-    input_params[3] = (void *)&length;
-
-    return (io_connect_method_scalarI_scalarO( fb, kADBWriteDevice, input_params, 4, NULL, &len));
+    uint64_t input[] =
+	{ ADBaddress, ADBregister, (uintptr_t) buffer, length };
+    return IOConnectCallMethod(fb,     kADBWriteDevice,
+		input,  arrayCnt(input), NULL,   0,	// In 
+		NULL,   NULL,            NULL, NULL);	// Out
 }
+
+#endif // __ppc__

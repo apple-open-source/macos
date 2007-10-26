@@ -158,6 +158,17 @@ dumpfs(name)
 #endif  /* REV_ENDIAN_FS */
 
 
+	if (afs.fs_bsize > MAXBSIZE) {
+		warnx("%s:  filesystem blocksize is absurdly large (%u)", name, (unsigned)afs.fs_bsize);
+		errno = EINVAL;
+		return (1);
+	}
+	if (afs.fs_bsize < 1) {
+		warnx("%s:  filesystem blocksize is absurdly small (%d)", name, afs.fs_bsize);
+		errno = EINVAL;
+		return (1);
+	}
+
 	if (afs.fs_postblformat == FS_42POSTBLFMT)
 		afs.fs_nrpos = 8;
 	dev_bsize = afs.fs_fsize / fsbtodb(&afs, 1);

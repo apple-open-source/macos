@@ -31,7 +31,8 @@
 	    (insert-file-contents buffer-file-name t))
 	  (rename-buffer (file-name-nondirectory buffer-file-name))))))
 
-(add-hook 'find-file-hooks 'protect-innocence-hook)
+(add-hook 'find-file-hook 'protect-innocence-hook)
 (provide 'meese)
 
+;;; arch-tag: 47af12d2-6a7d-4e2e-a1ea-eae75a77e3f0
 ;;; meese.el ends here

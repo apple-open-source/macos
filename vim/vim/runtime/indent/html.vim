@@ -1,8 +1,7 @@
 " Description:	html indenter
 " Author:	Johannes Zellner <johannes@zellner.org>
-" Updated By:	Bram Moolenaar
-" URL:		http://www.zellner.org/vim/indent/html.vim
-" Last Change:	2003 May 11
+" Last Change:	Tue, 27 Apr 2004 10:28:39 CEST
+" 		Restoring 'cpo' and 'ic' added by Bram 2006 May 5
 " Globals:	g:html_indent_tags	   -- indenting tags
 "		g:html_indent_strict       -- inhibit 'O O' elements
 "		g:html_indent_strict_table -- inhibit 'O -' elements
@@ -16,7 +15,7 @@ let b:did_indent = 1
 
 " [-- local settings (must come before aborting the script) --]
 setlocal indentexpr=HtmlIndentGet(v:lnum)
-setlocal indentkeys=o,O,*<Return>,<>>,<bs>,{,}
+setlocal indentkeys=o,O,*<Return>,<>>,{,}
 
 
 if exists('g:html_indent_tags')
@@ -118,6 +117,7 @@ endif
 
 delfun <SID>HtmlIndentPush
 
+let s:cpo_save = &cpo
 set cpo-=C
 
 " [-- count indent-increasing tags of line a:lnum --]
@@ -178,14 +178,30 @@ fun! HtmlIndentGet(lnum)
     endif
 
     let restore_ic = &ic
-    setlocal ic		" ignore case
+    setlocal ic " ignore case
 
     " [-- special handling for <pre>: no indenting --]
     if getline(a:lnum) =~ '\c</pre>'
-	  \ || 0 < searchpair('\c<pre>', '', '\c</pre>', 'nWb')
-	  \ || 0 < searchpair('\c<pre>', '', '\c</pre>', 'nW')
+		\ || 0 < searchpair('\c<pre>', '', '\c</pre>', 'nWb')
+		\ || 0 < searchpair('\c<pre>', '', '\c</pre>', 'nW')
 	" we're in a line with </pre> or inside <pre> ... </pre>
+	if restore_ic == 0
+	  setlocal noic
+	endif
 	return -1
+    endif
+
+    " [-- special handling for <javascript>: use cindent --]
+    let js = '<script.*type\s*=\s*.*java'
+    if   0 < searchpair(js, '', '</script>', 'nWb')
+    \ || 0 < searchpair(js, '', '</script>', 'nW')
+	" we're inside javascript
+	if getline(lnum) !~ js && getline(a:lnum) != '</script>'
+	    if restore_ic == 0
+	      setlocal noic
+	    endif
+	    return cindent(a:lnum)
+	endif
     endif
 
     if getline(lnum) =~ '\c</pre>'
@@ -194,6 +210,9 @@ fun! HtmlIndentGet(lnum)
 	" starting <pre> to restore the indent.
 	let preline = prevnonblank(search('\c<pre>', 'bW') - 1)
 	if preline > 0
+	    if restore_ic == 0
+	      setlocal noic
+	    endif
 	    return indent(preline)
 	endif
     endif
@@ -202,10 +221,13 @@ fun! HtmlIndentGet(lnum)
     let ind = ind + <SID>HtmlIndentSum(a:lnum, 0)
 
     if restore_ic == 0
-      setlocal noic
+	setlocal noic
     endif
 
     return indent(lnum) + (&sw * ind)
 endfun
+
+let &cpo = s:cpo_save
+unlet s:cpo_save
 
 " [-- EOF <runtime>/indent/html.vim --]

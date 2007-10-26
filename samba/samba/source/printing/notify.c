@@ -99,7 +99,7 @@ again:
 				msg->len, msg->notify.data);
 
 	if (buflen != len) {
-		buf = TALLOC_REALLOC(send_ctx, buf, len);
+		buf = (char *)TALLOC_REALLOC(send_ctx, buf, len);
 		if (!buf)
 			return False;
 		buflen = len;
@@ -130,7 +130,7 @@ static void print_notify_send_messages_to_printer(const char *printer, unsigned 
 		if (strequal(printer, pq->msg->printer)) {
 			if (!flatten_message(pq)) {
 				DEBUG(0,("print_notify_send_messages: Out of memory\n"));
-				talloc_destroy_pool(send_ctx);
+				talloc_free_children(send_ctx);
 				num_messages = 0;
 				return;
 			}
@@ -140,10 +140,10 @@ static void print_notify_send_messages_to_printer(const char *printer, unsigned 
 	}
 	offset += 4; /* For count. */
 
-	buf = TALLOC(send_ctx, offset);
+	buf = (char *)TALLOC(send_ctx, offset);
 	if (!buf) {
 		DEBUG(0,("print_notify_send_messages: Out of memory\n"));
-		talloc_destroy_pool(send_ctx);
+		talloc_free_children(send_ctx);
 		num_messages = 0;
 		return;
 	}
@@ -176,13 +176,15 @@ static void print_notify_send_messages_to_printer(const char *printer, unsigned 
 		return;
 
 	for (i = 0; i < num_pids; i++) {
-		unsigned int q_len = messages_pending_for_pid(pid_list[i]);
+		unsigned int q_len = messages_pending_for_pid(pid_to_procid(pid_list[i]));
 		if (q_len > 1000) {
 			DEBUG(5, ("print_notify_send_messages_to_printer: discarding notify to printer %s as queue length = %u\n",
 				printer, q_len ));
 			continue;
 		}
-		message_send_pid_with_timeout(pid_list[i], MSG_PRINTER_NOTIFY2, buf, offset, True, timeout);
+		message_send_pid_with_timeout(pid_to_procid(pid_list[i]),
+					      MSG_PRINTER_NOTIFY2,
+					      buf, offset, True, timeout);
 	}
 }
 
@@ -201,7 +203,7 @@ void print_notify_send_messages(unsigned int timeout)
 	while (print_notify_messages_pending())
 		print_notify_send_messages_to_printer(notify_queue_head->msg->printer, timeout);
 
-	talloc_destroy_pool(send_ctx);
+	talloc_free_children(send_ctx);
 	num_messages = 0;
 }
 
@@ -218,9 +220,9 @@ static BOOL copy_notify2_msg( SPOOLSS_NOTIFY_MSG *to, SPOOLSS_NOTIFY_MSG *from )
 	memcpy( to, from, sizeof(SPOOLSS_NOTIFY_MSG) );
 	
 	if ( from->len ) {
-		to->notify.data = TALLOC_MEMDUP(send_ctx, from->notify.data, from->len );
+		to->notify.data = (char *)TALLOC_MEMDUP(send_ctx, from->notify.data, from->len );
 		if ( !to->notify.data ) {
-			DEBUG(0,("copy_notify2_msg: talloc_memdup() of size [%d] failed!\n", from->len ));
+			DEBUG(0,("copy_notify2_msg: TALLOC_MEMDUP() of size [%d] failed!\n", from->len ));
 			return False;
 		}
 	}
@@ -293,7 +295,7 @@ to notify_queue_head\n", msg->type, msg->field, msg->printer));
 	 * the messages are sent in the order they were received. JRA.
 	 */
 
-	DLIST_ADD_END(notify_queue_head, pnqueue, tmp_ptr);
+	DLIST_ADD_END(notify_queue_head, pnqueue, struct notify_queue *);
 	num_messages++;
 }
 
@@ -328,7 +330,7 @@ static void send_notify_field_values(const char *sharename, uint32 type,
 
 static void send_notify_field_buffer(const char *sharename, uint32 type,
 				     uint32 field, uint32 id, uint32 len,
-				     char *buffer)
+				     const char *buffer)
 {
 	struct spoolss_notify_msg *msg;
 
@@ -349,7 +351,7 @@ static void send_notify_field_buffer(const char *sharename, uint32 type,
 	msg->field = field;
 	msg->id = id;
 	msg->len = len;
-	msg->notify.data = buffer;
+	msg->notify.data = CONST_DISCARD(char *,buffer);
 
 	send_spoolss_notify2_msg(msg);
 }
@@ -484,7 +486,7 @@ void notify_printer_location(int snum, char *location)
 		snum, strlen(location) + 1, location);
 }
 
-void notify_printer_byname( const char *printername, uint32 change, char *value )
+void notify_printer_byname( const char *printername, uint32 change, const char *value )
 {
 	int snum = print_queue_snum(printername);
 	int type = PRINTER_NOTIFY_TYPE;
@@ -518,7 +520,7 @@ BOOL print_notify_pid_list(const char *printername, TALLOC_CTX *mem_ctx, size_t 
 		return False;
 	tdb = pdb->tdb;
 
-	if (tdb_read_lock_bystring(tdb, NOTIFY_PID_LIST_KEY, 10) == -1) {
+	if (tdb_read_lock_bystring_with_timeout(tdb, NOTIFY_PID_LIST_KEY, 10) == -1) {
 		DEBUG(0,("print_notify_pid_list: Failed to lock printer %s database\n",
 					printername));
 		if (pdb)
@@ -535,9 +537,13 @@ BOOL print_notify_pid_list(const char *printername, TALLOC_CTX *mem_ctx, size_t 
 
 	num_pids = data.dsize / 8;
 
-	if ((pid_list = TALLOC_ARRAY(mem_ctx, pid_t, num_pids)) == NULL) {
-		ret = False;
-		goto done;
+	if (num_pids) {
+		if ((pid_list = TALLOC_ARRAY(mem_ctx, pid_t, num_pids)) == NULL) {
+			ret = False;
+			goto done;
+		}
+	} else {
+		pid_list = NULL;
 	}
 
 	for( i = 0, offset = 0; offset < data.dsize; offset += 8, i++)

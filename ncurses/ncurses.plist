@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>ncurses</string>
+	<key>OpenSourceVersion</key>
+	<string>5.5</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string></string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/gnu/ncurses/ncurses-5.5.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+	<string>46414a72e91a62f63a8c9af00f0d65497f5ecc5a</string>
+	<key>OpenSourceImportDate</key>
+	<string>2006-03-21</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string></string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>ncurses.txt</string>
+</dict>
+</plist>

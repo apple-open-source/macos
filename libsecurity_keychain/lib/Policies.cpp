@@ -26,13 +26,15 @@
 //
 #include <security_keychain/Policies.h>
 #include <security_utilities/debugging.h>
+#include <Security/oidsalg.h>
 
 using namespace KeychainCore;
 
 Policy::Policy(TP supportingTp, const CssmOid &policyOid)
     : mTp(supportingTp),
       mOid(Allocator::standard(), policyOid),
-      mValue(Allocator::standard())
+      mValue(Allocator::standard()),
+      mAuxValue(Allocator::standard())
 {
     // value is as yet unimplemented
 	secdebug("policy", "Policy() this %p", this);
@@ -42,6 +44,40 @@ Policy::~Policy() throw()
 {
 	secdebug("policy", "~Policy() this %p", this);
 }
+
+void Policy::setValue(const CssmData &value)
+{
+    mValue = value;
+    mAuxValue.reset();
+
+    // Certain policy values may contain an embedded pointer. Ask me how I feel about that.
+    if (mOid == CSSMOID_APPLE_TP_SSL ||
+        mOid == CSSMOID_APPLE_TP_EAP ||
+        mOid == CSSMOID_APPLE_TP_IP_SEC)
+    {
+        CSSM_APPLE_TP_SSL_OPTIONS *opts = (CSSM_APPLE_TP_SSL_OPTIONS *)value.data();
+        if (opts->Version == CSSM_APPLE_TP_SSL_OPTS_VERSION && opts->ServerNameLen > 0)
+        {
+            // Copy auxiliary data, then update the embedded pointer to reference our copy
+            mAuxValue.copy(const_cast<char*>(opts->ServerName), opts->ServerNameLen);
+            mValue.get().interpretedAs<CSSM_APPLE_TP_SSL_OPTIONS>()->ServerName =
+                reinterpret_cast<char*>(mAuxValue.data());
+        }
+    }
+    else if (mOid == CSSMOID_APPLE_TP_SMIME ||
+             mOid == CSSMOID_APPLE_TP_ICHAT)
+    {
+        CSSM_APPLE_TP_SMIME_OPTIONS *opts = (CSSM_APPLE_TP_SMIME_OPTIONS *)value.data();
+        if (opts->Version == CSSM_APPLE_TP_SMIME_OPTS_VERSION && opts->SenderEmailLen > 0)
+        {
+            // Copy auxiliary data, then update the embedded pointer to reference our copy
+            mAuxValue.copy(const_cast<char*>(opts->SenderEmail), opts->SenderEmailLen);
+            mValue.get().interpretedAs<CSSM_APPLE_TP_SMIME_OPTIONS>()->SenderEmail =
+                reinterpret_cast<char*>(mAuxValue.data());
+        }
+    }
+}
+
 
 bool Policy::operator < (const Policy& other) const
 {

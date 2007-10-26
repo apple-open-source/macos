@@ -4,7 +4,7 @@
 
 # Project info
 Project         = man
-GnuAfterInstall = strip-man link-manpath install-plist
+GnuAfterInstall = strip-man link-manpath install-plist fix-perms
 
 install:: shadow_source
 
@@ -12,6 +12,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Not quite like other GNU projects...
 Configure_Flags = -d -prefix="$(Install_Prefix)" \
+                  -confdir="$(ETCDIR)" \
                   -compatibility_mode_for_colored_groff
 Install_Flags   = DESTDIR="$(DSTROOT)"
 Install_Target  = install
@@ -19,20 +20,28 @@ Install_Target  = install
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = 1.5o1
+AEP_Version    = 1.6c
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.bz2
+AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Makefile.in.diff \
                  configure.diff \
-                 man2html__Makefile.in.diff \
+                 man__Makefile.in.diff \
                  src__Makefile.in.diff \
                  src__man-getopt.c.diff \
                  src__man.c.diff \
                  src__man.conf.in.diff \
                  src__manpath.c.diff \
                  src__util.c.diff \
-                 PR3857969.diff
+                 PR3845474.diff \
+                 PR3857969.diff \
+                 PR3939085.diff \
+                 PR4006198.diff \
+                 PR4062483.diff \
+                 PR4076593.diff \
+                 PR4121764.diff \
+                 PR4302566.diff \
+                 PR4670363.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -47,7 +56,7 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
 	done
 endif
 
@@ -57,6 +66,12 @@ strip-man:
 link-manpath:
 	$(LN) -s man $(DSTROOT)/usr/bin/manpath
 	$(LN) -s man.1 $(DSTROOT)/usr/share/man/man1/manpath.1
+
+fix-perms:
+	@for prog in apropos man whatis; do \
+		$(CHMOD) $(Install_Program_Mode) $(DSTROOT)/usr/bin/$${prog}; \
+		$(CHMOD) $(Install_File_Mode) $(DSTROOT)/usr/share/man/man1/$${prog}.1; \
+	done
 
 OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses

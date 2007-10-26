@@ -1,26 +1,30 @@
 /* The lwlib interface to "xlwmenu" menus.
    Copyright (C) 1992 Lucid, Inc.
+   Copyright (C) 1994, 2000, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of the Lucid Widget Library.
 
-The Lucid Widget Library is free software; you can redistribute it and/or 
+The Lucid Widget Library is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 1, or (at your option)
 any later version.
 
 The Lucid Widget Library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of 
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#include "lisp.h"
 
 #include "lwlib-Xlw.h"
 #include <X11/StringDefs.h>
@@ -78,6 +82,25 @@ highlight_hook (w, client_data, call_data)
       && !w->core.being_destroyed)
     instance->info->highlight_cb (w, instance->info->id, call_data);
 }
+
+static void
+enter_hook (w, client_data, call_data)
+     Widget w;
+     XtPointer client_data;
+     XtPointer call_data;
+{
+  highlight_hook (w, client_data, call_data);
+}
+
+static void
+leave_hook (w, client_data, call_data)
+     Widget w;
+     XtPointer client_data;
+     XtPointer call_data;
+{
+  highlight_hook (w, client_data, NULL);
+}
+
 
 static void
 pre_hook (w, client_data, call_data)
@@ -148,8 +171,8 @@ xlw_create_menubar (instance)
 
   XtAddCallback (widget, XtNopen, pre_hook, (XtPointer)instance);
   XtAddCallback (widget, XtNselect, pick_hook, (XtPointer)instance);
-  XtAddCallback (widget, XtNhighlightCallback, highlight_hook,
-		 (XtPointer)instance);
+  XtAddCallback (widget, XtNleaveCallback, leave_hook, (XtPointer)instance);
+  XtAddCallback (widget, XtNenterCallback, enter_hook, (XtPointer)instance);
   return widget;
 }
 
@@ -160,7 +183,7 @@ xlw_create_popup_menu (instance)
   Widget popup_shell
     = XtCreatePopupShell (instance->info->name, overrideShellWidgetClass,
 			  instance->parent, NULL, 0);
-  
+
   Widget widget;
   Arg al[2];
   int ac = 0;
@@ -175,12 +198,13 @@ xlw_create_popup_menu (instance)
 			     popup_shell, al, ac);
 
   XtAddCallback (widget, XtNselect, pick_hook, (XtPointer)instance);
-  XtAddCallback (widget, XtNhighlightCallback, highlight_hook,
-		 (XtPointer)instance);
+  XtAddCallback (widget, XtNleaveCallback, leave_hook, (XtPointer)instance);
+  XtAddCallback (widget, XtNenterCallback, enter_hook, (XtPointer)instance);
+
   return popup_shell;
 }
 
-widget_creation_entry 
+widget_creation_entry
 xlw_creation_table [] =
 {
   {"menubar", xlw_create_menubar},
@@ -203,19 +227,18 @@ lw_lucid_widget_p (widget)
 }
 
 void
+#ifdef PROTOTYPES
+xlw_update_one_widget (widget_instance* instance, Widget widget,
+		       widget_value* val, Boolean deep_p)
+#else
 xlw_update_one_widget (instance, widget, val, deep_p)
      widget_instance* instance;
      Widget widget;
      widget_value* val;
      Boolean deep_p;
+#endif
 {
-  XlwMenuWidget mw;
   Arg al[1];
-
-  if (XtIsShell (widget))
-    mw = (XlwMenuWidget)((CompositeWidget)widget)->composite.children [0];
-  else
-    mw = (XlwMenuWidget)widget;
 
   /* This used to use XtVaSetValues, but some old Xt versions
      that have a bug in XtVaCreateWidget might have it here too.  */
@@ -234,9 +257,13 @@ xlw_update_one_value (instance, widget, val)
 }
 
 void
+#ifdef PROTOTYPES
+xlw_pop_instance (widget_instance* instance, Boolean up)
+#else
 xlw_pop_instance (instance, up)
      widget_instance* instance;
      Boolean up;
+#endif
 {
 }
 
@@ -245,7 +272,6 @@ xlw_popup_menu (widget, event)
      Widget widget;
      XEvent *event;
 {
-  XButtonPressedEvent dummy;
   XlwMenuWidget mw;
 
   if (!XtIsShell (widget))
@@ -254,21 +280,24 @@ xlw_popup_menu (widget, event)
   mw = (XlwMenuWidget)((CompositeWidget)widget)->composite.children [0];
 
   if (event)
-    pop_up_menu (mw, (XButtonPressedEvent*) event);
+    XtCallActionProc ((Widget) mw, "start", event, NULL, 0);
   else
     {
-      dummy.type = ButtonPress;
-      dummy.serial = 0;
-      dummy.send_event = 0;
-      dummy.display = XtDisplay (widget);
-      dummy.window = XtWindow (XtParent (widget));
-      dummy.time = CurrentTime;
-      dummy.button = 0;
-      XQueryPointer (dummy.display, dummy.window, &dummy.root,
-		     &dummy.subwindow, &dummy.x_root, &dummy.y_root,
-		     &dummy.x, &dummy.y, &dummy.state);
+      XEvent dummy;
+      XButtonPressedEvent *bd = &dummy.xbutton;
 
-      pop_up_menu (mw, &dummy);
+      bd->type = ButtonPress;
+      bd->serial = 0;
+      bd->send_event = 0;
+      bd->display = XtDisplay (widget);
+      bd->window = XtWindow (XtParent (widget));
+      bd->time = CurrentTime;
+      bd->button = 0;
+      XQueryPointer (bd->display, bd->window, &bd->root,
+		     &bd->subwindow, &bd->x_root, &bd->y_root,
+		     &bd->x, &bd->y, &bd->state);
+
+      XtCallActionProc ((Widget) mw, "start", &dummy, NULL, 0);
     }
 }
 
@@ -281,3 +310,5 @@ xlw_destroy_instance (instance)
     XtDestroyWidget (instance->widget);
 }
 
+/* arch-tag: 541e3912-477d-406e-9bf2-dbf2b7ff8c3b
+   (do not change this comment) */

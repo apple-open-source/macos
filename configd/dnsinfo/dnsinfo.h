@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,34 +39,49 @@
 
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
+#define	DNS_PTR(type, name)				\
+	union {						\
+		type		name;			\
+		uint64_t	_ ## name ## _p;	\
+	}
 
+#define	DNS_VAR(type, name)				\
+	type	name
+
+
+#pragma pack(4)
 typedef struct {
 	struct in_addr	address;
 	struct in_addr	mask;
 } dns_sortaddr_t;
+#pragma pack()
 
 
+#pragma pack(4)
 typedef struct {
-	char		*domain;	/* domain */
-	int32_t		n_nameserver;	/* # nameserver */
-	struct sockaddr	**nameserver;
-	uint16_t	port;		/* port (in host byte order) */
-	int32_t		n_search;	/* # search */
-	char		**search;
-	int32_t		n_sortaddr;	/* # sortaddr */
-	dns_sortaddr_t	**sortaddr;
-	char		*options;	/* options */
-	uint32_t	timeout;	/* timeout */
-	uint32_t	search_order;	/* search_order */
-	void		*reserved[8];
+	DNS_PTR(char *,			domain);	/* domain */
+	DNS_VAR(int32_t,		n_nameserver);	/* # nameserver */
+	DNS_PTR(struct sockaddr **,	nameserver);
+	DNS_VAR(uint16_t,		port);		/* port (in host byte order) */
+	DNS_VAR(int32_t,		n_search);	/* # search */
+	DNS_PTR(char **,		search);
+	DNS_VAR(int32_t,		n_sortaddr);	/* # sortaddr */
+	DNS_PTR(dns_sortaddr_t **,	sortaddr);
+	DNS_PTR(char *,			options);	/* options */
+	DNS_VAR(uint32_t,		timeout);	/* timeout */
+	DNS_VAR(uint32_t,		search_order);	/* search_order */
+	DNS_VAR(uint32_t,		reserved[8]);
 } dns_resolver_t;
+#pragma pack()
 
 
+#pragma pack(4)
 typedef struct {
-	int32_t		n_resolver;	/* resolver configurations */
-	dns_resolver_t	**resolver;
-	void		*reserved[8];
+	DNS_VAR(int32_t,		n_resolver);	/* resolver configurations */
+	DNS_PTR(dns_resolver_t **,	resolver);
+	DNS_VAR(uint32_t,		reserved[8]);
 } dns_config_t;
+#pragma pack()
 
 
 __BEGIN_DECLS
@@ -74,8 +89,8 @@ __BEGIN_DECLS
 /*
  * DNS configuration access APIs
  */
-const char *	dns_configuration_notify_key    ()			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
-dns_config_t *	dns_configuration_copy		()			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+const char *	dns_configuration_notify_key    (void)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+dns_config_t *	dns_configuration_copy		(void)			AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 void		dns_configuration_free		(dns_config_t *config)	AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 __END_DECLS

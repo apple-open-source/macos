@@ -1,5 +1,6 @@
 /* machine description file for Bull SPS-7.
-   Copyright (C) 1986, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1986, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-2"  */
 
@@ -34,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #define m68000
 #endif
 
-#define sps7  
+#define sps7
 
 /* Use type int rather than a union, to represent Lisp_Object */
 
@@ -99,7 +100,7 @@ Boston, MA 02111-1307, USA.  */
 /* Use -T32 for 68020, -T16 otherwise */
 
 #define C_SWITCH_MACHINE -T32
-  
+
 #define BROKEN_SIGIO
 
 /* Other than 68020 use ld16, as32, or undefine (defaults ld and as). */
@@ -112,3 +113,6 @@ Boston, MA 02111-1307, USA.  */
 #define	ADJUST_EXEC_HEADER f_hdr.f_magic = SMROMAGIC;\
  f_ohdr.stsize = 0;
 #endif
+
+/* arch-tag: 2240f71c-6f3b-4a82-80fc-4d56c682d7ad
+   (do not change this comment) */

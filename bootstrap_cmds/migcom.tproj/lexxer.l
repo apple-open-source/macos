@@ -111,6 +111,8 @@ FileName	({QString}|{AString})
     RETURN(syIPCFlag);							\
 }
 
+#define YY_NO_UNPUT	/* suppress yyunput generation */
+
 static int	oldYYBegin = 0;
 
 int lineno = 0;			/* Replaces lex yylineno */

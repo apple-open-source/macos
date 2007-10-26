@@ -442,7 +442,8 @@ create_bb (void *h, void *e, basic_block after)
 
 /* Fold COND_EXPR_COND of each COND_EXPR.  */
 
-static void
+/* APPLE LOCAL mainline 4506977 */
+void
 fold_cond_expr_cond (void)
 {
   basic_block bb;

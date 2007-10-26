@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -56,14 +59,13 @@ void rpc_ss_marsh_change_buff
 {
     ndr_byte *wp_buff;
     unsigned long req_buff_size;
-    int preserved_offset;    /* Must start marshalling in new buffer at
+    int  preserved_offset;    /* Must start marshalling in new buffer at
                                 same offset (mod 8) we were at in old buffer */
 
 #ifdef PERFMON
     RPC_SS_MARSH_CHANGE_BUFF_N;
 #endif
-
-    preserved_offset = ((int)msp->mp) % 8;
+	preserved_offset = (int)((unsigned long)msp->mp % 8);
     /* If a current iovector and buffer exist */
     if (msp->p_iovec->elt[0].buff_addr != NULL)
     {

@@ -62,8 +62,8 @@ void AppleDotMacTPSession::RetrieveCredResult(
 	 */
 	SecNssCoder coder;
 	CSSM_DATA userName;
-	DotMacSignType signType;
-	OSStatus ortn = dotMacDecodeRefId(coder, ReferenceIdentifier, userName, &signType);
+	DotMacCertTypeTag certType;
+	OSStatus ortn = dotMacDecodeRefId(coder, ReferenceIdentifier, userName, &certType);
 	if(ortn) {
 		dotMacErrorLog("RetrieveCredResult: Invalid RefID\n");
 		CssmError::throwMe(CSSMERR_TP_INVALID_IDENTIFIER);
@@ -72,7 +72,7 @@ void AppleDotMacTPSession::RetrieveCredResult(
 	/* Fetch the cert. */
 	CSSM_DATA certData = {0, NULL};
 	CSSM_RETURN crtn;
-	crtn = dotMacTpCertFetch(userName, signType, *this, certData);
+	crtn = dotMacTpCertFetch(userName, certType, *this, certData);
 	if(crtn) {
 		/* FIXME error handling here, including no data */
 		CssmError::throwMe(crtn);
@@ -95,6 +95,10 @@ void AppleDotMacTPSession::RetrieveCredResult(
 	RetrieveOutput->Results = resultData;
 }
 
+/*
+ * All archive requests (store, fetch, list, remove) go through here.
+ * All are synchronous (i.e., no RetrieveCredResult is needed). 
+ */
 void AppleDotMacTPSession::SubmitArchiveRequest(
 	DotMacArchiveType archiveType,					// OID preparsed
 	const CSSM_DATA *altHost,						// optional
@@ -110,12 +114,30 @@ void AppleDotMacTPSession::SubmitArchiveRequest(
 	CSSM_DATA *pfxOut = NULL;
 	const CSSM_DATA *archiveName = NULL;
 	const CSSM_DATA *timeString = NULL;
+	uint32 version;
 	
 	if((archReq == NULL) || 
 	   (archReq->userName.Data == NULL) ||
 	   (archReq->password.Data == NULL)) {
 		dotMacErrorLog("SubmitArchiveRequest: bad username/pwd\n");
 		CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
+	}
+	
+	/* Version and cert type - infer certType if v. 1 */
+	version = archReq->version;
+	const CSSM_DATA *serialNumber = NULL;
+	DotMacArchive_v2 **archives_v2 = NULL;
+	DotMacArchive **archives_v1 = NULL;
+	DotMacCertTypeTag certTypeTag;
+	if(version >= CSSM_DOT_MAC_TP_ARCHIVE_REQ_VERSION_v2) {
+		certTypeTag = archReq->certTypeTag;
+		archives_v2 = &archReq->archives_v2;
+		serialNumber = &archReq->serialNumber;
+	}
+	else {
+		/* backwards compatibility */
+		certTypeTag = CSSM_DOT_MAC_TYPE_ICHAT;
+		archives_v1 = &archReq->archives;
 	}
 	
 	/* further verification per request type */
@@ -162,10 +184,11 @@ void AppleDotMacTPSession::SubmitArchiveRequest(
 	}
 	CSSM_RETURN crtn;
 	
-	crtn = dotMacPostArchiveReq(archiveType,
+	crtn = dotMacPostArchiveReq(version, certTypeTag,
+		archiveType,
 		archReq->userName, archReq->password, hostName,		// all required
-		archiveName, pfxIn, timeString, pfxOut,
-		&archReq->numArchives, &archReq->archives,
+		archiveName, pfxIn, timeString, serialNumber, pfxOut,
+		&archReq->numArchives, archives_v1, archives_v2,
 		*this);
 	if(crtn) {
 		CssmError::throwMe(crtn);
@@ -178,6 +201,10 @@ typedef enum {
 	CRO_Lookup
 } CredReqOp;
 
+/* 
+ * This is the primary entry point to initiate all operations performed
+ * by this module.
+ */
 void AppleDotMacTPSession::SubmitCredRequest(
 	const CSSM_TP_AUTHORITY_ID *PreferredAuthority,		// optional
 	CSSM_TP_AUTHORITY_REQUEST_TYPE RequestType,
@@ -237,20 +264,28 @@ void AppleDotMacTPSession::SubmitCredRequest(
 		CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
 	}
 	
-	DotMacSignType signType = DMST_Identity;
+	DotMacCertTypeTag certType = CSSM_DOT_MAC_TYPE_UNSPECIFIED;
 	DotMacArchiveType archiveType = DMAT_List;
 	CSSM_DATA csr = {0, NULL};
 	
+	/* 
+	 * Map policy to op and (if op is CRO_Sign) cert type.
+	 * For CRO_Archive ops, certType is in CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST.
+	 */
 	const CSSM_OID *oid = &tpPolicy->PolicyIds->FieldOid;
 	if(nssCompareCssmData(oid, &CSSMOID_DOTMAC_CERT_REQ_IDENTITY)) {
-		signType = DMST_Identity;
+		certType = CSSM_DOT_MAC_TYPE_ICHAT;
 	}
 	else if(nssCompareCssmData(oid, &CSSMOID_DOTMAC_CERT_REQ_EMAIL_SIGN)) {
-		signType = DMST_EmailSigning;
+		certType = CSSM_DOT_MAC_TYPE_EMAIL_SIGNING;
 	}
 	else if(nssCompareCssmData(oid, &CSSMOID_DOTMAC_CERT_REQ_EMAIL_ENCRYPT)) {
-		signType = DMST_EmailEncrypting;
+		certType = CSSM_DOT_MAC_TYPE_EMAIL_ENCRYPT;
 	}
+	else if(nssCompareCssmData(oid, &CSSMOID_DOTMAC_CERT_REQ_SHARED_SERVICES)) {
+		certType = CSSM_DOT_MAC_TYPE_SHARED_SERVICES;
+	}
+	/* Archive ops: certType is in CSSM_APPLE_DOTMAC_TP_ARCHIVE_REQUEST */
 	else if(nssCompareCssmData(oid, &CSSMOID_DOTMAC_CERT_REQ_ARCHIVE_LIST)) {
 		op = CRO_Archive;
 		archiveType = DMAT_List;
@@ -271,8 +306,6 @@ void AppleDotMacTPSession::SubmitCredRequest(
 		CssmError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
 	}
 
-	CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *csrReq = 
-		(CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *)RequestInput.Requests;
 	switch(op) {
 		case CRO_Archive:
 			SubmitArchiveRequest(archiveType, altHost, RequestType,
@@ -280,21 +313,24 @@ void AppleDotMacTPSession::SubmitCredRequest(
 			return;
 		case CRO_Lookup:
 		{
-			if((csrReq == NULL) || (csrReq->userName.Data == NULL)) {
-				dotMacErrorLog("SubmitCsrRequest(Lookup): bad username\n");
+			CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *certReq = 
+				(CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *)RequestInput.Requests;
+			if((certReq == NULL) || (certReq->userName.Data == NULL)) {
+				dotMacErrorLog("SubmitCredRequest(Lookup): bad username\n");
 				CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 			}
-			if((csrReq != NULL) && (csrReq->flags & CSSM_DOTMAC_TP_IS_REQ_PENDING)) {
+			if(certReq->flags & CSSM_DOTMAC_TP_IS_REQ_PENDING) {
 				/* 
 				 * We're just asking the server if there is a request pending
 				 * for this user
 				 */
-				if(csrReq->password.Data == NULL) {
+				if(certReq->password.Data == NULL) {
 					dotMacErrorLog("TP_IS_REQ_PENDING: no passphrase\n");
 					CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 				}
-				CSSM_RETURN crtn = dotMacPostReqPendingPing(csrReq->userName,
-					csrReq->password,
+				CSSM_RETURN crtn = dotMacPostReqPendingPing(certType, 
+					certReq->userName,
+					certReq->password,
 					hostName);
 				/* this RPC does not have a "success" return */
 				assert(crtn != CSSM_OK);
@@ -303,10 +339,19 @@ void AppleDotMacTPSession::SubmitCredRequest(
 				}
 			}
 			else {
-				CSSM_RETURN crtn = dotMacTpCertFetch(csrReq->userName, signType, *this, 
+				/*
+				 * Note this is a path which apps could use to have us do a standard
+				 * cert fetch via HTTP, without any "pending request" state, but
+				 * currently (9/20/06) no code in the system uses this. The only 
+				 * time CertificateRequest (in libsecurity_keychain) does a 
+				 * CSSM_TP_AUTHORITY_REQUEST_CERTLOOKUP op is when it's doing
+				 * a CSSM_DOTMAC_TP_IS_REQ_PENDING poll op, which is handled just 
+				 * above this block.
+				 */
+				CSSM_RETURN crtn = dotMacTpCertFetch(certReq->userName, certType, *this, 
 					ReferenceIdentifier);
 				if(crtn) {
-					dotMacErrorLog("SubmitCsrRequest(Lookup): error on fetch\n");
+					dotMacErrorLog("SubmitCredRequest(Lookup): error on fetch\n");
 					CssmError::throwMe(crtn);
 				}
 			}
@@ -317,32 +362,37 @@ void AppleDotMacTPSession::SubmitCredRequest(
 			break;
 	}
 	
-	if((csrReq->userName.Data == NULL) ||
-	   (csrReq->password.Data == NULL)) {
-		dotMacErrorLog("SubmitCsrRequest: bad username/pwd\n");
+	/* op = CRO_Sign */
+	
+	CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *certReq = 
+		(CSSM_APPLE_DOTMAC_TP_CERT_REQUEST *)RequestInput.Requests;
+	if((certReq->userName.Data == NULL) ||
+	   (certReq->password.Data == NULL)) {
+		dotMacErrorLog("SubmitCredRequest: bad username/pwd\n");
 		CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 	}
-	if(!(csrReq->flags & CSSM_DOTMAC_TP_EXIST_CSR)) {
+	if(!(certReq->flags & CSSM_DOTMAC_TP_EXIST_CSR)) {
 		/* Generating a CSR requires even more... */
-		if((csrReq->cspHand == 0) || 
-		   (csrReq->clHand == 0) ||
-		   (csrReq->numTypeValuePairs == 0) ||
-		   (csrReq->typeValuePairs == NULL) ||
-		   (csrReq->publicKey == NULL) ||
-		   (csrReq->privateKey == NULL)) {
-			dotMacErrorLog("SubmitCsrRequest: bad CSR generating params\n");
+		if((certReq->cspHand == 0) || 
+		   (certReq->clHand == 0) ||
+		   (certReq->numTypeValuePairs == 0) ||
+		   (certReq->typeValuePairs == NULL) ||
+		   (certReq->publicKey == NULL) ||
+		   (certReq->privateKey == NULL)) {
+			dotMacErrorLog("SubmitCredRequest: bad CSR generating params\n");
 			CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 		}
 	}
-	else if(csrReq->csr.Data == NULL) {
-		dotMacErrorLog("SubmitCsrRequest: bad incoming CSR\n");
+	else if(certReq->csr.Data == NULL) {
+		/* using existing CSR */
+		dotMacErrorLog("SubmitCredRequest: bad incoming CSR\n");
 		CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 	}
 
 	/* local vars prior to goto */
 	SecNssCoder			coder;
 	CSSM_X509_NAME		x509Name;
-	const CSSM_KEY		*pubKey = csrReq->publicKey;
+	const CSSM_KEY		*pubKey = certReq->publicKey;
 	const CSSM_KEY		*actPubKey = NULL;
 	CSSM_BOOL			freeRawKey = CSSM_FALSE;
 	CSSM_KEY			rawPubKey;	
@@ -352,14 +402,18 @@ void AppleDotMacTPSession::SubmitCredRequest(
 	CSSM_CC_HANDLE		sigHand = 0;
 	CSSM_DATA_PTR		csrPtr = NULL;
 	
-	if(csrReq->flags & CSSM_DOTMAC_TP_EXIST_CSR) {
+	if(certReq->flags & CSSM_DOTMAC_TP_EXIST_CSR) {
 		/* Skip the CSR gen */
-		csr = csrReq->csr;
+		csr = certReq->csr;
 		goto doPost;
 	}
 	
+	/***
+	 *** Create a PEM-encoded PKCS12 CSR using the CL handle provided. 
+	 ***/
+	 
 	/* Build an X509Name for the CL */
-	dotMacTpbuildX509Name(coder, csrReq->numTypeValuePairs, csrReq->typeValuePairs,
+	dotMacTpbuildX509Name(coder, certReq->numTypeValuePairs, certReq->typeValuePairs,
 		x509Name);
 		
 	/* convert possible ref key to raw; CL requires this */
@@ -369,12 +423,12 @@ void AppleDotMacTPSession::SubmitCredRequest(
 			actPubKey = pubKey;
 			break;
 		case CSSM_KEYBLOB_REFERENCE:
-			dotMacRefKeyToRaw(csrReq->cspHand, pubKey, &rawPubKey);
+			dotMacRefKeyToRaw(certReq->cspHand, pubKey, &rawPubKey);
 			actPubKey = &rawPubKey;
 			freeRawKey = CSSM_TRUE;
 			break;
 		default:
-			dotMacErrorLog("SubmitCsrRequest: bad key blob type (%u)",
+			dotMacErrorLog("SubmitCredRequest: bad key blob type (%u)",
 				(unsigned)pubKey->KeyHeader.BlobType);
 			CssmError::throwMe(CSSMERR_TP_INVALID_REQUEST_INPUTS);
 	}
@@ -386,29 +440,29 @@ void AppleDotMacTPSession::SubmitCredRequest(
 	clReq.subjectNameX509 	= &x509Name;
 	clReq.signatureAlg		= DOT_MAC_CSR_SIGNATURE_ALGID;
 	clReq.signatureOid		= DOT_MAC_CSR_SIGNATURE_ALGOID;
-	clReq.cspHand 			= csrReq->cspHand;
+	clReq.cspHand 			= certReq->cspHand;
 	clReq.subjectPublicKey  = actPubKey;
-	clReq.subjectPrivateKey = csrReq->privateKey;
+	clReq.subjectPrivateKey = certReq->privateKey;
 	
 	/* A crypto handle to pass to the CL */
-	crtn = CSSM_CSP_CreateSignatureContext(csrReq->cspHand,
+	crtn = CSSM_CSP_CreateSignatureContext(certReq->cspHand,
 			clReq.signatureAlg,
 			(CallerAuthContext ? CallerAuthContext->CallerCredentials : NULL),
-			csrReq->privateKey,
+			certReq->privateKey,
 			&sigHand);
 	if(crtn) {
-		dotMacErrorLog("CSSM_CSP_CreateSignatureContext returned %ld", crtn);
+		dotMacErrorLog("CSSM_CSP_CreateSignatureContext returned %ld", (long)crtn);
 		goto errOut;
 	}
 	
 	/* down to the CL to do the actual work */
-	crtn = CSSM_CL_PassThrough(csrReq->clHand,
+	crtn = CSSM_CL_PassThrough(certReq->clHand,
 		sigHand,
 		CSSM_APPLEX509CL_OBTAIN_CSR,
 		&clReq,
 		(void **)&csrPtr);
 	if(crtn) {
-		dotMacErrorLog("CSSM_CL_PassThrough returned %ld", crtn);
+		dotMacErrorLog("CSSM_CL_PassThrough returned %ld", (long)crtn);
 		goto errOut;
 	}
 	if(csrPtr == NULL) {
@@ -425,17 +479,17 @@ void AppleDotMacTPSession::SubmitCredRequest(
 		goto errOut;
 	}
 	
-	if(csrReq->flags & CSSM_DOTMAC_TP_RETURN_CSR) {
+	if(certReq->flags & CSSM_DOTMAC_TP_RETURN_CSR) {
 		/* caller wants a copy of the CSR */
-		csrReq->csr.Data = (uint8 *)malloc(pemCsrLen);
-		memmove(csrReq->csr.Data, pemCsr, pemCsrLen);
-		csrReq->csr.Length = pemCsrLen;
+		certReq->csr.Data = (uint8 *)malloc(pemCsrLen);
+		memmove(certReq->csr.Data, pemCsr, pemCsrLen);
+		certReq->csr.Length = pemCsrLen;
 	}
 	csr.Data = pemCsr;
 	csr.Length = pemCsrLen;
 
 doPost:
-	if(!(csrReq->flags & CSSM_DOTMAC_TP_DO_NOT_POST)) {
+	if(!(certReq->flags & CSSM_DOTMAC_TP_DO_NOT_POST)) {
 		
 		/* do the net request */
 		CSSM_DATA hostName;
@@ -448,11 +502,11 @@ doPost:
 			hostName.Data = (uint8 *)DOT_MAC_SIGN_HOST_NAME;
 			hostName.Length = strlen(DOT_MAC_SIGN_HOST_NAME);
 		}
-		crtn = dotMacPostCertReq(signType,
-			csrReq->userName,
-			csrReq->password,
+		crtn = dotMacPostCertReq(certType,
+			certReq->userName,
+			certReq->password,
 			hostName,
-			csrReq->flags & CSSM_DOTMAC_TP_SIGN_RENEW ? true : false,
+			certReq->flags & CSSM_DOTMAC_TP_SIGN_RENEW ? true : false,
 			csr,
 			coder,
 			EstimatedTime,
@@ -487,7 +541,7 @@ errOut:
 		CSSM_DeleteContext(sigHand);
 	}
 	if(freeRawKey) {
-		CSSM_FreeKey(csrReq->cspHand, NULL, &rawPubKey, CSSM_FALSE);
+		CSSM_FreeKey(certReq->cspHand, NULL, &rawPubKey, CSSM_FALSE);
 	}
 	if(pemCsr) {
 		free(pemCsr);

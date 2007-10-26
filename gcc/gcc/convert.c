@@ -750,7 +750,8 @@ convert_to_vector (tree type, tree expr)
 	  return convert (type, build_compound_literal_vector (TREE_TYPE (expr), expr));
       /* APPLE LOCAL end AltiVec */
 
-      return build1 (NOP_EXPR, type, expr);
+      /* APPLE LOCAL mainline 4253848 */
+      return build1 (VIEW_CONVERT_EXPR, type, expr);
 
     default:
       error ("can't convert value to a vector");

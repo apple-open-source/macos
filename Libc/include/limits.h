@@ -60,11 +60,12 @@
 #ifndef _LIMITS_H_
 #define	_LIMITS_H_
 
+#include <sys/cdefs.h>
 #include <machine/limits.h>
 #include <sys/syslimits.h>
 
 #if !defined(_ANSI_SOURCE)
-#define _POSIX_AIO_LISTIO_MAX   16
+#define _POSIX_AIO_LISTIO_MAX   2
 #define _POSIX_AIO_MAX          1
 #define _POSIX_DELAYTIMER_MAX   32
 #define _POSIX_HOST_NAME_MAX    255
@@ -86,12 +87,11 @@
 #define	_POSIX_STREAM_MAX	8
 #define	_POSIX_TZNAME_MAX	6
 
+#define _POSIX_RE_DUP_MAX 			255
 #define _POSIX_RTSIG_MAX 			8
 #define _POSIX_SEM_NSEMS_MAX 			256
 #define _POSIX_SEM_VALUE_MAX 			32767
 #define _POSIX_SIGQUEUE_MAX 			32
-#define _POSIX_SSIZE_MAX 			32767
-#define _POSIX_STREAM_MAX 			8
 #define _POSIX_SS_REPL_MAX 			4
 #define _POSIX_SYMLINK_MAX 			255
 #define _POSIX_SYMLOOP_MAX 			8
@@ -116,13 +116,13 @@
 #define	_POSIX2_LINE_MAX		2048
 #define	_POSIX2_RE_DUP_MAX		255
 
-#define PTHREAD_STACK_MIN 8192
-#define PTHREAD_DESTRUCTOR_ITERATIONS 4
-#define PTHREAD_KEYS_MAX 128
+#define PTHREAD_STACK_MIN 		8192
+#define PTHREAD_DESTRUCTOR_ITERATIONS 	4
+#define PTHREAD_KEYS_MAX 		512
 
-#if !defined(_POSIX_C_SOURCE)
+#if (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 #define PASS_MAX	128
-#endif /* _POSIX_C_SOURCE */
+#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
 
 #define NL_ARGMAX	9
 #define NL_LANGMAX	14

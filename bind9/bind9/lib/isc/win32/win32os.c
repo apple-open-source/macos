@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: win32os.c,v 1.2.176.2.2.2 2004/03/08 09:05:01 marka Exp $ */
+/* $Id: win32os.c,v 1.3 2004/03/05 05:12:00 marka Exp $ */
 
 #include <windows.h>
 

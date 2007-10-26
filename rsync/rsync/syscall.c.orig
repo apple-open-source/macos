@@ -26,10 +26,19 @@
 
 #include "rsync.h"
 
+#ifdef HAVE_COPYFILE_H
+#include <libgen.h>
+#include <copyfile.h>
+#endif
+
 extern int dry_run;
 extern int read_only;
 extern int list_only;
 extern int preserve_perms;
+#ifdef EA_SUPPORT
+extern int extended_attributes;
+extern int preserve_links;
+#endif
 
 #define RETURN_ERROR_IF(x,e) \
 	do { \
@@ -45,6 +54,18 @@ int do_unlink(char *fname)
 {
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
+#ifdef HAVE_COPYFILE
+	if (extended_attributes && !strncmp("._", basename(fname), 2))
+	{
+	    int ret;
+	    ret = unlink(fname);
+
+	    if(ret == -1 && errno != ENOENT)
+		return -1;
+	    else
+		return 0;
+	}
+#endif
 	return unlink(fname);
 }
 
@@ -114,6 +135,19 @@ int do_rename(char *fname1, char *fname2)
 {
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
+#ifdef HAVE_COPYFILE
+	if(extended_attributes)
+	{
+	    char dst_fname[MAXPATHLEN];
+	    if(!strncmp(basename(fname1), ".._", 3))
+	    {
+		snprintf(dst_fname, MAXPATHLEN, "%s/%s", dirname(fname2), basename(fname2) + 2);
+		if(copyfile(fname1, dst_fname, 0,
+			    COPYFILE_UNPACK | COPYFILE_ACL | COPYFILE_XATTR | (preserve_links ? COPYFILE_NOFOLLOW : 0)) == 0)
+		return unlink(fname1);
+	    }
+	}
+#endif
 	return rename(fname1, fname2);
 }
 

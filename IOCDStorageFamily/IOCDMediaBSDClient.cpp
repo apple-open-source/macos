@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  */
 
 #include <sys/errno.h>
+#include <sys/proc.h>
 #include <IOKit/storage/IOCDMediaBSDClient.h>
 
 #define super IOMediaBSDClient
@@ -29,7 +30,69 @@ OSDefineMetaClassAndStructors(IOCDMediaBSDClient, IOMediaBSDClient)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
+typedef struct
+{
+    uint64_t    offset;
+
+    uint8_t     sectorArea;
+    uint8_t     sectorType;
+
+    uint8_t     reserved0080[10];
+
+    uint32_t    bufferLength;
+    user_addr_t buffer;
+} dk_cd_read_64_t;
+
+typedef struct
+{
+    uint8_t     format;
+    uint8_t     formatAsTime;
+
+    uint8_t     reserved0016[5];
+
+    union
+    {
+        uint8_t session;
+        uint8_t track;
+    } address;
+
+    uint8_t     reserved0064[6];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_cd_read_toc_64_t;
+
+typedef struct
+{
+    uint8_t     reserved0000[14];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_cd_read_disc_info_64_t;
+
+typedef struct
+{
+    uint8_t     reserved0000[4];
+
+    uint32_t    address;
+    uint8_t     addressType;
+
+    uint8_t     reserved0072[5];
+
+    uint16_t    bufferLength;
+    user_addr_t buffer;
+} dk_cd_read_track_info_64_t;
+
+#define DKIOCCDREAD64          _IOWR('d', 96, dk_cd_read_64_t)
+
+#define DKIOCCDREADTOC64       _IOWR('d', 100, dk_cd_read_toc_64_t)
+
+#define DKIOCCDREADDISCINFO64  _IOWR('d', 101, dk_cd_read_disc_info_64_t)
+#define DKIOCCDREADTRACKINFO64 _IOWR('d', 102, dk_cd_read_track_info_64_t)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static bool DKIOC_IS_RESERVED(caddr_t data, uint32_t reserved)
 {
     UInt32 index;
 
@@ -46,19 +109,20 @@ static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( void *      address,
+static IOMemoryDescriptor * DKIOC_PREPARE_BUFFER( user_addr_t address,
                                                   UInt32      length,
-                                                  IODirection direction )
+                                                  IODirection direction,
+                                                  proc_t      proc )
 {
     IOMemoryDescriptor * buffer = 0;
 
     if ( address && length )
     {
-        buffer = IOMemoryDescriptor::withAddress(         // (create the buffer)
-                                /* address   */ (vm_address_t) address,
-                                /* length    */                length,
-                                /* direction */                direction,
-                                /* task      */                current_task() );
+        buffer = IOMemoryDescriptor::withAddressRange(    // (create the buffer)
+            /* address */ address,
+            /* length  */ length,
+            /* options */ direction,
+            /* task    */ (proc == kernproc) ? kernel_task : current_task() );
     }
 
     if ( buffer )
@@ -123,9 +187,41 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
             if ( DKIOC_IS_RESERVED(data, 0xFC00) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readCD(
+                       /* client          */                this,
+                       /* byteStart       */                request->offset,
+                       /* buffer          */                buffer,
+                       /* sectorArea      */ (CDSectorArea) request->sectorArea,
+                       /* sectorType      */ (CDSectorType) request->sectorType,
+                       /* actualByteCount */                &actualByteCount );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            request->bufferLength = (UInt32) actualByteCount;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREAD64:
+        {
+            UInt64            actualByteCount = 0;
+            dk_cd_read_64_t * request         = (dk_cd_read_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0xFFC00) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readCD(
                        /* client          */                this,
@@ -163,15 +259,15 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         } break;
 
-        case DKIOCCDGETSPEED:                           // getSpeed(u_int16_t *)
+        case DKIOCCDGETSPEED:                            // getSpeed(uint16_t *)
         {
-            status = getProvider()->getSpeed((u_int16_t *)data);
+            status = getProvider()->getSpeed((uint16_t *)data);
 
         } break;
 
-        case DKIOCCDSETSPEED:                           // setSpeed(u_int16_t *)
+        case DKIOCCDSETSPEED:                            // setSpeed(uint16_t *)
         {
-            status = getProvider()->setSpeed(*(u_int16_t *)data);
+            status = getProvider()->setSpeed(*(uint16_t *)data);
 
         } break;
 
@@ -179,12 +275,40 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
         {
             dk_cd_read_toc_t * request = (dk_cd_read_toc_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x037C) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x37C) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readTOC(
+                       /* buffer          */ buffer,
+                       /* format          */ request->format,
+                       /* formatAsTime    */ request->formatAsTime,
+                       /* address         */ request->address.session,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREADTOC64:
+        {
+            dk_cd_read_toc_64_t * request = (dk_cd_read_toc_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3F7C) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readTOC(
                        /* buffer          */ buffer,
@@ -201,14 +325,43 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
         case DKIOCCDREADDISCINFO:      // readDiscInfo(dk_cd_read_disc_info_t *)
         {
-            dk_cd_read_disc_info_t * request = (dk_cd_read_disc_info_t *) data;
+            dk_cd_read_disc_info_t * request;
 
-            if ( DKIOC_IS_RESERVED(data, 0x03FF) )  { error = EINVAL;  break; }
+            request = (dk_cd_read_disc_info_t *) data;
+
+            if ( DKIOC_IS_RESERVED(data, 0x3FF) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readDiscInfo(
+                       /* buffer          */ buffer,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREADDISCINFO64:
+        {
+            dk_cd_read_disc_info_64_t * request;
+
+            request = (dk_cd_read_disc_info_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3FFF) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readDiscInfo(
                        /* buffer          */ buffer,
@@ -226,12 +379,41 @@ int IOCDMediaBSDClient::ioctl( dev_t   dev,
 
             request = (dk_cd_read_track_info_t *) data;
 
-            if ( DKIOC_IS_RESERVED(data, 0x020F) )  { error = EINVAL;  break; }
+            if ( DKIOC_IS_RESERVED(data, 0x20F) )  { error = EINVAL;  break; }
+
+            buffer = DKIOC_PREPARE_BUFFER(
+                       /* address   */ CAST_USER_ADDR_T(request->buffer),
+                       /* length    */ request->bufferLength,
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
+
+            status = getProvider()->readTrackInfo(
+                       /* buffer          */ buffer,
+                       /* address         */ request->address,
+                       /* addressType     */ request->addressType,
+                       /* actualByteCount */ &request->bufferLength );
+
+            status = (status == kIOReturnUnderrun) ? kIOReturnSuccess : status;
+
+            DKIOC_COMPLETE_BUFFER(buffer);
+
+        } break;
+
+        case DKIOCCDREADTRACKINFO64:
+        {
+            dk_cd_read_track_info_64_t * request;
+
+            request = (dk_cd_read_track_info_64_t *) data;
+
+            if ( proc_is64bit(proc) == 0 )  { error = ENOTTY;  break; }
+
+            if ( DKIOC_IS_RESERVED(data, 0x3E0F) )  { error = EINVAL;  break; }
 
             buffer = DKIOC_PREPARE_BUFFER(
                        /* address   */ request->buffer,
                        /* length    */ request->bufferLength,
-                       /* direction */ kIODirectionIn );
+                       /* direction */ kIODirectionIn,
+                       /* proc      */ proc );
 
             status = getProvider()->readTrackInfo(
                        /* buffer          */ buffer,

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: config.h.win32,v 1.6.12.8 2006/09/27 00:29:10 marka Exp $ */
+/* $Id: config.h.win32,v 1.8.18.6 2006/09/27 00:29:46 marka Exp $ */
 
 /*
  * win32 configuration file
@@ -114,13 +114,13 @@
 /* Define if you have h_errno */
 #define HAVE_H_ERRNO
 
-/* Define if libcrypto has RSA_generate_key */
+/* Define if you have RSA_generate_key(). */
 #define HAVE_RSA_GENERATE_KEY
 
-/* Define if libcrypto has DSA_generate_parameters */
+/* Define if you have DSA_generate_parameters(). */
 #define HAVE_DSA_GENERATE_PARAMETERS
- 
-/* Define if libcrypto has DH_generate_parameters */
+
+/* Define if you have DH_generate_parameters(). */
 #define HAVE_DH_GENERATE_PARAMETERS
 
 #define ISC_PLATFORM_NEEDSTRLCAT

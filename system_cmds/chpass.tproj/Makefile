@@ -12,13 +12,12 @@ NAME = chpass
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = chpass.h pathnames.h pw_copy.h pw_scan.h pw_util.h directory_service.h
+HFILES = chpass.h open_directory.h pw_copy.h
 
 CFILES = chpass.c edit.c field.c pw_copy.c table.c util.c \
-	 directory_service.c ds_pw_util.c
+	 open_directory.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble chpass.1 \
-            Makefile.dist
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble chpass.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -32,8 +31,9 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-HEADER_PATHS = -I../pwd_mkdb.tproj -I../vipw.tproj
-FRAMEWORKS = -framework DirectoryService
+HEADER_PATHS = -I../pwd_mkdb.tproj -I../vipw.tproj 
+FRAMEWORK_PATHS = -F/System/Library/PrivateFrameworks
+FRAMEWORKS = -framework OpenDirectory -framework CoreFoundation
 PROJECT_HEADERS = pw_copy.h
 
 

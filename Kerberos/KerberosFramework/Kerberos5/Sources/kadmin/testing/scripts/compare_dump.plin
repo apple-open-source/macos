@@ -1,7 +1,7 @@
 #!/usr/local/bin/perl
 
 #
-# $Id: compare_dump.plin 8774 1996-07-22 20:49:46Z marc $
+# $Id: compare_dump.plin 17357 2005-08-25 22:04:59Z tlyu $
 #
 
 # $debug = 1;

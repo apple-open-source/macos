@@ -484,6 +484,46 @@ WriteRetCodeArg(file, rt)
     }
 }
 
+// 10/26/06 - GAB: <rdar://problem/4343113>
+// emit logic to prevent memory leaks if the call times out
+/*************************************************************
+ *   Writes the logic to check for a message send timeout, and
+ *   deallocate any relocated ool data so as not to leak.
+ *************************************************************/
+static void
+WriteMsgCheckForTimeout(FILE *file, routine_t *rt)
+{
+    if (rt->rtWaitTime != argNULL) {    /* no reason to test for timeout if no timeout was specified... */
+        argument_t  *arg_ptr;
+        fputs("\n\t"    "if (msg_result == MACH_SEND_TIMED_OUT) {" "\n", file);
+        
+        // iterate over arg list
+        for (arg_ptr = rt->rtArgs; arg_ptr != NULL; arg_ptr = arg_ptr->argNext) {
+            
+            //  if argument contains ool data
+            if (akCheck(arg_ptr->argKind, akbSendKPD) && arg_ptr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR) {
+                //    generate code to test current arg address vs. address before the msg_send call
+                //    if not at the same address, mig_deallocate the argument
+                fprintf(file, "\t\t"   "if (InP->%s.address != %s)\n", arg_ptr->argVarName, arg_ptr->argVarName);
+                fprintf(file, "\t\t\t"   "mig_deallocate((vm_offset_t) InP->%s.address, ", arg_ptr->argVarName);
+                if (arg_ptr->argType->itVarArray) {
+                    ipc_type_t *btype = arg_ptr->argType->itElement;
+                    int        multiplier = btype->itNumber ? btype->itSize / (8 * btype->itNumber) : 0;
+                    
+                    if (multiplier > 1)
+                        fprintf(file, "%d * ", multiplier);
+                    fprintf(file, "InP->%s);\n", arg_ptr->argCount->argVarName);
+                }
+                else
+                    fprintf(file, "%d);\n", (arg_ptr->argType->itNumber * arg_ptr->argType->itSize + 7) / 8);
+            }
+        }
+        
+        fputs("\t"      "}" "\n\n", file);
+    }
+    return;
+}
+
 /*************************************************************
  *   Writes the send call when there is to be no subsequent
  *   receive. Called by WriteRoutine SimpleRoutines
@@ -497,9 +537,9 @@ WriteMsgSend(file, rt)
     char string[MAX_STR_LEN];
 
     if (rt->rtNumRequestVar == 0)
-	SendSize = "(mach_msg_size_t)sizeof(Request)";
+      SendSize = "(mach_msg_size_t)sizeof(Request)";
     else
-	SendSize = "msgh_size";
+      SendSize = "msgh_size";
 
     if (rt->rtRetCArg != argNULL && !rt->rtSimpleRequest) {
 		sprintf(string, "(%s) ? (mach_msg_size_t)sizeof(mig_reply_error_t) : ", 
@@ -520,12 +560,18 @@ WriteMsgSend(file, rt)
 	    rt->rtMsgOption->argVarName,
 	    SendSize,
 	    rt->rtWaitTime != argNULL ? rt->rtWaitTime->argVarName:"MACH_MSG_TIMEOUT_NONE");
+
     if (IsKernelUser)
     {
 		fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
     }
+
     WriteApplMacro(file, "Send", "After", rt);
-    WriteReturn(file, rt, "\t\t", "msg_result", "\n");
+
+    // 10/26/06 - GAB: <rdar://problem/4343113>
+    WriteMsgCheckForTimeout(file, rt);
+
+    WriteReturn(file, rt, "\t", "msg_result", "\n");
 }
 
 /*************************************************************
@@ -656,6 +702,10 @@ WriteMsgRPC(file, rt)
     if (IsKernelUser)
       fprintf(file,"#endif /* __MigKernelSpecificCode */\n");
     WriteApplMacro(file, "Send", "After", rt);
+
+    // 10/26/06 - GAB: <rdar://problem/4343113>
+    WriteMsgCheckForTimeout(file, rt);
+
     WriteMsgCheckReceive(file, rt, "MACH_MSG_SUCCESS");
     fprintf(file, "\n");
 }
@@ -3034,8 +3084,6 @@ WriteRoutine(file, rt)
     if (ShortCircuit)
 	WriteShortCircRPC(file, rt);
 
-    fprintf(file, "    {\n");
-
     /* typedef of structure for Request and Reply messages */
     WriteStructDecl(file, rt->rtArgs, WriteFieldDecl, akbRequest, 
 	"Request", rt->rtSimpleRequest, FALSE, FALSE, FALSE);
@@ -3122,8 +3170,8 @@ WriteRoutine(file, rt)
 		WriteReplyArgs(file, rt);
 	}
 	/* return the return value, if any */
-	WriteReturnValue(file, rt);
-    fprintf(file, "    }\n");
+   if (!rt->rtOneWay)  // WriteMsgSend() already wrote the 'return'
+         WriteReturnValue(file, rt);
     fprintf(file, "}\n");
 }
 

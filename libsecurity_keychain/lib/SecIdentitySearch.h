@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,9 @@
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
 #include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFDictionary.h>
+#include <CoreFoundation/CFString.h>
+#include <AvailabilityMacros.h>
 
 
 #if defined(__cplusplus)
@@ -55,19 +58,19 @@ CFTypeID SecIdentitySearchGetTypeID(void);
 	@function SecIdentitySearchCreate
 	@abstract Creates a search reference for finding identities.
     @param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
-	@param keyUsage A CSSM_KEYUSE value as defined in cssmtype.h.  Control the search by specifying the key usage for the identity. Pass in 0 if you want all identities returned by this search.  Passing in  CSSM_KEYUSE_ANY will limit the identities returned to those that can be used for every operation.
-    @param searchRef On return, a pointer to the identity search reference. You must release the identity search reference by calling the CFRelease function.
+	@param keyUsage A CSSM_KEYUSE value, as defined in cssmtype.h. This value narrows the search to return only those identities which match the specified key usage. Pass a value of 0 to ignore key usage and return all available identities. Note that passing CSSM_KEYUSE_ANY limits the results to only those identities that can be used for every operation.
+    @param searchRef On return, an identity search reference. You must release the identity search reference by calling the CFRelease function.
     @result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion You can set values for key usage, and one or more policies, to control the search for identities. You can use the returned search reference to obtain the remaining identities in subsequent calls to the SecIentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
+	@discussion You can set values for key usage, and one or more keychains, to control the search for identities. You can use the returned search reference to obtain the remaining identities in subsequent calls to the SecIentitySearchCopyNext function. You must release the identity search reference by calling the CFRelease function.
 */
 OSStatus SecIdentitySearchCreate(CFTypeRef keychainOrArray, CSSM_KEYUSE keyUsage, SecIdentitySearchRef *searchRef);
     
 /*!
 	@function SecIdentitySearchCopyNext
-    @abstract Finds the next identity matching the given search criteria, as previously specified by a call to SecIdentitySearchCreate.
-	@param searchRef A reference to the current identity search.  You create the identity search reference by calling the SecIdentitySearchCreate function.
-	@param identity On return, a pointer to an identity reference of the next matching identity, if any. You must call the CFRelease function when finished with the identity search reference.
-	@result A result code.  When there are no more identities that match the parameters specified to SecPolicySearchCreate, errSecItemNotFound is returned. See "Security Error Codes" (SecBase.h).
+    @abstract Finds the next identity matching the given search criteria, as previously specified by a call to SecIdentitySearchCreate or SecIdentitySearchCreateWithAttributes.
+	@param searchRef A reference to the current identity search. You create the identity search reference by calling either SecIdentitySearchCreate or SecIdentitySearchCreateWithAttributes.
+	@param identity On return, an identity reference for the next found identity, if any. You must call the CFRelease function when finished with the identity reference.
+	@result A result code. When there are no more identities found that match the search criteria, errSecItemNotFound is returned. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecIdentitySearchCopyNext(SecIdentitySearchRef searchRef, SecIdentityRef *identity);
 

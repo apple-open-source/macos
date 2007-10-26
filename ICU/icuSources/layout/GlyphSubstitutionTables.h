@@ -1,6 +1,6 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -13,22 +13,21 @@
  */
 
 #include "LETypes.h"
-#include "LEGlyphFilter.h"
 #include "OpenTypeTables.h"
 #include "Lookups.h"
 #include "GlyphLookupTables.h"
-#include "GlyphDefinitionTables.h"
-#include "GlyphPositionAdjustments.h"
 
 U_NAMESPACE_BEGIN
 
-class LEGlyphStorage;
+class  LEGlyphStorage;
+class  LEGlyphFilter;
+struct GlyphDefinitionTableHeader;
 
 struct GlyphSubstitutionTableHeader : public GlyphLookupTableHeader
 {
     le_int32    process(LEGlyphStorage &glyphStorage, le_bool rightToLeft, LETag scriptTag, LETag languageTag,
-                 const GlyphDefinitionTableHeader *glyphDefinitionTableHeader,
-                 const LEGlyphFilter *filter = NULL, const LETag *featureOrder = NULL) const;
+                        const GlyphDefinitionTableHeader *glyphDefinitionTableHeader, const LEGlyphFilter *filter,
+                        const FeatureMap *featureMap, le_int32 featureMapCount, le_bool featureOrder) const;
 };
 
 enum GlyphSubstitutionSubtableTypes

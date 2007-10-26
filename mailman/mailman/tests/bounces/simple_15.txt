@@ -1,0 +1,259 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from mailserver.kviv.be (cust210-66.dsl.versadsl.be [62.166.210.66])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2C4XpUM021161
+	for <gpc-talk-bounces@grizz.org>; Sat, 11 Mar 2006 20:33:52 -0800
+Received: from [192.9.1.53] by mailserver.kviv.be (NTMail
+	5.05.0002/CE0026.01.9294fe1f) with ESMTP id kvqkfaaa for
+	gpc-talk-bounces@grizz.org; Sun, 12 Mar 2006 05:36:18 +0000
+Date: Sun, 12 Mar 2006 05:36:18 +0100
+From: imss@kviv.be
+To: <gpc-talk-bounces@grizz.org>
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="------------InterScan_NT_MIME_Boundary"
+Subject: Mail could not be delivered
+Message-Id: <04361859181401@mailserver.kviv.be>
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: 
+
+
+--------------InterScan_NT_MIME_Boundary
+Content-type: text/plain
+
+****** Message from InterScan Messaging Security Suite ******
+
+
+Sent <<< RCPT TO:<isam@kviv.be>
+Received >>> 550 5.1.1 unknown user.
+
+Unable to deliver message to <isam@kviv.be> (and other recipients in the same domain).
+
+************************     End of message     **********************
+
+--------------InterScan_NT_MIME_Boundary
+Content-type: message/rfc822
+
+Received: from sb7.songbird.com ([208.184.79.137]) by mailserver.kviv.be
+	with InterScan Messaging Security Suite; Sun, 12 Mar 2006 05:36:16 +0100
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])by
+	sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2C4WSrZ020992for
+	<isam@kviv.be>; Sat, 11 Mar 2006 20:32:28 -0800
+Subject: The results of your email commands
+From: gpc-talk-bounces@grizz.org
+To: isam@kviv.be
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="===============0254048733=="
+Message-ID: <mailman.2432.1142137947.1567.gpc-talk@grizz.org>
+Date: Sat, 11 Mar 2006 20:32:27 -0800
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+X-imss-version: 2.5
+X-imss-result: Passed
+X-imss-scores: Clean:1.91248 C:22 M:1 S:5 R:5
+X-imss-settings: Baseline:3 C:1 M:4 S:4 R:4 (0.5000 0.5000)
+
+--===============0254048733==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+The results of your email command are provided below. Attached is your
+original message.
+
+- Results:
+    Ignoring non-text/plain MIME parts
+    isam@kviv.be is not a member of the GPC-talk mailing list
+
+- Unprocessed:
+    Re: PaGDramcy news
+    z C i i n a r I n i d s $9 w 9 (10 ip   a p y i g l u l t s g )
+    g V p a m I y i u u y m $10 x 5 ( BU 30  a p y i k l j l u s h )
+    v V p i x a r g e r i a $ g 69 (10 WO   d p c i o l d l g s l )
+    =20
+    And LG many other.
+    =20
+    Sav q8 e ove Ox r 5 5Z 0% wi sV th ou 7t r o 0O nline s nz tore
+    http://fovy93.withoadri.com
+
+- Done.
+
+
+--===============0254048733==
+Content-Type: message/rfc822
+MIME-Version: 1.0
+
+Return-Path: <isam@kviv.be>
+Received: from bxa.doc.gov (70-88-76-26-ISP-IL.hfc.comcastbusiness.net
+	[70.88.76.26] (may be forged))
+	by sb7.songbird.com (8.12.11/8.12.11) with SMTP id k2C4W5h6020919
+	for <gpc-talk-unsubscribe@grizz.org>; Sat, 11 Mar 2006 20:32:11 -0800
+Message-ID: <000001c6458d$d20fbd70$afc1a8c0@kca33>
+Reply-To: "Isamu Shahan" <isam@kviv.be>
+From: "Isamu Shahan" <isam@kviv.be>
+To: gpc-talk-unsubscribe@grizz.org
+Subject: Re: PaGDramcy news
+Date: Sat, 11 Mar 2006 23:31:24 -0500
+MIME-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_0001_01C64563.E939B570"
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 6.00.2800.1106
+X-MimeOLE: Produced By Microsoft MimeOLE V6.00.2800.1106
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Found to be clean
+X-Songbird-From: isam@kviv.be
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0001_01C64563.E939B570
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+z C i i n a r I n i d s $9 w 9 (10 ip   a p y i g l u l t s g )
+g V p a m I y i u u y m $10 x 5 ( BU 30  a p y i k l j l u s h )
+v V p i x a r g e r i a $ g 69 (10 WO   d p c i o l d l g s l )
+=20
+And LG many other.
+=20
+Sav q8 e ove Ox r 5 5Z 0% wi sV th ou 7t r o 0O nline s nz tore
+http://fovy93.withoadri.com
+
+------=_NextPart_000_0001_01C64563.E939B570
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Dus-ascii">
+<META content=3D"MSHTML 6.00.2800.1106" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D3><FONT color=3D#2438F1><span style=3D"
+float:
+right"> z </span>C<span style=3D"
+float:
+right"> i </span>i<span style=3D"
+float:
+right"> n </span>a<span style=3D"
+float:
+right"> r </span>I<span style=3D"
+float:
+right"> n </span>i<span style=3D"
+float:
+right"> d </span>s</FONT> <FONT color=3D#EB3815>$9<span style=3D"
+float:
+right"> w </span>9</FONT> (10<span style=3D"
+float:
+right"> ip </span>&nbsp;<span style=3D"
+float:
+right"> a </span>p<span style=3D"
+float:
+right"> y </span>i<span style=3D"
+float:
+right"> g </span>l<span style=3D"
+float:
+right"> u </span>l<span style=3D"
+float:
+right"> t </span>s<span style=3D"
+float:
+right"> g </span>)</FONT></DIV>
+<DIV><FONT face=3DArial size=3D3><FONT color=3D#2438F1><span style=3D"
+float:
+right"> g </span>V<span style=3D"
+float:
+right"> p </span>a<span style=3D"
+float:
+right"> m </span>I<span style=3D"
+float:
+right"> y </span>i<span style=3D"
+float:
+right"> u </span>u<span style=3D"
+float:
+right"> y </span>m</FONT> <FONT color=3D#EB3815>$10<span style=3D"
+float:
+right"> x </span>5</FONT> (<span style=3D"
+float:
+right"> BU </span>30&nbsp;<span style=3D"
+float:
+right"> a </span>p<span style=3D"
+float:
+right"> y </span>i<span style=3D"
+float:
+right"> k </span>l<span style=3D"
+float:
+right"> j </span>l<span style=3D"
+float:
+right"> u </span>s<span style=3D"
+float:
+right"> h </span>)</FONT></DIV>
+<DIV><FONT face=3DArial size=3D3><FONT color=3D#2438F1><span style=3D"
+float:
+right"> v </span>V<span style=3D"
+float:
+right"> p </span>i<span style=3D"
+float:
+right"> x </span>a<span style=3D"
+float:
+right"> r </span>g<span style=3D"
+float:
+right"> e </span>r<span style=3D"
+float:
+right"> i </span>a</FONT> <FONT color=3D#EB3815>$<span style=3D"
+float:
+right"> g </span>69</FONT> (10<span style=3D"
+float:
+right"> WO </span>&nbsp;<span style=3D"
+float:
+right"> d </span>p<span style=3D"
+float:
+right"> c </span>i<span style=3D"
+float:
+right"> o </span>l<span style=3D"
+float:
+right"> d </span>l<span style=3D"
+float:
+right"> g </span>s<span style=3D"
+float:
+right"> l </span>)</FONT></DIV>
+<DIV><FONT face=3DArial size=3D3></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D3>And <span style=3D"
+float:
+right"> LG </span>many other.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D3></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D3>Sav<span style=3D"
+float:
+right"> q8 </span>e ove<span style=3D"
+float:
+right"> Ox </span>r 5<span style=3D"
+float:
+right"> 5Z </span>0% wi<span style=3D"
+float:
+right"> sV </span>th ou<span style=3D"
+float:
+right"> 7t </span>r o<span style=3D"
+float:
+right"> 0O </span>nline s<span style=3D"
+float:
+right"> nz </span>tore <A =
+href=3D"http://fovy93.withoadri.com">http://fovy93.withoadri.com</A></FON=
+T></DIV></BODY></HTML>
+------=_NextPart_000_0001_01C64563.E939B570--
+--===============0254048733==--
+
+--------------InterScan_NT_MIME_Boundary--
+

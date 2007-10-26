@@ -1726,7 +1726,7 @@ int evaluatetoken(char *pcToken)
 	{
 
 		dwChannelId = strtoul(pcChannelid, 0, 16);
-		RFAddReader(pcFriendlyname, dwChannelId, pcLibpath);
+		RFAddReader(pcFriendlyname, dwChannelId, pcLibpath, pcDevicename);
 
 		free(pcFriendlyname);
 		free(pcDevicename);
@@ -1743,7 +1743,7 @@ int evaluatetoken(char *pcToken)
 
 void tok_error(char *token_error)
 {
-	debug_msg("%s:%d tok_error: invalid value in reader.conf",
+	log_msg(PCSC_LOG_ERROR, "%s:%d tok_error: invalid value in reader.conf",
 		__FILE__, __LINE__);
 	badError = 1;
 }

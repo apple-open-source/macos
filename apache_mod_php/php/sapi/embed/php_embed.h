@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
    | Author: Edin Kadribasic <edink@php.net>                              |
    +----------------------------------------------------------------------+
 */
-/* $Id: php_embed.h,v 1.1.2.2.8.2 2007/01/01 09:46:52 sebastian Exp $ */
+/* $Id: php_embed.h,v 1.6.2.2.2.1 2007/01/01 09:36:12 sebastian Exp $ */
 
 #ifndef _PHP_EMBED_H_
 #define _PHP_EMBED_H_
@@ -32,17 +32,23 @@
 #define PTSRMLS_DC       , PTSRMLS_D
 #define PTSRMLS_C        &tsrm_ls
 #define PTSRMLS_CC       , PTSRMLS_C
-#else
-#define PTSRMLS_D
-#define PTSRMLS_DC
-#define PTSRMLS_C
-#define PTSRMLS_CC
-#endif
 
 #define PHP_EMBED_START_BLOCK(x,y) { \
     void ***tsrm_ls; \
     php_embed_init(x, y PTSRMLS_CC); \
     zend_first_try {
+
+#else
+#define PTSRMLS_D
+#define PTSRMLS_DC
+#define PTSRMLS_C
+#define PTSRMLS_CC
+
+#define PHP_EMBED_START_BLOCK(x,y) { \
+    php_embed_init(x, y); \
+    zend_first_try {
+
+#endif
 
 #define PHP_EMBED_END_BLOCK() \
   } zend_catch { \

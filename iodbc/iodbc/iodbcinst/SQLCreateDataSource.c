@@ -1,22 +1,24 @@
 /*
  *  SQLCreateDataSource.c
  *
- *  $Id: SQLCreateDataSource.c,v 1.3 2004/08/24 21:14:59 luesang Exp $
+ *  $Id: SQLCreateDataSource.c,v 1.14 2006/01/24 00:08:54 source Exp $
  *
  *  Add, modify or delete datasources
  *
  *  The iODBC driver manager.
  *
- *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -30,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -72,18 +74,21 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 #include <iodbcadm.h>
+#include <unicode.h>
 
 #include "iodbc_error.h"
 #include "dlf.h"
 
-#ifdef __APPLE__
-#include <CoreFoundation/CoreFoundation.h>
+#if defined (__APPLE__) && !(defined (NO_FRAMEWORKS) || defined (_LP64))
+#include <Carbon/Carbon.h>
 #endif
 
 extern BOOL ValidDSN (LPCSTR lpszDSN);
+extern BOOL ValidDSNW (LPCWSTR lpszDSN);
 
 #define CALL_DRVCONN_DIALBOX(path) \
 	if ((handle = DLL_OPEN(path)) != NULL) \
@@ -94,14 +99,25 @@ extern BOOL ValidDSN (LPCSTR lpszDSN);
 		DLL_CLOSE(handle); \
 	}
 
-BOOL CreateDataSource (HWND parent, LPCSTR lpszDSN)
+#define CALL_DRVCONN_DIALBOXW(path) \
+	if ((handle = DLL_OPEN(path)) != NULL) \
+	{ \
+		if ((pDrvConnW = (pDrvConnWFunc)DLL_PROC(handle, "iodbcdm_drvconn_dialboxw")) != NULL) \
+		  pDrvConnW(parent, dsn, sizeof(dsn) / sizeof(wchar_t), NULL, SQL_DRIVER_PROMPT, &config); \
+      retcode = TRUE; \
+		DLL_CLOSE(handle); \
+	}
+
+BOOL
+CreateDataSource (HWND parent, LPCSTR lpszDSN, SQLCHAR waMode)
 {
   char dsn[1024] = { 0 };
   UWORD config = ODBC_USER_DSN;
   BOOL retcode = FALSE;
   void *handle;
-  pDrvConnFunc pDrvConn;
-#ifdef __APPLE__
+  pDrvConnFunc pDrvConn = NULL;
+  pDrvConnWFunc pDrvConnW = NULL;
+#if defined (__APPLE__) && !(defined (NO_FRAMEWORKS) || defined (_LP64))
   CFStringRef libname = NULL;
   CFBundleRef bundle;
   CFURLRef liburl;
@@ -109,28 +125,44 @@ BOOL CreateDataSource (HWND parent, LPCSTR lpszDSN)
 #endif
 
   /* Load the Admin dialbox function */
-#ifdef __APPLE__
-  bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.adm"));
+#if defined (__APPLE__) && !(defined (NO_FRAMEWORKS) || defined (_LP64))
+  bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.inst"));
   if (bundle)
     {
-      /* Search for the drvproxy library */
-      liburl = CFBundleCopyExecutableURL (bundle);
+      /* Search for the iODBCadm library */
+      liburl =
+	  CFBundleCopyResourceURL (bundle, CFSTR ("iODBCadm.bundle"),
+	  NULL, NULL);
       if (liburl
 	  && (libname =
 	      CFURLCopyFileSystemPath (liburl, kCFURLPOSIXPathStyle)))
 	{
 	  CFStringGetCString (libname, name, sizeof (name),
 	      kCFStringEncodingASCII);
-	  CALL_DRVCONN_DIALBOX (name);
+	  STRCAT (name, "/Contents/MacOS/iODBCadm");
+	  if (waMode == 'A')
+	    {
+	      CALL_DRVCONN_DIALBOX (name);
+	    }
+	  else
+	    {
+	      CALL_DRVCONN_DIALBOXW (name);
+	    }
 	}
       if (liburl)
 	CFRelease (liburl);
       if (libname)
 	CFRelease (libname);
-      CFRelease (bundle);
     }
 #else
-  CALL_DRVCONN_DIALBOX ("libiodbcadm.so");
+  if (waMode == 'A')
+    {
+      CALL_DRVCONN_DIALBOX ("libiodbcadm.so");
+    }
+  else
+    {
+      CALL_DRVCONN_DIALBOXW ("libiodbcadm.so");
+    }
 #endif
 
   return retcode;
@@ -138,7 +170,8 @@ BOOL CreateDataSource (HWND parent, LPCSTR lpszDSN)
 
 
 BOOL INSTAPI
-SQLCreateDataSource (HWND hwndParent, LPCSTR lpszDSN)
+SQLCreateDataSource_Internal (HWND hwndParent, SQLPOINTER lpszDSN,
+    SQLCHAR waMode)
 {
   BOOL retcode = FALSE;
 
@@ -150,14 +183,39 @@ SQLCreateDataSource (HWND hwndParent, LPCSTR lpszDSN)
       goto quit;
     }
 
-  if ((!lpszDSN && !ValidDSN (lpszDSN)) || (!lpszDSN && !STRLEN (lpszDSN)))
+  if (waMode == 'A')
     {
-      PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
-      goto quit;
+      if ((!lpszDSN && !ValidDSN (lpszDSN)) || (!lpszDSN
+	      && !STRLEN (lpszDSN)))
+	{
+	  PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
+	  goto quit;
+	}
+    }
+  else
+    {
+      if ((!lpszDSN && !ValidDSNW (lpszDSN)) || (!lpszDSN
+	      && !WCSLEN (lpszDSN)))
+	{
+	  PUSH_ERROR (ODBC_ERROR_INVALID_DSN);
+	  goto quit;
+	}
     }
 
-  retcode = CreateDataSource (hwndParent, lpszDSN);
+  retcode = CreateDataSource (hwndParent, lpszDSN, waMode);
 
 quit:
   return retcode;
+}
+
+BOOL INSTAPI
+SQLCreateDataSource (HWND hwndParent, LPCSTR lpszDSN)
+{
+  return SQLCreateDataSource_Internal (hwndParent, (SQLPOINTER) lpszDSN, 'A');
+}
+
+BOOL INSTAPI
+SQLCreateDataSourceW (HWND hwndParent, LPCWSTR lpszDSN)
+{
+  return SQLCreateDataSource_Internal (hwndParent, (SQLPOINTER) lpszDSN, 'W');
 }

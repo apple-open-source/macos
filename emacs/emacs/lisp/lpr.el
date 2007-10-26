@@ -1,6 +1,7 @@
 ;;; lpr.el --- print Emacs buffer on line printer
 
-;; Copyright (C) 1985, 1988, 1992, 1994, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1988, 1992, 1994, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
 ;; Keywords: unix
@@ -19,13 +20,13 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
 ;; Commands to send the region or a buffer to your printer.  Entry points
-;; are `lpr-buffer', `print-buffer', lpr-region', or `print-region'; option
+;; are `lpr-buffer', `print-buffer', `lpr-region', or `print-region'; option
 ;; variables include `printer-name', `lpr-switches' and `lpr-command'.
 
 ;;; Code:
@@ -40,7 +41,7 @@
 
 
 (defgroup lpr nil
-  "Print Emacs buffer on line printer"
+  "Print Emacs buffer on line printer."
   :group 'wp)
 
 
@@ -139,8 +140,9 @@ See definition of `print-region-1' for calling conventions."
 
 ;; Berkeley systems support -F, and GNU pr supports both -f and -F,
 ;; So it looks like -F is a better default.
-(defcustom lpr-page-header-switches '("-F")
+(defcustom lpr-page-header-switches '("-h %s" "-F")
   "*List of strings to use as options for the page-header-generating program.
+If `%s' appears in one of the strings, it is substituted by the page title.
 The variable `lpr-page-header-program' specifies the program to use."
   :type '(repeat string)
   :group 'lpr)
@@ -164,7 +166,7 @@ If it is nil (the default), we run the `pr' program (or whatever program
 
 Otherwise, the switches in `lpr-headers-switches' are used
 in the print command itself; we expect them to request pagination.
- 
+
 See the variables `lpr-switches' and `lpr-command'
 for further customization of the printer command."
   (interactive)
@@ -189,7 +191,7 @@ If it is nil (the default), we run the `pr' program (or whatever program
 
 Otherwise, the switches in `lpr-headers-switches' are used
 in the print command itself; we expect them to request pagination.
- 
+
 See the variables `lpr-switches' and `lpr-command'
 for further customization of the printer command."
   (interactive "r")
@@ -242,8 +244,8 @@ for further customization of the printer command."
 	    (let ((new-coords (print-region-new-buffer start end)))
 	      (apply 'call-process-region (car new-coords) (cdr new-coords)
 		     lpr-page-header-program t t nil
-		     (nconc (list "-h" title)
-			    lpr-page-header-switches)))
+		     (mapcar (lambda (e) (format e title))
+			     lpr-page-header-switches)))
 	    (setq start (point-min)
 		  end   (point-max))))
       (apply (or print-region-function 'call-process-region)
@@ -283,14 +285,16 @@ The printable representations use ^ (for ASCII control characters) or hex.
 The characters tab, linefeed, space, return and formfeed are not affected."
   (interactive "r")
   (save-excursion
-    (goto-char begin)
-    (let (c)
-      (while (re-search-forward "[\^@-\^h\^k\^n-\^_\177-\377]" end t)
-	(setq c (preceding-char))
-	(delete-backward-char 1)
-	(insert (if (< c ?\ )
-		    (format "\\^%c" (+ c ?@))
-		  (format "\\%02x" c)))))))
+    (save-restriction
+      (narrow-to-region begin end)
+      (goto-char (point-min))
+      (let (c)
+	(while (re-search-forward "[\^@-\^h\^k\^n-\^_\177-\377]" nil t)
+	  (setq c (preceding-char))
+	  (delete-backward-char 1)
+	  (insert (if (< c ?\s)
+		      (format "\\^%c" (+ c ?@))
+		    (format "\\%02x" c))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Functions hacked from `ps-print' package.
@@ -323,4 +327,5 @@ The characters tab, linefeed, space, return and formfeed are not affected."
 
 (provide 'lpr)
 
+;;; arch-tag: 21c3f821-ebec-4ca9-ac67-a81e4b75c62a
 ;;; lpr.el ends here

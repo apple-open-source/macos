@@ -1,0 +1,294 @@
+
+<html lang="ja">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Language" content="ja">
+  <title>RubyCocoa - programming</title></head>
+<body>
+<h1>RubyCocoaプログラミングの基本</h1>
+
+<p>このドキュメントは、RubyCocoaプログラミングする上で知っておくべき基本事項を紹介します。
+RubyおよびCocoaの初歩をある程度学んでいる方が対象です。
+対話型Rubyインタプリタを使って、実際に確認しながら読むと良いでしょう。
+対話型Rubyインタプリタとしては以下のものが使えます。</p>
+
+<ul>
+<li>irbコマンド</li>
+<li>CocoaRepl   (RubyCocoa付属サンプルアプリケーション)</li>
+<li>RubyConsole (RubyCocoa付属サンプルアプリケーション)</li>
+</ul>
+
+<p>後半のGUI関連の確認には、irbよりもCocoaReplもしくはRubyConsoleが適しています。</p>
+
+<h2>RubyCocoaのロード</h2>
+
+<p>RubyCocoa のライブラリは以下のようにロードします。</p>
+
+<pre><code>require 'osx/cocoa'
+</code></pre>
+
+<h2>システム音を鳴らしてみる</h2>
+
+<p>まずは、動いた実感を味わうために、システム音を鳴らしてみましょう。</p>
+
+<pre><code>names = Dir['/System/Library/Sounds/*.aiff'].
+          grep(/([^\/]+).aiff/){ |i| $1 }
+OSX::NSSound.soundNamed(names[0]).play
+OSX::NSSound.soundNamed(names[1]).play
+</code></pre>
+
+<p>以降は、RubyCocoa の動作の理解の助けになると思われる例を挙げていきます。
+説明の中で #=> の右側は実行結果として表示される文字列です。</p>
+
+<h2>Cocoaクラス</h2>
+
+<pre><code>p OSX::NSObject  #=&gt; OSX::NSObject
+obj = OSX::NSObject.description
+p obj       # =&gt; #&lt;OSX::NSCFString:0x220c2e class='NSCFString' id=0x1103c10&gt;
+obj = OSX::NSObject.alloc.init
+p obj  #=&gt; #&lt;OSX::NSObject:0x1cad6 class='NSObject' id=0x5930c0&gt;
+</code></pre>
+
+<p>RubyCocoa では、Cocoa のクラスは OSX モジュール以下に定義されています。
+Cocoa クラスは、Ruby のクラスであると同時に Cocoa のオブジェクトとしても振る舞います。</p>
+
+<h2>Cocoa オブジェクトの生成</h2>
+
+<p>Cocoa オブジェクトの生成には、Cocoa の各クラスのメソッドをそのまま使います。</p>
+
+<pre><code>obj = OSX::NSObject.alloc.init
+str = OSX::NSString.stringWithString 'hello'
+str = OSX::NSString.alloc.initWithString 'world'
+</code></pre>
+
+<p>生成された Cocoa オブジェクトは、RubyCocoa 内部で OSX::ObjcID というクラスのオブジェクトに包まれています。
+通常、OSX::ObjcID クラスの存在を意識する必要はありません。</p>
+
+<h2>オーナーシップとメモリ管理</h2>
+
+<p>OSX::ObjcID のインスタンスは、かならず自分が包んでいる Cocoa オブジェクトのオーナーシップを持ちます。
+オーナーシップは、OSX::ObjcID のインスタンスが GC に掃除されるときに自動的になくなります。
+したがって、RubyCocoa ではオーナーシップの管理を気にする必要はありません。
+また、OSX::ObjcID というクラスの存在を意識する必要もありません。</p>
+
+<pre><code>str = OSX::NSString.stringWithString 'hello'
+str = OSX::NSString.alloc.initWithString 'world'
+</code></pre>
+
+<p>上の2つの例は、Objective-C ではオーナーシップを発生させるかさせないかという違いがありますが、オーナーシップを気にする必要のない RubyCocoa では大して違いはありません。
+retain、release、autorelease などのメソッドは、基本的に呼ぶ必要がありませんし、NSAutoreleasePool を作る必要もありません。</p>
+
+<ul>
+<li>Cocoa オブジェクトの生成は、Cocoa クラスの生成メソッドを呼ぶ</li>
+<li>Cocoa オブジェクトは作りっぱなしでよく、メモリ管理は不要</li>
+</ul>
+
+<h2>メソッドの返す値</h2>
+
+<pre><code>nstr = OSX::NSString.description
+p nstr       #=&gt; #&lt;OSX::NSCFString:0x1ca90 class='NSCFString' id=0x593200&gt;
+p nstr.to_s  #=&gt; "NSString"
+
+nstr = OSX::NSString.stringWithString 'Hello world!'
+p nstr       # =&gt; #&lt;OSX::NSCFString:0x1c9c8 class='NSCFString' id=0x593400
+p nstr.to_s  # =&gt; "Hello world!"
+
+nstr = OSX::NSString.stringWithString(`pwd`.chop)
+nary = nstr.pathComponents
+p nary  # =&gt; #&lt;OSX::NSCFArray:0x1c8ec class='NSCFArray' id=0x593660&gt;
+
+ary = nary.to_a
+p ary  # =&gt; [#&lt;OSX::NSCFString:0x1c216 class='NSCFString' id=0x593a10&gt;, ...]
+
+ary.map! {|i| i.to_s }
+p ary  # =&gt; ["/", "Users", "hisa", "src", "ruby", "osxobjc"]
+</code></pre>
+
+<p>これらの例から推測できるように、RubyCocoa では NSString や NSArray などの Objective-C オブジェクトを返すメソッドを Cocoa オブジェクトとして返します。
+積極的に対応する Ruby のオブジェクト (例えば String や Array) には変換しません。
+文字列と配列に関しては、to<em>s や to</em>a が定義されているので、それを使って変換できます。</p>
+
+<h2>メソッド名の決定方法 (1)</h2>
+
+<pre><code>files = Dir['/System/Library/Sounds/*.aiff']
+files.each do |file|
+  snd = OSX::NSSound.alloc
+  snd = snd.initWithContentsOfFile_byReference(file, true)
+  snd.play
+  sleep 0.25 while snd.isPlaying?
+end
+</code></pre>
+
+<p>上の例は、さきほど示した音を鳴らす例の別バージョンです。
+Objective-C のメッセージセレクタと引数を Ruby 風に表記する別の方法を示しています。</p>
+
+<p>RubyCocoa では、</p>
+
+<pre><code>[obj control:a textview:b doCommandBySelector:c];
+</code></pre>
+
+<p>に対応する、いくつかの呼び出し方法が用意されています。</p>
+
+<p>基本は、メッセージセレクタの ':' を '_' に置き換えたものが Ruby 側でのメソッド名となります。</p>
+
+<pre><code>obj.control_textview_doCommandBySelector_(a, b, c)
+</code></pre>
+
+<p>ただし、最後の '_' は省略することができるので、</p>
+
+<pre><code>obj.control_textview_doCommandBySelector(a, b, c)
+</code></pre>
+
+<p>このように書くことができます。</p>
+
+<p>BOOL を返すメソッドの場合には、メソッド名の最後に '?' を付けてください。
+RubyCocoa では、'?' の有無でメソッドが論理値を返すものかどうか判断しています。
+付けない場合には、Objective-C が返した数値 (0:NO, 1:YES) が返りますが、これらの値は Ruby の論理値としてはどちらも真になるので注意してください。</p>
+
+<pre><code>nary = OSX::MyArray.alloc.init
+p nary.contains("hoge")   # =&gt; 0
+p nary.contains?("hoge")  # =&gt; false
+nary.add("hoge")
+p nary.contains("hoge")   # =&gt; 1
+p nary.contains?("hoge")  # =&gt; true
+</code></pre>
+
+<p>ただし、AppKit などのあらかじめ BridgeSupport にすべてのメソッド定義が登録されているフレームワークを使う場合には、末尾に '?' がなくても論理値を返すかどうか判断できるため、末尾の '?' は不要です。
+自分で定義したクラスの場合には、メソッド定義は BridgeSupport に登録されていないため、末尾に '?' をつけることが必要です。</p>
+
+<h2>メソッド名の決定方法 (2) - objc_send</h2>
+
+<p>長いメソッド名になると、メッセージセレクタのキーワードと引数の対応関係がわかりにくくなりがちです。
+例えば、NSWindowの初期化は以下のようになります。</p>
+
+<pre><code>OSX::NSWindow.alloc.initWithContentRect_styleMask_backing_defer(
+  frame,
+  NSTitledWindowMask + NSResizableWindowMask,
+  NSBackingStoreBuffered,
+  false)
+</code></pre>
+
+<p>このような場合、objc_send を使って可読性を高めることができます。</p>
+
+<pre><code>OSX::NSWindow.alloc.
+  objc_send(:initWithContentRect, frame,
+                      :styleMask, NSTitledWindowMask + NSResizableWindowMask,
+                        :backing, NSBackingStoreBuffered,
+                          :defer, false)
+</code></pre>
+
+<h2>メソッドの引数は可能な限り変換する</h2>
+
+<pre><code>OSX::NSString.stringWithString 'hello'
+</code></pre>
+
+<p>のように、引数の値として Objective-C オブジェクトを取るメソッドを呼び出す場合には、Ruby オブジェクトをそのまま渡しても、出来る限り変換を試みます。</p>
+
+<h2>メソッド名が重複するときに使う接頭辞 "oc_"</h2>
+
+<pre><code>klass = OSX::NSObject.class
+p klass  #=&gt; Class
+klass = OSX::NSObject.oc_class
+p klass  #=&gt; OSX::NSObject
+</code></pre>
+
+<p>Object#class のように、Ruby と Objective-C でメソッド名 (セレクタ) が全く同じ場合には、Ruby のメソッドが呼ばれます。このような場合には、メソッド名の頭に "oc_" という接頭辞をつけると、Objective-C オブジェクトに対してメッセージが送られます。</p>
+
+<h2>setterとしての"="</h2>
+
+<p>NSSlider#setMaxValue のようなsetterは、"="でセットすることができます。</p>
+
+<pre><code> sldr = NSSlider.alloc.init
+ p sldr.maxValue   # =&gt; 1.0
+ sldr.maxValue = 100
+ p sldr.maxValue   # =&gt; 100.0
+</code></pre>
+
+<h2>Cocoa派生クラス</h2>
+
+<p>ここまでは、既存の Cocoa クラスとそのインスタンスを使う方法を説明してきました。
+ここからは、RubyCocoa アプリケーションを書く場合に必要となる、Cocoa 派生クラスの定義やそのインスタンスに関するトピックを扱います。
+Cocoa の派生クラスはややトリッキーな実装により実現しているため、多少の制約や癖がありますが、それも含めて見ていくことにしましょう。</p>
+
+<h2>Cocoa派生クラスの定義</h2>
+
+<p>RubyCocoa における Cocoa の派生クラスの定義は、通常の Ruby での派生クラス定義と同様に書けます。</p>
+
+<pre><code>class MyController &lt; OSX::NSObject
+  ib_outlets :messageField
+
+  def awakeFromNib
+    @messageField.stringValue = ''
+  end
+
+  ib_action :greeting do |sender|
+    @messageField.stringValue = 'Merry Christmas!'
+  end
+end
+</code></pre>
+
+<h2>アウトレットの宣言</h2>
+
+<p>アウトレットの宣言には ib<em>outlets (もしくはib</em>outlet)を使います。</p>
+
+<h2>アクションの定義・宣言</h2>
+
+<p>アクションの定義には ib_action を使います。</p>
+
+<pre><code>ib_action :buttonClicked do |sender|
+  ...
+end
+</code></pre>
+
+<p>Rubyのメソッドとして定義し、ib_action宣言することもできます。</p>
+
+<pre><code>ib_action :buttonClicked
+def buttonClicked(sender)
+  ...
+end
+</code></pre>
+
+<h2>メソッドのオーバーライド</h2>
+
+<p>親クラスで定義されているメソッドをオーバーライドする場合でも、通常の Ruby のメソッド定義をするだけでオーバーライドできます。</p>
+
+<pre><code>class MyCustomView &lt; OSX::NSView
+  def drawRect(frame)
+    super_drawRect(frame)
+  end
+end
+</code></pre>
+
+<p>オーバーライドしたメソッドの中でスーパークラスの同じメソッドを呼ぶ場合には、メソッド名に "super_" という接頭辞をつけて呼びます。</p>
+
+<h2>Cocoa 派生クラスのインスタンス生成</h2>
+
+<p>Cocoa 派生クラスのインスタンスを Ruby プログラムの中で生成する場合には、既存の Cocoa クラスの場合と同様に、</p>
+
+<pre><code>AppController.alloc.init
+</code></pre>
+
+<p>のように書きます。Ruby でインスタンスを生成するときのクラスメソッドnewは使えません。
+これにはいろいろな事情があるのですが、ここでは詳しい説明は省略します。
+この制約は、インスタンス生成が、</p>
+
+<ul>
+<li>alloc (Objective-C 側)</li>
+<li>alloc 内で  Ruby オブジェクト生成 (ここで initialize が呼ばれる)</li>
+</ul>
+
+<p>という順番で行われることと深い関連があります。</p>
+
+<h2>インスタンス生成時の初期化コードはどこに書くべきか？</h2>
+
+<p>一般に Ruby では initialize メソッドに初期化のコードを書きますが、Cocoa 派生クラスではあまり勧められません。
+理由は先に述べたように、インスタンス生成時の initialize メソッドが呼ばれた時点では、Cocoa オブジェクトとしてはメモリが割り当てられただけで初期化が完了していないからです。
+もっとも、Cocoa 側のメソッドを呼ばない限りにおいては、特に問題は発生しないと考えられます。</p>
+
+<p>nib ファイルからロードされるような場合には、awakeFromNib メソッドで初期化するのがもっとも無難です。
+実際に、Cocoa の派生クラスを定義する必要があるのも、このケースがもっとも多いのではないでしょうか。</p>
+
+<p>その他の場合には、Cocoa の流儀で "init" 接頭辞を持つメソッドに書くのがよいでしょう。
+メソッドが self を返すようにすることを忘れないでください。</p>
+</body>
+</html>

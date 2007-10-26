@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/InsPane.c,v 1.1.1.4 2002/09/10 23:34:44 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -27,7 +27,7 @@ XMenuInsertPane(menu, p_num, label, active)
     register XMPane *p_ptr;	/* XMPane pointer. */
     register XMPane *pane;	/* Newly created pane. */
     register XMSelect *select;	/* Initial selection for the new pane. */
-        
+
     int label_length;		/* Label length in characters. */
     int label_width;		/* Label width in pixels. */
 
@@ -95,7 +95,7 @@ XMenuInsertPane(menu, p_num, label, active)
     emacs_insque(pane, p_ptr);
 
     /*
-     * Update the pane count. 
+     * Update the pane count.
      */
     menu->p_count++;
 
@@ -110,3 +110,6 @@ XMenuInsertPane(menu, p_num, label, active)
     _XMErrorCode = XME_NO_ERROR;
     return(p_num);
 }
+
+/* arch-tag: ab94d53d-f05b-4273-82d3-f1b01eb9dc9e
+   (do not change this comment) */

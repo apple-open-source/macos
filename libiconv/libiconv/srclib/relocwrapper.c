@@ -1,5 +1,5 @@
 /* Relocating wrapper program.
-   Copyright (C) 2003 Free Software Foundation, Inc.
+   Copyright (C) 2003, 2005 Free Software Foundation, Inc.
    Written by Bruno Haible <bruno@clisp.org>, 2003.
 
    This program is free software; you can redistribute it and/or modify
@@ -14,16 +14,19 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software Foundation,
-   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* Dependencies:
    relocwrapper
     -> progname
     -> progreloc
         -> xreadlink
+           -> readlink
         -> canonicalize
+           -> allocsa
     -> relocatable
     -> setenv
+       -> allocsa
     -> strerror
 
    Macros that need to be set while compiling this file:
@@ -55,7 +58,8 @@
 #include "relocatable.h"
 #include "setenv.h"
 
-/* Return a copy of the filename, with an extra ".bin" at the end.  */
+/* Return a copy of the filename, with an extra ".bin" at the end.
+   More generally, it replaces "${EXEEXT}" at the end with ".bin${EXEEXT}".  */
 static char *
 add_dotbin (const char *filename)
 {
@@ -64,6 +68,38 @@ add_dotbin (const char *filename)
 
   if (result != NULL)
     {
+      if (sizeof (EXEEXT) > sizeof (""))
+	{
+	  /* EXEEXT handling.  */
+	  const size_t exeext_len = sizeof (EXEEXT) - sizeof ("");
+	  static const char exeext[] = EXEEXT;
+	  if (filename_len > exeext_len)
+	    {
+	      /* Compare using an inlined copy of c_strncasecmp(), because
+		 the filenames may have undergone a case conversion since
+		 they were packaged.  In other words, EXEEXT may be ".exe"
+		 on one system and ".EXE" on another.  */
+	      const char *s1 = filename + filename_len - exeext_len;
+	      const char *s2 = exeext;
+	      for (; *s1 != '\0'; s1++, s2++)
+		{
+		  unsigned char c1 = *s1;
+		  unsigned char c2 = *s2;
+		  if ((c1 >= 'A' && c1 <= 'Z' ? c1 - 'A' + 'a' : c1)
+		      != (c2 >= 'A' && c2 <= 'Z' ? c2 - 'A' + 'a' : c2))
+		    goto simple_append;
+		}
+	      /* Insert ".bin" before EXEEXT or its equivalent.  */
+	      memcpy (result, filename, filename_len - exeext_len);
+	      memcpy (result + filename_len - exeext_len, ".bin", 4);
+	      memcpy (result + filename_len - exeext_len + 4,
+		      filename + filename_len - exeext_len,
+		      exeext_len + 1);
+	      return result;
+	    }
+	}
+     simple_append:
+      /* Simply append ".bin".  */
       memcpy (result, filename, filename_len);
       memcpy (result + filename_len, ".bin", 4 + 1);
       return result;

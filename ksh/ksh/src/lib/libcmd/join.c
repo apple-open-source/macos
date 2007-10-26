@@ -1,38 +1,34 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
  * Glenn Fowler
- * AT&T Labs Research
+ * AT&T Research
  *
  * join
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: join (AT&T Labs Research) 2003-05-15 $\n]"
+"[-?\n@(#)$Id: join (AT&T Research) 2006-10-31 $\n]"
 USAGE_LICENSE
 "[+NAME?join - relational database operator]"
 "[+DESCRIPTION?\bjoin\b performs an \aequality join\a on the files \afile1\a "
@@ -94,7 +90,7 @@ USAGE_LICENSE
 "[+SEE ALSO?\bcut\b(1), \bcomm\b(1), \bpaste\b(1), \bsort\b(1), \buniq\b(1)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
 #include <sfdisc.h>
 
 #define C_FILE1		001
@@ -109,10 +105,6 @@ USAGE_LICENSE
 #define S_SPACE		2
 #define S_NL		3
 
-#if DEBUG_TRACE
-#define cmdinit(a,b,c,d)
-#endif
-
 typedef struct
 {
 	Sfio_t*		iop;
@@ -125,6 +117,7 @@ typedef struct
 	int		maxfields;
 	int		spaces;
 	int		hit;
+	int		discard;
 	char**		fieldlist;
 } File_t;
 
@@ -141,13 +134,9 @@ typedef struct
 	int		ignorecase;
 	char*		same;
 	int		samesize;
+	void*		context;
 	File_t		file[2];
 } Join_t;
-
-static struct State_s
-{
-	int		interrupt;
-} state;
 
 static void
 done(register Join_t* jp)
@@ -272,7 +261,7 @@ getolist(Join_t* jp, const char* first, char** arglist)
  * read in a record from file <index> and split into fields
  */
 static unsigned char*
-getrec(Join_t* jp, int index)
+getrec(Join_t* jp, int index, int discard)
 {
 	register unsigned char*	sp = jp->state;
 	register File_t*	fp = &jp->file[index];
@@ -281,8 +270,10 @@ getrec(Join_t* jp, int index)
 	register char*		cp;
 	register int		n = 0;
 
-	if (state.interrupt)
+	if (sh_checksig(jp->context))
 		return 0;
+	if (discard && fp->discard)
+		sfraise(fp->iop, SFSK_DISCARD, NiL);
 	fp->spaces = 0;
 	fp->hit = 0;
 	if (!(cp = sfgetr(fp->iop, '\n', 0)))
@@ -336,7 +327,7 @@ getrec(Join_t* jp, int index)
 
 #if DEBUG_TRACE
 static unsigned char* u1,u2,u3;
-#define getrec(p,n)	(u1 = getrec(p, n), sfprintf(sfstdout, "[G%d#%d@%I*d:%-.8s]", __LINE__, n, sizeof(Sfoff_t), sftell(p->file[n].iop), u1), u1)
+#define getrec(p,n,d)	(u1 = getrec(p, n, d), sfprintf(sfstdout, "[G%d#%d@%I*d:%-.8s]", __LINE__, n, sizeof(Sfoff_t), sftell(p->file[n].iop), u1), u1)
 #endif
 
 /*
@@ -491,7 +482,7 @@ join(Join_t* jp)
 	Sfoff_t			lo = -1;
 	Sfoff_t			hi = -1;
 
-	if ((cp1 = getrec(jp, 0)) && (cp2 = getrec(jp, 1)) || (cp2 = 0))
+	if ((cp1 = getrec(jp, 0, 0)) && (cp2 = getrec(jp, 1, 0)) || (cp2 = 0))
 	{
 		n1 = jp->file[0].fieldlen;
 		n2 = jp->file[1].fieldlen;
@@ -510,7 +501,7 @@ sfprintf(sfstdout, "[C#%d:%d(%c-%c),%d,%lld,%lld%s]", __LINE__, cmp, *cp1, *cp2,
 			{
 				if (!(jp->outmode & C_COMMON))
 				{
-					if (cp1 = getrec(jp, 0))
+					if (cp1 = getrec(jp, 0, 1))
 					{
 						n1 = jp->file[0].fieldlen;
 						same = 1;
@@ -518,7 +509,7 @@ sfprintf(sfstdout, "[C#%d:%d(%c-%c),%d,%lld,%lld%s]", __LINE__, cmp, *cp1, *cp2,
 					}
 					if ((jp->ooutmode & (C_FILE1|C_FILE2)) != C_FILE2)
 						break;
-					if (sfseek(jp->file[0].iop, (Sfoff_t)-jp->file[0].reclen, SEEK_CUR) < 0 || !(cp1 = getrec(jp, 0)))
+					if (sfseek(jp->file[0].iop, (Sfoff_t)-jp->file[0].reclen, SEEK_CUR) < 0 || !(cp1 = getrec(jp, 0, 0)))
 					{
 						error(ERROR_SYSTEM|2, "%s: seek error", jp->file[0].name);
 						return -1;
@@ -535,7 +526,7 @@ sfprintf(sfstdout, "[C#%d:%d(%c-%c),%d,%lld,%lld%s]", __LINE__, cmp, *cp1, *cp2,
 					}
 					lo -= jp->file[1].reclen;
 				}
-				if (cp2 = getrec(jp, 1))
+				if (cp2 = getrec(jp, 1, lo < 0))
 				{
 					n2 = jp->file[1].fieldlen;
 					continue;
@@ -560,7 +551,7 @@ sfprintf(sfstdout, "[2#%d:0,%lld,%lld]", __LINE__, lo, hi);
 						}
 					}
 					memcpy(jp->same, cp2, o2 = n2);
-					if (!(cp2 = getrec(jp, 1)))
+					if (!(cp2 = getrec(jp, 1, 0)))
 						break;
 					n2 = jp->file[1].fieldlen;
 					if (n2 == o2 && *cp2 == *jp->same && !memcmp(cp2, jp->same, n2))
@@ -579,7 +570,7 @@ sfprintf(sfstdout, "[2#%d:0,%lld,%lld]", __LINE__, lo, hi);
 				else if ((jp->outmode & C_FILE2) && outrec(jp, 1) < 0)
 					return -1;
 				lo = -1;
-				if (cp2 = getrec(jp, 1))
+				if (cp2 = getrec(jp, 1, 1))
 				{
 					n2 = jp->file[1].fieldlen;
 					continue;
@@ -591,28 +582,31 @@ sfprintf(sfstdout, "[2#%d:0,%lld,%lld]", __LINE__, lo, hi);
 			else if (same)
 			{
 				same = 0;
-				if (!(cp1 = getrec(jp, 0)))
+				if (!(cp1 = getrec(jp, 0, 0)))
 					break;
 				n1 = jp->file[0].fieldlen;
 				continue;
 			}
 			if (lo >= 0)
 			{
-				hi = sfseek(jp->file[1].iop, (Sfoff_t)0, SEEK_CUR) - jp->file[1].reclen;
-				if (sfseek(jp->file[1].iop, lo, SEEK_SET) != lo || !(cp2 = getrec(jp, 1)))
+				if ((hi = sfseek(jp->file[1].iop, (Sfoff_t)0, SEEK_CUR)) < 0 ||
+				    (hi -= jp->file[1].reclen) < 0 ||
+				    sfseek(jp->file[1].iop, lo, SEEK_SET) != lo ||
+				    !(cp2 = getrec(jp, 1, 0)))
 				{
 					error(ERROR_SYSTEM|2, "%s: seek error", jp->file[1].name);
 					return -1;
 				}
-				else
-					n2 = jp->file[1].fieldlen;
+				n2 = jp->file[1].fieldlen;
 				lo = -1;
+				if (jp->file[1].discard)
+					sfseek(jp->file[1].iop, (Sfoff_t)-1, SEEK_SET);
 			}
 			else if (!cp2)
 				break;
 			else if ((jp->outmode & C_FILE1) && outrec(jp, -1) < 0)
 				return -1;
-			if (!(cp1 = getrec(jp, 0)))
+			if (!(cp1 = getrec(jp, 0, 1)))
 				break;
 			n1 = jp->file[0].fieldlen;
 		}
@@ -632,7 +626,7 @@ sfprintf(sfstdout, "[X#%d:?,%p,%p,%d%,%d,%d%s]", __LINE__, cp1, cp2, cmp, lo, hi
 #if DEBUG_TRACE
 sfprintf(sfstdout, "[O#%d:%02o:%02o]", __LINE__, jp->ooutmode, jp->outmode);
 #endif
-		cp1 = (!cp1 && cmp && hi < 0 && !jp->file[1].hit && ((jp->ooutmode ^ C_ALL) <= 1 || jp->outmode == 2)) ? cp2 : getrec(jp, 1);
+		cp1 = (!cp1 && cmp && hi < 0 && !jp->file[1].hit && ((jp->ooutmode ^ C_ALL) <= 1 || jp->outmode == 2)) ? cp2 : getrec(jp, 1, 0);
 		cmp = 1;
 		n = 1;
 	}
@@ -647,14 +641,14 @@ sfprintf(sfstdout, "[X#%d:%d,%p,%p,%d,%02o,%02o%s]", __LINE__, n, cp1, cp2, cmp,
 	if (!cp1 || !(jp->outmode & (1<<n)))
 	{
 		if (cp1 && jp->file[n].iop == sfstdin)
-			sfseek(sfstdin, 0L, SEEK_END);
+			sfseek(sfstdin, (Sfoff_t)0, SEEK_END);
 		return 0;
 	}
 	if (outrec(jp, cmp) < 0)
 		return -1;
 	do
 	{
-		if (!getrec(jp, n))
+		if (!getrec(jp, n, 1))
 			return 0;
 	} while (outrec(jp, cmp) >= 0);
 	return -1;
@@ -665,18 +659,15 @@ b_join(int argc, char** argv, void* context)
 {
 	register int		n;
 	register char*		cp;
-	register Join_t*	jp = init();
+	register Join_t*	jp;
 	char*			e;
 
-	if (argc < 0)
-	{
-		state.interrupt = 1;
-		return 1;
-	}
-	state.interrupt = 0;
-	cmdinit(argv, context, ERROR_CATALOG, ERROR_NOTIFY);
+#if !DEBUG_TRACE
+	cmdinit(argc, argv, context, ERROR_CATALOG, ERROR_NOTIFY);
+#endif
 	if (!(jp = init()))
 		error(ERROR_system(1),"out of space");
+	jp->context = context;
 	for (;;)
 	{
 		switch (n = optget(argv, usage))
@@ -775,8 +766,13 @@ b_join(int argc, char** argv, void* context)
 	jp->file[0].name = cp = *argv++;
 	if (streq(cp,"-"))
 	{
-		if (sfdcseekable(sfstdin))
-			error(ERROR_warn(0),"%s: seek may fail",cp);
+		if (sfseek(sfstdin,(Sfoff_t)0,SEEK_CUR) < 0)
+		{
+			if (sfdcseekable(sfstdin))
+				error(ERROR_warn(0),"%s: seek may fail",cp);
+			else
+				jp->file[0].discard = 1;
+		}
 		jp->file[0].iop = sfstdin;
 	}
 	else if (!(jp->file[0].iop = sfopen(NiL, cp, "r")))
@@ -787,8 +783,13 @@ b_join(int argc, char** argv, void* context)
 	jp->file[1].name = cp = *argv;
 	if (streq(cp,"-"))
 	{
-		if (sfdcseekable(sfstdin))
-			error(ERROR_warn(0),"%s: seek may fail",cp);
+		if (sfseek(sfstdin,(Sfoff_t)0,SEEK_CUR) < 0)
+		{
+			if (sfdcseekable(sfstdin))
+				error(ERROR_warn(0),"%s: seek may fail",cp);
+			else
+				jp->file[1].discard = 1;
+		}
 		jp->file[1].iop = sfstdin;
 	}
 	else if (!(jp->file[1].iop = sfopen(NiL, cp, "r")))
@@ -811,7 +812,7 @@ b_join(int argc, char** argv, void* context)
 		error(ERROR_system(1),"write error");
 	}
 	else if (jp->file[0].iop==sfstdin || jp->file[1].iop==sfstdin)
-		sfseek(sfstdin,0L,SEEK_END);
+		sfseek(sfstdin,(Sfoff_t)0,SEEK_END);
 	done(jp);
 	return error_info.errors;
 }

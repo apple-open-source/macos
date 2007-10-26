@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #include	"dthdr.h"
 
 /*	Set a view path from dict to view.
@@ -40,80 +36,81 @@ reg Void_t*	obj;
 reg int		type;
 #endif
 {
-	reg Dt_t	*d, *p;
-	reg Void_t*	o;
-	reg Dtdisc_t*	disc;
-	reg Dtlink_t*	here;
+	Dt_t		*d, *p;
+	Void_t		*o, *n, *ok, *nk;
+	int		cmp, lk, sz, ky;
+	Dtcompar_f	cmpf;
 
 	/* these operations only happen at the top level */
 	if(type&(DT_INSERT|DT_DELETE|DT_CLEAR|DT_RENEW))
 		return (*(dt->meth->searchf))(dt,obj,type);
 
-	if(!obj && !(type&(DT_FIRST|DT_LAST)) )
-		return NIL(Void_t*);
-
-	if(type&(DT_MATCH|DT_SEARCH|DT_FIRST|DT_LAST))
+	if((type&(DT_MATCH|DT_SEARCH)) || /* order sets first/last done below */
+	   ((type&(DT_FIRST|DT_LAST)) && !(dt->meth->type&(DT_OBAG|DT_OSET)) ) )
 	{	for(d = dt; d; d = d->view)
-		{	if((o = (*(d->meth->searchf))(d,obj,type)) )
-			{	dt->walk = d;
-				return o;
-			}
-		}
-
-		dt->walk = NIL(Dt_t*);
-		return NIL(Void_t*);
+			if((o = (*(d->meth->searchf))(d,obj,type)) )
+				break;
+		dt->walk = d;
+		return o;
 	}
 
-	/* must be (DT_NEXT|DT_PREV) */
-	if(!dt->walk || !(here = dt->walk->data->here) ||
-	   obj != _DTOBJ(here,dt->walk->disc->link) )
-	{	for(d = dt; d; d = d->view)
-		{	if((o = (*(d->meth->searchf))(d,obj,DT_SEARCH)) )
-			{	dt->walk = d;
-				goto do_adj;
-			}
-		}
-
-		dt->walk = NIL(Dt_t*);
-		return NIL(Void_t*);
-	}
-
-do_adj: for(d = dt->walk, o = (*(d->meth->searchf))(d,obj,type); ; )
-	{	while(o)
-		{	disc = d->disc;
-			here = (d->meth->type&(DT_SET|DT_BAG)) ?
-					d->data->here : NIL(Dtlink_t*);
-
-			for(p = dt; ; p = p->view)
-			{	reg Dtdisc_t*	dc;
-
-				if(p == d) /* this object is uncovered */	
-					return o;
-
-				/* see if it is covered */
-				if(here && (p->meth->type&(DT_SET|DT_BAG)) &&
-				   (disc == (dc = p->disc) ||
-				    (disc->key == dc->key && disc->size == dc->size &&
-				     disc->link == dc->link && disc->hashf == dc->hashf)))
-				{	if((*(p->meth->searchf))(p,here,DT_VSEARCH) )
-						break;
-				}
-				else
-				{	if((*(p->meth->searchf))(p,o,DT_SEARCH) )
-						break;
-				}
-			}
-
-			o = (*(d->meth->searchf))(d,o,type);
-		}
-
-		if(!(d = dt->walk = d->view) )
+	if(dt->meth->type & (DT_OBAG|DT_OSET) )
+	{	if(!(type & (DT_FIRST|DT_LAST|DT_NEXT|DT_PREV)) )
 			return NIL(Void_t*);
 
-		if(type&DT_NEXT)
-			o = (*(d->meth->searchf))(d,NIL(Void_t*),DT_FIRST);
-		else /* if(type&DT_PREV) */
-			o = (*(d->meth->searchf))(d,NIL(Void_t*),DT_LAST);
+		n = nk = NIL(Void_t*); p = NIL(Dt_t*);
+		for(d = dt; d; d = d->view)
+		{	if(!(o = (*d->meth->searchf)(d, obj, type)) )
+				continue;
+			_DTDSC(d->disc,ky,sz,lk,cmpf);
+			ok = _DTKEY(o,ky,sz);
+
+			if(n) /* get the right one among all dictionaries */
+			{	cmp = _DTCMP(d,ok,nk,d->disc,cmpf,sz);
+				if(((type & (DT_NEXT|DT_FIRST)) && cmp < 0) ||
+				   ((type & (DT_PREV|DT_LAST)) && cmp > 0) )
+					goto a_dj;
+			}
+			else /* looks good for now */
+			{ a_dj: p  = d;
+				n  = o;
+				nk = ok;
+			}
+		}
+
+		dt->walk = p;
+		return n;
+	}
+
+	/* non-ordered methods */
+	if(!(type & (DT_NEXT|DT_PREV)) )
+		return NIL(Void_t*);
+
+	if(!dt->walk || obj != _DTOBJ(dt->walk->data->here, dt->walk->disc->link) )
+	{	for(d = dt; d; d = d->view)
+			if((o = (*(d->meth->searchf))(d, obj, DT_SEARCH)) )
+				break;
+		dt->walk = d;
+		if(!(obj = o) )
+			return NIL(Void_t*);
+	}
+
+	for(d = dt->walk, obj = (*d->meth->searchf)(d, obj, type);; )
+	{	while(obj) /* keep moving until finding an uncovered object */
+		{	for(p = dt; ; p = p->view)
+			{	if(p == d) /* adjacent object is uncovered */	
+					return obj;
+				if((*(p->meth->searchf))(p, obj, DT_SEARCH) )
+					break;
+			}
+			obj = (*d->meth->searchf)(d, obj, type);
+		}
+
+		if(!(d = dt->walk = d->view) ) /* move on to next dictionary */
+			return NIL(Void_t*);
+		else if(type&DT_NEXT)
+			obj = (*(d->meth->searchf))(d,NIL(Void_t*),DT_FIRST);
+		else	obj = (*(d->meth->searchf))(d,NIL(Void_t*),DT_LAST);
 	}
 }
 
@@ -129,7 +126,10 @@ reg Dt_t*	view;
 
 	UNFLATTEN(dt);
 	if(view)
-		UNFLATTEN(view);
+	{	UNFLATTEN(view);
+		if(view->meth != dt->meth) /* must use the same method */
+			return NIL(Dt_t*);
+	}
 
 	/* make sure there won't be a cycle */
 	for(d = view; d; d = d->view)

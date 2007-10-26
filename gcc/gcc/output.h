@@ -512,6 +512,8 @@ extern bool default_binds_local_p (tree);
 extern bool default_binds_local_p_1 (tree, int);
 extern void default_globalize_label (FILE *, const char *);
 extern void default_emit_unwind_label (FILE *, tree, int, int);
+/* APPLE LOCAL mainline */
+extern void default_emit_except_table_label (FILE *);
 extern void default_internal_label (FILE *, const char *, unsigned long);
 extern void default_file_start (void);
 extern void file_end_indicate_exec_stack (void);

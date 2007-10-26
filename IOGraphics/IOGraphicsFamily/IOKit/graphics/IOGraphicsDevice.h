@@ -35,12 +35,12 @@ class IOGraphicsDevice : public IOService
 public:
 
     virtual void hideCursor( void ) = 0;
-    virtual void showCursor( Point * cursorLoc, int frame ) = 0;
-    virtual void moveCursor( Point * cursorLoc, int frame ) = 0;
+    virtual void showCursor( IOGPoint * cursorLoc, int frame ) = 0;
+    virtual void moveCursor( IOGPoint * cursorLoc, int frame ) = 0;
 
     virtual void getVBLTime( AbsoluteTime * time, AbsoluteTime * delta ) = 0;
 
-    virtual void getBoundingRect ( Bounds ** bounds ) = 0;
+    virtual void getBoundingRect ( IOGBounds ** bounds ) = 0;
 };
 
 #endif /* ! _IOKIT_IOGRAPHICSDEVICE_H */

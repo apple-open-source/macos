@@ -1,4 +1,0 @@
-XCOMM $XFree86: xc/doc/specs/Xv/Imakefile,v 1.2 2000/03/09 22:10:07 dawes Exp $
-
-InstallDoc(xv-protocol-v2,xv-protocol-v2.txt)
-

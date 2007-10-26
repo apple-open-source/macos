@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,7 @@
  *  bless/extractBootBlocks - Tool for extracting 'boot' 1 from System file
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon May 19 2003.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  *  $Id: extractBootBlocks.c,v 1.7 2005/02/03 00:42:22 ssen Exp $
  *

@@ -1,0 +1,337 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		0592D0FE06826ABD002C5BB3 /* GSSExample */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = A1DC454D08F7724100E23BE8 /* Build configuration list for PBXAggregateTarget "GSSExample" */;
+			buildPhases = (
+			);
+			dependencies = (
+				0592D10906826B17002C5BB3 /* PBXTargetDependency */,
+				0592D11206826B42002C5BB3 /* PBXTargetDependency */,
+			);
+			name = GSSExample;
+			productName = sample;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		0592D11806826BD2002C5BB3 /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = 0592D11506826B73002C5BB3 /* server.c */; };
+		0592D12006826BF2002C5BB3 /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 0592D11F06826BF2002C5BB3 /* client.c */; };
+		059EBC7A0683C45D008507C1 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = 059EBC780683C45D008507C1 /* common.h */; };
+		059EBC7B0683C45D008507C1 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 059EBC790683C45D008507C1 /* common.c */; };
+		059EBC7C0683C45D008507C1 /* common.h in Headers */ = {isa = PBXBuildFile; fileRef = 059EBC780683C45D008507C1 /* common.h */; };
+		059EBC7D0683C45D008507C1 /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 059EBC790683C45D008507C1 /* common.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0592D10806826B17002C5BB3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0592D0F406826A88002C5BB3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0592D10306826ADE002C5BB3;
+			remoteInfo = gssServerSample;
+		};
+		0592D11106826B42002C5BB3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0592D0F406826A88002C5BB3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0592D10E06826B38002C5BB3;
+			remoteInfo = gssClientSample;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0592D10406826ADE002C5BB3 /* GSSExampleServer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = GSSExampleServer; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592D10F06826B38002C5BB3 /* GSSExampleClient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = GSSExampleClient; sourceTree = BUILT_PRODUCTS_DIR; };
+		0592D11506826B73002C5BB3 /* server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = server.c; sourceTree = "<group>"; };
+		0592D11F06826BF2002C5BB3 /* client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = client.c; sourceTree = "<group>"; };
+		0592D27B06826FA2002C5BB3 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		059EBC780683C45D008507C1 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
+		059EBC790683C45D008507C1 /* common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = common.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0592D0F006826A88002C5BB3 = {
+			isa = PBXGroup;
+			children = (
+				0592D10506826ADE002C5BB3 /* Products */,
+				0592D11506826B73002C5BB3 /* server.c */,
+				0592D11F06826BF2002C5BB3 /* client.c */,
+				059EBC780683C45D008507C1 /* common.h */,
+				059EBC790683C45D008507C1 /* common.c */,
+				0592D27B06826FA2002C5BB3 /* Kerberos.framework */,
+			);
+			sourceTree = "<group>";
+		};
+		0592D10506826ADE002C5BB3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				0592D10406826ADE002C5BB3 /* GSSExampleServer */,
+				0592D10F06826B38002C5BB3 /* GSSExampleClient */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		0592D10106826ADE002C5BB3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				059EBC7C0683C45D008507C1 /* common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592D10C06826B38002C5BB3 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				059EBC7A0683C45D008507C1 /* common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		0592D10306826ADE002C5BB3 /* GSSExampleServer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1DC454508F7724100E23BE8 /* Build configuration list for PBXNativeTarget "GSSExampleServer" */;
+			buildPhases = (
+				0592D10106826ADE002C5BB3 /* Headers */,
+				0592D10206826ADE002C5BB3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GSSExampleServer;
+			productName = gssServerSample;
+			productReference = 0592D10406826ADE002C5BB3 /* GSSExampleServer */;
+			productType = "com.apple.product-type.tool";
+		};
+		0592D10E06826B38002C5BB3 /* GSSExampleClient */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1DC454908F7724100E23BE8 /* Build configuration list for PBXNativeTarget "GSSExampleClient" */;
+			buildPhases = (
+				0592D10C06826B38002C5BB3 /* Headers */,
+				0592D10D06826B38002C5BB3 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = GSSExampleClient;
+			productName = gssClientSample;
+			productReference = 0592D10F06826B38002C5BB3 /* GSSExampleClient */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0592D0F406826A88002C5BB3 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = A1DC455108F7724100E23BE8 /* Build configuration list for PBXProject "GSSExample" */;
+			hasScannedForEncodings = 1;
+			mainGroup = 0592D0F006826A88002C5BB3;
+			productRefGroup = 0592D10506826ADE002C5BB3 /* Products */;
+			projectDirPath = "";
+			targets = (
+				0592D0FE06826ABD002C5BB3 /* GSSExample */,
+				0592D10306826ADE002C5BB3 /* GSSExampleServer */,
+				0592D10E06826B38002C5BB3 /* GSSExampleClient */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0592D10206826ADE002C5BB3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0592D11806826BD2002C5BB3 /* server.c in Sources */,
+				059EBC7D0683C45D008507C1 /* common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592D10D06826B38002C5BB3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0592D12006826BF2002C5BB3 /* client.c in Sources */,
+				059EBC7B0683C45D008507C1 /* common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0592D10906826B17002C5BB3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0592D10306826ADE002C5BB3 /* GSSExampleServer */;
+			targetProxy = 0592D10806826B17002C5BB3 /* PBXContainerItemProxy */;
+		};
+		0592D11206826B42002C5BB3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0592D10E06826B38002C5BB3 /* GSSExampleClient */;
+			targetProxy = 0592D11106826B42002C5BB3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A1DC454608F7724100E23BE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Kerberos,
+				);
+				PRODUCT_NAME = GSSExampleServer;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Debug;
+		};
+		A1DC454708F7724100E23BE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Kerberos,
+				);
+				PRODUCT_NAME = GSSExampleServer;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		A1DC454A08F7724100E23BE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Kerberos,
+				);
+				PRODUCT_NAME = GSSExampleClient;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Debug;
+		};
+		A1DC454B08F7724100E23BE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Kerberos,
+				);
+				PRODUCT_NAME = GSSExampleClient;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		A1DC454E08F7724100E23BE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = sample;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		A1DC454F08F7724100E23BE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = sample;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+		A1DC455208F7724100E23BE8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		A1DC455308F7724100E23BE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1DC454508F7724100E23BE8 /* Build configuration list for PBXNativeTarget "GSSExampleServer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1DC454608F7724100E23BE8 /* Debug */,
+				A1DC454708F7724100E23BE8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1DC454908F7724100E23BE8 /* Build configuration list for PBXNativeTarget "GSSExampleClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1DC454A08F7724100E23BE8 /* Debug */,
+				A1DC454B08F7724100E23BE8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1DC454D08F7724100E23BE8 /* Build configuration list for PBXAggregateTarget "GSSExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1DC454E08F7724100E23BE8 /* Debug */,
+				A1DC454F08F7724100E23BE8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1DC455108F7724100E23BE8 /* Build configuration list for PBXProject "GSSExample" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1DC455208F7724100E23BE8 /* Debug */,
+				A1DC455308F7724100E23BE8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 0592D0F406826A88002C5BB3 /* Project object */;
+}

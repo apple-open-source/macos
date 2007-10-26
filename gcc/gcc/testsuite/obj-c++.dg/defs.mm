@@ -3,6 +3,8 @@
 /* Contributed by Devang Patel  <dpatel@apple.com>  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
+/* APPLE LOCAL radar 4894756 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 
 #include <stdlib.h>

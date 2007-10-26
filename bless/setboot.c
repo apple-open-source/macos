@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,93 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen on 1/14/05.
- *  Copyright 2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright 2005-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: setboot.c,v 1.21 2006/01/02 22:27:28 ssen Exp $
- *
- *  $Log: setboot.c,v $
- *  Revision 1.21  2006/01/02 22:27:28  ssen
- *  <rdar://problem/4395370> bless should not support BIOS systems
- *  For RC_RELEASE=Leopard, keep BIOS support, but preprocess it out
- *  for Herbie and the open source build
- *
- *  Revision 1.20  2005/12/07 04:49:17  ssen
- *  Add support for --netboot options: --booter, --kernel, --mkext.
- *  Should make it easy to set your system to ANI-style netboot.
- *  --mkext doesn't work on ppc
- *
- *  Revision 1.19  2005/12/02 22:51:56  ssen
- *  Infrastructure for --getBoot, to interpret efi-boot-device as
- *  either a network path, or a disk device
- *
- *  Revision 1.18  2005/12/02 19:13:49  ssen
- *  Enhance bless --device so it supports all the good stuff like
- *  --options and --nextonly
- *
- *  Revision 1.17  2005/12/01 20:01:20  ssen
- *  <rdar://problem/4332212> Use unique matching properties for boot device
- *  Change this around so that the main IOMatch dictionary
- *  is persistent and can be copy-pasted
- *
- *  Revision 1.16  2005/11/21 17:58:38  ssen
- *  Fix a bad bug where old boot-args weren't being parsed
- *  properly, leading to panics on next boot.
- *
- *  Revision 1.15  2005/11/17 01:07:35  ssen
- *  fix off-by-1 bug
- *
- *  Revision 1.14  2005/11/17 00:22:10  ssen
- *  <rdar://problem/4344363> Bless needs to zero out kernel/mkext fields when booting from local disk
- *  Unset efi-boot-file and efi-boot-mkext, and filter boot-args
- *
- *  Revision 1.13  2005/11/16 00:13:29  ssen
- *  Validate --server, do special stuff on EFI systems
- *
- *  Revision 1.12  2005/11/11 23:48:57  ssen
- *  <rdar://problem/4311178> Bless should support setting efi Boot#### optional data
- *  <rdar://problem/4311108> Bless should support setting BootNext in EFI
- *  Support --nextonly and --options
- *
- *  Revision 1.11  2005/11/09 22:44:21  ssen
- *  Implement -firmware mode for EFI-based flashers
- *
- *  Revision 1.10  2005/11/05 00:04:28  ssen
- *  <rdar://problem/4255345> bless needs to write the nvram device path with booting on non-BIOS Yellow systems
- *  Poke NVRAM directly with IOKit, to avoid type guessing by nvram(8)
- *
- *  Revision 1.9  2005/11/03 19:46:13  ssen
- *  <rdar://problem/4255345> bless needs to write the nvram device path with booting on non-BIOS Yellow systems
- *  Initial work to support EFI nvram boot selection
- *
- *  Revision 1.8  2005/07/29 23:55:09  ssen
- *  for --setBoot, stub it out for EFI
- *
- *  Revision 1.7  2005/06/24 16:39:48  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.6  2005/02/23 19:52:49  ssen
- *  start work on -firmware mode
- *
- *  Revision 1.5  2005/02/09 00:17:56  ssen
- *  If doing a setboot on UFS, HFSX, or RAID, and a label
- *  was not explicitly specified,  query DiskArb and render to label
- *
- *  Revision 1.4  2005/02/08 00:18:45  ssen
- *  Implement support for offline updating of BootX and OF labels
- *  in Apple_Boot partitions, and also for RAIDs. Only works
- *  in --device mode so far
- *
- *  Revision 1.3  2005/02/03 00:42:22  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.2  2005/01/16 02:10:43  ssen
- *  Move updating of RAID booters into common setboot() routine
- *
- *  Revision 1.1  2005/01/14 22:28:22  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  Consolidate code to set OF or active BIOS partition
+ *  $Id: setboot.c,v 1.30 2006/07/19 00:15:36 ssen Exp $
  *
  */
 
@@ -122,34 +38,31 @@
 
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOCFSerialize.h>
-#include <DiskArbitration/DiskArbitration.h>
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "enums.h"
-
 #include "bless.h"
+#include "bless_private.h"
+#include "protos.h"
 
-extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
-    __attribute__ ((format (printf, 3, 4)));
+#if USE_DISKARBITRATION
+#include <DiskArbitration/DiskArbitration.h>
+#endif
 
-
+#if SUPPORT_RAID
 static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRef bootxData,
 							 CFDataRef labelData);
+#endif
 
-int setefidevice(BLContextPtr context, const char * bsdname, int bootNext, const char *optionalData);
-int setefifilepath(BLContextPtr context, const char * path, int bootNext, const char *optionalData);
-int setefinetworkpath(BLContextPtr context, CFStringRef booterXML,
-							 CFStringRef kernelXML, CFStringRef mkextXML,
-                             int bootNext);
 static int setit(BLContextPtr context, mach_port_t masterPort, const char *bootvar, CFStringRef xmlstring);
 
 static int setefibootargs(BLContextPtr context, mach_port_t masterPort);
+static int _forwardNVRAM(BLContextPtr context, CFStringRef from, CFStringRef to);
 
 int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 				   CFDataRef labelData)
 {
 	int err;	
-	CFTypeRef bootData = NULL;
 	BLPreBootEnvType	preboot;
 	
 	err = BLGetPreBootEnvironmentType(context, &preboot);
@@ -158,6 +71,9 @@ int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 		return 1;
 	}
 	
+#if SUPPORT_RAID
+	CFTypeRef bootData = NULL;
+
 	err = BLGetRAIDBootDataForDevice(context, device, &bootData);
 	if(err) {
 		blesscontextprintf(context, kBLLogLevelError,  "Error while determining if %s is a RAID\n", device );
@@ -178,6 +94,7 @@ int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 			blesscontextprintf(context, kBLLogLevelError,  "Error while updating booter for %s\n", device );			
 		}		
 	}
+#endif // SUPPORT_RAID
 		
 	if(preboot == kBLPreBootEnvType_OpenFirmware) {
 		err = BLSetOpenFirmwareBootDevice(context, device);
@@ -188,7 +105,7 @@ int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 			blesscontextprintf(context, kBLLogLevelVerbose,  "Open Firmware set successfully\n" );
 		}
 	} else if(preboot == kBLPreBootEnvType_EFI) {
-        err = setefidevice(context, device + 5, 0, NULL);
+        err = setefidevice(context, device + 5, 0, 0, NULL, NULL, false);
 		if(err) {
 			blesscontextprintf(context, kBLLogLevelError,  "Can't set EFI\n" );
 			return 1;
@@ -203,7 +120,7 @@ int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
 	return 0;	
 }
 
-
+#if SUPPORT_RAID
 static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRef bootxData,
 									CFDataRef labelData)
 {
@@ -232,11 +149,12 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		return 0;
 	
 	for(;;) {
+		char label[MAXPATHLEN];
+#if USE_DISKARBITRATION
 		DADiskRef disk = NULL;
 		DASessionRef session = NULL;
 		CFDictionaryRef props = NULL;
 		CFStringRef	daName = NULL;
-		char label[MAXPATHLEN];
 
 		
 		if(labelData) break; // no need to generate
@@ -287,6 +205,9 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 		CFRelease(props);
 		CFRelease(disk);
 		CFRelease(session);	
+#else // !USE_DISKARBITRATION
+		strlcpy(label, "Unknown", sizeof(label));
+#endif // !USE_DISKARBITRATION
 		
 		ret = BLGenerateOFLabel(context, label, &labelData);
 		if(ret)
@@ -394,18 +315,78 @@ static int updateAppleBootIfPresent(BLContextPtr context, char *device, CFDataRe
 	
 	return 0;
 }
+#endif // SUPPORT_RAID
 
-int setefidevice(BLContextPtr context, const char * bsdname, int bootNext, const char *optionalData)
+int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
+				 int bootLegacy, const char *legacyHint, const char *optionalData, bool shortForm)
 {
     int ret;
 
     CFStringRef xmlString = NULL;
     const char *bootString = NULL;
     
-    ret = BLCreateEFIXMLRepresentationForDevice(context,
-                                              bsdname,
-                                              optionalData,
-                                              &xmlString);
+	if(bootLegacy) {
+        if(legacyHint) {
+            ret = BLCreateEFIXMLRepresentationForDevice(context,
+                                                legacyHint+5,
+                                                NULL,
+                                                &xmlString,
+                                                false);
+
+            if(ret) {
+                return 1;
+            }
+            
+            ret = setit(context, kIOMasterPortDefault, "efi-legacy-drive-hint", xmlString);    
+            if(ret) return ret;
+
+            ret = _forwardNVRAM(context, CFSTR("efi-legacy-drive-hint-data"), CFSTR("BootCampHD"));
+            if(ret) return ret;     
+            
+            ret = setit(context, kIOMasterPortDefault, kIONVRAMDeletePropertyKey, CFSTR("efi-legacy-drive-hint"));    
+            if(ret) return ret;
+       
+        }
+
+        ret = BLCreateEFIXMLRepresentationForLegacyDevice(context,
+                                                  bsdname,
+                                                  &xmlString);
+	} else {
+        // the given device may be pointing at a RAID
+        CFDictionaryRef dict = NULL;
+        CFArrayRef array = NULL;
+        char    newBSDName[MAXPATHLEN];
+        
+        strcpy(newBSDName, bsdname);
+        
+        ret = BLCreateBooterInformationDictionary(context, newBSDName,
+                                                    &dict);
+        if(ret) {
+            return 1;
+        }
+        
+        // check to see if there's a booer partition. If so, use it
+        array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
+        if(array) {
+            if(CFArrayGetCount(array) > 0) {
+                CFStringRef firstBooter = CFArrayGetValueAtIndex(array, 0);
+                if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
+                                       kCFStringEncodingUTF8)) {
+                    return 1;
+                }
+                blesscontextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+            }
+        }
+        
+        CFRelease(dict);
+        
+		ret = BLCreateEFIXMLRepresentationForDevice(context,
+													newBSDName,
+													optionalData,
+													&xmlString,
+                                                    shortForm);
+	}
+		
     if(ret) {
         return 1;
     }
@@ -442,7 +423,7 @@ static int setit(BLContextPtr context, mach_port_t masterPort, const char *bootv
 
     optionsNode = IORegistryEntryFromPath(masterPort, kIODeviceTreePlane ":/options");
     
-    if(MACH_PORT_NULL == optionsNode) {
+    if(IO_OBJECT_NULL == optionsNode) {
         blesscontextprintf(context, kBLLogLevelError,  "Could not find " kIODeviceTreePlane ":/options\n");
         return 1;
     }
@@ -470,16 +451,102 @@ static int setit(BLContextPtr context, mach_port_t masterPort, const char *bootv
     return 0;
 }
 
-int setefifilepath(BLContextPtr context, const char * path, int bootNext, const char *optionalData)
+int setefifilepath(BLContextPtr context, const char * path, int bootNext,
+				   int bootLegacy, const char *legacyHint, const char *optionalData, bool shortForm)
 {
     CFStringRef xmlString = NULL;
     const char *bootString = NULL;
     int ret;
+    struct statfs sb;
+    if(0 != blsustatfs(path, &sb)) {
+        blesscontextprintf(context, kBLLogLevelError,  "Can't statfs %s\n" ,
+                           path);
+        return 1;           
+    }
     
-    ret = BLCreateEFIXMLRepresentationForPath(context,
-                                              path,
-                                              optionalData,
-                                              &xmlString);
+    if(bootLegacy) {
+        if(legacyHint) {
+            ret = BLCreateEFIXMLRepresentationForDevice(context,
+                                                legacyHint+5,
+                                                NULL,
+                                                &xmlString,
+                                                false);
+
+            if(ret) {
+                return 1;
+            }
+            
+            ret = setit(context, kIOMasterPortDefault, "efi-legacy-drive-hint", xmlString);    
+            if(ret) return ret;
+
+            ret = _forwardNVRAM(context, CFSTR("efi-legacy-drive-hint-data"), CFSTR("BootCampHD"));
+            if(ret) return ret;     
+            
+            ret = setit(context, kIOMasterPortDefault, kIONVRAMDeletePropertyKey, CFSTR("efi-legacy-drive-hint"));    
+            if(ret) return ret;
+       
+        }
+
+
+        ret = BLCreateEFIXMLRepresentationForLegacyDevice(context,
+                        sb.f_mntfromname + 5,
+                        &xmlString);
+      
+    } else {
+        // first try to get booter information for the block device.
+        // if there is none, we can do our normal path
+        // the given device may be pointing at a RAID
+        CFDictionaryRef dict = NULL;
+        CFArrayRef array = NULL;
+        char    newBSDName[MAXPATHLEN];
+        CFStringRef firstBooter = NULL;
+        
+        strcpy(newBSDName, sb.f_mntfromname + 5);
+        
+        ret = BLCreateBooterInformationDictionary(context, newBSDName,
+                                                  &dict);
+        if(ret) {
+            return 1;
+        }
+        
+        // check to see if there's a booter partition. If so, use it
+        array = CFDictionaryGetValue(dict, kBLAuxiliaryPartitionsKey);
+        if(array) {
+            if(CFArrayGetCount(array) > 0) {
+                firstBooter = CFArrayGetValueAtIndex(array, 0);
+                if(!CFStringGetCString(firstBooter, newBSDName, sizeof(newBSDName),
+                                       kCFStringEncodingUTF8)) {
+                    return 1;
+                }
+                blesscontextprintf(context, kBLLogLevelVerbose, "Substituting booter %s\n", newBSDName);
+            }
+        }
+        
+        
+        if(firstBooter) {
+            // so this is probably a RAID. Validate that we were passed a mountpoint
+            if(0 != strncmp(sb.f_mntonname, path, MAXPATHLEN)) {
+                blesscontextprintf(context, kBLLogLevelError,  "--file not supported for %s\n" ,
+                                   sb.f_mntonname);
+                return 2;
+            }
+            ret = BLCreateEFIXMLRepresentationForDevice(context,
+                                                        newBSDName,
+                                                        optionalData,
+                                                        &xmlString,
+                                                        shortForm);
+            
+        } else {
+            ret = BLCreateEFIXMLRepresentationForPath(context,
+                                                      path,
+                                                      optionalData,
+                                                      &xmlString, shortForm);
+            
+        }
+        
+        CFRelease(dict);
+    }
+
     if(ret) {
         return 1;
     }
@@ -589,3 +656,43 @@ static int setefibootargs(BLContextPtr context, mach_port_t masterPort)
     return 0;
 }
 
+
+static int _forwardNVRAM(BLContextPtr context, CFStringRef from, CFStringRef to) {
+    
+    io_registry_entry_t optionsNode = 0;
+    CFTypeRef       valRef;
+    kern_return_t   kret;
+    
+    optionsNode = IORegistryEntryFromPath(kIOMasterPortDefault, kIODeviceTreePlane ":/options");
+    
+    if(IO_OBJECT_NULL == optionsNode) {
+        contextprintf(context, kBLLogLevelError,  "Could not find " kIODeviceTreePlane ":/options\n");
+        return 1;
+    }
+    
+    valRef = IORegistryEntryCreateCFProperty(optionsNode, from, kCFAllocatorDefault, 0);
+    
+    if(valRef == NULL) {
+        contextprintf(context, kBLLogLevelError,  "Could not find variable '%s'\n",
+                                                    BLGetCStringDescription(from));
+        return 2;
+    }
+    
+    blesscontextprintf(context, kBLLogLevelVerbose,  "Setting EFI NVRAM:\n" );
+    blesscontextprintf(context, kBLLogLevelVerbose,  "\t%s='...'\n", BLGetCStringDescription(to) );
+
+    kret = IORegistryEntrySetCFProperty(optionsNode, to, valRef);
+    if(kret) {
+        CFRelease(valRef);
+        IOObjectRelease(optionsNode);
+        blesscontextprintf(context, kBLLogLevelError,  "Could not set boot property '%s': %#x\n",
+                                                        BLGetCStringDescription(to),
+                                                        kret);
+        return 3;        
+    }
+
+    CFRelease(valRef);    
+    IOObjectRelease(optionsNode);
+
+    return 0;
+}

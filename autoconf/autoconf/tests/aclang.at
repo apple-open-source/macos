@@ -4,7 +4,7 @@
 ## Do not edit by hand.  ##
 ## --------------------- ##
 
-# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 AT_BANNER([Testing autoconf/lang macros.])
 
@@ -13,4 +13,3 @@ AT_CHECK_MACRO([AC_NO_EXECUTABLES])
 AT_CHECK_MACRO([AC_REQUIRE_CPP])
 
 # Obsolete macros.
-AT_CHECK_AU_MACRO([AC_LANG_SAVE])

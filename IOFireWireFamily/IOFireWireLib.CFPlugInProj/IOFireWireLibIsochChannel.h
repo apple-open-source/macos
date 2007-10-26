@@ -74,7 +74,6 @@ namespace IOFireWireLib {
 			Boolean						mNotifyIsOn ;
 			ForceStopHandler			mForceStopHandler ;
 			void*						mUserRefCon ;
-			io_async_ref_t				mAsyncRef ;
 			IOFireWireLibIsochPortRef	mTalker ;
 			CFMutableArrayRef			mListeners ;
 			ChannelRef					mRefInterface ;

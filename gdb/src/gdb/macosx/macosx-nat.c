@@ -34,7 +34,9 @@
 #include "defs.h"
 #include "gdbcore.h"
 #include "serial.h"
+#include "ser-base.h"
 #include "ser-unix.h"
+#include "inferior.h"
 #include "objc-lang.h"
 #include "infcall.h"
 
@@ -44,6 +46,7 @@
 #include "macosx-nat-dyld-process.h"
 
 extern macosx_inferior_status *macosx_status;
+extern macosx_dyld_thread_status macosx_dyld_status;
 extern int inferior_auto_start_cfm_flag;
 extern int inferior_auto_start_dyld_flag;
 
@@ -142,25 +145,27 @@ macosx_classic_create_inferior (pid_t pid)
           // remove all the currently cached objfiles since we've started 
           // a new session
 
-          DYLD_ALL_OBJFILE_INFO_ENTRIES (&macosx_status->dyld_status.current_info, e, i)
+          DYLD_ALL_OBJFILE_INFO_ENTRIES (&macosx_dyld_status.current_info, e, i)
           {
               dyld_remove_objfile (e);
               dyld_objfile_entry_clear (e);
           }
 
-          macosx_dyld_init (&macosx_status->dyld_status, exec_bfd);
+          macosx_dyld_init (&macosx_dyld_status, exec_bfd);
           // remove all the old objfiles to work around rdar://4091532
-          DYLD_ALL_OBJFILE_INFO_ENTRIES (&macosx_status->dyld_status.current_info, e, i)
+          DYLD_ALL_OBJFILE_INFO_ENTRIES (&macosx_dyld_status.current_info, e, i)
           {
               dyld_remove_objfile (e);
               dyld_objfile_entry_clear (e);
           }
           macosx_dyld_update (1);
         }
+#if WITH_CFM
       if (inferior_auto_start_cfm_flag) 
         {
           macosx_cfm_thread_init (&macosx_status->cfm_status);
         }
+#endif
     }
 }
 
@@ -341,20 +346,22 @@ _initialize_macosx_nat ()
   ops->next = 0;
   ops->open = macosx_classic_unix_open;
   ops->close = macosx_classic_unix_close;
-  ops->readchar = ser_unix_readchar;
-  ops->write = ser_unix_write;
-  ops->flush_output = ser_unix_nop_flush_output;
-  ops->flush_input = ser_unix_flush_input;
-  ops->send_break = ser_unix_nop_send_break;
-  ops->go_raw = ser_unix_nop_raw;
-  ops->get_tty_state = ser_unix_nop_get_tty_state;
-  ops->set_tty_state = ser_unix_nop_set_tty_state;
-  ops->print_tty_state = ser_unix_nop_print_tty_state;
-  ops->noflush_set_tty_state = ser_unix_nop_noflush_set_tty_state;
-  ops->setbaudrate = ser_unix_nop_setbaudrate;
-  ops->setstopbits = ser_unix_nop_setstopbits;
-  ops->drain_output = ser_unix_nop_drain_output;
-  ops->async = ser_unix_async;
+  ops->readchar = ser_base_readchar;
+  ops->write = ser_base_write;
+  ops->flush_output = ser_base_flush_output;
+  ops->flush_input = ser_base_flush_input;
+  ops->send_break = ser_base_send_break;
+  ops->go_raw = ser_base_raw;
+  ops->get_tty_state = ser_base_get_tty_state;
+  ops->set_tty_state = ser_base_set_tty_state;
+  ops->print_tty_state = ser_base_print_tty_state;
+  ops->noflush_set_tty_state = ser_base_noflush_set_tty_state;
+  ops->setbaudrate = ser_base_setbaudrate;
+  ops->setstopbits = ser_base_setstopbits;
+  ops->drain_output = ser_base_drain_output;
+  ops->async = ser_base_async;
+  ops->read_prim = ser_unix_read_prim;
+  ops->write_prim = ser_unix_write_prim;
   serial_add_interface (ops);
 
 }

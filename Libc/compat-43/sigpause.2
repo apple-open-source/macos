@@ -43,25 +43,37 @@
 .Sh SYNOPSIS
 .In signal.h
 .Ft int
-.Fn sigpause "int sigmask"
+.Fn sigpause "int sig"
 .Sh DESCRIPTION
 .Sy This interface is made obsolete by
 .Xr sigsuspend 2 .
 .Pp
 .Fn Sigpause
 assigns
-.Fa sigmask
+.Fa sig
 to the set of masked signals
 and then waits for a signal to arrive;
 on return the set of masked signals is restored.
-.Fa Sigmask
-is usually 0 to indicate that no
+.Fa Sig
+is usually 0, indicating that no
 signals are to be blocked.
 .Fn Sigpause
 always terminates by being interrupted, returning -1 with
 .Va errno
 set to
-.Er EINTR
+.Er EINTR .
+.Sh COMPATIBILITY
+.Fn sigpause
+now takes a signal value and not a mask.
+This often appears as a hang in sigpause$UNIX2003
+or with
+.Fn sigpause
+returning with
+.Va errno
+set to EINVAL.
+Use
+.Fn sigsuspend
+with signal masks.
 .Sh SEE ALSO
 .Xr kill 2 ,
 .Xr sigaction 2 ,

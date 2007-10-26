@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -84,7 +83,7 @@ AppleUSBEHCI::EnterTestMode()
     // set run/stop
     usbcmd &= ~kEHCICMDRunStop;
     _pEHCIRegisters->USBCMD = HostToUSBLong(usbcmd);
-    _ehciBusState = kEHCIBusStateOff;
+    _myBusState = kUSBBusStateReset;
     USBLog(1, "AppleUSBEHCI[%p]::EnterTestMode - HC stop set, waiting for halted",  this);
     
     // wait for halted bit

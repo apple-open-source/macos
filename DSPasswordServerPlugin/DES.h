@@ -25,11 +25,10 @@
 #ifndef __DEStypesLocal__
 #define __DEStypesLocal__
 
-#if defined(MACINTOSH)
-	#include <CarbonCore/MacTypes.h>
-#endif
+#include <stdint.h>
+#include <TargetConditionals.h>
 
-typedef long KeysArray[32];			// Encryption Key array type
+typedef int32_t KeysArray[32];			// Encryption Key array type
 
 // Use a version number for the keyschedule routine
 // All new code should use version two.  This contains a bug fix for version 1
@@ -39,20 +38,18 @@ typedef long KeysArray[32];			// Encryption Key array type
 
 #define kFixedDESChunk			8
 
-typedef struct EncryptBlk
-{
-	unsigned long 	keyHi;			
-	unsigned long 	keyLo;			
-
+typedef struct EncryptBlk {
+	uint32_t keyHi;			
+	uint32_t keyLo;
 } EncryptBlk;
 
 #if defined(__cplusplus)
 	extern "C" {
 #endif
 
-void KeySched( const EncryptBlk *Key, long*	keysArrayPtr, short version );
-void Encode( long*	keysArrayPtr, long Count, char * encryptData );
-void Decode( long*	keysArrayPtr, long Count, char * encryptedData );
+void KeySched( const EncryptBlk *Key, int32_t *keysArrayPtr, short version );
+void Encode( const int32_t *keysArrayPtr, int32_t Count, char *encryptData );
+void Decode( const int32_t *keysArrayPtr, int32_t Count, char *encryptedData );
 
 #if defined(__cplusplus)
 }

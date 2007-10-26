@@ -1,8 +1,8 @@
 /* entry.c - monitor backend entry handling routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/entry.c,v 1.7.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/entry.c,v 1.14.2.6 2006/08/05 14:42:04 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Copyright 2001-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -27,76 +27,121 @@
 int
 monitor_entry_update(
 	Operation		*op,
+	SlapReply		*rs,
 	Entry 			*e
 )
 {
-	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
-	struct monitorentrypriv *mp;
+	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
+	monitor_entry_t *mp;
+
+	int		rc = SLAP_CB_CONTINUE;
 
 	assert( mi != NULL );
 	assert( e != NULL );
 	assert( e->e_private != NULL );
 
-	mp = ( struct monitorentrypriv * )e->e_private;
+	mp = ( monitor_entry_t * )e->e_private;
 
+	if ( mp->mp_cb ) {
+		struct monitor_callback_t	*mc;
 
-	if ( mp->mp_info && mp->mp_info->mss_update ) {
-		return ( *mp->mp_info->mss_update )( op, e );
+		for ( mc = mp->mp_cb; mc; mc = mc->mc_next ) {
+			if ( mc->mc_update ) {
+				rc = mc->mc_update( op, rs, e, mc->mc_private );
+				if ( rc != SLAP_CB_CONTINUE ) {
+					break;
+				}
+			}
+		}
 	}
 
-	return( 0 );
+	if ( rc == SLAP_CB_CONTINUE && mp->mp_info && mp->mp_info->mss_update ) {
+		rc = mp->mp_info->mss_update( op, rs, e );
+	}
+
+	if ( rc == SLAP_CB_CONTINUE ) {
+		rc = LDAP_SUCCESS;
+	}
+
+	return rc;
 }
 
 int
 monitor_entry_create(
 	Operation		*op,
+	SlapReply		*rs,
 	struct berval		*ndn,
 	Entry			*e_parent,
-	Entry			**ep
-)
+	Entry			**ep )
 {
-	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
-	struct monitorentrypriv *mp;
+	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
+	monitor_entry_t *mp;
+
+	int		rc = SLAP_CB_CONTINUE;
 
 	assert( mi != NULL );
 	assert( e_parent != NULL );
 	assert( e_parent->e_private != NULL );
 	assert( ep != NULL );
 
-	mp = ( struct monitorentrypriv * )e_parent->e_private;
+	mp = ( monitor_entry_t * )e_parent->e_private;
 
 	if ( mp->mp_info && mp->mp_info->mss_create ) {
-		return ( *mp->mp_info->mss_create )( op, ndn, e_parent, ep );
+		rc = mp->mp_info->mss_create( op, rs, ndn, e_parent, ep );
+	}
+
+	if ( rc == SLAP_CB_CONTINUE ) {
+		rc = LDAP_SUCCESS;
 	}
 	
-	return( 0 );
+	return rc;
 }
 
 int
 monitor_entry_modify(
 	Operation		*op,
+	SlapReply		*rs,
 	Entry 			*e
 )
 {
-	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
-	struct monitorentrypriv *mp;
+	monitor_info_t	*mi = ( monitor_info_t * )op->o_bd->be_private;
+	monitor_entry_t *mp;
+
+	int		rc = SLAP_CB_CONTINUE;
 
 	assert( mi != NULL );
 	assert( e != NULL );
 	assert( e->e_private != NULL );
 
-	mp = ( struct monitorentrypriv * )e->e_private;
+	mp = ( monitor_entry_t * )e->e_private;
 
-	if ( mp->mp_info && mp->mp_info->mss_modify ) {
-		return ( *mp->mp_info->mss_modify )( op, e );
+	if ( mp->mp_cb ) {
+		struct monitor_callback_t	*mc;
+
+		for ( mc = mp->mp_cb; mc; mc = mc->mc_next ) {
+			if ( mc->mc_modify ) {
+				rc = mc->mc_modify( op, rs, e, mc->mc_private );
+				if ( rc != SLAP_CB_CONTINUE ) {
+					break;
+				}
+			}
+		}
 	}
 
-	return( 0 );
+	if ( rc == SLAP_CB_CONTINUE && mp->mp_info && mp->mp_info->mss_modify ) {
+		rc = mp->mp_info->mss_modify( op, rs, e );
+	}
+
+	if ( rc == SLAP_CB_CONTINUE ) {
+		rc = LDAP_SUCCESS;
+	}
+
+	return rc;
 }
 
 int
 monitor_entry_test_flags(
-	struct monitorentrypriv	*mp,
+	monitor_entry_t		*mp,
 	int			cond
 )
 {
@@ -105,3 +150,20 @@ monitor_entry_test_flags(
 	return( ( mp->mp_flags & cond ) || ( mp->mp_info->mss_flags & cond ) );
 }
 
+monitor_entry_t *
+monitor_entrypriv_create( void )
+{
+	monitor_entry_t	*mp;
+
+	mp = ( monitor_entry_t * )ch_calloc( sizeof( monitor_entry_t ), 1 );
+
+	mp->mp_next = NULL;
+	mp->mp_children = NULL;
+	mp->mp_info = NULL;
+	mp->mp_flags = MONITOR_F_NONE;
+	mp->mp_cb = NULL;
+
+	ldap_pvt_thread_mutex_init( &mp->mp_mutex );
+
+	return mp;
+}

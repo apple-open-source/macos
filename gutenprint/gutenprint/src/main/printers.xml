@@ -1,0 +1,919 @@
+<?xml version="1.0"?>
+
+<!--
+   XML description of printers known to libgutenprint
+   This file was originally generated.  It should be edited by hand.
+
+   "$Id: printers.xml,v 1.183 2007/06/17 09:29:47 faust3 Exp $"
+-->
+
+<gutenprint xmlns="http://gimp-print.sourceforge.net/xsd/gp.xsd-1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://gimp-print.sourceforge.net/xsd/gp.xsd-1.0 gutenprint.xsd">
+  <printdef>
+    <family name="ps">
+      <printer name="PostScript Level 1" driver="ps" manufacturer="Adobe" model="0" />
+      <printer name="PostScript Level 2" driver="ps2" manufacturer="Adobe" model="1" />
+    </family>
+    <family name="canon">
+      <parameters name="density_800_params">
+        <parameter type="float" name="Density">0.8</parameter>
+      </parameters>
+      <parameters name="gamma_5_density_800_params">
+        <parameter type="float" name="Density">0.8</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+      </parameters>
+      <parameters name="gamma_6_density_800_params">
+        <parameter type="float" name="Density">0.8</parameter>
+        <parameter type="float" name="Gamma">0.6</parameter>
+      </parameters>
+      <parameters name="gamma_8_density_900_params">
+        <parameter type="float" name="Density">0.9</parameter>
+        <parameter type="float" name="Gamma">0.8</parameter>
+      </parameters>
+      <parameters name="gamma_2_density_800_params">
+        <parameter type="float" name="Density">0.8</parameter>
+        <parameter type="float" name="Gamma">2.0</parameter>
+      </parameters>
+      <parameters name="gamma_750_params">
+        <parameter type="float" name="Gamma">0.75</parameter>
+      </parameters>
+      <parameters name="PIXMA_iP4000_params">
+        <parameter type="float" name="Gamma">0.4</parameter>
+      </parameters>
+      <parameters name="PIXMA_iP4300_params">
+        <parameter type="float" name="Brightness">0.7</parameter>
+        <parameter type="float" name="Density">0.6</parameter>
+        <parameter type="float" name="Contrast">1.7</parameter>
+        <parameter type="float" name="Gamma">0.9</parameter>
+        <parameter type="float" name="BlackGamma">0.6</parameter>
+      </parameters>
+      <printer name="Canon BJ-30" driver="bjc-30" manufacturer="Canon" model="30" parameters="gamma_2_density_800_params" />
+      <printer name="Canon BJC-50" driver="bjc-50" manufacturer="Canon" model="4400" parameters="gamma_5_density_800_params" />
+      <printer name="Canon BJC-55" driver="bjc-55" manufacturer="Canon" model="4400" parameters="gamma_5_density_800_params" />
+      <printer name="Canon BJC-80" driver="bjc-80" manufacturer="Canon" model="4400" parameters="gamma_5_density_800_params" />
+      <printer name="Canon BJC-85" driver="bjc-85" manufacturer="Canon" model="85" parameters="gamma_5_density_800_params" />
+      <printer name="Canon BJC-210" driver="bjc-210" manufacturer="Canon" model="210" parameters="density_800_params" />
+      <printer name="Canon BJC-240" driver="bjc-240" manufacturer="Canon" model="240" parameters="density_800_params" />
+      <printer name="Canon BJC-250" driver="bjc-250" manufacturer="Canon" model="250" parameters="density_800_params" />
+      <printer name="Canon BJC-1000" driver="bjc-1000" manufacturer="Canon" model="1000" parameters="density_800_params" />
+      <printer name="Canon BJC-2000" driver="bjc-2000" manufacturer="Canon" model="2000" parameters="density_800_params" />
+      <printer name="Canon BJC-2010" driver="bjc-2010" manufacturer="Canon" model="2000" parameters="density_800_params" />
+      <printer name="Canon BJC-2100" driver="bjc-2100" manufacturer="Canon" model="4300" parameters="gamma_750_params" />
+      <printer name="Canon BJC-2110" driver="bjc-2110" manufacturer="Canon" model="2000" parameters="density_800_params" />
+      <printer name="Canon BJC-3000" driver="bjc-3000" manufacturer="Canon" model="3000" parameters="density_800_params" />
+      <printer name="Canon BJC-4000" driver="bjc-4000" manufacturer="Canon" model="4300" parameters="gamma_750_params" />
+      <printer name="Canon BJC-4300" driver="bjc-4300" manufacturer="Canon" model="4300" parameters="gamma_750_params" />
+      <printer name="Canon BJC-4400" driver="bjc-4400" manufacturer="Canon" model="4400" parameters="density_800_params" />
+      <printer name="Canon BJC-6000" driver="bjc-6000" manufacturer="Canon" model="6000" parameters="gamma_750_params" />
+      <printer name="Canon BJC-6100" driver="bjc-6100" manufacturer="Canon" model="6100" parameters="density_800_params" />
+      <printer name="Canon BJC-6200" driver="bjc-6200" manufacturer="Canon" model="6200" parameters="gamma_750_params" />
+      <printer name="Canon BJC-6500" driver="bjc-6500" manufacturer="Canon" model="6500" parameters="gamma_750_params" />
+      <printer name="Canon BJC-7000" driver="bjc-7000" manufacturer="Canon" model="7000" parameters="gamma_6_density_800_params" />
+      <printer name="Canon BJC-7100" driver="bjc-7100" manufacturer="Canon" model="7100" parameters="density_800_params" />
+      <printer name="Canon BJC-8200" driver="bjc-8200" manufacturer="Canon" model="8200" parameters="density_800_params" />
+      <printer name="Canon S100" driver="bjc-s100" manufacturer="Canon" model="4300" parameters="gamma_750_params" />
+      <printer name="Canon S200" driver="bjc-s200" manufacturer="Canon" model="4202" parameters="gamma_8_density_900_params" />
+      <printer name="Canon S300" driver="bjc-s300" manufacturer="Canon" model="8201" parameters="density_800_params" />
+      <printer name="Canon S400" driver="bjc-s400" manufacturer="Canon" model="3000" parameters="density_800_params" />
+      <printer name="Canon S450" driver="bjc-s450" manufacturer="Canon" model="6200" parameters="gamma_750_params" />
+      <printer name="Canon S500" driver="bjc-s500" manufacturer="Canon" model="8200" parameters="density_800_params" />
+      <printer name="Canon S600" driver="bjc-s600" manufacturer="Canon" model="8200" parameters="density_800_params" />
+      <printer name="Canon S630" driver="bjc-s630" manufacturer="Canon" model="8200" parameters="density_800_params" />
+      <printer name="Canon S800" driver="bjc-s800" manufacturer="Canon" model="8200" parameters="density_800_params" />
+      <printer name="Canon S4500" driver="bjc-s4500" manufacturer="Canon" model="6500" parameters="gamma_750_params" />
+      <printer name="Canon PIXMA iP2000" driver="bjc-PIXMA-iP2000" manufacturer="Canon" model="9001" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP3000" driver="bjc-PIXMA-iP3000" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP3100" driver="bjc-PIXMA-iP3100" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP4000" driver="bjc-iP4000" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP4100" driver="bjc-PIXMA-iP4100" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP4200" driver="bjc-PIXMA-iP4200" manufacturer="Canon" model="4200" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP4300" driver="bjc-PIXMA-iP4300" manufacturer="Canon" model="4200" parameters="PIXMA_iP4300_params" />
+      <printer name="Canon PIXMA iP5000" driver="bjc-PIXMA-iP5000" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP5200" driver="bjc-PIXMA-iP5200" manufacturer="Canon" model="4200" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA iP6700" driver="bjc-PIXMA-iP6700" manufacturer="Canon" model="4203" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP150" driver="bjc-MULTIPASS-MP150" manufacturer="Canon" model="4201" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP500" driver="bjc-MULTIPASS-MP500" manufacturer="Canon" model="4200" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP700" driver="bjc-MULTIPASS-MP700" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP730" driver="bjc-MULTIPASS-MP730" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP750" driver="bjc-MULTIPASS-MP750" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP760" driver="bjc-MULTIPASS-MP760" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP770" driver="bjc-MULTIPASS-MP770" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP780" driver="bjc-MULTIPASS-MP780" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP790" driver="bjc-MULTIPASS-MP790" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXMA MP830" driver="bjc-MULTIPASS-MP830" manufacturer="Canon" model="9000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXUS iP3100" driver="bjc-PIXUS-iP3100" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon PIXUS iP4100" driver="bjc-PIXUS-iP4100" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon i560" driver="bjc-i560" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon i850" driver="bjc-i850" manufacturer="Canon" model="3999" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon i860" driver="bjc-i860" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+      <printer name="Canon i865" driver="bjc-i865" manufacturer="Canon" model="4000" parameters="PIXMA_iP4000_params" />
+    </family>
+    <family name="escp2">
+      <parameters name="standard_params">
+        <parameter type="float" name="Gamma">0.470</parameter>
+      </parameters>
+      <parameters name="480_params">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.470</parameter>
+      </parameters>
+      <parameters name="pro_5500_params">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.470</parameter>
+      </parameters>
+      <parameters name="cx3500_params">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.500</parameter>
+      </parameters>
+      <parameters name="claria_params">
+        <parameter type="float" name="Gamma">0.470</parameter>
+        <parameter type="float" name="BlackDensity">0.8</parameter>
+      </parameters>
+      <printer name="Epson Stylus C20" driver="escp2-c20" manufacturer="Epson" model="42" parameters="480_params" />
+      <printer name="Epson Stylus C20SX" driver="escp2-c20sx" manufacturer="Epson" model="42" parameters="480_params" />
+      <printer name="Epson Stylus C20UX" driver="escp2-c20ux" manufacturer="Epson" model="42" parameters="480_params" />
+      <printer name="Epson Stylus C40" driver="escp2-c40" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C40SX" driver="escp2-c40sx" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C40UX" driver="escp2-c40ux" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C41" driver="escp2-c41" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C41SX" driver="escp2-c41sx" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C41UX" driver="escp2-c41ux" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C42" driver="escp2-c42" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C42SX" driver="escp2-c42sx" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C42UX" driver="escp2-c42ux" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C43" driver="escp2-c43" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C43SX" driver="escp2-c43sx" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C43UX" driver="escp2-c43ux" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C44" driver="escp2-c44" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C44SX" driver="escp2-c44sx" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C44UX" driver="escp2-c44ux" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C45" driver="escp2-c45" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C46" driver="escp2-c46" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C48" driver="escp2-c48" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus C50" driver="escp2-c50" manufacturer="Epson" model="56" parameters="480_params" />
+      <printer name="Epson Stylus C60" driver="escp2-c60" manufacturer="Epson" model="33" parameters="standard_params" />
+      <printer name="Epson Stylus C61" driver="escp2-c61" manufacturer="Epson" model="52" parameters="standard_params" />
+      <printer name="Epson Stylus C62" driver="escp2-c62" manufacturer="Epson" model="52" parameters="standard_params" />
+      <printer name="Epson Stylus C63" driver="escp2-c63" manufacturer="Epson" model="61" parameters="standard_params" />
+      <printer name="Epson Stylus C64" driver="escp2-c64" manufacturer="Epson" model="61" parameters="standard_params" />
+      <printer name="Epson Stylus C65" driver="escp2-c65" manufacturer="Epson" model="66" parameters="standard_params" />
+      <printer name="Epson Stylus C66" driver="escp2-c66" manufacturer="Epson" model="66" parameters="standard_params" />
+      <printer name="Epson Stylus C68" driver="escp2-c68" manufacturer="Epson" model="66" parameters="standard_params" />
+      <printer name="Epson Stylus C70" driver="escp2-c70" manufacturer="Epson" model="44" parameters="standard_params" />
+      <printer name="Epson Stylus C79" driver="escp2-c79" manufacturer="Epson" model="66" parameters="standard_params" />
+      <printer name="Epson Stylus C80" driver="escp2-c80" manufacturer="Epson" model="44" parameters="standard_params" />
+      <printer name="Epson Stylus C82" driver="escp2-c82" manufacturer="Epson" model="55" parameters="standard_params" />
+      <printer name="Epson Stylus C83" driver="escp2-c83" manufacturer="Epson" model="60" parameters="standard_params" />
+      <printer name="Epson Stylus C84" driver="escp2-c84" manufacturer="Epson" model="60" parameters="standard_params" />
+      <printer name="Epson Stylus C85" driver="escp2-c85" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson Stylus C86" driver="escp2-c86" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson Stylus C87" driver="escp2-c87" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson Stylus C88" driver="escp2-c88" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson Stylus Color" driver="escp2" manufacturer="Epson" model="0" parameters="standard_params" />
+      <printer name="Epson Stylus Color I" driver="escp2-i" manufacturer="Epson" model="0" parameters="standard_params" />
+      <printer name="Epson Stylus Color II" driver="escp2-ii" manufacturer="Epson" model="0" parameters="standard_params" />
+      <printer name="Epson Stylus Color IIs" driver="escp2-iis" manufacturer="Epson" model="0" parameters="standard_params" />
+      <printer name="Epson Stylus Color PRO" driver="escp2-pro" manufacturer="Epson" model="45" parameters="standard_params" />
+      <printer name="Epson Stylus Pro XL" driver="escp2-pro-xl" manufacturer="Epson" model="39" parameters="standard_params" />
+      <printer name="Epson Stylus Color 400" driver="escp2-400" manufacturer="Epson" model="1" parameters="standard_params" />
+      <printer name="Epson Stylus Color 440" driver="escp2-440" manufacturer="Epson" model="10" parameters="standard_params" />
+      <printer name="Epson Stylus Color 460" driver="escp2-460" manufacturer="Epson" model="10" parameters="standard_params" />
+      <printer name="Epson Stylus Color 480" driver="escp2-480" manufacturer="Epson" model="21" parameters="480_params" />
+      <printer name="Epson Stylus Color 500" driver="escp2-500" manufacturer="Epson" model="1" parameters="standard_params" />
+      <printer name="Epson Stylus Color 580" driver="escp2-580" manufacturer="Epson" model="38" parameters="480_params" />
+      <printer name="Epson Stylus Color 600" driver="escp2-600" manufacturer="Epson" model="3" parameters="standard_params" />
+      <printer name="Epson Stylus Color 640" driver="escp2-640" manufacturer="Epson" model="11" parameters="standard_params" />
+      <printer name="Epson Stylus Color 660" driver="escp2-660" manufacturer="Epson" model="18" parameters="standard_params" />
+      <printer name="Epson Stylus Color 670" driver="escp2-670" manufacturer="Epson" model="25" parameters="standard_params" />
+      <printer name="Epson Stylus Color 680" driver="escp2-680" manufacturer="Epson" model="32" parameters="standard_params" />
+      <printer name="Epson Stylus Color 740" driver="escp2-740" manufacturer="Epson" model="12" parameters="standard_params" />
+      <printer name="Epson Stylus Color 760" driver="escp2-760" manufacturer="Epson" model="19" parameters="standard_params" />
+      <printer name="Epson Stylus Color 777" driver="escp2-777" manufacturer="Epson" model="32" parameters="standard_params" />
+      <printer name="Epson Stylus Color 800" driver="escp2-800" manufacturer="Epson" model="4" parameters="standard_params" />
+      <printer name="Epson Stylus Color 850" driver="escp2-850" manufacturer="Epson" model="5" parameters="standard_params" />
+      <printer name="Epson Stylus Color 860" driver="escp2-860" manufacturer="Epson" model="16" parameters="standard_params" />
+      <printer name="Epson Stylus Color 880" driver="escp2-880" manufacturer="Epson" model="33" parameters="standard_params" />
+      <printer name="Epson Stylus Color 8 3" driver="escp2-83" manufacturer="Epson" model="33" parameters="standard_params" />
+      <printer name="Epson Stylus Color 900" driver="escp2-900" manufacturer="Epson" model="13" parameters="standard_params" />
+      <printer name="Epson Stylus Color 980" driver="escp2-980" manufacturer="Epson" model="34" parameters="standard_params" />
+      <printer name="Epson Stylus Color 1160" driver="escp2-1160" manufacturer="Epson" model="17" parameters="standard_params" />
+      <printer name="Epson Stylus Color 1500" driver="escp2-1500" manufacturer="Epson" model="2" parameters="standard_params" />
+      <printer name="Epson Stylus Color 1520" driver="escp2-1520" manufacturer="Epson" model="6" parameters="standard_params" />
+      <printer name="Epson Stylus Color 3000" driver="escp2-3000" manufacturer="Epson" model="24" parameters="standard_params" />
+      <printer name="Epson Stylus Photo" driver="escp2-photo" manufacturer="Epson" model="9" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 700" driver="escp2-700" manufacturer="Epson" model="7" parameters="standard_params" />
+      <printer name="Epson Stylus Photo EX" driver="escp2-ex" manufacturer="Epson" model="8" parameters="standard_params" />
+      <printer name="Epson Stylus Photo EX3" driver="escp2-ex3" manufacturer="Epson" model="54" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 720" driver="escp2-720" manufacturer="Epson" model="20" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 750" driver="escp2-750" manufacturer="Epson" model="14" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 780" driver="escp2-780" manufacturer="Epson" model="35" parameters="standard_params" />
+    <!--
+         Note that the 785EPX has a roll feed holder.  It's more like the 890
+         than the 780, despite the name.
+    -->
+      <printer name="Epson Stylus Photo 785" driver="escp2-785" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 790" driver="escp2-790" manufacturer="Epson" model="35" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 810" driver="escp2-810" manufacturer="Epson" model="78" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 820" driver="escp2-820" manufacturer="Epson" model="78" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 825" driver="escp2-825" manufacturer="Epson" model="50" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 830" driver="escp2-830" manufacturer="Epson" model="50" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 830U" driver="escp2-830u" manufacturer="Epson" model="50" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 870" driver="escp2-870" manufacturer="Epson" model="22" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 875" driver="escp2-875" manufacturer="Epson" model="22" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 890" driver="escp2-890" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 895" driver="escp2-895" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 900" driver="escp2-ph900" manufacturer="Epson" model="62" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 915" driver="escp2-915" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 925" driver="escp2-925" manufacturer="Epson" model="51" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 935" driver="escp2-935" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 950" driver="escp2-950" manufacturer="Epson" model="46" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 960" driver="escp2-960" manufacturer="Epson" model="46" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 1200" driver="escp2-1200" manufacturer="Epson" model="15" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 1270" driver="escp2-1270" manufacturer="Epson" model="23" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 1280" driver="escp2-1280" manufacturer="Epson" model="37" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 1290" driver="escp2-1290" manufacturer="Epson" model="37" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 1400" driver="escp2-1400" manufacturer="Epson" model="82" parameters="claria_params" />
+      <printer name="Epson Stylus Photo 1410" driver="escp2-1410" manufacturer="Epson" model="82" parameters="claria_params" />
+      <printer name="Epson Stylus Photo 2000P" driver="escp2-2000" manufacturer="Epson" model="26" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 2100" driver="escp2-2100" manufacturer="Epson" model="47" parameters="standard_params" />
+      <printer name="Epson Stylus Photo 2200" driver="escp2-2200" manufacturer="Epson" model="47" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R200" driver="escp2-r200" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R210" driver="escp2-r210" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R220" driver="escp2-r220" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R230" driver="escp2-r230" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R240" driver="escp2-r240" manufacturer="Epson" model="83" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R245" driver="escp2-r245" manufacturer="Epson" model="83" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R260" driver="escp2-r260" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo R265" driver="escp2-r265" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo R270" driver="escp2-r270" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo R300" driver="escp2-r300" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R310" driver="escp2-r310" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R320" driver="escp2-r320" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R340" driver="escp2-r340" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R350" driver="escp2-r350" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R360" driver="escp2-r360" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo R380" driver="escp2-r380" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo R390" driver="escp2-r390" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo RX400" driver="escp2-rx400" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX420" driver="escp2-rx420" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX425" driver="escp2-rx425" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX430" driver="escp2-rx430" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX500" driver="escp2-rx500" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX510" driver="escp2-rx510" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX560" driver="escp2-rx560" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo RX580" driver="escp2-rx580" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo RX590" driver="escp2-rx590" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo RX600" driver="escp2-rx600" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX620" driver="escp2-rx620" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX630" driver="escp2-rx630" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson Stylus Photo RX640" driver="escp2-rx640" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson Stylus Photo RX700" driver="escp2-rx700" manufacturer="Epson" model="70" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R800" driver="escp2-r800" manufacturer="Epson" model="64" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R1800" driver="escp2-r1800" manufacturer="Epson" model="67" parameters="standard_params" />
+      <printer name="Epson Stylus Photo R2400" driver="escp2-r2400" manufacturer="Epson" model="71" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 5000" driver="escp2-5000" manufacturer="Epson" model="27" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 5500" driver="escp2-5500" manufacturer="Epson" model="40" parameters="pro_5500_params" />
+      <printer name="Epson Stylus Pro 7000" driver="escp2-7000" manufacturer="Epson" model="28" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 7500" driver="escp2-7500" manufacturer="Epson" model="29" parameters="pro_5500_params" />
+      <printer name="Epson Stylus Pro 7600" driver="escp2-7600" manufacturer="Epson" model="48" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 9000" driver="escp2-9000" manufacturer="Epson" model="30" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 9500" driver="escp2-9500" manufacturer="Epson" model="31" parameters="pro_5500_params" />
+      <printer name="Epson Stylus Pro 9600" driver="escp2-9600" manufacturer="Epson" model="49" parameters="standard_params" />
+      <printer name="Epson Stylus Pro 10000" driver="escp2-10000" manufacturer="Epson" model="41" parameters="standard_params" />
+      <printer name="Epson Stylus Scan 2000" driver="escp2-scan2000" manufacturer="Epson" model="12" parameters="standard_params" />
+      <printer name="Epson Stylus Scan 2500" driver="escp2-scan2500" manufacturer="Epson" model="12" parameters="standard_params" />
+      <printer name="Epson Stylus CX1500" driver="escp2-cx1500" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson Stylus CX3100" driver="escp2-cx3100" manufacturer="Epson" model="52" parameters="standard_params" />
+      <printer name="Epson Stylus CX3200" driver="escp2-cx3200" manufacturer="Epson" model="52" parameters="standard_params" />
+      <printer name="Epson Stylus CX3500" driver="escp2-cx3500" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX3600" driver="escp2-cx3600" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX3650" driver="escp2-cx3650" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX3700" driver="escp2-cx3700" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus CX3800" driver="escp2-cx3800" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus CX3805" driver="escp2-cx3805" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus CX3810" driver="escp2-cx3810" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus CX4100" driver="escp2-cx4100" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX4200" driver="escp2-cx4200" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX4500" driver="escp2-cx4500" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX4600" driver="escp2-cx4600" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX4700" driver="escp2-cx4700" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX4800" driver="escp2-cx4800" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5000" driver="escp2-cx5000" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5000F" driver="escp2-cx5000f" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5100" driver="escp2-cx5100" manufacturer="Epson" model="55" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5200" driver="escp2-cx5200" manufacturer="Epson" model="55" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5300" driver="escp2-cx5300" manufacturer="Epson" model="55" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5400" driver="escp2-cx5400" manufacturer="Epson" model="55" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5700" driver="escp2-cx5700" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX5800" driver="escp2-cx5800" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX6000" driver="escp2-cx6000" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX6300" driver="escp2-cx6300" manufacturer="Epson" model="60" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX6400" driver="escp2-cx6400" manufacturer="Epson" model="79" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX6500" driver="escp2-cx6500" manufacturer="Epson" model="80" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX6600" driver="escp2-cx6600" manufacturer="Epson" model="80" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX7000F" driver="escp2-cx7000f" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX7700" driver="escp2-cx7700" manufacturer="Epson" model="80" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX7800" driver="escp2-cx7800" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX8300" driver="escp2-cx8300" manufacturer="Epson" model="79" parameters="cx3500_params" />
+      <printer name="Epson Stylus CX8400" driver="escp2-cx8400" manufacturer="Epson" model="79" parameters="cx3500_params" />
+      <printer name="Epson Stylus D68" driver="escp2-d68" manufacturer="Epson" model="66" parameters="standard_params" />
+      <printer name="Epson Stylus D88" driver="escp2-d88" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson Stylus DX3800" driver="escp2-dx3800" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus DX3850" driver="escp2-dx3850" manufacturer="Epson" model="72" parameters="standard_params" />
+      <printer name="Epson Stylus DX4200" driver="escp2-dx4200" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus DX4250" driver="escp2-dx4250" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson Stylus DX4800" driver="escp2-dx4800" manufacturer="Epson" model="65" parameters="standard_params" />
+      <printer name="Epson PictureMate" driver="escp2-picmate" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate Deluxe" driver="escp2-picmated" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate Flash" driver="escp2-picmateflash" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate Pal" driver="escp2-picmatepal" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate Snap" driver="escp2-picmatesnap" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate 200" driver="escp2-picmate200" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate 210" driver="escp2-picmate210" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate 240" driver="escp2-picmate240" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate 250" driver="escp2-picmate250" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson PictureMate 280" driver="escp2-picmate280" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson CL 700" driver="escp2-cl700" manufacturer="Epson" model="38" parameters="480_params" />
+      <printer name="Epson CL 750" driver="escp2-cl750" manufacturer="Epson" model="43" parameters="480_params" />
+      <printer name="Epson CL 760" driver="escp2-cl760" manufacturer="Epson" model="56" parameters="480_params" />
+      <printer name="Epson E 100" driver="escp2-e100" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson E 150" driver="escp2-e150" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson E 200" driver="escp2-e200" manufacturer="Epson" model="73" parameters="standard_params" />
+      <printer name="Epson EM 900C" driver="escp2-em900c" manufacturer="Epson" model="13" parameters="standard_params" />
+      <printer name="Epson EM 930C" driver="escp2-em930c" manufacturer="Epson" model="34" parameters="standard_params" />
+      <printer name="Epson MC 2000" driver="escp2-mc2000" manufacturer="Epson" model="26" parameters="standard_params" />
+      <printer name="Epson MC 5000" driver="escp2-mc5000" manufacturer="Epson" model="40" parameters="pro_5500_params" />
+      <printer name="Epson MC 7000" driver="escp2-mc7000" manufacturer="Epson" model="29" parameters="pro_5500_params" />
+      <printer name="Epson MC 9000" driver="escp2-mc9000" manufacturer="Epson" model="31" parameters="pro_5500_params" />
+      <printer name="Epson MC 10000" driver="escp2-mc10000" manufacturer="Epson" model="41" parameters="standard_params" />
+      <printer name="Epson MJ 930C" driver="escp2-mj930c" manufacturer="Epson" model="4" parameters="standard_params" />
+      <printer name="Epson MJ 5100C" driver="escp2-mj5100c" manufacturer="Epson" model="39" parameters="standard_params" />
+      <printer name="Epson MJ 6000C" driver="escp2-mj6000c" manufacturer="Epson" model="6" parameters="standard_params" />
+      <printer name="Epson MJ 8000C" driver="escp2-mj8000c" manufacturer="Epson" model="24" parameters="standard_params" />
+      <printer name="Epson PM 700C" driver="escp2-pm700c" manufacturer="Epson" model="9" parameters="standard_params" />
+      <printer name="Epson PM 730C" driver="escp2-pm730c" manufacturer="Epson" model="35" parameters="standard_params" />
+      <printer name="Epson PM 740C" driver="escp2-pm740c" manufacturer="Epson" model="35" parameters="standard_params" />
+      <printer name="Epson PM 750C" driver="escp2-pm750c" manufacturer="Epson" model="7" parameters="standard_params" />
+      <printer name="Epson PM 760C" driver="escp2-pm760c" manufacturer="Epson" model="20" parameters="standard_params" />
+      <printer name="Epson PM 770C" driver="escp2-pm770c" manufacturer="Epson" model="14" parameters="standard_params" />
+      <printer name="Epson PM 780C" driver="escp2-pm780c" manufacturer="Epson" model="35" parameters="standard_params" />
+      <printer name="Epson PM 790PT" driver="escp2-pm790pt" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson PM 800C" driver="escp2-pm800c" manufacturer="Epson" model="22" parameters="standard_params" />
+      <printer name="Epson PM 850PT" driver="escp2-pm850pt" manufacturer="Epson" model="51" parameters="standard_params" />
+      <printer name="Epson PM 870C" driver="escp2-pm870c" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson PM 880C" driver="escp2-pm880c" manufacturer="Epson" model="36" parameters="standard_params" />
+      <printer name="Epson PM 930C" driver="escp2-pm930c" manufacturer="Epson" model="58" parameters="standard_params" />
+      <printer name="Epson PM 940C" driver="escp2-pm940c" manufacturer="Epson" model="58" parameters="standard_params" />
+      <printer name="Epson PM 950C" driver="escp2-pm950c" manufacturer="Epson" model="53" parameters="standard_params" />
+      <printer name="Epson PM 970C" driver="escp2-pm970c" manufacturer="Epson" model="57" parameters="standard_params" />
+      <printer name="Epson PM 980C" driver="escp2-pm980c" manufacturer="Epson" model="57" parameters="standard_params" />
+      <printer name="Epson PM 2000C" driver="escp2-pm2000c" manufacturer="Epson" model="8" parameters="standard_params" />
+      <printer name="Epson PM 2200C" driver="escp2-pm2200c" manufacturer="Epson" model="54" parameters="standard_params" />
+      <printer name="Epson PM 3000C" driver="escp2-pm3000c" manufacturer="Epson" model="15" parameters="standard_params" />
+      <printer name="Epson PM 3300C" driver="escp2-pm3300c" manufacturer="Epson" model="23" parameters="standard_params" />
+      <printer name="Epson PM 3500C" driver="escp2-pm3500c" manufacturer="Epson" model="37" parameters="standard_params" />
+      <printer name="Epson PM 3700C" driver="escp2-pm3700c" manufacturer="Epson" model="37" parameters="standard_params" />
+      <printer name="Epson PM 4000PX" driver="escp2-pm4000px" manufacturer="Epson" model="47" parameters="standard_params" />
+      <printer name="Epson PM 5000C" driver="escp2-pm5000c" manufacturer="Epson" model="27" parameters="standard_params" />
+      <printer name="Epson PM 7000C" driver="escp2-pm7000c" manufacturer="Epson" model="28" parameters="standard_params" />
+      <printer name="Epson PM 9000C" driver="escp2-pm9000c" manufacturer="Epson" model="30" parameters="standard_params" />
+      <printer name="Epson PM 10000" driver="escp2-pm10000" manufacturer="Epson" model="41" parameters="standard_params" />
+      <printer name="Epson PM A650" driver="escp2-pma650" manufacturer="Epson" model="74" parameters="standard_params" />
+      <printer name="Epson PM A750" driver="escp2-pma750" manufacturer="Epson" model="75" parameters="standard_params" />
+      <printer name="Epson PM A820" driver="escp2-pma820" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson PM A890" driver="escp2-pma890" manufacturer="Epson" model="76" parameters="standard_params" />
+      <printer name="Epson PM A900" driver="escp2-pma900" manufacturer="Epson" model="70" parameters="standard_params" />
+      <printer name="Epson PM A950" driver="escp2-pma950" manufacturer="Epson" model="70" parameters="standard_params" />
+      <printer name="Epson PM D600" driver="escp2-pmd600" manufacturer="Epson" model="77" parameters="standard_params" />
+      <printer name="Epson PM D750" driver="escp2-pmd750" manufacturer="Epson" model="63" parameters="standard_params" />
+      <printer name="Epson PM D770" driver="escp2-pmd770" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM D800" driver="escp2-pmd800" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM D870" driver="escp2-pmd870" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson PM D1000" driver="escp2-pmd1000" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM G700" driver="escp2-pmg700" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM G720" driver="escp2-pmg720" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM G730" driver="escp2-pmg730" manufacturer="Epson" model="84" parameters="standard_params" />
+      <printer name="Epson PM G800" driver="escp2-pmg800" manufacturer="Epson" model="68" parameters="standard_params" />
+      <printer name="Epson PM G820" driver="escp2-pmg820" manufacturer="Epson" model="68" parameters="standard_params" />
+      <printer name="Epson PM G850" driver="escp2-pmg850" manufacturer="Epson" model="81" parameters="claria_params" />
+      <printer name="Epson PM G4500" driver="escp2-pmg4500" manufacturer="Epson" model="82" parameters="standard_params" />
+      <printer name="Epson PX A650" driver="escp2-pxa650" manufacturer="Epson" model="65" parameters="cx3500_params" />
+      <printer name="Epson PX G900" driver="escp2-pxg900" manufacturer="Epson" model="64" parameters="standard_params" />
+      <printer name="Epson PX G920" driver="escp2-pxg920" manufacturer="Epson" model="64" parameters="standard_params" />
+      <printer name="Epson PX G5000" driver="escp2-pxg5000" manufacturer="Epson" model="67" parameters="standard_params" />
+      <printer name="Epson PX V500" driver="escp2-pxv500" manufacturer="Epson" model="61" parameters="standard_params" />
+      <printer name="Epson PX V600" driver="escp2-pxv600" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson PX V630" driver="escp2-pxv630" manufacturer="Epson" model="69" parameters="standard_params" />
+      <printer name="Epson PX 5500" driver="escp2-px5500" manufacturer="Epson" model="71" parameters="standard_params" />
+      <printer name="Epson PX 7000" driver="escp2-px7000" manufacturer="Epson" model="48" parameters="standard_params" />
+      <printer name="Epson PX 9000" driver="escp2-px9000" manufacturer="Epson" model="49" parameters="standard_params" />
+    </family>
+    <family name="pcl">
+      <parameters name="pcl_inkjet_params">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </parameters>
+      <parameters name="pcl_laser_params">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </parameters>
+      <printer name="Apollo P-2100" driver="pcl-apollo-p2100" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2150" driver="pcl-apollo-p2150" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2200" driver="pcl-apollo-p2200" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2250" driver="pcl-apollo-p2250" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2500" driver="pcl-apollo-p2500" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2550" driver="pcl-apollo-p2550" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2600" driver="pcl-apollo-p2600" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apollo P-2650" driver="pcl-apollo-p2650" manufacturer="Apollo" model="690" parameters="pcl_inkjet_params" />
+      <printer name="Apple Color StyleWriter 4100" driver="pcl-apple-4100" manufacturer="Apple" model="601" parameters="pcl_inkjet_params" />	<!-- Uses 600 series driver -->
+      <printer name="Apple Color StyleWriter 4500" driver="pcl-apple-4500" manufacturer="Apple" model="690" parameters="pcl_inkjet_params" />	<!-- Uses 690 driver -->
+      <printer name="Apple Color StyleWriter 6500" driver="pcl-apple-6500" manufacturer="Apple" model="800" parameters="pcl_inkjet_params" />	<!-- Uses 850 driver -->
+      <printer name="Apple LaserWriter Select 360" driver="pcl-apple-lw360" manufacturer="Apple" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother DCP-1200" driver="brother-dcp-1200" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother HL-4Ve" driver="brother-hl-4ve" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother HL-10V" driver="brother-hl-10v" manufacturer="Brother" model="3" parameters="pcl_laser_params" />
+      <printer name="Brother HL-10h" driver="brother-hl-10h" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-630" driver="brother-hl-630" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother HL-660" driver="brother-hl-660" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-760" driver="brother-hl-760" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-960" driver="brother-hl-960" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1040" driver="brother-hl-1040" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1050" driver="brother-hl-1050" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1060" driver="brother-hl-1060" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1070" driver="brother-hl-1070" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1240" driver="brother-hl-1240" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1250" driver="brother-hl-1250" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1260" driver="brother-hl-1260" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1270N" driver="brother-hl-1270n" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1440" driver="brother-hl-1440" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-1660e" driver="brother-hl-1660e" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother HL-2060" driver="brother-hl-2060" manufacturer="Brother" model="6" parameters="pcl_laser_params" />
+      <printer name="Brother MFC-6550MC" driver="brother-mfc-6550mc" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother MFC-8300" driver="brother-mfc-8300" manufacturer="Brother" model="3" parameters="pcl_laser_params" />
+      <printer name="Brother MFC-9500" driver="brother-mfc-9500" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Brother MFC-9600" driver="brother-mfc-9600" manufacturer="Brother" model="2" parameters="pcl_laser_params" />
+      <printer name="Canon GP 335" driver="canon-gp_335" manufacturer="Canon" model="6" parameters="pcl_laser_params" />
+      <printer name="Canon LBP-4sx" driver="canon-lbp-4sx" manufacturer="Canon" model="3" parameters="pcl_laser_params" />
+      <printer name="Canon LBP-430" driver="canon-lbp-430" manufacturer="Canon" model="4" parameters="pcl_laser_params" />
+      <printer name="Canon LBP-1000" driver="canon-lbp-1000" manufacturer="Canon" model="6" parameters="pcl_laser_params" />
+      <printer name="Canon LBP-1260" driver="canon-lbp-1260" manufacturer="Canon" model="6" parameters="pcl_laser_params" />
+      <printer name="Canon LBP-1760" driver="canon-lbp-1760" manufacturer="Canon" model="6" parameters="pcl_laser_params" />
+      <printer name="Canon imageRunner 330s" driver="canon-ir_330s" manufacturer="Canon" model="6" parameters="pcl_laser_params" />
+      <printer name="Citizen ProJet II" driver="citizen-projet_ii" manufacturer="Citizen" model="2" parameters="pcl_laser_params" />
+      <printer name="DEC 1800" driver="dec-1800" manufacturer="DEC" model="3" parameters="pcl_laser_params" />
+      <printer name="DEC LN17" driver="dec-ln17" manufacturer="DEC" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson ActionLaser 1100" driver="epson-actl_1100" manufacturer="Epson" model="3" parameters="pcl_laser_params" />
+      <printer name="Epson ActionLaser II" driver="epson-actl_ii" manufacturer="Epson" model="2" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C2000" driver="epson-acl_c2000" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C2000PS" driver="epson-acl_c2000ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C8500" driver="epson-acl_c8500" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C8500PS" driver="epson-acl_c8500ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C8600" driver="epson-acl_c8600" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson AcuLaser C8600PS" driver="epson-acl_c8600ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5200" driver="epson-epl-5200" manufacturer="Epson" model="3" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5200+" driver="epson-epl-5200plus" manufacturer="Epson" model="3" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5700" driver="epson-epl-5700" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5700PS" driver="epson-epl-5700ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5800" driver="epson-epl-5800" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5800PS" driver="epson-epl-5800ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5900" driver="epson-epl-5900" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-5900PS" driver="epson-epl-5900ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-6100" driver="epson-epl-6100" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-6100PS" driver="epson-epl-6100ps" manufacturer="Epson" model="6" parameters="pcl_laser_params" />
+      <printer name="Epson EPL-7100" driver="epson-epl-7100" manufacturer="Epson" model="2" parameters="pcl_laser_params" />
+      <printer name="Fujitsu PrintPartner 10V" driver="fujitsu-pp_10v" manufacturer="Fujitsu" model="6" parameters="pcl_laser_params" />
+      <printer name="Fujitsu PrintPartner 16DV" driver="fujitsu-pp_16dv" manufacturer="Fujitsu" model="6" parameters="pcl_laser_params" />
+      <printer name="Fujitsu PrintPartner 20W" driver="fujitsu-pp_20w" manufacturer="Fujitsu" model="6" parameters="pcl_laser_params" />
+      <printer name="Fujitsu PrintPartner 8000" driver="fujitsu-pp_8000" manufacturer="Fujitsu" model="3" parameters="pcl_laser_params" />
+      <printer name="Generic PCL 4 Printer" driver="pcl-g_4" manufacturer="Generic" model="2" parameters="pcl_laser_params" />
+      <printer name="Generic PCL 5 Printer" driver="pcl-g_5" manufacturer="Generic" model="3" parameters="pcl_laser_params" />
+      <printer name="Generic PCL 5c Printer" driver="pcl-g_5c" manufacturer="Generic" model="6" parameters="pcl_laser_params" />
+      <printer name="Generic PCL 5e Printer" driver="pcl-g_5e" manufacturer="Generic" model="6" parameters="pcl_laser_params" />
+      <printer name="Generic PCL 6/PCL XL Printer" driver="pcl-g_6" manufacturer="Generic" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Business Inkjet 2200" driver="hp-bij_2200" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Business Inkjet 2230" driver="hp-bij_2230" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Business Inkjet 2250" driver="hp-bij_2250" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Business Inkjet 2250TN" driver="hp-bij_2250tn" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Business Inkjet 2280" driver="hp-bij_2280" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Color Inkjet Printer CP1160" driver="hp-cij_cp1160" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP Color Inkjet Printer CP1700" driver="hp-cij_cp1700" manufacturer="HP" model="901" parameters="pcl_inkjet_params" />
+      <printer name="HP Color LaserJet 2500" driver="hp-clj_2500" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 4500" driver="hp-clj_4500" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 4550" driver="hp-clj_4550" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 4600" driver="hp-clj_4600" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 5" driver="hp-clj_5" manufacturer="HP" model="3" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 5000" driver="hp-clj_5000" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 5500" driver="hp-clj_5500" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Color LaserJet 8550GN" driver="hp-clj_8550gn" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP DesignJet 230" driver="pcl-desnj-230" manufacturer="HP" model="10230" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 250C" driver="pcl-desnj-250" manufacturer="HP" model="10250" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 430" driver="pcl-desnj-430" manufacturer="HP" model="10230" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 450C" driver="pcl-desnj-450" manufacturer="HP" model="10250" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 455CA" driver="pcl-desnj-455" manufacturer="HP" model="10250" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 488CA" driver="pcl-desnj-488" manufacturer="HP" model="10250" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 700" driver="pcl-desnj-700" manufacturer="HP" model="10700" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 750C Plus" driver="hp-desnj_750c_plus" manufacturer="HP" model="10750" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 750C" driver="pcl-750" manufacturer="HP" model="10750" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 2500CP" driver="pcl-desnj-2500" manufacturer="HP" model="12500" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet 3500CP" driver="pcl-desnj-3500" manufacturer="HP" model="13500" parameters="pcl_inkjet_params" />
+      <printer name="HP DesignJet ColorPro CAD" driver="hp-desnj_cp_cad" manufacturer="HP" model="2500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 400" driver="pcl-400" manufacturer="HP" model="400" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 420C" driver="hp-dj_420c" manufacturer="HP" model="540" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 450" driver="hp-dj_450" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 500" driver="pcl-500" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 500C" driver="pcl-501" manufacturer="HP" model="501" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 505J Plus" driver="hp-dj_505j_plus" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 510" driver="hp-dj_510" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 520" driver="pcl-520" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 540C" driver="pcl-540" manufacturer="HP" model="540" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 550C" driver="pcl-550" manufacturer="HP" model="550" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 5550" driver="hp-dj_5550" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 5551" driver="hp-dj_5551" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 560C" driver="pcl-560" manufacturer="HP" model="550" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 600" driver="pcl-600" manufacturer="HP" model="600" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 600C" driver="pcl-601" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 610C" driver="hp-dj_610c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 610CL" driver="hp-dj_610cl" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 6122" driver="hp-dj_6122" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 6127" driver="hp-dj_6127" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 612C" driver="hp-dj_612c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 640C" driver="hp-dj_640c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 648C" driver="hp-dj_648c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 660C" driver="hp-dj_660c" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 670C" driver="hp-dj_670c" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 670TV" driver="hp-dj_670tv" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 672C" driver="hp-dj_672c" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 680C" driver="hp-dj_680c" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 682C" driver="hp-dj_682c" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 690C" driver="pcl-690" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 692C" driver="hp-dj_692c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 693C" driver="hp-dj_693c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 694C" driver="hp-dj_694c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 695C" driver="hp-dj_695c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 697C" driver="hp-dj_697c" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 810C" driver="pcl-810" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 812C" driver="pcl-812" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 815C" driver="hp-dj_815c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 816C" driver="hp-dj_816c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 825C" driver="hp-dj_825c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 830C" driver="hp-dj_830c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 832C" driver="hp-dj_832c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 840C" driver="pcl-840" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 841C" driver="hp-dj_841c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 842C" driver="pcl-842" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 843C" driver="hp-dj_843c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 845C" driver="pcl-845" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 850C" driver="pcl-850" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 855C" driver="pcl-855" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 870C" driver="pcl-870" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 880C" driver="hp-dj_880c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 882C" driver="hp-dj_882c" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 890C" driver="pcl-890" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 895C" driver="pcl-895" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />  <!-- Uses 840 driver -->
+      <printer name="HP DeskJet 916C" driver="pcl-900" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 920C" driver="hp-dj_920c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 9300" driver="hp-dj_9300" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 930C" driver="hp-dj_930c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 932C" driver="hp-dj_932c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 933C" driver="hp-dj_933c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 934C" driver="hp-dj_934c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 935C" driver="hp-dj_935c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 940C" driver="hp-dj_940c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 948C" driver="hp-dj_948c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 950C" driver="hp-dj_950c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 952C" driver="hp-dj_952c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 955C" driver="hp-dj_955c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 957C" driver="hp-dj_957c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 959C" driver="hp-dj_959c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 960C" driver="hp-dj_960c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 970C" driver="hp-dj_970c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 975C" driver="hp-dj_975c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 980C" driver="hp-dj_980c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 990C" driver="hp-dj_990c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 995C" driver="hp-dj_995c" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1100C" driver="pcl-1100" manufacturer="HP" model="1100" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1120C" driver="pcl-1120" manufacturer="HP" model="1100" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1125C" driver="hp-dj_1125c" manufacturer="HP" model="1100" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1200C" driver="pcl-1200" manufacturer="HP" model="1200" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1220C" driver="pcl-1220" manufacturer="HP" model="901" parameters="pcl_inkjet_params" />  <!-- Uses 900 series driver (large) -->
+      <printer name="HP DeskJet 1600C" driver="pcl-1600" manufacturer="HP" model="1600" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 1600CM" driver="hp-dj_1600cm" manufacturer="HP" model="1600" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 2000" driver="pcl-2000" manufacturer="HP" model="2000" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 2500" driver="pcl-2500" manufacturer="HP" model="2500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 2500CM" driver="hp-2500cm" manufacturer="HP" model="2500" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 340C" driver="pcl-340" manufacturer="HP" model="340" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 3810" driver="hp-dj_3810" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 3816" driver="hp-dj_3816" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 3820" driver="hp-dj_3820" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP DeskJet 3822" driver="hp-dj_3822" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP LaserJet 2" driver="pcl-2" manufacturer="HP" model="2" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2D" driver="hp-lj_2d" manufacturer="HP" model="2" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2P Plus" driver="hp-lj_2p_plus" manufacturer="HP" model="21" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2P" driver="pcl-2p" manufacturer="HP" model="21" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3" driver="pcl-3" manufacturer="HP" model="3" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3D" driver="hp-lj_3d" manufacturer="HP" model="3" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3P w/ PCL5" driver="hp-lj_3p_w_pcl5" manufacturer="HP" model="4" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3P w/PS" driver="hp-lj_3p_w_ps" manufacturer="HP" model="3" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4 Plus" driver="hp-lj_4_plus" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4" driver="pcl-4" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4L" driver="pcl-4l" manufacturer="HP" model="4" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4M" driver="hp-lj_4m" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4ML" driver="hp-lj_4ml" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4P" driver="hp-lj_4p" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4Si" driver="pcl-4si" manufacturer="HP" model="51" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4V" driver="pcl-4v" manufacturer="HP" model="5" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5" driver="pcl-5" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5L" driver="hp-lj_5l" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5M" driver="hp-lj_5m" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5MP" driver="hp-lj_5mp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5P" driver="hp-lj_5p" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5Si" driver="pcl-5si" manufacturer="HP" model="7" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 6" driver="pcl-6" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 6L" driver="hp-lj_6l" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 6MP" driver="hp-lj_6mp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 6P" driver="hp-lj_6p" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1010" driver="hp-lj_1010" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1012" driver="hp-lj_1012" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1015" driver="hp-lj_1015" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1100" driver="hp-lj_1100" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1100A" driver="hp-lj_1100a" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1150" driver="hp-lj_1150" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1200" driver="hp-lj_1200" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1220" driver="hp-lj_1220" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 1300" driver="hp-lj_1300" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2100" driver="hp-lj_2100" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2100M" driver="hp-lj_2100m" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2200" driver="hp-lj_2200" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 2300" driver="hp-lj_2300" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3200" driver="hp-lj_3200" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3200m" driver="hp-lj_3200m" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3200se" driver="hp-lj_3200se" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3300 MFP" driver="hp-lj_3300_mfp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3310 MFP" driver="hp-lj_3310_mfp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3320 MFP" driver="hp-lj_3320_mfp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3320N MFP" driver="hp-lj_3320n_mfp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 3330 MFP" driver="hp-lj_3330_mfp" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4000" driver="hp-lj_4000" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4050" driver="hp-lj_4050" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4100" driver="hp-lj_4100" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4200" driver="hp-lj_4200" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 4300" driver="hp-lj_4300" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5000" driver="hp-lj_5000" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 5100" driver="hp-lj_5100" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 8000" driver="hp-lj_8000" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 8100" driver="hp-lj_8100" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 8150" driver="hp-lj_8150" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP LaserJet 9000" driver="hp-lj_9000" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Mopier 240" driver="hp-mopier_240" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP Mopier 320" driver="hp-mopier_320" manufacturer="HP" model="6" parameters="pcl_laser_params" />
+      <printer name="HP OfficeJet 300" driver="hp-oj_300" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 330" driver="hp-oj_330" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 350" driver="hp-oj_350" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 500" driver="hp-oj_500" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 520" driver="hp-oj_520" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 570" driver="hp-oj_570" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 580" driver="hp-oj_580" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 590" driver="hp-oj_590" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 600" driver="hp-oj_600" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 610" driver="hp-oj_610" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 625" driver="hp-oj_625" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 630" driver="hp-oj_630" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 635" driver="hp-oj_635" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 700" driver="hp-oj_700" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 710" driver="hp-oj_710" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 720" driver="hp-oj_720" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 725" driver="hp-oj_725" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 5105" driver="hp-oj_5105" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 5110" driver="hp-oj_5110" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 5110xi" driver="hp-oj_5110xi" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 6105" driver="hp-oj_6105" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 6110" driver="hp-oj_6110" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 7110" driver="hp-oj_7110" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 7130" driver="hp-oj_7130" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet 7140" driver="hp-oj_7140" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet D125" driver="hp-oj_d125" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet D135" driver="hp-oj_d135" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet D145" driver="hp-oj_d145" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet D155" driver="hp-oj_d155" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet G55" driver="hp-oj_g55" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet G85" driver="hp-oj_g85" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet G95" driver="hp-oj_g95" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet K60" driver="hp-oj_k60" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet K60xi" driver="hp-oj_k60xi" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet K80" driver="hp-oj_k80" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet K80xi" driver="hp-oj_k80xi" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet LX" driver="hp-oj_lx" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet Pro 1150C" driver="hp-oj_pro_1150c" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet Pro 1170C" driver="hp-oj_pro_1170c" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet Pro 1175C" driver="hp-oj_pro_1175c" manufacturer="HP" model="800" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet R40" driver="hp-oj_r40" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet R45" driver="hp-oj_r45" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet R60" driver="hp-oj_r60" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet R65" driver="hp-oj_r65" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet R80" driver="hp-oj_r80" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet T45" driver="hp-oj_t45" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet T65" driver="hp-oj_t65" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet V40" driver="hp-oj_v40" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet V40xi" driver="hp-oj_v40xi" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP OfficeJet" driver="hp-oj" manufacturer="HP" model="500" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 370" driver="hp-psc_370" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 380" driver="hp-psc_380" manufacturer="HP" model="690" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 500" driver="hp-psc_500" manufacturer="HP" model="840" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 750" driver="hp-psc_750" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 950" driver="hp-psc_950" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 950xi" driver="hp-psc_950xi" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 2110" driver="hp-psc_2110" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 2150" driver="hp-psc_2150" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PSC 2210" driver="hp-psc_2210" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart 7150" driver="hp-psc_7150" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart 7345" driver="hp-psc_7345" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart 7350" driver="hp-psc_7350" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart 7550" driver="hp-psc_7550" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P100" driver="hp-psc_p100" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P130" driver="hp-psc_p130" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P230" driver="hp-psc_p230" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P1000" driver="pcl-P1000" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />  <!-- Uses 900 series driver -->
+      <printer name="HP PhotoSmart P1100" driver="pcl-P1100" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />  <!-- Uses 900 series driver -->
+      <printer name="HP PhotoSmart P1115" driver="hp-psc_p1115" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P1215" driver="hp-psc_p1215" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P1218" driver="hp-psc_p1218" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP PhotoSmart P1315" driver="hp-psc_p1315" manufacturer="HP" model="900" parameters="pcl_inkjet_params" />
+      <printer name="HP e-printer e20" driver="hp-e-printer_e20" manufacturer="HP" model="601" parameters="pcl_inkjet_params" />
+      <printer name="IBM 4019" driver="ibm-4019" manufacturer="IBM" model="2" parameters="pcl_laser_params" />
+      <printer name="IBM 4029 030 LaserPrinter 10" driver="ibm-4029_030_lp_10" manufacturer="IBM" model="3" parameters="pcl_laser_params" />
+      <printer name="IBM 4312" driver="ibm-4312" manufacturer="IBM" model="2" parameters="pcl_laser_params" />
+      <printer name="IBM Infoprint 12" driver="ibm-infoprint_12" manufacturer="IBM" model="6" parameters="pcl_laser_params" />
+      <printer name="IBM Page Printer 3112" driver="ibm-pp_3112" manufacturer="IBM" model="6" parameters="pcl_laser_params" />
+      <printer name="Infotec 4651 MF" driver="infotec-4651_mf" manufacturer="Infotec" model="6" parameters="pcl_laser_params" />
+      <printer name="Kyocera F-1010" driver="kyocera-f-1010" manufacturer="Kyocera" model="22" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-600 - KPDL-2" driver="kyocera-fs-600_kpdl-2" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-600" driver="kyocera-fs-600" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-680" driver="kyocera-fs-680" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-800" driver="kyocera-fs-800" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1000" driver="kyocera-fs-1000" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1000+" driver="kyocera-fs-1000plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1010" driver="kyocera-fs-1010" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1050" driver="kyocera-fs-1050" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1200" driver="kyocera-fs-1200" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1600" driver="kyocera-fs-1600" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1600+" driver="kyocera-fs-1600plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1700" driver="kyocera-fs-1700" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1700+" driver="kyocera-fs-1700plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1750" driver="kyocera-fs-1750" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1800" driver="kyocera-fs-1800" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1800+" driver="kyocera-fs-1800plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-1900" driver="kyocera-fs-1900" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3500" driver="kyocera-fs-3500" manufacturer="Kyocera" model="32" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3600" driver="kyocera-fs-3600" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3600+" driver="kyocera-fs-3600plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3700" driver="kyocera-fs-3700" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3700+" driver="kyocera-fs-3700plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3750" driver="kyocera-fs-3750" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-3800" driver="kyocera-fs-3800" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-5800C" driver="kyocera-fs-5800c" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-5900C" driver="kyocera-fs-5900c" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-6500" driver="kyocera-fs-6500" manufacturer="Kyocera" model="32" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-6500+" driver="kyocera-fs-6500plus" manufacturer="Kyocera" model="32" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-6700" driver="kyocera-fs-6700" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-7000" driver="kyocera-fs-7000" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-7000+" driver="kyocera-fs-7000plus" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-8000C" driver="kyocera-fs-8000c" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-9000" driver="kyocera-fs-9000" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-9100DN" driver="kyocera-fs-9100dn" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera FS-9500DN" driver="kyocera-fs-9500dn" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-1530" driver="kyocera-km-1530" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-1810" driver="kyocera-km-1810" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-2030" driver="kyocera-km-2030" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-2530" driver="kyocera-km-2530" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-3530" driver="kyocera-km-3530" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-4230" driver="kyocera-km-4230" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-4530" driver="kyocera-km-4530" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-5230" driver="kyocera-km-5230" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-5530" driver="kyocera-km-5530" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Kyocera KM-6230" driver="kyocera-km-6230" manufacturer="Kyocera" model="62" parameters="pcl_laser_params" />
+      <printer name="Lexmark 4076" driver="lexmark-4076" manufacturer="Lexmark" model="500" parameters="pcl_inkjet_params" />
+      <printer name="Lexmark Optra E" driver="lexmark-optra_e" manufacturer="Lexmark" model="6" parameters="pcl_laser_params" />
+      <printer name="Lexmark Optra E+" driver="lexmark-optra_eplus" manufacturer="Lexmark" model="6" parameters="pcl_laser_params" />
+      <printer name="Lexmark Optra E220" driver="lexmark-optra_e220" manufacturer="Lexmark" model="6" parameters="pcl_laser_params" />
+      <printer name="Lexmark Valuewriter 300" driver="lexmark-vw_300" manufacturer="Lexmark" model="2" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 6" driver="minolta-pp_6" manufacturer="Minolta" model="6" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 6e" driver="minolta-pp_6e" manufacturer="Minolta" model="6" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 6ex" driver="minolta-pp_6ex" manufacturer="Minolta" model="6" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 8" driver="minolta-pp_8" manufacturer="Minolta" model="6" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 8L" driver="minolta-pp_8l" manufacturer="Minolta" model="2" parameters="pcl_laser_params" />
+      <printer name="Minolta PagePro 1100" driver="minolta-pp_1100" manufacturer="Minolta" model="6" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 660i" driver="nec-ssc_660i" manufacturer="NEC" model="6" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 860" driver="nec-ssc_860" manufacturer="NEC" model="2" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 870" driver="nec-ssc_870" manufacturer="NEC" model="2" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 1260" driver="nec-ssc_1260" manufacturer="NEC" model="2" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 1400" driver="nec-ssc_1400" manufacturer="NEC" model="6" parameters="pcl_laser_params" />
+      <printer name="NEC SuperScript 1800" driver="nec-ssc_1800" manufacturer="NEC" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata OL400" driver="okidata-ol400" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL400e" driver="okidata-ol400e" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL400ex" driver="okidata-ol400ex" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL410e" driver="okidata-ol410e" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata OL600e" driver="okidata-ol600e" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL610e/S" driver="okidata-ol610e_s" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL800" driver="okidata-ol800" manufacturer="Okidata" model="2" parameters="pcl_laser_params" />
+      <printer name="Okidata OL810ex" driver="okidata-ol810ex" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 6e" driver="okidata-okp_6e" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 6ex" driver="okidata-okp_6ex" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 8p" driver="okidata-okp_8p" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 10e" driver="okidata-okp_10e" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 10ex" driver="okidata-okp_10ex" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Okipage 14ex" driver="okidata-okp_14ex" manufacturer="Okidata" model="6" parameters="pcl_laser_params" />
+      <printer name="Okidata Super 6e" driver="okidata-super_6e" manufacturer="Okidata" model="4" parameters="pcl_laser_params" />
+      <printer name="Olivetti JP350S" driver="olivetti-jp350s" manufacturer="Olivetti" model="2" parameters="pcl_laser_params" />
+      <printer name="Olivetti PG 306" driver="olivetti-pg_306" manufacturer="Olivetti" model="2" parameters="pcl_laser_params" />
+      <printer name="PCPI 1030" driver="pcpi-1030" manufacturer="PCPI" model="2" parameters="pcl_laser_params" />
+      <printer name="Panasonic KX-P4410" driver="panasonic-kx-p4410" manufacturer="Panasonic" model="2" parameters="pcl_laser_params" />
+      <printer name="Panasonic KX-P4450" driver="panasonic-kx-p4450" manufacturer="Panasonic" model="3" parameters="pcl_laser_params" />
+      <printer name="Panasonic KX-P6150" driver="panasonic-kx-p6150" manufacturer="Panasonic" model="2" parameters="pcl_laser_params" />
+      <printer name="Panasonic KX-P6500" driver="panasonic-kx-p6500" manufacturer="Panasonic" model="2" parameters="pcl_laser_params" />
+      <printer name="Raven LP-410" driver="raven-lp-410" manufacturer="Raven" model="2" parameters="pcl_laser_params" />
+      <printer name="Ricoh Aficio 220" driver="ricoh-afc_220" manufacturer="Ricoh" model="6" parameters="pcl_laser_params" />
+      <printer name="Ricoh Aficio 401" driver="ricoh-afc_401" manufacturer="Ricoh" model="6" parameters="pcl_laser_params" />
+      <printer name="Ricoh Aficio 700" driver="ricoh-afc_700" manufacturer="Ricoh" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-85" driver="samsung-ml-85" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-4600" driver="samsung-ml-4600" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-5000a" driver="samsung-ml-5000a" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-6000" driver="samsung-ml-6000" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-6100" driver="samsung-ml-6100" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-7000" driver="samsung-ml-7000" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-7000N" driver="samsung-ml-7000n" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-7000P" driver="samsung-ml-7000p" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung ML-7050" driver="samsung-ml-7050" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung QL-5100A" driver="samsung-ql-5100a" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Samsung QL-6050" driver="samsung-ql-6050" manufacturer="Samsung" model="6" parameters="pcl_laser_params" />
+      <printer name="Seiko SpeedJET 200" driver="seiko-sj_200" manufacturer="Seiko" model="2" parameters="pcl_laser_params" />
+      <printer name="Sharp AR-161" driver="sharp-ar-161" manufacturer="Sharp" model="6" parameters="pcl_laser_params" />
+      <printer name="Sony IJP-V100" driver="sony-ijp-v100" manufacturer="Sony" model="601" parameters="pcl_inkjet_params" />
+      <printer name="Star LS-04" driver="star-ls-04" manufacturer="Star" model="2" parameters="pcl_laser_params" />
+      <printer name="Star LaserPrinter 8" driver="star-lp_8" manufacturer="Star" model="2" parameters="pcl_laser_params" />
+      <printer name="Tally MT908" driver="tally-mt908" manufacturer="Tally" model="3" parameters="pcl_laser_params" />
+      <printer name="Xerox Able 1406" driver="xerox-able_1406" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint 4508" driver="xerox-dp_4508" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint C20" driver="xerox-dp_c20" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint N4512" driver="xerox-dp_n4512" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint N4512PS" driver="xerox-dp_n4512ps" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint P12" driver="xerox-dp_p12" manufacturer="Xerox" model="2" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint P1202" driver="xerox-dp_p1202" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox DocuPrint P8e" driver="xerox-dp_p8e" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox Document Centre 400" driver="xerox-dc_400" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+      <printer name="Xerox WorkCentre M118" driver="xerox-wc_m118" manufacturer="Xerox" model="6" parameters="pcl_laser_params" />
+    </family>
+    <family name="lexmark">
+      <parameters name="standard_params">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">2.0</parameter>
+      </parameters>
+      <printer name="Compaq IJ1200" driver="compaq-ij1200" manufacturer="Compaq" model="10042" parameters="standard_params" />
+      <printer name="Lexmark X73" driver="lexmark-x73" manufacturer="Lexmark" model="10042" parameters="standard_params" />
+      <printer name="Lexmark Z42" driver="lexmark-z42" manufacturer="Lexmark" model="10042" parameters="standard_params" />
+      <printer name="Lexmark Z43" driver="lexmark-z43" manufacturer="Lexmark" model="10042" parameters="standard_params" />
+      <printer name="Lexmark Z52" driver="lexmark-z52" manufacturer="Lexmark" model="10052" parameters="standard_params" />
+      <printer name="Lexmark Z53" driver="lexmark-z53" manufacturer="Lexmark" model="10052" parameters="standard_params" />
+    </family>
+    <family name="dyesub">
+      <printer name="Olympus P-10" driver="olympus-p10" manufacturer="Olympus" model="2" />
+      <printer name="Olympus P-11" driver="olympus-p11" manufacturer="Olympus" model="2" />
+      <printer name="Olympus P-200" driver="olympus-p200" manufacturer="Olympus" model="4" />
+      <printer name="Olympus P-300" driver="olympus-p300" manufacturer="Olympus" model="0" />
+      <printer name="Olympus P-300E" driver="olympus-p300e" manufacturer="Olympus" model="0" />
+      <printer name="Olympus P-300U" driver="olympus-p300u" manufacturer="Olympus" model="0" />
+      <printer name="Olympus P-330E" driver="olympus-p330e" manufacturer="Olympus" model="0" />
+      <printer name="Olympus P-330NE" driver="olympus-p330ne" manufacturer="Olympus" model="0" />
+      <printer name="Olympus P-400" driver="olympus-p400" manufacturer="Olympus" model="1" />
+      <printer name="Olympus P-440" driver="olympus-p440" manufacturer="Olympus" model="3" />
+      <printer name="Olympus P-S100" driver="olympus-ps100" manufacturer="Olympus" model="20" />
+      <printer name="Canon CP-10" driver="canon-cp10" manufacturer="Canon" model="1002" />
+      <printer name="Canon CP-100" driver="canon-cp100" manufacturer="Canon" model="1000" />
+      <printer name="Canon CP-200" driver="canon-cp200" manufacturer="Canon" model="1000" />
+      <printer name="Canon CP-220" driver="canon-cp220" manufacturer="Canon" model="1001" />
+      <printer name="Canon CP-300" driver="canon-cp300" manufacturer="Canon" model="1000" />
+      <printer name="Canon CP-330" driver="canon-cp330" manufacturer="Canon" model="1001" />
+      <printer name="Canon SELPHY-CP-400" driver="canon-cp400" manufacturer="Canon" model="1001" />
+      <printer name="Canon SELPHY-CP-500" driver="canon-cp500" manufacturer="Canon" model="1001" />
+      <printer name="Canon SELPHY-CP-510" driver="canon-cp510" manufacturer="Canon" model="1001" />
+      <printer name="Canon SELPHY-CP-600" driver="canon-cp600" manufacturer="Canon" model="1001" />
+      <printer name="Canon SELPHY-CP-710" driver="canon-cp710" manufacturer="Canon" model="1001" />
+      <printer name="Sony DPP-EX5" driver="sony-dppex5" manufacturer="Sony" model="2002" />
+      <printer name="Sony DPP-EX7" driver="sony-dppex5" manufacturer="Sony" model="2002" />
+      <printer name="Sony UP-DP10" driver="sony-updp10" manufacturer="Sony" model="2000" />
+      <printer name="Sony UP-DR100" driver="sony-updr100" manufacturer="Sony" model="2003" />
+      <printer name="Sony UP-DR150" driver="sony-updr150" manufacturer="Sony" model="2001" />
+      <printer name="Fujifilm Printpix-CX-400" driver="fujifilm-cx400" manufacturer="Fujifilm" model="3000" />
+      <printer name="Fujifilm Printpix-CX-550" driver="fujifilm-cx550" manufacturer="Fujifilm" model="3001" />
+      <printer name="Fujifilm FinePix-NX-500" driver="fujifilm-nx500" manufacturer="Fujifilm" model="3002" />
+      <printer name="Kodak Easyshare-Printer-Dock" driver="kodak-dock" manufacturer="Kodak" model="4000"/>
+    </family>
+    <family name="raw">
+      <printer name="RAW DATA 16 bit" driver="raw-data-16" manufacturer="" model="0" />
+      <printer name="RAW DATA 8 bit" driver="raw-data-8" manufacturer="" model="1" />
+    </family>
+  </printdef>
+</gutenprint>

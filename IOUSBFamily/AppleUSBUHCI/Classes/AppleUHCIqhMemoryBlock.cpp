@@ -2,7 +2,7 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -29,34 +29,83 @@
 #include "UHCI.h"
 #include "AppleUHCIqhMemoryBlock.h"
 
-#define super IOBufferMemoryDescriptor
+#define super OSObject
 
-OSDefineMetaClassAndStructors(AppleUHCIqhMemoryBlock, IOBufferMemoryDescriptor);
+OSDefineMetaClassAndStructors(AppleUHCIqhMemoryBlock, OSObject);
 
 AppleUHCIqhMemoryBlock*
 AppleUHCIqhMemoryBlock::NewMemoryBlock(void)
 {
     AppleUHCIqhMemoryBlock 		*me = new AppleUHCIqhMemoryBlock;
     IOByteCount					len;
+	IODMACommand				*dmaCommand = NULL;
+	UInt64						offset = 0;
+	IODMACommand::Segment32		segments;
+	UInt32						numSegments = 1;
+	IOReturn					status = kIOReturnSuccess;
     
-    if (!me)
+    if (me)
+	{
+		// Use IODMACommand to get the physical address
+		dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
+		if (!dmaCommand)
+		{
+			USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock - could not create IODMACommand");
+			return NULL;
+		}
+		USBLog(6, "AppleUHCIqhMemoryBlock::NewMemoryBlock - got IODMACommand %p", dmaCommand);
+		
+		// allocate one page on a page boundary below the 4GB line
+		me->_buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, kUHCIPageSize, kUHCIStructureAllocationPhysicalMask);
+		
+		// allocate exactly one physical page
+		if (me->_buffer) 
+		{
+			status = me->_buffer->prepare();
+			if (status)
+			{
+				USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock - could not prepare buffer");
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			me->_sharedLogical = (UHCIQueueHeadSharedPtr)me->_buffer->getBytesNoCopy();
+			bzero(me->_sharedLogical, kUHCIPageSize);
+			status = dmaCommand->setMemoryDescriptor(me->_buffer);
+			if (status)
+			{
+				USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock - could not set memory descriptor");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+			dmaCommand->clearMemoryDescriptor();
+			dmaCommand->release();
+			if (status || (numSegments != 1) || (segments.fLength != kUHCIPageSize))
+			{
+				USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock - could not get physical segment");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				return NULL;
+			}
+			me->_sharedPhysical = segments.fIOVMAddr;
+		}
+		else
+		{
+			USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock, could not allocate buffer!");
+			me->release();
+			me = NULL;
+		}
+	}
+	else
+	{
 		USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock, constructor failed!");
-	
-    // allocate exactly one physical page
-    if (me && !me->initWithOptions(kIOMemorySharingTypeMask, kUHCIPageSize, kUHCIPageSize)) 
-    {
-		USBError(1, "AppleUHCIqhMemoryBlock::NewMemoryBlock, initWithOptions failed!");
-		me->release();
-		return NULL;
     }
-    
-    USBLog(7, "AppleUHCIqhMemoryBlock::NewMemoryBlock, sizeof (me) = %ld, sizeof (super) = %ld", sizeof(AppleUHCIqhMemoryBlock), sizeof(super)); 
-    
-    me->prepare();
-    me->_sharedLogical = (UHCIQueueHeadSharedPtr)me->getBytesNoCopy();
-    bzero(me->_sharedLogical, kUHCIPageSize);
-    me->_sharedPhysical = me->getPhysicalSegment(0, &len);
-    
     return me;
 }
 

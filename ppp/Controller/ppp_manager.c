@@ -44,13 +44,12 @@ includes
 #include <servers/bootstrap.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDPlugin.h>
-#ifdef DEBUG
-#include <SystemConfiguration/SCPrivate.h>      // for SCLog()
-#endif
+#include <SystemConfiguration/SCPrivate.h>      // for SCLog() and VPN private keys
 #include <mach/task_special_ports.h>
 #include "pppcontroller_types.h"
 #include "pppcontroller.h"
 #include <SystemConfiguration/SCValidation.h>
+#include <bsm/libbsm.h>
 
 #include "PPPControllerPriv.h"
 #include "ppp_msg.h"
@@ -137,8 +136,8 @@ static int setup_service(CFStringRef serviceID);
 static void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *info);
 static void reorder_services();
 static void finish_setup_services();
-static void setup_PPPoEoAirport(struct ppp *ppp);
-static void dispose_PPPoEoAirport(struct ppp *ppp);
+static void setup_PPPoE(struct ppp *ppp);
+static void dispose_PPPoE(struct ppp *ppp);
 #ifdef DEBUG
 static void print_services();
 #endif
@@ -721,11 +720,11 @@ void display_error(struct ppp *ppp)
 }
 
 /* -----------------------------------------------------------------------------
-	for PPPoE over Airport services, install a protocol to enable the interface
+	for PPPoE over Airport or Ethernet services, install a protocol to enable the interface
 	even when PPPoE is not connected
 ----------------------------------------------------------------------------- */
 static 
-void setup_PPPoEoAirport(struct ppp *ppp)
+void setup_PPPoE(struct ppp *ppp)
 {
     CFDictionaryRef	interface;
 	CFStringRef		hardware, device;
@@ -740,11 +739,12 @@ void setup_PPPoEoAirport(struct ppp *ppp)
 			hardware = CFDictionaryGetValue(interface, kSCPropNetInterfaceHardware);
 
 			if (isA_CFString(hardware) && isA_CFString(device) 
-				&& (CFStringCompare(hardware, kSCEntNetAirPort, 0) == kCFCompareEqualTo)) {
+				&& ((CFStringCompare(hardware, kSCEntNetAirPort, 0) == kCFCompareEqualTo)
+					|| (CFStringCompare(hardware, kSCEntNetEthernet, 0) == kCFCompareEqualTo))) {
 
 				if (ppp->device 
 					&& (CFStringCompare(device, ppp->device, 0) != kCFCompareEqualTo)) {
-					dispose_PPPoEoAirport(ppp);
+					dispose_PPPoE(ppp);
 				}
 				
 				if (!ppp->device) {
@@ -756,14 +756,14 @@ void setup_PPPoEoAirport(struct ppp *ppp)
 						ndrv.snd_len = sizeof(ndrv);
 						ndrv.snd_family = AF_NDRV;
 						if (bind(ppp->ndrv_socket, (struct sockaddr *)&ndrv, sizeof(ndrv)) < 0) {
-							dispose_PPPoEoAirport(ppp);
+							dispose_PPPoE(ppp);
 						}
 					}
 				}
 			}
 			else {
 				/* not an Airport device */
-				dispose_PPPoEoAirport(ppp);
+				dispose_PPPoE(ppp);
 			}
 
 			CFRelease(interface);
@@ -774,7 +774,7 @@ void setup_PPPoEoAirport(struct ppp *ppp)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
-void dispose_PPPoEoAirport(struct ppp *ppp)
+void dispose_PPPoE(struct ppp *ppp)
 {
 	if (ppp->ndrv_socket != -1) {
 		close(ppp->ndrv_socket);
@@ -801,7 +801,7 @@ void finish_setup_services()
 
             ppp->flags &= ~(FLAG_FREE + FLAG_SETUP);
 
-			setup_PPPoEoAirport(ppp);
+			setup_PPPoE(ppp);
 
             switch (ppp->phase) {
 
@@ -893,15 +893,18 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
             /* should get it only if someone refuse an idle sleep 
                 but I don't have anything to do here */
             break;
-            
-        case kIOMessageSystemHasPoweredOn:
-            gSleeping = 0; // time to wakeup
-            gWakeUpTime = mach_absolute_time();
+			
+        case kIOMessageSystemWillPowerOn:
+			gSleeping = 0; // time to wakeup
+			gWakeUpTime = mach_absolute_time();
             if (gSleepNotification) {
                 CFUserNotificationCancel(gSleepNotification);
                 CFRelease(gSleepNotification);
                 gSleepNotification = 0;
-            }
+           }
+           break;
+            
+        case kIOMessageSystemHasPoweredOn:
             wake_up();            
             break;
     }
@@ -1130,7 +1133,7 @@ int dispose_service(struct ppp *ppp)
     TAILQ_REMOVE(&ppp_head, ppp, next);    
 
     // then free the structure
-	dispose_PPPoEoAirport(ppp);
+	dispose_PPPoE(ppp);
     if (ppp->sid)
         free(ppp->sid);
     if (ppp->bundle) 
@@ -1179,6 +1182,17 @@ void writeintparam(int fd, char *param, u_int32_t val)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static 
+void writedataparam(int fd, char *param, void *data, int len)
+{
+    
+    writeintparam(fd, param, len);
+    write(fd, data, len);
+    write(fd, " ", 1);
+}
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static 
 void writestrparam(int fd, char *param, char *val)
 {
     
@@ -1209,13 +1223,16 @@ static
 int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef options, u_int8_t dialondemand)
 {
     char 			str[MAXPATHLEN], str2[256];
-    int 			needpasswd = 0, auth_default = 1, from_service, optfd, awaketime;
+    int 			needpasswd = 0, tokendone = 0, auth_default = 1, from_service, optfd, awaketime;
     u_int32_t			auth_bits = 0xF; /* PAP + CHAP + MSCHAP1 + MPCHAP2 */
     u_int32_t			len, lval, lval1, i;
     u_char 			sopt[OPT_STR_LEN];
-    CFDictionaryRef		pppdict = NULL, dict;
+    CFDictionaryRef		pppdict = NULL, dict, modemdict;
     CFArrayRef			array = NULL;
     CFStringRef			string = NULL;
+    CFDataRef			dataref = 0;
+    void			*dataptr = 0;
+    u_int32_t			datalen = 0;
 
     pppdict = CFDictionaryGetValue(service, kSCEntNetPPP);
     if ((pppdict == 0) || (CFGetTypeID(pppdict) != CFDictionaryGetTypeID()))
@@ -1302,6 +1319,56 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
                 break;
             }
         
+	#if 1
+			/* merge all modem options into modemdict */
+			modemdict = copyEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, kSCEntNetModem);
+			if (!modemdict) {
+                break;
+			}
+
+			if (options) {
+				dict = CFDictionaryGetValue(options, kSCEntNetModem);
+				if (dict && 
+					(CFGetTypeID(dict) == CFDictionaryGetTypeID()) && 
+					CFDictionaryGetCount(dict)) {
+				
+					CFMutableDictionaryRef modemdict_mutable = CFDictionaryCreateMutableCopy(NULL, 0, modemdict);
+					if (modemdict_mutable) {
+						CFTypeRef value;
+
+						// merge it into modemdict only some of the keys
+						
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemConnectionScript))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemConnectionScript, value);
+
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemSpeaker))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemSpeaker, value);
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemErrorCorrection))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemErrorCorrection, value);
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemDataCompression))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemDataCompression, value);
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemPulseDial))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemPulseDial, value);
+						if (value = CFDictionaryGetValue(dict, kSCPropNetModemDialMode))
+							CFDictionarySetValue(modemdict_mutable, kSCPropNetModemDialMode, value);
+							
+						CFRelease(modemdict);
+						modemdict = modemdict_mutable;
+					}
+				}
+			}
+			
+			/* serialize the modem dictionary, and pass it as a parameter */
+			if (dataref = Serialize(modemdict, &dataptr, &datalen)) {
+
+				writedataparam(optfd, "modemdict", dataptr, datalen);
+				CFRelease(dataref);
+			}
+
+			CFRelease(modemdict);
+#endif
+	#if 0
+	
             if (ppp_getoptval(ppp, options, 0, PPP_OPT_DEV_CONNECTSCRIPT, sopt, &len) && sopt[0]) {
                 // ---------- connect script parameter ----------
                 writestrparam(optfd, "modemscript", sopt);
@@ -1324,6 +1391,7 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
                 ppp_getoptval(ppp, options, 0, PPP_OPT_DEV_DIALMODE, &lval, &len);
                 writeintparam(optfd, "modemdialmode", lval);
             }
+#endif
             break;
             
         case PPP_TYPE_L2TP: 
@@ -1566,6 +1634,14 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
         if (lval)
             writeparam(optfd, "usepeerdns");
 
+		// usepeerwins if a SMB dictionary is present
+		// but make sure it is not disabled in PPP
+		if (existEntity(kSCDynamicStoreDomainSetup, ppp->serviceID, kSCEntNetSMB)) {
+			get_int_option(ppp, kSCEntNetPPP, CFSTR("IPCPUsePeerWINS"), options, service, &lval, 1);
+			if (lval)
+				writeparam(optfd, "usepeerwins");
+		}
+
     } // of existEntity IPv4
     
     // -----------------
@@ -1583,6 +1659,11 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
     get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPACSPEnabled, options, service, &lval, 0);
     if (lval == 0)
         writeparam(optfd, "noacsp");
+
+	// dhcp is on by default for vpn, and off for everything else 
+    get_int_option(ppp, kSCEntNetPPP, CFSTR("UseDHCP"), options, service, &lval,  (ppp->subtype == PPP_TYPE_L2TP || ppp->subtype == PPP_TYPE_PPTP) ? 1 : 0);
+    if (lval == 1)
+        writeparam(optfd, "use-dhcp");
     
 
     // -----------------
@@ -1592,28 +1673,48 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
     writeparam(optfd, "noauth");
 
      if (ppp_getoptval(ppp, options, service, PPP_OPT_AUTH_PROTO, &lval, &len) && (lval != PPP_AUTH_NONE)) {
-        if (ppp_getoptval(ppp, options, service, PPP_OPT_AUTH_NAME, sopt, &len) && sopt[0]) {
+
+		CFStringRef			encryption = NULL;
+        
+		if (ppp_getoptval(ppp, options, service, PPP_OPT_AUTH_NAME, sopt, &len) && sopt[0]) {
+
 
             writestrparam(optfd, "user", sopt);
+			needpasswd = 1;
 
             lval1 = get_str_option(ppp, kSCEntNetPPP, kSCPropNetPPPAuthPassword, options, service, sopt, &lval, "");
             if (sopt[0]) {
-                /* if the option was from the setup, check for encryption method */
-                if ((lval1 == 3)
-                    && (string = CFDictionaryGetValue(pppdict, kSCPropNetPPPAuthPasswordEncryption))
-                    && (CFGetTypeID(string) == CFStringGetTypeID())
-                    && (CFStringCompare(string, kSCValNetPPPAuthPasswordEncryptionKeychain, 0) == kCFCompareEqualTo)) {
-                        writestrparam(optfd, "keychainpassword", sopt);
-                }
-                else {
-                    writestrparam(optfd, "password", sopt);
-                }
+			
+                /* get the encryption method at the same place the password is coming from. */
+				encryption = get_cf_option(kSCEntNetPPP, kSCPropNetPPPAuthPasswordEncryption, CFStringGetTypeID(), 
+					(lval1 == 3) ? NULL : options, (lval1 == 3) ? service : NULL , NULL);
+
+				if (encryption && (CFStringCompare(encryption, kSCValNetPPPAuthPasswordEncryptionKeychain, 0) == kCFCompareEqualTo)) {
+					writestrparam(optfd, (lval1 == 3) ? "keychainpassword" : "userkeychainpassword", sopt);
+				}
+				else if (encryption && (CFStringCompare(encryption, kSCValNetPPPAuthPasswordEncryptionToken, 0) == kCFCompareEqualTo)) {
+					writeintparam(optfd, "tokencard", 1);
+					tokendone = 1;
+				}
+				else 
+					writestrparam(optfd, "password", sopt);
             }
             else { 
-                /* we need to prompt for a password if we have a username and no saved password */
-                needpasswd = 1;
+				encryption = get_cf_option(kSCEntNetPPP, kSCPropNetPPPAuthPasswordEncryption, CFStringGetTypeID(), options, service, NULL);
+				if (encryption && (CFStringCompare(encryption, kSCValNetPPPAuthPasswordEncryptionToken, 0) == kCFCompareEqualTo)) {
+					writeintparam(optfd, "tokencard", 1);
+					tokendone = 1;
+				}
             }
         }
+		else {
+			encryption = get_cf_option(kSCEntNetPPP, kSCPropNetPPPAuthPasswordEncryption, CFStringGetTypeID(), options, service, NULL);
+			if (encryption && (CFStringCompare(encryption, kSCValNetPPPAuthPasswordEncryptionToken, 0) == kCFCompareEqualTo)) {
+				writeintparam(optfd, "tokencard", 1);
+				tokendone = 1;
+				needpasswd = 1;
+			}
+		}
     }
 
     // load authentication protocols
@@ -1646,12 +1747,17 @@ int send_pppd_params(struct ppp *ppp, CFDictionaryRef service, CFDictionaryRef o
         }
     }
 
-	// authentication variation for token card support...
-    get_int_option(ppp, kSCEntNetPPP, CFSTR("TokenCard"), options, service, &lval, 0);
-    if (lval) {
-		writeintparam(optfd, "tokencard", lval);
-    }
+	
 
+	if (!tokendone) {
+		// authentication variation for token card support...
+		get_int_option(ppp, kSCEntNetPPP, CFSTR("TokenCard"), options, service, &lval, 0);
+		if (lval) {
+			writeintparam(optfd, "tokencard", lval);
+			needpasswd = 1;
+		}
+	}
+	
     // -----------------
     // eap options 
 
@@ -1831,6 +1937,8 @@ int setup_bootstrap_port()
 	mach_port_t			server, bootstrap = 0;
 	int					result;
 	kern_return_t		status;
+	audit_token_t		audit_token;
+	uid_t               euid;
 
 	status = bootstrap_look_up(bootstrap_port, PPPCONTROLLER_SERVER, &server);
 	switch (status) {
@@ -1845,7 +1953,7 @@ int setup_bootstrap_port()
 	}
 
 	/* open a new session with the server */
-	status = pppcontroller_bootstrap(server, mach_task_self(), &bootstrap, &result);
+	status = pppcontroller_bootstrap(server, &bootstrap, &result, &audit_token);
 	mach_port_deallocate(mach_task_self(), server);
 
 	if (status != KERN_SUCCESS) {
@@ -1855,6 +1963,19 @@ int setup_bootstrap_port()
 		return -1;
 	}
 
+	audit_token_to_au32(audit_token,
+				NULL,			// auidp
+				&euid,			// euid
+				NULL,			// egid
+				NULL,			// ruid
+				NULL,			// rgid
+				NULL,			// pid
+				NULL,			// asid
+				NULL);			// tid
+	if (euid != 0) {
+		printf("pppcontroller_start cannot authenticate bootstrap port from controller\n");
+		return -1;
+	}
 
 	if (bootstrap) {
 		task_set_bootstrap_port(mach_task_self(), bootstrap);
@@ -2297,6 +2418,7 @@ void ppp_updatephase(struct ppp *ppp, int phase)
   /* check if update is received pppd has  exited */
   if (ppp->statusfd[READ] == -1)
       return;
+
 
     /* check for new phase */
     if (phase == ppp->phase)

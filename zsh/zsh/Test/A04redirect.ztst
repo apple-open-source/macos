@@ -3,6 +3,10 @@
 %prep
   mkdir redir.tmp && cd redir.tmp
 
+  myfd=99
+  (echo >&$myfd) 2>msg
+  bad_fd_msg="${$(<msg)##*:}"
+
 %test
 
   print 'This is file redir' >redir  &&  cat redir
@@ -78,18 +82,22 @@
 >b
 >c
 
-  exec 3>redir  &&  print hello >&3  &&  print goodbye >&3  && cat redir
+  #
+  # exec tests: perform these in subshells so if they fail the
+  # shell won't exit.
+  #
+  (exec 3>redir  &&  print hello >&3  &&  print goodbye >&3  && cat redir)
 0:'>&' redirection
 >hello
 >goodbye
 
-  exec 3<redir && read foo <&3 && print $foo && read foo <&3 && print $foo
+  (exec 3<redir && read foo <&3 && print $foo && read foo <&3 && print $foo)
 0:'<&' redirection
 >hello
 >goodbye
 
-  exec 3<&-
-  read foo <&-
+  (exec 3<&-
+  read foo <&-)
 1:'<&-' redirection
 
   print foo >&-
@@ -235,3 +243,52 @@
 0:null redir with NULLCMD=cat
 <input
 >input
+
+  (myfd=
+  exec {myfd}>logfile
+  if [[ -z $myfd ]]; then
+    print "Ooops, failed to set myfd to a file descriptor." >&2
+  else
+    print This is my logfile. >&$myfd
+    print Examining contents of logfile...
+    cat logfile
+  fi)
+0:Using {fdvar}> syntax to open a new file descriptor
+>Examining contents of logfile...
+>This is my logfile.
+
+  (setopt noclobber
+   exec {myfd}>logfile2
+   echo $myfd
+   exec {myfd}>logfile3) | read myfd
+  (( ! ${pipestatus[1]} ))
+1q:NO_CLOBBER prevents overwriting parameter with allocated fd
+?(eval):4: can't clobber parameter myfd containing file descriptor $myfd
+
+  (exec {myfd}>logfile4
+  echo $myfd
+  exec {myfd}>&-
+  print This message should disappear >&$myfd) | read myfd
+  (( ! ${pipestatus[1]} ))
+1q:Closing file descriptor using brace syntax
+?(eval):4: $myfd:$bad_fd_msg
+
+  typeset -r myfd
+  echo This should not appear {myfd}>nologfile
+1:Error opening file descriptor using readonly variable
+?(eval):2: can't allocate file descriptor to readonly parameter myfd
+
+  (typeset +r myfd
+  exec {myfd}>newlogfile
+  typeset -r myfd
+  exec {myfd}>&-)
+1:Error closing file descriptor using readonly variable
+?(eval):4: can't close file descriptor from readonly parameter myfd
+
+# This tests the here-string to filename optimisation; we can't
+# test that it's actually being optimised, but we can test that it
+# still works.
+  cat =(<<<$'This string has been replaced\nby a file containing it.\n')
+0:Optimised here-string to filename
+>This string has been replaced
+>by a file containing it.

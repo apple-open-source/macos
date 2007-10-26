@@ -3,5 +3,5 @@ Twoj± decyzje:
 
 	%(adminDB)s
 	
-Odwied¼ t± stronê, ¿eby zadecydowaæ co zrobiæ z tymi pro¶bami. 
+Odwied¼ t± stronê, ¿eby zadecydowaæ, co zrobiæ z tymi pro¶bami. 
 To przypomnienie bêdzie wysy³ane codziennie.

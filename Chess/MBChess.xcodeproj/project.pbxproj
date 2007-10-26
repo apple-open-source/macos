@@ -1,0 +1,1407 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
+		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
+		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
+		950BD1170A1E582B00395116 /* MBCEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = F505DC4103032B9F01F7F1A0 /* MBCEngine.h */; };
+		950BD1180A1E582B00395116 /* MBCBoardView.h in Headers */ = {isa = PBXBuildFile; fileRef = F5228DC1030ADA0201D8E860 /* MBCBoardView.h */; };
+		950BD1190A1E582B00395116 /* MBCBoardViewDraw.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */; };
+		950BD11A0A1E582B00395116 /* MBCBoardViewModels.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB521030CE23701D20FFB /* MBCBoardViewModels.h */; };
+		950BD11B0A1E582B00395116 /* MBCBoardViewTextures.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB522030CE23701D20FFB /* MBCBoardViewTextures.h */; };
+		950BD11C0A1E582B00395116 /* MBCBoardViewMouse.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */; };
+		950BD11D0A1E582B00395116 /* MBCInteractivePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A165420310661001D39A8B /* MBCInteractivePlayer.h */; };
+		950BD11E0A1E582B00395116 /* MBCAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654603106D9B01D39A8B /* MBCAnimation.h */; };
+		950BD11F0A1E582B00395116 /* MBCMoveAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654A0310791D01D39A8B /* MBCMoveAnimation.h */; };
+		950BD1200A1E582B00395116 /* MBCController.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654E03107AD501D39A8B /* MBCController.h */; };
+		950BD1210A1E582B00395116 /* MBCDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 953ABB1B043AC51100C64F18 /* MBCDocument.h */; };
+		950BD1220A1E582B00395116 /* MBCBoardAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = 9534EBC3046627320000E7BB /* MBCBoardAnimation.h */; };
+		950BD1230A1E582B00395116 /* MBCGameInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65050046F289700EF3E85 /* MBCGameInfo.h */; };
+		950BD1240A1E582B00395116 /* MBCFloatingBoardWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */; };
+		950BD1250A1E582B00395116 /* MBCMoveGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 950B5942049D8C73000001C9 /* MBCMoveGenerator.h */; };
+		950BD1260A1E582B00395116 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
+		950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
+		950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
+		950BD12A0A1E582B00395116 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
+		950BD12B0A1E582B00395116 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
+		950BD12C0A1E582B00395116 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
+		950BD12D0A1E582B00395116 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
+		950BD12E0A1E582B00395116 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
+		950BD12F0A1E582B00395116 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
+		950BD1300A1E582B00395116 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
+		950BD1310A1E582B00395116 /* 1.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446040311DEB4013BD914 /* 1.rgb */; };
+		950BD1320A1E582B00395116 /* 2.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446050311DEB4013BD914 /* 2.rgb */; };
+		950BD1330A1E582B00395116 /* 3.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446060311DEB4013BD914 /* 3.rgb */; };
+		950BD1340A1E582B00395116 /* 4.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446070311DEB4013BD914 /* 4.rgb */; };
+		950BD1350A1E582B00395116 /* 5.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446080311DEB4013BD914 /* 5.rgb */; };
+		950BD1360A1E582B00395116 /* 6.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446090311DEB4013BD914 /* 6.rgb */; };
+		950BD1370A1E582B00395116 /* 7.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460A0311DEB4013BD914 /* 7.rgb */; };
+		950BD1380A1E582B00395116 /* 8.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460B0311DEB4013BD914 /* 8.rgb */; };
+		950BD1390A1E582B00395116 /* a.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460C0311DEB4013BD914 /* a.rgb */; };
+		950BD13A0A1E582B00395116 /* b.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460D0311DEB4013BD914 /* b.rgb */; };
+		950BD13B0A1E582B00395116 /* c.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446100311DEB4013BD914 /* c.rgb */; };
+		950BD13C0A1E582B00395116 /* d.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446110311DEB4013BD914 /* d.rgb */; };
+		950BD13D0A1E582B00395116 /* e.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446120311DEB4013BD914 /* e.rgb */; };
+		950BD13E0A1E582B00395116 /* f.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446130311DEB4013BD914 /* f.rgb */; };
+		950BD13F0A1E582B00395116 /* g.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446140311DEB4013BD914 /* g.rgb */; };
+		950BD1400A1E582B00395116 /* h.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446150311DEB4013BD914 /* h.rgb */; };
+		950BD1410A1E582B00395116 /* selected_piece_texture.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */; };
+		950BD1420A1E582B00395116 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
+		950BD1430A1E582B00395116 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
+		950BD1440A1E582B00395116 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
+		950BD1450A1E582B00395116 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
+		950BD1460A1E582B00395116 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
+		950BD1470A1E582B00395116 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
+		950BD1480A1E582B00395116 /* Styles in Resources */ = {isa = PBXBuildFile; fileRef = 95C85026048F342500A9DF4F /* Styles */; };
+		950BD1490A1E582B00395116 /* About.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95C4076104B2B86A0015A26B /* About.nib */; };
+		950BD14A0A1E582B00395116 /* SpeechHelp.xml in Resources */ = {isa = PBXBuildFile; fileRef = 9594A40504C76CA4005DC0DD /* SpeechHelp.xml */; };
+		950BD14D0A1E582B00395116 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = F5775A1A02F9176F01D8996C /* main.m */; };
+		950BD14E0A1E582B00395116 /* MBCBoard.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */; };
+		950BD14F0A1E582B00395116 /* MBCEngineCommands.l in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC1102FAB09301AC80B8 /* MBCEngineCommands.l */; };
+		950BD1500A1E582B00395116 /* MBCPlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC1302FAB09301AC80B8 /* MBCPlayer.mm */; };
+		950BD1510A1E582B00395116 /* MBCEngine.mm in Sources */ = {isa = PBXBuildFile; fileRef = F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */; };
+		950BD1520A1E582B00395116 /* MBCBoardViewModels.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DC2030ADA0201D8E860 /* MBCBoardViewModels.mm */; };
+		950BD1530A1E582B00395116 /* MBCBoardViewDraw.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DEB030AFC7501D8E860 /* MBCBoardViewDraw.mm */; };
+		950BD1540A1E582B00395116 /* MBCBoardViewTextures.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DEC030AFC7501D8E860 /* MBCBoardViewTextures.mm */; };
+		950BD1550A1E582B00395116 /* MBCBoardView.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5406BF9030E151F011317DC /* MBCBoardView.mm */; };
+		950BD1560A1E582B00395116 /* MBCBoardViewMouse.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */; };
+		950BD1570A1E582B00395116 /* MBCAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654703106D9B01D39A8B /* MBCAnimation.mm */; };
+		950BD1580A1E582B00395116 /* MBCMoveAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654B0310791D01D39A8B /* MBCMoveAnimation.mm */; };
+		950BD1590A1E582B00395116 /* MBCController.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654F03107AD501D39A8B /* MBCController.mm */; };
+		950BD15A0A1E582B00395116 /* MBCInteractivePlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C446020311DD0E013BD914 /* MBCInteractivePlayer.mm */; };
+		950BD15B0A1E582B00395116 /* MBCDocument.mm in Sources */ = {isa = PBXBuildFile; fileRef = 953ABB1C043AC51100C64F18 /* MBCDocument.mm */; };
+		950BD15C0A1E582B00395116 /* MBCBoardAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */; };
+		950BD15D0A1E582B00395116 /* MBCGameInfo.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B65051046F289700EF3E85 /* MBCGameInfo.mm */; };
+		950BD15E0A1E582B00395116 /* MBCFloatingBoardWindow.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */; };
+		950BD15F0A1E582B00395116 /* MBCMoveGenerator.mm in Sources */ = {isa = PBXBuildFile; fileRef = 950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */; };
+		950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C4075C04B2B8500015A26B /* MBCAbout.mm */; };
+		950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95D2026304C2247B00590F98 /* MBCLanguageModel.mm */; };
+		950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */; };
+		950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+		950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
+		950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
+		950BD1680A1E582B00395116 /* Chess.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08807769701004ED524 /* Chess.plist */; };
+		950BD16A0A1E582B00395116 /* Chess.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = 950EE08907769701004ED524 /* Chess.txt */; };
+		95844C6D0A670C1E0068CA82 /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8304F30114005E79F8 /* config.h */; };
+		95844C6E0A670C1E0068CA82 /* extvars.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8804F30114005E79F8 /* extvars.h */; };
+		95844C6F0A670C1E0068CA82 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9104F30114005E79F8 /* protos.h */; };
+		95844C700A670C1E0068CA82 /* sjeng.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9804F30114005E79F8 /* sjeng.h */; };
+		95844C710A670C1E0068CA82 /* squares.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9904F30114005E79F8 /* squares.h */; };
+		95844C720A670C1E0068CA82 /* attacks.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8004F30114005E79F8 /* attacks.c */; };
+		95844C730A670C1E0068CA82 /* draw.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8404F30114005E79F8 /* draw.c */; };
+		95844C740A670C1E0068CA82 /* book.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8204F30114005E79F8 /* book.c */; };
+		95844C750A670C1E0068CA82 /* ecache.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8504F30114005E79F8 /* ecache.c */; };
+		95844C760A670C1E0068CA82 /* epd.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8604F30114005E79F8 /* epd.c */; };
+		95844C770A670C1E0068CA82 /* eval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8704F30114005E79F8 /* eval.c */; };
+		95844C780A670C1E0068CA82 /* learn.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8904F30114005E79F8 /* learn.c */; };
+		95844C790A670C1E0068CA82 /* leval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8A04F30114005E79F8 /* leval.c */; };
+		95844C7A0A670C1E0068CA82 /* moves.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8B04F30114005E79F8 /* moves.c */; };
+		95844C7B0A670C1E0068CA82 /* neval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8C04F30114005E79F8 /* neval.c */; };
+		95844C7C0A670C1E0068CA82 /* newbook.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8D04F30114005E79F8 /* newbook.c */; };
+		95844C7D0A670C1E0068CA82 /* partner.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8E04F30114005E79F8 /* partner.c */; };
+		95844C7E0A670C1E0068CA82 /* probe.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED8F04F30114005E79F8 /* probe.c */; };
+		95844C7F0A670C1E0068CA82 /* proof.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9004F30114005E79F8 /* proof.c */; };
+		95844C800A670C1E0068CA82 /* rcfile.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9204F30114005E79F8 /* rcfile.c */; };
+		95844C810A670C1E0068CA82 /* search.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9304F30114005E79F8 /* search.c */; };
+		95844C820A670C1E0068CA82 /* see.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9404F30114005E79F8 /* see.c */; };
+		95844C830A670C1E0068CA82 /* segtb.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9504F30114005E79F8 /* segtb.c */; };
+		95844C840A670C1E0068CA82 /* seval.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9604F30114005E79F8 /* seval.c */; };
+		95844C850A670C1E0068CA82 /* sjeng.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9704F30114005E79F8 /* sjeng.c */; };
+		95844C860A670C1E0068CA82 /* ttable.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9A04F30114005E79F8 /* ttable.c */; };
+		95844C870A670C1E0068CA82 /* utils.c in Headers */ = {isa = PBXBuildFile; fileRef = 95B4ED9B04F30114005E79F8 /* utils.c */; };
+		95844C890A670C1E0068CA82 /* blob2.c in Sources */ = {isa = PBXBuildFile; fileRef = 95B4ED8104F30114005E79F8 /* blob2.c */; };
+		95844C980A670C280068CA82 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
+		95844C990A670C280068CA82 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
+		95844C9A0A670C280068CA82 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
+		95844C9B0A670C280068CA82 /* MBCEngine.h in Headers */ = {isa = PBXBuildFile; fileRef = F505DC4103032B9F01F7F1A0 /* MBCEngine.h */; };
+		95844C9C0A670C280068CA82 /* MBCBoardView.h in Headers */ = {isa = PBXBuildFile; fileRef = F5228DC1030ADA0201D8E860 /* MBCBoardView.h */; };
+		95844C9D0A670C280068CA82 /* MBCBoardViewDraw.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */; };
+		95844C9E0A670C280068CA82 /* MBCBoardViewModels.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB521030CE23701D20FFB /* MBCBoardViewModels.h */; };
+		95844C9F0A670C280068CA82 /* MBCBoardViewTextures.h in Headers */ = {isa = PBXBuildFile; fileRef = F50CB522030CE23701D20FFB /* MBCBoardViewTextures.h */; };
+		95844CA00A670C280068CA82 /* MBCBoardViewMouse.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */; };
+		95844CA10A670C280068CA82 /* MBCInteractivePlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A165420310661001D39A8B /* MBCInteractivePlayer.h */; };
+		95844CA20A670C280068CA82 /* MBCAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654603106D9B01D39A8B /* MBCAnimation.h */; };
+		95844CA30A670C280068CA82 /* MBCMoveAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654A0310791D01D39A8B /* MBCMoveAnimation.h */; };
+		95844CA40A670C280068CA82 /* MBCController.h in Headers */ = {isa = PBXBuildFile; fileRef = F5A1654E03107AD501D39A8B /* MBCController.h */; };
+		95844CA50A670C280068CA82 /* MBCDocument.h in Headers */ = {isa = PBXBuildFile; fileRef = 953ABB1B043AC51100C64F18 /* MBCDocument.h */; };
+		95844CA60A670C280068CA82 /* MBCBoardAnimation.h in Headers */ = {isa = PBXBuildFile; fileRef = 9534EBC3046627320000E7BB /* MBCBoardAnimation.h */; };
+		95844CA70A670C280068CA82 /* MBCGameInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B65050046F289700EF3E85 /* MBCGameInfo.h */; };
+		95844CA80A670C280068CA82 /* MBCTuner.h in Headers */ = {isa = PBXBuildFile; fileRef = 95A35CFF048EEA7300D1AB5E /* MBCTuner.h */; };
+		95844CA90A670C280068CA82 /* MBCFloatingBoardWindow.h in Headers */ = {isa = PBXBuildFile; fileRef = 95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */; };
+		95844CAA0A670C280068CA82 /* MBCMoveGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = 950B5942049D8C73000001C9 /* MBCMoveGenerator.h */; };
+		95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */ = {isa = PBXBuildFile; fileRef = 95C4075B04B2B8500015A26B /* MBCAbout.h */; };
+		95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */ = {isa = PBXBuildFile; fileRef = 95D2026204C2247A00590F98 /* MBCLanguageModel.h */; };
+		95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */; };
+		95844CAF0A670C280068CA82 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
+		95844CB00A670C280068CA82 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
+		95844CB10A670C280068CA82 /* bug.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1C02F917A901D8996C /* bug.opn */; };
+		95844CB20A670C280068CA82 /* losers.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1D02F917A901D8996C /* losers.opn */; };
+		95844CB30A670C280068CA82 /* nbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1E02F917A901D8996C /* nbook.db */; };
+		95844CB40A670C280068CA82 /* suicide.opn in Resources */ = {isa = PBXBuildFile; fileRef = F5775A1F02F917A901D8996C /* suicide.opn */; };
+		95844CB50A670C280068CA82 /* zbook.db in Resources */ = {isa = PBXBuildFile; fileRef = F5775A2002F917A901D8996C /* zbook.db */; };
+		95844CB60A670C280068CA82 /* 1.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446040311DEB4013BD914 /* 1.rgb */; };
+		95844CB70A670C280068CA82 /* 2.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446050311DEB4013BD914 /* 2.rgb */; };
+		95844CB80A670C280068CA82 /* 3.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446060311DEB4013BD914 /* 3.rgb */; };
+		95844CB90A670C280068CA82 /* 4.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446070311DEB4013BD914 /* 4.rgb */; };
+		95844CBA0A670C280068CA82 /* 5.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446080311DEB4013BD914 /* 5.rgb */; };
+		95844CBB0A670C280068CA82 /* 6.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446090311DEB4013BD914 /* 6.rgb */; };
+		95844CBC0A670C280068CA82 /* 7.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460A0311DEB4013BD914 /* 7.rgb */; };
+		95844CBD0A670C280068CA82 /* 8.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460B0311DEB4013BD914 /* 8.rgb */; };
+		95844CBE0A670C280068CA82 /* a.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460C0311DEB4013BD914 /* a.rgb */; };
+		95844CBF0A670C280068CA82 /* b.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C4460D0311DEB4013BD914 /* b.rgb */; };
+		95844CC00A670C280068CA82 /* c.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446100311DEB4013BD914 /* c.rgb */; };
+		95844CC10A670C280068CA82 /* d.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446110311DEB4013BD914 /* d.rgb */; };
+		95844CC20A670C280068CA82 /* e.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446120311DEB4013BD914 /* e.rgb */; };
+		95844CC30A670C280068CA82 /* f.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446130311DEB4013BD914 /* f.rgb */; };
+		95844CC40A670C280068CA82 /* g.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446140311DEB4013BD914 /* g.rgb */; };
+		95844CC50A670C280068CA82 /* h.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446150311DEB4013BD914 /* h.rgb */; };
+		95844CC60A670C280068CA82 /* selected_piece_texture.rgb in Resources */ = {isa = PBXBuildFile; fileRef = F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */; };
+		95844CC70A670C280068CA82 /* Defaults.plist in Resources */ = {isa = PBXBuildFile; fileRef = F598AC41035A958501000102 /* Defaults.plist */; };
+		95844CC80A670C280068CA82 /* chess.icns in Resources */ = {isa = PBXBuildFile; fileRef = 95C10123043A066700CA17DD /* chess.icns */; };
+		95844CC90A670C280068CA82 /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 95E9EE6D045797010091A3D7 /* COPYING */; };
+		95844CCA0A670C280068CA82 /* sjeng.rc in Resources */ = {isa = PBXBuildFile; fileRef = 9595B6C00458E2CD00A8D2EE /* sjeng.rc */; };
+		95844CCB0A670C280068CA82 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 95D6CE62045BBDBE0045D5FC /* Localizable.strings */; };
+		95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 9586675C048AF5A5007B50FB /* handCursor.tiff */; };
+		95844CCD0A670C280068CA82 /* Tuner.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95A35D03048EEF8900D1AB5E /* Tuner.nib */; };
+		95844CCE0A670C280068CA82 /* About.nib in Resources */ = {isa = PBXBuildFile; fileRef = 95C4076104B2B86A0015A26B /* About.nib */; };
+		95844CCF0A670C280068CA82 /* SpeechHelp.xml in Resources */ = {isa = PBXBuildFile; fileRef = 9594A40504C76CA4005DC0DD /* SpeechHelp.xml */; };
+		95844CD20A670C280068CA82 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = F5775A1A02F9176F01D8996C /* main.m */; };
+		95844CD30A670C280068CA82 /* MBCBoard.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */; };
+		95844CD40A670C280068CA82 /* MBCEngineCommands.l in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC1102FAB09301AC80B8 /* MBCEngineCommands.l */; };
+		95844CD50A670C280068CA82 /* MBCPlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C8AC1302FAB09301AC80B8 /* MBCPlayer.mm */; };
+		95844CD60A670C280068CA82 /* MBCEngine.mm in Sources */ = {isa = PBXBuildFile; fileRef = F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */; };
+		95844CD70A670C280068CA82 /* MBCBoardViewModels.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DC2030ADA0201D8E860 /* MBCBoardViewModels.mm */; };
+		95844CD80A670C280068CA82 /* MBCBoardViewDraw.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DEB030AFC7501D8E860 /* MBCBoardViewDraw.mm */; };
+		95844CD90A670C280068CA82 /* MBCBoardViewTextures.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5228DEC030AFC7501D8E860 /* MBCBoardViewTextures.mm */; };
+		95844CDA0A670C280068CA82 /* MBCBoardView.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5406BF9030E151F011317DC /* MBCBoardView.mm */; };
+		95844CDB0A670C280068CA82 /* MBCBoardViewMouse.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */; };
+		95844CDC0A670C280068CA82 /* MBCAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654703106D9B01D39A8B /* MBCAnimation.mm */; };
+		95844CDD0A670C280068CA82 /* MBCMoveAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654B0310791D01D39A8B /* MBCMoveAnimation.mm */; };
+		95844CDE0A670C280068CA82 /* MBCController.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5A1654F03107AD501D39A8B /* MBCController.mm */; };
+		95844CDF0A670C280068CA82 /* MBCInteractivePlayer.mm in Sources */ = {isa = PBXBuildFile; fileRef = F5C446020311DD0E013BD914 /* MBCInteractivePlayer.mm */; };
+		95844CE00A670C280068CA82 /* MBCDocument.mm in Sources */ = {isa = PBXBuildFile; fileRef = 953ABB1C043AC51100C64F18 /* MBCDocument.mm */; };
+		95844CE10A670C280068CA82 /* MBCBoardAnimation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */; };
+		95844CE20A670C280068CA82 /* MBCGameInfo.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B65051046F289700EF3E85 /* MBCGameInfo.mm */; };
+		95844CE30A670C280068CA82 /* MBCTuner.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95A35D00048EEA7300D1AB5E /* MBCTuner.mm */; };
+		95844CE40A670C280068CA82 /* MBCFloatingBoardWindow.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */; };
+		95844CE50A670C280068CA82 /* MBCMoveGenerator.mm in Sources */ = {isa = PBXBuildFile; fileRef = 950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */; };
+		95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95C4075C04B2B8500015A26B /* MBCAbout.mm */; };
+		95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95D2026304C2247B00590F98 /* MBCLanguageModel.mm */; };
+		95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */ = {isa = PBXBuildFile; fileRef = 95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */; };
+		95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */; };
+		95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5228DC5030ADA9401D8E860 /* OpenGL.framework */; };
+		95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5529B030314493B01CA17FB /* Carbon.framework */; };
+		95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */ = {isa = PBXBuildFile; fileRef = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		950BD1120A1E582B00395116 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95B4EDD204F3081E005E79F8;
+			remoteInfo = "Opening Books";
+		};
+		95844C940A670C280068CA82 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95B4EDD204F3081E005E79F8;
+			remoteInfo = "Opening Books";
+		};
+		95844CF40A670C4E0068CA82 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95844C6B0A670C1E0068CA82;
+			remoteInfo = "sjeng (Upgraded)";
+		};
+		95844CF60A670C530068CA82 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 29B97313FDCFA39411CA2CEA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 95844C6B0A670C1E0068CA82;
+			remoteInfo = "sjeng (Upgraded)";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		950BD1670A1E582B00395116 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				950BD1680A1E582B00395116 /* Chess.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		950BD1690A1E582B00395116 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceLicenses/;
+			dstSubfolderSpec = 0;
+			files = (
+				950BD16A0A1E582B00395116 /* Chess.txt in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		29B97319FDCFA39411CA2CEA /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/MainMenu.nib; sourceTree = "<group>"; };
+		29B97324FDCFA39411CA2CEA /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = /System/Library/Frameworks/AppKit.framework; sourceTree = "<absolute>"; };
+		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
+		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
+		950BD16F0A1E582B00395116 /* Info-MBChess.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; name = "Info-MBChess.plist"; path = "Resources/Info-MBChess.plist"; sourceTree = "<group>"; };
+		950BD1700A1E582B00395116 /* Chess.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Chess.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		950EE08807769701004ED524 /* Chess.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Chess.plist; path = Resources/Chess.plist; sourceTree = "<group>"; };
+		950EE08907769701004ED524 /* Chess.txt */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = Chess.txt; path = Resources/Chess.txt; sourceTree = "<group>"; };
+		9534EBC3046627320000E7BB /* MBCBoardAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardAnimation.h; path = Sources/MBCBoardAnimation.h; sourceTree = "<group>"; };
+		9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardAnimation.mm; path = Sources/MBCBoardAnimation.mm; sourceTree = "<group>"; };
+		953ABB1B043AC51100C64F18 /* MBCDocument.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCDocument.h; path = Sources/MBCDocument.h; sourceTree = "<group>"; };
+		953ABB1C043AC51100C64F18 /* MBCDocument.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCDocument.mm; path = Sources/MBCDocument.mm; sourceTree = "<group>"; };
+		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
+		95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-ChessTuner_.plist"; sourceTree = "<group>"; };
+		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9586675C048AF5A5007B50FB /* handCursor.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = handCursor.tiff; path = Resources/handCursor.tiff; sourceTree = "<group>"; };
+		9594A40504C76CA4005DC0DD /* SpeechHelp.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = SpeechHelp.xml; path = Resources/SpeechHelp.xml; sourceTree = "<group>"; };
+		9595B6C00458E2CD00A8D2EE /* sjeng.rc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sjeng.rc; path = sjeng/sjeng.rc; sourceTree = "<group>"; };
+		95A35CFF048EEA7300D1AB5E /* MBCTuner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCTuner.h; path = Sources/MBCTuner.h; sourceTree = "<group>"; };
+		95A35D00048EEA7300D1AB5E /* MBCTuner.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCTuner.mm; path = Sources/MBCTuner.mm; sourceTree = "<group>"; };
+		95A35D04048EEF8900D1AB5E /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/Tuner.nib; sourceTree = "<group>"; };
+		95B4ED8004F30114005E79F8 /* attacks.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = attacks.c; path = sjeng/attacks.c; sourceTree = "<group>"; };
+		95B4ED8104F30114005E79F8 /* blob2.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = blob2.c; path = sjeng/blob2.c; sourceTree = "<group>"; };
+		95B4ED8204F30114005E79F8 /* book.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = book.c; path = sjeng/book.c; sourceTree = "<group>"; };
+		95B4ED8304F30114005E79F8 /* config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = config.h; path = sjeng/config.h; sourceTree = "<group>"; };
+		95B4ED8404F30114005E79F8 /* draw.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = draw.c; path = sjeng/draw.c; sourceTree = "<group>"; };
+		95B4ED8504F30114005E79F8 /* ecache.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ecache.c; path = sjeng/ecache.c; sourceTree = "<group>"; };
+		95B4ED8604F30114005E79F8 /* epd.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = epd.c; path = sjeng/epd.c; sourceTree = "<group>"; };
+		95B4ED8704F30114005E79F8 /* eval.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = eval.c; path = sjeng/eval.c; sourceTree = "<group>"; };
+		95B4ED8804F30114005E79F8 /* extvars.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = extvars.h; path = sjeng/extvars.h; sourceTree = "<group>"; };
+		95B4ED8904F30114005E79F8 /* learn.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = learn.c; path = sjeng/learn.c; sourceTree = "<group>"; };
+		95B4ED8A04F30114005E79F8 /* leval.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = leval.c; path = sjeng/leval.c; sourceTree = "<group>"; };
+		95B4ED8B04F30114005E79F8 /* moves.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = moves.c; path = sjeng/moves.c; sourceTree = "<group>"; };
+		95B4ED8C04F30114005E79F8 /* neval.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = neval.c; path = sjeng/neval.c; sourceTree = "<group>"; };
+		95B4ED8D04F30114005E79F8 /* newbook.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = newbook.c; path = sjeng/newbook.c; sourceTree = "<group>"; };
+		95B4ED8E04F30114005E79F8 /* partner.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = partner.c; path = sjeng/partner.c; sourceTree = "<group>"; };
+		95B4ED8F04F30114005E79F8 /* probe.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = probe.c; path = sjeng/probe.c; sourceTree = "<group>"; };
+		95B4ED9004F30114005E79F8 /* proof.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = proof.c; path = sjeng/proof.c; sourceTree = "<group>"; };
+		95B4ED9104F30114005E79F8 /* protos.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = protos.h; path = sjeng/protos.h; sourceTree = "<group>"; };
+		95B4ED9204F30114005E79F8 /* rcfile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = rcfile.c; path = sjeng/rcfile.c; sourceTree = "<group>"; };
+		95B4ED9304F30114005E79F8 /* search.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = search.c; path = sjeng/search.c; sourceTree = "<group>"; };
+		95B4ED9404F30114005E79F8 /* see.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = see.c; path = sjeng/see.c; sourceTree = "<group>"; };
+		95B4ED9504F30114005E79F8 /* segtb.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = segtb.c; path = sjeng/segtb.c; sourceTree = "<group>"; };
+		95B4ED9604F30114005E79F8 /* seval.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = seval.c; path = sjeng/seval.c; sourceTree = "<group>"; };
+		95B4ED9704F30114005E79F8 /* sjeng.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = sjeng.c; path = sjeng/sjeng.c; sourceTree = "<group>"; };
+		95B4ED9804F30114005E79F8 /* sjeng.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sjeng.h; path = sjeng/sjeng.h; sourceTree = "<group>"; };
+		95B4ED9904F30114005E79F8 /* squares.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = squares.h; path = sjeng/squares.h; sourceTree = "<group>"; };
+		95B4ED9A04F30114005E79F8 /* ttable.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ttable.c; path = sjeng/ttable.c; sourceTree = "<group>"; };
+		95B4ED9B04F30114005E79F8 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = utils.c; path = sjeng/utils.c; sourceTree = "<group>"; };
+		95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCFloatingBoardWindow.h; path = Sources/MBCFloatingBoardWindow.h; sourceTree = "<group>"; };
+		95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCFloatingBoardWindow.mm; path = Sources/MBCFloatingBoardWindow.mm; sourceTree = "<group>"; };
+		95B65050046F289700EF3E85 /* MBCGameInfo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCGameInfo.h; path = Sources/MBCGameInfo.h; sourceTree = "<group>"; };
+		95B65051046F289700EF3E85 /* MBCGameInfo.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCGameInfo.mm; path = Sources/MBCGameInfo.mm; sourceTree = "<group>"; };
+		95C10123043A066700CA17DD /* chess.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = chess.icns; path = Resources/chess.icns; sourceTree = "<group>"; };
+		95C4075B04B2B8500015A26B /* MBCAbout.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCAbout.h; path = Sources/MBCAbout.h; sourceTree = "<group>"; };
+		95C4075C04B2B8500015A26B /* MBCAbout.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCAbout.mm; path = Sources/MBCAbout.mm; sourceTree = "<group>"; };
+		95C4076204B2B86A0015A26B /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/About.nib; sourceTree = "<group>"; };
+		95C85026048F342500A9DF4F /* Styles */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Styles; sourceTree = "<group>"; };
+		95D2026204C2247A00590F98 /* MBCLanguageModel.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCLanguageModel.h; path = Sources/MBCLanguageModel.h; sourceTree = "<group>"; };
+		95D2026304C2247B00590F98 /* MBCLanguageModel.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCLanguageModel.mm; path = Sources/MBCLanguageModel.mm; sourceTree = "<group>"; };
+		95D6CE63045BBDBE0045D5FC /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		95E9EE6D045797010091A3D7 /* COPYING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
+		95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewAccessibility.h; path = Sources/MBCBoardViewAccessibility.h; sourceTree = "<group>"; };
+		95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewAccessibility.mm; path = Sources/MBCBoardViewAccessibility.mm; sourceTree = "<group>"; };
+		F505DC4103032B9F01F7F1A0 /* MBCEngine.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngine.h; path = Sources/MBCEngine.h; sourceTree = "<group>"; };
+		F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCEngine.mm; path = Sources/MBCEngine.mm; sourceTree = "<group>"; };
+		F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewDraw.h; path = Sources/MBCBoardViewDraw.h; sourceTree = "<group>"; };
+		F50CB521030CE23701D20FFB /* MBCBoardViewModels.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewModels.h; path = Sources/MBCBoardViewModels.h; sourceTree = "<group>"; };
+		F50CB522030CE23701D20FFB /* MBCBoardViewTextures.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewTextures.h; path = Sources/MBCBoardViewTextures.h; sourceTree = "<group>"; };
+		F5228DC1030ADA0201D8E860 /* MBCBoardView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardView.h; path = Sources/MBCBoardView.h; sourceTree = "<group>"; };
+		F5228DC2030ADA0201D8E860 /* MBCBoardViewModels.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewModels.mm; path = Sources/MBCBoardViewModels.mm; sourceTree = "<group>"; };
+		F5228DC5030ADA9401D8E860 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = /System/Library/Frameworks/OpenGL.framework; sourceTree = "<absolute>"; };
+		F5228DEB030AFC7501D8E860 /* MBCBoardViewDraw.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewDraw.mm; path = Sources/MBCBoardViewDraw.mm; sourceTree = "<group>"; };
+		F5228DEC030AFC7501D8E860 /* MBCBoardViewTextures.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewTextures.mm; path = Sources/MBCBoardViewTextures.mm; sourceTree = "<group>"; };
+		F5406BF9030E151F011317DC /* MBCBoardView.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardView.mm; path = Sources/MBCBoardView.mm; sourceTree = "<group>"; };
+		F5529B030314493B01CA17FB /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
+		F5775A1A02F9176F01D8996C /* main.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = main.m; path = Sources/main.m; sourceTree = "<group>"; };
+		F5775A1C02F917A901D8996C /* bug.opn */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = bug.opn; path = sjeng/books/bug.opn; sourceTree = "<group>"; };
+		F5775A1D02F917A901D8996C /* losers.opn */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = losers.opn; path = sjeng/books/losers.opn; sourceTree = "<group>"; };
+		F5775A1E02F917A901D8996C /* nbook.db */ = {isa = PBXFileReference; lastKnownFileType = file; name = nbook.db; path = sjeng/books/nbook.db; sourceTree = "<group>"; };
+		F5775A1F02F917A901D8996C /* suicide.opn */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = suicide.opn; path = sjeng/books/suicide.opn; sourceTree = "<group>"; };
+		F5775A2002F917A901D8996C /* zbook.db */ = {isa = PBXFileReference; lastKnownFileType = file; name = zbook.db; path = sjeng/books/zbook.db; sourceTree = "<group>"; };
+		F598AC41035A958501000102 /* Defaults.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Defaults.plist; path = Resources/Defaults.plist; sourceTree = "<group>"; };
+		F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoardViewMouse.h; path = Sources/MBCBoardViewMouse.h; sourceTree = "<group>"; };
+		F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardViewMouse.mm; path = Sources/MBCBoardViewMouse.mm; sourceTree = "<group>"; };
+		F5A165420310661001D39A8B /* MBCInteractivePlayer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCInteractivePlayer.h; path = Sources/MBCInteractivePlayer.h; sourceTree = "<group>"; };
+		F5A1654603106D9B01D39A8B /* MBCAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCAnimation.h; path = Sources/MBCAnimation.h; sourceTree = "<group>"; };
+		F5A1654703106D9B01D39A8B /* MBCAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCAnimation.mm; path = Sources/MBCAnimation.mm; sourceTree = "<group>"; };
+		F5A1654A0310791D01D39A8B /* MBCMoveAnimation.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveAnimation.h; path = Sources/MBCMoveAnimation.h; sourceTree = "<group>"; };
+		F5A1654B0310791D01D39A8B /* MBCMoveAnimation.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveAnimation.mm; path = Sources/MBCMoveAnimation.mm; sourceTree = "<group>"; };
+		F5A1654E03107AD501D39A8B /* MBCController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCController.h; path = Sources/MBCController.h; sourceTree = "<group>"; };
+		F5A1654F03107AD501D39A8B /* MBCController.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCController.mm; path = Sources/MBCController.mm; sourceTree = "<group>"; };
+		F5C446020311DD0E013BD914 /* MBCInteractivePlayer.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCInteractivePlayer.mm; path = Sources/MBCInteractivePlayer.mm; sourceTree = "<group>"; };
+		F5C446040311DEB4013BD914 /* 1.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 1.rgb; path = Textures/1.rgb; sourceTree = "<group>"; };
+		F5C446050311DEB4013BD914 /* 2.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 2.rgb; path = Textures/2.rgb; sourceTree = "<group>"; };
+		F5C446060311DEB4013BD914 /* 3.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 3.rgb; path = Textures/3.rgb; sourceTree = "<group>"; };
+		F5C446070311DEB4013BD914 /* 4.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 4.rgb; path = Textures/4.rgb; sourceTree = "<group>"; };
+		F5C446080311DEB4013BD914 /* 5.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 5.rgb; path = Textures/5.rgb; sourceTree = "<group>"; };
+		F5C446090311DEB4013BD914 /* 6.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 6.rgb; path = Textures/6.rgb; sourceTree = "<group>"; };
+		F5C4460A0311DEB4013BD914 /* 7.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 7.rgb; path = Textures/7.rgb; sourceTree = "<group>"; };
+		F5C4460B0311DEB4013BD914 /* 8.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = 8.rgb; path = Textures/8.rgb; sourceTree = "<group>"; };
+		F5C4460C0311DEB4013BD914 /* a.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = a.rgb; path = Textures/a.rgb; sourceTree = "<group>"; };
+		F5C4460D0311DEB4013BD914 /* b.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = b.rgb; path = Textures/b.rgb; sourceTree = "<group>"; };
+		F5C446100311DEB4013BD914 /* c.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = c.rgb; path = Textures/c.rgb; sourceTree = "<group>"; };
+		F5C446110311DEB4013BD914 /* d.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = d.rgb; path = Textures/d.rgb; sourceTree = "<group>"; };
+		F5C446120311DEB4013BD914 /* e.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = e.rgb; path = Textures/e.rgb; sourceTree = "<group>"; };
+		F5C446130311DEB4013BD914 /* f.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = f.rgb; path = Textures/f.rgb; sourceTree = "<group>"; };
+		F5C446140311DEB4013BD914 /* g.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = g.rgb; path = Textures/g.rgb; sourceTree = "<group>"; };
+		F5C446150311DEB4013BD914 /* h.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = h.rgb; path = Textures/h.rgb; sourceTree = "<group>"; };
+		F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */ = {isa = PBXFileReference; lastKnownFileType = file; name = selected_piece_texture.rgb; path = Textures/selected_piece_texture.rgb; sourceTree = "<group>"; };
+		F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCBoard.h; path = Sources/MBCBoard.h; sourceTree = "<group>"; };
+		F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoard.mm; path = Sources/MBCBoard.mm; sourceTree = "<group>"; };
+		F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCEngineCommands.h; path = Sources/MBCEngineCommands.h; sourceTree = "<group>"; };
+		F5C8AC1102FAB09301AC80B8 /* MBCEngineCommands.l */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.lex; name = MBCEngineCommands.l; path = Sources/MBCEngineCommands.l; sourceTree = "<group>"; };
+		F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCPlayer.h; path = Sources/MBCPlayer.h; sourceTree = "<group>"; };
+		F5C8AC1302FAB09301AC80B8 /* MBCPlayer.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCPlayer.mm; path = Sources/MBCPlayer.mm; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		950BD1630A1E582B00395116 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				950BD1640A1E582B00395116 /* Cocoa.framework in Frameworks */,
+				950BD1650A1E582B00395116 /* OpenGL.framework in Frameworks */,
+				950BD1660A1E582B00395116 /* Carbon.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844C8A0A670C1E0068CA82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844CE90A670C280068CA82 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844CEA0A670C280068CA82 /* Cocoa.framework in Frameworks */,
+				95844CEB0A670C280068CA82 /* OpenGL.framework in Frameworks */,
+				95844CEC0A670C280068CA82 /* Carbon.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		080E96DDFE201D6D7F000001 /* Classes */ = {
+			isa = PBXGroup;
+			children = (
+				95F5B80D06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.h */,
+				95F5B80E06C6D00B00AB5FC7 /* MBCBoardViewAccessibility.mm */,
+				95D2026204C2247A00590F98 /* MBCLanguageModel.h */,
+				95D2026304C2247B00590F98 /* MBCLanguageModel.mm */,
+				953ABB1B043AC51100C64F18 /* MBCDocument.h */,
+				953ABB1C043AC51100C64F18 /* MBCDocument.mm */,
+				F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */,
+				F5C8AC0B02FA7C5601AC80B8 /* MBCBoard.mm */,
+				F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */,
+				F5C8AC1302FAB09301AC80B8 /* MBCPlayer.mm */,
+				F505DC4103032B9F01F7F1A0 /* MBCEngine.h */,
+				F505DC4203032B9F01F7F1A0 /* MBCEngine.mm */,
+				F5228DC1030ADA0201D8E860 /* MBCBoardView.h */,
+				F5406BF9030E151F011317DC /* MBCBoardView.mm */,
+				F50CB520030CE23701D20FFB /* MBCBoardViewDraw.h */,
+				F5228DEB030AFC7501D8E860 /* MBCBoardViewDraw.mm */,
+				F50CB521030CE23701D20FFB /* MBCBoardViewModels.h */,
+				F5228DC2030ADA0201D8E860 /* MBCBoardViewModels.mm */,
+				F50CB522030CE23701D20FFB /* MBCBoardViewTextures.h */,
+				F5228DEC030AFC7501D8E860 /* MBCBoardViewTextures.mm */,
+				F5A165400310660F01D39A8B /* MBCBoardViewMouse.h */,
+				F5A165410310661001D39A8B /* MBCBoardViewMouse.mm */,
+				F5A165420310661001D39A8B /* MBCInteractivePlayer.h */,
+				F5C446020311DD0E013BD914 /* MBCInteractivePlayer.mm */,
+				F5A1654603106D9B01D39A8B /* MBCAnimation.h */,
+				F5A1654703106D9B01D39A8B /* MBCAnimation.mm */,
+				F5A1654A0310791D01D39A8B /* MBCMoveAnimation.h */,
+				F5A1654B0310791D01D39A8B /* MBCMoveAnimation.mm */,
+				9534EBC3046627320000E7BB /* MBCBoardAnimation.h */,
+				9534EBC4046627320000E7BB /* MBCBoardAnimation.mm */,
+				F5A1654E03107AD501D39A8B /* MBCController.h */,
+				F5A1654F03107AD501D39A8B /* MBCController.mm */,
+				95B65050046F289700EF3E85 /* MBCGameInfo.h */,
+				95B65051046F289700EF3E85 /* MBCGameInfo.mm */,
+				95A35CFF048EEA7300D1AB5E /* MBCTuner.h */,
+				95A35D00048EEA7300D1AB5E /* MBCTuner.mm */,
+				95B5015D049D3080006276A0 /* MBCFloatingBoardWindow.h */,
+				95B5015E049D3080006276A0 /* MBCFloatingBoardWindow.mm */,
+				950B5942049D8C73000001C9 /* MBCMoveGenerator.h */,
+				950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */,
+				95C4075B04B2B8500015A26B /* MBCAbout.h */,
+				95C4075C04B2B8500015A26B /* MBCAbout.mm */,
+			);
+			name = Classes;
+			sourceTree = "<group>";
+		};
+		1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F5529B030314493B01CA17FB /* Carbon.framework */,
+				1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */,
+				F5228DC5030ADA9401D8E860 /* OpenGL.framework */,
+			);
+			name = "Linked Frameworks";
+			sourceTree = "<group>";
+		};
+		1058C7A2FEA54F0111CA2CBB /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				29B97325FDCFA39411CA2CEA /* Foundation.framework */,
+				29B97324FDCFA39411CA2CEA /* AppKit.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		19C28FACFE9D520D11CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				950BD1700A1E582B00395116 /* Chess.app */,
+				95844C900A670C1E0068CA82 /* sjeng.ChessEngine */,
+				95844CF20A670C280068CA82 /* Chess Tuner.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		29B97314FDCFA39411CA2CEA /* MBChess */ = {
+			isa = PBXGroup;
+			children = (
+				080E96DDFE201D6D7F000001 /* Classes */,
+				29B97315FDCFA39411CA2CEA /* Other Sources */,
+				29B97317FDCFA39411CA2CEA /* Resources */,
+				29B97323FDCFA39411CA2CEA /* Frameworks */,
+				19C28FACFE9D520D11CA2CBB /* Products */,
+			);
+			name = MBChess;
+			sourceTree = "<group>";
+		};
+		29B97315FDCFA39411CA2CEA /* Other Sources */ = {
+			isa = PBXGroup;
+			children = (
+				95B4EDB804F3011F005E79F8 /* sjeng */,
+				F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */,
+				F5C8AC1102FAB09301AC80B8 /* MBCEngineCommands.l */,
+				F5775A1A02F9176F01D8996C /* main.m */,
+			);
+			name = "Other Sources";
+			sourceTree = "<group>";
+		};
+		29B97317FDCFA39411CA2CEA /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				95844CF10A670C280068CA82 /* Info-ChessTuner_.plist */,
+				950BD16F0A1E582B00395116 /* Info-MBChess.plist */,
+				950EE08807769701004ED524 /* Chess.plist */,
+				950EE08907769701004ED524 /* Chess.txt */,
+				95E9EE6D045797010091A3D7 /* COPYING */,
+				95C10123043A066700CA17DD /* chess.icns */,
+				29B97318FDCFA39411CA2CEA /* MainMenu.nib */,
+				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
+				95D6CE62045BBDBE0045D5FC /* Localizable.strings */,
+				F5775A1C02F917A901D8996C /* bug.opn */,
+				F5775A1D02F917A901D8996C /* losers.opn */,
+				F5775A1E02F917A901D8996C /* nbook.db */,
+				F5775A1F02F917A901D8996C /* suicide.opn */,
+				F5775A2002F917A901D8996C /* zbook.db */,
+				9595B6C00458E2CD00A8D2EE /* sjeng.rc */,
+				F5C446040311DEB4013BD914 /* 1.rgb */,
+				F5C446050311DEB4013BD914 /* 2.rgb */,
+				F5C446060311DEB4013BD914 /* 3.rgb */,
+				F5C446070311DEB4013BD914 /* 4.rgb */,
+				F5C446080311DEB4013BD914 /* 5.rgb */,
+				F5C446090311DEB4013BD914 /* 6.rgb */,
+				F5C4460A0311DEB4013BD914 /* 7.rgb */,
+				F5C4460B0311DEB4013BD914 /* 8.rgb */,
+				F5C4460C0311DEB4013BD914 /* a.rgb */,
+				F5C4460D0311DEB4013BD914 /* b.rgb */,
+				F5C446100311DEB4013BD914 /* c.rgb */,
+				F5C446110311DEB4013BD914 /* d.rgb */,
+				F5C446120311DEB4013BD914 /* e.rgb */,
+				F5C446130311DEB4013BD914 /* f.rgb */,
+				F598AC41035A958501000102 /* Defaults.plist */,
+				F5C446140311DEB4013BD914 /* g.rgb */,
+				F5C446150311DEB4013BD914 /* h.rgb */,
+				F5C446160311DEB4013BD914 /* selected_piece_texture.rgb */,
+				9586675C048AF5A5007B50FB /* handCursor.tiff */,
+				95C85026048F342500A9DF4F /* Styles */,
+				95A35D03048EEF8900D1AB5E /* Tuner.nib */,
+				95C4076104B2B86A0015A26B /* About.nib */,
+				9594A40504C76CA4005DC0DD /* SpeechHelp.xml */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		29B97323FDCFA39411CA2CEA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1058C7A0FEA54F0111CA2CBB /* Linked Frameworks */,
+				1058C7A2FEA54F0111CA2CBB /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		95B4EDB804F3011F005E79F8 /* sjeng */ = {
+			isa = PBXGroup;
+			children = (
+				95B4ED8004F30114005E79F8 /* attacks.c */,
+				95B4ED8104F30114005E79F8 /* blob2.c */,
+				95B4ED8204F30114005E79F8 /* book.c */,
+				95B4ED8304F30114005E79F8 /* config.h */,
+				95B4ED8404F30114005E79F8 /* draw.c */,
+				95B4ED8504F30114005E79F8 /* ecache.c */,
+				95B4ED8604F30114005E79F8 /* epd.c */,
+				95B4ED8704F30114005E79F8 /* eval.c */,
+				95B4ED8804F30114005E79F8 /* extvars.h */,
+				95B4ED8904F30114005E79F8 /* learn.c */,
+				95B4ED8A04F30114005E79F8 /* leval.c */,
+				95B4ED8B04F30114005E79F8 /* moves.c */,
+				95B4ED8C04F30114005E79F8 /* neval.c */,
+				95B4ED8D04F30114005E79F8 /* newbook.c */,
+				95B4ED8E04F30114005E79F8 /* partner.c */,
+				95B4ED8F04F30114005E79F8 /* probe.c */,
+				95B4ED9004F30114005E79F8 /* proof.c */,
+				95B4ED9104F30114005E79F8 /* protos.h */,
+				95B4ED9204F30114005E79F8 /* rcfile.c */,
+				95B4ED9304F30114005E79F8 /* search.c */,
+				95B4ED9404F30114005E79F8 /* see.c */,
+				95B4ED9504F30114005E79F8 /* segtb.c */,
+				95B4ED9604F30114005E79F8 /* seval.c */,
+				95B4ED9704F30114005E79F8 /* sjeng.c */,
+				95B4ED9804F30114005E79F8 /* sjeng.h */,
+				95B4ED9904F30114005E79F8 /* squares.h */,
+				95B4ED9A04F30114005E79F8 /* ttable.c */,
+				95B4ED9B04F30114005E79F8 /* utils.c */,
+			);
+			name = sjeng;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		950BD1130A1E582B00395116 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				950BD1140A1E582B00395116 /* MBCBoard.h in Headers */,
+				950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */,
+				950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */,
+				950BD1170A1E582B00395116 /* MBCEngine.h in Headers */,
+				950BD1180A1E582B00395116 /* MBCBoardView.h in Headers */,
+				950BD1190A1E582B00395116 /* MBCBoardViewDraw.h in Headers */,
+				950BD11A0A1E582B00395116 /* MBCBoardViewModels.h in Headers */,
+				950BD11B0A1E582B00395116 /* MBCBoardViewTextures.h in Headers */,
+				950BD11C0A1E582B00395116 /* MBCBoardViewMouse.h in Headers */,
+				950BD11D0A1E582B00395116 /* MBCInteractivePlayer.h in Headers */,
+				950BD11E0A1E582B00395116 /* MBCAnimation.h in Headers */,
+				950BD11F0A1E582B00395116 /* MBCMoveAnimation.h in Headers */,
+				950BD1200A1E582B00395116 /* MBCController.h in Headers */,
+				950BD1210A1E582B00395116 /* MBCDocument.h in Headers */,
+				950BD1220A1E582B00395116 /* MBCBoardAnimation.h in Headers */,
+				950BD1230A1E582B00395116 /* MBCGameInfo.h in Headers */,
+				950BD1240A1E582B00395116 /* MBCFloatingBoardWindow.h in Headers */,
+				950BD1250A1E582B00395116 /* MBCMoveGenerator.h in Headers */,
+				950BD1260A1E582B00395116 /* MBCAbout.h in Headers */,
+				950BD1270A1E582B00395116 /* MBCLanguageModel.h in Headers */,
+				950BD1280A1E582B00395116 /* MBCBoardViewAccessibility.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844C6C0A670C1E0068CA82 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844C6D0A670C1E0068CA82 /* config.h in Headers */,
+				95844C6E0A670C1E0068CA82 /* extvars.h in Headers */,
+				95844C6F0A670C1E0068CA82 /* protos.h in Headers */,
+				95844C700A670C1E0068CA82 /* sjeng.h in Headers */,
+				95844C710A670C1E0068CA82 /* squares.h in Headers */,
+				95844C720A670C1E0068CA82 /* attacks.c in Headers */,
+				95844C730A670C1E0068CA82 /* draw.c in Headers */,
+				95844C740A670C1E0068CA82 /* book.c in Headers */,
+				95844C750A670C1E0068CA82 /* ecache.c in Headers */,
+				95844C760A670C1E0068CA82 /* epd.c in Headers */,
+				95844C770A670C1E0068CA82 /* eval.c in Headers */,
+				95844C780A670C1E0068CA82 /* learn.c in Headers */,
+				95844C790A670C1E0068CA82 /* leval.c in Headers */,
+				95844C7A0A670C1E0068CA82 /* moves.c in Headers */,
+				95844C7B0A670C1E0068CA82 /* neval.c in Headers */,
+				95844C7C0A670C1E0068CA82 /* newbook.c in Headers */,
+				95844C7D0A670C1E0068CA82 /* partner.c in Headers */,
+				95844C7E0A670C1E0068CA82 /* probe.c in Headers */,
+				95844C7F0A670C1E0068CA82 /* proof.c in Headers */,
+				95844C800A670C1E0068CA82 /* rcfile.c in Headers */,
+				95844C810A670C1E0068CA82 /* search.c in Headers */,
+				95844C820A670C1E0068CA82 /* see.c in Headers */,
+				95844C830A670C1E0068CA82 /* segtb.c in Headers */,
+				95844C840A670C1E0068CA82 /* seval.c in Headers */,
+				95844C850A670C1E0068CA82 /* sjeng.c in Headers */,
+				95844C860A670C1E0068CA82 /* ttable.c in Headers */,
+				95844C870A670C1E0068CA82 /* utils.c in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844C970A670C280068CA82 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844C980A670C280068CA82 /* MBCBoard.h in Headers */,
+				95844C990A670C280068CA82 /* MBCEngineCommands.h in Headers */,
+				95844C9A0A670C280068CA82 /* MBCPlayer.h in Headers */,
+				95844C9B0A670C280068CA82 /* MBCEngine.h in Headers */,
+				95844C9C0A670C280068CA82 /* MBCBoardView.h in Headers */,
+				95844C9D0A670C280068CA82 /* MBCBoardViewDraw.h in Headers */,
+				95844C9E0A670C280068CA82 /* MBCBoardViewModels.h in Headers */,
+				95844C9F0A670C280068CA82 /* MBCBoardViewTextures.h in Headers */,
+				95844CA00A670C280068CA82 /* MBCBoardViewMouse.h in Headers */,
+				95844CA10A670C280068CA82 /* MBCInteractivePlayer.h in Headers */,
+				95844CA20A670C280068CA82 /* MBCAnimation.h in Headers */,
+				95844CA30A670C280068CA82 /* MBCMoveAnimation.h in Headers */,
+				95844CA40A670C280068CA82 /* MBCController.h in Headers */,
+				95844CA50A670C280068CA82 /* MBCDocument.h in Headers */,
+				95844CA60A670C280068CA82 /* MBCBoardAnimation.h in Headers */,
+				95844CA70A670C280068CA82 /* MBCGameInfo.h in Headers */,
+				95844CA80A670C280068CA82 /* MBCTuner.h in Headers */,
+				95844CA90A670C280068CA82 /* MBCFloatingBoardWindow.h in Headers */,
+				95844CAA0A670C280068CA82 /* MBCMoveGenerator.h in Headers */,
+				95844CAB0A670C280068CA82 /* MBCAbout.h in Headers */,
+				95844CAC0A670C280068CA82 /* MBCLanguageModel.h in Headers */,
+				95844CAD0A670C280068CA82 /* MBCBoardViewAccessibility.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLegacyTarget section */
+		95B4EDD204F3081E005E79F8 /* Opening Books */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = $ACTION;
+			buildConfigurationList = 950BD1760A1E582C00395116 /* Build configuration list for PBXLegacyTarget "Opening Books" */;
+			buildPhases = (
+			);
+			buildToolPath = /usr/bin/gnumake;
+			buildWorkingDirectory = "$(SRCROOT)/sjeng/books";
+			dependencies = (
+			);
+			name = "Opening Books";
+			passBuildSettingsInEnvironment = 1;
+			productName = "Opening Books";
+		};
+/* End PBXLegacyTarget section */
+
+/* Begin PBXNativeTarget section */
+		950BD10E0A1E582B00395116 /* MBChess */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 950BD16B0A1E582B00395116 /* Build configuration list for PBXNativeTarget "MBChess" */;
+			buildPhases = (
+				950BD1130A1E582B00395116 /* Headers */,
+				950BD1290A1E582B00395116 /* Resources */,
+				950BD14C0A1E582B00395116 /* Sources */,
+				950BD1630A1E582B00395116 /* Frameworks */,
+				950BD1670A1E582B00395116 /* CopyFiles */,
+				950BD1690A1E582B00395116 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				95844CF70A670C530068CA82 /* PBXTargetDependency */,
+				950BD1110A1E582B00395116 /* PBXTargetDependency */,
+			);
+			name = MBChess;
+			productInstallPath = "$(SYSTEM_APPS_DIR)";
+			productName = MBChess;
+			productReference = 950BD1700A1E582B00395116 /* Chess.app */;
+			productType = "com.apple.product-type.application";
+		};
+		95844C6B0A670C1E0068CA82 /* sjeng */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95844C8C0A670C1E0068CA82 /* Build configuration list for PBXNativeTarget "sjeng" */;
+			buildPhases = (
+				95844C6C0A670C1E0068CA82 /* Headers */,
+				95844C880A670C1E0068CA82 /* Sources */,
+				95844C8A0A670C1E0068CA82 /* Frameworks */,
+				95844C8B0A670C1E0068CA82 /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sjeng;
+			productInstallPath = /usr/local/bin;
+			productName = sjeng;
+			productReference = 95844C900A670C1E0068CA82 /* sjeng.ChessEngine */;
+			productType = "com.apple.product-type.tool";
+		};
+		95844C920A670C280068CA82 /* ChessTuner */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 95844CED0A670C280068CA82 /* Build configuration list for PBXNativeTarget "ChessTuner" */;
+			buildPhases = (
+				95844C970A670C280068CA82 /* Headers */,
+				95844CAE0A670C280068CA82 /* Resources */,
+				95844CD10A670C280068CA82 /* Sources */,
+				95844CE90A670C280068CA82 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				95844CF50A670C4E0068CA82 /* PBXTargetDependency */,
+				95844C930A670C280068CA82 /* PBXTargetDependency */,
+			);
+			name = ChessTuner;
+			productInstallPath = "$(SYSTEM_APPS_DIR)";
+			productName = MBChess;
+			productReference = 95844CF20A670C280068CA82 /* Chess Tuner.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		29B97313FDCFA39411CA2CEA /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 29B97314FDCFA39411CA2CEA /* MBChess */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				950BD10E0A1E582B00395116 /* MBChess */,
+				95844C920A670C280068CA82 /* ChessTuner */,
+				95844C6B0A670C1E0068CA82 /* sjeng */,
+				95B4EDD204F3081E005E79F8 /* Opening Books */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		950BD1290A1E582B00395116 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */,
+				950BD12A0A1E582B00395116 /* MainMenu.nib in Resources */,
+				950BD12B0A1E582B00395116 /* InfoPlist.strings in Resources */,
+				950BD12C0A1E582B00395116 /* bug.opn in Resources */,
+				950BD12D0A1E582B00395116 /* losers.opn in Resources */,
+				950BD12E0A1E582B00395116 /* nbook.db in Resources */,
+				950BD12F0A1E582B00395116 /* suicide.opn in Resources */,
+				950BD1300A1E582B00395116 /* zbook.db in Resources */,
+				950BD1310A1E582B00395116 /* 1.rgb in Resources */,
+				950BD1320A1E582B00395116 /* 2.rgb in Resources */,
+				950BD1330A1E582B00395116 /* 3.rgb in Resources */,
+				950BD1340A1E582B00395116 /* 4.rgb in Resources */,
+				950BD1350A1E582B00395116 /* 5.rgb in Resources */,
+				950BD1360A1E582B00395116 /* 6.rgb in Resources */,
+				950BD1370A1E582B00395116 /* 7.rgb in Resources */,
+				950BD1380A1E582B00395116 /* 8.rgb in Resources */,
+				950BD1390A1E582B00395116 /* a.rgb in Resources */,
+				950BD13A0A1E582B00395116 /* b.rgb in Resources */,
+				950BD13B0A1E582B00395116 /* c.rgb in Resources */,
+				950BD13C0A1E582B00395116 /* d.rgb in Resources */,
+				950BD13D0A1E582B00395116 /* e.rgb in Resources */,
+				950BD13E0A1E582B00395116 /* f.rgb in Resources */,
+				950BD13F0A1E582B00395116 /* g.rgb in Resources */,
+				950BD1400A1E582B00395116 /* h.rgb in Resources */,
+				950BD1410A1E582B00395116 /* selected_piece_texture.rgb in Resources */,
+				950BD1420A1E582B00395116 /* Defaults.plist in Resources */,
+				950BD1430A1E582B00395116 /* chess.icns in Resources */,
+				950BD1440A1E582B00395116 /* COPYING in Resources */,
+				950BD1450A1E582B00395116 /* sjeng.rc in Resources */,
+				950BD1460A1E582B00395116 /* Localizable.strings in Resources */,
+				950BD1470A1E582B00395116 /* handCursor.tiff in Resources */,
+				950BD1480A1E582B00395116 /* Styles in Resources */,
+				950BD1490A1E582B00395116 /* About.nib in Resources */,
+				950BD14A0A1E582B00395116 /* SpeechHelp.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844CAE0A670C280068CA82 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844CAF0A670C280068CA82 /* MainMenu.nib in Resources */,
+				95844CB00A670C280068CA82 /* InfoPlist.strings in Resources */,
+				95844CB10A670C280068CA82 /* bug.opn in Resources */,
+				95844CB20A670C280068CA82 /* losers.opn in Resources */,
+				95844CB30A670C280068CA82 /* nbook.db in Resources */,
+				95844CB40A670C280068CA82 /* suicide.opn in Resources */,
+				95844CB50A670C280068CA82 /* zbook.db in Resources */,
+				95844CB60A670C280068CA82 /* 1.rgb in Resources */,
+				95844CB70A670C280068CA82 /* 2.rgb in Resources */,
+				95844CB80A670C280068CA82 /* 3.rgb in Resources */,
+				95844CB90A670C280068CA82 /* 4.rgb in Resources */,
+				95844CBA0A670C280068CA82 /* 5.rgb in Resources */,
+				95844CBB0A670C280068CA82 /* 6.rgb in Resources */,
+				95844CBC0A670C280068CA82 /* 7.rgb in Resources */,
+				95844CBD0A670C280068CA82 /* 8.rgb in Resources */,
+				95844CBE0A670C280068CA82 /* a.rgb in Resources */,
+				95844CBF0A670C280068CA82 /* b.rgb in Resources */,
+				95844CC00A670C280068CA82 /* c.rgb in Resources */,
+				95844CC10A670C280068CA82 /* d.rgb in Resources */,
+				95844CC20A670C280068CA82 /* e.rgb in Resources */,
+				95844CC30A670C280068CA82 /* f.rgb in Resources */,
+				95844CC40A670C280068CA82 /* g.rgb in Resources */,
+				95844CC50A670C280068CA82 /* h.rgb in Resources */,
+				95844CC60A670C280068CA82 /* selected_piece_texture.rgb in Resources */,
+				95844CC70A670C280068CA82 /* Defaults.plist in Resources */,
+				95844CC80A670C280068CA82 /* chess.icns in Resources */,
+				95844CC90A670C280068CA82 /* COPYING in Resources */,
+				95844CCA0A670C280068CA82 /* sjeng.rc in Resources */,
+				95844CCB0A670C280068CA82 /* Localizable.strings in Resources */,
+				95844CCC0A670C280068CA82 /* handCursor.tiff in Resources */,
+				95844CCD0A670C280068CA82 /* Tuner.nib in Resources */,
+				95844CCE0A670C280068CA82 /* About.nib in Resources */,
+				95844CCF0A670C280068CA82 /* SpeechHelp.xml in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		95844C8B0A670C1E0068CA82 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		950BD14C0A1E582B00395116 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				950BD14D0A1E582B00395116 /* main.m in Sources */,
+				950BD14E0A1E582B00395116 /* MBCBoard.mm in Sources */,
+				950BD14F0A1E582B00395116 /* MBCEngineCommands.l in Sources */,
+				950BD1500A1E582B00395116 /* MBCPlayer.mm in Sources */,
+				950BD1510A1E582B00395116 /* MBCEngine.mm in Sources */,
+				950BD1520A1E582B00395116 /* MBCBoardViewModels.mm in Sources */,
+				950BD1530A1E582B00395116 /* MBCBoardViewDraw.mm in Sources */,
+				950BD1540A1E582B00395116 /* MBCBoardViewTextures.mm in Sources */,
+				950BD1550A1E582B00395116 /* MBCBoardView.mm in Sources */,
+				950BD1560A1E582B00395116 /* MBCBoardViewMouse.mm in Sources */,
+				950BD1570A1E582B00395116 /* MBCAnimation.mm in Sources */,
+				950BD1580A1E582B00395116 /* MBCMoveAnimation.mm in Sources */,
+				950BD1590A1E582B00395116 /* MBCController.mm in Sources */,
+				950BD15A0A1E582B00395116 /* MBCInteractivePlayer.mm in Sources */,
+				950BD15B0A1E582B00395116 /* MBCDocument.mm in Sources */,
+				950BD15C0A1E582B00395116 /* MBCBoardAnimation.mm in Sources */,
+				950BD15D0A1E582B00395116 /* MBCGameInfo.mm in Sources */,
+				950BD15E0A1E582B00395116 /* MBCFloatingBoardWindow.mm in Sources */,
+				950BD15F0A1E582B00395116 /* MBCMoveGenerator.mm in Sources */,
+				950BD1600A1E582B00395116 /* MBCAbout.mm in Sources */,
+				950BD1610A1E582B00395116 /* MBCLanguageModel.mm in Sources */,
+				950BD1620A1E582B00395116 /* MBCBoardViewAccessibility.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844C880A670C1E0068CA82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844C890A670C1E0068CA82 /* blob2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		95844CD10A670C280068CA82 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95844CD20A670C280068CA82 /* main.m in Sources */,
+				95844CD30A670C280068CA82 /* MBCBoard.mm in Sources */,
+				95844CD40A670C280068CA82 /* MBCEngineCommands.l in Sources */,
+				95844CD50A670C280068CA82 /* MBCPlayer.mm in Sources */,
+				95844CD60A670C280068CA82 /* MBCEngine.mm in Sources */,
+				95844CD70A670C280068CA82 /* MBCBoardViewModels.mm in Sources */,
+				95844CD80A670C280068CA82 /* MBCBoardViewDraw.mm in Sources */,
+				95844CD90A670C280068CA82 /* MBCBoardViewTextures.mm in Sources */,
+				95844CDA0A670C280068CA82 /* MBCBoardView.mm in Sources */,
+				95844CDB0A670C280068CA82 /* MBCBoardViewMouse.mm in Sources */,
+				95844CDC0A670C280068CA82 /* MBCAnimation.mm in Sources */,
+				95844CDD0A670C280068CA82 /* MBCMoveAnimation.mm in Sources */,
+				95844CDE0A670C280068CA82 /* MBCController.mm in Sources */,
+				95844CDF0A670C280068CA82 /* MBCInteractivePlayer.mm in Sources */,
+				95844CE00A670C280068CA82 /* MBCDocument.mm in Sources */,
+				95844CE10A670C280068CA82 /* MBCBoardAnimation.mm in Sources */,
+				95844CE20A670C280068CA82 /* MBCGameInfo.mm in Sources */,
+				95844CE30A670C280068CA82 /* MBCTuner.mm in Sources */,
+				95844CE40A670C280068CA82 /* MBCFloatingBoardWindow.mm in Sources */,
+				95844CE50A670C280068CA82 /* MBCMoveGenerator.mm in Sources */,
+				95844CE60A670C280068CA82 /* MBCAbout.mm in Sources */,
+				95844CE70A670C280068CA82 /* MBCLanguageModel.mm in Sources */,
+				95844CE80A670C280068CA82 /* MBCBoardViewAccessibility.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		950BD1110A1E582B00395116 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95B4EDD204F3081E005E79F8 /* Opening Books */;
+			targetProxy = 950BD1120A1E582B00395116 /* PBXContainerItemProxy */;
+		};
+		95844C930A670C280068CA82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95B4EDD204F3081E005E79F8 /* Opening Books */;
+			targetProxy = 95844C940A670C280068CA82 /* PBXContainerItemProxy */;
+		};
+		95844CF50A670C4E0068CA82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95844C6B0A670C1E0068CA82 /* sjeng */;
+			targetProxy = 95844CF40A670C4E0068CA82 /* PBXContainerItemProxy */;
+		};
+		95844CF70A670C530068CA82 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 95844C6B0A670C1E0068CA82 /* sjeng */;
+			targetProxy = 95844CF60A670C530068CA82 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		089C165CFE840E0CC02AAC07 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C165DFE840E0CC02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		29B97318FDCFA39411CA2CEA /* MainMenu.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				29B97319FDCFA39411CA2CEA /* English */,
+			);
+			name = MainMenu.nib;
+			sourceTree = "<group>";
+		};
+		95A35D03048EEF8900D1AB5E /* Tuner.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				95A35D04048EEF8900D1AB5E /* English */,
+			);
+			name = Tuner.nib;
+			sourceTree = "<group>";
+		};
+		95C4076104B2B86A0015A26B /* About.nib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				95C4076204B2B86A0015A26B /* English */,
+			);
+			name = About.nib;
+			sourceTree = "<group>";
+		};
+		95D6CE62045BBDBE0045D5FC /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				95D6CE63045BBDBE0045D5FC /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		950BD16C0A1E582B00395116 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				ORDER_FILE = Chess.order;
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = Chess;
+				SECTORDER_FLAGS = (
+					"-e",
+					start,
+				);
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		950BD16D0A1E582B00395116 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = Chess;
+				SECTORDER_FLAGS = (
+					"-sectorder",
+					__TEXT,
+					__text,
+					Chess.order,
+					"-e",
+					start,
+				);
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		950BD16E0A1E582B00395116 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-MBChess.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				OTHER_LDFLAGS = (
+					"-pagezero_size",
+					1000,
+				);
+				PRODUCT_NAME = Chess;
+				SECTORDER_FLAGS = (
+					"-sectorder",
+					__TEXT,
+					__text,
+					Chess.order,
+					"-e",
+					start,
+				);
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		950BD1770A1E582C00395116 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Opening Books";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		950BD1780A1E582C00395116 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Opening Books";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		950BD1790A1E582C00395116 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = "Opening Books";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		950BD17F0A1E582C00395116 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_LDFLAGS = "";
+			};
+			name = Development;
+		};
+		950BD1800A1E582C00395116 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Deployment;
+		};
+		950BD1810A1E582C00395116 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_LDFLAGS = "";
+			};
+			name = Default;
+		};
+		95844C8D0A670C1E0068CA82 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = s;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = sjeng.ChessEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		95844C8E0A670C1E0068CA82 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = sjeng.ChessEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		95844C8F0A670C1E0068CA82 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_MODEL_TUNING = G5;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-O3 -fast -mcpu=G4";
+				PRODUCT_NAME = sjeng.ChessEngine;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		95844CEE0A670C280068CA82 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "Chess Tuner";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = YES;
+			};
+			name = Development;
+		};
+		95844CEF0A670C280068CA82 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "Chess Tuner";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		95844CF00A670C280068CA82 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "Chess Tuner";
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				WRAPPER_EXTENSION = app;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		950BD16B0A1E582B00395116 /* Build configuration list for PBXNativeTarget "MBChess" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				950BD16C0A1E582B00395116 /* Development */,
+				950BD16D0A1E582B00395116 /* Deployment */,
+				950BD16E0A1E582B00395116 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		950BD1760A1E582C00395116 /* Build configuration list for PBXLegacyTarget "Opening Books" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				950BD1770A1E582C00395116 /* Development */,
+				950BD1780A1E582C00395116 /* Deployment */,
+				950BD1790A1E582C00395116 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		950BD17E0A1E582C00395116 /* Build configuration list for PBXProject "MBChess" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				950BD17F0A1E582C00395116 /* Development */,
+				950BD1800A1E582C00395116 /* Deployment */,
+				950BD1810A1E582C00395116 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		95844C8C0A670C1E0068CA82 /* Build configuration list for PBXNativeTarget "sjeng" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95844C8D0A670C1E0068CA82 /* Development */,
+				95844C8E0A670C1E0068CA82 /* Deployment */,
+				95844C8F0A670C1E0068CA82 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		95844CED0A670C280068CA82 /* Build configuration list for PBXNativeTarget "ChessTuner" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				95844CEE0A670C280068CA82 /* Development */,
+				95844CEF0A670C280068CA82 /* Deployment */,
+				95844CF00A670C280068CA82 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 29B97313FDCFA39411CA2CEA /* Project object */;
+}

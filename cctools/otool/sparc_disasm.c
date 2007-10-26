@@ -22,7 +22,6 @@
  */
 #include <stdio.h>
 #include <string.h>
-#include "stuff/target_arch.h"
 #include <mach-o/loader.h>
 #include <mach-o/nlist.h>
 #include <mach-o/reloc.h>
@@ -214,13 +213,13 @@ unsigned long nsorted_symbols)
 	high = nsorted_symbols - 1;
 	mid = (high - low) / 2;
 	while(high >= low){
-	    if(sorted_symbols[mid].nl.n_value == addr){
+	    if(sorted_symbols[mid].n_value == addr){
 		printf("%s", sorted_symbols[mid].name);
 		if(colon_and_newline == TRUE)
 		    printf(":\n");
 		return TRUE;
 	    }
-	    if(sorted_symbols[mid].nl.n_value > addr){
+	    if(sorted_symbols[mid].n_value > addr){
 		high = mid - 1;
 		mid = (high + low) / 2;
 	    }
@@ -243,7 +242,7 @@ print_symbolic(
 	       unsigned int pc,
 	       struct relocation_info *relocs,
 	       unsigned long nrelocs,
-	       nlist_t *symbols,
+	       struct nlist *symbols,
 	       unsigned long nsymbols,
 	       struct symbol *sorted_symbols,
 	       unsigned long nsorted_symbols,
@@ -490,16 +489,17 @@ unsigned long sect_addr,
 enum byte_sex object_byte_sex,
 struct relocation_info *relocs,
 unsigned long nrelocs,
-nlist_t *symbols,
+struct nlist *symbols,
 unsigned long nsymbols,
 struct symbol *sorted_symbols,
 unsigned long nsorted_symbols,
 char *strings,
 unsigned long strings_size,
-unsigned long *indirect_symbols,
+uint32_t *indirect_symbols,
 unsigned long nindirect_symbols,
-mach_header_t *mh,
 struct load_command *load_commands,
+uint32_t ncmds,
+uint32_t sizeofcmds,
 enum bool verbose)
 {
   enum byte_sex host_byte_sex;
@@ -699,9 +699,8 @@ enum bool verbose)
       if(verbose){
 	indirect_symbol_name = guess_indirect_symbol(
 	    addr + ((insn.disp30 & 0x3fffffff) << 2),
-	    mh, load_commands, object_byte_sex, indirect_symbols,
-	    nindirect_symbols, symbols, nsymbols, strings,
-	    strings_size);
+	    ncmds, sizeofcmds, load_commands, object_byte_sex, indirect_symbols,
+	    nindirect_symbols, symbols, NULL, nsymbols, strings, strings_size);
 	if(indirect_symbol_name != NULL)
 	    printf("\t; symbol stub for: %s", indirect_symbol_name);
       }

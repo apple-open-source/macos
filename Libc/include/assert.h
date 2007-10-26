@@ -68,7 +68,7 @@ __END_DECLS
 #define assert(e)  \
     ((void) ((e) ? 0 : __assert (#e, __FILE__, __LINE__)))
 #define __assert(e, file, line) \
-    ((void)printf ("%s:%u: failed assertion `%s'\n", file, line, e), abort(), 0)
+    ((void)printf ("%s:%u: failed assertion `%s'\n", file, line, e), abort())
 
 #else /* __GNUC__ */
 
@@ -78,14 +78,14 @@ void __eprintf(const char *, const char *, unsigned, const char *) __dead2;
 __END_DECLS
 
 #define __assert(e, file, line) \
-    (__eprintf ("%s:%u: failed assertion `%s'\n", file, line, e), 0)
+    __eprintf ("%s:%u: failed assertion `%s'\n", file, line, e)
 
 #if __DARWIN_UNIX03
 #define	assert(e) \
     (__builtin_expect(!(e), 0) ? __assert_rtn(__func__, __FILE__, __LINE__, #e) : (void)0)
 #else /* !__DARWIN_UNIX03 */
 #define assert(e)  \
-    ((void) (__builtin_expect(!(e), 0) ? __assert (#e, __FILE__, __LINE__) : 0))
+    (__builtin_expect(!(e), 0) ? __assert (#e, __FILE__, __LINE__) : (void)0)
 #endif /* __DARWIN_UNIX03 */
 
 #endif /* __GNUC__ */

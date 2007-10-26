@@ -2,7 +2,7 @@
 
 AT_BANNER([Low level compiling/preprocessing macros.])
 
-# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003, 2005, 2006 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,8 +16,8 @@ AT_BANNER([Low level compiling/preprocessing macros.])
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 
 # Since the macros which compile are required by most tests, check
@@ -59,11 +59,11 @@ AT_CHECK([sed -n 's/^ac_ext=//p' configure], 0,
 [c
 c
 c
-cc
-cc
+cpp
+cpp
 f
-cc
-cc
+cpp
+cpp
 c
 c
 ])
@@ -116,19 +116,19 @@ AT_SETUP([AC_RUN_IFELSE])
 AT_DATA([configure.ac],
 [[AC_INIT
 
-AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (0)])],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([], [return 0])],
 	      [],
-	      [AC_MSG_ERROR([saw `exit 0' as a failure])])
+	      [AC_MSG_ERROR([saw `return 0' as a failure])])
 
-AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (2)])],
-	      [AC_MSG_ERROR([saw `exit 2' as a success])],
+AC_RUN_IFELSE([AC_LANG_PROGRAM([], [return 2])],
+	      [AC_MSG_ERROR([saw `return 2' as a success])],
 	      [status=$?
 test $status != 2 &&
   AC_MSG_ERROR([did not get as 2 exit status: $status])])
 
 # The old stinky one.
-AC_TRY_RUN([int main () { exit (3); }],
-	   [AC_MSG_ERROR([saw `exit 3' as a success])],
+AC_TRY_RUN([int main () { return 3; }],
+	   [AC_MSG_ERROR([saw `return 3' as a success])],
 	   [status=$?
 test $status != 3 &&
   AC_MSG_ERROR([did not get 3 as exit status: $status])])

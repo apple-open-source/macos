@@ -33,12 +33,12 @@
 
 static NTSTATUS sam_password_ok(const struct auth_context *auth_context,
 				TALLOC_CTX *mem_ctx,
-				SAM_ACCOUNT *sampass, 
+				struct samu *sampass, 
 				const auth_usersupplied_info *user_info, 
 				DATA_BLOB *user_sess_key, 
 				DATA_BLOB *lm_sess_key)
 {
-	uint16 acct_ctrl;
+	uint32 acct_ctrl;
 	const uint8 *lm_pw, *nt_pw;
 	const char *username = pdb_get_username(sampass);
 
@@ -60,8 +60,8 @@ static NTSTATUS sam_password_ok(const struct auth_context *auth_context,
 				   &user_info->lm_resp, &user_info->nt_resp, 
 				   &user_info->lm_interactive_pwd, &user_info->nt_interactive_pwd,
 				   username, 
-				   user_info->smb_name.str, 
-				   user_info->client_domain.str, 
+				   user_info->smb_name,
+				   user_info->client_domain,
 				   lm_pw, nt_pw, user_sess_key, lm_sess_key);
 }
 
@@ -71,12 +71,13 @@ static NTSTATUS sam_password_ok(const struct auth_context *auth_context,
  bitmask.
 ****************************************************************************/
                                                                                                               
-static BOOL logon_hours_ok(SAM_ACCOUNT *sampass)
+static BOOL logon_hours_ok(struct samu *sampass)
 {
 	/* In logon hours first bit is Sunday from 12AM to 1AM */
-	extern struct timeval smb_last_time;
 	const uint8 *hours;
 	struct tm *utctime;
+	time_t lasttime;
+	const char *asct;
 	uint8 bitmask, bitpos;
 
 	hours = pdb_get_hours(sampass);
@@ -85,34 +86,52 @@ static BOOL logon_hours_ok(SAM_ACCOUNT *sampass)
 		return True;
 	}
 
-	utctime = localtime(&smb_last_time.tv_sec);
+	lasttime = time(NULL);
+	utctime = gmtime(&lasttime);
+	if (!utctime) {
+		DEBUG(1, ("logon_hours_ok: failed to get gmtime. Failing logon for user %s\n",
+			pdb_get_username(sampass) ));
+		return False;
+	}
 
 	/* find the corresponding byte and bit */
 	bitpos = (utctime->tm_wday * 24 + utctime->tm_hour) % 168;
 	bitmask = 1 << (bitpos % 8);
 
 	if (! (hours[bitpos/8] & bitmask)) {
-		DEBUG(1,("logon_hours_ok: Account for user %s not allowed to logon at this time (%s).\n",
-			pdb_get_username(sampass), asctime(utctime) ));
+		struct tm *t = localtime(&lasttime);
+		if (!t) {
+			asct = "INVALID TIME";
+		} else {
+			asct = asctime(t);
+			if (!asct) {
+				asct = "INVALID TIME";
+			}
+		}
+		
+		DEBUG(1, ("logon_hours_ok: Account for user %s not allowed to "
+			  "logon at this time (%s).\n",
+			  pdb_get_username(sampass), asct ));
 		return False;
 	}
 
+	asct = asctime(utctime);
 	DEBUG(5,("logon_hours_ok: user %s allowed to logon at this time (%s)\n",
-		pdb_get_username(sampass), asctime(utctime) ));
+		pdb_get_username(sampass), asct ? asct : "UNKNOWN TIME" ));
 
 	return True;
 }
 
 /****************************************************************************
- Do a specific test for a SAM_ACCOUNT being vaild for this connection 
+ Do a specific test for a struct samu being vaild for this connection 
  (ie not disabled, expired and the like).
 ****************************************************************************/
 
 static NTSTATUS sam_account_ok(TALLOC_CTX *mem_ctx,
-			       SAM_ACCOUNT *sampass, 
+			       struct samu *sampass, 
 			       const auth_usersupplied_info *user_info)
 {
-	uint16	acct_ctrl = pdb_get_acct_ctrl(sampass);
+	uint32	acct_ctrl = pdb_get_acct_ctrl(sampass);
 	char *workstation_list;
 	time_t kickoff_time;
 	
@@ -144,12 +163,12 @@ static NTSTATUS sam_account_ok(TALLOC_CTX *mem_ctx,
 		return NT_STATUS_ACCOUNT_EXPIRED;
 	}
 
-	if (!(pdb_get_acct_ctrl(sampass) & ACB_PWNOEXP)) {
+	if (!(pdb_get_acct_ctrl(sampass) & ACB_PWNOEXP) && !(pdb_get_acct_ctrl(sampass) & ACB_PWNOTREQ)) {
 		time_t must_change_time = pdb_get_pass_must_change_time(sampass);
 		time_t last_set_time = pdb_get_pass_last_set_time(sampass);
 
 		/* check for immediate expiry "must change at next logon" */
-		if (must_change_time == 0 && last_set_time != 0) {
+		if (last_set_time == 0) {
 			DEBUG(1,("sam_account_ok: Account for user '%s' password must change!.\n", pdb_get_username(sampass)));
 			return NT_STATUS_PASSWORD_MUST_CHANGE;
 		}
@@ -170,16 +189,28 @@ static NTSTATUS sam_account_ok(TALLOC_CTX *mem_ctx,
 
 	if (*workstation_list) {
 		BOOL invalid_ws = True;
-		const char *s = workstation_list;
-			
 		fstring tok;
+		const char *s = workstation_list;
+
+		const char *machine_name = talloc_asprintf(mem_ctx, "%s$", user_info->wksta_name);
+		if (machine_name == NULL)
+			return NT_STATUS_NO_MEMORY;
+			
 			
 		while (next_token(&s, tok, ",", sizeof(tok))) {
-			DEBUG(10,("sam_account_ok: checking for workstation match %s and %s (len=%d)\n",
-				  tok, user_info->wksta_name.str, user_info->wksta_name.len));
-			if(strequal(tok, user_info->wksta_name.str)) {
+			DEBUG(10,("sam_account_ok: checking for workstation match %s and %s\n",
+				  tok, user_info->wksta_name));
+			if(strequal(tok, user_info->wksta_name)) {
 				invalid_ws = False;
 				break;
+			}
+			if (tok[0] == '+') {
+				DEBUG(10,("sam_account_ok: checking for workstation %s in group: %s\n", 
+					machine_name, tok + 1));
+				if (user_in_group(machine_name, tok + 1)) {
+					invalid_ws = False;
+					break;
+				}
 			}
 		}
 		
@@ -193,15 +224,18 @@ static NTSTATUS sam_account_ok(TALLOC_CTX *mem_ctx,
 	}
 	
 	if (acct_ctrl & ACB_SVRTRUST) {
-		DEBUG(2,("sam_account_ok: Server trust account %s denied by server\n", pdb_get_username(sampass)));
-		return NT_STATUS_NOLOGON_SERVER_TRUST_ACCOUNT;
+		if (!(user_info->logon_parameters & MSV1_0_ALLOW_SERVER_TRUST_ACCOUNT)) {
+			DEBUG(2,("sam_account_ok: Server trust account %s denied by server\n", pdb_get_username(sampass)));
+			return NT_STATUS_NOLOGON_SERVER_TRUST_ACCOUNT;
+		}
 	}
-	
+
 	if (acct_ctrl & ACB_WSTRUST) {
-		DEBUG(4,("sam_account_ok: Wksta trust account %s denied by server\n", pdb_get_username(sampass)));
-		return NT_STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT;
+		if (!(user_info->logon_parameters & MSV1_0_ALLOW_WORKSTATION_TRUST_ACCOUNT)) {
+			DEBUG(2,("sam_account_ok: Wksta trust account %s denied by server\n", pdb_get_username(sampass)));
+			return NT_STATUS_NOLOGON_WORKSTATION_TRUST_ACCOUNT;
+		}
 	}
-	
 	return NT_STATUS_OK;
 }
 
@@ -217,9 +251,10 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 				   const auth_usersupplied_info *user_info, 
 				   auth_serversupplied_info **server_info)
 {
-	SAM_ACCOUNT *sampass=NULL;
+	struct samu *sampass=NULL;
 	BOOL ret;
 	NTSTATUS nt_status;
+	NTSTATUS update_login_attempts_status;
 	DATA_BLOB user_sess_key = data_blob(NULL, 0);
 	DATA_BLOB lm_sess_key = data_blob(NULL, 0);
 	BOOL updated_autolock = False, updated_badpw = False;
@@ -230,19 +265,21 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 
 	/* Can't use the talloc version here, because the returned struct gets
 	   kept on the server_info */
-	if (!NT_STATUS_IS_OK(nt_status = pdb_init_sam(&sampass))) {
-		return nt_status;
+
+	if ( !(sampass = samu_new( NULL )) ) {
+		return NT_STATUS_NO_MEMORY;
 	}
 
 	/* get the account information */
 
 	become_root();
-	ret = pdb_getsampwnam(sampass, user_info->internal_username.str);
+	ret = pdb_getsampwnam(sampass, user_info->internal_username);
 	unbecome_root();
 
 	if (ret == False) {
-		DEBUG(3,("check_sam_security: Couldn't find user '%s' in passdb file.\n", user_info->internal_username.str));
-		pdb_free_sam(&sampass);
+		DEBUG(3,("check_sam_security: Couldn't find user '%s' in "
+			 "passdb.\n", user_info->internal_username));
+		TALLOC_FREE(sampass);
 		return NT_STATUS_NO_SUCH_USER;
 	}
 
@@ -257,7 +294,12 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 
 	nt_status = sam_password_ok(auth_context, mem_ctx, sampass, 
 				    user_info, &user_sess_key, &lm_sess_key);
-	
+
+	/* Notify passdb backend of login success/failure. If not NT_STATUS_OK the backend doesn't like the login */
+	update_login_attempts_status = pdb_update_login_attempts(sampass, NT_STATUS_IS_OK(nt_status));
+	if (!NT_STATUS_IS_OK(update_login_attempts_status))
+		nt_status = update_login_attempts_status;
+
 	if (!NT_STATUS_IS_OK(nt_status)) {
 		if (NT_STATUS_EQUAL(nt_status,NT_STATUS_WRONG_PASSWORD) && 
 		    pdb_get_acct_ctrl(sampass) &ACB_NORMAL) {  
@@ -269,13 +311,13 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 		}
 		if (updated_autolock || updated_badpw){
 			become_root();
-			if(!pdb_update_sam_account(sampass))
+			if(!NT_STATUS_IS_OK(pdb_update_sam_account(sampass)))
 				DEBUG(1, ("Failed to modify entry.\n"));
 			unbecome_root();
 		}
 		data_blob_free(&user_sess_key);
 		data_blob_free(&lm_sess_key);
-		pdb_free_sam(&sampass);
+		TALLOC_FREE(sampass);
 		return nt_status;
 	}
 
@@ -288,7 +330,7 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 
 	if (updated_autolock || updated_badpw){
 		become_root();
-		if(!pdb_update_sam_account(sampass))
+		if(!NT_STATUS_IS_OK(pdb_update_sam_account(sampass)))
 			DEBUG(1, ("Failed to modify entry.\n"));
 		unbecome_root();
  	}
@@ -296,21 +338,35 @@ static NTSTATUS check_sam_security(const struct auth_context *auth_context,
 	nt_status = sam_account_ok(mem_ctx, sampass, user_info);
 
 	if (!NT_STATUS_IS_OK(nt_status)) {
-		pdb_free_sam(&sampass);
+		TALLOC_FREE(sampass);
 		data_blob_free(&user_sess_key);
 		data_blob_free(&lm_sess_key);
 		return nt_status;
 	}
 
-	if (!NT_STATUS_IS_OK(nt_status = make_server_info_sam(server_info, sampass))) {		
+	become_root();
+	nt_status = make_server_info_sam(server_info, sampass);
+	unbecome_root();
+
+	if (!NT_STATUS_IS_OK(nt_status)) {
 		DEBUG(0,("check_sam_security: make_server_info_sam() failed with '%s'\n", nt_errstr(nt_status)));
+		TALLOC_FREE(sampass);
 		data_blob_free(&user_sess_key);
 		data_blob_free(&lm_sess_key);
 		return nt_status;
 	}
 
-	(*server_info)->user_session_key = user_sess_key;
-	(*server_info)->lm_session_key = lm_sess_key;
+	(*server_info)->user_session_key =
+		data_blob_talloc(*server_info, user_sess_key.data,
+				 user_sess_key.length);
+	data_blob_free(&user_sess_key);
+
+	(*server_info)->lm_session_key =
+		data_blob_talloc(*server_info, lm_sess_key.data,
+				 lm_sess_key.length);
+	data_blob_free(&lm_sess_key);
+
+	(*server_info)->was_mapped |= user_info->was_mapped;
 
 	return nt_status;
 }
@@ -344,8 +400,8 @@ static NTSTATUS check_samstrict_security(const struct auth_context *auth_context
 		return NT_STATUS_LOGON_FAILURE;
 	}
 
-	is_local_name = is_myname(user_info->domain.str);
-	is_my_domain  = strequal(user_info->domain.str, lp_workgroup());
+	is_local_name = is_myname(user_info->domain);
+	is_my_domain  = strequal(user_info->domain, lp_workgroup());
 
 	/* check whether or not we service this domain/workgroup name */
 	
@@ -354,7 +410,7 @@ static NTSTATUS check_samstrict_security(const struct auth_context *auth_context
 		case ROLE_DOMAIN_MEMBER:
 			if ( !is_local_name ) {
 				DEBUG(6,("check_samstrict_security: %s is not one of my local names (%s)\n",
-					user_info->domain.str, (lp_server_role() == ROLE_DOMAIN_MEMBER 
+					user_info->domain, (lp_server_role() == ROLE_DOMAIN_MEMBER 
 					? "ROLE_DOMAIN_MEMBER" : "ROLE_STANDALONE") ));
 				return NT_STATUS_NOT_IMPLEMENTED;
 			}
@@ -362,7 +418,7 @@ static NTSTATUS check_samstrict_security(const struct auth_context *auth_context
 		case ROLE_DOMAIN_BDC:
 			if ( !is_local_name && !is_my_domain ) {
 				DEBUG(6,("check_samstrict_security: %s is not one of my local names or domain name (DC)\n",
-					user_info->domain.str));
+					user_info->domain));
 				return NT_STATUS_NOT_IMPLEMENTED;
 			}
 		default: /* name is ok */

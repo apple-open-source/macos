@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceLicense</key>
+		<string>Eric Young</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libsecurity_apple_csp.txt</string>
+		<key>OpenSourceModifications</key>
+		<string>Extensive customization for OS X</string>
+		<key>OpenSourceProject</key>
+		<string>openssl</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.openssl.org/source/openssl-0.9.6.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>openssl-0.9.6</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.openssl.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceLicense</key>
+		<string>Public Domain per US Goverment regulations</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>libsecurity_apple_csp.txt</string>
+		<key>OpenSourceModifications</key>
+		<string>Extensive customization for OS X</string>
+		<key>OpenSourceProject</key>
+		<string>rijndael-alg-ref.c</string>
+		<key>OpenSourceURL</key>
+		<string>&lt;No longer published&gt;</string>
+		<key>OpenSourceVersion</key>
+		<string>Orignal AES Reference Implementation from NIST</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://csrc.nist.gov/CryptoToolkit/aes/</string>
+	</dict>
+</array>
+</plist>

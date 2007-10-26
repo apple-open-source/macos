@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2004,2006 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +21,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <list>
+#include <security_utilities/globalizer.h>
+#include <security_utilities/threading.h>
 #include "eventlistener.h"
+#include "SharedMemoryClient.h"
+#include <notify.h>
+#include "sscommon.h"
+#include <sys/syslog.h>
 
 using namespace MachPlusPlus;
 
@@ -29,18 +36,192 @@ using namespace MachPlusPlus;
 namespace Security {
 namespace SecurityServer {
 
+typedef RefPointer<EventListener> EventPointer;
+typedef std::list<EventPointer> EventListenerList;
+
+static char* GetNotificationName ()
+{
+	// the name we give the client depends on the value of the environment variable "SECURITYSERVER"
+	char* name = getenv (SECURITYSERVER_BOOTSTRAP_ENV);
+	if (name == NULL)
+	{
+		name = SECURITY_MESSAGES_NAME;
+	}
+	
+	return name;
+}
+
+
+
+class SharedMemoryClientMaker
+{
+private:
+	SharedMemoryClient mClient;
+
+public:
+	SharedMemoryClientMaker ();
+	SharedMemoryClient* Client ();
+};
+
+
+
+SharedMemoryClientMaker::SharedMemoryClientMaker () : mClient (GetNotificationName (), kSharedMemoryPoolSize)
+{
+}
+
+
+
+SharedMemoryClient* SharedMemoryClientMaker::Client ()
+{
+	return &mClient;
+}
+
+
+
+ModuleNexus<EventListenerList> gEventListeners;
+ModuleNexus<Mutex> gNotificationLock;
+ModuleNexus<SharedMemoryClientMaker> gMemoryClient;
+
+class NotificationPort : public MachPlusPlus::CFAutoPort
+{
+protected:
+	SharedMemoryClient *mClient;
+
+public:
+	NotificationPort (mach_port_t port);
+	virtual ~NotificationPort ();
+	virtual void receive(const MachPlusPlus::Message &msg);
+};
+
+NotificationPort::NotificationPort (mach_port_t mp) : CFAutoPort (mp)
+{
+	mClient = gMemoryClient ().Client ();
+}
+
+
+
+NotificationPort::~NotificationPort ()
+{
+}
+
+
+
+const int
+	kDomainOffset = 0,
+	kEventTypeOffset = kDomainOffset + sizeof (SegmentOffsetType),
+	kHeaderLength = kEventTypeOffset + sizeof (SegmentOffsetType);
+
+void NotificationPort::receive (const MachPlusPlus::Message &msg)
+{
+	// we got a message, which means that securityd is telling us to pick up messages
+	u_int8_t buffer[kSharedMemoryPoolSize];
+	SegmentOffsetType length;
+	UnavailableReason ur;
+
+	// extract all messages from the buffer, and route them on their way...
+	while (mClient->ReadMessage (buffer, length, ur))
+	{
+		// we have a message, do the semantics...
+		SecurityServer::NotificationDomain domain = (SecurityServer::NotificationDomain) OSSwapBigToHostInt32 (*(u_int32_t*) (buffer + kDomainOffset));
+		SecurityServer::NotificationEvent event = (SecurityServer::NotificationEvent) OSSwapBigToHostInt32 (*(u_int32_t*) (buffer + kEventTypeOffset));
+		CssmData data (buffer + kHeaderLength, length - kHeaderLength);
+
+		EventListenerList tempList;
+		
+		// once we have figured out what the event is, send it on its way
+		{
+			StLock<Mutex> lock (gNotificationLock ());
+			tempList = gEventListeners();
+		}
+		
+		EventListenerList::iterator it = tempList.begin ();
+		while (it != tempList.end ())
+		{
+			EventPointer ep = *it++;
+			if (ep->GetDomain () == domain &&
+				(ep->GetMask () & (1 << event)) != 0)
+			{
+				ep->consume (domain, event, data);
+			}
+		}
+	}
+	
+	switch (ur)
+	{
+		case kURMessageDropped:
+			syslog(LOG_WARNING | LOG_AUTH, "Security message buffer overflowed.");
+		break;
+		
+		case kURMessagePending:
+			syslog(LOG_DEBUG | LOG_AUTH, "Security message was pending (this may be normal)");
+		break;
+		
+		case kURBufferCorrupt:
+			syslog(LOG_WARNING | LOG_AUTH, "Security message had an invalid length");
+		break;
+		
+		default:
+		break;
+	}
+}
+
+
+
+class ThreadNotifier
+{
+protected:
+	NotificationPort *mNotificationPort;
+	int mNotifyToken;
+
+public:
+	ThreadNotifier();
+	~ThreadNotifier();
+};
+
+
+
+ThreadNotifier::ThreadNotifier()
+{
+	mach_port_t mp;
+	notify_register_mach_port (GetNotificationName (), &mp, 0, &mNotifyToken);
+	mNotificationPort = new NotificationPort (mp);
+	mNotificationPort->enable ();
+}
+
+
+
+ThreadNotifier::~ThreadNotifier()
+{
+	notify_cancel (mNotifyToken);
+	delete mNotificationPort;
+}
+
+
+
+ModuleNexus<ThreadNexus<ThreadNotifier> > threadInfo;
+
+
+
+static void InitializeNotifications ()
+{
+	threadInfo()(); // cause the notifier for this thread to initialize
+}
+
+
 
 //
 // Constructing an EventListener immediately enables it for event reception.
 //
-EventListener::EventListener (NotificationDomain domain, NotificationMask eventMask,
-	Allocator &standard, Allocator &returning)
-	: SecurityServer::ClientSession (standard, returning)
+EventListener::EventListener (NotificationDomain domain, NotificationMask eventMask)
+	: mDomain (domain), mMask (eventMask)
 {
-	// behold the power of multiple inheritance...
-	CFAutoPort::enable();								// enable port reception
-	Port::qlimit(MACH_PORT_QLIMIT_MAX);					// set maximum queue depth
-	ClientSession::requestNotification(*this, domain, eventMask); // request notifications there
+	StLock<Mutex> lock (gNotificationLock ());
+
+	// make sure that notifications are turned on.
+	InitializeNotifications ();
+	
+	// add this to the global list of notifications
+	gEventListeners().push_back (this);
 }
 
 
@@ -49,18 +230,16 @@ EventListener::EventListener (NotificationDomain domain, NotificationMask eventM
 //
 EventListener::~EventListener ()
 {
-	ClientSession::stopNotification(*this);
-}
-
-
-//
-// We simply hand off the incoming raw mach message to ourselves via
-// SecurityServer::dispatchNotification. This will call our consume() method,
-// which our subclass will have to provide.
-//
-void EventListener::receive(const Message &message)
-{
-	ClientSession::dispatchNotification(message, this);
+	StLock<Mutex> lock (gNotificationLock ());
+	
+	// find the listener in the list and remove it
+	EventListenerList::iterator it = std::find (gEventListeners ().begin (),
+												gEventListeners ().end (),
+												this);
+	if (it != gEventListeners ().end ())
+	{
+		gEventListeners ().erase (it);
+	}
 }
 
 

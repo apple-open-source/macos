@@ -1,9 +1,12 @@
 /*
  * Copyright (c) 2004 Apple Computer, Inc.  All rights reserved.
  *
- * File: $Id: IOI2CLM8x.cpp,v 1.3 2005/04/11 23:39:37 dirty Exp $
+ * File: $Id: IOI2CLM8x.cpp,v 1.4 2005/10/15 00:31:49 tsherman Exp $
  *
  *		$Log: IOI2CLM8x.cpp,v $
+ *		Revision 1.4  2005/10/15 00:31:49  tsherman
+ *		AppleLM8x, IOI2CLM8x: Changed initHW() routine to force configuration register to 0x1.
+ *		
  *		Revision 1.3  2005/04/11 23:39:37  dirty
  *		[4078743] Properly handle negative temperatures.
  *		
@@ -400,20 +403,20 @@ IOReturn IOI2CLM8x::initHW(
 			if ((cfgReg & 0x10) != 0x10)
 				break;
 			else
+			{
 				status = kIOReturnBusy;
+				IOSleep(5); // sleep for 5ms (max while in loop 50ms)
+			}
 		}
-
-		IOSleep(1);
 	}
 
 	if (kIOReturnSuccess != status)
 	{
-		ERRLOG("IOI2CLM8x::initHW(0x%lx) readI2C failed due to persistant RESET bit.\n", getI2CAddress());
-		return status;
+		ERRLOG("IOI2CLM8x::initHW(0x%lx) readI2C encountered persistant RESET bit.\n", getI2CAddress());
 	}
 
 	// Start monitoring operations
-	cfgReg |= 0x1;
+	cfgReg = 0x1;
 
 	// Failure of this write operation is fatal
 	if (kIOReturnSuccess != (status = writeI2C(kConfReg1, &cfgReg, 1)))

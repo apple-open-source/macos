@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <CoreFoundation/CoreFoundation.h>
 #include <Kernel/libsa/mkext.h>
 #include <architecture/byte_order.h>
@@ -13,14 +35,15 @@
 #include <mach/mach_types.h>
 #include <mach/kmod.h>
 
+// not a utility.[ch] customer yet
 static const char * progname = "mkextunpack";
 static Boolean gVerbose = false;
 
 __private_extern__ u_int32_t local_adler32(u_int8_t *buffer, int32_t length);
 
-CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch);
+CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch);
 Boolean uncompressMkextEntry(
-    char * mkext_base_address,
+    void * mkext_base_address,
     mkext_file * entry_address,
     CFDataRef * uncompressedEntry);
 Boolean writeEntriesToDirectory(CFDictionaryRef entries,
@@ -36,8 +59,8 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
 void usage(int num) {
     fprintf(stderr, "usage: %s [-v] [-a arch] [-d output_dir] mkextfile\n", progname);
     fprintf(stderr, "    -d output_dir: where to put kexts (must exist)\n");
-    fprintf(stderr, "    -a arch:  pick architecture from fat mkext file\n");
-    fprintf(stderr, "    -v:  verbose output; list kexts in mkextfile\n");
+    fprintf(stderr, "    -a arch: pick architecture from fat mkext file\n");
+    fprintf(stderr, "    -v: verbose output; list kexts in mkextfile\n");
     return;
 }
 
@@ -51,7 +74,7 @@ int main (int argc, const char * argv[]) {
     const char * mkextFile = NULL;
     int mkextFileFD;
     struct stat stat_buf;
-    char * mkextFileContents = NULL;
+    u_int8_t * mkextFileContents = NULL;
     char optchar;
     CFDictionaryRef entries = NULL;
     char *arch = NULL;
@@ -176,7 +199,7 @@ int main (int argc, const char * argv[]) {
 
     mkextFileContents = mmap(0, stat_buf.st_size, PROT_READ, 
         MAP_FILE|MAP_PRIVATE, mkextFileFD, 0);
-    if (mkextFileContents == (char *)-1) {
+    if (mkextFileContents == (u_int8_t *)-1) {
         fprintf(stderr, "can't map file %s\n", mkextFile);
         exit_code = 1;
         goto finish;
@@ -203,7 +226,13 @@ finish:
 
 static Boolean CaseInsensitiveEqual(CFTypeRef left, CFTypeRef right)
 {
-    return (kCFCompareEqualTo == CFStringCompare(left, right, kCFCompareCaseInsensitive));
+    CFComparisonResult compResult;
+
+    compResult = CFStringCompare(left, right, kCFCompareCaseInsensitive);
+    if (compResult == kCFCompareEqualTo) {
+        return true;
+    }
+    return false;
 }
 
 static CFHashCode CaseInsensitiveHash(const void *key)
@@ -214,7 +243,7 @@ static CFHashCode CaseInsensitiveHash(const void *key)
 /*******************************************************************************
 *
 *******************************************************************************/
-CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
+CFDictionaryRef extractEntriesFromMkext(u_int8_t * mkextFileData, char * arch)
 {
     CFMutableDictionaryRef entries = NULL;  // returned
     Boolean error = false;
@@ -262,21 +291,27 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
 
     fat_data = (struct fat_header *)mkextFileData;
     if (NXSwapBigLongToHost(fat_data->magic) == FAT_MAGIC) {
-        int nfat = NXSwapBigLongToHost(fat_data->nfat_arch);
+        unsigned int nfat = NXSwapBigLongToHost(fat_data->nfat_arch);
         struct fat_arch *arch_data =
             (struct fat_arch *)(((void *)mkextFileData) + sizeof(struct fat_header));
-        for (i=0; i<nfat; i++) {
-            if (NXSwapBigLongToHost(arch_data[i].cputype) == arch_info->cputype) {
+        for (i = 0; i < nfat ; i++) {
+            if ((cpu_type_t)NXSwapBigLongToHost(arch_data[i].cputype) == arch_info->cputype) {
                 break;
             }
         }
+
         if (i == nfat) {
-            fprintf(stderr, "archive data for architecture '%s' not found\n",
-                    arch);
+            if (arch) {
+                fprintf(stderr, "archive data for architecture '%s' not found\n",
+                        arch);
+            } else {
+                fprintf(stderr,
+                    "archive data for this machine's architecture not found\n");
+            }
             error = true;
             goto finish;
         }
-        mkextFileData = (char *)(mkextFileData + NXSwapBigLongToHost(arch_data[i].offset));
+        mkextFileData = (u_int8_t *)(mkextFileData + NXSwapBigLongToHost(arch_data[i].offset));
     }
 
     mkext_data = (mkext_header *)mkextFileData;
@@ -357,15 +392,16 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
             kextPlistDataObject, kCFPropertyListImmutable, &errorString);
         if (!kextPlist) {
             if (errorString) {
-                CFIndex length = CFStringGetLength(errorString);
-                char * error_string = (char *)malloc((1+length) * sizeof(char));
+                CFIndex bufsize = CFStringGetMaximumSizeForEncoding(
+                CFStringGetLength(errorString), kCFStringEncodingUTF8);
+                char * error_string = (char *)malloc((1+bufsize) * sizeof(char));
                 if (!error_string) {
                     fprintf(stderr, "memory allocation failure\n");
                     error = true;
                     goto finish;
                 }
                 if (CFStringGetCString(errorString, error_string,
-                     length, kCFStringEncodingMacRoman)) {
+                     bufsize, kCFStringEncodingUTF8)) {
                     fprintf(stderr, "error reading plist: %s",
                         error_string);
                 }
@@ -392,7 +428,7 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
             char * bundle_vers = NULL; // don't free
 
             if (!CFStringGetCString(entryName, kext_name, sizeof(kext_name) - 1,
-                    kCFStringEncodingMacRoman)) {
+                    kCFStringEncodingUTF8)) {
                     fprintf(stderr, "memory or string conversion error\n");
             } else {
                 switch (getBundleIDAndVersion(kextPlist, i, &bundle_id,
@@ -459,7 +495,7 @@ finish:
 *
 *******************************************************************************/
 Boolean uncompressMkextEntry(
-    char * mkext_base_address,
+    void * mkext_base_address,
     mkext_file * entry_address,
     CFDataRef * uncompressedEntry)
 {
@@ -553,15 +589,15 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         char executable_name[MAXPATHLEN];  // overkill but hey
         CFDictionaryRef kextEntry = entries[i];
         CFDataRef fileData = NULL;
-	CFDictionaryRef plist;
-	CFStringRef executableString;
+        CFDictionaryRef plist;
+        CFStringRef executableString;
 
-        const char * file_data = NULL;
+        const void * file_data = NULL;
         int fd;
         CFIndex bytesWritten;
 
         if (!CFStringGetCString(kextName, kext_name, sizeof(kext_name) -1,
-            kCFStringEncodingMacRoman)) {
+            kCFStringEncodingUTF8)) {
             fprintf(stderr, "memory or string conversion error\n");
             result = false;
             goto finish;
@@ -575,7 +611,7 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
             fprintf(stderr, "kext entry %d has no plist\n", i);
             continue;
         }
-        file_data = CFDataGetBytePtr(fileData);
+        file_data = (u_int8_t *)CFDataGetBytePtr(fileData);
         if (!file_data) {
             fprintf(stderr, "kext %s has no plist\n", kext_name);
             continue;
@@ -629,7 +665,7 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         if (!fileData) {
             continue;
         }
-        file_data = CFDataGetBytePtr(fileData);
+        file_data = (u_int8_t *)CFDataGetBytePtr(fileData);
         if (!file_data) {
             fprintf(stderr, "kext %s has no executable\n", kext_name);
             continue;
@@ -645,13 +681,13 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
         }
 
         plist = CFDictionaryGetValue(kextEntry, CFSTR("plist"));
-	executableString = CFDictionaryGetValue(plist, CFSTR("CFBundleExecutable"));
+        executableString = CFDictionaryGetValue(plist, CFSTR("CFBundleExecutable"));
         if (!executableString) {
             fprintf(stderr, "kext %s has executable but no CFBundleExecutable property\n", kext_name);
             continue;
         }
         if (!CFStringGetCString(executableString, executable_name, sizeof(executable_name) -1,
-            kCFStringEncodingMacRoman)) {
+            kCFStringEncodingUTF8)) {
             fprintf(stderr, "memory or string conversion error\n");
             result = false;
             goto finish;
@@ -779,7 +815,7 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
         goto finish;
     } else {
         if (!CFStringGetCString(bundleID, bundle_id, sizeof(bundle_id) - 1,
-            kCFStringEncodingMacRoman)) {
+            kCFStringEncodingUTF8)) {
             fprintf(stderr, "memory or string conversion error\n");
             result = -1;
             goto finish;
@@ -798,7 +834,7 @@ int getBundleIDAndVersion(CFDictionaryRef kextPlist, unsigned index,
         goto finish;
     } else {
         if (!CFStringGetCString(bundleVersion, bundle_vers,
-            sizeof(bundle_vers) - 1, kCFStringEncodingMacRoman)) {
+            sizeof(bundle_vers) - 1, kCFStringEncodingUTF8)) {
             fprintf(stderr, "memory or string conversion error\n");
             result = -1;
             goto finish;

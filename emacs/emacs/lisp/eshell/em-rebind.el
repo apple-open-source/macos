@@ -1,6 +1,7 @@
 ;;; em-rebind.el --- rebind keys when point is at current input
 
-;; Copyright (C) 1999, 2000 Free Software Foundation
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: John Wiegley <johnw@gnu.org>
 
@@ -18,8 +19,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 (provide 'em-rebind)
 
@@ -147,12 +148,9 @@ This is default behavior of shells like bash."
 (defun eshell-rebind-initialize ()
   "Initialize the inputing code."
   (unless eshell-non-interactive-p
-    (make-local-hook 'eshell-mode-hook)
     (add-hook 'eshell-mode-hook 'eshell-setup-input-keymap nil t)
-    (make-local-hook 'pre-command-hook)
     (make-local-variable 'eshell-previous-point)
     (add-hook 'pre-command-hook 'eshell-save-previous-point nil t)
-    (make-local-hook 'post-command-hook)
     (make-local-variable 'overriding-local-map)
     (add-hook 'post-command-hook 'eshell-rebind-input-map nil t)
     (set (make-local-variable 'eshell-lock-keymap) nil)
@@ -246,4 +244,5 @@ input."
 
 ;;; Code:
 
+;;; arch-tag: 76d84f12-cc56-4d67-9b7d-c6b44ad20530
 ;;; em-rebind.el ends here

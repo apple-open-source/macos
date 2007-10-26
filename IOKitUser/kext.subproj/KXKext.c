@@ -1,18 +1,23 @@
+#if !__LP64__
+
 #define _KEXT_KEYS
 
 #include <libc.h>
 #include <fts.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <CoreFoundation/CFBundlePriv.h>
-#include <nlist.h>
 #include <errno.h>
 #include <pthread.h>
+#include <mach-o/nlist.h>
 #include <mach-o/dyld.h>
-
+#include <sys/types.h>   
+#include <sys/mman.h>   
 
 #include "KXKext.h"
 #include "KXKext_private.h"
-#include "paths.h"
+#include "fat_util.h"
+#include "macho_util.h"
+#include "path_util.h"
 #include "vers_rsrc.h"
 #include "printPList.h"
 
@@ -34,8 +39,6 @@ CFStringRef kKXKextErrorKeyPersonalitiesNotNested = NULL;
 CFStringRef kKXKextErrorKeyMissingExecutable = NULL;
 CFStringRef kKXKextErrorKeyCompatibleVersionLaterThanVersion = NULL;
 CFStringRef kKXKextErrorKeyExecutableBad = NULL;
-CFStringRef kKXKextErrorKeyBundleIdentifierMismatch = NULL;
-CFStringRef kKXKextErrorKeyBundleVersionMismatch = NULL;
 CFStringRef kKXKextErrorKeyExecutableBadArch = NULL;
 
 CFStringRef kKXKextErrorKeyStatFailure = NULL;
@@ -45,6 +48,13 @@ CFStringRef kKXKextErrorKeyChecksum = NULL;
 CFStringRef kKXKextErrorKeySignature = NULL;
 CFStringRef kKXKextErrorKeyDependenciesUnresolvable = NULL;
 CFStringRef kKXKextErrorKeyPossibleDependencyLoop = NULL;
+
+CFStringRef kKXKextErrorKeyNonuniqueIOResourcesMatch = NULL;
+CFStringRef kKXKextErrorKeyNoExplicitKernelDependency = NULL;
+CFStringRef kKXKextErrorKeyBundleIdentifierMismatch = NULL;
+CFStringRef kKXKextErrorKeyBundleVersionMismatch = NULL;
+CFStringRef kKXKextErrorKeyDeclaresBothKernelAndKPIDependencies = NULL;
+
 CFStringRef kKXKextDependencyUnavailable = NULL;
 CFStringRef kKXKextDependencyNoCompatibleVersion = NULL;
 CFStringRef kKXKextDependencyCompatibleVersionUndeclared = NULL;
@@ -255,7 +265,10 @@ static KXKextManagerError __KXKextMakeFTSEntrySecure(KXKextRef aKext,
     FTSENT * ftsentry);
 
 static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
-    CFURLRef kmodURL,
+    Boolean requiresNewKextManager);
+static KXKextManagerError __check_kmod_info(KXKextRef aKext,
+    struct mach_header * mach_header,
+    void * file_end,
     Boolean requiresNewKextManager);
 
 static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
@@ -400,12 +413,15 @@ CFURLRef KXKextGetAbsoluteURL(KXKextRef aKext)
 *******************************************************************************/
 Boolean KXKextGetIsKernelResource(KXKextRef aKext)
 {
-    if (!aKext->flags.isKernelResource)
-	return false;
-    if (aKext->flags.declaresExecutable
-     || CFDictionaryGetValue(aKext->infoDictionary, CFSTR("OSBundleSharedExecutableIdentifier")))
-	return 2;
+    if (!aKext->flags.isKernelResource) {
+        return false;
+    }
+    if (aKext->flags.declaresExecutable ||
+        CFDictionaryGetValue(aKext->infoDictionary,
+            CFSTR("OSBundleSharedExecutableIdentifier"))) {
 
+        return 2;
+    }
     return 1;
 }
 
@@ -612,7 +628,7 @@ CFDictionaryRef KXKextCopyPersonalities(KXKextRef aKext)
         } else {
             CFMutableDictionaryRef personalityCopy = NULL;  // must release
             personalityCopy = CFDictionaryCreateMutableCopy(kCFAllocatorDefault,
-                CFDictionaryGetCount(thisPersonality)+5, thisPersonality);
+                0 /* capacity limit */, thisPersonality);
             if (!personalityCopy) {
                 error = true;
                 goto finish;
@@ -680,7 +696,7 @@ CFArrayRef KXKextCopyPersonalitiesArray(KXKextRef aKext)
         } else {
             CFMutableDictionaryRef personalityCopy = NULL;  // must release
             personalityCopy = CFDictionaryCreateMutableCopy(kCFAllocatorDefault,
-                CFDictionaryGetCount(thisPersonality)+5, thisPersonality);
+                0 /* capacity limit */, thisPersonality);
             if (!personalityCopy) {
                 error = true;
                 goto finish;
@@ -995,10 +1011,6 @@ CFMutableArrayRef KXKextCopyAllDependencies(KXKextRef aKext)
 {
     CFMutableArrayRef allDependencies = NULL;
 
-    if (!aKext->flags.hasAllDependencies || !aKext->directDependencies) {
-        goto finish;
-    }
-
     allDependencies = CFArrayCreateMutable(kCFAllocatorDefault, 0,
             &kCFTypeArrayCallBacks);
     if (!allDependencies) {
@@ -1115,6 +1127,29 @@ CFDictionaryRef KXKextGetMissingDependencyErrors(KXKextRef aKext)
     return aKext->missingDependencies;
 }
 
+ /*******************************************************************************
+ *
+ *******************************************************************************/
+Boolean KXKextSupportsHostArchitecture(KXKextRef aKext)
+{
+    Boolean result = false;
+    fat_iterator fiter = NULL;       // must close
+
+    fiter = _KXKextCopyFatIterator(aKext);
+     if (!fiter) {
+        goto finish;
+    }
+
+    if (fat_iterator_find_host_arch(fiter, NULL) != NULL) {
+        result = true;
+    }
+
+finish:
+    if (fiter)           fat_iterator_close(fiter);
+
+    return result;
+}
+
 /*******************************************************************************
 *
 *******************************************************************************/
@@ -1200,7 +1235,6 @@ void KXKextPrintDiagnostics(KXKextRef aKext,
         fprintf(stream, "Validation failures:\n");
         printPList(stream, validationFailures);
     }
-
     if (authenticationFailures && CFDictionaryGetCount(authenticationFailures)) {
         fprintf(stream, "Authentication failures:\n");
         printPList(stream, authenticationFailures);
@@ -1209,13 +1243,11 @@ void KXKextPrintDiagnostics(KXKextRef aKext,
         fprintf(stream, "Missing dependencies:\n");
         printPList(stream, missingDependencies);
     }
-
     if (warnings && CFDictionaryGetCount(warnings)) {
         fprintf(stream, "Warnings:\n");
         printPList(stream, warnings);
     }
 
-    fprintf(stream, "\n");
     fflush(stream);
     return;
 }
@@ -1234,14 +1266,13 @@ void KXKextPrintWarnings(KXKextRef aKext,FILE * stream)
     warnings = KXKextGetWarnings(aKext);
 
     if (warnings && CFDictionaryGetCount(warnings)) {
-        fprintf(stream, "Warnings:\n");
+        fprintf(stream, "Warnings\n");
         printPList(stream, warnings);
     }
- 
-     fprintf(stream, "\n");
-     fflush(stream);
-     return;
- }
+
+    fflush(stream);
+    return;
+}
 
 /*******************************************************************************
 ********************************************************************************
@@ -1390,6 +1421,10 @@ KXKextManagerError _KXKextInitWithBundlePathInRepository(
 
     CFURLRef bundleURL = NULL;  // must release
 
+   /* Set this right away so we can refer to it in case of failure.
+    */
+    aKext->repository = aRepository; // do not retain up pointers!
+
     bundleURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
         aBundlePath, kCFURLPOSIXPathStyle, true);
     if (!bundleURL) {
@@ -1422,6 +1457,10 @@ KXKextManagerError _KXKextInitWithURLInRepository(
     KXKextManagerError result = kKXKextManagerErrorNone;
     CFBundleRef aBundle = NULL;    // must release
     const char * bundle_path = NULL; // must free
+
+   /* Set this right away so we can refer to it in case of failure.
+    */
+    aKext->repository = aRepository; // do not retain up pointers!
 
     // FIXME: Check for existence of directory!!!
 
@@ -1601,7 +1640,7 @@ KXKextManagerError _KXKextInitWithBundleInRepository(
     // FIXME: Need to check for "kext/" too? Maybe check for a
     // FIXME: ...proper extension before doing all this work?
     if (!bundleExtension ||
-        CFStringCompare(CFSTR("kext"), bundleExtension, NULL) !=
+        CFStringCompare(CFSTR("kext"), bundleExtension, 0) !=
         kCFCompareEqualTo) {
 
         CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
@@ -1714,7 +1753,7 @@ KXKextManagerError _KXKextInitWithCacheDictionaryInRepository(
     // FIXME: Need to check for "kext/" too? Maybe check for a
     // FIXME: ...proper extension before doing all this work?
     if (!bundleExtension ||
-        CFStringCompare(CFSTR("kext"), bundleExtension, NULL) !=
+        CFStringCompare(CFSTR("kext"), bundleExtension, 0) !=
         kCFCompareEqualTo) {
 
         CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
@@ -1861,7 +1900,7 @@ void _KXKextClearDependencies(KXKextRef aKext)
 /*******************************************************************************
 *
 *******************************************************************************/
-const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext)
+char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext)
 {
     char * abs_path = NULL;      // returned
     CFStringRef absPath = NULL;  // must release
@@ -1879,7 +1918,7 @@ const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext)
         goto finish;
     }
 
-	if (!CFStringGetFileSystemRepresentation(absPath, abs_path, pathSize)) {
+    if (!CFStringGetFileSystemRepresentation(absPath, abs_path, pathSize)) {
         error = true;
     }
 
@@ -1895,7 +1934,7 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-const char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext)
+char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext)
 {
     char * path = NULL;             // returned
     CFStringRef bundlePath = NULL;  // don't release
@@ -1913,7 +1952,7 @@ const char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext)
         goto finish;
     }
 
-	if (!CFStringGetFileSystemRepresentation(bundlePath, path, pathSize)) {
+    if (!CFStringGetFileSystemRepresentation(bundlePath, path, pathSize)) {
 
         error = true;
     }
@@ -1924,6 +1963,55 @@ finish:
         path = NULL;
     }
     return path;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+char * _KXKextCopyExecutableCanonicalPathnameAsCString(KXKextRef aKext)
+{
+    char * abs_path = NULL;      // returned
+    KXKextManagerError checkResult = kKXKextManagerErrorNone;
+    CFURLRef executableURL = 0;      // must release
+
+    checkResult = __KXKextRealizeFromCache(aKext);
+    if (checkResult != kKXKextManagerErrorNone) {
+        goto finish;
+    }
+
+    executableURL = CFBundleCopyExecutableURL(aKext->bundle);
+    if (!executableURL) {
+        goto finish;
+    }
+
+    abs_path = PATH_CanonicalizedCStringForURL(executableURL);
+
+finish:
+    if (executableURL) CFRelease(executableURL);
+    return abs_path;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+fat_iterator _KXKextCopyFatIterator(KXKextRef aKext)
+{
+    fat_iterator fiter = NULL;       // returned
+    char * module_path = NULL;       // must free
+
+    module_path = _KXKextCopyExecutableCanonicalPathnameAsCString(aKext);
+    if (!module_path) {
+        goto finish;
+    }
+
+    fiter = fat_iterator_open(module_path, 1 /* mach-o only */);
+    if (!fiter) {
+        goto finish;
+    }
+
+finish:
+    if (module_path) free(module_path);
+    return fiter;
 }
 
 /*******************************************************************************
@@ -2483,7 +2571,8 @@ KXKextManagerError _KXKextMakeSecure(KXKextRef aKext)
         goto finish;
     }
 
-	if (!CFStringGetFileSystemRepresentation(urlPath, path, CFStringGetMaximumSizeOfFileSystemRepresentation(urlPath))) {
+    if (!CFStringGetFileSystemRepresentation(urlPath, path,
+        CFStringGetMaximumSizeOfFileSystemRepresentation(urlPath))) {
 
         result = kKXKextManagerErrorNoMemory;
         goto finish;
@@ -2534,33 +2623,30 @@ finish:
 *******************************************************************************/
 
 KXKextManagerError _KXKextCheckIntegrity(KXKextRef aKext, CFMutableArrayRef bomArray) {
+    KXKextManagerError result = kKXKextManagerErrorNone;
     CFStringRef path = KXKextCopyAbsolutePath(aKext);
-    CFDictionaryRef dict = KXKextGetInfoDictionary(aKext);    
-    KXKextManagerError err = kKXKextManagerErrorUnspecified;
+    CFDictionaryRef infoDict = KXKextGetInfoDictionary(aKext);    
     CFStringRef bundleID;
-    char *bundle_string;
-    Boolean needToFree = false;
 
-    if (dict) {
-        bundleID = (CFStringRef) CFDictionaryGetValue (dict, CFSTR("CFBundleIdentifier"));
+    aKext->integrityState = kKXKextIntegrityUnknown;
+
+    if (!infoDict) {
+        result = kKXKextManagerErrorValidation;
+        goto finish;
+    } else {
+        bundleID = (CFStringRef)CFDictionaryGetValue(infoDict, CFSTR("CFBundleIdentifier"));
         if (bundleID) {
-            bundle_string = CFStringGetCStringPtr (bundleID, kCFStringEncodingUTF8);
-            if (bundle_string == NULL) {
-                bundle_string = calloc ((CFStringGetLength (bundleID) + 1), sizeof(char));
-                needToFree = true;
-                CFStringGetCString (bundleID, bundle_string, ((CFStringGetLength (bundleID) + 1) * sizeof(char)), kCFStringEncodingUTF8);
-            }
-
-            if (strstr(bundle_string, "com.apple")) {
+            if (CFStringHasPrefix(bundleID, CFSTR("com.apple"))) {
                 aKext->integrityState = kKXKextIntegrityUnknown;
             } else { 
                 aKext->integrityState = kKXKextIntegrityNotApple;
-			}
+            }
         }
     }
+    
+finish:
     if (path) CFRelease(path);
-    if (needToFree == true) free(bundle_string);
-    return err;
+    return result;
 }
 
 
@@ -2624,18 +2710,13 @@ static void __KXKextInitialize(void)
         CFSTR("Executable file doesn't contain kernel extension code");
     kKXKextErrorKeyExecutableBadArch =
         CFSTR("Executable does not contain code for this architecture");
-    kKXKextErrorKeyBundleIdentifierMismatch =
-        CFSTR("Kext has a kernel dependency prior to version 6.0 and "
-        "CFBundleIdentifier does not match executable's MODULE_NAME");
-    kKXKextErrorKeyBundleVersionMismatch =
-        CFSTR("Kext has a kernel dependency prior to version 6.0 and "
-        "CFBundleVersion does not match executable's MODULE_VERSION");
     kKXKextErrorKeyStatFailure =
-        CFSTR("Failed to get authentication info");
+        CFSTR("Failed to get authentication info (stat failed)");
     kKXKextErrorKeyFileNotFound =
         CFSTR("File not found");
     kKXKextErrorKeyOwnerPermission =
-        CFSTR("File owner/permissions are incorrect");
+        CFSTR("File owner/permissions are incorrect "
+			"(must be root:wheel, nonwritable by group/other)");
     kKXKextErrorKeyChecksum =
         CFSTR("Checksum does not match");
     kKXKextErrorKeySignature =
@@ -2656,6 +2737,22 @@ static void __KXKextInitialize(void)
     kKXKextDependencyCircularReference =
         CFSTR("This dependency may be causing a circular reference");
 
+    kKXKextErrorKeyNonuniqueIOResourcesMatch =
+        CFSTR("A personality matches on IOResources but IOMatchCategory "
+            "is missing or not equal to its IOClass "
+            "(driver may fail to win matching)");
+    kKXKextErrorKeyNoExplicitKernelDependency =
+        CFSTR("Kext has no explicit kernel dependency");
+    kKXKextErrorKeyBundleIdentifierMismatch =
+        CFSTR("Kext has a kernel dependency prior to version 6.0 and "
+        "CFBundleIdentifier does not match executable's MODULE_NAME");
+    kKXKextErrorKeyBundleVersionMismatch =
+        CFSTR("Kext has a kernel dependency prior to version 6.0 and "
+        "CFBundleVersion does not match executable's MODULE_VERSION");
+    kKXKextErrorKeyDeclaresBothKernelAndKPIDependencies =
+        CFSTR("Kext has immediate dependencies on both "
+        "com.apple.kernel and com.apple.kpi components; use only one style");
+
     return;
 }
 
@@ -2666,7 +2763,7 @@ static pthread_once_t initialized = PTHREAD_ONCE_INIT;
 
 static KXKextRef __KXKextCreatePrivate(
     CFAllocatorRef       allocator,
-    CFAllocatorContext * context)
+    CFAllocatorContext * context __unused)
 {
     KXKextRef newKext = NULL;
     void * offset = NULL;
@@ -2748,7 +2845,7 @@ static void __KXKextInitBlank(KXKextRef aKext)
 
     __KXKextResetTestFlags(aKext);
 
-    aKext->integrityState = 0;
+    aKext->integrityState = kKXKextIntegrityUnknown;
     aKext->startAddress = 0;
     aKext->versionString = NULL;
     aKext->version = 0;
@@ -2885,10 +2982,10 @@ static Boolean __KXKextCheckLogLevel(
 static KXKextManagerError __KXKextValidate(KXKextRef aKext)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
-    CFStringRef propKey;   // for HIGHLY LOCAL reuse (not more than 10 lines)
-    CFStringRef stringValue;
-    CFTypeRef   rawValue;
-    CFNumberRef numValue;
+    CFStringRef propKey;     // for HIGHLY LOCAL reuse (not more than 10 lines)
+    CFStringRef stringValue; // do not release
+    CFTypeRef   rawValue;    // do not release
+    CFNumberRef numValue;    // do not release
 
     CFMutableArrayRef propPathArray = NULL;      // must release
     CFStringRef       propPathString = NULL;     // must release
@@ -2907,8 +3004,12 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
     KXKextManagerError checkResult = kKXKextManagerErrorNone;
     volatile Boolean foundErrors = false;  // only set to true below here
 
+    Boolean checkIOMatchCategory = false;
+    CFStringRef classProp = NULL;    // do not release
     VERS_version kernelLibVersion = 0;
     Boolean requiresNewKextManager = false;
+    Boolean hasKernelStyleDependency = false;
+    Boolean hasKPIStyleDependency = false;
 
 // FIXME: Error to have personality with bundle's CFBundleIdentifier
 // FIXME: ...but no executable in bundle.
@@ -3126,7 +3227,7 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
         * of personalities and show a caution/warning if there are none.
         */
     
-    /* Push the personalities key onto the end of the path.
+       /* Push the personalities key onto the end of the path.
         */
         CFArrayAppendValue(propPathArray, propKey);
     
@@ -3180,50 +3281,83 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
                     }
                 } else {
     
-                /* Push the personality name onto the end of the path.
+                   /* Push the personality name onto the end of the path.
                     */
                     CFArrayAppendValue(propPathArray, thisPersonalityName);
     
                     thisPersonalityDict = (CFDictionaryRef)thisPersonality;
     
-                /*****
+                   /*****
                     * Make sure the personality has an IOClass
                     * string property.
                     */
                     propKey = CFSTR("IOClass");
                     CFArrayAppendValue(propPathArray, propKey);
                     if (!__KXKextCheckStringProperty(aKext, thisPersonality,
-                        propKey, propPathArray, true, NULL, NULL)) {
+                        propKey, propPathArray, true, NULL, &stringValue)) {
     
                         result = kKXKextManagerErrorValidation;
                         foundErrors = true;
                         if (!KXKextManagerPerformsFullTests(aKext->manager)) {
                             goto finish;
                         }
+                    } else if (stringValue) {
+                        classProp = stringValue;
                     }
+
                     CFArrayRemoveValueAtIndex(propPathArray,
                         CFArrayGetCount(propPathArray) - 1);
     
     
-                /*****
+                   /*****
                     * Make sure the personality has an IOProviderClass
                     * string property.
                     */
                     propKey = CFSTR("IOProviderClass");
                     CFArrayAppendValue(propPathArray, propKey);
                     if (!__KXKextCheckStringProperty(aKext, thisPersonality,
-                        propKey, propPathArray, true, NULL, NULL)) {
+                        propKey, propPathArray, true, NULL, &stringValue)) {
     
                         result = kKXKextManagerErrorValidation;
                         foundErrors = true;
                         if (!KXKextManagerPerformsFullTests(aKext->manager)) {
                             goto finish;
                         }
+                    } else if (stringValue && CFEqual(stringValue,
+                        CFSTR("IOResources"))) {
+                        
+                        checkIOMatchCategory = true;
                     }
+
                     CFArrayRemoveValueAtIndex(propPathArray,
                         CFArrayGetCount(propPathArray) - 1);
-    
-                /*****
+
+                   /*****
+                    * Check on IOResources for missing/odd IOMatchCategory.
+                    */
+                    if (checkIOMatchCategory) {
+                        propKey = CFSTR("IOMatchCategory");
+                        CFArrayAppendValue(propPathArray, propKey);
+                        if (!__KXKextCheckStringProperty(aKext, thisPersonality,
+                            propKey, propPathArray, false, NULL,
+                            &stringValue)) {
+        
+                            result = kKXKextManagerErrorValidation;
+                            foundErrors = true;
+                            if (!KXKextManagerPerformsFullTests(aKext->manager)) {
+                                goto finish;
+                            }
+                        }
+                        if (!stringValue || !CFEqual(stringValue, classProp)) {
+                            CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
+                                kKXKextErrorKeyNonuniqueIOResourcesMatch,
+                                kCFBooleanTrue);
+                        }
+                        CFArrayRemoveValueAtIndex(propPathArray,
+                            CFArrayGetCount(propPathArray) - 1);
+                    }
+
+                   /*****
                     * Make sure the personality has a CFBundleIdentifier
                     * string property.
                     */
@@ -3244,7 +3378,7 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
                     CFArrayRemoveValueAtIndex(propPathArray,
                         CFArrayGetCount(propPathArray) - 1);
     
-                /*****
+                   /*****
                     * Check that the IOKitDebug property, if present, is a number and
                     * is not a float type. Then, if its value is nonzero, increment
                     * the number of personalities known to have debug set so that we can
@@ -3284,12 +3418,12 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
                         }
                     }
     
-                /* Pop the personality name of the end of the path.
+                   /* Pop the personality name of the end of the path.
                     */
                     CFArrayRemoveValueAtIndex(propPathArray,
                         CFArrayGetCount(propPathArray) - 1);
     
-                /******
+                   /******
                     * Make sure that only kernel-supported plist types are present
                     * in the personality.
                     */
@@ -3303,7 +3437,7 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
                         }
                     }
     
-                /* Pop the personality name of the end of the path.
+                   /* Pop the personality name of the end of the path.
                     */
                     CFArrayRemoveValueAtIndex(propPathArray,
                         CFArrayGetCount(propPathArray) - 1);
@@ -3343,7 +3477,9 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
         CFIndex numLibraries, i;
 
         numLibraries = CFDictionaryGetCount(bundleLibraries);
-        if (!numLibraries) {
+        if (!numLibraries && !aKext->flags.isKernelResource &&
+            aKext->flags.declaresExecutable) {
+
             result = kKXKextManagerErrorValidation;
             foundErrors = true;
             aKext->flags.canResolveDependencies = 0;
@@ -3392,13 +3528,26 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
                 }
             } else if (CFStringHasPrefix(dependencyID,
                        CFSTR("com.apple.kernel"))) {
+                hasKernelStyleDependency = true;
                 if (version >= kernelLibVersion) {
                     requiresNewKextManager = true;
                 }
-            }
+            } else if (CFStringHasPrefix(dependencyID,
+                       CFSTR("com.apple.kpi"))) {
+                hasKPIStyleDependency = true;
+                if (version >= kernelLibVersion) {
+                    requiresNewKextManager = true;
+                }
+            } 
 
             CFArrayRemoveValueAtIndex(propPathArray,
                 CFArrayGetCount(propPathArray) - 1);
+        }
+
+        if (hasKernelStyleDependency && hasKPIStyleDependency) {
+            CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
+                kKXKextErrorKeyDeclaresBothKernelAndKPIDependencies,
+                kCFBooleanTrue);
         }
     }
 
@@ -3469,7 +3618,7 @@ static KXKextManagerError __KXKextValidate(KXKextRef aKext)
             foundErrors = true;
             goto finish;  // can't guarantee we can check executable so stop
         }
-        if (aKext->flags.declaresExecutable) {
+        if (aKext->flags.declaresExecutable && !aKext->flags.isKernelResource) {
             checkResult = __KXKextValidateExecutable(aKext,
                 requiresNewKextManager);
             if (checkResult != kKXKextManagerErrorNone) {
@@ -3542,8 +3691,7 @@ static KXKextManagerError __KXKextValidateExecutable(KXKextRef aKext,
         }
     } else {
 
-        checkResult = __KXKextCheckKmod(aKext, executableURL,
-            requiresNewKextManager);
+        checkResult = __KXKextCheckKmod(aKext, requiresNewKextManager);
         if (checkResult != kKXKextManagerErrorNone) {
             result = checkResult;
             if (!KXKextManagerPerformsFullTests(aKext->manager)) {
@@ -3794,7 +3942,7 @@ static Boolean __KXKextCheckPropertyType(
             } else {
                 propPathString = CFStringCreateByCombiningStrings(
                     kCFAllocatorDefault, propPathArray, CFSTR(":"));
-                if (!propPathString) return NULL;
+                if (!propPathString) return false;
                 CFArrayAppendValue(missingProperties, propPathString);
                 CFRelease(propPathString);
             }
@@ -3816,7 +3964,7 @@ static Boolean __KXKextCheckPropertyType(
         } else {
             propPathString = CFStringCreateByCombiningStrings(
                 kCFAllocatorDefault, propPathArray, CFSTR(":"));
-            if (!propPathString) return NULL;
+            if (!propPathString) return false;
             CFArrayAppendValue(illegalTypeProperties, propPathString);
             CFRelease(propPathString);
         }
@@ -3886,7 +4034,7 @@ static Boolean __KXKextCheckStringProperty(
         } else {
             propPathString = CFStringCreateByCombiningStrings(
                 kCFAllocatorDefault, propPathArray, CFSTR(":"));
-            if (!propPathString) return NULL;
+            if (!propPathString) return false;
             CFArrayAppendValue(illegalTypeProperties, propPathString);
             CFRelease(propPathString);
         }
@@ -4328,70 +4476,81 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
+#define KMOD_INFO  "_kmod_info"
+
 static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
-    CFURLRef kmodURL,
     Boolean requiresNewKextManager)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
-    CFURLRef absoluteKmodURL = 0;  // must release
-    int fd = -1;
-    mach_port_t host_port = PORT_NULL;
-    struct stat stat_buf;
-    long object_addr;
-    long object_size;
-    struct mach_header *mh;
-    kmod_info_t * kmod_info;
-    CFStringRef executablePath = 0;  // must release
-    char module_path[MAXPATHLEN];
-    VERS_version version;
+    fat_iterator fiter = NULL;     // must close
+    void * arch_hdr;
+    void * arch_end;
 
-    CFStringRef bundleIdentifier = 0;  // don't release
-    CFStringRef kmodName = 0;          // must release
-
-    struct nlist nl[] = {
-        { "_kmod_info" },
-        { "" },
-    };
-
-    absoluteKmodURL = PATH_CopyCanonicalizedURL(kmodURL);
-    if (!absoluteKmodURL) {
-        result = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
-
-    executablePath = CFURLCopyFileSystemPath(absoluteKmodURL,
-        kCFURLPOSIXPathStyle);
-    if (!executablePath) {
-        result = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
-
-    if (!CFStringGetFileSystemRepresentation(executablePath, module_path, CFStringGetMaximumSizeOfFileSystemRepresentation(executablePath))) {
-        result = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
-
-    if ((fd = open(module_path, O_RDONLY)) == -1) {
-        _KXKextManagerLogError(KXKextGetManager(aKext),
-            "can't open %s", module_path);
-        CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
-            kKXKextErrorKeyFileAccess,
-            kCFBooleanTrue);
-        result = kKXKextManagerErrorFileAccess;
-        goto finish;
-    }
-
-    if (nlist(module_path, nl)) {
-	if (aKext->flags.isKernelResource) {
-	    result = kKXKextManagerErrorNone;
-	    goto finish;
-	}
+    fiter = _KXKextCopyFatIterator(aKext);
+    if (!fiter) {
         CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
             kKXKextErrorKeyExecutableBad,
             kCFBooleanTrue);
         result = kKXKextManagerErrorValidation;
         goto finish;
     }
+
+    while ((arch_hdr = (struct mach_hdr *)fat_iterator_next_arch(
+         fiter, &arch_end))) {
+
+        KXKextManagerError thisArchResult = kKXKextManagerErrorNone;
+
+       /* XXX: We might want to record the individual archictures that
+        * XXX: fail this test, but since the kext needs to be rebuilt
+        * XXX: for at least one, it isn't so important.
+        */
+        thisArchResult = __check_kmod_info(aKext,
+            (struct mach_header *)arch_hdr, arch_end, requiresNewKextManager);
+        if (thisArchResult != kKXKextManagerErrorNone) {
+            result = thisArchResult;
+        }
+    }
+
+finish:
+
+    if (fiter) fat_iterator_close(fiter);
+
+    return result;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+static KXKextManagerError __check_kmod_info(KXKextRef aKext,
+    struct mach_header * mach_header,
+    void * file_end,
+    Boolean requiresNewKextManager) {
+
+    KXKextManagerError result = kKXKextManagerErrorNone;
+    const void * symbol_address = NULL;   // do not free
+    const kmod_info_t * kmod_info = NULL;  // do not free
+    CFStringRef bundleIdentifier = NULL;  // do not release
+    CFStringRef kmodName = NULL;          // must release
+    VERS_version version;
+    macho_seek_result seek_result;
+    const struct nlist * nlist_entry;
+
+    seek_result = macho_find_symbol(
+            mach_header, file_end, KMOD_INFO, &nlist_entry,
+            &symbol_address);
+
+    if ((macho_seek_result_found != seek_result) ||
+        ((nlist_entry->n_type & N_TYPE) != N_SECT) ||
+        (symbol_address == NULL)) {
+
+        CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
+            kKXKextErrorKeyExecutableBad,
+            kCFBooleanTrue);
+        result = kKXKextManagerErrorValidation;
+        goto finish;
+    }
+
+    kmod_info = (kmod_info_t *)symbol_address;
 
    /*****
     * If the kext requires Jaguar or later, we don't have to inspect
@@ -4402,105 +4561,6 @@ static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
         goto finish;
     }
 
-    if (fstat(fd, &stat_buf) == -1) {
-        CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
-            kKXKextErrorKeyFileAccess,
-            kCFBooleanTrue);
-        result = kKXKextManagerErrorFileAccess;
-        goto finish;  // can't make any more checks
-    }
-
-    object_size = stat_buf.st_size;
-    if (map_fd(fd, 0, (vm_offset_t *)&object_addr, TRUE, object_size) !=
-        KERN_SUCCESS) {
-
-            CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
-                kKXKextErrorKeyFileAccess,
-                kCFBooleanTrue);
-        result = kKXKextManagerErrorFileAccess;
-        goto finish;  // can't make any more checks
-    }
-
-    if (NXSwapBigLongToHost(*((long *)object_addr)) == FAT_MAGIC) {
-        struct host_basic_info hbi;
-        struct fat_header *fh;
-        struct fat_arch *fat_archs, *fap;
-        unsigned i, nfat_arch;
-
-        /* Get our host info */
-        i = HOST_BASIC_INFO_COUNT;
-        host_port = mach_host_self();
-        if (host_info(host_port, HOST_BASIC_INFO,
-                (host_info_t)(&hbi), &i) != KERN_SUCCESS) {
-
-            result = kKXKextManagerErrorUnspecified;
-            goto finish;  // can't make any more checks
-        }
-
-        // get number of architectures
-        fh = (struct fat_header *)object_addr;
-        nfat_arch = NXSwapBigLongToHost(fh->nfat_arch);
-
-        // find beginning of fat_arch struct
-        fat_archs = (struct fat_arch *)((char *)fh + sizeof(struct fat_header));
-
-        /*
-         * Convert archs to host byte ordering (a constraint of
-         * cpusubtype_getbestarch()
-         */
-        for (i = 0; i < nfat_arch; i++) {
-            fat_archs[i].cputype =
-                NXSwapBigLongToHost(fat_archs[i].cputype);
-            fat_archs[i].cpusubtype =
-                  NXSwapBigLongToHost(fat_archs[i].cpusubtype);
-            fat_archs[i].offset =
-                NXSwapBigLongToHost(fat_archs[i].offset);
-            fat_archs[i].size =
-                NXSwapBigLongToHost(fat_archs[i].size);
-            fat_archs[i].align =
-                NXSwapBigLongToHost(fat_archs[i].align);
-        }
-
-// this code was lifted from Darwin/Libraries/NeXT/libc/gen.subproj/nlist.c
-// when cpusubtype_getbestarch exists this code should also be changed.
-#define    CPUSUBTYPE_SUPPORT    0
-
-#if    CPUSUBTYPE_SUPPORT
-        fap = cpusubtype_getbestarch(hbi.cpu_type, hbi.cpu_subtype,
-                         fat_archs, nfat_arch);
-#else    CPUSUBTYPE_SUPPORT
-#warning    Use the cpusubtype functions!!!
-        fap = NULL;
-        for (i = 0; i < nfat_arch; i++) {
-            if (fat_archs[i].cputype == hbi.cpu_type) {
-                fap = &fat_archs[i];
-                break;
-            }
-        }
-#endif    CPUSUBTYPE_SUPPORT
-        if (!fap) {
-            CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
-                kKXKextErrorKeyExecutableBadArch,
-                kCFBooleanTrue);
-            result = kKXKextManagerErrorValidation;
-            goto finish;  // no point checking a bad executable
-        }
-
-        object_addr += fap->offset;
-        object_size = fap->size;
-    }
-
-    mh = (struct mach_header *)object_addr;
-    if (*((long *)mh) != MH_MAGIC) {
-            CFDictionarySetValue(__KXKextGetOrCreateValidationFailures(aKext),
-                kKXKextErrorKeyExecutableBad,
-                kCFBooleanTrue);
-            result = kKXKextManagerErrorValidation;
-            goto finish;  // no point checking a bad executable
-    }
-    kmod_info = (kmod_info_t *)(object_addr + sizeof(struct mach_header) +
-        mh->sizeofcmds + nl->n_value);
-
     bundleIdentifier = (CFStringRef)CFDictionaryGetValue(aKext->infoDictionary,
         CFSTR("CFBundleIdentifier"));
     kmodName = CFStringCreateWithCString(kCFAllocatorDefault,
@@ -4509,11 +4569,9 @@ static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
-    
 
-    if (CFStringCompare(bundleIdentifier , kmodName, NULL) !=
+    if (CFStringCompare(bundleIdentifier, kmodName, 0) !=
         kCFCompareEqualTo) {
-
         CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
             kKXKextErrorKeyBundleIdentifierMismatch,
             kCFBooleanTrue);
@@ -4527,21 +4585,7 @@ static KXKextManagerError __KXKextCheckKmod(KXKextRef aKext,
     }
 
 finish:
-
-   /* Dispose of the host port to prevent security breaches and port
-    * leaks. We don't care about the kern_return_t value of this
-    * call for now as there's nothing we can do if it fails.
-    */
-    if (PORT_NULL != host_port) {
-        mach_port_deallocate(mach_task_self(), host_port);
-    }
-
-    if (fd != -1)        close(fd);
-
-    if (absoluteKmodURL) CFRelease(absoluteKmodURL);
-    if (executablePath)  CFRelease(executablePath);
-    if (kmodName)        CFRelease(kmodName);
-
+    if (kmodName) CFRelease(kmodName);
     return result;
 }
 
@@ -4580,7 +4624,8 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
    /* A kext that's compiled into the kernel trivially has all its dependencies met.
     */
     if (aKext->flags.isKernelResource) {
-        if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext), kKXKextManagerLogLevelKextDetails,
+        if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext),
+            kKXKextManagerLogLevelKextDetails,
             aKext, kKXKextLogLevelDetails)) {
 
             const char * kext_name =
@@ -4664,19 +4709,24 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
     */
     libraries = CFDictionaryGetValue(aKext->infoDictionary,
         CFSTR("OSBundleLibraries"));
-    if (!libraries) {
-        result = kKXKextManagerErrorValidation;
+    if (libraries) {
+        count = CFDictionaryGetCount(libraries);
+    }
+
+    if (!libraries || !count) {
+        if (!aKext->flags.isKernelResource && aKext->flags.declaresExecutable) {
+            // This should have been caught by __KXKextValidate()
+            // (and in fact shouldn't allow this function to get this far!),
+            // so we don't record the failure here.
+            result = kKXKextManagerErrorValidation;
+        } else {
+            aKext->flags.hasAllDependencies = 1;
+        }
         goto finish;
     }
 
    /* Prepare to iterate the dependecy entries.
     */
-    count = CFDictionaryGetCount(libraries);
-    if (!count) {
-        // this should of course never happen!
-        result = kKXKextManagerErrorValidation;
-        goto finish;
-    }
     libraryIDs = (CFStringRef *)malloc(count * sizeof(CFStringRef));
     libraryVersions = (CFStringRef *)malloc(count * sizeof(CFStringRef));
     if (!libraryIDs || !libraryVersions) {
@@ -4690,7 +4740,8 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
     for (i = 0; i < count; i++) {
         KXKextRef thisDependency;
 
-        if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext), kKXKextManagerLogLevelKextDetails,
+        if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext),
+            kKXKextManagerLogLevelKextDetails,
             aKext, kKXKextLogLevelDetails)) {
 
             Boolean got_id, got_vers;
@@ -4723,7 +4774,8 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
 
             hasDirectKernelDependency |= KXKextGetIsKernelResource(thisDependency);
 
-            if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext), kKXKextManagerLogLevelKextDetails,
+            if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext),
+                 kKXKextManagerLogLevelKextDetails,
                  aKext, kKXKextLogLevelDetails)) {
 
                 const char * kext_name =
@@ -4752,7 +4804,8 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
 
             } else {
 
-                if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext), kKXKextManagerLogLevelKextDetails,
+                if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext),
+                     kKXKextManagerLogLevelKextDetails,
                      aKext, kKXKextLogLevelDetails)) {
 
                     const char * kext_name =
@@ -4797,7 +4850,8 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
                         libraryIDs[i], kKXKextDependencyNoCompatibleVersion);
                 }
 
-                if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext), kKXKextManagerLogLevelKextDetails,
+                if (_KXKextManagerCheckLogLevel(KXKextGetManager(aKext),
+                    kKXKextManagerLogLevelKextDetails,
                     aKext, kKXKextLogLevelDetails)) {
 
                     const char * kext_name =
@@ -4841,15 +4895,25 @@ static KXKextManagerError __KXKextResolveDependencies(KXKextRef aKext,
         }
     }
 
-    if ((result == kKXKextManagerErrorNone) && !hasDirectKernelDependency) {
-        /* a kext without any kernel dependency is assumed dependent on 6.0 */
+   /* A kext with an executable but without any explicit kernel dependency
+    * is assumed dependent on 6.0.
+    */
+    if ((result == kKXKextManagerErrorNone) &&
+        KXKextGetDeclaresExecutable(aKext) &&
+        !hasDirectKernelDependency) {
+
         KXKextRef kernelDependency =
             KXKextManagerGetKextWithIdentifierCompatibleWithVersionString(
                 manager, CFSTR("com.apple.kernel.libkern"), CFSTR("6.0"));
-        if (kernelDependency)
+        if (kernelDependency) {
             CFArrayAppendValue(aKext->directDependencies, kernelDependency);
-        else
+            CFDictionarySetValue(__KXKextGetOrCreateWarnings(aKext),
+                kKXKextErrorKeyNoExplicitKernelDependency,
+                kCFBooleanTrue);
+
+        } else {
             result = kKXKextManagerErrorDependency;
+        }
     }
 
     if (result == kKXKextManagerErrorNone) {
@@ -4885,36 +4949,36 @@ static char * __KXKextCopyDgraphEntryName(KXKextRef aKext)
     }
 
     if (aKext->infoDictionary) {
-	CFStringRef ident;
-	CFStringRef vers;
-	KXKextRef   sharedKext;
-	
-	ident = (CFStringRef) CFDictionaryGetValue(aKext->infoDictionary, 
-						    CFSTR("OSBundleSharedExecutableIdentifier"));
-	vers = (CFStringRef) CFDictionaryGetValue(aKext->infoDictionary, 
-						    CFSTR("CFBundleVersion"));
-	if (ident && vers) {
-	    sharedKext = KXKextManagerGetKextWithIdentifierAndVersionString(aKext->manager,
-									    ident, vers);
-	    if (sharedKext) {
-		aKext = sharedKext;
-		checkResult = __KXKextRealizeFromCache(aKext);
-		if (checkResult != kKXKextManagerErrorNone) {
-		    // there can be no further test at this point
-		    error = 1;
-		    goto finish;
-		}
-	    } else {
-		const char * kext_name =
-		    _KXKextCopyCanonicalPathnameAsCString(aKext);
-		_KXKextManagerLogError(KXKextGetManager(aKext),
-		    "can't resolve OSBundleSharedExecutableIdentifier from extension %s",
-		    kext_name ? kext_name : "");
-		if (kext_name) free((char *)kext_name);
-		error = 1;
-		goto finish;
-	    }
-	}
+        CFStringRef ident;
+        CFStringRef vers;
+        KXKextRef   sharedKext;
+
+        ident = (CFStringRef) CFDictionaryGetValue(aKext->infoDictionary, 
+            CFSTR("OSBundleSharedExecutableIdentifier"));
+        vers = (CFStringRef) CFDictionaryGetValue(aKext->infoDictionary, 
+            CFSTR("CFBundleVersion"));
+        if (ident && vers) {
+            sharedKext = KXKextManagerGetKextWithIdentifierAndVersionString(
+                aKext->manager, ident, vers);
+            if (sharedKext) {
+                aKext = sharedKext;
+                checkResult = __KXKextRealizeFromCache(aKext);
+                if (checkResult != kKXKextManagerErrorNone) {
+                    // there can be no further test at this point
+                    error = 1;
+                    goto finish;
+                }
+            } else {
+                const char * kext_name =
+                    _KXKextCopyCanonicalPathnameAsCString(aKext);
+                _KXKextManagerLogError(KXKextGetManager(aKext),
+                    "can't resolve OSBundleSharedExecutableIdentifier from extension %s",
+                    kext_name ? kext_name : "");
+                if (kext_name) free((char *)kext_name);
+                error = 1;
+                goto finish;
+            }
+        }
     }
 
     if (!KXKextGetDeclaresExecutable(aKext) && KXKextGetIsKernelResource(aKext)) {
@@ -4965,20 +5029,21 @@ static char * __KXKextCopyDgraphKmodName(KXKextRef aKext)
 {
     CFStringRef bundleID = NULL;       // don't release
     char * bundle_identifier = NULL;   // returned
-    CFIndex length;
+    CFIndex bufSize;
     int error = 0;
 
     bundleID = (CFStringRef) CFDictionaryGetValue(aKext->infoDictionary, 
-						    CFSTR("OSBundleSharedExecutableIdentifier"));
+        CFSTR("OSBundleSharedExecutableIdentifier"));
     if (!bundleID)
-	bundleID = KXKextGetBundleIdentifier(aKext);
-    length = 1 + CFStringGetLength(bundleID);
-    bundle_identifier = (char *)malloc(length);
+        bundleID = KXKextGetBundleIdentifier(aKext);
+    bufSize = CFStringGetMaximumSizeForEncoding(CFStringGetLength (bundleID),
+	    kCFStringEncodingUTF8) + sizeof('\0'); 
+    bundle_identifier = (char *)malloc(bufSize);
     if (!bundle_identifier) {
         goto finish;
     }
     if (!CFStringGetCString(bundleID,
-        bundle_identifier, length, kCFStringEncodingUTF8)) {
+        bundle_identifier, bufSize, kCFStringEncodingUTF8)) {
 
         error = 1;
         goto finish;
@@ -5366,7 +5431,7 @@ finish:
 
 
 static Boolean __KXKextUncacheEntry(
-    KXKextRef aKext,
+    KXKextRef aKext __unused,
     CFDictionaryRef cDict,
     CFMutableDictionaryRef infoDict,
     unsigned subKeyIndex,
@@ -5486,7 +5551,7 @@ CFTypeRef __KXKextCopyPListForCache(
     Boolean * error)
 {
     CFTypeRef cList = NULL;  // returned
-    CFTypeID typeID = NULL;
+    CFTypeID typeID = 0;
 
     if (!pList) {
         goto finish;
@@ -5590,3 +5655,5 @@ CFTypeRef __KXKextCopyPListForCache(
 finish:
     return cList;
 }
+#endif // !__LP64__
+

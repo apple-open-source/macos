@@ -1,10 +1,9 @@
 " Vim syntax file
 " Language:	XSLT
 " Maintainer:	Johannes Zellner <johannes@zellner.org>
-" Last Change:	Fri, 28 Sep 2001 11:07:06 +0200
+" Last Change:	Sun, 28 Oct 2001 21:22:24 +0100
 " Filenames:	*.xsl
-" URL:		http://www.zellner.org/vim/syntax/xslt.vim
-" $Id$
+" $Id: xslt.vim,v 1.1 2004/06/13 15:52:10 vimboss Exp $
 
 " REFERENCES:
 "   [1] http://www.w3.org/TR/xslt

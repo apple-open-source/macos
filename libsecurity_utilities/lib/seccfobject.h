@@ -41,14 +41,19 @@ void *operator new(size_t size) throw(std::bad_alloc) \
 operator APIPTR() const \
 { return (APIPTR)(this->operator CFTypeRef()); } \
 \
+OBJTYPE *retain() \
+{ SecCFObject::handle(true); return this; } \
 APIPTR handle(bool retain = true) \
 { return (APIPTR)SecCFObject::handle(retain); } \
 \
 static OBJTYPE *required(APIPTR ptr) \
-{ return static_cast<OBJTYPE *>(SecCFObject::required(ptr, ERRCODE)); } \
+{ if (OBJTYPE *p = dynamic_cast<OBJTYPE *>(SecCFObject::required(ptr, ERRCODE))) \
+	return p; else MacOSError::throwMe(ERRCODE); } \
 \
 static OBJTYPE *optional(APIPTR ptr) \
-{ return static_cast<OBJTYPE *>(SecCFObject::optional(ptr)); }
+{ if (SecCFObject *p = SecCFObject::optional(ptr)) \
+	if (OBJTYPE *pp = dynamic_cast<OBJTYPE *>(p)) return pp; else MacOSError::throwMe(ERRCODE); \
+  else return NULL; }
 
 #define SECALIGNUP(SIZE, ALIGNMENT) (((SIZE - 1) & ~(ALIGNMENT - 1)) + ALIGNMENT)
 
@@ -78,6 +83,7 @@ public:
 	static SecCFObject *optional(CFTypeRef) throw();
 	static SecCFObject *required(CFTypeRef, OSStatus error);
 	static void *allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc);
+	static void clearDeletedObjects() throw();
 
 	virtual ~SecCFObject() throw();
 
@@ -105,43 +111,14 @@ class SecPointerBase
 public:
 	SecPointerBase() : ptr(NULL)
 	{}
-	SecPointerBase(const SecPointerBase& p)
-	{
-		if (p.ptr)
-			CFRetain(p.ptr->operator CFTypeRef());
-		ptr = p.ptr;
-	}
-	SecPointerBase(SecCFObject *p)
-	{
-		if (p && !p->isNew())
-			CFRetain(p->operator CFTypeRef());
-		ptr = p;
-	}
-	~SecPointerBase()
-	{
-		if (ptr)
-			CFRelease(ptr->operator CFTypeRef());
-	}
-	SecPointerBase& operator = (const SecPointerBase& p)
-	{
-		if (p.ptr)
-			CFRetain(p.ptr->operator CFTypeRef());
-		if (ptr)
-			CFRelease(ptr->operator CFTypeRef());
-		ptr = p.ptr;
-		return *this;
-	}
+	SecPointerBase(const SecPointerBase& p);
+	SecPointerBase(SecCFObject *p);
+	~SecPointerBase();
+	SecPointerBase& operator = (const SecPointerBase& p);
 
 protected:
- 	void assign(SecCFObject * p)
-	{
-		if (p && !p->isNew())
-			CFRetain(p->operator CFTypeRef());
-		if (ptr)
-			CFRelease(ptr->operator CFTypeRef());
-		ptr = p;
-	}
-
+ 	void assign(SecCFObject * p);
+	void copy(SecCFObject * p);
 	SecCFObject *ptr;
 };
 
@@ -153,7 +130,9 @@ public:
 	SecPointer(const SecPointer& p) : SecPointerBase(p) {}
 	SecPointer(T *p): SecPointerBase(p) {}
 	SecPointer &operator =(T *p) { this->assign(p); return *this; }
-
+	SecPointer &take(T *p) { this->copy(p); return *this; }
+	T *yield() { T *result = static_cast<T *>(ptr); ptr = NULL; return result; }
+	
 	// dereference operations
     T* get () const				{ return static_cast<T*>(ptr); }	// mimic auto_ptr
 	operator T * () const		{ return static_cast<T*>(ptr); }

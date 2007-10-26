@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,8 @@
 
 
 #include <IOKit/usb/IOUSBLog.h> 
+#include <IOKit/usb/IOUSBRootHubDevice.h>
+#include <IOKit/usb/IOUSBHubPolicyMaker.h>
 
 #include "AppleUSBUHCI.h"
 
@@ -47,6 +49,9 @@ enum {
 	kUHCIRootHubPollingInterval = 32	// Polling interval in ms
 };
 
+
+#define super IOUSBControllerV3
+#define self this
 
 // ========================================================================
 #pragma mark Public root hub methods
@@ -91,7 +96,9 @@ AppleUSBUHCI::GetRootHubDescriptor(IOUSBHubDescriptor *desc)
     
     hubDesc.length = sizeof(IOUSBHubDescriptor); 
     hubDesc.hubType = kUSBHubDescriptorType; 
-    hubDesc.numPorts = kUHCI_NUM_PORTS;
+    hubDesc.numPorts = kUHCI_NUM_PORTS;							// UHCI all have 2 ports - how convenient
+	_rootHubNumPorts = kUHCI_NUM_PORTS;
+
     hubDesc.powerOnToGood = 50; /* 100ms */
     hubDesc.hubCurrent = 0;
     // XXX for now do not support overcurrent, although PIIX chips do support it
@@ -248,13 +255,14 @@ AppleUSBUHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     UInt16 p_status;
     UInt16 r_status, r_change;
     
-    USBLog(5, "AppleUSBUHCI[%p]::GetRootHubPortStatus %d", this, port);
+    USBLog(7, "AppleUSBUHCI[%p]::GetRootHubPortStatus on port %d", this, port+1);
     RHDumpPortStatus(port);
     
-    if (_uhciBusState == kUHCIBusStateSuspended) 
-	{
-        return kIOReturnNotResponding;
-    }
+	// no longer do this, as the root hub can be queried even when we are suspended
+	//if (_myBusState == kUSBBusStateSuspended) 
+	//{
+    //    return kIOReturnNotResponding;
+    //}
 
     port--; // convert to 0-based
     if (port >= kUHCI_NUM_PORTS) 
@@ -316,10 +324,9 @@ AppleUSBUHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
         * from true to false.  It persists until
         * reset.
         */
-    if ((_lastPortStatus[port] & kHubPortSuspend) &&
-        !(r_status & kHubPortSuspend)) 
+    if ((_lastPortStatus[port] & kHubPortSuspend) && !(r_status & kHubPortSuspend)) 
 	{
-        USBLog(5, "%s[%p]: Turning on suspend change bit", getName(), this);
+        USBLog(5, "AppleUSBUHCI[%p]::GetRootHubPortStatus - Turning on suspend change bit", this);
         _portSuspendChange[port] = true;
     }
     if (_portSuspendChange[port]) 
@@ -336,11 +343,24 @@ AppleUSBUHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
     }
     
     status->changeFlags = HostToUSBWord(r_change);
-    USBLog(5, "%s[%p]: returned status is (%x,%x)", getName(), this, r_status, r_change);
-    RHDumpHubPortStatus(status);
+	if (status->changeFlags)
+	{
+		USBLog(5, "AppleUSBUHCI[%p]::GetRootHubPortStatus for port(%d) returned status is (%x,%x)", this, (int)port+1, r_status, r_change);
+		RHDumpHubPortStatus(status);
+	}
                                                                        
     _lastPortStatus[port] = r_status;
     
+	// if the port is in the process of resuming, we turn off the suspend status bit, but we don't show it as changing yet..
+	if (r_status & kHubPortSuspend)
+	{
+		if (_rhPortBeingResumed[port])
+		{
+			r_status &= ~kHubPortSuspend;
+			USBLog(5, "%s[%p]::GetRootHubPortStatus for port (%d) - since we are resuming, turn off the suspend bit", getName(), this, (int)port+1);
+			status->statusFlags = HostToUSBWord(r_status);
+		}
+	}
     return kIOReturnSuccess;
 }
 
@@ -352,12 +372,6 @@ AppleUSBUHCI::SetRootHubPortFeature(UInt16 wValue, UInt16 port)
     IOReturn result = kIOReturnSuccess;
     
     USBLog(5, "%s[%p]::SetRootHubPortFeature %d %d", getName(), this, wValue, port);
-	if ( _idleSuspend )
-	{
-		USBLog(3, "AppleUSBUHCI[%p]::SetRootHubPortFeature - in _idleSuspend - restarting bus",  this);
-		setPowerState(kUHCIPowerLevelRunning, this);
-	}
-		
     switch(wValue)
     {
         case kUSBHubPortSuspendFeature :
@@ -393,12 +407,7 @@ AppleUSBUHCI::ClearRootHubPortFeature(UInt16 wValue, UInt16 port)
 {
     UInt16 value;
     USBLog(5, "%s[%p]::ClearRootHubPortFeature %d %d", getName(), this, wValue, port);
-	if ( _idleSuspend )
-	{
-		USBLog(3, "AppleUSBUHCI[%p]::ClearRootHubPortFeature - in _idleSuspend - restarting bus",  this);
-		setPowerState(kUHCIPowerLevelRunning, this);
-	}
-		
+
     switch(wValue)
     {
         case kUSBHubPortEnableFeature :
@@ -473,50 +482,28 @@ AppleUSBUHCI::SetHubAddress(UInt16 functionNumber)
 
 
 void
-AppleUSBUHCI::UIMRootHubStatusChange(void)
+AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
 {
-    UIMRootHubStatusChange(false);
+	USBLog(1, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - calling obsolete method UIMRootHubStatusChange(bool)", this);
 }
 
 
 
-/* The root hub status changed, so we must complete queued interrupt transactions
- * on the root hub.
- * If abort is true, then dequeue the transactions.
- * XXX Right now one status change will complete all transactions;
- * is that correct?
- */
 void
-AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
+AppleUSBUHCI::UIMRootHubStatusChange(void)
 {
     UInt8								bitmap, bit;
     unsigned int						i, index, move;
     IOUSBHubPortStatus					portStatus;
-    struct InterruptTransaction			last;
     
-    USBLog(5, "%s[%p]::UIMRootHubStatusChange (Abort: %d, _uhciAvailable: %d)", getName(), this, abort, _uhciAvailable);
-        
-	if (_uhciAvailable)
+    USBLog(7, "%s[%p]::UIMRootHubStatusChange (_controllerAvailable: %d)", getName(), this, _controllerAvailable);
+
+	if (_controllerAvailable)
 	{
-		// Disable the RH timer while we are processing stuff
-        _rhTimer->cancelTimeout();
-	}
-	
-    if (_outstandingTrans[0].completion.action == NULL) 
-	{
-		USBLog(3, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - no one listening to our changes", this);
-        return;											// No one is listening; nothing to do here
-    }
-    
-	if (!abort && _uhciAvailable)
-	{
-		if (_uhciBusState == kUHCIBusStateSuspended)
-		{
-			USBLog(3, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - turning back on", this);
-			setPowerState(kUHCIPowerLevelRunning, this);
-		}
+		// For UHCI, we first need to see if we have a pending resume
+		RHCheckStatus();
 		
-		/* Assume a byte can hold all port bits. */
+		// Assume a byte can hold all port bits.
 		assert(kUHCI_NUM_PORTS < 8);
 
 		/*
@@ -533,13 +520,14 @@ AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
 		for (i=1; i <= kUHCI_NUM_PORTS; i++) 
 		{
 			GetRootHubPortStatus(&portStatus, i);
-			USBLog(5, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d hub flags:", this, i);
-			RHDumpHubPortStatus(&portStatus);
 			if (portStatus.changeFlags != 0) 
 			{
 				AbsoluteTime	currentTime;
 				UInt64			elapsedTime;
 				
+				USBLog(5, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d hub flags:", this, i);
+				RHDumpHubPortStatus(&portStatus);
+
 				bitmap |= bit;
 				
 				// If this port has seen a recovery attempt (see below) already, check to see what the current time is and if it's > than 2 seconds since the port recovery, then 'forget" about it
@@ -560,7 +548,7 @@ AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
 				
 				if ( !_previousPortRecoveryAttempted[i-1] )
 				{
-					USBLog(2, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d had a change: 0x%x", this, i, portStatus.changeFlags);
+					USBLog(7, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  Port %d had a change: 0x%x", this, i, portStatus.changeFlags);
 					if ( (portStatus.changeFlags & kHubPortEnabled) and (portStatus.statusFlags & kHubPortConnection) and (portStatus.statusFlags & kHubPortPower) and !(portStatus.statusFlags & kHubPortEnabled) )
 					{
 						// Indicate that we are attempting a recovery
@@ -593,56 +581,14 @@ AppleUSBUHCI::UIMRootHubStatusChange(bool abort)
 			// Don't clear status bits until explicitly told to.
 
 		}
-		USBLog(5, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  RH status bitmap = %x",  this, bitmap);
-	}
-	else
-	{
-		USBLog(3, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - no work to (abort: %d, available: %d)", this, _uhciAvailable, _uhciAvailable);
+		if (bitmap)
+		{
+			USBLog(5, "AppleUSBUHCI[%p]::UIMRootHubStatusChange  RH status bitmap = %x",  this, bitmap);
+		}
+		_rootHubStatusChangedBitmap = bitmap;
 	}
     
     // Bitmap is only one byte, so it doesn't need swapping.
-    
-    /*
-     * If a transaction is queued, handle it
-     */
-    if ( (abort || (bitmap != 0)) && (_outstandingTrans[0].completion.action != NULL) )
-    {
-        last = _outstandingTrans[0];
-        IOTakeLock(_intLock);
-        for (index = 1; index < kMaxOutstandingTrans ; index++)
-        {
-            _outstandingTrans[index-1] = _outstandingTrans[index];
-            if (_outstandingTrans[index].completion.action == NULL)
-            {
-                break;
-            }
-        }
-		
-        // Update the time stamp for a root hub status change
-        //
-		clock_get_uptime(&_rhChangeTime);
-		
-        move = last.bufLen;
-		
-        if (move > sizeof(bitmap))
-            move = sizeof(bitmap);
-		
-        last.buf->writeBytes(0, &bitmap, 1);
-        IOUnlock(_intLock);								// Unlock the queue
-        
-        Complete(last.completion, (abort ? kIOReturnAborted : kIOReturnSuccess), last.bufLen - move);
-    }
-
-    // If we are aborting, we do not need to enable the RH timer.  If there is a transaction pending in the queue,
-    // or the RHSC did not involve a status change, we need to enable the timer
-    //
-    if ( !abort && _uhciAvailable && ((_outstandingTrans[0].completion.action != NULL) || (bitmap == 0)) )
-    {
-        // Enable the timer
-        //
-		USBLog(2, "AppleUSBUHCI[%p]::UIMRootHubStatusChange - starting rhTimer", this);
-		_rhTimer->setTimeoutMS(_rootHubPollingRate);
-    }
 }
 
 
@@ -689,16 +635,6 @@ AppleUSBUHCI::GetRootHubStringDescriptor(UInt8	index, OSData *desc)
         0x70, 0x00,	// "p"
         0x6c, 0x00,	// "l"
         0x65, 0x00,	// "e"
-        0x20, 0x00,	// " "
-        0x43, 0x00,	// "C"
-        0x6f, 0x00,	// "o"
-        0x6d, 0x00,	// "m"
-        0x70, 0x00,	// "p"
-        0x75, 0x00,	// "u"
-        0x74, 0x00,	// "t"
-        0x65, 0x00,	// "e"
-        0x72, 0x00,	// "r"
-        0x2c, 0x00,	// ","
         0x20, 0x00,	// " "
         0x49, 0x00,	// "I"
         0x6e, 0x00,	// "n"
@@ -804,91 +740,15 @@ AppleUSBUHCI::RHAbortEndpoint (short endpointNumber, short direction)
             USBLog(5, "%s[%p]::RHAbortEndpoint - Root hub wrong direction Int pipe %d", getName(), this, direction);
             return kIOReturnBadArgument;
         }
-        USBLog(3, "AppleUSBUHCI[%p]::RHAbortEndpoint - cancelling rhTimer", this);
-        
-        // Turn off interrupt endpoint
-        _rootHubPollingRate = 0;
-        _rhTimer->cancelTimeout();
-		
+
         USBLog(3, "AppleUSBUHCI[%p]::RHAbortEndpoint - Interrupt pipe -  noting status change", this);
-        UIMRootHubStatusChange(true);
+		RootHubAbortInterruptRead();
     } else 
 	{
         // Abort Control endpoint
-        USBLog(3, "AppleUSBUHCI[%p]::RHAbortEndpoint - Control pipe - noting status change", this);
-        UIMRootHubStatusChange(false);
+        USBLog(3, "AppleUSBUHCI[%p]::RHAbortEndpoint - Control pipe - NOP", this);
     }
     
-    return kIOReturnSuccess;
-}
-
-
-
-IOReturn
-AppleUSBUHCI::RHCreateInterruptEndpoint(short				endpointNumber,
-                                        UInt8				direction,
-                                        short				speed,
-                                        UInt16				maxPacketSize,
-                                        short				pollingRate)
-{
-    USBLog(3, "%s[%p]::RHCreateInterruptEndpoint rate %d", getName(), this, pollingRate);
-    
-    _rootHubPollingRate = pollingRate;
-    return kIOReturnSuccess;
-}
-
-
-
-IOReturn
-AppleUSBUHCI::RHCreateInterruptTransfer(IOUSBCommand* command)
-{
-    int 		index;
-	AbsoluteTime	lastRootHubChangeTime, currentTime;
-	UInt64			elapsedTime = 0;
-    
-    USBLog(5, "AppleUSBUHCI[%p]::RHCreateInterruptTransfer", this);
-    
-    if (_rootHubPollingRate == 0) 
-	{
-		USBLog(2, "AppleUSBUHCI[%p]::RHCreateInterruptTransfer, pollingRate is 0!", this);
-        return kIOReturnBadArgument;
-    }
-    
-    IOTakeLock(_intLock);
-    
-    for (index = 0; index < kMaxOutstandingTrans; index++)
-    {
-        if (_outstandingTrans[index].completion.action == NULL)
-        {
-            // found free trans
-            _outstandingTrans[index].buf = command->GetBuffer();
-            _outstandingTrans[index].bufLen = command->GetReqCount();
-            _outstandingTrans[index].completion = command->GetUSLCompletion();
-            IOUnlock(_intLock);									// Unlock the queue
-			// Calculate how long it's been since the last status change and wait until the pollingRate to call the UIMRootHubStatusChange()
-			lastRootHubChangeTime = RHLastPortStatusChanged();
-			
-			clock_get_uptime( &currentTime );
-			SUB_ABSOLUTETIME(&currentTime, &lastRootHubChangeTime );
-			absolutetime_to_nanoseconds(currentTime, &elapsedTime);
-			elapsedTime /= 1000000;  // convert it to ms
-			
-			if ( elapsedTime < kUHCIRootHubPollingInterval )
-			{
-				USBLog(5, "AppleUSBUHCI[%p]::SimulateRootHubInt  Last change was %qd ms ago.  IOSleep'ing for %qd ms",  this, elapsedTime, kUHCIRootHubPollingInterval - elapsedTime );
-				IOSleep( kUHCIRootHubPollingInterval - elapsedTime );
-			}
-			
-			// Call and pick up any pending changes and enable the RH timer
-			UIMRootHubStatusChange(false);
-			
-            return kIOReturnSuccess;
-        }
-    }
-	
-    IOUnlock(_intLock);														// Unlock the queue
-    Complete(command->GetUSLCompletion(), -1, command->GetReqCount());		// too many trans
-        
     return kIOReturnSuccess;
 }
 
@@ -899,8 +759,7 @@ AppleUSBUHCI::RHCheckStatus()
 {
     int						i;
     UInt16					status;
-    bool					change = false;
-        
+	
     /* Read port status registers.
     * Check for resumed ports.
     * If the status changed on either, call the
@@ -908,59 +767,26 @@ AppleUSBUHCI::RHCheckStatus()
     */
     for (i=0; i<kUHCI_NUM_PORTS; i++) 
 	{
-        status = ReadPortStatus(i);
-        if (status & kUHCI_PORTSC_RD) 
+		if (!_rhPortBeingResumed[i])								// only check ports which are not being resumed
 		{
-            USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus - resume detected on port %d, resuming", this, i+1);
-			if ( _idleSuspend )
+			status = ReadPortStatus(i);
+			if (status & kUHCI_PORTSC_RD) 
 			{
-				USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus  - restarting bus before resuming port",  this);
-				setPowerState(kUHCIPowerLevelRunning, this);
+				if (_myPowerState >= kUSBPowerStateLowPower)
+				{
+					if (_myPowerState == kUSBPowerStateLowPower)
+						EnsureUsability();
+					USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus - resume detected on port %d, spawning thread to resume", this, i+1);
+					_rhPortBeingResumed[i] = true;
+					thread_call_enter1(_rhResumePortTimerThread[i], (void*)(i+1));
+				}
+				else
+				{
+					USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus - resume detected while not below low power state, not changing bits until we are back on", this);
+				}
 			}
-            RHSuspendPort(i+1, false);
-            change = true;
-        } else if (status & (kUHCI_PORTSC_PEDC|kUHCI_PORTSC_CSC|kUHCI_PORTSC_RD)) 
-		{
-            USBLog(3,"AppleUSBUHCI[%p]::RHCheckStatus Status changed on port %d", this, i+1);
-            change = true;
-        } else if (_portWasReset[i]) 
-		{
-            change = true;
-        }
-    }
-    
-    if (change) 
-	{
-        USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus - Status change for root hub", this);
-        if ( _idleSuspend )
-		{
-			USBLog(3, "AppleUSBUHCI[%p]::RHCheckStatus - port change detect interrupt while in idlesuspend - restarting bus",  this);
-            setPowerState(kUHCIPowerLevelRunning, this);
 		}
-        UIMRootHubStatusChange(false);
-    }    
-}
-
-
-
-void 
-AppleUSBUHCI::RHTimerFired(OSObject *owner, IOTimerEventSource *sender)
-{
-    AppleUSBUHCI *myself;
-    UInt32 period;
-    
-    myself = OSDynamicCast(AppleUSBUHCI, owner);
-	
-    if (!myself || myself->isInactive() || !myself->_uhciAvailable)
-        return;
-    
-    myself->RHCheckStatus();
-
-    if (myself->_rootHubPollingRate)
-	{
-        //USBLog(1, "AppleUSBUHCI[%p]::RHTimerFired - restarting rhTimer(%d)", myself, myself->_rootHubPollingRate);
-        myself->_rhTimer->setTimeoutMS(myself->_rootHubPollingRate);
-	}
+    }
 }
 
 
@@ -993,9 +819,20 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
 {
     UInt16 cmd, value;
     
-    USBLog(3, "AppleUSBUHCI[%p]::RHSuspendPort %d (%s)", this, port, suspended ? "SUSPEND" : "RESUME");
+    USBLog(3, "AppleUSBUHCI[%p]::RHSuspendPort %d (%s) _rhPortBeingResumed[%d](%s)", this, port, suspended ? "SUSPEND" : "RESUME", (int)port-1, _rhPortBeingResumed[port-1] ? "true" : "false");
+	showRegisters(7, "RHSuspendPort");
     port--; // convert 1-based to 0-based.
 
+	if (_rhPortBeingResumed[port])
+	{
+		if (!suspended)
+		{
+			USBLog(3, "AppleUSBUHCI[%p]::RHSuspendPort - resume on port (%d) already being resumed - gracefully ignoring", this, (int)port+1);
+			return kIOReturnSuccess;
+		}
+		USBLog(1, "AppleUSBUHCI[%p]::RHSuspendPort - trying to suspend port (%d) which is being resumed - UNEXPECTED", this, (int)port+1);
+	}
+	
     cmd = ioRead16(kUHCI_CMD);
     value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
     
@@ -1013,10 +850,10 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
         }
         value |= (kUHCI_PORTSC_SUSPEND | kUHCI_PORTSC_RD);
     }
-    /* Always enable the port also. */
+    // Always enable the port also.
     value |= kUHCI_PORTSC_PED;
 
-    USBLog(7, "AppleUSBUHCI[%p]: writing 0x%x to port control", this, value);
+    USBLog(5, "AppleUSBUHCI[%p]: writing (%p) to port control", this, (void*)value);
     
     WritePortStatus(port, value);
     
@@ -1030,30 +867,10 @@ AppleUSBUHCI::RHSuspendPort(int port, bool suspended)
         
     } else 
 	{
-        /* Resuming */
-        int i;
-        
-        // Wait at least the required 20ms, then de-assert the resume signal
-        IOSleep(20);
-        
-        value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
-        value &= ~(kUHCI_PORTSC_RD | kUHCI_PORTSC_SUSPEND);
-        USBLog(7, "AppleUSBUHCI[%p]: de-asserting resume signal 0x%x", this, value);
-        WritePortStatus(port, value);
-
-        /* Wait for EOP to finish. */
-        for (i=0; i<10; i++) 
-		{
-            IOSleep(1);
-            if ((ReadPortStatus(port) & kUHCI_PORTSC_RD) == 0) 
-			{
-                break;
-            }
-        }
-        USBLog(7, "AppleUSBUHCI[%p]: EOP finished", this);
-        
-        /* Wait another 10ms for devices to recover. */
-        //IOSleep(10);
+        // Resuming
+		USBLog(5,"AppleUSBUHCI[%p]::RHSuspendPort - resuming port %d, calling out to timer", this, (int)port+1);
+		_rhPortBeingResumed[port] = true;
+		thread_call_enter1(_rhResumePortTimerThread[port], (void*)(port+1));
     }
 
     USBLog(5, "AppleUSBUHCI[%p]::RHSuspendPort %d (%s) calling UIMRootHubStatusChange", this, port+1, suspended ? "SUSPEND" : "RESUME");
@@ -1133,6 +950,21 @@ AppleUSBUHCI::RHResetPort(int port)
     return kIOReturnSuccess;
 }
 
+// Reset and enable the port
+IOReturn
+AppleUSBUHCI::RHHoldPortReset(int port)
+{
+    UInt16 value;
+    int i;
+    
+    USBLog(1, "%s[%p]::RHHoldPortReset %d", getName(), this, port);
+    port--; // convert 1-based to 0-based.
+
+    value = ReadPortStatus(port) & kUHCI_PORTSC_MASK;
+    WritePortStatus(port, value | kUHCI_PORTSC_RESET);
+    
+    return kIOReturnSuccess;
+}
 
 
 /* ==== debugging ==== */
@@ -1143,7 +975,7 @@ AppleUSBUHCI::RHDumpPortStatus(int port)
     char buf[64];
     static struct {
         UInt16 mask;
-        char *string;
+        const char *string;
     } strings[] = {
     {kUHCI_PORTSC_SUSPEND, "SUSPEND "},
     {kUHCI_PORTSC_RESET, "RESET "},
@@ -1166,10 +998,10 @@ AppleUSBUHCI::RHDumpPortStatus(int port)
 	{
         if ((value & strings[i].mask) != 0) 
 		{
-            strcat(buf, strings[i].string);
+            strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
-    USBLog(5, "%s[%p]: Port %d: status %x %s", getName(), this, port+1, value, buf);
+    USBLog(7, "%s[%p]: Port %d: status %x %s", getName(), this, port+1, value, buf);
 }
 
 
@@ -1181,7 +1013,7 @@ AppleUSBUHCI::RHDumpHubPortStatus(IOUSBHubPortStatus *status)
     char buf[128];
     static struct {
         UInt16 mask;
-        char *string;
+        const char *string;
     } strings[] = {
     {kHubPortConnection, "kHubPortConnection "},
     {kHubPortEnabled,    "kHubPortEnabled "},
@@ -1203,7 +1035,7 @@ AppleUSBUHCI::RHDumpHubPortStatus(IOUSBHubPortStatus *status)
 	{
         if ((value & strings[i].mask) != 0) 
 		{
-            strcat(buf, strings[i].string);
+            strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
     USBLog(5, "%s[%p]: Hub port status: %s", getName(), this, buf);
@@ -1213,10 +1045,79 @@ AppleUSBUHCI::RHDumpHubPortStatus(IOUSBHubPortStatus *status)
 	{
         if ((value & strings[i].mask) != 0) 
 		{
-            strcat(buf, strings[i].string);
+            strlcat(buf, strings[i].string, sizeof(buf));
         }
     }
     USBLog(5, "%s[%p]: Hub port change: %s", getName(), this, buf);
     
 }
 
+
+// these are for handling a root hub resume without hanging out in the WL for 20 ms
+// static
+void
+AppleUSBUHCI::RHResumePortTimerEntry(OSObject *target, thread_call_param_t port)
+{
+    AppleUSBUHCI *me = OSDynamicCast(AppleUSBUHCI, target);
+	if (!me)
+		return;
+
+	me->RHResumePortTimer((UInt32)port);
+}
+
+
+
+void
+AppleUSBUHCI::RHResumePortTimer(UInt32 port)
+{
+	// we are responsible for terminating the resume on a root hub port ourselves
+	// and we used to do it inside of the workloop. now we do the timing part of it
+	// outside of the WL
+	if (!_commandGate)
+		return;
+	
+	USBLog(5, "AppleUSBUHCI[%p]::RHResumePortTimer - timing the resume for port %d", this, (int)port);
+	IOSleep(20);								// wait 20 ms for the resume to complete
+	_commandGate->runAction(RHResumePortCompletionEntry, (void*)port);
+}
+
+
+
+// static
+IOReturn
+AppleUSBUHCI::RHResumePortCompletionEntry(OSObject *target, void *param1, void *param2, void *param3, void *param4)
+{
+    AppleUSBUHCI				*me = OSDynamicCast(AppleUSBUHCI, target);
+    UInt32						port = (UInt32)param1;
+	
+	if (!me)
+		return kIOReturnInternalError;
+	
+	return me->RHResumePortCompletion(port);
+}
+
+
+
+IOReturn			
+AppleUSBUHCI::RHResumePortCompletion(UInt32 port)
+{
+	UInt16			value;
+	
+	USBLog(5, "AppleUSBUHCI[%p]::RHResumePortCompletion - finishing resume on port %d", this, (int)port);
+	if (!_rhPortBeingResumed[port-1])
+	{
+		USBLog(1, "AppleUSBUHCI[%p]::RHResumePortCompletion - port %d does not appear to be resuming!", this, (int)port);
+		return kIOReturnInternalError;
+	}
+	
+	value = ReadPortStatus(port-1) & kUHCI_PORTSC_MASK;
+	value &= ~(kUHCI_PORTSC_RD | kUHCI_PORTSC_SUSPEND);
+	USBLog(5, "AppleUSBUHCI[%p]: de-asserting resume signal by writing (%p)", this, (void*)value);
+	WritePortStatus(port-1, value);
+	IOSync();
+	IOSleep(2);																	// allow it to kick in
+
+	_rhPortBeingResumed[port-1] = false;
+	_portSuspendChange[port-1] = true;
+	return kIOReturnSuccess;
+}

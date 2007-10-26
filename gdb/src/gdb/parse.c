@@ -1,6 +1,8 @@
 /* Parse expressions for GDB.
-   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1986, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
+
    Modified from expread.y by the Department of Computer Science at the
    State University of New York at Buffalo, 1991.
 
@@ -62,21 +64,6 @@ const struct exp_descriptor exp_descriptor_standard =
     evaluate_subexp_standard
   };
 
-/* Symbols which architectures can redefine.  */
-
-/* Some systems have routines whose names start with `$'.  Giving this
-   macro a non-zero value tells GDB's expression parser to check for
-   such routines when parsing tokens that begin with `$'.
-
-   On HP-UX, certain system routines (millicode) have names beginning
-   with `$' or `$$'.  For example, `$$dyncall' is a millicode routine
-   that handles inter-space procedure calls on PA-RISC.  */
-#ifndef SYMBOLS_CAN_START_WITH_DOLLAR
-#define SYMBOLS_CAN_START_WITH_DOLLAR (0)
-#endif
-
-
-
 /* Global variables declared in parser-defs.h (and commented there).  */
 struct expression *expout;
 int expout_size;
@@ -89,13 +76,26 @@ union type_stack_elt *type_stack;
 int type_stack_depth, type_stack_size;
 char *lexptr;
 char *prev_lexptr;
-char *namecopy;
 int paren_depth;
 int comma_terminates;
+
+/* A temporary buffer for identifiers, so we can null-terminate them.
+
+   We allocate this with xrealloc.  parse_exp_1 used to allocate with
+   alloca, using the size of the whole expression as a conservative
+   estimate of the space needed.  However, macro expansion can
+   introduce names longer than the original expression; there's no
+   practical way to know beforehand how large that might be.  */
+char *namecopy;
+size_t namecopy_size;
 
 static int expressiondebug = 0;
-
-extern int hp_som_som_object_present;
+static void
+show_expressiondebug (struct ui_file *file, int from_tty,
+		      struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Expression debugging is %s.\n"), value);
+}
 
 static void free_funcalls (void *ignore);
 
@@ -103,6 +103,9 @@ static void prefixify_expression (struct expression *);
 
 static void prefixify_subexp (struct expression *, struct expression *, int,
 			      int);
+
+static struct expression *parse_exp_in_context (char **, struct block *, int, 
+						int);
 
 void _initialize_parse (void);
 
@@ -434,6 +437,9 @@ write_exp_msymbol (struct minimal_symbol *msymbol,
 void
 write_dollar_variable (struct stoken str)
 {
+  struct symbol *sym = NULL;
+  struct minimal_symbol *msym = NULL;
+
   /* Handle the tokens $digits; also $ (short for $0) and $$ (short for $$1)
      and $$digits (equivalent to $<-digits> if you could type that). */
 
@@ -471,36 +477,26 @@ write_dollar_variable (struct stoken str)
   if (i >= 0)
     goto handle_register;
 
-  if (SYMBOLS_CAN_START_WITH_DOLLAR)
+  /* On some systems, such as HP-UX and hppa-linux, certain system routines 
+     have names beginning with $ or $$.  Check for those, first. */
+
+  sym = lookup_symbol (copy_name (str), (struct block *) NULL,
+		       VAR_DOMAIN, (int *) NULL, (struct symtab **) NULL);
+  if (sym)
     {
-      struct symbol *sym = NULL;
-      struct minimal_symbol *msym = NULL;
-
-      /* On HP-UX, certain system routines (millicode) have names beginning
-	 with $ or $$, e.g. $$dyncall, which handles inter-space procedure
-	 calls on PA-RISC. Check for those, first. */
-
-      /* This code is not enabled on non HP-UX systems, since worst case 
-	 symbol table lookup performance is awful, to put it mildly. */
-
-      sym = lookup_symbol (copy_name (str), (struct block *) NULL,
-			   VAR_DOMAIN, (int *) NULL, (struct symtab **) NULL);
-      if (sym)
-	{
-	  write_exp_elt_opcode (OP_VAR_VALUE);
-	  write_exp_elt_block (block_found);	/* set by lookup_symbol */
-	  write_exp_elt_sym (sym);
-	  write_exp_elt_opcode (OP_VAR_VALUE);
-	  return;
-	}
-      msym = lookup_minimal_symbol (copy_name (str), NULL, NULL);
-      if (msym)
-	{
-	  write_exp_msymbol (msym,
-			     lookup_function_type (builtin_type_int),
-			     builtin_type_int);
-	  return;
-	}
+      write_exp_elt_opcode (OP_VAR_VALUE);
+      write_exp_elt_block (block_found);	/* set by lookup_symbol */
+      write_exp_elt_sym (sym);
+      write_exp_elt_opcode (OP_VAR_VALUE);
+      return;
+    }
+  msym = lookup_minimal_symbol (copy_name (str), NULL, NULL);
+  if (msym)
+    {
+      write_exp_msymbol (msym,
+			 lookup_function_type (builtin_type_int),
+			 builtin_type_int);
+      return;
     }
 
   /* Any other names starting in $ are debugger internal variables.  */
@@ -590,7 +586,7 @@ parse_nested_classes_for_hpacc (char *name, int len, char **token,
      return NULL, and caller must default to standard GDB
      behaviour. */
 
-  if (!hp_som_som_object_present)
+  if (!deprecated_hp_som_som_object_present)
     return (struct symbol *) NULL;
 
   p = name;
@@ -771,8 +767,16 @@ find_template_name_end (char *p)
 char *
 copy_name (struct stoken token)
 {
+  /* Make sure there's enough space for the token.  */
+  if (namecopy_size < token.length + 1)
+    {
+      namecopy_size = token.length + 1;
+      namecopy = xrealloc (namecopy, token.length + 1);
+    }
+      
   memcpy (namecopy, token.ptr, token.length);
   namecopy[token.length] = 0;
+
   return namecopy;
 }
 
@@ -836,7 +840,7 @@ operator_length_standard (struct expression *expr, int endpos,
   int i;
 
   if (endpos < 1)
-    error ("?error in operator_length_standard");
+    error (_("?error in operator_length_standard"));
 
   i = (int) expr->elts[endpos - 1].opcode;
 
@@ -1023,7 +1027,21 @@ prefixify_subexp (struct expression *inexpr,
 struct expression *
 parse_exp_1 (char **stringptr, struct block *block, int comma)
 {
+  return parse_exp_in_context (stringptr, block, comma, 0);
+}
+
+/* As for parse_exp_1, except that if VOID_CONTEXT_P, then
+   no value is expected from the expression.  */
+
+static struct expression *
+parse_exp_in_context (char **stringptr, struct block *block, int comma, 
+		      int void_context_p)
+{
   struct cleanup *old_chain;
+  /* APPLE LOCAL: Suppress the hook_stub while parsing expressions.
+     This can cause us to re-enter the parser, and at least the c parser
+     uses some static variables for state, so this is a bad thing.  */
+  struct cleanup *hook_stop_chain;
 
   lexptr = *stringptr;
   prev_lexptr = NULL;
@@ -1034,7 +1052,7 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   comma_terminates = comma;
 
   if (lexptr == 0 || *lexptr == 0)
-    error_no_arg ("expression to compute");
+    error_no_arg (_("expression to compute"));
 
   old_chain = make_cleanup (free_funcalls, 0 /*ignore*/);
   funcall_chain = 0;
@@ -1042,12 +1060,13 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   if (block)
     {
       expression_context_block = block;
-      expression_context_pc = BLOCK_START (block);
+      /* APPLE LOCAL begin address ranges  */
+      expression_context_pc = BLOCK_LOWEST_PC (block);
+      /* APPLE LOCAL end address ranges  */
     }
   else
     expression_context_block = get_selected_block (&expression_context_pc);
 
-  namecopy = (char *) alloca (strlen (lexptr) + 1);
   expout_size = 10;
   expout_ptr = 0;
   expout = (struct expression *)
@@ -1055,9 +1074,13 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   expout->language_defn = current_language;
   make_cleanup (free_current_contents, &expout);
 
+  /* APPLE LOCAL: Don't let the stop hook run here.  */
+  hook_stop_chain = make_cleanup_suppress_hook_stop ();
   if (current_language->la_parser ())
-    current_language->la_error (NULL);
+      current_language->la_error (NULL);
 
+  /* APPLE LOCAL: Turn the stop hook back on.  */
+  do_cleanups (hook_stop_chain);
   discard_cleanups (old_chain);
 
   /* Record the actual number of expression elements, and then
@@ -1078,6 +1101,8 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
 
   prefixify_expression (expout);
 
+  current_language->la_post_parser (&expout, void_context_p);
+
   if (expressiondebug)
     dump_prefix_expression (expout, gdb_stdlog);
 
@@ -1094,8 +1119,29 @@ parse_expression (char *string)
   struct expression *exp;
   exp = parse_exp_1 (&string, 0, 0);
   if (*string)
-    error ("Junk after end of expression.");
+    error (_("Junk after end of expression."));
   return exp;
+}
+
+
+/* As for parse_expression, except that if VOID_CONTEXT_P, then
+   no value is expected from the expression.  */
+
+struct expression *
+parse_expression_in_context (char *string, int void_context_p)
+{
+  struct expression *exp;
+  exp = parse_exp_in_context (&string, 0, 0, void_context_p);
+  if (*string != '\000')
+    error (_("Junk after end of expression."));
+  return exp;
+}
+
+/* A post-parser that does nothing */
+
+void
+null_post_parser (struct expression **exp, int void_context_p)
+{
 }
 
 /* Stuff for maintaining a stack of types.  Currently just used by C, but
@@ -1298,11 +1344,12 @@ _initialize_parse (void)
   DEPRECATED_REGISTER_GDBARCH_SWAP (msym_unknown_symbol_type);
   deprecated_register_gdbarch_swap (NULL, 0, build_parse);
 
-  add_show_from_set (
-	    add_set_cmd ("expression", class_maintenance, var_zinteger,
-			 (char *) &expressiondebug,
-			 "Set expression debugging.\n\
-When non-zero, the internal representation of expressions will be printed.",
-			 &setdebuglist),
-		      &showdebuglist);
+  add_setshow_zinteger_cmd ("expression", class_maintenance,
+			    &expressiondebug, _("\
+Set expression debugging."), _("\
+Show expression debugging."), _("\
+When non-zero, the internal representation of expressions will be printed."),
+			    NULL,
+			    show_expressiondebug,
+			    &setdebuglist, &showdebuglist);
 }

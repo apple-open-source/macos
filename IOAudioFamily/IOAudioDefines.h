@@ -72,6 +72,17 @@
 
 #define kIOAudioDeviceModelIDKey			"IOAudioDeviceModelID"
 
+
+/*!
+ * @defined kIOAudioDeviceIconName
+ * @abstract The key in the IORegistry for the IOAudioDevice icon name attribute.
+ */
+#define kIOAudioDeviceIconNameKey		"IOAudioDeviceIconName"
+
+#define kIOAudioDeviceIconTypeKey		"IOAudioDeviceIconType"
+
+#define kIOAudioDeviceIconSubDirKey	"IOAudioDeviceIconSubDir"
+
 /*****
  *
  * IOAudioEngine defines
@@ -127,6 +138,7 @@
 
 #define kIOAudioEngineClockDomainKey				"IOAudioEngineClockDomain"
 
+#define kIOAudioEngineIsHiddenKey               "IOAudioEngineIsHidden"
 /*!
  * @defined kIOAudioEngineFullChannelNamesKey
  * @abstract The key in the IORegistry for the IOAudioEngine's dictionary of fully constructed names for each channel keyed by the device channel
@@ -146,9 +158,13 @@
  * @abstract The key in the IORegistry for the IOAudioEngine's dictionary of number names for each channel keyed by the device channel
  * @discussion 
  */
-#define	kIOAudioEngineFullChannelNumberNamesKey		"IOAudioEngineChannelNumberNames"
+#define	kIOAudioEngineFullChannelNumberNamesKey			"IOAudioEngineChannelNumberNames"
 
-#define kIOAudioEngineFlavorKey						"IOAudioEngineFlavor"
+#define	kIOAudioEngineFullChannelNameKeyInputFormat		"InputChannel%u"
+
+#define	kIOAudioEngineFullChannelNameKeyOutputFormat	"OutputChannel%u"
+
+#define kIOAudioEngineFlavorKey							"IOAudioEngineFlavor"
 
 /*****
  *

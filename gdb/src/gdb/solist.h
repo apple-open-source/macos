@@ -100,14 +100,18 @@ struct target_so_ops
        the run time loader */
     int (*in_dynsym_resolve_code) (CORE_ADDR pc);
 
-    /* Extra hook for finding and opening a solib.  Convenience function
-       for remote debuggers finding host libs */
+    /* Extra hook for finding and opening a solib.  
+       Convenience function for remote debuggers finding host libs.  */
     int (*find_and_open_solib) (char *soname,
         unsigned o_flags, char **temp_pathname);
     
   };
 
+/* Free the memory associated with a (so_list *).  */
 void free_so (struct so_list *so);
+
+/* Return address of first so_list entry in master shared object list.  */
+struct so_list *master_so_list (void);
 
 /* Find solib binary file and open it.  */
 extern int solib_open (char *in_pathname, char **found_pathname);
@@ -117,18 +121,9 @@ extern struct target_so_ops *current_target_so_ops;
 
 #define TARGET_SO_RELOCATE_SECTION_ADDRESSES \
   (current_target_so_ops->relocate_section_addresses)
-#define TARGET_SO_FREE_SO (current_target_so_ops->free_so)
-#define TARGET_SO_CLEAR_SOLIB (current_target_so_ops->clear_solib)
-#define TARGET_SO_SOLIB_CREATE_INFERIOR_HOOK \
-  (current_target_so_ops->solib_create_inferior_hook)
-#define TARGET_SO_SPECIAL_SYMBOL_HANDLING \
-  (current_target_so_ops->special_symbol_handling)
-#define TARGET_SO_CURRENT_SOS (current_target_so_ops->current_sos)
-#define TARGET_SO_OPEN_SYMBOL_FILE_OBJECT \
-  (current_target_so_ops->open_symbol_file_object)
-#define TARGET_SO_IN_DYNSYM_RESOLVE_CODE \
-  (current_target_so_ops->in_dynsym_resolve_code)
 #define TARGET_SO_FIND_AND_OPEN_SOLIB \
   (current_target_so_ops->find_and_open_solib)
+#define TARGET_SO_IN_DYNSYM_RESOLVE_CODE \
+  (current_target_so_ops->in_dynsym_resolve_code)
 
 #endif

@@ -27,6 +27,7 @@
 /* Specification.  */
 #include "argmatch.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,7 +39,10 @@
 #include "exit.h"
 #include "quotearg.h"
 #include "quote.h"
-#include "unlocked-io.h"
+
+#if USE_UNLOCKED_IO
+# include "unlocked-io.h"
+#endif
 
 /* When reporting an invalid argument, show nonprinting characters
    by using the quoting style ARGMATCH_QUOTING_STYLE.  Do not use
@@ -79,14 +83,14 @@ argmatch_exit_fn argmatch_die = __argmatch_die;
      "no", "nope" -> 1
    "y" is a valid argument, for `0', and "n" for `1'.  */
 
-int
+ptrdiff_t
 argmatch (const char *arg, const char *const *arglist,
 	  const char *vallist, size_t valsize)
 {
-  int i;			/* Temporary index in ARGLIST.  */
+  size_t i;			/* Temporary index in ARGLIST.  */
   size_t arglen;		/* Length of ARG.  */
-  int matchind = -1;		/* Index of first nonexact match.  */
-  int ambiguous = 0;		/* If nonzero, multiple nonexact match(es).  */
+  ptrdiff_t matchind = -1;	/* Index of first nonexact match.  */
+  bool ambiguous = false;	/* If true, multiple nonexact match(es).  */
 
   arglen = strlen (arg);
 
@@ -110,7 +114,7 @@ argmatch (const char *arg, const char *const *arglist,
 		{
 		  /* There is a real ambiguity, or we could not
 		     disambiguate. */
-		  ambiguous = 1;
+		  ambiguous = true;
 		}
 	    }
 	}
@@ -127,7 +131,7 @@ argmatch (const char *arg, const char *const *arglist,
    PROBLEM is the return value from argmatch.  */
 
 void
-argmatch_invalid (const char *context, const char *value, int problem)
+argmatch_invalid (const char *context, const char *value, ptrdiff_t problem)
 {
   char const *format = (problem == -1
 			? _("invalid argument %s for %s")
@@ -145,7 +149,7 @@ void
 argmatch_valid (const char *const *arglist,
 		const char *vallist, size_t valsize)
 {
-  int i;
+  size_t i;
   const char *last_val = NULL;
 
   /* We try to put synonyms on the same line.  The assumption is that
@@ -171,13 +175,13 @@ argmatch_valid (const char *const *arglist,
    "--version-control", or "$VERSION_CONTROL" etc.).  Upon failure,
    calls the (supposed never to return) function EXIT_FN. */
 
-int
+ptrdiff_t
 __xargmatch_internal (const char *context,
 		      const char *arg, const char *const *arglist,
 		      const char *vallist, size_t valsize,
 		      argmatch_exit_fn exit_fn)
 {
-  int res = argmatch (arg, arglist, vallist, valsize);
+  ptrdiff_t res = argmatch (arg, arglist, vallist, valsize);
   if (res >= 0)
     /* Success. */
     return res;
@@ -197,7 +201,7 @@ argmatch_to_argument (const char *value,
 		      const char *const *arglist,
 		      const char *vallist, size_t valsize)
 {
-  int i;
+  size_t i;
 
   for (i = 0; arglist[i]; i++)
     if (!memcmp (value, vallist + valsize * i, valsize))
@@ -215,17 +219,17 @@ char *program_name;
 enum backup_type
 {
   /* Never make backups.  */
-  none,
+  no_backups,
 
   /* Make simple backups of every file.  */
-  simple,
+  simple_backups,
 
   /* Make numbered backups of files that already have numbered backups,
      and simple backups of the others.  */
-  numbered_existing,
+  numbered_existing_backups,
 
   /* Make numbered backups of every file.  */
-  numbered
+  numbered_backups
 };
 
 /* Two tables describing arguments (keys) and their corresponding
@@ -241,17 +245,17 @@ static const char *const backup_args[] =
 
 static const enum backup_type backup_vals[] =
 {
-  none, none, none,
-  simple, simple,
-  numbered_existing, numbered_existing,
-  numbered, numbered
+  no_backups, no_backups, no_backups,
+  simple_backups, simple_backups,
+  numbered_existing_backups, numbered_existing_backups,
+  numbered_backups, numbered_backups
 };
 
 int
 main (int argc, const char *const *argv)
 {
   const char *cp;
-  enum backup_type backup_type = none;
+  enum backup_type backup_type = no_backups;
 
   program_name = (char *) argv[0];
 

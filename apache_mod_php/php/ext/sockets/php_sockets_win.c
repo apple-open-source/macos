@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -19,7 +19,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_sockets_win.c,v 1.5.4.3.4.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: php_sockets_win.c,v 1.12.2.1.2.2 2007/07/22 23:01:20 jani Exp $ */
 
 
 #ifdef PHP_WIN32
@@ -30,78 +30,6 @@
 #include "php.h"
 #include "php_sockets.h"
 #include "php_sockets_win.h"
-
-ssize_t readv(SOCKET sock, const struct iovec *iov, int iovcnt) {
-	size_t bytes, remain, len, pos = 0;
-	ssize_t retval;
-	int i;
-	char *buffer = NULL;
-
-	for(bytes=0, i=0; i<iovcnt; i++) {
-		bytes += iov[i].iov_len;
-	}
-
-	buffer = (char*)emalloc(bytes);
-	if (buffer == NULL) {
-		return -1;
-	}
-
-	retval = recv(sock, buffer, bytes, 0);
-
-	if(retval < 0) {
-		efree(buffer);
-		return retval;
-	}
-
-	remain = bytes = (size_t) retval;
-	
-	for(i=0; i<iovcnt; i++) {
-		len = ((unsigned int)iov[i].iov_len < remain) ? iov[i].iov_len : remain;
-		memcpy(iov[i].iov_base, buffer+pos, len);
-		pos += len;
-		remain -= len;
-	}
-
-	efree(buffer);
-	return bytes;
-}
-
-ssize_t writev(SOCKET sock, const struct iovec *iov, int iovcnt) {
-	size_t bytes, pos = 0;
-	ssize_t retval;
-	int i;
-	char *buffer = NULL;
-
-	for(bytes=0, i=0; i<iovcnt; i++) {
-		bytes += iov[i].iov_len;
-	}
-
-	buffer = (char*)emalloc(bytes);
-	
-	if(buffer == NULL) {
-		return -1;
-	}
-
-	for(i=0; i<iovcnt; i++) {
-		memcpy(buffer+pos, iov[i].iov_base, iov[i].iov_len);
-		pos += iov[i].iov_len;
-	}
-
-	retval = send(sock, buffer, bytes, 0);
-	efree(buffer);
-	
-	return retval;
-}
-
-ssize_t recvmsg(SOCKET sock, struct msghdr *msg, int flags) {
-	set_errno(WSAEOPNOTSUPP);
-	return -1;
-}
-
-ssize_t sendmsg(SOCKET sock, struct msghdr *msg, int flags) {
-	set_errno(WSAEOPNOTSUPP);
-	return -1;
-}
 
 int socketpair(int domain, int type, int protocol, SOCKET sock[2]) {
 	struct sockaddr_in address;
@@ -152,30 +80,5 @@ int inet_aton(const char *cp, struct in_addr *inp) {
   }
 
   return 1;
-}
-
-int fcntl(int fd, int cmd, ...) {
-	va_list va;
-	int retval, io, mode;
-	
-	va_start(va, cmd);
-
-	switch(cmd) {
-		case F_GETFL:
-		case F_SETFD:
-		case F_GETFD:
-		default:
-			retval = -1;
-			break;
-
-		case F_SETFL:
-			io = va_arg(va, int);
-			mode = io == O_NONBLOCK ? 1 : 0;
-			retval = ioctlsocket(fd, io, &mode);
-			break;
-	}
-
-	va_end(va);
-	return retval;
 }
 #endif

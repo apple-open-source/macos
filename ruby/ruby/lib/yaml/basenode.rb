@@ -25,7 +25,7 @@ module YAML
                 matches.each { |m|
                     result.push m.last
                 }
-                self.class.new( 'seq', result )
+                YAML.transfer( 'seq', result )
             end
         end
 
@@ -67,8 +67,8 @@ module YAML
         end
 
         def at( seg )
-            if Hash === @value and @value.has_key?( seg )
-                @value[seg][1]
+            if Hash === @value
+                self[seg]
             elsif Array === @value and seg =~ /\A\d+\Z/ and @value[seg.to_i]
                 @value[seg.to_i]
             end
@@ -99,8 +99,8 @@ module YAML
                     @value.collect { |v|
                         idx += 1
                         if Hash === @value
-                            match_init = [v[0], v[1][1]]
-                            match_deep = v[1][1].match_segment( ypath, depth )
+                            match_init = [v[0].transform, v[1]]
+                            match_deep = v[1].match_segment( ypath, depth )
                         else
                             match_init = [idx, v]
                             match_deep = v.match_segment( ypath, depth )
@@ -127,7 +127,7 @@ module YAML
                         @value.collect { |h|
                             idx += 1
                             if Hash === @value
-                                [h[0], h[1][1]]
+                                [h[0].transform, h[1]]
                             else
                                 [idx, h]
                             end
@@ -148,7 +148,7 @@ module YAML
             if pred
                 case pred
                 when /^\.=/
-                    pred = $'
+                    pred = $'   # '
                     match_nodes.reject! { |n|
                         n.last.value != pred
                     }
@@ -182,12 +182,12 @@ module YAML
         # We want the node to act like as Hash
         # if it is.
         #
-        def []( *k )
+        def []( *key )
             if Hash === @value
-                v = @value.[]( *k )
+                v = @value.detect { |k,v| k.transform == key.first }
                 v[1] if v
             elsif Array === @value
-                @value.[]( *k )
+                @value.[]( *key )
             end
         end
 

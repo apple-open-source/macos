@@ -1,13 +1,13 @@
 /*
  *  iodbctest.c
  *
- *  $Id: iodbctest.c,v 1.2 2004/11/11 01:52:41 luesang Exp $
+ *  $Id: iodbctest.c,v 1.25 2006/01/20 15:58:35 source Exp $
  *
  *  Sample ODBC program
  *
  *  The iODBC driver manager.
  *
- *  Copyright (C) 1999-2004 by OpenLink Software <iodbc@openlinksw.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
@@ -15,6 +15,10 @@
  *
  *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -69,6 +73,7 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -120,9 +125,9 @@ int ODBC_Test (void);
 /*
  *  Global variables
  */
-HENV henv;
-HDBC hdbc;
-HSTMT hstmt;
+HENV henv = SQL_NULL_HANDLE;
+HDBC hdbc = SQL_NULL_HANDLE;
+HSTMT hstmt = SQL_NULL_HANDLE;
 
 int connected = 0;
 
@@ -172,6 +177,9 @@ strcpy_A2W (SQLWCHAR * destStr, char *sourStr)
  *
  *	DSN=pubs_sqlserver;PWD=demo
  */
+
+SQLTCHAR outdsn[4096];			/* Store completed DSN for later use */
+
 int
 ODBC_Connect (char *connStr)
 {
@@ -180,7 +188,6 @@ ODBC_Connect (char *connStr)
   SQLTCHAR dsn[33];
   SQLTCHAR desc[255];
   SQLTCHAR driverInfo[255];
-  SQLTCHAR outdsn[1024];
   SQLSMALLINT len1, len2;
   int status;
 #ifdef UNICODE
@@ -222,7 +229,7 @@ ODBC_Connect (char *connStr)
 #ifdef UNICODE
       printf ("Driver Manager: %S\n", driverInfo);
 #else
-    printf ("Driver Manager: %s\n", driverInfo);
+      printf ("Driver Manager: %s\n", driverInfo);
 #endif
     }
 
@@ -252,7 +259,7 @@ ODBC_Connect (char *connStr)
 	/*
 	 * Check if the user wants to quit
 	 */
-	if (!strcmp (dataSource, "quit") || !strcmp (dataSource, "exit"))
+	if (!strcmp ((char *)dataSource, "quit") || !strcmp ((char *)dataSource, "exit"))
 	  return -1;
 
 	/*
@@ -297,12 +304,12 @@ ODBC_Connect (char *connStr)
 #ifdef UNICODE
   strcpy_A2W (wdataSource, (char *) dataSource);
   status = SQLDriverConnectW (hdbc, 0, (SQLWCHAR *) wdataSource, SQL_NTS,
-      (SQLWCHAR *) outdsn, NUMTCHAR (outdsn), &buflen, SQL_DRIVER_PROMPT);
+      (SQLWCHAR *) outdsn, NUMTCHAR (outdsn), &buflen, SQL_DRIVER_COMPLETE);
   if (status != SQL_SUCCESS)
     ODBC_Errors ("SQLDriverConnectW");
 #else
   status = SQLDriverConnect (hdbc, 0, (SQLCHAR *) dataSource, SQL_NTS,
-      (SQLCHAR *) outdsn, NUMTCHAR (outdsn), &buflen, SQL_DRIVER_PROMPT);
+      (SQLCHAR *) outdsn, NUMTCHAR (outdsn), &buflen, SQL_DRIVER_COMPLETE);
   if (status != SQL_SUCCESS)
     ODBC_Errors ("SQLDriverConnect");
 #endif
@@ -395,8 +402,8 @@ ODBC_Disconnect (void)
 #else
   if (hstmt)
     {
-       SQLCloseCursor (hstmt);
-       SQLFreeHandle (SQL_HANDLE_STMT, hstmt);
+      SQLCloseCursor (hstmt);
+      SQLFreeHandle (SQL_HANDLE_STMT, hstmt);
     }
 
   if (connected)
@@ -414,23 +421,87 @@ ODBC_Disconnect (void)
 
 
 /*
+ *  Perform a disconnect/reconnect using the DSN stored from the original
+ *  SQLDriverConnect
+ */
+int 
+ODBC_Reconnect (void)
+{
+  SQLRETURN status;
+  SQLTCHAR buf[4096];
+  SQLSMALLINT len;
+
+  /*
+   *  Free old statement handle
+   */
+#if (ODBCVER < 0x0300)
+  SQLFreeStmt (hstmt, SQL_DROP);
+#else
+  SQLFreeHandle (SQL_HANDLE_STMT, hstmt);
+#endif
+
+  /*
+   *  Disconnect
+   */
+  SQLDisconnect (hdbc);
+
+  /*
+   *  Reconnect
+   */
+  status = SQLDriverConnect (hdbc, 0, outdsn, SQL_NTS,
+      buf, sizeof (buf), &len, SQL_DRIVER_NOPROMPT);
+
+  /*
+   *  Allocate new statement handle
+   */
+  if (SQL_SUCCEEDED (status))
+    {
+#if (ODBCVER < 0x0300)
+      status = SQLAllocStmt (hdbc, &hstmt);
+#else
+      status = SQLAllocHandle (SQL_HANDLE_STMT, hdbc, &hstmt);
+#endif
+    }
+
+  /*
+   *  Show why we where unsuccessful and return an error
+   */
+  if (!SQL_SUCCEEDED (status))
+    {
+      ODBC_Errors ("DriverConnect (reconnect)");
+      return -1;
+    }
+
+  /*
+   *  Success
+   */
+  return 0;
+}
+
+
+/*
  *  Show all the error information that is available
  */
 int
 ODBC_Errors (char *where)
 {
-  SQLTCHAR buf[250];
+  SQLTCHAR buf[512];
   SQLTCHAR sqlstate[15];
   SQLINTEGER native_error = 0;
   int force_exit = 0;
+  SQLRETURN sts;
 
 #if (ODBCVER < 0x0300)
   /*
    *  Get statement errors
    */
-  while (SQLError (henv, hdbc, hstmt, sqlstate, &native_error,
-	  buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (hstmt)
     {
+      sts = SQLError (henv, hdbc, hstmt, sqlstate, &native_error,
+	  buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%s = %S (%ld) SQLSTATE=%S\n",
 	  where, buf, (long) native_error, sqlstate);
@@ -450,9 +521,13 @@ ODBC_Errors (char *where)
   /*
    *  Get connection errors
    */
-  while (SQLError (henv, hdbc, SQL_NULL_HSTMT, sqlstate, &native_error,
-	  buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (hdbc)
     {
+      sts = SQLError (henv, hdbc, SQL_NULL_HSTMT, sqlstate, &native_error,
+	  buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%s = %S (%ld) SQLSTATE=%S\n",
 	  where, buf, (long) native_error, sqlstate);
@@ -472,9 +547,13 @@ ODBC_Errors (char *where)
   /*
    *  Get environment errors
    */
-  while (SQLError (henv, SQL_NULL_HDBC, SQL_NULL_HSTMT, sqlstate,
-	  &native_error, buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (henv)
     {
+      sts SQLError (henv, SQL_NULL_HDBC, SQL_NULL_HSTMT, sqlstate,
+	  &native_error, buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%s = %S (%ld) SQLSTATE=%S\n",
 	  where, buf, (long) native_error, sqlstate);
@@ -497,9 +576,13 @@ ODBC_Errors (char *where)
    *  Get statement errors
    */
   i = 0;
-  while (i < 5 && SQLGetDiagRec (SQL_HANDLE_STMT, hstmt, ++i,
-	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (hstmt && i < 5)
     {
+      sts = SQLGetDiagRec (SQL_HANDLE_STMT, hstmt, ++i,
+	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%d: %s = %S (%ld) SQLSTATE=%S\n",
 	  i, where, buf, (long) native_error, sqlstate);
@@ -520,9 +603,13 @@ ODBC_Errors (char *where)
    *  Get connection errors
    */
   i = 0;
-  while (i < 5 && SQLGetDiagRec (SQL_HANDLE_DBC, hdbc, ++i,
-	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (hdbc && i < 5)
     {
+      sts = SQLGetDiagRec (SQL_HANDLE_DBC, hdbc, ++i,
+	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%d: %s = %S (%ld) SQLSTATE=%S\n",
 	  i, where, buf, (long) native_error, sqlstate);
@@ -543,9 +630,13 @@ ODBC_Errors (char *where)
    *  Get environment errors
    */
   i = 0;
-  while (i < 5 && SQLGetDiagRec (SQL_HANDLE_ENV, henv, ++i,
-	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL) == SQL_SUCCESS)
+  while (henv && i < 5)
     {
+      sts = SQLGetDiagRec (SQL_HANDLE_ENV, henv, ++i,
+	  sqlstate, &native_error, buf, NUMTCHAR (buf), NULL);
+      if (!SQL_SUCCEEDED (sts))
+	break;
+
 #ifdef UNICODE
       fprintf (stderr, "%d: %s = %S (%ld) SQLSTATE=%S\n",
 	  i, where, buf, (long) native_error, sqlstate);
@@ -676,6 +767,13 @@ ODBC_Test ()
 	      continue;
 	    }
 	}
+      else if (!TXTCMP (request, TEXT ("reconnect")))
+	{
+  	  if (ODBC_Reconnect())
+	    return -1;
+
+	  continue;
+	}
 #if defined (unix)
       else if (!TXTCMP (request, TEXT ("environment")))
 	{
@@ -707,7 +805,7 @@ ODBC_Test ()
 	      ODBC_Errors ("SQLExec");
 
 	      if (sts != SQL_SUCCESS_WITH_INFO)
-	      continue;
+		continue;
 	    }
 	}
 
@@ -738,7 +836,7 @@ ODBC_Test ()
 
 	  if (numCols > MAXCOLS)
 	    {
-	    numCols = MAXCOLS;
+	      numCols = MAXCOLS;
 	      fprintf (stderr,
 		  "NOTE: Resultset truncated to %d columns.\n", MAXCOLS);
 	    }

@@ -118,6 +118,15 @@
 - (NSDictionary*)getAllAttributesAndValues;
 
 /*!
+ * @method getAttributes:
+ * @abstract Retrieve a dictionary of the specified attributes and values for this record.
+ * @result An NSDictionary whose keys are the attribute type names
+ *		and whose values are NSArray objects containing a list of the values
+ *		for that attribute type.
+ */
+- (NSDictionary*)getAttributes:(NSArray*)inAttributes;
+
+/*!
  * @method getAttribute:
  * @abstract Get the first value of a specific attribute type.
  * @discussion Record attributes, or attribute types, can contain 

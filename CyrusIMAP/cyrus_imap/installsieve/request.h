@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: request.h,v 1.5 2005/03/05 00:37:10 dasenbro Exp $ */
+/* $Id: request.h,v 1.13 2003/02/13 20:15:37 rjs3 Exp $ */
 
 #ifndef _REQUEST_H_
 #define _REQUEST_H_

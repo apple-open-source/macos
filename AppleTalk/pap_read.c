@@ -78,7 +78,7 @@ pap_read(int fd, u_char *data, int len)
 	papp->pap_send_count++;
 	if (papp->pap_send_count == 0)
 	    papp->pap_send_count = 1;
-	*(u_short *)&puserdata[2] = papp->pap_send_count;
+	*(u_short *)&puserdata[2] = htons(papp->pap_send_count);
 	retry.interval = 15;
 	retry.retries = -1;		/* ATP_INFINITE_RETRIES */
 

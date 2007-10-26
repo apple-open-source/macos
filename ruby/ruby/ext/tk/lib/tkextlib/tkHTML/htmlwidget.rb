@@ -16,6 +16,11 @@ TkPackage.require('Tkhtml')
 
 module Tk
   class HTML_Widget < TkWindow
+    PACKAGE_NAME = 'Tkhtml'.freeze
+    def self.package_name
+      PACKAGE_NAME
+    end
+
     def self.package_version
       begin
         TkPackage.require('Tkhtml')
@@ -91,12 +96,18 @@ class Tk::HTML_Widget
 
   def create_self(keys)
     if keys and keys != None
-      tk_call_without_enc('html', @path, *hash_kv(keys, true))
+      tk_call_without_enc(self.class::TkCommandNames[0], @path, 
+                          *hash_kv(keys, true))
     else
-      tk_call_without_enc('html', @path)
+      tk_call_without_enc(self.class::TkCommandNames[0], @path)
     end
   end
   private :create_self
+
+  def __strval_optkeys
+    super() << 'base' << 'selectioncolor' << 'unvisitedcolor' << 'visitedcolor'
+  end
+  private :__strval_optkeys
 
   ###################################
   #  class methods

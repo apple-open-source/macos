@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:45 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -17,12 +19,10 @@
 <a href="#COPYRIGHT">COPYRIGHT</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:18 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -30,11 +30,11 @@
 <p>imclient library - authenticating callback interface to
 IMAP/IMSP servers</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -68,13 +68,18 @@ int imclient_authenticate (struct imclient
 *</b><i>imclient</i><b>, struct sasl_client
 **</b><i>availmech</i><b>, const char
 *</b><i>service</i><b>, const char *</b><i>user</i><b>,
-int</b> <i>protallowed</i><b>);</b></p>
+int</b> <i>protallowed</i><b>);<br>
+int imclient_havetls ();<br>
+int imclient_starttls (struct imclient
+*</b><i>imclient</i><b>, char *</b><i>cert_file</i><b>, char
+*</b><i>key_file</i><b>, char *</b><i>CAfile</i><b>, char
+*</b><i>CApath</i><b>);</b></p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -98,15 +103,15 @@ initialized by <b>imclient_connect</b> and freed by
 <!-- INDENTATION -->
 <p>See below for a description of each function.</p>
 </td>
-</table></p>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_connect()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -123,13 +128,13 @@ and -2 is returned if the service name was not found.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_close()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -140,13 +145,13 @@ and -2 is returned if the service name was not found.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_setflags()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -161,13 +166,13 @@ literals described by the LITERAL+ extension).</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_clearflags()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -179,13 +184,13 @@ on the <b>imclient</b> connection.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_servername()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -197,13 +202,13 @@ connected to by <b>imclient.</b></p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_addcallback()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -258,7 +263,7 @@ be:</p></td>
 <p>};</p></td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="19%"></td>
@@ -279,15 +284,15 @@ imclient_processoneevent(),</b> or
 callback function may over write the text of untagged
 data.</p>
 </td>
-</table></p>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_send()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -324,13 +329,13 @@ as needed)<b><br>
 astrings)</p></td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_getselectinfo()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -344,13 +349,13 @@ if select should be used for write as well.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_processoneevent()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -362,13 +367,13 @@ if select should be used for write as well.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>imclient_authenticate()</b></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -387,10 +392,61 @@ returned. On extreme failure (premature &quot;OK&quot;), 2
 is returned.</p>
 </td>
 </table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_havetls()</b></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Returns a Boolean indicating whether the <b>imclient</b>
+library was compiled with TLS (SSL) support. If so,
+<b>imclient_starttls()</b> may be used to secure the IMAP
+connection.</p>
+</td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="10%"></td>
+<td width="89%">
+<p><b>imclient_starttls()</b></p></td>
+</table>
+<!-- INDENTATION -->
+<table width="100%" border=0 rules="none" frame="void"
+       cols="2" cellspacing="0" cellpadding="0">
+<tr valign="top" align="left">
+<td width="19%"></td>
+<td width="80%">
+<p>Issues a STARTTLS command on an existing IMAP connection
+and negotiates the secure link. The <b>cert_file</b> and
+<b>key_file</b> arguments specify the client certificate and
+secret key to use to authenticate ourselves to the server.
+If client authentication is not needed, set both of these
+arguments to NULL.</p>
+<!-- INDENTATION -->
+<p>The <b>CAfile</b> and <b>CApath</b> arguments specify a
+file or directory, respectively, of CA certificates for
+validating server certificates. (See
+<b>SSL_CTX_load_verify_locations(3)</b> for details.) If
+both of these are NULL, the client will be unable to
+validate the server&rsquo;s certificate, in which case the
+connection may succeed but a warning will be printed to
+stdout.</p>
+</td>
+</table>
 <a name="EXAMPLES"></a>
 <h2>EXAMPLES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -424,7 +480,7 @@ void fatal(char* message, int rc) {
 static void callback_capability(struct imclient *imclient,
 </pre>
 </td>
-</table></p>
+</table>
 <!-- TABS -->
 
 <table width="100%" border=0 rules="none" frame="void"
@@ -680,7 +736,7 @@ int nc;</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -688,7 +744,7 @@ int nc;</p>
 <p>nc = 1;</p>
 <!-- INDENTATION -->
 <p>imclient_send(imclient, end_command,</p></td>
-</table></p>
+</table>
 <!-- TABS -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="4" cellspacing="0" cellpadding="0">
@@ -704,13 +760,13 @@ int nc;</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p>while(nc &gt; 0) {</p></td>
-</table></p>
+</table>
 <!-- TABS -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -765,18 +821,18 @@ capability_string);</p>
 <a name="BUGS"></a>
 <h2>BUGS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p>No known bugs.</p>
 </td>
-</table></p>
+</table>
 <a name="SEE ALSO"></a>
 <h2>SEE ALSO</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -785,22 +841,22 @@ capability_string);</p>
 extension), RFC2060 (IMAP4rev1 specification), and
 <b>select(2)</b></p>
 </td>
-</table></p>
+</table>
 <a name="KEYWORDS"></a>
 <h2>KEYWORDS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p>IMAP, ACAP, IMSP, Kerberos, Authentication</p>
 </td>
-</table></p>
+</table>
 <a name="COPYRIGHT"></a>
 <h2>COPYRIGHT</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -810,7 +866,7 @@ Rights Reserved.</p>
 <!-- INDENTATION -->
 <p>See the source distribution for copying information.</p>
 </td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

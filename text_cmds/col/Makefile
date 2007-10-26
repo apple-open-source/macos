@@ -16,6 +16,7 @@ CFILES = col.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble col.1 README
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

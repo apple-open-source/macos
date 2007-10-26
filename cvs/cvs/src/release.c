@@ -1,4 +1,18 @@
 /*
+ * Copyright (C) 1994-2005 The Free Software Foundation, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
  * Release: "cancel" a checkout in the history log.
  * 
  * - Enter a line in the history log indicating the "release". - If asked to,
@@ -6,8 +20,9 @@
  */
 
 #include "cvs.h"
-#include "savecwd.h"
+#include "save-cwd.h"
 #include "getline.h"
+#include "yesno.h"
 
 static const char *const release_usage[] =
 {
@@ -18,13 +33,11 @@ static const char *const release_usage[] =
 };
 
 #ifdef SERVER_SUPPORT
-static int release_server PROTO ((int argc, char **argv));
+static int release_server (int argc, char **argv);
 
 /* This is the server side of cvs release.  */
 static int
-release_server (argc, argv)
-    int argc;
-    char **argv;
+release_server (int argc, char **argv)
 {
     int i;
 
@@ -35,6 +48,65 @@ release_server (argc, argv)
 }
 
 #endif /* SERVER_SUPPORT */
+
+/* Construct an update command.  Be sure to add authentication and
+* encryption if we are using them currently, else our child process may
+* not be able to communicate with the server.
+*/
+static FILE *
+setup_update_command (pid_t *child_pid)
+{
+    int tofd, fromfd;
+
+    run_setup (program_path);
+   
+#if defined (CLIENT_SUPPORT) || defined (SERVER_SUPPORT)
+    /* Be sure to add authentication and encryption if we are using them
+     * currently, else our child process may not be able to communicate with
+     * the server.
+     */
+    if (cvsauthenticate) run_add_arg ("-a");
+    if (cvsencrypt) run_add_arg ("-x");
+#endif
+
+    /* Don't really change anything.  */
+    run_add_arg ("-n");
+
+    /* Don't need full verbosity.  */
+    run_add_arg ("-q");
+
+    /* Propogate our CVSROOT.  */
+    run_add_arg ("-d");
+    run_add_arg (original_parsed_root->original);
+
+    run_add_arg ("update");
+    *child_pid = run_piped (&tofd, &fromfd);
+    if (*child_pid < 0)
+	error (1, 0, "could not fork server process");
+
+    close (tofd);
+
+    return fdopen (fromfd, "r");
+}
+
+
+
+static int
+close_update_command (FILE *fp, pid_t child_pid)
+{
+    int status;
+    pid_t w;
+
+    do
+	w = waitpid (child_pid, &status, 0);
+    while (w == -1 && errno == EINTR);
+    if (w == -1)
+	error (1, errno, "waiting for process %d", child_pid);
+
+    return status;
+}
+
+
 
 /* There are various things to improve about this implementation:
 
@@ -61,16 +133,12 @@ release_server (argc, argv)
    and unnecessary.  */
 
 int
-release (argc, argv)
-    int argc;
-    char **argv;
+release (int argc, char **argv)
 {
     FILE *fp;
     int i, c;
-    char *repository;
     char *line = NULL;
     size_t line_allocated = 0;
-    char *update_cmd;
     char *thisarg;
     int arg_start_idx;
     int err = 0;
@@ -116,21 +184,6 @@ release (argc, argv)
      * up to the user to take note of them, at least currently
      * (ignore-193 in testsuite)).
      */
-    /* Construct the update command.  Be sure to add authentication and
-       encryption if we are using them currently, else our child process may
-       not be able to communicate with the server.  */
-    update_cmd = xmalloc (strlen (program_path)
-                        + strlen (current_parsed_root->original)
-                        + 1 + 3 + 3 + 16 + 1);
-    sprintf (update_cmd, "%s %s%s-n -q -d %s update",
-             program_path,
-#if defined (CLIENT_SUPPORT) || defined (SERVER_SUPPORT)
-             cvsauthenticate ? "-a " : "",
-             cvsencrypt ? "-x " : "",
-#else
-	     "", "",
-#endif
-             current_parsed_root->original);
 
 #ifdef CLIENT_SUPPORT
     /* Start the server; we'll close it after looping. */
@@ -145,7 +198,7 @@ release (argc, argv)
        all args are relative to this directory and we chdir around.
        */
     if (save_cwd (&cwd))
-        error_exit ();
+	error (1, errno, "Failed to save current directory.");
 
     arg_start_idx = 0;
 
@@ -165,8 +218,10 @@ release (argc, argv)
 	    {
 		if (!really_quiet)
 		    error (0, 0, "no repository directory: %s", thisarg);
-		if (restore_cwd (&cwd, NULL))
-		    error_exit ();
+		if (restore_cwd (&cwd))
+		    error (1, errno,
+		           "Failed to restore current directory, `%s'.",
+		           cwd.name);
 		continue;
 	    }
 	}
@@ -177,11 +232,10 @@ release (argc, argv)
 	    continue;
 	}
 
-	repository = Name_Repository ((char *) NULL, (char *) NULL);
-
 	if (!really_quiet)
 	{
-	    int line_length;
+	    int line_length, status;
+	    pid_t child_pid;
 
 	    /* The "release" command piggybacks on "update", which
 	       does the real work of finding out if anything is not
@@ -189,9 +243,13 @@ release (argc, argv)
 	       the user, telling her how many files have been
 	       modified, and asking if she still wants to do the
 	       release.  */
-	    fp = run_popen (update_cmd, "r");
+	    fp = setup_update_command (&child_pid);
 	    if (fp == NULL)
-		error (1, 0, "cannot run command %s", update_cmd);
+	    {
+		error (0, 0, "cannot run command:");
+	        run_print (stderr);
+		error (1, 0, "Exiting due to fatal error referenced above.");
+	    }
 
 	    c = 0;
 
@@ -208,27 +266,44 @@ release (argc, argv)
 	       complain and go on to the next arg.  Especially, we do
 	       not want to delete the local copy, since it's obviously
 	       not what the user thinks it is.  */
-	    if ((pclose (fp)) != 0)
+	    status = close_update_command (fp, child_pid);
+	    if (status != 0)
 	    {
-		error (0, 0, "unable to release `%s'", thisarg);
-		free (repository);
-		if (restore_cwd (&cwd, NULL))
-		    error_exit ();
+		error (0, 0, "unable to release `%s' (%d)", thisarg, status);
+		if (restore_cwd (&cwd))
+		    error (1, errno,
+		           "Failed to restore current directory, `%s'.",
+		           cwd.name);
 		continue;
 	    }
 
 	    printf ("You have [%d] altered files in this repository.\n",
 		    c);
-	    printf ("Are you sure you want to release %sdirectory `%s': ",
-		    delete_flag ? "(and delete) " : "", thisarg);
-	    c = !yesno ();
-	    if (c)			/* "No" */
+
+	    if (!noexec)
 	    {
-		(void) fprintf (stderr, "** `%s' aborted by user choice.\n",
-				cvs_cmd_name);
-		free (repository);
-		if (restore_cwd (&cwd, NULL))
-		    error_exit ();
+		printf ("Are you sure you want to release %sdirectory `%s': ",
+			delete_flag ? "(and delete) " : "", thisarg);
+		fflush (stderr);
+		fflush (stdout);
+		if (!yesno ())			/* "No" */
+		{
+		    (void) fprintf (stderr,
+				    "** `%s' aborted by user choice.\n",
+				    cvs_cmd_name);
+		    if (restore_cwd (&cwd))
+			error (1, errno,
+			       "Failed to restore current directory, `%s'.",
+			       cwd.name);
+		    continue;
+		}
+	    }
+	    else
+	    {
+		if (restore_cwd (&cwd))
+		    error (1, errno,
+			   "Failed to restore current directory, `%s'.",
+			   cwd.name);
 		continue;
 	    }
 	}
@@ -240,17 +315,14 @@ release (argc, argv)
            CVS/Entries file in the wrong directory.  See release-17
            through release-23. */
 
-        free (repository);
-	if (restore_cwd (&cwd, NULL))
-	    exit (EXIT_FAILURE);
+	if (restore_cwd (&cwd))
+	    error (1, errno, "Failed to restore current directory, `%s'.",
+		   cwd.name);
 
-	if (1
 #ifdef CLIENT_SUPPORT
-	    && !(current_parsed_root->isremote
-		 && (!supported_request ("noop")
-		     || !supported_request ("Notify")))
+	if (!current_parsed_root->isremote
+	    || (supported_request ("noop") && supported_request ("Notify")))
 #endif
-	    )
 	{
 	    int argc = 2;
 	    char *argv[3];
@@ -258,8 +330,9 @@ release (argc, argv)
 	    argv[1] = thisarg;
 	    argv[2] = NULL;
 	    err += unedit (argc, argv);
-            if (restore_cwd (&cwd, NULL))
-                exit (EXIT_FAILURE);
+            if (restore_cwd (&cwd))
+		error (1, errno, "Failed to restore current directory, `%s'.",
+		       cwd.name);
 	}
 
 #ifdef CLIENT_SUPPORT
@@ -296,14 +369,16 @@ release (argc, argv)
 	     */
             err += get_server_responses ();
 
-            if (restore_cwd (&cwd, NULL))
-                exit (EXIT_FAILURE);
+            if (restore_cwd (&cwd))
+		error (1, errno, "Failed to restore current directory, `%s'.",
+		       cwd.name);
         }
 #endif /* CLIENT_SUPPORT */
     }
 
-    if (restore_cwd (&cwd, NULL))
-	error_exit ();
+    if (restore_cwd (&cwd))
+	error (1, errno, "Failed to restore current directory, `%s'.",
+	       cwd.name);
     free_cwd (&cwd);
 
 #ifdef CLIENT_SUPPORT
@@ -318,7 +393,6 @@ release (argc, argv)
     }
 #endif /* CLIENT_SUPPORT */
 
-    free (update_cmd);
     if (line != NULL)
 	free (line);
     return err;

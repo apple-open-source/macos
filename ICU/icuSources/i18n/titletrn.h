@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -15,7 +15,6 @@
 #if !UCONFIG_NO_TRANSLITERATION
 
 #include "unicode/translit.h"
-#include "unicode/locid.h"
 #include "ucase.h"
 #include "casetrn.h"
 
@@ -35,7 +34,7 @@ class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
      * Constructs a transliterator.
      * @param loc the given locale.
      */
-    TitlecaseTransliterator(const Locale& loc = Locale::getDefault());
+    TitlecaseTransliterator();
 
     /**
      * Destructor.
@@ -60,15 +59,11 @@ class U_I18N_API TitlecaseTransliterator : public CaseMapTransliterator {
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
-     *
-     * @draft ICU 2.2
      */
     virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
-     *
-     * @draft ICU 2.2
      */
     static UClassID U_EXPORT2 getStaticClassID();
 

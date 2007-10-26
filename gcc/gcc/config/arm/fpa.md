@@ -547,6 +547,11 @@
    (set_attr "neg_pool_range" "*,*,1012,*,*,*,*,4084,*")]
 )
 
+;; APPLE LOCAL begin ARM 20060306 merge these from mainline 
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00850.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-09/msg01342.html
+;; http://gcc.gnu.org/ml/gcc-patches/2005-04/msg00769.html
+
 (define_insn "*movdf_fpa"
   [(set (match_operand:DF 0 "nonimmediate_operand"
 						"=r,Q,r,m,r, f, f,f, m,!f,!r")
@@ -563,7 +568,8 @@
     default:
     case 0: return \"ldm%?ia\\t%m1, %M0\\t%@ double\";
     case 1: return \"stm%?ia\\t%m0, %M1\\t%@ double\";
-    case 2: case 3: case 4: return output_move_double (operands);
+    case 2: return \"#\";
+    case 3: case 4: return output_move_double (operands);
     case 5: return \"mvf%?d\\t%0, %1\";
     case 6: return \"mnf%?d\\t%0, #%N1\";
     case 7: return \"ldf%?d\\t%0, %1\";
@@ -580,6 +586,7 @@
    (set_attr "pool_range" "*,*,*,*,1020,*,*,1024,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,*,1008,*,*,1008,*,*,*")]
 )
+;; APPLE LOCAL end ARM 20060306 merge these from mainline 
 
 ;; We treat XFmode as meaning 'internal format'.  It's the right size and we
 ;; don't use it for anything else.  We only support moving between FPA

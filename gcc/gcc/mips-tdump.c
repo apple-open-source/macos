@@ -29,12 +29,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifdef index
 #undef index
 #endif
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #include <a.out.h>
 #else
 #include "mips/a.out.h"
-#endif /* CROSS_COMPILE */
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#endif /* CROSS_DIRECTORY_STRUCTURE */
 
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 /* Include getopt.h for the sake of getopt_long.  */
 #include "getopt.h"
 

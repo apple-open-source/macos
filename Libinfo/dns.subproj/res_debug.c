@@ -477,7 +477,7 @@ __p_rr(cp, msg, file)
 	FILE *file;
 {
 	int type, class, n, c;
-	long dlen;
+	int dlen;
 	struct in_addr inaddr;
 	const u_char *cp1, *cp2;
 	u_int32_t tmpttl, t;
@@ -704,8 +704,11 @@ __p_rr(cp, msg, file)
 	putc('\n', file);
 #endif
 	if (cp - cp1 != dlen) {
-		fprintf(file, ";; packet size error (found %ld, dlen was %ld)\n",
-			cp - cp1, dlen);
+#ifdef __LP64__
+		fprintf(file, ";; packet size error (found %ld, dlen was %d)\n", cp - cp1, dlen);
+#else
+		fprintf(file, ";; packet size error (found %d, dlen was %d)\n", cp - cp1, dlen);
+#endif
 		cp = NULL;
 	}
 	return (cp);

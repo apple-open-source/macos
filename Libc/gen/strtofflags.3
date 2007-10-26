@@ -44,9 +44,15 @@
 .Sh SYNOPSIS
 .In unistd.h
 .Ft char *
-.Fn fflagstostr "u_long flags"
+.Fo fflagstostr
+.Fa "unsigned long flags"
+.Fc
 .Ft int
-.Fn strtofflags "char **stringp" "u_long *setp" "u_long *clrp"
+.Fo strtofflags
+.Fa "char **stringp"
+.Fa "unsigned long *setp"
+.Fa "unsigned long *clrp"
+.Fc
 .Sh DESCRIPTION
 The
 .Fn fflagstostr

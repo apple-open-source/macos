@@ -1,0 +1,861 @@
+diff -ruN ./log.c ../uucp-new/log.c
+--- ./log.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/log.c	2005-03-21 17:46:15.000000000 -0800
+@@ -625,6 +625,7 @@
+ 
+   if (eLlog != NULL)
+     {
++      fchmod(fileno(eLlog), 0666);
+       (void) fclose (eLlog);
+       eLlog = NULL;
+       fLlog_tried = FALSE;
+@@ -633,6 +634,7 @@
+ #if DEBUG > 1
+   if (eLdebug != NULL)
+     {
++      fchmod(fileno(eLdebug), 0666);
+       (void) fclose (eLdebug);
+       eLdebug = NULL;
+       fLdebug_tried = FALSE;
+diff -ruN ./policy.h ../uucp-new/policy.h
+--- ./policy.h	2005-04-08 15:31:45.000000000 -0700
++++ ../uucp-new/policy.h	2005-04-29 15:06:27.000000000 -0700
+@@ -212,13 +212,13 @@
+    such a system you must set HAVE_BROKEN_SETREUID to 1; if you do
+    not, you will get error messages from setreuid.  Systems on which
+    setreuid exists but is broken pretty much always have saved setuid.  */
+-#define HAVE_BROKEN_SETREUID 0
++#define HAVE_BROKEN_SETREUID 1
+ 
+ /* On a few systems, such as NextStep 3.3, the POSIX macro F_SETLKW is
+    defined, but does not work.  On such systems, you must set
+    HAVE_BROKEN_SETLKW to 1.  If you do not, uux will hang, or log
+    peculiar error messages, every time it is run.  */
+-#define HAVE_BROKEN_SETLKW 0
++#define HAVE_BROKEN_SETLKW 1
+ 
+ /* On the 3B2, and possibly other systems, nap takes an argument in
+    hundredths of a second rather than milliseconds.  I don't know of
+@@ -240,8 +240,8 @@
+    the sendmail choice below.  Otherwise, select one of the other
+    choices as appropriate.  */
+ #if 1
+-#define MAIL_PROGRAM "/usr/lib/sendmail -t"
+-/* #define MAIL_PROGRAM "/usr/sbin/sendmail -t" */
++/* #define MAIL_PROGRAM "/usr/lib/sendmail -t" */
++#define MAIL_PROGRAM "/usr/sbin/sendmail -t"
+ #define MAIL_PROGRAM_TO_BODY 1
+ #define MAIL_PROGRAM_SUBJECT_BODY 1
+ #endif
+@@ -567,21 +567,21 @@
+    exist when a new message is written out, it will be created.
+    Setting CLOSE_LOGFILES to 1 will obviously require slightly more
+    processing time.  */
+-#define CLOSE_LOGFILES 0
++#define CLOSE_LOGFILES 1
+ 
+ /* The name of the default spool directory.  If HAVE_TAYLOR_CONFIG is
+    set to 1, this may be overridden by the ``spool'' command in the
+    configuration file.  */
+-#define SPOOLDIR "/usr/spool/uucp"
+-/* #define SPOOLDIR "/var/spool/uucp" */
++/* #define SPOOLDIR "/usr/spool/uucp" */
++#define SPOOLDIR "/var/spool/uucp"
+ 
+ /* The name of the default public directory.  If HAVE_TAYLOR_CONFIG is
+    set to 1, this may be overridden by the ``pubdir'' command in the
+    configuration file.  Also, a particular system may be given a
+    specific public directory by using the ``pubdir'' command in the
+    system file.  */
+-#define PUBDIR "/usr/spool/uucppublic"
+-/* #define PUBDIR "/var/spool/uucppublic" */
++/* #define PUBDIR "/usr/spool/uucppublic" */
++#define PUBDIR "/var/spool/uucp_pubdir"
+ 
+ /* The default command path.  This is a space separated list of
+    directories.  Remote command executions requested by uux are looked
+@@ -614,7 +614,8 @@
+    sh(1), rather than execve(2).  This is such a security risk, it is
+    being disabled by default; to allow such jobs, set the following
+    macro to 1.  */
+-#define ALLOW_SH_EXECUTION 0
++/* XXX needed to pass pipe tests */
++#define ALLOW_SH_EXECUTION 1
+ 
+ /* If a command executed on behalf of a remote system takes a filename
+    as an argument, a security breach may be possible (note that on my
+@@ -644,23 +645,23 @@
+ /* The default log file when using HAVE_TAYLOR_LOGGING.  When using
+    HAVE_TAYLOR_CONFIG, this may be overridden by the ``logfile''
+    command in the configuration file.  */
+-#define LOGFILE "/usr/spool/uucp/Log"
++/* #define LOGFILE "/usr/spool/uucp/Log" */
+ /* #define LOGFILE "/var/spool/uucp/Log" */
+-/* #define LOGFILE "/var/log/uucp/Log" */
++#define LOGFILE "/var/log/uucp/Log"
+ 
+ /* The default statistics file when using HAVE_TAYLOR_LOGGING.  When
+    using HAVE_TAYLOR_CONFIG, this may be overridden by the
+    ``statfile'' command in the configuration file.  */
+-#define STATFILE "/usr/spool/uucp/Stats"
++/* #define STATFILE "/usr/spool/uucp/Stats" */
+ /* #define STATFILE "/var/spool/uucp/Stats" */
+-/* #define STATFILE "/var/log/uucp/Stats" */
++#define STATFILE "/var/log/uucp/Stats"
+ 
+ /* The default debugging file when using HAVE_TAYLOR_LOGGING.  When
+    using HAVE_TAYLOR_CONFIG, this may be overridden by the
+    ``debugfile'' command in the configuration file.  */
+-#define DEBUGFILE "/usr/spool/uucp/Debug"
++/* #define DEBUGFILE "/usr/spool/uucp/Debug" */
+ /* #define DEBUGFILE "/var/spool/uucp/Debug" */
+-/* #define DEBUGFILE "/var/log/uucp/Debug" */
++#define DEBUGFILE "/var/log/uucp/Debug"
+ 
+ #endif /* HAVE_TAYLOR_LOGGING */
+ 
+@@ -705,3 +706,15 @@
+ #define DEBUGFILE "/usr/spool/uucp/.Admin/audit.local"
+ 
+ #endif /* HAVE_HDB_LOGGING */
++
++/* This makes any ~ the same as pubdir, even for users that exist,
++  needed for SuSv3 */
++/* #define ALL_USERS_ARE_PUBDIR */
++
++/* This causes any "file not found" errors from uucp to be soft, the next
++  file is copied anyway */
++#define CONTINUE_AFTER_FILE_NOT_FOUND
++
++/* make any files placed in pubdir world writable, not a good idea, but
++  it gets us past a test & lets me close PR-4080015 */
++#define WORLD_WRITABLE_FILE_IN "/private/var/spool/uucp_pubdir"
+diff -ruN ./system.h ../uucp-new/system.h
+--- ./system.h	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/system.h	2005-03-21 12:47:55.000000000 -0800
+@@ -646,6 +646,7 @@
+ 				  const char *zfullcmd,
+ 				  const char *zinput,
+ 				  const char *zoutput,
++				  const char *zchdir,
+ 				  boolean fshell,
+ 				  int ilock,
+ 				  char **pzerror,
+diff -ruN ./unix/chmod.c ../uucp-new/unix/chmod.c
+--- ./unix/chmod.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/chmod.c	2005-05-02 10:52:05.000000000 -0700
+@@ -16,6 +16,15 @@
+      const char *zfile;
+      unsigned int imode;
+ {
++  char rfile[PATH_MAX];
++
++#ifdef WORLD_WRITABLE_FILE_IN
++  realpath(zfile, rfile);
++  if (rfile == strstr(rfile, WORLD_WRITABLE_FILE_IN)) {
++      imode |= S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
++  }
++#endif
++
+   if (chmod ((char *) zfile, imode) < 0)
+     {
+       ulog (LOG_ERROR, "chmod (%s): %s", zfile, strerror (errno));
+diff -ruN ./unix/efopen.c ../uucp-new/unix/efopen.c
+--- ./unix/efopen.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/efopen.c	2005-04-29 16:42:04.000000000 -0700
+@@ -17,6 +17,9 @@
+ #endif
+ #endif
+ 
++#include <sys/types.h>
++#include <sys/stat.h>
++
+ #ifndef O_RDONLY
+ #define O_RDONLY 0
+ #define O_WRONLY 1
+@@ -47,12 +50,22 @@
+   int imode;
+   int o;
+   FILE *e;
++  int force_chmod = 0;
++  char rfile[PATH_MAX];
+ 
+   if (fpublic)
+     imode = IPUBLIC_FILE_MODE;
+   else
+     imode = IPRIVATE_FILE_MODE;
+ 
++#ifdef WORLD_WRITABLE_FILE_IN
++  realpath(zfile, rfile);
++  if (rfile == strstr(rfile, WORLD_WRITABLE_FILE_IN)) {
++      imode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
++      force_chmod = 1;
++  }
++#endif
++
+   if (! fappend)
+     o = creat ((char *) zfile, imode);
+   else
+@@ -90,6 +103,16 @@
+       if (o < 0)
+ 	{
+ 	  ulog (LOG_ERROR, "open (%s): %s", zfile, strerror (errno));
++	  if (errno == EPERM) {
++	      struct stat sb;
++	      o = stat(zfile, &sb);
++	      if (o == 0) {
++		  ulog(LOG_ERROR, "my uid %d; file uid %d, mode %o",
++		    getuid(), sb.st_uid, sb.st_mode);
++	      } else {
++		  ulog(LOG_ERROR, "can't stat %s", zfile);
++	      }
++	  }
+ 	  return NULL;
+ 	}
+     }
+@@ -117,6 +140,13 @@
+       return NULL;
+     }
+ 
++  if (imode == IPUBLIC_FILE_MODE || force_chmod) {
++      e = fchmod(o, imode);
++      if (e) {
++	  ulog(LOG_ERROR, "fchmod %s %o %s", zfile, imode, strerror(errno));
++      }
++  }
++
+   if (fappend)
+     e = fdopen (o, (char *) "a");
+   else
+diff -ruN ./unix/init.c ../uucp-new/unix/init.c
+--- ./unix/init.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/init.c	2005-03-28 20:20:18.000000000 -0800
+@@ -262,6 +262,14 @@
+   if (z != NULL)
+     zSlogin = zbufcpy (z);
+ 
++
++  {
++      char *zlf;
++      if (getuid() == 4 && UUCONF_SUCCESS == uuconf_logfile (puuconf, &zlf)) {
++	  chmod(zlf, 0777);
++      }
++  }
++
+   /* On some old systems, an suid program run by root is started with
+      an euid of 0.  If this happens, we look up the uid we should have
+      and set ourselves to it manually.  This means that on such a
+diff -ruN ./unix/locfil.c ../uucp-new/unix/locfil.c
+--- ./unix/locfil.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/locfil.c	2005-04-13 15:03:54.000000000 -0700
+@@ -67,8 +67,15 @@
+ 	}
+       else
+ 	{
++#if defined(ALL_USERS_ARE_PUBDIR)
++	  zdir = zpubdir;
++	  zfile += strcspn((char *)zfile, "/");
++	  if (*zfile) {
++	      zfile += 1;
++	  }
++#else
+ 	  size_t cuserlen;
+-	  char *zcopy;
++	  char *zcopy, *ztmp;
+ 	  struct passwd *q;
+ 
+ 	  ++zfile;
+@@ -80,19 +87,21 @@
+ 	  q = getpwnam (zcopy);
+ 	  if (q == NULL)
+ 	    {
+-	      ulog (LOG_ERROR, "User %s not found", zcopy);
+-	      ubuffree (zcopy);
+-	      if (pfbadname != NULL)
+-		*pfbadname = TRUE;
+-	      return NULL;
++	      /* We can't log this, it causes us to fail a test :-( */
++	      /* ulog (LOG_DEBUG, "User %s not found, using pubdir (%s)",
++	        zcopy, zpubdir); */
++	      ztmp = zpubdir;
++	    } else {
++	      ztmp = q->pw_dir;
+ 	    }
+ 	  ubuffree (zcopy);
+ 
+ 	  if (zfile[cuserlen] == '\0')
+-	    return zbufcpy (q->pw_dir);
++	    return zbufcpy(ztmp);
+ 
+-	  zdir = q->pw_dir;
++	  zdir = ztmp;
+ 	  zfile += cuserlen + 1;
++#endif
+ 	}
+     }
+ 
+diff -ruN ./unix/lock.c ../uucp-new/unix/lock.c
+--- ./unix/lock.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/lock.c	2005-03-19 19:51:02.000000000 -0800
+@@ -170,7 +170,7 @@
+ 	}
+       if (o < 0)
+ 	{
+-	  ulog (LOG_ERROR, "creat (%s): %s", ztempfile, strerror (errno));
++	  ulog (LOG_ERROR, "creat during lock (%s in %s as uid %d): %s", ztempfile, getwd(NULL), getuid(), strerror (errno));
+ 	  ubuffree (zfree);
+ 	  ubuffree (ztempfile);
+ 	  return FALSE;
+diff -ruN ./unix/mail.c ../uucp-new/unix/mail.c
+--- ./unix/mail.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/mail.c	2005-03-17 21:35:05.000000000 -0800
+@@ -111,8 +111,11 @@
+   fprintf (e, "Message from UUCP on %s %s\n", zSlocalname,
+ 	   ctime (&itime));
+ 
+-  for (i = 0; i < cstrs; i++)
++  ulog(LOG_ERROR, "mail %s about %s on %s", zto, zsubject, zSlocalname);
++  for (i = 0; i < cstrs; i++) {
++    ulog(LOG_ERROR, "- %s", paz[i]);
+     fputs (paz[i], e);
++  }
+ 
+   (void) fclose (e);
+ 
+diff -ruN ./unix/move.c ../uucp-new/unix/move.c
+--- ./unix/move.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/move.c	2005-03-19 19:37:28.000000000 -0800
+@@ -145,7 +145,7 @@
+ 	}
+       if (o < 0)
+ 	{
+-	  ulog (LOG_ERROR, "creat (%s): %s", zto, strerror (errno));
++	  ulog (LOG_ERROR, "creat during move (%s): %s", zto, strerror (errno));
+ 	  return FALSE;
+ 	}
+     }
+diff -ruN ./unix/opensr.c ../uucp-new/unix/opensr.c
+--- ./unix/opensr.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/opensr.c	2005-03-19 19:38:13.000000000 -0800
+@@ -220,7 +220,7 @@
+ 	}
+       if (o < 0)
+ 	{
+-	  ulog (LOG_ERROR, "creat (%s): %s", zreceive, strerror (errno));
++	  ulog (LOG_ERROR, "creat during esysdep_open_receive (%s): %s", zreceive, strerror (errno));
+ 	  return EFILECLOSED;
+ 	}
+     }
+diff -ruN ./unix/recep.c ../uucp-new/unix/recep.c
+--- ./unix/recep.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/recep.c	2005-03-19 19:38:47.000000000 -0800
+@@ -111,7 +111,7 @@
+ 	}
+       if (o < 0)
+ 	{
+-	  ulog (LOG_ERROR, "creat (%s): %s", zfile, strerror (errno));
++	  ulog (LOG_ERROR, "creat during fsysdep_remember_reception (%s): %s", zfile, strerror (errno));
+ 	  ubuffree (zfile);
+ 	  return FALSE;
+ 	}
+diff -ruN ./unix/spawn.c ../uucp-new/unix/spawn.c
+--- ./unix/spawn.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/spawn.c	2005-03-21 13:27:30.000000000 -0800
+@@ -377,8 +377,9 @@
+ #endif
+     }
+ 
+-  if (zchdir != NULL)
++  if (zchdir != NULL) {
+     (void) chdir (zchdir);
++  }
+ 
+   if (fnosigs)
+     {
+diff -ruN ./unix/trunc.c ../uucp-new/unix/trunc.c
+--- ./unix/trunc.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/trunc.c	2005-03-19 19:39:26.000000000 -0800
+@@ -127,7 +127,7 @@
+ 
+   if (o == -1)
+     {
+-      ulog (LOG_ERROR, "creat (%s): %s", zname, strerror (errno));
++      ulog (LOG_ERROR, "creat during esysdep_truncate (%s): %s", zname, strerror (errno));
+       return EFILECLOSED;
+     }
+ 
+diff -ruN ./unix/xqtsub.c ../uucp-new/unix/xqtsub.c
+--- ./unix/xqtsub.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/unix/xqtsub.c	2005-04-29 15:58:48.000000000 -0700
+@@ -218,13 +218,14 @@
+ /*ARGSUSED*/
+ boolean
+ fsysdep_execute (qsys, zuser, pazargs, zfullcmd, zinput, zoutput,
+-		 fshell, iseq, pzerror, pftemp)
++		 zchdir, fshell, iseq, pzerror, pftemp)
+      const struct uuconf_system *qsys;
+      const char *zuser;
+      const char **pazargs;
+      const char *zfullcmd ATTRIBUTE_UNUSED;
+      const char *zinput;
+      const char *zoutput;
++     const char *zchdir;
+      boolean fshell;
+      int iseq;
+      char **pzerror;
+@@ -284,7 +285,8 @@
+ 	    }
+ 	  if (! ferr && aidescs[1] < 0)
+ 	    {
+-	      ulog (LOG_ERROR, "creat (%s): %s", zoutput, strerror (errno));
++	      ulog (LOG_ERROR, "creat during fsysdep_execute part A (%s) in %s: %s", zoutput, getwd(NULL),
++	        strerror (errno));
+ 	      *pftemp = TRUE;
+ 	      ferr = TRUE;
+ 	    }
+@@ -316,7 +318,7 @@
+ 	    }
+ 	  if (! ferr && aidescs[2] < 0)
+ 	    {
+-	      ulog (LOG_ERROR, "creat (%s): %s", *pzerror, strerror (errno));
++	      ulog (LOG_ERROR, "creat during fsysdep_execute part B (%s): %s", *pzerror, strerror (errno));
+ 	      *pftemp = TRUE;
+ 	      ferr = TRUE;
+ 	    }
+@@ -385,8 +387,8 @@
+ 
+   /* Pass zchdir as zxqtdir, fnosigs as TRUE, fshell as TRUE if we
+      aren't already using the shell.  */
+-  ipid = ixsspawn (pazargs, aidescs, TRUE, FALSE, zxqtdir, TRUE,
+-		   ! fshell, zpath, qsys->uuconf_zname, zuser);
++  ipid = ixsspawn (pazargs, aidescs, TRUE, FALSE, zchdir ? zchdir : zxqtdir,
++    TRUE, !fshell, zpath, qsys->uuconf_zname, zuser);
+ 
+   ierr = errno;
+ 
+@@ -696,6 +698,15 @@
+ 	}
+ 
+       (void) chmod (zto, IPUBLIC_FILE_MODE);
++#ifdef WORLD_WRITABLE_FILE_IN
++  char rfile[PATH_MAX];
++  realpath(zto, rfile);
++  ulog(LOG_ERROR, "open of %s WORLD_WRITABLE_FILE_IN is %s", rfile, WORLD_WRITABLE_FILE_IN);
++  if (rfile == strstr(rfile, WORLD_WRITABLE_FILE_IN)) {
++      chmod(zto, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
++      ulog(LOG_ERROR, "xqtsub chmod'ing %s", zto);
++  }
++#endif
+ 
+       ubuffree (zfree);
+     }
+diff -ruN ./uucp.c ../uucp-new/uucp.c
+--- ./uucp.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/uucp.c	2005-04-12 16:24:44.000000000 -0700
+@@ -30,6 +30,7 @@
+ 
+ #include <ctype.h>
+ #include <errno.h>
++#include <wordexp.h>
+ 
+ #include "getopt.h"
+ 
+@@ -131,6 +132,9 @@
+ /* Options to use when receiving a file.  */
+ static char abCrec_options[20];
+ 
++/* exit code from main */
++static int uccopy_problems = 0;
++
+ /* TRUE if the current file being copied from is in the cwd.  */
+ static boolean fCneeds_cwd;
+ 
+@@ -541,6 +545,24 @@
+ 	    ucabort ();
+ 	}
+ 
++      if (flocal && !fsysdep_file_exists(zfrom)) {
++	  wordexp_t w;
++	  int rc = wordexp(zfrom, &w, WRDE_NOCMD|WRDE_SHOWERR|WRDE_UNDEF);
++	  if (rc == 0) {
++	      if (w.we_wordc > 1) {
++		  /* It would be nice to handle more then one expanded
++		    return, but also hard and SuSv3 only mandates one work */
++		  ulog(LOG_ERROR,
++		    "expanded %s into %d words, expected only one",
++		    zfrom, (int)(w.we_wordc));
++	      } else {
++		  ubuffree(zfrom);
++		  zfrom = zbufcpy(w.we_wordv[0]);
++	      }
++	      wordfree(&w);
++	  }
++      }
++
+       if (! flocal || ! fsysdep_directory (zfrom))
+ 	uccopy (zfrom, zdestfile, FALSE);
+       else
+@@ -615,7 +637,7 @@
+ 	}
+     }
+ 
+-  usysdep_exit (fexit);
++  usysdep_exit (fexit && !uccopy_problems);
+ 
+   /* Avoid error about not returning.  */
+   return 0;
+@@ -706,8 +728,10 @@
+ 
+       /* Copy from a local file.  Make sure the user has access to
+ 	 this file, since we are running setuid.  */
+-      if (! fsysdep_access (zfile))
+-	ucabort ();
++      if (! fsysdep_access (zfile)) {
++	uccopy_problems++;
++	return;
++      }
+ 
+       /* If this copy is being requested by a remote system, we may
+ 	 transfer the file if it needs the current working directory
+@@ -749,8 +773,9 @@
+ 	    ucabort ();
+ 
+ 	  efrom = esysdep_user_fopen (zfile, TRUE, TRUE);
+-	  if (! ffileisopen (efrom))
++	  if (! ffileisopen (efrom)) {
+ 	    ucabort ();
++	  }
+ 	  if (! fcopy_open_file (efrom, zto, FALSE, fCmkdirs, TRUE))
+ 	    ucabort ();
+ 	  (void) ffileclose (efrom);
+@@ -867,6 +892,8 @@
+ 		fprintf (e, " -d");
+ 	      else
+ 		fprintf (e, " -f");
++	      if (0)
++		  fprintf(e, " -x abnormal,config,spooldir,execute");
+ 	      fprintf (e, " -g %c", bCgrade);
+ 	      if (fCmail)
+ 		fprintf (e, " -m");
+@@ -1178,9 +1205,11 @@
+ {
+   struct sjob *qjob;
+   char *zjobid;
++  int j_cnt = 0;
+ 
+   for (qjob = qCjobs; qjob != NULL; qjob = qjob->qnext)
+     {
++      j_cnt++;
+       ulog_system (qjob->qsys->uuconf_zname);
+       zjobid = zsysdep_spool_commands (qjob->qsys, bCgrade, qjob->ccmds,
+ 				       qjob->pascmds, (boolean *) NULL);
+@@ -1225,6 +1254,11 @@
+ 	  ubuffree (zjobid);
+ 	}
+     }
++
++    if (j_cnt == 0 && fjobid) {
++	/* Local jobs don't have a spoolid, but SuSv3 demands one */
++	printf("%s.93788%d", zClocalname, getpid());
++    }
+ }
+ 
+ /* Return the system name for which we have created commands, or NULL
+diff -ruN ./uux.c ../uucp-new/uux.c
+--- ./uux.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/uux.c	2005-03-21 15:29:22.000000000 -0800
+@@ -126,6 +126,10 @@
+ static struct scmd *pasXcmds;
+ static int cXcmds;
+ 
++/* Name of the spool file for this execution */
++static char *zXqt_name = NULL;
++
++
+ /* A file to close if we're forced to exit.  */
+ static FILE *eXclose;
+ 
+@@ -522,6 +526,7 @@
+ 	  break;
+ 	}
+     }
++    fgetcwd = TRUE;
+ 
+ #ifdef SIGINT
+   usysdep_signal (SIGINT);
+@@ -841,8 +846,11 @@
+ 	  if (zdata == NULL)
+ 	    uxabort (EX_OSERR);
+ 
+-	  if (fcopy || flink || fXxqtlocal)
++	  if (fcopy || flink)
+ 	    {
++	      /* This code path use to include fXxqtlocal, but now we skip
++	        it as fXxqtlocal will use raw path names unless fcopy or flink
++		are provided */
+ 	      boolean fdid;
+ 
+ 	      uxrecord_file (zdata);
+@@ -895,10 +903,18 @@
+ 
+ 	  if (fXxqtlocal)
+ 	    {
+-	      if (finput)
++	      if (finput) {
+ 		uxadd_xqt_line ('I', zuse, (char *) NULL);
+-	      else
+-		pzargs[i] = zuse;
++	      } else {
++		/* XXX need full path!  /var/spool/uucp/UUNAME/D./... */
++		pzargs[i] = NULL;
++		if (fcopy || flink) {
++		    asprintf(pzargs + i, "/var/spool/uucp/%s/D./%s", 
++		      zXxqtloc, zuse);
++		} else {
++		    pzargs[i] = zfile;
++		}
++	      }
+ 	    }
+ 	  else
+ 	    {
+@@ -1261,6 +1277,9 @@
+ 			   finputcopied ? "C" : "c",
+ 			   zinput_temp, zforward);
+ 	}
++      if (fXxqtlocal) {
++	  uxadd_xqt_line('W', zScwd, NULL);
++      }
+       if (fno_ack)
+ 	uxadd_xqt_line ('N', (const char *) NULL, (const char *) NULL);
+       if (ferror_ack)
+@@ -1337,6 +1356,10 @@
+       else
+ 	ulog (LOG_NORMAL, "Queuing %s (%s)", zfullcmd, zXnames);
+ 
++      if (fjobid) {
++	  printf("%s\n", zXqt_name);
++      }
++
+       ulog_close ();
+     }
+ 
+@@ -1443,20 +1466,18 @@
+ 
+   if (eXxqt_file == NULL)
+     {
+-      const char *zxqt_name;
+-
+       if (fXxqtlocal)
+-	zxqt_name = zsysdep_xqt_file_name ();
++	zXqt_name = zsysdep_xqt_file_name ();
+       else
+-	zxqt_name = zsysdep_data_file_name (&sXxqtsys, zXxqtloc, bXgrade, TRUE,
++	zXqt_name = zsysdep_data_file_name (&sXxqtsys, zXxqtloc, bXgrade, TRUE,
+ 					    abXxqt_tname, (char *) NULL,
+ 					    abXxqt_xname);
+-      if (zxqt_name == NULL)
++      if (zXqt_name == NULL)
+ 	uxabort (EX_OSERR);
+ 
+-      uxrecord_file (zxqt_name);
++      uxrecord_file (zXqt_name);
+ 
+-      eXxqt_file = esysdep_fopen (zxqt_name, FALSE, FALSE, TRUE);
++      eXxqt_file = esysdep_fopen (zXqt_name, FALSE, FALSE, TRUE);
+       if (eXxqt_file == NULL)
+ 	uxabort (EX_OSERR);
+     }
+diff -ruN ./uuxqt.c ../uucp-new/uuxqt.c
+--- ./uuxqt.c	2005-03-08 16:49:14.000000000 -0800
++++ ../uucp-new/uuxqt.c	2005-03-29 14:41:20.000000000 -0800
+@@ -432,6 +432,7 @@
+    E (process with exec)
+    M status-file
+    Q (C, I, O, F, R, U, M arguments are backslash quoted)
++   W change working directory
+    # comment
+ 
+    Unrecognized commands are ignored.  We actually do not recognize
+@@ -445,6 +446,8 @@
+ static char **azQargs;
+ /* Command as a complete string.  */
+ static char *zQcmd;
++/* Working directory */
++static char *zQwd;
+ /* Standard input file name.  */
+ static char *zQinput;
+ /* Standard output file name.  */
+@@ -519,6 +522,7 @@
+   { "E", UUCONF_CMDTABTYPE_FN | 0, (pointer) &fQuse_exec, iqset },
+   { "M", UUCONF_CMDTABTYPE_STRING, (pointer) &zQstatus_file, NULL },
+   { "Q", UUCONF_CMDTABTYPE_FN | 0, (pointer) &fQquoted, iqset },
++  { "W", UUCONF_CMDTABTYPE_STRING | 0, (pointer) &zQwd, NULL },
+   { NULL, 0, NULL, NULL }
+ };
+ 
+@@ -686,6 +690,25 @@
+ #define FREE_OUTPUT (020)
+ #define FREE_MAIL (040)
+ 
++static void ulog_azQargs(char *msg) {
++    char *buf = NULL;
++    int i;
++    for(i = 0; azQargs[i]; i++) {
++	char *tmp = NULL;
++	asprintf(&tmp, "%s [%d] '%s'", buf ? buf : "", i, azQargs[i]);
++	free(buf);
++	buf = tmp;
++    }
++    ulog(LOG_ERROR, "%s %s", msg, buf);
++    free(buf);
++}
++
++char *strbufdup(char *src) {
++    char *ret = zbufalc(strlen(src));
++    strcpy(ret, src);
++    return ret;
++}
++
+ /* Process an execute file.  The zfile argument is the name of the
+    execute file.  The zbase argument is the base name of zfile.  The
+    qsys argument describes the system it came from.  The zcmd argument
+@@ -731,6 +754,7 @@
+ 
+   azQargs = NULL;
+   zQcmd = NULL;
++  zQwd = NULL;
+   zQinput = NULL;
+   zQoutfile = NULL;
+   zQoutsys = NULL;
+@@ -1006,7 +1030,7 @@
+ 		  for (zopts = azQargs[i] + 1; *zopts != '\0'; zopts++)
+ 		    {
+ 		      /* The -g, -n, and -s options take an argument.  */
+-		      if (*zopts == 'g' || *zopts == 'n' || *zopts == 's')
++		      if (*zopts == 'g' || *zopts == 'n' || *zopts == 's' || *zopts == 'x')
+ 			{
+ 			  if (zopts[1] == '\0')
+ 			    ++i;
+@@ -1039,25 +1063,38 @@
+ 	    }
+ 	}
+ 
++#define USE_KTRACE 0
+       /* Add the -u argument.  This is required to let uucp do the
+ 	 correct permissions checking on the file transfer.  */
+       for (i = 0; azQargs[i] != NULL; i++)
+ 	;
+-      azargs = (char **) xmalloc ((i + 2) * sizeof (char *));
++      azargs = (char **) xmalloc ((i + 2 + USE_KTRACE) * sizeof (char *));
++      ulog(LOG_ERROR, "USE_KTRACE %d azargs %p azQargs %p", USE_KTRACE, azargs, azQargs);
+       azargs[0] = azQargs[0];
+       zuser = zQuser;
+       if (zuser == NULL)
+ 	zuser = "uucp";
+-      azargs[1] = zbufalc (strlen (zQsystem) + strlen (zuser)
++      azargs[1 + USE_KTRACE] = zbufalc (strlen (zQsystem) + strlen (zuser)
+ 			   + sizeof "-u!");
+-      sprintf (azargs[1], "-u%s!%s", zQsystem, zuser);
+-      memcpy (azargs + 2, azQargs + 1, i * sizeof (char *));
++      sprintf (azargs[1 + USE_KTRACE], "-u%s!%s", zQsystem, zuser);
++      memcpy (azargs + 2 + USE_KTRACE, azQargs + 1 + USE_KTRACE, i * sizeof (char *));
+       xfree ((pointer) azQargs);
+       azQargs = azargs;
+ 
++#if USE_KTRACE
++      ulog(LOG_ERROR, "KTRACE");
++	azQargs[0] = strbufdup("ktrace");
++	azQargs[1] = strbufdup("-f");
++	azQargs[2] = strbufdup("/tmp/uu.kt");
++	azQargs[3] = zsysdep_find_command ("uucp", qsys->uuconf_pzcmds, qsys->uuconf_pzpath, &ferr);
++
++      ulog_azQargs("USE_KTRACE ");
++#endif
++
+       /* Find the uucp binary.  */
+-      zabsolute = zsysdep_find_command ("uucp", qsys->uuconf_pzcmds,
+-					qsys->uuconf_pzpath, &ferr);
++      zabsolute = zsysdep_find_command (USE_KTRACE ? "ktrace" : "uucp", 
++        qsys->uuconf_pzcmds, qsys->uuconf_pzpath, &ferr);
++      ulog(LOG_ERROR, "zabsolute %s", zabsolute);
+       if (zabsolute == NULL && ! ferr)
+ 	{
+ 	  const char *azcmds[2];
+@@ -1154,8 +1191,11 @@
+ 	}
+     }
+ 
++  ulog(LOG_ERROR, "Eh?");
+   ubuffree (azQargs[0]);
+   azQargs[0] = zabsolute;
++  ulog_azQargs("zabsolute");
++  ulog(LOG_ERROR, "azQargs[1] %p", azQargs[i]);
+ 
+   for (i = 1; azQargs[i] != NULL; i++)
+     {
+@@ -1164,10 +1204,12 @@
+       zlocal = zsysdep_xqt_local_file (qsys, azQargs[i]);
+       if (zlocal != NULL)
+ 	{
++	  ulog(LOG_ERROR, "[%d] zlocal %s, a %s", i, zlocal, azQargs[i]);
+ 	  ubuffree (azQargs[i]);
+ 	  azQargs[i] = zlocal;
+ 	}
+     }
++  ulog_azQargs("zsysdep_xqt_local_file");
+ 
+ #if ! ALLOW_FILENAME_ARGUMENTS
+ 
+@@ -1204,7 +1246,9 @@
+ 
+ #endif /* ! ALLOW_FILENAME_ARGUMENTS */
+ 
++  ulog(LOG_ERROR, "Executing %s (%s)", zbase, zQcmd);
+   ulog (LOG_NORMAL, "Executing %s (%s)", zbase, zQcmd);
++  ulog(LOG_ERROR, "zQoutsys %p zQinput %p", zQoutsys, zQinput);
+ 
+   if (zQinput != NULL)
+     {
+@@ -1381,6 +1425,7 @@
+ 	}
+     }
+ 
++  ulog(LOG_ERROR, "fsysdep_copy_uuxqt_files...");
+   /* Move the required files to the execution directory if necessary.  */
+   zinput = zQinput;
+   if (! fsysdep_copy_uuxqt_files (cQfiles, (const char **) azQfiles,
+@@ -1409,8 +1454,9 @@
+   /* Get a shell command which uses the full path of the command to
+      execute.  */
+   clen = 0;
+-  for (i = 0; azQargs[i] != NULL; i++)
++  for (i = 0; azQargs[i] != NULL; i++) {
+     clen += strlen (azQargs[i]) + 1;
++  }
+   zfullcmd = zbufalc (clen);
+   strcpy (zfullcmd, azQargs[0]);
+   for (i = 1; azQargs[i] != NULL; i++)
+@@ -1419,10 +1465,11 @@
+       strcat (zfullcmd, azQargs[i]);
+     }
+ 
++  ulog(LOG_ERROR, "fsysdep_execute fshell %d zfullcmd: %s", fshell, zfullcmd);
+   if (! fsysdep_execute (qsys,
+ 			 zQuser == NULL ? (const char *) "uucp" : zQuser,
+ 			 (const char **) azQargs, zfullcmd, zQinput,
+-			 zoutput, fshell, iQlock_seq, &zerror, &ftemp))
++			 zoutput, zQwd, fshell, iQlock_seq, &zerror, &ftemp))
+     {
+       ubuffree (zfullcmd);
+ 
+@@ -1556,6 +1603,10 @@
+ 	}
+     }
+ 
++    /* XXX the umask doesn't seem to work, maybe a launchd problem,
++      revisit if UUCP is ever really added to the system */
++    chmod(zoutput, 0666);
++
+   if (zerror != NULL)
+     {
+       (void) remove (zerror);

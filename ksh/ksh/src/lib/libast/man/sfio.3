@@ -1,5 +1,5 @@
 .fp 5 CW
-.TH SFIO 3 "01 December 2002"
+.TH SFIO 3 "01 February 2005"
 .SH NAME
 \fBsfio\fR \- safe/fast string/file input/output
 .SH SYNOPSIS
@@ -127,6 +127,9 @@ int        sfvscanf(Sfio_t* f, const char* format, va_list args);
 
 int        sfprintf(Sfio_t* f, const char* format, ...);
 char*      sfprints(const char* format, ...);
+char*      sfvprints(const char* format, va_list args);
+ssize_t    sfaprints(char** sp, const char* format, ...);
+ssize_t    sfvaprints(char** sp, const char* format, va_list args);
 int        sfsprintf(char* s, int n, const char* format, ...);
 int        sfvsprintf(char* s, int n, const char* format, va_list args);
 int        sfvprintf(Sfio_t* f, const char* format, va_list args);
@@ -221,6 +224,7 @@ int        sfnotify(void (*notify)(Sfio_t* f, int type, int fd));
 .Ss "MISCELLANEOUS FUNCTIONS"
 .nf
 .ft 5
+ssize_t    sfmaxr(ssize_t maxr, int s);
 ssize_t    sfslen();
 int        sfulen(Sfulong_t v);
 int        sfllen(Sflong_t v);
@@ -434,7 +438,7 @@ This flag guarantees that data written in any single \f5sfwrite()\fP or
 \f5sfputr()\fP call will always be output as a whole to the output device.
 This is useful in certain applications (e.g., networking) where a complex object
 must be output without being split in different system calls.
-Note that the respective stream still buffers data as the buffer can accomodate.
+Note that the respective stream still buffers data as much as the buffer can accomodate.
 .Tp
 \f5SF_MTSAFE\fP:
 This flag indicates that the respective stream may be accessed by more than one threads.
@@ -489,14 +493,16 @@ being simultaneously accessed by multiple threads.
 
 .Ss "  Sfio_t* sfopen(Sfio_t* f, const char* string, const char* mode)"
 
-If \f5string\fP is \f5NULL\fP and \f5f\fP is a file stream
-that has not been operated on,
+If \f5string\fP is \f5NULL\fP,
+\f5f\fP is a file stream and
+\f5mode\fP does not imply a string stream,
 \f5sfopen()\fP changes the modes of \f5f\fP according to \f5mode\fP.
 In this case, \f5sfopen()\fP returns \f5f\fP on success and \f5NULL\fP on error.
 This somewhat unusual usage of \f5sfopen()\fP is good for
 resetting certain predefined modes in standard streams including
-\fItext/binary\fP and
-\fIappend\fP that are inherited from some parent process.
+\fItext/binary\fP and \fIappend\fP that are inherited from some parent process.
+Note also that \f5SF_READ\fP and \f5SF_WRITE\fP can only be reset if the stream
+is not yet initialized.
 
 \f5sfopen()\fP is normally used to create a new stream or renew a stream.
 In this case, it returns the new stream on success and \f5NULL\fP on error.
@@ -742,6 +748,7 @@ This function reads a record of data ending in the record separator \f5rsc\fP.
 After \f5sfgetr()\fP returns, the length of the record even if it is incomplete
 can be retrieved with \f5sfvalue()\fP.
 \f5sfgetr()\fP returns the record on success and \f5NULL\fP on error.
+See also \f5sfmaxr()\fP for limiting the amount of data read to construct a record.
 
 The \f5type\fP argument is composed of some subset of the below bit flags:
 .Tp
@@ -823,72 +830,98 @@ Otherwise, the current position is the logical stream position.
 
 .Ss "  Void_t* sfreserve(Sfio_t* f, ssize_t n, int type)"
 This function reserves a data block from the stream \f5f\fP.
+It returns the reserved data block on success and \f5NULL\fP on failure.
+
 If \f5f\fP is a \f5SF_READ\fP stream, the data block is a segment of input data.
 If \f5f\fP is a \f5SF_WRITE\fP stream, the data block is a buffer
 suitable for writing output data.
 For consistency, if \f5f\fP is opened with \f5SF_READ|SF_WRITE\fP,
-it will be treated as if it is a \f5SF_READ\fP stream
+it will normally be treated as if it is a \f5SF_READ\fP stream
 (see \f5sfset()\fP for forcing a particular mode) but the returned
 buffer can also be written into (more below).
-A \f5sfreserve()\fP call is successful if it can reserve a data block 
-of size at least the absolute value of \f5n\fP.
-\f5sfreserve()\fP returns the reserved data block on success
-and \f5NULL\fP on failure.
-Any partially reserved data block can be obtained in
-a subsequent \f5sfreserve()\fP call with \f5type\fP being \f5SF_LASTR\fP.
+However, it is possible to bias to \f5SF_WRITE\fP when the \f5type\fP
+argument is non-negative by adding the \f5SF_WRITE\fP bit \f5type\fP.
+In any case, a reserved data block is guaranteed to be valid only until
+a future access to the stream \f5f\fP.
+
+When \f5f\fP is \f5SF_READ\fP, \f5SF_SHARE\fP and unseekable,
+\f5sfreserve()\fP will attempt to peek at input data without
+consuming it. This enables separate processes to share in reading
+input from unseekable file descriptors (e.g., pipes or devices).
+However, this use of \f5sfreserve()\fP may fail
+on certain platforms that do not properly support
+peeking on unseekable file descriptors.
 
 After a \f5sfreserve()\fP call, whether or not it succeeds,
 \f5sfvalue(f)\fP gives the size of the available data block.
-A successfully reserved data block is valid only until
-a future access to the stream \f5f\fP. Thus, after a successful reservation,
-the application should process the reserved data block before
-accessing the stream \f5f\fP again.
+Any partially reserved data block after a failed \f5sfreserve()\fP
+call can be obtained in another \f5sfreserve()\fP call with the argument
+\f5type\fP being \f5SF_LASTR\fP. The second argument \f5n\fP
+to \f5sfreserve()\fP will be ignored in this case.
 
-When \f5type <= 0\fP, if \f5f\fP is in \f5SF_READ\fP mode,
-the I/O position of \f5f\fP will be advanced by an amount as follows.
-Let \fIa\fP be the size of the available data block.
-If \f5n\fP is negative, the I/O position is advanced by \fIa\fP.
-If \f5n\fP is non-negative, the I/O position is advanced by
-the lesser value between \f5n\fP and \fIa\fP.
+A \f5sfreserve()\fP call is successful if it can obtain a data block 
+of size at least the absolute value of \f5n\fP.
+For a \f5SF_READ\fP atream, the argument \f5n\fP is treated as follows:
+.Tp
+\f5n < 0\fP:
+\f5sfreserve()\fP attempts to get \fIat least\fP \f5|n|\fP bytes
+into the buffer.
+.Tp
+\f5n == 0\fP:
+If the argument \f5type\fP is \f50\fP,
+\f5sfreserve()\fP attempts to get \fIat least\fP \f51\fP byte into the buffer;
+otherwise, no attempt will be made to read data into the buffer.
+For example, the call \f5sfreserve(f, 0, -1)\fP only returns the buffer status,
+i.e., size of existing buffered data and pointer to such data, if any.
+The call \f5sfreserve(f, 0, SF_LOCKR)\fP is similar but also locks the stream.
+.Tp
+\f5n > 0\fP:
+\f5sfreserve()\fP will use attempt to get \fIat most\fP \f5n\fP bytes into
+the buffer. Further, if \f5type == \f5SF_LOCKR\fP (see below), read attempts
+end on a positive amount.
 
-When \f5type > 0\fP, there are two cases:
+For a successful reservation, the argument \f5type\fP dictates treatment
+as follows:
 .Tp
 \f5type == SF_LASTR\fP:
-The last partially reserved data block, if any, is returned.
-This call should be used only after a failed \f5sfreserve()\fP call.
-The second argument to \f5sfreserve()\fP will be ignored.
+After a \f5sfreserve()\fP call with \f5type != SF_LOCKR\fP fails,
+there may be some left over data not accessible via conventional Sfio calls.
+Immediately after such a failed call,
+another call to \f5sfreserve\fP with \f5type == SF_LASTR\fP will return any left over
+data and also advance the stream I/O position by the amount of returned data.
 .Tp
-\f5type == 1\fP or \f5type == SF_LOCKR\fP:
-The I/O position of stream \f5f\fP remains unchanged after the \f5sfreserve()\fP call.
-In addition, if the reservation is successful, \f5f\fP will be locked from further access.
+\f5type < 0\fP:
+If \f5n > 0\fP, the stream I/O position is advanced by \f5n\fP.
+If \f5n < 0\fP, the stream I/O position is advanced by the amount
+of available data.
+For example, a successful \f5sfreserve(f, -1, -1)\fP call will return a
+buffer of data and simultanously advance the stream I/O position by the amount
+indicated by \f5sfvalue(f)\fP.
+.Tp
+\f5type == SF_LOCKR\fP:
+The stream I/O position remains unchanged.
+In addition, \f5f\fP will be locked from further access.
 As appropriate to the stream type (\f5SF_READ\fP, \f5SF_WRITE\fP or both),
 \f5f\fP can be unlocked later
 with one of \f5sfread(f,rsrv,size)\fP or \f5sfwrite(f,rsrv,size)\fP
 where \f5rsrv\fP is the reserved data block and \f5size\fP is the amount of
 data to be consumed. For example, if \f5f\fP is a locked \f5SF_READ\fP stream,
-the call \f5sfread(f,rsrv,0)\fP will reopen the stream without advancing the
-stream I/O position. Finally, a stream opened for both reading and writing
+the call \f5sfread(f,rsrv,1)\fP will reopen the stream and simultaneously
+advance the stream I/O position by \f51\fP.
+Finally, a stream opened for both reading and writing
 can release the lock with either call (with associated operational semantics!)
-For example, the below code modify data in place if \f5f\fP was
-opened for both reading and writing:
+For example, the below code reads 10 bytes of data from a stream
+opened with both \f5SF_READ\fP and \f5SF_WRITE\fP, modifies the data in place,
+then rewrites the new data back to the stream:
 
 .nf
 .ft 5
     rsrv = sfreserve(f, 10, 1);
-    memset(rsrv, 0, 10);
+    for(i = 0; i < 10; ++i)
+        rsrv[i] = toupper(rsrv[i]);
     sfwrite(f, rsrv, 10);
 .ft 1
 .fi
-
-Note that when \f5f\fP is \f5SF_SHARE\fP and unseekable,
-\f5sfreserve()\fP will attempt to peek at input data without
-consuming it. This allows processes that share unseekable file
-descriptors (e.g., pipes or devices) to properly share input data.
-Since peeking on unseekable file descriptors is not uniformly
-supported on all platforms, \f5sfreserve()\fP may fail in some cases.
-Finally, since \f5SF_SHARE\fP is automatically on for \f5sfstdin\fP,
-applications that do not share \f5sffileno(sfstdin)\fP with other processes
-should turn this bit off to reduce system calls.
 
 .ne 6
 .PP
@@ -1144,19 +1177,26 @@ when the format of the structure \f5Sffmt_t\fP changes.
 Note that the version number corresponds to the Sfio version number
 which is defined in the macro value \f5SFIO_VERSION\fP.
 
-.Ss "  int sfprintf(Sfio_t* f, const char* format, ...)"
-.Ss "  char* sfprints(const char* format, ...)"
+.Ss "  int sfprintf(Sfio_t* f, const char* format, ...);"
+.Ss "  char* sfprints(const char* format, ...);"
+.Ss "  char* sfvprints(const char* format, va_list args);"
+.Ss "  ssize_t sfaprints(char** sp, const char* format, ...);"
+.Ss "  ssize_t sfvaprints(char** sp, const char* format, va_list args);"
 .Ss "  int sfsprintf(char* s, int n, const char* format, ...)"
-.Ss "  int sfvsprintf(char* s, int n, const char* format, va_list args)"
-.Ss "  int sfvprintf(Sfio_t* f, const char* format, va_list args)"
+.Ss "  int sfvsprintf(char* s, int n, const char* format, va_list args);"
+.Ss "  int sfvprintf(Sfio_t* f, const char* format, va_list args);"
 These functions format output data.
 \f5sfprintf()\fP and \f5sfvprintf()\fP write to output stream \f5f\fP.
 \f5sfsprintf()\fP and \f5sfvsprintf()\fP write to buffer \f5s\fP
 which is of size \f5n\fP.
-\f5sfprints()\fP constructs output in some Sfio-defined buffer.
+\f5sfprints()\fP and \f5sfvprints()\fP construct data in some Sfio-defined buffer.
+\f5sfaprints()\fP and \f5sfvaprints()\fP are similar to \f5sfprints()\fP
+and \f5sfvprints()\fP
+but they return a string constructed via \f5malloc()\fP in \f5*sp\fP
+and expect this string to be freed by the caller when no longer needed.
 \f5sfvprintf()\fP is the underlying primitive for the other functions.
-Except for \f5sfprints()\fP
-which returns a null-terminated string or \f5NULL\fP,
+Except for \f5sfprints()\fP and \f5sfvprints()\fP
+which return a null-terminated string or \f5NULL\fP,
 other functions return the number of output bytes or \f5-1\fP on failure.
 
 The length of string constructed by \f5sfprints()\fP, \f5sfsprintf()\fP, or
@@ -1971,6 +2011,16 @@ An attempt to change \f5f\fP to write mode failed.
 .PP
 .Ss "MISCELLANEOUS FUNCTIONS"
 .PP
+.Ss "  ssize_t sfmaxr(ssize_t maxr, int set)"
+Certain records may require too much memory for storage, thus, causing
+undesirable side effects. Therefore, the library normally bounds the amount
+of memory used by \f5sfgetr()\fP. A different memory bound
+can be set via \f5sfmaxr()\fP. While a positive \f5maxr\fP hints to \f5sfgetr()\fP
+to use only about that much memory to construct a record, a non-positive bound
+allows \f5sfgetr()\fP to use as much memory as necessary.
+\f5sfmaxr()\fP sets the value only if \f5set\fP is non-zero.
+It returns the value before setting or the current value if not setting.
+
 .Ss "  ssize_t sfslen()"
 This function returns the length of a string just constructed
 by \f5sfsprintf()\fP or \f5sfprints()\fP.  See also \f5sfvalue()\fP.
@@ -1994,23 +2044,21 @@ These define a buffer and its size to read data into.
 .Tp
 \f5rsc\fP:
 If \f5>=0\fP, this defines a record separator.
-See \f5action\fP for detail.
+If the last returned byte is not the record separator, then
+the read data did not contain a complete record. Otherwise,
+it contains one or more records.
+See also \f5action\fP below.
 .Tp
 \f5tm\fP:
 If \f5>=0\fP, this defines a time interval in milliseconds to wait for incoming data.
 .Tp
 \f5action\fP:
-When \f5rsc >= 0\fP, the absolute value of \f5action\fP, \fIr\fP, determines
-the number of records to be read.
 If \f5action > 0\fP, \f5sfpkrd()\fP will peek on incoming data but
 will not read past it. Therefore, a future \f5sfpkrd()\fP or \f5read(2)\fP will see
 the same data again.
-If \f5action == 0\fP, \f5sfpkrd()\fP will not peek.
-If \f5action < 0\fP, there are two cases:
-if \f5rsc < 0\fP, \f5sfpkrd()\fP reads \f5n\fP bytes; otherwise,
-exactly \fIr\fP records will be read.
-Note that, in the last case, reading records from an unseekable device
-may be slow if the underlying platform does not allow peeking on such a device.
+If \f5action <= 0\fP, \f5sfpkrd()\fP will not peek and there are two cases.
+If \f5rsc < 0\fP, an attempt is made to read \f5n\fP bytes.
+If \f5rsc >= 0\fP, an attempt is made to read one record.
 
 .PP
 .Ss "FULL STRUCTURE SFIO_T"
@@ -2224,7 +2272,9 @@ For most platforms, the mapping is now constant time per look-up.
 .PP
 The \f5SF_BUFCONST\fP flag was deleted. This is largely unused anyway.
 .PP
-The library is now thread-safe. This is based largely on Posix pthread mutexes.
+The library can be built for thread-safety. This is based largely on
+Posix pthread mutexes except for on UWIN where native Windows APIs
+are used.
 .PP
 The functions \f5sfgetm()\fP and \f5sfputm()\fP were added to encode
 unsigned integer values with known ranges.

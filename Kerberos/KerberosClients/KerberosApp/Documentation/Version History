@@ -1,12 +1,83 @@
 ==============================================================================
 Kerberos.app/Control Panel Version History
 ==============================================================================
-Current version:	2.0.1fc1
-Date:				June 15, 2005
+Current version:	2.1fc3
+Date:				October 9, 2007
 Authors:			smcguire@mit.edu, lxs@mit.edu
 ==============================================================================
 
 ============================================================================
+
+Kerberos.app 2.1
+To be released as part of Kerberos for Macintosh 6.0
+
+	========================================================================
+
+	Kerberos.app 2.1fc3
+	October 9, 2007
+
+	[RT 5558] Kerberos.app doesn't need to compensate for KDC timesync
+	[RT 5572] initial != tgt
+	
+	========================================================================
+
+	Kerberos.app 2.1fc2
+	March 9, 2007
+
+	[RT 5465] Fixed nib file corruption affecting servers column
+	[RT 5466] Show Ticket List does not respect remembering window position
+
+	========================================================================
+
+	Kerberos.app 2.1fc1
+	February 16, 2007
+
+	Moved to final candidate
+
+	========================================================================
+
+	Kerberos.app 2.1b2
+	February 7, 2007
+
+	[RT 4658] Kerberos.app Edit Realms dialog doesn't work if you don't have a 
+	          config file at all
+
+	========================================================================
+
+	Kerberos.app 2.1b1
+	November 16, 2006
+
+	[RT 4742] Move CCAPI Objective-C classes into Common/Sources
+	[RT 4659] Realms Editor should select realm tab when adding a new realm
+	[RT 4660] HiDPI support
+
+	========================================================================
+
+	Kerberos.app 2.1a3
+	October 27, 2006
+
+	[RT 4302] Replace Kerberos.app File menu with Tickets menu
+	[RT 4478] Renamed Objective-C classes to avoid namespace collisions
+	[RT 4480] Principal strings should truncate, not word wrap
+
+	========================================================================
+
+	Kerberos.app 2.1a2
+	August 23, 2006
+
+	[RTÊ4169]ÊRemove Kerberos v4
+
+	========================================================================
+
+	Kerberos.app 2.1a1
+	November 18, 2005
+
+	[RT 3073] Not enough room for "kpasswd" in realms editor server column
+	[RT 3191] Ticket Info button doesn't enable when tickets are selected.
+	[RT 3192] "New" toolbar button name and "Get Tickets..." menu item name don't match.
+	[RT 3204] Kerberos.app reports caches with no TGT as invalid
+
+	========================================================================
 
 Kerberos.app 2.0.1
 Released as part of Kerberos for Macintosh 5.5.1

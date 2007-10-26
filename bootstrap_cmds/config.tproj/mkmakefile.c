@@ -59,14 +59,37 @@ static char sccsid[] = "@(#)mkmakefile.c	5.21 (Berkeley) 6/18/88";
  */
 
 #include <stdio.h>
+#include <unistd.h>	/* for unlink */
 #include <ctype.h>
 #include "y.tab.h"
 #include "config.h"
 
+void	read_files(void);
+void	do_objs(FILE *fp, const char *msg, int ext);
+void	do_ordered(FILE *fp);
+void	do_files(FILE *fp, const char *msg, char ext);
+void	do_machdep(FILE *ofp);
+void	do_build(const char *name, void (*format)(FILE *));
+void	do_rules(FILE *f);
+void	do_load(FILE *f);
+struct file_list *do_systemspec(FILE *f, struct file_list *fl, int first);
+void	do_swapspec(FILE *f, const char *name, char *sysname);
+void	copy_dependencies(FILE *makin, FILE *makout);
+
+void	build_cputypes(FILE *fp);
+void	build_confdep(FILE *fp);
+
+struct file_list *fl_lookup(char *file);
+struct file_list *fltail_lookup(char *file);
+struct file_list *new_fent(void);
+
+void	put_source_file_name(FILE *fp, struct file_list *tp);
+
+
 #define DO_SWAPFILE	0
 
 #define next_word(fp, wd) \
-	{ register char *word = get_word(fp); \
+	{ register const char *word = get_word(fp); \
 	  if (word == (char *)EOF) \
 		return; \
 	  else \
@@ -74,17 +97,14 @@ static char sccsid[] = "@(#)mkmakefile.c	5.21 (Berkeley) 6/18/88";
 	}
 
 static	struct file_list *fcur;
-char *tail();
-#if	NeXT
+const char *tail(const char *fn);
 char *allCaps(char *str);
-#endif	NeXT
 
 /*
  * Lookup a file, by name.
  */
 struct file_list *
-fl_lookup(file)
-	register char *file;
+fl_lookup(char *file)
 {
 	register struct file_list *fp;
 
@@ -99,8 +119,7 @@ fl_lookup(file)
  * Lookup a file, by final component name.
  */
 struct file_list *
-fltail_lookup(file)
-	register char *file;
+fltail_lookup(char *file)
 {
 	register struct file_list *fp;
 
@@ -115,7 +134,7 @@ fltail_lookup(file)
  * Make a new file list entry
  */
 struct file_list *
-new_fent()
+new_fent(void)
 {
 	register struct file_list *fp;
 
@@ -158,14 +177,14 @@ static	struct users {
 	{  8, 2, 32 },			/* MACHINE_HPPA */
 	{  8, 2, 32 },			/* MACHINE_SPARC */
 	{  8, 2, 32 },			/* MACHINE_PPC */
+	{  8, 2, 32 },			/* MACHINE_ARM */
 };
 #define NUSERS	(sizeof (users) / sizeof (users[0]))
 
-char *
-get_VPATH()
+const char *
+get_VPATH(void)
 {
     static char *vpath = NULL;
-    extern char *getenv();
 
     if ((vpath == NULL) &&
 	((vpath = getenv("VPATH")) != NULL) &&
@@ -182,7 +201,8 @@ get_VPATH()
 /*
  * Build the makefile from the skeleton
  */
-makefile()
+void
+makefile(void)
 {
 	FILE *ifp, *ofp;
 	FILE *dfp;
@@ -190,7 +210,6 @@ makefile()
 	char line[BUFSIZ];
 	struct opt *op;
 	struct users *up;
-	extern int build_cputypes();
 
 	read_files();
 	(void) sprintf(line, "%s/Makefile.template", config_directory);
@@ -201,10 +220,8 @@ makefile()
 	}
 	dfp = fopen(path("Makefile"), "r");
 	rename(path("Makefile"), path("Makefile.old"));
-#if	NeXT
 	unlink(path("Makefile.old"));
 	unlink(path("M.d"));
-#endif	NeXT
 	if ((ofp = fopen(path("M.d"), "w")) == NULL) {
 		perror(path("M.d"));
 		/* We'll let this error go */
@@ -247,7 +264,6 @@ makefile()
 	} else if (maxusers > up->u_max)
 		printf("warning: maxusers > %d (%d)\n", up->u_max, maxusers);
 	if (maxusers) {
-		int build_confdep();
 		do_build("confdep.h", build_confdep);
 	}
 	for (op = mkopt; op; op = op->op_next)
@@ -302,18 +318,12 @@ makefile()
 		} else if (eq(line, "%BFILES\n"))
 			do_files(ofp, "BFILES=", 'b');
 		else if (eq(line, "%MACHDEP\n")) {
-#if	NeXT
 			/*
 			 * Move do_machdep() after the mkopt stuff.
 			 */
-#else	NeXT
-			do_machdep(ofp);
-#endif	NeXT
 			for (op = mkopt; op; op = op->op_next)
 				fprintf(ofp, "%s=%s\n", op->op_name, op->op_value);
-#if	NeXT
 			do_machdep(ofp);
-#endif	NeXT
 		} else if (eq(line, "%ORDERED\n"))
 			do_ordered(ofp);
 		else if (eq(line, "%RULES\n"))
@@ -338,13 +348,16 @@ makefile()
  * Read in the information about files used in making the system.
  * Store it in the ftab linked list.
  */
-read_files()
+void
+read_files(void)
 {
 	FILE *fp;
 	register struct file_list *tp, *pf;
 	register struct device *dp;
 	register struct opt *op;
-	char *wd, *this, *needs, *devorprof;
+	const char *wd;
+	char *this, *needs;
+	const char *devorprof;
 	int options;
 	int not_option;
 	int ordered;
@@ -463,7 +476,6 @@ nextopt:
 		goto invis;
 	if (options)
 	{
-		register struct opt *op;
 		struct opt *lop = 0;
 		struct device tdev;
 
@@ -609,8 +621,8 @@ getrest:
 	goto next;
 }
 
-opteq(cp, dp)
-	char *cp, *dp;
+int
+opteq(const char *cp, const char *dp)
 {
 	char c, d;
 
@@ -625,9 +637,9 @@ opteq(cp, dp)
 			return (1);
 	}
 }
-put_source_file_name(fp, tp)
-	FILE *fp;
-	register struct file_list *tp;
+
+void
+put_source_file_name(FILE *fp, struct file_list *tp)
 {
 	if ((tp->f_fn[0] == '.') && (tp->f_fn[1] == '/'))
 		fprintf(fp, "%s ", tp->f_fn);
@@ -635,15 +647,15 @@ put_source_file_name(fp, tp)
 		fprintf(fp, "$(SOURCE_DIR)/%s ", tp->f_fn);
 }
 
-do_objs(fp, msg, ext)
-	char	*msg;
-	int	ext;
-	FILE *fp;
+void
+do_objs(FILE *fp, const char *msg, int ext)
 {
-	register struct file_list *tp, *fl;
+	register struct file_list *tp;
 	register int lpos, len;
-	register char *cp, och, *sp;
+	char *cp;		/* XXX const location, modified */
+	char och, *sp;
 #if	DO_SWAPFILE
+	register struct file_list *fl;
 	char swapname[32];
 #endif	DO_SWAPFILE
 
@@ -690,20 +702,23 @@ do_objs(fp, msg, ext)
 		fprintf(fp, "%s ", sp);
 		lpos += len + 1;
 		*cp = och;
+#if	DO_SWAPFILE
 cont:
 		;
+#endif	DO_SWAPFILE
 	}
 	if (lpos != 8)
 		putc('\n', fp);
 }
 
 /* not presently used and probably broken,  use ORDERED instead */
-do_ordered(fp)
-	FILE *fp;
+void
+do_ordered(FILE *fp)
 {
-	register struct file_list *tp, *fl;
+	register struct file_list *tp;
 	register int lpos, len;
-	register char *cp, och, *sp;
+	char *cp;		/* XXX const location, modified */
+	char och, *sp;
 
 	fprintf(fp, "ORDERED=");
 	lpos = 10;
@@ -721,17 +736,13 @@ do_ordered(fp)
 		fprintf(fp, "%s ", sp);
 		lpos += len + 1;
 		*cp = och;
-cont:
-		;
 	}
 	if (lpos != 8)
 		putc('\n', fp);
 }
 
-do_files(fp, msg, ext)
-	FILE	*fp;
-	char	*msg;
-	char	ext;
+void
+do_files(FILE *fp, const char *msg, char ext)
 {
 	register struct file_list *tp;
 	register int lpos, len=0; /* dvw: init to 0 */
@@ -761,10 +772,9 @@ do_files(fp, msg, ext)
  *  Include machine dependent makefile in output
  */
 
-do_machdep(ofp)
-	FILE *ofp;
+void
+do_machdep(FILE *ofp)
 {
-	int c;
 	FILE *ifp;
 	char pname[BUFSIZ];
 	char line[BUFSIZ];
@@ -789,8 +799,8 @@ do_machdep(ofp)
  *  Format configuration dependent parameter file.
  */
 
-build_confdep(fp)
-	FILE *fp;
+void
+build_confdep(FILE *fp)
 {
 	fprintf(fp, "#define MAXUSERS %d\n", maxusers);
 }
@@ -799,8 +809,8 @@ build_confdep(fp)
  *  Format cpu types file.
  */
 
-build_cputypes(fp)
-	FILE *fp;
+void
+build_cputypes(FILE *fp)
 {
 	struct cputype *cp;
 
@@ -817,17 +827,14 @@ build_cputypes(fp)
  *  compilations).
  */
 
-do_build(name, format)
-	char *name;
-	int (*format)();
+void
+do_build(const char *name, void (*format)(FILE *))
 {
 	static char temp[]="#config.tmp";
 	FILE *tfp, *ofp;
 	int c;
 
-#if	NeXT
 	unlink(path(temp));
-#endif	NeXT
 	tfp = fopen(path(temp), "w+");
 	if (tfp == 0) {
 		perror(path(temp));
@@ -849,9 +856,7 @@ do_build(name, format)
 copy:
 	if (ofp)
 		fclose(ofp);
-#if	NeXT
 	unlink(path(name));
-#endif	NeXT
 	ofp = fopen(path(name), "w");
 	if (ofp == 0) {
 		perror(path(name));
@@ -865,11 +870,10 @@ same:
 	fclose(tfp);
 }
 
-char *
-tail(fn)
-	char *fn;
+const char *
+tail(const char *fn)
 {
-	register char *cp;
+	register const char *cp;
 
 	cp = rindex(fn, '/');
 	if (cp == 0)
@@ -884,19 +888,16 @@ tail(fn)
  * which avoids any problem areas with i/o addressing
  * (e.g. for the VAX); assembler files are processed by as.
  */
-do_rules(f)
-	FILE *f;
+void
+do_rules(FILE *f)
 {
-	register char *cp, *np, och, *tp;
+	char *cp;		/* XXX const location, modified */
+	char *np, och, *tp;
 	register struct file_list *ftp;
-	char *extras = ""; /* dvw: init to "" */
+	const char *extras = ""; /* dvw: init to "" */
 	char *source_dir;
 	char och_upper;
-#if	NeXT
-	char *nl = "";
-#else	NeXT
-	char *nl = "; \\";
-#endif	NeXT
+	const char *nl = "";
 
 	for (ftp = ftab; ftp != 0; ftp = ftp->f_next) {
 		if (ftp->f_type == INVISIBLE)
@@ -1031,6 +1032,7 @@ do_rules(f)
 				case MACHINE_HPPA:
 				case MACHINE_SPARC:
 				case MACHINE_PPC:
+				case MACHINE_ARM:
 					extras = "_P";
 					goto common;
 				default:
@@ -1062,12 +1064,11 @@ do_rules(f)
 /*
  * Create the load strings
  */
-do_load(f)
-	register FILE *f;
+void
+do_load(FILE *f)
 {
 	register struct file_list *fl;
 	int first = 1;
-	struct file_list *do_systemspec();
 
 	fl = conf_list;
 	while (fl) {
@@ -1092,17 +1093,12 @@ do_load(f)
 }
 
 struct file_list *
-do_systemspec(f, fl, first)
-	FILE *f;
-	register struct file_list *fl;
-	int first;
+do_systemspec(FILE *f, struct file_list *fl, __unused int first)
 {
-#if	NeXT
 	/*
 	 * Variable for kernel name.
 	 */
 	fprintf(f, "KERNEL_NAME=%s\n", fl->f_needs);
-#endif	NeXT
 
 	fprintf(f, "%s .ORDER: %s.sys ${SYSDEPS}\n",
 		fl->f_needs, fl->f_needs);
@@ -1116,20 +1112,16 @@ do_systemspec(f, fl, first)
 	return (fl);
 }
 
-do_swapspec(f, name, system)
-	char *system;
-	FILE *f;
-	register char *name;
+void
+do_swapspec(__unused FILE *f, __unused const char *name, __unused char *sysname)
 {
 
 #if	DO_SWAPFILE
 	char *gdir = eq(name, "generic")?"$(MACHINEDIR)/":"";
 
-	fprintf(f, "%s.sys:${P} ${PRELDDEPS} ${LDOBJS} ${LDDEPS}\n\n", system);
-	fprintf(f, "%s.swap: swap%s.o\n", system, name);
-#if	NeXT
+	fprintf(f, "%s.sys:${P} ${PRELDDEPS} ${LDOBJS} ${LDDEPS}\n\n", sysname);
+	fprintf(f, "%s.swap: swap%s.o\n", sysname, name);
 	fprintf(f, "\t@rm -f $@\n");
-#endif	NeXT
 	fprintf(f, "\t@cp swap%s.o $@\n\n", name);
 	fprintf(f, "swap%s.o: %sswap%s.c ${SWAPDEPS}\n", name, gdir, name);
 	if (machine == MACHINE_MIPSY || machine == MACHINE_MIPS) {
@@ -1163,8 +1155,8 @@ allCaps(str)
 #define LINESIZE 1024
 static char makbuf[LINESIZE];		/* one line buffer for makefile */
 
-copy_dependencies(makin, makout)
-register FILE *makin, *makout;
+void
+copy_dependencies(FILE *makin, FILE *makout)
 {
 	register int oldlen = (sizeof OLDSALUTATION - 1);
 

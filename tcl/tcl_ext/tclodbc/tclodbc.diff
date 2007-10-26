@@ -513,15 +513,6 @@ diff -u -p -r1.4 tclodbc.hxx
  #endif
  
  #include "tclobj.hxx"
-@@ -119,6 +121,8 @@ extern "C" {
- // ODBC INCLUDES
- //
-
-+/* set _WCHAR_T so sqltypes.h is happy (until 3779905 is fixed) */
-+#define       _WCHAR_T
- extern "C" {
- #ifdef HAVE_IODBC                       // Using the free IODBC driver
- /* I am not sure what version this is...
 @@ -128,8 +132,7 @@ extern "C" {
  /* iODBC 2.12 */
  #include <isql.h>
@@ -532,3 +523,323 @@ diff -u -p -r1.4 tclodbc.hxx
  #else
  #include <sql.h>
  #include <odbcinst.h>
+diff -u -rupN tclodbc.cxx tclodbc.cxx
+--- tclodbc.cxx	2004-03-19 12:32:21.000000000 -0800
++++ tclodbc.cxx	2005-06-20 13:22:16.000000000 -0700
+@@ -121,13 +121,15 @@ TclObj SqlErr (HENV env, HDBC dbc, HSTMT
+     char SqlMessage[SQL_MAX_MESSAGE_LENGTH];
+     char SqlState[6];
+     SDWORD NativeError;
++    SQLINTEGER tmp;
+     SWORD Available;
+     RETCODE rc;
+     TclObj errObj;
+ 
+     rc = SQLError(env, dbc, stmt, 
+-            (UCHAR*) SqlState, &NativeError, (UCHAR*) SqlMessage, 
++            (UCHAR*) SqlState, &tmp, (UCHAR*) SqlMessage, 
+             SQL_MAX_MESSAGE_LENGTH-1, &Available);
++    NativeError = tmp;
+ 
+     // sql error object is a triple:
+     // {standard error code} {native error code} {error message}
+--- statemnt.cxx	2004-03-20 14:14:19.000000000 -0800
++++ statemnt.cxx	2005-06-20 13:56:06.000000000 -0700
+@@ -358,9 +358,9 @@ TclObj TclStatement::Result() {
+ 		result.appendElement(row);
+ 	    }
+ 	} else {
+-	    long i;
+-	    SQLRowCount(stmt, (SQLINTEGER *) &i);
+-	    result = i;
++	    SQLLEN i;
++	    SQLRowCount(stmt, &i);
++	    result = (long)i;
+ 	}
+ 	return result;
+     } else {
+@@ -398,9 +398,9 @@ TclObj TclStatement::Result() {
+ 
+ 
+ 	    } else {
+-		long i;
+-		SQLRowCount(stmt, (SQLINTEGER *) &i);
+-		return i;
++		SQLLEN i;
++		SQLRowCount(stmt, &i);
++		return (long)i;
+ 	    }
+ 
+ 	} while(more);
+--- /dev/null	2007-02-14 02:20:41.000000000 -0800
++++ tclodbc.exports	2007-02-14 03:23:30.000000000 -0800
+@@ -0,0 +1,257 @@
++__Z10MapSqlTypel.eh
++__Z11EncodedTypei.eh
++__ZN12TclCmdObject11AddToMyListEPS_.eh
++__ZN12TclCmdObject14RemoveFromListEv.eh
++__ZN12TclCmdObject7DestroyEPv.eh
++__ZN12TclCmdObject8DispatchEPvP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclCmdObjectD0Ev.eh
++__ZN12TclCmdObjectD1Ev.eh
++__ZN12TclCmdObjectD2Ev.eh
++__ZN6TclObj12EncodedValueEv.eh
++__ZN6TclObj6isNullEv.eh
++__ZN6TclObjC1EP7Tcl_Obj.eh
++__ZN6TclObjC1ERKS_.eh
++__ZN6TclObjC2EP7Tcl_Obj.eh
++__ZN6TclObjC2ERKS_.eh
++__ZN6TclObjD1Ev.eh
++__ZN6TclObjD2Ev.eh
++__ZNK6TclObjcvPcEv.eh
++__ZN6TclObjC2EPKci
++__ZN6TclObjC1EPKci
++__ZN6TclObjcvP7Tcl_ObjEv
++__ZN6TclObjC2El
++__ZN6TclObjC1El
++__ZN6TclObjC2ERKS_
++__ZN6TclObjC1ERKS_
++__ZN6TclObjC2EP7Tcl_Obj
++__ZN6TclObjC1EP7Tcl_Obj
++__ZN6TclObjD2Ev
++__ZN6TclObjD1Ev
++__ZN6TclObjaSERKS_
++__ZN6TclObj3setEPKci
++__ZNK6TclObjcvPcEv
++__ZN6TclObj6lenghtEv
++__ZN6TclObj6isNullEv
++__ZN6TclObj12EncodedValueEv
++__ZN6TclObj6DecodeEP13Tcl_Encoding_
++__ZN6TclObj13EncodedLenghtEv
++__ZN6TclObjC2EPKcP13Tcl_Encoding_i
++__ZN6TclObjC1EPKcP13Tcl_Encoding_i
++__ZN6TclObj9setLengthEi
++__ZN6TclObj13appendElementES_P10Tcl_Interp
++__ZN6TclObj6appendEPKci
++__ZN6TclObj6lindexEiP10Tcl_Interp
++__ZN6TclObj7llenghtEP10Tcl_Interp
++__ZN6TclObj5asIntEP10Tcl_Interp
++__ZN6TclObj6EncodeEP13Tcl_Encoding_P10Tcl_Interp
++__ZN6TclObj4evalEP10Tcl_Interp
++__Z8StrToNumPcP6NumStrS_h
++__Z8NumToStrsP6NumStr
++__Z11EncodedTypei
++__Z10MapSqlTypel
++__Z12Tclodbc_KillPv
++__Z6SqlErrPvS_S_
++_Tclodbc_Init
++__Z12tcl_databasePvP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclCmdObject7DestroyEPv
++__ZN12TclCmdObject14RemoveFromListEv
++__ZN12TclCmdObject8DispatchEPvP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclCmdObject11AddToMyListEPS_
++__ZN11TclDatabase10AutocommitEi
++__ZN11TclDatabase9SetOptionEP10Tcl_InterpPcS2_
++__ZN11TclDatabase8TransactEt
++__ZN11TclDatabase9GetOptionEPc
++__ZN11TclDatabase11DatasourcesEv
++__ZN11TclDatabase7DriversEv
++__ZN11TclDatabase9ConfigureEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclCmdObjectD2Ev
++__ZN11TclDatabaseD0Ev
++__ZN11TclDatabaseD1Ev
++__ZN11TclDatabaseD2Ev
++__ZN11TclDatabaseC1E6TclObj
++__ZN11TclDatabaseC2E6TclObj
++__ZN11TclDatabaseC1E6TclObjS0_S0_
++__ZN11TclDatabaseC2E6TclObjS0_S0_
++__ZN12TclCmdObjectD1Ev
++__ZN12TclCmdObjectD0Ev
++__ZN11TclDatabase8DispatchEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatement8FreeStmtEv
++__ZN12TclStatement7SqlWaitEi
++__ZN12TclStatement11ColumnCountEv
++__ZN12TclStatement16FreeResultBufferEv
++__ZN12TclStatement19ReserveResultBufferEv
++__ZN12TclStatement9SetOptionEPcS0_
++__ZN12TclStatement6Fetch1Ev
++__ZN19TclPrimaryKeysQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatement9GetOptionEPc
++__ZN15TclSqlStatement10SetArgDefsEP10Tcl_Interp6TclObj
++__ZN16TclTypeInfoQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatement10ColumnInfoEit
++__ZN12TclStatement7ColumnsEiPKP7Tcl_Obj
++__ZN12TclStatement12ColumnLabelsEv
++__ZN12TclStatement5FetchER6TclObj
++__ZN12TclStatement4ReadEP10Tcl_Interp6TclObjiPKP7Tcl_Obj
++__ZN12TclStatement4EvalEP10Tcl_Interp6TclObjiPKP7Tcl_Obj
++__ZN15TclSqlStatement7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN13TclTableQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN14TclColumnQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN13TclIndexQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatementC1ER11TclDatabase
++__ZN12TclStatement6ResultEv
++__ZN12TclStatement5ValueEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatement8DispatchEP10Tcl_InterpiPKP7Tcl_Obj
++__ZN12TclStatementC2ER11TclDatabase
++__ZN12TclStatementD2Ev
++__ZN15TclSqlStatementC1ER11TclDatabase6TclObjb
++__ZN15TclSqlStatementC2ER11TclDatabase6TclObjb
++__ZN12TclStatementD1Ev
++__ZN12TclStatementD0Ev
++__Z24FreeTclodbcEncodedStringP7Tcl_Obj
++__Z29DuplicateTclodbcEncodedStringP7Tcl_ObjS0_
++__Z26UpdateTclodbcEncodedStringP7Tcl_Obj
++__Z23SetTclodbcEncodedStringP10Tcl_InterpP7Tcl_Obj
++_Tcl_InitStubs
++__ZN6TclObjC2EPKci.eh
++__ZN6TclObjC1EPKci.eh
++__ZN6TclObjcvP7Tcl_ObjEv.eh
++__ZN6TclObjC2El.eh
++__ZN6TclObjC1El.eh
++__ZN6TclObjaSERKS_.eh
++__ZN6TclObj3setEPKci.eh
++__ZN6TclObj6lenghtEv.eh
++__ZN6TclObj6DecodeEP13Tcl_Encoding_.eh
++__ZN6TclObj13EncodedLenghtEv.eh
++__ZN6TclObjC2EPKcP13Tcl_Encoding_i.eh
++__ZN6TclObjC1EPKcP13Tcl_Encoding_i.eh
++__ZN6TclObj9setLengthEi.eh
++__ZN6TclObj13appendElementES_P10Tcl_Interp.eh
++__ZN6TclObj6appendEPKci.eh
++__ZN6TclObj6lindexEiP10Tcl_Interp.eh
++__ZN6TclObj7llenghtEP10Tcl_Interp.eh
++__ZN6TclObj5asIntEP10Tcl_Interp.eh
++__ZN6TclObj6EncodeEP13Tcl_Encoding_P10Tcl_Interp.eh
++__ZN6TclObj4evalEP10Tcl_Interp.eh
++__Z8StrToNumPcP6NumStrS_h.eh
++__Z8NumToStrsP6NumStr.eh
++__Z12Tclodbc_KillPv.eh
++__Z6SqlErrPvS_S_.eh
++_Tclodbc_Init.eh
++__Z12tcl_databasePvP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN11TclDatabase10AutocommitEi.eh
++__ZN11TclDatabase9SetOptionEP10Tcl_InterpPcS2_.eh
++__ZN11TclDatabase8TransactEt.eh
++__ZN11TclDatabase9GetOptionEPc.eh
++__ZN11TclDatabase11DatasourcesEv.eh
++__ZN11TclDatabase7DriversEv.eh
++__ZN11TclDatabase9ConfigureEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN11TclDatabaseD0Ev.eh
++__ZN11TclDatabaseD1Ev.eh
++__ZN11TclDatabaseD2Ev.eh
++__ZN11TclDatabaseC1E6TclObj.eh
++__ZN11TclDatabaseC2E6TclObj.eh
++__ZN11TclDatabaseC1E6TclObjS0_S0_.eh
++__ZN11TclDatabaseC2E6TclObjS0_S0_.eh
++__ZN11TclDatabase8DispatchEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatement8FreeStmtEv.eh
++__ZN12TclStatement7SqlWaitEi.eh
++__ZN12TclStatement11ColumnCountEv.eh
++__ZN12TclStatement16FreeResultBufferEv.eh
++__ZN12TclStatement19ReserveResultBufferEv.eh
++__ZN12TclStatement9SetOptionEPcS0_.eh
++__ZN12TclStatement6Fetch1Ev.eh
++__ZN19TclPrimaryKeysQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatement9GetOptionEPc.eh
++__ZN15TclSqlStatement10SetArgDefsEP10Tcl_Interp6TclObj.eh
++__ZN16TclTypeInfoQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatement10ColumnInfoEit.eh
++__ZN12TclStatement7ColumnsEiPKP7Tcl_Obj.eh
++__ZN12TclStatement12ColumnLabelsEv.eh
++__ZN12TclStatement5FetchER6TclObj.eh
++__ZN12TclStatement4ReadEP10Tcl_Interp6TclObjiPKP7Tcl_Obj.eh
++__ZN12TclStatement4EvalEP10Tcl_Interp6TclObjiPKP7Tcl_Obj.eh
++__ZN15TclSqlStatement7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN13TclTableQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN14TclColumnQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN13TclIndexQuery7ExecuteEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatementC1ER11TclDatabase.eh
++__ZN12TclStatement6ResultEv.eh
++__ZN12TclStatement5ValueEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatement8DispatchEP10Tcl_InterpiPKP7Tcl_Obj.eh
++__ZN12TclStatementC2ER11TclDatabase.eh
++__ZN12TclStatementD2Ev.eh
++__ZN15TclSqlStatementC1ER11TclDatabase6TclObjb.eh
++__ZN15TclSqlStatementC2ER11TclDatabase6TclObjb.eh
++__ZN12TclStatementD1Ev.eh
++__ZN12TclStatementD0Ev.eh
++__Z24FreeTclodbcEncodedStringP7Tcl_Obj.eh
++__Z29DuplicateTclodbcEncodedStringP7Tcl_ObjS0_.eh
++__Z26UpdateTclodbcEncodedStringP7Tcl_Obj.eh
++__Z23SetTclodbcEncodedStringP10Tcl_InterpP7Tcl_Obj.eh
++_strFunctionSequenceError
++_envRefCounter
++_env
++_statementCmds
++_databaseCmds
++_databaseOptions
++_cursorOp
++_concurrencyOp
++_booleanOp
++_connectOp
++_configOp
++_stmtOp
++_attrDef
++_sqlType
++_strOldSyntax
++_strInvalidOption
++_strAsyncEnable
++_strRowCount
++_strStatement
++_strEncoding
++_strNoscan
++_strCursortype
++_strRowsetsize
++_strMaxlength
++_strMaxlenght
++_strTimeout
++_strMaxrows
++_strConcurrency
++_strFetch
++_strMoreResults
++_strExecute
++_strDrop
++_strRun
++_strDisconnect
++_strEmpty
++_strCmdNotAvailable
++_strUsage
++_strWrongArgs
++_strRollback
++_strCommit
++_strAutocommit
++_strSet
++_strGet
++_strRead
++_strEval
++_strTypeinfo
++_strPrimarykeys
++_strIndexes
++_strColumns
++_strTables
++_strOK
++_strInvalidHandle
++_strMemoryAllocationFailed
++_strVersion
++_TclodbcEncodedString
++_tclIntPlatStubsPtr
++_tclIntStubsPtr
++_tclPlatStubsPtr
++_tclStubsPtr
++__ZTV12TclCmdObject
++__ZTV11TclDatabase
++__ZTV12TclStatement
++__ZTV15TclSqlStatement
++__ZTV13TclTableQuery
++__ZTV14TclColumnQuery
++__ZTV13TclIndexQuery
++__ZTV16TclTypeInfoQuery
++__ZTV19TclPrimaryKeysQuery
+--- Makefile.in~	2004-03-19 12:32:21.000000000 -0800
++++ Makefile.in	2007-02-14 03:27:46.000000000 -0800
+@@ -114,7 +114,7 @@
+ RANLIB_STUB	= @RANLIB_STUB@
+ SHLIB_CFLAGS	= @SHLIB_CFLAGS@
+-SHLIB_LD	= @SHLIB_LD@
++SHLIB_LD	= g++
+-SHLIB_LD_FLAGS	= @SHLIB_LD_FLAGS@
++SHLIB_LD_FLAGS	= @SHLIB_LD_FLAGS@ -exported_symbols_list ${srcdir}/tclodbc.exports
+ SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
+ STLIB_LD	= @STLIB_LD@
+ TCL_DEFS	= @TCL_DEFS@

@@ -1,0 +1,8 @@
+{
+    IBClasses = (
+        {CLASS = Converter; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {CLASS = MyDocument; LANGUAGE = ObjC; SUPERCLASS = NSDocument; }
+    ); 
+    IBVersion = 1; 
+}

@@ -92,7 +92,7 @@ OSErr MemError()
 void DebugStr(ConstStr255Param debuggerMsg)
 {
 	/* DebugStr is only called when built with DEBUG_BUILD set */
-	printf ("\t%.*s\n", debuggerMsg[0], &debuggerMsg[1]);
+	plog ("\t%.*s\n", debuggerMsg[0], &debuggerMsg[1]);
 }
 
 
@@ -201,7 +201,7 @@ void WriteError( SGlobPtr GPtr, short msgID, UInt32 tarID, UInt64 tarBlock )
 	PrintError(GPtr, msgID, 0);
 
 	if (GPtr->logLevel > 0 && !GPtr->guiControl && (tarID | tarBlock) != 0)
-		printf("(%ld, %qd)\n", (long)tarID, tarBlock);
+		plog("(%ld, %qd)\n", (long)tarID, tarBlock);
 }
 
 /* deprecated call, use PrintStatus instead */
@@ -236,9 +236,9 @@ print_localized(const char *type, const char *message, int vargc, va_list ap)
 		strcpy(string, message);
 	}
 
-	fprintf(stdout, "(%s,\"%s\",%d)\n", type, string, vargc);
+	fplog(stdout, "(%s,\"%s\",%d)\n", type, string, vargc);
 	for (i = 0; i < vargc; i++)
-		fprintf(stdout, "%s\n", (char *)va_arg(ap, char *));
+		fplog(stdout, "%s\n", (char *)va_arg(ap, char *));
 	fflush(stdout);
 }
 
@@ -256,9 +256,9 @@ PrintError(SGlobPtr GPtr, short error, int vargc, ...)
 		va_start(ap, vargc);
 
 		if (!GPtr->guiControl) {
-			printf("   ");
-			vprintf(err_msg[index], ap);
-			printf("\n");
+			plog("   ");
+			vplog(err_msg[index], ap);
+			plog("\n");
 		} else {
 			print_localized("E", err_msg[index], vargc, ap);
 		}
@@ -281,9 +281,9 @@ PrintStatus(SGlobPtr GPtr, short status, int vargc, ...)
 		va_start(ap, vargc);
 
 		if (!GPtr->guiControl) {
-			printf("** ");
-			vprintf(stat_msg[index], ap);
-			printf("\n");
+			plog("** ");
+			vplog(stat_msg[index], ap);
+			plog("\n");
 		} else {
 			print_localized("S", stat_msg[index], vargc, ap);
 		}

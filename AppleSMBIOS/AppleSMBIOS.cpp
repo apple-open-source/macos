@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -20,8 +20,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <i386/cpuid.h>
+#include <IOKit/IOPlatformExpert.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IODeviceTreeSupport.h>
+#include <IOKit/pci/IOPCIBridge.h>   // IOPCIAddressSpace
+#include <IOKit/acpi/IOACPIPlatformDevice.h>
+#include <string.h>
 #include "AppleSMBIOS.h"
 
 #if     DEBUG
@@ -41,8 +46,9 @@ protected:
 
 public:
     SMBPackedStrings( const SMBStructHeader * header, const void * limit );
+	SMBPackedStrings::SMBPackedStrings( const SMBStructHeader * header );
 
-	const char * stringAtIndex( UInt8 index, UInt8 * length = 0 ) const;
+    const char * stringAtIndex( UInt8 index, UInt8 * length = 0 ) const;
 
     void setDataProperty( IORegistryEntry * entry,
                           const char *      key,
@@ -58,6 +64,17 @@ SMBPackedStrings::SMBPackedStrings( const SMBStructHeader * header,
 {
     _start = (const char *) header + header->length;
     _limit = (const char *) limit;
+}
+
+SMBPackedStrings::SMBPackedStrings( const SMBStructHeader * header )
+{
+    _start = (const char *) header + header->length;
+	
+	const char * cp = _start;
+	// Find the double null at the end of the record
+	while( cp[0] || cp[1]) cp++;
+	
+	_limit = &cp[1];
 }
     
 const char * SMBPackedStrings::stringAtIndex( UInt8 index, UInt8 * length ) const
@@ -94,7 +111,7 @@ const char * SMBPackedStrings::stringAtIndex( UInt8 index, UInt8 * length ) cons
         }
     }
 
-	return last ? last : "";
+    return last ? last : "";
 }
 
 void SMBPackedStrings::setDataProperty( IORegistryEntry * entry,
@@ -129,15 +146,12 @@ void SMBPackedStrings::setStringProperty( IORegistryEntry * entry,
         OSString * strObj = OSString::withCString(string);
         if (strObj)
         {
-            strObj->setChar('\0', length);
             entry->setProperty(key, strObj);
             strObj->release();
         }
     }
 }
 
-//---------------------------------------------------------------------------
-// AppleSMBIOS class
 
 #define super IOService
 
@@ -147,120 +161,347 @@ OSDefineMetaClassAndStructors( AppleSMBIOS, IOService )
 
 bool AppleSMBIOS::start( IOService * provider )
 {
-    if ( super::start( provider ) != true     ||
-         IOService::getResourceService() == 0 ||
-         IOService::getResourceService()->getProperty("SMBIOS") )
+    OSSerializer * serializer;
+
+    if (super::start(provider) != true     ||
+        IOService::getResourceService() == 0 ||
+        IOService::getResourceService()->getProperty("SMBIOS"))
     {
         return false;
     }
+	
+	SMBIOSTable = NULL;
+	SMBIOSTableLength = 0;
 
-    _provider = provider;
-    _platform = getServiceRoot();
-    if ( !_provider || !_platform ) return false;
+    fSlotQueueHead = IONew(queue_head_t, 1);
+    if (!fSlotQueueHead)
+        return false;
 
-    _verbose = 0;
-    PE_parse_boot_arg( "smbios", &_verbose );
+    queue_init(fSlotQueueHead);
+
+    // Get the IOPlatformExpertDevice
+
+    fRoot = getServiceRoot();
+    if (!provider || !fRoot)
+        return false;
+
+    // Serialize SMBIOS data to user-space on demand
+
+    serializer = OSSerializer::forTarget((void *) this, &serializeSMBIOS);
+    if (!serializer)
+        return false;
+
+    setProperty("SMBIOS", serializer);
+
+    fVerbose = 0;
+    PE_parse_boot_arg("smbios", &fVerbose);
 
     memInfoSource = kNoMemoryInfo;
-    memSlotsData = OSData::withCapacity(64);
-    memTypesData = OSData::withCapacity(64);
-    memSizesData = OSData::withCapacity(64);    
-    if ( !memSlotsData || !memTypesData || !memSizesData ) return false;
+    memSlotsData = OSData::withCapacity(kMemDataSize);
+    memTypesData = OSData::withCapacity(kMemDataSize);
+    memSizesData = OSData::withCapacity(kMemDataSize);
+    memSpeedData = OSData::withCapacity(kMemDataSize);
+    memInfoData  = OSData::withCapacity(kMemDataSize);
+    memSizeTotal = 0;
 
-    // Fetch platform info stored in SMBIOS table.
-
-    if ( fetchSMBIOSTable() != true )
-    {
+    if (!memSlotsData || !memTypesData || !memSizesData || !memSpeedData ||
+        !memInfoData)
         return false;
-    }
 
-    // Update device tree based on SMBIOS info discovered.
+	if (!findSMBIOSTableEFI())
+	{
+		return false;
+	}
 
+    // Update device tree
     updateDeviceTree();
 
     publishResource("SMBIOS");
-
     registerService();
-
+	
     return true;
 }
 
 //---------------------------------------------------------------------------
 
-void AppleSMBIOS::free()
-{
-    #define RELEASE(x) do { if (x) { (x)->release(); (x) = 0; } } while(0)
+#define RELEASE(x) do { if (x) { (x)->release(); (x) = 0; } } while(0)
 
+void AppleSMBIOS::free( void )
+{
     RELEASE( memSlotsData );
     RELEASE( memTypesData );
     RELEASE( memSizesData );
+    RELEASE( memSpeedData );
+    RELEASE( memInfoData  );
+    RELEASE( fDMIMemoryMap );
+
+    if (fSlotQueueHead)
+    {
+        SystemSlotEntry * slotEntry;
+
+        while (!queue_empty(fSlotQueueHead))
+        {
+            queue_remove_first(fSlotQueueHead, slotEntry, SystemSlotEntry *,
+                chain);
+            IODelete(slotEntry, SystemSlotEntry, 1);
+        }
+        IODelete(fSlotQueueHead, queue_head_t, 1);
+        fSlotQueueHead = 0;
+    }
 
     super::free();
 }
 
 //---------------------------------------------------------------------------
 
-bool AppleSMBIOS::fetchSMBIOSTable()
+bool AppleSMBIOS::
+serializeSMBIOS( void * target, void * refcon, OSSerialize * s )
 {
-    enum { kROMScanStart = 0xf0000, kROMScanBytes = 0x10000 };
+    AppleSMBIOS *   me = (AppleSMBIOS *) target;
+    OSData *        data;
+    IOMemoryMap *   map;
+    bool            ok = false;
 
-    bool                 success = false;
-    DMIEntryPoint        dmi;
-    void *               table;
-    IOMemoryDescriptor * romMemory = IOMemoryDescriptor::withPhysicalAddress(
-                                        kROMScanStart, kROMScanBytes,
-                                        kIODirectionOutIn );
-
-    if ( romMemory )
+    map = me->fDMIMemoryMap;
+    if (map)
     {
-        // Scan for a "_DMI_" signature at "paragraph" memory boundaries.
+        data = OSData::withBytesNoCopy(
+                (void *) map->getVirtualAddress(), map->getLength());
 
-        for ( UInt32 offset = 0; offset < kROMScanBytes; offset += 16 )
+        if (data)
         {
-            romMemory->readBytes( offset, &dmi, sizeof(dmi) );
-            if ( memcmp( dmi.anchor, "_DMI_", 5 ) == 0 )
-            {
-                UInt8   checksum = 0;
-                UInt8 * cp = (UInt8 *) &dmi;
-                for ( UInt i = 0; i < sizeof(dmi); i++ )
-                    checksum += *cp++;
-
-                DEBUG_LOG("DMI checksum       = 0x%x\n",  checksum);
-                DEBUG_LOG("DMI tableLength    = %d\n",    dmi.tableLength);
-                DEBUG_LOG("DMI tableAddress   = 0x%lx\n", dmi.tableAddress);
-                DEBUG_LOG("DMI structureCount = %d\n",    dmi.structureCount);
-                DEBUG_LOG("DMI bcdRevision    = %x\n",    dmi.bcdRevision);
-
-                // Add DMI revision checking?
-
-                if ( checksum || !dmi.tableLength || !dmi.structureCount )
-                    break;
-
-                if (( table = IOMalloc(dmi.tableLength) ))
-                {
-                    if ( romMemory->initWithPhysicalAddress(
-                                        dmi.tableAddress,
-                                        dmi.tableLength,
-                                        kIODirectionOutIn) )
-                    {
-                        romMemory->readBytes( 0, table, dmi.tableLength );
-                        decodeSMBIOSTable( table, dmi.tableLength,
-                                                  dmi.structureCount );
-                    }
-                    // Publish the whole table for a DMI browser app,
-                    // app can match on SMBIOS resources.
-                    setProperty("StructureTableData", table, dmi.tableLength);
-                    IOFree( table, dmi.tableLength );
-                    success = true;
-                }
-                break;
-            }
+            ok = data->serialize(s);
+            data->release();
         }
-
-        romMemory->release();
     }
 
-    return success;
+    return ok;
+}
+
+//---------------------------------------------------------------------------
+
+static UInt8 checksum8( void * start, UInt length )
+{
+    UInt8   csum = 0;
+    UInt8 * cp = (UInt8 *) start;
+
+    for (UInt i = 0; i < length; i++)
+        csum += *cp++;
+
+    return csum;
+}
+
+#define kGenericPCISlotName     "PCI Slot"
+
+//---------------------------------------------------------------------------
+
+OSData * AppleSMBIOS::
+getSlotNameWithSlotId( int slotId )
+{
+    char                name[80];
+    SystemSlotEntry *   slot = 0;
+    SystemSlotEntry *   iter;
+
+	queue_iterate(fSlotQueueHead, iter, SystemSlotEntry *, chain)
+	{
+		if ((iter->slotID & 0xff) == slotId)
+		{
+			slot = iter;
+			break;
+		}
+	}
+
+	if (slot && slot->slotName)
+	{
+		strncpy(name, slot->slotName, sizeof(name));
+	}
+	else
+	{
+		// No matching SlotId, return a generic PCI slot name
+		snprintf(name, sizeof(name), "%s %u", kGenericPCISlotName, slotId);
+	}
+
+	name[sizeof(name) - 1] = '\0';
+    return OSData::withBytes(name, strlen(name) + 1);
+}
+
+#define EFI_SMBIOS_TABLE \
+"/efi/configuration-table/EB9D2D31-2D88-11D3-9A16-0090273FC14D"
+
+//---------------------------------------------------------------------------
+
+bool AppleSMBIOS::findSMBIOSTableEFI( void )
+{
+	IORegistryEntry *		tableEntry;
+	OSData *				tableData;
+	UInt64					tableAddr;
+	IOMemoryDescriptor *    epsMemory;
+	SMBEntryPoint			eps;
+	IOMemoryDescriptor *    dmiMemory = 0;
+	IOItemCount             dmiStructureCount = 0;
+
+	tableEntry = fromPath(EFI_SMBIOS_TABLE, gIODTPlane);	
+	if (tableEntry)
+	{		
+		tableAddr = 0;
+		tableData = OSDynamicCast(OSData, tableEntry->getProperty("table"));
+		if (tableData && (tableData->getLength() <= sizeof(tableAddr)))
+		{
+			bcopy(tableData->getBytesNoCopy(), &tableAddr, tableData->getLength());
+
+			epsMemory = IOMemoryDescriptor::withAddress(
+						(mach_vm_address_t) tableAddr,
+						(mach_vm_size_t) sizeof(eps),
+						kIODirectionOutIn,
+						NULL );
+
+			if (epsMemory)
+			{
+				bzero(&eps, sizeof(eps));
+				epsMemory->readBytes(0, &eps, sizeof(eps));
+
+				if (memcmp(eps.anchor, "_SM_", 4) == 0)
+				{
+					UInt8 csum;
+
+					csum = checksum8(&eps, sizeof(eps));
+
+					DEBUG_LOG("DMI checksum       = 0x%x\n", csum);
+					DEBUG_LOG("DMI tableLength    = %d\n",
+						eps.dmi.tableLength);
+					DEBUG_LOG("DMI tableAddress   = 0x%lx\n",
+						eps.dmi.tableAddress);
+					DEBUG_LOG("DMI structureCount = %d\n",
+						eps.dmi.structureCount);
+					DEBUG_LOG("DMI bcdRevision    = %x\n",
+						eps.dmi.bcdRevision);
+
+					if (csum == 0 && eps.dmi.tableLength &&
+						eps.dmi.structureCount)
+					{
+						dmiStructureCount = eps.dmi.structureCount;
+						dmiMemory = IOMemoryDescriptor::withPhysicalAddress(
+									eps.dmi.tableAddress, eps.dmi.tableLength,
+									kIODirectionOutIn );
+					}
+					else
+					{
+						DEBUG_LOG("No DMI structure found\n");
+					}
+				}
+
+				epsMemory->release();
+				epsMemory = 0;
+			}
+		}
+
+		tableEntry->release();
+	}
+
+    if ( dmiMemory )
+    {
+        fDMIMemoryMap = dmiMemory->map();
+        if (fDMIMemoryMap)
+        {
+			SMBIOSTable = (void *) fDMIMemoryMap->getVirtualAddress();
+			SMBIOSTableLength =  fDMIMemoryMap->getLength();
+			
+            decodeSMBIOSTable((void *) fDMIMemoryMap->getVirtualAddress(),
+                fDMIMemoryMap->getLength(), dmiStructureCount );
+        }
+        dmiMemory->release();
+        dmiMemory = 0;
+    }
+
+    return (fDMIMemoryMap != 0);
+}
+
+//---------------------------------------------------------------------------
+
+void AppleSMBIOS::
+adjustPCIDeviceEFI( IOService * pciDevice )
+{
+	IOACPIPlatformDevice *	acpiDevice;
+	UInt32					slotNum;
+	OSString *				acpiPath;
+	IORegistryEntry *		acpiEntry = NULL;
+
+	// Does PCI device have an ACPI alias?
+	// N : not built-in, no slot name, exit
+	// Y : goto next
+	//
+	// Does ACPI device have a _SUN object?
+	// N : it's a built in PCI device
+	// Y : indicates a slot (not built-in), goto next
+	//
+	// Match _SUN value against SlotId in SMBIOS PCI slot structures
+
+	do {
+		acpiPath = OSDynamicCast(OSString, pciDevice->getProperty("acpi-path"));
+		if (!acpiPath)
+			break;
+
+		acpiEntry = fromPath(acpiPath->getCStringNoCopy());
+		if (!acpiEntry)
+			break;
+
+		if (!acpiEntry->metaCast("IOACPIPlatformDevice"))
+			break;
+		
+		acpiDevice = (IOACPIPlatformDevice *) acpiEntry;
+
+		if (acpiDevice->evaluateInteger("_SUN", &slotNum) == kIOReturnSuccess)
+		{
+			OSObject * name = getSlotNameWithSlotId(slotNum);
+			if (name)
+			{
+				pciDevice->setProperty("AAPL,slot-name", name);
+				name->release();
+			}
+		}
+		else if (acpiDevice->validateObject("_RMV") == kIOReturnSuccess)
+		{
+			// no slot name?
+		}
+		else
+		{
+			char dummy = '\0';
+			pciDevice->setProperty("built-in", &dummy, 1);
+		}
+	} while (false);
+
+	if (acpiEntry)
+		acpiEntry->release();
+}
+
+#pragma mark -
+
+//---------------------------------------------------------------------------
+
+IOReturn AppleSMBIOS::
+callPlatformFunction( const char * functionName,
+                      bool waitForFunction,
+                      void * param1, void * param2,
+                      void * param3, void * param4 )
+{
+    if (!functionName)
+        return kIOReturnBadArgument;
+
+	// AdjustPCIBridge function is called by the ACPI
+	// platform driver, but is not useful on EFI systems.
+
+    if (!strcmp(functionName, "AdjustPCIDevice"))
+    {
+        IOService * device = (IOService *) param1;
+
+        if (device)
+        {
+			adjustPCIDeviceEFI(device);
+			return kIOReturnSuccess;
+        }
+    }
+
+    return kIOReturnUnsupported;
 }
 
 //---------------------------------------------------------------------------
@@ -299,19 +540,23 @@ void AppleSMBIOS::decodeSMBIOSTable( const void * tableData,
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::decodeSMBIOSStructure( const SMBStructHeader * structureHeader,
-                                    const void *            tableBoundary )
+void AppleSMBIOS::
+decodeSMBIOSStructure( const SMBStructHeader * structureHeader,
+                       const void *            tableBoundary )
 {
     const union SMBStructUnion {
-        SMBStructBIOSInformation      bios;
-        SMBStructSystemInformation    system;
-        SMBStructSystemEnclosure      enclosure;
-        SMBStructProcessorInformation cpu;
-        SMBStructCacheInformation     cache;
-        SMBStructPhysicalMemoryArray  memoryArray;
-        SMBStructMemoryDevice         memoryDevice;
-        SMBStructMemoryModule         memoryModule;
+        SMBBIOSInformation      bios;
+        SMBSystemInformation    system;
+        SMBSystemEnclosure      enclosure;
+        SMBProcessorInformation cpu;
+        SMBCacheInformation     cache;
+        SMBPhysicalMemoryArray  memoryArray;
+        SMBMemoryDevice         memoryDevice;
+        SMBMemoryModule         memoryModule;
+        SMBSystemSlot           slot;
+		SMBFirmwareVolume       fv;
+		SMBMemorySPD            spd;
+        SMBOemProcessorType     oemCpu;
     } * u = (const SMBStructUnion *) structureHeader;
 
     SMBPackedStrings strings = SMBPackedStrings( structureHeader,
@@ -319,117 +564,171 @@ AppleSMBIOS::decodeSMBIOSStructure( const SMBStructHeader * structureHeader,
 
     switch ( structureHeader->type )
     {
-        case kSMBStructTypeBIOSInformation:
+        case kSMBTypeBIOSInformation:
             processSMBIOSStructure( &u->bios, &strings );
             break;
 
-        case kSMBStructTypeSystemInformation:
+        case kSMBTypeSystemInformation:
             processSMBIOSStructure( &u->system, &strings );
             break;
 
-        case kSMBStructTypeSystemEnclosure:
-            processSMBIOSStructure( &u->enclosure, &strings );
-            break;
-
-        case kSMBStructTypeProcessorInformation:
+        case kSMBTypeProcessorInformation:
             processSMBIOSStructure( &u->cpu, &strings );
             break;
 
-        case kSMBStructTypeCacheInformation:
+        case kSMBTypeCacheInformation:
             processSMBIOSStructure( &u->cache, &strings );
             break;
 
-        case kSMBStructTypeMemoryDevice:
+        case kSMBTypeMemoryDevice:
             processSMBIOSStructure( &u->memoryDevice, &strings );
             break;
 
-        case kSMBStructTypeMemoryModule:
+        case kSMBTypeMemoryModule:
             processSMBIOSStructure( &u->memoryModule, &strings );
             break;
+
+        case kSMBTypeSystemSlot:
+            processSMBIOSStructure( &u->slot, &strings );
+            break;
+
+        case kSMBTypeFirmwareVolume:
+			processSMBIOSStructure( &u->fv, &strings );
+			break;
+		
+		case kSMBTypeMemorySPD:
+			processSMBIOSStructure( &u->spd, &strings );
+			break;
+
+        case kSMBTypeOemProcessorType:
+			processSMBIOSStructure( &u->oemCpu, &strings );
+			break;
     }
 }
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructBIOSInformation * bios,
-                                     SMBPackedStrings * strings )
+
+const SMBStructHeader * AppleSMBIOS::getSMBIOSRecord( SMBWord record ) {
+    const SMBStructHeader * header;
+    const UInt8 *           next = (const UInt8 *) SMBIOSTable;
+    const UInt8 *           end  = next + SMBIOSTableLength;
+	
+	if( !SMBIOSTable ) return NULL;
+
+    while (end > next + sizeof(SMBStructHeader) )
+    {
+        header = (const SMBStructHeader *) next;
+        if (header->length > end - next) break;
+		
+		if(header->handle == record) return header;
+
+        // Skip the formatted area of the structure.
+        next += header->length;
+
+        // Skip the unformatted structure area at the end (strings).
+        // Look for a terminating double NULL.
+
+        for ( ; end > next + sizeof(SMBStructHeader); next++ )
+        {
+            if ( next[0] == 0 && next[1] == 0 )
+            {
+                next += 2; break;
+            }
+        }
+    }
+	
+	return NULL;
+}
+
+
+//---------------------------------------------------------------------------
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBBIOSInformation * bios,
+                        SMBPackedStrings * strings )
 {
     char location[9];
 
-    if ( bios->header.length < sizeof(SMBStructBIOSInformation) ) return;
+    if (bios->header.length < sizeof(SMBBIOSInformation))
+        return;
 
-    IOService * romNode = new IOService;
-
-    if ( romNode && (false == romNode->init())) {
-        romNode->release();
-        romNode = 0;
-    }
-    if ( romNode )
+	if (!fROMNode)
+	{
+		fROMNode = OSTypeAlloc( IOService );
+		if (fROMNode && (false == fROMNode->init()))
+		{
+			fROMNode->release();
+			fROMNode = 0;
+		}
+	}
+    if (fROMNode)
     {
-        romNode->setName("rom");
         sprintf(location, "%x", bios->startSegment << 4);
-        romNode->setLocation(location);
+        fROMNode->setLocation(location);
 
-        strings->setDataProperty(romNode, "vendor", bios->vendor);
-        strings->setDataProperty(romNode, "version", bios->version);
-        strings->setDataProperty(romNode, "release-date", bios->releaseDate);
-        strings->setDataProperty(romNode, "characteristics",
+        strings->setDataProperty(fROMNode, "vendor", bios->vendor);
+        strings->setDataProperty(fROMNode, "version", bios->version);
+        strings->setDataProperty(fROMNode, "release-date", bios->releaseDate);
+        strings->setDataProperty(fROMNode, "characteristics",
                                            bios->characteristics);
 
-        romNode->setProperty("rom-size", (bios->romSize + 1) * 0x10000, 32 );
-
-        romNode->attachToParent( _platform, gIODTPlane );
-        romNode->release();
+        fROMNode->setProperty("rom-size", (bios->romSize + 1) * 0x10000, 32 );
     }
 }
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructSystemInformation * sys,
-                                     SMBPackedStrings * strings )
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBSystemInformation * sys,
+                        SMBPackedStrings * strings )
 {
-	if ( sys->header.length < 8 ) return;
-    strings->setDataProperty(_platform, "manufacturer", sys->manufacturer);
-    strings->setDataProperty(_platform, "product-name", sys->productName);
-    strings->setDataProperty(_platform, "version", sys->version);
-    strings->setDataProperty(_platform, "serial-number", sys->serialNumber);
+	UInt8 length;
+	
+    if (sys->header.length < 8)
+        return;
 
-    //IOLog("manufacturer = %s\n", strings->stringAtIndex(sys->manufacturer));
-    //IOLog("product-name = %s\n", strings->stringAtIndex(sys->productName));
+    strings->setDataProperty(fRoot, "manufacturer",  sys->manufacturer);
+    strings->setDataProperty(fRoot, "product-name",  sys->productName);
+    strings->setDataProperty(fRoot, "version",       sys->version);
+
+    const char *serialNumberString = strings->stringAtIndex(sys->serialNumber, &length);
+	// The serial-number property in the IORegistry is a 43-byte data object.
+	// Bytes 0 through 2 are the last three bytes of the serial number string.
+	// Bytes 11 through 20, inclusive, are the serial number string itself.
+	// All other bytes are '\0'.
+	OSData * data = OSData::withCapacity(43);
+	if (data)
+	{
+		data->appendBytes(serialNumberString + (length - 3), 3);
+		data->appendBytes(NULL, 10);
+		data->appendBytes(serialNumberString, length);
+		data->appendBytes(NULL, 43 - length - 10 - 3);
+		fRoot->setProperty("serial-number", data);
+		data->release();
+	}
+
+	strings->setStringProperty(fRoot, kIOPlatformSerialNumberKey, sys->serialNumber);
+
+	if (fVerbose)
+	{
+		IOLog("--- SMBIOS System Information --\n");
+		IOLog("manufacturer = %s\n", strings->stringAtIndex(sys->manufacturer));
+		IOLog("productName  = %s\n", strings->stringAtIndex(sys->productName));
+		IOLog("version	    = %s\n", strings->stringAtIndex(sys->version));
+		IOLog("serialNumber = %s\n", strings->stringAtIndex(sys->serialNumber));
+	}
 }
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructSystemEnclosure * sys,
-                                     SMBPackedStrings * strings )
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBProcessorInformation * cpu,
+                        SMBPackedStrings * strings )
 {
-#if 0
-    IOLog("enclosure:\n");
-    IOLog("manufacturer = %s\n", strings->stringAtIndex(sys->manufacturer));
-    IOLog("type = 0x%x\n", sys->type);
-    IOLog("version = %s\n", strings->stringAtIndex(sys->version));
-    IOLog("serial-number = %s\n", strings->stringAtIndex(sys->serialNumber));
-    IOLog("asset-tag-number = %s\n", strings->stringAtIndex(sys->assetTagNumber));
-    IOLog("bootup-state = 0x%x\n", sys->bootupState);
-    IOLog("power-supply-state = 0x%x\n", sys->powerSupplyState);
-    IOLog("thermal-state = 0x%x\n", sys->thermalState);
-    IOLog("security-status = 0x%x\n", sys->securityStatus);
-    IOLog("oem-defined = 0x%x\n", sys->oemDefined);
-#endif
-}
+    if (cpu->header.length < 26)
+        return;
 
-//---------------------------------------------------------------------------
-
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructProcessorInformation * cpu,
-                                     SMBPackedStrings * strings )
-{
-	if ( cpu->header.length < 26 ) return;
-
-    if (_verbose)
+    if (fVerbose)
     {
         IOLog("--- SMBIOS Processor Information --\n");
         IOLog("socketDesignation = %s\n",  
@@ -452,22 +751,38 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructProcessorInformation * cpu,
     }
 
     UInt32 busClockRateMHz = cpu->externalClock;
+    UInt32 maxClockRateMHz = cpu->maximumClock;
 
     if (busClockRateMHz > 0) {
-        callPlatformFunction("SetBusClockRateMHz",     /* function */
-                             false,                    /* waitForFunction */
-                             (void *) busClockRateMHz, /* speed in MHz */
-                             0, 0, 0);
+
+        i386_cpu_info_t * cpuinfo = cpuid_info();
+        IOService *       platform = getPlatform();
+
+        if (!strncmp(cpuinfo->cpuid_vendor, CPUID_VID_INTEL, 
+            sizeof(CPUID_VID_INTEL)) &&
+            (cpuinfo->cpuid_features & CPUID_FEATURE_SSE2))
+        {
+            // convert from FSB to quad-pumped bus speed
+            busClockRateMHz *= 4;
+        }
+
+        platform->callPlatformFunction(
+								"SetBusClockRateMHz",     /* function */
+								false,                    /* waitForFunction */
+								(void *) busClockRateMHz, /* speed in MHz */
+								(void *) maxClockRateMHz,
+								0,
+								0);
     }
 }
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructCacheInformation * cache,
-                                     SMBPackedStrings * strings )
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBCacheInformation * cache,
+                        SMBPackedStrings * strings )
 {
-    if (_verbose)
+    if (fVerbose)
     {
         IOLog("--- SMBIOS Cache Information --\n");
         IOLog("cache socket   = %s\n",
@@ -480,12 +795,42 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructCacheInformation * cache,
 
 //---------------------------------------------------------------------------
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryDevice * memory,
-                                     SMBPackedStrings * strings )
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBSystemSlot * slot,
+                        SMBPackedStrings * strings )
 {
-	UInt8        deviceLocatorLength;
-	const char * deviceLocatorString;
+    SystemSlotEntry * slotEntry;
+
+    if (slot->header.length < 12)
+        return;
+
+    slotEntry = IONew(SystemSlotEntry, 1);
+    if (slotEntry)
+    {
+        memset(slotEntry, 0, sizeof(*slotEntry));
+
+        slotEntry->slotID    = slot->slotID;
+        slotEntry->slotType  = slot->slotType;
+        slotEntry->slotUsage = slot->currentUsage;
+        slotEntry->slotName  = strings->stringAtIndex(slot->slotDesignation);
+
+        queue_enter(fSlotQueueHead, slotEntry, SystemSlotEntry *, chain);
+    }
+
+    DEBUG_LOG("Slot type %x, width %x, usage %x, ID %x, char1 %x\n",
+        slot->slotType, slot->slotDataBusWidth, slot->currentUsage,
+        slot->slotID, slot->slotCharacteristics1);
+}
+
+//---------------------------------------------------------------------------
+#pragma mark Type 17 - kSMBTypeMemoryDevice
+
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBMemoryDevice * memory,
+                        SMBPackedStrings * strings )
+{
+    UInt8        deviceLocatorLength;
+    const char * deviceLocatorString;
     UInt8        bankLocatorLength;
     const char * bankLocatorString;
     UInt8        memoryType;
@@ -495,10 +840,19 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryDevice * memory,
         UInt32 ul[2];
     } memoryBytes;
 
-    if (memInfoSource == kMemoryModuleInfo) return;
-    memInfoSource = kMemoryDeviceInfo;
+    if (memory->header.length < 21)
+        return;
 
-	if ( memory->header.length < 21 ) return;
+    if (memInfoSource == kMemoryModuleInfo)
+    {
+        memSlotsData->initWithCapacity(kMemDataSize);
+        memTypesData->initWithCapacity(kMemDataSize);
+        memSizesData->initWithCapacity(kMemDataSize);
+        memSpeedData->initWithCapacity(kMemDataSize);
+        memSizeTotal = 0;
+    }
+
+    memInfoSource = kMemoryDeviceInfo;
 
     // update memSlotsData
 
@@ -508,16 +862,27 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryDevice * memory,
     bankLocatorString = strings->stringAtIndex( memory->bankLocator, 
                                                 &bankLocatorLength );
 
+	if (!memory->deviceLocator)
+	{
+		deviceLocatorString = "Location";
+		deviceLocatorLength = strlen(deviceLocatorString);
+	}
+	if (!memory->bankLocator)
+	{
+		bankLocatorString = "Bank";
+		bankLocatorLength = strlen(bankLocatorString);
+	}
+
     if ( deviceLocatorLength || bankLocatorString )
     {
         if ( memSlotsData->getLength() == 0 )
-            memSlotsData->appendBytes("   ", 4);
-        if ( deviceLocatorLength )
-            memSlotsData->appendBytes( deviceLocatorString, deviceLocatorLength );
-        if ( deviceLocatorLength && bankLocatorLength )
-            memSlotsData->appendByte('/', 1);
+		   memSlotsData->appendBytes("   ", 4);
         if ( bankLocatorLength )
             memSlotsData->appendBytes( bankLocatorString, bankLocatorLength );
+        if ( deviceLocatorLength && bankLocatorLength )
+            memSlotsData->appendByte('/', 1);
+        if ( deviceLocatorLength )
+            memSlotsData->appendBytes( deviceLocatorString, deviceLocatorLength );
         memSlotsData->appendByte('\0', 1);
     }
 
@@ -536,12 +901,14 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryDevice * memory,
     }
 #endif /* 0 */
 
-    memoryType = memory->memoryType;
-    if ( memoryType > kSMBMemoryDeviceTypeCount - 1 )
-        memoryType = 0x02; // unknown type
 
-    memTypesData->appendBytes( SMBMemoryDeviceTypes[memoryType],
-                        strlen(SMBMemoryDeviceTypes[memoryType]) + 1 );
+	memoryType = memory->memoryType;
+	if ( memoryType > kSMBMemoryDeviceTypeCount - 1 )
+		memoryType = 0x02; // unknown type
+
+	memTypesData->appendBytes( SMBMemoryDeviceTypes[memoryType],
+						strlen(SMBMemoryDeviceTypes[memoryType]) + 1 );
+
 
     // update memSizesData
 
@@ -549,21 +916,30 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryDevice * memory,
     if ((memory->memorySize & 0x8000) == 0)
         memoryBytes.ull *= 1024;
 
+    memSizeTotal += memoryBytes.ull;
     memSizesData->appendBytes( &memoryBytes.ul[1], 4 );
     memSizesData->appendBytes( &memoryBytes.ul[0], 4 );
 
-    // What about
-    // "dimm-speeds", "available", "dimm-info"
+    if (memory->header.length >= 27)
+    {
+        char speedText[16];
+
+		snprintf(speedText, sizeof(speedText), "%u MHz", memory->memorySpeed);
+		memSpeedData->appendBytes(speedText, strlen(speedText) + 1);
+    }
+
+    // What about "available", "mem-info" prop?
 }
 
 //---------------------------------------------------------------------------
+#pragma mark Type 6 - kSMBTypeMemoryModule
 
-void
-AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryModule * memory,
-                                     SMBPackedStrings * strings )
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBMemoryModule * memory,
+                        SMBPackedStrings * strings )
 {
-	UInt8        socketLength;
-	const char * socketString;
+    UInt8        socketLength;
+    const char * socketString;
     UInt8        memorySize;
 
     union {
@@ -571,11 +947,13 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryModule * memory,
         UInt32 ul[2];
     } memoryBytes;
 
-    if (memInfoSource == kMemoryDeviceInfo) return;
-    memInfoSource = kMemoryModuleInfo;
-
-	if (memory->header.length < sizeof(SMBStructMemoryModule))
+    if (memory->header.length < sizeof(SMBMemoryModule))
         return;
+
+    if (memInfoSource == kMemoryDeviceInfo)
+        return;
+
+    memInfoSource = kMemoryModuleInfo;
 
     // update memSlotsData
 
@@ -603,28 +981,160 @@ AppleSMBIOS::processSMBIOSStructure( const SMBStructMemoryModule * memory,
     else
         memoryBytes.ull = (1ULL << memorySize) * (1024 * 1024);
 
+    memSizeTotal += memoryBytes.ull;
     memSizesData->appendBytes( &memoryBytes.ul[1], 4 );
     memSizesData->appendBytes( &memoryBytes.ul[0], 4 );
 }
 
 //---------------------------------------------------------------------------
 
-void AppleSMBIOS::updateDeviceTree()
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBFirmwareVolume *       fv,
+						SMBPackedStrings *              strings )
 {
-    IOService * memoryNode = new IOService;
+	const FW_REGION_INFO * regionInfo = NULL;
 
-    if ( memoryNode && (false == memoryNode->init())) {
+    if (fv->header.length < sizeof(SMBFirmwareVolume))
+        return;
+
+	for (int i = 0; i < fv->RegionCount; i++)
+	{
+		if (fv->RegionType[i] == FW_REGION_MAIN)
+		{
+			regionInfo = &fv->FlashMap[i];
+			break;
+		}
+	}
+
+	if (regionInfo && (regionInfo->EndAddress > regionInfo->StartAddress))
+	{
+		if (!fROMNode)
+		{
+			fROMNode = OSTypeAlloc( IOService );
+			if (fROMNode && (false == fROMNode->init()))
+			{
+				fROMNode->release();
+				fROMNode = 0;
+			}
+		}
+		if (fROMNode)
+		{
+			fROMNode->setProperty("fv-main-address",
+				regionInfo->StartAddress, 32 );
+
+			fROMNode->setProperty("fv-main-size",
+				regionInfo->EndAddress - regionInfo->StartAddress + 1, 32 );
+		}
+	}
+}
+
+//---------------------------------------------------------------------------
+
+#pragma mark Type 130 - kSMBTypeMemorySPD
+
+void AppleSMBIOS::
+processSMBIOSStructure( const SMBMemorySPD *       spd,
+						SMBPackedStrings *              strings )
+{
+	unsigned int dataSize;
+	
+	if(spd->Offset > 127) return; // Only care about the first 128 bytes of spd data
+	
+	dataSize = (spd->Size + spd->Offset) > 128 ? 128 - spd->Offset : spd->Size;
+	memInfoData->appendBytes(spd->Data, dataSize);
+
+}
+
+//---------------------------------------------------------------------------
+
+#pragma mark Type 131 - kSMBTypeOemProcessorType
+
+void AppleSMBIOS::
+processSMBIOSStructure(
+    const SMBOemProcessorType *     cpu,
+    SMBPackedStrings *              strings )
+{
+	IORegistryEntry *		cpus;
+	IORegistryEntry *		child;
+	IORegistryIterator *	iter;
+
+	if (cpu->header.length < sizeof(SMBOemProcessorType))
+		return;
+
+	cpus = IORegistryEntry::fromPath("/cpus", gIODTPlane);
+	if (cpus)
+	{
+		iter = IORegistryIterator::iterateOver( cpus, gIODTPlane );
+		if (iter)
+		{
+			while ((child = iter->getNextObject()))
+			{
+				child->setProperty(
+					"cpu-type", (void *) &cpu->ProcessorType,
+					sizeof(cpu->ProcessorType));
+			}
+			iter->release();
+		}
+		cpus->release();
+	}
+}
+
+//---------------------------------------------------------------------------
+
+void AppleSMBIOS::updateDeviceTree( void )
+{
+    IOService * memoryNode = OSTypeAlloc( IOService );
+
+    if (memoryNode && (false == memoryNode->init()))
+    {
         memoryNode->release();
         memoryNode = 0;
     }
-    if ( memoryNode )
+    if (memoryNode)
     {
         memoryNode->setName("memory");
-        // memoryNode->setLocation("0");
-        memoryNode->setProperty( "slot-names", memSlotsData );
-        memoryNode->setProperty( "dimm-types", memTypesData );
-        memoryNode->setProperty( "reg",        memSizesData );
-        memoryNode->attachToParent( _platform, gIODTPlane );
+        //memoryNode->setLocation("0");
+        memoryNode->setProperty( "slot-names",  memSlotsData );
+        memoryNode->setProperty( "dimm-types",  memTypesData );
+        memoryNode->setProperty( "reg",         memSizesData );
+        if (memSpeedData->getLength())
+        {
+            memoryNode->setProperty( "dimm-speeds", memSpeedData );
+		}
+
+		if (memInfoData->getLength() == 0)
+		{
+            memInfoData->appendBytes(0, (memSizesData->getLength() / 8) * 128);
+		}
+
+		memoryNode->setProperty( "dimm-info", memInfoData );
+				
+        memoryNode->attachToParent( fRoot, gIODTPlane );
         memoryNode->release();
     }
+
+    // Update max_mem kernel variable with the total size of installed RAM
+
+    if (memSizeTotal && (memSizeTotal > max_mem))
+    {
+        UInt32 bootMaxMem = 0;
+        
+        if (PE_parse_boot_arg("maxmem", &bootMaxMem) && bootMaxMem)
+        {
+            UInt64 limit = ((UInt64) bootMaxMem) * 1024ULL * 1024ULL;
+
+            if (memSizeTotal > limit)
+                memSizeTotal = limit;
+        }
+
+        max_mem = memSizeTotal;
+    }
+
+	if (fROMNode)
+	{
+		fROMNode->setName("rom");
+        fROMNode->attachToParent( fRoot, gIODTPlane );
+        fROMNode->release();
+		fROMNode = 0;
+	}
 }

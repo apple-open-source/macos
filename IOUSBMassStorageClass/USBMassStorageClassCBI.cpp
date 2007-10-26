@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 #include <IOKit/usb/IOUSBMassStorageClass.h>
+#include "Debugging.h"
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Macros
@@ -88,7 +89,7 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
 	IOReturn			status;
 	CBIRequestBlock *	theCBIRequestBlock;
 	
-	if ( GetInterfaceReference() == NULL )
+	if ( fTerminating == true )
 	{
  		// We have an invalid interface, the device has probably been removed.
  		// Nothing else to do except to report an error.
@@ -98,6 +99,9 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
 	theCBIRequestBlock = GetCBIRequestBlock();
 
 	bzero( theCBIRequestBlock, sizeof(CBIRequestBlock) );
+    
+    // After having bzero'd the struct we need reset the cbiPhaseDesc to fCBIMemoryDescriptor.
+    fCBICommandRequestBlock.cbiPhaseDesc = fCBIMemoryDescriptor;
 
 	// Get a local copy of the callers cdb
 	GetCommandDescriptorBlock( request, &theCBIRequestBlock->cbiCDB );
@@ -125,7 +129,7 @@ IOUSBMassStorageClass::SendSCSICommandForCBIProtocol( SCSITaskIdentifier request
 														GetTimeoutDuration( theCBIRequestBlock->request ),  // Use the client's timeout for both
 														GetTimeoutDuration( theCBIRequestBlock->request ),
 														&theCBIRequestBlock->cbiCompletion );
-   	STATUS_LOG(( 5, "%s[%p]: SendSCSICommandForCBIProtocol DeviceRequest returned %d", getName(), this, status ));
+   	STATUS_LOG(( 5, "%s[%p]: SendSCSICommandForCBIProtocol DeviceRequest returned %x", getName(), this, status ));
    	if ( status != kIOReturnSuccess )
    	{
    		ReleaseCBIRequestBlock( theCBIRequestBlock );
@@ -194,7 +198,7 @@ IOUSBMassStorageClass::CBIProtocolTransferData(
 					&cbiRequestBlock->cbiCompletion );
 	}
 
-   	STATUS_LOG(( 5, "%s[%p]: CBIProtocolTransferData returned %d", getName(), this, status ));
+   	STATUS_LOG(( 5, "%s[%p]: CBIProtocolTransferData returned %x", getName(), this, status ));
 	return status;
 }
 
@@ -208,26 +212,20 @@ IOUSBMassStorageClass::CBIProtocolReadInterrupt(
 						CBIRequestBlock *		cbiRequestBlock,
 						UInt32					nextExecutionState )
 {
-	IOReturn 			status;
+	IOReturn 			status  =   kIOReturnError;
 
-	// Allocate the memory descriptor needed to send the CBW out
-	cbiRequestBlock->cbiPhaseDesc = IOMemoryDescriptor::withAddress(
-										&cbiRequestBlock->cbiGetStatusBuffer, 
-										kUSBStorageAutoStatusSize, 
-										kIODirectionIn);
-	if ( cbiRequestBlock->cbiPhaseDesc == NULL )
-	{
-		// The memory descriptor could not be allocated and so the command
-		// can not be sent to the device, return an error.
-		return kIOReturnNoResources;
-	}
+    // Ensure we still have a valid IOMemoryDescriptor.
+	require ( ( cbiRequestBlock->cbiPhaseDesc != NULL ), Exit );
 	
 	// Set the next state to be executed
 	cbiRequestBlock->currentState = nextExecutionState;
 
 	// Start a read from the interrupt pipe
 	status = GetInterruptPipe()->Read( cbiRequestBlock->cbiPhaseDesc, &cbiRequestBlock->cbiCompletion);
-   	STATUS_LOG(( 5, "%s[%p]: CBIProtocolReadInterrupt returned %d", getName(), this, status ));
+   	STATUS_LOG(( 5, "%s[%p]: CBIProtocolReadInterrupt returned %x", getName(), this, status ));
+	
+    
+Exit:
     
 	return status;
 }
@@ -257,7 +255,7 @@ IOUSBMassStorageClass::CBIGetStatusEndpointStatus(
 	
 	// Call the default GetStatusEndpointStatus method
 	status = GetStatusEndpointStatus( targetPipe, &cbiRequestBlock->cbiGetStatusBuffer, &cbiRequestBlock->cbiCompletion );
-   	STATUS_LOG(( 5, "%s[%p]: CBIGetStatusEndpointStatus returned %d", getName(), this, status ));
+   	STATUS_LOG(( 5, "%s[%p]: CBIGetStatusEndpointStatus returned %x", getName(), this, status ));
 	
 ErrorExit:
 	
@@ -289,7 +287,7 @@ IOUSBMassStorageClass::CBIClearFeatureEndpointStall(
 	
 	// Call the default ClearFeatureEndpointStall method
 	status = ClearFeatureEndpointStall( targetPipe, &cbiRequestBlock->cbiCompletion );
-   	STATUS_LOG(( 5, "%s[%p]: CBIClearFeatureEndpointStall returned %d", getName(), this, status ));
+   	STATUS_LOG(( 5, "%s[%p]: CBIClearFeatureEndpointStall returned %x", getName(), this, status ));
 	
 ErrorExit:
 	
@@ -314,11 +312,11 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 	{
 		// The request field is NULL, this appears to be a double callback, do nothing.
         // OR the command was aborted earlier, do nothing.
-		STATUS_LOG(( 4, "%s[%p]: cbiRequestBlock->request is NULL, returned %d", getName(), this, resultingStatus ));
+		STATUS_LOG(( 4, "%s[%p]: cbiRequestBlock->request is NULL, returned %x", getName(), this, resultingStatus ));
 		return;
 	}
 	
-	if ( GetInterfaceReference() == NULL )
+	if ( fTerminating == true )
 	{
 		// Our interface has been closed, probably because of an
 		// unplug, return an error for the command since there it
@@ -334,7 +332,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 	{
 		case kCBIExecuteCommand:		// Device request completion
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand status %d", getName(), this, resultingStatus ));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand status %x", getName(), this, resultingStatus ));
 			
 #if defined (__i386__) 
 			// For UHCI.
@@ -360,7 +358,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 					commandInProgress = true;
 				}
    				
-   				STATUS_LOG(( 4, "%s[%p]: kCBIExecuteCommand GetStatusEndpointStatus status %d", getName(), this, status ));
+   				STATUS_LOG(( 4, "%s[%p]: kCBIExecuteCommand GetStatusEndpointStatus status %x", getName(), this, status ));
 			}
 			else
 			{
@@ -369,7 +367,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 				if ( GetDataTransferDirection( cbiRequestBlock->request ) == kSCSIDataTransfer_NoDataTransfer )
 				{
 					status = kIOReturnSuccess;
-   					STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand no data to transfer status %d", getName(), this, status ));
+   					STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand no data to transfer status %x", getName(), this, status ));
 					break;
 				}
 				
@@ -379,7 +377,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 					commandInProgress = true;
 				}
 
-   				STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand CBIProtocolTransferData status %d", getName(), this, status ));
+   				STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand CBIProtocolTransferData status %x", getName(), this, status ));
 			}
 		}
 		break;
@@ -461,7 +459,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 					commandInProgress = true;
 				}
    					
-   				STATUS_LOG(( 5, "%s[%p]: kCBIBulkIOComplete GetStatusEndpointStatus status %d", getName(), this, status ));
+   				STATUS_LOG(( 5, "%s[%p]: kCBIBulkIOComplete GetStatusEndpointStatus status %x", getName(), this, status ));
 			}
 			else
 			{
@@ -475,7 +473,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 						commandInProgress = true;
 					}
 
-   					STATUS_LOG(( 5, "%s[%p]: kCBIBulkIOComplete CBIProtocolReadInterrupt status %d", getName(), this, status ));
+   					STATUS_LOG(( 5, "%s[%p]: kCBIBulkIOComplete CBIProtocolReadInterrupt status %x", getName(), this, status ));
 				}
 				else
 				{
@@ -487,10 +485,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 
 		case kCBIReadInterruptComplete:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIReadInterruptComplete status %d", getName(), this, resultingStatus ));
-
-			// Release the memory descriptor for the interrupt pipe.
-			cbiRequestBlock->cbiPhaseDesc->release();
+   			STATUS_LOG(( 5, "%s[%p]: kCBIReadInterruptComplete status %x", getName(), this, resultingStatus ));
 			
 			// What should the status really be, should probably process and return
 			// a relevent error.
@@ -529,13 +524,13 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 				status = kIOReturnError;
 			}
    			
-   			STATUS_LOG(( 5, "%s[%p]: kCBIReadInterruptComplete ending status %d", getName(), this, status ));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIReadInterruptComplete ending status %x", getName(), this, status ));
 		}
 		break;
 
 		case kCBIGetStatusControlEndpointComplete:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete status %d", getName(), this, resultingStatus ));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete status %x", getName(), this, resultingStatus ));
 
 			if ( resultingStatus == kIOReturnSuccess )
 			{
@@ -548,7 +543,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 						commandInProgress = true;
 					}
 
-   					STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIClearFeatureEndpointStall status %d", getName(), this, status ));
+   					STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIClearFeatureEndpointStall status %x", getName(), this, status ));
 				}
 				else
 				{
@@ -581,7 +576,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 							commandInProgress = true;
 						}
 
-   						STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIGetStatusEndpointStatus status %d", getName(), this, status ));
+   						STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIGetStatusEndpointStatus status %x", getName(), this, status ));
 					}
 				}
 			}
@@ -594,14 +589,14 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 					commandInProgress = true;
 				}
    						
-   				STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIClearFeatureEndpointStall status %d", getName(), this, status ));
+   				STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusControlEndpointComplete CBIClearFeatureEndpointStall status %x", getName(), this, status ));
 			}
 		}
 		break;
 		
 		case kCBIClearControlEndpointComplete:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIClearControlEndpointComplete status %d", getName(), this, resultingStatus ));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIClearControlEndpointComplete status %x", getName(), this, resultingStatus ));
 
 			if (resultingStatus == kIOReturnSuccess)
 			{
@@ -634,7 +629,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 						commandInProgress = true;
 					}
 
-   					STATUS_LOG(( 5, "%s[%p]: kCBIClearControlEndpointComplete CBIGetStatusEndpointStatus status %d", getName(), this, status ));
+   					STATUS_LOG(( 5, "%s[%p]: kCBIClearControlEndpointComplete CBIGetStatusEndpointStatus status %x", getName(), this, status ));
 				}
 			}
 			else
@@ -646,7 +641,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
 		case kCBIGetStatusBulkEndpointComplete:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete status %d", getName(), this, resultingStatus));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete status %x", getName(), this, resultingStatus));
 
 			if (resultingStatus == kIOReturnSuccess)
 			{
@@ -673,7 +668,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 						commandInProgress = true;
 					}
    					
-   					STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete CBIClearFeatureEndpointStall status %d", getName(), this, status ));
+   					STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete CBIClearFeatureEndpointStall status %x", getName(), this, status ));
 				}
 				else
 				{
@@ -704,14 +699,14 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 					commandInProgress = true;
 				}
 
-   				STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete CBIClearFeatureEndpointStall status %d", getName(), this, status ));
+   				STATUS_LOG(( 5, "%s[%p]: kCBIGetStatusBulkEndpointComplete CBIClearFeatureEndpointStall status %x", getName(), this, status ));
 			}
 		}
 		break;
 
 		case kCBIClearBulkEndpointComplete:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: kCBIClearBulkEndpointComplete status %d", getName(), this, resultingStatus ));
+   			STATUS_LOG(( 5, "%s[%p]: kCBIClearBulkEndpointComplete status %x", getName(), this, resultingStatus ));
 
 			SetRealizedDataTransferCount( cbiRequestBlock->request, 0 );
 			status = kIOReturnError;
@@ -720,7 +715,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
 		default:
 		{
-   			STATUS_LOG(( 5, "%s[%p]: default case status %d", getName(), this, resultingStatus ));
+   			STATUS_LOG(( 5, "%s[%p]: default case status %x", getName(), this, resultingStatus ));
 
 			SetRealizedDataTransferCount( cbiRequestBlock->request, 0 );
 			status = kIOReturnError;

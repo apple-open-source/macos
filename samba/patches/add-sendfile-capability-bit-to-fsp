@@ -1,0 +1,50 @@
+Index: samba/source/include/smb.h
+===================================================================
+--- samba/source/include/smb.h.orig
++++ samba/source/include/smb.h
+@@ -520,6 +520,7 @@ typedef struct files_struct {
+ 	BOOL modified;
+ 	BOOL is_directory;
+ 	BOOL is_stat;
++	BOOL is_sendfile_capable;
+ 	BOOL aio_write_behind;
+ 	BOOL lockdb_clean;
+ 	BOOL initial_delete_on_close; /* Only set at NTCreateX if file was created. */
+Index: samba/source/modules/vfs_default.c
+===================================================================
+--- samba/source/modules/vfs_default.c.orig
++++ samba/source/modules/vfs_default.c
+@@ -195,6 +195,11 @@ static int vfswrap_open(vfs_handle_struc
+ 	START_PROFILE(syscall_open);
+ 	result = sys_open(fname, flags, mode);
+ 	END_PROFILE(syscall_open);
++
++	if (result != -1) {
++		fsp->is_sendfile_capable = lp_use_sendfile(SNUM(handle->conn));
++	}
++
+ 	return result;
+ }
+ 
+Index: samba/source/smbd/reply.c
+===================================================================
+--- samba/source/smbd/reply.c.orig
++++ samba/source/smbd/reply.c
+@@ -2217,7 +2217,7 @@ void send_file_readbraw(connection_struc
+ 	 */
+ 
+ 	if ( (chain_size == 0) && (nread > 0) &&
+-	    (fsp->wcp == NULL) && lp_use_sendfile(SNUM(conn)) ) {
++	    (fsp->wcp == NULL) && (fsp->is_sendfile_capable) ) {
+ 		DATA_BLOB header;
+ 
+ 		_smb_setlen(outbuf,nread);
+@@ -2560,7 +2560,7 @@ int send_file_readX(connection_struct *c
+ 	 */
+ 
+ 	if ((chain_size == 0) && (CVAL(inbuf,smb_vwv0) == 0xFF) &&
+-	    lp_use_sendfile(SNUM(conn)) && (fsp->wcp == NULL) ) {
++	    (fsp->is_sendfile_capable) && (fsp->wcp == NULL) ) {
+ 		SMB_STRUCT_STAT sbuf;
+ 		DATA_BLOB header;
+ 

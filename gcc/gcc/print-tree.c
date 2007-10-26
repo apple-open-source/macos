@@ -340,12 +340,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
       if (DECL_NONLOCAL (node))
 	fputs (" nonlocal", file);
       /* APPLE LOCAL begin CW asm blocks */
-      if (DECL_CW_ASM_FUNCTION (node))
+      if (DECL_IASM_ASM_FUNCTION (node))
         fputs (" asm-function", file);
-      if (DECL_CW_ASM_NORETURN (node))
+      if (DECL_IASM_NORETURN (node))
         fputs (" asm-noreturn", file);
-      if (DECL_CW_ASM_FRAME_SIZE (node) != (unsigned int)-2)
-        fprintf (file, " asm-frame-size %d", DECL_CW_ASM_FRAME_SIZE (node));
+      if (DECL_IASM_FRAME_SIZE (node) != (unsigned int)-2)
+        fprintf (file, " asm-frame-size %d", DECL_IASM_FRAME_SIZE (node));
       /* APPLE LOCAL end CW asm blocks */
       if (TREE_CODE (node) == TYPE_DECL && TYPE_DECL_SUPPRESS_DEBUG (node))
 	fputs (" suppress-debug", file);

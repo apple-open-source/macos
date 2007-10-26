@@ -20,51 +20,53 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pwd.h>
+#include "config.h"
+#include "pwd.h"
+#include "xalloc.h"
 
-char* win32getlogin();
 static char *lookup_env (char **);
 
 /* where people might scribble their name into the environment ... */
 
 static char *login_strings[] =
 {
-  "LOGIN", "USER", "MAILNAME", (char *) 0
+  "LOGIN", "USER", "MAILNAME", "USERNAME", NULL
 };
 
 static char *group_strings[] =
 {
-  "GROUP", (char *) 0
+  "GROUP", NULL
 };
 
 
 static char *anonymous = "anonymous";	/* if all else fails ... */
 
-static char *home_dir = ".";	/* we feel (no|every)where at home */
-static char *login_shell = "not command.com!";
-
-static char *login = (char *) 0;/* cache the names here	*/
-static char *group = (char *) 0;
+static char *login = NULL;/* cache the names here	*/
+static char *group = NULL;
 
 static struct passwd pw;	/* should we return a malloc()'d structure   */
 static struct group gr;		/* instead of pointers to static structures? */
+
+/* implement limited uid behavior */
+#define my_fake_uid ((const uid_t) 4545)
+#define my_fake_gid my_fake_uid
 
 /* return something like a username in a (butchered!) passwd structure. */
 struct passwd *
 getpwuid (int uid)
 {
   pw.pw_name = getlogin ();
-  pw.pw_dir = home_dir;
-  pw.pw_shell = login_shell;
+  pw.pw_dir = woe32_home_dir ();
+  pw.pw_shell = woe32_shell ();
   pw.pw_uid = 0;
 
   return &pw;
 }
 
 struct passwd *
-getpwnam (char *name)
+getpwnam (const char *name)
 {
-  return (struct passwd *) 0;
+  return NULL;
 }
 
 /* return something like a groupname in a (butchered!) group structure. */
@@ -78,14 +80,14 @@ getgrgid (int uid)
 }
 
 struct group *
-getgrnam (char *name)
+getgrnam (const char *name)
 {
-  return (struct group *) 0;
+  return NULL;
 }
 
 /* return something like a username. */
 char *
-getlogin ()
+getlogin (void)
 {
   /* This is how a windows user would override their login name. */
   if (!login)
@@ -93,7 +95,7 @@ getlogin ()
 
   /* In the absence of user override, ask the operating system. */
   if (!login)
-     login = win32getlogin();
+     login = woe32_getlogin ();
 
   /* If all else fails, fall back on Old Faithful. */
   if (!login)
@@ -104,7 +106,7 @@ getlogin ()
 
 /* return something like a group.  */
 char *
-getgr_name ()
+getgr_name (void)
 {
   if (!group)			/* have we been called before? */
     group = lookup_env (group_strings);
@@ -116,56 +118,57 @@ getgr_name ()
 }
 
 /* return something like a uid.  */
-int
-getuid ()
+uid_t
+getuid (void)
 {
-  return 0;			/* every user is a super user ... */
+  return my_fake_uid;
 }
 
-int
-getgid ()
+gid_t
+getgid (void)
 {
-  return 0;
+  return my_fake_gid;
 }
 
-int
-geteuid ()
+uid_t
+geteuid (void)
 {
-  return 0;
+  return my_fake_uid;
 }
 
-int
-getegid ()
+gid_t
+getegid (void)
 {
-  return 0;
+  return my_fake_gid;
 }
 
 struct passwd *
-getpwent ()
+getpwent (void)
 {
-  return (struct passwd *) 0;
+  return NULL;
 }
 
 void
-setpwent ()
-{
-}
-
-void
-endpwent ()
+setpwent (void)
 {
 }
 
 void
-endgrent ()
+endpwent (void)
+{
+}
+
+void
+endgrent (void)
 {
 }
 
 /* return groups.  */
 int
-getgroups (int ngroups, int *groups)
+getgroups (int ngroups, gid_t *groups)
 {
-  *groups = 0;
+  if (ngroups > 0)
+      *groups = my_fake_gid;
   return 1;
 }
 
@@ -179,8 +182,7 @@ lookup_env (char *table[])
 
   while (*table && !(ptr = getenv (*table++))) ;	/* scan table */
 
-  if (!ptr)
-    return (char *) 0;
+  if (!ptr) return NULL;
 
   len = strcspn (ptr, " \n\t\n\r");	/* any WS? 	  */
   if (!(entry = xmalloc (len + 1)))

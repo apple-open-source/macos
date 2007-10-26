@@ -1,6 +1,94 @@
---- wscanf.3.orig	Fri Mar 11 17:09:15 2005
-+++ wscanf.3	Fri Mar 11 16:43:04 2005
-@@ -134,6 +134,12 @@
+--- wscanf.3.orig	2007-04-08 18:49:37.000000000 -0700
++++ wscanf.3	2007-04-08 20:05:10.000000000 -0700
+@@ -41,12 +41,12 @@
+ .Dt WSCANF 3
+ .Os
+ .Sh NAME
+-.Nm wscanf ,
+ .Nm fwscanf ,
+ .Nm swscanf ,
+-.Nm vwscanf ,
++.Nm vfwscanf ,
+ .Nm vswscanf ,
+-.Nm vfwscanf
++.Nm vwscanf ,
++.Nm wscanf
+ .Nd wide character input format conversion
+ .Sh LIBRARY
+ .Lb libc
+@@ -54,22 +54,46 @@
+ .In stdio.h
+ .In wchar.h
+ .Ft int
+-.Fn wscanf "const wchar_t * restrict format" ...
++.Fo fwscanf
++.Fa "FILE *restrict stream"
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .Ft int
+-.Fn fwscanf "FILE * restrict stream" "const wchar_t * restrict format" ...
++.Fo swscanf
++.Fa "const wchar_t *restrict ws"
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .Ft int
+-.Fn swscanf "const wchar_t * restrict str" "const wchar_t * restrict format" ...
++.Fo wscanf
++.Fa "const wchar_t *restrict format"
++.Fa ...
++.Fc
+ .In stdarg.h
++.In stdio.h
++.In wchar.h
+ .Ft int
+-.Fn vwscanf "const wchar_t * restrict format" "va_list ap"
++.Fo vfwscanf
++.Fa "FILE *restrict stream"
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vswscanf "const wchar_t * restrict str" "const wchar_t * restrict format" "va_list ap"
++.Fo vswscanf
++.Fa "const wchar_t *restrict ws"
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Ft int
+-.Fn vfwscanf "FILE * restrict stream" "const wchar_t * restrict format" "va_list ap"
++.Fo vwscanf
++.Fa "const wchar_t *restrict format"
++.Fa "va_list arg"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn wscanf
+-family of functions scans input according to a
++family of functions scans input, according to a
+ .Fa format
+ as described below.
+ This format may contain
+@@ -89,7 +113,8 @@
+ and
+ .Fn swscanf
+ reads its input from the wide character string pointed to by
+-.Fa str .
++.Fa ws .
++.Pp
+ The
+ .Fn vfwscanf
+ function
+@@ -121,6 +146,7 @@
+ All conversions are introduced by the
+ .Cm %
+ (percent sign) character.
++.Pp
+ The
+ .Fa format
+ string
+@@ -134,10 +160,16 @@
  when an input character does not match such a format character.
  Scanning also stops
  when an input conversion cannot be made (see below).
@@ -13,7 +101,33 @@
  .Sh CONVERSIONS
  Following the
  .Cm %
-@@ -459,7 +465,8 @@
+-character introducing a conversion
++character introducing a conversion,
+ there may be a number of
+ .Em flag
+ characters, as follows:
+@@ -433,15 +465,12 @@
+ causes an immediate return of
+ .Dv EOF .
+ .Sh RETURN VALUES
+-These
+-functions
+-return
+-the number of input items assigned, which can be fewer than provided
+-for, or even zero, in the event of a matching failure.
+-Zero
+-indicates that, while there was input available,
++These functions return the number of input items assigned,
++which can be fewer than provided for, or even zero,
++in the event of a matching failure.
++Zero indicates that, while there was input available,
+ no conversions were assigned;
+-typically this is due to an invalid input character,
++typically, this is due to an invalid input character,
+ such as an alphabetic character for a
+ .Ql %d
+ conversion.
+@@ -459,14 +488,15 @@
  .Xr wcstod 3 ,
  .Xr wcstol 3 ,
  .Xr wcstoul 3 ,
@@ -23,3 +137,11 @@
  .Sh STANDARDS
  The
  .Fn fwscanf ,
+ .Fn wscanf ,
+ .Fn swscanf ,
+ .Fn vfwscanf ,
+-.Fn vwscanf
++.Fn vwscanf ,
+ and
+ .Fn vswscanf
+ functions

@@ -8,7 +8,7 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: unlzw.c,v 0.15 1993/06/10 13:28:35 jloup Exp $";
+static char rcsid[] = "$Id: unlzw.c,v 1.5 2006/12/11 18:54:39 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -31,22 +31,22 @@ typedef unsigned short	count_short;
 typedef unsigned long 	cmp_code_int;
 
 #define MAXCODE(n)	(1L << (n))
-    
+
 #ifndef	REGISTERS
 #	define	REGISTERS	2
 #endif
-#define	REG1	
-#define	REG2	
-#define	REG3	
-#define	REG4	
-#define	REG5	
-#define	REG6	
-#define	REG7	
-#define	REG8	
-#define	REG9	
+#define	REG1
+#define	REG2
+#define	REG3
+#define	REG4
+#define	REG5
+#define	REG6
+#define	REG7
+#define	REG8
+#define	REG9
 #define	REG10
-#define	REG11	
-#define	REG12	
+#define	REG11
+#define	REG12
 #define	REG13
 #define	REG14
 #define	REG15
@@ -115,11 +115,11 @@ typedef unsigned long 	cmp_code_int;
 #	undef	REG16
 #	define	REG16	register
 #endif
-    
+
 #ifndef	BYTEORDER
 #	define	BYTEORDER	0000
 #endif
-	
+
 #ifndef	NOALLIGN
 #	define	NOALLIGN	0
 #endif
@@ -188,7 +188,7 @@ int block_mode = BLOCK_MODE; /* block compress mode -C compatible with 2.0 */
  *   The magic header has already been checked and skipped.
  *   bytes_in and bytes_out have been initialized.
  */
-int unlzw(in, out) 
+int unlzw(in, out)
     int in, out;    /* input and output file descriptors */
 {
     REG2   char_type  *stackp;
@@ -206,7 +206,7 @@ int unlzw(in, out)
     REG14  code_int   maxmaxcode;
     REG15  int        n_bits;
     REG16  int        rsize;
-    
+
 #ifdef MAXSEG_64K
     tab_prefix[0] = tab_prefix0;
     tab_prefix[1] = tab_prefix1;
@@ -215,15 +215,15 @@ int unlzw(in, out)
     block_mode = maxbits & BLOCK_MODE;
     if ((maxbits & LZW_RESERVED) != 0) {
 	WARN((stderr, "\n%s: %s: warning, unknown flags 0x%x\n",
-	      progname, ifname, maxbits & LZW_RESERVED));
+	      program_name, ifname, maxbits & LZW_RESERVED));
     }
     maxbits &= BIT_MASK;
     maxmaxcode = MAXCODE(maxbits);
-    
+
     if (maxbits > BITS) {
 	fprintf(stderr,
 		"\n%s: %s: compressed with %d bits, can only handle %d bits\n",
-		progname, ifname, maxbits, BITS);
+		program_name, ifname, maxbits, BITS);
 	exit_code = ERROR;
 	return ERROR;
     }
@@ -236,9 +236,9 @@ int unlzw(in, out)
     posbits = inptr<<3;
 
     free_ent = ((block_mode) ? FIRST : 256);
-    
+
     clear_tab_prefixof(); /* Initialize the first 256 entries in the table. */
-    
+
     for (code = 255 ; code >= 0 ; --code) {
 	tab_suffixof(code) = (char_type)code;
     }
@@ -246,26 +246,27 @@ int unlzw(in, out)
 	REG1 int i;
 	int  e;
 	int  o;
-	
+
     resetbuf:
 	e = insize-(o = (posbits>>3));
-	
+
 	for (i = 0 ; i < e ; ++i) {
 	    inbuf[i] = inbuf[i+o];
 	}
 	insize = e;
 	posbits = 0;
-	
+
 	if (insize < INBUF_EXTRA) {
-	    if ((rsize = read(in, (char*)inbuf+insize, INBUFSIZ)) == -1) {
+	    rsize = read_buffer (in, (char *) inbuf + insize, INBUFSIZ);
+	    if (rsize == -1) {
 		read_error();
 	    }
 	    insize += rsize;
 	    bytes_in += (off_t)rsize;
 	}
-	inbits = ((rsize != 0) ? ((long)insize - insize%n_bits)<<3 : 
+	inbits = ((rsize != 0) ? ((long)insize - insize%n_bits)<<3 :
 		  ((long)insize<<3)-(n_bits-1));
-	
+
 	while (inbits > posbits) {
 	    if (free_ent > maxcode) {
 		posbits = ((posbits-1) +
@@ -283,7 +284,8 @@ int unlzw(in, out)
 	    Tracev((stderr, "%d ", code));
 
 	    if (oldcode == -1) {
-		if (code >= 256) error("corrupt input.");
+		if (256 <= code)
+		  gzip_error ("corrupt input.");
 		outbuf[outpos++] = (char_type)(finchar = (int)(oldcode=code));
 		continue;
 	    }
@@ -298,10 +300,10 @@ int unlzw(in, out)
 	    }
 	    incode = code;
 	    stackp = de_stack;
-	    
+
 	    if (code >= free_ent) { /* Special case for KwKwK string. */
 		if (code > free_ent) {
-#ifdef DEBUG		    
+#ifdef DEBUG
 		    char_type *p;
 
 		    posbits -= n_bits;
@@ -317,8 +319,9 @@ int unlzw(in, out)
 			write_buf(out, (char*)outbuf, outpos);
 			bytes_out += (off_t)outpos;
 		    }
-		    error(to_stdout ? "corrupt input." :
-			  "corrupt input. Use zcat to recover some data.");
+		    gzip_error (to_stdout
+				? "corrupt input."
+				: "corrupt input. Use zcat to recover some data.");
 		}
 		*--stackp = (char_type)finchar;
 		code = oldcode;
@@ -330,11 +333,11 @@ int unlzw(in, out)
 		code = tab_prefixof(code);
 	    }
 	    *--stackp =	(char_type)(finchar = tab_suffixof(code));
-	    
+
 	    /* And put them out in forward order */
 	    {
 		REG1 int	i;
-	    
+
 		if (outpos+(i = (de_stack-stackp)) >= OUTBUFSIZ) {
 		    do {
 			if (i > OUTBUFSIZ-outpos) i = OUTBUFSIZ-outpos;
@@ -363,11 +366,11 @@ int unlzw(in, out)
 		tab_prefixof(code) = (unsigned short)oldcode;
 		tab_suffixof(code) = (char_type)finchar;
 		free_ent = code+1;
-	    } 
+	    }
 	    oldcode = incode;	/* Remember previous code.	*/
 	}
     } while (rsize != 0);
-    
+
     if (!test && outpos > 0) {
 	write_buf(out, (char*)outbuf, outpos);
 	bytes_out += (off_t)outpos;

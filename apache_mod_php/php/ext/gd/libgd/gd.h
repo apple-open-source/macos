@@ -5,14 +5,30 @@
 extern "C" {
 #endif
 
-#ifndef WIN32
-/* default fontpath for unix systems */
-#define DEFAULT_FONTPATH "/usr/X11R6/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/truetype:/usr/X11R6/lib/X11/fonts/TTF:/usr/share/fonts/TrueType:/usr/share/fonts/truetype:/usr/openwin/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/Type1:."
-#define PATHSEPARATOR ":"
-#else
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "php_compat.h"
+
+#define GD_MAJOR_VERSION 2
+#define GD_MINOR_VERSION 0
+#define GD_RELEASE_VERSION 35
+#define GD_EXTRA_VERSION ""
+#define GD_VERSION_STRING "2.0.35"
+
+#ifdef NETWARE
+/* default fontpath for netware systems */
+#define DEFAULT_FONTPATH "sys:/java/nwgfx/lib/x11/fonts/ttf;."
+#define PATHSEPARATOR ";"
+#elif defined(WIN32)
 /* default fontpath for windows systems */
 #define DEFAULT_FONTPATH "c:\\winnt\\fonts;c:\\windows\\fonts;."
 #define PATHSEPARATOR ";"
+#else
+/* default fontpath for unix systems */
+#define DEFAULT_FONTPATH "/usr/X11R6/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/truetype:/usr/X11R6/lib/X11/fonts/TTF:/usr/share/fonts/TrueType:/usr/share/fonts/truetype:/usr/openwin/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/Type1:."
+#define PATHSEPARATOR ":"
 #endif
 
 /* gd.h: declarations file for the graphic-draw module.
@@ -231,8 +247,8 @@ gdImagePtr gdImageCreateFromPng(FILE *fd);
 gdImagePtr gdImageCreateFromPngCtx(gdIOCtxPtr in);
 gdImagePtr gdImageCreateFromWBMP(FILE *inFile);
 gdImagePtr gdImageCreateFromWBMPCtx(gdIOCtx *infile);
-gdImagePtr gdImageCreateFromJpeg(FILE *infile);
-gdImagePtr gdImageCreateFromJpegCtx(gdIOCtx *infile);
+gdImagePtr gdImageCreateFromJpeg(FILE *infile, int ignore_warning);
+gdImagePtr gdImageCreateFromJpegCtx(gdIOCtx *infile, int ignore_warning);
 
 /* A custom data source. */
 /* The source function must return -1 on error, otherwise the number
@@ -294,6 +310,14 @@ void gdImageString(gdImagePtr im, gdFontPtr f, int x, int y, unsigned char *s, i
 void gdImageStringUp(gdImagePtr im, gdFontPtr f, int x, int y, unsigned char *s, int color);
 void gdImageString16(gdImagePtr im, gdFontPtr f, int x, int y, unsigned short *s, int color);
 void gdImageStringUp16(gdImagePtr im, gdFontPtr f, int x, int y, unsigned short *s, int color);
+
+/*
+ * The following functions are required to be called prior to the
+ * use of any sort of threads in a module load / shutdown function
+ * respectively.
+ */
+void gdFontCacheMutexSetup();
+void gdFontCacheMutexShutdown();
 
 /* 2.0.16: for thread-safe use of gdImageStringFT and friends,
  * call this before allowing any thread to call gdImageStringFT.
@@ -438,8 +462,8 @@ void gdImageGifCtx(gdImagePtr im, gdIOCtx *out);
  * compression (smallest files) but takes a long time to compress, and
  * -1 selects the default compiled into the zlib library.
  */
-void gdImagePngEx(gdImagePtr im, FILE * out, int level);
-void gdImagePngCtxEx(gdImagePtr im, gdIOCtx * out, int level);
+void gdImagePngEx(gdImagePtr im, FILE * out, int level, int basefilter);
+void gdImagePngCtxEx(gdImagePtr im, gdIOCtx * out, int level, int basefilter);
 
 void gdImageWBMP(gdImagePtr image, int fg, FILE *out);
 void gdImageWBMPCtx(gdImagePtr image, int fg, gdIOCtx *out);
@@ -483,7 +507,7 @@ void* gdImagePngPtr(gdImagePtr im, int *size);
 
 /* Best to free this memory with gdFree(), not free() */
 void* gdImageGdPtr(gdImagePtr im, int *size);
-void *gdImagePngPtrEx(gdImagePtr im, int *size, int level);
+void *gdImagePngPtrEx(gdImagePtr im, int *size, int level, int basefilter);
 
 /* Best to free this memory with gdFree(), not free() */
 void* gdImageGd2Ptr(gdImagePtr im, int cs, int fmt, int *size);
@@ -534,11 +558,11 @@ void gdImageCopyResized(gdImagePtr dst, gdImagePtr src, int dstX, int dstY, int 
 	substituted automatically. */
 void gdImageCopyResampled(gdImagePtr dst, gdImagePtr src, int dstX, int dstY, int srcX, int srcY, int dstW, int dstH, int srcW, int srcH);
 
-gdImagePtr gdImageRotate90(gdImagePtr src);
-gdImagePtr gdImageRotate180(gdImagePtr src);
-gdImagePtr gdImageRotate270(gdImagePtr src);
-gdImagePtr gdImageRotate45(gdImagePtr src, double dAngle, int clrBack);
-gdImagePtr gdImageRotate (gdImagePtr src, double dAngle, int clrBack);
+gdImagePtr gdImageRotate90(gdImagePtr src, int ignoretransparent);
+gdImagePtr gdImageRotate180(gdImagePtr src, int ignoretransparent);
+gdImagePtr gdImageRotate270(gdImagePtr src, int ignoretransparent);
+gdImagePtr gdImageRotate45(gdImagePtr src, double dAngle, int clrBack, int ignoretransparent);
+gdImagePtr gdImageRotate (gdImagePtr src, double dAngle, int clrBack, int ignoretransparent);
 
 void gdImageSetBrush(gdImagePtr im, gdImagePtr brush);
 void gdImageSetTile(gdImagePtr im, gdImagePtr tile);

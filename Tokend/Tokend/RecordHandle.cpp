@@ -74,5 +74,3 @@ void RecordHandle::changeAcl(const AccessCredentials &cred,
 
 } // end namespace Tokend
 
-
-/* arch-tag: 6974FF0F-F7B9-11D8-BDE2-000A9595DEEE */

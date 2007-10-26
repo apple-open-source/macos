@@ -222,24 +222,24 @@ template <class Node>
 class PortMap : public Mutex, public std::map<Port, RefPointer<Node> > {
 	typedef std::map<Port, RefPointer<Node> > _Map;
 public:
-	bool contains(mach_port_t port) const   { return find(port) != end(); }
+	bool contains(mach_port_t port) const   { return this->find(port) != this->end(); }
 	Node *getOpt(mach_port_t port) const
 	{
-		typename _Map::const_iterator it = find(port);
-		return (it == end()) ? NULL : it->second;
+		typename _Map::const_iterator it = this->find(port);
+		return (it == this->end()) ? NULL : it->second;
 	}
 	
 	Node *get(mach_port_t port) const
 	{
-		typename _Map::const_iterator it = find(port);
-		assert(it != end());
+		typename _Map::const_iterator it = this->find(port);
+		assert(it != this->end());
 		return it->second;
 	}
 	
 	Node *get(mach_port_t port, OSStatus error) const
 	{
-		typename _Map::const_iterator it = find(port);
-		if (it == end())
+		typename _Map::const_iterator it = this->find(port);
+		if (it == this->end())
 			MacOSError::throwMe(error);
 		return it->second;
 	}
@@ -250,7 +250,7 @@ public:
 template <class Node>
 void PortMap<Node>::dump()
 {
-	for (typename _Map::const_iterator it = begin(); it != end(); it++)
+	for (typename _Map::const_iterator it = this->begin(); it != this->end(); it++)
 		it->second->dump();
 }
 

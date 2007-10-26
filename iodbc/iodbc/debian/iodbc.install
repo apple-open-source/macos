@@ -1,0 +1,7 @@
+debian/tmp/usr/bin/iodbcadm-gtk
+debian/tmp/usr/bin/iodbctest
+debian/tmp/usr/lib/libdrvproxy.so*
+debian/tmp/usr/lib/libiodbcadm.so*
+debian/tmp/usr/share/man/man1/iodbcadm-gtk.1
+debian/tmp/usr/share/man/man1/iodbctest.1
+debian/tmp/usr/share/lintian/overrides/iodbc

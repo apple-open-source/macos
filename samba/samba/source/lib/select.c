@@ -38,9 +38,8 @@ static VOLATILE unsigned pipe_written, pipe_read;
  nasty signal race condition.
 ********************************************************************/
 
-void sys_select_signal(void)
+void sys_select_signal(char c)
 {
-	char c = 1;
 	if (!initialised) return;
 
 	if (pipe_written > pipe_read+256) return;
@@ -99,20 +98,27 @@ int sys_select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *errorfds, s
 			FD_ZERO(writefds);
 		if (errorfds)
 			FD_ZERO(errorfds);
-	}
-
-	if (FD_ISSET(select_pipe[0], readfds2)) {
+	} else if (FD_ISSET(select_pipe[0], readfds2)) {
 		char c;
 		saved_errno = errno;
 		if (read(select_pipe[0], &c, 1) == 1) {
 			pipe_read++;
-		}
-		errno = saved_errno;
-		FD_CLR(select_pipe[0], readfds2);
-		ret--;
-		if (ret == 0) {
+			/* Mark Weaver <mark-clist@npsl.co.uk> pointed out a critical
+			   fix to ensure we don't lose signals. We must always
+			   return -1 when the select pipe is set, otherwise if another
+			   fd is also ready (so ret == 2) then we used to eat the
+			   byte in the pipe and lose the signal. JRA.
+			*/
 			ret = -1;
+#if 0
+			/* JRA - we can use this to debug the signal messaging... */
+			DEBUG(0,("select got %u signal\n", (unsigned int)c));
+#endif
 			errno = EINTR;
+		} else {
+			FD_CLR(select_pipe[0], readfds2);
+			ret--;
+			errno = saved_errno;
 		}
 	}
 
@@ -128,12 +134,23 @@ int sys_select_intr(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *errorf
 {
 	int ret;
 	fd_set *readfds2, readfds_buf, *writefds2, writefds_buf, *errorfds2, errorfds_buf;
-	struct timeval tval2, *ptval;
+	struct timeval tval2, *ptval, end_time;
 
 	readfds2 = (readfds ? &readfds_buf : NULL);
 	writefds2 = (writefds ? &writefds_buf : NULL);
 	errorfds2 = (errorfds ? &errorfds_buf : NULL);
-	ptval = (tval ? &tval2 : NULL);
+	if (tval) {
+		GetTimeOfDay(&end_time);
+		end_time.tv_sec += tval->tv_sec;
+		end_time.tv_usec += tval->tv_usec;
+		end_time.tv_sec += end_time.tv_usec / 1000000;
+		end_time.tv_usec %= 1000000;
+		errno = 0;
+		tval2 = *tval;
+		ptval = &tval2;
+	} else {
+		ptval = NULL;
+	}
 
 	do {
 		if (readfds)
@@ -142,10 +159,26 @@ int sys_select_intr(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *errorf
 			writefds_buf = *writefds;
 		if (errorfds)
 			errorfds_buf = *errorfds;
-		if (tval)
-			tval2 = *tval;
+		if (ptval && (errno == EINTR)) {
+			struct timeval now_time;
+			SMB_BIG_INT tdif;
 
-		ret = sys_select(maxfd, readfds2, writefds2, errorfds2, ptval);
+			GetTimeOfDay(&now_time);
+			tdif = usec_time_diff(&end_time, &now_time);
+			if (tdif <= 0) {
+				ret = 0; /* time expired. */
+				break;
+			}
+			ptval->tv_sec = tdif / 1000000;
+			ptval->tv_usec = tdif % 1000000;
+		}
+
+		/* We must use select and not sys_select here. If we use
+		   sys_select we'd lose the fact a signal occurred when sys_select
+		   read a byte from the pipe. Fix from Mark Weaver
+		   <mark-clist@npsl.co.uk>
+		*/
+		ret = select(maxfd, readfds2, writefds2, errorfds2, ptval);
 	} while (ret == -1 && errno == EINTR);
 
 	if (readfds)

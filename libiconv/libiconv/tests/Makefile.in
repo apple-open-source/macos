@@ -10,7 +10,7 @@ CC = @CC@
 CFLAGS = @CFLAGS@
 CPPFLAGS = @CPPFLAGS@
 LDFLAGS = @LDFLAGS@
-INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include -I../lib
+INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include -I../srclib -I$(srcdir)/../srclib -I../lib
 LIBTOOL = @LIBTOOL@
 LIBTOOL_COMPILE = $(LIBTOOL) --mode=compile
 LIBTOOL_LINK = $(LIBTOOL) --mode=link
@@ -31,10 +31,10 @@ all :
 check : all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-stateless $(srcdir) ASCII
 #	/* General multi-byte encodings */
-	$(CC) $(LDFLAGS) $(CFLAGS) $(CPPFLAGS) $(srcdir)/genutf8.c -o genutf8 && \
+	$(CC) $(LDFLAGS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS) $(srcdir)/genutf8.c -o genutf8 && \
 	./genutf8 > UTF-8.TXT && \
 	$(srcdir)/check-stateless . UTF-8 && \
-	$(RM) genutf8 UTF-8.TXT
+	$(RM) genutf8@EXEEXT@ UTF-8.TXT
 	$(srcdir)/check-stateful $(srcdir) UCS-2BE
 	$(srcdir)/check-stateful $(srcdir) UCS-2LE
 	$(srcdir)/check-stateful $(srcdir) UCS-4BE
@@ -57,6 +57,7 @@ check : all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-8
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-9
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-10
+	$(srcdir)/check-stateless $(srcdir) ISO-8859-11
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-13
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-14
 	$(srcdir)/check-stateless $(srcdir) ISO-8859-15
@@ -96,6 +97,7 @@ check : all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-stateless $(srcdir) Georgian-Academy
 	$(srcdir)/check-stateless $(srcdir) Georgian-PS
 	$(srcdir)/check-stateless $(srcdir) KOI8-T
+	$(srcdir)/check-stateless $(srcdir) PT154
 	$(srcdir)/check-stateless $(srcdir) MuleLao-1
 	$(srcdir)/check-stateless $(srcdir) CP1133
 	$(srcdir)/check-stateless $(srcdir) TIS-620
@@ -121,14 +123,23 @@ check : all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP-1
 	$(srcdir)/check-stateless $(srcdir) EUC-CN
 	$(srcdir)/check-stateless $(srcdir) GBK
-	$(srcdir)/check-stateless $(srcdir) GB18030
+	$(srcdir)/check-stateless $(srcdir) CP936
+	$(CC) $(LDFLAGS) $(INCLUDES) $(CFLAGS) $(CPPFLAGS) $(srcdir)/gengb18030z.c -o gengb18030z && \
+	{ cat $(srcdir)/GB18030-BMP.TXT ; ./gengb18030z ; } | sort > GB18030.TXT && \
+	$(srcdir)/check-stateless . GB18030 && \
+	$(RM) gengb18030z@EXEEXT@ GB18030.TXT
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-CN
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-CN-EXT
 	$(srcdir)/check-stateful $(srcdir) HZ
 	$(srcdir)/check-stateless $(srcdir) EUC-TW
 	$(srcdir)/check-stateless $(srcdir) BIG5
 	$(srcdir)/check-stateless $(srcdir) CP950
-	$(srcdir)/check-stateless $(srcdir) BIG5-HKSCS
+	$(srcdir)/check-stateless $(srcdir) BIG5-HKSCS:1999
+	$(srcdir)/check-stateful $(srcdir) BIG5-HKSCS:1999
+	$(srcdir)/check-stateless $(srcdir) BIG5-HKSCS:2001
+	$(srcdir)/check-stateful $(srcdir) BIG5-HKSCS:2001
+	$(srcdir)/check-stateless $(srcdir) BIG5-HKSCS:2004
+	$(srcdir)/check-stateful $(srcdir) BIG5-HKSCS:2004
 	$(srcdir)/check-stateless $(srcdir) EUC-KR
 	$(srcdir)/check-stateless $(srcdir) CP949
 	$(srcdir)/check-stateless $(srcdir) JOHAB
@@ -140,6 +151,8 @@ check : all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-translit $(srcdir) Quotes UTF-8 ASCII
 	$(srcdir)/check-translit $(srcdir) Translit1 ISO-8859-1 ASCII
 	$(srcdir)/check-translitfailure $(srcdir) TranslitFail1 ISO-8859-1 ASCII
+#	/* substitution */
+	$(srcdir)/check-subst
 
 check-extra: check-extra-@USE_EXTRA_ENCODINGS@
 check-extra-no:
@@ -177,7 +190,9 @@ check-extra-yes: all table-from table-to ../src/iconv_no_i18n
 	$(srcdir)/check-stateless $(srcdir) EUC-JISX0213
 	$(srcdir)/check-stateless $(srcdir) SHIFT_JISX0213
 	$(srcdir)/check-stateful $(srcdir) ISO-2022-JP-3
+	$(srcdir)/check-stateless $(srcdir) BIG5-2003
 	$(srcdir)/check-stateless $(srcdir) TDS565
+	$(srcdir)/check-stateless $(srcdir) ATARIST
 	$(srcdir)/check-stateless $(srcdir) RISCOS-LATIN1
 
 table-from : table-from.@OBJEXT@ ../lib/libiconv.la
@@ -199,7 +214,7 @@ table-to.@OBJEXT@ : $(srcdir)/table-to.c
 mostlyclean : clean
 
 clean : force
-	$(RM) *.@OBJEXT@ *.lo table-from table-to tmp-* genutf8 UTF-8.TXT core
+	$(RM) *.@OBJEXT@ *.lo table-from table-from@EXEEXT@ table-to table-to@EXEEXT@ tmp-* genutf8 genutf8@EXEEXT@ UTF-8.TXT gengb18030z gengb18030z@EXEEXT@ GB18030.TXT core *.stackdump
 	$(RM) -r .libs _libs
 
 distclean : clean

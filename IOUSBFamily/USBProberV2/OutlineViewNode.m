@@ -121,8 +121,8 @@
 - (void)addNodeWithName:(char *)name value:(char *)value atDepth:(int)depth {
     OutlineViewNode *aNode;
     
-    _tempName = [[NSString alloc] initWithCString:name];
-    _tempValue = [[NSString alloc] initWithCString:value];
+    _tempName = [[NSString alloc] initWithCString:name encoding:NSUTF8StringEncoding];
+    _tempValue = [[NSString alloc] initWithCString:value encoding:NSUTF8StringEncoding];
     aNode  =  [[OutlineViewNode alloc] initWithName:_tempName value:_tempValue];
    
     [self addNode:aNode atDepth:depth];

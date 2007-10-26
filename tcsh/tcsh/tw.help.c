@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/tw.help.c,v 1.1.1.3 2003/01/17 03:41:27 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/tw.help.c,v 3.21 2005/01/18 20:24:51 christos Exp $ */
 /* tw.help.c: actually look up and print documentation on a file.
  *	      Look down the path for an appropriate file, then print it.
  *	      Note that the printing is NOT PAGED.  This is because the
@@ -35,18 +35,18 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.help.c,v 1.1.1.3 2003/01/17 03:41:27 nicolai Exp $")
+RCSID("$Id: tw.help.c,v 3.21 2005/01/18 20:24:51 christos Exp $")
 
 #include "tw.h"
 #include "tc.h"
 
 
 static int f = -1;
-static	sigret_t	 cleanf		__P((int));
+static	RETSIGTYPE	 cleanf		__P((int));
 static	Char    	*skipslist	__P((Char *));
 static	void		 nextslist 	__P((Char *, Char *));
 
-static char *h_ext[] = {
+static const char *h_ext[] = {
     ".help", ".1", ".8", ".6", "", NULL
 };
 
@@ -56,11 +56,11 @@ do_help(command)
 {
     Char    name[FILSIZ + 1];
     Char   *cmd_p, *ep;
-    char  **sp;
+    const char  **sp;
 
     signalfun_t orig_intr;
     Char    curdir[MAXPATHLEN];	/* Current directory being looked at */
-    register Char *hpath;	/* The environment parameter */
+    Char *hpath;	/* The environment parameter */
     Char    full[MAXPATHLEN];
     char    buf[512];		/* full path name and buffer for read */
     int     len;		/* length of read buffer */
@@ -120,7 +120,7 @@ do_help(command)
 	    for (sp = h_ext; *sp; sp++) {
 		*ep = '\0';
 		catn(full, str2short(*sp), (int) (sizeof(full) / sizeof(Char)));
-		if ((f = open(short2str(full), O_RDONLY)) != -1)
+		if ((f = open(short2str(full), O_RDONLY|O_LARGEFILE)) != -1)
 		    break;
 	    }
 	    if (f != -1) {
@@ -143,7 +143,7 @@ do_help(command)
     }
 }
 
-static  sigret_t
+static RETSIGTYPE
 /*ARGSUSED*/
 cleanf(snum)
 int snum;
@@ -156,9 +156,6 @@ int snum;
     if (f != -1)
 	(void) close(f);
     f = -1;
-#ifndef SIGVOID
-    return (snum);
-#endif
 }
 
 /* these next two are stolen from CMU's man(1) command for looking down
@@ -173,8 +170,8 @@ int snum;
 
 static void
 nextslist(sl, np)
-    register Char *sl;
-    register Char *np;
+    Char *sl;
+    Char *np;
 {
     if (!*sl)
 	*np = '\000';
@@ -195,7 +192,7 @@ nextslist(sl, np)
 
 static Char *
 skipslist(sl)
-    register Char *sl;
+    Char *sl;
 {
     while (*sl && *sl++ != ':')
 	continue;

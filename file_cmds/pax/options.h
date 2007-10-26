@@ -1,4 +1,4 @@
-/*	$OpenBSD: options.h,v 1.2 1996/06/23 14:20:37 deraadt Exp $	*/
+/*	$OpenBSD: options.h,v 1.4 2003/06/13 17:51:14 millert Exp $	*/
 /*	$NetBSD: options.h,v 1.3 1995/03/21 09:07:32 cgd Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -88,12 +84,13 @@
 #define	CXF	0x08000000
 #define	CYF	0x10000000	/* nonstandard extension */
 #define	CZF	0x20000000	/* nonstandard extension */
+#define	C0F	0x40000000	/* nonstandard extension */
 
 /*
  * ascii string indexed by bit position above (alter the above and you must
  * alter this string) used to tell the user what flags caused us to complain
  */
-#define FLGCH	"abcdfiklnoprstuvwxBDEGHLPTUXYZ"
+#define FLGCH	"abcdfiklnoprstuvwxBDEGHLPTUXYZ0"
 
 /*
  * legal pax operation bit patterns
@@ -112,5 +109,5 @@
 
 #define	BDEXTR	(AF|BF|LF|TF|WF|XF|CBF|CHF|CLF|CPF|CXF)
 #define	BDARCH	(CF|KF|LF|NF|PF|RF|CDF|CEF|CYF|CZF)
-#define	BDCOPY	(AF|BF|FF|OF|XF|CBF|CEF)
-#define	BDLIST (AF|BF|IF|KF|LF|OF|PF|RF|TF|UF|WF|XF|CBF|CDF|CHF|CLF|CPF|CXF|CYF|CZF)
+#define	BDCOPY	(AF|BF|FF|CBF|CEF)
+#define	BDLIST (AF|BF|IF|KF|LF|PF|RF|TF|UF|WF|XF|CBF|CDF|CHF|CLF|CPF|CXF|CYF|CZF)

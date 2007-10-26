@@ -71,6 +71,7 @@
 #include <bounce.h>
 #include <mail_addr.h>
 #include <sent.h>
+#include <deliver_pass.h>
 
 /* Application-specific. */
 
@@ -80,9 +81,11 @@
 
 int     deliver_unknown(LOCAL_STATE state, USER_ATTR usr_attr)
 {
-    char   *myname = "deliver_unknown";
+    const char *myname = "deliver_unknown";
     int     status;
     VSTRING *expand_luser;
+    static MAPS *transp_maps;
+    const char *map_transport;
 
     /*
      * Make verbose logging easier to understand.
@@ -103,10 +106,22 @@ int     deliver_unknown(LOCAL_STATE state, USER_ATTR usr_attr)
      * The fall-back transport specifies a delivery machanism that handles
      * users not found in the aliases or UNIX passwd databases.
      */
-    if (*var_fallback_transport)
+    if (*var_fbck_transp_maps && transp_maps == 0)
+	transp_maps = maps_create(VAR_FBCK_TRANSP_MAPS, var_fbck_transp_maps,
+				  DICT_FLAG_LOCK | DICT_FLAG_NO_REGSUB);
+    /* The -1 is a hint for the down-stream deliver_completed() function. */
+    if (*var_fbck_transp_maps
+	&& (map_transport = maps_find(transp_maps, state.msg_attr.user,
+				      DICT_FLAG_NONE)) != 0) {
+	state.msg_attr.rcpt.offset = -1L;
+	return (deliver_pass(MAIL_CLASS_PRIVATE, map_transport,
+			     state.request, &state.msg_attr.rcpt));
+    }
+    if (*var_fallback_transport) {
+	state.msg_attr.rcpt.offset = -1L;
 	return (deliver_pass(MAIL_CLASS_PRIVATE, var_fallback_transport,
-			     state.request, state.msg_attr.orig_rcpt,
-			     state.msg_attr.recipient, -1L));
+			     state.request, &state.msg_attr.rcpt));
+    }
 
     /*
      * Subject the luser_relay address to $name expansion, disable
@@ -118,7 +133,7 @@ int     deliver_unknown(LOCAL_STATE state, USER_ATTR usr_attr)
 	state.msg_attr.unmatched = 0;
 	expand_luser = vstring_alloc(100);
 	local_expand(expand_luser, var_luser_relay, &state, &usr_attr, (char *) 0);
-	status = deliver_resolve_addr(state, usr_attr, vstring_str(expand_luser));
+	status = deliver_resolve_addr(state, usr_attr, STR(expand_luser));
 	vstring_free(expand_luser);
 	return (status);
     }
@@ -132,15 +147,15 @@ int     deliver_unknown(LOCAL_STATE state, USER_ATTR usr_attr)
     if (STREQ(state.msg_attr.local, MAIL_ADDR_MAIL_DAEMON)
 	|| STREQ(state.msg_attr.local, MAIL_ADDR_POSTMASTER)) {
 	msg_warn("required alias not found: %s", state.msg_attr.local);
-	return (sent(BOUNCE_FLAGS(state.request),
-		     SENT_ATTR(state.msg_attr),
-		     "discarded"));
+	dsb_simple(state.msg_attr.why, "2.0.0", "discarded");
+	return (sent(BOUNCE_FLAGS(state.request), SENT_ATTR(state.msg_attr)));
     }
 
     /*
      * Bounce the message when no luser relay is specified.
      */
+    dsb_simple(state.msg_attr.why, "5.1.1",
+	       "unknown user: \"%s\"", state.msg_attr.local);
     return (bounce_append(BOUNCE_FLAGS(state.request),
-			  BOUNCE_ATTR(state.msg_attr),
-			  "unknown user: \"%s\"", state.msg_attr.local));
+			  BOUNCE_ATTR(state.msg_attr)));
 }

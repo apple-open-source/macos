@@ -1,0 +1,89 @@
+--- fopen.3	2003-05-20 15:22:41.000000000 -0700
++++ fopen.3.edit	2006-06-28 16:55:52.000000000 -0700
+@@ -40,8 +40,8 @@
+ .Dt FOPEN 3
+ .Os
+ .Sh NAME
+-.Nm fopen ,
+ .Nm fdopen ,
++.Nm fopen ,
+ .Nm freopen
+ .Nd stream open functions
+ .Sh LIBRARY
+@@ -49,17 +49,27 @@
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft FILE *
+-.Fn fopen "const char * restrict path" "const char * restrict mode"
++.Fo fdopen
++.Fa "int fildes"
++.Fa "const char *mode"
++.Fc
+ .Ft FILE *
+-.Fn fdopen "int fildes" "const char *mode"
++.Fo fopen
++.Fa "const char *restrict filename"
++.Fa "const char *restrict mode"
++.Fc
+ .Ft FILE *
+-.Fn freopen "const char *path" "const char *mode" "FILE *stream"
++.Fo freopen
++.Fa "const char *restrict filename"
++.Fa "const char *restrict mode"
++.Fa "FILE *restrict stream"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn fopen
+ function
+ opens the file whose name is the string pointed to by
+-.Fa path
++.Fa filename
+ and associates a stream with it.
+ .Pp
+ The argument
+@@ -107,6 +117,17 @@
+ .St -isoC
+ and has no effect; the ``b'' is ignored.
+ .Pp
++Finally, as an extension to the standards (and thus may not be portable),
++.Fa mode
++string may end with the letter ``x'', which insists on creating a new file
++when used with ``w'' or ``a''.
++If
++.Fa path
++exists, then an error is returned (this is the equivalent of specifying
++.Dv O_EXCL
++with
++.Xr open 2 ) .
++.Pp
+ Any created files will have mode
+ .Pf \\*q Dv S_IRUSR
+ \&|
+@@ -148,7 +169,7 @@
+ .Fn freopen
+ function
+ opens the file whose name is the string pointed to by
+-.Fa path
++.Fa filename
+ and associates the stream pointed to by
+ .Fa stream
+ with it.
+@@ -160,7 +181,7 @@
+ function.
+ .Pp
+ If the
+-.Fa path
++.Fa filename
+ argument is
+ .Dv NULL ,
+ .Fn freopen
+@@ -204,7 +225,7 @@
+ .Sh RETURN VALUES
+ Upon successful completion
+ .Fn fopen ,
+-.Fn fdopen
++.Fn fdopen ,
+ and
+ .Fn freopen
+ return a

@@ -1,7 +1,35 @@
+2005-09-01  Derek Price  <derek@ximbiot.com>
+
+	* README: Update bug-cvs email.
+
+2005-03-16  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (open_file): Remove this function.
+
+2005-03-01  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Remove obsolete timeb cruft.
+
+2004-10-07  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in (LIB_SOURCES): Remove stripslash.c.
+	(OS2_OBJECTS): Remove stripslash.obj.
+
+2004-09-17  Derek Price  <derek@ximbiot.com>
+
+	* stripslash.c: Remove file.
+
 2004-04-04  Derek Price  <derek@ximbiot.com>
 
 	* filesubr.c (isabsolute): Remove this function.
 	* config.h (ISABSOLUTE): Define.
+
+2004-02-17  Derek Price <derek@ximbiot.com>
+
+	* run.c (quote, run_setup):  Probably broke this, but not by much. 
+	Initially changed the wrong file but left it there in case somebody
+	wanted to finish.  Most likely only the run_add_arg function needs
+	to be fiddled with - the quoting has changed.
 
 2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
 
@@ -12,11 +40,27 @@
 	* Makefile.in (pdf ps): New recursive targets to be ignored for
 	Automake's benefit.
 
+2003-07-16  Derek Price  <derek@ximbiot.com>
+
+	* config.h (PROTOTYPES): Remove definition.
+	* filesubr.c: s/PROTO//.
+	* run.c: Ditto.
+
+2002-05-28  Derek Price  <derek@ximbiot.com>
+
+	* config.h: Use standard PROTOTYPES symbol instead of non-standard
+	USE_PROTOTYPES.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>.)
+
 2002-03-21  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Remove unecessary dependence on $(srcdir) to
 	fix the dist target.
 	(distdir): Use new automake generated target (copied from src).
+
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
+
+	* config.h (RSH_DFLT): Default to "rsh".
 
 2002-12-19  Derek Price  <derek@ximbiot.com>
 

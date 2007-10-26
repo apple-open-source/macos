@@ -41,7 +41,7 @@ program=`basename $0`
 # and should be first.
 # It is a bug to add /var/cache/man to DEFCATPATH.
 dm=
-for d in /usr/man /usr/share/man
+for d in /usr/man /usr/share/man /usr/X11R6/man /usr/local/man
 do
     if [ -d $d ]; then
 	if [ x$dm = x ]; then dm=$d; else dm=$dm:$d; fi
@@ -258,7 +258,7 @@ do
 		   $2 ~ /^N[ÉE]V/ || $2 ~ /^NAMA/ || $2 ~ /^Ì¾Á°/ ||
 		   $2 ~ /^Ì¾¾Î/ || $2 ~ /^ÀÌ¸§/ || $2 ~ /^NAZWA/ ||
 		   $2 ~ /^îáú÷áîéå/ || $2 ~ /^Ãû³Æ/ || $2 ~ /^¦WºÙ/ ||
-		   $2 ~ /^NOME/ || $2 ~ /^NAAM/)) ||
+		   $2 ~ /^NOME/ || $2 ~ /^NAAM/) || $2 ~ /^ÈÌÅ/)) ||
 		  (pages == "cat" && $1 ~ /^NAME/)) {
 		    if (!insh) {
 		      insh = 1;
@@ -312,7 +312,7 @@ do
 		    sub(/^.Vb .*/, "");
 		    sub(/^.[PLTH]P$/, "");    # .PP/.LP/.TP/.HP
 		    sub(/^.Pp$/, "");
-		    sub(/^.IX .*$/, "");
+		    sub(/^.[iI]X .*$/, "");
 		    sub(/^.nolinks$/, "");
 		    sub(/^.B$/, "");
 		    sub(/^.nf$/, "");
@@ -405,7 +405,7 @@ do
        then
 	 cat ${mandir1}/whatis >> $TMPFILE
        fi
-       sed '/^$/d' < $TMPFILE | sort | uniq > ${mandir1}/whatis
+       tr -s '\n' < $TMPFILE | sort -u > ${mandir1}/whatis
 
        chmod 644 ${mandir1}/whatis
        rm $TMPFILE

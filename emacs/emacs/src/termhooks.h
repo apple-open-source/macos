@@ -1,6 +1,7 @@
 /* Hooks by which low level terminal operations
    can be made to call other routines.
-   Copyright (C) 1985, 1986, 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,8 +17,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* Miscellanea.   */
@@ -43,9 +44,6 @@ extern void (*clear_frame_hook) P_ ((void));
 extern void (*clear_end_of_line_hook) P_ ((int));
 
 extern void (*ins_del_lines_hook) P_ ((int, int));
-
-extern void (*change_line_highlight_hook) P_ ((int, int, int, int));
-extern void (*reassert_line_highlight_hook) P_ ((int, int));
 
 extern void (*insert_glyphs_hook) P_ ((struct glyph *s, int n));
 extern void (*write_glyphs_hook) P_ ((struct glyph *s, int n));
@@ -122,6 +120,11 @@ extern void (*frame_rehighlight_hook) P_ ((struct frame *));
    windows.  */
 extern void (*frame_raise_lower_hook) P_ ((struct frame *f, int raise));
 
+/* If the value of the frame parameter changed, whis hook is called.
+   For example, if going from fullscreen to not fullscreen this hook
+   may do something OS dependent, like extended window manager hints on X11.  */
+extern void (*fullscreen_hook) P_ ((struct frame *f));
+
 
 /* Scroll bar hooks.  */
 
@@ -165,7 +168,7 @@ extern void (*set_vertical_scroll_bar_hook)
 
 /* Arrange for all scroll bars on FRAME to be removed at the next call
    to `*judge_scroll_bars_hook'.  A scroll bar may be spared if
-   `*redeem_scroll_bar_hook' is applied to its window before the judgement. 
+   `*redeem_scroll_bar_hook' is applied to its window before the judgement.
 
    This should be applied to each frame each time its window tree is
    redisplayed, even if it is not displaying scroll bars at the moment;
@@ -182,7 +185,7 @@ extern void (*condemn_scroll_bars_hook) P_ ((struct frame *frame));
 extern void (*redeem_scroll_bar_hook) P_ ((struct window *window));
 
 /* Remove all scroll bars on FRAME that haven't been saved since the
-   last call to `*condemn_scroll_bars_hook'.  
+   last call to `*condemn_scroll_bars_hook'.
 
    This should be applied to each frame after each time its window
    tree is redisplayed, even if it is not displaying scroll bars at the
@@ -204,10 +207,10 @@ extern void (*judge_scroll_bars_hook) P_ ((struct frame *FRAME));
 
 enum event_kind
 {
-  no_event,			/* nothing happened.  This should never
+  NO_EVENT,			/* nothing happened.  This should never
 				   actually appear in the event queue.  */
 
-  ascii_keystroke,		/* The ASCII code is in .code, perhaps
+  ASCII_KEYSTROKE_EVENT,	/* The ASCII code is in .code, perhaps
 				   with modifiers applied.
 				   .modifiers holds the state of the
 				   modifier keys.
@@ -215,13 +218,11 @@ enum event_kind
 				   which the key was typed.
 				   .timestamp gives a timestamp (in
 				   milliseconds) for the keystroke.  */
-  multibyte_char_keystroke,	/* The multibye char code is in .code,
+  MULTIBYTE_CHAR_KEYSTROKE_EVENT,	/* The multibyte char code is in .code,
 				   perhaps with modifiers applied.
 				   The others are the same as
-				   ascii_keystroke.  This type of event
-				   is generated only when we are using
-				   XIM on X window.  */
-  non_ascii_keystroke,		/* .code is a number identifying the
+				   ASCII_KEYSTROKE_EVENT.  */
+  NON_ASCII_KEYSTROKE_EVENT,	/* .code is a number identifying the
 				   function key.  A code N represents
 				   a key whose name is
 				   function_key_names[N]; function_key_names
@@ -233,8 +234,8 @@ enum event_kind
 				   which the key was typed.
 				   .timestamp gives a timestamp (in
 				   milliseconds) for the keystroke.  */
-  timer_event,                  /* A timer fired.  */
-  mouse_click,			/* The button number is in .code; it must
+  TIMER_EVENT,                  /* A timer fired.  */
+  MOUSE_CLICK_EVENT,		/* The button number is in .code; it must
 				   be >= 0 and < NUM_MOUSE_BUTTONS, defined
 				   below.
 				   .modifiers holds the state of the
@@ -245,29 +246,26 @@ enum event_kind
 				   the mouse click occurred in.
 				   .timestamp gives a timestamp (in
 				   milliseconds) for the click.  */
-#ifdef WINDOWSNT
-  mouse_wheel,			/* A mouse-wheel event is generated 
-				   on WINDOWSNT by a 
-				   wheel on a mouse (e.g., MS Intellimouse).
-				   The event contains a delta that corresponds
-				   to the amount and direction that the wheel
-				   is rotated.  This delta is typically
-				   used to implement a scroll or zoom.
-				   .code gives the delta.
-				   .modifiers holds the state of the
-				   modifier keys.
+  WHEEL_EVENT,			/* A wheel event is generated by a
+				   wheel on a mouse (e.g., MS
+				   Intellimouse).
+				   .modifiers holds the rotate
+				   direction (up or down), and the
+				   state of the modifier keys.
 				   .x and .y give the mouse position,
 				   in characters, within the window.
 				   .frame_or_window gives the frame
 				   the wheel event occurred in.
 				   .timestamp gives a timestamp (in
-				   milliseconds) for the wheel event.  */
-  language_change_event,	/* A language_change event is generated
-				   on WINDOWSNT when the keyboard layout
-				   or input language is changed by the
+				   milliseconds) for the event.  */
+#if defined (WINDOWSNT) || defined (MAC_OS)
+  LANGUAGE_CHANGE_EVENT,	/* A LANGUAGE_CHANGE_EVENT is
+				   generated on WINDOWSNT or Mac OS
+				   when the keyboard layout or input
+				   language is changed by the
 				   user.  */
 #endif
-  scroll_bar_click,		/* .code gives the number of the mouse button
+  SCROLL_BAR_CLICK_EVENT,	/* .code gives the number of the mouse button
 				   that was clicked.
 				   .modifiers holds the state of the modifier
 				   keys.
@@ -281,33 +279,33 @@ enum event_kind
 				   .timestamp gives a timestamp (in
 				   milliseconds) for the click.  */
 #ifdef WINDOWSNT
-  w32_scroll_bar_click,	/* as for scroll_bar_click, but only generated
+  W32_SCROLL_BAR_CLICK_EVENT,	/* as for SCROLL_BAR_CLICK, but only generated
 				   by MS-Windows scroll bar controls. */
 #endif
-  selection_request_event,	/* Another X client wants a selection from us.
-				   See `struct selection_event'.  */
-  selection_clear_event,	/* Another X client cleared our selection.  */
-  buffer_switch_event,		/* A process filter has switched buffers.  */
-  delete_window_event,		/* An X client said "delete this window".  */
+  SELECTION_REQUEST_EVENT,	/* Another X client wants a selection from us.
+				   See `struct selection_input_event'.  */
+  SELECTION_CLEAR_EVENT,	/* Another X client cleared our selection.  */
+  BUFFER_SWITCH_EVENT,		/* A process filter has switched buffers.  */
+  DELETE_WINDOW_EVENT,		/* An X client said "delete this window".  */
   MENU_BAR_EVENT,		/* An event generated by the menu bar.
 				   The frame_or_window field's cdr holds the
 				   Lisp-level event value.
 				   (Only the toolkit version uses these.)  */
-  iconify_event,		/* An X client iconified this window.  */
-  deiconify_event,		/* An X client deiconified this window.  */
-  menu_bar_activate_event,      /* A button press in the menu bar
+  ICONIFY_EVENT,		/* An X client iconified this window.  */
+  DEICONIFY_EVENT,		/* An X client deiconified this window.  */
+  MENU_BAR_ACTIVATE_EVENT,      /* A button press in the menu bar
 				   (toolkit version only).  */
-  drag_n_drop,			/* A drag-n-drop event is generated when
+  DRAG_N_DROP_EVENT,		/* A drag-n-drop event is generated when
 				   files selected outside of Emacs are dropped
 				   onto an Emacs window.
-				   Currently used only on Windows NT.
-				   .modifiers holds the state of the 
+				   .modifiers holds the state of the
 				   modifier keys.
 				   .x and .y give the mouse position,
 				   in characters, within the window.
-				   .frame_or_window is a cons of the frame
-				   in which the drop was made and a list of
-				   the filenames of the dropped files.
+				   .frame_or_window is the frame in
+				   which the drop was made.
+				   .arg is a platform-dependent
+				   representation of the dropped items.
 				   .timestamp gives a timestamp (in
 				   milliseconds) for the click.  */
   USER_SIGNAL_EVENT,		/* A user signal.
@@ -326,12 +324,29 @@ enum event_kind
 
   /* Queued from XTread_socket on FocusIn events.  Translated into
      `switch-frame' events in kbd_buffer_get_event, if necessary.  */
-  FOCUS_IN_EVENT
+  FOCUS_IN_EVENT,
+
+  /* Generated when mouse moves over window not currently selected.  */
+  SELECT_WINDOW_EVENT,
+
+  /* Queued from XTread_socket when session manager sends
+     save yourself before shutdown. */
+  SAVE_SESSION_EVENT,
+
+#ifdef MAC_OS
+  /* Generated when an Apple event, a HICommand event, or a Services
+     menu event is received and the corresponding handler is
+     registered.  Members `x' and `y' are for the event class and ID
+     symbols, respectively.  Member `arg' is a Lisp object converted
+     from the received Apple event.  Parameters for non-Apple events
+     are converted to those in Apple events.  */
+  MAC_APPLE_EVENT
+#endif
 };
 
-/* If a struct input_event has a kind which is selection_request_event
-   or selection_clear_event, then its contents are really described
-   by `struct selection_event'; see xterm.h.  */
+/* If a struct input_event has a kind which is SELECTION_REQUEST_EVENT
+   or SELECTION_CLEAR_EVENT, then its contents are really described
+   by `struct selection_input_event'; see xterm.h.  */
 
 /* The keyboard input buffer is an array of these structures.  Each one
    represents some sort of input event - a keystroke, a mouse click, or
@@ -341,11 +356,11 @@ enum event_kind
 struct input_event
 {
   /* What kind of event was this?  */
-  int kind;
-  
-  /* For an ascii_keystroke and multibyte_char_keystroke, this is the
-     character.
-     For a non_ascii_keystroke, this is the keysym code.
+  enum event_kind kind;
+
+  /* For an ASCII_KEYSTROKE_EVENT and MULTIBYTE_CHAR_KEYSTROKE_EVENT,
+     this is the character.
+     For a NON_ASCII_KEYSTROKE_EVENT, this is the keysym code.
      For a mouse event, this is the button number.  */
   /* In WindowsNT, for a mouse wheel event, this is the delta.  */
   int code;
@@ -357,7 +372,7 @@ struct input_event
   unsigned long timestamp;
 
   /* This is padding just to put the frame_or_window field
-     past the size of struct selection_event.  */
+     past the size of struct selection_input_event.  */
   int *padding[2];
 
   /* This field is copied into a vector while the event is in the queue,
@@ -373,8 +388,10 @@ struct input_event
   Lisp_Object arg;
 };
 
+#define EVENT_INIT(event) bzero (&(event), sizeof (struct input_event))
+
 /* Called to read input events.  */
-extern int (*read_socket_hook) P_ ((int, struct input_event *, int, int));
+extern int (*read_socket_hook) P_ ((int, int, struct input_event *));
 
 /* Called when a frame's display becomes entirely up to date.  */
 extern void (*frame_up_to_date_hook) P_ ((struct frame *));
@@ -382,7 +399,7 @@ extern void (*frame_up_to_date_hook) P_ ((struct frame *));
 
 /* Bits in the modifiers member of the input_event structure.
    Note that reorder_modifiers assumes that the bits are in canonical
-   order.  
+   order.
 
    The modifiers applied to mouse clicks are rather ornate.  The
    window-system-specific code should store mouse clicks with
@@ -430,3 +447,6 @@ enum {
 };
 
 #endif
+
+/* arch-tag: 33a00ecc-52b5-4186-a410-8801ac9f087d
+   (do not change this comment) */

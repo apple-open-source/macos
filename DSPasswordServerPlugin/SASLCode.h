@@ -65,8 +65,8 @@ extern "C" {
 #include <openssl/blowfish.h>
 #include <openssl/md5.h>
 
-#include "sasl.h"
-#include "saslutil.h"
+#include <sasl/sasl.h>
+#include <sasl/saslutil.h>
 
 #include "key.h"
 

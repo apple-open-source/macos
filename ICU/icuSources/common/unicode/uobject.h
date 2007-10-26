@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002-2004, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -48,6 +48,18 @@ U_NAMESPACE_BEGIN
 #ifndef U_HAVE_PLACEMENT_NEW
 #define U_HAVE_PLACEMENT_NEW 1
 #endif
+
+
+#ifndef U_HIDE_DRAFT_API
+/**  U_HAVE_DEBUG_LOCATION_NEW - Define this to define the MFC debug
+ * version of the operator new.
+ *
+ * @draft ICU 3.4
+ */                              
+#ifndef U_HAVE_DEBUG_LOCATION_NEW
+#define U_HAVE_DEBUG_LOCATION_NEW 0
+#endif
+#endif /*U_HIDE_DRAFT_API*/
 
 /**
  * UMemory is the common ICU base class.
@@ -117,6 +129,24 @@ public:
      */
     static inline void U_EXPORT2 operator delete(void *, void *) {}
 #endif /* U_HAVE_PLACEMENT_NEW */
+#if U_HAVE_DEBUG_LOCATION_NEW
+    /**
+      * This method overrides the MFC debug version of the operator new
+      * 
+      * @param size   The requested memory size
+      * @param file   The file where the allocation was requested
+      * @param line   The line where the allocation was requested 
+      */ 
+    static void * U_EXPORT2 operator new(size_t size, const char* file, int line);
+    /**
+      * This method provides a matching delete for the MFC debug new
+      * 
+      * @param p      The pointer to the allocated memory
+      * @param file   The file where the allocation was requested
+      * @param line   The line where the allocation was requested 
+      */ 
+    static void U_EXPORT2 operator delete(void* p, const char* file, int line);
+#endif /* U_HAVE_DEBUG_LOCATION_NEW */
 #endif /* U_OVERRIDE_CXX_ALLOCATION */
 
     /*
@@ -237,7 +267,7 @@ protected:
  */
 #define UOBJECT_DEFINE_RTTI_IMPLEMENTATION(myClass) \
     UClassID U_EXPORT2 myClass::getStaticClassID() { \
-        static const char classID = 0; \
+        static char classID = 0; \
         return (UClassID)&classID; \
     } \
     UClassID myClass::getDynamicClassID() const \
@@ -254,7 +284,7 @@ protected:
  */
 #define UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(myClass) \
     UClassID U_EXPORT2 myClass::getStaticClassID() { \
-        static const char classID = 0; \
+        static char classID = 0; \
         return (UClassID)&classID; \
     }
 

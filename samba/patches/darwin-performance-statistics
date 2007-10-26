@@ -1,0 +1,385 @@
+Index: samba/source/include/messages.h
+===================================================================
+--- samba/source/include/messages.h.orig
++++ samba/source/include/messages.h
+@@ -42,6 +42,7 @@
+ #define MSG_REQ_DMALLOC_LOG_CHANGED	12
+ 
+ #define MSG_SHUTDOWN		13
++#define MSG_USR_STATS 14
+ 
+ /* nmbd messages */
+ #define MSG_FORCE_ELECTION 1001
+Index: samba/source/include/smbprofile.h
+===================================================================
+--- samba/source/include/smbprofile.h.orig
++++ samba/source/include/smbprofile.h
+@@ -863,4 +863,36 @@ static inline SMB_BIG_UINT profile_times
+ 
+ #endif /* WITH_PROFILE */
+ 
++/*
++*	The following are used to maintain
++*	a count of the number of operations (requests) invoked
++*	and a countt of bytes transmitted/received
++*/
++#ifdef WITH_DARWIN_STATS
++#define SERV_STAT_SHMEM_KEY ((key_t)0x60022006)
++u_int64_t user_op_count;
++u_int64_t user_byte_count;
++
++typedef struct service_stats {
++	u_int64_t op_count;
++	u_int64_t byte_count;
++}service_stats;
++typedef struct service_header {
++	int count;
++	service_stats service_detail[1];
++} service_header;
++extern service_header *service_h;
++extern service_stats *service_c;
++#define INC_OP_COUNT(s) \
++	if ((int32_t)s >= 0 && s < service_h->count) { \
++		user_op_count++; \
++		service_c[s].op_count++; \
++	}
++#define INC_BYTE_COUNT(s, n) \
++	if ((int32_t)s >= 0 && s < service_h->count && n > 0) { \
++		user_byte_count += n; \
++		service_c[s].byte_count += n; \
++	}
++#endif /*WITH_DARWIN_STATS*/
++
+ #endif
+Index: samba/source/profile/profile.c
+===================================================================
+--- samba/source/profile/profile.c.orig
++++ samba/source/profile/profile.c
+@@ -439,3 +439,73 @@ BOOL profile_setup(BOOL rdonly)
+ }
+ 
+ #endif /* WITH_PROFILE */
++
++#ifdef WITH_DARWIN_STATS
++# ifndef IPC_PERMS
++#define IPC_PERMS ((SHM_R | SHM_W) | (SHM_R>>3) | (SHM_R>>6))
++#endif
++struct service_header *service_h;
++struct service_stats *service_c;
++static int service_stat_shm_id;
++static BOOL stat_read_only;
++BOOL service_stats_setup(BOOL rdonly)
++{
++	int size = 0;
++	int count = 0;
++	struct shmid_ds shm_ds;
++	stat_read_only = rdonly;
++ again:
++	count = lp_numservices();
++	size = (sizeof(service_stats) * count) + sizeof(int);
++	/* try to use an existing key */
++	service_stat_shm_id = shmget(SERV_STAT_SHMEM_KEY, 0, 0);
++	/* if that failed then create one. There is a race condition here
++	   if we are running from inetd. Bad luck. */
++	if (service_stat_shm_id == -1) {
++		if (stat_read_only)
++			return False;
++		service_stat_shm_id = shmget(SERV_STAT_SHMEM_KEY,
++									size,
++									IPC_CREAT | IPC_EXCL | IPC_PERMS);
++		if (service_stat_shm_id == -1) {
++			DEBUG(0,("Can't create or use IPC area. Error was %s\n",
++					strerror(errno)));
++			return False;
++		}
++	}
++	service_h = (service_header *)shmat(service_stat_shm_id, 0,
++										stat_read_only?SHM_RDONLY:0);
++
++	if ((long)service_h == -1) {
++		DEBUG(0,("Can't attach to IPC area. Error was %s\n",
++			 strerror(errno)));
++		return False;
++	}
++	/* find out who created this memory area */
++	if (shmctl(service_stat_shm_id, IPC_STAT, &shm_ds) != 0) {
++		DEBUG(0,("ERROR shmctl : can't IPC_STAT. Error was %s\n",
++			 strerror(errno)));
++		return False;
++	}
++	if (shm_ds.shm_perm.cuid != sec_initial_uid() || shm_ds.shm_perm.cgid != sec_initial_gid()) {
++		DEBUG(0,("ERROR: we did not create the shmem (owned by another user)\n"));
++		return False;
++	}
++	if (shm_ds.shm_segsz < size) {
++		DEBUG(0,("WARNING: service_stat struct size is %d (expected %d). Deleting\n",
++			 (int)shm_ds.shm_segsz, size));
++		if (shmctl(service_stat_shm_id, IPC_RMID, &shm_ds) == 0)
++			goto again;
++		else
++			return False;
++	}
++	if (!stat_read_only && (shm_ds.shm_nattch == 1)) {
++		memset((char *)service_h, 0, size);
++		service_h->count = count;
++		DEBUG(3,("Initialised service stats area\n"));
++	}
++	service_c = &service_h->service_detail[0];
++	return True;
++}
++
++#endif /*WITH_DARWIN_STATS*/
+Index: samba/source/smbd/process.c
+===================================================================
+--- samba/source/smbd/process.c.orig
++++ samba/source/smbd/process.c
+@@ -999,8 +999,16 @@ static int switch_message(int type,char 
+ 			return(ERROR_DOS(ERRSRV,ERRaccess));
+ 		}
+ 
++		INC_OP_COUNT(SNUM(conn));
++		INC_BYTE_COUNT(SNUM(conn), size);
++
+ 		current_inbuf = inbuf; /* In case we need to defer this message in open... */
+ 		outsize = smb_messages[type].fn(conn, inbuf,outbuf,size,bufsize);
++
++		/* Handling the message can deallocate conn, eg. SMBtdis. */
++		if (conn && conn->params) {
++		    INC_BYTE_COUNT(SNUM(conn), outsize);
++		}
+ 	}
+ 
+ 	smb_dump(smb_fn_name(type), 0, outbuf, outsize);
+Index: samba/source/smbd/server.c
+===================================================================
+--- samba/source/smbd/server.c.orig
++++ samba/source/smbd/server.c
+@@ -175,6 +175,34 @@ static void msg_sam_repl(int msg_type, s
+                   low_serial));
+ }
+ 
++
++#ifdef WITH_DARWIN_STATS
++/****************************************************************************
++ Process user stat message.
++****************************************************************************/
++
++static void msg_usr_stat(int msg_type, struct process_id src,
++		    void *buf, size_t len, void * UNUSED(context))
++{
++
++	if (len != 0) {
++		DEBUG(10,("Received NON 0 USTAT message from PID %u \n", src));
++		return;
++	} else {
++		pid_t pid = procid_to_pid(&src);
++		u_int64_t data[2] = {user_op_count, user_byte_count};
++
++		DEBUG(1,("USTAT message send to PID %u for size %d\n",
++		    (unsigned)pid, sizeof(u_int64_t) * 2));
++
++		become_root();
++		message_send_pid(src, msg_type, &data[0],
++			sizeof(u_int64_t) * 2, False);
++		unbecome_root();
++	}
++}
++#endif /*WITH_DARWIN_STATS*/
++
+ /****************************************************************************
+  Open the socket communication - inetd.
+ ****************************************************************************/
+@@ -978,6 +1006,13 @@ extern void build_options(BOOL screen);
+ 		set_profile_level(pl, src);
+ 	}
+ #endif
++#ifdef WITH_DARWIN_STATS
++	if (!service_stats_setup(False)) {
++		DEBUG(0,("ERROR: failed to setup service stats\n"));
++		return -1;
++	}
++#endif /*WITH_DARWIN_STATS*/
++
+ 
+ 	DEBUG(3,( "loaded services\n"));
+ 
+@@ -1017,6 +1052,11 @@ extern void build_options(BOOL screen);
+ 	if (!message_init())
+ 		exit(1);
+ 
++#ifdef WITH_DARWIN_STATS
++	/*Required for both -D and -F options*/
++	message_register(MSG_USR_STATS, msg_usr_stat, NULL);
++#endif
++
+ 	/* Initialise the password backed before the global_sam_sid
+ 	   to ensure that we fetch from ldap before we make a domain sid up */
+ 
+Index: samba/source/utils/status.c
+===================================================================
+--- samba/source/utils/status.c.orig
++++ samba/source/utils/status.c
+@@ -44,6 +44,7 @@ static int            shares_only = 0;  
+ static int            locks_only  = 0;            /* Added by RJS */
+ static BOOL processes_only=False;
+ static int show_brl;
++static int show_counts = 0;
+ static BOOL numeric_only = False;
+ 
+ const char *username = NULL;
+@@ -240,8 +241,132 @@ static int traverse_sessionid(TDB_CONTEX
+ 	return 0;
+ }
+ 
++#ifdef WITH_DARWIN_STATS
++u_int64_t buffer[3];
++int num_replies;
+ 
+ 
++static BOOL send_status_message(struct process_id pid)
++{
++	TDB_CONTEXT *tdb;
++	BOOL ret;
++	int n_sent = 0;
++
++	if (!message_init())
++		return False;
++
++	if (procid_to_pid(&pid) != 0) {
++		return NT_STATUS_IS_OK(message_send_pid(pid, MSG_USR_STATS,
++				    NULL, 0, False /* duplicates */));
++	}
++
++	tdb = tdb_open_log(lock_path("connections.tdb"), 0,
++			   TDB_DEFAULT, O_RDWR, 0);
++	if (!tdb) {
++		fprintf(stderr,"Failed to open connections database"
++			": %s\n", strerror(errno));
++		return False;
++	}
++
++	ret = message_send_all(tdb, MSG_USR_STATS, NULL, 0,
++				False /* duplicates */, &n_sent);
++	DEBUG(10,("smbcontrol/send_message: broadcast message to "
++		  "%d processes\n", n_sent));
++	tdb_close(tdb);
++	return ret;
++}
++static void wait_replies(BOOL multiple_replies)
++{
++	time_t start_time = 0;
++
++	/* Wait around a bit.  This is pretty disgusting - we have to
++           busy-wait here as there is no nicer way to do it. */
++
++	do {
++		start_time = time(NULL);
++		message_dispatch();
++		if (num_replies > 0 && !multiple_replies)
++			break;
++		do
++			sleep(1);
++		while ((5 + start_time - time(NULL)) > 0 && num_replies == 0);
++		if (num_replies > 0 && !multiple_replies)
++			break;
++	} while (1);
++}
++
++static void handle_usr_stat_reply(int msg_type, struct process_id pid,
++		    void *buf, size_t len, void * UNUSED(context))
++{
++	//DEBUG(10,("handle_usr_stat_reply from %d size %d\n ", pid, len ));
++	d_printf("   %-21qu%-21qu\n", ((u_int64_t*)buf)[0], ((u_int64_t*)buf)[1]);
++	num_replies++;
++}
++
++static void do_collect_usrstat(struct process_id pid)
++{
++	num_replies = 0;
++	if  (send_status_message(pid)) {
++		wait_replies(0);
++	}
++}
++
++static int traverse_processes(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf, void *state)
++{
++	struct sessionid sessionid;
++	struct process_id pid;
++
++	if (dbuf.dsize != sizeof(sessionid))
++		return 0;
++	memcpy(&sessionid, dbuf.dptr, sizeof(sessionid));
++
++	pid = pid_to_procid((pid_t)sessionid.pid);
++	if (!process_exists(pid)) {
++		return 0;
++	}
++	Ucrit_addPid( sessionid.pid );
++	d_printf("%5d   %-12s  %-12s",
++	       (int)sessionid.pid, uidtoname(sessionid.uid), gidtoname(sessionid.gid));
++	do_collect_usrstat(pid);
++	return 0;
++}
++
++static void dump_user_stats(void)
++{
++	TDB_CONTEXT *tdb;
++	int nump = 0;
++	message_register(MSG_USR_STATS, handle_usr_stat_reply, NULL);
++	tdb = tdb_open_log(lock_path("sessionid.tdb"), 0, TDB_DEFAULT, O_RDONLY, 0);
++	if (!tdb) {
++		d_printf("\nsessionid.tdb not initialised\n");
++	} else {
++		d_printf("\nPID     Username      Group         OpCount              ByteCount            \n");
++		d_printf("------------------------------------------------------------------------------\n");
++		nump = tdb_traverse(tdb, traverse_processes, NULL);
++		//DEBUG(10,("Total %d procs traversed\n", nump));
++		tdb_close(tdb);
++	}
++	message_deregister(MSG_USR_STATS);
++}
++
++static void dump_service_stats(void)
++{
++	int is = 0;
++
++	if (service_stats_setup(True) && service_h->count > 0) {
++		d_printf("\n%-15s %-21s%-21s\n", "Share", "OpCount", "ByteCount");
++		d_printf("-------------------------------------------------------------------\n");
++		for (is = 0;  is < service_h->count && lp_const_servicename(is); is++)
++			d_printf("%-15s %-21qu %-21qu\n",
++						lp_servicename(is),
++						service_c[is].op_count,
++						service_c[is].byte_count);
++	} else {
++		fprintf(stderr,"\nFailed to initialise service_stats memory\n");
++	}
++}
++#endif /*WITH_DARWIN_STATS*/
++
+ 
+  int main(int argc, char *argv[])
+ {
+@@ -262,6 +387,7 @@ static int traverse_sessionid(TDB_CONTEX
+ 		{"profile-rates", 'R', POPT_ARG_NONE, NULL, 'R', "Show call rates" },
+ 		{"byterange",	'B', POPT_ARG_NONE,	&show_brl, 'B', "Include byte range locks"},
+ 		{"numeric",	'n', POPT_ARG_NONE,	&numeric_only, 'n', "Numeric uid/gid"},
++		{"counts",	'C', POPT_ARG_NONE,	&show_counts, 'n', "Show all user op/bytes counts"},
+ 		POPT_COMMON_SAMBA
+ 		POPT_TABLEEND
+ 	};
+@@ -338,6 +464,14 @@ static int traverse_sessionid(TDB_CONTEX
+ 			exit(0);	
+ 	}
+   
++#if WITH_DARWIN_STATS
++	if ( show_counts) {
++		dump_user_stats();
++		dump_service_stats();
++		exit(0);
++	}
++#endif /*WITH_DARWIN_STATS*/
++
+ 	if ( show_shares ) {
+ 		tdb = tdb_open_log(lock_path("connections.tdb"), 0, TDB_DEFAULT, O_RDONLY, 0);
+ 		if (!tdb) {

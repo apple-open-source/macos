@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2005 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2006 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -12,10 +12,10 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
+# USA.
 
-"""Provide a password-interface wrapper around private archives.
-"""
+"""Provide a password-interface wrapper around private archives."""
 
 import os
 import sys
@@ -41,11 +41,10 @@ SLASH = '/'
 
 def true_path(path):
     "Ensure that the path is safe by removing .."
-    parts = path.split(SLASH)
-    safe = [x for x in parts if x not in ('.', '..')]
-    if parts <> safe:
-        syslog('mischief', 'Directory traversal attack thwarted')
-    return SLASH.join(safe)[1:]
+    # Workaround for path traverse vulnerability.  Unsuccessful attempts will
+    # be logged in logs/error.
+    parts = [x for x in path.split(SLASH) if x not in ('.', '..')]
+    return SLASH.join(parts)[1:]
 
 
 
@@ -68,10 +67,17 @@ def main():
         return
 
     path = os.environ.get('PATH_INFO')
+    tpath = true_path(path)
+    if tpath <> path[1:]:
+        msg = _('Private archive - "./" and "../" not allowed in URL.')
+        doc.SetTitle(msg)
+        doc.AddItem(Header(2, msg))
+        print doc.Format()
+        syslog('mischief', 'Private archive hostile path: %s', path)
+        return
     # BAW: This needs to be converted to the Site module abstraction
     true_filename = os.path.join(
-        mm_cfg.PRIVATE_ARCHIVE_FILE_DIR,
-        true_path(path))
+        mm_cfg.PRIVATE_ARCHIVE_FILE_DIR, tpath)
 
     listname = parts[0].lower()
     mboxfile = ''
@@ -128,11 +134,24 @@ def main():
         # Output the password form
         charset = Utils.GetCharSet(mlist.preferred_language)
         print 'Content-type: text/html; charset=' + charset + '\n\n'
-        while path and path[0] == '/':
-            path=path[1:]  # Remove leading /'s
+        # Put the original full path in the authorization form, but avoid
+        # trailing slash if we're not adding parts.  We add it below.
+        action = mlist.GetScriptURL('private', absolute=1)
+        if parts[1:]:
+            action = os.path.join(action, SLASH.join(parts[1:]))
+        # If we added '/index.html' to true_filename, add a slash to the URL.
+        # We need this because we no longer add the trailing slash in the
+        # private.html template.  It's always OK to test parts[-1] since we've
+        # already verified parts[0] is listname.  The basic rule is if the
+        # post URL (action) is a directory, it must be slash terminated, but
+        # not if it's a file.  Otherwise, relative links in the target archive
+        # page don't work.
+        if true_filename.endswith('/index.html') and parts[-1] <> 'index.html':
+            action += SLASH
+        # Escape web input parameter to avoid cross-site scripting.
         print Utils.maketext(
             'private.html',
-            {'action'  : mlist.GetScriptURL('private', absolute=1),
+            {'action'  : Utils.websafe(action),
              'realname': mlist.real_name,
              'message' : message,
              }, mlist=mlist)

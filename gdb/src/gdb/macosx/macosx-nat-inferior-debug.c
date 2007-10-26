@@ -21,15 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-inferior-debug.h"
-#include "macosx-nat-dyld.h"
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-mutils.h"
-#include "macosx-nat-sigthread.h"
-#include "macosx-nat-threads.h"
-
-#include "macosx-xdep.h"
-
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
@@ -51,27 +42,27 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "macosx-nat-inferior-debug.h"
+#include "macosx-nat-dyld.h"
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-mutils.h"
+#include "macosx-nat-sigthread.h"
+#include "macosx-nat-threads.h"
+
+#include "macosx-xdep.h"
+
 #include <AvailabilityMacros.h>
-
-#define MACH64 (MAC_OS_X_VERSION_MAX_ALLOWED >= 1040)
-
-#if MACH64
 
 #include <mach/mach_vm.h>
 
-#else /* ! MACH64 */
-
-#define mach_vm_size_t vm_size_t
-#define mach_vm_address_t vm_address_t
-#define mach_vm_read vm_read
-#define mach_vm_write vm_write
-#define mach_vm_region vm_region
-#define VM_REGION_BASIC_INFO_COUNT_64 VM_REGION_BASIC_INFO_COUNT
-#define VM_REGION_BASIC_INFO_64 VM_REGION_BASIC_INFO
-
-#endif /* MACH64 */
-
 FILE *inferior_stderr = NULL;
+/* This controls output of inferior debugging.
+   1 = basic exception handling
+   2 = task management
+   3 = thread management
+   4 = pending_event_handler
+   6 = most chatty level  */
+
 int inferior_debug_flag = 0;
 int timestamps_debug_flag = 0;
 
@@ -88,6 +79,8 @@ inferior_debug (int level, const char *fmt, ...)
       fflush (inferior_stderr);
     }
 }
+
+char unknown_exception_buf[32];
 
 const char *
 unparse_exception_type (unsigned int i)
@@ -112,9 +105,13 @@ unparse_exception_type (unsigned int i)
       return "EXC_MACH_SYSCALL";
     case EXC_RPC_ALERT:
       return "EXC_RPC_ALERT";
-
+#ifdef EXC_CRASH
+    case EXC_CRASH:
+      return "EXC_CRASH";
+#endif
     default:
-      return "???";
+      snprintf (unknown_exception_buf, 32, "??? (%d)", i);
+      return unknown_exception_buf;
     }
 }
 
@@ -270,7 +267,7 @@ macosx_debug_regions (task_t task, mach_vm_address_t address, int max)
 }
 
 void
-macosx_debug_port_info (task_t task, port_t port)
+macosx_debug_port_info (task_t task, mach_port_t port)
 {
 #if 0
   kern_return_t kret;
@@ -466,17 +463,17 @@ macosx_debug_notification_message (struct macosx_inferior_status *inferior,
 void
 _initialize_macosx_inferior_debug ()
 {
-  struct cmd_list_element *cmd;
+  add_setshow_boolean_cmd ("timestamps", class_obscure,
+			   &timestamps_debug_flag, _("\
+Set if GDB print timestamps before any terminal output."), _("\
+Show if GDB print timestamps before any terminal output."), NULL,
+			   NULL, NULL,
+			   &setdebuglist, &showdebuglist);
 
-  cmd = add_set_cmd ("timestamps", class_obscure, var_boolean,
-                     (char *) &timestamps_debug_flag,
-                     "Set if GDB print timestamps before any terminal output.",
-                     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);
-
-  cmd = add_set_cmd ("inferior", class_obscure, var_zinteger,
-                     (char *) &inferior_debug_flag,
-                     "Set if printing inferior communication debugging statements.",
-                     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);
+  add_setshow_zinteger_cmd ("inferior", class_obscure,
+			    &inferior_debug_flag, _("\
+Set if printing inferior communication debugging statements."), _("\
+Show if printing inferior communication debugging statements."), NULL,
+			    NULL, NULL,
+			    &setdebuglist, &showdebuglist);
 }

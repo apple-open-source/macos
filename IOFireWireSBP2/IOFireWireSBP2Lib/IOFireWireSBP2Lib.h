@@ -83,7 +83,8 @@ typedef struct
 // login option flags
 enum
 {
-    kFWSBP2ExclusiveLogin = (1 << 5)
+	kFWSBP2DontSynchronizeMgmtAgent = (1 << 0),
+    kFWSBP2ExclusiveLogin 			= (1 << 5)
 };
 
 // orb option flags
@@ -433,7 +434,7 @@ public:
         @param refCon a user defined value.
     */
     
-	void (*setRefCon)( void * self, UInt32 refCon );
+	void (*setRefCon)( void * self, void * refCon );
     
     /*!
 		@function getRefCon
@@ -443,7 +444,7 @@ public:
         @result Returns the previously stored user defined value.
 	*/
 
-	UInt32 (*getRefCon)( void * self);
+	void * (*getRefCon)( void * self);
     
     /*!
 		@function createLogin
@@ -504,7 +505,7 @@ public:
         @param refCon a user defined value.
     */
     
-	void (*setRefCon)( void * self, UInt32 refCon );
+	void (*setRefCon)( void * self, void * refCon );
 
     /*!
 		@function getRefCon
@@ -514,7 +515,7 @@ public:
         @result Returns the previously stored user defined value.
 	*/
 
-	UInt32 (*getRefCon)( void * self );	
+	void * (*getRefCon)( void * self );	
     
     /*! 
         @function setCommandFlags
@@ -713,9 +714,10 @@ public:
     /*!
 		@function setLoginFlags
 		@abstract Sets login configuration flags.
-		@discussion Configures the login behavior according to the provided flags.  Currently only one 
-        flag is defined for this API.  kFWSBP2ExclusiveLogin sets the exclusive login bit in the 
-        login ORB.
+		@discussion Configures the login behavior according to the provided flags.  Currently two 
+        flags are defined for this API.  kFWSBP2ExclusiveLogin sets the exclusive login bit in the 
+        login ORB. kFWSBP2DontSynchronizeMgmtAgent allows simultaneous logins or reconnects to LUNs
+        with a common management agent (ie LUNs in the same unit directory).
         @param self Pointer to IOFireWireSBP2LibLoginInterface object.
         @param loginFlags the login configuration flags.
 	*/
@@ -764,7 +766,7 @@ public:
         @param refCon a user defined value.
     */
 
-	void (*setRefCon)( void * self, UInt32 refCon );
+	void (*setRefCon)( void * self, void * refCon );
 
     /*!
 		@function getRefCon
@@ -774,7 +776,7 @@ public:
         @result Returns the previously stored user defined value.
 	*/
 
-	UInt32 (*getRefCon)( void * self);
+	void * (*getRefCon)( void * self);
 
     /*!
 		@function getMaxCommandBlockSize
@@ -1031,7 +1033,7 @@ public:
         @param refCon a user defined value.
     */
     
-	void (*setRefCon)( void * self, UInt32 refCon );
+	void (*setRefCon)( void * self, void * refCon );
 
    /*!
 		@function getRefCon
@@ -1042,7 +1044,7 @@ public:
         @result Returns the function of the management ORB.
 	*/
 
-	UInt32 (*getRefCon)( void * self);	
+	void * (*getRefCon)( void * self);	
 
     /*!
 		@function setCommandFunction

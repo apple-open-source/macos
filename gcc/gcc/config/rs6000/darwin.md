@@ -40,27 +40,17 @@ Boston, MA 02111-1307, USA.  */
 	return \"lfd %0,lo16(%2)(%1)\";
       case 1:
 	{
-	  rtx operands2[4];
-	  operands2[0] = operands[0];
-	  operands2[1] = operands[1];
-	  operands2[2] = operands[2];
+	  /* APPLE LOCAL begin mainline 4506977 */
 	  if (TARGET_POWERPC64 && TARGET_32BIT)
 	    /* Note, old assemblers didn't support relocation here.  */
 	    return \"ld %0,lo16(%2)(%1)\";
 	  else
 	  {
-	    operands2[3] = gen_rtx_REG (SImode, RS6000_PIC_OFFSET_TABLE_REGNUM);
-	    output_asm_insn (\"{l|lwz} %0,lo16(%2)(%1)\", operands);
-#if TARGET_MACHO
-	    if (MACHO_DYNAMIC_NO_PIC_P)
-	      output_asm_insn (\"{liu|lis} %L0,ha16(%2+4)\", operands);
-	    else
-	    /* We cannot rely on ha16(low half)==ha16(high half), alas,
-	       although in practice it almost always is.  */
-	    output_asm_insn (\"{cau|addis} %L0,%3,ha16(%2+4)\", operands2);
-#endif
-	    return (\"{l|lwz} %L0,lo16(%2+4)(%L0)\");
+	      output_asm_insn (\"{cal|la} %0,lo16(%2)(%1)\", operands);
+	      output_asm_insn (\"{l|lwz} %L0,4(%0)\", operands);
+	      return (\"{l|lwz} %0,0(%0)\");
 	  }
+	  /* APPLE LOCAL end mainline 4506977 */
 	}
       default:
 	abort();

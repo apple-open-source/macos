@@ -24,6 +24,7 @@
 #define _IOACCEL_TYPES_H
 
 #include <IOKit/IOTypes.h>
+#include <IOKit/IOKitKeys.h>
 
 #define IOACCEL_TYPES_REV	11
 
@@ -51,7 +52,11 @@ enum {
 
 typedef struct
 {
+#ifndef kIODescriptionKey
     vm_address_t	address[4];
+#else
+    mach_vm_address_t	address[4];
+#endif /* !kIODescriptionKey */
     UInt32		rowBytes;
     UInt32		width;
     UInt32		height;
@@ -63,9 +68,15 @@ typedef struct
 
 typedef struct
 {
+#ifndef kIODescriptionKey
 	long x, y, w, h;
 	void *client_addr;
 	unsigned long client_row_bytes;
+#else
+	SInt32		  x, y, w, h;
+	mach_vm_address_t client_addr;
+	UInt32            client_row_bytes;
+#endif /* !kIODescriptionKey */
 } IOAccelSurfaceReadData;
 
 typedef struct {

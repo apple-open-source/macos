@@ -9,10 +9,8 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"      This product includes software developed by the University of
-.\"      California, Berkeley and its contributors.
+.\" 3. [Deleted.  See
+.\"     ftp://ftp.cs.berkeley.edu/pub/4bsd/README.Impt.License.Change]
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -433,8 +431,13 @@
 .ds doc-operating-system-NetBSD-1.6   1.6
 .ds doc-operating-system-NetBSD-1.6.1 1.6.1
 .ds doc-operating-system-NetBSD-1.6.2 1.6.2
+.ds doc-operating-system-NetBSD-1.6.3 1.6.3
 .ds doc-operating-system-NetBSD-2.0   2.0
+.ds doc-operating-system-NetBSD-2.0.1 2.0.1
+.ds doc-operating-system-NetBSD-2.0.2 2.0.2
 .ds doc-operating-system-NetBSD-2.1   2.1
+.ds doc-operating-system-NetBSD-3.0   3.0
+.ds doc-operating-system-NetBSD-4.0   4.0
 .
 .ds doc-operating-system-FreeBSD-1.0     1.0
 .ds doc-operating-system-FreeBSD-1.1     1.1
@@ -472,11 +475,31 @@
 .ds doc-operating-system-FreeBSD-4.8     4.8
 .ds doc-operating-system-FreeBSD-4.9     4.9
 .ds doc-operating-system-FreeBSD-4.10    4.10
+.ds doc-operating-system-FreeBSD-4.11    4.11
 .ds doc-operating-system-FreeBSD-5.0     5.0
 .ds doc-operating-system-FreeBSD-5.1     5.1
 .ds doc-operating-system-FreeBSD-5.2     5.2
 .ds doc-operating-system-FreeBSD-5.2.1   5.2.1
 .ds doc-operating-system-FreeBSD-5.3     5.3
+.ds doc-operating-system-FreeBSD-5.4     5.4
+.ds doc-operating-system-FreeBSD-5.5     5.5
+.ds doc-operating-system-FreeBSD-6.0     6.0
+.ds doc-operating-system-FreeBSD-6.1     6.1
+.ds doc-operating-system-FreeBSD-7.0     7.0
+.
+.ds doc-operating-system-Darwin-8.0.0 8.0.0
+.ds doc-operating-system-Darwin-8.1.0 8.1.0
+.ds doc-operating-system-Darwin-8.2.0 8.2.0
+.ds doc-operating-system-Darwin-8.3.0 8.3.0
+.ds doc-operating-system-Darwin-8.4.0 8.4.0
+.ds doc-operating-system-Darwin-8.5.0 8.5.0
+.
+.ds doc-operating-system-DragonFly-1.0 1.0
+.ds doc-operating-system-DragonFly-1.1 1.1
+.ds doc-operating-system-DragonFly-1.2 1.2
+.ds doc-operating-system-DragonFly-1.3 1.3
+.ds doc-operating-system-DragonFly-1.4 1.4
+.ds doc-operating-system-DragonFly-1.5 1.5
 .
 .de Os
 .  ie "\$1"" \
@@ -514,12 +537,17 @@
 .  \}\}
 .  el \{ .ie "\$1"Darwin" \{\
 .    ds doc-operating-system Darwin
+.    if \A\$2 \{\
+.      ie d doc-operating-system-Darwin-\$2 \
+.        as doc-operating-system \~\*[doc-operating-system-Darwin-\$2]
+.      el \
+.        tm mdoc warning: .Os: Unknown Darwin version `\$2' (#\n[.c])
 .  \}\}
 .  el \{\
 .    ds doc-operating-system \$1
 .    if !"\$2"" \
 .      as doc-operating-system " \$2
-.  \}\}\}\}\}
+.  \}\}\}\}\}\}
 ..
 .
 .
@@ -554,10 +582,6 @@
 .ds doc-date-12 December
 .
 .de Dd
-.  \" XXX: why do we need gX?
-.  if "\*[doc-date-string]"" \
-.    nr gX 1
-.
 .  ie \n[.$] \{\
 .    ie (\n[.$] == 3) \
 .      ds doc-date-string \$1\~\$2 \$3

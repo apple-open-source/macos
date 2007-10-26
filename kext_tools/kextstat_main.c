@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +31,7 @@
 #include <mach/mach_error.h>
 #include <mach/mach_host.h>
 
+// not a utility.[ch] customer yet
 static const char * progname = "(unknown)";
 
 static int kmod_compare(const void * a, const void * b);
@@ -27,14 +50,14 @@ int main(int argc, const char * argv[])
     int exit_code = 0;
     int optchar = 0;
     kern_return_t mach_result = KERN_SUCCESS;
-    port_t host_port = PORT_NULL;
+    mach_port_t host_port = MACH_PORT_NULL;
     kmod_info_t * kmod_list = NULL;
-    int kmod_bytecount;  // not really used
-    int kmod_count;
+    unsigned int kmod_bytecount;  // not really used
+    unsigned int kmod_count;
     kmod_info_t * this_kmod;
     kmod_reference_t * kmod_ref;
-    int ref_count;
-    int i, j;
+    unsigned int ref_count;
+    unsigned int i, j;
 
     char * kext_id = 0;        // -b
     int skip_kernel_comps = 0; // -k
@@ -227,7 +250,7 @@ finish:
     * leaks. We don't care about the kern_return_t value of this
     * call for now as there's nothing we can do if it fails.
     */
-    if (PORT_NULL != host_port) {
+    if (MACH_PORT_NULL != host_port) {
         mach_port_deallocate(mach_task_self(), host_port);
     }
 

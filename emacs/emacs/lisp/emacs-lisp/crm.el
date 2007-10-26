@@ -1,7 +1,7 @@
 ;;; crm.el --- read multiple strings with completion
 
-;; Copyright (C) 1985, 1986, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
-;;       Free Software Foundation, Inc.
+;; Copyright (C) 1985, 1986, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+;;   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Sen Nagata <sen@eccosys.com>
 ;; Keywords: completion, minibuffer, multiple elements
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -41,7 +41,7 @@
 ;; `crm-default-separator' (comma).  The separator character may be
 ;; changed by modifying the value of `crm-separator'.
 
-;; Continguous strings of non-separator-characters are referred to as
+;; Contiguous strings of non-separator-characters are referred to as
 ;; 'elements'.  In the aforementioned example, the elements are:
 ;; 'alice', 'bob', and 'eve'.
 
@@ -85,7 +85,7 @@
 ;; -tip: use M-f and M-b for ease of navigation among elements.
 
 ;;; History:
-;; 
+;;
 ;; 2000-04-10:
 ;;
 ;;   first revamped version
@@ -197,9 +197,10 @@ If an element is found, bind:
    respectively,
 
 and return t."
-  (let* ((minibuffer-string (buffer-string))
-	 (end-index (or (string-match "," minibuffer-string (1- (point)))
-			(1- (point-max))))
+  (let* ((prompt-end (minibuffer-prompt-end))
+	 (minibuffer-string (buffer-substring prompt-end (point-max)))
+	 (end-index (or (string-match "," minibuffer-string (- (point) prompt-end))
+			(- (point-max) prompt-end)))
 	 (target-string (substring minibuffer-string 0 end-index))
 	 (index (or (string-match
 		     (concat crm-separator "\\([^" crm-separator "]*\\)$")
@@ -211,11 +212,12 @@ and return t."
 	;; no candidate found
 	nil
       (progn
-	;; 
+	;;
 	(setq crm-beginning-of-element (match-beginning 1))
-	(setq crm-end-of-element end-index)
+	(setq crm-end-of-element (+ end-index prompt-end))
 	;; string to the left of the current element
-	(setq crm-left-of-element (substring target-string 0 (match-beginning 1)))
+	(setq crm-left-of-element
+	      (substring target-string 0 (match-beginning 1)))
 	;; the current element
 	(setq crm-current-element (match-string 1 target-string))
 	;; string to the right of the current element
@@ -226,7 +228,7 @@ and return t."
   "Return t if CANDIDATE is an exact match for a valid completion."
   (let ((completions
 	 ;; TODO: verify whether the arguments are appropriate
-	 (all-completions 
+	 (all-completions
 	  candidate crm-completion-table minibuffer-completion-predicate)))
     (if (member candidate completions)
 	t
@@ -245,7 +247,9 @@ and return t."
       (if (null completions)
 	  (crm-temp-echo-area-glyphs " [No completions]")
 	(with-output-to-temp-buffer "*Completions*"
-	  (display-completion-list (sort completions 'string-lessp))))))
+	  (display-completion-list
+	   (sort completions 'string-lessp)
+	   crm-current-element)))))
   nil)
 
 (defun crm-do-completion ()
@@ -271,23 +275,23 @@ The meanings of the return values are:
 			    minibuffer-completion-predicate))
       (setq last crm-last-exact-completion)
       (setq crm-last-exact-completion nil)
-      
+
       (catch 'crm-exit
-	
+
 	(if (null completion) ; no possible completion
 	    (progn
 	      (crm-temp-echo-area-glyphs " [No match]")
 	      (throw 'crm-exit 0)))
-	
+
 	(if (eq completion t) ; was already an exact and unique completion
 	    (throw 'crm-exit 1))
-	
+
 	(setq completedp
 	      (null (string-equal completion crm-current-element)))
-	
+
 	(if completedp
 	    (progn
-	      (erase-buffer)
+	      (delete-region (minibuffer-prompt-end) (point-max))
 	      (insert crm-left-of-element completion)
 	      ;;		(if crm-complete-up-to-point
 	      ;;		    (insert crm-separator))
@@ -295,7 +299,7 @@ The meanings of the return values are:
 	      (backward-char (length crm-right-of-element))
 	      ;; TODO: is this correct?
 	      (setq crm-current-element completion)))
-	
+
 	(if (null (crm-test-completion crm-current-element))
 	    (progn
 	      (if completedp ; some completion happened
@@ -306,13 +310,13 @@ The meanings of the return values are:
 	      (throw 'crm-exit 6))
 	  (if completedp
 	      (throw 'crm-exit 4)))
-	
+
 	(setq crm-last-exact-completion completion)
 	(if (not (null last))
 	    (progn
 	      (if (not (null (equal crm-current-element last)))
 		  (crm-minibuffer-completion-help))))
-	
+
 	;; returning -- was already an exact completion
 	(throw 'crm-exit 3)))))
 
@@ -472,24 +476,24 @@ to the location of mismatch and do not exit.
 
 This function is modeled after `minibuffer_complete_and_exit' in src/minibuf.c"
   (interactive)
-  
+
   (if (not (crm-find-current-element))
       nil
     (let (result)
-      
+
       (setq result
 	    (catch 'crm-exit
-	      
-	      (if (eq (point-min) (point-max))
+
+	      (if (eq (minibuffer-prompt-end) (point-max))
 		  (throw 'crm-exit t))
-	      
+
 	      ;; TODO: this test is suspect?
 	      (if (not (null (crm-test-completion crm-current-element)))
 		  (throw 'crm-exit "check"))
-	      
+
 	      ;; TODO: determine how to detect errors
 	      (let ((result (crm-do-completion)))
-		
+
 		(cond
 		 ((or (eq 1 result)
 		      (eq 3 result))
@@ -501,12 +505,13 @@ This function is modeled after `minibuffer_complete_and_exit' in src/minibuf.c"
 			nil)
 		    (throw 'crm-exit "check")))
 		 (nil)))))
-      
+
       (if (null result)
 	  nil
 	(if (equal result "check")
 	    (let ((check-strings
-		   (crm-strings-completed-p (buffer-string))))
+		   (crm-strings-completed-p
+		    (buffer-substring (minibuffer-prompt-end) (point-max)))))
 	      ;; check all of minibuffer
 	      (if (eq check-strings t)
 		  (throw 'exit nil)
@@ -529,7 +534,7 @@ This keymap inherits from the keymap named `minibuffer-local-completion-map'.
 The only difference is that TAB is bound to `crm-minibuffer-complete' in
 the inheriting keymap.
 
-If REQUIRE-MACTH is non-nil, the keymap `crm-local-must-match-map' is used.
+If REQUIRE-MATCH is non-nil, the keymap `crm-local-must-match-map' is used.
 This keymap inherits from the keymap named `minibuffer-local-must-match-map'.
 The inheriting keymap binds RET to `crm-minibuffer-complete-and-exit'
 and TAB to `crm-minibuffer-complete'."
@@ -541,7 +546,7 @@ and TAB to `crm-minibuffer-complete'."
     (define-key crm-local-completion-map
       (kbd "TAB")
       (function crm-minibuffer-complete)))
-  
+
   (unless crm-local-must-match-map
     (setq crm-local-must-match-map (make-sparse-keymap))
     (set-keymap-parent crm-local-must-match-map
@@ -574,7 +579,7 @@ The default value for the separator character is the value of
 `crm-default-separator' (comma).  The separator character may be
 changed by modifying the value of `crm-separator'.
 
-Continguous strings of non-separator-characters are referred to as
+Contiguous strings of non-separator-characters are referred to as
 'elements'.  In the aforementioned example, the elements are: 'alice',
 'bob', and 'eve'.
 
@@ -587,43 +592,42 @@ The return value of this function is a list of the read strings.
 See the documentation for `completing-read' for details on the arguments:
 PROMPT, TABLE, PREDICATE, REQUIRE-MATCH, INITIAL-INPUT, HIST, DEF, and
 INHERIT-INPUT-METHOD."
-  (let ((minibuffer-completion-table (function crm-collection-fn))
-	(minibuffer-completion-predicate predicate)
-	;; see completing_read in src/minibuf.c
-	(minibuffer-completion-confirm (if (eq require-match t)
-					   nil
-					 t))
-	(crm-completion-table table)
-	crm-last-exact-completion
-	crm-current-element
-	crm-left-of-element
-	crm-right-of-element
-	crm-beginning-of-element
-	crm-end-of-element
-	map)
-    (if require-match
-	;; use `crm-local-must-match-map'
-	(setq map crm-local-must-match-map)
-      ;; use `minibuffer-local-completion-map'
-      (setq map minibuffer-local-completion-map))
-    (split-string (read-from-minibuffer
-		   prompt initial-input map
-		   nil hist def inherit-input-method)
-		  crm-separator)))
+  (let* ((minibuffer-completion-table (function crm-collection-fn))
+	 (minibuffer-completion-predicate predicate)
+	 ;; see completing_read in src/minibuf.c
+	 (minibuffer-completion-confirm
+	  (unless (eq require-match t) require-match))
+	 (crm-completion-table table)
+	 crm-last-exact-completion
+	 crm-current-element
+	 crm-left-of-element
+	 crm-right-of-element
+	 crm-beginning-of-element
+	 crm-end-of-element
+	 (map (if require-match
+		  crm-local-must-match-map
+		crm-local-completion-map))
+	 ;; If the user enters empty input, read-from-minibuffer returns
+	 ;; the empty string, not DEF.
+	 (input (read-from-minibuffer
+		 prompt initial-input map
+		 nil hist def inherit-input-method)))
+    (and def (string-equal input "") (setq input def))
+    (split-string input crm-separator)))
 
 ;; testing and debugging
-;;; (defun crm-init-test-environ ()
-;;;   "Set up some variables for testing."
-;;;   (interactive)
-;;;   (setq my-prompt "Prompt: ")
-;;;   (setq my-table
-;;; 	'(("hi") ("there") ("man") ("may") ("mouth") ("ma")
-;;; 	  ("a") ("ab") ("abc") ("abd") ("abf") ("zab") ("acb")
-;;; 	  ("da") ("dab") ("dabc") ("dabd") ("dabf") ("dzab") ("dacb")
-;;; 	  ("fda") ("fdab") ("fdabc") ("fdabd") ("fdabf") ("fdzab") ("fdacb")
-;;; 	  ("gda") ("gdab") ("gdabc") ("gdabd") ("gdabf") ("gdzab") ("gdacb")
-;;; 	  ))
-;;;   (setq my-separator ","))
+;; (defun crm-init-test-environ ()
+;;   "Set up some variables for testing."
+;;   (interactive)
+;;   (setq my-prompt "Prompt: ")
+;;   (setq my-table
+;; 	'(("hi") ("there") ("man") ("may") ("mouth") ("ma")
+;; 	  ("a") ("ab") ("abc") ("abd") ("abf") ("zab") ("acb")
+;; 	  ("da") ("dab") ("dabc") ("dabd") ("dabf") ("dzab") ("dacb")
+;; 	  ("fda") ("fdab") ("fdabc") ("fdabd") ("fdabf") ("fdzab") ("fdacb")
+;; 	  ("gda") ("gdab") ("gdabc") ("gdabd") ("gdabf") ("gdzab") ("gdacb")
+;; 	  ))
+;;   (setq my-separator ","))
 
 ;(completing-read-multiple my-prompt my-table)
 ;(completing-read-multiple my-prompt my-table nil t)
@@ -633,4 +637,5 @@ INHERIT-INPUT-METHOD."
 
 (provide 'crm)
 
+;;; arch-tag: db1911d9-86c6-4a42-b32a-4910701b15a6
 ;;; crm.el ends here

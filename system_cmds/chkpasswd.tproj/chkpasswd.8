@@ -5,49 +5,52 @@
 .Nm chkpasswd
 .Nd verifies user password against various systems
 .Sh SYNOPSIS
-.Nm
+.Nm chkpasswd
 .Op Fl i Ar infosystem
 .Op Fl l Ar location
 .Op Fl c
 .Op Ar name
 .Sh DESCRIPTION
-.Nm
-verifies a supplied username and password against NetInfo, file, NIS, or OpenDirectory backends.
+.Nm chkpasswd
+verifies a supplied username and password against file, NIS,
+or OpenDirectory infosystems.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.Fl i Ar infosystem
-Specify the system against which to check the password (default is OpenDirectory). Valid systems:
-.Pp
-.Bl -tag -width "opendirectory" -compact
-.It Cm netinfo
-NetInfo database
-.It Cm file
+.\" ==========
+.It Fl c
+The supplied password is compared verbatim without first being encrypted.
+.\" ==========
+.It Fl i Ar infosystem
+Specify the system against which to check the password
+(default is OpenDirectory). Valid systems:
+.Bl -tag -width "opendirectory"
+.It Ar file
 File-based passwords
-.It Cm nis
+.It Ar nis
 NIS/YP authentication
-.It Cm opendirectory
-OpenDirectory (Directory Services) authentication
+.It Ar opendirectory
+OpenDirectory (Directory Services) authentication.
+If no
+.Fl l
+option is specified, the search node is used.
 .El
-.Fl l Ar location
-Specify a location; varies based on info system type:
 .Pp
-.Bl -tag -width "opendirectory" -compact
-.It Cm netinfo
-Domain name or server/tag.
-.It Cm file
-Filename (default: /etc/passwd).
-.It Cm nis
+.\" ==========
+.It Fl l Ar location
+Specify a location; varies based on infosystem type:
+.Bl -tag -width "for opendirectory"
+.It for file
+Filename (default: /etc/master.passwd).
+.It for nis
 NIS domainname.
-.It Cm opendirectory
-Directory node name.
+.It for opendirectory
+A directory node name such as /Local/Default.
 .El
-.Fl c
-The supplied password is compared verbatim without first being crypted.
+.Pp
+.El
 .Ar name
-Username
-.El
+username
 .Sh SEE ALSO
-.Xr nicl 1 ,
-.Xr passwd 5 ,
-.Xr dscl 1
+.Xr dscl 1 ,
+.Xr passwd 5

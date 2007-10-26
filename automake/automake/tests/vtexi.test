@@ -1,6 +1,25 @@
 #!/bin/sh
+# Copyright (C) 1996, 1997, 2000, 2001, 2002, 2003
+#   Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
 
-. $srcdir/defs || exit 1
+. ./defs || exit 1
 
 cat > Makefile.am << 'END'
 info_TEXINFOS = textutils.texi
@@ -26,16 +45,17 @@ $AUTOMAKE
 #   textutils.info: textutils.texi
 # instead of
 #   textutils.info: textutils.texi version.texi
+# (Today this should be `textutils.info: version.texi')
 
-grep '^textutils\.info: textutils\.texi .*version\.texi$' Makefile.in
+grep 'textutils\.info:.*version\.texi$' Makefile.in
 
 
 # Test for bug reported by Lars Hecking:
 # When running the first version of configure.ac aware automake,
-# @CONFIGURE_AC@ was not properly substitued.
+# @CONFIGURE_AC@ was not properly substituted.
 
-egrep '^\$\(srcdir\)/stamp-vti:.*textutils\.texi( .*)?$' Makefile.in
-egrep '^\$\(srcdir\)/stamp-vti:.*\$\(top_srcdir\)/configure\.in( .*)?$' Makefile.in
+$EGREP 'stamp-vti:.*textutils\.texi( .*)?$' Makefile.in
+$EGREP 'stamp-vti:.*\$\(top_srcdir\)/configure( .*)?$' Makefile.in
 
 
 # Check that the path to mdate-sh is correct.  Over escaping of `$'

@@ -1,3 +1,7 @@
+Changes for the 5.24 release (the cctools-653 release):
+- Updated libsyminfo.c to handle the LC_REEXPORT_DYLIB load command.  Radar
+  bug #4986624.
+
 Changes for the 5.18 release (the cctools-586 release):
 - Fixed a bug in the Makefile that had -static which should not have been there.
   Radar bug #4105797.

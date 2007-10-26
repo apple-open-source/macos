@@ -3049,16 +3049,22 @@ if test "x$cross_compiling" = "xyes"; then
     case "${host}" in
     *-cygwin*)
 	cross_cache=${srcdir}/cross-build/cygwin.cache
+	LOCAL_CFLAGS="$LOCAL_CFLAGS -I${srcdir}/../libtermcap"
+	;;
+   *-mingw32*)
+	cross_cache=${srcdir}/cross-build/mingw.cache
+        ;;
+    *)  echo "configure: cross-compiling for a non-cygwin target is not supported" >&2
+	;;
+    esac
+
+    if test "x$cross_cache" != "x"; then
 	if test -r "${cross_cache}"; then
 	    echo "loading cross-build cache file ${cross_cache}"
 	    . ${cross_cache}
 	fi
-	LOCAL_CFLAGS="$LOCAL_CFLAGS -I${srcdir}/../libtermcap"
 	unset cross_cache
-	;;
-    *)  echo "configure: cross-compiling for a non-cygwin target is not supported" >&2
-	;;
-    esac
+    fi
 fi
 
 if test "x$cross_compiling" = "xyes"; then
@@ -4126,8 +4132,14 @@ fi
 
 
 
-for ac_func in lstat memmove putenv select setenv setlocale \
-		strcasecmp strpbrk tcgetattr vsnprintf isascii isxdigit
+
+
+
+
+
+for ac_func in fcntl kill lstat memmove putenv select setenv setlocale \
+	       strcasecmp strpbrk tcgetattr vsnprintf isascii isxdigit \
+               getpwnam getpwent getpwuid
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -4305,9 +4317,11 @@ fi
 
 
 
+
 for ac_header in unistd.h stdlib.h varargs.h stdarg.h string.h strings.h \
 		limits.h sys/ptem.h sys/pte.h sys/stream.h sys/select.h \
-		termcap.h termios.h termio.h sys/file.h locale.h memory.h
+		termcap.h termios.h termio.h sys/file.h locale.h memory.h \
+                pwd.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
@@ -6713,32 +6727,43 @@ echo $ECHO_N "checking for mbstate_t... $ECHO_C" >&6
 if test "${bash_cv_have_mbstate_t+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-  if test "$cross_compiling" = yes; then
-  { echo "$as_me:$LINENO: WARNING: cannot check mbstate_t if cross compiling -- defaulting to yes" >&5
-echo "$as_me: WARNING: cannot check mbstate_t if cross compiling -- defaulting to yes" >&2;}
-     bash_cv_have_mbstate_t=yes
-else
   cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
 #include <wchar.h>
+int
+main ()
+{
 int
 main ()
 {
   mbstate_t ps;
   return 0;
 }
+  ;
+  return 0;
+}
 _ACEOF
-rm -f conftest$ac_exeext
+rm -f conftest.$ac_objext conftest$ac_exeext
 if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
@@ -6746,15 +6771,13 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   (exit $ac_status); }; }; then
   bash_cv_have_mbstate_t=yes
 else
-  echo "$as_me: program exited with status $ac_status" >&5
-echo "$as_me: failed program was:" >&5
+  echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-( exit $ac_status )
 bash_cv_have_mbstate_t=no
 fi
-rm -f core *.core gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
-fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
 fi
 echo "$as_me:$LINENO: result: $bash_cv_have_mbstate_t" >&5
 echo "${ECHO_T}$bash_cv_have_mbstate_t" >&6

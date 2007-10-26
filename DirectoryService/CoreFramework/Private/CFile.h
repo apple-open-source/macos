@@ -33,6 +33,12 @@
 #include <DirectoryServiceCore/DSCThread.h>	// for CThread::Yield()
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 
+//no support for __LP64__ here
+#ifdef __LP64__
+#error "Cannot compile CFile with 64 bit - ppc64"
+#endif
+typedef		long long		sInt64;
+
 #include <unistd.h>		// for sync()
 #include <limits.h>		// for PATH_MAX
 #include <stdio.h>		// for PATH_MAX, FILE, fopen(), etc.
@@ -42,7 +48,7 @@
 using namespace std;
 
 static FILE	* const		kBadFileRef = NULL;
-static const sInt32		kMaxFiles	= 5;
+static const SInt32		kMaxFiles	= 8;
 
 //typedef ios		ios_base;
 typedef char	CFileSpec[ PATH_MAX ];
@@ -57,40 +63,40 @@ class CFile
 {
 public:
 				CFile	( void )	throw();
-				CFile	( const char *inFileSpec, const Boolean inCreate = false, const Boolean inRoll = false )	throw( OSErr );
+				CFile	( const char *inFileSpec, const Boolean inCreate = false, const Boolean inRoll = false )	throw( SInt16 );
 	virtual	   ~CFile	( void );
 
-	virtual	void open	( const char *inFileSpec, const Boolean inCreate = false )	throw( OSErr );
+	virtual	void open	( const char *inFileSpec, const Boolean inCreate = false )	throw( SInt16 );
 
 	// filesystem operations
-	virtual	sInt64		freespace	( void ) const	throw( OSErr );
+	virtual	sInt64		freespace	( void ) const	throw( SInt16 );
 	virtual	void		syncdisk	( void ) const	throw();
 
 	virtual	int			is_open		( void ) const	throw();
-	virtual	CFile&		seteof		( sInt64 lEOF )	throw( OSErr );
-	virtual	CFile&		flush		( void )		throw( OSErr );
-	virtual	void		close		( void )		throw( OSErr );
+	virtual	CFile&		seteof		( sInt64 lEOF )	throw( SInt16 );
+	virtual	CFile&		flush		( void )		throw( SInt16 );
+	virtual	void		close		( void )		throw( SInt16 );
 
 	// block io
-	virtual	ssize_t	ReadBlock		( void *s, streamsize n )					throw( OSErr );
-	virtual	CFile&	Read			( void *s, streamsize n )					throw( OSErr );
-			CFile&	read			( char *s, streamsize n )					throw( OSErr );
-			CFile&	read			( unsigned char *s, streamsize n )			throw( OSErr );
-			CFile&	read			( signed char *s, streamsize n )			throw( OSErr );
+	virtual	ssize_t	ReadBlock		( void *s, streamsize n )					throw( SInt16 );
+	virtual	CFile&	Read			( void *s, streamsize n )					throw( SInt16 );
+			CFile&	read			( char *s, streamsize n )					throw( SInt16 );
+			CFile&	read			( unsigned char *s, streamsize n )			throw( SInt16 );
+			CFile&	read			( signed char *s, streamsize n )			throw( SInt16 );
 
-	virtual	CFile& write			( const void *s, streamsize n )				throw( OSErr );
-			CFile& write			( const char *s, streamsize n )				throw( OSErr );
-			CFile& write			( const unsigned char *s, streamsize n )	throw( OSErr );
-			CFile& write			( const signed char *s, streamsize n )		throw( OSErr );
+	virtual	CFile& write			( const void *s, streamsize n )				throw( SInt16 );
+			CFile& write			( const char *s, streamsize n )				throw( SInt16 );
+			CFile& write			( const unsigned char *s, streamsize n )	throw( SInt16 );
+			CFile& write			( const signed char *s, streamsize n )		throw( SInt16 );
 
 	// positioning
-	virtual	CFile&	seekg		( sInt64 lOffset, ios::seekdir inMark = ios::beg )	throw( OSErr );
-	virtual	sInt64	tellg		( void )	throw( OSErr );
+	virtual	CFile&	seekg		( sInt64 lOffset, ios::seekdir inMark = ios::beg )	throw( SInt16 );
+	virtual	sInt64	tellg		( void )	throw( SInt16 );
 
-	virtual	CFile&	seekp		( sInt64 lOffset, ios::seekdir inMark = ios::beg )	throw( OSErr );
-	virtual	sInt64	tellp		( void )	throw( OSErr );
+	virtual	CFile&	seekp		( sInt64 lOffset, ios::seekdir inMark = ios::beg )	throw( SInt16 );
+	virtual	sInt64	tellp		( void )	throw( SInt16 );
 
-	virtual	sInt64	FileSize	( void )	throw( OSErr );
+	virtual	sInt64	FileSize	( void )	throw( SInt16 );
 	virtual void	ModDate		( struct timespec *outModTime );
 	
 protected:
@@ -108,20 +114,20 @@ protected:
 	bool			fWroteData;
 };
 
-inline CFile& CFile::flush ( void ) throw( OSErr )
+inline CFile& CFile::flush ( void ) throw( SInt16 )
 #if USE_UNIXIO
 { return *this; }	// A no-op, because I'm using unbuffered I/O.
 #else
 { ::fflush ( fFileRef ); return *this; }
 #endif
 
-inline CFile&	CFile::read	 ( char *s, streamsize n )					throw( OSErr ) { return this->Read( (void *)s, n ); }
-inline CFile&	CFile::read	 ( unsigned char *s, streamsize n )			throw( OSErr ) { return this->Read( (void *)s, n ); }
-inline CFile&	CFile::read	 ( signed char *s, streamsize n )			throw( OSErr ) { return this->Read( (void *)s, n ); }
-inline CFile&	CFile::write ( const char *s, streamsize n )			throw( OSErr ) { return this->write( (void *)s, n ); }
-inline CFile&	CFile::write ( const unsigned char *s, streamsize n )	throw( OSErr ) { return this->write( (void *)s, n ); }
-inline CFile&	CFile::write ( const signed char *s, streamsize n )		throw( OSErr ) { return this->write( (void *)s, n ); }
-inline sInt64	CFile::tellg ( void )									throw( OSErr ) { return( fReadPos ); }
-inline sInt64	CFile::tellp ( void )									throw( OSErr ) { return( fWritePos ); }
+inline CFile&	CFile::read	 ( char *s, streamsize n )					throw( SInt16 ) { return this->Read( (void *)s, n ); }
+inline CFile&	CFile::read	 ( unsigned char *s, streamsize n )			throw( SInt16 ) { return this->Read( (void *)s, n ); }
+inline CFile&	CFile::read	 ( signed char *s, streamsize n )			throw( SInt16 ) { return this->Read( (void *)s, n ); }
+inline CFile&	CFile::write ( const char *s, streamsize n )			throw( SInt16 ) { return this->write( (void *)s, n ); }
+inline CFile&	CFile::write ( const unsigned char *s, streamsize n )	throw( SInt16 ) { return this->write( (void *)s, n ); }
+inline CFile&	CFile::write ( const signed char *s, streamsize n )		throw( SInt16 ) { return this->write( (void *)s, n ); }
+inline sInt64	CFile::tellg ( void )									throw( SInt16 ) { return( fReadPos ); }
+inline sInt64	CFile::tellp ( void )									throw( SInt16 ) { return( fWritePos ); }
 
 #endif	// __CFile_h__

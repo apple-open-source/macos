@@ -28,6 +28,7 @@
 #include "unix++.h"
 #include <security_utilities/memutils.h>
 #include <security_utilities/debugging.h>
+#include <sys/xattr.h>
 #include <cstdarg>
 
 
@@ -93,6 +94,22 @@ size_t FileDesc::write(const void *addr, size_t length)
 
 
 //
+// I/O with integral positioning.
+// These don't affect file position and the atEnd() flag; and they
+// don't make allowances for asynchronous I/O.
+//
+size_t FileDesc::read(void *addr, size_t length, off_t position)
+{
+	return checkError(::pread(mFd, addr, length, position));
+}
+
+size_t FileDesc::write(const void *addr, size_t length, off_t position)
+{
+	return checkError(::pwrite(mFd, addr, length, position));
+}
+
+
+//
 // Waiting (repeating) I/O
 //
 size_t FileDesc::readAll(void *addr, size_t length)
@@ -135,12 +152,14 @@ void FileDesc::writeAll(const void *addr, size_t length)
 //
 // Seeking
 //
-off_t FileDesc::seek(off_t position, int whence)
+size_t FileDesc::seek(off_t position, int whence)
 {
-    off_t rc = ::lseek(mFd, position, whence);
-    if (rc == -1)
-        UnixError::throwMe();
-    return rc;
+    return checkError(::lseek(mFd, position, whence));
+}
+
+size_t FileDesc::position() const
+{
+	return checkError(::lseek(mFd, 0, SEEK_CUR));
 }
 
 
@@ -149,6 +168,8 @@ off_t FileDesc::seek(off_t position, int whence)
 //
 void *FileDesc::mmap(int prot, size_t length, int flags, off_t offset, void *addr)
 {
+	if (!(flags & (MAP_PRIVATE | MAP_SHARED)))	// one is required
+		flags |= MAP_PRIVATE;
     void *result = ::mmap(addr, length ? length : fileSize(), prot, flags, mFd, offset);
     if (result == MAP_FAILED)
         UnixError::throwMe();
@@ -159,48 +180,37 @@ void *FileDesc::mmap(int prot, size_t length, int flags, off_t offset, void *add
 //
 // Basic fcntl support
 //
-int FileDesc::fcntl(int cmd, int arg) const
-{
-    int rc = ::fcntl(mFd, cmd, arg);
-    secdebug("unixio", "%d fcntl(%d,%d) = %d", mFd, cmd, arg, rc);
-    if (rc == -1)
-        UnixError::throwMe();
-    return rc;
-}
-
 int FileDesc::fcntl(int cmd, void *arg) const
 {
-    // The BSD UNIX headers require an int argument to fcntl.
-    // This will fail miserably if sizeof(void *) > sizeof(int). For such ports,
-    // fix the problem here.
-    assert(sizeof(void *) <= sizeof(int));
-    return fcntl(cmd, reinterpret_cast<int>(arg));
+    int rc = ::fcntl(mFd, cmd, arg);
+    secdebug("unixio", "%d fcntl(%d,%p) = %d", mFd, cmd, arg, rc);
+	return checkError(rc);
 }
 
 
 //
 // Nice fcntl forms
 //
-int FileDesc::flags() const
-{
-    int flags = fcntl(F_GETFL);
-    if (flags == -1)
-        UnixError::throwMe();
-    return flags;
-}
-
-void FileDesc::flags(int flags) const
-{
-    if (fcntl(F_SETFL, flags) == -1)
-        UnixError::throwMe();
-}
-
 void FileDesc::setFlag(int flag, bool on) const
 {
     if (flag) {		// if there's anything at all to do...
         int oldFlags = flags();
         flags(on ? (oldFlags | flag) : (oldFlags & ~flag));
     }
+}
+
+
+//
+// Duplication operations
+//
+FileDesc FileDesc::dup() const
+{
+	return FileDesc(checkError(::dup(mFd)), atEnd());
+}
+
+FileDesc FileDesc::dup(int newFd) const
+{
+	return FileDesc(checkError(::dup2(mFd, newFd)), atEnd());
 }
 
 
@@ -253,6 +263,72 @@ int FileDesc::ioctl(int cmd, void *arg) const
 }
 
 
+//
+// Xattr support
+//
+void FileDesc::setAttr(const char *name, const void *value, size_t length,
+	u_int32_t position /* = 0 */, int options /* = 0 */)
+{
+	checkError(::fsetxattr(mFd, name, value, length, position, options));
+}
+
+ssize_t FileDesc::getAttrLength(const char *name)
+{
+	ssize_t rc = ::fgetxattr(mFd, name, NULL, 0, 0, 0);
+	if (rc == -1)
+		switch (errno) {
+		case ENOATTR:
+			return -1;
+		default:
+			UnixError::throwMe();
+		}
+	return rc;
+}
+
+ssize_t FileDesc::getAttr(const char *name, void *value, size_t length,
+	u_int32_t position /* = 0 */, int options /* = 0 */)
+{
+    ssize_t rc = ::fgetxattr(mFd, name, value, length, position, options);
+	if (rc == -1)
+		switch (errno) {
+		case ENOATTR:
+			return -1;
+		default:
+			UnixError::throwMe();
+		}
+	return rc;
+}
+
+void FileDesc::removeAttr(const char *name, int options /* = 0 */)
+{
+	checkError(::fremovexattr(mFd, name, options));
+}
+
+size_t FileDesc::listAttr(char *value, size_t length, int options /* = 0 */)
+{
+	return checkError(::flistxattr(mFd, value, length, options));
+}
+
+
+void FileDesc::setAttr(const std::string &name, const std::string &value, int options /* = 0 */)
+{
+	return setAttr(name, value.c_str(), value.size(), 0, options);
+}
+
+std::string FileDesc::getAttr(const std::string &name, int options /* = 0 */)
+{
+	char buffer[4096];	//@@@ auto-expand?
+	ssize_t length = getAttr(name, buffer, sizeof(buffer), 0, options);
+	if (length >= 0)
+		return string(buffer, length);
+	else
+		return string();
+}
+
+
+//
+// Stat support
+//
 void FileDesc::fstat(UnixStat &st) const
 {
     if (::fstat(mFd, &st))
@@ -264,6 +340,39 @@ size_t FileDesc::fileSize() const
     struct stat st;
     fstat(st);
     return st.st_size;
+}
+
+bool FileDesc::isA(int mode) const
+{
+	struct stat st;
+	fstat(st);
+	return (st.st_mode & S_IFMT) == mode;
+}
+
+
+void FileDesc::chown(uid_t uid)
+{
+	checkError(::fchown(mFd, uid, gid_t(-1)));
+}
+
+void FileDesc::chown(uid_t uid, gid_t gid)
+{
+	checkError(::fchown(mFd, uid, gid));
+}
+
+void FileDesc::chgrp(gid_t gid)
+{
+	checkError(::fchown(mFd, uid_t(-1), gid));
+}
+
+void FileDesc::chmod(mode_t mode)
+{
+	checkError(::fchmod(mFd, mode));
+}
+
+void FileDesc::chflags(u_int flags)
+{
+	checkError(::fchflags(mFd, flags));
 }
 
 

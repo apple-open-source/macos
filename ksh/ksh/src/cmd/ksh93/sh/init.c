@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  *
@@ -48,7 +44,6 @@
 #include	"FEATURE/time"
 #include	"FEATURE/dynamic"
 #include	"lexstates.h"
-#include	"FEATURE/locale"
 #include	"version.h"
 
 #if SHOPT_MULTIBYTE
@@ -61,38 +56,6 @@
     extern void bash_init(int);
 #endif
 
-#if _hdr_wchar && _lib_wctype && _lib_iswctype
-#   include <wchar.h>
-#   if _hdr_wctype
-#	include <wctype.h>
-#   endif
-#   undef  isalpha
-#   define isalpha(x)      iswalpha(x)
-#   undef  isblank
-#   define isblank(x)      iswblank(x)
-#   if !defined(iswblank) && !_lib_iswblank
-
-	static int
-	iswblank(wchar_t wc)
-	{
-		static int      initialized;
-		static wctype_t wt;
-
-		if (!initialized)
-		{
-			initialized = 1;
-			wt = wctype("blank");
-		}
-		return(iswctype(wc, wt));
-	}
-#   endif
-#else
-#   undef  _lib_wctype
-#   ifndef isblank
-#	define isblank(x)      ((x)==' '||(x)=='\t')
-#   endif
-#endif
-
 #define RANDMASK	0x7fff
 #ifndef CLK_TCK
 #   define CLK_TCK	60
@@ -102,19 +65,20 @@
     extern char	**environ;
 #endif
 
+#undef	getconf
+#define getconf(x)	strtol(astconf(x,NiL,NiL),NiL,0)
+
 struct seconds
 {
 	Namfun_t	hdr;
 	Shell_t		*sh;
-	char		*bufptr;
-	int		maxbufsize;
 };
 
 struct rand
 {
 	Namfun_t	hdr;
 	Shell_t		*sh;
-	long		rand_last;
+	int32_t		rand_last;
 };
 
 struct ifs
@@ -137,7 +101,8 @@ struct match
 	char		*rval;
 	int		vsize;
 	int		nmatch;
-	int		match[40];
+	int		lastsub;
+	int		match[2*(MATCH_MAX+1)];
 };
 
 typedef struct _init_
@@ -182,9 +147,6 @@ static Dt_t		*inittree(Shell_t*,const struct shtable2*);
 #   define EXE
 #endif
 
-static const char	rsh_pattern[] = "@(rk|kr|r)sh" EXE;
-static const char	pfsh_pattern[] = "pf?(k)sh" EXE;
-static const char	bash_pattern[] = "?(r)bash" EXE;
 static int		rand_shift;
 
 
@@ -220,15 +182,12 @@ static void put_ed(register Namval_t* np,const char *val,int flags,Namfun_t *fp)
 		goto done;
 	/* turn on vi or emacs option if editor name is either*/
 	cp = path_basename(cp);
-	if(strmatch(cp,"*vi"))
+	if(strmatch(cp,"*[Vv][Ii]*"))
 		sh_onoption(SH_VI);
-	if(strmatch(cp,"*macs"))
-	{
-		if(*cp=='g')
-			sh_onoption(SH_GMACS);
-		else
-			sh_onoption(SH_EMACS);
-	}
+	else if(strmatch(cp,"*gmacs*"))
+		sh_onoption(SH_GMACS);
+	else if(strmatch(cp,"*macs*"))
+		sh_onoption(SH_EMACS);
 done:
 	nv_putv(np, val, flags, fp);
 }
@@ -241,27 +200,35 @@ static void put_optindex(Namval_t* np,const char *val,int flags,Namfun_t *fp)
 	nv_putv(np, val, flags, fp);
 }
 
+static Sfdouble_t nget_optindex(register Namval_t* np, Namfun_t *fp)
+{
+	return((Sfdouble_t)*np->nvalue.lp);
+}
+
 /* Trap for restricted variables FPATH, PATH, SHELL, ENV */
 static void put_restricted(register Namval_t* np,const char *val,int flags,Namfun_t *fp)
 {
 	Shell_t *shp = ((struct shell*)fp)->sh;
+	int		path_scoped = 0;
 #ifdef PATH_BFPATH
 	Pathcomp_t *pp;
 	char *name = nv_name(np);
 #endif
 	if(!(flags&NV_RDONLY) && sh_isoption(SH_RESTRICTED))
 		errormsg(SH_DICT,ERROR_exit(1),e_restricted,nv_name(np));
-	if(name==(PATHNOD)->nvname)			
+	if(np==PATHNOD	|| (path_scoped=(strcmp(name,PATHNOD->nvname)==0)))		
 	{
 #ifndef PATH_BFPATH
 		shp->lastpath = 0;
 #endif
 		nv_scan(shp->track_tree,rehash,(void*)0,NV_TAGGED,NV_TAGGED);
+		if(path_scoped && !val)
+			val = PATHNOD->nvalue.cp;
 	}
 	if(val && !(flags&NV_RDONLY) && np->nvalue.cp && strcmp(val,np->nvalue.cp)==0)
 		 return;
 #ifdef PATH_BFPATH
-	if(shp->pathlist  && name==(FPATHNOD)->nvname)
+	if(shp->pathlist  && np==FPATHNOD)
 		shp->pathlist = (void*)path_unsetfpath((Pathcomp_t*)shp->pathlist);
 #endif
 	nv_putv(np, val, flags, fp);
@@ -269,9 +236,9 @@ static void put_restricted(register Namval_t* np,const char *val,int flags,Namfu
 	if(shp->pathlist)
 	{
 		val = np->nvalue.cp;
-		if(name==(PATHNOD)->nvname)
+		if(np==PATHNOD || path_scoped)
 			pp = (void*)path_addpath((Pathcomp_t*)shp->pathlist,val,PATH_PATH);
-		else if(val && name==(FPATHNOD)->nvname)
+		else if(val && np==FPATHNOD)
 			pp = (void*)path_addpath((Pathcomp_t*)shp->pathlist,val,PATH_FPATH);
 		else
 			return;
@@ -416,7 +383,8 @@ static void put_ifs(register Namval_t* np,const char *val,int flags,Namfun_t *fp
 {
 	register struct ifs *ip = (struct ifs*)fp;
 	ip->ifsnp = 0;
-	nv_putv(np, val, flags, fp);
+	if(val != np->nvalue.cp)
+		nv_putv(np, val, flags, fp);
 	
 }
 
@@ -492,35 +460,27 @@ static void put_seconds(register Namval_t* np,const char *val,int flags,Namfun_t
 		nv_unset(np);
 		return;
 	}
-	if(flags&NV_INTEGER)
-		d = *(double*)val;
-	else
-		d = sh_arith(val);
-	timeofday(&tp);
 	if(!np->nvalue.dp)
 	{
 		nv_setsize(np,3);
 		np->nvalue.dp = new_of(double,0);
 	}
+	nv_putv(np, val, flags, fp);
+	d = *np->nvalue.dp;
+	timeofday(&tp);
 	*np->nvalue.dp = dtime(&tp)-d;
 }
 
 static char* get_seconds(register Namval_t* np, Namfun_t *fp)
 {
-	static char *bufptr;
-	static int maxbufsize;
 	register int places = nv_size(np);
 	struct tms tp;
 	double d, offset = (np->nvalue.dp?*np->nvalue.dp:0);
 	NOT_USED(fp);
 	timeofday(&tp);
 	d = dtime(&tp)- offset;
-	if(!bufptr)
-		bufptr = (char*)malloc(maxbufsize=places+20);
-	else if(places+20 > maxbufsize)
-		bufptr = (char*)realloc(bufptr,maxbufsize=places+20);
-	sfsprintf(bufptr,maxbufsize,"%.*f\0",places,d);
-	return(bufptr);
+	sfprintf(sh.strbuf,"%.*f",places,d);
+	return(sfstruse(sh.strbuf));
 }
 
 static Sfdouble_t nget_seconds(register Namval_t* np, Namfun_t *fp)
@@ -567,7 +527,7 @@ static Sfdouble_t nget_rand(register Namval_t* np, Namfun_t *fp)
 		cur = (rand()>>rand_shift)&RANDMASK;
 	while(cur==last);
 	*np->nvalue.lp = cur;
-	return((double)cur);
+	return((Sfdouble_t)cur);
 }
 
 static char* get_rand(register Namval_t* np, Namfun_t *fp)
@@ -622,11 +582,10 @@ static char* get_lastarg(Namval_t* np, Namfun_t *fp)
 
 static void put_lastarg(Namval_t* np,const char *val,int flags,Namfun_t *fp)
 {
-	char numbuf[20];
 	if(flags&NV_INTEGER)
 	{
-		sfsprintf(numbuf,sizeof(numbuf),"%.*g\0",12,*((double*)val));
-		val = numbuf;
+		sfprintf(sh.strbuf,"%.*g",12,*((double*)val));
+		val = sfstruse(sh.strbuf);
 	}
 	if(sh.lastarg && !nv_isattr(np,NV_NOFREE))
 		free((void*)sh.lastarg);
@@ -654,7 +613,7 @@ void sh_setmatch(const char *v, int vsize, int nmatch, int match[])
 	register int i,n;
 	if(mp->nmatch = nmatch)
 	{
-		memcpy(mp->match,match,nmatch*2*sizeof(int));
+		memcpy(mp->match,match,nmatch*2*sizeof(match[0]));
 		for(n=match[0],i=1; i < 2*nmatch; i++)
 		{
 			if(mp->match[i] < n)
@@ -676,6 +635,8 @@ void sh_setmatch(const char *v, int vsize, int nmatch, int match[])
 		}
 		memcpy(mp->val,v,vsize);
 		mp->val[vsize] = 0;
+		nv_putsub(SH_MATCHNOD, NIL(char*), nmatch|ARRAY_FILL);
+		mp->lastsub = -1;
 	}
 } 
 
@@ -686,14 +647,16 @@ static char* get_match(register Namval_t* np, Namfun_t *fp)
 	struct match *mp = (struct match*)fp;
 	int sub,n;
 	char *val;
+	sub = nv_aindex(np);
+	if(sub>=mp->nmatch)
+		return(0);
+	if(sub==mp->lastsub)
+		return(mp->rval);
 	if(mp->rval)
 	{
 		free((void*)mp->rval);
 		mp->rval = 0;
 	}
-	sub = nv_aindex(np);
-	if(sub>=mp->nmatch)
-		return(0);
 	n = mp->match[2*sub+1]-mp->match[2*sub];
 	if(n<=0)
 		return("");
@@ -701,6 +664,7 @@ static char* get_match(register Namval_t* np, Namfun_t *fp)
 	if(mp->val[mp->match[2*sub+1]]==0)
 		return(val);
 	mp->rval = (char*)malloc(n+1);
+	mp->lastsub = sub;
 	memcpy(mp->rval,val,n);
 	mp->rval[n] = 0;
 	return(mp->rval);
@@ -750,7 +714,7 @@ const Namdisc_t RESTRICTED_disc	= {  sizeof(struct shell), put_restricted };
 static const Namdisc_t CDPATH_disc	= {  sizeof(struct shell), put_cdpath }; 
 #endif
 static const Namdisc_t EDITOR_disc	= {  sizeof(struct shell), put_ed };
-static const Namdisc_t OPTINDEX_disc	= {  sizeof(struct shell), put_optindex };
+static const Namdisc_t OPTINDEX_disc	= {  sizeof(struct shell), put_optindex, 0, nget_optindex };
 static const Namdisc_t SECONDS_disc	= {  sizeof(struct seconds), put_seconds, get_seconds, nget_seconds };
 static const Namdisc_t RAND_disc	= {  sizeof(struct rand), put_rand, get_rand, nget_rand };
 static const Namdisc_t LINENO_disc	= {  sizeof(struct shell), put_lineno, get_lineno, nget_lineno };
@@ -818,12 +782,86 @@ static int newconf(const char *name, const char *path, const char *value)
 #endif
 
 /*
+ * return SH_TYPE_* bitmask for path
+ * 0 for "not a shell"
+ */
+int sh_type(register const char *path)
+{
+	register const char*	s;
+	register int		t = 0;
+	
+	if (s = (const char*)strrchr(path, '/'))
+	{
+		if (*path == '-')
+			t |= SH_TYPE_LOGIN;
+		s++;
+	}
+	else
+		s = path;
+	if (*s == '-')
+	{
+		s++;
+		t |= SH_TYPE_LOGIN;
+	}
+	for (;;)
+	{
+		if (!(t & (SH_TYPE_KSH|SH_TYPE_BASH)))
+		{
+			if (*s == 'k')
+			{
+				s++;
+				t |= SH_TYPE_KSH;
+				continue;
+			}
+#if SHOPT_BASH
+			if (*s == 'b' && *(s+1) == 'a')
+			{
+				s += 2;
+				t |= SH_TYPE_BASH;
+				continue;
+			}
+#endif
+		}
+		if (!(t & (SH_TYPE_PROFILE|SH_TYPE_RESTRICTED)))
+		{
+#if SHOPT_PFSH
+			if (*s == 'p' && *(s+1) == 'f')
+			{
+				s += 2;
+				t |= SH_TYPE_PROFILE;
+				continue;
+			}
+#endif
+			if (*s == 'r')
+			{
+				s++;
+				t |= SH_TYPE_RESTRICTED;
+				continue;
+			}
+		}
+		break;
+	}
+	if (*s++ != 's' || *s++ != 'h')
+		return 0;
+	t |= SH_TYPE_SH;
+	if ((t & SH_TYPE_KSH) && *s == '9' && *(s+1) == '3')
+		s += 2;
+#if _WINIX
+	if (*s == '.' && *(s+1) == 'e' && *(s+2) == 'x' && *(s+3) == 'e')
+		s += 4;
+#endif
+	if (*s)
+		t &= ~(SH_TYPE_PROFILE|SH_TYPE_RESTRICTED);
+	return t;
+}
+
+/*
  * initialize the shell
  */
 Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 {
-	register char *name;
 	register int n;
+	int type;
 	static char *login_files[3];
 	n = strlen(e_version);
 	if(e_version[n-1]=='$' && e_version[n-2]==' ')
@@ -833,10 +871,13 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 #else
 	init_ebcdic();
 #endif
+	umask(umask(0));
 	sh.mac_context = sh_macopen(&sh);
 	sh.arg_context = sh_argopen(&sh);
 	sh.lex_context = (void*)sh_lexopen(0,&sh,1);
 	sh.ed_context = (void*)ed_open(&sh);
+	sh.strbuf = sfstropen();
+	sfsetbuf(sh.strbuf,(char*)0,64);
 	sh_onstate(SH_INIT);
 	error_info.exit = sh_exit;
 	error_info.id = path_basename(argv[0]);
@@ -858,12 +899,15 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 			break;
 		}
 	}
-	sh.lim.clk_tck = sysconf(_SC_CLK_TCK);
-	sh.lim.open_max = sysconf(_SC_OPEN_MAX);
-	sh.lim.child_max = sysconf(_SC_CHILD_MAX);
-	sh.lim.ngroups_max = sysconf(_SC_NGROUPS_MAX);
-	sh.lim.posix_version = sysconf(_SC_VERSION);
-	sh.lim.posix_jobcontrol = sysconf(_SC_JOB_CONTROL);
+	sh.lim.clk_tck = getconf("CLK_TCK");
+	sh.lim.arg_max = getconf("ARG_MAX");
+	sh.lim.open_max = getconf("OPEN_MAX");
+	sh.lim.child_max = getconf("CHILD_MAX");
+	sh.lim.ngroups_max = getconf("NGROUPS_MAX");
+	sh.lim.posix_version = getconf("VERSION");
+	sh.lim.posix_jobcontrol = getconf("JOB_CONTROL");
+	if(sh.lim.arg_max <=0)
+		sh.lim.arg_max = ARG_MAX;
 	if(sh.lim.child_max <=0)
 		sh.lim.child_max = CHILD_MAX;
 	if(sh.lim.open_max <0)
@@ -885,12 +929,9 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 	/* read the environment */
 	if(argc>0)
 	{
-		name = path_basename(*argv);
-		if(*name=='-')
-		{
-			name++;
+		type = sh_type(*argv);
+		if(type&SH_TYPE_LOGIN)
 			sh.login_sh = 2;
-		}
 	}
 	env_init(&sh);
 #if SHOPT_SPAWN
@@ -900,15 +941,15 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 		 * try using environment variable _ or argv[0]
 		 */
 		char *last, *cp=nv_getval(L_ARGNOD);
-		char path[50],buff[PATH_MAX+1];
+		char buff[PATH_MAX+1];
 		sh.shpath = 0;
-		sfsprintf(path,sizeof(path),"/proc/%d/exe\0",getpid());
-		if((n=readlink(path,buff,sizeof(buff)-1))>0)
+		sfprintf(sh.strbuf,"/proc/%d/exe",getpid());
+		if((n=readlink(sfstruse(sh.strbuf),buff,sizeof(buff)-1))>0)
 		{
 			buff[n] = 0;
 			sh.shpath = strdup(buff);
 		}
-		else if((cp && (last=strrchr(cp,'/')) && strmatch(&last[1],"?(-)?(r)?(k)sh"EXE)) || (argc>0 && (last=strrchr(cp= *argv,'/'))))
+		else if((cp && (sh_type(cp)&SH_TYPE_SH)) || (argc>0 && strchr(cp= *argv,'/')))
 		{
 			if(*cp=='/')
 				sh.shpath = strdup(cp);
@@ -938,21 +979,22 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 	if(argc>0)
 	{
 		/* check for restricted shell */
-		if(argc>0 && strmatch(name,rsh_pattern))
+		if(type&SH_TYPE_RESTRICTED)
 			sh_onoption(SH_RESTRICTED);
 #if SHOPT_PFSH
 		/* check for profile shell */
-		if(argc>0 && strmatch(name,pfsh_pattern))
+		else if(type&SH_TYPE_PROFILE)
 			sh_onoption(SH_PFSH);
 #endif
 #if SHOPT_BASH
 		/* check for invocation as bash */
-		if(argc>0 && strmatch(name,bash_pattern))
+		if(type&SH_TYPE_BASH)
 		{
-		        sh.userinit = userinit=bash_init;
+		        sh.userinit = userinit = bash_init;
 			sh_onoption(SH_BASH);
-			if(*name=='r')
-				sh_onoption(SH_RESTRICTED);
+			sh_onstate(SH_PREINIT);
+			(*userinit)(0);
+			sh_offstate(SH_PREINIT);
 		}
 #endif
 		/* look for options */
@@ -972,27 +1014,31 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 			sh.st.dolc--;
 			sh.st.dolv++;
 #if _WINIX
-			name = sh.st.dolv[0];
-			if(name[1]==':' && (name[2]=='/' || name[2]=='\\'))
 			{
+				char*	name;
+				name = sh.st.dolv[0];
+				if(name[1]==':' && (name[2]=='/' || name[2]=='\\'))
+				{
 #if _lib_pathposix
-				char*	p;
+					char*	p;
 
-				if((n = pathposix(name, NIL(char*), 0)) > 0 && (p = (char*)malloc(++n)))
-				{
-					pathposix(name, p, n);
-					name = p;
-				}
-				else
+					if((n = pathposix(name, NIL(char*), 0)) > 0 && (p = (char*)malloc(++n)))
+					{
+						pathposix(name, p, n);
+						name = p;
+					}
+					else
 #endif
-				{
-					name[1] = name[0];
-					name[0] = name[2] = '/';
+					{
+						name[1] = name[0];
+						name[0] = name[2] = '/';
+					}
 				}
 			}
 #endif /* _WINIX */
 		}
 	}
+#if SHOPT_PFSH
 	if (sh_isoption(SH_PFSH))
 	{
 		struct passwd *pw = getpwuid(sh.userid);
@@ -1000,6 +1046,7 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 			sh.user = strdup(pw->pw_name);
 		
 	}
+#endif
 	/* set[ug]id scripts require the -p flag */
 	if(sh.userid!=sh.euserid || sh.groupid!=sh.egroupid)
 	{
@@ -1042,6 +1089,12 @@ Shell_t *sh_init(register int argc,register char *argv[], void(*userinit)(int))
 	sh.login_files = login_files;
 	if(sh.userinit=userinit)
 		(*userinit)(0);
+	sh.bltindata.version = SH_VERSION;
+	sh.bltindata.shp = &sh;
+	sh.bltindata.shrun = sh_run;
+	sh.bltindata.shtrap = sh_trap;
+	sh.bltindata.shexit = sh_exit;
+	sh.bltindata.shbltin = sh_addbuiltin;
 	return(&sh);
 }
 
@@ -1060,6 +1113,7 @@ int sh_reinit(char *argv[])
 	dtclose(sh.alias_tree);
 	sh.alias_tree = inittree(&sh,shtab_aliases);
 	sh.namespace = 0;
+	sh.inuse_bits = 0;
 	if(sh.userinit)
 		(*sh.userinit)(1);
 	if(sh.heredocs)
@@ -1224,7 +1278,7 @@ static Init_t *nv_init(Shell_t *shp)
 #endif /* _hdr_locale */
 	(PPIDNOD)->nvalue.lp = (&shp->ppid);
 	(TMOUTNOD)->nvalue.lp = (&shp->st.tmout);
-	(MCHKNOD)->nvalue.lp = (long*)(&sh_mailchk);
+	(MCHKNOD)->nvalue.lp = (&sh_mailchk);
 	(OPTINDNOD)->nvalue.lp = (&shp->st.optindex);
 	/* set up the seconds clock */
 	shp->alias_tree = inittree(shp,shtab_aliases);
@@ -1236,17 +1290,17 @@ static Init_t *nv_init(Shell_t *shp)
 #if SHOPT_BASH
 	nv_search("local",shp->bltin_tree,0)->nvfun = (void*)&typeset;
 #endif
-	shp->fun_tree = dtopen(&_Nvdisc,Dtset);
+	shp->fun_tree = dtopen(&_Nvdisc,Dtoset);
 	dtview(shp->fun_tree,shp->bltin_tree);
 #if SHOPT_NAMESPACE
-	np = nv_mount(DOTSHNOD, "global", shp->var_tree);
-	nv_onattr(np,NV_RDONLY);
+	if(np = nv_mount(DOTSHNOD, "global", shp->var_tree))
+		nv_onattr(np,NV_RDONLY);
 	np = nv_search("namespace",nv_dict(DOTSHNOD),NV_ADD);
 	nv_putval(np,".sh.global",NV_RDONLY|NV_NOFREE);
 	nv_stack(np, &NSPACE_init);
 #endif /* SHOPT_NAMESPACE */
-	np = nv_mount(DOTSHNOD, "type", dtopen(&_Nvdisc,Dtset));
-	nv_adddisc(DOTSHNOD, shdiscnames);
+	np = nv_mount(DOTSHNOD, "type", dtopen(&_Nvdisc,Dtoset));
+	nv_adddisc(DOTSHNOD, shdiscnames, (Namval_t**)0);
 	return(ip);
 }
 
@@ -1268,7 +1322,7 @@ static Dt_t *inittree(Shell_t *shp,const struct shtable2 *name_vals)
 		shp->bltin_nodes = np;
 	else if(name_vals==(const struct shtable2*)shtab_builtins)
 		shp->bltin_cmds = np;
-	base_treep = treep = dtopen(&_Nvdisc,Dtset);
+	base_treep = treep = dtopen(&_Nvdisc,Dtoset);
 	for(tp=name_vals;*tp->sh_name;tp++,np++)
 	{
 		if((np->nvname = strrchr(tp->sh_name,'.')) && np->nvname!=((char*)tp->sh_name))
@@ -1285,7 +1339,7 @@ static Dt_t *inittree(Shell_t *shp,const struct shtable2 *name_vals)
 			np->nvalue.cp = (char*)tp->sh_value;
 		nv_setattr(np,tp->sh_number);
 		if(nv_istable(np))
-			nv_mount(np,(const char*)0,dict=dtopen(&_Nvdisc,Dtset));
+			nv_mount(np,(const char*)0,dict=dtopen(&_Nvdisc,Dtoset));
 		if(nv_isattr(np,NV_INTEGER))
 			nv_setsize(np,10);
 		else
@@ -1318,7 +1372,7 @@ static void env_init(Shell_t *shp)
 		{
 			if(*cp=='A' && cp[1]=='_' && cp[2]=='_' && cp[3]=='z' && cp[4]=='=')
 				next = cp+4;
-			else if(np=nv_open(cp,shp->var_tree,(NV_EXPORT|NV_IDENT|NV_ASSIGN))) 
+			else if(np=nv_open(cp,shp->var_tree,(NV_EXPORT|NV_IDENT|NV_ASSIGN|NV_NOFAIL))) 
 			{
 				nv_onattr(np,NV_IMPORT);
 				np->nvenv = cp;
@@ -1371,12 +1425,8 @@ static void env_init(Shell_t *shp)
 		nv_offattr(PWDNOD,NV_TAGGED);
 		path_pwd(0);
 	}
-	if(cp = nv_getval(SHELLNOD))
-	{
-		cp = path_basename(cp);
-		if(strmatch(cp,rsh_pattern))
-			sh_onoption(SH_RESTRICTED); /* restricted shell */
-	}
+	if((cp = nv_getval(SHELLNOD)) && (sh_type(cp)&SH_TYPE_RESTRICTED))
+		sh_onoption(SH_RESTRICTED); /* restricted shell */
 	return;
 }
 

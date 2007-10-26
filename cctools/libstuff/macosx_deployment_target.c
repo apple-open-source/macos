@@ -21,26 +21,15 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #ifndef RLD
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <mach/mach.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include "stuff/errors.h"
+#include "stuff/allocate.h"
 #include "stuff/macosx_deployment_target.h"
-
-struct macosx_deployment_target_pair {
-    const char *name;
-    enum macosx_deployment_target_value value;
-};
-
-static const struct macosx_deployment_target_pair
-    macosx_deployment_target_pairs[] = {
-    { "10.1", MACOSX_DEPLOYMENT_TARGET_10_1 },
-    { "10.2", MACOSX_DEPLOYMENT_TARGET_10_2 },
-    { "10.3", MACOSX_DEPLOYMENT_TARGET_10_3 },
-    { "10.4", MACOSX_DEPLOYMENT_TARGET_10_4 },
-    { "10.5", MACOSX_DEPLOYMENT_TARGET_10_5 },
-    { NULL, 0 }
-};
 
 /* last value passed to put_macosx_deployment_target() */
 static char *command_line_macosx_deployment_target = NULL;
@@ -49,7 +38,7 @@ static char *command_line_macosx_deployment_target = NULL;
  * put_macosx_deployment_target() is called with the command line argument to
  * -macosx_version_min which the compiler uses to allow the user to asked for
  * a particular macosx deployment target on the command-line to override the
- * environment variable. This simpley saves away the value requested.  The
+ * environment variable. This simply saves away the value requested.  The
  * string passed is not copied. If NULL is passed, it removes any previous
  * setting.
  */
@@ -62,53 +51,117 @@ char *target)
 }
 
 /*
- * get_macosx_deployment_target() indirectly sets the value and the name with
- * the specified MACOSX_DEPLOYMENT_TARGET environment variable or the current
- * default if not specified for the cputype.
+ * get_macosx_deployment_target() sets the fields of the
+ * macosx_deployment_target struct passed to it based on the last
+ * command_line_macosx_deployment_target value set (if any) or the specified
+ * MACOSX_DEPLOYMENT_TARGET environment variable or the default which the
+ * the value the machine this is running on.  The name field in the struct is
+ * always pointing to memory allocated here so it can be free()'ed when no
+ * longer needed.
  */
 __private_extern__
 void
 get_macosx_deployment_target(
-enum macosx_deployment_target_value *value,
-const char **name,
-cpu_type_t cputype)
+struct macosx_deployment_target *value)
 {
-    unsigned long i;
-    char *p;
-
-	/* set the current default for the cputype */
-	if(cputype == CPU_TYPE_I386){
-	    *value = MACOSX_DEPLOYMENT_TARGET_10_4;
-	    *name = "10.4";
-	}
-	else{
-	    *value = MACOSX_DEPLOYMENT_TARGET_10_1;
-	    *name = "10.1";
-	}
+    unsigned long ten, major, minor;
+    char *p, *q, *endp;
+    char osversion[32];
+    size_t osversion_len;
+    static int osversion_name[2];
 
 	/*
-	 * Pick up the Mac OS X deployment target environment variable.
+	 * Pick up the Mac OS X deployment target set by the command line
+	 * or the environment variable if any.  If that does not parse out
+	 * use the default and generate a warning.  We accept "10.x" or "10.x.y"
+	 * where x and y are unsigned numbers. And x is non-zero.
 	 */
 	if(command_line_macosx_deployment_target != NULL)
 	    p = command_line_macosx_deployment_target;
 	else
 	    p = getenv("MACOSX_DEPLOYMENT_TARGET");
 	if(p != NULL){
-	    for(i = 0; macosx_deployment_target_pairs[i].name != NULL; i++){
-		if(strcmp(macosx_deployment_target_pairs[i].name, p) == 0){
-		    *value = macosx_deployment_target_pairs[i].value;
-		    *name = macosx_deployment_target_pairs[i].name;
-		    break;
-		}
+	    ten = strtoul(p, &endp, 10);
+	    if(*endp != '.')
+		goto use_default;
+	    if(ten != 10)
+		goto use_default;
+	    q = endp + 1;
+	    major = strtoul(q, &endp, 10);
+	    if(major == 0)
+		goto use_default;
+	    if(*endp != '.' && *endp != '\0')
+		goto use_default;
+	    if(*endp == '.'){
+		q = endp + 1;
+		minor = strtoul(q, &endp, 10);
+		if(*endp != '\0')
+		    goto use_default;
 	    }
-	    if(macosx_deployment_target_pairs[i].name == NULL){
-	        if(command_line_macosx_deployment_target != NULL)
-		    warning("unknown -macosx_version_min parameter value: "
-			    "%s ignored (using %s)", p, *name);
-		else
-		    warning("unknown MACOSX_DEPLOYMENT_TARGET environment "
-			    "variable value: %s ignored (using %s)", p, *name);
+	    else{
+		minor = 0;
 	    }
+	    value->major = major;
+	    value->minor = minor;
+	    value->name = allocate(strlen(p) + 1);
+	    strcpy(value->name, p);
+	    return;
+	}
+
+use_default:
+	/*
+	 * The default value is the version of the running OS.
+	 */
+	osversion_name[0] = CTL_KERN;
+	osversion_name[1] = KERN_OSRELEASE;
+	osversion_len = sizeof(osversion) - 1;
+	if(sysctl(osversion_name, 2, osversion, &osversion_len, NULL, 0) == -1)
+	    system_error("sysctl for kern.osversion failed");
+
+	/*
+	 * Now parse this out.  It is expected to be of the form "x.y.z" where
+	 * x, y and z are unsigned numbers.  Where x-4 is the Mac OS X major
+	 * version number, and y is the minor version number.  We don't parse
+	 * out the value of z.
+	 */
+	major = strtoul(osversion, &endp, 10);
+	if(*endp != '.')
+	    goto bad_system_value;
+	if(major <= 4)
+	    goto bad_system_value;
+	major = major - 4;
+	q = endp + 1;
+	minor = strtoul(q, &endp, 10);
+	if(*endp != '.')
+	    goto bad_system_value;
+
+	value->major = major;
+	value->minor = minor;
+	value->name = allocate(32);
+	sprintf(value->name, "10.%lu.%lu", major, minor);
+	goto warn_if_bad_user_values;
+
+bad_system_value:
+	/*
+	 * As a last resort we set the default to the highest known shipping
+	 * system to date.
+	 */
+	value->major = 5;
+	value->minor = 0;
+	value->name = allocate(strlen("10.5") + 1);
+	strcpy(value->name, "10.5");
+	warning("unknown value returned by sysctl() for kern.osrelease: %s "
+		"ignored (using %s)", osversion, value->name);
+	/* fall through to also warn about a possble bad user value */
+
+warn_if_bad_user_values:
+	if(p != NULL){
+	    if(command_line_macosx_deployment_target != NULL)
+		warning("unknown -macosx_version_min parameter value: "
+			"%s ignored (using %s)", p, value->name);
+	    else
+		warning("unknown MACOSX_DEPLOYMENT_TARGET environment "
+			"variable value: %s ignored (using %s)", p,value->name);
 	}
 }
 #endif /* !defined(RLD) */

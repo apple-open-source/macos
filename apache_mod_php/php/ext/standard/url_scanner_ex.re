@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 4                                                        |
+  | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
   | Copyright (c) 1997-2006 The PHP Group                                |
   +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: url_scanner_ex.re,v 1.63.2.11.2.2 2006/02/28 14:47:14 iliaa Exp $ */
+/* $Id: url_scanner_ex.re,v 1.76.2.2.2.1 2007/06/06 00:00:27 iliaa Exp $ */
 
 #include "php.h"
 
@@ -93,6 +93,7 @@ PHP_INI_END()
 any = [\000-\377];
 N = (any\[<]);
 alpha = [a-zA-Z];
+alphanamespace = [a-zA-Z:];
 alphadash = ([a-zA-Z] | "-");
 */
 
@@ -291,7 +292,7 @@ state_plain:
 state_tag:	
 	start = YYCURSOR;
 /*!re2c
-  alpha+	{ handle_tag(STD_ARGS); /* Sets STATE */; passthru(STD_ARGS); if (STATE == STATE_PLAIN) goto state_plain; else goto state_next_arg; }
+  alphanamespace+	{ handle_tag(STD_ARGS); /* Sets STATE */; passthru(STD_ARGS); if (STATE == STATE_PLAIN) goto state_plain; else goto state_next_arg; }
   any		{ passthru(STD_ARGS); goto state_plain_begin; }
 */
 
@@ -507,6 +508,7 @@ PHP_MINIT_FUNCTION(url_scanner)
 PHP_MSHUTDOWN_FUNCTION(url_scanner)
 {
 	UNREGISTER_INI_ENTRIES();
+
 	return SUCCESS;
 }
 

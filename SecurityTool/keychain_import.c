@@ -33,6 +33,7 @@
 #include <Security/SecIdentity.h>
 #include <Security/SecKey.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecKeychainItemExtendedAttributes.h>
 #include <security_cdsa_utils/cuFileIo.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdio.h>
@@ -43,7 +44,10 @@ static int do_keychain_import(
 	SecExternalFormat   externFormat,
 	SecExternalItemType itemType,
 	const char			*passphrase,
-	const char			*fileName)
+	const char			*fileName,
+	char				**attrNames, 
+	char				**attrValues, 
+	unsigned			numExtendedAttributes)
 {
 	SecKeyImportExportParameters	keyParams;
 	OSStatus		ortn;
@@ -141,6 +145,32 @@ static int do_keychain_import(
 		fprintf(stdout, "%d %s imported.\n", numCerts, str);
 	}
 	
+	/* optionally apply extended attributes */
+	if(numExtendedAttributes) {
+		unsigned attrDex;
+		for(attrDex=0; attrDex<numExtendedAttributes; attrDex++) {
+			CFStringRef attrNameStr = CFStringCreateWithCString(NULL, attrNames[attrDex],
+				kCFStringEncodingASCII);
+			CFDataRef attrValueData = CFDataCreate(NULL, (const UInt8 *)attrValues[attrDex], 
+				strlen(attrValues[attrDex]));
+			for(dex=0; dex<numItems; dex++) {
+				SecKeychainItemRef itemRef = 
+					(SecKeychainItemRef)CFArrayGetValueAtIndex(outArray, dex);
+				ortn = SecKeychainItemSetExtendedAttribute(itemRef, attrNameStr, attrValueData);
+				if(ortn) {
+					cssmPerror("SecKeychainItemSetExtendedAttribute", ortn);
+					result = 1;
+					break;
+				}
+			}	/* for each imported item */
+			CFRelease(attrNameStr);
+			CFRelease(attrValueData);
+			if(result) {
+				break;
+			}
+		}	/* for each extended attribute */
+	}
+
 loser:
 	CFRelease(fileStr);
 	if(outArray) {
@@ -167,6 +197,9 @@ keychain_import(int argc, char * const *argv)
 	unsigned char *inFileData = NULL;
 	unsigned inFileLen = 0;
 	CFDataRef inData = NULL;
+	unsigned numExtendedAttributes = 0;
+	char **attrNames = NULL;
+	char **attrValues = NULL;
 	
 	if(argc < 2) {
 		return 2; /* @@@ Return 2 triggers usage message. */
@@ -177,7 +210,7 @@ keychain_import(int argc, char * const *argv)
 	}
 	optind = 2;
 	
-    while ((ch = getopt(argc, argv, "k:t:f:P:wh")) != -1)
+    while ((ch = getopt(argc, argv, "k:t:f:P:wa:h")) != -1)
 	{
 		switch  (ch)
 		{
@@ -208,8 +241,11 @@ keychain_import(int argc, char * const *argv)
 			if(!strcmp("openssl", optarg)) {
 				externFormat = kSecFormatOpenSSL;
 			}
-			else if(!strcmp("openssh", optarg)) {
+			else if(!strcmp("openssh1", optarg)) {
 				externFormat = kSecFormatSSH;
+			}
+			else if(!strcmp("openssh2", optarg)) {
+				externFormat = kSecFormatSSHv2;
 			}
 			else if(!strcmp("bsafe", optarg)) {
 				externFormat = kSecFormatBSAFE;
@@ -245,6 +281,18 @@ keychain_import(int argc, char * const *argv)
 		case 'P':
 			passphrase = optarg;
 			break;
+		case 'a':
+			/* this takes an additional argument */
+			if(optind > (argc - 1)) {
+				return 2; /* @@@ Return 2 triggers usage message. */
+			}
+			attrNames  = (char **)realloc(attrNames, numExtendedAttributes * sizeof(char *));
+			attrValues = (char **)realloc(attrValues, numExtendedAttributes * sizeof(char *));
+			attrNames[numExtendedAttributes]  = optarg;
+			attrValues[numExtendedAttributes] = argv[optind];
+			numExtendedAttributes++;
+			optind++;
+			break;
 		case '?':
 		default:
 			return 2; /* @@@ Return 2 triggers usage message. */
@@ -259,6 +307,10 @@ keychain_import(int argc, char * const *argv)
 				break;
 			case kSecFormatSSH:
 				externFormat = kSecFormatWrappedSSH;
+				break;
+			case kSecFormatSSHv2:
+				/* there is no wrappedSSHv2 */
+				externFormat = kSecFormatWrappedOpenSSL;
 				break;
 			case kSecFormatWrappedPKCS8:
 				/* proceed */
@@ -285,7 +337,7 @@ keychain_import(int argc, char * const *argv)
 	}
 	free(inFileData);
 	result = do_keychain_import(kcRef, inData, externFormat, itemType,
-		passphrase, inFile);
+		passphrase, inFile, attrNames, attrValues, numExtendedAttributes);
 	
 loser:
 	if(kcRef) {

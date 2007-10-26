@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2004, International Business Machines
+*   Copyright (C) 2000-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -678,9 +678,9 @@ UCAElements *readAnElement(FILE *data, tempUCATable *t, UCAConstants *consts, UE
       i++;
     }
     element->noOfCEs = CEindex;
-
+#if 0
     element->isThai = UCOL_ISTHAIPREVOWEL(element->cPoints[0]);
-
+#endif
     // we don't want any strange stuff after useful data!
     while(pointer < commentStart)  {
         if(*pointer != ' ' && *pointer != '\t')
@@ -778,6 +778,10 @@ write_uca_table(const char *filename,
                 UErrorCode *status)
 {
     FILE *data = fopen(filename, "r");
+    if(data == NULL) {
+        fprintf(stderr, "Couldn't open file: %s\n", filename);
+        return -1;
+    }
     uint32_t line = 0;
     UCAElements *element = NULL;
     UChar variableTopValue = 0;
@@ -798,8 +802,8 @@ write_uca_table(const char *filename,
         return 0;
     }
     uprv_memset(opts, 0, sizeof(UColOptionSet));
-    UChar contractionCEs[256][3];
-    uprv_memset(contractionCEs, 0, 256*3*sizeof(UChar));
+    UChar contractionCEs[512][3];
+    uprv_memset(contractionCEs, 0, 512*3*sizeof(UChar));
     uint32_t noOfContractions = 0;
     UCAConstants consts;
     uprv_memset(&consts, 0, sizeof(consts));
@@ -836,11 +840,6 @@ write_uca_table(const char *filename,
 #endif
 
 
-    if(data == NULL) {
-        fprintf(stderr, "Couldn't open file: %s\n", filename);
-        return -1;
-    }
-
     uprv_memset(inverseTable, 0xDA, sizeof(int32_t)*3*0xFFFF);
 
     opts->variableTopValue = variableTopValue;
@@ -858,6 +857,9 @@ write_uca_table(const char *filename,
     if(U_FAILURE(*status))
     {
         fprintf(stderr, "Failed to init UCA temp table: %s\n", u_errorName(*status));
+        uprv_free(opts);
+        uprv_free(myD);
+        fclose(data);
         return -1;
     }
 
@@ -952,8 +954,12 @@ struct {
     }
 
     if(UCAVersion[0] == 0 && UCAVersion[1] == 0 && UCAVersion[2] == 0 && UCAVersion[3] == 0) {
-      fprintf(stderr, "UCA version not specified. Cannot create data file!\n");
-      return -1;
+        fprintf(stderr, "UCA version not specified. Cannot create data file!\n");
+        uprv_uca_closeTempTable(t);
+        uprv_free(opts);
+        uprv_free(myD);
+        fclose(data);
+        return -1;
     }
 /*    {
         uint32_t trieWord = utrie_get32(t->mapping, 0xDC01, NULL);
@@ -992,6 +998,10 @@ struct {
 
     if(U_FAILURE(*status)) {
         fprintf(stderr, "Error creating table: %s\n", u_errorName(*status));
+        uprv_uca_closeTempTable(t);
+        uprv_free(opts);
+        uprv_free(myD);
+        fclose(data);
         return -1;
     }
 
@@ -1013,7 +1023,7 @@ struct {
     uprv_memcpy(inverse->UCAVersion, UCAVersion, sizeof(UVersionInfo));
     writeOutInverseData(inverse, outputDir, copyright, status);
 
-    uprv_uca_closeTempTable(t);    
+    uprv_uca_closeTempTable(t);
     uprv_free(myD);
     uprv_free(opts);
 

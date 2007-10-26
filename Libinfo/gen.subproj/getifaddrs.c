@@ -39,8 +39,10 @@
 
 #include <errno.h>
 #include <ifaddrs.h>
+#include <netinet/in.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #if !defined(AF_LINK)
 #define	SA_LEN(sa)	sizeof(struct sockaddr)
@@ -50,7 +52,7 @@
 #define	SA_LEN(sa)	(sa)->sa_len
 #endif
 
-#define	SALIGN	(sizeof(long) - 1)
+#define	SALIGN	(sizeof(int32_t) - 1)
 #define	SA_RLEN(sa)	((sa)->sa_len ? (((sa)->sa_len + SALIGN) & ~SALIGN) : (SALIGN + 1))
 
 #ifndef	ALIGNBYTES
@@ -81,12 +83,18 @@
 #define HAVE_IFM_DATA
 #endif
 
+#define MEMORY_MIN 2048
+#define MEMORY_MAX 4194304
+
 int
 getifaddrs(struct ifaddrs **pif)
 {
 	int icnt = 1;
 	int dcnt = 0;
 	int ncnt = 0;
+	struct ifaddrs *ifa, *ift;
+	struct sockaddr_in6 *sin6;
+	uint16_t esid;
 #ifdef	NET_RT_IFLIST
 	int mib[6];
 	size_t needed;
@@ -99,7 +107,6 @@ getifaddrs(struct ifaddrs **pif)
 	struct ifa_msghdr *ifam;
 	struct sockaddr_dl *dl;
 	struct sockaddr *sa;
-	struct ifaddrs *ifa, *ift;
 	u_short index = 0;
 #else	/* NET_RT_IFLIST */
 	char buf[1024];
@@ -108,7 +115,7 @@ getifaddrs(struct ifaddrs **pif)
 	struct ifreq *ifr;
 	struct ifreq *lifr;
 #endif	/* NET_RT_IFLIST */
-	int i;
+	int i, status;
 	size_t len, alen;
 	char *data;
 	char *names;
@@ -120,13 +127,22 @@ getifaddrs(struct ifaddrs **pif)
 	mib[3] = 0;             /* wildcard address family */
 	mib[4] = NET_RT_IFLIST;
 	mib[5] = 0;             /* no flags */
-	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0)
-		return (-1);
-	if ((buf = malloc(needed)) == NULL)
-		return (-1);
-	if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
+	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) return (-1);
+
+	if (needed < MEMORY_MIN) needed = MEMORY_MIN;
+	needed *= 2;
+
+	while (needed <= MEMORY_MAX)
+	{
+		buf = malloc(needed);
+		if (buf == NULL) return (-1);
+
+		status = sysctl(mib, 6, buf, &needed, NULL, 0);
+		if (status >= 0) break;
+
 		free(buf);
-		return (-1);
+		buf = NULL;
+		needed *= 2;
 	}
 
 	for (next = buf; next < buf + needed; next += rtm->rtm_msglen) {
@@ -196,12 +212,17 @@ getifaddrs(struct ifaddrs **pif)
 	ifc.ifc_buf = buf;
 	ifc.ifc_len = sizeof(buf);
 
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		free(buf);
 		return (-1);
+	}
+
 	i =  ioctl(sock, SIOCGIFCONF, (char *)&ifc);
 	close(sock);
-	if (i < 0)
+	if (i < 0) {
+		free(buf);
 		return (-1);
+	}
 
 	ifr = ifc.ifc_req;
 	lifr = (struct ifreq *)&ifc.ifc_buf[ifc.ifc_len];
@@ -213,7 +234,7 @@ getifaddrs(struct ifaddrs **pif)
 		++icnt;
 		dcnt += SA_RLEN(sa);
 		ncnt += sizeof(ifr->ifr_name) + 1;
-		
+
 		ifr = (struct ifreq *)(((char *)sa) + SA_LEN(sa));
 	}
 #endif	/* NET_RT_IFLIST */
@@ -364,7 +385,7 @@ getifaddrs(struct ifaddrs **pif)
 		sa = &ifr->ifr_addr;
 		memcpy(data, sa, SA_LEN(sa));
 		data += SA_RLEN(sa);
-		
+
 		ifr = (struct ifreq *)(((char *)sa) + SA_LEN(sa));
 		ift = (ift->ifa_next = ift + 1);
 	}
@@ -376,6 +397,21 @@ getifaddrs(struct ifaddrs **pif)
 		*pif = NULL;
 		free(ifa);
 	}
+
+	for (ift = ifa; ift != NULL; ift = ift->ifa_next)
+	{
+		if (ift->ifa_addr->sa_family == AF_INET6)
+		{
+			sin6 = (struct sockaddr_in6 *)ift->ifa_addr;
+			if (IN6_IS_ADDR_LINKLOCAL(&sin6->sin6_addr) || IN6_IS_ADDR_SITELOCAL(&sin6->sin6_addr))
+			{
+				esid = ntohs(sin6->sin6_addr.__u6_addr.__u6_addr16[1]);
+				sin6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+				if (sin6->sin6_scope_id == 0) sin6->sin6_scope_id = esid;
+			}
+		}
+	}
+
 	return (0);
 }
 

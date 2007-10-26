@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -40,7 +43,7 @@
 **
 */
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_PKT_TRC(pkt)\
 {\
     RPC_DBG_PRINTF (rpc_e_dbg_cn_pkt, RPC_C_CN_DBG_PKT,\
@@ -59,7 +62,7 @@
 #define RPC_CN_PKT_TRC(pkt)
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_IOV_DUMP(iov)\
 {\
     unsigned16  k_, acc_;\
@@ -74,7 +77,7 @@
 #define RPC_CN_IOV_DUMP(iov)
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_PKT_DUMP(addr, len)\
 {\
     unsigned16  acc_;\
@@ -85,7 +88,7 @@
 #define RPC_CN_PKT_DUMP(addr, len)
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_DCE_RPC
 #define RPC_CN_MEM_DUMP(addr, len, acc)\
 {\
     if (RPC_DBG2(rpc_e_dbg_cn_pkt, RPC_C_CN_DBG_PKT_DUMP))\
@@ -142,7 +145,16 @@
  * This is the version number contained in the packet header.
  */
 #define RPC_C_CN_PROTO_VERS       5       /* RunTime protocol version */
+/*
+ * The old code always tried 5.1 and then fell back to 5.0. Seems Windows 2003 
+ * only supports 5.0. This was causing us about four extra transactions for
+ * every share share lookup. So for now we only support 5.0. 
+ */
+#ifdef SUPPORT_DCE_RPC_FIVE_ONE
 #define RPC_C_CN_PROTO_VERS_MINOR 1
+#else // SUPPORT_DCE_RPC_FIVE_ONE
+#define RPC_C_CN_PROTO_VERS_MINOR 0
+#endif // SUPPORT_DCE_RPC_FIVE_ONE
 
 /*
  * This is the compat minor version for new client to old server

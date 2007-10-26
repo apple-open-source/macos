@@ -1,15 +1,15 @@
---- default.c.orig	Fri Oct 29 17:33:32 2004
-+++ default.c	Fri Oct 29 17:37:54 2004
-@@ -42,7 +42,7 @@
- .s .ss .i .ii .mod .sym .def .h .info .dvi .tex .texinfo .texi .txinfo \
- .w .ch .cweb .web .com .sh .elc .el";
+--- default.c.orig	2005-06-25 11:57:28.000000000 -0700
++++ default.c	2005-10-17 16:38:30.000000000 -0700
+@@ -45,7 +45,7 @@
+ .mod .sym .def .h .info .dvi .tex .texinfo .texi .txinfo \
+ .w .ch .web .sh .elc .el .obj .exe .dll .lib";
  #else
 -  = ".out .a .ln .o .c .cc .C .cpp .p .f .F .r .y .l .s .S \
 +  = ".out .a .ln .o .c .cc .C .cpp .p .f .F .m .r .y .l .ym .lm .s .S \
  .mod .sym .def .h .info .dvi .tex .texinfo .texi .txinfo \
  .w .ch .web .sh .elc .el";
  #endif
-@@ -187,6 +187,8 @@
+@@ -192,6 +192,8 @@
      "$(LINK.cpp) $^ $(LOADLIBES) $(LDLIBS) -o $@",
      ".f",
      "$(LINK.f) $^ $(LOADLIBES) $(LDLIBS) -o $@",
@@ -18,7 +18,7 @@
      ".p",
      "$(LINK.p) $^ $(LOADLIBES) $(LDLIBS) -o $@",
      ".F",
-@@ -216,6 +218,8 @@
+@@ -221,6 +223,8 @@
      "$(COMPILE.cpp) $(OUTPUT_OPTION) $<",
      ".f.o",
      "$(COMPILE.f) $(OUTPUT_OPTION) $<",
@@ -27,7 +27,7 @@
      ".p.o",
      "$(COMPILE.p) $(OUTPUT_OPTION) $<",
      ".F.o",
-@@ -245,6 +249,11 @@
+@@ -250,6 +254,11 @@
      ".l.c",
      "@$(RM) $@ \n $(LEX.l) $< > $@",
  
@@ -39,7 +39,7 @@
      ".F.f",
      "$(PREPROCESS.F) $(OUTPUT_OPTION) $<",
      ".r.f",
-@@ -299,6 +308,10 @@
+@@ -304,6 +313,10 @@
  
  static char *default_variables[] =
    {
@@ -50,7 +50,7 @@
  #ifdef VMS
  #ifdef __ALPHA
      "ARCH", "ALPHA",
-@@ -459,6 +472,8 @@
+@@ -468,6 +481,8 @@
      "LINK.o", "$(CC) $(LDFLAGS) $(TARGET_ARCH)",
      "COMPILE.c", "$(CC) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c",
      "LINK.c", "$(CC) $(CFLAGS) $(CPPFLAGS) $(LDFLAGS) $(TARGET_ARCH)",
@@ -59,7 +59,7 @@
      "COMPILE.cc", "$(CXX) $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c",
      "COMPILE.C", "$(COMPILE.cc)",
      "COMPILE.cpp", "$(COMPILE.cc)",
-@@ -467,6 +482,8 @@
+@@ -476,6 +491,8 @@
      "LINK.cpp", "$(LINK.cc)",
      "YACC.y", "$(YACC) $(YFLAGS)",
      "LEX.l", "$(LEX) $(LFLAGS) -t",

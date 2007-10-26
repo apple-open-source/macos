@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,6 +75,7 @@ extern void DAMountMapListRefresh2( void );
 extern const CFStringRef kDAPreferenceMountDeferExternalKey;  /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceMountDeferRemovableKey; /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceMountTrustExternalKey;  /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceMountTrustRemovableKey; /* ( CFBoolean ) */
 
 extern void DAPreferenceListRefresh( void );
 

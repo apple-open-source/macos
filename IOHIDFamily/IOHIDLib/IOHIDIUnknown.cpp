@@ -22,22 +22,25 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-// FIXME
-// #include <IOKit/hid/IOHIDLib.h>
-#include "IOHIDLib.h"
-
+#include <IOKit/hid/IOHIDDevicePlugIn.h>
+#include <IOKit/hid/IOHIDServicePlugIn.h>
 #include "IOHIDIUnknown.h"
 #include "IOHIDDeviceClass.h"
 #include "IOHIDUPSClass.h"
+//#include "IOHIDEventServiceClass.h"
 
 int IOHIDIUnknown::factoryRefCount = 0;
 
 void *IOHIDLibFactory(CFAllocatorRef allocator, CFUUIDRef typeID)
 {
     if (CFEqual(typeID, kIOHIDDeviceUserClientTypeID))
+        return (void *) IOHIDObsoleteDeviceClass::alloc();
+    else if (CFEqual(typeID, kIOHIDDeviceTypeID))
         return (void *) IOHIDDeviceClass::alloc();
     else if (CFEqual(typeID, kIOUPSPlugInTypeID))
         return (void *) IOHIDUPSClass::alloc();
+//    else if (CFEqual(typeID, kIOHIDServicePlugInTypeID))
+//        return (void *) IOHIDEventServiceClass::alloc();
     else
         return NULL;
 }
@@ -78,15 +81,15 @@ IOHIDIUnknown::~IOHIDIUnknown()
     factoryRelease();
 }
 
-unsigned long IOHIDIUnknown::addRef()
+UInt32 IOHIDIUnknown::addRef()
 {
     refCount += 1;
     return refCount;
 }
 
-unsigned long IOHIDIUnknown::release()
+UInt32 IOHIDIUnknown::release()
 {
-    unsigned long retVal = refCount - 1;
+    UInt32 retVal = refCount - 1;
 
     if (retVal > 0)
         refCount = retVal;
@@ -107,13 +110,13 @@ genericQueryInterface(void *self, REFIID iid, void **ppv)
     return me->queryInterface(iid, ppv);
 }
 
-unsigned long IOHIDIUnknown::genericAddRef(void *self)
+UInt32 IOHIDIUnknown::genericAddRef(void *self)
 {
     IOHIDIUnknown *me = ((InterfaceMap *) self)->obj;
     return me->addRef();
 }
 
-unsigned long IOHIDIUnknown::genericRelease(void *self)
+UInt32 IOHIDIUnknown::genericRelease(void *self)
 {
     IOHIDIUnknown *me = ((InterfaceMap *) self)->obj;
     return me->release();

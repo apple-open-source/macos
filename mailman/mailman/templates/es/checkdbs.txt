@@ -4,6 +4,6 @@ siguiente página:
 
 	%(adminDB)s
 	
-Por favor, atiendalas tan pronto como le sea posible. Esta comunicación
+Por favor, atiéndalas tan pronto como le sea posible. Esta comunicación
 indicando que existen mensajes por revisar, se le enviará todos los días,
 siempre y cuando exista alguno.

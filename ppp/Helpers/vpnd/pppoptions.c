@@ -45,10 +45,12 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include "../../Family/if_ppplink.h"
+#include "../../Family/ppp_defs.h"
 
 #include "vpnd.h"
 #include "vpnoptions.h"
@@ -345,6 +347,12 @@ static int process_ppp_prefs(struct vpn_params *params)
     CFIndex		count;
     CFStringRef		string;
     int			noCCP;
+#define AUTH_BITS_PAP		0x1
+#define AUTH_BITS_CHAP		0x2
+#define AUTH_BITS_MSCHAP1	0x4
+#define AUTH_BITS_MSCHAP2	0x8
+#define AUTH_BITS_EAP		0x10
+    u_int32_t			auth_bits = 0; /* none */
 
     //
     // some basic admin options 
@@ -466,9 +474,9 @@ static int process_ppp_prefs(struct vpn_params *params)
         addparam(params->exec_args, &params->next_arg_index, "noip");
     }
     else {
-        /* XXX */
-        /* enforce the source address */
-        addintparam(params->exec_args, &params->next_arg_index, "ip-src-address-filter", 1);
+		            
+        /* enforce the source ip address filtering */
+        addintparam(params->exec_args, &params->next_arg_index, "ip-src-address-filter",  NPAFMODE_SRC_IN);
 
         get_int_option(params->serverRef, kRASEntPPP, kRASPropPPPIPCPCompressionVJ, &lval, OPT_IPCP_HDRCOMP_DEF);
         if (lval == 0) 
@@ -528,61 +536,86 @@ static int process_ppp_prefs(struct vpn_params *params)
     if (lval == 0)
         addparam(params->exec_args, &params->next_arg_index, "noacsp");
 
+	get_int_option(params->serverRef, kRASEntPPP, kRASPropPPPInterceptDHCP, &lval, 1);
+	if (lval)
+		addparam(params->exec_args, &params->next_arg_index, "intercept-dhcp");
+
     
     //
     // Authentication
     //
     
-    dict = CFDictionaryGetValue(params->serverRef, kRASEntPPP);
+    auth_bits = 0;
+	dict = CFDictionaryGetValue(params->serverRef, kRASEntPPP);
     if (isDictionary(dict)) {
         array = CFDictionaryGetValue(dict, kRASPropPPPAuthenticatorProtocol);
         if (isArray(array)) {
-            if ((count = CFArrayGetCount(array)) > 1) {
-                vpnlog(LOG_ERR, "%d authentication methods specified - only the first will be used\n", count);
-            }
-            string = CFArrayGetValueAtIndex(array, 0);
-            if (isString(string)) {
-                if (CFStringCompare(string, kRASValPPPAuthProtocolMSCHAP2, 0) == kCFCompareEqualTo)
-                    addparam(params->exec_args, &params->next_arg_index, "require-mschap-v2");
-                else if (CFStringCompare(string, kRASValPPPAuthProtocolMSCHAP1, 0) == kCFCompareEqualTo)
-                    addparam(params->exec_args, &params->next_arg_index, "require-mschap");
-                else if (CFStringCompare(string, kRASValPPPAuthProtocolCHAP, 0) == kCFCompareEqualTo)
-                    addparam(params->exec_args, &params->next_arg_index, "require-chap");
-                else if (CFStringCompare(string, kRASValPPPAuthProtocolPAP, 0) == kCFCompareEqualTo)
-                    addparam(params->exec_args, &params->next_arg_index, "require-pap");
-                else if (CFStringCompare(string, kRASValPPPAuthProtocolEAP, 0) == kCFCompareEqualTo) {
-                    addparam(params->exec_args, &params->next_arg_index, "require-eap");  
-                    
-                    // add EAP plugins - must be at least one
-                    int eapPluginFound = 0;
-                    
-                    i = 0;
-                    do {
-                        lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorEAPPlugins, i++, pathStr, &len, "");
-                        if (pathStr[0]) {
-                            strcat(pathStr, ".ppp");	// add plugin suffix
-                            if (!plugin_exists(pathStr)) {
-                                vpnlog(LOG_ERR, "EAP plugin '%s' not found\n", pathStr);
-                                return -1;
-                            }
-                            addstrparam(params->exec_args, &params->next_arg_index, "eapplugin", pathStr);
-                            eapPluginFound = 1;
-                        }
-                    }
-                    while (lval);
-
-                    if (!eapPluginFound) {
-                        vpnlog(LOG_ERR, "No EAP authentication plugin(s) specified\n");
-                        return -1;
-                    }
-                } else {
-                    vpnlog(LOG_ERR, "Unknown authentication type specified\n");
-                    return -1;
-                }
+            count = CFArrayGetCount(array);
+			
+			for (i = 0; i < count; i++) {
+				string = CFArrayGetValueAtIndex(array, i);
+				if (isString(string)) {
+					if (CFStringCompare(string, kRASValPPPAuthProtocolMSCHAP2, 0) == kCFCompareEqualTo)
+						auth_bits |= AUTH_BITS_MSCHAP2;
+					else if (CFStringCompare(string, kRASValPPPAuthProtocolMSCHAP1, 0) == kCFCompareEqualTo)
+						auth_bits |= AUTH_BITS_MSCHAP1;
+					else if (CFStringCompare(string, kRASValPPPAuthProtocolCHAP, 0) == kCFCompareEqualTo)
+						auth_bits |= AUTH_BITS_CHAP;
+					else if (CFStringCompare(string, kRASValPPPAuthProtocolPAP, 0) == kCFCompareEqualTo)
+						auth_bits |= AUTH_BITS_PAP;
+					else if (CFStringCompare(string, kRASValPPPAuthProtocolEAP, 0) == kCFCompareEqualTo)
+						auth_bits |= AUTH_BITS_EAP;
+					else {
+						vpnlog(LOG_ERR, "Unknown authentication type specified\n");
+						return -1;
+					}
+				}
             }
         }
+	}
+	
+	if (auth_bits & AUTH_BITS_PAP)
+		addparam(params->exec_args, &params->next_arg_index, "require-pap");
+
+	if (auth_bits & AUTH_BITS_CHAP)
+		addparam(params->exec_args, &params->next_arg_index, "require-chap");
+
+	if (auth_bits & AUTH_BITS_MSCHAP1)
+		addparam(params->exec_args, &params->next_arg_index, "require-mschap");
+
+	if (auth_bits & AUTH_BITS_MSCHAP2) 
+		addparam(params->exec_args, &params->next_arg_index, "require-mschap-v2");
+
+	if (auth_bits & AUTH_BITS_EAP) {
+
+		addparam(params->exec_args, &params->next_arg_index, "require-eap");  
+		
+		// add EAP plugins - must be at least one
+		int eapPluginFound = 0;
+		
+		i = 0;
+		do {
+			lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorEAPPlugins, i++, pathStr, &len, "");
+			if (pathStr[0]) {
+				strcat(pathStr, ".ppp");	// add plugin suffix
+				if (!plugin_exists(pathStr)) {
+					vpnlog(LOG_ERR, "EAP plugin '%s' not found\n", pathStr);
+					return -1;
+				}
+				addstrparam(params->exec_args, &params->next_arg_index, "eapplugin", pathStr);
+				eapPluginFound = 1;
+			}
+		}
+		while (lval);
+
+		if (!eapPluginFound) {
+			 /* should check if Radius EAP proxy is enabled */
+			//vpnlog(LOG_ERR, "No EAP authentication plugin(s) specified\n");
+			//return -1;
+		}
     }
-                    
+
+
     //
     // Plugins
     //

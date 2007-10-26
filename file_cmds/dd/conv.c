@@ -223,8 +223,10 @@ unblock(void)
 
 	/* Translation and case conversion. */
 	if ((t = ctab) != NULL)
-		for (cnt = in.dbrcnt, inp = in.dbp; cnt--;)
-			*--inp = t[*inp];
+		for (cnt = in.dbrcnt, inp = in.dbp; cnt--;) {
+			*inp = t[*inp];
+			--inp;
+		}
 	/*
 	 * Copy records (max cbsz size chunks) into the output buffer.  The
 	 * translation has to already be done or we might not recognize the

@@ -4,7 +4,7 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-04-27</string>
+		<string>2006-05-24</string>
 		<key>OpenSourceLicense</key>
 		<string>Other</string>
 		<key>OpenSourceLicenseFile</key>
@@ -12,17 +12,17 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>All non-"darwin" OS dialects were removed from the lsof sources before being imported</string>
-			<string>A slew of changes associated with the introduction of the libproc.h APIs were made. These changes will eventually roll into a subsequent release of lsof (Vic Abell had tagged this pre-release code as lsof 4.77D).</string>
+			<string>A slew of changes associated with the introduction of the libproc.h APIs were made. These changes will eventually roll into a subsequent release of lsof (Vic Abell originally tagged the pre-release code as lsof 4.77D).</string>
 			<string>A few minor bug fixes.</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>lsof</string>
 		<key>OpenSourceSHA1</key>
-		<string>4a237b74775c2367f3f453d78734ff38324caa2c</string>
+		<string>07bdbe8ef658b2c3d2d27b9e0178cf79bd88b00b</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_4.77.tar.gz</string>
+		<string>ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_4.78.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>4.77</string>
+		<string>4.78</string>
 	</dict>
 </array>
 </plist>

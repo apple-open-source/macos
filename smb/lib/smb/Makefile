@@ -1,6 +1,7 @@
-# $Id: Makefile,v 1.1.1.3 2001/07/06 22:38:42 conrad Exp $
+# $Id: Makefile,v 1.2 2005/08/14 06:09:42 lindak Exp $
 
 LIB=		smb
+MAN5=		nsmb.conf.5
 
 NOPROFILE=	yes
 

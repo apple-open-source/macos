@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,40 +71,39 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	}
 
 	/* serialize the key/value pairs to set*/
-	if (keysToSet) {
+	if (keysToSet != NULL) {
 		CFDictionaryRef	newInfo;
 		Boolean		ok;
 
 		newInfo = _SCSerializeMultiple(keysToSet);
-		if (!newInfo) {
-			_SCErrorSet(kSCStatusFailed);
+		if (newInfo == NULL) {
+			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 
 		ok = _SCSerialize(newInfo, &xmlSet, (void **)&mySetRef, &mySetLen);
 		CFRelease(newInfo);
-
 		if (!ok) {
-			_SCErrorSet(kSCStatusFailed);
+			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 	}
 
 	/* serialize the keys to remove */
-	if (keysToRemove) {
+	if (keysToRemove != NULL) {
 		if (!_SCSerialize(keysToRemove, &xmlRemove, (void **)&myRemoveRef, &myRemoveLen)) {
-			if (xmlSet)	CFRelease(xmlSet);
-			_SCErrorSet(kSCStatusFailed);
+			if (xmlSet != NULL)	CFRelease(xmlSet);
+			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 	}
 
 	/* serialize the keys to notify */
-	if (keysToNotify) {
+	if (keysToNotify != NULL) {
 		if (!_SCSerialize(keysToNotify, &xmlNotify, (void **)&myNotifyRef, &myNotifyLen)) {
-			if (xmlSet)	CFRelease(xmlSet);
-			if (xmlRemove)	CFRelease(xmlRemove);
-			_SCErrorSet(kSCStatusFailed);
+			if (xmlSet != NULL)	CFRelease(xmlSet);
+			if (xmlRemove != NULL)	CFRelease(xmlRemove);
+			_SCErrorSet(kSCStatusInvalidArgument);
 			return FALSE;
 		}
 	}
@@ -120,9 +119,9 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 			     (int *)&sc_status);
 
 	/* clean up */
-	if (xmlSet)	CFRelease(xmlSet);
-	if (xmlRemove)	CFRelease(xmlRemove);
-	if (xmlNotify)	CFRelease(xmlNotify);
+	if (xmlSet != NULL)	CFRelease(xmlSet);
+	if (xmlRemove != NULL)	CFRelease(xmlRemove);
+	if (xmlNotify != NULL)	CFRelease(xmlNotify);
 
 	if (status != KERN_SUCCESS) {
 #ifdef	DEBUG
@@ -171,14 +170,14 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 
 	/* serialize the key */
 	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
-		_SCErrorSet(kSCStatusFailed);
+		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
 	/* serialize the data */
 	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
 		CFRelease(utfKey);
-		_SCErrorSet(kSCStatusFailed);
+		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 

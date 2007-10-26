@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,16 +54,10 @@ routine _DAServerDiskIsClaimed( _session : mach_port_t;
                                 _disk    : ___caddr_t;
                             out _claimed : boolean_t );
 
-routine _DAServerDiskRefresh( _session : mach_port_t;
-                              _disk    : ___caddr_t );
-
 routine _DAServerDiskSetAdoption( _session  : mach_port_t;
                                   _disk     : ___caddr_t;
                                   _adoption : boolean_t;
                    ServerSecToken _token    : security_token_t );
-
-routine _DAServerDiskSetClassic( _session : mach_port_t;
-                                 _disk    : ___caddr_t );
 
 routine _DAServerDiskSetEncoding( _session  : mach_port_t;
                                   _disk     : ___caddr_t;
@@ -85,7 +79,6 @@ routine _DAServerSessionCreate( _session : mach_port_t;
                                 _client  : mach_port_t;
                                 _name    : ___caddr_t;
                                 _pid     : ___pid_t;
-                                _rights  : ___AuthorizationExternalForm;
                             out _server  : mach_port_t );
 
 routine _DAServerSessionQueueRequest( _session   : mach_port_t;
@@ -94,21 +87,21 @@ routine _DAServerSessionQueueRequest( _session   : mach_port_t;
                                       _argument1 : int32_t;
                                       _argument2 : ___vm_address_t;
                                       _argument3 : ___vm_address_t;
-                                      _address   : vm_offset_t;
-                                      _context   : vm_offset_t;
+                                      _address   : mach_vm_offset_t;
+                                      _context   : mach_vm_offset_t;
                        ServerSecToken _token     : security_token_t );
 
 simpleroutine _DAServerSessionQueueResponse( _session    : mach_port_t;
-                                             _address    : vm_offset_t;
-                                             _context    : vm_offset_t;
+                                             _address    : mach_vm_offset_t;
+                                             _context    : mach_vm_offset_t;
                                              _kind       : int32_t;
                                              _disk       : ___caddr_t;
                                              _response   : ___vm_address_t;
                                              _responseID : int32_t );
 
 simpleroutine _DAServerSessionRegisterCallback( _session : mach_port_t;
-                                                _address : vm_offset_t;
-                                                _context : vm_offset_t;
+                                                _address : mach_vm_offset_t;
+                                                _context : mach_vm_offset_t;
                                                 _kind    : int32_t;
                                                 _order   : int32_t;
                                                 _match   : ___vm_address_t;
@@ -116,6 +109,9 @@ simpleroutine _DAServerSessionRegisterCallback( _session : mach_port_t;
 
 simpleroutine _DAServerSessionRelease( _session : mach_port_t );
 
+simpleroutine _DAServerSessionSetAuthorization( _session       : mach_port_t;
+                                                _authorization : ___AuthorizationExternalForm );
+
 simpleroutine _DAServerSessionUnregisterCallback( _session : mach_port_t;
-                                                  _address : vm_offset_t;
-                                                  _context : vm_offset_t );
+                                                  _address : mach_vm_offset_t;
+                                                  _context : mach_vm_offset_t );

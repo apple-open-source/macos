@@ -1,3 +1,4 @@
+.\" Portions Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
 .\"	$NetBSD: services.5,v 1.3 1994/11/30 19:31:31 jtc Exp $
 .\"
 .\" Copyright (c) 1983, 1991, 1993
@@ -68,18 +69,24 @@ not interpreted by the routines which search the file.
 Service names may contain any printable
 character other than a field delimiter, newline,
 or comment character.
+.Sh INTERACTION WITH DIRECTORY SERVICES
+Processes generally find service records using one of the
+.Xr getservent 3
+family of functions, or using
+.Xr getaddrinfo 3 .
+On Mac OS X, these functions interact with the
+.Xr DirectoryService 8
+daemon,
+which reads the /etc/services file as well as searching other directory information services
+to determine service name, protocol, and port information.
 .Sh FILES
 .Bl -tag -width /etc/services -compact
 .It Pa /etc/services
-The
-.Nm services
-file resides in
-.Pa /etc .
 .El
 .Sh SEE ALSO
-.Xr getservent 3
-.Sh BUGS
-A name server should be used instead of a static file.
+.Xr getservent 3 ,
+.Xr getaddrinfo 3 ,
+.Xr DirectoryService 8
 .Sh HISTORY
 The
 .Nm

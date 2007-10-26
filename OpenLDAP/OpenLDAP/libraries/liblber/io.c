@@ -1,8 +1,8 @@
 /* io.c - ber general i/o routines */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.100.2.4 2004/04/15 16:13:52 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.107.2.4 2006/01/03 22:16:07 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -216,23 +216,12 @@ ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 	towrite = ber->ber_ptr - ber->ber_rwptr;
 
 	if ( sb->sb_debug ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( BER, DETAIL1,
-			   "ber_flush: %ld bytes to sd %ld%s\n",
-			   towrite, (long)sb->sb_fd,
-			   ber->ber_rwptr != ber->ber_buf ? " (re-flush)" : "" );
-
-		if(LDAP_LOGS_TEST(BER, DETAIL2))
-				BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
-
-#else
 		ber_log_printf( LDAP_DEBUG_TRACE, sb->sb_debug,
 			"ber_flush: %ld bytes to sd %ld%s\n",
 			towrite, (long) sb->sb_fd,
 			ber->ber_rwptr != ber->ber_buf ?  " (re-flush)" : "" );
 		ber_log_bprint( LDAP_DEBUG_PACKETS, sb->sb_debug,
 			ber->ber_rwptr, towrite );
-#endif
 	}
 
 	while ( towrite > 0 ) {
@@ -258,8 +247,6 @@ BerElement *
 ber_alloc_t( int options )
 {
 	BerElement	*ber;
-
-    ber_int_options.lbo_valid = LBER_INITIALIZED;
 
 	ber = (BerElement *) LBER_CALLOC( 1, sizeof(BerElement) );
 
@@ -312,8 +299,6 @@ ber_init2( BerElement *ber, struct berval *bv, int options )
 {
 	assert( ber != NULL );
 
-	ber_int_options.lbo_valid = LBER_INITIALIZED;
-
 	(void) memset( (char *)ber, '\0', sizeof( BerElement ));
 	ber->ber_valid = LBER_VALID_BERELEMENT;
 	ber->ber_tag = LBER_DEFAULT;
@@ -346,8 +331,6 @@ ber_init( struct berval *bv )
 	BerElement *ber;
 
 	assert( bv != NULL );
-
-    ber_int_options.lbo_valid = LBER_INITIALIZED;
 
 	if ( bv == NULL ) {
 		return NULL;
@@ -388,8 +371,6 @@ int ber_flatten2(
 {
 	assert( bv != NULL );
 
-	ber_int_options.lbo_valid = LBER_INITIALIZED;
-
 	if ( bv == NULL ) {
 		return -1;
 	}
@@ -426,8 +407,6 @@ int ber_flatten(
 	int rc;
  
 	assert( bvPtr != NULL );
-
-	ber_int_options.lbo_valid = LBER_INITIALIZED;
 
 	if(bvPtr == NULL) {
 		return -1;
@@ -484,12 +463,8 @@ ber_get_next(
 	assert( SOCKBUF_VALID( sb ) );
 	assert( LBER_VALID( ber ) );
 
-#ifdef NEW_LOGGING
-	LDAP_LOG( BER, ENTRY, "ber_get_next: enter\n", 0, 0, 0 );
-#else
 	ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
 		"ber_get_next\n" );
-#endif
 
 	/*
 	 * Any ber element looks like this: tag length contents.
@@ -574,7 +549,7 @@ ber_get_next(
 
 		/* Now look for the length */
 		if (*ber->ber_ptr & 0x80) {	/* multi-byte */
-			ber_len_t i;
+			int i;
 			unsigned char *p = (unsigned char *)ber->ber_ptr;
 			int llen = *p++ & 0x7f;
 			if (llen > (int)sizeof(ber_len_t)) {
@@ -622,15 +597,9 @@ ber_get_next(
 		}
 
 		if ( sb->sb_max_incoming && ber->ber_len > sb->sb_max_incoming ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( BER, ERR, 
-				"ber_get_next: sockbuf_max_incoming exceeded "
-				"(%d > %d)\n", ber->ber_len, sb->sb_max_incoming, 0 );
-#else
 			ber_log_printf( LDAP_DEBUG_CONNS, ber->ber_debug,
 				"ber_get_next: sockbuf_max_incoming exceeded "
 				"(%ld > %ld)\n", ber->ber_len, sb->sb_max_incoming );
-#endif
 			errno = ERANGE;
 			return LBER_DEFAULT;
 		}
@@ -691,18 +660,10 @@ done:
 		ber->ber_rwptr = NULL;
 		*len = ber->ber_len;
 		if ( ber->ber_debug ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( BER, DETAIL1, 
-				"ber_get_next: tag 0x%lx len %ld\n", 
-				ber->ber_tag, ber->ber_len, 0  );
-			if(LDAP_LOGS_TEST(BER, DETAIL2))
-					BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
-#else
 			ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
 				"ber_get_next: tag 0x%lx len %ld contents:\n",
 				ber->ber_tag, ber->ber_len );
 			ber_log_dump( LDAP_DEBUG_BER, ber->ber_debug, ber, 1 );
-#endif
 		}
 		return (ber->ber_tag);
 	}

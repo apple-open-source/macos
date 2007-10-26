@@ -1,0 +1,78 @@
+Return-Path: <MAILER-DAEMON@sb7.songbird.com>
+Received: from uranus.cinergycom.net (uranus.cinergycom.net [216.135.2.7])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2V74mN8029551
+	for <gpc-talk-bounces@grizz.org>; Thu, 30 Mar 2006 23:04:48 -0800
+Received: from gaffer.cinergycom.net ([216.135.3.23])
+	by uranus.cinergycom.net with esmtp (Exim 4.60) id 1FPDg3-0003Ii-8c
+	for gpc-talk-bounces@grizz.org; Fri, 31 Mar 2006 01:04:11 -0600
+Received: from root by gaffer.cinergycom.net with local (Exim 4.52)
+	id 1FPDg3-0007ln-3j
+	for gpc-talk-bounces@grizz.org; Fri, 31 Mar 2006 01:04:11 -0600
+Auto-Submitted: auto-generated
+From: Mail Delivery System <Mailer-Daemon@gaffer.cinergycom.net>
+To: gpc-talk-bounces@grizz.org
+Subject: Mail delivery failed: returning message to sender
+Message-Id: <E1FPDg3-0007ln-3j@gaffer.cinergycom.net>
+Date: Fri, 31 Mar 2006 01:04:11 -0600
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: 
+
+This message was created automatically by mail delivery software.
+
+A message that you sent could not be delivered to one or more of its
+recipients. This is a permanent error. The following address(es) failed:
+
+  an undisclosed address
+    (generated from xvlogtfsei@the-messenger.com)
+
+------ This is a copy of the message, including all the headers. ------
+
+Return-path: <gpc-talk-bounces@grizz.org>
+Received: from sb7.songbird.com ([208.184.79.137])
+	by gaffer.cinergycom.net with esmtp (Exim 4.52)
+	id 1FPDg0-0007jU-1y
+	for xvlogtfsei@the-messenger.com; Fri, 31 Mar 2006 01:04:10 -0600
+Received: from sb7.songbird.com (sb7.songbird.com [127.0.0.1])
+	by sb7.songbird.com (8.12.11/8.12.11) with ESMTP id k2V74GQL029495
+	for <xvlogtfsei@the-messenger.com>; Thu, 30 Mar 2006 23:04:16 -0800
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Subject: Your message to GPC-talk awaits moderator approval
+From: gpc-talk-bounces@grizz.org
+To: xvlogtfsei@the-messenger.com
+Message-ID: <mailman.9022.1143788655.1568.gpc-talk@grizz.org>
+Date: Thu, 30 Mar 2006 23:04:15 -0800
+Precedence: bulk
+X-BeenThere: gpc-talk@grizz.org
+X-Mailman-Version: 2.1.5
+List-Id: Grizzly Peak Cyclists general discussion list <gpc-talk.grizz.org>
+X-List-Administrivia: yes
+Sender: gpc-talk-bounces@grizz.org
+Errors-To: gpc-talk-bounces@grizz.org
+X-SongbirdInformation: support@songbird.com for more information
+X-Songbird: Clean
+X-Songbird-From: gpc-talk-bounces@grizz.org
+X-CCC-Cleanmail-Spam-Version: 1.1
+X-CCC-Cleanmail-Spam-Extended-Info: SA score = 0.6/5.0 
+	*  0.6 NO_REAL_NAME From: does not include a real name
+X-CCC-Cleanmail-Spam: No spam detected
+
+Your mail to 'GPC-talk' with the subject
+
+    GAIN UP
+
+Is being held until the list moderator can review it for approval.
+
+The reason it is being held:
+
+    Post by non-member to a members-only list
+
+Either the message will get posted to the list, or you will receive
+notification of the moderator's decision.  If you would like to cancel
+this posting, please visit the following URL:
+
+    http://www.grizz.org/mailman/confirm/gpc-talk/420aa8073840d743a30950f4a67869bf3a253dd3
+
+

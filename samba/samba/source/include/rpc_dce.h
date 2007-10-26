@@ -23,22 +23,30 @@
 #ifndef _DCE_RPC_H /* _DCE_RPC_H */
 #define _DCE_RPC_H 
 
-#include "rpc_misc.h"  /* this only pulls in STRHDR */
-
-
 /* DCE/RPC packet types */
 
-enum RPC_PKT_TYPE
-{
-	RPC_REQUEST = 0x00,
-	RPC_RESPONSE = 0x02,
-	RPC_FAULT    = 0x03,
-	RPC_BIND     = 0x0B,
-	RPC_BINDACK  = 0x0C,
-	RPC_BINDNACK = 0x0D,
-	RPC_ALTCONT  = 0x0E,
-	RPC_ALTCONTRESP = 0x0F,
-	RPC_BINDRESP = 0x10 /* not the real name!  this is undocumented! */
+enum RPC_PKT_TYPE {
+	RPC_REQUEST  = 0x00, 	/* Ordinary request. */
+	RPC_PING     = 0x01,	/* Connectionless is server alive ? */
+	RPC_RESPONSE = 0x02,	/* Ordinary reply. */
+	RPC_FAULT    = 0x03,	/* Fault in processing of call. */
+	RPC_WORKING  = 0x04,	/* Connectionless reply to a ping when server busy. */
+	RPC_NOCALL   = 0x05,	/* Connectionless reply to a ping when server has lost part of clients call. */
+	RPC_REJECT   = 0x06,	/* Refuse a request with a code. */
+	RPC_ACK      = 0x07,	/* Connectionless client to server code. */
+	RPC_CL_CANCEL= 0x08,	/* Connectionless cancel. */
+	RPC_FACK     = 0x09,	/* Connectionless fragment ack. Both client and server send. */
+	RPC_CANCEL_ACK = 0x0A,	/* Server ACK to client cancel request. */
+	RPC_BIND     = 0x0B,	/* Bind to interface. */
+	RPC_BINDACK  = 0x0C,	/* Server ack of bind. */
+	RPC_BINDNACK = 0x0D,	/* Server nack of bind. */
+	RPC_ALTCONT  = 0x0E,	/* Alter auth. */
+	RPC_ALTCONTRESP = 0x0F,	/* Reply to alter auth. */
+	RPC_AUTH3    = 0x10, 	/* not the real name!  this is undocumented! */
+	RPC_SHUTDOWN = 0x11,	/* Server to client request to shutdown. */
+	RPC_CO_CANCEL= 0x12,	/* Connection-oriented cancel request. */
+	RPC_ORPHANED = 0x13	/* Client telling server it's aborting a partially sent request or telling
+				   server to stop sending replies. */
 };
 
 /* DCE/RPC flags */
@@ -46,62 +54,85 @@ enum RPC_PKT_TYPE
 #define RPC_FLG_LAST  0x02
 #define RPC_FLG_NOCALL 0x20
 
+
 #define SMBD_NTLMSSP_NEG_FLAGS 0x000082b1 /* ALWAYS_SIGN|NEG_NTLM|NEG_LM|NEG_SEAL|NEG_SIGN|NEG_UNICODE */
 
 /* NTLMSSP signature version */
 #define NTLMSSP_SIGN_VERSION 0x01
 
-/* NTLMSSP auth type */
-#define NTLMSSP_AUTH_TYPE 0xa
+/* DCE RPC auth types - extended by Microsoft. */
+#define RPC_ANONYMOUS_AUTH_TYPE    0
+#define RPC_AUTH_TYPE_KRB5_1	   1
+#define RPC_SPNEGO_AUTH_TYPE       9 
+#define RPC_NTLMSSP_AUTH_TYPE     10
+#define RPC_KRB5_AUTH_TYPE        16 /* Not yet implemented. */ 
+#define RPC_SCHANNEL_AUTH_TYPE    68 /* 0x44 */
 
 /* DCE-RPC standard identifiers to indicate 
    signing or sealing of an RPC pipe */
+#define RPC_AUTH_LEVEL_NONE      1
+#define RPC_AUTH_LEVEL_CONNECT   2
+#define RPC_AUTH_LEVEL_CALL      3
+#define RPC_AUTH_LEVEL_PACKET    4
+#define RPC_AUTH_LEVEL_INTEGRITY 5
+#define RPC_AUTH_LEVEL_PRIVACY   6
+
+#if 0
 #define RPC_PIPE_AUTH_SIGN_LEVEL 0x5
 #define RPC_PIPE_AUTH_SEAL_LEVEL 0x6
+#endif
+
+#define DCERPC_FAULT_OP_RNG_ERROR	0x1c010002
+#define DCERPC_FAULT_UNK_IF		0x1c010003
+#define DCERPC_FAULT_INVALID_TAG	0x1c000006
+#define DCERPC_FAULT_CONTEXT_MISMATCH	0x1c00001a
+#define DCERPC_FAULT_OTHER		0x00000001
+#define DCERPC_FAULT_ACCESS_DENIED	0x00000005
+#define DCERPC_FAULT_CANT_PERFORM	0x000006d8
+#define DCERPC_FAULT_NDR		0x000006f7
+
 
 /* Netlogon schannel auth type and level */
-#define NETSEC_AUTH_TYPE 0x44
-#define NETSEC_SIGN_SIGNATURE { 0x77, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 }
-#define NETSEC_SEAL_SIGNATURE { 0x77, 0x00, 0x7a, 0x00, 0xff, 0xff, 0x00, 0x00 }
+#define SCHANNEL_SIGN_SIGNATURE { 0x77, 0x00, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00 }
+#define SCHANNEL_SEAL_SIGNATURE { 0x77, 0x00, 0x7a, 0x00, 0xff, 0xff, 0x00, 0x00 }
 
-#define RPC_AUTH_NETSEC_SIGN_OR_SEAL_CHK_LEN 	0x20
-#define RPC_AUTH_NETSEC_SIGN_ONLY_CHK_LEN 	0x18
+#define RPC_AUTH_SCHANNEL_SIGN_OR_SEAL_CHK_LEN 	0x20
+#define RPC_AUTH_SCHANNEL_SIGN_ONLY_CHK_LEN 	0x18
+
+
+#define NETLOGON_NEG_ARCFOUR			0x00000004
+#define NETLOGON_NEG_128BIT			0x00004000
+#define NETLOGON_NEG_SCHANNEL			0x40000000
 
 /* The 7 here seems to be required to get Win2k not to downgrade us
    to NT4.  Actually, anything other than 1ff would seem to do... */
 #define NETLOGON_NEG_AUTH2_FLAGS 0x000701ff
- 
-#define NETLOGON_NEG_SCHANNEL    		0x40000000
 #define NETLOGON_NEG_DOMAIN_TRUST_ACCOUNT	0x2010b000
+ 
+/* these are the flags that ADS clients use */
+#define NETLOGON_NEG_AUTH2_ADS_FLAGS (0x200fbffb | NETLOGON_NEG_ARCFOUR | NETLOGON_NEG_128BIT | NETLOGON_NEG_SCHANNEL)
 
-enum netsec_direction
-{
+enum schannel_direction {
 	SENDER_IS_INITIATOR,
 	SENDER_IS_ACCEPTOR
 };
 
-/* Internal Flags to indicate what type of authentication on the pipe */
-#define AUTH_PIPE_SIGN    0x0001
-#define AUTH_PIPE_SEAL    0x0002
-#define AUTH_PIPE_NTLMSSP 0x0004
-#define AUTH_PIPE_NETSEC  0x0008
+/* Maximum size of the signing data in a fragment. */
+#define RPC_MAX_SIGN_SIZE 0x20 /* 32 */
 
 /* Maximum PDU fragment size. */
 /* #define MAX_PDU_FRAG_LEN 0x1630		this is what wnt sets */
-#define MAX_PDU_FRAG_LEN 0x10b8			/* this is what w2k sets */
+#define RPC_MAX_PDU_FRAG_LEN 0x10b8			/* this is what w2k sets */
 
 /* RPC_IFACE */
-typedef struct rpc_iface_info
-{
-  struct uuid uuid;  /* 16 bytes of rpc interface identification */
-  uint32 version;    /* the interface version number */
-
+typedef struct rpc_iface_info {
+	struct GUID uuid;  /* 16 bytes of rpc interface identification */
+	uint32 version;    /* the interface version number */
 } RPC_IFACE;
 
 #define RPC_IFACE_LEN (UUID_SIZE + 4)
 
-struct pipe_id_info
-{
+struct pipe_id_info {
 	/* the names appear not to matter: the syntaxes _do_ matter */
 
 	const char *client_pipe;
@@ -112,49 +143,42 @@ struct pipe_id_info
 };
 
 /* RPC_HDR - dce rpc header */
-typedef struct rpc_hdr_info
-{
-  uint8  major; /* 5 - RPC major version */
-  uint8  minor; /* 0 - RPC minor version */
-  uint8  pkt_type; /* RPC_PKT_TYPE - RPC response packet */
-  uint8  flags; /* DCE/RPC flags */
-  uint8  pack_type[4]; /* 0x1000 0000 - little-endian packed data representation */
-  uint16 frag_len; /* fragment length - data size (bytes) inc header and tail. */
-  uint16 auth_len; /* 0 - authentication length  */
-  uint32 call_id; /* call identifier.  matches 12th uint32 of incoming RPC data. */
-
+typedef struct rpc_hdr_info {
+	uint8  major; /* 5 - RPC major version */
+	uint8  minor; /* 0 - RPC minor version */
+	uint8  pkt_type; /* RPC_PKT_TYPE - RPC response packet */
+	uint8  flags; /* DCE/RPC flags */
+	uint8  pack_type[4]; /* 0x1000 0000 - little-endian packed data representation */
+	uint16 frag_len; /* fragment length - data size (bytes) inc header and tail. */
+	uint16 auth_len; /* 0 - authentication length  */
+	uint32 call_id; /* call identifier.  matches 12th uint32 of incoming RPC data. */
 } RPC_HDR;
 
 #define RPC_HEADER_LEN 16
 
 /* RPC_HDR_REQ - ms request rpc header */
-typedef struct rpc_hdr_req_info
-{
-  uint32 alloc_hint;   /* allocation hint - data size (bytes) minus header and tail. */
-  uint16 context_id;   /* presentation context identifier */
-  uint16  opnum;       /* opnum */
-
+typedef struct rpc_hdr_req_info {
+	uint32 alloc_hint;   /* allocation hint - data size (bytes) minus header and tail. */
+	uint16 context_id;   /* presentation context identifier */
+	uint16  opnum;       /* opnum */
 } RPC_HDR_REQ;
 
 #define RPC_HDR_REQ_LEN 8
 
 /* RPC_HDR_RESP - ms response rpc header */
-typedef struct rpc_hdr_resp_info
-{
-  uint32 alloc_hint;   /* allocation hint - data size (bytes) minus header and tail. */
-  uint16 context_id;   /* 0 - presentation context identifier */
-  uint8  cancel_count; /* 0 - cancel count */
-  uint8  reserved;     /* 0 - reserved. */
-
+typedef struct rpc_hdr_resp_info {
+	uint32 alloc_hint;   /* allocation hint - data size (bytes) minus header and tail. */
+	uint16 context_id;   /* 0 - presentation context identifier */
+	uint8  cancel_count; /* 0 - cancel count */
+	uint8  reserved;     /* 0 - reserved. */
 } RPC_HDR_RESP;
 
 #define RPC_HDR_RESP_LEN 8
 
 /* RPC_HDR_FAULT - fault rpc header */
-typedef struct rpc_hdr_fault_info
-{
-  NTSTATUS status;
-  uint32 reserved; /* 0x0000 0000 */
+typedef struct rpc_hdr_fault_info {
+	NTSTATUS status;
+	uint32 reserved; /* 0x0000 0000 */
 } RPC_HDR_FAULT;
 
 #define RPC_HDR_FAULT_LEN 8
@@ -167,198 +191,99 @@ typedef struct rpc_hdr_fault_info
  * "NETLOGON", "\\PIPE\\NETLOGON"
  */
 /* RPC_ADDR_STR */
-typedef struct rpc_addr_info
-{
-  uint16 len;   /* length of the string including null terminator */
-  fstring str; /* the string above in single byte, null terminated form */
-
+typedef struct rpc_addr_info {
+	uint16 len;   /* length of the string including null terminator */
+	fstring str; /* the string above in single byte, null terminated form */
 } RPC_ADDR_STR;
 
-/* RPC_HDR_BBA */
-typedef struct rpc_hdr_bba_info
-{
-  uint16 max_tsize;       /* maximum transmission fragment size (0x1630) */
-  uint16 max_rsize;       /* max receive fragment size (0x1630) */
-  uint32 assoc_gid;       /* associated group id (0x0) */
-
+/* RPC_HDR_BBA - bind acknowledge, and alter context response. */
+typedef struct rpc_hdr_bba_info {
+	uint16 max_tsize;       /* maximum transmission fragment size (0x1630) */
+	uint16 max_rsize;       /* max receive fragment size (0x1630) */
+	uint32 assoc_gid;       /* associated group id (0x0) */
 } RPC_HDR_BBA;
 
 #define RPC_HDR_BBA_LEN 8
 
-/* RPC_HDR_AUTHA */
-typedef struct rpc_hdr_autha_info
-{
-	uint16 max_tsize;       /* maximum transmission fragment size (0x1630) */
-	uint16 max_rsize;       /* max receive fragment size (0x1630) */
-
-	uint8 auth_type; /* 0x0a */
-	uint8 auth_level; /* 0x06 */
-	uint8 stub_type_len; /* don't know */
-	uint8 padding; /* padding */
-
-	uint32 unknown; /* 0x0014a0c0 */
-
-} RPC_HDR_AUTHA;
-
-#define RPC_HDR_AUTHA_LEN 12
-
 /* RPC_HDR_AUTH */
-typedef struct rpc_hdr_auth_info
-{
-	uint8 auth_type; /* 0x0a */
-	uint8 auth_level; /* 0x06 */
-	uint8 padding;
-	uint8 reserved; /* padding */
-
-	uint32 auth_context; /* pointer */
-
+typedef struct rpc_hdr_auth_info {
+	uint8 auth_type; /* See XXX_AUTH_TYPE above. */
+	uint8 auth_level; /* See RPC_PIPE_AUTH_XXX_LEVEL above. */
+	uint8 auth_pad_len;
+	uint8 auth_reserved;
+	uint32 auth_context_id;
 } RPC_HDR_AUTH;
 
 #define RPC_HDR_AUTH_LEN 8
 
 /* this is TEMPORARILY coded up as a specific structure */
 /* this structure comes after the bind request */
-/* RPC_AUTH_NETSEC_NEG */
-typedef struct rpc_auth_netsec_neg_info
-{
+/* RPC_AUTH_SCHANNEL_NEG */
+typedef struct rpc_auth_schannel_neg_info {
 	uint32 type1; 	/* Always zero ? */
 	uint32 type2;	/* Types 0x3 and 0x13 seen. Check AcquireSecurityContext() docs.... */
 	fstring domain; /* calling workstations's domain */
 	fstring myname; /* calling workstation's name */
-} RPC_AUTH_NETSEC_NEG;
+} RPC_AUTH_SCHANNEL_NEG;
 
 /* attached to the end of encrypted rpc requests and responses */
-/* RPC_AUTH_NETSEC_CHK */
-typedef struct rpc_auth_netsec_chk_info
-{
+/* RPC_AUTH_SCHANNEL_CHK */
+typedef struct rpc_auth_schannel_chk_info {
 	uint8 sig  [8]; /* 77 00 7a 00 ff ff 00 00 */
 	uint8 packet_digest[8]; /* checksum over the packet, MD5'ed with session key */
 	uint8 seq_num[8]; /* verifier, seq num */
 	uint8 confounder[8]; /* random 8-byte nonce */
-} RPC_AUTH_NETSEC_CHK;
+} RPC_AUTH_SCHANNEL_CHK;
 
-struct netsec_auth_struct
-{
-	uchar sess_key[16];
-	uint32 seq_num;
-	int auth_flags;
-};
+typedef struct rpc_context {
+	uint16 context_id;		/* presentation context identifier. */
+	uint8 num_transfer_syntaxes;	/* the number of syntaxes */
+	RPC_IFACE abstract;		/* num and vers. of interface client is using */
+	RPC_IFACE *transfer;		/* Array of transfer interfaces. */
+} RPC_CONTEXT;
 
 /* RPC_BIND_REQ - ms req bind */
-typedef struct rpc_bind_req_info
-{
-  RPC_HDR_BBA bba;
-
-  uint32 num_elements;    /* the number of elements (0x1) */
-  uint16 context_id;      /* presentation context identifier (0x0) */
-  uint8 num_syntaxes;     /* the number of syntaxes (has always been 1?)(0x1) */
-
-  RPC_IFACE abstract;     /* num and vers. of interface client is using */
-  RPC_IFACE transfer;     /* num and vers. of interface to use for replies */
-  
+typedef struct rpc_bind_req_info {
+	RPC_HDR_BBA bba;
+	uint8 num_contexts;    /* the number of contexts */
+	RPC_CONTEXT *rpc_context;
 } RPC_HDR_RB;
 
 /* 
- * The following length is 8 bytes RPC_HDR_BBA_LEN, 8 bytes internals 
- * (with 3 bytes padding), + 2 x RPC_IFACE_LEN bytes for RPC_IFACE structs.
+ * The following length is 8 bytes RPC_HDR_BBA_LEN + 
+ * 4 bytes size of context count +
+ * (context_count * (4 bytes of context_id, size of transfer syntax count + RPC_IFACE_LEN bytes +
+ *                    (transfer_syntax_count * RPC_IFACE_LEN bytes)))
  */
 
-#define RPC_HDR_RB_LEN (RPC_HDR_BBA_LEN + 8 + (2*RPC_IFACE_LEN))
+#define RPC_HDR_RB_LEN(rpc_hdr_rb) (RPC_HDR_BBA_LEN + 4 + \
+	((rpc_hdr_rb)->num_contexts) * (4 + RPC_IFACE_LEN + (((rpc_hdr_rb)->rpc_context->num_transfer_syntaxes)*RPC_IFACE_LEN)))
 
 /* RPC_RESULTS - can only cope with one reason, right now... */
-typedef struct rpc_results_info
-{
-/* uint8[] # 4-byte alignment padding, against SMB header */
+typedef struct rpc_results_info {
+	/* uint8[] # 4-byte alignment padding, against SMB header */
 
-  uint8 num_results; /* the number of results (0x01) */
+	uint8 num_results; /* the number of results (0x01) */
 
-/* uint8[] # 4-byte alignment padding, against SMB header */
+	/* uint8[] # 4-byte alignment padding, against SMB header */
 
-  uint16 result; /* result (0x00 = accept) */
-  uint16 reason; /* reason (0x00 = no reason specified) */
-
+	uint16 result; /* result (0x00 = accept) */
+	uint16 reason; /* reason (0x00 = no reason specified) */
 } RPC_RESULTS;
 
 /* RPC_HDR_BA */
-typedef struct rpc_hdr_ba_info
-{
-  RPC_HDR_BBA bba;
+typedef struct rpc_hdr_ba_info {
+	RPC_HDR_BBA bba;
 
-  RPC_ADDR_STR addr    ;  /* the secondary address string, as described earlier */
-  RPC_RESULTS  res     ; /* results and reasons */
-  RPC_IFACE    transfer; /* the transfer syntax from the request */
-
+	RPC_ADDR_STR addr    ;  /* the secondary address string, as described earlier */
+	RPC_RESULTS  res     ; /* results and reasons */
+	RPC_IFACE    transfer; /* the transfer syntax from the request */
 } RPC_HDR_BA;
 
 /* RPC_AUTH_VERIFIER */
-typedef struct rpc_auth_verif_info
-{
+typedef struct rpc_auth_verif_info {
 	fstring signature; /* "NTLMSSP".. Ok, not quite anymore */
 	uint32  msg_type; /* NTLMSSP_MESSAGE_TYPE (1,2,3) and 5 for schannel */
-
 } RPC_AUTH_VERIFIER;
-
-/* this is TEMPORARILY coded up as a specific structure */
-/* this structure comes after the bind request */
-/* RPC_AUTH_NTLMSSP_NEG */
-typedef struct rpc_auth_ntlmssp_neg_info
-{
-	uint32  neg_flgs; /* 0x0000 b2b3 */
-
-	STRHDR hdr_myname; /* offset is against START of this structure */
-	STRHDR hdr_domain; /* offset is against START of this structure */
-
-	fstring myname; /* calling workstation's name */
-	fstring domain; /* calling workstations's domain */
-
-} RPC_AUTH_NTLMSSP_NEG;
-
-/* this is TEMPORARILY coded up as a specific structure */
-/* this structure comes after the bind acknowledgement */
-/* RPC_AUTH_NTLMSSP_CHAL */
-typedef struct rpc_auth_ntlmssp_chal_info
-{
-	uint32 unknown_1; /* 0x0000 0000 */
-	uint32 unknown_2; /* 0x0000 0028 */
-	uint32 neg_flags; /* 0x0000 82b1 */
-
-	uint8 challenge[8]; /* ntlm challenge */
-	uint8 reserved [8]; /* zeros */
-
-} RPC_AUTH_NTLMSSP_CHAL;
-
-
-/* RPC_AUTH_NTLMSSP_RESP */
-typedef struct rpc_auth_ntlmssp_resp_info
-{
-	STRHDR hdr_lm_resp; /* 24 byte response */
-	STRHDR hdr_nt_resp; /* 24 byte response */
-	STRHDR hdr_domain;
-	STRHDR hdr_usr;
-	STRHDR hdr_wks;
-	STRHDR hdr_sess_key; /* NULL unless negotiated */
-	uint32 neg_flags; /* 0x0000 82b1 */
-
-	fstring sess_key;
-	fstring wks;
-	fstring user;
-	fstring domain;
-	fstring nt_resp;
-	fstring lm_resp;
-
-} RPC_AUTH_NTLMSSP_RESP;
-
-/* attached to the end of encrypted rpc requests and responses */
-/* RPC_AUTH_NTLMSSP_CHK */
-typedef struct rpc_auth_ntlmssp_chk_info
-{
-	uint32 ver; /* 0x0000 0001 */
-	uint32 reserved;
-	uint32 crc32; /* checksum using 0xEDB8 8320 as a polynomial */
-	uint32 seq_num;
-
-} RPC_AUTH_NTLMSSP_CHK;
-
-#define RPC_AUTH_NTLMSSP_CHK_LEN 16
 
 #endif /* _DCE_RPC_H */

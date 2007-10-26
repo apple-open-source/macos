@@ -62,7 +62,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: upap.c,v 1.7 2004/03/04 01:36:32 lindak Exp $"
+#define RCSID	"$Id: upap.c,v 1.8 2005/12/13 06:30:15 lindak Exp $"
 
 /*
  * TODO:
@@ -129,6 +129,7 @@ struct protent pap_protent = {
     NULL,
     NULL,
 #ifdef __APPLE__
+    NULL,
     NULL,
     NULL,
     NULL

@@ -101,4 +101,4 @@ void systhread_yield(void);
 void systhread_sleep(unsigned long);
 void systhread_usleep(unsigned long);
 
-#endif __SYSTHREAD_H__
+#endif /* __SYSTHREAD_H__ */

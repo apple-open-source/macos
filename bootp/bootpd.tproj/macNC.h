@@ -70,10 +70,11 @@ typedef int (*funcptr_t)(void * arg);
  **/
 boolean_t	macNC_init();
 boolean_t	macNC_allocate(NBImageEntryRef image_entry,
-			       struct dhcp * reply, u_char * hostname, 
+			       struct dhcp * reply, const char * hostname, 
 			       struct in_addr servip, 
 			       int host_number, dhcpoa_t * options,
-			       uid_t uid, u_char * afp_user, u_char * passwd);
+			       uid_t uid, const char * afp_user, 
+			       const char * passwd);
 
 NBSPEntry *
 macNC_allocate_shadow(const char * machine_name, int host_number, 
@@ -83,10 +84,10 @@ boolean_t	macNC_get_client_info(struct dhcp * pkt, int pkt_size,
 				      dhcpol_t * options, 
 				      u_int * client_version);
 void
-macNC_unlink_shadow(int host_number, u_char * hostname);
+macNC_unlink_shadow(int host_number, const char * hostname);
 
 boolean_t
-set_privs(u_char * path, struct stat * sb_p, uid_t uid, gid_t gid,
+set_privs(const char * path, struct stat * sb_p, uid_t uid, gid_t gid,
 	  mode_t mode, boolean_t unlock);
 
 

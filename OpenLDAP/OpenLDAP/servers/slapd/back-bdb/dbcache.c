@@ -1,8 +1,8 @@
 /* dbcache.c - manage cache of open databases */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dbcache.c,v 1.28.2.5 2004/02/23 22:08:06 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dbcache.c,v 1.38.2.4 2006/01/03 22:16:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,7 @@ bdb_db_cache(
 	const char *name,
 	DB **dbout )
 {
-	int i;
+	int i, flags;
 	int rc;
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	struct bdb_db_info *db;
@@ -100,15 +100,9 @@ bdb_db_cache(
 
 	rc = db_create( &db->bdi_db, bdb->bi_dbenv, 0 );
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( CACHE, ERR, 
-			"bdb_db_cache: db_create(%s) failed: %s (%d)\n", 
-			bdb->bi_dbenv_home, db_strerror(rc), rc );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"bdb_db_cache: db_create(%s) failed: %s (%d)\n",
 			bdb->bi_dbenv_home, db_strerror(rc), rc );
-#endif
 		ldap_pvt_thread_mutex_unlock( &bdb->bi_database_mutex );
 		return rc;
 	}
@@ -118,7 +112,6 @@ bdb_db_cache(
 	rc = db->bdi_db->set_h_hash( db->bdi_db, bdb_db_hash );
 #endif
 	rc = db->bdi_db->set_flags( db->bdi_db, DB_DUP | DB_DUPSORT );
-	rc = db->bdi_db->set_dup_compare( db->bdi_db, bdb_bt_compare );
 
 	file = ch_malloc( strlen( name ) + sizeof(BDB_SUFFIX) );
 	sprintf( file, "%s" BDB_SUFFIX, name );
@@ -126,23 +119,26 @@ bdb_db_cache(
 #ifdef HAVE_EBCDIC
 	__atoe( file );
 #endif
+	flags = DB_CREATE | DB_THREAD;
+#ifdef DB_AUTO_COMMIT
+	if ( !( slapMode & SLAP_TOOL_QUICK ))
+		flags |= DB_AUTO_COMMIT;
+#endif
+	/* Cannot Truncate when Transactions are in use */
+	if ( (slapMode & (SLAP_TOOL_QUICK|SLAP_TRUNCATE_MODE)) ==
+		(SLAP_TOOL_QUICK|SLAP_TRUNCATE_MODE))
+			flags |= DB_TRUNCATE;
+
 	rc = DB_OPEN( db->bdi_db,
 		file, NULL /* name */,
-		BDB_INDEXTYPE, bdb->bi_db_opflags | DB_CREATE | DB_THREAD,
-		bdb->bi_dbenv_mode );
+		BDB_INDEXTYPE, bdb->bi_db_opflags | flags, bdb->bi_dbenv_mode );
 
 	ch_free( file );
 
 	if( rc != 0 ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG ( CACHE, ERR, 
-			"bdb_db_cache: db_open(%s) failed: %s (%d)\n", 
-			name, db_strerror(rc), rc );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"bdb_db_cache: db_open(%s) failed: %s (%d)\n",
 			name, db_strerror(rc), rc );
-#endif
 		ldap_pvt_thread_mutex_unlock( &bdb->bi_database_mutex );
 		return rc;
 	}

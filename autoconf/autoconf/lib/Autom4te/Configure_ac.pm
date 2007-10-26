@@ -1,4 +1,4 @@
-# Copyright (C) 2003  Free Software Foundation, Inc.
+# Copyright (C) 2003, 2005, 2006  Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,8 +12,13 @@
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+
+###############################################################
+# The main copy of this file is in Automake's CVS repository. #
+# Updates should be sent to automake-patches@gnu.org.         #
+###############################################################
 
 package Autom4te::Configure_ac;
 
@@ -37,14 +42,14 @@ Autom4te::Configure_ac - Locate configure.ac or configure.in.
 
   # Try to locate configure.in or configure.ac in the current
   # directory.  It may be absent.  Complain if both files exist.
-  my $filename = find_configure_ac;
+  my $file_name = find_configure_ac;
 
   # Likewise, but bomb out if the file does not exist.
-  my $filename = require_configure_ac;
+  my $file_name = require_configure_ac;
 
   # Likewise, but in $dir.
-  my $filename = find_configure_ac ($dir);
-  my $filename = require_configure_ac ($dir);
+  my $file_name = find_configure_ac ($dir);
+  my $file_name = require_configure_ac ($dir);
 
 =cut
 
@@ -67,7 +72,7 @@ sub find_configure_ac (;@)
 	}
       return $configure_ac
     }
-  elsif (-f 'configure.in')
+  elsif (-f $configure_in)
     {
       return $configure_in;
     }

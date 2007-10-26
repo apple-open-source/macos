@@ -37,6 +37,7 @@
 
   setopt shwordsplit
   print -l $foo ${bar}
+  print -l ${==bar}
   unsetopt shwordsplit
 0:Basic shwordsplit option handling
 >the
@@ -45,6 +46,7 @@
 >the
 >second
 >parameter
+>the second parameter
 
   print $+foo ${+foo} $+notappearinginthistest ${+notappearinginthistest}
 0:$+...
@@ -196,6 +198,20 @@
 >* boringfile evenmoreboringfile boringfile evenmoreboringfile
 >boringfile evenmoreboringfile
 
+# The following tests a bug where globsubst didn't preserve
+# backslashes when printing out the original string.
+  str1='\\*\\'
+  (
+  setopt globsubst nonomatch
+  [[ \\\\ = $str1 ]] && print -r '\\ matched by' $str1
+  [[ \\foo\\ = $str1 ]] && print -r '\\foo matched by' $str1
+  [[ a\\b\\ = $str1 ]] || print -r 'a\\b not matched by' $str1
+  )
+0:globsubst with backslashes
+>\\ matched by \\*\\
+>\\foo matched by \\*\\
+>a\\b not matched by \\*\\
+
   print -l "${$(print one word)}" "${=$(print two words)}"
 0:splitting of $(...) inside ${...}
 >one word
@@ -208,14 +224,31 @@
 >second line
 >third line
 
+  array1=( uno )
   print -l ${(A)newarray=splitting by numbers}
+  print -l ${(t)newarray}
   print -l ${(A)=newarray::=splitting by spaces, actually}
-0:${(A)...=...}, ${(A)...::=...}
+  print -l ${(t)newarray}
+  print -l ${(A)newarray::=$array1}
+  print -l ${(t)newarray}
+  print -l ${newarray::=$array1}
+  print -l ${(t)newarray}
+  print -l ${newarray::=$array2}
+  print -l ${(t)newarray}
+0:${(A)...=...}, ${(A)...::=...}, ${scalar=$array}
 >splitting by numbers
+>array
 >splitting
 >by
 >spaces,
 >actually
+>array
+>uno
+>array
+>uno
+>scalar
+>the second array
+>scalar
 
   newarray=("split me" "split me" "I\'m yours")
   print -l "${(@)newarray}"
@@ -328,10 +361,27 @@
 >val1 val2
 >key1 key2 val1 val2
 
+  word="obfuscatory"
+  print !${(l.16.)word}! +${(r.16.)word}+
+0:simple padding
+>!     obfuscatory! +obfuscatory     +
+
   foo=(resulting words uproariously padded)
   print ${(pl.10..\x22..X.)foo}
 0:${(pl...)...}
 >Xresulting """"Xwords roariously """Xpadded
+
+  print ${(l.5..X.r.5..Y.)foo}
+  print ${(l.6..X.r.4..Y.)foo}
+  print ${(l.7..X.r.3..Y.)foo}
+  print ${(l.6..X..A.r.6..Y..B.)foo}
+  print ${(l.6..X..AROOGA.r.6..Y..BARSOOM.)foo}
+0:simultaneous left and right padding
+>Xresulting XXXwordsYY proariousl XXpaddedYY
+>XXresultin XXXXwordsY uproarious XXXpaddedY
+>XXXresulti XXXXXwords Xuproariou XXXXpadded
+>XAresultingB XXXAwordsBYY uproariously XXApaddedBYY
+>GAresultingB OOGAwordsBAR uproariously OGApaddedBAR
 
   foo=(why in goodness name am I doing this)
   print ${(r.5..!..?.)foo}
@@ -523,9 +573,11 @@
 
   set If "this test fails" "we have broken" the shell again
   print -l "${(A)foo::=$@}"
+  print -l ${(t)foo}
   print -l $foo
 0:Regression test of "${(A)foo=$@}" bug
 >If this test fails we have broken the shell again
+>array
 >If
 >this test fails
 >we have broken
@@ -533,20 +585,185 @@
 >shell
 >again
 
-  set If "this test fails" maybe "we have finally fixed" the shell
+  local sure_that='sure that' varieties_of='varieties of' one=1 two=2
+  extra=(5 4 3)
+  unset foo
+  set Make $sure_that "this test keeps" on 'preserving all' "$varieties_of" quoted whitespace
   print -l ${=1+"$@"}
-0:Regression test of unfixed ${=1+"$@"} bug
->If
->this
->test
->fails
->maybe
->we
->have
->finally
->fixed
->the
->shell
+  print -l ${(A)=foo=Make $sure_that "this test keeps" on 'preserving all' "$varieties_of" quoted whitespace}
+  print ${(t)foo}
+  print -l ${=1+$one $two}
+  print -l ${1+$extra$two$one}
+0:Regression test of ${=1+"$@"} bug and some related expansions
+>Make
+>sure that
+>this test keeps
+>on
+>preserving all
+>varieties of
+>quoted
+>whitespace
+>Make
+>sure
+>that
+>this test keeps
+>on
+>preserving all
+>varieties of
+>quoted
+>whitespace
+>array
+>1
+>2
+>5
+>4
+>321
+
+  splitfn() {
+    emulate -L sh
+    local HOME="/differs from/bash" foo='1 2' bar='3 4'
+    print -l ${1:-~}
+    touch has\ space
+    print -l ${1:-*[ ]*}
+    print -l ${1:-*[\ ]*}
+    print -l ${1:-*}
+    print -l ${1:-"$foo" $bar}
+    print -l ${==1:-$foo $bar}
+    rm has\ space
+  }
+  splitfn
+0:More bourne-shell-compatible nested word-splitting with wildcards and ~
+>/differs from/bash
+>*[
+>]*
+>has space
+>boringfile
+>evenmoreboringfile
+>has space
+>1 2
+>3
+>4
+>1 2 3 4
+
+  splitfn() {
+    local IFS=.-
+    local foo=1-2.3-4
+    #
+    print "Called with argument '$1'"
+    print "No quotes"
+    print -l ${=1:-1-2.3-4} ${=1:-$foo}
+    print "With quotes on default argument only"
+    print -l ${=1:-"1-2.3-4"} ${=1:-"$foo"}
+  }
+  print 'Using "="'
+  splitfn
+  splitfn 5.6-7.8
+  #
+  splitfn() {
+    emulate -L zsh
+    setopt shwordsplit
+    local IFS=.-
+    local foo=1-2.3-4
+    #
+    print "Called with argument '$1'"
+    print "No quotes"
+    print -l ${1:-1-2.3-4} ${1:-$foo}
+    print "With quotes on default argument only"
+    print -l ${1:-"1-2.3-4"} ${1:-"$foo"}
+  }
+  print Using shwordsplit
+  splitfn
+  splitfn 5.6-7.8
+0:Test of nested word splitting with and without quotes
+>Using "="
+>Called with argument ''
+>No quotes
+>1
+>2
+>3
+>4
+>1
+>2
+>3
+>4
+>With quotes on default argument only
+>1-2.3-4
+>1-2.3-4
+>Called with argument '5.6-7.8'
+>No quotes
+>5
+>6
+>7
+>8
+>5
+>6
+>7
+>8
+>With quotes on default argument only
+>5
+>6
+>7
+>8
+>5
+>6
+>7
+>8
+>Using shwordsplit
+>Called with argument ''
+>No quotes
+>1
+>2
+>3
+>4
+>1
+>2
+>3
+>4
+>With quotes on default argument only
+>1-2.3-4
+>1-2.3-4
+>Called with argument '5.6-7.8'
+>No quotes
+>5
+>6
+>7
+>8
+>5
+>6
+>7
+>8
+>With quotes on default argument only
+>5
+>6
+>7
+>8
+>5
+>6
+>7
+>8
+
+# Tests a long-standing bug with joining on metafied characters in IFS
+  (array=(one two three)
+  IFS=$'\0'
+  foo="$array"
+  for (( i = 1; i <= ${#foo}; i++ )); do
+    char=${foo[i]}
+    print $(( #char ))
+  done)
+0:Joining with NULL character from IFS
+>111
+>110
+>101
+>0
+>116
+>119
+>111
+>0
+>116
+>104
+>114
+>101
+>101
 
   unset SHLVL
   (( SHLVL++ ))
@@ -567,6 +784,40 @@
 >/here:/there
 >0
 >/elsewhere /somewhere
+
+  local STRING=a:b
+  typeset -T STRING string
+  print $STRING $string
+  unset STRING
+  set -A string x y z
+  print $STRING $string
+  STRING=a:b
+  typeset -T STRING string
+  print $STRING $string
+  unset STRING
+  set -A string x y z
+  print $STRING $string
+  STRING=a:b
+  typeset -T STRING string
+  print $STRING $string
+  unset string
+  STRING=x:y:z
+  print $STRING $string
+  STRING=a:b
+  typeset -T STRING string
+  print $STRING $string
+  unset string
+  STRING=x:y:z
+  print $STRING $string
+0:Unsetting and recreation of tied normal parameters
+>a:b a b
+>x y z
+>a:b a b
+>x y z
+>a:b a b
+>x:y:z
+>a:b a b
+>x:y:z
 
   string='look for a match in here'
   if [[ ${string%%(#b)(match)*} = "look for a " ]]; then
@@ -590,6 +841,15 @@
 >MATCH 16 20 MATCH
 >5
 
+  string='this is a string'
+  print ${string//(#m)s/$MATCH $MBEGIN $MEND}
+0:(#m) flag with pure string
+>this 4 4 is 7 7 a s 11 11tring
+
+  print ${${~:-*}//(#m)*/$MATCH=$MATCH}
+0:(#m) flag with tokenized input
+>*=*
+
   print -l JAMES${(u)${=:-$(echo yes yes)}}JOYCE
   print -l JAMES${(u)${=:-$(echo yes yes she said yes i will yes)}}JOYCE
 0:Bug with (u) flag reducing arrays to one element
@@ -599,3 +859,57 @@
 >said
 >i
 >willJOYCE
+
+  foo=
+  print "${${foo}/?*/replacement}"
+0:Quoted zero-length strings are handled properly
+>
+
+  file=aleftkept
+  print ${file//(#b)(*)left/${match/a/andsome}}
+  print ${file//(#b)(*)left/${match//a/andsome}}
+0:Substitutions where $match is itself substituted in the replacement
+>andsomekept
+>andsomekept
+
+  file=/one/two/three/four
+  print ${file:fh}
+  print ${file:F.1.h}
+  print ${file:F+2+h}
+  print ${file:F(3)h}
+  print ${file:F<4>h}
+  print ${file:F{5}h}
+0:Modifiers with repetition
+>/
+>/one/two/three
+>/one/two
+>/one
+>/
+>/
+
+  nully=($'a\0c' $'a\0b\0b' $'a\0b\0a' $'a\0b\0' $'a\0b' $'a\0' $'a')
+  for string in ${(o)nully}; do
+    for (( i = 1; i <= ${#string}; i++ )); do
+      foo=$string[i]
+      printf "%02x" $(( #foo ))
+    done
+    print
+  done
+0:Sorting arrays with embedded nulls
+>61
+>6100
+>610062
+>61006200
+>6100620061
+>6100620062
+>610063
+
+  array=(X)
+  patterns=("*X*" "spong" "a[b")
+  for pat in $patterns; do
+    print A${array[(r)$pat]}B C${array[(I)$pat]}D
+  done
+0:Bad patterns should never match array elements
+>AXB C1D
+>AB C0D
+>AB C0D

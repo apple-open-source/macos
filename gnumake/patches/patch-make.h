@@ -1,8 +1,8 @@
 --- make.h.orig	Fri Oct 29 17:02:08 2004
 +++ make.h	Fri Oct 29 17:02:32 2004
-@@ -493,6 +493,21 @@
+@@ -508,6 +508,21 @@
  extern int warn_undefined_variables_flag, posix_pedantic, not_parallel;
- extern int clock_skew_detected;
+ extern int second_expansion, clock_skew_detected, rebuilding_makefiles;
  
 +#if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
 +extern unsigned int next_flag;

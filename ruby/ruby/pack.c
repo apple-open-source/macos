@@ -2,8 +2,8 @@
 
   pack.c -
 
-  $Author: gotoyuzo $
-  $Date: 2004/11/16 19:43:24 $
+  $Author: shyouhei $
+  $Date: 2007-02-28 21:05:21 +0900 (Wed, 28 Feb 2007) $
   created at: Thu Feb 10 15:17:05 JST 1994
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -60,10 +60,10 @@ TOKEN_PASTE(swap,x)(z)			\
     unsigned char *s, *t;		\
     int i;				\
 					\
-    zp = malloc(sizeof(xtype));		\
+    zp = xmalloc(sizeof(xtype));	\
     *zp = z;				\
     s = (unsigned char*)zp;		\
-    t = malloc(sizeof(xtype));		\
+    t = xmalloc(sizeof(xtype));		\
     for (i=0; i<sizeof(xtype); i++) {	\
 	t[sizeof(xtype)-i-1] = s[i];	\
     }					\
@@ -343,20 +343,20 @@ num2i32(x)
     if (TYPE(x) == T_BIGNUM) {
 	return rb_big2ulong_pack(x);
     }
-    rb_raise(rb_eTypeError, "cannot convert %s to `integer'", rb_obj_classname(x));
+    rb_raise(rb_eTypeError, "can't convert %s to `integer'", rb_obj_classname(x));
     return 0;			/* not reached */
 }
 
-#if SIZEOF_LONG == SIZE32 || SIZEOF_INT == SIZE32
+#if SIZEOF_LONG == SIZE32
 # define EXTEND32(x) 
 #else
 /* invariant in modulo 1<<31 */
-# define EXTEND32(x) do {if (!natint) {(x) = (I32)(((1<<31)-1-(x))^~(~0<<31))}} while(0)
+# define EXTEND32(x) do { if (!natint) {(x) = (((1L<<31)-1-(x))^~(~0L<<31));}} while(0)
 #endif
 #if SIZEOF_SHORT == SIZE16
 # define EXTEND16(x) 
 #else
-# define EXTEND16(x) do { if (!natint) {(x) = (short)(((1<<15)-1-(x))^~(~0<<15))}} while(0)
+# define EXTEND16(x) do { if (!natint) {(x) = (short)(((1<<15)-1-(x))^~(~0<<15));}} while(0)
 #endif
 
 #ifdef HAVE_LONG_LONG
@@ -364,7 +364,7 @@ num2i32(x)
 #else
 # define QUAD_SIZE 8
 #endif
-static char *toofew = "too few arguments";
+static const char toofew[] = "too few arguments";
 
 static void encodes _((VALUE,char*,long,int));
 static void qpencode _((VALUE,VALUE,long));
@@ -460,8 +460,9 @@ pack_pack(ary, fmt)
     items = RARRAY(ary)->len;
     idx = 0;
 
-#define THISFROM RARRAY(ary)->ptr[idx]
-#define NEXTFROM (items-- > 0 ? RARRAY(ary)->ptr[idx++] : (rb_raise(rb_eArgError, toofew),0))
+#define TOO_FEW (rb_raise(rb_eArgError, toofew), 0)
+#define THISFROM (items > 0 ? RARRAY(ary)->ptr[idx] : TOO_FEW)
+#define NEXTFROM (items-- > 0 ? RARRAY(ary)->ptr[idx++] : TOO_FEW)
 
     while (p < pend) {
 	if (RSTRING(fmt)->ptr + RSTRING(fmt)->len != pend) {
@@ -494,7 +495,7 @@ pack_pack(ary, fmt)
 	}
 	if (*p == '*') {	/* set data length */
 	    len = strchr("@Xxu", type) ? 0 : items;
-            p++;
+	    p++;
 	}
 	else if (ISDIGIT(*p)) {
 	    len = strtoul(p, (char**)&p, 10);
@@ -938,6 +939,7 @@ pack_pack(ary, fmt)
 		    associates = rb_ary_new();
 		}
 		rb_ary_push(associates, from);
+		rb_obj_taint(from);
 		rb_str_buf_cat(res, (char*)&t, sizeof(char*));
 	    }
 	    break;
@@ -962,7 +964,7 @@ pack_pack(ary, fmt)
 		{
 		    long l = NUM2LONG(from);
 		    if (l < 0) {
-			rb_raise(rb_eArgError, "cannot compress negative numbers");
+			rb_raise(rb_eArgError, "can't compress negative numbers");
 		    }
 		    ul = l;
 		}
@@ -1400,7 +1402,6 @@ pack_unpack(str, fmt)
 	    s += len;
 	    break;
 
-
 	  case 'b':
 	    {
 		VALUE bitstr;
@@ -1560,6 +1561,7 @@ pack_unpack(str, fmt)
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
+
 	  case 'L':
 	    PACK_LENGTH_ADJUST(unsigned long,4);
 	    while (len-- > 0) {
@@ -1580,7 +1582,8 @@ pack_unpack(str, fmt)
 	    }
 	    PACK_ITEM_ADJUST();
 	    break;
-	case 'Q':
+
+	  case 'Q':
 	    PACK_LENGTH_ADJUST_SIZE(QUAD_SIZE);
 	    while (len-- > 0) {
 		char *tmp = (char*)s;
@@ -1801,20 +1804,27 @@ pack_unpack(str, fmt)
 		    }
 		}
 		while (s < send) {
-		    while (s[0] == '\r' || s[0] == '\n') { s++; }
-		    if ((a = b64_xtable[(int)s[0]]) == -1) break;
-		    if ((b = b64_xtable[(int)s[1]]) == -1) break;
-		    if ((c = b64_xtable[(int)s[2]]) == -1) break;
-		    if ((d = b64_xtable[(int)s[3]]) == -1) break;
+		    a = b = c = d = -1;
+		    while((a = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { s++; }
+		    if( s >= send ) break;
+		    s++;
+		    while((b = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { s++; }
+		    if( s >= send ) break;
+		    s++;
+		    while((c = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { if( *s == '=' ) break; s++; }
+		    if( *s == '=' || s >= send ) break;
+		    s++;
+		    while((d = b64_xtable[(int)(*(unsigned char*)s)]) == -1 && s < send) { if( *s == '=' ) break; s++; }
+		    if( *s == '=' || s >= send ) break;
+		    s++;
 		    *ptr++ = a << 2 | b >> 4;
 		    *ptr++ = b << 4 | c >> 2;
 		    *ptr++ = c << 6 | d;
-		    s += 4;
 		}
 		if (a != -1 && b != -1) {
-		    if (s + 2 < send && s[2] == '=')
+		    if (c == -1 && *s == '=')
 			*ptr++ = a << 2 | b >> 4;
-		    if (c != -1 && s + 3 < send && s[3] == '=') {
+		    else if (c != -1 && *s == '=') {
 			*ptr++ = a << 2 | b >> 4;
 			*ptr++ = b << 4 | c >> 2;
 		    }
@@ -1834,6 +1844,8 @@ pack_unpack(str, fmt)
 		while (s < send) {
 		    if (*s == '=') {
 			if (++s == send) break;
+                       if (s+1 < send && *s == '\r' && *(s+1) == '\n')
+                         s++;
 			if (*s != '\n') {
 			    if ((c1 = hex2num(*s)) == -1) break;
 			    if (++s == send) break;
@@ -1888,8 +1900,12 @@ pack_unpack(str, fmt)
 		    pend = p + RARRAY(a)->len;
 		    while (p < pend) {
 			if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
-			    if (len > RSTRING(*p)->len) {
-				len = RSTRING(*p)->len;
+			    if (len < RSTRING(*p)->len) {
+				tmp = rb_tainted_str_new(t, len);
+				rb_str_associate(tmp, a);
+			    }
+			    else {
+				tmp = *p;
 			    }
 			    break;
 			}
@@ -1898,7 +1914,6 @@ pack_unpack(str, fmt)
 		    if (p == pend) {
 			rb_raise(rb_eArgError, "non associated pointer");
 		    }
-		    tmp = rb_tainted_str_new(t, len);
 		}
 		else {
 		    tmp = Qnil;
@@ -1930,6 +1945,7 @@ pack_unpack(str, fmt)
 			pend = p + RARRAY(a)->len;
 			while (p < pend) {
 			    if (TYPE(*p) == T_STRING && RSTRING(*p)->ptr == t) {
+				tmp = *p;
 				break;
 			    }
 			    p++;
@@ -1937,8 +1953,6 @@ pack_unpack(str, fmt)
 			if (p == pend) {
 			    rb_raise(rb_eArgError, "non associated pointer");
 			}
-			tmp = rb_str_new2(t);
-			OBJ_INFECT(tmp, str);
 		    }
 		    else {
 			tmp = Qnil;
@@ -1951,7 +1965,7 @@ pack_unpack(str, fmt)
 	  case 'w':
 	    {
 		unsigned long ul = 0;
-		unsigned long ulmask = 0xfeL << ((sizeof(unsigned long) - 1) * 8);
+		unsigned long ulmask = 0xfeUL << ((sizeof(unsigned long) - 1) * 8);
 
 		while (len > 0 && s < send) {
 		    ul <<= 7;
@@ -2036,7 +2050,7 @@ uv_to_utf8(buf, uv)
     rb_raise(rb_eRangeError, "pack(U): value out of range");
 }
 
-static const long utf8_limits[] = {
+static const unsigned long utf8_limits[] = {
     0x0,			/* 1 */
     0x80,			/* 2 */
     0x800,			/* 3 */

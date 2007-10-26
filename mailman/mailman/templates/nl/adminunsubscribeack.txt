@@ -1,2 +1,2 @@
-%(member)s is verwijderd van %(listname)s.
+%(member)s is verwijderd van de %(listname)s maillijst.
 

@@ -11,8 +11,8 @@
 %SPI_H=("AC" => "cssmaci.h", "CSP" => "cssmcspi.h", "DL" => "cssmdli.h",
         "CL" => "cssmcli.h", "TP"  => "cssmtpi.h");
         
-$SOURCEDIR=$ARGV[0];			# where all the input files are
-$APICFG=$ARGV[1];				# configuration file 
+$SOURCEPATH=$ARGV[0];			# where all the input files are
+$APICFG=$ARGV[1];			# configuration file 
 $HTARGETDIR=$ARGV[2];			# where the generated headers go
 $CTARGETDIR=$ARGV[3];			# where the generated sources go
 
@@ -46,7 +46,10 @@ while (($type, $header) = each %SPI_H) {
   ($typelower = $type) =~ tr/A-Z/a-z/;	# lowercase version of type
 
   # start in on the $type header file
-  open(SPI, "$SOURCEDIR/$header") or die "cannot open $SOURCEDIR/$header: $^E";
+  for my $sourcedir (split (/:/, $SOURCEPATH)) {
+    open(SPI, "$sourcedir/$header") and last;
+  }
+  SPI or die "cannot find $header in $SOURCEPATH: $^E";
   $/=undef;		# big gulp mode
   $_ = <SPI>;	# aaaaah...
   close(SPI);	# done
@@ -162,6 +165,7 @@ namespace Security {
 //
 class ${type}AbstractPluginSession {
 public:
+	virtual ~${type}AbstractPluginSession();
 HDRHEAD
 
   $functionCount = 0;
@@ -190,6 +194,10 @@ HDREND
 #include <security_cdsa_plugin/cssmplugin.h>
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <Security/cssm${typelower}i.h>
+
+
+${type}AbstractPluginSession::~${type}AbstractPluginSession()
+{ /* virtual */ }
 
 BODY
 

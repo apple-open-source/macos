@@ -110,7 +110,7 @@ errcode_t remove_error_table (const struct error_table *et)
     error_table_array_t error_tables = NULL;
     errcode_t lock_err = com_err_thread_lock_error_tables (&error_tables);
     errcode_t err = lock_err;
-    size_t index = 0;
+    size_t etindex = 0;
 
     if (!err) {
         if (et == NULL) { err = EINVAL; }
@@ -123,7 +123,7 @@ errcode_t remove_error_table (const struct error_table *et)
         // find the error table
         for (i = 0; i < error_tables->count; i++) {
             if (error_tables->ets[i] == et) {
-                index = i;
+                etindex = i;
                 found = true;
             }
         }
@@ -133,8 +133,8 @@ errcode_t remove_error_table (const struct error_table *et)
     
     if (!err) {
         // shift the remaining elements over
-        memmove (&error_tables->ets[index], &error_tables->ets[index + 1],
-                 ((error_tables->count - 1) - index) * sizeof (struct error_table **));
+        memmove (&error_tables->ets[etindex], &error_tables->ets[etindex + 1],
+                 ((error_tables->count - 1) - etindex) * sizeof (struct error_table **));
         error_tables->count--;
     }
     

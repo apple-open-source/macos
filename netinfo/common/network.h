@@ -66,4 +66,4 @@ char *interface_name_for_addr(struct in_addr *);
 
 interface_t *interface_with_name(char *);
 
-#endif _NI_COMMOM_NETWORK_H_
+#endif /* _NI_COMMOM_NETWORK_H_ */

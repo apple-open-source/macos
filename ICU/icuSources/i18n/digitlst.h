@@ -219,10 +219,10 @@ public:
      * Zero is represented by any DigitList with fCount == 0 or with each fDigits[i]
      * for all i <= fCount == '0'.
      */
-    int32_t     fDecimalAt;
-    int32_t     fCount;
-    UBool       fIsPositive;
-    char        *fDigits;
+    int32_t                         fDecimalAt;
+    int32_t                         fCount;
+    UBool                           fIsPositive;
+    char                            *fDigits;
     DecimalFormat::ERoundingMode    fRoundingMode;
 
 private:

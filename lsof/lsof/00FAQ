@@ -13,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-April 10, 2006
+April 24, 2007
 ______________________________________________________________________
 
 Table of Contents:
@@ -61,7 +61,7 @@ Table of Contents:
 3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
 3.3.4	Why doesn't lsof report the "correct" hard linked file path
 	name?
-3.3.5	Will lsof report path names for deleted files?
+3.3.5	When will lsof report path names for deleted files?
 3.4	Why is lsof so slow?
 3.5	Why doesn't lsof's setgid or setuid permission work?
 3.6	Does lsof have security problems?
@@ -209,6 +209,8 @@ Table of Contents:
 	for a 64 bit Power architecture AIX 5.1 kernel?
 4.15	Why does lsof ignore AFS on my AIX system?
 4.16	Why does lsof report "system paging space is low" and exit?
+4.17	Why does lsof have compilation and execution problems on AIX
+	5.3 above maintenance level 1?
 
 5.0	Apple Darwin Problems
 5.1	What do /dev/kmem-based and libproc-based mean?
@@ -279,7 +281,7 @@ Table of Contents:
 	structures?
 9.3.3	Why does PSTAT-based lsof rebuild the device cache file
 	after each reboot?
-9.3.4   Why doesn't PSTAT-based lsof report TCP addresses for
+9.3.4	Why doesn't PSTAT-based lsof report TCP addresses for
 	telnetd's open socket files?
 9.3.5   Why does PSTAT-based lsof cause an HP-UX 11.11 kernel panic?
 9.3.6   Why doesn't PSTAT-based lsof report a CWD that is on a loopback
@@ -289,6 +291,7 @@ Table of Contents:
 9.3.8	Why won't the bundled C compiler build PSTAT-based lsof for
 	PA-RISC HP-UX 11.23?
 9.3.9	Why won't gcc build PSTAT-based lsof for PA-RISC HP-UX 11.23?
+9.4	Why won't the HP-UX depot install?
 
 10.0	Linux Problems
 10.1	What do /dev/kmem-based and /proc-based lsof mean?
@@ -314,8 +317,8 @@ Table of Contents:
 10.4	Linux ``mem'' Entry Problems
 10.4.1  What do ``path dev=xxx'' and ``path inode=yyy'' mean in the
 	NAME column of Linux ``mem'' file types?
-10.4.2	Why is no size reported for some Linux ``DEL'' and ``mem'' file
-	types?
+10.4.2  Why is neither link count nor size reported for some Linux
+	``DEL'' and ``mem'' file types?
 10.5	Special Linux NAME column messages
 10.5.1  What does ``(stat: xxx)'' mean in the NAME column of Linux
 	files?
@@ -472,6 +475,12 @@ Table of Contents:
 17.26.1	Why doesn't lsof report size, link count and node number for
 	Solaris 10 contract files?
 17.26.2 Why can't lsof locate a Solaris 10 contract file by path name?
+17.27	Solaris 10 ZFS probblems
+17.27.1	Why does Configure ask for the location of ZFS header files?
+17.27.2 Why do -h and -v output warn about possibly inaccurate ZFS
+	structure definitions?
+17.27.3 Why don't the Open Solaris ZFS header files provide correct
+	ZFS kernel structure definitions?
 
 18.0	Lsof Features
 18.1	Why doesn't lsof doesn't report on /proc entries on my
@@ -650,28 +659,10 @@ ______________________________________________________________________
 	the "Subject:" line so my e-mail filter won't classify your
 	letter as Spam.
 
-	Before you send me a bug report, please do these things:
-
-	*  Check this file to see if there's a question and answer
-	   relevant to your problem.
-
-	*  Make sure you try the latest lsof revision.
-
-	   o  Download the latest revision from:
-
-    		ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
-
-	   o  While connected to lsof.itap.purdue.edu, check for patches:
-
-		ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/patches
-
-	   o  If patches exist, install them in the latest revision
-	      you just downloaded.  Then build the latest revision
-	      and see if it fixes your bug.
-
-	*  When you send a bug report, make sure you include output
-	   from lsof's -v option.  That will tell me what UNIX
-	   dialect and lsof revision is involved.
+	Before you send me a bug report, please read the "Bug Reports"
+	section of the 00README file of the lsof distribution.  It
+	lists the steps you should take before and when reporting a
+	suspected bug.
 
 1.5	Where can I get the lsof FAQ?
 
@@ -900,22 +891,16 @@ ______________________________________________________________________
 
 	The pub/lsof.README file carries the latest port information:
 
-	    AIX 5.[123]
+	    AIX 5.[23] and 5.3-ML1
 	    Apple Darwin 7.x and 8.x for Power Macintosh systems
-	    FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
-	    FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
-		systems
-	    HP-UX 11.00, 11.11 and 11.23
+	    FreeBSD 4.9 for x86-based systems
+	    FreeBSD 7.0 for AMD64-based systems
 	    Linux 2.1.72 and above for x86-based systems
 	    NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
 		systems
 	    NEXTSTEP 3.[13]
-	    OpenBSD 2.[89] and 3.[0-9] for x86-based systems
-	    OPENSTEP 4.x
 	    SCO OpenServer Release 5.0.4 for x86-based systems
-	    SCO|Caldera UnixWare 7.1.4 for x86-based systems
-	    Solaris 2.6, 8, 9 and 10
-	    Tru64 UNIX 5.1
+	    Solaris 9 and 10
 
 	In the above list the only UNIX dialects present are ones
 	for which I could test the current lsof revision.  Lsof
@@ -1281,12 +1266,14 @@ ______________________________________________________________________
 
 3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
 
-	Lsof never reports a path names for a file that has been
-	unlinked from its parent directory -- e.g., deleted via
-	rm, or the unlink() system call -- even when some process
-	may still hold the file open.  That's because the path name
-	is erased from name caches and the parent directory file
-	when the file is unlinked.
+	When lsof gets path name components from the kernel's name
+	cache, it does not report the path names of a file that has
+	been unlinked from its parent directory -- e.g., deleted via
+	rm, or the unlink() system call -- even when some process may
+	still hold the file open; lsof reports only the file system's
+	mounted-on directory and device.  That's because path name
+	components are removed from the kernel name cache when the file
+	is unlinked.
 
 	Unlinked open files are sometimes used by applications for
 	temporary, but invisible storage (i.e., ls won't show them,
@@ -1302,6 +1289,11 @@ ______________________________________________________________________
 	can tell lsof to display only files whose link count is
 	less than one (i.e., zero).
 
+	There are some UNIX dialect-specific exceptions to lsof's
+	inability to report unlinked path names.  They are described in
+	the answer to the "When will lsof report path names for deleted
+	files?" question.
+
 3.3.4	Why doesn't lsof report the "correct" hard linked file path
 	name?
 
@@ -1316,10 +1308,10 @@ ______________________________________________________________________
 	to the kernel are the device and node numbers, and they're
 	the same for all the hard linked names.
 
-3.3.5	Will lsof report path names for deleted files?
+3.3.5	When will lsof report path names for deleted files?
 
 	Lsof will report path names for deleted files for two
-	dialects:  Linux and Solaris 10.
+	dialects:  Linux and later builds of Solaris 10.
 
 	Deleted Linux path names are reported by default and have
 	"(deleted)" at their ends.
@@ -3903,6 +3895,16 @@ ______________________________________________________________________
 	Also see the answer to the "What can be done when lsof reports
 	no more space?" question.
 
+4.17    Why does lsof have a compilation problem on AIX 5.3 above
+	maintenance level 1?
+
+	On some AIX 5.3 systems with maintenance levels 2 and higher
+	installed, lsof 4.77 and below may not compile properly.  The
+	compiler complains the snapshotObject structure definition,
+	needed by <j2/j2_inode.h>, is missing.
+
+	That problem is fixed in the 4.78 revision.
+
 
 5.0	Apple Darwin Problems
 
@@ -4868,7 +4870,7 @@ ______________________________________________________________________
 	a change in the device number of a /dev/tun* file, it rebuilds
 	its local device cache file.
 
-9.3.4   Why doesn't PSTAT-based lsof report TCP addresses for
+9.3.4	Why doesn't PSTAT-based lsof report TCP addresses for
 	telnetd's open socket files?
 
 	When lsof can't report TCP addresses for telnetd's open
@@ -4891,6 +4893,13 @@ ______________________________________________________________________
 	about PHKL_24047 and a link for downloading it.  (You may
 	have to log in first and you may have to create a login
 	identity by registering before you can log in.)
+
+	Some time in March 2006 the PHKL_24047 patch was "lost"
+	by the HP-UX networking lab.  It has been "found" again
+	in August 2006 and will be re-released as a GRO patch
+	"some time."  I don't yet know when that will be.  You
+	must contact HP to learn about the availability of the
+	GRO patch.
 
 9.3.5	Why does PSTAT-based lsof cause an HP-UX 11.11 kernel panic?
 
@@ -4998,6 +5007,22 @@ ______________________________________________________________________
 
 	The only reliable work-around is to use the HP ANSI C
 	compiler.
+
+9.4	Why won't the HP-UX depot install?
+
+	I don't distribute lsof depts, so I can't support them.
+
+	From time to time depots prepared by various sites -- e.g.,
+	usually HP-UX software collection sites -- will contain errors
+	that cause installation of the depot to fail.
+
+	Do not contact me when this happens.  Instead, contact the
+	administrator of the site that prepared the depot.
+
+	As should be clear from the bulk of the lsof documentation, I
+	do not recommend you use pre-built lsof binaries in any form.
+	Instead, I recommend you obtain the lsof source distribution
+	and build lsof yourself.
 
 
 10.0	Linux
@@ -5289,6 +5314,11 @@ ______________________________________________________________________
 	Lsof reports the ``maps'' file device number in the DEVICE
 	column and the inode number in the NODE column.
 
+	When device and inode mismatches occur, lsof suppresses the
+	reporting of link count and size.  See the answer to the "Why
+	is neither link count nor size reported for some Linux ``DEL''
+	and ``mem'' file types?" question for more information.
+
 	Device and inode inconsistencies can occur when a file at a
 	``maps'' path is replaced after the process has started, or
 	when a different file system with similar path names is mounted
@@ -5297,11 +5327,24 @@ ______________________________________________________________________
 	The device inconsistency parenthetical messages can be
 	suppressed with lsof's ``-w'' option.
 
-10.4.2	Why is no size reported for some Linux ``DEL'' and ``mem'' file
-	types?
+10.4.2  Why is neither link count nor size reported for some Linux
+	``DEL'' and ``mem'' file types?
 
-	No size is reported for these entries from the process' ``maps''
-	file because a stat(2) of the entry file path failed.
+	Link count and size are not reported for some entries from the
+	process' ``maps'' file because a stat(2) of the entry file path
+	failed or stat(2) delivered device or inode numbers that don't
+	match the ones in the ``maps'' entry.
+
+	When the stat(2) device or inode numbers don't match those in
+	the ``maps'' file entry, it is likely that the stat(2) results
+	don't apply to the file that was originally mapped by the
+	process and whose path appears in the ``maps'' file entry, so
+	lsof tries to avoid reporting possibly incorrect information.
+
+	See the answer to the "What do ``path dev=xxx'' and ``path
+	inode=yyy'' mean in the NAME column of Linux ``mem'' file
+	types?" for more information on how mismatched stat(2) device
+	and inode numbers are reported.
 
 10.5	Special Linux NAME column messages
 
@@ -7284,6 +7327,80 @@ ______________________________________________________________________
 	files, it can't match the device and node numbers it gets from
 	applying stat(2) to the contract file path name with what it
 	finds in kernel data.
+
+17.27	Solaris 10 ZFS probblems
+
+17.27.1	Why does Configure ask for the location of ZFS header files?
+
+	To provide ZFS support when lsof is compiled it needs to have
+	access to the definitions of ZFS structures used by the kernel.
+	Those definitions are contained in header files that Sun does
+	not distribute as of the November 2007 update to Solaris 10.
+
+	When the Configure script detects the system might support ZFS
+	by finding the <sys/fs/zfs.h> header file, it checks for the
+	required ZFS kernel structure definition header files.  When
+	they are not found, it asks if ZFS support should be included
+	and if so, with what definitions.
+
+	Two sources can be declared for definitions: 1) lsof's internal
+	ones; or 2) the necessary header files at some location other
+	than /usr/include/sys.
+	
+	The necessary heaer files are:
+
+	    dmu.h  zfs_acl.h      zfs_debug.h  zfs_rlock.h   zil.h
+	    spa.h  zfs_context.h  zfs_dir.h    zfs_vfsops.h  zio.h
+	    txg.h  zfs_ctldir.h   zfs_ioctl.h  zfs_znode.h   zio_impl.h
+	
+	The necessary header files might have been obtained, for
+	example, from the http://src.opensolaris.org Open Solaris
+	source site.  The supplied header file path must point to a
+	directory that contains a sys/ subdirectory where the header
+	files are located -- e.g., if the supplied path is /tmp/zfs,
+	then /tmp/zfs/sys must contain the necessary header files.
+
+	See the answer to the "Why don't the Open Solaris ZFS header
+	files provide correct ZFS kernel structure definitions?'
+	question for information on why the Open Solaris ZFS header
+	files might not provide correct ZFS kernel structure
+	definitions.
+
+	See the answer to the "Why do -h and -v output warn about
+	possibly inaccurate ZFS kernel structure definitions?" question
+	for information on the risks associated with using lsof's
+	internal definitions.
+
+17.27.2 Why do -h and -v output warn about possibly inaccurate ZFS
+	kernel structure definitions?
+
+	When lsof is configured to use its internal ZFS kernel
+	structure definitions, there is the chance that the definitions
+	may be out of date.  Hence, an lsof built with them may report
+	incorrect device numbers, file sizes, node numbers and link
+	counts.
+
+	Please contact me via e-mail for work-around suggestions.  Make
+	sure "lsof" appears in the "Subject:" line so my e-mail filter
+	won't classify your letter as Spam.
+
+17.27.3 Why don't the Open Solaris ZFS header files provide correct
+	ZFS kernel structure definitions?
+
+	The Open Solaris ZFS header files may not provide correct ZFS
+	kernel definitions.  An lsof built with them may report
+	incorrect device numbers, file sizes, node numbers and link
+	counts.
+
+	The definitions may be incorrect because the Open Solaris
+	header files are not synchronized with any particular Solaris
+	10 release.  Consequently they might contain modifications to
+	the structures not in the structure definitions used to build
+	the running kernel.
+
+	Please contact me via e-mail for work-around suggestions.  Make
+	sure "lsof" appears in the "Subject:" line so my e-mail filter
+	won't classify your letter as Spam.
 
 
 18.0	Lsof Features

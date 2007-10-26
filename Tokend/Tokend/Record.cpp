@@ -130,5 +130,3 @@ Attribute *Record::getDataAttribute(TokenContext *tokenContext)
 
 } // end namespace Tokend
 
-
-/* arch-tag: E92DB3E0-DF80-11D8-8D83-000A95C4302E */

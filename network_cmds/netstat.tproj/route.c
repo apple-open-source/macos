@@ -59,7 +59,7 @@
 static char sccsid[] = "From: @(#)route.c	8.6 (Berkeley) 4/28/95";
 #endif
 static const char rcsid[] =
-	"$Id: route.c,v 1.7 2004/10/14 22:24:09 lindak Exp $";
+	"$Id: route.c,v 1.8 2006/02/07 06:22:20 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -476,7 +476,7 @@ np_rtentry(struct rt_msghdr2 *rtm)
 		printf("%6u %8d ", rtm->rtm_refcnt, rtm->rtm_use);
 		if (lflag) {
 			if (rtm->rtm_rmx.rmx_mtu != 0)
-				printf("%6lu ", rtm->rtm_rmx.rmx_mtu);
+				printf("%6u ", rtm->rtm_rmx.rmx_mtu);
 			else
 				printf("%6s ", "");
 		}

@@ -1,5 +1,5 @@
-GDB_VERSION = 6.1-20040303
-GDB_RC_VERSION = 437
+GDB_VERSION = 6.3.50-20050815
+GDB_RC_VERSION = 768
 
 BINUTILS_VERSION = 2.13-20021117
 BINUTILS_RC_VERSION = 46
@@ -18,10 +18,7 @@ BINUTILS_RC_VERSION = 46
 # the platform-variables.make file exists.
 
 OS=MACOS
--include /Developer/Makefiles/pb_makefiles/platform-variables.make
-ifndef SYSTEM_DEVELOPER_TOOLS_DOC_DIR
-SYSTEM_DEVELOPER_TOOLS_DOC_DIR=/Developer/Documentation/DeveloperTools
-endif
+SYSTEM_DEVELOPER_TOOLS_DOC_DIR=/Developer/Documentation/DocSets/com.apple.ADC_Reference_Library.DeveloperTools.docset/Contents/Resources/Documents/documentation/DeveloperTools
 
 
 ifndef RC_ARCHS
@@ -99,9 +96,6 @@ BFD_HEADERS = $(BFD_FRAMEWORK)/Headers
 LIBERTY_FRAMEWORK = $(BINUTILS_FRAMEWORK_PATH)/liberty.framework
 LIBERTY_HEADERS = $(LIBERTY_FRAMEWORK)/Headers
 
-MMALLOC_FRAMEWORK = $(BINUTILS_FRAMEWORK_PATH)/mmalloc.framework
-MMALLOC_HEADERS = $(MMALLOC_FRAMEWORK)/Headers
-
 OPCODES_FRAMEWORK = $(BINUTILS_FRAMEWORK_PATH)/opcodes.framework
 OPCODES_HEADERS = $(OPCODES_FRAMEWORK)/Headers
 
@@ -113,15 +107,15 @@ INTL_HEADERS = $(BINUTILS_BUILD_ROOT)/usr/include
 
 TAR = gnutar
 CPP = cpp
-CC = cc
+CC = gcc
 CXX = c++
 LD = ld
 AR = ar
 RANLIB = ranlib
 NM = nm
-CC_FOR_BUILD = cc
+CC_FOR_BUILD = gcc
 
-CDEBUGFLAGS = -g
+CDEBUGFLAGS = -gdwarf-2
 CFLAGS = $(CDEBUGFLAGS) $(RC_CFLAGS)
 HOST_ARCHITECTURE = UNKNOWN
 
@@ -160,66 +154,18 @@ CONFIG_ALL_BFD_TARGETS=
 CONFIG_ALL_BFD_TARGETS=
 CONFIG_64_BIT_BFD=--enable-64-bit-bfd
 CONFIG_WITH_MMAP=--with-mmap
-CONFIG_WITH_MMALLOC=--with-mmalloc
 CONFIG_ENABLE_SHARED=--disable-shared
 CONFIG_MAINTAINER_MODE=
 CONFIG_BUILD=--build=$(BUILD_ARCH)
 CONFIG_OTHER_OPTIONS=--disable-serial-configure
 
 ifneq ($(findstring macosx,$(CANONICAL_ARCHS))$(findstring darwin,$(CANONICAL_ARCHS)),)
-CC = cc -arch $(HOST_ARCHITECTURE) -no-cpp-precomp
-CC_FOR_BUILD = NEXT_ROOT= cc -no-cpp-precomp
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-    CDEBUGFLAGS = -g -Os 
-else
-    CDEBUGFLAGS = -g -Os -mdynamic-no-pic
-endif
+CC = gcc -arch $(HOST_ARCHITECTURE)
+CC_FOR_BUILD = NEXT_ROOT= gcc
+CDEBUGFLAGS = -gdwarf-2 -Os
 
 CFLAGS = $(strip $(RC_CFLAGS_NOARCH) $(CDEBUGFLAGS) -Wall -Wimplicit -Wno-long-double)
 HOST_ARCHITECTURE = $(shell echo $* | sed -e 's/--.*//' -e 's/powerpc/ppc/' -e 's/-apple-macosx.*//' -e 's/-apple-macos.*//' -e 's/-apple-darwin.*//')
-endif
-
-ifneq ($(findstring hpux,$(CANONICAL_ARCHS)),)
-CC = gcc
-CC_FOR_BUILD = NEXT_ROOT= cc
-CDEBUGFLAGS = -g -O3
-CFLAGS = $(CDEBUGFLAGS) -D__STDC_EXT__=1 $(RC_CFLAGS_NOARCH)
-endif
-
-ifneq ($(findstring solaris,$(CANONICAL_ARCHS)),)
-CC = gcc
-CC_FOR_BUILD = gcc
-CDEBUGFLAGS = -g -O3
-CFLAGS = $(CDEBUGFLAGS) $(RC_CFLAGS_NOARCH)
-endif
-
-ifneq ($(findstring hpux,$(CANONICAL_ARCHS)),)
-SYSTEM_FRAMEWORK =
-FRAMEWORK_PREFIX = lib
-FRAMEWORK_SUFFIX = .sl
-FRAMEWORK_VERSION_SUFFIX = .$(FRAMEWORK_VERSION)
-endif
-
-ifneq ($(findstring solaris,$(CANONICAL_ARCHS)),)
-CFLAGS = $(CDEBUGFLAGS) $(RC_CFLAGS_NOARCH)
-SYSTEM_FRAMEWORK =
-FRAMEWORK_PREFIX = lib
-FRAMEWORK_SUFFIX = .so
-FRAMEWORK_VERSION_SUFFIX = .so.$(FRAMEWORK_VERSION)
-endif
-
-ifneq ($(findstring hpux,$(CANONICAL_ARCHS)),)
-CONFIG_64_BIT_BFD=
-CONFIG_MAINTAINER_MODE=
-CONFIG_WITH_MMAP=
-CONFIG_WITH_MMALLOC=
-endif
-
-ifneq ($(findstring solaris,$(CANONICAL_ARCHS)),)
-CONFIG_64_BIT_BFD=
-CONFIG_MAINTAINER_MODE=
-CONFIG_WITH_MMAP=
-CONFIG_WITH_MMALLOC=
 endif
 
 MACOSX_FLAGS = \
@@ -233,17 +179,6 @@ MACOSX_FLAGS = \
 	PRIVATE_FRAMEWORKS_DIR=System/Library/PrivateFrameworks \
 	SOURCE_DIR=System/Developer/Source/Commands/gdb
 
-PDO_FLAGS = \
-	CONFIG_DIR=Developer/Libraries/gdb \
-	CONF_DIR=Developer/Libraries/gdb \
-	DEVEXEC_DIR=Developer/Executables \
-	LIBEXEC_BINUTILS_DIR=Developer/Libraries/binutils \
-	LIBEXEC_GDB_DIR=Developer/Libraries/gdb \
-	MAN_DIR=Local/man \
-	PRIVATE_FRAMEWORKS_DIR=Library/PrivateFrameworks \
-	LIBEXEC_LIB_DIR=Library/Executables \
-	SOURCE_DIR=Developer/Source/gdb
-
 CONFIGURE_OPTIONS = \
 	$(CONFIG_VERBOSE) \
 	$(CONFIG_ENABLE_GDBTK) \
@@ -254,7 +189,6 @@ CONFIGURE_OPTIONS = \
 	$(CONFIG_ALL_BFD_TARGETS) \
 	$(CONFIG_64_BIT_BFD) \
 	$(CONFIG_WITH_MMAP) \
-	$(CONFIG_WITH_MMALLOC) \
 	$(CONFIG_ENABLE_SHARED) \
 	$(CONFIG_MAINTAINER_MODE) \
 	$(CONFIG_BUILD) \
@@ -288,39 +222,10 @@ FFLAGS = \
 	FRAMEWORK_SUFFIX='$(FRAMEWORK_SUFFIX)' \
 	FRAMEWORK_VERSION_SUFFIX='$(FRAMEWORK_VERSION_SUFFIX)'
 
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-FRAMEWORK_TARGET=stamp-framework
-framework=-F$(BINUTILS_FRAMEWORKS_PATH) -framework $(1)
-else
 FRAMEWORK_TARGET=stamp-framework-headers all
 framework=-L../$(patsubst liberty,libiberty,$(1)) -l$(patsubst liberty,iberty,$(1))
-endif
 
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-FSFLAGS = \
-	$(SFLAGS) \
-	MMALLOC_DEP='$(MMALLOC_FRAMEWORK)/mmalloc' \
-	MMALLOC='$(call framework,mmalloc)' \
-	MMALLOC_CFLAGS='-I$(MMALLOC_HEADERS)' \
-	OPCODES_DEP='$(OPCODES_FRAMEWORK)/opcodes' \
-	OPCODES='$(call framework,opcodes)' \
-	OPCODES_CFLAGS='-I$(OPCODES_HEADERS)' \
-	BFD_DIR='$(BFD_HEADERS)' \
-	BFD_SRC='$(BFD_HEADERS)' \
-	BFD_DEP='$(BFD_FRAMEWORK)/bfd' \
-	BFD='$(call framework,bfd)' \
-	BFD_CFLAGS='-I$(BFD_HEADERS)' \
-	LIBIBERTY_DEP='$(LIBERTY_FRAMEWORK)/liberty' \
-	LIBIBERTY='$(call framework,liberty)' \
-	LIBIBERTY_CFLAGS='-I$(LIBERTY_HEADERS)' \
-	INTL_DEP='$(INTL_FRAMEWORK)' \
-	INTL='$(INTL_FRAMEWORK)' \
-	INCLUDE_DIR='$(BINUTILS_HEADERS)' \
-	INCLUDE_CFLAGS='-I$(BINUTILS_HEADERS)'
-else
-FSFLAGS = \
-	$(SFLAGS)
-endif
+FSFLAGS = $(SFLAGS)
 
 CONFIGURE_ENV = $(EFLAGS)
 MAKE_ENV = $(EFLAGS)
@@ -352,8 +257,7 @@ $(OBJROOT)/%/stamp-rc-configure-cross:
 	touch $@
 
 $(OBJROOT)/%/stamp-build-headers:
-	$(SUBMAKE) -C $(OBJROOT)/$* configure-intl configure-mmalloc configure-libiberty configure-bfd configure-opcodes configure-gdb
-	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) stamp-framework-headers 
+	$(SUBMAKE) -C $(OBJROOT)/$* configure-intl configure-libiberty configure-bfd configure-opcodes configure-gdb
 	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) stamp-framework-headers
 	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) headers stamp-framework-headers
 	$(SUBMAKE) -C $(OBJROOT)/$*/opcodes $(FFLAGS) stamp-framework-headers
@@ -363,9 +267,8 @@ $(OBJROOT)/%/stamp-build-headers:
 	#touch $@
 
 $(OBJROOT)/%/stamp-build-core:
-	$(SUBMAKE) -C $(OBJROOT)/$* configure-intl configure-mmalloc configure-libiberty configure-bfd configure-opcodes
+	$(SUBMAKE) -C $(OBJROOT)/$* configure-intl configure-libiberty configure-bfd configure-opcodes
 	$(SUBMAKE) -C $(OBJROOT)/$*/intl $(SFLAGS) libintl.la
-	$(SUBMAKE) -C $(OBJROOT)/$*/mmalloc $(FFLAGS) $(FRAMEWORK_TARGET)
 	$(SUBMAKE) -C $(OBJROOT)/$*/libiberty $(FFLAGS) $(FRAMEWORK_TARGET)
 	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) headers
 	$(SUBMAKE) -C $(OBJROOT)/$*/bfd $(FFLAGS) $(FRAMEWORK_TARGET)
@@ -378,23 +281,15 @@ $(OBJROOT)/%/stamp-build-core:
 $(OBJROOT)/%/stamp-build-binutils:
 	$(SUBMAKE) -C $(OBJROOT)/$* configure-binutils
 	$(SUBMAKE) -C $(OBJROOT)/$*/binutils $(FSFLAGS) VERSION='$(BINUTILS_VERSION)' VERSION_STRING='$(BINUTILS_VERSION_STRING)' all
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-binutils
-else
 	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-headers-binutils
-endif
 	#touch $@
 
 $(OBJROOT)/%/stamp-build-gdb:
 	$(SUBMAKE) -C $(OBJROOT)/$* configure-gdb
-	$(SUBMAKE) -C $(OBJROOT)/$*/gdb -W version.in $(MFLAGS) $(FSFLAGS) VERSION='$(GDB_VERSION_STRING)' gdb
+	$(SUBMAKE) -C $(OBJROOT)/$*/gdb -W version.in $(MFLAGS) $(FSFLAGS) VERSION='$(GDB_VERSION_STRING)' GDB_RC_VERSION='$(GDB_RC_VERSION)' gdb
 
 $(OBJROOT)/%/stamp-build-gdb-framework:
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-gdb
-else
 	$(SUBMAKE) -C $(OBJROOT)/$* $(FFLAGS) stamp-framework-headers-gdb
-endif
 
 $(OBJROOT)/%/stamp-build-gdb-docs:
 	$(SUBMAKE) -C $(OBJROOT)/$*/gdb/doc $(MFLAGS) VERSION='$(GDB_VERSION_STRING)' gdb.info
@@ -473,38 +368,6 @@ install-frameworks-macosx:
 	$(SUBMAKE) CURRENT_ROOT=$(SYMROOT) install-frameworks-resources
 	$(SUBMAKE) CURRENT_ROOT=$(DSTROOT) install-frameworks-resources
 
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-	set -e; for i in $(FRAMEWORKS); do \
-		j=`echo $${i} | sed -e 's/liberty/libiberty/;' -e 's/binutils/\./;' -e 's/gdb/\./;'`; \
-		lipo -create -output $(SYMROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/$${i} \
-			$(patsubst %,$(OBJROOT)/%/$${j}/$${i}.framework/Versions/A/$${i},$(NATIVE_TARGETS)); \
-		strip -S -o $(DSTROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/$${i} \
-			 $(SYMROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/$${i}; \
-		ln -sf Versions/Current/$${i} $(SYMROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/$${i}; \
-		ln -sf Versions/Current/$${i} $(DSTROOT)/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/$${i}; \
-	done
-endif
-
-# We no longer install things in /usr/lib -- jmolenda 2004-06-16
-#
-#	$(INSTALL) -c -d $(SYMROOT)/$(LIB_DIR)
-#	$(INSTALL) -c -d $(DSTROOT)/$(LIB_DIR)
-
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-	lipo -create -output $(SYMROOT)/$(LIB_DIR)/libintl.a \
-		$(patsubst %,$(OBJROOT)/%/intl/.libs/libintl.a,$(NATIVE_TARGETS))
-	strip -S -o $(DSTROOT)/$(LIB_DIR)/libintl.a \
-		 $(SYMROOT)/$(LIB_DIR)/libintl.a
-	lipo -create -output $(SYMROOT)/$(LIB_DIR)/libintl.1.0.0.dylib \
-		$(patsubst %,$(OBJROOT)/%/intl/.libs/libintl.1.0.0.dylib,$(NATIVE_TARGETS))
-	strip -S -o $(DSTROOT)/$(LIB_DIR)/libintl.1.0.0.dylib \
-		 $(SYMROOT)/$(LIB_DIR)/libintl.1.0.0.dylib
-	ln -sf libintl.1.0.0.dylib $(DSTROOT)/$(LIB_DIR)/libintl.1.dylib
-	ln -sf libintl.1.0.0.dylib $(SYMROOT)/$(LIB_DIR)/libintl.1.dylib
-	ln -sf libintl.1.0.0.dylib $(DSTROOT)/$(LIB_DIR)/libintl.dylib
-	ln -sf libintl.1.0.0.dylib $(SYMROOT)/$(LIB_DIR)/libintl.dylib
-endif
-
 install-gdb-common:
 
 	set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
@@ -545,6 +408,11 @@ install-gdb-macosx-common: install-gdb-common
 		$(INSTALL) -c -m 644 $(SRCROOT)/src/gdb/gdb.1 $${dstroot}/$(MAN_DIR)/man1/gdb.1; \
 		perl -pi -e 's,GDB_DOCUMENTATION_DIRECTORY,$(SYSTEM_DEVELOPER_TOOLS_DOC_DIR)/gdb,' $${dstroot}/$(MAN_DIR)/man1/gdb.1; \
 		\
+		$(INSTALL) -c -d $${dstroot}/usr/local/OpenSourceLicenses; \
+		$(INSTALL) -c -d $${dstroot}/usr/local/OpenSourceVersions; \
+		$(INSTALL) -c -m 644 $(SRCROOT)/gdb.plist $${dstroot}/usr/local/OpenSourceVersions; \
+		$(INSTALL) -c -m 644 $(SRCROOT)/gdb.txt $${dstroot}/usr/local/OpenSourceLicenses; \
+		\
 		$(INSTALL) -c -d $${dstroot}/$(CONFIG_DIR); \
 		$(INSTALL) -c -m 644 $(SRCROOT)/gdb.conf $${dstroot}/$(CONFIG_DIR)/gdb.conf; \
 		\
@@ -564,8 +432,11 @@ install-gdb-macosx: install-gdb-macosx-common
 	set -e; for target in $(CANONICAL_ARCHS); do \
 		lipo -create $(OBJROOT)/$${target}--$${target}/gdb/gdb \
 			-output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
+		dsymutil -o $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}.dSYM \
+                         $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 	 	strip -S -o $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} \
 			$(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
+		cp $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 	done
 
 install-gdb-fat: install-gdb-macosx-common
@@ -576,8 +447,12 @@ install-gdb-fat: install-gdb-macosx-common
 		-output $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$(I386_TARGET)
 
 	set -e; for target in $(CANONICAL_ARCHS); do \
+		dsymutil -o $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}.dSYM \
+                         $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 	 	strip -S -o $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} \
 			$(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
+		cp $(DSTROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target} \
+                   $(SYMROOT)/$(LIBEXEC_GDB_DIR)/gdb-$${target}; \
 		if echo $${target} | egrep '^[^-]*-apple-darwin' > /dev/null; then \
 			echo "stripping __objcInit"; \
 			echo "__objcInit" > /tmp/macosx-syms-to-remove; \
@@ -588,13 +463,6 @@ install-gdb-fat: install-gdb-macosx-common
 
 install-binutils-macosx:
 
-# We no longer install anything in /usr/libexec/binutils -- jmolenda 2004-06-16
-#
-#	set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
-#		\
-#		$(INSTALL) -c -d $${dstroot}/$(LIBEXEC_BINUTILS_DIR); \
-#	done
-#
 	set -e; for i in $(BINUTILS_BINARIES); do \
 		instname=`echo $${i} | sed -e 's/\\-new//'`; \
 		lipo -create $(patsubst %,$(OBJROOT)/%/binutils/$${i},$(NATIVE_TARGETS)) \
@@ -607,28 +475,16 @@ install-binutils-macosx:
 # don't halt the build. 
 
 install-chmod-macosx:
-	set -e;	if [ `whoami` = 'root' ]; then \
-		for dstroot in $(SYMROOT) $(DSTROOT); do \
+	set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
 			chown -R root:wheel $${dstroot}; \
 			chmod -R  u=rwX,g=rX,o=rX $${dstroot}; \
 			chmod a+x $${dstroot}/$(LIBEXEC_GDB_DIR)/*; \
 			chmod a+x $${dstroot}/$(DEVEXEC_DIR)/*; \
-		done; \
-	fi
-	-set -e; if [ `whoami` = 'root' ]; then \
-		for dstroot in $(SYMROOT) $(DSTROOT); do \
+		done
+	-set -e; for dstroot in $(SYMROOT) $(DSTROOT); do \
 			chgrp procmod $${dstroot}/$(LIBEXEC_GDB_DIR)/gdb* && chmod g+s $${dstroot}/$(LIBEXEC_GDB_DIR)/gdb*; \
-		done; \
-	fi
-ifeq ($(CONFIG_ENABLE_SHARED),--enable-shared)
-	set -e;	if [ `whoami` = 'root' ]; then \
-		for dstroot in $(SYMROOT) $(DSTROOT); do \
-			for i in $(FRAMEWORKS); do \
-				chmod a+x $${dstroot}/$(PRIVATE_FRAMEWORKS_DIR)/$${i}.framework/Versions/A/$${i}; \
-			done; \
-		done; \
-	fi
-endif
+			chgrp procmod $${dstroot}/$(LIBEXEC_GDB_DIR)/plugins/MacsBug/MacsBug_plugin && chmod g+s $${dstroot}/$(LIBEXEC_GDB_DIR)/plugins/MacsBug/MacsBug_plugin; \
+		done
 
 install-source:
 	$(INSTALL) -c -d $(DSTROOT)/$(SOURCE_DIR)
@@ -716,7 +572,7 @@ build:
 	$(SUBMAKE) build-gdb-docs 
 
 install-clean:
-	$(RM) -r $(SYMROOT) $(DSTROOT)
+	$(RM) -r $(DSTROOT)
 
 install-macosx:
 	$(SUBMAKE) install-clean
@@ -733,10 +589,14 @@ ifeq "$(CANONICAL_ARCHS)" "powerpc-apple-darwin"
 	$(SUBMAKE) install-macsbug
 endif
 endif
+	$(SUBMAKE) install-libcheckpoint
 	$(SUBMAKE) install-chmod-macosx
 
 install-macsbug:
 	$(SUBMAKE) -C $(SRCROOT)/macsbug GDB_BUILD_ROOT=$(DSTROOT) BINUTILS_BUILD_ROOT=$(DSTROOT) SRCROOT=$(SRCROOT)/macsbug OBJROOT=$(OBJROOT)/powerpc-apple-darwin--powerpc-apple-darwin/macsbug SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
+ 
+install-libcheckpoint:
+	$(SUBMAKE) -C $(SRCROOT)/libcheckpoint GDB_BUILD_ROOT=$(DSTROOT) BINUTILS_BUILD_ROOT=$(DSTROOT) SRCROOT=$(SRCROOT)/libcheckpoint OBJROOT=$(OBJROOT)/libcheckpoint SYMROOT=$(SYMROOT) DSTROOT=$(DSTROOT) install
  
 install:
 	$(SUBMAKE) check-args
@@ -759,5 +619,10 @@ installsrc:
 
 
 check:
-	[ -z `find . -name \*~ -o -name .\#\*` ] || \
-		(echo 'Emacs or CVS backup files present; not copying.' && exit 1)
+	@[ -z "`find . -name \*~ -o -name .\#\*`" ] || \
+	   (echo; echo 'Emacs or CVS backup files present; not copying:'; \
+           find . \( -name \*~ -o -name .#\* \) -print | sed 's,^[.]/,  ,'; \
+           echo Suggest: ; \
+           echo '    ' find . \\\( -name \\\*~ -o -name .#\\\* \\\) -exec rm -f \{\} \\\; -print ; \
+           echo; \
+           exit 1)

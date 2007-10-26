@@ -1,5 +1,6 @@
 /* machine description file for Dual machines using unisoft port.
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,10 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="note"
 
@@ -57,7 +58,7 @@ NOTE-END */
 
 /* Data type of load average, as read out of kmem.  */
 /* These are commented out since it does not really work in uniplus */
-  
+
 /* #define LOAD_AVE_TYPE long */
 
 /* Convert that into an integer that is 100 for a load average of 1.0  */
@@ -67,3 +68,6 @@ NOTE-END */
 /* Change some things to avoid bugs in compiler */
 
 #define SWITCH_ENUM_BUG 1
+
+/* arch-tag: 7208d63c-9a23-469e-a9b1-908ac912c743
+   (do not change this comment) */

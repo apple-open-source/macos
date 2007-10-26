@@ -114,7 +114,12 @@ module Generators
         lookup = name
       end
 
-      if /([A-Z].*)[.\#](.*)/ =~ lookup
+      # Find class, module, or method in class or module.
+      if /([A-Z]\w*)[.\#](\w+[!?=]?)/ =~ lookup
+        container = $1
+        method = $2
+        ref = @context.find_symbol(container, method)
+      elsif /([A-Za-z]\w*)[.\#](\w+(\([\.\w+\*\/\+\-\=\<\>]+\))?)/ =~ lookup
         container = $1
         method = $2
         ref = @context.find_symbol(container, method)
@@ -153,7 +158,7 @@ module Generators
       if (type == "http" || type == "link") && 
           url =~ /\.(gif|png|jpg|jpeg|bmp)$/
 
-        "<img src=\"#{url}\">"
+        "<img src=\"#{url}\" />"
       else
         "<a href=\"#{url}\">#{text.sub(%r{^#{type}:/*}, '')}</a>"
       end
@@ -206,12 +211,14 @@ module Generators
       unless defined? @markup
         @markup = SM::SimpleMarkup.new
 
-        # class names, variable names, file names, or instance variables
+        # class names, variable names, or instance variables
         @markup.add_special(/(
-                               \b([A-Z]\w*(::\w+)*[.\#]\w+)  #    A::B.meth
+                               \w+(::\w+)*[.\#]\w+(\([\.\w+\*\/\+\-\=\<\>]+\))?  # A::B.meth(**) (for operator in Fortran95)
+                             | \#\w+(\([.\w\*\/\+\-\=\<\>]+\))?  #  meth(**) (for operator in Fortran95)
+                             | \b([A-Z]\w*(::\w+)*[.\#]\w+)  #    A::B.meth
                              | \b([A-Z]\w+(::\w+)*)       #    A::B..
                              | \#\w+[!?=]?                #    #meth_name 
-                             | \b\w+([_\/\.]+\w+)+[!?=]?  #    meth_name
+                             | \b\w+([_\/\.]+\w+)*[!?=]?  #    meth_name
                              )/x, 
                             :CROSSREF)
 
@@ -314,7 +321,7 @@ module Generators
     def collect_methods
       list = @context.method_list
       unless @options.show_all
-        list = list.find_all {|m| m.visibility == :public || m.force_documentation }
+        list = list.find_all {|m| m.visibility == :public || m.visibility == :protected || m.force_documentation }
       end
       @methods = list.collect {|m| HtmlMethod.new(m, self, @options) }
     end
@@ -681,13 +688,13 @@ module Generators
       res = []
       atts.each do |att|
         next unless att.section == section
-        if att.visibility == :public || @options.show_all
+        if att.visibility == :public || att.visibility == :protected || @options.show_all
           entry = {
             "name"   => CGI.escapeHTML(att.name), 
             "rw"     => att.rw, 
             "a_desc" => markup(att.comment, true)
           }
-          unless att.visibility == :public
+          unless att.visibility == :public || att.visibility == :protected
             entry["rw"] << "-"
           end
           res << entry

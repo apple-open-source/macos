@@ -34,7 +34,7 @@
 .\"
 .\"     @(#)strings.1	8.1 (Berkeley) 6/6/93
 .\"
-.TH STRINGS 1 "November 10, 2004" "Apple Computer, Inc."
+.TH STRINGS 1 "September 11, 2006" "Apple Computer, Inc."
 .SH NAME
 strings \- find the printable strings in a object, or other binary, file
 .SH SYNOPSIS
@@ -67,6 +67,14 @@ flag is given,
 .I strings
 looks in all sections of the object files except the (\_\^\_TEXT,\_\^\_text)
 section.  If no files are specified standard input is read.
+.PP
+The file
+arguments may be of the form
+.IR "libx.a(foo.o)" ,
+to request information about only that object file and not
+the entire library.   (Typically this argument must be quoted,
+.I ``libx.a(foo.o)'',
+to get it past the shell.)
 .PP
 The options to
 .IR strings (1)
@@ -113,6 +121,19 @@ is used as the minimum string length rather than the default of 4.
 .BI \-n " number"
 Specify the minimum string length, where the number argument is a positive
 decimal integer. The default shall be 4.
+.TP
+.BI \-arch " arch_type"
+Specifies the architecture,
+.I arch_type,
+of the file for
+.IR strings (1)
+to operate on when the file is a universal file.  (See
+.IR arch (3)
+for the currently know
+.IR arch_type s.)
+The
+.I arch_type
+can be "all" to operate on all architectures in the file, which is the default.
 .SH "SEE ALSO"
 od(1)
 .SH BUGS

@@ -1,0 +1,15 @@
+--- config.h.in.orig	2006-04-27 16:50:13.000000000 -0700
++++ config.h.in	2006-04-27 16:53:12.000000000 -0700
+@@ -1079,7 +1079,11 @@
+ 
+ /* Define to 1 if your processor stores words with the most significant byte
+    first (like Motorola and SPARC, unlike Intel and VAX). */
+-#undef WORDS_BIGENDIAN
++#ifdef __BIG_ENDIAN__
++#define WORDS_BIGENDIAN 1
++#else
++/* #undef WORDS_BIGENDIAN */
++#endif
+ 
+ /* Define to 1 if on AIX 3.
+    System headers sometimes define this.

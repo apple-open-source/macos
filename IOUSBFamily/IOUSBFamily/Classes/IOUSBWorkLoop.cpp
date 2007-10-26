@@ -29,21 +29,44 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/usb/IOUSBWorkLoop.h>
 
+#define super IOWorkLoop
 OSDefineMetaClassAndStructors( IOUSBWorkLoop, IOWorkLoop )
 
-IOUSBWorkLoop * IOUSBWorkLoop::workLoop()
+IOUSBWorkLoop * IOUSBWorkLoop::workLoop(const char * controllerLocation)
 {
     IOUSBWorkLoop *loop;
     
     loop = new IOUSBWorkLoop;
     if(!loop)
         return loop;
-    if(!loop->init()) 
+	
+    if(!loop->init(controllerLocation)) 
     {
         loop->release();
         loop = NULL;
     }
     return loop;
+}
+
+bool
+IOUSBWorkLoop::init (const char * controllerLocation)
+{
+	
+	return super::init( );
+	
+}
+
+void IOUSBWorkLoop::free ( void )
+{
+	
+	if ( fLockGroup )
+	{
+		lck_grp_free ( fLockGroup );
+		fLockGroup = NULL;
+	}
+	
+	super::free ( );
+	
 }
 
 void IOUSBWorkLoop::closeGate()

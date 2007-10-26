@@ -51,7 +51,7 @@
 /*	int sigsetjmp(sigjmp_buf env, int savemask); */
 
 MI_ENTRY_POINT(_sigsetjmp)
-	cmpgi   cr1,r4,0			; this changes cr1 which is volatile
+	cmpgi   cr1,r4,0		; this changes cr1 which is volatile
 	stg     r4, JMP_SIGFLAG(r3)	; save the sigflag for use by siglongjmp()
 	beq--   cr1, L__exit		; if r4 == 0 do _setjmp()
 	; else *** fall through ***  to setjmp()
@@ -62,12 +62,25 @@ MI_ENTRY_POINT(_setjmp)
 	mflr    r0
 	stg     r31, JMP_r31(r3)
 	stg     r0, JMP_lr(r3)
-	mr      r31, r3             ; save ptr to jmpbuf across call
-	li      r3, 1				; get the previous signal mask
+	mr      r31, r3			; save ptr to jmpbuf across calls
+	
+	/* call sigprocmask() to get signal mask */
+	
+	li      r3, 1			; get the previous signal mask
 	li      r4, 0
 	la      r5, JMP_sig(r31)	; get address where previous mask needs to be
-	MI_CALL_EXTERNAL(_sigprocmask) // make a syscall to get mask
-	mr      r3, r31             ; restore jmp_buf ptr
+	MI_CALL_EXTERNAL(_sigprocmask)	; make a syscall to get mask
+	
+	/* call sigaltstack() to get SS_ONSTACK flag */
+	
+	li	r3,0			; ss is NULL
+	la	r4,JMP_vr_base_addr(r31); oss is a temp buffer in jmp_buf
+	MI_CALL_EXTERNAL(_sigaltstack)	; make a syscall to get current stack state
+	la	r4,JMP_vr_base_addr(r31); recreate temp buffer ptr
+	lwz	r5,2*GPR_BYTES(r4)	; get ss_flags (an int) from stack_t
+	stw	r5,JMP_ss_flags(r31)	; save ss_flags in jmp_buf
+	
+	mr      r3, r31			; restore jmp_buf ptr
 	lg      r0, JMP_lr(r31)
 	lg      r31, JMP_r31(r31)
 	mtlr    r0

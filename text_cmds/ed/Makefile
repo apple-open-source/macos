@@ -16,9 +16,10 @@ HFILES = ed.h
 
 CFILES = buf.c cbc.c glbl.c io.c main.c re.c sub.c undo.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble ed.1 POSIX\
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble ed.1 red.1 POSIX\
             README
 
+OTHER_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -29,7 +30,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -I/System/Library/Frameworks/System.framework/PrivateHeaders
+NEXTSTEP_PB_CFLAGS = -I/System/Library/Frameworks/System.framework/PrivateHeaders -D__DARWIN_UNIX03=1
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

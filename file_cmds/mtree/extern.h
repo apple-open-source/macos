@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,20 +27,33 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.sbin/mtree/extern.h,v 1.3.2.2 2000/06/28 02:33:17 joe Exp $
+ * $FreeBSD: src/usr.sbin/mtree/extern.h,v 1.13 2004/01/11 19:38:48 phk Exp $
  */
+extern uint32_t crc_total;
 
-int	 compare __P((char *, NODE *, FTSENT *));
-int	 crc __P((int, u_long *, u_long *));
-void	 cwalk __P((void));
-char	*flags_to_string __P((u_long));
+#ifdef _FTS_H_
+int	 compare(char *, NODE *, FTSENT *);
+#endif
+int	 crc(int, uint32_t *, off_t *);
+void	 cwalk(void);
+char	*flags_to_string(u_long);
 
-char	*inotype __P((u_int));
-u_int	 parsekey __P((char *, int *));
-char	*rlink __P((char *));
-NODE	*spec __P((void));
-int	 verify __P((void));
+const char	*inotype(u_int);
+u_int	 parsekey(char *, int *);
+char	*rlink(char *);
+NODE	*mtree_readspec(FILE *fi);
+int	mtree_verifyspec(FILE *fi);
+int	mtree_specspec(FILE *fi, FILE *fj);
 
-int	 check_excludes __P((const char *, const char *));
-void	 init_excludes __P((void));
-void	 read_excludes_file __P((const char *));
+int	 check_excludes(const char *, const char *);
+void	 init_excludes(void);
+void	 read_excludes_file(const char *);
+const char * ftype(u_int type);
+
+extern int ftsoptions;
+extern u_int keys;
+extern int lineno;
+extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag;
+#ifdef MAXPATHLEN
+extern char fullpath[MAXPATHLEN];
+#endif

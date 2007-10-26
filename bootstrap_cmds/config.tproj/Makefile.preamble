@@ -25,6 +25,17 @@ OTHER_LIBTOOL_FLAGS =
 # For ordering named sections on NEXTSTEP (see ld(1))
 SECTORDER_FLAGS =
 
+# mkmakefile.c is pretty hosed...
+OTHER_CFLAGS += -fwritable-strings
+
+# turn on all the warnings...
+OTHER_CFLAGS += \
+	-Wall -Wno-format-y2k -W -Wstrict-prototypes -Wmissing-prototypes \
+	-Wpointer-arith -Wreturn-type -Wcast-qual -Wwrite-strings -Wswitch \
+	-Wshadow -Wcast-align -Wbad-function-cast -Wchar-subscripts -Winline \
+	-Wnested-externs -Wredundant-decls
+
+
 # If you do not want any headers exported before compilations begin,
 # uncomment the following line.  This can be a big time saver.
 #SKIP_EXPORTING_HEADERS = YES

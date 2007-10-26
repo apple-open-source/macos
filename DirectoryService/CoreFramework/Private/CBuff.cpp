@@ -58,7 +58,7 @@ CBuff::~CBuff ( void )
 //	* CBuff
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::Initialize ( tDataBuffer *inBuff, bool inClear )
+SInt32 CBuff::Initialize ( tDataBuffer *inBuff, bool inClear )
 {
 	fBuff = inBuff;
 
@@ -95,9 +95,9 @@ sInt32 CBuff::Initialize ( tDataBuffer *inBuff, bool inClear )
 //	* SetBuffLen
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::SetBuffLen ( uInt32 inBuffLen )
+SInt32 CBuff::SetBuffLen ( UInt32 inBuffLen )
 {
-	sInt32	siResult	= eDSNoErr;
+	SInt32	siResult	= eDSNoErr;
 
 	if ( fBuff != nil )
 	{
@@ -127,7 +127,7 @@ tDataBuffer* CBuff::GetBuffer ( void )
 //	* GetBuffStatus
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::GetBuffStatus ( void )
+SInt32 CBuff::GetBuffStatus ( void )
 {
 	return( fStatus );
 } // GetBuffStatus
@@ -137,9 +137,9 @@ sInt32 CBuff::GetBuffStatus ( void )
 //	* GetBuffType
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::GetBuffType ( uInt32 *outType )
+SInt32 CBuff::GetBuffType ( UInt32 *outType )
 {
-	sInt32	siResult	= eDSNoErr;
+	SInt32	siResult	= eDSNoErr;
 
 	if ( fBuff != nil) 
 	{
@@ -166,9 +166,9 @@ sInt32 CBuff::GetBuffType ( uInt32 *outType )
 //	* SetBuffType
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::SetBuffType ( uInt32 inBuffType )
+SInt32 CBuff::SetBuffType ( UInt32 inBuffType )
 {
-	uInt32		uiTemp	= 0;
+	UInt32		uiTemp	= 0;
 
 	if ( fStatus == eDSNoErr )
 	{
@@ -196,9 +196,9 @@ sInt32 CBuff::SetBuffType ( uInt32 inBuffType )
 //	* AddData
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::AddData ( char *inData, uInt32 inLen )
+SInt32 CBuff::AddData ( char *inData, UInt32 inLen )
 {
-	sInt32	siResult	= eDSNoErr;
+	SInt32	siResult	= eDSNoErr;
 
 	if ( fBuff != nil) 
 	{
@@ -233,11 +233,11 @@ sInt32 CBuff::AddData ( char *inData, uInt32 inLen )
 //	* SetNextOffset
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::SetNextOffset ( uInt32 inLen )
+SInt32 CBuff::SetNextOffset ( UInt32 inLen )
 {
-	sInt32		siResult	= eDSNoErr;
-	uInt32		uiTmp		= 0;
-	uInt32		uiCntr		= 8;
+	SInt32		siResult	= eDSNoErr;
+	UInt32		uiTmp		= 0;
+	UInt32		uiCntr		= 8;
 
 	while ( (uiTmp != kEndTag) && (uiCntr < (fOffset - 4)) )
 	{
@@ -311,9 +311,9 @@ void CBuff::SetLengthToSize ( void )
 //	* GetDataBlockCount
 //------------------------------------------------------------------------------------
 
-sInt32 CBuff::GetDataBlockCount ( uInt32 *outCount )
+SInt32 CBuff::GetDataBlockCount ( UInt32 *outCount )
 {
-	sInt32	siResult	= 0;
+	SInt32	siResult	= 0;
 
 	if ( fBuff != nil ) 
 	{
@@ -341,12 +341,12 @@ sInt32 CBuff::GetDataBlockCount ( uInt32 *outCount )
 //	* GetDataBlock
 //------------------------------------------------------------------------------------
 
-char* CBuff::GetDataBlock ( uInt32 inIndex, uInt32 *outOffset )
+char* CBuff::GetDataBlock ( UInt32 inIndex, UInt32 *outOffset )
 {
 	char	   *pResult			= nil;
-	uInt32		uiLenOffset		= 0;
-	uInt32		uiBlockOffset	= 0;
-	uInt32		uiBlockLen		= 0;
+	UInt32		uiLenOffset		= 0;
+	UInt32		uiBlockOffset	= 0;
+	UInt32		uiBlockLen		= 0;
 
 	*outOffset = 0;
 
@@ -384,11 +384,11 @@ char* CBuff::GetDataBlock ( uInt32 inIndex, uInt32 *outOffset )
 //	* GetDataBlockLength
 //------------------------------------------------------------------------------------
 
-uInt32 CBuff::GetDataBlockLength ( uInt32 inIndex )
+UInt32 CBuff::GetDataBlockLength ( UInt32 inIndex )
 {
-	uInt32		uiResult		= 0;
-	uInt32		uiLenOffset		= 0;
-	uInt32		uiBlockOffset	= 0;
+	UInt32		uiResult		= 0;
+	UInt32		uiLenOffset		= 0;
+	UInt32		uiBlockOffset	= 0;
 
 	if ( (fStatus == eDSNoErr) && (inIndex != 0) ) 
 	{

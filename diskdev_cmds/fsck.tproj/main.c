@@ -54,7 +54,6 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/mount.h>
@@ -77,18 +76,14 @@
 
 #define _PATH_SBIN	"/sbin"
 
-enum fscktype {
-	FSCK_UNKNOWN, FSCK_UFS, FSCK_HFS
-};
-
 int	returntosingle;
 
 static int argtoi __P((int flag, char *req, char *str, int base));
 static int docheck __P((struct fstab *fsp));
-static int checkfilesys __P((char *filesys, char *mntpt, long auxdata,
+static int checkfilesys __P((char *filesys, char *mntpt, char *vfstype,
 		int child));
-static int checkhfs __P((char *filesys, int child));
-void main __P((int argc, char *argv[]));
+static int check_other __P((char *vfstype, char *filesys));
+int main __P((int argc, char *argv[]));
 
 /* Decls carried from fsck.h due dyld probs */
 char	*cdevname;		/* name of device being checked */
@@ -140,7 +135,7 @@ long numdirs, listmax, inplast;
 #if REV_ENDIAN_FS
 int rev_endian=0;
 #endif /* REV_ENDIAN_FS */
-void
+int
 main(argc, argv)
 	int	argc;
 	char	*argv[];
@@ -220,7 +215,7 @@ main(argc, argv)
 	if (argc) {
 		ret = 0;
 		while (argc-- > 0)
-			ret |= checkfilesys(blockcheck(*argv++), 0, 0L, 0);
+			ret |= checkfilesys(blockcheck(*argv++), 0, 0, 0);
 		exit(ret);
 	}
 	ret = checkfstab(preen, maxrun, docheck, checkfilesys);
@@ -249,26 +244,24 @@ argtoi(flag, req, str, base)
  * Determine whether a filesystem should be checked.
  *
  * Zero indicates that no check should be performed.
- * Non-zero values are passed as auxdata to checkfilesys.
  */
 static int
 docheck(fsp)
 	register struct fstab *fsp;
 {
-	int fscktype;
+	int result = 0;
 
-	if (strcmp(fsp->fs_vfstype, "ufs") == 0)
-		fscktype = FSCK_UFS;
-	else if (strcmp(fsp->fs_vfstype, "hfs") == 0)
-		fscktype = FSCK_HFS;
-	else
-		return (0);
+	/* Should we just allow all vfstypes? */
+	if (strcmp(fsp->fs_vfstype, "ufs")	&&
+		strcmp(fsp->fs_vfstype, "hfs")	&&
+		strcmp(fsp->fs_vfstype, "msdos"))
+		return 0;
 
 	if ((strcmp(fsp->fs_type, FSTAB_RW) && strcmp(fsp->fs_type, FSTAB_RO)) ||
 	    fsp->fs_passno == 0)
-		return (0);
+		return 0;
 
-	return (fscktype);
+	return 1;
 }
 
 /*
@@ -276,10 +269,7 @@ docheck(fsp)
  */
 /* ARGSUSED */
 static int
-checkfilesys(filesys, mntpt, auxdata, child)
-	char *filesys, *mntpt;
-	long auxdata;
-	int child;
+checkfilesys(char *filesys, char *mntpt, char *vfstype, int child)
 {
 	ufs_daddr_t n_ffree, n_bfree;
 	struct dups *dp;
@@ -289,9 +279,11 @@ checkfilesys(filesys, mntpt, auxdata, child)
 	if (preen && child)
 		(void)signal(SIGQUIT, voidquit);
 
-	/* if root filesystem is HFS+ then invoke fsck_hfs */
-	if (hotroot && (auxdata == FSCK_HFS))
-			return (checkhfs(filesys, child));
+	if (vfstype) {
+		/* Use a filesystem-specific fsck for non-UFS */
+		if (strcmp(vfstype, "ufs") != 0)
+			return check_other(vfstype, filesys);
+	}
 
 	cdevname = filesys;
 	if (debug && preen)
@@ -376,29 +368,29 @@ checkfilesys(filesys, mntpt, auxdata, child)
         n_bfree = sblock.fs_cstotal.cs_nbfree;
         pwarn("%ld files, %ld used, %ld free ",
             n_files, n_blks, n_ffree + sblock.fs_frag * n_bfree);
-        printf("(%ld frags, %ld blocks, %d.%d%% fragmentation)\n",
+        printf("(%u frags, %u blocks, %d.%d%% fragmentation)\n",
             n_ffree, n_bfree, (n_ffree * 100) / sblock.fs_dsize,
             ((n_ffree * 1000 + sblock.fs_dsize / 2) / sblock.fs_dsize) % 10);
         if (debug &&
             (n_files -= maxino - ROOTINO - sblock.fs_cstotal.cs_nifree))
-            printf("%ld files missing\n", n_files);
+            printf("%u files missing\n", n_files);
         if (debug) {
             n_blks += sblock.fs_ncg *
                 (cgdmin(&sblock, 0) - cgsblock(&sblock, 0));
             n_blks += cgsblock(&sblock, 0) - cgbase(&sblock, 0);
             n_blks += howmany(sblock.fs_cssize, sblock.fs_fsize);
             if (n_blks -= maxfsblock - (n_ffree + sblock.fs_frag * n_bfree))
-                printf("%ld blocks missing\n", n_blks);
+                printf("%u blocks missing\n", n_blks);
             if (duplist != NULL) {
                 printf("The following duplicate blocks remain:");
                 for (dp = duplist; dp; dp = dp->next)
-                    printf(" %ld,", dp->dup);
+                    printf(" %u,", dp->dup);
                 printf("\n");
             }
             if (zlnhead != NULL) {
                 printf("The following zero link count inodes remain:");
                 for (zlnp = zlnhead; zlnp; zlnp = zlnp->next)
-                    printf(" %lu,", zlnp->zlncnt);
+                    printf(" %u,", zlnp->zlncnt);
                 printf("\n");
             }
         }
@@ -469,18 +461,19 @@ checkfilesys(filesys, mntpt, auxdata, child)
 
 
 /*
- * Check HFS file system
+ * Check non-UFS file system
  */
 static int
-checkhfs(filesys, child)
-	char *filesys;
-	int child;
+check_other(char *vfstype, char *filesys)
 {
 #define ARGC_MAX 4	/* cmd-name, options, device, NULL-termination */
 
 	const char *argv[ARGC_MAX];
 	int argc;
+	pid_t pid;
+	int status = 0;
 	char options[] = "-pdfnyq";  /* constant strings are not on the stack */
+	char progname[NAME_MAX];
 	char execname[MAXPATHLEN + 1];
 
 	bzero(options, sizeof(options));
@@ -494,17 +487,43 @@ checkhfs(filesys, child)
 				);
 
 	argc = 0;
-	argv[argc++] = "fsck_hfs";
+	snprintf(progname, sizeof(progname), "fsck_%s", vfstype);
+	argv[argc++] = progname;
 	if (strlen(options) > 1)
 		argv[argc++] = options;
 	argv[argc++] = filesys;
 	argv[argc] = NULL;
 
-	(void)snprintf(execname, (MAXPATHLEN+1), "%s/fsck_hfs", _PATH_SBIN);
-	execv(execname, (char * const *)argv);
-	if (errno != ENOENT)
-		pfatal("exec %s", execname);
+	(void)snprintf(execname, sizeof(execname), "%s/fsck_%s", _PATH_SBIN, vfstype);
 
-	return (0);
+	pid = vfork();
+	switch (pid) {
+		case -1:
+			/* The vfork failed. */
+			pfatal("vfork");
+			return 8;	/* Is this the right value? */
+		break;
+		
+		case 0:
+			/* The child */
+			execv(execname, (char * const *)argv);
+			pfatal("exec %s", execname);
+			_exit(8);
+		break;
+		
+		default:
+			/* The parent; child is process "pid" */
+			waitpid(pid, &status, 0);
+			if (WIFEXITED(status))
+				status = WEXITSTATUS(status);
+			else
+				status = 0;
+			if (WIFSIGNALED(status)) {
+				printf("%s (%s) EXITED WITH SIGNAL %d\n", filesys, vfstype, WTERMSIG(status));
+				status = 8;
+			}
+		break;
+	}
+
+	return status;
 }
-

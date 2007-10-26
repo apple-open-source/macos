@@ -388,7 +388,7 @@ for name in daemon_directory command_directory queue_directory mail_owner \
     sample_directory readme_directory html_directory
 do
     eval test \"\$$name\" = \"`$POSTCONF -c $config_directory -h $name`\" || {
-# apple: B&I workaround: 	override=1
+	override=1
 	break
     }
 done
@@ -473,7 +473,13 @@ test -n "$create" && {
 	test -n "$set_permission" && {
 	    chown $recursive $owner $path || exit 1
 	    test -z "$group" || chgrp $recursive $group $path || exit 1
-	    chmod $recursive $mode $path || exit 1
+	    # Don't "chmod -R"; queue file status is encoded in mode bits.
+	    if [ "$type" = "d" -a -n "$recursive" ]
+	    then
+		find $path -type d -exec chmod $mode "{}" ";"
+	    else
+		chmod $mode $path
+	    fi || exit 1
 	}
     done
     IFS="$BACKUP_IFS"
@@ -564,22 +570,13 @@ EOF
 	}
     done
 
-    # With 20000 active queue files, the active queue directory should
-    # be hashed, and so should the other directories, because they
-    # can contain even more mail.
-    #
-    # Unfortunately, this sucks mailq performance on unloaded systems.
-    #
-    # If you don't want slow mailq, be sure to hash defer and deferred,
-    # because those two directories can contain lots of files.
+    # File systems have improved since Postfix came out, and all we
+    # require now is that defer and deferred are hashed because those
+    # can contain lots of files.
 
     found=`$POSTCONF -c $config_directory -h hash_queue_names`
     missing=
-    (echo "$found" | grep active >/dev/null) || missing="$missing active"
-    (echo "$found" | grep bounce >/dev/null) || missing="$missing bounce"
     (echo "$found" | grep defer >/dev/null)  || missing="$missing defer"
-    (echo "$found" | grep flush >/dev/null)  || missing="$missing flush"
-    (echo "$found" | grep incoming>/dev/null)|| missing="$missing incoming"
     (echo "$found" | grep deferred>/dev/null)|| missing="$missing deferred"
     test -n "$missing" && {
 	echo fixing main.cf hash_queue_names for missing $missing
@@ -589,18 +586,9 @@ EOF
 
     # Turn on safety nets for new features that could bounce mail that
     # would be accepted by a previous Postfix version.
-    # This safety net is also documented in LOCAL_RECIPIENT_README.
 
-    unknown_local=unknown_local_recipient_reject_code
-    has_lrm=`$POSTCONF -n local_recipient_maps`
-    has_lrjc=`$POSTCONF -n $unknown_local`
-
-    if [ -z "$has_lrm" -a -z "$has_lrjc" ]
-    then
-	echo SAFETY: editing main.cf, setting $unknown_local=450.
-	echo See the RELEASE_NOTES and LOCAL_RECIPIENT_README files for details.
-	$POSTCONF -e "$unknown_local = 450" || exit 1
-    fi
+    # [The "unknown_local_recipient_reject_code = 450" safety net,
+    # introduced with Postfix 2.0 and deleted after Postfix 2.3.]
 
     # Add missing proxymap service to master.cf.
 
@@ -613,12 +601,63 @@ EOF
 
     # Add missing anvil service to master.cf.
 
-#    grep '^anvil.*anvil' $config_directory/master.cf >/dev/null || {
-#	echo Editing $config_directory/master.cf, adding missing entry for anvil service
-#	cat >>$config_directory/master.cf <<EOF || exit 1
-#anvil	  unix	-	-	n	-	1	anvil
-#EOF
-#    }
+    grep '^anvil.*anvil' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for anvil service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+anvil	  unix	-	-	n	-	1	anvil
+EOF
+    }
+
+    # Add missing scache service to master.cf.
+
+    grep '^scache.*scache' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for scache service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+scache	  unix	-	-	n	-	1	scache
+EOF
+    }
+
+    # Add missing discard service to master.cf.
+
+    grep '^discard.*discard' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for discard service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+discard	  unix	-	-	n	-	-	discard
+EOF
+    }
+
+    # Update the tlsmgr fifo->unix service.
+
+    grep "^tlsmgr[ 	]*fifo[ 	]" \
+	$config_directory/master.cf >/dev/null && {
+	    echo Editing $config_directory/master.cf, updating the tlsmgr from fifo to unix service
+	    ed $config_directory/master.cf <<EOF || exit 1
+/^tlsmgr[ 	]*fifo[ 	]/
+s/fifo/unix/
+s/[0-9][0-9]*/&?/
+p
+w
+q
+EOF
+    }
+
+    # Add missing tlsmgr service to master.cf.
+
+    grep '^tlsmgr.*tlsmgr' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for tlsmgr service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+tlsmgr    unix  -       -       n       1000?   1       tlsmgr
+EOF
+    }
+
+    # Add missing retry service to master.cf.
+
+    grep '^retry.*error' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for retry service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+retry     unix  -       -       n       -       -       error
+EOF
+    }
 
     # Report (but do not remove) obsolete files.
 
@@ -639,15 +678,16 @@ EOF
 
 test -n "$first_install_reminder" && {
 
-    ALIASES=`$POSTCONF -h alias_database | sed 's/^[^:]*://'`
-    NEWALIASES_PATH=`$POSTCONF -h newaliases_path`
+    ALIASES=`$POSTCONF -c $config_directory -h alias_database | sed 's/^[^:]*://'`
+    NEWALIASES_PATH=`$POSTCONF -c $config_directory -h newaliases_path`
     cat <<EOF | ${FMT}
 
     Warning: you still need to edit myorigin/mydestination/mynetworks
     parameter settings in $config_directory/main.cf.
 
-    See also http://www.postfix.org/faq.html for information about
-    dialup sites or about sites inside a firewalled network.
+    See also http://www.postfix.org/STANDARD_CONFIGURATION_README.html
+    for information about dialup sites or about sites inside a
+    firewalled network.
 
     BTW: Check your $ALIASES file and be sure to set up aliases
     that send mail for root and postmaster to a real person, then

@@ -77,7 +77,6 @@ timer()
 	register struct rt_entry *rt;
 	struct rthash *base = hosthash;
 	int doinghost = 1, timetobroadcast;
-	extern int externalinterfaces;
 
 	(void) gettimeofday(&now, (struct timezone *)NULL);
 	faketime += TIMER_RATE;
@@ -113,7 +112,7 @@ again:
 		goto again;
 	}
 	if (timetobroadcast) {
-		toall(supply, 0, (struct interface *)NULL);
+		toall((int (*)())supply, 0, (struct interface *)NULL);
 		lastbcast = now;
 		lastfullupdate = now;
 		needupdate = 0;		/* cancel any pending dynamic update */
@@ -124,6 +123,7 @@ again:
 /*
  * On hangup, let everyone know we're going away.
  */
+void
 hup()
 {
 	register struct rthash *rh;
@@ -143,7 +143,7 @@ again:
 			base = nethash;
 			goto again;
 		}
-		toall(supply, 0, (struct interface *)NULL);
+		toall((int (*)())supply, 0, (struct interface *)NULL);
 	}
 	exit(1);
 }

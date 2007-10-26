@@ -32,8 +32,14 @@ int main(int argc, const char *argv[])
 	secdebug("CAC.tokend", "main starting with %d arguments", argc);
 	secdelay("/tmp/delay/CAC");
 
+#if 0
+	setenv("DEBUGSCOPE", "-mutex,walkers", 0);
+	setenv("DEBUGOPTIONS", "scope,thread,date", 0);
+	setenv("DEBUGDEST", "/var/tmp/securityd-log", 0);
+	setenv("DEBUGDUMP", "stdout", 0);
+#endif
+
 	token = new CACToken();
 	return SecTokendMain(argc, argv, token->callbacks(), token->support());
 }
 
-/* arch-tag: 372EB7FE-0DBC-11D9-9A28-000A9595DEEE */

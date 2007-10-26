@@ -55,7 +55,6 @@ JNIEXPORT jbyteArray JNICALL Java_CyrusSasl_GenericClient_jni_1sasl_1client_1ste
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Inaccessible static: client_initialized */
 /*
  * Class:     CyrusSasl_ClientFactory
  * Method:    jni_sasl_client_init
@@ -67,10 +66,10 @@ JNIEXPORT jint JNICALL Java_CyrusSasl_ClientFactory_jni_1sasl_1client_1init
 /*
  * Class:     CyrusSasl_ClientFactory
  * Method:    jni_sasl_client_new
- * Signature: (Ljava/lang/String;Ljava/lang/String;I)I
+ * Signature: (Ljava/lang/String;Ljava/lang/String;IZ)I
  */
 JNIEXPORT jint JNICALL Java_CyrusSasl_ClientFactory_jni_1sasl_1client_1new
-  (JNIEnv *, jobject, jstring, jstring, jint);
+  (JNIEnv *, jobject, jstring, jstring, jint, jboolean);
 
 #ifdef __cplusplus
 }
@@ -206,6 +205,8 @@ extern "C" {
 #endif
 #undef CyrusSasl_SaslException_serialVersionUID
 #define CyrusSasl_SaslException_serialVersionUID -3042686055658047285LL
+#undef CyrusSasl_SaslException_serialVersionUID
+#define CyrusSasl_SaslException_serialVersionUID -3387516993124229948LL
 #ifdef __cplusplus
 }
 #endif
@@ -265,7 +266,6 @@ extern "C" {
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* Inaccessible static: initialized */
 /*
  * Class:     CyrusSasl_ServerFactory
  * Method:    jni_sasl_server_init

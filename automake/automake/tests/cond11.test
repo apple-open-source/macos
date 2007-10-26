@@ -1,18 +1,36 @@
 #! /bin/sh
+# Copyright (C) 2001, 2002, 2003  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
 
 # Test for bug in conditionals.  From Richard Boulton.
 # This checks that, if LDADD is set from a conditional variable
 # and an AC_SUBST, the _DEPENDENCIES variable is set correctly.
 
-. $srcdir/defs || exit 1
+. ./defs || exit 1
 
-cat > configure.in << 'END'
-AC_INIT(Makefile.am)
-AM_INIT_AUTOMAKE(foo,0.0)
+set -e
+
+cat >> configure.in << 'END'
 AC_PROG_CC
-AM_CONDITIONAL(USE_A,[test x = x])
-AC_OUTPUT(Makefile)
-AC_SUBST(SUBSTVAR)
+AM_CONDITIONAL([USE_A], [test -z "$two"])
+AC_SUBST([SUBSTVAR], [bar])
+AC_OUTPUT
 END
 
 cat > Makefile.am << 'END'
@@ -26,16 +44,25 @@ endif
 noinst_PROGRAMS = foo
 foo_SOURCES = foo.c
 LDADD = $(SUBSTVAR) $(foolibs)
+
+print:
+	@echo BEG: $(foo_DEPENDENCIES) :END
 END
 
 : > config.guess
 : > config.sub
 : > compile
 
-$ACLOCAL || exit 1
-$AUTOMAKE || exit 1
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
 
-#Should be two dependency setting lines
-count=`grep 'foo_DEPENDENCIES =' Makefile.in | wc -l|sed 's/ //g'`
-test "x$count" = "x2" &&
-  grep '^.USE_A_TRUE.foo_DEPENDENCIES =' Makefile.in
+./configure
+$MAKE -e print > stdout
+cat stdout
+grep 'BEG: faz.la :END' stdout
+
+./configure two=yes
+$MAKE -e print > stdout
+cat stdout
+grep 'BEG: :END' stdout

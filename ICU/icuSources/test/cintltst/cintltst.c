@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -24,6 +24,7 @@
 #include "cintltst.h"
 #include "umutex.h"
 #include "uassert.h"
+#include "cmemory.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
 #include "unicode/ucnv.h"
@@ -31,6 +32,7 @@
 #include "unicode/uclean.h"
 #include "unicode/ucal.h"
 #include "uoptions.h"
+#include "putilimp.h" /* for uprv_getUTCtime() */
 
 #ifdef XP_MAC_CONSOLE
 #   include <console.h>
@@ -108,6 +110,8 @@ int main(int argc, const char* const argv[])
     TestNode *root;
     const char *warnOrErr = "Failure"; 
     const char** argv2;
+    UDate startTime, endTime;
+    int32_t diffTime;
 
     /* initial check for the default converter */
     UErrorCode errorCode = U_ZERO_ERROR;
@@ -115,6 +119,8 @@ int main(int argc, const char* const argv[])
     UConverter *cnv;
 
     U_MAIN_INIT_ARGS(argc, argv);
+
+    startTime = uprv_getUTCtime();
 
     argv2 = (const char**) malloc(sizeof(char*) * argc);
     if (argv2 == NULL) {
@@ -258,6 +264,15 @@ int main(int argc, const char* const argv[])
     }  /* End of loop that repeats the entire test, if requested.  (Normally doesn't loop)  */
 
     free((void*)argv2);
+
+    endTime = uprv_getUTCtime();
+    diffTime = (int32_t)(endTime - startTime);
+    printf("Elapsed Time: %02d:%02d:%02d.%03d\n",
+        (int)((diffTime%U_MILLIS_PER_DAY)/U_MILLIS_PER_HOUR),
+        (int)((diffTime%U_MILLIS_PER_HOUR)/U_MILLIS_PER_MINUTE),
+        (int)((diffTime%U_MILLIS_PER_MINUTE)/U_MILLIS_PER_SECOND),
+        (int)(diffTime%U_MILLIS_PER_SECOND));
+
     return nerrors ? 1 : 0;
 }
 
@@ -299,60 +314,6 @@ static void ctest_appendToDataDirectory(const char *toAppend)
     }
 }
 */
-
-void
-ctest_pathnameInContext( char* fullname, int32_t maxsize, const char* relPath )
-{
-    char mainDirBuffer[1024];
-    char* mainDir = NULL;
-    const char *dataDirectory = ctest_dataOutDir();
-    const char inpSepChar = '|';
-    char* tmp;
-    int32_t lenMainDir;
-    int32_t lenRelPath;
-
-#ifdef XP_MAC
-    Str255 volName;
-    int16_t volNum;
-    OSErr err = GetVol( volName, &volNum );
-    if (err != noErr)
-        volName[0] = 0;
-    mainDir = (char*) &(volName[1]);
-    mainDir[volName[0]] = 0;
-#else
-    if (dataDirectory != NULL) {
-        strcpy(mainDirBuffer, dataDirectory);
-        strcat(mainDirBuffer, ".." U_FILE_SEP_STRING);
-    } else {
-        mainDirBuffer[0]='\0';
-    }
-    mainDir = mainDirBuffer;
-#endif
-
-    lenMainDir = (int32_t)strlen(mainDir);
-    if(lenMainDir > 0 && mainDir[lenMainDir - 1] != U_FILE_SEP_CHAR) {
-        mainDir[lenMainDir++] = U_FILE_SEP_CHAR;
-        mainDir[lenMainDir] = 0;
-    }
-
-    if (relPath[0] == '|')
-        relPath++;
-    lenRelPath = (int32_t)strlen(relPath);
-    if (maxsize < lenMainDir + lenRelPath + 2) {
-        fullname[0] = 0;
-        return;
-    }
-    strcpy(fullname, mainDir);
-    /*strcat(fullname, U_FILE_SEP_STRING);*/
-    strcat(fullname, relPath);
-    strchr(fullname, inpSepChar);
-    tmp = strchr(fullname, inpSepChar);
-    while (tmp) {
-        *tmp = U_FILE_SEP_CHAR;
-        tmp = strchr(tmp+1, inpSepChar);
-    }
-}
-
 
 /* returns the path to icu/source/data */
 const char *  ctest_dataSrcDir()
@@ -562,12 +523,18 @@ char *aescstrdup(const UChar* unichars,int32_t length){
 }
 
 const char* loadTestData(UErrorCode* err){
-    const char*      directory=NULL;
-    UResourceBundle* test =NULL;
-    char* tdpath=NULL;
-    const char* tdrelativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
     if( _testDataPath == NULL){
+        const char*      directory=NULL;
+        UResourceBundle* test =NULL;
+        char* tdpath=NULL;
+        const char* tdrelativepath;
+#if defined (U_TOPBUILDDIR)
+        tdrelativepath = "test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
+        directory = U_TOPBUILDDIR;
+#else
+        tdrelativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
         directory= ctest_dataOutDir();
+#endif
 
         tdpath = (char*) ctst_malloc(sizeof(char) *(( strlen(directory) * strlen(tdrelativepath)) + 10));
 
@@ -725,5 +692,15 @@ U_CFUNC UBool assertEquals(const char* message, const char* expected,
 #endif
     return TRUE;
 }
+/*--------------------------------------------------------------------
+ * Time bomb - allows temporary behavior that expires at a given
+ *             release
+ *--------------------------------------------------------------------
+ */
 
+U_CFUNC UBool isICUVersionAtLeast(const UVersionInfo x) {
+    UVersionInfo v;
+    u_getVersion(v);
+    return (uprv_memcmp(v, x, U_MAX_VERSION_LENGTH) >= 0);
+}
 #endif

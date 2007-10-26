@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
+	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
 
 */
 
@@ -52,7 +52,7 @@ extern OSStatus sslSetUpSymmKey(
 	CSSM_KEYUSE		keyUse, 		// CSSM_KEYUSE_ENCRYPT, etc.
 	CSSM_BOOL		copyKey,		// true: copy keyData   false: set by reference
 	uint8 			*keyData,
-	uint32			keyDataLen);	// in bytes
+	size_t		keyDataLen);	// in bytes
 
 extern OSStatus sslFreeKey(CSSM_CSP_HANDLE cspHand, 
 	CSSM_KEY_PTR 	*key,
@@ -68,9 +68,9 @@ extern OSStatus attachToTp(SSLContext *ctx);
 extern OSStatus attachToAll(SSLContext *ctx);
 extern OSStatus detachFromAll(SSLContext *ctx);
 
-extern CSSM_DATA_PTR stMallocCssmData(uint32 size);
+extern CSSM_DATA_PTR stMallocCssmData(size_t size);
 extern void stFreeCssmData(CSSM_DATA_PTR data, CSSM_BOOL freeStruct);
-extern OSStatus stSetUpCssmData(CSSM_DATA_PTR data, uint32 length);
+extern OSStatus stSetUpCssmData(CSSM_DATA_PTR data, size_t length);
 
 
 /*
@@ -78,7 +78,7 @@ extern OSStatus stSetUpCssmData(CSSM_DATA_PTR data, uint32 length);
  */
 extern OSStatus sslPubKeyFromCert(
 	SSLContext 				*ctx,
-	const SSLBuffer			&derCert,
+	const SSLBuffer			*derCert,
 	CSSM_KEY_PTR			*pubKey,		// RETURNED
 	CSSM_CSP_HANDLE			*cspHand);		// RETURNED
 
@@ -87,8 +87,8 @@ extern OSStatus sslPubKeyFromCert(
  */
 extern OSStatus sslVerifyCertChain(
 	SSLContext				*ctx,
-	const SSLCertificate	&certChain,
-	bool					arePeerCerts = true); 
+	const SSLCertificate	*certChain,
+	bool					arePeerCerts); 
 
 /*
  * Raw RSA/DSA sign/verify.
@@ -97,19 +97,19 @@ OSStatus sslRawSign(
 	SSLContext			*ctx,
 	SecKeyRef			privKeyRef,		
 	const UInt8			*plainText,
-	UInt32				plainTextLen,
+	size_t			plainTextLen,
 	UInt8				*sig,			// mallocd by caller; RETURNED
-	UInt32				sigLen,			// available
-	UInt32				*actualBytes);	// RETURNED
+	size_t			sigLen,			// available
+	size_t			*actualBytes);	// RETURNED
 	
 OSStatus sslRawVerify(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
 	const UInt8			*plainText,
-	UInt32				plainTextLen,
+	size_t			plainTextLen,
 	const UInt8			*sig,
-	UInt32				sigLen);		// available
+	size_t			sigLen);		// available
 	
 /*
  * Encrypt/Decrypt
@@ -118,30 +118,32 @@ OSStatus sslRsaEncrypt(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
+	CSSM_PADDING		padding,		// CSSM_PADDING_PKCS1, CSSM_PADDING_APPLE_SSLv2
 	const UInt8			*plainText,
-	UInt32				plainTextLen,
-	UInt8				*cipherText,		// mallocd by caller; RETURNED 
-	UInt32				cipherTextLen,		// available
-	UInt32				*actualBytes);		// RETURNED
+	size_t				plainTextLen,
+	UInt8				*cipherText,	// mallocd by caller; RETURNED 
+	size_t				cipherTextLen,	// available
+	size_t				*actualBytes);	// RETURNED
 OSStatus sslRsaDecrypt(
 	SSLContext			*ctx,
 	SecKeyRef			privKeyRef,	
+	CSSM_PADDING		padding,		// CSSM_PADDING_PKCS1, CSSM_PADDING_APPLE_SSLv2
 	const UInt8			*cipherText,
-	UInt32				cipherTextLen,		
-	UInt8				*plainText,			// mallocd by caller; RETURNED
-	UInt32				plainTextLen,		// available
-	UInt32				*actualBytes);		// RETURNED
+	size_t				cipherTextLen,		
+	UInt8				*plainText,		// mallocd by caller; RETURNED
+	size_t				plainTextLen,	// available
+	size_t				*actualBytes);	// RETURNED
 
 /*
  * Obtain size of key in bytes.
  */
-extern UInt32 sslKeyLengthInBytes(
+extern uint32 sslKeyLengthInBytes(
 	const CSSM_KEY	*key);
 
 /* Obtain max signature size in bytes. */
 extern OSStatus sslGetMaxSigSize(
 	const CSSM_KEY	*privKey,
-	UInt32			&maxSigSize);
+	uint32			*maxSigSize);
 
 /*
  * Get raw key bits from an RSA public key.
@@ -177,21 +179,21 @@ void verifyTrustedRoots(SSLContext *ctx,
 	unsigned		numCerts);
 #endif
 
-void * stAppMalloc (uint32 size, void *allocRef);
+void * stAppMalloc (size_t size, void *allocRef);
 void stAppFree (void *mem_ptr, void *allocRef);
-void * stAppRealloc (void *ptr, uint32 size, void *allocRef);
-void * stAppCalloc (uint32 num, uint32 size, void *allocRef);
+void * stAppRealloc (void *ptr, size_t size, void *allocRef);
+void * stAppCalloc (uint32 num, size_t size, void *allocRef);
 
 OSStatus sslDhGenKeyPairClient(
 	SSLContext		*ctx,
-	const SSLBuffer	&prime,
-	const SSLBuffer	&generator,
+	const SSLBuffer	*prime,
+	const SSLBuffer	*generator,
 	CSSM_KEY_PTR	publicKey,			// RETURNED
 	CSSM_KEY_PTR	privateKey);		// RETURNED
 OSStatus sslDhGenerateKeyPair(
 	SSLContext		*ctx,
-	const SSLBuffer	&paramBlob,
-	UInt32			keySizeInBits,
+	const SSLBuffer	*paramBlob,
+	uint32			keySizeInBits,
 	CSSM_KEY_PTR	publicKey,			// RETURNED
 	CSSM_KEY_PTR	privateKey);		// RETURNED
 OSStatus sslDhKeyExchange(

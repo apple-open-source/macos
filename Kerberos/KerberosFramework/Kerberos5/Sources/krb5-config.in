@@ -38,6 +38,7 @@ KDB5_DB_LIB=@KDB5_DB_LIB@
 LDFLAGS='@LDFLAGS@'
 RPATH_FLAG='@RPATH_FLAG@'
 PTHREAD_CFLAGS='@PTHREAD_CFLAGS@'
+DL_LIB='@DL_LIB@'
 
 LIBS='@LIBS@'
 GEN_LIB=@GEN_LIB@
@@ -166,7 +167,11 @@ if test -n "$do_exec_prefix"; then
 fi
 
 if test -n "$do_cflags"; then
-    echo "-I${includedir}"
+    if test x"$includedir" != x"/usr/include" ; then
+        echo "-I${includedir}"
+    else
+        echo ''
+    fi
 fi
 
 
@@ -174,8 +179,8 @@ if test -n "$do_libs"; then
     # Ugly gross hack for our build tree
     lib_flags=`echo $CC_LINK | sed -e 's/\$(CC)//' \
 	    -e 's/\$(PURE)//' \
+	    -e 's/\$(PROG_LIBPATH)//' \
 	    -e 's#\$(PROG_RPATH)#'$libdir'#' \
-	    -e 's#\$(PROG_LIBPATH)#-L'$libdir'#' \
 	    -e 's#\$(RPATH_FLAG)#'"$RPATH_FLAG"'#' \
 	    -e 's#\$(LDFLAGS)#'"$LDFLAGS"'#' \
 	    -e 's#\$(PTHREAD_CFLAGS)#'"$PTHREAD_CFLAGS"'#' \
@@ -212,7 +217,7 @@ if test -n "$do_libs"; then
     fi
 
     if test $library = 'krb5'; then
-	lib_flags="$lib_flags -lkrb5 -lk5crypto -lkrb5support -lcom_err $LIBS $GEN_LIB"
+	lib_flags="$lib_flags -lkrb5 -lk5crypto -lcom_err $GEN_LIB $LIBS $DL_LIB"
     fi
 
     echo $lib_flags

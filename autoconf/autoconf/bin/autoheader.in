@@ -6,8 +6,9 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
     if 0;
 
 # autoheader -- create `config.h.in' from `configure.ac'
-# Copyright (C) 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001, 2002, 2003
-# Free Software Foundation, Inc.
+
+# Copyright (C) 1992, 1993, 1994, 1996, 1998, 1999, 2000, 2001, 2002,
+# 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,8 +22,8 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-# 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
 
 # Written by Roland McGrath.
 # Rewritten in Perl by Akim Demaille.
@@ -86,11 +87,12 @@ Report bugs to <bug-autoconf\@gnu.org>.
 # $VERSION
 # --------
 $version = "autoheader (@PACKAGE_NAME@) @VERSION@
-Written by Roland McGrath and Akim Demaille.
+Copyright (C) 2006 Free Software Foundation, Inc.
+This is free software.  You may redistribute copies of it under the terms of
+the GNU General Public License <http://www.gnu.org/licenses/gpl.html>.
+There is NO WARRANTY, to the extent permitted by law.
 
-Copyright (C) 2003 Free Software Foundation, Inc.
-This is free software; see the source for copying conditions.  There is NO
-warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+Written by Roland McGrath and Akim Demaille.
 ";
 
 
@@ -142,7 +144,7 @@ if ($config_h_top || $config_h_bot || $acconfig_h)
     is deprecated and discouraged.
 
     Using the third argument of \`AC_DEFINE\' and
-    \`AC_DEFINE_UNQUOTED\' allows to define a template without
+    \`AC_DEFINE_UNQUOTED\' allows one to define a template without
     \`acconfig.h\':
 
       AC_DEFINE([NEED_FUNC_MAIN], 1,
@@ -156,9 +158,9 @@ END
   }
 
 # Set up autoconf.
-my $autoconf = "$autom4te --language=autoconf ";
-$autoconf .= join (' ', map { "--include=$_" } @include);
-$autoconf .= join (' ', map { "--prepend-include=$_" } @prepend_include);
+my $autoconf = "'$autom4te' --language=autoconf ";
+$autoconf .= join (' ', map { "--include='$_'" } @include);
+$autoconf .= join (' ', map { "--prepend-include='$_'" } @prepend_include);
 $autoconf .= ' --debug' if $debug;
 $autoconf .= ' --force' if $force;
 $autoconf .= ' --verbose' if $verbose;
@@ -181,8 +183,11 @@ local (%verbatim, %symbol);
 debug "$me: \`do'ing $tmp/traces.pl:\n" . `sed 's/^/| /' $tmp/traces.pl`;
 do "$tmp/traces.pl";
 warn "couldn't parse $tmp/traces.pl: $@" if $@;
-error "error: AC_CONFIG_HEADERS not found in $ARGV[0]"
-  unless $config_h;
+unless ($config_h)
+  {
+    error "error: AC_CONFIG_HEADERS not found in $ARGV[0]";
+    exit 1;
+  }
 
 # We template only the first CONFIG_HEADER.
 $config_h =~ s/ .*//;
@@ -276,7 +281,7 @@ $out->close;
     if keys %symbol;
 }
 
-update_file ("$tmp/config.hin", "$config_h_in");
+update_file ("$tmp/config.hin", "$config_h_in", $force);
 
 ### Setup "GNU" style for perl-mode and cperl-mode.
 ## Local Variables:

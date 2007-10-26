@@ -71,7 +71,7 @@ public:
 	TBundle ( CFBundleRef bundle );
 	
 	// Destructor
-	~TBundle ( void );
+	virtual ~TBundle ( void );
 	
 	CFStringRef		CopyLocalizedStringForKey ( CFStringRef key,
 												CFStringRef	defaultValue,

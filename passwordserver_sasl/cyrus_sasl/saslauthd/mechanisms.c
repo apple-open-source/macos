@@ -31,7 +31,7 @@
  * END SYNOPSIS */
 
 #ifdef __GNUC__
-#ident "$Id: mechanisms.c,v 1.5 2005/01/10 19:01:36 snsimon Exp $"
+#ident "$Id: mechanisms.c,v 1.9 2006/01/24 00:16:04 snsimon Exp $"
 #endif
 
 /* PUBLIC DEPENDENCIES */

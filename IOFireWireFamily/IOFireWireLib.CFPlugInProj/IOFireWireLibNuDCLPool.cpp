@@ -43,22 +43,22 @@ namespace IOFireWireLib {
 	}
 
 	NuDCLPool::NuDCLPool( const IUnknownVTbl & vTable, Device& device, UInt32 capacity )
-		: super( vTable )
-		,fDevice( device )
-		,fCurrentTag( 0 )
-		,fCurrentSync( 0 )
+	: super( vTable )
+	,fDevice( device )
+	,fCurrentTag( 0 )
+	,fCurrentSync( 0 )
 	{
-			CFArrayCallBacks arrayCallbacks;
+		CFArrayCallBacks arrayCallbacks;
 	
-			// Initialize callbacks
-			arrayCallbacks.version = 0;
-			arrayCallbacks.retain = NULL;
-			arrayCallbacks.copyDescription = NULL;
-			arrayCallbacks.equal = NULL;
-			arrayCallbacks.release = cfArrayReleaseNuDCLObject;
+		// Initialize callbacks
+		arrayCallbacks.version = 0;
+		arrayCallbacks.retain = NULL;
+		arrayCallbacks.copyDescription = NULL;
+		arrayCallbacks.equal = NULL;
+		arrayCallbacks.release = cfArrayReleaseNuDCLObject;
 	
-			// Create fProgram array
-			fProgram = ::CFArrayCreateMutable( kCFAllocatorDefault, capacity, &arrayCallbacks );
+		// Create fProgram array
+		fProgram = ::CFArrayCreateMutable( kCFAllocatorDefault, capacity, &arrayCallbacks );
 	}
 
 	NuDCLPool::~NuDCLPool()
@@ -139,7 +139,7 @@ namespace IOFireWireLib {
 	}
 
 	IOByteCount
-	NuDCLPool :: Export ( 
+	NuDCLPool::Export ( 
 		IOVirtualAddress * 		outExportData, 
 		IOVirtualRange			bufferRanges[],
 		unsigned				bufferRangeCount ) const
@@ -147,21 +147,9 @@ namespace IOFireWireLib {
 		unsigned programCount = ::CFArrayGetCount( fProgram ) ;
 		IOByteCount exportBytes = 0 ;
 		
-//		{
-//			unsigned index = 0 ;
-//			while ( index < programCount )
-//			{
-//				NuDCL * dcl = (NuDCL*)::CFArrayGetValueAtIndex( fProgram, index ) ;
-//				
-//				dcl->SetExportIndex( ++index ) ;		// set DCLs fExportIndex field to ( index in program + 1 )
-//														// with this scheme, index of 0 means NULL DCL.
-//		
-//			} 
-//		}
-		
 		for( unsigned index=0; index < programCount; ++index )
 		{
-			const NuDCL *	dcl = reinterpret_cast< const NuDCL* >( :: CFArrayGetValueAtIndex( fProgram, index ) ) ;
+			const NuDCL *	dcl = reinterpret_cast< const NuDCL* >(::CFArrayGetValueAtIndex( fProgram, index ) ) ;
 
 			exportBytes += dcl->Export( NULL, NULL, 0 ) ;		// find export data size needed
 		}
@@ -173,7 +161,7 @@ namespace IOFireWireLib {
 			
 			for ( unsigned index = 0 ; index < programCount ; ++index )
 			{
-				const NuDCL *	dcl = reinterpret_cast< const NuDCL* >( :: CFArrayGetValueAtIndex( fProgram, index ) ) ;
+				const NuDCL *	dcl = reinterpret_cast< const NuDCL* >(::CFArrayGetValueAtIndex( fProgram, index ) ) ;
 	
 				dcl->Export( & exportCursor, bufferRanges, bufferRangeCount ) ;			// make export data.. we don't care about the returned size
 			}
@@ -416,6 +404,7 @@ namespace IOFireWireLib {
 			
 			// copy args to buffers array
 			
+			buffers[0] = *firstRange ;
 			va_start( args, firstRange ) ;
 			for( unsigned index=1; index < count; ++index )
 				buffers[index] = *va_arg( args, IOVirtualRange* ) ;
@@ -519,6 +508,7 @@ namespace IOFireWireLib {
 			
 			// copy args to buffers array
 			
+			buffers[0] = *firstRange ;
 			va_start( args, firstRange ) ;
 			for( unsigned index=1; index < count; ++index )
 				buffers[index] = *va_arg( args, IOVirtualRange* ) ;
@@ -691,7 +681,7 @@ namespace IOFireWireLib {
 	}
 
 	void
-	NuDCLPoolCOM :: S_SetDCLFlags( NuDCLRef dcl, UInt32 flags )
+	NuDCLPoolCOM::S_SetDCLFlags( NuDCLRef dcl, UInt32 flags )
 	{
 		CHECK_DCL( NuDCL*, dcl ) ;
 		
@@ -699,7 +689,7 @@ namespace IOFireWireLib {
 	}
 	
 	UInt32
-	NuDCLPoolCOM :: S_GetDCLFlags( NuDCLRef dcl )
+	NuDCLPoolCOM::S_GetDCLFlags( NuDCLRef dcl )
 	{
 		CHECK_DCL_ZERO( NuDCL*, dcl ) ;
 	
@@ -707,7 +697,7 @@ namespace IOFireWireLib {
 	}
 
 	IOReturn
-	NuDCLPoolCOM :: S_SetDCLSkipBranch( NuDCLRef dcl, NuDCLRef skipCycleDCL )
+	NuDCLPoolCOM::S_SetDCLSkipBranch( NuDCLRef dcl, NuDCLRef skipCycleDCL )
 	{
 		CHECK_DCL_IORETURN( SendNuDCL*, dcl ) ;
 		CHECK_DCL_IORETURN( NuDCL*, dcl ) ;

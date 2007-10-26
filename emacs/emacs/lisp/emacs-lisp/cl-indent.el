@@ -1,6 +1,7 @@
 ;;; cl-indent.el --- enhanced lisp-indent mode
 
-;; Copyright (C) 1987, 2000, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1987, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Richard Mlynarik <mly@eddie.mit.edu>
 ;; Created: July 1987
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -49,13 +50,13 @@
 ;;; Code:
 
 (defgroup lisp-indent nil
-  "Indentation in Lisp"
+  "Indentation in Lisp."
   :group 'lisp)
 
 
 (defcustom lisp-indent-maximum-backtracking 3
   "*Maximum depth to backtrack out from a sublist for structured indentation.
-If this variable is  0, no backtracking will occur and forms such as flet
+If this variable is 0, no backtracking will occur and forms such as `flet'
 may not be correctly indented."
   :type 'integer
   :group 'lisp-indent)
@@ -78,12 +79,71 @@ by `lisp-body-indent'."
   :type 'integer
   :group 'lisp-indent)
 
+(defcustom lisp-backquote-indentation t
+  "*Whether or not to indent backquoted lists as code.
+If nil, indent backquoted lists as data, i.e., like quoted lists."
+  :type 'boolean
+  :group 'lisp-indent)
+
+
+(defcustom lisp-loop-keyword-indentation 3
+  "*Indentation of loop keywords in extended loop forms."
+  :type 'integer
+  :group 'lisp-indent)
+
+
+(defcustom lisp-loop-forms-indentation 5
+  "*Indentation of forms in extended loop forms."
+  :type 'integer
+  :group 'lisp-indent)
+
+
+(defcustom lisp-simple-loop-indentation 3
+  "*Indentation of forms in simple loop forms."
+  :type 'integer
+  :group 'lisp-indent)
+
 
 (defvar lisp-indent-error-function)
 (defvar lisp-indent-defun-method '(4 &lambda &body))
 
+
+(defun extended-loop-p (loop-start)
+  "True if an extended loop form starts at LOOP-START."
+  (condition-case ()
+      (save-excursion
+	(goto-char loop-start)
+	(forward-char 1)
+	(forward-sexp 2)
+	(backward-sexp 1)
+	(looking-at "\\sw"))
+    (error t)))
+
+
+(defun common-lisp-loop-part-indentation (indent-point state)
+  "Compute the indentation of loop form constituents."
+  (let* ((loop-indentation (save-excursion
+			     (goto-char (elt state 1))
+			     (current-column))))
+    (goto-char indent-point)
+    (beginning-of-line)
+    (cond ((not (extended-loop-p (elt state 1)))
+	   (+ loop-indentation lisp-simple-loop-indentation))
+	  ((looking-at "^\\s-*\\(:?\\sw+\\|;\\)")
+	   (+ loop-indentation lisp-loop-keyword-indentation))
+	  (t
+	   (+ loop-indentation lisp-loop-forms-indentation)))))
+
+
 ;;;###autoload
 (defun common-lisp-indent-function (indent-point state)
+  (if (save-excursion (goto-char (elt state 1))
+		      (looking-at "([Ll][Oo][Oo][Pp]"))
+      (common-lisp-loop-part-indentation indent-point state)
+    (common-lisp-indent-function-1 indent-point state)))
+
+
+(defun common-lisp-indent-function-1 (indent-point state)
   (let ((normal-indent (current-column)))
     ;; Walk up list levels until we see something
     ;;  which does special things with subforms.
@@ -94,7 +154,10 @@ by `lisp-body-indent'."
           (path ())
           ;; set non-nil when somebody works out the indentation to use
           calculated
-          (last-point indent-point)
+	  ;; If non-nil, this is an indentation to use
+	  ;; if nothing else specifies it more firmly.
+	  tentative-calculated
+	  (last-point indent-point)
           ;; the position of the open-paren of the innermost containing list
           (containing-form-start (elt state 1))
           ;; the column of the above
@@ -102,6 +165,7 @@ by `lisp-body-indent'."
       ;; Move to start of innermost containing list
       (goto-char containing-form-start)
       (setq sexp-column (current-column))
+
       ;; Look over successively less-deep containing forms
       (while (and (not calculated)
                   (< depth lisp-indent-maximum-backtracking))
@@ -109,7 +173,7 @@ by `lisp-body-indent'."
           (forward-char 1)
           (parse-partial-sexp (point) indent-point 1 t)
           ;; Move to the car of the relevant containing form
-          (let (tem function method)
+          (let (tem function method tentative-defun)
             (if (not (looking-at "\\sw\\|\\s_"))
                 ;; This form doesn't seem to start with a symbol
                 (setq function nil method nil)
@@ -149,18 +213,24 @@ by `lisp-body-indent'."
             (cond ((null function))
                   ((null method)
                    (when (null (cdr path))
-                       ;; (package prefix was stripped off above)
-                       (setq method (cond ((string-match "\\`def"
-                                                         function)
-                                         lisp-indent-defun-method)
-                                          ((string-match "\\`\\(with\\|do\\)-"
-                                                         function)
-                                         '(&lambda &body))))))
+		     ;; (package prefix was stripped off above)
+		     (cond ((string-match "\\`def"
+					  function)
+			    (setq tentative-defun t))
+			   ((string-match
+                             (eval-when-compile
+                              (concat "\\`\\("
+                                      (regexp-opt '("with" "without" "do"))
+                                      "\\)-"))
+                             function)
+			    (setq method '(&lambda &body))))))
                   ;; backwards compatibility.  Bletch.
                   ((eq method 'defun)
                    (setq method lisp-indent-defun-method)))
 
-            (cond ((and (memq (char-after (1- containing-sexp)) '(?\' ?\`))
+            (cond ((and (or (eq (char-after (1- containing-sexp)) ?\')
+			    (and (not lisp-backquote-indentation)
+				 (eq (char-after (1- containing-sexp)) ?\`)))
                         (not (eq (char-after (- containing-sexp 2)) ?\#)))
                    ;; No indentation for "'(...)" elements
                    (setq calculated (1+ sexp-column)))
@@ -172,7 +242,26 @@ by `lisp-body-indent'."
                   ((eq (char-after (1- containing-sexp)) ?\#)
                    ;; "#(...)"
                    (setq calculated (1+ sexp-column)))
-                  ((null method))
+                  ((null method)
+		   ;; If this looks like a call to a `def...' form,
+		   ;; think about indenting it as one, but do it
+		   ;; tentatively for cases like
+		   ;; (flet ((defunp ()
+		   ;;          nil)))
+		   ;; Set both normal-indent and tentative-calculated.
+		   ;; The latter ensures this value gets used
+		   ;; if there are no relevant containing constructs.
+		   ;; The former ensures this value gets used
+		   ;; if there is a relevant containing construct
+		   ;; but we are nested within the structure levels
+		   ;; that it specifies indentation for.
+		   (if tentative-defun
+		       (setq tentative-calculated
+			     (common-lisp-indent-call-method
+			      function lisp-indent-defun-method
+			      path state indent-point
+			      sexp-column normal-indent)
+			     normal-indent tentative-calculated)))
                   ((integerp method)
                    ;; convenient top-level hack.
                    ;;  (also compatible with lisp-indent-function)
@@ -191,25 +280,30 @@ by `lisp-body-indent'."
                                           (t
                                            ;; other body form
                                            normal-indent))))
-                  ((symbolp method)
-                   (let ((lisp-indent-error-function function))
-                     (setq calculated (funcall method
-                                               path state indent-point
-                                               sexp-column normal-indent))))
-                  (t
-                   (let ((lisp-indent-error-function function))
-                     (setq calculated (lisp-indent-259
-                                       method path state indent-point
-                                       sexp-column normal-indent))))))
+		  (t
+		   (setq calculated
+			 (common-lisp-indent-call-method
+			  function method path state indent-point
+			  sexp-column normal-indent)))))
           (goto-char containing-sexp)
           (setq last-point containing-sexp)
           (unless calculated
-              (condition-case ()
-                   (progn (backward-up-list 1)
-                          (setq depth (1+ depth)))
-                (error (setq depth lisp-indent-maximum-backtracking))))))
-      calculated)))
+	    (condition-case ()
+		(progn (backward-up-list 1)
+		       (setq depth (1+ depth)))
+	      (error (setq depth lisp-indent-maximum-backtracking))))))
+      (or calculated tentative-calculated))))
 
+
+(defun common-lisp-indent-call-method (function method path state indent-point
+				       sexp-column normal-indent)
+  (let ((lisp-indent-error-function function))
+    (if (symbolp method)
+	(funcall method
+		 path state indent-point
+		 sexp-column normal-indent)
+      (lisp-indent-259 method path state indent-point
+		       sexp-column normal-indent))))
 
 (defun lisp-indent-report-bad-format (m)
   (error "%s has a badly-formed %s property: %s"
@@ -279,14 +373,16 @@ by `lisp-body-indent'."
                      ;; Too few elements in pattern.
                      (throw 'exit normal-indent)))
                 ((eq tem 'nil)
-                 (throw 'exit (list normal-indent containing-form-start)))
-          ((eq tem '&lambda)
-           (throw 'exit
-             (cond ((null p)
-                    (list (+ sexp-column 4) containing-form-start))
-                   ((null (cdr p))
-                    (+ sexp-column 1))
-                   (t normal-indent))))
+		 (throw 'exit (if (consp normal-indent)
+				  normal-indent
+				(list normal-indent containing-form-start))))
+		((eq tem '&lambda)
+		 (throw 'exit
+			(cond ((null p)
+			       (list (+ sexp-column 4) containing-form-start))
+			      ((null (cdr p))
+			       (+ sexp-column 1))
+			      (t normal-indent))))
                 ((integerp tem)
                  (throw 'exit
                    (if (null p)         ;not in subforms
@@ -355,13 +451,17 @@ by `lisp-body-indent'."
                (&whole nil &rest 1))
              path state indent-point sexp-column normal-indent)))
 
-(defun lisp-indent-defmethod (path state indent-point sexp-column 
+
+(defun lisp-indent-defmethod (path state indent-point sexp-column
 				   normal-indent)
   "Indentation function defmethod."
-  (lisp-indent-259 (if (save-excursion (goto-char (elt state 1))
-				       (forward-char 1)
-				       (forward-sexp 2)
-				       (looking-at "\\s-+:"))
+  (lisp-indent-259 (if (and (>= (car path) 3)
+                            (null (cdr path))
+			    (save-excursion (goto-char (elt state 1))
+					    (forward-char 1)
+                                            (forward-sexp 3)
+                                            (backward-sexp)
+					    (looking-at ":\\|\\sw+")))
 		       '(4 4 (&whole 4 &rest 4) &body)
 		     (get 'defun 'common-lisp-indent-function))
 		   path state indent-point sexp-column normal-indent))
@@ -385,6 +485,7 @@ by `lisp-body-indent'."
               (+ sexp-column lisp-body-indent)))
        (error (+ sexp-column lisp-body-indent)))))
 
+
 
 (let ((l '((block 1)
            (case        (4 &rest (&whole 2 &rest 1)))
@@ -399,7 +500,7 @@ by `lisp-body-indent'."
            (defparameter . defvar)
            (defconst     . defcustom)
            (define-condition  . defclass)
-           (define-modify-macro (4 &body))
+           (define-modify-macro (4 &lambda &body))
            (defsetf     (4 &lambda 4 &body))
            (defun       (4 &lambda &body))
            (define-setf-method . defun)
@@ -419,6 +520,7 @@ by `lisp-body-indent'."
            (flet        ((&whole 4 &rest (&whole 1 &lambda &body)) &body))
            (labels . flet)
            (macrolet . flet)
+           (generic-flet . flet) (generic-labels . flet)
            (handler-case (4 &rest (&whole 2 &lambda &body)))
            (restart-case . handler-case)
            ;; `else-body' style
@@ -431,7 +533,7 @@ by `lisp-body-indent'."
            (compiler-let . let) ;barf
            (handler-bind . let) (restart-bind . let)
            (locally 1)
-           ;(loop ...)
+           ;(loop         lisp-indent-loop)
            (:method (&lambda &body)) ; in `defgeneric'
            (multiple-value-bind ((&whole 6 &rest 1) 4 &body))
            (multiple-value-call (4 &body))
@@ -449,21 +551,22 @@ by `lisp-body-indent'."
            (progv       (4 4 &body))
            (return 0)
            (return-from (nil &body))
-           (symbol-macrolet . multiple-value-bind)
+           (symbol-macrolet . let)
            (tagbody     lisp-indent-tagbody)
            (throw 1)
            (unless 1)
            (unwind-protect (5 &body))
            (when 1)
+           (with-accessors . multiple-value-bind)
+           (with-condition-restarts . multiple-value-bind)
            (with-output-to-string (4 2))
            (with-slots . multiple-value-bind)
            (with-standard-io-syntax (2)))))
-  (while l
-    (put (caar l) 'common-lisp-indent-function
-         (if (symbolp (cdar l))
-             (get (cdar l) 'common-lisp-indent-function)
-             (car (cdar l))))
-    (setq l (cdr l))))
+  (dolist (el l)
+    (put (car el) 'common-lisp-indent-function
+         (if (symbolp (cdr el))
+             (get (cdr el) 'common-lisp-indent-function)
+             (car (cdr el))))))
 
 
 ;(defun foo (x)
@@ -509,4 +612,5 @@ by `lisp-body-indent'."
 ;(put 'defclass 'common-lisp-indent-function '((&whole 2 &rest (&whole 2 &rest 1) &rest (&whole 2 &rest 1)))
 ;(put 'defgeneric 'common-lisp-indent-function 'defun)
 
+;;; arch-tag: 7914d50f-92ec-4476-93fc-0f043a380e03
 ;;; cl-indent.el ends here

@@ -17,8 +17,8 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
-#include "rmt.h"
+#include <system.h>
+#include <rmt.h>
 #include "common.h"
 #include <quotearg.h>
 #include <save-cwd.h>
@@ -123,13 +123,13 @@ unquote_string (char *string)
 	  source++;
 	  break;
 
-	case 'n':
-	  *destination++ = '\n';
+	case 'a':
+	  *destination++ = '\a';
 	  source++;
 	  break;
-
-	case 't':
-	  *destination++ = '\t';
+	  
+	case 'b':
+	  *destination++ = '\b';
 	  source++;
 	  break;
 
@@ -138,8 +138,8 @@ unquote_string (char *string)
 	  source++;
 	  break;
 
-	case 'b':
-	  *destination++ = '\b';
+	case 'n':
+	  *destination++ = '\n';
 	  source++;
 	  break;
 
@@ -148,6 +148,16 @@ unquote_string (char *string)
 	  source++;
 	  break;
 
+	case 't':
+	  *destination++ = '\t';
+	  source++;
+	  break;
+
+	case 'v':
+	  *destination++ = '\v';
+	  source++;
+	  break;
+	  
 	case '?':
 	  *destination++ = 0177;
 	  source++;
@@ -203,32 +213,33 @@ unquote_string (char *string)
 static char *before_backup_name;
 static char *after_backup_name;
 
-/* Return 1 if PATH is obviously "." or "/".  */
+/* Return 1 if FILE_NAME is obviously "." or "/".  */
 static bool
-must_be_dot_or_slash (char const *path)
+must_be_dot_or_slash (char const *file_name)
 {
-  path += FILESYSTEM_PREFIX_LEN (path);
+  file_name += FILE_SYSTEM_PREFIX_LEN (file_name);
 
-  if (ISSLASH (path[0]))
+  if (ISSLASH (file_name[0]))
     {
       for (;;)
-	if (ISSLASH (path[1]))
-	  path++;
-	else if (path[1] == '.' && ISSLASH (path[2 + (path[2] == '.')]))
-	  path += 2 + (path[2] == '.');
+	if (ISSLASH (file_name[1]))
+	  file_name++;
+	else if (file_name[1] == '.' 
+                 && ISSLASH (file_name[2 + (file_name[2] == '.')]))
+	  file_name += 2 + (file_name[2] == '.');
 	else
-	  return ! path[1];
+	  return ! file_name[1];
     }
   else
     {
-      while (path[0] == '.' && ISSLASH (path[1]))
+      while (file_name[0] == '.' && ISSLASH (file_name[1]))
 	{
-	  path += 2;
-	  while (ISSLASH (*path))
-	    path++;
+	  file_name += 2;
+	  while (ISSLASH (*file_name))
+	    file_name++;
 	}
 
-      return ! path[0] || (path[0] == '.' && ! path[1]);
+      return ! file_name[0] || (file_name[0] == '.' && ! file_name[1]);
     }
 }
 
@@ -236,32 +247,32 @@ must_be_dot_or_slash (char const *path)
    Report an error with errno set to zero for obvious cases of this;
    otherwise call rmdir.  */
 static int
-safer_rmdir (const char *path)
+safer_rmdir (const char *file_name)
 {
-  if (must_be_dot_or_slash (path))
+  if (must_be_dot_or_slash (file_name))
     {
       errno = 0;
       return -1;
     }
 
-  return rmdir (path);
+  return rmdir (file_name);
 }
 
-/* Remove PATH, returning 1 on success.  If PATH is a directory, then
-   if OPTION is RECURSIVE_REMOVE_OPTION is set remove PATH
-   recursively; otherwise, remove it only if it is empty.  If PATH is
+/* Remove FILE_NAME, returning 1 on success.  If FILE_NAME is a directory, 
+   then if OPTION is RECURSIVE_REMOVE_OPTION is set remove FILE_NAME
+   recursively; otherwise, remove it only if it is empty.  If FILE_NAME is
    a directory that cannot be removed (e.g., because it is nonempty)
    and if OPTION is WANT_DIRECTORY_REMOVE_OPTION, then return -1.
-   Return 0 on error, with errno set; if PATH is obviously the working
+   Return 0 on error, with errno set; if FILE_NAME is obviously the working
    directory return zero with errno set to zero.  */
 int
-remove_any_file (const char *path, enum remove_option option)
+remove_any_file (const char *file_name, enum remove_option option)
 {
   /* Try unlink first if we are not root, as this saves us a system
      call in the common case where we're removing a non-directory.  */
   if (! we_are_root)
     {
-      if (unlink (path) == 0)
+      if (unlink (file_name) == 0)
 	return 1;
 
       /* POSIX 1003.1-2001 requires EPERM when attempting to unlink a
@@ -271,13 +282,13 @@ remove_any_file (const char *path, enum remove_option option)
 	return 0;
     }
 
-  if (safer_rmdir (path) == 0)
+  if (safer_rmdir (file_name) == 0)
     return 1;
 
   switch (errno)
     {
     case ENOTDIR:
-      return we_are_root && unlink (path) == 0;
+      return we_are_root && unlink (file_name) == 0;
 
     case 0:
     case EEXIST:
@@ -294,7 +305,7 @@ remove_any_file (const char *path, enum remove_option option)
 
 	case RECURSIVE_REMOVE_OPTION:
 	  {
-	    char *directory = savedir (path);
+	    char *directory = savedir (file_name);
 	    char const *entry;
 	    size_t entrylen;
 
@@ -305,10 +316,11 @@ remove_any_file (const char *path, enum remove_option option)
 		 (entrylen = strlen (entry)) != 0;
 		 entry += entrylen + 1)
 	      {
-		char *path_buffer = new_name (path, entry);
-		int r = remove_any_file (path_buffer, 1);
+		char *file_name_buffer = new_name (file_name, entry);
+		int r = remove_any_file (file_name_buffer, 
+                                         RECURSIVE_REMOVE_OPTION);
 		int e = errno;
-		free (path_buffer);
+		free (file_name_buffer);
 
 		if (! r)
 		  {
@@ -319,7 +331,7 @@ remove_any_file (const char *path, enum remove_option option)
 	      }
 
 	    free (directory);
-	    return safer_rmdir (path) == 0;
+	    return safer_rmdir (file_name) == 0;
 	  }
 	}
       break;
@@ -328,28 +340,28 @@ remove_any_file (const char *path, enum remove_option option)
   return 0;
 }
 
-/* Check if PATH already exists and make a backup of it right now.
+/* Check if FILE_NAME already exists and make a backup of it right now.
    Return success (nonzero) only if the backup is either unneeded, or
    successful.  For now, directories are considered to never need
    backup.  If THIS_IS_THE_ARCHIVE is nonzero, this is the archive and
    so, we do not have to backup block or character devices, nor remote
    entities.  */
 bool
-maybe_backup_file (const char *path, int this_is_the_archive)
+maybe_backup_file (const char *file_name, int this_is_the_archive)
 {
   struct stat file_stat;
 
   /* Check if we really need to backup the file.  */
 
-  if (this_is_the_archive && _remdev (path))
+  if (this_is_the_archive && _remdev (file_name))
     return true;
 
-  if (stat (path, &file_stat))
+  if (stat (file_name, &file_stat))
     {
       if (errno == ENOENT)
 	return true;
 
-      stat_error (path);
+      stat_error (file_name);
       return false;
     }
 
@@ -360,7 +372,7 @@ maybe_backup_file (const char *path, int this_is_the_archive)
       && (S_ISBLK (file_stat.st_mode) || S_ISCHR (file_stat.st_mode)))
     return true;
 
-  assign_string (&before_backup_name, path);
+  assign_string (&before_backup_name, file_name);
 
   /* A run situation may exist between Emacs or other GNU programs trying to
      make a backup for the same file simultaneously.  If theoretically
@@ -368,7 +380,7 @@ maybe_backup_file (const char *path, int this_is_the_archive)
      convention, GNU-wide, for all programs doing backups.  */
 
   assign_string (&after_backup_name, 0);
-  after_backup_name = find_backup_file_name (path, backup_type);
+  after_backup_name = find_backup_file_name (file_name, backup_type);
   if (! after_backup_name)
     xalloc_die ();
 
@@ -915,18 +927,29 @@ xpipe (int fd[2])
     call_arg_fatal ("pipe", _("interprocess channel"));
 }
 
-/* Return an unambiguous printable representation, allocated in slot N,
-   for NAME, suitable for diagnostics.  */
-char const *
-quote_n (int n, char const *name)
+/* Return PTR, aligned upward to the next multiple of ALIGNMENT.
+   ALIGNMENT must be nonzero.  The caller must arrange for ((char *)
+   PTR) through ((char *) PTR + ALIGNMENT - 1) to be addressable
+   locations.  */
+
+static inline void *
+ptr_align (void *ptr, size_t alignment)
 {
-  return quotearg_n_style (n, locale_quoting_style, name);
+  char *p0 = ptr;
+  char *p1 = p0 + alignment - 1;
+  return p1 - (size_t) p1 % alignment;
 }
 
-/* Return an unambiguous printable representation of NAME, suitable
-   for diagnostics.  */
-char const *
-quote (char const *name)
+/* Return the address of a page-aligned buffer of at least SIZE bytes.
+   The caller should free *PTR when done with the buffer.  */
+
+void *
+page_aligned_alloc (void **ptr, size_t size)
 {
-  return quote_n (0, name);
+  size_t alignment = getpagesize ();
+  size_t size1 = size + alignment;
+  if (size1 < size)
+    xalloc_die ();
+  *ptr = xmalloc (size1);
+  return ptr_align (*ptr, alignment);
 }

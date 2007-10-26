@@ -348,7 +348,7 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (argc < 3 || argc > 10)
+	if (argc < 2 || argc > 10)
 		usage();
 
 	name = *argv;
@@ -360,18 +360,25 @@ main(argc, argv)
 		mode |= S_IFCHR;
 	else if (*argv[0] == 'b')
 		mode |= S_IFBLK;
+	else if (*argv[0] == 'w')
+		mode |= S_IFWHT;
 	else
-		errx(1, "node type must be 'b' or 'c'.");
+		errx(1, "node type must be 'b' or 'c' or 'w'.");
 	argc--;
 	argv++;
 
 	for (n = 0; n < argc; n++) {
+		if (S_ISWHT(mode)) {
+			errx(1, "whiteout nodes have no device numbers.");
+		}
 		numbers[n] = strtoul(argv[n], &p, 0);
 		if ((p && *p != '\0') || (numbers[n] == ULONG_MAX && errno == ERANGE))
 			errx(1, "invalid number: %s", argv[n]);
 	}
 
-	if (argc == 1)
+	if (S_ISWHT(mode))
+		dev = 0;
+	else if (argc == 1)
 		dev = numbers[0];
 	else
 		dev = (*pack)(argc, numbers);
@@ -393,5 +400,6 @@ usage()
 	fprintf(stderr, "usage: mknod [-F format] name [b | c] major minor\n");
 	fprintf(stderr, "       mknod [-F format] name [b | c] major unit subunit\n");
 	fprintf(stderr, "       mknod name [b | c] number\n");
+	fprintf(stderr, "       mknod name w\n");
 	exit(1);
 }

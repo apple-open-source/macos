@@ -1,6 +1,7 @@
-
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/XMenuInt.h,v 1.1.1.4 2002/09/10 23:34:47 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
+
+#include "copyright.h"
+
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -8,7 +9,7 @@
  *	XMenuInternal.h - Internal menu system include file for the
  *			MIT Project Athena XMenu X window system
  *			menu package.
- *			
+ *
  *	Author:		Tony Della Fera, DEC
  *			October, 1985
  */
@@ -61,3 +62,6 @@ int _XMHighlightSelection();	/* No value actually returned. */
 
 #endif
 /* Don't add stuff after this #endif */
+
+/* arch-tag: 00640af1-9386-48b5-a4be-35620b8cd3aa
+   (do not change this comment) */

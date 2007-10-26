@@ -8,8 +8,10 @@
 	<string>I/O Kit Framework</string>
 	<key>CFBundleGetInfoString</key>
 	<string>I/O Kit Framework, Apple Computer Inc</string>
+	<key>CFBundleExecutable</key>
+	<string>IOKit</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.2</string>
+	<string>1.5.0</string>
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleSignature</key>

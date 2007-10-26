@@ -23,7 +23,13 @@
 #ifndef NM_I386V42MP_H
 #define NM_I386V42MP_H
 
-#include "config/nm-sysv4.h"
+/* Use SVR4 style shared library support */
+
+#include "solib.h"
+
+/* SVR4 has /proc support, so use it instead of ptrace. */
+
+#define USE_PROC_FS
 
 /* define to select for other sysv4.2mp weirdness (see procfs.c) */
 
@@ -67,7 +73,7 @@
    and lwp id onto the lwp field.  The tid field is used to indicate
    whether the lwp is a tid or not.  
    
-   FIXME: Check that core file support is not broken.  (See original
+   FIXME: Check that core file support is not bBoken.  (See original
    #if 0'd comments above.)
    FIXME: Restructure uw-thread.c so that the struct ptid fields
    can be used as intended. */
@@ -88,5 +94,9 @@
 
 /* Return whether PID contains a user-space thread id. */
 #define ISTID(PID) (ptid_get_tid (PID))
+
+/* This is the amount to subtract from u.u_ar0
+   to get the offset in the core file of the register values.  */
+#define KERNEL_U_ADDR 0xe0000000
 
 #endif /* NM_I386V42MP_H */

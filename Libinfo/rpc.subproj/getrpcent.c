@@ -98,17 +98,30 @@ _rpcdata()
 
 struct rpcent *
 getrpcbynumber(number)
+#ifdef __LP64__
+	int32_t number;
+#else
 	register long number;
+#endif
 {
 	register struct rpcdata *d = _rpcdata();
 	register struct rpcent *p;
+#ifdef __LP64__
+	int x;
+	
+	x = number;
+#endif
 
 	if (d == 0)
 		return (0);
 	setrpcent(0);
-	while ((p = getrpcent())) {
-		if (p->r_number == number)
-			break;
+	while ((p = getrpcent()))
+	{
+#ifdef __LP64__
+		if (p->r_number == x) break;
+#else
+		if (p->r_number == number) break;
+#endif
 	}
 	endrpcent();
 	return (p);

@@ -67,8 +67,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static char copyright[] =
+__unused static char copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -77,7 +78,7 @@ static char copyright[] =
 #if 0
 static char sccsid[] = "@(#)ping.c	8.1 (Berkeley) 6/5/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/sbin/ping6/ping6.c,v 1.4.2.6 2001/07/06 08:56:47 ume Exp $";
 #endif /* not lint */
 
@@ -103,8 +104,6 @@ static const char rcsid[] =
  * while IPV6_PKTINFO specifies *interface*.  Link is defined as collection of
  * network attached to 1 or more interfaces)
  */
-
-#define BIND_8_COMPAT
 
 #include <sys/param.h>
 #include <sys/uio.h>
@@ -889,7 +888,8 @@ main(argc, argv)
 		/*
 		 * source selection
 		 */
-		int dummy, len = sizeof(src);
+		int dummy;
+		socklen_t len = sizeof(src);
 
 		if ((dummy = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
 			err(1, "UDP socket");
@@ -1321,7 +1321,7 @@ dnsdecode(sp, ep, base, buf, bufsiz)
 {
 	int i;
 	const u_char *cp;
-	char cresult[MAXDNAME + 1];
+	char cresult[NS_MAXDNAME + 1];
 	const u_char *comp;
 	int l;
 
@@ -1333,7 +1333,7 @@ dnsdecode(sp, ep, base, buf, bufsiz)
 	while (cp < ep) {
 		i = *cp;
 		if (i == 0 || cp != *sp) {
-			if (strlcat(buf, ".", bufsiz) >= bufsiz)
+			if (strlcat((char *)buf, ".", bufsiz) >= bufsiz)
 				return NULL;	/*result overrun*/
 		}
 		if (i == 0)
@@ -1346,10 +1346,10 @@ dnsdecode(sp, ep, base, buf, bufsiz)
 				return NULL;
 
 			comp = base + (i & 0x3f);
-			if (dnsdecode(&comp, cp, base, cresult,
+			if (dnsdecode(&comp, cp, base, (u_char *)cresult,
 			    sizeof(cresult)) == NULL)
 				return NULL;
-			if (strlcat(buf, cresult, bufsiz) >= bufsiz)
+			if (strlcat((char *)buf, cresult, bufsiz) >= bufsiz)
 				return NULL;	/*result overrun*/
 			break;
 		} else if ((i & 0x3f) == i) {
@@ -1360,7 +1360,7 @@ dnsdecode(sp, ep, base, buf, bufsiz)
 				    isprint(*cp) ? "%c" : "\\%03o", *cp & 0xff);
 				if (l >= sizeof(cresult))
 					return NULL;
-				if (strlcat(buf, cresult, bufsiz) >= bufsiz)
+				if (strlcat((char *)buf, cresult, bufsiz) >= bufsiz)
 					return NULL;	/*result overrun*/
 				cp++;
 			}
@@ -1371,7 +1371,7 @@ dnsdecode(sp, ep, base, buf, bufsiz)
 		return NULL;	/*not terminated*/
 	cp++;
 	*sp = cp;
-	return buf;
+	return (char *)buf;
 }
 
 /*
@@ -1402,7 +1402,7 @@ pr_pack(buf, cc, mhdr)
 	size_t off;
 	int oldfqdn;
 	u_int16_t seq;
-	char dnsname[MAXDNAME + 1];
+	char dnsname[NS_MAXDNAME + 1];
 
 	(void)gettimeofday(&tv, NULL);
 
@@ -1558,7 +1558,7 @@ pr_pack(buf, cc, mhdr)
 				i = 0;
 				while (cp < end) {
 					if (dnsdecode((const u_char **)&cp, end,
-					    (const u_char *)(ni + 1), dnsname,
+					    (const u_char *)(ni + 1), (u_char *)dnsname,
 					    sizeof(dnsname)) == NULL) {
 						printf("???");
 						break;
@@ -1949,7 +1949,7 @@ pr_nodeaddr(ni, nilen)
 	if (nilen % (sizeof(u_int32_t) + sizeof(struct in6_addr)) == 0)
 		withttl = 1;
 	while (nilen > 0) {
-		u_int32_t ttl;
+		u_int32_t ttl = 0;
 
 		if (withttl) {
 			/* XXX: alignment? */
@@ -2230,7 +2230,7 @@ pr_icmph(icp, end)
 	char ntop_buf[INET6_ADDRSTRLEN];
 	struct nd_redirect *red;
 	struct icmp6_nodeinfo *ni;
-	char dnsname[MAXDNAME + 1];
+	char dnsname[NS_MAXDNAME + 1];
 	const u_char *cp;
 	size_t l;
 
@@ -2392,7 +2392,7 @@ pr_icmph(icp, end)
 				}
 				printf(", subject=%s", niqcode[ni->ni_code]);
 				cp = (const u_char *)(ni + 1);
-				if (dnsdecode(&cp, end, NULL, dnsname,
+				if (dnsdecode(&cp, end, NULL, (u_char *)dnsname,
 				    sizeof(dnsname)) != NULL)
 					printf("(%s)", dnsname);
 				else
@@ -2670,7 +2670,7 @@ nigroup(name)
 	strncpy(hbuf, name, l);
 	hbuf[(int)l] = '\0';
 
-	for (q = name; *q; q++) {
+	for (q = (unsigned char *)name; *q; q++) {
 		if (isupper(*q))
 			*q = tolower(*q);
 	}
@@ -2680,7 +2680,7 @@ nigroup(name)
 	MD5Init(&ctxt);
 	c = l & 0xff;
 	MD5Update(&ctxt, &c, sizeof(c));
-	MD5Update(&ctxt, name, l);
+	MD5Update(&ctxt, (unsigned char *)name, l);
 	MD5Final(digest, &ctxt);
 
 	if (inet_pton(AF_INET6, "ff02::2:0000:0000", &in6) != 1)

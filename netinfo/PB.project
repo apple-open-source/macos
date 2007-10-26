@@ -3,7 +3,7 @@
     "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
         "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "Makefile.postamble", "NetInfo.strings"); 
-        SUBPROJECTS = (resolver, common, agents, servers, tools); 
+        SUBPROJECTS = (common, agents, servers, tools); 
     }; 
     LANGUAGE = English; 
     "LOCALIZABLE_FILES" = {}; 

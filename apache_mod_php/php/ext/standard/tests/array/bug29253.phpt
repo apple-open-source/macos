@@ -1,5 +1,5 @@
 --TEST--
-Bug #29253 array_diff with $GLOBALS argument fails 
+Bug #29253 (array_diff with $GLOBALS argument fails) 
 --FILE--
 <?php
 $zz = $GLOBALS;
@@ -11,3 +11,4 @@ var_dump($gg);
 array(0) {
 }
 string(4) "afad"
+

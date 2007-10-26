@@ -12,7 +12,7 @@ Subject/Betreff oder im Text an
 
 	%(got_request_email)s
 
-Sie koennen den Listenverwalter dieser Lister unter der Adresse
+Sie koennen den Listenverwalter dieser Liste unter der Adresse
 
 	%(got_owner_email)s
 

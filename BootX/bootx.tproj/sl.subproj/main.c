@@ -1,24 +1,31 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
- * @APPLE_LICENSE_HEADER_END@
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
+
 /*
  *  main.c - Main functions for BootX.
  *
@@ -30,6 +37,8 @@
 
 #include <sl.h>
 #include "aes.h"
+#include <IOKit/IOHibernatePrivate.h>
+#include <bootfiles.h>
 
 static void Start(void *unused1, void *unused2, ClientInterfacePtr ciPtr);
 static void Main(ClientInterfacePtr ciPtr);
@@ -42,7 +51,8 @@ static long InitMemoryMap(void);
 static long GetOFVersion(void);
 static long TestForKey(long key);
 static long GetBootPaths(void);
-static long ReadBootPlist(char *devSpec);
+static long ReadBootPlist(char *devSpec, char *rpsDir);
+static long FindRPSDir(char *bootDevice, char **rpsDir);
 
 const unsigned long StartTVector[2] = {(unsigned long)Start, 0};
 
@@ -80,6 +90,8 @@ long *gDeviceTreeMMTmp = 0;
 long gOFVersion = 0;
 
 char *gKeyMap;
+char gHibernateBoot;
+unsigned long gHibernateKeySizeBytes;
 
 long gRootAddrCells;
 long gRootSizeCells;
@@ -117,7 +129,316 @@ static void Start(void *unused1, void *unused2, ClientInterfacePtr ciPtr)
   Main(ciPtr);
 }
 
+static long WakeKernel(void *p1, void *p2, void *p3, void *p4)
+{
+  IOHibernateImageHeader * header = (IOHibernateImageHeader *) p1;
+  unsigned long msr;
+  typedef void (*Proc)(void *, void *, void *, void *);
+  Proc proc;
+  unsigned long cnt, newSP;
+  unsigned long *src, *dst;
+  unsigned int 	count;
+  unsigned int 	page;
+  unsigned int 	compressedSize;
+  unsigned int 	uncompressedPages;
+  int32_t   	byteCnt;
+  u_int32_t 	lowHalf, highHalf;
+  u_int32_t 	sum;
 
+  Quiesce();
+  printf("\nWake Kernel!\n");
+
+  // Save SPRs for OF
+  __asm__ volatile("mfmsr %0" : "=r" (gOFMSRSave));
+  __asm__ volatile("mfsprg %0, 0" : "=r" (gOFSPRG0Save));
+  __asm__ volatile("mfsprg %0, 1" : "=r" (gOFSPRG1Save));
+  __asm__ volatile("mfsprg %0, 2" : "=r" (gOFSPRG2Save));
+  __asm__ volatile("mfsprg %0, 3" : "=r" (gOFSPRG3Save));
+  
+  // Turn off translations
+  msr = 0x00001000;
+  __asm__ volatile("sync");
+  __asm__ volatile("mtmsr %0" : : "r" (msr));
+  __asm__ volatile("isync");
+  
+  // Save OF's Exceptions Vectors
+  bcopy(0x0, gOFVectorSave, kVectorSize);
+
+  dst   = (unsigned long *) (header->restore1CodePage << 12);
+  count = header->restore1PageCount;
+  proc  = (Proc) (header->restore1CodeOffset + ((uint32_t) dst));
+  newSP = header->restore1StackOffset + (header->restore1CodePage << 12);
+
+  src  = (unsigned long *) (((u_int32_t) &header->fileExtentMap[0]) 
+        + header->fileExtentMapSize);
+  sum  = 0;
+   
+  for (page = 0; page < count; page++)
+  {
+    compressedSize = 4096;
+
+    lowHalf = 1;
+    highHalf = 0;
+
+    for (cnt = 0; cnt < compressedSize; cnt += 0x20) {
+      dst[0] = src[0];
+      dst[1] = src[1];
+      dst[2] = src[2];
+      dst[3] = src[3];
+      dst[4] = src[4];
+      dst[5] = src[5];
+      dst[6] = src[6];
+      dst[7] = src[7];
+      for (byteCnt = 0; byteCnt < 0x20; byteCnt++) {
+        lowHalf += ((u_int8_t *) dst)[byteCnt];
+        highHalf += lowHalf;
+      }
+      __asm__ volatile("dcbf 0, %0" : : "r" (dst));
+      __asm__ volatile("sync");
+      __asm__ volatile("icbi 0, %0" : : "r" (dst));
+      __asm__ volatile("isync");
+      __asm__ volatile("sync");
+      src += 8;
+      dst += 8;
+    }
+
+    lowHalf  %= 65521L;
+    highHalf %= 65521L;
+    sum += (highHalf << 16) | lowHalf;
+  }
+  uncompressedPages = count;
+  header->actualRestore1Sum = sum;
+
+  __asm__ volatile("dcbf 0, %0" : : "r" (dst));
+  __asm__ volatile("dcbf 0, %0" : : "r" (dst+32));
+  __asm__ volatile("sync");
+  __asm__ volatile("icbi 0, %0" : : "r" (dst));
+  __asm__ volatile("icbi 0, %0" : : "r" (dst+32));
+  __asm__ volatile("isync");
+  __asm__ volatile("sync");
+
+  // Make sure everything get sync'd up.
+  __asm__ volatile("isync");
+  __asm__ volatile("sync");
+  __asm__ volatile("eieio");
+  
+  // Move the Stack 
+  __asm__ volatile("mr r1, %0" : : "r" (newSP));
+  __asm__ volatile("ori 0, 0, 0" : : );
+  proc(p1, p2, p3, p4);
+  
+  return -1;
+}
+
+void HibernateBoot(void)
+{
+  CICell dev, size, maxRead, imageSize, codeSize, allocSize, bytesToRead;
+  CICell memoryPH;
+  CICell available[2*16];
+  long mem_base;
+  IOHibernateImageHeader _header;
+  IOHibernateImageHeader * header = &_header;
+  volatile IOPolledFileExtent * currentExtent;
+  long long extentStart;
+  long long extentLength;
+  long long position, positionMax;
+  long buffer;
+  char c;
+  int havePreview, readingPreview;
+  char * tail;
+  Boot_Video videoInfo;
+  hibernate_graphics_t * graphicsInfo;
+  uint32_t machineSignature;
+  int32_t blob, lastBlob = 0;
+  // decryption data
+  static const unsigned char first_iv[AES_BLOCK_SIZE]
+  = {  0xa3, 0x63, 0x65, 0xa9, 0x0b, 0x71, 0x7b, 0x1c,
+       0xdf, 0x9e, 0x5f, 0x32, 0xd7, 0x61, 0x63, 0xda };
+  hibernate_cryptvars_t       _cryptvars;
+  hibernate_cryptvars_t *     cryptvars = &_cryptvars;
+  hibernate_cryptwakevars_t * cryptwakevars;
+ 
+  do {
+    tail = &gBootDevice[0];
+    while ((c = *++tail) && (c != ','))
+	{}
+    if (!c)
+	break;
+    
+    *tail++ = 0;
+    extentStart = strtouq(tail, 0, 16);
+    
+    printf("extentStart %s, %qx\n", gBootDevice, extentStart);
+    
+    dev = Open(gBootDevice);
+    Seek(dev, extentStart);
+
+    size = Read(dev, (CICell) header, sizeof(IOHibernateImageHeader));
+    printf("header read size %x\n", size);
+
+    imageSize = header->image1Size;
+    codeSize  = header->restore1PageCount << 12;
+    if (kIOHibernateHeaderSignature != header->signature)
+      break;
+
+    size = GetProp(gChosenPH, kIOHibernateMachineSignatureKey, 
+                    (char *)&machineSignature, sizeof(machineSignature));
+    if (size != sizeof(machineSignature)) machineSignature = 0;
+    if (machineSignature != header->machineSignature)
+      break;
+    
+    allocSize = imageSize + ((4095 + sizeof(hibernate_graphics_t) + sizeof(hibernate_cryptwakevars_t)) & ~4095);
+
+    // try to allocate the image as high as possible - end of available memory
+    memoryPH = FindDevice("/memory");
+    if (memoryPH == -1) break;
+    size = GetProp(memoryPH, "available", (char *) &available[0], sizeof(available));
+    if (size == 0) break;
+    size /= sizeof(CICell);
+    mem_base = available[size - 2] + available[size - 1] - allocSize;
+    
+    if (-1 == Claim(mem_base, allocSize, 0)) {
+      // else try above BootX's image
+      mem_base = kImageAddr_H;
+      if (-1 == Claim(mem_base, allocSize, 0)) {
+        // else try below BootX's image
+        mem_base = (header->restore1CodePage << 12) + codeSize;
+        if (-1 == Claim(mem_base, allocSize, 0))
+	  break;
+      }
+    }
+    
+    printf("mem_base %x\n", mem_base);
+
+    graphicsInfo = (hibernate_graphics_t *) mem_base;
+    cryptwakevars = (hibernate_cryptwakevars_t *) (graphicsInfo + 1);
+    mem_base += (allocSize - imageSize);
+    
+    bcopy(header, (void *) mem_base, sizeof(IOHibernateImageHeader));
+    header = (IOHibernateImageHeader *) mem_base;
+
+    imageSize -= sizeof(IOHibernateImageHeader);
+    //	imageSize -= codeSize;
+    currentExtent = &header->fileExtentMap[0];
+    extentLength = currentExtent->length - sizeof(IOHibernateImageHeader);
+    extentStart  = currentExtent->start  + sizeof(IOHibernateImageHeader);
+    buffer = (long)(header + 1);
+
+    position = 0;
+    maxRead  = 0;
+    bytesToRead = header->previewSize;
+    havePreview = readingPreview = (bytesToRead != 0);
+    if (readingPreview) {
+      bytesToRead += header->fileExtentMapSize - sizeof(header->fileExtentMap) + codeSize;
+      positionMax = header->imageSize - bytesToRead;
+      imageSize -= bytesToRead;
+    } else {
+      bytesToRead = imageSize;
+      positionMax = header->imageSize;
+      maxRead     = positionMax / kIOHibernateProgressCount;
+      SplashPreview(NULL, &graphicsInfo->progressSaveUnder[0][0], sizeof(graphicsInfo->progressSaveUnder));
+    }
+
+    while (bytesToRead) {
+
+      if (!extentLength) {
+        currentExtent++;
+        extentStart  = currentExtent->start;
+        extentLength = currentExtent->length;
+      }
+      if (extentLength < bytesToRead)
+        size = extentLength;
+      else
+        size = bytesToRead;
+
+      if (maxRead && (size > maxRead))
+        size = maxRead;
+
+      if (-1 == Seek(dev, extentStart)) {
+        printf("seek fail\n");
+        break;
+      }
+      if (size != Read(dev, buffer, size)) {
+        printf("read fail\n");
+        break;
+      }
+
+      bytesToRead -= size;
+
+      if (!bytesToRead && readingPreview) {
+        uint8_t * src = (uint8_t *) (
+            ((uint32_t) &header->fileExtentMap[0]) 
+            + header->fileExtentMapSize
+            + codeSize
+            + header->previewPageListSize);
+
+        SplashPreview(src, &graphicsInfo->progressSaveUnder[0][0], sizeof(graphicsInfo->progressSaveUnder));
+        readingPreview = 0;
+        bytesToRead = imageSize;
+        maxRead = positionMax / kIOHibernateProgressCount;
+      } else if (!readingPreview) {
+        // progress
+        position += size;
+        blob = (position * kIOHibernateProgressCount) / positionMax;
+        if (blob != lastBlob)
+        {
+          SplashProgress(&graphicsInfo->progressSaveUnder[0][0], lastBlob, blob);
+          lastBlob = blob;
+        }
+      }
+
+      if (bytesToRead) {
+        extentStart += size;
+        extentLength -= size;
+        buffer += size;
+      }
+    }
+    if (bytesToRead)
+      break;
+
+    if (header->encryptStart) {
+      aes_decrypt_key(&gExtensionsSpec[0],
+                      gHibernateKeySizeBytes,
+                      &cryptvars->ctx.decrypt);
+
+      // set the vector for the following decryptions
+      bcopy(((uint8_t *) header) + header->image1Size - AES_BLOCK_SIZE, 
+              &cryptvars->aes_iv[0], AES_BLOCK_SIZE);
+
+      // decrypt the buffer
+      uint32_t len = (uint32_t)(header->image1Size - header->encryptStart);
+      aes_decrypt_cbc(((uint8_t *) header) + header->encryptStart,
+                      &first_iv[0],
+                      len >> 4,
+                      ((uint8_t *) header) + header->encryptStart,
+                      &cryptvars->ctx.decrypt);
+    }
+
+    bcopy(&cryptvars->aes_iv[0], &cryptwakevars->aes_iv[0], sizeof(cryptwakevars->aes_iv));
+
+    bzero(&cryptvars->aes_iv[0], sizeof(cryptvars));
+    bzero(&gExtensionsSpec[0], sizeof(gExtensionsSpec));
+
+    Close(dev);
+
+    // Get the video info
+    GetMainScreenPH(&videoInfo, 0);
+    videoInfo.v_display = 1;
+    graphicsInfo->physicalAddress = videoInfo.v_baseAddr;
+    graphicsInfo->mode            = videoInfo.v_display;
+    graphicsInfo->rowBytes        = videoInfo.v_rowBytes;
+    graphicsInfo->width           = videoInfo.v_width;
+    graphicsInfo->height          = videoInfo.v_height;
+    graphicsInfo->depth           = videoInfo.v_depth;
+
+    WakeKernel(header, graphicsInfo, cryptwakevars, 0);
+    break;
+  }
+  while (0);
+
+  // failures reboot
+  Interpret(0, 0, " reset-all");
+}
 
 static void Main(ClientInterfacePtr ciPtr)
 {
@@ -129,6 +450,9 @@ static void Main(ClientInterfacePtr ciPtr)
   ret = InitEverything(ciPtr);
   if (ret != 0) Exit();
 
+  if (gHibernateBoot) {
+    HibernateBoot();
+  }
 
   // Get or infer the boot paths.
   ret = GetBootPaths();
@@ -337,7 +661,50 @@ static long InitEverything(ClientInterfacePtr ciPtr)
     gBootMode |= kBootModeSafe;
   }
 
+  size = GetProp(gOptionsPH, kIOHibernateBootImageKey, gBootDevice, 255);
+  if (size && (-1 != size)) do {
+    gBootDevice[size] = '\0';
+
+    // reuse gExtensionsSpec
+#define keyBufSize (sizeof(gExtensionsSpec) / 2)
+    size = GetProp(gOptionsPH, kIOHibernateBootImageKeyKey, 
+                        gExtensionsSpec + keyBufSize, keyBufSize);
+    if (size && (-1 != size))
+      gHibernateKeySizeBytes = UnescapeData(gExtensionsSpec + keyBufSize, size,
+                                            gExtensionsSpec, keyBufSize);
+
+    // always clear the boot-image variable
+#if kFailToBoot
+    Interpret(0, 0, " setenv " kIOHibernateBootImageKey);
+    Interpret(0, 0, " setenv " kIOHibernateBootImageKeyKey); // (will need to be done by OF)
+    Interpret(0, 0, " sync-nvram");
+#endif
+
+    // safe mode means no hibernate
+    if (kBootModeSafe & gBootMode) break;
+
+#if kFailToBoot
+    // check we booted from nvram-set device
+    size = GetProp(gChosenPH, "bootpath", gBootFile, 255);
+    if (!size || (-1 == size)) break;
+    gBootFile[size] = '\0';
+
+    if (FindDevice(gBootFile) != FindDevice(gBootDevice)) break;
+#endif
+
+    gHibernateBoot = 1;
+  } while (0);
+
+  if (gHibernateBoot)
   {
+    // Claim memory for malloc.
+    if (Claim(kMallocAddr_H, kMallocSize_H, 0) == 0) {
+      printf("Claim for malloc failed.\n");
+      return -1;
+    }
+    malloc_init((char *)kMallocAddr_H, kMallocSize_H);
+    gImageFirstBootXAddr = kMallocAddr_H + kMallocSize_H;
+  } else {
     // Claim memory for the FS Cache.
     if (Claim(kFSCacheAddr, kFSCacheSize, 0) == 0) {
       printf("Claim for fs cache failed.\n");
@@ -848,13 +1215,21 @@ static long TestForKey(long key)
 
 
 #define kBootpBootFileOffset (108)
-
+#define UUIDLEN 63
 static long GetBootPaths(void)
 {
   long ret, cnt, cnt2, cnt3, cnt4, size, partNum, bootplen, bsdplen;
   unsigned long adler32;
-  char *filePath, *buffer, uuidStr[64];
+  char *filePath, *buffer, uuidStr[UUIDLEN+1] = { '\0' };
+  char *rpsDir = "";	      // perhaps to be one of "com.apple.Boot.[RPS]"
   
+/*
+printf("accessing the first few bytes of memory...\n");
+unsigned *mem = NULL;
+for(cnt=0; cnt<10; cnt++)
+printf("mem[%d]: %x ('%c')\n", cnt, mem[cnt], mem[cnt]);
+*/
+
   if (gBootSourceNumber == -1) {
     // Get the boot device and derive its type
     // (try chosen "bootpath", then boot-device in the options)
@@ -876,13 +1251,24 @@ static long GetBootPaths(void)
 //strcpy(gBootDevice, "fw/node@50770e0000725b/sbp-2@4000/@0:3");  // m120
 
 
-    // Look for Boot.plist-based booter stuff (like RAID :)
-    ret = ReadBootPlist(gBootDevice);
+    // check for Boot != Root
+    ret = FindRPSDir(gBootDevice, &rpsDir);   // rpsDir set on success
     if (ret == 0) {
-      // success -> gBootDevice = "AppleRAID/#:0,\\\\:tbxi"
-      (void)LookForRAID(gBootDict);	// could take gBootDevice?
+      SetProp(gChosenPH, kBootRootActiveKey, NULL, 0);	// crumb for the OS
+      // would be nice to set gBootSourceNumberMax = 1, but overridden below
     }
-    
+
+    // Load any Boot.plist data (for Tiger RAID, BootRoot, etc)
+    ret = ReadBootPlist(gBootDevice, rpsDir);	// sets gBootDict on success
+    if (ret == 0) {
+      // XX until we decide to be rid of the RAID implementation, short-
+      // circuit common 10.5 case (Boot.plist exists but doesn't mean RAID)
+      if (gBootDict->type != kTagTypeDict ||
+	  GetProperty(gBootDict, kKernelNameKey) == NULL) {
+	(void)LookForRAID(gBootDict);	// might change gBootDevice
+	// LFR() success -> gBootDevice = "AppleRAID/#:0,\\:tbxi"
+      }
+    }
 
     // note RAID itself is of "block" type like members
     gBootDeviceType = GetDeviceType(gBootDevice);
@@ -1010,8 +1396,8 @@ static long GetBootPaths(void)
       
       // Construct the boot-file
       strncpy(gBootFile, gBootDevice, cnt + 1);
-      sprintf(gBootFile + cnt + 1, "%d,%s\\mach_kernel",
-	      partNum, ((gBootSourceNumber & 1) ? "" : "\\"));
+      sprintf(gBootFile + cnt + 1, "%d,%s%s\\mach_kernel",
+	      partNum, ((gBootSourceNumber & 1) ? "" : "\\"), rpsDir);
       
       // and the cache file name
       
@@ -1040,7 +1426,7 @@ static long GetBootPaths(void)
   
   strcat(gExtensionsSpec, ",");
   
-  // Add in any extra path to gRootDir.
+  // Add in any extra path to gRootDir (handles com.apple.boot.[RPS]).
   cnt = 0;
   while (filePath[cnt] != '\0') cnt++;
   
@@ -1064,7 +1450,17 @@ static long GetBootPaths(void)
   // technically could just do this once at the end
   SetProp(gChosenPH, "rootpath", gBootFile, strlen(gBootFile) + 1);
 
-  if (GetFSUUID(gBootFile, uuidStr) == 0) {
+  if (gBootDict && gBootDict->type == kTagTypeDict) {
+    TagPtr prop = GetProperty(gBootDict, kRootUUIDKey);
+    if (prop && prop->type == kTagTypeString)
+      strncpy(uuidStr, prop->string, UUIDLEN);
+  }
+
+  if (uuidStr[0] == '\0') {
+    (void)GetFSUUID(gBootFile, uuidStr);
+  }
+
+  if (uuidStr[0]) {
     printf("setting boot-uuid to: %s\n", uuidStr);
     SetProp(gChosenPH, "boot-uuid", uuidStr, strlen(uuidStr) + 1);
   }
@@ -1074,27 +1470,98 @@ static long GetBootPaths(void)
   return 0;
 }
 
-#define BOOTPLIST_PATH "com.apple.Boot.plist"
-
-// ReadBootPlist could live elsewhere
-static long ReadBootPlist(char *devSpec)
+/*
+ * FindRPSDir looks for a "rock," "paper," or "scissors" directory
+ * - handle all permutations: 3 dirs, any 2 dirs, any 1 dir
+ */
+#define SPECLEN 1024
+static char rootDirSpec[SPECLEN+1];	// not sure how big our stacks are
+static long FindRPSDir(char *bootDevice, char **rpsDir)
 {
-  char plistSpec[256];
+  long rval = 0;
+  long flags, time;
+  char haveR, haveP, haveS;
+
+  unsigned long index = 0;
+  char *curName;
+
+  haveR = haveP = haveS = 0;
+
+  // strip any file specifier and start at the root
+  if (ConvertFileSpec(bootDevice, rootDirSpec, NULL))  return -1;
+  strncat(rootDirSpec, ",\\", SPECLEN-strlen(rootDirSpec));
+
+  // walk the directory looking for com.apple.Boot.[RPS]
+  while (GetDirEntry(rootDirSpec, &index, &curName, &flags, &time) != -1) {
+    if (!strcmp(curName, kBootDirR))	{ haveR = 1; continue; }
+    if (!strcmp(curName, kBootDirP))	{ haveP = 1; continue; }
+    if (!strcmp(curName, kBootDirS))	{ haveS = 1; continue; }
+  }
+
+  if (haveR && haveP && haveS) {    	  // NComb(3,3) = 1
+    printf("WARNING: all of R,P,S exist: booting from 'R'\n");
+    *rpsDir = kBootDirR;
+  } else if (haveR && haveP) {        	  // NComb(3,2) = 3
+    // p wins
+    *rpsDir = kBootDirP;
+  } else if (haveR && haveS) {
+    // r wins
+    *rpsDir = kBootDirR;
+  } else if (haveP && haveS) {
+    // s wins
+    *rpsDir = kBootDirS;
+  } else if (haveR) {                 	  // NComb(3,1) = 3
+    // wins by default
+    *rpsDir = kBootDirR;
+  } else if (haveP) {
+    // wins by default
+    *rpsDir = kBootDirP;
+  } else if (haveS) {
+    // wins by default
+    *rpsDir = kBootDirS;
+  } else {                             	  // NComb(3,0) = 0
+    rval = -1;
+  }
+
+  return rval;
+}
+
+/*
+ * ReadBootPlist looks around for com.apple.Boot.plist, populates gBootDict
+ * could live elsewhere
+ */
+#define OF_BLESSEDDIR ",\\\\"
+#define BOOTPLIST_NAME "com.apple.Boot.plist"
+#define BOOTPLIST_PATH OF_BLESSEDDIR BOOTPLIST_NAME
+#define PREF_BOOTPLIST_PATH "\\Library\\Preferences\\SystemConfiguration\\" \
+                            BOOTPLIST_NAME
+static char plistSpec[SPECLEN+1];	// save stack space
+static long ReadBootPlist(char *devSpec, char *rpsDir)
+{
   int len;
 
   do {
-    // construct the Boot.plist spec
     if (ConvertFileSpec(devSpec, plistSpec, NULL))  break;
-    strncat(plistSpec, ",\\\\", 255-strlen(plistSpec));
-    strncat(plistSpec, BOOTPLIST_PATH, 255-strlen(plistSpec));
+    strncat(plistSpec, ",", SPECLEN-strlen(plistSpec));
+    strncat(plistSpec, rpsDir, SPECLEN-strlen(plistSpec));   // may be ""
+    strncat(plistSpec, PREF_BOOTPLIST_PATH, SPECLEN-strlen(plistSpec));
 
-    // load the contents
-    if ((len = LoadFile(plistSpec)) < 0)  break;
-    // we could try for the root as well as the blessed folder
+    // try to load the contents
+    if ((len = LoadFile(plistSpec)) < 0) {
+      // construct old-style spec for Boot.plist (in blessed folder == root)
+      if (ConvertFileSpec(devSpec, plistSpec, NULL))  break;
+      strncat(plistSpec, BOOTPLIST_PATH, SPECLEN-strlen(plistSpec));
+
+      // and try to load again
+      if ((len = LoadFile(plistSpec)) < 0) {
+	printf("couldn't load %s\n", BOOTPLIST_NAME);
+	break;
+      }
+    }
     *((char*)kLoadAddr + len) = '\0';  // terminate for parser safety
 
     if (ParseXML((char*)kLoadAddr, &gBootDict) < 0 || !gBootDict) {
-      printf("couldn't parse %s\n", BOOTPLIST_PATH);
+      printf("couldn't parse %s\n", BOOTPLIST_NAME);
       break;
     }
 

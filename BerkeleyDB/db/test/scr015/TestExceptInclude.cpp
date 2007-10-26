@@ -4,7 +4,7 @@
  * Copyright (c) 1997-2002
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: TestExceptInclude.cpp,v 1.1.1.1 2003/02/15 04:56:19 zarzycki Exp $
+ * $Id: TestExceptInclude.cpp,v 1.1 2003/02/15 04:56:19 zarzycki Exp $
  */
 
 /* We should be able to include cxx_except.h without db_cxx.h,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,10 +92,10 @@ public:
       
     virtual  bool start( IOService * provider );
 
+    virtual  IOReturn determineSleepSupport ( void );
 
 private:
 
-    virtual  IOReturn setPowerState ( unsigned long, IOService* );
     virtual void probePCIhardware ( IOPCIDevice *, bool *, unsigned long * );
     virtual bool dataRegisterPresent ( IOPCIDevice *, UInt8 );
     virtual UInt32 getD3power ( IOPCIDevice *, UInt8 );

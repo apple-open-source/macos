@@ -1,5 +1,6 @@
 /* Definitions and header for handling BDF fonts on the Microsoft W32 API.
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /* Based heavily on code by H. Miyashita for Meadow (a descendant of
    MULE for W32). */
@@ -34,7 +35,7 @@ Boston, MA 02111-1307, USA.  */
 #define BDF_FONT_CACHE_SIZE 3000
 #define BDF_FONT_CLEAR_SIZE 600
 
-/* 
+/*
    GLYPH METRIC (# ... character's reference point)
    ^
  y |              (urx, ury)
@@ -124,3 +125,6 @@ int w32_BDF_TextOut (bdffont *fontp, HDC hdc, int left,
 int w32_BDF_to_x_font (char *file, char* xstr, int len);
 
 #endif  /* EMACS_W32BDF_H */
+
+/* arch-tag: 7499e9f2-197e-44cc-9274-373f00b51eec
+   (do not change this comment) */

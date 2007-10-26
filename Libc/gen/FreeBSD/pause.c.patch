@@ -1,0 +1,28 @@
+--- pause.c.orig	2006-09-17 12:11:15.000000000 -0700
++++ pause.c	2006-09-24 16:38:00.000000000 -0700
+@@ -34,6 +34,13 @@
+ #if defined(LIBC_SCCS) && !defined(lint)
+ static char sccsid[] = "@(#)pause.c	8.1 (Berkeley) 6/4/93";
+ #endif /* LIBC_SCCS and not lint */
++
++/* For the cancelable variant, we call the cancelable sigsuspend */
++#ifdef VARIANT_CANCELABLE
++#undef __DARWIN_NON_CANCELABLE
++#define __DARWIN_NON_CANCELABLE 0
++#endif /* VARIANT_CANCELABLE */
++
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/gen/pause.c,v 1.6 2002/02/01 00:57:29 obrien Exp $");
+ 
+@@ -46,7 +53,10 @@
+ int
+ __pause()
+ {
+-	return sigpause(sigblock(0L));
++	sigset_t set;
++
++	sigprocmask(0, NULL, &set);
++	return sigsuspend(&set);
+ }
+ __weak_reference(__pause, pause);
+ __weak_reference(__pause, _pause);

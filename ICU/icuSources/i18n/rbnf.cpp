@@ -1,6 +1,7 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2004, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) 1997-2006, International Business Machines Corporation
+* and others. All Rights Reserved.
 *******************************************************************************
 */
 
@@ -58,7 +59,14 @@ U_NAMESPACE_BEGIN
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RuleBasedNumberFormat)
 
-class LocalizationInfo : public UObject {
+/*
+This is a utility class. It does not use ICU's RTTI.
+If ICU's RTTI is needed again, you can uncomment the RTTI code and derive from UObject.
+Please make sure that intltest passes on Windows in Release mode,
+since the string pooling per compilation unit will mess up how RTTI works.
+The RTTI code was also removed due to lack of code coverage.
+*/
+class LocalizationInfo : public UMemory {
 protected:
     virtual ~LocalizationInfo() {};
     uint32_t refcount;
@@ -90,11 +98,11 @@ public:
     virtual int32_t indexForLocale(const UChar* locale) const;
     virtual int32_t indexForRuleSet(const UChar* ruleset) const;
     
-    virtual UClassID getDynamicClassID() const = 0;
-    static UClassID getStaticClassID(void);
+//    virtual UClassID getDynamicClassID() const = 0;
+//    static UClassID getStaticClassID(void);
 };
 
-UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(LocalizationInfo)
+//UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(LocalizationInfo)
 
 // if both strings are NULL, this returns TRUE
 static UBool 
@@ -254,8 +262,8 @@ public:
     virtual const UChar* getLocaleName(int32_t index) const;
     virtual const UChar* getDisplayName(int32_t localeIndex, int32_t ruleIndex) const;
     
-    virtual UClassID getDynamicClassID() const;
-    static UClassID getStaticClassID(void);
+//    virtual UClassID getDynamicClassID() const;
+//    static UClassID getStaticClassID(void);
     
 private:
     void init(UErrorCode& status) const;
@@ -519,21 +527,24 @@ LocDataParser::parseError(const char* /*str*/) {
     }
 
     const UChar* start = p - U_PARSE_CONTEXT_LEN - 1;
-    if (start < data)
+    if (start < data) {
         start = data;
-    for (UChar* x = p; --x >= start;)
+    }
+    for (UChar* x = p; --x >= start;) {
         if (!*x) {
             start = x+1;
             break;
         }
+    }
     const UChar* limit = p + U_PARSE_CONTEXT_LEN - 1;
-    if (limit > e)
+    if (limit > e) {
         limit = e;
-    u_strncpy(pe.preContext, start, p-start);
+    }
+    u_strncpy(pe.preContext, start, (int32_t)(p-start));
     pe.preContext[p-start] = 0;
-    u_strncpy(pe.postContext, p, limit-p);
+    u_strncpy(pe.postContext, p, (int32_t)(limit-p));
     pe.postContext[limit-p] = 0;
-    pe.offset = p - data;
+    pe.offset = (int32_t)(p - data);
     
 #ifdef DEBUG
     fprintf(stderr, "%s at or near character %d: ", str, p-data);
@@ -565,7 +576,7 @@ LocDataParser::parseError(const char* /*str*/) {
     }
 }
 
-UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringLocalizationInfo)
+//UOBJECT_DEFINE_RTTI_IMPLEMENTATION(StringLocalizationInfo)
 
 StringLocalizationInfo* 
 StringLocalizationInfo::create(const UnicodeString& info, UParseError& perror, UErrorCode& status) {
@@ -899,7 +910,7 @@ RuleBasedNumberFormat::getNumberOfRuleSetDisplayNameLocales(void) const {
 Locale 
 RuleBasedNumberFormat::getRuleSetDisplayNameLocale(int32_t index, UErrorCode& status) const {
     if (U_FAILURE(status)) {
-        return Locale();
+        return Locale("");
     }
     if (localizations && index >= 0 && index < localizations->getNumberOfDisplayLocales()) {
         UnicodeString name(TRUE, localizations->getLocaleName(index), -1);
@@ -910,7 +921,7 @@ RuleBasedNumberFormat::getRuleSetDisplayNameLocale(int32_t index, UErrorCode& st
             bp = (char *)uprv_malloc(cap);
             if (bp == NULL) {
                 status = U_MEMORY_ALLOCATION_ERROR;
-                return Locale();
+                return Locale("");
             }
         }
         name.extract(0, name.length(), bp, cap, UnicodeString::kInvariant);
@@ -1204,9 +1215,10 @@ RuleBasedNumberFormat::initDefaultRuleSet()
 
 void
 RuleBasedNumberFormat::init(const UnicodeString& rules, LocalizationInfo* localizationInfos,
-                            UParseError& /* pErr */, UErrorCode& status)
+                            UParseError& pErr, UErrorCode& status)
 {
     // TODO: implement UParseError
+    uprv_memset(&pErr, 0, sizeof(UParseError));
     // Note: this can leave ruleSets == NULL, so remaining code should check
     if (U_FAILURE(status)) {
         return;

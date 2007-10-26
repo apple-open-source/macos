@@ -55,7 +55,7 @@ enum
 	 * Default for export is kSecFormatOpenSSL.
 	 */
 	kSecFormatOpenSSL,				/* a.k.a. X509 for public keys */
-	kSecFormatSSH,	
+	kSecFormatSSH,					/* OpenSSH v.1 */
 	kSecFormatBSAFE,	
 
 	/* Symmetric Key Formats */
@@ -64,7 +64,7 @@ enum
 	/* Formats for wrapped symmetric and private keys */
 	kSecFormatWrappedPKCS8,
 	kSecFormatWrappedOpenSSL,		/* traditional openssl */
-	kSecFormatWrappedSSH,
+	kSecFormatWrappedSSH,			/* OpenSSH v.1 */
 	kSecFormatWrappedLSH,
 	
 	/* Formats for certificates */
@@ -75,7 +75,12 @@ enum
 									 *    armour. Default format for multiple items */
 	kSecFormatPKCS7,				/* sequence of certs */
 	kSecFormatPKCS12,				/* set of certs and private keys */
-	kSecFormatNetscapeCertSequence	/* sequence of certs, form netscape-cert-sequence */
+	kSecFormatNetscapeCertSequence,	/* sequence of certs, form netscape-cert-sequence */
+	
+	/* Added in Mac OS X 10.5 */
+	kSecFormatSSHv2					/* OpenSSH v.2. Note that OpenSSH v2 private keys
+									 * are in format kSecFormatOpenSSL or
+									 * kSecFormatWrappedOpenSSL. */
 };
 typedef uint32_t SecExternalFormat;
 
@@ -313,7 +318,7 @@ OSStatus SecKeychainItemExport(
  *
  * keyUsage and keyAttributes specify the low-level usage and attribute flags
  * of imported keys. Each is a word of bits. The default value for keyUsage
- * used when keyParams is NULL if keyParams->jeyUsage is zero) is 
+ * (used when keyParams is NULL or if keyParams->keyUsage is zero) is 
  * CSSM_KEYUSE_ANY. The default value for keyAttributes defaults is
  * CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE; the CSSM_KEYATTR_PERMANENT 
  * bit is also added to the default if a non-NULL importKeychain is provided. 

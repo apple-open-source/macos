@@ -1,0 +1,12 @@
+本論壇發言須經您的核准 :
+
+    List(論壇名稱)	:	%(listname)s@%(hostname)s
+    From(發信人)	: 	%(sender)s
+    Subject(標題)	:	%(subject)s
+    Reason(留置原因):	%(reason)s
+
+為便利您作業起見 , 請到 :
+
+    %(admindb_url)s
+        
+允許或拒絕發言申請 .

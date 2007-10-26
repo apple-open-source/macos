@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -30,9 +30,20 @@
 #include <stdio.h>
 #include <ctype.h>
 
-#if defined(WIN32) || defined(U_CYGWIN)
+#if defined(U_WINDOWS) || defined(U_CYGWIN)
 #include <io.h>
 #include <fcntl.h>
+#define USE_FILENO_BINARY_MODE 1
+/* Windows likes to rename Unix-like functions */
+#ifndef fileno
+#define fileno _fileno
+#endif
+#ifndef setmode
+#define setmode _setmode
+#endif
+#ifndef O_BINARY
+#define O_BINARY _O_BINARY
+#endif
 #endif
 
 #define DERB_VERSION "1.0"
@@ -44,8 +55,6 @@ static UConverter *defaultConverter = 0;
 static const int32_t indentsize = 4;
 static int32_t truncsize = DERB_DEFAULT_TRUNC;
 static UBool trunc = FALSE;
-
-static const UChar baderror[] = { 0x0042, 0x0041, 0x0044, 0x0000 };
 
 static const char *getEncodingName(const char *encoding);
 static void reportError(const char *pname, UErrorCode *status, const char *when);
@@ -94,9 +103,9 @@ main(int argc, char* argv[]) {
 
     /* Get the name of tool. */
     pname = uprv_strrchr(*argv, U_FILE_SEP_CHAR);
-#ifdef WIN32
+#if U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR
     if (!pname) {
-        pname = uprv_strrchr(*argv, '/');
+        pname = uprv_strrchr(*argv, U_FILE_ALT_SEP_CHAR);
     }
 #endif
     if (!pname) {
@@ -208,36 +217,47 @@ main(int argc, char* argv[]) {
         }
 
         p = uprv_strrchr(arg, U_FILE_SEP_CHAR);
+#if U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR
+        if (p == NULL) {
+            p = uprv_strrchr(arg, U_FILE_ALT_SEP_CHAR);
+        }
+#endif
         if (!p) {
             p = arg;
         } else {
-          p++;
+            p++;
         }
         q = uprv_strrchr(p, '.');
         if (!q) {
-            for (q = p; *q; ++q);
+            for (q = p; *q; ++q)
+                ;
         }
         uprv_strncpy(locale, p, q - p);
         locale[q - p] = 0;
 
         if (!(fromICUData = !uprv_strcmp(inputDir, "-"))) {
             UBool absfilename = *arg == U_FILE_SEP_CHAR;
-#ifdef WIN32
+#ifdef U_WINDOWS
             if (!absfilename) {
                 absfilename = (uprv_strlen(arg) > 2 && isalpha(arg[0])
-                  && arg[1] == ':' && arg[2] == U_FILE_SEP_CHAR);
+                    && arg[1] == ':' && arg[2] == U_FILE_SEP_CHAR);
             }
 #endif
             if (absfilename) {
                 thename = arg;
             } else {
-              q = uprv_strrchr(arg, U_FILE_SEP_CHAR);
-              uprv_strcpy(infile, inputDir);
-              if(q != NULL) {
-                uprv_strcat(infile, U_FILE_SEP_STRING),
-                strncat(infile, arg, q-arg);
-              }
-              thename = infile;
+                q = uprv_strrchr(arg, U_FILE_SEP_CHAR);
+#if U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR
+                if (q == NULL) {
+                    q = uprv_strrchr(arg, U_FILE_ALT_SEP_CHAR);
+                }
+#endif
+                uprv_strcpy(infile, inputDir);
+                if(q != NULL) {
+                    uprv_strcat(infile, U_FILE_SEP_STRING);
+                    strncat(infile, arg, q-arg);
+                }
+                thename = infile;
             }
         }
         status = U_ZERO_ERROR;
@@ -255,9 +275,9 @@ main(int argc, char* argv[]) {
             if (!locale || !tostdout) {
                 filename = uprv_strrchr(arg, U_FILE_SEP_CHAR);
 
-#ifdef WIN32
+#if U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR
                 if (!filename) {
-                    filename = uprv_strrchr(arg, '/');
+                    filename = uprv_strrchr(arg, U_FILE_ALT_SEP_CHAR);
                 }
 #endif
                 if (!filename) {
@@ -273,8 +293,8 @@ main(int argc, char* argv[]) {
 
             if (tostdout) {
                 out = stdout;
-#if defined(WIN32) || defined(U_CYGWIN)
-                if (_setmode(_fileno(out), _O_BINARY) == -1) {
+#if defined(U_WINDOWS) || defined(U_CYGWIN)
+                if (setmode(fileno(out), O_BINARY) == -1) {
                     fprintf(stderr, "%s: couldn't set standard output to binary mode\n", pname);
                     return 4;
                 }
@@ -336,7 +356,8 @@ main(int argc, char* argv[]) {
             if (out != stdout) {
                 fclose(out);
             }
-        } else {
+        }
+        else {
             reportError(pname, &status, "opening resource file");
         }
 

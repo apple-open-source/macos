@@ -2,8 +2,11 @@
 	<dir.h> -- definitions for 4.2BSD-compatible directory access
 
 	last edit:	09-Jul-1983	D A Gwyn
-*/
 
+ * The code here is forced by the interface, and is not subject to
+ * copyright, constituting the only possible expression of the
+ * algorithm in this format.
+ */
 #ifdef VMS
 #ifndef FAB$C_BID
 #include <fab.h>
@@ -53,3 +56,6 @@ extern void		seekdir();
 extern void		closedir();
 
 #define rewinddir( dirp )	seekdir( dirp, 0L )
+
+/* arch-tag: aea50570-ffb7-43fd-b423-7743b10fbe6e
+   (do not change this comment) */

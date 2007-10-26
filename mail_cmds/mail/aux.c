@@ -258,8 +258,11 @@ istrncpy(dest, src, dsize)
 {
 
 	strlcpy(dest, src, dsize);
-	while (*dest)
-		*dest++ = tolower((unsigned char)*dest);
+	while (*dest) {
+		*dest = tolower((unsigned char)*dest);
+		*dest++;	/* Avoids optimization problem: forces
+				   increment to occur after assignment */
+	}
 }
 
 /*

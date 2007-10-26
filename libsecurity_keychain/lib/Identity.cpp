@@ -84,3 +84,10 @@ Identity::operator == (const Identity &other) const
 	// not be considered equal (according to mb)
 	return (mCertificate == other.mCertificate && mPrivateKey == other.mPrivateKey);
 }
+
+bool
+Identity::equal(SecCFObject &other)
+{
+    return (*this) == (const Identity &)other;
+}
+

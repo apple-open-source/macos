@@ -381,7 +381,7 @@ EventTraceCauseDesc TraceEvents[] = {
 
 };
 
-    #define XTRACE(x, y, z) IrDALogAdd ( x, y, z, TraceEvents, true )
+    #define XTRACE(x, y, z) IrDALogAdd ( x, y, (int)z & 0xffff, TraceEvents, true )
 #else
     #define XTRACE(x, y, z) ((void)0)
 #endif  // hasTracing && hasLAPTracing
@@ -406,7 +406,7 @@ TIrLAP *
 TIrLAP::tIrLAP(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 {
     TIrLAP *obj = new TIrLAP;
-    XTRACE(kLogCreate, (int)obj >> 16, (short)obj);
+    XTRACE(kLogCreate, (int)obj >> 16, obj);
     
     if (obj && !obj->Init(irda, myQOS, peerQOS)) {
 	obj->release();
@@ -418,7 +418,7 @@ TIrLAP::tIrLAP(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 Boolean
 TIrLAP::Init(TIrGlue *irda, TIrQOS *myQOS, TIrQOS* peerQOS)
 {
-    XTRACE(kLogInit, (int)this >> 16, (short)this);
+    XTRACE(kLogInit, (int)this >> 16, this);
     
     fState = kIrLAPDisconnectedState;       // maybe should have an invalid state here
     fConnAddr = 0;
@@ -529,7 +529,7 @@ Fail:
 void
 TIrLAP::free()
 {
-    XTRACE(kLogFree, (int)this >> 16, (short)this);
+    XTRACE(kLogFree, (int)this >> 16, this);
     
 #define FREE(x) { if (x) { (x)->release(); x = nil; } }
 	
@@ -609,11 +609,11 @@ void TIrLAP::FreeGetBuffers()
 {
     UInt32  flag, index;
     
-    XTRACE(kLogFreeGetBuffers3, fGetBufferAvail >> 16, (short)fGetBufferAvail);
+    XTRACE(kLogFreeGetBuffers3, fGetBufferAvail >> 16, fGetBufferAvail);
 	
     // Free the input buffers (allocated during connect with peer)
     for (index = 0, flag=1; index < fNumGetBuffers; index++, flag <<= 1) {
-	XTRACE(kLogFreeGetBuffers1, (int)fGetBuffers[index] >> 16, (short)fGetBuffers[index]);
+	XTRACE(kLogFreeGetBuffers1, (int)fGetBuffers[index] >> 16, fGetBuffers[index]);
 	XTRACE(kLogFreeGetBuffers2, flag, index);
 	
 	check(fGetBuffers[index]);
@@ -627,7 +627,7 @@ void TIrLAP::FreeGetBuffers()
 	    // if it's in use as fInputBuffer then it won't have it's avail flag set
 	    // but we can free it anyway since we own it (wasn't sent up the stack) 
 	    if (fInputBuffer == fGetBuffers[index]) {
-		XTRACE(kLogFreeGetBuffers4, (int)fInputBuffer >> 16, (short)fInputBuffer);
+		XTRACE(kLogFreeGetBuffers4, (int)fInputBuffer >> 16, fInputBuffer);
 		fInputBuffer = nil;
 		fGetBuffers[index]->Delete();               // release the buffer
 	    }
@@ -1033,8 +1033,8 @@ void TIrLAP::HandleQueryStateEvent(ULong event)
 			}
 		    }
 		    else {
-			XTRACE(kLogMyAddr, fMyDevAddr >> 16, (short)fMyDevAddr);
-			XTRACE(kLogGotAddr, xidRsp.fDstDevAddr >> 16, (short)xidRsp.fDstDevAddr);
+			XTRACE(kLogMyAddr, fMyDevAddr >> 16, fMyDevAddr);
+			XTRACE(kLogGotAddr, xidRsp.fDstDevAddr >> 16, xidRsp.fDstDevAddr);
 			XTRACE(kLogFailedThird, 0, 0);
 			DebugLog(" failed 3rd");
 		    }
@@ -2925,7 +2925,7 @@ void TIrLAP::ConnLstnComplete(IrDAErr result)
 {
     // Let the initiator know that the connect/listen has completed
     TIrConnLstnReply* connLstnReply = (TIrConnLstnReply*)fCurrentRequest;
-    XTRACE(kConnLstnComplete, fPeerDevAddr >> 16, (short)fPeerDevAddr);
+    XTRACE(kConnLstnComplete, fPeerDevAddr >> 16, fPeerDevAddr);
     fCurrentRequest = nil;
     //XASSERT(connLstnReply != nil);    // jdg, this can happen if we're not doing much and get connected to
     if (connLstnReply) {            // jdg - if there was a current request (can be listen, connect or discover)
@@ -3172,7 +3172,7 @@ void TIrLAP::StartDataReceive()
     if (fInputBuffer) {                 // if non-nil, then we already have a getbuffer
 					// and reuse the current input buffer
 	inputBuffer = fInputBuffer;
-	XTRACE( kReusingBuffer, (int)fInputBuffer >> 16, (short)fInputBuffer );
+	XTRACE( kReusingBuffer, (int)fInputBuffer >> 16, fInputBuffer );
     }
 
     else {
@@ -3188,7 +3188,7 @@ void TIrLAP::StartDataReceive()
 		fGetBufferAvail &= ~flags;              // allocate the buffer
 		inputBuffer = fGetBuffers[index];
 		//fNeedNewInputBuffer = false;
-		XTRACE(kLogStartDataRcv1, (int)inputBuffer >> 16, (short)inputBuffer);
+		XTRACE(kLogStartDataRcv1, (int)inputBuffer >> 16, inputBuffer);
 		XTRACE(kLogStartDataRcv2, flags, index);
 		break;
 	    }
@@ -3196,7 +3196,7 @@ void TIrLAP::StartDataReceive()
     }
 
     if (inputBuffer == fIOBufferItem )      // debugging only
-	XTRACE( kUsingDefaultBuffer, (int)fIOBufferItem >> 16, (short)fIOBufferItem );
+	XTRACE( kUsingDefaultBuffer, (int)fIOBufferItem >> 16, fIOBufferItem );
 
     require(inputBuffer, Bogus);
     StartInput(inputBuffer);
@@ -3217,7 +3217,7 @@ void TIrLAP::ReleaseInputBuffer(CBufferSegment* inputBuffer)
     ULong index;
     Boolean bufferFound = false;
     
-    XTRACE(kLogReleaseInputBuffer, (int)inputBuffer >> 16, (short)inputBuffer);
+    XTRACE(kLogReleaseInputBuffer, (int)inputBuffer >> 16, inputBuffer);
 
     // Find the buffer
     for (index = 0, flags = 1; index < fNumGetBuffers; index++, flags <<= 1) {
@@ -3723,8 +3723,8 @@ void TIrLAP::StopOutput()
 //--------------------------------------------------------------------------------
 void TIrLAP::StartInput(CBufferSegment* inputBuffer)
 {
-    XTRACE(kLogStartInput, (int)inputBuffer >> 16, (short)inputBuffer);
-    XTRACE(kLogStartInput2, (int)fInputBuffer >> 16, (short)fInputBuffer);
+    XTRACE(kLogStartInput, (int)inputBuffer >> 16, inputBuffer);
+    XTRACE(kLogStartInput2, (int)fInputBuffer >> 16, fInputBuffer);
     
     require(inputBuffer, Bogus);        // shouldn't ever happen
     //Boolean localBusy = fLocalBusy || fSetLocalBusyPending;

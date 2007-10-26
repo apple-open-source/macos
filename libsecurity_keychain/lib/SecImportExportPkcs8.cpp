@@ -46,7 +46,7 @@
 #include <security_pkcs12/pkcs12Crypto.h>
 #include <security_asn1/SecNssCoder.h>
 #include <Security/keyTemplates.h>	
-#include <Security/asn1Templates.h>	
+#include <Security/SecAsn1Templates.h>	
 #include <Security/secasn1t.h>
 #include <security_asn1/nssUtils.h>
 #include <security_utilities/debugging.h>
@@ -708,7 +708,7 @@ OSStatus impExpPkcs8Import(
 		/* passphrase mandatory */
 		return errSecPassphraseRequired;
 	}
-	assert(cspHand != NULL);
+	assert(cspHand != 0);
 	
 	/*
 	 * Top-level decode 
@@ -801,6 +801,7 @@ OSStatus impExpPkcs8Import(
 		flags,
 		keyParams,
 		&unwrapParams,
+		NULL,			// default label 
 		outArray);
 	CSSM_FreeKey(cspHand, NULL, &unwrappingKey, CSSM_FALSE);
 	return crtn;
@@ -942,7 +943,7 @@ OSStatus impExpPkcs8Export(
 	
 	crtn = impExpExportKeyCommon(cspdlHand, secKey, &wrappingKey, &wrappedKey,
 		CSSM_ALGID_3DES_3KEY_EDE, CSSM_ALGMODE_CBCPadIV8, CSSM_PADDING_PKCS7,
-		CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8, formatAttrType, blobForm, &rawIv);
+		CSSM_KEYBLOB_WRAPPED_FORMAT_PKCS8, formatAttrType, blobForm, NULL, &rawIv);
 	if(crtn) {
 		goto errOut;
 	}

@@ -1,5 +1,6 @@
 /* machine description file for SEQUENT SYMMETRY machines
-   Copyright (C) 1985, 1986 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,21 +16,21 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* CHANGE: [Eric H. Herrin II; eric@ms.uky.edu - 15 Sept 1988] 
- * Modified the sequent.h file for the Sequent Symmetry machine.   
- * Biggest change was to align the sections in the a.out to 4K 
+/* CHANGE: [Eric H. Herrin II; eric@ms.uky.edu - 15 Sept 1988]
+ * Modified the sequent.h file for the Sequent Symmetry machine.
+ * Biggest change was to align the sections in the a.out to 4K
  * boundaries (this is the page size).
  */
 
 
 /* NOTICE: this file works for DYNIX release 3.0.12 on Sequent Symmetry
  * (Intel 80386) machines.  Hasn't been tested on anything else.
- */ 
+ */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="bsd4-3"  */
 
@@ -43,16 +44,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define	FSCALE	1000.0
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
-
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
-/*#define HAVE_ALLOCA*/
 
 /* Name of file the to look in
    for the kernel symbol table (for load average) */
@@ -99,3 +90,6 @@ Boston, MA 02111-1307, USA.  */
   sprintf (pty_name, "/dev/pty%c%c", PTY_MAJOR[ma], PTY_MINOR[mi]);
 #define PTY_TTY_NAME_SPRINTF \
   sprintf (pty_name, "/dev/tty%c%c", PTY_MAJOR[ma], PTY_MINOR[mi]);
+
+/* arch-tag: 4169a89e-3764-4147-98df-1ba3bdd45a5b
+   (do not change this comment) */

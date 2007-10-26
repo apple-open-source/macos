@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2003, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -185,7 +185,7 @@ removeoldleaves()
 	register ino_t i, mydirino;
 
 	vprintf(stdout, "Mark entries to be removed.\n");
-	if (ep = lookupino(WINO)) {
+	if ((ep = lookupino(WINO))) {
 		vprintf(stdout, "Delete whiteouts\n");
 		for ( ; ep != NULL; ep = nextep) {
 			nextep = ep->e_links;
@@ -791,7 +791,7 @@ createlinks()
 	register ino_t i;
 	char name[BUFSIZ];
 
-	if (ep = lookupino(WINO)) {
+	if ((ep = lookupino(WINO))) {
 		vprintf(stdout, "Add whiteouts\n");
 		for ( ; ep != NULL; ep = ep->e_links) {
 			if ((ep->e_flags & NEW) == 0)

@@ -5,6 +5,7 @@
    Copyright (C) Andrew Tridgell 1992-2001
    Copyright (C) Simo Sorce      2001-2002
    Copyright (C) Martin Pool     2003
+   Copyright (C) James Peach	 2006
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,13 +30,18 @@
  **/
 
 /**
- * Get the next token from a string, return False if none found.
- * Handles double-quotes.
- * 
+ * Internal function to get the next token from a string, return False if none
+ * found.  Handles double-quotes.  This is the work horse function called by
+ * next_token() and next_token_no_ltrim().
+ *
  * Based on a routine by GJC@VILLAGE.COM. 
  * Extensively modified by Andrew.Tridgell@anu.edu.au
- **/
-BOOL next_token(const char **ptr,char *buff, const char *sep, size_t bufsize)
+ */
+static BOOL next_token_internal(const char **ptr,
+                                char *buff,
+                                const char *sep,
+                                size_t bufsize,
+                                BOOL ltrim)
 {
 	char *s;
 	char *pbuf;
@@ -51,9 +57,11 @@ BOOL next_token(const char **ptr,char *buff, const char *sep, size_t bufsize)
 	if (!sep)
 		sep = " \t\n\r";
 
-	/* find the first non sep char */
-	while (*s && strchr_m(sep,*s))
-		s++;
+	/* find the first non sep char, if left-trimming is requested */
+	if (ltrim) {
+		while (*s && strchr_m(sep,*s))
+			s++;
+	}
 	
 	/* nothing left? */
 	if (! *s)
@@ -74,6 +82,29 @@ BOOL next_token(const char **ptr,char *buff, const char *sep, size_t bufsize)
 	*pbuf = 0;
 	
 	return(True);
+}
+
+/*
+ * Get the next token from a string, return False if none found.  Handles
+ * double-quotes.  This version trims leading separator characters before
+ * looking for a token.
+ */
+BOOL next_token(const char **ptr, char *buff, const char *sep, size_t bufsize)
+{
+    return next_token_internal(ptr, buff, sep, bufsize, True);
+}
+
+/*
+ * Get the next token from a string, return False if none found.  Handles
+ * double-quotes.  This version does not trim leading separator characters
+ * before looking for a token.
+ */
+BOOL next_token_no_ltrim(const char **ptr,
+                         char *buff,
+                         const char *sep,
+                         size_t bufsize)
+{
+    return next_token_internal(ptr, buff, sep, bufsize, False);
 }
 
 /**
@@ -183,7 +214,7 @@ char **toktocliplist(int *ctok, const char *sep)
 int StrCaseCmp(const char *s, const char *t)
 {
 
-	const char * ps, * pt;
+	const char *ps, *pt;
 	size_t size;
 	smb_ucs2_t *buffer_s, *buffer_t;
 	int ret;
@@ -201,8 +232,8 @@ int StrCaseCmp(const char *s, const char *t)
 			/* not ascii anymore, do it the hard way from here on in */
 			break;
 
-		us = toupper(*ps);
-		ut = toupper(*pt);
+		us = toupper_ascii(*ps);
+		ut = toupper_ascii(*pt);
 		if (us == ut)
 			continue;
 		else if (us < ut)
@@ -211,17 +242,17 @@ int StrCaseCmp(const char *s, const char *t)
 			return +1;
 	}
 
-	size = push_ucs2_allocate(&buffer_s, s);
+	size = push_ucs2_allocate(&buffer_s, ps);
 	if (size == (size_t)-1) {
-		return strcmp(s, t); 
+		return strcmp(ps, pt); 
 		/* Not quite the right answer, but finding the right one
 		   under this failure case is expensive, and it's pretty close */
 	}
 	
-	size = push_ucs2_allocate(&buffer_t, t);
+	size = push_ucs2_allocate(&buffer_t, pt);
 	if (size == (size_t)-1) {
 		SAFE_FREE(buffer_s);
-		return strcmp(s, t); 
+		return strcmp(ps, pt); 
 		/* Not quite the right answer, but finding the right one
 		   under this failure case is expensive, and it's pretty close */
 	}
@@ -266,12 +297,12 @@ BOOL strequal(const char *s1, const char *s2)
  **/
 BOOL strnequal(const char *s1,const char *s2,size_t n)
 {
-  if (s1 == s2)
-	  return(True);
-  if (!s1 || !s2 || !n)
-	  return(False);
+	if (s1 == s2)
+		return(True);
+	if (!s1 || !s2 || !n)
+		return(False);
   
-  return(StrnCaseCmp(s1,s2,n)==0);
+	return(StrnCaseCmp(s1,s2,n)==0);
 }
 
 /**
@@ -280,12 +311,12 @@ BOOL strnequal(const char *s1,const char *s2,size_t n)
 
 BOOL strcsequal(const char *s1,const char *s2)
 {
-  if (s1 == s2)
-	  return(True);
-  if (!s1 || !s2)
-	  return(False);
+	if (s1 == s2)
+		return(True);
+	if (!s1 || !s2)
+		return(False);
   
-  return(strcmp(s1,s2)==0);
+	return(strcmp(s1,s2)==0);
 }
 
 /**
@@ -309,7 +340,7 @@ int strwicmp(const char *psz1, const char *psz2)
 			psz1++;
 		while (isspace((int)*psz2))
 			psz2++;
-		if (toupper(*psz1) != toupper(*psz2) || *psz1 == '\0'
+		if (toupper_ascii(*psz1) != toupper_ascii(*psz2) || *psz1 == '\0'
 		    || *psz2 == '\0')
 			break;
 		psz1++;
@@ -363,16 +394,16 @@ BOOL strisnormal(const char *s, int case_default)
  NOTE: oldc and newc must be 7 bit characters
 **/
 
-void string_replace(pstring s,char oldc,char newc)
+void string_replace( pstring s, char oldc, char newc )
 {
-	unsigned char *p;
+	char *p;
 
 	/* this is quite a common operation, so we want it to be
 	   fast. We optimise for the ascii case, knowing that all our
 	   supported multi-byte character sets are ascii-compatible
 	   (ie. they match for the first 128 chars) */
 
-	for (p = (unsigned char *)s; *p; p++) {
+	for (p = s; *p; p++) {
 		if (*p & 0x80) /* mb string - slow path. */
 			break;
 		if (*p == oldc)
@@ -393,14 +424,39 @@ void string_replace(pstring s,char oldc,char newc)
 }
 
 /**
- Skip past some strings in a buffer.
+ *  Skip past some strings in a buffer - old version - no checks.
+ *  **/
+
+char *push_skip_string(char *buf)
+{
+	buf += strlen(buf) + 1;
+	return(buf);
+}
+
+/**
+ Skip past a string in a buffer. Buffer may not be
+ null terminated. end_ptr points to the first byte after
+ then end of the buffer.
 **/
 
-char *skip_string(char *buf,size_t n)
+char *skip_string(const char *base, size_t len, char *buf)
 {
-	while (n--)
-		buf += strlen(buf) + 1;
-	return(buf);
+	const char *end_ptr = base + len;
+
+	if (end_ptr < base || !base || !buf || buf >= end_ptr) {
+		return NULL;
+	}
+
+	/* Skip the string */
+	while (*buf) {
+		buf++;
+		if (buf >= end_ptr) {
+			return NULL;
+		}
+	}
+	/* Skip the '\0' */
+	buf++;
+	return buf;
 }
 
 /**
@@ -680,7 +736,7 @@ char *alpha_strcpy_fn(const char *fn, int line, char *dest, const char *src, con
 
 	for(i = 0; i < len; i++) {
 		int val = (src[i] & 0xff);
-		if (isupper(val) || islower(val) || isdigit(val) || strchr_m(other_safe_chars, val))
+		if (isupper_ascii(val) || islower_ascii(val) || isdigit(val) || strchr_m(other_safe_chars, val))
 			dest[i] = src[i];
 		else
 			dest[i] = '_';
@@ -774,12 +830,12 @@ size_t strhex_to_str(char *p, size_t len, const char *strhex)
 			continue;
 		}
 
-		if (!(p1 = strchr_m(hexchars, toupper(strhex[i]))))
+		if (!(p1 = strchr_m(hexchars, toupper_ascii(strhex[i]))))
 			break;
 
 		i++; /* next hex digit */
 
-		if (!(p2 = strchr_m(hexchars, toupper(strhex[i]))))
+		if (!(p2 = strchr_m(hexchars, toupper_ascii(strhex[i]))))
 			break;
 
 		/* get the two nybbles */
@@ -795,11 +851,16 @@ size_t strhex_to_str(char *p, size_t len, const char *strhex)
 	return num_chars;
 }
 
-DATA_BLOB strhex_to_data_blob(const char *strhex) 
+DATA_BLOB strhex_to_data_blob(TALLOC_CTX *mem_ctx, const char *strhex) 
 {
-	DATA_BLOB ret_blob = data_blob(NULL, strlen(strhex)/2+1);
+	DATA_BLOB ret_blob;
 
-	ret_blob.length = strhex_to_str(ret_blob.data, 	
+	if (mem_ctx != NULL)
+		ret_blob = data_blob_talloc(mem_ctx, NULL, strlen(strhex)/2+1);
+	else
+		ret_blob = data_blob(NULL, strlen(strhex)/2+1);
+
+	ret_blob.length = strhex_to_str((char*)ret_blob.data, 	
 					strlen(strhex), 
 					strhex);
 
@@ -810,23 +871,24 @@ DATA_BLOB strhex_to_data_blob(const char *strhex)
  * Routine to print a buffer as HEX digits, into an allocated string.
  */
 
-void hex_encode(const unsigned char *buff_in, size_t len, char **out_hex_buffer)
+char *hex_encode(TALLOC_CTX *mem_ctx, const unsigned char *buff_in, size_t len)
 {
 	int i;
 	char *hex_buffer;
 
-	*out_hex_buffer = SMB_XMALLOC_ARRAY(char, (len*2)+1);
-	hex_buffer = *out_hex_buffer;
+	hex_buffer = TALLOC_ARRAY(mem_ctx, char, (len*2)+1);
 
 	for (i = 0; i < len; i++)
 		slprintf(&hex_buffer[i*2], 3, "%02X", buff_in[i]);
+
+	return hex_buffer;
 }
 
 /**
  Check if a string is part of a list.
 **/
 
-BOOL in_list(char *s,char *list,BOOL casesensitive)
+BOOL in_list(const char *s, const char *list, BOOL casesensitive)
 {
 	pstring tok;
 	const char *p=list;
@@ -847,7 +909,7 @@ BOOL in_list(char *s,char *list,BOOL casesensitive)
 }
 
 /* this is used to prevent lots of mallocs of size 1 */
-static char *null_string = NULL;
+static const char *null_string = "";
 
 /**
  Set a string value, allocing the space for the string
@@ -856,20 +918,14 @@ static char *null_string = NULL;
 static BOOL string_init(char **dest,const char *src)
 {
 	size_t l;
+
 	if (!src)     
 		src = "";
 
 	l = strlen(src);
 
 	if (l == 0) {
-		if (!null_string) {
-			if((null_string = (char *)SMB_MALLOC(1)) == NULL) {
-				DEBUG(0,("string_init: malloc fail for null_string.\n"));
-				return False;
-			}
-			*null_string = 0;
-		}
-		*dest = null_string;
+		*dest = CONST_DISCARD(char*, null_string);
 	} else {
 		(*dest) = SMB_STRDUP(src);
 		if ((*dest) == NULL) {
@@ -909,14 +965,15 @@ BOOL string_set(char **dest,const char *src)
  enough room!
 
  This routine looks for pattern in s and replaces it with 
- insert. It may do multiple replacements.
+ insert. It may do multiple replacements or just one.
 
  Any of " ; ' $ or ` in the insert string are replaced with _
  if len==0 then the string cannot be extended. This is different from the old
  use of len==0 which was for no length checks to be done.
 **/
 
-void string_sub(char *s,const char *pattern, const char *insert, size_t len)
+void string_sub2(char *s,const char *pattern, const char *insert, size_t len, 
+		 BOOL remove_unsafe_characters, BOOL replace_once, BOOL allow_trailing_dollar)
 {
 	char *p;
 	ssize_t ls,lp,li, i;
@@ -948,18 +1005,40 @@ void string_sub(char *s,const char *pattern, const char *insert, size_t len)
 			case '\'':
 			case ';':
 			case '$':
+				/* allow a trailing $ (as in machine accounts) */
+				if (allow_trailing_dollar && (i == li - 1 )) {
+					p[i] = insert[i];
+					break;
+				}
 			case '%':
 			case '\r':
 			case '\n':
-				p[i] = '_';
-				break;
+				if ( remove_unsafe_characters ) {
+					p[i] = '_';
+					/* yes this break should be here since we want to 
+					   fall throw if not replacing unsafe chars */
+					break;
+				}
 			default:
 				p[i] = insert[i];
 			}
 		}
 		s = p + li;
 		ls += (li-lp);
+
+		if (replace_once)
+			break;
 	}
+}
+
+void string_sub_once(char *s, const char *pattern, const char *insert, size_t len)
+{
+	string_sub2( s, pattern, insert, len, True, True, False );
+}
+
+void string_sub(char *s,const char *pattern, const char *insert, size_t len)
+{
+	string_sub2( s, pattern, insert, len, True, False, False );
 }
 
 void fstring_sub(char *s,const char *pattern,const char *insert)
@@ -979,7 +1058,8 @@ void pstring_sub(char *s,const char *pattern,const char *insert)
  as string.
 **/
 
-char *realloc_string_sub(char *string, const char *pattern, const char *insert)
+char *realloc_string_sub(char *string, const char *pattern,
+			 const char *insert)
 {
 	char *p, *in;
 	char *s;
@@ -1019,14 +1099,84 @@ char *realloc_string_sub(char *string, const char *pattern, const char *insert)
 	while ((p = strstr_m(s,pattern))) {
 		if (ld > 0) {
 			int offset = PTR_DIFF(s,string);
-			char *t = SMB_REALLOC(string, ls + ld + 1);
-			if (!t) {
+			string = (char *)SMB_REALLOC(string, ls + ld + 1);
+			if (!string) {
 				DEBUG(0, ("realloc_string_sub: out of memory!\n"));
 				SAFE_FREE(in);
 				return NULL;
 			}
-			string = t;
-			p = t + offset + (p - s);
+			p = string + offset + (p - s);
+		}
+		if (li != lp) {
+			memmove(p+li,p+lp,strlen(p+lp)+1);
+		}
+		memcpy(p, in, li);
+		s = p + li;
+		ls += ld;
+	}
+	SAFE_FREE(in);
+	return string;
+}
+
+/* Same as string_sub, but returns a talloc'ed string */
+
+char *talloc_string_sub(TALLOC_CTX *mem_ctx, const char *src,
+			const char *pattern, const char *insert)
+{
+	char *p, *in;
+	char *s;
+	char *string;
+	ssize_t ls,lp,li,ld, i;
+
+	if (!insert || !pattern || !*pattern || !src || !*src)
+		return NULL;
+
+	string = talloc_strdup(mem_ctx, src);
+	if (string == NULL) {
+		DEBUG(0, ("talloc_strdup failed\n"));
+		return NULL;
+	}
+
+	s = string;
+
+	in = SMB_STRDUP(insert);
+	if (!in) {
+		DEBUG(0, ("talloc_string_sub: out of memory!\n"));
+		return NULL;
+	}
+	ls = (ssize_t)strlen(s);
+	lp = (ssize_t)strlen(pattern);
+	li = (ssize_t)strlen(insert);
+	ld = li - lp;
+	for (i=0;i<li;i++) {
+		switch (in[i]) {
+			case '`':
+			case '"':
+			case '\'':
+			case ';':
+			case '$':
+			case '%':
+			case '\r':
+			case '\n':
+				in[i] = '_';
+			default:
+				/* ok */
+				break;
+		}
+	}
+	
+	while ((p = strstr_m(s,pattern))) {
+		if (ld > 0) {
+			int offset = PTR_DIFF(s,string);
+			string = (char *)TALLOC_REALLOC(mem_ctx, string,
+							ls + ld + 1);
+			if (!string) {
+				DEBUG(0, ("talloc_string_sub: out of "
+					  "memory!\n"));
+				SAFE_FREE(in);
+				return NULL;
+			}
+			p = string + offset + (p - s);
 		}
 		if (li != lp) {
 			memmove(p+li,p+lp,strlen(p+lp)+1);
@@ -1334,7 +1484,7 @@ char *strstr_m(const char *src, const char *findstr)
 
 	/* for correctness */
 	if (!findstr[0]) {
-		return src;
+		return (char*)src;
 	}
 
 	/* Samba does single character findstr calls a *lot*. */
@@ -1414,7 +1564,7 @@ void strlower_m(char *s)
 	   (ie. they match for the first 128 chars) */
 
 	while (*s && !(((unsigned char)s[0]) & 0x80)) {
-		*s = tolower((unsigned char)*s);
+		*s = tolower_ascii((unsigned char)*s);
 		s++;
 	}
 
@@ -1448,7 +1598,7 @@ void strupper_m(char *s)
 	   (ie. they match for the first 128 chars) */
 
 	while (*s && !(((unsigned char)s[0]) & 0x80)) {
-		*s = toupper((unsigned char)*s);
+		*s = toupper_ascii((unsigned char)*s);
 		s++;
 	}
 
@@ -1468,17 +1618,87 @@ void strupper_m(char *s)
 }
 
 /**
+ Count the number of UCS2 characters in a string. Normally this will
+ be the same as the number of bytes in a string for single byte strings,
+ but will be different for multibyte.
+**/
+
+size_t strlen_m(const char *s)
+{
+	size_t count = 0;
+
+	if (!s) {
+		return 0;
+	}
+
+	while (*s && !(((uint8_t)*s) & 0x80)) {
+		s++;
+		count++;
+	}
+
+	if (!*s) {
+		return count;
+	}
+
+	while (*s) {
+		size_t c_size;
+		codepoint_t c = next_codepoint(s, &c_size);
+		if (c < 0x10000) {
+			/* Unicode char fits into 16 bits. */
+			count += 1;
+		} else {
+			/* Double-width unicode char - 32 bits. */
+			count += 2;
+		}
+		s += c_size;
+	}
+
+	return count;
+}
+
+/**
+ Count the number of UCS2 characters in a string including the null
+ terminator.
+**/
+
+size_t strlen_m_term(const char *s)
+{
+	if (!s) {
+		return 0;
+	}
+	return strlen_m(s) + 1;
+}
+
+/*
+ * Weird helper routine for the winreg pipe: If nothing is around, return 0,
+ * if a string is there, include the terminator.
+ */
+
+size_t strlen_m_term_null(const char *s)
+{
+	size_t len;
+	if (!s) {
+		return 0;
+	}
+	len = strlen_m(s);
+	if (len == 0) {
+		return 0;
+	}
+
+	return len+1;
+}
+/**
  Return a RFC2254 binary string representation of a buffer.
  Used in LDAP filters.
  Caller must free.
 **/
 
-char *binary_string(char *buf, int len)
+char *binary_string_rfc2254(char *buf, int len)
 {
 	char *s;
 	int i, j;
 	const char *hex = "0123456789ABCDEF";
-	s = SMB_MALLOC(len * 3 + 1);
+	s = (char *)SMB_MALLOC(len * 3 + 1);
 	if (!s)
 		return NULL;
 	for (j=i=0;i<len;i++) {
@@ -1491,6 +1711,22 @@ char *binary_string(char *buf, int len)
 	return s;
 }
 
+char *binary_string(char *buf, int len)
+{
+	char *s;
+	int i, j;
+	const char *hex = "0123456789ABCDEF";
+	s = (char *)SMB_MALLOC(len * 2 + 1);
+	if (!s)
+		return NULL;
+	for (j=i=0;i<len;i++) {
+		s[j]   = hex[((unsigned char)buf[i]) >> 4];
+		s[j+1] = hex[((unsigned char)buf[i]) & 0xF];
+		j += 2;
+	}
+	s[j] = 0;
+	return s;
+}
 /**
  Just a typesafety wrapper for snprintf into a pstring.
 **/
@@ -1522,48 +1758,13 @@ int fstr_sprintf(fstring s, const char *fmt, ...)
 	return ret;
 }
 
-
-#if !defined(HAVE_STRNDUP) || defined(BROKEN_STRNDUP)
-/**
- Some platforms don't have strndup.
-**/
-
- char *strndup(const char *s, size_t n)
-{
-	char *ret;
-	
-	n = strnlen(s, n);
-	ret = SMB_MALLOC(n+1);
-	if (!ret)
-		return NULL;
-	memcpy(ret, s, n);
-	ret[n] = 0;
-
-	return ret;
-}
-#endif
-
-#if !defined(HAVE_STRNLEN) || defined(BROKEN_STRNLEN)
-/**
- Some platforms don't have strnlen
-**/
-
- size_t strnlen(const char *s, size_t n)
-{
-	int i;
-	for (i=0; s[i] && i<n; i++)
-		/* noop */ ;
-	return i;
-}
-#endif
-
 /**
  List of Strings manipulation functions
 **/
 
 #define S_LIST_ABS 16 /* List Allocation Block Size */
 
-char **str_list_make(const char *string, const char *sep)
+static char **str_list_make_internal(TALLOC_CTX *mem_ctx, const char *string, const char *sep)
 {
 	char **list, **rlist;
 	const char *str;
@@ -1573,7 +1774,11 @@ char **str_list_make(const char *string, const char *sep)
 	
 	if (!string || !*string)
 		return NULL;
-	s = SMB_STRDUP(string);
+	if (mem_ctx) {
+		s = talloc_strdup(mem_ctx, string);
+	} else {
+		s = SMB_STRDUP(string);
+	}
 	if (!s) {
 		DEBUG(0,("str_list_make: Unable to allocate memory"));
 		return NULL;
@@ -1587,30 +1792,65 @@ char **str_list_make(const char *string, const char *sep)
 	while (next_token(&str, tok, sep, sizeof(tok))) {		
 		if (num == lsize) {
 			lsize += S_LIST_ABS;
-			rlist = SMB_REALLOC_ARRAY(list, char *, lsize +1);
+			if (mem_ctx) {
+				rlist = TALLOC_REALLOC_ARRAY(mem_ctx, list, char *, lsize +1);
+			} else {
+				/* We need to keep the old list on error so we can free the elements
+				   if the realloc fails. */
+				rlist = SMB_REALLOC_ARRAY_KEEP_OLD_ON_ERROR(list, char *, lsize +1);
+			}
 			if (!rlist) {
 				DEBUG(0,("str_list_make: Unable to allocate memory"));
 				str_list_free(&list);
-				SAFE_FREE(s);
+				if (mem_ctx) {
+					TALLOC_FREE(s);
+				} else {
+					SAFE_FREE(s);
+				}
 				return NULL;
-			} else
+			} else {
 				list = rlist;
+			}
 			memset (&list[num], 0, ((sizeof(char**)) * (S_LIST_ABS +1)));
 		}
+
+		if (mem_ctx) {
+			list[num] = talloc_strdup(mem_ctx, tok);
+		} else {
+			list[num] = SMB_STRDUP(tok);
+		}
 		
-		list[num] = SMB_STRDUP(tok);
 		if (!list[num]) {
 			DEBUG(0,("str_list_make: Unable to allocate memory"));
 			str_list_free(&list);
-			SAFE_FREE(s);
+			if (mem_ctx) {
+				TALLOC_FREE(s);
+			} else {
+				SAFE_FREE(s);
+			}
 			return NULL;
 		}
 	
 		num++;	
 	}
-	
-	SAFE_FREE(s);
+
+	if (mem_ctx) {
+		TALLOC_FREE(s);
+	} else {
+		SAFE_FREE(s);
+	}
+
 	return list;
+}
+
+char **str_list_make_talloc(TALLOC_CTX *mem_ctx, const char *string, const char *sep)
+{
+	return str_list_make_internal(mem_ctx, string, sep);
+}
+
+char **str_list_make(const char *string, const char *sep)
+{
+	return str_list_make_internal(NULL, string, sep);
 }
 
 BOOL str_list_copy(char ***dest, const char **src)
@@ -1628,13 +1868,14 @@ BOOL str_list_copy(char ***dest, const char **src)
 	while (src[num]) {
 		if (num == lsize) {
 			lsize += S_LIST_ABS;
-			rlist = SMB_REALLOC_ARRAY(list, char *, lsize +1);
+			rlist = SMB_REALLOC_ARRAY_KEEP_OLD_ON_ERROR(list, char *, lsize +1);
 			if (!rlist) {
 				DEBUG(0,("str_list_copy: Unable to re-allocate memory"));
 				str_list_free(&list);
 				return False;
-			} else
+			} else {
 				list = rlist;
+			}
 			memset (&list[num], 0, ((sizeof(char **)) * (S_LIST_ABS +1)));
 		}
 		
@@ -1674,16 +1915,52 @@ BOOL str_list_compare(char **list1, char **list2)
 	return True;
 }
 
-void str_list_free(char ***list)
+static void str_list_free_internal(TALLOC_CTX *mem_ctx, char ***list)
 {
 	char **tlist;
 	
 	if (!list || !*list)
 		return;
 	tlist = *list;
-	for(; *tlist; tlist++)
-		SAFE_FREE(*tlist);
-	SAFE_FREE(*list);
+	for(; *tlist; tlist++) {
+		if (mem_ctx) {
+			TALLOC_FREE(*tlist);
+		} else {
+			SAFE_FREE(*tlist);
+		}
+	}
+	if (mem_ctx) {
+		TALLOC_FREE(*tlist);
+	} else {
+		SAFE_FREE(*list);
+	}
+}
+
+void str_list_free_talloc(TALLOC_CTX *mem_ctx, char ***list)
+{
+	str_list_free_internal(mem_ctx, list);
+}
+
+void str_list_free(char ***list)
+{
+	str_list_free_internal(NULL, list);
+}
+
+/******************************************************************************
+ *****************************************************************************/
+
+int str_list_count( const char **list )
+{
+	int i = 0;
+
+	if ( ! list )
+		return 0;
+
+	/* count the number of list members */
+	
+	for ( i=0; *list; i++, list++ );
+	
+	return i;
 }
 
 /******************************************************************************
@@ -1691,13 +1968,14 @@ void str_list_free(char ***list)
  for the work
  *****************************************************************************/
  
-BOOL str_list_sub_basic( char **list, const char *smb_name )
+BOOL str_list_sub_basic( char **list, const char *smb_name,
+			 const char *domain_name )
 {
 	char *s, *tmpstr;
 	
 	while ( *list ) {
 		s = *list;
-		tmpstr = alloc_sub_basic(smb_name, s);
+		tmpstr = alloc_sub_basic(smb_name, domain_name, s);
 		if ( !tmpstr ) {
 			DEBUG(0,("str_list_sub_basic: alloc_sub_basic() return NULL!\n"));
 			return False;
@@ -1830,7 +2108,7 @@ char* ipstr_list_make(char** ipstr_list, const struct ip_service* ip_list, int i
 	int i;
 	
 	/* arguments checking */
-	if (!ip_list && !ipstr_list) return 0;
+	if (!ip_list || !ipstr_list) return 0;
 
 	*ipstr_list = NULL;
 	
@@ -2008,10 +2286,16 @@ char * base64_encode_data_blob(DATA_BLOB data)
 {
 	int bits = 0;
 	int char_count = 0;
-	size_t out_cnt = 0;
-	size_t len = data.length;
-	size_t output_len = data.length * 2;
-	char *result = SMB_MALLOC(output_len); /* get us plenty of space */
+	size_t out_cnt, len, output_len;
+	char *result;
+
+        if (!data.length || !data.data)
+		return NULL;
+
+	out_cnt = 0;
+	len = data.length;
+	output_len = data.length * 2;
+	result = (char *)SMB_MALLOC(output_len); /* get us plenty of space */
 
 	while (len-- && out_cnt < (data.length * 2) - 5) {
 		int c = (unsigned char) *(data.data++);
@@ -2051,15 +2335,23 @@ SMB_BIG_UINT STR_TO_SMB_BIG_UINT(const char *nptr, const char **entptr)
 	SMB_BIG_UINT val = -1;
 	const char *p = nptr;
 	
-	while (p && *p && isspace(*p))
+	if (!p) {
+		if (entptr) {
+			*entptr = p;
+		}
+		return val;
+	}
+
+	while (*p && isspace(*p))
 		p++;
+
 #ifdef LARGE_SMB_OFF_T
 	sscanf(p,"%llu",&val);	
 #else /* LARGE_SMB_OFF_T */
 	sscanf(p,"%lu",&val);
 #endif /* LARGE_SMB_OFF_T */
 	if (entptr) {
-		while (p && *p && isdigit(*p))
+		while (*p && isdigit(*p))
 			p++;
 		*entptr = p;
 	}
@@ -2067,22 +2359,262 @@ SMB_BIG_UINT STR_TO_SMB_BIG_UINT(const char *nptr, const char **entptr)
 	return val;
 }
 
+/* Convert a size specification to a count of bytes. We accept the following
+ * suffixes:
+ *	    bytes if there is no suffix
+ *	kK  kibibytes
+ *	mM  mebibytes
+ *	gG  gibibytes
+ *	tT  tibibytes
+ *	pP  whatever the ISO name for petabytes is
+ *
+ *  Returns 0 if the string can't be converted.
+ */
+SMB_OFF_T conv_str_size(const char * str)
+{
+        SMB_OFF_T lval;
+	char * end;
+
+        if (str == NULL || *str == '\0') {
+                return 0;
+        }
+
+#ifdef HAVE_STRTOULL
+	if (sizeof(SMB_OFF_T) == 8) {
+	    lval = strtoull(str, &end, 10 /* base */);
+	} else {
+	    lval = strtoul(str, &end, 10 /* base */);
+	}
+#else
+	lval = strtoul(str, &end, 10 /* base */);
+#endif
+
+        if (end == NULL || end == str) {
+                return 0;
+        }
+
+        if (*end) {
+		SMB_OFF_T lval_orig = lval;
+
+                if (strwicmp(end, "K") == 0) {
+                        lval *= (SMB_OFF_T)1024;
+                } else if (strwicmp(end, "M") == 0) {
+                        lval *= ((SMB_OFF_T)1024 * (SMB_OFF_T)1024);
+                } else if (strwicmp(end, "G") == 0) {
+                        lval *= ((SMB_OFF_T)1024 * (SMB_OFF_T)1024 *
+				(SMB_OFF_T)1024);
+                } else if (strwicmp(end, "T") == 0) {
+                        lval *= ((SMB_OFF_T)1024 * (SMB_OFF_T)1024 *
+				(SMB_OFF_T)1024 * (SMB_OFF_T)1024);
+                } else if (strwicmp(end, "P") == 0) {
+                        lval *= ((SMB_OFF_T)1024 * (SMB_OFF_T)1024 *
+				(SMB_OFF_T)1024 * (SMB_OFF_T)1024 *
+				(SMB_OFF_T)1024);
+                } else {
+                        return 0;
+                }
+
+		/* Primitive attempt to detect wrapping on platforms with
+		 * 4-byte SMB_OFF_T. It's better to let the caller handle
+		 * a failure than some random number.
+		 */
+		if (lval <= lval_orig) {
+			return 0;
+		}
+        }
+
+	return lval;
+}
+
 void string_append(char **left, const char *right)
 {
 	int new_len = strlen(right) + 1;
 
 	if (*left == NULL) {
-		*left = SMB_MALLOC(new_len);
+		*left = (char *)SMB_MALLOC(new_len);
 		*left[0] = '\0';
 	} else {
 		new_len += strlen(*left);
-		*left = SMB_REALLOC(*left, new_len);
+		*left = (char *)SMB_REALLOC(*left, new_len);
 	}
 
-	if (*left == NULL)
+	if (*left == NULL) {
 		return;
+	}
 
 	safe_strcat(*left, right, new_len-1);
+}
+
+BOOL add_string_to_array(TALLOC_CTX *mem_ctx,
+			 const char *str, const char ***strings,
+			 int *num)
+{
+	char *dup_str = talloc_strdup(mem_ctx, str);
+
+	*strings = TALLOC_REALLOC_ARRAY(mem_ctx, *strings, const char *, (*num)+1);
+
+	if ((*strings == NULL) || (dup_str == NULL)) {
+		*num = 0;
+		return False;
+	}
+
+	(*strings)[*num] = dup_str;
+	*num += 1;
+	return True;
+}
+
+/* Append an sprintf'ed string. Double buffer size on demand. Usable without
+ * error checking in between. The indiation that something weird happened is
+ * string==NULL */
+
+void sprintf_append(TALLOC_CTX *mem_ctx, char **string, ssize_t *len,
+		    size_t *bufsize, const char *fmt, ...)
+{
+	va_list ap;
+	char *newstr;
+	int ret;
+	BOOL increased;
+
+	/* len<0 is an internal marker that something failed */
+	if (*len < 0)
+		goto error;
+
+	if (*string == NULL) {
+		if (*bufsize == 0)
+			*bufsize = 128;
+
+		*string = TALLOC_ARRAY(mem_ctx, char, *bufsize);
+		if (*string == NULL)
+			goto error;
+	}
+
+	va_start(ap, fmt);
+	ret = vasprintf(&newstr, fmt, ap);
+	va_end(ap);
+
+	if (ret < 0)
+		goto error;
+
+	increased = False;
+
+	while ((*len)+ret >= *bufsize) {
+		increased = True;
+		*bufsize *= 2;
+		if (*bufsize >= (1024*1024*256))
+			goto error;
+	}
+
+	if (increased) {
+		*string = TALLOC_REALLOC_ARRAY(mem_ctx, *string, char,
+					       *bufsize);
+		if (*string == NULL) {
+			goto error;
+		}
+	}
+
+	StrnCpy((*string)+(*len), newstr, ret);
+	(*len) += ret;
+	free(newstr);
+	return;
+
+ error:
+	*len = -1;
+	*string = NULL;
+}
+
+/*
+   Returns the substring from src between the first occurrence of
+   the char "front" and the first occurence of the char "back".
+   Mallocs the return string which must be freed.  Not for use
+   with wide character strings.
+*/
+char *sstring_sub(const char *src, char front, char back)
+{
+	char *temp1, *temp2, *temp3;
+	ptrdiff_t len;
+
+	temp1 = strchr(src, front);
+	if (temp1 == NULL) return NULL;
+	temp2 = strchr(src, back);
+	if (temp2 == NULL) return NULL;
+	len = temp2 - temp1;
+	if (len <= 0) return NULL;
+	temp3 = (char*)SMB_MALLOC(len);
+	if (temp3 == NULL) {
+		DEBUG(1,("Malloc failure in sstring_sub\n"));
+		return NULL;
+	}
+	memcpy(temp3, temp1+1, len-1);
+	temp3[len-1] = '\0';
+	return temp3;
+}
+
+/********************************************************************
+ Check a string for any occurrences of a specified list of invalid
+ characters.
+********************************************************************/
+
+BOOL validate_net_name( const char *name, const char *invalid_chars, int max_len )
+{
+	int i;
+
+	for ( i=0; i<max_len && name[i]; i++ ) {
+		/* fail if strchr_m() finds one of the invalid characters */
+		if ( name[i] && strchr_m( invalid_chars, name[i] ) ) {
+			return False;
+		}
+	}
+
+	return True;
+}
+
+
+/**
+return the number of bytes occupied by a buffer in ASCII format
+the result includes the null termination
+limited by 'n' bytes
+**/
+size_t ascii_len_n(const char *src, size_t n)
+{
+	size_t len;
+
+	len = strnlen(src, n);
+	if (len+1 <= n) {
+		len += 1;
+	}
+
+	return len;
+}
+
+/**
+return the number of bytes occupied by a buffer in CH_UTF16 format
+the result includes the null termination
+**/
+size_t utf16_len(const void *buf)
+{
+	size_t len;
+
+	for (len = 0; SVAL(buf,len); len += 2) ;
+
+	return len + 2;
+}
+
+/**
+return the number of bytes occupied by a buffer in CH_UTF16 format
+the result includes the null termination
+limited by 'n' bytes
+**/
+size_t utf16_len_n(const void *src, size_t n)
+{
+	size_t len;
+
+	for (len = 0; (len+2 < n) && SVAL(src, len); len += 2) ;
+
+	if (len+2 <= n) {
+		len += 2;
+	}
+
+	return len;
 }
 
 /*******************************************************************
@@ -2107,9 +2639,10 @@ char *escape_shell_string(const char *src)
 	}
 
 	while (*src) {
-		size_t c_size = next_mb_char_size(src);
+		size_t c_size;
+		codepoint_t c = next_codepoint(src, &c_size);
 
-		if (c_size == (size_t)-1) {
+		if (c == INVALID_CODEPOINT) {
 			SAFE_FREE(ret);
 			return NULL;
 		}
@@ -2167,8 +2700,8 @@ char *escape_shell_string(const char *src)
 
 				char nextchar;
 
-				c_size = next_mb_char_size(&src[1]);
-				if (c_size == (size_t)-1) {
+				c = next_codepoint(&src[1], &c_size);
+				if (c == INVALID_CODEPOINT) {
 					SAFE_FREE(ret);
 					return NULL;
 				}

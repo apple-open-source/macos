@@ -91,8 +91,10 @@ function_attribute_inlinable_p (tree fndecl)
 /* Copy NODE (which must be a DECL).  The DECL originally was in the FROM_FN,
    but now it will be in the TO_FN.  */
 
+/* APPLE LOCAL begin mainline 2006-09-08 4658012 */
 tree
-copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
+copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn, bool is_result)
+/* APPLE LOCAL end mainline 2006-09-08 4658012 */
 {
   tree copy;
 
@@ -101,10 +103,22 @@ copy_decl_for_inlining (tree decl, tree from_fn, tree to_fn)
     {
       tree type = TREE_TYPE (decl);
 
+      /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
+      /* If the callee is accessing the result by reference, we need to
+	 create the local to hold that result.  */
+      if (is_result && DECL_BY_REFERENCE (decl))
+	type = TREE_TYPE (type);
+      /* APPLE LOCAL end mainline 2006-09-08 4658012 */
+
       /* For a parameter or result, we must make an equivalent VAR_DECL, not a
 	 new PARM_DECL.  */
       copy = build_decl (VAR_DECL, DECL_NAME (decl), type);
-      TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+
+      /* APPLE LOCAL begin mainline 2006-09-08 4658012 */
+      if (!is_result || !DECL_BY_REFERENCE (decl))
+	TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (decl);
+      /* APPLE LOCAL end mainline 2006-09-08 4658012 */
+
       TREE_READONLY (copy) = TREE_READONLY (decl);
       TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (decl);
     }

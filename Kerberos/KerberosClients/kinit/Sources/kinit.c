@@ -69,12 +69,12 @@ int main (int argc, char * const * argv)
     /* Remember our program name */
     program = strrchr (argv[0], '/') ? strrchr (argv[0], '/') + 1 : argv[0];
 
-    if (err == klNoErr) {
+    if (!err) {
         /* Read in our command line options */
         err = options (argc, argv);
     }
 
-    if (err == klNoErr) {
+    if (!err) {
         switch (mode) {
             case keytabMode:
                 err = KLAcquireNewInitialTicketsWithKeytab (principal, loginOptions,
@@ -104,44 +104,29 @@ int main (int argc, char * const * argv)
         }
     }
     
-    if (err == klNoErr) {
-        KLBoolean foundV5 = false;
-        KLBoolean foundV4 = false;
-        KLStatus  v5KLErr = KLCacheHasValidTickets (principal, kerberosVersion_V5, &foundV5, NULL, NULL);    
-        KLStatus  v4KLErr = KLCacheHasValidTickets (principal, kerberosVersion_V4, &foundV4, NULL, NULL);
+    if (!err) {
+        KLBoolean foundTickets = false;
+        KLStatus  ticketsErr = KLCacheHasValidTickets (principal, kerberosVersion_V5, &foundTickets, NULL, NULL);    
         
         // Expired credentials are still credentials, even if they aren't valid.  
         // Just warn the user:
-        if ((v5KLErr == klCredentialsExpiredErr) || (v4KLErr == klCredentialsExpiredErr)) {
+        if (ticketsErr == klCredentialsExpiredErr) {
             printerr ("Warning!  New tickets are expired.  Please check your Date and Time settings.\n");
-            if (v4KLErr == klCredentialsExpiredErr) {
-                foundV4 = 1;
-            }
-            if (v5KLErr == klCredentialsExpiredErr) {
-                foundV5 = 1;
-            }
+            foundTickets = 1;
         }
         
         // Credentials with bad addresses are still credentials, even if they aren't valid.  
         // Just warn the user:
-        if ((v5KLErr == klCredentialsBadAddressErr) || (v4KLErr == klCredentialsBadAddressErr)) {
+        if (ticketsErr == klCredentialsBadAddressErr) {
             printerr ("Warning!  New tickets have invalid IP addresses.  Check your Network settings.\n");
-            if (v4KLErr == klCredentialsBadAddressErr) {
-                foundV4 = 1;
-            }
-            if (v5KLErr == klCredentialsBadAddressErr) {
-                foundV5 = 1;
-            }
+            foundTickets = 1;
         }
     
-        if (foundV5 && verbose) {
-            fprintf (stderr, "Authenticated via Kerberos v5.  Placing tickets in cache '%s'\n", ccacheName);
-        }
-        if (foundV4 && verbose) {
-            fprintf(stderr, "Authenticated via Kerberos v4.  Placing tickets in cache '%s'\n", ccacheName);
-        }
-    
-        if (foundV4 || foundV5) {
+        if (foundTickets) { 
+            if (verbose) {
+                fprintf (stderr, "Authenticated via Kerberos v5.  Placing tickets in cache '%s'\n", ccacheName);
+            }
+        
             /* if we found tickets, set them as the default */
             if (KLSetSystemDefaultCache (principal) != klNoErr) {
                 printerr ("Unable to make '%s' the new system default cache\n", ccacheName);
@@ -149,7 +134,7 @@ int main (int argc, char * const * argv)
         }
     }
 
-    if (err != klNoErr && err != klUserCanceledErr) {
+    if (err && err != klUserCanceledErr) {
         printerr ("Error getting initial tickets: %s\n", error_message (err));
     }        
     

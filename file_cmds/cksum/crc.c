@@ -38,14 +38,18 @@
 #if 0
 static char sccsid[] = "@(#)crc.c	8.1 (Berkeley) 6/17/93";
 #endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/cksum/crc.c,v 1.4 1999/12/05 20:03:21 charnier Exp $";
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/cksum/crc.c,v 1.8 2003/03/13 23:32:28 robert Exp $");
 
 #include <sys/types.h>
+
+#include <stdint.h>
 #include <unistd.h>
 
-static const u_int32_t crctab[] = {
+#include "extern.h"
+
+static const uint32_t crctab[] = {
 	0x0,
 	0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b,
 	0x1a864db2, 0x1e475005, 0x2608edb8, 0x22c9f00f, 0x2f8ad6d6,
@@ -106,25 +110,24 @@ static const u_int32_t crctab[] = {
  * locations to store the crc and the number of bytes read.  It returns 0 on
  * success and 1 on failure.  Errno is set on failure.
  */
-u_int32_t crc_total = ~0;			/* The crc over a number of files. */
+uint32_t crc_total = ~0;		/* The crc over a number of files. */
 
 int
-crc(fd, cval, clen)
-	register int fd;
-	u_int32_t *cval, *clen;
+crc(int fd, uint32_t *cval, off_t *clen)
 {
-	register u_char *p;
-	register int nr;
-	register u_int32_t crc, len;
+	uint32_t lcrc;
+	int nr;
+	off_t len;
+	u_char *p;
 	u_char buf[16 * 1024];
 
 #define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
 
-	crc = len = 0;
+	lcrc = len = 0;
 	crc_total = ~crc_total;
 	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 		for (len += nr, p = buf; nr--; ++p) {
-			COMPUTE(crc, *p);
+			COMPUTE(lcrc, *p);
 			COMPUTE(crc_total, *p);
 		}
 	if (nr < 0)
@@ -134,11 +137,11 @@ crc(fd, cval, clen)
 
 	/* Include the length of the file. */
 	for (; len != 0; len >>= 8) {
-		COMPUTE(crc, len & 0xff);
+		COMPUTE(lcrc, len & 0xff);
 		COMPUTE(crc_total, len & 0xff);
 	}
 
-	*cval = ~crc;
+	*cval = ~lcrc;
 	crc_total = ~crc_total;
 	return (0);
 }

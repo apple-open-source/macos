@@ -1,5 +1,6 @@
-/* Serial interface for raw TCP connections on Un*x like systems
-   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2001
+/* Serial interface for raw TCP connections on Un*x like systems.
+
+   Copyright 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2001, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -21,6 +22,7 @@
 
 #include "defs.h"
 #include "serial.h"
+#include "ser-base.h"
 #include "ser-unix.h"
 
 #include <sys/types.h>
@@ -33,23 +35,34 @@
 #endif
 
 #include <sys/time.h>
+
+#ifdef USE_WIN32API
+#include <winsock2.h>
+#define ETIMEDOUT WSAETIMEDOUT
+#define close(fd) closesocket (fd)
+#define ioctl ioctlsocket
+#else
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
+#endif
 
 #include <signal.h>
 #include "gdb_string.h"
 
+#ifndef HAVE_SOCKLEN_T
+typedef int socklen_t;
+#endif
+
 static int net_open (struct serial *scb, const char *name);
 static void net_close (struct serial *scb);
-extern int (*ui_loop_hook) (int);
 void _initialize_ser_tcp (void);
 
 /* seconds to wait for connect */
 #define TIMEOUT 15
-/* how many times per second to poll ui_loop_hook */
+/* how many times per second to poll deprecated_ui_loop_hook */
 #define POLL_INTERVAL 2
 
 /* Open a tcp socket */
@@ -62,6 +75,11 @@ net_open (struct serial *scb, const char *name)
   int use_udp;
   struct hostent *hostent;
   struct sockaddr_in sockaddr;
+#ifdef USE_WIN32API
+  u_long ioarg;
+#else
+  int ioarg;
+#endif
 
   use_udp = 0;
   if (strncmp (name, "udp:", 4) == 0)
@@ -75,7 +93,7 @@ net_open (struct serial *scb, const char *name)
   port_str = strchr (name, ':');
 
   if (!port_str)
-    error ("net_open: No colon in host name!");	   /* Shouldn't ever happen */
+    error (_("net_open: No colon in host name!"));	   /* Shouldn't ever happen */
 
   tmp = min (port_str - name, (int) sizeof hostname - 1);
   strncpy (hostname, name, tmp);	/* Don't want colon */
@@ -108,14 +126,25 @@ net_open (struct serial *scb, const char *name)
 	  sizeof (struct in_addr));
 
   /* set socket nonblocking */
-  tmp = 1;
-  ioctl (scb->fd, FIONBIO, &tmp);
+  ioarg = 1;
+  ioctl (scb->fd, FIONBIO, &ioarg);
 
   /* Use Non-blocking connect.  connect() will return 0 if connected already. */
   n = connect (scb->fd, (struct sockaddr *) &sockaddr, sizeof (sockaddr));
 
-  if (n < 0 && errno != EINPROGRESS)
+  if (n < 0
+#ifdef USE_WIN32API
+      /* Under Windows, calling "connect" with a non-blocking socket
+	 results in WSAEWOULDBLOCK, not WSAEINPROGRESS.  */
+      && WSAGetLastError() != WSAEWOULDBLOCK
+#else
+      && errno != EINPROGRESS
+#endif
+      )
     {
+#ifdef USE_WIN32API
+      errno = WSAGetLastError();
+#endif
       net_close (scb);
       return -1;
     }
@@ -130,12 +159,12 @@ net_open (struct serial *scb, const char *name)
 
       do 
 	{
-	  /* While we wait for the connect to complete 
+	  /* While we wait for the connect to complete, 
 	     poll the UI so it can update or the user can 
-	     interrupt. */
-	  if (ui_loop_hook)
+	     interrupt.  */
+	  if (deprecated_ui_loop_hook)
 	    {
-	      if (ui_loop_hook (0))
+	      if (deprecated_ui_loop_hook (0))
 		{
 		  errno = EINTR;
 		  net_close (scb);
@@ -163,9 +192,14 @@ net_open (struct serial *scb, const char *name)
 
   /* Got something.  Is it an error? */
   {
-    int res, err, len;
+    int res, err;
+    socklen_t len;
     len = sizeof(err);
-    res = getsockopt (scb->fd, SOL_SOCKET, SO_ERROR, &err, &len);
+    /* On Windows, the fourth parameter to getsockopt is a "char *";
+       on UNIX systems it is generally "void *".  The cast to "void *"
+       is OK everywhere, since in C "void *" can be implicitly
+       converted to any pointer type.  */
+    res = getsockopt (scb->fd, SOL_SOCKET, SO_ERROR, (void *) &err, &len);
     if (res < 0 || err)
       {
 	if (err)
@@ -176,8 +210,8 @@ net_open (struct serial *scb, const char *name)
   } 
 
   /* turn off nonblocking */
-  tmp = 0;
-  ioctl (scb->fd, FIONBIO, &tmp);
+  ioarg = 0;
+  ioctl (scb->fd, FIONBIO, &ioarg);
 
   if (use_udp == 0)
     {
@@ -187,9 +221,11 @@ net_open (struct serial *scb, const char *name)
 		  (char *)&tmp, sizeof (tmp));
     }
 
+#ifdef SIGPIPE
   /* If we don't do this, then GDB simply exits
      when the remote side dies.  */
   signal (SIGPIPE, SIG_IGN);
+#endif
 
   return 0;
 }
@@ -204,28 +240,49 @@ net_close (struct serial *scb)
   scb->fd = -1;
 }
 
+static int
+net_read_prim (struct serial *scb, size_t count)
+{
+  return recv (scb->fd, scb->buf, count, 0);
+}
+
+static int
+net_write_prim (struct serial *scb, const void *buf, size_t count)
+{
+  return send (scb->fd, buf, count, 0);
+}
+
 void
 _initialize_ser_tcp (void)
 {
-  struct serial_ops *ops = XMALLOC (struct serial_ops);
+  struct serial_ops *ops;
+#ifdef USE_WIN32API
+  WSADATA wsa_data;
+  if (WSAStartup (MAKEWORD (1, 0), &wsa_data) != 0)
+    /* WinSock is unavailable.  */
+    return;
+#endif
+  ops = XMALLOC (struct serial_ops);
   memset (ops, 0, sizeof (struct serial_ops));
   ops->name = "tcp";
   ops->next = 0;
   ops->open = net_open;
   ops->close = net_close;
-  ops->readchar = ser_unix_readchar;
-  ops->write = ser_unix_write;
-  ops->flush_output = ser_unix_nop_flush_output;
-  ops->flush_input = ser_unix_flush_input;
-  ops->send_break = ser_unix_nop_send_break;
-  ops->go_raw = ser_unix_nop_raw;
-  ops->get_tty_state = ser_unix_nop_get_tty_state;
-  ops->set_tty_state = ser_unix_nop_set_tty_state;
-  ops->print_tty_state = ser_unix_nop_print_tty_state;
-  ops->noflush_set_tty_state = ser_unix_nop_noflush_set_tty_state;
-  ops->setbaudrate = ser_unix_nop_setbaudrate;
-  ops->setstopbits = ser_unix_nop_setstopbits;
-  ops->drain_output = ser_unix_nop_drain_output;
-  ops->async = ser_unix_async;
+  ops->readchar = ser_base_readchar;
+  ops->write = ser_base_write;
+  ops->flush_output = ser_base_flush_output;
+  ops->flush_input = ser_base_flush_input;
+  ops->send_break = ser_base_send_break;
+  ops->go_raw = ser_base_raw;
+  ops->get_tty_state = ser_base_get_tty_state;
+  ops->set_tty_state = ser_base_set_tty_state;
+  ops->print_tty_state = ser_base_print_tty_state;
+  ops->noflush_set_tty_state = ser_base_noflush_set_tty_state;
+  ops->setbaudrate = ser_base_setbaudrate;
+  ops->setstopbits = ser_base_setstopbits;
+  ops->drain_output = ser_base_drain_output;
+  ops->async = ser_base_async;
+  ops->read_prim = net_read_prim;
+  ops->write_prim = net_write_prim;
   serial_add_interface (ops);
 }

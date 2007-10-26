@@ -1,0 +1,18 @@
+MailDemo is a sample application used to illustrate Cocoa bindings, by Scott 
+Stevenson.
+
+Please refer to the following page for more information:
+
+http://cocoadevcentral.com/articles/000080.php
+
+In this directory, you will find 3 MailDemo examples.
+
+- MailDemoSimple: The simple version that you can download at the very 
+  beginning of the tutorial, translated to RubyCocoa.
+
+- MailDemoBindings: The simple version modified to actually use Cocoa bindings.
+
+- MailDemoActiveRecordBindings: A specialized version that uses the 
+  'osx/active_record' library to achieve persistent storage by using 
+  ActiveRecord with a sqlite3 backend. It shows how to use a belongs_to 
+  relationship with a subclass of NSArrayController.

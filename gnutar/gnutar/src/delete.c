@@ -17,10 +17,10 @@
    with this program; if not, write to the Free Software Foundation, Inc.,
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
-#include "system.h"
+#include <system.h>
 
 #include "common.h"
-#include "rmt.h"
+#include <rmt.h>
 
 static union block *new_record;
 static int new_blocks;
@@ -359,32 +359,31 @@ delete_archive_members (void)
 		write_record (1);
 	    }
 	}
-    }
 
-  if (logical_status == HEADER_END_OF_FILE)
-    {
-      /* Write the end of tape.  FIXME: we can't use write_eot here,
-	 as it gets confused when the input is at end of file.  */
-
-      int total_zero_blocks = 0;
-
-      do
+      if (logical_status == HEADER_END_OF_FILE)
 	{
-	  int zero_blocks = blocking_factor - new_blocks;
-	  memset (new_record + new_blocks, 0, BLOCKSIZE * zero_blocks);
-	  total_zero_blocks += zero_blocks;
-	  write_record (total_zero_blocks < 2);
+	  /* Write the end of tape.  FIXME: we can't use write_eot here,
+	     as it gets confused when the input is at end of file.  */
+
+	  int total_zero_blocks = 0;
+
+	  do
+	    {
+	      int zero_blocks = blocking_factor - new_blocks;
+	      memset (new_record + new_blocks, 0, BLOCKSIZE * zero_blocks);
+	      total_zero_blocks += zero_blocks;
+	      write_record (total_zero_blocks < 2);
+	    }
+	  while (total_zero_blocks < 2);
 	}
-      while (total_zero_blocks < 2);
-    }
 
+      if (! acting_as_filter && ! _isrmt (archive))
+	{
+	  if (sys_truncate (archive))
+	    truncate_warn (archive_name_array[0]);
+	}
+    }
   free (new_record);
-
-  if (! acting_as_filter && ! _isrmt (archive))
-    {
-      if (sys_truncate (archive))
-	truncate_warn (archive_name_array[0]);
-    }
 
   close_archive ();
   names_notfound ();

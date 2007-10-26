@@ -1,5 +1,0 @@
-/^#include <WebKit\/HIWebView\.h>/i
-#include <Foundation/Foundation.h>
-#include <WebKit/WebKit.h>
-.
-w

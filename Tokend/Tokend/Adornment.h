@@ -75,4 +75,3 @@ private:
 
 #endif /* !_TOKEND_ADORNMENT_H_ */
 
-/* arch-tag: C8628EDC-F61D-11D8-98CA-000A9595DEEE */

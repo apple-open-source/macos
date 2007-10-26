@@ -16,7 +16,7 @@
 
 # Makefile.am for the SASL library
 # Rob Earhart
-# $Id: Makefile,v 1.2 2004/07/07 22:45:17 snsimon Exp $
+# $Id: Makefile.in,v 1.8 2006/01/24 20:37:08 snsimon Exp $
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -77,18 +77,19 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-host_triplet = powerpc-apple-darwin8.0.0b1
-ACLOCAL = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run aclocal-1.7 -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
+host_triplet = powerpc-apple-darwin9.0.0d4
+ACLOCAL = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run aclocal-1.7 -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run tar
-AUTOCONF = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run autoconf
-AUTOHEADER = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run autoheader
-AUTOMAKE = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run automake-1.7
+AMTAR = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run tar
+AUTOCONF = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoconf
+AUTOHEADER = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoheader
+AUTOMAKE = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run automake-1.7
 AWK = awk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -Wall -W -g -O2
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -96,8 +97,8 @@ DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
 DIRS = 
 DMALLOC_LIBS = 
-ECHO_C = 
-ECHO_N = -n
+ECHO_C = \c
+ECHO_N = 
 ECHO_T = 
 EGREP = grep -E
 EXEEXT = 
@@ -124,9 +125,12 @@ LIBS = -lresolv -lresolv
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIB_CRYPT = 
 LIB_DES = -lcrypto
+LIB_DOOR = @LIB_DOOR@
+LIB_LDAP = @LIB_LDAP@
 LIB_MYSQL = 
 LIB_PGSQL = 
 LIB_SOCKET = 
+LIB_SQLITE = @LIB_SQLITE@
 LN_S = ln -s
 LTGETADDRINFOOBJS = 
 LTGETNAMEINFOOBJS = 
@@ -135,7 +139,7 @@ LTLIBOBJS =
 LTSNPRINTFOBJS = 
 MACOSX_FALSE = #
 MACOSX_TRUE = 
-MAKEINFO = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run makeinfo
+MAKEINFO = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run makeinfo
 NM = /usr/bin/nm -p
 NO_SASL_DB_MANS_FALSE = 
 NO_SASL_DB_MANS_TRUE = #
@@ -148,6 +152,7 @@ PACKAGE_NAME =
 PACKAGE_STRING = 
 PACKAGE_TARNAME = 
 PACKAGE_VERSION = 
+PASSDSS_LIBS = @PASSDSS_LIBS@
 PATH_SEPARATOR = :
 PLAIN_LIBS = 
 PURECOV = 
@@ -171,6 +176,7 @@ SASL_KRB_LIB =
 SASL_MECHS =  libsasldb.la libcrammd5.la libdigestmd5.la libotp.la libgssapiv2.la libplain.la libanonymous.la
 SASL_STATIC_LIBS = 
 SASL_STATIC_OBJS =  ../plugins/gssapi.o
+SASL_STATIC_SRCS = @SASL_STATIC_SRCS@
 SASL_UTIL_HEADERS_EXTRA = 
 SASL_UTIL_LIBS_EXTRA = 
 SET_MAKE = 
@@ -190,21 +196,21 @@ am__fastdepCC_TRUE =
 am__include = include
 am__quote = 
 bindir = ${exec_prefix}/bin
-build = powerpc-apple-darwin8.0.0b1
+build = powerpc-apple-darwin9.0.0d4
 build_alias = 
 build_cpu = powerpc
-build_os = darwin8.0.0b1
+build_os = darwin9.0.0d4
 build_vendor = apple
 datadir = ${prefix}/share
 exec_prefix = ${prefix}
-host = powerpc-apple-darwin8.0.0b1
+host = powerpc-apple-darwin9.0.0d4
 host_alias = 
 host_cpu = powerpc
-host_os = darwin8.0.0b1
+host_os = darwin9.0.0d4
 host_vendor = apple
 includedir = ${prefix}/include
 infodir = ${prefix}/info
-install_sh = /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/install-sh
+install_sh = /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localstatedir = ${prefix}/var
@@ -217,16 +223,16 @@ sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 subdirs =  saslauthd
 sysconfdir = ${prefix}/etc
-target = powerpc-apple-darwin8.0.0b1
+target = powerpc-apple-darwin9.0.0d4
 target_alias = 
 target_cpu = powerpc
-target_os = darwin8.0.0b1
+target_os = darwin9.0.0d4
 target_vendor = apple
 
 # Library version info - here at the top, for sanity
-sasl_version = 2:18:0
+sasl_version = 2:22:0
 
-INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include
+INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/plugins -I$(top_builddir)/include -I$(top_srcdir)/sasldb
 
 EXTRA_DIST = windlopen.c staticopen.h NTMakefile
 EXTRA_LIBRARIES = libsasl2.a
@@ -241,7 +247,7 @@ lib_LTLIBRARIES = libsasl2.la
 libsasl2_la_SOURCES = $(common_sources) $(common_headers)
 libsasl2_la_LDFLAGS = -version-info $(sasl_version)
 libsasl2_la_DEPENDENCIES = $(LTLIBOBJS)
-libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET)
+libsasl2_la_LIBADD = $(LTLIBOBJS) $(SASL_DL_LIB) $(LIB_SOCKET) $(LIB_DOOR)
 
 framedir = /Library/Frameworks/SASL2.framework
 subdir = lib
@@ -638,6 +644,11 @@ libsasl2.a: libsasl2.la $(SASL_STATIC_OBJS)
 	libsasl2.la >TMP.$$ && mv TMP.$$ libsasl2.la
 	rm -f $@
 	ln -s .libs/$@ $@
+
+$(SASL_STATIC_OBJS): linksrcs
+
+linksrcs:
+	-ln -s $(SASL_STATIC_SRCS) .
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

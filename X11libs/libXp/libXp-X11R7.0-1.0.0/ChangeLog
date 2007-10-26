@@ -1,0 +1,78 @@
+2005-12-14  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for final X11R7 release candidate.
+
+2005-12-06  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* man/Makefile.am:
+	Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+2005-12-03  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for X11R7 RC3 release.
+
+2005-12-02  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	* src/Makefile.am:
+	Add check and cflags for malloc(0) returning NULL.
+
+2005-11-19  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* xp.pc.in:
+	Update pkgconfig files to separate library build-time dependencies
+	from application build-time dependencies.
+	* configure.ac:
+	Update dependencies to work with separate build roots.
+
+2005-10-18  Kevin E. Martin  <kem-at-freedesktop-dot-org>
+
+	* configure.ac:
+	Update package version number for RC1 release.
+
+2005-10-12  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* man/Makefile.am: 
+	* configure.ac:
+	Use sed to fill in variables in man pages
+	
+2005-07-14  Keith Packard  <keithp@keithp.com>
+
+	* src/Makefile.am:
+	Fix .so version number.
+	Change to -version-number form for libtool to ensure
+	version numbers are consistent with monolithic tree
+	on all platforms.
+
+2005-07-08  Keith Packard  <keithp@keithp.com>
+
+	* .cvsignore:
+	* man/.cvsignore:
+	* src/.cvsignore:
+	* src/Makefile.am:
+	Add .cvsignore files
+	Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+2005-05-24  Alexander Gottwald  <ago@freedesktop.org>
+
+	* configure.ac:
+	Add libXau to required modules  
+
+2005-05-21  Alan Coopersmith  <alan.coopersmith@sun.com>
+
+	* configure.ac: 
+	* src/Makefile.am:
+	Add libXext to required modules
+	Fix CFLAGS & LIBS to pass through correctly
+
+2005-05-17    <ssp@aware-of-vacuity.boston.redhat.com>
+
+	* configure.ac: Remove rest of half-removed if statement
+
+	* ChangeLog: remove irrelevant entries
+
+2005-04-16  Josh Triplett  <josh@freedesktop.org>
+
+	* Makefile.am: Tell automake about the manpage.

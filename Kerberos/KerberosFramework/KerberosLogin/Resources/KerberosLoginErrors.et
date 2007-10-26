@@ -61,7 +61,7 @@ error_code klBadOptionValueErr,				"Invalid value for Kerberos default login opt
 index 200
 error_code klUserCanceledErr, 				"The user cancelled the operation"
 error_code klMemFullErr,	 				"Out of memory"
-error_code klPreferencesReadErr,			"Unable to read Kerberos Login preferences.  The file may be missing, inaccesssible or corrupted."
+error_code klPreferencesReadErr,			"Unable to read Kerberos Login preferences.  The file may be missing, inaccessible or corrupted."
 error_code klPreferencesWriteErr,			"Unable to write Kerberos Login preferences.  The file may be inaccessible."
 error_code klV5InitializationFailedErr,		"Unable to initialize Kerberos v5"
 error_code klPrincipalDoesNotExistErr,		"Principal does not exist"

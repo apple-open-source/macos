@@ -35,5 +35,7 @@
 	<true/>
 	<key>StandardErrorPath</key>
 	<string>/dev/null</string>
+        <key>SHAuthorizationRight</key>
+        <string>system.preferences</string>
 </dict>
 </plist>

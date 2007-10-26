@@ -1,14 +1,15 @@
-thisconfigdir=./..
+thisconfigdir=../../..
 myfulldir=lib/krb5/error_tables
-mydir=error_tables
+mydir=lib/krb5/error_tables
 BUILDTOP=$(REL)..$(S)..$(S)..
+DEFS=
 
 ##DOS##BUILDTOP = ..\..\..
 ##DOS##PREFIXDIR=error_tables
 ##DOS##OBJFILE=..\$(OUTPRE)err_tbls.lst
 
 THDRDIR=$(BUILDTOP)$(S)include
-EHDRDIR=$(BUILDTOP)$(S)include$(S)krb5
+EHDRDIR=$(BUILDTOP)$(S)include
 
 STLIBOBJS= asn1_err.o kdb5_err.o krb5_err.o \
       kv5m_err.o krb524_err.o
@@ -62,16 +63,20 @@ $(OUTPRE)krb524_err.$(OBJEXT): krb524_err.c
 clean-unix:: clean-libobjs
 	$(RM) $(HDRS) $(ETSRCS)
 
-# @libobj_frag@
+@libobj_frag@
 
 # +++ Dependency line eater +++
 # 
 # Makefile dependencies follow.  This must be the last section in
 # the Makefile.in file
 #
-asn1_err.so asn1_err.po $(OUTPRE)asn1_err.$(OBJEXT): asn1_err.c $(COM_ERR_DEPS)
-kdb5_err.so kdb5_err.po $(OUTPRE)kdb5_err.$(OBJEXT): kdb5_err.c $(COM_ERR_DEPS)
-krb5_err.so krb5_err.po $(OUTPRE)krb5_err.$(OBJEXT): krb5_err.c $(COM_ERR_DEPS)
-kv5m_err.so kv5m_err.po $(OUTPRE)kv5m_err.$(OBJEXT): kv5m_err.c $(COM_ERR_DEPS)
-krb524_err.so krb524_err.po $(OUTPRE)krb524_err.$(OBJEXT): krb524_err.c $(COM_ERR_DEPS)
-
+asn1_err.so asn1_err.po $(OUTPRE)asn1_err.$(OBJEXT): \
+  $(COM_ERR_DEPS) asn1_err.c
+kdb5_err.so kdb5_err.po $(OUTPRE)kdb5_err.$(OBJEXT): \
+  $(COM_ERR_DEPS) kdb5_err.c
+krb5_err.so krb5_err.po $(OUTPRE)krb5_err.$(OBJEXT): \
+  $(COM_ERR_DEPS) krb5_err.c
+kv5m_err.so kv5m_err.po $(OUTPRE)kv5m_err.$(OBJEXT): \
+  $(COM_ERR_DEPS) kv5m_err.c
+krb524_err.so krb524_err.po $(OUTPRE)krb524_err.$(OBJEXT): \
+  $(COM_ERR_DEPS) krb524_err.c

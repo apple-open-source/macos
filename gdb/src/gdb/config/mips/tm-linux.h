@@ -22,14 +22,6 @@
 #ifndef TM_MIPSLINUX_H
 #define TM_MIPSLINUX_H
 
-#include "mips/tm-mips.h"
-
-/* We don't want to inherit tm-mips.h's shared library trampoline code.  */
-
-#undef IN_SOLIB_RETURN_TRAMPOLINE
-#undef SKIP_TRAMPOLINE_CODE
-#undef IGNORE_HELPER_CALL
-
 /* GNU/Linux MIPS has __SIGRTMAX == 127.  */
 
 #ifndef REALTIME_LO
@@ -39,24 +31,8 @@
 
 #include "config/tm-linux.h"
 
-/* We do single stepping in software.  */
-
-#define SOFTWARE_SINGLE_STEP_P() 1
-#define SOFTWARE_SINGLE_STEP(sig,bp_p) mips_software_single_step (sig, bp_p)
-
-/* FIXME: This still needs to be implemented.  */
-
-#undef  IN_SIGTRAMP
-#define IN_SIGTRAMP(pc, name)	(0)
-
 #undef IN_SOLIB_DYNSYM_RESOLVE_CODE
 #define IN_SOLIB_DYNSYM_RESOLVE_CODE(PC) mips_linux_in_dynsym_resolve_code (PC)
 int mips_linux_in_dynsym_resolve_code (CORE_ADDR pc);
-
-/* We don't want all of tm-sysv4.h's shared library trampoline code either.
-   Note that by undefining IN_SOLIB_CALL_TRAMPOLINE here we will use the
-   gdbarch vector's version instead.  */
-
-#undef IN_SOLIB_CALL_TRAMPOLINE
 
 #endif /* TM_MIPSLINUX_H */

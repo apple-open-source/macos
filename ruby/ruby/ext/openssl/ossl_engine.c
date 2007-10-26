@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_engine.c,v 1.4.2.1 2004/12/15 01:54:39 matz Exp $
+ * $Id: ossl_engine.c 11708 2007-02-12 23:01:19Z shyouhei $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2003  GOTOU Yuuzou <gotoyuzo@notwork.org>
  * All rights reserved.
@@ -55,9 +55,12 @@ ossl_engine_s_load(int argc, VALUE *argv, VALUE klass)
     VALUE name;
 
     rb_scan_args(argc, argv, "01", &name);
-    if(NIL_P(name)) ENGINE_load_builtin_engines();
+    if(NIL_P(name)){
+        ENGINE_load_builtin_engines();
+        return Qtrue;
+    }
     StringValue(name);
-    OSSL_ENGINE_LOAD_IF_MATCH(openssl);
+#ifndef OPENSSL_NO_STATIC_ENGINE
     OSSL_ENGINE_LOAD_IF_MATCH(dynamic);
     OSSL_ENGINE_LOAD_IF_MATCH(cswift);
     OSSL_ENGINE_LOAD_IF_MATCH(chil);
@@ -67,10 +70,13 @@ ossl_engine_s_load(int argc, VALUE *argv, VALUE klass)
     OSSL_ENGINE_LOAD_IF_MATCH(aep);
     OSSL_ENGINE_LOAD_IF_MATCH(sureware);
     OSSL_ENGINE_LOAD_IF_MATCH(4758cca);
+#endif
 #ifdef HAVE_ENGINE_LOAD_OPENBSD_DEV_CRYPTO
     OSSL_ENGINE_LOAD_IF_MATCH(openbsd_dev_crypto);
 #endif
-    rb_raise(eEngineError, "no such engine `%s'", RSTRING(name)->ptr);
+    OSSL_ENGINE_LOAD_IF_MATCH(openssl);
+    rb_warning("no such builtin loader for `%s'", RSTRING(name)->ptr);
+    return Qnil;
 #endif /* HAVE_ENGINE_LOAD_BUILTIN_ENGINES */
 }
 
@@ -108,12 +114,13 @@ ossl_engine_s_by_id(VALUE klass, VALUE id)
     ossl_engine_s_load(1, &id, klass);
     if(!(e = ENGINE_by_id(RSTRING(id)->ptr)))
 	ossl_raise(eEngineError, NULL);
+    WrapEngine(klass, obj, e);
+    if(rb_block_given_p()) rb_yield(obj);
     if(!ENGINE_init(e))
 	ossl_raise(eEngineError, NULL);
     ENGINE_ctrl(e, ENGINE_CTRL_SET_PASSWORD_CALLBACK,
 		0, NULL, (void(*)())ossl_pem_passwd_cb);
     ERR_clear_error();
-    WrapEngine(klass, obj, e);
 
     return obj;
 }
@@ -210,11 +217,11 @@ ossl_engine_load_privkey(int argc, VALUE *argv, VALUE self)
 {
     ENGINE *e;
     EVP_PKEY *pkey;
-    VALUE id, data;
+    VALUE id, data, obj;
     char *sid, *sdata;
 
-    rb_scan_args(argc, argv, "11", &id, &data);
-    sid = StringValuePtr(id);
+    rb_scan_args(argc, argv, "02", &id, &data);
+    sid = NIL_P(id) ? NULL : StringValuePtr(id);
     sdata = NIL_P(data) ? NULL : StringValuePtr(data);
     GetEngine(self, e);
 #if OPENSSL_VERSION_NUMBER < 0x00907000L
@@ -223,8 +230,10 @@ ossl_engine_load_privkey(int argc, VALUE *argv, VALUE self)
     pkey = ENGINE_load_private_key(e, sid, NULL, sdata);
 #endif
     if (!pkey) ossl_raise(eEngineError, NULL);
+    obj = ossl_pkey_new(pkey);
+    OSSL_PKEY_SET_PRIVATE(obj);
 
-    return ossl_pkey_new(pkey);
+    return obj;
 }
 
 static VALUE
@@ -235,8 +244,8 @@ ossl_engine_load_pubkey(int argc, VALUE *argv, VALUE self)
     VALUE id, data;
     char *sid, *sdata;
 
-    rb_scan_args(argc, argv, "11", &id, &data);
-    sid = StringValuePtr(id);
+    rb_scan_args(argc, argv, "02", &id, &data);
+    sid = NIL_P(id) ? NULL : StringValuePtr(id);
     sdata = NIL_P(data) ? NULL : StringValuePtr(data);
     GetEngine(self, e);
 #if OPENSSL_VERSION_NUMBER < 0x00907000L
@@ -259,6 +268,58 @@ ossl_engine_set_default(VALUE self, VALUE flag)
     ENGINE_set_default(e, f);
 
     return Qtrue;
+}
+
+static VALUE
+ossl_engine_ctrl_cmd(int argc, VALUE *argv, VALUE self)
+{
+    ENGINE *e;
+    VALUE cmd, val;
+    int ret;
+
+    GetEngine(self, e);
+    rb_scan_args(argc, argv, "11", &cmd, &val);
+    StringValue(cmd);
+    if (!NIL_P(val)) StringValue(val);
+    ret = ENGINE_ctrl_cmd_string(e, RSTRING(cmd)->ptr,
+				 NIL_P(val) ? NULL : RSTRING(val)->ptr, 0);
+    if (!ret) ossl_raise(eEngineError, NULL);
+
+    return self;
+}
+
+static VALUE
+ossl_engine_cmd_flag_to_name(int flag)
+{
+    switch(flag){
+    case ENGINE_CMD_FLAG_NUMERIC:  return rb_str_new2("NUMERIC");
+    case ENGINE_CMD_FLAG_STRING:   return rb_str_new2("STRING");
+    case ENGINE_CMD_FLAG_NO_INPUT: return rb_str_new2("NO_INPUT");
+    case ENGINE_CMD_FLAG_INTERNAL: return rb_str_new2("INTERNAL");
+    default: return rb_str_new2("UNKNOWN");
+    }
+}
+
+static VALUE
+ossl_engine_get_cmds(VALUE self)
+{
+    ENGINE *e;
+    const ENGINE_CMD_DEFN *defn, *p;
+    VALUE ary, tmp;
+
+    GetEngine(self, e);
+    ary = rb_ary_new();
+    if ((defn = ENGINE_get_cmd_defns(e)) != NULL){
+	for (p = defn; p->cmd_num > 0; p++){
+	    tmp = rb_ary_new();
+	    rb_ary_push(tmp, rb_str_new2(p->cmd_name));
+	    rb_ary_push(tmp, rb_str_new2(p->cmd_desc));
+	    rb_ary_push(tmp, ossl_engine_cmd_flag_to_name(p->cmd_flags));
+	    rb_ary_push(ary, tmp);
+	}
+    }
+
+    return ary;
 }
 
 static VALUE
@@ -301,6 +362,8 @@ Init_ossl_engine()
     rb_define_method(cEngine, "load_private_key", ossl_engine_load_privkey, -1);
     rb_define_method(cEngine, "load_public_key", ossl_engine_load_pubkey, -1);
     rb_define_method(cEngine, "set_default", ossl_engine_set_default, 1);
+    rb_define_method(cEngine, "ctrl_cmd", ossl_engine_ctrl_cmd, -1);
+    rb_define_method(cEngine, "cmds", ossl_engine_get_cmds, 0);
     rb_define_method(cEngine, "inspect", ossl_engine_inspect, 0);
 
     DefEngineConst(METHOD_RSA);

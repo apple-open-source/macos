@@ -36,8 +36,15 @@
 .Dt DUMP 8
 .Os BSD 4
 .Sh NAME
-.Nm dump
+.Nm dump ,
+.Nm rdump
 .Nd filesystem backup
+.Sh ALERT
+UFS SUPPORT IS IN THE PROCESS OF BEING DEPRECATED.
+This copy of
+.Nm
+is supplied only for completeness and is expected to have deficiencies.
+It will likely disappear in the future.
 .Sh SYNOPSIS
 .Nm dump
 .Op Fl 0123456789cnu
@@ -50,7 +57,11 @@
 .Op Fl T Ar date
 .Ar filesystem
 .Nm dump
-.Op Fl W Li \&| Fl w
+.Fl W | Fl w
+.Pp
+.Nm rdump
+is an alternate name for
+.Nm .
 .Pp
 .in -\\n(iSu
 (The
@@ -58,13 +69,12 @@
 option syntax is implemented for backward compatibility, but
 is not documented here.)
 .Sh DESCRIPTION
-.Nm Dump
-examines files
-on a filesystem
-and determines which files
-need to be backed up. These files
-are copied to the given disk, tape or other
-storage medium for safe keeping (see the
+The
+.Nm
+command examines files on a filesystem and determines which files
+need to be backed up.
+These files are copied to the given disk, tape or other storage medium for
+safe keeping (see the
 .Fl f
 option below for doing remote backups).
 A dump that is larger than the output medium is broken into

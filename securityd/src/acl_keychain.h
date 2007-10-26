@@ -40,6 +40,7 @@
 class KeychainPromptAclSubject : public SimpleAclSubject {
 	static const Version pumaVersion = 0;	// 10.0, 10.1 -> default selector (not stored)
 	static const Version jaguarVersion = 1;	// 10.2 et al -> first version selector
+	static const Version currentVersion = jaguarVersion; // what we write today
 public:
     bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
     CssmList toList(Allocator &alloc) const;
@@ -49,14 +50,22 @@ public:
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);
     void exportBlob(Writer &pub, Writer &priv);
 	
+	uint32_t selectorFlags() const			{ return selector.flags; }
+	bool selectorFlag(uint32_t flag) const	{ return selectorFlags() & flag; }
+	
 	IFDUMP(void debugDump() const);
 
+public:
     class Maker : public AclSubject::Maker {
+		friend class KeychainPromptAclSubject;
     public:
-    	Maker(CSSM_ACL_SUBJECT_TYPE type = CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT)
-			: AclSubject::Maker(type) { }
+    	Maker(uint32_t mode)
+			: AclSubject::Maker(CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT) { defaultMode = mode; }
     	KeychainPromptAclSubject *make(const TypedList &list) const;
     	KeychainPromptAclSubject *make(Version version, Reader &pub, Reader &priv) const;
+	
+	private:
+		static uint32_t defaultMode;
     };
     
 private:
@@ -65,11 +74,6 @@ private:
 	
 private:
 	static CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR defaultSelector;
-	
-	typedef uint32 VersionMarker;
-	static const VersionMarker currentVersion = 0x3BD5910D;
-	
-	bool isLegacyCompatible() const;
 };
 
 

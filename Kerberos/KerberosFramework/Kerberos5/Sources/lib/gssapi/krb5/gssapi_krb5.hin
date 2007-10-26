@@ -70,16 +70,17 @@ GSS_DLLIMP extern const gss_OID_desc * const GSS_KRB5_NT_PRINCIPAL_NAME;
  * generic(1) string_uid_name(3)}.  The recommended symbolic name for
  * this type is "GSS_KRB5_NT_STRING_UID_NAME". */ 
 
-extern const gss_OID_desc * const gss_mech_krb5;
-extern const gss_OID_desc * const gss_mech_krb5_old;
-extern const gss_OID_set_desc * const gss_mech_set_krb5;
-extern const gss_OID_set_desc * const gss_mech_set_krb5_old;
-extern const gss_OID_set_desc * const gss_mech_set_krb5_both;
+GSS_DLLIMP extern const gss_OID_desc * const gss_mech_krb5;
+GSS_DLLIMP extern const gss_OID_desc * const gss_mech_krb5_old;
+GSS_DLLIMP extern const gss_OID_desc * const gss_mech_krb5_wrong;
+GSS_DLLIMP extern const gss_OID_set_desc * const gss_mech_set_krb5;
+GSS_DLLIMP extern const gss_OID_set_desc * const gss_mech_set_krb5_old;
+GSS_DLLIMP extern const gss_OID_set_desc * const gss_mech_set_krb5_both;
 
-extern const gss_OID_desc * const gss_nt_krb5_name;
-extern const gss_OID_desc * const gss_nt_krb5_principal;
+GSS_DLLIMP extern const gss_OID_desc * const gss_nt_krb5_name;
+GSS_DLLIMP extern const gss_OID_desc * const gss_nt_krb5_principal;
 
-extern const gss_OID_desc krb5_gss_oid_array[];
+GSS_DLLIMP extern const gss_OID_desc krb5_gss_oid_array[];
 
 #define gss_krb5_nt_general_name	gss_nt_krb5_name
 #define gss_krb5_nt_principal		gss_nt_krb5_principal
@@ -151,6 +152,11 @@ typedef struct gss_krb5_lucid_context_version {
 } gss_krb5_lucid_context_version_t;
 
 
+typedef struct apple_gss_krb5_authdata_if_relevant_key {
+OM_uint32	type;		/* key encryption type */
+OM_uint32	length;		/* length of key data */
+void *		data;		/* actual key data */
+} apple_gss_krb5_authdata_if_relevant;
 
 
 /* Alias for Heimdal compat. */
@@ -254,6 +260,52 @@ gss_krb5_export_lucid_sec_context(OM_uint32 *minor_status,
 				  gss_ctx_id_t *context_handle,
 				  OM_uint32 version,
 				  void **kctx);
+
+
+
+/*
+ * Returns a non-opaque (lucid) version of the internal context
+ * information.
+ *
+ * Note that context_handle must not be used again by the caller
+ * after this call.  The GSS implementation is free to release any
+ * resources associated with the original context.  It is up to the
+ * GSS implementation whether it returns pointers to existing data,
+ * or copies of the data.  The caller should treat the returned
+ * lucid context as read-only.
+ *
+ * The caller must call gss_krb5_free_lucid_context() to free
+ * the context and allocated resources when it is finished with it.
+ *
+ * 'version' is an integer indicating the highest version of lucid
+ * context understood by the caller.  The highest version
+ * understood by both the caller and the GSS implementation must
+ * be returned.  The caller can determine which version of the
+ * structure was actually returned by examining the version field
+ * of the returned structure.  gss_krb5_lucid_context_version_t
+ * may be used as a mask to examine the returned structure version.
+ *
+ * If there are no common versions, an error should be returned.
+ * (XXX Need error definition(s))
+ *
+ *
+ */
+
+OM_uint32 KRB5_CALLCONV
+apple_gss_krb5_export_authdata_if_relevant_context(OM_uint32 *minor_status,
+                  gss_ctx_id_t *context_handle,
+                  OM_uint32 version,
+                  void **kctx);
+
+/*
+* Frees the allocated storage associated with an
+* exported struct apple_gss_krb5_authdata_if_relevant.
+*/
+OM_uint32 KRB5_CALLCONV
+apple_gss_krb5_free_authdata_if_relevant(OM_uint32 *minor_status,
+void *kctx);
+
+
 
 /*
  * Frees the allocated storage associated with an

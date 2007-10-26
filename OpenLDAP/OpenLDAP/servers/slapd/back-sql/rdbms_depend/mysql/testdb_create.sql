@@ -1,7 +1,9 @@
 drop table if exists persons;
 CREATE TABLE persons (
 	id int NOT NULL,
-	name varchar(255) NOT NULL
+	name varchar(255) NOT NULL,
+	surname varchar(255) NOT NULL,
+	password varchar(64)
 );
 
 drop table if exists institutes;
@@ -63,4 +65,11 @@ ALTER TABLE phones  ADD
 	(
 		id
 	); 
+
+drop table if exists referrals;
+CREATE TABLE referrals (
+	id int NOT NULL,
+	name varchar(255) NOT NULL,
+	url varchar(255) NOT NULL
+);
 

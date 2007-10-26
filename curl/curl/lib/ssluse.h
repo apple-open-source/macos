@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2007, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,29 +20,52 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ssluse.h,v 1.21 2005/02/09 23:04:51 bagder Exp $
+ * $Id: ssluse.h,v 1.28 2007-01-05 23:11:16 bagder Exp $
  ***************************************************************************/
+
+/*
+ * This header should only be needed to get included by sslgen.c and ssluse.c
+ */
+
 #include "urldata.h"
-CURLcode Curl_SSLConnect(struct connectdata *conn, int sockindex);
-
-int Curl_SSL_init(void);    /* Global SSL init */
-void Curl_SSL_cleanup(void); /* Global SSL cleanup */
-
-/* init the SSL session ID cache */
-CURLcode Curl_SSL_InitSessions(struct SessionHandle *, long);
-void Curl_SSL_Close(struct connectdata *conn); /* close a SSL connection */
-
-/* tell the SSL stuff to close down all open information regarding
-   connections (and thus session ID caching etc) */
-int Curl_SSL_Close_All(struct SessionHandle *data);
-
+CURLcode Curl_ossl_connect(struct connectdata *conn, int sockindex);
+CURLcode Curl_ossl_connect_nonblocking(struct connectdata *conn,
+                                       int sockindex,
+                                       bool *done);
+void Curl_ossl_close(struct connectdata *conn); /* close a SSL connection */
+/* tell OpenSSL to close down all open information regarding connections (and
+   thus session ID caching etc) */
+int Curl_ossl_close_all(struct SessionHandle *data);
 /* Sets an OpenSSL engine */
-CURLcode Curl_SSL_set_engine(struct SessionHandle *data, const char *engine);
+CURLcode Curl_ossl_set_engine(struct SessionHandle *data, const char *engine);
 
-/* Sets above engine as default for all SSL operations */
-CURLcode Curl_SSL_set_engine_default(struct SessionHandle *data);
+/* function provided for the generic SSL-layer, called when a session id
+   should be freed */
+void Curl_ossl_session_free(void *ptr);
+
+/* Sets engine as default for all SSL operations */
+CURLcode Curl_ossl_set_engine_default(struct SessionHandle *data);
 
 /* Build list of OpenSSL engines */
-struct curl_slist *Curl_SSL_engines_list(struct SessionHandle *data);
+struct curl_slist *Curl_ossl_engines_list(struct SessionHandle *data);
+
+int Curl_ossl_init(void);
+void Curl_ossl_cleanup(void);
+
+ssize_t Curl_ossl_send(struct connectdata *conn,
+                       int sockindex,
+                       void *mem,
+                       size_t len);
+ssize_t Curl_ossl_recv(struct connectdata *conn, /* connection data */
+                       int num,                  /* socketindex */
+                       char *buf,                /* store read data here */
+                       size_t buffersize,        /* max amount to read */
+                       bool *wouldblock);
+
+size_t Curl_ossl_version(char *buffer, size_t size);
+int Curl_ossl_check_cxn(struct connectdata *cxn);
+int Curl_ossl_seed(struct SessionHandle *data);
+
+int Curl_ossl_shutdown(struct connectdata *conn, int sockindex);
 
 #endif

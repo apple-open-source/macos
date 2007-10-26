@@ -1,0 +1,186 @@
+/*============================================================================*/
+/* config.h.in.footer:  configuration file for Windows NT
+   Conrad T. Pino <Conrad@Pino.com> --- May 2004 */
+
+/* This file lives in the windows-NT subdirectory, which is only included
+   in your header search path if you're working under Microsoft Visual C++,
+   and use ../cvsnt.mak for your project.  Thus, this is the right place to
+   put configuration information for Windows NT.  */
+
+/* This file is getting chaotic and will be organized as follows:
+
+		Macros appears first alphabetized in case sensitive order.
+		Typedefs appear next alphabetized in case sensitive order.
+		Function prototypes alphabetized in case sensitive order.
+
+	Reorgnized by Conrad T. Pino <Conrad@Pino.com> May 25, 2005 */
+
+/* just one time please */
+#ifdef _MSC_VER
+#pragma once
+#endif
+
+/* ======================= Macro Definnitions Follow ====================== */
+
+/* Under Windows NT, mkdir only takes one argument.  */
+#define CVS_MKDIR wnt_mkdir
+
+#define CVS_RENAME wnt_rename
+
+/* This is where old bits go to die under Windows NT.  */
+#define DEVNULL "nul"
+
+/* Windows has no ELOOP value in errno.h */
+#define ELOOP EMLINK
+
+/* Windows has _snprintf function.
+   HAVE_DECL__SNPRINTF used in ../lib/vasnprintf.c */
+#define HAVE_DECL__SNPRINTF 1
+
+#define HAVE_WINSOCK_H
+
+/* This tells the client that it must use send()/recv() to talk to the
+   server if it is connected to the server via a socket; Win95 needs
+   it because _open_osfhandle doesn't work.  */
+#define NO_SOCKET_TO_FD 1
+
+/* Is this true on NT?  Seems like I remember reports that NT 3.51 has
+   problems with 200K writes (of course, the issue of large writes is
+   moot since the use of buffer.c ensures that writes will only be as big
+   as the buffers).  */
+#define SEND_NEVER_PARTIAL 1
+
+/* Stop server macro */
+#define SHUTDOWN_SERVER wnt_shutdown_server
+
+/* This tells the client that, in addition to needing to use
+   send()/recv() to do socket I/O, the error codes for send()/recv()
+   and other socket operations are not available through errno.
+   Instead, this macro should be used to obtain an error code. */
+#define SOCK_ERRNO (WSAGetLastError ())
+
+/* This tells the client that, in addition to needing to use
+   send()/recv() to do socket I/O, the error codes for send()/recv()
+   and other socket operations are not known to strerror.  Instead,
+   this macro should be used to convert the error codes to strings. */
+#define SOCK_STRERROR sock_strerror
+
+/* Start server macro */
+#define START_SERVER wnt_start_server
+
+/* The internal rsh client uses sockets not file descriptors.  Note
+   that as the code stands now, it often takes values from a SOCKET and
+   puts them in an int.  This is ugly but it seems like sizeof
+   (SOCKET) <= sizeof (int) on win32, even the 64-bit variants.  */
+#define START_SERVER_RETURNS_SOCKET 1
+
+/* Macro name tells the story */
+#define SYSTEM_CLEANUP woe32_cleanup
+
+/* Macro name tells the story */
+#define SYSTEM_INITIALIZE(pargc,pargv) woe32_init_winsock()
+
+/*
+ * According to GNU conventions, we should avoid referencing any macro
+ * containing "WIN" as a reference to Microsoft Windows, as we would like to
+ * avoid any implication that we consider Microsoft Windows any sort of "win".
+ *
+ * FIXME: As of 2003-06-09, folks on the GNULIB project were discussing
+ * defining a configure macro to define WOE32 appropriately.  If they ever do
+ * write such a beast, we should use it, though in most cases it would be
+ * preferable to avoid referencing any OS or compiler anyhow, per Autoconf
+ * convention, and reference only tested features of the system.
+ *
+ * re FIXME: This definition would still be necessary since systems which run
+ * configure do not use this config.h and vice-versa.
+ */
+#define WOE32 1
+
+/* Define POSIX name to Microsoft name */
+#define dup _dup
+
+/* getpagesize is missing on Windows, 4096 does the right thing. */
+#define getpagesize() 4096
+
+/* Define to a substitute for the `lstat' function. */
+#define lstat stat
+
+/* Define POSIX name to Microsoft name */
+#define popen _popen
+
+/* Define POSIX name to Microsoft name */
+#define pclose _pclose
+
+/* Diff needs us to define this.  I think it could always be
+   -1 for CVS, because we pass temporary files to diff, but
+   config.h seems like the easiest place to put this, so for
+   now we put it here.  */
+#define same_file(s,t) (-1)
+
+/* Define to a substitute for the stat function. */
+#define stat wnt_stat
+
+/* ====================== Typedef Declarations Follow ===================== */
+
+/* ====================== Function Prototypes Follow ====================== */
+
+#include <woe32.h>
+
+/* #define SOCK_STRERROR sock_strerror */
+char *sock_strerror (int errnum);
+
+/* #define CVS_MKDIR wnt_mkdir */
+int wnt_mkdir (const char *PATH, int MODE);
+
+/* #define CVS_RENAME wnt_rename */
+int wnt_rename (const char *, const char *);
+
+/* #define SHUTDOWN_SERVER wnt_shutdown_server */
+void wnt_shutdown_server (int fd);
+
+/* #define START_SERVER wnt_start_server */
+void wnt_start_server (int *tofd, int *fromfd,
+		       char *client_user,
+		       char *server_user,
+		       char *server_host,
+		       char *server_cvsroot);
+
+/* #define stat wnt_stat and #define lstat wnt_stat */
+int wnt_stat (const char *file, struct wnt_stat *sb);
+
+/* =============== Special mkdir Prototype Handling Follows =============== */
+
+#include <direct.h>
+#define mkdir wnt_mkdir
+
+/* ===================== Special Function Definitions ===================== */
+
+/*
+	Microsoft defines "mbinit" in <wchar.h> for C++ code only.
+
+	Expect link errors for versions:
+
+		earlier than Visual C++ 5.0
+
+		later than Visual C++ .NET 2003
+
+	and Visual C++ .NET is just a guess which might be wrong.
+*/
+
+#if _MSC_VER >= 1100 && _MSC_VER <= 1200
+
+/* If within Visual C++ 5.0 to Visual C++ 6.0 */
+
+inline int mbsinit (const void * arg)
+	{ return 1; }
+
+#elif _MSC_VER >= 1300 && _MSC_VER <= 1310
+
+/* If within Visual C++ .NET to Visual C++ .NET 2003 */
+
+inline int mbsinit (const int * arg)
+        { return arg == NULL || ! *arg; }
+
+#endif
+
+/* =========================== End Of This File =========================== */

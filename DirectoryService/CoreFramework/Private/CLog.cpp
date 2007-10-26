@@ -28,11 +28,11 @@
 
 #include <string.h>					// for memset() and strcpy()
 
-# include <NSSystemDirectories.h>	// for NSSearchPath*()
-# include <sys/types.h>				// for mode_t
-# include <sys/stat.h>				// for mkdir() and stat()
+#include <NSSystemDirectories.h>	// for NSSearchPath*()
+#include <sys/types.h>				// for mode_t
+#include <sys/stat.h>				// for mkdir() and stat()
+#include <libkern/OSAtomic.h>
 
-#include "DSCThread.h"				// for CThread identification
 #include "CLog.h"
 #include "COSUtils.h"
 #include "DSMutexSemaphore.h"
@@ -44,8 +44,8 @@ const char *kgStringMessageEndOfLine = "\r\n";
 // ----------------------------------------------------------------------------
 
 OptionBits	CLog::fSrvrLogFlags		= kLogMeta;
-OptionBits	CLog::fErrLogFlags		= kLogMeta;
-OptionBits	CLog::fDbgLogFlags		= kLogMeta;
+OptionBits	CLog::fErrLogFlags		= kLogMeta | kLogError;
+OptionBits	CLog::fDbgLogFlags		= kLogEverything;
 OptionBits	CLog::fInfoLogFlags		= kLogMeta;
 CLog	   *CLog::fServerLog		= nil;
 CLog	   *CLog::fDebugLog			= nil;
@@ -62,11 +62,12 @@ CString	   *CLog::fInfoLogName		= nil;
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
+SInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 							OptionBits debugFlags,	OptionBits infoFlags,
-							bool inOpenDbgLog, bool inOpenInfoLog )
+							bool inOpenDbgLog, bool inOpenInfoLog,
+							bool inLocalOnlyMode )
 {
-	sInt32							result;
+	SInt32							result;
 	NSSearchPathEnumerationState	eState;
 	struct stat						ssFolder;
     char							localPath[ PATH_MAX ];
@@ -82,29 +83,29 @@ sInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 		fErrLogFlags	= errFlags;
 		fDbgLogFlags	= debugFlags;
 		fInfoLogFlags	= infoFlags;
-
+		
 		fServerLogName = new CString( 128 );
 		if ( fServerLogName == nil )
 		{
-			throw( (sInt32)eMemoryAllocError );
+			throw( (SInt32)eMemoryAllocError );
 		}
 
 		fErrorLogName = new CString( 128 );
 		if ( fErrorLogName == nil )
 		{
-			throw( (sInt32)eMemoryAllocError );
+			throw( (SInt32)eMemoryAllocError );
 		}
 
 		fDebugLogName = new CString( 128 );
 		if ( fDebugLogName == nil )
 		{
-			throw( (sInt32)eMemoryAllocError );
+			throw( (SInt32)eMemoryAllocError );
 		}
 
 		fInfoLogName = new CString( 128 );
 		if ( fInfoLogName == nil )
 		{
-			throw( (sInt32)eMemoryAllocError );
+			throw( (SInt32)eMemoryAllocError );
 		}
 
 		// Set the base path (/Library)
@@ -124,7 +125,14 @@ sInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 		
 		// Append the product folder name
 		csBasePath.Append( "/" );
-		csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
+		if (inLocalOnlyMode)
+		{
+			csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrLocalProductFolder ) );
+		}
+		else
+		{
+			csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
+		}
 
 		// Create it if it doesn't exist
 		result = ::stat( csBasePath.GetData(), &ssFolder );
@@ -169,7 +177,14 @@ sInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 			if ( inOpenDbgLog == true )
 			{
 				// Create the debug event log file.
-				fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+				if (kLogDebugHeader & fDbgLogFlags)
+				{
+					fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kDebugHdr | kThreadInfo | kRollLog );
+				}
+				else
+				{
+					fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+				}
 			}
 
 			if ( inOpenInfoLog == true )
@@ -180,7 +195,7 @@ sInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
 		result = err;
 	}
@@ -231,7 +246,7 @@ void CLog::Deinitialize ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CLog::StartLogging ( eLogType inWhichLog, uInt32 inFlag )
+void CLog::StartLogging ( eLogType inWhichLog, UInt32 inFlag )
 {
 	switch ( inWhichLog )
 	{
@@ -259,7 +274,7 @@ void CLog::StartLogging ( eLogType inWhichLog, uInt32 inFlag )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CLog::StopLogging ( eLogType inWhichLog, uInt32 inFlag )
+void CLog::StopLogging ( eLogType inWhichLog, UInt32 inFlag )
 {
 	switch ( inWhichLog )
 	{
@@ -283,11 +298,64 @@ void CLog::StopLogging ( eLogType inWhichLog, uInt32 inFlag )
 
 
 //--------------------------------------------------------------------------------------------------
+//	* SetLoggingPriority()
+//
+//--------------------------------------------------------------------------------------------------
+
+void CLog::SetLoggingPriority ( eLogType inWhichLog, UInt32 inPriority )
+{
+	switch ( inWhichLog )
+	{
+		case keServerLog:
+			fSrvrLogFlags = kLogEverything;
+			break;
+
+		case keErrorLog:
+			fErrLogFlags = kLogEverything;
+			break;
+
+		case keDebugLog:
+			fDbgLogFlags = kLogEmergency;
+			switch ( inPriority )
+			{
+				case 9:
+				case 8:
+					fDbgLogFlags |= kLogMeta;
+				case 7:
+					fDbgLogFlags |= kLogDebug;
+				case 6:
+					fDbgLogFlags |= kLogInfo;
+				case 5:
+					fDbgLogFlags |= kLogNotice | kLogPlugin | kLogPerformanceStats;
+				case 4:
+					fDbgLogFlags |= kLogWarning | kLogAPICalls;
+				case 3:
+					fDbgLogFlags |= kLogError | kLogThreads | kLogEndpoint | kLogConnection | kLogTCPEndpoint;
+				case 2:
+					fDbgLogFlags |= kLogCritical | kLogHandler | kLogMsgQueue | kLogMsgTrans;
+				case 1:
+					fDbgLogFlags |= kLogAlert | kLogApplication | kLogAssert | kLogListener; 
+					break;
+				case 0:	// we by default do emergency
+					break;
+			}
+			
+			DbgLog( kLogMeta, "Debug Logging priority set to %d - filter %X", inPriority, fDbgLogFlags );
+			break;
+
+		case keInfoLog:
+			fInfoLogFlags = kLogEverything;
+			break;
+	}
+} // SetLoggingPriority
+
+
+//--------------------------------------------------------------------------------------------------
 //	* ToggleLogging()
 //
 //--------------------------------------------------------------------------------------------------
 
-void CLog::ToggleLogging ( eLogType inWhichLog, uInt32 inFlag )
+void CLog::ToggleLogging ( eLogType inWhichLog, UInt32 inFlag )
 {
 	switch ( inWhichLog )
 	{
@@ -343,7 +411,7 @@ void CLog::ToggleLogging ( eLogType inWhichLog, uInt32 inFlag )
 //
 //--------------------------------------------------------------------------------------------------
 
-bool CLog::IsLogging ( eLogType inWhichLog, uInt32 inFlag )
+bool CLog::IsLogging ( eLogType inWhichLog, UInt32 inFlag )
 {
 	switch ( inWhichLog )
 	{
@@ -357,7 +425,6 @@ bool CLog::IsLogging ( eLogType inWhichLog, uInt32 inFlag )
 			return( fDbgLogFlags & inFlag );
 
 		case keInfoLog:
-//			return( true );
 			return( fInfoLogFlags & inFlag );
 	}
 
@@ -377,9 +444,14 @@ void CLog::StartDebugLog ( void )
 	{
 		if ( fDebugLog == nil )
 		{
-			fDbgLogFlags = kLogEverything;
-
-			fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+			if (kLogDebugHeader & fDbgLogFlags)
+			{
+				fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kDebugHdr | kThreadInfo | kRollLog );
+			}
+			else
+			{
+				fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+			}
 		}
 	}
 
@@ -419,9 +491,11 @@ void CLog::StartErrorLog ( void )
 	{
 		if ( fErrorLog == nil )
 		{
-			fErrLogFlags = kLogEverything;
-
-			fErrorLog = new CLog( fErrorLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+			CLog *tempLog = new CLog( fErrorLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
+			
+			// use atomic calls to set this so we can deal with multiple clients at once
+			if ( OSAtomicCompareAndSwapPtrBarrier(NULL, tempLog, (void **) &fErrorLog) == false )
+				delete tempLog;
 		}
 	}
 
@@ -541,9 +615,9 @@ CLog* CLog::GetInfoLog ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-long CLog::Lock ( void )
+void CLog::Lock ( void )
 {
-	return( fLock->Wait() );
+	fLock->WaitLock();
 } // Lock
 
 
@@ -554,7 +628,7 @@ long CLog::Lock ( void )
 
 void CLog::UnLock ( void )
 {
-	fLock->Signal();
+	fLock->SignalLock();
 } // UnLock
 
 
@@ -565,10 +639,10 @@ void CLog::UnLock ( void )
 
 // ctor & dtor
 CLog::CLog ( const char *inFile,
-			 uInt32 inMaxLen,
+			 UInt32 inMaxLen,
 			 OptionBits inFlags,
-			 OSType type,
-			 OSType creator )
+			 UInt32 type,
+			 UInt32 creator )
 {
 	fFlags				= inFlags;
 	fMaxLength			= inMaxLen;
@@ -594,13 +668,7 @@ CLog::CLog ( const char *inFile,
 		fLength = 0;
 	}
 
-	fLock = new DSMutexSemaphore( true );
-
-	if (fLock != nil)
-	{
-		fLock->Signal();	
-	}
-
+	fLock = new DSMutexSemaphore("CLog::fLock");
 } // 
 
 
@@ -630,7 +698,7 @@ CLog::~CLog ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CLog::SetMaxLength ( uInt32 inMaxLen )
+void CLog::SetMaxLength ( UInt32 inMaxLen )
 {
 	fMaxLength = inMaxLen;
 } // SetMaxLength
@@ -642,8 +710,8 @@ void CLog::SetMaxLength ( uInt32 inMaxLen )
 //--------------------------------------------------------------------------------------------------
 
 void CLog::GetInfo (	CFileSpec	&fileSpec,
-						uInt32		&startOffset,
-						uInt32		&dataLength,
+						UInt32		&startOffset,
+						UInt32		&dataLength,
 						bool		&hasWrapped )
 {
 	::strcpy( fileSpec, fFileSpec );
@@ -658,17 +726,17 @@ void CLog::GetInfo (	CFileSpec	&fileSpec,
 //
 //--------------------------------------------------------------------------------------------------
 
-OSErr CLog::ClearLog ( void )
+SInt16 CLog::ClearLog ( void )
 {
 	try {
-		if( fFile == nil ) throw ((OSErr) ds_fnfErr);
+		if( fFile == nil ) throw ((SInt16) ds_fnfErr);
 		
 		fFile->seteof( 0 );
 		fOffset = 0;
 		fLength = 0;
 	}
 	
-	catch ( OSErr nErr )
+	catch ( SInt16 nErr )
 	{
 		return( nErr );
 	}
@@ -698,28 +766,19 @@ void CLog::AddHook ( AppendHook fpNewHook )
 //
 //--------------------------------------------------------------------------------------------------
 
-OSErr CLog::Append ( const CString &line )
+SInt16 CLog::Append ( const CString &line )
 {
 	CString			csTemp( 60 + line.GetLength() );
 
-	fLock->Wait();
+	fLock->WaitLock();
 
 	if (fFlags & kThreadInfo)
 	{
-		DSCThread *cur = (DSCThread *)DSLThread::GetCurrentThread();
-
-		if ( cur )
-		{
-			csTemp.Sprintf( "%D %T - %S", &line );
-		}
-		else
-		{
-			csTemp.Sprintf( "%D %T - %S", &line );
-		}
+		csTemp.Sprintf( ( (fFlags & kDebugHdr) ? "%G %D %T - T[%X] - %S" : "%D %T - T[%X] - %S" ), pthread_self(), &line );
 	}
 	else
 	{
-		csTemp.Sprintf("%D %T\t%S", &line);
+		csTemp.Sprintf( ( (fFlags & kDebugHdr) ? "%G %D %T\t%S" : "%D %T\t%S" ) , &line);
 	}
 
 	// Append newline if necessary.
@@ -729,7 +788,7 @@ OSErr CLog::Append ( const CString &line )
 	}
 
 	try {
-		if( fFile == nil ) throw ((OSErr) ds_fnfErr);
+		if( fFile == nil ) throw ((SInt16) ds_fnfErr);
 
 		// wrap up later
 		fFile->write( csTemp.GetData(), csTemp.GetLength() );
@@ -740,16 +799,100 @@ OSErr CLog::Append ( const CString &line )
 			(*pHooks) (csTemp);
 	}
 
-	catch ( OSErr nErr )
+	catch ( SInt16 nErr )
 	{
-		fLock->Signal();
+		fLock->SignalLock();
 		return( nErr );
 	}
 
-	fLock->Signal();
+	fLock->SignalLock();
 
 	return( eDSNoErr );
 
 } // Append
 
+#pragma mark -
+#pragma mark C functions
 
+void SrvrLog ( SInt32 lType, const char *szpPattern, ... )
+{
+	if ( (szpPattern != nil) && (CLog::GetServerLog() != nil ) )
+	{
+		if ( CLog::IsLogging( keServerLog, lType ) )
+		{
+			va_list	args;
+			va_start( args, szpPattern );
+
+			CLog::GetServerLog()->Append( CString( szpPattern, args ) );
+		}
+	}
+} // SrvrLog
+
+
+void ErrLog ( SInt32 lType, const char *szpPattern, ... )
+{
+	// if log is not open, we start it now
+	if ( szpPattern != nil )
+	{
+		CLog::StartErrorLog(); //create error log on demand
+		
+		if ( CLog::IsLogging(keErrorLog, lType) && CLog::GetErrorLog() != nil )
+		{
+			va_list	args;
+			va_start( args, szpPattern );
+
+			CLog::GetErrorLog()->Append( CString( szpPattern, args ) );
+		}
+	}
+} // ErrLog
+
+
+void DbgLog ( SInt32 lType, const char *szpPattern, ... )
+{
+	// certain types always get logged to error log
+	if ( (lType & (kLogEmergency | kLogAlert | kLogCritical | kLogError)) != 0 )
+	{
+		CLog::StartErrorLog(); //create error log on demand
+		
+		if ( CLog::IsLogging(keErrorLog, lType) && CLog::GetErrorLog() != nil )
+		{
+			va_list	args;
+			va_start( args, szpPattern );
+			
+			CLog::GetErrorLog()->Append( CString( szpPattern, args ) );
+		}
+	}
+	else if ( (szpPattern != nil) && (CLog::GetDebugLog() != nil ) )
+	{
+		// Just in case it was deleted while I was waiting for it
+		if ( CLog::GetDebugLog() != nil )
+		{
+			if ( CLog::IsLogging( keDebugLog, lType ) )
+			{
+				va_list	args;
+				va_start( args, szpPattern );
+
+				CLog::GetDebugLog()->Append( CString( szpPattern, args ) );
+			}
+		}
+	}
+} // DbgLog
+
+
+void InfoLog ( SInt32 lType, const char *szpPattern, ... )
+{
+	if ( (szpPattern != nil) && (CLog::GetInfoLog() != nil ) )
+	{
+		// Just in case it was deleted while I was waiting for it
+		if ( CLog::GetInfoLog() != nil )
+		{
+			if ( CLog::IsLogging( keInfoLog, lType ) )
+			{
+				va_list	args;
+				va_start( args, szpPattern );
+				
+				CLog::GetInfoLog()->Append( CString( szpPattern, args ) );
+			}
+		}
+	}
+} // GetInfoLog

@@ -1,5 +1,6 @@
 /* Proxy shell designed for use with Emacs on Windows 95 and NT.
-   Copyright (C) 1997 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007  Free Software Foundation, Inc.
 
    Accepts subset of Unix sh(1) command-line options, for compatability
    with elisp code written for Unix.  When possible, executes external
@@ -26,8 +27,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 #include <windows.h>
 
@@ -230,7 +231,7 @@ search_dir (char *dir, char *exec, int bufsize, char *buffer)
   int i, rc;
 
   /* Search the directory for the program.  */
-  for (i = 0; i < n_exts; i++) 
+  for (i = 0; i < n_exts; i++)
     {
       rc = SearchPath (dir, exec, exts[i], bufsize, buffer, &dummy);
       if (rc > 0)
@@ -240,7 +241,7 @@ search_dir (char *dir, char *exec, int bufsize, char *buffer)
   return 0;
 }
 
-/* Return the absolute name of executable file PROG, including 
+/* Return the absolute name of executable file PROG, including
    any file extensions.  If an absolute name for PROG cannot be found,
    return NULL.  */
 char *
@@ -272,18 +273,18 @@ make_absolute (char *prog)
 	return NULL;
     }
 
-  if (GetCurrentDirectory (MAX_PATH, curdir) <= 0) 
+  if (GetCurrentDirectory (MAX_PATH, curdir) <= 0)
     return NULL;
 
   /* Relative path; search in current dir. */
-  if (strpbrk (prog, "\\")) 
+  if (strpbrk (prog, "\\"))
     {
       if (search_dir (curdir, prog, MAX_PATH, absname) > 0)
 	return strdup (absname);
-      else 
+      else
 	return NULL;
     }
-  
+
   /* Just filename; search current directory then PATH.  */
   path = alloca (strlen (getenv ("PATH")) + strlen (curdir) + 2);
   strcpy (path, curdir);
@@ -304,7 +305,7 @@ make_absolute (char *prog)
 
       /* Move to the next directory.  */
       path = p + 1;
-    } 
+    }
 
   return NULL;
 }
@@ -322,7 +323,7 @@ setup_argv (void)
   char * cmdline = GetCommandLine ();
   int arg_bytes = 0;
 
-  
+
 }
 #endif
 
@@ -384,7 +385,7 @@ spawn (char * progname, char * cmdline, char * dir, int * retcode)
   sec_attrs.nLength = sizeof (sec_attrs);
   sec_attrs.lpSecurityDescriptor = NULL;
   sec_attrs.bInheritHandle = FALSE;
-  
+
   memset (&start, 0, sizeof (start));
   start.cb = sizeof (start);
 
@@ -699,3 +700,6 @@ main (int argc, char ** argv)
 
   return 0;
 }
+
+/* arch-tag: 88678d93-07ac-4e2f-ad63-d4a740ca69ac
+   (do not change this comment) */

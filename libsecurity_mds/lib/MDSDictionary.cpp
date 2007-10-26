@@ -29,6 +29,7 @@
 #include "MDSAttrParser.h"
 #include "MDSAttrUtils.h"
 #include <security_utilities/logging.h>
+#include <security_utilities/cfutilities.h>
 
 namespace Security
 {
@@ -90,11 +91,11 @@ MDSDictionary::MDSDictionary(
 	CFStringRef cfStr = (CFStringRef)lookup(CFSTR(MDS_INFO_FILE_DESC), 
 		true, CFStringGetTypeID());
 	if(cfStr) {
-		unsigned len = CFStringGetLength(cfStr) + 1;
+		CFIndex len = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfStr), kCFStringEncodingUTF8) + 1/*nul terminator*/;
 		mFileDesc = new char[len];
 		if(mFileDesc) {
 			CFStringGetCString(cfStr, mFileDesc, len, 
-				CFStringGetSystemEncoding());
+				kCFStringEncodingUTF8);
 		}
 	}
 }
@@ -136,7 +137,7 @@ const void *MDSDictionary::lookup(
 {
 	CFStringRef cfKey = CFStringCreateWithCString(NULL,
 		key,
-		CFStringGetSystemEncoding());
+		kCFStringEncodingUTF8);
 	if(cfKey == NULL) {
 		MPDebug("MDSDictionary::lookup: error creating CFString for key");
 		return NULL;
@@ -186,36 +187,14 @@ bool MDSDictionary::lookupToDbAttr(
 	bool		ourRtn = false;
 	const void 	*srcPtr = NULL;		// polymorphic raw source bytes
 	unsigned	srcLen;
-	CSSM_STRING	cstr;
 	uint32 		ival = 0;
 	uint32		*ivalArray = NULL;
 	uint32		numValues = 1;		// the default for MDSRawValueToDbAttr
-	
+	string		stringVal;
+
 	value = (CFTypeRef)lookup(key);
 	if(value == NULL) {
-		//
-		// Generate/insert synthetic attributes ONLY if they're not present
-		// in the input file.
-		//
-		CssmData value;
-		if (attrFormat == CSSM_DB_ATTRIBUTE_FORMAT_STRING && !strcmp(key, "Path") && mUrlPath)
-			value = StringData(mUrlPath);
-		else if (attrFormat == CSSM_DB_ATTRIBUTE_FORMAT_STRING && !strcmp(key, "ModuleID")
-				&& mDefaults && mDefaults->guid)
-			value = StringData(mDefaults->guid);
-		else if (attrFormat == CSSM_DB_ATTRIBUTE_FORMAT_UINT32 && !strcmp(key, "SSID")
-				&& mDefaults && mDefaults->ssid)
-			value = CssmData::wrap(mDefaults->ssid);
-		else if (attrFormat == CSSM_DB_ATTRIBUTE_FORMAT_STRING && !strcmp(key, "ScSerialNumber")
-				&& mDefaults && mDefaults->serial)
-			value = StringData(mDefaults->serial);
-		else if (attrFormat == CSSM_DB_ATTRIBUTE_FORMAT_STRING && !strcmp(key, "ScDesc")
-				&& mDefaults && mDefaults->printName)
-			value = StringData(mDefaults->printName);
-		else
-			return false;
-		MDSRawValueToDbAttr(value.data(), value.length(), attrFormat, key, attr, 1);
-		return true;
+		return false;
 	}
 	CFTypeID valueType = CFGetTypeID(value);
 	
@@ -226,21 +205,14 @@ bool MDSDictionary::lookupToDbAttr(
 	switch(attrFormat) {
 		case CSSM_DB_ATTRIBUTE_FORMAT_STRING:
 		{
-			Boolean		brtn;
-			
 			if(valueType != CFStringGetTypeID()) {
 				MPDebug("lookupToDbAttr: string format mismatch");
 				break;
 			}
-			brtn = CFStringGetCString((CFStringRef)value, cstr,
-				CSSM_MODULE_STRING_SIZE, CFStringGetSystemEncoding());
-			if(!brtn) {
-				/* this could be "string too large for a CSSM_STRING" */
-				MPDebug("lookupToDbAttr: CFStringGetCString error");
-			}
-			else {
-				srcPtr = cstr;
-				srcLen = strlen(cstr);
+			stringVal = cfString((CFStringRef)value, false);
+			srcPtr = stringVal.c_str();
+			srcLen = stringVal.size();
+			if(srcLen) {
 				ourRtn = true;
 			}
 			break;
@@ -436,7 +408,7 @@ const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	/* basic local lookup */
 	CFStringRef cfKey = CFStringCreateWithCString(NULL,
 		key,
-		CFStringGetSystemEncoding());
+		kCFStringEncodingUTF8);
 	if(cfKey == NULL) {
 		MPDebug("CFStringCreateWithCString error");
 		return NULL;
@@ -471,7 +443,7 @@ const CFPropertyListRef MDSDictionary::lookupWithIndirect(
 	CFURLRef fileUrl = NULL;
 	CFStringRef cfFileName = CFStringCreateWithCString(NULL,
 		cVal + 5,
-		CFStringGetSystemEncoding());
+		kCFStringEncodingUTF8);
 	if(cfFileName == NULL) {
 		MPDebug("lookupWithIndirect: bad file name spec");
 		goto abort;
@@ -528,6 +500,98 @@ abort:
 	CF_RELEASE(dictData);
 	CF_RELEASE(cfErr);
 	return ourRtn;
+}
+
+void MDSDictionary::setDefaults(const MDS_InstallDefaults *defaults) 
+{ 
+	mDefaults = defaults;
+
+	/*
+	 * Save the values into (a new) mDict.  
+	 */
+	assert(mDict != NULL);
+	CFMutableDictionaryRef tmpDict = CFDictionaryCreateMutableCopy(NULL, 0, mDict);
+	if(tmpDict == NULL) {
+		MPDebug("setDefaults: error copying old dictionary");
+		CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+	}
+
+	CFStringRef tmpStr = NULL;
+
+	/*
+	 * CFDictionaryAddValue() does nothing if the requested key is already 
+	 * present.  If you need to call setDefaults() more than once, you'll 
+	 * have to add the code to remove the old key/value pairs first.  
+	 */
+	if(defaults) {
+		if(defaults->guid) {
+			tmpStr = CFStringCreateWithCString(NULL, defaults->guid, kCFStringEncodingUTF8);
+			if(tmpStr) {
+				CFDictionaryAddValue(tmpDict, CFSTR("ModuleID"), tmpStr);
+				CFRelease(tmpStr);
+			}
+			else {
+				MPDebug("setDefaults: error creating CFString for GUID");
+				CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+			}
+		}
+
+		CFNumberRef tmpNum = CFNumberCreate(NULL, kCFNumberIntType, &defaults->ssid);
+		if(tmpNum) {
+			CFDictionaryAddValue(tmpDict, CFSTR("SSID"), tmpNum);
+			CFRelease(tmpNum);
+		}
+		else {
+			MPDebug("setDefaults: error creating CFString for SSID");
+			CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+		}
+
+		if(defaults->serial) {
+			tmpStr = CFStringCreateWithCString(NULL, defaults->serial, kCFStringEncodingUTF8);
+			if(tmpStr) {
+				CFDictionaryAddValue(tmpDict, CFSTR("ScSerialNumber"), tmpStr);
+				CFRelease(tmpStr);
+			}
+			else {
+				MPDebug("setDefaults: error creating CFString for serial number");
+				CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+			}
+		}
+
+		if(defaults->printName) {
+			tmpStr = CFStringCreateWithCString(NULL, defaults->printName, kCFStringEncodingUTF8);
+			if(tmpStr) {
+				CFDictionaryAddValue(tmpDict, CFSTR("ScDesc"), tmpStr);
+				CFRelease(tmpStr);
+			}
+			else {
+				MPDebug("setDefaults: error creating CFString for description");
+				CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+			}
+		}
+	}
+
+	if(mUrlPath) {
+		tmpStr = CFStringCreateWithCString(NULL, mUrlPath, kCFStringEncodingUTF8);
+		if(tmpStr) {
+			CFDictionaryAddValue(tmpDict, CFSTR("Path"), tmpStr);
+			CFRelease(tmpStr);
+		}
+		else {
+			MPDebug("setDefaults: error creating CFString for path");
+			CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+		}
+	}
+	CFDictionaryRef oldDict = mDict;
+	mDict = CFDictionaryCreateCopy(NULL, tmpDict);
+	if(mDict == NULL) {
+		mDict = oldDict;	// first do no harm
+		CFRelease(tmpDict);
+		MPDebug("setDefaults: error creating new dictionary");
+		CssmError::throwMe(CSSMERR_CSSM_MDS_ERROR);
+	}
+	CFRelease(oldDict);
+	CFRelease(tmpDict);
 }
 
 

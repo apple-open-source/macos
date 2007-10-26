@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: quota_db.c,v 1.3 2005/03/05 00:37:03 dasenbro Exp $
+ * $Id: quota_db.c,v 1.4 2007/02/05 18:41:48 jeaton Exp $
  *
  */
 
@@ -62,6 +62,8 @@
 #include "quota.h"
 #include "util.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 
 #define QDB config_quota_db
 
@@ -89,7 +91,16 @@ int quota_read(struct quota *quota, struct txn **tid, int wrlock)
 
     switch (r) {
     case CYRUSDB_OK:
-	sscanf(data, "%lu %d", &quota->used, &quota->limit);
+#ifdef APPLE_OS_X_SERVER
+    if ( data == NULL )
+    {
+        syslog( LOG_ERR, "Warning: no quota data found while fetching: %s.  Using default settings", quota->root );
+        quota->used = 0;
+        quota->limit = 2147483647;
+    }
+    else
+#endif
+	sscanf(data, UQUOTA_T_FMT " %d", &quota->used, &quota->limit);
 	break;
 
     case CYRUSDB_AGAIN:
@@ -151,7 +162,7 @@ int quota_write(struct quota *quota, struct txn **tid)
     if (!qrlen) return IMAP_QUOTAROOT_NONEXISTENT;
 
     len = snprintf(buf, sizeof(buf) - 1,
-		   "%lu %d", quota->used, quota->limit);
+		   UQUOTA_T_FMT " %d", quota->used, quota->limit);
     r = QDB->store(qdb, quota->root, qrlen, buf, len, tid);
     
     switch (r) {

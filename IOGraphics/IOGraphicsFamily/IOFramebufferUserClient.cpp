@@ -22,6 +22,7 @@
 
 #define IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IOFramebufferShared.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOMessage.h>
@@ -175,7 +176,7 @@ IOExternalMethod * IOFramebufferUserClient::getTargetAndMethodForIndex(
 	/* 8 */  { NULL, (IOMethod) &IOFramebuffer::extGetVRAMMapOffset,
 		    kIOUCScalarIScalarO, 1, 1 },
 	/* 9 */  { NULL, (IOMethod) &IOFramebuffer::extSetBounds,
-		    kIOUCStructIStructO, sizeof( Bounds), 0 },
+		    kIOUCStructIStructO, sizeof(IOGBounds), 0 },
 	/* 10 */  { NULL, (IOMethod) &IOFramebuffer::extSetNewCursor,
 		    kIOUCScalarIScalarO, 3, 0 },
 	/* 11 */  { NULL, (IOMethod) &IOFramebuffer::extSetGammaTable,
@@ -260,6 +261,7 @@ bool IOFramebufferSharedUserClient::start( IOService * _owner )
 
     owner = (IOFramebuffer *) _owner;
     owner->sharedConnect = this;
+    setProperty(kIOUserClientSharedInstanceKey, kOSBooleanTrue);
 
     return (true);
 }
@@ -300,8 +302,8 @@ IOReturn IOFramebufferSharedUserClient::clientMemoryForType( UInt32 type,
             break;
 
         case kIOFBVRAMMemory:
-           if (kIOReturnSuccess == clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser))
-            mem = owner->getVRAMRange();
+	    if (kIOReturnSuccess == clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser))
+		mem = owner->getVRAMRange();
             break;
     }
 

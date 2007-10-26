@@ -31,7 +31,7 @@
 #include <CoreFoundation/CFMachPort.h>
 
 #include "dprintf.h"
-#include "ipconfig.h"
+#include "ipconfigServer.h"
 #include "ipconfigd.h"
 #include "ipconfig_ext.h"
 #include "globals.h"
@@ -58,21 +58,21 @@ read_trailer(mig_reply_error_t * request)
 }
 
 kern_return_t
-_ipconfig_config_if(port_t p, if_name_t name)
+_ipconfig_config_if(mach_port_t p, if_name_t name)
 {
     dprintf(("config called with %s\n", name));
     return (KERN_SUCCESS);
 }
 
 kern_return_t
-_ipconfig_config_all(port_t p)
+_ipconfig_config_all(mach_port_t p)
 {
     dprintf(("config all called\n"));
     return (KERN_SUCCESS);
 }
 
 kern_return_t
-_ipconfig_wait_if(port_t p, if_name_t name)
+_ipconfig_wait_if(mach_port_t p, if_name_t name)
 {
     dprintf(("Waiting for %s to complete\n", name));
     if (S_uid == 0 && wait_if(name) == TRUE)
@@ -81,7 +81,7 @@ _ipconfig_wait_if(port_t p, if_name_t name)
 }
 
 kern_return_t
-_ipconfig_wait_all(port_t p)
+_ipconfig_wait_all(mach_port_t p)
 {
 
     dprintf(("Waiting for all interfaces to complete\n"));
@@ -93,7 +93,7 @@ _ipconfig_wait_all(port_t p)
 }
 
 kern_return_t
-_ipconfig_if_name(port_t p, int intface, if_name_t name)
+_ipconfig_if_name(mach_port_t p, int intface, if_name_t name)
 {
 
     dprintf(("Getting interface name\n"));
@@ -103,7 +103,7 @@ _ipconfig_if_name(port_t p, int intface, if_name_t name)
 }
 
 kern_return_t
-_ipconfig_if_addr(port_t p, if_name_t name, u_int32_t * addr)
+_ipconfig_if_addr(mach_port_t p, if_name_t name, u_int32_t * addr)
 {
     dprintf(("Getting interface address\n"));
     if (get_if_addr(name, addr) == TRUE)
@@ -112,7 +112,7 @@ _ipconfig_if_addr(port_t p, if_name_t name, u_int32_t * addr)
 }
 
 kern_return_t
-_ipconfig_if_count(port_t p, int * count)
+_ipconfig_if_count(mach_port_t p, int * count)
 {
     dprintf(("Getting interface count\n"));
     *count = get_if_count();
@@ -120,7 +120,7 @@ _ipconfig_if_count(port_t p, int * count)
 }
 
 kern_return_t
-_ipconfig_get_option(port_t p, if_name_t name, int option_code,
+_ipconfig_get_option(mach_port_t p, if_name_t name, int option_code,
 		     inline_data_t option_data,
 		     unsigned int * option_dataCnt)
 {
@@ -132,7 +132,7 @@ _ipconfig_get_option(port_t p, if_name_t name, int option_code,
 }
 
 kern_return_t
-_ipconfig_get_packet(port_t p, if_name_t name,
+_ipconfig_get_packet(mach_port_t p, if_name_t name,
 		     inline_data_t packet_data,
 		     unsigned int * packet_dataCnt)
 {
@@ -143,7 +143,7 @@ _ipconfig_get_packet(port_t p, if_name_t name,
 }
 
 kern_return_t
-_ipconfig_set(port_t p, if_name_t name,
+_ipconfig_set(mach_port_t p, if_name_t name,
 	      ipconfig_method_t method,
 	      inline_data_t method_data,
 	      unsigned int method_data_len,
@@ -153,13 +153,13 @@ _ipconfig_set(port_t p, if_name_t name,
 	*status = ipconfig_status_permission_denied_e;
     }
     else {
-	*status = set_if(name, method, method_data, method_data_len, NULL);
+	*status = set_if(name, method, method_data, method_data_len);
     }
     return (KERN_SUCCESS);
 }
 
 kern_return_t
-_ipconfig_set_verbose(port_t p, int verbose,
+_ipconfig_set_verbose(mach_port_t p, int verbose,
 		      ipconfig_status_t * status)
 {
     if (S_uid != 0) {
@@ -173,39 +173,136 @@ _ipconfig_set_verbose(port_t p, int verbose,
 
 #ifdef IPCONFIG_TEST_NO_ENTRY
 kern_return_t
-_ipconfig_set_something(port_t p, int verbose,
+_ipconfig_set_something(mach_port_t p, int verbose,
 			ipconfig_status_t * status)
 {
     return (KERN_SUCCESS);
 }
 #endif IPCONFIG_TEST_NO_ENTRY
 
+kern_return_t
+_ipconfig_add_service(mach_port_t p, 
+		      if_name_t name,
+		      ipconfig_method_t method,
+		      inline_data_t method_data,
+		      unsigned int method_data_len,
+		      inline_data_t service_id,
+		      mach_msg_type_number_t * service_id_len,
+		      ipconfig_status_t * status)
+{
+    if (S_uid != 0) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = add_service(name, method, method_data, method_data_len,
+			      service_id, service_id_len);
+			      
+    }
+    return (KERN_SUCCESS);
+}
+
+kern_return_t
+_ipconfig_set_service(mach_port_t p, 
+		      if_name_t name,
+		      ipconfig_method_t method,
+		      inline_data_t method_data,
+		      unsigned int method_data_len,
+		      inline_data_t service_id,
+		      mach_msg_type_number_t * service_id_len,
+		      ipconfig_status_t * status)
+{
+    if (S_uid != 0) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = set_service(name, method, method_data, method_data_len,
+			      service_id, service_id_len);
+			      
+    }
+    return (KERN_SUCCESS);
+}
+
+kern_return_t 
+_ipconfig_remove_service_with_id(mach_port_t server,
+				 inline_data_t service_id,
+				 mach_msg_type_number_t service_id_len,
+				 ipconfig_status_t *status)
+{
+    if (S_uid != 0) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = remove_service_with_id(service_id, service_id_len);
+    }
+    return (KERN_SUCCESS);
+}
+
+kern_return_t 
+_ipconfig_find_service(mach_port_t server,
+		       if_name_t name,
+		       boolean_t exact,
+		       ipconfig_method_t method,
+		       inline_data_t method_data,
+		       mach_msg_type_number_t method_data_len,
+		       inline_data_t service_id,
+		       mach_msg_type_number_t *service_id_len,
+		       ipconfig_status_t *status)
+{
+    *status = find_service(name, exact, method, method_data, method_data_len,
+			   service_id, service_id_len);
+    return (KERN_SUCCESS);
+}
+
+kern_return_t 
+_ipconfig_remove_service(mach_port_t server,
+			 if_name_t name,
+			 ipconfig_method_t method,
+			 inline_data_t method_data,
+			 mach_msg_type_number_t method_data_len,
+			 ipconfig_status_t *status)
+{
+    if (S_uid != 0) {
+	*status = ipconfig_status_permission_denied_e;
+    }
+    else {
+	*status = remove_service(name, method, method_data, method_data_len);
+    }
+    return (KERN_SUCCESS);
+}
+
 boolean_t
 server_active()
 {
-    boolean_t 		active = FALSE;
-    port_t		server;
+    mach_port_t		server;
     kern_return_t	status;
 
-    status = ipconfig_server_port(&server, &active);
-    if (active != FALSE)
+    status = ipconfig_server_port(&server);
+    if (status == BOOTSTRAP_SUCCESS) {
 	return (TRUE);
+    }
     return (FALSE);
 }
 
 static void
 S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-    char 		reply_buf[1024];
+    char 		reply_buf[2048 + 256];
     mach_msg_options_t 	options = 0;
     mig_reply_error_t * request = (mig_reply_error_t *)msg;
     mig_reply_error_t *	reply = (mig_reply_error_t *)reply_buf;
     mach_msg_return_t 	r = MACH_MSG_SUCCESS;
-    extern boolean_t 	ipconfig_server(mig_reply_error_t *, 
-					mig_reply_error_t *);
 
     read_trailer(request);
-    if (ipconfig_server(request, reply) == FALSE) {
+    if (_ipconfig_subsystem.maxsize > sizeof(reply_buf)) {
+	syslog(LOG_NOTICE, "IPConfiguration server: %d > %d",
+	       _ipconfig_subsystem.maxsize, sizeof(reply_buf));
+	reply = (mig_reply_error_t *)
+	    malloc(_ipconfig_subsystem.maxsize);
+    }
+    else {
+	reply = (mig_reply_error_t *)reply_buf;
+    }
+    if (ipconfig_server(&request->Head, &reply->Head) == FALSE) {
 	my_log(LOG_INFO, "IPConfiguration: unknown message ID (%d) received",
 	       request->Head.msgh_id);
     }
@@ -248,6 +345,10 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
  done_once:
     /* Copied from Libc/mach/mach_msg.c:mach_msg_server_once(): End */
 
+    if (reply != (mig_reply_error_t *)reply_buf) {
+	free(reply);
+    }
+
     if (r != MACH_MSG_SUCCESS) {
 	my_log(LOG_INFO, "IPConfiguration msg_send: %s", mach_error_string(r));
     }
@@ -257,30 +358,9 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
 void
 server_init()
 {
-    boolean_t		active;
     CFRunLoopSourceRef	rls;
     CFMachPortRef	ipconfigd_port;
     kern_return_t 	status;
-
-    active = FALSE;
-    status = bootstrap_status(bootstrap_port, IPCONFIG_SERVER, &active);
-
-    switch (status) {
-      case BOOTSTRAP_SUCCESS :
-	  if (active) {
-	      fprintf(stderr, "\"%s\" is currently active.\n", 
-		     IPCONFIG_SERVER);
-	      return;
-	  }
-	  break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-	  break;
-      default :
-	  fprintf(stderr,
-		 "bootstrap_status(): %s\n", mach_error_string(status));
-	  return;
-	  break;
-    }
 
     ipconfigd_port = CFMachPortCreate(NULL, S_ipconfig_server, NULL, NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, ipconfigd_port, 0);
@@ -290,7 +370,10 @@ server_init()
     status = bootstrap_register(bootstrap_port, IPCONFIG_SERVER, 
 				CFMachPortGetPort(ipconfigd_port));
     if (status != BOOTSTRAP_SUCCESS) {
+	my_log(LOG_NOTICE, "failed to register " IPCONFIG_SERVER);
 	mach_error("bootstrap_register", status);
+	CFMachPortInvalidate(ipconfigd_port);
+	CFRelease(ipconfigd_port);
     }
     return;
 }

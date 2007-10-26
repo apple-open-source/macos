@@ -53,18 +53,18 @@ protected:
     virtual ~IOUSBIUnknown(); // Also virtualise destructor
 
     static HRESULT genericQueryInterface(void *self, REFIID iid, void **ppv);
-    static unsigned long genericAddRef(void *self);
-    static unsigned long genericRelease(void *self);
+    static UInt32 genericAddRef(void *self);
+    static UInt32 genericRelease(void *self);
 
 protected:
 
-    unsigned long refCount;
+    UInt32 refCount;
     InterfaceMap iunknown;
 
 public:
     virtual HRESULT queryInterface(REFIID iid, void **ppv) = 0;
-    virtual unsigned long addRef();
-    virtual unsigned long release();
+    virtual UInt32 addRef();
+    virtual UInt32 release();
 };
 
 #endif /* !_IOKIT_IOUSBIUNKNOWN_H */

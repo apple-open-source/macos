@@ -2,23 +2,47 @@
 
   enumerator.c - provides Enumerator class
 
-  $Author: matz $
+  $Author: shyouhei $
 
   Copyright (C) 2001-2003 Akinori MUSHA
 
   $Idaemons: /home/cvs/rb/enumerator/enumerator.c,v 1.1.1.1 2001/07/15 10:12:48 knu Exp $
   $RoughId: enumerator.c,v 1.6 2003/07/27 11:03:24 nobu Exp $
-  $Id: enumerator.c,v 1.3.2.2 2004/11/04 01:20:50 matz Exp $
+  $Id: enumerator.c 11708 2007-02-12 23:01:19Z shyouhei $
 
 ************************************************/
 
 #include "ruby.h"
 #include "node.h"
 
+/*
+ * Document-class: Enumerable::Enumerator
+ *
+ * A class which provides a method `each' to be used as an Enumerable
+ * object.
+ */
 static VALUE rb_cEnumerator;
 static ID sym_each, sym_each_with_index, sym_each_slice, sym_each_cons;
 static ID id_new, id_enum_obj, id_enum_method, id_enum_args;
 
+/*
+ *  call-seq:
+ *    obj.to_enum(method = :each, *args)
+ *    obj.enum_for(method = :each, *args)
+ *
+ *  Returns Enumerable::Enumerator.new(self, method, *args).
+ *
+ *  e.g.:
+ *     str = "xyz"
+ *
+ *     enum = str.enum_for(:each_byte)
+ *     a = enum.map {|b| '%02x' % b } #=> ["78", "79", "7a"]
+ *
+ *     # protects an array from being modified
+ *     a = [1, 2, 3]
+ *     some_method(a.to_enum)
+ *
+ */
 static VALUE
 obj_to_enum(obj, enum_args)
     VALUE obj, enum_args;
@@ -28,6 +52,13 @@ obj_to_enum(obj, enum_args)
     return rb_apply(rb_cEnumerator, id_new, enum_args);
 }
 
+/*
+ *  call-seq:
+ *    enum_with_index
+ *
+ *  Returns Enumerable::Enumerator.new(self, :each_with_index).
+ *
+ */
 static VALUE
 enumerator_enum_with_index(obj)
     VALUE obj;
@@ -53,6 +84,21 @@ each_slice_i(val, memo)
     return Qnil;
 }
 
+/*
+ *  call-seq:
+ *    e.each_slice(n) {...}
+ *
+ *  Iterates the given block for each slice of <n> elements.
+ *
+ *  e.g.:
+ *      (1..10).each_slice(3) {|a| p a}
+ *      # outputs below
+ *      [1, 2, 3]
+ *      [4, 5, 6]
+ *      [7, 8, 9]
+ *      [10]
+ *
+ */
 static VALUE
 enum_each_slice(obj, n)
     VALUE obj, n;
@@ -73,6 +119,13 @@ enum_each_slice(obj, n)
     return Qnil;
 }
 
+/*
+ *  call-seq:
+ *    e.enum_slice(n)
+ *
+ *  Returns Enumerable::Enumerator.new(self, :each_slice, n).
+ *
+ */
 static VALUE
 enumerator_enum_slice(obj, n)
     VALUE obj, n;
@@ -98,6 +151,26 @@ each_cons_i(val, memo)
     return Qnil;
 }
 
+/*
+ *  call-seq:
+ *    each_cons(n) {...}
+ *
+ *  Iterates the given block for each array of consecutive <n>
+ *  elements.
+ *
+ *  e.g.:
+ *      (1..10).each_cons(3) {|a| p a}
+ *      # outputs below
+ *      [1, 2, 3]
+ *      [2, 3, 4]
+ *      [3, 4, 5]
+ *      [4, 5, 6]
+ *      [5, 6, 7]
+ *      [6, 7, 8]
+ *      [7, 8, 9]
+ *      [8, 9, 10]
+ *
+ */
 static VALUE
 enum_each_cons(obj, n)
     VALUE obj, n;
@@ -113,6 +186,13 @@ enum_each_cons(obj, n)
     return Qnil;
 }
 
+/*
+ *  call-seq:
+ *    e.enum_cons(n)
+ *
+ *  Returns Enumerable::Enumerator.new(self, :each_cons, n).
+ *
+ */
 static VALUE
 enumerator_enum_cons(obj, n)
     VALUE obj, n;
@@ -120,6 +200,21 @@ enumerator_enum_cons(obj, n)
     return rb_funcall(rb_cEnumerator, id_new, 3, obj, sym_each_cons, n);
 }
 
+/*
+ *  call-seq:
+ *    Enumerable::Enumerator.new(obj, method = :each, *args)
+ *
+ *  Creates a new Enumerable::Enumerator object, which is to be
+ *  used as an Enumerable object using the given object's given
+ *  method with the given arguments.
+ *
+ *  e.g.:
+ *      str = "xyz"
+ *
+ *      enum = Enumerable::Enumerator.new(str, :each_byte)
+ *      a = enum.map {|b| '%02x' % b } #=> ["78", "79", "7a"]
+ *
+ */
 static VALUE
 enumerator_initialize(argc, argv, obj)
     int argc;
@@ -147,6 +242,14 @@ enumerator_iter(memo)
     return rb_apply(memo->u1.value, memo->u2.id, memo->u3.value);
 }
 
+/*
+ *  call-seq:
+ *    enum.each {...}
+ *
+ *  Iterates the given block using the object and the method specified
+ *  in the first place.
+ *
+ */
 static VALUE
 enumerator_each(obj)
     VALUE obj;

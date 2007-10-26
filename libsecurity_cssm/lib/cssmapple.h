@@ -31,6 +31,7 @@
 #include <Security/x509defs.h>			/* for CSSM_APPLE_TP_CERT_REQUEST fields */
 #include <Security/certextensions.h>	/* ditto */
 #include <sys/types.h>					/* for the BSD *_t types */
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,6 +84,7 @@ enum
 	CSSM_WORDID_PIN,
 	CSSM_WORDID_PREAUTH,
 	CSSM_WORDID_PREAUTH_SOURCE,
+	CSSM_WORDID_ASYMMETRIC_KEY,
 	CSSM_WORDID__FIRST_UNUSED
 };
 
@@ -95,7 +97,8 @@ enum
 	CSSM_ACL_SUBJECT_TYPE_COMMENT = CSSM_WORDID_COMMENT,
 	CSSM_ACL_SUBJECT_TYPE_SYMMETRIC_KEY = CSSM_WORDID_SYMMETRIC_KEY,
 	CSSM_ACL_SUBJECT_TYPE_PREAUTH = CSSM_WORDID_PREAUTH,
-	CSSM_ACL_SUBJECT_TYPE_PREAUTH_SOURCE = CSSM_WORDID_PREAUTH_SOURCE
+	CSSM_ACL_SUBJECT_TYPE_PREAUTH_SOURCE = CSSM_WORDID_PREAUTH_SOURCE,
+	CSSM_ACL_SUBJECT_TYPE_ASYMMETRIC_KEY = CSSM_WORDID_ASYMMETRIC_KEY
 };
 
 enum
@@ -107,7 +110,8 @@ enum
 	CSSM_SAMPLE_TYPE_COMMENT = CSSM_WORDID_COMMENT,
 	CSSM_SAMPLE_TYPE_RETRY_ID = CSSM_WORDID_PROPAGATE,
 	CSSM_SAMPLE_TYPE_SYMMETRIC_KEY = CSSM_WORDID_SYMMETRIC_KEY,
-	CSSM_SAMPLE_TYPE_PREAUTH = CSSM_WORDID_PREAUTH
+	CSSM_SAMPLE_TYPE_PREAUTH = CSSM_WORDID_PREAUTH,
+	CSSM_SAMPLE_TYPE_ASYMMETRIC_KEY = CSSM_WORDID_ASYMMETRIC_KEY
 	// there is no CSSM_SAMPLE_TYPE_PREAUTH_SOURCE
 };
 
@@ -167,7 +171,12 @@ enum {	/* KEYCHAIN_PROMPT structure version field */
 };
 
 enum {	/* KEYCHAIN_PROMPT operational flags */
-	CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE = 0x0001 /* require re-entering of passphrase */
+	CSSM_ACL_KEYCHAIN_PROMPT_REQUIRE_PASSPHRASE = 0x0001, /* require re-entering of passphrase */
+	/* the following bits are ignored by 10.4 and earlier */
+	CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED = 0x0010,			/* prompt for unsigned clients */
+	CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED_ACT = 0x0020,		/* UNSIGNED bit overrides system default */
+	CSSM_ACL_KEYCHAIN_PROMPT_INVALID = 0x0040,			/* prompt for invalid signed clients */
+	CSSM_ACL_KEYCHAIN_PROMPT_INVALID_ACT = 0x0080,		/* INVALID bit overrides system default */
 };
 
 typedef struct cssm_acl_keychain_prompt_selector { /* KEYCHAIN_PROMPT selector */
@@ -220,8 +229,17 @@ enum
 	CSSM_ALGID_SHA256WithRSA,	/* RSA signature on SHA256 digest */
 	CSSM_ALGID_SHA384WithRSA,	/* RSA signature on SHA384 digest */
 	CSSM_ALGID_SHA512WithRSA,	/* RSA signature on SHA512 digest */
+	CSSM_ALGID_OPENSSH1,		/* OpenSSH v1 RSA key wrapping */
     CSSM_ALGID__FIRST_UNUSED
 };
+
+/* Apple defined padding */
+enum
+{
+	/* RFC 2246 section E.2 for SSLv2 rollback detection */
+    CSSM_PADDING_APPLE_SSLv2 = CSSM_PADDING_VENDOR_DEFINED
+};
+
 
 /* Apple defined keyblob formats */
 enum {
@@ -230,10 +248,12 @@ enum {
 enum {
 	/* X509 SubjectPublicKeyInfo */
 	CSSM_KEYBLOB_RAW_FORMAT_X509 = CSSM_KEYBLOB_RAW_FORMAT_VENDOR_DEFINED,
-	/* openssh */
+	/* OpenSSH v1 */
 	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH,		
 	/* openssl-style DSA private key */
-	CSSM_KEYBLOB_RAW_FORMAT_OPENSSL
+	CSSM_KEYBLOB_RAW_FORMAT_OPENSSL,
+	/* OpenSSH v2 */
+	CSSM_KEYBLOB_RAW_FORMAT_OPENSSH2
 };
 
 /* Apple adds some "common" error codes. CDSA does not define an official start value for this. */
@@ -310,7 +330,10 @@ enum {
 	CSSMERR_CSP_APPLE_INVALID_KEY_END_DATE = CSSM_CSP_PRIVATE_ERROR + 4,
 	
 	/* Keychain Syncing error codes */
-	CSSMERR_CSPDL_APPLE_DL_CONVERSION_ERROR = CSSM_CSP_PRIVATE_ERROR + 5
+	CSSMERR_CSPDL_APPLE_DL_CONVERSION_ERROR = CSSM_CSP_PRIVATE_ERROR + 5,
+
+	/* SSLv2 padding check: rollback attack detected */
+	CSSMERR_CSP_APPLE_SSLv2_ROLLBACK = CSSM_CSP_PRIVATE_ERROR + 6
 };
 
 
@@ -325,6 +348,7 @@ enum
 	CSSM_DL_DB_RECORD_USER_TRUST,
 	CSSM_DL_DB_RECORD_X509_CRL,
 	CSSM_DL_DB_RECORD_UNLOCK_REFERRAL,
+	CSSM_DL_DB_RECORD_EXTENDED_ATTRIBUTE,
     CSSM_DL_DB_RECORD_METADATA = CSSM_DB_RECORDTYPE_APP_DEFINED_START + 0x8000
 };
 
@@ -359,7 +383,7 @@ enum
 	/* an operation failed because the disk was full */
 	CSSMERR_APPLEDL_DISK_FULL = 					CSSM_DL_PRIVATE_ERROR + 1,
 	
-	/* an operation failed because a disk quote was exceeded */
+	/* an operation failed because a disk quota was exceeded */
 	CSSMERR_APPLEDL_QUOTA_EXCEEDED =				CSSM_DL_PRIVATE_ERROR + 2,
 	
 	/* an operation failed because a file was too large */
@@ -477,10 +501,20 @@ enum
 	CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS =		CSSM_TP_PRIVATE_ERROR + 48,
 	/* Bad PathLengthConstraint for Code Signing */
 	CSSMERR_APPLETP_CS_BAD_PATH_LENGTH =			CSSM_TP_PRIVATE_ERROR + 49,
-	/* Missing ExtendedKeyUSage for Code Signing */
+	/* Missing ExtendedKeyUsage for Code Signing */
 	CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE =		CSSM_TP_PRIVATE_ERROR + 50,
 	/* Development style Code Signing Cert Detected */
-	CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT =			CSSM_TP_PRIVATE_ERROR + 51 
+	CSSMERR_APPLETP_CODE_SIGN_DEVELOPMENT =			CSSM_TP_PRIVATE_ERROR + 51,
+	/* Illegal cert chain length for Resource Signing  */
+	CSSMERR_APPLETP_RS_BAD_CERT_CHAIN_LENGTH =		CSSM_TP_PRIVATE_ERROR + 52,
+	/* bad extended key usage for Resource Signing */
+	CSSMERR_APPLETP_RS_BAD_EXTENDED_KEY_USAGE =		CSSM_TP_PRIVATE_ERROR + 53,
+	/* Trust Setting: deny */
+	CSSMERR_APPLETP_TRUST_SETTING_DENY =			CSSM_TP_PRIVATE_ERROR + 54,
+	/* invalid empty SubjectName */
+	CSSMERR_APPLETP_INVALID_EMPTY_SUBJECT = 		CSSM_TP_PRIVATE_ERROR + 55,
+	/* unknown critical Qualified Cert Statement ID */
+	CSSMERR_APPLETP_UNKNOWN_QUAL_CERT_STATEMENT = 	CSSM_TP_PRIVATE_ERROR + 56
 };
 
 /* Apple .mac TP private error codes. */
@@ -507,7 +541,11 @@ enum
 	/* request already pending for specified user */
 	CSSMERR_APPLE_DOTMAC_REQ_IS_PENDING	=			CSSM_TP_PRIVATE_ERROR + 109,
 	/* no request pending for specified user */
-	CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING	=			CSSM_TP_PRIVATE_ERROR + 110
+	CSSMERR_APPLE_DOTMAC_NO_REQ_PENDING	=			CSSM_TP_PRIVATE_ERROR + 110,
+	/* CSR failed to verify */
+	CSSMERR_APPLE_DOTMAC_CSR_VERIFY_FAIL =			CSSM_TP_PRIVATE_ERROR + 111,
+	/* server reported failed consistency check */
+	CSSMERR_APPLE_DOTMAC_FAILED_CONSISTENCY_CHECK =	CSSM_TP_PRIVATE_ERROR + 112
 };
 
 enum
@@ -655,7 +693,8 @@ typedef struct cssm_applecspdl_db_change_password_parameters
 /* Custom wrapped key formats */
 enum {
 	CSSM_KEYBLOB_WRAPPED_FORMAT_APPLE_CUSTOM = 100,
-	CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSL			// traditional openssl 
+	CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSL,			// traditional openssl 
+	CSSM_KEYBLOB_WRAPPED_FORMAT_OPENSSH1			// OpenSSH v1
 };
 
 /*
@@ -766,7 +805,13 @@ enum {
 	 * When set, indicates a public key which is incomplete (though
 	 * still valid) due to the lack of algorithm-specific parameters.
 	 */
-	CSSM_KEYATTR_PARTIAL =		0x00010000
+	CSSM_KEYATTR_PARTIAL			= 0x00010000,
+	
+	/*
+	 * When set, public keys are stored encrypted. Default is to store
+	 * public keys in the clear. AppleCSPDL only.
+	 */
+	CSSM_KEYATTR_PUBLIC_KEY_ENCRYPT = 0x00020000
 };
 
 /*
@@ -923,6 +968,10 @@ enum {
 	CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT 	= 0x00000008, 	// allow expired roots
 	CSSM_TP_ACTION_REQUIRE_REV_PER_CERT	= 0x00000010, 	// require positive revocation
 														//   check per cert
+	CSSM_TP_ACTION_TRUST_SETTINGS		= 0x00000020,	// use TrustSettings instead of 
+														//   anchors
+	CSSM_TP_ACTION_IMPLICIT_ANCHORS		= 0x00000040	// properly self-signed certs are
+														//   treated as anchors implicitly
 };
 
 #define CSSM_APPLE_TP_ACTION_VERSION		0
@@ -946,7 +995,19 @@ enum
 	CSSM_CERT_STATUS_IS_IN_INPUT_CERTS	= 0x00000004,
 	CSSM_CERT_STATUS_IS_IN_ANCHORS		= 0x00000008,
 	CSSM_CERT_STATUS_IS_ROOT			= 0x00000010,
-	CSSM_CERT_STATUS_IS_FROM_NET		= 0x00000020
+	CSSM_CERT_STATUS_IS_FROM_NET		= 0x00000020,
+	/* settings found in per-user Trust Settings */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_FOUND_USER		= 0x00000040,
+	/* settings found in Admin Trust Settings */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_FOUND_ADMIN		= 0x00000080,
+	/* settings found in System Trust Settings */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_FOUND_SYSTEM	= 0x00000100,
+	/* Trust Settings result = Trust */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_TRUST			= 0x00000200,
+	/* Trust Settings result = Deny */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_DENY			= 0x00000400,
+	/* Per-cert error ignored due to Trust Settings */
+	CSSM_CERT_STATUS_TRUST_SETTINGS_IGNORED_ERROR	= 0x00000800
 };
 
 typedef struct {

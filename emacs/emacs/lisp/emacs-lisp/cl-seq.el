@@ -1,6 +1,7 @@
 ;;; cl-seq.el --- Common Lisp features, part 3  -*-byte-compile-dynamic: t;-*-
 
-;; Copyright (C) 1993 Free Software Foundation, Inc.
+;; Copyright (C) 1993, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Dave Gillespie <daveg@synaptics.com>
 ;; Version: 2.02
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -46,14 +47,6 @@
 
 (or (memq 'cl-19 features)
     (error "Tried to load `cl-seq' before `cl'!"))
-
-
-;;; We define these here so that this file can compile without having
-;;; loaded the cl.el file already.
-
-(defmacro cl-push (x place) (list 'setq place (list 'cons x place)))
-(defmacro cl-pop (place)
-  (list 'car (list 'prog1 place (list 'setq place (list 'cdr place)))))
 
 
 ;;; Keyword parsing.  This is special-cased here so that we can compile
@@ -133,27 +126,29 @@
 
 
 (defun reduce (cl-func cl-seq &rest cl-keys)
-  "Reduce two-argument FUNCTION across SEQUENCE.
-Keywords supported:  :start :end :from-end :initial-value :key"
+  "Reduce two-argument FUNCTION across SEQ.
+\nKeywords supported:  :start :end :from-end :initial-value :key
+\n(fn FUNCTION SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:from-end (:start 0) :end :initial-value :key) ()
     (or (listp cl-seq) (setq cl-seq (append cl-seq nil)))
     (setq cl-seq (subseq cl-seq cl-start cl-end))
     (if cl-from-end (setq cl-seq (nreverse cl-seq)))
     (let ((cl-accum (cond ((memq :initial-value cl-keys) cl-initial-value)
-			  (cl-seq (cl-check-key (cl-pop cl-seq)))
+			  (cl-seq (cl-check-key (pop cl-seq)))
 			  (t (funcall cl-func)))))
       (if cl-from-end
 	  (while cl-seq
-	    (setq cl-accum (funcall cl-func (cl-check-key (cl-pop cl-seq))
+	    (setq cl-accum (funcall cl-func (cl-check-key (pop cl-seq))
 				    cl-accum)))
 	(while cl-seq
 	  (setq cl-accum (funcall cl-func cl-accum
-				  (cl-check-key (cl-pop cl-seq))))))
+				  (cl-check-key (pop cl-seq))))))
       cl-accum)))
 
 (defun fill (seq item &rest cl-keys)
   "Fill the elements of SEQ with ITEM.
-Keywords supported:  :start :end"
+\nKeywords supported:  :start :end
+\n(fn SEQ ITEM [KEYWORD VALUE]...)"
   (cl-parsing-keywords ((:start 0) :end) ()
     (if (listp seq)
 	(let ((p (nthcdr cl-start seq))
@@ -172,7 +167,8 @@ Keywords supported:  :start :end"
 (defun replace (cl-seq1 cl-seq2 &rest cl-keys)
   "Replace the elements of SEQ1 with the elements of SEQ2.
 SEQ1 is destructively modified, then returned.
-Keywords supported:  :start1 :end1 :start2 :end2"
+\nKeywords supported:  :start1 :end1 :start2 :end2
+\n(fn SEQ1 SEQ2 [KEYWORD VALUE]...)"
   (cl-parsing-keywords ((:start1 0) :end1 (:start2 0) :end2) ()
     (if (and (eq cl-seq1 cl-seq2) (<= cl-start2 cl-start1))
 	(or (= cl-start1 cl-start2)
@@ -214,7 +210,8 @@ Keywords supported:  :start1 :end1 :start2 :end2"
   "Remove all occurrences of ITEM in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :test :test-not :key :count :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :count :start :end :from-end
+\n(fn ITEM SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not :count :from-end
 			(:start 0) :end) ()
     (if (<= (or cl-count (setq cl-count 8000000)) 0)
@@ -258,20 +255,23 @@ Keywords supported:  :test :test-not :key :count :start :end :from-end"
   "Remove all items satisfying PREDICATE in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'remove* nil cl-list :if cl-pred cl-keys))
 
 (defun remove-if-not (cl-pred cl-list &rest cl-keys)
   "Remove all items not satisfying PREDICATE in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'remove* nil cl-list :if-not cl-pred cl-keys))
 
 (defun delete* (cl-item cl-seq &rest cl-keys)
   "Remove all occurrences of ITEM in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :test :test-not :key :count :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :count :start :end :from-end
+\n(fn ITEM SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not :count :from-end
 			(:start 0) :end) ()
     (if (<= (or cl-count (setq cl-count 8000000)) 0)
@@ -313,23 +313,27 @@ Keywords supported:  :test :test-not :key :count :start :end :from-end"
 (defun delete-if (cl-pred cl-list &rest cl-keys)
   "Remove all items satisfying PREDICATE in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'delete* nil cl-list :if cl-pred cl-keys))
 
 (defun delete-if-not (cl-pred cl-list &rest cl-keys)
   "Remove all items not satisfying PREDICATE in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'delete* nil cl-list :if-not cl-pred cl-keys))
 
 (defun remove-duplicates (cl-seq &rest cl-keys)
   "Return a copy of SEQ with all duplicate elements removed.
-Keywords supported:  :test :test-not :key :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :start :end :from-end
+\n(fn SEQ [KEYWORD VALUE]...)"
   (cl-delete-duplicates cl-seq cl-keys t))
 
 (defun delete-duplicates (cl-seq &rest cl-keys)
   "Remove all duplicate elements from SEQ (destructively).
-Keywords supported:  :test :test-not :key :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :start :end :from-end
+\n(fn SEQ [KEYWORD VALUE]...)"
   (cl-delete-duplicates cl-seq cl-keys nil))
 
 (defun cl-delete-duplicates (cl-seq cl-keys cl-copy)
@@ -376,7 +380,8 @@ Keywords supported:  :test :test-not :key :start :end :from-end"
   "Substitute NEW for OLD in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :test :test-not :key :count :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :count :start :end :from-end
+\n(fn NEW OLD SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not :count
 			(:start 0) :end :from-end) ()
     (if (or (eq cl-old cl-new)
@@ -396,20 +401,23 @@ Keywords supported:  :test :test-not :key :count :start :end :from-end"
   "Substitute NEW for all items satisfying PREDICATE in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn NEW PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'substitute cl-new nil cl-list :if cl-pred cl-keys))
 
 (defun substitute-if-not (cl-new cl-pred cl-list &rest cl-keys)
   "Substitute NEW for all items not satisfying PREDICATE in SEQ.
 This is a non-destructive function; it makes a copy of SEQ if necessary
 to avoid corrupting the original SEQ.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn NEW PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'substitute cl-new nil cl-list :if-not cl-pred cl-keys))
 
 (defun nsubstitute (cl-new cl-old cl-seq &rest cl-keys)
   "Substitute NEW for OLD in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :test :test-not :key :count :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :count :start :end :from-end
+\n(fn NEW OLD SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not :count
 			(:start 0) :end :from-end) ()
     (or (eq cl-old cl-new) (<= (or cl-count (setq cl-count 8000000)) 0)
@@ -441,38 +449,44 @@ Keywords supported:  :test :test-not :key :count :start :end :from-end"
 (defun nsubstitute-if (cl-new cl-pred cl-list &rest cl-keys)
   "Substitute NEW for all items satisfying PREDICATE in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn NEW PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'nsubstitute cl-new nil cl-list :if cl-pred cl-keys))
 
 (defun nsubstitute-if-not (cl-new cl-pred cl-list &rest cl-keys)
   "Substitute NEW for all items not satisfying PREDICATE in SEQ.
 This is a destructive function; it reuses the storage of SEQ whenever possible.
-Keywords supported:  :key :count :start :end :from-end"
+\nKeywords supported:  :key :count :start :end :from-end
+\n(fn NEW PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'nsubstitute cl-new nil cl-list :if-not cl-pred cl-keys))
 
 (defun find (cl-item cl-seq &rest cl-keys)
-  "Find the first occurrence of ITEM in LIST.
+  "Find the first occurrence of ITEM in SEQ.
 Return the matching ITEM, or nil if not found.
-Keywords supported:  :test :test-not :key :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :start :end :from-end
+\n(fn ITEM SEQ [KEYWORD VALUE]...)"
   (let ((cl-pos (apply 'position cl-item cl-seq cl-keys)))
     (and cl-pos (elt cl-seq cl-pos))))
 
 (defun find-if (cl-pred cl-list &rest cl-keys)
-  "Find the first item satisfying PREDICATE in LIST.
-Return the matching ITEM, or nil if not found.
-Keywords supported:  :key :start :end :from-end"
+  "Find the first item satisfying PREDICATE in SEQ.
+Return the matching item, or nil if not found.
+\nKeywords supported:  :key :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'find nil cl-list :if cl-pred cl-keys))
 
 (defun find-if-not (cl-pred cl-list &rest cl-keys)
-  "Find the first item not satisfying PREDICATE in LIST.
-Return the matching ITEM, or nil if not found.
-Keywords supported:  :key :start :end :from-end"
+  "Find the first item not satisfying PREDICATE in SEQ.
+Return the matching item, or nil if not found.
+\nKeywords supported:  :key :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'find nil cl-list :if-not cl-pred cl-keys))
 
 (defun position (cl-item cl-seq &rest cl-keys)
-  "Find the first occurrence of ITEM in LIST.
+  "Find the first occurrence of ITEM in SEQ.
 Return the index of the matching item, or nil if not found.
-Keywords supported:  :test :test-not :key :start :end :from-end"
+\nKeywords supported:  :test :test-not :key :start :end :from-end
+\n(fn ITEM SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not
 			(:start 0) :end :from-end) ()
     (cl-position cl-item cl-seq cl-start cl-end cl-from-end)))
@@ -499,45 +513,51 @@ Keywords supported:  :test :test-not :key :start :end :from-end"
       (and (< cl-start cl-end) cl-start))))
 
 (defun position-if (cl-pred cl-list &rest cl-keys)
-  "Find the first item satisfying PREDICATE in LIST.
+  "Find the first item satisfying PREDICATE in SEQ.
 Return the index of the matching item, or nil if not found.
-Keywords supported:  :key :start :end :from-end"
+\nKeywords supported:  :key :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'position nil cl-list :if cl-pred cl-keys))
 
 (defun position-if-not (cl-pred cl-list &rest cl-keys)
-  "Find the first item not satisfying PREDICATE in LIST.
+  "Find the first item not satisfying PREDICATE in SEQ.
 Return the index of the matching item, or nil if not found.
-Keywords supported:  :key :start :end :from-end"
+\nKeywords supported:  :key :start :end :from-end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'position nil cl-list :if-not cl-pred cl-keys))
 
 (defun count (cl-item cl-seq &rest cl-keys)
-  "Count the number of occurrences of ITEM in LIST.
-Keywords supported:  :test :test-not :key :start :end"
+  "Count the number of occurrences of ITEM in SEQ.
+\nKeywords supported:  :test :test-not :key :start :end
+\n(fn ITEM SEQ [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not (:start 0) :end) ()
     (let ((cl-count 0) cl-x)
       (or cl-end (setq cl-end (length cl-seq)))
       (if (consp cl-seq) (setq cl-seq (nthcdr cl-start cl-seq)))
       (while (< cl-start cl-end)
-	(setq cl-x (if (consp cl-seq) (cl-pop cl-seq) (aref cl-seq cl-start)))
+	(setq cl-x (if (consp cl-seq) (pop cl-seq) (aref cl-seq cl-start)))
 	(if (cl-check-test cl-item cl-x) (setq cl-count (1+ cl-count)))
 	(setq cl-start (1+ cl-start)))
       cl-count)))
 
 (defun count-if (cl-pred cl-list &rest cl-keys)
-  "Count the number of items satisfying PREDICATE in LIST.
-Keywords supported:  :key :start :end"
+  "Count the number of items satisfying PREDICATE in SEQ.
+\nKeywords supported:  :key :start :end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'count nil cl-list :if cl-pred cl-keys))
 
 (defun count-if-not (cl-pred cl-list &rest cl-keys)
-  "Count the number of items not satisfying PREDICATE in LIST.
-Keywords supported:  :key :start :end"
+  "Count the number of items not satisfying PREDICATE in SEQ.
+\nKeywords supported:  :key :start :end
+\n(fn PREDICATE SEQ [KEYWORD VALUE]...)"
   (apply 'count nil cl-list :if-not cl-pred cl-keys))
 
 (defun mismatch (cl-seq1 cl-seq2 &rest cl-keys)
   "Compare SEQ1 with SEQ2, return index of first mismatching element.
 Return nil if the sequences match.  If one sequence is a prefix of the
 other, the return value indicates the end of the shorter sequence.
-Keywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end"
+\nKeywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end
+\n(fn SEQ1 SEQ2 [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :from-end
 			(:start1 0) :end1 (:start2 0) :end2) ()
     (or cl-end1 (setq cl-end1 (length cl-seq1)))
@@ -566,7 +586,8 @@ Keywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end"
   "Search for SEQ1 as a subsequence of SEQ2.
 Return the index of the leftmost element of the first match found;
 return nil if there are no matches.
-Keywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end"
+\nKeywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end
+\n(fn SEQ1 SEQ2 [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :from-end
 			(:start1 0) :end1 (:start2 0) :end2) ()
     (or cl-end1 (setq cl-end1 (length cl-seq1)))
@@ -588,9 +609,10 @@ Keywords supported:  :test :test-not :key :start1 :end1 :start2 :end2 :from-end"
 	(and (< cl-start2 cl-end2) cl-pos)))))
 
 (defun sort* (cl-seq cl-pred &rest cl-keys)
-  "Sort the argument SEQUENCE according to PREDICATE.
-This is a destructive function; it reuses the storage of SEQUENCE if possible.
-Keywords supported:  :key"
+  "Sort the argument SEQ according to PREDICATE.
+This is a destructive function; it reuses the storage of SEQ if possible.
+\nKeywords supported:  :key
+\n(fn SEQ PREDICATE [KEYWORD VALUE]...)"
   (if (nlistp cl-seq)
       (replace cl-seq (apply 'sort* (append cl-seq nil) cl-pred cl-keys))
     (cl-parsing-keywords (:key) ()
@@ -601,16 +623,18 @@ Keywords supported:  :key"
 					  (funcall cl-key cl-y)))))))))
 
 (defun stable-sort (cl-seq cl-pred &rest cl-keys)
-  "Sort the argument SEQUENCE stably according to PREDICATE.
-This is a destructive function; it reuses the storage of SEQUENCE if possible.
-Keywords supported:  :key"
+  "Sort the argument SEQ stably according to PREDICATE.
+This is a destructive function; it reuses the storage of SEQ if possible.
+\nKeywords supported:  :key
+\n(fn SEQ PREDICATE [KEYWORD VALUE]...)"
   (apply 'sort* cl-seq cl-pred cl-keys))
 
 (defun merge (cl-type cl-seq1 cl-seq2 cl-pred &rest cl-keys)
   "Destructively merge the two sequences to produce a new sequence.
-TYPE is the sequence type to return, SEQ1 and SEQ2 are the two
-argument sequences, and PRED is a `less-than' predicate on the elements.
-Keywords supported:  :key"
+TYPE is the sequence type to return, SEQ1 and SEQ2 are the two argument
+sequences, and PREDICATE is a `less-than' predicate on the elements.
+\nKeywords supported:  :key
+\n(fn TYPE SEQ1 SEQ2 PREDICATE [KEYWORD VALUE]...)"
   (or (listp cl-seq1) (setq cl-seq1 (append cl-seq1 nil)))
   (or (listp cl-seq2) (setq cl-seq2 (append cl-seq2 nil)))
   (cl-parsing-keywords (:key) ()
@@ -618,15 +642,16 @@ Keywords supported:  :key"
       (while (and cl-seq1 cl-seq2)
 	(if (funcall cl-pred (cl-check-key (car cl-seq2))
 		     (cl-check-key (car cl-seq1)))
-	    (cl-push (cl-pop cl-seq2) cl-res)
-	  (cl-push (cl-pop cl-seq1) cl-res)))
+	    (push (pop cl-seq2) cl-res)
+	  (push (pop cl-seq1) cl-res)))
       (coerce (nconc (nreverse cl-res) cl-seq1 cl-seq2) cl-type))))
 
 ;;; See compiler macro in cl-macs.el
 (defun member* (cl-item cl-list &rest cl-keys)
   "Find the first occurrence of ITEM in LIST.
 Return the sublist of LIST whose car is ITEM.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn ITEM LIST [KEYWORD VALUE]...)"
   (if cl-keys
       (cl-parsing-keywords (:test :test-not :key :if :if-not) ()
 	(while (and cl-list (not (cl-check-test cl-item (car cl-list))))
@@ -639,13 +664,15 @@ Keywords supported:  :test :test-not :key"
 (defun member-if (cl-pred cl-list &rest cl-keys)
   "Find the first item satisfying PREDICATE in LIST.
 Return the sublist of LIST whose car matches.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'member* nil cl-list :if cl-pred cl-keys))
 
 (defun member-if-not (cl-pred cl-list &rest cl-keys)
   "Find the first item not satisfying PREDICATE in LIST.
 Return the sublist of LIST whose car matches.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'member* nil cl-list :if-not cl-pred cl-keys))
 
 (defun cl-adjoin (cl-item cl-list &rest cl-keys)
@@ -657,7 +684,8 @@ Keywords supported:  :key"
 ;;; See compiler macro in cl-macs.el
 (defun assoc* (cl-item cl-alist &rest cl-keys)
   "Find the first item whose car matches ITEM in LIST.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn ITEM LIST [KEYWORD VALUE]...)"
   (if cl-keys
       (cl-parsing-keywords (:test :test-not :key :if :if-not) ()
 	(while (and cl-alist
@@ -671,17 +699,20 @@ Keywords supported:  :test :test-not :key"
 
 (defun assoc-if (cl-pred cl-list &rest cl-keys)
   "Find the first item whose car satisfies PREDICATE in LIST.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'assoc* nil cl-list :if cl-pred cl-keys))
 
 (defun assoc-if-not (cl-pred cl-list &rest cl-keys)
   "Find the first item whose car does not satisfy PREDICATE in LIST.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'assoc* nil cl-list :if-not cl-pred cl-keys))
 
 (defun rassoc* (cl-item cl-alist &rest cl-keys)
   "Find the first item whose cdr matches ITEM in LIST.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn ITEM LIST [KEYWORD VALUE]...)"
   (if (or cl-keys (numberp cl-item))
       (cl-parsing-keywords (:test :test-not :key :if :if-not) ()
 	(while (and cl-alist
@@ -693,12 +724,14 @@ Keywords supported:  :test :test-not :key"
 
 (defun rassoc-if (cl-pred cl-list &rest cl-keys)
   "Find the first item whose cdr satisfies PREDICATE in LIST.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'rassoc* nil cl-list :if cl-pred cl-keys))
 
 (defun rassoc-if-not (cl-pred cl-list &rest cl-keys)
   "Find the first item whose cdr does not satisfy PREDICATE in LIST.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn PREDICATE LIST [KEYWORD VALUE]...)"
   (apply 'rassoc* nil cl-list :if-not cl-pred cl-keys))
 
 (defun union (cl-list1 cl-list2 &rest cl-keys)
@@ -706,7 +739,8 @@ Keywords supported:  :key"
 The result list contains all items that appear in either LIST1 or LIST2.
 This is a non-destructive function; it makes a copy of the data if necessary
 to avoid corrupting the original LIST1 and LIST2.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (cond ((null cl-list1) cl-list2) ((null cl-list2) cl-list1)
 	((equal cl-list1 cl-list2) cl-list1)
 	(t
@@ -716,8 +750,8 @@ Keywords supported:  :test :test-not :key"
 	   (if (or cl-keys (numberp (car cl-list2)))
 	       (setq cl-list1 (apply 'adjoin (car cl-list2) cl-list1 cl-keys))
 	     (or (memq (car cl-list2) cl-list1)
-		 (cl-push (car cl-list2) cl-list1)))
-	   (cl-pop cl-list2))
+		 (push (car cl-list2) cl-list1)))
+	   (pop cl-list2))
 	 cl-list1)))
 
 (defun nunion (cl-list1 cl-list2 &rest cl-keys)
@@ -725,7 +759,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in either LIST1 or LIST2.
 This is a destructive function; it reuses the storage of LIST1 and LIST2
 whenever possible.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (cond ((null cl-list1) cl-list2) ((null cl-list2) cl-list1)
 	(t (apply 'union cl-list1 cl-list2 cl-keys))))
 
@@ -734,7 +769,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in both LIST1 and LIST2.
 This is a non-destructive function; it makes a copy of the data if necessary
 to avoid corrupting the original LIST1 and LIST2.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (and cl-list1 cl-list2
        (if (equal cl-list1 cl-list2) cl-list1
 	 (cl-parsing-keywords (:key) (:test :test-not)
@@ -746,8 +782,8 @@ Keywords supported:  :test :test-not :key"
 		       (apply 'member* (cl-check-key (car cl-list2))
 			      cl-list1 cl-keys)
 		     (memq (car cl-list2) cl-list1))
-		   (cl-push (car cl-list2) cl-res))
-	       (cl-pop cl-list2))
+		   (push (car cl-list2) cl-res))
+	       (pop cl-list2))
 	     cl-res)))))
 
 (defun nintersection (cl-list1 cl-list2 &rest cl-keys)
@@ -755,7 +791,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in both LIST1 and LIST2.
 This is a destructive function; it reuses the storage of LIST1 and LIST2
 whenever possible.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (and cl-list1 cl-list2 (apply 'intersection cl-list1 cl-list2 cl-keys)))
 
 (defun set-difference (cl-list1 cl-list2 &rest cl-keys)
@@ -763,7 +800,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in LIST1 but not LIST2.
 This is a non-destructive function; it makes a copy of the data if necessary
 to avoid corrupting the original LIST1 and LIST2.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (if (or (null cl-list1) (null cl-list2)) cl-list1
     (cl-parsing-keywords (:key) (:test :test-not)
       (let ((cl-res nil))
@@ -772,8 +810,8 @@ Keywords supported:  :test :test-not :key"
 		  (apply 'member* (cl-check-key (car cl-list1))
 			 cl-list2 cl-keys)
 		(memq (car cl-list1) cl-list2))
-	      (cl-push (car cl-list1) cl-res))
-	  (cl-pop cl-list1))
+	      (push (car cl-list1) cl-res))
+	  (pop cl-list1))
 	cl-res))))
 
 (defun nset-difference (cl-list1 cl-list2 &rest cl-keys)
@@ -781,7 +819,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in LIST1 but not LIST2.
 This is a destructive function; it reuses the storage of LIST1 and LIST2
 whenever possible.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (if (or (null cl-list1) (null cl-list2)) cl-list1
     (apply 'set-difference cl-list1 cl-list2 cl-keys)))
 
@@ -790,7 +829,8 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in exactly one of LIST1, LIST2.
 This is a non-destructive function; it makes a copy of the data if necessary
 to avoid corrupting the original LIST1 and LIST2.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (cond ((null cl-list1) cl-list2) ((null cl-list2) cl-list1)
 	((equal cl-list1 cl-list2) nil)
 	(t (append (apply 'set-difference cl-list1 cl-list2 cl-keys)
@@ -801,60 +841,68 @@ Keywords supported:  :test :test-not :key"
 The result list contains all items that appear in exactly one of LIST1, LIST2.
 This is a destructive function; it reuses the storage of LIST1 and LIST2
 whenever possible.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (cond ((null cl-list1) cl-list2) ((null cl-list2) cl-list1)
 	((equal cl-list1 cl-list2) nil)
 	(t (nconc (apply 'nset-difference cl-list1 cl-list2 cl-keys)
 		  (apply 'nset-difference cl-list2 cl-list1 cl-keys)))))
 
 (defun subsetp (cl-list1 cl-list2 &rest cl-keys)
-  "True if LIST1 is a subset of LIST2.
+  "Return true if LIST1 is a subset of LIST2.
 I.e., if every element of LIST1 also appears in LIST2.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn LIST1 LIST2 [KEYWORD VALUE]...)"
   (cond ((null cl-list1) t) ((null cl-list2) nil)
 	((equal cl-list1 cl-list2) t)
 	(t (cl-parsing-keywords (:key) (:test :test-not)
 	     (while (and cl-list1
 			 (apply 'member* (cl-check-key (car cl-list1))
 				cl-list2 cl-keys))
-	       (cl-pop cl-list1))
+	       (pop cl-list1))
 	     (null cl-list1)))))
 
 (defun subst-if (cl-new cl-pred cl-tree &rest cl-keys)
   "Substitute NEW for elements matching PREDICATE in TREE (non-destructively).
 Return a copy of TREE with all matching elements replaced by NEW.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn NEW PREDICATE TREE [KEYWORD VALUE]...)"
   (apply 'sublis (list (cons nil cl-new)) cl-tree :if cl-pred cl-keys))
 
 (defun subst-if-not (cl-new cl-pred cl-tree &rest cl-keys)
   "Substitute NEW for elts not matching PREDICATE in TREE (non-destructively).
 Return a copy of TREE with all non-matching elements replaced by NEW.
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn NEW PREDICATE TREE [KEYWORD VALUE]...)"
   (apply 'sublis (list (cons nil cl-new)) cl-tree :if-not cl-pred cl-keys))
 
 (defun nsubst (cl-new cl-old cl-tree &rest cl-keys)
   "Substitute NEW for OLD everywhere in TREE (destructively).
 Any element of TREE which is `eql' to OLD is changed to NEW (via a call
 to `setcar').
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn NEW OLD TREE [KEYWORD VALUE]...)"
   (apply 'nsublis (list (cons cl-old cl-new)) cl-tree cl-keys))
 
 (defun nsubst-if (cl-new cl-pred cl-tree &rest cl-keys)
   "Substitute NEW for elements matching PREDICATE in TREE (destructively).
 Any element of TREE which matches is changed to NEW (via a call to `setcar').
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn NEW PREDICATE TREE [KEYWORD VALUE]...)"
   (apply 'nsublis (list (cons nil cl-new)) cl-tree :if cl-pred cl-keys))
 
 (defun nsubst-if-not (cl-new cl-pred cl-tree &rest cl-keys)
   "Substitute NEW for elements not matching PREDICATE in TREE (destructively).
 Any element of TREE which matches is changed to NEW (via a call to `setcar').
-Keywords supported:  :key"
+\nKeywords supported:  :key
+\n(fn NEW PREDICATE TREE [KEYWORD VALUE]...)"
   (apply 'nsublis (list (cons nil cl-new)) cl-tree :if-not cl-pred cl-keys))
 
 (defun sublis (cl-alist cl-tree &rest cl-keys)
   "Perform substitutions indicated by ALIST in TREE (non-destructively).
 Return a copy of TREE with all matching elements replaced.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn ALIST TREE [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not) ()
     (cl-sublis-rec cl-tree)))
 
@@ -875,7 +923,8 @@ Keywords supported:  :test :test-not :key"
 (defun nsublis (cl-alist cl-tree &rest cl-keys)
   "Perform substitutions indicated by ALIST in TREE (destructively).
 Any matching element of TREE is changed via a call to `setcar'.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn ALIST TREE [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key :if :if-not) ()
     (let ((cl-hold (list cl-tree)))
       (cl-nsublis-rec cl-hold)
@@ -896,9 +945,10 @@ Keywords supported:  :test :test-not :key"
 	(setq cl-tree (cdr cl-tree))))))
 
 (defun tree-equal (cl-x cl-y &rest cl-keys)
-  "T if trees X and Y have `eql' leaves.
+  "Return t if trees TREE1 and TREE2 have `eql' leaves.
 Atoms are compared by `eql'; cons cells are compared recursively.
-Keywords supported:  :test :test-not :key"
+\nKeywords supported:  :test :test-not :key
+\n(fn TREE1 TREE2 [KEYWORD VALUE]...)"
   (cl-parsing-keywords (:test :test-not :key) ()
     (cl-tree-equal-rec cl-x cl-y)))
 
@@ -911,4 +961,5 @@ Keywords supported:  :test :test-not :key"
 
 (run-hooks 'cl-seq-load-hook)
 
+;;; arch-tag: ec1cc072-9006-4225-b6ba-d6b07ed1710c
 ;;; cl-seq.el ends here

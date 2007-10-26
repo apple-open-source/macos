@@ -151,6 +151,15 @@ int reg_alloc_order[FIRST_PSEUDO_REGISTER] = REG_ALLOC_ORDER;
 int inv_reg_alloc_order[FIRST_PSEUDO_REGISTER];
 #endif
 
+/* APPLE LOCAL begin ARM add DIMODE_REG_ALLOC_ORDER */
+#ifdef DIMODE_REG_ALLOC_ORDER
+int dimode_reg_alloc_order[FIRST_PSEUDO_REGISTER] = DIMODE_REG_ALLOC_ORDER;
+
+/* The inverse of reg_alloc_order.  */
+int dimode_inv_reg_alloc_order[FIRST_PSEUDO_REGISTER];
+#endif
+/* APPLE LOCAL end ARM add DIMODE_REG_ALLOC_ORDER */
+
 /* For each reg class, a HARD_REG_SET saying which registers are in it.  */
 
 HARD_REG_SET reg_class_contents[N_REG_CLASSES];
@@ -301,6 +310,13 @@ init_reg_sets (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     inv_reg_alloc_order[reg_alloc_order[i]] = i;
 #endif
+
+/* APPLE LOCAL begin ARM add DIMODE_REG_ALLOC_ORDER */
+#ifdef DIMODE_REG_ALLOC_ORDER
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    dimode_inv_reg_alloc_order[dimode_reg_alloc_order[i]] = i;
+#endif
+/* APPLE LOCAL end ARM add DIMODE_REG_ALLOC_ORDER */
 }
 
 /* After switches have been processed, which perhaps alter
@@ -1637,7 +1653,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    break;
 		case 'i':
 		  if (CONSTANT_P (op)
-		      && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op)))
+		      /* APPLE LOCAL ARM -mdynamic-no-pic support */
+		      && LEGITIMATE_INDIRECT_OPERAND_P (op))
 		    win = 1;
 		  break;
 
@@ -1668,7 +1685,8 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		case 'g':
 		  if (MEM_P (op)
 		      || (CONSTANT_P (op)
-			  && (! flag_pic || LEGITIMATE_PIC_OPERAND_P (op))))
+			  /* APPLE LOCAL ARM -mdynamic-no-pic support */
+			  && LEGITIMATE_INDIRECT_OPERAND_P (op)))
 		    win = 1;
 		  allows_mem[i] = 1;
 		case 'r':

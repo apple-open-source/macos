@@ -1,0 +1,45 @@
+--- /SourceCache/vim/vim-32/vim/src/normal.c	2006-08-09 20:39:25.000000000 -0700
++++ src/normal.c	2007-01-06 12:30:28.000000000 -0800
+@@ -7156,6 +7156,8 @@ nv_optrans(cap)
+ 	}
+ 	else
+ 	{
++	    if (Unix2003_compat && cap->cmdchar == 'S')
++		beginline(0);
+ 	    if (cap->count0)
+ 		stuffnumReadbuff(cap->count0);
+ 	    stuffReadbuff(ar[(int)(vim_strchr(str, cap->cmdchar) - str)]);
+@@ -8063,6 +8065,8 @@ n_opencmd(cap)
+ {
+     if (!checkclearopq(cap->oap))
+     {
++	int undo_offset = 0;
++	int save;
+ #ifdef FEAT_FOLDING
+ 	if (cap->cmdchar == 'O')
+ 	    /* Open above the first line of a folded sequence of lines */
+@@ -8073,11 +8077,21 @@ n_opencmd(cap)
+ 	    (void)hasFolding(curwin->w_cursor.lnum,
+ 						NULL, &curwin->w_cursor.lnum);
+ #endif
+-	if (u_save((linenr_T)(curwin->w_cursor.lnum -
++	if (Unix2003_compat) {
++	    beginline(0);
++	    /* Undo of 'O' leaves cursor above the deleted line */
++	    if (cap->cmdchar == 'O' && curwin->w_cursor.lnum > 1) {
++		    undo_offset = 1;
++		    curwin->w_cursor.lnum--;
++	    }
++	}
++	save = u_save((linenr_T)(curwin->w_cursor.lnum + undo_offset -
+ 					       (cap->cmdchar == 'O' ? 1 : 0)),
+-		   (linenr_T)(curwin->w_cursor.lnum +
++		   (linenr_T)(curwin->w_cursor.lnum + undo_offset +
+ 					       (cap->cmdchar == 'o' ? 1 : 0))
+-		       ) == OK
++		) == OK;
++	curwin->w_cursor.lnum += undo_offset;
++	if (save
+ 		&& open_line(cap->cmdchar == 'O' ? BACKWARD : FORWARD,
+ #ifdef FEAT_COMMENTS
+ 		    has_format_option(FO_OPEN_COMS) ? OPENLINE_DO_COM :

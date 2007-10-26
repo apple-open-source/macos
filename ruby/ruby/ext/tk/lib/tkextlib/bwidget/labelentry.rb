@@ -23,13 +23,28 @@ class Tk::BWidget::LabelEntry
   WidgetClassName = 'LabelEntry'.freeze
   WidgetClassNames[WidgetClassName] = self
 
+  def __strval_optkeys
+    super() << 'helptext' << 'insertbackground' << 'entryfg' << 'entrybg'
+  end
+  private :__strval_optkeys
+
+  def __tkvariable_optkeys
+    super() << 'helpvar'
+  end
+  private :__tkvariable_optkeys
+
+  def __font_optkeys
+    super() << 'labelfont'
+  end
+  private :__font_optkeys
+
   #def entrybind(*args)
   #  _bind([path, 'bind'], *args)
   #  self
   #end
   def entrybind(context, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -44,7 +59,7 @@ class Tk::BWidget::LabelEntry
   #end
   def entrybind_append(context, *args)
     #if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new

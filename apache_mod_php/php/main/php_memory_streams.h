@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,6 +16,8 @@
    +----------------------------------------------------------------------+
  */
 
+/* $Id: php_memory_streams.h,v 1.13.2.1.2.3 2007/02/03 16:40:05 helly Exp $ */
+
 #ifndef PHP_MEMORY_STREAM_H
 #define PHP_MEMORY_STREAM_H
 
@@ -25,6 +27,7 @@
 
 #define TEMP_STREAM_DEFAULT  0
 #define TEMP_STREAM_READONLY 1
+#define TEMP_STREAM_TAKE_BUFFER 2
 
 #define php_stream_memory_create(mode) _php_stream_memory_create((mode) STREAMS_CC TSRMLS_CC)
 #define php_stream_memory_create_rel(mode) _php_stream_memory_create((mode) STREAMS_REL_CC TSRMLS_CC)
@@ -36,16 +39,19 @@
 #define php_stream_temp_create_rel(mode, max_memory_usage) _php_stream_temp_create((mode), (max_memory_usage) STREAMS_REL_CC TSRMLS_CC)
 #define php_stream_temp_open(mode, max_memory_usage, buf, length) _php_stream_temp_open((mode), (max_memory_usage), (buf), (length) STREAMS_CC TSRMLS_CC)
 
-
+BEGIN_EXTERN_C()
 PHPAPI php_stream *_php_stream_memory_create(int mode STREAMS_DC TSRMLS_DC);
 PHPAPI php_stream *_php_stream_memory_open(int mode, char *buf, size_t length STREAMS_DC TSRMLS_DC);
 PHPAPI char *_php_stream_memory_get_buffer(php_stream *stream, size_t *length STREAMS_DC TSRMLS_DC);
 
 PHPAPI php_stream *_php_stream_temp_create(int mode, size_t max_memory_usage STREAMS_DC TSRMLS_DC);
 PHPAPI php_stream *_php_stream_temp_open(int mode, size_t max_memory_usage, char *buf, size_t length STREAMS_DC TSRMLS_DC);
+END_EXTERN_C()
 
-extern php_stream_ops php_stream_memory_ops;
-extern php_stream_ops php_stream_temp_ops;
+extern PHPAPI php_stream_ops php_stream_memory_ops;
+extern PHPAPI php_stream_ops php_stream_temp_ops;
+extern PHPAPI php_stream_ops php_stream_rfc2397_ops;
+extern PHPAPI php_stream_wrapper php_stream_rfc2397_wrapper;
 
 #define PHP_STREAM_IS_MEMORY &php_stream_memory_ops
 #define PHP_STREAM_IS_TEMP   &php_stream_temp_ops

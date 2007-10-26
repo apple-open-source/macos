@@ -115,6 +115,9 @@
 #ifndef PCI_DEVICE_ID_TI_7610
 #define PCI_DEVICE_ID_TI_7610		0xac48
 #endif
+#ifndef PCI_DEVICE_ID_TI_XX12
+#define PCI_DEVICE_ID_TI_XX12		0x8039
+#endif
 
 /* Register definitions for TI 113X PCI-to-CardBus bridges */
 
@@ -234,7 +237,7 @@ typedef struct ti113x_state_t {
     IS_TI1251B, IS_TI1410, IS_TI1420, IS_TI1450, IS_TI1451,	\
     IS_TI1510, IS_TI1520, IS_TI1620, IS_TI4410, IS_TI4450,	\
     IS_TI4451, IS_TI4510, IS_TI4520, IS_TI7410, IS_TI7510,	\
-    IS_TI7610
+    IS_TI7610, IS_TIXX12
 
 #define TI_PCIC_INFO \
     { "TI 1130",  IS_TI|IS_CARDBUS, ID(TI, 1130) }, \
@@ -262,6 +265,7 @@ typedef struct ti113x_state_t {
     { "TI 4520",  IS_TI|IS_CARDBUS, ID(TI, 4520) }, \
     { "TI 7410",  IS_TI|IS_CARDBUS, ID(TI, 7410) }, \
     { "TI 7510",  IS_TI|IS_CARDBUS, ID(TI, 7510) }, \
-    { "TI 7610",  IS_TI|IS_CARDBUS, ID(TI, 7610) }
+    { "TI 7610",  IS_TI|IS_CARDBUS, ID(TI, 7610) }, \
+    { "TI XX12",  IS_TI|IS_CARDBUS, ID(TI, XX12) }
 
 #endif /* _LINUX_TI113X_H */

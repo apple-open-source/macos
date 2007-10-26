@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001,2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001,2003-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,7 @@
 #include <security_cdsa_utilities/acl_secret.h>
 #include <security_cdsa_utilities/acl_preauth.h>
 #include <security_cdsa_utilities/acl_prompted.h>
+#include <security_cdsa_utilities/acl_threshold.h>
 
 using namespace SecurityServer;
 
@@ -58,11 +59,11 @@ class Database;
 //
 class SecurityServerAcl : public ObjectAcl {
 public:
-	SecurityServerAcl() : ObjectAcl(Allocator::standard()) { }
+	SecurityServerAcl() : ObjectAcl(Allocator::standard()), aclSequence(Mutex::recursive) { }
 	virtual ~SecurityServerAcl();
 
     // validation calls restated
-   virtual void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase);
+	virtual void validate(AclAuthorization auth, const AccessCredentials *cred, Database *relatedDatabase);
 	void validate(AclAuthorization auth, const Context &context, Database *relatedDatabase);
 
 	// CSSM layer ACL calls
@@ -76,6 +77,10 @@ public:
 	// to be provided by implementations
 	virtual AclKind aclKind() const = 0;
 	
+	// a helper to (try to) add an ACL to a "standard form" item ACL
+	static bool addToStandardACL(const AclValidationContext &context, AclSubject *subject);
+	static bool looksLikeLegacyDotMac(const AclValidationContext &context);
+
 	// aclSequence is taken to serialize ACL validations to pick up mutual changes
 	Mutex aclSequence;
 };
@@ -83,9 +88,8 @@ public:
 
 //
 // Our implementation of an ACL validation environment uses information
-// derived from a Connection object. It implements context for
-// -- ProcessAclSubjects (getuid/getgid)
-// -- KeychainPromptAclSubjects (connection link)
+// derived from a Connection object. It implements context for a fair number
+// of subject types (see the inheritance list below).
 //
 class SecurityServerEnvironment : public virtual AclValidationEnvironment,
     public virtual ProcessAclSubject::Environment,
@@ -100,14 +104,18 @@ public:
 	SecurityServerAcl &acl;
 	Database * const database;
     
+	// personalities
     uid_t getuid() const;
     gid_t getgid() const;
 	pid_t getpid() const;
-	bool verifyCodeSignature(const CodeSigning::Signature *signature, const CssmData *comment);
+	bool verifyCodeSignature(const OSXVerifier &verifier, const AclValidationContext &context);
 	bool validateSecret(const SecretAclSubject *me, const AccessCredentials *cred);
 	bool getSecret(CssmOwnedData &secret, const CssmData &prompt) const;
 	ObjectAcl *preAuthSource();
 	Adornable &store(const AclSubject *subject);
+	
+	// subject editing
+	ThresholdAclSubject *standardSubject(const AclValidationContext &context);
 };
 
 
@@ -118,24 +126,28 @@ public:
 class AclSource {
 protected:
 	AclSource() { }
+	virtual ~AclSource();
 	
 public:
 	virtual SecurityServerAcl &acl();	// defaults to "no ACL; throw exception"
 	virtual Database *relatedDatabase(); // optionally, a Database related to me
 
-    // forward ACL calls, passing some locally obtained stuff along
-
-	void getOwner(AclOwnerPrototype &owner)
+	//
+    // Forward ACL calls, passing some locally obtained stuff along.
+	// These are virtual so an AclSource can override them. Such overrides
+	// should enhance/post-process rather than replace functionality.
+	//
+	virtual void getOwner(AclOwnerPrototype &owner)
 	{ return acl().getOwner(owner); }
-	void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
+	virtual void getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
 	{ return acl().getAcl(tag, count, acls); }
-    void changeAcl(const AclEdit &edit, const AccessCredentials *cred)
+	virtual void changeAcl(const AclEdit &edit, const AccessCredentials *cred)
 	{ return acl().changeAcl(edit, cred, relatedDatabase()); }
-	void changeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred)
+	virtual void changeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred)
 	{ return acl().changeOwner(newOwner, cred, relatedDatabase()); }
-	void validate(AclAuthorization auth, const AccessCredentials *cred)
+	virtual void validate(AclAuthorization auth, const AccessCredentials *cred)
 	{ acl().validate(auth, cred, relatedDatabase()); }
-	void validate(AclAuthorization auth, const Context &context)
+	virtual void validate(AclAuthorization auth, const Context &context)
 	{ acl().validate(auth, context, relatedDatabase()); }
 };
 

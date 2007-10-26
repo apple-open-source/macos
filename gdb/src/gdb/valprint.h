@@ -1,5 +1,7 @@
 /* Declarations for value printing routines for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991-1994, 2000 Free Software Foundation, Inc.
+
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 2000, 2005 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -48,34 +50,37 @@ extern int output_format;
 
 extern int stop_print_at_null;	/* Stop printing at null char? */
 
-extern void val_print_array_elements (struct type *, char *, CORE_ADDR,
-				      struct ui_file *, int, int, int,
-				      enum val_prettyprint, unsigned int);
+extern void val_print_array_elements (struct type *, const gdb_byte *,
+				      CORE_ADDR, struct ui_file *, int,
+				      int, int, enum val_prettyprint,
+				      unsigned int);
 
-extern void val_print_type_code_int (struct type *, char *,
+extern void val_print_type_code_int (struct type *, const gdb_byte *,
 				     struct ui_file *);
 
-extern void print_binary_chars (struct ui_file *, unsigned char *,
+extern void print_binary_chars (struct ui_file *, const gdb_byte *,
 				unsigned int);
 
-extern void print_octal_chars (struct ui_file *, unsigned char *,
+extern void print_octal_chars (struct ui_file *, const gdb_byte *,
 			       unsigned int);
 
-extern void print_decimal_chars (struct ui_file *, unsigned char *,
+extern void print_decimal_chars (struct ui_file *, const gdb_byte *,
 				 unsigned int);
 
-extern void print_hex_chars_with_byte_order (struct ui_file *, const bfd_byte *,
+/* APPLE LOCAL huh? */
+extern void print_hex_chars_with_byte_order (struct ui_file *, const gdb_byte *,
 					     unsigned int, int byte_order);
- 
-extern void print_hex_chars (struct ui_file *, const bfd_byte *,
+
+extern void print_hex_chars (struct ui_file *, const gdb_byte *,
 			     unsigned int);
 
-extern void print_char_chars_with_byte_order (struct ui_file *, const bfd_byte *,
+/* APPLE LOCAL huh? */
+extern void print_char_chars_with_byte_order (struct ui_file *, const gdb_byte *,
 					      unsigned int, int byte_order);
  
-extern void print_char_chars (struct ui_file *, const bfd_byte *,
+extern void print_char_chars (struct ui_file *, const gdb_byte *,
 			      unsigned int);
 
 /* APPLE LOCAL: OSType printing */
-extern void print_ostype (struct ui_file *, unsigned char *);
+extern void print_ostype (struct ui_file *, struct type *, unsigned char *);
 #endif

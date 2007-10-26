@@ -1,4 +1,4 @@
-Copyright (c) 2002, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2002-2005, International Business Machines Corporation and others. All Rights Reserved.
 ustring: Unicode String Manipulation
 
 This sample demonstrates
@@ -7,12 +7,12 @@ This sample demonstrates
          
 Files:
     ustring.cpp      Main source file in C++
-    ustring.dsw      Windows MSVC workspace.  Double-click this to get started.
-    ustring.dsp      Windows MSVC project file
+    ustring.sln      Windows MSVC workspace.  Double-click this to get started.
+    ustring.vcproj   Windows MSVC project file
 
 To Build ustring on Windows
     1.  Install and build ICU
-    2.  In MSVC, open the workspace file icu\samples\ustring\ustring.dsw
+    2.  In MSVC, open the workspace file icu\samples\ustring\ustring.sln
     3.  Choose a Debug or Release build.
     4.  Build.
 	

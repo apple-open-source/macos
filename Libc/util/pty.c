@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,6 +67,9 @@
 #include <termios.h>
 #include <unistd.h>
 #include <util.h>
+#include <syslog.h>
+
+static char ptytemplate[] = "/dev/ptyXX";
 
 int openpty(amaster, aslave, name, termp, winp)
 	int *amaster, *aslave;
@@ -74,47 +77,26 @@ int openpty(amaster, aslave, name, termp, winp)
 	struct termios *termp;
 	struct winsize *winp;
 {
-	static char line[] = "/dev/ptyXX";
-	register const char *cp1, *cp2;
-	register int master, slave, ttygid;
-	struct group *gr;
+	int master, slave;
+	char *sname;
 
-	if ((gr = getgrnam("tty")) != NULL)
-		ttygid = gr->gr_gid;
-	else
-		ttygid = -1;
-
-	for (cp1 = "pqrstuvwxy"; *cp1; cp1++) {
-		line[8] = *cp1;
-		for (cp2 = "0123456789abcdef"; *cp2; cp2++) {
-			line[5] = 'p';
-			line[9] = *cp2;
-			if ((master = open(line, O_RDWR, 0)) == -1) {
-				if (errno == ENOENT)
-					return (-1);	/* out of ptys */
-			} else {
-				line[5] = 't';
-				(void) grantpt(master);
-				(void) revoke(line);
-				if ((slave = open(line, O_RDWR, 0)) != -1) {
-					*amaster = master;
-					*aslave = slave;
-					if (name)
-						strcpy(name, line);
-					if (termp)
-						(void) tcsetattr(slave, 
-							TCSAFLUSH, termp);
-					if (winp)
-						(void) ioctl(slave, TIOCSWINSZ, 
-							(char *)winp);
-					return (0);
-				}
-				(void) close(master);
-			}
-		}
+	if ((master = posix_openpt(O_RDWR|O_NOCTTY)) < 0)
+		return -1;
+	if (grantpt(master) < 0 || unlockpt(master) < 0
+	    || (sname = ptsname(master)) == NULL
+	    || (slave = open(sname, O_RDWR|O_NOCTTY, 0)) < 0) {
+		(void) close(master);
+		return -1;
 	}
-	errno = ENOENT;	/* out of ptys */
-	return (-1);
+	*amaster = master;
+	*aslave = slave;
+	if (name)
+		strcpy(name, sname);
+	if (termp)
+		(void) tcsetattr(slave, TCSAFLUSH, termp);
+	if (winp)
+		(void) ioctl(slave, TIOCSWINSZ, (char *)winp);
+	return (0);
 }
 
 int
@@ -136,7 +118,19 @@ forkpty(amaster, name, termp, winp)
 		 * child
 		 */
 		(void) close(master);
-		login_tty(slave);
+		/*
+		 * 4300297: login_tty() may fail to set the controlling tty.
+		 * Since we have already forked, the best we can do is to 
+		 * dup the slave as if login_tty() succeeded.
+		 */
+		if (login_tty(slave) < 0) {
+			syslog(LOG_ERR, "forkpty: login_tty could't make controlling tty");
+			(void) dup2(slave, 0);
+			(void) dup2(slave, 1);
+			(void) dup2(slave, 2);
+			if (slave > 2)
+				(void) close(slave);
+		}
 		return (0);
 	}
 	/*

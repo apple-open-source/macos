@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003, 2005-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,11 +50,12 @@ static OSErr 	VolumeObjectFixPrimaryBlock( void );
  *
  * Encode a UCS-2 (Unicode) string to UTF-8
  */
-int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
+int utf_encodestr(ucsp, ucslen, utf8p, utf8len, utf8plen)
 	const u_int16_t * ucsp;
 	size_t ucslen;
 	unsigned char * utf8p;
 	size_t * utf8len;
+	size_t utf8plen;
 {
 	unsigned char * bufstart;
 	u_int16_t ucs_ch;
@@ -63,7 +64,7 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
 	bufstart = utf8p;
 	charcnt = ucslen / 2;
 
-	while (charcnt-- > 0) {
+	while (charcnt-- > 0 && utf8plen > 0) {
 		ucs_ch = *ucsp++;
 
 		if (ucs_ch < 0x0080) {
@@ -71,10 +72,17 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
 				continue;	/* skip over embedded NULLs */
 
 			*utf8p++ = ucs_ch;
+			utf8plen--;
 		} else if (ucs_ch < 0x800) {
+			utf8plen -= 2;
+			if (utf8plen < 0)
+				break;
 			*utf8p++ = (ucs_ch >> 6)   | 0xc0;
 			*utf8p++ = (ucs_ch & 0x3f) | 0x80;
 		} else {	
+			utf8plen -= 3;
+			if (utf8plen < 0)
+				break;
 			*utf8p++ = (ucs_ch >> 12)         | 0xe0;
 			*utf8p++ = ((ucs_ch >> 6) & 0x3f) | 0x80;
 			*utf8p++ = ((ucs_ch) & 0x3f)      | 0x80;
@@ -91,13 +99,17 @@ int utf_encodestr(ucsp, ucslen, utf8p, utf8len)
  * utf_decodestr
  *
  * Decode a UTF-8 string back to UCS-2 (Unicode)
+ *
+ * N.B.:  ucslen on input describes the length of the buffer;
+ * on return, it describes how many bytes were used.
  */
 int
-utf_decodestr(utf8p, utf8len, ucsp, ucslen)
+utf_decodestr(utf8p, utf8len, ucsp, ucslen, ucsplen)
 	const unsigned char * utf8p;
 	size_t utf8len;
 	u_int16_t* ucsp;
 	size_t *ucslen;
+	size_t ucsplen;
 {
 	u_int16_t* bufstart;
 	u_int16_t ucs_ch;
@@ -105,10 +117,11 @@ utf_decodestr(utf8p, utf8len, ucsp, ucslen)
 
 	bufstart = ucsp;
 
-	while (utf8len-- > 0 && (byte = *utf8p++) != '\0') {
+	while (utf8len-- > 0 && (byte = *utf8p++) != '\0' && ucsplen > 0) {
 		/* check for ascii */
 		if (byte < 0x80) {
 			*ucsp++ = byte;
+			ucsplen--;
 			continue;
 		}
 
@@ -147,6 +160,7 @@ utf_decodestr(utf8p, utf8len, ucsp, ucslen)
 		utf8len--;
 		ucs_ch += (byte & 0x3F);  
 		*ucsp++ = ucs_ch;
+		ucsplen--;
 	}
 
 	*ucslen = (u_int8_t*)ucsp - (u_int8_t*)bufstart;
@@ -323,6 +337,84 @@ OSErr	GetBTreeHeader( SGlobPtr GPtr, SFCB *fcb, BTHeaderRec *header )
 }
 
 
+/*------------------------------------------------------------------------------
+
+Routine:	IsDuplicateRepairOrder
+
+Function:	Search a duplicate repair order node in the GPtr->MinorRepairP 
+		list.  This function traverses the entire list of minor 
+		repairs, and compares the following fields to determine a 
+		match - type, forkType, correct, incorrect, maskBit, hint,
+		and parentID.
+
+Input:		GPtr	- scavenger globals
+		orig	- repair order to search and compare
+
+Output:		0 - no duplicate was found,
+		1 - duplicate was found.
+------------------------------------------------------------------------------*/
+int IsDuplicateRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig) 
+{
+	RepairOrderPtr cur;
+	int retval = 0;
+
+	cur = GPtr->MinorRepairsP;
+	while (cur) {
+		if (cur != orig) {
+			/* If all these values match, this is a duplicate */
+			if ((orig->type == cur->type) &&
+			    (orig->correct == cur->correct) &&
+			    (orig->incorrect == cur->incorrect) &&
+			    (orig->parid == cur->parid) &&
+			    (orig->forkType == cur->forkType) &&
+			    (orig->maskBit == cur->maskBit) &&
+			    (orig->hint == cur->hint)) {
+				retval = 1;
+				break;
+			}
+		}
+		cur = cur->link;
+	}
+	
+	return retval;
+}
+
+/*------------------------------------------------------------------------------
+
+Routine:	DeleteRepairOrder
+
+Function:	Deletes the minor repair order that matches the repair order 
+		provided from the list.  This function should be called when 
+		a duplicate repair order is detected.  
+
+Input:		GPtr	- scavenger globals
+		orig	- repair order to remove
+
+Output:		Nothing
+------------------------------------------------------------------------------*/
+void DeleteRepairOrder(SGlobPtr GPtr, RepairOrderPtr orig)
+{
+	RepairOrderPtr cur;
+	RepairOrderPtr prev = NULL;
+
+	cur = GPtr->MinorRepairsP;
+	while (cur) {
+		if (cur == orig) {
+			if (prev) {
+				prev->link = cur->link;
+			}
+			if (cur == GPtr->MinorRepairsP) {
+				GPtr->MinorRepairsP = cur->link;
+			}
+			DisposeMemory(cur);
+		}
+		prev = cur;
+		cur = cur->link;
+	}
+
+	return;
+}
+
 
 /*------------------------------------------------------------------------------
 
@@ -352,7 +444,7 @@ RepairOrderPtr AllocMinorRepairOrder( SGlobPtr GPtr, int n )						/* #extra byte
 		GPtr->MinorRepairsP = p;
 	}
     else if ( GPtr->logLevel >= kDebugLog )
-        printf( "\t%s - AllocateClearMemory failed to allocate %d bytes \n", __FUNCTION__, n);
+       plog( "\t%s - AllocateClearMemory failed to allocate %d bytes \n", __FUNCTION__, n);
 	
 	if ( GPtr->RepLevel == repairLevelNoProblemsFound )
 		GPtr->RepLevel = repairLevelVolumeRecoverable;
@@ -1100,7 +1192,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 							&myVOPtr->sectorSize );
 	if ( (myVOPtr->totalDeviceSectors < 3) || (err != noErr) ) {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
+		plog("\tinvalid device information for volume - total sectors = %qd sector size = %d \n",
 				myVOPtr->totalDeviceSectors, myVOPtr->sectorSize);
 		}
 		goto ExitRoutine;
@@ -1123,7 +1215,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 			}
 			else {
 				if ( GPtr->logLevel >= kDebugLog ) {
-					printf( "\tInvalid primary volume header - error %d \n", err );
+				plog( "\tInvalid primary volume header - error %d \n", err );
 				}
 			}
 		}
@@ -1135,14 +1227,14 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 		}
 		else {
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tBlock %d is not an MDB or Volume Header \n", MDB_BlkN );
+			plog( "\tBlock %d is not an MDB or Volume Header \n", MDB_BlkN );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	} 
 	else {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get volume block %d, err %d \n", MDB_BlkN, err );
+		plog( "\tcould not get volume block %d, err %d \n", MDB_BlkN, err );
 		}
 	}
 	
@@ -1164,7 +1256,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 			}
 			else {
 				if ( GPtr->logLevel >= kDebugLog ) {
-					printf( "\tInvalid alternate volume header - error %d \n", err );
+				plog( "\tInvalid alternate volume header - error %d \n", err );
 				}
 			}
 		}
@@ -1175,7 +1267,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 		}
 		else {
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tBlock %qd is not an MDB or Volume Header \n", myVOPtr->totalDeviceSectors - 2 );
+			plog( "\tBlock %qd is not an MDB or Volume Header \n", myVOPtr->totalDeviceSectors - 2 );
 			}
 		}
 
@@ -1183,7 +1275,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 	}
 	else {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get alternate volume header at %qd, err %d \n", 
+		plog( "\tcould not get alternate volume header at %qd, err %d \n", 
 					myVOPtr->totalDeviceSectors - 2, err );
 		}
 	}
@@ -1210,7 +1302,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 		}
 		else {
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tcould not get primary MDB at block %qd, err %d \n", myVOPtr->primaryMDB, err );
+			plog( "\tcould not get primary MDB at block %qd, err %d \n", myVOPtr->primaryMDB, err );
 			}
 		}
 	}
@@ -1252,23 +1344,23 @@ void PrintVolumeObject( void )
 	myVOPtr = GetVolumeObjectPtr( );
 
 	if ( myVOPtr->volumeType == kHFSVolumeType )
-		printf( "\tvolume type is HFS \n" );
+	plog( "\tvolume type is HFS \n" );
 	else if ( myVOPtr->volumeType == kEmbededHFSPlusVolumeType )
-		printf( "\tvolume type is embedded HFS+ \n" );
+	plog( "\tvolume type is embedded HFS+ \n" );
 	else if ( myVOPtr->volumeType == kPureHFSPlusVolumeType )
-		printf( "\tvolume type is pure HFS+ \n" );
+	plog( "\tvolume type is pure HFS+ \n" );
 	else
-		printf( "\tunknown volume type \n" );
+	plog( "\tunknown volume type \n" );
 	
-	printf( "\tprimary MDB is at block %qd 0x%02qx \n", myVOPtr->primaryMDB, myVOPtr->primaryMDB );
-	printf( "\talternate MDB is at block %qd 0x%02qx \n", myVOPtr->alternateMDB, myVOPtr->alternateMDB );
-	printf( "\tprimary VHB is at block %qd 0x%02qx \n", myVOPtr->primaryVHB, myVOPtr->primaryVHB );
-	printf( "\talternate VHB is at block %qd 0x%02qx \n", myVOPtr->alternateVHB, myVOPtr->alternateVHB );
-	printf( "\tsector size = %d 0x%02x \n", myVOPtr->sectorSize, myVOPtr->sectorSize );
-	printf( "\tVolumeObject flags = 0x%02X \n", myVOPtr->flags );
-	printf( "\ttotal sectors for volume = %qd 0x%02qx \n", 
+plog( "\tprimary MDB is at block %qd 0x%02qx \n", myVOPtr->primaryMDB, myVOPtr->primaryMDB );
+plog( "\talternate MDB is at block %qd 0x%02qx \n", myVOPtr->alternateMDB, myVOPtr->alternateMDB );
+plog( "\tprimary VHB is at block %qd 0x%02qx \n", myVOPtr->primaryVHB, myVOPtr->primaryVHB );
+plog( "\talternate VHB is at block %qd 0x%02qx \n", myVOPtr->alternateVHB, myVOPtr->alternateVHB );
+plog( "\tsector size = %d 0x%02x \n", myVOPtr->sectorSize, myVOPtr->sectorSize );
+plog( "\tVolumeObject flags = 0x%02X \n", myVOPtr->flags );
+plog( "\ttotal sectors for volume = %qd 0x%02qx \n", 
 			myVOPtr->totalDeviceSectors, myVOPtr->totalDeviceSectors );
-	printf( "\ttotal sectors for embedded volume = %qd 0x%02qx \n", 
+plog( "\ttotal sectors for embedded volume = %qd 0x%02qx \n", 
 			myVOPtr->totalEmbeddedSectors, myVOPtr->totalEmbeddedSectors );
 	
 	return;
@@ -1349,20 +1441,20 @@ static void GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr,
 			}
 			else {
 				if ( GPtr->logLevel >= kDebugLog ) {
-					printf( "\tInvalid embedded alternate volume header at block %qd - error %d \n", myAlternateBlockNum, err );
+				plog( "\tInvalid embedded alternate volume header at block %qd - error %d \n", myAlternateBlockNum, err );
 				}
 			}
 		}
 		else {
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tBlock number %qd is not embedded alternate volume header \n", myAlternateBlockNum );
+			plog( "\tBlock number %qd is not embedded alternate volume header \n", myAlternateBlockNum );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	}
 	else {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get embedded alternate volume header at %qd, err %d \n", 
+		plog( "\tcould not get embedded alternate volume header at %qd, err %d \n", 
 					myAlternateBlockNum, err );
 		}
 	}
@@ -1385,20 +1477,20 @@ static void GetEmbeddedVolumeHeaders( 	SGlobPtr GPtr,
 			}
 			else {
 				if ( GPtr->logLevel >= kDebugLog ) {
-					printf( "\tInvalid embedded primary volume header at block %qd - error %d \n", myPrimaryBlockNum, err );
+				plog( "\tInvalid embedded primary volume header at block %qd - error %d \n", myPrimaryBlockNum, err );
 				}
 			}
 		}
 		else {
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tBlock number %qd is not embedded primary volume header \n", myPrimaryBlockNum );
+			plog( "\tBlock number %qd is not embedded primary volume header \n", myPrimaryBlockNum );
 			}
 		}
 		(void) ReleaseVolumeBlock( GPtr->calculatedVCB, &myBlockDescriptor, kReleaseBlock );
 	}
 	else {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get embedded primary volume header at %qd, err %d \n", 
+		plog( "\tcould not get embedded primary volume header at %qd, err %d \n", 
 					myPrimaryBlockNum, err );
 		}
 	}
@@ -1444,7 +1536,7 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 			else
 				useAlternate = 1;
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tvolume headers disagree on catalog file total blocks - primary %d alternate %d \n", 
+			plog( "\tvolume headers disagree on catalog file total blocks - primary %d alternate %d \n", 
 						thePriVHPtr->catalogFile.totalBlocks, theAltVHPtr->catalogFile.totalBlocks );
 			}
 		}
@@ -1459,7 +1551,7 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 			else
 				useAlternate = 1;
 			if ( GPtr->logLevel >= kDebugLog ) {
-				printf( "\tvolume headers disagree on extents file total blocks - primary %d alternate %d \n", 
+			plog( "\tvolume headers disagree on extents file total blocks - primary %d alternate %d \n", 
 						thePriVHPtr->extentsFile.totalBlocks, theAltVHPtr->extentsFile.totalBlocks );
 			}
 		}
@@ -1472,7 +1564,7 @@ static void CompareVolHeaderBTreeSizes(	SGlobPtr GPtr,
 	if ( usePrimary == 1 && useAlternate == 1 ) {
 		// this should never happen, but if it does, bail without choosing a preference
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tvolume headers disagree but there is confusion on which to use \n" );
+		plog( "\tvolume headers disagree but there is confusion on which to use \n" );
 		}
 		return; 
 	}
@@ -1544,6 +1636,41 @@ Boolean VolumeObjectIsHFSPlus( void )
 
 } /* VolumeObjectIsHFSPlus */
 
+
+//******************************************************************************
+//	Routine:	VolumeObjectIsHFSX
+//
+//	Function:	determine if the volume represented by our VolumeObject is an
+//				HFSX volume (pure or embedded)
+//
+// 	Result:		returns true if volume is pure HFSX or embedded HFSX else false.
+//******************************************************************************
+
+Boolean VolumeObjectIsHFSX(SGlobPtr GPtr)
+{
+	OSErr err;
+	int result = false;
+	HFSMasterDirectoryBlock *mdbp;
+	SVCB *vcb = GPtr->calculatedVCB;
+	BlockDescriptor block;
+
+#define kIDSector 2
+	err = GetVolumeBlock(vcb, kIDSector, kGetBlock, &block);
+	if (err) return (false);
+
+	mdbp = (HFSMasterDirectoryBlock *)block.buffer;
+	if (mdbp->drSigWord == kHFSXSigWord) {
+		result = true;
+	} else if (mdbp->drSigWord == kHFSSigWord) {
+		if (mdbp->drEmbedSigWord == kHFSXSigWord) {
+			result = true;
+		}
+	}
+
+	(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+
+	return( result );
+} /* VolumeObjectIsHFSX */
 
 //******************************************************************************
 //	Routine:	VolumeObjectIsHFS
@@ -1668,7 +1795,7 @@ void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
 	err = GetVolumeObjectPrimaryMDB( &myPrimary );
 	if ( err != noErr ) {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get primary MDB \n" );
+		plog( "\tcould not get primary MDB \n" );
 		}
 		goto ExitThisRoutine;
 	}
@@ -1676,7 +1803,7 @@ void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
 	err = GetVolumeObjectAlternateMDB( &myAlternate );
 	if ( err != noErr ) {
 		if ( GPtr->logLevel >= kDebugLog ) {
-			printf( "\tcould not get alternate MDB \n" );
+		plog( "\tcould not get alternate MDB \n" );
 		}
 		goto ExitThisRoutine;
 	}
@@ -1722,12 +1849,12 @@ void CheckEmbeddedVolInfoInMDBs( SGlobPtr GPtr )
 		if ( primaryIsDamaged ) {
 			myVOPtr->flags &= ~kVO_PriMDBOK; // mark the primary MDB as damaged
 			if ( GPtr->logLevel >= kDebugLog )
-				printf("\tinvalid primary wrapper MDB \n");
+			plog("\tinvalid primary wrapper MDB \n");
 		}
 		else {
 			myVOPtr->flags &= ~kVO_AltMDBOK; // mark the alternate MDB as damaged
 			if ( GPtr->logLevel >= kDebugLog )
-				printf("\tinvalid alternate wrapper MDB \n");
+			plog("\tinvalid alternate wrapper MDB \n");
 		}
 	}
 		
@@ -2245,332 +2372,265 @@ void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
     
     myCount = (isUnicodeString) ? (theCount * 2) : theCount;
     for ( i = 0; i < myCount; i++ ) 
-        printf( "%02X ", *(theNamePtr + i) );
-    printf( "\n" );
+       plog( "%02X ", *(theNamePtr + i) );
+   plog( "\n" );
 
 } /* PrintName */
 
-#if DEBUG_XATTR
-#define MAX_PRIMES 11	
-int primes[] = {32, 27, 25, 7, 11, 13, 17, 19, 23, 29, 31};
-void print_prime_buckets(PrimeBuckets *cur); 
-#endif
-
-/* Function:	RecordXAttrBits
+/* Function:	add_prime_bucket_uint32
  *
  * Description:
- * This function increments the prime number buckets for the associated 
- * prime bucket set based on the flags and btreetype to determine 
- * the discrepancy between the attribute btree and catalog btree for
- * extended attribute data consistency.  This function is based on
- * Chinese Remainder Theorem.  
+ * This function increments the prime number buckets in the prime bucket 
+ * set based on the uint32_t number provided.  This function increments 
+ * each prime number bucket by one at an offset of the corresponding 
+ * remainder of the division.  This function is based on Chinese Remainder 
+ * Theorem and adds the given number to the set to compare later.
  * 
- * Alogrithm:
- * 1. If none of kHFSHasAttributesMask or kHFSHasSecurity mask is set, 
- *    return.
- * 2. Based on btreetype and the flags, determine which prime number
- *    bucket should be updated.  Initialize pointers accordingly. 
- * 3. Divide the fileID with pre-defined prime numbers. Store the 
- *    remainder.
- * 4. Increment each prime number bucket at an offset of the 
- *    corresponding remainder with one.
- *
- * Input:	1. GPtr - pointer to global scavenger area
- *        	2. flags - can include kHFSHasAttributesMask and/or kHFSHasSecurityMask
- *        	3. fileid - fileID for which particular extended attribute is seen
- *     	   	4. btreetye - can be kHFSPlusCatalogRecord or kHFSPlusAttributeRecord
- *                            indicates which btree prime number bucket should be incremented
+ * Input:
+ *		1. Corresponding prime bucket to increment.
+ *		2. uint32_t number to add to the set.
  *
  * Output:	nil
  */
-void RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid, UInt16 btreetype) 
+void add_prime_bucket_uint32(PrimeBuckets *cur, uint32_t num)
 {
-	PrimeBuckets *cur_attr = NULL;
-	PrimeBuckets *cur_sec = NULL;
 	int r32, r27, r25, r7, r11, r13, r17, r19, r23, r29, r31;
 
-	if ( ((flags & kHFSHasAttributesMask) == 0) && 
-	     ((flags & kHFSHasSecurityMask) == 0) ) {
-		/* No attributes exists for this fileID */
-		goto out;
-	}
-	
-	/* Determine which bucket are we updating */
-	if (btreetype ==  kCalculatedCatalogRefNum) {
-		/* Catalog BTree buckets */
-		if (flags & kHFSHasAttributesMask) {
-			cur_attr = &(GPtr->CBTAttrBucket); 
-		}
-		if (flags & kHFSHasSecurityMask) {
-			cur_sec = &(GPtr->CBTSecurityBucket); 
-		}
-	} else if (btreetype ==  kCalculatedAttributesRefNum) {
-		/* Attribute BTree buckets */
-		if (flags & kHFSHasAttributesMask) {
-			cur_attr = &(GPtr->ABTAttrBucket); 
-		}
-		if (flags & kHFSHasSecurityMask) {
-			cur_sec = &(GPtr->ABTSecurityBucket); 
-		}
-	} else {
-		/* Incorrect btreetype found */
-		goto out;
+	if (!cur) {
+		return;
 	}
 
 	/* Perform the necessary divisions here */
-	r32 = fileid % 32;
-	r27 = fileid % 27;
-	r25 = fileid % 25;
-	r7  = fileid % 7;
-	r11 = fileid % 11;
-	r13 = fileid % 13;
-	r17 = fileid % 17;
-	r19 = fileid % 19;
-	r23 = fileid % 23;
-	r29 = fileid % 29;
-	r31 = fileid % 31;
+	r32 = num % 32;
+	r27 = num % 27;
+	r25 = num % 25;
+	r7  = num % 7;
+	r11 = num % 11;
+	r13 = num % 13;
+	r17 = num % 17;
+	r19 = num % 19;
+	r23 = num % 23;
+	r29 = num % 29;
+	r31 = num % 31;
 	
 	/* Update bucket for attribute bit */
-	if (cur_attr) {
-		cur_attr->n32[r32]++;
-		cur_attr->n27[r27]++;
-		cur_attr->n25[r25]++;
-		cur_attr->n7[r7]++;
-		cur_attr->n11[r11]++;
-		cur_attr->n13[r13]++;
-		cur_attr->n17[r17]++;
-		cur_attr->n19[r19]++;
-		cur_attr->n23[r23]++;
-		cur_attr->n29[r29]++;
-		cur_attr->n31[r31]++;
-	}
+	cur->n32[r32]++;
+	cur->n27[r27]++;
+	cur->n25[r25]++;
+	cur->n7[r7]++;
+	cur->n11[r11]++;
+	cur->n13[r13]++;
+	cur->n17[r17]++;
+	cur->n19[r19]++;
+	cur->n23[r23]++;
+	cur->n29[r29]++;
+	cur->n31[r31]++;
 
-	/* Update bucket for security bit */
-	if (cur_sec) {
-		cur_sec->n32[r32]++;
-		cur_sec->n27[r27]++;
-		cur_sec->n25[r25]++;
-		cur_sec->n7[r7]++;
-		cur_sec->n11[r11]++;
-		cur_sec->n13[r13]++;
-		cur_sec->n17[r17]++;
-		cur_sec->n19[r19]++;
-		cur_sec->n23[r23]++;
-		cur_sec->n29[r29]++;
-		cur_sec->n31[r31]++;
-	}
-	
-#if 0
-	printf ("\nFor fileID = %d\n", fileid);
-	if (cur_attr) {
-		printf ("Attributes bucket:\n");
-		print_prime_buckets(cur_attr);
-	}
-	if (cur_sec) {
-		printf ("Security bucket:\n");
-		print_prime_buckets(cur_sec);
-	}
-#endif 
-out:
 	return;
 }
 
-/* Function:	ComparePrimeBuckets
+/* Function:	add_prime_bucket_uint64
  *
  * Description:
- * This function compares the prime number buckets for catalog btree
- * and attribute btree for the given attribute type (normal attribute
- * bit or security bit).
+ * This function increments the prime number buckets in the prime bucket 
+ * set based on the uint64_t number provided.  This function increments 
+ * each prime number bucket by one at an offset of the corresponding 
+ * remainder of the division.  This function is based on Chinese Remainder 
+ * Theorem and adds the given number to the set to compare later.
+ * 
+ * Input:
+ *		1. Corresponding prime bucket to increment.
+ *		2. uint64_t number to add to the set.
  *
- * Input:	1. GPtr - pointer to global scavenger area
- *         	2. BitMask - indicate which attribute type should be compared.
- *        	             can include kHFSHasAttributesMask and/or kHFSHasSecurityMask
- * Output:	zero - the buckets are equal
- *            	non-zero - the buckets are unqual
+ * Output:	nil
  */
-int ComparePrimeBuckets(SGlobPtr GPtr, UInt16 BitMask) 
+void add_prime_bucket_uint64(PrimeBuckets *cur, uint64_t num)
 {
-	int result = 0;
-	int i;
-	PrimeBuckets *cat;	/* Catalog BTree */
-	PrimeBuckets *attr;	/* Attribute BTree */
-	
-	/* Find the correct PrimeBuckets to compare */
-	if (BitMask & kHFSHasAttributesMask) {
-		/* Compare buckets for attribute bit */
-		cat = &(GPtr->CBTAttrBucket);
-		attr = &(GPtr->ABTAttrBucket); 
-	} else if (BitMask & kHFSHasSecurityMask) {
-		/* Compare buckets for security bit */
-		cat = &(GPtr->CBTSecurityBucket);
-		attr = &(GPtr->ABTSecurityBucket); 
-	} else {
-		printf ("%s: Incorrect BitMask found.\n", __FUNCTION__);
-		goto out;
+	int r32, r27, r25, r7, r11, r13, r17, r19, r23, r29, r31;
+
+	if (!cur) {
+		return;
 	}
 
+	/* Perform the necessary divisions here */
+	r32 = num % 32;
+	r27 = num % 27;
+	r25 = num % 25;
+	r7  = num % 7;
+	r11 = num % 11;
+	r13 = num % 13;
+	r17 = num % 17;
+	r19 = num % 19;
+	r23 = num % 23;
+	r29 = num % 29;
+	r31 = num % 31;
+	
+	/* Update bucket for attribute bit */
+	cur->n32[r32]++;
+	cur->n27[r27]++;
+	cur->n25[r25]++;
+	cur->n7[r7]++;
+	cur->n11[r11]++;
+	cur->n13[r13]++;
+	cur->n17[r17]++;
+	cur->n19[r19]++;
+	cur->n23[r23]++;
+	cur->n29[r29]++;
+	cur->n31[r31]++;
+
+	return;
+}
+
+/* Compares the two prime buckets provided. 
+ * Returns - 
+ * 	zero - If the two buckets are same.
+ *  non-zero - If the two buckets do not match.
+ */
+int compare_prime_buckets(PrimeBuckets *bucket1, PrimeBuckets *bucket2) 
+{
+	int retval = 1;
+	int i;
+
 	for (i=0; i<32; i++) {
-		if (cat->n32[i] != attr->n32[i]) {
-			goto unequal_out;
+		if (bucket1->n32[i] != bucket2->n32[i]) {
+			goto out;
 		}
 	}
 	
 	for (i=0; i<27; i++) {
-		if (cat->n27[i] != attr->n27[i]) {
-			goto unequal_out;
+		if (bucket1->n27[i] != bucket2->n27[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<25; i++) {
-		if (cat->n25[i] != attr->n25[i]) {
-			goto unequal_out;
+		if (bucket1->n25[i] != bucket2->n25[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<7; i++) {
-		if (cat->n7[i] != attr->n7[i]) {
-			goto unequal_out;
+		if (bucket1->n7[i] != bucket2->n7[i]) {
+			goto out;
 		}
 	}
 	
 	for (i=0; i<11; i++) {
-		if (cat->n11[i] != attr->n11[i]) {
-			goto unequal_out;
+		if (bucket1->n11[i] != bucket2->n11[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<13; i++) {
-		if (cat->n13[i] != attr->n13[i]) {
-			goto unequal_out;
+		if (bucket1->n13[i] != bucket2->n13[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<17; i++) {
-		if (cat->n17[i] != attr->n17[i]) {
-			goto unequal_out;
+		if (bucket1->n17[i] != bucket2->n17[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<19; i++) {
-		if (cat->n19[i] != attr->n19[i]) {
-			goto unequal_out;
+		if (bucket1->n19[i] != bucket2->n19[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<23; i++) {
-		if (cat->n23[i] != attr->n23[i]) {
-			goto unequal_out;
+		if (bucket1->n23[i] != bucket2->n23[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<29; i++) {
-		if (cat->n29[i] != attr->n29[i]) {
-			goto unequal_out;
+		if (bucket1->n29[i] != bucket2->n29[i]) {
+			goto out;
 		}
 	}
 
 	for (i=0; i<31; i++) {
-		if (cat->n31[i] != attr->n31[i]) {
-			goto unequal_out;
+		if (bucket1->n31[i] != bucket2->n31[i]) {
+			goto out;
 		}
 	}
 
-	goto out;
+	retval = 0;
 
-unequal_out:
-	/* Unequal values found, set the error bit in ABTStat */
-	if (BitMask & kHFSHasAttributesMask) {
-		RcdError (GPtr, E_IncorrectAttrCount);
-		GPtr->ABTStat |= S_AttributeCount; 
-	} else {
-		RcdError (GPtr, E_IncorrectSecurityCount);
-		GPtr->ABTStat |= S_SecurityCount; 
-	}
-#if DEBUG_XATTR
-	if (BitMask & kHFSHasAttributesMask) {
-		printf ("For kHFSHasAttributesMask:\n");
-	} else {
-		printf ("For kHFSHasSecurityMask:\n");
-	}
-	printf("Catalog BTree bucket:\n");
-	print_prime_buckets(cat);
-	printf("Attribute BTree bucket\n");
-	print_prime_buckets(attr);
-#endif
 out:
-	return result;
+	return retval;
 }
 
-#if DEBUG_XATTR
 /* Prints the prime number bucket for the passed pointer */
 void print_prime_buckets(PrimeBuckets *cur) 
 {
 	int i;
 	
-	printf ("n32 = { ");
+plog ("n32 = { ");
 	for (i=0; i<32; i++) {
-		printf ("%d,", cur->n32[i]);
+	plog ("%d,", cur->n32[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n27 = { ");
+plog ("n27 = { ");
 	for (i=0; i<27; i++) {
-		printf ("%d,", cur->n27[i]);
+	plog ("%d,", cur->n27[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n25 = { ");
+plog ("n25 = { ");
 	for (i=0; i<25; i++) {
-		printf ("%d,", cur->n25[i]);
+	plog ("%d,", cur->n25[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n7 = { ");
+plog ("n7 = { ");
 	for (i=0; i<7; i++) {
-		printf ("%d,", cur->n7[i]);
+	plog ("%d,", cur->n7[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 	
-	printf ("n11 = { ");
+plog ("n11 = { ");
 	for (i=0; i<11; i++) {
-		printf ("%d,", cur->n11[i]);
+	plog ("%d,", cur->n11[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n13 = { ");
+plog ("n13 = { ");
 	for (i=0; i<13; i++) {
-		printf ("%d,", cur->n13[i]);
+	plog ("%d,", cur->n13[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n17 = { ");
+plog ("n17 = { ");
 	for (i=0; i<17; i++) {
-		printf ("%d,", cur->n17[i]);
+	plog ("%d,", cur->n17[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n19 = { ");
+plog ("n19 = { ");
 	for (i=0; i<19; i++) {
-		printf ("%d,", cur->n19[i]);
+	plog ("%d,", cur->n19[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n23 = { ");
+plog ("n23 = { ");
 	for (i=0; i<23; i++) {
-		printf ("%d,", cur->n23[i]);
+	plog ("%d,", cur->n23[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n29 = { ");
+plog ("n29 = { ");
 	for (i=0; i<29; i++) {
-		printf ("%d,", cur->n29[i]);
+	plog ("%d,", cur->n29[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 
-	printf ("n31 = { ");
+plog ("n31 = { ");
 	for (i=0; i<31; i++) {
-		printf ("%d,", cur->n31[i]);
+	plog ("%d,", cur->n31[i]);
 	}
-	printf ("}\n");
+plog ("}\n");
 }
-#endif 

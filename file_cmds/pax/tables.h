@@ -1,4 +1,4 @@
-/*	$OpenBSD: tables.h,v 1.2 1996/06/23 14:20:43 deraadt Exp $	*/
+/*	$OpenBSD: tables.h,v 1.7 2004/11/29 16:23:22 otto Exp $	*/
 /*	$NetBSD: tables.h,v 1.3 1995/03/21 09:07:47 cgd Exp $	*/
 
 /*-
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -47,7 +43,7 @@
 /*
  * Hash Table Sizes MUST BE PRIME, if set too small performance suffers.
  * Probably safe to expect 500000 inodes per tape. Assuming good key
- * distribution (inodes) chains of under 50 long (worse case) is ok.
+ * distribution (inodes) chains of under 50 long (worst case) is ok.
  */
 #define L_TAB_SZ	2503		/* hard link hash table size */
 #define F_TAB_SZ	50503		/* file time hash table size */
@@ -55,6 +51,7 @@
 #define D_TAB_SZ	317		/* unique device mapping table */
 #define A_TAB_SZ	317		/* ftree dir access time reset table */
 #define MAXKEYLEN	64		/* max number of chars for hash */
+#define DIRP_SIZE	64		/* initial size of created dir table */
 
 /*
  * file hard link structure (hashed by dev/ino and chained) used to find the
@@ -82,7 +79,7 @@ typedef struct hrdlnk {
 typedef struct ftm {
 	int		namelen;	/* file name length */
 	time_t		mtime;		/* files last modification time */
-	off_t		seek;		/* loacation in scratch file */
+	off_t		seek;		/* location in scratch file */
 	struct ftm	*fow;
 } FTM;
 
@@ -108,7 +105,7 @@ typedef struct namt {
  * this table. (When the inode field in the archive header are too small, we
  * remap the dev on writes to remove accidental collisions).
  *
- * The list is hashed by device number using chain collision resolution. Off of 
+ * The list is hashed by device number using chain collision resolution. Off of
  * each DEVT are linked the various remaps for this device based on those bits
  * in the inode which were truncated. For example if we are just remapping to
  * avoid a device number during an update append, off the DEVT we would have
@@ -161,15 +158,13 @@ typedef struct atdir {
  * times and/or modes). We must reset time in the reverse order of creation,
  * because entries are added  from the top of the file tree to the bottom.
  * We MUST reset times from leaf to root (it will not work the other
- * direction).  Entries are recorded into a spool file to make reverse
- * reading faster.
+ * direction).
  */
 
 typedef struct dirdata {
-	int nlen;	/* length of the directory name (includes \0) */
-	off_t npos;	/* position in file where this dir name starts */
-	mode_t mode;	/* file mode to restore */
+	char *name;	/* file name */
 	time_t mtime;	/* mtime to set */
 	time_t atime;	/* atime to set */
-	int frc_mode;	/* do we force mode settings? */
+	u_int16_t mode;	/* file mode to restore */
+	u_int16_t frc_mode;	/* do we force mode settings? */
 } DIRDATA;

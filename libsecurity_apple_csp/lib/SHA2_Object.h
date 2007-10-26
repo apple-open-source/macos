@@ -34,6 +34,23 @@
 #include <security_cdsa_utilities/digestobject.h>
 #include <CommonCrypto/CommonDigest.h>
 
+class SHA224Object : public DigestObject
+{
+public:
+	SHA224Object() { }
+	virtual ~SHA224Object() { };
+	virtual void digestInit();
+	virtual void digestUpdate(
+		const void 	*data, 
+		size_t 		len);
+	virtual void digestFinal(
+		void 		*digest);
+	virtual DigestObject *digestClone() const;
+	virtual size_t digestSizeInBytes() const;
+private:
+	CC_SHA256_CTX		mCtx;
+};
+
 class SHA256Object : public DigestObject
 {
 public:

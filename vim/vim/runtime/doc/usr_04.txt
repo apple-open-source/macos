@@ -1,4 +1,4 @@
-*usr_04.txt*	For Vim version 6.2.  Last change: 2002 Jul 18
+*usr_04.txt*	For Vim version 7.0.  Last change: 2006 Apr 24
 
 		     VIM USER MANUAL - by Bram Moolenaar
 
@@ -270,7 +270,7 @@ where they open a new line below or above the cursor.
 *04.5*	Moving text
 
 When you delete something with the "d", "x", or another command, the text is
-saved.  You can paste it back by using the p command. (The Vim name for
+saved.  You can paste it back by using the p command.  (The Vim name for
 this is put).
    Take a look at how this works.  First you will delete an entire line, by
 putting the cursor on the line you want to delete and typing "dd".  Now you
@@ -318,7 +318,7 @@ and execute the command "xp".  This works as follows: "x" deletes the
 character e and places it in a register.  "p" puts the text after the cursor,
 which is after the h.
 
-	teh     th     the~
+	teh     th     the ~
 	 x       p
 
 ==============================================================================
@@ -333,7 +333,7 @@ for the change operator, and "y" was still available.  Calling this
 operator "yank" made it easier to remember to use the "y" key.
 
 Since "y" is an operator, you use "yw" to yank a word.  A count is possible as
-usual.  To yank two workds use "y2w".  Example:
+usual.  To yank two words use "y2w".  Example:
 
 	let sqr = LongVariable * ~
 		 -------------->
@@ -400,7 +400,7 @@ to do this: "daw".
 	this is some text. ~
 
 The "d" of "daw" is the delete operator.  "aw" is a text object.  Hint: "aw"
-stands for "A Word".  Thus "daw" is "Delete A Word".  To be precize, the white
+stands for "A Word".  Thus "daw" is "Delete A Word".  To be precise, the white
 space after the word is also deleted (the white space before the word at the
 end of the line).
 
@@ -457,7 +457,7 @@ you type <Esc>.
 	This is interesting. ~
 
 You may have noticed that this command replaced 5 characters in the line with
-twelve others. The "R" command automatically extends the line if it runs out
+twelve others.  The "R" command automatically extends the line if it runs out
 of characters to replace.  It will not continue on the next line.
 
 You can switch between Insert mode and Replace mode with the <Insert> key.

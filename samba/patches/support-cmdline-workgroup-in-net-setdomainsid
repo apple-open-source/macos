@@ -1,0 +1,22 @@
+Index: samba/source/utils/net.c
+===================================================================
+--- samba/source/utils/net.c.orig
++++ samba/source/utils/net.c
+@@ -555,7 +555,7 @@ static int net_changesecretpw(int argc, 
+ 
+ 		trust_pw = get_pass("Enter machine password: ", opt_stdin);
+ 
+-		if (!secrets_store_machine_password(trust_pw, lp_workgroup(), sec_channel_type)) {
++		if (!secrets_store_machine_password(trust_pw, opt_workgroup, sec_channel_type)) {
+ 			    d_fprintf(stderr, "Unable to write the machine account password in the secrets database");
+ 			    return 1;
+ 		}
+@@ -659,7 +659,7 @@ static int net_setdomainsid(int argc, co
+ 		return 1;
+ 	}
+ 
+-	if (!secrets_store_domain_sid(lp_workgroup(), &sid)) {
++	if (!secrets_store_domain_sid(opt_workgroup, &sid)) {
+ 		DEBUG(0,("Can't store domain SID.\n"));
+ 		return 1;
+ 	}

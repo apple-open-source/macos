@@ -1,0 +1,7 @@
+Changes
+MANIFEST
+README
+INSTALL
+Makefile.PL
+t/DBI.t
+lib/Ima/DBI.pm

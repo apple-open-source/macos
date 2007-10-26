@@ -1,11 +1,11 @@
 /*
  *  administrator.c
  *
- *  $Id: administrator.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
+ *  $Id: administrator.c,v 1.12 2006/07/10 13:46:56 source Exp $
  *
  *  The iODBC driver manager.
  *
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
@@ -13,6 +13,10 @@
  *
  *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -26,8 +30,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +40,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -96,7 +100,8 @@ static char *szDriverButtons[] = {
 
 static char *szCpLabels[] = {
   "Name",
-  "Pool timeout (seconds)"
+  "Pool timeout (seconds)",
+  "Probe query"
 };
 
 static struct
@@ -140,8 +145,8 @@ addcomponents_to_list (GtkWidget *widget)
       data[0] = iODBC_Components[i].lib_desc;
       data[1] = VERSION;
       data[2] = iODBC_Components[i].lib_name;
-      data[3] = "";				/* Modification Date */
-      data[4] = "";				/* Size */
+      data[3] = "";		/* Modification Date */
+      data[4] = "";		/* Size */
 
       if ((handle = dlopen (iODBC_Components[i].lib_name, RTLD_LAZY)))
 	{
@@ -180,8 +185,8 @@ static void
 addconnectionpool_to_list (GtkWidget *widget)
 {
   char *curr, *buffer = (char *) malloc (sizeof (char) * 65536), *szDriver;
-  char driver[1024];
-  char *data[2];
+  char cptime[128], cpprobe[1024];
+  char *data[3];
   int len, i;
   BOOL careabout;
   UWORD confMode = ODBC_USER_DSN;
@@ -228,31 +233,39 @@ addconnectionpool_to_list (GtkWidget *widget)
 
 	  SQLSetConfigMode (confMode);
 #ifdef WIN32
-	  SQLGetPrivateProfileString ("ODBC 32 bit Drivers", curr, "", driver,
-	      sizeof (driver), "odbcinst.ini");
+	  SQLGetPrivateProfileString ("ODBC 32 bit Drivers", curr, "", cpprobe,
+	      sizeof (cpprobe), "odbcinst.ini");
 #else
-	  SQLGetPrivateProfileString ("ODBC Drivers", curr, "", driver,
-	      sizeof (driver), "odbcinst.ini");
+	  SQLGetPrivateProfileString ("ODBC Drivers", curr, "", cpprobe,
+	      sizeof (cpprobe), "odbcinst.ini");
 #endif
 
 	  /* Check if the driver is installed */
-	  if (strcasecmp (driver, "Installed"))
+	  if (strcasecmp (cpprobe, "Installed"))
 	    goto end;
 
 	  /* Get the driver library name */
 	  SQLSetConfigMode (confMode);
 	  if (!SQLGetPrivateProfileString (curr, "CPTimeout", "<Not pooled>",
-		  driver, sizeof (driver), "odbcinst.ini"))
+		  cptime, sizeof (cptime), "odbcinst.ini"))
 	    {
 	      SQLSetConfigMode (confMode);
 	      SQLGetPrivateProfileString ("Default", "CPTimeout",
-		  "<Not pooled>", driver, sizeof (driver), "odbcinst.ini");
+		  "<Not pooled>", cptime, sizeof (cptime), "odbcinst.ini");
+	    }
+	  if (!SQLGetPrivateProfileString (curr, "CPProbe", "",
+		  cpprobe, sizeof (cpprobe), "odbcinst.ini"))
+	    {
+	      SQLSetConfigMode (confMode);
+	      SQLGetPrivateProfileString ("Default", "CPProbe",
+		  "", cpprobe, sizeof (cpprobe), "odbcinst.ini");
 	    }
 
-	  if (STRLEN (curr) && STRLEN (driver))
+	  if (STRLEN (curr) && STRLEN (cptime))
 	    {
 	      data[0] = curr;
-	      data[1] = driver;
+	      data[1] = cptime;
+	      data[2] = cpprobe;
 	      gtk_clist_append (GTK_CLIST (widget), data);
 	    }
 	}
@@ -310,7 +323,7 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
     case 0:
       if (dsnchoose_t)
 	{
-	  dsnchoose_t->type_dsn = 0;
+	  dsnchoose_t->type_dsn = USER_DSN;
 	  adddsns_to_list (dsnchoose_t->udsnlist, FALSE);
 	}
       break;
@@ -319,24 +332,28 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
     case 1:
       if (dsnchoose_t)
 	{
-	  dsnchoose_t->type_dsn = 1;
+	  dsnchoose_t->type_dsn = SYSTEM_DSN;
 	  adddsns_to_list (dsnchoose_t->sdsnlist, TRUE);
 	}
       break;
 
       /* The File DSN panel */
-      /*case 2:
-         if(dsnchoose_t)
-         {
-         dsnchoose_t->type_dsn = 2; dsnchoose_t->curr_dir = strdup(getenv("HOME") ? getenv("HOME") : "/");
-         addlistofdir_to_optionmenu(dsnchoose_t->dir_combo, dsnchoose_t->curr_dir, dsnchoose_t);
-         adddirectories_to_list(dsnchoose_t->mainwnd, dsnchoose_t->dir_list, dsnchoose_t->curr_dir);
-         addfiles_to_list(dsnchoose_t->mainwnd, dsnchoose_t->file_list, dsnchoose_t->curr_dir);
-         }
-         break; */
+    case 2:
+      if (dsnchoose_t)
+        {
+          dsnchoose_t->type_dsn = FILE_DSN;
+
+          addlistofdir_to_optionmenu(dsnchoose_t->dir_combo,
+	      dsnchoose_t->curr_dir, dsnchoose_t);
+          adddirectories_to_list(dsnchoose_t->mainwnd,
+	      dsnchoose_t->dir_list, dsnchoose_t->curr_dir);
+          addfiles_to_list(dsnchoose_t->mainwnd,
+	      dsnchoose_t->file_list, dsnchoose_t->curr_dir);
+        }
+       break;
 
       /* The ODBC Driver panel */
-    case 2:
+    case 3:
       if (driverchoose_t)
 	{
 	  adddrivers_to_list (driverchoose_t->driverlist,
@@ -347,7 +364,7 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
       break;
 
       /* The Connection Pooling */
-    case 3:
+    case 4:
       if (!connectionpool_t->changed)
 	{
 	  /* Get the connection pooling options */
@@ -376,7 +393,7 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
       break;
 
       /* The tracing panel */
-    case 4:
+    case 5:
       if (!tracing_t->changed)
 	{
 	  /* Get the traces options */
@@ -413,7 +430,7 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
       break;
 
       /* The About panel */
-    case 5:
+    case 6:
       if (component_t)
 	addcomponents_to_list (component_t->componentlist);
       break;
@@ -433,9 +450,12 @@ admin_switch_page (GtkNotebook *notebook, GtkNotebookPage *page,
 	gtk_widget_set_sensitive (dsnchoose_t->sconfigure, FALSE);
       if (dsnchoose_t->stest)
 	gtk_widget_set_sensitive (dsnchoose_t->stest, FALSE);
-      /*if(dsnchoose_t->fremove) gtk_widget_set_sensitive(dsnchoose_t->fremove,FALSE);
-         if(dsnchoose_t->fconfigure) gtk_widget_set_sensitive(dsnchoose_t->fconfigure,FALSE);
-         if(dsnchoose_t->ftest) gtk_widget_set_sensitive(dsnchoose_t->ftest,FALSE); */
+      if (dsnchoose_t->fremove)
+	gtk_widget_set_sensitive(dsnchoose_t->fremove, FALSE);
+      if (dsnchoose_t->fconfigure)
+	gtk_widget_set_sensitive(dsnchoose_t->fconfigure, FALSE);
+      if (dsnchoose_t->ftest)
+	gtk_widget_set_sensitive(dsnchoose_t->ftest, FALSE);
     }
 }
 
@@ -501,31 +521,47 @@ static void
 cpdriver_list_select (GtkWidget *widget, gint row, gint column,
     GdkEvent *event, TCONNECTIONPOOLING *connectionpool_t)
 {
-  char *szDriver = NULL, *cptimeout;
-  char msg[1024] = { 0 };
+  char *szDriver = NULL, *cptimeout, *cpprobe;
+  char sztime[1024] = { 0 };
+  char szprobe[1024] = { 0 };
+  TCONNECTIONPOOLING choose_t;
 
   if (connectionpool_t)
     {
+      choose_t = *connectionpool_t;
       if (GTK_CLIST (connectionpool_t->driverlist)->selection != NULL)
 	{
-	  gtk_clist_get_text (GTK_CLIST (connectionpool_t->driverlist),
-	      GPOINTER_TO_INT (GTK_CLIST (connectionpool_t->driverlist)->
+          memset(choose_t.timeout, 0, sizeof(choose_t.timeout)); 
+          memset(choose_t.probe, 0, sizeof(choose_t.probe)); 
+
+	  gtk_clist_get_text (GTK_CLIST (choose_t.driverlist),
+	      GPOINTER_TO_INT (GTK_CLIST (choose_t.driverlist)->
 		  selection->data), 0, &szDriver);
-	  gtk_clist_get_text (GTK_CLIST (connectionpool_t->driverlist),
-	      GPOINTER_TO_INT (GTK_CLIST (connectionpool_t->driverlist)->
+	  gtk_clist_get_text (GTK_CLIST (choose_t.driverlist),
+	      GPOINTER_TO_INT (GTK_CLIST (choose_t.driverlist)->
 		  selection->data), 1, &cptimeout);
+	  gtk_clist_get_text (GTK_CLIST (choose_t.driverlist),
+	      GPOINTER_TO_INT (GTK_CLIST (choose_t.driverlist)->
+		  selection->data), 2, &cpprobe);
+
+          strncpy (choose_t.timeout, cptimeout, sizeof(choose_t.timeout)-1);
+          strncpy (choose_t.probe, cpprobe, sizeof(choose_t.probe)-1);
 	}
 
       if (szDriver && event && event->type == GDK_2BUTTON_PRESS
-	  && (cptimeout =
-	      create_connectionpool (connectionpool_t->mainwnd, szDriver,
-		  cptimeout)))
+	  && (create_connectionpool (connectionpool_t->mainwnd, &choose_t) == TRUE))
 	{
-	  sprintf (msg, "CPTimeout=%s", cptimeout);
+	  sprintf (sztime, "CPTimeout=%s", choose_t.timeout);
 	  if (!SQLConfigDriver (connectionpool_t->mainwnd, ODBC_CONFIG_DRIVER,
-		  szDriver, msg, NULL, 0, NULL))
+		  szDriver, sztime, NULL, 0, NULL))
 	    _iodbcdm_errorbox (connectionpool_t->mainwnd, szDriver,
 		"An error occured when trying to set the connection pooling time-out : ");
+
+	  sprintf (szprobe, "CPProbe=%s", choose_t.probe);
+	  if (!SQLConfigDriver (connectionpool_t->mainwnd, ODBC_CONFIG_DRIVER,
+		  szDriver, szprobe, NULL, 0, NULL))
+	    _iodbcdm_errorbox (connectionpool_t->mainwnd, szDriver,
+		"An error occured when trying to set the connection probe query : ");
 
 	  addconnectionpool_to_list (connectionpool_t->driverlist);
 	}
@@ -579,7 +615,7 @@ driver_add_clicked (GtkWidget *widget, TDRIVERCHOOSER *choose_t)
 
   if (choose_t)
     {
-      cstr = create_driversetup (choose_t->mainwnd, NULL, connstr, FALSE);
+      cstr = create_driversetup (choose_t->mainwnd, NULL, connstr, FALSE, TRUE);
 
       if (cstr && cstr != connstr && cstr != (LPSTR) - 1L)
 	{
@@ -700,7 +736,7 @@ driver_configure_clicked (GtkWidget *widget, TDRIVERCHOOSER *choose_t)
 
 	  cstr =
 	      create_driversetup (choose_t->mainwnd, szDriver, connstr,
-	      FALSE);
+	      FALSE, TRUE);
 
 	  if (cstr && cstr != connstr && cstr != (LPSTR) - 1L)
 	    {
@@ -748,7 +784,7 @@ admin_ok_clicked (GtkWidget *widget, void **inparams)
       dsnchoose_t->udsnlist = dsnchoose_t->sdsnlist = dsnchoose_t->dir_list =
 	  NULL;
       dsnchoose_t->fadd = dsnchoose_t->fremove = dsnchoose_t->ftest =
-	  dsnchoose_t->fconfigure = NULL;
+	  dsnchoose_t->fconfigure = dsnchoose_t->fsetdir = NULL;
       dsnchoose_t->uadd = dsnchoose_t->uremove = dsnchoose_t->utest =
 	  dsnchoose_t->uconfigure = NULL;
       dsnchoose_t->sadd = dsnchoose_t->sremove = dsnchoose_t->stest =
@@ -756,7 +792,7 @@ admin_ok_clicked (GtkWidget *widget, void **inparams)
       dsnchoose_t->file_list = dsnchoose_t->file_entry =
 	  dsnchoose_t->dir_combo = NULL;
       dsnchoose_t->type_dsn = -1;
-      dsnchoose_t->curr_dir = dsnchoose_t->dsn = NULL;
+      dsnchoose_t->dsn = NULL;
     }
 
   if (driverchoose_t)
@@ -820,7 +856,7 @@ admin_cancel_clicked (GtkWidget *widget, void **inparams)
       dsnchoose_t->udsnlist = dsnchoose_t->sdsnlist = dsnchoose_t->dir_list =
 	  NULL;
       dsnchoose_t->fadd = dsnchoose_t->fremove = dsnchoose_t->ftest =
-	  dsnchoose_t->fconfigure = NULL;
+	  dsnchoose_t->fconfigure = dsnchoose_t->fsetdir = NULL;
       dsnchoose_t->uadd = dsnchoose_t->uremove = dsnchoose_t->utest =
 	  dsnchoose_t->uconfigure = NULL;
       dsnchoose_t->sadd = dsnchoose_t->sremove = dsnchoose_t->stest =
@@ -828,7 +864,7 @@ admin_cancel_clicked (GtkWidget *widget, void **inparams)
       dsnchoose_t->file_list = dsnchoose_t->file_entry =
 	  dsnchoose_t->dir_combo = NULL;
       dsnchoose_t->type_dsn = -1;
-      dsnchoose_t->curr_dir = dsnchoose_t->dsn = NULL;
+      dsnchoose_t->dsn = NULL;
     }
 
   if (driverchoose_t)
@@ -898,11 +934,12 @@ create_administrator (HWND hwnd)
   GtkWidget *t_fileselected, *l_lookin, *optionmenu1, *frame3, *table3, *fdsn,
       *l_directory, *fixed3;
   GtkWidget *optionmenu1_menu, *scrolledwindow3, *fpooling, *l_poolto,
-      *clist7, *l_odbcdrivers;
+      *l_poolprobe, *clist7, *l_odbcdrivers;
   GtkWidget *fixed8, *frame11, *alignment1, *vbox4, *frame13, *fixed5,
       *frame10, *table9, *vbuttonbox3;
   GtkWidget *pixmap7, *frame12, *vbox5, *br_enable, *br_disable, *t_retrywait,
       *scrolledwindow7;
+  GtkWidget *b_setdir;
   GSList *vbox2_group = NULL, *vbox5_group = NULL;
   GdkPixmap *pixmap;
   GdkBitmap *mask;
@@ -1311,224 +1348,240 @@ create_administrator (HWND hwnd)
       gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 1), sdsn);
 
   /* File DSN panel */
-  /*fixed3 = gtk_fixed_new ();
-     gtk_widget_ref (fixed3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "fixed3", fixed3,
+  fixed3 = gtk_fixed_new ();
+  gtk_widget_ref (fixed3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "fixed3", fixed3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (fixed3);
-     gtk_container_add (GTK_CONTAINER (notebook1), fixed3);
-     gtk_container_set_border_width (GTK_CONTAINER (fixed3), 6);
+  gtk_widget_show (fixed3);
+  gtk_container_add (GTK_CONTAINER (notebook1), fixed3);
+  gtk_container_set_border_width (GTK_CONTAINER (fixed3), 6);
 
-     l_lookin = gtk_label_new ("Look in : ");
-     gtk_widget_ref (l_lookin);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "l_lookin", l_lookin,
+  l_lookin = gtk_label_new ("Look in : ");
+  gtk_widget_ref (l_lookin);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_lookin", l_lookin,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (l_lookin);
-     gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 16);
-     gtk_widget_set_uposition (l_lookin, 16, 16);
-     gtk_widget_set_usize (l_lookin, 57, 16);
-     gtk_label_set_justify (GTK_LABEL (l_lookin), GTK_JUSTIFY_LEFT);
+  gtk_widget_show (l_lookin);
+  gtk_fixed_put (GTK_FIXED (fixed3), l_lookin, 16, 16);
+  gtk_widget_set_uposition (l_lookin, 16, 16);
+  gtk_widget_set_usize (l_lookin, 57, 16);
+  gtk_label_set_justify (GTK_LABEL (l_lookin), GTK_JUSTIFY_LEFT);
 
-     optionmenu1 = gtk_option_menu_new ();
-     gtk_widget_ref (optionmenu1);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "optionmenu1", optionmenu1,
+  optionmenu1 = gtk_option_menu_new ();
+  gtk_widget_ref (optionmenu1);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "optionmenu1", optionmenu1,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (optionmenu1);
-     gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 16);
-     gtk_widget_set_uposition (optionmenu1, 72, 16);
-     gtk_widget_set_usize (optionmenu1, 392, 24);
-     optionmenu1_menu = gtk_menu_new ();
-     gtk_option_menu_set_menu (GTK_OPTION_MENU (optionmenu1), optionmenu1_menu);
+  gtk_widget_show (optionmenu1);
+  gtk_fixed_put (GTK_FIXED (fixed3), optionmenu1, 72, 16);
+  gtk_widget_set_uposition (optionmenu1, 72, 16);
+  gtk_widget_set_usize (optionmenu1, 392, 24);
+  optionmenu1_menu = gtk_menu_new ();
+  gtk_option_menu_set_menu (GTK_OPTION_MENU (optionmenu1), optionmenu1_menu);
 
-     scrolledwindow3 = gtk_scrolled_window_new (NULL, NULL);
-     gtk_widget_ref (scrolledwindow3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow3", scrolledwindow3,
+  scrolledwindow3 = gtk_scrolled_window_new (NULL, NULL);
+  gtk_widget_ref (scrolledwindow3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow3", scrolledwindow3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (scrolledwindow3);
-     gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 48);
-     gtk_widget_set_uposition (scrolledwindow3, 8, 48);
-     gtk_widget_set_usize (scrolledwindow3, 224, 176);
+  gtk_widget_show (scrolledwindow3);
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow3, 8, 48);
+  gtk_widget_set_uposition (scrolledwindow3, 8, 48);
+  gtk_widget_set_usize (scrolledwindow3, 224, 176);
 
-     clist3 = gtk_clist_new (1);
-     gtk_widget_ref (clist3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "clist3", clist3,
+  clist3 = gtk_clist_new (1);
+  gtk_widget_ref (clist3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "clist3", clist3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (clist3);
-     gtk_container_add (GTK_CONTAINER (scrolledwindow3), clist3);
-     gtk_widget_set_usize (clist3, 144, 168);
-     gtk_clist_set_column_width (GTK_CLIST (clist3), 0, 80);
-     gtk_clist_column_titles_show (GTK_CLIST (clist3));
+  gtk_widget_show (clist3);
+  gtk_container_add (GTK_CONTAINER (scrolledwindow3), clist3);
+  gtk_widget_set_usize (clist3, 144, 168);
+  gtk_clist_set_column_width (GTK_CLIST (clist3), 0, 80);
+  gtk_clist_column_titles_show (GTK_CLIST (clist3));
 
-     l_directory = gtk_label_new ("Directories");
-     gtk_widget_ref (l_directory);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "l_directory", l_directory,
+  l_directory = gtk_label_new ("Directories");
+  gtk_widget_ref (l_directory);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_directory", l_directory,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (l_directory);
-     gtk_clist_set_column_widget (GTK_CLIST (clist3), 0, l_directory);
-     gtk_label_set_justify (GTK_LABEL (l_directory), GTK_JUSTIFY_LEFT);
+  gtk_widget_show (l_directory);
+  gtk_clist_set_column_widget (GTK_CLIST (clist3), 0, l_directory);
+  gtk_label_set_justify (GTK_LABEL (l_directory), GTK_JUSTIFY_LEFT);
 
-     scrolledwindow4 = gtk_scrolled_window_new (NULL, NULL);
-     gtk_widget_ref (scrolledwindow4);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow4", scrolledwindow4,
+  scrolledwindow4 = gtk_scrolled_window_new (NULL, NULL);
+  gtk_widget_ref (scrolledwindow4);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "scrolledwindow4", scrolledwindow4,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (scrolledwindow4);
-     gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 48);
-     gtk_widget_set_uposition (scrolledwindow4, 240, 48);
-     gtk_widget_set_usize (scrolledwindow4, 224, 176);
+  gtk_widget_show (scrolledwindow4);
+  gtk_fixed_put (GTK_FIXED (fixed3), scrolledwindow4, 240, 48);
+  gtk_widget_set_uposition (scrolledwindow4, 240, 48);
+  gtk_widget_set_usize (scrolledwindow4, 224, 176);
 
-     clist4 = gtk_clist_new (1);
-     gtk_widget_ref (clist4);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "clist4", clist4,
+  clist4 = gtk_clist_new (1);
+  gtk_widget_ref (clist4);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "clist4", clist4,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (clist4);
-     gtk_container_add (GTK_CONTAINER (scrolledwindow4), clist4);
-     gtk_clist_set_column_width (GTK_CLIST (clist4), 0, 80);
-     gtk_clist_column_titles_show (GTK_CLIST (clist4));
+  gtk_widget_show (clist4);
+  gtk_container_add (GTK_CONTAINER (scrolledwindow4), clist4);
+  gtk_clist_set_column_width (GTK_CLIST (clist4), 0, 80);
+  gtk_clist_column_titles_show (GTK_CLIST (clist4));
 
-     l_files = gtk_label_new ("Files");
-     gtk_widget_ref (l_files);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "l_files", l_files,
+  l_files = gtk_label_new ("Files");
+  gtk_widget_ref (l_files);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_files", l_files,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (l_files);
-     gtk_clist_set_column_widget (GTK_CLIST (clist4), 0, l_files);
-     gtk_label_set_justify (GTK_LABEL (l_files), GTK_JUSTIFY_LEFT);
+  gtk_widget_show (l_files);
+  gtk_clist_set_column_widget (GTK_CLIST (clist4), 0, l_files);
+  gtk_label_set_justify (GTK_LABEL (l_files), GTK_JUSTIFY_LEFT);
 
-     t_fileselected = gtk_entry_new ();
-     gtk_widget_ref (t_fileselected);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "t_fileselected", t_fileselected,
+  t_fileselected = gtk_entry_new ();
+  gtk_widget_ref (t_fileselected);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "t_fileselected", t_fileselected,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (t_fileselected);
-     gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 234);
-     gtk_widget_set_uposition (t_fileselected, 95, 234);
-     gtk_widget_set_usize (t_fileselected, 370, 22);
+  gtk_widget_show (t_fileselected);
+  gtk_fixed_put (GTK_FIXED (fixed3), t_fileselected, 95, 234);
+  gtk_widget_set_uposition (t_fileselected, 95, 234);
+  gtk_widget_set_usize (t_fileselected, 370, 22);
 
-     frame3 = gtk_frame_new (NULL);
-     gtk_widget_ref (frame3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "frame3", frame3,
+  frame3 = gtk_frame_new (NULL);
+  gtk_widget_ref (frame3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "frame3", frame3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (frame3);
-     gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 264);
-     gtk_widget_set_uposition (frame3, 8, 264);
-     gtk_widget_set_usize (frame3, 546, 64);
+  gtk_widget_show (frame3);
+  gtk_fixed_put (GTK_FIXED (fixed3), frame3, 8, 264);
+  gtk_widget_set_uposition (frame3, 8, 264);
+  gtk_widget_set_usize (frame3, 546, 64);
 
-     table3 = gtk_table_new (1, 2, FALSE);
-     gtk_widget_ref (table3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "table3", table3,
+  table3 = gtk_table_new (1, 2, FALSE);
+  gtk_widget_ref (table3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "table3", table3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (table3);
-     gtk_container_add (GTK_CONTAINER (frame3), table3);
-     gtk_container_set_border_width (GTK_CONTAINER (table3), 6);
-     gtk_table_set_row_spacings (GTK_TABLE (table3), 6);
-     gtk_table_set_col_spacings (GTK_TABLE (table3), 6);
+  gtk_widget_show (table3);
+  gtk_container_add (GTK_CONTAINER (frame3), table3);
+  gtk_container_set_border_width (GTK_CONTAINER (table3), 6);
+  gtk_table_set_row_spacings (GTK_TABLE (table3), 6);
+  gtk_table_set_col_spacings (GTK_TABLE (table3), 6);
 
-     l_explanation = gtk_label_new ("Select the file data source that describes the driver that you wish to\nconnect to. You can use any file data source that refers to an ODBC\ndriver which is installed on your machine.");
-     gtk_widget_ref (l_explanation);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "l_explanation", l_explanation,
+  l_explanation = gtk_label_new ("Select the file data source that describes the driver that you wish to\nconnect to. You can use any file data source that refers to an ODBC\ndriver which is installed on your machine.");
+  gtk_widget_ref (l_explanation);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_explanation", l_explanation,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (l_explanation);
-     gtk_table_attach (GTK_TABLE (table3), l_explanation, 1, 2, 0, 1,
+  gtk_widget_show (l_explanation);
+  gtk_table_attach (GTK_TABLE (table3), l_explanation, 1, 2, 0, 1,
      (GtkAttachOptions) (0),
      (GtkAttachOptions) (0), 0, 0);
-     gtk_label_set_justify (GTK_LABEL (l_explanation), GTK_JUSTIFY_LEFT);
+  gtk_label_set_justify (GTK_LABEL (l_explanation), GTK_JUSTIFY_LEFT);
 
-     pixmap3 = gtk_pixmap_new (pixmap, mask);
-     gtk_widget_ref (pixmap3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "pixmap3", pixmap3,
+  pixmap3 = gtk_pixmap_new (pixmap, mask);
+  gtk_widget_ref (pixmap3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "pixmap3", pixmap3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (pixmap3);
-     gtk_table_attach (GTK_TABLE (table3), pixmap3, 0, 1, 0, 1,
+  gtk_widget_show (pixmap3);
+  gtk_table_attach (GTK_TABLE (table3), pixmap3, 0, 1, 0, 1,
      (GtkAttachOptions) (GTK_FILL),
      (GtkAttachOptions) (GTK_FILL), 0, 0);
 
-     l_selected = gtk_label_new ("File selected : ");
-     gtk_widget_ref (l_selected);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "l_selected", l_selected,
+  l_selected = gtk_label_new ("File selected : ");
+  gtk_widget_ref (l_selected);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_selected", l_selected,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (l_selected);
-     gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 237);
-     gtk_widget_set_uposition (l_selected, 8, 237);
-     gtk_widget_set_usize (l_selected, 85, 16);
+  gtk_widget_show (l_selected);
+  gtk_fixed_put (GTK_FIXED (fixed3), l_selected, 8, 237);
+  gtk_widget_set_uposition (l_selected, 8, 237);
+  gtk_widget_set_usize (l_selected, 85, 16);
 
-     vbuttonbox3 = gtk_vbutton_box_new ();
-     gtk_widget_ref (vbuttonbox3);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "vbuttonbox3", vbuttonbox3,
+  vbuttonbox3 = gtk_vbutton_box_new ();
+  gtk_widget_ref (vbuttonbox3);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "vbuttonbox3", vbuttonbox3,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (vbuttonbox3);
-     gtk_fixed_put (GTK_FIXED (fixed3), vbuttonbox3, 472, 16);
-     gtk_widget_set_uposition (vbuttonbox3, 472, 16);
-     gtk_widget_set_usize (vbuttonbox3, 85, 135);
+  gtk_widget_show (vbuttonbox3);
+  gtk_fixed_put (GTK_FIXED (fixed3), vbuttonbox3, 472, 16);
+  gtk_widget_set_uposition (vbuttonbox3, 472, 16);
+  gtk_widget_set_usize (vbuttonbox3, 85, 165);
 
-     b_add = gtk_button_new_with_label ("");
-     b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_add)->child),
+  b_add = gtk_button_new_with_label ("");
+  b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_add)->child),
      szDSNButtons[0]);
-     gtk_widget_add_accelerator (b_add, "clicked", accel_group,
+  gtk_widget_add_accelerator (b_add, "clicked", accel_group,
      b_key, GDK_MOD1_MASK, 0);
-     gtk_widget_ref (b_add);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "b_add", b_add,
+  gtk_widget_ref (b_add);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "b_add", b_add,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (b_add);
-     gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_add);
-     GTK_WIDGET_SET_FLAGS (b_add, GTK_CAN_DEFAULT);
-     gtk_widget_add_accelerator (b_add, "clicked", accel_group,
+  gtk_widget_show (b_add);
+  gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_add);
+  GTK_WIDGET_SET_FLAGS (b_add, GTK_CAN_DEFAULT);
+  gtk_widget_add_accelerator (b_add, "clicked", accel_group,
      'A', GDK_MOD1_MASK,
      GTK_ACCEL_VISIBLE);
 
-     b_remove = gtk_button_new_with_label ("");
-     b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_remove)->child),
+  b_remove = gtk_button_new_with_label ("");
+  b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_remove)->child),
      szDSNButtons[1]);
-     gtk_widget_add_accelerator (b_remove, "clicked", accel_group,
+  gtk_widget_add_accelerator (b_remove, "clicked", accel_group,
      b_key, GDK_MOD1_MASK, 0);
-     gtk_widget_ref (b_remove);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "b_remove", b_remove,
+  gtk_widget_ref (b_remove);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "b_remove", b_remove,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (b_remove);
-     gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_remove);
-     GTK_WIDGET_SET_FLAGS (b_remove, GTK_CAN_DEFAULT);
-     gtk_widget_add_accelerator (b_remove, "clicked", accel_group,
+  gtk_widget_show (b_remove);
+  gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_remove);
+  GTK_WIDGET_SET_FLAGS (b_remove, GTK_CAN_DEFAULT);
+  gtk_widget_add_accelerator (b_remove, "clicked", accel_group,
      'R', GDK_MOD1_MASK,
      GTK_ACCEL_VISIBLE);
 
-     b_configure = gtk_button_new_with_label ("");
-     b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_configure)->child),
+  b_configure = gtk_button_new_with_label ("");
+  b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_configure)->child),
      szDSNButtons[2]);
-     gtk_widget_add_accelerator (b_configure, "clicked", accel_group,
-     b_key, GDK_MOD1_MASK, 0);
-     gtk_widget_ref (b_configure);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "b_configure", b_configure,
+  gtk_widget_add_accelerator (b_configure, "clicked", accel_group,
+  b_key, GDK_MOD1_MASK, 0);
+  gtk_widget_ref (b_configure);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "b_configure", b_configure,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (b_configure);
-     gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_configure);
-     GTK_WIDGET_SET_FLAGS (b_configure, GTK_CAN_DEFAULT);
-     gtk_widget_add_accelerator (b_configure, "clicked", accel_group,
+  gtk_widget_show (b_configure);
+  gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_configure);
+  GTK_WIDGET_SET_FLAGS (b_configure, GTK_CAN_DEFAULT);
+  gtk_widget_add_accelerator (b_configure, "clicked", accel_group,
      'C', GDK_MOD1_MASK,
      GTK_ACCEL_VISIBLE);
 
-     b_test = gtk_button_new_with_label ("");
-     b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_test)->child),
+  b_test = gtk_button_new_with_label ("");
+  b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_test)->child),
      szDSNButtons[3]);
-     gtk_widget_add_accelerator (b_test, "clicked", accel_group,
+  gtk_widget_add_accelerator (b_test, "clicked", accel_group,
      b_key, GDK_MOD1_MASK, 0);
-     gtk_widget_ref (b_test);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "b_test", b_test,
+  gtk_widget_ref (b_test);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "b_test", b_test,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (b_test);
-     gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_test);
-     GTK_WIDGET_SET_FLAGS (b_test, GTK_CAN_DEFAULT);
-     gtk_widget_add_accelerator (b_test, "clicked", accel_group,
+  gtk_widget_show (b_test);
+  gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_test);
+  GTK_WIDGET_SET_FLAGS (b_test, GTK_CAN_DEFAULT);
+  gtk_widget_add_accelerator (b_test, "clicked", accel_group,
      'T', GDK_MOD1_MASK,
      GTK_ACCEL_VISIBLE);
 
-     dsnchoose_t.fadd = b_add; dsnchoose_t.fremove = b_remove; dsnchoose_t.fconfigure = b_configure;
-     dsnchoose_t.ftest = b_test; dsnchoose_t.dir_list = clist3; dsnchoose_t.dir_combo = optionmenu1;
-     dsnchoose_t.file_list = clist4; dsnchoose_t.file_entry = t_fileselected;
-
-     fdsn = gtk_label_new (szTabNames[2]);
-     gtk_widget_ref (fdsn);
-     gtk_object_set_data_full (GTK_OBJECT (admin), "fdsn", fdsn,
+  b_setdir = gtk_button_new_with_label ("");
+  b_key = gtk_label_parse_uline (GTK_LABEL (GTK_BIN (b_setdir)->child),
+     szDSNButtons[4]);
+  gtk_widget_add_accelerator (b_setdir, "clicked", accel_group,
+     b_key, GDK_MOD1_MASK, 0);
+  gtk_widget_ref (b_setdir);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "b_setdir", b_setdir,
      (GtkDestroyNotify) gtk_widget_unref);
-     gtk_widget_show (fdsn);
-     gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1), gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 2), fdsn);
-   */
+  gtk_widget_show (b_setdir);
+  gtk_container_add (GTK_CONTAINER (vbuttonbox3), b_setdir);
+  GTK_WIDGET_SET_FLAGS (b_setdir, GTK_CAN_DEFAULT);
+  gtk_widget_add_accelerator (b_setdir, "clicked", accel_group,
+     'S', GDK_MOD1_MASK,
+     GTK_ACCEL_VISIBLE);
+
+  dsnchoose_t.fadd = b_add; dsnchoose_t.fremove = b_remove; dsnchoose_t.fconfigure = b_configure;
+  dsnchoose_t.ftest = b_test; dsnchoose_t.dir_list = clist3; dsnchoose_t.dir_combo = optionmenu1;
+  dsnchoose_t.file_list = clist4; dsnchoose_t.file_entry = t_fileselected;
+  dsnchoose_t.fsetdir = b_setdir;
+
+  fdsn = gtk_label_new (szTabNames[2]);
+  gtk_widget_ref (fdsn);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "fdsn", fdsn,
+     (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (fdsn);
+  gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1),
+      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 2), fdsn);
 
   dsnchoose_t.udsnlist = clist1;
   dsnchoose_t.sdsnlist = clist2;
@@ -1702,7 +1755,7 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (fdrivers);
   gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1),
-      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 2), fdrivers);
+      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 3), fdrivers);
 
   driverchoose_t.driverlist = clist5;
   driverchoose_t.mainwnd = admin;
@@ -1870,7 +1923,7 @@ create_administrator (HWND hwnd)
   gtk_widget_set_uposition (scrolledwindow7, 8, 24);
   gtk_widget_set_usize (scrolledwindow7, 392, 200);
 
-  clist7 = gtk_clist_new (2);
+  clist7 = gtk_clist_new (3);
   gtk_widget_ref (clist7);
   gtk_object_set_data_full (GTK_OBJECT (admin), "clist7", clist7,
       (GtkDestroyNotify) gtk_widget_unref);
@@ -1878,6 +1931,7 @@ create_administrator (HWND hwnd)
   gtk_container_add (GTK_CONTAINER (scrolledwindow7), clist7);
   gtk_clist_set_column_width (GTK_CLIST (clist7), 0, 210);
   gtk_clist_set_column_width (GTK_CLIST (clist7), 1, 80);
+  gtk_clist_set_column_width (GTK_CLIST (clist7), 2, 150);
   gtk_clist_column_titles_show (GTK_CLIST (clist7));
 
   l_name = gtk_label_new (szCpLabels[0]);
@@ -1894,13 +1948,20 @@ create_administrator (HWND hwnd)
   gtk_widget_show (l_poolto);
   gtk_clist_set_column_widget (GTK_CLIST (clist7), 1, l_poolto);
 
+  l_poolprobe = gtk_label_new (szCpLabels[2]);
+  gtk_widget_ref (l_poolprobe);
+  gtk_object_set_data_full (GTK_OBJECT (admin), "l_poolprobe", l_poolprobe,
+      (GtkDestroyNotify) gtk_widget_unref);
+  gtk_widget_show (l_poolprobe);
+  gtk_clist_set_column_widget (GTK_CLIST (clist7), 2, l_poolprobe);
+
   fpooling = gtk_label_new (szTabNames[4]);
   gtk_widget_ref (fpooling);
   gtk_object_set_data_full (GTK_OBJECT (admin), "fpooling", fpooling,
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (fpooling);
   gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1),
-      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 3), fpooling);
+      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 4), fpooling);
 
   connectionpool_t.driverlist = clist7;
   connectionpool_t.enperfmon_rb = br_enable;
@@ -2134,7 +2195,7 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (ftracing);
   gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1),
-      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 4), ftracing);
+      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 5), ftracing);
 
   tracing_t.logfile_entry = t_logfile;
   tracing_t.tracelib_entry = t_tracelib;
@@ -2264,7 +2325,7 @@ create_administrator (HWND hwnd)
       (GtkDestroyNotify) gtk_widget_unref);
   gtk_widget_show (fabout);
   gtk_notebook_set_tab_label (GTK_NOTEBOOK (notebook1),
-      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 5), fabout);
+      gtk_notebook_get_nth_page (GTK_NOTEBOOK (notebook1), 6), fabout);
 
   dialog_action_area1 = GTK_DIALOG (admin)->action_area;
   gtk_object_set_data (GTK_OBJECT (admin), "dialog_action_area1",
@@ -2347,22 +2408,27 @@ create_administrator (HWND hwnd)
   /* Configure system DSN button events */
   gtk_signal_connect (GTK_OBJECT (dsnchoose_t.sconfigure), "clicked",
       GTK_SIGNAL_FUNC (systemdsn_configure_clicked), &dsnchoose_t);
+
   /* Add file DSN button events */
-  /*gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fadd), "clicked",
-     GTK_SIGNAL_FUNC (filedsn_add_clicked),
-     &dsnchoose_t); */
+  gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fadd), "clicked",
+      GTK_SIGNAL_FUNC (filedsn_add_clicked),
+      &dsnchoose_t);
   /* Remove file DSN button events */
-  /*gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fremove), "clicked",
-     GTK_SIGNAL_FUNC (filedsn_remove_clicked),
-     &dsnchoose_t); */
+  gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fremove), "clicked",
+      GTK_SIGNAL_FUNC (filedsn_remove_clicked),
+      &dsnchoose_t);
   /* Test file DSN button events */
-  /*gtk_signal_connect (GTK_OBJECT (dsnchoose_t.ftest), "clicked",
+  gtk_signal_connect (GTK_OBJECT (dsnchoose_t.ftest), "clicked",
      GTK_SIGNAL_FUNC (filedsn_test_clicked),
-     &dsnchoose_t); */
+     &dsnchoose_t);
   /* Configure file DSN button events */
-  /*gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fconfigure), "clicked",
+  gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fconfigure), "clicked",
      GTK_SIGNAL_FUNC (filedsn_configure_clicked),
-     &dsnchoose_t); */
+     &dsnchoose_t);
+  /* Configure file DSN button events */
+  gtk_signal_connect (GTK_OBJECT (dsnchoose_t.fsetdir), "clicked",
+     GTK_SIGNAL_FUNC (filedsn_setdir_clicked),
+     &dsnchoose_t);
   /* Add driver button events */
   gtk_signal_connect (GTK_OBJECT (driverchoose_t.b_add), "clicked",
       GTK_SIGNAL_FUNC (driver_add_clicked), &driverchoose_t);
@@ -2383,16 +2449,16 @@ create_administrator (HWND hwnd)
   gtk_signal_connect (GTK_OBJECT (clist2), "unselect_row",
       GTK_SIGNAL_FUNC (systemdsn_list_unselect), &dsnchoose_t);
   /* Directories file DSN list events */
-  /*gtk_signal_connect (GTK_OBJECT (clist3), "select_row",
+  gtk_signal_connect (GTK_OBJECT (clist3), "select_row",
      GTK_SIGNAL_FUNC (filedsn_dirlist_select),
-     &dsnchoose_t); */
+     &dsnchoose_t);
   /* Files file DSN list events */
-  /*gtk_signal_connect (GTK_OBJECT (clist4), "select_row",
+  gtk_signal_connect (GTK_OBJECT (clist4), "select_row",
      GTK_SIGNAL_FUNC (filedsn_filelist_select),
      &dsnchoose_t);
-     gtk_signal_connect (GTK_OBJECT (clist4), "unselect_row",
+  gtk_signal_connect (GTK_OBJECT (clist4), "unselect_row",
      GTK_SIGNAL_FUNC (filedsn_filelist_unselect),
-     &dsnchoose_t); */
+     &dsnchoose_t);
   /* Start tracing button events */
   gtk_signal_connect (GTK_OBJECT (b_start), "clicked",
       GTK_SIGNAL_FUNC (tracing_start_clicked), &tracing_t);
@@ -2409,6 +2475,11 @@ create_administrator (HWND hwnd)
       GTK_SIGNAL_FUNC (cpdriver_list_select), &connectionpool_t);
 
   gtk_window_add_accel_group (GTK_WINDOW (admin), accel_group);
+
+  SQLSetConfigMode (ODBC_BOTH_DSN);
+  if (!SQLGetPrivateProfileString("ODBC", "FileDSNPath", "", 
+      dsnchoose_t.curr_dir, sizeof(dsnchoose_t.curr_dir), "odbcinst.ini"))
+    strcpy(dsnchoose_t.curr_dir, DEFAULT_FILEDSNPATH);
 
   adddsns_to_list (clist1, FALSE);
   component_t.componentlist = clist6;

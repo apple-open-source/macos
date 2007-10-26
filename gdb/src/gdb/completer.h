@@ -33,8 +33,10 @@ extern char **command_completer (char *, char *);
 
 extern char *get_gdb_completer_quote_characters (void);
 
+/* APPLE LOCAL begin completer */
 extern char *gdb_completer_word_break_characters;
 extern char *gdb_completer_filename_word_break_characters;
+/* APPLE LOCAL end completer */
 
 /* Exported to linespec.c */
 

@@ -1,3 +1,179 @@
+Changes to the Cyrus IMAP Server since 2.3.7
+
+      * Added improved_mboxlist_sort option which fixes LIST/LSUB problem
+        with characters like '-' and ' ' in mailbox names. See imapd.conf.5
+        for details 
+      * Fixed problem with mupdate randomly spinning. 
+      * Fixed problem with DELETEing mailboxes with split metadata
+        directories. 
+      * Fixed compatibility problem with RFC 4314 ACLs and mixed 2.2/2.3
+        environments. 
+      * Fixed problem with replication and COPYing \Seen messages. 
+      * Fixed problem with replication and XFER. 
+      * Added options to reconstruct to preserve cyrus.expunge and to
+        synchronize changes to a replica server. 
+      * Removed (broken) support for proxying of pipelined IMAP commands. 
+      * Added new cyr_dbtool utility for manipulating Cyrus databases
+        (courtesy of Fastmail.fm). 
+      * Better sanity checking of IMAP URLs. 
+      * Fixed miscellaneous bugs and build issues. 
+
+Changes to the Cyrus IMAP Server since 2.3.6
+
+      * Fixed problems with replication and virtual domains. 
+      * Fixed problems with newer cyrus.index files on 64-bit machines. 
+      * Added '-p <ssf>' option to services so that PLAIN authentication
+        can be used without TLS in secure environments. 
+      * Added munge8bit to control whether unencoded 8-bit characters in
+        headers are changed to 'X' or are left alone. 
+      * Added sieve_allowreferrals option to control whether timsieved
+        issues referrals or proxys traffic to backends. 
+      * Fixed miscellaneous bugs and build issues. 
+
+Changes to the Cyrus IMAP Server since 2.3.5
+
+      * Fixed COPY code so that clients display new messages (added
+        MODSEQ). 
+      * Fixed imtest to be compatible with SASL 2.1.22. 
+
+Changes to the Cyrus IMAP Server since 2.3.4
+
+      * Fixed append/delivery code so that clients display new messages. 
+
+Changes to the Cyrus IMAP Server since 2.3.3
+
+      * Added support for BINARY APPEND (including CATENATE). Based on
+        contributions from Tom Esh <esh@lucent.com>. 
+      * Added support for CONDSTORE (must be enabled on a per-mailbox basis
+        with the /vendor/cmu/cyrus-imapd/condstore mailbox annotation. 
+      * Fixed bug in reconstruct using bad name for cyrus.header. 
+      * Fixed bug with replication and default partition. 
+      * ctl_mboxlist now dumps/undumps the mailbox type flags, making it
+        useful for remote mailboxes. 
+      * Better logging to facilitate message tracking (Wes Craig
+        <wes@umich.edu>). 
+      * Implemented CAPABILITY response in banner and after authentication. 
+      * Fixed miscellaneous bugs and build issues. 
+
+Changes to the Cyrus IMAP Server since 2.3.2
+
+      * Fixed broken berkeley (btree) backend. 
+
+Changes to the Cyrus IMAP Server since 2.3.1
+
+      * Added more extensive output to arbitron. 
+      * Allow responses of any length from backend when proxing
+        IMAP/POP3/NNTP traffic. 
+      * Properly handle timeouts when proxying. 
+      * Added plaintextloginalert option. 
+      * Fixed segfault in deliver. 
+      * Only allow mbpath to be run as Cyrus user. 
+      * Added nntptimeout option for nntpd. 
+      * Added berkeley_hash and berkeley_hash_nosync cyrusdb backends (seem
+        to perform better under heavy loads). 
+      * Added TLS support to cyradm. 
+      * Fixed miscellaneous bugs and build issues. 
+
+Changes to the Cyrus IMAP Server since 2.3.0
+
+      * Updated ACL code to RFC 4314 (separate rights for message delete,
+        mailbox delete, and expunge). 
+      * Fixed IDLE to use idled for local mailboxes. 
+      * Fixed miscellaneous build issues. 
+
+Changes to the Cyrus IMAP Server since 2.2.x
+
+      * Added support for "unified" and "replicated" Murders. A Murder no
+        longer has to have discrete frontend and backend servers; any one
+        "unified" server can both proxy and serve local mailboxes (proxy
+        functionality in proxyd and lmtpproxyd has been merged with imapd
+        and lmtpd respectively), or all "replicated" servers can serve the
+        same mailboxes from a shared filesystem. The new mupdate_config
+        option in imapd.conf is used to determine whether a Murder is using
+        a "traditional", "unified" or "replicated" configuration. 
+      * Ported/rewrote/integrated David Carter's mailspool replication
+        code. Development sponsored by Columbia University. 
+      * Added support for "delayed" expunge, in which messages are removed
+        from the mailbox index at the time of the EXPUNGE (hiding them from
+        the client), but the message files and cache entries are left
+        behind, to be purged at a later time by cyr_expire. This reduces
+        the amount of I/O that takes place at the time of EXPUNGE and
+        should result in greater responsiveness for the client, especially
+        when expunging a large number of messages. The new expunge_mode
+        option in imapd.conf controls whether expunges are "immediate" or
+        "delayed". Development sponsored by FastMail. 
+      * Added support to place some/all mailbox metadata files (cyrus.*
+        files) on a separate (probably high-speed) partition. See the new
+        metapartition and metapartition_files options for details.
+        Development sponsored by FastMail. 
+      * Added support for accessing subfolders of INBOX via POP3. See the
+        new popsubfolders option for details. Development sponsored by
+        FastMail. 
+      * Added support to lmtpd to do "fuzzy" mailbox matching on
+        user+detail addresses. See the new lmtp_fuzzy_mailbox_match option
+        for details. Development sponsored by FastMail. 
+      * Added new sieve_extensions option to allow individual Sieve
+        extensions to be enabled/disabled. 
+      * The Sieve "include" extension is now supported. This also allows
+        for global sieve scripts. See the new sieve_extensions options to
+        enable it. 
+      * The Sieve "body" extension is now supported. See the new
+        sieve_extensions option to enable it. Development sponsored by
+        FastMail. 
+      * The $text$ variable for Sieve notify messages is now supported.
+        Development sponsored by FastMail. 
+      * The MIME structure of a new message destined for multiple
+        recipients is now only parsed once rather than once per delivery,
+        resulting in better performance. Development sponsored by FastMail. 
+      * Support 64-bit quota usage (both per mailbox and for the entire
+        quotaroot), based on a patch from Jeremy Rumpf. Development
+        sponsored by FastMail. 
+      * Added new flushseenstate option which causes imapd to immediately
+        flush changes in \Seen state to disk rather than caching them until
+        the mailbox is closed. Enabling this option may fix \Seen state
+        weirdness with MS Outlook, at the expense of
+        performance/scalability. Based on a patch by John A. Tamplin
+        (jtampli@sph.emory.edu). 
+      * The Sieve "copy" extension is now supported. 
+      * The IMAP "CATENATE" and "URLAUTH" extensions are now supported. 
+      * Updated Sieve "vacation" extension to draft-ietf-sieve-vacation-04. 
+      * Added support for Sieve scripts on shared mailboxes via the
+        /vendor/cmu/cyrus-imapd/sieve annotation. 
+
+Changes to the Cyrus IMAP Server since 2.2.13
+
+      * ctl_mboxlist now dumps/undumps the mailbox type flags, making it
+        useful for remote mailboxes. 
+      * Added sieve_allowreferrals option to control whether timsieved
+        issues referrals or proxys traffic to backends. 
+
+Changes to the Cyrus IMAP Server since 2.2.12
+
+      * Allow sieve scripts to be run on shared mailboxes (via sieve
+        annotation). 
+      * Updated nntpd to be compliant with latest draft (soon to be
+        RFC3977). 
+      * Updated IMAP UIDPLUS extension to be compliant with latest
+        specification (RFC4315). 
+      * Performance improvements to quota utility.
+      * 
+      * Fixed possible race condition in IMAP IDLE. 
+      * Made ptloader runtime configurable. 
+      * Added more extensive output to arbitron. 
+      * Allow responses of any length from backend when proxing
+        IMAP/POP3/NNTP traffic. 
+      * Added plaintextloginalert option. 
+      * Only allow mbpath to be run as Cyrus user. 
+      * Added berkeley_hash and berkeley_hash_nosync cyrusdb backends (seem
+        to perform better under heavy loads). 
+      * Added lastpop mailbox annotation. 
+      * Added subscribe/unsubscribe support to cyradm. 
+      * Fixed miscellaneous bugs and build issues. 
+
+Changes to the Cyrus IMAP Server since 2.2.11
+
+      * Revert index change which wasn't supposed to make it into 2.2.11 
+
 Changes to the Cyrus IMAP Server since 2.2.10
 
       * Fix possible single byte overflow in mailbox handling code. 
@@ -12,6 +188,9 @@ Changes to the Cyrus IMAP Server since 2.2.9
       * Fix 0 termination in mysasl_canon_user. 
       * Check for imap magic plus buffer overflow in proxyd also
         (CAN-2004-1015). 
+      * Only send an over quota ALERT on SELECT if the quotaroot is
+        different from the last ALERT, or we haven't sent an ALERT in over
+        10 min. 
 
 Changes to the Cyrus IMAP Server since 2.2.8
 

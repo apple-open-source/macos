@@ -22,13 +22,13 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil,..\..\tools\ctestfw"
-				PreprocessorDefinitions="WIN32,_DEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\..\i18n;..\..\tools\toolutil;..\..\tools\ctestfw"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/intltest.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -83,15 +83,13 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="3"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\..\source\common,..\..\..\source\i18n,..\..\tools\toolutil,..\..\tools\ctestfw"
-				PreprocessorDefinitions="WIN32,NDEBUG,_CONSOLE"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\..\i18n;..\..\tools\toolutil;..\..\tools\ctestfw"
+				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				StringPooling="TRUE"
 				RuntimeLibrary="0"
-				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/intltest.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -187,12 +185,6 @@
 				RelativePath=".\currcoll.h">
 			</File>
 			<File
-				RelativePath=".\dacoll.cpp">
-			</File>
-			<File
-				RelativePath=".\dacoll.h">
-			</File>
-			<File
 				RelativePath=".\dadrcoll.cpp">
 			</File>
 			<File
@@ -265,6 +257,12 @@
 				RelativePath=".\regcoll.h">
 			</File>
 			<File
+				RelativePath=".\rndmcoll.cpp">
+			</File>
+			<File
+				RelativePath=".\rndmcoll.h">
+			</File>
+			<File
 				RelativePath=".\srchtest.cpp">
 			</File>
 			<File
@@ -300,10 +298,22 @@
 			<File
 				RelativePath=".\ucaconf.h">
 			</File>
+			<File
+				RelativePath=".\wbnf.cpp">
+			</File>
+			<File
+				RelativePath=".\wbnf.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="collections"
 			Filter="">
+			<File
+				RelativePath=".\uvectest.cpp">
+			</File>
+			<File
+				RelativePath=".\uvectest.h">
+			</File>
 			<File
 				RelativePath=".\v32test.cpp">
 			</File>
@@ -316,6 +326,18 @@
 			Filter="">
 			<File
 				RelativePath=".\strtest.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
 			</File>
 			<File
 				RelativePath=".\strtest.h">
@@ -562,10 +584,52 @@
 			<File
 				RelativePath=".\tztest.h">
 			</File>
+			<File
+				RelativePath=".\windttst.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\windttst.h">
+			</File>
+			<File
+				RelativePath=".\winnmtst.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\winnmtst.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="idna"
 			Filter="*.c,*.h">
+			<File
+				RelativePath=".\idnaconf.cpp">
+			</File>
+			<File
+				RelativePath=".\idnaconf.h">
+			</File>
 			<File
 				RelativePath=".\idnaref.cpp">
 			</File>
@@ -597,6 +661,12 @@
 		<Filter
 			Name="locales &amp; resources"
 			Filter="">
+			<File
+				RelativePath=".\aliastst.cpp">
+			</File>
+			<File
+				RelativePath=".\aliastst.h">
+			</File>
 			<File
 				RelativePath=".\loctest.cpp">
 			</File>
@@ -654,6 +724,24 @@
 			</File>
 			<File
 				RelativePath=".\tokiter.h">
+			</File>
+			<File
+				RelativePath=".\winutil.cpp">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath=".\winutil.h">
 			</File>
 		</Filter>
 		<Filter
@@ -759,6 +847,12 @@
 			<File
 				RelativePath=".\ustrtest.h">
 			</File>
+			<File
+				RelativePath=".\utxttest.cpp">
+			</File>
+			<File
+				RelativePath=".\utxttest.h">
+			</File>
 		</Filter>
 		<Filter
 			Name="transforms"
@@ -814,6 +908,16 @@
 			</File>
 			<File
 				RelativePath=".\convtest.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="charset detection"
+			Filter="">
+			<File
+				RelativePath=".\csdetest.cpp">
+			</File>
+			<File
+				RelativePath=".\csdetest.h">
 			</File>
 		</Filter>
 	</Files>

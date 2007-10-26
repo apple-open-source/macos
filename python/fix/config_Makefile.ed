@@ -1,0 +1,6 @@
+g/-arch [^ ]* */s///g
+/^LINKFORSHARED=/s,$(PYTHONFRAMEWORKDIR)/Versions/$(VERSION)/$(PYTHONFRAMEWORK),-framework Python,
+/^BINDIR/c
+BINDIR=		/usr/local/bin
+.
+w

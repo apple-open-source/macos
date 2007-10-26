@@ -17,7 +17,7 @@
 
 LogLevel bGlobalLogLevel = LogLevelMaximum;
 BYTE bLogging =  1;
-LogType bGlobalLogType =  LogTypeStderr;
+LogType bGlobalLogType =  LogTypeStderr;	//LogTypeStderr;LogTypeSysLog
 
 // Logging tools
 void LogMessage(const char * pcFile, WORD wLine, BYTE bLogLevel, const char* pcFormat,...)

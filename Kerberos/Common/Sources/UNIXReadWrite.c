@@ -59,7 +59,7 @@ int ReadBuffer (int inDescriptor, size_t inBufferLength, char *ioBuffer)
     int err = 0;
     size_t bytesRead = 0;
     
-    if (ioBuffer == NULL) { err = EINVAL; }
+    if (!ioBuffer) { err = EINVAL; }
     
     if (!err) {
         char *ptr = ioBuffer;
@@ -89,7 +89,7 @@ int WriteBuffer (int inDescriptor, const char *inBuffer, size_t inBufferLength)
     int err = 0;
     size_t bytesWritten = 0;
     
-    if (inBuffer == NULL) { err = EINVAL; }
+    if (!inBuffer) { err = EINVAL; }
     
     if (!err) {
         const char *ptr = inBuffer;
@@ -118,8 +118,8 @@ int ReadDynamicLengthBuffer (int inDescriptor, char **outData, size_t *outLength
     char *data = NULL;
     u_int32_t length = 0;
     
-    if (outData   == NULL) { err = EINVAL; }
-    if (outLength == NULL) { err = EINVAL; }
+    if (!outData  ) { err = EINVAL; }
+    if (!outLength) { err = EINVAL; }
     
     if (!err) {
         err = ReadBuffer (inDescriptor, 4, (char *) &length);
@@ -131,7 +131,7 @@ int ReadDynamicLengthBuffer (int inDescriptor, char **outData, size_t *outLength
     
     if (!err) {
 	data = malloc (length);
-        if (data == NULL) { err = ENOMEM; }
+        if (!data) { err = ENOMEM; }
     }
     
     if (!err) {
@@ -145,7 +145,7 @@ int ReadDynamicLengthBuffer (int inDescriptor, char **outData, size_t *outLength
         data = NULL; // only free on error
     }
     
-    if (data != NULL) { free (data); }
+    if (data) { free (data); }
     
     return URWError_ (err);
 }
@@ -159,7 +159,7 @@ int WriteDynamicLengthBuffer (int inDescriptor, const char *inData, size_t inLen
     int err = 0;
     u_int32_t length = htonl (inLength);
     
-    if (inData == NULL) { err = EINVAL; }
+    if (!inData) { err = EINVAL; }
     
     if (!err) {
 	err = WriteBuffer (inDescriptor, (char *) &length, 4);

@@ -1,0 +1,418 @@
+#! /usr/bin/env -i /usr/bin/ruby
+
+##
+# Copyright (C) 2007 Apple Inc. All rights reserved.
+# 
+# @APPLE_LICENSE_HEADER_START@
+# 
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+# 
+# @APPLE_LICENSE_HEADER_END@
+##
+
+ENV.clear
+ENV['__CF_USER_TEXT_ENCODING'] = "0x#{Process::Sys::getuid()}:0:0"
+
+require 'osx/foundation'
+require 'optparse'
+
+# NOTE Remember that this script is generally being called by either launchd or
+# some admin tool. This means that we must implement a best-effort service
+# model and never fail to do as much as possible. There will be no error output
+# unless the --verbose flag is specified.
+
+$VERBOSE = false    # Print trace messages
+$RESTART = false    # Force service restart
+$DEBUG = false	    # Print extra debugging statements
+
+$ID = '$Id$'
+$0 = File.basename($0)
+
+OSX.require_framework 'SystemConfiguration'
+
+# Wrapper class to access SCPreferences API.
+class Preferences
+    def initialize(appid)
+	# Unlike the CFPreferences API, SCPreferences requires the actual
+	# plist filename, which always end in '.plist'.
+	appid = "#{appid}.plist" unless appid =~ /\.plist$/
+
+	@prefs = OSX::SCPreferencesCreate(nil, $0, appid)
+	@keys = Preferences.to_native(OSX::SCPreferencesCopyKeyList(@prefs))
+	@keys.push('PreferencesSignature')
+
+	$stderr.print \
+	    "SCPreferences (appid=#{appid}) keys: #{@keys.join(",")}\n" \
+	    if $DEBUG
+
+    end
+
+    def each
+	keys.each { | key |
+	    yield key, self[key]
+	}
+    end
+
+    def signature
+	sig = OSX::SCPreferencesGetSignature(@prefs)
+
+	# Converting CFData to a string ends up with something that looks like
+	# this: <0500000e 4a5e0f00 e8e24046 00000000 f8000000 00000000>
+	# We strip the angle brackets and spaces to give a plain hex string.
+	return sig.to_s.gsub(/[ <>]/, '')
+    end
+
+    def has_key?(key)
+	return @keys.include?(key)
+    end
+
+    def [](key)
+	case key
+	when 'PreferencesSignature'
+	    return self.signature
+	else
+	    val = OSX::SCPreferencesGetValue(@prefs, key)
+
+	    # Need to convert to a native Ruby type because we merge these
+	    # values with our default set, which are native types.
+	    return (Preferences.to_native(val) rescue nil)
+	end
+    end
+
+    def []=(key, val)
+	$stderr.print "#{$0}: setting #{key} to #{val} (#{val.class})\n" \
+	    if $VERBOSE
+
+	OSX::SCPreferencesSetValue(@prefs, key, val)
+    end
+
+    def commit
+	OSX::SCPreferencesCommitChanges(@prefs)
+    end
+
+    # Load a preferences hash from a plist.
+    def Preferences.load_plist(path)
+	print "#{$0}: loading #{path}\n" if $VERBOSE
+	data = OSX::NSData.dataWithContentsOfFile(path)
+	return nil unless data
+
+	plist, format, err = OSX::NSPropertyListSerialization.propertyListFromData_mutabilityOption_format_errorDescription(data,
+		OSX::NSPropertyListImmutable)
+
+	if (plist == nil or !plist.kind_of? OSX::NSCFDictionary)
+	    return nil
+	end
+
+	return Preferences.to_native(plist)
+    end
+
+    # Convert a CFPropertyListRef to a native Ruby type.
+    def Preferences.to_native(val)
+
+	return nil if val == nil
+
+	$stderr.print "converting (#{val.class})\n" if $DEBUG
+
+	if val.kind_of? OSX::NSCFBoolean
+	    return (val == OSX::KCFBooleanTrue ? true : false)
+	end
+
+	if val.kind_of? OSX::NSCFString
+	    return val.to_s
+	end
+
+	if val.kind_of? OSX::NSCFNumber
+	    return val.to_i
+	end
+
+	if val.kind_of? OSX::NSCFArray
+	    array = []
+	    val.each { |element| array += [ Preferences.to_native(element) ] }
+
+	    return array
+	end
+
+	if val.kind_of? OSX::NSCFDictionary
+	    hash = {}
+	    val.allKeys().each { | key |
+		# Note: we need to convert both the key and the data, 
+		# otherwise we will end up indexed by OSX::NSCFString and
+		# won't be able to index by Ruby Strings.
+		new_key = Preferences.to_native(key)
+		new_val = Preferences.to_native(val[key])
+		hash[new_key] = new_val
+	    }
+	    return hash
+	end
+
+	# NOTE: We don't convert CFData or CFDate because we
+	# don't need them for the preferences we have.
+
+	$stderr.print \
+	    "#{$0}: preferences type #{val.class} is not supported\n" \
+	    if $VERBOSE
+
+	return nil
+    end
+end
+
+class IniFile
+
+    def initialize
+	@hash = Hash.new()
+    end
+
+    def parse(path)
+	current = nil
+
+	File.open(path, 'r') { | fd |
+	    fd.each_line { | line |
+		line = extract(line)
+
+		if line =~ /(\[.+\])/
+		    current = $1
+		    @hash[current] = Hash.new() if @hash[current] == nil
+		    next
+		end
+
+		key, val = keyval(line)
+
+		# print "section=#{current}, key=#{key}, val=#{val}\n" \
+		#    if $VERBOSE
+
+		next if key == nil
+		next if current == nil
+
+		@hash[current][key] = val
+	    }
+	}
+    end
+
+    def option(section, key)
+	return (@hash[section]) ? @hash[section][key] : nil
+    end
+
+    def has_section(section)
+	return (@hash[section]) ? true : false
+    end
+
+    def sections
+	return @hash.keys
+    end
+
+    def write
+	for section in @hash.keys
+	    yield "#{section}\n"
+	    for key in @hash[section].keys
+		yield "\t#{key} = #{@hash[section][key]}\n"
+	    end
+	end
+    end
+
+private
+    def extract(line)
+	return line.chomp.sub(/[#;].*$/, '')
+    end
+
+    def keyval(line)
+	line =~ /([^\s].*[^\s])\s*=\s*([^\s].*)\s*$/
+	return [$1, $2]
+    end
+end
+
+class Migrator
+    def Migrator.migrate(conf, prefs)
+	if $DEBUG
+	    conf.write { | line | $stderr.print(line) }
+	end
+
+	netbios_name = conf.option('[global]', 'netbios name')
+	if netbios_name
+	    prefs['NetBIOSName'] = netbios_name
+	end
+
+	wins_server = conf.option('[global]', 'wins server')
+	if wins_server
+	    # We have to assume that a WINS server address also means we want
+	    # to register with it because these are not separate options in
+	    # smb.conf.
+	    prefs['RegisterWINSName'] = true
+	    prefs['WINSServerAddressList'] = 
+		Migrator.list_to_array(wins_server)
+	end
+
+	workgroup = conf.option('[global]', 'workgroup')
+	if workgroup
+	    prefs['Workgroup'] = workgroup
+	end
+
+	realm = conf.option('[global]', 'realm')
+	if realm
+	    prefs['KerberosRealm'] = realm
+	end
+
+	server_desc = conf.option('[global]', 'server string')
+	if workgroup
+	    prefs['ServerDescription'] = server_desc
+	end
+
+	max_clients = conf.option('[global]', 'max smbd processes')
+	if max_clients
+	    prefs['MaxClients'] = max_clients.to_i
+	end
+
+	dos_charset = conf.option('[global]', 'dos charset')
+	if dos_charset
+	    prefs['DOSCodePage'] = dos_charset
+	end
+
+	passwd_server = conf.option('[global]', 'password server')
+	if passwd_server
+	    prefs['PasswordServer'] = passwd_server
+	end
+
+	log_level = conf.option('[global]', 'log level')
+	if log_level
+	    prefs['LoggingLevel'] = log_level.to_i
+	end
+
+	prefs['AllowLanManAuth'] =
+	    Migrator.is_true(conf.option('[global]', 'lanman auth'))
+
+	if conf.has_section('[homes]')
+	    prefs['VirtualHomeShares'] = true
+	end
+
+	prefs['AllowGuestAccess'] = guest_access(conf)
+	prefs['ServerRole'] = server_role(conf)
+	prefs['EnabledServices'] = server_services(conf)
+    end
+
+private
+    # Figure out which services are enabled
+    def Migrator.server_services(conf)
+	services = []
+
+	for svc in conf.sections
+	    case
+		when svc.casecmp('[global]') == 0
+		when svc.casecmp('[printers]') == 0
+		else
+		    services += ['disk']
+		    break
+	    end
+	end
+
+	if Migrator.is_true(conf.option('[global]', 'wins support'))
+	    services += ['wins']
+	end
+
+	if conf.has_section('[printers]')
+	    services += ['print']
+	end
+
+	return services
+    end
+
+    # Figure out the server role
+    def Migrator.server_role(conf)
+	security = conf.option('[global]', 'security')
+	return 'Standalone' unless security != nil
+
+	case
+	    when security.casecmp('ads') == 0
+		return 'ActiveDirectoryMember'
+
+	    when security.casecmp('domain') == 0
+		return 'DomainMember'
+
+	    when security.casecmp('user') == 0
+		# Either PDC, BDC or Standalone roles
+		if Migrator.is_true(conf.option('[global]', 'domain logons'))
+		    if Migrator.is_true(conf.option('[global]',
+						    'domain master'))
+			return 'PrimaryDomainController'
+		    else
+			return 'BackupDomainController'
+		    end
+		end
+
+		return 'Standalone'
+
+	    else
+		# SHARE, SERVER security modes end up here
+		return 'Standalone'
+	end
+	
+    end
+
+    # Figure out whether guest access is enabled
+    def Migrator.guest_access(conf)
+	guest = conf.option('[global]', 'map to guest')
+	if guest == nil || guest.casecmp('never') == 0
+	    return false
+	else
+	    return true
+	end
+    end
+
+    # Split a list (strings separated by combinations of spaces and commas)
+    # into an array of strings
+    def Migrator.list_to_array(string)
+	return string.split(/[\s,]+/)
+    end
+
+    def Migrator.is_true(string)
+	return false unless string != nil
+	return (string.casecmp('yes') == 0 || string == '1')
+    end
+end
+
+opts = OptionParser.new
+opts.banner = "Usage: #{$0} [options] FILES"
+opts.on('--verbose',
+'print extra debugging messages') {
+    $VERBOSE = true
+}
+
+begin
+    opts.parse!(ARGV) # Remove args as they are parsed.
+
+    exit! 0 unless ARGV.length > 0
+
+    prefs = Preferences.new('com.apple.smb.server')
+    config = IniFile.new()
+
+    # Collect all the options from the given list of smb.conf files.
+    for path in ARGV
+	config.parse(path)
+    end
+
+    Migrator.migrate(config, prefs)
+    prefs.commit # Write prefs back to disk.
+
+rescue OptionParser::InvalidOption => err
+    $stderr.print "#{$0}: #{err}\n"
+    $stderr.print opts.help()
+    exit 1
+rescue Exception => err
+    if $VERBOSE
+	$stderr.print "#{$0}: #{err}\n"
+    end
+    exit 2
+end
+
+# vim: filetype=ruby ai ts=8 sts=4 sw=4 tw=79

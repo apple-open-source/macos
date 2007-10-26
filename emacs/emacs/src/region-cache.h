@@ -1,5 +1,6 @@
 /* Header file: Caching facts about regions of the buffer, for optimization.
-   Copyright (C) 1985, 1986, 1993, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1985, 1986, 1993, 1995, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
 /* This code was written by Jim Blandy <jimb@cs.oberlin.edu> to help
@@ -86,7 +87,7 @@ extern void invalidate_region_cache P_ ((struct buffer *BUF,
 					 struct region_cache *CACHE,
 					 int HEAD, int TAIL));
 
-/* The scanning functions. 
+/* The scanning functions.
 
    Basically, if you're scanning forward/backward from position POS,
    and region_cache_forward/backward returns true, you can skip all
@@ -96,7 +97,7 @@ extern void invalidate_region_cache P_ ((struct buffer *BUF,
    might be able to avoid scanning it again.  */
 
 /* Return true if the text immediately after POS in BUF is known, for
-   the purposes of CACHE.  If NEXT is non-zero, set *NEXT to the nearest 
+   the purposes of CACHE.  If NEXT is non-zero, set *NEXT to the nearest
    position after POS where the knownness changes.  */
 extern int region_cache_forward P_ ((struct buffer *BUF,
                                      struct region_cache *CACHE,
@@ -110,3 +111,6 @@ extern int region_cache_backward P_ ((struct buffer *BUF,
                                       struct region_cache *CACHE,
                                       int POS,
                                       int *NEXT));
+
+/* arch-tag: 70f79125-ef22-4f58-9aec-a48ca2791435
+   (do not change this comment) */

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *                                                                            *
-* Copyright (C) 2001-2004, International Business Machines                   *
+* Copyright (C) 2001-2006, International Business Machines                   *
 *                Corporation and others. All Rights Reserved.                *
 *                                                                            *
 ******************************************************************************
@@ -26,15 +26,16 @@ U_CFUNC UBool umtx_cleanup(void);
 
 U_CFUNC UBool utrace_cleanup(void);
 
-U_CFUNC UBool ucln_common_lib_cleanup(void);
+U_CFUNC UBool ucln_lib_cleanup(void);
 
 /*
 Please keep the order of enums declared in same order
-as the functions are suppose to be called. */
+as the cleanup functions are suppose to be called. */
 typedef enum ECleanupCommonType {
     UCLN_COMMON_START = -1,
     UCLN_COMMON_USPREP,
     UCLN_COMMON_BREAKITERATOR,
+    UCLN_COMMON_BREAKITERATOR_DICT,
     UCLN_COMMON_SERVICE,
     UCLN_COMMON_URES,
     UCLN_COMMON_LOCALE,
@@ -43,6 +44,8 @@ typedef enum ECleanupCommonType {
     UCLN_COMMON_USET,
     UCLN_COMMON_UNAMES,
     UCLN_COMMON_PNAME,
+    UCLN_COMMON_UPROPS,
+    UCLN_COMMON_UBIDI,
     UCLN_COMMON_UCASE,
     UCLN_COMMON_UCHAR,
     UCLN_COMMON_UCNV,

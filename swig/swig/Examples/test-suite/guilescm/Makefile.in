@@ -1,0 +1,55 @@
+#######################################################################
+# $Header: /cvsroot/swig/SWIG/Examples/test-suite/guilescm/Makefile.in,v 1.7 2006/10/14 08:19:27 wuzzeb Exp $
+# Makefile for guile test-suite (with SCM API)
+#######################################################################
+
+EXTRA_TEST_CASES += ext_test.externaltest
+
+include ../guile/Makefile
+
+INCLUDES += -I$(top_srcdir)/$(EXAMPLES)/$(TEST_SUITE)/guilescm
+
+VARIANT      =
+# Refer to the guile directory for the run scripts
+SCRIPTPREFIX = ../guile/
+
+# Runs the testcase. A testcase is only run if
+# a file is found which has _runme.scm appended after the testcase name.
+run_testcase = \
+	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then (	  \
+	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(GUILE) -l $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX);) \
+	fi;
+
+setup = \
+	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then	  \
+	  echo "Checking testcase $* (with run test) under $(LANGUAGE) (with SCM API)" ; \
+	else								  \
+	  echo "Checking testcase $* under $(LANGUAGE) (with SCM API)" ;		  \
+	fi;
+
+swig_and_compile_multi_cpp = \
+	for f in `cat $(top_srcdir)/$(EXAMPLES)/$(TEST_SUITE)/$*.list` ; do \
+	  $(MAKE) -f $(top_builddir)/$(EXAMPLES)/Makefile CXXSRCS="$(CXXSRCS)" \
+	  SWIG_LIB="$(SWIG_LIB)" SWIG="$(SWIG)" LIBS='$(LIBS)' \
+	  INCLUDES="$(INCLUDES)" SWIGOPT="$(SWIGOPT) $$SWIGOPT" NOLINK=true \
+	  TARGET="$(TARGETPREFIX)$${f}$(TARGETSUFFIX)" INTERFACE="$$f.i" \
+	  $(LANGUAGE)$(VARIANT)_cpp; \
+	done
+
+%.externaltest:
+	$(local_setup) \
+	($(swig_and_compile_external); ) && \
+	$(local_run_testcase)
+	
+# Same as setup and run_testcase, but without the SCRIPTPREFIX (so the runme comes from the guilescm directory)
+local_setup = \
+	if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then	  \
+	  echo "Checking testcase $* (with run test) under $(LANGUAGE) (with SCM API)" ; \
+	else								  \
+	  echo "Checking testcase $* under $(LANGUAGE) (with SCM API)" ;		  \
+	fi;
+
+local_run_testcase = \
+	if [ -f $(srcdir)/$*$(SCRIPTSUFFIX) ]; then (	  \
+	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(GUILE) -l $(srcdir)/$*$(SCRIPTSUFFIX);) \
+	fi;

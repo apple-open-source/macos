@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/init.c,v 1.20.2.8 2004/11/17 21:53:54 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/init.c,v 1.37.2.12 2006/04/05 21:27:29 ando Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -26,35 +26,19 @@
 #include "../back-ldap/back-ldap.h"
 #include "back-meta.h"
 
-#if SLAPD_META == SLAPD_MOD_DYNAMIC
-
-int
-init_module( int argc, char *argv[] ) {
-    BackendInfo bi;
-
-    memset( &bi, '\0', sizeof( bi ) );
-    bi.bi_type = "meta";
-    bi.bi_init = meta_back_initialize;
-
-    backend_add( &bi );
-    return 0;
-}
-
-#endif /* SLAPD_META */
-
 int
 meta_back_open(
-	BackendInfo *bi
-)
+	BackendInfo	*bi )
 {
+	/* FIXME: need to remove the pagedResults, and likely more... */
 	bi->bi_controls = slap_known_controls;
+
 	return 0;
 }
 
 int
 meta_back_initialize(
-		BackendInfo	*bi
-)
+	BackendInfo	*bi )
 {
 	bi->bi_open = meta_back_open;
 	bi->bi_config = 0;
@@ -63,7 +47,7 @@ meta_back_initialize(
 
 	bi->bi_db_init = meta_back_db_init;
 	bi->bi_db_config = meta_back_db_config;
-	bi->bi_db_open = 0;
+	bi->bi_db_open = meta_back_db_open;
 	bi->bi_db_close = 0;
 	bi->bi_db_destroy = meta_back_db_destroy;
 
@@ -89,21 +73,12 @@ meta_back_initialize(
 
 int
 meta_back_db_init(
-		Backend	*be
-)
+	Backend		*be )
 {
-	struct metainfo	*li;
+	metainfo_t	*mi;
 
-	struct rewrite_info	*rwinfo;
-
-	rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
-	if ( rwinfo == NULL ) {
-		return -1;
-	}
-
-	li = ch_calloc( 1, sizeof( struct metainfo ) );
-	if ( li == NULL ) {
-		rewrite_info_delete( &rwinfo );
+	mi = ch_calloc( 1, sizeof( metainfo_t ) );
+	if ( mi == NULL ) {
  		return -1;
  	}
 
@@ -111,120 +86,188 @@ meta_back_db_init(
 	 * At present the default is no default target;
 	 * this may change
 	 */
-	li->defaulttarget = META_DEFAULT_TARGET_NONE;
-	li->rwinfo = rwinfo;
+	mi->mi_defaulttarget = META_DEFAULT_TARGET_NONE;
+	mi->mi_bind_timeout.tv_sec = 0;
+	mi->mi_bind_timeout.tv_usec = META_BIND_TIMEOUT;
 
-	ldap_pvt_thread_mutex_init( &li->conn_mutex );
-	ldap_pvt_thread_mutex_init( &li->cache.mutex );
-	be->be_private = li;
+	ldap_pvt_thread_mutex_init( &mi->mi_conninfo.lai_mutex );
+	ldap_pvt_thread_mutex_init( &mi->mi_cache.mutex );
+
+	/* safe default */
+	mi->mi_nretries = META_RETRY_DEFAULT;
+	mi->mi_version = LDAP_VERSION3;
+	
+	be->be_private = mi;
 
 	return 0;
 }
 
-static void
-conn_free( 
-	void *v_lc
-)
+int
+meta_back_db_open(
+	Backend		*be )
 {
-	struct metaconn *lc = v_lc;
-	struct metasingleconn *lsc;
+	metainfo_t	*mi = (metainfo_t *)be->be_private;
 
-	for ( lsc = lc->conns; !META_LAST(lsc); lsc++ ) {
-		if ( lsc->ld != NULL ) {
-			ldap_unbind( lsc->ld );
-		}
-		if ( lsc->bound_dn.bv_val ) {
-			ber_memfree( lsc->bound_dn.bv_val );
-		}
-		if ( lsc->cred.bv_val ) {
-			memset( lsc->cred.bv_val, 0, lsc->cred.bv_len );
-			ber_memfree( lsc->cred.bv_val );
+	int		i, rc;
+
+	for ( i = 0; i < mi->mi_ntargets; i++ ) {
+		if ( mi->mi_targets[ i ].mt_flags & LDAP_BACK_F_SUPPORT_T_F_DISCOVER )
+		{
+			mi->mi_targets[ i ].mt_flags &= ~LDAP_BACK_F_SUPPORT_T_F_DISCOVER;
+			rc = slap_discover_feature( mi->mi_targets[ i ].mt_uri,
+					mi->mi_targets[ i ].mt_version,
+					slap_schema.si_ad_supportedFeatures->ad_cname.bv_val,
+					LDAP_FEATURE_ABSOLUTE_FILTERS );
+			if ( rc == LDAP_COMPARE_TRUE ) {
+				mi->mi_targets[ i ].mt_flags |= LDAP_BACK_F_SUPPORT_T_F;
+			}
 		}
 	}
-	free( lc->conns );
-	free( lc );
+
+	return 0;
+}
+
+void
+meta_back_conn_free( 
+	void 		*v_mc )
+{
+	metaconn_t		*mc = v_mc;
+	int			i, ntargets;
+
+	assert( mc != NULL );
+	assert( mc->mc_refcnt == 0 );
+
+	if ( !BER_BVISNULL( &mc->mc_local_ndn ) ) {
+		free( mc->mc_local_ndn.bv_val );
+	}
+
+	assert( mc->mc_conns != NULL );
+
+	/* at least one must be present... */
+	ntargets = mc->mc_conns[ 0 ].msc_info->mi_ntargets;
+
+	for ( i = 0; i < ntargets; i++ ) {
+		(void)meta_clear_one_candidate( &mc->mc_conns[ i ] );
+	}
+
+	free( mc );
+}
+
+static void
+mapping_free(
+	void		*v_mapping )
+{
+	struct ldapmapping *mapping = v_mapping;
+	ch_free( mapping->src.bv_val );
+	ch_free( mapping->dst.bv_val );
+	ch_free( mapping );
+}
+
+static void
+mapping_dst_free(
+	void		*v_mapping )
+{
+	struct ldapmapping *mapping = v_mapping;
+
+	if ( BER_BVISEMPTY( &mapping->dst ) ) {
+		mapping_free( &mapping[ -1 ] );
+	}
 }
 
 static void
 target_free(
-		struct metatarget *lt
-)
+	metatarget_t	*mt )
 {
-	if ( lt->uri ) {
-		free( lt->uri );
+	if ( mt->mt_uri ) {
+		free( mt->mt_uri );
 	}
-	if ( lt->psuffix.bv_val ) {
-		free( lt->psuffix.bv_val );
+	if ( mt->mt_subtree_exclude ) {
+		ber_bvarray_free( mt->mt_subtree_exclude );
 	}
-	if ( lt->suffix.bv_val ) {
-		free( lt->suffix.bv_val );
+	if ( !BER_BVISNULL( &mt->mt_psuffix ) ) {
+		free( mt->mt_psuffix.bv_val );
 	}
-	if ( lt->binddn.bv_val ) {
-		free( lt->binddn.bv_val );
+	if ( !BER_BVISNULL( &mt->mt_nsuffix ) ) {
+		free( mt->mt_nsuffix.bv_val );
 	}
-	if ( lt->bindpw.bv_val ) {
-		free( lt->bindpw.bv_val );
+	if ( !BER_BVISNULL( &mt->mt_binddn ) ) {
+		free( mt->mt_binddn.bv_val );
 	}
-	if ( lt->pseudorootdn.bv_val ) {
-		free( lt->pseudorootdn.bv_val );
+	if ( !BER_BVISNULL( &mt->mt_bindpw ) ) {
+		free( mt->mt_bindpw.bv_val );
 	}
-	if ( lt->pseudorootpw.bv_val ) {
-		free( lt->pseudorootpw.bv_val );
+	if ( !BER_BVISNULL( &mt->mt_pseudorootdn ) ) {
+		free( mt->mt_pseudorootdn.bv_val );
 	}
-	if ( lt->rwmap.rwm_rw ) {
-		rewrite_info_delete( &lt->rwmap.rwm_rw );
+	if ( !BER_BVISNULL( &mt->mt_pseudorootpw ) ) {
+		free( mt->mt_pseudorootpw.bv_val );
 	}
-	avl_free( lt->rwmap.rwm_oc.remap, NULL );
-	avl_free( lt->rwmap.rwm_oc.map, mapping_free );
-	avl_free( lt->rwmap.rwm_at.remap, NULL );
-	avl_free( lt->rwmap.rwm_at.map, mapping_free );
+	if ( mt->mt_rwmap.rwm_rw ) {
+		rewrite_info_delete( &mt->mt_rwmap.rwm_rw );
+	}
+	avl_free( mt->mt_rwmap.rwm_oc.remap, mapping_dst_free );
+	avl_free( mt->mt_rwmap.rwm_oc.map, mapping_free );
+	avl_free( mt->mt_rwmap.rwm_at.remap, mapping_dst_free );
+	avl_free( mt->mt_rwmap.rwm_at.map, mapping_free );
 }
 
 int
 meta_back_db_destroy(
-    Backend	*be
-)
+	Backend		*be )
 {
-	struct metainfo *li;
+	metainfo_t	*mi;
 
 	if ( be->be_private ) {
 		int i;
 
-		li = ( struct metainfo * )be->be_private;
+		mi = ( metainfo_t * )be->be_private;
 
 		/*
 		 * Destroy the connection tree
 		 */
-		ldap_pvt_thread_mutex_lock( &li->conn_mutex );
+		ldap_pvt_thread_mutex_lock( &mi->mi_conninfo.lai_mutex );
 
-		if ( li->conntree ) {
-			avl_free( li->conntree, conn_free );
+		if ( mi->mi_conninfo.lai_tree ) {
+			avl_free( mi->mi_conninfo.lai_tree, meta_back_conn_free );
 		}
 
 		/*
 		 * Destroy the per-target stuff (assuming there's at
 		 * least one ...)
 		 */
-		for ( i = 0; i < li->ntargets; i++ ) {
-			target_free( li->targets[ i ] );
-			free( li->targets[ i ] );
+		if ( mi->mi_targets != NULL ) {
+			for ( i = 0; i < mi->mi_ntargets; i++ ) {
+				target_free( &mi->mi_targets[ i ] );
+			}
+
+			free( mi->mi_targets );
 		}
 
-		free( li->targets );
-
-		ldap_pvt_thread_mutex_lock( &li->cache.mutex );
-		if ( li->cache.tree ) {
-			avl_free( li->cache.tree, meta_dncache_free );
+		ldap_pvt_thread_mutex_lock( &mi->mi_cache.mutex );
+		if ( mi->mi_cache.tree ) {
+			avl_free( mi->mi_cache.tree, meta_dncache_free );
 		}
 		
-		ldap_pvt_thread_mutex_unlock( &li->cache.mutex );
-		ldap_pvt_thread_mutex_destroy( &li->cache.mutex );
+		ldap_pvt_thread_mutex_unlock( &mi->mi_cache.mutex );
+		ldap_pvt_thread_mutex_destroy( &mi->mi_cache.mutex );
 
-		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
-		ldap_pvt_thread_mutex_destroy( &li->conn_mutex );
+		ldap_pvt_thread_mutex_unlock( &mi->mi_conninfo.lai_mutex );
+		ldap_pvt_thread_mutex_destroy( &mi->mi_conninfo.lai_mutex );
+
+		if ( mi->mi_candidates != NULL ) {
+			ber_memfree_x( mi->mi_candidates, NULL );
+		}
 	}
 
 	free( be->be_private );
 	return 0;
 }
+
+#if SLAPD_META == SLAPD_MOD_DYNAMIC
+
+/* conditionally define the init_module() function */
+SLAP_BACKEND_INIT_MODULE( meta )
+
+#endif /* SLAPD_META == SLAPD_MOD_DYNAMIC */
+
 

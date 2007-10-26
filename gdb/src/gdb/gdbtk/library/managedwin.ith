@@ -25,6 +25,7 @@ itcl::class ManagedWin {
     method pickle {}
     method reveal {}
     method window_name {wname {iname ""}}
+    proc window_instance {ins}
 
     proc find {win}
     proc open {class args}
@@ -33,6 +34,8 @@ itcl::class ManagedWin {
     proc restart {}
     proc startup {}
     proc shutdown {}
+
+    common win_instance ""
   }
 
   protected {
@@ -63,5 +66,7 @@ itcl::class ManagedWin {
     proc _create {class args}
     proc _open {class args}
     proc _make_icon_window {name {file "gdbtk_icon"}}
+    variable _wname {}
+    variable _iname {}
   }
 }

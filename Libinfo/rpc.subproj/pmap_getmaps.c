@@ -77,8 +77,6 @@ static char *rcsid = "$Id: pmap_getmaps.c,v 1.4 2004/12/19 22:45:44 zarzycki Exp
 #define NAMELEN 255
 #define MAX_BROADCAST_SIZE 1400
 
-#include "pmap_wakeup.h"
-
 extern int errno;
 
 /*
@@ -94,16 +92,13 @@ pmap_getmaps(address)
 	struct timeval minutetimeout;
 	register CLIENT *client;
 
-	pmap_wakeup();
-
 	minutetimeout.tv_sec = 60;
 	minutetimeout.tv_usec = 0;
 	address->sin_port = htons(PMAPPORT);
 	client = clnttcp_create(address, PMAPPROG,
 	    PMAPVERS, &socket, 50, 500);
 	if (client != (CLIENT *)NULL) {
-		if (CLNT_CALL(client, PMAPPROC_DUMP, xdr_void, NULL, xdr_pmaplist,
-		    &head, minutetimeout) != RPC_SUCCESS) {
+		if (CLNT_CALL(client, PMAPPROC_DUMP, (xdrproc_t)xdr_void, NULL, (xdrproc_t)xdr_pmaplist, &head, minutetimeout) != RPC_SUCCESS) {
 			clnt_perror(client, "pmap_getmaps rpc problem");
 		}
 		CLNT_DESTROY(client);

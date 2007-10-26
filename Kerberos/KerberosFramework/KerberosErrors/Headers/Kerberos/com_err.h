@@ -62,13 +62,6 @@
 extern "C" {
 #endif
 
-#if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import on
-#    endif
-#    pragma options align=mac68k
-#endif
-
 typedef long errcode_t;
 typedef void (*com_err_handler_t)
     (const char *whoami, errcode_t code, const char *format, va_list args);
@@ -94,13 +87,6 @@ com_err_handler_t reset_com_err_hook(void);
 
 errcode_t add_error_table    (const struct error_table *et);
 errcode_t remove_error_table (const struct error_table *et);
-
-#if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import reset
-#    endif
-#    pragma options align=reset
-#endif
 
 #ifdef __cplusplus
 }

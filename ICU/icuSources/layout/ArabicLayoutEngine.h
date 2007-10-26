@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -44,12 +44,12 @@ public:
      *
      * @see LayoutEngine::layoutEngineFactory
      * @see OpenTypeLayoutEngine
-     * @see ScriptAndLangaugeTags.h for script and language codes
+     * @see ScriptAndLanguageTags.h for script and language codes
      *
      * @internal
      */
     ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
-                            const GlyphSubstitutionTableHeader *gsubTable);
+                            le_int32 typoFlags, const GlyphSubstitutionTableHeader *gsubTable);
 
     /**
      * This constructor is used when the font requires a "canned" GSUB table which can't be known
@@ -60,11 +60,12 @@ public:
      * @param langaugeCode - the language
      *
      * @see OpenTypeLayoutEngine
-     * @see ScriptAndLangaugeTags.h for script and language codes
+     * @see ScriptAndLanguageTags.h for script and language codes
      *
      * @internal
      */
-    ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode);
+    ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
+			       le_int32 typoFlags);
 
     /**
      * The destructor, virtual for correct polymorphic invocation.
@@ -164,7 +165,8 @@ public:
      *
      * @internal
      */
-    UnicodeArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode);
+    UnicodeArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
+		le_int32 typoFlags);
 
     /**
      * The destructor, virtual for correct polymorphic invocation.
@@ -205,13 +207,14 @@ protected:
      * @param count - the number of characters to be mapped
      * @param reverse - if <code>TRUE</code>, the output will be in reverse order
      * @param mirror - if <code>TRUE</code>, do character mirroring
+     * @param filterZeroWidth - if <code>TRUE</code> replace ZWJ / ZWNJ with a glyph with no contours.
      * @param glyphStorage - the glyph storage object. Glyph and char index arrays will be updated.
      *
      * @param success - set to an error code if the operation fails
      *
      * @internal
      */
-    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror,
+    virtual void mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror, le_bool filterZeroWidth,
         LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
     /**

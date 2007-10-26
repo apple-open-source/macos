@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCBoard.mm,v $
+		Revision 1.19  2007/03/03 01:13:16  neerache
+		Fix warnings
+		
+		Revision 1.18  2007/03/02 21:10:58  neerache
+		Move save/load fixes <rdar://problem/4366230>
+		
+		Revision 1.17  2007/03/02 20:31:44  neerache
+		Don't corrupt promotion piece names <rdar://problem/4366230>
+		
 		Revision 1.16  2003/07/14 23:21:49  neerache
 		Move promotion defaults into MBCBoard
 		
@@ -145,7 +154,7 @@ static const char * sPieceChar = " KQBNRP";
 - (id) initFromEngineMove:(NSString *)engineMove
 {
 	const char * piece	= " KQBNRP  kqbnrp ";
-	const char * move	= [engineMove cString];
+	const char * move	= [engineMove UTF8String];
 
 	if (move[1] == '@') {
 		[self initWithCommand:kCmdDrop];
@@ -156,7 +165,7 @@ static const char * sPieceChar = " KQBNRP";
 		fFromSquare	= Square(move);
 		fToSquare	= Square(move+2);
 		if (move[4])
-			fPromotion	= static_cast<MBCPiece>(strchr(piece, move[0])-piece);
+			fPromotion	= static_cast<MBCPiece>(strchr(piece, move[4])-piece);
 	}
 	
 	return self;
@@ -240,14 +249,14 @@ NSString * sPieceLetters[] = {
 			return [NSString stringWithFormat:@"%c%c%c%c%c\n", 
 							 SQUARETOCOORD(fFromSquare),
 							 SQUARETOCOORD(fToSquare),
-							 piece[fPromotion]];
+							 piece[fPromotion&15]];
 		else
 			return [NSString stringWithFormat:@"%c%c%c%c\n", 
 							 SQUARETOCOORD(fFromSquare),
 							 SQUARETOCOORD(fToSquare)];
 	case kCmdDrop:
 		return [NSString stringWithFormat:@"%c@%c%c\n", 
-						 piece[fPiece],
+						 piece[fPiece&15],
 						 SQUARETOCOORD(fToSquare)];
 		break;
 	default:
@@ -759,7 +768,7 @@ NSString * sPieceLetters[] = {
 	}
 	sprintf(p, " %d %d", fMoveClock, ([fMoves count]/2)+1);
 
-	return [NSString stringWithCString:pos+1];
+	return [NSString stringWithUTF8String:pos+1];
 }
 
 - (NSString *) holding
@@ -778,7 +787,7 @@ NSString * sPieceLetters[] = {
 	}
 	strcpy(p, "]");
 
-	return [NSString stringWithCString:pos];
+	return [NSString stringWithUTF8String:pos];
 }
 
 - (NSString *)moves
@@ -810,7 +819,7 @@ NSString * sPieceLetters[] = {
 			NSLog(@"FEN Mismatch, Expected: <%@> Got <%@>\n",
 				  fen, [self fen]);
 	} else {
-		const char * s = [fen cString];
+		const char * s = [fen UTF8String];
 		MBCPiece *   b = fCurPos.fBoard+56;
 		MBCPiece	 p;
 
@@ -869,6 +878,7 @@ NSString * sPieceLetters[] = {
 					b -= 16; // Start previous rank
 				break;
 			case '/':
+			default:
 				p = EMPTY;
 				break;
 			}
@@ -924,7 +934,7 @@ NSString * sPieceLetters[] = {
 
 		memset(fCurPos.fInHand, 0, 16);
 
-		s = [holding cString];
+		s = [holding UTF8String];
 
 		s = strchr(s, '[');
 		if (!s)

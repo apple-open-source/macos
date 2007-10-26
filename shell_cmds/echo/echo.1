@@ -1,3 +1,4 @@
+.\"-
 .\" Copyright (c) 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -12,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -33,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)echo.1	8.1 (Berkeley) 7/22/93
-.\" $FreeBSD: src/bin/echo/echo.1,v 1.13 2001/08/15 09:09:35 ru Exp $
+.\" $FreeBSD: src/bin/echo/echo.1,v 1.19 2005/01/16 16:41:56 ru Exp $
 .\"
-.Dd July 22, 1993
+.Dd April 12, 2003
 .Dt ECHO 1
 .Os
 .Sh NAME
@@ -58,20 +55,38 @@ output.
 The following option is available:
 .Bl -tag -width flag
 .It Fl n
-Do not print the trailing newline character.  This may also be
-achieved by appending
+Do not print the trailing newline character.
+This may also be achieved by appending
 .Ql \ec
 to the end of the string, as is done
 by iBCS2 compatible systems.
+Note that this option as well as the effect of
+.Ql \ec
+are implementation-defined in
+.St -p1003.1-2001
+as amended by Cor.\& 1-2002.
+Applications aiming for maximum
+portability are strongly encouraged to use
+.Xr printf 1
+to suppress the newline character.
 .El
 .Pp
 Some shells may provide a builtin
 .Nm
 command which is similar or identical to this utility.
+.\" 4874742
+Most notably, the builtin
+.Nm
+in
+.Xr sh 1
+does not accept the
+.Fl n
+option.
+.\" 4874742
 Consult the
 .Xr builtin 1
 manual page.
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
 .Sh SEE ALSO
 .Xr builtin 1 ,
@@ -81,6 +96,6 @@ manual page.
 .Sh STANDARDS
 The
 .Nm
-utility is expected to be
-.St -p1003.2
-compatible.
+utility conforms to
+.St -p1003.1-2001
+as amended by Cor.\& 1-2002.

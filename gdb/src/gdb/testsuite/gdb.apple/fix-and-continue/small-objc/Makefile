@@ -1,4 +1,4 @@
-CC := gcc-4.0
+CC := gcc
 override CFLAGS :=
 
 MAINPROG_CFLAGS := -g -mfix-and-continue
@@ -33,25 +33,26 @@ stage1:
 stage2:
 	gcc-4.0 -v
 	cp class-v2.m class.m
-	gcc-4.0 $(FIX_CFLAGS) -c class.m
-	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -o class-v2.o -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class-v2.o
 
 # Second rebuild of class.o
 stage3:
 	gcc-4.0 -v
 	cp class-v3.m class.m
-	gcc-4.0 $(FIX_CFLAGS) -c class.m
-	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -o class-v3.o -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class-v3.o
 
 # Third rebuild of class.o
 stage4:
 	gcc-4.0 -v
 	cp class-v4.m class.m
-	gcc-4.0 $(FIX_CFLAGS) -c class.m
-	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class.o
+	gcc-4.0 $(FIX_CFLAGS) -o class-v4.o -c class.m
+	gcc-4.0 $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class-v4.o
 
 clean:
 	rm -f a.out a.o b.o b-v1.o b-v2.o b-v3.o b.o.[0-9]*
+	rm -f class-v2.o class-v3.o class-v4.o
 	rm -f class.o main.o
 	rm -f class-bundlized.o class-bundlized.o.[0-9]* class-bundlized.o[0-9]*
 	rm -f b-bundlized.o.[0-9]* b-bundlized.o b-bundlized.o[0-9]*

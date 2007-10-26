@@ -15,33 +15,6 @@
 
 #include "vim.h"
 
-/*
- * Avoid clashes between Perl and Vim namespace.
- */
-#undef NORMAL
-#undef STRLEN
-#undef FF
-#undef OP_DELETE
-#undef OP_JOIN
-/* remove MAX and MIN, included by glib.h, redefined by sys/param.h */
-#ifdef MAX
-# undef MAX
-#endif
-#ifdef MIN
-# undef MIN
-#endif
-/* We use _() for gettext(), Perl uses it for function prototypes... */
-#ifdef _
-# undef _
-#endif
-#ifdef DEBUG
-# undef DEBUG
-#endif
-
-#include <EXTERN.h>
-#include <perl.h>
-#include <XSUB.h>
-
 #if defined(USE_SFIO) || defined(PROTO)
 
 #ifndef USE_SFIO	/* just generating prototypes */

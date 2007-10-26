@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,23 +45,20 @@ IODVDBlockStorageDriver::getProvider() const
 IOReturn
 IODVDBlockStorageDriver::acceptNewMedia(void)
 {
-    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
-        return IOCDBlockStorageDriver::acceptNewMedia();
+    IOReturn result;
+
+    if (getMediaType() < kDVDMediaTypeMin || getMediaType() > kDVDMediaTypeMax) {
+        return super::acceptNewMedia();
     }
 
     /* Obtain disc status: */
 
     switch (getMediaType()) {
         case kDVDMediaTypeR:
-        case kDVDMediaTypeRW:
-        case kDVDMediaTypePlusR:
-        case kDVDMediaTypePlusRW: {
+        case kDVDMediaTypeRW: {
             bool checkIsWritable = false;
-            bool checkMediaSize = false;
             DVDDiscInfo discInfo;
             DVDRZoneInfo rzoneInfo;
-            IOReturn result;
-            int i;
 
             result = reportDiscInfo(&discInfo);
             if (result != kIOReturnSuccess) {
@@ -69,47 +66,85 @@ IODVDBlockStorageDriver::acceptNewMedia(void)
             }
 
             switch (discInfo.discStatus) {
-                case 0x00: /* is disc blank? */
-                    _maxBlockNumber = 0;
-                    _writeProtected = true;
-                    break;
-                case 0x01: /* is disc appendable? */
+                case 0x01: /* is disc incomplete? */
                     checkIsWritable = true;
-                    checkMediaSize  = true;
                     break;
                 case 0x02: /* is disc complete? */
                     checkIsWritable = discInfo.erasable ? true : false;
-                    _writeProtected = true;
                     break;
             }
 
             /* Obtain rzone status: */
 
             if (checkIsWritable) {
-                UInt16 rzoneLast = discInfo.lastRZoneNumberInLastBorderLSB;
-                UInt16 rzoneSecondLast = max(rzoneLast - 1, discInfo.firstRZoneNumberInLastBorderLSB);
+                UInt16 rzoneLast = (discInfo.lastRZoneNumberInLastBorderMSB << 8) |
+                                    discInfo.lastRZoneNumberInLastBorderLSB;
 
-                _writeProtected = true;
+                result = reportRZoneInfo(rzoneLast,&rzoneInfo);
+                if (result != kIOReturnSuccess) {
+                    break;
+                }
 
-                for (i = rzoneLast; i >= rzoneSecondLast; i--) {
-                    result = reportRZoneInfo(i,&rzoneInfo);
-                    if (result != kIOReturnSuccess) {
-                        break;
-                    }
+                if (discInfo.discStatus == 0x01) { /* is disc incomplete? */
+                    _maxBlockNumber = max( _maxBlockNumber,
+                                           max( OSSwapBigToHostInt32(rzoneInfo.rzoneStartAddress) +
+                                                OSSwapBigToHostInt32(rzoneInfo.rzoneSize), 1 ) - 1 );
+                }
 
-                    if (checkMediaSize) { /* get disc capacity? */
-                        if (i == rzoneLast) {
-                            _maxBlockNumber = max( _maxBlockNumber,
-                                                   max( OSSwapBigToHostInt32(rzoneInfo.rzoneStartAddress) +
-                                                        OSSwapBigToHostInt32(rzoneInfo.rzoneSize), 1 ) - 1 );
+                if (rzoneInfo.incremental) { /* is rzone incremental? */
+                    _writeProtected = false;
+                    break;
+                }
+
+                if (discInfo.discStatus == 0x01) { /* is disc incomplete? */
+                    if (rzoneInfo.blank) { /* is rzone invisible? */
+                        UInt16 rzoneFirst = (discInfo.firstRZoneNumberInLastBorderMSB << 8) |
+                                             discInfo.firstRZoneNumberInLastBorderLSB;
+
+                        if (rzoneFirst < rzoneLast) {
+                            result = reportRZoneInfo(rzoneLast - 1,&rzoneInfo);
+                            if (result != kIOReturnSuccess) {
+                                break;
+                            }
+
+                            if (rzoneInfo.incremental) { /* is rzone incremental? */
+                                _writeProtected = false;
+                                break;
+                            }
                         }
                     }
-
-                    if (rzoneInfo.incremental) { /* is rzone incremental? */
-                        _writeProtected = false;
-                        break;
-                    }
                 }
+            }
+
+            break;
+        }
+        case kDVDMediaTypePlusR:
+        case kDVDMediaTypeHDR: {
+            DVDDiscInfo discInfo;
+            DVDRZoneInfo rzoneInfo;
+            IOReturn result;
+
+            result = reportDiscInfo(&discInfo);
+            if (result != kIOReturnSuccess) {
+                break;
+            }
+
+            /* Obtain rzone status: */
+
+            if (discInfo.discStatus == 0x01) { /* is disc incomplete? */
+                UInt16 rzoneLast = (discInfo.lastRZoneNumberInLastBorderMSB << 8) |
+                                    discInfo.lastRZoneNumberInLastBorderLSB;
+
+                _writeProtected = false;
+
+                result = reportRZoneInfo(rzoneLast,&rzoneInfo);
+                if (result != kIOReturnSuccess) {
+                    break;
+                }
+
+                _maxBlockNumber = max( _maxBlockNumber,
+                                       max( OSSwapBigToHostInt32(rzoneInfo.rzoneStartAddress) +
+                                            OSSwapBigToHostInt32(rzoneInfo.rzoneSize), 1 ) - 1 );
             }
 
             break;
@@ -128,8 +163,8 @@ IODVDBlockStorageDriver::getDeviceTypeName(void)
 IOMedia *
 IODVDBlockStorageDriver::instantiateDesiredMediaObject(void)
 {
-    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
-        return IOCDBlockStorageDriver::instantiateDesiredMediaObject();
+    if (getMediaType() < kDVDMediaTypeMin || getMediaType() > kDVDMediaTypeMax) {
+        return super::instantiateDesiredMediaObject();
     }
 
     return(new IODVDMedia);
@@ -141,9 +176,8 @@ IODVDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
 {
     IOMedia *media = NULL;
 
-    if (getMediaType() >= kCDMediaTypeMin && getMediaType() <= kCDMediaTypeMax) {
-        return IOCDBlockStorageDriver::instantiateMediaObject(
-                                             base,byteSize,blockSize,mediaName);
+    if (getMediaType() < kDVDMediaTypeMin || getMediaType() > kDVDMediaTypeMax) {
+        return super::instantiateMediaObject(base,byteSize,blockSize,mediaName);
     }
 
     media = IOBlockStorageDriver::instantiateMediaObject(
@@ -177,6 +211,22 @@ IODVDBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
             case kDVDMediaTypePlusRW:
                 description = kIODVDMediaTypePlusRW;
                 picture = "DVD+RW.icns";
+                break;
+            case kDVDMediaTypeHDROM:
+                description = kIODVDMediaTypeHDROM;
+                picture = "HD DVD.icns";
+                break;
+            case kDVDMediaTypeHDRAM:
+                description = kIODVDMediaTypeHDRAM;
+                picture = "HD DVD-RAM.icns";
+                break;
+            case kDVDMediaTypeHDR:
+                description = kIODVDMediaTypeHDR;
+                picture = "HD DVD-R.icns";
+                break;
+            case kDVDMediaTypeHDRW:
+                description = kIODVDMediaTypeHDRW;
+                picture = "HD DVD-RW.icns";
                 break;
         }
 

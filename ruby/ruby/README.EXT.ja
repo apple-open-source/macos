@@ -331,6 +331,17 @@ privateメソッドとは関数形式でしか呼び出すことの出来ないメソッ
 
   void rb_define_alias(VALUE module, const char* new, const char* old);
 
+クラスメソッドallocateを定義したり削除したりするための関数は
+以下の通りです。
+
+  void rb_define_alloc_func(VALUE klass, VALUE (*func)(VALUE klass));
+  void rb_undef_alloc_func(VALUE klass);
+
+funcはクラスを引数として受け取って、新しく割り当てられたイン
+スタンスを返さなくてはなりません。このインスタンスは、外部リ
+ソースなどを含まない、できるだけ「空」のままにしておいたほう
+がよいでしょう。
+
 2.1.3 定数定義
 
 拡張ライブラリが必要な定数はあらかじめ定義しておいた方が良い
@@ -369,7 +380,8 @@ Cから文字列を経由せずにRubyのメソッドを呼び出すこともできま
 す．その前に，Rubyインタプリタ内でメソッドや変数名を指定する
 時に使われているIDについて説明しておきましょう．
 
-IDとは変数名，メソッド名を表す整数です．Rubyの中では
+IDとは変数名，メソッド名を表す整数です．RubyではIDに対応する
+オブジェクトとしてシンボル(Symbol)があり，
 
  :識別子
 
@@ -381,6 +393,14 @@ IDとは変数名，メソッド名を表す整数です．Rubyの中では
 列)をIDに変換するには以下の関数を使います．
 
   rb_to_id(VALUE symbol)
+
+IDからシンボルを得るためには以下のマクロを使います．
+
+  VALUE ID2SYM(ID id)
+
+シンボルからIDを得るためには以下のマクロを使います．
+
+  ID SYM2ID(VALUE symbol)
 
 2.2.3 CからRubyのメソッドを呼び出す
 
@@ -710,8 +730,14 @@ Makefileを作る場合の雛型になるextconf.rbというファイルを作り
 
 以下の変数を使うことができます．
 
-  $CFLAGS: コンパイル時に追加的に指定するフラグ(-Iなど)
+  $CFLAGS: コンパイル時に追加的に指定するフラグ(-Oなど)
+  $CPPFLAGS: プリプロセッサに追加的に指定するフラグ(-Iや-Dなど)
   $LDFLAGS: リンク時に追加的に指定するフラグ(-Lなど)
+  $objs: リンクされるオブジェクトファイル名のリスト
+
+オブジェクトファイルのリストは、通常はソースファイルを検索し
+て自動的に生成されますが、makeの途中でソースを生成するような
+場合は明示的に指定する必要があります。
 
 ライブラリをコンパイルする条件が揃わず，そのライブラリをコン
 パイルしない時にはcreate_makefileを呼ばなければMakefileは生
@@ -891,7 +917,9 @@ NUM2INT(value)
 INT2NUM(i)
 NUM2DBL(value)
 rb_float_new(f)
-STR2CSTR(value)
+StringValue(value)
+StringValuePtr(value)
+StringValueCStr(value)
 rb_str_new2(s)
 
 ** クラス/モジュール定義
@@ -1123,6 +1151,12 @@ Appendix C. extconf.rbで使える関数たち
 extconf.rbの中では利用可能なコンパイル条件チェックの関数は以
 下の通りである．
 
+have_macro(macro, headers)
+
+  ヘッダファイルheaderをインクルードしてマクロmacroが定義さ
+  れているかどうかチェックする．マクロが定義されている時true
+  を返す．
+
 have_library(lib, func)
 
   関数funcを定義しているライブラリlibの存在をチェックする．
@@ -1140,10 +1174,39 @@ have_func(func, header)
   る時には先にhave_libraryでそのライブラリをチェックしておく
   事．関数が存在する時trueを返す．
 
+have_var(var, header)
+
+  ヘッダファイルheaderをインクルードして変数varの存在をチェッ
+  クする．varが標準ではリンクされないライブラリ内のものであ
+  る時には先にhave_libraryでそのライブラリをチェックしておく
+  事．変数が存在する時trueを返す．
+
 have_header(header)
 
   ヘッダファイルの存在をチェックする．ヘッダファイルが存在す
   る時trueを返す．
+
+find_header(header, path...)
+
+  ヘッダファイルheaderの存在を -Ipath を追加しながらチェック
+  する．ヘッダファイルが見付かった時，trueを返す．
+
+have_struct_member(type, member, header)
+
+  ヘッダファイルheaderをインクルードして型typeにメンバmember
+  が存在するかをチェックする．typeが定義されていて，memberを
+  持つする時trueを返す．
+
+have_type(type, header, opt)
+
+  ヘッダファイルheaderをインクルードして型typeが存在するかを
+  チェックする．typeが定義されている時trueを返す．
+
+check_sizeof(type, header)
+
+  ヘッダファイルheaderをインクルードして型typeのchar単位サイ
+  ズを調べる．typeが定義されている時そのサイズを返す．定義さ
+  れていないときはnilを返す．
 
 create_makefile(target)
 
@@ -1151,9 +1214,26 @@ create_makefile(target)
   ばそのライブラリはコンパイルされない．targetはモジュール名
   を表す．
 
+find_executable(command, path)
+
+  コマンドcommandをFile::PATH_SEPARATORで区切られたパス名の
+  リストpathから探す．pathがnilまたは省略された場合は，環境
+  変数PATHの値を使用する．実行可能なコマンドが見つかった場合
+  はパスを含むファイル名，見つからなかった場合はnilを返す．
+
 with_config(withval[, default=nil])
 
   コマンドライン上の--with-<withval>で指定されたオプション値を得る．
+
+enable_config(config, *defaults)
+disable_config(config, *defaults)
+
+  コマンドライン上の--enable-<config>または
+  --disable-<config>で指定された真偽値を得る．
+  --enable-<config>が指定されていた場合はtrue，
+  --disable-<config>が指定されていた場合はfalseを返す．
+  どちらも指定されていない場合は，ブロックつきで呼び出されている場合は
+  *defaultsをyieldした結果，ブロックなしなら*defaultsを返す．
 
 dir_config(target[, default_dir])
 dir_config(target[, default_include, default_lib])
@@ -1164,6 +1244,12 @@ dir_config(target[, default_include, default_lib])
   --with-<target>-include=/path/include --with-<target>-lib=/path/lib
   と等価である．追加された include ディレクトリと lib ディレクトリの
   配列を返す． ([include_dir, lib_dir])
+
+pkg_config(pkg)
+
+  pkg-configコマンドからパッケージpkgの情報を得る． 
+  pkg-configの実際のコマンド名は，--with-pkg-configコマンド
+  ラインオプションで指定可能．
 
 /*
  * Local variables:

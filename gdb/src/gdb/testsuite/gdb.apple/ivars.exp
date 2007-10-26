@@ -41,11 +41,11 @@ if $tracelevel then {
 	strace $tracelevel
 }
 
-set timeout 120
+set timeout 30
 set prms_id 0
 set bug_id 0
 
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists noobjc64] {
     verbose "Skipping Objective-C tests on 64-bit PowerPC."
     return
 }

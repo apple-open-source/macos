@@ -1,7 +1,7 @@
 /* SASL server API implementation
  * Rob Siemborski
  * Tim Martin
- * $Id: checkpw.c,v 1.5 2005/01/10 19:13:35 snsimon Exp $
+ * $Id: checkpw.c,v 1.6 2005/05/17 21:56:43 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -84,7 +84,7 @@
 #include <shadow.h>
 #endif /* HAVE_SHADOW_H */
 
-#if defined(HAVE_PWCHECK) || defined(HAVE_SASLAUTHD)
+#if defined(HAVE_PWCHECK) || defined(HAVE_SASLAUTHD) || defined(HAVE_AUTHDAEMON)
 # include <errno.h>
 # include <sys/types.h>
 # include <sys/socket.h>

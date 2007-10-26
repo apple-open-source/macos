@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 <data>
@@ -31,8 +32,8 @@ http://%HOSTIP:%HTTPPORT/157 -u testuser:testpass --anyauth
 <protocol>
 GET /157 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

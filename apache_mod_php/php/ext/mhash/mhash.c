@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,6 +16,7 @@
    |          Nikos Mavroyanopoulos <nmav@hellug.gr> (HMAC, KEYGEN)       |
    +----------------------------------------------------------------------+
  */
+/* $Id: mhash.c,v 1.48.2.3.2.5 2007/02/27 03:28:16 iliaa Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -32,7 +33,7 @@
 #include "php_globals.h"
 #include "ext/standard/info.h"
 
-function_entry mhash_functions[] = {
+zend_function_entry mhash_functions[] = {
 	PHP_FE(mhash_get_block_size, NULL)
 	PHP_FE(mhash_get_hash_name, NULL)
 	PHP_FE(mhash_keygen_s2k, NULL)
@@ -69,7 +70,7 @@ PHP_MINIT_FUNCTION(mhash)
 
 	for (i=0; i<n; i++) {
 		if ((name = mhash_get_hash_name(i))) {
-			l = snprintf(buf, 127, "MHASH_%s", name);
+			l = slprintf(buf, 127, "MHASH_%s", name);
 			zend_register_long_constant(buf, l + 1, i, CONST_PERSISTENT, module_number TSRMLS_CC);
 			free(name);
 		}
@@ -82,7 +83,7 @@ PHP_MINFO_FUNCTION(mhash)
 {
 	char version[32];
 	
-	sprintf(version,"%d", MHASH_API_VERSION);
+	snprintf(version, sizeof(version), "%d", MHASH_API_VERSION);
 	
 	php_info_print_table_start();
 	php_info_print_table_row(2, "MHASH support", "Enabled");
@@ -110,7 +111,7 @@ PHP_FUNCTION(mhash_get_block_size)
 	long hash;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &hash) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		return;
 	}
 
 	RETURN_LONG(mhash_get_block_size(hash));
@@ -126,7 +127,7 @@ PHP_FUNCTION(mhash_get_hash_name)
 	long hash;
 
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "l", &hash) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		return;
 	}
 
 	name = mhash_get_hash_name(hash);
@@ -152,7 +153,7 @@ PHP_FUNCTION(mhash)
 	char *data, *key=NULL;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls|s", &hash, &data, &data_len, &key, &key_len) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		return;
 	}
 	
 	bsize = mhash_get_block_size(hash);
@@ -201,10 +202,10 @@ PHP_FUNCTION(mhash_keygen_s2k)
 	int password_len, salt_len;
 	
 	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "lssl", &hash, &password, &password_len, &in_salt, &salt_len, &bytes) == FAILURE) {
-		WRONG_PARAM_COUNT;
+		return;
 	}
 	if (bytes <= 0){
-		php_error_docref(NULL TSRMLS_CC, E_WARNING, "the byte parameter must be greater then 0");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "the byte parameter must be greater than 0");
 		RETURN_FALSE;
 	}
 	

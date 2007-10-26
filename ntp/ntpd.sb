@@ -1,0 +1,37 @@
+;;
+;; ntpd - sandbox profile
+;; Copyright (c) 2006-2007 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+
+(debug deny)
+
+(deny default)
+(allow process*)
+; These were commented out, I think that was a pre-WWDC bug that has been fixed
+; and they can be brought back, and the above line removed:
+;  (allow process-fork)
+;  (allow process-exec (regex "^/usr/sbin/ntpd$"))
+(deny signal)
+(allow sysctl-read)
+; This might be able to be tightened up (I think networ filters were
+; broken pre-WWDC).  See named.sb for examples.
+(allow network*)
+
+;;; Allow NTP specific files
+(allow file-read-data file-read-metadata
+  (regex "^(/private)?/etc/ntp\\.(conf|keys)$"))
+
+(allow file-read-data file-read-metadata file-write-data
+  (regex "^(/private)?/var/db/ntp\\.drift(\\.TEMP)?$"))
+
+(allow file-write* file-read-data file-read-metadata
+  (regex "^(/private)?/var/run/ntpd\\.pid$"))
+
+(allow time-set)
+(import "bsd.sb")

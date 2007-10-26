@@ -59,8 +59,10 @@ enum
 	kHIDPage_BatterySystem = 0x85, 				/* Battery System Page */
 	/* Reserved 0x88 - 0x8B */
 	kHIDPage_BarCodeScanner	= 0x8C,	/* (Point of Sale) USB Device Class Definition for Bar Code Scanner Devices */
+	kHIDPage_WeighingDevice	= 0x8D,	/* (Point of Sale) USB Device Class Definition for Weighing Devices */
 	kHIDPage_Scale	= 0x8D,	/* (Point of Sale) USB Device Class Definition for Scale Devices */
-	/* ReservedPointofSalepages 0x8E - 0x8F */
+    kHIDPage_MagneticStripeReader = 0x8E,
+	/* ReservedPointofSalepages 0x8F */
 	kHIDPage_CameraControl	= 0x90,	/* USB Device Class Definition for Image Class Devices */
 	kHIDPage_Arcade	= 0x91,	/* OAAF Definitions for arcade and coinop related Devices */
 	/* Reserved 0x92 - 0xFEFF */
@@ -871,7 +873,7 @@ enum
 	kHIDUsage_Csmr_ALCommandLineProcessorOrRun	= 0x1A0,	/* Selector */
 	kHIDUsage_Csmr_ALProcessOrTaskManager	= 0x1A1,	/* Selector */
 	kHIDUsage_Csmr_AL	= 0x1A2,	/* Selector */
-	kHIDUsage_Csmr_ALNextTaskOrApplication	= 0x143,	/* Selector */
+	kHIDUsage_Csmr_ALNextTaskOrApplication	= 0x1A3,	/* Selector */
 	kHIDUsage_Csmr_ALPreviousTaskOrApplication	= 0x1A4,	/* Selector */
 	kHIDUsage_Csmr_ALPreemptiveHaltTaskOrApplication	= 0x1A5,	/* Selector */
 	/* 0x1A6 - 0x1FF Reserved */
@@ -1232,10 +1234,13 @@ enum
 	/* Reserved 0x74 - 0xFC */
 	kHIDUsage_PD_iManufacturer = 0xFD,			/* SV F- Power Device Manufacturer String Index */
 	kHIDUsage_PD_iProduct = 0xFE,				/* SV F- Power Device Product String Index */
-	kHIDUsage_PD_iserialNumber = 0xFF,			/* SV F- Power Device Serial Number String Index */
+	kHIDUsage_PD_iserialNumber = 0xFF			/* SV F- Power Device Serial Number String Index */
+};
 
-	/* Battery System Page (x85) */
-	/* This section provides detailed descriptions of the usages employed by Battery Systems. */	
+/* Battery System Page (x85) */
+/* This section provides detailed descriptions of the usages employed by Battery Systems. */	
+enum
+{
 	kHIDUsage_BS_Undefined = 0x00,				/* Battery System Undefined */
 	kHIDUsage_BS_SMBBatteryMode = 0x01,			/* CL - SMB Mode */
 	kHIDUsage_BS_SMBBatteryStatus = 0x02,		/* CL - SMB Status */
@@ -1337,6 +1342,308 @@ enum
 	kHIDUsage_BS_Level2 = 0xF2,					/* SF F- Battery System Charger Level 2 */
 	kHIDUsage_BS_Level3 = 0xF3					/* SF F- Battery System Charger Level 3 */
 	/* Reserved 0xF2 - 0xFF */
+};
+
+/* Bar Code Scanner Page (0x8C) */
+/* This section provides detailed descriptions of the usages employed by Bar Code Scanner Devices. */
+enum
+{
+    kHIDUsage_BCS_Undefined = 0x00,                     /* Bar Code Scanner Undefined Usage */
+    kHIDUsage_BCS_BadgeReader = 0x01,                   /* CA - Bar Code Badge Reader */
+    kHIDUsage_BCS_BarCodeScanner = 0x02,                /* CA -Bar Code Scanner */
+    kHIDUsage_BCS_DumbBarCodeScanner = 0x03,            /* CA -Dumb Bar Code Scanner  Usage */
+    kHIDUsage_BCS_CordlessScannerBase = 0x04,           /* CA -Cordless Base Usage */
+    kHIDUsage_BCS_BarCodeScannerCradle = 0x05,          /* CA -Bar Code Scanner Cradle Usage */
+    /* Reserved 0x06 - 0x0F */
+    kHIDUsage_BCS_AttributeReport = 0x10,               /* CL - Attribute Report */
+    kHIDUsage_BCS_SettingsReport = 0x11,                /* CL - Settings Report */
+    kHIDUsage_BCS_ScannedDataReport = 0x12,             /* CL - Scanned Data Report */
+    kHIDUsage_BCS_RawScannedDataReport = 0x13,          /* CL - Raw Scanned Data Report */
+    kHIDUsage_BCS_TriggerReport = 0x14,                 /* CL - Trigger Report */
+    kHIDUsage_BCS_StatusReport = 0x15,                  /* CL - Status Report */
+    kHIDUsage_BCS_UPC_EANControlReport = 0x16,          /* CL - UPC/EAN Control Report */
+    kHIDUsage_BCS_EAN2_3LabelControlReport = 0x17,      /* CL - EAN 2/3 Label Control Report */
+    kHIDUsage_BCS_Code39ControlReport = 0x18,           /* CL - Code 39 Control Report */
+    kHIDUsage_BCS_Interleaved2of5ControlReport = 0x19,  /* CL - Interleaved 2 of 5 Control Report */
+    kHIDUsage_BCS_Standard2of5ControlReport = 0x1A,     /* CL - Standard 2 of 5 Control Report */
+    kHIDUsage_BCS_MSIPlesseyControlReport = 0x1B,       /* CL - MSI Plessey Control Report */
+    kHIDUsage_BCS_CodabarControlReport = 0x1C,          /* CL - Codabar Control Report */
+    kHIDUsage_BCS_Code128ControlReport = 0x1D,          /* CL - Code 128 Control Report */
+    kHIDUsage_BCS_Misc1DControlReport = 0x1E,           /* CL - Misc 1D Control Report */
+    kHIDUsage_BCS_2DControlReport = 0x1F,               /* CL - 2D Control Report */
+    /* Reserved 0x20 - 0x2F */
+    kHIDUsage_BCS_Aiming_PointerMide = 0x30,            /* SF - Aiming Pointer Mode */
+    kHIDUsage_BCS_BarCodePresentSensor = 0x31,          /* SF - Bar Code Present Sensor */
+    kHIDUsage_BCS_Class1ALaser = 0x32,                  /* SF - Class 1A Laser */
+    kHIDUsage_BCS_Class2Laser = 0x33,                   /* SF - Class 2 Laser */
+    kHIDUsage_BCS_HeaterPresent = 0x34,                 /* SF - Heater Present */
+    kHIDUsage_BCS_ContactScanner = 0x35,                /* SF - Contact Scanner */
+    kHIDUsage_BCS_ElectronicArticleSurveillanceNotification = 0x36, /* SF - Electronic Article Surveillance Notification */
+    kHIDUsage_BCS_ConstantElectronicArticleSurveillance = 0x37, /* SF - Constant Electronic Article Surveillance */
+    kHIDUsage_BCS_ErrorIndication = 0x38,               /* SF - Error Indication */
+    kHIDUsage_BCS_FixedBeeper = 0x39,                   /* SF - Fixed Beeper */
+    kHIDUsage_BCS_GoodDecodeIndication = 0x3A,          /* SF - Good Decode Indication */
+    kHIDUsage_BCS_HandsFreeScanning = 0x3B,             /* SF - Hands Free Scanning */
+    kHIDUsage_BCS_IntrinsicallySafe = 0x3C,             /* SF - Intrinsically Safe */
+    kHIDUsage_BCS_KlasseEinsLaser = 0x3D,               /* SF - Klasse Eins Laser */
+    kHIDUsage_BCS_LongRangeScanner = 0x3E,              /* SF - Long Range Scanner */
+    kHIDUsage_BCS_MirrorSpeedControl = 0x3F,            /* SF - Mirror Speed Control */
+    kHIDUsage_BCS_NotOnFileIndication = 0x40,           /* SF - Not On File Indication */
+    kHIDUsage_BCS_ProgrammableBeeper = 0x41,            /* SF - Programmable Beeper */
+    kHIDUsage_BCS_Triggerless = 0x42,                   /* SF - Triggerless */
+    kHIDUsage_BCS_Wand = 0x43,                          /* SF - Wand */
+    kHIDUsage_BCS_WaterResistant = 0x44,                /* SF - Water Resistant */
+    kHIDUsage_BCS_MultiRangeScanner = 0x45,             /* SF - Multi-Range Scanner */
+    kHIDUsage_BCS_ProximitySensor = 0x46,               /* SF - Proximity Sensor */
+    /* Reserved 0x47 - 0x4C */
+    kHIDUsage_BCS_FragmentDecoding = 0x4D,              /* DF - Fragment Decoding */
+    kHIDUsage_BCS_ScannerReadConfidence = 0x4E,         /* DV - Scanner Read Confidence */
+    kHIDUsage_BCS_DataPrefix = 0x4F,                    /* NAry - Data Prefix  */
+    kHIDUsage_BCS_PrefixAIMI = 0x50,                    /* SEL - Prefix AIMI */
+    kHIDUsage_BCS_PrefixNone = 0x51,                    /* SEL - Prefix None */
+    kHIDUsage_BCS_PrefixProprietary = 0x52,             /* SEL - Prefix Proprietary */
+    /* Reserved 0x53 - 0x54 */
+    kHIDUsage_BCS_ActiveTime = 0x55,                    /* DV - Active Time */
+    kHIDUsage_BCS_AimingLaserPattern = 0x56,            /* DF - Aiming Laser Pattern */
+    kHIDUsage_BCS_BarCodePresent = 0x57,                /* OOC - Bar Code Present */
+    kHIDUsage_BCS_BeeperState = 0x58,                   /* OOC - Beeper State */
+    kHIDUsage_BCS_LaserOnTime = 0x59,                   /* DV - Laser On Time */
+    kHIDUsage_BCS_LaserState = 0x5A,                    /* OOC - Laser State */
+    kHIDUsage_BCS_LockoutTime = 0x5B,                   /* DV - Lockout Time */
+    kHIDUsage_BCS_MotorState = 0x5C,                    /* OOC - Motor State */
+    kHIDUsage_BCS_MotorTimeout = 0x5D,                  /* DV - Motor Timeout */
+    kHIDUsage_BCS_PowerOnResetScanner = 0x5E,           /* DF - Power On Reset Scanner */
+    kHIDUsage_BCS_PreventReadOfBarcodes = 0x5F,         /* DF - Prevent Read of Barcodes */
+    kHIDUsage_BCS_InitiateBarcodeRead = 0x60,           /* DF - Initiate Barcode Read */
+    kHIDUsage_BCS_TriggerState = 0x61,                  /* DF - Trigger State */
+    kHIDUsage_BCS_TriggerMode = 0x62,                   /* NAry - Trigger Mode */
+    kHIDUsage_BCS_TriggerModeBlinkingLaserOn = 0x63,    /* SEL - Trigger Mode Blinking Laser On */
+    kHIDUsage_BCS_TriggerModeContinuousLaserOn = 0x64,  /* SEL - Trigger Mode Continuous Laser On */
+    kHIDUsage_BCS_TriggerModeLaserOnWhilePulled = 0x65, /* SEL - Trigger Mode Laser on while Pulled */
+    kHIDUsage_BCS_TriggerModeLaserStaysOnAfterTriggerRelease = 0x66, /* SEL - Trigger Mode Laser stays on after Trigger Release */
+    /* Reserved 0x67 - 0x6C */
+    kHIDUsage_BCS_CommitParametersToNVM = 0x6D,         /* DF - Commit Parameters to NVM */
+    kHIDUsage_BCS_ParameterScanning = 0x6E,             /* DF - Parameter Scanning */
+    kHIDUsage_BCS_ParametersChanged = 0x6F,             /* OOC - Parameters Changed */
+    kHIDUsage_BCS_SetParameterDefaultValues = 0x70,     /* DF - Set parameter default values */
+    /* Reserved 0x71 - 0x74 */
+    kHIDUsage_BCS_ScannerInCradle = 0x75,               /* OOC - Scanner In Cradle */
+    kHIDUsage_BCS_ScannerInRange = 0x76,                /* OOC - Scanner In Range */
+    /* Reserved 0x77 - 0x79 */
+    kHIDUsage_BCS_AimDuration = 0x7A,                   /* DV - Aim Duration */
+    kHIDUsage_BCS_GoodReadLampDuration = 0x7B,          /* DV - Good Read Lamp Duration */
+    kHIDUsage_BCS_GoodReadLampIntensity = 0x7C,         /* DV - Good Read Lamp Intensity */
+    kHIDUsage_BCS_GoodReadLED = 0x7D,                   /* DF - Good Read LED */
+    kHIDUsage_BCS_GoodReadToneFrequency = 0x7E,         /* DV - Good Read Tone Frequency*/
+    kHIDUsage_BCS_GoodReadToneLength = 0x7F,            /* DV - Good Read Tone Length */
+    kHIDUsage_BCS_GoodReadToneVolume = 0x80,            /* DV - Good Read Tone Volume */
+    /* Reserved 0x81 */
+    kHIDUsage_BCS_NoReadMessage = 0x82,                 /* DF - No Read Message */
+    kHIDUsage_BCS_NotOnFileVolume = 0x83,               /* DV - Not on File Volume */
+    kHIDUsage_BCS_PowerupBeep = 0x84,                   /* DF - Powerup Beep */
+    kHIDUsage_BCS_SoundErrorBeep = 0x85,               /* DF - Sound Error Beep */
+    kHIDUsage_BCS_SoundGoodReadBeep = 0x86,             /* DF - Sound Good Read Beep */
+    kHIDUsage_BCS_SoundNotOnFileBeep = 0x87,            /* DF - Sound Not On File Beep */
+    kHIDUsage_BCS_GoodReadWhenToWrite = 0x88,           /* NArry - Good Read When to Write */
+    kHIDUsage_BCS_GRWTIAfterDecode = 0x89,              /* SEL - GRWTI After Decode */
+    kHIDUsage_BCS_GRWTIBeep_LampAfterTransmit = 0x8A,   /* SEL - GRWTI Beep/Lamp after transmit */
+    kHIDUsage_BCS_GRWTINoBeep_LampUseAtAll = 0x8B,      /* SEL - GRWTI No Beep/Lamp at all */
+    /* Reserved 0x8C - 0x90 */
+    kHIDUsage_BCS_BooklandEAN = 0x91,                   /* DF - Bookland EAN */
+    kHIDUsage_BCS_ConvertEAN8To13Type = 0x92,           /* DF - Convert EAN 8 to 13 Type */
+    kHIDUsage_BCS_ConvertUPCAToEAN_13 = 0x93,           /* DF - Convert UPC A to EAN-13 */
+    kHIDUsage_BCS_ConvertUPC_EToA = 0x94,               /* DF - Convert UPC-E to A */
+    kHIDUsage_BCS_EAN_13 = 0x95,                        /* DF - EAN-13 */
+    kHIDUsage_BCS_EAN_8 = 0x96,                         /* DF - EAN_8 */
+    kHIDUsage_BCS_EAN_99_128_Mandatory  = 0x97,         /* DF - EAN-99 128_Mandatory  */
+    kHIDUsage_BCS_EAN_99_P5_128_Optional = 0x98,        /* DF - EAN-99 P5/128_Optional */
+    /* Reserved 0x99 */
+    kHIDUsage_BCS_UPC_EAN = 0x9A,                       /* DF - UPC/EAN */
+    kHIDUsage_BCS_UPC_EANCouponCode = 0x9B,             /* DF - UPC/EAN Coupon Code */
+    kHIDUsage_BCS_UPC_EANPeriodicals = 0x9C,            /* DV - UPC/EAN Periodicals */
+    kHIDUsage_BCS_UPC_A = 0x9D,                         /* DF - UPC-A */
+    kHIDUsage_BCS_UPC_AWith128Mandatory = 0x9E,         /* DF - UPC-A with 128 Mandatory */
+    kHIDUsage_BCS_UPC_AWith128Optical = 0x9F,           /* DF - UPC-A with 128 Optical */
+    kHIDUsage_BCS_UPC_AWithP5Optional = 0xA0,           /* DF - UPC-A with P5 Optional */
+    kHIDUsage_BCS_UPC_E = 0xA1,                         /* DF - UPC-E */
+    kHIDUsage_BCS_UPC_E1 = 0xA2,                        /* DF - UPC-E1 */
+    /* Reserved 0xA3 - 0xA8 */
+    kHIDUsage_BCS_Periodical = 0xA9,                    /* NArry - Periodical */
+    kHIDUsage_BCS_PeriodicalAutoDiscriminatePlus2 = 0xAA,/* SEL - Periodical Auto-Discriminate + 2 */
+    kHIDUsage_BCS_PeriodicalOnlyDecodeWithPlus2 = 0xAB, /* SEL - Periodical Only Decode with + 2 */
+    kHIDUsage_BCS_PeriodicalIgnorePlus2 = 0xAC,         /* SEL - Periodical Ignore + 2 */
+    kHIDUsage_BCS_PeriodicalAutoDiscriminatePlus5 = 0xAD,/* SEL - Periodical Auto-Discriminate + 5 */
+    kHIDUsage_BCS_PeriodicalOnlyDecodeWithPlus5 = 0xAE, /* SEL - Periodical Only Decode with + 5 */
+    kHIDUsage_BCS_PeriodicalIgnorePlus5 = 0xAF,         /* SEL - Periodical Ignore + 5 */
+    kHIDUsage_BCS_Check = 0xB0,                         /* NArry - Check */
+    kHIDUsage_BCS_CheckDisablePrice = 0xB1,             /* SEL - Check Disable Price */
+    kHIDUsage_BCS_CheckEnable4DigitPrice = 0xB2,        /* SEL - Check Enable 4 digit Price */
+    kHIDUsage_BCS_CheckEnable5DigitPrice = 0xB3,        /* SEL - Check Enable 5 digit Price */
+    kHIDUsage_BCS_CheckEnableEuropean4DigitPrice = 0xB4,/* SEL - Check Enable European 4 digit Price */
+    kHIDUsage_BCS_CheckEnableEuropean5DigitPrice = 0xB5,/* SEL - Check Enable European 5 digit Price */
+    /* Reserved 0xB6 */
+    kHIDUsage_BCS_EANTwoLabel = 0xB7,                   /* DF - EAN Two Label  */
+    kHIDUsage_BCS_EANThreeLabel  = 0xB8,                /* DF - EAN Thread Label */
+    kHIDUsage_BCS_EAN8FlagDigit1 = 0xB9,                /* DV - EAN 8 Flag Digit 1 */
+    kHIDUsage_BCS_EAN8FlagDigit2 = 0xBA,                /* DV - EAN 8 Flag Digit 2 */
+    kHIDUsage_BCS_EAN8FlagDigit3 = 0xBB,                /* DV - EAN 8 Flag Digit 3 */
+    kHIDUsage_BCS_EAN13FlagDigit1 = 0xBC,               /* DV - EAN 13 Flag Digit 1 */
+    kHIDUsage_BCS_EAN13FlagDigit2 = 0xBD,               /* DV - EAN 13 Flag Digit 2 */
+    kHIDUsage_BCS_EAN13FlagDigit3 = 0xBE,               /* DV - EAN 13 Flag Digit 3 */
+    kHIDUsage_BCS_AddEAN2_3LabelDefinition = 0xBF,      /* DF - Add EAN 2/3 Label Definition */
+    kHIDUsage_BCS_ClearAllEAN2_3LabelDefinitions = 0xC0,/* DF - Clear all EAN 2/3 Label Definitions */
+    /* Reserved 0xC1 - 0xC2 */
+    kHIDUsage_BCS_Codabar = 0xC3,                       /* DF - Codabar */
+    kHIDUsage_BCS_Code128 = 0xC4,                       /* DF - Code 128 */
+    /* Reserved 0xC5 - 0xC6 */
+    kHIDUsage_BCS_Code39 = 0xC7,                        /* DF - Code 39 */
+    kHIDUsage_BCS_Code93 = 0xC8,                        /* DF - Code 93 */
+    kHIDUsage_BCS_FullASCIIConversion = 0xC9,           /* DF - Full ASCII Conversion */
+    kHIDUsage_BCS_Interleaved2of5 = 0xCA,               /* DF - Interleaved 2 of 5 */
+    kHIDUsage_BCS_ItalianPharmacyCode = 0xCB,           /* DF - Italian Pharmacy Code */
+    kHIDUsage_BCS_MSI_Plessey = 0xCC,                   /* DF - MSI/Plessey */
+    kHIDUsage_BCS_Standard2of5IATA = 0xCD,              /* DF - Standard 2 of 5 IATA */
+    kHIDUsage_BCS_Standard2of5 = 0xCE,                  /* DF - Standard 2 of 5 */
+    /* Reserved 0xCF - 0xD2 */
+    kHIDUsage_BCS_TransmitStart_Stop = 0xD3,            /* DF - Transmit Start/Stop */
+    kHIDUsage_BCS_TriOptic = 0xD4,                      /* DF - Tri-Optic  */
+    kHIDUsage_BCS_UCC_EAN_128 = 0xD5,                   /* DF - UCC/EAN-128  */
+    kHIDUsage_BCS_CheckDigit = 0xD6,                    /* NArry - Check Digit */
+    kHIDUsage_BCS_CheckDigitDisable = 0xD7,             /* SEL - Check Digit Disable */
+    kHIDUsage_BCS_CheckDigitEnableInterleaved2of5OPCC = 0xD8, /* SEL - Check Digit Enable Interleaved 2 of 5 OPCC */
+    kHIDUsage_BCS_CheckDigitEnableInterleaved2of5USS = 0xD9, /* SEL - Check Digit Enable Interleaved 2 of 5 USS */
+    kHIDUsage_BCS_CheckDigitEnableStandard2of5OPCC = 0xD8, /* SEL - Check Digit Enable Standard 2 of 5 OPCC */
+    kHIDUsage_BCS_CheckDigitEnableStandard2of5USS = 0xD9, /* SEL - Check Digit Enable Standard 2 of 5 USS */
+    kHIDUsage_BCS_CheckDigitEnableOneMSIPlessey = 0xDC, /* SEL - Check Digit Enable One MSI Plessey */
+    kHIDUsage_BCS_CheckDigitEnableTwoMSIPlessey = 0xDD, /* SEL - Check Digit Enable Two MSI Plessey */
+    kHIDUsage_BCS_CheckDigitCodabarEnable = 0xDE,       /* SEL - Check Digit Codabar Enable */
+    kHIDUsage_BCS_CheckDigitCode99Enable = 0xDF,        /* SEL - Check Digit Code 99 Enable */
+    /* Reserved 0xE0 - 0xEF */
+    kHIDUsage_BCS_TransmitCheckDigit = 0xF0,            /* NArry - Transmit Check Digit */
+    kHIDUsage_BCS_DisableCheckDigitTransmit = 0xF1,     /* SEL - Disable Check Digit Transmit */
+    kHIDUsage_BCS_EnableCheckDigitTransmit = 0xF2,      /* SEL - Enable Check Digit Transmit */
+    /* Reserved 0xF3 - 0xFA */
+    kHIDUsage_BCS_SymbologyIdentifier1 = 0xFB,          /* DV - Symbology Identifier 1 */
+    kHIDUsage_BCS_SymbologyIdentifier2 = 0xFC,          /* DV - Symbology Identifier 2 */
+    kHIDUsage_BCS_SymbologyIdentifier3 = 0xFD,          /* DV - Symbology Identifier 3 */
+    kHIDUsage_BCS_DecodedData = 0xFE,                   /* DV - Decoded Data */
+    kHIDUsage_BCS_DecodeDataContinued = 0xFF,           /* DF - Decode Data Continued */
+    kHIDUsage_BCS_BarSpaceData = 0x100,                 /* DV - Bar Space Data */
+    kHIDUsage_BCS_ScannerDataAccuracy = 0x101,          /* DV - Scanner Data Accuracy */
+    kHIDUsage_BCS_RawDataPolarity = 0x102,              /* NArry - Raw Data Polarity */
+    kHIDUsage_BCS_PolarityInvertedBarCode = 0x103,      /* SEL - Polarity Inverted Bar Code */
+    kHIDUsage_BCS_PolarityNormalBarCode = 0x103,        /* SEL - Polarity Normal Bar Code */
+    /* Reserved 0x105 */
+    kHIDUsage_BCS_MinimumLengthToDecode = 0x106,        /* DV - Minimum Length to Decode */
+    kHIDUsage_BCS_MaximumLengthToDecode = 0x107,        /* DV - Maximum Length to Decode */
+    kHIDUsage_BCS_FirstDiscreteLengthToDecode = 0x108,  /* DV - First Discrete Length to Decode */
+    kHIDUsage_BCS_SecondDiscreteLengthToDecode = 0x109, /* DV - Second Discrete Length to Decode */
+    kHIDUsage_BCS_DataLengthMethod = 0x10A,             /* NArry - Data Length Method */
+    kHIDUsage_BCS_DLMethodReadAny = 0x10B,              /* DF - DL Method Read any */
+    kHIDUsage_BCS_DLMethodCheckInRange = 0x10C,         /* DF - DL Method Check in Range */
+    kHIDUsage_BCS_DLMethodCheckForDiscrete = 0x10D,     /* DF - DL Method Check for Discrete */
+    /* Reserved 0x10E - 0x10F */
+    kHIDUsage_BCS_AztecCode = 0x110,                    /* DF - Aztec Code */
+    kHIDUsage_BCS_BC412 = 0x111,                        /* DF - BC412 */
+    kHIDUsage_BCS_ChannelCode = 0x112,                  /* DF - Channel Code */
+    kHIDUsage_BCS_Code16 = 0x113,                       /* DF - Code 16 */
+    kHIDUsage_BCS_Code32 = 0x114,                       /* DF - Code 32 */
+    kHIDUsage_BCS_Code49 = 0x115,                       /* DF - Code 49 */
+    kHIDUsage_BCS_CodeOne = 0x116,                      /* DF - Code One */
+    kHIDUsage_BCS_Colorcode = 0x117,                    /* DF - Colorcode */
+    kHIDUsage_BCS_DataMatrix = 0x118,                   /* DF - Data Matrix */
+    kHIDUsage_BCS_MaxiCode = 0x119,                     /* DF - MaxiCode */
+    kHIDUsage_BCS_MicroPDF = 0x11A,                     /* DF - MicroPDF */
+    kHIDUsage_BCS_PDF_417 = 0x11B,                      /* DF - PDF-417 */
+    kHIDUsage_BCS_PosiCode = 0x11C,                     /* DF - PosiCode */
+    kHIDUsage_BCS_QRCode = 0x11D,                       /* DF - QR Code */
+    kHIDUsage_BCS_SuperCode = 0x11E,                    /* DF - SuperCode */
+    kHIDUsage_BCS_UltraCode = 0x11F,                    /* DF - UltraCode */
+    kHIDUsage_BCS_USB_5_SlugCode = 0x120,               /* DF - USD-5 (Slug Code) */
+    kHIDUsage_BCS_VeriCode = 0x121                      /* DF - VeriCode */
+    /* Reserved 0x122 - 0xFFFF */
+};
+
+/* Weighing Devices Page (0x8D) */
+/* This section provides detailed descriptions of the usages employed by Weighing Devices. */
+enum
+{
+    kHIDUsage_WD_Undefined = 0x00,                      /* Weighing Device Undefined Usage */
+    kHIDUsage_WD_WeighingDevice = 0x01,                 /* CA - Weighing Device */
+    /* Reserved 0x02 - 0x1F */
+    kHIDUsage_WD_ScaleScaleDevice = 0x20,               /* CL - Scale Device */
+    kHIDUsage_WD_ScaleScaleClassIMetricCL = 0x21,       /* CL - Scale Class I Metric */
+    kHIDUsage_WD_ScaleScaleClassIMetric = 0x22,         /* SEL - Scale Class I Metric */
+    kHIDUsage_WD_ScaleScaleClassIIMetric = 0x23,        /* SEL - Scale Class II Metric */
+    kHIDUsage_WD_ScaleScaleClassIIIMetric = 0x24,       /* SEL - Scale Class III Metric */
+    kHIDUsage_WD_ScaleScaleClassIIILMetric = 0x25,      /* SEL - Scale Class IIIL Metric */
+    kHIDUsage_WD_ScaleScaleClassIVMetric = 0x26,        /* SEL - Scale Class IV Metric */
+    kHIDUsage_WD_ScaleScaleClassIIIEnglish = 0x27,      /* SEL - Scale Class III English */
+    kHIDUsage_WD_ScaleScaleClassIIILEnglish = 0x28,     /* SEL - Scale Class IIIL English */
+    kHIDUsage_WD_ScaleScaleClassIVEnglish = 0x29,       /* SEL - Scale Class IV English */
+    kHIDUsage_WD_ScaleScaleClassGeneric = 0x2A,         /* SEL - Scale Class Generic */
+    /* Reserved 0x2B - 0x2F */
+    kHIDUsage_WD_ScaleAtrributeReport = 0x30,           /* CL - Scale Attribute Report */
+    kHIDUsage_WD_ScaleControlReport = 0x31,             /* CL - Scale Control Report */
+    kHIDUsage_WD_ScaleDataReport = 0x32,                /* CL - Scale Data Report */
+    kHIDUsage_WD_ScaleStatusReport = 0x33,              /* CL - Scale Status Report */
+    kHIDUsage_WD_ScaleWeightLimitReport = 0x34,         /* CL - Scale Weight Limit Report */
+    kHIDUsage_WD_ScaleStatisticsReport = 0x35,          /* CL - Scale Statistics Report */
+    /* Reserved 0x36 - 0x3F */
+    kHIDUsage_WD_DataWeight = 0x40,                     /* DV - Data Weight */
+    kHIDUsage_WD_DataScaling = 0x41,                    /* DV - Data Scaling */
+    /* Reserved 0x42 - 0x4F */
+    kHIDUsage_WD_WeightUnit = 0x50,                     /* CL - Weight Unit */
+    kHIDUsage_WD_WeightUnitMilligram = 0x51,            /* SEL - Weight Unit Milligram */
+    kHIDUsage_WD_WeightUnitGram = 0x52,                 /* SEL - Weight Unit Gram */
+    kHIDUsage_WD_WeightUnitKilogram = 0x53,             /* SEL - Weight Unit Kilogram */
+    kHIDUsage_WD_WeightUnitCarats = 0x54,               /* SEL - Weight Unit Carats */
+    kHIDUsage_WD_WeightUnitTaels = 0x55,                /* SEL - Weight Unit Taels */
+    kHIDUsage_WD_WeightUnitGrains = 0x56,               /* SEL - Weight Unit Grains */
+    kHIDUsage_WD_WeightUnitPennyweights = 0x57,         /* SEL - Weight Unit Pennyweights */
+    kHIDUsage_WD_WeightUnitMetricTon = 0x58,            /* SEL - Weight Unit Metric Ton */
+    kHIDUsage_WD_WeightUnitAvoirTon = 0x59,             /* SEL - Weight Unit Avoir Ton */
+    kHIDUsage_WD_WeightUnitTroyOunce = 0x5A,            /* SEL - Weight Unit Troy Ounce */
+    kHIDUsage_WD_WeightUnitOunce = 0x5B,                /* SEL - Weight Unit Ounce */
+    kHIDUsage_WD_WeightUnitPound = 0x5C,                /* SEL - Weight Unit Pound */
+    /* Reserved 0x5D - 0x5F */
+    kHIDUsage_WD_CalibrationCount = 0x60,               /* DV - Calibration Count */
+    kHIDUsage_WD_RezeroCount = 0x61,                    /* DV - Re-Zero Count*/
+    /* Reserved 0x62 - 0x6F */
+    kHIDUsage_WD_ScaleStatus = 0x70,                    /* CL - Scale Status */
+    kHIDUsage_WD_ScaleStatusFault = 0x71,               /* SEL - Scale Status Fault */
+    kHIDUsage_WD_ScaleStatusStableAtZero = 0x72,        /* SEL - Scale Status Stable at Center of  Zero */
+    kHIDUsage_WD_ScaleStatusInMotion = 0x73,            /* SEL - Scale Status In Motion */
+    kHIDUsage_WD_ScaleStatusWeightStable = 0x74,        /* SEL - Scale Status Weight Stable */
+    kHIDUsage_WD_ScaleStatusUnderZero = 0x75,           /* SEL - Scale Status Under Zero */
+    kHIDUsage_WD_ScaleStatusOverWeightLimit = 0x76,     /* SEL - Scale Status Over Weight Limit */
+    kHIDUsage_WD_ScaleStatusRequiresCalibration = 0x77, /* SEL - Scale Status Requires Calibration */
+    kHIDUsage_WD_ScaleStatusRequiresRezeroing = 0x78,   /* SEL - Scale Status Requires Re-zeroing */
+    /* Reserved 0x79 - 0x7F */
+    kHIDUsage_WD_ZeroScale = 0x80,                      /* OOC - Zero Scale */
+    kHIDUsage_WD_EnforcedZeroReturn = 0x81              /* OOC - Enforced Zero Return */
+    /* Reserved 0x82 - 0xFFFF */
+    
+};
+
+/* Magnetic Stripe Reader Page (0x8E) */
+/* This section provides detailed descriptions of the usages employed by Magnetic Stripe Reader Devices. */
+enum 
+{
+    kHIDUsage_MSR_Undefined = 0x00,                     /* MagStripe Undefined Usage */
+    kHIDUsage_MSR_DeviceReadOnly = 0x01,                /* CA - MSR Device Read-Only */
+    /* Reserved 0x02 - 0x10 */
+    kHIDUsage_MSR_Track1Length = 0x11,                     /* SF, DF, SEL - Track 1 Length */
+    kHIDUsage_MSR_Track2Length = 0x12,                     /* SF, DF, SEL - Track 2 Length */
+    kHIDUsage_MSR_Track3Length = 0x13,                     /* SF, DF, SEL - Track 3 Length */
+    kHIDUsage_MSR_TrackJISLength = 0x14,                   /* SF, DF, SEL - Track JIS Length */
+    /* Reserved 0x15 - 0x1F */
+    kHIDUsage_MSR_TrackData = 0x20,                        /* SF, DF, SEL - Track Data */
+    kHIDUsage_MSR_Track1Data = 0x21,                       /* SF, DF, SEL - Track 1 Data */
+    kHIDUsage_MSR_Track2Data = 0x22,                       /* SF, DF, SEL - Track 2 Data */
+    kHIDUsage_MSR_Track3Data = 0x23,                       /* SF, DF, SEL - Track 3 Data */
+    kHIDUsage_MSR_TrackJISData = 0x24                      /* SF, DF, SEL - Track JIS Data */
+    /* Reserved 0x25 - 0xFFFF */
 };
 
 #endif /* _IOHIDUSAGETABLES_H */

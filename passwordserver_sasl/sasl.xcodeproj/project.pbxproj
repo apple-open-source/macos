@@ -1,0 +1,3840 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		60EA555E09D087EB00A534B4 /* TertiaryTargets */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 60EA556E09D0882B00A534B4 /* Build configuration list for PBXAggregateTarget "TertiaryTargets" */;
+			buildPhases = (
+			);
+			dependencies = (
+				60EA559009D08B7400A534B4 /* PBXTargetDependency */,
+				60EA556209D0881000A534B4 /* PBXTargetDependency */,
+				60EA556809D0881700A534B4 /* PBXTargetDependency */,
+				60EA556609D0881700A534B4 /* PBXTargetDependency */,
+				60EA556409D0881700A534B4 /* PBXTargetDependency */,
+			);
+			name = TertiaryTargets;
+			productName = TertiaryTargets;
+		};
+		77F5D6A00236D6A905DD284B /* ALL */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAD4EA1E09856D170066F8B3 /* Build configuration list for PBXAggregateTarget "ALL" */;
+			buildPhases = (
+			);
+			dependencies = (
+				AA89D27C0990316800BF77E7 /* PBXTargetDependency */,
+				AAC7505509912CA0008E0B59 /* PBXTargetDependency */,
+				60EA55B009D08E2100A534B4 /* PBXTargetDependency */,
+			);
+			name = ALL;
+			productName = ALL;
+		};
+		84F521060549A09A00E96C8F /* KerberosTargets */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAD4EA2A09856D170066F8B3 /* Build configuration list for PBXAggregateTarget "KerberosTargets" */;
+			buildPhases = (
+			);
+			dependencies = (
+				AAC7502009912A6E008E0B59 /* PBXTargetDependency */,
+				B0A0767F0C0CF99300B52312 /* PBXTargetDependency */,
+				B03A89930C0DE73D00AEEB0C /* PBXTargetDependency */,
+			);
+			name = KerberosTargets;
+			productName = KerberosTargets;
+		};
+		AAC7501609912A3C008E0B59 /* include */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAC7502409912A83008E0B59 /* Build configuration list for PBXAggregateTarget "include" */;
+			buildPhases = (
+				AAC7501509912A3C008E0B59 /* CopyFiles */,
+				AA04CA5609915C7E005B79BA /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = include;
+			productName = include;
+		};
+		AAC7503609912C24008E0B59 /* SecondaryTargets */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAC7505609912CBE008E0B59 /* Build configuration list for PBXAggregateTarget "SecondaryTargets" */;
+			buildPhases = (
+			);
+			dependencies = (
+				AAC7503B09912C50008E0B59 /* PBXTargetDependency */,
+				AAC7503909912C50008E0B59 /* PBXTargetDependency */,
+				AAC7504B09912C71008E0B59 /* PBXTargetDependency */,
+				AAC7504909912C71008E0B59 /* PBXTargetDependency */,
+				AAC7504709912C71008E0B59 /* PBXTargetDependency */,
+				AAC7504309912C71008E0B59 /* PBXTargetDependency */,
+				B00EECCE0C72199B0019B0CA /* PBXTargetDependency */,
+				AAC7504D09912C7D008E0B59 /* PBXTargetDependency */,
+				B020E42F0C39C5CB0053BA78 /* PBXTargetDependency */,
+			);
+			name = SecondaryTargets;
+			productName = KSecondaryTargets;
+		};
+		AAD4EA3509856D3D0066F8B3 /* manpages API */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = AAD4EA3D09856D6D0066F8B3 /* Build configuration list for PBXAggregateTarget "manpages API" */;
+			buildPhases = (
+				AAD4EA3409856D3D0066F8B3 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "manpages API";
+			productName = manpages;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		7733E71B0238197D05DD284B /* crammd5_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7120238197D05DD284B /* crammd5_init.c */; };
+		7733E723023819A505DD284B /* sasldb_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7180238197D05DD284B /* sasldb_init.c */; };
+		7733E724023819A805DD284B /* anonymous_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7110238197D05DD284B /* anonymous_init.c */; };
+		7733E725023819B905DD284B /* digestmd5_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7130238197D05DD284B /* digestmd5_init.c */; };
+		7733E726023819BB05DD284B /* login_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7150238197D05DD284B /* login_init.c */; };
+		7733E727023819C005DD284B /* otp_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7160238197D05DD284B /* otp_init.c */; };
+		7733E728023819C305DD284B /* plain_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7170238197D05DD284B /* plain_init.c */; };
+		7733E72B02381A8805DD284B /* liblogin.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7733E72902381A7F05DD284B /* liblogin.la */; };
+		777A3D87024BAC9305DD284B /* sasldb.h in Headers */ = {isa = PBXBuildFile; fileRef = 773841580236DD5105DD284B /* sasldb.h */; };
+		777A3D88024BAC9305DD284B /* db_ndbm.c in Sources */ = {isa = PBXBuildFile; fileRef = 773841530236DD5105DD284B /* db_ndbm.c */; };
+		777A3D89024BAC9405DD284B /* allockey.c in Sources */ = {isa = PBXBuildFile; fileRef = 773841500236DD5105DD284B /* allockey.c */; };
+		777A3D8A024BAC9405DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7BDD0236DDF705DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7BDE0236DDF705DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7BDF0236DDF905DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7BE00236DDFB05DD284B /* sasldb.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCD0236DDED05DD284B /* sasldb.c */; };
+		777E7BFF0236E3DB05DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C000236E3DD05DD284B /* anonymous.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BBE0236DDED05DD284B /* anonymous.c */; };
+		777E7C010236E3E005DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C020236E3E105DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C0B0236E43605DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C0C0236E43805DD284B /* cram.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BBF0236DDED05DD284B /* cram.c */; };
+		777E7C0D0236E43A05DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C0E0236E43A05DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C150236E47705DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C160236E47805DD284B /* digestmd5.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC00236DDED05DD284B /* digestmd5.c */; };
+		777E7C170236E47905DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C180236E47905DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C210236E57605DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C220236E57805DD284B /* login.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC40236DDED05DD284B /* login.c */; };
+		777E7C230236E57B05DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C240236E57B05DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C2C0236E5B805DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C2D0236E5BA05DD284B /* otp.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC80236DDED05DD284B /* otp.c */; };
+		777E7C2E0236E5BA05DD284B /* otp.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BC90236DDED05DD284B /* otp.h */; };
+		777E7C2F0236E5BC05DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C300236E5BC05DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C390236E66F05DD284B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		777E7C3A0236E66F05DD284B /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		777E7C3B0236E67505DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		777E7C3C0236E67605DD284B /* plain.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCA0236DDED05DD284B /* plain.c */; };
+		777E7C7E0236E73C05DD284B /* saslint.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7C6A0236E73C05DD284B /* saslint.h */; };
+		77853DF40236ED9905DD284B /* snprintf.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6E0236E73C05DD284B /* snprintf.c */; };
+		77853DF50236ED9905DD284B /* seterror.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6D0236E73C05DD284B /* seterror.c */; };
+		77853DF60236ED9A05DD284B /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6C0236E73C05DD284B /* server.c */; };
+		77853DF70236ED9B05DD284B /* saslutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C6B0236E73C05DD284B /* saslutil.c */; };
+		77853DF80236ED9B05DD284B /* saslint.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7C6A0236E73C05DD284B /* saslint.h */; };
+		77853DF90236ED9B05DD284B /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C690236E73C05DD284B /* md5.c */; };
+		77853DFC0236ED9E05DD284B /* config.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C610236E73C05DD284B /* config.c */; };
+		77853DFD0236ED9E05DD284B /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5F0236E73C05DD284B /* client.c */; };
+		77853DFE0236ED9E05DD284B /* common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C600236E73C05DD284B /* common.c */; };
+		77853DFF0236ED9F05DD284B /* checkpw.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5E0236E73C05DD284B /* checkpw.c */; };
+		77853E000236ED9F05DD284B /* canonusr.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5D0236E73C05DD284B /* canonusr.c */; };
+		77853E010236EDA005DD284B /* auxprop.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C5C0236E73C05DD284B /* auxprop.c */; };
+		77CB5EF80236F0A205DD284B /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = 777745CC0236DCA805DD284B /* config.h */; };
+		77D234490236F53205DD284B /* libsasldb.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234450236F4E905DD284B /* libsasldb.la */; };
+		77D2344B0236F54D05DD284B /* libanonymous.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234400236F4E905DD284B /* libanonymous.la */; };
+		77D2344D0236F56905DD284B /* libcrammd5.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234410236F4E905DD284B /* libcrammd5.la */; };
+		77D2344F0236F58305DD284B /* libdigestmd5.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234420236F4E905DD284B /* libdigestmd5.la */; };
+		77D234520236F5B805DD284B /* libotp.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234430236F4E905DD284B /* libotp.la */; };
+		77D234540236F5CD05DD284B /* libplain.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77D234440236F4E905DD284B /* libplain.la */; };
+		84118E800546FEAE00C5C0FC /* external.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C630236E73C05DD284B /* external.c */; };
+		84118E810546FEF200C5C0FC /* dlopen.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7C620236E73C05DD284B /* dlopen.c */; };
+		84118E840547012200C5C0FC /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = F56C514A029C0BA301DD284B /* plugin_common.c */; };
+		84118E850547012300C5C0FC /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = F56C514B029C0BA301DD284B /* plugin_common.h */; };
+		84DECA0C054847E400C45D20 /* ntlm_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 84DECA08054847E400C45D20 /* ntlm_init.c */; };
+		84DECA0D054847E400C45D20 /* ntlm.c in Sources */ = {isa = PBXBuildFile; fileRef = 84DECA09054847E400C45D20 /* ntlm.c */; };
+		84DECA100548480000C45D20 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		84DECA110548480100C45D20 /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		84DECA120548480300C45D20 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		84DECA130548480400C45D20 /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		84DECA4305484A1500C45D20 /* libmysqlclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84DECA4205484A1500C45D20 /* libmysqlclient.a */; };
+		84DECA9D05484F6B00C45D20 /* libntlm.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84DECA9C05484F6A00C45D20 /* libntlm.la */; };
+		AA04CA5809915CAF005B79BA /* gai.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A710236D84505DD284B /* gai.h */; };
+		AA04CA5909915CAF005B79BA /* hmac-md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A720236D84505DD284B /* hmac-md5.h */; };
+		AA04CA5B09915CAF005B79BA /* md5global.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 777745B10236D8FA05DD284B /* md5global.h */; };
+		AA04CA5C09915CAF005B79BA /* md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A760236D84505DD284B /* md5.h */; };
+		AA04CA5D09915CAF005B79BA /* prop.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A780236D84505DD284B /* prop.h */; };
+		AA04CA5E09915CAF005B79BA /* sasl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A790236D84505DD284B /* sasl.h */; };
+		AA04CA5F09915CAF005B79BA /* saslplug.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7A0236D84505DD284B /* saslplug.h */; };
+		AA04CA6009915CAF005B79BA /* saslutil.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7B0236D84505DD284B /* saslutil.h */; };
+		AA1647400793105B0045A1BC /* passwordserver_sasl.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA16473207930EF20045A1BC /* passwordserver_sasl.plist */; };
+		AA1FB857074A76D400911FCE /* sasl-lib.exp in Sources */ = {isa = PBXBuildFile; fileRef = AA1FB856074A76D400911FCE /* sasl-lib.exp */; };
+		AA41DCFB0985A99100B1E222 /* auth_dce.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCB50985A99100B1E222 /* auth_dce.c */; };
+		AA41DCFC0985A99100B1E222 /* auth_getpwent.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCB70985A99100B1E222 /* auth_getpwent.c */; };
+		AA41DCFD0985A99100B1E222 /* auth_krb4.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCB90985A99100B1E222 /* auth_krb4.c */; };
+		AA41DCFE0985A99100B1E222 /* auth_krb5.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCBB0985A99100B1E222 /* auth_krb5.c */; };
+		AA41DCFF0985A99100B1E222 /* auth_ldap.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCBD0985A99100B1E222 /* auth_ldap.c */; };
+		AA41DD000985A99100B1E222 /* auth_pam.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCBF0985A99100B1E222 /* auth_pam.c */; };
+		AA41DD010985A99100B1E222 /* auth_rimap.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCC10985A99100B1E222 /* auth_rimap.c */; };
+		AA41DD020985A99100B1E222 /* auth_sasldb.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCC30985A99100B1E222 /* auth_sasldb.c */; };
+		AA41DD030985A99100B1E222 /* auth_shadow.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCC50985A99100B1E222 /* auth_shadow.c */; };
+		AA41DD040985A99100B1E222 /* auth_sia.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCC70985A99100B1E222 /* auth_sia.c */; };
+		AA41DD050985A99100B1E222 /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCCA0985A99100B1E222 /* cache.c */; };
+		AA41DD060985A99100B1E222 /* cfile.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCCC0985A99100B1E222 /* cfile.c */; };
+		AA41DD090985A99100B1E222 /* ipc_doors.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCE10985A99100B1E222 /* ipc_doors.c */; };
+		AA41DD0A0985A99100B1E222 /* ipc_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCE20985A99100B1E222 /* ipc_unix.c */; };
+		AA41DD0B0985A99100B1E222 /* krbtf.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCE30985A99100B1E222 /* krbtf.c */; };
+		AA41DD0C0985A99100B1E222 /* lak.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCE50985A99100B1E222 /* lak.c */; };
+		AA41DD0D0985A99100B1E222 /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCEA0985A99100B1E222 /* md5.c */; };
+		AA41DD0E0985A99100B1E222 /* mechanisms.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCEC0985A99100B1E222 /* mechanisms.c */; };
+		AA41DD0F0985A99100B1E222 /* saslauthd-main.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCF00985A99100B1E222 /* saslauthd-main.c */; };
+		AA41DD120985A99100B1E222 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DCF90985A99100B1E222 /* utils.c */; };
+		AA41DD930985B66C00B1E222 /* saslpasswd.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DD7D0985B58300B1E222 /* saslpasswd.c */; };
+		AA41DD940985B67400B1E222 /* sasldblistusers.c in Sources */ = {isa = PBXBuildFile; fileRef = AA41DD7B0985B58300B1E222 /* sasldblistusers.c */; };
+		AA55533A06A30BBB00E276FD /* libsql.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA55533906A30BBB00E276FD /* libsql.la */; };
+		AA66F7FC09DA044E00FF2692 /* saslauthd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA41DCF20985A99100B1E222 /* saslauthd.8 */; };
+		AA66F7FF09DA047300FF2692 /* saslpasswd2.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA41DD7E0985B58300B1E222 /* saslpasswd2.8 */; };
+		AA66F80209DA048F00FF2692 /* sasldblistusers2.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA41DD7C0985B58300B1E222 /* sasldblistusers2.8 */; };
+		AA687F940A6C36C80095EF75 /* libkrb5.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F930A6C36C80095EF75 /* libkrb5.dylib */; };
+		AA687F980A6C37610095EF75 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
+		AA687F9D0A6C38040095EF75 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
+		AA687FA40A6C383E0095EF75 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F970A6C37610095EF75 /* libsasl2.dylib */; };
+		AA687FAA0A6C39750095EF75 /* libsasldb.a in Frameworks */ = {isa = PBXBuildFile; fileRef = BA9D61E407A9C09100255A4E /* libsasldb.a */; };
+		AAC7501709912A68008E0B59 /* gai.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A710236D84505DD284B /* gai.h */; };
+		AAC7501809912A68008E0B59 /* hmac-md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A720236D84505DD284B /* hmac-md5.h */; };
+		AAC7501909912A68008E0B59 /* md5global.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 777745B10236D8FA05DD284B /* md5global.h */; };
+		AAC7501A09912A68008E0B59 /* md5.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A760236D84505DD284B /* md5.h */; };
+		AAC7501B09912A68008E0B59 /* prop.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A780236D84505DD284B /* prop.h */; };
+		AAC7501C09912A68008E0B59 /* sasl.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A790236D84505DD284B /* sasl.h */; };
+		AAC7501D09912A68008E0B59 /* saslplug.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7A0236D84505DD284B /* saslplug.h */; };
+		AAC7501E09912A68008E0B59 /* saslutil.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 77753A7B0236D84505DD284B /* saslutil.h */; };
+		AAD4EA7309856D7D0066F8B3 /* sasl.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4509856D7D0066F8B3 /* sasl.3 */; };
+		AAD4EA7409856D7D0066F8B3 /* sasl_authorize_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4609856D7D0066F8B3 /* sasl_authorize_t.3 */; };
+		AAD4EA7509856D7D0066F8B3 /* sasl_auxprop.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4709856D7D0066F8B3 /* sasl_auxprop.3 */; };
+		AAD4EA7609856D7D0066F8B3 /* sasl_auxprop_getctx.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4809856D7D0066F8B3 /* sasl_auxprop_getctx.3 */; };
+		AAD4EA7709856D7D0066F8B3 /* sasl_auxprop_request.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4909856D7D0066F8B3 /* sasl_auxprop_request.3 */; };
+		AAD4EA7809856D7D0066F8B3 /* sasl_callbacks.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4A09856D7D0066F8B3 /* sasl_callbacks.3 */; };
+		AAD4EA7909856D7D0066F8B3 /* sasl_canon_user_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4B09856D7D0066F8B3 /* sasl_canon_user_t.3 */; };
+		AAD4EA7A09856D7D0066F8B3 /* sasl_chalprompt_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4C09856D7D0066F8B3 /* sasl_chalprompt_t.3 */; };
+		AAD4EA7B09856D7D0066F8B3 /* sasl_checkapop.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4D09856D7D0066F8B3 /* sasl_checkapop.3 */; };
+		AAD4EA7C09856D7D0066F8B3 /* sasl_checkpass.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4E09856D7D0066F8B3 /* sasl_checkpass.3 */; };
+		AAD4EA7D09856D7D0066F8B3 /* sasl_client_init.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA4F09856D7D0066F8B3 /* sasl_client_init.3 */; };
+		AAD4EA7E09856D7D0066F8B3 /* sasl_client_new.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5009856D7D0066F8B3 /* sasl_client_new.3 */; };
+		AAD4EA7F09856D7D0066F8B3 /* sasl_client_start.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5109856D7D0066F8B3 /* sasl_client_start.3 */; };
+		AAD4EA8009856D7D0066F8B3 /* sasl_client_step.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5209856D7D0066F8B3 /* sasl_client_step.3 */; };
+		AAD4EA8109856D7D0066F8B3 /* sasl_decode.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5309856D7D0066F8B3 /* sasl_decode.3 */; };
+		AAD4EA8209856D7D0066F8B3 /* sasl_dispose.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5409856D7D0066F8B3 /* sasl_dispose.3 */; };
+		AAD4EA8309856D7D0066F8B3 /* sasl_done.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5509856D7D0066F8B3 /* sasl_done.3 */; };
+		AAD4EA8409856D7D0066F8B3 /* sasl_encode.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5609856D7D0066F8B3 /* sasl_encode.3 */; };
+		AAD4EA8509856D7D0066F8B3 /* sasl_encodev.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5709856D7D0066F8B3 /* sasl_encodev.3 */; };
+		AAD4EA8609856D7D0066F8B3 /* sasl_errdetail.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5809856D7D0066F8B3 /* sasl_errdetail.3 */; };
+		AAD4EA8709856D7D0066F8B3 /* sasl_errors.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5909856D7D0066F8B3 /* sasl_errors.3 */; };
+		AAD4EA8809856D7D0066F8B3 /* sasl_errstring.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5A09856D7D0066F8B3 /* sasl_errstring.3 */; };
+		AAD4EA8909856D7D0066F8B3 /* sasl_getopt_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5B09856D7D0066F8B3 /* sasl_getopt_t.3 */; };
+		AAD4EA8A09856D7D0066F8B3 /* sasl_getpath_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5C09856D7D0066F8B3 /* sasl_getpath_t.3 */; };
+		AAD4EA8B09856D7D0066F8B3 /* sasl_getprop.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5D09856D7D0066F8B3 /* sasl_getprop.3 */; };
+		AAD4EA8C09856D7D0066F8B3 /* sasl_getrealm_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5E09856D7D0066F8B3 /* sasl_getrealm_t.3 */; };
+		AAD4EA8D09856D7D0066F8B3 /* sasl_getsecret_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA5F09856D7D0066F8B3 /* sasl_getsecret_t.3 */; };
+		AAD4EA8E09856D7D0066F8B3 /* sasl_getsimple_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6009856D7D0066F8B3 /* sasl_getsimple_t.3 */; };
+		AAD4EA8F09856D7D0066F8B3 /* sasl_global_listmech.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6109856D7D0066F8B3 /* sasl_global_listmech.3 */; };
+		AAD4EA9009856D7D0066F8B3 /* sasl_idle.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6209856D7D0066F8B3 /* sasl_idle.3 */; };
+		AAD4EA9109856D7D0066F8B3 /* sasl_listmech.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6309856D7D0066F8B3 /* sasl_listmech.3 */; };
+		AAD4EA9209856D7D0066F8B3 /* sasl_log_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6409856D7D0066F8B3 /* sasl_log_t.3 */; };
+		AAD4EA9309856D7D0066F8B3 /* sasl_server_init.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6509856D7D0066F8B3 /* sasl_server_init.3 */; };
+		AAD4EA9409856D7D0066F8B3 /* sasl_server_new.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6609856D7D0066F8B3 /* sasl_server_new.3 */; };
+		AAD4EA9509856D7D0066F8B3 /* sasl_server_start.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6709856D7D0066F8B3 /* sasl_server_start.3 */; };
+		AAD4EA9609856D7D0066F8B3 /* sasl_server_step.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6809856D7D0066F8B3 /* sasl_server_step.3 */; };
+		AAD4EA9809856D7D0066F8B3 /* sasl_server_userdb_checkpass_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6A09856D7D0066F8B3 /* sasl_server_userdb_checkpass_t.3 */; };
+		AAD4EA9909856D7D0066F8B3 /* sasl_server_userdb_setpass_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6B09856D7D0066F8B3 /* sasl_server_userdb_setpass_t.3 */; };
+		AAD4EA9A09856D7D0066F8B3 /* sasl_setpass.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6C09856D7D0066F8B3 /* sasl_setpass.3 */; };
+		AAD4EA9B09856D7D0066F8B3 /* sasl_setprop.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6D09856D7D0066F8B3 /* sasl_setprop.3 */; };
+		AAD4EA9C09856D7D0066F8B3 /* sasl_user_exists.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6E09856D7D0066F8B3 /* sasl_user_exists.3 */; };
+		AAD4EA9D09856D7D0066F8B3 /* sasl_verifyfile_t.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AAD4EA6F09856D7D0066F8B3 /* sasl_verifyfile_t.3 */; };
+		AAEEF082085A050B0092A3E1 /* sql_init.c in Sources */ = {isa = PBXBuildFile; fileRef = AAEEF080085A050B0092A3E1 /* sql_init.c */; };
+		AAEEF083085A050B0092A3E1 /* sql.c in Sources */ = {isa = PBXBuildFile; fileRef = AAEEF081085A050B0092A3E1 /* sql.c */; };
+		B03A89830C0DE6B100AEEB0C /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		B03A89840C0DE6BD00AEEB0C /* kerberos4.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC20236DDED05DD284B /* kerberos4.c */; };
+		B03A89850C0DE6BD00AEEB0C /* kerberos4_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC30236DDED05DD284B /* kerberos4_init.c */; };
+		B03A89860C0DE6BD00AEEB0C /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		B03A89870C0DE6C200AEEB0C /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B0A0768F0C0CFCA600B52312 /* Kerberos.framework */; };
+		B03A898B0C0DE6E200AEEB0C /* libkerberos4.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 84C0502D0549A8A1005DCF0F /* libkerberos4.la */; };
+		B04526AD0C0CD49500DB127B /* gssapi.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BC10236DDED05DD284B /* gssapi.c */; };
+		B04526AE0C0CD49500DB127B /* gssapiv2_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7140238197D05DD284B /* gssapiv2_init.c */; };
+		B04526AF0C0CD49500DB127B /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
+		B04526B30C0CD4C800DB127B /* libgssapiv2.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 8481F5A605472DC500B2B3B0 /* libgssapiv2.la */; };
+		B08039AA0C0CD51E00FDCB2A /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
+		B08039BC0C0CD5FA00FDCB2A /* libkrb5.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AA687F930A6C36C80095EF75 /* libkrb5.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		60EA556109D0881000A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 77F5D6B80236D6E205DD284B;
+			remoteInfo = plugin_sasldb;
+		};
+		60EA556309D0881700A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA41DD8C0985B62F00B1E222;
+			remoteInfo = sasldblistusers2;
+		};
+		60EA556509D0881700A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AA41DD4D0985B53600B1E222;
+			remoteInfo = saslpasswd2;
+		};
+		60EA556709D0881700A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAD4EAFD0985A2B20066F8B3;
+			remoteInfo = saslauthd;
+		};
+		60EA558F09D08B7400A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777A3D81024BAC7C05DD284B;
+			remoteInfo = sasldb;
+		};
+		60EA55AF09D08E2100A534B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 60EA555E09D087EB00A534B4;
+			remoteInfo = TertiaryTargets;
+		};
+		AA687FA60A6C39290095EF75 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777A3D81024BAC7C05DD284B;
+			remoteInfo = sasldb;
+		};
+		AA89D27B0990316800BF77E7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84F521060549A09A00E96C8F;
+			remoteInfo = KerberosTargets;
+		};
+		AAC7501F09912A6E008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAC7501609912A3C008E0B59;
+			remoteInfo = include;
+		};
+		AAC7503809912C50008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAD4EA3509856D3D0066F8B3;
+			remoteInfo = "manpages API";
+		};
+		AAC7503A09912C50008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C8A0236E74C05DD284B;
+			remoteInfo = lib;
+		};
+		AAC7504209912C71008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C360236E66305DD284B;
+			remoteInfo = plugin_plain;
+		};
+		AAC7504609912C71008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C130236E47005DD284B;
+			remoteInfo = plugin_digest;
+		};
+		AAC7504809912C71008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C080236E43005DD284B;
+			remoteInfo = plugin_cram;
+		};
+		AAC7504A09912C71008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7BFD0236E3D505DD284B;
+			remoteInfo = plugin_anonymous;
+		};
+		AAC7504C09912C7D008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 84C9863C054846870094A32F;
+			remoteInfo = plugin_mysql;
+		};
+		AAC7505409912CA0008E0B59 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAC7503609912C24008E0B59;
+			remoteInfo = SecondaryTargets;
+		};
+		B00EECCD0C72199B0019B0CA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C1E0236E56505DD284B /* plugin_login */;
+			remoteInfo = plugin_login;
+		};
+		B020E42E0C39C5CB0053BA78 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 777E7C290236E5AF05DD284B;
+			remoteInfo = plugin_otp;
+		};
+		B03A89920C0DE73D00AEEB0C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B03A89790C0DE60C00AEEB0C;
+			remoteInfo = plugin_kerberos4;
+		};
+		B0A0767E0C0CF99300B52312 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B045269F0C0CD3E200DB127B;
+			remoteInfo = plugin_gssapi;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		77D234480236F51E05DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 12;
+			dstPath = /usr/lib/sasl2/disabled;
+			dstSubfolderSpec = 0;
+			files = (
+				77D234490236F53205DD284B /* libsasldb.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77D2344A0236F54205DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				77D2344B0236F54D05DD284B /* libanonymous.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		77D2344C0236F55E05DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				77D2344D0236F56905DD284B /* libcrammd5.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		77D2344E0236F57505DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				77D2344F0236F58305DD284B /* libdigestmd5.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		77D234500236F59005DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				7733E72B02381A8805DD284B /* liblogin.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		77D234510236F5AE05DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				77D234520236F5B805DD284B /* libotp.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		77D234530236F5C205DD284B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				77D234540236F5CD05DD284B /* libplain.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		84DECA250548488A00C45D20 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				84DECA9D05484F6B00C45D20 /* libntlm.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84DECA28054848B000C45D20 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2/disabled;
+			dstSubfolderSpec = 0;
+			files = (
+				AA55533A06A30BBB00E276FD /* libsql.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA04CA5609915C7E005B79BA /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Developer/Headers/sasl;
+			dstSubfolderSpec = 0;
+			files = (
+				AAC7501709912A68008E0B59 /* gai.h in CopyFiles */,
+				AAC7501809912A68008E0B59 /* hmac-md5.h in CopyFiles */,
+				AAC7501909912A68008E0B59 /* md5global.h in CopyFiles */,
+				AAC7501A09912A68008E0B59 /* md5.h in CopyFiles */,
+				AAC7501B09912A68008E0B59 /* prop.h in CopyFiles */,
+				AAC7501C09912A68008E0B59 /* sasl.h in CopyFiles */,
+				AAC7501D09912A68008E0B59 /* saslplug.h in CopyFiles */,
+				AAC7501E09912A68008E0B59 /* saslutil.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA16473D079310020045A1BC /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				AA1647400793105B0045A1BC /* passwordserver_sasl.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA66F7FA09DA042900FF2692 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				AA66F7FC09DA044E00FF2692 /* saslauthd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA66F7FD09DA046100FF2692 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				AA66F7FF09DA047300FF2692 /* saslpasswd2.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AA66F80009DA047E00FF2692 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				AA66F80209DA048F00FF2692 /* sasldblistusers2.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AAC7501509912A3C008E0B59 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/include/sasl;
+			dstSubfolderSpec = 0;
+			files = (
+				AA04CA5809915CAF005B79BA /* gai.h in CopyFiles */,
+				AA04CA5909915CAF005B79BA /* hmac-md5.h in CopyFiles */,
+				AA04CA5B09915CAF005B79BA /* md5global.h in CopyFiles */,
+				AA04CA5C09915CAF005B79BA /* md5.h in CopyFiles */,
+				AA04CA5D09915CAF005B79BA /* prop.h in CopyFiles */,
+				AA04CA5E09915CAF005B79BA /* sasl.h in CopyFiles */,
+				AA04CA5F09915CAF005B79BA /* saslplug.h in CopyFiles */,
+				AA04CA6009915CAF005B79BA /* saslutil.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AAD4EA3409856D3D0066F8B3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man3;
+			dstSubfolderSpec = 0;
+			files = (
+				AAD4EA7309856D7D0066F8B3 /* sasl.3 in CopyFiles */,
+				AAD4EA7409856D7D0066F8B3 /* sasl_authorize_t.3 in CopyFiles */,
+				AAD4EA7509856D7D0066F8B3 /* sasl_auxprop.3 in CopyFiles */,
+				AAD4EA7609856D7D0066F8B3 /* sasl_auxprop_getctx.3 in CopyFiles */,
+				AAD4EA7709856D7D0066F8B3 /* sasl_auxprop_request.3 in CopyFiles */,
+				AAD4EA7809856D7D0066F8B3 /* sasl_callbacks.3 in CopyFiles */,
+				AAD4EA7909856D7D0066F8B3 /* sasl_canon_user_t.3 in CopyFiles */,
+				AAD4EA7A09856D7D0066F8B3 /* sasl_chalprompt_t.3 in CopyFiles */,
+				AAD4EA7B09856D7D0066F8B3 /* sasl_checkapop.3 in CopyFiles */,
+				AAD4EA7C09856D7D0066F8B3 /* sasl_checkpass.3 in CopyFiles */,
+				AAD4EA7D09856D7D0066F8B3 /* sasl_client_init.3 in CopyFiles */,
+				AAD4EA7E09856D7D0066F8B3 /* sasl_client_new.3 in CopyFiles */,
+				AAD4EA7F09856D7D0066F8B3 /* sasl_client_start.3 in CopyFiles */,
+				AAD4EA8009856D7D0066F8B3 /* sasl_client_step.3 in CopyFiles */,
+				AAD4EA8109856D7D0066F8B3 /* sasl_decode.3 in CopyFiles */,
+				AAD4EA8209856D7D0066F8B3 /* sasl_dispose.3 in CopyFiles */,
+				AAD4EA8309856D7D0066F8B3 /* sasl_done.3 in CopyFiles */,
+				AAD4EA8409856D7D0066F8B3 /* sasl_encode.3 in CopyFiles */,
+				AAD4EA8509856D7D0066F8B3 /* sasl_encodev.3 in CopyFiles */,
+				AAD4EA8609856D7D0066F8B3 /* sasl_errdetail.3 in CopyFiles */,
+				AAD4EA8709856D7D0066F8B3 /* sasl_errors.3 in CopyFiles */,
+				AAD4EA8809856D7D0066F8B3 /* sasl_errstring.3 in CopyFiles */,
+				AAD4EA8909856D7D0066F8B3 /* sasl_getopt_t.3 in CopyFiles */,
+				AAD4EA8A09856D7D0066F8B3 /* sasl_getpath_t.3 in CopyFiles */,
+				AAD4EA8B09856D7D0066F8B3 /* sasl_getprop.3 in CopyFiles */,
+				AAD4EA8C09856D7D0066F8B3 /* sasl_getrealm_t.3 in CopyFiles */,
+				AAD4EA8D09856D7D0066F8B3 /* sasl_getsecret_t.3 in CopyFiles */,
+				AAD4EA8E09856D7D0066F8B3 /* sasl_getsimple_t.3 in CopyFiles */,
+				AAD4EA8F09856D7D0066F8B3 /* sasl_global_listmech.3 in CopyFiles */,
+				AAD4EA9009856D7D0066F8B3 /* sasl_idle.3 in CopyFiles */,
+				AAD4EA9109856D7D0066F8B3 /* sasl_listmech.3 in CopyFiles */,
+				AAD4EA9209856D7D0066F8B3 /* sasl_log_t.3 in CopyFiles */,
+				AAD4EA9309856D7D0066F8B3 /* sasl_server_init.3 in CopyFiles */,
+				AAD4EA9409856D7D0066F8B3 /* sasl_server_new.3 in CopyFiles */,
+				AAD4EA9509856D7D0066F8B3 /* sasl_server_start.3 in CopyFiles */,
+				AAD4EA9609856D7D0066F8B3 /* sasl_server_step.3 in CopyFiles */,
+				AAD4EA9809856D7D0066F8B3 /* sasl_server_userdb_checkpass_t.3 in CopyFiles */,
+				AAD4EA9909856D7D0066F8B3 /* sasl_server_userdb_setpass_t.3 in CopyFiles */,
+				AAD4EA9A09856D7D0066F8B3 /* sasl_setpass.3 in CopyFiles */,
+				AAD4EA9B09856D7D0066F8B3 /* sasl_setprop.3 in CopyFiles */,
+				AAD4EA9C09856D7D0066F8B3 /* sasl_user_exists.3 in CopyFiles */,
+				AAD4EA9D09856D7D0066F8B3 /* sasl_verifyfile_t.3 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B03A898C0C0DE71200AEEB0C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2/disabled;
+			dstSubfolderSpec = 0;
+			files = (
+				B03A898B0C0DE6E200AEEB0C /* libkerberos4.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		B04526C50C0CD4F000DB127B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/lib/sasl2;
+			dstSubfolderSpec = 0;
+			files = (
+				B04526B30C0CD4C800DB127B /* libgssapiv2.la in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		7733E7110238197D05DD284B /* anonymous_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = anonymous_init.c; sourceTree = "<group>"; };
+		7733E7120238197D05DD284B /* crammd5_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = crammd5_init.c; sourceTree = "<group>"; };
+		7733E7130238197D05DD284B /* digestmd5_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = digestmd5_init.c; sourceTree = "<group>"; };
+		7733E7140238197D05DD284B /* gssapiv2_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = gssapiv2_init.c; sourceTree = "<group>"; };
+		7733E7150238197D05DD284B /* login_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = login_init.c; sourceTree = "<group>"; };
+		7733E7160238197D05DD284B /* otp_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = otp_init.c; sourceTree = "<group>"; };
+		7733E7170238197D05DD284B /* plain_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = plain_init.c; sourceTree = "<group>"; };
+		7733E7180238197D05DD284B /* sasldb_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sasldb_init.c; sourceTree = "<group>"; };
+		7733E7190238197D05DD284B /* srp_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = srp_init.c; sourceTree = "<group>"; };
+		7733E72902381A7F05DD284B /* liblogin.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = liblogin.la; sourceTree = "<group>"; };
+		773841500236DD5105DD284B /* allockey.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = allockey.c; sourceTree = "<group>"; };
+		773841530236DD5105DD284B /* db_ndbm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = db_ndbm.c; sourceTree = "<group>"; };
+		773841580236DD5105DD284B /* sasldb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sasldb.h; sourceTree = "<group>"; };
+		77753A710236D84505DD284B /* gai.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = gai.h; sourceTree = "<group>"; };
+		77753A720236D84505DD284B /* hmac-md5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = "hmac-md5.h"; sourceTree = "<group>"; };
+		77753A750236D84505DD284B /* makemd5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = makemd5.c; sourceTree = "<group>"; };
+		77753A760236D84505DD284B /* md5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = md5.h; sourceTree = "<group>"; };
+		77753A780236D84505DD284B /* prop.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = prop.h; sourceTree = "<group>"; };
+		77753A790236D84505DD284B /* sasl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = sasl.h; sourceTree = "<group>"; };
+		77753A7A0236D84505DD284B /* saslplug.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = saslplug.h; sourceTree = "<group>"; };
+		77753A7B0236D84505DD284B /* saslutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = saslutil.h; sourceTree = "<group>"; };
+		777745B10236D8FA05DD284B /* md5global.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = md5global.h; sourceTree = "<group>"; };
+		777745CC0236DCA805DD284B /* config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = config.h; path = cyrus_sasl/config.h; sourceTree = "<group>"; };
+		777E7BBE0236DDED05DD284B /* anonymous.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = anonymous.c; sourceTree = "<group>"; };
+		777E7BBF0236DDED05DD284B /* cram.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = cram.c; sourceTree = "<group>"; };
+		777E7BC00236DDED05DD284B /* digestmd5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = digestmd5.c; sourceTree = "<group>"; };
+		777E7BC10236DDED05DD284B /* gssapi.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = gssapi.c; sourceTree = "<group>"; };
+		777E7BC20236DDED05DD284B /* kerberos4.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kerberos4.c; sourceTree = "<group>"; };
+		777E7BC30236DDED05DD284B /* kerberos4_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = kerberos4_init.c; sourceTree = "<group>"; };
+		777E7BC40236DDED05DD284B /* login.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = login.c; sourceTree = "<group>"; };
+		777E7BC80236DDED05DD284B /* otp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = otp.c; sourceTree = "<group>"; };
+		777E7BC90236DDED05DD284B /* otp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = otp.h; sourceTree = "<group>"; };
+		777E7BCA0236DDED05DD284B /* plain.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = plain.c; sourceTree = "<group>"; };
+		777E7BCB0236DDED05DD284B /* plugin_common.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = plugin_common.c; sourceTree = "<group>"; };
+		777E7BCC0236DDED05DD284B /* plugin_common.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = plugin_common.h; sourceTree = "<group>"; };
+		777E7BCD0236DDED05DD284B /* sasldb.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sasldb.c; sourceTree = "<group>"; };
+		777E7BCE0236DDED05DD284B /* srp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = srp.c; sourceTree = "<group>"; };
+		777E7C5C0236E73C05DD284B /* auxprop.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = auxprop.c; sourceTree = "<group>"; };
+		777E7C5D0236E73C05DD284B /* canonusr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = canonusr.c; sourceTree = "<group>"; };
+		777E7C5E0236E73C05DD284B /* checkpw.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = checkpw.c; sourceTree = "<group>"; };
+		777E7C5F0236E73C05DD284B /* client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = client.c; sourceTree = "<group>"; };
+		777E7C600236E73C05DD284B /* common.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = common.c; sourceTree = "<group>"; };
+		777E7C610236E73C05DD284B /* config.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = config.c; sourceTree = "<group>"; };
+		777E7C620236E73C05DD284B /* dlopen.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dlopen.c; sourceTree = "<group>"; };
+		777E7C630236E73C05DD284B /* external.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = external.c; sourceTree = "<group>"; };
+		777E7C660236E73C05DD284B /* getsubopt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = getsubopt.c; sourceTree = "<group>"; };
+		777E7C690236E73C05DD284B /* md5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = md5.c; sourceTree = "<group>"; };
+		777E7C6A0236E73C05DD284B /* saslint.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = saslint.h; sourceTree = "<group>"; };
+		777E7C6B0236E73C05DD284B /* saslutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = saslutil.c; sourceTree = "<group>"; };
+		777E7C6C0236E73C05DD284B /* server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = server.c; sourceTree = "<group>"; };
+		777E7C6D0236E73C05DD284B /* seterror.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = seterror.c; sourceTree = "<group>"; };
+		777E7C6E0236E73C05DD284B /* snprintf.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = snprintf.c; sourceTree = "<group>"; };
+		77D234400236F4E905DD284B /* libanonymous.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libanonymous.la; sourceTree = "<group>"; };
+		77D234410236F4E905DD284B /* libcrammd5.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libcrammd5.la; sourceTree = "<group>"; };
+		77D234420236F4E905DD284B /* libdigestmd5.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libdigestmd5.la; sourceTree = "<group>"; };
+		77D234430236F4E905DD284B /* libotp.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libotp.la; sourceTree = "<group>"; };
+		77D234440236F4E905DD284B /* libplain.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libplain.la; sourceTree = "<group>"; };
+		77D234450236F4E905DD284B /* libsasldb.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libsasldb.la; sourceTree = "<group>"; };
+		8481F5A605472DC500B2B3B0 /* libgssapiv2.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libgssapiv2.la; sourceTree = "<group>"; };
+		84C0502D0549A8A1005DCF0F /* libkerberos4.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libkerberos4.la; sourceTree = "<group>"; };
+		84DECA08054847E400C45D20 /* ntlm_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ntlm_init.c; sourceTree = "<group>"; };
+		84DECA09054847E400C45D20 /* ntlm.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = ntlm.c; sourceTree = "<group>"; };
+		84DECA4205484A1500C45D20 /* libmysqlclient.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmysqlclient.a; path = /usr/lib/mysql/libmysqlclient.a; sourceTree = "<absolute>"; };
+		84DECA9C05484F6A00C45D20 /* libntlm.la */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = libntlm.la; sourceTree = "<group>"; };
+		AA16473207930EF20045A1BC /* passwordserver_sasl.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; path = passwordserver_sasl.plist; sourceTree = SOURCE_ROOT; };
+		AA1FB856074A76D400911FCE /* sasl-lib.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = "sasl-lib.exp"; sourceTree = "<group>"; };
+		AA41DCB40985A99100B1E222 /* aclocal.m4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = aclocal.m4; sourceTree = "<group>"; };
+		AA41DCB50985A99100B1E222 /* auth_dce.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_dce.c; sourceTree = "<group>"; };
+		AA41DCB60985A99100B1E222 /* auth_dce.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_dce.h; sourceTree = "<group>"; };
+		AA41DCB70985A99100B1E222 /* auth_getpwent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_getpwent.c; sourceTree = "<group>"; };
+		AA41DCB80985A99100B1E222 /* auth_getpwent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_getpwent.h; sourceTree = "<group>"; };
+		AA41DCB90985A99100B1E222 /* auth_krb4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_krb4.c; sourceTree = "<group>"; };
+		AA41DCBA0985A99100B1E222 /* auth_krb4.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_krb4.h; sourceTree = "<group>"; };
+		AA41DCBB0985A99100B1E222 /* auth_krb5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_krb5.c; sourceTree = "<group>"; };
+		AA41DCBC0985A99100B1E222 /* auth_krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_krb5.h; sourceTree = "<group>"; };
+		AA41DCBD0985A99100B1E222 /* auth_ldap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_ldap.c; sourceTree = "<group>"; };
+		AA41DCBE0985A99100B1E222 /* auth_ldap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_ldap.h; sourceTree = "<group>"; };
+		AA41DCBF0985A99100B1E222 /* auth_pam.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_pam.c; sourceTree = "<group>"; };
+		AA41DCC00985A99100B1E222 /* auth_pam.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_pam.h; sourceTree = "<group>"; };
+		AA41DCC10985A99100B1E222 /* auth_rimap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_rimap.c; sourceTree = "<group>"; };
+		AA41DCC20985A99100B1E222 /* auth_rimap.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_rimap.h; sourceTree = "<group>"; };
+		AA41DCC30985A99100B1E222 /* auth_sasldb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_sasldb.c; sourceTree = "<group>"; };
+		AA41DCC40985A99100B1E222 /* auth_sasldb.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_sasldb.h; sourceTree = "<group>"; };
+		AA41DCC50985A99100B1E222 /* auth_shadow.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_shadow.c; sourceTree = "<group>"; };
+		AA41DCC60985A99100B1E222 /* auth_shadow.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_shadow.h; sourceTree = "<group>"; };
+		AA41DCC70985A99100B1E222 /* auth_sia.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_sia.c; sourceTree = "<group>"; };
+		AA41DCC80985A99100B1E222 /* auth_sia.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_sia.h; sourceTree = "<group>"; };
+		AA41DCC90985A99100B1E222 /* AUTHORS */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = AUTHORS; sourceTree = "<group>"; };
+		AA41DCCA0985A99100B1E222 /* cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cache.c; sourceTree = "<group>"; };
+		AA41DCCB0985A99100B1E222 /* cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cache.h; sourceTree = "<group>"; };
+		AA41DCCC0985A99100B1E222 /* cfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cfile.c; sourceTree = "<group>"; };
+		AA41DCCD0985A99100B1E222 /* cfile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = cfile.h; sourceTree = "<group>"; };
+		AA41DCCE0985A99100B1E222 /* ChangeLog */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ChangeLog; sourceTree = "<group>"; };
+		AA41DCD00985A99100B1E222 /* config.guess */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = config.guess; sourceTree = "<group>"; };
+		AA41DCD10985A99100B1E222 /* config.sub */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = config.sub; sourceTree = "<group>"; };
+		AA41DCD20985A99100B1E222 /* depcomp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = depcomp; sourceTree = "<group>"; };
+		AA41DCD30985A99100B1E222 /* install-sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "install-sh"; sourceTree = "<group>"; };
+		AA41DCD40985A99100B1E222 /* ltconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ltconfig; sourceTree = "<group>"; };
+		AA41DCD50985A99100B1E222 /* ltmain.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = ltmain.sh; sourceTree = "<group>"; };
+		AA41DCD60985A99100B1E222 /* missing */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = missing; sourceTree = "<group>"; };
+		AA41DCD70985A99100B1E222 /* mkinstalldirs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = mkinstalldirs; sourceTree = "<group>"; };
+		AA41DCD80985A99100B1E222 /* configure */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = configure; sourceTree = "<group>"; };
+		AA41DCD90985A99100B1E222 /* configure.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = configure.in; sourceTree = "<group>"; };
+		AA41DCDA0985A99100B1E222 /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = COPYING; sourceTree = "<group>"; };
+		AA41DCDB0985A99100B1E222 /* getaddrinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getaddrinfo.c; sourceTree = "<group>"; };
+		AA41DCDC0985A99100B1E222 /* getnameinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getnameinfo.c; sourceTree = "<group>"; };
+		AA41DCDD0985A99100B1E222 /* globals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = globals.h; sourceTree = "<group>"; };
+		AA41DCDF0985A99100B1E222 /* gai.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gai.h; sourceTree = "<group>"; };
+		AA41DCE00985A99100B1E222 /* INSTALL */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = INSTALL; sourceTree = "<group>"; };
+		AA41DCE10985A99100B1E222 /* ipc_doors.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipc_doors.c; sourceTree = "<group>"; };
+		AA41DCE20985A99100B1E222 /* ipc_unix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ipc_unix.c; sourceTree = "<group>"; };
+		AA41DCE30985A99100B1E222 /* krbtf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = krbtf.c; sourceTree = "<group>"; };
+		AA41DCE40985A99100B1E222 /* krbtf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = krbtf.h; sourceTree = "<group>"; };
+		AA41DCE50985A99100B1E222 /* lak.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = lak.c; sourceTree = "<group>"; };
+		AA41DCE60985A99100B1E222 /* lak.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lak.h; sourceTree = "<group>"; };
+		AA41DCE70985A99100B1E222 /* LDAP_SASLAUTHD */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LDAP_SASLAUTHD; sourceTree = "<group>"; };
+		AA41DCE80985A99100B1E222 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		AA41DCE90985A99100B1E222 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
+		AA41DCEA0985A99100B1E222 /* md5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = md5.c; sourceTree = "<group>"; };
+		AA41DCEB0985A99100B1E222 /* md5global.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = md5global.h; sourceTree = "<group>"; };
+		AA41DCEC0985A99100B1E222 /* mechanisms.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mechanisms.c; sourceTree = "<group>"; };
+		AA41DCED0985A99100B1E222 /* mechanisms.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mechanisms.h; sourceTree = "<group>"; };
+		AA41DCEE0985A99100B1E222 /* NEWS */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = NEWS; sourceTree = "<group>"; };
+		AA41DCEF0985A99100B1E222 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		AA41DCF00985A99100B1E222 /* saslauthd-main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "saslauthd-main.c"; sourceTree = "<group>"; };
+		AA41DCF10985A99100B1E222 /* saslauthd-main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "saslauthd-main.h"; sourceTree = "<group>"; };
+		AA41DCF20985A99100B1E222 /* saslauthd.8 */ = {isa = PBXFileReference; lastKnownFileType = file; path = saslauthd.8; sourceTree = "<group>"; };
+		AA41DCF30985A99100B1E222 /* saslauthd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = saslauthd.h; sourceTree = "<group>"; };
+		AA41DCF40985A99100B1E222 /* saslauthd.h.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = saslauthd.h.in; sourceTree = "<group>"; };
+		AA41DCF50985A99100B1E222 /* saslauthd.mdoc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = saslauthd.mdoc; sourceTree = "<group>"; };
+		AA41DCF60985A99100B1E222 /* saslauthd_md5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = saslauthd_md5.h; sourceTree = "<group>"; };
+		AA41DCF70985A99100B1E222 /* saslcache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = saslcache.c; sourceTree = "<group>"; };
+		AA41DCF80985A99100B1E222 /* testsaslauthd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testsaslauthd.c; sourceTree = "<group>"; };
+		AA41DCF90985A99100B1E222 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
+		AA41DCFA0985A99100B1E222 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		AA41DD4E0985B53600B1E222 /* saslpasswd2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = saslpasswd2; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA41DD770985B58300B1E222 /* dbconverter-2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "dbconverter-2.c"; sourceTree = "<group>"; };
+		AA41DD7B0985B58300B1E222 /* sasldblistusers.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sasldblistusers.c; sourceTree = "<group>"; };
+		AA41DD7C0985B58300B1E222 /* sasldblistusers2.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasldblistusers2.8; sourceTree = "<group>"; };
+		AA41DD7D0985B58300B1E222 /* saslpasswd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = saslpasswd.c; sourceTree = "<group>"; };
+		AA41DD7E0985B58300B1E222 /* saslpasswd2.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = saslpasswd2.8; sourceTree = "<group>"; };
+		AA41DD7F0985B58300B1E222 /* sfsasl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sfsasl.c; sourceTree = "<group>"; };
+		AA41DD800985B58300B1E222 /* sfsasl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sfsasl.h; sourceTree = "<group>"; };
+		AA41DD810985B58300B1E222 /* smtptest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = smtptest.c; sourceTree = "<group>"; };
+		AA41DD820985B58300B1E222 /* testsuite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testsuite.c; sourceTree = "<group>"; };
+		AA41DD8D0985B62F00B1E222 /* sasldblistusers2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sasldblistusers2; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA55533906A30BBB00E276FD /* libsql.la */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = libsql.la; sourceTree = "<group>"; };
+		AA687F930A6C36C80095EF75 /* libkrb5.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libkrb5.dylib; path = /usr/lib/libkrb5.dylib; sourceTree = "<absolute>"; };
+		AA687F970A6C37610095EF75 /* libsasl2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libsasl2.dylib; path = /usr/lib/libsasl2.dylib; sourceTree = "<absolute>"; };
+		AAD4EA4209856D7D0066F8B3 /* 1Makefile.realam */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = 1Makefile.realam; sourceTree = "<group>"; };
+		AAD4EA4309856D7D0066F8B3 /* Makefile.am */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.am; sourceTree = "<group>"; };
+		AAD4EA4409856D7D0066F8B3 /* Makefile.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Makefile.in; sourceTree = "<group>"; };
+		AAD4EA4509856D7D0066F8B3 /* sasl.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl.3; sourceTree = "<group>"; };
+		AAD4EA4609856D7D0066F8B3 /* sasl_authorize_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_authorize_t.3; sourceTree = "<group>"; };
+		AAD4EA4709856D7D0066F8B3 /* sasl_auxprop.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_auxprop.3; sourceTree = "<group>"; };
+		AAD4EA4809856D7D0066F8B3 /* sasl_auxprop_getctx.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_auxprop_getctx.3; sourceTree = "<group>"; };
+		AAD4EA4909856D7D0066F8B3 /* sasl_auxprop_request.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_auxprop_request.3; sourceTree = "<group>"; };
+		AAD4EA4A09856D7D0066F8B3 /* sasl_callbacks.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_callbacks.3; sourceTree = "<group>"; };
+		AAD4EA4B09856D7D0066F8B3 /* sasl_canon_user_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_canon_user_t.3; sourceTree = "<group>"; };
+		AAD4EA4C09856D7D0066F8B3 /* sasl_chalprompt_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_chalprompt_t.3; sourceTree = "<group>"; };
+		AAD4EA4D09856D7D0066F8B3 /* sasl_checkapop.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_checkapop.3; sourceTree = "<group>"; };
+		AAD4EA4E09856D7D0066F8B3 /* sasl_checkpass.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_checkpass.3; sourceTree = "<group>"; };
+		AAD4EA4F09856D7D0066F8B3 /* sasl_client_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_client_init.3; sourceTree = "<group>"; };
+		AAD4EA5009856D7D0066F8B3 /* sasl_client_new.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_client_new.3; sourceTree = "<group>"; };
+		AAD4EA5109856D7D0066F8B3 /* sasl_client_start.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_client_start.3; sourceTree = "<group>"; };
+		AAD4EA5209856D7D0066F8B3 /* sasl_client_step.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_client_step.3; sourceTree = "<group>"; };
+		AAD4EA5309856D7D0066F8B3 /* sasl_decode.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_decode.3; sourceTree = "<group>"; };
+		AAD4EA5409856D7D0066F8B3 /* sasl_dispose.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_dispose.3; sourceTree = "<group>"; };
+		AAD4EA5509856D7D0066F8B3 /* sasl_done.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_done.3; sourceTree = "<group>"; };
+		AAD4EA5609856D7D0066F8B3 /* sasl_encode.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_encode.3; sourceTree = "<group>"; };
+		AAD4EA5709856D7D0066F8B3 /* sasl_encodev.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_encodev.3; sourceTree = "<group>"; };
+		AAD4EA5809856D7D0066F8B3 /* sasl_errdetail.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_errdetail.3; sourceTree = "<group>"; };
+		AAD4EA5909856D7D0066F8B3 /* sasl_errors.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_errors.3; sourceTree = "<group>"; };
+		AAD4EA5A09856D7D0066F8B3 /* sasl_errstring.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_errstring.3; sourceTree = "<group>"; };
+		AAD4EA5B09856D7D0066F8B3 /* sasl_getopt_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getopt_t.3; sourceTree = "<group>"; };
+		AAD4EA5C09856D7D0066F8B3 /* sasl_getpath_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getpath_t.3; sourceTree = "<group>"; };
+		AAD4EA5D09856D7D0066F8B3 /* sasl_getprop.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getprop.3; sourceTree = "<group>"; };
+		AAD4EA5E09856D7D0066F8B3 /* sasl_getrealm_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getrealm_t.3; sourceTree = "<group>"; };
+		AAD4EA5F09856D7D0066F8B3 /* sasl_getsecret_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getsecret_t.3; sourceTree = "<group>"; };
+		AAD4EA6009856D7D0066F8B3 /* sasl_getsimple_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_getsimple_t.3; sourceTree = "<group>"; };
+		AAD4EA6109856D7D0066F8B3 /* sasl_global_listmech.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_global_listmech.3; sourceTree = "<group>"; };
+		AAD4EA6209856D7D0066F8B3 /* sasl_idle.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_idle.3; sourceTree = "<group>"; };
+		AAD4EA6309856D7D0066F8B3 /* sasl_listmech.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_listmech.3; sourceTree = "<group>"; };
+		AAD4EA6409856D7D0066F8B3 /* sasl_log_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_log_t.3; sourceTree = "<group>"; };
+		AAD4EA6509856D7D0066F8B3 /* sasl_server_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_init.3; sourceTree = "<group>"; };
+		AAD4EA6609856D7D0066F8B3 /* sasl_server_new.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_new.3; sourceTree = "<group>"; };
+		AAD4EA6709856D7D0066F8B3 /* sasl_server_start.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_start.3; sourceTree = "<group>"; };
+		AAD4EA6809856D7D0066F8B3 /* sasl_server_step.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_step.3; sourceTree = "<group>"; };
+		AAD4EA6909856D7D0066F8B3 /* sasl_server_userdb_checkpass_t. */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_userdb_checkpass_t.; sourceTree = "<group>"; };
+		AAD4EA6A09856D7D0066F8B3 /* sasl_server_userdb_checkpass_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_userdb_checkpass_t.3; sourceTree = "<group>"; };
+		AAD4EA6B09856D7D0066F8B3 /* sasl_server_userdb_setpass_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_server_userdb_setpass_t.3; sourceTree = "<group>"; };
+		AAD4EA6C09856D7D0066F8B3 /* sasl_setpass.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_setpass.3; sourceTree = "<group>"; };
+		AAD4EA6D09856D7D0066F8B3 /* sasl_setprop.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_setprop.3; sourceTree = "<group>"; };
+		AAD4EA6E09856D7D0066F8B3 /* sasl_user_exists.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_user_exists.3; sourceTree = "<group>"; };
+		AAD4EA6F09856D7D0066F8B3 /* sasl_verifyfile_t.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sasl_verifyfile_t.3; sourceTree = "<group>"; };
+		AAD4EAFE0985A2B20066F8B3 /* saslauthd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = saslauthd; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAEEF080085A050B0092A3E1 /* sql_init.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sql_init.c; sourceTree = "<group>"; };
+		AAEEF081085A050B0092A3E1 /* sql.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = sql.c; sourceTree = "<group>"; };
+		B03A897A0C0DE60C00AEEB0C /* libkerberos4.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libkerberos4.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		B04526A00C0CD3E200DB127B /* libgssapiv2.2.0.18.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libgssapiv2.2.0.18.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		B0A0768F0C0CFCA600B52312 /* Kerberos.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kerberos.framework; path = /System/Library/Frameworks/Kerberos.framework; sourceTree = "<absolute>"; };
+		BA9D61E007A9C09100255A4E /* libsasldb.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libsasldb.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E107A9C09100255A4E /* libsql.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libsql.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E207A9C09100255A4E /* libntlm.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libntlm.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E307A9C09100255A4E /* libdigestmd5.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libdigestmd5.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E407A9C09100255A4E /* libsasldb.a */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libsasldb.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E507A9C09100255A4E /* login.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = login.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E607A9C09100255A4E /* libcrammd5.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libcrammd5.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E707A9C09100255A4E /* libotp.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libotp.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E807A9C09100255A4E /* libsasl2.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libsasl2.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61E907A9C09100255A4E /* libplain.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libplain.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9D61EA07A9C09100255A4E /* libanonymous.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libanonymous.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
+		F56C514A029C0BA301DD284B /* plugin_common.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = plugin_common.c; sourceTree = "<group>"; };
+		F56C514B029C0BA301DD284B /* plugin_common.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = plugin_common.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		777A3D7F024BAC7C05DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7BFB0236E3D505DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C060236E43005DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C110236E47005DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C1C0236E56505DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C270236E5AF05DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C340236E66305DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C880236E74C05DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77F5D6B60236D6E205DD284B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98631054846530094A32F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9863A054846870094A32F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DECA4305484A1500C45D20 /* libmysqlclient.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA41DD4C0985B53600B1E222 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA687F9D0A6C38040095EF75 /* libsasl2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA41DD8B0985B62F00B1E222 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA687FA40A6C383E0095EF75 /* libsasl2.dylib in Frameworks */,
+				AA687FAA0A6C39750095EF75 /* libsasldb.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAD4EAFC0985A2B20066F8B3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA687F940A6C36C80095EF75 /* libkrb5.dylib in Frameworks */,
+				AA687F980A6C37610095EF75 /* libsasl2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B03A89780C0DE60C00AEEB0C /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B03A89870C0DE6C200AEEB0C /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B045269E0C0CD3E200DB127B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B08039BC0C0CD5FA00FDCB2A /* libkrb5.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		7738414F0236DD5105DD284B /* sasldb */ = {
+			isa = PBXGroup;
+			children = (
+				773841500236DD5105DD284B /* allockey.c */,
+				773841530236DD5105DD284B /* db_ndbm.c */,
+				773841580236DD5105DD284B /* sasldb.h */,
+			);
+			name = sasldb;
+			path = cyrus_sasl/sasldb;
+			sourceTree = "<group>";
+		};
+		77753A700236D84505DD284B /* include */ = {
+			isa = PBXGroup;
+			children = (
+				77753A710236D84505DD284B /* gai.h */,
+				77753A720236D84505DD284B /* hmac-md5.h */,
+				77753A750236D84505DD284B /* makemd5.c */,
+				777745B10236D8FA05DD284B /* md5global.h */,
+				77753A760236D84505DD284B /* md5.h */,
+				77753A780236D84505DD284B /* prop.h */,
+				77753A790236D84505DD284B /* sasl.h */,
+				77753A7A0236D84505DD284B /* saslplug.h */,
+				77753A7B0236D84505DD284B /* saslutil.h */,
+			);
+			name = include;
+			path = cyrus_sasl/include;
+			sourceTree = "<group>";
+		};
+		777E7BBD0236DDED05DD284B /* plugins */ = {
+			isa = PBXGroup;
+			children = (
+				777E7BBE0236DDED05DD284B /* anonymous.c */,
+				7733E7110238197D05DD284B /* anonymous_init.c */,
+				777E7BBF0236DDED05DD284B /* cram.c */,
+				7733E7120238197D05DD284B /* crammd5_init.c */,
+				777E7BC00236DDED05DD284B /* digestmd5.c */,
+				7733E7130238197D05DD284B /* digestmd5_init.c */,
+				777E7BC10236DDED05DD284B /* gssapi.c */,
+				7733E7140238197D05DD284B /* gssapiv2_init.c */,
+				777E7BC20236DDED05DD284B /* kerberos4.c */,
+				777E7BC30236DDED05DD284B /* kerberos4_init.c */,
+				777E7BC40236DDED05DD284B /* login.c */,
+				7733E7150238197D05DD284B /* login_init.c */,
+				84DECA08054847E400C45D20 /* ntlm_init.c */,
+				84DECA09054847E400C45D20 /* ntlm.c */,
+				777E7BC80236DDED05DD284B /* otp.c */,
+				7733E7160238197D05DD284B /* otp_init.c */,
+				777E7BC90236DDED05DD284B /* otp.h */,
+				777E7BCA0236DDED05DD284B /* plain.c */,
+				7733E7170238197D05DD284B /* plain_init.c */,
+				777E7BCB0236DDED05DD284B /* plugin_common.c */,
+				777E7BCC0236DDED05DD284B /* plugin_common.h */,
+				777E7BCD0236DDED05DD284B /* sasldb.c */,
+				7733E7180238197D05DD284B /* sasldb_init.c */,
+				AAEEF081085A050B0092A3E1 /* sql.c */,
+				AAEEF080085A050B0092A3E1 /* sql_init.c */,
+				777E7BCE0236DDED05DD284B /* srp.c */,
+				7733E7190238197D05DD284B /* srp_init.c */,
+				77CB5EFD0236F45705DD284B /* la files */,
+				84DECA4205484A1500C45D20 /* libmysqlclient.a */,
+			);
+			name = plugins;
+			path = cyrus_sasl/plugins;
+			sourceTree = "<group>";
+		};
+		777E7C5B0236E73C05DD284B /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				777E7C5C0236E73C05DD284B /* auxprop.c */,
+				777E7C5D0236E73C05DD284B /* canonusr.c */,
+				777E7C5E0236E73C05DD284B /* checkpw.c */,
+				777E7C5F0236E73C05DD284B /* client.c */,
+				777E7C600236E73C05DD284B /* common.c */,
+				777E7C610236E73C05DD284B /* config.c */,
+				777E7C620236E73C05DD284B /* dlopen.c */,
+				777E7C630236E73C05DD284B /* external.c */,
+				777E7C660236E73C05DD284B /* getsubopt.c */,
+				777E7C690236E73C05DD284B /* md5.c */,
+				F56C514A029C0BA301DD284B /* plugin_common.c */,
+				F56C514B029C0BA301DD284B /* plugin_common.h */,
+				777E7C6A0236E73C05DD284B /* saslint.h */,
+				777E7C6B0236E73C05DD284B /* saslutil.c */,
+				777E7C6C0236E73C05DD284B /* server.c */,
+				777E7C6D0236E73C05DD284B /* seterror.c */,
+				777E7C6E0236E73C05DD284B /* snprintf.c */,
+				AA1FB856074A76D400911FCE /* sasl-lib.exp */,
+				AA16473207930EF20045A1BC /* passwordserver_sasl.plist */,
+			);
+			name = lib;
+			path = cyrus_sasl/lib;
+			sourceTree = "<group>";
+		};
+		77CB5EFD0236F45705DD284B /* la files */ = {
+			isa = PBXGroup;
+			children = (
+				77D234400236F4E905DD284B /* libanonymous.la */,
+				77D234410236F4E905DD284B /* libcrammd5.la */,
+				77D234420236F4E905DD284B /* libdigestmd5.la */,
+				8481F5A605472DC500B2B3B0 /* libgssapiv2.la */,
+				84C0502D0549A8A1005DCF0F /* libkerberos4.la */,
+				7733E72902381A7F05DD284B /* liblogin.la */,
+				84DECA9C05484F6A00C45D20 /* libntlm.la */,
+				77D234430236F4E905DD284B /* libotp.la */,
+				77D234440236F4E905DD284B /* libplain.la */,
+				77D234450236F4E905DD284B /* libsasldb.la */,
+				AA55533906A30BBB00E276FD /* libsql.la */,
+			);
+			name = "la files";
+			sourceTree = "<group>";
+		};
+		77F5D6980236D69405DD284B = {
+			isa = PBXGroup;
+			children = (
+				777745CC0236DCA805DD284B /* config.h */,
+				77753A700236D84505DD284B /* include */,
+				AAD4EA4109856D7D0066F8B3 /* man */,
+				7738414F0236DD5105DD284B /* sasldb */,
+				AA41DCB30985A99100B1E222 /* saslauthd */,
+				777E7BBD0236DDED05DD284B /* plugins */,
+				777E7C5B0236E73C05DD284B /* lib */,
+				AA41DD760985B58300B1E222 /* utils */,
+				77F5D6A70236D6B705DD284B /* Products */,
+				AA687F930A6C36C80095EF75 /* libkrb5.dylib */,
+				AA687F970A6C37610095EF75 /* libsasl2.dylib */,
+				B0A0768F0C0CFCA600B52312 /* Kerberos.framework */,
+			);
+			sourceTree = "<group>";
+		};
+		77F5D6A70236D6B705DD284B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				BA9D61E007A9C09100255A4E /* libsasldb.2.so */,
+				BA9D61E107A9C09100255A4E /* libsql.so */,
+				BA9D61E207A9C09100255A4E /* libntlm.so */,
+				BA9D61E307A9C09100255A4E /* libdigestmd5.2.so */,
+				BA9D61E407A9C09100255A4E /* libsasldb.a */,
+				BA9D61E507A9C09100255A4E /* login.so */,
+				BA9D61E607A9C09100255A4E /* libcrammd5.2.so */,
+				BA9D61E707A9C09100255A4E /* libotp.2.so */,
+				BA9D61E807A9C09100255A4E /* libsasl2.2.dylib */,
+				BA9D61E907A9C09100255A4E /* libplain.2.so */,
+				BA9D61EA07A9C09100255A4E /* libanonymous.2.so */,
+				AAD4EAFE0985A2B20066F8B3 /* saslauthd */,
+				AA41DD4E0985B53600B1E222 /* saslpasswd2 */,
+				AA41DD8D0985B62F00B1E222 /* sasldblistusers2 */,
+				B04526A00C0CD3E200DB127B /* libgssapiv2.2.0.18.so */,
+				B03A897A0C0DE60C00AEEB0C /* libkerberos4.2.so */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA41DCB30985A99100B1E222 /* saslauthd */ = {
+			isa = PBXGroup;
+			children = (
+				AA41DCB40985A99100B1E222 /* aclocal.m4 */,
+				AA41DCB50985A99100B1E222 /* auth_dce.c */,
+				AA41DCB60985A99100B1E222 /* auth_dce.h */,
+				AA41DCB70985A99100B1E222 /* auth_getpwent.c */,
+				AA41DCB80985A99100B1E222 /* auth_getpwent.h */,
+				AA41DCB90985A99100B1E222 /* auth_krb4.c */,
+				AA41DCBA0985A99100B1E222 /* auth_krb4.h */,
+				AA41DCBB0985A99100B1E222 /* auth_krb5.c */,
+				AA41DCBC0985A99100B1E222 /* auth_krb5.h */,
+				AA41DCBD0985A99100B1E222 /* auth_ldap.c */,
+				AA41DCBE0985A99100B1E222 /* auth_ldap.h */,
+				AA41DCBF0985A99100B1E222 /* auth_pam.c */,
+				AA41DCC00985A99100B1E222 /* auth_pam.h */,
+				AA41DCC10985A99100B1E222 /* auth_rimap.c */,
+				AA41DCC20985A99100B1E222 /* auth_rimap.h */,
+				AA41DCC30985A99100B1E222 /* auth_sasldb.c */,
+				AA41DCC40985A99100B1E222 /* auth_sasldb.h */,
+				AA41DCC50985A99100B1E222 /* auth_shadow.c */,
+				AA41DCC60985A99100B1E222 /* auth_shadow.h */,
+				AA41DCC70985A99100B1E222 /* auth_sia.c */,
+				AA41DCC80985A99100B1E222 /* auth_sia.h */,
+				AA41DCC90985A99100B1E222 /* AUTHORS */,
+				AA41DCCA0985A99100B1E222 /* cache.c */,
+				AA41DCCB0985A99100B1E222 /* cache.h */,
+				AA41DCCC0985A99100B1E222 /* cfile.c */,
+				AA41DCCD0985A99100B1E222 /* cfile.h */,
+				AA41DCCE0985A99100B1E222 /* ChangeLog */,
+				AA41DCCF0985A99100B1E222 /* config */,
+				AA41DCD80985A99100B1E222 /* configure */,
+				AA41DCD90985A99100B1E222 /* configure.in */,
+				AA41DCDA0985A99100B1E222 /* COPYING */,
+				AA41DCDB0985A99100B1E222 /* getaddrinfo.c */,
+				AA41DCDC0985A99100B1E222 /* getnameinfo.c */,
+				AA41DCDD0985A99100B1E222 /* globals.h */,
+				AA41DCDE0985A99100B1E222 /* include */,
+				AA41DCE00985A99100B1E222 /* INSTALL */,
+				AA41DCE10985A99100B1E222 /* ipc_doors.c */,
+				AA41DCE20985A99100B1E222 /* ipc_unix.c */,
+				AA41DCE30985A99100B1E222 /* krbtf.c */,
+				AA41DCE40985A99100B1E222 /* krbtf.h */,
+				AA41DCE50985A99100B1E222 /* lak.c */,
+				AA41DCE60985A99100B1E222 /* lak.h */,
+				AA41DCE70985A99100B1E222 /* LDAP_SASLAUTHD */,
+				AA41DCE80985A99100B1E222 /* Makefile.am */,
+				AA41DCE90985A99100B1E222 /* Makefile.in */,
+				AA41DCEA0985A99100B1E222 /* md5.c */,
+				AA41DCEB0985A99100B1E222 /* md5global.h */,
+				AA41DCEC0985A99100B1E222 /* mechanisms.c */,
+				AA41DCED0985A99100B1E222 /* mechanisms.h */,
+				AA41DCEE0985A99100B1E222 /* NEWS */,
+				AA41DCEF0985A99100B1E222 /* README */,
+				AA41DCF00985A99100B1E222 /* saslauthd-main.c */,
+				AA41DCF10985A99100B1E222 /* saslauthd-main.h */,
+				AA41DCF20985A99100B1E222 /* saslauthd.8 */,
+				AA41DCF30985A99100B1E222 /* saslauthd.h */,
+				AA41DCF40985A99100B1E222 /* saslauthd.h.in */,
+				AA41DCF50985A99100B1E222 /* saslauthd.mdoc */,
+				AA41DCF60985A99100B1E222 /* saslauthd_md5.h */,
+				AA41DCF70985A99100B1E222 /* saslcache.c */,
+				AA41DCF80985A99100B1E222 /* testsaslauthd.c */,
+				AA41DCF90985A99100B1E222 /* utils.c */,
+				AA41DCFA0985A99100B1E222 /* utils.h */,
+			);
+			name = saslauthd;
+			path = cyrus_sasl/saslauthd;
+			sourceTree = "<group>";
+		};
+		AA41DCCF0985A99100B1E222 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				AA41DCD00985A99100B1E222 /* config.guess */,
+				AA41DCD10985A99100B1E222 /* config.sub */,
+				AA41DCD20985A99100B1E222 /* depcomp */,
+				AA41DCD30985A99100B1E222 /* install-sh */,
+				AA41DCD40985A99100B1E222 /* ltconfig */,
+				AA41DCD50985A99100B1E222 /* ltmain.sh */,
+				AA41DCD60985A99100B1E222 /* missing */,
+				AA41DCD70985A99100B1E222 /* mkinstalldirs */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		AA41DCDE0985A99100B1E222 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				AA41DCDF0985A99100B1E222 /* gai.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		AA41DD760985B58300B1E222 /* utils */ = {
+			isa = PBXGroup;
+			children = (
+				AA41DD770985B58300B1E222 /* dbconverter-2.c */,
+				AA41DD7B0985B58300B1E222 /* sasldblistusers.c */,
+				AA41DD7C0985B58300B1E222 /* sasldblistusers2.8 */,
+				AA41DD7D0985B58300B1E222 /* saslpasswd.c */,
+				AA41DD7E0985B58300B1E222 /* saslpasswd2.8 */,
+				AA41DD7F0985B58300B1E222 /* sfsasl.c */,
+				AA41DD800985B58300B1E222 /* sfsasl.h */,
+				AA41DD810985B58300B1E222 /* smtptest.c */,
+				AA41DD820985B58300B1E222 /* testsuite.c */,
+			);
+			name = utils;
+			path = cyrus_sasl/utils;
+			sourceTree = "<group>";
+		};
+		AAD4EA4109856D7D0066F8B3 /* man */ = {
+			isa = PBXGroup;
+			children = (
+				AAD4EA4209856D7D0066F8B3 /* 1Makefile.realam */,
+				AAD4EA4309856D7D0066F8B3 /* Makefile.am */,
+				AAD4EA4409856D7D0066F8B3 /* Makefile.in */,
+				AAD4EA4509856D7D0066F8B3 /* sasl.3 */,
+				AAD4EA4609856D7D0066F8B3 /* sasl_authorize_t.3 */,
+				AAD4EA4709856D7D0066F8B3 /* sasl_auxprop.3 */,
+				AAD4EA4809856D7D0066F8B3 /* sasl_auxprop_getctx.3 */,
+				AAD4EA4909856D7D0066F8B3 /* sasl_auxprop_request.3 */,
+				AAD4EA4A09856D7D0066F8B3 /* sasl_callbacks.3 */,
+				AAD4EA4B09856D7D0066F8B3 /* sasl_canon_user_t.3 */,
+				AAD4EA4C09856D7D0066F8B3 /* sasl_chalprompt_t.3 */,
+				AAD4EA4D09856D7D0066F8B3 /* sasl_checkapop.3 */,
+				AAD4EA4E09856D7D0066F8B3 /* sasl_checkpass.3 */,
+				AAD4EA4F09856D7D0066F8B3 /* sasl_client_init.3 */,
+				AAD4EA5009856D7D0066F8B3 /* sasl_client_new.3 */,
+				AAD4EA5109856D7D0066F8B3 /* sasl_client_start.3 */,
+				AAD4EA5209856D7D0066F8B3 /* sasl_client_step.3 */,
+				AAD4EA5309856D7D0066F8B3 /* sasl_decode.3 */,
+				AAD4EA5409856D7D0066F8B3 /* sasl_dispose.3 */,
+				AAD4EA5509856D7D0066F8B3 /* sasl_done.3 */,
+				AAD4EA5609856D7D0066F8B3 /* sasl_encode.3 */,
+				AAD4EA5709856D7D0066F8B3 /* sasl_encodev.3 */,
+				AAD4EA5809856D7D0066F8B3 /* sasl_errdetail.3 */,
+				AAD4EA5909856D7D0066F8B3 /* sasl_errors.3 */,
+				AAD4EA5A09856D7D0066F8B3 /* sasl_errstring.3 */,
+				AAD4EA5B09856D7D0066F8B3 /* sasl_getopt_t.3 */,
+				AAD4EA5C09856D7D0066F8B3 /* sasl_getpath_t.3 */,
+				AAD4EA5D09856D7D0066F8B3 /* sasl_getprop.3 */,
+				AAD4EA5E09856D7D0066F8B3 /* sasl_getrealm_t.3 */,
+				AAD4EA5F09856D7D0066F8B3 /* sasl_getsecret_t.3 */,
+				AAD4EA6009856D7D0066F8B3 /* sasl_getsimple_t.3 */,
+				AAD4EA6109856D7D0066F8B3 /* sasl_global_listmech.3 */,
+				AAD4EA6209856D7D0066F8B3 /* sasl_idle.3 */,
+				AAD4EA6309856D7D0066F8B3 /* sasl_listmech.3 */,
+				AAD4EA6409856D7D0066F8B3 /* sasl_log_t.3 */,
+				AAD4EA6509856D7D0066F8B3 /* sasl_server_init.3 */,
+				AAD4EA6609856D7D0066F8B3 /* sasl_server_new.3 */,
+				AAD4EA6709856D7D0066F8B3 /* sasl_server_start.3 */,
+				AAD4EA6809856D7D0066F8B3 /* sasl_server_step.3 */,
+				AAD4EA6909856D7D0066F8B3 /* sasl_server_userdb_checkpass_t. */,
+				AAD4EA6A09856D7D0066F8B3 /* sasl_server_userdb_checkpass_t.3 */,
+				AAD4EA6B09856D7D0066F8B3 /* sasl_server_userdb_setpass_t.3 */,
+				AAD4EA6C09856D7D0066F8B3 /* sasl_setpass.3 */,
+				AAD4EA6D09856D7D0066F8B3 /* sasl_setprop.3 */,
+				AAD4EA6E09856D7D0066F8B3 /* sasl_user_exists.3 */,
+				AAD4EA6F09856D7D0066F8B3 /* sasl_verifyfile_t.3 */,
+			);
+			name = man;
+			path = cyrus_sasl/man;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		777A3D7D024BAC7C05DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777A3D87024BAC9305DD284B /* sasldb.h in Headers */,
+				777A3D8A024BAC9405DD284B /* config.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7BF90236E3D505DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7BFF0236E3DB05DD284B /* config.h in Headers */,
+				777E7C020236E3E105DD284B /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C040236E43005DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C0B0236E43605DD284B /* config.h in Headers */,
+				777E7C0E0236E43A05DD284B /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C0F0236E47005DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C150236E47705DD284B /* config.h in Headers */,
+				777E7C180236E47905DD284B /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C1A0236E56505DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C210236E57605DD284B /* config.h in Headers */,
+				777E7C240236E57B05DD284B /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C250236E5AF05DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C2C0236E5B805DD284B /* config.h in Headers */,
+				777E7C2E0236E5BA05DD284B /* otp.h in Headers */,
+				777E7C300236E5BC05DD284B /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C320236E66305DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C3A0236E66F05DD284B /* plugin_common.h in Headers */,
+				777E7C3B0236E67505DD284B /* config.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C860236E74C05DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77853DF80236ED9B05DD284B /* saslint.h in Headers */,
+				77CB5EF80236F0A205DD284B /* config.h in Headers */,
+				84118E850547012300C5C0FC /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77F5D6B40236D6E205DD284B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7BDE0236DDF705DD284B /* plugin_common.h in Headers */,
+				777E7BDF0236DDF905DD284B /* config.h in Headers */,
+				777E7C7E0236E73C05DD284B /* saslint.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9862F054846530094A32F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DECA130548480400C45D20 /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98638054846870094A32F /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DECA110548480100C45D20 /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B03A89760C0DE60C00AEEB0C /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B03A89830C0DE6B100AEEB0C /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B045269C0C0CD3E200DB127B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B08039AA0C0CD51E00FDCB2A /* plugin_common.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXLibraryTarget section */
+		777A3D81024BAC7C05DD284B /* sasldb */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4E9F609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "sasldb" */;
+			buildPhases = (
+				777A3D7D024BAC7C05DD284B /* Headers */,
+				777A3D7E024BAC7C05DD284B /* Sources */,
+				777A3D7F024BAC7C05DD284B /* Frameworks */,
+				777A3D80024BAC7C05DD284B /* Rez */,
+			);
+			dependencies = (
+			);
+			name = sasldb;
+			productInstallPath = /usr/local/lib;
+			productName = sasldb;
+			productReference = BA9D61E407A9C09100255A4E /* libsasldb.a */;
+		};
+		777E7BFD0236E3D505DD284B /* plugin_anonymous */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4E9FE09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_anonymous" */;
+			buildPhases = (
+				777E7BF90236E3D505DD284B /* Headers */,
+				777E7BFA0236E3D505DD284B /* Sources */,
+				777E7BFB0236E3D505DD284B /* Frameworks */,
+				777E7BFC0236E3D505DD284B /* Rez */,
+				77D2344A0236F54205DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_anonymous;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_anonymous;
+			productReference = BA9D61EA07A9C09100255A4E /* libanonymous.2.so */;
+		};
+		777E7C080236E43005DD284B /* plugin_cram */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA0209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_cram" */;
+			buildPhases = (
+				777E7C040236E43005DD284B /* Headers */,
+				777E7C050236E43005DD284B /* Sources */,
+				777E7C060236E43005DD284B /* Frameworks */,
+				777E7C070236E43005DD284B /* Rez */,
+				77D2344C0236F55E05DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_cram;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_cram;
+			productReference = BA9D61E607A9C09100255A4E /* libcrammd5.2.so */;
+		};
+		777E7C130236E47005DD284B /* plugin_digest */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA0609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_digest" */;
+			buildPhases = (
+				777E7C0F0236E47005DD284B /* Headers */,
+				777E7C100236E47005DD284B /* Sources */,
+				777E7C110236E47005DD284B /* Frameworks */,
+				777E7C120236E47005DD284B /* Rez */,
+				77D2344E0236F57505DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_digest;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_digest;
+			productReference = BA9D61E307A9C09100255A4E /* libdigestmd5.2.so */;
+		};
+		777E7C1E0236E56505DD284B /* plugin_login */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA0A09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_login" */;
+			buildPhases = (
+				777E7C1A0236E56505DD284B /* Headers */,
+				777E7C1B0236E56505DD284B /* Sources */,
+				777E7C1C0236E56505DD284B /* Frameworks */,
+				777E7C1D0236E56505DD284B /* Rez */,
+				77D234500236F59005DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_login;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_login;
+			productReference = BA9D61E507A9C09100255A4E /* login.so */;
+		};
+		777E7C290236E5AF05DD284B /* plugin_otp */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA0E09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_otp" */;
+			buildPhases = (
+				777E7C250236E5AF05DD284B /* Headers */,
+				777E7C260236E5AF05DD284B /* Sources */,
+				777E7C270236E5AF05DD284B /* Frameworks */,
+				777E7C280236E5AF05DD284B /* Rez */,
+				77D234510236F5AE05DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_otp;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_otp;
+			productReference = BA9D61E707A9C09100255A4E /* libotp.2.so */;
+		};
+		777E7C360236E66305DD284B /* plugin_plain */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA1209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_plain" */;
+			buildPhases = (
+				777E7C320236E66305DD284B /* Headers */,
+				777E7C330236E66305DD284B /* Sources */,
+				777E7C340236E66305DD284B /* Frameworks */,
+				777E7C350236E66305DD284B /* Rez */,
+				77D234530236F5C205DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_plain;
+			productInstallPath = /usr/lib/sasl2;
+			productName = plugin_plain;
+			productReference = BA9D61E907A9C09100255A4E /* libplain.2.so */;
+		};
+		777E7C8A0236E74C05DD284B /* lib */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4E9F209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "lib" */;
+			buildPhases = (
+				777E7C860236E74C05DD284B /* Headers */,
+				777E7C870236E74C05DD284B /* Sources */,
+				777E7C880236E74C05DD284B /* Frameworks */,
+				777E7C890236E74C05DD284B /* Rez */,
+				AA16473D079310020045A1BC /* CopyFiles */,
+				F5BA890502BFD46701DD284B /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = lib;
+			productInstallPath = /usr/lib;
+			productName = lib;
+			productReference = BA9D61E807A9C09100255A4E /* libsasl2.2.dylib */;
+		};
+		77F5D6B80236D6E205DD284B /* plugin_sasldb */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4E9FA09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_sasldb" */;
+			buildPhases = (
+				77F5D6B40236D6E205DD284B /* Headers */,
+				77F5D6B50236D6E205DD284B /* Sources */,
+				77F5D6B60236D6E205DD284B /* Frameworks */,
+				77F5D6B70236D6E205DD284B /* Rez */,
+				77D234480236F51E05DD284B /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_sasldb;
+			productInstallPath = /usr/lib/sasl2/disabled;
+			productName = plugin_sasldb;
+			productReference = BA9D61E007A9C09100255A4E /* libsasldb.2.so */;
+		};
+		84C98633054846530094A32F /* plugin_ntlm */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA1609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_ntlm" */;
+			buildPhases = (
+				84C9862F054846530094A32F /* Headers */,
+				84C98630054846530094A32F /* Sources */,
+				84C98631054846530094A32F /* Frameworks */,
+				84C98632054846530094A32F /* Rez */,
+				84DECA250548488A00C45D20 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_ntlm;
+			productInstallPath = /usr/local/lib;
+			productName = plugin_ntlm;
+			productReference = BA9D61E207A9C09100255A4E /* libntlm.so */;
+		};
+		84C9863C054846870094A32F /* plugin_mysql */ = {
+			isa = PBXLibraryTarget;
+			buildConfigurationList = AAD4EA1A09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_mysql" */;
+			buildPhases = (
+				84C98638054846870094A32F /* Headers */,
+				84C98639054846870094A32F /* Sources */,
+				84C9863A054846870094A32F /* Frameworks */,
+				84C9863B054846870094A32F /* Rez */,
+				84DECA28054848B000C45D20 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = plugin_mysql;
+			productInstallPath = /usr/lib/sasl2/disabled;
+			productName = plugin_mysql;
+			productReference = BA9D61E107A9C09100255A4E /* libsql.so */;
+		};
+/* End PBXLibraryTarget section */
+
+/* Begin PBXNativeTarget section */
+		AA41DD4D0985B53600B1E222 /* saslpasswd2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA41DD570985B55D00B1E222 /* Build configuration list for PBXNativeTarget "saslpasswd2" */;
+			buildPhases = (
+				AA41DD4B0985B53600B1E222 /* Sources */,
+				AA41DD4C0985B53600B1E222 /* Frameworks */,
+				AA66F7FD09DA046100FF2692 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = saslpasswd2;
+			productName = saslpasswd2;
+			productReference = AA41DD4E0985B53600B1E222 /* saslpasswd2 */;
+			productType = "com.apple.product-type.tool";
+		};
+		AA41DD8C0985B62F00B1E222 /* sasldblistusers2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA41DD8F0985B64E00B1E222 /* Build configuration list for PBXNativeTarget "sasldblistusers2" */;
+			buildPhases = (
+				AA41DD8A0985B62F00B1E222 /* Sources */,
+				AA41DD8B0985B62F00B1E222 /* Frameworks */,
+				AA66F80009DA047E00FF2692 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA687FA70A6C39290095EF75 /* PBXTargetDependency */,
+			);
+			name = sasldblistusers2;
+			productName = sasldblistusers2;
+			productReference = AA41DD8D0985B62F00B1E222 /* sasldblistusers2 */;
+			productType = "com.apple.product-type.tool";
+		};
+		AAD4EAFD0985A2B20066F8B3 /* saslauthd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AAD4EB000985A2D10066F8B3 /* Build configuration list for PBXNativeTarget "saslauthd" */;
+			buildPhases = (
+				AAD4EAFB0985A2B20066F8B3 /* Sources */,
+				AAD4EAFC0985A2B20066F8B3 /* Frameworks */,
+				AA66F7FA09DA042900FF2692 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = saslauthd;
+			productName = saslauthd;
+			productReference = AAD4EAFE0985A2B20066F8B3 /* saslauthd */;
+			productType = "com.apple.product-type.tool";
+		};
+		B03A89790C0DE60C00AEEB0C /* plugin_kerberos4 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B03A897F0C0DE64D00AEEB0C /* Build configuration list for PBXNativeTarget "plugin_kerberos4" */;
+			buildPhases = (
+				B03A89760C0DE60C00AEEB0C /* Headers */,
+				B03A89770C0DE60C00AEEB0C /* Sources */,
+				B03A89780C0DE60C00AEEB0C /* Frameworks */,
+				B03A898C0C0DE71200AEEB0C /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = plugin_kerberos4;
+			productName = plugin_kerberos4_native;
+			productReference = B03A897A0C0DE60C00AEEB0C /* libkerberos4.2.so */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		B045269F0C0CD3E200DB127B /* plugin_gssapi */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B04526A80C0CD43000DB127B /* Build configuration list for PBXNativeTarget "plugin_gssapi" */;
+			buildPhases = (
+				B045269C0C0CD3E200DB127B /* Headers */,
+				B045269D0C0CD3E200DB127B /* Sources */,
+				B045269E0C0CD3E200DB127B /* Frameworks */,
+				B04526C50C0CD4F000DB127B /* CopyFiles */,
+				B04526B70C0CD4DB00DB127B /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = plugin_gssapi;
+			productName = plugin_gssapi_native;
+			productReference = B04526A00C0CD3E200DB127B /* libgssapiv2.2.0.18.so */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		77F5D69C0236D69405DD284B /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = AAD4EA2E09856D170066F8B3 /* Build configuration list for PBXProject "sasl" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 77F5D6980236D69405DD284B;
+			productRefGroup = 77F5D6A70236D6B705DD284B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				77F5D6A00236D6A905DD284B /* ALL */,
+				84F521060549A09A00E96C8F /* KerberosTargets */,
+				AAC7503609912C24008E0B59 /* SecondaryTargets */,
+				60EA555E09D087EB00A534B4 /* TertiaryTargets */,
+				AAC7501609912A3C008E0B59 /* include */,
+				777E7C8A0236E74C05DD284B /* lib */,
+				AAD4EA3509856D3D0066F8B3 /* manpages API */,
+				777E7BFD0236E3D505DD284B /* plugin_anonymous */,
+				777E7C080236E43005DD284B /* plugin_cram */,
+				777E7C130236E47005DD284B /* plugin_digest */,
+				B045269F0C0CD3E200DB127B /* plugin_gssapi */,
+				B03A89790C0DE60C00AEEB0C /* plugin_kerberos4 */,
+				777E7C1E0236E56505DD284B /* plugin_login */,
+				84C9863C054846870094A32F /* plugin_mysql */,
+				84C98633054846530094A32F /* plugin_ntlm */,
+				777E7C290236E5AF05DD284B /* plugin_otp */,
+				777E7C360236E66305DD284B /* plugin_plain */,
+				77F5D6B80236D6E205DD284B /* plugin_sasldb */,
+				777A3D81024BAC7C05DD284B /* sasldb */,
+				AAD4EAFD0985A2B20066F8B3 /* saslauthd */,
+				AA41DD4D0985B53600B1E222 /* saslpasswd2 */,
+				AA41DD8C0985B62F00B1E222 /* sasldblistusers2 */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		777A3D80024BAC7C05DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7BFC0236E3D505DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C070236E43005DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C120236E47005DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C1D0236E56505DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C280236E5AF05DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C350236E66305DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C890236E74C05DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77F5D6B70236D6E205DD284B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98632054846530094A32F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C9863B054846870094A32F /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		B04526B70C0CD4DB00DB127B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cd \"${DSTROOT}/usr/lib/sasl2\"\nrm -f \"libgssapiv2.2.so\"\nln -s \"libgssapiv2.2.0.18.so\" \"libgssapiv2.2.so\"\nmkdir -p \"${DSTROOT}/usr/lib/sasl2/openldap\"\ncd \"${DSTROOT}/usr/lib/sasl2/openldap\"\nrm -f \"libgssapiv2.la\" \"libgssapiv2.2.so\"\nln -s \"../libgssapiv2.la\" .\nln -s \"../libgssapiv2.2.so\" .";
+		};
+		F5BA890502BFD46701DD284B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/usr/lib\"\ncd \"${DSTROOT}/usr/lib\"\nrm -f \"libsasl2.2.0.22.dylib\" \"libsasl2.2.0.21.dylib\" \"libsasl2.2.0.15.dylib\" \"libsasl2.dylib\" \"libsasl2.2.0.1.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.22.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.21.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.15.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.dylib\"\nln -s \"libsasl2.2.dylib\" \"libsasl2.2.0.1.dylib\"\nmkdir -p \"${DSTROOT}/usr/local/OpenSourceLicenses\"\ncp \"${SRCROOT}/cyrus_sasl/COPYING\" \"${DSTROOT}/usr/local/OpenSourceLicenses/passwordserver_sasl.txt\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		777A3D7E024BAC7C05DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777A3D88024BAC9305DD284B /* db_ndbm.c in Sources */,
+				777A3D89024BAC9405DD284B /* allockey.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7BFA0236E3D505DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C000236E3DD05DD284B /* anonymous.c in Sources */,
+				777E7C010236E3E005DD284B /* plugin_common.c in Sources */,
+				7733E724023819A805DD284B /* anonymous_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C050236E43005DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C0C0236E43805DD284B /* cram.c in Sources */,
+				777E7C0D0236E43A05DD284B /* plugin_common.c in Sources */,
+				7733E71B0238197D05DD284B /* crammd5_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C100236E47005DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C160236E47805DD284B /* digestmd5.c in Sources */,
+				777E7C170236E47905DD284B /* plugin_common.c in Sources */,
+				7733E725023819B905DD284B /* digestmd5_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C1B0236E56505DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C220236E57805DD284B /* login.c in Sources */,
+				777E7C230236E57B05DD284B /* plugin_common.c in Sources */,
+				7733E726023819BB05DD284B /* login_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C260236E5AF05DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C2D0236E5BA05DD284B /* otp.c in Sources */,
+				777E7C2F0236E5BC05DD284B /* plugin_common.c in Sources */,
+				7733E727023819C005DD284B /* otp_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C330236E66305DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7C390236E66F05DD284B /* plugin_common.c in Sources */,
+				777E7C3C0236E67605DD284B /* plain.c in Sources */,
+				7733E728023819C305DD284B /* plain_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		777E7C870236E74C05DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				77853DF40236ED9905DD284B /* snprintf.c in Sources */,
+				77853DF50236ED9905DD284B /* seterror.c in Sources */,
+				77853DF60236ED9A05DD284B /* server.c in Sources */,
+				77853DF70236ED9B05DD284B /* saslutil.c in Sources */,
+				77853DF90236ED9B05DD284B /* md5.c in Sources */,
+				77853DFC0236ED9E05DD284B /* config.c in Sources */,
+				77853DFD0236ED9E05DD284B /* client.c in Sources */,
+				77853DFE0236ED9E05DD284B /* common.c in Sources */,
+				77853DFF0236ED9F05DD284B /* checkpw.c in Sources */,
+				77853E000236ED9F05DD284B /* canonusr.c in Sources */,
+				77853E010236EDA005DD284B /* auxprop.c in Sources */,
+				84118E800546FEAE00C5C0FC /* external.c in Sources */,
+				84118E810546FEF200C5C0FC /* dlopen.c in Sources */,
+				84118E840547012200C5C0FC /* plugin_common.c in Sources */,
+				AA1FB857074A76D400911FCE /* sasl-lib.exp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		77F5D6B50236D6E205DD284B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				777E7BDD0236DDF705DD284B /* plugin_common.c in Sources */,
+				777E7BE00236DDFB05DD284B /* sasldb.c in Sources */,
+				7733E723023819A505DD284B /* sasldb_init.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98630054846530094A32F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DECA0C054847E400C45D20 /* ntlm_init.c in Sources */,
+				84DECA0D054847E400C45D20 /* ntlm.c in Sources */,
+				84DECA120548480300C45D20 /* plugin_common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84C98639054846870094A32F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				84DECA100548480000C45D20 /* plugin_common.c in Sources */,
+				AAEEF082085A050B0092A3E1 /* sql_init.c in Sources */,
+				AAEEF083085A050B0092A3E1 /* sql.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA41DD4B0985B53600B1E222 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA41DD930985B66C00B1E222 /* saslpasswd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AA41DD8A0985B62F00B1E222 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA41DD940985B67400B1E222 /* sasldblistusers.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AAD4EAFB0985A2B20066F8B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA41DCFB0985A99100B1E222 /* auth_dce.c in Sources */,
+				AA41DCFC0985A99100B1E222 /* auth_getpwent.c in Sources */,
+				AA41DCFD0985A99100B1E222 /* auth_krb4.c in Sources */,
+				AA41DCFE0985A99100B1E222 /* auth_krb5.c in Sources */,
+				AA41DCFF0985A99100B1E222 /* auth_ldap.c in Sources */,
+				AA41DD000985A99100B1E222 /* auth_pam.c in Sources */,
+				AA41DD010985A99100B1E222 /* auth_rimap.c in Sources */,
+				AA41DD020985A99100B1E222 /* auth_sasldb.c in Sources */,
+				AA41DD030985A99100B1E222 /* auth_shadow.c in Sources */,
+				AA41DD040985A99100B1E222 /* auth_sia.c in Sources */,
+				AA41DD050985A99100B1E222 /* cache.c in Sources */,
+				AA41DD060985A99100B1E222 /* cfile.c in Sources */,
+				AA41DD090985A99100B1E222 /* ipc_doors.c in Sources */,
+				AA41DD0A0985A99100B1E222 /* ipc_unix.c in Sources */,
+				AA41DD0B0985A99100B1E222 /* krbtf.c in Sources */,
+				AA41DD0C0985A99100B1E222 /* lak.c in Sources */,
+				AA41DD0D0985A99100B1E222 /* md5.c in Sources */,
+				AA41DD0E0985A99100B1E222 /* mechanisms.c in Sources */,
+				AA41DD0F0985A99100B1E222 /* saslauthd-main.c in Sources */,
+				AA41DD120985A99100B1E222 /* utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B03A89770C0DE60C00AEEB0C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B03A89840C0DE6BD00AEEB0C /* kerberos4.c in Sources */,
+				B03A89850C0DE6BD00AEEB0C /* kerberos4_init.c in Sources */,
+				B03A89860C0DE6BD00AEEB0C /* plugin_common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B045269D0C0CD3E200DB127B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B04526AD0C0CD49500DB127B /* gssapi.c in Sources */,
+				B04526AE0C0CD49500DB127B /* gssapiv2_init.c in Sources */,
+				B04526AF0C0CD49500DB127B /* plugin_common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		60EA556209D0881000A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 77F5D6B80236D6E205DD284B /* plugin_sasldb */;
+			targetProxy = 60EA556109D0881000A534B4 /* PBXContainerItemProxy */;
+		};
+		60EA556409D0881700A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA41DD8C0985B62F00B1E222 /* sasldblistusers2 */;
+			targetProxy = 60EA556309D0881700A534B4 /* PBXContainerItemProxy */;
+		};
+		60EA556609D0881700A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA41DD4D0985B53600B1E222 /* saslpasswd2 */;
+			targetProxy = 60EA556509D0881700A534B4 /* PBXContainerItemProxy */;
+		};
+		60EA556809D0881700A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAD4EAFD0985A2B20066F8B3 /* saslauthd */;
+			targetProxy = 60EA556709D0881700A534B4 /* PBXContainerItemProxy */;
+		};
+		60EA559009D08B7400A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777A3D81024BAC7C05DD284B /* sasldb */;
+			targetProxy = 60EA558F09D08B7400A534B4 /* PBXContainerItemProxy */;
+		};
+		60EA55B009D08E2100A534B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 60EA555E09D087EB00A534B4 /* TertiaryTargets */;
+			targetProxy = 60EA55AF09D08E2100A534B4 /* PBXContainerItemProxy */;
+		};
+		AA687FA70A6C39290095EF75 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777A3D81024BAC7C05DD284B /* sasldb */;
+			targetProxy = AA687FA60A6C39290095EF75 /* PBXContainerItemProxy */;
+		};
+		AA89D27C0990316800BF77E7 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84F521060549A09A00E96C8F /* KerberosTargets */;
+			targetProxy = AA89D27B0990316800BF77E7 /* PBXContainerItemProxy */;
+		};
+		AAC7502009912A6E008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAC7501609912A3C008E0B59 /* include */;
+			targetProxy = AAC7501F09912A6E008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7503909912C50008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAD4EA3509856D3D0066F8B3 /* manpages API */;
+			targetProxy = AAC7503809912C50008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7503B09912C50008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C8A0236E74C05DD284B /* lib */;
+			targetProxy = AAC7503A09912C50008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7504309912C71008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C360236E66305DD284B /* plugin_plain */;
+			targetProxy = AAC7504209912C71008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7504709912C71008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C130236E47005DD284B /* plugin_digest */;
+			targetProxy = AAC7504609912C71008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7504909912C71008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C080236E43005DD284B /* plugin_cram */;
+			targetProxy = AAC7504809912C71008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7504B09912C71008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7BFD0236E3D505DD284B /* plugin_anonymous */;
+			targetProxy = AAC7504A09912C71008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7504D09912C7D008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 84C9863C054846870094A32F /* plugin_mysql */;
+			targetProxy = AAC7504C09912C7D008E0B59 /* PBXContainerItemProxy */;
+		};
+		AAC7505509912CA0008E0B59 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAC7503609912C24008E0B59 /* SecondaryTargets */;
+			targetProxy = AAC7505409912CA0008E0B59 /* PBXContainerItemProxy */;
+		};
+		B00EECCE0C72199B0019B0CA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C1E0236E56505DD284B /* plugin_login */;
+			targetProxy = B00EECCD0C72199B0019B0CA /* PBXContainerItemProxy */;
+		};
+		B020E42F0C39C5CB0053BA78 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 777E7C290236E5AF05DD284B /* plugin_otp */;
+			targetProxy = B020E42E0C39C5CB0053BA78 /* PBXContainerItemProxy */;
+		};
+		B03A89930C0DE73D00AEEB0C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B03A89790C0DE60C00AEEB0C /* plugin_kerberos4 */;
+			targetProxy = B03A89920C0DE73D00AEEB0C /* PBXContainerItemProxy */;
+		};
+		B0A0767F0C0CF99300B52312 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B045269F0C0CD3E200DB127B /* plugin_gssapi */;
+			targetProxy = B0A0767E0C0CF99300B52312 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		60EA556F09D0882B00A534B4 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = TertiaryTargets;
+				VALID_ARCHS = "i386 ppc";
+			};
+			name = Development;
+		};
+		60EA557009D0882B00A534B4 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = TertiaryTargets;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		60EA557109D0882B00A534B4 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = TertiaryTargets;
+				VALID_ARCHS = "i386 ppc";
+			};
+			name = Default;
+		};
+		AA41DD580985B55D00B1E222 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslpasswd2;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AA41DD590985B55D00B1E222 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslpasswd2;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AA41DD5A0985B55D00B1E222 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslpasswd2;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		AA41DD900985B64E00B1E222 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = sasldblistusers2;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AA41DD910985B64E00B1E222 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = sasldblistusers2;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AA41DD920985B64E00B1E222 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = "-DHAVE_CONFIG_H";
+				PREBINDING = NO;
+				PRODUCT_NAME = sasldblistusers2;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		AAC7502509912A83008E0B59 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = include;
+			};
+			name = Development;
+		};
+		AAC7502609912A83008E0B59 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = include;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAC7502709912A83008E0B59 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = include;
+			};
+			name = Default;
+		};
+		AAC7505709912CBE008E0B59 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = KSecondaryTargets;
+			};
+			name = Development;
+		};
+		AAC7505809912CBE008E0B59 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = KSecondaryTargets;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAC7505909912CBE008E0B59 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = KSecondaryTargets;
+			};
+			name = Default;
+		};
+		AAD4E9F309856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
+				DYLIB_CURRENT_VERSION = 3.15;
+				EXPORTED_SYMBOLS_FILE = "cyrus_sasl/lib/sasl-lib.exp";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = (
+					"-DPIC",
+					"-DHAVE_DLFCN_H",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-dead_strip",
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasl2.2.dylib;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4E9F409856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
+				DYLIB_CURRENT_VERSION = 3.15;
+				EXPORTED_SYMBOLS_FILE = "cyrus_sasl/lib/sasl-lib.exp";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = (
+					"-DPIC",
+					"-DHAVE_DLFCN_H",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-dead_strip",
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasl2.2.dylib;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4E9F509856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
+				DYLIB_CURRENT_VERSION = 3.15;
+				EXPORTED_SYMBOLS_FILE = "cyrus_sasl/lib/sasl-lib.exp";
+				INSTALL_PATH = /usr/lib;
+				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = (
+					"-DPIC",
+					"-DHAVE_DLFCN_H",
+				);
+				OTHER_LDFLAGS = (
+					"-lcrypto",
+					"-dead_strip",
+				);
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasl2.2.dylib;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4E9F709856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsasldb.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4E9F809856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsasldb.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4E9F909856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				LIBRARY_STYLE = STATIC;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsasldb.a;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4E9FB09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lsasldb";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasldb.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4E9FC09856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lsasldb";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasldb.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4E9FD09856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lsasldb";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libsasldb.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4E9FF09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libanonymous.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA0009856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libanonymous.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA0109856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libanonymous.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA0309856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DAPPLE_ALLOW_VERIFY_ONLY=1";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libcrammd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA0409856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DAPPLE_ALLOW_VERIFY_ONLY=1";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libcrammd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA0509856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DAPPLE_ALLOW_VERIFY_ONLY=1";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libcrammd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA0709856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-O3";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto ";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libdigestmd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA0809856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-O3";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto ";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libdigestmd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA0909856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-O3";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto ";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libdigestmd5.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA0B09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = login.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA0C09856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = login.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA0D09856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = login.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA0F09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libotp.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA1009856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libotp.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA1109856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_SEARCH_PATHS = (
+					"$(SYMROOT)",
+					"$(OBJROOT)",
+				);
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libotp.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA1309856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libplain.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA1409856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libplain.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA1509856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = libplain.2.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA1709856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libntlm.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA1809856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libntlm.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA1909856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libntlm.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA1B09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lz";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsql.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA1C09856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lz";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsql.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA1D09856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				INSTALL_PATH = /usr/lib/sasl2/disabled;
+				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
+				LIBRARY_STYLE = BUNDLE;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-lz";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = libsql.so;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA1F09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA2009856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA2109856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA2B09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KerberosTargets;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EA2C09856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KerberosTargets;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA2D09856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = KerberosTargets;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		AAD4EA2F09856D170066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "-DAUTHDATA";
+			};
+			name = Development;
+		};
+		AAD4EA3009856D170066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "-DAUTHDATA";
+			};
+			name = Deployment;
+		};
+		AAD4EA3109856D170066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "-DAUTHDATA";
+			};
+			name = Default;
+		};
+		AAD4EA3E09856D6D0066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = manpages;
+			};
+			name = Development;
+		};
+		AAD4EA3F09856D6D0066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				PRODUCT_NAME = manpages;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EA4009856D6D0066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = manpages;
+			};
+			name = Default;
+		};
+		AAD4EB010985A2D10066F8B3 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSASLAUTHD_CONF_FILE_DEFAULT=\\\"/etc/saslauthd.conf\\\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslauthd;
+				USER_HEADER_SEARCH_PATHS = ..;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		AAD4EB020985A2D10066F8B3 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSASLAUTHD_CONF_FILE_DEFAULT=\\\"/etc/saslauthd.conf\\\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslauthd;
+				USER_HEADER_SEARCH_PATHS = ..;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		AAD4EB030985A2D10066F8B3 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/sbin/;
+				OTHER_CFLAGS = (
+					"-DHAVE_CONFIG_H",
+					"$(OTHER_CFLAGS_QUOTED_1)",
+				);
+				OTHER_CFLAGS_QUOTED_1 = "-DSASLAUTHD_CONF_FILE_DEFAULT=\\\"/etc/saslauthd.conf\\\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = saslauthd;
+				USER_HEADER_SEARCH_PATHS = ..;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		B03A89800C0DE64D00AEEB0C /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = "/usr//lib/sasl2";
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = kerberos4.2;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		B03A89810C0DE64D00AEEB0C /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "/usr//lib/sasl2";
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = kerberos4.2;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		B03A89820C0DE64D00AEEB0C /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH)";
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "/usr//lib/sasl2";
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = kerberos4.2;
+				VALID_ARCHS = "i386 ppc";
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+		B04526A90C0CD43000DB127B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = NO;
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/lib/sasl2;
+				OTHER_CFLAGS = "-DAUTHDATA=1";
+				PREBINDING = NO;
+				PRODUCT_NAME = gssapiv2.2.0.18;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		B04526AA0C0CD43000DB127B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/lib/sasl2;
+				OTHER_CFLAGS = "-DAUTHDATA=1";
+				PREBINDING = NO;
+				PRODUCT_NAME = gssapiv2.2.0.18;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		B04526AB0C0CD43000DB127B /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				EXECUTABLE_EXTENSION = so;
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/lib/sasl2;
+				OTHER_CFLAGS = "-DAUTHDATA=1";
+				PREBINDING = NO;
+				PRODUCT_NAME = gssapiv2.2.0.18;
+				ZERO_LINK = NO;
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		60EA556E09D0882B00A534B4 /* Build configuration list for PBXAggregateTarget "TertiaryTargets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				60EA556F09D0882B00A534B4 /* Development */,
+				60EA557009D0882B00A534B4 /* Deployment */,
+				60EA557109D0882B00A534B4 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AA41DD570985B55D00B1E222 /* Build configuration list for PBXNativeTarget "saslpasswd2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA41DD580985B55D00B1E222 /* Development */,
+				AA41DD590985B55D00B1E222 /* Deployment */,
+				AA41DD5A0985B55D00B1E222 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AA41DD8F0985B64E00B1E222 /* Build configuration list for PBXNativeTarget "sasldblistusers2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA41DD900985B64E00B1E222 /* Development */,
+				AA41DD910985B64E00B1E222 /* Deployment */,
+				AA41DD920985B64E00B1E222 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAC7502409912A83008E0B59 /* Build configuration list for PBXAggregateTarget "include" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAC7502509912A83008E0B59 /* Development */,
+				AAC7502609912A83008E0B59 /* Deployment */,
+				AAC7502709912A83008E0B59 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAC7505609912CBE008E0B59 /* Build configuration list for PBXAggregateTarget "SecondaryTargets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAC7505709912CBE008E0B59 /* Development */,
+				AAC7505809912CBE008E0B59 /* Deployment */,
+				AAC7505909912CBE008E0B59 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4E9F209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "lib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4E9F309856D170066F8B3 /* Development */,
+				AAD4E9F409856D170066F8B3 /* Deployment */,
+				AAD4E9F509856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4E9F609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "sasldb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4E9F709856D170066F8B3 /* Development */,
+				AAD4E9F809856D170066F8B3 /* Deployment */,
+				AAD4E9F909856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4E9FA09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_sasldb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4E9FB09856D170066F8B3 /* Development */,
+				AAD4E9FC09856D170066F8B3 /* Deployment */,
+				AAD4E9FD09856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4E9FE09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_anonymous" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4E9FF09856D170066F8B3 /* Development */,
+				AAD4EA0009856D170066F8B3 /* Deployment */,
+				AAD4EA0109856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA0209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_cram" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA0309856D170066F8B3 /* Development */,
+				AAD4EA0409856D170066F8B3 /* Deployment */,
+				AAD4EA0509856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA0609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_digest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA0709856D170066F8B3 /* Development */,
+				AAD4EA0809856D170066F8B3 /* Deployment */,
+				AAD4EA0909856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA0A09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_login" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA0B09856D170066F8B3 /* Development */,
+				AAD4EA0C09856D170066F8B3 /* Deployment */,
+				AAD4EA0D09856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA0E09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_otp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA0F09856D170066F8B3 /* Development */,
+				AAD4EA1009856D170066F8B3 /* Deployment */,
+				AAD4EA1109856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA1209856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_plain" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA1309856D170066F8B3 /* Development */,
+				AAD4EA1409856D170066F8B3 /* Deployment */,
+				AAD4EA1509856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA1609856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_ntlm" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA1709856D170066F8B3 /* Development */,
+				AAD4EA1809856D170066F8B3 /* Deployment */,
+				AAD4EA1909856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA1A09856D170066F8B3 /* Build configuration list for PBXLibraryTarget "plugin_mysql" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA1B09856D170066F8B3 /* Development */,
+				AAD4EA1C09856D170066F8B3 /* Deployment */,
+				AAD4EA1D09856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA1E09856D170066F8B3 /* Build configuration list for PBXAggregateTarget "ALL" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA1F09856D170066F8B3 /* Development */,
+				AAD4EA2009856D170066F8B3 /* Deployment */,
+				AAD4EA2109856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA2A09856D170066F8B3 /* Build configuration list for PBXAggregateTarget "KerberosTargets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA2B09856D170066F8B3 /* Development */,
+				AAD4EA2C09856D170066F8B3 /* Deployment */,
+				AAD4EA2D09856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA2E09856D170066F8B3 /* Build configuration list for PBXProject "sasl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA2F09856D170066F8B3 /* Development */,
+				AAD4EA3009856D170066F8B3 /* Deployment */,
+				AAD4EA3109856D170066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EA3D09856D6D0066F8B3 /* Build configuration list for PBXAggregateTarget "manpages API" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EA3E09856D6D0066F8B3 /* Development */,
+				AAD4EA3F09856D6D0066F8B3 /* Deployment */,
+				AAD4EA4009856D6D0066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		AAD4EB000985A2D10066F8B3 /* Build configuration list for PBXNativeTarget "saslauthd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAD4EB010985A2D10066F8B3 /* Development */,
+				AAD4EB020985A2D10066F8B3 /* Deployment */,
+				AAD4EB030985A2D10066F8B3 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		B03A897F0C0DE64D00AEEB0C /* Build configuration list for PBXNativeTarget "plugin_kerberos4" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B03A89800C0DE64D00AEEB0C /* Development */,
+				B03A89810C0DE64D00AEEB0C /* Deployment */,
+				B03A89820C0DE64D00AEEB0C /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		B04526A80C0CD43000DB127B /* Build configuration list for PBXNativeTarget "plugin_gssapi" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B04526A90C0CD43000DB127B /* Development */,
+				B04526AA0C0CD43000DB127B /* Deployment */,
+				B04526AB0C0CD43000DB127B /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 77F5D69C0236D69405DD284B /* Project object */;
+}

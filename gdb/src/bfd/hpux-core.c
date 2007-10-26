@@ -1,5 +1,5 @@
 /* BFD back-end for HP/UX core files.
-   Copyright 1993, 1994, 1996, 1998, 1999, 2001, 2002
+   Copyright 1993, 1994, 1996, 1998, 1999, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
    Written by Stu Grossman, Cygnus Support.
    Converted to back-end form by Ian Lance Taylor, Cygnus SUpport
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+Foundation, Inc., 51 Franklin Street - Fifth Floor, Boston, MA 02110-1301, USA.  */
 
 /* This file can only be compiled on systems which use HP/UX style
    core files.  */
@@ -115,11 +115,11 @@ static void swap_abort
   PARAMS ((void));
 
 static asection *
-make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
+make_bfd_asection (abfd, name, flags, size, vma, alignment_power)
      bfd *abfd;
      const char *name;
      flagword flags;
-     bfd_size_type _raw_size;
+     bfd_size_type size;
      bfd_vma vma;
      unsigned int alignment_power;
 {
@@ -137,12 +137,23 @@ make_bfd_asection (abfd, name, flags, _raw_size, vma, alignment_power)
     return NULL;
 
   asect->flags = flags;
-  asect->_raw_size = _raw_size;
+  asect->size = size;
   asect->vma = vma;
   asect->filepos = bfd_tell (abfd);
   asect->alignment_power = alignment_power;
 
   return asect;
+}
+
+/* Return true if the given core file section corresponds to a thread,
+   based on its name.  */
+
+static int
+thread_section_p (bfd *abfd ATTRIBUTE_UNUSED,
+                  asection *sect,
+                  void *obj ATTRIBUTE_UNUSED)
+{
+  return (strncmp (bfd_section_name (abfd, sect), ".reg/", 5) == 0);
 }
 
 /* this function builds a bfd target if the file is a corefile.
@@ -207,7 +218,7 @@ hpux_core_core_file_p (abfd)
 
               /* However, we also want to create those sections with the
                  file positioned at the start of the record, it seems. */
-            if (bfd_seek (abfd, (file_ptr) -core_header.len, SEEK_CUR) != 0)
+            if (bfd_seek (abfd, -((file_ptr) core_header.len), SEEK_CUR) != 0)
               break;
 
 #if defined(PROC_INFO_HAS_THREAD_ID)
@@ -233,10 +244,11 @@ hpux_core_core_file_p (abfd)
             if (core_kernel_thread_id (abfd) == 0)
               {
                 if (!make_bfd_asection (abfd, ".reg",
-                                        SEC_HAS_CONTENTS,
-                                        core_header.len,
-                                        (int) &proc_info - (int) & proc_info.hw_regs,
-                                        2))
+					SEC_HAS_CONTENTS,
+					core_header.len,
+					(bfd_vma) offsetof (struct proc_info,
+							    hw_regs),
+					2))
 		  goto fail;
               }
             else
@@ -248,17 +260,19 @@ hpux_core_core_file_p (abfd)
 		    if (!make_bfd_asection (abfd, ".reg",
 					    SEC_HAS_CONTENTS,
 					    core_header.len,
-					    (int) &proc_info - (int) & proc_info.hw_regs,
+					    (bfd_vma)offsetof (struct proc_info,
+							       hw_regs),
 					    2))
 		      goto fail;
                   }
                 /* We always make one of these sections, for every thread. */
                 sprintf (secname, ".reg/%d", core_kernel_thread_id (abfd));
                 if (!make_bfd_asection (abfd, secname,
-                                        SEC_HAS_CONTENTS,
-                                        core_header.len,
-                                        (int) &proc_info - (int) & proc_info.hw_regs,
-                                        2))
+					SEC_HAS_CONTENTS,
+					core_header.len,
+					(bfd_vma) offsetof (struct proc_info,
+							    hw_regs),
+					2))
 		  goto fail;
               }
 	    core_signal (abfd) = proc_info.sig;
@@ -276,7 +290,8 @@ hpux_core_core_file_p (abfd)
 	case CORE_ANON_SHMEM:
 	  if (!make_bfd_asection (abfd, ".data",
 				  SEC_ALLOC + SEC_LOAD + SEC_HAS_CONTENTS,
-				  core_header.len, core_header.addr, 2))
+				  core_header.len,
+				  (bfd_vma) core_header.addr, 2))
 	    goto fail;
 
 	  bfd_seek (abfd, (file_ptr) core_header.len, SEEK_CUR);
@@ -299,6 +314,29 @@ hpux_core_core_file_p (abfd)
     }
 
   /* OK, we believe you.  You're a core file (sure, sure).  */
+
+  /* On HP/UX, we sometimes encounter core files where none of the threads
+     was found to be the running thread (ie the signal was set to -1 for
+     all threads).  This happens when the program was aborted externally
+     via a TT_CORE ttrace system call.  In that case, we just pick one
+     thread at random to be the active thread.  */
+  if (core_kernel_thread_id (abfd) != 0
+      && bfd_get_section_by_name (abfd, ".reg") == NULL)
+    {
+      asection *asect = bfd_sections_find_if (abfd, thread_section_p, NULL);
+      asection *reg_sect;
+
+      if (asect != NULL)
+        {
+          reg_sect = make_bfd_asection (abfd, ".reg", asect->flags,
+                                        asect->size, asect->vma,
+                                        asect->alignment_power);
+          if (reg_sect == NULL)
+            goto fail;
+
+          reg_sect->filepos = asect->filepos;
+        }
+    }
 
   /* Were there sections of unknown type?  If so, yet there were
      at least some complete sections of known type, then, issue
@@ -348,10 +386,13 @@ swap_abort ()
 {
   abort(); /* This way doesn't require any declaration for ANSI to fuck up */
 }
-#define	NO_GET	((bfd_vma (*) PARAMS ((   const bfd_byte *))) swap_abort )
-#define	NO_PUT	((void    (*) PARAMS ((bfd_vma, bfd_byte *))) swap_abort )
-#define	NO_SIGNED_GET \
-  ((bfd_signed_vma (*) PARAMS ((const bfd_byte *))) swap_abort )
+
+#define	NO_GET ((bfd_vma (*) (const void *)) swap_abort)
+#define	NO_PUT ((void (*) (bfd_vma, void *)) swap_abort)
+#define	NO_GETS ((bfd_signed_vma (*) (const void *)) swap_abort)
+#define	NO_GET64 ((bfd_uint64_t (*) (const void *)) swap_abort)
+#define	NO_PUT64 ((void (*) (bfd_uint64_t, void *)) swap_abort)
+#define	NO_GETS64 ((bfd_int64_t (*) (const void *)) swap_abort)
 
 const bfd_target hpux_core_vec =
   {
@@ -366,26 +407,26 @@ const bfd_target hpux_core_vec =
     0,			                                   /* symbol prefix */
     ' ',						   /* ar_pad_char */
     16,							   /* ar_max_namelen */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit data */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 64 bit hdrs */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 32 bit hdrs */
-    NO_GET, NO_SIGNED_GET, NO_PUT,	/* 16 bit hdrs */
+    NO_GET64, NO_GETS64, NO_PUT64,	/* 64 bit data */
+    NO_GET, NO_GETS, NO_PUT,		/* 32 bit data */
+    NO_GET, NO_GETS, NO_PUT,		/* 16 bit data */
+    NO_GET64, NO_GETS64, NO_PUT64,	/* 64 bit hdrs */
+    NO_GET, NO_GETS, NO_PUT,		/* 32 bit hdrs */
+    NO_GET, NO_GETS, NO_PUT,		/* 16 bit hdrs */
 
     {				/* bfd_check_format */
-     _bfd_dummy_target,		/* unknown format */
-     _bfd_dummy_target,		/* object file */
-     _bfd_dummy_target,		/* archive */
-     hpux_core_core_file_p	/* a core file */
+      _bfd_dummy_target,		/* unknown format */
+      _bfd_dummy_target,		/* object file */
+      _bfd_dummy_target,		/* archive */
+      hpux_core_core_file_p		/* a core file */
     },
     {				/* bfd_set_format */
-     bfd_false, bfd_false,
-     bfd_false, bfd_false
+      bfd_false, bfd_false,
+      bfd_false, bfd_false
     },
     {				/* bfd_write_contents */
-     bfd_false, bfd_false,
-     bfd_false, bfd_false
+      bfd_false, bfd_false,
+      bfd_false, bfd_false
     },
 
     BFD_JUMP_TABLE_GENERIC (_bfd_generic),
@@ -401,4 +442,4 @@ const bfd_target hpux_core_vec =
     NULL,
 
     (PTR) 0			/* backend_data */
-};
+  };

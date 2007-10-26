@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2003 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (ÒAppleÓ) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -53,7 +53,7 @@ probe(IOService *provider, SInt32 *score)
     Location = OSDynamicCast(OSString, getProperty(kLocationKey))->getCStringNoCopy();
 
     // this will be the TTY base name for all UARTS
-    setProperty(kIOTTYBaseNameKey, "builtin-serial");
+    setProperty(kIOTTYBaseNameKey, "serial");
 
     // this will (eventually) be displayed in NetworkPrefs
     InterfaceBaseName = "Built-in Serial Port";
@@ -85,6 +85,7 @@ probeUART(void* refCon, Apple16X50UARTSync *uart, OSDictionary *properties)
 bool Apple16X50ACPI::
 start(IOService *provider)
 {
+    OSString *connectorName;
     DEBUG_IOLog("%s: %s\n", Name, Location);
 
 	Map = provider->mapDeviceMemoryWithIndex(0);
@@ -102,7 +103,17 @@ start(IOService *provider)
     if (!super::start(provider)) goto fail;
 
     IOLog("%s: Identified Serial Port on %s\n", Name, Location);
-    startUARTs();
+    connectorName = OSDynamicCast(OSString, provider->getProperty("AAPL,connector"));
+    if (connectorName) {
+        if (connectorName->isEqualTo("DB9")) {
+            IOLog("Apple16X50ACPI::start FOUND DB9 Property for AAPL,connector\n" );
+            startUARTs(true);
+            return true;
+        }
+    }
+
+    startUARTs(false);
+
     return true;
 
 fail:
@@ -143,3 +154,8 @@ setReg(UInt32 reg, UInt8 val, void *refCon)
 {
     Provider->ioWrite8(RegBase + reg, val, 0);
 }
+
+
+#pragma mark -- Power Management
+
+

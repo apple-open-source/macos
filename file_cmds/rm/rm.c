@@ -61,6 +61,8 @@ static const char rcsid[] =
 #include <unistd.h>
 
 #ifdef __APPLE__
+#include <pwd.h>
+#include <grp.h>
 #include "get_compat.h"
 #else
 #define COMPAT_MODE(func, mode) 1
@@ -92,6 +94,9 @@ main(argc, argv)
 {
 	int ch, rflag;
 	char *p;
+
+	if (argc < 1)
+		usage();
 
 	/*
 	 * Test for the special case where the utility is called as
@@ -310,6 +315,7 @@ err:
 	}
 	if (errno)
 		err(1, "fts_read");
+	fts_close(fts);
 }
 
 void

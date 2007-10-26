@@ -91,4 +91,3 @@ void BELPICSchema::create()
     createStandardRelation(CSSM_DL_DB_RECORD_GENERIC);
 }
 
-/* arch-tag: 8AB453F1-124C-11D9-B0F8-000A9595DEEE */

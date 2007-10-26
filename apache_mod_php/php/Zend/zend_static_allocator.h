@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,6 +15,8 @@
    | Authors: Andi Gutmans <andi@zend.com>                                |
    +----------------------------------------------------------------------+
 */
+
+/* $Id: zend_static_allocator.h,v 1.13.2.1.2.1 2007/01/01 09:35:47 sebastian Exp $ */
 
 #ifndef ZEND_STATIC_ALLOCATOR_H
 #define ZEND_STATIC_ALLOCATOR_H
@@ -43,3 +45,11 @@ char *static_allocator_allocate(StaticAllocator *sa, zend_uint size);
 void static_allocator_destroy(StaticAllocator *sa);
 
 #endif /* ZEND_STATIC_ALLOCATOR_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

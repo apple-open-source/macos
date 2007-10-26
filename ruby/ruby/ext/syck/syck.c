@@ -1,8 +1,8 @@
 /*
  * syck.c
  *
- * $Author: why $
- * $Date: 2004/05/25 15:04:16 $
+ * $Author: shyouhei $
+ * $Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -209,15 +209,6 @@ void
 syck_st_free( SyckParser *p )
 {
     /*
-     * Free the adhoc symbol table
-     */
-    if ( p->syms != NULL )
-    {
-        st_free_table( p->syms );
-        p->syms = NULL;
-    }
-
-    /*
      * Free the anchor tables
      */
     if ( p->anchors != NULL )
@@ -238,6 +229,15 @@ syck_st_free( SyckParser *p )
 void
 syck_free_parser( SyckParser *p )
 {
+    /*
+     * Free the adhoc symbol table
+     */
+    if ( p->syms != NULL )
+    {
+        st_free_table( p->syms );
+        p->syms = NULL;
+    }
+
     /*
      * Free tables, levels
      */
@@ -410,12 +410,10 @@ syck_move_tokens( SyckParser *p )
         return 0;
 
     skip = p->limit - p->token;
-    if ( skip < 1 )
-        return 0;
-
     if ( ( count = p->token - p->buffer ) )
     {
-        S_MEMMOVE( p->buffer, p->token, char, skip );
+	if (skip > 0)
+	    S_MEMMOVE( p->buffer, p->token, char, skip );
         p->token = p->buffer;
         p->marker -= count;
         p->cursor -= count;

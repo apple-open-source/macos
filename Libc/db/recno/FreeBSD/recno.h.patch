@@ -1,10 +1,8 @@
---- recno.h.orig	Fri Mar 22 15:41:40 2002
-+++ recno.h	Sat Oct 18 19:48:16 2003
-@@ -36,5 +36,5 @@
- 
+--- recno/FreeBSD/recno.h.orig	2007-03-13 10:38:09.000000000 -0700
++++ recno/FreeBSD/recno.h	2007-03-14 22:20:30.000000000 -0700
+@@ -37,4 +37,4 @@
  enum SRCHOP { SDELETE, SINSERT, SEARCH};	/* Rec_search operation. */
  
--#include "../btree/btree.h"
+ #include "../btree/btree.h"
 -#include "extern.h"
-+#include "btree.h"
 +#include "rec_extern.h"

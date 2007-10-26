@@ -3,14 +3,14 @@ importante. Ahora la gestiona un nuevo paquete de listas de
 distribución llamado "Mailman". Esperamos que esto mejore el
 servicio y la administración de la lista.
 
-¿Como le afecta esto?
+¿Cómo le afecta esto?
 
 1) Los mensajes de correo dirigidos a la lista deben enviarse a:
 
      %(listaddr)s
 
 2) Se le ha asignado una clave aleatoria para impedir que otros
-anulen su subscripción sin que usted lo sepa. La clave se le enviara
+anulen su subscripción sin que usted lo sepa. La clave se le enviará
 en otro mensaje de correo electrónico, que puede que ya haya
 recibido. No se preocupe si se le olvida esta clave, todos los
 meses recibirá un recordatorio por correo electronico.
@@ -32,6 +32,6 @@ pregunta o problema con esta nueva configuración:
 
     %(adminaddr)s.
 
-Este mensaje ha sido generado automaticamente por Mailman %(version)s.
+Este mensaje ha sido generado automáticamente por Mailman %(version)s.
 Para obtener mas información sobre Mailman, visite la pagina principal
 en http://www.list.org/

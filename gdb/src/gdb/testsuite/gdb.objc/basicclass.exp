@@ -21,7 +21,7 @@ if $tracelevel then {
 }
 
 # APPLE LOCAL: We don't support Objective-C on 64-bit PowerPC
-if [istarget "powerpc64-apple-darwin*"] {
+if [target_info exists noobjc64] {
     verbose "Disable Objective-C tests on 64-bit PowerPC."
     return
 }
@@ -156,9 +156,13 @@ gdb_test "print object" \
 gdb_test "print self" \
     "\\$\[0-9\] = \\(.*BasicClass \\*\\) 0x\[0-9a-f\]+" \
     " print self"
+#
+# APPLE LOCAL: In DWARF, the ObjC classes are actually given "DW_TAG_inheritance"
+# tags, so the subclasses actually show up in the print output.
+#
 
 gdb_test "print \*self" \
-    "\\$\[0-9\] = \{isa = 0x\[0-9a-f\]+, object = 0x0\}" \
+    "\\$\[0-9\] = \{(<Object> = \{|)isa = 0x\[0-9a-f\]+(}|), object = 0x0\}" \
     " print contents of self"
 
 #
@@ -179,8 +183,12 @@ gdb_test continue \
 #
 # Test calling Objective-C methods
 #
+# APPLE LOCAL: I changed gdb so we don't report the resolved type of
+# a function call, but the actual function's type, which in this case
+# is "id".
+
 gdb_test "print \[self printHi\]" \
-    "Hi.*\\$\[0-9\] = \\(.*objc_object \\*\\) 0x\[0-9a-f\]+" \
+    "Hi.*\\$\[0-9\] = \\((.*objc_object \\*|.*id)\\) 0x\[0-9a-f\]+" \
     "Call an Objective-C method with no arguments"
 
 gdb_test "print \[self printNumber: 42\]" \

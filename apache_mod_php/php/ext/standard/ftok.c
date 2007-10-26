@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: ftok.c,v 1.9.2.4.2.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: ftok.c,v 1.16.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #include "php.h"
 
@@ -49,7 +49,7 @@ PHP_FUNCTION(ftok)
 	if (Z_STRLEN_PP(proj)!=1){
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Project identifier is invalid");
 		RETURN_LONG(-1);
-	}
+    }
 
 	if ((PG(safe_mode) && (!php_checkuid(Z_STRVAL_PP(pathname), NULL, CHECKUID_CHECK_FILE_AND_DIR))) || php_check_open_basedir(Z_STRVAL_PP(pathname) TSRMLS_CC)) {
 		RETURN_LONG(-1);

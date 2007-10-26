@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2003 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -122,6 +122,7 @@ IOReturn Apple16X50UARTSync::acquirePortGated(bool sleep)
         startTxEngine();
     }
 
+	portOpened = true;
     return kIOReturnSuccess;
 
 fail:
@@ -952,6 +953,16 @@ bool Apple16X50UARTSync::start(IOService *provider)
 
     Stage = kStarted;
     registerService();
+	
+    // register for power changes
+    fCurrentPowerState = 1;		// we default to power on
+    if (!initForPM(provider)) 
+	{
+        IOLog("Apple16X50UARTSync::start - failed to init for power management");
+        //shutDown();
+		return false;
+    }	
+	
     return true;
     
 fail:
@@ -1765,12 +1776,36 @@ UInt32 Apple16X50UARTSync::getDivisor()
 #ifdef DEBUG
 void Apple16X50UARTSync::showRegs()
 {
-    DEBUG_IOLog("%s::showRegs() RX=%02x IER=%02x IIR=%02x LCR=%02x MCR=%02x LSR=%02x MSR=%02x SCR=%02x DIV=%04x\n",
+//    DEBUG_IOLog("%s::showRegs() RX=%02x IER=%02x IIR=%02x LCR=%02x MCR=%02x LSR=%02x MSR=%02x SCR=%02x DIV=%04x\n",
 	Name, inb(kREG_Data), inb(kREG_IRQ_Enable), inb(kREG_IRQ_Ident), LCR_Image=inb(kREG_LineControl),
         inb(kREG_ModemControl), inb(kREG_LineStatus), inb(kREG_ModemStatus), inb(kREG_Scratch), (int)getDivisor()
     );
+	
+	IOLog("Apple16X50UARTSync::showRegs Register Shadows: LCR_Image:(%x) FCR_Image(%x), IER_Mask(%x) \n",LCR_Image,FCR_Image,IER_Mask);
+	IOLog("Apple16X50UARTSync::showRegs Register Shadows: Divisor:(%x) MasterClock(%x) \n",Divisor,MasterClock);
+
 }
 #endif
+
+void Apple16X50UARTSync::restoreUART()
+{
+	OffLine = FALSE;
+	outb(kREG_IRQ_Enable, IER_Mask);
+	outb(kREG_LineControl, LCR_Image);
+	outb(kREG_ModemControl, MCR_Image);
+	outb(kREG_FIFOControl, FCR_Image);
+	setDivisor(Divisor);
+}
+
+void Apple16X50UARTSync::saveUART()
+{	
+	IER_Mask = inb(kREG_IRQ_Enable);
+	LCR_Image= inb(kREG_LineControl);
+	MCR_Image =inb(kREG_ModemControl);
+	FCR_Image =inb(kREG_FIFOControl);
+	OffLine = TRUE;
+}
+
 
 // resetUART() - This function sets up various default values for UART
 // parameters, then calls programUART().

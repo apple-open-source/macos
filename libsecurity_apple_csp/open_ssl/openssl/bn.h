@@ -162,11 +162,19 @@ extern "C" {
 #ifdef THIRTY_TWO_BIT
 #if defined(WIN32) && !defined(__GNUC__)
 #define BN_ULLONG	unsigned _int64
+#elif defined(__LP64__)
+#define BN_ULLONG       unsigned
 #else
 #define BN_ULLONG	unsigned long long
 #endif
+#ifdef __LP64__
+  /* still 32 bits here */
+#define BN_ULONG        unsigned
+#define BN_LONG         int
+#else
 #define BN_ULONG	unsigned long
 #define BN_LONG		long
+#endif
 #define BN_BITS		64
 #define BN_BYTES	4
 #define BN_BITS2	32

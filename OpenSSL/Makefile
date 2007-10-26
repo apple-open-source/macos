@@ -22,7 +22,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 # config is not really like configure
 Configure_Flags = --prefix="$(Install_Prefix)"								\
 		  --openssldir="$(NSLIBRARYDIR)/$(ProjectName)"						\
-		  --install_prefix="$(DSTROOT)" no-idea no-asm no-fips
+		  --install_prefix="$(DSTROOT)" no-idea no-asm no-fips threads
 
 Environment     = CFLAG="$(CFLAGS) -DOPENSSL_NO_IDEA -DFAR="						\
 		  AR="$(SRCROOT)/ar.sh r"								\
@@ -41,7 +41,7 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = NLS_openssl_097b_to_097g.patch SC-64bit.patch DVG-4574759_manpage_tweaks.patch        \
 		 DVG-4582901_bn_manpage_tweak.patch DVG-4602255_overlapping_manpage_fix.patch 		   \
-		 NLS_noinstfips.patch NLS_PR_4296241.patch
+		 NLS_noinstfips.patch NLS_PR_4296241.patch DVG-3874266+4862555_data_pig_fix.patch
 
 MANPAGES       = man/openssl_fips_fingerprint.1
 
@@ -66,12 +66,12 @@ endif
 
 
 
-ORDERFILE_CRYPTO=/AppleInternal/OrderFiles/libcrypto.order
+ORDERFILE_CRYPTO=/usr/local/lib/OrderFiles/libcrypto.0.9.7.order
 ifeq "$(shell test -f $(ORDERFILE_CRYPTO) && echo YES )" "YES"
        ORDERFLAGS_CRYPTO=-sectorder __TEXT __text $(ORDERFILE_CRYPTO)
 endif
 
-ORDERFILE_SSL=/AppleInternal/OrderFiles/libssl.order
+ORDERFILE_SSL=/usr/local/lib/OrderFiles/libssl.0.9.7.order
 ifeq "$(shell test -f $(ORDERFILE_SSL) && echo YES )" "YES"
         ORDERFLAGS_SSL=-sectorder __TEXT __text $(ORDERFILE_SSL)
 endif

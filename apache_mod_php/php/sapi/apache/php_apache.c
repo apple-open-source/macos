@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -13,11 +13,11 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Sæther Bakken <ssb@fast.no>                            |
+   |          Stig Sæther Bakken <ssb@php.net>                            |
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.69.2.5.4.4 2007/03/05 21:59:02 stas Exp $ */
+/* $Id: php_apache.c,v 1.89.2.4.2.5 2007/02/24 02:17:28 helly Exp $ */
 
 #include "php_apache_http.h"
 
@@ -34,7 +34,13 @@ php_apache_info_struct php_apache_info;
 
 #define SECTION(name)  PUTS("<h2>" name "</h2>\n")
 
+#ifndef PHP_WIN32
 extern module *top_module;
+extern module **ap_loaded_modules;
+#else
+extern  __declspec(dllimport) module *top_module;
+extern  __declspec(dllimport) module **ap_loaded_modules;
+#endif
 
 PHP_FUNCTION(virtual);
 PHP_FUNCTION(apache_request_headers);
@@ -45,10 +51,12 @@ PHP_FUNCTION(apache_lookup_uri);
 PHP_FUNCTION(apache_child_terminate);
 PHP_FUNCTION(apache_setenv);
 PHP_FUNCTION(apache_get_version);
+PHP_FUNCTION(apache_get_modules);
+PHP_FUNCTION(apache_reset_timeout);
 
 PHP_MINFO_FUNCTION(apache);
 
-function_entry apache_functions[] = {
+zend_function_entry apache_functions[] = {
 	PHP_FE(virtual,									NULL)
 	PHP_FE(apache_request_headers,					NULL)
 	PHP_FE(apache_note,								NULL)
@@ -56,17 +64,18 @@ function_entry apache_functions[] = {
 	PHP_FE(apache_child_terminate,					NULL)
 	PHP_FE(apache_setenv,							NULL)
 	PHP_FE(apache_response_headers,					NULL)
-	PHP_FE(apache_get_version,						NULL)
+	PHP_FE(apache_get_version,					NULL)
+	PHP_FE(apache_get_modules,					NULL)
 	PHP_FALIAS(getallheaders, apache_request_headers, NULL)
 	{NULL, NULL, NULL}
 };
 
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("xbithack",			"0",				PHP_INI_ALL,		OnUpdateInt,		xbithack, php_apache_info_struct, php_apache_info)
-	STD_PHP_INI_ENTRY("engine",				"1",				PHP_INI_ALL,		OnUpdateInt,		engine, php_apache_info_struct, php_apache_info)
-	STD_PHP_INI_ENTRY("last_modified",		"0",				PHP_INI_ALL,		OnUpdateInt,		last_modified, php_apache_info_struct, php_apache_info)
-	STD_PHP_INI_ENTRY("child_terminate",	"0",				PHP_INI_ALL,		OnUpdateInt,		terminate_child, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("xbithack",			"0",				PHP_INI_ALL,		OnUpdateLong,		xbithack, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("engine",				"1",				PHP_INI_ALL,		OnUpdateLong,		engine, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("last_modified",		"0",				PHP_INI_ALL,		OnUpdateLong,		last_modified, php_apache_info_struct, php_apache_info)
+	STD_PHP_INI_ENTRY("child_terminate",	"0",				PHP_INI_ALL,		OnUpdateLong,		terminate_child, php_apache_info_struct, php_apache_info)
 PHP_INI_END()
 
 
@@ -75,6 +84,7 @@ static void php_apache_globals_ctor(php_apache_info_struct *apache_globals TSRML
 {
 	apache_globals->in_request = 0;
 }
+
 
 static PHP_MINIT_FUNCTION(apache)
 {
@@ -130,9 +140,9 @@ PHP_FUNCTION(apache_child_terminate)
    Get and set Apache request notes */
 PHP_FUNCTION(apache_note)
 {
-	pval **arg_name, **arg_val;
+	zval **arg_name, **arg_val;
 	char *note_val;
-	int arg_count = ARG_COUNT(ht);
+	int arg_count = ZEND_NUM_ARGS();
 
 	if (arg_count<1 || arg_count>2 ||
 		zend_get_parameters_ex(arg_count, &arg_name, &arg_val) ==FAILURE ) {
@@ -176,6 +186,7 @@ PHP_MINFO_FUNCTION(apache)
 
 	serv = ((request_rec *) SG(server_context))->server;
 
+
 	php_info_print_table_start();
 
 #ifdef PHP_WIN32
@@ -196,20 +207,20 @@ PHP_MINFO_FUNCTION(apache)
 	} 
 
 #ifdef APACHE_RELEASE
-	sprintf(output_buf, "%d", APACHE_RELEASE);
+	snprintf(output_buf, sizeof(output_buf), "%d", APACHE_RELEASE);
 	php_info_print_table_row(2, "Apache Release", output_buf);
 #endif
-	sprintf(output_buf, "%d", MODULE_MAGIC_NUMBER);
+	snprintf(output_buf, sizeof(output_buf), "%d", MODULE_MAGIC_NUMBER);
 	php_info_print_table_row(2, "Apache API Version", output_buf);
 	snprintf(output_buf, sizeof(output_buf), "%s:%u", serv->server_hostname, serv->port);
 	php_info_print_table_row(2, "Hostname:Port", output_buf);
 #if !defined(WIN32) && !defined(WINNT)
 	snprintf(output_buf, sizeof(output_buf), "%s(%d)/%d", user_name, (int)user_id, (int)group_id);
 	php_info_print_table_row(2, "User/Group", output_buf);
-	sprintf(output_buf, "Per Child: %d - Keep Alive: %s - Max Per Connection: %d", max_requests_per_child, serv->keep_alive ? "on":"off", serv->keep_alive_max);
+	snprintf(output_buf, sizeof(output_buf), "Per Child: %d - Keep Alive: %s - Max Per Connection: %d", max_requests_per_child, serv->keep_alive ? "on":"off", serv->keep_alive_max);
 	php_info_print_table_row(2, "Max Requests", output_buf);
 #endif
-	sprintf(output_buf, "Connection: %d - Keep-Alive: %d", serv->timeout, serv->keep_alive_timeout);
+	snprintf(output_buf, sizeof(output_buf), "Connection: %d - Keep-Alive: %d", serv->timeout, serv->keep_alive_timeout);
 	php_info_print_table_row(2, "Timeouts", output_buf);
 #if !defined(WIN32) && !defined(WINNT)
 /*
@@ -298,10 +309,10 @@ PHP_MINFO_FUNCTION(apache)
  */
 PHP_FUNCTION(virtual)
 {
-	pval **filename;
+	zval **filename;
 	request_rec *rr = NULL;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -319,7 +330,7 @@ PHP_FUNCTION(virtual)
 	}
 
 	php_end_ob_buffers(1 TSRMLS_CC);
-	php_header();
+	php_header(TSRMLS_C);
 
 	if (run_sub_req(rr)) {
 		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to include '%s' - request execution failed", (*filename)->value.str.val);
@@ -343,9 +354,7 @@ PHP_FUNCTION(apache_request_headers)
     table_entry *tenv;
     int i;
 	
-    if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-    }
+    array_init(return_value);
     env_arr = table_elts(((request_rec *) SG(server_context))->headers_in);
     tenv = (table_entry *)env_arr->elts;
     for (i = 0; i < env_arr->nelts; ++i) {
@@ -369,9 +378,7 @@ PHP_FUNCTION(apache_response_headers)
     table_entry *tenv;
     int i;
 
-    if (array_init(return_value) == FAILURE) {
-		RETURN_FALSE;
-    }
+    array_init(return_value);
     env_arr = table_elts(((request_rec *) SG(server_context))->headers_out);
     tenv = (table_entry *)env_arr->elts;
     for (i = 0; i < env_arr->nelts; ++i) {
@@ -387,7 +394,8 @@ PHP_FUNCTION(apache_response_headers)
    Set an Apache subprocess_env variable */
 PHP_FUNCTION(apache_setenv)
 {
-	int var_len, val_len, top=0;
+	int var_len, val_len;
+	zend_bool top=0;
 	char *var = NULL, *val = NULL;
 	request_rec *r = (request_rec *) SG(server_context);
 
@@ -409,10 +417,10 @@ PHP_FUNCTION(apache_setenv)
    Perform a partial request of the given URI to obtain information about it */
 PHP_FUNCTION(apache_lookup_uri)
 {
-	pval **filename;
+	zval **filename;
 	request_rec *rr=NULL;
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -477,30 +485,17 @@ PHP_FUNCTION(apache_lookup_uri)
 }
 /* }}} */
 
-/* {{{ proto string apache_get_version(void)
-   Fetch Apache version */
-PHP_FUNCTION(apache_get_version)
-{       
-	char *apv = (char *) ap_get_server_version();
-
-	if (apv && *apv) {
-		RETURN_STRING(apv, 1);
-	} else {
-		RETURN_FALSE;
-	}
-}
-/* }}} */
 
 #if 0
 This function is most likely a bad idea.  Just playing with it for now.
 
 PHP_FUNCTION(apache_exec_uri)
 {
-	pval **filename;
+	zval **filename;
 	request_rec *rr=NULL;
 	TSRMLS_FETCH();
 
-	if (ARG_COUNT(ht) != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
+	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &filename) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_string_ex(filename);
@@ -513,6 +508,54 @@ PHP_FUNCTION(apache_exec_uri)
 	ap_destroy_sub_req(rr);
 }
 #endif
+
+/* {{{ proto string apache_get_version(void)
+   Fetch Apache version */
+PHP_FUNCTION(apache_get_version)
+{
+	char *apv = (char *) ap_get_server_version();
+
+	if (apv && *apv) {
+		RETURN_STRING(apv, 1);
+	} else {
+		RETURN_FALSE;
+	}
+}
+/* }}} */
+
+/* {{{ proto array apache_get_modules(void)
+   Get a list of loaded Apache modules */
+PHP_FUNCTION(apache_get_modules)
+{
+	int n;
+	char *p;
+	
+	array_init(return_value);
+	
+	for (n = 0; ap_loaded_modules[n]; ++n) {
+		char *s = (char *) ap_loaded_modules[n]->name;
+		if ((p = strchr(s, '.'))) {
+			add_next_index_stringl(return_value, s, (p - s), 1);
+		} else {
+			add_next_index_string(return_value, s, 1);
+		}	
+	}
+}
+/* }}} */
+
+/* {{{ proto bool apache_reset_timeout(void)
+   Reset the Apache write timer */
+PHP_FUNCTION(apache_reset_timeout)
+{
+	if (PG(safe_mode)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot reset the Apache timeout in safe mode");
+		RETURN_FALSE;
+	}
+
+	ap_reset_timeout((request_rec *)SG(server_context));
+	RETURN_TRUE;
+}
+/* }}} */
 
 /*
  * Local variables:

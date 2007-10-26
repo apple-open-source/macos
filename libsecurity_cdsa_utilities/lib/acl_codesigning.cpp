@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,28 +32,6 @@
 
 
 //
-// Construct a password ACL subject.
-// Note that this takes over ownership of the signature object.
-//
-CodeSignatureAclSubject::CodeSignatureAclSubject(Allocator &alloc, 
-	const Signature *signature, const void *comment, size_t commentLength)
-	: AclSubject(CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE),
-    allocator(alloc), mSignature(signature),
-	mHaveComment(true), mComment(alloc, comment, commentLength)
-{ }
-
-CodeSignatureAclSubject::CodeSignatureAclSubject(Allocator &alloc, 
-	const Signature *signature)
-	: AclSubject(CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE),
-    allocator(alloc), mSignature(signature), mHaveComment(false), mComment(alloc)
-{ }
-
-CodeSignatureAclSubject::~CodeSignatureAclSubject()
-{
-	delete mSignature;
-}
-
-//
 // Code signature credentials are validated globally - they are entirely
 // a feature of "the" process (defined by the environment), and take no
 // samples whatsoever.
@@ -62,8 +40,7 @@ bool CodeSignatureAclSubject::validate(const AclValidationContext &context) cons
 {
 	// a suitable environment is required for a match
     if (Environment *env = context.environment<Environment>())
-			return env->verifyCodeSignature(mSignature,
-				mHaveComment ? &mComment.get() : NULL);
+			return env->verifyCodeSignature(*this, context);
 	else
 		return false;
 }
@@ -75,12 +52,20 @@ bool CodeSignatureAclSubject::validate(const AclValidationContext &context) cons
 //
 CssmList CodeSignatureAclSubject::toList(Allocator &alloc) const
 {
-    // all associated data is public (no secrets)
+	assert(path().find('\0') == string::npos);	// no embedded nulls in path
+	uint32_t type = CSSM_ACL_CODE_SIGNATURE_OSX;
 	TypedList list(alloc, CSSM_ACL_SUBJECT_TYPE_CODE_SIGNATURE,
-		new(alloc) ListElement(mSignature->type()),
-		new(alloc) ListElement(alloc, CssmData(*mSignature)));
-	if (mHaveComment)
-		list += new(alloc) ListElement(alloc, mComment);
+		new(alloc) ListElement(type),
+		new(alloc) ListElement(alloc, CssmData::wrap(legacyHash(), SHA1::digestLength)),
+		new(alloc) ListElement(alloc, CssmData::wrap(path().c_str(), path().size() + 1)));
+	if (requirement()) {
+		CFRef<CFDataRef> reqData;
+		MacOSError::check(SecRequirementCopyData(requirement(), kSecCSDefaultFlags, &reqData.aref()));
+		list += new(alloc) ListElement(alloc,
+			CssmData::wrap(CFDataGetBytePtr(reqData), CFDataGetLength(reqData)));
+	}
+	for (AuxMap::const_iterator it = beginAux(); it != endAux(); it++)
+		list += new(alloc) ListElement(alloc, CssmData(*it->second));
 	return list;
 }
 
@@ -90,39 +75,71 @@ CssmList CodeSignatureAclSubject::toList(Allocator &alloc) const
 //
 CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(const TypedList &list) const
 {
-    Allocator &alloc = Allocator::standard();
-	if (list.length() == 3+1) {
-		// signature type: int, signature data: datum, comment: datum
-		ListElement *elem[3];
-		crack(list, 3, elem, 
-			CSSM_LIST_ELEMENT_WORDID, CSSM_LIST_ELEMENT_DATUM, CSSM_LIST_ELEMENT_DATUM);
-		u_int32_t sigType = *elem[0];
-		CssmData &sigData(*elem[1]);
-		CssmData &commentData(*elem[2]);
-		return new CodeSignatureAclSubject(alloc,
-			signer.restore(sigType, sigData), commentData.data(), commentData.length());
-	} else {
-		// signature type: int, signature data: datum [no comment]
-		ListElement *elem[2];
-		crack(list, 2, elem, 
-			CSSM_LIST_ELEMENT_WORDID, CSSM_LIST_ELEMENT_DATUM);
-		u_int32_t sigType = *elem[0];
-		CssmData &sigData(*elem[1]);
-		return new CodeSignatureAclSubject(alloc, signer.restore(sigType, sigData));
-	}
+	// there once was a format with only a hash (length 2+1). It is no longer supported
+	unsigned total = list.length();		// includes subject type header
+	if (total >= 3 + 1
+		&& list[1].is(CSSM_LIST_ELEMENT_WORDID)		// [1] == signature type
+		&& list[1] == CSSM_ACL_CODE_SIGNATURE_OSX
+		&& list[2].is(CSSM_LIST_ELEMENT_DATUM)		// [2] == legacy hash
+		&& list[2].data().length() == SHA1::digestLength
+		&& list[3].is(CSSM_LIST_ELEMENT_DATUM)) {
+		// structurally okay
+		CodeSignatureAclSubject *subj =
+			new CodeSignatureAclSubject(list[2].data().interpretedAs<const SHA1::Byte>(),
+				list[3].data().interpretedAs<const char>());
+		for (unsigned n = 3 + 1; n < total; n++) {
+			if (list[n].is(CSSM_LIST_ELEMENT_DATUM)) {
+				const BlobCore *blob = list[n].data().interpretedAs<const BlobCore>();
+				if (blob->length() < sizeof(BlobCore)) {
+					secdebug("csblob", "runt blob (0x%x/%zd) slot %d in CSSM_LIST",
+						blob->magic(), blob->length(), n);
+					CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+				} else if (blob->length() != list[n].data().length()) {
+					secdebug("csblob", "badly sized blob (0x%x/%zd) slot %d in CSSM_LIST",
+						blob->magic(), blob->length(), n);
+					CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+				}
+				subj->add(blob);
+			} else
+				CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+		}
+		return subj;
+	} else
+		CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 }
 
 CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Version version,
 	Reader &pub, Reader &priv) const
 {
 	assert(version == 0);
-    Allocator &alloc = Allocator::standard();
 	Endian<uint32> sigType; pub(sigType);
-	const void *data; uint32 length; pub.countedData(data, length);
-	const void *commentData; uint32 commentLength; pub.countedData(commentData, commentLength);
-	return new CodeSignatureAclSubject(alloc, 
-		signer.restore(sigType, data, length),
-		commentData, commentLength);
+	const void *data; size_t length; pub.countedData(data, length);
+	const void *commentData; size_t commentLength; pub.countedData(commentData, commentLength);
+	if (sigType == CSSM_ACL_CODE_SIGNATURE_OSX
+		&& length == SHA1::digestLength) {
+		return make((const SHA1::Byte *)data, CssmData::wrap(commentData, commentLength));
+	}
+	CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+}
+
+CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(const SHA1::Byte *hash,
+	const CssmData &commentBag) const
+{
+	using namespace LowLevelMemoryUtilities;
+	const char *path = commentBag.interpretedAs<const char>();
+	CodeSignatureAclSubject *subj = new CodeSignatureAclSubject(hash, path);
+	for (const BlobCore *blob = increment<BlobCore>(commentBag.data(), alignUp(strlen(path) + 1, commentBagAlignment));
+			blob < commentBag.end();
+			blob = increment<const BlobCore>(blob, alignUp(blob->length(), commentBagAlignment))) {
+		size_t leftInBag = difference(commentBag.end(), blob);
+		if (leftInBag < sizeof(BlobCore) || blob->length() < sizeof(BlobCore) || blob->length() > leftInBag) {
+			secdebug("csblob", "invalid blob (0x%x/%zd) [%zd in bag] in code signing ACL for %s - stopping scan",
+				blob->magic(), blob->length(), leftInBag, subj->path().c_str());
+			break;	// can't trust anything beyond this blob
+		}
+		subj->add(blob);
+	}
+	return subj;
 }
 
 
@@ -131,16 +148,42 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Version version,
 //
 void CodeSignatureAclSubject::exportBlob(Writer::Counter &pub, Writer::Counter &priv)
 {
-	Endian<uint32> sigType = mSignature->type(); pub(sigType);
-	pub.countedData(*mSignature);
-	pub.countedData(mComment);
+	using LowLevelMemoryUtilities::alignUp;
+	assert(path().find('\0') == string::npos);	// no embedded nulls in path
+	Endian<uint32> sigType = CSSM_ACL_CODE_SIGNATURE_OSX; pub(sigType);
+	pub.countedData(legacyHash(), SHA1::digestLength);
+	size_t size = path().size() + 1;
+	if (requirement()) {
+		CFRef<CFDataRef> reqData;
+		MacOSError::check(SecRequirementCopyData(requirement(), kSecCSDefaultFlags, &reqData.aref()));
+		size = alignUp(size, commentBagAlignment) + CFDataGetLength(reqData);
+	}
+	for (AuxMap::const_iterator it = beginAux(); it != endAux(); it++) {
+		size = alignUp(size, commentBagAlignment) + it->second->length();
+	}
+	pub.countedData(NULL, size);
 }
 
 void CodeSignatureAclSubject::exportBlob(Writer &pub, Writer &priv)
 {
-	Endian<uint32> sigType = mSignature->type(); pub(sigType);
-	pub.countedData(*mSignature);
-	pub.countedData(mComment);
+	using LowLevelMemoryUtilities::alignUp;
+	Endian<uint32> sigType = CSSM_ACL_CODE_SIGNATURE_OSX; pub(sigType);
+	pub.countedData(legacyHash(), SHA1::digestLength);
+	CssmAutoData commentBag(Allocator::standard(), path().c_str(), path().size() + 1);
+	static const uint32_t zero = 0;
+	if (requirement()) {
+		CFRef<CFDataRef> reqData;
+		MacOSError::check(SecRequirementCopyData(requirement(), kSecCSDefaultFlags, &reqData.aref()));
+		commentBag.append(&zero,
+			alignUp(commentBag.length(), commentBagAlignment) - commentBag.length());
+		commentBag.append(CFDataGetBytePtr(reqData), CFDataGetLength(reqData));
+	}
+	for (AuxMap::const_iterator it = beginAux(); it != endAux(); it++) {
+		commentBag.append(&zero,
+			alignUp(commentBag.length(), commentBagAlignment) - commentBag.length());
+		commentBag.append(CssmData(*it->second));
+	}
+	pub.countedData(commentBag);
 }
 
 
@@ -148,11 +191,8 @@ void CodeSignatureAclSubject::exportBlob(Writer &pub, Writer &priv)
 
 void CodeSignatureAclSubject::debugDump() const
 {
-	Debug::dump("CodeSigning");
-	if (mHaveComment) {
-		Debug::dump(" comment=");
-		Debug::dumpData(mComment);
-	}
+	Debug::dump("CodeSigning ");
+	OSXVerifier::dump();
 }
 
 #endif //DEBUGDUMP

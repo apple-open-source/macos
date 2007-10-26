@@ -231,7 +231,7 @@ mrt6_stats(void)
 	printf(" %10llu upcall%s to mrouted\n",
 	    (unsigned long long)mrtstat.mrt6s_upcalls,
 	    plural(mrtstat.mrt6s_upcalls));
-	printf(" %10llu upcall llueue overflow%s\n",
+	printf(" %10llu upcall queue overflow%s\n",
 	    (unsigned long long)mrtstat.mrt6s_upq_ovflw,
 	    plural(mrtstat.mrt6s_upq_ovflw));
 	printf(" %10llu upcall%s dropped due to full socket buffer\n",
@@ -255,7 +255,7 @@ mrt6_stats(void)
 	printf(" %10llu datagram%s selectively dropped\n",
 	    (unsigned long long)mrtstat.mrt6s_drop_sel,
 	    plural(mrtstat.mrt6s_drop_sel));
-	printf(" %10llu datagram%s dropped due to llueue overflow\n",
+	printf(" %10llu datagram%s dropped due to queue overflow\n",
 	    (unsigned long long)mrtstat.mrt6s_q_overflow,
 	    plural(mrtstat.mrt6s_q_overflow));
 	printf(" %10llu datagram%s dropped for being too large\n",

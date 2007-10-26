@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -29,20 +29,23 @@ void AppleRAIDStorageRequest::free(void)
 {
     UInt32	index;
 
-    if (srMemberStatus != 0) IODelete(srMemberStatus, IOReturn, srMemberCount);
-    if (srMemberByteCounts != 0) IODelete(srMemberByteCounts, UInt64, srMemberCount);
+    if (srRequestStatus != 0) IODelete(srRequestStatus, IOReturn, srRequestsAllocated);
+    if (srRequestByteCounts != 0) IODelete(srRequestByteCounts, UInt64, srRequestsAllocated);
+    if (srActiveMembers != 0) IODelete(srActiveMembers, AppleRAIDMember *, srMemberCount);
     
-    if (srMemberMemoryDescriptors != 0) {
-        for (index = 0; index < srMemberCount; index++) {
-            if (srMemberMemoryDescriptors[index]) {
-		srMemberMemoryDescriptors[index]->release();
+    if (srMemoryDescriptors != 0) {
+
+        for (index = 0; index < srRequestsAllocated; index++) {
+            if (srMemoryDescriptors[index]) {
+		srMemoryDescriptors[index]->release();
 	    }
 	}
         
-        IODelete(srMemberMemoryDescriptors, AppleRAIDMemoryDescriptor *, srMemberCount);
-	srMemberMemoryDescriptors = 0;
+	IODelete(srMemoryDescriptors, AppleRAIDMemoryDescriptor *, srRequestsAllocated);
+
+	srMemoryDescriptors = 0;
     }
-    
+
     super::free();
 }
 
@@ -72,22 +75,27 @@ bool AppleRAIDStorageRequest::initWithAppleRAIDSet(AppleRAIDSet *set)
 
     // these can not change
     srEventSource	= set->arSetEventSource;
-    srSetBlockSize   	= set->arSetBlockSize;
+    srSetBlockSize   	= set->arMaxReadRequestFactor ? (set->arSetBlockSize * set->arMaxReadRequestFactor) : set->arSetBlockSize;
     srMemberCount	= set->getMemberCount();
+    srRequestCount	= set->getMaxRequestCount();
+    srRequestsAllocated = set->getMaxRequestCount();
     srMemberBaseOffset	= set->getBase();
     
-    srMemberStatus = IONew(IOReturn, srMemberCount);
-    if (srMemberStatus == 0) return false;
+    srRequestStatus = IONew(IOReturn, srRequestsAllocated);
+    if (srRequestStatus == 0) return false;
     
-    srMemberByteCounts = IONew(UInt64, srMemberCount);
-    if (srMemberByteCounts == 0) return false;
+    srRequestByteCounts = IONew(UInt64, srRequestsAllocated);
+    if (srRequestByteCounts == 0) return false;
     
-    srMemberMemoryDescriptors = IONew(AppleRAIDMemoryDescriptor *, srMemberCount);
-    if (srMemberMemoryDescriptors == 0) return false;
-    
-    for (index = 0; index < srMemberCount; index++) {
-	srMemberMemoryDescriptors[index] = set->allocateMemoryDescriptor(this, index);
-	if (!srMemberMemoryDescriptors[index]) return false;
+    srActiveMembers = IONew(AppleRAIDMember *, srMemberCount);
+    if (srActiveMembers == 0) return false;
+
+    srMemoryDescriptors = IONew(AppleRAIDMemoryDescriptor *, srRequestsAllocated);
+    if (srMemoryDescriptors == 0) return false;
+
+    for (index = 0; index < srRequestsAllocated; index++) {
+	srMemoryDescriptors[index] = set->allocateMemoryDescriptor(this, index);
+	if (!srMemoryDescriptors[index]) return false;
     }
     
     return true;
@@ -108,8 +116,9 @@ void AppleRAIDStorageRequest::extractRequest(IOService **client, UInt64 *byteSta
 void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
 				   IOStorageCompletion completion)
 {
-    UInt32			index;
+    UInt32			index, virtIndex;
     AppleRAIDMember		*member;
+    bool			isOnline;
     IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
     
@@ -120,45 +129,44 @@ void AppleRAIDStorageRequest::read(IOService *client, UInt64 byteStart, IOMemory
     srMemoryDescriptorDirection	= buffer->getDirection();
     srByteCount 		= buffer->getLength();
     srByteStart			= byteStart;
-    srActiveCount		= srRAIDSet->arActiveCount;
+
+    srRequestCount		= srRAIDSet->getMaxRequestCount();
+    srActiveCount		= srRAIDSet->getActiveCount();
+    srRAIDSet->activeReadMembers(srActiveMembers, srByteStart, srByteCount);
 
     // XXX this is hideously inefficent, it adds a context switch per i/o request
     // XXX replace event source code with a direct runAction call?
     storageCompletion.target    = srEventSource;
     storageCompletion.action    = srEventSource->getStorageCompletionAction();
 
-    int activeIndex = -1;
-    for (index = 0; index < srMemberCount; index++) {
+    for (virtIndex = 0; virtIndex < srMemberCount; virtIndex++) {
 
-	member = NULL;
-        if (srRAIDSet->arMembers[index] &&
-	    (srRAIDSet->arMembers[index]->getMemberState() == kAppleRAIDMemberStateOpen ||
-	     srRAIDSet->arMembers[index]->getMemberState() == kAppleRAIDMemberStateClosing)) {
-            member = srRAIDSet->arMembers[index];
-	    activeIndex++;
-        }
+	member = srActiveMembers[virtIndex];
+	isOnline = (UInt32)(member) >= 0x1000;
+	index = isOnline ? member->getMemberIndex() : (UInt32) member;
+	memoryDescriptor = srMemoryDescriptors[index];
 
-	memoryDescriptor = srMemberMemoryDescriptors[index];
-        if ((member != 0) && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, activeIndex)) {
-            storageCompletion.parameter = memoryDescriptor;
-            member->read(srRAIDSet, srMemberBaseOffset + memoryDescriptor->mdMemberByteStart,
+	if (isOnline && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, virtIndex)) {
+	    storageCompletion.parameter = memoryDescriptor;
+	    member->read(srRAIDSet, srMemberBaseOffset + memoryDescriptor->mdMemberByteStart,
 			 memoryDescriptor, storageCompletion);
-        } else {
-
+	} else {
 	    // XXX this is lame, just have completion code check active count instead of the member count
 	    // XXX instead of this we could just set the byte count and status here
-	    // this would speed up concat and degraded mirrors
+	    // this would speed up any io request that does not hit all disks in the set
 	    // would need to handle the case of all the members being DOA?
-            srEventSource->memberCompleteRequest(memoryDescriptor, kIOReturnSuccess, 0);
-        }
+	    // there is also a race if we switch the count on the fly
+	    srEventSource->completeRequest(memoryDescriptor, kIOReturnSuccess, 0);
+	}
     }
 }
 
 void AppleRAIDStorageRequest::write(IOService *client, UInt64 byteStart, IOMemoryDescriptor *buffer,
                                     IOStorageCompletion completion)
 {
-    UInt32			index;
+    UInt32			index, virtIndex;
     AppleRAIDMember		*member;
+    bool			isOnline;
     IOStorageCompletion		storageCompletion;
     AppleRAIDMemoryDescriptor	*memoryDescriptor;
     
@@ -169,27 +177,27 @@ void AppleRAIDStorageRequest::write(IOService *client, UInt64 byteStart, IOMemor
     srMemoryDescriptorDirection	= buffer->getDirection();
     srByteCount 		= buffer->getLength();
     srByteStart			= byteStart;
-    srActiveCount		= srRAIDSet->arActiveCount;
-    
+
+    srRequestCount		= srRAIDSet->getMaxRequestCount();
+    srActiveCount		= srRAIDSet->getActiveCount();
+    srRAIDSet->activeWriteMembers(srActiveMembers, srByteStart, srByteCount);
+
     storageCompletion.target    = srEventSource;
     storageCompletion.action    = srEventSource->getStorageCompletionAction();
 
-    int activeIndex = -1;
-    for (index = 0; index < srMemberCount; index++) {
+    for (virtIndex = 0; virtIndex < srMemberCount; virtIndex++) {
+	
+	member = srActiveMembers[virtIndex];
+	isOnline = (UInt32)(member) >= 0x1000;
+	index = isOnline ? member->getMemberIndex() : (UInt32) member;
+	memoryDescriptor = srMemoryDescriptors[index];
 
-	member = NULL;
-        if (srRAIDSet->arMembers[index] && srRAIDSet->arMembers[index]->getMemberState() >= kAppleRAIDMemberStateClosing) {
-            member = srRAIDSet->arMembers[index];
-	    activeIndex++;
-        }
-
-	memoryDescriptor = srMemberMemoryDescriptors[index];
-        if ((member != 0) && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, activeIndex)) {
+	if (isOnline && memoryDescriptor->configureForMemoryDescriptor(buffer, byteStart, virtIndex)) {
             storageCompletion.parameter = memoryDescriptor;
             member->write(srRAIDSet, srMemberBaseOffset + memoryDescriptor->mdMemberByteStart,
 			  memoryDescriptor, storageCompletion);
         } else {
-            srEventSource->memberCompleteRequest(memoryDescriptor, kIOReturnSuccess, 0);
+            srEventSource->completeRequest(memoryDescriptor, kIOReturnSuccess, 0);
         }
     }
 }

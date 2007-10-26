@@ -1,121 +1,121 @@
 /* Match rules with nonterminals for bison,
-   Copyright (C) 1984, 1989 Free Software Foundation, Inc.
 
-This file is part of Bison, the GNU Compiler Compiler.
+   Copyright (C) 1984, 1989, 2000, 2001, 2002, 2003, 2005 Free
+   Software Foundation, Inc.
 
-Bison is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   This file is part of Bison, the GNU Compiler Compiler.
 
-Bison is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   Bison is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
-You should have received a copy of the GNU General Public License
-along with Bison; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   Bison is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
+   You should have received a copy of the GNU General Public License
+   along with Bison; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.  */
 
-/* set_derives finds, for each variable (nonterminal), which rules can derive it.
-   It sets up the value of derives so that
-   derives[i - ntokens] points to a vector of rule numbers,
-   terminated with -1.  */
-
-#include <stdio.h>
+#include <config.h>
 #include "system.h"
-#include "alloc.h"
-#include "types.h"
+
+#include "getargs.h"
+
+#include "derives.h"
 #include "gram.h"
+#include "reader.h"
+#include "symtab.h"
 
-void set_derives PARAMS((void));
-void free_derives PARAMS((void));
-
-short **derives;
-
-void
-set_derives (void)
+/* Linked list of rule numbers.  */
+typedef struct rule_list
 {
-  register int i;
-  register int lhs;
-  register shorts *p;
-  register short *q;
-  register shorts **dset;
-  register shorts *delts;
+  struct rule_list *next;
+  rule *value;
+} rule_list;
 
-  dset = NEW2(nvars, shorts *) - ntokens;
-  delts = NEW2(nrules + 1, shorts);
+rule ***derives;
 
-  p = delts;
-  for (i = nrules; i > 0; i--)
-    {
-      lhs = rlhs[i];
-      if (lhs >= 0)
-	{
-	  p->next = dset[lhs];
-	  p->value = i;
-	  dset[lhs] = p;
-	  p++;
-	}
-    }
+static void
+print_derives (void)
+{
+  int i;
 
-  derives = NEW2(nvars, short *) - ntokens;
-  q = NEW2(nvars + nrules, short);
+  fputs ("DERIVES\n", stderr);
 
   for (i = ntokens; i < nsyms; i++)
     {
-      derives[i] = q;
-      p = dset[i];
+      rule **rp;
+      fprintf (stderr, "\t%s derives\n", symbols[i]->tag);
+      for (rp = derives[i - ntokens]; *rp; ++rp)
+	{
+	  fprintf (stderr, "\t\t%3d ", (*rp)->user_number);
+	  rule_rhs_print (*rp, stderr);
+	}
+    }
+
+  fputs ("\n\n", stderr);
+}
+
+
+void
+derives_compute (void)
+{
+  symbol_number i;
+  rule_number r;
+  rule **q;
+
+  /* DSET[NTERM - NTOKENS] -- A linked list of the numbers of the rules
+     whose LHS is NTERM.  */
+  rule_list **dset = xcalloc (nvars, sizeof *dset);
+
+  /* DELTS[RULE] -- There are NRULES rule number to attach to nterms.
+     Instead of performing NRULES allocations for each, have an array
+     indexed by rule numbers.  */
+  rule_list *delts = xnmalloc (nrules, sizeof *delts);
+
+  for (r = nrules - 1; r >= 0; --r)
+    {
+      symbol_number lhs = rules[r].lhs->number;
+      rule_list *p = &delts[r];
+      /* A new LHS is found.  */
+      p->next = dset[lhs - ntokens];
+      p->value = &rules[r];
+      dset[lhs - ntokens] = p;
+    }
+
+  /* DSET contains what we need under the form of a linked list.  Make
+     it a single array.  */
+
+  derives = xnmalloc (nvars, sizeof *derives);
+  q = xnmalloc (nvars + nrules, sizeof *q);
+
+  for (i = ntokens; i < nsyms; i++)
+    {
+      rule_list *p = dset[i - ntokens];
+      derives[i - ntokens] = q;
       while (p)
 	{
 	  *q++ = p->value;
 	  p = p->next;
 	}
-      *q++ = -1;
+      *q++ = NULL;
     }
 
-#ifdef	DEBUG
-  print_derives();
-#endif
+  if (trace_flag & trace_sets)
+    print_derives ();
 
-  FREE(dset + ntokens);
-  FREE(delts);
+  free (dset);
+  free (delts);
 }
+
 
 void
-free_derives (void)
+derives_free (void)
 {
-  FREE(derives[ntokens]);
-  FREE(derives + ntokens);
+  free (derives[0]);
+  free (derives);
 }
-
-
-
-#ifdef	DEBUG
-
-void
-print_derives (void)
-{
-  register int i;
-  register short *sp;
-
-  extern char **tags;
-
-  printf(_("\n\n\nDERIVES\n\n"));
-
-  for (i = ntokens; i < nsyms; i++)
-    {
-      printf(_("%s derives"), tags[i]);
-      for (sp = derives[i]; *sp > 0; sp++)
-	{
-	  printf("  %d", *sp);
-	}
-      putchar('\n');
-    }
-
-  putchar('\n');
-}
-
-#endif

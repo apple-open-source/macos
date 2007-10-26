@@ -29,25 +29,31 @@
 #ifndef _DSEventSemaphore_H_
 #define _DSEventSemaphore_H_
 
-#include <DirectoryServiceCore/DSSemaphore.h>
+#include <unistd.h>		// for _POSIX_THREADS
+#include <pthread.h>	// for pthread_*_t
+#include <DirectoryServiceCore/PrivateTypes.h>
 
-// --------------------------------------------------------------------------------
-// DSEventSemaphore class definition
-//
-// --------------------------------------------------------------------------------
-
-class DSEventSemaphore : public DSSemaphore
+class DSEventSemaphore
 {
 public:
 	/**** Instance methods. ****/
 	// ctor and dtor.
-			DSEventSemaphore		( bool posted = false ) ;
-	virtual ~DSEventSemaphore	( void ) ;
+            DSEventSemaphore    ( void );
+            ~DSEventSemaphore   ( void );
 
-	// Superclass overrides.
-	virtual void		Signal	( void ) ;
-	virtual sInt32		Wait	( sInt32 milliSecs = kForever ) ;
-	virtual uInt32		Reset	( void ) ;
+    void    PostEvent           ( void );
+    void    ResetEvent          ( void );
+    
+    // returns true if got event, otherwise false if it timed out
+    // pass 0 to wait forever
+	bool    WaitForEvent        ( SInt32 milliSecs = 0 );
+
+protected:
+    /**** Instance variables. ****/
+    pthread_mutex_t		fMutex;
+	pthread_cond_t		fCondition;
+    bool                fbEvent;
+	SInt32				fMilliSecsTotal;
 };
 
 #endif /* _DSEventSemaphore_H_ */

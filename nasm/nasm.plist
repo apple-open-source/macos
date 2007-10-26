@@ -1,0 +1,20 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2005-10-12</string>
+	<key>OpenSourceProject</key>
+	<string>nasm</string>
+	<key>OpenSourceVersion</key>
+	<string>0.98.40</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://sourceforge.net/projects/nasm/</string>
+	<key>OpenSourceModifications</key>
+	<array/>
+	<key>OpenSourceLicense</key>
+	<string>LGPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>nasm.txt</string>
+</dict>
+</array>
+</plist>

@@ -2,7 +2,7 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2007 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
@@ -17,11 +17,10 @@
    +----------------------------------------------------------------------+
 */
 
+/* $Id: zend_llist.h,v 1.33.2.1.2.1 2007/01/01 09:35:46 sebastian Exp $ */
 
 #ifndef ZEND_LLIST_H
 #define ZEND_LLIST_H
-
-#include <stdlib.h>
 
 typedef struct _zend_llist_element {
 	struct _zend_llist_element *next;
@@ -38,8 +37,8 @@ typedef void (*llist_apply_func_t)(void * TSRMLS_DC);
 typedef struct _zend_llist {
 	zend_llist_element *head;
 	zend_llist_element *tail;
-	size_t size;
 	size_t count;
+	size_t size;
 	llist_dtor_func_t dtor;
 	unsigned char persistent;
 	zend_llist_element *traverse_ptr;
@@ -77,3 +76,11 @@ ZEND_API void *zend_llist_get_prev_ex(zend_llist *l, zend_llist_position *pos);
 END_EXTERN_C()
 
 #endif /* ZEND_LLIST_H */
+
+/*
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * indent-tabs-mode: t
+ * End:
+ */

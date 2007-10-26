@@ -16,6 +16,11 @@ TkPackage.require('ctext')
 module Tk
   module Tcllib
     class CText < TkText
+      PACKAGE_NAME = 'ctext'.freeze
+      def self.package_name
+        PACKAGE_NAME
+      end
+
       def self.package_version
         begin
           TkPackage.require('ctext')
@@ -34,12 +39,24 @@ class Tk::Tcllib::CText
 
   def create_self(keys)
     if keys and keys != None
-      tk_call_without_enc('ctext', @path, *hash_kv(keys, true))
+      tk_call_without_enc(self.class::TkCommandNames[0], @path, 
+                          *hash_kv(keys, true))
     else
-      tk_call_without_enc('ctext', @path)
+      tk_call_without_enc(self.class::TkCommandNames[0], @path)
     end
   end
   private :create_self
+
+  def __strval_optkeys
+    super() << 'linemapfg' << 'linemapbg' << 
+      'linemap_select_fg' << 'linemap_select_bg'
+  end
+  private :__strval_optkeys
+
+  def __boolval_optkeys
+    super() << 'highlight' << 'linemap_markable'
+  end
+  private :__boolval_optkeys
 
   def append(*args)
     tk_send('append', *args)

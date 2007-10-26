@@ -24,13 +24,13 @@
 #ifdef __APPLE_PR3375657_HACK__
 
 #include <stdio.h>
-#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <alloca.h>
 #include <string.h>
 
 __private_extern__ int _shm_match(const char *name);
+extern int __shm_open (const char *, int, int);
 
 int
 shm_open (const char *name, int flags, mode_t mode)
@@ -51,7 +51,7 @@ shm_open (const char *name, int flags, mode_t mode)
 		name = buffer;
         }
 
-	return syscall (SYS_shm_open, name, flags, mode);
+	return __shm_open(name, flags, mode);
 }
 
 #endif /* __APPLE_PR3375657_HACK__ */

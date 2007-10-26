@@ -26,11 +26,9 @@
  * or implied warranty.
  */
 
-// Krb4 # defines which are no longer provided by krb.h
-#define KRB_REMOTE_COMMAND_TICKET "rcmd"
-
 // Define so we get prototypes for KLSetApplicationOptions and KLGetApplicationOptions
 #define KERBEROSLOGIN_DEPRECATED
+#define KRB5_PRIVATE 1
 
 #include <TargetConditionals.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -57,14 +55,13 @@
 #include <servers/bootstrap.h>
 
 #include <Kerberos/KerberosDebug.h>
-#include <Kerberos/LoginSessions.h>
-#include <Kerberos/mach_client_utilities.h>
+#include <Kerberos/kipc_session.h>
+#include <Kerberos/kipc_client.h>
 
 #include <Kerberos/com_err.h>
 #include <Kerberos/profile.h>
-#include <Kerberos/des.h>
-#include <Kerberos/krb.h>
-#include "krb4int.h"  // must include before krb5.h to avoid warnings
+#include "k5-int.h"
+#include "os-proto.h"
 #include <Kerberos/krb5.h>
 #include <Kerberos/CredentialsCache.h>
 

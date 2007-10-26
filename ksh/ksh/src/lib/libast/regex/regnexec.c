@@ -1,28 +1,24 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1985-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                 Phong Vo <kpv@research.att.com>                  *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1985-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                   Phong Vo <kpv@research.att.com>                    *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 
 /*
@@ -78,6 +74,7 @@ static const char*	rexnames[] =
 	"REX_KMP",
 	"REX_NEG",
 	"REX_NEG_CATCH",
+	"REX_NEST",
 	"REX_ONECHAR",
 	"REX_REP",
 	"REX_REP_CATCH",
@@ -725,6 +722,81 @@ collmatch(Rex_t* rex, unsigned char* s, unsigned char* e, unsigned char** p)
 	return rex->re.collate.invert ? !r : r;
 }
 
+static unsigned char*
+nestmatch(register unsigned char* s, register unsigned char* e, const unsigned short* type, register int co)
+{
+	register int	c;
+	register int	cc;
+	unsigned int	n;
+	int		oc;
+
+	if (type[co] & (REX_NEST_literal|REX_NEST_quote))
+	{
+		n = (type[co] & REX_NEST_literal) ? REX_NEST_terminator : (REX_NEST_escape|REX_NEST_terminator);
+		while (s < e)
+		{
+			c = *s++;
+			if (c == co)
+				return s;
+			else if (type[c] & n)
+			{
+				if (s >= e || (type[c] & REX_NEST_terminator))
+					break;
+				s++;
+			}
+		}
+	}
+	else
+	{
+		cc = type[co] >> REX_NEST_SHIFT;
+		oc = type[co] & (REX_NEST_open|REX_NEST_close);
+		n = 1;
+		while (s < e)
+		{
+			c = *s++;
+			switch (type[c] & (REX_NEST_escape|REX_NEST_open|REX_NEST_close|REX_NEST_delimiter|REX_NEST_separator|REX_NEST_terminator))
+			{
+			case REX_NEST_delimiter:
+			case REX_NEST_terminator:
+				return oc ? 0 : s;
+			case REX_NEST_separator:
+				if (!oc)
+					return s;
+				break;
+			case REX_NEST_escape:
+				if (s >= e)
+					return 0;
+				s++;
+				break;
+			case REX_NEST_open|REX_NEST_close:
+				if (c == cc)
+				{
+					if (!--n)
+						return s;
+				}
+				/*FALLTHROUGH*/
+			case REX_NEST_open:
+				if (c == co)
+				{
+					if (!++n)
+						return 0;
+				}
+				else if (!(s = nestmatch(s, e, type, c)))
+					return 0;
+				break;
+			case REX_NEST_close:
+				if (c != cc)
+					return 0;
+				if (!--n)
+					return s;
+				break;
+			}
+		}
+		return (oc || !(type[UCHAR_MAX+1] & REX_NEST_terminator)) ? 0 : s;
+	}
+	return 0;
+}
+
 static int
 parse(Env_t* env, Rex_t* rex, Rex_t* cont, unsigned char* s)
 {
@@ -739,6 +811,7 @@ parse(Env_t* env, Rex_t* rex, Rex_t* cont, unsigned char* s)
 	unsigned char*	t;
 	unsigned char*	b;
 	unsigned char*	e;
+	char*		u;
 	regmatch_t*	o;
 	Trie_node_t*	x;
 	Rex_t*		q;
@@ -1044,7 +1117,7 @@ DEBUG_TEST(0x0008,(sfprintf(sfstdout, "AHA#%04d 0x%04x parse %s `%-.*s'\n", __LI
 						return BAD;
 					}
 					e = env->end;
-					for (i = 0; s < e && i < n && s[i] != c; i++)
+					for (i = 0; s < e && i < n && *s != c; i++)
 						s += b[i] = MBSIZE(s);
 					for (; i-- >= m; s -= b[i])
 						switch (follow(env, rex, cont, s))
@@ -1085,7 +1158,7 @@ DEBUG_TEST(0x0008,(sfprintf(sfstdout, "AHA#%04d 0x%04x parse %s `%-.*s'\n", __LI
 				else
 				{
 					e = env->end;
-					for (i = 0; s < e && i < m && s[i] != c; i++)
+					for (i = 0; s < e && i < m && *s != c; i++)
 						s += MBSIZE(s);
 					if (i >= m)
 						for (; s <= e && i <= n; s += MBSIZE(s), i++)
@@ -1387,6 +1460,23 @@ DEBUG_TEST(0x0200,(sfprintf(sfstdout,"AHA#%04d 0x%04x parse %s=>%s `%-.*s'\n", _
 		case REX_NEG_CATCH:
 			bitset(rex->re.neg_catch.index, s - rex->re.neg_catch.beg);
 			return NONE;
+		case REX_NEST:
+			do
+			{
+				if ((c = *s++) == rex->re.nest.primary)
+				{
+					if (s >= env->end || !(s = nestmatch(s, env->end, rex->re.nest.type, c)))
+						return NONE;
+					break;
+				}
+				if (rex->re.nest.primary >= 0)
+					return NONE;
+			    	if (rex->re.nest.type[c] & (REX_NEST_delimiter|REX_NEST_separator|REX_NEST_terminator))
+					break;
+			    	if (!(s = nestmatch(s, env->end, rex->re.nest.type, c)))
+					return NONE;
+			} while (s < env->end && !(rex->re.nest.type[*(s-1)] & (REX_NEST_delimiter|REX_NEST_separator|REX_NEST_terminator)));
+			break;
 		case REX_NULL:
 			break;
 		case REX_ONECHAR:
@@ -1645,8 +1735,9 @@ DEBUG_TEST(0x0200,(sfprintf(sfstdout,"AHA#%04d 0x%04x parse %s \"%-.*s\" `%-.*s'
 				return NONE;
 			return parsetrie(env, x, rex, cont, s);
 		case REX_EXEC:
-			e = 0;
-			r = (*env->disc->re_execf)(env->regex, rex->re.exec.data, rex->re.exec.text, rex->re.exec.size, (const char*)s, env->end - s, (char**)&e, env->disc);
+			u = 0;
+			r = (*env->disc->re_execf)(env->regex, rex->re.exec.data, rex->re.exec.text, rex->re.exec.size, (const char*)s, env->end - s, &u, env->disc);
+			e = (unsigned char*)u;
 			if (e >= s && e <= env->end)
 				s = e;
 			switch (r)
@@ -1875,8 +1966,8 @@ regnexec(const regex_t* p, const char* s, size_t len, size_t nmatch, regmatch_t*
 		n = env->nsub;
 		e = e->next;
 	}
-	DEBUG_TEST(0x0080,(sfprintf(sfstdout, "AHA#%04d parse\n", __LINE__)),(0));
 	j = env->once || (flags & REG_LEFT);
+	DEBUG_TEST(0x0080,(sfprintf(sfstdout, "AHA#%04d parse once=%d\n", __LINE__, j)),(0));
 	while ((i = parse(env, e, &env->done, (unsigned char*)s)) == NONE || advance && !env->best[0].rm_eo && !(advance = 0))
 	{
 		if (j)

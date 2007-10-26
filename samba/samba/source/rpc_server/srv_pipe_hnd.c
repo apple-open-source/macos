@@ -2,8 +2,8 @@
  *  Unix SMB/CIFS implementation.
  *  RPC Pipe client / server routines
  *  Copyright (C) Andrew Tridgell              1992-1998,
- *  Copyright (C) Luke Kenneth Casson Leighton 1996-1998,
- *  Copyright (C) Jeremy Allison				    1999.
+ *  Largely re-written : 2005
+ *  Copyright (C) Jeremy Allison		1998 - 2005
  *  
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -106,10 +106,11 @@ static int pipe_handle_offset;
 
 void set_pipe_handle_offset(int max_open_files)
 {
-  if(max_open_files < 0x7000)
-    pipe_handle_offset = 0x7000;
-  else
-    pipe_handle_offset = max_open_files + 10; /* For safety. :-) */
+	if(max_open_files < 0x7000) {
+		pipe_handle_offset = 0x7000;
+	} else {
+		pipe_handle_offset = max_open_files + 10; /* For safety. :-) */
+	}
 }
 
 /****************************************************************************
@@ -128,8 +129,9 @@ void reset_chain_p(void)
 void init_rpc_pipe_hnd(void)
 {
 	bmap = bitmap_allocate(MAX_OPEN_PIPES);
-	if (!bmap)
+	if (!bmap) {
 		exit_server("out of memory in init_rpc_pipe_hnd");
+	}
 }
 
 /****************************************************************************
@@ -154,7 +156,7 @@ static BOOL pipe_init_outgoing_data(pipes_struct *p)
 	 * Initialize the outgoing RPC data buffer.
 	 * we will use this as the raw data area for replying to rpc requests.
 	 */	
-	if(!prs_init(&o_data->rdata, MAX_PDU_FRAG_LEN, p->mem_ctx, MARSHALL)) {
+	if(!prs_init(&o_data->rdata, RPC_MAX_PDU_FRAG_LEN, p->mem_ctx, MARSHALL)) {
 		DEBUG(0,("pipe_init_outgoing_data: malloc fail.\n"));
 		return False;
 	}
@@ -177,8 +179,9 @@ smb_np_struct *open_rpc_pipe_p(char *pipe_name,
 	DEBUG(4,("Open pipe requested %s (pipes_open=%d)\n",
 		 pipe_name, pipes_open));
 
-	if (strstr(pipe_name, "spoolss"))
+	if (strstr(pipe_name, "spoolss")) {
 		is_spoolss_pipe = True;
+	}
  
 	if (is_spoolss_pipe && current_spoolss_pipes_open >= MAX_OPEN_SPOOLSS_PIPES) {
 		DEBUG(10,("open_rpc_pipe_p: spooler bug workaround. Denying open on pipe %s\n",
@@ -189,8 +192,10 @@ smb_np_struct *open_rpc_pipe_p(char *pipe_name,
 	/* not repeating pipe numbers makes it easier to track things in 
 	   log files and prevents client bugs where pipe numbers are reused
 	   over connection restarts */
-	if (next_pipe == 0)
+
+	if (next_pipe == 0) {
 		next_pipe = (sys_getpid() ^ time(NULL)) % MAX_OPEN_PIPES;
+	}
 
 	i = bitmap_find(bmap, next_pipe);
 
@@ -201,8 +206,9 @@ smb_np_struct *open_rpc_pipe_p(char *pipe_name,
 
 	next_pipe = (i+1) % MAX_OPEN_PIPES;
 
-	for (p = Pipes; p; p = p->next)
+	for (p = Pipes; p; p = p->next) {
 		DEBUG(5,("open_rpc_pipe_p: name %s pnum=%x\n", p->name, p->pnum));  
+	}
 
 	p = SMB_MALLOC_P(smb_np_struct);
 	if (!p) {
@@ -259,8 +265,9 @@ smb_np_struct *open_rpc_pipe_p(char *pipe_name,
 	chain_p = p;
 	
 	/* Iterate over p_it as a temp variable, to display all open pipes */ 
-	for (p_it = Pipes; p_it; p_it = p_it->next)
+	for (p_it = Pipes; p_it; p_it = p_it->next) {
 		DEBUG(5,("open pipes: name %s pnum=%x\n", p_it->name, p_it->pnum));  
+	}
 
 	return chain_p;
 }
@@ -297,9 +304,17 @@ static void *make_internal_rpc_pipe_p(char *pipe_name,
 		return NULL;
 	}
 
+	if ((p->pipe_state_mem_ctx = talloc_init("pipe_state %s %p", pipe_name, p)) == NULL) {
+		DEBUG(0,("open_rpc_pipe_p: talloc_init failed.\n"));
+		talloc_destroy(p->mem_ctx);
+		SAFE_FREE(p);
+		return NULL;
+	}
+
 	if (!init_pipe_handle_list(p, pipe_name)) {
 		DEBUG(0,("open_rpc_pipe_p: init_pipe_handles failed.\n"));
 		talloc_destroy(p->mem_ctx);
+		talloc_destroy(p->pipe_state_mem_ctx);
 		SAFE_FREE(p);
 		return NULL;
 	}
@@ -311,8 +326,12 @@ static void *make_internal_rpc_pipe_p(char *pipe_name,
 	 * change the type to UNMARSALLING before processing the stream.
 	 */
 
-	if(!prs_init(&p->in_data.data, MAX_PDU_FRAG_LEN, p->mem_ctx, MARSHALL)) {
+	if(!prs_init(&p->in_data.data, RPC_MAX_PDU_FRAG_LEN, p->mem_ctx, MARSHALL)) {
 		DEBUG(0,("open_rpc_pipe_p: malloc fail for in_data struct.\n"));
+		talloc_destroy(p->mem_ctx);
+		talloc_destroy(p->pipe_state_mem_ctx);
+		close_policy_by_pipe(p);
+		SAFE_FREE(p);
 		return NULL;
 	}
 
@@ -320,44 +339,21 @@ static void *make_internal_rpc_pipe_p(char *pipe_name,
 
 	p->conn = conn;
 
-	/* Ensure the connection isn't idled whilst this pipe is open. */
-	p->conn->num_files_open++;
-
 	p->vuid  = vuid;
 
-	p->ntlmssp_chal_flags = 0;
-	p->ntlmssp_auth_validated = False;
-	p->ntlmssp_auth_requested = False;
-
-	p->pipe_bound = False;
-	p->fault_state = False;
 	p->endian = RPC_LITTLE_ENDIAN;
 
 	ZERO_STRUCT(p->pipe_user);
 
-	p->pipe_user.uid = (uid_t)-1;
-	p->pipe_user.gid = (gid_t)-1;
+	p->pipe_user.ut.uid = (uid_t)-1;
+	p->pipe_user.ut.gid = (gid_t)-1;
 	
 	/* Store the session key and NT_TOKEN */
 	if (vuser) {
 		p->session_key = data_blob(vuser->session_key.data, vuser->session_key.length);
-		p->pipe_user.nt_user_token = dup_nt_token(vuser->nt_user_token);
+		p->pipe_user.nt_user_token = dup_nt_token(
+			NULL, vuser->nt_user_token);
 	}
-
-	/*
-	 * Initialize the incoming RPC struct.
-	 */
-
-	p->in_data.pdu_needed_len = 0;
-	p->in_data.pdu_received_len = 0;
-
-	/*
-	 * Initialize the outgoing RPC struct.
-	 */
-
-	p->out_data.current_pdu_len = 0;
-	p->out_data.current_pdu_sent = 0;
-	p->out_data.data_sent_length = 0;
 
 	/*
 	 * Initialize the outgoing RPC data buffer with no memory.
@@ -504,7 +500,7 @@ static ssize_t unmarshall_rpc_header(pipes_struct *p)
 	 * Ensure that the pdu length is sane.
 	 */
 
-	if((p->hdr.frag_len < RPC_HEADER_LEN) || (p->hdr.frag_len > MAX_PDU_FRAG_LEN)) {
+	if((p->hdr.frag_len < RPC_HEADER_LEN) || (p->hdr.frag_len > RPC_MAX_PDU_FRAG_LEN)) {
 		DEBUG(0,("unmarshall_rpc_header: assert on frag length failed.\n"));
 		set_incoming_fault(p);
 		prs_mem_free(&rpc_in);
@@ -514,17 +510,7 @@ static ssize_t unmarshall_rpc_header(pipes_struct *p)
 	DEBUG(10,("unmarshall_rpc_header: type = %u, flags = %u\n", (unsigned int)p->hdr.pkt_type,
 			(unsigned int)p->hdr.flags ));
 
-	/*
-	 * Adjust for the header we just ate.
-	 */
-	p->in_data.pdu_received_len = 0;
 	p->in_data.pdu_needed_len = (uint32)p->hdr.frag_len - RPC_HEADER_LEN;
-
-	/*
-	 * Null the data we just ate.
-	 */
-
-	memset((char *)&p->in_data.current_in_pdu[0], '\0', RPC_HEADER_LEN);
 
 	prs_mem_free(&rpc_in);
 
@@ -536,15 +522,17 @@ static ssize_t unmarshall_rpc_header(pipes_struct *p)
  a complete PDU.
 ****************************************************************************/
 
-void free_pipe_context(pipes_struct *p)
+static void free_pipe_context(pipes_struct *p)
 {
 	if (p->mem_ctx) {
-		DEBUG(3,("free_pipe_context: destroying talloc pool of size %lu\n", (unsigned long)talloc_pool_size(p->mem_ctx) ));
-		talloc_destroy_pool(p->mem_ctx);
+		DEBUG(3,("free_pipe_context: destroying talloc pool of size "
+			 "%lu\n", (unsigned long)talloc_total_size(p->mem_ctx) ));
+		talloc_free_children(p->mem_ctx);
 	} else {
 		p->mem_ctx = talloc_init("pipe %s %p", p->name, p);
-		if (p->mem_ctx == NULL)
+		if (p->mem_ctx == NULL) {
 			p->fault_state = True;
+		}
 	}
 }
 
@@ -555,9 +543,9 @@ void free_pipe_context(pipes_struct *p)
 
 static BOOL process_request_pdu(pipes_struct *p, prs_struct *rpc_in_p)
 {
-	BOOL auth_verify = ((p->ntlmssp_chal_flags & NTLMSSP_NEGOTIATE_SIGN) != 0);
+	uint32 ss_padding_len = 0;
 	size_t data_len = p->hdr.frag_len - RPC_HEADER_LEN - RPC_HDR_REQ_LEN -
-				(auth_verify ? RPC_HDR_AUTH_LEN : 0) - p->hdr.auth_len;
+				(p->hdr.auth_len ? RPC_HDR_AUTH_LEN : 0) - p->hdr.auth_len;
 
 	if(!p->pipe_bound) {
 		DEBUG(0,("process_request_pdu: rpc request with no bind.\n"));
@@ -580,29 +568,40 @@ static BOOL process_request_pdu(pipes_struct *p, prs_struct *rpc_in_p)
 		return False;
 	}
 
-	if(p->ntlmssp_auth_validated && !api_pipe_auth_process(p, rpc_in_p)) {
-		DEBUG(0,("process_request_pdu: failed to do auth processing.\n"));
-		set_incoming_fault(p);
-		return False;
+	switch(p->auth.auth_type) {
+		case PIPE_AUTH_TYPE_NONE:
+			break;
+
+		case PIPE_AUTH_TYPE_SPNEGO_NTLMSSP:
+		case PIPE_AUTH_TYPE_NTLMSSP:
+		{
+			NTSTATUS status;
+			if(!api_pipe_ntlmssp_auth_process(p, rpc_in_p, &ss_padding_len, &status)) {
+				DEBUG(0,("process_request_pdu: failed to do auth processing.\n"));
+				DEBUG(0,("process_request_pdu: error was %s.\n", nt_errstr(status) ));
+				set_incoming_fault(p);
+				return False;
+			}
+			break;
+		}
+
+		case PIPE_AUTH_TYPE_SCHANNEL:
+			if (!api_pipe_schannel_process(p, rpc_in_p, &ss_padding_len)) {
+				DEBUG(3,("process_request_pdu: failed to do schannel processing.\n"));
+				set_incoming_fault(p);
+				return False;
+			}
+			break;
+
+		default:
+			DEBUG(0,("process_request_pdu: unknown auth type %u set.\n", (unsigned int)p->auth.auth_type ));
+			set_incoming_fault(p);
+			return False;
 	}
 
-	if (p->ntlmssp_auth_requested && !p->ntlmssp_auth_validated) {
-
-		/*
-		 * Authentication _was_ requested and it already failed.
-		 */
-
-		DEBUG(0,("process_request_pdu: RPC request received on pipe %s "
-			 "where authentication failed. Denying the request.\n",
-			 p->name));
-		set_incoming_fault(p);
-		return False;
-	}
-
-	if (p->netsec_auth_validated && !api_pipe_netsec_process(p, rpc_in_p)) {
-		DEBUG(3,("process_request_pdu: failed to do schannel processing.\n"));
-		set_incoming_fault(p);
-		return False;
+	/* Now we've done the sign/seal we can remove any padding data. */
+	if (data_len > ss_padding_len) {
+		data_len -= ss_padding_len;
 	}
 
 	/*
@@ -642,8 +641,7 @@ static BOOL process_request_pdu(pipes_struct *p, prs_struct *rpc_in_p)
 		 * size as the current offset.
 		 */
 
- 		if(!prs_set_buffer_size(&p->in_data.data, prs_offset(&p->in_data.data)))
-		{
+ 		if(!prs_set_buffer_size(&p->in_data.data, prs_offset(&p->in_data.data))) {
 			DEBUG(0,("process_request_pdu: Call to prs_set_buffer_size failed!\n"));
 			set_incoming_fault(p);
 			return False;
@@ -663,8 +661,9 @@ static BOOL process_request_pdu(pipes_struct *p, prs_struct *rpc_in_p)
 
 		free_pipe_context(p);
 
-		if(pipe_init_outgoing_data(p))
+		if(pipe_init_outgoing_data(p)) {
 			ret = api_pipe_request(p);
+		}
 
 		free_pipe_context(p);
 
@@ -689,19 +688,19 @@ static BOOL process_request_pdu(pipes_struct *p, prs_struct *rpc_in_p)
  already been parsed and stored in p->hdr.
 ****************************************************************************/
 
-static ssize_t process_complete_pdu(pipes_struct *p)
+static void process_complete_pdu(pipes_struct *p)
 {
 	prs_struct rpc_in;
-	size_t data_len = p->in_data.pdu_received_len;
-	char *data_p = (char *)&p->in_data.current_in_pdu[0];
+	size_t data_len = p->in_data.pdu_received_len - RPC_HEADER_LEN;
+	char *data_p = (char *)&p->in_data.current_in_pdu[RPC_HEADER_LEN];
 	BOOL reply = False;
 
 	if(p->fault_state) {
 		DEBUG(10,("process_complete_pdu: pipe %s in fault state.\n",
 			p->name ));
 		set_incoming_fault(p);
-		setup_fault_pdu(p, NT_STATUS(0x1c010002));
-		return (ssize_t)data_len;
+		setup_fault_pdu(p, NT_STATUS(DCERPC_FAULT_OP_RNG_ERROR));
+		return;
 	}
 
 	prs_init( &rpc_in, 0, p->mem_ctx, UNMARSHALL);
@@ -720,24 +719,102 @@ static ssize_t process_complete_pdu(pipes_struct *p)
 			(unsigned int)p->hdr.pkt_type ));
 
 	switch (p->hdr.pkt_type) {
+		case RPC_REQUEST:
+			reply = process_request_pdu(p, &rpc_in);
+			break;
+
+		case RPC_PING: /* CL request - ignore... */
+			DEBUG(0,("process_complete_pdu: Error. Connectionless packet type %u received on pipe %s.\n",
+				(unsigned int)p->hdr.pkt_type, p->name));
+			break;
+
+		case RPC_RESPONSE: /* No responses here. */
+			DEBUG(0,("process_complete_pdu: Error. RPC_RESPONSE received from client on pipe %s.\n",
+				p->name ));
+			break;
+
+		case RPC_FAULT:
+		case RPC_WORKING: /* CL request - reply to a ping when a call in process. */
+		case RPC_NOCALL: /* CL - server reply to a ping call. */
+		case RPC_REJECT:
+		case RPC_ACK:
+		case RPC_CL_CANCEL:
+		case RPC_FACK:
+		case RPC_CANCEL_ACK:
+			DEBUG(0,("process_complete_pdu: Error. Connectionless packet type %u received on pipe %s.\n",
+				(unsigned int)p->hdr.pkt_type, p->name));
+			break;
+
 		case RPC_BIND:
+			/*
+			 * We assume that a pipe bind is only in one pdu.
+			 */
+			if(pipe_init_outgoing_data(p)) {
+				reply = api_pipe_bind_req(p, &rpc_in);
+			}
+			break;
+
+		case RPC_BINDACK:
+		case RPC_BINDNACK:
+			DEBUG(0,("process_complete_pdu: Error. RPC_BINDACK/RPC_BINDNACK packet type %u received on pipe %s.\n",
+				(unsigned int)p->hdr.pkt_type, p->name));
+			break;
+
+
 		case RPC_ALTCONT:
 			/*
 			 * We assume that a pipe bind is only in one pdu.
 			 */
-			if(pipe_init_outgoing_data(p))
-				reply = api_pipe_bind_req(p, &rpc_in);
+			if(pipe_init_outgoing_data(p)) {
+				reply = api_pipe_alter_context(p, &rpc_in);
+			}
 			break;
-		case RPC_BINDRESP:
+
+		case RPC_ALTCONTRESP:
+			DEBUG(0,("process_complete_pdu: Error. RPC_ALTCONTRESP on pipe %s: Should only be server -> client.\n",
+				p->name));
+			break;
+
+		case RPC_AUTH3:
 			/*
-			 * We assume that a pipe bind_resp is only in one pdu.
+			 * The third packet in an NTLMSSP auth exchange.
 			 */
-			if(pipe_init_outgoing_data(p))
-				reply = api_pipe_bind_auth_resp(p, &rpc_in);
+			if(pipe_init_outgoing_data(p)) {
+				reply = api_pipe_bind_auth3(p, &rpc_in);
+			}
 			break;
-		case RPC_REQUEST:
-			reply = process_request_pdu(p, &rpc_in);
+
+		case RPC_SHUTDOWN:
+			DEBUG(0,("process_complete_pdu: Error. RPC_SHUTDOWN on pipe %s: Should only be server -> client.\n",
+				p->name));
 			break;
+
+		case RPC_CO_CANCEL:
+			/* For now just free all client data and continue processing. */
+			DEBUG(3,("process_complete_pdu: RPC_ORPHANED. Abandoning rpc call.\n"));
+			/* As we never do asynchronous RPC serving, we can never cancel a
+			   call (as far as I know). If we ever did we'd have to send a cancel_ack
+			   reply. For now, just free all client data and continue processing. */
+			reply = True;
+			break;
+#if 0
+			/* Enable this if we're doing async rpc. */
+			/* We must check the call-id matches the outstanding callid. */
+			if(pipe_init_outgoing_data(p)) {
+				/* Send a cancel_ack PDU reply. */
+				/* We should probably check the auth-verifier here. */
+				reply = setup_cancel_ack_reply(p, &rpc_in);
+			}
+			break;
+#endif
+
+		case RPC_ORPHANED:
+			/* We should probably check the auth-verifier here.
+			   For now just free all client data and continue processing. */
+			DEBUG(3,("process_complete_pdu: RPC_ORPHANED. Abandoning rpc call.\n"));
+			reply = True;
+			break;
+
 		default:
 			DEBUG(0,("process_complete_pdu: Unknown rpc type = %u received.\n", (unsigned int)p->hdr.pkt_type ));
 			break;
@@ -749,7 +826,7 @@ static ssize_t process_complete_pdu(pipes_struct *p)
 	if (!reply) {
 		DEBUG(3,("process_complete_pdu: DCE/RPC fault sent on pipe %s\n", p->pipe_srv_name));
 		set_incoming_fault(p);
-		setup_fault_pdu(p, NT_STATUS(0x1c010002));
+		setup_fault_pdu(p, NT_STATUS(DCERPC_FAULT_OP_RNG_ERROR));
 		prs_mem_free(&rpc_in);
 	} else {
 		/*
@@ -760,7 +837,6 @@ static ssize_t process_complete_pdu(pipes_struct *p)
 	}
 
 	prs_mem_free(&rpc_in);
-	return (ssize_t)data_len;
 }
 
 /****************************************************************************
@@ -769,8 +845,7 @@ static ssize_t process_complete_pdu(pipes_struct *p)
 
 static ssize_t process_incoming_data(pipes_struct *p, char *data, size_t n)
 {
-	size_t data_to_copy = MIN(n, MAX_PDU_FRAG_LEN - p->in_data.pdu_received_len);
-	size_t old_pdu_received_len = p->in_data.pdu_received_len;
+	size_t data_to_copy = MIN(n, RPC_MAX_PDU_FRAG_LEN - p->in_data.pdu_received_len);
 
 	DEBUG(10,("process_incoming_data: Start: pdu_received_len = %u, pdu_needed_len = %u, incoming data = %u\n",
 		(unsigned int)p->in_data.pdu_received_len, (unsigned int)p->in_data.pdu_needed_len,
@@ -811,8 +886,15 @@ incoming data size = %u\n", (unsigned int)p->in_data.pdu_received_len, (unsigned
 	 * data we need, then loop again.
 	 */
 
-	if(p->in_data.pdu_needed_len == 0)
-		return unmarshall_rpc_header(p);
+	if(p->in_data.pdu_needed_len == 0) {
+		ssize_t rret = unmarshall_rpc_header(p);
+		if (rret == -1 || p->in_data.pdu_needed_len > 0) {
+			return rret;
+		}
+		/* If rret == 0 and pdu_needed_len == 0 here we have a PDU that consists
+		   of an RPC_HEADER only. This is a RPC_SHUTDOWN, RPC_CO_CANCEL or RPC_ORPHANED
+		   pdu type. Deal with this in process_complete_pdu(). */
+	}
 
 	/*
 	 * Ok - at this point we have a valid RPC_HEADER in p->hdr.
@@ -823,24 +905,27 @@ incoming data size = %u\n", (unsigned int)p->in_data.pdu_received_len, (unsigned
 
 	/*
 	 * Copy as much of the data as we need into the current_in_pdu buffer.
+	 * pdu_needed_len becomes zero when we have a complete pdu.
 	 */
 
 	memcpy( (char *)&p->in_data.current_in_pdu[p->in_data.pdu_received_len], data, data_to_copy);
 	p->in_data.pdu_received_len += data_to_copy;
+	p->in_data.pdu_needed_len -= data_to_copy;
 
 	/*
 	 * Do we have a complete PDU ?
-	 * (return the nym of bytes handled in the call)
+	 * (return the number of bytes handled in the call)
 	 */
 
-	if(p->in_data.pdu_received_len == p->in_data.pdu_needed_len)
-		return process_complete_pdu(p) - old_pdu_received_len;
+	if(p->in_data.pdu_needed_len == 0) {
+		process_complete_pdu(p);
+		return data_to_copy;
+	}
 
 	DEBUG(10,("process_incoming_data: not a complete PDU yet. pdu_received_len = %u, pdu_needed_len = %u\n",
 		(unsigned int)p->in_data.pdu_received_len, (unsigned int)p->in_data.pdu_needed_len ));
 
 	return (ssize_t)data_to_copy;
-
 }
 
 /****************************************************************************
@@ -877,8 +962,9 @@ static ssize_t write_to_internal_pipe(void *np_conn, char *data, size_t n)
 
 		DEBUG(10,("write_to_pipe: data_used = %d\n", (int)data_used ));
 
-		if(data_used < 0)
+		if(data_used < 0) {
 			return -1;
+		}
 
 		data_left -= data_used;
 		data += data_used;
@@ -947,9 +1033,9 @@ static ssize_t read_from_internal_pipe(void *np_conn, char *data, size_t n,
 	 * authentications failing.  Just ignore it so things work.
 	 */
 
-	if(n > MAX_PDU_FRAG_LEN) {
+	if(n > RPC_MAX_PDU_FRAG_LEN) {
                 DEBUG(5,("read_from_pipe: too large read (%u) requested on \
-pipe %s. We can only service %d sized reads.\n", (unsigned int)n, p->name, MAX_PDU_FRAG_LEN ));
+pipe %s. We can only service %d sized reads.\n", (unsigned int)n, p->name, RPC_MAX_PDU_FRAG_LEN ));
 	}
 
 	/*
@@ -1018,8 +1104,9 @@ returning %d bytes.\n", p->name, (unsigned int)p->out_data.current_pdu_len,
 
 BOOL wait_rpc_pipe_hnd_state(smb_np_struct *p, uint16 priority)
 {
-	if (p == NULL)
+	if (p == NULL) {
 		return False;
+	}
 
 	if (p->open) {
 		DEBUG(3,("wait_rpc_pipe_hnd_state: Setting pipe wait state priority=%x on pipe (name=%s)\n",
@@ -1042,8 +1129,9 @@ BOOL wait_rpc_pipe_hnd_state(smb_np_struct *p, uint16 priority)
 
 BOOL set_rpc_pipe_hnd_state(smb_np_struct *p, uint16 device_state)
 {
-	if (p == NULL)
+	if (p == NULL) {
 		return False;
+	}
 
 	if (p->open) {
 		DEBUG(3,("set_rpc_pipe_hnd_state: Setting pipe device state=%x on pipe (name=%s)\n",
@@ -1081,6 +1169,13 @@ BOOL close_rpc_pipe_hnd(smb_np_struct *p)
 		 p->name, p->pnum, pipes_open));  
 
 	DLIST_REMOVE(Pipes, p);
+	
+	/* Remove from pipe open db */
+	
+	if ( !delete_pipe_opendb( p ) ) {
+		DEBUG(3,("close_rpc_pipe_hnd: failed to delete %s "
+			"pipe from open db.\n", p->name));
+	}
 
 	ZERO_STRUCTP(p);
 
@@ -1120,21 +1215,28 @@ static BOOL close_internal_rpc_pipe_hnd(void *np_conn)
 	prs_mem_free(&p->out_data.rdata);
 	prs_mem_free(&p->in_data.data);
 
-	if (p->mem_ctx)
+	if (p->auth.auth_data_free_func) {
+		(*p->auth.auth_data_free_func)(&p->auth);
+	}
+
+	if (p->mem_ctx) {
 		talloc_destroy(p->mem_ctx);
-		
+	}
+
+	if (p->pipe_state_mem_ctx) {
+		talloc_destroy(p->pipe_state_mem_ctx);
+	}
+
 	free_pipe_rpc_context( p->contexts );
 
 	/* Free the handles database. */
 	close_policy_by_pipe(p);
 
-	delete_nt_token(&p->pipe_user.nt_user_token);
+	TALLOC_FREE(p->pipe_user.nt_user_token);
 	data_blob_free(&p->session_key);
-	SAFE_FREE(p->pipe_user.groups);
+	SAFE_FREE(p->pipe_user.ut.groups);
 
 	DLIST_REMOVE(InternalPipes, p);
-
-	p->conn->num_files_open--;
 
 	ZERO_STRUCTP(p);
 
@@ -1151,8 +1253,9 @@ smb_np_struct *get_rpc_pipe_p(char *buf, int where)
 {
 	int pnum = SVAL(buf,where);
 
-	if (chain_p)
+	if (chain_p) {
 		return chain_p;
+	}
 
 	return get_rpc_pipe(pnum);
 }
@@ -1167,9 +1270,10 @@ smb_np_struct *get_rpc_pipe(int pnum)
 
 	DEBUG(4,("search for pipe pnum=%x\n", pnum));
 
-	for (p=Pipes;p;p=p->next)
+	for (p=Pipes;p;p=p->next) {
 		DEBUG(5,("pipe name %s pnum=%x (pipes_open=%d)\n", 
 		          p->name, p->pnum, pipes_open));  
+	}
 
 	for (p=Pipes;p;p=p->next) {
 		if (p->pnum == pnum) {

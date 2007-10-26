@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/rdwr.c,v 1.19.2.3 2004/07/16 19:51:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/rdwr.c,v 1.23.2.4 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,9 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
-#include "ldap_pvt_thread.h"
+#include "ldap_pvt_thread.h" /* Get the thread interface */
+#define LDAP_THREAD_RDWR_IMPLEMENTATION
+#include "ldap_thr_debug.h"  /* May rename the symbols defined below */
 
 /*
  * implementations that provide their own compatible 
@@ -76,6 +78,8 @@ ldap_pvt_thread_rdwr_init( ldap_pvt_thread_rdwr_t *rwlock )
 
 	rw = (struct ldap_int_thread_rdwr_s *) LDAP_CALLOC( 1,
 		sizeof( struct ldap_int_thread_rdwr_s ) );
+	if ( !rw )
+		return LDAP_NO_MEMORY;
 
 	/* we should check return results */
 	ldap_pvt_thread_mutex_init( &rw->ltrw_mutex );
@@ -439,6 +443,6 @@ int ldap_pvt_thread_rdwr_active(ldap_pvt_thread_rdwr_t *rwlock)
 	       ldap_pvt_thread_rdwr_writers(rwlock));
 }
 
-#endif /* LDAP_DEBUG */
+#endif /* LDAP_RDWR_DEBUG */
 
 #endif /* LDAP_THREAD_HAVE_RDWR */

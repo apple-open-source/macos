@@ -10,23 +10,21 @@ LINKS = wx wxPython
 no_target: build
 
 build:
-	@echo cd $(OBJROOT) && \
+	@set -x && \
 	cd $(OBJROOT) && \
-	echo $(ENV) python setup.py build_ext $(OPTIONS) && \
 	$(ENV) python setup.py build_ext $(OPTIONS)
 
 install: build
-	@echo cd $(OBJROOT) && \
+	@set -x && \
 	cd $(OBJROOT) && \
-	echo $(ENV) python setup.py install --home=$(EXTRAS) $(OPTIONS) && \
 	$(ENV) python setup.py install --home=$(EXTRAS) $(OPTIONS)
-	@for i in `find $(EXTRAS) -name \*.so`; do \
-	    echo strip -x $$i && \
+	@set -x && \
+	for i in `find $(EXTRAS) -name \*.so`; do \
 	    strip -x $$i; \
 	done
 	rm -f $(EXTRASLIBPYTHON)/$(WXPTH)
-	@name=`echo $(EXTRASLIBPYTHON)/wx-* | sed 's,^$(EXTRASLIBPYTHON)/,,'` && \
+	@set -x && \
+	name=`echo $(EXTRASLIBPYTHON)/wx-* | sed 's,^$(EXTRASLIBPYTHON)/,,'` && \
 	    for i in $(LINKS); do \
-		echo ln -sf $$name/$$i $(EXTRASLIBPYTHON) && \
 		ln -sf $$name/$$i $(EXTRASLIBPYTHON); \
 	    done

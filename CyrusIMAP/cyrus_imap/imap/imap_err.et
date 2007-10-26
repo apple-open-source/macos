@@ -24,7 +24,7 @@
 #  (412) 268-4387, fax: (412) 268-7395
 #  tech-transfer@andrew.cmu.edu
 # 
-# $Id: imap_err.et,v 1.6 2005/08/10 21:40:50 dasenbro Exp $
+# $Id: imap_err.et,v 1.53 2006/11/30 17:11:18 murch Exp $
 
 error_table imap
 
@@ -58,8 +58,10 @@ ec IMAP_NAMESPACE_BADPREFIX,
 ec IMAP_MAILBOX_BADFORMAT,
    "Mailbox has an invalid format"
 
+#ifdef APPLE_OS_X_SERVER
 ec IMAP_MAILBOX_CASE_CHANGE_NOT_SUPPORTED,
    "Mailbox case change not supported"
+#endif
 
 ec IMAP_MAILBOX_NOTSUPPORTED,
    "Operation is not supported on mailbox"
@@ -121,6 +123,9 @@ ec IMAP_ANNOTATION_BADATTRIB,
 ec IMAP_ANNOTATION_BADVALUE,
    "Invalid annotation value"
 
+ec IMAP_BADURL,
+   "Bad URL"
+
 # following used only proxy/db operations
 ec IMAP_BAD_SERVER,
    "Invalid server requested"
@@ -137,6 +142,9 @@ ec IMAP_AGAIN,
 ec IMAP_NOT_SINGULAR_ROOT,
    "This mailbox hierarchy does not exist on a single backend server."
 
+ec IMAP_REMOTE_NO_MULTIAPPEND,
+   "The remote server does not support MULTIAPPEND"
+
 # Following only used for internationalization of error messages
 
 ec IMAP_UNRECOGNIZED_CHARSET,
@@ -145,8 +153,10 @@ ec IMAP_UNRECOGNIZED_CHARSET,
 ec IMAP_INVALID_USER,
    "Invalid user"
 
+#ifdef APPLE_OS_X_SERVER
 ec IMAP_AUTO_FORWARD_USER,
    "Auto-Forward user"
+#endif
 
 ec IMAP_INVALID_LOGIN,
    "Login incorrect"
@@ -204,7 +214,9 @@ ec IMAP_BYE_LOGOUT,
 ec IMAP_OK_COMPLETED,
    "Completed"
 
+#ifdef APPLE_OS_X_SERVER
 ec IMAP_END_LIST,
    "...end"
+#endif
 
 end

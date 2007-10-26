@@ -1,6 +1,6 @@
 " Menu Translations:	Nederlands
 " Maintainer:		Bram Moolenaar
-" Last Change:	2003 Mar 30
+" Last Change:	2004 May 05
 
 " Quit when menu translations have already been done.
 if exists("did_menu_trans")
@@ -17,12 +17,13 @@ endif
 " Help menu
 menutrans &Help			&Help
 menutrans &Overview<Tab><F1>	&Overzicht<Tab><F1>
-menutrans &How-to\ links	&Hoe-doe-ik\ lijst
 menutrans &User\ Manual		Gebruikershandleiding
+menutrans &How-to\ links	&Hoe-doe-ik\ lijst
 "menutrans &GUI			&GUI
 menutrans &Credits		&Met\ dank\ aan
 menutrans Co&pying		&Copyright
-menutrans &Find\.\.\.		&Zoeken\.\.\.
+menutrans &Sponsor/Register	&Sponsor/Registreer
+menutrans O&rphans		&Weeskinderen
 menutrans &Version		&Versie
 menutrans &About		&Introductiescherm
 
@@ -75,6 +76,7 @@ menutrans Insert\ mode			In\ Invoegmode
 menutrans Block\ and\ Insert		Bij\ Blokselectie\ en\ Invoegmode
 menutrans Always			Altijd
 menutrans Toggle\ Insert\ &Mode<Tab>:set\ im!	Flip\ Invoegmode<Tab>:set\ im!
+menutrans Toggle\ Vi\ C&ompatible<Tab>:set\ cp!	Flip\ Vi\ Compatibiliteit<Tab>:set\ cp!
 menutrans Search\ &Path\.\.\.		Zoekpad\.\.\.
 menutrans Ta&g\ Files\.\.\.		Tag\ Bestanden\.\.\.
 menutrans Toggle\ &Toolbar		Toon/verberg\ Knoppenbalk
@@ -127,7 +129,7 @@ menutrans M&anual			Handmatig
 menutrans I&ndent			Inspringing
 menutrans E&xpression			Expressie
 menutrans S&yntax			Syntax
-menutrans &Diff				Wijzigingen
+menutrans &Diff				Verschillen
 menutrans Ma&rker			Markeringen
 menutrans Create\ &Fold<Tab>zf		maak\ Fold<Tab>zf
 menutrans &Delete\ Fold<Tab>zd		verwijder\ Fold<Tab>zd
@@ -217,6 +219,7 @@ endif
 
 " Syntax menu
 menutrans &Syntax		&Syntax
+menutrans &Show\ filetypes\ in\ menu  Toon\ filetypes\ in\ menu
 menutrans Set\ '&syntax'\ only	Alleen\ 'syntax'\ wijzigen
 menutrans Set\ '&filetype'\ too	Ook\ 'filetype'\ wijzigen
 menutrans &Off			&Uit

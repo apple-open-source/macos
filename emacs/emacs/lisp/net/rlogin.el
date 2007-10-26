@@ -1,12 +1,11 @@
 ;;; rlogin.el --- remote login interface
 
-;; Copyright (C) 1992, 93, 94, 95, 97, 1998 Free Software Foundation, Inc.
+;; Copyright (C) 1992, 1993, 1994, 1995, 1997, 1998, 2001, 2002, 2003,
+;;   2004, 2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Noah Friedman
 ;; Maintainer: Noah Friedman <friedman@splode.com>
 ;; Keywords: unix, comm
-
-;; $Id: rlogin.el,v 1.1.1.1 2001/10/31 17:56:27 jevans Exp $
 
 ;; This file is part of GNU Emacs.
 
@@ -22,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -43,7 +42,7 @@
 (require 'shell)
 
 (defgroup rlogin nil
-  "Remote login interface"
+  "Remote login interface."
   :group 'processes
   :group 'unix)
 
@@ -71,8 +70,8 @@
                 (string-match "-solaris2" system-configuration))
            t)
           (t nil)))
-  "*If non-`nil', use a pty for the local rlogin process.
-If `nil', use a pipe (if pipes are supported on the local system).
+  "*If non-nil, use a pty for the local rlogin process.
+If nil, use a pipe (if pipes are supported on the local system).
 
 Generally it is better not to waste ptys on systems which have a static
 number of them.  On the other hand, some implementations of `rlogin' assume
@@ -181,16 +180,20 @@ variable."
 
   (let* ((process-connection-type rlogin-process-connection-type)
          (args (if rlogin-explicit-args
-                   (append (rlogin-parse-words input-args)
+                   (append (split-string input-args)
                            rlogin-explicit-args)
-                 (rlogin-parse-words input-args)))
-	 (host (car args))
+                 (split-string input-args)))
+         (host (let ((tail args))
+                 ;; Find first arg that doesn't look like an option.
+                 ;; This still loses for args that take values, feh.
+                 (while (and tail (= ?- (aref (car tail) 0)))
+                   (setq tail (cdr tail)))
+                 (car tail)))
 	 (user (or (car (cdr (member "-l" args)))
                    (user-login-name)))
          (buffer-name (if (string= user (user-login-name))
                           (format "*rlogin-%s*" host)
-                        (format "*rlogin-%s@%s*" user host)))
-	 proc)
+                        (format "*rlogin-%s@%s*" user host))))
 
     (cond ((null buffer))
 	  ((stringp buffer)
@@ -205,28 +208,8 @@ variable."
     (setq buffer (get-buffer-create buffer-name))
     (pop-to-buffer buffer-name)
 
-    (cond
-     ((comint-check-proc buffer-name))
-     (t
+    (unless (comint-check-proc buffer-name)
       (comint-exec buffer buffer-name rlogin-program nil args)
-      (setq proc (get-buffer-process buffer))
-      ;; Set process-mark to point-max in case there is text in the
-      ;; buffer from a previous exited process.
-      (set-marker (process-mark proc) (point-max))
-
-      ;; comint-output-filter-functions is treated like a hook: it is
-      ;; processed via run-hooks or run-hooks-with-args in later versions
-      ;; of emacs.
-      ;; comint-output-filter-functions should already have a
-      ;; permanent-local property, at least in emacs 19.27 or later.
-      (cond
-       ((fboundp 'make-local-hook)
-        (make-local-hook 'comint-output-filter-functions)
-        (add-hook 'comint-output-filter-functions 'rlogin-carriage-filter
-                  nil t))
-       (t
-        (make-local-variable 'comint-output-filter-functions)
-        (add-hook 'comint-output-filter-functions 'rlogin-carriage-filter)))
 
       (rlogin-mode)
 
@@ -246,22 +229,13 @@ variable."
                 ((null rlogin-directory-tracking-mode))
                 (t
                  (cd-absolute (concat comint-file-name-prefix "~/"))))
-        (error nil))))))
+        (error nil)))))
 
 (put 'rlogin-mode 'mode-class 'special)
 
-(defun rlogin-mode ()
-  "Set major-mode for rlogin sessions.
-If `rlogin-mode-hook' is set, run it."
-  (interactive)
-  (kill-all-local-variables)
-  (shell-mode)
-  (setq major-mode 'rlogin-mode)
-  (setq mode-name "rlogin")
-  (use-local-map rlogin-mode-map)
+(define-derived-mode rlogin-mode shell-mode "Rlogin"
   (setq shell-dirtrackp rlogin-directory-tracking-mode)
-  (make-local-variable 'comint-file-name-prefix)
-  (run-hooks 'rlogin-mode-hook))
+  (make-local-variable 'comint-file-name-prefix))
 
 (defun rlogin-directory-tracking-mode (&optional prefix)
   "Do remote or local directory tracking, or disable entirely.
@@ -313,30 +287,6 @@ local one share the same directories (through NFS)."
           (goto-char orig-point)))))))
 
 
-;; Parse a line into its constituent parts (words separated by
-;; whitespace).  Return a list of the words.
-(defun rlogin-parse-words (line)
-  (let ((list nil)
-	(posn 0)
-        (match-data (match-data)))
-    (while (string-match "[^ \t\n]+" line posn)
-      (setq list (cons (substring line (match-beginning 0) (match-end 0))
-                       list))
-      (setq posn (match-end 0)))
-    (set-match-data (match-data))
-    (nreverse list)))
-
-(defun rlogin-carriage-filter (string)
-  (let* ((point-marker (point-marker))
-         (end (process-mark (get-buffer-process (current-buffer))))
-         (beg (or (and (boundp 'comint-last-output-start)
-                       comint-last-output-start)
-                  (- end (length string)))))
-    (goto-char beg)
-    (while (search-forward "\C-m" end t)
-      (delete-char -1))
-    (goto-char point-marker)))
-
 (defun rlogin-send-Ctrl-C ()
   (interactive)
   (process-send-string nil "\C-c"))
@@ -370,4 +320,5 @@ Delete ARG characters forward, or send a C-d to process if at end of buffer."
 
 (provide 'rlogin)
 
+;;; arch-tag: 6e20eabf-feda-40fa-ab40-0d156db447e4
 ;;; rlogin.el ends here

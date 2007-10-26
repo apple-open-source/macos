@@ -1,25 +1,28 @@
 /^BUILDEXE/c
 BUILDEXE = .exe
+
+LIBPYTHON=	/Library/Python/$(VERSION)
 .
-/^OTHER_LIBTOOL_OPT/c
-OTHER_LIBTOOL_OPT =
+/^COREPYTHONPATH=/s/$(EXTRAMACHDEPPATH)/&$(EXTRASPATH)/
+/^EXTRAMACHDEPPATH=/i
+EXTRASPATH=:../../Extras/lib/python
 .
 /setup\.py -q/s//setup.py/
 s/$(CC)/& $(RC_CFLAGS)/
-g/builddir=\. DESTDIR=$(DESTDIR)$/s//& prefix=$(prefix)/
+g,b=$(LIBDEST)/$$d;,s,,if test $$d = site-packages; then b=$(LIBPYTHON)/$$d; else & fi;,
+g,$(LIBDEST)/site-packages,s,,$(LIBPYTHON)/site-packages,g
 /^frameworkinstallapps:$/c
-# Temporarily replace EasyDialogs.py with an empty file, so that it won't talk
+# Temporarily replace EasyDialogs.py, so that it won't talk
 # to the Window Server (and fail if CoreGraphics versions don't match)
 frameworkinstallapps:
-	@for i in $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py*; do \
+	@for i in $(srcdir)/Lib/plat-mac/EasyDialogs.py*; do \
 		echo mv $$i $$i.bak; \
 		mv -f $$i $$i.bak; \
 	done
-	touch $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py
+	cp $(SRCROOT)/fix/EasyDialogs.py $(srcdir)/Lib/plat-mac/EasyDialogs.py
 .
-/BUILDPYTHON=\./s//PYTHONHOME=$(DESTDIR)$(prefix) &/
 /^$/i
-	@for i in $(DESTDIR)$(LIBP)/plat-mac/EasyDialogs.py*.bak; do \
+	@for i in $(srcdir)/Lib/plat-mac/EasyDialogs.py*.bak; do \
 		j=`echo $$i | sed 's/\.bak$$//'`; \
 		echo mv $$i $$j; \
 		mv -f $$i $$j; \

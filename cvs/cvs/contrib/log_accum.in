@@ -1,6 +1,36 @@
-#! @PERL@
+#! @PERL@ -T
 # -*-Perl-*-
+
+# Copyright (C) 1994-2005 The Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
 #
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+###############################################################################
+###############################################################################
+###############################################################################
+#
+# THIS SCRIPT IS PROBABLY BROKEN.  REMOVING THE -T SWITCH ON THE #! LINE ABOVE
+# WOULD FIX IT, BUT THIS IS INSECURE.  WE RECOMMEND FIXING THE ERRORS WHICH THE
+# -T SWITCH WILL CAUSE PERL TO REPORT BEFORE RUNNING THIS SCRIPT FROM A CVS
+# SERVER TRIGGER.  PLEASE SEND PATCHES CONTAINING THE CHANGES YOU FIND
+# NECESSARY TO RUN THIS SCRIPT WITH THE TAINT-CHECKING ENABLED BACK TO THE
+# <@PACKAGE_BUGREPORT@> MAILING LIST.
+#
+# For more on general Perl security and taint-checking, please try running the
+# `perldoc perlsec' command.
+#
+###############################################################################
+###############################################################################
+###############################################################################
+
 # Perl filter to handle the log messages from the checkin of files in
 # a directory.  This script will group the lists of files by log
 # message, and mail a single consolidated log message at the end of
@@ -39,6 +69,15 @@
 #
 ############################################################
 #
+# The newest versions of CVS have UseNewInfoFmtStrings=yes
+# to change the arguments being passed on the command line.
+# If you are using %1s on the command line, then set this
+# value to 0.
+# 0 = old-style %1s format. use split(' ') to separate ARGV into filesnames.
+# 1 = new-style %s format. Note: allows spaces in filenames.
+my $UseNewInfoFmtStrings = 0;
+
+#
 # Where do you want the RCS ID and delta info?
 # 0 = none,
 # 1 = in mail only,
@@ -51,7 +90,7 @@ $rcsidinfo = 2;
 # When set properly, this will cause links to aspects of the project to
 # print in the commit emails.
 #$CVSWEB_SCHEME = "http";
-#$CVSWEB_DOMAIN = "cvshome.org";
+#$CVSWEB_DOMAIN = "nongnu.org";
 #$CVSWEB_PORT = "80";
 #$CVSWEB_URI = "source/browse/";
 #$SEND_URL = "true";
@@ -60,7 +99,7 @@ $SEND_DIFF = "true";
 
 # Set this to a domain to have CVS pretend that all users who make
 # commits have mail accounts within that domain.
-#$EMULATE_LOCAL_MAIL_USER="cvshome.org"; 
+#$EMULATE_LOCAL_MAIL_USER="nongnu.org"; 
 
 # Set this to '-c' for context diffs; defaults to '-u' for unidiff format.
 $difftype = '-uN';
@@ -262,11 +301,9 @@ sub change_summary {
             open(RCS, "-|") || exec "$cvsbin/cvs", '-Qn', 'log', "-r$rev",
 				    '--', $file;
             while (<RCS>) {
-                if (/^date:/) {
-                    chomp;
-                    $delta = $_;
-                    $delta =~ s/^.*;//;
-                    $delta =~ s/^[\s]+lines://;
+                if (/^date:.*lines:([^;]+);.*/) {
+                    $delta = $1;
+                    last;
                 }
             }
             close(RCS);
@@ -369,7 +406,7 @@ sub build_header {
 #sub mlist_map
 #{
 #    local($path) = @_;
-#    my $domain = "cvshome.org";
+#    my $domain = "nongnu.org";
 #    
 #    if ($path =~ /^([^\/]+)/) {
 #        return "cvs\@$1.$domain";
@@ -499,16 +536,38 @@ sub process_argv
     local($arg);
     print "Processing log script arguments...\n";
 
-    while (@argv) {
-        $arg = shift @argv;
+    if ($UseNewInfoFmtStrings) {
+        while (@argv) {
+            $arg = shift @argv;
 
-        if ($arg eq '-u') {
+            if ($arg eq '-u' && !defined($cvs_user)) {
                 $cvs_user = shift @argv;
-        } else {
+            }
+            if ($arg eq '- New directory') {
+                $new_directory = 1;
+            } elsif ($arg eq '- Imported sources') {
+                $imported_sources = 1;
+            } else {
+                push(@files, $arg);
+            }
+        }
+    } else {
+        while (@argv) {
+            $arg = shift @argv;
+
+            if ($arg eq '-u') {
+                $cvs_user = shift @argv;
+            } else {
                 ($donefiles) && die "Too many arguments!\n";
                 $donefiles = 1;
                 $ARGV[0] = $arg;
+                if ($arg =~ s/ - New directory//) {
+                    $new_directory = 1;
+                } elsif ($arg =~ s/ - Imported sources//) {
+                    $imported_sources = 1;
+                }
                 @files = split(' ', $arg);
+            }
         }
     }
     return @files;
@@ -534,6 +593,8 @@ $cvsbin = "/usr/bin";
 $id = getpgrp();
 $state = $STATE_NONE;
 $cvs_user = $ENV{'USER'} || getlogin || (getpwuid($<))[0] || sprintf("uid#%d",$<);
+$new_directory = 0;             # Is this a 'cvs add directory' command?
+$imported_sources = 0;          # Is this a 'cvs import' command?
 @files = process_argv(@ARGV);
 @path = split('/', $files[0]);
 if ($#path == 0) {
@@ -558,12 +619,12 @@ if ($#path == 0) {
 # Check for a new directory first.  This will always appear as a
 # single item in the argument list, and an empty log message.
 #
-if ($ARGV[0] =~ /New directory/) {
+if ($new_directory) {
     $header = &build_header;
     @text = ();
     push(@text, $header);
     push(@text, "");
-    push(@text, "  ".$ARGV[0]);
+    push(@text, "  ".$files[0]." - New directory");
     &mail_notification([ $mlist ], @text);
     exit 0;
 }
@@ -582,20 +643,29 @@ while (<STDIN>) {
     if (/^Modified Files/) { $state = $STATE_CHANGED; next; }
     if (/^Added Files/)    { $state = $STATE_ADDED;   next; }
     if (/^Removed Files/)  { $state = $STATE_REMOVED; next; }
-    if (/^Log Message/)    { $state = $STATE_LOG;     next; }
+    if (/^Log Message/)    { $state = $STATE_LOG;     last; }
     s/[ \t\n]+$//;              # delete trailing space
     
     push (@changed_files, split) if ($state == $STATE_CHANGED);
     push (@added_files,   split) if ($state == $STATE_ADDED);
     push (@removed_files, split) if ($state == $STATE_REMOVED);
-    if ($state == $STATE_LOG) {
-        if (/^PR:$/i ||
-            /^Reviewed by:$/i ||
-            /^Submitted by:$/i ||
-            /^Obtained from:$/i) {
-            next;
+}
+# Proces the /Log Message/ section now, if it exists.
+# Do this here rather than above to deal with Log messages
+# that include lines that confuse the state machine.
+if (!eof(STDIN)) {
+    while (<STDIN>) {
+        next unless ($state == $STATE_LOG); # eat all STDIN
+
+        if ($state == $STATE_LOG) {
+            if (/^PR:$/i ||
+                /^Reviewed by:$/i ||
+                /^Submitted by:$/i ||
+                /^Obtained from:$/i) {
+                next;
+            }
+            push (@log_lines,     $_);
         }
-        push (@log_lines,     $_);
     }
 }
 

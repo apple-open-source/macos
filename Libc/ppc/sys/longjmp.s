@@ -53,6 +53,8 @@
 MI_ENTRY_POINT(_siglongjmp)
 	lg      r0, JMP_SIGFLAG(r3)	; load sigflag saved by siglongjmp()
 	cmpgi   cr1,r0,0			; this changes cr1 which is volatile
+	mr      r30, r3             ; preserve args across _sigsetmask
+   	mr      r31, r4
 	beq--   cr1, L__exit        ; if r0 == 0 do _longjmp()
 	; else *** fall through *** to longjmp()
 
@@ -60,14 +62,23 @@ MI_ENTRY_POINT(_siglongjmp)
 
 MI_ENTRY_POINT(_longjmp)
 	mr      r30, r3             ; preserve args across _sigsetmask
-	mr      r31, r4
-    
+   	mr      r31, r4
+
     /* NB: this code assumes the signal mask is an int.  Change the "lwz" below
      * if not. The JMP_sig field is already 8 bytes in the jmpbuf.
      */
 	lwz     r3, JMP_sig(r3)		; restore the signal mask
 	MI_CALL_EXTERNAL(_sigsetmask)   // make a (deprecated!) syscall to set the mask
-	mr      r4, r31
+L__exit:	
+	lwz		r3,JMP_ss_flags(r30)
+	MI_CALL_EXTERNAL(__sigunaltstack)
+L__exit2:
 	mr      r3, r30
-L__exit:
+	mr      r4, r31
 	MI_BRANCH_EXTERNAL(__longjmp)
+
+
+
+
+
+

@@ -1,0 +1,404 @@
+# Input file for gen-x86-prologues.rb
+
+# The ".c" and ".exp" files are not auto-regenerated; after changing
+# this file, you must re-run the ruby script.
+
+# "Karma8V10" is an OS built entirely with gcc 3.3 and "gcc 3.5" (a very
+# early version of gcc 4.0).
+
+# SOURCE: Karma8V10 libSystem.B.dylib _lu_data_index
+# PROLOGUE
+   push %ebp
+   or   $0xffffffff, %ecx  # [ 0x83 0xc9 0xff ]
+   mov  %esp,%ebp
+   test %edx,%edx
+# EPILOGUE
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib __fixunsxfsi
+# PROLOGUE
+   call L1           # [ 0xe0 0x00 0x00 000 0x00 ]
+L1:
+   pop   %ecx        # [ 0x59 ]
+   push  %ebp
+   mov   %esp, %ebp
+   sub   $0x18, %esp
+# EPILOGUE
+   add $0x18, %esp
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib OSReadSwapInt32
+# PROLOGUE
+   push %ebp
+   add %edx, %eax # [ 0x01 0xd0 ]
+   mov %esp, %ebp
+   push %ecx
+   push %ecx
+# EPILOGUE
+   pop %ecx
+   pop %ecx
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib InternalTXTRecordSearch
+# PROLOGUE
+   push %ebp
+   movzwl %ax,%eax # [ 0x0f 0xb7 0xc0 ]
+   mov %esp, %ebp
+# EPILOGUE
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib tiny_malloc_from_region_no_lock
+# PROLOGUE
+   push %ebp
+   movzwl %dx,%edx # [ 0x0f 0xb7 0xd2 ]
+   mov %esp, %ebp
+# EPILOGUE
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib free_rpc
+# PROLOGUE
+   push %ebp
+   test %eax, %eax # [ 0x85 0xc0 ]
+   mov  %esp, %ebp
+# EPILOGUE
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib inet6_insert_padopt
+# PROLOGUE
+   push %ebp
+   test %edx,%edx  # [ 0x85 0xd2 ]
+   mov %esp,%ebp
+# EPILOGUE
+   pop %ebp
+   ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib mklower
+# PROLOGUE
+  push %ebp
+  test $0xffffff80,%eax  # [ 0xa9 0x80 0xff 0xff 0xff ]
+  mov %esp,%ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib __grow_type_table
+# PROLOGUE
+  push %ebp
+  inc %eax # [ 0x40 ]
+  mov %esp,%ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib monsetup
+# PROLOGUE
+  push %ebp
+  add  $0x3, %ecx # [ 0x83 0xc1 0x03 ]
+  mov %esp,%ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib copyfile_unpack
+# PROLOGUE
+  push %ebp
+  mov %eax,%ecx # [ 0x89 0xc1 ]
+  mov %esp,%ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib launchd_msg_recv
+# PROLOGUE
+  push %ebp
+  cld # [ 0xfc ]
+  xor  %eax,%eax
+  mov %esp, %ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib flush_out
+# PROLOGUE
+  push %ebp
+  dec %edx # [ 0x4a ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 libSystem.B.dylib hash_nkey
+# PROLOGUE
+  mov  %eax, %ecx # [ 0x89 0xc1 ]
+  mov  %edx, %eax # [ 0x89 0xd0 ]
+  xor  %edx, %edx # [ 0x31 0xd2 ]
+  div  %ecx # [ 0xf7 0xf1 ]
+  push %ebp
+  mov %esp, %ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 AppKit.framework -[NSBrowser _resizeColumnByDelta:resizeInfo:]
+# PROLOGUE
+  push  %ebp
+  fldz # [ 0xd9 0xee ]
+  mov   %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libstdc++.6.0.3.dylib _ZN14__gnu_internal10fopen_modeESt13_Ios_Openmode
+# PROLOGUE
+  and  $0x3d, %eax # [ 0x83 0xe0 0x3d ]
+  push %ebp
+  sub  $0x8, %eax # [ 0x83 0xe8 0x08 ]
+  mov  %esp, %ebp
+# EPILOGUE
+  pop  %ebp
+  ret
+
+# SOURCE: Karma8V10 mach_kernel Debugger
+# PROLOGUE
+  push  %ebp
+  cmpl  $0x0,_main # From mach_kernel: [ 0x83 0x3d 0x54 0x42 0x3a 0xc0 0x00 ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 AudioToolbox.framework _ZN18MacFile_DataSource10WriteBytesEtxmPKvPm
+# PROLOGUE
+  push %ebp
+  mov $0xffffffce, %eax # [ 0xb8 0xce 0xff 0xff 0xff ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libobjc.A.dylib _objc_msgForward
+# PROLOGUE
+  cmp $0x0, %edx # [ 0x83 0xfa 0x00 ]
+  je LM2  # [ 0x74 0x54 (54 being a disp8, so 0x00 in this case) ]
+LM2:
+  push %ebp
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libbz2.1.0.2.dylib dyld_stub_binding_helper
+# PROLOGUE
+  push %eax
+  pop  %eax # [ 0x58 ]
+  mov  $_main, %eax
+  pushl 0x104(%eax) # [ 0xff 0xb0 0x7f 0xf8 0xff 0x0f ]
+  pop  %eax
+  push %ebp
+  jmp LM3   # Skip over some instructions that aren't actually correct here..
+  mov 268436759(%eax), %eax # [ 0x8b 0x80 0x27 0x05 0x00 0x10 ]
+  jmp *%eax # [ 0xff 0xe0 ]
+LM3:
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libcom_err.dylib gssint_lib_init
+# PROLOGUE
+  push %ebp
+  mov  $0x18, %dx # [ 0x66 0xba 0x18 0x00 ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Fix and continue prologue padding
+# PROLOGUE
+  nop # [ 0x90 ]
+  nop
+  nop
+  nop
+  nop
+  nop
+  push %ebp
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libtdom0.8.0.dylib (part of Tcl) unicode_byte_type
+# PROLOGUE
+  push %ebp
+  movzbl %al, %eax # [ 0x0f 0xb6 0xc0 ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 libtdom0.8.0.dylib (part of Tcl) checkCharRefNumber
+# PROLOGUE
+  push %ebp
+  mov %eax, %edx # [ 0x89 0xc2 ]
+  sar $0x8, %eax # [ 0xc1 0xf8 0x08 ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+# SOURCE: Karma8V10 DrawSprocket.framework DSpGetVersion
+# PROLOGUE
+  push %ebp
+  and  $0xffffff, %eax # [ 0x25 0xff 0xff 0xff 0x00 ]
+  mov %esp, %ebp
+# EPILOGUE
+  pop %ebp
+  ret
+
+
+# SOURCE: Karma8B1014 QuartzCore.framework sample_rect_nearest_black_INTENSITY_F
+# PROLOGUE
+  push %ebp
+  xorps %xmm4, %xmm4 # [ 0x0f 0x57 0xe4 ]
+  mov %esp, %ebp
+  sub $0x28, %esp
+# EPILOGUE
+  add $0x28, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 _nl_remove_locale
+# PROLOGUE
+  push %ebp
+  mov 0x18(%edx), %eax # [ 0x8b 0x42 0x18 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 __mpn_construct_float
+# PROLOGUE
+  push %ebp
+  and $0x7fffffff,%edx # [ 0x81 0xe2 0xff 0xff 0xff 0x7f ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libc.so.6 free_state
+# PROLOGUE
+  push %ebp
+  mov  $_main, %eax
+  lea  0x4(%eax), %ecx # [ 0x8d 0x48 0x04 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 libxml.so htmlDefaultSAXHandlerInit
+# PROLOGUE
+  add  $0x628df, %ecx # [ 0x81 0xc1 0xdf 0x28 0x06 0x00 ]
+  push %ebp
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-xerces.so _ZN3org6apache6xerces3dom10AttrNSImpl18__U3c_clinit__U3e_Ev
+# PROLOGUE
+
+  push %ebp
+  mov  $_main, %ecx
+  mov  0x100(%ecx), %edx # [ 0x8b 0x91 0x00 0x01 0x00 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-bzip2.so _ZN3org6apache5tools5bzip23CRC18__U3c_clinit__U3e_Ev
+# PROLOGUE
+  push %ebp
+  mov  $_main, %ecx
+  lea  0x100(%ecx), %edx # [ 0x8d 0x91 0x00 0x01 0x00 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-ant.so _ZN3org6apache5tools3ant8taskdefs7Javadoc11addDoctitleEPNS3_12Javadoc$HtmlE
+# PROLOGUE
+  push %ebp
+  mov  $_main, %eax
+  cmpb $0x0, (%eax) # [ 0x80 0x38 0x00 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-javax-mail-20031006.so _ZN3gnu4mail4util13QOutputStream18__U3c_clinit__U3e_Ev
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %eax
+  mov %edx, (%eax) # [ 0x89 0x10 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 lib-org-apache-tools-ant.so
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %edx
+  mov %eax, (%edx) # [ 0x89 0x02 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 liboctinterp.so _ZNK12octave_value5resetEv
+# PROLOGUE
+  push %ebp
+  mov  $_word_of_writable_memory, %eax
+  movb $0x1, (%eax) # [ 0xc6 0x00 0x01 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+
+# SOURCE: RedHat FedoraCore2 /lib/ld-2.3.3.so _dl_reloc_bad_type
+# PROLOGUE
+  push %ebp
+  shl $0x5, %ecx # [ 0xc1 0xe1 0x05 ]
+  mov %esp, %ebp
+  sub $0x8, %esp
+# EPILOGUE
+  add $0x8, %esp
+  pop %ebp
+  ret
+

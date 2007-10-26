@@ -55,7 +55,7 @@ CFTypeID SecPolicySearchGetTypeID(void);
 	@abstract Creates a search reference for finding a policy by specifying its object identifier.
 	@param certType The type of certificates a policy uses.
     @param policyOID A pointer to a BER-encoded policy object identifier that uniquely specifies the policy.
-	@param value A pointer to an optional policy-defined value. The contents of this value depend on the policy object identifier defined.
+	@param value Unused.  Pass NULL for this value.  Use SecPolicySetValue to set per policy data.
 	@param searchRef On return, a pointer to a policy search reference. The policy search reference is used for subsequent calls to the SecCopyNextPolicy function to obtain the remaining trust policies. You are responsible for releasing the search reference by calling the CFRelease function when finished with it.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */

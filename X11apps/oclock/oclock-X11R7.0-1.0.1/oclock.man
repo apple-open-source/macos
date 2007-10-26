@@ -1,0 +1,104 @@
+.\" $Xorg: oclock.man,v 1.4 2001/02/09 02:05:33 xorgcvs Exp $
+.\" Copyright 1989, 1998  The Open Group
+.\" 
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\" 
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of The Open Group shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from The Open Group.
+.\"
+.\" $XFree86: xc/programs/oclock/oclock.man,v 1.8 2001/12/14 20:01:00 dawes Exp $
+.\"
+.TH OCLOCK 1 __xorgversion__
+.SH NAME
+oclock \- round X clock
+.SH SYNOPSIS
+.B oclock
+[\-option ... ]
+.SH DESCRIPTION
+.I Oclock
+simply displays the current time on an analog display.
+.SH OPTIONS
+.TP 8
+.B \-fg \fIcolor\fB
+choose a different color for the both hands and the jewel of the clock
+.TP 8
+.B \-bg \fIcolor\fB
+choose a different color for the background.
+.TP 8
+.B \-jewel \fIcolor\fB
+choose a different color for the jewel on the clock.
+.TP 8
+.B \-minute \fIcolor\fB
+choose a different color for the minute hand of the clock.
+.TP 8
+.B \-hour \fIcolor\fB
+choose a different color for the hour hand of the clock.
+.TP 8
+.B \-backing \fI{ WhenMapped Always NotUseful }\fB
+selects an appropriate level of backing store.
+.TP 8
+.B \-geometry \fIgeometry\fB
+define the initial window geometry; see \fIX(__miscmansuffix__)\fP.
+.TP 8
+.B \-display \fIdisplay\fB
+specify the display to use; see \fIX(__miscmansuffix__)\fP.
+.TP 8
+.B \-bd \fIcolor\fB
+choose a different color for the window border.
+.TP 8
+.B \-bw \fIwidth\fB
+choose a different width for the window border.  As the Clock widget changes
+its border around quite a bit, this is most usefully set to zero.
+.TP 8
+.B \-shape
+causes the clock to use the Shape extension to create an oval window.
+This is the default unless the shapeWindow resource is set to false.
+.TP 8
+.B \-noshape
+causes the clock to not reshape itself and ancestors to exactly
+fit the outline of the clock.
+.TP 8
+.B \-transparent
+causes the clock to consist only of the jewel, the hands, and the border.
+.SH COLORS
+If you would like your clock to be viewable in color, include the following 
+in the #ifdef COLOR section you read with xrdb:
+.sp 1
+*customization:                 -color
+.sp 1
+.br
+This will cause oclock to pick up the colors in the app-defaults color
+customization file:
+__projectroot__/lib/X11/app-defaults/Clock-color.
+Below are the default colors:
+.sp 1
+Clock*Background: grey
+.br
+Clock*BorderColor: light blue
+.br
+Clock*hour: yellow
+.br
+Clock*jewel: yellow
+.br
+Clock*minute: yellow
+.SH "SEE ALSO"
+X(__miscmansuffix__), X Toolkit documentation
+.SH AUTHOR
+Keith Packard, MIT X Consortium

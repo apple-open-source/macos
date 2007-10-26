@@ -112,6 +112,7 @@ representation is implied */
 #define OID_ANSI_X9_42_NAMED_SCHEME			OID_ANSI_X9_42, 4
 #define OID_ANSI_X9_42_NAMED_SCHEME_LEN		OID_ANSI_X9_42_LEN + 1
 
+/* PKIX */
 #define OID_PKIX							OID_DOD, 1, 5, 5, 7
 #define OID_PKIX_LENGTH						6
 #define OID_PE								OID_PKIX, 1
@@ -120,11 +121,23 @@ representation is implied */
 #define OID_QT_LENGTH						OID_PKIX_LENGTH + 1
 #define OID_KP								OID_PKIX, 3
 #define OID_KP_LENGTH						OID_PKIX_LENGTH + 1
+#define OID_OTHER_NAME						OID_PKIX, 8
+#define OID_OTHER_NAME_LENGTH				OID_PKIX_LENGTH + 1
+#define OID_PDA								OID_PKIX, 9
+#define OID_PDA_LENGTH						OID_PKIX_LENGTH + 1
+#define OID_QCS								OID_PKIX, 11
+#define OID_QCS_LENGTH						OID_PKIX_LENGTH + 1
 #define OID_AD								OID_PKIX, 48
 #define OID_AD_LENGTH						OID_PKIX_LENGTH + 1
 #define OID_AD_OCSP							OID_AD, 1
 #define OID_AD_OCSP_LENGTH					OID_AD_LENGTH + 1
 
+/* ETSI */
+#define OID_ETSI							0x04, 0x00
+#define OID_ETSI_LENGTH						2
+#define OID_ETSI_QCS						0x04, 0x00, 0x8E, 0x46, 0x01
+#define OID_ETSI_QCS_LENGTH					5
+	
 #define OID_OIW_SECSIG        				OID_OIW, 3
 #define OID_OIW_LENGTH       				2
 #define OID_OIW_SECSIG_LENGTH 				OID_OIW_LENGTH +1
@@ -135,6 +148,12 @@ representation is implied */
 /* NIST defined digest algorithm arc (2, 16, 840, 1, 101, 3, 4, 2) */
 #define OID_NIST_HASHALG					0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02
 #define OID_NIST_HASHALG_LENGTH				8
+
+/* Kerberos PKINIT */
+#define OID_KERBv5							0x2b, 6, 1, 5, 2
+#define OID_KERBv5_LEN						5
+#define OID_KERBv5_PKINIT					OID_KERBv5, 3
+#define OID_KERBv5_PKINIT_LEN				OID_KERBv5_LEN + 1
 
 /*
  * Apple-specific OID bases

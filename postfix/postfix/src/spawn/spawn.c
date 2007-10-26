@@ -6,7 +6,8 @@
 /* SYNOPSIS
 /*	\fBspawn\fR [generic Postfix daemon options] command_attributes...
 /* DESCRIPTION
-/*	The \fBspawn\fR daemon provides the Postfix equivalent of \fBinetd\fR.
+/*	The \fBspawn\fR(8) daemon provides the Postfix equivalent
+/*	of \fBinetd\fR.
 /*	It listens on a port as specified in the Postfix \fBmaster.cf\fR file
 /*	and spawns an external command whenever a connection is established.
 /*	The connection can be made over local IPC (such as UNIX-domain
@@ -27,7 +28,7 @@
 /*	specified \fIusername\fR.  The software refuses to execute
 /*	commands with root privileges, or with the privileges of the
 /*	mail system owner. If \fIgroupname\fR is specified, the
-/*	corresponding group ID is used instead of the group ID of
+/*	corresponding group ID is used instead of the group ID
 /*	of \fIusername\fR.
 /* .IP "\fBargv\fR=\fIcommand\fR... (required)"
 /*	The command to be executed. This must be specified as the
@@ -36,29 +37,29 @@
 /*	shell meta characters by a shell command interpreter.
 /* BUGS
 /*	In order to enforce standard Postfix process resource controls,
-/*	the \fBspawn\fR daemon runs only one external command at a time.
+/*	the \fBspawn\fR(8) daemon runs only one external command at a time.
 /*	As such, it presents a noticeable overhead by wasting precious
-/*	process resources. The \fBspawn\fR daemon is expected to be
+/*	process resources. The \fBspawn\fR(8) daemon is expected to be
 /*	replaced by a more structural solution.
 /* DIAGNOSTICS
-/*	The \fBspawn\fR daemon reports abnormal child exits.
+/*	The \fBspawn\fR(8) daemon reports abnormal child exits.
 /*	Problems are logged to \fBsyslogd\fR(8).
 /* SECURITY
 /* .fi
 /* .ad
 /*	This program needs root privilege in order to execute external
 /*	commands as the specified user. It is therefore security sensitive.
-/*	However the \fBspawn\fR daemon does not talk to the external command
+/*	However the \fBspawn\fR(8) daemon does not talk to the external command
 /*	and thus is not vulnerable to data-driven attacks.
 /* CONFIGURATION PARAMETERS
 /* .ad
 /* .fi
-/*	Changes to \fBmain.cf\fR are picked up automatically as spawn(8)
+/*	Changes to \fBmain.cf\fR are picked up automatically as \fBspawn\fR(8)
 /*	processes run for only a limited amount of time. Use the command
 /*	"\fBpostfix reload\fR" to speed up a change.
 /*
 /*	The text below provides only a parameter summary. See
-/*	postconf(5) for more details including examples.
+/*	\fBpostconf\fR(5) for more details including examples.
 /*
 /*	In the text below, \fItransport\fR is the first field of the entry
 /*	in the \fBmaster.cf\fR file.
@@ -68,6 +69,10 @@
 /* .IP "\fItransport\fB_time_limit ($command_time_limit)\fR"
 /*	The amount of time the command is allowed to run before it is
 /*	terminated.
+/*
+/*	Postfix 2.4 and later support a suffix that specifies the
+/*	time unit: s (seconds), m (minutes), h (hours), d (days),
+/*	w (weeks). The default time unit is seconds.
 /* MISCELLANEOUS
 /* .ad
 /* .fi
@@ -87,11 +92,11 @@
 /*	The UNIX system account that owns the Postfix queue and most Postfix
 /*	daemon processes.
 /* .IP "\fBmax_idle (100s)\fR"
-/*	The maximum amount of time that an idle Postfix daemon process
-/*	waits for the next service request before exiting.
+/*	The maximum amount of time that an idle Postfix daemon process waits
+/*	for an incoming connection before terminating voluntarily.
 /* .IP "\fBmax_use (100)\fR"
-/*	The maximal number of connection requests before a Postfix daemon
-/*	process terminates.
+/*	The maximal number of incoming connections that a Postfix daemon
+/*	process will service before terminating voluntarily.
 /* .IP "\fBprocess_id (read-only)\fR"
 /*	The process ID of a Postfix command or daemon process.
 /* .IP "\fBprocess_name (read-only)\fR"
@@ -143,6 +148,10 @@
 #include <timed_wait.h>
 #include <set_eugid.h>
 
+/* Global library. */
+
+#include <mail_version.h>
+
 /* Single server skeleton. */
 
 #include <mail_params.h>
@@ -172,7 +181,7 @@ typedef struct {
 
 static void get_service_attr(SPAWN_ATTR *attr, char *service, char **argv)
 {
-    char   *myname = "get_service_attr";
+    const char *myname = "get_service_attr";
     struct passwd *pwd;
     struct group *grp;
     char   *user;			/* user name */
@@ -189,7 +198,7 @@ static void get_service_attr(SPAWN_ATTR *attr, char *service, char **argv)
      * Figure out the command time limit for this transport.
      */
     attr->time_limit =
-	get_mail_conf_int2(service, "_time_limit", var_command_maxtime, 1, 0);
+	get_mail_conf_time2(service, "_time_limit", var_command_maxtime, 's', 1, 0);
 
     /*
      * Iterate over the command-line attribute list.
@@ -264,7 +273,7 @@ static void get_service_attr(SPAWN_ATTR *attr, char *service, char **argv)
 
 static void spawn_service(VSTREAM *client_stream, char *service, char **argv)
 {
-    char   *myname = "spawn_service";
+    const char *myname = "spawn_service";
     static SPAWN_ATTR attr;
     WAIT_STATUS_T status;
     ARGV   *export_env;
@@ -317,7 +326,7 @@ static void spawn_service(VSTREAM *client_stream, char *service, char **argv)
 static void pre_accept(char *unused_name, char **unused_argv)
 {
     const char *table;
- 
+
     if ((table = dict_changed_name()) != 0) {
 	msg_info("table %s has changed -- restarting", table);
 	exit(0);
@@ -331,6 +340,8 @@ static void drop_privileges(char *unused_name, char **unused_argv)
     set_eugid(var_owner_uid, var_owner_gid);
 }
 
+MAIL_VERSION_STAMP_DECLARE;
+
 /* main - pass control to the single-threaded skeleton */
 
 int     main(int argc, char **argv)
@@ -340,9 +351,15 @@ int     main(int argc, char **argv)
 	0,
     };
 
+    /*
+     * Fingerprint executables and core dumps.
+     */
+    MAIL_VERSION_STAMP_ALLOCATE;
+
     single_server_main(argc, argv, spawn_service,
 		       MAIL_SERVER_TIME_TABLE, time_table,
 		       MAIL_SERVER_POST_INIT, drop_privileges,
 		       MAIL_SERVER_PRE_ACCEPT, pre_accept,
+		       MAIL_SERVER_PRIVILEGED,
 		       0);
 }

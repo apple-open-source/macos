@@ -6,16 +6,16 @@
   Simplifies enum re-use in various wrappers.  e.g. SWIG
   generated wrappers and COM IDL files.
 
-  Copyright (c) 1998-2004 World Wide Web Consortium
+  Copyright (c) 1998-2006 World Wide Web Consortium
   (Massachusetts Institute of Technology, European Research 
   Consortium for Informatics and Mathematics, Keio University).
   All Rights Reserved.
 
   CVS Info :
 
-    $Author: swilkin $ 
-    $Date: 2005/01/06 02:01:53 $ 
-    $Revision: 1.1.1.2 $ 
+    $Author: iccir $ 
+    $Date: 2007/02/20 23:59:53 $ 
+    $Revision: 1.8 $ 
 
   Contributing Author(s):
 
@@ -199,6 +199,14 @@ typedef enum
   TidyPunctWrapNotUsed,
 #endif
   TidyMergeDivs,       /**< Merge multiple DIVs */
+  TidyDecorateInferredUL,  /**< Mark inferred UL elements with no indent CSS */
+#if TIDY_APPLE_CHANGES
+  TidyRelativePathBaseUri,   /* Base URI to use when a  relative path is encountered ("../foo", "foo/", etc) */
+  TidyAbsolutePathBaseUri,   /* Base URI to use when an absolute path is encountered ("/foo") */
+  TidyDropClassesWithPrefix, /* Delete 'class' attributes starting with the specified prefix */
+  TidyDropIdsWithPrefix,     /* Delete 'id'    attributes starting with the specified prefix */
+  TidySanitizeAgainstXSS,    /* Remove elements and attributes which could assist a cross-site scripting (XSS) attack */
+#endif
   N_TIDY_OPTIONS       /**< Must be last */
 } TidyOptionId;
 

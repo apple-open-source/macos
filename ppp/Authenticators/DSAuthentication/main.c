@@ -61,6 +61,7 @@ static CFBundleRef 	bundle = 0;
 extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
 extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
 extern int mppe_keys_set;		/* Have the MPPE keys been set? */
+extern CFPropertyListRef 		systemOptions;
 
 static int dsauth_check(void);
 static int dsauth_ip_allowed_address(u_int32_t addr);
@@ -226,6 +227,12 @@ static int dsauth_chap(char *name, char *ourname, int id,
     u_int32_t					userNameSize = strlen(name);
     u_int32_t					authDataSize;
     int							challenge_len, response_len;
+	CFDictionaryRef				serviceInfo = 0;
+	CFDictionaryRef				eventDetail;
+	CFDictionaryRef				interface;
+	CFStringRef					subtypeRef;
+	CFStringRef					addrRef;
+
     
     challenge_len = *challenge++;	/* skip length, is 16 */
     response_len = *response++;
@@ -237,16 +244,65 @@ static int dsauth_chap(char *name, char *ourname, int id,
         return 0;
 
     resp = (MS_Chap2Response*)response;
-    if ((dsResult = dsOpenDirService(&dirRef)) == eDSNoErr) {     
-    
-        if ((responseDataBufPtr = dsDataBufferAllocate(dirRef, BUF_LEN)) == 0) {
-            error("DSAuth plugin: Could not allocate data buffer\n");
-            goto cleanup;
-        }
+    if ((dsResult = dsOpenDirService(&dirRef)) == eDSNoErr) {
+	
         if ((authTypeDataNodePtr = dsDataNodeAllocateString(dirRef, kDSStdAuthMSCHAP2)) == 0) {
             error("DSAuth plugin: Could not allocate data buffer\n");
             goto cleanup;
         }
+		
+		//  setup service info
+		interface = CFDictionaryGetValue(systemOptions, kRASEntInterface);
+		if (interface && CFGetTypeID(interface) == CFDictionaryGetTypeID()) {
+			subtypeRef = CFDictionaryGetValue(interface, kRASPropInterfaceSubType);		
+			if (subtypeRef && CFGetTypeID(subtypeRef) == CFStringGetTypeID()) {	
+				serviceInfo = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+				if (serviceInfo) {
+					eventDetail = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+					if (eventDetail) {
+						addrRef = CFStringCreateWithCString(0, remoteaddress, kCFStringEncodingUTF8);
+						if (addrRef) {
+							CFDictionaryAddValue(eventDetail, CFSTR("ClientIP"),  addrRef);
+							CFRelease(addrRef);	
+						}
+						if (CFStringCompare(subtypeRef, kRASValInterfaceSubTypeL2TP, 0) == kCFCompareEqualTo) {
+							CFDictionaryAddValue(eventDetail, CFSTR("HostPort"),  CFSTR("1701"));
+							CFDictionaryAddValue(eventDetail, CFSTR("ProtocolName"),  CFSTR("L2TP"));
+							CFDictionaryAddValue(eventDetail, CFSTR("ProtocolVersion"),  CFSTR("2"));
+						} else if (CFStringCompare(subtypeRef, kRASValInterfaceSubTypePPTP, 0) == kCFCompareEqualTo) {
+							CFDictionaryAddValue(eventDetail, CFSTR("HostPort"),  CFSTR("1723"));
+							CFDictionaryAddValue(eventDetail, CFSTR("ProtocolName"),  CFSTR("PPTP"));
+							CFDictionaryAddValue(eventDetail, CFSTR("ProtocolVersion"),  CFSTR("1"));
+						} else
+							CFDictionaryAddValue(eventDetail, CFSTR("ProtocolName"),  subtypeRef);
+						
+						CFDictionaryAddValue(eventDetail, CFSTR("ServiceName"),  CFSTR("VPN"));
+						
+						// add eventDetail to serviceInfo dict
+						CFDictionaryAddValue(serviceInfo, CFSTR("ServiceInformation"), eventDetail);
+						CFRelease(eventDetail);
+						
+						// allocate response buffer with service info
+						if (dsServiceInformationAllocate(serviceInfo, BUF_LEN, &responseDataBufPtr) != eDSNoErr) {
+							error("DSAuth plugin: Unable to allocate service info buffer\n");
+							goto cleanup;
+						}
+					} else {
+						error("DSAuth plugin: Unable to allocate eventDetail dictionary\n");
+						goto cleanup;
+					}
+				} else {
+					error("DSAuth plugin: Unable to allocate serviceInfo dictionary\n");
+					goto cleanup;
+				}
+			} else {
+				error("DSAccessControl plugin: No Interface subtype found\n");
+				goto cleanup;
+			}
+		} else {
+			error("DSAccessControl plugin: No Interface dictionary found\n");
+			goto cleanup;
+		}
 
         if (dsauth_find_user_node(dirRef, name, &userNode, &recordNameAttr, &authAuthorityAttr) == 0) {  
             userShortNameSize = recordNameAttr->fAttributeValueData.fBufferLength;
@@ -310,7 +366,8 @@ static int dsauth_chap(char *name, char *ourname, int id,
         }
     
 cleanup:
-                    
+		if (serviceInfo)
+			CFRelease(serviceInfo);
         if (responseDataBufPtr)
             dsDataBufferDeAllocate(dirRef, responseDataBufPtr);
         if (authTypeDataNodePtr)
@@ -480,7 +537,7 @@ cleanup:
     if (authTypeDataNodePtr)
         dsDataNodeDeAllocate(dirRef, authTypeDataNodePtr);
     if (authKeysDataNodePtr)
-        dsDataNodeDeAllocate(dirRef, authTypeDataNodePtr);
+        dsDataNodeDeAllocate(dirRef, authKeysDataNodePtr);
     if (authDataBufPtr)
         dsDataBufferDeAllocate(dirRef, authDataBufPtr);
    

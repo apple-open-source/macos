@@ -29,7 +29,7 @@
 
    DWARF-1 is slowly headed for obsoletion.
 
-   In gcc HEAD 2003-11-29 16:28:31 UTC, no targets prefer dwarf-1.
+   In gcc 3.4.0, support for dwarf-1 has been removed.
 
    In gcc 3.3.2, these targets prefer dwarf-1:
 
@@ -73,11 +73,22 @@
    Some non-gcc compilers produce dwarf-1: 
 
      PR gdb/1179 was from a user with Diab C++ 4.3.
+     On 2003-07-25 the gdb list received a report from a user
+      with Diab Compiler 4.4b.
      Other users have also reported using Diab compilers with dwarf-1.
+
+     Diab Compiler Suite 5.0.1 supports dwarf-2/dwarf-3 for C and C++.
+     (Diab(tm) Compiler Suite 5.0.1 Release Notes, DOC-14691-ZD-00,
+     Wind River Systems, 2002-07-31).
+
      On 2003-06-09 the gdb list received a report from a user
        with Absoft ProFortran f77 which is dwarf-1.
 
-   -- chastain 2003-12-01
+     Absoft ProFortran Linux[sic] Fortran User Guide (no version,
+     but copyright dates are 1991-2001) says that Absoft ProFortran
+     supports -gdwarf1 and -gdwarf2.
+
+   -- chastain 2004-04-24
 */
 
 /*
@@ -124,7 +135,7 @@ static void
 bad_die_ref_complaint (int arg1, const char *arg2, int arg3)
 {
   complaint (&symfile_complaints,
-	     "DIE @ 0x%x \"%s\", reference to DIE (0x%x) outside compilation unit",
+	     _("DIE @ 0x%x \"%s\", reference to DIE (0x%x) outside compilation unit"),
 	     arg1, arg2, arg3);
 }
 
@@ -132,7 +143,7 @@ static void
 unknown_attribute_form_complaint (int arg1, const char *arg2, int arg3)
 {
   complaint (&symfile_complaints,
-	     "DIE @ 0x%x \"%s\", unknown attribute form (0x%x)", arg1, arg2,
+	     _("DIE @ 0x%x \"%s\", unknown attribute form (0x%x)"), arg1, arg2,
 	     arg3);
 }
 
@@ -140,7 +151,7 @@ static void
 dup_user_type_definition_complaint (int arg1, const char *arg2)
 {
   complaint (&symfile_complaints,
-	     "DIE @ 0x%x \"%s\", internal error: duplicate user type definition",
+	     _("DIE @ 0x%x \"%s\", internal error: duplicate user type definition"),
 	     arg1, arg2);
 }
 
@@ -148,7 +159,7 @@ static void
 bad_array_element_type_complaint (int arg1, const char *arg2, int arg3)
 {
   complaint (&symfile_complaints,
-	     "DIE @ 0x%x \"%s\", bad array element type attribute 0x%x", arg1,
+	     _("DIE @ 0x%x \"%s\", bad array element type attribute 0x%x"), arg1,
 	     arg2, arg3);
 }
 
@@ -547,7 +558,7 @@ dwarf_fundamental_type (struct objfile *objfile, int typeid)
 {
   if (typeid < 0 || typeid >= FT_NUM_MEMBERS)
     {
-      error ("internal error - invalid fundamental type id %d", typeid);
+      error (_("internal error - invalid fundamental type id %d"), typeid);
     }
 
   /* Look for this particular type in the fundamental type vector.  If one is
@@ -666,7 +677,7 @@ dwarf_build_psymtabs (struct objfile *objfile, int mainline, file_ptr dbfoff,
       (bfd_bread (dbbase, dbsize, abfd) != dbsize))
     {
       xfree (dbbase);
-      error ("can't read DWARF data from '%s'", bfd_get_filename (abfd));
+      error (_("can't read DWARF data from '%s'"), bfd_get_filename (abfd));
     }
   back_to = make_cleanup (xfree, dbbase);
 
@@ -725,8 +736,10 @@ read_lexical_block_scope (struct dieinfo *dip, char *thisdie, char *enddie,
   new = pop_context ();
   if (local_symbols != NULL)
     {
+      /* APPLE LOCAL begin address ranges  */
       finish_block (0, &local_symbols, new->old_blocks, new->start_addr,
-		    dip->at_high_pc, objfile);
+		    dip->at_high_pc, NULL, objfile);
+      /* APPLE LOCAL end address ranges  */
     }
   local_symbols = new->locals;
 }
@@ -807,7 +820,7 @@ alloc_utype (DIE_REF die_ref, struct type *utypep)
     {
       utypep = *typep;
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", internal error: duplicate user type allocation",
+		 _("DIE @ 0x%x \"%s\", internal error: duplicate user type allocation"),
 		 DIE_ID, DIE_NAME);
     }
   else
@@ -956,7 +969,7 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
       /* Should never happen */
       TYPE_CODE (type) = TYPE_CODE_UNDEF;
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", missing class, structure, or union tag",
+		 _("DIE @ 0x%x \"%s\", missing class, structure, or union tag"),
 		 DIE_ID, DIE_NAME);
       break;
     }
@@ -1295,7 +1308,7 @@ decode_subscript_data_item (char *scan, char *end)
 	{
 	  /* Munged subscript data or other problem, fake it. */
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", can't decode subscript data items",
+		     _("DIE @ 0x%x \"%s\", can't decode subscript data items"),
 		     DIE_ID, DIE_NAME);
 	  nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	}
@@ -1311,7 +1324,7 @@ decode_subscript_data_item (char *scan, char *end)
     case FMT_UT_X_C:
     case FMT_UT_X_X:
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", array subscript format 0x%x not handled yet",
+		 _("DIE @ 0x%x \"%s\", array subscript format 0x%x not handled yet"),
 		 DIE_ID, DIE_NAME, format);
       nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
@@ -1319,7 +1332,7 @@ decode_subscript_data_item (char *scan, char *end)
       break;
     default:
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", unknown array subscript format %x", DIE_ID,
+		 _("DIE @ 0x%x \"%s\", unknown array subscript format %x"), DIE_ID,
 		 DIE_NAME, format);
       nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
@@ -1359,7 +1372,7 @@ dwarf_read_array_type (struct dieinfo *dip)
     {
       /* FIXME:  Can gdb even handle column major arrays? */
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", array not row major; not handled correctly",
+		 _("DIE @ 0x%x \"%s\", array not row major; not handled correctly"),
 		 DIE_ID, DIE_NAME);
     }
   sub = dip->at_subscr_data;
@@ -1776,25 +1789,21 @@ read_func_scope (struct dieinfo *dip, char *thisdie, char *enddie,
      FIXME: Add code to handle AT_abstract_origin tags properly.  */
   if (dip->at_name == NULL)
     {
-      complaint (&symfile_complaints, "DIE @ 0x%x, AT_name tag missing",
+      complaint (&symfile_complaints, _("DIE @ 0x%x, AT_name tag missing"),
 		 DIE_ID);
       return;
     }
 
-  if (objfile->ei.entry_point >= dip->at_low_pc &&
-      objfile->ei.entry_point < dip->at_high_pc)
-    {
-      objfile->ei.entry_func_lowpc = dip->at_low_pc;
-      objfile->ei.entry_func_highpc = dip->at_high_pc;
-    }
   new = push_context (0, dip->at_low_pc);
   new->name = new_symbol (dip, objfile);
   list_in_scope = &local_symbols;
   process_dies (thisdie + dip->die_length, enddie, objfile);
   new = pop_context ();
   /* Make a block for the local symbols within.  */
+  /* APPLE LOCAL begin address ranges  */
   finish_block (new->name, &local_symbols, new->old_blocks,
-		new->start_addr, dip->at_high_pc, objfile);
+		new->start_addr, dip->at_high_pc, NULL, objfile);
+  /* APPLE LOCAL end address ranges  */
   list_in_scope = &file_symbols;
 }
 
@@ -1882,12 +1891,6 @@ read_file_scope (struct dieinfo *dip, char *thisdie, char *enddie,
   struct cleanup *back_to;
   struct symtab *symtab;
 
-  if (objfile->ei.entry_point >= dip->at_low_pc &&
-      objfile->ei.entry_point < dip->at_high_pc)
-    {
-      objfile->ei.deprecated_entry_file_lowpc = dip->at_low_pc;
-      objfile->ei.deprecated_entry_file_highpc = dip->at_high_pc;
-    }
   set_cu_language (dip);
   if (dip->at_producer != NULL)
     {
@@ -2101,7 +2104,9 @@ decode_line_numbers (char *linetable)
 	  pc += base;
 	  if (line != 0)
 	    {
-	      record_line (current_subfile, line, pc);
+	      /* APPLE LOCAL begin subroutine inlining  */
+	      record_line (current_subfile, line, pc, 0, NORMAL_LT_ENTRY);
+	      /* APPLE LOCAL end subroutine inlining  */
 	    }
 	}
     }
@@ -2211,12 +2216,12 @@ locval (struct dieinfo *dip)
 	case OP_DEREF2:
 	  /* pop, deref and push 2 bytes (as a long) */
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", OP_DEREF2 address 0x%lx not handled",
+		     _("DIE @ 0x%x \"%s\", OP_DEREF2 address 0x%lx not handled"),
 		     DIE_ID, DIE_NAME, stack[stacki]);
 	  break;
 	case OP_DEREF4:	/* pop, deref and push 4 bytes (as a long) */
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", OP_DEREF4 address 0x%lx not handled",
+		     _("DIE @ 0x%x \"%s\", OP_DEREF4 address 0x%lx not handled"),
 		     DIE_ID, DIE_NAME, stack[stacki]);
 	  break;
 	case OP_ADD:		/* pop top 2 items, add, push result */
@@ -2224,6 +2229,16 @@ locval (struct dieinfo *dip)
 	  stacki--;
 	  break;
 	}
+      /* Enforce maximum stack depth of 63 to avoid ++stacki writing
+         outside of the given size. Also enforce minimum > 0.
+         -- wad@google.com 14 Aug 2006 */
+      if (stacki >= sizeof (stack) / sizeof (*stack) - 1)
+        internal_error (__FILE__, __LINE__,
+                        _("location description stack too deep: %d"),
+                        stacki);
+      if (stacki < 0)
+        internal_error (__FILE__, __LINE__,
+                        _("location description stack too shallow"));
     }
   return (stack[stacki]);
 }
@@ -2273,7 +2288,7 @@ read_ofile_symtab (struct partial_symtab *pst)
       (bfd_bread (dbbase, dbsize, abfd) != dbsize))
     {
       xfree (dbbase);
-      error ("can't read DWARF data");
+      error (_("can't read DWARF data"));
     }
   back_to = make_cleanup (xfree, dbbase);
 
@@ -2289,7 +2304,7 @@ read_ofile_symtab (struct partial_symtab *pst)
 	  (bfd_bread (lnsizedata, sizeof (lnsizedata), abfd)
 	   != sizeof (lnsizedata)))
 	{
-	  error ("can't read DWARF line number table size");
+	  error (_("can't read DWARF line number table size"));
 	}
       lnsize = target_to_host (lnsizedata, SIZEOF_LINETBL_LENGTH,
 			       GET_UNSIGNED, pst->objfile);
@@ -2298,7 +2313,7 @@ read_ofile_symtab (struct partial_symtab *pst)
 	  (bfd_bread (lnbase, lnsize, abfd) != lnsize))
 	{
 	  xfree (lnbase);
-	  error ("can't read DWARF line numbers");
+	  error (_("can't read DWARF line numbers"));
 	}
       make_cleanup (xfree, lnbase);
     }
@@ -2336,7 +2351,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst)
     {
       if (pst->readin)
 	{
-	  warning ("psymtab for %s already read in.  Shouldn't happen.",
+	  warning (_("psymtab for %s already read in.  Shouldn't happen."),
 		   pst->filename);
 	}
       else
@@ -2349,6 +2364,8 @@ psymtab_to_symtab_1 (struct partial_symtab *pst)
 		  /* Inform about additional files that need to be read in. */
 		  if (info_verbose)
 		    {
+		      /* FIXME: i18n: Need to make this a single
+			 string.  */
 		      fputs_filtered (" ", gdb_stdout);
 		      wrap_here ("");
 		      fputs_filtered ("and ", gdb_stdout);
@@ -2368,7 +2385,7 @@ psymtab_to_symtab_1 (struct partial_symtab *pst)
 	      read_ofile_symtab (pst);
 	      if (info_verbose)
 		{
-		  printf_filtered ("%d DIE's, sorting...", diecount);
+		  printf_filtered (_("%d DIE's, sorting..."), diecount);
 		  wrap_here ("");
 		  gdb_flush (gdb_stdout);
 		}
@@ -2405,7 +2422,7 @@ dwarf_psymtab_to_symtab (struct partial_symtab *pst)
     {
       if (pst->readin)
 	{
-	  warning ("psymtab for %s already read in.  Shouldn't happen.",
+	  warning (_("psymtab for %s already read in.  Shouldn't happen."),
 		   pst->filename);
 	}
       else
@@ -2416,7 +2433,7 @@ dwarf_psymtab_to_symtab (struct partial_symtab *pst)
 	         disconcerting pauses.  */
 	      if (info_verbose)
 		{
-		  printf_filtered ("Reading in symbols for %s...",
+		  printf_filtered (_("Reading in symbols for %s..."),
 				   pst->filename);
 		  gdb_flush (gdb_stdout);
 		}
@@ -2435,7 +2452,7 @@ dwarf_psymtab_to_symtab (struct partial_symtab *pst)
 	      /* Finish up the verbose info message.  */
 	      if (info_verbose)
 		{
-		  printf_filtered ("done.\n");
+		  printf_filtered (_("done.\n"));
 		  gdb_flush (gdb_stdout);
 		}
 	    }
@@ -3186,7 +3203,7 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 	  break;
 	default:
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", botched modified type decoding (mtype 0x%x)",
+		     _("DIE @ 0x%x \"%s\", botched modified type decoding (mtype 0x%x)"),
 		     DIE_ID, DIE_NAME, mtype);
 	  typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	  break;
@@ -3206,12 +3223,12 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 	  break;
 	case MOD_const:
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", type modifier 'const' ignored", DIE_ID,
+		     _("DIE @ 0x%x \"%s\", type modifier 'const' ignored"), DIE_ID,
 		     DIE_NAME);	/* FIXME */
 	  break;
 	case MOD_volatile:
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", type modifier 'volatile' ignored",
+		     _("DIE @ 0x%x \"%s\", type modifier 'volatile' ignored"),
 		     DIE_ID, DIE_NAME);	/* FIXME */
 	  break;
 	default:
@@ -3223,7 +3240,7 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 #endif
 	    {
 	      complaint (&symfile_complaints,
-			 "DIE @ 0x%x \"%s\", unknown type modifier %u", DIE_ID,
+			 _("DIE @ 0x%x \"%s\", unknown type modifier %u"), DIE_ID,
 			 DIE_NAME, modifier);
 	    }
 	  break;
@@ -3367,7 +3384,7 @@ decode_fund_type (unsigned int fundtype)
       if (!(FT_lo_user <= fundtype && fundtype <= FT_hi_user))
 	{
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", unexpected fundamental type 0x%x",
+		     _("DIE @ 0x%x \"%s\", unexpected fundamental type 0x%x"),
 		     DIE_ID, DIE_NAME, fundtype);
 	}
     }
@@ -3467,7 +3484,7 @@ basicdieinfo (struct dieinfo *dip, char *diep, struct objfile *objfile)
       ((diep + dip->die_length) > (dbbase + dbsize)))
     {
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", malformed DIE, bad length (%ld bytes)",
+		 _("DIE @ 0x%x \"%s\", malformed DIE, bad length (%ld bytes)"),
 		 DIE_ID, DIE_NAME, dip->die_length);
       dip->die_length = 0;
     }
@@ -3536,7 +3553,7 @@ completedieinfo (struct dieinfo *dip, struct objfile *objfile)
       if (nbytes == -1)
 	{
 	  complaint (&symfile_complaints,
-		     "DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes",
+		     _("DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes"),
 		     DIE_ID, DIE_NAME);
 	  diep = end;
 	  continue;
@@ -3752,7 +3769,7 @@ target_to_host (char *from, int nbytes, int signextend,	/* FIXME:  Unused */
       break;
     default:
       complaint (&symfile_complaints,
-		 "DIE @ 0x%x \"%s\", no bfd support for %d byte data object",
+		 _("DIE @ 0x%x \"%s\", no bfd support for %d byte data object"),
 		 DIE_ID, DIE_NAME, nbytes);
       rtnval = 0;
       break;

@@ -1,16 +1,14 @@
-Listi %(real_name)s postitamiseks kirjutage aadressile
+Listi %(real_name)s kirjutamiseks on aadress
 	%(got_list_email)s
 
-Listi tellimiseks või tellimuse lõpetamiseks veebi kaudu
-külastage veebilehte
+Listi saab tellida või tellimust lõpetada veebis, aadressil
 	%(got_listinfo_url)s
-või saatke meil, mille sisu koosneb ainult sõnast 'help' 
-aadressile
+või saates meili, mille sisuks ainult sõna 'help' aadressile
 	%(got_request_email)s
 
-Listi halduriga saab kontakti aadressil
+Listi omaniku meiliaadress on
 	%(got_owner_email)s
 
-Kirjale vastamisel oleks viisakas muuta kirja teemat, nii et see
-ei paistaks nagu 
-"Re: %(real_name)s referaat"
+Kirjale vastamisel redigeeri kindlasti kirja teemat nii et see
+oleks sisukam kui 
+"Re: %(real_name)s kokkuvõte"

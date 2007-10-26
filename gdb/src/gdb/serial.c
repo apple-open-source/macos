@@ -353,7 +353,7 @@ serial_readchar (struct serial *scb, int timeout)
      code is finished. */
   if (0 && serial_is_async_p (scb) && timeout < 0)
     internal_error (__FILE__, __LINE__,
-		    "serial_readchar: blocking read in async mode");
+		    _("serial_readchar: blocking read in async mode"));
 
   ch = scb->ops->readchar (scb, timeout);
   if (serial_logfp != NULL)
@@ -400,7 +400,7 @@ serial_printf (struct serial *desc, const char *format,...)
   char *buf;
   va_start (args, format);
 
-  xvasprintf (&buf, format, args);
+  buf = xstrvprintf (format, args);
   serial_write (desc, buf, strlen (buf));
 
   xfree (buf);
@@ -513,7 +513,7 @@ deprecated_serial_fd (struct serial *scb)
   if (scb->fd < 0)
     {
       internal_error (__FILE__, __LINE__,
-		      "serial: FD not valid");
+		      _("serial: FD not valid"));
     }
   return scb->fd; /* sigh */
 }
@@ -603,7 +603,7 @@ connect_command (char *args, int fromtty)
 		break;
 
 	      if (c < 0)
-		perror_with_name ("connect");
+		perror_with_name (_("connect"));
 
 	      cx = c;
 	      serial_write (port_desc, &cx, 1);
@@ -641,7 +641,7 @@ connect_command (char *args, int fromtty)
 		break;
 
 	      if (c < 0)
-		perror_with_name ("connect");
+		perror_with_name (_("connect"));
 
 	      cx = c;
 
@@ -675,44 +675,46 @@ void
 _initialize_serial (void)
 {
 #if 0
-  add_com ("connect", class_obscure, connect_command,
-	   "Connect the terminal directly up to the command monitor.\n\
-Use <CR>~. or <CR>~^D to break out.");
+  add_com ("connect", class_obscure, connect_command, _("\
+Connect the terminal directly up to the command monitor.\n\
+Use <CR>~. or <CR>~^D to break out."));
 #endif /* 0 */
 
-  add_prefix_cmd ("serial", class_maintenance, serial_set_cmd, "\
-Set default serial/parallel port configuration.",
+  add_prefix_cmd ("serial", class_maintenance, serial_set_cmd, _("\
+Set default serial/parallel port configuration."),
 		  &serial_set_cmdlist, "set serial ",
 		  0/*allow-unknown*/,
 		  &setlist);
 
-  add_prefix_cmd ("serial", class_maintenance, serial_show_cmd, "\
-Show default serial/parallel port configuration.",
+  add_prefix_cmd ("serial", class_maintenance, serial_show_cmd, _("\
+Show default serial/parallel port configuration."),
 		  &serial_show_cmdlist, "show serial ",
 		  0/*allow-unknown*/,
 		  &showlist);
 
-  add_show_from_set
-    (add_set_cmd ("remotelogfile", no_class,
-		  var_filename, (char *) &serial_logfile,
-		  "Set filename for remote session recording.\n\
+  add_setshow_filename_cmd ("remotelogfile", no_class, &serial_logfile, _("\
+Set filename for remote session recording."), _("\
+Show filename for remote session recording."), _("\
 This file is used to record the remote session for future playback\n\
-by gdbserver.",
-		  &setlist),
-     &showlist);
+by gdbserver."),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setlist, &showlist);
 
-  add_show_from_set
-    (add_set_enum_cmd ("remotelogbase", no_class,
-		       logbase_enums, &serial_logbase,
-		       "Set numerical base for remote session logging",
-		       &setlist),
-     &showlist);
+  add_setshow_enum_cmd ("remotelogbase", no_class, logbase_enums,
+			&serial_logbase, _("\
+Set numerical base for remote session logging"), _("\
+Show numerical base for remote session logging"), NULL,
+			NULL,
+			NULL, /* FIXME: i18n: */
+			&setlist, &showlist);
 
-  add_show_from_set (add_set_cmd ("serial",
-				  class_maintenance,
-				  var_zinteger,
-				  (char *)&global_serial_debug_p,
-				  "Set serial debugging.\n\
-When non-zero, serial port debugging is enabled.", &setdebuglist),
-		     &showdebuglist);
+  add_setshow_zinteger_cmd ("serial", class_maintenance,
+			    &global_serial_debug_p, _("\
+Set serial debugging."), _("\
+Show serial debugging."), _("\
+When non-zero, serial port debugging is enabled."),
+			    NULL,
+			    NULL, /* FIXME: i18n: */
+			    &setdebuglist, &showdebuglist);
 }

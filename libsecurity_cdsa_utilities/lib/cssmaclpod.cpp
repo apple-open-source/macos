@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,9 @@
 #include <security_cdsa_utilities/cssmaclpod.h>
 #include <security_cdsa_utilities/cssmwalkers.h>
 #include <cstdarg>
+
+
+namespace Security {
 
 
 //
@@ -146,15 +149,16 @@ AclEntryInfo &AutoAclEntryInfoList::at(uint32 ix)
 }
 
 
-AutoAclEntryInfoList::~AutoAclEntryInfoList()
+void AutoAclEntryInfoList::clear()
 {
 	if (mAllocator)
 	{
 		DataWalkers::ChunkFreeWalker w(*mAllocator);
 		for (uint32 ix = 0; ix < mCount; ix++)
 			walk(w, mEntries[ix]);
-		//DataWalkers::chunkFree(mEntries[ix], *mAllocator);	
 		mAllocator->free(mEntries);
+		mEntries = NULL;
+		mCount = 0;
 	}
 }
 
@@ -175,7 +179,44 @@ void AutoAclEntryInfoList::add(const TypedList &subj, const AclAuthorizationSet 
 
 void AutoAclEntryInfoList::addPin(const TypedList &subj, uint32 slot)
 {
-	char tag[10];
-	snprintf(tag, sizeof(tag), "PIN%ld", slot);
+	char tag[20];
+	snprintf(tag, sizeof(tag), "PIN%d", slot);
 	add(subj, CSSM_ACL_AUTHORIZATION_PREAUTH(slot), tag);
 }
+
+void AutoAclEntryInfoList::addPinState(uint32 slot, uint32 status)
+{
+	char tag[20];
+	snprintf(tag, sizeof(tag), "PIN%d?", slot);
+	TypedList subj(allocator(), CSSM_WORDID_PIN,
+		new(allocator()) ListElement(slot),
+		new(allocator()) ListElement(status));
+	add(subj, CSSM_WORDID_PIN, tag);
+}
+
+void AutoAclEntryInfoList::addPinState(uint32 slot, uint32 status, uint32 count)
+{
+	char tag[20];
+	snprintf(tag, sizeof(tag), "PIN%d?", slot);
+	TypedList subj(allocator(), CSSM_WORDID_PIN,
+		new(allocator()) ListElement(slot),
+		new(allocator()) ListElement(status),
+		new(allocator()) ListElement(count));
+	add(subj, CSSM_WORDID_PIN, tag);
+}
+
+uint32 pinFromAclTag(const char *tag, const char *suffix /* = NULL */)
+{
+	if (tag) {
+		char format[20];
+		snprintf(format, sizeof(format), "PIN%%d%s%%n", suffix ? suffix : "");
+		uint32 pin;
+		unsigned consumed;
+		sscanf(tag, format, &pin, &consumed);
+		if (consumed == strlen(tag))	// complete and sufficient
+			return pin;
+	}
+	return 0;
+}
+
+}	// namespace Security

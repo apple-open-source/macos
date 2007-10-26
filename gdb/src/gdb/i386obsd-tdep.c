@@ -1,7 +1,7 @@
 /* Target-dependent code for OpenBSD/i386.
 
    Copyright 1988, 1989, 1991, 1992, 1994, 1996, 2000, 2001, 2002,
-   2003, 2004
+   2003, 2004, 2005
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -23,9 +23,12 @@
 
 #include "defs.h"
 #include "arch-utils.h"
+#include "frame.h"
 #include "gdbcore.h"
 #include "regcache.h"
 #include "regset.h"
+#include "symtab.h"
+#include "objfiles.h"
 #include "osabi.h"
 #include "target.h"
 
@@ -35,77 +38,80 @@
 #include "i386-tdep.h"
 #include "i387-tdep.h"
 #include "solib-svr4.h"
+#include "bsd-uthread.h"
 
 /* Support for signal handlers.  */
 
 /* Since OpenBSD 3.2, the sigtramp routine is mapped at a random page
    in virtual memory.  The randomness makes it somewhat tricky to
    detect it, but fortunately we can rely on the fact that the start
-   of the sigtramp routine is page-aligned.  By the way, the mapping
-   is read-only, so you cannot place a breakpoint in the signal
-   trampoline.  */
+   of the sigtramp routine is page-aligned.  We recognize the
+   trampoline by looking for the code that invokes the sigreturn
+   system call.  The offset where we can find that code varies from
+   release to release.
+
+   By the way, the mapping mentioned above is read-only, so you cannot
+   place a breakpoint in the signal trampoline.  */
 
 /* Default page size.  */
 static const int i386obsd_page_size = 4096;
 
-/* Return whether PC is in an OpenBSD sigtramp routine.  */
+/* Offset for sigreturn(2).  */
+static const int i386obsd_sigreturn_offset[] = {
+  0x0a,				/* OpenBSD 3.2 */
+  0x14,				/* OpenBSD 3.6 */
+  0x3a,				/* OpenBSD 3.8 */
+  -1
+};
+
+/* Return whether the frame preceding NEXT_FRAME corresponds to an
+   OpenBSD sigtramp routine.  */
 
 static int
-i386obsd_pc_in_sigtramp (CORE_ADDR pc, char *name)
+i386obsd_sigtramp_p (struct frame_info *next_frame)
 {
+  CORE_ADDR pc = frame_pc_unwind (next_frame);
   CORE_ADDR start_pc = (pc & ~(i386obsd_page_size - 1));
-  const char sigreturn[] =
+  /* The call sequence invoking sigreturn(2).  */
+  const gdb_byte sigreturn[] =
   {
     0xb8,
     0x67, 0x00, 0x00, 0x00,	/* movl $SYS_sigreturn, %eax */
     0xcd, 0x80			/* int $0x80 */
   };
-  char *buf;
+  size_t buflen = sizeof sigreturn;
+  const int *offset;
+  gdb_byte *buf;
+  char *name;
 
-  /* Avoid reading memory from the target if possible.  If we're in a
-     named function, we're certainly not in a sigtramp routine
-     provided by the kernel.  Take synthetic function names into
-     account though.  */
-  if (name && name[0] != '<')
+  /* If the function has a valid symbol name, it isn't a
+     trampoline.  */
+  find_pc_partial_function (pc, &name, NULL, NULL);
+  if (name != NULL)
     return 0;
 
-  /* If we can't read the instructions at START_PC, return zero.  */
-  buf = alloca (sizeof sigreturn);
-  if (target_read_memory (start_pc + 0x14, buf, sizeof sigreturn))
+  /* If the function lives in a valid section (even without a starting
+     point) it isn't a trampoline.  */
+  if (find_pc_section (pc) != NULL)
     return 0;
 
-  /* Check for sigreturn(2).  */
-  if (memcmp (buf, sigreturn, sizeof sigreturn) == 0)
-    return 1;
+  /* Allocate buffer.  */
+  buf = alloca (buflen);
 
-  /* Check for a traditional BSD sigtramp routine.  */
-  return i386bsd_pc_in_sigtramp (pc, name);
-}
+  /* Loop over all offsets.  */
+  for (offset = i386obsd_sigreturn_offset; *offset != -1; offset++)
+    {
+      /* If we can't read the instructions, return zero.  */
+      if (!safe_frame_unwind_memory (next_frame, start_pc + *offset,
+				     buf, buflen))
+	return 0;
 
-/* Return the start address of the sigtramp routine.  */
+      /* Check for sigreturn(2).  */
+      if (memcmp (buf, sigreturn, buflen) == 0)
+	return 1;
+    }
 
-static CORE_ADDR
-i386obsd_sigtramp_start (CORE_ADDR pc)
-{
-  CORE_ADDR start_pc = (pc & ~(i386obsd_page_size - 1));
-
-  if (i386bsd_pc_in_sigtramp (pc, NULL))
-    return i386bsd_sigtramp_start (pc);
-
-  return start_pc;
-}
-
-/* Return the end address of the sigtramp routine.  */
-
-static CORE_ADDR
-i386obsd_sigtramp_end (CORE_ADDR pc)
-{
-  CORE_ADDR start_pc = (pc & ~(i386obsd_page_size - 1));
-
-  if (i386bsd_pc_in_sigtramp (pc, NULL))
-    return i386bsd_sigtramp_end (pc);
-
-  return start_pc + 0x22;
+  return 0;
 }
 
 /* Mapping between the general-purpose registers in `struct reg'
@@ -137,12 +143,13 @@ i386obsd_aout_supply_regset (const struct regset *regset,
 			     struct regcache *regcache, int regnum,
 			     const void *regs, size_t len)
 {
-  const struct gdbarch_tdep *tdep = regset->descr;
+  const struct gdbarch_tdep *tdep = gdbarch_tdep (regset->arch);
+  const gdb_byte *gregs = regs;
 
   gdb_assert (len >= tdep->sizeof_gregset + I387_SIZEOF_FSAVE);
 
   i386_supply_gregset (regset, regcache, regnum, regs, tdep->sizeof_gregset);
-  i387_supply_fsave (regcache, regnum, (char *) regs + tdep->sizeof_gregset);
+  i387_supply_fsave (regcache, regnum, gregs + tdep->sizeof_gregset);
 }
 
 static const struct regset *
@@ -159,11 +166,8 @@ i386obsd_aout_regset_from_core_section (struct gdbarch *gdbarch,
       && sect_size >= tdep->sizeof_gregset + I387_SIZEOF_FSAVE)
     {
       if (tdep->gregset == NULL)
-	{
-	  tdep->gregset = XMALLOC (struct regset);
-	  tdep->gregset->descr = tdep;
-	  tdep->gregset->supply_regset = i386obsd_aout_supply_regset;
-	}
+        tdep->gregset =
+	  regset_alloc (gdbarch, i386obsd_aout_supply_regset, NULL);
       return tdep->gregset;
     }
 
@@ -196,6 +200,120 @@ int i386obsd_sc_reg_offset[I386_NUM_GREGS] =
   0 * 4				/* %gs */
 };
 
+/* From /usr/src/lib/libpthread/arch/i386/uthread_machdep.c.  */
+static int i386obsd_uthread_reg_offset[] =
+{
+  11 * 4,			/* %eax */
+  10 * 4,			/* %ecx */
+  9 * 4,			/* %edx */
+  8 * 4,			/* %ebx */
+  -1,				/* %esp */
+  6 * 4,			/* %ebp */
+  5 * 4,			/* %esi */
+  4 * 4,			/* %edi */
+  12 * 4,			/* %eip */
+  -1,				/* %eflags */
+  13 * 4,			/* %cs */
+  -1,				/* %ss */
+  3 * 4,			/* %ds */
+  2 * 4,			/* %es */
+  1 * 4,			/* %fs */
+  0 * 4				/* %gs */
+};
+
+/* Offset within the thread structure where we can find the saved
+   stack pointer (%esp).  */
+#define I386OBSD_UTHREAD_ESP_OFFSET	176
+
+static void
+i386obsd_supply_uthread (struct regcache *regcache,
+			 int regnum, CORE_ADDR addr)
+{
+  CORE_ADDR sp_addr = addr + I386OBSD_UTHREAD_ESP_OFFSET;
+  CORE_ADDR sp = 0;
+  gdb_byte buf[4];
+  int i;
+
+  gdb_assert (regnum >= -1);
+
+  if (regnum == -1 || regnum == I386_ESP_REGNUM)
+    {
+      int offset;
+
+      /* Fetch stack pointer from thread structure.  */
+      sp = read_memory_unsigned_integer (sp_addr, 4);
+
+      /* Adjust the stack pointer such that it looks as if we just
+         returned from _thread_machdep_switch.  */
+      offset = i386obsd_uthread_reg_offset[I386_EIP_REGNUM] + 4;
+      store_unsigned_integer (buf, 4, sp + offset);
+      regcache_raw_supply (regcache, I386_ESP_REGNUM, buf);
+    }
+
+  for (i = 0; i < ARRAY_SIZE (i386obsd_uthread_reg_offset); i++)
+    {
+      if (i386obsd_uthread_reg_offset[i] != -1
+	  && (regnum == -1 || regnum == i))
+	{
+	  /* Fetch stack pointer from thread structure (if we didn't
+             do so already).  */
+	  if (sp == 0)
+	    sp = read_memory_unsigned_integer (sp_addr, 4);
+
+	  /* Read the saved register from the stack frame.  */
+	  read_memory (sp + i386obsd_uthread_reg_offset[i], buf, 4);
+	  regcache_raw_supply (regcache, i, buf);
+	}
+    }
+
+}
+
+static void
+i386obsd_collect_uthread (const struct regcache *regcache,
+			  int regnum, CORE_ADDR addr)
+{
+  CORE_ADDR sp_addr = addr + I386OBSD_UTHREAD_ESP_OFFSET;
+  CORE_ADDR sp = 0;
+  gdb_byte buf[4];
+  int i;
+
+  gdb_assert (regnum >= -1);
+
+  if (regnum == -1 || regnum == I386_ESP_REGNUM)
+    {
+      int offset;
+
+      /* Calculate the stack pointer (frame pointer) that will be
+         stored into the thread structure.  */
+      offset = i386obsd_uthread_reg_offset[I386_EIP_REGNUM] + 4;
+      regcache_raw_collect (regcache, I386_ESP_REGNUM, buf);
+      sp = extract_unsigned_integer (buf, 4) - offset;
+
+      /* Store the stack pointer.  */
+      write_memory_unsigned_integer (sp_addr, 4, sp);
+
+      /* The stack pointer was (potentially) modified.  Make sure we
+         build a proper stack frame.  */
+      regnum = -1;
+    }
+
+  for (i = 0; i < ARRAY_SIZE (i386obsd_uthread_reg_offset); i++)
+    {
+      if (i386obsd_uthread_reg_offset[i] != -1
+	  && (regnum == -1 || regnum == i))
+	{
+	  /* Fetch stack pointer from thread structure (if we didn't
+             calculate it already).  */
+	  if (sp == 0)
+	    sp = read_memory_unsigned_integer (sp_addr, 4);
+
+	  /* Write the register into the stack frame.  */
+	  regcache_raw_collect (regcache, i, buf);
+	  write_memory (sp + i386obsd_uthread_reg_offset[i], buf, 4);
+	}
+    }
+}
+
 static void 
 i386obsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
@@ -215,14 +333,16 @@ i386obsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   /* OpenBSD uses a different memory layout.  */
   tdep->sigtramp_start = i386obsd_sigtramp_start_addr;
   tdep->sigtramp_end = i386obsd_sigtramp_end_addr;
-  set_gdbarch_pc_in_sigtramp (gdbarch, i386obsd_pc_in_sigtramp);
-  set_gdbarch_sigtramp_start (gdbarch, i386obsd_sigtramp_start);
-  set_gdbarch_sigtramp_end (gdbarch, i386obsd_sigtramp_end);
+  tdep->sigtramp_p = i386obsd_sigtramp_p;
 
   /* OpenBSD has a `struct sigcontext' that's different from the
-     origional 4.3 BSD.  */
+     original 4.3 BSD.  */
   tdep->sc_reg_offset = i386obsd_sc_reg_offset;
   tdep->sc_num_regs = ARRAY_SIZE (i386obsd_sc_reg_offset);
+
+  /* OpenBSD provides a user-level threads implementation.  */
+  bsd_uthread_set_supply_uthread (gdbarch, i386obsd_supply_uthread);
+  bsd_uthread_set_collect_uthread (gdbarch, i386obsd_collect_uthread);
 }
 
 /* OpenBSD a.out.  */
@@ -251,8 +371,6 @@ i386obsd_elf_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   i386_elf_init_abi (info, gdbarch);
 
   /* OpenBSD ELF uses SVR4-style shared libraries.  */
-  set_gdbarch_in_solib_call_trampoline
-    (gdbarch, generic_in_solib_call_trampoline);
   set_solib_svr4_fetch_link_map_offsets
     (gdbarch, svr4_ilp32_fetch_link_map_offsets);
 }

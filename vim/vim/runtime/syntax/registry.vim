@@ -1,8 +1,8 @@
 " Vim syntax file
 " Language:	Windows Registry export with regedit (*.reg)
-" Maintainer:	Dominique Stéphan (stephan@my-deja.com)
+" Maintainer:	Dominique Stéphan (dominique@mggen.com)
 " URL: http://www.mggen.com/vim/syntax/registry.zip
-" Last change:	2003 May 11
+" Last change:	2004 Apr 23
 
 " clear any unwanted syntax defs
 " For version 5.x: Clear all syntax items
@@ -76,8 +76,11 @@ syn match  registrySubKey		"^\@="
 " 9    REG_FULL_RESOURCE_DESCRIPTOR
 " 10   REG_RESOURCE_REQUIREMENTS_LIST
 " The value can take several lines, if \ ends the line
+" The limit to 999 matches is arbitrary, it avoids Vim crashing on a very long
+" line of hex values that ends in a comma.
+"syn match registryHex		"hex\(([0-9]\{0,2})\)\=:\([0-9a-fA-F]\{2},\)\{0,999}\([0-9a-fA-F]\{2}\|\\\)$" contains=registrySpecial
 syn match registryHex		"hex\(([0-9]\{0,2})\)\=:\([0-9a-fA-F]\{2},\)*\([0-9a-fA-F]\{2}\|\\\)$" contains=registrySpecial
-syn match registryHex		"^\s*\([0-9a-fA-F]\{2},\)*\([0-9a-fA-F]\{2}\|\\\)$" contains=registrySpecial
+syn match registryHex		"^\s*\([0-9a-fA-F]\{2},\)\{0,999}\([0-9a-fA-F]\{2}\|\\\)$" contains=registrySpecial
 " Dword (32 bits)
 syn match registryDword		"dword:[0-9a-fA-F]\{8}$" contains=registrySpecial
 

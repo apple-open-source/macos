@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,7 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
@@ -50,32 +51,45 @@
 #define	N_QUICK	32
 
 
+#pragma mark -
+#pragma mark Miscellaneous
+
+
 char *
-_SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen, CFStringEncoding encoding)
+_SC_cfstring_to_cstring(CFStringRef cfstr, char *buf, CFIndex bufLen, CFStringEncoding encoding)
 {
-	CFIndex	last;
+	CFIndex	converted;
+	CFIndex	last	= 0;
 	CFIndex	len	= CFStringGetLength(cfstr);
 
 	/* how much buffer space will we really need? */
-	(void)CFStringGetBytes(cfstr,
-			       CFRangeMake(0, len),
-			       encoding,
-			       0,
-			       FALSE,
-			       NULL,
-			       0,
-			       &len);
+	converted = CFStringGetBytes(cfstr,
+				     CFRangeMake(0, len),
+				     encoding,
+				     0,
+				     FALSE,
+				     NULL,
+				     0,
+				     &last);
+	if (converted < len) {
+		/* if full string could not be converted */
+		if (buf != NULL) {
+			buf[0] = '\0';
+		}
+		return NULL;
+	}
 
-	if (buf) {
-		/* check the size of the provided buffer */
-		if (bufLen < (len + 1)) {
-			return NULL;	/* if too small */
+	if (buf != NULL) {
+		if (bufLen < (last + 1)) {
+			/* if the size of the provided buffer is too small */
+			buf[0] = '\0';
+			return NULL;
 		}
 	} else {
 		/* allocate a buffer */
-		bufLen = len + 1;
+		bufLen = last + 1;
 		buf = CFAllocatorAllocate(NULL, bufLen, 0);
-		if (!buf) {
+		if (buf == NULL) {
 			return NULL;
 		}
 	}
@@ -139,13 +153,45 @@ _SC_sockaddr_to_string(const struct sockaddr *address, char *buf, size_t bufLen)
 }
 
 
+void
+_SC_sendMachMessage(mach_port_t port, mach_msg_id_t msg_id)
+{
+	mach_msg_empty_send_t	msg;
+	mach_msg_option_t	options;
+	kern_return_t		status;
+
+	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
+	msg.header.msgh_size = sizeof(msg);
+	msg.header.msgh_remote_port = port;
+	msg.header.msgh_local_port = MACH_PORT_NULL;
+	msg.header.msgh_id = msg_id;
+	options = MACH_SEND_TIMEOUT;
+	status = mach_msg(&msg.header,			/* msg */
+			  MACH_SEND_MSG|options,	/* options */
+			  msg.header.msgh_size,		/* send_size */
+			  0,				/* rcv_size */
+			  MACH_PORT_NULL,		/* rcv_name */
+			  0,				/* timeout */
+			  MACH_PORT_NULL);		/* notify */
+	if (status == MACH_SEND_TIMED_OUT) {
+		mach_msg_destroy(&msg.header);
+	}
+
+	return;
+}
+
+
+#pragma mark -
+#pragma mark Serialization
+
+
 Boolean
 _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
 {
-	CFDataRef	myXml;
+	CFDataRef		myXml;
 	CFWriteStreamRef	stream;
 
-	if (!xml && !(dataRef && dataLen)) {
+	if ((xml == NULL) && ((dataRef == NULL) || (dataLen == NULL))) {
 		/* if not keeping track of allocated space */
 		return FALSE;
 	}
@@ -156,27 +202,33 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 	CFWriteStreamClose(stream);
 	myXml = CFWriteStreamCopyProperty(stream, kCFStreamPropertyDataWritten);
 	CFRelease(stream);
-	if (!myXml) {
+	if (myXml == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize() failed"));
-		if (xml)	*xml     = NULL;
-		if (dataRef)	*dataRef = NULL;
-		if (dataLen)	*dataLen = 0;
+		if (xml != NULL) {
+			*xml = NULL;
+		}
+		if ((dataRef != NULL) && (dataLen != NULL)) {
+			*dataLen = 0;
+			*dataRef = NULL;
+		}
 		return FALSE;
 	}
 
-	if (xml) {
+	if (xml != NULL) {
 		*xml = myXml;
-		if (dataRef) {
+		if ((dataRef != NULL) && (dataLen != NULL)) {
 			*dataRef = (void *)CFDataGetBytePtr(myXml);
-		}
-		if (dataLen) {
 			*dataLen = CFDataGetLength(myXml);
 		}
 	} else {
-		kern_return_t	status;
+		mach_msg_type_number_t	len;
+		kern_return_t		status;
 
-		*dataLen = CFDataGetLength(myXml);
-		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+		status = vm_read(mach_task_self(),
+				 (vm_address_t)CFDataGetBytePtr(myXml),	// address
+				 (vm_size_t)   CFDataGetLength(myXml),	// size
+				 (void *)dataRef,
+				 &len);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize(): %s"), mach_error_string(status));
 			CFRelease(myXml);
@@ -185,7 +237,7 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 			return FALSE;
 		}
 
-		bcopy((char *)CFDataGetBytePtr(myXml), *dataRef, *dataLen);
+		*dataLen = len;
 		CFRelease(myXml);
 	}
 
@@ -198,7 +250,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 {
 	CFStringRef	xmlError;
 
-	if (!xml) {
+	if (xml == NULL) {
 		kern_return_t	status;
 
 		xml = CFDataCreateWithBytesNoCopy(NULL, (void *)dataRef, dataLen, kCFAllocatorNull);
@@ -221,7 +273,7 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 	}
 
 	if (*obj == NULL) {
-		if (xmlError) {
+		if (xmlError != NULL) {
 			SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserialize(): %@"), xmlError);
 			CFRelease(xmlError);
 		}
@@ -243,33 +295,40 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 		return FALSE;
 	}
 
-	if (!data && !(dataRef && dataLen)) {
+	if ((data == NULL) && ((dataRef == NULL) || (dataLen == NULL))) {
 		/* if not keeping track of allocated space */
 		return FALSE;
 	}
 
 	myData = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
-	if (!myData) {
+	if (myData == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString() failed"));
-		if (data)	*data    = NULL;
-		if (dataRef)	*dataRef = NULL;
-		if (dataLen)	*dataLen = 0;
+		if (data != NULL) {
+			*data = NULL;
+		}
+		if ((dataRef != NULL) && (dataLen != NULL)) {
+			*dataRef = NULL;
+			*dataLen = 0;
+		}
 		return FALSE;
 	}
 
-	if (data) {
+	if (data != NULL) {
 		*data = myData;
-		if (dataRef) {
+		if ((dataRef != NULL) && (dataLen != NULL)) {
 			*dataRef = (void *)CFDataGetBytePtr(myData);
-		}
-		if (dataLen) {
 			*dataLen = CFDataGetLength(myData);
 		}
 	} else {
-		kern_return_t	status;
+		mach_msg_type_number_t	len;
+		kern_return_t		status;
 
 		*dataLen = CFDataGetLength(myData);
-		status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+		status = vm_read(mach_task_self(),
+				 (vm_address_t)CFDataGetBytePtr(myData),	// address
+				 (vm_size_t)   CFDataGetLength(myData),		// size
+				 (void *)dataRef,
+				 &len);
 		if (status != KERN_SUCCESS) {
 			SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeString(): %s"), mach_error_string(status));
 			CFRelease(myData);
@@ -278,7 +337,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 			return FALSE;
 		}
 
-		bcopy((char *)CFDataGetBytePtr(myData), *dataRef, *dataLen);
+		*dataLen = len;
 		CFRelease(myData);
 	}
 
@@ -289,7 +348,7 @@ _SCSerializeString(CFStringRef str, CFDataRef *data, void **dataRef, CFIndex *da
 Boolean
 _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex dataLen)
 {
-	if (!utf8) {
+	if (utf8 == NULL) {
 		kern_return_t	status;
 
 		utf8 = CFDataCreateWithBytesNoCopy(NULL, dataRef, dataLen, kCFAllocatorNull);
@@ -317,7 +376,8 @@ _SCUnserializeString(CFStringRef *str, CFDataRef utf8, void *dataRef, CFIndex da
 Boolean
 _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 {
-	kern_return_t	status;
+	mach_msg_type_number_t	len;
+	kern_return_t		status;
 
 	if (!isA_CFData(data)) {
 		/* if not a CFData */
@@ -325,7 +385,11 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 	}
 
 	*dataLen = CFDataGetLength(data);
-	status = vm_allocate(mach_task_self(), (void *)dataRef, *dataLen, TRUE);
+	status = vm_read(mach_task_self(),
+			 (vm_address_t)CFDataGetBytePtr(data),	// address
+			 CFDataGetLength(data),			// size
+			 (void *)dataRef,
+			 &len);
 	if (status != KERN_SUCCESS) {
 		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerializeData(): %s"), mach_error_string(status));
 		*dataRef = NULL;
@@ -333,7 +397,7 @@ _SCSerializeData(CFDataRef data, void **dataRef, CFIndex *dataLen)
 		return FALSE;
 	}
 
-	bcopy((char *)CFDataGetBytePtr(data), *dataRef, *dataLen);
+	*dataLen = len;
 
 	return TRUE;
 }
@@ -472,6 +536,10 @@ _SCUnserializeMultiple(CFDictionaryRef dict)
 }
 
 
+#pragma mark -
+#pragma mark CFRunLoop scheduling
+
+
 __private_extern__ void
 _SC_signalRunLoop(CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef rlList)
 {
@@ -494,7 +562,7 @@ _SC_signalRunLoop(CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef rlList)
 		break;
 	}
 
-	if (!rl1) {
+	if (rl1 == NULL) {
 		/* if not scheduled */
 		return;
 	}
@@ -516,7 +584,7 @@ _SC_signalRunLoop(CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef rlList)
 		}
 	}
 
-	if (rl) {
+	if (rl != NULL) {
 		/* if we only have one runLoop */
 		CFRunLoopWakeUp(rl);
 		return;
@@ -532,13 +600,17 @@ _SC_signalRunLoop(CFTypeRef obj, CFRunLoopSourceRef rls, CFArrayRef rlList)
 
 		rl     = (CFRunLoopRef)CFArrayGetValueAtIndex(rlList, i+1);
 		rlMode = CFRunLoopCopyCurrentMode(rl);
-		if (rlMode && CFRunLoopIsWaiting(rl) && CFRunLoopContainsSource(rl, rls, rlMode)) {
-			/* we've found a runLoop that's "ready" */
+		if (rlMode != NULL) {
+			Boolean	waiting;
+
+			waiting = (CFRunLoopIsWaiting(rl) && CFRunLoopContainsSource(rl, rls, rlMode));
 			CFRelease(rlMode);
-			CFRunLoopWakeUp(rl);
-			return;
+			if (waiting) {
+				/* we've found a runLoop that's "ready" */
+				CFRunLoopWakeUp(rl);
+				return;
+			}
 		}
-		if (rlMode) CFRelease(rlMode);
 	}
 
 	/* didn't choose one above, so choose first */
@@ -554,13 +626,13 @@ _SC_isScheduled(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CF
 	CFIndex	n	= CFArrayGetCount(rlList);
 
 	for (i = 0; i < n; i += 3) {
-		if (obj         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
+		if ((obj != NULL)         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
 			continue;
 		}
-		if (runLoop     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
+		if ((runLoop != NULL)     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
 			continue;
 		}
-		if (runLoopMode && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
+		if ((runLoopMode != NULL) && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
 			continue;
 		}
 		return TRUE;
@@ -589,15 +661,15 @@ _SC_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFM
 	CFIndex	n	= CFArrayGetCount(rlList);
 
 	while (i < n) {
-		if (obj         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
+		if ((obj != NULL)         && !CFEqual(obj,         CFArrayGetValueAtIndex(rlList, i))) {
 			i += 3;
 			continue;
 		}
-		if (runLoop     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
+		if ((runLoop != NULL)     && !CFEqual(runLoop,     CFArrayGetValueAtIndex(rlList, i+1))) {
 			i += 3;
 			continue;
 		}
-		if (runLoopMode && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
+		if ((runLoopMode != NULL) && !CFEqual(runLoopMode, CFArrayGetValueAtIndex(rlList, i+2))) {
 			i += 3;
 			continue;
 		}
@@ -619,8 +691,329 @@ _SC_unschedule(CFTypeRef obj, CFRunLoopRef runLoop, CFStringRef runLoopMode, CFM
 }
 
 
+#pragma mark -
+#pragma mark Bundle
+
+
+#define SYSTEMCONFIGURATION_BUNDLE_ID		CFSTR("com.apple.SystemConfiguration")
+#define	SYSTEMCONFIGURATION_FRAMEWORK_PATH	"/System/Library/Frameworks/SystemConfiguration.framework"
+#define	SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN	(sizeof(SYSTEMCONFIGURATION_FRAMEWORK_PATH) - 1)
+
+#define	SUFFIX_SYM				"~sym"
+#define	SUFFIX_SYM_LEN				(sizeof(SUFFIX_SYM) - 1)
+
+#define	SUFFIX_DST				"~dst"
+
+
+CFBundleRef
+_SC_CFBundleGet(void)
+{
+	static CFBundleRef	bundle	= NULL;
+	char			*env;
+	size_t			len;
+
+	if (bundle != NULL) {
+		return bundle;
+	}
+
+	bundle = CFBundleGetBundleWithIdentifier(SYSTEMCONFIGURATION_BUNDLE_ID);
+	if (bundle != NULL) {
+		CFRetain(bundle);	// we want to hold a reference to the bundle
+		return bundle;
+	}
+
+	// if appropriate (e.g. when debugging), try a bit harder
+
+	env = getenv("DYLD_FRAMEWORK_PATH");
+	len = (env != NULL) ? strlen(env) : 0;
+
+	// trim any trailing slashes
+	while (len > 1) {
+		if (env[len - 1] != '/') {
+			break;
+		}
+		len--;
+	}
+
+	// if DYLD_FRAMEWORK_PATH is ".../xxx~sym" than try ".../xxx~dst"
+	if ((len > SUFFIX_SYM_LEN) &&
+	    (strncmp(&env[len - SUFFIX_SYM_LEN], SUFFIX_SYM, SUFFIX_SYM_LEN) == 0) &&
+	    ((len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN) < MAXPATHLEN)) {
+		char		path[MAXPATHLEN];
+		CFURLRef	url;
+
+		strlcpy(path, env, sizeof(path));
+		strlcpy(&path[len - SUFFIX_SYM_LEN], SUFFIX_DST, sizeof(path) - (len - SUFFIX_SYM_LEN));
+		strlcat(&path[len], SYSTEMCONFIGURATION_FRAMEWORK_PATH, sizeof(path) - len);
+
+		url = CFURLCreateFromFileSystemRepresentation(NULL,
+							      (UInt8 *)path,
+							      len + SYSTEMCONFIGURATION_FRAMEWORK_PATH_LEN,
+							      TRUE);
+		bundle = CFBundleCreate(NULL, url);
+		CFRelease(url);
+	}
+
+	if (bundle == NULL) {
+		static	Boolean	warned	= FALSE;
+
+		SCLog(!warned, LOG_WARNING,
+		      CFSTR("_SC_CFBundleGet(), could not get CFBundle for \"%@\""),
+		      SYSTEMCONFIGURATION_BUNDLE_ID);
+		warned = TRUE;
+	}
+
+	return bundle;
+}
+
+
+CFStringRef
+_SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFStringRef value, CFStringRef tableName)
+{
+	CFStringRef	str	= NULL;
+	CFURLRef	url;
+
+	if ((tableName == NULL) || CFEqual(tableName, CFSTR(""))) tableName = CFSTR("Localizable");
+
+	url = CFBundleCopyResourceURLForLocalization(bundle,
+						     tableName,
+						     CFSTR("strings"),
+						     NULL,
+						     CFSTR("English"));
+	if (url != NULL) {
+		CFDataRef	data	= NULL;
+		SInt32		errCode	= 0;
+
+		if (CFURLCreateDataAndPropertiesFromResource(NULL,
+							     url,
+							     &data,
+							     NULL,
+							     NULL,
+							     &errCode)) {
+			CFDictionaryRef	table;
+
+			table = (CFDictionaryRef)CFPropertyListCreateFromXMLData(NULL,
+										 data,
+										 kCFPropertyListImmutable,
+										 NULL);
+			if (table != NULL) {
+				if (isA_CFDictionary(table)) {
+					str = CFDictionaryGetValue(table, key);
+					if (str != NULL) {
+						CFRetain(str);
+					}
+				}
+
+				CFRelease(table);
+			}
+
+			CFRelease(data);
+		}
+
+		CFRelease(url);
+	}
+
+	if (str == NULL) {
+		str = CFRetain(value);
+	}
+
+	return str;
+}
+
+
+#pragma mark -
+#pragma mark DOS encoding/codepage
+
+
 void
-__showMachPortStatus()
+_SC_dos_encoding_and_codepage(CFStringEncoding	macEncoding,
+			      UInt32		macRegion,
+			      CFStringEncoding	*dosEncoding,
+			      UInt32		*dosCodepage)
+{
+	switch (macEncoding) {
+	case kCFStringEncodingMacRoman:
+		if (macRegion != 0) /* anything non-zero is not US */
+		*dosEncoding = kCFStringEncodingDOSLatin1;
+		else /* US region */
+		*dosEncoding = kCFStringEncodingDOSLatinUS;
+		break;
+
+	case kCFStringEncodingMacJapanese:
+		*dosEncoding = kCFStringEncodingDOSJapanese;
+		break;
+
+	case kCFStringEncodingMacChineseTrad:
+		*dosEncoding = kCFStringEncodingDOSChineseTrad;
+		break;
+
+	case kCFStringEncodingMacKorean:
+		*dosEncoding = kCFStringEncodingDOSKorean;
+		break;
+
+	case kCFStringEncodingMacArabic:
+		*dosEncoding = kCFStringEncodingDOSArabic;
+		break;
+
+	case kCFStringEncodingMacHebrew:
+		*dosEncoding = kCFStringEncodingDOSHebrew;
+		break;
+
+	case kCFStringEncodingMacGreek:
+		*dosEncoding = kCFStringEncodingDOSGreek;
+		break;
+
+	case kCFStringEncodingMacCyrillic:
+		*dosEncoding = kCFStringEncodingDOSCyrillic;
+		break;
+
+	case kCFStringEncodingMacThai:
+		*dosEncoding = kCFStringEncodingDOSThai;
+		break;
+
+	case kCFStringEncodingMacChineseSimp:
+		*dosEncoding = kCFStringEncodingDOSChineseSimplif;
+		break;
+
+	case kCFStringEncodingMacCentralEurRoman:
+		*dosEncoding = kCFStringEncodingDOSLatin2;
+		break;
+
+	case kCFStringEncodingMacTurkish:
+		*dosEncoding = kCFStringEncodingDOSTurkish;
+		break;
+
+	case kCFStringEncodingMacCroatian:
+		*dosEncoding = kCFStringEncodingDOSLatin2;
+		break;
+
+	case kCFStringEncodingMacIcelandic:
+		*dosEncoding = kCFStringEncodingDOSIcelandic;
+		break;
+
+	case kCFStringEncodingMacRomanian:
+		*dosEncoding = kCFStringEncodingDOSLatin2;
+		break;
+
+	case kCFStringEncodingMacFarsi:
+		*dosEncoding = kCFStringEncodingDOSArabic;
+		break;
+
+	case kCFStringEncodingMacUkrainian:
+		*dosEncoding = kCFStringEncodingDOSCyrillic;
+		break;
+
+	default:
+		*dosEncoding = kCFStringEncodingDOSLatin1;
+		break;
+	}
+
+	*dosCodepage = CFStringConvertEncodingToWindowsCodepage(*dosEncoding);
+	return;
+}
+
+
+#include <unicode/uset.h>
+#include <unicode/ucnv.h>
+
+
+CFDataRef
+_SC_dos_copy_string(CFStringRef str, CFStringEncoding dosEncoding, UInt32 dosCodepage)
+{
+	USet			*charSet	= NULL;
+	UConverter		*conv		= NULL;
+	UErrorCode		ec		= U_ZERO_ERROR;
+	char			ianaName[16];
+	CFDataRef		line		= NULL;
+	CFMutableStringRef	newStr		= NULL;
+	CFStringRef		set		= NULL;
+	int32_t			setSize;
+	UChar			*setChars;
+	CFStringRef		transform;
+
+	/*
+	 * using ICU, convert the target character set into the
+	 * set of Unicode characters that can be converted to
+	 * that character set.
+	 *
+	 * Note: a full list of character set identifiers accepted
+	 *       by ICU can be found at :
+	 *
+	 *       http://dev.icu-project.org/cgi-bin/viewcvs.cgi/icu/source/data/mappings/convrtrs.txt?view=co
+	 */
+	snprintf(ianaName, sizeof(ianaName), "cp%d", (int)dosCodepage);
+	charSet = uset_open(0, 0);
+	//ec = U_ZERO_ERROR;
+	conv = ucnv_open(ianaName, &ec);
+	if (U_FAILURE(ec)) {
+		SCPrint(TRUE, stderr, CFSTR("ucnv_open() failed, ec = %s\n"), u_errorName(ec));
+		goto done;
+	}
+	//ec = U_ZERO_ERROR;
+	ucnv_getUnicodeSet(conv, charSet, UCNV_ROUNDTRIP_SET, &ec);
+	if (U_FAILURE(ec)) {
+		SCPrint(TRUE, stderr, CFSTR("ucnv_getUnicodeSet() failed, ec = %s\n"), u_errorName(ec));
+		goto done;
+	}
+
+	/*
+	 * Next, we create a transform pattern that will transform *only*
+	 * the characters that are not in the target charset.
+	 */
+	//ec = U_ZERO_ERROR;
+	setSize = uset_toPattern(charSet, NULL, 0, FALSE, &ec);
+	if (U_FAILURE(ec)  && (ec != U_BUFFER_OVERFLOW_ERROR)) {
+		SCPrint(TRUE, stderr, CFSTR("uset_toPattern() failed, ec = %s\n"), u_errorName(ec));
+		goto done;
+	}
+	setChars = (UChar *)calloc(setSize, sizeof(UChar));
+	ec = U_ZERO_ERROR;
+	(void)uset_toPattern(charSet, setChars, setSize, FALSE, &ec);
+	set = CFStringCreateWithCharacters(NULL, setChars, setSize);
+	free(setChars);
+
+	/*
+	 * Now make a transform pattern that will:
+	 * 1. Only affect characters *not* in the target character set
+	 * 2. Convert curly quotes, etc. to ASCII equivalents
+	 * 3. Convert any non-Latin characters to Latin
+	 * 4. Decompose any combining marks if possible
+	 * 5. Remove anything that's not ASCII
+	 *
+	 * ... and transform the string
+	 */
+	transform = CFStringCreateWithFormat(NULL, NULL,
+					     CFSTR("[^%@]; Publishing-Any; Any-Latin; NFKD; [:^ASCII:] Remove"),
+					     set);
+	newStr = CFStringCreateMutableCopy(NULL, 0, str);
+	CFStringNormalize(newStr, kCFStringNormalizationFormC);
+	if (!CFStringTransform(newStr, NULL, transform, FALSE)) {
+		CFRelease(newStr);
+		newStr = NULL;
+	}
+	CFRelease(transform);
+
+    done :
+
+	if (newStr != NULL) {
+		line = CFStringCreateExternalRepresentation(NULL, newStr, dosEncoding, 0);
+		CFRelease(newStr);
+	}
+
+	if (charSet != NULL)	uset_close(charSet);
+	if (conv != NULL)	ucnv_close(conv);
+	if (set != NULL)	CFRelease(set);
+
+	return line;
+}
+
+
+#pragma mark -
+#pragma mark Debugging
+
+
+void
+__showMachPortStatus(void)
 {
 #ifdef	DEBUG
 	/* print status of in-use mach ports */

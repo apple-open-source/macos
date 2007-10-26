@@ -1,6 +1,6 @@
 #! /bin/sh
 # Output RCS compile-time configuration.
-Id='$Id: conf.sh,v 1.2 2000/05/19 01:31:10 mwatson Exp $'
+Id='$Id: conf.sh,v 1.3 2005/11/04 01:14:15 tpeterso Exp $'
 #	Copyright 1990, 1991, 1992, 1993, 1994, 1995 Paul Eggert
 #	Distributed under license by the Free Software Foundation, Inc.
 
@@ -920,6 +920,9 @@ static struct stat b;
 #endif
 #ifndef STDIN_FILENO
 #define STDIN_FILENO 0
+#endif
+#if TRY_MAP_FD
+#error map_fd is deprecated
 #endif
 int
 main(argc, argv) int argc; char **argv; {

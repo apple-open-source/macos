@@ -2,7 +2,7 @@
 
   re.c -
 
-  $Author: matz $
+  $Author: shyouhei $
   created at: Mon Aug  9 18:24:49 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -13,7 +13,7 @@
 #include "re.h"
 #include <ctype.h>
 
-static VALUE rb_eRegexpError;
+VALUE rb_eRegexpError;
 
 #define BEG(no) regs->beg[no]
 #define END(no) regs->end[no]
@@ -70,10 +70,11 @@ static const char casetable[] = {
 #endif
 
 int
-rb_memcicmp(p1, p2, len)
-    char *p1, *p2;
+rb_memcicmp(x, y, len)
+    const void *x, *y;
     long len;
 {
+    const unsigned char *p1 = x, *p2 = y;
     int tmp;
 
     while (len--) {
@@ -85,7 +86,7 @@ rb_memcicmp(p1, p2, len)
 
 int
 rb_memcmp(p1, p2, len)
-    char *p1, *p2;
+    const void *p1, *p2;
     long len;
 {
     if (!ruby_ignorecase) {
@@ -96,16 +97,16 @@ rb_memcmp(p1, p2, len)
 
 long
 rb_memsearch(x0, m, y0, n)
-    char *x0, *y0;
+    const void *x0, *y0;
     long m, n;
 {
-    unsigned char *x = (unsigned char *)x0, *y = (unsigned char *)y0;
-    unsigned char *s, *e;
+    const unsigned char *x = (unsigned char *)x0, *y = (unsigned char *)y0;
+    const unsigned char *s, *e;
     long i;
     int d;
     unsigned long hx, hy;
 
-#define KR_REHASH(a, b, h) (((h) << 1) - ((a)<<d) + (b))
+#define KR_REHASH(a, b, h) (((h) << 1) - (((unsigned long)(a))<<d) + (b))
 
     if (m > n) return -1;
     s = y; e = s + n - m;
@@ -151,6 +152,7 @@ rb_memsearch(x0, m, y0, n)
     return s-y;
 }
 
+#define REG_LITERAL FL_USER5
 #define REG_CASESTATE  FL_USER0
 #define KCODE_NONE  0
 #define KCODE_EUC   FL_USER1
@@ -198,8 +200,8 @@ kcode_none(re)
 
 static int curr_kcode;
 
-static void
-kcode_set_option(re)
+void
+rb_kcode_set_option(re)
     VALUE re;
 {
     if (!FL_TEST(re, KCODE_FIXED)) return;
@@ -222,8 +224,8 @@ kcode_set_option(re)
     }
 }	  
 
-static void
-kcode_reset_option()
+void
+rb_kcode_reset_option()
 {
     if (reg_kcode == curr_kcode) return;
     switch (reg_kcode) {
@@ -251,9 +253,9 @@ rb_reg_mbclen2(c, re)
 
     if (!FL_TEST(re, KCODE_FIXED))
 	return mbclen(c);
-    kcode_set_option(re);
+    rb_kcode_set_option(re);
     len = mbclen(c);
-    kcode_reset_option();
+    rb_kcode_reset_option();
     return len;
 }
 
@@ -484,11 +486,11 @@ rb_reg_to_s(re)
 	}
 	if (*ptr == ':' && ptr[len-1] == ')') {
 	    Regexp *rp;
-	    kcode_set_option(re);
+	    rb_kcode_set_option(re);
 	    rp = ALLOC(Regexp);
 	    MEMZERO((char *)rp, Regexp, 1);
 	    err = re_compile_pattern(++ptr, len -= 2, rp) != 0;
-	    kcode_reset_option();
+	    rb_kcode_reset_option();
 	    re_free_pattern(rp);
 	}
 	if (err) {
@@ -641,7 +643,9 @@ make_regexp(s, len, flags)
     err = re_compile_pattern(s, len, rp);
 
     if (err != NULL) {
+	re_free_pattern(rp);
 	rb_reg_raise(s, len, err, 0);
+	return 0;
     }
     return rp;
 }
@@ -660,7 +664,7 @@ make_regexp(s, len, flags)
  *
  */
 
-static VALUE rb_cMatch;
+VALUE rb_cMatch;
 
 static VALUE match_alloc _((VALUE));
 static VALUE
@@ -678,6 +682,7 @@ match_alloc(klass)
     return (VALUE)match;
 }
 
+/* :nodoc: */
 static VALUE
 match_init_copy(obj, orig)
     VALUE obj, orig;
@@ -844,7 +849,7 @@ rb_reg_prepare_re(re)
 	char *err;
 
 	if (FL_TEST(re, KCODE_FIXED))
-	    kcode_set_option(re);
+	    rb_kcode_set_option(re);
 	rb_reg_check(re);
 	RREGEXP(re)->ptr->fastmap_accurate = 0;
 	err = re_compile_pattern(RREGEXP(re)->str, RREGEXP(re)->len, RREGEXP(re)->ptr);
@@ -865,9 +870,9 @@ rb_reg_adjust_startpos(re, str, pos, reverse)
     if (may_need_recompile) rb_reg_prepare_re(re);
 
     if (FL_TEST(re, KCODE_FIXED))
-	kcode_set_option(re);
+	rb_kcode_set_option(re);
     else if (reg_kcode != curr_kcode)
-	kcode_reset_option();
+	rb_kcode_reset_option();
 
     if (reverse) {
 	range = -pos;
@@ -899,9 +904,9 @@ rb_reg_search(re, str, pos, reverse)
     if (may_need_recompile) rb_reg_prepare_re(re);
 
     if (FL_TEST(re, KCODE_FIXED))
-	kcode_set_option(re);
+	rb_kcode_set_option(re);
     else if (reg_kcode != curr_kcode)
-	kcode_reset_option();
+	rb_kcode_reset_option();
 
     if (reverse) {
 	range = -pos;
@@ -913,7 +918,7 @@ rb_reg_search(re, str, pos, reverse)
 		       pos, range, &regs);
 
     if (FL_TEST(re, KCODE_FIXED))
-	kcode_reset_option();
+	rb_kcode_reset_option();
 
     if (result == -2) {
 	rb_reg_raise(RREGEXP(re)->str, RREGEXP(re)->len,
@@ -1329,6 +1334,11 @@ rb_reg_initialize(obj, s, len, options)
 {
     struct RRegexp *re = RREGEXP(obj);
 
+    if (!OBJ_TAINTED(obj) && rb_safe_level() >= 4)
+	rb_raise(rb_eSecurityError, "Insecure: can't modify regexp");
+    rb_check_frozen(obj);
+    if (FL_TEST(obj, REG_LITERAL))
+	rb_raise(rb_eSecurityError, "can't modify literal regexp");
     if (re->ptr) re_free_pattern(re->ptr);
     if (re->str) free(re->str);
     re->ptr = 0;
@@ -1354,7 +1364,7 @@ rb_reg_initialize(obj, s, len, options)
     }
 
     if (options & ~0xf) {
-	kcode_set_option((VALUE)re);
+	rb_kcode_set_option((VALUE)re);
     }
     if (ruby_ignorecase) {
 	options |= RE_OPTION_IGNORECASE;
@@ -1366,8 +1376,9 @@ rb_reg_initialize(obj, s, len, options)
     re->str[len] = '\0';
     re->len = len;
     if (options & ~0xf) {
-	kcode_reset_option();
+	rb_kcode_reset_option();
     }
+    if (ruby_in_compile) FL_SET(obj, REG_LITERAL);
 }
 
 static VALUE rb_reg_s_alloc _((VALUE));
@@ -1405,6 +1416,7 @@ VALUE
 rb_reg_regcomp(str)
     VALUE str;
 {
+    volatile VALUE save_str = str;
     if (reg_cache && RREGEXP(reg_cache)->len == RSTRING(str)->len
 	&& case_cache == ruby_ignorecase
 	&& kcode_cache == reg_kcode
@@ -1627,7 +1639,7 @@ rb_reg_match_m(re, str)
  *  options are propagated, and new options may not be specified (a change as of
  *  Ruby 1.8). If <i>options</i> is a <code>Fixnum</code>, it should be one or
  *  more of the constants <code>Regexp::EXTENDED</code>,
- *  <code>Regexp::IGNORECASE</code>, and <code>Regexp::POSIXLINE</code>,
+ *  <code>Regexp::IGNORECASE</code>, and <code>Regexp::MULTILINE</code>,
  *  <em>or</em>-ed together. Otherwise, if <i>options</i> is not
  *  <code>nil</code>, the regexp will be case insensitive. The <i>lang</i>
  *  parameter enables multibyte support for the regexp: `n', `N' = none, `e',
@@ -1649,7 +1661,6 @@ rb_reg_initialize_m(argc, argv, self)
     long len;
     int flags = 0;
 
-    rb_check_frozen(self);
     if (argc == 0 || argc > 3) {
 	rb_raise(rb_eArgError, "wrong number of arguments");
     }
@@ -1709,7 +1720,7 @@ rb_reg_initialize_m(argc, argv, self)
 	s = StringValuePtr(argv[0]);
 	len = RSTRING(argv[0])->len;
     }
-    rb_reg_initialize(self, s, len, flags, Qtrue);
+    rb_reg_initialize(self, s, len, flags);
     return self;
 }
 
@@ -1801,11 +1812,12 @@ rb_reg_quote(str)
 
 /*
  *  call-seq:
- *     Regexp.escape(str)   => new_str
- *     Regexp.quote(str)    => new_str
+ *     Regexp.escape(str)   => a_str
+ *     Regexp.quote(str)    => a_str
  *  
  *  Escapes any characters that would have special meaning in a regular
- *  expression. For any string,
+ *  expression. Returns a new escaped string, or self if no characters are
+ *  escaped.  For any string,
  *  <code>Regexp.escape(<i>str</i>)=~<i>str</i></code> will be true.
  *     
  *     Regexp.escape('\\*?{}.')   #=> \\\\\*\?\{\}\.
@@ -1827,7 +1839,7 @@ rb_reg_s_quote(argc, argv)
     }
     StringValue(str);
     str = rb_reg_quote(str);
-    kcode_reset_option();
+    rb_kcode_reset_option();
     return str;
 }
 
@@ -1971,6 +1983,7 @@ rb_reg_s_union(argc, argv)
     }
 }
 
+/* :nodoc: */
 static VALUE
 rb_reg_init_copy(copy, re)
     VALUE copy, re;
@@ -1983,7 +1996,7 @@ rb_reg_init_copy(copy, re)
     }
     rb_reg_check(re);
     rb_reg_initialize(copy, RREGEXP(re)->str, RREGEXP(re)->len,
-		      rb_reg_options(re), Qfalse);
+		      rb_reg_options(re));
     return copy;
 }
 

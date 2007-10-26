@@ -71,8 +71,19 @@ int	vwscanf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
 size_t	wcrtomb_l(char * __restrict, wchar_t, mbstate_t * __restrict,
 	    locale_t);
 int	wcscoll_l(const wchar_t *, const wchar_t *, locale_t);
+//Begin-Libc
+#ifndef LIBC_ALIAS_WCSFTIME_L
+//End-Libc
 size_t	wcsftime_l(wchar_t * __restrict, size_t, const wchar_t * __restrict,
-		const struct tm * __restrict, locale_t);
+		const struct tm * __restrict, locale_t)
+		__DARWIN_ALIAS(wcsftime_l);
+//Begin-Libc
+#else /* LIBC_ALIAS_WCSFTIME_L */
+size_t	wcsftime_l(wchar_t * __restrict, size_t, const wchar_t * __restrict,
+		const struct tm * __restrict, locale_t)
+		LIBC_ALIAS(wcsftime_l);
+#endif /* !LIBC_ALIAS_WCSFTIME_L */
+//End-Libc
 size_t	wcsnrtombs_l(char * __restrict, const wchar_t ** __restrict, size_t,
 	    size_t, mbstate_t * __restrict, locale_t);
 size_t	wcsrtombs_l(char * __restrict, const wchar_t ** __restrict, size_t,
@@ -102,6 +113,11 @@ int	wprintf_l(locale_t, const wchar_t * __restrict, ...)
 		__DARWIN_LDBL_COMPAT2(wprintf_l);
 int	wscanf_l(locale_t, const wchar_t * __restrict, ...)
 		__DARWIN_LDBL_COMPAT2(wscanf_l);
+
+/* Poison the following routines if -fshort-wchar is set */
+#if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
+#pragma GCC poison fgetws_l fputwc_l fputws_l fwprintf_l fwscanf_l mbrtowc_l mbsnrtowcs_l mbsrtowcs_l putwc_l putwchar_l swprintf_l swscanf_l vfwprintf_l vfwscanf_l vswprintf_l vswscanf_l vwprintf_l vwscanf_l wcrtomb_l wcscoll_l wcsftime_l wcsftime_l wcsnrtombs_l wcsrtombs_l wcstod_l wcstof_l wcstol_l wcstold_l wcstoll_l wcstoul_l wcstoull_l wcswidth_l wcsxfrm_l wcwidth_l wprintf_l wscanf_l
+#endif
 __END_DECLS
 
 #endif /* _XLOCALE__WCHAR_H_ */

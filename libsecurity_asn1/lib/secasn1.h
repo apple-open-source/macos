@@ -46,7 +46,7 @@
 
 #include <security_asn1/seccomon.h>
 #include <Security/secasn1t.h>
-#include <Security/asn1Templates.h>
+#include <Security/SecAsn1Templates.h>
 
 
 /************************************************************************/
@@ -74,7 +74,7 @@ extern SEC_ASN1DecoderContext *SEC_ASN1DecoderStart(PRArenaPool *pool,
 /* XXX char or unsigned char? */
 extern SECStatus SEC_ASN1DecoderUpdate(SEC_ASN1DecoderContext *cx,
 				       const char *buf,
-				       unsigned long len);
+				       size_t len);
 
 extern SECStatus SEC_ASN1DecoderFinish(SEC_ASN1DecoderContext *cx);
 
@@ -95,7 +95,7 @@ extern void SEC_ASN1DecoderClearNotifyProc(SEC_ASN1DecoderContext *cx);
 
 extern SECStatus SEC_ASN1Decode(PRArenaPool *pool, void *dest,
 				const SecAsn1Template *t,
-				const char *buf, unsigned long len);
+				const char *buf, size_t len);
 
 extern SECStatus SEC_ASN1DecodeItem(PRArenaPool *pool, void *dest,
 				    const SecAsn1Template *t,
@@ -203,14 +203,14 @@ extern SECItem *sec_asn1e_allocate_item (
 extern void sec_asn1e_encode_item_count (
 	void *arg, 
 	const char *buf, 
-	unsigned long len,
+	size_t len,
 	int depth, 
 	SEC_ASN1EncodingPart data_kind);
 
 extern void sec_asn1e_encode_item_store (
 	void *arg, 
 	const char *buf, 
-	unsigned long len,
+	size_t len,
 	int depth, 
 	SEC_ASN1EncodingPart data_kind);
 

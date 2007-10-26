@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,12 +112,20 @@ IOBlockStorageDevice::setProperties(OSObject * properties)
     return(kIOReturnUnsupported);
 }
 
-/* DEPRECATED */ IOReturn
-/* DEPRECATED */ IOBlockStorageDevice::doSyncReadWrite(IOMemoryDescriptor *buffer,
-/* DEPRECATED */                                       UInt32 block,UInt32 nblks)
-/* DEPRECATED */ {
-/* DEPRECATED */    return(kIOReturnUnsupported);
-/* DEPRECATED */ }
+IOReturn
+IOBlockStorageDevice::doSyncReadWrite(IOMemoryDescriptor *buffer,
+                                      UInt32 block,UInt32 nblks)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
+                                       UInt32 block, UInt32 nblks,
+                                       IOStorageCompletion completion)
+{
+    return(kIOReturnUnsupported);
+}
 
 IOReturn
 IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
@@ -149,7 +157,21 @@ IOBlockStorageDevice::setWriteCacheState(bool enabled)
 
 OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 2);
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  3);
+IOReturn
+IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
+                                       UInt64 block,UInt64 nblks,
+                                       IOStorageAttributes *attributes,
+                                       IOStorageCompletion *completion)
+{
+    if (attributes && attributes->options) {
+        return(kIOReturnUnsupported);
+    } else {
+        return(doAsyncReadWrite(buffer,block,nblks,completion ? *completion : (IOStorageCompletion) { 0 }));
+    }
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDevice, 3);
+
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  4);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  5);
 OSMetaClassDefineReservedUnused(IOBlockStorageDevice,  6);

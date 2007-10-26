@@ -29,10 +29,13 @@
 #ifndef _SECURITY_CCALLBACKMGR_H_
 #define _SECURITY_CCALLBACKMGR_H_
 
-#include <security_keychain/KCEventObserver.h>
-#include <security_keychain/KCEventNotifier.h>
 #include <security_keychain/Keychains.h>
+#include <security_utilities/cfmach++.h>
+#include <securityd_client/ssnotify.h>
+#include <securityd_client/dictionary.h>
+#include <securityd_client/eventlistener.h>
 #include <list>
+#include "KCEventNotifier.h"
 
 namespace Security
 {
@@ -66,10 +69,9 @@ typedef list<CallbackInfo>::iterator CallbackInfoListIterator;
 typedef list<CallbackInfo>::const_iterator ConstCallbackInfoListIterator;
 
 
-class CCallbackMgr : private Observer
+class CCallbackMgr : public SecurityServer::EventListener
 {
 public:
-	
 	CCallbackMgr();
 	~CCallbackMgr();
 	
@@ -84,13 +86,13 @@ public:
 	
 private:
 
-	void Event (SecurityServer::NotificationDomain domain, SecurityServer::NotificationEvent whichEvent, NameValueDictionary &dictionary);
+	void consume (SecurityServer::NotificationDomain domain, SecurityServer::NotificationEvent whichEvent,
+				  const CssmData &data);
 	
 	static void AlertClients(const list<CallbackInfo> &eventCallbacks, SecKeychainEvent inEvent, pid_t inPid,
 							 const Keychain& inKeychain, const Item &inItem);
 
 	list<CallbackInfo> 		mEventCallbacks;
-	static CCallbackMgr* 	mCCallbackMgr;
 };
 
 } // end namespace KeychainCore

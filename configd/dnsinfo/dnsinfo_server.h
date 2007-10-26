@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,8 +38,9 @@ kern_return_t	_shared_dns_infoGet	(mach_port_t		server,
 
 kern_return_t	_shared_dns_infoSet	(mach_port_t		server,
 					 dnsData_t		dataRef,
-					 mach_msg_type_number_t	dataLen);
+					 mach_msg_type_number_t	dataLen,
+					 audit_token_t		audit_token);
 
 __END_DECLS
 
-#endif /* !_S_DNSINFO_SERVER_H */
+#endif	/* !_S_DNSINFO_SERVER_H */

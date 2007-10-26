@@ -1,7 +1,9 @@
 /* vi:set ts=8 sts=4 sw=4:
  *
  * VIM - Vi IMproved	by Bram Moolenaar
- * Ruby interface by Shugo Maeda.
+ *
+ * Ruby interface by Shugo Maeda
+ *   with improvements by SegPhault (Ryan Paul)
  *
  * Do ":help uganda"  in Vim to read copying and usage conditions.
  * Do ":help credits" in Vim to see a list of people who contributed.
@@ -12,7 +14,9 @@
 #include <string.h>
 
 #ifdef _WIN32
-# define NT
+# if !defined(DYNAMIC_RUBY_VER) || (DYNAMIC_RUBY_VER < 18)
+#   define NT
+# endif
 # ifndef DYNAMIC_RUBY
 #  define IMPORT /* For static dll usage __declspec(dllimport) */
 #  define RUBYEXTERN __declspec(dllimport)
@@ -33,12 +37,29 @@
 # define rb_cNilClass		(*dll_rb_cNilClass)
 # define rb_cSymbol		(*dll_rb_cSymbol)
 # define rb_cTrueClass		(*dll_rb_cTrueClass)
+# if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
+/*
+ * On ver 1.8, all Ruby functions are exported with "__declspce(dllimport)"
+ * in ruby.h.  But it cause trouble for these variables, because it is
+ * defined in this file.  When defined this RUBY_EXPORT it modified to
+ * "extern" and be able to avoid this problem.
+ */
+#  define RUBY_EXPORT
+# endif
 #endif
 
 #include <ruby.h>
 
 #undef EXTERN
 #undef _
+
+/* T_DATA defined both by Ruby and Mac header files, hack around it... */
+#ifdef FEAT_GUI_MAC
+# define __OPENTRANSPORT__
+# define __OPENTRANSPORTPROTOCOL__
+# define __OPENTRANSPORTPROVIDERS__
+#endif
+
 #include "vim.h"
 #include "version.h"
 
@@ -53,7 +74,7 @@ static VALUE objtbl;
 
 static VALUE mVIM;
 static VALUE cBuffer;
-static VALUE cWindow;
+static VALUE cVimWindow;
 static VALUE eDeletedBufferError;
 static VALUE eDeletedWindowError;
 
@@ -83,7 +104,7 @@ static void ruby_vim_init(void);
 #define rb_define_module_function	dll_rb_define_module_function
 #define rb_define_singleton_method	dll_rb_define_singleton_method
 #define rb_define_virtual_variable	dll_rb_define_virtual_variable
-#define rb_defout			(*dll_rb_defout)
+#define rb_stdout			(*dll_rb_stdout)
 #define rb_eArgError			(*dll_rb_eArgError)
 #define rb_eIndexError			(*dll_rb_eIndexError)
 #define rb_eRuntimeError		(*dll_rb_eRuntimeError)
@@ -111,6 +132,9 @@ static void ruby_vim_init(void);
 #define ruby_errinfo			(*dll_ruby_errinfo)
 #define ruby_init			dll_ruby_init
 #define ruby_init_loadpath		dll_ruby_init_loadpath
+#if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
+# define rb_w32_snprintf		dll_rb_w32_snprintf
+#endif
 
 /*
  * Pointers for dynamic link
@@ -133,7 +157,7 @@ static VALUE (*dll_rb_define_module) (const char*);
 static void (*dll_rb_define_module_function) (VALUE,const char*,VALUE(*)(),int);
 static void (*dll_rb_define_singleton_method) (VALUE,const char*,VALUE(*)(),int);
 static void (*dll_rb_define_virtual_variable) (const char*,VALUE(*)(),void(*)());
-static VALUE *dll_rb_defout;
+static VALUE *dll_rb_stdout;
 static VALUE *dll_rb_eArgError;
 static VALUE *dll_rb_eIndexError;
 static VALUE *dll_rb_eRuntimeError;
@@ -162,11 +186,14 @@ static VALUE (*dll_rb_str_new2) (const char*);
 static VALUE *dll_ruby_errinfo;
 static void (*dll_ruby_init) (void);
 static void (*dll_ruby_init_loadpath) (void);
+#if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
+static int (*dll_rb_w32_snprintf)(char*, size_t, const char*, ...);
+#endif
 
 static HINSTANCE hinstRuby = 0; /* Instance of ruby.dll */
 
 /*
- * Table of name to function pointer of python.
+ * Table of name to function pointer of ruby.
  */
 #define RUBY_PROC FARPROC
 static struct
@@ -193,7 +220,7 @@ static struct
     {"rb_define_module_function", (RUBY_PROC*)&dll_rb_define_module_function},
     {"rb_define_singleton_method", (RUBY_PROC*)&dll_rb_define_singleton_method},
     {"rb_define_virtual_variable", (RUBY_PROC*)&dll_rb_define_virtual_variable},
-    {"rb_defout", (RUBY_PROC*)&dll_rb_defout},
+    {"rb_stdout", (RUBY_PROC*)&dll_rb_stdout},
     {"rb_eArgError", (RUBY_PROC*)&dll_rb_eArgError},
     {"rb_eIndexError", (RUBY_PROC*)&dll_rb_eIndexError},
     {"rb_eRuntimeError", (RUBY_PROC*)&dll_rb_eRuntimeError},
@@ -221,6 +248,9 @@ static struct
     {"ruby_errinfo", (RUBY_PROC*)&dll_ruby_errinfo},
     {"ruby_init", (RUBY_PROC*)&dll_ruby_init},
     {"ruby_init_loadpath", (RUBY_PROC*)&dll_ruby_init_loadpath},
+#if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
+    {"rb_w32_snprintf", (RUBY_PROC*)&dll_rb_w32_snprintf},
+#endif
     {"", NULL},
 };
 
@@ -297,19 +327,17 @@ void ex_ruby(exarg_T *eap)
     int state;
     char *script = NULL;
 
-    if (ensure_ruby_initialized())
+    script = (char *)script_get(eap, eap->arg);
+    if (!eap->skip && ensure_ruby_initialized())
     {
-	script = script_get(eap, eap->arg);
 	if (script == NULL)
 	    rb_eval_string_protect((char *)eap->arg, &state);
 	else
-	{
 	    rb_eval_string_protect(script, &state);
-	    vim_free(script);
-	}
 	if (state)
 	    error_print(state);
     }
+    vim_free(script);
 }
 
 void ex_rubydo(exarg_T *eap)
@@ -324,7 +352,7 @@ void ex_rubydo(exarg_T *eap)
 	for (i = eap->line1; i <= eap->line2; i++) {
 	    VALUE line, oldline;
 
-	    line = oldline = rb_str_new2(ml_get(i));
+	    line = oldline = rb_str_new2((char *)ml_get(i));
 	    rb_lastline_set(line);
 	    rb_eval_string_protect((char *) eap->arg, &state);
 	    if (state) {
@@ -334,7 +362,7 @@ void ex_rubydo(exarg_T *eap)
 	    line = rb_lastline_get();
 	    if (!NIL_P(line)) {
 		if (TYPE(line) != T_STRING) {
-		    EMSG("E265: $_ must be an instance of String");
+		    EMSG(_("E265: $_ must be an instance of String"));
 		    return;
 		}
 		ml_replace(i, (char_u *) STR2CSTR(line), 1);
@@ -362,17 +390,19 @@ void ex_rubyfile(exarg_T *eap)
 
 void ruby_buffer_free(buf_T *buf)
 {
-    if (buf->ruby_ref) {
-	rb_hash_aset(objtbl, rb_obj_id((VALUE) buf->ruby_ref), Qnil);
-	RDATA(buf->ruby_ref)->data = NULL;
+    if (buf->b_ruby_ref)
+    {
+	rb_hash_aset(objtbl, rb_obj_id((VALUE) buf->b_ruby_ref), Qnil);
+	RDATA(buf->b_ruby_ref)->data = NULL;
     }
 }
 
 void ruby_window_free(win_T *win)
 {
-    if (win->ruby_ref) {
-	rb_hash_aset(objtbl, rb_obj_id((VALUE) win->ruby_ref), Qnil);
-	RDATA(win->ruby_ref)->data = NULL;
+    if (win->w_ruby_ref)
+    {
+	rb_hash_aset(objtbl, rb_obj_id((VALUE) win->w_ruby_ref), Qnil);
+	RDATA(win->w_ruby_ref)->data = NULL;
     }
 }
 
@@ -422,33 +452,33 @@ static void error_print(int state)
 
     switch (state) {
     case TAG_RETURN:
-	EMSG("E267: unexpected return");
+	EMSG(_("E267: unexpected return"));
 	break;
     case TAG_NEXT:
-	EMSG("E268: unexpected next");
+	EMSG(_("E268: unexpected next"));
 	break;
     case TAG_BREAK:
-	EMSG("E269: unexpected break");
+	EMSG(_("E269: unexpected break"));
 	break;
     case TAG_REDO:
-	EMSG("E270: unexpected redo");
+	EMSG(_("E270: unexpected redo"));
 	break;
     case TAG_RETRY:
-	EMSG("E271: retry outside of rescue clause");
+	EMSG(_("E271: retry outside of rescue clause"));
 	break;
     case TAG_RAISE:
     case TAG_FATAL:
 	eclass = CLASS_OF(ruby_errinfo);
 	einfo = rb_obj_as_string(ruby_errinfo);
 	if (eclass == rb_eRuntimeError && RSTRING(einfo)->len == 0) {
-	    EMSG("E272: unhandled exception");
+	    EMSG(_("E272: unhandled exception"));
 	}
 	else {
 	    VALUE epath;
 	    char *p;
 
 	    epath = rb_class_path(eclass);
-	    snprintf(buff, BUFSIZ, "%s: %s",
+	    vim_snprintf(buff, BUFSIZ, "%s: %s",
 		     RSTRING(epath)->ptr, RSTRING(einfo)->ptr);
 	    p = strchr(buff, '\n');
 	    if (p) *p = '\0';
@@ -456,7 +486,7 @@ static void error_print(int state)
 	}
 	break;
     default:
-	snprintf(buff, BUFSIZ, _("E273: unknown longjmp status %d"), state);
+	vim_snprintf(buff, BUFSIZ, _("E273: unknown longjmp status %d"), state);
 	EMSG(buff);
 	break;
     }
@@ -491,11 +521,11 @@ static VALUE vim_command(VALUE self, VALUE str)
 static VALUE vim_evaluate(VALUE self, VALUE str)
 {
 #ifdef FEAT_EVAL
-    char_u *value = eval_to_string((char_u *)STR2CSTR(str), NULL);
+    char_u *value = eval_to_string((char_u *)STR2CSTR(str), NULL, TRUE);
 
-    if (value)
+    if (value != NULL)
     {
-	VALUE val = rb_str_new2(value);
+	VALUE val = rb_str_new2((char *)value);
 	vim_free(value);
 	return val;
     }
@@ -506,12 +536,14 @@ static VALUE vim_evaluate(VALUE self, VALUE str)
 
 static VALUE buffer_new(buf_T *buf)
 {
-    if (buf->ruby_ref) {
-	return (VALUE) buf->ruby_ref;
+    if (buf->b_ruby_ref)
+    {
+	return (VALUE) buf->b_ruby_ref;
     }
-    else {
+    else
+    {
 	VALUE obj = Data_Wrap_Struct(cBuffer, 0, 0, buf);
-	buf->ruby_ref = (void *) obj;
+	buf->b_ruby_ref = (void *) obj;
 	rb_hash_aset(objtbl, rb_obj_id(obj), obj);
 	return obj;
     }
@@ -537,7 +569,14 @@ static VALUE buffer_s_count()
     buf_T *b;
     int n = 0;
 
-    for (b = firstbuf; b; b = b->b_next) n++;
+    for (b = firstbuf; b != NULL; b = b->b_next)
+    {
+	/*  Deleted buffers should not be counted
+	 *    SegPhault - 01/07/05 */
+	if (b->b_p_bl)
+	    n++;
+    }
+
     return INT2NUM(n);
 }
 
@@ -546,9 +585,17 @@ static VALUE buffer_s_aref(VALUE self, VALUE num)
     buf_T *b;
     int n = NUM2INT(num);
 
-    for (b = firstbuf; b; b = b->b_next, --n) {
+    for (b = firstbuf; b != NULL; b = b->b_next)
+    {
+	/*  Deleted buffers should not be counted
+	 *    SegPhault - 01/07/05 */
+	if (!b->b_p_bl)
+	    continue;
+
 	if (n == 0)
 	    return buffer_new(b);
+
+	n--;
     }
     return Qnil;
 }
@@ -557,7 +604,7 @@ static VALUE buffer_name(VALUE self)
 {
     buf_T *buf = get_buf(self);
 
-    return buf->b_ffname ? rb_str_new2(buf->b_ffname) : Qnil;
+    return buf->b_ffname ? rb_str_new2((char *)buf->b_ffname) : Qnil;
 }
 
 static VALUE buffer_number(VALUE self)
@@ -574,32 +621,35 @@ static VALUE buffer_count(VALUE self)
     return INT2NUM(buf->b_ml.ml_line_count);
 }
 
+static VALUE get_buffer_line(buf_T *buf, linenr_T n)
+{
+    if (n > 0 && n <= buf->b_ml.ml_line_count)
+    {
+	char *line = (char *)ml_get_buf(buf, n, FALSE);
+	return line ? rb_str_new2(line) : Qnil;
+    }
+    rb_raise(rb_eIndexError, "index %d out of buffer", n);
+    return Qnil; /* For stop warning */
+}
+
 static VALUE buffer_aref(VALUE self, VALUE num)
 {
     buf_T *buf = get_buf(self);
-    long n = NUM2LONG(num);
 
-    if (n > 0 && n <= buf->b_ml.ml_line_count) {
-	char *line = ml_get_buf(buf, n, FALSE);
-	return line ? rb_str_new2(line) : Qnil;
-    }
-    else {
-	rb_raise(rb_eIndexError, "index %d out of buffer", n);
-	return Qnil; /* For stop warning */
-    }
+    if (buf != NULL)
+	return get_buffer_line(buf, (linenr_T)NUM2LONG(num));
+    return Qnil; /* For stop warning */
 }
 
-static VALUE buffer_aset(VALUE self, VALUE num, VALUE str)
+static VALUE set_buffer_line(buf_T *buf, linenr_T n, VALUE str)
 {
-    buf_T *buf = get_buf(self);
     buf_T *savebuf = curbuf;
     char *line = STR2CSTR(str);
-    long n = NUM2LONG(num);
 
     if (n > 0 && n <= buf->b_ml.ml_line_count && line != NULL) {
 	curbuf = buf;
 	if (u_savesub(n) == OK) {
-	    ml_replace(n, (char_u *) line, TRUE);
+	    ml_replace(n, (char_u *)line, TRUE);
 	    changed();
 #ifdef SYNTAX_HL
 	    syn_changed(n); /* recompute syntax hl. for this line */
@@ -615,6 +665,15 @@ static VALUE buffer_aset(VALUE self, VALUE num, VALUE str)
     return str;
 }
 
+static VALUE buffer_aset(VALUE self, VALUE num, VALUE str)
+{
+    buf_T *buf = get_buf(self);
+
+    if (buf != NULL)
+	return set_buffer_line(buf, (linenr_T)NUM2LONG(num), str);
+    return str;
+}
+
 static VALUE buffer_delete(VALUE self, VALUE num)
 {
     buf_T *buf = get_buf(self);
@@ -624,8 +683,12 @@ static VALUE buffer_delete(VALUE self, VALUE num)
     if (n > 0 && n <= buf->b_ml.ml_line_count) {
 	curbuf = buf;
 	if (u_savedel(n, 1) == OK) {
-	    mark_adjust(n, n, MAXLNUM, -1);
 	    ml_delete(n, 0);
+
+	    /* Changes to non-active buffers should properly refresh
+	     *   SegPhault - 01/09/05 */
+	    deleted_lines_mark(n, 1L);
+
 	    changed();
 	}
 	curbuf = savebuf;
@@ -647,8 +710,12 @@ static VALUE buffer_append(VALUE self, VALUE num, VALUE str)
     if (n >= 0 && n <= buf->b_ml.ml_line_count && line != NULL) {
 	curbuf = buf;
 	if (u_inssub(n + 1) == OK) {
-	    mark_adjust(n + 1, MAXLNUM, 1L, 0L);
 	    ml_append(n, (char_u *) line, (colnr_T) 0, FALSE);
+
+	    /*  Changes to non-active buffers should properly refresh screen
+	     *    SegPhault - 12/20/04 */
+	    appended_lines_mark(n, 1L);
+
 	    changed();
 	}
 	curbuf = savebuf;
@@ -662,12 +729,14 @@ static VALUE buffer_append(VALUE self, VALUE num, VALUE str)
 
 static VALUE window_new(win_T *win)
 {
-    if (win->ruby_ref) {
-	return (VALUE) win->ruby_ref;
+    if (win->w_ruby_ref)
+    {
+	return (VALUE) win->w_ruby_ref;
     }
-    else {
-	VALUE obj = Data_Wrap_Struct(cWindow, 0, 0, win);
-	win->ruby_ref = (void *) obj;
+    else
+    {
+	VALUE obj = Data_Wrap_Struct(cVimWindow, 0, 0, win);
+	win->w_ruby_ref = (void *) obj;
 	rb_hash_aset(objtbl, rb_obj_id(obj), obj);
 	return obj;
     }
@@ -688,13 +757,34 @@ static VALUE window_s_current()
     return window_new(curwin);
 }
 
+/*
+ * Added line manipulation functions
+ *    SegPhault - 03/07/05
+ */
+static VALUE line_s_current()
+{
+    return get_buffer_line(curbuf, curwin->w_cursor.lnum);
+}
+
+static VALUE set_current_line(VALUE str)
+{
+    return set_buffer_line(curbuf, curwin->w_cursor.lnum, str);
+}
+
+static VALUE current_line_number()
+{
+    return INT2FIX((int)curwin->w_cursor.lnum);
+}
+
+
+
 static VALUE window_s_count()
 {
 #ifdef FEAT_WINDOWS
     win_T	*w;
     int n = 0;
 
-    for (w = firstwin; w; w = w->w_next)
+    for (w = firstwin; w != NULL; w = w->w_next)
 	n++;
     return INT2NUM(n);
 #else
@@ -742,6 +832,24 @@ static VALUE window_set_height(VALUE self, VALUE height)
     return height;
 }
 
+static VALUE window_width(VALUE self)
+{
+    win_T *win = get_win(self);
+
+    return INT2NUM(win->w_width);
+}
+
+static VALUE window_set_width(VALUE self, VALUE width)
+{
+    win_T *win = get_win(self);
+    win_T *savewin = curwin;
+
+    curwin = win;
+    win_setwidth(NUM2INT(width));
+    curwin = savewin;
+    return width;
+}
+
 static VALUE window_cursor(VALUE self)
 {
     win_T *win = get_win(self);
@@ -782,11 +890,11 @@ static VALUE f_p(int argc, VALUE *argv, VALUE self)
 static void ruby_io_init(void)
 {
 #ifndef DYNAMIC_RUBY
-    RUBYEXTERN VALUE rb_defout;
+    RUBYEXTERN VALUE rb_stdout;
 #endif
 
-    rb_defout = rb_obj_alloc(rb_cObject);
-    rb_define_singleton_method(rb_defout, "write", vim_message, 1);
+    rb_stdout = rb_obj_alloc(rb_cObject);
+    rb_define_singleton_method(rb_stdout, "write", vim_message, 1);
     rb_define_global_function("p", f_p, -1);
 }
 
@@ -827,15 +935,24 @@ static void ruby_vim_init(void)
     rb_define_method(cBuffer, "delete", buffer_delete, 1);
     rb_define_method(cBuffer, "append", buffer_append, 2);
 
-    cWindow = rb_define_class_under(mVIM, "Window", rb_cObject);
-    rb_define_singleton_method(cWindow, "current", window_s_current, 0);
-    rb_define_singleton_method(cWindow, "count", window_s_count, 0);
-    rb_define_singleton_method(cWindow, "[]", window_s_aref, 1);
-    rb_define_method(cWindow, "buffer", window_buffer, 0);
-    rb_define_method(cWindow, "height", window_height, 0);
-    rb_define_method(cWindow, "height=", window_set_height, 1);
-    rb_define_method(cWindow, "cursor", window_cursor, 0);
-    rb_define_method(cWindow, "cursor=", window_set_cursor, 1);
+    /* Added line manipulation functions
+     *   SegPhault - 03/07/05 */
+    rb_define_method(cBuffer, "line_number", current_line_number, 0);
+    rb_define_method(cBuffer, "line", line_s_current, 0);
+    rb_define_method(cBuffer, "line=", set_current_line, 1);
+
+
+    cVimWindow = rb_define_class_under(mVIM, "Window", rb_cObject);
+    rb_define_singleton_method(cVimWindow, "current", window_s_current, 0);
+    rb_define_singleton_method(cVimWindow, "count", window_s_count, 0);
+    rb_define_singleton_method(cVimWindow, "[]", window_s_aref, 1);
+    rb_define_method(cVimWindow, "buffer", window_buffer, 0);
+    rb_define_method(cVimWindow, "height", window_height, 0);
+    rb_define_method(cVimWindow, "height=", window_set_height, 1);
+    rb_define_method(cVimWindow, "width", window_width, 0);
+    rb_define_method(cVimWindow, "width=", window_set_width, 1);
+    rb_define_method(cVimWindow, "cursor", window_cursor, 0);
+    rb_define_method(cVimWindow, "cursor=", window_set_cursor, 1);
 
     rb_define_virtual_variable("$curbuf", buffer_s_current, 0);
     rb_define_virtual_variable("$curwin", window_s_current, 0);

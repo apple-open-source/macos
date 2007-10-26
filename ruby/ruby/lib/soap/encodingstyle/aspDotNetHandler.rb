@@ -1,5 +1,5 @@
 # SOAP4R - ASP.NET EncodingStyle handler library
-# Copyright (C) 2001, 2003  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
+# Copyright (C) 2001, 2003, 2005  NAKAMURA, Hiroshi <nahi@ruby-lang.org>.
 
 # This program is copyrighted free software by NAKAMURA, Hiroshi.  You can
 # redistribute it and/or modify it under the same terms of Ruby's license;
@@ -27,51 +27,45 @@ class ASPDotNetHandler < Handler
   ###
   ## encode interface.
   #
-  def encode_data(generator, ns, qualified, data, parent)
+  def encode_data(generator, ns, data, parent)
     attrs = {}
-    name = if qualified and data.elename.namespace
-        SOAPGenerator.assign_ns(attrs, ns, data.elename.namespace)
-        ns.name(data.elename)
-      else
-        data.elename.name
-      end
-
+    # ASPDotNetHandler is intended to be used for accessing an ASP.NET doc/lit
+    # service as an rpc/encoded service.  in the situation, local elements
+    # should be qualified.  propagate parent's namespace to children.
+    if data.elename.namespace.nil?
+      data.elename.namespace = parent.elename.namespace
+    end
+    name = generator.encode_name(ns, data, attrs)
     case data
     when SOAPRawString
       generator.encode_tag(name, attrs)
       generator.encode_rawstring(data.to_s)
     when XSD::XSDString
       generator.encode_tag(name, attrs)
-      generator.encode_string(@charset ? XSD::Charset.encoding_to_xml(data.to_s, @charset) : data.to_s)
+      generator.encode_string(@charset ?
+        XSD::Charset.encoding_to_xml(data.to_s, @charset) : data.to_s)
     when XSD::XSDAnySimpleType
       generator.encode_tag(name, attrs)
       generator.encode_string(data.to_s)
     when SOAPStruct
       generator.encode_tag(name, attrs)
       data.each do |key, value|
-	if !value.elename.namespace
-          value.elename.namespace = data.elename.namespace 
-        end
-        yield(value, true)
+        generator.encode_child(ns, value, data)
       end
     when SOAPArray
       generator.encode_tag(name, attrs)
       data.traverse do |child, *rank|
 	data.position = nil
-        yield(child, true)
+        generator.encode_child(ns, child, data)
       end
     else
-      raise EncodingStyleError.new("Unknown object:#{ data } in this encodingSt
-yle.")
+      raise EncodingStyleError.new(
+        "unknown object:#{data} in this encodingStyle")
     end
   end
 
-  def encode_data_end(generator, ns, qualified, data, parent)
-    name = if qualified and data.elename.namespace
-        ns.name(data.elename)
-      else
-        data.elename.name
-      end
+  def encode_data_end(generator, ns, data, parent)
+    name = generator.encode_name_end(ns, data)
     cr = data.is_a?(SOAPCompoundtype)
     generator.encode_tag_end(name, cr)
   end
@@ -119,7 +113,6 @@ yle.")
   end
 
   def decode_tag(ns, elename, attrs, parent)
-    # ToDo: check if @textbuf is empty...
     @textbuf = ''
     o = SOAPUnknown.new(self, elename)
     o.parent = parent
@@ -190,11 +183,11 @@ yle.")
       end
 
     when SOAPBasetype
-      raise EncodingStyleError.new("SOAP base type must not have a child.")
+      raise EncodingStyleError.new("SOAP base type must not have a child")
 
     else
       # SOAPUnknown does not have parent.
-      # raise EncodingStyleError.new("Illegal parent: #{ parent }.")
+      # raise EncodingStyleError.new("illegal parent: #{parent}")
     end
   end
 

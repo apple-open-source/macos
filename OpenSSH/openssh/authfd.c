@@ -652,6 +652,29 @@ ssh_remove_all_identities(AuthenticationConnection *auth, int version)
 	return decode_reply(type);
 }
 
+/*
+ * Adds identities using passphrases stored in the keychain.  This call is not
+ * meant to be used by normal applications.
+ */
+
+int
+ssh_add_from_keychain(AuthenticationConnection *auth)
+{
+	Buffer msg;
+	int type;
+
+	buffer_init(&msg);
+	buffer_put_char(&msg, SSH_AGENTC_ADD_FROM_KEYCHAIN);
+
+	if (ssh_request_reply(auth, &msg, &msg) == 0) {
+		buffer_free(&msg);
+		return 0;
+	}
+	type = buffer_get_char(&msg);
+	buffer_free(&msg);
+	return decode_reply(type);
+}
+
 int
 decode_reply(int type)
 {

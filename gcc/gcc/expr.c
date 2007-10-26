@@ -5448,6 +5448,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 
 	case COMPONENT_REF:
 	  {
+	    /* APPLE LOCAL radar 4441049 */
+	    tree field_bit_offset;
 	    tree field = TREE_OPERAND (exp, 1);
 	    tree this_offset = component_ref_field_offset (exp);
 
@@ -5458,8 +5460,13 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      break;
 
 	    offset = size_binop (PLUS_EXPR, offset, this_offset);
+	    /* APPLE LOCAL begin radar 4441049 */
+	    field_bit_offset = objc_v2_bitfield_ivar_bitpos (exp);
+	    if (!field_bit_offset)
+	      field_bit_offset = DECL_FIELD_BIT_OFFSET (field);
 	    bit_offset = size_binop (PLUS_EXPR, bit_offset,
-				     DECL_FIELD_BIT_OFFSET (field));
+				     field_bit_offset);
+	    /* APPLE LOCAL end radar 4441049 */
 
 	    /* ??? Right now we don't do anything with DECL_OFFSET_ALIGN.  */
 	  }
@@ -5606,7 +5613,12 @@ component_ref_field_offset (tree exp)
 {
   tree aligned_offset = TREE_OPERAND (exp, 2);
   tree field = TREE_OPERAND (exp, 1);
+  /* APPLE LOCAL begin radar 4441049 */
+  tree offset = objc_v2_component_ref_field_offset (exp);
 
+  if (offset)
+    return offset;
+  /* APPLE LOCAL end radar 4441049 */
   /* If an offset was specified in the COMPONENT_REF, it's the offset measured
      in units of DECL_OFFSET_ALIGN / BITS_PER_UNIT.  So multiply by that
      value.  */
@@ -6159,7 +6171,12 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
      exception here is STRING_CST.  */
   if (TREE_CODE (exp) == CONSTRUCTOR
       || CONSTANT_CLASS_P (exp))
-    return XEXP (output_constant_def (exp, 0), 0);
+  /* APPLE LOCAL begin ARM strings in code */
+    return XEXP (output_constant_def (exp, 
+				      targetm.strings_in_code_p ()
+				      && TREE_CODE (exp) == STRING_CST), 
+		0);
+  /* APPLE LOCAL end ARM strings in code */
 
   /* Everything must be something allowed by is_gimple_addressable.  */
   switch (TREE_CODE (exp))
@@ -6168,10 +6185,8 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       /* This case will happen via recursion for &a->b.  */
       return expand_expr (TREE_OPERAND (exp, 0), target, tmode, EXPAND_NORMAL);
 
-    case CONST_DECL:
-      /* Recurse and make the output_constant_def clause above handle this.  */
-      return expand_expr_addr_expr_1 (DECL_INITIAL (exp), target,
-				      tmode, modifier);
+    /* APPLE LOCAL ARM 4492314 */
+    /* Removed CONST_DECL case.  */
 
     case REALPART_EXPR:
       /* The real part of the complex number is always first, therefore
@@ -6248,7 +6263,8 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
       result = convert_memory_address (tmode, result);
       tmp = convert_memory_address (tmode, tmp);
 
-      if (modifier == EXPAND_SUM)
+      /* APPLE LOCAL mainline 4.0.2 radar 4093122 */
+      if (modifier == EXPAND_SUM || modifier == EXPAND_INITIALIZER)
 	result = gen_rtx_PLUS (tmode, result, tmp);
       else
 	{
@@ -6679,7 +6695,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 			    ignore ? const0_rtx : target, tmode, modifier);
 
     case CONST_DECL:
-      return expand_expr (DECL_INITIAL (exp), target, VOIDmode, modifier);
+      /* APPLE LOCAL ARM 4492314 */
+      return DECL_RTL (exp);
 
     case REAL_CST:
       /* If optimized, generate immediate CONST_DOUBLE
@@ -6942,7 +6959,19 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 				  modifier);
 	  }
 
+  /* APPLE LOCAL begin ARM strings in code */
+	/* This optimization is incompatible with the strings-in-code
+	   optimization, since you may wind up with two copies of the
+	   string and we must refer to the right one:
+		char * x[2] = { "a", "b" };
+		char **y = &x[1];
+		if x[0] != *(--y)  abort();
+	   Normally this works because expand_expr_addr_expr_1 forces
+	   all copies of the constant to share a location, but we turn
+	   that off for strings-in-code purposes. */
 	else if (optimize >= 1
+	         && !targetm.strings_in_code_p ()
+  /* APPLE LOCAL end ARM strings in code */
 		 && modifier != EXPAND_CONST_ADDRESS
 		 && modifier != EXPAND_INITIALIZER
 		 && modifier != EXPAND_MEMORY
@@ -7396,6 +7425,26 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  return REDUCE_BIT_FIELD (op0);
 	}
+
+/* APPLE LOCAL begin ARM improve (int) (longlong >> 32) */
+#ifdef TARGET_ARM
+      /* Look for (int) (longlong  >> 32).  This is just subreg:SI (longlong).
+	 This is not a great place to do this.  Signedness of shift does not
+	 matter.  */
+      if (mode == SImode
+	  && TYPE_MODE (TREE_TYPE (TREE_OPERAND (exp, 0))) == DImode
+	  && TREE_CODE (TREE_OPERAND (exp, 0)) == RSHIFT_EXPR
+	  && TREE_CODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 1)) == INTEGER_CST
+	  && TREE_INT_CST_HIGH (TREE_OPERAND (TREE_OPERAND (exp, 0), 1)) == 0
+	  && TREE_INT_CST_LOW (TREE_OPERAND (TREE_OPERAND (exp, 0), 1)) == 32)
+	{
+	  op0 = expand_expr (TREE_OPERAND (TREE_OPERAND (exp, 0), 0), NULL_RTX,
+			     DImode, 0);
+	  op0 = simplify_gen_subreg (SImode, op0, DImode, 4);
+	}
+      else
+#endif
+/* APPLE LOCAL end ARM improve (int) (longlong >> 32) */
 
       op0 = expand_expr (TREE_OPERAND (exp, 0), NULL_RTX, mode, modifier);
       if (GET_MODE (op0) == mode)
@@ -7969,12 +8018,30 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case TRUTH_AND_EXPR:
       code = BIT_AND_EXPR;
+/* APPLE LOCAL begin ARM REV/UXTB support */
+      goto binop;
     case BIT_AND_EXPR:
+#ifdef TARGET_ARM
+      /* For FSF purposes this will need to become a target hook. */
+      temp = look_for_bytemanip (exp, subtarget);
+      if (temp)
+	return REDUCE_BIT_FIELD (temp);
+#endif
+/* APPLE LOCAL end ARM REV/UXTB support */
       goto binop;
 
     case TRUTH_OR_EXPR:
       code = BIT_IOR_EXPR;
+/* APPLE LOCAL begin ARM REV/UXTB support */
+      goto binop;
     case BIT_IOR_EXPR:
+#ifdef TARGET_ARM
+      /* For FSF purposes this will need to become a target hook. */
+      temp = look_for_bytemanip (exp, subtarget);
+      if (temp)
+	return REDUCE_BIT_FIELD (temp);
+#endif
+/* APPLE LOCAL end ARM REV/UXTB support */
       goto binop;
 
     case TRUTH_XOR_EXPR:
@@ -7984,6 +8051,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
+/* APPLE LOCAL begin ARM REV/UXTB support */
+#ifdef TARGET_ARM
+      temp = look_for_bytemanip (exp, subtarget);
+      if (temp)
+	return REDUCE_BIT_FIELD (temp);
+      /* fall through */
+#endif
+/* APPLE LOCAL end ARM REV/UXTB support */
     case LROTATE_EXPR:
     case RROTATE_EXPR:
       if (! safe_from_p (subtarget, TREE_OPERAND (exp, 1), 1))

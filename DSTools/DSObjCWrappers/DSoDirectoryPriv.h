@@ -33,6 +33,7 @@
 
 @interface DSoDirectory (DSoDirectoryPrivate)
 - (void)openLocalHost;
+- (void)openLocalOnlyWithLocalPath:(NSString *)filePath;
 - (void)openHost:(NSString*)hostName user:(NSString*)inUser password:(NSString*)inPassword;
 - (void)close;
 - (void)reopen;

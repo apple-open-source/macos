@@ -49,6 +49,9 @@ enum bptype
   {
     bp_none = 0,		/* Eventpoint has been deleted. */
     bp_breakpoint,		/* Normal breakpoint */
+    /* APPLE LOCAL begin subroutine inlining  */
+    bp_inlined_breakpoint,      /* Breakpoint at an inlined subroutine */
+    /* APPLE LOCAL end subroutine inlining  */
     bp_hardware_breakpoint,	/* Hardware assisted breakpoint */
     bp_until,			/* used by until command */
     bp_finish,			/* used by finish command */
@@ -147,6 +150,7 @@ enum bptype
     , bp_gnu_v3_catch_catch
     , bp_gnu_v3_catch_throw
     /* APPLE LOCAL end gnu_v3 */
+
   };
 
 /* States of enablement of breakpoint. */
@@ -253,7 +257,7 @@ struct bp_location
      control of the target insert_breakpoint and remove_breakpoint routines.
      No other code should assume anything about the value(s) here.
      Valid only for bp_loc_software_breakpoint.  */
-  char shadow_contents[BREAKPOINT_MAX];
+  gdb_byte shadow_contents[BREAKPOINT_MAX];
 
   /* Address at which breakpoint was requested, either by the user or
      by GDB for internal breakpoints.  This will usually be the same
@@ -282,7 +286,8 @@ struct breakpoint_ops
   void (*print_mention) (struct breakpoint *);
 };
 
-/* APPLE LOCAL: the set states for bp_set_state. */
+/* APPLE LOCAL begin bp_set_state */
+/* The set states for bp_set_state. */
 enum bp_set_state
   {
     bp_state_unset, /* Breakpoint hasn't been set yet. */
@@ -300,6 +305,7 @@ enum bp_set_state
 			     to make sure we try the breakpoint again
 			     when the target's text is loaded into memory.  */
   };
+/* APPLE LOCAL end bp_set_state */
 
 /* Note that the ->silent field is not currently used by any commands
    (though the code is in there if it was to be, and set_raw_breakpoint
@@ -438,6 +444,13 @@ struct breakpoint
        range...  */
     struct objfile *bp_objfile;
 
+    /* APPLE LOCAL begin radar 5273932  */
+    /* Objfile name of where the bp was set.  Used to save the name 
+       of the objfile if the objfile pointer needs to be re-set to NULL.  */
+
+    char *bp_objfile_name;
+    /* APPLE LOCAL end radar 5273932  */
+
     /* Used for save-breakpoints.  */ 
     int original_flags;
 
@@ -461,7 +474,8 @@ extern void bpstat_clear (bpstat *);
    is part of the bpstat is copied as well.  */
 extern bpstat bpstat_copy (bpstat);
 
-extern bpstat bpstat_stop_status (CORE_ADDR pc, ptid_t ptid);
+extern bpstat bpstat_stop_status (CORE_ADDR pc, ptid_t ptid, 
+				  int stopped_by_watchpoint);
 
 /* This bpstat_what stuff tells wait_for_inferior what to do with a
    breakpoint (a challenging task).  */
@@ -675,19 +689,14 @@ extern void breakpoint_print_commands (struct ui_out *, struct breakpoint *);
 extern void breakpoint_add_commands (struct breakpoint *, struct command_line *);
 /* APPLE LOCAL end breakpoint MI */
 
-/* FIXME: cagney/2002-11-10: The current [generic] dummy-frame code
-   implements a functional superset of this function.  The only reason
-   it hasn't been removed is because some architectures still don't
-   use the new framework.  Once they have been fixed, this can go.  */
-struct frame_info;
-extern int deprecated_frame_in_dummy (struct frame_info *);
-
 extern int breakpoint_thread_match (CORE_ADDR, ptid_t);
 
 extern void until_break_command (char *, int, int);
 
+/* APPLE LOCAL breakpoints */
 extern void breakpoint_update (void);
 
+/* APPLE LOCAL breakpoints */
 extern void breakpoint_re_set (struct objfile *);
 
 extern void breakpoint_re_set_thread (struct breakpoint *);
@@ -720,9 +729,11 @@ extern void break_command (char *, int);
 extern void hbreak_command_wrapper (char *, int);
 extern void thbreak_command_wrapper (char *, int);
 extern void rbreak_command_wrapper (char *, int);
-extern void watch_command_wrapper (char *, int);
-extern void awatch_command_wrapper (char *, int);
-extern void rwatch_command_wrapper (char *, int);
+/* APPLE LOCAL: Added by_location argument.  */
+extern void watch_command_wrapper (char *, int, int);
+extern void awatch_command_wrapper (char *, int, int);
+extern void rwatch_command_wrapper (char *, int, int);
+/* END APPLE LOCAL */
 extern void tbreak_command (char *, int);
 
 extern int insert_breakpoints (void);
@@ -827,8 +838,10 @@ extern void remove_solib_event_breakpoints (void);
 
 extern void remove_thread_event_breakpoints (void);
 
+/* APPLE LOCAL breakpoints */
 extern void disable_breakpoints_in_shlibs (int silent);
 
+/* APPLE LOCAL breakpoints */
 extern void re_enable_breakpoints_in_shlibs (int silent);
 
 extern void create_solib_load_event_breakpoint (char *, int, char *, char *);
@@ -860,6 +873,7 @@ extern void delete_command (char *arg, int from_tty);
    remove fails. */
 extern int remove_hw_watchpoints (void);
 
+/* APPLE LOCAL begin breakpoints */
 extern struct breakpoint *find_finish_breakpoint (void);
 
 extern int exception_catchpoints_enabled (enum exception_event_kind ex_event);
@@ -869,4 +883,15 @@ void gnu_v3_update_exception_catchpoints (enum exception_event_kind ex_event,
 int handle_gnu_v3_exceptions (enum exception_event_kind ex_event);
 
 void tell_breakpoints_objfile_changed (struct objfile *objfile);
+void tell_breakpoints_objfile_removed (struct objfile *objfile);
+/* APPLE LOCAL end breakpoints */
+
+/* Indicator of whether exception catchpoints should be nuked between
+   runs of a program.  */
+extern int deprecated_exception_catchpoints_are_fragile;
+
+/* Indicator of when exception catchpoints set-up should be
+   reinitialized -- e.g. when program is re-run.  */
+extern int deprecated_exception_support_initialized;
+
 #endif /* !defined (BREAKPOINT_H) */

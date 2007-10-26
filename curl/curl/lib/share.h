@@ -21,17 +21,25 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: share.h,v 1.10 2005/01/25 00:06:29 bagder Exp $
+ * $Id: share.h,v 1.11 2006-04-26 17:11:05 giva Exp $
  ***************************************************************************/
 
 #include "setup.h"
 #include <curl/curl.h>
 #include "cookie.h"
 
+/* SalfordC says "A structure member may not be volatile". Hence:
+ */
+#ifdef __SALFORDC__
+#define CURL_VOLATILE
+#else
+#define CURL_VOLATILE volatile
+#endif
+
 /* this struct is libcurl-private, don't export details */
 struct Curl_share {
   unsigned int specifier;
-  volatile unsigned int dirty;
+  CURL_VOLATILE unsigned int dirty;
 
   curl_lock_function lockfunc;
   curl_unlock_function unlockfunc;

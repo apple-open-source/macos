@@ -28,14 +28,14 @@
 
 PIDMAP {
 	PIDMAP	*next, *prev;
-	pid_t	pid;
+	struct process_id pid;
 	char	*machine;
 };
 
 static PIDMAP	*pidmap;
 static int	PID_or_Machine;		/* 0 = show PID, else show Machine name */
 
-static pid_t smbd_pid;
+static struct process_id smbd_pid;
 
 /* from 2nd call on, remove old list */
 static void initPid2Machine (void)
@@ -55,7 +55,7 @@ static void initPid2Machine (void)
 }
 
 /* add new PID <-> Machine name mapping */
-static void addPid2Machine (pid_t pid, char *machine)
+static void addPid2Machine (struct process_id pid, char *machine)
 {
 	/* show machine name rather PID on table "Open Files"? */
 	if (PID_or_Machine) {
@@ -75,7 +75,7 @@ static void addPid2Machine (pid_t pid, char *machine)
 }
 
 /* lookup PID <-> Machine name mapping */
-static char *mapPid2Machine (pid_t pid)
+static char *mapPid2Machine (struct process_id pid)
 {
 	static char pidbuf [64];
 	PIDMAP *map;
@@ -83,7 +83,7 @@ static char *mapPid2Machine (pid_t pid)
 	/* show machine name rather PID on table "Open Files"? */
 	if (PID_or_Machine) {
 		for (map = pidmap; map != NULL; map = map->next) {
-			if (pid == map->pid) {
+			if (procid_equal(&pid, &map->pid)) {
 				if (map->machine == NULL)	/* no machine name */
 					break;			/* show PID */
 
@@ -93,38 +93,54 @@ static char *mapPid2Machine (pid_t pid)
 	}
 
 	/* PID not in list or machine name NULL? return pid as string */
-	snprintf (pidbuf, sizeof (pidbuf) - 1, "%lu", (unsigned long)pid);
+	snprintf (pidbuf, sizeof (pidbuf) - 1, "%s",
+		  procid_str_static(&pid));
 	return pidbuf;
 }
 
 static char *tstring(time_t t)
 {
 	static pstring buf;
-	pstrcpy(buf, asctime(LocalTime(&t)));
+	pstrcpy(buf, time_to_asc(t));
 	all_string_sub(buf," ","&nbsp;",sizeof(buf));
 	return buf;
 }
 
-static void print_share_mode(share_mode_entry *e, char *fname)
+static void print_share_mode(const struct share_mode_entry *e,
+			     const char *sharepath,
+			     const char *fname,
+			     void *dummy)
 {
 	char           *utf8_fname;
+	int deny_mode;
+
+	if (!is_valid_share_mode_entry(e)) {
+		return;
+	}
+
+	deny_mode = map_share_mode_to_deny_mode(e->share_access,
+						    e->private_options);
 
 	printf("<tr><td>%s</td>",_(mapPid2Machine(e->pid)));
+	printf("<td>%u</td>",(unsigned int)e->uid);
 	printf("<td>");
-	switch ((e->share_mode>>4)&0xF) {
+	switch ((deny_mode>>4)&0xF) {
 	case DENY_NONE: printf("DENY_NONE"); break;
 	case DENY_ALL:  printf("DENY_ALL   "); break;
 	case DENY_DOS:  printf("DENY_DOS   "); break;
+	case DENY_FCB:  printf("DENY_FCB   "); break;
 	case DENY_READ: printf("DENY_READ  "); break;
 	case DENY_WRITE:printf("DENY_WRITE "); break;
 	}
 	printf("</td>");
 
 	printf("<td>");
-	switch (e->share_mode&0xF) {
-	case 0: printf("%s", _("RDONLY     ")); break;
-	case 1: printf("%s", _("WRONLY     ")); break;
-	case 2: printf("%s", _("RDWR       ")); break;
+	if (e->access_mask & (FILE_READ_DATA|FILE_WRITE_DATA)) {
+		printf("%s", _("RDWR       "));
+	} else if (e->access_mask & FILE_WRITE_DATA) {
+		printf("%s", _("WRONLY     "));
+	} else {
+		printf("%s", _("RDONLY     "));
 	}
 	printf("</td>");
 
@@ -162,7 +178,7 @@ static int traverse_fn1(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf, void* st
 
 	if (crec.cnum == -1 && process_exists(crec.pid)) {
 		char buf[30];
-		slprintf(buf,sizeof(buf)-1,"kill_%d", (int)crec.pid);
+		slprintf(buf,sizeof(buf)-1,"kill_%s", procid_str_static(&crec.pid));
 		if (cgi_variable(buf)) {
 			kill_pid(crec.pid);
 			sleep(SLEEP_TIME);
@@ -181,18 +197,19 @@ static int traverse_fn2(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf, void* st
 
 	memcpy(&crec, dbuf.dptr, sizeof(crec));
 	
-	if (crec.cnum == -1 || !process_exists(crec.pid) || (crec.pid == smbd_pid))
+	if (crec.cnum == -1 || !process_exists(crec.pid) ||
+	    procid_equal(&crec.pid, &smbd_pid))
 		return 0;
 
 	addPid2Machine (crec.pid, crec.machine);
 
-	printf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td>\n",
-	       (int)crec.pid,
+	printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td>\n",
+	       procid_str_static(&crec.pid),
 	       crec.machine,crec.addr,
 	       tstring(crec.start));
 	if (geteuid() == 0) {
-		printf("<td><input type=submit value=\"X\" name=\"kill_%d\"></td>\n",
-		       (int)crec.pid);
+		printf("<td><input type=submit value=\"X\" name=\"kill_%s\"></td>\n",
+		       procid_str_static(&crec.pid));
 	}
 	printf("</tr>\n");
 
@@ -212,9 +229,9 @@ static int traverse_fn3(TDB_CONTEXT *tdb, TDB_DATA kbuf, TDB_DATA dbuf, void* st
 	if (crec.cnum == -1 || !process_exists(crec.pid))
 		return 0;
 
-	printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>\n",
-	       crec.name,uidtoname(crec.uid),
-	       gidtoname(crec.gid),(int)crec.pid,
+	printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+	       crec.servicename,uidtoname(crec.uid),
+	       gidtoname(crec.gid),procid_str_static(&crec.pid),
 	       crec.machine,
 	       tstring(crec.start));
 	return 0;
@@ -231,7 +248,7 @@ void status_page(void)
 	int nr_running=0;
 	BOOL waitup = False;
 
-	smbd_pid = pidfile_pid("smbd");
+	smbd_pid = pid_to_procid(pidfile_pid("smbd"));
 
 	if (cgi_variable("smbd_restart") || cgi_variable("all_restart")) {
 		stop_smbd();
@@ -420,7 +437,7 @@ void status_page(void)
 	printf("<tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", _("PID"), _("Sharing"), _("R/W"), _("Oplock"), _("File"), _("Date"));
 
 	locking_init(1);
-	share_mode_forall(print_share_mode);
+	share_mode_forall(print_share_mode, NULL);
 	locking_end();
 	printf("</table>\n");
 

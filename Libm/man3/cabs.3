@@ -1,64 +1,139 @@
-.\" Copyright (c) 1985, 1991 Regents of the University of California.
-.\" All rights reserved.
+.\" Copyright (c) 2006 Apple Computer
 .\"
-.\" Redistribution and use in source and binary forms, with or without
-.\" modification, are permitted provided that the following conditions
-.\" are met:
-.\" 1. Redistributions of source code must retain the above copyright
-.\"    notice, this list of conditions and the following disclaimer.
-.\" 2. Redistributions in binary form must reproduce the above copyright
-.\"    notice, this list of conditions and the following disclaimer in the
-.\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
-.\"    may be used to endorse or promote products derived from this software
-.\"    without specific prior written permission.
-.\"
-.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
-.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
-.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-.\" SUCH DAMAGE.
-.\"
-.\"     from: @(#)hypot.3	6.7 (Berkeley) 5/6/91
-.\"	$Id: cabs.3,v 1.5 2004/12/20 21:35:44 scp Exp $
-.\"
-.Dd January 28, 2003
+.Dd October 10, 2006
 .Dt CABS 3
 .Os BSD 4
 .Sh NAME
 .Nm cabs
-.Nd complex absolute value function
+.Nd complex norm (absolute value) function
+.br
+.Nm carg
+.Nd complex argument function
 .Sh SYNOPSIS
 .Fd #include <complex.h>
 .Ft double
-.Fn cabs "complex"
+.Fn cabs "double complex z"
 .Ft long double
-.Fn cabsl "long double complex"
+.Fn cabsl "long double complex z"
 .Ft float
-.Fn cabsf "float complex"
+.Fn cabsf "float complex z"
+.Ft double
+.Fn carg "double complex z"
+.Ft long double
+.Fn cargl "long double complex z"
+.Ft float
+.Fn cargf "float complex z"
 .Sh DESCRIPTION
-The
+.Fn cabs "z"
+computes the norm (absolute value) of the complex floating-point number
+.Fa z .
+.Pp
+.Fn carg "z"
+computes the argument (also called phase angle) of the complex floating-point number
+.Fa z ,
+with a branch cut on the negative real axis.  The result is in
+the range
+.Bq -\*(Pi , \*(Pi ,
+and has the same sign as the imaginary part of
+.Fa z .
+.Sh EXAMPLES
+The function foo defined in the example below applies a non-linear rotation to the
+complex plane, such that points near the origin are not much affected, and points
+far from the origin are rotated by about pi/2.
+.Pp
+This is accomplished by using cabs and carg to convert to polar coordinates, then
+computing the transformation in that coordinate system, and finally converting back
+to the usual rectangular coordinate system.
+.Bd -literal -offset indent
+#include <complex.h>
+#include <math.h>
+
+double complex foo(double complex z) {
+  // get the polar coordinates of z
+  double r = cabs(z);
+  double theta = carg(z);
+
+  // add a value dependent on r to theta
+  theta += atan(r);
+
+  // now change back to rectangular coordinates and
+  // return the new complex number
+  return r*cos(theta) + r*sin(theta)*I;
+}
+.Ed
+.Sh SPECIAL VALUES
+.Fn cabs "x + yi" ,
+.Fn cabs "y + xi" ,
+and
+.Fn cabs "x - yi"
+are equivalent.  This is used to abbreviate the specification of special values.
+.Pp
+.Fn cabs "x ± 0i"
+is equivalent to
+.Fn fabs "x" .
+.Pp
+.Fn cabs "±inf + yi"
+returns inf even if y is a NaN.
+.Pp
+.Fn cabs "x + NaN i"
+returns NaN, for finite x.
+.Pp
+.Fn cabs "NaN + NaN i"
+returns NaN.
+.Pp
+.Fn carg "-0 ± 0i"
+returns ±pi.
+.Pp
+.Fn carg "+0 ± 0i"
+returns ±0.
+.Pp
+.Fn carg "x ± 0i"
+returns ±pi for x < 0.
+.Pp
+.Fn carg "x ± 0i"
+returns ±0 for x > 0.
+.Pp
+.Fn carg "±0 + yi"
+returns -pi/2 for y < 0.
+.Pp
+.Fn carg "±0 + yi"
+returns +pi/2 for y > 0.
+.Pp
+.Fn carg "-inf ± yi"
+returns ±pi for finite y > 0.
+.Pp
+.Fn carg "+inf ± yi"
+returns ±0 for finite y > 0.
+.Pp
+.Fn carg "x ± inf i"
+returns ±pi/2 for finite x.
+.Pp
+.Fn carg "-inf ± inf i"
+returns ±3*pi/4.
+.Pp
+.Fn carg "+inf ± inf i"
+returns ±pi/4.
+.Pp
+.Fn carg "x + yi"
+returns NaN if either of x or y is NaN.
+.Sh NOTES
 .Fn cabs
-function computes the complex absolute value (also called norm, modulus, or
-magnitude) of z, without undue underflow or overflow. It is specified by
-.Fn cabs "x+iy"
-= 
-.Fn hypot "x" "y"
+and
+.Fn carg
+are fully specified in terms of real functions:
+.Bd -literal -offset indent
+cabs(x + iy) = hypot(x,y)
+.br
+carg(x + iy) = atan2(y,x).
+.Ed
 .Sh SEE ALSO
 .Xr hypot 3 ,
-.Xr math 3 ,
-.Xr sqrt 3
+.Xr atan2 3 ,
+.Xr fabs 3 ,
+.Xr complex 3
 .Sh STANDARDS
 The
 .Fn cabs
-function conforms to ISO/IEC 9899:1999(E).
+and
+.Fn carg
+functions conform to ISO/IEC 9899:1999(E).

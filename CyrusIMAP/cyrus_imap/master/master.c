@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: master.c,v 1.5 2005/03/05 00:37:28 dasenbro Exp $ */
+/* $Id: master.c,v 1.104 2006/11/30 17:11:23 murch Exp $ */
 
 #include <config.h>
 
@@ -73,6 +73,10 @@
 #include <errno.h>
 #include <limits.h>
 
+#ifdef APPLE_OS_X_SERVER
+#include "../imap/version.h"
+#endif
+
 #ifndef INADDR_NONE
 #define INADDR_NONE 0xffffffff
 #endif
@@ -88,7 +92,11 @@
 #if defined(HAVE_NETSNMP)
   #include <net-snmp/net-snmp-config.h>
   #include <net-snmp/net-snmp-includes.h>
+  #include <net-snmp/agent/agent_module_config.h>
   #include <net-snmp/agent/net-snmp-agent-includes.h>
+
+  #include "cyrusMasterMIB.h"
+
 #elif defined(HAVE_UCDSNMP)
   #include <ucd-snmp/ucd-snmp-config.h>
   #include <ucd-snmp/ucd-snmp-includes.h>
@@ -109,6 +117,8 @@
 
 #include "xmalloc.h"
 
+#include "message_uuid_master.h"
+
 enum {
     become_cyrus_early = 1,
     child_table_size = 10000,
@@ -116,11 +126,33 @@ enum {
 };
 
 static int verbose = 0;
+#ifdef APPLE_OS_X_SERVER
+#define	USER_CONN_FILE	"/var/imap/.conn_tbl"
+
 static int imap_limit = 0;
+static int conn_limit = 0;
 static int imap_count = 0;
 static int pop_count = 0;
+static int conn_file_fd = -1;
+
+struct user_conn
+{
+	char user_id[ 64 + 1 ];
+	int	 count;
+};
+
+struct user_conn_tbl
+{
+	int	tbl_size;
+	struct user_conn conn_tbl[ 1025 ];
+};
+
+struct user_conn_tbl *conn_limit_tbl = NULL;
+
+#endif
 static int listen_queue_backlog = 32;
 static int pidfd = -1;
+static int have_uuid = 0;
 
 const char *MASTER_CONFIG_FILENAME = DEFAULT_MASTER_CONFIG_FILENAME;
 
@@ -160,6 +192,11 @@ struct centry {
     enum sstate service_state;	/* SERVICE_STATE_* */
     time_t janitor_deadline;	/* cleanup deadline */
     int si;			/* Services[] index */
+#ifdef APPLE_OS_X_SERVER
+	time_t	m_start_time;
+	char m_user_buf[64+1];
+	char m_host_buf[64+1];
+#endif
     struct centry *next;
 };
 static struct centry *ctable[child_table_size];
@@ -171,7 +208,11 @@ static struct timeval janitor_mark;	/* Last time janitor did a sweep */
 
 void limit_fds(rlim_t);
 void schedule_event(struct event *a);
+
+#ifdef APPLE_OS_X_SERVER
 void set_max_procs(rlim_t max);
+void set_user_conn_limit( const char *in_user, int in_add );
+#endif
 
 void fatal(const char *msg, int code)
 {
@@ -598,6 +639,9 @@ void spawn_service(const int si)
     struct centry *c;
     struct service * const s = &Services[si];
     time_t now = time(NULL);
+    struct message_uuid uuid_prefix;
+    char *uuid_prefix_text;
+    static char uuid_env[100];
 
     if (!s->name) {
 	fatal("Serious software bug found: spawn_service() called on unnamed service!",
@@ -644,6 +688,7 @@ void spawn_service(const int si)
 	return;
     }
 
+#ifdef APPLE_OS_X_SERVER
 	/* Set limit pre fork */
 	if ( (strcmp( s->name, "imap") == 0) || (strcmp( s->name, "imaps") == 0) )
 	{
@@ -662,10 +707,25 @@ void spawn_service(const int si)
 	{
 		pop_count++;
 	}
+#endif
+
+    if (s->provide_uuid) {
+        if (!message_uuid_master_next_child(&uuid_prefix)) {
+            syslog(LOG_ERR, "Failed to generate UUID for %s", s->name);
+            message_uuid_set_null(&uuid_prefix);
+        }
+
+        if (!message_uuid_master_checksum(&uuid_prefix)) {
+            syslog(LOG_ERR, "Failed to checksum UUID for %s", s->name);
+            message_uuid_set_null(&uuid_prefix);
+        }
+
+        uuid_prefix_text = message_uuid_text(&uuid_prefix);
+    } else
+        uuid_prefix_text = NULL;
 
     switch (p = fork()) {
     case -1:
-	sleep( 3 ); // wait for a little before trying to fork again otherwise we'll be in a tight loop
 	syslog(LOG_ERR, "can't fork process to run service %s: %m", s->name);
 	break;
 
@@ -706,6 +766,13 @@ void spawn_service(const int si)
 	putenv(name_env);
 	snprintf(name_env2, sizeof(name_env2), "CYRUS_ID=%d", s->associate);
 	putenv(name_env2);
+
+	/* add UUID prefix to environment */
+	if (s->provide_uuid) {
+	    snprintf(uuid_env, sizeof(uuid_env), "CYRUS_UUID_PREFIX=%s",
+		     uuid_prefix_text);
+	    putenv(uuid_env);
+	}
 
 	execv(path, s->exec);
 	syslog(LOG_ERR, "couldn't exec %s: %m", path);
@@ -892,6 +959,7 @@ void reap_child(void)
 		    s->nactive--;
 		    s->ready_workers--;
 
+#ifdef APPLE_OS_X_SERVER
 			/* decrement current imap connection count */
 			if ( (strcmp( s->name, "imap" ) == 0) || (strcmp( s->name, "imaps" ) == 0) )
 			{
@@ -901,6 +969,7 @@ void reap_child(void)
 			{
 				pop_count--;
 			}
+#endif
 
 		    if (WIFSIGNALED(status) ||
 			(WIFEXITED(status) && WEXITSTATUS(status))) {
@@ -920,6 +989,7 @@ void reap_child(void)
 		case SERVICE_STATE_BUSY:
 		    s->nactive--;
 
+#ifdef APPLE_OS_X_SERVER
 			/* decrement current imap connection count */
 			if ( (strcmp( s->name, "imap" ) == 0) || (strcmp( s->name, "imaps" ) == 0) )
 			{
@@ -929,6 +999,7 @@ void reap_child(void)
 			{
 				pop_count--;
 			}
+#endif
 
 		    if (WIFSIGNALED(status) ||
 			(WIFEXITED(status) && WEXITSTATUS(status))) {
@@ -941,6 +1012,7 @@ void reap_child(void)
 		case SERVICE_STATE_UNKNOWN:
 		    s->nactive--;
 
+#ifdef APPLE_OS_X_SERVER
 			/* decrement current imap connection count */
 			if ( (strcmp( s->name, "imap" ) == 0) || (strcmp( s->name, "imaps" ) == 0) )
 			{
@@ -950,6 +1022,7 @@ void reap_child(void)
 			{
 				pop_count--;
 			}
+#endif
 
 		    syslog(LOG_WARNING,
 			   "service %s pid %d in UNKNOWN state: exited",
@@ -1086,6 +1159,15 @@ void sigterm_handler(int sig __attribute__((unused)))
     snmp_shutdown("cyrusMaster");
 #endif
 
+#ifdef APPLE_OS_X_SERVER
+	if ( conn_file_fd != -1 )
+	{
+		close( conn_file_fd );
+		remove( USER_CONN_FILE );
+		remove( SRVR_MGR_COM_FILE );
+	}
+#endif
+
     syslog(LOG_INFO, "exiting on SIGTERM/SIGINT");
     exit(0);
 }
@@ -1094,6 +1176,16 @@ void sigalrm_handler(int sig __attribute__((unused)))
 {
     return;
 }
+
+#ifdef APPLE_OS_X_SERVER
+
+static volatile int got_sig_usr1 = 0;
+
+void sigusr1_handler(int sig __attribute__((unused)))
+{
+    got_sig_usr1 = 1;
+}
+#endif
 
 void sighandler_setup(void)
 {
@@ -1114,6 +1206,13 @@ void sighandler_setup(void)
     if (sigaction(SIGALRM, &action, NULL) < 0) {
 	fatal("unable to install signal handler for SIGALRM: %m", 1);
     }
+
+#ifdef APPLE_OS_X_SERVER
+    action.sa_handler = sigusr1_handler;
+    if (sigaction(SIGUSR1, &action, NULL) < 0) {
+	fatal("unable to install signal handler for SIGUSR1: %m", 1);
+    }
+#endif
 
     /* Handle SIGTERM and SIGINT the same way -- kill
      * off our children! */
@@ -1138,6 +1237,9 @@ void process_msg(const int si, struct notify_message *msg)
     /* si must NOT point to an invalid service */
     struct service * const s = &Services[si];;
 
+#ifdef APPLE_OS_X_SERVER
+		struct centry *c_tbl;
+#endif
     /* Search hash table with linked list for pid */
     c = ctable[msg->service_pid % child_table_size];
     while (c && c->pid != msg->service_pid) c = c->next;
@@ -1303,6 +1405,26 @@ void process_msg(const int si, struct notify_message *msg)
 	}
 	break;
 	
+#ifdef APPLE_OS_X_SERVER
+    case MASTER_SERVICE_STATUS_ADD_USER:
+		c_tbl = ctable[c->pid % child_table_size];
+
+		c_tbl->m_start_time = msg->s_start_time;
+		strlcpy( c_tbl->m_user_buf, msg->s_user_buf, sizeof( c_tbl->m_user_buf ) );
+		strlcpy( c_tbl->m_host_buf, msg->s_host_buf, sizeof( c_tbl->m_host_buf ) );
+		set_user_conn_limit( msg->s_user_buf, 1 );
+		break;
+
+    case MASTER_SERVICE_STATUS_REMOVE_USER:
+		c_tbl = ctable[c->pid % child_table_size];
+
+		set_user_conn_limit( c_tbl->m_user_buf, 0 );
+
+		c_tbl->m_start_time = 0;
+		strlcpy( c_tbl->m_user_buf, "idle process", sizeof( c_tbl->m_user_buf ) );
+		strlcpy( c_tbl->m_host_buf, "[0.0.0.0]", sizeof( c_tbl->m_host_buf ) );
+		break;
+#endif
     default:
 	syslog(LOG_CRIT, "service %s pid %d: Software bug: unrecognized message 0x%x", 
 	       SERVICENAME(s->name), c->pid, msg->message);
@@ -1343,11 +1465,11 @@ static char **tokenize(char *p)
 void add_start(const char *name, struct entry *e,
 	       void *rock __attribute__((unused)))
 {
-    char *cmd = xstrdup(masterconf_getstring(e, "cmd", NULL));
+    char *cmd = xstrdup(masterconf_getstring(e, "cmd", ""));
     char buf[256];
     char **tok;
 
-    if (!cmd) {
+    if (!strcmp(cmd,"")) {
 	snprintf(buf, sizeof(buf), "unable to find command for %s", name);
 	fatal(buf, EX_CONFIG);
     }
@@ -1362,21 +1484,22 @@ void add_start(const char *name, struct entry *e,
 void add_service(const char *name, struct entry *e, void *rock)
 {
     int ignore_err = (int) rock;
-    char *cmd = xstrdup(masterconf_getstring(e, "cmd", NULL));
+    char *cmd = xstrdup(masterconf_getstring(e, "cmd", ""));
     int prefork = masterconf_getint(e, "prefork", 0);
     int babysit = masterconf_getswitch(e, "babysit", 0);
     int maxforkrate = masterconf_getint(e, "maxforkrate", 0);
-    char *listen = xstrdup(masterconf_getstring(e, "listen", NULL));
+    char *listen = xstrdup(masterconf_getstring(e, "listen", ""));
     char *proto = xstrdup(masterconf_getstring(e, "proto", "tcp"));
     char *max = xstrdup(masterconf_getstring(e, "maxchild", "-1"));
     rlim_t maxfds = (rlim_t) masterconf_getint(e, "maxfds", 256);
     int reconfig = 0;
     int i, j;
+    int provide_uuid = have_uuid && masterconf_getswitch(e, "provide_uuid", 0);
 
     if(babysit && prefork == 0) prefork = 1;
     if(babysit && maxforkrate == 0) maxforkrate = 10; /* reasonable safety */
 
-    if (!cmd || !listen) {
+    if (!strcmp(cmd,"") || !strcmp(listen,"")) {
 	char buf[256];
 	snprintf(buf, sizeof(buf),
 		 "unable to find command or port for service '%s'", name);
@@ -1451,6 +1574,7 @@ void add_service(const char *name, struct entry *e, void *rock)
 
     Services[i].maxforkrate = maxforkrate;
     Services[i].maxfds = maxfds;
+    Services[i].provide_uuid = provide_uuid;
 
     if (!strcmp(Services[i].proto, "tcp") ||
 	!strcmp(Services[i].proto, "tcp4") ||
@@ -1479,6 +1603,7 @@ void add_service(const char *name, struct entry *e, void *rock)
 		Services[j].desired_workers = Services[i].desired_workers;
 		Services[j].babysit = Services[i].babysit;
 		Services[j].max_workers = Services[i].max_workers;
+		Services[j].provide_uuid = Services[i].provide_uuid;
 	    }
 	}
     }
@@ -1496,13 +1621,13 @@ void add_service(const char *name, struct entry *e, void *rock)
 void add_event(const char *name, struct entry *e, void *rock)
 {
     int ignore_err = (int) rock;
-    char *cmd = xstrdup(masterconf_getstring(e, "cmd", NULL));
+    char *cmd = xstrdup(masterconf_getstring(e, "cmd", ""));
     int period = 60 * masterconf_getint(e, "period", 0);
     int at = masterconf_getint(e, "at", -1), hour, min;
     time_t now = time(NULL);
     struct event *evt;
 
-    if (!cmd) {
+    if (!strcmp(cmd,"")) {
 	char buf[256];
 	snprintf(buf, sizeof(buf),
 		 "unable to find command or port for event '%s'", name);
@@ -1543,7 +1668,8 @@ void add_event(const char *name, struct entry *e, void *rock)
     schedule_event(evt);
 }
 
-void add_limits( const char *name, struct entry *e, void *rock )
+#ifdef APPLE_OS_X_SERVER
+void add_limits ( const char *name, struct entry *e, void *rock )
 {
     int value = masterconf_getint( e, "value", 0 );
 
@@ -1551,21 +1677,112 @@ void add_limits( const char *name, struct entry *e, void *rock )
 	{
 		imap_limit = value;
 	}
+
+	if ( strcmp( name, "connlimit" ) == 0 )
+	{
+		conn_limit = value;
+
+		if ( conn_limit != 0 )
+		{
+			conn_limit_tbl = (struct user_conn_tbl *)xzmalloc( sizeof(struct user_conn_tbl) );
+			if ( conn_limit_tbl != NULL )
+			{
+				conn_file_fd = open( USER_CONN_FILE, O_CREAT | O_TRUNC | O_RDWR, 0644 );
+				if ( conn_file_fd == -1 )
+				{
+					syslog( LOG_ERR, "can't open ip connection file: %s (%m)", USER_CONN_FILE );
+				}
+				else
+				{
+					lseek( conn_file_fd, 0L, SEEK_SET );
+					write( conn_file_fd, conn_limit_tbl, sizeof( struct user_conn_tbl ) );
+				}
+			}
+		}
+	}
 }
 
-void set_max_procs(rlim_t max)
+void set_max_procs( rlim_t in_max )
 {
-    struct rlimit rl;
-	rl.rlim_max = max;
-	rl.rlim_cur = max;
-	
-	if (setrlimit(RLIMIT_NPROC, &rl) < 0) 
-		syslog(LOG_ERR, "setrlimit: Unable to set current process limit to %qd: %m", max);
-		
-	if (getrlimit(RLIMIT_NPROC, &rl) == 0) 
-		syslog(LOG_DEBUG, "getrlimit: max processes limit set to cur=%qd max=%qd", rl.rlim_cur, rl.rlim_max);	
+	struct rlimit rl;
+	rl.rlim_max = in_max;
+	rl.rlim_cur = in_max;
 
+	if ( setrlimit( RLIMIT_NPROC, &rl ) < 0 ) 
+	{
+		syslog( LOG_ERR, "setrlimit: Unable to set current process limit to %lld: %m", in_max);
+		if ( getrlimit( RLIMIT_NPROC, &rl ) == 0 )
+		{
+			syslog( LOG_ERR, "setrlimit: retrying with %lld (current max)", rl.rlim_max );
+			rl.rlim_cur = rl.rlim_max;
+			if ( setrlimit( RLIMIT_NPROC, &rl ) < 0 )
+			{
+				syslog( LOG_ERR, "setrlimit: Unable to set current process limit to %lld: %m", in_max);
+			}
+		}
+	}
+		
+	if ( getrlimit(RLIMIT_NPROC, &rl) == 0 )
+	{
+		syslog( LOG_DEBUG, "getrlimit: max processes limit set to cur=%lld max=%lld", rl.rlim_cur, rl.rlim_max);	
+	}
 }
+
+void set_user_conn_limit( const char *in_user, int in_add )
+{
+	int					i			= 0;
+	char				*p			= NULL;
+	unsigned long		hash		= 0;
+	struct user_conn	*tbl_ptr	= NULL;
+
+	if ( (conn_limit_tbl == NULL) || (conn_file_fd == -1) )
+	{
+		return;
+	}
+
+	p = in_user;
+	while ( i = *p++ )
+	{
+		hash = i + (hash << 6) + (hash << 16) - hash;
+	}
+	i = hash % 1000;
+
+	tbl_ptr = &conn_limit_tbl->conn_tbl[ i ];
+	if ( in_add != 0 )
+	{
+		if ( strlen( tbl_ptr->user_id ) == 0 )
+		{
+			strlcpy( tbl_ptr->user_id, in_user, 64 + 1 );
+			tbl_ptr->count = 1;
+		}
+		else
+		{
+			if ( strcmp( in_user, tbl_ptr->user_id ) == 0 )
+			{
+				tbl_ptr->count++;
+			}
+		}
+	}
+	else
+	{
+		if ( strlen( tbl_ptr->user_id ) != 0 )
+		{
+			if ( tbl_ptr->count <= 1 )
+			{
+				tbl_ptr->count = 0;
+				memset( tbl_ptr->user_id, 0, 64 + 1 );
+			}
+			else
+			{
+				tbl_ptr->count--;
+			}
+		}
+	}
+    lseek( conn_file_fd, 0L, SEEK_SET );
+	write( conn_file_fd, conn_limit_tbl, sizeof( struct user_conn_tbl ) );
+}
+
+#endif
 
 #ifdef HAVE_SETRLIMIT
 
@@ -1583,24 +1800,39 @@ void limit_fds(rlim_t x)
 
     rl.rlim_cur = x;
     rl.rlim_max = x;
-    if (setrlimit(RLIMIT_NUMFDS, &rl) < 0) {
+    if ( (setrlimit(RLIMIT_NUMFDS, &rl) < 0) && (x != RLIM_INFINITY) ) {
+#ifdef APPLE_OS_X_SERVER
+	syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %lld: %m", x);
+#else
 	syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %ld: %m", x);
-
+#endif
 #ifdef HAVE_GETRLIMIT
 
 	if (!getrlimit(RLIMIT_NUMFDS, &rl)) {
+#ifdef APPLE_OS_X_SERVER
+	    syslog(LOG_ERR, "retrying with %lld (current max)", rl.rlim_max);
+#else
 	    syslog(LOG_ERR, "retrying with %ld (current max)", rl.rlim_max);
+#endif
 	    rl.rlim_cur = rl.rlim_max;
 	    if (setrlimit(RLIMIT_NUMFDS, &rl) < 0) {
+#ifdef APPLE_OS_X_SERVER
+		syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %lld: %m", x);
+#else
 		syslog(LOG_ERR, "setrlimit: Unable to set file descriptors limit to %ld: %m", x);
+#endif
 	    }
 	}
     }
 
 
-    if (verbose > 1) {
+    if ( (verbose > 1) && (getrlimit(RLIMIT_NUMFDS, &rl) >= 0) ) {
 	r = getrlimit(RLIMIT_NUMFDS, &rl);
+#ifdef APPLE_OS_X_SERVER
+	syslog(LOG_DEBUG, "set maximum file descriptors to %lld/%lld", rl.rlim_cur,
+#else
 	syslog(LOG_DEBUG, "set maximum file descriptors to %ld/%ld", rl.rlim_cur,
+#endif
 	       rl.rlim_max);
     }
 #else
@@ -1882,7 +2114,10 @@ int main(int argc, char **argv)
     }
 
     limit_fds(RLIM_INFINITY);
-	set_max_procs(RLIM_INFINITY);
+#ifdef APPLE_OS_X_SERVER
+	set_max_procs(4096);
+	remove( USER_CONN_FILE );
+#endif
 
     /* Write out the pidfile */
     pidfd = open(pidfile, O_CREAT|O_RDWR, 0644);
@@ -1981,7 +2216,9 @@ int main(int argc, char **argv)
     masterconf_getsection("START", &add_start, NULL);
     masterconf_getsection("SERVICES", &add_service, NULL);
     masterconf_getsection("EVENTS", &add_event, NULL);
+#ifdef APPLE_OS_X_SERVER
     masterconf_getsection("LIMITS", &add_limits, NULL);
+#endif
 
     /* set signal handlers */
     sighandler_setup();
@@ -2001,13 +2238,22 @@ int main(int argc, char **argv)
 	    exit(1);
 	}
     }
+
+    have_uuid = (config_getint(IMAPOPT_SYNC_MACHINEID) >= 0);
+    if (have_uuid && !message_uuid_master_init()) {
+        syslog(LOG_ERR, "Couldn't initialise UUID subsystem");
+        exit(EX_OSERR);
+    }
     
     /* init ctable janitor */
     init_janitor();
     
     /* ok, we're going to start spawning like mad now */
+#ifdef APPLE_OS_X_SERVER
+    syslog(LOG_NOTICE, "Cyrus POP/IMAP Server %s ready for work", _CYRUS_VERSION);
+#else
     syslog(LOG_NOTICE, "ready for work");
-
+#endif
     now = time(NULL);
     for (;;) {
 	int r, i, maxfd;
@@ -2058,6 +2304,7 @@ int main(int argc, char **argv)
 		Services[i].nactive = 0;
 		Services[i].nconnections = 0;
 		Services[i].associate = 0;
+                Services[i].provide_uuid = 0;
 
 		if (Services[i].stat[0] > 0) close(Services[i].stat[0]);
 		if (Services[i].stat[1] > 0) close(Services[i].stat[1]);
@@ -2070,6 +2317,58 @@ int main(int argc, char **argv)
 	    gotsighup = 0;
 	    reread_conf();
 	}
+
+
+#ifdef APPLE_OS_X_SERVER
+	if ( got_sig_usr1 )
+	{
+		int		file_fd = -1;
+		char	pData[1024];
+		struct	service *srvc	= NULL;
+		struct	centry *c_tbl	= NULL;
+
+		file_fd = open(SRVR_MGR_COM_FILE, O_CREAT|O_TRUNC|O_RDWR, 0600);
+		if ( file_fd == -1 )
+		{
+			syslog( LOG_ERR, "can't open com file: %s (%m)", SRVR_MGR_COM_FILE );
+		}
+		else
+		{
+			/* Write header to status file */
+			sprintf( pData, SRVR_MGR_DATA_OPEN, imap_count, pop_count );
+
+			if ( lseek(file_fd, 0, SEEK_SET) == -1 ||
+				ftruncate(file_fd, 0) == -1 ||
+				write(file_fd, pData, strlen(pData)) == -1 )
+			{
+				syslog( LOG_ERR, "unable to write to com file: %m", SRVR_MGR_COM_FILE );
+			}
+
+			/* dump connected user stats */
+			for ( i = 0 ; i < child_table_size ; i++ )
+			{
+				c_tbl = ctable[i];
+				while ( c_tbl != NULL )
+				{
+					if ( (c_tbl->si) != SERVICE_NONE )
+					{
+						srvc = &Services[c_tbl->si];
+						if ( strcmp(c_tbl->m_user_buf, "idle process") && (srvc != NULL) && ((!strcmp( srvc->name, "imap")) || (!strcmp( srvc->name, "pop3"))) )
+						{
+							sprintf( pData, SRVR_MGR_DATA_USER_DICT, srvc->name, c_tbl->m_user_buf, c_tbl->m_host_buf, c_tbl->m_start_time );
+							write( file_fd, pData, strlen(pData) );
+						}
+					}
+					c_tbl = c_tbl->next;
+				}
+			}
+
+			write( file_fd, SRVR_MGR_DATA_CLOSE, strlen( SRVR_MGR_DATA_CLOSE ) );
+			close( file_fd );
+		}
+		got_sig_usr1 = 0;
+	}
+#endif
 
 	FD_ZERO(&rfds);
 	maxfd = 0;

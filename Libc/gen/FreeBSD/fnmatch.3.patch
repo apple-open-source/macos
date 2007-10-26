@@ -1,0 +1,11 @@
+--- _SB/Libc/gen/FreeBSD/fnmatch.3	2004-11-25 11:38:00.000000000 -0800
++++ _SB/Libc/gen/FreeBSD/fnmatch.3.edit	2006-06-28 16:55:50.000000000 -0700
+@@ -126,7 +126,7 @@
+ function returns zero if
+ .Fa string
+ matches the pattern specified by
+-.Fa pattern ,
++.Fa pattern ;
+ otherwise, it returns the value
+ .Dv FNM_NOMATCH .
+ .Sh SEE ALSO

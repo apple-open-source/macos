@@ -1,4 +1,5 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
+
 after_install:
 	mkdir -p "$(DSTROOT)/usr/share/man/man6"
-	install -c -m 644 banner.6 "$(DSTROOT)/usr/share/man/man6/banner.6"
+	install -c -m 644 -o root -g wheel banner.6 "$(DSTROOT)/usr/share/man/man6/banner.6"

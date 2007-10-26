@@ -1,6 +1,7 @@
 GNU Emacs Installation Guide
-Copyright (c) 1992, 1994, 1996, 1997, 2000 Free software Foundation, Inc.
-See the end of the file for copying permissions.
+Copyright (C) 1992, 1994, 1996, 1997, 2000, 2001, 2002, 2003, 2004,
+2005, 2006, 2007  Free Software Foundation, Inc.
+See the end of the file for license conditions.
 
 
 BASIC INSTALLATION
@@ -21,21 +22,14 @@ maybe perform some of the steps manually.  The more detailed
 description in the rest of the sections of this guide will help you do
 that, so please refer to them if the simple procedure does not work.
 
-  1. If you want to be able to input international characters which
-     your keyboard doesn't support directly (i.e. you cannot type
-     them at the shell prompt), download the leim-M.N.tar.gz
-     distribution and unpack it into the same directory where you have
-     unpacked the main Emacs distribution.  See ADDITIONAL
-     DISTRIBUTION FILES, below, for more about this.
+  1. Make sure your system has at least 120 MB of free disk space.
 
-  2. Make sure your system has at least 120 MB of free disk space.
-
-  3a. `cd' to the directory where you unpacked Emacs and invoke the
+  2a. `cd' to the directory where you unpacked Emacs and invoke the
       `configure' script:
 
 		 ./configure
 
-  3b. Alternatively, create a separate directory, outside the source
+  2b. Alternatively, create a separate directory, outside the source
       directory, where you want to build Emacs, and invoke `configure'
       from there:
 
@@ -44,7 +38,7 @@ that, so please refer to them if the simple procedure does not work.
       where SOURCE-DIR is the top-level Emacs source directory.  This
       may not work unless you use GNU make.
 
-  4. When `configure' finishes, it prints several lines of details
+  3. When `configure' finishes, it prints several lines of details
      about the system configuration.  Read those details carefully
      looking for anything suspicious, such as wrong CPU and operating
      system names, wrong places for headers or libraries, missing
@@ -62,24 +56,24 @@ that, so please refer to them if the simple procedure does not work.
      If the details printed by `configure' don't make any sense to
      you, assume that `configure' did its job and proceed.
 
-  5. If you need to run the `configure' script more than once (e.g.,
+  4. If you need to run the `configure' script more than once (e.g.,
      with some non-default options), always clean the source
      directories before running `configure' again:
 
-		make distclean 
+		make distclean
 		./configure
 
-  6. Invoke the `make' program:
+  5. Invoke the `make' program:
 
 		 make
 
-  7. If `make' succeeds, it will build an executable program `emacs'
+  6. If `make' succeeds, it will build an executable program `emacs'
      in the `src' directory.  You can try this program, to make sure
      it works:
 
 		 src/emacs -q
 
-  8. Assuming that the program `src/emacs' starts and displays its
+  7. Assuming that the program `src/emacs' starts and displays its
      opening screen, you can install the program and its auxiliary
      files into their installation directories:
 
@@ -98,35 +92,15 @@ that, so please refer to them if the simple procedure does not work.
 
 ADDITIONAL DISTRIBUTION FILES
 
-* leim-M.N.tar.gz
-
-The Emacs Lisp code for input methods for various international
-character scripts allows you to input characters in scripts which are
-not directly supported by your keyboard. It is distributed in a
-separate tar file because it amounts to a significant fraction of the
-size of the distribution.  This tar file is called leim-M.N.tar.gz,
-with the same version number as Emacs, and it unpacks into the
-directory emacs-M.N/leim.
-
-You should unpack leim-M.N.tar.gz into the same directory where you
-have previously unpacked the main Emacs distribution.  It fills in the
-contents of one subdirectory, which is present in the main Emacs
-distribution only in dummy form.
-
-Once you have unpacked the Leim tar file into the Emacs source tree,
-building and installing Emacs automatically installs the input method
-support as well.  If you have built Emacs without unpacking Leim
-first, just unpack Leim, build Emacs again, and install it again.
-
 * intlfonts-VERSION.tar.gz
 
-The intlfonts distribution contains X11 fonts that Emacs needs in
-order to display international characters.  If you see a non-ASCII
-character appear as a hollow box, that means you don't have a font for
-it.  You might find a font in the intlfonts distribution.  If you do
-have a font for a non-ASCII character, but some characters don't look
-right, or appear improperly aligned, a font from the intlfonts
-distribution might look better.
+The intlfonts distribution contains X11 fonts in various encodings
+that Emacs can use to display international characters.  If you see a
+non-ASCII character appear as a hollow box, that means you don't have
+a font for it.  You might find one in the intlfonts distribution.  If
+you do have a font for a non-ASCII character, but some characters
+don't look right, or appear improperly aligned, a font from the
+intlfonts distribution might look better.
 
 The fonts in the intlfonts distribution are also used by the ps-print
 package for printing international characters.  The file
@@ -135,31 +109,6 @@ each character set.
 
 The intlfonts distribution contains its own installation instructions,
 in the intlfonts/README file.
-
-* elisp-manual-M.N.tar.gz
-
-This distribution contains the Emacs Lisp Reference Manual which
-complements the Emacs Manual.  (The Emacs Manual is accessible from
-within the editor by typing "C-h i", then selecting the "Emacs" item
-from the menu, or by clicking "Help" in the menu bar and selecting
-"Read Emacs Manual".)  It is a good idea to install the Emacs Lisp
-Reference Manual after installing Emacs, to complete the on-line
-documentation of Emacs in Info.
-
-If you have installed Texinfo, you can install the Emacs Lisp
-Reference Manual this way (after unpacking the elisp-manual-M.N.tar.gz
-file):
-
-     cd elisp-manual-M.N
-     ./configure --prefix=PREFIXDIR
-     make install
-
-Otherwise, you can install it manually.  Just copy the files elisp and
-elisp-* from the elisp-manual-M.N directory to your site's info
-directory (see the description of `infodir', below), and make sure
-that file `dir' in this directory contains an entry like this:
-
-    * Elisp: (elisp).	The Emacs Lisp Reference Manual.
 
 * Image support libraries
 
@@ -179,19 +128,19 @@ colored icons in the toolbar if XPM support is not compiled in.
 Here's the list of these optional libraries, and the URLs where they
 can be found:
 
-  . libXaw3d for fancy 3D-style 
+  . libXaw3d for fancy 3D-style
       scroll bars:    ftp://ftp.x.org/contrib/widgets/Xaw3d/
   . libxpm for XPM:   ftp://ftp.x.org/contrib/libraries/
-		      Get version 3.4k or later, which lets Emacs 
+		      Get version 3.4k or later, which lets Emacs
 		      use its own color allocation functions.
-  . libpng for PNG:   ftp://www.libpng.org/pub/png/
-  . libz (for PNG):   http://www.info-zip.org/pub/infozip/zlib/
+  . libpng for PNG:   ftp://ftp.simplesystems.org/pub/libpng/png/
+  . libz (for PNG):   http://www.zlib.net/
   . libjpeg for JPEG: ftp://ftp.uu.net/graphics/jpeg/
                       Get version 6b -- 6a is reported to fail in
                       Emacs.
   . libtiff for TIFF: http://www.libtiff.org/
-  . libungif for GIF: 
-      http://prtr-13.ucsc.edu/~badger/software/libungif/index.shtml
+  . libungif for GIF:
+      http://sourceforge.net/projects/libungif
       Ensure you get version 4.1.0b1 or higher of libungif -- a bug in
       4.1.0 can crash Emacs.
 
@@ -204,18 +153,49 @@ configure should avoid such old versions.  If that happens, use the
 
 * Extra fonts
 
+The Emacs distribution does not include fonts and does not install
+them.  You must do that yourself.
+
 To take proper advantage of Emacs 21's mule-unicode charsets, you need
-a Unicode font.  For information on Unicode fonts for X, see
-<URL:http://czyborra.com/unifont/>,
-<URL:http://openlab.ring.gr.jp/efont/> and
+a suitable font.  For `Unicode' (ISO 10646) fonts for X, see
+<URL:http://czyborra.com/unifont/> (packaged in Debian),
+<URL:http://openlab.ring.gr.jp/efont/> (packaged in Debian).  (In
+recent Debian versions, there is an extensive `misc-fixed' iso10646-1
+in the default X installation.)  Perhaps also see
 <URL:http://www.cl.cam.ac.uk/%7Emgk25/ucs-fonts.html>.
+
 <URL:http://czyborra.com/charsets/> has basic fonts for Emacs's
 ISO-8859 charsets.
 
-XFree86 release 4 (from <URL:ftp://ftp.xfree86.org/> and mirrors)
+XFree86 release 4 (from <URL:ftp://ftp.xfree86.org/pub/XFree86/> and mirrors)
 contains font support for most, if not all, of the charsets that Emacs
-supports.  The font files should be usable separately with older X
-releases.
+currently supports, including iso10646-1 encoded fonts for use with
+the mule-unicode charsets.  The font files should also be usable with
+older X releases.  Note that XFree 4 contains many iso10646-1 fonts
+with minimal character repertoires, which can cause problems -- see
+etc/PROBLEMS.
+
+BDF Unicode fonts etl-unicode.tar.gz are available from
+<URL:ftp://ftp.x.org/contrib/fonts/> and
+<URL:ftp://ftp.xfree86.org/pub/mirror/X.Org/contrib/fonts/>.  These
+fonts can also be used by ps-print and ps-mule to print Unicode
+characters.
+
+Finally, the Web pages <URL:http://www.nongnu.org/freefont/index.html>
+and <URL:http://www.nongnu.org/freefont/resources.html> list a large
+number of free Unicode fonts.
+
+* GNU/Linux development packages
+
+Many GNU/Linux systems do not come with development packages by
+default; they just include the files that you need to run Emacs, but
+not those you need to compile it.  For example, to compile Emacs with
+X11 support, you may need to install the special `X11 development'
+package.  For example, in April 2003, the package names to install
+were `XFree86-devel' and `Xaw3d-devel' on Red Hat.  On Debian, the
+packages necessary to build the installed version should be
+sufficient; they can be installed using `apt-get build-dep emacs21' in
+Debian 3 and above.
 
 
 DETAILED BUILDING AND INSTALLATION:
@@ -227,18 +207,17 @@ mac/INSTALL.)
 
 1) Make sure your system has enough swapping space allocated to handle
 a program whose pure code is 1.5 MB and whose data area is at
-least 2.5 MB and can reach 80 MB or more.  If the swapping space is
+least 2.8 MB and can reach 100 MB or more.  If the swapping space is
 insufficient, you will get an error in the command `temacs -batch -l
 loadup dump', found in `./src/Makefile.in', or possibly when
 running the final dumped Emacs.
- 
-Building Emacs requires about 95 MB of disk space (including the Emacs
-sources), or 130 MB if Leim is used.  Once installed, Emacs occupies
-about 60 MB (70 MB with Leim) in the file system where it is
-installed; this includes the executable files, Lisp libraries,
-miscellaneous data files, and on-line documentation.  If the building
-and installation take place in different directories, then the
-installation procedure momentarily requires 95+60 MB (130+70 MB).
+
+Building Emacs requires about 140 MB of disk space (including the
+Emacs sources) Once installed, Emacs occupies about 77 MB in the file
+system where it is installed; this includes the executable files, Lisp
+libraries, miscellaneous data files, and on-line documentation.  If
+the building and installation take place in different directories,
+then the installation procedure momentarily requires 140+77 MB.
 
 2) Consult `./etc/MACHINES' to see what configuration name you should
 give to the `configure' program.  That file offers hints for
@@ -276,15 +255,20 @@ accept a list of directories, separated with colons.
 
 To get more attractive menus, you can specify an X toolkit when you
 configure Emacs; use the option `--with-x-toolkit=TOOLKIT', where
-TOOLKIT is `athena' or `motif' (`yes' and `lucid' are synonyms for
-`athena').  On some systems, it does not work to use a toolkit with
-shared libraries.  A free implementation of Motif, called LessTif, is
-available ftom <http://www.lesstif.org>.  Compiling with LessTif or
-Motif causes a standard File Selection Dialog to pop up when you type
-"C-x C-f" and similar commands.  You can get fancy 3D-style scroll
-bars, even without LessTif/Motif, if you have the Xaw3d library
-installed (see "Image support libraries" above for Xaw3d
+TOOLKIT is `athena', `motif' or `gtk' (`yes' and `lucid' are synonyms
+for `athena').  On some systems, it does not work to use a toolkit
+with shared libraries.  A free implementation of Motif, called
+LessTif, is available from <http://www.lesstif.org>.  Compiling with
+LessTif or Motif causes a standard File Selection Dialog to pop up
+when you invoke file commands with the mouse.  You can get fancy
+3D-style scroll bars, even without LessTif/Motif, if you have the
+Xaw3d library installed (see "Image support libraries" above for Xaw3d
 availability).
+
+If `--with-x-toolkit=gtk' is specified, you can tell configure where
+to search for GTK by specifying `--with-pkg-config-prog=PATH' where
+PATH is the pathname to pkg-config.  Note that GTK version 2.4 or
+newer is required for Emacs.
 
 The `--with-gcc' option specifies that the build process should
 compile Emacs using GCC.  If you don't want to use GCC, specify
@@ -314,9 +298,15 @@ or more of these options:
   --without-png        for PNG image support
 
 Use --without-toolkit-scroll-bars to disable LessTif/Motif or Xaw3d
-scroll bars.  --without-xim disables the use of X Input Methods, and
---disable-largefile omits support for files larger than 2GB on systems
-which support that.
+scroll bars.
+
+Use --without-xim to inhibit the default use of X Input Methods.  In
+this case, the X resource useXIM can be used to turn on use of XIM.
+
+Use --disable-largefile omits support for files larger than 2GB on
+systems which support that.
+
+Use --without-sound to disable sound support.
 
 The `--prefix=PREFIXDIR' option specifies where the installation process
 should put emacs and its data files.  This defaults to `/usr/local'.
@@ -363,7 +353,7 @@ tests in FILE instead of `config.cache'.  Set FILE to `/dev/null' to
 disable caching, for debugging `configure'.
 
 If the description of the system configuration printed by `configure'
-is not right, or if it claims some of the fatures or libraries are not
+is not right, or if it claims some of the features or libraries are not
 available when you know they are, look at the `config.log' file for
 the trace of the failed tests performed by `configure' to check
 whether these features are supported.  Typically, some test fails
@@ -374,11 +364,12 @@ Some tests might fail because the compiler should look in special
 directories for some header files, or link against optional
 libraries, or use special compilation options.  You can force
 `configure' and the build process which follows it to do that by
-setting the variables CPPFLAGS, CFLAGS, LDFLAGS, LIBS, and CC before
-running `configure'.  CPPFLAGS lists the options passed to the
-preprocessor, CFLAGS are compilation options, LDFLAGS are options used
-when linking, LIBS are libraries to link against, and CC is the
-command which invokes the compiler.
+setting the variables CPPFLAGS, CFLAGS, LDFLAGS, LIBS, CPP and CC
+before running `configure'.  CPP is the command which invokes the
+preprocessor, CPPFLAGS lists the options passed to it, CFLAGS are
+compilation options, LDFLAGS are options used when linking, LIBS are
+libraries to link against, and CC is the command which invokes the
+compiler.
 
 Here's an example of a `configure' invocation, assuming a Bourne-like
 shell such as Bash, which uses these variables:
@@ -392,6 +383,16 @@ files (in addition to the standard directories), instruct the linker
 to look in `/bar/mylib' for libraries, pass the -O3 optimization
 switch to the compiler, and link against libfoo.a and libbar.a
 libraries in addition to the standard ones.
+
+For some libraries, like Gtk+, fontconfig and ALSA, `configure' use
+pkg-config to find where those libraries are installed.
+If you want pkg-config to look in special directories, you have to set
+the environment variable PKG_CONFIG_PATH to point to the directories
+where the .pc-files for those libraries are.
+For example:
+
+ PKG_CONFIG_PATH='/usr/local/alsa/lib/pkgconfig:/opt/gtk+-2.8/lib/pkgconfig' \
+   ./configure
 
 The work of `configure' can be done by editing various files in the
 distribution, but using `configure' is easier.  See the section called
@@ -483,17 +484,6 @@ are installed in the following directories:
 		at the same time; in particular, you don't have to
 		make Emacs unavailable while installing a new version.
 
-`/usr/local/share/emacs/VERSION/site-lisp' holds the local Emacs Lisp
-		files installed for Emacs version VERSION only.
-
-`/usr/local/share/emacs/site-lisp' holds the local Emacs Lisp
-		files installed for all Emacs versions.
-
-		When Emacs is installed, it searches for its Lisp files
-		in `/usr/local/share/emacs/VERSION/site-lisp', then in
-		`/usr/local/share/emacs/site-lisp', and finally in
-		`/usr/local/share/emacs/VERSION/lisp'.
-
 `/usr/local/share/emacs/VERSION/etc' holds the Emacs tutorial, the DOC
 		file, the `yow' database, and other
 		architecture-independent files Emacs might need while
@@ -515,13 +505,28 @@ are installed in the following directories:
 		useful for sites at which different kinds of machines
 		share the file system Emacs is installed on.
 
-`/usr/local/info' holds the on-line documentation for Emacs, known as
-		"info files".  Many other GNU programs are documented
-		using info files as well, so this directory stands
-		apart from the other, Emacs-specific directories.
+`/usr/local/share/info' holds the on-line documentation for Emacs,
+		known as "info files".  Many other GNU programs are
+		documented using info files as well, so this directory
+		stands apart from the other, Emacs-specific
+		directories.
 
 `/usr/local/man/man1' holds the man pages for the programs installed
 		in `/usr/local/bin'.
+
+Any version of Emacs, whether installed or not, also looks for Lisp
+files in these directories.
+
+`/usr/local/share/emacs/VERSION/site-lisp' holds the local Emacs Lisp
+		files installed for Emacs version VERSION only.
+
+`/usr/local/share/emacs/site-lisp' holds the local Emacs Lisp
+		files installed for all Emacs versions.
+
+		When Emacs is installed, it searches for its Lisp files
+		in `/usr/local/share/emacs/VERSION/site-lisp', then in
+		`/usr/local/share/emacs/site-lisp', and finally in
+		`/usr/local/share/emacs/VERSION/lisp'.
 
 If these directories are not what you want, you can specify where to
 install Emacs's libraries and data files or where Emacs should search
@@ -530,8 +535,8 @@ the command.  See the section below called `MAKE VARIABLES' for more
 information on this.
 
 8) Check the file `dir' in your site's info directory (usually
-/usr/local/info) to make sure that it has a menu entry for the Emacs
-info files.
+/usr/local/share/info) to make sure that it has a menu entry for the
+Emacs info files.
 
 9) If your system uses lock files to interlock access to mailer inbox files,
 then you might need to make the movemail program setuid or setgid
@@ -542,9 +547,8 @@ the build directory by typing `make clean'.  To also remove the files
 that `configure' created (so you can compile Emacs for a different
 configuration), type `make distclean'.  If you don't need some, or all
 of the input methods from the Leim package, you can remove the
-unneeded files in the leim/quail, leim/skk, and leim/skk-dic
-subdirectories of your site's lisp directory (usually
-/usr/local/share/emacs/VERSION/).
+unneeded files in the leim subdirectories of your site's lisp
+directory (usually /usr/local/share/emacs/VERSION/).
 
 
 
@@ -584,7 +588,7 @@ Here is a complete list of the variables you may want to set.
 	We create the following subdirectories under `libexecdir':
 	- `emacs/VERSION/CONFIGURATION-NAME', containing executable
 		programs used by Emacs that users are not expected to run
-		themselves.  
+		themselves.
 	`VERSION' is the number of the Emacs version you are installing,
 	and `CONFIGURATION-NAME' is the argument you gave to the
 	`configure' program to identify the architecture and operating
@@ -598,7 +602,7 @@ Here is a complete list of the variables you may want to set.
 	installed on.
 
 `infodir' indicates where to put the info files distributed with
-	Emacs; it defaults to `/usr/local/info'.
+	Emacs; it defaults to `/usr/local/share/info'.
 
 `mandir' indicates where to put the man pages for Emacs and its
 	utilities (like `etags'); it defaults to
@@ -687,7 +691,7 @@ from the corresponding `Makefile.in' files.  This isn't so hard,
 just a matter of substitution.
 
 The `configure' script is built from `configure.in' by the `autoconf'
-program.  You need version 2.8 or newer of `autoconf' to rebuild
+program.  You need version 2.51 or newer of `autoconf' to rebuild
 `configure'.
 
 BUILDING GNU EMACS BY HAND
@@ -700,8 +704,8 @@ the following steps.
 the paths to the values specified in `./Makefile'.
 
 2) Go to directory `./lib-src' and run `make'.  This creates
-executables named `ctags' and `etags' and `wakeup' and `make-docfile'
-and `digest-doc' and `test-distrib'.  And others.
+executables named `ctags' and `etags' and `make-docfile' and
+`digest-doc' and `test-distrib'.  And others.
 
 3) Go to directory `./src' and Run `make'.  This refers to files in
 the `./lisp' and `./lib-src' subdirectories using names `../lisp' and
@@ -728,9 +732,9 @@ directory of the Emacs distribution.
 in `./lib-src' to their final destinations, as selected in `./src/paths.h'.
 
 Strictly speaking, not all of the executables in `./lib-src' need be copied.
-- The programs `cvtmail', `emacsserver', `fakemail', `hexl',
-    `movemail', `profile', `rcs2log', `timer', `vcdiff', `wakeup',
-    and `yow' are used by Emacs; they do need to be copied.
+- The programs `cvtmail', `fakemail', `hexl',
+    `movemail', `profile', `rcs2log', and `vcdiff' are used by Emacs;
+    they do need to be copied.
 - The programs `etags', `ctags', `emacsclient', `b2m', and `rcs-checkin'
     are intended to be run by users; they are handled below.
 - The programs `make-docfile' and `test-distrib' were
@@ -830,14 +834,6 @@ To unpack Emacs with djtar, type this command:
 (This assumes that the Emacs distribution is called `emacs.tgz' on
 your system.)
 
-If you need to type international characters, you will need to unpack
-the Leim distribution (see the description near the beginning of this
-file).  You unpack it from the same directory where you unpacked
-Emacs.  To unpack Leim with djtar, assuming the Leim distribution is
-called `leim.tgz', type this command:
-
-    djtar -x leim.tgz
-
 If you want to print international characters, install the intlfonts
 distribution.  For this, create a directory called `fonts' under the
 Emacs top-level directory (usually called `emacs-XX.YY') created by
@@ -889,11 +885,10 @@ sibling directory called bin.  For example, if you build in directory
 /emacs/lib-src to the directory /emacs/bin, so you can then delete the
 subdirectories /emacs/src and /emacs/lib-src if you wish.  The only
 subdirectories you need to keep are bin, lisp, etc and info.  (If you
-installed Leim, keep the leim subdirectory, and if you installed
-intlfonts, keep the fonts directory and all its subdirectories as well.)
-The bin subdirectory should be added to your PATH.  The msdos
-subdirectory includes a PIF and an icon file for Emacs which you might
-find useful if you run Emacs under MS Windows.
+installed intlfonts, keep the fonts directory and all its
+subdirectories as well.)  The bin subdirectory should be added to your
+PATH.  The msdos subdirectory includes a PIF and an icon file for
+Emacs which you might find useful if you run Emacs under MS Windows.
 
 Emacs on MSDOS finds the lisp, etc and info directories by looking in
 ../lisp, ../etc and ../info, starting from the directory where the
@@ -912,17 +907,19 @@ is_exec.c and sigaction.c.  To work around the bugs, compile these
 files and link them into temacs.  Djgpp versions 2.01 and later have
 these bugs fixed, so upgrade if you can before building Emacs.
 
-COPYING PERMISSIONS
+This file is part of GNU Emacs.
 
-   Permission is granted to anyone to make or distribute verbatim copies
-   of this document as received, in any medium, provided that the
-   copyright notice and permission notice are preserved,
-   and that the distributor grants the recipient permission
-   for further redistribution as permitted by this notice.
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
 
-   Permission is granted to distribute modified versions
-   of this document, or of portions of it,
-   under the above conditions, provided also that they
-   carry prominent notices stating who last changed them,
-   and that any new or changed statements about the activities
-   of the Free Software Foundation are approved by the Foundation.
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to the
+Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.

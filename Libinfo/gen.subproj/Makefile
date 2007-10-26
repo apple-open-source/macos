@@ -22,10 +22,12 @@ CFILES = aliasdb.c ether_addr.c fstab.c getgrent.c\
          map_v4v6.c ip6opt.c rthdr.c vars.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
-            ether_addr.3 getifaddrs.3 if_indextoname.3 inet6_rthdr_space.3\
+            getifaddrs.3 if_indextoname.3 inet6_rthdr_space.3\
             gethostbyname.3 inet6_option_space.3\
             getprotoent.3 gethostbyname.3 getipnodebyname.3\
             getnetent.3 getservent.3 inet6_option_space.3
+
+OTHERLINKEDOFILES = _version.o
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

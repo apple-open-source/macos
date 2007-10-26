@@ -39,7 +39,7 @@ LocalKey::LocalKey(Database &db, const CssmKey &newKey, CSSM_KEYATTR_FLAGS moreA
 {
 	mValidKey = true;
 	setup(newKey, moreAttributes);
-    secdebug("SSkey", "%p (handle 0x%lx) created from key alg=%ld use=0x%lx attr=0x%lx db=%p",
+    secdebug("SSkey", "%p (handle 0x%lx) created from key alg=%u use=0x%x attr=0x%x db=%p",
         this, handle(), mKey.header().algorithm(), mKey.header().usage(), mAttributes, &db);
 }
 
@@ -101,6 +101,7 @@ LocalDatabase &LocalKey::database() const
 //
 CssmClient::Key LocalKey::keyValue()
 {
+	StLock<Mutex> _(*this);
     if (!mValidKey) {
 		getKey();
 		mValidKey = true;
@@ -123,6 +124,8 @@ CSSM_KEYATTR_FLAGS LocalKey::attributes()
 //
 void LocalKey::returnKey(Handle &h, CssmKey::Header &hdr)
 {
+	StLock<Mutex> _(*this);
+
     // return handle
     h = this->handle();
 	
@@ -145,6 +148,7 @@ void LocalKey::returnKey(Handle &h, CssmKey::Header &hdr)
 //
 const CssmData &LocalKey::canonicalDigest()
 {
+	StLock<Mutex> _(*this);
 	if (!mDigest) {
 		CssmClient::PassThrough ctx(Server::csp());
 		ctx.key(keyValue());

@@ -4,17 +4,11 @@
 PROG=	mklocale
 WARNS?=	6
 NO_WERROR= 1
+SRCS=	yacc.y lex.l y.tab.h
 #---- Darwin Begin -----
-#SRCS=	yacc.y lex.l y.tab.h
-SRCS=	${.OBJDIR}/yacc.y lex.l
 #CFLAGS+= -I. -I${.CURDIR}
 CFLAGS+= -I. -I${.CURDIR} -include fbsdcompat.h
 BINDIR= /usr/bin
-
-all: ${.OBJDIR}/yacc.y
-
-${.OBJDIR}/yacc.y:
-	patch -o ${.OBJDIR}/yacc.y ${.CURDIR}/yacc.y ${.CURDIR}/yacc.y.patch
 #---- Darwin End -----
 
 .include <bsd.prog.mk>

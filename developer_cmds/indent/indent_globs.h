@@ -1,11 +1,40 @@
-/*	$NetBSD: indent_globs.h,v 1.5 1997/10/19 03:17:20 lukem Exp $	*/
+/*	$NetBSD: indent_globs.h,v 1.8 2003/08/07 11:14:08 agc Exp $	*/
+
+/*
+ * Copyright (c) 1980, 1993
+ *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ *
+ *	from: @(#)indent_globs.h	8.1 (Berkeley) 6/6/93
+ */
 
 /*
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * All rights reserved.
- * Copyright (c) 1980, 1993
- *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -311,24 +340,24 @@ EXTERN int     rparen_count;
 EXTERN struct parser_state state_stack[5];
 EXTERN struct parser_state match_state[5];
 
-int compute_code_target __P((void));
-int compute_label_target __P((void));
-int count_spaces __P((int, char *));
-void diag __P((int, char *,...));
-void dump_line __P((void));
-int eqin __P((char *, char *));
-void fill_buffer __P((void));
-int pad_output __P((int, int));
-void scan_profile __P((FILE *));
-void set_defaults __P((void));
-void set_option __P((char *));
-void addkey __P((char *, int));
-void set_profile __P((void));
-char   *chfont __P((struct fstate *, struct fstate *, char *));
-void parsefont __P((struct fstate *, char *));
-void writefdef __P((struct fstate *, int));
-int lexi __P((void));
-void reduce __P((void));
-void parse __P((int));
-void pr_comment __P((void));
-void bakcopy __P((void));
+int compute_code_target(void);
+int compute_label_target(void);
+int count_spaces(int, char *);
+void diag(int, char *,...);
+void dump_line(void);
+int eqin(char *, char *);
+void fill_buffer(void);
+int pad_output(int, int);
+void scan_profile(FILE *);
+void set_defaults(void);
+void set_option(char *);
+void addkey(char *, int);
+void set_profile(void);
+char *chfont(struct fstate *, struct fstate *, char *);
+void parsefont(struct fstate *, char *);
+void writefdef(struct fstate *, int);
+int lexi(void);
+void reduce(void);
+void parse(int);
+void pr_comment(void);
+void bakcopy(void);

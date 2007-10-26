@@ -181,7 +181,7 @@ static char *read_string(int echo, const char *prompt)
 	    D(("<failed to set alarm>"));
 	    break;
 	} else {
-	    for( nc = 0; (nc < INPUTSIZE-1) && (line[nc?nc-1:0] != '\n'); nc++ ){
+	    for( nc = 0; (nc < INPUTSIZE-1) && (nc == 0 || line[nc-1] != '\n'); nc++ ){
 		if( read(STDIN_FILENO, line+nc, 1) != 1 ) {
 			break;
 		}

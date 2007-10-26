@@ -1,0 +1,54 @@
+--- _SB/Libc/gen/FreeBSD/ctermid.3	2004-11-25 11:38:00.000000000 -0800
++++ _SB/Libc/gen/FreeBSD/ctermid.3.edit	2006-06-28 16:55:50.000000000 -0700
+@@ -36,31 +36,32 @@
+ .Dt CTERMID 3
+ .Os
+ .Sh NAME
+-.Nm ctermid
++.Nm ctermid ,
++.Nm ctermid_r
+ .Nd generate terminal pathname
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft char *
+-.Fn ctermid "char *buf"
++.Fn ctermid "char *s"
+ .Ft char *
+-.Fn ctermid_r "char *buf"
++.Fn ctermid_r "char *s"
+ .Sh DESCRIPTION
+ The
+ .Fn ctermid
+-function generates a string, that, when used as a pathname, refers to
++function generates a string that, when used as a pathname, refers to
+ the current controlling terminal of the calling process.
+ .Pp
+ If
+-.Fa buf
++.Fa s
+ is the
+ .Dv NULL
+ pointer, a pointer to a static area is returned.
+ Otherwise, the pathname is copied into the memory referenced by
+-.Fa buf .
++.Fa s .
+ The argument
+-.Fa buf
++.Fa s
+ is assumed to be at least
+ .Dv L_ctermid
+ (as defined in the include
+@@ -72,9 +73,9 @@
+ .Fn ctermid_r
+ function
+ provides the same functionality as
+-.Fn ctermid
++.Fn ctermid ,
+ except that if
+-.Fa buf
++.Fa s
+ is a
+ .Dv NULL
+ pointer,

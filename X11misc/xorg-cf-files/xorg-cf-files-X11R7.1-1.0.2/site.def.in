@@ -1,0 +1,148 @@
+XCOMM site:  $TOG: site.sample /main/r64_final/1 1998/02/05 16:28:49 kaleb $
+
+/***************************************************************************
+ *                                                                         *
+ *			   SITE-SPECIFIC DEFINITIONS                       *
+ *                                                                         *
+ * This file contains two halves, one included before the vendor-specific  *
+ * configuration file (.cf file), and one included after the .cf file.     *
+ * The before-half should be protected by #ifdef BeforeVendorCF, and the   *
+ * after-half should be protected by #ifdef AfterVendorCF.                 *
+ *                                                                         *
+ * The before-half should only set things that the .cf file depends on.    *
+ * For the .cf files shipped in this release, the main variables in this   *
+ * category are HasGcc, HasGcc2, HasCplusplus, OSMajorVersion,             *
+ * OSMinorVersion, and OSTeenyVersion.                                     *
+ *                                                                         *
+ * The after-half should contain all other definitions.  For example,      *
+ * place your ProjectRoot definition here.                                 *
+ *                                                                         *
+ * OS Major and Minor version numbers should be changed directly in the    *
+ * .cf file, not overridden in site.def.                                   *
+ *                                                                         *
+ ***************************************************************************/
+XCOMM site:  $XFree86: xc/config/cf/site.def,v 3.24 2000/06/25 20:17:29 dawes Exp $
+
+/* if you want host-specific customization, this is one way to do it */
+/*
+#ifndef SiteIConfigFiles
+#define SiteIConfigFiles $(IRULESRC)/host.def
+#define LocalConfigFiles host.def
+#endif
+*/
+
+
+#ifdef BeforeVendorCF
+
+/*
+ * Include this for easy XFree86 customisations
+ */
+#ifndef SiteIConfigFiles
+#define SiteIConfigFiles $(IRULESRC)/xorgsite.def $(IRULESRC)/host.def
+#endif
+
+#include <host.def>
+
+#include <xorgsite.def>
+
+/* On systems where cpp doesn't correctly expand macros in include directives
+ * the two following macros need to be defined directly (where "X11" is
+ * really whatever the TopLevelProject macro is defined to be).
+ */
+# if defined(AIXArchitecture) || defined(SVR4Architecture) || \
+     defined(SCOArchitecture) || defined(Win32Architecture) || \
+     defined(UXPArchitecture) || defined(SunArchitecture) || \
+     defined(DynixPtxArchitecture) || defined(i386IscArchitecture)
+#  ifndef ProjectRulesFile
+#   define ProjectRulesFile	<X11.rules>
+#  endif
+#  ifndef ProjectTmplFile
+#   define ProjectTmplFile	<X11.tmpl>
+#  endif
+# endif
+
+/*
+#ifndef HasGcc2
+#define HasGcc2 YES
+#endif
+*/
+
+#endif /* BeforeVendorCF */
+
+#ifdef AfterVendorCF
+
+#ifndef ProjectRoot
+#define ProjectRoot @prefix@
+#endif
+
+/*
+ * On some platforms, some things may be installed outside of ProjectRoot
+ * by default.  To disable this, uncomment the following line.
+ *
+#define NothingOutsideProjectRoot YES
+ */
+
+/*
+ * Set EtcX11Directory if you want config file links installed under
+ * ProjectRoot rather than in /etc/X11.  See also HasVarDirectory,
+ * UseEtcX11 and UseSeparateConfDir.
+ *
+#define EtcX11Directory ProjectRoot/etc
+ */
+
+
+/* Only set HasXdmAuth to YES if you have a Wraphelp.c file. */
+/* #define HasXdmAuth YES */
+
+/*
+#if defined(SunArchitecture) && defined(SparcArchitecture)
+#define HasCodeCenter	YES
+#ifndef SVR4Architecture
+#define HasTestCenter	YES
+#endif
+#endif
+*/
+
+/*
+#ifdef __hp9000s800
+#define HasCodeCenter	YES
+#endif
+*/
+
+/*
+#if defined(SunArchitecture) && defined(SparcArchitecture) && !defined(SVR4Architecture)
+#define HasPurify	YES
+#endif
+*/
+
+/*
+#define HasSentinel	YES
+*/
+
+/*
+#undef DefaultUserPath
+#define DefaultUserPath /bin:/usr/bin:$(BINDIR):/usr/ucb:/usr/local/bin
+*/
+
+
+/* You do NOT need SetUID if you only run the server under xdm */
+/* You MAY need SetUID if users run the server by hand or under xinit */
+/* Consult your system administrator before making the X server setuid */
+/*
+#if defined(SunArchitecture) && OSMajorVersion > 4
+#define InstallXserverSetUID YES
+#endif
+*/
+
+/* You do NOT need SetUID if you only run the server under xdm */
+/* You MAY need SetUID if users run the server by hand or under xinit */
+/* Consult your system administrator before making the X server setuid */
+/*
+#if defined(XFree86Version) || defined (XorgVersion)
+#define InstallXserverSetUID YES
+#endif
+*/
+
+#include <host.def>
+
+#endif /* AfterVendorCF */

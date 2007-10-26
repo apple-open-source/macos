@@ -1,0 +1,3 @@
+0750	root	wheel	private/var/mobile
+0700	root	wheel	private/var/mobile/Library
+0700	root	wheel	private/var/mobile/Library/Preferences

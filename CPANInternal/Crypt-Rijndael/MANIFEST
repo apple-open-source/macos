@@ -1,0 +1,11 @@
+COPYING
+MANIFEST
+Makefile.PL
+README
+Rijndael.pm
+Rijndael.xs
+_rijndael.c
+rijndael.h
+test
+typemap
+t/00_load.t

@@ -24,12 +24,13 @@
 #define _GSSAPIP_GENERIC_H_
 
 /*
- * $Id: gssapiP_generic.h 16423 2004-06-08 21:50:17Z hartmans $
+ * $Id: gssapiP_generic.h 18396 2006-07-25 20:29:43Z lxs $
  */
 
 #if defined(_WIN32)
 #include "k5-int.h"
 #else
+#include "autoconf.h"
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -47,9 +48,9 @@ typedef UINT64_TYPE gssint_uint64;
 
 /** helper macros **/
 
-#define g_OID_equal(o1,o2) \
-   (((o1)->length == (o2)->length) && \
-    (memcmp((o1)->elements,(o2)->elements,(unsigned int) (o1)->length) == 0))
+#define	g_OID_equal(o1, o2) \
+	(((o1)->length == (o2)->length) && \
+	(memcmp((o1)->elements, (o2)->elements, (o1)->length) == 0))
 
 /* this code knows that an int on the wire is 32 bits.  The type of
    num should be at least this big, or the extra shifts may do weird
@@ -121,7 +122,6 @@ typedef UINT64_TYPE gssint_uint64;
 #define	g_delete_ctx_id		gssint_g_delete_ctx_id
 #define	g_delete_lucidctx_id	gssint_g_delete_lucidctx_id
 #define	g_make_string_buffer	gssint_g_make_string_buffer
-#define	g_copy_OID_set		gssint_g_copy_OID_set
 #define	g_token_size		gssint_g_token_size
 #define	g_make_token_header	gssint_g_make_token_header
 #define	g_verify_token_header	gssint_g_verify_token_header
@@ -150,31 +150,30 @@ int g_set_entry_add (g_set_elt *s, void *key, void *value);
 int g_set_entry_delete (g_set_elt *s, void *key);
 int g_set_entry_get (g_set_elt *s, void *key, void **value);
 
-int g_save_name (g_set *vdb, gss_name_t *name);
-int g_save_cred_id (g_set *vdb, gss_cred_id_t *cred);
-int g_save_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_save_name (g_set *vdb, gss_name_t name);
+int g_save_cred_id (g_set *vdb, gss_cred_id_t cred);
+int g_save_ctx_id (g_set *vdb, gss_ctx_id_t ctx);
 int g_save_lucidctx_id (g_set *vdb, void *lctx);
 
-int g_validate_name (g_set *vdb, gss_name_t *name);
-int g_validate_cred_id (g_set *vdb, gss_cred_id_t *cred);
-int g_validate_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_validate_name (g_set *vdb, gss_name_t name);
+int g_validate_cred_id (g_set *vdb, gss_cred_id_t cred);
+int g_validate_ctx_id (g_set *vdb, gss_ctx_id_t ctx);
 int g_validate_lucidctx_id (g_set *vdb, void *lctx);
 
-int g_delete_name (g_set *vdb, gss_name_t *name);
-int g_delete_cred_id (g_set *vdb, gss_cred_id_t *cred);
-int g_delete_ctx_id (g_set *vdb, gss_ctx_id_t *ctx);
+int g_delete_name (g_set *vdb, gss_name_t name);
+int g_delete_cred_id (g_set *vdb, gss_cred_id_t cred);
+int g_delete_ctx_id (g_set *vdb, gss_ctx_id_t ctx);
 int g_delete_lucidctx_id (g_set *vdb, void *lctx);
 
 int g_make_string_buffer (const char *str, gss_buffer_t buffer);
 
-int g_copy_OID_set (const gss_OID_set_desc * const in, gss_OID_set *out);
+unsigned int g_token_size (const gss_OID_desc * mech, unsigned int body_size);
 
-unsigned int g_token_size (gss_OID mech, unsigned int body_size);
-
-void g_make_token_header (gss_OID mech, unsigned int body_size,
+void g_make_token_header (const gss_OID_desc * mech, unsigned int body_size,
 			  unsigned char **buf, int tok_type);
 
-gss_int32 g_verify_token_header (gss_OID mech, unsigned int *body_size,
+gss_int32 g_verify_token_header (const gss_OID_desc * mech, 
+				 unsigned int *body_size,
 				 unsigned char **buf, int tok_type, 
 				 unsigned int toksize_in,
 				 int wrapper_required);
@@ -222,7 +221,7 @@ OM_uint32 generic_gss_release_oid
 
 OM_uint32 generic_gss_copy_oid
 (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* oid */
+	    const gss_OID_desc * const,		/* oid */
 	    gss_OID *		/* new_oid */
 	    );
 
@@ -233,20 +232,20 @@ OM_uint32 generic_gss_create_empty_oid_set
 
 OM_uint32 generic_gss_add_oid_set_member
 (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* member_oid */
+	    const gss_OID_desc * const,		/* member_oid */
 	    gss_OID_set *	/* oid_set */
 	   );
 
 OM_uint32 generic_gss_test_oid_set_member
 (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* member */
+	    const gss_OID_desc * const,		/* member */
 	    gss_OID_set,	/* set */
 	    int *		/* present */
 	   );
 
 OM_uint32 generic_gss_oid_to_str
 (OM_uint32 *,	/* minor_status */
-	    gss_OID,		/* oid */
+	    const gss_OID_desc * const,		/* oid */
 	    gss_buffer_t	/* oid_str */
 	   );
 

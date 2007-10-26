@@ -1,6 +1,6 @@
 --- strcoll.c.orig	2003-05-20 15:23:54.000000000 -0700
-+++ strcoll.c	2005-02-17 10:37:14.000000000 -0800
-@@ -28,26 +28,30 @@
++++ strcoll.c	2005-03-30 15:16:28.000000000 -0800
+@@ -28,59 +28,44 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.13 2001/11/07 19:55:16 obrien Exp $");
  
@@ -8,6 +8,8 @@
 +
  #include <stdlib.h>
  #include <string.h>
++#include <wchar.h>
++#include <errno.h>
  #include "collate.h"
  
  int
@@ -16,53 +18,66 @@
  	const char *s, *s2;
 +	locale_t loc;
  {
- 	int len, len2, prim, prim2, sec, sec2, ret, ret2;
- 	const char *t, *t2;
- 	char *tt, *tt2;
+-	int len, len2, prim, prim2, sec, sec2, ret, ret2;
+-	const char *t, *t2;
+-	char *tt, *tt2;
++	int ret;
++	const wchar_t *t = NULL, *t2 = NULL;
++	int sverrno;
  
 -	if (__collate_load_error)
 +	NORMALIZE_LOCALE(loc);
-+	if (loc->__collate_load_error)
++	if (loc->__collate_load_error || (t = __collate_mbstowcs(s, loc)) == NULL || (t2 = __collate_mbstowcs(s2, loc)) == NULL) {
++		sverrno = errno;
++		free((void *)t);
++		free((void *)t2);
++		errno = sverrno;
  		return strcmp(s, s2);
- 
- 	len = len2 = 1;
- 	ret = ret2 = 0;
+-
+-	len = len2 = 1;
+-	ret = ret2 = 0;
 -	if (__collate_substitute_nontrivial) {
 -		t = tt = __collate_substitute(s);
 -		t2 = tt2 = __collate_substitute(s2);
-+	if (loc->__collate_substitute_nontrivial) {
-+		t = tt = (char *)__collate_substitute_l((unsigned char *)s, loc);
-+		t2 = tt2 = (char *)__collate_substitute_l((unsigned char *)s2, loc);
- 	} else {
- 		tt = tt2 = NULL;
- 		t = s;
-@@ -56,11 +60,11 @@
- 	while(*t && *t2) {
- 		prim = prim2 = 0;
- 		while(*t && !prim) {
--			__collate_lookup(t, &len, &prim, &sec);
-+			__collate_lookup_l((unsigned char *)t, &len, &prim, &sec, loc);
- 			t += len;
- 		}
- 		while(*t2 && !prim2) {
--			__collate_lookup(t2, &len2, &prim2, &sec2);
-+			__collate_lookup_l((unsigned char *)t2, &len2, &prim2, &sec2, loc);
- 			t2 += len2;
- 		}
- 		if(!prim || !prim2)
-@@ -73,9 +77,9 @@
- 			ret2 = sec - sec2;
+-	} else {
+-		tt = tt2 = NULL;
+-		t = s;
+-		t2 = s2;
  	}
- 	if(!*t && *t2)
+-	while(*t && *t2) {
+-		prim = prim2 = 0;
+-		while(*t && !prim) {
+-			__collate_lookup(t, &len, &prim, &sec);
+-			t += len;
+-		}
+-		while(*t2 && !prim2) {
+-			__collate_lookup(t2, &len2, &prim2, &sec2);
+-			t2 += len2;
+-		}
+-		if(!prim || !prim2)
+-			break;
+-		if(prim != prim2) {
+-			ret = prim - prim2;
+-			goto end;
+-		}
+-		if(!ret2)
+-			ret2 = sec - sec2;
+-	}
+-	if(!*t && *t2)
 -		ret = -(int)((u_char)*t2);
-+		ret = -(int)((unsigned char)*t2);
- 	else if(*t && !*t2)
+-	else if(*t && !*t2)
 -		ret = (u_char)*t;
-+		ret = (unsigned char)*t;
- 	else if(!*t && !*t2)
- 		ret = ret2;
-   end:
-@@ -84,3 +88,10 @@
+-	else if(!*t && !*t2)
+-		ret = ret2;
+-  end:
+-	free(tt);
+-	free(tt2);
++
++	ret = wcscoll_l(t, t2, loc);
++	sverrno = errno;
++	free((void *)t);
++	free((void *)t2);
++	errno = sverrno;
  
  	return ret;
  }

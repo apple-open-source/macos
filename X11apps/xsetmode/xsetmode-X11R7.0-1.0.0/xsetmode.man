@@ -1,0 +1,16 @@
+.\" $XFree86: xc/programs/xsetmode/xsetmode.man,v 3.1 1995/12/26 10:43:02 dawes Exp $
+.\"
+.TH xsetmode 1 __vendorversion__
+.SH NAME
+xsetmode \- set the mode for an X Input device
+.SH SYNOPSIS
+.B xsetmode
+.I device-name
+.B ABSOLUTE
+|
+.B RELATIVE
+.SH DESCRIPTION
+Xsetmode sets the mode of an XInput device to either absolute or relative.
+This isn't appropriate for all device types.
+.SH AUTHOR
+Frederic Lepied

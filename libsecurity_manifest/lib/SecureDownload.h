@@ -99,7 +99,7 @@ typedef SecureDownloadTrustCallbackResult(*SecureDownloadTrustSetupCallback)
 	@param trustRef The trustRef for this evaluation
 	@param result The result of the evaluation (See the SecTrust documentation).
 	@param evaluateContext user defined.
-	@result A SecureDownloadTrustCallbackResult.  Return the value passed in result if you
+	@result A SecTrustResultType.  Return the value passed in result if you
 			do not want to change the evaluation result.
 */
 

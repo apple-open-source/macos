@@ -34,7 +34,7 @@ namespace Security
 class RecordId
 {
 public:
-	RecordId() : mRecordNumber(~0UL), mCreateVersion(~0UL), mRecordVersion(~0UL) {}
+	RecordId() : mRecordNumber(~(uint32)0), mCreateVersion(~(uint32)0), mRecordVersion(~(uint32)0) {}
     RecordId(uint32 inRecordNumber, uint32 inCreateVersion, uint32 inRecordVersion = 0)
 	  : mRecordNumber(inRecordNumber),
         mCreateVersion(inCreateVersion),

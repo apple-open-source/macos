@@ -1,0 +1,13 @@
+Đây là một thư thông báo nảy về của hộp thư chung Mailman:
+
+    Hộp thư :       %(listname)s
+    Thành viên:     %(addr)s
+    Hành động:     Sự đăng ký %(negative)s%(did)s.
+    Lý do :     Quá nhiều thư nảy về, hay thư nảy về nghiêm trọng
+    %(but)s
+
+%(reenable)s
+Thông báo nảy về nguyên nhân được đính kèm dưới đây.
+
+Bạn có câu hỏi không?  
+Hãy liên lạc với quản trị nơi Mạng Mailman tại %(owneraddr)s.

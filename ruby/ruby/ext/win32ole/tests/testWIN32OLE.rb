@@ -40,7 +40,7 @@ class TestWin32OLE < RUNIT::TestCase
     exc = assert_exception(WIN32OLERuntimeError) {
       WIN32OLE.new("{000}")
     }
-    assert_match(/Unknown OLE server: `\{000\}'/, exc.message)
+    assert_match(/unknown OLE server: `\{000\}'/, exc.message)
   end
   def test_s_connect
     excel2 = WIN32OLE.connect('Excel.Application')
@@ -55,6 +55,60 @@ class TestWin32OLE < RUNIT::TestCase
     assert(!defined?(CONST1::XlTop))
     WIN32OLE.const_load(MS_EXCEL_TYPELIB, CONST1)
     assert_equal(-4160, CONST1::XlTop)
+  end
+
+  def test_s_codepage
+    assert_equal(WIN32OLE::CP_ACP, WIN32OLE.codepage)
+  end
+
+  def test_s_codepage_set
+    WIN32OLE.codepage = WIN32OLE::CP_UTF8
+    assert_equal(WIN32OLE::CP_UTF8, WIN32OLE.codepage)
+    WIN32OLE.codepage = WIN32OLE::CP_ACP
+  end
+
+  def test_const_CP_ACP
+    assert_equal(0, WIN32OLE::CP_ACP)
+  end
+
+  def test_const_CP_OEMCP
+    assert_equal(1, WIN32OLE::CP_OEMCP)
+  end
+
+  def test_const_CP_MACCP
+    assert_equal(2, WIN32OLE::CP_MACCP)
+  end
+
+  def test_const_CP_THREAD_ACP
+    assert_equal(3, WIN32OLE::CP_THREAD_ACP)
+  end
+
+  def test_const_CP_SYMBOL
+    assert_equal(42, WIN32OLE::CP_SYMBOL)
+  end
+
+  def test_const_CP_UTF7
+    assert_equal(65000, WIN32OLE::CP_UTF7)
+  end
+
+  def test_const_CP_UTF8
+    assert_equal(65001, WIN32OLE::CP_UTF8)
+  end
+
+  def test_s_codepage_changed
+    book = @excel.workbooks.add
+    sheet = book.worksheets(1)
+    begin
+      WIN32OLE.codepage = WIN32OLE::CP_UTF8
+      sheet.range("A1").value = [0x3042].pack("U*")
+      val = sheet.range("A1").value
+      assert_equal("\343\201\202", val)
+      WIN32OLE.codepage = WIN32OLE::CP_ACP
+      val = sheet.range("A1").value
+      assert_equal("\202\240", val)
+    ensure
+      book.saved = true
+    end
   end
 
   def test_get_win32ole_object
@@ -88,6 +142,7 @@ class TestWin32OLE < RUNIT::TestCase
       assert_equal(10, sheet.range("A1").value)
       sheet['Cells', 1, 2] = 10
       assert_equal(10, sheet.range("B1").value)
+      assert_equal(10, sheet['Cells', 1, 2].value)
     ensure
       book.saved = true
     end
@@ -248,6 +303,11 @@ class TestWin32OLE_WITH_MSI < RUNIT::TestCase
   def test_bracket_equal_with_arg
     @record[ "StringData", 1 ] =  'ffff'
     assert_equal('ffff', @record.StringData(1))
+  end
+
+  def test__invoke
+    shell=WIN32OLE.new('Shell.Application')
+    assert_equal(shell.NameSpace(0).title, shell._invoke(0x60020002, [0], [WIN32OLE::VARIANT::VT_VARIANT]).title)
   end
 end
 

@@ -76,4 +76,4 @@ dsstatus unescape_rdn(char *rdn, dsdata **key, dsdata **value);
 dsattribute *dsattribute_from_cstrings(char *key, ...);
 void dsattribute_append_cstring_value(dsattribute *a, char *v);
 
-#endif __DSUTIL_H__
+#endif /* __DSUTIL_H__ */

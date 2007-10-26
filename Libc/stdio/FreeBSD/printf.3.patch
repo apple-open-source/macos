@@ -1,6 +1,112 @@
---- printf.3.orig	Fri Mar 11 17:08:43 2005
-+++ printf.3	Fri Mar 11 17:04:50 2005
-@@ -101,6 +101,12 @@
+--- printf.3	2004-11-25 11:38:35.000000000 -0800
++++ printf.3.edit	2006-09-06 16:56:37.000000000 -0700
+@@ -40,39 +40,83 @@
+ .Dt PRINTF 3
+ .Os
+ .Sh NAME
+-.Nm printf , fprintf , sprintf , snprintf , asprintf ,
+-.Nm vprintf , vfprintf, vsprintf , vsnprintf , vasprintf
++.Nm asprintf ,
++.Nm fprintf ,
++.Nm printf ,
++.Nm snprintf ,
++.Nm sprintf ,
++.Nm vasprintf ,
++.Nm vfprintf,
++.Nm vprintf ,
++.Nm vsnprintf ,
++.Nm vsprintf
+ .Nd formatted output conversion
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+ .In stdio.h
+ .Ft int
+-.Fn printf "const char * restrict format" ...
++.Fo asprintf
++.Fa "char **ret"
++.Fa "const char *format" ...
++.Fc
+ .Ft int
+-.Fn fprintf "FILE * restrict stream" "const char * restrict format" ...
++.Fo fprintf
++.Fa "FILE *restrict stream"
++.Fa "const char *restrict format" ...
++.Fc
+ .Ft int
+-.Fn sprintf "char * restrict str" "const char * restrict format" ...
++.Fo printf
++.Fa "const char *restrict format" ...
++.Fc
+ .Ft int
+-.Fn snprintf "char * restrict str" "size_t size" "const char * restrict format" ...
++.Fo snprintf
++.Fa "char *restrict s"
++.Fa "size_t n"
++.Fa "const char *restrict format" ...
++.Fc
+ .Ft int
+-.Fn asprintf "char **ret" "const char *format" ...
++.Fo sprintf
++.Fa "char *restrict s"
++.Fa "const char *restrict format" ...
++.Fc
+ .In stdarg.h
++.In stdio.h
+ .Ft int
+-.Fn vprintf "const char * restrict format" "va_list ap"
++.Fo vasprintf
++.Fa "char **ret"
++.Fa "const char *format"
++.Fa "va_list ap"
++.Fc
+ .Ft int
+-.Fn vfprintf "FILE * restrict stream" "const char * restrict format" "va_list ap"
++.Fo vfprintf
++.Fa "FILE *restrict stream"
++.Fa "const char *restrict format"
++.Fa "va_list ap"
++.Fc
+ .Ft int
+-.Fn vsprintf "char * restrict str" "const char * restrict format" "va_list ap"
++.Fo vprintf
++.Fa "const char *restrict format"
++.Fa "va_list ap"
++.Fc
+ .Ft int
+-.Fn vsnprintf "char * restrict str" "size_t size" "const char * restrict format" "va_list ap"
++.Fo vsnprintf
++.Fa "char *restrict s"
++.Fa "size_t n"
++.Fa "const char *restrict format"
++.Fa "va_list ap"
++.Fc
+ .Ft int
+-.Fn vasprintf "char **ret" "const char *format" "va_list ap"
++.Fo vsprintf
++.Fa "char *restrict s"
++.Fa "const char *restrict format"
++.Fa "va_list ap"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn printf
+ family of functions produces output according to a
+-.Fa format
++.Fa format ,
+ as described below.
+ The
+ .Fn printf
+@@ -93,7 +137,7 @@
+ and
+ .Fn vsnprintf
+ write to the character string
+-.Fa str ;
++.Fa s ;
+ and
+ .Fn asprintf
+ and
+@@ -101,6 +145,12 @@
  dynamically allocate a new string with
  .Xr malloc 3 .
  .Pp
@@ -13,16 +119,52 @@
  These functions write the output under the control of a
  .Fa format
  string that specifies how subsequent arguments
-@@ -287,6 +293,20 @@
+@@ -117,7 +167,7 @@
+ and
+ .Fn vsnprintf ,
+ which return the number of characters that would have been printed if the
+-.Fa size
++.Fa n
+ were unlimited
+ (again, not including the final
+ .Ql \e0 ) .
+@@ -149,14 +199,14 @@
+ .Fn vsnprintf
+ functions
+ will write at most
+-.Fa size Ns \-1
++.Fa n Ns \-1
+ of the characters printed into the output string
+ (the
+-.Fa size Ns 'th
++.Fa n Ns \'th
+ character then gets the terminating
+ .Ql \e0 ) ;
+ if the return value is greater than or equal to the
+-.Fa size
++.Fa n
+ argument, the string was too short
+ and some of the printed characters were discarded.
+ The output is always null-terminated.
+@@ -167,7 +217,7 @@
+ .Fn vsprintf
+ functions
+ effectively assume an infinite
+-.Fa size .
++.Fa n .
+ .Pp
+ The format string is composed of zero or more directives:
+ ordinary
+@@ -287,6 +337,20 @@
  .Xr localeconv 3 .
  .El
  .It
 +An optional separator character (
 +.Cm \ , | \;  | \ : | _
-+) used for separating multiple values when printing an AltiVec vector,
++) used for separating multiple values when printing an AltiVec or SSE vector,
 +or other multi-value unit.
 +.Pp
-+NOTE: This is an AltiVec only extension onto the
++NOTE: This is an extension to the
 +.Fn printf
 +specification.
 +Behaviour of these values for
@@ -34,13 +176,13 @@
  An optional decimal digit string specifying a minimum field width.
  If the converted value has fewer characters than the field width, it will
  be padded with spaces on the left (or right, if the left-adjustment
-@@ -379,6 +399,28 @@
+@@ -379,6 +443,34 @@
  .It Sy Modifier Ta Cm c Ta Cm s
  .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
  .El
 +.Pp
 +The AltiVec Technology Programming Interface Manual also defines five additional length modifiers
-+which can be used (in place of the conventional length modifiers) for the printing of AltiVec vectors:
++which can be used (in place of the conventional length modifiers) for the printing of AltiVec or SSE vectors:
 +.Bl -tag -compact
 +.It Cm v
 +Treat the argument as a vector value, unit length will be determined by the conversion
@@ -52,7 +194,7 @@
 +Treat the argument as a vector of 4 32-bit units.
 +.El
 +.Pp
-+NOTE: The vector length specifiers are AltiVec only extensions onto the
++NOTE: The vector length specifiers are extensions to the
 +.Fn printf
 +specification.
 +Behaviour of these values for
@@ -60,21 +202,29 @@
 +is only defined for operating systems conforming to the 
 +AltiVec Technology Programming Interface Manual.
 +(At time of writing this includes only Mac OS X 10.2 and later.)
++.Pp
++As a further extension, for SSE2 64-bit units:
++.Bl -tag -compact
++.It Cm vll, llv
++Treat the argument as a vector of 2 64-bit units.
++.El
  .It
  A character that specifies the type of conversion to be applied.
  .El
-@@ -792,12 +834,8 @@
+@@ -790,14 +882,11 @@
+ .Sh SEE ALSO
+ .Xr printf 1 ,
  .Xr fmtcheck 3 ,
++.Xr printf_l 3 ,
  .Xr scanf 3 ,
  .Xr setlocale 3 ,
--.Xr wprintf 3
++.Xr stdarg 3 ,
+ .Xr wprintf 3
 -.Rs
 -.%T "The FreeBSD Security Architecture"
 -.Re
 -(See
 -.Pa "/usr/share/doc/{to be determined}" . )
-+.Xr wprintf 3 ,
-+.Xr printf_l 3
  .Sh STANDARDS
  Subject to the caveats noted in the
  .Sx BUGS

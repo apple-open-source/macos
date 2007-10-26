@@ -1,8 +1,23 @@
 /* unzip.c -- decompress files in gzip or pkzip format.
- * Copyright (C) 1992-1993 Jean-loup Gailly
- * This is free software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License, see the file COPYING.
- *
+
+   Copyright (C) 1997, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1992-1993 Jean-loup Gailly
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+/*
  * The code in this file is derived from the file funzip.c written
  * and put in the public domain by Mark Adler.
  */
@@ -14,7 +29,7 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: unzip.c,v 0.13 1993/06/10 13:29:00 jloup Exp $";
+static char rcsid[] = "$Id: unzip.c,v 1.4 2006/11/20 08:40:34 eggert Exp $";
 #endif
 
 #include <config.h>
@@ -62,7 +77,7 @@ int check_zipfile(in)
 
     if (inptr > insize || LG(h) != LOCSIG) {
 	fprintf(stderr, "\n%s: %s: not a valid zip file\n",
-		progname, ifname);
+		program_name, ifname);
 	exit_code = ERROR;
 	return ERROR;
     }
@@ -70,7 +85,7 @@ int check_zipfile(in)
     if (method != STORED && method != DEFLATED) {
 	fprintf(stderr,
 		"\n%s: %s: first entry not deflated or stored -- use unzip\n",
-		progname, ifname);
+		program_name, ifname);
 	exit_code = ERROR;
 	return ERROR;
     }
@@ -78,7 +93,7 @@ int check_zipfile(in)
     /* If entry encrypted, decrypt and validate encryption header */
     if ((decrypt = h[LOCFLG] & CRPFLG) != 0) {
 	fprintf(stderr, "\n%s: %s: encrypted file -- use unzip\n",
-		progname, ifname);
+		program_name, ifname);
 	exit_code = ERROR;
 	return ERROR;
     }
@@ -123,9 +138,9 @@ int unzip(in, out)
 	int res = inflate();
 
 	if (res == 3) {
-	    error("out of memory");
+	    xalloc_die ();
 	} else if (res != 0) {
-	    error("invalid compressed data--format violated");
+	    gzip_error ("invalid compressed data--format violated");
 	}
 
     } else if (pkzip && method == STORED) {
@@ -135,7 +150,7 @@ int unzip(in, out)
 	if (n != LG(inbuf + LOCSIZ) - (decrypt ? RAND_HEAD_LEN : 0)) {
 
 	    fprintf(stderr, "len %ld, siz %ld\n", n, LG(inbuf + LOCSIZ));
-	    error("invalid compressed data--length mismatch");
+	    gzip_error ("invalid compressed data--length mismatch");
 	}
 	while (n--) {
 	    uch c = (uch)get_byte();
@@ -143,7 +158,7 @@ int unzip(in, out)
 	}
 	flush_window();
     } else {
-	error("internal error, invalid method");
+	gzip_error ("internal error, invalid method");
     }
 
     /* Get the crc and original length */
@@ -173,12 +188,12 @@ int unzip(in, out)
     /* Validate decompression */
     if (orig_crc != updcrc(outbuf, 0)) {
 	fprintf(stderr, "\n%s: %s: invalid compressed data--crc error\n",
-		progname, ifname);
+		program_name, ifname);
 	err = ERROR;
     }
     if (orig_len != (ulg)(bytes_out & 0xffffffff)) {
 	fprintf(stderr, "\n%s: %s: invalid compressed data--length error\n",
-		progname, ifname);
+		program_name, ifname);
 	err = ERROR;
     }
 
@@ -187,12 +202,12 @@ int unzip(in, out)
 	if (to_stdout) {
 	    WARN((stderr,
 		  "%s: %s has more than one entry--rest ignored\n",
-		  progname, ifname));
+		  program_name, ifname));
 	} else {
 	    /* Don't destroy the input zip file */
 	    fprintf(stderr,
 		    "%s: %s has more than one entry -- unchanged\n",
-		    progname, ifname);
+		    program_name, ifname);
 	    err = ERROR;
 	}
     }

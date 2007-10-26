@@ -27,13 +27,7 @@
 #include <servers/bootstrap.h>
 
 static __inline__ kern_return_t
-ipconfig_server_port(mach_port_t * server, boolean_t * active)
+ipconfig_server_port(mach_port_t * server)
 {
-    kern_return_t	status;
-
-    *active = FALSE;
-    status = bootstrap_status(bootstrap_port, IPCONFIG_SERVER, active);
-    if (status != BOOTSTRAP_SUCCESS)
-	return (status);
-    return(bootstrap_look_up(bootstrap_port, IPCONFIG_SERVER, server));
+    return (bootstrap_look_up(bootstrap_port, IPCONFIG_SERVER, server));
 }

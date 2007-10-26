@@ -24,6 +24,9 @@
 /* Version number of GDB, as a string.  */
 extern const char version[];
 
+/* APPLE LOCAL: The RC version number of gdb.  */
+extern const char rc_version[];
+
 /* Canonical host name as a string. */
 extern const char host_name[];
 

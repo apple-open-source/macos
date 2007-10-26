@@ -1,0 +1,20 @@
+--- mysql/sql/mysqld.cc	2007-05-02 07:39:46.000000000 -0700
++++ mysqld.cc	2007-08-12 15:01:47.000000000 -0700
+@@ -2634,8 +2634,6 @@
+ 
+   max_system_variables.pseudo_thread_id= (ulong)~0;
+   server_start_time= flush_status_time= time((time_t*) 0);
+-  if (init_thread_environment())
+-    return 1;
+   mysql_init_variables();
+ 
+ #ifdef OS2
+@@ -2687,6 +2685,8 @@
+   load_defaults(conf_file_name, groups, &argc, &argv);
+   defaults_argv=argv;
+   get_options(argc,argv);
++  if (init_thread_environment())
++    return 1;
+   set_server_version();
+ 
+   DBUG_PRINT("info",("%s  Ver %s for %s on %s\n",my_progname,

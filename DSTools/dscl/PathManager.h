@@ -51,6 +51,9 @@
 - initWithLocalNode;
 - initWithLocalNodeAuthUser:(NSString*)inUsername password:(NSString*)inPassword;
 
+//open the slim version of the DS daemon with only the local node at the file path specified
+- initWithLocalPath:(NSString*)filePath;
+
 - (tDirStatus)authenticateUser:(NSString*)inUsername password:(NSString*)inPassword authOnly:(BOOL)inAuthOnly;
 - (tDirStatus) setPasswordForUser:(NSString*)inRecordPath withParams:(NSArray*)inParams;
 
@@ -62,7 +65,15 @@
 - (NSArray*)getCurrentList:(NSString*)inPath;
 - (NSArray*)getPossibleCompletionsFor:(NSString*)inPathAndPrefix;
 
-- (void)read:(NSString*)inPath keys:(NSArray*)inKeys;
+- (tDirStatus)read:(NSString*)inPath keys:(NSArray*)inKeys;
+- (tDirStatus)readAll:(NSString*)inPath keys:(NSArray*)inKeys;
+- (tDirStatus)read:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath;
+- (tDirStatus)read:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath;
+- (tDirStatus)create:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (tDirStatus)create:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (tDirStatus)delete:(NSString*)inPath key:(NSString*)inKey plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (tDirStatus)delete:(NSString*)inPath key:(NSString*)inKey atIndex:(int)index plistPath:(NSString*)inPlistPath values:(NSArray*)inValues;
+- (void)diff:(NSString*)inPath1 otherPath:(NSString*)inPath2 keys:(NSArray*)inKeys;
 
 - (tDirStatus)createRecord:(NSString*)inRecordPath key:(NSString*)inKey values:(NSArray*)inValues;
 - (tDirStatus)appendToRecord:(NSString*)inRecordPath key:(NSString*)inKey values:(NSArray*)inValues;
@@ -89,4 +100,7 @@
 
 - (void)printPushdPopdStack;
 
+// -----------------------
+// ATM - PlugInManager needs direct access to the stack
+-(NSArray*) stack;
 @end

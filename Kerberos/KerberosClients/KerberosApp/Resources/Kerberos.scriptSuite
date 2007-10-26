@@ -80,20 +80,20 @@
             };
             ToManyRelationships = {
                 caches = {
-                    Type = "Cache";
+                    Type = "KerberosCache";
                     AppleEventCode = "cach";
                     ReadOnly = "YES";
                 };
             };
             Attributes = {
                 defaultCache = {
-                    Type = "Cache";
+                    Type = "KerberosCache";
                     AppleEventCode = "cdef";
                     ReadOnly = "YES";
                 };
             };
         };
-        Cache = {
+        KerberosCache = {
             Superclass = "NSCoreSuite.NSObject";
             AppleEventCode = "cach";
             Attributes = {
@@ -102,7 +102,7 @@
                     AppleEventCode = "cnme";
                     ReadOnly = "YES";
                 };
-                stringValueForTimeRemainingScriptCommand = {
+                longTimeRemainingString = {
                     Type = "NSString";
                     AppleEventCode = "life";
                     ReadOnly = "YES";

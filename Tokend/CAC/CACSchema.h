@@ -64,4 +64,3 @@ private:
 
 #endif /* !_CACSCHEMA_H_ */
 
-/* arch-tag: 36DB400E-0DBC-11D9-A9F5-000A9595DEEE */

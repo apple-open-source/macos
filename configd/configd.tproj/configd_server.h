@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,9 +50,9 @@ boolean_t	server_active	(mach_port_t		*service_port);
 void		server_init	(mach_port_t		service_port,
 				 Boolean		enableRestart);
 
-int		server_shutdown	();
+int		server_shutdown	(void);
 
-void		server_loop	();
+void		server_loop	(void);
 
 kern_return_t	_snapshot	(mach_port_t		server,
 				 int			*sc_status);
@@ -63,7 +63,8 @@ kern_return_t	_configopen	(mach_port_t		server,
 				 xmlData_t		optionsRef,
 				 mach_msg_type_number_t	optionsLen,
 				 mach_port_t		*newServer,
-				 int			*sc_status);
+				 int			*sc_status,
+				 audit_token_t		audit_token);
 
 kern_return_t	_configclose	(mach_port_t		server,
 				 int			*sc_status);

@@ -1,5 +1,6 @@
 /* System description file for Windows NT.
-   Copyright (C) 1993, 1994, 1995 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 1995, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /*
  *      Define symbols to identify the version of Unix this is.
@@ -136,6 +137,16 @@ Boston, MA 02111-1307, USA.  */
 
 #define HAVE_SOCKETS 1
 
+/* But our select implementation doesn't allow us to make non-blocking
+   connects.  So until that is fixed, this is necessary:  */
+
+#define BROKEN_NON_BLOCKING_CONNECT 1
+
+/* And the select implementation does 1-byte read-ahead waiting
+   for received packets, so datagrams are broken too.  */
+
+#define BROKEN_DATAGRAM_SOCKETS 1
+
 /* Define this symbol if your system has the functions bcopy, etc. */
 
 #define BSTRING
@@ -212,12 +223,12 @@ Boston, MA 02111-1307, USA.  */
 
 /* The null device on Windows NT. */
 #define NULL_DEVICE     "NUL:"
-#define EXEC_SUFFIXES   ".exe:.com:.bat:.cmd:"
 
 #ifndef MAXPATHLEN
 #define MAXPATHLEN      _MAX_PATH
 #endif
 
+#define HAVE_SOUND  1
 #define LISP_FLOAT_TYPE 1
 
 #undef  HAVE_SYS_SELECT_H
@@ -230,6 +241,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  HAVE_TERMIOS_H
 #define HAVE_LIMITS_H 1
 #define HAVE_STRING_H 1
+#define HAVE_PWD_H 1
 #define STDC_HEADERS 1
 #define TIME_WITH_SYS_TIME 1
 
@@ -263,7 +275,7 @@ Boston, MA 02111-1307, USA.  */
 #undef  HAVE_RES_INIT /* For -lresolv on Suns.  */
 #undef  HAVE_SETSID
 #undef  HAVE_FPATHCONF
-#undef  HAVE_SELECT
+#define HAVE_SELECT 1
 #define HAVE_MKTIME 1
 #undef  HAVE_EUIDACCESS
 #define HAVE_GETPAGESIZE 1
@@ -277,7 +289,7 @@ Boston, MA 02111-1307, USA.  */
 #define HAVE_STRFTIME 1
 
 #define LOCALTIME_CACHE
-#undef  HAVE_INET_SOCKETS
+#define HAVE_INET_SOCKETS 1
 
 #undef  HAVE_AIX_SMT_EXP
 
@@ -310,6 +322,7 @@ Boston, MA 02111-1307, USA.  */
 #define chdir   sys_chdir
 #undef chmod
 #define chmod   sys_chmod
+#define chown   sys_chown
 #undef close
 #define close   sys_close
 #undef creat
@@ -353,13 +366,18 @@ Boston, MA 02111-1307, USA.  */
 #define fcloseall _fcloseall
 #define fdopen	  _fdopen
 #define fgetchar  _fgetchar
+#ifndef fileno
 #define fileno	  _fileno
+#endif
 #define flushall  _flushall
 #define fputchar  _fputchar
 #define fsync	  _commit
 #define ftruncate _chsize
 #define getw	  _getw
 #define getpid    _getpid
+#ifdef _MSC_VER
+typedef int pid_t;
+#endif
 #define isatty    _isatty
 #define logb      _logb
 #define _longjmp  longjmp
@@ -368,7 +386,6 @@ Boston, MA 02111-1307, USA.  */
 #define pclose    _pclose
 #define putw	  _putw
 #define umask	  _umask
-#define utime	  _utime
 #define utimbuf	  _utimbuf
 #define index     strchr
 #define rindex    strrchr
@@ -377,7 +394,11 @@ Boston, MA 02111-1307, USA.  */
 #define strnicmp  _strnicmp
 #define stricmp   _stricmp
 #define tzset     _tzset
+
+#if !defined (_MSC_VER) || (_MSC_VER < 1400)
 #define tzname    _tzname
+#define utime	  _utime
+#endif
 
 #ifdef HAVE_NTGUI
 #define abort	w32_abort
@@ -440,7 +461,7 @@ extern char *get_emacs_configuration_options (void);
 
 #include <sys/stat.h>
 
-/* Define for those source files that do not include enough NT 
+/* Define for those source files that do not include enough NT
    system files.  */
 #ifndef NULL
 #ifdef __cplusplus
@@ -457,14 +478,10 @@ extern char *get_emacs_configuration_options (void);
 #endif
 #include <string.h>
 
-/* Emacs takes care of ensuring that these are defined.  */
-#ifdef max
-#undef max
-#undef min
-#endif
-
-/* We need a little extra space, see ../../lisp/loadup.el */
-#define SYSTEM_PURESIZE_EXTRA 137500
+/* We need a little extra space, see ../../lisp/loadup.el.
+   The number below comes from 23923 bytes worth (as of 2006-04)
+   of w32-specific files loaded by loadup.el, plus 1K spare.  */
+#define SYSTEM_PURESIZE_EXTRA 25000
 
 /* For unexec to work on Alpha systems, we need to put Emacs'
    initialized data into a separate section from the CRT initialized
@@ -483,8 +500,10 @@ extern char *get_emacs_configuration_options (void);
    must include config.h to pick up this pragma.  */
 
 /* Names must be < 8 bytes */
+#ifdef _MSC_VER
 #pragma data_seg("EMDATA")
 #pragma bss_seg("EMBSS")
+#endif
 
 /* #define FULL_DEBUG */
 /* #define EMACSDEBUG */
@@ -498,3 +517,6 @@ extern void _DebPrint (const char *fmt, ...);
 
 
 /* ============================================================ */
+
+/* arch-tag: 5d4a3a1c-40dc-4dea-9c7c-38fed9ae0eae
+   (do not change this comment) */

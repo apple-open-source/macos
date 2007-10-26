@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>smb</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.URLMount.CIFSPlugin</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>CIFS/SMB URLMount Plugin</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>3.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLIconFile</key>
+			<string></string>
+			<key>CFBundleURLName</key>
+			<string>CIFS</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cifs</string>
+				<string>smb</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>3.1</string>
+	<key>CFPlugInDynamicRegisterFunction</key>
+	<string></string>
+	<key>CFPlugInDynamicRegistration</key>
+	<string>NO</string>
+	<key>CFPlugInFactories</key>
+	<dict>
+		<key>92D4EFEF-F5AA-11D5-A1EE-003065A0E6DE</key>
+		<string>CIFSURLMounterFactory</string>
+	</dict>
+	<key>CFPlugInTypes</key>
+	<dict>
+		<key>02FE7D14-4E91-481E-946C-CE233C798CC0</key>
+		<array>
+			<string>92D4EFEF-F5AA-11D5-A1EE-003065A0E6DE</string>
+		</array>
+		<key>4A866879-F34E-11D5-A6BF-003065A0E6DE</key>
+		<array>
+			<string>92D4EFEF-F5AA-11D5-A1EE-003065A0E6DE</string>
+		</array>
+		<key>4BE7B7CA-F34E-11D5-8D67-003065A0E6DE</key>
+		<array>
+			<string>92D4EFEF-F5AA-11D5-A1EE-003065A0E6DE</string>
+		</array>
+	</dict>
+</dict>
+</plist>

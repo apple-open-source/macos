@@ -1,0 +1,199 @@
+Index: samba/source/param/loadparm.c
+===================================================================
+--- samba/source/param/loadparm.c.orig
++++ samba/source/param/loadparm.c
+@@ -4723,66 +4723,99 @@ static BOOL usershare_exists(int iServic
+ }
+ 
+ /***************************************************************************
+- Load a usershare service by name. Returns a valid servicenumber or -1.
++ Checks if the usershare configuration is minimally sane.
+ ***************************************************************************/
+ 
+-int load_usershare_service(const char *servicename)
++static BOOL usershare_prereqs_ok(const char *usersharepath, int *snum_template)
+ {
+ 	SMB_STRUCT_STAT sbuf;
+-	const char *usersharepath = Globals.szUsersharePath;
+ 	int max_user_shares = Globals.iUsershareMaxShares;
+-	int snum_template = -1;
+ 
+-	if (*usersharepath == 0 ||  max_user_shares == 0) {
+-		return -1;
++	*snum_template = -1;
++
++	if (max_user_shares == 0 ||
++	    usersharepath == NULL ||
++	    *usersharepath == '\0') {
++		DEBUG(10,("usershare_prereqs_ok: usershares are disabled.\n"));
++		return False;
+ 	}
+ 
+ 	if (sys_stat(usersharepath, &sbuf) != 0) {
+-		DEBUG(0,("load_usershare_service: stat of %s failed. %s\n",
++		DEBUG(0,("usershare_prereqs_ok: stat of %s failed. %s\n",
+ 			usersharepath, strerror(errno) ));
+-		return -1;
+-	}
+-
+-	if (!S_ISDIR(sbuf.st_mode)) {
+-		DEBUG(0,("load_usershare_service: %s is not a directory.\n",
+-			usersharepath ));
+-		return -1;
++		return False;
+ 	}
+ 
+ 	/*
+-	 * This directory must be owned by root, and have the 't' bit set.
++	 * This directory must be owned by root, and have the 't' bit set if
++	 * it is group writeable.
+ 	 * It also must not be writable by "other".
+ 	 */
+ 
++	if (sbuf.st_uid != 0) {
++		DEBUG(0,("usershare_prereqs_ok: directory %s "
++			    "must be owned by root\n",
++			    usersharepath));
++		return False;
++	}
++
++	 if (sbuf.st_mode & S_IWOTH) {
++		DEBUG(0,("usershare_prereqs_ok: directory %s "
++			    "must not be writeable by anyone\n",
++			    usersharepath));
++		return False;
++	 }
++
+ #ifdef S_ISVTX
+-	if (sbuf.st_uid != 0 || !(sbuf.st_mode & S_ISVTX) || (sbuf.st_mode & S_IWOTH)) {
+-#else
+-	if (sbuf.st_uid != 0 || (sbuf.st_mode & S_IWOTH)) {
+-#endif
+-		DEBUG(0,("load_usershare_service: directory %s is not owned by root "
+-			"or does not have the sticky bit 't' set or is writable by anyone.\n",
+-			usersharepath ));
+-		return -1;
++	if (!(sbuf.st_mode & S_ISVTX) && (sbuf.st_mode & S_IWGRP)) {
++		DEBUG(0,("usershare_prereqs_ok: directory %s is group "
++			"writeable but does not have the sticky bit 't' set\n",
++			usersharepath));
++		return False;
+ 	}
++#endif
+ 
+ 	/* Ensure the template share exists if it's set. */
+ 	if (Globals.szUsershareTemplateShare[0]) {
+-		/* We can't use lp_servicenumber here as we are recommending that
+-		   template shares have -valid=False set. */
+-		for (snum_template = iNumServices - 1; snum_template >= 0; snum_template--) {
+-			if (ServicePtrs[snum_template]->szService &&
+-					strequal(ServicePtrs[snum_template]->szService,
+-						Globals.szUsershareTemplateShare)) {
++		int snum;
++
++		/* We can't use lp_servicenumber here as we are recommending
++		 *  that template shares have -valid=False set.
++		 */
++		for (snum = iNumServices - 1;
++		     snum >= 0;
++		     snum--) {
++			if (ServicePtrs[snum]->szService &&
++			    strequal(ServicePtrs[snum]->szService,
++					Globals.szUsershareTemplateShare)) {
+ 				break;
+ 			}
+ 		}
+ 
+-		if (snum_template == -1) {
+-			DEBUG(0,("load_usershare_service: usershare template share %s "
+-				"does not exist.\n",
++		if (snum == -1) {
++			DEBUG(0,("usershare_prereqs_ok: usershare template "
++				"share %s does not exist.\n",
+ 				Globals.szUsershareTemplateShare ));
+-			return -1;
++			return False;
+ 		}
++
++		*snum_template = snum;
++	}
++
++	return True;
++}
++
++/***************************************************************************
++ Load a usershare service by name. Returns a valid servicenumber or -1.
++***************************************************************************/
++
++int load_usershare_service(const char *servicename)
++{
++	const char *usersharepath = Globals.szUsersharePath;
++	int snum_template = -1;
++
++	if (!usershare_prereqs_ok(usersharepath, &snum_template)) {
++		return -1;
+ 	}
+ 
+ 	return process_usershare_file(usersharepath, servicename, snum_template);
+@@ -4798,7 +4831,6 @@ int load_usershare_service(const char *s
+ int load_usershare_shares(void)
+ {
+ 	SMB_STRUCT_DIR *dp;
+-	SMB_STRUCT_STAT sbuf;
+ 	SMB_STRUCT_DIRENT *de;
+ 	int num_usershares = 0;
+ 	int max_user_shares = Globals.iUsershareMaxShares;
+@@ -4810,52 +4842,10 @@ int load_usershare_shares(void)
+ 	const char *usersharepath = Globals.szUsersharePath;
+ 	int ret = lp_numservices();
+ 
+-	if (max_user_shares == 0 || *usersharepath == '\0') {
+-		return lp_numservices();
+-	}
+-
+-	if (sys_stat(usersharepath, &sbuf) != 0) {
+-		DEBUG(0,("load_usershare_shares: stat of %s failed. %s\n",
+-			usersharepath, strerror(errno) ));
++	if (!usershare_prereqs_ok(usersharepath, &snum_template)) {
+ 		return ret;
+ 	}
+ 
+-	/*
+-	 * This directory must be owned by root, and have the 't' bit set.
+-	 * It also must not be writable by "other".
+-	 */
+-
+-#ifdef S_ISVTX
+-	if (sbuf.st_uid != 0 || !(sbuf.st_mode & S_ISVTX) || (sbuf.st_mode & S_IWOTH)) {
+-#else
+-	if (sbuf.st_uid != 0 || (sbuf.st_mode & S_IWOTH)) {
+-#endif
+-		DEBUG(0,("load_usershare_shares: directory %s is not owned by root "
+-			"or does not have the sticky bit 't' set or is writable by anyone.\n",
+-			usersharepath ));
+-		return ret;
+-	}
+-
+-	/* Ensure the template share exists if it's set. */
+-	if (Globals.szUsershareTemplateShare[0]) {
+-		/* We can't use lp_servicenumber here as we are recommending that
+-		   template shares have -valid=False set. */
+-		for (snum_template = iNumServices - 1; snum_template >= 0; snum_template--) {
+-			if (ServicePtrs[snum_template]->szService &&
+-					strequal(ServicePtrs[snum_template]->szService,
+-						Globals.szUsershareTemplateShare)) {
+-				break;
+-			}
+-		}
+-
+-		if (snum_template == -1) {
+-			DEBUG(0,("load_usershare_shares: usershare template share %s "
+-				"does not exist.\n",
+-				Globals.szUsershareTemplateShare ));
+-			return ret;
+-		}
+-	}
+-
+ 	/* Mark all existing usershares as pending delete. */
+ 	for (iService = iNumServices - 1; iService >= 0; iService--) {
+ 		if (VALID(iService) && ServicePtrs[iService]->usershare) {

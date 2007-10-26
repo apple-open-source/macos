@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,10 +40,13 @@
 #include <architecture/i386/asm_help.h>
 #include <mach/i386/syscall_sw.h>
 
+/*
+ * We have two entry points. int's is used for syscalls which need to preserve
+ * %ecx across the call, or return a 64-bit value in %eax:%edx. sysenter is used
+ * for the majority of syscalls which just return a value in %eax.
+ */
 
-#define UNIX_SYSCALL_TRAP	lcall	$0x2b, $0
-#define MACHDEP_SYSCALL_TRAP	lcall	$0x7, $0
-
+#define UNIX_SYSCALL_SYSENTER	SYSENTER_PAD call __sysenter_trap
 
 /*
  * This is the same as UNIX_SYSCALL, but it can call an alternate error
@@ -53,12 +56,21 @@
 	.globl	error_ret				;\
 LEAF(_##name, 0)					;\
 	movl	$ SYS_##name, %eax			;\
-	UNIX_SYSCALL_TRAP				;\
+	UNIX_SYSCALL_SYSENTER				;\
 	jnb	2f					;\
 	BRANCH_EXTERN(error_ret)  			;\
 2:
 
 #define UNIX_SYSCALL(name, nargs)			\
+	.globl	cerror					;\
+LEAF(_##name, 0)					;\
+	movl	$ SYS_##name, %eax			;\
+	UNIX_SYSCALL_SYSENTER				;\
+	jnb	2f					;\
+	BRANCH_EXTERN(cerror)  				;\
+2:
+
+#define UNIX_SYSCALL_INT(name, nargs)			\
 	.globl	cerror					;\
 LEAF(_##name, 0)					;\
 	movl	$ SYS_##name, %eax			;\
@@ -70,6 +82,14 @@ LEAF(_##name, 0)					;\
 #define UNIX_SYSCALL_NONAME(name, nargs)		\
 	.globl	cerror					;\
 	movl	$ SYS_##name, %eax			;\
+	UNIX_SYSCALL_SYSENTER				;\
+	jnb	2f					;\
+	BRANCH_EXTERN(cerror)  				;\
+2:
+
+#define UNIX_SYSCALL_INT_NONAME(name, nargs)		\
+	.globl	cerror					;\
+	movl	$ SYS_##name, %eax			;\
 	UNIX_SYSCALL_TRAP				;\
 	jnb	2f					;\
 	BRANCH_EXTERN(cerror)  				;\
@@ -79,31 +99,11 @@ LEAF(_##name, 0)					;\
 LEAF(_##pseudo, 0)					;\
 	UNIX_SYSCALL_NONAME(name, nargs)
 
-#if !defined(SYS_getdirentriesattr)
-#define SYS_getdirentriesattr 222
-#endif
-
-#if !defined(SYS_semsys)
-#define SYS_semsys      251
-#define SYS_msgsys      252
-#define SYS_shmsys      253
-#define SYS_semctl      254
-#define SYS_semget      255
-#define SYS_semop       256
-/*#define SYS_semconfig   257*/
-#define SYS_msgctl      258
-#define SYS_msgget      259
-#define SYS_msgsnd      260
-#define SYS_msgrcv      261
-#define SYS_shmat       262
-#define SYS_shmctl      263
-#define SYS_shmdt       264
-#define SYS_shmget      265
-#endif
-
-#if !defined(SYS___pthread_canceled)
-#define SYS___pthread_markcancel	332
-#define SYS___pthread_canceled		333
-#define SYS___semwait_signal		334
-#endif
-
+#define PSEUDO_ERR(pseudo, name, nargs, error_ret)	\
+	.globl	error_ret				;\
+LEAF(_##pseudo, 0)					;\
+	movl	$ SYS_##name, %eax			;\
+	UNIX_SYSCALL_SYSENTER				;\
+	jnb	2f					;\
+	BRANCH_EXTERN(error_ret)  			;\
+2:

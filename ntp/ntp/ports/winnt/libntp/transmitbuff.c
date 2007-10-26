@@ -8,131 +8,128 @@
 #include "ntp_stdlib.h"
 #include "ntp_syslog.h"
 
+#include <isc/list.h>
 #include "transmitbuff.h"
 
 /*
  * transmitbuf memory management
  */
-#define TRANSMIT_INIT	10	/* 10 buffers initially */
-#define TRANSMIT_LOWAT	3	/* when we're down to three buffers get more */
-#define TRANSMIT_INC	5	/* get 5 more at a time */
+#define TRANSMIT_INIT		10	/* 10 buffers initially */
+#define TRANSMIT_LOWAT		 3	/* when we're down to three buffers get more */
+#define TRANSMIT_INC		 5	/* get 5 more at a time */
 #define TRANSMIT_TOOMANY	40	/* this is way too many buffers */
 
 /*
  * Memory allocation
  */
-static volatile u_long full_transmitbufs = 0;		/* number of transmitbufs on fulllist */
-static volatile u_long free_transmitbufs = 0;		/* number of transmitbufs on freelist */
+static volatile u_long full_transmitbufs = 0;	/* number of transmitbufs on fulllist */
+static volatile u_long free_transmitbufs = 0;	/* number of transmitbufs on freelist */
 
-static	struct transmitbuf *volatile freelist = NULL;  /* free buffers */
-static	struct transmitbuf *volatile fulllist = NULL;  /* lifo buffers with data */
-static	struct transmitbuf *volatile beginlist = NULL; /* fifo buffers with data */
+ISC_LIST(transmitbuf_t)	free_list;		/* Currently used transmit buffers */
+ISC_LIST(transmitbuf_t)	full_list;		/* Currently used transmit buffers */
 
 static u_long total_transmitbufs = 0;		/* total transmitbufs currently in use */
-static u_long lowater_additions = 0;	/* number of times we have added memory */
+static u_long lowater_additions = 0;		/* number of times we have added memory */
 
-static	struct transmitbuf initial_bufs[TRANSMIT_INIT]; /* initial allocation */
-
-
-#if defined(HAVE_SIGNALED_IO)
-# define TRANSMIT_BLOCK_IO()	BLOCKIO()
-# define TRANSMIT_UNBLOCK_IO()	UNBLOCKIO()
-#elif defined(HAVE_IO_COMPLETION_PORT)
-static CRITICAL_SECTION TransmitCritSection;
-# define TRANSMIT_BLOCK_IO()	EnterCriticalSection(&TransmitCritSection)
-# define TRANSMIT_UNBLOCK_IO()	LeaveCriticalSection(&TransmitCritSection)
-#else
-# define TRANSMIT_BLOCK_IO()
-# define TRANSMIT_UNBLOCK_IO()
-#endif
-
+static CRITICAL_SECTION TransmitLock;
+# define LOCK(lock)	EnterCriticalSection(lock)
+# define UNLOCK(lock)	LeaveCriticalSection(lock)
 
 static void 
-initialise_buffer(struct transmitbuf *buff)
+initialise_buffer(transmitbuf *buff)
 {
-	memset((char *) buff, 0, sizeof(struct transmitbuf));
+	memset((char *) buff, 0, sizeof(transmitbuf));
 
-#if defined HAVE_IO_COMPLETION_PORT
-	buff->iocompletioninfo.overlapped.hEvent = CreateEvent(NULL, FALSE,FALSE, NULL);
 	buff->wsabuf.len = 0;
 	buff->wsabuf.buf = (char *) &buff->pkt;
-#endif
 }
 
+static void
+add_buffer_to_freelist(transmitbuf *tb)
+{
+	ISC_LIST_APPEND(free_list, tb, link);
+	free_transmitbufs++;
+}
+
+static void
+create_buffers(int nbufs)
+{
+	transmitbuf_t *buf;
+	int i;
+
+	buf = (transmitbuf_t *) emalloc(nbufs*sizeof(transmitbuf_t));
+	for (i = 0; i < nbufs; i++)
+	{
+		initialise_buffer(buf);
+		add_buffer_to_freelist(buf);
+		total_transmitbufs++;
+		buf++;
+	}
+
+	lowater_additions++;
+}
 
 extern void
 init_transmitbuff(void)
 {
-	int i;
 	/*
 	 * Init buffer free list and stat counters
 	 */
-	freelist = 0;
-	for (i = 0; i < TRANSMIT_INIT; i++)
-	{
-		initialise_buffer(&initial_bufs[i]);
-		initial_bufs[i].next = (struct transmitbuf *) freelist;
-		freelist = &initial_bufs[i];
-	}
-
-	fulllist = 0;
-	free_transmitbufs = total_transmitbufs = TRANSMIT_INIT;
+	ISC_LIST_INIT(full_list);
+	ISC_LIST_INIT(free_list);
+	free_transmitbufs = total_transmitbufs = 0;
 	full_transmitbufs = lowater_additions = 0;
+	create_buffers(TRANSMIT_INIT);
 
-#if defined(HAVE_IO_COMPLETION_PORT)
-	InitializeCriticalSection(&TransmitCritSection);
-#endif
+	InitializeCriticalSection(&TransmitLock);
 }
-
 
 static void
-create_buffers(void)
-{
-	register struct transmitbuf *buf;
-	int i;
+delete_buffer_from_full_list(transmitbuf_t *tb) {
 
-	buf = (struct transmitbuf *)
-	    emalloc(TRANSMIT_INC*sizeof(struct transmitbuf));
-	for (i = 0; i < TRANSMIT_INC; i++)
-	{
-		initialise_buffer(buf);
-		buf->next = (struct transmitbuf *) freelist;
-		freelist = buf;
-		buf++;
+	transmitbuf_t *next = NULL;
+	transmitbuf_t *lbuf = ISC_LIST_HEAD(full_list);
+
+	while (lbuf != NULL) {
+		next = ISC_LIST_NEXT(lbuf, link);
+		if (lbuf == tb) {
+			ISC_LIST_DEQUEUE(full_list, lbuf, link);
+			break;
+		}
+		else
+			lbuf = next;
 	}
-
-	free_transmitbufs += TRANSMIT_INC;
-	total_transmitbufs += TRANSMIT_INC;
-	lowater_additions++;
+	full_transmitbufs--;
 }
-
 
 extern void
-free_transmit_buffer(
-	struct transmitbuf *rb
-	)
+free_transmit_buffer(transmitbuf_t *rb)
 {
-	TRANSMIT_BLOCK_IO();
-	rb->next = freelist;
-	freelist = rb;
-	free_transmitbufs++;
-	TRANSMIT_UNBLOCK_IO();
+	LOCK(&TransmitLock);
+	delete_buffer_from_full_list(rb);
+	add_buffer_to_freelist(rb);
+	UNLOCK(&TransmitLock);
 }
 
 
-extern struct transmitbuf *
+extern transmitbuf *
 get_free_transmit_buffer(void)
 {
-	struct transmitbuf * buffer = NULL;
-	TRANSMIT_BLOCK_IO();
+
+	transmitbuf_t * buffer = NULL;
+	LOCK(&TransmitLock);
 	if (free_transmitbufs <= 0) {
-		create_buffers();
+		create_buffers(TRANSMIT_INC);
 	}
-	buffer = freelist;
-	freelist = buffer->next;
-	buffer->next = NULL;
-	--free_transmitbufs;
-	TRANSMIT_UNBLOCK_IO();
-	return buffer;
+	buffer = ISC_LIST_HEAD(free_list);
+	if (buffer != NULL)
+	{
+		ISC_LIST_DEQUEUE(free_list, buffer, link);
+		free_transmitbufs--;
+		ISC_LIST_APPEND(full_list, buffer, link);
+		full_transmitbufs++;
+	}
+	UNLOCK(&TransmitLock);
+	return (buffer);
 }
 

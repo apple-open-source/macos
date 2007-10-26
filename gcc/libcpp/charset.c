@@ -1318,13 +1318,19 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
   struct _cpp_strbuf tbuf;
   const uchar *p, *base, *limit;
   size_t i;
+  /* APPLE LOCAL begin pascal strings */
+  size_t width = CPP_OPTION (pfile, wchar_precision);
+  size_t cwidth = CPP_OPTION (pfile, char_precision);
+  size_t pascal_string_max_length = width_to_mask (wide ? width : cwidth);
+  size_t pascal_string_length_byte_size = ((wide ? width : cwidth)/cwidth);
+  /* APPLE LOCAL end pascal strings */
   struct cset_converter cvt
     = wide ? pfile->wide_cset_desc : pfile->narrow_cset_desc;
 
   tbuf.asize = MAX (OUTBUF_BLOCK_SIZE, from->len);
   tbuf.text = xmalloc (tbuf.asize);
   /* APPLE LOCAL pascal strings */
-  tbuf.len = (pascal_p ? 1 : 0);  /* Reserve space for Pascal length byte.  */
+  tbuf.len = (pascal_p ? pascal_string_length_byte_size : 0);  /* Reserve space for Pascal length byte.  */
 
   for (i = 0; i < count; i++)
     {
@@ -1363,9 +1369,25 @@ cpp_interpret_string (cpp_reader *pfile, const cpp_string *from, size_t count,
   /* For Pascal strings, compute the length byte. */
   if (pascal_p)
     {
-      *tbuf.text = (unsigned char) (tbuf.len - 1);
-      if (tbuf.len > 256)
-        cpp_error (pfile, CPP_DL_ERROR, "Pascal string is too long");
+      if (wide)
+	{
+	  /* Conversion routine uses tbuf.len as the starting point in destination
+	     buffer. However we are adding string lenght at the beginning. Save tbuf.len
+	     and restore it later.  */
+	  size_t saved_tbuf_len = tbuf.len;
+	  unsigned char uclen = (unsigned char) (saved_tbuf_len/pascal_string_length_byte_size - 1);
+	  tbuf.len = 0;
+	  APPLY_CONVERSION (cvt, &uclen, 1, &tbuf);
+	  tbuf.len = saved_tbuf_len;
+	  if (tbuf.len/pascal_string_length_byte_size > pascal_string_max_length)
+	    cpp_error (pfile, CPP_DL_ERROR, "Pascal string is too long");
+	}
+      else
+	{
+	  *tbuf.text = (unsigned char) (tbuf.len - 1);
+	  if (tbuf.len > 256)
+	    cpp_error (pfile, CPP_DL_ERROR, "Pascal string is too long");
+	}
     }
   /* APPLE LOCAL end pascal strings */
 
@@ -1449,7 +1471,11 @@ narrow_str_to_charconst (cpp_reader *pfile, cpp_string str,
     }
   /* APPLE LOCAL begin -Wfour-char-constants */
   else if ((i == 4 && CPP_OPTION (pfile, warn_four_char_constants))
-           || (i > 1 && i != 4 && CPP_OPTION (pfile, warn_multichar)))
+           || (i > 1 && CPP_OPTION (pfile, warn_multichar)
+               /* APPLE LOCAL begin 3222135 */
+               && (i != 4 || (CPP_PEDANTIC (pfile)
+                              && !CPP_IN_SYSTEM_HEADER (pfile)))))
+               /* APPLE LOCAL end 3222135 */
     /* APPLE LOCAL end -Wfour-char-constants */
     cpp_error (pfile, CPP_DL_WARNING, "multi-character character constant");
 
@@ -1709,3 +1735,29 @@ _cpp_default_encoding (void)
 
   return current_encoding;
 }
+/* APPLE LOCAL begin radar 2996215 */
+/* This routine is used to convert  utf-8 to utf-16 character format. FROM, FLEN
+   are the input character buffer and its length. Upon success, utf-16 characters are
+   returned in TO buffer and size of returned buffer in TO_LEN. Function returns true
+   upon success and false when it fails to do the conversion.
+*/
+
+bool
+cpp_utf8_utf16 (cpp_reader *pfile, const uchar *from, size_t flen, 
+		uchar **to, size_t *to_len)
+{
+  struct cset_converter cvt;
+  struct _cpp_strbuf tbuf;
+ 
+  cvt.cd = CPP_OPTION (pfile, bytes_big_endian) ? (iconv_t)1 : (iconv_t)0;
+  cvt.func = convert_utf8_utf16;
+  tbuf.asize = OUTBUF_BLOCK_SIZE;
+  tbuf.text = xmalloc (tbuf.asize);
+  tbuf.len = 0;
+  if (!APPLY_CONVERSION (cvt, from, flen, &tbuf))
+    return false;
+  *to = tbuf.text;
+  *to_len = tbuf.len;
+  return true;
+}
+/* APPLE LOCAL end radar 2996215 */

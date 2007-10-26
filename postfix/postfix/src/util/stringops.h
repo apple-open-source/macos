@@ -29,10 +29,17 @@ extern char *concatenate(const char *,...);
 extern char *mystrtok(char **, const char *);
 extern char *translit(char *, const char *, const char *);
 #ifndef HAVE_BASENAME
+#define basename postfix_basename
 extern char *basename(const char *);
 #endif
+extern char *sane_basename(VSTRING *, const char *);
+extern char *sane_dirname(VSTRING *, const char *);
 extern VSTRING *unescape(VSTRING *, const char *);
+extern VSTRING *escape(VSTRING *, const char *, ssize_t);
 extern int alldig(const char *);
+extern int allprint(const char *);
+extern int allspace(const char *);
+extern int allascii(const char *);
 extern const char *split_nameval(char *, char **, char **);
 
 /* LICENSE

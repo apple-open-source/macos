@@ -1,8 +1,0 @@
-XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
-
-DATAFILES = basic complete default xtest 
-
-all::
-
-InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/semantics)
-DependTarget()

@@ -15,6 +15,14 @@ require "net/http"
 Net::HTTP::version_1_2 if RUBY_VERSION < "1.7"
 
 module WEBrick
+  NullReader = Object.new
+  class << NullReader
+    def read(*args)
+      nil
+    end
+    alias gets read
+  end
+
   class HTTPProxyServer < HTTPServer
     def initialize(config)
       super
@@ -110,7 +118,8 @@ module WEBrick
         proxy_host = proxy.host
         proxy_port = proxy.port
         if proxy.userinfo
-          credentials = "Basic " + encode64(proxy.userinfo)
+          credentials = "Basic " + [proxy.userinfo].pack("m*")
+          credentials.chomp!
           header['proxy-authorization'] = credentials
         end
       end
@@ -170,7 +179,8 @@ module WEBrick
       if proxy = proxy_uri(req, res)
         proxy_request_line = "CONNECT #{host}:#{port} HTTP/1.0"
         if proxy.userinfo
-          credentials = "Basic " + encode64(proxy.userinfo)
+          credentials = "Basic " + [proxy.userinfo].pack("m*")
+          credentials.chomp!
         end
         host, port = proxy.host, proxy.port
       end
@@ -211,6 +221,10 @@ module WEBrick
         end
         res.send_response(ua)
         access_log(@config, req, res)
+
+        # Should clear request-line not to send the sesponse twice.
+        # see: HTTPServer#run
+        req.parse(NullReader) rescue nil
       end
 
       begin

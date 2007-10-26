@@ -10,7 +10,6 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <kvm.h>
 #include <limits.h>
 #include <nlist.h>
 #include <paths.h>

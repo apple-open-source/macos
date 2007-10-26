@@ -151,19 +151,24 @@
 
 /* authorization hints passed between securityd and agent */
 #define AGENT_HINT_SUGGESTED_USER "suggested-user"
+#define AGENT_HINT_SUGGESTED_USER_LONG "suggested-realname"
 #define AGENT_HINT_REQUIRE_USER_IN_GROUP "require-user-in-group"
 #define AGENT_HINT_CUSTOM_PROMPT "prompt"
 #define AGENT_HINT_AUTHORIZE_RIGHT "authorize-right"
 #define AGENT_HINT_CLIENT_PID "client-pid"
 #define AGENT_HINT_CLIENT_UID "client-uid"
+#define AGENT_HINT_CLIENT_VALIDITY "client-signature-validity"
 #define AGENT_HINT_CREATOR_PID "creator-pid"
 #define AGENT_HINT_CLIENT_TYPE "client-type"
 #define AGENT_HINT_CLIENT_PATH "client-path"
+#define AGENT_HINT_CLIENT_NAME "client-name"
 #define AGENT_HINT_TRIES "tries"
 #define AGENT_HINT_RETRY_REASON "reason"
 #define AGENT_HINT_AUTHORIZE_RULE "authorize-rule"
 #define AGENT_HINT_TOKEN_NAME "token-name"
 
+/* passed from mechanisms to loginwindow */
+#define kAuthorizationEnvironmentTokenSubserviceID "token-subservice-uid"
 
 // remote home directory specification
 #define AGENT_CONTEXT_AFP_DIR	"afp_dir"
@@ -184,6 +189,8 @@
 
 #define AGENT_HINT_SHOW_ADD_TO_KEYCHAIN "show-add-to-keychain"
 #define AGENT_ADD_TO_KEYCHAIN "add-to-keychain"
+
+#define AGENT_CONTEXT_AUTHENTICATION_FAILURE "authentication-failure"
 
 /* keychain panels */
 // ACLowner etc. code identity panel

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.50.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/bprint.c,v 1.55.2.2 2006/01/03 22:16:07 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -229,81 +229,6 @@ ber_bprint(
 	(*ber_pvt_log_print)( line );
 }
 
-#ifdef NEW_LOGGING
-int ber_output_dump(
-	const char *subsys,
-	int level,
-	BerElement *ber,
-	int inout )
-{
-    static const char	hexdig[] = "0123456789abcdef";
-    char buf[132];
-    ber_len_t len;
-    char	line[ BP_LEN ];
-    ber_len_t i;
-    char *data = ber->ber_ptr;
-
-    if ( inout == 1 ) {
-        len = ber_pvt_ber_remaining(ber);
-    } else {
-        len = ber_pvt_ber_write(ber);
-    }
-
-    sprintf( buf, "ber_dump: buf=0x%08lx ptr=0x%08lx end=0x%08lx len=%ld\n",
-             (long) ber->ber_buf,
-             (long) ber->ber_ptr,
-             (long) ber->ber_end,
-             (long) len );
-
-    (void) ber_pvt_log_output( subsys, level, "%s", buf );
-
-#define BP_OFFSET 9
-#define BP_GRAPH 60
-#define BP_LEN	80
-
-    assert( data != NULL );
-        
-    /* in case len is zero */
-    line[0] = '\n';
-    line[1] = '\0';
-	
-    for ( i = 0 ; i < len ; i++ ) {
-        int n = i % 16;
-        unsigned off;
-        
-        if( !n ) {
-            if( i ) {
-				(void) ber_pvt_log_output( subsys, level, "%s", line );
-			}
-            memset( line, ' ', sizeof(line)-2 );
-            line[sizeof(line)-2] = '\n';
-            line[sizeof(line)-1] = '\0';
-            
-            off = i % 0x0ffffU;
-
-            line[2] = hexdig[0x0f & (off >> 12)];
-            line[3] = hexdig[0x0f & (off >>  8)];
-            line[4] = hexdig[0x0f & (off >>  4)];
-            line[5] = hexdig[0x0f & off ];
-            line[6] = ':';
-        }
-
-        off = BP_OFFSET + n*3 + ((n >= 8)?1:0);
-        line[off] = hexdig[ 0x0f & ( data[i] >> 4 ) ];
-        line[off+1] = hexdig[ 0x0f & data[i] ];
-        
-        off = BP_GRAPH + n + ((n >= 8)?1:0);
-        
-        if ( isprint( (unsigned char) data[i] )) {
-            line[BP_GRAPH + n] = data[i];
-        } else {
-            line[BP_GRAPH + n] = '.';
-        }
-    }
-
-    return ber_pvt_log_output( subsys, level, "%s", line );
-}
-#endif
 
 int
 ber_log_dump(

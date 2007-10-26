@@ -1,0 +1,1271 @@
+This is uucp.info, produced by makeinfo version 4.1 from uucp.texi.
+
+START-INFO-DIR-ENTRY
+* UUCP: (uucp).                 Transfer mail and news across phone lines.
+END-INFO-DIR-ENTRY
+
+   This file documents Taylor UUCP, version 1.07.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 2002 Ian Lance Taylor
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the section entitled "Copying" are included exactly as in the
+original, and provided that the entire resulting derived work is
+distributed under the terms of a permission notice identical to this
+one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that the section entitled "Copying" may be included in
+a translation approved by the author instead of in the original English.
+
+
+File: uucp.info,  Node: Invoking cu,  Next: Invoking uucico,  Prev: Invoking uupick,  Up: Invoking the UUCP Programs
+
+Invoking cu
+===========
+
+* Menu:
+
+* cu Description::              Description of cu
+* cu Commands::                 Commands Supported by cu
+* cu Variables::                Variables Supported by cu
+* cu Options::                  Options Supported by cu
+
+
+File: uucp.info,  Node: cu Description,  Next: cu Commands,  Prev: Invoking cu,  Up: Invoking cu
+
+cu Description
+--------------
+
+     cu [options] [system | phone | "dir"]
+
+   The `cu' program is used to call up another system and act as a dial
+in terminal.  It can also do simple file transfers with no error
+checking.
+
+   The `cu' program takes a single non-option argument.
+
+   If the argument is the string `dir' cu will make a direct connection
+to the port.  This may only be used by users with write access to the
+port, as it permits reprogramming the modem.
+
+   Otherwise, if the argument begins with a digit, it is taken to be a
+phone number to call.
+
+   Otherwise, it is taken to be the name of a system to call.
+
+   The `-z' or `--system' options may be used to name a system
+beginning with a digit, and the `-c' or `--phone' options may be used
+to name a phone number that does not begin with a digit.
+
+   The `cu' program locates a port to use in the UUCP configuration
+files.  If a simple system name is given, it will select a port
+appropriate for that system.  The `-p', `--port', `-l', `--line', `-s',
+and `--speed' options may be used to control the port selection.
+
+   When a connection is made to the remote system, `cu' forks into two
+processes.  One reads from the port and writes to the terminal, while
+the other reads from the terminal and writes to the port.
+
+
+File: uucp.info,  Node: cu Commands,  Next: cu Variables,  Prev: cu Description,  Up: Invoking cu
+
+cu Commands
+-----------
+
+   The `cu' program provides several commands that may be used during
+the conversation.  The commands all begin with an escape character,
+which by default is `~' (tilde).  The escape character is only
+recognized at the beginning of a line.  To send an escape character to
+the remote system at the start of a line, it must be entered twice.  All
+commands are either a single character or a word beginning with `%'
+(percent sign).
+
+   The `cu' program recognizes the following commands.
+
+`~.'
+     Terminate the conversation.
+
+`~! command'
+     Run command in a shell.  If command is empty, starts up a shell.
+
+`~$ command'
+     Run command, sending the standard output to the remote system.
+
+`~| command'
+     Run command, taking the standard input from the remote system.
+
+`~+ command'
+     Run command, taking the standard input from the remote system and
+     sending the standard output to the remote system.
+
+`~#, ~%break'
+     Send a break signal, if possible.
+
+`~c directory, ~%cd directory'
+     Change the local directory.
+
+`~> file'
+     Send a file to the remote system.  This just dumps the file over
+     the communication line.  It is assumed that the remote system is
+     expecting it.
+
+`~<'
+     Receive a file from the remote system.  This prompts for the local
+     file name and for the remote command to execute to begin the file
+     transfer.  It continues accepting data until the contents of the
+     `eofread' variable are seen.
+
+`~p from to'
+`~%put from to'
+     Send a file to a remote Unix system.  This runs the appropriate
+     commands on the remote system.
+
+`~t from to'
+`~%take from to'
+     Retrieve a file from a remote Unix system.  This runs the
+     appropriate commands on the remote system.
+
+`~s variable value'
+     Set a `cu' variable to the given value.  If value is not given, the
+     variable is set to `true'.
+
+`~! variable'
+     Set a `cu' variable to `false'.
+
+`~z'
+     Suspend the cu session.  This is only supported on some systems.
+     On systems for which `^Z' may be used to suspend a job, `~^Z' will
+     also suspend the session.
+
+`~%nostop'
+     Turn off XON/XOFF handling.
+
+`~%stop'
+     Turn on XON/XOFF handling.
+
+`~v'
+     List all the variables and their values.
+
+`~?'
+     List all commands.
+
+
+File: uucp.info,  Node: cu Variables,  Next: cu Options,  Prev: cu Commands,  Up: Invoking cu
+
+cu Variables
+------------
+
+   The `cu' program also supports several variables.  They may be
+listed with the `~v' command, and set with the `~s' or `~!'  commands.
+
+`escape'
+     The escape character.  The default is `~' (tilde).
+
+`delay'
+     If this variable is true, `cu' will delay for a second, after
+     recognizing the escape character, before printing the name of the
+     local system.  The default is true.
+
+`eol'
+     The list of characters which are considered to finish a line.  The
+     escape character is only recognized after one of these is seen.
+     The default is `carriage return', `^U', `^C', `^O', `^D', `^S',
+     `^Q', `^R'.
+
+`binary'
+     Whether to transfer binary data when sending a file.  If this is
+     false, then newlines in the file being sent are converted to
+     carriage returns.  The default is false.
+
+`binary-prefix'
+     A string used before sending a binary character in a file
+     transfer, if the `binary' variable is true.  The default is `^V'.
+
+`echo-check'
+     Whether to check file transfers by examining what the remote system
+     echoes back.  This probably doesn't work very well.  The default is
+     false.
+
+`echonl'
+     The character to look for after sending each line in a file.  The
+     default is carriage return.
+
+`timeout'
+     The timeout to use, in seconds, when looking for a character,
+     either when doing echo checking or when looking for the `echonl'
+     character.  The default is 30.
+
+`kill'
+     The character to use delete a line if the echo check fails.  The
+     default is `^U'.
+
+`resend'
+     The number of times to resend a line if the echo check continues to
+     fail.  The default is 10.
+
+`eofwrite'
+     The string to write after sending a file with the `~>' command.
+     The default is `^D'.
+
+`eofread'
+     The string to look for when receiving a file with the ` ~<'
+     command.  The default is `$', which is intended to be a typical
+     shell prompt.
+
+`verbose'
+     Whether to print accumulated information during a file transfer.
+     The default is true.
+
+
+File: uucp.info,  Node: cu Options,  Prev: cu Variables,  Up: Invoking cu
+
+cu Options
+----------
+
+   The following options may be given to `cu'.
+
+`-e'
+`--parity=even'
+     Use even parity.
+
+`-o'
+`--parity=odd'
+     Use odd parity.
+
+`--parity=none'
+     Use no parity.  No parity is also used if both `-e' and `-o' are
+     given.
+
+`-h'
+`--halfduplex'
+     Echo characters locally (half-duplex mode).
+
+`--nostop'
+     Turn off XON/XOFF handling (it is on by default).
+
+`-E char'
+`--escape char'
+     Set the escape character.  Initially `~' (tilde).  To eliminate the
+     escape character, use `-E '''.
+
+`-z system'
+`--system system'
+     The system to call.
+
+`-c phone-number'
+`--phone phone-number'
+     The phone number to call.
+
+`-p port'
+`-a port'
+`--port port'
+     Name the port to use.
+
+`-l line'
+`--line line'
+     Name the line to use by giving a device name.  This may be used to
+     dial out on ports that are not listed in the UUCP configuration
+     files.  Write access to the device is required.
+
+`-s speed'
+`-#'
+`--speed speed'
+     The speed (baud rate) to use.  Here, `-#' means an actual number;
+     e.g., `-9600'.
+
+`-n'
+`--prompt'
+     Prompt for the phone number to use.
+
+`-d'
+     Enter debugging mode.  Equivalent to `--debug all'.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uucico,  Next: Invoking uuxqt,  Prev: Invoking cu,  Up: Invoking the UUCP Programs
+
+Invoking uucico
+===============
+
+* Menu:
+
+* uucico Description::          Description of uucico
+* uucico Options::              Options Supported by uucico
+
+
+File: uucp.info,  Node: uucico Description,  Next: uucico Options,  Prev: Invoking uucico,  Up: Invoking uucico
+
+uucico Description
+------------------
+
+     uucico [options]
+
+   The `uucico' daemon processes file transfer requests queued by
+`uucp' and `uux'.  It is started when `uucp' or `uux' is run (unless
+they are given the `-r' or `--nouucico' options).  It is also typically
+started periodically using entries in the `crontab' table(s).
+
+   When `uucico' is invoked with `-r1', `--master', `-s', `--system',
+or `-S', the daemon will place a call to a remote system, running in
+master mode.  Otherwise the daemon will start in slave mode, accepting
+a call from a remote system.  Typically a special login name will be
+set up for UUCP which automatically invokes `uucico' when a remote
+system calls in and logs in under that name.
+
+   When `uucico' terminates, it invokes the `uuxqt' daemon, unless the
+`-q' or `--nouuxqt' options were given; `uuxqt' executes any work
+orders created by `uux' on a remote system, and any work orders created
+locally which have received remote files for which they were waiting.
+
+   If a call fails, `uucico' will normally refuse to retry the call
+until a certain (configurable) amount of time has passed.  This may be
+overriden by the `-f', `--force', or `-S' options.
+
+   The `-l', `--prompt', `-e', or `--loop' options may be used to force
+`uucico' to produce its own prompts of `login: ' and `Password:'.  When
+another `uucico' daemon calls in, it will see these prompts and log in
+as usual.  The login name and password will normally be checked against
+a separate list kept specially for `uucico', rather than the
+`/etc/passwd' file (*note Configuration File Names::).  It is possible,
+on some systems, to configure `uucico' to use `/etc/passwd'.  The `-l'
+or `--prompt' options will prompt once and then exit; in this mode the
+UUCP administrator, or the superuser, may use the `-u' or `--login'
+option to force a login name, in which case `uucico' will not prompt
+for one.  The `-e' or `--loop' options will prompt again after the
+first session is over; in this mode `uucico' will permanently control a
+port.
+
+   If `uucico' receives a `SIGQUIT', `SIGTERM' or `SIGPIPE' signal, it
+will cleanly abort any current conversation with a remote system and
+exit.  If it receives a `SIGHUP' signal it will abort any current
+conversation, but will continue to place calls to (if invoked with
+`-r1' or `--master') and accept calls from (if invoked with `-e' or
+`--loop') other systems.  If it receives a `SIGINT' signal it will
+finish the current conversation, but will not place or accept any more
+calls.
+
+
+File: uucp.info,  Node: uucico Options,  Prev: uucico Description,  Up: Invoking uucico
+
+uucico Options
+--------------
+
+   The following options may be given to `uucico'.
+
+`-r1'
+`--master'
+     Start in master mode: call out to a remote system.  Implied by
+     `-s', `--system', or `-S'.  If no system is specified,
+     sequentially call every system for which work is waiting to be
+     done.
+
+`-r0'
+`--slave'
+     Start in slave mode.  This is the default.
+
+`-s system'
+`--system system'
+     Call the specified system.
+
+`-S system'
+     Call the specified system, ignoring any required wait.  This is
+     equivalent to `-s system -f'.
+
+`-f'
+`--force'
+     Ignore any required wait for any systems to be called.
+
+`-l'
+`--prompt'
+     Prompt for login name and password using `login: ' and
+     `Password:'.  This allows `uucico' to be easily run from `inetd'.
+     The login name and password are checked against the UUCP password
+     file, which need not be `/etc/passwd'.  The `--login' option may
+     be used to force a login name, in which cause `uucico' will only
+     prompt for a password.
+
+`-p port'
+`--port port'
+     Specify a port to call out on or to listen to.
+
+`-e'
+`--loop'
+     Enter an endless loop of login/password prompts and slave mode
+     daemon execution.  The program will not stop by itself; you must
+     use `kill' to shut it down.
+
+`-w'
+`--wait'
+     After calling out (to a particular system when `-s', `--system',
+     or `-S' is specifed, or to all systems which have work when just
+     `-r1' or `--master' is specifed), begin an endless loop as with
+     `--loop'.
+
+`-q'
+`--nouuxqt'
+     Do not start the `uuxqt' daemon when finished.
+
+`-c'
+`--quiet'
+     If no calls are permitted at this time, then don't make the call,
+     but also do not put an error message in the log file and do not
+     update the system status (as reported by `uustat').  This can be
+     convenient for automated polling scripts, which may want to simply
+     attempt to call every system rather than worry about which
+     particular systems may be called at the moment.  This option also
+     suppresses the log message indicating that there is no work to be
+     done.
+
+`-C'
+`--ifwork'
+     Only call the system named by `-s', `--system', or `-S' if there
+     is work for that system.
+
+`-D'
+`--nodetach'
+     Do not detach from the controlling terminal.  Normally `uucico'
+     detaches from the terminal before each call out to another system
+     and before invoking `uuxqt'.  This option prevents this.
+
+`-u name'
+`--login name'
+     Set the login name to use instead of that of the invoking user.
+     This option may only be used by the UUCP administrator or the
+     superuser.  If used with `--prompt', this will cause `uucico' to
+     prompt only for the password, not the login name.
+
+`-z'
+`--try-next'
+     If a call fails after the remote system is reached, try the next
+     alternate rather than simply exiting.
+
+`-i type'
+`--stdin type'
+     Set the type of port to use when using standard input.  The only
+     supported port type is TLI, and this is only available on machines
+     which support the TLI networking interface.  Specifying `-i TLI'
+     causes `uucico' to use TLI calls to perform I/O.
+
+`-X type'
+     Same as the standard option `-x type'.  Provided for historical
+     compatibility.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config file'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uuxqt,  Next: Invoking uuchk,  Prev: Invoking uucico,  Up: Invoking the UUCP Programs
+
+Invoking uuxqt
+==============
+
+     uuxqt [-c command] [-s system] [--command command] [--system system]
+
+   The `uuxqt' daemon executes commands requested by `uux' from either
+the local system or from remote systems.  It is started automatically
+by the `uucico' daemon (unless `uucico' is given the `-q' or
+`--nouuxqt' options).
+
+   There is normally no need to run `uuxqt', since it will be invoked
+by `uucico'.  However, `uuxqt' can be invoked directly to provide
+greater control over the processing of the work queue.
+
+   Multiple invocations of `uuxqt' may be run at once, as controlled by
+the `max-uuxqts' configuration command; see *Note Miscellaneous
+(config)::.
+
+   The following options may be given to `uuxqt'.
+
+`-c command'
+`--command command'
+     Only execute requests for the specified command.  For example,
+     `uuxqt --command rmail'.
+
+`-s system'
+`--system system'
+     Only execute requests originating from the specified system.
+
+`-x type'
+`--debug type'
+`-I file'
+`--config'
+`-v'
+`--version'
+`--help'
+     *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uuchk,  Next: Invoking uuconv,  Prev: Invoking uuxqt,  Up: Invoking the UUCP Programs
+
+Invoking uuchk
+==============
+
+     uuchk [-s system] [--system system]
+
+   The `uuchk' program displays information read from the UUCP
+configuration files.  It should be used to ensure that UUCP has been
+configured correctly.
+
+   The `-s' or `--system' options may be used to display the
+configuration for just the specified system, rather than for all
+systems.  The `uuchk' program also supports the standard UUCP program
+options; see *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uuconv,  Next: Invoking uusched,  Prev: Invoking uuchk,  Up: Invoking the UUCP Programs
+
+Invoking uuconv
+===============
+
+     uuconv -i type -o type [-p program] [--program program]
+     uuconv --input type --output type [-p program] [--program program]
+
+   The `uuconv' program converts UUCP configuration files from one
+format to another.  The type of configuration file to read is specified
+using the `-i' or `--input' options.  The type of configuration file to
+write is specified using the `-o' or `--output' options.
+
+   The supported configuration file types are `taylor', `v2', and
+`hdb'.  For a description of the `taylor' configuration files, see
+*Note Configuration Files::.  The other types of configuration files
+are used by traditional UUCP packages, and are not described in this
+manual.
+
+   An input configuration of type `v2' or `hdb' is read from a compiled
+in directory (specified by `oldconfigdir' in `Makefile').  An input
+configuration of type `taylor' is read from a compiled in directory by
+default, but may be overridden with the standard `-I' or `--config'
+options (*note Standard Options::).
+
+   The output configuration is written to files in the directory in
+which `uuconv' is run.
+
+   Some information in the input files may not be representable in the
+desired output format, in which case `uuconv' will silently discard it.
+The output of `uuconv' should be carefully checked before it is used.
+The `uuchk' program may be used for this purpose; see *Note Invoking
+uuchk::.
+
+   The `-p' or `--program' option may be used to convert specific `cu'
+configuration information, rather than the default of only converting
+the `uucp' configuration information; see *Note config File::.
+
+   The `uuchk' program also supports the standard UUCP program options;
+see *Note Standard Options::.
+
+
+File: uucp.info,  Node: Invoking uusched,  Prev: Invoking uuconv,  Up: Invoking the UUCP Programs
+
+Invoking uusched
+================
+
+   The `uusched' program is actually just a shell script which invokes
+the `uucico' daemon.  It is provided for backward compatibility.  It
+causes `uucico' to call all systems for which there is work.  Any
+option which may be given to `uucico' may also be given to `uusched'.
+*Note Invoking uucico::.
+
+
+File: uucp.info,  Node: Installing Taylor UUCP,  Next: Using Taylor UUCP,  Prev: Invoking the UUCP Programs,  Up: Top
+
+Installing Taylor UUCP
+**********************
+
+   These are the installation instructions for the Taylor UUCP package.
+
+* Menu:
+
+* Compilation::                 Compiling Taylor UUCP
+* Testing the Compilation::     Testing the Compilation
+* Installing the Binaries::     Installing the Binaries
+* Configuration::               Configuring Taylor UUCP
+* Testing the Installation::    Testing the Installation
+
+
+File: uucp.info,  Node: Compilation,  Next: Testing the Compilation,  Prev: Installing Taylor UUCP,  Up: Installing Taylor UUCP
+
+Compiling Taylor UUCP
+=====================
+
+   If you have a source code distribution, you must first compile it for
+your system.  Free versions of Unix, such as Linux, NetBSD, or FreeBSD,
+often come with pre-compiled binary distributions of UUCP.  If you are
+using a binary distribution, you may skip to the configuration section
+(*note Configuration::).
+
+   Follow these steps to compile the source code.
+
+  1. Take a look at the top of `Makefile.in' and set the appropriate
+     values for your system.  These control where the programs are
+     installed and which user on the system owns them (normally they
+     will be owned by a special user `uucp' rather than a real person;
+     they should probably not be owned by `root').
+
+  2. Run the shell script `configure'.  This script was generated using
+     the `autoconf' program written by David MacKenzie of the Free
+     Software Foundation.  It takes a while to run.  It will generate
+     the file `config.h' based on `config.h.in', and, for each source
+     code directory, will generate `Makefile' based on `Makefile.in'.
+
+     You can pass certain arguments to `configure' in the environment.
+     Because `configure' will compile little test programs to see what
+     is available on your system, you must tell it how to run your
+     compiler.  It recognizes the following environment variables:
+
+    `CC'
+          The C compiler.  If this is not set, then if `configure' can
+          find `gcc' it will use it, otherwise it will use `cc'.
+
+    `CFLAGS'
+          Flags to pass to the C compiler when compiling the actual
+          code.  If this is not set, `configure' will use `-g'.
+
+    `LDFLAGS'
+          Flags to pass to the C compiler when only linking, not
+          compiling.  If this is not set, `configure' will use the
+          empty string.
+
+    `LIBS'
+          Libraries to pass to the C compiler.  If this is not set,
+          `configure' will use the empty string.
+
+    `INSTALL'
+          The program to run to install UUCP in the binary directory.
+          If this is not set, then if `configure' finds the BSD
+          `install' program, it will set this to `install -c';
+          otherwise, it will use `cp'.
+
+     Suppose, for example, you want to set the environment variable `CC'
+     to `rcc'.  If you are using `sh', `bash', or `ksh', invoke
+     `configure' as `CC=rcc configure'.  If you are using `csh', do
+     `setenv CC rcc; sh configure'.
+
+     On some systems you will want to use `LIBS=-lmalloc'.  On Xenix
+     derived versions of Unix do not use `LIBS=-lx' because this will
+     bring in the wrong versions of certain routines; if you want to use
+     `-lx' you must specify `LIBS=-lc -lx'.
+
+     You can also pass other arguments to `configure' on the command
+     line.  Use `configure --help' for a complete list.  Of particular
+     interest:
+    `--prefix=DIRNAME'
+          The directory under which all files are installed.  Default
+          `/usr/local'.
+
+    `--with-newconfigdir=DIRNAME'
+          The directory in which to find new style configuration files.
+          Default `PREFIX/conf/uucp'.
+
+    `--with-oldconfigdir=DIRNAME'
+          The directory in which to find old style configuration files.
+          Default `/usr/lib/uucp'.
+
+     If `configure' fails for some reason, or if you have a very weird
+     system, you may have to configure the package by hand.  To do
+     this, copy the file `config.h.in' to `config.h' and edit it for
+     your system.  Then for each source directory (the top directory,
+     and the subdirectories `lib', `unix', and `uuconf') copy
+     `Makefile.in' to `Makefile', find the words within `@' characters,
+     and set them correctly for your system.
+
+  3. Igor V. Semenyuk provided this (lightly edited) note about ISC
+     Unix 3.0.  The `configure' script will default to passing `-posix'
+     to `gcc'.  However, using `-posix' changes the environment to
+     POSIX, and on ISC 3.0, at least, the default for `POSIX_NO_TRUNC'
+     is 1.  This can lead to a problem when `uuxqt' executes `rmail'.
+     `IDA sendmail' has dbm configuration files named
+     `mailertable.{dir,pag}'.  Notice these names are 15 characters
+     long.  When `uuxqt' compiled with the `-posix' executes `rmail',
+     which in turn executes `sendmail', the later is run under the
+     POSIX environment too.  This leads to `sendmail' bombing out with
+     `'error opening 'M' database: name too long' (mailertable.dir)'.
+     It's rather obscure behaviour, and it took me a day to find out
+     the cause.  I don't use the `-posix' switch; instead, I run `gcc'
+     with `-D_POSIX_SOURCE', and add `-lcposix' to `LIBS'.
+
+  4. On some versions of BSDI there is a bug in the shell which causes
+     the default value for `CFLAGS' to be set incorrectly.  If `echo
+     ${CFLAGS--g}' echoes `g' rather than `-g', then you must set
+     `CFLAGS' in the environment before running configure.  There is a
+     patch available from BSDI for this bug.  (Reported by David Vrona).
+
+  5. On AIX 3.2.5, and possibly other versions, `cc -E' does not work,
+     reporting `Option NOROCONST is not valid'.  Test this before
+     running configure by doing something like `touch /tmp/foo.c; cc -E
+     /tmp/foo.c'.  This may give a warning about the file being empty,
+     but it should not give the `Option NOROCONST' warning.  The
+     workaround is to remove the `,noroconst' entry from the `options'
+     clause in the `cc' stanza in `/etc/xlc.cfg'.  (Reported by Chris
+     Lewis).
+
+  6. You should verify that `configure' worked correctly by checking
+     `config.h' and the instances of `Makefile'.
+
+  7. Edit `policy.h' for your local system.  The comments explain the
+     various choices.  The default values are intended to be
+     reasonable, so you may not have to make any changes.
+
+     You must decide what type of configuration files to use; for more
+     information on the choices, see *Note Configuration::.
+
+     You must also decide what sort of spool directory you want to use.
+     If this is a new installation, I recommend `SPOOLDIR_TAYLOR';
+     otherwise, select the spool directory corresponding to your
+     existing UUCP package.
+
+  8. Type `make' to compile everything.
+
+     The `tstuu.c' file is not particularly portable; if you can't
+     figure out how to compile it you can safely ignore it, as it is
+     only used for testing.  To use STREAMS pseudo-terminals, tstuu.c
+     must be compiled with `-DHAVE_STREAMS_PTYS'; this is not
+     determined by the configure script.
+
+     If you have any other problems there is probably a bug in the
+     `configure' script.
+
+  9. Please report any problems you have.  That is the only way they
+     will get fixed for other people.  Supply a patch if you can (*note
+     Patches::), or just ask for help.
+
+
+
+File: uucp.info,  Node: Testing the Compilation,  Next: Installing the Binaries,  Prev: Compilation,  Up: Installing Taylor UUCP
+
+Testing the Compilation
+=======================
+
+   If your system supports pseudo-terminals, and you compiled the code
+to support the new style of configuration files (`HAVE_TAYLOR_CONFIG'
+was set to 1 in `policy.h'), you should be able to use the `tstuu'
+program to test the `uucico' daemon.  If your system supports STREAMS
+based pseudo-terminals, you must compile tstuu.c with
+`-DHAVE_STREAMS_PTYS'.  (The STREAMS based code was contributed by Marc
+Boucher).
+
+   To run `tstuu', just type `tstuu' with no arguments.  You must run
+it in the compilation directory, since it runs `./uucp', `./uux' and
+`./uucico'.  The `tstuu' program will run a lengthy series of tests (it
+takes over ten minutes on a slow VAX).  You will need a fair amount of
+space available in `/usr/tmp'.  You will probably want to put it in the
+background.  Do not use `^Z', because the program traps on `SIGCHLD'
+and winds up dying.  The `tstuu' program will create a directory
+`/usr/tmp/tstuu' and fill it with configuration files, and create spool
+directories `/usr/tmp/tstuu/spool1' and `/usr/tmp/tstuu/spool2'.
+
+   If your system does not support the `FIONREAD' call, the `tstuu'
+program will run very slowly.  This may or may not get fixed in a later
+version.
+
+   The `tstuu' program will finish with an execute file named
+`X.SOMETHING' and a data file named `D.SOMETHING' in the directory
+`/usr/tmp/tstuu/spool1' (or, more likely, in subdirectories, depending
+on the choice of `SPOOLDIR' in `policy.h').  Two log files will be
+created in the directory `/usr/tmp/tstuu'.  They will be named `Log1'
+and `Log2', or, if you have selected `HAVE_HDB_LOGGING' in `policy.h',
+`Log1/uucico/test2' and `Log2/uucico/test1'.  There should be no errors
+in the log files.
+
+   You can test `uuxqt' with `./uuxqt -I /usr/tmp/tstuu/Config1'.  This
+should leave a command file `C.SOMETHING' and a data file `D.SOMETHING'
+in `/usr/tmp/tstuu/spool1' or in subdirectories.  Again, there should
+be no errors in the log file.
+
+   Assuming you compiled the code with debugging enabled, the `-x'
+switch can be used to set debugging modes; see the `debug' command for
+details (*note Debugging Levels::).  Use `-x all' to turn on all
+debugging and generate far more output than you will ever want to see.
+The `uucico' daemons will put debugging output in the files `Debug1'
+and `Debug2' in the directory `/usr/tmp/tstuu'.  After that, you're
+pretty much on your own.
+
+   On some systems you can also use `tstuu' to test `uucico' against
+the system `uucico', by using the `-u' switch.  For this to work,
+change the definitions of `ZUUCICO_CMD' and `UUCICO_EXECL' at the top
+of `tstuu.c' to something appropriate for your system.  The definitions
+in `tstuu.c' are what I used for Ultrix 4.0, on which
+`/usr/lib/uucp/uucico' is particularly obstinate about being run as a
+child; I was only able to run it by creating a login name with no
+password whose shell was `/usr/lib/uucp/uucico'.  Calling login in this
+way will leave fake entries in `wtmp' and `utmp'; if you compile
+`tstout.c' (in the `contrib' directory) as a setuid `root' program,
+`tstuu' will run it to clear those entries out.  On most systems, such
+hackery should not be necessary, although on SCO I had to su to `root'
+(`uucp' might also have worked) before I could run
+`/usr/lib/uucp/uucico'.
+
+   You can test `uucp' and `uux' (give them the `-r' switch to keep
+them from starting `uucico') to make sure they create the right sorts
+of files.  Unfortunately, if you don't know what the right sorts of
+files are, I'm not going to tell you here.
+
+   If you can not run `tstuu', or if it fails inexplicably, don't worry
+about it too much.  On some systems `tstuu' will fail because of
+problems using pseudo terminals, which will not matter in normal use.
+The real test of the package is talking to another system.
+
+
+File: uucp.info,  Node: Installing the Binaries,  Next: Configuration,  Prev: Testing the Compilation,  Up: Installing Taylor UUCP
+
+Installing the Binaries
+=======================
+
+   You can install the executable files by becoming `root' and typing
+`make install'.  Or you can look at what `make install' does and do it
+by hand.  It tries to preserve your old programs, if any, but it only
+does this the first time Taylor UUCP is installed (so that if you
+install several versions of Taylor UUCP, you can still go back to your
+original UUCP programs).  You can retrieve the original programs by
+typing `make uninstall'.
+
+   Note that by default the programs are compiled with debugging
+information, and they are not stripped when they are installed.  You may
+want to strip the installed programs to save disk space.  For more
+information, see your system documentation for the `strip' program.
+
+   Of course, simply installing the executable files is not enough.  You
+must also arrange for them to be used correctly.
+
+
+File: uucp.info,  Node: Configuration,  Next: Testing the Installation,  Prev: Installing the Binaries,  Up: Installing Taylor UUCP
+
+Configuring Taylor UUCP
+=======================
+
+   You will have to decide what types of configuration files you want to
+use.  This package supports a new sort of configuration file; see *Note
+Configuration Files::.  It also supports V2 configuration files
+(`L.sys', `L-devices', etc.) and HDB configuration files (`Systems',
+`Devices', etc.).  No documentation is provided for V2 or HDB
+configuration files.  All types of configuration files can be used at
+once, if you are so inclined.  Currently using just V2 configuration
+files is not really possible, because there is no way to specify a
+dialer (there are no built in dialers, and the program does not know
+how to read `acucap' or `modemcap'); however, V2 configuration files
+can be used with a new style dial file (*note dial File::), or with a
+HDB `Dialers' file.
+
+   Use of HDB configuration files has two known bugs.  A blank line in
+the middle of an entry in the `Permissions' file will not be ignored as
+it should be.  Dialer programs, as found in some versions of HDB, are
+not recognized directly.  If you must use a dialer program, rather than
+an entry in `Devices', you must use the `chat-program' command in a new
+style dial file; see *Note dial File::.  You will have to invoke the
+dialer program via a shell script or another program, since an exit
+code of 0 is required to recognize success; the `dialHDB' program in
+the `contrib' directory may be used for this purpose.
+
+   The `uuconv' (*note Invoking uuconv::) program can be used to
+convert from V2 or HDB configuration files to the new style (it can also
+do the reverse translation, if you are so inclined).  It will not do all
+of the work, and the results should be carefully checked, but it can be
+quite useful.
+
+   If you are installing a new system, you will, of course, have to
+write the configuration files; see *Note Configuration Files:: for
+details on how to do this.
+
+   After writing the configuration files, use the `uuchk' program to
+verify that they are what you expect; see *Note Invoking uuchk::.
+
+
+File: uucp.info,  Node: Testing the Installation,  Prev: Configuration,  Up: Installing Taylor UUCP
+
+Testing the Installation
+========================
+
+   After you have written the configuration files, and verified them
+with the `uuchk' program (*note Invoking uuchk::), you must check that
+UUCP can correctly contact another system.
+
+   Tell `uucico' to dial out to the system by using the `-s' system
+switch (e.g., `uucico -s uunet').  The log file should tell you what
+happens.  The exact location of the log file depends upon the settings
+in `policy.h' when you compiled the program, and on the use of the
+`logfile' command in the `config' file.  Typical locations are
+`/usr/spool/uucp/Log' or a subdirectory under `/usr/spool/uucp/.Log'.
+
+   If you compiled the code with debugging enabled, you can use
+debugging mode to get a great deal of information about what sort of
+data is flowing back and forth; the various possibilities are described
+with the `debug' command (*note Debugging Levels::).  When initially
+setting up a connection `-x chat' is probably the most useful (e.g.,
+`uucico -s uunet -x chat'); you may also want to use `-x
+handshake,incoming,outgoing'.  You can use `-x' multiple times on one
+command line, or you can give it comma separated arguments as in the
+last example.  Use `-x all' to turn on all possible debugging
+information.
+
+   The debugging information is written to a file, normally
+`/usr/spool/uucp/Debug', although the default can be changed in
+`policy.h', and the `config' file can override the default with the
+`debugfile' command.  The debugging file may contain passwords and some
+file contents as they are transmitted over the line, so the debugging
+file is only readable by the `uucp' user.
+
+   You can use the `-f' switch to force `uucico' to call out even if
+the last call failed recently; using `-S' when naming a system has the
+same effect.  Otherwise the status file (in the `.Status' subdirectory
+of the main spool directory, normally `/usr/spool/uucp') (*note Status
+Directory::) will prevent too many attempts from occurring in rapid
+succession.
+
+   On older System V based systems which do not have the `setreuid'
+system call, problems may arise if ordinary users can start an execution
+of `uuxqt', perhaps indirectly via `uucp' or `uux'.  UUCP jobs may wind
+up executing with a real user ID of the user who invoked `uuxqt', which
+can cause problems if the UUCP job checks the real user ID for security
+purposes.  On such systems, it is safest to put `run-uuxqt never'
+(*note Miscellaneous (config)::) in the `config' file, so that `uucico'
+never starts `uuxqt', and invoke `uuxqt' directly from a `crontab' file.
+
+   Please let me know about any problems you have and how you got around
+them.  If you do report a problem, please include the version number of
+the package you are using, the operating system you are running it on,
+and a sample of the debugging file showing the problem (debugging
+information is usually what is needed, not just the log file).  General
+questions such as "why doesn't `uucico' dial out" are impossible to
+answer without much more information.
+
+
+File: uucp.info,  Node: Using Taylor UUCP,  Next: Configuration Files,  Prev: Installing Taylor UUCP,  Up: Top
+
+Using Taylor UUCP
+*****************
+
+* Menu:
+
+* Calling Other Systems::       Calling Other Systems
+* Accepting Calls::             Accepting Calls
+* Mail and News::               Using UUCP for Mail and News
+* The Spool Directory Layout::  The Spool Directory Layout
+* Spool Directory Cleaning::    Cleaning the UUCP Spool Directory
+
+
+File: uucp.info,  Node: Calling Other Systems,  Next: Accepting Calls,  Prev: Using Taylor UUCP,  Up: Using Taylor UUCP
+
+Calling Other Systems
+=====================
+
+   By default `uucp' and `uux' will automatically start up `uucico' to
+call another system whenever work is queued up.  However, the call may
+fail, or you may have put in time restrictions which prevent the call
+at that time (perhaps because telephone rates are high) (*note When to
+Call::).  Also, a remote system may have work queued up for your
+system, but may not be calling you for some reason (perhaps you have
+agreed that your system should always place the call).  To make sure
+that work gets transferred between the systems withing a reasonable
+time period, you should arrange to periodically invoke `uucico'.
+
+   These periodic invocations are normally triggered by entries in the
+`crontab' file.  The exact format of `crontab' files, and how new
+entries are added, varies from system to system; check your local
+documentation (try `man cron').
+
+   To attempt to call all systems with outstanding work, use the command
+`uucico -r1'.  To attempt to call a particular system, use the command
+`uucico -s SYSTEM'.  To attempt to call a particular system, but only
+if there is work for it, use the command `uucico -C -s SYSTEM'.  (*note
+Invoking uucico::).
+
+   A common case is to want to try to call a system at a certain time,
+with periodic retries if the call fails.  A simple way to do this is to
+create an empty UUCP command file, known as a "poll file".  If a poll
+file exists for a system, then `uucico -r1' will place a call to it.
+If the call succeeds, the poll file will be deleted.
+
+   A poll file can be easily created using the `uux' command, by
+requesting the execution of an empty command.  To create a poll file for
+SYSTEM, just do something like this:
+     uux -r SYSTEM!
+   The `-r' tells `uux' to not start up `uucico' immediately.  Of
+course, if you do want `uucico' to start up right away, omit the `-r';
+if the call fails, the poll file will be left around to cause a later
+call.
+
+   For example, I use the following crontab entries locally:
+
+     45 * * * * /bin/echo /usr/lib/uucp/uucico -r1 | /bin/su uucpa
+     40 4,10,15 * * * /usr/bin/uux -r uunet!
+
+   Every hour, at 45 minutes past, this will check if there is any work
+to be done, and, if there is, will call the appropriate system.  Also,
+at 4:40am, 10:40am, and 3:40pm, this will create a poll file file for
+`uunet', forcing the next run of `uucico' to call `uunet'.
+
+
+File: uucp.info,  Node: Accepting Calls,  Next: Mail and News,  Prev: Calling Other Systems,  Up: Using Taylor UUCP
+
+Accepting Calls
+===============
+
+   To accept calls from another system, you must arrange matters such
+that when that system calls in, it automatically invokes `uucico' on
+your system.
+
+   The most common arrangement is to create a special user name and
+password for incoming UUCP calls.  This user name typically uses the
+same user ID as the regular `uucp' user (Unix permits several user
+names to share the same user ID).  The shell for this user name should
+be set to `uucico'.
+
+   Here is a sample `/etc/passwd' line to accept calls from a remote
+system named airs:
+     Uairs:PASSWORD:4:8:airs UUCP:/usr/spool/uucp:/usr/lib/uucp/uucico
+   The details may vary on your system.  You must use reasonable user
+and group ID's.  You must use the correct file name for `uucico'.  The
+PASSWORD must appear in the UUCP configuration files on the remote
+system, but will otherwise never be seen or typed by a human.
+
+   Note that `uucico' appears as the login shell, and that it will be
+run with no arguments.  This means that it will start in slave mode and
+accept an incoming connection.  *Note Invoking uucico::.
+
+   On some systems, creating an empty file named `.hushlogin' in the
+home directory will skip the printing of various bits of information
+when the remote `uucico' logs in, speeding up the UUCP connection
+process.
+
+   For the greatest security, each system which calls in should use a
+different user name, each with a different password, and the
+`called-login' command should be used in the `sys' file to ensure that
+the correct login name is used.  *Note Accepting a Call::, and see
+*Note Security::.
+
+   If you never need to dial out from your system, but only accept
+incoming calls, you can arrange for `uucico' to handle logins itself,
+completely controlling the port, by using the `--endless' option.
+*Note Invoking uucico::.
+
+
+File: uucp.info,  Node: Mail and News,  Next: The Spool Directory Layout,  Prev: Accepting Calls,  Up: Using Taylor UUCP
+
+Using UUCP for Mail and News.
+=============================
+
+   Taylor UUCP does not include a mail package.  All Unix systems come
+with some sort of mail delivery agent, typically `sendmail' or `MMDF'.
+Source code is available for some alternative mail delivery agents,
+such as `IDA sendmail' and `smail'.
+
+   Taylor UUCP also does not include a news package.  The two major Unix
+news packages are `C-news' and `INN'.  Both are available in source
+code form.
+
+   Configuring and using mail delivery agents is a notoriously complex
+topic, and I will not be discussing it here.  Configuring news systems
+is usually simpler, but I will not be discussing that either.  I will
+merely describe the interactions between the mail and news systems and
+UUCP.
+
+   A mail or news system interacts with UUCP in two ways: sending and
+receiving.
+
+* Menu:
+
+* Sending mail or news::        Sending mail or news via UUCP
+* Receiving mail or news::      Receiving mail or news via UUCP
+
+
+File: uucp.info,  Node: Sending mail or news,  Next: Receiving mail or news,  Prev: Mail and News,  Up: Mail and News
+
+Sending mail or news via UUCP
+-----------------------------
+
+   When mail is to be sent from your machine to another machine via
+UUCP, the mail delivery agent will invoke `uux'.  It will generally run
+a command such as `uux - SYSTEM!rmail ADDRESS', where SYSTEM is the
+remote system to which the mail is being sent.  It may pass other
+options to `uux', such as `-r' or `-g' (*note Invoking uux::).
+
+   The news system also invokes `uux' in order to transfer articles to
+another system.  The only difference is that news will use `uux' to
+invoke `rnews' on the remote system, rather than `rmail'.
+
+   You should arrange for your mail and news systems to invoke the
+Taylor UUCP version of `uux'.  If you only have Taylor UUCP, or if you
+simply replace any existing version of `uux' with the Taylor UUCP
+version, this will probably happen automatically.  However, if you have
+two UUCP packages installed on your system, you will probably have to
+modify the mail and news configuration files in some way.
+
+   Actually, if both the system UUCP and Taylor UUCP are using the same
+spool directory format, the system `uux' will probably work fine with
+the Taylor `uucico' (the reverse is not the case: the Taylor `uux'
+requires the Taylor `uucico').  However, data transfer will be somewhat
+more efficient if the Taylor `uux' is used.
+
+
+File: uucp.info,  Node: Receiving mail or news,  Prev: Sending mail or news,  Up: Mail and News
+
+Receiving mail or news via UUCP
+-------------------------------
+
+   To receive mail, all that is necessary is for UUCP to invoke
+`rmail'.  Any mail delivery agent will provide an appropriate version
+of `rmail'; you must simply make sure that it is in the command path
+used by UUCP (it almost certainly already is).  The default command
+path is set in `policy.h', and it may be overridden for a particular
+system by the `command-path' command (*note Miscellaneous (sys)::).
+
+   Similarly, for news UUCP must be able to invoke `rnews'.  Any news
+system will provide a version of `rnews', and you must ensure that is
+in a directory on the path that UUCP will search.
+
+
+File: uucp.info,  Node: The Spool Directory Layout,  Next: Spool Directory Cleaning,  Prev: Mail and News,  Up: Using Taylor UUCP
+
+The Spool Directory Layout
+==========================
+
+   In general, the layout of the spool directory may be safely ignored.
+However, it is documented here for the curious.  This description only
+covers the `SPOOLDIR_TAYLOR' layout.  The ways in which the other spool
+directory layouts differ are described in the source file
+`unix/spool.c'.
+
+   Directories and files are only created when they are needed, so a
+typical system will not have all of the entries described here.
+
+* Menu:
+
+* System Spool Directories::    System Spool Directories
+* Status Directory::            Status Spool Directory
+* Execution Subdirectories::    Execution Spool Subdirectories
+* Other Spool Subdirectories::  Other Spool Subdirectories
+* Spool Lock Files::            Spool Directory Lock Files
+
+
+File: uucp.info,  Node: System Spool Directories,  Next: Status Directory,  Prev: The Spool Directory Layout,  Up: The Spool Directory Layout
+
+System Spool Directories
+------------------------
+
+`SYSTEM'
+     There is a subdirectory of the main spool directory for each remote
+     system.
+
+`SYSTEM/C.'
+     This directory stores files describing file transfer commands to
+     be sent to the SYSTEM.  Each file name starts with `C.G', where G
+     is the job grade.  Each file contains one or more commands.  For
+     details of the commands, see *Note UUCP Protocol Commands::.
+
+`SYSTEM/D.'
+     This directory stores data files.  Files with names like
+     `D.GSSSS', where G is the grade and SSSS is a sequence number, are
+     waiting to be transferred to the SYSTEM, as directed by the files
+     in the `SYSTEM/C.' directory.  Files with other names, typically
+     `D.SYSTEMGSSSS', have been received from SYSTEM and are waiting to
+     be processed by an execution file in the `SYSTEM/X.' directory.
+
+`SYSTEM/D.X'
+     This directory stores data files which will become execution files
+     on the remote system.  In current practice, this directory rarely
+     exists, because most simple executions, including typical uses of
+     `rmail' and `rnews', send an `E' command rather than an execution
+     file (*note The E Command::).
+
+`SYSTEM/X.'
+     This directory stores execution files which have been received from
+     SYSTEM.  This directory normally exists, even though the
+     corresponding `D.X' directory does not, because `uucico' will
+     create an execution file on the fly when it receives an `E'
+     command.
+
+`SYSTEM/SEQF'
+     This file holds the sequence number of the last job sent to
+     SYSTEM.  The sequence number is used to ensure that file names are
+     unique in the remote system spool directory.  The file is four
+     bytes long.  Sequence numbers are composed of digits and the upper
+     case letters.
+
+
+File: uucp.info,  Node: Status Directory,  Next: Execution Subdirectories,  Prev: System Spool Directories,  Up: The Spool Directory Layout
+
+Status Directory
+----------------
+
+`.Status'
+     This directory holds status files for each remote system.  The
+     name of the status file is the name of the system which it
+     describes.  Each status file describes the last conversation with
+     the system.  Running `uustat --status' basically just formats and
+     prints the contents of the status files (*note uustat Examples::).
+
+     Each status file has a single text line with six fields.
+
+    code
+          A code indicating the status of the last conversation.  The
+          following values are defined, though not all are actually
+          used.
+         `0'
+               Conversation completed normally.
+
+         `1'
+               `uucico' was unable to open the port.
+
+         `2'
+               The last call to the system failed while dailing.
+
+         `3'
+               The last call to the system failed while logging in.
+
+         `4'
+               The last call to the system failed during the initial
+               UUCP protocol handshake (*note The Initial Handshake::).
+
+         `5'
+               The last call to the system failed after the initial
+               handshake.
+
+         `6'
+               `uucico' is currently talking to the system.
+
+         `7'
+               The last call to the system failed because it was the
+               wrong time to call (this is not used if calling the
+               system is never permitted).
+
+    retries
+          The number of retries since the last successful call.
+
+    time of last call
+          The time of the last call, in seconds since the epoch (as
+          returned by the `time' system call).
+
+    wait
+          If the last call failed, this is the number of seconds since
+          the last call before `uucico' may attempt another call.  This
+          is set based on the retry time; see *Note When to Call::.
+          The `-f' or `-S' options to `uucico' direct it to ignore this
+          wait time; see *Note Invoking uucico::.
+
+    description
+          A text description of the status, corresponding to the code
+          in the first field.  This may contain spaces.
+
+    system name
+          The name of the remote system.
+

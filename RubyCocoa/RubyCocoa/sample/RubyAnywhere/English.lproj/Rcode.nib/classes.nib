@@ -1,0 +1,22 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {evaluate = id; showAbout = id; showScratchPanel = id; }; 
+            CLASS = RcodeController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                aboutPanel = id; 
+                menu = id; 
+                outText = id; 
+                resultText = id; 
+                rubyCocoaVersion = id; 
+                rubyVersion = id; 
+                scratchPanel = id; 
+                scratchText = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

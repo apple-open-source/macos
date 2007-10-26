@@ -1,9 +1,0 @@
-/* code converter: VISCII */
-
-#define ModuleName VISCII
-SRCS = VISCIItoUCS2.c main.c
-OBJS = VISCIItoUCS2.o main.o
-
-#include <xttMod.tmpl>
-
-/* end of file */

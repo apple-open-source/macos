@@ -13,9 +13,17 @@ if [ $# -ge 4 ] ; then
   GROFF=$4                    # sh cmd line, including options 
 fi
 
+if test ! -d $SRCDIR../docs/manpages; then
+	echo "No manpages present.  SVN development version maybe?"
+	exit 0
+fi
+
+# Get the configured feature set
+test -f "${SRCDIR}/config.log" && \
+	eval `grep "^[[:alnum:]]*=.*" "${SRCDIR}/config.log"`
 
 for lang in $langs; do
-    if [ "X$lang" = Xen ]; then
+    if [ "X$lang" = XC ]; then
 	echo Installing default man pages in $MANDIR/
 	lang=.
     else
@@ -25,7 +33,7 @@ for lang in $langs; do
     langdir=$MANDIR/$lang
     for d in $MANDIR $langdir $langdir/man1 $langdir/man5 $langdir/man7 $langdir/man8; do
 	if [ ! -d $d ]; then
-	    mkdir -p $d
+	    mkdir $d
 	    if [ ! -d $d ]; then
 		echo Failed to make directory $d, does $USER have privileges?
 		exit 1
@@ -36,13 +44,21 @@ for lang in $langs; do
     for sect in 1 5 7 8 ; do
 	for m in $langdir/man$sect ; do
 	    for s in $SRCDIR../docs/manpages/$lang/*$sect; do
-	    FNAME=$m/`basename $s`
- 
+	    MP_BASENAME=`basename $s`
+
+	    # Check if this man page if required by the configured feature set
+	    case "${MP_BASENAME}" in
+	    	smbsh.1) test -z "${SMBWRAPPER}" && continue ;;
+		smbmnt.8|smbmount.8|smbumount.8) test -z "${SMBMOUNT_PROGS}" && continue ;;
+		*) ;;
+	    esac
+
+	    FNAME="$m/${MP_BASENAME}"
+
 	    # Test for writability.  Involves 
 	    # blowing away existing files.
  
 	    if (rm -f $FNAME && touch $FNAME); then
-		rm $FNAME
 		if [ "x$GROFF" = x ] ; then
 		    cp $s $m            # Copy raw nroff 
 		else

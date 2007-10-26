@@ -68,40 +68,41 @@ static void _LinkRefDoNotDelete ( void )
 //		Make sure everything the module requires is available.
 // ----------------------------------------------------------------------------
 
-sInt32 CDSServerModule::Validate ( const char *inVersionStr, const uInt32 inSignature )
+SInt32 CDSServerModule::Validate ( const char *inVersionStr, const UInt32 inSignature )
 {
-#pragma unused ( inSignature )
+	fPlugInSignature = inSignature;
+	
 	return( eDSNoErr );
 } // Validate
 
-sInt32 CDSServerModule::Initialize ( void )
+SInt32 CDSServerModule::Initialize ( void )
 {
 	return( eDSNoErr );
 } // Initialize
 
-sInt32 CDSServerModule::Configure ( void )
+SInt32 CDSServerModule::Configure ( void )
 {
 	return( eDSNoErr );
 } // Configure
 
-sInt32 CDSServerModule::SetPluginState ( const uInt32 inState )
+SInt32 CDSServerModule::SetPluginState ( const UInt32 inState )
 {
 #pragma unused ( inState )
 	return( eDSNoErr );
 } // SetPluginState
 
-sInt32 CDSServerModule::PeriodicTask ( void )
+SInt32 CDSServerModule::PeriodicTask ( void )
 {
 	return( eDSNoErr );
 } // PeriodicTask
 
-sInt32 CDSServerModule::ProcessRequest ( void *inData )
+SInt32 CDSServerModule::ProcessRequest ( void *inData )
 {
 #pragma unused ( inData )
 	return( eDSNoErr );
 } // ProcessRequest
 
-sInt32 CDSServerModule::Shutdown ( void )
+SInt32 CDSServerModule::Shutdown ( void )
 {
 	return( eDSNoErr );
 } // Shutdown

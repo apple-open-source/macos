@@ -66,6 +66,9 @@ static char sccsid[] = "@(#)initgroups.c	8.1 (Berkeley) 6/4/93";
 #include <err.h>
 #include <pwd.h>
 
+__private_extern__ struct passwd *LI_files_getpwnam(const char *name);
+
+/* this is _old_initgroups */
 int
 initgroups(uname, agroup)
 	const char *uname;
@@ -75,7 +78,7 @@ initgroups(uname, agroup)
 	struct passwd *pw;
 
 	/* get the UID for this user */
-	if ((pw = getpwnam(uname)) == NULL)
+	if ((pw = LI_files_getpwnam(uname)) == NULL)
 		return(-1);
 
 	/* fetch the initial (advisory) group list */

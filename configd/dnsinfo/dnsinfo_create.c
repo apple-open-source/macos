@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,15 +123,15 @@ _dns_configuration_add_resolver(dns_create_config_t     *_config,
 	 * pointers to the resolver, the nameservers, the search
 	 * list, and the sortaddr list.
 	 */
-	padding += sizeof(dns_resolver_t *);
+	padding += sizeof(DNS_PTR(dns_resolver_t *, x));
 	if (resolver->resolver.n_nameserver != 0) {
-		padding += ntohl(resolver->resolver.n_nameserver) * sizeof(struct sockaddr *);
+		padding += ntohl(resolver->resolver.n_nameserver) * sizeof(DNS_PTR(struct sockaddr *, x));
 	}
 	if (resolver->resolver.n_search != 0) {
-		padding += ntohl(resolver->resolver.n_search) * sizeof(char *);
+		padding += ntohl(resolver->resolver.n_search) * sizeof(DNS_PTR(char *, x));
 	}
 	if (resolver->resolver.n_sortaddr != 0) {
-		padding += ntohl(resolver->resolver.n_sortaddr) * sizeof(dns_sortaddr_t *);
+		padding += ntohl(resolver->resolver.n_sortaddr) * sizeof(DNS_PTR(dns_sortaddr_t *, x));
 	}
 
 	config->config.n_resolver = htonl(ntohl(config->config.n_resolver) + 1);
@@ -170,7 +170,7 @@ _dns_configuration_store(dns_create_config_t *_config)
 	}
 
 	status = shared_dns_infoSet(server, dataRef, dataLen);
-	(void)mach_port_deallocate(mach_task_self(), server);
+	(void) mach_port_deallocate(mach_task_self(), server);
 	if (status != KERN_SUCCESS) {
 		mach_error("shared_dns_infoSet():", status);
 		return FALSE;
@@ -274,7 +274,7 @@ _dns_resolver_add_nameserver(dns_create_resolver_t *_resolver, struct sockaddr *
 
 __private_extern__
 void
-_dns_resolver_set_port(dns_create_resolver_t *_resolver, uint32_t port)
+_dns_resolver_set_port(dns_create_resolver_t *_resolver, uint16_t port)
 {
 	_dns_resolver_buf_t	*resolver	= (_dns_resolver_buf_t *)*_resolver;
 

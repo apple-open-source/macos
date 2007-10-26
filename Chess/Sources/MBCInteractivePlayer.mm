@@ -15,6 +15,18 @@
 	Change History (most recent first):
 
 		$Log: MBCInteractivePlayer.mm,v $
+		Revision 1.16  2007/03/01 23:51:26  neerache
+		Offer option to speak human moves <rdar://problem/4038206>
+		
+		Revision 1.15  2007/01/17 06:10:13  neerache
+		Make last move / hint speakable <rdar://problem/4510483>
+		
+		Revision 1.14  2007/01/17 05:20:25  neerache
+		Proper win message in suicide/losers <rdar://problem/3485192>
+		
+		Revision 1.13  2006/05/19 21:09:33  neerache
+		Fix 64 bit compilation errors
+		
 		Revision 1.12  2004/08/16 07:48:48  neerache
 		Support flexible voices, accessibility
 		
@@ -67,7 +79,7 @@
 #define kSRCommandsDisplayCFPropListRef	'cdpl'
 #endif
 
-pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent* reply, long refcon)
+pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent* reply, SRefCon refcon)
 {
 	long				actualSize;
 	DescType			actualType;
@@ -75,7 +87,7 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	OSErr				recStatus = 0;
 	SRRecognitionResult	recResult = 0;
 	
-	status = AEGetParamPtr(theAEevt,keySRSpeechStatus,typeShortInteger,
+	status = AEGetParamPtr(theAEevt,keySRSpeechStatus,typeSInt16,
 					&actualType, (Ptr)&recStatus, sizeof(status), &actualSize);
 	if (!status)
 		status = recStatus;
@@ -197,7 +209,7 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	if (!fRecognizer) // very first time
 		AEInstallEventHandler(kAESpeechSuite, kAESpeechDone, 
 							  NewAEEventHandlerUPP(HandleSpeechDoneAppleEvent), 
-							  reinterpret_cast<long>(self), false);
+							  reinterpret_cast<SRefCon>(self), false);
 	if (SROpenRecognitionSystem(&fRecSystem, kSRDefaultRecognitionSystemID))
 		return;
 	SRNewRecognizer(fRecSystem, &fRecognizer, kSRDefaultSpeechSource);
@@ -227,7 +239,7 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	case kWhiteSide:
 		[[NSNotificationCenter defaultCenter] 
 			addObserver:self
-			selector:@selector(switchSides:)
+			selector:@selector(humanMoved:)
 			name:MBCWhiteMoveNotification
 			object:nil];
 		[[NSNotificationCenter defaultCenter] 
@@ -244,19 +256,19 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 			object:nil];
 		[[NSNotificationCenter defaultCenter] 
 			addObserver:self
-			selector:@selector(switchSides:)
+			selector:@selector(humanMoved:)
 			name:MBCBlackMoveNotification
 			object:nil];
 		break;
 	case kBothSides:
 		[[NSNotificationCenter defaultCenter] 
 			addObserver:self
-			selector:@selector(switchSides:)
+			selector:@selector(humanMoved:)
 			name:MBCWhiteMoveNotification
 			object:nil];
 		[[NSNotificationCenter defaultCenter] 
 			addObserver:self
-			selector:@selector(switchSides:)
+			selector:@selector(humanMoved:)
 			name:MBCBlackMoveNotification
 			object:nil];
 		break;
@@ -321,6 +333,7 @@ const char *	sPieceName[] = {
 		return [NSString stringWithFormat:@"Drop %s at %c%d.",
 						 sPieceName[Piece(move->fPiece)],
 						 Col(move->fToSquare), Row(move->fToSquare)];
+	case kCmdPMove:
 	case kCmdMove: {
 		MBCBoard *	board = [fController board];
 		MBCPiece	piece;
@@ -335,8 +348,13 @@ const char *	sPieceName[] = {
 		case kCastleKingside:
 			return @"Castle [[emph +]]king side.";
 		default:
-			piece 	= [board oldContents:move->fFromSquare];
-			victim	= [board oldContents:move->fToSquare];
+			if (move->fPiece) { // Move already executed
+				piece 	= move->fPiece;
+				victim	= move->fVictim;
+			} else {
+				piece 	= [board oldContents:move->fFromSquare];
+				victim	= [board oldContents:move->fToSquare];
+			}
 			promo	= move->fPromotion;
 			if (promo)
 				return [NSString stringWithFormat:@"%s %c%d %s %c%d promoting to %s.",
@@ -353,9 +371,21 @@ const char *	sPieceName[] = {
 								 Col(move->fToSquare), Row(move->fToSquare)];
 		}}
 	case kCmdWhiteWins:
-		return @"[[emph +]]Check mate!";
+		switch (fVariant) {
+		case kVarSuicide:
+		case kVarLosers:
+			return @"White wins!";
+		default:
+			return @"[[emph +]]Check mate!";
+		}
 	case kCmdBlackWins:
-		return @"[[emph +]]Check mate!";
+		switch (fVariant) {
+		case kVarSuicide:
+		case kVarLosers:
+			return @"Black wins!";
+		default:
+			return @"[[emph +]]Check mate!";
+		}
 	case kCmdDraw:
 		return @"The game is a draw!";		
 	default:
@@ -363,31 +393,65 @@ const char *	sPieceName[] = {
 	}
 }
 
+- (void) speakMove:(MBCMove *)move text:(NSString *)text
+{
+	//
+	// We only wait for speech to end before speaking the next move
+	// to allow a maximum in concurrency.
+	//
+	while (SpeechBusy() > 0)
+		;
+	NSSpeechSynthesizer * synth;
+	BOOL blackMove = Color(move->fPiece)==kBlackPiece;
+	BOOL altIsBlack= fSide == kNeitherSide || fSide == kBothSides || fSide == kBlackSide;
+	if (blackMove == altIsBlack)
+		synth = [fController alternateSynth];
+	else
+		synth = [fController defaultSynth];
+
+	[synth startSpeakingString:text];
+}
+
 - (void) speakMove:(NSNotification *)notification
 {
-	if ([fController speakMoves]) {
-		MBCMove * 	move = reinterpret_cast<MBCMove *>([notification object]);
+	MBCMove * 	move = reinterpret_cast<MBCMove *>([notification object]);
+	NSString *	text = [self stringFromMove:move];
+
+	[self speakMove:move text:text];
+}
+
+- (void) speakMove:(MBCMove *) move withWrapper:(NSString *)wrapper
+{
+	if (move && ([fController speakHumanMoves] || [fController speakMoves])) {
 		NSString *	text = [self stringFromMove:move];
-
-		//
-		// We only wait for speech to end before speaking the next move
-		// to allow a maximum in concurrency.
-		//
-		while (SpeechBusy() > 0)
-			;
-		NSSpeechSynthesizer * synth;
-		if (fSide == kNeitherSide && Color(move->fPiece)==kBlackPiece)
-			synth = [fController alternateSynth];
-		else
-			synth = [fController defaultSynth];
-
-		[synth startSpeakingString:text];
+		NSString *  wrapped = 
+			[NSString stringWithFormat:wrapper, text];
+	
+		[self speakMove:move text:wrapped];
 	}
+}
+
+- (void) announceHint:(MBCMove *) move
+{
+	[self speakMove:move withWrapper:@"I would suggest \"%@\""];
+}
+
+- (void) announceLastMove:(MBCMove *) move
+{
+	[self speakMove:move withWrapper:@"The last move was \"%@\""];
 }
 
 - (void) opponentMoved:(NSNotification *)notification
 {
-	[self speakMove:notification];
+	if ([fController speakMoves]) 
+		[self speakMove:notification];
+	[self switchSides:notification];
+}
+
+- (void) humanMoved:(NSNotification *)notification
+{
+	if ([fController speakHumanMoves]) 
+		[self speakMove:notification];
 	[self switchSides:notification];
 }
 

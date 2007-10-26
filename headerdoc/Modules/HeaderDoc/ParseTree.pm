@@ -1,10 +1,9 @@
 #! /usr/bin/perl -w
 #
 # Class name: 	ParseTree
-# Synopsis: 	Used by gatherHeaderDoc.pl to hold references to doc 
-#		for individual headers and classes
+# Synopsis: 	Used by headerdoc2html.pl to hold parse trees
 # Author: David Gatwood(dgatwood@apple.com)
-# Last Updated: $Date: 2005/01/14 09:18:17 $
+# Last Updated: $Date: 2007/08/20 19:54:10 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -34,17 +33,41 @@ use strict;
 use vars qw($VERSION @ISA);
 use HeaderDoc::Utilities qw(isKeyword parseTokens quote stringToFields casecmp);
 use HeaderDoc::BlockParse qw(blockParse nspaces);
+use Carp qw(cluck);
 
-$VERSION = '$Revision: 1.1.2.65 $';
+# use WeakRef;
+
+
+$VERSION = '$Revision: 1.1.2.79 $';
 ################ General Constants ###################################
 my $debugging = 0;
 
 my $treeDebug = 0;
+my %defaults = (
+	# TOKEN => undef,
+	# NEXT => undef,
+	# FIRSTCHILD => undef,
+	# APIOWNER => undef,
+	# PARSEDPARAMS => undef,
+	PETDONE => 0,
+	REFCOUNT => 0,
+	# XMLTREE => undef,
+	# HTMLTREE => undef,
+	# CPNC => undef,
+	# NTNC => undef,
+	# RAWPARSEDPARAMETERS => undef,
+	# PARSERSTATE => undef,
+	# ACCESSCONTROLSTATE => undef,
+	# FILENAME => undef,
+	# LINENUM => undef,
+	# HIDDEN => undef
+    );
 
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
-    my $self = {};
+    my %selfhash = %defaults;
+    my $self = \%selfhash;
     
     bless($self, $class);
     $self->_initialize();
@@ -59,6 +82,18 @@ sub new {
 
 sub _initialize {
     my($self) = shift;
+
+    $self->{ACCESSCONTROLSTATE} = $HeaderDoc::AccessControlState;
+    $self->{FILENAME} = $HeaderDoc::headerObject->filename();
+    $self->{LINENUM} = $HeaderDoc::CurLine;
+    $self->{HIDDEN} = $HeaderDoc::hidetokens;
+    $self->{APIOWNER} = ();
+    $self->{PARSEDPARAMS} = ();
+    $self->{RAWPARSEDPARAMETERS} = ();
+
+    return;
+
+    my($self) = shift;
     # $self->{TOKEN} = undef;
     # $self->{NEXT} = undef;
     # $self->{FIRSTCHILD} = undef;
@@ -69,6 +104,7 @@ sub _initialize {
     $self->{LINENUM} = $HeaderDoc::CurLine; # $HeaderDoc::headerObject->linenum();
     # $self->{PETDONE} = 0;
     $self->{HIDDEN} = $HeaderDoc::hidetokens;
+    $self->{REFCOUNT} = 0;
     # $self->{XMLTREE} = undef;
     # $self->{HTMLTREE} = undef;
     # $self->{CPNC} = undef;
@@ -188,6 +224,23 @@ sub addChild
     }
 }
 
+# /*! Check to see if this node is at the same level of the parse tree
+#     and occurs after the node specified (or is the node specified). */
+sub isAfter
+{
+	my $self = shift;
+	my $node = shift;
+
+	my $ptr = $node;
+	while ($ptr) {
+		if ($ptr == $self) {
+			return 1;
+		}
+		$ptr = $ptr->next();
+	}
+	return 0;
+}
+
 # /*! Add an additional apiOwner for a tree.
 #  */
 sub addAPIOwner {
@@ -200,6 +253,8 @@ sub addAPIOwner {
 	warn("apiOwner called with empty APIO!\n");
 	return undef;
     } else {
+	$self->{REFCOUNT}++;
+	# weaken($newapio);
 	push(@{$self->{APIOWNER}}, $newapio);
     }
 
@@ -222,6 +277,7 @@ sub apiOwner {
 
 	$self->{APIOWNER} = ();
         push(@{$self->{APIOWNER}}, $newapio);
+	$self->{REFCOUNT} = 1;
     }
 
     my $apio = undef;
@@ -472,6 +528,7 @@ sub processEmbeddedTags
     my $apiolist = $self->apiOwners();
     my $apio = $self->apiOwner();
     # $self->printTree();
+    # $self->dbprint();
     my $localDebug = 0;
     # if ($apio->isAPIOwner()) { $localDebug = 1; }
 
@@ -507,6 +564,7 @@ sub processEmbeddedTags
 
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
         $typedefname, $varname, $constname, $structisbrace, $macronamesref) =
 		@_;
 		# parseTokens($apio->lang(), $apio->sublang());
@@ -531,10 +589,10 @@ sub processEmbeddedTags
     }
 
     if ($apio->isAPIOwner()) {
-	print "Owner is APIOwner.  Using APIOprocessEmbeddedTagsRec.\n" if ($localDebug);
-	$self->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastnode);
+	print "Owner is APIOwner.  Using APIOprocessEmbeddedTagsRec for parse tree $self.\n" if ($localDebug);
+	$self->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastnode, 0);
     } else {
-	print "calling processEmbeddedTagsRec for $apio (".$apio->name().").\n" if ($localDebug);
+	print "calling processEmbeddedTagsRec for $apio (".$apio->name().") for parse tree $self.\n" if ($localDebug);
 	$self->processEmbeddedTagsRec($xmlmode, $eoDeclaration, $soc, $eoc, $eocquot, $ilc, $lbrace, $rbrace, $typedefname,
 		$case_sensitive, $keywordhashref, $lastDeclaration, $curDeclaration, $pendingHDcomment,
 		$apio, $apiolist, $sodec, $lastnode);
@@ -581,6 +639,7 @@ sub getNameAndFieldTypeFromDeclaration
 
     # my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         # $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	# $enumname,
         # $typedefname, $varname, $constname, $structisbrace, $macronameref)
 		# = parseTokens($lang, $sublang);
 
@@ -594,7 +653,13 @@ sub getNameAndFieldTypeFromDeclaration
 
     # my ($case_sensitive, $keywordhashref) = $apio->keywords();
 
-    my ($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, $pplStackRef, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability) = blockParse($filename, $blockoffset, \@lines, $inputCounter, $argparse, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+    my $lastlang = $HeaderDoc::lang;
+    my $lastsublang = $HeaderDoc::sublang;
+    $HeaderDoc::lang = $apio->lang;
+    $HeaderDoc::sublang = $apio->sublang;
+    my ($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, $pplStackRef, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability, $fileoffset, $conformsToList) = blockParse($filename, $blockoffset, \@lines, $inputCounter, $argparse, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+    $HeaderDoc::lang = $lastlang;
+    $HeaderDoc::sublang = $lastsublang;
 
     print "IC:$inputCounter DEC:$declaration TL:$typelist NL:$namelist PT:$posstypes VAL:$value PSR:$pplStackRef RT:$returntype PD:$privateDeclaration TT:$treeTop STC:$simpleTDcontents AV:$availability\n" if ($localDebug);
 
@@ -684,7 +749,17 @@ sub APIOprocessEmbeddedTagsRec
     my $case_sensitive = shift;
     my $lastTreeNode = shift;
 
+    my $skipchildren = shift;
     my $localDebug = 0;
+
+    if (1 && $localDebug) {
+	my $apio = $self->apiOwner();
+	if ($apio) {
+		# if ($apio->name() eq "OSObject") {
+		print "DUMPING TREE.\n"; $self->dbprint();
+		# }
+	}
+    }
 
     my $continue = 1;
     if ($self == $lastTreeNode) {
@@ -702,8 +777,11 @@ sub APIOprocessEmbeddedTagsRec
 	(length($ilc) && ($token eq $ilc))) {
 
 	if (($token eq "/*") || ($token eq "//")) {
+		print "COMMENT CHECK\n" if ($localDebug);
 		if ($firstchild && $firstchild->next()) {
-			if ($firstchild->next()->token eq "!") {
+			print "HASNEXT : '".$firstchild->next()->token()."'\n" if ($localDebug);
+			if ($firstchild->next()->token() eq "!" && !$self->hidden()) {
+				print "NODECHECK: $self\n" if ($localDebug);
 				# HDCOMMENT
 				my $string = $token.$firstchild->textTree();
 				print "FOUND HDCOMMENT:\n$string\nEND HDCOMMENT\n" if ($localDebug);
@@ -722,7 +800,18 @@ sub APIOprocessEmbeddedTagsRec
 				    print "POSSOWNER: $owner\n" if ($localDebug);
 				    if ($owner && $owner->isAPIOwner()) {
 					print "ADDING[1] TO $owner.\n" if ($localDebug);
-			    		$owner->processComment($fieldref, 1, $self->nextTokenNoComments($soc, $ilc, 1), $soc, $ilc);
+			    		my $ncurly = $owner->processComment($fieldref, 1, $self->nextTokenNoComments($soc, $ilc, 1), $soc, $ilc);
+
+					# We have found the correct level.  Anything
+					# nested deeper than this is bogus (unless we hit a curly brace).
+					print "skipochildren -> 1 [1]" if ($localDebug);
+					$skipchildren = 1;
+					$next = $next->skipcurly($lbrace, $ncurly); # nextTokenNoComments($soc, $ilc, 0);
+					if ($localDebug) {
+						print "NEXT IS $next (";
+						if ($next) {print $next->token(); }
+						print ")\n";
+					}
 				    }
 				}
 			}
@@ -755,7 +844,19 @@ sub APIOprocessEmbeddedTagsRec
 					    print "POSSOWNER: $owner\n" if ($localDebug);
 					    if ($owner && $owner->isAPIOwner()) {
 						print "ADDING[2] TO $owner.\n" if ($localDebug);
-				    		$owner->processComment($fieldref, 1, $self->nextTokenNoComments($soc, $ilc, 1), $soc, $ilc);
+				    		my $ncurly = $owner->processComment($fieldref, 1, $self->nextTokenNoComments($soc, $ilc, 1), $soc, $ilc);
+						print "skipochildren -> 1 [2]" if ($localDebug);
+						$skipchildren = 1;
+						# skip the current declaration before
+						# processing anything else to avoid
+						# bogus warnings from nested
+						# HeaderDoc comments.
+						$next = $next->skipcurly($lbrace, $ncurly); # nextTokenNoComments($soc, $ilc, 0);
+						if ($localDebug) {
+							print "NEXT IS $next (";
+							if ($next) {print $next->token(); }
+							print ")\n";
+						}
 					    }
 					}
 				}
@@ -763,24 +864,30 @@ sub APIOprocessEmbeddedTagsRec
 		}
 	}
     }
+    # If we get here, we weren't a skipped brace, so we can start nesting again.
+    if (length($lbrace) && $token eq $lbrace) {
+	print "skipochildren -> 0 [3]" if ($localDebug);
+	$skipchildren = 0;
+    }
 
-    if ($firstchild) {
+    if ($firstchild && !$skipchildren) {
 	print "APIOprocessEmbeddedTagsRec: MAYBE GOING TO CHILDREN\n" if ($localDebug);
 	my $nestallowed = commentsNestedIn($token, $soc, $eoc, $ilc, $lbrace, $case_sensitive);
 
         if ($nestallowed) {
 		print "APIOprocessEmbeddedTagsRec: YUP.  CHILDREN.\n" if ($localDebug);
-		my $newcontinue = $firstchild->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastTreeNode);
+		my $newcontinue = $firstchild->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastTreeNode, $skipchildren);
 		if ($continue) { $continue = $newcontinue; }
 		print "Back from Child\n" if ($localDebug);
+		print "skipochildren -> $skipchildren [RECURSEOUT]" if ($localDebug);
 	}
     }
     if ($next && $continue) {
 	print "APIOprocessEmbeddedTagsRec: GOING TO NEXT\n" if ($localDebug);
-	$continue = $next->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastTreeNode);
+	$continue = $next->APIOprocessEmbeddedTagsRec($apiolist, $soc, $eoc, $ilc, $lbrace, $case_sensitive, $lastTreeNode, $skipchildren);
 	print "Back from Next\n" if ($localDebug);
     }
-print "SN: ".$self->next()."\n" if ($localDebug);
+print "SN: ".$self->next()." (".($self->next() ? $self->next()->token() : "").")\n" if ($localDebug);
 print "RECURSEOUT (CONTINUE is $continue)\n" if ($localDebug);
     return $continue;
 }
@@ -821,6 +928,9 @@ sub processEmbeddedTagsRec
 
     my $continue = 1;
     my $inBlockDefine = 0;
+    my $dropinvalid = 0;
+    my $lastsodec = $sodec;
+    my $nextsodec = $sodec;
 
 print "PETREC\n" if ($localDebug);
 
@@ -861,6 +971,7 @@ print "PETREC\n" if ($localDebug);
 	print "FCT: ".$firstchild->token()."\n" if ($localDebug);
 	  my $nextchild = $firstchild->next();
 	  if ($nextchild && $nextchild->token eq "!") {
+	      print "Found embedded HeaderDoc markup\n" if ($localDebug);
 	      print "NCT: ".$nextchild->token()."\n" if ($localDebug);
 		# print "NCT TREE:\n"; $self->printTree(); print "NCT ENDTREE\n";
 
@@ -894,17 +1005,37 @@ print "PETREC\n" if ($localDebug);
 			# insert it.
 
 			if (!$eoDeclaration) {
-				print "LASTDITCH\n" if ($localDebug);
+				print "LASTDITCH PROCESSING\n" if ($localDebug);
+			} else {
+				print "EOD PROCESSING\n" if ($localDebug);
 			}
+
+			# Roll back to the previous start of declaration.
+			# This comment is at the end of a line or whatever.
+			$nextsodec = $sodec;
+			$sodec = $lastsodec;
 
 			$string =~ s/^\s*//so;
 	
 			print "COMMENTSTRING WAS: $string\n" if ($localDebug);
-			# print "PRE1\n";
+			print "PRE1\n" if ($localDebug);
+
+			print "LAST DECLARATION: $lastDeclaration\n" if ($localDebug);
+
+			print "calling getNameAndFieldTypeFromDeclaration\n" if ($localDebug);
 			my ($name, $type) = $self->getNameAndFieldTypeFromDeclaration($lastDeclaration, $apio, $typedefname, $case_sensitive, $keywordhashref);
 	
 			$string = "$type $name\n$string";
 			print "COMMENTSTRING NOW: $string\n" if ($localDebug);
+		      } elsif (!$eoDeclaration && (!$ntoken ||
+                           $ntoken =~ /[)]/o || casecmp($ntoken, $rbrace, $case_sensitive)) &&
+                           $string =~ /^\s*\@/o) {
+                           # We have found an embedded headerdoc comment embedded that is
+			   # right before a close parenthesis, but which starts with an @ sign.
+				my $nlstring = $string;
+				$nlstring =~ s/[\n\r]/ /sg;
+				warn "$filename:$linenum: warning: Found invalid headerdoc markup: $nlstring\n";
+				$dropinvalid = 1;
 		      }
 		      $string =~ s/^\s*//so;
 		      if ($string =~ /^\s*\@/o) {
@@ -928,7 +1059,9 @@ print "PETREC\n" if ($localDebug);
 # print "APIO: $apio\n";
 			$apio->{APIREFSETUPDONE} = 0;
 		      } else {
-			$pendingHDcomment = $string;
+			if (!$dropinvalid) {
+				$pendingHDcomment = $string;
+			}
 		      }
 		      if (!$HeaderDoc::dumb_as_dirt) {
 			# Drop this comment from the output.
@@ -942,6 +1075,7 @@ print "PETREC\n" if ($localDebug);
 			} else {
 				$self->{TOKEN} = "";
 				$self->{FIRSTCHILD} = undef;
+				print "HIDING $self\n" if ($localDebug);
 			}
 			print "DROP\n" if ($localDebug);
 			$curDeclaration = $oldCurDeclaration;
@@ -949,7 +1083,8 @@ print "PETREC\n" if ($localDebug);
 	      }
 	   }
 	}
-    } elsif ($token =~ /[;,]/o) {
+    } elsif ($token =~ /[;,}]/o) {
+	print "SETTING LASTDEC TO $curDeclaration\n" if ($localDebug);
 	$lastDeclaration = "$curDeclaration\n";
 	if ($pendingHDcomment) {
                 # If we're at the end of a declaration (prior to the
@@ -958,7 +1093,8 @@ print "PETREC\n" if ($localDebug);
                 # figure out the name of the previous declaration and
                 # insert it.
 
-			# print "PRE2\n";
+			print "PRE2\n" if ($localDebug);
+		print "calling getNameAndFieldTypeFromDeclaration\n" if ($localDebug);
                 my ($name, $type) = $self->getNameAndFieldTypeFromDeclaration($lastDeclaration, $apio, $typedefname, $case_sensitive, $keywordhashref);
                 my $string = "$type $name\n$pendingHDcomment";
 		my $filename = $apio->filename();
@@ -990,6 +1126,8 @@ print "PETREC\n" if ($localDebug);
     } elsif ($token !~ /\s/o) {
 	$eoDeclaration = 0;
     }
+
+    $sodec = $nextsodec;
 
     my $firstchild = $self->firstchild();
     my $next = $self->next();
@@ -1023,9 +1161,15 @@ print "PETREC\n" if ($localDebug);
 	# terminated by a semicolon or comma.
 
 	if ($ntoken =~ /[)}]/o || casecmp($ntoken, $rbrace, $case_sensitive)) {
-		$lastDeclaration = $oldCurDeclaration;
+		if ($oldCurDeclaration =~ /\S/) {
+			print "CLOSEBRACE LASTDITCH: SETTING LASTDEC TO $curDeclaration\n" if ($localDebug);
+			$lastDeclaration = $oldCurDeclaration;
+		}
 	} else {
-		$lastDeclaration = $curDeclaration;
+		if ($oldCurDeclaration =~ /\S/) {
+			print "NONCLOSEBRACE LASTDITCH: SETTING LASTDEC TO $curDeclaration\n" if ($localDebug);
+			$lastDeclaration = $curDeclaration;
+		}
 	}
 	if ($pendingHDcomment) {
 		print "LASTDITCH\n" if ($localDebug);
@@ -1036,7 +1180,8 @@ print "PETREC\n" if ($localDebug);
                 # figure out the name of the previous declaration and
                 # insert it.
 
-			# print "PRE3\n";
+			print "PRE3\n" if ($localDebug);
+		print "calling getNameAndFieldTypeFromDeclaration\n" if ($localDebug);
                 my ($name, $type) = $self->getNameAndFieldTypeFromDeclaration($lastDeclaration, $apio, $typedefname, $case_sensitive, $keywordhashref);
                 my $string = "$type $name\n$pendingHDcomment";
 		my $filename = $apio->filename();
@@ -1114,6 +1259,7 @@ sub parent {
     if (@_) {
 	my $node = shift;
         $self->{PARENT} = $node;
+	# weaken($self->{PARENT});
     }
     return $self->{PARENT};
 }
@@ -1148,8 +1294,10 @@ sub textTreeNC {
     my $sublang = shift;
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
         $typedefname, $varname, $constname, $structisbrace, $macronamesref,
-        $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp) = parseTokens($lang, $sublang);
+        $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	$propname) = parseTokens($lang, $sublang);
 
     my ($string, $continue) = $self->textTreeSub(1, $soc, $ilc);
     return $string;
@@ -1222,10 +1370,14 @@ sub xmlTree {
 
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-        $typedefname, $varname, $constname, $structisbrace, $macroListRef) = parseTokens($apio->lang(), $apio->sublang());
+	$enumname,
+        $typedefname, $varname, $constname, $structisbrace, $macroListRef,
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+        $propname) = parseTokens($apio->lang(), $apio->sublang());
 
     $self->processEmbeddedTags(1, $sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
         $typedefname, $varname, $constname, $structisbrace, $macroListRef);
 
 
@@ -1275,13 +1427,19 @@ sub xmlTree {
     my $parserState = $self->parserState();
     if ($parserState) {
 	$lastnode = $parserState->{lastTreeNode};
+	if ($parserState->{lastDisplayNode}) {
+		$lastnode = $parserState->{lastDisplayNode};
+	}
     }
 
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-        $typedefname, $varname, $constname, $structisbrace, $macroListRef) = parseTokens($lang, $sublang);
+	$enumname,
+        $typedefname, $varname, $constname, $structisbrace, $macroListRef,
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+        $propname) = parseTokens($lang, $sublang);
 
-    my ($retvalref, $junka, $junkb, $junkc, $junkd, $lastTokenType) = $self->colorTreeSub($apiOwner, "", 0, 0, 0, $occmethod, "", $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, "", $lang, $sublang, 1, 0, 0, 0, 0, 0, "", "", $lastnode, "");
+    my ($retvalref, $junka, $junkb, $junkc, $junkd, $junke, $lastTokenType, $spaceSinceLastToken) = $self->colorTreeSub($apiOwner, "", 0, 0, 0, $occmethod, "", $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, "", $lang, $sublang, 1, 0, 0, 0, 0, 0, "", "", $lastnode, "", 0);
     my $retval = ${$retvalref};
 
     # my $retval = "";
@@ -1332,7 +1490,7 @@ sub htmlTree {
 		$occmethod = 0;
 	}
 
-	# print "APIOWNER was type $apiOwner\n";
+	print "APIOWNER was type $apiOwner\n" if ($localDebug);
     } else {
 	$apiOwner = HeaderDoc::HeaderElement->new();
 	$lang = $HeaderDoc::lang;
@@ -1347,17 +1505,24 @@ sub htmlTree {
     my $parserState = $self->parserState();
     if ($parserState) {
 	$lastnode = $parserState->{lastTreeNode};
+	if ($parserState->{lastDisplayNode}) {
+		$lastnode = $parserState->{lastDisplayNode};
+	}
     }
 
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-        $typedefname, $varname, $constname, $structisbrace, $macroListRef) = parseTokens($lang, $sublang);
+	$enumname,
+        $typedefname, $varname, $constname, $structisbrace, $macroListRef,
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+        $propname) = parseTokens($lang, $sublang);
 
     $self->processEmbeddedTags(0, $sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
         $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
         $typedefname, $varname, $constname, $structisbrace, $macroListRef);
 
-    my ($retvalref, $junka, $junkb, $junkc, $junkd, $lastTokenType) = $self->colorTreeSub($apiOwner, "", 0, 0, 0, $occmethod, "", $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, "", $lang, $sublang, 0, 0, 0, 0, 0, 0, "", "", $lastnode, "");
+    my ($retvalref, $junka, $junkb, $junkc, $junkd, $junke, $lastTokenType, $spaceSinceLastToken) = $self->colorTreeSub($apiOwner, "", 0, 0, 0, $occmethod, "", $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, "", $lang, $sublang, 0, 0, 0, 0, 0, 0, "", "", $lastnode, "", 0);
     my $retval = ${$retvalref};
 
     # my $retval = "";
@@ -1546,6 +1711,7 @@ sub nextTokenNoComments
     if ($node->token() eq $ilc) { return $self->{NTNC} = $node->nextTokenNoComments($soc, $ilc, $failOnHDComments); }
 
     $self->{NTNC} = $node;
+    # weaken($self->{NTNC});
     return $node;
 }
 
@@ -1601,6 +1767,7 @@ sub colorTreeSub
     my $lastnstoken = shift;
     my $lastTreeNode = shift;
     my $lastTokenType = shift;
+    my $spaceSinceLastToken = shift;
     my $continue = 1;
 
     if ($self == $lastTreeNode) { $continue = 0; }
@@ -1620,6 +1787,7 @@ sub colorTreeSub
     my $psDebug = 0;
     my $treeDebug = 0;
     my $dropDebug = 0;
+    my $tokenDebug = 0;
 
     if ($xmlmode && $localDebug) {
 	print "XMLMODE.\n";
@@ -1716,7 +1884,7 @@ print "SPLITCHAR IS $splitchar\n" if ($localDebug);
 	$nextbreakable = 3;
     }
 
-print "SOC: \"$soc\"\nEOC: \"$eoc\"\nILC: \"$ilc\"\nLBRACE: \"$lbrace\"\nRBRACE: \"$rbrace\"\nSOPROC: \"$soprocedure\"\nSOFUNC: \"$sofunction\"\nVAR: \"$varname\"\nSTRUCTNAME: \"$structname\"\nTYPEDEFNAME: \"$typedefname\"\n" if ($localDebug);
+print "SOC: \"$soc\"\nEOC: \"$eoc\"\nILC: \"$ilc\"\nLBRACE: \"$lbrace\"\nRBRACE: \"$rbrace\"\nSOPROC: \"$soprocedure\"\nSOFUNC: \"$sofunction\"\nVAR: \"$varname\"\nSTRUCTNAME: \"$structname\"\nTYPEDEFNAME: \"$typedefname\"\n" if ($tokenDebug);
 
 print "inQuote: $inQuote\noldInQuote: $oldInQuote\ninComment: $inComment\ninMacro: $inMacro\ninEnum: $inEnum\n" if ($localDebug);
 print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
@@ -1753,7 +1921,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 			if ($xmlmode) {
 				$string .= "<declaration_comment>";
 			} else {
-				$string .= "<font class=\"comment\">";
+				$string .= "<span class=\"comment\">";
 			}
 		} else {
 			print "nested comment\n" if ($localDebug);
@@ -1770,7 +1938,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 			if ($xmlmode) {
 				$string .= "<declaration_comment>";
 			} else {
-				$string .= "<font class=\"comment\">";
+				$string .= "<span class=\"comment\">";
 			}
 		} else {
 			print "nested comment\n" if ($localDebug);
@@ -1782,7 +1950,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 		if ($xmlmode) {
 			$tailstring .= "</declaration_comment>";
 		} else {
-			$tailstring = "</font>";
+			$tailstring = "</span>";
 		}
 		$leavingComment = 1;
 		$inComment = 0;
@@ -1793,7 +1961,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 			if ($xmlmode) {
 				$string .= "</declaration_comment>";
 			} else {
-				$string .= "</font>";
+				$string .= "</span>";
 			}
 			$inComment = 0;
 			$newlen = 0;
@@ -1845,7 +2013,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 			print "TEXT [1]\n" if ($localDebug);
 			$tokenType = "";
 		}
-	} elsif ($token =~ /^\d+$/o || $token =~ /^0x[\dabcdef]+$/o) {
+	} elsif ($token =~ /^\d+$/o || $token =~ /^0x[\dabcdef]+$/io) {
 		$tokenType = "number";
 		$type = "hexnumber";
 		print "\nNUMBER [2]: $token\n" if ($localDebug);
@@ -1909,7 +2077,10 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 		# to zero.  It will get zeroed when we pop a level
 		# anyway.  Just set it to 1 if needed.
 		if ($case_sensitive) {
-			if ($macroList{$token}) { $inMacro = 1; }
+			if ($macroList{$token}) {
+				print "IN MACRO\n" if ($localDebug);
+				$inMacro = 1;
+			}
 		} else {
 		    foreach my $cmpToken (keys %macroList) {
 			if (casecmp($token, $cmpToken, $case_sensitive)) {
@@ -1924,7 +2095,13 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
 			$mustbreak = 2;
 			print length($prespace)."\n" if ($psDebug);
 		}
+	} elsif (!$inQuote && !$inComment && isKnownMacroToken($token, \%macroList, $case_sensitive)) {
+				print "IN MACRO\n" if ($localDebug);
+				$inMacro = 1;
 	} elsif (($token eq "*") && ($depth == 1) && ($lastTokenType eq "type")) {
+		if (!$spaceSinceLastToken) {
+			if ($prespace == "") { $prespace = " "; }
+		}
 		$nospaceafter = 1;
 	} elsif ($ntokennc eq ":" && $inObjCMethod) {
 		print "FUNCTION [1]\n" if ($localDebug);
@@ -2054,7 +2231,7 @@ print "oldInMacro: $oldInMacro\noldInComment: $oldInComment\n" if ($localDebug);
     } else {
 	my $filename = $apio->filename;
 	my $linenum = $apio->linenum;
-	warn "$filename:$linenum:Unknown language $lang.  Not coloring.  Please file a bug.\n";
+	warn "$filename:$linenum: warning: Unknown language $lang. Not coloring. Please file a bug.\n";
     }
 
     if ($hidden) {
@@ -2128,7 +2305,7 @@ print "NB: $nextbreakable\n" if ($localDebug);
 		if ($xmlmode) {
 			$string .= "</declaration_comment>\n$prespace<declaration_comment>";
 		} else {
-			$string .= "</font>\n$endtr$prespace$begintr<font class=\"comment\">";
+			$string .= "</span>\n$endtr$prespace$begintr<span class=\"comment\">";
 		}
 	} elsif ($inMacro) {
 		# Could be the initial keyword, which contains a '#'
@@ -2136,8 +2313,8 @@ print "NB: $nextbreakable\n" if ($localDebug);
 			$string .= "$prespace<declaration_$tokenType>";
 			$macroTail = "</declaration_$tokenType>";
 		} else {
-			$string .= "$prespace<font class=\"$tokenType\">";
-			$macroTail = "</font>";
+			$string .= "$prespace<span class=\"$tokenType\">";
+			$macroTail = "</span>";
 		}
 	} elsif (!$hidden) {
 		$string .= $prespace;
@@ -2167,7 +2344,7 @@ print "NB: $nextbreakable\n" if ($localDebug);
 			$fontToken = "<declaration_$tokenType>$escapetoken</declaration_$tokenType>";
 		} else {
 		    if ($tokenType ne "ignore") {
-			$fontToken = "<font class=\"$tokenType\">$escapetoken</font>";
+			$fontToken = "<span class=\"$tokenType\">$escapetoken</span>";
 		    } elsif (!$HeaderDoc::dumb_as_dirt) {
 			# Drop token.
 			print "HD: DROPPING IGNORED TOKEN $escapetoken\n" if ($dropDebug);
@@ -2224,7 +2401,7 @@ print "NB: $nextbreakable\n" if ($localDebug);
 		    if ($xmlmode) {
 			$string = "</declaration_comment>\n$ps<declaration_comment>$string";
 		    } else {
-			$string = "</font>$endtr\n$begintr$ps<font class=\"comment\">$string";
+			$string = "</span>$endtr\n$begintr$ps<span class=\"comment\">$string";
 		    }
 		} else {
 			$string = "$endtr\n$begintr$ps$string";
@@ -2237,6 +2414,9 @@ print "NB: $nextbreakable\n" if ($localDebug);
 
     if ($token !~ /\s/) {
     	$lastTokenType = $tokenType;
+	$spaceSinceLastToken = 0;
+    } else {
+	$spaceSinceLastToken = 1;
     }
 
     my $newstring = "";
@@ -2246,11 +2426,12 @@ print "NB: $nextbreakable\n" if ($localDebug);
 	if ($nospaceafter == 1) { $nospaceafter = 0; }
 	print "BEGIN CHILDREN\n" if ($localDebug || $colorDebug || $treeDebug);
 	bless($node, "HeaderDoc::ParseTree");
-	($newstringref, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType) = $node->colorTreeSub($apio, $type, $depth + 1, $inComment, $inQuote, $inObjCMethod, $lastBrace, $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, $prespace, $lang, $sublang, $xmlmode, $newlen, $nextbreakable, $inMacro, $inEnum, $seenEquals, $lastKeyword, $lastnstoken, $lastTreeNode, $lastTokenType);
+	($newstringref, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType, $spaceSinceLastToken) = $node->colorTreeSub($apio, $type, $depth + 1, $inComment, $inQuote, $inObjCMethod, $lastBrace, $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, $prespace, $lang, $sublang, $xmlmode, $newlen, $nextbreakable, $inMacro, $inEnum, $seenEquals, $lastKeyword, $lastnstoken, $lastTreeNode, $lastTokenType, $spaceSinceLastToken);
 	$newstring = ${$newstringref};
 	print "END CHILDREN\n" if ($localDebug || $colorDebug || $treeDebug);
     }
     $string .= $newstring; $newstring = "";
+    print "SET STRING TO $string\n" if ($localDebug);
 
     if (($prespace ne "")) {
 	# if we inherit a need for prespace from a descendant, it means
@@ -2274,7 +2455,7 @@ print "NB: $nextbreakable\n" if ($localDebug);
 	# if ($xmlmode) {
 		# $string .= "</declaration_comment>";
 	# } else {
-		# $string .= "</font>";
+		# $string .= "</span>";
 	# }
     # }
 
@@ -2291,15 +2472,16 @@ print "NB: $nextbreakable\n" if ($localDebug);
 		}
 	}
 	if ($node) {
-		($newstringref, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType) = $node->colorTreeSub($apio, $type, $depth, $inComment, $inQuote, $inObjCMethod, $lastBrace, $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, $prespace, $lang, $sublang, $xmlmode, $newlen, $nextbreakable, $inMacro, $inEnum, $seenEquals, $lastKeyword, $lastnstoken, $lastTreeNode, $lastTokenType);
+		($newstringref, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType, $spaceSinceLastToken) = $node->colorTreeSub($apio, $type, $depth, $inComment, $inQuote, $inObjCMethod, $lastBrace, $sotemplate, $soc, $eoc, $ilc, $lbrace, $rbrace, $sofunction, $soprocedure, $varname, $constname, $unionname, $structname, $typedefname, $structisbrace, $macroListRef, $prespace, $lang, $sublang, $xmlmode, $newlen, $nextbreakable, $inMacro, $inEnum, $seenEquals, $lastKeyword, $lastnstoken, $lastTreeNode, $lastTokenType, $spaceSinceLastToken);
 		$newstring = ${$newstringref};
 	}
     }
     $string .= $newstring;
+    print "SET STRING TO $string\n" if ($localDebug);
 
     # $self->{CTSTRING} = $string;
     # $self->{CTSUB} = ($newlen, $nextbreakable, $prespace, $lastnstoken);
-    return (\$string, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType);
+    return (\$string, $newlen, $nextbreakable, $prespace, $lastnstoken, $continue, $lastTokenType, $spaceSinceLastToken);
 }
 
 sub dbprintrec
@@ -2313,10 +2495,6 @@ sub dbprintrec
         $lastnode = $parserState->{lastTreeNode};
     }
 
-    if ($self == $lastnode) {
-	printf("-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-\n");
-    }
-
     if ($self->token ne "") {
       my $i = $depth-1;
       while ($i > 0) {
@@ -2328,6 +2506,10 @@ sub dbprintrec
       }
       print $self->token;
       if ($self->token !~ /\n$/) { print "\n"; }
+    }
+
+    if ($self == $lastnode) {
+	printf("-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-\n");
     }
 
     if ($self->firstchild()) {
@@ -2425,7 +2607,7 @@ sub trygcc
     my $localDebug = 0;
 
     if (open(GCCFILE, ">/tmp/headerdoc-gcctemp-$timestamp.c")) {
-	print GCCFILE "main(){printf(\"%d\\n\", $rawvalue);}\n";
+	print GCCFILE "#include <inttypes.h>\nmain(){printf(\"%d\\n\", $rawvalue);}\n";
 	close(GCCFILE);
 
 	if (open(GCCPIPE, "/usr/bin/gcc /tmp/headerdoc-gcctemp-$timestamp.c -o /tmp/headerdoc-gcctemp-$timestamp >& /dev/null |")) {
@@ -2491,7 +2673,14 @@ sub getPTvalue
 sub dispose
 {
     my $self = shift;
+    my $localDebug = 0;
 
+    # Decrement the reference count.
+    if (--$self->{REFCOUNT}) { return; }
+
+    print "Disposing of tree\n" if ($localDebug);
+
+    $self->{PARENT} = undef;
     if ($self->{FIRSTCHILD}) {
 	$self->{FIRSTCHILD}->dispose();
 	$self->{FIRSTCHILD} = undef;
@@ -2500,9 +2689,125 @@ sub dispose
 	$self->{NEXT}->dispose();
 	$self->{NEXT} = undef;
     }
+    $self->{NTNC} = undef;
     if ($self->{APIOWNER}) { $self->{APIOWNER} = undef; }
     if ($self->{PARSERSTATE}) { $self->{PARSERSTATE} = undef; }
+    $self->{PARSEDPARAMS} = ();
+    $self->{RAWPARSEDPARAMETERS} = ();
+    $self->{TOKEN} = undef;
 
+}
+
+sub nextAtLevelOf
+{
+    my $self = shift;
+    my $matchingnode = shift;
+    my $filename = shift;
+    my $nextnode = $self;
+
+    while ($nextnode && !$nextnode->isAfter($matchingnode)) {
+	$nextnode = $nextnode->parent();
+    }
+    if ($nextnode) {
+	$nextnode = $nextnode->next();
+    } else {
+	my $tt = $self;
+	while ($tt->parent()) { $tt = $tt->parent(); }
+	my $apio = $tt->apiOwner();
+	cluck("TT: $tt\n");
+	# my $filename = $apio->filename();
+	warn("$filename:0:Ran off top of stack looking for next node.\n");
+	# $nextnode = $matchingnode->next();
+	$nextnode = undef;
+    }
+    return $nextnode;
+}
+
+sub DESTROY
+{
+    my $self = shift;
+    my $localDebug = 0;
+
+    print "Destroying $self\n" if ($localDebug);
+}
+
+# Count the number of curly braces at this level in the parse tree
+sub curlycount
+{
+    my $self = shift;
+    my $lbrace = shift;
+    my $last = shift;
+    my $pos = $self;
+    my $count = 0;
+
+    while ($last && !$last->isAfter($self)) {
+	$last = $last->parent();
+    }
+    if ($last) { $last = $last->next(); } # first node after this declaration
+
+    while ($pos && $pos != $last) {
+	if ($pos->token eq "$lbrace") {
+		$count++;
+	}
+	$pos = $pos->next();
+    }
+    return $count;
+}
+
+sub skipcurly
+{
+    my $self = shift;
+    my $lbrace = shift;
+    my $count = shift;
+
+    my $localDebug = 0;
+    my $pos = $self;
+
+    print "SKIPPING $count curly braces (lbrace = '$lbrace') at POS=$pos\n" if ($localDebug);
+    if (!$count) { return $self; }
+
+    while ($pos) {
+	my $tok = $pos->token();
+	print "TOKEN: '$tok'\n" if ($localDebug);
+	if ($tok eq "$lbrace") {
+		print "MATCH\n" if ($localDebug);
+		if (!--$count) {
+			my $next = $pos->next;
+			if ($localDebug) {
+				print "FOUND ONE.  Next tree is:\n";
+				if ($next) {
+					$next->dbprint();
+				} else {
+					print "UNDEFINED!\n";
+				}
+			}
+			return $next;
+		}
+	}
+	$pos = $pos->next();
+    }
+    warn "Yikes!  Ran out of open braces!\n";
+    return $pos;
+}
+
+sub isKnownMacroToken
+{
+    my $token = shift;
+    my $macroListRef = shift;
+    my $case_sensitive = shift;
+
+    my %macroList = %{$macroListRef};
+    if ($case_sensitive) {
+	if ($macroList{$token}) { return 1; }
+	return 0;
+    }
+
+    foreach my $cmpToken (keys %macroList) {
+	if (casecmp($token, $cmpToken, $case_sensitive)) {
+		return 1;
+	}
+    }
+    return 0;
 }
 
 1;

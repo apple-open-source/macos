@@ -33,7 +33,7 @@ static const char rcsid[] =
 #define TMAX(a,b) ((a)>(b)?(a):(b))
 
 
-static	void		process_crontab __P((char *, char *,
+static	void		process_crontab __P((char *, char *, char *,
 					     struct stat *,
 					     cron_db *, cron_db *));
 
@@ -87,7 +87,7 @@ load_database(old_db)
 	new_db.head = new_db.tail = NULL;
 
 	if (syscron_stat.st_mtime) {
-		process_crontab("*system*",
+		process_crontab("root", "*system*",
 				SYSCRONTAB, &syscron_stat,
 				&new_db, old_db);
 	}
@@ -117,7 +117,7 @@ load_database(old_db)
 		fname[sizeof(fname)-1] = '\0';
 		(void) snprintf(tabname, sizeof tabname, CRON_TAB(fname));
 
-		process_crontab(fname, tabname,
+		process_crontab(fname, fname, tabname,
 				&statbuf, &new_db, old_db);
 	}
 	closedir(dir);
@@ -193,15 +193,25 @@ find_user(db, name)
 
 
 static void
-process_crontab(fname, tabname, statbuf, new_db, old_db)
+process_crontab(uname, fname, tabname, statbuf, new_db, old_db)
+	char		*uname;
 	char		*fname;
 	char		*tabname;
 	struct stat	*statbuf;
 	cron_db		*new_db;
 	cron_db		*old_db;
 {
+	struct passwd	*pw = NULL;
 	int		crontab_fd = OK - 1;
 	user		*u;
+
+	if (strcmp(fname, "*system*") && !(pw = getpwnam(uname))) {
+		/* file doesn't have a user in passwd file.
+		 */
+		log_it(fname, getpid(), "ORPHAN", "no passwd entry");
+		old_db->mtime = 0;  // try again next time
+		goto next_crontab;
+	}
 
 	if ((crontab_fd = open(tabname, O_RDONLY, 0)) < OK) {
 		/* crontab not accessible?
@@ -240,7 +250,7 @@ process_crontab(fname, tabname, statbuf, new_db, old_db)
 		free_user(u);
 		log_it(fname, getpid(), "RELOAD", tabname);
 	}
-	u = load_user(crontab_fd, fname);
+	u = load_user(crontab_fd, pw, fname);
 	if (u != NULL) {
 		u->mtime = statbuf->st_mtime;
 		link_user(new_db, u);

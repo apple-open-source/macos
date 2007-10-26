@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -13,11 +13,12 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Author: Wez Furlong <wez@thebrainroom.com>, based on work by:        |
-   |         Hartmut Holzgraefe <hartmut@six.de>                          |
+   |         Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: zlib_fopen_wrapper.c,v 1.33.2.7.2.2 2007/01/01 09:46:50 sebastian Exp $ */
-#define IS_EXT_MODULE
+
+/* $Id: zlib_fopen_wrapper.c,v 1.46.2.1.2.4 2007/05/08 12:08:17 dmitry Exp $ */
+
 #define _GNU_SOURCE
 
 #include "php.h"
@@ -31,39 +32,42 @@ struct php_gz_stream_data_t	{
 
 static size_t php_gziop_read(php_stream *stream, char *buf, size_t count TSRMLS_DC)
 {
-	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *)stream->abstract;
+	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *) stream->abstract;
 	int read;
 	
 	read = gzread(self->gz_file, buf, count);
 	
-	if (gzeof(self->gz_file))
+	if (gzeof(self->gz_file)) {
 		stream->eof = 1;
-	
-	return read < 0 ? 0 : read;
+	}
+		
+	return (read < 0) ? 0 : read;
 }
 
 static size_t php_gziop_write(php_stream *stream, const char *buf, size_t count TSRMLS_DC)
 {
-	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *)stream->abstract;
+	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *) stream->abstract;
 	int wrote;
-	wrote = gzwrite(self->gz_file, (char*)buf, count);
-	return wrote < 0 ? 0 : wrote;
+
+	wrote = gzwrite(self->gz_file, (char *) buf, count);
+
+	return (wrote < 0) ? 0 : wrote;
 }
 
 static int php_gziop_seek(php_stream *stream, off_t offset, int whence, off_t *newoffs TSRMLS_DC)
 {
-	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *)stream->abstract;
+	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *) stream->abstract;
 
 	assert(self != NULL);
 
 	*newoffs = gzseek(self->gz_file, offset, whence);
 
-	return *newoffs < 0 ? -1 : 0;
+	return (*newoffs < 0) ? -1 : 0;
 }
 
 static int php_gziop_close(php_stream *stream, int close_handle TSRMLS_DC)
 {
-	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *)stream->abstract;
+	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *) stream->abstract;
 	int ret = EOF;
 	
 	if (close_handle) {
@@ -80,14 +84,15 @@ static int php_gziop_close(php_stream *stream, int close_handle TSRMLS_DC)
 
 	return ret;
 }
+
 static int php_gziop_flush(php_stream *stream TSRMLS_DC)
 {
-	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *)stream->abstract;
+	struct php_gz_stream_data_t *self = (struct php_gz_stream_data_t *) stream->abstract;
+
 	return gzflush(self->gz_file, Z_SYNC_FLUSH);
 }
 
-
-php_stream_ops php_stream_gzio_ops = {
+static php_stream_ops php_stream_gzio_ops = {
 	php_gziop_write, php_gziop_read,
 	php_gziop_close, php_gziop_flush,
 	"ZLIB",
@@ -97,8 +102,8 @@ php_stream_ops php_stream_gzio_ops = {
 	NULL  /* set_option */
 };
 
-php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mode,
-		int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC)
+php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mode, int options, 
+							  char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC)
 {
 	struct php_gz_stream_data_t *self = {0};
 	php_stream *stream = NULL, *innerstream = NULL;
@@ -113,17 +118,19 @@ php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mod
 	
 	self = emalloc(sizeof(*self));
 
-	if (strncasecmp("compress.zlib://", path, 16) == 0)
+	if (strncasecmp("compress.zlib://", path, 16) == 0) {
 		path += 16;
-	else if (strncasecmp("zlib:", path, 5) == 0)
+	} else if (strncasecmp("zlib:", path, 5) == 0) {
 		path += 5;
+	}
 	
-	innerstream = php_stream_open_wrapper(path, mode, STREAM_MUST_SEEK|options|STREAM_WILL_CAST, opened_path);
+	innerstream = php_stream_open_wrapper(path, mode, STREAM_MUST_SEEK | options | STREAM_WILL_CAST, opened_path);
 	
 	if (innerstream) {
 		int fd;
-		if (SUCCESS == php_stream_cast(innerstream, PHP_STREAM_AS_FD, (void**)&fd, REPORT_ERRORS)) {
-			self->gz_file = gzdopen(fd, mode);
+
+		if (SUCCESS == php_stream_cast(innerstream, PHP_STREAM_AS_FD, (void **) &fd, REPORT_ERRORS)) {
+			self->gz_file = gzdopen(dup(fd), mode);
 			self->stream = innerstream;
 			if (self->gz_file)	{
 				stream = php_stream_alloc_rel(&php_stream_gzio_ops, self, 0, mode);
@@ -133,17 +140,22 @@ php_stream *php_stream_gzopen(php_stream_wrapper *wrapper, char *path, char *mod
 				}
 				gzclose(self->gz_file);
 			}
-			if (options & REPORT_ERRORS)
+			if (options & REPORT_ERRORS) {
 				php_error_docref(NULL TSRMLS_CC, E_WARNING, "gzopen failed");
+			}
 		} else if (innerstream) {
 			php_stream_close(innerstream);
 		}
 	}
-	if (stream)
-		php_stream_close(stream);
-	if (self)
-		efree(self);
 
+	if (stream) {
+		php_stream_close(stream);
+	}
+	
+	if (self) {
+		efree(self);
+	}
+	
 	return NULL;
 }
 
@@ -153,7 +165,11 @@ static php_stream_wrapper_ops gzip_stream_wops = {
 	NULL, /* stat */
 	NULL, /* stat_url */
 	NULL, /* opendir */
-	"ZLIB"
+	"ZLIB",
+	NULL, /* unlink */
+	NULL, /* rename */
+	NULL, /* mkdir */
+	NULL  /* rmdir */
 };
 
 php_stream_wrapper php_stream_gzip_wrapper =	{
@@ -162,12 +178,11 @@ php_stream_wrapper php_stream_gzip_wrapper =	{
 	0, /* is_url */
 };
 
-
-
-
 /*
  * Local variables:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
+ * vim600: noet sw=4 ts=4 fdm=marker
+ * vim<600: noet sw=4 ts=4
  */

@@ -45,7 +45,7 @@ static Boolean _IOFileURLCreateDataAndPropertiesFromResource(CFAllocatorRef allo
 static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef alloc, CFURLRef url, CFArrayRef desiredProperties, SInt32 *errorCode);
 static Boolean _IOFileURLWritePropertiesToResource(CFURLRef url, CFDictionaryRef propertyDict, SInt32 *errorCode);
 
-static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURLRef base, CFStringRef matchingAbstractType);
+static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[CFMaxPathLength], CFURLRef base, CFStringRef matchingAbstractType);
 extern Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength);
 extern Boolean _IOWriteBytesToFile(const char *path, const void *bytes, CFIndex length);
 
@@ -353,8 +353,8 @@ static CFDictionaryRef _IOFileURLCreatePropertiesFromResource(CFAllocatorRef all
 
 // File Utilities
 
-static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path, CFURLRef base, CFStringRef matchingAbstractType) {
-    // NOTE - we assume path points to a buffer of at least length CFMaxPathLength, and we do potentially write in to it!
+// Note: as of November 2006, the matchingAbstractType isn't used at this function's only call site
+static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[CFMaxPathLength], CFURLRef base, CFStringRef matchingAbstractType) {
     CFMutableArrayRef files;
     Boolean releaseBase = FALSE;
     CFIndex pathLength = strlen(path);
@@ -368,8 +368,9 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char *path
     char dirge[8192];
 
     if (extLen > 0) {
+	// not sure what extension might contain ... currently unused
         CFStringGetBytes(extension, CFRangeMake(0, extLen), kCFStringEncodingMacRoman, 0, FALSE, extBuff, CFMaxPathSize, &extLen);
-        extBuff[extLen] = '\0';
+        extBuff[extLen] = '\0';	    // CFStringGetBytes set extLen to number of bytes in converted string
     }
     
     fd = open(path, O_RDONLY, 0777);

@@ -1,5 +1,6 @@
 /* Add entries to the GNU Emacs Program Manager folder.
-   Copyright (C) 1995 Free Software Foundation, Inc.
+   Copyright (C) 1995, 2001, 2002, 2003, 2004, 2005,
+      2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 /****************************************************************************
  *
@@ -32,7 +33,7 @@ Boston, MA 02111-1307, USA.  */
 #include <stdlib.h>
 #include <stdio.h>
 
-HDDEDATA CALLBACK 
+HDDEDATA CALLBACK
 DdeCallback (UINT uType, UINT uFmt, HCONV hconv,
 	     HSZ hsz1, HSZ hsz2, HDDEDATA hdata,
 	     DWORD dwData1, DWORD dwData2)
@@ -50,15 +51,14 @@ static struct entry
 {
   char *name;
   char *value;
-} 
-env_vars[] = 
+}
+env_vars[] =
 {
   {"emacs_dir", NULL},
   {"EMACSLOADPATH", "%emacs_dir%/site-lisp;%emacs_dir%/../site-lisp;%emacs_dir%/lisp;%emacs_dir%/leim"},
   {"SHELL", "%emacs_dir%/bin/cmdproxy.exe"},
   {"EMACSDATA", "%emacs_dir%/etc"},
   {"EMACSPATH", "%emacs_dir%/bin"},
-  {"EMACSLOCKDIR", "%emacs_dir%/lock"},
   /* We no longer set INFOPATH because Info-default-directory-list
      is then ignored.  */
   /*  {"INFOPATH", "%emacs_dir%/info"},  */
@@ -66,47 +66,51 @@ env_vars[] =
   {"TERM", "cmd"}
 };
 
-BOOL 
+BOOL
 add_registry (path)
      char *path;
 {
   HKEY hrootkey = NULL;
-  DWORD dwDisp;
   int i;
   BOOL ok = TRUE;
-  
-  /* Check both the current user and the local machine to see if we 
+
+  /* Previous versions relied on registry settings, but we do not need
+     them any more.  If registry settings are installed from a previous
+     version, replace them to ensure they are the current settings.
+     Otherwise, do nothing.  */
+
+  /* Check both the current user and the local machine to see if we
      have any resources.  */
-  
-  if (RegCreateKeyEx (HKEY_LOCAL_MACHINE, REG_ROOT,
-		      0, "", REG_OPTION_NON_VOLATILE,
-		      KEY_WRITE, NULL, &hrootkey, &dwDisp) != ERROR_SUCCESS 
-      && RegCreateKeyEx (HKEY_CURRENT_USER, REG_ROOT,
-			 0, "", REG_OPTION_NON_VOLATILE,
-			 KEY_WRITE, NULL, &hrootkey, &dwDisp) != ERROR_SUCCESS)
+
+  if (RegOpenKeyEx (HKEY_LOCAL_MACHINE, REG_ROOT,
+		      REG_OPTION_NON_VOLATILE,
+		      KEY_WRITE, &hrootkey) != ERROR_SUCCESS
+      && RegOpenKeyEx (HKEY_CURRENT_USER, REG_ROOT,
+			 REG_OPTION_NON_VOLATILE,
+			 KEY_WRITE, &hrootkey) != ERROR_SUCCESS)
     {
       return FALSE;
     }
-  
-  for (i = 0; i < (sizeof (env_vars) / sizeof (env_vars[0])); i++) 
+
+  for (i = 0; i < (sizeof (env_vars) / sizeof (env_vars[0])); i++)
     {
       char * value = env_vars[i].value ? env_vars[i].value : path;
-	
+
       if (RegSetValueEx (hrootkey, env_vars[i].name,
 			 0, REG_EXPAND_SZ,
 			 value, lstrlen (value) + 1) != ERROR_SUCCESS)
 	ok = FALSE;
-    }			      
-  
+    }
+
   RegCloseKey (hrootkey);
-  
+
   return (ok);
 }
 
 int
 main (argc, argv)
      int argc;
-     char *argv[];			
+     char *argv[];
 {
   DWORD idDde = 0;
   HCONV HConversation;
@@ -122,12 +126,14 @@ main (argc, argv)
 #if 0
   if (argc < 2 || argc > 3)
     {
-      fprintf (stderr, "usage: addpm [/q] [emacs_path [icon_path]]\n");
+      fprintf (stderr, "usage: addpm [-q] [emacs_path [icon_path]]\n");
       exit (1);
     }
 #endif
 
-  if (argc > 1 && argv[1][0] == '/' && argv[1][1] == 'q')
+  if (argc > 1
+      && (argv[1][0] == '/' || argv[1][0] == '-')
+      && argv[1][1] == 'q')
     {
       quiet = 1;
       --argc;
@@ -204,3 +210,6 @@ main (argc, argv)
 
   return (0);
 }
+
+/* arch-tag: f923609d-b781-4ef4-abce-ca0da29cbbf0
+   (do not change this comment) */

@@ -10,8 +10,6 @@ Created from the snmputil sample in the Microsoft SDK for NT
 #include "php_snmp.h"
 #include <sys/types.h>
 
-#include <windows.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <malloc.h>
@@ -23,7 +21,7 @@ Created from the snmputil sample in the Microsoft SDK for NT
 
 /* {{{ snmp_functions[]
  */
-function_entry snmp_functions[] = {
+zend_function_entry snmp_functions[] = {
     {"snmpget", php3_snmpget, NULL},
     {"snmpwalk", php3_snmpwalk, NULL},
     {NULL,NULL,NULL}
@@ -60,7 +58,7 @@ DLEXPORT zend_module_entry *get_module() { return &snmp_module_entry; }
 /* {{{ _php_snmp
  */
 void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
-	pval *a1, *a2, *a3;
+	zval *a1, *a2, *a3;
 	INT	operation;
     LPSTR              agent;
     LPSTR              community;
@@ -76,17 +74,17 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
     AsnObjectIdentifier oid;
    char        *chkPtr = NULL;
 
-	if (getParameters(ht, 3, &a1, &a2, &a3) == FAILURE) {
+	if (zend_get_parameters_ex(3, &a1, &a2, &a3) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
-	convert_to_string(a1);
-	convert_to_string(a2);
-	convert_to_string(a3);
+	convert_to_string_ex(a1);
+	convert_to_string_ex(a2);
+	convert_to_string_ex(a3);
 
-	agent=Z_STRVAL_P(a1);
-	community=Z_STRVAL_P(a2);
+	agent=Z_STRVAL_PP(a1);
+	community=Z_STRVAL_PP(a2);
 	operation=st;
-	SnmpMgrStrToOid(Z_STRVAL_P(a3), &oid);
+	SnmpMgrStrToOid(Z_STRVAL_PP(a3), &oid);
 
 /* 
    I've limited this to only one oid, but we can create a
@@ -102,7 +100,7 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
    for the session are also required.
 */
 	if ((session = SnmpMgrOpen(agent, community, timeout, retries)) == NULL){
-		php_error(E_WARNING,"error on SnmpMgrOpen %d\n", GetLastError());
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "error on SnmpMgrOpen %d", GetLastError());
 	}
 
     /* Determine and perform the requested operation.*/
@@ -121,12 +119,12 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 		if (!SnmpMgrRequest(session, requestType, &variableBindings,
                             &errorStatus, &errorIndex)){
             /* The API is indicating an error. */
-            php_error(E_WARNING,"error on SnmpMgrRequest %d\n", GetLastError());
+            php_error_docref(NULL TSRMLS_CC, E_WARNING, "error on SnmpMgrRequest %d", GetLastError());
         } else {
             /* The API succeeded, errors may be indicated from the remote
                agent. */
             if (errorStatus > 0){
-                php_error(E_WARNING,"Error: errorStatus=%d, errorIndex=%d\n",
+                php_error_docref(NULL TSRMLS_CC, E_WARNING, "Error: errorStatus=%d, errorIndex=%d",
                        errorStatus, errorIndex);
             } else {
                 /* Display the resulting variable bindings.*/
@@ -167,7 +165,7 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
             if (!SnmpMgrRequest(session, requestType, &variableBindings,
                                 &errorStatus, &errorIndex)){
                 /* The API is indicating an error.*/
-                php_error(E_WARNING,"error on SnmpMgrRequest %d\n", GetLastError());
+                php_error_docref(NULL TSRMLS_CC, E_WARNING, "error on SnmpMgrRequest %d", GetLastError());
                 break;
                 }
             else
@@ -185,8 +183,7 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 
                 /* Test for general error conditions or sucesss. */
                 if (errorStatus > 0){
-                    php_error(E_ERROR,"Error: errorStatus=%d, errorIndex=%d \n",
-                           errorStatus, errorIndex);
+                    php_error_docref(NULL TSRMLS_CC, E_ERROR,"Error: errorStatus=%d, errorIndex=%d", errorStatus, errorIndex);
                     break;
                     }
                 else
@@ -221,7 +218,7 @@ void _php_snmp(INTERNAL_FUNCTION_PARAMETERS, int st) {
 
 	/* Close SNMP session with the remote agent.*/
 	if (!SnmpMgrClose(session)){
-		php_error(E_WARNING,"error on SnmpMgrClose %d\n", GetLastError());
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "error on SnmpMgrClose %d", GetLastError());
 	}
 }
 /* }}} */

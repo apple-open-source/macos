@@ -23,6 +23,7 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IOLocks.h>
 #include <IOKit/assert.h>
+#include <IOKit/IOKitKeys.h>
 
 #include <IOKit/graphics/IOAccelerator.h>
 #include <IOKit/graphics/IOGraphicsTypesPrivate.h>
@@ -101,6 +102,9 @@ void IOAccelerationUserClient::initialize()
 bool IOAccelerationUserClient::initWithTask( task_t owningTask, void * securityID,
                                              UInt32 type,  OSDictionary * properties )
 {
+   
+    if ( properties != NULL )
+	    properties->setObject ( kIOUserClientCrossEndianCompatibleKey, kOSBooleanTrue );
    
     fTask = owningTask;
     queue_init(&fTaskList);

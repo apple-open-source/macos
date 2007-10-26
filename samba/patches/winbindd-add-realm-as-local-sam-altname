@@ -1,0 +1,22 @@
+Index: samba/source/nsswitch/winbindd_util.c
+===================================================================
+--- samba/source/nsswitch/winbindd_util.c.orig
++++ samba/source/nsswitch/winbindd_util.c
+@@ -110,7 +110,7 @@ static struct winbindd_domain *add_trust
+ 	
+ 	/* ignore alt_name if we are not in an AD domain */
+ 	
+-	if ( (lp_security() == SEC_ADS) && alt_name && *alt_name) {
++	if ( alt_name && *alt_name) {
+ 		alternative_name = alt_name;
+ 	}
+         
+@@ -527,7 +527,7 @@ BOOL init_domain_list(void)
+ 
+ 	/* Local SAM */
+ 
+-	domain = add_trusted_domain(get_global_sam_name(), NULL,
++	domain = add_trusted_domain(get_global_sam_name(), lp_realm(),
+ 				    &passdb_methods, get_global_sam_sid());
+ 	if ( role != ROLE_DOMAIN_MEMBER ) {
+ 		domain->primary = True;

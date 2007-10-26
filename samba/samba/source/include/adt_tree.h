@@ -1,7 +1,7 @@
 /* 
  *  Unix SMB/CIFS implementation.
  *  Generic Abstract Data Types
- *  Copyright (C) Gerald Carter                     2002.
+ *  Copyright (C) Gerald Carter                     2002-2005.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,6 +21,14 @@
 #ifndef ADT_TREE_H
 #define ADT_TREE_H
 
+#ifndef _UPPER_BOOL
+typedef int BOOL;
+#define _UPPER_BOOL  
+#endif
+
+
+/* data structure used to build the tree */
+
 typedef struct _tree_node {
 	struct _tree_node	*parent;
 	struct _tree_node	**children;
@@ -31,8 +39,30 @@ typedef struct _tree_node {
 
 typedef struct _tree_root {
 	TREE_NODE	*root;
+
+	/* not used currently (is it needed?) */
 	int 		(*compare)(void* x, void *y);
-	void		(*free_func)(void *p);
 } SORTED_TREE;
+
+/* 
+ * API
+ */
+
+/* create a new tree, talloc_free() to throw it away */
+
+SORTED_TREE*  pathtree_init( void *data_p, int (cmp_fn)(void*, void*) );
+
+/* add a new path component */
+
+BOOL          pathtree_add( SORTED_TREE *tree, const char *path, void *data_p );
+
+/* search path */
+
+void*         pathtree_find( SORTED_TREE *tree, char *key );
+
+/* debug (print) functions */
+
+void          pathtree_print_keys( SORTED_TREE *tree, int debug );
+
 
 #endif

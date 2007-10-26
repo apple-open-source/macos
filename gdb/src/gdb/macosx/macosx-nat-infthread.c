@@ -21,11 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "macosx-nat-inferior.h"
-#include "macosx-nat-inferior-util.h"
-#include "macosx-nat-inferior-debug.h"
-#include "macosx-nat-mutils.h"
-
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
@@ -39,10 +34,23 @@
 #include <sys/param.h>
 #include <sys/dir.h>
 
+#include "macosx-nat-inferior.h"
+#include "macosx-nat-inferior-util.h"
+#include "macosx-nat-inferior-debug.h"
+#include "macosx-nat-mutils.h"
+
 extern macosx_inferior_status *macosx_status;
 
 #define set_trace_bit(thread) modify_trace_bit (thread, 1)
 #define clear_trace_bit(thread) modify_trace_bit (thread, 0)
+
+/* We use this structure in iterate_over_threads to prune the
+   thread list.  */
+struct ptid_list
+{
+  unsigned int nthreads;
+  ptid_t *ptids;
+};
 
 void
 macosx_setup_registers_before_hand_call ()
@@ -54,27 +62,61 @@ macosx_setup_registers_before_hand_call ()
 
 #if defined (TARGET_I386)
 
-#include "i386-macosx-thread-status.h"
+/* Set/clear bit 8 (Trap Flag) of the EFLAGS processor control
+   register to enable/disable single-step mode.  Handle new-style 
+   32-bit, 64-bit, and old-style 32-bit interfaces in this function.  
+   VALUE is a boolean, indicating whether to set (1) the Trap Flag 
+   or clear it (0).  */
 
 kern_return_t
 modify_trace_bit (thread_t thread, int value)
 {
-  i386_thread_state_t state;
-  unsigned int state_count = i386_THREAD_STATE_COUNT;
+  gdb_x86_thread_state_t state;
+  unsigned int state_count = GDB_x86_THREAD_STATE_COUNT;
   kern_return_t kret;
 
-  kret =
-    thread_get_state (thread, i386_THREAD_STATE, (thread_state_t) & state,
-                      &state_count);
-  MACH_PROPAGATE_ERROR (kret);
-
-  if ((state.eflags & 0x100UL) != (value ? 1 : 0))
+  kret = thread_get_state (thread, GDB_x86_THREAD_STATE, 
+                           (thread_state_t) &state, &state_count);
+  if (kret == KERN_SUCCESS &&
+      (state.tsh.flavor == GDB_x86_THREAD_STATE32 ||
+       state.tsh.flavor == GDB_x86_THREAD_STATE64))
     {
-      state.eflags = (state.eflags & ~0x100UL) | (value ? 0x100UL : 0);
-      kret =
-        thread_set_state (thread, i386_THREAD_STATE, (thread_state_t) & state,
-                          state_count);
+      if (state.tsh.flavor == GDB_x86_THREAD_STATE32 
+          && (state.uts.ts32.eflags & 0x100UL) != (value ? 1 : 0))
+        {
+          state.uts.ts32.eflags = 
+                    (state.uts.ts32.eflags & ~0x100UL) | (value ? 0x100UL : 0);
+          kret = thread_set_state (thread, GDB_x86_THREAD_STATE32, 
+                                   (thread_state_t) & state.uts.ts32,
+                                   GDB_x86_THREAD_STATE32_COUNT);
+          MACH_PROPAGATE_ERROR (kret);
+        }
+      else if (state.tsh.flavor == GDB_x86_THREAD_STATE64 
+               && (state.uts.ts64.rflags & 0x100UL) != (value ? 1 : 0))
+        {
+          state.uts.ts64.rflags = 
+                     (state.uts.ts64.rflags & ~0x100UL) | (value ? 0x100UL : 0);
+          kret = thread_set_state (thread, GDB_x86_THREAD_STATE, 
+                                   (thread_state_t) &state, state_count);
+          MACH_PROPAGATE_ERROR (kret);
+        }
+    }
+  else
+    {
+      gdb_i386_thread_state_t state;
+      
+      state_count = GDB_i386_THREAD_STATE_COUNT;
+      kret = thread_get_state (thread, GDB_i386_THREAD_STATE, 
+                               (thread_state_t) &state, &state_count);
       MACH_PROPAGATE_ERROR (kret);
+
+      if ((state.eflags & 0x100UL) != (value ? 1 : 0))
+        {
+          state.eflags = (state.eflags & ~0x100UL) | (value ? 0x100UL : 0);
+          kret = thread_set_state (thread, GDB_i386_THREAD_STATE, 
+                                   (thread_state_t) &state, state_count);
+          MACH_PROPAGATE_ERROR (kret);
+        }
     }
 
   return KERN_SUCCESS;
@@ -130,10 +172,10 @@ prepare_threads_after_stop (struct macosx_inferior_status *inferior)
       inferior->exception_status.saved_exceptions_stepping = 0;
     }
 
-  macosx_check_new_threads ();
-
   kret = task_threads (inferior->task, &thread_list, &nthreads);
   MACH_CHECK_ERROR (kret);
+
+  macosx_check_new_threads (thread_list, nthreads);
 
   for (i = 0; i < nthreads; i++)
     {
@@ -156,20 +198,37 @@ prepare_threads_after_stop (struct macosx_inferior_status *inferior)
           MACH_CHECK_ERROR (kret);
 
           if (tp->gdb_suspend_count > 0)
-            inferior_debug (2, "**  Resuming thread 0x%x, gdb suspend count: "
+            inferior_debug (3, "**  Resuming thread 0x%x, gdb suspend count: "
                             "%d, real suspend count: %d\n",
                             thread_list[i], tp->gdb_suspend_count,
                             info.suspend_count);
+	  else if (tp->gdb_suspend_count < 0)
+	    inferior_debug (3, "**  Re-suspending thread 0x%x, original suspend count: "
+                            "%d\n",
+                            thread_list[i], tp->gdb_suspend_count);
           else
-            inferior_debug (2, "**  Thread 0x%x was not suspended from gdb, "
+            inferior_debug (3, "**  Thread 0x%x was not suspended from gdb, "
                             "real suspend count: %d\n",
                             thread_list[i], info.suspend_count);
         }
-      while (tp->gdb_suspend_count > 0)
-        {
-          thread_resume (thread_list[i]);
-          tp->gdb_suspend_count--;
-        }
+      if (tp->gdb_suspend_count > 0)
+	{
+	  while (tp->gdb_suspend_count > 0)
+	    {
+	      thread_resume (thread_list[i]);
+	      tp->gdb_suspend_count--;
+	    }
+	}
+      else if (tp->gdb_suspend_count < 0)
+	{
+	  while (tp->gdb_suspend_count < 0)
+	    {
+	      thread_suspend (thread_list[i]);
+	      tp->gdb_suspend_count++;
+	    }
+	}
+
+
       kret = clear_trace_bit (thread_list[i]);
       MACH_WARN_ERROR (kret);
     }
@@ -191,12 +250,6 @@ void prepare_threads_before_run
 
   prepare_threads_after_stop (inferior);
 
-  /*
-     if (! step) {
-     CHECK_FATAL (current == THREAD_NULL);
-     }
-   */
-
   if (step || stop_others)
     {
       struct thread_basic_info info;
@@ -211,9 +264,23 @@ void prepare_threads_before_run
       if (info.suspend_count != 0)
         {
           if (step)
-            error ("Unable to single-step thread 0x%x "
-                   "(thread is already suspended from outside of GDB)",
-                   current);
+	    {
+	      ptid_t ptid;
+	      struct thread_info *tp = NULL;
+
+	      ptid = ptid_build (inferior->pid, 0, current);
+	      tp = find_thread_pid (ptid);
+	      CHECK_FATAL (tp != NULL);
+	      inferior_debug (3, "Resuming to single-step thread 0x%x "
+			      "(thread is already suspended from outside of GDB)",
+			      current);
+	      while (info.suspend_count > 0)
+		{
+		  tp->gdb_suspend_count--;
+		  info.suspend_count--;
+		  thread_resume (current);
+		}
+	    }
           else
             error ("Unable to run only thread 0x%x "
                    "(thread is already suspended from outside of GDB)",
@@ -225,7 +292,7 @@ void prepare_threads_before_run
   MACH_CHECK_ERROR (kret);
 
   if (step)
-    inferior_debug (2, "*** Suspending threads to step: 0x%x\n", current);
+    inferior_debug (3, "*** Suspending threads to step: 0x%x\n", current);
 
   for (i = 0; i < nthreads; i++)
     {
@@ -248,11 +315,11 @@ void prepare_threads_before_run
           kret = thread_suspend (thread_list[i]);
           MACH_CHECK_ERROR (kret);
           tp->gdb_suspend_count++;
-          inferior_debug (2, "*** Suspending thread 0x%x, suspend count %d\n",
+          inferior_debug (3, "*** Suspending thread 0x%x, suspend count %d\n",
                           thread_list[i], tp->gdb_suspend_count);
         }
       else if (stop_others)
-        inferior_debug (2, "*** Allowing thread 0x%x to run from gdb\n",
+        inferior_debug (3, "*** Allowing thread 0x%x to run from gdb\n",
                         thread_list[i]);
     }
 
@@ -297,6 +364,12 @@ unparse_run_state (int run_state)
     }
 }
 
+/* get_application_thread_port returns the thread port number in the
+   application's port namespace.  We get this so that we can present
+   the user with the same port number they would see if they store
+   away the thread id in their program.  It is for display purposes 
+   only.  */
+
 thread_t
 get_application_thread_port (thread_t our_name)
 {
@@ -307,6 +380,12 @@ get_application_thread_port (thread_t our_name)
   mach_msg_type_number_t types_count;
   mach_port_t match = 0;
   kern_return_t ret;
+
+  /* To get the application name, we have to iterate over all the ports
+     in the application and extract a right for them.  The right will include
+     the port name in our port namespace, so we can use that to find the
+     thread we are looking for.  Of course, we don't actually need another
+     right to each of these ports, so we deallocate it when we are done.  */
 
   ret = mach_port_names (macosx_status->task, &names, &names_count, &types,
                    &types_count);
@@ -327,7 +406,7 @@ get_application_thread_port (thread_t our_name)
                                      &local_name, &local_type);
       if (ret == KERN_SUCCESS)
         {
-          mach_port_deallocate (mach_task_self (), local_name); // don't actually need another right
+          mach_port_deallocate (mach_task_self (), local_name);
           if (local_name == our_name)
             {
               match = names[i];
@@ -485,6 +564,68 @@ thread_resume_command (char *tidstr, int from_tty)
   kret = thread_resume (tid);
 
   MACH_CHECK_ERROR (kret);
+}
+
+static int
+mark_dead_if_thread_is_gone (struct thread_info *tp, void *data)
+{
+  struct ptid_list *ptids = (struct ptid_list *) data;
+  int i;
+  int found_it = 0;
+
+  for (i = 0; i < ptids->nthreads; i++)
+    {
+      if (ptid_equal(tp->ptid, ptids->ptids[i]))
+	{
+	  found_it = 1;
+	  break;
+	}      
+    }
+  if (!found_it)
+    {
+      tp->ptid = pid_to_ptid (-1);
+    }
+  return 0;
+}
+
+/* This compares the list of threads from task_threads, and gdb's
+   current thread list, and removes the ones that are inactive.  It
+   works much the same as "prune_threads" except that that function
+   ends up calling task_threads for each thread in the thread list,
+   which isn't very efficient.  */
+
+void
+macosx_prune_threads (thread_array_t thread_list, unsigned int nthreads)
+{
+  struct ptid_list ptid_list;
+  kern_return_t kret;
+  unsigned int i;
+  int dealloc_thread_list = (thread_list == NULL);
+
+  if (thread_list == NULL)
+    {
+      kret = task_threads (macosx_status->task, &thread_list, &nthreads);
+      MACH_CHECK_ERROR (kret);
+    }
+
+  ptid_list.nthreads = nthreads;
+  ptid_list.ptids = (ptid_t *) xmalloc (nthreads * sizeof (ptid_t));
+ 
+  for (i = 0; i < nthreads; i++)
+    {
+      ptid_t ptid = ptid_build (macosx_status->pid, 0, thread_list[i]);
+      ptid_list.ptids[i] = ptid;
+    }
+  if (dealloc_thread_list)
+    {
+      kret =
+	vm_deallocate (mach_task_self (), (vm_address_t) thread_list,
+		       (nthreads * sizeof (int)));
+      MACH_CHECK_ERROR (kret);
+    }
+
+  iterate_over_threads (mark_dead_if_thread_is_gone, &ptid_list);
+  prune_threads ();
 }
 
 void

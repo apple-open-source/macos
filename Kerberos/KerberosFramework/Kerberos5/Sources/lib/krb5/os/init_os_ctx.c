@@ -30,12 +30,14 @@
 
 #include "k5-int.h"
 #include "os-proto.h"
+#include "prof_int.h"		/* XXX for profile_copy, not public yet */
 
 #ifdef USE_LOGIN_LIBRARY
 #include "KerberosLoginPrivate.h"
 #endif
 
 #if defined(_WIN32)
+#include <winsock.h>
 
 static krb5_error_code
 get_from_windows_dir(
@@ -241,11 +243,11 @@ os_get_default_config_files(profile_filespec_t **pfiles, krb5_boolean secure)
 #ifdef USE_LOGIN_LIBRARY
     /* If __KLAllowHomeDirectoryAccess() == FALSE, we are probably
         trying to authenticate to a fileserver for the user's homedir. */
-    if (secure || !__KLAllowHomeDirectoryAccess ()) {
-#else
-    if (secure) {
+    if (!__KLAllowHomeDirectoryAccess ())
+	secure = 1;
 #endif
-            filepath = DEFAULT_SECURE_PROFILE_PATH;
+    if (secure) {
+	filepath = DEFAULT_SECURE_PROFILE_PATH;
     } else { 
         filepath = getenv("KRB5_CONFIG");
         if (!filepath) filepath = DEFAULT_PROFILE_PATH;
@@ -287,12 +289,42 @@ os_get_default_config_files(profile_filespec_t **pfiles, krb5_boolean secure)
     return 0;
 }
 
-
-/* Set the profile paths in the context. If secure is set to TRUE then 
-   do not include user paths (from environment variables, etc.)
-*/
 static krb5_error_code
-os_init_paths(krb5_context ctx)
+add_kdc_config_file(profile_filespec_t **pfiles)
+{
+    char *file;
+    size_t count;
+    profile_filespec_t *newfiles;
+
+    file = getenv(KDC_PROFILE_ENV);
+    if (file == NULL)
+	file = DEFAULT_KDC_PROFILE;
+
+    for (count = 0; (*pfiles)[count]; count++)
+	;
+    count += 2;
+    newfiles = malloc(count * sizeof(*newfiles));
+    if (newfiles == NULL)
+	return errno;
+    memcpy(newfiles + 1, *pfiles, (count-1) * sizeof(*newfiles));
+    newfiles[0] = strdup(file);
+    if (newfiles[0] == NULL) {
+	int e = errno;
+	free(newfiles);
+	return e;
+    }
+    free(*pfiles);
+    *pfiles = newfiles;
+    return 0;
+}
+
+
+/* Set the profile paths in the context.  If secure is set to TRUE
+   then do not include user paths (from environment variables, etc).
+   If kdc is TRUE, include kdc.conf from whereever we expect to find
+   it.  */
+static krb5_error_code
+os_init_paths(krb5_context ctx, krb5_boolean kdc)
 {
     krb5_error_code	retval = 0;
     profile_filespec_t *files = 0;
@@ -303,6 +335,9 @@ os_init_paths(krb5_context ctx)
 #endif /* KRB5_DNS_LOOKUP */
 
     retval = os_get_default_config_files(&files, secure);
+
+    if (retval == 0 && kdc)
+	retval = add_kdc_config_file(&files);
 
     if (!retval) {
         retval = profile_init((const_profile_filespec_t *) files,
@@ -338,10 +373,14 @@ os_init_paths(krb5_context ctx)
 }
 
 krb5_error_code
-krb5_os_init_context(krb5_context ctx)
+krb5_os_init_context(krb5_context ctx, krb5_boolean kdc)
 {
 	krb5_os_context os_ctx;
 	krb5_error_code	retval = 0;
+#ifdef _WIN32
+    WORD wVersionRequested;
+    WSADATA wsaData;
+#endif /* _WIN32 */
 
 	os_ctx = ctx->os_context;
 	os_ctx->magic = KV5M_OS_CONTEXT;
@@ -350,45 +389,35 @@ krb5_os_init_context(krb5_context ctx)
 	os_ctx->os_flags = 0;
 	os_ctx->default_ccname = 0;
 
-	krb5_cc_set_default_name(ctx, NULL);
+	ctx->vtbl = 0;
+	PLUGIN_DIR_INIT(&ctx->libkrb5_plugins);
+	PLUGIN_DIR_INIT(&ctx->preauth_plugins);
+	ctx->preauth_context = NULL;
 
-	retval = os_init_paths(ctx);
-
+	retval = os_init_paths(ctx, kdc);
 	/*
 	 * If there's an error in the profile, return an error.  Just
 	 * ignoring the error is a Bad Thing (tm).
 	 */
+     
+        if (!retval) {
+                krb5_cc_set_default_name(ctx, NULL);
 
+#ifdef _WIN32
+                /* We initialize winsock to version 1.1 but 
+                 * we do not care if we succeed or fail.
+                 */
+                wVersionRequested = 0x0101;
+                WSAStartup (wVersionRequested, &wsaData);
+#endif /* _WIN32 */
+        }
 	return retval;
 }
 
 krb5_error_code KRB5_CALLCONV
 krb5_get_profile (krb5_context ctx, profile_t *profile)
 {
-    krb5_error_code	retval = 0;
-    profile_filespec_t *files = 0;
-
-    retval = os_get_default_config_files(&files, ctx->profile_secure);
-
-    if (!retval) {
-        retval = profile_init((const_profile_filespec_t *) files,
-			      profile);
-    }
-
-    if (files)
-        free_filespecs(files);
-
-    if (retval == ENOENT)
-        return KRB5_CONFIG_CANTOPEN;
-
-    if ((retval == PROF_SECTION_NOTOP) ||
-        (retval == PROF_SECTION_SYNTAX) ||
-        (retval == PROF_RELATION_SYNTAX) ||
-        (retval == PROF_EXTRA_CBRACE) ||
-        (retval == PROF_MISSING_OBRACE))
-        return KRB5_CONFIG_BADFORMAT;
-
-    return retval;
+    return profile_copy (ctx->profile, profile);
 }	
 
 
@@ -439,7 +468,7 @@ krb5_secure_config_files(krb5_context ctx)
 	}
 
 	ctx->profile_secure = TRUE;
-	retval = os_init_paths(ctx);
+	retval = os_init_paths(ctx, FALSE);
 	if (retval)
 		return retval;
 
@@ -464,4 +493,15 @@ krb5_os_free_context(krb5_context ctx)
 		profile_release(ctx->profile);
 	    ctx->profile = 0;
 	}
+
+	if (ctx->preauth_context) {
+		krb5_free_preauth_context(ctx);
+		ctx->preauth_context = NULL;
+	}
+	krb5int_close_plugin_dirs (&ctx->preauth_plugins);
+	krb5int_close_plugin_dirs (&ctx->libkrb5_plugins);
+
+#ifdef _WIN32
+        WSACleanup();
+#endif /* _WIN32 */
 }

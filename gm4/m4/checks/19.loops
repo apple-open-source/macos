@@ -1,5 +1,0 @@
-dnl ../doc/m4.texinfo:1438: Origin of test
-shift(bar)
-dnl @result{}
-shift(foo, bar, baz)
-dnl @result{}bar,baz

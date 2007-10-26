@@ -14,6 +14,114 @@ class TkNamespace < TkObject
   Tk_Namespace_ID_TBL = TkCore::INTERP.create_table
   Tk_Namespace_ID = ["ns".freeze, "00000".taint].freeze
 
+  Tk_NsCode_RetObjID_TBL = TkCore::INTERP.create_table
+
+  TkCore::INTERP.init_ip_env{
+    Tk_Namespace_ID_TBL.clear
+    Tk_NsCode_RetObjID_TBL.clear
+  }
+
+  def TkNamespace.id2obj(id)
+    Tk_Namespace_ID_TBL[id]? Tk_Namespace_ID_TBL[id]: id
+  end
+
+  #####################################
+
+  class Ensemble < TkObject
+    def __cget_cmd
+      ['namespace', 'ensemble', 'configure', self.path]
+    end
+    private :__cget_cmd
+
+    def __config_cmd
+      ['namespace', 'ensemble', 'configure', self.path]
+    end
+    private :__config_cmd
+
+    def __configinfo_struct
+      {:key=>0, :alias=>nil, :db_name=>nil, :db_class=>nil, 
+        :default_value=>nil, :current_value=>2}
+    end
+    private :__configinfo_struct
+
+    def __boolval_optkeys
+      ['prefixes']
+    end
+    private :__boolval_optkeys
+
+    def __listval_optkeys
+      ['map', 'subcommands', 'unknown']
+    end
+    private :__listval_optkeys
+
+    def self.exist?(ensemble)
+      bool(tk_call('namespace', 'ensemble', 'exists', ensemble))
+    end
+
+    def initialize(keys = {})
+      @ensemble = @path = tk_call('namespace', 'ensemble', 'create', keys)
+    end
+
+    def cget(slot)
+      if slot == :namespace || slot == 'namespace'
+        ns = super(slot)
+        if TkNamespace::Tk_Namespace_ID_TBL.key?(ns)
+          TkNamespace::Tk_Namespace_ID_TBL[ns]
+        else
+          ns
+        end
+      else
+        super(slot)
+      end
+    end
+
+    def configinfo(slot = nil)
+      if slot
+        if slot == :namespace || slot == 'namespace'
+          val = super(slot)
+          if TkNamespace::Tk_Namespace_ID_TBL.key?(val)
+            val = TkNamespace::Tk_Namespace_ID_TBL[val]
+          end
+        else
+          val = super(slot)
+        end
+
+        if TkComm::GET_CONFIGINFO_AS_ARRAY
+          [slot.to_s, val]
+        else # ! TkComm::GET_CONFIGINFO_AS_ARRAY
+          {slot.to_s => val}
+        end
+
+      else
+        info = super()
+
+        if TkComm::GET_CONFIGINFO_AS_ARRAY
+          info.map!{|inf| 
+            if inf[0] == 'namespace' && 
+                TkNamespace::Tk_Namespace_ID_TBL.key?(inf[-1])
+              [inf[0], TkNamespace::Tk_Namespace_ID_TBL[inf[-1]]]
+            else
+              inf
+            end
+          }
+        else # ! TkComm::GET_CONFIGINFO_AS_ARRAY
+          val = info['namespace']
+          if TkNamespace::Tk_Namespace_ID_TBL.key?(val)
+            info['namespace'] = TkNamespace::Tk_Namespace_ID_TBL[val]
+          end
+        end
+
+        info
+      end
+    end
+
+    def exists?
+      bool(tk_call('namespace', 'ensemble', 'exists', @path))
+    end
+  end
+
+  #####################################
+
   class ScopeArgs < Array
     include Tk
 
@@ -22,19 +130,19 @@ class TkNamespace < TkObject
     # alias __tk_call_with_enc    tk_call_with_enc
     def tk_call(*args)
       #super('namespace', 'eval', @namespace, *args)
-      args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+      args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
       super('namespace', 'eval', @namespace, 
             TkCore::INTERP._merge_tklist(*args))
     end
     def tk_call_without_enc(*args)
       #super('namespace', 'eval', @namespace, *args)
-      args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+      args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
       super('namespace', 'eval', @namespace, 
             TkCore::INTERP._merge_tklist(*args))
     end
     def tk_call_with_enc(*args)
       #super('namespace', 'eval', @namespace, *args)
-      args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+      args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
       super('namespace', 'eval', @namespace, 
             TkCore::INTERP._merge_tklist(*args))
     end
@@ -46,9 +154,12 @@ class TkNamespace < TkObject
     end
   end
 
+  #####################################
+
   class NsCode < TkObject
-    def initialize(scope)
+    def initialize(scope, use_obj_id = false)
       @scope = scope + ' '
+      @use_obj_id = use_obj_id
     end
     def path
       @scope
@@ -57,8 +168,24 @@ class TkNamespace < TkObject
       @scope
     end
     def call(*args)
-      TkCore::INTERP._eval_without_enc(@scope + array2tk_list(args))
+      ret = TkCore::INTERP._eval_without_enc(@scope + array2tk_list(args))
+      if @use_obj_id
+        ret = TkNamespace::Tk_NsCode_RetObjID_TBL.delete(ret.to_i)
+      end
+      ret
     end
+  end
+
+  #####################################
+
+  def install_cmd(cmd)
+    lst = tk_split_simplelist(super(cmd), false, false)
+    if lst[1] =~ /^::/
+      lst[1] = @fullname
+    else
+      lst.insert(1, @fullname)
+    end
+    TkCore::INTERP._merge_tklist(*lst)
   end
 
   alias __tk_call             tk_call
@@ -66,19 +193,19 @@ class TkNamespace < TkObject
   alias __tk_call_with_enc    tk_call_with_enc
   def tk_call(*args)
     #super('namespace', 'eval', @fullname, *args)
-    args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+    args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
     super('namespace', 'eval', @fullname, 
           TkCore::INTERP._merge_tklist(*args))
   end
   def tk_call_without_enc(*args)
     #super('namespace', 'eval', @fullname, *args)
-    args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+    args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
     super('namespace', 'eval', @fullname,  
           TkCore::INTERP._merge_tklist(*args))
   end
   def tk_call_with_enc(*args)
     #super('namespace', 'eval', @fullname, *args)
-    args = args.collect{|arg| (s = _get_eval_string(arg))? s: ''}
+    args = args.collect{|arg| (s = _get_eval_string(arg, true))? s: ''}
     super('namespace', 'eval', @fullname, 
           TkCore::INTERP._merge_tklist(*args))
   end
@@ -147,6 +274,7 @@ class TkNamespace < TkObject
   def self.code(script = Proc.new)
     TkNamespace.new('').code(script)
   end
+=begin
   def code(script = Proc.new)
     if script.kind_of?(String)
       cmd = proc{|*args| ScopeArgs.new(@fullname,*args).instance_eval(script)}
@@ -158,18 +286,61 @@ class TkNamespace < TkObject
     TkNamespace::NsCode.new(tk_call_without_enc('namespace', 'code', 
                                                 _get_eval_string(cmd, false)))
   end
+=end
+  def code(script = Proc.new)
+    if script.kind_of?(String)
+      cmd = proc{|*args|
+        ret = ScopeArgs.new(@fullname,*args).instance_eval(script)
+        id = ret.object_id
+        TkNamespace::Tk_NsCode_RetObjID_TBL[id] = ret
+        id
+      }
+    elsif script.kind_of?(Proc)
+      cmd = proc{|*args|
+        ret = ScopeArgs.new(@fullname,*args).instance_eval(&script)
+        id = ret.object_id
+        TkNamespace::Tk_NsCode_RetObjID_TBL[id] = ret
+        id
+      }
+    else
+      fail ArgumentError, "String or Proc is expected"
+    end
+    TkNamespace::NsCode.new(tk_call_without_enc('namespace', 'code', 
+                                                _get_eval_string(cmd, false)), 
+                            true)
+  end
+
+  def self.current_path
+    tk_call('namespace', 'current')
+  end
+  def current_path
+    @fullname
+  end
 
   def self.current
-    tk_call('namespace', 'current')
+    ns = self.current_path
+    if Tk_Namespace_ID_TBL.key?(ns)
+      Tk_Namespace_ID_TBL[ns]
+    else
+      ns
+    end
   end
   def current_namespace
     # ns_tk_call('namespace', 'current')
-    @fullname
+    # @fullname
+    self
   end
   alias current current_namespace
 
   def self.delete(*ns_list)
     tk_call('namespace', 'delete', *ns_list)
+    ns_list.each{|ns|
+      if ns.kind_of?(TkNamespace)
+        Tk_Namespace_ID_TBL.delete(ns.path)
+      else
+        Tk_Namespace_ID_TBL.delete(ns.to_s)
+      end
+    }
   end
   def delete
     TkNamespece.delete(@fullname)
@@ -202,12 +373,21 @@ class TkNamespace < TkObject
     #tk_call('namespace', 'eval', namespace, cmd, *args)
     TkNamespace.new(namespece).eval(cmd, *args)
   end
+=begin
   def eval(cmd = Proc.new, *args)
     #TkNamespace.eval(@fullname, cmd, *args)
     #ns_tk_call(cmd, *args)
     code_obj = code(cmd)
     ret = code_obj.call(*args)
-    uninstall_cmd(TkCore::INTERP._split_tklist(code_obj.path)[-1])
+    # uninstall_cmd(TkCore::INTERP._split_tklist(code_obj.path)[-1])
+    uninstall_cmd(_fromUTF8(TkCore::INTERP._split_tklist(_toUTF8(code_obj.path))[-1]))
+    tk_tcl2ruby(ret)
+  end
+=end
+  def eval(cmd = Proc.new, *args)
+    code_obj = code(cmd)
+    ret = code_obj.call(*args)
+    uninstall_cmd(_fromUTF8(TkCore::INTERP._split_tklist(_toUTF8(code_obj.path))[-1]))
     ret
   end
 
@@ -215,7 +395,7 @@ class TkNamespace < TkObject
     bool(tk_call('namespace', 'exists', ns))
   end
   def exist?
-    TkNamespece.delete(@fullname)
+    TkNamespece.exist?(@fullname)
   end
 
   def self.export(*patterns)
@@ -255,7 +435,7 @@ class TkNamespace < TkObject
     tk_call('namespace', 'inscope', namespace, script, *args)
   end
   def inscope(script, *args)
-    TkNamespace(@fullname, script, *args)
+    TkNamespace.inscope(@fullname, script, *args)
   end
 
   def self.origin(cmd)
@@ -274,12 +454,36 @@ class TkNamespace < TkObject
     tk_call('namespace', 'parent', @fullname)
   end
 
+  def self.get_path
+    tk_call('namespace', 'path')
+  end
+  def self.set_path(*namespace_list)
+    tk_call('namespace', 'path', array2tk_list(namespace_list))
+  end
+  def set_path
+    tk_call('namespace', 'path', @fullname)
+  end
+
   def self.qualifiers(str)
     tk_call('namespace', 'qualifiers', str)
   end
 
   def self.tail(str)
     tk_call('namespace', 'tail', str)
+  end
+
+  def self.upvar(namespace, *var_pairs)
+    tk_call('namespace', 'upvar', namespace, *(var_pairs.flatten))
+  end
+  def upvar(*var_pairs)
+    TkNamespace.inscope(@fullname, *(var_pairs.flatten))
+  end
+
+  def self.get_unknown_handler
+    tk_tcl2ruby(tk_call('namespace', 'unknown'))
+  end
+  def self.set_unknown_handler(cmd = Proc.new)
+    tk_call('namespace', 'unknown', cmd)
   end
 
   def self.which(name)
@@ -292,3 +496,5 @@ class TkNamespace < TkObject
     tk_call('namespace', 'which', '-variable', name)
   end
 end
+
+TkNamespace::Global = TkNamespace.new('::')

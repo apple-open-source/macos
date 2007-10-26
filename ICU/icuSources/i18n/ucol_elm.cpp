@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2004, International Business Machines
+*   Copyright (C) 2001-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -36,12 +36,10 @@
 #include "unicode/caniter.h"
 #include "cmemory.h"
 
-U_NAMESPACE_BEGIN
-
 static uint32_t uprv_uca_processContraction(CntTable *contractions, UCAElements *element, uint32_t existingCE, UErrorCode *status);
 
 U_CDECL_BEGIN
-static int32_t U_EXPORT2 U_CALLCONV
+static int32_t U_CALLCONV
 prefixLookupHash(const UHashTok e) {
   UCAElements *element = (UCAElements *)e.pointer;
   UChar buf[256];
@@ -54,7 +52,7 @@ prefixLookupHash(const UHashTok e) {
   return uhash_hashUChars(key);
 }
 
-static int8_t U_EXPORT2 U_CALLCONV
+static int8_t U_CALLCONV
 prefixLookupComp(const UHashTok e1, const UHashTok e2) {
   UCAElements *element1 = (UCAElements *)e1.pointer;
   UCAElements *element2 = (UCAElements *)e2.pointer;
@@ -109,29 +107,30 @@ static int32_t uprv_uca_addExpansion(ExpansionTable *expansions, uint32_t value,
 
 U_CAPI tempUCATable*  U_EXPORT2
 uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollator *UCA, UColCETags initTag, UColCETags supplementaryInitTag, UErrorCode *status) {
+  MaxJamoExpansionTable *maxjet;
+  MaxExpansionTable *maxet;
   tempUCATable *t = (tempUCATable *)uprv_malloc(sizeof(tempUCATable));
   /* test for NULL */
   if (t == NULL) {
       *status = U_MEMORY_ALLOCATION_ERROR;
       return NULL;
   }
-  MaxExpansionTable *maxet  = (MaxExpansionTable *)uprv_malloc(
-                                                   sizeof(MaxExpansionTable));
-  /* test for NULL */
+  uprv_memset(t, 0, sizeof(tempUCATable));
+
+  maxet  = (MaxExpansionTable *)uprv_malloc(sizeof(MaxExpansionTable));
   if (maxet == NULL) {
-      *status = U_MEMORY_ALLOCATION_ERROR;
-      uprv_free(t);
-      return NULL;
+      goto allocation_failure;
   }
-  MaxJamoExpansionTable *maxjet = (MaxJamoExpansionTable *)uprv_malloc(
-                                               sizeof(MaxJamoExpansionTable));
-  /* test for NULL */
+  uprv_memset(maxet, 0, sizeof(MaxExpansionTable));
+  t->maxExpansions       = maxet;
+
+  maxjet = (MaxJamoExpansionTable *)uprv_malloc(sizeof(MaxJamoExpansionTable));
   if (maxjet == NULL) {
-      *status = U_MEMORY_ALLOCATION_ERROR;
-      uprv_free(t);
-      uprv_free(maxet);
-      return NULL;
+      goto allocation_failure;
   }
+  uprv_memset(maxjet, 0, sizeof(MaxJamoExpansionTable));
+  t->maxJamoExpansions = maxjet;
+
   t->image = image;
   t->options = opts;
 
@@ -139,11 +138,7 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
   t->expansions = (ExpansionTable *)uprv_malloc(sizeof(ExpansionTable));
   /* test for NULL */
   if (t->expansions == NULL) {
-      *status = U_MEMORY_ALLOCATION_ERROR;
-      uprv_free(t);
-      uprv_free(maxet);
-      uprv_free(maxjet);
-      return NULL;
+      goto allocation_failure;
   }
   uprv_memset(t->expansions, 0, sizeof(ExpansionTable));
   /*t->mapping = ucmpe32_open(UCOL_SPECIAL_FLAG | (initTag<<24), UCOL_SPECIAL_FLAG | (SURROGATE_TAG<<24), UCOL_SPECIAL_FLAG | (LEAD_SURROGATE_TAG<<24), status);*/
@@ -153,13 +148,12 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
                           UCOL_SPECIAL_FLAG | (initTag<<24),
                           UCOL_SPECIAL_FLAG | (supplementaryInitTag << 24),
                           TRUE); // Do your own mallocs for the structure, array and have linear Latin 1
-  t->prefixLookup = uhash_open(prefixLookupHash, prefixLookupComp, status);
+  t->prefixLookup = uhash_open(prefixLookupHash, prefixLookupComp, NULL, status);
   uhash_setValueDeleter(t->prefixLookup, uhash_freeBlock);
 
   t->contractions = uprv_cnttab_open(t->mapping, status);
 
   /* copy UCA's maxexpansion and merge as we go along */
-  t->maxExpansions       = maxet;
   if (UCA != NULL) {
     /* adding an extra initial value for easier manipulation */
     maxet->size            = (UCA->lastEndExpansionCE - UCA->endExpansionCE) 
@@ -169,16 +163,13 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
                       (uint32_t *)uprv_malloc(sizeof(uint32_t) * maxet->size);
     /* test for NULL */
     if (maxet->endExpansionCE == NULL) {
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
+        goto allocation_failure;
     }
     maxet->expansionCESize =
                         (uint8_t *)uprv_malloc(sizeof(uint8_t) * maxet->size);
     /* test for NULL */
     if (maxet->expansionCESize == NULL) {
-        *status = U_MEMORY_ALLOCATION_ERROR;
-        uprv_free(maxet->endExpansionCE);
-        return NULL;
+        goto allocation_failure;
     }
     /* initialized value */
     *(maxet->endExpansionCE)  = 0;
@@ -191,7 +182,6 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
   else {
     maxet->size     = 0;
   }
-  t->maxJamoExpansions = maxjet;
   maxjet->endExpansionCE = NULL;
   maxjet->isV = NULL;
   maxjet->size = 0;
@@ -203,19 +193,21 @@ uprv_uca_initTempTable(UCATableHeader *image, UColOptionSet *opts, const UCollat
   t->unsafeCP = (uint8_t *)uprv_malloc(UCOL_UNSAFECP_TABLE_SIZE);
   /* test for NULL */
   if (t->unsafeCP == NULL) {
-      *status = U_MEMORY_ALLOCATION_ERROR;
-      return NULL;
+      goto allocation_failure;
   }
   t->contrEndCP = (uint8_t *)uprv_malloc(UCOL_UNSAFECP_TABLE_SIZE);
   /* test for NULL */
   if (t->contrEndCP == NULL) {
-      *status = U_MEMORY_ALLOCATION_ERROR;
-      uprv_free(t->unsafeCP);
-      return NULL;
+      goto allocation_failure;
   }
   uprv_memset(t->unsafeCP, 0, UCOL_UNSAFECP_TABLE_SIZE);
   uprv_memset(t->contrEndCP, 0, UCOL_UNSAFECP_TABLE_SIZE);
-return t;
+  return t;
+
+allocation_failure:
+  uprv_uca_closeTempTable(t);
+  *status = U_MEMORY_ALLOCATION_ERROR;
+  return NULL;
 }
 
 U_CAPI tempUCATable* U_EXPORT2
@@ -281,6 +273,7 @@ uprv_uca_cloneTempTable(tempUCATable *t, UErrorCode *status) {
     r->maxExpansions->position = t->maxExpansions->position;
     if(t->maxExpansions->endExpansionCE != NULL) {
       r->maxExpansions->endExpansionCE = (uint32_t *)uprv_malloc(sizeof(uint32_t)*t->maxExpansions->size);
+      uprv_memset(r->maxExpansions->endExpansionCE, 0xDB, sizeof(uint32_t)*t->maxExpansions->size);
       /* test for NULL */
       if (r->maxExpansions->endExpansionCE == NULL) {
           *status = U_MEMORY_ALLOCATION_ERROR;
@@ -292,6 +285,7 @@ uprv_uca_cloneTempTable(tempUCATable *t, UErrorCode *status) {
     }
     if(t->maxExpansions->expansionCESize != NULL) {
       r->maxExpansions->expansionCESize = (uint8_t *)uprv_malloc(sizeof(uint8_t)*t->maxExpansions->size);
+      uprv_memset(r->maxExpansions->expansionCESize, 0xDB, sizeof(uint8_t)*t->maxExpansions->size);
       /* test for NULL */
       if (r->maxExpansions->expansionCESize == NULL) {
           *status = U_MEMORY_ALLOCATION_ERROR;
@@ -367,21 +361,26 @@ uprv_uca_cloneTempTable(tempUCATable *t, UErrorCode *status) {
 U_CAPI void  U_EXPORT2
 uprv_uca_closeTempTable(tempUCATable *t) {
   if(t != NULL) {
-    uprv_free(t->expansions->CEs);
-    uprv_free(t->expansions);
+    if (t->expansions != NULL) {
+      uprv_free(t->expansions->CEs);
+      uprv_free(t->expansions);
+    }
     if(t->contractions != NULL) {
       uprv_cnttab_close(t->contractions);
     }
-    /*ucmpe32_close(t->mapping);*/
-    utrie_close(t->mapping);
+    if (t->mapping != NULL) {
+      utrie_close(t->mapping);
+    }
 
     if(t->prefixLookup != NULL) {
       uhash_close(t->prefixLookup);
     }
 
-    uprv_free(t->maxExpansions->endExpansionCE);
-    uprv_free(t->maxExpansions->expansionCESize);
-    uprv_free(t->maxExpansions);
+    if (t->maxExpansions != NULL) {
+      uprv_free(t->maxExpansions->endExpansionCE);
+      uprv_free(t->maxExpansions->expansionCESize);
+      uprv_free(t->maxExpansions);
+    }
 
     if (t->maxJamoExpansions->size > 0) {
       uprv_free(t->maxJamoExpansions->endExpansionCE);
@@ -594,6 +593,8 @@ static int uprv_uca_setMaxJamoExpansion(UChar                  ch,
     /* test for NULL */;
     if (maxexpansion->isV == NULL) {
         *status = U_MEMORY_ALLOCATION_ERROR;
+        uprv_free(maxexpansion->endExpansionCE);
+        maxexpansion->endExpansionCE = NULL;
         return 0;
     }
     *(maxexpansion->isV) = 0;
@@ -602,20 +603,27 @@ static int uprv_uca_setMaxJamoExpansion(UChar                  ch,
   }
 
   if (maxexpansion->position + 1 == maxexpansion->size) {
-    uint32_t *neweece = (uint32_t *)uprv_realloc(maxexpansion->endExpansionCE, 
-                                   2 * maxexpansion->size * sizeof(uint32_t));
-    UBool    *newisV  = (UBool *)uprv_realloc(maxexpansion->isV, 
-                                   2 * maxexpansion->size * sizeof(UBool));
-    if (neweece == NULL || newisV == NULL) {
+    maxexpansion->size *= 2;
+    maxexpansion->endExpansionCE = (uint32_t *)uprv_realloc(maxexpansion->endExpansionCE, 
+                                   maxexpansion->size * sizeof(uint32_t));
+    if (maxexpansion->endExpansionCE == NULL) {
 #ifdef UCOL_DEBUG
       fprintf(stderr, "out of memory for maxExpansions\n");
 #endif
       *status = U_MEMORY_ALLOCATION_ERROR;
-      return -1;
+      return 0;
     }
-    maxexpansion->endExpansionCE  = neweece;
-    maxexpansion->isV             = newisV;
-    maxexpansion->size *= 2;
+    maxexpansion->isV  = (UBool *)uprv_realloc(maxexpansion->isV, 
+                                   maxexpansion->size * sizeof(UBool));
+    if (maxexpansion->isV == NULL) {
+#ifdef UCOL_DEBUG
+      fprintf(stderr, "out of memory for maxExpansions\n");
+#endif
+      *status = U_MEMORY_ALLOCATION_ERROR;
+      uprv_free(maxexpansion->endExpansionCE);
+      maxexpansion->endExpansionCE = NULL;
+      return 0;
+    }
   }
 
   uint32_t *pendexpansionce = maxexpansion->endExpansionCE;
@@ -1016,14 +1024,7 @@ uprv_uca_addAnElement(tempUCATable *t, UCAElements *element, UErrorCode *status)
   element->mapCE = 0; // clear mapCE so that we can catch expansions
 
   if(element->noOfCEs == 1) {
-    if(element->isThai == FALSE) {
-          element->mapCE = element->CEs[0];      
-    } else { /* add thai - totally bad here */
-      expansion = (uint32_t)(UCOL_SPECIAL_FLAG | (THAI_TAG<<UCOL_TAG_SHIFT) 
-        | ((uprv_uca_addExpansion(expansions, element->CEs[0], status)+(headersize>>2))<<4) 
-        | 0x1);
-      element->mapCE = expansion;
-    }
+    element->mapCE = element->CEs[0];      
   } else {     
     /* ICU 2.1 long primaries */
     /* unfortunately, it looks like we have to look for a long primary here */
@@ -1075,6 +1076,9 @@ uprv_uca_addAnElement(tempUCATable *t, UCAElements *element, UErrorCode *status)
                                  (uint8_t)element->noOfCEs,
                                  t->maxJamoExpansions,
                                  status);
+        if (U_FAILURE(*status)) {
+            return 0;
+        }
       }
     }
   }
@@ -1083,10 +1087,10 @@ uprv_uca_addAnElement(tempUCATable *t, UCAElements *element, UErrorCode *status)
   // processed differently if numeric collation is on. 
   UChar32 uniChar = 0;
   //printElement(element);
-  if ((element->cSize == 2) && U16_IS_LEAD(element->uchars[0])){
-      uniChar = U16_GET_SUPPLEMENTARY(element->uchars[0], element->uchars[1]);
+  if ((element->cSize == 2) && U16_IS_LEAD(element->cPoints[0])){
+      uniChar = U16_GET_SUPPLEMENTARY(element->cPoints[0], element->cPoints[1]);
   } else if (element->cSize == 1){
-      uniChar = element->uchars[0];
+      uniChar = element->cPoints[0];
   }
 
   // Here, we either have one normal CE OR mapCE is set. Therefore, we stuff only
@@ -1425,15 +1429,15 @@ uprv_uca_assembleTable(tempUCATable *t, UErrorCode *status) {
 
     /* copy max expansion table */
     myData->endExpansionCE      = tableOffset;
-    myData->endExpansionCECount = maxexpansion->position;
+    myData->endExpansionCECount = maxexpansion->position - 1;
     /* not copying the first element which is a dummy */
     uprv_memcpy(dataStart + tableOffset, maxexpansion->endExpansionCE + 1, 
-                maxexpansion->position * sizeof(uint32_t));
-    tableOffset += (uint32_t)(paddedsize(maxexpansion->position * sizeof(uint32_t)));
+                (maxexpansion->position - 1) * sizeof(uint32_t));
+    tableOffset += (uint32_t)(paddedsize((maxexpansion->position)* sizeof(uint32_t)));
     myData->expansionCESize = tableOffset;
     uprv_memcpy(dataStart + tableOffset, maxexpansion->expansionCESize + 1, 
-                maxexpansion->position * sizeof(uint8_t));
-    tableOffset += (uint32_t)(paddedsize(maxexpansion->position * sizeof(uint8_t)));
+                (maxexpansion->position - 1) * sizeof(uint8_t));
+    tableOffset += (uint32_t)(paddedsize((maxexpansion->position)* sizeof(uint8_t)));
 
     /* Unsafe chars table.  Finish it off, then copy it. */
     uprv_uca_unsafeCPAddCCNZ(t, status);
@@ -1485,19 +1489,19 @@ U_CDECL_BEGIN
 static UBool U_CALLCONV
 _enumCategoryRangeClosureCategory(const void *context, UChar32 start, UChar32 limit, UCharCategory type) {
 
-  UErrorCode *status = ((enumStruct *)context)->status;
-  tempUCATable *t = ((enumStruct *)context)->t;
-  UCollator *tempColl = ((enumStruct *)context)->tempColl;
-  UCollationElements* colEl = ((enumStruct *)context)->colEl;
-  UCAElements el;
-  UChar decomp[256] = { 0 };
-  int32_t noOfDec = 0;
-
-  UChar32 u32 = 0;
-  UChar comp[2];
-  uint32_t len = 0;
-
   if (type != U_UNASSIGNED && type != U_PRIVATE_USE_CHAR) { // if the range is assigned - we might ommit more categories later
+    UErrorCode *status = ((enumStruct *)context)->status;
+    tempUCATable *t = ((enumStruct *)context)->t;
+    UCollator *tempColl = ((enumStruct *)context)->tempColl;
+    UCollationElements* colEl = ((enumStruct *)context)->colEl;
+    UCAElements el;
+    UChar decomp[256] = { 0 };
+    int32_t noOfDec = 0;
+
+    UChar32 u32 = 0;
+    UChar comp[2];
+    uint32_t len = 0;
+
     for(u32 = start; u32 < limit; u32++) {
       noOfDec = unorm_getDecomposition(u32, FALSE, decomp, 256);
       //if((noOfDec = unorm_normalize(comp, len, UNORM_NFD, 0, decomp, 256, status)) > 1
@@ -1523,21 +1527,17 @@ _enumCategoryRangeClosureCategory(const void *context, UChar32 start, UChar32 li
           el.prefixSize = 0;
 
           UCAElements *prefix=(UCAElements *)uhash_get(t->prefixLookup, &el);
+          el.cPoints = comp;
+          el.cSize = len;
+          el.prefix = el.prefixChars;
+          el.prefixSize = 0;
           if(prefix == NULL) {
-            el.cPoints = comp;
-            el.cSize = len;
-            el.prefix = el.prefixChars;
-            el.prefixSize = 0;
             el.noOfCEs = 0;
             ucol_setText(colEl, decomp, noOfDec, status);
             while((el.CEs[el.noOfCEs] = ucol_next(colEl, status)) != (uint32_t)UCOL_NULLORDER) {
               el.noOfCEs++;
             }
           } else {
-            el.cPoints = comp;
-            el.cSize = len;
-            el.prefix = el.prefixChars;
-            el.prefixSize = 0;
             el.noOfCEs = 1;
             el.CEs[0] = prefix->mapCE;
             // This character uses a prefix. We have to add it 
@@ -1546,12 +1546,6 @@ _enumCategoryRangeClosureCategory(const void *context, UChar32 start, UChar32 li
             // Since unsafeCPSet is static in ucol_elm, we are going
             // to wrap it up in the uprv_uca_unsafeCPAddCCNZ function
           }
-          if(UCOL_ISTHAIPREVOWEL(el.cPoints[0])) {
-            el.isThai = TRUE;
-          } else {
-            el.isThai = FALSE;
-          }
-
           uprv_uca_addAnElement(t, &el, status);
         }
       }
@@ -1599,8 +1593,6 @@ uprv_uca_canonicalClosure(tempUCATable *t, UErrorCode *status)
   }
   return context.noOfClosures;
 }
-
-U_NAMESPACE_END
 
 #endif /* #if !UCONFIG_NO_COLLATION */
 

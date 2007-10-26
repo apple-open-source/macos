@@ -1,9 +1,9 @@
 dnl
-dnl $Id: config.m4,v 1.13.2.4 2003/12/09 20:33:22 sniper Exp $
+dnl $Id: config.m4,v 1.19 2005/05/29 23:16:42 sniper Exp $
 dnl
 
 PHP_ARG_WITH(ncurses, for ncurses support,
-[  --with-ncurses[=DIR]    Include ncurses support (CLI/CGI only).])
+[  --with-ncurses[=DIR]    Include ncurses support (CLI/CGI only)])
 
 if test "$PHP_NCURSES" != "no"; then
 
@@ -40,18 +40,18 @@ if test "$PHP_NCURSES" != "no"; then
 
    PHP_CHECK_LIBRARY($LIBNAME, $LIBSYMBOL, [
      AC_DEFINE(HAVE_NCURSESLIB,1,[ ])
-     PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/$PHP_LIBDIR, NCURSES_SHARED_LIBADD)
 
      PHP_CHECK_LIBRARY(panel, new_panel, [
        AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
-       PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+       PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/$PHP_LIBDIR, NCURSES_SHARED_LIBADD)
      ], [], [ 
-       -L$NCURSES_DIR/lib -l$LIBNAME -lm
+       -L$NCURSES_DIR/$PHP_LIBDIR -l$LIBNAME -lm
      ])
    ], [
      AC_MSG_ERROR(Wrong ncurses lib version or lib not found)
    ], [
-     -L$NCURSES_DIR/lib -lm
+     -L$NCURSES_DIR/$PHP_LIBDIR -lm
    ])
  
    AC_CHECK_LIB($LIBNAME, color_set,   [AC_DEFINE(HAVE_NCURSES_COLOR_SET,  1, [ ])])

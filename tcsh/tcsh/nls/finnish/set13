@@ -1,4 +1,4 @@
-$ $Id: set13,v 1.1.1.1 2001/06/28 23:11:07 bbraun Exp $
+$ $Id: set13,v 1.1 2000/01/14 22:57:32 christos Exp $
 $ sh.exec.c
 $set 13 
 1 hash=%-4d dir=%-2d prog=%s\n

@@ -1494,12 +1494,31 @@ cgraph_decide_inlining_of_small_functions (void)
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\nDeciding on smaller functions:\n");
+
+  /* APPLE LOCAL begin ARM 4741256 */
+#ifdef TARGET_ARM
+  while ((node = fibheap_extract_min (heap)))
+#else
   while (overall_insns <= max_insns && (node = fibheap_extract_min (heap)))
+#endif
     {
       struct cgraph_edge *e, *next;
       int old_insns = overall_insns;
 
       heap_node[node->uid] = NULL;
+
+#ifdef TARGET_ARM
+      /* Accept candidates with negative estimated growth even if we've
+	 exceeded the inline-unit-growth parameter. */
+      if (overall_insns > max_insns && cgraph_estimate_growth (node) >= 0)
+	{
+	  if (!node->local.disregard_inline_limits)
+	    cgraph_set_inline_failed (node, N_("--param inline-unit-growth limit reached"));
+	  continue;
+	}
+#endif
+  /* APPLE LOCAL end ARM 4741256 */
+
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file, 
 		 "\nConsidering %s with %i insns\n"

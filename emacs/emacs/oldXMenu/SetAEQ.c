@@ -1,7 +1,7 @@
+/* Copyright    Massachusetts Institute of Technology    1985	*/
+
 #include "copyright.h"
 
-/* $Header: /cvs/root/emacs/emacs/oldXMenu/SetAEQ.c,v 1.1.1.4 2002/09/10 23:34:46 jevans Exp $ */
-/* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*
  * XMenu:	MIT Project Athena, X Window system menu package
@@ -27,3 +27,6 @@ XMenuSetAEQ(menu, aeq)
      */
     menu->aeq = aeq;
 }
+
+/* arch-tag: 48fc22b4-0722-4852-a044-788444e4a9dc
+   (do not change this comment) */

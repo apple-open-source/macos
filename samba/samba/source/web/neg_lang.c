@@ -57,8 +57,8 @@ static int qsort_cmp_list(const void *x, const void *y) {
 	struct pri_list *a = (struct pri_list *)x;
 	struct pri_list *b = (struct pri_list *)y;
 	if (a->pri > b->pri) return -1;
-	if (a->pri == b->pri) return 0;
-	return 1;
+	if (a->pri < b->pri) return 1;
+	return 0;
 }
 
 /*
@@ -86,6 +86,10 @@ void web_set_lang(const char *lang_string)
 		lang_num++;
 	}
 	pl = SMB_MALLOC_ARRAY(struct pri_list, lang_num);
+	if (!pl) {
+		return;
+	}
+
 	for (i = 0; i < lang_num; i++) {
 		char *pri_code;
 		if ((pri_code=strstr(lang_list[i], ";q="))) {

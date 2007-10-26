@@ -5,18 +5,15 @@ require "rss-testcase"
 require "rss/1.0"
 
 module RSS
-  class TestCore < TestCase
+  class TestRSS10Core < TestCase
     
     def setup
-      
       @rdf_prefix = "rdf"
       @rdf_uri = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
       @uri = "http://purl.org/rss/1.0/"
-      
     end
     
     def test_RDF
-      
       version = "1.0"
       encoding = "UTF-8"
       standalone = false
@@ -28,12 +25,11 @@ module RSS
       xmldecl = doc.xml_decl
       
       %w(version encoding).each do |x|
-        assert_equal(instance_eval(x), xmldecl.send(x))
+        assert_equal(instance_eval(x), xmldecl.__send__(x))
       end
       assert_equal(standalone, !xmldecl.standalone.nil?)
       
       assert_equal(@rdf_uri, doc.root.namespace)
-      
     end
     
     def test_not_displayed_xml_stylesheets
@@ -69,7 +65,7 @@ module RSS
       
       channel = RDF::Channel.new(about)
       %w(title link description image items textinput).each do |x|
-        channel.send("#{x}=", instance_eval(x))
+        channel.__send__("#{x}=", instance_eval(x))
       end
       
       doc = REXML::Document.new(make_RDF(channel.to_s))
@@ -93,11 +89,9 @@ module RSS
       end
       assert_equal(@uri, c.elements["items"].namespace)
       assert_equal("items", c.elements["items"].name)
-      
     end
     
     def test_channel_image
-      
       resource = "http://hoge.com/hoge.png"
       image = RDF::Channel::Image.new(resource)
       
@@ -111,11 +105,9 @@ module RSS
       
       assert_equal(@rdf_uri, res.namespace)
       assert_equal(resource, res.value)
-      
     end
     
     def test_channel_textinput
-      
       resource = "http://hoge.com/hoge.png"
       textinput = RDF::Channel::Textinput.new(resource)
       
@@ -129,11 +121,9 @@ module RSS
       
       assert_equal(@rdf_uri, res.namespace)
       assert_equal(resource, res.value)
-      
     end
     
     def test_items
-      
       items = RDF::Channel::Items.new
       
       doc = REXML::Document.new(make_RDF(items.to_s))
@@ -145,11 +135,9 @@ module RSS
       assert_equal(1, i.elements.size)
       assert_equal("Seq", i.elements[1].name)
       assert_equal(@rdf_uri, i.elements[1].namespace)
-      
     end
     
     def test_seq
-      
       seq = RDF::Seq.new
       
       doc = REXML::Document.new(make_RDF(seq.to_s))
@@ -157,11 +145,9 @@ module RSS
       
       assert_equal("Seq", s.name)
       assert_equal(@rdf_uri, s.namespace)
-      
     end
     
     def test_li
-      
       resource = "http://hoge.com/"
       li = RDF::Li.new(resource)
       
@@ -175,11 +161,9 @@ module RSS
       
       assert_equal('', res.instance_eval("@prefix"))
       assert_equal(resource, res.value)
-      
     end
     
     def test_image
-      
       about = "http://hoge.com"
       title = "fugafuga"
       url = "http://hoge.com/hoge"
@@ -187,7 +171,7 @@ module RSS
       
       image = RDF::Image.new(about)
       %w(title url link).each do |x|
-        image.send("#{x}=", instance_eval(x))
+        image.__send__("#{x}=", instance_eval(x))
       end
       
       doc = REXML::Document.new(make_RDF(image.to_s))
@@ -200,11 +184,9 @@ module RSS
         assert_equal(@uri, elem.namespace)
         assert_equal(instance_eval(x), elem.text)
       end
-      
     end
     
     def test_item
-      
       about = "http://hoge.com"
       title = "fugafuga"
       link = "http://hoge.com/fuga"
@@ -212,7 +194,7 @@ module RSS
       
       item = RDF::Item.new(about)
       %w(title link description).each do |x|
-        item.send("#{x}=", instance_eval(x))
+        item.__send__("#{x}=", instance_eval(x))
       end
       
       doc = REXML::Document.new(make_RDF(item.to_s))
@@ -225,11 +207,9 @@ module RSS
         assert_equal(@uri, elem.namespace)
         assert_equal(instance_eval(x), elem.text)
       end
-      
     end
     
     def test_textinput
-      
       about = "http://hoge.com"
       title = "fugafuga"
       link = "http://hoge.com/fuga"
@@ -238,7 +218,7 @@ module RSS
       
       textinput = RDF::Textinput.new(about)
       %w(title link name description).each do |x|
-        textinput.send("#{x}=", instance_eval(x))
+        textinput.__send__("#{x}=", instance_eval(x))
       end
       
       doc = REXML::Document.new(make_RDF(textinput.to_s))
@@ -251,19 +231,19 @@ module RSS
         assert_equal(@uri, elem.namespace)
         assert_equal(instance_eval(x), elem.text)
       end
-      
     end
 
-    def test_indent_size
-      assert_equal(0, RDF.indent_size)
-      assert_equal(1, RDF::Channel.indent_size)
-      assert_equal(2, RDF::Channel::Image.indent_size)
-      assert_equal(2, RDF::Channel::Textinput.indent_size)
-      assert_equal(2, RDF::Channel::Items.indent_size)
-      assert_equal(1, RDF::Image.indent_size)
-      assert_equal(1, RDF::Item.indent_size)
-      assert_equal(1, RDF::Textinput.indent_size)
+    def test_to_xml
+      rss = RSS::Parser.parse(make_sample_RDF)
+      assert_equal(rss.to_s, rss.to_xml)
+      assert_equal(rss.to_s, rss.to_xml("1.0"))
+      rss09 = rss.to_xml("0.91") do |maker|
+        maker.channel.language = "en-us"
+      end
+      rss09 = RSS::Parser.parse(rss09)
+      assert_equal("0.91", rss09.rss_version)
+      rss20 = RSS::Parser.parse(rss.to_xml("2.0"))
+      assert_equal("2.0", rss20.rss_version)
     end
-    
   end
 end

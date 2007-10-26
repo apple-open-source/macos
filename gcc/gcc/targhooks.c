@@ -61,6 +61,10 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
+/* APPLE LOCAL mainline 2006-02-17 4356747 stack realign */
+#include "hard-reg-set.h"
+/* APPLE LOCAL mainline */
+#include "ggc.h"
 
 
 void
@@ -89,6 +93,18 @@ default_return_in_memory (tree type,
   return RETURN_IN_MEMORY (type);
 #endif
 }
+
+/* APPLE LOCAL begin radar 4781080 */
+bool
+default_objc_fpreturn_msgcall (tree type, bool no_long_double)
+{
+#ifndef OBJC_FPRETURN_MSGCALL
+  return type == NULL_TREE && no_long_double;
+#else
+  return OBJC_FPRETURN_MSGCALL (type, no_long_double);
+#endif
+}
+/* APPLE LOCAL end radar 4781080 */
 
 rtx
 default_expand_builtin_saveregs (void)
@@ -309,3 +325,132 @@ hook_invalid_arg_for_unprototyped_fn (
   return NULL;
 }
 /* APPLE LOCAL end mainline 2005-04-14 */
+/* APPLE LOCAL begin mainline */
+/* Initialize the stack protection decls.  */
+
+/* Stack protection related decls living in libgcc.  */
+static GTY(()) tree stack_chk_guard_decl;
+
+tree
+default_stack_protect_guard (void)
+{
+  tree t = stack_chk_guard_decl;
+
+  if (t == NULL)
+    {
+      t = build_decl (VAR_DECL, get_identifier ("__stack_chk_guard"),
+                      ptr_type_node);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+
+      stack_chk_guard_decl = t;
+    }
+
+  return t;
+}
+
+static GTY(()) tree stack_chk_fail_decl;
+
+tree
+default_external_stack_protect_fail (void)
+{
+  tree t = stack_chk_fail_decl;
+
+  if (t == NULL_TREE)
+    {
+      t = build_function_type_list (void_type_node, NULL_TREE);
+      t = build_decl (FUNCTION_DECL, get_identifier ("__stack_chk_fail"), t);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
+
+      stack_chk_fail_decl = t;
+    }
+
+  return build_function_call_expr (t, NULL_TREE);
+}
+
+tree
+default_hidden_stack_protect_fail (void)
+{
+#ifndef HAVE_GAS_HIDDEN
+  return default_external_stack_protect_fail ();
+#else
+  tree t = stack_chk_fail_decl;
+
+  if (!flag_pic)
+    return default_external_stack_protect_fail ();
+
+  if (t == NULL_TREE)
+    {
+      t = build_function_type_list (void_type_node, NULL_TREE);
+      t = build_decl (FUNCTION_DECL,
+                      get_identifier ("__stack_chk_fail_local"), t);
+      TREE_STATIC (t) = 1;
+      TREE_PUBLIC (t) = 1;
+      DECL_EXTERNAL (t) = 1;
+      TREE_USED (t) = 1;
+      TREE_THIS_VOLATILE (t) = 1;
+      TREE_NOTHROW (t) = 1;
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_IGNORED_P (t) = 1;
+      DECL_VISIBILITY_SPECIFIED (t) = 1;
+      DECL_VISIBILITY (t) = VISIBILITY_HIDDEN;
+
+      stack_chk_fail_decl = t;
+    }
+
+  return build_function_call_expr (t, NULL_TREE);
+#endif
+}
+
+/* APPLE LOCAL end mainline */
+/* APPLE LOCAL begin 4375453 */
+bool
+default_vector_alignment_reachable (tree type, bool is_packed)
+{
+  if (is_packed)
+    return false;
+
+  /* Assuming that types whose size is > pointer-size are not
+     guaranteed to be naturally aligned.  */
+  if (tree_int_cst_compare (TYPE_SIZE (type),
+			    bitsize_int (POINTER_SIZE)) > 0)
+    return false;
+
+  /* Assuming that types whose size is <= pointer-size are
+     naturally aligned.  */
+  return true;
+}
+/* APPLE LOCAL end 4375453 */
+
+/* APPLE LOCAL begin mainline 2006-02-17 4356747 stack realign */
+rtx
+default_internal_arg_pointer (void)
+{
+  /* If the reg that the virtual arg pointer will be translated into is
+     not a fixed reg or is the stack pointer, make a copy of the virtual
+     arg pointer, and address parms via the copy.  The frame pointer is
+     considered fixed even though it is not marked as such.  */
+  if ((ARG_POINTER_REGNUM == STACK_POINTER_REGNUM
+       || ! (fixed_regs[ARG_POINTER_REGNUM]
+	     || ARG_POINTER_REGNUM == FRAME_POINTER_REGNUM)))
+    return copy_to_reg (virtual_incoming_args_rtx);
+  else
+    return virtual_incoming_args_rtx;
+}
+/* APPLE LOCAL end mainline 2006-02-17 4356747 stack realign */
+/* APPLE LOCAL mainline */
+#include "gt-targhooks.h"

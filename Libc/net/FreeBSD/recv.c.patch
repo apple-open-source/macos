@@ -1,0 +1,25 @@
+--- recv.c.orig	2006-09-16 19:12:41.000000000 -0700
++++ recv.c	2006-09-17 00:11:11.000000000 -0700
+@@ -44,11 +44,21 @@
+ #include <stddef.h>
+ #include "un-namespace.h"
+ 
++#ifdef VARIANT_CANCELABLE
++ssize_t __recvfrom(int, void *, size_t, int, struct sockaddr * __restrict, socklen_t * __restrict);
++#else /* !VARIANT_CANCELABLE */
++ssize_t __recvfrom_nocancel(int, void *, size_t, int, struct sockaddr * __restrict, socklen_t * __restrict);
++#endif /* VARIANT_CANCELABLE */
++
+ ssize_t
+ recv(s, buf, len, flags)
+ 	int s, flags;
+ 	size_t len;
+ 	void *buf;
+ {
+-	return (_recvfrom(s, buf, len, flags, NULL, 0));
++#ifdef VARIANT_CANCELABLE
++	return (__recvfrom(s, buf, len, flags, NULL, 0));
++#else /* !VARIANT_CANCELABLE */
++	return (__recvfrom_nocancel(s, buf, len, flags, NULL, 0));
++#endif /* VARIANT_CANCELABLE */
+ }

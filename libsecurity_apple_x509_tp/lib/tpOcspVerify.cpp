@@ -302,7 +302,9 @@ static CSSM_RETURN tpApplySingleResp(
 					crtn = CSSMERR_TP_CERT_REVOKED;
 					break;
 			}
-			cert.addStatusCode(crtn);
+			if(!cert.addStatusCode(crtn)) {
+				crtn = CSSM_OK;
+			}
 			processed = true;
 			break;
 		case CS_Unknown:
@@ -312,8 +314,9 @@ static CSSM_RETURN tpApplySingleResp(
 		default:
 			tpOcspDebug("tpApplySingleResp: BAD certStatus (%d) for cert %u", 
 					(int)certStatus, dex);
-			cert.addStatusCode(CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED);
-			crtn = CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED;
+			if(cert.addStatusCode(CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED)) {
+				crtn = CSSMERR_APPLETP_OCSP_STATUS_UNRECOGNIZED;
+			}
 			break;
 	}
 	return crtn;
@@ -445,7 +448,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	}
 	
 	tpOcspDebug("tpVerifyCertGroupWithOCSP numCerts %u optFlags 0x%lx", 
-		numCerts, optFlags);
+		numCerts, (unsigned long)optFlags);
 		
 	/*
 	 * create list of pendingRequests parallel to certGroup
@@ -456,6 +459,13 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		OCSPClientCertID *certID = NULL;
 		TPCertInfo *subject = certGroup.certAtIndex(dex);
+		
+		if(subject->trustSettingsFound()) {
+			/* functionally equivalent to root - we're done */
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: terminate per user trust at %u", 
+				(unsigned)dex);
+			goto postOcspd;
+		}
 		TPCertInfo *issuer = certGroup.certAtIndex(dex + 1);
 		crtn = tpOcspGetCertId(*subject, *issuer, certID);
 		if(crtn) {
@@ -564,13 +574,14 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	vfyCtx.alloc.free(derOcspdReplies.Data);
 	if(prtn) {
 		/* 
-		 * This can happen when an OCSP server provides bad data...
+		 * This can happen when an OCSP server provides bad data...we can
+		 * not determine which cert is associated with this bad response;
+		 * just flag it with the first one and proceed to the loop that
+		 * handles CSSM_TP_ACTION_OCSP_REQUIRE_PER_CERT.
 		 */
 		tpErrorLog("tpVerifyCertGroupWithOCSP: error decoding ocspd reply\n");
-		if(ourRtn == CSSM_OK) {
-			ourRtn = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;	
-		}
-		goto errOut;
+		pending[0]->subject.addStatusCode(CSSMERR_APPLETP_OCSP_BAD_RESPONSE);
+		goto postOcspd;
 	}
 	if((ocspdReplies.version.Length != 1) ||
 	   (ocspdReplies.version.Data[0] != OCSPD_REPLY_VERS)) {
@@ -691,9 +702,13 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 							"flush/refetch\n");
 					if((crtn != CSSM_OK) && (pendReq != NULL)) {
 						/* pass this info back to caller here... */
-						pendReq->subject.addStatusCode(crtn);
+						if(pendReq->subject.addStatusCode(crtn)) {
+							ourRtn = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;
+						}
 					}
-					ourRtn = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;
+					else {
+						ourRtn = CSSMERR_APPLETP_OCSP_BAD_RESPONSE;
+					}
 					goto errOut;
 				}
 				/* Voila! Recovery. Proceed. */
@@ -737,6 +752,12 @@ postOcspd:
 	 */
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		PendingRequest *pendReq = pending[dex];
+		if(pendReq == NULL) {
+			/* i.e. terminated due to user trust */
+			tpOcspDebug("...tpVerifyCertGroupWithOCSP: NULL pendReq dex %u", 
+					(unsigned)dex);
+			break;
+		}
 		if(pendReq->processed) {
 			continue;
 		}
@@ -772,7 +793,7 @@ postOcspd:
 					required = true;
 				}
 			}
-			if(required) {
+			if(required && pendReq->subject.isStatusFatal(CSSMERR_APPLETP_OCSP_UNAVAILABLE)) {
 				/* fatal error, but we keep on processing */
 				if(ourRtn == CSSM_OK) {
 					ourRtn = CSSMERR_APPLETP_OCSP_UNAVAILABLE;
@@ -783,6 +804,10 @@ postOcspd:
 errOut:	
 	for(unsigned dex=0; dex<numCerts; dex++) {
 		PendingRequest *pendReq = pending[dex];
+		if(pendReq == NULL) {
+			/* i.e. terminated due to user trust */
+			break;
+		}
 		delete &pendReq->certID;
 		delete pendReq;
 	}

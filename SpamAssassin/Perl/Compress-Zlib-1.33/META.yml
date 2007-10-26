@@ -1,9 +1,0 @@
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
-name:         Compress-Zlib
-version:      1.33
-version_from: Zlib.pm
-installdirs:  site
-requires:
-
-distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.13

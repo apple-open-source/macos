@@ -20,35 +20,7 @@
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
-
-/* -------------------------------------------------------------------------- **
- * Notable problems...
- *
- *  March/April 1998  CRH
- *  - Many of the functions in this module overwrite string buffers passed to
- *    them.  This causes a variety of problems and is, generally speaking,
- *    dangerous and scarry.  See the kludge notes in name_map()
- *    below.
- *  - It seems that something is calling name_map() twice.  The
- *    first call is probably some sort of test.  Names which contain
- *    illegal characters are being doubly mangled.  I'm not sure, but
- *    I'm guessing the problem is in server.c.
- *
- * -------------------------------------------------------------------------- **
- */
-
-/* -------------------------------------------------------------------------- **
- * History...
- *
- *  March/April 1998  CRH
- *  Updated a bit.  Rewrote is_mangled() to be a bit more selective.
- *  Rewrote the mangled name cache.  Added comments here and there.
- *  &c.
- * -------------------------------------------------------------------------- **
- */
-
 #include "includes.h"
-
 
 /* -------------------------------------------------------------------------- **
  * Other stuff...
@@ -67,23 +39,16 @@
  *
  * chartest       - array 0..255.  The index range is the set of all possible
  *                  values of a byte.  For each byte value, the content is a
- *                  two nibble pair.  See BASECHAR_MASK and ILLEGAL_MASK,
- *                  below.
+ *                  two nibble pair.  See BASECHAR_MASK below.
  *
  * ct_initialized - False until the chartest array has been initialized via
  *                  a call to init_chartest().
  *
  * BASECHAR_MASK  - Masks the upper nibble of a one-byte value.
  *
- * ILLEGAL_MASK   - Masks the lower nibble of a one-byte value.
- *
  * isbasecahr()   - Given a character, check the chartest array to see
  *                  if that character is in the basechars set.  This is
  *                  faster than using strchr_m().
- *
- * isillegal()    - Given a character, check the chartest array to see
- *                  if that character is in the illegal characters set.
- *                  This is faster than using strchr_m().
  *
  */
 
@@ -97,9 +62,7 @@ static BOOL          ct_initialized = False;
 
 #define mangle(V) ((char)(basechars[(V) % MANGLE_BASE]))
 #define BASECHAR_MASK 0xf0
-#define ILLEGAL_MASK  0x0f
 #define isbasechar(C) ( (chartest[ ((C) & 0xff) ]) & BASECHAR_MASK )
-#define isillegal(C) ( (chartest[ ((C) & 0xff) ]) & ILLEGAL_MASK )
 
 static TDB_CONTEXT *tdb_mangled_cache;
 
@@ -107,17 +70,42 @@ static TDB_CONTEXT *tdb_mangled_cache;
 
 static NTSTATUS has_valid_83_chars(const smb_ucs2_t *s, BOOL allow_wildcards)
 {
-	if (!s || !*s)
+	if (!*s) {
 		return NT_STATUS_INVALID_PARAMETER;
+	}
 
-	/* CHECK: this should not be necessary if the ms wild chars
-	   are not valid in valid.dat  --- simo */
-	if (!allow_wildcards && ms_has_wild_w(s))
+	if (!allow_wildcards && ms_has_wild_w(s)) {
 		return NT_STATUS_UNSUCCESSFUL;
+	}
 
 	while (*s) {
-		if(!isvalid83_w(*s))
+		if(!isvalid83_w(*s)) {
 			return NT_STATUS_UNSUCCESSFUL;
+		}
+		s++;
+	}
+
+	return NT_STATUS_OK;
+}
+
+static NTSTATUS has_illegal_chars(const smb_ucs2_t *s, BOOL allow_wildcards)
+{
+	if (!allow_wildcards && ms_has_wild_w(s)) {
+		return NT_STATUS_UNSUCCESSFUL;
+	}
+
+	while (*s) {
+		if (*s <= 0x1f) {
+			/* Control characters. */
+			return NT_STATUS_UNSUCCESSFUL;
+		}
+		switch(*s) {
+			case UCS2_CHAR('\\'):
+			case UCS2_CHAR('/'):
+			case UCS2_CHAR('|'):
+			case UCS2_CHAR(':'):
+				return NT_STATUS_UNSUCCESSFUL;
+		}
 		s++;
 	}
 
@@ -156,10 +144,11 @@ static NTSTATUS mangle_get_prefix(const smb_ucs2_t *ucs2_string, smb_ucs2_t **pr
 
 /* ************************************************************************** **
  * Return NT_STATUS_UNSUCCESSFUL if a name is a special msdos reserved name.
+ * or contains illegal characters.
  *
  *  Input:  fname - String containing the name to be tested.
  *
- *  Output: NT_STATUS_UNSUCCESSFUL, if the name matches one of the list of reserved names.
+ *  Output: NT_STATUS_UNSUCCESSFUL, if the condition above is true.
  *
  *  Notes:  This is a static function called by is_8_3(), below.
  *
@@ -169,6 +158,7 @@ static NTSTATUS mangle_get_prefix(const smb_ucs2_t *ucs2_string, smb_ucs2_t **pr
 static NTSTATUS is_valid_name(const smb_ucs2_t *fname, BOOL allow_wildcards, BOOL only_8_3)
 {
 	smb_ucs2_t *str, *p;
+	size_t num_ucs2_chars;
 	NTSTATUS ret = NT_STATUS_OK;
 
 	if (!fname || !*fname)
@@ -178,27 +168,32 @@ static NTSTATUS is_valid_name(const smb_ucs2_t *fname, BOOL allow_wildcards, BOO
 	if (strcmp_wa(fname, ".")==0 || strcmp_wa(fname, "..")==0)
 		return NT_STATUS_OK;
 
-	/* Name cannot start with '.' */
-	if (*fname == UCS2_CHAR('.'))
-		return NT_STATUS_UNSUCCESSFUL;
-	
 	if (only_8_3) {
 		ret = has_valid_83_chars(fname, allow_wildcards);
 		if (!NT_STATUS_IS_OK(ret))
 			return ret;
 	}
 
-	str = strdup_w(fname);
-	p = strchr_w(str, UCS2_CHAR('.'));
-	if (p && p[1] == UCS2_CHAR(0)) {
-		/* Name cannot end in '.' */
-		SAFE_FREE(str);
+	ret = has_illegal_chars(fname, allow_wildcards);
+	if (!NT_STATUS_IS_OK(ret))
+		return ret;
+
+	/* Name can't end in '.' or ' ' */
+	num_ucs2_chars = strlen_w(fname);
+	if (fname[num_ucs2_chars-1] == UCS2_CHAR('.') || fname[num_ucs2_chars-1] == UCS2_CHAR(' ')) {
 		return NT_STATUS_UNSUCCESSFUL;
 	}
-	if (p)
+
+	str = strdup_w(fname);
+
+	/* Truncate copy after the first dot. */
+	p = strchr_w(str, UCS2_CHAR('.'));
+	if (p) {
 		*p = 0;
+	}
+
 	strupper_w(str);
-	p = &(str[1]);
+	p = &str[1];
 
 	switch(str[0])
 	{
@@ -254,6 +249,10 @@ static NTSTATUS is_8_3_w(const smb_ucs2_t *fname, BOOL allow_wildcards)
 	if (strcmp_wa(fname, ".") == 0 || strcmp_wa(fname, "..") == 0)
 		return NT_STATUS_OK;
 
+	/* Name cannot start with '.' */
+	if (*fname == UCS2_CHAR('.'))
+		return NT_STATUS_UNSUCCESSFUL;
+	
 	if (!NT_STATUS_IS_OK(is_valid_name(fname, allow_wildcards, True)))
 		goto done;
 
@@ -276,12 +275,15 @@ done:
 	return ret;
 }
 
-static BOOL is_8_3(const char *fname, BOOL check_case, BOOL allow_wildcards)
+static BOOL is_8_3(const char *fname, BOOL check_case, BOOL allow_wildcards,
+		   const struct share_params *p)
 {
 	const char *f;
 	smb_ucs2_t *ucs2name;
 	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
 	size_t size;
+
+	magic_char = lp_magicchar(p);
 
 	if (!fname || !*fname)
 		return False;
@@ -331,16 +333,13 @@ done:
  */
 static void init_chartest( void )
 {
-	const char          *illegalchars = "*\\/?<>|\":";
 	const unsigned char *s;
   
 	memset( (char *)chartest, '\0', 256 );
 
-	for( s = (const unsigned char *)illegalchars; *s; s++ )
-		chartest[*s] = ILLEGAL_MASK;
-
-	for( s = (const unsigned char *)basechars; *s; s++ )
+	for( s = (const unsigned char *)basechars; *s; s++ ) {
 		chartest[*s] |= BASECHAR_MASK;
+	}
 
 	ct_initialized = True;
 }
@@ -362,9 +361,11 @@ static void init_chartest( void )
  *
  * ************************************************************************** **
  */
-static BOOL is_mangled(const char *s)
+static BOOL is_mangled(const char *s, const struct share_params *p)
 {
 	char *magic;
+
+	magic_char = lp_magicchar(p);
 
 	if( !ct_initialized )
 		init_chartest();
@@ -372,8 +373,8 @@ static BOOL is_mangled(const char *s)
 	magic = strchr_m( s, magic_char );
 	while( magic && magic[1] && magic[2] ) {         /* 3 chars, 1st is magic. */
 		if( ('.' == magic[3] || '/' == magic[3] || !(magic[3]))          /* Ends with '.' or nul or '/' ?  */
-				&& isbasechar( toupper(magic[1]) )           /* is 2nd char basechar?  */
-				&& isbasechar( toupper(magic[2]) ) )         /* is 3rd char basechar?  */
+				&& isbasechar( toupper_ascii(magic[1]) )           /* is 2nd char basechar?  */
+				&& isbasechar( toupper_ascii(magic[2]) ) )         /* is 3rd char basechar?  */
 			return( True );                           /* If all above, then true, */
 		magic = strchr_m( magic+1, magic_char );      /*    else seek next magic. */
 	}
@@ -426,7 +427,7 @@ static void cache_mangled_name( const char mangled_name[13], char *raw_name )
 	s1 = strrchr( mangled_name_key, '.' );
 	if( s1 && (s2 = strrchr( raw_name, '.' )) ) {
 		size_t i = 1;
-		while( s1[i] && (tolower( s1[i] ) == s2[i]) )
+		while( s1[i] && (tolower_ascii( s1[i] ) == s2[i]) )
 			i++;
 		if( !s1[i] && !s2[i] ) {
 			/* Truncate at the '.' */
@@ -460,11 +461,13 @@ static void cache_mangled_name( const char mangled_name[13], char *raw_name )
  * ************************************************************************** **
  */
 
-static BOOL check_cache( char *s, size_t maxlen )
+static BOOL check_cache( char *s, size_t maxlen, const struct share_params *p )
 {
 	TDB_DATA data_val;
 	char *ext_start = NULL;
 	char *saved_ext = NULL;
+
+	magic_char = lp_magicchar(p);
 
 	/* If the cache isn't initialized, give up. */
 	if( !tdb_mangled_cache )
@@ -560,7 +563,7 @@ static void to_8_3(char *s, int default_case)
 	p = s;
 
 	while( *p && baselen < 5 ) {
-		if (*p != '.') {
+		if (isbasechar(*p)) {
 			base[baselen++] = p[0];
 		}
 		p++;
@@ -604,9 +607,12 @@ static void to_8_3(char *s, int default_case)
  * ****************************************************************************
  */
 
-static void name_map(char *OutName, BOOL need83, BOOL cache83, int default_case)
+static void name_map(char *OutName, BOOL need83, BOOL cache83,
+		     int default_case, const struct share_params *p)
 {
 	smb_ucs2_t *OutName_ucs2;
+	magic_char = lp_magicchar(p);
+
 	DEBUG(5,("name_map( %s, need83 = %s, cache83 = %s)\n", OutName,
 		 need83 ? "True" : "False", cache83 ? "True" : "False"));
 	
@@ -643,9 +649,9 @@ static void name_map(char *OutName, BOOL need83, BOOL cache83, int default_case)
   to drop in an alternative mangling implementation
 */
 static struct mangle_fns mangle_fns = {
+	mangle_reset,
 	is_mangled,
 	is_8_3,
-	mangle_reset,
 	check_cache,
 	name_map
 };

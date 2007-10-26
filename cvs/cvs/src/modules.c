@@ -1,6 +1,11 @@
 /*
- *    Copyright (c) 1992, Brian Berliner and Jeff Polk
- *    Copyright (c) 1989-1992, Brian Berliner
+ * Copyright (C) 1986-2005 The Free Software Foundation, Inc.
+ *
+ * Portions Copyright (C) 1998-2005 Derek Price, Ximbiot <http://ximbiot.com>,
+ *                                  and others.
+ *
+ * Portions Copyright (C) 1992, Brian Berliner and Jeff Polk
+ * Portions Copyright (C) 1989-1992, Brian Berliner
  *
  *    You may distribute under the terms of the GNU General Public License
  *    as specified in the README file that comes with the CVS source
@@ -21,9 +26,8 @@
  *	command line.
  */
 
-#include <assert.h>
 #include "cvs.h"
-#include "savecwd.h"
+#include "save-cwd.h"
 
 
 /* Defines related to the syntax of the modules file.  */
@@ -51,8 +55,8 @@ struct sortrec
     char *comment;
 };
 
-static int sort_order PROTO((const PTR l, const PTR r));
-static void save_d PROTO((char *k, int ks, char *d, int ds));
+static int sort_order (const void *l, const void *r);
+static void save_d (char *k, int ks, char *d, int ds);
 
 
 /*
@@ -61,7 +65,7 @@ static void save_d PROTO((char *k, int ks, char *d, int ds));
  * a warning message is displayed and a NULL is returned.
  */
 DBM *
-open_module ()
+open_module (void)
 {
     char *mfile;
     DBM *retval;
@@ -71,11 +75,8 @@ open_module ()
 	error (0, 0, "must set the CVSROOT environment variable");
 	error (1, 0, "or specify the '-d' global option");
     }
-    mfile = xmalloc (strlen (current_parsed_root->directory)
-		     + sizeof (CVSROOTADM)
-		     + sizeof (CVSROOTADM_MODULES) + 3);
-    (void) sprintf (mfile, "%s/%s/%s", current_parsed_root->directory,
-		    CVSROOTADM, CVSROOTADM_MODULES);
+    mfile = Xasprintf ("%s/%s/%s", current_parsed_root->directory,
+		       CVSROOTADM, CVSROOTADM_MODULES);
     retval = dbm_open (mfile, O_RDONLY, 0666);
     free (mfile);
     return retval;
@@ -85,8 +86,7 @@ open_module ()
  * Close the modules file, if the open succeeded, that is
  */
 void
-close_module (db)
-    DBM *db;
+close_module (DBM *db)
 {
     if (db != NULL)
 	dbm_close (db);
@@ -99,22 +99,11 @@ close_module (db)
  * It calls back the passed routine for each directory of a module
  * It runs the post checkout or post tag proc from the modules file
  */
-static int
-my_module (db, mname, m_type, msg, callback_proc, where, shorten,
-	   local_specified, run_module_prog, build_dirs, extra_arg,
-	   stack)
-    DBM *db;
-    char *mname;
-    enum mtype m_type;
-    char *msg;
-    CALLBACKPROC callback_proc;
-    char *where;
-    int shorten;
-    int local_specified;
-    int run_module_prog;
-    int build_dirs;
-    char *extra_arg;
-    List *stack;
+int
+my_module (DBM *db, char *mname, enum mtype m_type, char *msg,
+            CALLBACKPROC callback_proc, char *where, int shorten,
+            int local_specified, int run_module_prog, int build_dirs,
+            char *extra_arg, List *stack)
 {
     char *checkout_prog = NULL;
     char *export_prog = NULL;
@@ -124,7 +113,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
     char *line;
     int modargc;
     int xmodargc;
-    char **modargv;
+    char **modargv = NULL;
     char **xmodargv = NULL;
     /* Found entry from modules file, including options and such.  */
     char *value = NULL;
@@ -141,26 +130,11 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 #ifdef SERVER_SUPPORT
     int restore_server_dir = 0;
     char *server_dir_to_restore = NULL;
-    if (trace)
-    {
-	char *buf;
-
-	/* We use cvs_outerr, rather than fprintf to stderr, because
-	   this may be called by server code with error_use_protocol
-	   set.  */
-	buf = xmalloc (100
-		       + strlen (mname)
-		       + strlen (msg)
-		       + (where ? strlen (where) : 0)
-		       + (extra_arg ? strlen (extra_arg) : 0));
-	sprintf (buf, "%s-> my_module (%s, %s, %s, %s)\n",
-		 CLIENT_SERVER_STR,
-		 mname, msg, where ? where : "",
-		 extra_arg ? extra_arg : "");
-	cvs_outerr (buf, 0);
-	free (buf);
-    }
 #endif
+
+    TRACE (TRACE_FUNCTION, "my_module (%s, %s, %s, %s)",
+           mname ? mname : "(null)", msg ? msg : "(null)",
+           where ? where : "NULL", extra_arg ? extra_arg : "NULL");
 
     /* Don't process absolute directories.  Anything else could be a security
      * problem.  Before this check was put in place:
@@ -170,7 +144,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
      *   cvs [server aborted]: cannot make directory /foo: Permission denied
      *   $
      */
-    if (isabsolute (mname))
+    if (ISABSOLUTE (mname))
 	error (1, 0, "Absolute module reference invalid: `%s'", mname);
 
     /* Similarly for directories that attempt to step above the root of the
@@ -267,7 +241,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 		/* if mname was a file, we have to split it into "dir file" */
 		if ((cp = strrchr (mname, '/')) != NULL && cp != mname)
 		{
-		    modargv = xmalloc (2 * sizeof (*modargv));
+		    modargv = xnmalloc (2, sizeof (*modargv));
 		    modargv[0] = xmalloc (strlen (mname) + 2);
 		    strncpy (modargv[0], mname, cp - mname);
 		    modargv[0][cp - mname] = '\0';
@@ -284,7 +258,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 		    if (cp == mname)
 		    {
 			/* drop the leading / if specified */
-			modargv = xmalloc (2 * sizeof (*modargv));
+			modargv = xnmalloc (2, sizeof (*modargv));
 			modargv[0] = xstrdup (".");
 			modargv[1] = xstrdup (mname + 1);
 			modargc = 2;
@@ -292,7 +266,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 		    else
 		    {
 			/* otherwise just copy it */
-			modargv = xmalloc (2 * sizeof (*modargv));
+			modargv = xnmalloc (2, sizeof (*modargv));
 			modargv[0] = xstrdup (".");
 			modargv[1] = xstrdup (mname);
 			modargc = 2;
@@ -315,7 +289,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 	       the case where we found a file/directory rather than
 	       finding an entry in the modules file.  */
 	    if (save_cwd (&cwd))
-		error_exit ();
+		error (1, errno, "Failed to save current directory.");
 	    cwd_saved = 1;
 
 	    err += callback_proc (modargc, modargv, where, mwhere, mfile,
@@ -325,8 +299,9 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 	    free_names (&modargc, modargv);
 
 	    /* cd back to where we started.  */
-	    if (restore_cwd (&cwd, NULL))
-		error_exit ();
+	    if (restore_cwd (&cwd))
+		error (1, errno, "Failed to restore current directory, `%s'.",
+		       cwd.name);
 	    free_cwd (&cwd);
 	    cwd_saved = 0;
 
@@ -371,6 +346,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 	    /* mwhere gets just the module name */
 	    mwhere = xstrdup (mname);
 	    mfile = cp + 1;
+	    assert (strlen (mfile));
 
 	    /* put the / back in mname */
 	    *cp = '/';
@@ -396,7 +372,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 
     /* remember where we start */
     if (save_cwd (&cwd))
-	error_exit ();
+	error (1, errno, "Failed to save current directory.");
     cwd_saved = 1;
 
     assert (value != NULL);
@@ -426,9 +402,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
      */
 
     /* Put the value on a line with XXX prepended for getopt to eat */
-    line = xmalloc (strlen (value) + 5);
-    strcpy(line, "XXX ");
-    strcpy(line + 4, value);
+    line = Xasprintf ("XXX %s", value);
 
     /* turn the line into an argv[] array */
     line2argv (&xmodargc, &xmodargv, line, " \t");
@@ -492,7 +466,7 @@ my_module (db, mname, m_type, msg, callback_proc, where, shorten,
 
     if (alias && nonalias_opt)
     {
-	/* The documentation has never said it is legal to specify
+	/* The documentation has never said it is valid to specify
 	   -a along with another option.  And I believe that in the past
 	   CVS has ignored the options other than -a, more or less, in this
 	   situation.  */
@@ -583,13 +557,12 @@ module `%s' is a request for a file in a module which is not a directory",
 
 	    nullrepos = emptydir_name ();
 
-	    Create_Admin (".", dir,
-			  nullrepos, (char *) NULL, (char *) NULL, 0, 0, 1);
+	    Create_Admin (".", dir, nullrepos, NULL, NULL, 0, 0, 1);
 	    if (!noexec)
 	    {
 		FILE *fp;
 
-		fp = open_file (CVSADM_ENTSTAT, "w+");
+		fp = xfopen (CVSADM_ENTSTAT, "w+");
 		if (fclose (fp) == EOF)
 		    error (1, errno, "cannot close %s", CVSADM_ENTSTAT);
 #ifdef SERVER_SUPPORT
@@ -630,19 +603,10 @@ module `%s' is a request for a file in a module which is not a directory",
 	change_to = where ? where : (mwhere ? mwhere : mname);
 	server_dir_to_restore = server_dir;
 	restore_server_dir = 1;
-	server_dir =
-	    xmalloc ((server_dir_to_restore != NULL
-		      ? strlen (server_dir_to_restore)
-		      : 0)
-		     + strlen (change_to)
-		     + 5);
-	server_dir[0] = '\0';
 	if (server_dir_to_restore != NULL)
-	{
-	    strcat (server_dir, server_dir_to_restore);
-	    strcat (server_dir, "/");
-	}
-	strcat (server_dir, change_to);
+	    server_dir = Xasprintf ("%s/%s", server_dir_to_restore, change_to);
+	else
+	    server_dir = xstrdup (change_to);
     }
 #endif
 
@@ -673,9 +637,8 @@ module `%s' is a request for a file in a module which is not a directory",
 		   CVSMODULE_SPEC, mname);
 	else
 	    err += my_module (db, spec_opt, m_type, msg, callback_proc,
-                               (char *) NULL, 0, local_specified,
-                               run_module_prog, build_dirs, extra_arg,
-	                       stack);
+			      NULL, 0, local_specified, run_module_prog,
+			      build_dirs, extra_arg, stack);
 	spec_opt = next_opt;
     }
 
@@ -688,8 +651,9 @@ module `%s' is a request for a file in a module which is not a directory",
 #endif
 
     /* cd back to where we started */
-    if (restore_cwd (&cwd, NULL))
-	error_exit ();
+    if (restore_cwd (&cwd))
+	error (1, errno, "Failed to restore current directory, `%s'.",
+	       cwd.name);
     free_cwd (&cwd);
     cwd_saved = 0;
 
@@ -714,22 +678,21 @@ module `%s' is a request for a file in a module which is not a directory",
 
 	    if ((*prog != '/') && (*prog != '.'))
 	    {
-		real_prog = xmalloc (strlen (real_where) + strlen (prog)
-				     + 10);
-		(void) sprintf (real_prog, "%s/%s", real_where, prog);
+		real_prog = Xasprintf ("%s/%s", real_where, prog);
 		if (isfile (real_prog))
 		    prog = real_prog;
 	    }
 
 	    /* XXX can we determine the line number for this entry??? */
-	    expanded_path = expand_path (prog, "modules", 0);
+	    expanded_path = expand_path (prog, current_parsed_root->directory,
+					 false, "modules", 0);
 	    if (expanded_path != NULL)
 	    {
 		run_setup (expanded_path);
-		run_arg (real_where);
+		run_add_arg (real_where);
 
 		if (extra_arg)
-		    run_arg (extra_arg);
+		    run_add_arg (extra_arg);
 
 		if (!quiet)
 		{
@@ -744,7 +707,7 @@ module `%s' is a request for a file in a module which is not a directory",
 		err += run_exec (RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL);
 		free (expanded_path);
 	    }
-	    free (real_prog);
+	    if (real_prog) free (real_prog);
 	}
     }
 
@@ -776,19 +739,10 @@ module `%s' is a request for a file in a module which is not a directory",
  * accepts a stack argument to track alias recursion.
  */
 int
-do_module (db, mname, m_type, msg, callback_proc, where, shorten,
-	   local_specified, run_module_prog, build_dirs, extra_arg)
-    DBM *db;
-    char *mname;
-    enum mtype m_type;
-    char *msg;
-    CALLBACKPROC callback_proc;
-    char *where;
-    int shorten;
-    int local_specified;
-    int run_module_prog;
-    int build_dirs;
-    char *extra_arg;
+do_module (DBM *db, char *mname, enum mtype m_type, char *msg,
+           CALLBACKPROC callback_proc, char *where, int shorten,
+           int local_specified, int run_module_prog, int build_dirs,
+           char *extra_arg)
 {
     return my_module (db, mname, m_type, msg, callback_proc, where, shorten,
                        local_specified, run_module_prog, build_dirs, extra_arg,
@@ -838,9 +792,7 @@ static char def_status[] = "NONE";
      have to look further.
 */
 static int
-sort_order (l, r)
-    const PTR l;
-    const PTR r;
+sort_order (const void *l, const void *r)
 {
     int i;
     const struct sortrec *left = (const struct sortrec *) l;
@@ -856,11 +808,7 @@ sort_order (l, r)
 }
 
 static void
-save_d (k, ks, d, ds)
-    char *k;
-    int ks;
-    char *d;
-    int ds;
+save_d (char *k, int ks, char *d, int ds)
 {
     char *cp, *cp2;
     struct sortrec *s_rec;
@@ -871,7 +819,7 @@ save_d (k, ks, d, ds)
     if (s_count == s_max)
     {
 	s_max += 64;
-	s_head = (struct sortrec *) xrealloc ((char *) s_head, s_max * sizeof (*s_head));
+	s_head = xnrealloc (s_head, s_max, sizeof (*s_head));
     }
     s_rec = &s_head[s_count];
     s_rec->modname = cp = xmalloc (ks + 1);
@@ -943,8 +891,7 @@ save_d (k, ks, d, ds)
    non-zero, print out status information for each module. */
 
 void
-cat_module (status)
-    int status;
+cat_module (int status)
 {
     DBM *db;
     datum key, val;
@@ -970,7 +917,7 @@ cat_module (status)
     close_module (db);
 
     /* Sort the list as requested */
-    qsort ((PTR) s_head, s_count, sizeof (struct sortrec), sort_order);
+    qsort ((void *) s_head, s_count, sizeof (struct sortrec), sort_order);
 
     /*
      * Run through the sorted array and format the entries
@@ -983,21 +930,18 @@ cat_module (status)
 	char *line;
 
 	/* Print module name (and status, if wanted) */
-	line = xmalloc (strlen (s_h->modname) + 15);
-	sprintf (line, "%-12s", s_h->modname);
+	line = Xasprintf ("%-12s", s_h->modname);
 	cvs_output (line, 0);
 	free (line);
 	if (status)
 	{
-	    line = xmalloc (strlen (s_h->status) + 15);
-	    sprintf (line, " %-11s", s_h->status);
+	    line = Xasprintf (" %-11s", s_h->status);
 	    cvs_output (line, 0);
 	    free (line);
 	}
 
-	line = xmalloc (strlen (s_h->modname) + strlen (s_h->rest) + 15);
 	/* Parse module file entry as command line and print options */
-	(void) sprintf (line, "%s %s", s_h->modname, s_h->rest);
+	line = Xasprintf ("%s %s", s_h->modname, s_h->rest);
 	line2argv (&moduleargc, &moduleargv, line, " \t");
 	free (line);
 	argc = moduleargc;

@@ -1,0 +1,6 @@
+/^seq_for_testlist/a
+.
+/testlist_safe/a
+	   || TYPE(n) == testlist1
+.
+w

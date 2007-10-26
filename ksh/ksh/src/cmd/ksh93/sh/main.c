@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * UNIX shell
@@ -100,17 +96,51 @@ static char	beenhere = 0;
     }
 #endif /* _lib_fts_notify */
 
-sh_main(int ac, char *av[], void (*userinit)(int))
+#ifdef PATH_BFPATH
+#define PATHCOMP	NIL(Pathcomp_t*)
+#else
+#define PATHCOMP	""
+#endif
+
+/*
+ * search for file and exfile() it if it exists
+ * 1 returned if file found, 0 otherwise
+ */
+
+int sh_source(Shell_t *shp, Sfio_t *iop, const char *file)
+{
+	char*	oid;
+	char*	nid;
+	int	fd;
+
+	if (!file || !*file || (fd = path_open(file, PATHCOMP)) < 0)
+		return 0;
+	oid = error_info.id;
+	nid = error_info.id = strdup(file);
+	shp->st.filename = path_fullname(stakptr(PATH_OFFSET));
+	exfile(shp, iop, fd);
+	error_info.id = oid;
+	free(nid);
+	return 1;
+}
+
+#ifdef S_ISSOCK
+#define REMOTE(m)	(S_ISSOCK(m)||!(m))
+#else
+#define REMOTE(m)	!(m)
+#endif
+
+int sh_main(int ac, char *av[], void (*userinit)(int))
 {
 	register char	*name;
 	register int	fdin;
 	register Sfio_t  *iop;
-	register int 	rshflag;	/* set for restricted shell */
 	register Shell_t *shp;
-	int prof;
+	struct stat	statb;
+	int i, rshflag;		/* set for restricted shell */
 	char *command;
 #ifdef _lib_sigvec
-	/* This is to clear mask that my be left on by rlogin */
+	/* This is to clear mask that may be left on by rlogin */
 	clearsigmask(SIGALRM);
 	clearsigmask(SIGHUP);
 	clearsigmask(SIGCHLD);
@@ -120,7 +150,6 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 #endif	/* _hdr_nc */
 	fixargs(av,0);
 	shp = sh_init(ac,av,userinit);
-	prof = !sh_isoption(SH_PRIVILEGED);
 	time(&mailtime);
 	if(rshflag=sh_isoption(SH_RESTRICTED))
 		sh_offoption(SH_RESTRICTED);
@@ -131,6 +160,8 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 	{
 		/* begin script execution here */
 		sh_reinit((char**)0);
+		if(rshflag)
+			sh_onoption(SH_RESTRICTED);
 	}
 	shp->fn_depth = shp->dot_depth = 0;
 	command = error_info.id;
@@ -150,13 +181,24 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 		sh_onstate(SH_PROFILE);
 		if(shp->ppid==1)
 			shp->login_sh++;
+		if(shp->login_sh >= 2)
+			sh_onoption(SH_LOGIN_SHELL);
 		/* decide whether shell is interactive */
 		if(!sh_isoption(SH_TFLAG) && !sh_isoption(SH_CFLAG) && sh_isoption(SH_SFLAG) &&
 			tty_check(0) && tty_check(ERRIO))
 		{
 			sh_onoption(SH_INTERACTIVE);
 			sh_onoption(SH_BGNICE);
+			sh_onoption(SH_RC);
 		}
+		if(!sh_isoption(SH_RC) && (sh_isoption(SH_BASH) && !sh_isoption(SH_POSIX)
+#if SHOPT_REMOTE
+		   || !fstat(0, &statb) && REMOTE(statb.st_mode)
+#endif
+		  ))
+			sh_onoption(SH_RC);
+		for(i=0; i<elementsof(sh.offoptions.v); i++)
+			sh.options.v[i] &= ~sh.offoptions.v[i];
 		if(sh_isoption(SH_INTERACTIVE))
 		{
 #ifdef SIGXCPU
@@ -167,76 +209,42 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 #endif /* SIGXFSZ */
 			sh_onoption(SH_MONITOR);
 		}
-		job_init(shp->login_sh >= 2);
-		if(shp->login_sh >= 2 && !sh_isoption(SH_NOPROFILE))
+		job_init(sh_isoption(SH_LOGIN_SHELL));
+		if(sh_isoption(SH_LOGIN_SHELL))
 		{
 			/*	system profile	*/
-#ifdef PATH_BFPATH
-			if((fdin=path_open(e_sysprofile,NIL(Pathcomp_t*))) >= 0)
-#else
-			if((fdin=path_open(e_sysprofile,"")) >= 0)
-#endif
-			{
-				error_info.id = (char*)e_sysprofile;
-				shp->st.filename = path_fullname(stakptr(PATH_OFFSET));
-				exfile(shp,iop,fdin);	/* file exists */
-			}
-			if(prof)
+			sh_source(shp, iop, e_sysprofile);
+			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED))
 			{
 				char **files = shp->login_files;
-				while(name = *files++)
-				{
-#ifdef PATH_BFPATH
-					if((fdin=path_open(sh_mactry(name),NIL(Pathcomp_t*))) >= 0)
-#else
-					if((fdin=path_open(sh_mactry(name),"")) >= 0)
-#endif
-					{
-						shp->st.filename = path_fullname(stakptr(PATH_OFFSET));
-						error_info.id = path_basename(name);
-						exfile(shp,iop,fdin);
-						break;
-					}
-				}
+				while ((name = *files++) && !sh_source(shp, iop, sh_mactry(name)));
 			}
 		}
 		/* make sure PWD is set up correctly */
 		path_pwd(1);
-		name = "";
 		if(!sh_isoption(SH_NOEXEC))
 		{
-			if(prof && shp->rcfile && sh_isoption(SH_INTERACTIVE))
+			if(!sh_isoption(SH_NOUSRPROFILE) && !sh_isoption(SH_PRIVILEGED) && sh_isoption(SH_RC))
 			{
-#ifdef PATH_BFPATH
-				if((fdin = path_open(shp->rcfile,NIL(Pathcomp_t*))) >= 0)
-#else
-				if((fdin = path_open(shp->rcfile,"")) >= 0)
+#if SHOPT_BASH
+				if(sh_isoption(SH_BASH) && !sh_isoption(SH_POSIX))
+				{
+#if SHOPT_SYSRC
+					sh_source(shp, iop, e_bash_sysrc);
+#endif
+					sh_source(shp, iop, shp->rcfile ? shp->rcfile : sh_mactry((char*)e_bash_rc));
+				}
+				else
 #endif
 				{
-					char *saveid = error_info.id;
-					error_info.id = shp->rcfile;
-					shp->st.filename = path_fullname(stakptr(PATH_OFFSET));
-					exfile(shp,iop,fdin);
-					error_info.id = saveid;
+#if SHOPT_SYSRC
+					sh_source(shp, iop, e_sysrc);
+#endif
+					sh_source(shp, iop, sh_mactry(nv_getval(ENVNOD)));
 				}
 			}
-			if(prof && (sh_isoption(SH_INTERACTIVE) || sh_isoption(SH_BASH) && !sh_isoption(SH_POSIX)))
-				name = sh_mactry(nv_getval(ENVNOD));
 			else if(sh_isoption(SH_INTERACTIVE) && sh_isoption(SH_PRIVILEGED))
-				name = (char*)e_suidprofile;
-		}
-#ifdef PATH_BFPATH
-		if(*name && (fdin = path_open(name,NIL(Pathcomp_t*))) >= 0)
-#else
-		if(*name && (fdin = path_open(name,"")) >= 0)
-#endif
-		{
-			char *cp, *saveid = error_info.id;
-			cp = error_info.id = strdup(name);
-			shp->st.filename = path_fullname(stakptr(PATH_OFFSET));
-			exfile(shp,iop,fdin);
-			error_info.id = saveid;
-			free(cp);
+				sh_source(shp, iop, e_suidprofile);
 		}
 		shp->st.cmdname = error_info.id = command;
 		sh_offstate(SH_PROFILE);
@@ -260,8 +268,8 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 				/* open stream should have been passed into shell */
 				if(strmatch(name,e_devfdNN))
 				{
-					struct stat statb;
 					char *cp;
+					int type;
 					fdin = (int)strtol(name+8, (char**)0, 10);
 					if(fstat(fdin,&statb)<0)
 						errormsg(SH_DICT,ERROR_system(1),e_open,error_info.id);
@@ -270,20 +278,14 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 					 * try to undo effect of solaris 2.5+
 					 * change for argv for setuid scripts
 					 */
-					cp = path_basename(*av);
-					if(strcmp(cp,"sh")==0 || strcmp(cp,"ksh")==0)
+					if(((type = sh_type(cp = av[0])) & SH_TYPE_SH) && (!(name = nv_getval(L_ARGNOD)) || !((type = sh_type(cp = name)) & SH_TYPE_SH)))
 					{
-						if(name=nv_getval(L_ARGNOD))
-							cp = path_basename(name);
-						if(strcmp(cp,"sh")!=0 && strcmp(cp,"ksh")!=0)
-						{
-							av[0] = cp;
-							/*  exec to change $0 for ps */
-							execv(pathshell(),av);
-							/* exec fails */
-							shp->st.dolv[0] = av[0];
-							fixargs(shp->st.dolv,1);
-						}
+						av[0] = (type & SH_TYPE_LOGIN) ? cp : path_basename(cp);
+						/*  exec to change $0 for ps */
+						execv(pathshell(),av);
+						/* exec fails */
+						shp->st.dolv[0] = av[0];
+						fixargs(shp->st.dolv,1);
 					}
 #endif
 					name = av[0];
@@ -292,7 +294,6 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 				}
 				else
 				{
-					struct stat statb;
 					int isdir = 0;
 					if((fdin=sh_open(name,O_RDONLY,0))>=0 &&(fstat(fdin,&statb)<0 || S_ISDIR(statb.st_mode)))
 					{
@@ -368,7 +369,7 @@ sh_main(int ac, char *av[], void (*userinit)(int))
 static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 {
 	time_t curtime;
-	union anynode *t;
+	Shnode_t *t;
 	int maxtry=IOMAXTRY, tdone=0, execflags;
 	int states,jmpval;
 	struct checkpt buff;
@@ -379,7 +380,13 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 	{
 		if(fno > 0)
 		{
-			fno = sh_iomovefd(fno);
+			int r;
+			if(fno < 10 && ((r=sh_fcntl(fno,F_DUPFD,10))>=10))
+			{
+				shp->fdstatus[r] = shp->fdstatus[fno];
+				sh_close(fno);
+				fno = r;
+			}
 			fcntl(fno,F_SETFD,FD_CLOEXEC);
 			shp->fdstatus[fno] |= IOCLEX;
 			iop = sh_iostream(fno);
@@ -555,7 +562,7 @@ static void	exfile(register Shell_t *shp, register Sfio_t *iop,register int fno)
 			sh_onstate(SH_HISTORY);
 		job.waitall = job.curpgid = 0;
 		error_info.flags |= ERROR_INTERACTIVE;
-		t = (union anynode*)sh_parse(shp,iop,0);
+		t = (Shnode_t*)sh_parse(shp,iop,0);
 		if(!sh_isstate(SH_INTERACTIVE) && !sh_isstate(SH_CFLAG))
 			error_info.flags &= ~ERROR_INTERACTIVE;
 		shp->readscript = 0;
@@ -753,7 +760,6 @@ static void fixargs(char **argv, int mode)
 		buff[offset++] = ' ';
 	}
 	buff[offset-1] = 0;
-	environ=0;
 #   ifdef PSTAT
 	un.pst_command = stakptr(0);
 	pstat(PSTAT_SETCMD,un,0,0,0);

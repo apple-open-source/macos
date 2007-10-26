@@ -1,7 +1,6 @@
 /* Command-line output logging for GDB, the GNU debugger.
 
-   Copyright 2003
-   Free Software Foundation, Inc.
+   Copyright 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -39,7 +38,31 @@ static struct saved_output_files saved_output;
 static char *saved_filename;
 
 static char *logging_filename;
-int logging_overwrite, logging_redirect;
+static void
+show_logging_filename (struct ui_file *file, int from_tty,
+		       struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("The current logfile is \"%s\".\n"),
+		    value);
+}
+
+int logging_overwrite;
+static void
+show_logging_overwrite (struct ui_file *file, int from_tty,
+			struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("\
+Whether logging overwrites or appends to the log file is %s.\n"),
+		    value);
+}
+
+int logging_redirect;
+static void
+show_logging_redirect (struct ui_file *file, int from_tty,
+		       struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("The logging output mode is %s.\n"), value);
+}
 
 /* If we've pushed output files, close them and pop them.  */
 static void
@@ -75,14 +98,14 @@ handle_redirections (int from_tty)
 
   output = gdb_fopen (logging_filename, logging_overwrite ? "w" : "a");
   if (output == NULL)
-    perror_with_name ("set logging");
+    perror_with_name (_("set logging"));
 
   /* Redirects everything to gdb_stdout while this is running.  */
   if (!logging_redirect)
     {
       output = tee_file_new (gdb_stdout, 0, output, 1);
       if (output == NULL)
-	perror_with_name ("set logging");
+	perror_with_name (_("set logging"));
       if (from_tty)
 	fprintf_unfiltered (gdb_stdout, "Copying output to %s.\n",
 			    logging_filename);
@@ -103,7 +126,7 @@ handle_redirections (int from_tty)
   gdb_stdtarg = output;
 
   if (ui_out_redirect (uiout, gdb_stdout) < 0)
-    warning ("Current output protocol does not support redirection");
+    warning (_("Current output protocol does not support redirection"));
 }
 
 static void
@@ -134,33 +157,34 @@ set_logging_off (char *args, int from_tty)
 static void
 set_logging_command (char *args, int from_tty)
 {
-  printf_unfiltered ("\"set logging\" lets you log output to a file.\n");
-  printf_unfiltered ("Usage: set logging on [FILENAME]\n");
-  printf_unfiltered ("       set logging off\n");
-  printf_unfiltered ("       set logging file FILENAME\n");
-  printf_unfiltered ("       set logging overwrite [on|off]\n");
-  printf_unfiltered ("       set logging redirect [on|off]\n");
+  printf_unfiltered (_("\
+\"set logging\" lets you log output to a file.\n\
+Usage: set logging on [FILENAME]\n\
+       set logging off\n\
+       set logging file FILENAME\n\
+       set logging overwrite [on|off]\n\
+       set logging redirect [on|off]\n"));
 }
 
 void
 show_logging_command (char *args, int from_tty)
 {
   if (saved_filename)
-    printf_unfiltered ("Currently logging to \"%s\".\n", saved_filename);
+    printf_unfiltered (_("Currently logging to \"%s\".\n"), saved_filename);
   if (saved_filename == NULL
       || strcmp (logging_filename, saved_filename) != 0)
-    printf_unfiltered ("Future logs will be written to %s.\n",
+    printf_unfiltered (_("Future logs will be written to %s.\n"),
 		       logging_filename);
 
   if (logging_overwrite)
-    printf_unfiltered ("Logs will overwrite the log file.\n");
+    printf_unfiltered (_("Logs will overwrite the log file.\n"));
   else
-    printf_unfiltered ("Logs will be appended to the log file.\n");
+    printf_unfiltered (_("Logs will be appended to the log file.\n"));
 
   if (logging_redirect)
-    printf_unfiltered ("Output will be sent only to the log file.\n");
+    printf_unfiltered (_("Output will be sent only to the log file.\n"));
   else
-    printf_unfiltered ("Output will be logged and displayed.\n");
+    printf_unfiltered (_("Output will be logged and displayed.\n"));
 }
 
 void
@@ -170,36 +194,37 @@ _initialize_cli_logging (void)
 
   
   add_prefix_cmd ("logging", class_support, set_logging_command,
-		  "Set logging options", &set_logging_cmdlist,
+		  _("Set logging options"), &set_logging_cmdlist,
 		  "set logging ", 0, &setlist);
   add_prefix_cmd ("logging", class_support, show_logging_command,
-		  "Show logging options", &show_logging_cmdlist,
+		  _("Show logging options"), &show_logging_cmdlist,
 		  "show logging ", 0, &showlist);
-  add_setshow_boolean_cmd ("overwrite", class_support, &logging_overwrite,
-			   "Set whether logging overwrites or appends "
-			   "to the log file.\n",
-			   "Show whether logging overwrites or appends "
-			   "to the log file.\n",
-			   NULL, NULL, &set_logging_cmdlist, &show_logging_cmdlist);
-  add_setshow_boolean_cmd ("redirect", class_support, &logging_redirect,
-			   "Set the logging output mode.\n"
-			   "If redirect is off, output will go to both the "
-			   "screen and the log file.\n"
-			   "If redirect is on, output will go only to the log "
-			   "file.",
-			   "Show the logging output mode.\n"
-			   "If redirect is off, output will go to both the "
-			   "screen and the log file.\n"
-			   "If redirect is on, output will go only to the log "
-			   "file.",
-			   NULL, NULL, &set_logging_cmdlist, &show_logging_cmdlist);
-  add_setshow_cmd ("file", class_support, var_filename, &logging_filename,
-		   "Set the current logfile.", "Show the current logfile.",
-		   NULL, NULL, &set_logging_cmdlist, &show_logging_cmdlist);
+  add_setshow_boolean_cmd ("overwrite", class_support, &logging_overwrite, _("\
+Set whether logging overwrites or appends to the log file."), _("\
+Show whether logging overwrites or appends to the log file."), _("\
+If set, logging overrides the log file."),
+			   NULL,
+			   show_logging_overwrite,
+			   &set_logging_cmdlist, &show_logging_cmdlist);
+  add_setshow_boolean_cmd ("redirect", class_support, &logging_redirect, _("\
+Set the logging output mode."), _("\
+Show the logging output mode."), _("\
+If redirect is off, output will go to both the screen and the log file.\n\
+If redirect is on, output will go only to the log file."),
+			   NULL,
+			   show_logging_redirect,
+			   &set_logging_cmdlist, &show_logging_cmdlist);
+  add_setshow_filename_cmd ("file", class_support, &logging_filename, _("\
+Set the current logfile."), _("\
+Show the current logfile."), _("\
+The logfile is used when directing GDB's output."),
+			    NULL,
+			    show_logging_filename,
+			    &set_logging_cmdlist, &show_logging_cmdlist);
   add_cmd ("on", class_support, set_logging_on,
-	   "Enable logging.", &set_logging_cmdlist);
+	   _("Enable logging."), &set_logging_cmdlist);
   add_cmd ("off", class_support, set_logging_off,
-	   "Disable logging.", &set_logging_cmdlist);
+	   _("Disable logging."), &set_logging_cmdlist);
 
   logging_filename = xstrdup ("gdb.txt");
 }

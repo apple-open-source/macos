@@ -40,7 +40,7 @@ kern_return_t tokend_server_probe(TOKEND_ARGS, TokenScore *score, TokenUidString
 	uid[0] = '\0';	// default to no uid obtained
 	CALL(probe, (kSecTokendCallbacksDefault, score, uid));
 	assert(strlen(uid) < TOKEND_MAX_UID);
-	server.tokenUid(uid);
+	server->tokenUid(uid);
 	END_IPC(CSSM)
 }
 
@@ -67,7 +67,7 @@ kern_return_t tokend_server_establish(TOKEND_ARGS,
 //
 kern_return_t tokend_server_terminate(mach_port_t servicePort, uint32 reason, uint32 options)
 {
-	server.termination(reason, options);
+	server->termination(reason, options);
 }
 
 

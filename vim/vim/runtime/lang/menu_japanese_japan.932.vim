@@ -1,8 +1,8 @@
 " vi:set ts=8 sts=8 sw=8 tw=0:
 "
-" Menu Translations:	Japanese (for Windows)
+" Menu Translations:	Japanese (CP932)
 " Translated By:	MURAOKA Taro  <koron@tka.att.ne.jp>
-" Last Change:		31-May-2003.
+" Last Change:		18-Apr-2006.
 
 " Quit when menu translations have already been done.
 if exists("did_menu_trans")
@@ -19,6 +19,7 @@ menutrans &User\ Manual		ƒ†[ƒUƒ}ƒjƒ…ƒAƒ‹(&U)
 menutrans &How-to\ links	&How-toƒŠƒ“ƒN
 menutrans &Credits		ƒNƒŒƒWƒbƒg(&C)
 menutrans Co&pying		’˜ìŒ î•ñ(&P)
+menutrans &Sponsor/Register	ƒXƒ|ƒ“ƒT[/“o˜^(&S)
 menutrans O&rphans		ŒÇ™(&R)
 menutrans &Version		ƒo[ƒWƒ‡ƒ“î•ñ(&V)
 menutrans &About		Vim‚É‚Â‚¢‚Ä(&A)
@@ -29,6 +30,7 @@ let g:menutrans_help_dialog = "ƒwƒ‹ƒv‚ğŒŸõ‚µ‚½‚¢ƒRƒ}ƒ“ƒh‚à‚µ‚­‚Í’PŒê‚ğ“ü—Í‚µ‚Ä‚
 menutrans &File				ƒtƒ@ƒCƒ‹(&F)
 menutrans &Open\.\.\.<Tab>:e		ŠJ‚­(&O)\.\.\.<Tab>:e
 menutrans Sp&lit-Open\.\.\.<Tab>:sp	•ªŠ„‚µ‚ÄŠJ‚­(&L)\.\.\.<Tab>:sp
+menutrans Open\ Tab\.\.\.<Tab>:tabnew	ƒ^ƒuƒy[ƒW‚ÅŠJ‚­<Tab>:tabnew
 menutrans &New<Tab>:enew		V‹Kì¬(&N)<Tab>:enew
 menutrans &Close<Tab>:close		•Â‚¶‚é(&C)<Tab>:close
 menutrans &Save<Tab>:w			•Û‘¶(&S)<Tab>:w
@@ -50,7 +52,7 @@ menutrans &Paste<Tab>"+gP		“\‚è•t‚¯(&P)<Tab>"+gP
 menutrans Put\ &Before<Tab>[p		‘O‚É“\‚é(&B)<Tab>[p
 menutrans Put\ &After<Tab>]p		Œã‚É“\‚é(&A)<Tab>]p
 menutrans &Delete<Tab>x			Á‚·(&D)<Tab>x
-menutrans &Select\ all<Tab>ggVG		‘S‚Ä‘I‘ğ(&S)<Tab>ggvG
+menutrans &Select\ All<Tab>ggVG		‘S‚Ä‘I‘ğ(&S)<Tab>ggVG
 menutrans &Find\.\.\.			ŒŸõ(&F)\.\.\.
 menutrans &Find<Tab>/			ŒŸõ(&F)<Tab>/
 menutrans Find\ and\ Rep&lace\.\.\.	’uŠ·(&L)\.\.\.
@@ -58,6 +60,7 @@ menutrans Find\ and\ Rep&lace<Tab>:%s	’uŠ·(&L)<Tab>:%s
 menutrans Find\ and\ Rep&lace<Tab>:s	’uŠ·(&L)<Tab>:s
 "menutrans Options\.\.\.			ƒIƒvƒVƒ‡ƒ“(&O)\.\.\.
 menutrans Settings\ &Window		İ’èƒEƒBƒ“ƒhƒE(&W)
+menutrans Startup\ &Settings		‹N“®‚Ìİ’è(&S)
 
 " Edit/Global Settings
 menutrans &Global\ Settings		‘S‘Ìİ’è(&G)
@@ -141,7 +144,23 @@ menutrans &Open<Tab>:copen		ŠJ‚­(&O)<Tab>:copen
 menutrans &Close<Tab>:cclose		•Â‚¶‚é(&C)<Tab>:cclose
 menutrans &Convert\ to\ HEX<Tab>:%!xxd	HEX‚Ö•ÏŠ·(&C)<Tab>:%!xxd
 menutrans Conve&rt\ back<Tab>:%!xxd\ -r	HEX‚©‚ç‹t•ÏŠ·(&R)<Tab>%!xxd\ -r
-menutrans &Set\ Compiler		ƒRƒ“ƒpƒCƒ‰İ’è(&S)
+menutrans Se&T\ Compiler		ƒRƒ“ƒpƒCƒ‰İ’è(&T)
+
+" Tools.Spelling Menu
+menutrans &Spelling			ƒXƒyƒŠƒ“ƒO(&S)
+menutrans &Spell\ Check\ On		ƒXƒyƒ‹ƒ`ƒFƒbƒN—LŒø(&S)
+menutrans Spell\ Check\ &Off		ƒXƒyƒ‹ƒ`ƒFƒbƒN—LŒø(&O)
+menutrans To\ &Next\ error<Tab>]s	Ÿ‚ÌƒGƒ‰[(&N)<Tab>]s
+menutrans To\ &Previous\ error<Tab>[s	‘O‚ÌƒGƒ‰[(&P)<Tab>[s
+menutrans Suggest\ &Corrections<Tab>z=	C³Œó•â(&C)<Tab>z=
+menutrans &Repeat\ correction<Tab>:spellrepall	C³‚ğŒJ‚è•Ô‚·(&R)<Tab>:spellrepall
+menutrans Set\ language\ to\ "en"	Œ¾Œê‚ğ\ "en"\ ‚Éİ’è‚·‚é
+menutrans Set\ language\ to\ "en_au"	Œ¾Œê‚ğ\ "en_au"\ ‚Éİ’è‚·‚é
+menutrans Set\ language\ to\ "en_ca"	Œ¾Œê‚ğ\ "en_ca"\ ‚Éİ’è‚·‚é
+menutrans Set\ language\ to\ "en_gb"	Œ¾Œê‚ğ\ "en_gb"\ ‚Éİ’è‚·‚é
+menutrans Set\ language\ to\ "en_nz"	Œ¾Œê‚ğ\ "en_nz"\ ‚Éİ’è‚·‚é
+menutrans Set\ language\ to\ "en_us"	Œ¾Œê‚ğ\ "en_us"\ ‚Éİ’è‚·‚é
+menutrans &Find\ More\ Languages	‘¼‚ÌŒ¾Œê‚ğŒŸõ‚·‚é(&F)
 
 " Tools.Fold Menu
 menutrans &Folding			Üô‚İ(&F)
@@ -312,3 +331,8 @@ if has('iconv')
   endif
   an 10.396.120.130 ƒtƒ@ƒCƒ‹(&F).ƒGƒ“ƒR[ƒhw’è(&E)\.\.\..•Û‘¶(&S)\.\.\..UTF-8(&8)<Tab>fenc=utf-8 :set fenc=utf-8 \| w<CR>
 endif
+
+" filler to avoid the line above being recognized as a modeline
+" filler
+" filler
+" filler

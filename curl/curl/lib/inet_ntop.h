@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,18 +20,18 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: inet_ntop.h,v 1.1 2004/04/26 07:20:11 bagder Exp $
+ * $Id: inet_ntop.h,v 1.4 2005/11/25 22:20:02 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
 
+char *Curl_inet_ntop(int af, const void *addr, char *buf, size_t size);
+
 #ifdef HAVE_INET_NTOP
-#define Curl_inet_ntop(af,addr,buf,size) inet_ntop(af,addr,buf,size)
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#else
-const char *Curl_inet_ntop(int af, const void *addr, char *buf, size_t size);
+#define Curl_inet_ntop(af,addr,buf,size) inet_ntop(af,addr,buf,size)
 #endif
 
 #endif /* __INET_NTOP_H */

@@ -210,6 +210,7 @@ build: OBJROOT SYMROOT
 		  else date +%Y%m%d%H%M%S; \
 		  fi`; \
 	export APPLE_CC; \
+	export BISON=/usr/local/bin/bison-1.28; \
 	./build_gcc --thins \
 		--srcroot=$(SRC) \
 		--dstroot=$(DSTROOT) \
@@ -236,6 +237,7 @@ install_no_src:
 		  else date +%Y%m%d%H%M%S; \
 		  fi`; \
 	export APPLE_CC; \
+	export BISON=/usr/local/bin/bison-1.28; \
 	./build_gcc --fats \
 	    --srcroot=$(SRC) \
 	    --dstroot=$(DSTROOT) \

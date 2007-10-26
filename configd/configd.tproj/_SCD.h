@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2004, 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -203,7 +203,7 @@ int
 __SCDynamicStoreNotifyCancel		(SCDynamicStoreRef	store);
 
 void
-_swapLockedStoreData			();
+_swapLockedStoreData			(void);
 
 void
 _addWatcher				(CFNumberRef		sessionNum,
@@ -214,7 +214,7 @@ _removeWatcher				(CFNumberRef		sessionNum,
 					 CFStringRef		watchedKey);
 
 void
-pushNotifications			();
+pushNotifications			(void);
 
 __END_DECLS
 

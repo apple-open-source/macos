@@ -32,6 +32,10 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/ostern.c,v 1.11 2001/12/10 21:13:03 dwma
 #include <string.h>
 #include <time.h>
 
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+
 #include "calendar.h"
 
 /* return year day for Easter */

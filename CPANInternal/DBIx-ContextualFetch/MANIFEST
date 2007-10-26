@@ -1,0 +1,6 @@
+Changes
+MANIFEST			This list of files
+MANIFEST.SKIP
+Makefile.PL
+lib/DBIx/ContextualFetch.pm
+t/01.t

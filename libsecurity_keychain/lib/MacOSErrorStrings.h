@@ -21,8 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
-#if 0
 /*
     Note: the comments that appear after these errors are used to create SecErrorMessages.strings.
     The comments must not be multi-line, and should be in a form meaningful to an end user. If
@@ -51,6 +49,7 @@ enum
     errSecMisc_memFullErr            = -108,    /* There was not enough memory to perform the operation. */
     errSecMisc_dirNFErr              = -120,    /* The directory could not be found. */
     errSecMisc_volGoneErr            = -124,    /* The server volume is no longer available. It may have been disconnected. */
+	errSecMisc_userCanceledErr		 = -128,	/* The operation was cancelled by the user. */
     errSecMisc_resNotFound           = -192,    /* A required resource could not be found. */
     errSecMisc_resFNotFound          = -193,    /* A required resource is missing or damaged. */
     errSecMisc_icNoURLErr            = -673,    /* The specified location (URL) is an unknown type, or does not contain enough information. */
@@ -61,4 +60,3 @@ enum
     errSecMisc_afpPwdPolicyErr       = -5046    /* This AppleShare IP server is configured to not allow users to save passwords for automatic login. Contact the server administrator for more information. */
 };
 
-#endif /* !0 */

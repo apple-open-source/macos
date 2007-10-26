@@ -1,5 +1,5 @@
 =begin
-= $RCSfile: extconf.rb,v $ -- Generator for Makefile
+= $RCSfile$ -- Generator for Makefile
 
 = Info
   'OpenSSL for Ruby 2' project
@@ -11,7 +11,7 @@
   (See the file 'LICENCE'.)
 
 = Version
-  $Id: extconf.rb,v 1.21.2.3 2004/07/01 03:01:07 gotoyuzo Exp $
+  $Id: extconf.rb 11944 2007-02-28 13:23:42Z knu $
 =end
 
 require "mkmf"
@@ -36,8 +36,6 @@ end
 message "=== Checking for system dependent stuff... ===\n"
 have_library("nsl", "t_open")
 have_library("socket", "socket")
-have_header("unistd.h")
-have_header("sys/time.h")
 have_header("assert.h")
 
 message "=== Checking for required stuff... ===\n"
@@ -62,6 +60,7 @@ unless have_header("openssl/conf_api.h")
 end
 
 message "=== Checking for OpenSSL features... ===\n"
+have_func("ERR_peek_last_error")
 have_func("BN_mod_add")
 have_func("BN_mod_sqr")
 have_func("BN_mod_sub")
@@ -83,12 +82,15 @@ have_func("HMAC_CTX_copy")
 have_func("HMAC_CTX_init")
 have_func("PEM_def_callback")
 have_func("X509V3_set_nconf")
+have_func("X509V3_EXT_nconf_nid")
 have_func("X509_CRL_add0_revoked")
 have_func("X509_CRL_set_issuer_name")
 have_func("X509_CRL_set_version")
 have_func("X509_CRL_sort")
 have_func("X509_STORE_get_ex_data")
 have_func("X509_STORE_set_ex_data")
+have_func("OBJ_NAME_do_all_sorted")
+have_func("OPENSSL_cleanse")
 if try_compile("#define FOO(a, ...) foo(a, ##__VA_ARGS__)\n int x(){FOO(1);FOO(1,2);FOO(1,2,3);}\n")
   $defs.push("-DHAVE_VA_ARGS_MACRO")
 end
@@ -113,33 +115,7 @@ have_struct_member("EVP_CIPHER_CTX", "engine", "openssl/evp.h")
 have_struct_member("X509_ATTRIBUTE", "single", "openssl/x509.h")
 
 message "=== Checking done. ===\n"
-$distcleanfiles << "GNUmakefile" << "dep"
+
+create_header
 create_makefile("openssl")
-if /gcc/ =~ CONFIG["CC"]
-  File.open("GNUmakefile", "w") {|f|
-    f.print <<EOD
-include Makefile
-
-SRCS = $(OBJS:.o=.c)
-
-test-link: $(OBJS)
-	$(CC) $(DLDFLAGS) #{OUTFLAG}.testlink $(OBJS) $(LIBPATH) $(LIBS) $(LOCAL_LIBS)
-	@$(RM) .testlink
-	@echo "Done."
-
-dep:
-	$(CC) $(CFLAGS) $(CPPFLAGS) -c $(SRCS) -MM | \\
-	$(RUBY) -p -e 'BEGIN{S = []' \\
-		-e 'while !ARGV.empty? and /^(\\w+)=(.*)/ =~ ARGV[0]' \\
-		  -e 'S << [/\#{Regexp.quote($$2)}\\//, "$$(\#{$$1})/"]' \\
-		  -e 'ARGV.shift' \\
-		-e 'end' \\
-		-e '}' -e 'S.each(&method(:gsub!))' -- \\
-            'topdir=$(topdir)' 'srcdir=$(srcdir)' 'hdrdir=$(hdrdir)' \\
-	> dep
-
-include dep
-EOD
-  }
-end
 message "Done.\n"

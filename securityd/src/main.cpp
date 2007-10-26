@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include "entropy.h"
 #include "authority.h"
 #include "session.h"
+#include "notifications.h"
 #include "pcscmonitor.h"
 #include "self.h"
 
@@ -38,7 +39,8 @@
 #include <security_utilities/machserver.h>
 #include <security_utilities/logging.h>
 #include <security_utilities/ktracecodes.h>
-#include <security_cdsa_client/osxsigner.h>
+
+#include <Security/SecKeychainPriv.h>
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -91,25 +93,37 @@ int main(int argc, char *argv[])
 	// clear the umask - we know what we're doing
 	secdebug("SS", "starting umask was 0%o", ::umask(0));
 	::umask(0);
-    
+
+	// tell the keychain (client) layer to turn off the server interface
+	SecKeychainSetServerMode();
+	
 	// program arguments (preset to defaults)
 	bool debugMode = false;
 	const char *bootstrapName = NULL;
+	const char* messagingName = SECURITY_MESSAGES_NAME;
 	bool doFork = false;
 	bool reExecute = false;
 	int workerTimeout = 0;
 	int maxThreads = 0;
+	bool waitForClients = false;
 	const char *authorizationConfig = "/etc/authorization";
 	const char *tokenCacheDir = "/var/db/TokenCache";
     const char *entropyFile = "/var/db/SystemEntropyCache";
 	const char *equivDbFile = EQUIVALENCEDBPATH;
 	const char *smartCardOptions = getenv("SMARTCARDS");
+	uint32_t keychainAclDefault = CSSM_ACL_KEYCHAIN_PROMPT_INVALID | CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
+	
+	// check for the Installation-DVD environment and modify some default arguments if found
+	if (access("/etc/rc.cdrom", F_OK) == 0) {	// /etc/rc.cdrom exists
+		secdebug("SS", "configuring for installation");
+		smartCardOptions = "off";	// needs writable directories that aren't
+	}
 
 	// parse command line arguments
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:c:de:E:fN:s:t:T:X")) != -1) {
+	while ((arg = getopt(argc, argv, "a:c:de:E:fiN:s:t:T:Xuw")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
@@ -129,6 +143,9 @@ int main(int argc, char *argv[])
         case 'f':
             fprintf(stderr, "%s: the -f option is obsolete\n", argv[0]);
             break;
+		case 'i':
+			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID;
+			break;
 		case 'N':
 			bootstrapName = optarg;
 			break;
@@ -142,6 +159,12 @@ int main(int argc, char *argv[])
 		case 'T':
 			if ((workerTimeout = atoi(optarg)) < 0)
 				workerTimeout = 0;
+			break;
+		case 'w':
+			waitForClients = true;
+			break;
+		case 'u':
+			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
 			break;
 		case 'X':
 			doFork = true;
@@ -160,9 +183,19 @@ int main(int argc, char *argv[])
     if (!bootstrapName) {
 		bootstrapName = getenv(SECURITYSERVER_BOOTSTRAP_ENV);
 		if (!bootstrapName)
+		{
 			bootstrapName = SECURITYSERVER_BOOTSTRAP_NAME;
+		}
+		else
+		{
+			messagingName = bootstrapName;
+		}
 	}
-
+	else
+	{
+		messagingName = bootstrapName;
+	}
+	
 	// configure logging first
 	if (debugMode) {
 		Syslog::open(bootstrapName, LOG_AUTHPRIV, LOG_PERROR);
@@ -200,18 +233,20 @@ int main(int argc, char *argv[])
         secdebug("SS", "Cannot handle SIGINT: errno=%d", errno);
     if (signal(SIGTERM, handleSignals) == SIG_ERR)
         secdebug("SS", "Cannot handle SIGTERM: errno=%d", errno);
+    if (signal(SIGPIPE, handleSignals) == SIG_ERR)
+        secdebug("SS", "Cannot handle SIGPIPE: errno=%d", errno);
 #if !defined(NDEBUG)
     if (signal(SIGUSR1, handleSignals) == SIG_ERR)
         secdebug("SS", "Cannot handle SIGHUP: errno=%d", errno);
 #endif //NDEBUG
-	
-	// create a code signing engine
-	CodeSigning::OSXSigner signer;
+
+	// create the shared memory notification hub
+	new SharedMemoryListener(messagingName, kSharedMemoryPoolSize);
 	
 	// create an Authorization engine
 	Authority authority(authorizationConfig);
 	
-	// establish the ACL machinery
+	// introduce all supported ACL subject types
 	new AnyAclSubject::Maker();
 	new PasswordAclSubject::Maker();
     new ProtectedPasswordAclSubject::Maker();
@@ -219,8 +254,8 @@ int main(int argc, char *argv[])
 	new ThresholdAclSubject::Maker();
     new CommentAclSubject::Maker();
  	new ProcessAclSubject::Maker();
-	new CodeSignatureAclSubject::Maker(signer);
-    new KeychainPromptAclSubject::Maker();
+	new CodeSignatureAclSubject::Maker();
+    new KeychainPromptAclSubject::Maker(keychainAclDefault);
     new PreAuthorizationAcls::OriginMaker();
     new PreAuthorizationAcls::SourceMaker();
 	
@@ -238,6 +273,8 @@ int main(int argc, char *argv[])
 		server.timeout(workerTimeout);
 	if (maxThreads)
 		server.maxThreads(maxThreads);
+	server.floatingThread(true);
+	server.waitForClients(waitForClients);
     
 	// add the RNG seed timer
 # if defined(NDEBUG)
@@ -253,7 +290,7 @@ int main(int argc, char *argv[])
 #endif //NDEBUG
 
 	// create a smartcard monitor to manage external token devices
-	PCSCMonitor secureCards(server, tokenCacheDir, scOptions(smartCardOptions));
+	new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
     
     // create the RootSession object (if -d, give it graphics and tty attributes)
     RootSession rootSession(server,
@@ -303,7 +340,7 @@ int main(int argc, char *argv[])
 //
 static void usage(const char *me)
 {
-	fprintf(stderr, "Usage: %s [-dX]"
+	fprintf(stderr, "Usage: %s [-dwX]"
 		"\n\t[-a authConfigFile]                    Authorization configuration file"
 		"\n\t[-c tokencache]                        smartcard token cache directory"
 		"\n\t[-e equivDatabase] 					path to code equivalence database"

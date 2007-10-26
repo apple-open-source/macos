@@ -31,19 +31,6 @@ extern "C" {
 #endif
 
 /*!
-	@function SecIdentityCreateWithCertificate
-    @abstract Creates a new identity reference for the given certificate, assuming the associated private key is in one of the specified keychains.
-    @param keychainOrArray A reference to an array of keychains to search, a single keychain, or NULL to search the user's default keychain search list.
-	@param certificateRef A certificate reference.
-    @param identityRef On return, an identity reference. The caller is responsible for releasing this reference.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-*/
-OSStatus SecIdentityCreateWithCertificate(
-			CFTypeRef keychainOrArray,
-			SecCertificateRef certificateRef,
-            SecIdentityRef *identityRef);
-
-/*!
 	@function SecIdentityCompare
     @abstract Compares two SecIdentityRef instances for equality.
     @param identity1 An identity reference.
@@ -51,11 +38,12 @@ OSStatus SecIdentityCreateWithCertificate(
 	@param compareOptions A value containing option flags. Currently there are no compare options, so 0 should be passed for this parameter.
     @result An enumerated value of type CFComparisonResult. See CFBase.h.
 	@discussion Two identities are considered equal if they contain identical certificate and private key components.
+    @deprecated in Mac OS X 10.5 and later; the CFEqual function should be used instead (CFBase.h).
 */
 CFComparisonResult SecIdentityCompare(
-			SecIdentityRef identity1,
-			SecIdentityRef identity2,
-			CFOptionFlags compareOptions);
+    SecIdentityRef identity1,
+    SecIdentityRef identity2,
+    CFOptionFlags compareOptions);
 
 /*!
 	@function SecIdentityFindPreferenceItem
@@ -80,6 +68,7 @@ OSStatus SecIdentityFindPreferenceItem(
 	@param itemRef On return, a reference to the new keychain item. The caller is responsible for releasing this reference. Pass NULL if the reference is not needed.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion An identity preference item maps a particular identity to a string, such as a URI or email address. It specifies that this identity should be preferred in transactions which match the provided string.
+    @deprecated in Mac OS X 10.5; use SecIdentitySetPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityAddPreferenceItem(
 			SecKeychainRef keychainRef,
@@ -94,6 +83,7 @@ OSStatus SecIdentityAddPreferenceItem(
     @param identityRef An identity reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion This function is used to update an existing preference item when a different identity is preferred.
+    @deprecated in Mac OS X 10.5; use SecIdentitySetPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityUpdatePreferenceItem(
 			SecKeychainItemRef itemRef,
@@ -106,6 +96,7 @@ OSStatus SecIdentityUpdatePreferenceItem(
     @param identityRef On return, an identity reference. The caller is responsible for releasing this reference.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion This function is used to obtain a SecIdentityRef from an existing preference item.
+    @deprecated in Mac OS X 10.5; use SecIdentityCopyPreference() instead (SecIdentity.h).
 */
 OSStatus SecIdentityCopyFromPreferenceItem(
 			SecKeychainItemRef itemRef,

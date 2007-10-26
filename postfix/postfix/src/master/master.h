@@ -15,22 +15,35 @@
   * when idle for a configurable amount of time, or after servicing a
   * configurable number of requests; the master process spawns new processes
   * on demand up to a configurable concurrency limit and/or periodically.
+  * 
+  * The canonical service name is what we use internally, so that we correctly
+  * handle a request to "reload" after someone changes "smtp" into "25".
+  * 
+  * We use the external service name from master.cf when reporting problems, so
+  * that the user can figure out what we are talking about. Of course we also
+  * include the canonical service name so that the UNIX-domain smtp service
+  * can be distinguished from the Internet smtp service.
   */
 typedef struct MASTER_SERV {
     int     flags;			/* status, features, etc. */
-    char   *name;			/* service endpoint name */
+    char   *ext_name;			/* service endpoint name (master.cf) */
+    char   *name;			/* service endpoint name (canonical) */
     int     type;			/* UNIX-domain, INET, etc. */
+    time_t  busy_warn_time;		/* limit "all servers busy" warning */
     int     wakeup_time;		/* wakeup interval */
     int    *listen_fd;			/* incoming requests */
     int     listen_fd_count;		/* nr of descriptors */
+#ifdef MASTER_SERV_TYPE_PASS
+    struct PASS_INFO *pass_info;	/* descriptor passing state */
+#endif
     union {
 	struct {
 	    char   *port;		/* inet listen port */
 	    struct INET_ADDR_LIST *addr;/* inet listen address */
-	} inet_ep;
+	}       inet_ep;
 #define MASTER_INET_ADDRLIST(s)	((s)->endpoint.inet_ep.addr)
 #define MASTER_INET_PORT(s)	((s)->endpoint.inet_ep.port)
-    } endpoint;
+    }       endpoint;
     int     max_proc;			/* upper bound on # processes */
     char   *path;			/* command pathname */
     struct ARGV *args;			/* argument vector */
@@ -51,6 +64,7 @@ typedef struct MASTER_SERV {
 #define MASTER_FLAG_MARK	(1<<1)	/* garbage collection support */
 #define MASTER_FLAG_CONDWAKE	(1<<2)	/* wake up if actually used */
 #define MASTER_FLAG_INETHOST	(1<<3)	/* endpoint name specifies host */
+#define MASTER_FLAG_LOCAL_ONLY	(1<<4)	/* no remote clients */
 
 #define MASTER_THROTTLED(f)	((f)->flags & MASTER_FLAG_THROTTLE)
 
@@ -62,6 +76,7 @@ typedef struct MASTER_SERV {
 #define MASTER_SERV_TYPE_UNIX	1	/* AF_UNIX domain socket */
 #define MASTER_SERV_TYPE_INET	2	/* AF_INET domain socket */
 #define MASTER_SERV_TYPE_FIFO	3	/* fifo (named pipe) */
+/*#define MASTER_SERV_TYPE_PASS	4	/* AF_UNIX domain socket */
 
  /*
   * Default process management policy values. This is only the bare minimum.
@@ -77,6 +92,7 @@ typedef int MASTER_PID;			/* pid is key into binhash table */
 
 typedef struct MASTER_PROC {
     MASTER_PID pid;			/* child process id */
+    unsigned gen;			/* child generation number */
     int     avail;			/* availability */
     MASTER_SERV *serv;			/* parent linkage */
     int     use_count;			/* number of service requests */
@@ -86,6 +102,11 @@ typedef struct MASTER_PROC {
   * Other manifest constants.
   */
 #define MASTER_BUF_LEN	2048		/* logical config line length */
+
+ /*
+  * master.c
+  */
+extern int master_detach;
 
  /*
   * master_ent.c
@@ -163,6 +184,22 @@ extern void master_delete_children(MASTER_SERV *);
   */
 extern void master_flow_init(void);
 extern int master_flow_pipe[2];
+
+#ifdef __APPLE_OS_X_SERVER__
+
+extern int smtp_count;
+extern int smtpd_count;
+
+#define	SRVR_MGR_COM_FILE	"/var/spool/postfix/pid/.smd.smtp.com"
+#define SRVR_MGR_DATA		\
+"<dict> \
+\n\t<key>SMTP</key> \
+\n\t<integer>%d</integer> \
+\n\t<key>SMTPD</key> \
+\n\t<integer>%d</integer> \
+\n</dict>\n"
+
+#endif
 
 /* DIAGNOSTICS
 /* BUGS

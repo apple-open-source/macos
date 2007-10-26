@@ -1,0 +1,48 @@
+#!/usr/bin/perl
+
+if ($< != 0) {
+   print "This must be run as root\n";
+   exit 1;
+}
+
+my $kdc_conf = "/var/db/krb5kdc/kdc.conf";
+
+if (! -f $kdc_conf) {
+	system ("/usr/libexec/configureLocalKDC");
+}
+
+open (REALM, "< $kdc_conf") or die "No ".$kdc_conf;
+my @rtmp = grep /default_realm/, <REALM>;
+close REALM;
+
+chomp (@rtmp);
+
+my @rtmp = split (/\s+/, $rtmp[0]);
+
+my $realmString = $rtmp[3];
+
+my $service = "afpserver";
+
+my $principal = sprintf "%s/%s@%s", $service, $realmString, $realmString;
+
+my $prefs = "/Library/Preferences/com.apple.AppleFileServer";
+my $key = "kerberosPrincipal";
+
+my $kadmin = '/usr/sbin/kadmin.local';
+
+system "/usr/bin/defaults", "write", $prefs, $key, $principal;
+
+print "Running kadmin.local: ank\n\n";
+
+my @args = ('ank', '-randkey', $principal);
+
+print "$kadmin -q ". join (' ', @args) ."\n";
+system $kadmin, '-q', join (' ', @args);
+
+print "\nRunning kadmin.local: ktadd\n\n";
+
+my @args = ('ktadd', $principal);
+
+print "$kadmin -q ". join (' ', @args) ."\n";
+system $kadmin, '-q', join (' ', @args); 
+

@@ -51,4 +51,5 @@ Cyrus IMAP Server Man Pages
       * syncnews(8) 
       * timsieved(8) 
       * tls_prune(8) 
+      * unexpunge(8) 
 

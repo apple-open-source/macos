@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,10 @@
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOFilterScheme, IOStorage)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern IOStorageAttributes gIOStorageAttributesUnsupported;
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -101,10 +105,11 @@ void IOFilterScheme::handleClose(IOService * client, IOOptionBits options)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOFilterScheme::read(IOService *          /* client */,
-                          UInt64               byteStart,
-                          IOMemoryDescriptor * buffer,
-                          IOStorageCompletion  completion)
+void IOFilterScheme::read(IOService *           client,
+                          UInt64                byteStart,
+                          IOMemoryDescriptor *  buffer,
+                          IOStorageAttributes * attributes,
+                          IOStorageCompletion * completion)
 {
     //
     // Read data from the storage object at the specified byte offset into the
@@ -118,15 +123,30 @@ void IOFilterScheme::read(IOService *          /* client */,
     // as RAID will need to do extra processing here.
     //
 
-    getProvider()->read(this, byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::read( client, byteStart, buffer, attributes, completion );
+
+            return;
+        }
+    }
+
+    getProvider( )->read( this, byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOFilterScheme::write(IOService *          /* client */,
-                           UInt64               byteStart,
-                           IOMemoryDescriptor * buffer,
-                           IOStorageCompletion  completion)
+void IOFilterScheme::write(IOService *           client,
+                           UInt64                byteStart,
+                           IOMemoryDescriptor *  buffer,
+                           IOStorageAttributes * attributes,
+                           IOStorageCompletion * completion)
 {
     //
     // Write data into the storage object at the specified byte offset from the
@@ -140,7 +160,21 @@ void IOFilterScheme::write(IOService *          /* client */,
     // as RAID will need to do extra processing here.
     //
 
-    getProvider()->write(this, byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+        }
+        else
+        {
+            IOStorage::write( client, byteStart, buffer, attributes, completion );
+
+            return;
+        }
+    }
+
+    getProvider( )->write( this, byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -281,3 +315,17 @@ OSMetaClassDefineReservedUnused(IOFilterScheme, 30);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSMetaClassDefineReservedUnused(IOFilterScheme, 31);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN14IOFilterScheme4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    scheme->read( client, byteStart, buffer, NULL, &completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN14IOFilterScheme5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOFilterScheme * scheme, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    scheme->write( client, byteStart, buffer, NULL, &completion );
+}

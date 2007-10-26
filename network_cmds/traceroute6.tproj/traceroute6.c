@@ -65,8 +65,9 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static char copyright[] =
+__unused static char copyright[] =
 "@(#) Copyright (c) 1990, 1993\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
@@ -75,7 +76,7 @@ static char copyright[] =
 #if 0
 static char sccsid[] = "@(#)traceroute.c	8.1 (Berkeley) 6/6/93";
 #endif
-static const char rcsid[] =
+__unused static const char rcsid[] =
   "$FreeBSD: src/usr.sbin/traceroute6/traceroute6.c,v 1.4.2.4 2001/07/03 11:02:18 ume Exp $";
 #endif /* not lint */
 
@@ -772,7 +773,8 @@ main(argc, argv)
 		freeaddrinfo(res);
 	} else {
 		struct sockaddr_in6 Nxt;
-		int dummy, len;
+		int dummy;
+		socklen_t len;
 
 		Nxt = Dst;
 		Nxt.sin6_port = htons(DUMMY_PORT);
@@ -814,10 +816,10 @@ main(argc, argv)
 	}
 
 	if (ident == 0) {
-		int len;
+		socklen_t len;
 
 		len = sizeof(Src);
-		if (getsockname(sndsock, (struct sockaddr *)&Src, &i) < 0) {
+		if (getsockname(sndsock, (struct sockaddr *)&Src, &len) < 0) {
 			perror("getsockname");
 			exit(1);
 		}

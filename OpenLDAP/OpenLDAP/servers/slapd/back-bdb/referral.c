@@ -1,8 +1,8 @@
 /* referral.c - BDB backend referral handler */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.28.2.4 2004/11/24 04:07:17 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/referral.c,v 1.36.2.5 2006/05/15 23:41:38 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -19,7 +19,6 @@
 #include <ac/string.h>
 
 #include "back-bdb.h"
-#include "external.h"
 
 int
 bdb_referrals( Operation *op, SlapReply *rs )
@@ -54,7 +53,13 @@ dn2entry_retry:
 	/* get entry */
 	rc = bdb_dn2entry( op, NULL, &op->o_req_ndn, &ei, 1, locker, &lock );
 
-	e = ei->bei_e;
+	/* bdb_dn2entry() may legally leave ei == NULL
+	 * if rc != 0 and rc != DB_NOTFOUND
+	 */
+	if ( ei ) {
+		e = ei->bei_e;
+	}
+
 	switch(rc) {
 	case DB_NOTFOUND:
 	case 0:
@@ -67,16 +72,10 @@ dn2entry_retry:
 	case DB_LOCK_NOTGRANTED:
 		goto dn2entry_retry;
 	default:
-#ifdef NEW_LOGGING
-		LDAP_LOG ( OPERATION, ERR, 
-			"bdb_referrals: dn2entry failed: %s (%d)\n", 
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			LDAP_XSTRING(bdb_referrals)
 			": dn2entry failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 ); 
-#endif
 		send_ldap_error( op, rs, LDAP_OTHER, "internal error" );
 		LOCK_ID_FREE ( bdb->bi_dbenv, locker );
 		return rs->sr_err;
@@ -86,20 +85,17 @@ dn2entry_retry:
 		rc = 0;
 		rs->sr_matched = NULL;
 		if ( e != NULL ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG ( OPERATION, DETAIL1, 
-			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
-#else
 			Debug( LDAP_DEBUG_TRACE,
 				LDAP_XSTRING(bdb_referrals)
 				": op=%ld target=\"%s\" matched=\"%s\"\n",
 				(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
-#endif
 
 			if( is_entry_referral( e ) ) {
+				BerVarray ref = get_entry_referrals( op, e );
 				rc = LDAP_OTHER;
-				rs->sr_ref = get_entry_referrals( op, e );
+				rs->sr_ref = referral_rewrite( ref, NULL,
+					&op->o_req_dn, LDAP_SCOPE_DEFAULT );
+				ber_bvarray_free( ref );
 				if ( rs->sr_ref ) {
 					rs->sr_matched = ber_strdup_x(
 					e->e_name.bv_val, op->o_tmpmemctx );
@@ -108,7 +104,7 @@ dn2entry_retry:
 
 			bdb_cache_return_entry_r (bdb->bi_dbenv, &bdb->bi_cache, e, &lock);
 			e = NULL;
-		} else if ( default_referral != NULL ) {
+		} else if ( !be_issuffix( op->o_bd, &op->o_req_ndn ) && default_referral != NULL ) {
 			rc = LDAP_OTHER;
 			rs->sr_ref = referral_rewrite( default_referral,
 				NULL, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
@@ -116,7 +112,7 @@ dn2entry_retry:
 
 		if( rs->sr_ref != NULL ) {
 			/* send referrals */
-			rs->sr_err = LDAP_REFERRAL;
+			rc = rs->sr_err = LDAP_REFERRAL;
 			send_ldap_result( op, rs );
 			ber_bvarray_free( rs->sr_ref );
 			rs->sr_ref = NULL;
@@ -140,16 +136,10 @@ dn2entry_retry:
 		rs->sr_ref = referral_rewrite(
 			refs, &e->e_name, &op->o_req_dn, LDAP_SCOPE_DEFAULT );
 
-#ifdef NEW_LOGGING
-		LDAP_LOG ( OPERATION, DETAIL1, 
-			"bdb_referrals: op=%ld target=\"%s\" matched=\"%s\"\n",
-			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
-#else
 		Debug( LDAP_DEBUG_TRACE,
 			LDAP_XSTRING(bdb_referrals)
 			": op=%ld target=\"%s\" matched=\"%s\"\n",
 			(long) op->o_tag, op->o_req_dn.bv_val, e->e_name.bv_val );
-#endif
 
 		rs->sr_matched = e->e_name.bv_val;
 		if( rs->sr_ref != NULL ) {

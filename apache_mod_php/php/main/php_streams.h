@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_streams.h,v 1.61.2.18.2.3 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: php_streams.h,v 1.103.2.1.2.4 2007/07/21 01:43:33 jani Exp $ */
 
 #ifndef PHP_STREAMS_H
 #define PHP_STREAMS_H
@@ -27,8 +27,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+BEGIN_EXTERN_C()
 PHPAPI int php_file_le_stream(void);
 PHPAPI int php_file_le_pstream(void);
+PHPAPI int php_file_le_stream_filter(void);
+END_EXTERN_C()
 
 /* {{{ Streams memory debugging stuff */
 
@@ -64,8 +67,8 @@ PHPAPI int php_file_le_pstream(void);
 
 #define php_stream_fopen_with_path_rel(filename, mode, path, opened, options) _php_stream_fopen_with_path((filename), (mode), (path), (opened), (options) STREAMS_REL_CC TSRMLS_CC)
 
+#define php_stream_fopen_from_fd_rel(fd, mode, persistent_id)	 _php_stream_fopen_from_fd((fd), (mode), (persistent_id) STREAMS_REL_CC TSRMLS_CC)
 #define php_stream_fopen_from_file_rel(file, mode)	 _php_stream_fopen_from_file((file), (mode) STREAMS_REL_CC TSRMLS_CC)
-#define php_stream_fopen_from_fd_rel(fd, mode, persistent_id)	 	_php_stream_fopen_from_fd((fd), (mode), (persistent_id) STREAMS_REL_CC TSRMLS_CC)
 	
 #define php_stream_fopen_from_pipe_rel(file, mode)	 _php_stream_fopen_from_pipe((file), (mode) STREAMS_REL_CC TSRMLS_CC)
 	
@@ -96,14 +99,9 @@ typedef struct _php_stream php_stream;
 typedef struct _php_stream_wrapper php_stream_wrapper;
 typedef struct _php_stream_context php_stream_context;
 typedef struct _php_stream_filter php_stream_filter;
-typedef struct _php_stream_notifier php_stream_notifier;
 
-/* callback for status notifications */
-typedef void (*php_stream_notification_func)(php_stream_context *context,
-		int notifycode, int severity,
-		char *xmsg, int xcode,
-		size_t bytes_sofar, size_t bytes_max,
-		void * ptr TSRMLS_DC);
+#include "streams/php_stream_context.h"
+#include "streams/php_stream_filter_api.h"
 
 typedef struct _php_stream_statbuf {
 	struct stat sb; /* regular info */
@@ -113,31 +111,6 @@ typedef struct _php_stream_statbuf {
 typedef struct _php_stream_dirent {
 	char d_name[MAXPATHLEN];
 } php_stream_dirent;
-
-#define PHP_STREAM_NOTIFIER_PROGRESS	1
-
-struct _php_stream_notifier {
-	php_stream_notification_func func;
-	void (*dtor)(php_stream_notifier *notifier);
-	void *ptr;
-	int mask;
-	size_t progress, progress_max; /* position for progress notification */
-};
-
-struct _php_stream_context {
-	php_stream_notifier *notifier;
-	zval *options;	/* hash keyed by wrapper family or specific wrapper */
-};
-
-typedef struct _php_stream_wrapper_options {
-	int valid_options; /* PHP_STREAM_WRAPPER_OPT_XXX */
-	
-	php_stream_notification_func notifier;
-	void *notifier_ptr;
-
-	/* other info like user-agent, SSL cert and cookie information
-	 * to go here some day */
-} php_stream_wrapper_options;
 
 /* operations on streams that are file-handles */
 typedef struct _php_stream_ops  {
@@ -165,12 +138,22 @@ typedef struct _php_stream_wrapper_ops {
 	/* stat a wrapped stream */
 	int (*stream_stat)(php_stream_wrapper *wrapper, php_stream *stream, php_stream_statbuf *ssb TSRMLS_DC);
 	/* stat a URL */
-	int (*url_stat)(php_stream_wrapper *wrapper, char *url, php_stream_statbuf *ssb TSRMLS_DC);
+	int (*url_stat)(php_stream_wrapper *wrapper, char *url, int flags, php_stream_statbuf *ssb, php_stream_context *context TSRMLS_DC);
 	/* open a "directory" stream */
 	php_stream *(*dir_opener)(php_stream_wrapper *wrapper, char *filename, char *mode,
 			int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
 	
 	const char *label;
+
+	/* delete a file */
+	int (*unlink)(php_stream_wrapper *wrapper, char *url, int options, php_stream_context *context TSRMLS_DC);
+
+	/* rename a file */
+	int (*rename)(php_stream_wrapper *wrapper, char *url_from, char *url_to, int options, php_stream_context *context TSRMLS_DC);
+
+	/* Create/Remove directory */
+	int (*stream_mkdir)(php_stream_wrapper *wrapper, char *url, int mode, int options, php_stream_context *context TSRMLS_DC);
+	int (*stream_rmdir)(php_stream_wrapper *wrapper, char *url, int options, php_stream_context *context TSRMLS_DC);
 } php_stream_wrapper_ops;
 
 struct _php_stream_wrapper	{
@@ -182,42 +165,6 @@ struct _php_stream_wrapper	{
 	int err_count;
 	char **err_stack;
 };
-
-typedef struct _php_stream_filter_ops {
-	size_t (*write)(php_stream *stream, php_stream_filter *thisfilter,
-			const char *buf, size_t count TSRMLS_DC);
-	size_t (*read)(php_stream *stream, php_stream_filter *thisfilter,
-			char *buf, size_t count TSRMLS_DC);
-	int (*flush)(php_stream *stream, php_stream_filter *thisfilter, int closing TSRMLS_DC);
-	int (*eof)(php_stream *stream, php_stream_filter *thisfilter TSRMLS_DC);
-	void (*dtor)(php_stream_filter *thisfilter TSRMLS_DC);
-	const char *label;
-} php_stream_filter_ops;
-
-struct _php_stream_filter {
-	php_stream_filter_ops *fops;
-	void *abstract; /* for use by filter implementation */
-	php_stream_filter *next;
-	php_stream_filter *prev;
-	int is_persistent;
-	php_stream *stream;
-};
-
-#define php_stream_filter_write_next(stream, thisfilter, buf, size) \
-	(thisfilter)->next ? (thisfilter)->next->fops->write((stream), (thisfilter)->next, (buf), (size) TSRMLS_CC) \
-	: (stream)->ops->write((stream), (buf), (size) TSRMLS_CC)
-
-#define php_stream_filter_read_next(stream, thisfilter, buf, size) \
-	(thisfilter)->next ? (thisfilter)->next->fops->read((stream), (thisfilter)->next, (buf), (size) TSRMLS_CC) \
-	: (stream)->ops->read((stream), (buf), (size) TSRMLS_CC)
-
-#define php_stream_filter_flush_next(stream, thisfilter, closing) \
-	(thisfilter)->next ? (thisfilter)->next->fops->flush((stream), (thisfilter), (closing) TSRMLS_CC) \
-	: (stream)->ops->flush((stream) TSRMLS_CC)
-
-#define php_stream_filter_eof_next(stream, thisfilter) \
-	(thisfilter)->next ? (thisfilter)->next->fops->eof((stream), (thisfilter) TSRMLS_CC) \
-	: (stream)->ops->read((stream), NULL, 0 TSRMLS_CC) == EOF ? 1 : 0
 
 #define PHP_STREAM_FLAG_NO_SEEK						1
 #define PHP_STREAM_FLAG_NO_BUFFER					2
@@ -231,14 +178,15 @@ struct _php_stream_filter {
  * might otherwise cause the read to block for much longer than
  * is strictly required. */
 #define PHP_STREAM_FLAG_AVOID_BLOCKING				16
+
+#define PHP_STREAM_FLAG_NO_CLOSE					32
 	
 struct _php_stream  {
 	php_stream_ops *ops;
 	void *abstract;  		/* convenience pointer for abstraction */
 
-	php_stream_filter *filterhead;
-	php_stream_filter *filtertail;
-	
+	php_stream_filter_chain readfilters, writefilters;
+
 	php_stream_wrapper *wrapper; /* which wrapper was used to open the stream */
 	void *wrapperthis;		/* convenience pointer for a instance of a wrapper */
 	zval *wrapperdata;		/* fgetwrapperdata retrieves this */
@@ -254,8 +202,8 @@ struct _php_stream  {
 	FILE *stdiocast;    /* cache this, otherwise we might leak! */
 #if ZEND_DEBUG
 	int __exposed;	/* non-zero if exposed as a zval somewhere */
-	char *__orig_path; /* it really helps when debugging "unclosed" streams */
 #endif
+	char *orig_path;
 
 	php_stream_context *context;
 	int flags;	/* PHP_STREAM_FLAG_XXX */
@@ -279,29 +227,11 @@ struct _php_stream  {
 #define PHP_STREAM_FCLOSE_FOPENCOOKIE 2
 
 /* allocate a new stream for a particular ops */
+BEGIN_EXTERN_C()
 PHPAPI php_stream *_php_stream_alloc(php_stream_ops *ops, void *abstract,
 		const char *persistent_id, const char *mode STREAMS_DC TSRMLS_DC);
+END_EXTERN_C()
 #define php_stream_alloc(ops, thisptr, persistent_id, mode)	_php_stream_alloc((ops), (thisptr), (persistent_id), (mode) STREAMS_CC TSRMLS_CC)
-
-/* stack filter onto a stream */
-PHPAPI void php_stream_filter_prepend(php_stream *stream, php_stream_filter *filter);
-PHPAPI void php_stream_filter_append(php_stream *stream, php_stream_filter *filter);
-PHPAPI php_stream_filter *php_stream_filter_remove(php_stream *stream, php_stream_filter *filter, int call_dtor TSRMLS_DC);
-PHPAPI void php_stream_filter_free(php_stream_filter *filter TSRMLS_DC);
-PHPAPI php_stream_filter *_php_stream_filter_alloc(php_stream_filter_ops *fops, void *abstract, int persistent STREAMS_DC TSRMLS_DC);
-#define php_stream_filter_alloc(fops, thisptr, persistent) _php_stream_filter_alloc((fops), (thisptr), (persistent) STREAMS_CC TSRMLS_CC)
-#define php_stream_filter_alloc_rel(fops, thisptr, persistent) _php_stream_filter_alloc((fops), (thisptr), (persistent) STREAMS_REL_CC TSRMLS_CC)
-
-#define php_stream_filter_remove_head(stream, call_dtor)	php_stream_filter_remove((stream), (stream)->filterhead, (call_dtor) TSRMLS_CC)
-#define php_stream_filter_remove_tail(stream, call_dtor)	php_stream_filter_remove((stream), (stream)->filtertail, (call_dtor) TSRMLS_CC)
-
-typedef struct _php_stream_filter_factory {
-	php_stream_filter *(*create_filter)(const char *filtername, const char *filterparams, int filterparamslen, int persistent TSRMLS_DC);
-} php_stream_filter_factory;
-
-PHPAPI int php_stream_filter_register_factory(const char *filterpattern, php_stream_filter_factory *factory TSRMLS_DC);
-PHPAPI int php_stream_filter_unregister_factory(const char *filterpattern TSRMLS_DC);
-PHPAPI php_stream_filter *php_stream_filter_create(const char *filtername, const char *filterparams, int filterparamslen, int persistent TSRMLS_DC);
 
 
 #define php_stream_get_resource_id(stream)		(stream)->rsrc_id
@@ -320,6 +250,7 @@ PHPAPI php_stream_filter *php_stream_filter_create(const char *filtername, const
 #define php_stream_from_zval(xstr, ppzval)	ZEND_FETCH_RESOURCE2((xstr), php_stream *, (ppzval), -1, "stream", php_file_le_stream(), php_file_le_pstream())
 #define php_stream_from_zval_no_verify(xstr, ppzval)	(xstr) = (php_stream*)zend_fetch_resource((ppzval) TSRMLS_CC, -1, "stream", NULL, 2, php_file_le_stream(), php_file_le_pstream())
 
+BEGIN_EXTERN_C()
 PHPAPI int php_stream_from_persistent_id(const char *persistent_id, php_stream **stream TSRMLS_DC);
 #define PHP_STREAM_PERSISTENT_SUCCESS	0 /* id exists */
 #define PHP_STREAM_PERSISTENT_FAILURE	1 /* id exists but is not a stream! */
@@ -333,6 +264,7 @@ PHPAPI int php_stream_from_persistent_id(const char *persistent_id, php_stream *
 #define PHP_STREAM_FREE_CLOSE				(PHP_STREAM_FREE_CALL_DTOR | PHP_STREAM_FREE_RELEASE_STREAM)
 #define PHP_STREAM_FREE_CLOSE_CASTED		(PHP_STREAM_FREE_CLOSE | PHP_STREAM_FREE_PRESERVE_HANDLE)
 #define PHP_STREAM_FREE_CLOSE_PERSISTENT	(PHP_STREAM_FREE_CLOSE | PHP_STREAM_FREE_PERSISTENT)
+
 PHPAPI int _php_stream_free(php_stream *stream, int close_options TSRMLS_DC);
 #define php_stream_free(stream, close_options)	_php_stream_free((stream), (close_options) TSRMLS_CC)
 #define php_stream_close(stream)	_php_stream_free((stream), PHP_STREAM_FREE_CLOSE TSRMLS_CC)
@@ -372,6 +304,7 @@ PHPAPI char *_php_stream_get_line(php_stream *stream, char *buf, size_t maxlen, 
 #define php_stream_gets(stream, buf, maxlen)	_php_stream_get_line((stream), (buf), (maxlen), NULL TSRMLS_CC)
 
 #define php_stream_get_line(stream, buf, maxlen, retlen) _php_stream_get_line((stream), (buf), (maxlen), (retlen) TSRMLS_CC)
+PHPAPI char *php_stream_get_record(php_stream *stream, size_t maxlen, size_t *returned_len, char *delim, size_t delim_len TSRMLS_DC);
 
 /* CAREFUL! this is equivalent to puts NOT fputs! */
 PHPAPI int _php_stream_puts(php_stream *stream, char *buf TSRMLS_DC);
@@ -380,8 +313,15 @@ PHPAPI int _php_stream_puts(php_stream *stream, char *buf TSRMLS_DC);
 PHPAPI int _php_stream_stat(php_stream *stream, php_stream_statbuf *ssb TSRMLS_DC);
 #define php_stream_stat(stream, ssb)	_php_stream_stat((stream), (ssb) TSRMLS_CC)
 
-PHPAPI int _php_stream_stat_path(char *path, php_stream_statbuf *ssb TSRMLS_DC);
-#define php_stream_stat_path(path, ssb)	_php_stream_stat_path((path), (ssb) TSRMLS_CC)
+PHPAPI int _php_stream_stat_path(char *path, int flags, php_stream_statbuf *ssb, php_stream_context *context TSRMLS_DC);
+#define php_stream_stat_path(path, ssb)	_php_stream_stat_path((path), 0, (ssb), NULL TSRMLS_CC)
+#define php_stream_stat_path_ex(path, flags, ssb, context)	_php_stream_stat_path((path), (flags), (ssb), (context) TSRMLS_CC)
+
+PHPAPI int _php_stream_mkdir(char *path, int mode, int options, php_stream_context *context TSRMLS_DC);
+#define php_stream_mkdir(path, mode, options, context)	_php_stream_mkdir(path, mode, options, context TSRMLS_CC)
+
+PHPAPI int _php_stream_rmdir(char *path, int options, php_stream_context *context TSRMLS_DC);
+#define php_stream_rmdir(path, options, context)	_php_stream_rmdir(path, options, context TSRMLS_CC)
 
 PHPAPI php_stream *_php_stream_opendir(char *path, int options, php_stream_context *context STREAMS_DC TSRMLS_DC);
 #define php_stream_opendir(path, options, context)	_php_stream_opendir((path), (options), (context) STREAMS_CC TSRMLS_CC)
@@ -390,10 +330,31 @@ PHPAPI php_stream_dirent *_php_stream_readdir(php_stream *dirstream, php_stream_
 #define php_stream_closedir(dirstream)	php_stream_close((dirstream))
 #define php_stream_rewinddir(dirstream)	php_stream_rewind((dirstream))
 
+PHPAPI int php_stream_dirent_alphasort(const char **a, const char **b);
+PHPAPI int php_stream_dirent_alphasortr(const char **a, const char **b);
+
+PHPAPI int _php_stream_scandir(char *dirname, char **namelist[], int flags, php_stream_context *context,
+			int (*compare) (const char **a, const char **b) TSRMLS_DC);
+#define php_stream_scandir(dirname, namelist, context, compare) _php_stream_scandir((dirname), (namelist), 0, (context), (compare) TSRMLS_CC)
+
 PHPAPI int _php_stream_set_option(php_stream *stream, int option, int value, void *ptrparam TSRMLS_DC);
 #define php_stream_set_option(stream, option, value, ptrvalue)	_php_stream_set_option((stream), (option), (value), (ptrvalue) TSRMLS_CC)
 
 #define php_stream_set_chunk_size(stream, size) _php_stream_set_option((stream), PHP_STREAM_OPTION_SET_CHUNK_SIZE, (size), NULL TSRMLS_CC)
+
+END_EXTERN_C()
+
+
+/* Flags for mkdir method in wrapper ops */
+#define PHP_STREAM_MKDIR_RECURSIVE	1
+/* define REPORT ERRORS 8 (below) */
+
+/* Flags for rmdir method in wrapper ops */
+/* define REPORT_ERRORS 8 (below) */
+
+/* Flags for url_stat method in wrapper ops */
+#define PHP_STREAM_URL_STAT_LINK	1
+#define PHP_STREAM_URL_STAT_QUIET	2
 
 /* change the blocking mode of stream: value == 1 => blocking, value == 0 => non-blocking. */
 #define PHP_STREAM_OPTION_BLOCKING	1
@@ -411,13 +372,47 @@ PHPAPI int _php_stream_set_option(php_stream *stream, int option, int value, voi
 #define PHP_STREAM_OPTION_READ_TIMEOUT	4
 #define PHP_STREAM_OPTION_SET_CHUNK_SIZE	5
 
+/* set or release lock on a stream */
+#define PHP_STREAM_OPTION_LOCKING		6
+
+/* whether or not locking is supported */
+#define PHP_STREAM_LOCK_SUPPORTED		1	
+
+#define php_stream_supports_lock(stream)	_php_stream_set_option((stream), PHP_STREAM_OPTION_LOCKING, 0, (void *) PHP_STREAM_LOCK_SUPPORTED TSRMLS_CC) == 0 ? 1 : 0
+#define php_stream_lock(stream, mode)		_php_stream_set_option((stream), PHP_STREAM_OPTION_LOCKING, (mode), (void *) NULL TSRMLS_CC)
+
+/* option code used by the php_stream_xport_XXX api */
+#define PHP_STREAM_OPTION_XPORT_API			7 /* see php_stream_transport.h */
+#define PHP_STREAM_OPTION_CRYPTO_API		8 /* see php_stream_transport.h */
+#define PHP_STREAM_OPTION_MMAP_API			9 /* see php_stream_mmap.h */
+#define PHP_STREAM_OPTION_TRUNCATE_API		10
+
+#define PHP_STREAM_TRUNCATE_SUPPORTED	0
+#define PHP_STREAM_TRUNCATE_SET_SIZE	1	/* ptrparam is a pointer to a size_t */
+
+#define php_stream_truncate_supported(stream)	(_php_stream_set_option((stream), PHP_STREAM_OPTION_TRUNCATE_API, PHP_STREAM_TRUNCATE_SUPPORTED, NULL TSRMLS_CC) == PHP_STREAM_OPTION_RETURN_OK ? 1 : 0)
+
+BEGIN_EXTERN_C()
+PHPAPI int _php_stream_truncate_set_size(php_stream *stream, size_t newsize TSRMLS_DC);
+#define php_stream_truncate_set_size(stream, size)	_php_stream_truncate_set_size((stream), (size) TSRMLS_CC)
+END_EXTERN_C()
+
+#define PHP_STREAM_OPTION_META_DATA_API		11 /* ptrparam is a zval* to which to add meta data information */
+#define php_stream_populate_meta_data(stream, zv)	(_php_stream_set_option((stream), PHP_STREAM_OPTION_META_DATA_API, 0, zv TSRMLS_CC) == PHP_STREAM_OPTION_RETURN_OK ? 1 : 0)
+
+/* Check if the stream is still "live"; for sockets/pipes this means the socket
+ * is still connected; for files, this does not really have meaning */
+#define PHP_STREAM_OPTION_CHECK_LIVENESS	12 /* no parameters */
+
 #define PHP_STREAM_OPTION_RETURN_OK			 0 /* option set OK */
 #define PHP_STREAM_OPTION_RETURN_ERR 		-1 /* problem setting option */
 #define PHP_STREAM_OPTION_RETURN_NOTIMPL	-2 /* underlying stream does not implement; streams can handle it instead */
 
 /* copy up to maxlen bytes from src to dest.  If maxlen is PHP_STREAM_COPY_ALL, copy until eof(src).
  * Uses mmap if the src is a plain file and at offset 0 */
-#define PHP_STREAM_COPY_ALL		-1
+#define PHP_STREAM_COPY_ALL		((size_t)-1)
+
+BEGIN_EXTERN_C()
 PHPAPI size_t _php_stream_copy_to_stream(php_stream *src, php_stream *dest, size_t maxlen STREAMS_DC TSRMLS_DC);
 #define php_stream_copy_to_stream(src, dest, maxlen)	_php_stream_copy_to_stream((src), (dest), (maxlen) STREAMS_CC TSRMLS_CC)
 
@@ -431,30 +426,12 @@ PHPAPI size_t _php_stream_copy_to_mem(php_stream *src, char **buf, size_t maxlen
 /* output all data from a stream */
 PHPAPI size_t _php_stream_passthru(php_stream * src STREAMS_DC TSRMLS_DC);
 #define php_stream_passthru(stream)	_php_stream_passthru((stream) STREAMS_CC TSRMLS_CC)
+END_EXTERN_C()
 
-/* operations for a stdio FILE; use the php_stream_fopen_XXX funcs below */
-PHPAPI extern php_stream_ops php_stream_stdio_ops;
-/* like fopen, but returns a stream */
-PHPAPI php_stream *_php_stream_fopen(const char *filename, const char *mode, char **opened_path, int options STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen(filename, mode, opened)	_php_stream_fopen((filename), (mode), (opened), 0 STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_with_path(char *filename, char *mode, char *path, char **opened_path, int options STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_with_path(filename, mode, path, opened)	_php_stream_fopen_with_path((filename), (mode), (path), (opened) STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_from_fd(int fd, const char *mode, const char *persistent_id STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_from_fd(fd, mode, persistent_id)  _php_stream_fopen_from_fd((fd), (mode), (persistent_id) STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_from_file(FILE *file, const char *mode STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_from_file(file, mode)	_php_stream_fopen_from_file((file), (mode) STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_from_pipe(FILE *file, const char *mode STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_from_pipe(file, mode)	_php_stream_fopen_from_pipe((file), (mode) STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_tmpfile(int dummy STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_tmpfile()	_php_stream_fopen_tmpfile(0 STREAMS_CC TSRMLS_CC)
-
-PHPAPI php_stream *_php_stream_fopen_temporary_file(const char *dir, const char *pfx, char **opened_path STREAMS_DC TSRMLS_DC);
-#define php_stream_fopen_temporary_file(dir, pfx, opened_path)	_php_stream_fopen_temporary_file((dir), (pfx), (opened_path) STREAMS_CC TSRMLS_CC)
+#include "streams/php_stream_transport.h"
+#include "streams/php_stream_plain_wrapper.h"
+#include "streams/php_stream_userspace.h"
+#include "streams/php_stream_mmap.h"
 
 /* coerce the stream into some other form */
 /* cast as a stdio FILE * */
@@ -471,7 +448,9 @@ PHPAPI php_stream *_php_stream_fopen_temporary_file(const char *dir, const char 
 #define PHP_STREAM_CAST_RELEASE		0x40000000	/* stream becomes invalid on success */
 #define PHP_STREAM_CAST_INTERNAL	0x20000000	/* stream cast for internal use */
 #define PHP_STREAM_CAST_MASK		(PHP_STREAM_CAST_TRY_HARD | PHP_STREAM_CAST_RELEASE | PHP_STREAM_CAST_INTERNAL)
+BEGIN_EXTERN_C()
 PHPAPI int _php_stream_cast(php_stream *stream, int castas, void **ret, int show_err TSRMLS_DC);
+END_EXTERN_C()
 /* use this to check if a stream can be cast into another form */
 #define php_stream_can_cast(stream, as)	_php_stream_cast((stream), (as), NULL, 0 TSRMLS_CC)
 #define php_stream_cast(stream, as, ret, show_err)	_php_stream_cast((stream), (as), (ret), (show_err) TSRMLS_CC)
@@ -488,7 +467,6 @@ PHPAPI int _php_stream_cast(php_stream *stream, int castas, void **ret, int show
 #define IGNORE_PATH			0
 #define USE_PATH			1
 #define IGNORE_URL			2
-/* There's no USE_URL. */
 #define ENFORCE_SAFE_MODE 	4
 #define REPORT_ERRORS		8
 /* If you don't need to write to the stream, but really need to
@@ -509,13 +487,20 @@ PHPAPI int _php_stream_cast(php_stream *stream, int castas, void **ret, int show
 /* this flag is only used by include/require functions */
 #define STREAM_OPEN_FOR_INCLUDE		128
 
-/* 512 skipped for PHP 5 compat */
+/* this flag tells streams to ONLY open urls */
+#define STREAM_USE_URL			256
 
-/* if set, skip open_basedir checks */
+/* this flag is used when only the headers from HTTP request are to be fetched */
+#define STREAM_ONLY_GET_HEADERS		512
+
+/* don't apply open_basedir checks */
 #define STREAM_DISABLE_OPEN_BASEDIR	1024
 
 /* get (or create) a persistent version of the stream */
-#define STREAM_OPEN_PERSISTENT 2048
+#define STREAM_OPEN_PERSISTENT	2048
+
+/* don't check allow_url_fopen and allow_url_include */
+#define STREAM_DISABLE_URL_PROTECTION   0x00002000
 
 /* Antique - no longer has meaning */
 #define IGNORE_URL_WIN 0
@@ -525,15 +510,23 @@ int php_shutdown_stream_wrappers(int module_number TSRMLS_DC);
 void php_shutdown_stream_hashes(TSRMLS_D);
 PHP_RSHUTDOWN_FUNCTION(streams);
 
+BEGIN_EXTERN_C()
 PHPAPI int php_register_url_stream_wrapper(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC);
 PHPAPI int php_unregister_url_stream_wrapper(char *protocol TSRMLS_DC);
 PHPAPI int php_register_url_stream_wrapper_volatile(char *protocol, php_stream_wrapper *wrapper TSRMLS_DC);
+PHPAPI int php_unregister_url_stream_wrapper_volatile(char *protocol TSRMLS_DC);
 PHPAPI php_stream *_php_stream_open_wrapper_ex(char *path, char *mode, int options, char **opened_path, php_stream_context *context STREAMS_DC TSRMLS_DC);
 PHPAPI php_stream_wrapper *php_stream_locate_url_wrapper(const char *path, char **path_for_open, int options TSRMLS_DC);
 PHPAPI char *php_stream_locate_eol(php_stream *stream, char *buf, size_t buf_len TSRMLS_DC);
 
 #define php_stream_open_wrapper(path, mode, options, opened)	_php_stream_open_wrapper_ex((path), (mode), (options), (opened), NULL STREAMS_CC TSRMLS_CC)
 #define php_stream_open_wrapper_ex(path, mode, options, opened, context)	_php_stream_open_wrapper_ex((path), (mode), (options), (opened), (context) STREAMS_CC TSRMLS_CC)
+
+#define php_stream_get_from_zval(stream, zstream, mode, options, opened, context) \
+		if (Z_TYPE_PP((zstream)) == IS_RESOURCE) { \
+			php_stream_from_zval((stream), (zstream)); \
+		} else (stream) = Z_TYPE_PP((zstream)) == IS_STRING ?  \
+			php_stream_open_wrapper_ex(Z_STRVAL_PP((zstream)), (mode), (options), (opened), (context)) : NULL
 
 /* pushes an error message onto the stack for a wrapper instance */
 PHPAPI void php_stream_wrapper_log_error(php_stream_wrapper *wrapper, int options TSRMLS_DC, const char *fmt, ...);
@@ -550,85 +543,18 @@ PHPAPI void php_stream_wrapper_log_error(php_stream_wrapper *wrapper, int option
 PHPAPI int _php_stream_make_seekable(php_stream *origstream, php_stream **newstream, int flags STREAMS_DC TSRMLS_DC);
 #define php_stream_make_seekable(origstream, newstream, flags)	_php_stream_make_seekable((origstream), (newstream), (flags) STREAMS_CC TSRMLS_CC)
 
-/* This is a utility API for extensions that are opening a stream, converting it
- * to a FILE* and then closing it again.  Be warned that fileno() on the result
- * will most likely fail on systems with fopencookie. */
-PHPAPI FILE * _php_stream_open_wrapper_as_file(char * path, char * mode, int options, char **opened_path STREAMS_DC TSRMLS_DC);
-#define php_stream_open_wrapper_as_file(path, mode, options, opened_path) _php_stream_open_wrapper_as_file((path), (mode), (options), (opened_path) STREAMS_CC TSRMLS_CC)
-
-
-PHPAPI zend_bool _php_stream_open_wrapper_as_file_handle(char * path, char * mode, int options, zend_file_handle * STREAMS_DC TSRMLS_DC);
-#define php_stream_open_wrapper_as_file_handle(path, mode, options, fh) _php_stream_open_wrapper_as_file_handle((path), (mode), (options), (fh) STREAMS_CC TSRMLS_CC)
-
-/* for user-space streams */
-PHPAPI extern php_stream_ops php_stream_userspace_ops;
-PHPAPI extern php_stream_ops php_stream_userspace_dir_ops;
-#define PHP_STREAM_IS_USERSPACE	&php_stream_userspace_ops
-#define PHP_STREAM_IS_USERSPACE_DIR	&php_stream_userspace_dir_ops
-
-PHPAPI void php_stream_context_free(php_stream_context *context);
-PHPAPI php_stream_context *php_stream_context_alloc(void);
-PHPAPI int php_stream_context_get_option(php_stream_context *context,
-		const char *wrappername, const char *optionname, zval ***optionvalue);
-PHPAPI int php_stream_context_set_option(php_stream_context *context,
-		const char *wrappername, const char *optionname, zval *optionvalue);
-
-PHPAPI php_stream_notifier *php_stream_notification_alloc(void);
-PHPAPI void php_stream_notification_free(php_stream_notifier *notifier);
-
-/* not all notification codes are implemented */
-#define PHP_STREAM_NOTIFY_RESOLVE		1
-#define PHP_STREAM_NOTIFY_CONNECT		2
-#define PHP_STREAM_NOTIFY_AUTH_REQUIRED		3
-#define PHP_STREAM_NOTIFY_MIME_TYPE_IS	4
-#define PHP_STREAM_NOTIFY_FILE_SIZE_IS	5
-#define PHP_STREAM_NOTIFY_REDIRECTED	6
-#define PHP_STREAM_NOTIFY_PROGRESS		7
-#define PHP_STREAM_NOTIFY_COMPLETED		8
-#define PHP_STREAM_NOTIFY_FAILURE		9
-#define PHP_STREAM_NOTIFY_AUTH_RESULT	10
-
-#define PHP_STREAM_NOTIFY_SEVERITY_INFO	0
-#define PHP_STREAM_NOTIFY_SEVERITY_WARN	1
-#define PHP_STREAM_NOTIFY_SEVERITY_ERR	2
-
-PHPAPI void php_stream_notification_notify(php_stream_context *context, int notifycode, int severity,
-		char *xmsg, int xcode, size_t bytes_sofar, size_t bytes_max, void * ptr TSRMLS_DC);
-PHPAPI php_stream_context *php_stream_context_set(php_stream *stream, php_stream_context *context);
-
-#define php_stream_notify_info(context, code, xmsg, xcode)	do { if ((context) && (context)->notifier) { \
-	php_stream_notification_notify((context), (code), PHP_STREAM_NOTIFY_SEVERITY_INFO, \
-				(xmsg), (xcode), 0, 0, NULL TSRMLS_CC); } } while (0)
-			
-#define php_stream_notify_progress(context, bsofar, bmax) do { if ((context) && (context)->notifier) { \
-	php_stream_notification_notify((context), PHP_STREAM_NOTIFY_PROGRESS, PHP_STREAM_NOTIFY_SEVERITY_INFO, \
-			NULL, 0, (bsofar), (bmax), NULL TSRMLS_CC); } } while(0)
-
-#define php_stream_notify_progress_init(context, sofar, bmax) do { if ((context) && (context)->notifier) { \
-	(context)->notifier->progress = (sofar); \
-	(context)->notifier->progress_max = (bmax); \
-	(context)->notifier->mask |= PHP_STREAM_NOTIFIER_PROGRESS; \
-	php_stream_notify_progress((context), (sofar), (bmax)); } } while (0)
-
-#define php_stream_notify_progress_increment(context, dsofar, dmax) do { if ((context) && (context)->notifier && (context)->notifier->mask & PHP_STREAM_NOTIFIER_PROGRESS) { \
-	(context)->notifier->progress += (dsofar); \
-	(context)->notifier->progress_max += (dmax); \
-	php_stream_notify_progress((context), (context)->notifier->progress, (context)->notifier->progress_max); } } while (0)
-
-#define php_stream_notify_file_size(context, file_size, xmsg, xcode) do { if ((context) && (context)->notifier) { \
-	php_stream_notification_notify((context), PHP_STREAM_NOTIFY_FILE_SIZE_IS, PHP_STREAM_NOTIFY_SEVERITY_INFO, \
-			(xmsg), (xcode), 0, (file_size), NULL TSRMLS_CC); } } while(0)
-	
-#define php_stream_notify_error(context, code, xmsg, xcode) do { if ((context) && (context)->notifier) {\
-	php_stream_notification_notify((context), (code), PHP_STREAM_NOTIFY_SEVERITY_ERR, \
-			(xmsg), (xcode), 0, 0, NULL TSRMLS_CC); } } while(0)
-	
-
-/* Give other modules access to the url_stream_wrappers_hash */
+/* Give other modules access to the url_stream_wrappers_hash and stream_filters_hash */
 PHPAPI HashTable *_php_stream_get_url_stream_wrappers_hash(TSRMLS_D);
 #define php_stream_get_url_stream_wrappers_hash()	_php_stream_get_url_stream_wrappers_hash(TSRMLS_C)
-
+PHPAPI HashTable *php_stream_get_url_stream_wrappers_hash_global(void);
+PHPAPI HashTable *_php_get_stream_filters_hash(TSRMLS_D);
+#define php_get_stream_filters_hash()	_php_get_stream_filters_hash(TSRMLS_C)
+PHPAPI HashTable *php_get_stream_filters_hash_global(void);
+END_EXTERN_C()
 #endif
+
+/* Definitions for user streams */
+#define PHP_STREAM_IS_URL		1
 
 /*
  * Local variables:

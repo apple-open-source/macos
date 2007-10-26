@@ -1,0 +1,709 @@
+#! @PERL@ -w
+# $Id: cups-genppdupdate.in,v 1.29 2007/05/21 00:17:27 rlk Exp $
+# Update CUPS PPDs for Gutenprint queues.
+# Copyright (C) 2002-2003 Roger Leigh (rleigh@debian.org)
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+use strict;
+use Getopt::Std;
+use Fcntl qw(:mode);
+use File::Temp qw(:POSIX);
+use File::Copy qw(mv);
+
+sub parse_options ();
+sub update_ppd ($); # Original PPD filename
+sub get_ppd_contents ($$$$$); # Return contents of desired PPD
+sub find_ppd ($$$$); # Gutenprint Filename, driver, language (e.g. en, sv),
+		     # region (e.g. GB, DE)
+sub get_default_types (*); # Source PPD FH
+sub get_defaults (*); # Source PPD FH
+sub get_options (*\%); # Source PPD FH, default_types hash ref
+
+our $opt_d; # Debug mode
+our $opt_h; # Help
+our $opt_n; # No action
+our $opt_q; # Quiet mode
+our $opt_s; # Source PPD location
+our $opt_v; # Verbose mode
+our $opt_N; # Don't update PPD file options
+our $opt_o; # Output directory
+
+my $debug = 0;
+my $verbose = 0;   # Verbose output
+if ($debug) {
+    $verbose = 1;
+}
+my $quiet = 0;     # No output
+my $no_action = 0; # Don't output files
+my $reset_defaults = 0;		# Reset options to default settings
+my $version = "@GUTENPRINT_MAJOR_VERSION@.@GUTENPRINT_MINOR_VERSION@";
+my $micro_version = "@GUTENPRINT_VERSION@";
+my $use_static_ppd = "@BUILD_CUPS_PPDS@";
+
+my $ppd_dir = "@cups_conf_serverroot@/ppd"; # Location of in-use CUPS PPDs
+my $ppd_root_dir = "@cups_conf_datadir@/model";
+my $ppd_base_dir = "$ppd_root_dir/gutenprint/$version"; # Available PPDs
+my $ppd_out_dir = "";		# By default output into source directory
+my $gzext = ".gz";
+my $updated_ppd_count = 0;
+my $exit_after_parse_args = 0;
+
+my $serverdir = "@cups_conf_serverbin@";
+
+$Getopt::Std::STANDARD_HELP_VERSION = 1;
+
+my @ppd_files; # A list of in-use Gutenprint PPD files
+
+# Used to convert a language name to its two letter code
+my %languagemappings = (
+			"chinese"    => "cn",
+			"danish"     => "da",
+			"dutch"      => "nl",
+			"english"    => "en",
+			"finnish"    => "fi",
+			"french"     => "fr",
+			"german"     => "de",
+			"greek"      => "el",
+			"hungarian"  => "hu",
+			"italian"    => "it",
+			"japanese"   => "jp",
+			"norwegian"  => "no",
+			"polish"     => "pl",
+			"portuguese" => "pt",
+			"russian"    => "ru",
+			"slovak"     => "sk",
+			"spanish"    => "es",
+			"swedish"    => "sv",
+			"turkish"    => "tr"
+);
+
+
+# Check command-line options...
+
+parse_options();
+
+
+# Set a secure umask...
+
+umask 0177;
+
+
+# Find all in-use Gutenprint PPD files...
+
+my @ppdglob;
+if (@ARGV) {
+    my $f;
+    foreach $f (@ARGV) {
+	if (-f $f and ($f =~ /\.ppd$/i or $f =~ /\//)) {
+	    if (-f $f) {
+		push @ppdglob, $f;
+	    } else {
+		print STDERR "Cannot find file $f\n";
+	    }
+	} elsif (-f "$ppd_dir/$f" or
+		 -f "$ppd_dir/$f.ppd" or
+		 -f "$ppd_dir/$f.PPD") {
+	    if (-f "$ppd_dir/$f") {
+		push @ppdglob, "$ppd_dir/$f";
+	    }
+	    if (-f "$ppd_dir/$f.ppd") {
+		push @ppdglob, "$ppd_dir/$f.ppd";
+	    }
+	    if (-f "$ppd_dir/$f.PPD") {
+		push @ppdglob, "$ppd_dir/$f.PPD";
+	    }
+	}  else {
+	    print STDERR "Cannot find file $ppd_dir/$f, $ppd_dir/$f.ppd, or $ppd_dir/$f.PPD\n";
+	}
+    }
+} else {
+    @ppdglob = glob("$ppd_dir/*.{ppd,PPD}");
+}
+my $ppdlist = join ' ', @ppdglob;
+if (@ppdglob) {
+    open PPDFILES, '-|', 'egrep', '-i', '-l', 'Gutenprint|Gimp-Print', @ppdglob or die "can't grep $ppdlist: $!";
+    while (<PPDFILES>) {
+	chomp;
+	push @ppd_files,  $_;
+    }
+    if (@ppd_files) {
+	open PPDFILES, '-|', 'egrep', '-i', '-L', 'Foomatic', @ppd_files or die "can't grep $ppdlist: $!";
+	@ppd_files = ();
+	while (<PPDFILES>) {
+	    chomp;
+	    push @ppd_files,  $_;
+	}
+	close PPDFILES or ($! == 0) or die "can't close grep pipe: $!";
+    }
+}
+
+
+# Exit if there are not files to update...
+
+if (!@ppd_files) {
+    print STDOUT "No Gutenprint PPD files to update.\n";
+    exit (0);
+}
+
+# Update each of the Gutenprint PPDs, where possible...
+
+foreach (@ppd_files) {
+    $updated_ppd_count += update_ppd($_);
+
+}
+
+if (!$quiet || $verbose) {
+    if ($updated_ppd_count > 0) {
+	my $plural = "";
+	if ($updated_ppd_count != 1) {
+	    $plural = "s";
+	}
+	print STDOUT "Updated $updated_ppd_count PPD file${plural}.  Restart cupsd for the changes to take effect.\n";
+	exit (0);
+    } else {
+	if ($no_action) {
+	    print STDOUT "Did not update any PPD files\n";
+	} else {
+	    print STDOUT "Failed to update any PPD files\n";
+	}
+	exit (0);
+    }
+}
+
+sub HELP_MESSAGE($;$$$) {
+    my ($fh) = @_;
+    print $fh "Usage: $0 [OPTION]... [PPD_FILE]...\n";
+    print $fh "Update CUPS+Gutenprint PPD files.\n\n";
+    print $fh "  -d flags    Enable debugging\n";
+    print $fh "  -h          Display this help text\n";
+    print $fh "  -n          No-action.  Don't overwrite any PPD files.\n";
+    print $fh "  -q          Quiet mode.  No messages except errors.\n";
+    print $fh "  -s ppd_dir  Use ppd_dir as the source PPD directory.\n";
+    print $fh "  -v          Verbose messages.\n";
+    print $fh "  -N          Reset options to defaults.\n";
+    print $fh "  -o out_dir  Output PPD files to out_dir.\n";
+    exit(0);
+}
+
+# Getopt::Std calls VERSION_MESSAGE followed by HELP_MESSAGE if --help
+# is passed.  If --version is passed, it calls only VERSION_MESSAGE.
+# So we have to make sure to exit, but we want to allow --help to
+# print out the help message.
+sub VERSION_MESSAGE($;$$$) {
+    my ($fh) = @_;
+    print "cups-genppdupdate from Gutenprint $micro_version\n";
+    $exit_after_parse_args = 1;
+}
+
+sub help() {
+    HELP_MESSAGE(\*STDOUT);
+}
+
+sub parse_options () {
+    if (!getopts('d:hnqs:vNo:')) {
+	help();
+    }
+    if ($opt_n) {
+	$no_action = 1;
+    }
+    if ($opt_d) {
+	$debug = $opt_d;
+    }
+    if ($opt_s) {
+	if (-d $opt_s) {
+	    $ppd_base_dir = "$opt_s";
+	}
+	else {
+	    die "$opt_s: invalid directory: $!\n";
+	}
+    }
+    if ($opt_v) {
+	$verbose = 1;
+	$quiet = 0;
+    }
+    if ($opt_q) {
+	$verbose = 0;
+	$quiet = 1;
+    }
+    if ($opt_N) {
+	$reset_defaults = 1;
+    }
+    if ($opt_o) {
+	if (-d $opt_o) {
+	    $ppd_out_dir = "$opt_o";
+	}
+	else {
+	    die "$opt_s: invalid directory: $!\n";
+	}
+    }
+    if ($opt_h) {
+	help();
+    }
+    if ($exit_after_parse_args) {
+	exit(0);
+    }
+}
+
+sub get_ppd_contents($$$$$) {
+    my ($ppd_source_filename, $filename, $driver, $locale, $region) = @_;
+
+    my $source_data;
+    my ($new_ppd_filename);
+
+    if ($use_static_ppd eq "no") {
+	my ($driver_bin) = "$serverdir/driver/gutenprint.$version";
+	my ($driver_version) = `$driver_bin VERSION`;
+	chomp $driver_version;
+	if ($driver_version eq "@VERSION@") {
+	    my ($simplified);
+	    if ($filename =~ m,.*/([^/]*)(.sim)(.ppd)?(.gz)?$,) {
+		$simplified = "simple";
+	    } else {
+		$simplified = "expert";
+	    }
+	    my ($url);
+	    foreach $url ("gutenprint.$version://$driver/$simplified/${locale}_${region}",
+			  "gutenprint.$version://$driver/$simplified/${locale}",
+			  "gutenprint.$version://$driver/$simplified") {
+		$new_ppd_filename = $url;
+		if (open PPD, "$driver_bin cat $url 2>/dev/null |") {
+		    while (<PPD>) {
+			$source_data .= $_;
+		    }
+		    close PPD;
+		    if ($source_data) {
+			return ( $new_ppd_filename, $source_data );
+		    }
+		}
+	    }
+	}
+	# Otherwise fall through and try to find a static PPD
+    }
+
+    # Search for a PPD matching our criteria...
+
+    $new_ppd_filename = find_ppd($filename, $driver, $locale, $region);
+    if (!defined($new_ppd_filename)) {
+        # There wasn't a valid source PPD file, so give up.
+        print STDERR "$ppd_source_filename: no valid candidate for replacement.  Skipping\n";
+        print STDERR "$ppd_source_filename: please upgrade this PPD manually\n";
+	return ("", 0);
+    }
+    if ($debug & 1) {
+	print "Candidate PPD: $new_ppd_filename\n";
+    }
+
+    my $suffix = "\\" . $gzext; # Add '\', so m// matches the '.'.
+    if ($new_ppd_filename =~ m/.gz$/) { # Decompress input buffer
+	open GZIN, "gunzip -c $new_ppd_filename |"
+	    or die "$_: can't open for decompression: $!";
+	while (<GZIN>) {
+	    $source_data .= $_;
+	}
+	close GZIN;
+    } else {
+	open SOURCE, $new_ppd_filename
+	    or die "$new_ppd_filename: can't open source file: $!";
+	binmode SOURCE;
+	my $source_size = (stat(SOURCE))[7];
+	read (SOURCE, $source_data, $source_size)
+	    or die "$new_ppd_filename: error reading source: $!";
+	close SOURCE or die "$new_ppd_filename: can't close file: $!";
+    }
+    return ( $new_ppd_filename, $source_data );
+}
+
+# Update the named PPD file.
+sub update_ppd ($) {
+    my $ppd_source_filename = $_;
+    my $ppd_dest_filename = $ppd_source_filename;
+    if ($ppd_out_dir) {
+	$ppd_dest_filename =~ s;(.*)/([^/]+);$2;;
+	$ppd_dest_filename = "$ppd_out_dir/$ppd_dest_filename";
+    }
+
+    open ORIG, $_ or die "$_: can't open PPD file: $!";
+    seek (ORIG, 0, 0) or die "can't seek to start of PPD file";
+    my @orig_metadata = stat(ORIG);
+    if ($debug & 1) {
+	print "Source Filename: $ppd_source_filename\n";
+    }
+    my ($filename) = "";
+    my ($driver) = "";
+    my ($gutenprintdriver) = "";
+    my ($locale) = "";
+    my ($lingo) = "";
+    my ($region) = "";
+    my ($valid) = 0;
+    while (<ORIG>) {
+	if (/\*StpLocale:/) {
+	    ($locale) = m/^\*StpLocale:\s\"*(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/\*LanguageVersion/) {
+	    ($lingo) = m/^\*LanguageVersion:\s*(.*)$/;
+	}
+	if (/^\*StpDriverName:/ ) {
+	    ($driver) = m/^\*StpDriverName:\s*\"(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/\*%End of / && $driver eq "") {
+	    ($driver) = m/^\*%End of\s*(.*).ppd$/;
+	}
+	if (/^\*StpPPDLocation:/ ) {
+	    ($filename) = m/^\*StpPPDLocation:\s*\"(.*)\"$/;
+	    $valid = 1;
+	}
+	if (/^\*%Gutenprint Filename:/) {
+	    $valid = 1;
+	}
+    }
+    if (! $valid) {
+	print STDERR "$ppd_source_filename: this PPD file cannot be upgraded automatically (only files based on Gutenprint 4.3.21 and newer can be)\n";
+	return 0;
+    }
+    if ($debug & 2) {
+	print "Gutenprint Filename: $filename\n";
+	print "Locale: $locale\n";
+	print "Language: $lingo\n";
+	print "Driver: $driver\n";
+    }
+    if ($locale) {
+	# Split into the language and territory.
+	($locale, $region) = split(/-/, $locale);
+    } else {
+	# Split into the language and territory.
+	($locale, $region) = split(/-/, $lingo);
+	# Convert language into language code.
+	$locale = $languagemappings{"\L$lingo"};
+	if (!defined($locale)) {
+	    $locale = "C"; # Fallback if there isn't one.
+	}
+    }
+    if (! defined($region)) {
+	$region = "";
+    }
+    if ($debug & 2) {
+	print "Base Locale: $locale\n";
+	print "Region: $region\n";
+    }
+
+    # Read in the new PPD, decompressing it if needed...
+
+    my ($new_ppd_filename, $source_data) =
+	get_ppd_contents($ppd_source_filename, $filename,
+			 $driver, $locale, $region);
+
+    if (! $source_data) {
+	die "Unable to retrieve PPD file!\n";
+    }
+
+    # Save new PPD in a temporary file, for processing...
+
+    my($tmpfile, $tmpfilename) = tmpnam();
+    unlink $tmpfilename or warn "can't unlink temporary file $tmpfile: $!\n";
+    print $tmpfile $source_data;
+
+
+
+
+    # Extract the default values from the original PPD...
+
+    my %orig_default_types = get_default_types(ORIG);
+    my %new_default_types = get_default_types($tmpfile);
+    my %defaults = get_defaults(ORIG);
+    my %options = get_options($tmpfile, %new_default_types);
+
+
+    # Close original and temporary files...
+
+    close ORIG or die "$_: can't close file: $!";
+    close $tmpfile or die "can't close temporary file $tmpfile: $!";
+
+
+    if ($debug & 4) {
+	print "Options (Old->New Default Type):\n";
+	foreach (sort keys %options) {
+	    my ($old_type) = $orig_default_types{$_};
+	    my ($new_type) = $new_default_types{$_};
+	    if (! defined($old_type)) {
+		$old_type = '(New)';
+	    }
+	    if ($old_type ne $new_type) {
+		print "  $_ ($old_type -> $new_type) :  ";
+	    } else {
+		print "  $_ ($new_type) :  ";
+	    }
+	    my ($def) = $defaults{"Default$_"};
+	    foreach my $opt (@{$options{$_}}) {
+		if (defined $def && $def eq $opt) {
+		    print "*";
+		}
+		print "$opt ";
+	    }
+	    print "\n";
+	}
+	print "Non-UI Defaults:\n";
+	foreach (sort keys %defaults) {
+	    my ($xkey) = $_;
+	    $xkey =~ s/^Default//;
+	    if (! defined ($options{$xkey})) {
+		print "  $_: $defaults{$_}\n";
+	    }
+	}
+	print "Default Types of dropped options:\n";
+	foreach (sort keys %orig_default_types) {
+	    if (! defined($options{$_})) {
+		print "  $_: $orig_default_types{$_}\n";
+	    }
+	}
+    }
+
+    if ($no_action) {
+	if (!$quiet || $verbose) {
+	    if ($ppd_dest_filename eq $ppd_source_filename) {
+		print STDOUT "Would update $ppd_source_filename using $new_ppd_filename\n";
+	    } else {
+		print STDOUT "Would update $ppd_source_filename to $ppd_dest_filename using $new_ppd_filename\n";
+	    }
+	}
+	return 0;
+    }	
+
+    if  (! $reset_defaults) {
+	# Update source buffer with old defaults...
+
+	# Loop through each default in turn.
+default_loop:
+	foreach (sort keys %defaults) {
+	    my $default_option = $_;
+	    my $option;
+	    ($option = $_) =~ s/Default//; # Strip off `Default'
+	    # Check method is valid
+	    my $orig_method = $orig_default_types{$option};
+	    my $new_method = $new_default_types{$option};
+	    if ((!defined($orig_method) || !defined($new_method)) ||
+		$orig_method ne $new_method) {
+		next;
+	    }
+	    if ($new_method eq "PickOne") {
+		# Check the old setting is valid
+		foreach (@{$options{$option}}) {
+		    if ($defaults{$default_option} eq $_) { # Valid option
+			# Set the option in the new PPD
+			$source_data =~ s/\*($default_option).*/*$1:$defaults{$default_option}/m;
+			if ($verbose) {
+			    print "$ppd_source_filename: Set *$default_option to $defaults{$default_option}\n";
+			}
+			next default_loop;
+		    }
+		}
+		warn "Warning: $ppd_source_filename: Invalid option: *$default_option: $defaults{$default_option}.  Using default setting.\n";
+		next;
+	    }
+	    warn "Warning: $ppd_source_filename: PPD OpenUI method $new_default_types{$_} not understood.\n";
+	}
+    }
+
+    # Write new PPD...
+
+    my $tmpnew = "${ppd_dest_filename}.new";
+    if (! open NEWPPD, "> $tmpnew") {
+	warn "Can't open $tmpnew for writing: $!\n";
+	return 0;
+    }
+    print NEWPPD $source_data;
+    if (! close NEWPPD) {
+	warn "Can't close ${tmpnew}.new for writing: $!\n";
+	unlink $tmpnew;
+	return 0;
+    }
+
+    if (! rename $tmpnew, $ppd_dest_filename) {
+	warn "Can't rename $tmpnew to $ppd_dest_filename: $!\n";
+	unlink $tmpnew;
+	return 0;
+    }
+    chown($orig_metadata[4], $orig_metadata[5], $ppd_dest_filename);
+    chmod(($orig_metadata[2] & 0777), $ppd_dest_filename);
+
+    if (!$quiet || $verbose) {
+	if ($ppd_dest_filename eq $ppd_source_filename) {
+	    print STDOUT "Updated $ppd_source_filename using $new_ppd_filename\n";
+	} else {
+	    print STDOUT "Updated $ppd_source_filename to $ppd_dest_filename using $new_ppd_filename\n";
+	}
+    }
+    return 1;
+    # All done!
+}
+
+# Find a suitable source PPD file
+sub find_ppd ($$$$) {
+    my($gutenprintfilename, $drivername, $lang, $region) = @_;
+    my $file; # filename to return
+    my ($key) = '^\\*FileVersion:[ 	]*"@VERSION@"$';
+    my ($lingo, $suffix, $base, $basedir);
+    my ($current_best_file, $current_best_time);
+    my ($stored_name, $stored_dir, $simplified);
+    $stored_name = $gutenprintfilename;
+    $stored_name =~ s,.*/([^/]*)(.sim)?(.ppd)?(.gz)?$,$1,;
+    if ($gutenprintfilename =~ m,.*/([^/]*)(.sim)(.ppd)?(.gz)?$,) {
+	$simplified = ".sim";
+    } else {
+	$simplified = "";
+    }
+    $stored_dir = $gutenprintfilename;
+    $stored_dir =~ s,(.*)/([^/]*)$,$1,;
+
+    $current_best_file = "";
+    $current_best_time = 0;
+
+    # All possible candidates, in order of usefulness and gzippedness
+    foreach $lingo ("${lang}_${region}/",
+		    "$lang/",
+		    "en/",
+		    "C/",
+		    "") {
+	foreach $suffix (".ppd$gzext",
+			 ".ppd") {
+	    foreach $base ("${drivername}.$version${simplified}",
+                           "stp-${drivername}.$version${simplified}",
+			   $stored_name,
+			   $drivername) {
+		foreach $basedir ($ppd_base_dir,
+				  $stored_dir,
+				  $ppd_root_dir) {
+                    if (! $basedir || ! $base) { next; }
+		    my ($fn) = "$basedir/$lingo$base$suffix";
+		    if ($debug & 8) {
+                        print "Trying $fn for $gutenprintfilename, $lang, $region\n";
+                    }
+# Check that it is a regular file, owned by root.root, not writable
+# by other, and is readable by root.  i.e. the file is secure.
+		    my @sb = stat $fn or next;
+		    if (S_ISREG($sb[2]) && ($sb[4] == 0)) {
+			# Check that the file is a valid Gutenprint PPD file
+			# of the correct version.
+			my $file_version;
+			if ($fn =~ m/\.gz$/) {
+			    $file_version = `gunzip -c $fn | grep '$key'`;
+			} else {
+			    $file_version = `cat $fn | grep '$key'`;
+			}
+			if ($file_version ne "") {
+                            if ($debug & 8) {
+			        print "   Format valid: time $sb[9] best $current_best_time prev $current_best_file cur $fn!\n";
+			    }
+			    if ($sb[9] > $current_best_time) {
+				$current_best_time = $sb[9];
+				$current_best_file = $fn;
+		                if ($debug & 8) {
+                                    print STDERR "***current_best_file is $fn\n";
+                                }
+			    }
+			} elsif ($debug & 8) {
+			    print "   Format invalid\n";
+			}
+		    }
+		    else {
+			$_ = $fn;
+			if (! -d $fn && ! /\/$/) {
+			    print STDERR "$fn: not a regular file, or insecure ownership and permissions.  Skipped\n";
+			}
+		    }
+		}
+	    }
+	}
+    }
+    if ($current_best_file) {
+        return $current_best_file;
+    }
+# Yikes!  Cannot find a valid PPD file!
+    return undef;
+}
+
+# Return the default options from the given PPD filename
+sub get_default_types(*) {
+    my $fh = $_[0];
+    my %default_types;
+
+    # Read each line of the original PPD file, and store all OpenUI
+    # names and their types in a hash...
+    seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+    while (<$fh>) {
+	if ( m/^\*OpenUI/ ) {
+	    chomp;
+	    my ($key, $value) = /^\*OpenUI\s\*([[:alnum:]]+).*:\s([[:alnum:]]+)/;
+	    if ($key && $value) {
+		$default_types{$key}=$value;
+	    }
+	}
+    }
+    return %default_types;
+}
+
+
+# Return the default options from the given PPD filename
+sub get_defaults(*) {
+    my $fh = $_[0];
+    my %defaults;
+
+    # Read each line of the original PPD file, and store all default
+    # names and their values in a hash...
+    seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+    while (<$fh>) {
+	if ( m/^\*Default/ ) {
+	    chomp;
+	    my($key, $value) = /^\*([[:alnum:]]+):\s*([[:alnum:]]+)/;
+	    if ($key && $value) {
+		$defaults{$key}=$value;
+	    }
+	}
+    }
+    return %defaults;
+}
+
+
+# Return the available options from the given PPD filename
+sub get_options(*\%) {
+    my $fh = $_[0];
+    my $validopts = $_[1];
+    my %options;
+
+    # For each valid option name, grab each valid option for that name
+    # and store in a hash of arrays...
+
+    foreach (sort keys %$validopts) {
+	my $tmp = $_;
+	my @optionlist;
+
+	seek ($fh, 0, 0) or die "can't seek to start of PPD file";
+	while (<$fh>) {
+	    if ( m/^\*$tmp/ ) {
+		chomp;
+		my ($value) = /^\*$tmp\s*([[:alnum:]]+)[\/:]/;
+		if ($value) {
+		    push @optionlist, $value;
+		}
+	    }
+	}
+	if (@optionlist) {
+	    $options{$tmp} = [ @optionlist ];
+	}
+    }
+    return %options;
+}

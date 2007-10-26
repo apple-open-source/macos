@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -160,14 +160,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void read(IOService *          client,
-                      UInt64               byteStart,
-                      IOMemoryDescriptor * buffer,
-                      IOStorageCompletion  completion);
+    virtual void read(IOService *           client,
+                      UInt64                byteStart,
+                      IOMemoryDescriptor *  buffer,
+                      IOStorageAttributes * attributes,
+                      IOStorageCompletion * completion);
 
     /*!
      * @function write
@@ -188,14 +195,21 @@ public:
      * @param buffer
      * Buffer for the data transfer.  The size of the buffer implies the size of
      * the data transfer.
+     * @param attributes
+     * Attributes of the data transfer.  See IOStorageAttributes.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      * @param completion
-     * Completion routine to call once the data transfer is complete.
+     * Completion routine to call once the data transfer is complete.  It is the
+     * responsibility of the callee to maintain the information for the duration
+     * of the data transfer, as necessary.
      */
 
-    virtual void write(IOService *          client,
-                       UInt64               byteStart,
-                       IOMemoryDescriptor * buffer,
-                       IOStorageCompletion  completion);
+    virtual void write(IOService *           client,
+                       UInt64                byteStart,
+                       IOMemoryDescriptor *  buffer,
+                       IOStorageAttributes * attributes,
+                       IOStorageCompletion * completion);
 
     /*!
      * @function synchronizeCache

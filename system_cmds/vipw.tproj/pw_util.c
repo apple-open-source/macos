@@ -55,7 +55,8 @@
  */
 
 #ifndef lint
-static char sccsid[] = "@(#)pw_util.c	8.4 (Berkeley) 4/28/95";
+#include <sys/cdefs.h>
+__unused static char sccsid[] = "@(#)pw_util.c	8.4 (Berkeley) 4/28/95";
 #endif /* not lint */
 
 /*

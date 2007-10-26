@@ -1,8 +1,8 @@
 --- filedef.h.orig	Fri Oct 29 17:25:25 2004
 +++ filedef.h	Fri Oct 29 17:25:59 2004
-@@ -43,6 +43,10 @@
- 				   used when there are multiple double-colon
+@@ -42,6 +42,10 @@
  				   entries for the same file.  */
+     struct file *last;          /* Last entry for the same file name.  */
  
 +#if defined(__APPLE__) || defined(NeXT) || defined(NeXT_PDO)
 +    char *old_name;

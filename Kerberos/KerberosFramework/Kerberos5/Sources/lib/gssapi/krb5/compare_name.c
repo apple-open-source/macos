@@ -21,7 +21,7 @@
  */
 
 /*
- * $Id: compare_name.c 16187 2004-03-19 09:33:57Z raeburn $
+ * $Id: compare_name.c 18015 2006-05-17 05:26:12Z raeburn $
  */
 
 #include "gssapiP_krb5.h"
@@ -46,7 +46,7 @@ krb5_gss_compare_name(minor_status, name1, name2, name_equal)
       return(GSS_S_CALL_BAD_STRUCTURE|GSS_S_BAD_NAME);
    }
 
-   code = krb5_init_context(&context);
+   code = krb5_gss_init_context(&context);
    if (code) {
        *minor_status = code;
        return GSS_S_FAILURE;

@@ -8,6 +8,12 @@
 
 #define INVALID_ADDRESS ((CORE_ADDR) (-1))
 
+/* A regression to pre-gdbarch days, until we decide on a final
+   solution.  */
+#ifndef PRINT_EXTRA_FRAME_INFO
+#define PRINT_EXTRA_FRAME_INFO(NEXT,CACHE) ppc_print_extra_frame_info (NEXT, CACHE)
+#endif
+
 const char *ppc_register_name (int regno);
 
 /* core stack frame decoding functions */
@@ -53,20 +59,14 @@ int ppc_invalid_float (char *f, size_t len);
 
 void ppc_debug (const char *fmt, ...);
 
-int
-ppc_fast_show_stack (int show_frames, int get_names,
-                     unsigned int count_limit, unsigned int print_limit,
-                     unsigned int *count,
-                     void (print_fun) (struct ui_out * uiout, int frame_num,
-                                       CORE_ADDR pc, CORE_ADDR fp));
+CORE_ADDR ppc_frame_unwind_sp (struct frame_info *next_frame, void **this_cache);
 
-CORE_ADDR
-ppc_frame_find_prev_fp (struct frame_info *next_frame, void **this_cache);
+CORE_ADDR ppc_frame_unwind_fp (struct frame_info *next_frame, void **this_cache);
 
-CORE_ADDR
-ppc_frame_find_prev_sp (struct frame_info *next_frame, void **this_cache);
+CORE_ADDR ppc_frame_unwind_fp_for_dereferencing (struct frame_info *next_frame, void **this_cache);
 
-CORE_ADDR
-ppc_frame_find_prev_pc (struct frame_info *next_frame, void **this_cache);
+CORE_ADDR ppc_frame_find_prev_sp (struct frame_info *next_frame, void **this_cache);
+
+CORE_ADDR ppc_frame_find_prev_pc (struct frame_info *next_frame, void **this_cache);
 
 #endif /* __GDB_PPC_MACOSX_TDEP_H__ */

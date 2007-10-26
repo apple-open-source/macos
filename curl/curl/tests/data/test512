@@ -1,7 +1,8 @@
+<testcase>
 #
 # Server-side
 <reply>
-<data>
+<data mode="text">
 HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: yes
@@ -38,8 +39,8 @@ http://%HOSTIP:%HTTPPORT/512
 <protocol>
 GET /512 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 
 </protocol>
 </verify>
+</testcase>

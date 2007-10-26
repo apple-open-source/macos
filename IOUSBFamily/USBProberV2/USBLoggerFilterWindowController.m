@@ -211,7 +211,7 @@ float timeStampFromLogLine(NSString * line) {
     float timeStamp = -1;
     int level = -1;
     
-    sscanf((char *)[line cString],"\t%f [%d]", &timeStamp, &level);
+    sscanf((char *)[line cStringUsingEncoding:NSUTF8StringEncoding],"\t%f [%d]", &timeStamp, &level);
     
     return timeStamp;
 }

@@ -1,0 +1,252 @@
+commit 540b4cc6f5657c870079b4bf883c9297ab434d71
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Nov 8 16:20:34 2006 +0200
+
+    bump to 1.0.2
+
+commit f0f5fb7b4eb685094fc64aa1b46573991e84589f
+Author: Jamey Sharp <jamey@minilop.net>
+Date:   Sun Oct 15 00:26:21 2006 -0700
+
+    Don't call XInput_find_display in _XiCheckExtInit, while the Display lock is held.
+    
+    All callers of _XiCheckExtInit have already called XInput_find_display
+    first outside the lock, so just pass their copy of the XExtDisplayInfo
+    structure down. Besides being more correct, this should be slightly
+    faster. :-)
+    
+    Thanks to Magnus Kessler <Magnus.Kessler@gmx.net> for identifying
+    the bug and proposing a workaround.
+    (cherry picked from c27e00ceceed3fea011c98c0e70ab568bf0687c6 commit)
+
+commit 93d3c2c45ccd9a806342746c4df33c684a284dd6
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:39:16 2006 -0400
+
+    remove ChangeLog, add dist hook
+    Remove ChangeLog from the tree, and add a git dist hook to generate
+    it automatically.
+
+commit 8f0d3c6d1f64fdc3b20d0beb831fa457214d5188
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:28:58 2006 -0400
+
+    fix indentation on function declarations
+    Another brief run with indent.
+
+commit 2d9a57cd77575ca9850d226c79a897cbe88d06e9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:58:59 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 5693a8da9bdf553e1c9a8ebd50d0d75018cc5c0e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:14:32 2006 +0000
+
+    Bump to 1.0.1
+
+commit f50ac4deec13dfd070715f636887e12f6301070f
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Fri Mar 31 14:50:24 2006 +0000
+
+    Mass reindent. Sorry.
+
+commit 6b055729fd0f89eedd2bf00befd8e42804f12b4a
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Mar 20 19:54:58 2006 +0000
+
+    Bug #6286: Fix build on Cygwin. (Yaakov Selkowitz)
+
+commit 48ad6d382f6fdc9fba416cc5ee9d49324b515b68
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Feb 12 18:19:22 2006 +0000
+
+    Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628> Shadow pages
+        not created correctly when MANDIR & MANSUFFIX don't match.
+
+commit 04debb347c80f9487b4b507e5202d323d6b2d05a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:30 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 2c3bffb3e4ba665da6a9a152a65ac94b7eb8421e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:43 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 82059b8d9f29e140a9abd40e93bb9f66f0963638
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:44 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit f8652da907e902e4ee0b682851e2918a363f0d3d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:49 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit 5401f8a75cdc9ef218acda9a25f440ff136d2543
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:03:05 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit fcbf0710165e6f87633e5a044229172c81a90341
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:41 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit ef419a10f278e3fc66f2e4166c895e7ffcaab58d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:10 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 367dcdc269e67130569ad4665a50fe053070afe7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:00:08 2005 +0000
+
+    Use @LIB_MAN_SUFFIX@ instead of $(LIB_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 8ec9b7efc4f3d9fca2ba25f090b282469c996145
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 21:13:21 2005 +0000
+
+    Rename .shadows.DONE to shadows.DONE to avoid some make's thinking it's a
+        suffix rule (reported by Matthieu Herrb)
+
+commit 6967e23708c1411c3ce0fd832f811bb769c99626
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 13 04:25:46 2005 +0000
+
+    Add generated man pages to .cvsignores
+
+commit 7e777d014ec5b9c768f9c0d5a6dc27ff7e89135b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 12 01:01:29 2005 +0000
+
+    Use sed to put version number in man page Add shadow man pages for man
+        pages that document multiple functions.
+
+commit af2031f4df3080f91ff258b92a4d373b5f28ef48
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 5 19:55:52 2005 +0000
+
+    Added missing file to EXTRA_DIST
+
+commit 403868cc906504c2339a7e204dad39b735b53440
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:51 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit e715500a2a4e21adc162bbc0bb3edb60a131831a
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jul 16 07:10:44 2005 +0000
+
+    Set soversion to 6.0.0 using -version-number.
+
+commit 8603538c6ab5488e70179bdfcf46196b7defe253
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 12 07:59:16 2005 +0000
+
+    Change version to 1.3.0 and soversion to 6.0.0; add XIint.h to distfiles.
+
+commit da5d2fbc2d5ed6ebe09d69816e5d9ac9972a04b2
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 06:40:48 2005 +0000
+
+    Add .cvsignore files Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+commit 411d59f535e4b5bda9c0fed9384506500c2c18ca
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jul 1 20:09:11 2005 +0000
+
+    xtrap.pc.in: s/Xfixes/XTrap/ xi.pc.in: s/Xt/Xi/ Xv/src/Makefile.am: remove
+        whitespace after backslash modularizeapp.sh: s/destkop/desktop/
+        modular/symlink.sh: Add bitmaps for xeyes, system.xsm for xsm, and
+        Xvidtune.cpp for xvidtune. Also comment out non-existing mga_bios.h
+    Check in buildsystems for xsetroot, xsm, xstdcmap, xtrap, and xvinfo
+
+commit 42f0c4cae76a67e6684b3b3e76d61780a197c798
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jul 1 16:16:15 2005 +0000
+
+    spell freedesktop.org correctly
+
+commit b50e6e06f22d3c653166e1817d75c3f4a98b2748
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 22 19:37:27 2005 +0000
+
+    Autotool libXi
+
+commit c1990aed3deb74e3bec72a99bf43debe53d8506a
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:44 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 1ca71687d852a2aba9389f71af0c9df396bbb4b3
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:12 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit e1cf8e198c35b65c95d54a5dfe888e054f4b7056
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:28 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 07b3ed21a6223e9d913e8222bf3a94174a82383a
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:33 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 52336bb78203b3ee478404ba8bf680ae305a0d31
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:43 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 1b4f7c4f6dbbc62db74f433a73d129ae507642cd
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 3986f13c9319b4f64c7b2ec56391370735e7d51d
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 6b1f87ebe718c9c745d5f4b26343ee3cf34ff5cc
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    Initial revision
+
+commit 981020ce68e4c8d9c0dafba631b0fd3328d7fc59
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:38 2003 +0000
+
+    R6.6 is the Xorg base-line

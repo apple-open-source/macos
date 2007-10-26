@@ -44,9 +44,7 @@ __BEGIN_DECLS
     @discussion These keys can also be added to a matching dictionary 
         when searching for elements via copyMatchingElements.  
 */
-#define kIOHIDElementDuplicateValueSizeKey              "DuplicateValueSize"
-
-
+#define kIOHIDElementCollectionCookieKey    "CollectionCookie"
 __END_DECLS
 
 #endif /* !_IOKIT_HID_IOHIDPRIVATEKEYS_H_ */

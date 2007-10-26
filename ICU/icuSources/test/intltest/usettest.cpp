@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (C) 1999-2004 Alan Liu ,International Business Machines Corporation and
+**************************************************************************************
+*   Copyright (C) 1999-2006 International Business Machines Corporation and
 *   others. All Rights Reserved.
-**********************************************************************
+**************************************************************************************
 *   Date        Name        Description
 *   10/20/99    alan        Creation.
 *   03/22/2000  Madhu       Added additional tests
-**********************************************************************
+**************************************************************************************
 */
 
 #include "unicode/utypes.h"
@@ -17,7 +17,16 @@
 #include "unicode/ustring.h"
 #include "unicode/parsepos.h"
 #include "unicode/symtable.h"
+#include "unicode/uversion.h"
 #include "hash.h"
+
+
+#define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
+    errln("fail in file \"%s\", line %d: \"%s\"", __FILE__, __LINE__, \
+    u_errorName(status));}}
+
+#define TEST_ASSERT(expr) {if (!(expr)) { \
+    errln("fail in file \"%s\", line %d", __FILE__, __LINE__); }}
 
 UnicodeString operator+(const UnicodeString& left, const UnicodeSet& set) {
     UnicodeString pat;
@@ -58,6 +67,8 @@ UnicodeSetTest::runIndexedTest(int32_t index, UBool exec,
         CASE(16,TestInvalidCodePoint);
         CASE(17,TestSymbolTable);
         CASE(18,TestSurrogate);
+        CASE(19,TestPosixClasses);
+        CASE(20,TestIteration);
         default: name = ""; break;
     }
 }
@@ -664,6 +675,87 @@ void UnicodeSetTest::TestAPI() {
     }
 }
 
+void UnicodeSetTest::TestIteration() {
+    UErrorCode ec = U_ZERO_ERROR;
+    int i = 0;
+    int outerLoop;
+    
+    // 6 code points, 3 ranges, 2 strings, 8 total elements
+    //   Iteration will access them in sorted order -  a, b, c, y, z, U0001abcd, "str1", "str2"
+    UnicodeSet set("[zabyc\\U0001abcd{str1}{str2}]", ec);
+    TEST_ASSERT_SUCCESS(ec);
+    UnicodeSetIterator it(set);
+
+    for (outerLoop=0; outerLoop<3; outerLoop++) {
+        // Run the test multiple times, to check that iterator.reset() is working.
+        for (i=0; i<10; i++) {
+            UBool         nextv        = it.next();
+            UBool         isString     = it.isString();
+            int32_t       codePoint    = it.getCodepoint();
+            //int32_t       codePointEnd = it.getCodepointEnd();
+            UnicodeString s   = it.getString();
+            switch (i) {
+            case 0:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x61);
+                TEST_ASSERT(s == "a");
+                break;
+            case 1:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x62);
+                TEST_ASSERT(s == "b");
+                break;
+            case 2:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x63);
+                TEST_ASSERT(s == "c");
+                break;
+            case 3:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x79);
+                TEST_ASSERT(s == "y");
+                break;
+            case 4:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x7a);
+                TEST_ASSERT(s == "z");
+                break;
+            case 5:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == FALSE);
+                TEST_ASSERT(codePoint==0x1abcd);
+                TEST_ASSERT(s == UnicodeString((UChar32)0x1abcd));
+                break;
+            case 6:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == TRUE);
+                TEST_ASSERT(s == "str1");
+                break;
+            case 7:
+                TEST_ASSERT(nextv == TRUE);
+                TEST_ASSERT(isString == TRUE);
+                TEST_ASSERT(s == "str2");
+                break;
+            case 8:
+                TEST_ASSERT(nextv == FALSE);
+                break;
+            case 9:
+                TEST_ASSERT(nextv == FALSE);
+                break;
+            }
+        }
+        it.reset();  // prepare to run the iteration again.
+    }
+}
+                
+
+
+
 void UnicodeSetTest::TestStrings() {
     UErrorCode ec = U_ZERO_ERROR;
     
@@ -879,6 +971,9 @@ void UnicodeSetTest::TestPropertySet() {
         "\\u0F73\\u0F75\\u0F81",
         "abcd\\u0300\\u0301\\u00c0\\u00c5",
 
+        "[:Assigned:]",
+        "A\\uE000\\uF8FF\\uFDC7\\U00010000\\U0010FFFD",
+        "\\u0888\\uFDD3\\uFFFE\\U00050005"
     };
 
     static const int32_t DATA_LEN = sizeof(DATA)/sizeof(DATA[0]);
@@ -889,6 +984,101 @@ void UnicodeSetTest::TestPropertySet() {
     }
 }
 
+/**
+  * Test that Posix style character classes [:digit:], etc.
+  *   have the Unicode definitions from TR 18.
+  */
+void UnicodeSetTest::TestPosixClasses() {
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:alpha:]", status);
+        UnicodeSet s2("\\p{Alphabetic}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:lower:]", status);
+        UnicodeSet s2("\\p{lowercase}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:upper:]", status);
+        UnicodeSet s2("\\p{Uppercase}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:punct:]", status);
+        UnicodeSet s2("\\p{gc=Punctuation}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:digit:]", status);
+        UnicodeSet s2("\\p{gc=DecimalNumber}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:xdigit:]", status);
+        UnicodeSet s2("[\\p{DecimalNumber}\\p{HexDigit}]", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:alnum:]", status);
+        UnicodeSet s2("[\\p{Alphabetic}\\p{DecimalNumber}]", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:space:]", status);
+        UnicodeSet s2("\\p{Whitespace}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:blank:]", status);
+        TEST_ASSERT_SUCCESS(status);
+        UnicodeSet s2("[\\p{Whitespace}-[\\u000a\\u000B\\u000c\\u000d\\u0085\\p{LineSeparator}\\p{ParagraphSeparator}]]",
+            status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:cntrl:]", status);
+        TEST_ASSERT_SUCCESS(status);
+        UnicodeSet s2("\\p{Control}", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:graph:]", status);
+        TEST_ASSERT_SUCCESS(status);
+        UnicodeSet s2("[^\\p{Whitespace}\\p{Control}\\p{Surrogate}\\p{Unassigned}]", status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        UnicodeSet s1("[:print:]", status);
+        TEST_ASSERT_SUCCESS(status);
+        UnicodeSet s2("[[:graph:][:blank:]-[\\p{Control}]]" ,status);
+        TEST_ASSERT_SUCCESS(status);
+        TEST_ASSERT(s1==s2);
+    }
+}
 /**
  * Test cloning of UnicodeSet.  For C++, we test the copy constructor.
  */
@@ -932,7 +1122,7 @@ void UnicodeSetTest::TestIndexOf() {
 void UnicodeSetTest::TestCloseOver() {
     UErrorCode ec = U_ZERO_ERROR;
 
-    char CASE[] = {(char)USET_CASE};
+    char CASE[] = {(char)USET_CASE_INSENSITIVE};
     char CASE_MAPPINGS[] = {(char)USET_ADD_CASE_MAPPINGS};
     const char* DATA[] = {
         // selector, input, output
@@ -963,6 +1153,32 @@ void UnicodeSetTest::TestCloseOver() {
         CASE,
         "[ABC]","[A-Ca-c]",
 
+        CASE, "[i]", "[iI]",
+
+        CASE, "[\\u0130]",          "[\\u0130{i\\u0307}]", // dotted I
+        CASE, "[{i\\u0307}]",       "[\\u0130{i\\u0307}]", // i with dot
+
+        CASE, "[\\u0131]",          "[\\u0131]", // dotless i
+
+        CASE, "[\\u0390]",          "[\\u0390\\u1FD3{\\u03B9\\u0308\\u0301}]",
+
+        CASE, "[\\u03c2]",          "[\\u03a3\\u03c2\\u03c3]", // sigmas
+
+        CASE, "[\\u03f2]",          "[\\u03f2\\u03f9]", // lunate sigmas
+
+        CASE, "[\\u03f7]",          "[\\u03f7\\u03f8]",
+
+        CASE, "[\\u1fe3]",          "[\\u03b0\\u1fe3{\\u03c5\\u0308\\u0301}]",
+
+        CASE, "[\\ufb05]",          "[\\ufb05\\ufb06{st}]",
+        CASE, "[{st}]",             "[\\ufb05\\ufb06{st}]",
+
+        CASE, "[\\U0001044F]",      "[\\U00010427\\U0001044F]",
+
+        CASE, "[{a\\u02BE}]",       "[\\u1E9A{a\\u02BE}]", // first in sorted table
+
+        CASE, "[{\\u1f7c\\u03b9}]", "[\\u1ff2{\\u1f7c\\u03b9}]", // last in sorted table
+
         CASE_MAPPINGS,
         "[aq\\u00DF{Bc}{bC}{Fi}]",
         "[aAqQ\\u00DF{ss}{Ss}{SS}{Bc}{BC}{bC}{bc}{FI}{Fi}{fi}]",
@@ -980,6 +1196,7 @@ void UnicodeSetTest::TestCloseOver() {
 
     UnicodeSet s;
     UnicodeSet t;
+    UnicodeString buf;
     for (int32_t i=0; DATA[i]!=NULL; i+=3) {
         int32_t selector = DATA[i][0];
         UnicodeString pat(DATA[i+1]);
@@ -994,11 +1211,71 @@ void UnicodeSetTest::TestCloseOver() {
         if (s == t) {
             logln((UnicodeString)"Ok: " + pat + ".closeOver(" + selector + ") => " + exp);
         } else {
-            UnicodeString buf;
             errln((UnicodeString)"FAIL: " + pat + ".closeOver(" + selector + ") => " +
                   s.toPattern(buf, TRUE) + ", expected " + exp);
         }
     }
+
+#if 0
+    /*
+     * Unused test code.
+     * This was used to compare the old implementation (using USET_CASE)
+     * with the new one (using 0x100 temporarily)
+     * while transitioning from hardcoded case closure tables in uniset.cpp
+     * (moved to uniset_props.cpp) to building the data by gencase into ucase.icu.
+     * and using ucase.c functions for closure.
+     * See Jitterbug 3432 RFE: Move uniset.cpp data to a data file
+     *
+     * Note: The old and new implementation never fully matched because
+     * the old implementation turned out to not map U+0130 and U+0131 correctly
+     * (dotted I and dotless i) and because the old implementation's data tables
+     * were outdated compared to Unicode 4.0.1 at the time of the change to the
+     * new implementation. (So sigmas and some other characters were not handled
+     * according to the newer Unicode version.)
+     */
+    UnicodeSet sens("[:case_sensitive:]", ec), sens2, s2;
+    UnicodeSetIterator si(sens);
+    UnicodeString str, buf2;
+    const UnicodeString *pStr;
+    UChar32 c;
+    while(si.next()) {
+        if(!si.isString()) {
+            c=si.getCodepoint();
+            s.clear();
+            s.add(c);
+
+            str.setTo(c);
+            str.foldCase();
+            sens2.add(str);
+
+            t=s;
+            s.closeOver(USET_CASE);
+            t.closeOver(0x100);
+            if(s!=t) {
+                errln("FAIL: closeOver(U+%04x) differs: ", c);
+                errln((UnicodeString)"old "+s.toPattern(buf, TRUE)+" new: "+t.toPattern(buf2, TRUE));
+            }
+        }
+    }
+    // remove all code points
+    // should contain all full case folding mapping strings
+    sens2.remove(0, 0x10ffff);
+    si.reset(sens2);
+    while(si.next()) {
+        if(si.isString()) {
+            pStr=&si.getString();
+            s.clear();
+            s.add(*pStr);
+            t=s2=s;
+            s.closeOver(USET_CASE);
+            t.closeOver(0x100);
+            if(s!=t) {
+                errln((UnicodeString)"FAIL: closeOver("+s2.toPattern(buf, TRUE)+") differs: ");
+                errln((UnicodeString)"old "+s.toPattern(buf, TRUE)+" new: "+t.toPattern(buf2, TRUE));
+            }
+        }
+    }
+#endif
 
     // Test the pattern API
     s.applyPattern("[abc]", USET_CASE_INSENSITIVE, NULL, ec);

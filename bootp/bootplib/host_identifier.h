@@ -43,14 +43,16 @@
  * - initial revision
  */
 
-u_char *
-identifierToString(const u_char type, const void * identifier, int len);
+#include <stdint.h>
 
-u_char *
-identifierToStringWithBuffer(u_char type, const void * identifier, int len,
-			     u_char * buf, int buf_len);
+char *
+identifierToString(uint8_t type, const void * identifier, int len);
+
+char *
+identifierToStringWithBuffer(uint8_t type, const void * identifier, int len,
+			     char * buf, int buf_len);
 
 void *
-identifierFromString(const u_char * str, u_char * type, int * len);
+identifierFromString(const char * str, uint8_t * type, int * len);
 
 #endif _S_HOST_IDENTIFIER_H

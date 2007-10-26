@@ -6,6 +6,36 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFWUserObjectExporter.cpp,v $
+ *	Revision 1.15  2007/03/14 01:01:12  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.14  2006/02/09 00:21:51  niels
+ *	merge chardonnay branch to tot
+ *	
+ *	Revision 1.13  2005/09/24 00:55:28  niels
+ *	*** empty log message ***
+ *	
+ *	Revision 1.12  2005/04/12 20:09:13  niels
+ *	fix memory leak importing NuDCL programs from user space
+ *	
+ *	Revision 1.11  2005/04/02 02:43:46  niels
+ *	exporter works outside IOFireWireFamily
+ *	
+ *	Revision 1.10  2005/03/31 02:31:44  niels
+ *	more object exporter fixes
+ *	
+ *	Revision 1.9  2005/03/30 22:14:55  niels
+ *	Fixed compile errors see on Tiger w/ GCC 4.0
+ *	Moved address-of-member-function calls to use OSMemberFunctionCast
+ *	Added owner field to IOFWUserObjectExporter
+ *	User client now cleans up published unit directories when client dies
+ *	
+ *	Revision 1.8.18.3  2006/01/31 04:49:50  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.8.18.1  2005/07/23 00:30:44  collin
+ *	*** empty log message ***
+ *	
  *	Revision 1.8  2003/12/18 00:08:12  niels
  *	fix panic calling methods on deallocated user objects
  *	
@@ -46,19 +76,26 @@
 
 OSDefineMetaClassAndStructors ( IOFWUserObjectExporter, super )
 
-
 bool
-IOFWUserObjectExporter :: init ()
+IOFWUserObjectExporter::init()
 {
 	fLock = IOLockAlloc () ;
 	if ( ! fLock )
 		return false ;
 	
-	return super :: init () ;
+	return super::init () ;
+}
+
+bool
+IOFWUserObjectExporter::initWithOwner ( OSObject * owner )
+{
+	fOwner = owner ;
+	
+	return init() ;
 }
 
 void
-IOFWUserObjectExporter :: free ()
+IOFWUserObjectExporter::free ()
 {
 	DebugLog( "free object exporter %p, fObjectCount = %d\n", this, fObjectCount ) ;
 
@@ -67,11 +104,13 @@ IOFWUserObjectExporter :: free ()
 	if ( fLock )
 		IOLockFree( fLock ) ;
 	
-	super :: free () ;
+	fOwner = NULL ;
+	
+	super::free () ;
 }
 
 bool
-IOFWUserObjectExporter :: serialize ( 
+IOFWUserObjectExporter::serialize ( 
 	OSSerialize * s ) const
 {
 	lock() ;
@@ -106,7 +145,7 @@ IOFWUserObjectExporter :: serialize (
 }
 
 IOReturn
-IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFunction, UserObjectHandle & outHandle )
+IOFWUserObjectExporter::addObject ( OSObject & obj, CleanupFunction cleanupFunction, IOFireWireLib::UserObjectHandle & outHandle )
 {
 	IOReturn error = kIOReturnSuccess ;
 	
@@ -115,8 +154,8 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 	if ( ! fObjects )
 	{
 		fCapacity = 8 ;
-		fObjects = (const OSObject **) new (const OSObject*)[ fCapacity ] ;
-		fCleanupFunctions = new (CleanupFunction)[ fCapacity ] ;
+		fObjects = (const OSObject **) new const OSObject * [ fCapacity ] ;
+		fCleanupFunctions = new CleanupFunctionWithExporter[ fCapacity ] ;
 		
 		if ( ! fObjects || !fCleanupFunctions )
 		{
@@ -139,11 +178,11 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 		}
 		
 		const OSObject ** newObjects = NULL ;
-		CleanupFunction * newCleanupFunctions = NULL ;
+		CleanupFunctionWithExporter * newCleanupFunctions = NULL ;
 
 		if ( ! error )
 		{
-			newObjects = (const OSObject **) new (OSObject*)[ newCapacity ] ;
+			newObjects = (const OSObject **) new OSObject * [ newCapacity ] ;
 		
 			if ( !newObjects )
 				error = kIOReturnNoMemory ;
@@ -151,7 +190,7 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 		
 		if ( !error )
 		{
-			newCleanupFunctions = new (CleanupFunction)[ newCapacity ] ;
+			newCleanupFunctions = new CleanupFunctionWithExporter[ newCapacity ] ;
 			if ( !newCleanupFunctions )
 				error = kIOReturnNoMemory ;
 		}
@@ -181,8 +220,8 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 			{
 				obj.retain () ;
 				fObjects[ index ] = & obj ;
-				fCleanupFunctions[ index ] = cleanupFunction ;
-				outHandle = (UserObjectHandle)(index + 1) ;		// return index + 1; this means 0 is always an invalid/NULL index...
+				fCleanupFunctions[ index ] = (CleanupFunctionWithExporter)cleanupFunction ;
+				outHandle = (IOFireWireLib::UserObjectHandle)(index + 1) ;		// return index + 1; this means 0 is always an invalid/NULL index...
 				++fObjectCount ;
 				error = kIOReturnSuccess ;
 				break ;
@@ -200,7 +239,7 @@ IOFWUserObjectExporter :: addObject ( OSObject & obj, CleanupFunction cleanupFun
 }
 
 void
-IOFWUserObjectExporter :: removeObject ( UserObjectHandle handle )
+IOFWUserObjectExporter::removeObject ( IOFireWireLib::UserObjectHandle handle )
 {
 	if ( !handle )
 	{
@@ -213,20 +252,19 @@ IOFWUserObjectExporter :: removeObject ( UserObjectHandle handle )
 
 	unsigned index = (unsigned)handle - 1 ;		// handle is object's index + 1; this means 0 is always in invalid/NULL index...
 	
+	const OSObject * object = NULL ;
+	CleanupFunctionWithExporter cleanupFunction = NULL ;
+	
 	if ( fObjects && ( index < fCapacity ) )
 	{
 		if ( fObjects[ index ] )
 		{
 			DebugLog( "found object %p (%s), retain count=%d\n", fObjects[ index ], fObjects[ index ]->getMetaClass()->getClassName(), fObjects[ index ]->getRetainCount() )
-
-			if ( fCleanupFunctions[ index ] )
-			{
-				DebugLog("calling cleanup function for object %p\n", fObjects[ index ]) ;
-				(*(fCleanupFunctions[ index ]))( fObjects[index] ) ;
-			}
 			
-			fObjects[ index ]->release() ;
+			object = fObjects[ index ] ;
 			fObjects[ index ] = NULL ;
+
+			cleanupFunction = fCleanupFunctions[ index ] ;				
 			fCleanupFunctions[ index ] = NULL ;
 			
 			--fObjectCount ;
@@ -234,10 +272,22 @@ IOFWUserObjectExporter :: removeObject ( UserObjectHandle handle )
 	}
 
 	unlock () ;
+
+	if ( object )
+	{
+		if ( cleanupFunction )
+		{
+			InfoLog("IOFWUserObjectExporter<%p>::removeObject() -- calling cleanup function for object %p of class %s\n", this, object, object->getMetaClass()->getClassName() ) ;
+			(*cleanupFunction)( object, this ) ;
+		}
+		
+		object->release() ;
+	}
+	
 }
 
 const OSObject *
-IOFWUserObjectExporter :: lookupObject ( UserObjectHandle handle ) const
+IOFWUserObjectExporter::lookupObject ( IOFireWireLib::UserObjectHandle handle ) const
 {
 	if ( !handle )
 	{
@@ -265,34 +315,64 @@ IOFWUserObjectExporter :: lookupObject ( UserObjectHandle handle ) const
 }
 
 void
-IOFWUserObjectExporter :: removeAllObjects ()
+IOFWUserObjectExporter::removeAllObjects ()
 {
 	lock () ;
 	
+	const OSObject ** objects = NULL ;
+	CleanupFunctionWithExporter * cleanupFunctions = NULL ;
+
+	unsigned capacity = fCapacity ;
+
 	if ( fObjects )
-	{
-		for ( unsigned index=0; index < fCapacity; ++index )
-		{
-			if ( fObjects[index] )
-			{
-				DebugLog("remove object %p (%s)\n", fObjects[ index ], fObjects[ index ]->getMetaClass()->getClassName() ) ;
-				
-				if ( fCleanupFunctions[ index ] )
-				{
-					DebugLog("calling cleanup function for object %p\n", fObjects[ index ] ) ;
-					(*(fCleanupFunctions[ index ] ))( fObjects[ index ] ) ;
-				}
-				
-				fObjects[index]->release() ;
-			}
-		}
+	{		
+		objects = (const OSObject **)IOMalloc( sizeof(const OSObject *) * capacity ) ;
+		cleanupFunctions = (CleanupFunctionWithExporter*)IOMalloc( sizeof( CleanupFunctionWithExporter ) * capacity ) ;
+	
+		if ( objects )
+			bcopy( fObjects, objects, sizeof( const OSObject * ) * capacity ) ;
+		
+		if ( cleanupFunctions )
+			bcopy( fCleanupFunctions, cleanupFunctions, sizeof( CleanupFunction) * capacity ) ;
 			
 		delete[] fObjects ;
 		fObjects = NULL ;
 		
 		delete[] fCleanupFunctions ;
-		fCleanupFunctions = NULL ;
+		fCleanupFunctions = NULL ;		
+
+		fObjectCount = 0 ;
+		fCapacity = 0 ;
 	}
-		
-	unlock () ;
+	
+	unlock() ;
+
+	if ( objects && cleanupFunctions )
+	{
+		for ( unsigned index=0; index < capacity; ++index )
+		{
+			if ( objects[index] )
+			{
+				InfoLog("IOFWUserObjectExporter<%p>::removeAllObjects() -- remove object %p of class %s\n", this, objects[ index ], objects[ index ]->getMetaClass()->getClassName() ) ;
+				
+				if ( cleanupFunctions[ index ] )
+				{
+					InfoLog("IOFWUserObjectExporter<%p>::removeAllObjects() -- calling cleanup function for object %p of type %s\n", this, objects[ index ], objects[ index ]->getMetaClass()->getClassName() ) ;
+					(*cleanupFunctions[ index ])( objects[ index ], this ) ;
+				}
+				
+				objects[index]->release() ;
+			}
+		}
+
+		IOFree( objects, sizeof(const OSObject *) * capacity ) ;
+		IOFree( cleanupFunctions, sizeof( CleanupFunction ) * capacity ) ;
+	}
 }
+
+OSObject *
+IOFWUserObjectExporter::getOwner() const
+{
+	return fOwner ;
+}
+

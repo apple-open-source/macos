@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 4                                                        |
+  | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
   | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
@@ -15,7 +15,7 @@
   | Author: Hartmut Holzgraefe  <hholzgra@php.net>                       |
   +----------------------------------------------------------------------+
 
-  $Id: mime_magic.c,v 1.13.2.13.2.3 2007/01/01 09:46:44 sebastian Exp $ 
+  $Id: mime_magic.c,v 1.42.2.5.2.7 2007/06/07 08:44:41 tony2001 Exp $ 
 
   This module contains a lot of stuff taken from Apache mod_mime_magic,
   so the license section is a little bit longer than usual:
@@ -160,7 +160,6 @@
 
 #include <fcntl.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -169,11 +168,21 @@
 #define PHP_MIME_MAGIC_FILE_PATH PHP_PREFIX "\\magic.mime"
 #endif
 
-#define MODNAME "mime_magic"
+#define BYTE	1
+#define SHORT	2
+#define LONG	4
+#define STRING	5
+#define DATE	6
+#define BESHORT	7
+#define BELONG	8
+#define BEDATE	9
+#define LESHORT	10
+#define LELONG	11
+#define LEDATE	12
 
 static int apprentice(void);
 static int ascmagic(unsigned char *, int);
-static int is_tar(unsigned char *, int);
+static int is_tar(unsigned char *, unsigned int);
 static int softmagic(unsigned char *, int);
 static void tryit(unsigned char *, int, int);
 
@@ -189,10 +198,10 @@ static int mcheck(union VALUETYPE *, struct magic *);
 static void mprint(union VALUETYPE *, struct magic *);
 static int mconvert(union VALUETYPE *, struct magic *);
 static int magic_rsl_get(char **, char **);
-static int magic_process(char * TSRMLS_DC);
+static int magic_process(zval * TSRMLS_DC);
 
 static long from_oct(int, char *);
-static int fsmagic(char *fn TSRMLS_DC);
+static int fsmagic(zval * TSRMLS_DC);
 
 
 #if HAVE_ZLIB && !defined(COMPILE_DL_ZLIB)
@@ -203,13 +212,13 @@ static magic_req_rec *magic_set_config(void);
 static void magic_free_config(magic_req_rec *);
 
 ZEND_DECLARE_MODULE_GLOBALS(mime_magic)
-
+static PHP_GINIT_FUNCTION(mime_magic);
 
 /* True global resources - no need for thread safety here */
 static magic_server_config_rec mime_global;
 
 /* {{{ mime_magic_functions[] */
-function_entry mime_magic_functions[] = {
+zend_function_entry mime_magic_functions[] = {
 	PHP_FE(mime_content_type,	NULL)	   
 	{NULL, NULL, NULL}	
 };
@@ -231,7 +240,15 @@ zend_module_entry mime_magic_module_entry = {
 #if ZEND_MODULE_API_NO >= 20010901
 	"0.1", 
 #endif
+#if ZEND_MODULE_API_NO >= 20060613
+	PHP_MODULE_GLOBALS(mime_magic),
+	PHP_GINIT(mime_magic),
+	NULL,
+	NULL,
+	STANDARD_MODULE_PROPERTIES_EX
+#else
 	STANDARD_MODULE_PROPERTIES
+#endif
 };
 /* }}} */
 
@@ -243,14 +260,17 @@ ZEND_GET_MODULE(mime_magic)
  */
 PHP_INI_BEGIN()
 STD_PHP_INI_ENTRY("mime_magic.magicfile", PHP_MIME_MAGIC_FILE_PATH, PHP_INI_SYSTEM, OnUpdateString, magicfile, zend_mime_magic_globals, mime_magic_globals)
+STD_PHP_INI_BOOLEAN("mime_magic.debug", "0", PHP_INI_SYSTEM, OnUpdateBool, debug, zend_mime_magic_globals, mime_magic_globals)
 PHP_INI_END()
 /* }}} */
 
-/* {{{ php_mime_magic_init_globals
+/* {{{ PHP_GINIT_FUNCTION
  */
-static void php_mime_magic_init_globals(zend_mime_magic_globals *mime_magic_globals)
+static PHP_GINIT_FUNCTION(mime_magic)
 {
-	mime_global.magicfile = NULL;
+	memset(mime_magic_globals, 0, sizeof(zend_mime_magic_globals));
+	mime_global.magic = NULL;
+	mime_global.last = NULL;
 }
 /* }}} */
 
@@ -258,14 +278,18 @@ static void php_mime_magic_init_globals(zend_mime_magic_globals *mime_magic_glob
  */
 PHP_MINIT_FUNCTION(mime_magic)
 {
-	ZEND_INIT_MODULE_GLOBALS(mime_magic, php_mime_magic_init_globals, NULL);
 	REGISTER_INI_ENTRIES();
 
-	mime_global.magicfile = MIME_MAGIC_G(magicfile);
-
-	if(mime_global.magicfile) {
-		apprentice();
+	if(MIME_MAGIC_G(magicfile)) {
+		if(apprentice()) {
+			MIME_MAGIC_G(status) = "invalid magic file, disabled";
+		} else {
+			MIME_MAGIC_G(status) = "enabled";
+		}
+	} else {
+		MIME_MAGIC_G(status) = "no magic file given, disabled";
 	}
+
 	return SUCCESS;
 }
 /* }}} */
@@ -292,7 +316,7 @@ PHP_MSHUTDOWN_FUNCTION(mime_magic)
 PHP_MINFO_FUNCTION(mime_magic)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "mime_magic support", "enabled");
+	php_info_print_table_header(2, "mime_magic support", MIME_MAGIC_G(status));
 	php_info_print_table_end();
 
 	DISPLAY_INI_ENTRIES();
@@ -300,32 +324,52 @@ PHP_MINFO_FUNCTION(mime_magic)
 /* }}} */
 
 
-/* {{{ proto string mime_content_type(string filename)
+/* {{{ proto string mime_content_type(string filename|resource stream)
    Return content-type for file */
 PHP_FUNCTION(mime_content_type)
 {
-	char *filename = NULL;
-	int filename_len;
+	zval *what;
 	magic_server_config_rec *conf = &mime_global;
 	char *content_type=NULL, *content_encoding=NULL;
 
-	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &filename, &filename_len) == FAILURE) {
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &what) == FAILURE) {
 		return;
 	}
 
+	switch (Z_TYPE_P(what)) {
+	case IS_STRING:
+		break;
+	case IS_RESOURCE:
+		{
+			php_stream *stream;
+
+			php_stream_from_zval_no_verify(stream, &what);
+			if (stream) {
+				break;
+			}
+		}
+		/* fallthru if not a stream resource */
+	default:
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "can only process string or stream arguments");
+		RETURN_FALSE;
+		break;
+	}
+
 	if (conf->magic == (struct magic *)-1) {
-		php_error(E_ERROR, MODNAME " could not be initialized, magic file %s is not available",  conf->magicfile);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_ERROR, "mime_magic could not be initialized, magic file %s is not available", MIME_MAGIC_G(magicfile));
 		RETURN_FALSE;
 	} 
 
 	if(!conf->magic) {
-		php_error(E_WARNING, MODNAME " not initialized");
+		if(MIME_MAGIC_G(debug))
+			php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, "mime_magic not initialized");
 		RETURN_FALSE;
 	}
 
 	MIME_MAGIC_G(req_dat) = magic_set_config();
 
-	if(MIME_MAGIC_OK != magic_process(filename TSRMLS_CC)) {
+	if(MIME_MAGIC_OK != magic_process(what TSRMLS_CC)) {
 		RETVAL_FALSE;
 	} else if(MIME_MAGIC_OK != magic_rsl_get(&content_type, &content_encoding)) {
 		RETVAL_FALSE;
@@ -352,12 +396,15 @@ static int apprentice(void)
     char line[BUFSIZ + 1];
     int errs = 0;
     int lineno;
-
     char *fname;
     magic_server_config_rec *conf = &mime_global;
     TSRMLS_FETCH();
 
-    fname = conf->magicfile; /* todo cwd? */
+    if (!MIME_MAGIC_G(magicfile)) {
+        return -1;
+    }
+	
+    fname = MIME_MAGIC_G(magicfile); /* todo cwd? */
     f = fopen(fname, "rb");
     if (f == NULL) {
 		conf->magic = (struct magic *)-1;
@@ -430,12 +477,36 @@ static unsigned long signextend(struct magic *m, unsigned long v)
 			break;
 		case STRING:
 			break;
-		default:
-			php_error(E_WARNING,
-						 MODNAME ": can't happen: m->type=%d", m->type);
+		default: 
+		 {
+			TSRMLS_FETCH();
+			if(MIME_MAGIC_G(debug))
+				php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": can't happen: m->type=%d", m->type);
 			return -1;
+		 }
 		}
     return v;
+}
+
+/*
+ *
+ */
+static int is_valid_mimetype(char *p, int p_len)
+{
+	if (p_len > 0) {
+		do {
+			if (!isalnum(*p) && (*p != '-') && (*p != '.')) {
+				return 0;
+			}
+		} while (*(++p) != '/');
+		++p;
+		do {
+			if (!isalnum(*p) && (*p != '-') && (*p != '.') && !isspace(*p)) {
+				return 0;
+			}
+		} while (*(++p));
+	}
+	return 1;
 }
 
 /*
@@ -446,6 +517,7 @@ static int parse(char *l, int lineno)
     struct magic *m;
     char *t, *s;
     magic_server_config_rec *conf = &mime_global;
+    TSRMLS_FETCH();
 
     /* allocate magic structure entry */
     m = (struct magic *) calloc(1, sizeof(struct magic));
@@ -478,8 +550,8 @@ static int parse(char *l, int lineno)
     /* get offset, then skip over it */
     m->offset = (int) strtol(l, &t, 0);
     if (l == t) {
-		php_error(E_WARNING,
-					 MODNAME ": (line %d) offset `%s' invalid", lineno, l);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": (%s:%d) offset `%s' invalid", MIME_MAGIC_G(magicfile), lineno, l);
     }
     l = t;
 
@@ -501,8 +573,8 @@ static int parse(char *l, int lineno)
 				m->in.type = BYTE;
 				break;
 			default:
-				php_error(E_WARNING,
-							 MODNAME ": indirect offset type %c invalid", *l);
+				if(MIME_MAGIC_G(debug))
+					php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": (%s:%d) indirect offset type %c invalid", MIME_MAGIC_G(magicfile), lineno, *l);
 				break;
 			}
 			l++;
@@ -518,8 +590,8 @@ static int parse(char *l, int lineno)
 		else
 			t = l;
 		if (*t++ != ')') {
-			php_error(E_WARNING,
-						 MODNAME ": missing ')' in indirect offset");
+			if(MIME_MAGIC_G(debug))
+				php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": (%s:%d) missing ')' in indirect offset", MIME_MAGIC_G(magicfile), lineno);
 		}
 		l = t;
     }
@@ -592,8 +664,8 @@ static int parse(char *l, int lineno)
 		l += NLEDATE;
     }
     else {
-		php_error(E_WARNING,
-					 MODNAME ": type %s invalid", l);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": (%s:%d) type %s invalid", MIME_MAGIC_G(magicfile), lineno, l);
 		return -1;
     }
     /* New-style anding: "0 byte&0x80 =0x80 dynamically linked" */
@@ -651,7 +723,14 @@ static int parse(char *l, int lineno)
     }
     else
 		m->nospflag = 0;
-    strlcpy(m->desc, l, sizeof(m->desc));
+
+	if (!is_valid_mimetype(l, strlen(l))) {
+		if(MIME_MAGIC_G(debug))
+			php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, ": (%s:%d) '%s' is not a valid mimetype, entry skipped", MIME_MAGIC_G(magicfile), lineno, l);
+		return -1;
+	}
+	
+	strlcpy(m->desc, l, sizeof(m->desc));
     return 0;
 }
 
@@ -690,8 +769,9 @@ static char *getstr(register char *s, register char *p,
 		if (isspace((unsigned char) c))
 			break;
 		if (p >= pmax) {
-			php_error(E_WARNING,
-						 MODNAME ": string too long: %s", origs);
+			TSRMLS_FETCH();
+			if(MIME_MAGIC_G(debug))
+				php_error_docref("http://www.php.net/mime_magic" TSRMLS_CC, E_WARNING, "string too long: %s", origs);
 			break;
 		}
 		if (c == '\\') {
@@ -849,8 +929,8 @@ static int magic_rsl_add(char *str)
 	
    /* make sure we have a list to put it in */
     if (!req_dat) {
-		php_error(E_WARNING,
-					  MODNAME ": request config should not be NULL");
+		if(MIME_MAGIC_G(debug))
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "request config should not be NULL");
 		if (!(req_dat = magic_set_config())) {
 			/* failure */
 			return -1;
@@ -961,17 +1041,18 @@ static char *rsl_strdup(int start_frag, int start_pos, int len)
  * (formerly called "process" in file command, prefix added for clarity) Opens
  * the file and reads a fixed-size buffer to begin processing the contents.
  */
-static int magic_process(char *filename TSRMLS_DC)
+static int magic_process(zval *what TSRMLS_DC)
 {
 	php_stream *stream;
     unsigned char buf[HOWMANY + 1];	/* one extra for terminating '\0' */
     int nbytes = 0;		/* number of bytes read from a datafile */
     int result;
+	off_t streampos;
 
     /*
      * first try judging the file based on its filesystem status
      */
-    switch ((result = fsmagic(filename TSRMLS_CC))) {
+    switch ((result = fsmagic(what TSRMLS_CC))) {
     case MIME_MAGIC_DONE:
 		magic_rsl_putchar('\n');
 		return MIME_MAGIC_OK;
@@ -982,22 +1063,38 @@ static int magic_process(char *filename TSRMLS_DC)
 		return result;
     }
 
-    stream = php_stream_open_wrapper(filename, "rb", IGNORE_PATH | ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
+	switch (Z_TYPE_P(what)) {
+	case IS_STRING:
+		stream = php_stream_open_wrapper(Z_STRVAL_P(what), "rb", IGNORE_PATH | ENFORCE_SAFE_MODE | REPORT_ERRORS, NULL);
+		if (stream == NULL) {
+			/* We can't open it, but we were able to stat it. */
+			if(MIME_MAGIC_G(debug))
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "can't read `%s'", Z_STRVAL_P(what));
+			/* let some other handler decide what the problem is */
+			return MIME_MAGIC_DECLINED;
+		}
+		break;
+	case IS_RESOURCE:
+		php_stream_from_zval_no_verify(stream, &what); /* we tested this before, so it should work here */
+		streampos = php_stream_tell(stream); /* remember stream position for restauration */
+		php_stream_seek(stream, 0, SEEK_SET);
+		break;
+	default:
+		return -1;	
+	}
 
-    if (stream == NULL) {
-		/* We can't open it, but we were able to stat it. */
-		php_error(E_WARNING,
-					  MODNAME ": can't read `%s'", filename);
-		/* let some other handler decide what the problem is */
-		return MIME_MAGIC_DECLINED;
-    }
 
     /*
      * try looking at the first HOWMANY bytes
      */
     if ((nbytes = php_stream_read(stream, (char *) buf, sizeof(buf) - 1)) == -1) {
-		php_error(E_WARNING,
-					  MODNAME ": read failed: %s", filename);
+		if(MIME_MAGIC_G(debug)) {
+			if (Z_TYPE_P(what) == IS_RESOURCE) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "read failed on stream");
+			} else {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "read failed: %s", Z_STRVAL_P(what));
+			}
+		}
 		return MIME_MAGIC_ERROR;
     }
 
@@ -1008,7 +1105,11 @@ static int magic_process(char *filename TSRMLS_DC)
 		tryit(buf, nbytes, 1); 
     }
 
-    (void) php_stream_close(stream);
+	if (Z_TYPE_P(what) == IS_RESOURCE) {
+		php_stream_seek(stream, streampos, SEEK_SET);
+	} else {
+		(void) php_stream_close(stream);
+	}
     (void) magic_rsl_putchar('\n');
 
     return MIME_MAGIC_OK;
@@ -1050,12 +1151,34 @@ static void tryit(unsigned char *buf, int nb, int checkzmagic)
  * return MIME_MAGIC_OK to indicate it's a regular file still needing handling
  * other returns indicate a failure of some sort
  */
-static int fsmagic(char *filename TSRMLS_DC)
+static int fsmagic(zval *what TSRMLS_DC)
 {
 	php_stream_statbuf stat_ssb;
 
-	if(!php_stream_stat_path(filename, &stat_ssb)) {
-		return MIME_MAGIC_OK;
+	switch (Z_TYPE_P(what)) {
+		case IS_STRING:
+			if (php_stream_stat_path_ex(Z_STRVAL_P(what), PHP_STREAM_URL_STAT_QUIET, &stat_ssb, NULL)) {
+				if (MIME_MAGIC_G(debug)) {
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "Non-statable file path (%s)", Z_STRVAL_P(what));
+				}
+				return MIME_MAGIC_ERROR;
+			}
+			break;
+		case IS_RESOURCE:
+			{
+				php_stream *stream;
+	
+				php_stream_from_zval_no_verify(stream, &what);
+				if (php_stream_stat(stream, &stat_ssb)) {
+					if (MIME_MAGIC_G(debug)) {
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "Non-statable file path (%s)", Z_STRVAL_P(what));
+					}
+					return MIME_MAGIC_ERROR;
+				}
+			}
+			break;
+		default:
+			return MIME_MAGIC_OK;
 	}
 
     switch (stat_ssb.sb.st_mode & S_IFMT) {
@@ -1092,8 +1215,10 @@ static int fsmagic(char *filename TSRMLS_DC)
 		/* We used stat(), the only possible reason for this is that the
 		 * symlink is broken.
 		 */
-		php_error(E_WARNING,
-					  MODNAME ": broken symlink (%s)", filename);
+		if(MIME_MAGIC_G(debug)) {
+			/* no need to check argument type here, this can only happen with strings */
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "broken symlink (%s)", Z_STRVAL_P(what));
+		}
 		return MIME_MAGIC_ERROR;
 #endif
 #ifdef    S_IFSOCK
@@ -1108,8 +1233,8 @@ static int fsmagic(char *filename TSRMLS_DC)
 	case 0:
 		break;
     default:
-		php_error(E_WARNING,
-					  MODNAME ": invalid mode 0%o.", (unsigned int)stat_ssb.sb.st_mode);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid mode 0%o.", (unsigned int)stat_ssb.sb.st_mode);
 		return MIME_MAGIC_ERROR;
     }
 
@@ -1269,6 +1394,7 @@ static int ascmagic(unsigned char *buf, int nbytes)
     char *token;
     register struct names *p;
     int small_nbytes;
+    char *strtok_buf = NULL;
 
     /* these are easy, do them first */
 
@@ -1301,8 +1427,7 @@ static int ascmagic(unsigned char *buf, int nbytes)
     s = (unsigned char *) memcpy(nbuf, buf, small_nbytes);
     s[small_nbytes] = '\0';
     has_escapes = (memchr(s, '\033', small_nbytes) != NULL);
-    /* XXX: not multithread safe */
-    while ((token = strtok((char *) s, " \t\n\r\f")) != NULL) {
+    while ((token = php_strtok_r((char *) s, " \t\n\r\f", &strtok_buf)) != NULL) {
 		s = NULL;		/* make strtok() keep on tokin' */
 		for (p = names; p < names + NNAMES; p++) {
 			if (STREQ(p->name, token)) {
@@ -1358,7 +1483,7 @@ static int ascmagic(unsigned char *buf, int nbytes)
  * old UNIX tar file, 2 for Unix Std (POSIX) tar file.
  */
 
-static int is_tar(unsigned char *buf, int nbytes)
+static int is_tar(unsigned char *buf, unsigned int nbytes)
 {
     register union record *header = (union record *) buf;
     register int i;
@@ -1425,7 +1550,7 @@ static int mget(union VALUETYPE *p, unsigned char *s,
 {
     long offset = m->offset;
 
-    if (offset + sizeof(union VALUETYPE) > nbytes)
+    if (offset + (long)sizeof(union VALUETYPE) > nbytes)
 		return 0;
 
     memcpy(p, s + offset, sizeof(union VALUETYPE));
@@ -1447,7 +1572,7 @@ static int mget(union VALUETYPE *p, unsigned char *s,
 			break;
 		}
 
-		if (offset + sizeof(union VALUETYPE) > nbytes)
+		if (offset + (long)sizeof(union VALUETYPE) > nbytes)
 			return 0;
 
 		memcpy(p, s + offset, sizeof(union VALUETYPE));
@@ -1463,10 +1588,11 @@ static int mcheck(union VALUETYPE *p, struct magic *m)
     register unsigned long l = m->value.l;
     register unsigned long v;
     int matched;
+    TSRMLS_FETCH();
 
     if ((m->value.s[0] == 'x') && (m->value.s[1] == '\0')) {
-		php_error(E_WARNING,
-					  MODNAME ": BOINK");
+		if(MIME_MAGIC_G(debug))
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "BOINK");
 		return 1;
     }
 
@@ -1510,8 +1636,8 @@ static int mcheck(union VALUETYPE *p, struct magic *m)
 		break;
     default:
 		/*  bogosity, pretend that it just wasn't a match */
-		php_error(E_WARNING,
-					  MODNAME ": invalid type %d in mcheck().", m->type);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid type %d in mcheck().", m->type);
 		return 0;
     }
 
@@ -1559,9 +1685,8 @@ static int mcheck(union VALUETYPE *p, struct magic *m)
     default:
 		/* bogosity, pretend it didn't match */
 		matched = 0;
-		php_error(E_WARNING,
-					  MODNAME ": mcheck: can't happen: invalid relation %d.",
-					  m->reln);
+		if(MIME_MAGIC_G(debug))
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "mcheck: can't happen: invalid relation %d.", m->reln);
 		break;
     }
 
@@ -1636,17 +1761,25 @@ static void mprint(union VALUETYPE *p, struct magic *m)
     case DATE:
     case BEDATE:
     case LEDATE:
-		/* XXX: not multithread safe */
-		pp = ctime((time_t *) & p->l);
-		if ((rt = strchr(pp, '\n')) != NULL)
-			*rt = '\0';
-		(void) magic_rsl_printf(m->desc, pp);
-		return;
+		{
+			char ctimebuf[52];
+			pp = php_ctime_r((time_t *) &p->l, ctimebuf);
+			if (!pp) {
+				return;
+			}
+			if ((rt = strchr(pp, '\n')) != NULL) {
+				*rt = '\0';
+			}
+			(void) magic_rsl_printf(m->desc, pp);
+			return;
+		}
     default:
-		php_error(E_WARNING,
-					  MODNAME ": invalid m->type (%d) in mprint().",
-					  m->type);
-		return;
+    	{
+    		TSRMLS_FETCH();
+			if(MIME_MAGIC_G(debug))
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid m->type (%d) in mprint().", m->type);
+			return;
+		}
     }
 
     v = signextend(m, v) & m->mask;
@@ -1689,9 +1822,12 @@ static int mconvert(union VALUETYPE *p, struct magic *m)
 			((p->hl[3] << 24) | (p->hl[2] << 16) | (p->hl[1] << 8) | (p->hl[0]));
 		return 1;
     default:
-		php_error(E_WARNING,
-					  MODNAME ": invalid type %d in mconvert().", m->type);
-		return 0;
+    	{
+    		TSRMLS_FETCH();
+			if(MIME_MAGIC_G(debug))
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "invalid type %d in mconvert().", m->type);
+			return 0;
+		}
     }
 }
 
@@ -1765,8 +1901,8 @@ static int magic_rsl_get(char **content_type, char **content_encoding)
 				else {
 					/* should not be possible */
 					/* abandon malfunctioning module */
-					php_error(E_WARNING,
-								  MODNAME ": bad state %d (ws)", state);
+					if(MIME_MAGIC_G(debug))
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, ": bad state %d (ws)", state);
 					return MIME_MAGIC_DECLINED;
 				}
 				/* NOTREACHED */
@@ -1809,8 +1945,8 @@ static int magic_rsl_get(char **content_type, char **content_encoding)
 				else {
 					/* should not be possible */
 					/* abandon malfunctioning module */
-					php_error(E_WARNING,
-								  MODNAME ": bad state %d (ns)", state);
+					if(MIME_MAGIC_G(debug))
+						php_error_docref(NULL TSRMLS_CC, E_WARNING, "bad state %d (ns)", state);
 					return MIME_MAGIC_DECLINED;
 				}
 				/* NOTREACHED */

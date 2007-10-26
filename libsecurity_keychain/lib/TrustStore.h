@@ -52,18 +52,17 @@ public:
 	Allocator &allocator;
 
 	// set/get user trust for a certificate and policy
-    SecTrustUserSetting find(Certificate *cert, Policy *policy);
+    SecTrustUserSetting find(Certificate *cert, Policy *policy, 
+		StorageManager::KeychainList &keychainList);
     void assign(Certificate *cert, Policy *policy, SecTrustUserSetting assignment);
     
-	// get access to the default root anchor certificates for X509
-    CFArrayRef copyRootCertificates();
 	void getCssmRootCertificates(CertGroup &roots);
-	void refreshRootCertificates();
 	
 	typedef UserTrustItem::TrustData TrustData;
 	
 protected:
-	Item findItem(Certificate *cert, Policy *policy);
+	Item findItem(Certificate *cert, Policy *policy, 
+		StorageManager::KeychainList &keychainList);
 	void loadRootCertificates();
 
 private:

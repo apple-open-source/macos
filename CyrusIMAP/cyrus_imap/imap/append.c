@@ -1,5 +1,5 @@
 /* append.c -- Routines for appending messages to a mailbox
- * $Id: append.c,v 1.6 2005/03/05 00:36:43 dasenbro Exp $
+ * $Id: append.c,v 1.110 2007/02/05 18:41:45 jeaton Exp $
  *
  * Copyright (c)1998, 2000 Carnegie Mellon University.  All rights reserved.
  *
@@ -61,10 +61,14 @@
 #include "global.h"
 #include "prot.h"
 #include "xmalloc.h"
+#include "xstrlcpy.h"
+#include "xstrlcat.h"
 #include "mboxlist.h"
 #include "seen.h"
 #include "retry.h"
 #include "quota.h"
+
+#include "message_uuid.h"
 
 struct stagemsg {
     char fname[1024];
@@ -79,10 +83,8 @@ struct stagemsg {
     */
     char *parts; /* buffer of current stage parts */
     char *partend; /* end of buffer */
+    struct message_uuid uuid;
 };
-
-static	int		buf_len = 0;
-static	char   *tmp_buf = NULL;
 
 static int append_addseen(struct mailbox *mailbox, const char *userid,
 			  const char *msgrange);
@@ -110,7 +112,7 @@ int append_check(const char *name, int format,
     int mbflags;
     
     /* Is mailbox moved? */
-    r = mboxlist_detail(name, &mbflags, NULL, NULL, NULL, NULL);
+    r = mboxlist_detail(name, &mbflags, NULL, NULL, NULL, NULL, NULL);
 
     if (!r) {
 	if(mbflags & MBTYPE_MOVING) return IMAP_MAILBOX_MOVED;
@@ -143,7 +145,7 @@ int append_check(const char *name, int format,
     if (!r) {
 	if (m.quota.limit >= 0 && quotacheck >= 0 &&
 	    m.quota.used + quotacheck > 
-	    ((unsigned) m.quota.limit * QUOTA_UNITS)) {
+	    ((uquota_t) m.quota.limit * QUOTA_UNITS)) {
 	    r = IMAP_QUOTA_EXCEEDED;
 	}
     }
@@ -211,7 +213,7 @@ int append_setup(struct appendstate *as, const char *name,
     if (!r) {
 	if (as->m.quota.limit >= 0 && quotacheck >= 0 &&
 	    as->m.quota.used + quotacheck > 
-	    ((unsigned) as->m.quota.limit * QUOTA_UNITS)) {
+	    ((uquota_t) as->m.quota.limit * QUOTA_UNITS)) {
 	    quota_abort(&as->tid);
 	    mailbox_close(&as->m);
 	    r = IMAP_QUOTA_EXCEEDED;
@@ -291,6 +293,7 @@ int append_commit(struct appendstate *as,
     /* Calculate new index header information */
     as->m.exists += as->nummsg;
     as->m.last_uid += as->nummsg;
+    if (as->m.options & OPT_IMAP_CONDSTORE) as->m.highestmodseq++;
     
     as->m.answered += as->numanswered;
     as->m.deleted += as->numdeleted;
@@ -413,6 +416,9 @@ FILE *append_newstage(const char *mailboxname, time_t internaldate,
     stage->parts = xzmalloc(5 * (MAX_MAILBOX_PATH+1) * sizeof(char));
     stage->partend = stage->parts + 5 * (MAX_MAILBOX_PATH+1) * sizeof(char);
 
+    /* Assign new, shared MessageID */
+    message_uuid_assign(&stage->uuid);
+
     snprintf(stage->fname, sizeof(stage->fname), "%d-%d-%d",
 	     (int) getpid(), (int) internaldate, msgnum);
 
@@ -456,7 +462,7 @@ FILE *append_newstage(const char *mailboxname, time_t internaldate,
  * staging, to allow for single-instance store.  the complication here
  * is multiple partitions.
  */
-int append_fromstage(struct appendstate *as,
+int append_fromstage(struct appendstate *as, struct body **body,
 		     struct stagemsg *stage, time_t internaldate,
 		     const char **flag, int nflags, int nolink)
 {
@@ -547,6 +553,11 @@ int append_fromstage(struct appendstate *as,
 
     /* Setup */
     message_index.uid = mailbox->last_uid + as->nummsg + 1;
+    if (mailbox->options & OPT_IMAP_CONDSTORE) {
+	message_index.modseq = mailbox->highestmodseq + 1;
+    } else {
+	message_index.modseq = 1;
+    }
     message_index.last_updated = time(0);
     message_index.internaldate = internaldate;
     lseek(mailbox->cache_fd, 0L, SEEK_END);
@@ -563,7 +574,9 @@ int append_fromstage(struct appendstate *as,
     destfile = fopen(fname, "r");
     if (!r && destfile) {
 	/* ok, we've successfully created the file */
-	r = message_parse_file(destfile, mailbox, &message_index);
+	if (!*body || (as->nummsg - 1))
+	    r = message_parse_file(destfile, NULL, NULL, body);
+	if (!r) r = message_create_record(mailbox, &message_index, *body);
     }
     if (destfile) {
 	/* this will hopefully ensure that the link() actually happened
@@ -582,7 +595,7 @@ int append_fromstage(struct appendstate *as,
 	    addme(&as->seen_msgrange, &as->seen_alloced, message_index.uid);
 	}
 	else if (!strcmp(flag[i], "\\deleted")) {
-	    if (mailbox->myrights & ACL_REMOVE) {
+	    if (mailbox->myrights & ACL_DELETEMSG) {
 		message_index.system_flags |= FLAG_DELETED;
 		as->numdeleted++;
 	    }
@@ -627,6 +640,8 @@ int append_fromstage(struct appendstate *as,
 	    }
 	}
     }
+    /* Copy Message UUID from stage */
+    message_uuid_copy(&message_index.uuid, &stage->uuid);
 
     /* Write out index file entry */
     r = mailbox_append_index(mailbox, &message_index, 
@@ -676,7 +691,7 @@ int append_removestage(struct stagemsg *stage)
  * unlocked) until append_commit() is called.  multiple
  * append_onefromstream()s can be aborted by calling append_abort().
  */
-int append_fromstream(struct appendstate *as, 
+int append_fromstream(struct appendstate *as, struct body **body,
 		      struct protstream *messagefile,
 		      unsigned long size,
 		      time_t internaldate,
@@ -696,6 +711,11 @@ int append_fromstream(struct appendstate *as,
     zero_index(message_index);
     /* Setup */
     message_index.uid = mailbox->last_uid + as->nummsg + 1;
+    if (mailbox->options & OPT_IMAP_CONDSTORE) {
+	message_index.modseq = mailbox->highestmodseq + 1;
+    } else {
+	message_index.modseq = 1;
+    }
     message_index.last_updated = time(0);
     message_index.internaldate = internaldate;
     lseek(mailbox->cache_fd, 0L, SEEK_END);
@@ -717,9 +737,11 @@ int append_fromstream(struct appendstate *as,
     }
 
     /* Copy and parse message */
-    r = message_copy_strict(messagefile, destfile, size);
+    r = message_copy_strict(messagefile, destfile, size, 0);
     if (!r) {
-	r = message_parse_file(destfile, mailbox, &message_index);
+	if (!*body || (as->nummsg - 1))
+	    r = message_parse_file(destfile, NULL, NULL, body);
+	if (!r) r = message_create_record(mailbox, &message_index, *body);
     }
     fclose(destfile);
     if (r) {
@@ -733,7 +755,7 @@ int append_fromstream(struct appendstate *as,
 	    addme(&as->seen_msgrange, &as->seen_alloced, message_index.uid);
 	}
 	else if (!strcmp(flag[i], "\\deleted")) {
-	    if (mailbox->myrights & ACL_REMOVE) {
+	    if (mailbox->myrights & ACL_DELETEMSG) {
 		message_index.system_flags |= FLAG_DELETED;
 		as->numdeleted++;
 	    }
@@ -779,6 +801,9 @@ int append_fromstream(struct appendstate *as,
 	}
     }
 
+    /* Assign new Message-UUID */
+    message_uuid_assign(&message_index.uuid);
+
     /* Write out index file entry; if we abort later, it's not
        important */
     r = mailbox_append_index(mailbox, &message_index, 
@@ -804,7 +829,8 @@ int append_fromstream(struct appendstate *as,
 int append_copy(struct mailbox *mailbox, 
 		struct appendstate *as,
 		int nummsg, 
-		struct copymsg *copymsg)
+		struct copymsg *copymsg,
+		int nolink)
 {
     struct mailbox *append_mailbox = &as->m;
     int msg;
@@ -816,6 +842,7 @@ int append_copy(struct mailbox *mailbox,
     FILE *destfile;
     int r, n;
     int flag, userflag, emptyflag;
+    struct body *body = NULL;
     
     assert(append_mailbox->format == MAILBOX_FORMAT_NORMAL);
 
@@ -832,6 +859,11 @@ int append_copy(struct mailbox *mailbox,
     for (msg = 0; msg < nummsg; msg++) {
 	zero_index(message_index[msg]);
 	message_index[msg].uid = append_mailbox->last_uid + 1 + as->nummsg;
+	if (append_mailbox->options & OPT_IMAP_CONDSTORE) {
+	    message_index[msg].modseq = append_mailbox->highestmodseq + 1;
+	} else {
+	    message_index[msg].modseq = 1;
+	}
 	message_index[msg].last_updated = time(0);
 	message_index[msg].internaldate = copymsg[msg].internaldate;
 	as->nummsg++;
@@ -843,12 +875,17 @@ int append_copy(struct mailbox *mailbox,
 				  sizeof(fname) - strlen(fname));
 
 	if (copymsg[msg].cache_len) {
-	    char fnamebuf[MAILBOX_FNAME_LEN];
+	    char fnamebuf[MAX_MAILBOX_PATH + MAILBOX_FNAME_LEN + 1];
 
-	    mailbox_message_get_fname(mailbox, copymsg[msg].uid, fnamebuf,
-				      sizeof(fnamebuf));
+	    strlcpy(fnamebuf, mailbox->path, sizeof(fnamebuf));
+	    strlcat(fnamebuf, "/", sizeof(fnamebuf));
+	    
+	    mailbox_message_get_fname(mailbox, copymsg[msg].uid,
+				      fnamebuf + strlen(fnamebuf),
+				      sizeof(fnamebuf) - strlen(fnamebuf));
+
 	    /* Link/copy message file */
-	    r = mailbox_copyfile(fnamebuf, fname, 0);
+	    r = mailbox_copyfile(fnamebuf, fname, nolink);
 	    if (r) goto fail;
 
 	    /* Write out cache info, copy other info */
@@ -861,28 +898,8 @@ int append_copy(struct mailbox *mailbox,
 	    message_index[msg].content_lines = copymsg[msg].content_lines;
 	    message_index[msg].cache_version = copymsg[msg].cache_version;
 
-		/* resize and reuse or alloc the temp buffer */
-		if ( (copymsg[msg].cache_len > buf_len) || (tmp_buf == NULL) )
-		{
-			buf_len = copymsg[msg].cache_len;
-			syslog( LOG_DEBUG, "append_copy: alloc temp buff: %d", buf_len );
-
-		    /* xrealloc (NULL, size) behaves like xmalloc (size), as in ANSI C */
-			tmp_buf = xrealloc( tmp_buf, buf_len );
-		}
-
-		if ( tmp_buf != NULL )
-		{
-			memcpy( tmp_buf, copymsg[msg].cache_begin, copymsg[msg].cache_len );
-			n = retry_write(append_mailbox->cache_fd, tmp_buf,
-					copymsg[msg].cache_len);
-		}
-		else
-		{
-			n = retry_write(append_mailbox->cache_fd, copymsg[msg].cache_begin,
-					copymsg[msg].cache_len);
-		}
-
+	    n = retry_write(append_mailbox->cache_fd, copymsg[msg].cache_begin,
+			    copymsg[msg].cache_len);
 	    if (n == -1) {
 		syslog(LOG_ERR, "IOERROR: writing cache file for %s: %m",
 		       append_mailbox->name);
@@ -902,7 +919,7 @@ int append_copy(struct mailbox *mailbox,
 		r = IMAP_IOERROR;
 		goto fail;
 	    }
-	    if (mailbox_map_message(mailbox, 0, copymsg[msg].uid,
+	    if (mailbox_map_message(mailbox, copymsg[msg].uid,
 				    &src_base, &src_size) != 0) {
 		fclose(destfile);
 		syslog(LOG_ERR, "IOERROR: opening message file %lu of %s: %m",
@@ -932,8 +949,10 @@ int append_copy(struct mailbox *mailbox,
 	    mailbox_unmap_message(mailbox, copymsg[msg].uid,
 				  &src_base, &src_size);
 
-	    if (!r) r = message_parse_file(destfile, append_mailbox,
-					   &message_index[msg]);
+	    if (!r) r = message_parse_file(destfile, NULL, NULL, &body);
+	    if (!r) r = message_create_record(append_mailbox,
+					      &message_index[msg], body);
+	    if (body) message_free_body(body);
 	    fclose(destfile);
 	    if (r) goto fail;
 	}
@@ -970,7 +989,7 @@ int append_copy(struct mailbox *mailbox,
 		}
 	    }
 	}
-	if (append_mailbox->myrights & ACL_REMOVE) {
+	if (append_mailbox->myrights & ACL_DELETEMSG) {
 	    message_index[msg].system_flags |=
 	      copymsg[msg].system_flags & FLAG_DELETED;
 	}
@@ -984,7 +1003,12 @@ int append_copy(struct mailbox *mailbox,
 	    addme(&as->seen_msgrange, &as->seen_alloced, 
 		  message_index[msg].uid);
 	}
+
+	/* Assign messageID for this message */
+	message_uuid_copy(&message_index[msg].uuid, &copymsg[msg].uuid);
     }
+
+    if (body) free(body);
 
     /* Write out index file entries */
     r = mailbox_append_index(append_mailbox, message_index,

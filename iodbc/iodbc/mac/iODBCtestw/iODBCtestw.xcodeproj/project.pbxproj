@@ -1,0 +1,343 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		CDAE3B510987CF60003250F8 /* iodbctest.c in Sources */ = {isa = PBXBuildFile; fileRef = F535B3B702780F5F01A801DE /* iodbctest.c */; };
+		CDAE3B530987CF60003250F8 /* iODBC.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5CD65030497672D01A801EC /* iODBC.framework */; };
+		CDAE3B540987CF60003250F8 /* iODBCinst.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5CD650E0497673F01A801EC /* iODBCinst.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		014CEA520018CE5811CA2923 /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Development,
+					../../mac/iODBC/build,
+					../../mac/iODBCinst/build/Development,
+					../../mac/iODBCinst/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = ../../include;
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DUNICODE";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		014CEA530018CE5811CA2923 /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+					../../mac/iODBCinst/build/Deployment,
+					../../mac/iODBCinst/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				HEADER_SEARCH_PATHS = ../../include;
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				OPTIMIZATION_CFLAGS = "-DUNICODE -O2";
+				RESMERGER_SOURCES_FORK = data;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
+
+/* Begin PBXFileReference section */
+		CDAE3B5A0987CF60003250F8 /* iodbctestw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = iodbctestw; sourceTree = BUILT_PRODUCTS_DIR; };
+		F535B3B702780F5F01A801DE /* iodbctest.c */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.c; fileEncoding = 30; name = iodbctest.c; path = ../../samples/iodbctest.c; sourceTree = SOURCE_ROOT; };
+		F5CD65030497672D01A801EC /* iODBC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = iODBC.framework; path = ../iODBC/build/iODBC.framework; sourceTree = SOURCE_ROOT; };
+		F5CD650E0497673F01A801EC /* iODBCinst.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = iODBCinst.framework; path = ../iODBCinst/build/iODBCinst.framework; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CDAE3B520987CF60003250F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3B530987CF60003250F8 /* iODBC.framework in Frameworks */,
+				CDAE3B540987CF60003250F8 /* iODBCinst.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* iodbctestw */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				F535B3B802780F5F01A801DE /* Frameworks */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = iodbctestw;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				F535B3B702780F5F01A801DE /* iodbctest.c */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CDAE3B5A0987CF60003250F8 /* iodbctestw */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		F535B3B802780F5F01A801DE /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				F5CD65030497672D01A801EC /* iODBC.framework */,
+				F5CD650E0497673F01A801EC /* iODBCinst.framework */,
+			);
+			name = Frameworks;
+			path = ..;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		CDAE3B4F0987CF60003250F8 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		CDAE3B4E0987CF60003250F8 /* iodbctestw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CDAE3B560987CF60003250F8 /* Build configuration list for PBXNativeTarget "iodbctestw" */;
+			buildPhases = (
+				CDAE3B4F0987CF60003250F8 /* Headers */,
+				CDAE3B500987CF60003250F8 /* Sources */,
+				CDAE3B520987CF60003250F8 /* Frameworks */,
+				CDAE3B550987CF60003250F8 /* Rez */,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+					../../mac/iODBCinst/build/Deployment,
+					../../mac/iODBCinst/build,
+				);
+				HEADER_SEARCH_PATHS = ../../include;
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iodbctestw;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			dependencies = (
+			);
+			name = iodbctestw;
+			productInstallPath = "/Library/Application Support/iODBC/bin";
+			productName = iodbctestw;
+			productReference = CDAE3B5A0987CF60003250F8 /* iodbctestw */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = CDAE3B5C0987CF6F003250F8 /* Build configuration list for PBXProject "iODBCtestw" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				014CEA520018CE5811CA2923 /* Development */,
+				014CEA530018CE5811CA2923 /* Deployment */,
+			);
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* iodbctestw */;
+			projectDirPath = "";
+			targets = (
+				CDAE3B4E0987CF60003250F8 /* iodbctestw */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXRezBuildPhase section */
+		CDAE3B550987CF60003250F8 /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CDAE3B500987CF60003250F8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CDAE3B510987CF60003250F8 /* iodbctest.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CDAE3B570987CF60003250F8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Development,
+					../../mac/iODBC/build,
+					../../mac/iODBCinst/build/Development,
+					../../mac/iODBCinst/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = UNICODE;
+				HEADER_SEARCH_PATHS = ../../include;
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iodbctestw;
+				RESMERGER_SOURCES_FORK = data;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		CDAE3B580987CF60003250F8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.52.5;
+				DYLIB_CURRENT_VERSION = 3.52.5;
+				FRAMEWORK_SEARCH_PATHS = (
+					../../mac/iODBC/build/Deployment,
+					../../mac/iODBC/build,
+					../../mac/iODBCinst/build/Deployment,
+					../../mac/iODBCinst/build,
+				);
+				FRAMEWORK_VERSION = 3.52;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_OPTIMIZATION_LEVEL = 2;
+				HEADER_SEARCH_PATHS = ../../include;
+				INSTALL_PATH = "/Library/Application Support/iODBC/bin";
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = iodbctestw;
+				RESMERGER_SOURCES_FORK = data;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		CDAE3B5D0987CF6F003250F8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Development;
+		};
+		CDAE3B5E0987CF6F003250F8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.3;
+				SDKROOT = /Developer/SDKs/MacOSX10.4u.sdk;
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CDAE3B560987CF60003250F8 /* Build configuration list for PBXNativeTarget "iodbctestw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDAE3B570987CF60003250F8 /* Development */,
+				CDAE3B580987CF60003250F8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		CDAE3B5C0987CF6F003250F8 /* Build configuration list for PBXProject "iODBCtestw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CDAE3B5D0987CF6F003250F8 /* Development */,
+				CDAE3B5E0987CF6F003250F8 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

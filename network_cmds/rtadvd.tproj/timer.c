@@ -37,7 +37,7 @@
 #include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__NetBSD__) || defined(__OpenBSD__)
+#if defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
 #include <search.h>
 #endif
 #include "timer.h"

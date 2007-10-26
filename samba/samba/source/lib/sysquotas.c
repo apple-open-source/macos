@@ -31,8 +31,6 @@
 /*#endif HAVE_QUOTACTL_4A */
 #elif defined(HAVE_QUOTACTL_4B)
 
-#error HAVE_QUOTACTL_4B not implemeted
-
 /*#endif HAVE_QUOTACTL_4B */
 #elif defined(HAVE_QUOTACTL_3)
 
@@ -67,15 +65,18 @@ static int sys_path_to_bdev(const char *path, char **mntpath, char **bdev, char 
 	devno = S.st_dev ;
 
 	fp = setmntent(MOUNTED,"r");
+	if (fp == NULL) {
+		return -1;
+	}
   
 	while ((mnt = getmntent(fp))) {
 		if ( sys_stat(mnt->mnt_dir,&S) == -1 )
 			continue ;
 
 		if (S.st_dev == devno) {
-			(*mntpath) = strdup(mnt->mnt_dir);
-			(*bdev) = strdup(mnt->mnt_fsname);
-			(*fs)   = strdup(mnt->mnt_type);
+			(*mntpath) = SMB_STRDUP(mnt->mnt_dir);
+			(*bdev) = SMB_STRDUP(mnt->mnt_fsname);
+			(*fs)   = SMB_STRDUP(mnt->mnt_type);
 			if ((*mntpath)&&(*bdev)&&(*fs)) {
 				ret = 0;
 			} else {
@@ -124,8 +125,8 @@ static int sys_path_to_bdev(const char *path, char **mntpath, char **bdev, char 
 	 * but I don't know how
 	 * --metze
 	 */
-	(*mntpath) = strdup(path);
-	(*bdev) = strdup(dev_disk);
+	(*mntpath) = SMB_STRDUP(path);
+	(*bdev) = SMB_STRDUP(dev_disk);
 	if ((*mntpath)&&(*bdev)) {
 		ret = 0;
 	} else {
@@ -152,7 +153,7 @@ static int sys_path_to_bdev(const char *path, char **mntpath, char **bdev, char 
 	(*bdev) = NULL;
 	(*fs) = NULL;
 	
-	(*mntpath) = strdup(path);
+	(*mntpath) = SMB_STRDUP(path);
 	if (*mntpath) {
 		ret = 0;
 	} else {
@@ -181,12 +182,12 @@ static struct {
 static int command_get_quota(const char *path, enum SMB_QUOTA_TYPE qtype, unid_t id, SMB_DISK_QUOTA *dp)
 {
 	const char *get_quota_command;
+	char **lines = NULL;
 	
 	get_quota_command = lp_get_quota_command();
 	if (get_quota_command && *get_quota_command) {
 		const char *p;
 		char *p2;
-		char **lines;
 		pstring syscmd;
 		int _id = -1;
 
@@ -220,49 +221,79 @@ static int command_get_quota(const char *path, enum SMB_QUOTA_TYPE qtype, unid_t
 
 			dp->qflags = (enum SMB_QUOTA_TYPE)strtoul(line, &p2, 10);
 			p = p2;
-			while (p && *p && isspace(*p))
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->curblocks = STR_TO_SMB_BIG_UINT(p, &p);
-			else 
+			} else {
 				goto invalid_param;
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->softlimit = STR_TO_SMB_BIG_UINT(p, &p);
-			else
+			} else {
 				goto invalid_param;
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->hardlimit = STR_TO_SMB_BIG_UINT(p, &p);
-			else 
+			} else {
 				goto invalid_param;
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->curinodes = STR_TO_SMB_BIG_UINT(p, &p);
-			else
+			} else {
 				goto invalid_param;
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->isoftlimit = STR_TO_SMB_BIG_UINT(p, &p);
-			else
+			} else {
 				goto invalid_param;
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->ihardlimit = STR_TO_SMB_BIG_UINT(p, &p);
-			else
+			} else {
 				goto invalid_param;	
-			while (p && *p && isspace(*p))
+			}
+
+			while (p && *p && isspace(*p)) {
 				p++;
-			if (p && *p)
+			}
+
+			if (p && *p) {
 				dp->bsize = STR_TO_SMB_BIG_UINT(p, NULL);
-			else
+			} else {
 				dp->bsize = 1024;
+			}
+
 			file_lines_free(lines);
+			lines = NULL;
+
 			DEBUG (3, ("Parsed output of get_quota, ...\n"));
 
 #ifdef LARGE_SMB_OFF_T
@@ -295,6 +326,8 @@ static int command_get_quota(const char *path, enum SMB_QUOTA_TYPE qtype, unid_t
 	return -1;
 	
 invalid_param:
+
+	file_lines_free(lines);
 	DEBUG(0,("The output of get_quota_command is invalid!\n"));
 	return -1;
 }
@@ -497,6 +530,8 @@ int sys_set_quota(const char *path, enum SMB_QUOTA_TYPE qtype, unid_t id, SMB_DI
 }
 
 #else /* HAVE_SYS_QUOTAS */
+ void dummy_sysquotas_c(void);
+
  void dummy_sysquotas_c(void)
 {
 	return;

@@ -1,5 +1,5 @@
 PROJECT    = misc_cmds
-COMPONENTS = cal calendar leave lock tsort units
+COMPONENTS = calendar leave ncal tsort units
 
 SRCROOT=$(shell pwd)
 OBJROOT=/tmp/$(PROJECT).obj

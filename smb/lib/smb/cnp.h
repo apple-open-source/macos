@@ -3,6 +3,9 @@
  * (c) Copyright 1989 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1989 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1989 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -334,7 +337,7 @@ typedef struct
     
 typedef union
 {
-    unsigned32                          all;
+    unsigned long                       all;
     rpc_cn_local_id_parts_t             parts;
 } rpc_cn_local_id_t, *rpc_cn_local_id_p_t;
 
@@ -529,7 +532,7 @@ typedef struct rpc_cn_syntax_s_t
  */
 typedef struct
 {
-    unsigned32                  grp_id;
+    unsigned long               grp_id;
     rpc_cn_syntax_t             *pres_context;
     rpc_cn_sec_context_t        *sec_context;
 } rpc_cn_assoc_sm_work_t, *rpc_cn_assoc_sm_work_p_t;

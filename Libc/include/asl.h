@@ -82,14 +82,15 @@ typedef struct __aslresponse *aslresponse;
  * Additional attributes may be added as desired, and are
  * appended in the order that they are defined.
  */
-#define ASL_KEY_TIME    "Time"     /* Timestamp (see ctime(3)).  Set automatically */
-#define ASL_KEY_HOST    "Host"     /* Sender's address (set by the server) */
-#define ASL_KEY_SENDER  "Sender"   /* Sender's identification string.  Default is process name */
-#define ASL_KEY_PID     "PID"      /* Sending process ID encoded as a string.  Set automatically */
-#define ASL_KEY_UID     "UID"      /* UID that sent the log message (set by the server) */
-#define ASL_KEY_GID     "GID"      /* GID that sent the log message (set by the server) */
-#define ASL_KEY_LEVEL   "Level"    /* Log level number encoded as a string.  See levels above */
-#define ASL_KEY_MSG     "Message"  /* Actual message that will be logged */
+#define ASL_KEY_TIME      "Time"     /* Timestamp (see ctime(3)).  Set automatically */
+#define ASL_KEY_HOST      "Host"     /* Sender's address (set by the server) */
+#define ASL_KEY_SENDER    "Sender"   /* Sender's identification string.  Default is process name */
+#define ASL_KEY_FACILITY  "Facility" /* Sender's facility.  Default is "user". */
+#define ASL_KEY_PID       "PID"      /* Sending process ID encoded as a string.  Set automatically */
+#define ASL_KEY_UID       "UID"      /* UID that sent the log message (set by the server) */
+#define ASL_KEY_GID       "GID"      /* GID that sent the log message (set by the server) */
+#define ASL_KEY_LEVEL     "Level"    /* Log level number encoded as a string.  See levels above */
+#define ASL_KEY_MSG       "Message"  /* Actual message that will be logged */
 
 /* 
  * Message Types
@@ -163,6 +164,7 @@ int asl_remove_log_file(aslclient asl, int fd);
  * set in the filter are not sent to the server, although they will be
  * sent to any file descripters added with asl_add_log_file().
  * The default setting is ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE).
+ * Returns the previous filter value.
  */
 int asl_set_filter(aslclient asl, int f);
 
@@ -214,9 +216,9 @@ const char *asl_get(aslmsg msg, const char *key);
  * returns 0 for success, non-zero for failure
  */
 #ifdef __DARWIN_LDBL_COMPAT2
-int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __DARWIN_LDBL_COMPAT2(asl_log);
+int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __DARWIN_LDBL_COMPAT2(asl_log) __printflike(4, 5);
 #else
-int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...);
+int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...) __printflike(4, 5);
 #endif
 
 /*
@@ -230,9 +232,9 @@ int asl_log(aslclient asl, aslmsg msg, int level, const char *format, ...);
  * returns 0 for success, non-zero for failure
  */
 #ifdef __DARWIN_LDBL_COMPAT2
-int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __DARWIN_LDBL_COMPAT2(asl_vlog);
+int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __DARWIN_LDBL_COMPAT2(asl_vlog) __printflike(4, 0);
 #else
-int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap);
+int asl_vlog(aslclient asl, aslmsg msg, int level, const char *format, va_list ap) __printflike(4, 0);
 #endif
 
 /*

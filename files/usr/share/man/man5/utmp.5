@@ -40,11 +40,21 @@
 .Nm utmp ,
 .Nm wtmp ,
 .Nm lastlog
-.Nd login records
+.Nd login records (DEPRECATED)
 .Sh SYNOPSIS
 .Fd #include <utmp.h>
 .Sh DESCRIPTION
-The file
+The interfaces in file
+.Aq Pa utmp.h
+are all
+.Sy DEPRECIATED
+and are only provided for compatibility with previous releases of Mac OS X.
+See
+.Xr pututxline 3
+and
+.Xr utmpx 5
+for the supported interfaces.
+.Pp
 .Aq Pa utmp.h
 declares the structures used to record information about current
 users in the file
@@ -141,7 +151,7 @@ The same
 .Fa utmp
 record, with an updated time stamp is later appended
 to the file when the user logs out. (See
-.Xr init 8 . )
+.Xr launchd 8 . )
 The
 .Nm wtmp
 file is used by the programs
@@ -190,6 +200,10 @@ indicates the time prior to the change, and the character
 indicates the new time.
 .El
 .Sh FILES
+.Bf Sy
+(These files no longer exist in 10.5 or later.)
+.Ef
+.Pp
 .Bl -tag -width /var/log/lastlog -compact
 .It Pa /var/run/utmp
 The
@@ -206,7 +220,7 @@ The
 .Xr login 1 ,
 .Xr who 1 ,
 .Xr ac 8 ,
-.Xr init 8
+.Xr launchd 8
 .Sh HISTORY
 A
 .Nm utmp

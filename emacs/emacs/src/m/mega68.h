@@ -1,5 +1,6 @@
 /* machine description file for Megatest 68000's.
-   Copyright (C) 1985 Free Software Foundation, Inc.
+   Copyright (C) 1985, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="bsd4-2"  */
 
@@ -47,3 +48,6 @@ Boston, MA 02111-1307, USA.  */
 /* Convert that into an integer that is 100 for a load average of 1.0  */
 
 #define LOAD_AVE_CVT(x) ((int) ((x) * 100.0))
+
+/* arch-tag: 61e6deb4-a93e-444b-bbd5-9887a83f1bbc
+   (do not change this comment) */

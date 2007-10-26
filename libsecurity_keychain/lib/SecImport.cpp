@@ -28,6 +28,7 @@
 #include "SecImportExportPem.h"
 #include "SecImportExportUtils.h"
 #include <security_cdsa_utils/cuCdsaUtils.h>
+#include <security_utilities/globalizer.h>
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
@@ -83,12 +84,14 @@ static bool impExpInferTypeAndFormat(
 				break;
 			case kSecFormatWrappedPKCS8:
 			case kSecFormatWrappedOpenSSL:
+			case kSecFormatWrappedSSH:
 				rep->mExternType = kSecItemTypePrivateKey;
 				break;
+			case kSecFormatSSHv2:
+				rep->mExternType = kSecItemTypePublicKey;
+				break;
 			case kSecFormatOpenSSL:
-			case kSecFormatSSH:
 			case kSecFormatBSAFE:
-			case kSecFormatWrappedSSH:
 			case kSecFormatWrappedLSH:
 			default:
 				/* can be private or session (right? */
@@ -117,14 +120,23 @@ static bool impExpInferTypeAndFormat(
 		}
 	}
 	
-	/* wrapped private keys don't need algorithm */
+	/* 
+	 * Wrapped private keys don't need algorithm 
+	 * Some formats implies algorithm
+	 */
 	bool isWrapped = false;
 	switch(rep->mExternFormat) {
 		case kSecFormatWrappedPKCS8:
 		case kSecFormatWrappedOpenSSL:
-		case kSecFormatWrappedSSH:
 		case kSecFormatWrappedLSH:
 			isWrapped = true;
+			break;
+		case kSecFormatWrappedSSH:
+			isWrapped = true;
+			rep->mKeyAlg = CSSM_ALGID_RSA;
+			break;
+		case kSecFormatSSH:
+			rep->mKeyAlg = CSSM_ALGID_RSA;
 			break;
 		default:
 			break;
@@ -163,6 +175,18 @@ static bool impExpInferTypeAndFormat(
 		&rep->mExternType, &rep->mKeyAlg);	
 }
 	
+class CSPDLMaker
+{
+protected:
+	CSSM_CSP_HANDLE mHandle;
+
+public:
+	CSPDLMaker() : mHandle(cuCspStartup(CSSM_FALSE)) {}
+	operator CSSM_CSP_HANDLE() {return mHandle;}
+};
+
+static ModuleNexus<CSPDLMaker> gCSPHandle;
+
 OSStatus SecKeychainItemImport(
 	CFDataRef							importedData,
 	CFStringRef							fileNameOrExtension,	// optional
@@ -182,7 +206,6 @@ OSStatus SecKeychainItemImport(
 	SecExternalItemType callerItemType;
 	CSSM_CSP_HANDLE		cspHand = 0;
 	CFIndex				dex;
-	bool				detachCsp = false;
 	CFStringRef			ourFileStr = NULL;
 	
 	if((importedData == NULL) || (CFDataGetLength(importedData) == 0)) {
@@ -208,7 +231,10 @@ OSStatus SecKeychainItemImport(
 		&kCFTypeArrayCallBacks);
 	/* subsequent errors to errOut: */
 	
-	/* importedData --> one or more SecImportReps */
+	/* 
+	 * importedData --> one or more SecImportReps.
+	 * Note successful PEM decode can override caller's inputFormat and/or itemType.
+	 */
 	ortn = impExpParsePemToImportRefs(importedData, importReps, &isPem);
 	if(!isPem) {
 		/* incoming blob is one binary item, type possibly unknown */
@@ -247,7 +273,7 @@ OSStatus SecKeychainItemImport(
 	
 	if(numReps > 1) {
 		/* 
-		Ê* Incoming kSecFormatPEMSequence, caller specs are useless now.
+		 * Incoming kSecFormatPEMSequence, caller specs are useless now.
 		 * Hopefully the PEM parsing disclosed the info we'll need.
 		 */
 		if(ourFileStr) {
@@ -274,12 +300,7 @@ OSStatus SecKeychainItemImport(
 		}
 	}
 	else {
-		cspHand = cuCspStartup(CSSM_FALSE);
-		if(cspHand == 0) {
-			ortn = CSSMERR_CSSM_ADDIN_LOAD_FAILED;
-			goto errOut;
-		}
-		detachCsp = true;
+		cspHand = gCSPHandle();
 	}
 	
 	if(keyParams && (keyParams->flags & kSecKeyImportOnlyOne)) {
@@ -329,9 +350,6 @@ OSStatus SecKeychainItemImport(
 	/* else caller doesn't want SecKeychainItemsRefs; we'll release below */
 
 errOut:
-	if(detachCsp) {
-		cuCspDetachUnload(cspHand, CSSM_FALSE);
-	}
 	if(createdKcItems) {
 		CFRelease(createdKcItems);
 	}
@@ -347,7 +365,12 @@ errOut:
 	if(ourFileStr) {
 		CFRelease(ourFileStr);
 	}
-	return ortn;
+	if(ortn) {
+		return SecKeychainErrFromOSStatus(ortn);
+	}
+	else {
+		return noErr;
+	}
 	
 	END_IMP_EXP_SECAPI
 }

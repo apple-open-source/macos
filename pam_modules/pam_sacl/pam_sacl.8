@@ -1,0 +1,73 @@
+.\" Copyright (c) 2007 Apple Inc.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.Dd June 13, 2007
+.Dt pam_sacl 8
+.Os
+.Sh NAME
+.Nm pam_sacl
+.Nd Service ACL PAM module
+.Sh SYNOPSIS
+.Op Ar service-name
+account
+.Ar control-flag
+pam_sacl
+.Op Ar options
+.Sh DESCRIPTION
+The Service ACL (SACL) module for PAM, 
+.Nm
+, provides functionality for the PAM account management category.
+.Ss SACL Account Management Module
+The SACL
+account management component
+provides a function to perform account management,
+.Fn pam_sm_acct_mgmt .
+The function verifies
+that the authenticated user
+is allowed to login to the local user account
+by checking the user name against the the SACL of the service named by
+the 
+.Cm sacl_service
+option.
+.Pp
+The following option must be passed to the password module:
+.Bl -tag -width ".Cm sacl_service"
+.It Cm sacl_service=SERVICE
+This option names the SACL that the user name should be checked against.
+SERVICE should be the literal name of the service, eg. sacl_service=smb.
+.El
+.Pp
+The following options may be passed to the password module:
+.Bl -tag -width ".Cm sacl_service"
+.It Cm allow_trustacct
+Always allow access to computer trust accounts.
+.It Cm debug
+.Xr syslog 3
+debugging information at
+.Dv LOG_DEBUG
+level.
+.El
+.Sh SEE ALSO
+.Xr pam.conf 5 ,
+.Xr pam 8

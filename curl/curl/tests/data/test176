@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 # the first request has NTLM type-1 included, and then the 1001 is returned
@@ -14,6 +15,7 @@ Content-Type: text/html; charset=iso-8859-1
 HTTP/1.1 200 moo swsclose
 Server: Microsoft-IIS/6.0
 Content-Type: text/html; charset=iso-8859-1
+Content-Length: 16
 
 content for you
 </data>
@@ -27,6 +29,7 @@ Content-Type: text/html; charset=iso-8859-1
 HTTP/1.1 200 moo swsclose
 Server: Microsoft-IIS/6.0
 Content-Type: text/html; charset=iso-8859-1
+Content-Length: 16
 
 content for you
 </datacheck>
@@ -35,9 +38,8 @@ content for you
 
 # Client-side
 <client>
-# require SSL since we need that for NTLM
 <features>
-SSL
+NTLM
 </features>
 <server>
 http
@@ -55,12 +57,11 @@ http://%HOSTIP:%HTTPPORT/176 -u auser:apasswd --ntlm -d "junkelijunk"
 <strip>
 ^User-Agent:.*
 </strip>
-<protocol nonewline=yes>
+<protocol nonewline="yes">
 POST /176 HTTP/1.1
-Authorization: NTLM TlRMTVNTUAABAAAAAgIAAAAAAAAgAAAAAAAAACAAAAA=
+Authorization: NTLM TlRMTVNTUAABAAAABoIIAAAAAAAAAAAAAAAAAAAAAAA=
 User-Agent: curl/7.12.1-CVS (i686-pc-linux-gnu) libcurl/7.12.1-CVS OpenSSL/0.9.6b ipv6 zlib/1.1.4 GSS libidn/0.4.6
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 0
 Content-Type: application/x-www-form-urlencoded
@@ -68,7 +69,6 @@ Content-Type: application/x-www-form-urlencoded
 POST /176 HTTP/1.1
 User-Agent: curl/7.12.1-CVS (i686-pc-linux-gnu) libcurl/7.12.1-CVS OpenSSL/0.9.6b ipv6 zlib/1.1.4 GSS libidn/0.4.6
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Content-Length: 11
 Content-Type: application/x-www-form-urlencoded
@@ -76,3 +76,4 @@ Content-Type: application/x-www-form-urlencoded
 junkelijunk
 </protocol>
 </verify>
+</testcase>

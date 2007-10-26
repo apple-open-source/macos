@@ -330,12 +330,12 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
                 
             if ( CFGetTypeID(typeRef) == CFRunLoopTimerGetTypeID() )
             {
-                upsEventTimer = typeRef;
+                upsEventTimer = (CFRunLoopTimerRef)typeRef;
                 CFRunLoopAddTimer(CFRunLoopGetCurrent(), upsEventTimer, kCFRunLoopDefaultMode);
             }
             else if ( CFGetTypeID(typeRef) == CFRunLoopSourceGetTypeID() )
             {
-                upsEventSource = typeRef;
+                upsEventSource = (CFRunLoopSourceRef)typeRef;
                 CFRunLoopAddSource(CFRunLoopGetCurrent(), upsEventSource, kCFRunLoopDefaultMode);
             }
         }
@@ -359,7 +359,7 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             if ( !upsDataRef )
                 goto UPSDEVICEADDED_FAIL;
 
-            upsDataRef->upsPlugInInterface  = upsPlugInInterface;
+            upsDataRef->upsPlugInInterface  = (IOUPSPlugInInterface **)upsPlugInInterface;
             upsDataRef->upsEventSource      = upsEventSource;
             upsDataRef->upsEventTimer       = upsEventTimer;
             upsDataRef->isPresent           = true;
@@ -830,7 +830,7 @@ kern_return_t _io_ups_get_event(
     *eventBufferSizePtr = CFDataGetLength(serializedData);
 
     vm_allocate(mach_task_self(), 
-            eventBufferPtr, 
+            (vm_address_t *)eventBufferPtr, 
             *eventBufferSizePtr, 
             TRUE);
 
@@ -888,7 +888,7 @@ kern_return_t _io_ups_get_capabilities(
     *capabilitiesBufferSizePtr = CFDataGetLength(serializedData);
 
     vm_allocate(mach_task_self(), 
-            capabilitiesBufferPtr, 
+            (vm_address_t *)capabilitiesBufferPtr, 
             *capabilitiesBufferSizePtr, 
             TRUE);
 

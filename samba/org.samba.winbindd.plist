@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.samba.winbindd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/winbindd</string>
+		<string>-F</string>
+	</array>
+	<key>TimeOut</key>
+	<integer>600</integer>
+	<key>Sockets</key>
+	<dict>
+		<key>WinbindPrivilegedPipe</key>
+		<dict>
+			<key>Bonjour</key>
+			<false/>
+			<key>SockPathMode</key>
+			<integer>384</integer> <!-- 0600 -->
+			<key>SockPathName</key>
+			<string>/var/samba/winbindd_privileged/pipe</string>
+		</dict>
+		<key>WinbindPublicPipe</key>
+		<dict>
+			<key>Bonjour</key>
+			<false/>
+			<key>SockPathMode</key>
+			<integer>438</integer> <!-- 0666 -->
+			<key>SockPathName</key>
+			<string>/var/samba/winbindd_public/pipe</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

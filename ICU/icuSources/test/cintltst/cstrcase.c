@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002, International Business Machines
+*   Copyright (C) 2002-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -16,19 +16,20 @@
 *   Test file for string casing C API functions.
 */
 
+#include <string.h>
 #include "unicode/utypes.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
 #include "unicode/uloc.h"
 #include "unicode/ubrk.h"
+#include "unicode/ucasemap.h"
 #include "cmemory.h"
 #include "cintltst.h"
-#include "cucdtst.h"
 
 /* test string case mapping functions --------------------------------------- */
 
-U_CFUNC void
-TestCaseLower() {
+static void
+TestCaseLower(void) {
     static const UChar
 
     beforeLower[]= { 0x61, 0x42, 0x49,  0x3a3, 0xdf, 0x3a3, 0x2f, 0xd93f, 0xdfff },
@@ -125,8 +126,8 @@ buffer[length]==0 ? "yes" : "no",
     }
 }
 
-U_CFUNC void
-TestCaseUpper() {
+static void
+TestCaseUpper(void) {
     static const UChar
 
     beforeUpper[]= { 0x61, 0x42, 0x69,  0x3c2, 0xdf,       0x3c3, 0x2f, 0xfb03,           0xd93f, 0xdfff },
@@ -221,8 +222,8 @@ TestCaseUpper() {
 
 #if !UCONFIG_NO_BREAK_ITERATION
 
-U_CFUNC void
-TestCaseTitle() {
+static void
+TestCaseTitle(void) {
     static const UChar
 
     beforeTitle[]= { 0x61, 0x42, 0x20, 0x69,  0x3c2, 0x20, 0xdf,       0x3c3, 0x2f, 0xfb03,           0xd93f, 0xdfff },
@@ -329,14 +330,24 @@ TestCaseTitle() {
 
 /* test case folding and case-insensitive string compare -------------------- */
 
-U_CFUNC void
-TestCaseFolding() {
+static void
+TestCaseFolding(void) {
+    /*
+     * CaseFolding.txt says about i and its cousins:
+     *   0049; C; 0069; # LATIN CAPITAL LETTER I
+     *   0049; T; 0131; # LATIN CAPITAL LETTER I
+     *
+     *   0130; F; 0069 0307; # LATIN CAPITAL LETTER I WITH DOT ABOVE
+     *   0130; T; 0069; # LATIN CAPITAL LETTER I WITH DOT ABOVE
+     * That's all.
+     * See CaseFolding.txt and the Unicode Standard for how to apply the case foldings.
+     */
     static const UChar32
     simple[]={
         /* input, default, exclude special i */
         0x61,   0x61,  0x61,
         0x49,   0x69,  0x131,
-        0x130,  0x69,  0x69,
+        0x130,  0x130, 0x69,
         0x131,  0x131, 0x131,
         0xdf,   0xdf,  0xdf,
         0xfb03, 0xfb03, 0xfb03,
@@ -545,8 +556,8 @@ TestCaseFolding() {
     }
 }
 
-U_CFUNC void
-TestCaseCompare() {
+static void
+TestCaseCompare(void) {
     static const UChar
 
     mixed[]=               { 0x61, 0x42, 0x131, 0x3a3, 0xdf,       0xfb03,           0xd93f, 0xdfff, 0 },
@@ -632,4 +643,152 @@ TestCaseCompare() {
     if(result<=0) {
         log_err("error: u_memcasecmp(mixed, different, 5, default)=%ld instead of positive\n", result);
     }
+}
+
+/* test UCaseMap ------------------------------------------------------------ */
+
+/*
+ * API test for UCaseMap;
+ * test cases for actual case mappings using UCaseMap see
+ * intltest utility/UnicodeStringTest/StringCaseTest/TestCasing
+ */
+static void
+TestUCaseMap(void) {
+    static const char
+        aBc[] ={ 0x61, 0x42, 0x63, 0 },
+        abc[] ={ 0x61, 0x62, 0x63, 0 },
+        ABCg[]={ 0x41, 0x42, 0x43, 0x67, 0 },
+        defg[]={ 0x64, 0x65, 0x66, 0x67, 0 };
+    char utf8Out[8];
+
+    UCaseMap *csm;
+    const char *locale;
+    uint32_t options;
+    int32_t length;
+    UErrorCode errorCode;
+
+    errorCode=U_ZERO_ERROR;
+    csm=ucasemap_open("tur", 0xa5, &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err("ucasemap_open(\"tur\") failed - %s\n", u_errorName(errorCode));
+        return;
+    }
+    locale=ucasemap_getLocale(csm);
+    if(0!=strcmp(locale, "tr")) {
+        log_err("ucasemap_getLocale(ucasemap_open(\"tur\"))==%s!=\"tr\"\n", locale);
+    }
+    /* overly long locale IDs get truncated to their language code to avoid unnecessary allocation */
+    ucasemap_setLocale(csm, "I-kLInGOn-the-quick-brown-fox-jumps-over-the-lazy-dog", &errorCode);
+    locale=ucasemap_getLocale(csm);
+    if(0!=strcmp(locale, "i-klingon")) {
+        log_err("ucasemap_getLocale(ucasemap_setLocale(\"I-kLInGOn-the-quick-br...\"))==%s!=\"i-klingon\"\n", locale);
+    }
+
+    errorCode=U_ZERO_ERROR;
+    options=ucasemap_getOptions(csm);
+    if(options!=0xa5) {
+        log_err("ucasemap_getOptions(ucasemap_open(0xa5))==0x%lx!=0xa5\n", (long)options);
+    }
+    ucasemap_setOptions(csm, 0x333333, &errorCode);
+    options=ucasemap_getOptions(csm);
+    if(options!=0x333333) {
+        log_err("ucasemap_getOptions(ucasemap_setOptions(0x333333))==0x%lx!=0x333333\n", (long)options);
+    }
+
+    /* test case mapping API; not all permutations necessary due to shared implementation code */
+
+    /* NUL terminated source */
+    errorCode=U_ZERO_ERROR;
+    length=ucasemap_utf8ToLower(csm, utf8Out, (int32_t)sizeof(utf8Out), aBc, -1, &errorCode);
+    if(U_FAILURE(errorCode) || length!=3 || 0!=strcmp(abc, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(aBc\\0) failed\n");
+    }
+
+    /* incoming failure code */
+    errorCode=U_PARSE_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToLower(csm, utf8Out, (int32_t)sizeof(utf8Out), aBc, -1, &errorCode);
+    if(errorCode!=U_PARSE_ERROR || 0!=strcmp(defg, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(failure) failed\n");
+    }
+
+    /* overlapping input & output */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, aBc);
+    length=ucasemap_utf8ToUpper(csm, utf8Out, 2, utf8Out+1, 2, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(aBc, utf8Out)) {
+        log_err("ucasemap_utf8ToUpper(overlap 1) failed\n");
+    }
+
+    /* overlap in the other direction */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, aBc);
+    length=ucasemap_utf8ToUpper(csm, utf8Out+1, 2, utf8Out, 2, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(aBc, utf8Out)) {
+        log_err("ucasemap_utf8ToUpper(overlap 2) failed\n");
+    }
+
+    /* NULL destination */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToLower(csm, NULL, (int32_t)sizeof(utf8Out), aBc, -1, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(defg, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(dest=NULL) failed\n");
+    }
+
+    /* destCapacity<0 */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToLower(csm, utf8Out, -2, aBc, -1, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(defg, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(destCapacity<0) failed\n");
+    }
+
+    /* NULL source */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToLower(csm, utf8Out, (int32_t)sizeof(utf8Out), NULL, -1, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(defg, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(src=NULL) failed\n");
+    }
+
+    /* srcLength<-1 */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToLower(csm, utf8Out, (int32_t)sizeof(utf8Out), aBc, -2, &errorCode);
+    if(errorCode!=U_ILLEGAL_ARGUMENT_ERROR || 0!=strcmp(defg, utf8Out)) {
+        log_err("ucasemap_utf8ToLower(srcLength<-1) failed\n");
+    }
+
+    /* buffer overflow */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToUpper(csm, utf8Out, 2, aBc, 3, &errorCode);
+    if(errorCode!=U_BUFFER_OVERFLOW_ERROR || length!=3 || 0!=strcmp(defg+2, utf8Out+2)) {
+        log_err("ucasemap_utf8ToUpper(overflow) failed\n");
+    }
+
+    /* dest not terminated (leaves g from defg alone) */
+    errorCode=U_ZERO_ERROR;
+    strcpy(utf8Out, defg);
+    length=ucasemap_utf8ToUpper(csm, utf8Out, 3, aBc, 3, &errorCode);
+    if(errorCode!=U_STRING_NOT_TERMINATED_WARNING || length!=3 || 0!=strcmp(ABCg, utf8Out)) {
+        log_err("ucasemap_utf8ToUpper(overflow) failed\n");
+    }
+
+    ucasemap_close(csm);
+}
+
+void addCaseTest(TestNode** root);
+
+void addCaseTest(TestNode** root) {
+    /* cstrcase.c functions, declared in cucdtst.h */
+    addTest(root, &TestCaseLower, "tsutil/cstrcase/TestCaseLower");
+    addTest(root, &TestCaseUpper, "tsutil/cstrcase/TestCaseUpper");
+#if !UCONFIG_NO_BREAK_ITERATION
+    addTest(root, &TestCaseTitle, "tsutil/cstrcase/TestCaseTitle");
+#endif
+    addTest(root, &TestCaseFolding, "tsutil/cstrcase/TestCaseFolding");
+    addTest(root, &TestCaseCompare, "tsutil/cstrcase/TestCaseCompare");
+    addTest(root, &TestUCaseMap, "tsutil/cstrcase/TestUCaseMap");
 }

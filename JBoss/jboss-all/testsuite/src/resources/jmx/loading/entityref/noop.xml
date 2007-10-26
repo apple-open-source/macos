@@ -1,2 +1,0 @@
-  <mbean code="org.jboss.test.jmx.loading.NoopService"
-	 name="test:name=EntityRefTest"/>

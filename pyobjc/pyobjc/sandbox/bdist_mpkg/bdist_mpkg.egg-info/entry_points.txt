@@ -1,0 +1,6 @@
+[console_scripts]
+bdist_mpkg = bdist_mpkg.script_bdist_mpkg:main
+
+[distutils.commands]
+bdist_mpkg = bdist_mpkg.cmd_bdist_mpkg:bdist_mpkg
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,83 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Jan 24 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.21 2005/08/22 20:49:25 ssen Exp $
- *
- *  $Log: BLGetDeviceForOpenFirmwarePath.c,v $
- *  Revision 1.21  2005/08/22 20:49:25  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.19  2005/06/24 16:39:51  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.18  2005/02/07 21:22:38  ssen
- *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
- *
- *  Revision 1.17  2005/02/03 00:42:29  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.16  2005/01/25 19:38:38  ssen
- *  Fix -getBoot functionality so that we can find the RAID for
- *  an Apple_Boot_RAID
- *
- *  Revision 1.15  2005/01/16 00:10:12  ssen
- *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
- *  Implement -getBoot and -info functionality. If boot-device is
- *  set to the Apple_Boot for one of the RAID members, we map
- *  this back to the top-level RAID device and print that out. This
- *  enables support in Startup Disk
- *
- *  Revision 1.14  2004/04/20 21:40:45  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.13  2003/10/17 00:10:39  ssen
- *  add more const
- *
- *  Revision 1.12  2003/07/25 01:16:25  ssen
- *  When mapping OF -> device, if we found an Apple_Boot, try to
- *  find the corresponding partition that is the real root filesystem
- *
- *  Revision 1.11  2003/07/22 15:58:36  ssen
- *  APSL 2.0
- *
- *  Revision 1.10  2003/04/19 00:11:14  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.9  2003/04/16 23:57:35  ssen
- *  Update Copyrights
- *
- *  Revision 1.8  2002/08/22 04:18:07  ssen
- *  typo
- *
- *  Revision 1.7  2002/08/22 00:38:42  ssen
- *  Gah. Search for ",\\:tbxi" from the end of the OF path
- *  instead of the beginning. For SCSI cards that use commas
- *  in the OF path, the search was causing a mis-parse.
- *
- *  Revision 1.6  2002/06/11 00:50:51  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.5  2002/04/27 17:55:00  ssen
- *  Rewrite output logic to format the string before sending of to logger
- *
- *  Revision 1.4  2002/04/25 07:27:30  ssen
- *  Go back to using errorprint and verboseprint inside library
- *
- *  Revision 1.3  2002/02/23 04:13:06  ssen
- *  Update to context-based API
- *
- *  Revision 1.2  2002/02/03 17:25:22  ssen
- *  Fix "bless -info" usage to determine current device
- *
- *  Revision 1.1  2002/02/03 17:02:35  ssen
- *  Add of -> dev function
+ *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.22 2006/02/20 22:49:57 ssen Exp $
  *
  */
  
@@ -110,8 +36,6 @@
 #import <IOKit/IOBSD.h>
 #import <IOKit/IOKitKeys.h>
 #import <IOKit/storage/IOMedia.h>
-#import <IOKit/storage/RAID/AppleRAIDUserLib.h>
-
 
 #import <CoreFoundation/CoreFoundation.h>
 
@@ -125,14 +49,22 @@
 #include "bless.h"
 #include "bless_private.h"
 
+#undef SUPPORT_RAID
+#define SUPPORT_RAID 0
+
+#if SUPPORT_RAID
+#import <IOKit/storage/RAID/AppleRAIDUserLib.h>
+
+static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, char * mntfrm);
+static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t member,
+					  CFDictionaryRef raidEntry);
+#endif
+
 extern int getPNameAndPType(BLContextPtr context,
 			    char * target,
 			    char * pname,
 			    char * ptype);
 
-static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, char * mntfrm);
-static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t member,
-					  CFDictionaryRef raidEntry);
 
 int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, char * mntfrm) {
 	
@@ -141,11 +73,7 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, 
     char newof[1024];
     char targetPName[MAXPATHLEN];
     char targetPType[MAXPATHLEN];
-    char parentDev[MNAMELEN];
-    uint32_t slice = 0;
     int ret;
-    
-    BLPartitionType partitionType = 0;
     
     char *comma = NULL;;
 	
@@ -181,11 +109,18 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, 
     
     contextprintf(context, kBLLogLevelVerbose,  "Partition name is %s. Partition type is %s\n",  targetPName, targetPType);
     
+#if 0
+    
     if(strcmp("Apple_Boot", targetPType) != 0 && strcmp("Apple_Boot_RAID", targetPType) != 0) {
 		contextprintf(context, kBLLogLevelVerbose,  "No external booter needed\n");
         return 0;
         
     }
+    
+    char parentDev[MNAMELEN];
+    uint32_t slice = 0;
+    
+    BLPartitionType partitionType = 0;
     
     // this is a auxiliary booter partition
     contextprintf(context, kBLLogLevelVerbose,  "Looking for root partition\n");
@@ -228,6 +163,7 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, 
         return 4;
     }
 
+#if SUPPORT_RAID
     if(strcmp("Apple_RAID", targetPType) == 0 || strcmp("Apple_Boot_RAID", targetPType) == 0) {
         contextprintf(context, kBLLogLevelVerbose,  "%s is an Apple_RAID. Looking for exported volume\n", mntfrm);
         ret = findRAIDForMember(context, ourIOKitPort, mntfrm);
@@ -236,10 +172,15 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char * ofstring, 
             return 4;
         }				
     }
+#endif
+    
+#endif // 0
     
     return 0;
 	
 }
+
+#if SUPPORT_RAID
 
 static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, char * mntfrm)
 {
@@ -394,3 +335,5 @@ static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t 
 	
 	return 0;
 }
+
+#endif // SUPPORT_RAID

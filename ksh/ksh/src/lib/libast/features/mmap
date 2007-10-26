@@ -1,3 +1,5 @@
+ref	-D_def_map_ast=1
+
 sys	mman
 
 tst	lib_mmap note{ standard mmap interface that works }end execute{
@@ -14,6 +16,7 @@ tst	lib_mmap note{ standard mmap interface that works }end execute{
 
 	#define Failed(file)	(remove(file),1)
 
+	int
 	#if _STD_
 	main(int argc, char** argv)
 	#else
@@ -115,11 +118,10 @@ tst	lib_mmap note{ standard mmap interface that works }end execute{
 	}
 }end
 
-tst	lib_mmap64 note{ mmap64 interface and implementation work }end execute{
+tst	lib_mmap64 -D_LARGEFILE64_SOURCE note{ mmap64 interface and implementation work }end execute{
 	#if !_lib_mmap
 	(
 	#endif
-	#define _LARGEFILE64_SOURCE     1
 	
 	#include <unistd.h>
 	#include <fcntl.h>
@@ -127,6 +129,7 @@ tst	lib_mmap64 note{ mmap64 interface and implementation work }end execute{
 	#include <sys/mman.h>
 	#include <sys/stat.h>
 	
+	int
 	main()
 	{
 	        off64_t         off;
@@ -189,6 +192,7 @@ tst	mmap_anon note{ use mmap MAP_ANON to get raw memory }end execute{
 	#if defined(MAP_ANONYMOUS) && !defined(MAP_ANON)
 	#define MAP_ANON	MAP_ANONYMOUS
 	#endif
+	int
 	main()
 	{	void	*addr;
 		addr = mmap(0,1024*1024,PROT_READ|PROT_WRITE,MAP_ANON|MAP_PRIVATE,-1,0);
@@ -204,6 +208,7 @@ tst	mmap_devzero note{ use mmap on /dev/zero to get raw memory }end execute{
 	#include <fcntl.h>
 	#include <sys/types.h>
 	#include <sys/mman.h>
+	int
 	main()
 	{	int	fd;
 		void	*addr;
@@ -218,7 +223,6 @@ tst	note{ mmap is worth using }end output{
 	#if !_lib_mmap
 	(
 	#endif
-	#include <stdio.h>
 	#include <unistd.h>
 	#include <fcntl.h>
 	#include <sys/types.h>
@@ -233,6 +237,7 @@ tst	note{ mmap is worth using }end output{
 	
 	#define Failed(file)	(remove(file),1)
 	
+	int
 	#if _STD_
 	main(int argc, char** argv)
 	#else
@@ -320,7 +325,7 @@ tst	note{ mmap is worth using }end output{
 
 cat{
 
-	/* some systems get it wrong but escape consise detection */
+	/* some systems get it wrong but escape concise detection */
 	#ifndef _NO_MMAP
 	#if __CYGWIN__
 	#define _NO_MMAP	1

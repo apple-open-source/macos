@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "January 13, 2005" "zsh 4\&.2\&.3"
+.TH "ZSHMISC" "1" "April 19, 2006" "zsh 4\&.3\&.4"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -23,39 +23,39 @@ For example,
 is a simple command with arguments\&.
 .PP
 A \fIpipeline\fP is either a simple command, or a sequence of two or more
-simple commands where each command is separated from the next by `\fB|\fP'
-or `\fB|&\fP'\&.  Where commands are separated by `\fB|\fP', the standard
+simple commands where each command is separated from the next by `\fB|\fP\&'
+or `\fB|&\fP\&'\&.  Where commands are separated by `\fB|\fP', the standard
 output of the first command is connected to the
-standard input of the next\&.  `\fB|&\fP' is shorthand for `\fB2>&1 |\fP', which
+standard input of the next\&.  `\fB|&\fP\&' is shorthand for `\fB2>&1 |\fP', which
 connects both the standard output and the standard error of the
 command to the standard input of the next\&.  The value of a pipeline
 is the value of the last command, unless the pipeline is preceded by
-`\fB!\fP' in which case the value is the logical inverse of the value of the
+`\fB!\fP\&' in which case the value is the logical inverse of the value of the
 last command\&.
 For example,
 .PP
 .RS
 .nf
-\fBecho foo | sed 's/foo/bar/'\fP
+\fBecho foo | sed \&'s/foo/bar/'\fP
 .fi
 .RE
 .PP
-is a pipeline, where the output (`\fBfoo\fP' plus a newline) of the first
+is a pipeline, where the output (`\fBfoo\fP\&' plus a newline) of the first
 command will be passed to the input of the second\&.
 .PP
-If a pipeline is preceded by `\fBcoproc\fP', it is executed as a coprocess;
+If a pipeline is preceded by `\fBcoproc\fP\&', it is executed as a coprocess;
 a two\-way pipe is established between it and the parent shell\&.  The
-shell can read from or write to the coprocess by means of the `\fB>&p\fP'
-and `\fB<&p\fP' redirection operators or with `\fBprint \-p\fP' and `\fBread \-p\fP'\&.
-A pipeline cannot be preceded by both `\fBcoproc\fP' and `\fB!\fP'\&.
+shell can read from or write to the coprocess by means of the `\fB>&p\fP\&'
+and `\fB<&p\fP\&' redirection operators or with `\fBprint \-p\fP' and `\fBread \-p\fP'\&.
+A pipeline cannot be preceded by both `\fBcoproc\fP\&' and `\fB!\fP'\&.
 If job control is active, the coprocess can be treated in other than input
 and output as an ordinary background job\&.
 .PP
 A \fIsublist\fP is either a single pipeline, or a sequence of two or more
-pipelines separated by `\fB&&\fP' or `\fB||\fP'\&.  If two pipelines are separated
-by `\fB&&\fP', the second pipeline is executed only if the first succeeds
-(returns a zero value)\&.  If two pipelines are separated by `\fB||\fP', the
-second is executed only if the first fails (returns a nonzero value)\&.
+pipelines separated by `\fB&&\fP\&' or `\fB||\fP'\&.  If two pipelines are separated
+by `\fB&&\fP\&', the second pipeline is executed only if the first succeeds
+(returns a zero status)\&.  If two pipelines are separated by `\fB||\fP\&', the
+second is executed only if the first fails (returns a nonzero status)\&.
 Both operators have equal precedence and are left associative\&.
 The value of the sublist is the value of the last pipeline executed\&.
 For example,
@@ -68,18 +68,18 @@ For example,
 .PP
 is a sublist consisting of two pipelines, the second just a simple command
 which will be executed if and only if the \fBgrep\fP command returns a zero
-value\&.  If it does not, the value of the sublist is that return value, else
-it is the value returned by the \fBprint\fP (almost certainly zero)\&.
+status\&.  If it does not, the value of the sublist is that return status, else
+it is the status returned by the \fBprint\fP (almost certainly zero)\&.
 .PP
 A \fIlist\fP is a sequence of zero or more sublists, in which each sublist
-is terminated by `\fB;\fP', `\fB&\fP', `\fB&|\fP', `\fB&!\fP', or a newline\&.
+is terminated by `\fB;\fP\&', `\fB&\fP', `\fB&|\fP', `\fB&!\fP', or a newline\&.
 This terminator
 may optionally be omitted from the last sublist in the list when the
-list appears as a complex command inside `\fB(\fP\&.\&.\&.\fB)\fP'
-or `\fB{\fP\&.\&.\&.\fB}\fP'\&.  When a
-sublist is terminated by `\fB;\fP' or newline, the shell waits for it to
+list appears as a complex command inside `\fB(\fP\&.\&.\&.\fB)\fP\&'
+or `\fB{\fP\&.\&.\&.\fB}\fP\&'\&.  When a
+sublist is terminated by `\fB;\fP\&' or newline, the shell waits for it to
 finish before executing the next sublist\&.  If a sublist is terminated
-by a `\fB&\fP', `\fB&|\fP', or `\fB&!\fP',
+by a `\fB&\fP\&', `\fB&|\fP', or `\fB&!\fP',
 the shell executes the last pipeline in it in the background, and
 does not wait for it to finish (note the difference from other shells
 which execute the whole sublist in the background)\&.
@@ -87,7 +87,7 @@ A backgrounded pipeline returns a status of zero\&.
 .PP
 More generally, a list can be seen as a set of any shell commands
 whatsoever, including the complex commands below; this is implied wherever
-the word `list' appears in later descriptions\&.  For example, the commands
+the word `list\&' appears in later descriptions\&.  For example, the commands
 in a shell function form a special sort of list\&.
 .SH "PRECOMMAND MODIFIERS"
 A simple command may be preceded by a \fIprecommand modifier\fP,
@@ -99,7 +99,7 @@ a reserved word\&.
 .TP
 .PD
 \fB\-\fP
-The command is executed with a `\fB\-\fP' prepended to its
+The command is executed with a `\fB\-\fP\&' prepended to its
 \fBargv[0]\fP string\&.
 .TP
 \fBnoglob\fP
@@ -130,9 +130,10 @@ A \fIcomplex command\fP in zsh is one of the following:
 \fBif\fP \fIlist\fP \fBthen\fP \fIlist\fP [ \fBelif\fP \fIlist\fP \fBthen\fP \fIlist\fP ] \&.\&.\&. [ \fBelse\fP \fIlist\fP ] \fBfi\fP
 The \fBif\fP \fIlist\fP is executed, and if it returns a zero exit status,
 the \fBthen\fP \fIlist\fP is executed\&.
-Otherwise, the \fBelif\fP \fIlist\fP is executed and if its value is zero,
+Otherwise, the \fBelif\fP \fIlist\fP is executed and if its status is zero,
 the \fBthen\fP \fIlist\fP is executed\&.
-If each \fBelif\fP \fIlist\fP returns nonzero, the \fBelse\fP \fIlist\fP is executed\&.
+If each \fBelif\fP \fIlist\fP returns nonzero status, the \fBelse\fP \fIlist\fP
+is executed\&.
 .TP
 \fBfor\fP \fIname\fP \&.\&.\&. [ \fBin\fP \fIword\fP \&.\&.\&. ] \fIterm\fP \fBdo\fP \fIlist\fP \fBdone\fP
 where \fIterm\fP is at least one newline or \fB;\fP\&.
@@ -154,7 +155,7 @@ in the list, else it will be treated as marking the end of the list\&.
 .TP
 \fBfor ((\fP [\fIexpr1\fP] \fB;\fP [\fIexpr2\fP] \fB;\fP [\fIexpr3\fP] \fB)) do\fP \fIlist\fP \fBdone\fP
 The arithmetic expression \fIexpr1\fP is evaluated first (see
-the section `Arithmetic Evaluation')\&.  The arithmetic expression
+the section `Arithmetic Evaluation\&')\&.  The arithmetic expression
 \fIexpr2\fP is repeatedly evaluated until it evaluates to zero and
 when non\-zero, \fIlist\fP is executed and the arithmetic expression
 \fIexpr3\fP evaluated\&.  If any expression is omitted, then it behaves
@@ -173,14 +174,25 @@ returns a nonzero exit status\&.
 which must evaluate to a number \fIn\fP\&.
 \fIlist\fP is then executed \fIn\fP times\&.
 .TP
-\fBcase\fP \fIword\fP \fBin\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] \&.\&.\&. \fB)\fP \fIlist\fP (\fB;;\fP|\fB;&\fP) ] \&.\&.\&. \fBesac\fP
+\fBcase\fP \fIword\fP \fBin\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] \&.\&.\&. \fB)\fP \fIlist\fP (\fB;;\fP|\fB;&\fP|\fB;|\fP) ] \&.\&.\&. \fBesac\fP
 Execute the \fIlist\fP associated with the first \fIpattern\fP
 that matches \fIword\fP, if any\&.  The form of the patterns
 is the same as that used for filename generation\&.  See
-the section `Filename Generation'\&.
+the section `Filename Generation\&'\&.
+.RS
+.PP
 If the \fIlist\fP that is executed is terminated with \fB;&\fP rather than
-\fB;;\fP, the following list is also executed\&.  This continues until either
-a list is terminated with \fB;;\fP or the \fBesac\fP is reached\&.
+\fB;;\fP, the following list is also executed\&.  The rule for
+the terminator of the following list \fB;;\fP, \fB;&\fP or \fB;|\fP is
+applied unless the \fBesac\fP is reached\&.
+.PP
+If the \fIlist\fP that is executed is terminated with \fB;|\fP the
+shell continues to scan the \fIpattern\fPs looking for the next match,
+executing the corresponding \fIlist\fP, and applying the rule for
+the corresponding terminator \fB;;\fP, \fB;&\fP or \fB;|\fP\&.
+Note that \fIword\fP is not re\-expanded; all applicable \fIpattern\fPs
+are tested with the same \fIword\fP\&.
+.RE
 .TP
 \fBselect\fP \fIname\fP [ \fBin\fP \fIword\fP \&.\&.\&. \fIterm\fP ] \fBdo\fP \fIlist\fP \fBdone\fP
 where \fIterm\fP is one or more newline or \fB;\fP to terminate the \fIword\fPs\&.
@@ -211,14 +223,14 @@ execute \fIalways\-list\fP\&.  Execution then continues from the
 result of the execution of \fItry\-list\fP; in other words, any error,
 or \fBbreak\fP, \fBcontinue\fP, or \fBreturn\fP command is treated in the
 normal way, as if \fIalways\-list\fP were not present\&.  The two
-chunks of code are referred to as the `try block' and the `always block'\&.
+chunks of code are referred to as the `try block\&' and the `always block'\&.
 .RS
 .PP
 Optional newlines or semicolons may appear after the \fBalways\fP;
 note, however, that they may \fInot\fP appear between the preceeding
 closing brace and the \fBalways\fP\&.
 .PP
-An `error' in this context is a condition such as a syntax error which
+An `error\&' in this context is a condition such as a syntax error which
 causes the shell to abort execution of the current function, script, or
 list\&.  Syntax errors encountered while the shell is parsing the
 code do not cause the \fIalways\-list\fP to be executed\&.  For example,
@@ -258,8 +270,9 @@ executing it in a subshell\&.
 .fi
 .RE
 .PP
-An \fBexit\fP command encountered in \fBtry\-list\fP does \fInot\fP cause the
-execution of \fIalways\-list\fP\&.  Instead, the shell exits immediately
+An \fBexit\fP command (or a \fBreturn\fP command executed at the outermost
+function level of a script) encountered in \fBtry\-list\fP does \fInot\fP cause
+the execution of \fIalways\-list\fP\&.  Instead, the shell exits immediately
 after any \fBEXIT\fP trap has been executed\&.
 .RE
 .TP
@@ -276,7 +289,7 @@ Define a function which is referenced by any one of \fIword\fP\&.
 Normally, only one \fIword\fP is provided; multiple \fIword\fPs
 are usually only useful for setting traps\&.
 The body of the function is the \fIlist\fP between
-the \fB{\fP and \fB}\fP\&.  See the section `Functions'\&.
+the \fB{\fP and \fB}\fP\&.  See the section `Functions\&'\&.
 .RS
 .PP
 If the option \fBSH_GLOB\fP is set for compatibility with other shells, then
@@ -295,19 +308,19 @@ shell process and its children\&.
 \fB[[\fP \fIexp\fP \fB]]\fP
 Evaluates the conditional expression \fIexp\fP
 and return a zero exit status if it is true\&.
-See the section `Conditional Expressions'
+See the section `Conditional Expressions\&'
 for a description of \fIexp\fP\&.
 .SH "ALTERNATE FORMS FOR COMPLEX COMMANDS"
-Many of zsh's complex commands have alternate forms\&.  These particular
+Many of zsh\&'s complex commands have alternate forms\&.  These particular
 versions of complex commands should be considered deprecated and may be
 removed in the future\&.  The versions in the previous section should be
 preferred instead\&.
 .PP
 The short versions below only work if \fIsublist\fP is of the form `\fB{\fP
-\fIlist\fP \fB}\fP' or if the \fBSHORT_LOOPS\fP option is set\&.  For the \fBif\fP,
+\fIlist\fP \fB}\fP\&' or if the \fBSHORT_LOOPS\fP option is set\&.  For the \fBif\fP,
 \fBwhile\fP and \fBuntil\fP commands, in both these cases the test part of the
-loop must also be suitably delimited, such as by `\fB[[ \&.\&.\&. ]]\fP' or `\fB((
-\&.\&.\&. ))\fP', else the end of the test will not be recognized\&.  For the
+loop must also be suitably delimited, such as by `\fB[[ \&.\&.\&. ]]\fP\&' or `\fB((
+\&.\&.\&. ))\fP\&', else the end of the test will not be recognized\&.  For the
 \fBfor\fP, \fBrepeat\fP, \fBcase\fP and \fBselect\fP commands no such special form
 for the arguments is necessary, but the other condition (the special form
 of \fIsublist\fP or use of the \fBSHORT_LOOPS\fP option) still applies\&.
@@ -342,7 +355,7 @@ does \fInot\fP, since the test is not suitably delimited\&.
 .RE
 .TP
 \fBif\fP \fIlist\fP \fIsublist\fP
-A short form of the alternate `if'\&.  The same limitations on the form of
+A short form of the alternate `if\&'\&.  The same limitations on the form of
 \fIlist\fP apply as for the previous form\&.
 .TP
 \fBfor\fP \fIname\fP \&.\&.\&. \fB(\fP \fIword\fP \&.\&.\&. \fB)\fP \fIsublist\fP
@@ -369,7 +382,7 @@ An alternative form of \fBuntil\fP\&.  Note the limitations on the form of
 \fBrepeat\fP \fIword\fP \fIsublist\fP
 This is a short form of \fBrepeat\fP\&.
 .TP
-\fBcase\fP \fIword\fP \fB{\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] \&.\&.\&. \fB)\fP \fIlist\fP (\fB;;\fP|\fB;&\fP) ] \&.\&.\&. \fB}\fP
+\fBcase\fP \fIword\fP \fB{\fP [ [\fB(\fP] \fIpattern\fP [ \fB|\fP \fIpattern\fP ] \&.\&.\&. \fB)\fP \fIlist\fP (\fB;;\fP|\fB;&\fP|\fB;|\fP) ] \&.\&.\&. \fB}\fP
 An alternative form of \fBcase\fP\&.
 .TP
 \fBselect\fP \fIname\fP [ \fBin\fP \fIword\fP \fIterm\fP ] \fIsublist\fP
@@ -383,13 +396,13 @@ word of a command unless quoted or disabled using \fBdisable \-r\fP:
 if while function repeat time until
 select coproc nocorrect foreach end ! [[ { }\fP
 .PP
-Additionally, `\fB}\fP' is recognized in any position if the \fBIGNORE_BRACES\fP option
+Additionally, `\fB}\fP\&' is recognized in any position if the \fBIGNORE_BRACES\fP option
 is not set\&.
 .SH "COMMENTS"
 In noninteractive shells, or in interactive shells with the
 \fBINTERACTIVE_COMMENTS\fP option set, a word beginning
 with the third character of the \fBhistchars\fP parameter
-(`\fB#\fP' by default) causes that word and all the following
+(`\fB#\fP\&' by default) causes that word and all the following
 characters up to a newline to be ignored\&.
 .SH "ALIASING"
 Every token in the shell input is checked to see if there
@@ -411,23 +424,23 @@ But there is nothing to prevent an alias being defined
 for \fB\efoo\fP as well\&.
 .SH "QUOTING"
 A character may be \fIquoted\fP (that is, made
-to stand for itself) by preceding it with a `\fB\e\fP'\&.
-`\fB\e\fP' followed by a newline is ignored\&.
+to stand for itself) by preceding it with a `\fB\e\fP\&'\&.
+`\fB\e\fP\&' followed by a newline is ignored\&.
 .PP
-A string enclosed between `\fB$'\fP' and `\fB'\fP' is
+A string enclosed between `\fB$\&'\fP' and `\fB'\fP' is
 processed the same way as the string arguments of the
 \fBprint\fP builtin, and the resulting string is considered to be
-entirely quoted\&.  A literal `\fB'\fP' character can be included in the
-string by using the `\fB\e'\fP' escape\&.
+entirely quoted\&.  A literal `\fB\&'\fP' character can be included in the
+string by using the `\fB\e\&'\fP' escape\&.
 .PP
-All characters enclosed between a pair of single quotes (\fB''\fP) that
-is not preceded by a `\fB$\fP' are quoted\&.  A single quote cannot appear
+All characters enclosed between a pair of single quotes (\fB\&''\fP) that
+is not preceded by a `\fB$\fP\&' are quoted\&.  A single quote cannot appear
 within single quotes unless the option \fBRC_QUOTES\fP is set, in which case
 a pair of single quotes are turned into a single quote\&.  For example,
 .PP
 .RS
 .nf
-\fBprint ''''\fP
+\fBprint \&''''\fP
 .fi
 .RE
 .PP
@@ -435,8 +448,8 @@ outputs nothing apart from a newline if \fBRC_QUOTES\fP is not set, but one
 single quote if it is set\&.
 .PP
 Inside double quotes (\fB""\fP), parameter and
-command substitution occur, and `\fB\e\fP' quotes the characters
-`\fB\e\fP', `\fB`\fP', `\fB"\fP', and `\fB$\fP'\&.
+command substitution occur, and `\fB\e\fP\&' quotes the characters
+`\fB\e\fP\&', `\fB`\fP', `\fB"\fP', and `\fB$\fP'\&.
 .\" Yodl file: Zsh/redirect.yo
 .SH "REDIRECTION"
 If a command is followed by \fB&\fP
@@ -505,19 +518,19 @@ The resulting document, called a
 .RS
 .PP
 If any character of \fIword\fP is quoted with
-single or double quotes or a `\fB\e\fP',
+single or double quotes or a `\fB\e\fP\&',
 no interpretation is placed upon the characters of the document\&.
 Otherwise, parameter and command substitution
-occurs, `\fB\e\fP' followed by a newline is removed,
-and `\fB\e\fP' must be used to quote the characters
-`\fB\e\fP', `\fB$\fP', `\fB`\fP' and the first character of \fIword\fP\&.
+occurs, `\fB\e\fP\&' followed by a newline is removed,
+and `\fB\e\fP\&' must be used to quote the characters
+`\fB\e\fP\&', `\fB$\fP', `\fB`\fP' and the first character of \fIword\fP\&.
 .PP
 Note that \fIword\fP itself does not undergo shell expansion\&.  Backquotes
 in \fIword\fP do not have their usual effect; instead they behave
 similarly to double quotes, except that the backquotes themselves are
 passed through unchanged\&.  (This information is given for completeness
 and it is not recommended that backquotes be used\&.)  Quotes in the form
-\fB$'\fP\fI\&.\&.\&.\fP\fB'\fP have their standard effect of expanding backslashed
+\fB$\&'\fP\fI\&.\&.\&.\fP\fB'\fP have their standard effect of expanding backslashed
 references to special characters\&.
 .PP
 If \fB<<\-\fP is used, then all leading
@@ -557,11 +570,11 @@ The input/output from/to the coprocess is moved to the standard input/output\&.
 .TP
 .PD
 \fB&>\fP \fIword\fP
-(Except where `\fB>&\fP \fIword\fP' matches one of the above syntaxes;
-`\fB&>\fP' can always be used to avoid this ambiguity\&.)
+(Except where `\fB>&\fP \fIword\fP\&' matches one of the above syntaxes;
+`\fB&>\fP\&' can always be used to avoid this ambiguity\&.)
 Redirects both standard output and standard error (file descriptor 2)
-in the manner of `\fB>\fP \fIword\fP'\&.
-Note that this does \fInot\fP have the same effect as `\fB>\fP \fIword\fP \fB2>&1\fP'
+in the manner of `\fB>\fP \fIword\fP\&'\&.
+Note that this does \fInot\fP have the same effect as `\fB>\fP \fIword\fP \fB2>&1\fP\&'
 in the presence of multios (see the section below)\&.
 .TP
 .PD 0
@@ -576,7 +589,7 @@ in the presence of multios (see the section below)\&.
 .PD
 \fB&>!\fP \fIword\fP
 Redirects both standard output and standard error (file descriptor 2)
-in the manner of `\fB>|\fP \fIword\fP'\&.
+in the manner of `\fB>|\fP \fIword\fP\&'\&.
 .TP
 .PD 0
 \fB>>&\fP \fIword\fP
@@ -584,7 +597,7 @@ in the manner of `\fB>|\fP \fIword\fP'\&.
 .PD
 \fB&>>\fP \fIword\fP
 Redirects both standard output and standard error (file descriptor 2)
-in the manner of `\fB>>\fP \fIword\fP'\&.
+in the manner of `\fB>>\fP \fIword\fP\&'\&.
 .TP
 .PD 0
 \fB>>&|\fP \fIword\fP
@@ -598,7 +611,7 @@ in the manner of `\fB>>\fP \fIword\fP'\&.
 .PD
 \fB&>>!\fP \fIword\fP
 Redirects both standard output and standard error (file descriptor 2)
-in the manner of `\fB>>|\fP \fIword\fP'\&.
+in the manner of `\fB>>|\fP \fIword\fP\&'\&.
 .PP
 If one of the above is preceded by a digit, then the file
 descriptor referred to is that specified by the digit
@@ -623,13 +636,70 @@ file descriptor 2 would be associated
 with the terminal (assuming file descriptor 1 had been)
 and then file descriptor 1 would be associated with file \fIfname\fP\&.
 .PP
-The `\fB|&\fP' command separator described in
-\fISimple Commands & Pipelines\fP in \fIzshmisc\fP(1)
-is a shorthand for `\fB2>&1 |\fP'\&.
+If instead of a digit one of the operators above is preceded by
+a valid identifier enclosed in braces, the shell will open a new
+file descriptor that is guaranteed to be at least 10 and set the
+parameter named by the identifier to the file descriptor opened\&.
+No whitespace is allowed between the closing brace and the redirection
+character\&.  The option \fBIGNORE_BRACES\fP must not be set\&.
+For example:
 .PP
-For output redirections only, if \fIword\fP is of the form
-`\fB>(\fP\fIlist\fP\fB)\fP' then the output is piped to the command
-represented by \fIlist\fP\&.  See
+.RS
+.nf
+\&.\&.\&. {myfd}>&1
+.fi
+.RE
+.PP
+This opens a new file descriptor that is a duplicate of file descriptor
+1 and sets the parameter \fBmyfd\fP to the number of the file descriptor,
+which will be at least 10\&.  The new file descriptor can be written to using
+the syntax \fB>&$myfd\fP\&.
+.PP
+The syntax \fB{\fP\fIvarid\fP\fB}>&\-\fP, for example \fB{myfd}>&\-\fP, may be used
+to close a file descriptor opened in this fashion\&.  Note that the
+parameter given by \fIvarid\fP must previously be set to a file descriptor
+in this case\&.
+.PP
+It is an error to open or close a file descriptor in this fashion when the
+parameter is readonly\&.  However, it is not an error to read or write a file
+descriptor using \fB<&$\fP\fIparam\fP or \fB>&$\fP\fIparam\fP if \fIparam\fP is
+readonly\&.
+.PP
+If the option \fBCLOBBER\fP is unset, it is an error to open a file
+descriptor using a parameter that is already set to an open file descriptor
+previously allocated by this mechanism\&.  Unsetting the parameter before
+using it for allocating a file descriptor avoids the error\&.
+.PP
+Note that this mechanism merely allocates or closes a file descriptor; it
+does not perform any redirections from or to it\&.  It is usually convenient
+to allocate a file descriptor prior to use as an argument to \fBexec\fP\&.  The
+following shows a typical sequence of allocation, use, and closing of a
+file descriptor:
+.PP
+.RS
+.nf
+\fBinteger myfd
+exec {myfd}>~/logs/mylogfile\&.txt
+print This is a log message\&. >&$myfd
+exec {myfd}>&\-\fP
+.fi
+.RE
+.PP
+Note that the expansion of the variable in the expression \fB>&$myfd\fP
+occurs at the point the redirection is opened\&.  This is after the expansion
+of command arguments and after any redirections to the left on the command
+line have been processed\&.
+.PP
+The `\fB|&\fP\&' command separator described in
+\fISimple Commands & Pipelines\fP in \fIzshmisc\fP(1)
+is a shorthand for `\fB2>&1 |\fP\&'\&.
+.PP
+The various forms of process substitution, `\fB<(\fP\fIlist\fP\fB)\fP\&',
+and `\fB=(\fP\fIlist\fP())\&' for input and
+`\fB>(\fP\fIlist\fP\fB)\fP\&' for output, are often used together with
+redirection\&.  For example, if \fIword\fP in an output redirection is of the
+form `\fB>(\fP\fIlist\fP\fB)\fP\&' then the output is piped to the
+command represented by \fIlist\fP\&.  See
 \fIProcess Substitution\fP in \fIzshexpn\fP(1)\&.
 .SH "MULTIOS"
 If the user tries to open a file descriptor for writing more than once,
@@ -643,7 +713,7 @@ provided the \fBMULTIOS\fP option is set, as it is by default\&.  Thus:
 .fi
 .RE
 .PP
-writes the date to two files, named `\fBfoo\fP' and `\fBbar\fP'\&.
+writes the date to two files, named `\fBfoo\fP\&' and `\fBbar\fP'\&.
 Note that a pipe is an implicit redirection; thus
 .PP
 .RS
@@ -652,7 +722,7 @@ Note that a pipe is an implicit redirection; thus
 .fi
 .RE
 .PP
-writes the date to the file `\fBfoo\fP', and also pipes it to cat\&.
+writes the date to the file `\fBfoo\fP\&', and also pipes it to cat\&.
 .PP
 If the \fBMULTIOS\fP
 option is set, the word after a redirection operator is also subjected
@@ -665,8 +735,8 @@ to filename generation (globbing)\&.  Thus
 .RE
 .PP
 will truncate all files in the current directory,
-assuming there's at least one\&.  (Without the \fBMULTIOS\fP
-option, it would create an empty file called `\fB*\fP'\&.)
+assuming there\&'s at least one\&.  (Without the \fBMULTIOS\fP
+option, it would create an empty file called `\fB*\fP\&'\&.)
 Similarly, you can do
 .PP
 .RS
@@ -695,7 +765,11 @@ or even
 .fi
 .RE
 .PP
-is equivalent to `\fBcat foo fubar | sort\fP'\&.
+is equivalent to `\fBcat foo fubar | sort\fP\&'\&.
+.PP
+Expansion of the redirection argument occurs at the point the redirection
+is opened, at the point described above for the expansion of the variable
+in \fB>&$myfd\fP\&.
 .PP
 Note that a pipe is an implicit redirection; thus
 .PP
@@ -705,7 +779,7 @@ Note that a pipe is an implicit redirection; thus
 .fi
 .RE
 .PP
-is equivalent to `\fBcat bar foo | sort\fP' (note the order of the inputs)\&.
+is equivalent to `\fBcat bar foo | sort\fP\&' (note the order of the inputs)\&.
 .PP
 If the \fBMULTIOS\fP option is \fIun\fPset,
 each redirection replaces the previous redirection for that file descriptor\&.
@@ -717,7 +791,7 @@ However, all files redirected to are actually opened, so
 .fi
 .RE
 .PP
-when \fBMULTIOS\fP is unset will truncate bar, and write `\fBfoo\fP' into baz\&.
+when \fBMULTIOS\fP is unset will truncate bar, and write `\fBfoo\fP\&' into baz\&.
 .PP
 There is a problem when an output multio is attached to an external
 program\&.  A simple example shows this:
@@ -729,7 +803,7 @@ cat file1 file2\fP
 .fi
 .RE
 .PP
-Here, it is possible that the second `\fBcat\fP' will not display the full
+Here, it is possible that the second `\fBcat\fP\&' will not display the full
 contents of \fBfile1\fP and \fBfile2\fP (i\&.e\&. the original contents of
 \fBfile\fP repeated twice)\&.
 .PP
@@ -758,7 +832,7 @@ If the parameter \fBNULLCMD\fP is not set or the option \fBCSH_NULLCMD\fP is
 set, an error is caused\&.  This is the \fBcsh\fP behavior and \fBCSH_NULLCMD\fP
 is set by default when emulating \fBcsh\fP\&.
 .PP
-If the option \fBSH_NULLCMD\fP is set, the builtin `\fB:\fP' is inserted as a
+If the option \fBSH_NULLCMD\fP is set, the builtin `\fB:\fP\&' is inserted as a
 command with the given redirections\&.  This is the default when emulating
 \fBsh\fP or \fBksh\fP\&.
 .PP
@@ -766,7 +840,7 @@ Otherwise, if the parameter \fBNULLCMD\fP is set, its value will be used as a
 command with the given redirections\&.  If both \fBNULLCMD\fP and
 \fBREADNULLCMD\fP are set, then the value of the latter will be used instead
 of that of the former when the redirection is an input\&.  The default for
-\fBNULLCMD\fP is `\fBcat\fP' and for \fBREADNULLCMD\fP is `\fBmore\fP'\&. Thus
+\fBNULLCMD\fP is `\fBcat\fP\&' and for \fBREADNULLCMD\fP is `\fBmore\fP'\&. Thus
 .PP
 .RS
 .nf
@@ -781,7 +855,7 @@ terminal\&.  \fBNULLCMD\fP and \fBREADNULLCMD\fP may refer to shell functions\&.
 .SH "COMMAND EXECUTION"
 If a command name contains no slashes, the shell attempts to locate
 it\&.  If there exists a shell function by that name, the function
-is invoked as described in the section `Functions'\&.  If there exists
+is invoked as described in the section `Functions\&'\&.  If there exists
 a shell builtin by that name, the builtin is invoked\&.
 .PP
 Otherwise, the shell searches each element of \fB$path\fP for a
@@ -792,19 +866,19 @@ a nonzero exit status\&.
 If execution fails because the file is not in executable format,
 and the file is not a directory, it is assumed to be a shell
 script\&.  \fB/bin/sh\fP is spawned to execute it\&.  If the program
-is a file beginning with `\fB#!\fP', the remainder of the first line
+is a file beginning with `\fB#!\fP\&', the remainder of the first line
 specifies an interpreter for the program\&.  The shell will
 execute the specified interpreter on operating systems that do
 not handle this executable format in the kernel\&.
 .\" Yodl file: Zsh/func.yo
 .SH "FUNCTIONS"
 Shell functions are defined with the \fBfunction\fP reserved word or the
-special syntax `\fIfuncname\fP \fB()\fP'\&.
+special syntax `\fIfuncname\fP \fB()\fP\&'\&.
 Shell functions are read in and stored internally\&.
 Alias names are resolved when the function is read\&.
 Functions are executed like commands with the arguments
 passed as positional parameters\&.
-(See the section `Command Execution'\&.)
+(See the section `Command Execution\&'\&.)
 .PP
 Functions execute in the same process as the caller and
 share all files
@@ -820,7 +894,7 @@ Functions can be undefined with the \fBunfunction\fP builtin\&.
 .SH "AUTOLOADING FUNCTIONS"
 .PP
 A function can be marked as \fIundefined\fP using the \fBautoload\fP builtin
-(or `\fBfunctions \-u\fP' or `\fBtypeset \-fu\fP')\&.  Such a function has no
+(or `\fBfunctions \-u\fP\&' or `\fBtypeset \-fu\fP')\&.  Such a function has no
 body\&.  When the function is first executed, the shell searches for its
 definition using the elements of the \fBfpath\fP variable\&.  Thus to define
 functions for autoloading, a typical sequence is:
@@ -859,7 +933,7 @@ was explicitly given by the user), \fIelement\fP is searched for the
 definition of the function without comparing its age to that of other
 files; in fact, there does not need to be any directory named \fIelement\fP
 without the suffix\&.  Thus including an element such as
-`\fB/usr/local/funcs\&.zwc\fP' in \fBfpath\fP will speed up the search for
+`\fB/usr/local/funcs\&.zwc\fP\&' in \fBfpath\fP will speed up the search for
 functions, with the disadvantage that functions included must be explicitly
 recompiled by hand before the shell notices any changes\&.
 .RE
@@ -881,14 +955,14 @@ is chosen; and third, within a directory, the newer of either a compiled
 function or an ordinary function definition is used\&.
 .PP
 If the \fBKSH_AUTOLOAD\fP option is set, or the file contains only a
-simple definition of the function, the file's contents will be executed\&.
+simple definition of the function, the file\&'s contents will be executed\&.
 This will normally define the function in question, but may also perform
 initialization, which is executed in the context of the function execution,
 and may therefore define local parameters\&.  It is an error if the function
 is not defined by loading the file\&.
 .PP
 Otherwise, the function body (with no surrounding `\fIfuncname\fP\fB()
-{\fP\fI\&.\&.\&.\fP\fB}\fP') is taken to be the complete contents of the file\&.  This
+{\fP\fI\&.\&.\&.\fP\fB}\fP\&') is taken to be the complete contents of the file\&.  This
 form allows the file to be used directly as an executable shell script\&.  If
 processing of the file results in the function being re\-defined, the
 function itself is not re\-executed\&.  To force the shell to perform
@@ -908,15 +982,15 @@ print func is initialized
 .fi
 .RE
 .PP
-then `\fBfunc; func\fP' with \fBKSH_AUTOLOAD\fP set will produce both messages
-on the first call, but only the message `\fBThis is func\fP' on the second
+then `\fBfunc; func\fP\&' with \fBKSH_AUTOLOAD\fP set will produce both messages
+on the first call, but only the message `\fBThis is func\fP\&' on the second
 and subsequent calls\&.  Without \fBKSH_AUTOLOAD\fP set, it will produce
 the initialization message on the first call, and the other message on the
 second and subsequent calls\&.
 .PP
 It is also possible to create a function that is not marked as autoloaded,
 but which loads its own definition by searching \fBfpath\fP, by using
-`\fBautoload \-X\fP' within a shell function\&.  For example, the following are
+`\fBautoload \-X\fP\&' within a shell function\&.  For example, the following are
 equivalent:
 .PP
 .RS
@@ -938,7 +1012,7 @@ myfunc args\&.\&.\&.\fP
 .fi
 .RE
 .PP
-In fact, the \fBfunctions\fP command outputs `\fBbuiltin autoload \-X\fP' as
+In fact, the \fBfunctions\fP command outputs `\fBbuiltin autoload \-X\fP\&' as
 the body of an autoloaded function\&.  This is done so that
 .PP
 .RS
@@ -948,7 +1022,7 @@ the body of an autoloaded function\&.  This is done so that
 .RE
 .PP
 produces a reasonable result\&.  A true autoloaded function can be
-identified by the presence of the comment `\fB# undefined\fP' in the body,
+identified by the presence of the comment `\fB# undefined\fP\&' in the body,
 because all comments are discarded from defined functions\&.
 .PP
 To load the definition of an autoloaded function \fBmyfunc\fP without
@@ -961,8 +1035,21 @@ executing \fBmyfunc\fP, use:
 .RE
 .PP
 .SH "SPECIAL FUNCTIONS"
-The following functions, if defined, have special meaning to
-the shell:
+Certain functions, if defined, have special meaning to the shell\&.
+.PP
+In the case of \fBchpwd\fP, \fBperiodic\fP, \fBprecmd\fP and \fBpreexec\fP it is
+possible to define an array that has the same name with `\fB_functions\fP\&'
+appended\&.  Any element in such an array is taken as the name of a function
+to execute; it is executed in the same context and with the same arguments
+as the basic function\&.  For example, if \fB$chpwd_functions\fP is an array
+containing the values `\fBmychpwd\fP\&', `\fBchpwd_save_dirstack\fP', then the
+shell attempts to execute the functions `\fBchpwd\fP\&', `\fBmychpwd\fP' and
+`\fBchpwd_save_dirstack\fP\&', in that order\&.  Any function that does not exist
+is silently ignored\&.  A function found by this mechanism is referred to
+elsewhere as a `hook function\&'\&.  An error in any function causes
+subsequent functions not to be run\&.  Note further that an error
+in a \fBprecmd\fP hook causes an immediately following \fBperiodic\fP
+function not to run (thought it may run at the next opportunity)\&.
 .PP
 .PD 0
 .TP
@@ -973,7 +1060,11 @@ Executed whenever the current working directory is changed\&.
 \fBperiodic\fP
 If the parameter \fBPERIOD\fP
 is set, this function is executed every \fB$PERIOD\fP
-seconds, just before a prompt\&.
+seconds, just before a prompt\&.  Note that if multiple functions
+are defined using the array \fBperiodic_functions\fP only one
+period is applied to the complete set of functions, and the
+scheduled time is not reset if the list of functions is altered\&.
+Hence the set of functions is always called together\&.
 .TP
 \fBprecmd\fP
 Executed before each prompt\&.
@@ -989,6 +1080,12 @@ size\-limited version of the command (with things like function bodies
 elided); the third argument contains the full text that is being
 executed\&.
 .TP
+\fBzshexit\fP
+Executed at the point where the main shell is about to exit normally\&.
+This is not called by exiting subshells, nor when the \fBexec\fP
+precommand modifier is used before an external command\&.  Also, unlike
+\fBTRAPEXIT\fP, it is not called when functions exit\&.
+.TP
 \fBTRAP\fP\fINAL\fP
 If defined and non\-null,
 this function will be executed whenever the shell
@@ -1000,11 +1097,10 @@ The signal number will be passed as the first parameter to the function\&.
 If a function of this form is defined and null,
 the shell and processes spawned by it will ignore \fBSIG\fP\fINAL\fP\&.
 .PP
-The return value from the function is handled specially\&.  If it is
+The return status from the function is handled specially\&.  If it is
 zero, the signal is assumed to have been handled, and execution continues
-normally\&.  Otherwise, the normal effect of the signal is produced;
-if this causes execution to terminate, the status returned to the shell is
-the status returned from the function\&.
+normally\&.  Otherwise, the shell will behave as interrupted except that
+the return status of the trap is retained\&.
 .PP
 Programs terminated by uncaught signals typically return the status 128
 plus the signal number\&.  Hence the following causes the handler for
@@ -1029,14 +1125,18 @@ Executed after each command\&.
 \fBTRAPEXIT\fP
 Executed when the shell exits,
 or when the current function exits if defined inside a function\&.
+The value of \fB$?\fP at the start of execution is the exit status of the
+shell or the return status of the function exiting\&.
 .TP
 \fBTRAPZERR\fP
 Executed whenever a command has a non\-zero exit status\&.  However, the
 function is not executed if the command occurred in a sublist followed by
-`\fB&&\fP' or `\fB||\fP'; only the final command in a sublist of this type
-causes the trap to be executed\&.
+`\fB&&\fP\&' or `\fB||\fP'; only the final command in a sublist of this type
+causes the trap to be executed\&.  The function \fBTRAPERR\fP acts the same as
+\fBTRAPZERR\fP on systems where there is no \fBSIGERR\fP (this is the usual
+case)\&.
 .PP
-The functions beginning `\fBTRAP\fP' may alternatively be defined with the
+The functions beginning `\fBTRAP\fP\&' may alternatively be defined with the
 \fBtrap\fP builtin:  this may be preferable for some uses, as they are then
 run in the environment of the calling process, rather than in their own
 function environment\&.  Apart from the difference in calling procedure and
@@ -1054,9 +1154,9 @@ and
 .PP
 .RS
 .nf
-\fBtrap '
+\fBtrap \&'
  # code
-' NAL\fP
+\&' NAL\fP
 .fi
 .RE
 .PP
@@ -1067,7 +1167,7 @@ If the \fBMONITOR\fP option is set,
 an interactive shell associates a \fIjob\fP with each pipeline\&.
 It keeps a table of current jobs, printed by the \fBjobs\fP
 command, and assigns them small integer numbers\&.
-When a job is started asynchronously with `\fB&\fP',
+When a job is started asynchronously with `\fB&\fP\&',
 the shell prints a line to standard error which looks like:
 .PP
 .RS
@@ -1079,7 +1179,7 @@ the shell prints a line to standard error which looks like:
 indicating that the job which was started asynchronously was job number
 1 and had one (top\-level) process, whose process ID was 1234\&.
 .PP
-If a job is started with `\fB&|\fP' or `\fB&!\fP',
+If a job is started with `\fB&|\fP\&' or `\fB&!\fP',
 then that job is immediately disowned\&.  After startup, it
 does not have a place in the job table, and is not subject
 to the job control features described here\&.
@@ -1087,7 +1187,7 @@ to the job control features described here\&.
 If you are running a job and wish to do something else you may hit the key
 ^Z (control\-Z) which sends a \fBTSTP\fP signal to the current job:  this key
 may be redefined by the \fBsusp\fP option of the external \fBstty\fP command\&.
-The shell will then normally indicate that the job has been `suspended',
+The shell will then normally indicate that the job has been `suspended\&',
 and print another prompt\&.  You can then manipulate the state of this job,
 putting it in the background with the \fBbg\fP command, or run some other
 commands and then eventually bring the job back into the foreground with
@@ -1098,7 +1198,7 @@ when it is typed\&.
 A job being run in the background will suspend if it tries to read
 from the terminal\&.
 Background jobs are normally allowed to produce output,
-but this can be disabled by giving the command `\fBstty tostop\fP'\&.
+but this can be disabled by giving the command `\fBstty tostop\fP\&'\&.
 If you set this
 tty option, then background jobs will suspend when they try to produce
 output like they do when they try to read input\&.
@@ -1106,7 +1206,7 @@ output like they do when they try to read input\&.
 When a command is suspended and continued later with the \fBfg\fP or
 \fBwait\fP builtins, zsh restores tty modes that were in effect when it was
 suspended\&.  This (intentionally) does not apply if the command is
-continued via `\fBkill \-CONT\fP', nor when it is continued with \fBbg\fP\&.
+continued via `\fBkill \-CONT\fP\&', nor when it is continued with \fBbg\fP\&.
 .PP
 There are several ways to refer to jobs in the shell\&.
 A job can be referred to by the process ID of any process of the job
@@ -1127,7 +1227,7 @@ Any job whose command line contains \fIstring\fP\&.
 Current job\&.
 .TP
 \fB%+\fP
-Equivalent to `\fB%%\fP'\&.
+Equivalent to `\fB%%\fP\&'\&.
 .TP
 \fB%\-\fP
 Previous job\&.
@@ -1144,7 +1244,7 @@ When the monitor mode is on, each background job that completes
 triggers any trap set for \fBCHLD\fP\&.
 .PP
 When you try to leave the shell while jobs are running or suspended, you will
-be warned that `You have suspended (running) jobs'\&.
+be warned that `You have suspended (running) jobs\&'\&.
 You may use the \fBjobs\fP command to see what they are\&.
 If you do this or immediately try to
 exit again, the shell will not warn you a second time; the suspended
@@ -1157,28 +1257,32 @@ or the \fBdisown\fP builtin\&.
 .SH "SIGNALS"
 The \fBINT\fP and \fBQUIT\fP signals for an invoked
 command are ignored if the command is followed by
-`\fB&\fP' and the \fBMONITOR\fP option is not active\&.
+`\fB&\fP\&' and the \fBMONITOR\fP option is not active\&.
+The shell itself always ignores the \fBQUIT\fP signal\&.
 Otherwise, signals have the values
 inherited by the shell from its parent
-(but see the \fBTRAP\fP\fINAL\fP special functions in the section `Functions')\&.
+(but see the \fBTRAP\fP\fINAL\fP special functions in the section `Functions\&')\&.
 .\" Yodl file: Zsh/arith.yo
 .SH "ARITHMETIC EVALUATION"
 The shell can perform integer and floating point arithmetic, either using
 the builtin \fBlet\fP, or via a substitution of the form \fB$((\&.\&.\&.))\fP\&.  For
 integers, the shell is usually compiled to use 8\-byte precision where this
 is available, otherwise precision is 4 bytes\&.  This can be tested, for
-example, by giving the command `\fBprint \- $(( 12345678901 ))\fP'; if the
+example, by giving the command `\fBprint \- $(( 12345678901 ))\fP\&'; if the
 number appears unchanged, the precision is at least 8 bytes\&.  Floating
 point arithmetic is always double precision\&.
 .PP
 The \fBlet\fP builtin command takes arithmetic expressions as arguments; each
 is evaluated separately\&.  Since many of the arithmetic operators, as well
 as spaces, require quoting, an alternative form is provided: for any
-command which begins with a `\fB((\fP', all the characters until a
-matching `\fB))\fP' are treated as a quoted expression and
+command which begins with a `\fB((\fP\&', all the characters until a
+matching `\fB))\fP\&' are treated as a quoted expression and
 arithmetic expansion performed as for an argument of \fBlet\fP\&.  More
-precisely, `\fB((\fP\fI\&.\&.\&.\fP\fB))\fP' is equivalent to
-`\fBlet "\fP\fI\&.\&.\&.\fP\fB"\fP'\&.  For example, the following statement
+precisely, `\fB((\fP\fI\&.\&.\&.\fP\fB))\fP\&' is equivalent to
+`\fBlet "\fP\fI\&.\&.\&.\fP\fB"\fP\&'\&.  The return status is 0 if the arithmetic value
+of the expression is non\-zero, and 1 otherwise\&.
+.PP
+For example, the following statement
 .PP
 .RS
 .nf
@@ -1198,22 +1302,22 @@ both assigning the value 3 to the shell variable \fBval\fP and returning a
 zero status\&.
 .PP
 Integers can be in bases other than 10\&.
-A leading `\fB0x\fP' or `\fB0X\fP' denotes hexadecimal\&.
-Integers may also be of the form `\fIbase\fP\fB#\fP\fIn\fP',
+A leading `\fB0x\fP\&' or `\fB0X\fP' denotes hexadecimal\&.
+Integers may also be of the form `\fIbase\fP\fB#\fP\fIn\fP\&',
 where \fIbase\fP is a decimal number between two and thirty\-six
 representing the arithmetic base and \fIn\fP
-is a number in that base (for example, `\fB16#ff\fP' is 255 in hexadecimal)\&.
+is a number in that base (for example, `\fB16#ff\fP\&' is 255 in hexadecimal)\&.
 The \fIbase\fP\fB#\fP may also be omitted, in which case
 base 10 is used\&.  For backwards compatibility the form
-`\fB[\fP\fIbase\fP\fB]\fP\fIn\fP' is also accepted\&.
+`\fB[\fP\fIbase\fP\fB]\fP\fIn\fP\&' is also accepted\&.
 .PP
 It is also possible to specify a base to be used for output in the form
-`\fB[#\fP\fIbase\fP\fB]\fP', for example `\fB[#16]\fP'\&.  This is used when
+`\fB[#\fP\fIbase\fP\fB]\fP\&', for example `\fB[#16]\fP'\&.  This is used when
 outputting arithmetical substitutions or when assigning to scalar
 parameters, but an explicitly defined integer or floating point parameter
 will not be affected\&.  If an integer variable is implicitly defined by an
 arithmetic expression, any base specified in this way will be set as the
-variable's output arithmetic base as if the option `\fB\-i\fP \fIbase\fP' to
+variable\&'s output arithmetic base as if the option `\fB\-i\fP \fIbase\fP' to
 the \fBtypeset\fP builtin had been used\&.  The expression has no precedence
 and if it occurs more than once in a mathematical expression, the last
 encountered is used\&.  For clarity it is recommended that it appear at the
@@ -1227,23 +1331,23 @@ print $x $y\fP
 .fi
 .RE
 .PP
-outputs first `\fB8#40\fP', the rightmost value in the given output base, and
-then `\fB8#40 16#20\fP', because \fBy\fP has been explicitly declared to
+outputs first `\fB8#40\fP\&', the rightmost value in the given output base, and
+then `\fB8#40 16#20\fP\&', because \fBy\fP has been explicitly declared to
 have output base 16, while \fBx\fP (assuming it does not already exist) is
 implicitly typed by the arithmetic evaluation, where it acquires the output
 base 8\&.
 .PP
 If the \fBC_BASES\fP option is set, hexadecimal numbers in the standard C
-format, for example \fB0xFF\fP instead of the usual `\fB16#FF\fP'\&.  If the
+format, for example \fB0xFF\fP instead of the usual `\fB16#FF\fP\&'\&.  If the
 option \fBOCTAL_ZEROES\fP is also set (it is not by default), octal numbers
-will be treated similarly and hence appear as `\fB077\fP' instead of
-`\fB8#77\fP'\&.  This option has no effect on the output of bases other than
+will be treated similarly and hence appear as `\fB077\fP\&' instead of
+`\fB8#77\fP\&'\&.  This option has no effect on the output of bases other than
 hexadecimal and octal, and these formats are always understood on input\&.
 .PP
-When an output base is specified using the `\fB[#\fP\fIbase\fP\fB]\fP' syntax,
+When an output base is specified using the `\fB[#\fP\fIbase\fP\fB]\fP\&' syntax,
 an appropriate base prefix will be output if necessary, so that the value
 output is valid syntax for input\&.  If the \fB#\fP is doubled, for example
-`\fB[##16]\fP', then no base prefix is output\&.
+`\fB[##16]\fP\&', then no base prefix is output\&.
 .PP
 Floating point constants are recognized by the presence of a decimal point
 or an exponent\&.  The decimal point may be the first character of the
@@ -1303,27 +1407,28 @@ assignment
 comma operator
 .PD
 .PP
-The operators `\fB&&\fP', `\fB||\fP', `\fB&&=\fP', and `\fB||=\fP' are
+The operators `\fB&&\fP\&', `\fB||\fP', `\fB&&=\fP', and `\fB||=\fP' are
 short\-circuiting, and only one of the latter two expressions in a ternary
 operator is evaluated\&.  Note the precedence of the bitwise AND, OR,
 and XOR operators\&.
 .PP
 Mathematical functions can be called with the syntax
-`\fIfunc\fP\fB(\fP\fIargs\fP\fB)\fP', where the function decides
+`\fIfunc\fP\fB(\fP\fIargs\fP\fB)\fP\&', where the function decides
 if the \fIargs\fP is used as a string or a comma\-separated list of
 arithmetic expressions\&. The shell currently defines no mathematical
 functions by default, but the module \fBzsh/mathfunc\fP may be loaded with
 the \fBzmodload\fP builtin to provide standard floating point mathematical
 functions\&.
 .PP
-An expression of the form `\fB##\fP\fIx\fP' where \fIx\fP is any character
-sequence such as `\fBa\fP', `\fB^A\fP', or `\fB\eM\-\eC\-x\fP' gives the ASCII
-value of this character and an expression of the form `\fB#\fP\fIfoo\fP'
-gives the ASCII value of the first character of the value of the
-parameter \fIfoo\fP\&.  Note that this is different from the expression
-`\fB$#\fP\fIfoo\fP', a standard parameter substitution which gives the
-length of the parameter \fIfoo\fP\&.  `\fB#\e\fP' is accepted instead of
-`\fB##\fP', but its use is deprecated\&.
+An expression of the form `\fB##\fP\fIx\fP\&' where \fIx\fP is any character
+sequence such as `\fBa\fP\&', `\fB^A\fP', or `\fB\eM\-\eC\-x\fP' gives the value of
+this character and an expression of the form `\fB#\fP\fIfoo\fP\&' gives the
+value of the first character of the contents of the parameter \fIfoo\fP\&.
+Character values are according to the character set used in the current
+locale; for multibyte character handling the option \fBMULTIBYTE\fP must be
+set\&.  Note that this form is different from `\fB$#\fP\fIfoo\fP\&', a standard
+parameter substitution which gives the length of the parameter \fIfoo\fP\&.
+`\fB#\e\fP\&' is accepted instead of `\fB##\fP', but its use is deprecated\&.
 .PP
 Named parameters and subscripted arrays can be referenced by name within an
 arithmetic expression without using the parameter expansion syntax\&.  For
@@ -1348,13 +1453,13 @@ Likewise, floating point numbers can be declared with the \fBfloat\fP
 builtin; there are two types, differing only in their output format, as
 described for the \fBtypeset\fP builtin\&.  The output format can be bypassed
 by using arithmetic substitution instead of the parameter substitution,
-i\&.e\&. `\fB${\fP\fIfloat\fP\fB}\fP' uses the defined format, but
-`\fB$((\fP\fIfloat\fP\fB))\fP' uses a generic floating point
+i\&.e\&. `\fB${\fP\fIfloat\fP\fB}\fP\&' uses the defined format, but
+`\fB$((\fP\fIfloat\fP\fB))\fP\&' uses a generic floating point
 format\&.
 .PP
 Promotion of integer to floating point values is performed where
 necessary\&.  In addition, if any operator which requires an integer
-(`\fB~\fP', `\fB&\fP', `\fB|\fP', `\fB^\fP', `\fB%\fP', `\fB<<\fP', `\fB>>\fP' and their
+(`\fB~\fP\&', `\fB&\fP', `\fB|\fP', `\fB^\fP', `\fB%\fP', `\fB<<\fP', `\fB>>\fP' and their
 equivalents with assignment) is given a floating point argument, it will be
 silently rounded down to the next integer\&.
 .PP
@@ -1376,9 +1481,9 @@ done\fP
 .RE
 .PP
 if \fBf\fP has not already been declared, the first assignment will cause it
-to be created as an integer, and consequently the operation `\fBf += 0\&.1\fP'
+to be created as an integer, and consequently the operation `\fBf += 0\&.1\fP\&'
 will always cause the result to be truncated to zero, so that the loop will
-fail\&.  A simple fix would be to turn the initialization into `\fBf = 0\&.0\fP'\&.
+fail\&.  A simple fix would be to turn the initialization into `\fBf = 0\&.0\fP\&'\&.
 It is therefore best to declare numeric variables with explicit types\&.
 .\" Yodl file: Zsh/cond.yo
 .SH "CONDITIONAL EXPRESSIONS"
@@ -1423,7 +1528,7 @@ true if length of \fIstring\fP is non\-zero\&.
 \fB\-o\fP \fIoption\fP
 true if option named \fIoption\fP is on\&.  \fIoption\fP
 may be a single character, in which case it is a single letter option name\&.
-(See the section `Specifying Options'\&.)
+(See the section `Specifying Options\&'\&.)
 .TP
 \fB\-p\fP \fIfile\fP
 true if \fIfile\fP exists and is a FIFO special file (named pipe)\&.
@@ -1485,7 +1590,7 @@ true if \fIfile1\fP and \fIfile2\fP exist and refer to the same file\&.
 .PD
 \fIstring\fP \fB==\fP \fIpattern\fP
 true if \fIstring\fP matches \fIpattern\fP\&.
-The `\fB==\fP' form is the preferred one\&.  The `\fB=\fP' form is for
+The `\fB==\fP\&' form is the preferred one\&.  The `\fB=\fP' form is for
 backward compatibility and should be considered obsolete\&.
 .TP
 \fIstring\fP \fB!=\fP \fIpattern\fP
@@ -1535,10 +1640,10 @@ be a single word, similar to the effect of double quotes\&.  However, pattern
 metacharacters are active for the \fIpattern\fP arguments; the patterns
 are the same as those used for filename generation, see
 \fIzshexpn\fP(1), but there is no special behaviour
-of `\fB/\fP' nor initial dots, and no glob qualifiers are allowed\&.
+of `\fB/\fP\&' nor initial dots, and no glob qualifiers are allowed\&.
 .PP
 In each of the above expressions, if
-\fIfile\fP is of the form `\fB/dev/fd/\fP\fIn\fP',
+\fIfile\fP is of the form `\fB/dev/fd/\fP\fIn\fP\&',
 where \fIn\fP is an integer,
 then the test applied to the open file whose
 descriptor number is \fIn\fP,
@@ -1557,8 +1662,8 @@ For example, the following:
 .RE
 .PP
 tests if either file \fBfoo\fP or file \fBbar\fP exists, and if so, if the
-value of the parameter \fBreport\fP begins with `\fBy\fP'; if the complete
-condition is true, the message `\fBFile exists\&.\fP' is printed\&.
+value of the parameter \fBreport\fP begins with `\fBy\fP\&'; if the complete
+condition is true, the message `\fBFile exists\&.\fP\&' is printed\&.
 .\" Yodl file: Zsh/prompt.yo
 .SH "PROMPT EXPANSION"
 Prompt sequences undergo a special form of expansion\&.  This type of expansion
@@ -1573,14 +1678,14 @@ See
 
 Certain escape sequences may be recognised in the prompt string\&.
 .PP
-If the \fBPROMPT_BANG\fP option is set, a `\fB!\fP' in the prompt is replaced
-by the current history event number\&.  A literal `\fB!\fP' may then be
-represented as `\fB!!\fP'\&.
+If the \fBPROMPT_BANG\fP option is set, a `\fB!\fP\&' in the prompt is replaced
+by the current history event number\&.  A literal `\fB!\fP\&' may then be
+represented as `\fB!!\fP\&'\&.
 .PP
 If the \fBPROMPT_PERCENT\fP option is set, certain escape sequences that
-start with `\fB%\fP' are expanded\&.
+start with `\fB%\fP\&' are expanded\&.
 Some escapes take an optional integer argument, which
-should appear between the `\fB%\fP' and the next character of the
+should appear between the `\fB%\fP\&' and the next character of the
 sequence\&.  The following escape sequences are recognized:
 .PP
 .SS "Special characters"
@@ -1588,25 +1693,25 @@ sequence\&.  The following escape sequences are recognized:
 .TP
 .PD
 \fB%%\fP
-A `\fB%\fP'\&.
+A `\fB%\fP\&'\&.
 .TP
 \fB%)\fP
-A `\fB)\fP'\&.
+A `\fB)\fP\&'\&.
 .PP
 .SS "Login information"
 .PD 0
 .TP
 .PD
 \fB%l\fP
-The line (tty) the user is logged in on, without `\fB/dev/\fP' prefix\&.
-If the name starts with `\fB/dev/tty\fP', that prefix is stripped\&.
+The line (tty) the user is logged in on, without `\fB/dev/\fP\&' prefix\&.
+If the name starts with `\fB/dev/tty\fP\&', that prefix is stripped\&.
 .TP
 \fB%M\fP
 The full machine hostname\&.
 .TP
 \fB%m\fP
-The hostname up to the first `\fB\&.\fP'\&.
-An integer may follow the `\fB%\fP' to specify
+The hostname up to the first `\fB\&.\fP\&'\&.
+An integer may follow the `\fB%\fP\&' to specify
 how many components of the hostname are desired\&.  With a negative integer,
 trailing components of the hostname are shown\&.
 .TP
@@ -1614,27 +1719,27 @@ trailing components of the hostname are shown\&.
 \fB$USERNAME\fP\&.
 .TP
 \fB%y\fP
-The line (tty) the user is logged in on, without `\fB/dev/\fP' prefix\&.
-This does not treat `\fB/dev/tty\fP' names specially\&.
+The line (tty) the user is logged in on, without `\fB/dev/\fP\&' prefix\&.
+This does not treat `\fB/dev/tty\fP\&' names specially\&.
 .PP
 .SS "Shell state"
 .PD 0
 .TP
 .PD
 \fB%#\fP
-A `\fB#\fP' if the shell is running with privileges, a `\fB%\fP' if not\&.
-Equivalent to `\fB%(!\&.#\&.%%)\fP'\&.
-The definition of `privileged', for these purposes, is that either the
+A `\fB#\fP\&' if the shell is running with privileges, a `\fB%\fP' if not\&.
+Equivalent to `\fB%(!\&.#\&.%%)\fP\&'\&.
+The definition of `privileged\&', for these purposes, is that either the
 effective user ID is zero, or, if POSIX\&.1e capabilities are supported, that
 at least one capability is raised in either the Effective or Inheritable
 capability vectors\&.
 .TP
 \fB%?\fP
-The return code of the last command executed just before the prompt\&.
+The return status of the last command executed just before the prompt\&.
 .TP
 \fB%_\fP
-The status of the parser, i\&.e\&. the shell constructs (like `\fBif\fP' and
-`\fBfor\fP') that have been started on the command line\&. If given an integer
+The status of the parser, i\&.e\&. the shell constructs (like `\fBif\fP\&' and
+`\fBfor\fP\&') that have been started on the command line\&. If given an integer
 number that many strings will be printed; zero or negative or no integer means
 print as many as there are\&.  This is most useful in prompts \fBPS2\fP for
 continuation lines and \fBPS4\fP for debugging with the \fBXTRACE\fP option; in
@@ -1645,15 +1750,15 @@ the latter case it will also work non\-interactively\&.
 .TP
 .PD
 \fB%/\fP
-Present working directory (\fB$PWD\fP)\&.  If an integer follows the `\fB%\fP',
+Present working directory (\fB$PWD\fP)\&.  If an integer follows the `\fB%\fP\&',
 it specifies a number of trailing components of \fB$PWD\fP to show; zero
 means the whole path\&.  A negative integer specifies leading components,
 i\&.e\&. \fB%\-1d\fP specifies the first component\&.
 .TP
 \fB%~\fP
 As \fB%d\fP and \fB%/\fP, but if \fB$PWD\fP has a named directory as its prefix,
-that part is replaced by a `\fB~\fP' followed by the name of the directory\&.
-If it starts with \fB$HOME\fP, that part is replaced by a `\fB~\fP'\&.
+that part is replaced by a `\fB~\fP\&' followed by the name of the directory\&.
+If it starts with \fB$HOME\fP, that part is replaced by a `\fB~\fP\&'\&.
 .TP
 .PD 0
 \fB%h\fP
@@ -1677,7 +1782,7 @@ The current value of \fB$SHLVL\fP\&.
 The name of the script, sourced file, or shell function that zsh is
 currently executing, whichever was started most recently\&.  If there is
 none, this is equivalent to the parameter \fB$0\fP\&.  An integer may follow
-the `\fB%\fP' to specify a number of trailing path components to show; zero
+the `\fB%\fP\&' to specify a number of trailing path components to show; zero
 means the full path\&.  A negative integer specifies leading components\&.
 .TP
 .PD 0
@@ -1689,8 +1794,8 @@ means the full path\&.  A negative integer specifies leading components\&.
 .PD
 \fB%C\fP
 Trailing component of \fB$PWD\fP\&.
-An integer may follow the `\fB%\fP' to get more than one component\&.
-Unless `\fB%C\fP' is used, tilde contraction is performed first\&.  These are
+An integer may follow the `\fB%\fP\&' to get more than one component\&.
+Unless `\fB%C\fP\&' is used, tilde contraction is performed first\&.  These are
 deprecated as \fB%c\fP and \fB%C\fP are equivalent to \fB%1~\fP and \fB%1/\fP,
 respectively, while explicit positive integers have the same effect as for
 the latter two sequences\&.
@@ -1756,16 +1861,16 @@ position\&.  Brace pairs can nest\&.
 .PD
 \fB%v\fP
 The value of the first element of the \fBpsvar\fP array parameter\&.  Following
-the `\fB%\fP' with an integer gives that element of the array\&.  Negative
+the `\fB%\fP\&' with an integer gives that element of the array\&.  Negative
 integers count from the end of the array\&.
 .TP
 \fB%(\fP\fIx\&.true\-text\&.false\-text\fP\fB)\fP
 Specifies a ternary expression\&.  The character following the \fIx\fP is
 arbitrary; the same character is used to separate the text for the
-`true' result from that for the `false' result\&.
+`true\&' result from that for the `false' result\&.
 This separator may not appear in the \fItrue\-text\fP, except as part of a
 %\-escape
-sequence\&.  A `\fB)\fP' may appear in the \fIfalse\-text\fP as `\fB%)\fP'\&.
+sequence\&.  A `\fB)\fP\&' may appear in the \fIfalse\-text\fP as `\fB%)\fP'\&.
 \fItrue\-text\fP
 and \fIfalse\-text\fP may both contain arbitrarily\-nested escape
 sequences, including further ternary expressions\&.
@@ -1849,40 +1954,40 @@ True if the day of the week is equal to \fIn\fP (Sunday = 0)\&.
 .PD
 \fB%[\fP\fIxstring\fP\fB]\fP
 Specifies truncation behaviour for the remainder of the prompt string\&.
-The third, deprecated, form is equivalent to `\fB%\fP\fIxstringx\fP',
-i\&.e\&. \fIx\fP may be `\fB<\fP' or `\fB>\fP'\&.
+The third, deprecated, form is equivalent to `\fB%\fP\fIxstringx\fP\&',
+i\&.e\&. \fIx\fP may be `\fB<\fP\&' or `\fB>\fP'\&.
 The numeric argument, which in the third form may appear immediately
-after the `\fB[\fP', specifies the maximum permitted length of
+after the `\fB[\fP\&', specifies the maximum permitted length of
 the various strings that can be displayed in the prompt\&.
 The \fIstring\fP will be displayed in
 place of the truncated portion of any string; note this does not
 undergo prompt expansion\&.
 .RS
 .PP
-The forms with `\fB<\fP' truncate at the left of the string,
-and the forms with `\fB>\fP' truncate at the right of the string\&.
-For example, if the current directory is `\fB/home/pike\fP',
-the prompt `\fB%8<\&.\&.<%/\fP' will expand to `\fB\&.\&.e/pike\fP'\&.
-In this string, the terminating character (`\fB<\fP', `\fB>\fP' or `\fB]\fP'),
-or in fact any character, may be quoted by a preceding `\fB\e\fP'; note
+The forms with `\fB<\fP\&' truncate at the left of the string,
+and the forms with `\fB>\fP\&' truncate at the right of the string\&.
+For example, if the current directory is `\fB/home/pike\fP\&',
+the prompt `\fB%8<\&.\&.<%/\fP\&' will expand to `\fB\&.\&.e/pike\fP'\&.
+In this string, the terminating character (`\fB<\fP\&', `\fB>\fP' or `\fB]\fP'),
+or in fact any character, may be quoted by a preceding `\fB\e\fP\&'; note
 when using \fBprint \-P\fP, however, that this must be doubled as the
 string is also subject to standard \fBprint\fP processing, in addition
 to any backslashes removed by a double quoted string:  the worst case
-is therefore `\fBprint \-P "%<\e\e\e\e<<\&.\&.\&."\fP'\&.
+is therefore `\fBprint \-P "%<\e\e\e\e<<\&.\&.\&."\fP\&'\&.
 .PP
 If the \fIstring\fP is longer than the specified truncation length,
 it will appear in full, completely replacing the truncated string\&.
 .PP
 The part of the prompt string to be truncated runs to the end of the
-string, or to the end of the next enclosing group of the `\fB%(\fP'
+string, or to the end of the next enclosing group of the `\fB%(\fP\&'
 construct, or to the next truncation encountered at the same grouping
-level (i\&.e\&. truncations inside a `\fB%(\fP' are separate), which
+level (i\&.e\&. truncations inside a `\fB%(\fP\&' are separate), which
 ever comes first\&.  In particular, a truncation with argument zero
-(e\&.g\&. `\fB%<<\fP') marks the end of the range of the string to be
+(e\&.g\&. `\fB%<<\fP\&') marks the end of the range of the string to be
 truncated while turning off truncation from there on\&. For example, the
-prompt '%10<\&.\&.\&.<%~%<<%# ' will print a truncated representation of the
-current directory, followed by a `\fB%\fP' or `\fB#\fP', followed by a
-space\&.  Without the `\fB%<<\fP', those two characters would be included
+prompt \&'%10<\&.\&.\&.<%~%<<%# ' will print a truncated representation of the
+current directory, followed by a `\fB%\fP\&' or `\fB#\fP', followed by a
+space\&.  Without the `\fB%<<\fP\&', those two characters would be included
 in the string to be truncated\&.
 .RE
 .RE

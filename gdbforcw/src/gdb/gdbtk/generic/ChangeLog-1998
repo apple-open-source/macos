@@ -1,0 +1,837 @@
+  Mon Dec 21 11:11:02 1998  Keith Seitz  <keiths@cygnus.com>
+
+	  * gdbtk-cmds.c (get_register): Call get_saved_register instead of
+	  read_relative_register_raw_bytes to fetch registers.
+
+  Thu Dec 17 09:00:56 1998  Keith Seitz  <keiths@cygnus.com>
+
+	  * gdbtk-cmds.c (gdb_search): Don't mention C++ RTTI and
+	  global constructor/destructor symbols.
+
+  Thu Nov 12 15:20:15 1998  Jim Ingham   <jingham@cygnus.com>
+	  * More bug fixes merged in from devo.
+
+	  * gdbtk-cmds.c (gdb_cmd): Added an optional second argument to the
+	  gdb_cmd, which is from_tty.  This is passed to the gdb command
+	  parser.  It is 0 by default, and the console window passes 1.
+
+	  * gdbtk-cmds.c: moved disassemble_from_exec from gdbtk.c to gdbtk-cmds.c
+	  with all the other link-var'ed variables
+
+	  * gdbtk-hooks.c (gdbtk_trace_find): Only run the hook functions if 
+	  we are called from_tty.
+
+	  * gdbtk-hooks.c (gdbtk_trace_start_stop): Set the trace buttons
+	  from a trace_start_command callback rather than doing it as a
+	  special case in gdb_cmd.
+
+	  * tracepoint.c (tstart_command, tstop_command): Add call to
+	  trace_start_stop_hook here.
+
+  1998-11-04  Martin M. Hunt  <hunt@cygnus.com>
+
+	  * gdbtk-cmds.c (gdb_set_bp_addr): For callback, send full 
+	  pathname instead of just basename.
+
+  1998-11-03  Keith Seitz  <keiths@cygnus.com>
+	  * v850ice.c (do_gdb): New function.
+	  (ice_stepi): Use do_gdb to step properly.
+	  (ice_nexti): Use do_gdb to step properly.
+	  (view_source): Correct call to src window's location for new version.
+
+  Tue Aug 25 18:13:30 1998  Jim Ingham    <jingham@cygnus.com>
+
+	  * gdbtk.c (gdbtk_init): I hadn't excised ALL the old startup code, 
+	  so it was not working correctly.  Now it does.
+
+  Fri Aug 21 14:37:40 1998  Jim Ingham	<jingham@cygnus.com>
+
+	  * gdbtk.c (gdbtk_init): Changed the startup code to use
+	  tcl_findLibrary
+
+
+
+	
+on Dec 28 17:44:36 1998  David Taylor  <taylor@texas.cygnus.com>
+
+
+	The following changes were made by Jim Blandy <jimb@cygnus.com>,
+ 	Edith Epstein <eepstein@cygnus.com>, Elena Zannoni
+ 	<ezannoni@cygnus.com> Stan Shebs <shebs@cygnus.com>, and David
+ 	Taylor <taylor@cygnus.com>, as part of the project to merge in
+ 	changes originally made by HP; HP did not create ChangeLog
+ 	entries.
+
+	* gdbtk.c (gdbtk_init): change stderr to gdb_stderr.
+
+	* gdbtk-cmds.c
+	(get_pc_register): Use paddr_nz, not sprintf's %llx and
+	a cast to `long long'.  Those aren't portable.
+	(gdb_eval): add embedded_offset param to val_print call
+	(get_register): add embedded_offset param to val_print call
+
+	* gdbtk-hooks.c
+	(tk_command_loop): change instream to a FILE.
+	(gdbtk_flush): change both the declaration and definition to 
+	use GDB_FILE rather than FILE.
+
+Mon Dec 21 11:11:02 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-cmds.c (get_register): Call get_saved_register instead of
+	read_relative_register_raw_bytes to fetch registers.
+
+Thu Dec 17 09:00:56 1998  Keith Seitz  <keiths@cygnus.com>
+
+        * gdbtk-cmds.c (gdb_search): Don't mention C++ RTTI and
+        global constructor/destructor symbols.
+
+Tue Dec 15 10:09:31 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-cmds.c (gdb_disassemble): Fix typo.
+
+Sun Dec 13 09:52:51 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* gdbtk-cmds.c: Update TARGET_PRINT_INSN_INFO, TARGET_PRINT_INSN.
+
+Fri Dec 11 09:52:04 1998  Andrew Cagney  <cagney@chook>
+
+	* gdbtk-cmds.c: Replace reg_name with REGISTER_NAME.
+	
+Mon Dec 14 13:20:50 1998 Jim Ingham  <jingham@cygnus.com>
+
+	* Makefile.in, configure.in configure - add support for LIBGUI
+	outside the IDE context.
+	
+Thu Nov 19 13:14:57 1998  Geoffrey Noer  <noer@cygnus.com>
+
+	* gdbtk-cmds.c: Can't start using new API names yet.  Switch back
+	to calling cygwin32_ funcs until some time has passed...
+	* gdbtk.c: Ditto.  Also, include sys/cygwin.h for Cygwin, instead
+	of providing own proto.
+
+Fri Nov 13 00:15:08 1998  Geoffrey Noer  <noer@cygnus.com>
+
+	Changes to account for name change from cygwin32 to cygwin and
+	clean up Win32-related ifdefs.
+	
+        * gdbtk.c: lose "32" from cygwin_ func calls.  ifndef for
+        checking DISPLAY should be for _WIN32, not WINNT.
+        * gdbtk.h: pick GDBTK_PATH_SEP based on _WIN32, not WINNT.
+        * gdbtk-cmds.c (gdb_path_conv): lose "32" from cygwin_	func call,
+        change ifdef to __CYGWIN32__ instead of WINNT.
+	* {gdbtk.c, gdbtk-hooks.c}: __CYGWIN32__ refs drop the "32".
+
+Thu Nov 12 15:20:15 1998  Jim Ingham   <jingham@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_cmd): Added an optional second argument to the
+	gdb_cmd, which is from_tty.  This is passed to the gdb command
+	parser.  It is 0 by default, and the console window passes 1.
+
+	* gdbtk-cmds.c: moved disassemble_from_exec from gdbtk.c to gdbtk-cmds.c
+	with all the other link-var'ed variables
+
+	* gdbtk-hooks.c (gdbtk_trace_find): Only run the hook functions if 
+	we are called from_tty.
+
+	* gdbtk-hooks.c (gdbtk_trace_start_stop): Set the trace buttons
+	from a trace_start_command callback rather than doing it as a
+	special case in gdb_cmd.
+
+	* tracepoint.c (tstart_command, tstop_command): Add call to
+	trace_start_stop_hook here.
+	
+Wed Nov  4 12:41:42 1998  Jim Ingham  <jingham@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_set_bp_addr): Pass the type, enable & thread
+	to gdbtk_tcl_breakpoint.
+	* gdbtk-hooks.c (gdbtk_trace_find): Added this function.  It is
+	the hook function for tfind commands.
+	* tracepoint.c (trace_find_command): Added the trace_find_hook,
+	run when you do trace_find_command.
+	* tracepoint.h: Define the trace_find_hook.
+
+1998-11-03  Keith Seitz  <keiths@cygnus.com>
+
+        * v850ice.c (do_gdb): New function.
+        (ice_stepi): Use do_gdb to step properly.
+        (ice_nexti): Use do_gdb to step properly.
+        (view_source): Correct call to src window's location for new version.
+
+Mon Nov  2 11:16:10 1998  Jim Ingham  <jingham@cygnus.com>
+
+	* gdbtk-cmds (gdb_get_tracepoint_info): Demangle C++ function names.	
+
+Fri Oct 30 11:22:23 1998  Jim Ingham  <jingham@cygnus.com>
+
+	* gdbtk-cmds (gdb_get_tracepoint_info): Fixed typo.
+	
+Wed Oct 28 16:19:02 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_set_bp_addr): For callback, send full 
+	pathname instead of just basename.
+
+Wed Oct 28 10:14:33 1998  Jim Ingham   <jingham@cygnus.com>
+
+	* gdbtk-cmds.c: Made the bdtypes & bpdisp arrays shared so they
+	could be used in gdbtk-hooks.c (breakpoint_notify).
+	Also fixed a few error messages to actually print the bp number
+	rather that #%d...	
+	* gdbtk-hooks.c (breakpoint_notify): pass more of the information
+	about the breakpoint into the Tcl command, so it does not have to
+	try and guess about information we have on the C side.
+	* gdbtk.h: Export the bptypes & pbdisp arrays.
+	
+1998-10-13  Jason Molenda  (jsm@bugshack.cygnus.com)
+
+ 	* gdbtk.c, gdbtk-cmds.c: Cast parameters passed to make_cleanup to
+ 	use the new make_cleanup_func typedef.
+
+1998-10-08  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-hooks.c (gdbtk_add_hooks): Install a hook for
+	(new) file_changed_hook.
+	(gdbtk_exec_file_changed): Rename to gdbtk_exec_file_display
+	to mimic hook's name.
+	(gdbtk_file_changed): New hook function.
+	
+Tue Oct  6 22:57:13 1998  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* configure.in (links): Link gdbtcl2 directory instead of gdbtcl.
+
+Mon Oct  5 00:34:00 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_set_bp_addr): New command. Sets a
+	breakpoint at an address. Use this instead of gdb_cmd "break"
+	because the syntax of the break command is broken and doesn't
+	allow you to create a thread-specific BP at an address.  Also
+	this is faster.
+
+Sun Oct  4 22:35:47 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_set_bp): Add an optional thread number.
+	(gdb_find_bp_at_line): New function. Returns a list of bpnums 
+	at the specified line number.
+	(gdb_find_bp_at_addr): New function. Returns a list of bpnums 
+	at an address..
+
+1998-10-02  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-hooks.c (gdbtk_exec_file_changed): New function which handles
+	exec_file changes.
+	(gdbtk_add_hooks): Define exec_file_display_hook (to gdbtk_exec_file_changed)
+
+	* gdbtk-cmds.c (gdb_stop): target_stop is ALWAYS defined, so
+	compare against something a little more meaningful (target_ignore).
+
+1998-09-24  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk.c (gdbtk_wait): Don't run the timer for ice targets.
+
+	* v850ice.c (WM_ADDR_TO_SYM): New message.
+	(v850ice_wndproc): Add handler for WM_SOURCE.
+	(v850ice_wait): Call the ui_loop_hook occasionally.
+	(ice_cont): Acknowledge message before doing anything.
+	(ice_stepi): Ack message and let gdbtk do stepping.
+	(ice_nexti): Ack message and let gdbtk do stepping.
+	(view_source): New function ICE calls to display source code.
+
+1998-09-18  Keith Seitz  <keiths@cygnus.com>
+
+        * gdbtk-cmds.c (get_frame_name): Demangle function names, too.
+
+Thu Sep 10 22:10:29  1998 Jim Ingham <jingham@cygnus.com>
+
+	*gdbtk-cmds.c (gdb_disassemble): Make sure the symtab's linetable is not
+	null before trying to use it...
+	
+1998-09-02  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_cmd): Do not run the timer when downloading --
+	the ui_progress_hook that has been installed will actually
+	update the gui for us.
+
+Mon Aug 31 15:42:10 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* gdbtk-hooks.c (context_hook): Don't define.
+
+1998-08-31  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_listfuncs): When stripping out "global destructors"
+	and "global constructors", do not append any elements to the result.
+
+Sun Aug 30 00:49:18 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (Gdbtk_Init): Link C variable gdb_context
+	with tcl variable gdb_context_id.
+
+	* gdbtk-hooks.c (gdbtk_context_change): Implement new hook called 
+	context_hook.  Called when threads change.
+
+	* gdbtk.c: Initialize gdb_context.
+
+	* gdbtk.h: Declare gdb_context.
+
+	* infrun (wait_for_inferior): Call context_hook.
+
+	* thread.c (thread_command): Call context_hook.
+
+	* defs.h: Declare context_hook.
+	
+Fri Aug 28 12:14:49 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_loadfile): Open the file after doing
+	the symtab lookup and calling symtab_to_filename(). This
+	makes GDBtk work with the GDB "dir" command.
+
+1998-08-18  Keith Seitz  <keiths@cygnus.com>
+	
+	* gdbtk-hooks.c (gdbtk_add_hooks): Set selected_frame_level_changed_hook.
+	(gdbtk_selected_frame_changed): New function.
+
+	* gdbtk-cmds.c (Gdbtk_Init): Add command gdb_stack into interpreter.
+	Link gdb's global selected_frame_level with interpreter global
+	gdb_selected_frame_level.
+	(gdb_stack): New function to faciltate speedier backtraces from
+	gdbtk.
+	(get_frame_name): New helper function for gdb_stack.
+
+Tue Aug 18 15:42:40 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_listfuncs): Strip out global constructors
+	and destructors from the function list.
+
+Thu Aug 13 15:09:59 1998  Drew Moseley  <dmoseley@cygnus.com>
+
+	* gdbtk.c (gdbtk_cleanup): added a scope-level around the contents
+	of the #ifdef so that the variable declarations in there would not
+	be illegal in a C compilation.
+
+Mon Jul 27 13:07:16 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_call_command): Removed because it is now
+	in gdbtk-hooks.c
+	(null_routine): Removed.
+
+	* gdbtk-hooks.c (tracepoint_notify): Fix sprintf to
+	match number of arguments.
+
+	* gdbtk-cmds.c (gdb_loc): When calling gdb_loc with an
+	argument, call find_pc_line() to get a complete
+	symtab_and_line struct.
+
+Fri Jul 24 14:25:43 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_search): Add missing NULL to switches.
+	Add missing flags to result_ptr.
+	Pass along any errors caused by getting the list of files from
+	tcl.
+	Allocate correct amount of memory for the file list.
+	Don't do any unecessary cleanups.
+
+Fri Jul 24 01:08:37 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk-cmds.c (gdb_loadfile): When there are no
+	linenumbers, use only one tab.
+
+Sat Jul 18 12:28:39 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_cleanup): Add call to tcl function
+	gdbtk_cleanup. We need this so the GUI gets to clean
+	up no matter how GDB exits.
+
+Wed Jul  1 13:10:58 1998  Jim Ingham   <jingham@cygnus.com>
+
+	* Moved gdbtk_hooks.c & gdbtk_cmds.c to gdbtk-hooks.c &
+	gdbtk-cmds.c to comply with the gdb conventions.  Changed the
+	configure & makefile to reflect the change...
+	
+Wed Jul  1 11:07:21 1998  Jim Ingham   <jingham@cygnus.com>
+
+	* gdbtk.c: removed all the commands and hooks from this file so
+	now it contains only the startup code.
+	* gdbtk.c (gdbtk_init): Fixed a bug in the startup code on Windows 
+	that caused gdbtk not to find the share directory unless
+	GDBTK_LIBRARY was set.
+ 	* gdbtk_cmds.c: New file - this contains all the Tcl commands that
+	gdb defines.  All the old commands were moved here, the
+	string-based commands were converted to object commands, and the
+	object-based commands were all converted to uniformly use the
+	call_wrapper.  A new function, Gdbtk_Init was added to centralize
+	initializing the gdb package.
+	* gdbtk_hooks.c: New file - All the hooks were moved here, and a new
+	function, gdbtk_add_hooks was added to centralize adding all these 
+	hook functions.  gdbtk_fputs was also modified to handle the new
+	result_ptr structure.  See the comments in gdbtk.h for more
+	details.
+	* gdbtk.h: New file - this contains all the defines and globals
+	shared by gdbtk.c, gdbtk_cmds.c & gdbtk_hooks.c
+	* Makefile.in, configure.in & configure: mutatis mutandi for the
+	new files.
+	
+
+Mon Jun 29 11:49:17 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* main.c (main): Don't include gdbtk test code if GDBTK is
+	not defined by configure.
+
+	* configure.in: When enabling gdbtk, add "-DGDBTK" to ENABLE_CFLAGS.
+
+	* configure: Regenerate.
+	
+Fri Jun 26 13:56:07 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk.c: Change all references to static global "interp" to
+	"gdbtk_interp" and export this global.
+	(gdbtk_init): If gdbtk_source_filename is not NULL, source this file
+	into the interpreter when it goes idle.
+	Add new command "gdb_search".
+	(gdb_search): New function which searches the symbol table.
+	(gdbtk_test): New function called by main when the --tclcommand
+	option is used.
+
+	* main.c (main): Add a new option "--tclcommand" which is used
+	by the testsuite to source a file into the interpreter when it
+	goes idle.
+
+Sun Jun 21 09:31:12 1998  Ron Unrau  (runrau@cygnus.com)
+
+	* gdbtk.c (gdb_set_bp): Use new interface.
+
+Wed Jun 17 19:12:23 1998  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* Makefile.in (install-only): Install tracing help files.
+
+Mon Jun 15 13:18:21 1998  Jim Ingham <jingham@cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Add elements to the auto_path AS LIST
+	ELEMENTS.  This allows gdbtk to work when installed in a directory 
+	which has a space in the path.  D. Moseley pointed out the bug.
+
+
+Tue Jun  9 14:10:46 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk.c (gdb_get_vars_command): Return static variables and
+	variables stored in registers.
+
+	* main.c (main): Call pre/post_add_symbol_hook's when loading
+	executables and symbol files.
+	
+Fri Jun  5 00:16:22 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Change all references to
+	GDBTK_IDE to IDE_ENABLED.
+
+Thu Jun  4 18:31:53 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Initialize tkTable.
+
+Thu Jun  4 10:15:03 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdbtk.c: merged:
+	
+	- Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+        (call_obj_wrapper): in case of error, copy the
+        error message from the result to the error_string.
+        (gdbtk_fputs): add comments.
+        (gdb_actions_command): call validate_actionline when installing the
+        tracepoint, to do the syntax checking of the actions for us.
+        - Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+        (gdb_get_trace_frame_num): new function to get the
+        trace frame number from gdb.
+        (gdbtk_init): added new command gdb_get_trace_frame_num.
+        - Jim Blandy  <jimb@zwingli.cygnus.com>
+        (struct wrapped_call_objs): Change the `func' member to
+        be a Tcl_ObjCmdProc, not an Tcl_CmdProc, since it accepts a vector
+        of objects as arguments.  Change the object vector to be const,
+        since that's what all the users of this structure seem to expect.
+        (call_obj_wrapper): Cast clientData properly before storing it in
+        the wrapped_args structure.
+	
+Thu May 28 17:19:14 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* gdbtk.c (_initialize_gdbtk): Get rid of the console. Patch from
+	Chris Faylor (cgf@cygnus.com).
+
+	* configure.in: Link cygwin32 with subsystem console.
+
+	* configure: Regenerated
+	
+Sun May 24 14:00:24 1998  Keith Seitz  <keiths@cygnus.com>
+
+	* ser-unix.c (wait_for): Do not reset timeout_remaining for cygwin32 so that
+	we can use this member to track real timeouts.
+	(hardwire_readchar): Modify for cygwin32 so that we only ever use a real
+	system timeout of one second. Track the "real" timeout as a series of these
+	one second timeouts.
+	Call ui_loop_hook to keep the gui alive.
+
+	* top.c: Define new hook for cygwin32, "ui_loop_hook".
+
+	* gdbtk.c (gdbtk_init): Add ui_loop_hook for CygWin32 to work around
+	update problems.
+
+Thu May 21 13:56:24 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+       
+	* gdbtk.c: reinserted the changes that were accidentally deleted:
+	(_initialize_gdbtk): Use correct device names in
+	cygwin-specific call (cosmetic change). 
+        (gdbtk_ignorable_warning): removed va_list parameter,
+	which was unused.
+        (_initialize_gdbtk): add cygwin32 specific code to
+	allow `gdb -nw' to work when specified specified from a windows
+	console-mode command line.
+
+1998-05-19  Jim Blandy  <jimb@zwingli.cygnus.com>
+
+	* gdbtk.c (struct wrapped_call_objs): Change the `func' member to
+ 	be a Tcl_ObjCmdProc, not an Tcl_CmdProc, since it accepts a vector
+ 	of objects as arguments.  Change the object vector to be const,
+ 	since that's what all the users of this structure seem to expect.
+	(call_obj_wrapper): Cast clientData properly before storing it in
+	the wrapped_args structure.
+
+Wed May 13 11:12:58 1998  James Ingham  <jingham@leda.cygnus.com>
+
+	* gdbtk.c: Fixed a goof in the definition of the gdb_get_args &
+	gdb_get_locals Tcl commands.  Moved the previous ChangeLog entry
+	from ChangeLog to ChangeLog-gdbtk (here)...
+	
+Tue May 12 13:29:20 1998  Jeff Holcomb  <jeffh@cygnus.com>
+
+	* Makefile.in (install-only): Add images/icons.txt and
+	images2/icons.txt to files that need to be installed.
+
+Tue May 12 12:03:16 1998  James Ingham  <jingham@leda.cygnus.com>
+
+	* gdbtk.c: Add an object call wrapper for the new Tcl_Obj based
+	commands.  This way the obj commands will also go through
+	catch_errors.  This is just a bandaid while I rewrite the
+	string-based commands to use the object format.
+
+Tue May  5 09:30:25 1998  Christopher Faylor <cgf@cygnus.com>
+
+	* gdbtk.c (_initialize_gdbtk): Use correct device names in
+	cygwin-specific call (cosmetic change). 
+
+Wed Apr 29 15:53:16 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdbtk.c (gdbtk_ignorable_warning): removed va_list parameter,
+	which was unused.
+
+Tue Apr 28 19:41:33 1998  Tom Tromey  <tromey@cygnus.com>
+
+	* Makefile.in (GDBTKLIBS): New macro.
+	(INSTALLED_LIBS): Include GDBTKLIBS.
+	(CLIBS): Likewise.
+	* configure: Rebuilt.
+	* configure.in: Put Tcl/Tk libs into GDBTKLIBS, not LIBS.
+	(GDBTKLIBS): AC_SUBST.
+
+Thu Apr 23 19:01:05 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* Makefile.in (install-only): Install help files.
+
+Wed Apr 22 21:17:35 1998  Christopher Faylor <cgf@cygnus.com>
+
+	* gdbtk.c (_initialize_gdbtk): add cygwin32 specific code to
+	allow `gdb -nw' to work when specified specified from a windows
+	console-mode command line.
+
+Wed Apr 15 11:23:53 1998  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtcl: Remove directory and contents, this version of
+	the interface is obsolete.
+
+Mon Apr 13 16:17:52 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdb_loadfile): Change fstat() call to stat().
+	Needed because you can't convert a FILE* to an fd.
+
+Mon Apr 13 16:28:07 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+	
+	* gdbtk.c: (perror_with_name_wrapper) new function to call 
+	perror_with_name safely.
+	(gdb_loadfile) added source vs. executable time stamp check.
+	(gdbtk_warning) new function to pass a warning message to the gui.
+	(gdbtk_ignorable_warning) new function to pass a warning
+	to the gui. Used only for the src. vs. exec check.
+	(gdbtk_init) added warning_hook 
+	added include <sys/stat.h>
+
+Mon Apr 13 12:58:26 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdbtk_start_timer): Include on all platforms. Decrease
+	timer interval a little.
+	(gdbtk_stop_timer): Include on all platforms.
+	(gdbtk_wait): No more signals! Use a timer on all platforms to keep the
+	GUI alive.
+	(gdbtk_init): Remove FIOASYNC and all x_fd references. Now using timers
+	on all platforms.
+	
+Fri Apr 10 15:48:10 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+        * gdbtk.c (gdb_listfiles): Allocate space for 'files' dynamically.
+
+Thu Apr  9 14:20:59 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Remove redundant variable "IDE".
+
+Tue Apr  7 15:13:58 1998  Stan Shebs  <shebs@andros.cygnus.com>
+
+	* gdbtk.tcl: Remove, no longer used.
+
+Tue Apr  7 12:49:45 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_cmd): NEVER call the busy, update, and idle hooks.
+
+Tue Mar 31 15:42:06 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_loadfile): Don't use the return result from
+ 	sprintf, which returns a char * under SunOS4.
+
+Tue Mar 31 17:18:43 1998  Ian Lance Taylor  <ian@cygnus.com>
+
+	* configure.in: Add $(LIBIDETCL) as well as $(LIBIDE) if
+	--enable-ide.
+	* Makefile.in (IDE_CFLAGS_X): Add -I for libidetcl/src.
+	(LIBIDETCL): Define.
+	* configure: Rebuild.
+
+Sun Mar 29 21:19:46 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_get_tracepoint_info): Change formatting of address.
+	(tracepoint_exists): Remove code which confuses assembly traces.
+
+Sat Mar 28 12:13:23 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_cmd): If argc > 2, assume that the busy and idle hooks
+	should not be called.
+
+Thu Mar 26 22:29:28 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+        * gdbtk.c: (gdb_trace_status) new function.
+        (gdbtk_init) added command "gdb_is_tracing".
+        (tracepoint_notify) added passcount information.
+
+Thu Mar 26 12:00:35 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdbtk_fputs): Insert fencepost.
+	(gdb_loc): Correct pc calculation.
+	(gdb_immediate_command): Return if a load is in progress.
+	(gdb_cmd): Return if a load is in progress.
+	(target_stop_wrapper): New function.
+	(gdb_stop): Call target_stop_wrapper.
+	(x_event): Add fencepost and optimize load cancel check.
+	(gdbtk_start_timer): Set up structs only once.
+	(gdbtk_stop_timer): Just use preset structs to set timer parameters.
+	(gdb_loadfile): If file cannot be loaded, return error message.
+	(gdb_loadfile): Add space before tab so that lines without
+	a '-' can later be changed to have one.
+
+Wed Mar 25 14:08:51 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdbtk.c (gdbtk_pre_add_symbol): Use Tcl_merge to form Tcl commands.
+
+Mon Mar 23 13:41:39 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	* gdbtk.c (gdb_get_mem): Rewrite to fetch entire contents
+	of the memory window at once.
+
+Sat Mar 21 19:34:49 1998  Elena Zannoni  <ezannoni@kwikemart.cygnus.com>
+
+	Merged changes from Foundry: list follows by author:
+	
+	- Tom Tromey  <tromey@cygnus.com>
+
+	* Makefile.in (gdbres.o): New target.
+	(WINDRES): New define.
+	* configure: Rebuilt.
+	* configure.in (WINDRES): Define.
+	(CONFIG_OBS): Include gdbres.o on Windows.
+	* gdbtool.ico: New file.
+	* gdb.rc: New file.
+        * gdbtk.c (gdbtk_init): Call ide_create_messagebox_command.
+	(gdbtk_cleanup): Call ide_interface_deregister_all.
+	(gdbtk_init): Pass event handle to cleanup.
+	(TclDebug): Use Tcl_Merge to construct command.
+	(gdbtk_init): Call ide_create_cygwin_path_command.
+
+        - Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c (gdb_set_bp): Set addr_string for bp.
+	(gdb_get_breakpoint_info): Demangle function 
+	names in breakpoint info.
+	Include "demangle.h".
+	(gdb_loc, gdb_listfuncs): Demangle C++ 
+	function names.
+	(gdb_set_bp): Properly quote filename to fix
+	problems with spaces. Send pc back as a hex string.
+	(gdb_listfuncs): Remove debugging line.
+	 Turn off some debugging lines.
+ 	(breakpoint_notify): Return correct line number.
+	(gdb_get_breakpoint_info): Return correct line number.
+	(gdb_set_bp): New function to provide a better way to
+	set breakpoints.
+	(gdbtk_readline, gdbtk_readline_begin): Memory 
+	allocated by tcl needs to be freed by Tcl_Free().
+	(find_file_in_dir): Deleted.
+	(gdb_find_file_command): Call full_lookup_symtab().
+	(gdb_listfuncs): Call full_lookup_symtab().
+	(full_lookup_symtab): New function.  Like lookup_symtab
+	except handles multiple files with the same basename,
+	full pathnames, and always sets symtab->fullname.
+	(gdb_loadfile): Call full_lookup_symtab(). Clear
+	realloc'd memory.
+	(gdb_loadfile):  Don't tag lines without source.
+	Tag source lines with source_tag.
+	(gdb_find_file_command, find_file_in_dir):
+ 	Rewrite.  Now searches symtabs and psymtabs for a match
+	on the partial or full filename.  Returns the full pathname.
+	(gdb_loadfile): Realloc additional memory
+	if someone loads in a file with more than 160,000
+	lines.  I don't know if this really works because
+	I don't have enough memory to test it.
+	(gdb_sourcelines): Deleted.
+	(gdb_loadfile): New function. Takes a text widget
+	and loads it with the contents of a file.  Marks
+	and tags source lines.
+	(pc_changed): New function.
+	(get_pc_register): Returns the value of
+	the PC to GDB.
+	(gdb_loc): If looking on the stack, return
+	real pc along with calling source line.
+	(gdb_loc): Return "" instead of "N/A" if
+	filename is not found.
+	(gdb_get_breakpoint_info): Same.
+	(get_register): For Natural mode, set format to 0.
+	 Minor bugfixes from keiths.
+	(TclDebug): New function for debugging use.
+	(gdb_loc): Return correct PC for frames
+	that are not the innermost frame.
+	(gdb_listfiles): Rewritten to use object
+	API.  Now takes an optional dirname which will cause
+	only files in that directory or its subdirectories
+	to be returned.  Now returns basenames instead of
+	full pathnames.
+	(gdb_cmd): Set/reset load_in_progress flag.
+	(call_wrapper): Don't pop up dialog for errors in
+	downloads; just abort download.
+	(gdbtk_load_hash): Set return value correctly.
+
+        -  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdbtk_init): Define the ui_loop_hook so that it can be
+	called by routines which might block, allowing us to update the GUI.
+	(gdbtk_wait): Move timer calls to annotation hooks.
+	(gdbtk_init): Define the annotation hooks.
+	(gdbtk_annotate_starting): New function for cygwin32 hosts.
+	(gdbtk_annotate_stopped): New function for cygwin32 hosts.
+	(gdbtk_annotate_exited): New function for cygwin32 hosts.
+	(gdbtk_annotate_signalled): New function. for cygwin32 hosts.
+	(gdbtk_init): Use gdbtk_print_frame_info hook.
+	(gdbtk_print_frame_info): New function which sets current_source_symtab
+	based on the given symtab and line info.
+	(gdb_immediate_command): New function which does 
+	not buffer any
+	output. (Contrast to gdb_cmd.)
+	(gdb_prompt_command): New function to return gdb's prompt.
+	(find_file_in_dir): New functon which searches source paths 
+	for a given filename.
+	(gdb_find_file): New function which returns path to given file -- uses
+	find_file_in_dir.
+	(gdbtk_init): Install "gdb_immediate", "gdb_find_file", and 
+	"gdb_prompt"
+ 	commands into interpreter.
+
+        -  Ian Lance Taylor  <ian@cygnus.com>
+
+	* gdbtk.c (gdbtk_timer_going): If __CYGWIN32__, new static
+	variable.
+	(gdb_cmd): If __CYGWIN32__, if executing the load command, call
+	gdbtk_start_timer and gdbtk_stop_timer.
+	(call_wrapper): If __CYGWIN32__, if the timer is going, turn it
+	off.  Clear load_in_progress.
+	(x_event): If load_in_progress, quit if download_cancel_ok.
+	(gdbtk_start_timer): Set gdbtk_timer_going.
+	(gdbtk_stop_timer): Clear gdbtk_timer_going.
+	(gdbtk_wait): Call x_event.
+	(gdbtk_init): Call ide_create_win_grab_command if
+	__CYGIN32__.
+	(gdb_clear_file): Clear stop_pc.
+
+Wed Mar  4 16:50:18 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+	* gdbtk.c (gdb_listfiles): Fix thinko in last change.
+
+Wed Mar  4 15:34:49 1998  Jason Molenda  (crash@bugshack.cygnus.com)
+
+	* gdbtk.c (gdb_listfiles): Allocate space for 'files' dynamically.
+
+Tue Feb 10 17:50:37 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdbtk_modify_tracepoint): Define new tracepoint modification hook.
+	(gdbtk_print_frame_info): Define this hook so that current_source_symtab
+	is set properly.
+	(gdb_actions_command): Use free_actions () from tracepoint.c/h.
+	
+Mon Jan 26 11:37:55 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_actions_command): Make note of next action
+	before freeing all references to it.
+
+Sat Jan 24 23:52:08 1998  Martin M. Hunt  <hunt@cygnus.com>
+
+	* gdbtk.c: Merge from Foundry branch.
+	(TclDebug): New debugging function.
+	(gdb_loc): For frames, find address of calling function
+	instead of whatever is on the stack (usually the next
+	instruction).
+	(gdb_listfiles): Takes an optional pathname argument and 
+	returns an alphabetized list of basenames of files in the
+	path.
+
+Wed Jan 22  10:37:02 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* symfile.c: Define two new hooks for symbol reading: 
+	"pre_add_symbol_hook" and "post_add_symbol_hook". These hooks 
+	are called before we begin reading symbols, and after we finish.
+	(generic_load): Use new symbol reading hooks and get rid of 
+	compiler warning.
+
+	* gdbtk.c (gdbtk_init): Add hooks for pre- and post-symbol reading.
+	(gdbtk_pre_add_symbol): New function: the pre-add-symbol hook.
+	(gdbtk_post_add_symbol): New function: the post-add-symbol hook.
+	(find_file_in_dir): New function. Moved the guts of gdb_find_file_command
+	into here to allow its use by others.
+	(gdb_loc): Use find_file_in_dir to return the real path to the file
+	(or "N/A" if we can't find it).
+
+	* configure.in (TIX_LIB_EXT): Define new variable for those special cases
+	when TCL_SHLIB_SUFFIX is not enough to specify the dependency.
+
+	* configure: Regenerate.
+
+Fri Jan 23 07:47:06 1998  Fred Fish  <fnf@cygnus.com>
+
+	* Makefile.in (uninstall): Remove installed gdbtcl dir, if one
+	was installed.
+
+Thu Jan 15 12:42:28 1998  Keith Seitz  <keiths@onions.cygnus.com>
+
+	* gdbtk.c (gdb_immediate_command): New function which does not buffer any
+	output. (Contrast to gdb_cmd.)
+	(gdbtk_init): Install "gdb_immediate" command into interpreter.
+
+Wed Jan 14 16:38:44 1998  Keith Seitz  <keiths@pizza.cygnus.com>
+
+	* configure.in (--enable-gdbtk): If tcl was built with --enable-shared,
+	use TCL_SHLIB_SUFFIX to specify the suffix of the library file so that
+	we don't expect to see "libfoo.a" instead of "libfoo.{so,sl, etc}".
+
+	* configure: Regenerate.
+	
+Wed Dec 31 16:50:26 1998  Keith Seitz  (keiths@onions.cygnus.com)
+ 
+        * gdbtk.c (gdb_actions_command): extract and save step count
+        from "while-stepping" command
+

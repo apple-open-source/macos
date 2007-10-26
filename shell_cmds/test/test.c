@@ -164,7 +164,7 @@ main(argc, argv)
 {
 	int	res;
 
-	if (strcmp(argv[0], "[") == 0) {
+	if (argv[0] && strcmp(argv[0], "[") == 0) {
 		if (strcmp(argv[--argc], "]"))
 			errx(2, "missing ]");
 		argv[argc] = NULL;

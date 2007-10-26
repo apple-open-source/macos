@@ -1,0 +1,810 @@
+Copyright (c) 2004-2007 The Trustees of Indiana University and Indiana
+                        University Research and Technology
+                        Corporation.  All rights reserved.
+Copyright (c) 2004-2007 The University of Tennessee and The University
+                        of Tennessee Research Foundation.  All rights
+                        reserved.
+Copyright (c) 2004-2006 High Performance Computing Center Stuttgart, 
+                        University of Stuttgart.  All rights reserved.
+Copyright (c) 2004-2006 The Regents of the University of California.
+                        All rights reserved.
+Copyright (c) 2006-2007 Cisco Systems, Inc.  All rights reserved.
+Copyright (c) 2006      Voltaire, Inc. All rights reserved.
+Copyright (c) 2006      Sun Microsystems, Inc.  All rights reserved.
+Copyright (c) 2007      Myricom, Inc.  All rights reserved.
+$COPYRIGHT$
+
+Additional copyrights may follow
+
+$HEADER$
+
+===========================================================================
+
+The best way to report bugs, send comments, or ask questions is to
+sign up on the user's and/or developer's mailing list (for user-level
+and developer-level questions; when in doubt, send to the user's
+list):
+
+        users@open-mpi.org
+        devel@open-mpi.org
+
+Because of spam, only subscribers are allowed to post to these lists
+(ensure that you subscribe with and post from exactly the same e-mail
+address -- joe@example.com is considered different than
+joe@mycomputer.example.com!).  Visit these pages to subscribe to the
+lists:
+
+     http://www.open-mpi.org/mailman/listinfo.cgi/users
+     http://www.open-mpi.org/mailman/listinfo.cgi/devel
+
+Thanks for your time.
+
+===========================================================================
+
+Much, much more information is also available in the Open MPI FAQ:
+
+    http://www.open-mpi.org/faq/
+
+===========================================================================
+
+The following abbreviated list of release notes applies to this code
+base as of this writing (1 March 2007):
+
+- Open MPI includes support for a wide variety of supplemental
+  hardware and software package.  When configuring Open MPI, you may
+  need to supply additional flags to the "configure" script in order
+  to tell Open MPI where the header files, libraries, and any other
+  required files are located.  As such, running "configure" by itself
+  may include support for all the devices (etc.) that you expect,
+  especially if their support headers / libraries are installed in
+  non-standard locations.  Network interconnects are an easy example
+  to discuss -- Myrinet and InfiniBand, for example, both have
+  supplemental headers and libraries that must be found before Open
+  MPI can build support for them.  You must specify where these files
+  are with the appropriate options to configure.  See the listing of
+  configure command-line switches, below, for more details.
+
+- The Open MPI installation must be in your PATH on all nodes (and
+  potentially LD_LIBRARY_PATH, if libmpi is a shared library), unless
+  using the --prefix or --enable-mpirun-prefix-by-default
+  functionality (see below).
+
+- LAM/MPI-like mpirun notation of "C" and "N" is not yet supported.
+
+- Striping MPI messages across multiple networks is supported (and
+  happens automatically when multiple networks are available), but
+  needs performance tuning.
+
+- The run-time systems that are currently supported are:
+  - rsh / ssh
+  - BProc versions 3 and 4 with LSF
+  - LoadLeveler
+  - PBS Pro, Open PBS, Torque
+  - SLURM
+  - XGrid
+  - Cray XT-3 and XT-4
+  - Sun N1 Grid Engine (N1GE) 6 and open source Grid Engine
+
+- The majority of Open MPI's documentation is here in this file, the
+  included man pages, and on the web site FAQ
+  (http://www.open-mpi.org/).  This will eventually be supplemented
+  with cohesive installation and user documentation files.
+
+- Systems that have been tested are:
+  - Linux, 32 bit, with gcc
+  - Linux, 64 bit (x86), with gcc
+  - OS X (10.4), 32 and 64 bit (i386, PPC, PPC64, x86_64), with gcc
+  - Solaris 10 updates 2 and 3, SPARC and AMD, 32 and 64 bit, with Sun
+    Studio 10 and 11
+
+- Other systems have been lightly (but not fully tested):
+  - Other compilers on Linux, 32 and 64 bit
+  - Other 64 bit platforms (e.g., Linux on PPC64)
+
+- Some MCA parameters can be set in a way that renders Open MPI
+  inoperable (see notes about MCA parameters later in this file).  In
+  particular, some parameters have required options that must be
+  included.
+  - If specified, the "btl" parameter must include the "self"
+    component, or Open MPI will not be able to deliver messages to the
+    same rank as the sender.  For example: "mpirun --mca btl tcp,self
+    ..."
+  - If specified, the "btl_tcp_if_exclude" paramater must include the
+    loopback device ("lo" on many Linux platforms), or Open MPI will
+    not be able to route MPI messages using the TCP BTL.  For example:
+    "mpirun --mca btl_tcp_if_exclude lo,eth1 ..."
+
+- Open MPI does not support the Sparc v8 CPU target, which is the
+  default on Sun Solaris.  The v8plus (32 bit) or v9 (64 bit)
+  targets must be used to build Open MPI on Solaris.  This can be
+  done by including a flag in CFLAGS, CXXFLAGS, FFLAGS, and FCFLAGS,
+  -xarch=v8plus for the Sun compilers, -mv8plus for GCC.
+
+- At least some versions of the Intel 8.1 compiler seg fault while
+  compiling certain Open MPI source code files.  As such, it is not
+  supported.
+
+- The Intel 9.0 v20051201 compiler on IA64 platforms seems to have a
+  problem with optimizing the ptmalloc2 memory manager component (the
+  generated code will segv).  As such, the ptmalloc2 component will
+  automatically disable itself if it detects that it is on this
+  platform/compiler combination.  The only effect that this should
+  have is that the MCA parameter mpi_leave_pinned will be inoperative.
+
+- Early versions of the Portland Group 6.0 compiler have problems
+  creating the C++ MPI bindings as a shared library (e.g., v6.0-1).
+  Tests with later versions show that this has been fixed (e.g.,
+  v6.0-5).
+
+- The Portland Group compilers prior to version 7.0 require the
+  "-Msignextend" compiler flag to extend the sign bit when converting
+  from a shorter to longer integer.  This is is different than other
+  compilers (such as GNU).  When compiling Open MPI with the Portland
+  compiler suite, the following flags should be passed to Open MPI's
+  configure script:
+
+  shell$ ./configure CFLAGS=-Msignextend CXXFLAGS=-Msignextend \
+	--with-wrapper-cflags=-Msignextend \
+	--with-wrapper-cxxflags=-Msignextend ...
+
+  This will both compile Open MPI with the proper compile flags and
+  also automatically add "-Msignextend" when the C and C++ MPI wrapper
+  compilers are used to compile user MPI applications.
+
+- Open MPI will build bindings suitable for all common forms of
+  Fortran 77 compiler symbol mangling on platforms that support it
+  (e.g., Linux).  On platforms that do not support weak symbols (e.g.,
+  OS X), Open MPI will build Fortran 77 bindings just for the compiler
+  that Open MPI was configured with.  
+
+  Hence, on platforms that support it, if you configure Open MPI with
+  a Fortran 77 compiler that uses one symbol mangling scheme, you can
+  successfully compile and link MPI Fortran 77 applications with a
+  Fortran 77 compiler that uses a different symbol mangling scheme.
+
+  NOTE: For platforms that support the multi-Fortran-compiler bindings
+  (i.e., weak symbols are supported), due to limitations in the MPI
+  standard and in Fortran compilers, it is not possible to hide these
+  differences in all cases.  Specifically, the following two cases may
+  not be portable between different Fortran compilers:
+
+  1. The C constants MPI_F_STATUS_IGNORE and MPI_F_STATUSES_IGNORE
+     will only compare properly to Fortran applications that were
+     created with Fortran compilers that that use the same
+     name-mangling scheme as the Fortran compiler that Open MPI was
+     configured with.
+
+  2. Fortran compilers may have different values for the logical
+     .TRUE. constant.  As such, any MPI function that uses the Fortran
+     LOGICAL type may only get .TRUE. values back that correspond to
+     the the .TRUE. value of the Fortran compiler that Open MPI was
+     configured with.  Note that some Fortran compilers allow forcing
+     .TRUE. to be 1 and .FALSE. to be 0.  For example, the Portland
+     Group compilers provide the "-Munixlogical" option, and Intel
+     compilers (version >= 8.) provide the "-fpscomp logicals" option.
+
+  You can use the ompi_info command to see the Fortran compiler that
+  Open MPI was configured with.
+
+- Running on nodes with different endian and/or different datatype
+  sizes within a single parallel job is supported in this release.
+  However, Open MPI does not resize data when datatypes differ in size
+  (for example, sending a 4 byte MPI_DOUBLE and receiving an 8 byte
+  MPI_DOUBLE will fail).
+
+- MPI_THREAD_MULTIPLE support is included, but is only lightly tested.
+  It likely does not work for thread-intensive applications.
+
+- Asynchronous message passing progress using threads can be turned on
+  with the --enable-progress-threads option to configure.
+  Asynchronous message passing progress is only supported for TCP,
+  shared memory, and Myrinet/GM.  Myrinet/GM has only been lightly
+  tested.
+
+- The XGrid support is experimental - see the Open MPI FAQ and this
+  post on the Open MPI user's mailing list for more information:
+
+  http://www.open-mpi.org/community/lists/users/2006/01/0539.php
+
+- The OpenFabrics Enterprise Distribution (OFED) software package v1.0
+  will not work properly with Open MPI v1.2 (and later) due to how its
+  Mellanox InfiniBand plugin driver is created.  The problem is fixed
+  OFED v1.1 (and later).
+
+- The use of the mvapi BTL is deprecated.  All new InfiniBand work is
+  being done in the openib BTL (i.e., the OpenFabrics driver stack).
+
+- The use of fork() with the openib BTL is only partially supported,
+  and only on Linux kernels >= v2.6.15 with libibverbs v1.1 or later
+  (first released as part of OFED v1.2).  More complete support will
+  be included in a future release of Open MPI (see the OFED 1.2
+  distribution for details).
+
+- iWARP support is not yet included in the Open MPI OpenFabrics
+  support.
+
+- The Fortran 90 MPI bindings can now be built in one of three sizes
+  using --with-mpi-f90-size=SIZE (see description below).  These sizes
+  reflect the number of MPI functions included in the "mpi" Fortran 90
+  module and therefore which functions will be subject to strict type
+  checking.  All functions not included in the Fortran 90 module can
+  still be invoked from F90 applications, but will fall back to
+  Fortran-77 style checking (i.e., little/none).
+
+  - trivial: Only includes F90-specific functions from MPI-2.  This
+    means overloaded versions of MPI_SIZEOF for all the MPI-supported
+    F90 intrinsic types.
+
+  - small (default): All the functions in "trivial" plus all MPI
+    functions that take no choice buffers (meaning buffers that are
+    specified by the user and are of type (void*) in the C bindings --
+    generally buffers specified for message passing).  Hence,
+    functions like MPI_COMM_RANK are included, but functions like
+    MPI_SEND are not.
+
+  - medium: All the functions in "small" plus all MPI functions that
+    take one choice buffer (e.g., MPI_SEND, MPI_RECV, ...).  All
+    one-choice-buffer functions have overloaded variants for each of
+    the MPI-supported Fortran intrinsic types up to the number of
+    dimensions specified by --with-f90-max-array-dim (default value is
+    4).
+
+  Increasing the size of the F90 module (in order from trivial, small,
+  and medium) will generally increase the length of time required to
+  compile user MPI applications.  Specifically, "trivial"- and
+  "small"-sized F90 modules generally allow user MPI applications to
+  be compiled fairly quickly but lose type safety for all MPI
+  functions with choice buffers.  "medium"-sized F90 modules generally
+  take longer to compile user applications but provide greater type
+  safety for MPI functions.
+
+  Note that MPI functions with two choice buffers (e.g., MPI_GATHER)
+  are not currently included in Open MPI's F90 interface.  Calls to
+  these functions will automatically fall through to Open MPI's F77
+  interface.  A "large" size that includes the two choice buffer MPI
+  functions is possible in future versions of Open MPI.
+
+- Starting with Open MPI v1.2, there are two MPI network models
+  available: "ob1" and "cm".  "ob1" uses the familiar BTL components
+  for each supported network.  "cm" introduces MTL components for
+  each supported network.
+
+  - "ob1" supports a variety of networks that can be used in
+    combination with each other (per OS constraints; e.g., there are
+    reports that the GM and OpenFabrics kernel drivers do not operate
+    well together):
+    - InfiniBand: mVAPI and the OpenFabrics stack
+    - Loopback (send-to-self)
+    - Myrinet: GM and MX
+    - Portals
+    - Shared memory
+    - TCP
+    - uDAPL
+
+  - "cm" supports a smaller number of networks (and they cannot be
+    used together), but may provide better better overall MPI
+    performance:
+    - Myrinet MX (not GM)
+    - InfiniPath PSM
+
+  Open MPI will, by default, choose to use "cm" if it finds a
+  cm-supported network at run-time.  Users can force the use of ob1 if
+  desired by setting the "pml" MCA parameter at run-time:
+
+    shell$ mpirun --mca pml ob1 ...
+
+- The MX support is shared between the 2 internal devices, the MTL
+  and the BTL.  MTL stands for Message Transport Layer, while BTL
+  stands for Byte Transport Layer.  The design of the BTL interface
+  in Open MPI assumes that only naive one-sided communication
+  capabilities are provided by the low level communication layers.
+  However, modern communication layers such as MX, PSM or Portals,
+  natively implement highly-optimized two-sided communication
+  semantics.  To leverage these capabilities, Open MPI provides the
+  MTL interface to transfer messages rather than bytes.
+  The MTL interface implements a shorter code path and lets the
+  low-level network library decide which protocol to use, depending
+  on message length, internal resources and other parameters
+  specific to the interconnect used.  However, Open MPI cannot
+  currently use multiple MTL modules at once.  In the case of the
+  MX MTL, self and shared memory communications are provided by the
+  MX library.  Moreover, the current MX MTL does not support message
+  pipelining resulting in lower performances in case of non-contiguous
+  data-types.
+  In the case of the BTL, MCA parameters allow Open MPI to use our own
+  shared memory and self device for increased performance.
+  The BTL interface allows multiple devices to be used simultaneously.
+  For the MX BTL it is recommended that the first segment (which is
+  as a threshold between the eager and the rendezvous protocol) should
+  always be at most 4KB, but there is no further restriction on
+  the size of subsequent fragments.
+  The MX MTL is recommended in the common case for best performance
+  on 10G hardware, when most of the data transfers cover contiguous
+  memory layouts. The MX BTL is recommended in all other cases, more
+  specifically when using multiple interconnects at the same time
+  (including TCP), transferring non contiguous data-types or when
+  using the DR PML.
+
+===========================================================================
+
+Building Open MPI
+-----------------
+
+Open MPI uses a traditional configure script paired with "make" to
+build.  Typical installs can be of the pattern:
+
+---------------------------------------------------------------------------
+shell$ ./configure [...options...]
+shell$ make all install
+---------------------------------------------------------------------------
+
+There are many available configure options (see "./configure --help"
+for a full list); a summary of the more commonly used ones follows:
+
+--prefix=<directory>
+  Install Open MPI into the base directory named <directory>.  Hence,
+  Open MPI will place its executables in <directory>/bin, its header
+  files in <directory>/include, its libraries in <directory>/lib, etc.
+
+--with-gm=<directory>
+  Specify the directory where the GM libraries and header files are
+  located.  This enables GM support in Open MPI.
+
+--with-gm-libdir=<directory>
+  Look in directory for the GM libraries.  By default, Open MPI will
+  look in <gm directory>/lib and <gm directory>/lib64, which covers
+  most cases.  This option is only needed for special configurations.
+
+--with-mx=<directory>
+  Specify the directory where the MX libraries and header files are
+  located.  This enables MX support in Open MPI.
+
+--with-mx-libdir=<directory>
+  Look in directory for the MX libraries.  By default, Open MPI will
+  look in <mx directory>/lib and <mx directory>/lib64, which covers
+  most cases.  This option is only needed for special configurations.
+
+--with-mvapi=<directory>
+  Specify the directory where the mVAPI libraries and header files are
+  located.  This enables mVAPI support in Open MPI (although it is
+  deprecated).
+
+--with-mvapi-libdir=<directory>
+  Look in directory for the MVAPI libraries.  By default, Open MPI will
+  look in <mvapi directory>/lib and <mvapi directory>/lib64, which covers
+  most cases.  This option is only needed for special configurations.
+
+--with-openib=<directory>
+  Specify the directory where the OpenFabrics (previously known as
+  OpenIB) libraries and header files are located.  This enables
+  OpenFabrics support in Open MPI.
+
+--with-openib-libdir=<directory>
+  Look in directory for the OpenFabrics libraries.  By default, Open
+  MPI will look in <openib directory>/lib and <openib
+  directory>/lib64, which covers most cases.  This option is only
+  needed for special configurations.
+
+--with-psm=<directory>
+  Specify the directory where the QLogic PSM library and header files
+  are located.  This enables InfiniPath support in Open MPI.
+
+--with-psm-libdir=<directory>
+  Look in directory for the PSM libraries.  By default, Open MPI will
+  look in <psm directory>/lib and <psm directory>/lib64, which covers
+  most cases.  This option is only needed for special configurations.
+
+--with-tm=<directory>
+  Specify the directory where the TM libraries and header files are
+  located.  This enables PBS / Torque support in Open MPI.
+
+--with-mpi-param_check(=value)
+  "value" can be one of: always, never, runtime.  If --with-mpi-param
+  is not specified, "runtime" is the default.  If --with-mpi-param
+  is specified with no value, "always" is used.  Using
+  --without-mpi-param-check is equivalent to "never".
+
+  - always: the parameters of MPI functions are always checked for
+    errors 
+  - never: the parameters of MPI functions are never checked for
+    errors 
+  - runtime: whether the parameters of MPI functions are checked
+    depends on the value of the MCA parameter mpi_param_check
+    (default: yes).
+
+--with-threads=value
+  Since thread support (both support for MPI_THREAD_MULTIPLE and
+  asynchronous progress) is only partially tested, it is disabled by
+  default.  To enable threading, use "--with-threads=posix".  This is
+  most useful when combined with --enable-mpi-threads and/or
+  --enable-progress-threads.
+
+--enable-mpi-threads
+  Allows the MPI thread level MPI_THREAD_MULTIPLE.  See
+  --with-threads; this is currently disabled by default.
+
+--enable-progress-threads
+  Allows asynchronous progress in some transports.  See
+  --with-threads; this is currently disabled by default.
+
+--disable-mpi-cxx
+  Disable building the C++ MPI bindings.  Note that this does *not*
+  disable the C++ checks during configure; some of Open MPI's tools
+  are written in C++ and therefore require a C++ compiler to be built.
+
+--disable-mpi-cxx-seek
+  Disable the MPI::SEEK_* constants.  Due to a problem with the MPI-2
+  specification, these constants can conflict with system-level SEEK_*
+  constants.  Open MPI attempts to work around this problem, but the
+  workaround may fail in some esoteric situations.  The
+  --disable-mpi-cxx-seek switch disables Open MPI's workarounds (and
+  therefore the MPI::SEEK_* constants will be unavailable).
+
+--disable-mpi-f77
+  Disable building the Fortran 77 MPI bindings.
+
+--disable-mpi-f90
+  Disable building the Fortran 90 MPI bindings.  Also related to the
+  --with-f90-max-array-dim and --with-mpi-f90-size options.
+
+--with-mpi-f90-size=<SIZE>
+  Three sizes of the MPI F90 module can be built: trivial (only a
+  handful of MPI-2 F90-specific functions are included in the F90
+  module), small (trivial + all MPI functions that take no choice
+  buffers), and medium (small + all MPI functions that take 1 choice
+  buffer).  This parameter is only used if the F90 bindings are
+  enabled.
+
+--with-f90-max-array-dim=<DIM>
+  The F90 MPI bindings are strictly typed, even including the number of
+  dimensions for arrays for MPI choice buffer parameters.  Open MPI
+  generates these bindings at compile time with a maximum number of
+  dimensions as specified by this parameter.  The default value is 4.
+
+--enable-mpirun-prefix-by-default
+  This option forces the "mpirun" command to always behave as if
+  "--prefix $prefix" was present on the command line (where $prefix is
+  the value given to the --prefix option to configure).  This prevents
+  most rsh/ssh-based users from needing to modify their shell startup
+  files to set the PATH and/or LD_LIBRARY_PATH for Open MPI on remote
+  nodes.  Note, however, that such users may still desire to set PATH
+  -- perhaps even in their shell startup files -- so that executables
+  such as mpicc and mpirun can be found without needing to type long
+  path names.  --enable-orterun-prefix-by-default is a synonym for
+  this option.
+
+--disable-shared
+  By default, libmpi is built as a shared library, and all components
+  are built as dynamic shared objects (DSOs).  This switch disables
+  this default; it is really only useful when used with
+  --enable-static.  Specifically, this option does *not* imply
+  --disable-shared; enabling static libraries and disabling shared
+  libraries are two independent options.
+
+--enable-static
+  Build libmpi as a static library, and statically link in all
+  components.  Note that this option does *not* imply
+  --disable-shared; enabling static libraries and disabling shared
+  libraries are two independent options.
+
+There are many other options available -- see "./configure --help".
+
+Changing the compilers that Open MPI uses to build itself uses the
+standard Autoconf mechanism of setting special environment variables
+either before invoking configure or on the configure command line.
+The following environment variables are recognized by configure:
+
+CC          - C compiler to use
+CFLAGS      - Compile flags to pass to the C compiler
+CPPFLAGS    - Preprocessor flags to pass to the C compiler
+
+CXX         - C++ compiler to use
+CXXFLAGS    - Compile flags to pass to the C++ compiler
+CXXCPPFLAGS - Preprocessor flags to pass to the C++ compiler
+
+F77         - Fortran 77 compiler to use
+FFLAGS      - Compile flags to pass to the Fortran 77 compiler
+
+FC          - Fortran 90 compiler to use
+FCFLAGS     - Compile flags to pass to the Fortran 90 compiler
+
+LDFLAGS     - Linker flags to pass to all compilers
+LIBS        - Libraries to pass to all compilers (it is rarely
+              necessary for users to need to specify additional LIBS)
+
+For example:
+
+shell$ ./configure CC=mycc CXX=myc++ F77=myf77 F90=myf90 ...
+
+It is required that the compilers specified be compile and link
+compatible, meaning that object files created by one compiler must be
+able to be linked with object files from the other compilers and
+produce correctly functioning executables.
+
+Open MPI supports all the "make" targets that are provided by GNU
+Automake, such as:
+
+all       - build the entire Open MPI package
+install   - install Open MPI
+uninstall - remove all traces of Open MPI from the $prefix
+clean     - clean out the build tree
+
+Once Open MPI has been built and installed, it is safe to run "make
+clean" and/or remove the entire build tree.
+
+VPATH builds are fully supported.
+
+Generally speaking, the only thing that users need to do to use Open
+MPI is ensure that <prefix>/bin is in their PATH and <prefix>/lib is
+in their LD_LIBRARY_PATH.  Users may need to ensure to set the PATH
+and LD_LIBRARY_PATH in their shell setup files (e.g., .bashrc, .cshrc)
+so that rsh/ssh-based logins will be able to find the Open MPI
+executables.
+
+===========================================================================
+
+Checking Your Open MPI Installation
+-----------------------------------
+
+The "ompi_info" command can be used to check the status of your Open
+MPI installation (located in <prefix>/bin/ompi_info).  Running it with
+no arguments provides a summary of information about your Open MPI
+installation.   
+
+Note that the ompi_info command is extremely helpful in determining
+which components are installed as well as listing all the run-time
+settable parameters that are available in each component (as well as
+their default values).
+
+The following options may be helpful:
+
+--all       Show a *lot* of information about your Open MPI
+            installation. 
+--parsable  Display all the information in an easily
+            grep/cut/awk/sed-able format.
+--param <framework> <component>
+            A <framework> of "all" and a <component> of "all" will
+            show all parameters to all components.  Otherwise, the
+            parameters of all the components in a specific framework,
+            or just the parameters of a specific component can be
+            displayed by using an appropriate <framework> and/or
+            <component> name.
+
+Changing the values of these parameters is explained in the "The
+Modular Component Architecture (MCA)" section, below.
+
+===========================================================================
+
+Compiling Open MPI Applications
+-------------------------------
+
+Open MPI provides "wrapper" compilers that should be used for
+compiling MPI applications:
+
+C:          mpicc
+C++:        mpiCC (or mpic++ if your filesystem is case-insensitive)
+Fortran 77: mpif77
+Fortran 90: mpif90
+
+For example:
+
+shell$ mpicc hello_world_mpi.c -o hello_world_mpi -g
+shell$
+
+All the wrapper compilers do is add a variety of compiler and linker
+flags to the command line and then invoke a back-end compiler.  To be
+specific: the wrapper compilers do not parse source code at all; they
+are solely command-line manipulators, and have nothing to do with the
+actual compilation or linking of programs.  The end result is an MPI
+executable that is properly linked to all the relevant libraries.
+
+===========================================================================
+
+Running Open MPI Applications
+-----------------------------
+
+Open MPI supports both mpirun and mpiexec (they are exactly
+equivalent).  For example:
+
+shell$ mpirun -np 2 hello_world_mpi
+
+or
+
+shell$ mpiexec -np 1 hello_world_mpi : -np 1 hello_world_mpi
+
+are equivalent.  Some of mpiexec's switches (such as -host and -arch)
+are not yet functional, although they will not error if you try to use
+them.  
+
+The rsh launcher accepts a -hostfile parameter (the option
+"-machinefile" is equivalent); you can specify a -hostfile parameter
+indicating an standard mpirun-style hostfile (one hostname per line):
+
+shell$ mpirun -hostfile my_hostfile -np 2 hello_world_mpi
+
+If you intend to run more than one process on a node, the hostfile can
+use the "slots" attribute.  If "slots" is not specified, a count of 1
+is assumed.  For example, using the following hostfile:
+
+---------------------------------------------------------------------------
+node1.example.com
+node2.example.com
+node3.example.com slots=2
+node4.example.com slots=4
+---------------------------------------------------------------------------
+
+shell$ mpirun -hostfile my_hostfile -np 8 hello_world_mpi
+
+will launch MPI_COMM_WORLD rank 0 on node1, rank 1 on node2, ranks 2
+and 3 on node3, and ranks 4 through 7 on node4.
+
+Other starters, such as the batch scheduling environments, do not
+require hostfiles (and will ignore the hostfile if it is supplied).
+They will also launch as many processes as slots have been allocated
+by the scheduler if no "-np" argument has been provided.  For example,
+running an interactive SLURM job with 8 processors:
+
+shell$ srun -n 8 -A
+shell$ mpirun a.out
+
+The above command will launch 8 copies of a.out in a single
+MPI_COMM_WORLD on the processors that were allocated by SLURM.
+
+Note that the values of component parameters can be changed on the
+mpirun / mpiexec command line.  This is explained in the section
+below, "The Modular Component Architecture (MCA)".
+
+===========================================================================
+
+The Modular Component Architecture (MCA)
+
+The MCA is the backbone of Open MPI -- most services and functionality
+are implemented through MCA components.  Here is a list of all the
+component frameworks in Open MPI:
+
+---------------------------------------------------------------------------
+MPI component frameworks:
+-------------------------
+
+allocator - Memory allocator
+bml       - BTL management layer
+btl       - MPI point-to-point byte transfer layer, used for MPI
+            point-to-point messages on some types of networks
+coll      - MPI collective algorithms
+io        - MPI-2 I/O
+mpool     - Memory pooling
+mtl       - Matching transport layer, used for MPI point-to-point
+            messages on some types of networks
+osc       - MPI-2 one-sided communications
+pml       - MPI point-to-point management layer
+rcache    - Memory registration cache
+topo      - MPI topology routines
+
+Back-end run-time environment component frameworks:
+---------------------------------------------------
+
+errmgr    - RTE error manager
+gpr       - General purpose registry
+iof       - I/O forwarding
+ns        - Name server
+odls      - OpenRTE daemon local launch subsystem
+oob       - Out of band messaging
+pls       - Process launch system
+ras       - Resource allocation system
+rds       - Resource discovery system
+rmaps     - Resource mapping system
+rmgr      - Resource manager
+rml       - RTE message layer
+schema    - Name schemas
+sds       - Startup / discovery service
+smr       - State-of-health monitoring subsystem
+
+Miscellaneous frameworks:
+-------------------------
+
+backtrace - Debugging call stack backtrace support
+maffinity - Memory affinity
+memory    - Memory subsystem hooks
+memcpy    - Memopy copy support
+memory    - Memory management hooks
+paffinity - Processor affinity
+timer     - High-resolution timers
+
+---------------------------------------------------------------------------
+
+Each framework typically has one or more components that are used at
+run-time.  For example, the btl framework is used by MPI to send bytes
+across underlying networks.  The tcp btl, for example, sends messages
+across TCP-based networks; the gm btl sends messages across GM
+Myrinet-based networks.
+
+Each component typically has some tunable parameters that can be
+changed at run-time.  Use the ompi_info command to check a component
+to see what its tunable parameters are.  For example:
+
+shell$ ompi_info --param btl tcp
+
+shows all the parameters (and default values) for the tcp btl
+component.
+
+These values can be overridden at run-time in several ways.  At
+run-time, the following locations are examined (in order) for new
+values of parameters:
+
+1. <prefix>/etc/openmpi-mca-params.conf
+
+   This file is intended to set any system-wide default MCA parameter
+   values -- it will apply, by default, to all users who use this Open
+   MPI installation.  The default file that is installed contains many
+   comments explaining its format.
+
+2. $HOME/.openmpi/mca-params.conf
+
+   If this file exists, it should be in the same format as
+   <prefix>/etc/openmpi-mca-params.conf.  It is intended to provide
+   per-user default parameter values.
+
+3. environment variables of the form OMPI_MCA_<name> set equal to a
+   <value>
+
+   Where <name> is the name of the parameter.  For example, set the
+   variable named OMPI_MCA_btl_tcp_frag_size to the value 65536
+   (Bourne-style shells):
+
+   shell$ OMPI_MCA_btl_tcp_frag_size=65536
+   shell$ export OMPI_MCA_btl_tcp_frag_size
+
+4. the mpirun command line: --mca <name> <value>
+ 
+   Where <name> is the name of the parameter.  For example:
+
+   shell$ mpirun --mca btl_tcp_frag_size 65536 -np 2 hello_world_mpi
+
+These locations are checked in order.  For example, a parameter value
+passed on the mpirun command line will override an environment
+variable; an environment variable will override the system-wide
+defaults.
+
+===========================================================================
+
+Common Questions
+----------------
+
+Many common questions about building and using Open MPI are answered
+on the FAQ:
+
+    http://www.open-mpi.org/faq/
+
+===========================================================================
+
+Got more questions?
+-------------------
+
+Found a bug?  Got a question?  Want to make a suggestion?  Want to
+contribute to Open MPI?  Please let us know!
+
+User-level questions and comments should generally be sent to the
+user's mailing list (users@open-mpi.org).  Because of spam, only
+subscribers are allowed to post to this list (ensure that you
+subscribe with and post from *exactly* the same e-mail address --
+joe@example.com is considered different than
+joe@mycomputer.example.com!).  Visit this page to subscribe to the
+user's list:
+
+     http://www.open-mpi.org/mailman/listinfo.cgi/users
+
+Developer-level bug reports, questions, and comments should generally
+be sent to the developer's mailing list (devel@open-mpi.org).  Please
+do not post the same question to both lists.  As with the user's list,
+only subscribers are allowed to post to the developer's list.  Visit
+the following web page to subscribe:
+
+     http://www.open-mpi.org/mailman/listinfo.cgi/devel
+
+When submitting bug reports to either list, be sure to include as much
+extra information as possible.  This web page details all the
+information that we request in order to provide assistance:
+
+     http://www.open-mpi.org/community/help/
+
+Make today an Open MPI day!

@@ -13,7 +13,7 @@ Index: samba/source/lib/system.c
  /*
     The idea is that this file will eventually have wrappers around all
     important system calls in samba. The aims are:
-@@ -924,14 +928,40 @@ int sys_getgroups(int setlen, gid_t *gid
+@@ -943,14 +947,40 @@ int sys_getgroups(int setlen, gid_t *gid
  /**************************************************************************
   Wrapper for setgroups. Deals with broken (int) case. Automatically used
   if we have broken getgroups.
@@ -57,7 +57,7 @@ Index: samba/source/lib/system.c
  
  #if !defined(HAVE_BROKEN_GETGROUPS)
  	return setgroups(setlen, gidset);
-@@ -971,6 +1001,7 @@ int sys_setgroups(int setlen, gid_t *gid
+@@ -990,6 +1020,7 @@ int sys_setgroups(int setlen, gid_t *gid
  	SAFE_FREE(group_list);
  	return 0 ;
  #endif /* HAVE_BROKEN_GETGROUPS */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #include <IOKit/IODeviceTreeSupport.h>
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOMapper.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
@@ -41,6 +42,25 @@ const UInt32 kPollerInterval = 1000;                           // (ms, 1 second)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #define isMediaRemovable() _removable
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+#define kIOBlockStorageDriverAttributesUnsupported ( ( IOStorage::ExpansionData * ) 2 )
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern IOStorageAttributes gIOStorageAttributesUnsupported;
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver *, UInt64, IOMemoryDescriptor *, IOStorageCompletion );
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static bool prepareRequestAttributes( IOBlockStorageDriver * driver )
+{
+    return ( OSMemberFunctionCast( void *, driver, ( void ( IOBlockStorageDriver::* )( UInt64, IOMemoryDescriptor *, IOStorageCompletion ) ) &IOBlockStorageDriver::prepareRequest ) == _ZN20IOBlockStorageDriver14prepareRequestEyP18IOMemoryDescriptor19IOStorageCompletion );
+}
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -100,6 +120,9 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     // Initialize this object's minimal state.
     //
 
+    if (prepareRequestAttributes(this) == false)
+        IOStorage::_expansionData = kIOBlockStorageDriverAttributesUnsupported;
+
     // Ask our superclass' opinion.
 
     if (super::init(properties) == false)  return false;
@@ -111,34 +134,36 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
 
     initMediaState();
     
-    _ejectable                    = false;
-    _lockable                     = false;
-    _pollIsExpensive              = false;
-    _pollIsRequired               = false;
-    _removable                    = false;
+    _ejectable                       = false;
+    _lockable                        = false;
+    _pollIsExpensive                 = false;
+    _pollIsRequired                  = false;
+    _removable                       = false;
     
-    _mediaBlockSize               = 0;
-    _maxBlockNumber               = 0;
+    _mediaBlockSize                  = 0;
+    _maxBlockNumber                  = 0;
 
-    _maxReadBlockTransfer         = 256;
-    _maxWriteBlockTransfer        = 256;
-    _maxReadByteTransfer          = 131072;
-    _maxWriteByteTransfer         = 131072;
-    _maxReadSegmentTransfer       = 0;
-    _maxWriteSegmentTransfer      = 0;
-    _maxReadSegmentByteTransfer   = 0;
-    _maxWriteSegmentByteTransfer  = 0;
+    _maxReadBlockTransfer            = 256;
+    _maxWriteBlockTransfer           = 256;
+    _maxReadByteTransfer             = 131072;
+    _maxWriteByteTransfer            = 131072;
+    _maxReadSegmentTransfer          = 0;
+    _maxWriteSegmentTransfer         = 0;
+    _maxReadSegmentByteTransfer      = 0;
+    _maxWriteSegmentByteTransfer     = 0;
+    _minSegmentAlignmentByteTransfer = 4;
+    _maxSegmentWidthByteTransfer     = 0;
 
-    _mediaStateLock               = IOLockAlloc();
+    _mediaStateLock                  = IOLockAlloc();
 
     if (_mediaStateLock == 0)
         return false;
 
-    _deblockRequestWriteLock      = IOLockAlloc();
-    _deblockRequestWriteLockCount = 0;
-    _openClients                  = OSSet::withCapacity(2);
-    _pollerCall                   = thread_call_allocate(poller, this);
-    _powerEventNotifier           = 0;
+    _deblockRequestWriteLock         = IOLockAlloc();
+    _deblockRequestWriteLockCount    = 0;
+    _openClients                     = OSSet::withCapacity(2);
+    _pollerCall                      = thread_call_allocate(poller, this);
+    _powerEventNotifier              = 0;
 
     for (unsigned index = 0; index < kStatisticsCount; index++)
         _statistics[index] = OSNumber::withNumber(0ULL, 64);
@@ -396,10 +421,11 @@ void IOBlockStorageDriver::handleClose(IOService * client, IOOptionBits options)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOBlockStorageDriver::read(IOService *          /* client */,
-                                UInt64               byteStart,
-                                IOMemoryDescriptor * buffer,
-                                IOStorageCompletion  completion)
+void IOBlockStorageDriver::read(IOService *           client,
+                                UInt64                byteStart,
+                                IOMemoryDescriptor *  buffer,
+                                IOStorageAttributes * attributes,
+                                IOStorageCompletion * completion)
 {
     //
     // The read method is the receiving end for all read requests from the
@@ -416,19 +442,55 @@ void IOBlockStorageDriver::read(IOService *          /* client */,
 
     // State our assumptions.
 
-    assert(buffer->getDirection() == kIODirectionIn);
+    assert( buffer->getDirection( ) == kIODirectionIn );
 
     // Prepare the transfer.
 
-    prepareRequest(byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+
+            if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
+            {
+                prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+
+                return;
+            }
+        }
+        else
+        {
+            if ( attributes && attributes->options )
+            {
+                complete( completion, kIOReturnUnsupported );
+            }
+            else
+            {
+                if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
+                {
+                    prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+                }
+                else
+                {
+                    read( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+                }
+            }
+
+            return;
+        }
+    }
+
+    prepareRequest( byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void IOBlockStorageDriver::write(IOService *          /* client */,
-                                 UInt64               byteStart,
-                                 IOMemoryDescriptor * buffer,
-                                 IOStorageCompletion  completion)
+void IOBlockStorageDriver::write(IOService *           client,
+                                 UInt64                byteStart,
+                                 IOMemoryDescriptor *  buffer,
+                                 IOStorageAttributes * attributes,
+                                 IOStorageCompletion * completion)
 {
     //
     // The write method is the receiving end for all write requests from the
@@ -445,11 +507,46 @@ void IOBlockStorageDriver::write(IOService *          /* client */,
 
     // State our assumptions.
 
-    assert(buffer->getDirection() == kIODirectionOut);
+    assert( buffer->getDirection( ) == kIODirectionOut );
 
     // Prepare the transfer.
 
-    prepareRequest(byteStart, buffer, completion);
+    if ( IOStorage::_expansionData )
+    {
+        if ( attributes == &gIOStorageAttributesUnsupported )
+        {
+            attributes = NULL;
+
+            if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
+            {
+                prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+
+                return;
+            }
+        }
+        else
+        {
+            if ( attributes && attributes->options )
+            {
+                complete( completion, kIOReturnUnsupported );
+            }
+            else
+            {
+                if ( IOStorage::_expansionData == kIOBlockStorageDriverAttributesUnsupported )
+                {
+                    prepareRequest( byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+                }
+                else
+                {
+                    write( client, byteStart, buffer, completion ? *completion : ( IOStorageCompletion ) { 0 } );
+                }
+            }
+
+            return;
+        }
+    }
+
+    prepareRequest( byteStart, buffer, attributes, completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -600,37 +697,7 @@ void IOBlockStorageDriver::prepareRequest(UInt64               byteStart,
     // actual transfer from the block storage device.
     //
 
-    Context * context;
-
-    // Allocate a context structure to hold some of our state.
-
-    context = allocateContext();
-
-    if (context == 0)
-    {
-        complete(completion, kIOReturnNoMemory);
-        return;
-    }
-    
-    // Fill in the context structure with some of our state.
-
-    context->block.size = getMediaBlockSize();
-    context->block.type = kBlockTypeStandard;
-
-    context->original.byteStart  = byteStart;
-    context->original.buffer     = buffer;
-    context->original.buffer->retain();
-    context->original.completion = completion;
-
-    clock_get_uptime(&context->timeStart);
-
-    completion.target    = this;
-    completion.action    = prepareRequestCompletion;
-    completion.parameter = context;
-
-    // Deblock the transfer.
-
-    deblockRequest(byteStart, buffer, completion, context);
+    prepareRequest( byteStart, buffer, NULL, &completion );
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -766,12 +833,53 @@ IOReturn IOBlockStorageDriver::message(UInt32      type,
 
     switch (type)
     {
+        case kIOMessageMediaParametersHaveChanged:
+        {
+            IOReturn status;
+            IOLockLock(_mediaStateLock);
+            if (_mediaPresent) {
+                status = recordMediaParameters();
+                if (status == kIOReturnSuccess) {
+                    lockForArbitration();
+                    if (_mediaObject) {
+                        UInt64 nbytes;
+                        IOMedia *m;
+                        if (_maxBlockNumber) {
+                            nbytes = _mediaBlockSize * (_maxBlockNumber + 1);
+                        } else {
+                            nbytes = 0;
+                        }
+                        m = instantiateMediaObject(0,nbytes,_mediaBlockSize,"");                      
+                        if (m) {
+                            _mediaObject->init( m->getBase(),
+                                                m->getSize(),
+                                                m->getPreferredBlockSize(),
+                                                m->getAttributes(),
+                                                m->isWhole(),
+                                                m->isWritable(),
+                                                m->getContentHint() );
+                            _mediaObject->messageClients(kIOMessageServicePropertyChange);
+                            m->release();
+                        } else {
+                            status = kIOReturnBadArgument;
+                        }
+                    } else {
+                        status = kIOReturnNoMedia;
+                    }
+                    unlockForArbitration();
+                }
+            } else {
+                status = kIOReturnNoMedia;
+            }
+            IOLockUnlock(_mediaStateLock);
+            return status;
+        }
         case kIOMessageMediaStateHasChanged:
         {
             IOReturn status;
-            IOLockLock(_mediaStateLock);    
+            IOLockLock(_mediaStateLock);
             status = mediaStateHasChanged((IOMediaState) argument);
-            IOLockUnlock(_mediaStateLock);    
+            IOLockUnlock(_mediaStateLock);
             return status;
         }
         case kIOMessageServiceIsRequestingClose:
@@ -813,16 +921,16 @@ IOBlockStorageDriver::acceptNewMedia(void)
     name[0] = 0;
     nameSep = false;
     if (getProvider()->getVendorString()) {
-        strcat(name, getProvider()->getVendorString());
+        strlcat(name, getProvider()->getVendorString(), sizeof(name) - strlen(name));
         nameSep = true;
     }
     if (getProvider()->getProductString()) {
-        if (nameSep == true)  strcat(name, " ");
-        strcat(name, getProvider()->getProductString());
+        if (nameSep == true)  strlcat(name, " ", sizeof(name) - strlen(name));
+        strlcat(name, getProvider()->getProductString(), sizeof(name) - strlen(name));
         nameSep = true;
     }
-    if (nameSep == true)  strcat(name, " ");
-    strcat(name, "Media");
+    if (nameSep == true)  strlcat(name, " ", sizeof(name) - strlen(name));
+    strlcat(name, "Media", sizeof(name) - strlen(name));
     strclean(name);
 
     _mediaObject = instantiateMediaObject(0,nbytes,_mediaBlockSize,name);
@@ -872,9 +980,9 @@ IOBlockStorageDriver::acceptNewMedia(void)
                     if (_mediaObject->attachToParent(parent, gIODTPlane)) {
                         char location[ 32 ];
                         if (unitLUN && unitLUN->unsigned32BitValue()) {
-                            sprintf(location, "%x,%x:0", unit->unsigned32BitValue(), unitLUN->unsigned32BitValue());
+                            snprintf(location, sizeof(location), "%x,%x:0", unit->unsigned32BitValue(), unitLUN->unsigned32BitValue());
                         } else {
-                            sprintf(location, "%x:0", unit->unsigned32BitValue());
+                            snprintf(location, sizeof(location), "%x:0", unit->unsigned32BitValue());
                         }
                         _mediaObject->setLocation(location, gIODTPlane);
                         _mediaObject->setName(unitName ? unitName->getCStringNoCopy() : "", gIODTPlane);
@@ -884,7 +992,7 @@ IOBlockStorageDriver::acceptNewMedia(void)
             }
 
             _mediaPresent = true;
-            _mediaObject->registerService();		/* enable matching */
+            _mediaObject->registerService(kIOServiceAsynchronous);		/* enable matching */
         } else {
             _mediaObject->release();
             _mediaObject = 0;
@@ -1123,7 +1231,7 @@ IOBlockStorageDriver::executeRequest(UInt64                          byteStart,
 /* Now the protocol-specific provider implements the actual
      * start of the data transfer: */
 
-    result = getProvider()->doAsyncReadWrite(buffer,block,nblks,completion);
+    result = getProvider()->doAsyncReadWrite(buffer,block,nblks,&context->request.attributes,&completion);
     
     if (result != kIOReturnSuccess) {		/* it failed to start */
         IOLog("%s[IOBlockStorageDriver]; executeRequest: request failed to start!\n",getName());
@@ -1232,6 +1340,8 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     OSNumber * maxSegmentCountWrite;
     OSNumber * maxSegmentByteCountRead;
     OSNumber * maxSegmentByteCountWrite;
+    OSNumber * minSegmentAlignmentByteCount;
+    OSNumber * maxSegmentAddressableBitCount;
 
     /* The protocol-specific provider determines whether the media is removable. */
 
@@ -1324,6 +1434,16 @@ IOBlockStorageDriver::handleStart(IOService * provider)
                         /* object */ getProperty(
                                      /* key   */ kIOMaximumSegmentByteCountWriteKey,
                                      /* plane */ gIOServicePlane ) );
+    minSegmentAlignmentByteCount = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMinimumSegmentAlignmentByteCountKey,
+                                     /* plane */ gIOServicePlane ) );
+    maxSegmentAddressableBitCount = OSDynamicCast(
+                        /* class  */ OSNumber,
+                        /* object */ getProperty(
+                                     /* key   */ kIOMaximumSegmentAddressableBitCountKey,
+                                     /* plane */ gIOServicePlane ) );
 
     /* Obtain the constraint values for reads and writes (old method). */
 
@@ -1395,6 +1515,22 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         _maxWriteSegmentByteTransfer = maxSegmentByteCountWrite->unsigned64BitValue();
     }
 
+    if ( minSegmentAlignmentByteCount )
+    {
+        _minSegmentAlignmentByteTransfer = minSegmentAlignmentByteCount->unsigned64BitValue();
+    }
+
+    if ( maxSegmentAddressableBitCount )
+    {
+        if ( maxSegmentAddressableBitCount->unsigned64BitValue() )
+        {
+            if ( maxSegmentAddressableBitCount->unsigned64BitValue() < 64 )
+            {
+                _maxSegmentWidthByteTransfer = 1ULL << maxSegmentAddressableBitCount->unsigned64BitValue();
+            }
+        }
+    }
+
     /* Publish the default constraint values: */
 
     if ( maxBlockCountRead == 0 )
@@ -1415,6 +1551,11 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     if ( maxSegmentCountWrite == 0 )
     {
         getProvider()->setProperty(kIOMaximumSegmentCountWriteKey, _maxWriteSegmentTransfer, 64);
+    }
+
+    if ( minSegmentAlignmentByteCount == 0 )
+    {
+        getProvider()->setProperty(kIOMinimumSegmentAlignmentByteCountKey, _minSegmentAlignmentByteTransfer, 64);
     }
 
     /* Check for the device being ready with media inserted: */
@@ -1519,9 +1660,7 @@ IOBlockStorageDriver::instantiateMediaObject(UInt64 base,UInt64 byteSize,
                 OSString *string = OSDynamicCast(OSString, dictionary->getObject(kIOPropertyPhysicalInterconnectLocationKey));
 
                 if (string) {
-                    const char *value = string->getCStringNoCopy();
-
-                    if (value && !strcmp(value, kIOPropertyExternalKey)) {
+                    if (string->isEqualTo(kIOPropertyExternalKey)) {
                         picture = "External.icns";
                     } else {
                         picture = "Internal.icns";
@@ -1644,9 +1783,6 @@ IOBlockStorageDriver::recordMediaParameters(void)
      */
 
 err:
-    _mediaPresent = false;
-    _writeProtected = true;
-
     return(result);
 }
 
@@ -1776,6 +1912,9 @@ public:
 
     virtual IOPhysicalAddress getPhysicalSegment( IOByteCount   offset,
                                                   IOByteCount * length );
+
+    virtual addr64_t getPhysicalSegment64( IOByteCount   offset,
+                                           IOByteCount * length );
 
     virtual IOReturn prepare(IODirection forDirection = kIODirectionNone);
 
@@ -2074,6 +2213,38 @@ IOPhysicalAddress IODeblocker::getPhysicalSegment( IOByteCount   offset,
         {
             IOPhysicalAddress address;
             address = _chunks[index].buffer->getPhysicalSegment(
+                                    /* offset */ offset + _chunks[index].offset,
+                                    /* length */ length );
+            if ( length )  *length = min(*length, _chunks[index].length);
+            return address;
+        }
+        offset -= _chunks[index].length;
+    }
+
+    if ( length )  *length = 0;
+
+    return 0;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+addr64_t IODeblocker::getPhysicalSegment64( IOByteCount   offset,
+                                            IOByteCount * length )
+{
+    //
+    // This method returns the physical address of the byte at the given offset
+    // into the memory,  and optionally the length of the physically contiguous
+    // segment from that offset.
+    //
+
+    assert(offset <= _length);
+
+    for ( unsigned index = 0; index < _chunksCount; index++ ) 
+    {
+        if ( offset < _chunks[index].length )
+        {
+            addr64_t address;
+            address = _chunks[index].buffer->getPhysicalSegment64(
                                     /* offset */ offset + _chunks[index].offset,
                                     /* length */ length );
             if ( length )  *length = min(*length, _chunks[index].length);
@@ -2591,6 +2762,8 @@ protected:
     UInt64                     _maximumByteCount;
     UInt64                     _maximumSegmentCount;
     UInt64                     _maximumSegmentByteCount;
+    UInt64                     _minimumSegmentAlignmentByteCount;
+    UInt64                     _maximumSegmentWidthByteCount;
 
     UInt64                     _requestBlockSize;
     IOMemoryDescriptor *       _requestBuffer;
@@ -2608,6 +2781,8 @@ public:
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               IOMemoryDescriptor * withRequestBuffer,
                               UInt64               withRequestBufferOffset );
@@ -2618,6 +2793,8 @@ public:
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               UInt64               withRequestStart,
                               IOMemoryDescriptor * withRequestBuffer,
@@ -2630,6 +2807,8 @@ public:
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               UInt64               withRequestStart,
                               IOMemoryDescriptor * withRequestBuffer,
@@ -2660,6 +2839,8 @@ UInt64 IOBreaker::getBreakSize(
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               IOMemoryDescriptor * withRequestBuffer,
                               UInt64               withRequestBufferOffset )
@@ -2672,11 +2853,18 @@ UInt64 IOBreaker::getBreakSize(
     IOMemoryDescriptor * buffer       = withRequestBuffer;
     IOByteCount          bufferLength = withRequestBuffer->getLength();
     IOByteCount          bufferOffset = withRequestBufferOffset;
-    IOPhysicalAddress    chunk        = 0;
+    addr64_t             chunk        = 0;
     UInt32               chunkSize    = 0;
-    IOPhysicalAddress    segment      = 0;
+    addr64_t             segment      = 0;
     UInt32               segmentCount = 0;
     UInt32               segmentSize  = 0;
+
+    // Prepare segment alignment mask.
+
+    if ( withMinimumSegmentAlignmentByteCount )
+    {
+        withMinimumSegmentAlignmentByteCount--;
+    }
 
     // Constrain block count.
 
@@ -2700,11 +2888,18 @@ UInt64 IOBreaker::getBreakSize(
 
     while ( segment || bufferOffset < bufferLength ) 
     {
-        // Obtain an individual segment.
+        // Obtain a new segment.
 
         if ( segment == 0 )
         {
-            segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize);
+            if ( IOMapper::gSystem )
+            {
+                segment = buffer->getPhysicalSegment(bufferOffset, &segmentSize);
+            }
+            else
+            {
+                segment = buffer->getPhysicalSegment64(bufferOffset, &segmentSize);
+            }
 
             assert(segment);
             assert(segmentSize);
@@ -2712,7 +2907,7 @@ UInt64 IOBreaker::getBreakSize(
             bufferOffset += segmentSize;
         }
 
-        // Process an individual segment.
+        // Fold in a segment.
 
         if ( chunk == 0 )
         {
@@ -2735,6 +2930,8 @@ UInt64 IOBreaker::getBreakSize(
             segmentSize = 0;
         }
 
+        // Trim a complete segment.
+
         if ( segment == 0 )
         {
             // Constrain segment byte count.
@@ -2743,12 +2940,46 @@ UInt64 IOBreaker::getBreakSize(
             {
                 if ( chunkSize > withMaximumSegmentByteCount )
                 {
-                    segment     = chunk     + withMaximumSegmentByteCount;
                     segmentSize = chunkSize - withMaximumSegmentByteCount;
-
-                    breakSize  -= segmentSize;
-                    chunkSize  -= segmentSize;
                 }
+            }
+
+            // Constrain segment alignment byte count.
+
+            if ( withMinimumSegmentAlignmentByteCount )
+            {
+                if ( ( chunk & withMinimumSegmentAlignmentByteCount ) || ( chunkSize & withMinimumSegmentAlignmentByteCount ) )
+                {
+                    if ( chunkSize > PAGE_SIZE )
+                    {
+                        segmentSize = max(chunkSize - PAGE_SIZE, segmentSize);
+                    }
+                }
+            }
+
+            // Constrain segment width byte count.
+
+            if ( withMaximumSegmentWidthByteCount )
+            {
+                if ( chunk >= withMaximumSegmentWidthByteCount )
+                {
+                    if ( chunkSize > PAGE_SIZE )
+                    {
+                        segmentSize = max(chunkSize - PAGE_SIZE, segmentSize);
+                    }
+                }
+                else if ( chunk + chunkSize > withMaximumSegmentWidthByteCount )
+                {
+                    segmentSize = max(chunk + chunkSize - withMaximumSegmentWidthByteCount, segmentSize);
+                }
+            }
+
+            if ( segmentSize )
+            {
+                segment     = chunk + chunkSize - segmentSize;
+
+                breakSize  -= segmentSize;
+                chunkSize  -= segmentSize;
             }
 
             // Constrain byte count.
@@ -2763,7 +2994,7 @@ UInt64 IOBreaker::getBreakSize(
             }
         }
 
-        // Process a coalesced segment.
+        // Commit a complete segment.
 
         if ( segment )
         {
@@ -2795,6 +3026,8 @@ IOBreaker * IOBreaker::withBreakSize(
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               UInt64               withRequestStart,
                               IOMemoryDescriptor * withRequestBuffer,
@@ -2808,16 +3041,18 @@ IOBreaker * IOBreaker::withBreakSize(
     IOBreaker * me = new IOBreaker;
 
     if ( me && me->initWithBreakSize(
-              /* breakSize                   */ breakSize,
-              /* withMaximumBlockCount       */ withMaximumBlockCount,
-              /* withMaximumByteCount        */ withMaximumByteCount,
-              /* withMaximumSegmentCount     */ withMaximumSegmentCount,
-              /* withMaximumSegmentByteCount */ withMaximumSegmentByteCount,
-              /* withRequestBlockSize        */ withRequestBlockSize,
-              /* withRequestStart            */ withRequestStart,
-              /* withRequestBuffer           */ withRequestBuffer,
-              /* withRequestCompletion       */ withRequestCompletion,
-              /* withRequestContext          */ withRequestContext ) == false )
+              /* breakSize                            */ breakSize,
+              /* withMaximumBlockCount                */ withMaximumBlockCount,
+              /* withMaximumByteCount                 */ withMaximumByteCount,
+              /* withMaximumSegmentCount              */ withMaximumSegmentCount,
+              /* withMaximumSegmentByteCount          */ withMaximumSegmentByteCount,
+              /* withMinimumSegmentAlignmentByteCount */ withMinimumSegmentAlignmentByteCount,
+              /* withMaximumSegmentWidthByteCount     */ withMaximumSegmentWidthByteCount,
+              /* withRequestBlockSize                 */ withRequestBlockSize,
+              /* withRequestStart                     */ withRequestStart,
+              /* withRequestBuffer                    */ withRequestBuffer,
+              /* withRequestCompletion                */ withRequestCompletion,
+              /* withRequestContext                   */ withRequestContext ) == false )
     {
 	    me->release();
 	    me = 0;
@@ -2834,6 +3069,8 @@ bool IOBreaker::initWithBreakSize(
                               UInt64               withMaximumByteCount,
                               UInt64               withMaximumSegmentCount,
                               UInt64               withMaximumSegmentByteCount,
+                              UInt64               withMinimumSegmentAlignmentByteCount,
+                              UInt64               withMaximumSegmentWidthByteCount,
                               UInt64               withRequestBlockSize,
                               UInt64               withRequestStart,
                               IOMemoryDescriptor * withRequestBuffer,
@@ -2857,21 +3094,23 @@ bool IOBreaker::initWithBreakSize(
 
     // Initialize our minimal state.
 
-    _breakSize               = breakSize;
-    _length                  = 0;
+    _breakSize                        = breakSize;
+    _length                           = 0;
 
-    _maximumBlockCount       = withMaximumBlockCount;
-    _maximumByteCount        = withMaximumByteCount;
-    _maximumSegmentCount     = withMaximumSegmentCount;
-    _maximumSegmentByteCount = withMaximumSegmentByteCount;
+    _maximumBlockCount                = withMaximumBlockCount;
+    _maximumByteCount                 = withMaximumByteCount;
+    _maximumSegmentCount              = withMaximumSegmentCount;
+    _maximumSegmentByteCount          = withMaximumSegmentByteCount;
+    _minimumSegmentAlignmentByteCount = withMinimumSegmentAlignmentByteCount;
+    _maximumSegmentWidthByteCount     = withMaximumSegmentWidthByteCount;
 
-    _requestBlockSize        = withRequestBlockSize;
-    _requestBuffer           = withRequestBuffer;
+    _requestBlockSize                 = withRequestBlockSize;
+    _requestBuffer                    = withRequestBuffer;
     _requestBuffer->retain();
-    _requestCompletion       = withRequestCompletion;
-    _requestContext          = withRequestContext;
-    _requestCount            = withRequestBuffer->getLength();
-    _requestStart            = withRequestStart;
+    _requestCompletion                = withRequestCompletion;
+    _requestContext                   = withRequestContext;
+    _requestCount                     = withRequestBuffer->getLength();
+    _requestStart                     = withRequestStart;
 
     return true;
 }
@@ -2911,13 +3150,15 @@ bool IOBreaker::getNextStage(UInt64 * byteStart)
         _length = min(_breakSize, _requestCount - _start);
 
         _breakSize = getBreakSize(
-              /* withMaximumBlockCount       */ _maximumBlockCount,
-              /* withMaximumByteCount        */ _maximumByteCount,
-              /* withMaximumSegmentCount     */ _maximumSegmentCount,
-              /* withMaximumSegmentByteCount */ _maximumSegmentByteCount,
-              /* withRequestBlockSize        */ _requestBlockSize,
-              /* withRequestBuffer           */ _requestBuffer,
-              /* withRequestBufferOffset     */ _start + _length );
+              /* withMaximumBlockCount                */ _maximumBlockCount,
+              /* withMaximumByteCount                 */ _maximumByteCount,
+              /* withMaximumSegmentCount              */ _maximumSegmentCount,
+              /* withMaximumSegmentByteCount          */ _maximumSegmentByteCount,
+              /* withMinimumSegmentAlignmentByteCount */ _minimumSegmentAlignmentByteCount,
+              /* withMaximumSegmentWidthByteCount     */ _maximumSegmentWidthByteCount,
+              /* withRequestBlockSize                 */ _requestBlockSize,
+              /* withRequestBuffer                    */ _requestBuffer,
+              /* withRequestBufferOffset              */ _start + _length );
     }
     else
     {
@@ -3003,24 +3244,28 @@ void IOBlockStorageDriver::breakUpRequest(
     if ( buffer->getDirection() == kIODirectionIn )
     {
         breakSize = IOBreaker::getBreakSize(
-              /* withMaximumBlockCount       */ _maxReadBlockTransfer,
-              /* withMaximumByteCount        */ _maxReadByteTransfer,
-              /* withMaximumSegmentCount     */ _maxReadSegmentTransfer,
-              /* withMaximumSegmentByteCount */ _maxReadSegmentByteTransfer,
-              /* withRequestBlockSize        */ context->block.size,
-              /* withRequestBuffer           */ buffer,
-              /* withRequestBufferOffset     */ 0 );
+              /* withMaximumBlockCount                */ _maxReadBlockTransfer,
+              /* withMaximumByteCount                 */ _maxReadByteTransfer,
+              /* withMaximumSegmentCount              */ _maxReadSegmentTransfer,
+              /* withMaximumSegmentByteCount          */ _maxReadSegmentByteTransfer,
+              /* withMinimumSegmentAlignmentByteCount */ _minSegmentAlignmentByteTransfer,
+              /* withMaximumSegmentWidthByteCount     */ _maxSegmentWidthByteTransfer,
+              /* withRequestBlockSize                 */ context->block.size,
+              /* withRequestBuffer                    */ buffer,
+              /* withRequestBufferOffset              */ 0 );
     }
     else
     {
         breakSize = IOBreaker::getBreakSize(
-              /* withMaximumBlockCount       */ _maxWriteBlockTransfer,
-              /* withMaximumByteCount        */ _maxWriteByteTransfer,
-              /* withMaximumSegmentCount     */ _maxWriteSegmentTransfer,
-              /* withMaximumSegmentByteCount */ _maxWriteSegmentByteTransfer,
-              /* withRequestBlockSize        */ context->block.size,
-              /* withRequestBuffer           */ buffer,
-              /* withRequestBufferOffset     */ 0 );
+              /* withMaximumBlockCount                */ _maxWriteBlockTransfer,
+              /* withMaximumByteCount                 */ _maxWriteByteTransfer,
+              /* withMaximumSegmentCount              */ _maxWriteSegmentTransfer,
+              /* withMaximumSegmentByteCount          */ _maxWriteSegmentByteTransfer,
+              /* withMinimumSegmentAlignmentByteCount */ _minSegmentAlignmentByteTransfer,
+              /* withMaximumSegmentWidthByteCount     */ _maxSegmentWidthByteTransfer,
+              /* withRequestBlockSize                 */ context->block.size,
+              /* withRequestBuffer                    */ buffer,
+              /* withRequestBufferOffset              */ 0 );
     }
 
     // If the request doesn't exceed our transfer constaints, we do
@@ -3041,30 +3286,34 @@ void IOBlockStorageDriver::breakUpRequest(
     if ( buffer->getDirection() == kIODirectionIn )
     {
         breaker = IOBreaker::withBreakSize(
-              /* breakSize                   */ breakSize,
-              /* withMaximumBlockCount       */ _maxReadBlockTransfer,
-              /* withMaximumByteCount        */ _maxReadByteTransfer,
-              /* withMaximumSegmentCount     */ _maxReadSegmentTransfer,
-              /* withMaximumSegmentByteCount */ _maxReadSegmentByteTransfer,
-              /* withRequestBlockSize        */ context->block.size,
-              /* withRequestStart            */ byteStart,
-              /* withRequestBuffer           */ buffer,
-              /* withRequestCompletion       */ completion,
-              /* withRequestContext          */ context );
+              /* breakSize                            */ breakSize,
+              /* withMaximumBlockCount                */ _maxReadBlockTransfer,
+              /* withMaximumByteCount                 */ _maxReadByteTransfer,
+              /* withMaximumSegmentCount              */ _maxReadSegmentTransfer,
+              /* withMaximumSegmentByteCount          */ _maxReadSegmentByteTransfer,
+              /* withMinimumSegmentAlignmentByteCount */ _minSegmentAlignmentByteTransfer,
+              /* withMaximumSegmentWidthByteCount     */ _maxSegmentWidthByteTransfer,
+              /* withRequestBlockSize                 */ context->block.size,
+              /* withRequestStart                     */ byteStart,
+              /* withRequestBuffer                    */ buffer,
+              /* withRequestCompletion                */ completion,
+              /* withRequestContext                   */ context );
     }
     else
     {
         breaker = IOBreaker::withBreakSize(
-              /* breakSize                   */ breakSize,
-              /* withMaximumBlockCount       */ _maxWriteBlockTransfer,
-              /* withMaximumByteCount        */ _maxWriteByteTransfer,
-              /* withMaximumSegmentCount     */ _maxWriteSegmentTransfer,
-              /* withMaximumSegmentByteCount */ _maxWriteSegmentByteTransfer,
-              /* withRequestBlockSize        */ context->block.size,
-              /* withRequestStart            */ byteStart,
-              /* withRequestBuffer           */ buffer,
-              /* withRequestCompletion       */ completion,
-              /* withRequestContext          */ context );
+              /* breakSize                            */ breakSize,
+              /* withMaximumBlockCount                */ _maxWriteBlockTransfer,
+              /* withMaximumByteCount                 */ _maxWriteByteTransfer,
+              /* withMaximumSegmentCount              */ _maxWriteSegmentTransfer,
+              /* withMaximumSegmentByteCount          */ _maxWriteSegmentByteTransfer,
+              /* withMinimumSegmentAlignmentByteCount */ _minSegmentAlignmentByteTransfer,
+              /* withMaximumSegmentWidthByteCount     */ _maxSegmentWidthByteTransfer,
+              /* withRequestBlockSize                 */ context->block.size,
+              /* withRequestStart                     */ byteStart,
+              /* withRequestBuffer                    */ buffer,
+              /* withRequestCompletion                */ completion,
+              /* withRequestContext                   */ context );
     }
 
     if ( breaker == 0 )
@@ -3138,7 +3387,77 @@ void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-OSMetaClassDefineReservedUnused(IOBlockStorageDriver,  1);
+void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
+                                          IOMemoryDescriptor *  buffer,
+                                          IOStorageAttributes * attributes,
+                                          IOStorageCompletion * completion)
+{
+    //
+    // The prepareRequest method allocates and prepares state for the transfer.
+    //
+    // This method is part of a sequence of methods invoked for each read/write
+    // request.  The first is prepareRequest, which allocates and prepares some
+    // context for the transfer; the second is deblockRequest, which aligns the
+    // transfer at the media's block boundaries; third is breakUpRequest, which
+    // breaks up the transfer into multiple sub-transfers when certain hardware
+    // constraints are exceeded; fourth is executeRequest, which implements the
+    // actual transfer from the block storage device.
+    //
+
+    IOStorageCompletion completionOut; 
+    Context *           context;
+
+    // Determine whether the attributes are valid.
+
+    if (attributes)
+    {
+        if ((attributes->options & kIOStorageOptionReserved))
+        {
+            complete(completion, kIOReturnBadArgument);
+            return;
+        }
+
+        if ((attributes->reserved[0] | attributes->reserved[1] | attributes->reserved[2]))
+        {
+            complete(completion, kIOReturnBadArgument);
+            return;
+        }
+    }
+
+    // Allocate a context structure to hold some of our state.
+
+    context = allocateContext();
+
+    if (context == 0)
+    {
+        complete(completion, kIOReturnNoMemory);
+        return;
+    }
+    
+    // Fill in the context structure with some of our state.
+
+    context->block.size = getMediaBlockSize();
+    context->block.type = kBlockTypeStandard;
+
+    context->original.byteStart = byteStart;
+    context->original.buffer    = buffer;
+    context->original.buffer->retain();
+
+    if (attributes)  context->request.attributes = *attributes;
+    if (completion)  context->original.completion = *completion;
+
+    clock_get_uptime(&context->timeStart);
+
+    completionOut.target    = this;
+    completionOut.action    = prepareRequestCompletion;
+    completionOut.parameter = context;
+
+    // Deblock the transfer.
+
+    deblockRequest(byteStart, buffer, completionOut, context);
+}
+
+OSMetaClassDefineReservedUsed(IOBlockStorageDriver, 1);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -3259,3 +3578,17 @@ OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 30);
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 31);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN20IOBlockStorageDriver4readEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver * driver, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    driver->read( client, byteStart, buffer, NULL, &completion );
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+extern "C" void _ZN20IOBlockStorageDriver5writeEP9IOServiceyP18IOMemoryDescriptor19IOStorageCompletion( IOBlockStorageDriver * driver, IOService * client, UInt64 byteStart, IOMemoryDescriptor * buffer, IOStorageCompletion completion )
+{
+    driver->write( client, byteStart, buffer, NULL, &completion );
+}

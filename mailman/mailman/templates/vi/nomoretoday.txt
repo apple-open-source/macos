@@ -1,0 +1,3 @@
+Chúng tôi đã nhận một lá thư từ địa chỉ của bạn « %(sender)s » mà yêu cầu trả lời tự động từ hộp thư chung %(listname)s. Hôm nay chúng tôi đã xem %(num)s thư như vậy từ bạn. Để tránh vấn đề như vòng lặp giữa tiến trình thư tự động, chúng tôi sẽ không gởi trả lời tự động thêm nào trong hôm nay. Vui lòng thử lại vào ngày mai.
+
+Nếu bạn thấy thư này không đúng, hay muốn hỏi câu, vui lòng liên lạc với người sở hữu hộp thư tại %(owneremail)s.

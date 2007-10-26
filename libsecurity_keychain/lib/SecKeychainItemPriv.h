@@ -36,14 +36,12 @@ extern "C" {
 enum 
 {
 	kSecClassItemAttr            = 'clas',                       /* Item class (KCItemClass) */
-	kSecAliasItemAttr            = 'alis',                       /* Alias attribute (required by CDSA). */
 	kSecProtectedDataItemAttr    = 'prot',                       /* Item's data is protected (encrypted) (Boolean) */
 };
 
 /* Temporary: CRL attributes */
 enum 
 {
-	kSecCrlTypeItemAttr				 = 'crtp',
 	kSecCrlEncodingItemAttr			 = 'cren',
 	kSecThisUpdateItemAttr			 = 'crtu',
 	kSecNextUpdateItemAttr			 = 'crnu',
@@ -65,6 +63,14 @@ enum {
 };
 
 
+/* Extended Attribute record attributes */
+enum {
+	kExtendedAttrRecordTypeAttr		= 'eart',
+	kExtendedAttrItemIDAttr			= 'eaii',
+	kExtendedAttrAttributeNameAttr	= 'eaan',
+	kExtendedAttrAttributeValueAttr	= 'eaav'
+	/* also kSecModDateItemAttr from SecKeychainItem.h */
+};
 
 OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, SecKeychainItemRef* itemRef);
 

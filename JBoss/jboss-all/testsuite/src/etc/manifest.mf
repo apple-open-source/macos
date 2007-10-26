@@ -1,1 +1,0 @@
-Class-Path: ejb.jar jnp-client.jar jboss-client.jar jndi.jar jboss-jmx.jar junit.jar deploy.jar

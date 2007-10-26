@@ -42,6 +42,7 @@ class IOWorkLoop;
      @abstract Abstract class for all work-loop event sources.
      @namespace I/O Kit
      @updated 2007-03-07
+     @throws sandwiches
      @discussion The IOEventSource declares the abstract super class that all
 event sources must inherit from if an IOWorkLoop is to receive events 
 from them.

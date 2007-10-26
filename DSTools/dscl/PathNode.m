@@ -213,62 +213,92 @@ static NSString *kNSNativeAttrTypePrefix	= @"dsAttrTypeNative:";
     {
         NSString *stdDest = [kNSStdRecordTypePrefix stringByAppendingString:dest];
         NSString *nativeDest = [kNSNativeRecordTypePrefix stringByAppendingString:dest];
-		if ([_node hasRecordsOfType:[stdDest UTF8String]])
-			dest = stdDest;
-		else if ([_node hasRecordsOfType:[nativeDest UTF8String]])
-			dest = nativeDest;
-		else
-			dest = nil;
-
-        if (dest != nil)
-        {
-            // The destination is either a fully qualified record type, or an existing type,
-            // the next item is a record type node.
-            nextItem = [[PathRecordType alloc] initWithNode:_node recordType:dest];
-        }
-        else
-        {
-            return nil;
-        }
+        
+        NS_DURING
+            if ([_node hasRecordsOfType:[stdDest UTF8String]])
+                nextItem = [[PathRecordType alloc] initWithNode:_node recordType:stdDest];
+            else if ([_node hasRecordsOfType:[nativeDest UTF8String]])
+                nextItem = [[PathRecordType alloc] initWithNode:_node recordType:nativeDest];
+        NS_HANDLER
+        NS_ENDHANDLER
+    }
+    
+    // if all else fails try to open the name as is
+    if (nextItem == nil && _enableSubNodes)
+    {
+        NSString *fullPathName = [NSString stringWithFormat:@"%@/%@",_pathName,dest];
+        DSoNode *n;
+        
+        NS_DURING
+            n = [_dir findNode:fullPathName matchType:eDSExact useFirst:YES]; // just open the name as provided
+            nextItem = [[PathNode alloc] initWithNode:n path:fullPathName];
+        NS_HANDLER
+            if (!DS_EXCEPTION_STATUS_IS(eDSUnknownNodeName) &&
+                !DS_EXCEPTION_STATUS_IS(eDSNodeNotFound))
+            {	// Some unexpected exception
+                [localException raise];
+            }
+        NS_ENDHANDLER
     }
         
     return [nextItem autorelease];
 }
 
-- (tDirStatus) read:(NSArray*)inKeys
+- (NSDictionary *) getDictionary:(NSArray *)inKeys
 {
-    NSAutoreleasePool      *pool		= [[NSAutoreleasePool alloc] init];
-    NSString			   *key			= nil;
-	NSString			   *value		= nil;
-    NSEnumerator		   *keyEnum;
-	NSEnumerator		   *valueEnum;
-    NSDictionary		   *nodeAttribs = nil;
+    NSAutoreleasePool      *pool	= [[NSAutoreleasePool alloc] init];
+    NSDictionary		   *attribs = nil;
+    id						key     = nil;
+    NSString               *attrib  = nil;
+    unsigned long			i		= 0;
     
-    nodeAttribs = [_node getAllAttributes];
-    
-    if (inKeys != nil && [inKeys count] > 0)
-    {
-        keyEnum = [inKeys objectEnumerator];
-    }
-    else
-    {
-        keyEnum = [nodeAttribs keyEnumerator];
-    }
-    
-    while (key = [keyEnum nextObject])
-    {
-        valueEnum = [[nodeAttribs objectForKey:key] objectEnumerator];
-        key = [self stripDSPrefixOffValue:key];
-        printf("%s:", [key UTF8String]);
-        while (value = [valueEnum nextObject])
+    NS_DURING
+        
+        if (inKeys == nil || [inKeys count] == 0)
         {
-            printf(" %s", [[self stripDSPrefixOffValue:value] UTF8String]);
+            attribs = [_node getAllAttributes];
         }
-        printf("\n");
-    }
+        else
+        {
+            NSMutableDictionary* mutableAttribs = [NSMutableDictionary dictionary];
+            unsigned long   cntLimit	= 0;
+            
+            attribs = [_node getAllAttributes];
+            
+            cntLimit = [inKeys count];
+            for (i = 0; i < cntLimit; i++)
+            {
+                key = [inKeys objectAtIndex:i];
+                if ([key hasPrefix:@kDSStdAttrTypePrefix] || [key hasPrefix:@kDSNativeAttrTypePrefix])
+                {
+                    attrib = key;
+                    if([attribs objectForKey:attrib] != nil)
+                        [mutableAttribs setObject:[attribs objectForKey:attrib] forKey:attrib];
+                }
+                else
+                {
+                    attrib = [@kDSStdAttrTypePrefix stringByAppendingString:key];
+                    if([attribs objectForKey:attrib] != nil)
+                        [mutableAttribs setObject:[attribs objectForKey:attrib] forKey:attrib];
+                    
+                    attrib = [@kDSNativeAttrTypePrefix stringByAppendingString:key];
+                    if([attribs objectForKey:attrib] != nil)
+                        [mutableAttribs setObject:[attribs objectForKey:attrib] forKey:attrib];
+                }
+            }
+            attribs = (NSDictionary *)mutableAttribs;
+        }
+            
+    NS_HANDLER
+        [localException retain];
+        [pool release];
+        [[localException autorelease] raise];
+    NS_ENDHANDLER
+    
+    [attribs retain];
     [pool release];
-	
-    return eDSNoErr;
+    
+    return [attribs autorelease];
 }
 
 - (tDirStatus) searchForKey:(NSString*)inKey withValue:(NSString*)inValue matchType:(NSString*)inType
@@ -433,6 +463,12 @@ static NSString *kNSNativeAttrTypePrefix	= @"dsAttrTypeNative:";
 - (tDirStatus) authenticateName:(NSString*)inUsername withPassword:(NSString*)inPassword authOnly:(BOOL)inAuthOnly
 {
     return [_node authenticateName:inUsername withPassword:inPassword authOnly:inAuthOnly];
+}
+
+-(DSoNode*) node
+{
+	// ATM - PlugInManager needs access to node instance
+	return _node;
 }
 
 @end

@@ -1,3 +1,5 @@
+<!-- Creator     : groff version 1.18.1.1 -->
+<!-- CreationDate: Wed Feb  7 14:01:46 2007 -->
 <html>
 <head>
 <meta name="generator" content="groff -Thtml, see www.gnu.org">
@@ -15,39 +17,39 @@
 <a href="#FILES">FILES</a><br>
 
 <hr>
-<!-- Creator     : groff version 1.18 -->
-<!-- CreationDate: Mon Feb 14 13:02:19 2005 -->
 <a name="NAME"></a>
 <h2>NAME</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p>reconstruct &minus; reconstruct mailboxes</p>
 </td>
-</table></p>
+</table>
 <a name="SYNOPSIS"></a>
 <h2>SYNOPSIS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
 [ <b>&minus;p</b> <i>partition</i> ] [ <b>&minus;x</b> ] [
-<b>&minus;r</b> ] [ <b>&minus;f</b> ]
-<i>mailbox</i>...<b><br>
+<b>&minus;r</b> ] [ <b>&minus;f</b> ] [ <b>&minus;k</b> ] [
+<b>&minus;s</b> ]</p>
+<!-- INDENTATION -->
+<p><i>mailbox</i>...<b><br>
 reconstruct</b> [ <b>&minus;C</b> <i>config-file</i> ]
 <b>&minus;m</b></p>
 </td>
-</table></p>
+</table>
 <a name="DESCRIPTION"></a>
 <h2>DESCRIPTION</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -76,17 +78,17 @@ recorded in any quota root files. After running
 with the <i>&minus;f</i> switch in order to fix the quota
 root files.</p>
 </td>
-</table></p>
+</table>
 <a name="OPTIONS"></a>
 <h2>OPTIONS</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;C</b> <i>config-file</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -97,13 +99,13 @@ root files.</p>
 </td>
 </table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>&minus;p</b> <i>partition</i></p></td>
-</table></p>
+</table>
 <!-- INDENTATION -->
 <table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
@@ -117,7 +119,7 @@ use of wildcards)</p>
 </td>
 </table>
 <!-- TABS -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="4" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="11%"></td>
@@ -131,7 +133,7 @@ use of wildcards)</p>
 <p>When processing a mailbox which is not in the mailbox
 list (e.g. via the -p or -f options), do not import the
 metadata from the mailbox, instead create it anew (this
-specifically affects atleast the mailbox&rsquo;s seen stat
+specifically affects at least the mailbox&rsquo;s seen state
 unique identifier, user flags, and ACL).</p>
 </td>
 <tr valign="top" align="left">
@@ -163,6 +165,30 @@ mailboxes. Useful for restoring mailboxes from backups.</p>
 <td width="11%"></td>
 <td width="4%">
 
+<p><b>&minus;k</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Preserve the cyrus.expunge file and the corresponding
+message files instead of deleting them.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
+<p><b>&minus;s</b></p>
+</td>
+<td width="5%"></td>
+<td width="77%">
+
+<p>Adds synchronization records to the log, so the
+synchronization service can replicate the changes.</p>
+</td>
+<tr valign="top" align="left">
+<td width="11%"></td>
+<td width="4%">
+
 <p><b>&minus;m</b></p>
 </td>
 <td width="5%"></td>
@@ -170,9 +196,9 @@ mailboxes. Useful for restoring mailboxes from backups.</p>
 
 <p><b>NOTE: CURRENTLY UNAVAILABLE</b></p>
 </td>
-</table></p>
+</table>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="21%"></td>
@@ -182,11 +208,11 @@ the existing <i>mailboxes</i> file it can scavenge, then
 scans all partitions listed in the <i>imapd.conf</i>(5) file
 for additional mailboxes.</p>
 </td>
-</table></p>
+</table>
 <a name="EXAMPLES"></a>
 <h2>EXAMPLES</h2>
 <!-- INDENTATION -->
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
@@ -205,18 +231,18 @@ visible since it is not indexed:</p>
 <pre>reconstruct -r user/ben.lacy
 </pre>
 </td>
-</table></p>
+</table>
 <a name="FILES"></a>
 <h2>FILES</h2>
 <!-- INDENTATION -->
 
-<p><table width="100%" border=0 rules="none" frame="void"
+<table width="100%" border=0 rules="none" frame="void"
        cols="2" cellspacing="0" cellpadding="0">
 <tr valign="top" align="left">
 <td width="10%"></td>
 <td width="89%">
 <p><b>/etc/imapd.conf</b></p></td>
-</table></p>
+</table>
 <hr>
 </body>
 </html>

@@ -370,18 +370,6 @@ EOF
     aushp:SunOS:*:*)
 	echo sparc-auspex-sunos${UNAME_RELEASE}
 	exit 0 ;;
-    atari*:NetBSD:*:*)
-	echo m68k-atari-netbsd${UNAME_RELEASE}
-	exit 0 ;;
-    atari*:OpenBSD:*:*)
-	echo m68k-unknown-openbsd${UNAME_RELEASE}
-	exit 0 ;;
-    sun3*:NetBSD:*:*)
-	echo m68k-sun-netbsd${UNAME_RELEASE}
-	exit 0 ;;
-    sun3*:OpenBSD:*:*)
-	echo m68k-unknown-openbsd${UNAME_RELEASE}
-	exit 0 ;;
     # The situation for MiNT is a little confusing.  The machine name
     # can be virtually everything (everything which is not
     # "atarist" or "atariste" at least should have a processor

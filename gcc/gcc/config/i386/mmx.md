@@ -31,18 +31,22 @@
 ;; means that we should never use any of these patterns except at the
 ;; direction of the user via a builtin.
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
 ;; 8 byte integral modes handled by MMX (and by extension, SSE)
-(define_mode_macro MMXMODEI [V8QI V4HI V2SI])
+(define_mode_macro MMXMODEI [V8QI V4HI V2SI V1DI])
 
 ;; All 8-byte vector modes handled by MMX
-(define_mode_macro MMXMODE [V8QI V4HI V2SI V2SF])
+(define_mode_macro MMXMODE [V8QI V4HI V2SI V2SF V1DI])
 
 ;; Mix-n-match
 (define_mode_macro MMXMODE12 [V8QI V4HI])
 (define_mode_macro MMXMODE24 [V4HI V2SI])
+(define_mode_macro MMXMODE124 [V8QI V4HI V2SI])
+(define_mode_macro MMXMODE248 [V4HI V2SI V1DI])
 
 ;; Mapping from integer vector mode to mnemonic suffix
-(define_mode_attr mmxvecsize [(V8QI "b") (V4HI "w") (V2SI "d") (DI "q")])
+(define_mode_attr mmxvecsize [(V8QI "b") (V4HI "w") (V2SI "d") (V1DI "q")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -62,11 +66,13 @@
   DONE;
 })
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
+;; Take {ym->y} into account for register allocation
 (define_insn "*mov<mode>_internal_rex64"
   [(set (match_operand:MMXMODEI 0 "nonimmediate_operand"
-				"=rm,r,*y,*y ,m ,*y,Y ,x,x ,m,r,x")
+				"=rm,r,*y,y ,m ,*y,Y ,x,x ,m,r,x")
 	(match_operand:MMXMODEI 1 "vector_move_operand"
-				"Cr ,m,C ,*ym,*y,Y ,*y,C,xm,x,x,r"))]
+				"Cr ,m,C ,ym,*y,Y ,*y,C,xm,x,x,r"))]
   "TARGET_64BIT && TARGET_MMX
    && (GET_CODE (operands[0]) != MEM || GET_CODE (operands[1]) != MEM)"
   "@
@@ -84,6 +90,7 @@
     movd\t{%1, %0|%0, %1}"
   [(set_attr "type" "imov,imov,mmxmov,mmxmov,mmxmov,ssecvt,ssecvt,ssemov,ssemov,ssemov,ssemov,ssemov")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 (define_insn "*mov<mode>_internal"
 ;; APPLE LOCAL begin radar 4043818
@@ -196,14 +203,16 @@
   DONE;
 })
 
-(define_insn "sse_movntdi"
-  [(set (match_operand:DI 0 "memory_operand" "=m")
-	(unspec:DI [(match_operand:DI 1 "register_operand" "y")]
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
+(define_insn "sse_movntv1di"
+  [(set (match_operand:V1DI 0 "memory_operand" "=m")
+	(unspec:V1DI [(match_operand:V1DI 1 "register_operand" "y")]
 		   UNSPEC_MOVNT))]
   "TARGET_SSE || TARGET_3DNOW_A"
   "movntq\t{%1, %0|%0, %1}"
   [(set_attr "type" "mmxmov")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -567,16 +576,9 @@
   [(set_attr "type" "mmxadd")
    (set_attr "mode" "DI")])
 
-(define_insn "mmx_adddi3"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (unspec:DI
-	 [(plus:DI (match_operand:DI 1 "nonimmediate_operand" "%0")
-		   (match_operand:DI 2 "nonimmediate_operand" "ym"))]
-	 UNSPEC_NOP))]
-  "TARGET_MMX && ix86_binary_operator_ok (PLUS, DImode, operands)"
-  "paddq\t{%2, %0|%0, %2}"
-  [(set_attr "type" "mmxadd")
-   (set_attr "mode" "DI")])
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
+;; remove mmx_adddi3
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 (define_insn "mmx_ssadd<mode>3"
   [(set (match_operand:MMXMODE12 0 "register_operand" "=y")
@@ -608,16 +610,9 @@
   [(set_attr "type" "mmxadd")
    (set_attr "mode" "DI")])
 
-(define_insn "mmx_subdi3"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (unspec:DI
-	 [(minus:DI (match_operand:DI 1 "register_operand" "0")
-		    (match_operand:DI 2 "nonimmediate_operand" "ym"))]
-	 UNSPEC_NOP))]
-  "TARGET_MMX"
-  "psubq\t{%2, %0|%0, %2}"
-  [(set_attr "type" "mmxadd")
-   (set_attr "mode" "DI")])
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
+;; remove mmx_subdi3
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 (define_insn "mmx_sssub<mode>3"
   [(set (match_operand:MMXMODE12 0 "register_operand" "=y")
@@ -719,21 +714,23 @@
   [(set_attr "type" "mmxmul")
    (set_attr "mode" "DI")])
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
 (define_insn "sse2_umulsidi3"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (mult:DI
-	  (zero_extend:DI
-	    (vec_select:SI
+  [(set (match_operand:V1DI 0 "register_operand" "=y")
+        (mult:V1DI
+	  (zero_extend:V1DI
+	    (vec_select:V1SI
 	      (match_operand:V2SI 1 "nonimmediate_operand" "%0")
 	      (parallel [(const_int 0)])))
-	  (zero_extend:DI
-	    (vec_select:SI
+	  (zero_extend:V1DI
+	    (vec_select:V1SI
 	      (match_operand:V2SI 2 "nonimmediate_operand" "ym")
 	      (parallel [(const_int 0)])))))]
   "TARGET_SSE2 && ix86_binary_operator_ok (MULT, V2SImode, operands)"
   "pmuludq\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxmul")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 (define_insn "mmx_umaxv8qi3"
   [(set (match_operand:V8QI 0 "register_operand" "=y")
@@ -775,57 +772,67 @@
   [(set_attr "type" "mmxadd")
    (set_attr "mode" "DI")])
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
 (define_insn "mmx_ashr<mode>3"
   [(set (match_operand:MMXMODE24 0 "register_operand" "=y")
         (ashiftrt:MMXMODE24
 	  (match_operand:MMXMODE24 1 "register_operand" "0")
-	  (match_operand:DI 2 "nonmemory_operand" "yi")))]
+	  (match_operand:V1DI 2 "nonmemory_operand" "yi")))]
+  "TARGET_MMX"
+  "psra<mmxvecsize>\t{%2, %0|%0, %2}"
+  [(set_attr "type" "mmxshft")
+   (set_attr "mode" "DI")])
+
+(define_insn "mmx_ashr<mode>2si"
+  [(set (match_operand:MMXMODE24 0 "register_operand" "=y")
+        (ashiftrt:MMXMODE24
+	  (match_operand:MMXMODE24 1 "register_operand" "0")
+	  (sign_extend:DI (match_operand:SI 2 "nonmemory_operand" "yi"))))]
   "TARGET_MMX"
   "psra<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
 
 (define_insn "mmx_lshr<mode>3"
-  [(set (match_operand:MMXMODE24 0 "register_operand" "=y")
-        (lshiftrt:MMXMODE24
-	  (match_operand:MMXMODE24 1 "register_operand" "0")
-	  (match_operand:DI 2 "nonmemory_operand" "yi")))]
+  [(set (match_operand:MMXMODE248 0 "register_operand" "=y")
+        (lshiftrt:MMXMODE248
+	  (match_operand:MMXMODE248 1 "register_operand" "0")
+	  (match_operand:V1DI 2 "nonmemory_operand" "yi")))]
   "TARGET_MMX"
   "psrl<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
 
-(define_insn "mmx_lshrdi3"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (unspec:DI
-	  [(lshiftrt:DI (match_operand:DI 1 "register_operand" "0")
-		       (match_operand:DI 2 "nonmemory_operand" "yi"))]
-	  UNSPEC_NOP))]
+(define_insn "mmx_lshr<mode>2si"
+  [(set (match_operand:MMXMODE248 0 "register_operand" "=y")
+        (lshiftrt:MMXMODE248
+	  (match_operand:MMXMODE248 1 "register_operand" "0")
+	  (sign_extend:DI (match_operand:SI 2 "nonmemory_operand" "yi"))))]
   "TARGET_MMX"
-  "psrlq\t{%2, %0|%0, %2}"
+  "psrl<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
 
 (define_insn "mmx_ashl<mode>3"
-  [(set (match_operand:MMXMODE24 0 "register_operand" "=y")
-        (ashift:MMXMODE24
-	  (match_operand:MMXMODE24 1 "register_operand" "0")
-	  (match_operand:DI 2 "nonmemory_operand" "yi")))]
+  [(set (match_operand:MMXMODE248 0 "register_operand" "=y")
+        (ashift:MMXMODE248
+	  (match_operand:MMXMODE248 1 "register_operand" "0")
+	  (match_operand:V1DI 2 "nonmemory_operand" "yi")))]
   "TARGET_MMX"
   "psll<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
 
-(define_insn "mmx_ashldi3"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (unspec:DI
-	 [(ashift:DI (match_operand:DI 1 "register_operand" "0")
-		     (match_operand:DI 2 "nonmemory_operand" "yi"))]
-	 UNSPEC_NOP))]
+(define_insn "mmx_ashl<mode>2si"
+  [(set (match_operand:MMXMODE248 0 "register_operand" "=y")
+        (ashift:MMXMODE248
+	  (match_operand:MMXMODE248 1 "register_operand" "0")
+	  (sign_extend:DI (match_operand:SI 2 "nonmemory_operand" "yi"))))]
   "TARGET_MMX"
-  "psllq\t{%2, %0|%0, %2}"
+  "psll<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -833,25 +840,27 @@
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
 (define_insn "mmx_eq<mode>3"
-  [(set (match_operand:MMXMODEI 0 "register_operand" "=y")
-        (eq:MMXMODEI
-	  (match_operand:MMXMODEI 1 "nonimmediate_operand" "%0")
-	  (match_operand:MMXMODEI 2 "nonimmediate_operand" "ym")))]
+  [(set (match_operand:MMXMODE124 0 "register_operand" "=y")
+        (eq:MMXMODE124
+	  (match_operand:MMXMODE124 1 "nonimmediate_operand" "%0")
+	  (match_operand:MMXMODE124 2 "nonimmediate_operand" "ym")))]
   "TARGET_MMX && ix86_binary_operator_ok (EQ, <MODE>mode, operands)"
   "pcmpeq<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxcmp")
    (set_attr "mode" "DI")])
 
 (define_insn "mmx_gt<mode>3"
-  [(set (match_operand:MMXMODEI 0 "register_operand" "=y")
-        (gt:MMXMODEI
-	  (match_operand:MMXMODEI 1 "register_operand" "0")
-	  (match_operand:MMXMODEI 2 "nonimmediate_operand" "ym")))]
+  [(set (match_operand:MMXMODE124 0 "register_operand" "=y")
+        (gt:MMXMODE124
+	  (match_operand:MMXMODE124 1 "register_operand" "0")
+	  (match_operand:MMXMODE124 2 "nonimmediate_operand" "ym")))]
   "TARGET_MMX"
   "pcmpgt<mmxvecsize>\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxcmp")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -1152,8 +1161,9 @@
   DONE;
 })
 
+;; APPLE LOCAL begin 4684674 permit mmx-to-int reg
 (define_insn_and_split "*vec_extractv2si_0"
-  [(set (match_operand:SI 0 "nonimmediate_operand"     "=x,y,m,m,frxy")
+  [(set (match_operand:SI 0 "nonimmediate_operand"     "=x,y,m,mr,frxy")
 	(vec_select:SI
 	  (match_operand:V2SI 1 "nonimmediate_operand" " x,y,x,y,m")
 	  (parallel [(const_int 0)])))]
@@ -1170,6 +1180,7 @@
   emit_move_insn (operands[0], op1);
   DONE;
 })
+;; APPLE LOCAL end 4684674
 
 (define_insn "*vec_extractv2si_1"
   [(set (match_operand:SI 0 "nonimmediate_operand"     "=y,Y,Y,x,frxy")
@@ -1334,15 +1345,17 @@
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
 
+;; APPLE LOCAL begin 4656532 use V1DImode for _m64
 (define_insn "mmx_psadbw"
-  [(set (match_operand:DI 0 "register_operand" "=y")
-        (unspec:DI [(match_operand:V8QI 1 "register_operand" "0")
+  [(set (match_operand:V1DI 0 "register_operand" "=y")
+        (unspec:V1DI [(match_operand:V8QI 1 "register_operand" "0")
 		    (match_operand:V8QI 2 "nonimmediate_operand" "ym")]
 		   UNSPEC_PSADBW))]
   "TARGET_SSE || TARGET_3DNOW_A"
   "psadbw\t{%2, %0|%0, %2}"
   [(set_attr "type" "mmxshft")
    (set_attr "mode" "DI")])
+;; APPLE LOCAL end 4656532 use V1DImode for _m64
 
 (define_insn "mmx_pmovmskb"
   [(set (match_operand:SI 0 "register_operand" "=r")

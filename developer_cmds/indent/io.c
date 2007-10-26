@@ -1,8 +1,35 @@
-/*	$NetBSD: io.c,v 1.8 1998/08/25 20:59:37 ross Exp $	*/
+/*	$NetBSD: io.c,v 1.13 2003/10/16 06:51:22 itojun Exp $	*/
 
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+/*
  * Copyright (c) 1976 Board of Trustees of the University of Illinois.
  * Copyright (c) 1985 Sun Microsystems, Inc.
  * All rights reserved.
@@ -41,23 +68,23 @@
 #if 0
 static char sccsid[] = "@(#)io.c	8.1 (Berkeley) 6/6/93";
 #else
-__RCSID("$NetBSD: io.c,v 1.8 1998/08/25 20:59:37 ross Exp $");
+__RCSID("$NetBSD: io.c,v 1.13 2003/10/16 06:51:22 itojun Exp $");
 #endif
 #endif				/* not lint */
 
 #include <ctype.h>
 #include <err.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "indent_globs.h"
 
-
 int     comment_open;
 static  int paren_target;
 
 void
-dump_line()
+dump_line(void)
 {				/* dump_line is the routine that actually
 				 * effects the printing of the new source. It
 				 * prints the label section, followed by the
@@ -133,7 +160,7 @@ dump_line()
 						s++;
 					if (s < e_lab)
 						fprintf(output, s[0] == '/' && s[1] == '*' ? "\t%.*s" : "\t/* %.*s */",
-						    e_lab - s, s);
+						    (int)(e_lab - s), s);
 				} else
 					fprintf(output, "%.*s", (int)(e_lab - s_lab), s_lab);
 				cur_col = count_spaces(cur_col, s_lab);
@@ -246,7 +273,7 @@ dump_line()
 						++ps.out_lines;
 					}
 					while (e_com > com_st
-					&& isspace(e_com[-1]))
+					&& isspace((unsigned char)e_com[-1]))
 						e_com--;
 					cur_col = pad_output(cur_col, target);
 					if (!ps.box_com) {
@@ -307,11 +334,11 @@ dump_line()
 }
 
 int
-compute_code_target()
+compute_code_target(void)
 {
 	int     target_col = ps.ind_size * ps.ind_level + 1;
 
-	if (ps.paren_level)
+	if (ps.paren_level) {
 		if (!lineup_to_parens)
 			target_col += continuation_indent * ps.paren_level;
 		else {
@@ -326,14 +353,14 @@ compute_code_target()
 			} else
 				target_col = t;
 		}
-	else
+	} else
 		if (ps.ind_stmt)
 			target_col += continuation_indent;
 	return target_col;
 }
 
 int
-compute_label_target()
+compute_label_target(void)
 {
 	return
 	ps.pcase ? (int) (case_ind * ps.ind_size) + 1
@@ -358,11 +385,12 @@ compute_label_target()
  *
  */
 void
-fill_buffer()
+fill_buffer(void)
 {				/* this routine reads stuff from the input */
 	char   *p;
 	int     i;
 	FILE   *f = input;
+	char   *n;
 
 	if (bp_save != 0) {	/* there is a partly filled input buffer left */
 		buf_ptr = bp_save;	/* dont read anything, just switch
@@ -377,9 +405,10 @@ fill_buffer()
 		if (p >= in_buffer_limit) {
 			int     size = (in_buffer_limit - in_buffer) * 2 + 10;
 			int     offset = p - in_buffer;
-			in_buffer = (char *) realloc(in_buffer, size);
-			if (in_buffer == 0)
+			n = (char *) realloc(in_buffer, size);
+			if (n == 0)
 				errx(1, "input line too long");
+			in_buffer = n;
 			p = in_buffer + offset;
 			in_buffer_limit = in_buffer + size - 2;
 		}
@@ -461,7 +490,7 @@ fill_buffer()
  * ALGORITHM: Put tabs and/or blanks into pobuf, then write pobuf.
  *
  * PARAMETERS: current		integer		The current column target
- * nteger		The desired column
+ * 	       target		integer		The desired column
  *
  * RETURNS: Integer value of the new column.  (If current >= target, no action is
  * taken, and current is returned.
@@ -476,11 +505,7 @@ fill_buffer()
  *
  */
 int
-pad_output(current, target)	/* writes tabs and blanks (if necessary) to
-				 * get the current output position up to the
-				 * target column */
-	int     current;	/* the current column value */
-	int     target;		/* position we want it at */
+pad_output(int current, int target)
 {
 	int     curr;		/* internal column pointer */
 	int     tcur;
@@ -521,13 +546,11 @@ pad_output(current, target)	/* writes tabs and blanks (if necessary) to
  *
  */
 int
-count_spaces(current, buffer)
+count_spaces(int current, char *buffer)
 /*
  * this routine figures out where the character position will be after
  * printing the text in buffer starting at column "current"
  */
-	int     current;
-	char   *buffer;
 {
 	char   *buf;		/* used to look thru buffer */
 	int     cur;		/* current character counter */
@@ -559,30 +582,14 @@ count_spaces(current, buffer)
 }
 
 
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
 int     found_err;
 
 void
-#if __STDC__
 diag(int level, char *msg,...)
-#else
-diag(level, msg, va_alist)
-	int     level
-	char   *msg;
-va_dcl
-#endif
 {
 	va_list ap;
-#if __STDC__
+
 	va_start(ap, msg);
-#else
-	va_start(ap);
-#endif
 
 	if (level)
 		found_err = 1;
@@ -599,18 +606,14 @@ va_dcl
 }
 
 void
-writefdef(f, nm)
-	struct fstate *f;
-	int     nm;
+writefdef(struct fstate *f, int nm)
 {
 	fprintf(output, ".ds f%c %s\n.nr s%c %d\n",
 	    nm, f->font, nm, f->size);
 }
 
 char   *
-chfont(of, nf, s)
-	struct fstate *of, *nf;
-	char   *s;
+chfont(struct fstate *of, struct fstate *nf, char *s)
 {
 	if (of->font[0] != nf->font[0]
 	    || of->font[1] != nf->font[1]) {
@@ -639,23 +642,21 @@ chfont(of, nf, s)
 
 
 void
-parsefont(f, s0)
-	struct fstate *f;
-	char   *s0;
+parsefont(struct fstate *f, char *s0)
 {
 	char   *s = s0;
 	int     sizedelta = 0;
 	memset(f, 0, sizeof *f);
 	while (*s) {
-		if (isdigit(*s))
+		if (isdigit((unsigned char)*s))
 			f->size = f->size * 10 + *s - '0';
 		else
-			if (isupper(*s))
+			if (isupper((unsigned char)*s)) {
 				if (f->font[0])
 					f->font[1] = *s;
 				else
 					f->font[0] = *s;
-			else
+			} else
 				if (*s == 'c')
 					f->allcaps = 1;
 				else

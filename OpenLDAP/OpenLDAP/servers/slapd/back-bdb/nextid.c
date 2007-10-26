@@ -1,8 +1,8 @@
 /* init.c - initialize bdb backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.19.2.2 2004/01/01 18:16:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.23.2.3 2006/01/03 22:16:17 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Copyright 2000-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,13 +37,14 @@ int bdb_last_id( BackendDB *be, DB_TXN *tid )
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	int rc;
 	ID id = 0;
+	unsigned char idbuf[sizeof(ID)];
 	DBT key, data;
 	DBC *cursor;
 
 	DBTzero( &key );
 	key.flags = DB_DBT_USERMEM;
-	key.data = (char *) &id;
-	key.ulen = sizeof( id );
+	key.data = (char *) idbuf;
+	key.ulen = sizeof( idbuf );
 
 	DBTzero( &data );
 	data.flags = DB_DBT_USERMEM | DB_DBT_PARTIAL;
@@ -59,21 +60,16 @@ int bdb_last_id( BackendDB *be, DB_TXN *tid )
 
 	switch(rc) {
 	case DB_NOTFOUND:
-		id = 0;
 		rc = 0;
-		/* FALLTHROUGH */
+		break;
 	case 0:
+		BDB_DISK2ID( idbuf, &id );
 		break;
 
 	default:
-#ifdef NEW_LOGGING
-		LDAP_LOG ( INDEX, ERR, "bdb_last_id: get failed: %s (%d)\n",
-			db_strerror(rc), rc, 0 );
-#else
 		Debug( LDAP_DEBUG_ANY,
 			"=> bdb_last_id: get failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
-#endif
 		goto done;
 	}
 

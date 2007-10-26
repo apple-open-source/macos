@@ -1,0 +1,1067 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		4D3DCB2008E084D300C78A0B /* msdosfs (Aggregate) */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs (Aggregate)" */;
+			buildPhases = (
+			);
+			dependencies = (
+				4D3DCB7708E084D400C78A0B /* PBXTargetDependency */,
+				4D3DCB7908E084D400C78A0B /* PBXTargetDependency */,
+				4D3DCF2D08E0BC9000C78A0B /* PBXTargetDependency */,
+				4D3DCF2F08E0BC9300C78A0B /* PBXTargetDependency */,
+				4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */,
+			);
+			name = "msdosfs (Aggregate)";
+			productName = "msdosfs (Aggregate)";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		4D3DCB4C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
+		4D3DCB6C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */; };
+		4D3DCB7E08E084D400C78A0B /* msdos.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCB7408E084D400C78A0B /* msdos.util */; };
+		4D3DCC1708E0B48600C78A0B /* bootsect.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0908E0B48600C78A0B /* bootsect.h */; };
+		4D3DCC1808E0B48600C78A0B /* bpb.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0A08E0B48600C78A0B /* bpb.h */; };
+		4D3DCC1908E0B48600C78A0B /* denode.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0B08E0B48600C78A0B /* denode.h */; };
+		4D3DCC1A08E0B48600C78A0B /* direntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0C08E0B48600C78A0B /* direntry.h */; };
+		4D3DCC1B08E0B48600C78A0B /* fat.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC0D08E0B48600C78A0B /* fat.h */; };
+		4D3DCC1C08E0B48600C78A0B /* msdosfs_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */; };
+		4D3DCC1D08E0B48600C78A0B /* msdosfs_denode.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC0F08E0B48600C78A0B /* msdosfs_denode.c */; };
+		4D3DCC1E08E0B48600C78A0B /* msdosfs_fat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC1008E0B48600C78A0B /* msdosfs_fat.c */; };
+		4D3DCC2108E0B48600C78A0B /* msdosfs_lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC1308E0B48600C78A0B /* msdosfs_lookup.c */; };
+		4D3DCC2208E0B48600C78A0B /* msdosfs_vfsops.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */; };
+		4D3DCC2308E0B48600C78A0B /* msdosfs_vnops.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */; };
+		4D3DCC2408E0B48600C78A0B /* msdosfsmount.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */; };
+		4D3DCC2C08E0B4EC00C78A0B /* mount_msdos.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */; };
+		4D3DCC2D08E0B4EC00C78A0B /* mount_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */; };
+		4D3DCC3508E0B53A00C78A0B /* dosutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC3108E0B53A00C78A0B /* dosutil.c */; };
+		4D3DCC3708E0B53A00C78A0B /* msdos.util.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCC3408E0B53A00C78A0B /* msdos.util.8 */; };
+		4D3DCC6008E0B79E00C78A0B /* newfs_msdos.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCC5A08E0B79E00C78A0B /* newfs_msdos.8 */; };
+		4D3DCC6108E0B79E00C78A0B /* newfs_msdos.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCC5B08E0B79E00C78A0B /* newfs_msdos.c */; };
+		4D3DCF1308E0BBF700C78A0B /* boot.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0508E0BBF700C78A0B /* boot.c */; };
+		4D3DCF1408E0BBF700C78A0B /* check.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0608E0BBF700C78A0B /* check.c */; };
+		4D3DCF1508E0BBF700C78A0B /* dir.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0708E0BBF700C78A0B /* dir.c */; };
+		4D3DCF1608E0BBF700C78A0B /* dosfs.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0808E0BBF700C78A0B /* dosfs.h */; };
+		4D3DCF1708E0BBF700C78A0B /* ext.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0908E0BBF700C78A0B /* ext.h */; };
+		4D3DCF1808E0BBF700C78A0B /* fat.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0A08E0BBF700C78A0B /* fat.c */; };
+		4D3DCF1908E0BBF700C78A0B /* fsck_msdos.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4D3DCF0B08E0BBF700C78A0B /* fsck_msdos.8 */; };
+		4D3DCF1A08E0BBF700C78A0B /* fsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0C08E0BBF700C78A0B /* fsutil.c */; };
+		4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0D08E0BBF700C78A0B /* fsutil.h */; };
+		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
+		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
+		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		4D3DCB7608E084D400C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB2B08E084D300C78A0B;
+			remoteInfo = "msdosfs (Upgraded)";
+		};
+		4D3DCB7808E084D400C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB4708E084D400C78A0B;
+			remoteInfo = "mount_msdos (Upgraded)";
+		};
+		4D3DCB7A08E084D400C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB5608E084D400C78A0B;
+			remoteInfo = "msdos.fs (Upgraded)";
+		};
+		4D3DCB7C08E084D400C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCB6708E084D400C78A0B;
+			remoteInfo = "msdos.util (Upgraded)";
+		};
+		4D3DCF2C08E0BC9000C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCC4208E0B73400C78A0B;
+			remoteInfo = newfs_msdos;
+		};
+		4D3DCF2E08E0BC9300C78A0B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCEF608E0BB1B00C78A0B;
+			remoteInfo = fsck_msdos;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		4D3DCB4E08E084D400C78A0B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				4D3DCC2C08E0B4EC00C78A0B /* mount_msdos.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4D3DCB5C08E084D400C78A0B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 1;
+			files = (
+				4D3DCB7E08E084D400C78A0B /* msdos.util in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6E08E084D400C78A0B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				4D3DCC3708E0B53A00C78A0B /* msdos.util.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4D3DCC4908E0B73400C78A0B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				4D3DCC6008E0B79E00C78A0B /* newfs_msdos.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		4D3DCEFC08E0BB1B00C78A0B /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				4D3DCF1908E0BBF700C78A0B /* fsck_msdos.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-msdosfs_kext.plist"; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCB4608E084D400C78A0B /* msdosfs.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdosfs.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCB5408E084D400C78A0B /* mount_msdos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_msdos; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = "Info-msdos_fs.plist"; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCB6608E084D400C78A0B /* msdos.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = msdos.fs; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCB7408E084D400C78A0B /* msdos.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCC0908E0B48600C78A0B /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0A08E0B48600C78A0B /* bpb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bpb.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0B08E0B48600C78A0B /* denode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = denode.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0C08E0B48600C78A0B /* direntry.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = direntry.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0D08E0B48600C78A0B /* fat.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fat.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_conv.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC0F08E0B48600C78A0B /* msdosfs_denode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_denode.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC1008E0B48600C78A0B /* msdosfs_fat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_fat.c; sourceTree = "<group>"; tabWidth = 8; };
+		4D3DCC1308E0B48600C78A0B /* msdosfs_lookup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_lookup.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vfsops.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = msdosfs_vnops.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = msdosfsmount.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = mount_msdos.8; sourceTree = "<group>"; };
+		4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = mount_msdos.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC3108E0B53A00C78A0B /* dosutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dosutil.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCC3408E0B53A00C78A0B /* msdos.util.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = msdos.util.8; sourceTree = "<group>"; };
+		4D3DCC5008E0B73400C78A0B /* newfs_msdos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = newfs_msdos; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCC5A08E0B79E00C78A0B /* newfs_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = newfs_msdos.8; sourceTree = "<group>"; };
+		4D3DCC5B08E0B79E00C78A0B /* newfs_msdos.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = newfs_msdos.c; sourceTree = "<group>"; tabWidth = 8; };
+		4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = fsck_msdos; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D3DCF0508E0BBF700C78A0B /* boot.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = boot.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0608E0BBF700C78A0B /* check.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = check.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0708E0BBF700C78A0B /* dir.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dir.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0808E0BBF700C78A0B /* dosfs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = dosfs.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0908E0BBF700C78A0B /* ext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ext.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0A08E0BBF700C78A0B /* fat.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fat.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0B08E0BBF700C78A0B /* fsck_msdos.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = fsck_msdos.8; sourceTree = "<group>"; };
+		4D3DCF0C08E0BBF700C78A0B /* fsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fsutil.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0D08E0BBF700C78A0B /* fsutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fsutil.h; sourceTree = "<group>"; tabWidth = 4; };
+		4D3DCF0E08E0BBF700C78A0B /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; tabWidth = 4; };
+		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
+		4D91A5620920294E0067C87B /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = English; path = msdos_util.tproj/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		7D91DB9F010FC00502CA2964 /* msdos.util */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = msdos.util; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4D3DCB3E08E084D300C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB4B08E084D400C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCB4C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */,
+				4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB5F08E084D400C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6B08E084D400C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCB6C08E084D400C78A0B /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCC4608E0B73400C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCEFA08E0BB1B00C78A0B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		4D3DCC0808E0B48600C78A0B /* msdosfs.kext */ = {
+			isa = PBXGroup;
+			children = (
+				4D3DCC0908E0B48600C78A0B /* bootsect.h */,
+				4D3DCC0A08E0B48600C78A0B /* bpb.h */,
+				4D3DCC0B08E0B48600C78A0B /* denode.h */,
+				4D3DCC0C08E0B48600C78A0B /* direntry.h */,
+				4D3DCC0D08E0B48600C78A0B /* fat.h */,
+				4D3DCC0E08E0B48600C78A0B /* msdosfs_conv.c */,
+				4D3DCC0F08E0B48600C78A0B /* msdosfs_denode.c */,
+				4D3DCC1008E0B48600C78A0B /* msdosfs_fat.c */,
+				4D3DCC1308E0B48600C78A0B /* msdosfs_lookup.c */,
+				4D3DCC1408E0B48600C78A0B /* msdosfs_vfsops.c */,
+				4D3DCC1508E0B48600C78A0B /* msdosfs_vnops.c */,
+				4D3DCC1608E0B48600C78A0B /* msdosfsmount.h */,
+			);
+			name = msdosfs.kext;
+			path = msdosfs.kextproj/msdosfs.kmodproj;
+			sourceTree = "<group>";
+		};
+		4D3DCC2508E0B4EC00C78A0B /* mount_msdos */ = {
+			isa = PBXGroup;
+			children = (
+				4D3DCC2808E0B4EC00C78A0B /* mount_msdos.8 */,
+				4D3DCC2908E0B4EC00C78A0B /* mount_msdos.c */,
+			);
+			name = mount_msdos;
+			path = mount_msdos.tproj;
+			sourceTree = "<group>";
+		};
+		4D3DCC3008E0B53A00C78A0B /* msdos.util */ = {
+			isa = PBXGroup;
+			children = (
+				4D3DCC3108E0B53A00C78A0B /* dosutil.c */,
+				4D3DCC3408E0B53A00C78A0B /* msdos.util.8 */,
+			);
+			name = msdos.util;
+			path = msdos_util.tproj;
+			sourceTree = "<group>";
+		};
+		4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				4D3DCC5A08E0B79E00C78A0B /* newfs_msdos.8 */,
+				4D3DCC5B08E0B79E00C78A0B /* newfs_msdos.c */,
+			);
+			path = newfs_msdos.tproj;
+			sourceTree = "<group>";
+		};
+		4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				4D3DCF0508E0BBF700C78A0B /* boot.c */,
+				4D3DCF0608E0BBF700C78A0B /* check.c */,
+				4D3DCF0708E0BBF700C78A0B /* dir.c */,
+				4D3DCF0808E0BBF700C78A0B /* dosfs.h */,
+				4D3DCF0908E0BBF700C78A0B /* ext.h */,
+				4D3DCF0A08E0BBF700C78A0B /* fat.c */,
+				4D3DCF0B08E0BBF700C78A0B /* fsck_msdos.8 */,
+				4D3DCF0C08E0BBF700C78A0B /* fsutil.c */,
+				4D3DCF0D08E0BBF700C78A0B /* fsutil.h */,
+				4D3DCF0E08E0BBF700C78A0B /* main.c */,
+			);
+			path = fsck_msdos.tproj;
+			sourceTree = "<group>";
+		};
+		7D8BA341010E490C02CA2964 /* msdosfs */ = {
+			isa = PBXGroup;
+			children = (
+				4D8BCB260A0278BC008334F3 /* Locking.rtf */,
+				4D3DCC0808E0B48600C78A0B /* msdosfs.kext */,
+				4D3DCC2508E0B4EC00C78A0B /* mount_msdos */,
+				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
+				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
+				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
+				7D8BA376010E490C02CA2964 /* Products */,
+				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
+				4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */,
+				4D3DCB6508E084D400C78A0B /* Info-msdos_fs.plist */,
+				4D3DCB4508E084D300C78A0B /* Info-msdosfs_kext.plist */,
+				4D91A5610920294E0067C87B /* InfoPlist.strings */,
+			);
+			name = msdosfs;
+			sourceTree = "<group>";
+		};
+		7D8BA376010E490C02CA2964 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				7D91DB9F010FC00502CA2964 /* msdos.util */,
+				4D3DCB4608E084D400C78A0B /* msdosfs.kext */,
+				4D3DCB5408E084D400C78A0B /* mount_msdos */,
+				4D3DCB6608E084D400C78A0B /* msdos.fs */,
+				4D3DCB7408E084D400C78A0B /* msdos.util */,
+				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
+				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		4D3DCB2D08E084D300C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCC1708E0B48600C78A0B /* bootsect.h in Headers */,
+				4D3DCC1808E0B48600C78A0B /* bpb.h in Headers */,
+				4D3DCC1908E0B48600C78A0B /* denode.h in Headers */,
+				4D3DCC1A08E0B48600C78A0B /* direntry.h in Headers */,
+				4D3DCC1B08E0B48600C78A0B /* fat.h in Headers */,
+				4D3DCC2408E0B48600C78A0B /* msdosfsmount.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB4808E084D400C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB5908E084D400C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6808E084D400C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCC4308E0B73400C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCEF708E0BB1B00C78A0B /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCF1608E0BBF700C78A0B /* dosfs.h in Headers */,
+				4D3DCF1708E0BBF700C78A0B /* ext.h in Headers */,
+				4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		4D3DCB2B08E084D300C78A0B /* msdosfs.kext */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCB4108E084D300C78A0B /* Build configuration list for PBXNativeTarget "msdosfs.kext" */;
+			buildPhases = (
+				4D3DCB2C08E084D300C78A0B /* ShellScript */,
+				4D3DCB2D08E084D300C78A0B /* Headers */,
+				4D3DCB3508E084D300C78A0B /* Resources */,
+				4D3DCB3608E084D300C78A0B /* Sources */,
+				4D3DCB3E08E084D300C78A0B /* Frameworks */,
+				4D3DCB3F08E084D300C78A0B /* Rez */,
+				4D3DCB4008E084D300C78A0B /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = msdosfs.kext;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = "msdosfs (Bundle)";
+			productReference = 4D3DCB4608E084D400C78A0B /* msdosfs.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
+		4D3DCB4708E084D400C78A0B /* mount_msdos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCB5008E084D400C78A0B /* Build configuration list for PBXNativeTarget "mount_msdos" */;
+			buildPhases = (
+				4D3DCB4808E084D400C78A0B /* Headers */,
+				4D3DCB4908E084D400C78A0B /* Sources */,
+				4D3DCB4B08E084D400C78A0B /* Frameworks */,
+				4D3DCB4D08E084D400C78A0B /* Rez */,
+				4D3DCB4E08E084D400C78A0B /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mount_msdos;
+			productInstallPath = /sbin;
+			productName = "mount_msdos (Tool)";
+			productReference = 4D3DCB5408E084D400C78A0B /* mount_msdos */;
+			productType = "com.apple.product-type.tool";
+		};
+		4D3DCB5608E084D400C78A0B /* msdos.fs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCB6108E084D400C78A0B /* Build configuration list for PBXNativeTarget "msdos.fs" */;
+			buildPhases = (
+				4D3DCB5908E084D400C78A0B /* Headers */,
+				4D3DCB5A08E084D400C78A0B /* Resources */,
+				4D3DCB5C08E084D400C78A0B /* CopyFiles */,
+				4D3DCB5E08E084D400C78A0B /* Sources */,
+				4D3DCB5F08E084D400C78A0B /* Frameworks */,
+				4D3DCB6008E084D400C78A0B /* Rez */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4D3DCB7D08E084D400C78A0B /* PBXTargetDependency */,
+			);
+			name = msdos.fs;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+			productName = msdosfs.fs;
+			productReference = 4D3DCB6608E084D400C78A0B /* msdos.fs */;
+			productType = "com.apple.product-type.bundle";
+		};
+		4D3DCB6708E084D400C78A0B /* msdos.util */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCB7008E084D400C78A0B /* Build configuration list for PBXNativeTarget "msdos.util" */;
+			buildPhases = (
+				4D3DCB6808E084D400C78A0B /* Headers */,
+				4D3DCB6908E084D400C78A0B /* Sources */,
+				4D3DCB6B08E084D400C78A0B /* Frameworks */,
+				4D3DCB6D08E084D400C78A0B /* Rez */,
+				4D3DCB6E08E084D400C78A0B /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = msdos.util;
+			productName = "msdos.util (Tool)";
+			productReference = 4D3DCB7408E084D400C78A0B /* msdos.util */;
+			productType = "com.apple.product-type.tool";
+		};
+		4D3DCC4208E0B73400C78A0B /* newfs_msdos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCC4C08E0B73400C78A0B /* Build configuration list for PBXNativeTarget "newfs_msdos" */;
+			buildPhases = (
+				4D3DCC4308E0B73400C78A0B /* Headers */,
+				4D3DCC4408E0B73400C78A0B /* Sources */,
+				4D3DCC4608E0B73400C78A0B /* Frameworks */,
+				4D3DCC4808E0B73400C78A0B /* Rez */,
+				4D3DCC4908E0B73400C78A0B /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = newfs_msdos;
+			productName = "msdos.util (Tool)";
+			productReference = 4D3DCC5008E0B73400C78A0B /* newfs_msdos */;
+			productType = "com.apple.product-type.tool";
+		};
+		4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D3DCEFE08E0BB1B00C78A0B /* Build configuration list for PBXNativeTarget "fsck_msdos" */;
+			buildPhases = (
+				4D3DCEF708E0BB1B00C78A0B /* Headers */,
+				4D3DCEF808E0BB1B00C78A0B /* Sources */,
+				4D3DCEFA08E0BB1B00C78A0B /* Frameworks */,
+				4D3DCEFB08E0BB1B00C78A0B /* Rez */,
+				4D3DCEFC08E0BB1B00C78A0B /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = fsck_msdos;
+			productName = "msdos.util (Tool)";
+			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7D8BA340010E490C02CA2964 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 1;
+			mainGroup = 7D8BA341010E490C02CA2964 /* msdosfs */;
+			productRefGroup = 7D8BA376010E490C02CA2964 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				4D3DCB2008E084D300C78A0B /* msdosfs (Aggregate) */,
+				4D3DCB2B08E084D300C78A0B /* msdosfs.kext */,
+				4D3DCB6708E084D400C78A0B /* msdos.util */,
+				4D3DCB5608E084D400C78A0B /* msdos.fs */,
+				4D3DCB4708E084D400C78A0B /* mount_msdos */,
+				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
+				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		4D3DCB3508E084D300C78A0B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB5A08E084D400C78A0B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXRezBuildPhase section */
+		4D3DCB3F08E084D300C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB4D08E084D400C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6008E084D400C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6D08E084D400C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCC4808E0B73400C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCEFB08E0BB1B00C78A0B /* Rez */ = {
+			isa = PBXRezBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXRezBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4D3DCB2C08E084D300C78A0B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		4D3DCB4008E084D300C78A0B /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		4D3DCB3608E084D300C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCC1C08E0B48600C78A0B /* msdosfs_conv.c in Sources */,
+				4D3DCC1D08E0B48600C78A0B /* msdosfs_denode.c in Sources */,
+				4D3DCC1E08E0B48600C78A0B /* msdosfs_fat.c in Sources */,
+				4D3DCC2108E0B48600C78A0B /* msdosfs_lookup.c in Sources */,
+				4D3DCC2208E0B48600C78A0B /* msdosfs_vfsops.c in Sources */,
+				4D3DCC2308E0B48600C78A0B /* msdosfs_vnops.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB4908E084D400C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCC2D08E0B4EC00C78A0B /* mount_msdos.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB5E08E084D400C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCB6908E084D400C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCC3508E0B53A00C78A0B /* dosutil.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCC4408E0B73400C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCC6108E0B79E00C78A0B /* newfs_msdos.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D3DCEF808E0BB1B00C78A0B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D3DCF1308E0BBF700C78A0B /* boot.c in Sources */,
+				4D3DCF1408E0BBF700C78A0B /* check.c in Sources */,
+				4D3DCF1508E0BBF700C78A0B /* dir.c in Sources */,
+				4D3DCF1808E0BBF700C78A0B /* fat.c in Sources */,
+				4D3DCF1A08E0BBF700C78A0B /* fsutil.c in Sources */,
+				4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		4D3DCB7708E084D400C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB2B08E084D300C78A0B /* msdosfs.kext */;
+			targetProxy = 4D3DCB7608E084D400C78A0B /* PBXContainerItemProxy */;
+		};
+		4D3DCB7908E084D400C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB4708E084D400C78A0B /* mount_msdos */;
+			targetProxy = 4D3DCB7808E084D400C78A0B /* PBXContainerItemProxy */;
+		};
+		4D3DCB7B08E084D400C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB5608E084D400C78A0B /* msdos.fs */;
+			targetProxy = 4D3DCB7A08E084D400C78A0B /* PBXContainerItemProxy */;
+		};
+		4D3DCB7D08E084D400C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCB6708E084D400C78A0B /* msdos.util */;
+			targetProxy = 4D3DCB7C08E084D400C78A0B /* PBXContainerItemProxy */;
+		};
+		4D3DCF2D08E0BC9000C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCC4208E0B73400C78A0B /* newfs_msdos */;
+			targetProxy = 4D3DCF2C08E0BC9000C78A0B /* PBXContainerItemProxy */;
+		};
+		4D3DCF2F08E0BC9300C78A0B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */;
+			targetProxy = 4D3DCF2E08E0BC9300C78A0B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		4D91A5610920294E0067C87B /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				4D91A5620920294E0067C87B /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		4D3DCB2808E084D300C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdosfs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Development;
+		};
+		4D3DCB2908E084D300C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = msdosfs;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		4D3DCB4208E084D300C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_NAME = com.apple.filesystems.msdosfs;
+				MODULE_START = msdosfs_module_start;
+				MODULE_STOP = msdosfs_module_stop;
+				MODULE_VERSION = 1.5;
+				PRODUCT_NAME = msdosfs;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-format-y2k",
+					"-W",
+					"-Wstrict-prototypes",
+					"-Wmissing-prototypes",
+					"-Wpointer-arith",
+					"-Wreturn-type",
+					"-Wcast-qual",
+					"-Wwrite-strings",
+					"-Wswitch",
+					"-Wshadow",
+					"-Wcast-align",
+					"-Wchar-subscripts",
+					"-Winline",
+					"-Wnested-externs",
+					"-Wredundant-decls",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		4D3DCB4308E084D300C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				INFOPLIST_FILE = "Info-msdosfs_kext.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_NAME = com.apple.filesystems.msdosfs;
+				MODULE_START = msdosfs_module_start;
+				MODULE_STOP = msdosfs_module_stop;
+				MODULE_VERSION = 1.5;
+				PRODUCT_NAME = msdosfs;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-format-y2k",
+					"-W",
+					"-Wstrict-prototypes",
+					"-Wmissing-prototypes",
+					"-Wpointer-arith",
+					"-Wreturn-type",
+					"-Wcast-qual",
+					"-Wwrite-strings",
+					"-Wswitch",
+					"-Wshadow",
+					"-Wcast-align",
+					"-Wchar-subscripts",
+					"-Winline",
+					"-Wnested-externs",
+					"-Wredundant-decls",
+				);
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		4D3DCB5108E084D400C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PRODUCT_NAME = mount_msdos;
+			};
+			name = Development;
+		};
+		4D3DCB5208E084D400C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-lutil";
+				PRODUCT_NAME = mount_msdos;
+			};
+			name = Deployment;
+		};
+		4D3DCB6208E084D400C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "Info-msdos_fs.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_NAME = msdos;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Development;
+		};
+		4D3DCB6308E084D400C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INFOPLIST_FILE = "Info-msdos_fs.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems";
+				PRODUCT_NAME = msdos;
+				WRAPPER_EXTENSION = fs;
+			};
+			name = Deployment;
+		};
+		4D3DCB7108E084D400C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = msdos.util;
+			};
+			name = Development;
+		};
+		4D3DCB7208E084D400C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = msdos.util;
+			};
+			name = Deployment;
+		};
+		4D3DCC4D08E0B73400C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-ldisk";
+				PRODUCT_NAME = newfs_msdos;
+			};
+			name = Development;
+		};
+		4D3DCC4E08E0B73400C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders";
+				INSTALL_PATH = /sbin;
+				OTHER_LDFLAGS = "-ldisk";
+				PRODUCT_NAME = newfs_msdos;
+			};
+			name = Deployment;
+		};
+		4D3DCEFF08E0BB1B00C78A0B /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = fsck_msdos;
+			};
+			name = Development;
+		};
+		4D3DCF0008E0BB1B00C78A0B /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = fsck_msdos;
+			};
+			name = Deployment;
+		};
+		4DAA598F08D79EF4007BE920 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = "";
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=1";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Development;
+		};
+		4DAA599008D79EF4007BE920 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = "DEBUG=0";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				PREBINDING = NO;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Deployment;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4D3DCB2708E084D300C78A0B /* Build configuration list for PBXAggregateTarget "msdosfs (Aggregate)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCB2808E084D300C78A0B /* Development */,
+				4D3DCB2908E084D300C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCB4108E084D300C78A0B /* Build configuration list for PBXNativeTarget "msdosfs.kext" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCB4208E084D300C78A0B /* Development */,
+				4D3DCB4308E084D300C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCB5008E084D400C78A0B /* Build configuration list for PBXNativeTarget "mount_msdos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCB5108E084D400C78A0B /* Development */,
+				4D3DCB5208E084D400C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCB6108E084D400C78A0B /* Build configuration list for PBXNativeTarget "msdos.fs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCB6208E084D400C78A0B /* Development */,
+				4D3DCB6308E084D400C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCB7008E084D400C78A0B /* Build configuration list for PBXNativeTarget "msdos.util" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCB7108E084D400C78A0B /* Development */,
+				4D3DCB7208E084D400C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCC4C08E0B73400C78A0B /* Build configuration list for PBXNativeTarget "newfs_msdos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCC4D08E0B73400C78A0B /* Development */,
+				4D3DCC4E08E0B73400C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4D3DCEFE08E0BB1B00C78A0B /* Build configuration list for PBXNativeTarget "fsck_msdos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D3DCEFF08E0BB1B00C78A0B /* Development */,
+				4D3DCF0008E0BB1B00C78A0B /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		4DAA598E08D79EF4007BE920 /* Build configuration list for PBXProject "msdosfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4DAA598F08D79EF4007BE920 /* Development */,
+				4DAA599008D79EF4007BE920 /* Deployment */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 7D8BA340010E490C02CA2964 /* Project object */;
+}

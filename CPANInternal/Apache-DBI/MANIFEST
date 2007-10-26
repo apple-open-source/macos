@@ -1,0 +1,9 @@
+AuthDBI.pm
+Changes
+DBI.pm
+MANIFEST
+Makefile.PL
+README
+eg/startup.pl
+traces.txt
+t/10mysql.t

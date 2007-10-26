@@ -1,0 +1,365 @@
+Index: DerivedBidiClass.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedBidiClass.txt,v
+retrieving revision 1.1.1.4
+retrieving revision 1.3
+diff -u -r1.1.1.4 -r1.3
+--- DerivedBidiClass.txt	31 Aug 2006 23:04:21 -0000	1.1.1.4
++++ DerivedBidiClass.txt	8 Feb 2007 22:36:17 -0000	1.3
+@@ -456,7 +456,15 @@
+ A827          ; L # Mc       SYLOTI NAGRI VOWEL SIGN OO
+ A840..A873    ; L # Lo  [52] PHAGS-PA LETTER KA..PHAGS-PA LETTER CANDRABINDU
+ AC00..D7A3    ; L # Lo [11172] HANGUL SYLLABLE GA..HANGUL SYLLABLE HIH
+-E000..F8FF    ; L # Co [6400] <private-use-E000>..<private-use-F8FF>
++E000..F801    ; L # Co [6146] <private-use-E000>..<private-use-F801>
++F880          ; L # So       Apple Corporate deprecated metrics char
++F881          ; L # So       Apple Corporate deprecated metrics char
++F8A2..F8A7    ; L # Nl   [6] <Apple Corporate deprecated Japanese symbols, First>..<Apple Corporate deprecated Japanese symbols, Last>
++F8A8..F8AC    ; L # So   [5] <Apple Corporate deprecated Japanese symbols, First>..<Apple Corporate deprecated Japanese symbols, Last>
++F8B2          ; L # So       Apple Corporate deprecated Japanese symbol
++F8B3          ; L # So       Apple Corporate deprecated Japanese symbol
++F8B8          ; L # Lm       Apple Corporate deprecated kana form
++F8C1..F8D6    ; L # Lo  [22] <Apple Corporate deprecated kana forms, First>..<Apple Corporate deprecated kana forms, Last>
+ F900..FA2D    ; L # Lo [302] CJK COMPATIBILITY IDEOGRAPH-F900..CJK COMPATIBILITY IDEOGRAPH-FA2D
+ FA30..FA6A    ; L # Lo  [59] CJK COMPATIBILITY IDEOGRAPH-FA30..CJK COMPATIBILITY IDEOGRAPH-FA6A
+ FA70..FAD9    ; L # Lo [106] CJK COMPATIBILITY IDEOGRAPH-FA70..CJK COMPATIBILITY IDEOGRAPH-FAD9
+@@ -581,6 +589,8 @@
+ 07FA          ; R # Lm       NKO LAJANYALAN
+ 07FB..08FF    ; R # Cn [261] <reserved-07FB>..<reserved-08FF>
+ 200F          ; R # Cf       RIGHT-TO-LEFT MARK
++F883          ; R # Sc       Apple Corporate deprecated Arabic rial
++F89A..F89E    ; R # Lo   [5] <Apple Corporate mostly deprecated Hebrew misc, First>..<Apple Corporate mostly deprecated Hebrew misc, Last>
+ FB1D          ; R # Lo       HEBREW LETTER YOD WITH HIRIQ
+ FB1F..FB28    ; R # Lo  [10] HEBREW LIGATURE YIDDISH YOD YOD PATAH..HEBREW LETTER WIDE TAV
+ FB2A..FB36    ; R # Lo  [13] HEBREW LETTER SHIN WITH SHIN DOT..HEBREW LETTER ZAYIN WITH DAGESH
+@@ -639,6 +649,7 @@
+ 2074..2079    ; EN # No   [6] SUPERSCRIPT FOUR..SUPERSCRIPT NINE
+ 2080..2089    ; EN # No  [10] SUBSCRIPT ZERO..SUBSCRIPT NINE
+ 2488..249B    ; EN # No  [20] DIGIT ONE FULL STOP..NUMBER TWENTY FULL STOP
++F8A1          ; EN # No       Apple Corporate deprecated Japanese symbol
+ FF10..FF19    ; EN # Nd  [10] FULLWIDTH DIGIT ZERO..FULLWIDTH DIGIT NINE
+ 1D7CE..1D7FF  ; EN # Nd  [50] MATHEMATICAL BOLD DIGIT ZERO..MATHEMATICAL MONOSPACE DIGIT NINE
+ 
+@@ -681,6 +692,7 @@
+ 20A0..20B5    ; ET # Sc  [22] EURO-CURRENCY SIGN..CEDI SIGN
+ 212E          ; ET # So       ESTIMATED SYMBOL
+ 2213          ; ET # Sm       MINUS-OR-PLUS SIGN
++F8A0          ; ET # Sc       Apple Corporate deprecated Euro
+ FE5F          ; ET # Po       SMALL NUMBER SIGN
+ FE69          ; ET # Sc       SMALL DOLLAR SIGN
+ FE6A          ; ET # Po       SMALL PERCENT SIGN
+@@ -1077,6 +1089,18 @@
+ A720..A721    ; ON # Sk   [2] MODIFIER LETTER STRESS AND HIGH TONE..MODIFIER LETTER STRESS AND LOW TONE
+ A828..A82B    ; ON # So   [4] SYLOTI NAGRI POETRY MARK-1..SYLOTI NAGRI POETRY MARK-4
+ A874..A877    ; ON # Po   [4] PHAGS-PA SINGLE HEAD MARK..PHAGS-PA MARK DOUBLE SHAD
++F802..F86F    ; ON # So [110] <Apple-Corporate-Use-symbols-and-other-F802>..<Apple-Corporate-Use-symbols-and-other-F86F>
++F8AD..F8B1    ; ON # So   [5] <Apple Corporate deprecated Japanese arrows, First>..<Apple Corporate deprecated Japanese arrows, Last>
++F8B4          ; ON # Pe       Apple Corporate deprecated Japanese punct
++F8B5..F8B7    ; ON # Po   [3] <Apple Corporate deprecated Japanese punct, First>..<Apple Corporate deprecated Japanese punct, Last>
++F8B9..F8BA    ; ON # Pd   [2] <Apple Corporate deprecated Japanese punct, First>..<Apple Corporate deprecated Japanese punct, Last>
++F8BB          ; ON # Po       Apple Corporate deprecated Japanese punct
++F8BC..F8BD    ; ON # Sm   [2] <Apple Corporate deprecated Japanese punct, First>..<Apple Corporate deprecated Japanese punct, Last>
++F8BE          ; ON # Ps       Apple Corporate deprecated Japanese punct
++F8BF          ; ON # Pe       Apple Corporate deprecated Japanese punct
++F8C0          ; ON # Sm       Apple Corporate deprecated Japanese punct
++F8D7..F8FE    ; ON # So  [40] <Apple Corporate deprecated symbols, First>..<Apple Corporate deprecated symbols, Last>
++F8FF          ; ON # So       Apple Corporate logo
+ FD3E          ; ON # Ps       ORNATE LEFT PARENTHESIS
+ FD3F          ; ON # Pe       ORNATE RIGHT PARENTHESIS
+ FDFD          ; ON # So       ARABIC LIGATURE BISMILLAH AR-RAHMAN AR-RAHEEM
+@@ -1335,6 +1359,9 @@
+ A806          ; NSM # Mn       SYLOTI NAGRI SIGN HASANTA
+ A80B          ; NSM # Mn       SYLOTI NAGRI SIGN ANUSVARA
+ A825..A826    ; NSM # Mn   [2] SYLOTI NAGRI VOWEL SIGN U..SYLOTI NAGRI VOWEL SIGN E
++F870..F87F    ; NSM # Mn  [16] <Apple-Corporate-Use-transcoding-hints-F870>..<Apple-Corporate-Use-transcoding-hints-F87F>
++F884..F899    ; NSM # Mn  [22] <Apple Corporate deprecated Thai forms, First>..<Apple Corporate deprecated Thai forms, Last>
++F89F          ; NSM # Mn       Apple Corporate deprecated Hebrew misc
+ FB1E          ; NSM # Mn       HEBREW POINT JUDEO-SPANISH VARIKA
+ FE00..FE0F    ; NSM # Mn  [16] VARIATION SELECTOR-1..VARIATION SELECTOR-16
+ FE20..FE23    ; NSM # Mn   [4] COMBINING LIGATURE LEFT HALF..COMBINING DOUBLE TILDE RIGHT HALF
+@@ -1391,6 +1418,7 @@
+ 0780..07A5    ; AL # Lo  [38] THAANA LETTER HAA..THAANA LETTER WAAVU
+ 07B1          ; AL # Lo       THAANA LETTER NAA
+ 07B2..07BF    ; AL # Cn  [14] <reserved-07B2>..<reserved-07BF>
++F882          ; AL # Lo       Apple Corporate Arabic ligature
+ FB50..FBB1    ; AL # Lo  [98] ARABIC LETTER ALEF WASLA ISOLATED FORM..ARABIC LETTER YEH BARREE WITH HAMZA ABOVE FINAL FORM
+ FBB2..FBD2    ; AL # Cn  [33] <reserved-FBB2>..<reserved-FBD2>
+ FBD3..FD3D    ; AL # Lo [363] ARABIC LETTER NG ISOLATED FORM..ARABIC LIGATURE ALEF WITH FATHATAN ISOLATED FORM
+Index: DerivedCoreProperties.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedCoreProperties.txt,v
+retrieving revision 1.1.1.5
+diff -u -r1.1.1.5 DerivedCoreProperties.txt
+--- DerivedCoreProperties.txt	31 Aug 2006 23:04:21 -0000	1.1.1.5
++++ DerivedCoreProperties.txt	29 Mar 2007 22:42:30 -0000
+@@ -121,6 +121,9 @@
+ 29FC          ; Math
+ 29FD          ; Math
+ 29FE..2AFF    ; Math
++F8BC          ; Math
++F8BD          ; Math
++F8C0          ; Math
+ FB29          ; Math
+ FE61          ; Math
+ FE62          ; Math
+@@ -633,6 +636,11 @@
+ A827          ; Alphabetic
+ A840..A873    ; Alphabetic
+ AC00..D7A3    ; Alphabetic
++F882          ; Alphabetic
++F89A..F89E    ; Alphabetic
++F8A2..F8A7    ; Alphabetic
++F8B8          ; Alphabetic
++F8C1..F8D6    ; Alphabetic
+ F900..FA2D    ; Alphabetic
+ FA30..FA6A    ; Alphabetic
+ FA70..FAD9    ; Alphabetic
+@@ -4074,6 +4082,9 @@
+ A806          ; Grapheme_Extend
+ A80B          ; Grapheme_Extend
+ A825..A826    ; Grapheme_Extend
++F870..F87F    ; Grapheme_Extend
++F884..F899    ; Grapheme_Extend
++F89F          ; Grapheme_Extend
+ FB1E          ; Grapheme_Extend
+ FE00..FE0F    ; Grapheme_Extend
+ FE20..FE23    ; Grapheme_Extend
+@@ -4882,6 +4893,10 @@
+ A840..A873    ; Grapheme_Base
+ A874..A877    ; Grapheme_Base
+ AC00..D7A3    ; Grapheme_Base
++F802..F84F    ; Grapheme_Base
++F880..F883    ; Grapheme_Base
++F89A..F89E    ; Grapheme_Base
++F8A0..F8FF    ; Grapheme_Base
+ F900..FA2D    ; Grapheme_Base
+ FA30..FA6A    ; Grapheme_Base
+ FA70..FAD9    ; Grapheme_Base
+Index: DerivedNumericValues.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/DerivedNumericValues.txt,v
+retrieving revision 1.1.1.4
+retrieving revision 1.2
+diff -u -r1.1.1.4 -r1.2
+--- DerivedNumericValues.txt	31 Aug 2006 23:04:22 -0000	1.1.1.4
++++ DerivedNumericValues.txt	8 Feb 2007 22:36:17 -0000	1.2
+@@ -51,6 +51,7 @@
+ 24FF          ; 0.0 # No       NEGATIVE CIRCLED DIGIT ZERO
+ 3007          ; 0.0 # Nl       IDEOGRAPHIC NUMBER ZERO
+ 96F6          ; 0.0 # Lo       CJK UNIFIED IDEOGRAPH-96F6
++F8A1          ; 0.0 # No       Apple corporate digit zero full stop
+ FF10          ; 0.0 # Nd       FULLWIDTH DIGIT ZERO
+ 1018A         ; 0.0 # No       GREEK ZERO SIGN
+ 104A0         ; 0.0 # Nd       OSMANYA DIGIT ZERO
+@@ -60,7 +61,7 @@
+ 1D7EC         ; 0.0 # Nd       MATHEMATICAL SANS-SERIF BOLD DIGIT ZERO
+ 1D7F6         ; 0.0 # Nd       MATHEMATICAL MONOSPACE DIGIT ZERO
+ 
+-# Total code points: 37
++# Total code points: 38
+ 
+ # ================================================
+ 
+@@ -888,6 +889,8 @@
+ 2480          ; 13.0 # No       PARENTHESIZED NUMBER THIRTEEN
+ 2494          ; 13.0 # No       NUMBER THIRTEEN FULL STOP
+ 24ED          ; 13.0 # No       NEGATIVE CIRCLED NUMBER THIRTEEN
++F8A2          ; 13.0 # Nl       Apple corporate roman numeral thirteen
++F8A5          ; 13.0 # Nl       Apple corporate small roman numeral thirteen
+ 
+ # Total code points: 4
+ 
+@@ -897,6 +900,8 @@
+ 2481          ; 14.0 # No       PARENTHESIZED NUMBER FOURTEEN
+ 2495          ; 14.0 # No       NUMBER FOURTEEN FULL STOP
+ 24EE          ; 14.0 # No       NEGATIVE CIRCLED NUMBER FOURTEEN
++F8A3          ; 14.0 # Nl       Apple corporate roman numeral fourteen
++F8A6          ; 14.0 # Nl       Apple corporate small roman numeral fourteen
+ 
+ # Total code points: 4
+ 
+@@ -906,6 +911,8 @@
+ 2482          ; 15.0 # No       PARENTHESIZED NUMBER FIFTEEN
+ 2496          ; 15.0 # No       NUMBER FIFTEEN FULL STOP
+ 24EF          ; 15.0 # No       NEGATIVE CIRCLED NUMBER FIFTEEN
++F8A4          ; 15.0 # Nl       Apple corporate roman numeral fifteen
++F8A7          ; 15.0 # Nl       Apple corporate small roman numeral fifteen
+ 
+ # Total code points: 4
+ 
+Index: EastAsianWidth.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/EastAsianWidth.txt,v
+retrieving revision 1.1.1.4
+retrieving revision 1.2
+diff -u -r1.1.1.4 -r1.2
+--- EastAsianWidth.txt	31 Aug 2006 23:04:22 -0000	1.1.1.4
++++ EastAsianWidth.txt	8 Feb 2007 22:36:17 -0000	1.2
+@@ -669,7 +669,19 @@
+ D800..DB7F;N
+ DB80..DBFF;N
+ DC00..DFFF;N
+-E000..F8FF;A
++E000..F801;A
++F802..F84F;N
++F850..F87F;A
++F880..F881;W
++F882..F8A0;N
++F8A1..F8B6;W
++F8B7;F
++F8B8..F8BB;W
++F8BC;F
++F8BD;W
++F8BE..F8C0;F
++F8C1..F8D6;W
++F8D7..F8FF;N
+ F900..FA2D;W
+ FA30..FA6A;W
+ FA70..FAD9;W
+Index: GraphemeBreakProperty.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/GraphemeBreakProperty.txt,v
+retrieving revision 1.1.1.2
+retrieving revision 1.2
+diff -u -r1.1.1.2 -r1.2
+--- GraphemeBreakProperty.txt	31 Aug 2006 23:04:36 -0000	1.1.1.2
++++ GraphemeBreakProperty.txt	8 Feb 2007 22:36:17 -0000	1.2
+@@ -190,6 +190,9 @@
+ A806          ; Extend
+ A80B          ; Extend
+ A825..A826    ; Extend
++F870..F87F    ; Extend
++F884..F899    ; Extend
++F89F          ; Extend
+ FB1E          ; Extend
+ FE00..FE0F    ; Extend
+ FE20..FE23    ; Extend
+Index: LineBreak.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/LineBreak.txt,v
+retrieving revision 1.1.1.5
+retrieving revision 1.3
+diff -u -r1.1.1.5 -r1.3
+--- LineBreak.txt	31 Aug 2006 23:04:36 -0000	1.1.1.5
++++ LineBreak.txt	8 Feb 2007 22:36:17 -0000	1.3
+@@ -1758,7 +1758,28 @@
+ D800..DB7F;SG
+ DB80..DBFF;SG
+ DC00..DFFF;SG
+-E000..F8FF;XX
++E000..F801;XX
++F802..F86F;AL
++F870..F87F;CM
++F880..F883;AL
++F884..F899;CM
++F89A..F89E;AL
++F89F;CM
++F8A0;PR
++F8A1..F8B3;AL
++F8B4..F8B6;CL
++F8B7;ID
++F8B8;NS
++F8B9;BA
++F8BA;NS
++F8BB;AI
++F8BC;ID
++F8BD;IN
++F8BE;OP
++F8BF;CL
++F8C0;ID
++F8C1..F8D6;NS
++F8D7..F8FF;AL
+ F900..FA2D;ID
+ FA30..FA6A;ID
+ FA70..FAD9;ID
+Index: Scripts.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/Scripts.txt,v
+retrieving revision 1.1.1.5
+retrieving revision 1.2
+diff -u -r1.1.1.5 -r1.2
+--- Scripts.txt	31 Aug 2006 23:04:38 -0000	1.1.1.5
++++ Scripts.txt	8 Feb 2007 22:36:17 -0000	1.2
+@@ -362,6 +362,7 @@
+ A700..A716    ; Common
+ A717..A71A    ; Common
+ A720..A721    ; Common
++F802..F8FF    ; Common
+ FD3E          ; Common
+ FD3F          ; Common
+ FDFD          ; Common
+Index: UnicodeData.txt
+===================================================================
+RCS file: /cvs/root/ICU/icuSources/data/unidata/UnicodeData.txt,v
+retrieving revision 1.1.1.5
+retrieving revision 1.3
+diff -u -r1.1.1.5 -r1.3
+--- UnicodeData.txt	31 Aug 2006 23:04:40 -0000	1.1.1.5
++++ UnicodeData.txt	8 Feb 2007 22:36:17 -0000	1.3
+@@ -11834,7 +11834,65 @@
+ DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
+ DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
+ E000;<Private Use, First>;Co;0;L;;;;;N;;;;;
+-F8FF;<Private Use, Last>;Co;0;L;;;;;N;;;;;
++F801;<Private Use, Last>;Co;0;L;;;;;N;;;;;
++F802;<Apple Corporate Use symbols and other, First>;So;0;ON;;;;;N;;;;;
++F86F;<Apple Corporate Use symbols and other, Last>;So;0;ON;;;;;N;;;;;
++F870;<Apple Corporate Use transcoding hints, First>;Mn;0;NSM;;;;;N;;;;;
++F87F;<Apple Corporate Use transcoding hints, Last>;Mn;0;NSM;;;;;N;;;;;
++F880;Apple Corporate deprecated metrics char;So;0;L;;;;;N;;;;;
++F881;Apple Corporate deprecated metrics char;So;0;L;;;;;N;;;;;
++F882;Apple Corporate Arabic ligature;Lo;0;AL;;;;;N;;;;;
++F883;Apple Corporate deprecated Arabic rial;Sc;0;R;;;;;N;;;;;
++F884;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;
++F889;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;
++F88A;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88B;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88C;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88D;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88E;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F88F;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F890;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F891;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F892;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F893;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F894;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F895;Apple Corporate deprecated Thai form;Mn;107;NSM;;;;;N;;;;;
++F896;<Apple Corporate deprecated Thai forms, First>;Mn;0;NSM;;;;;N;;;;;
++F899;<Apple Corporate deprecated Thai forms, Last>;Mn;0;NSM;;;;;N;;;;;
++F89A;<Apple Corporate mostly deprecated Hebrew misc, First>;Lo;0;R;;;;;N;;;;;
++F89E;<Apple Corporate mostly deprecated Hebrew misc, Last>;Lo;0;R;;;;;N;;;;;
++F89F;Apple Corporate deprecated Hebrew misc;Mn;18;NSM;;;;;N;;;;;
++F8A0;Apple Corporate deprecated Euro;Sc;0;ET;;;;;N;;;;;
++F8A1;Apple Corporate deprecated Japanese digit zero full stop;No;0;EN;;;0;0;N;;;;;
++F8A2;Apple Corporate deprecated Japanese roman numeral thirteen;Nl;0;L;;;;13;N;;;;;
++F8A3;Apple Corporate deprecated Japanese roman numeral fourteen;Nl;0;L;;;;14;N;;;;;
++F8A4;Apple Corporate deprecated Japanese roman numeral fifteen;Nl;0;L;;;;15;N;;;;;
++F8A5;Apple Corporate deprecated Japanese small roman numeral thirteen;Nl;0;L;;;;13;N;;;;;
++F8A6;Apple Corporate deprecated Japanese small roman numeral fourteen;Nl;0;L;;;;14;N;;;;;
++F8A7;Apple Corporate deprecated Japanese small roman numeral fifteen;Nl;0;L;;;;15;N;;;;;
++F8A8;<Apple Corporate deprecated Japanese symbols, First>;So;0;L;;;;;N;;;;;
++F8AC;<Apple Corporate deprecated Japanese symbols, Last>;So;0;L;;;;;N;;;;;
++F8AD;<Apple Corporate deprecated Japanese arrows, First>;So;0;ON;;;;;N;;;;;
++F8B1;<Apple Corporate deprecated Japanese arrows, Last>;So;0;ON;;;;;N;;;;;
++F8B2;Apple Corporate deprecated Japanese symbol;So;0;L;;;;;N;;;;;
++F8B3;Apple Corporate deprecated Japanese symbol;So;0;L;;;;;N;;;;;
++F8B4;Apple Corporate deprecated Japanese punct;Pe;0;ON;;;;;N;;;;;
++F8B5;<Apple Corporate deprecated Japanese punct, First>;Po;0;ON;;;;;N;;;;;
++F8B7;<Apple Corporate deprecated Japanese punct, Last>;Po;0;ON;;;;;N;;;;;
++F8B8;Apple Corporate deprecated kana form;Lm;0;L;;;;;N;;;;;
++F8B9;Apple Corporate deprecated Japanese punct;Pd;0;ON;;;;;N;;;;;
++F8BA;Apple Corporate deprecated Japanese punct;Pd;0;ON;;;;;N;;;;;
++F8BB;Apple Corporate deprecated Japanese punct;Po;0;ON;;;;;N;;;;;
++F8BC;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;
++F8BD;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;
++F8BE;Apple Corporate deprecated Japanese punct;Ps;0;ON;;;;;N;;;;;
++F8BF;Apple Corporate deprecated Japanese punct;Pe;0;ON;;;;;N;;;;;
++F8C0;Apple Corporate deprecated Japanese punct;Sm;0;ON;;;;;N;;;;;
++F8C1;<Apple Corporate deprecated kana forms, First>;Lo;0;L;;;;;N;;;;;
++F8D6;<Apple Corporate deprecated kana forms, Last>;Lo;0;L;;;;;N;;;;;
++F8D7;<Apple Corporate deprecated symbols, First>;So;0;ON;;;;;N;;;;;
++F8FE;<Apple Corporate deprecated symbols, Last>;So;0;ON;;;;;N;;;;;
++F8FF;Apple Corporate logo;So;0;ON;;;;;N;;;;;
+ F900;CJK COMPATIBILITY IDEOGRAPH-F900;Lo;0;L;8C48;;;;N;;;;;
+ F901;CJK COMPATIBILITY IDEOGRAPH-F901;Lo;0;L;66F4;;;;N;;;;;
+ F902;CJK COMPATIBILITY IDEOGRAPH-F902;Lo;0;L;8ECA;;;;N;;;;;

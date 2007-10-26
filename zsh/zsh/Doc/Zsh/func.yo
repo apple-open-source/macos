@@ -110,7 +110,7 @@ arguments, at the end.
 
 For example, suppose the autoload file tt(func) contains
 
-example(func() { print This is func; }
+example(func+LPAR()RPAR() { print This is func; }
 print func is initialized
 )
 
@@ -125,7 +125,7 @@ but which loads its own definition by searching tt(fpath), by using
 `tt(autoload -X)' within a shell function.  For example, the following are
 equivalent:
 
-example(myfunc() {
+example(myfunc+LPAR()RPAR() {
   autoload -X
 }
 myfunc args...)
@@ -151,26 +151,47 @@ executing tt(myfunc), use:
 example(autoload +X myfunc)
 
 sect(Special Functions)
-The following functions, if defined, have special meaning to
-the shell:
+Certain functions, if defined, have special meaning to the shell.
+
+In the case of tt(chpwd), tt(periodic), tt(precmd) and tt(preexec) it is
+possible to define an array that has the same name with `tt(_functions)'
+appended.  Any element in such an array is taken as the name of a function
+to execute; it is executed in the same context and with the same arguments
+as the basic function.  For example, if tt($chpwd_functions) is an array
+containing the values `tt(mychpwd)', `tt(chpwd_save_dirstack)', then the
+shell attempts to execute the functions `tt(chpwd)', `tt(mychpwd)' and
+`tt(chpwd_save_dirstack)', in that order.  Any function that does not exist
+is silently ignored.  A function found by this mechanism is referred to
+elsewhere as a `hook function'.  An error in any function causes
+subsequent functions not to be run.  Note further that an error
+in a tt(precmd) hook causes an immediately following tt(periodic)
+function not to run (thought it may run at the next opportunity).
 
 startitem()
 findex(chpwd)
+vindex(chpwd_functions)
 item(tt(chpwd))(
 Executed whenever the current working directory is changed.
 )
 findex(periodic)
+vindex(periodic_functions)
 item(tt(periodic))(
 vindex(PERIOD)
 If the parameter tt(PERIOD)
 is set, this function is executed every tt($PERIOD)
-seconds, just before a prompt.
+seconds, just before a prompt.  Note that if multiple functions
+are defined using the array tt(periodic_functions) only one
+period is applied to the complete set of functions, and the
+scheduled time is not reset if the list of functions is altered.
+Hence the set of functions is always called together.
 )
 findex(precmd)
+vindex(precmd_functions)
 item(tt(precmd))(
 Executed before each prompt.
 )
 findex(preexec)
+vindex(preexec_functions)
 item(tt(preexec))(
 Executed just after a command has been read and is about to be
 executed.  If the history mechanism is active (and the line was not
@@ -181,6 +202,14 @@ passed in two different forms: the second argument is a single-line,
 size-limited version of the command (with things like function bodies
 elided); the third argument contains the full text that is being
 executed.
+)
+findex(zshexit)
+vindex(zshexit_functions)
+item(tt(zshexit))(
+Executed at the point where the main shell is about to exit normally.
+This is not called by exiting subshells, nor when the tt(exec)
+precommand modifier is used before an external command.  Also, unlike
+tt(TRAPEXIT), it is not called when functions exit.
 )
 item(tt(TRAP)var(NAL))(
 cindex(signals, trapping)
@@ -194,17 +223,16 @@ The signal number will be passed as the first parameter to the function.
 If a function of this form is defined and null,
 the shell and processes spawned by it will ignore tt(SIG)var(NAL).
 
-The return value from the function is handled specially.  If it is
+The return status from the function is handled specially.  If it is
 zero, the signal is assumed to have been handled, and execution continues
-normally.  Otherwise, the normal effect of the signal is produced;
-if this causes execution to terminate, the status returned to the shell is
-the status returned from the function.
+normally.  Otherwise, the shell will behave as interrupted except that
+the return status of the trap is retained.
 
 Programs terminated by uncaught signals typically return the status 128
 plus the signal number.  Hence the following causes the handler for
 tt(SIGINT) to print a message, then mimic the usual effect of the signal.
 
-example(TRAPINT() {
+example(TRAPINT+LPAR()RPAR() {
   print "Caught SIGINT, aborting."
   return $(( 128 + $1 ))
 })
@@ -220,13 +248,18 @@ findex(TRAPEXIT)
 item(tt(TRAPEXIT))(
 Executed when the shell exits,
 or when the current function exits if defined inside a function.
+The value of tt($?) at the start of execution is the exit status of the
+shell or the return status of the function exiting.
 )
 findex(TRAPZERR)
+findex(TRAPERR)
 item(tt(TRAPZERR))(
 Executed whenever a command has a non-zero exit status.  However, the
 function is not executed if the command occurred in a sublist followed by
 `tt(&&)' or `tt(||)'; only the final command in a sublist of this type
-causes the trap to be executed.
+causes the trap to be executed.  The function tt(TRAPERR) acts the same as
+tt(TRAPZERR) on systems where there is no tt(SIGERR) (this is the usual
+case).
 )
 enditem()
 
@@ -237,7 +270,7 @@ run in the environment of the calling process, rather than in their own
 function environment.  Apart from the difference in calling procedure and
 the fact that the function form appears in lists of functions, the forms
 
-example(TRAPNAL() { 
+example(TRAPNAL+LPAR()RPAR() { 
  # code
 })
 

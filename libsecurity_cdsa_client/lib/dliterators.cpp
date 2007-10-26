@@ -92,7 +92,7 @@ void TableBase::Iterator::advance(Record *fill)
 		mUid = new Uid(mAccess, id);
 		mRecord = newRecord;
 	} else {
-		mQuery->query = NULL; // was automatically aborted
+		mQuery->query = CSSM_INVALID_HANDLE; // was automatically aborted
 		// release all iterator resources and make me == end()
 		mQuery = NULL;
 		mUid = NULL;

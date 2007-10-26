@@ -44,6 +44,12 @@ __RCSID("$FreeBSD: src/bin/stty/modes.c,v 1.12 2002/06/30 05:15:04 obrien Exp $"
 #include <string.h>
 #include "stty.h"
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#else 
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+
 int msearch(char ***, struct info *);
 
 struct modes {
@@ -131,6 +137,8 @@ struct modes imodes[] = {
 	{ "-decctlq",	IXANY, 0 },
 	{ "imaxbel",	IMAXBEL, 0 },
 	{ "-imaxbel",	0, IMAXBEL },
+	{ "iutf8",	IUTF8, 0 },
+	{ "-iutf8",	0, IUTF8 },
 	{ NULL,		0, 0 },
 };
 
@@ -210,6 +218,45 @@ struct modes omodes[] = {
 	{ NULL,		0, 0 },
 };
 
+struct modes umodes[] = {	/* For Unix conformance only */
+	{ "ocrnl",	OCRNL, 0 },
+	{ "-ocrnl",	0, OCRNL },
+	{ "onocr",	ONOCR, 0 },
+	{ "-onocr",	0, ONOCR },
+	{ "onlret",	ONLRET, 0 },
+	{ "-onlret",	0, ONLRET },
+
+	{ "ofill",	OFILL, 0 },
+	{ "-ofill",	0, OFILL },
+
+	{ "ofdel",	OFDEL, 0 },
+	{ "-ofdel",	0, OFDEL },
+
+	{ "bs0",	BS0, 0 },
+	{ "bs1",	BS1, 0 },
+
+	{ "cr0",	CR0, 0 },
+	{ "cr1",	CR1, 0 },
+	{ "cr2",	CR2, 0 },
+	{ "cr3",	CR3, 0 },
+
+	{ "ff0",	FF0, 0 },
+	{ "ff1",	FF1, 0 },
+
+	{ "nl0",	NL0, 0 },
+	{ "nl1",	NL1, 0 },
+
+	{ "tab0",	TAB0, 0 },
+	{ "tab1",	TAB1, 0 },
+	{ "tab2",	TAB2, 0 },
+	{ "tab3",	TAB3, 0 },
+
+	{ "vt0",	VT0, 0 },
+	{ "vt1",	VT1, 0 },
+
+	{ NULL,		0, 0 },
+};
+
 #define	CHK(s)	(*name == s[0] && !strcmp(name, s))
 
 int
@@ -248,5 +295,14 @@ msearch(char ***argvp, struct info *ip)
 			ip->set = 1;
 			return (1);
 		}
+	if (COMPAT_MODE("bin/stty", "Unix2003")) {
+		for (mp = umodes; mp->name; ++mp)
+			if (CHK(mp->name)) {
+				ip->t.c_oflag &= ~mp->unset;
+				ip->t.c_oflag |= mp->set;
+				ip->set = 1;
+				return (1);
+		}
+	}
 	return (0);
 }

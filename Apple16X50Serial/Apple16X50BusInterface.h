@@ -1,5 +1,5 @@
 /*
-Copyright (c) 1997-2002 Apple Computer, Inc. All rights reserved.
+Copyright (c) 1997-2006 Apple Computer, Inc. All rights reserved.
 Copyright (c) 1994-1996 NeXT Software, Inc.  All rights reserved.
  
 IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc. (“Apple”) in consideration of your agreement to the following terms, and your use, installation, modification or redistribution of this Apple software constitutes acceptance of these terms.  If you do not agree with these terms, please do not use, install, modify or redistribute this Apple software.
@@ -53,7 +53,7 @@ public:
     static void handleInterruptAction(OSObject *target, IOInterruptEventSource *source, int count);
 protected:
     virtual Apple16X50UARTSync *probeUART(void* refCon, Apple16X50UARTSync *uart=0, OSDictionary *properties=0);
-    virtual void startUARTs();
+    virtual void startUARTs(bool noSuffix=false);
     virtual void handleInterrupt(IOInterruptEventSource *source, int count);
     virtual void setName(const char *name, const IORegistryPlane *plane=0);
 

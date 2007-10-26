@@ -1,0 +1,6 @@
+LIBRARY_STYLE = STATIC
+USE_AR = YES
+
+DEFSFILES = asl_ipc.defs
+OTHER_OFILES += asl_ipcServer.o
+OTHER_CFLAGS += -D__MigTypeCheck=1

@@ -1,0 +1,23 @@
+Original authors credited in source files:
+
+	Keith Packard, MIT X Consortium
+	Jim Fulton, MIT X Consortium
+	Stephen Gildea, The Open Group
+
+Later enhancements:
+
+	Alan Coopersmith, Sun Microsystems:
+		IPv6 support, Solaris authentication enhancements, 
+		PAM conversation rewrite
+
+	Amit Margalit, Caolan McNamara, Ivan Griffin, Matthieu Herrb:
+		3D decoration & XPM pixmap display in login widget
+
+	Dmitry Yu. Bolkhovityanov:
+		Xinerama support
+
+	Matthieu Herrb & OpenBSD Team:
+		"allowRootLogin", OpenBSD authentication enhancements
+
+	Werner Fink, SuSE:
+		PAM support

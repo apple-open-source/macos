@@ -1,3 +1,186 @@
+2007-03-28  Mike Stump  <mrs@apple.com>
+
+	* gcc.dg/darwin-comm.c: Add.
+
+2007-03-14  Eric Christopher  <echristo@apple.com>
+
+	Radar 4990418
+	* gcc.dg/ssp-1.c: New.
+        * gcc.dg/ssp-2.c: Ditto.
+
+2007-03-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/other/darwin-minversion-1.C: New.
+
+2007-02-20  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 5005743
+	* gcc.dg/darwin-minversion-1.c: New.
+	* gcc.dg/darwin-minversion-2.c: New.
+
+2007-01-08  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4871915
+	* g++.dg/rtti/darwin-builtin-linkage.C: New.
+
+2006-12-19  Eric Christopher  <echristo@apple.com>
+
+	Radar 4820385
+	PR target/29302
+	* gcc.c-torture/execute/pr29302-1.c: New.
+
+2006-11-23  Eric Christopher  <echristo@apple.com>
+
+	Radar 4563834
+	* gcc.dg/inline-16.c: Use __SIZE_TYPE__.
+
+2006-03-01  Mike Stump  <mrs@apple.com>
+
+	* g++.dg/abi/key2.C: Add.
+
+2006-03-26  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-20040809-2.c: Don't expect default debugging
+	to be STABS.
+
+2006-09-20  Eric Christopher  <echristo@apple.com>
+
+        Radar 4632262
+        * gcc.target/i386/sse3-not-fisttp.c: New.
+
+2005-10-31  Jan Hubicka  <jh@suse.cz>
+
+	Radar 4651177
+	PR target/20928
+	* gcc.c-torture/compile/pr20928.c: New test.
+
+2005-04-20  Joseph S. Myers  <joseph@codesourcery.com>
+
+	Radar 2883585
+	* gcc.dg/Wint-to-pointer-cast-1.c,
+	gcc.dg/Wint-to-pointer-cast-2.c, gcc.dg/Wint-to-pointer-cast-3.c,
+	gcc.dg/Wpointer-to-int-cast-1.c, gcc.dg/Wpointer-to-int-cast-2.c,
+	gcc.dg/Wpointer-to-int-cast-3.c: New tests.
+
+2006-05-16  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4550526
+	* gcc.dg/inline-16.c: New.
+
+2006-05-09  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4134307
+	PR 16622
+	* gcc.dg/inline-10.c (main): Don't declare 'main' inline without
+	defining it.
+	* gcc.dg/inline-13.c: New.
+	* gcc.dg/inline-14.c: New.
+	* gcc.dg/inline-15.c: New.
+
+2006-05-04  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4134307
+	PR 11377
+	* gcc.dg/inline6.c: New.
+	* gcc.dg/inline7.c: New.
+
+2006-10-10  Mark Mitchell  <mark@codesourcery.com>
+
+	Radar 4484060
+	PR c++/24302
+	* g++.dg/warn/Wunused-12.C: New test.
+
+2005-10-28  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	PR C++/23229
+        * g++.dg/warn/main-2.C: New test.
+
+2006-04-25  Eric Christopher  <echristo@apple.com>
+
+	Radar 4529978
+	* gcc.dg/pragma-ms_struct.c: New.
+
+2006-03-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4485597
+	* objc.dg/dwarf-2.m: New.
+	* obj-c++.dg/dwarf-2.mm: New.
+
+2005-12-02  Mark Mitchell  <mark@codesourcery.com>
+
+	Radar 4458276
+	PR c++/24173
+	* g++.dg/template/friend40.C: New test.
+
+2006-03-15  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 3992198
+	* g++.old-deja/g++.other/init18.C: New.
+	* g++.old-deja/g++.other/init5.C: Remove xfail.
+
+2006-03-09  Eric Christopher  <echristo@apple.com>
+
+	Radar 4461050
+        * gcc.c-torture/compile/20060309-1.c: New.
+
+2006-02-24  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4086777
+	* g++.dg/eh/uncaught1.C: Add dg-options for ppc-darwin.
+	* g++.dg/eh/uncaught2.C: New.
+	* g++.dg/eh/uncaught3.C: New.
+
+2006-02-21  Geoffrey Keating  <geoffk@apple.com>
+
+	Radar 4439051
+	* g++.dg/eh/spbp.C: New.
+
+2006-01-21  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25895
+	* g++.dg/inherit/conv2.C: New test.
+
+	PR c++/25856
+	* g++.dg/parse/dtor7.C: New test.
+
+	PR c++/25858
+	* g++.dg/template/crash44.C: New test.
+
+2005-12-26  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/25439
+	* g++.dg/parse/crash17.C: Adjust error markers.
+	* g++.dg/template/error20.C: New test.
+
+2005-12-19  Mark Mitchell  <mark@codesourcery.com>
+
+       PR c++/24915
+       * g++.dg/template/overload8.C: New test.
+
+2006-01-18  Eric Christopher  <echristo@apple.com>
+
+	* g++.dg/eh/table.C: New.
+
+2006-01-17  Eric Christopher  <echristo@apple.com>
+
+	* g++.old-deja/g++.warn/impint.C: Add -Wconversion.
+	* g++.old-deja/g++.warn/impint2.C: Ditto.
+	* g++.old-deja/g++.other/null1.C: Ditto.
+	* g++.dg/warn/conv2.C: Ditto.
+	* g++.dg/warn/conv4.C: New file.
+
+2006-01-02  Geoffrey Keating  <geoffk@apple.com>
+
+	* g++.dg/debug/debug9.C: New.
+
+2005-12-05  Geoffrey Keating  <geoffk@apple.com>
+
+	* gcc.dg/darwin-weakimport-3.c: New.
+
+2005-11-11  Mike Stump  <mrs@apple.com>
+
+	* g++.old-deja/g++.mike/unused.C: Add.
+
 2005-10-20  Geoffrey Keating  <geoffk@apple.com>
 
 	* obj-c++.dg/except-1.mm: New.
@@ -111,7 +294,7 @@
 
 	PR fortran/21912
 	* gfortran.dg/array_constructor_4.f90: New test.
-	
+
 	* gfortran.dg/forall_1.f90: Set previously uninitialized variable.
 
 2005-06-05  Mark Mitchell  <mark@codesourcery.com>
@@ -206,7 +389,7 @@
 	* gfortran.dg/implicit_5.f90: New test.
 
 2005-06-01  Feng Wang  <fengwang@nudt.edu.cn>
- 
+
 	PR fortran/20883
 	* gfortran/assign_4.f90: New test.
 	* gfortran/assign_2.f90: Change compile to run.

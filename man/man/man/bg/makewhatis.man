@@ -1,0 +1,104 @@
+.\" Copyright (c) 1999 Ottavio G. Rizzo <rizzo@pluto.linux.it>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+.\" USA.
+.\"
+.\" Translated by Alexander Shopov <ash@contact.bg>, 2005. 
+.TH MAKEWHATIS 8 "21 август 2005"
+.SH ИМЕ
+makewhatis \- създава база от данни на whatis
+.SH СИНТАКСИС
+.BI "makewhatis [-u] [-v] [-w] [-s " раздели " ] [-c [" път_към_готови_страници "]] [" път_към_страници "]"
+.SH ОПИСАНИЕ
+.B makewhatis
+изчита
+.IR "всички  страници" " в " "пътя до ръководството" или 
+.IR "всички готови страници" " в " "пътя до готовите страници",
+които попадат в дадените 
+.I раздели.
+В базата от данни на whatis се записва по един ред за всяка 
+страница.  Той се състои от името на страницата и кратко 
+описание разделени с тире.  Описанието се взима от 
+съдържанието на частта ИМЕ на страницата.
+.LP
+Понеже в различните езици името на раздела ИМЕ е преведено,
+.B makewhatis
+разпознава аналогични термини в чешки, италиански, фински, френски, немски и
+испански.
+.LP
+Ако не е зададен
+.IR "път до страниците от ръководството",
+по подразбиране се ползва
+.I /usr/man
+.
+.SH ОПЦИИ
+.TP
+.B -u
+Обновяване на базата от данни с новите страници.
+.TP
+.B -v
+Подробен изход.
+.TP
+.B -w
+Използване на пътя получен от командата `man --path`
+.TP 
+.BI -s " раздели"
+Преглеждат се зададените
+.I раздели
+от пътя до
+.IR "оригиналите на страниците " или " готовите страници от ръководството" .
+Ако не е зададена стойност, се използва
+.I  \'1 2 3 4 5 6 7 8 9 n l\'
+.TP 
+.BI -c " път_до_готовите_страници"
+Прочитат се готовите страници в
+.I посочения път
+ . Ако не е зададен аргумент, се приема първата съществуваща 
+директория измежду 
+.IR /usr/man/preformat " и " /usr/man .
+.SH ПРИМЕРИ
+.PP
+За да се обновят само
+.IR /usr/X11R6/man/whatis " и " /usr/local/man/whatis
+.IP 
+makewhatis /usr/X11R6/man /usr/local/man
+.PP
+За да се обновят всички бази от данни, 
+включително преводите на български, руски и английски:
+.IP
+LANGUAGE=bg:ru:en makewhatis -w
+.SH ГРЕШКИ
+.B makewhatis
+може да не се справи добре със страници, които използват 
+нестандартни макроси за troff, напр. ръководството на Tcl/Tk.
+.PP
+.B makewhatis
+не работи с предварително форматирани преводи.
+.SH "АВТОР/ПОДДРЪЖКА"
+Първоначалният автор на 
+.BR man 
+е John W. Eaton. Federico Lucifredi <flucifredi@acm.org> 
+осъществява текущо поддръжката на пакета.
+.SH ПРЕВОД
+Александър Шопов <ash@contact.bg>
+.SH "ВИЖТЕ СЪЩО"
+.BR apropos (1),
+.BR man (1),
+.BR whatis (1)

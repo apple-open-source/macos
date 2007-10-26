@@ -35,6 +35,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/ucred.h>
 #include <sys/vnode.h>
 #include <sys/proc.h>
 #include <sys/malloc.h>
@@ -42,9 +43,11 @@
 #include <sys/sysctl.h>
 #include <sys/systm.h>
 #include <sys/mount.h>
+//#include <sys/syslog.h>
 #include <libkern/libkern.h>
 
 #include "webdav.h"
+#include "webdav_utils.h"
 
 /*****************************************************************************/
 
@@ -58,6 +61,11 @@ extern struct vnodeopv_desc webdav_vnodeop_opv_desc;
  */
 
 char webdav_name[MFSNAMELEN] = "webdav";
+
+lck_grp_t *webdav_rwlock_group;
+lck_rw_t  ref_tbl_rwlock;
+
+
 static long webdav_mnt_cnt = 0;
 /*
  *¥ vfs_fsadd: second parameter should be (void **)?
@@ -68,6 +76,7 @@ static vfstable_t webdav_vfsconf;
 
 #define WEBDAV_MAX_REFS   256
 static struct open_associatecachefile *webdav_ref_table[WEBDAV_MAX_REFS];
+static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct vfsstatfs in_statfs);
 
 
 static struct vnodeopv_desc *webdav_vnodeop_opv_desc_list[1] =
@@ -82,10 +91,12 @@ static void webdav_init_ref_table(void)
 {
 	int ref;
 	
+	lck_rw_lock_exclusive(&ref_tbl_rwlock);
 	for ( ref = 0; ref < WEBDAV_MAX_REFS; ++ref )
 	{
 		webdav_ref_table[ref] = NULL;
 	}
+	lck_rw_done(&ref_tbl_rwlock);
 }
 
 /*****************************************************************************/
@@ -100,17 +111,20 @@ int webdav_assign_ref(struct open_associatecachefile *associatecachefile, int *r
 	
 	while ( TRUE )
 	{
+		lck_rw_lock_exclusive(&ref_tbl_rwlock);
 		for ( i = 0; i < WEBDAV_MAX_REFS; ++i )
 		{
 			if ( webdav_ref_table[i] == NULL )
 			{
 				webdav_ref_table[i] = associatecachefile;
 				*ref = i;
+				lck_rw_done(&ref_tbl_rwlock);
 				return ( 0 );
 			}
 		}
 		
 		/* table is completely used... sleep a little and then try again */
+		lck_rw_done(&ref_tbl_rwlock);
 		ts.tv_sec = 1;
 		ts.tv_nsec = 0;
 		error = msleep((caddr_t)&webdav_ref_table, NULL, PCATCH, "webdav_get_open_ref", &ts);
@@ -128,26 +142,26 @@ int webdav_assign_ref(struct open_associatecachefile *associatecachefile, int *r
 /* translate a ref to a pointer to struct open_associatecachefile */
 static int webdav_translate_ref(int ref, struct open_associatecachefile **associatecachefile)
 {
+	int error = 0;
+	
 	/* range check ref */
 	if ( (ref < 0) || (ref >= WEBDAV_MAX_REFS) )
 	{
 		return ( EIO );
 	}
-	else
+	
+	/* translate */
+	lck_rw_lock_shared(&ref_tbl_rwlock);	
+	*associatecachefile = webdav_ref_table[ref];
+	
+	if ( *associatecachefile == NULL )
 	{
-		/* translate */
-		*associatecachefile = webdav_ref_table[ref];
-		if ( *associatecachefile == NULL )
-		{
-			/* ref wasn't valid */
-			return ( EIO );
-		}
-		else
-		{
-			/* ref was valid */
-			return ( 0 );
-		}
+		/* ref wasn't valid */
+		error = EIO;
 	}
+
+	lck_rw_done(&ref_tbl_rwlock);
+	return (error);
 }
 
 /*****************************************************************************/
@@ -158,7 +172,10 @@ void webdav_release_ref(int ref)
 {
 	if ( (ref >= 0) && (ref < WEBDAV_MAX_REFS) )
 	{
+		lck_rw_lock_exclusive(&ref_tbl_rwlock);
 		webdav_ref_table[ref] = NULL;
+		lck_rw_done(&ref_tbl_rwlock);
+		
 		wakeup((caddr_t)&webdav_ref_table);
 	}
 }
@@ -174,6 +191,8 @@ static int webdav_init(struct vfsconf *vfsp)
 	
 	START_MARKER("webdav_init");
 	
+	webdav_rwlock_group = lck_grp_alloc_init("webdav-rwlock", LCK_GRP_ATTR_NULL);
+	lck_rw_init(&ref_tbl_rwlock, webdav_rwlock_group, LCK_ATTR_NULL);
 	webdav_init_ref_table();
 	webdav_hashinit();  /* webdav_hashdestroy() is called from webdav_fs_module_stop() */
 	
@@ -195,6 +214,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	int error;
 	struct timeval tv;
 	struct timespec ts;
+	struct vfsstatfs *vfsp;
 
 	START_MARKER("webdav_mount");
 	
@@ -246,12 +266,14 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 		args.pa_pipe_buf			= args_32.pa_pipe_buf;
 		args.pa_chown_restricted	= args_32.pa_chown_restricted;
 		args.pa_no_trunc			= args_32.pa_no_trunc;
+		bcopy (&args_32.pa_vfsstatfs, &args.pa_vfsstatfs, sizeof (args.pa_vfsstatfs));
 	}
 	
-	if (args.pa_version != 1)
+	if (args.pa_version != kCurrentWebdavArgsVersion)
 	{
 		/* invalid version argument */
 		error = EINVAL;
+		printf("the webdav_fs.kext and mount_webdav executables are incompatible\n");
 		goto bad;
 	}
 
@@ -260,8 +282,15 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	 */
 
 	MALLOC(fmp, struct webdavmount *, sizeof(struct webdavmount), M_TEMP, M_WAITOK);
+	if ( fmp == NULL )
+	{
+		error = EINVAL;
+		goto bad;
+	}
+	
 	bzero(fmp, sizeof(struct webdavmount));
-
+	
+	lck_mtx_init(&fmp->pm_mutex, webdav_rwlock_group, LCK_ATTR_NULL);
 	fmp->pm_status = WEBDAV_MOUNT_SUPPORTS_STATFS;	/* assume yes until told no */
 	if ( args.pa_flags & WEBDAV_SUPPRESSALLUI )
 	{
@@ -323,6 +352,10 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	{
 		goto bad;
 	}
+	
+	/* release the lock from webdav_get() */
+	webdav_unlock(VTOWEBDAV(rvp));
+	
 	/* hold on to rvp until unmount */
 	error = vnode_ref(rvp);
 	(void) vnode_put(rvp);
@@ -335,6 +368,10 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	
 	vfs_setauthopaque(mp);
 	
+	/* initialize statfs data */
+	vfsp = vfs_statfs (mp);
+	(void) webdav_vfs_statfs(mp, vfsp, args.pa_vfsstatfs);
+
 	return (0);
 
 bad:
@@ -352,6 +389,7 @@ bad:
 		{
 			FREE(fmp->pm_socket_name, M_TEMP);
 		}
+		lck_mtx_destroy(&fmp->pm_mutex, webdav_rwlock_group);
 		FREE(fmp, M_TEMP);
 		
 		/* clear the webdavmount in the mount point so anyone looking at it will see it's gone */
@@ -431,6 +469,7 @@ static int webdav_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	/* free the webdavmount structure and related allocated memory */
 	FREE(fmp->pm_vol_name, M_TEMP);
 	FREE(fmp->pm_socket_name, M_TEMP);
+	lck_mtx_destroy(&fmp->pm_mutex, webdav_rwlock_group);
 	FREE(fmp, M_TEMP);
 	
 	--webdav_mnt_cnt;
@@ -468,6 +507,65 @@ static int webdav_root(struct mount *mp, struct vnode **vpp, vfs_context_t conte
 	RET_ERR("webdav_root", error);
 }
 
+
+/*
+ * Get file system statistics.
+ */
+static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct vfsstatfs in_statfs)
+{
+	struct webdavmount *fmp = VFSTOWEBDAV(mp);
+
+	START_MARKER("webdav_vfs_statfs");
+
+	if (!in_statfs.f_bsize)
+		sbp->f_bsize = (uint32_t) S_BLKSIZE;
+	else
+		sbp->f_bsize = (uint32_t) in_statfs.f_bsize;
+
+	if (!in_statfs.f_iosize)
+		sbp->f_iosize = (uint32_t) 0x1000;	/* 0x1000 is as good a size as anything */
+	else
+		sbp->f_iosize = (uint32_t) in_statfs.f_iosize;
+	
+	fmp->pm_iosize = sbp->f_iosize;			/* save this for webdav_vfs_getattr to use */
+
+	if (!in_statfs.f_blocks) {
+		sbp->f_blocks = (uint64_t) WEBDAV_NUM_BLOCKS;
+		sbp->f_bfree = (uint64_t) WEBDAV_FREE_BLOCKS;
+		sbp->f_bavail = (uint64_t) WEBDAV_FREE_BLOCKS;
+	}
+	else {
+		sbp->f_blocks = (uint64_t) in_statfs.f_blocks;
+		sbp->f_bfree = (uint64_t) in_statfs.f_bfree;
+		if (!in_statfs.f_bavail) {
+			sbp->f_bavail = (uint64_t) in_statfs.f_bfree;
+		}
+		else {
+			sbp->f_bavail = (uint64_t) in_statfs.f_bavail;
+		}
+	}
+
+	if (!in_statfs.f_files)
+		sbp->f_files = (uint64_t) WEBDAV_NUM_FILES;
+	else
+		sbp->f_files = (uint64_t) in_statfs.f_files;
+
+	if (!in_statfs.f_ffree)
+		sbp->f_ffree = (uint64_t) WEBDAV_FREE_FILES;
+	else
+		sbp->f_ffree = (uint64_t) in_statfs.f_ffree;
+
+	if ( fmp->pm_status & WEBDAV_MOUNT_SECURECONNECTION )
+		sbp->f_fssubtype = 1; /* secure connection */
+	else
+		sbp->f_fssubtype = 0; /* regular connection */
+
+	RET_ERR("webdav_vfs_statfs", 0);
+
+	return (0);
+}
+
+
 /*****************************************************************************/
 
 /*
@@ -488,22 +586,27 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 	bzero(&reply_statfs, sizeof(struct webdav_reply_statfs));
 
 	/* get the values from the server if we can.  If not, make them up */
-
+	lck_mtx_lock(&fmp->pm_mutex);
 	if (fmp->pm_status & WEBDAV_MOUNT_SUPPORTS_STATFS)
 	{
 		/* while there's a WEBDAV_STATFS request outstanding, sleep */
 		while (fmp->pm_status & WEBDAV_MOUNT_STATFS)
 		{
 			fmp->pm_status |= WEBDAV_MOUNT_STATFS_WANTED;
-			error = msleep((caddr_t)&fmp->pm_status, NULL, PCATCH, "webdav_vfs_getattr", NULL);
+			error = msleep((caddr_t)&fmp->pm_status, &fmp->pm_mutex, PCATCH, "webdav_vfs_getattr", NULL);
 			if ( error )
 			{
-				break;
+				/* Note that we specified PCATCH in msleep. */
+				/* Don't bother trying to fetching stats */
+				/* from the server, break out.  We will return */
+				/* whatever msleep returned.  */
+				goto ready;
 			}
 		}
 		
 		/* we're making a request so grab the token */
 		fmp->pm_status |= WEBDAV_MOUNT_STATFS;
+		lck_mtx_unlock(&fmp->pm_mutex);
 
 		webdav_copy_creds(context, &request_statfs.pcr);
 		request_statfs.root_obj_id = VTOWEBDAV(VFSTOWEBDAV(mp)->pm_root)->pt_obj_id;
@@ -514,6 +617,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 			&server_error, &reply_statfs, sizeof(struct webdav_reply_statfs));
 
 		/* we're done, so release the token */
+		lck_mtx_lock(&fmp->pm_mutex);
 		fmp->pm_status &= ~WEBDAV_MOUNT_STATFS;
 		
 		/* if anyone else is waiting, wake them up */
@@ -525,6 +629,9 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 		/* now fall through */
 	}
 
+	lck_mtx_unlock(&fmp->pm_mutex);
+
+ready:
 	/* Note, at this point error is set to the value we want to
 	  return,  Don't set error without restructuring the routine
 	  Note also that we are not returning server_error.	*/
@@ -538,14 +645,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 		VFSATTR_RETURN(sbp, f_bsize, reply_statfs.fs_attr.f_bsize);
 	}
 
-	if (!reply_statfs.fs_attr.f_iosize)
-	{
-		VFSATTR_RETURN(sbp, f_iosize, 0x1000); /* 0x1000 is as good a size as anything */
-	}
-	else
-	{
-		VFSATTR_RETURN(sbp, f_iosize, reply_statfs.fs_attr.f_iosize);
-	}
+	VFSATTR_RETURN(sbp, f_iosize, fmp->pm_iosize);
 	
 	if (!reply_statfs.fs_attr.f_blocks)
 	{
@@ -702,7 +802,7 @@ static int webdav_vfs_getattr(struct mount *mp, struct vfs_attr *sbp, vfs_contex
 		(void) strncpy(sbp->f_vol_name, fmp->pm_vol_name, MAXPATHLEN);
 		VFSATTR_SET_SUPPORTED(sbp, f_vol_name);
 	}
-	
+
 	RET_ERR("webdav_vfs_getattr", error);
 }
 
@@ -892,8 +992,10 @@ kern_return_t webdav_fs_module_start(struct kmod_info *ki, void *data)
 	vfe.vfe_opvdescs = webdav_vnodeop_opv_desc_list; /* null terminated;  */
 	vfe.vfe_fstypenum = 0;				/* historic file system type number (we have none)*/
 	strncpy(vfe.vfe_fsname, webdav_name, strlen(webdav_name));
-	vfe.vfe_flags = VFS_TBLNOTYPENUM | VFS_TBL64BITREADY; /* defines the FS capabilities */
-
+	
+	/* define the FS capabilities */
+	vfe.vfe_flags = VFS_TBLNOTYPENUM | VFS_TBL64BITREADY | VFS_TBLTHREADSAFE |
+					VFS_TBLFSNODELOCK;
 	error = vfs_fsadd(&vfe, &webdav_vfsconf);
 
 	return (error ? KERN_FAILURE : KERN_SUCCESS);
@@ -914,6 +1016,8 @@ kern_return_t webdav_fs_module_stop(struct kmod_info *ki, void *data)
 		{
 			/* free up any memory allocated */
 			webdav_hashdestroy();
+			lck_rw_destroy(&ref_tbl_rwlock, webdav_rwlock_group);
+			lck_grp_free(webdav_rwlock_group);
 		}
 	}
 	else

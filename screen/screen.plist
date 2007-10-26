@@ -3,17 +3,18 @@
         <key>OpenSourceProject</key>
         <string>screen</string>
         <key>OpenSourceVersion</key>
-        <string>4.0.2</string>
+        <string>4.0.3</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://www.gnu.org/software/screen/</string>
         <key>OpenSourceURL</key>
-        <string>http://ftp.gnu.org/gnu/screen/screen-4.0.2.tar.gz</string>
-        <key>OpenSourceMD5</key>
-        <string>ed68ea9b43d9fba0972cb017a24940a1</string>
+        <string>ftp://ftp.uni-erlangen.de/pub/utilities/screen/screen-4.0.3.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>7bc6e2f0959ffaae6f52d698c26c774e7dec3545</string>
         <key>OpenSourceImportDate</key>
-        <string>2004-07-21</string>
+        <string>2007-01-18</string>
         <key>OpenSourceModifications</key>
         <array>
+	<string>disable utmpx processing, and call /usr/bin/login to deal with utmpx</string>
         </array>
         <key>OpenSourceLicense</key>
         <string>GPL</string>

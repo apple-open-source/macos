@@ -337,13 +337,14 @@ add_cluster (Agraph_t *g, Agraph_t *subg)
 	do_graph_label(subg);
 }
 
+static void nop_init_graphs (Agraph_t*, attrsym_t*, attrsym_t*);
+
 /* dfs:
  */
 static void
 dfs (node_t* mn, Agraph_t* g, attrsym_t* G_lp, attrsym_t* G_bb)
 {
 	graph_t     *subg;
-	static void nop_init_graphs (Agraph_t*, attrsym_t*, attrsym_t*);
 
 	subg = agusergraph(mn);
 	if (!strncmp(subg->name,"cluster",7) && chkBB(subg, G_bb)) {

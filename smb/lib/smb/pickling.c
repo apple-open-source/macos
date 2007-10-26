@@ -3,6 +3,9 @@
  * (c) Copyright 1991 OPEN SOFTWARE FOUNDATION, INC.
  * (c) Copyright 1991 HEWLETT-PACKARD COMPANY
  * (c) Copyright 1991 DIGITAL EQUIPMENT CORPORATION
+ *
+ * Portions Copyright (C) 2006 - 2007 Apple Inc. All rights reserved.
+ *
  * To anyone who acknowledges that this file is provided "AS IS"
  * without any express or implied warranty:
  *                 permission to use, copy, modify, and distribute this
@@ -37,6 +40,7 @@
 #include <ndrui.h>
 #include <dce/rpcsts.h>
 #include <lsysdep.h>
+#include <asl.h>
 
 static rpc_syntax_id_t ndr_transfer_syntax_id = {
     {0x8a885d04, 0x1ceb, 0x11c9, 0x9f, 0xe8, {0x8, 0x0, 0x2b, 0x10, 0x48, 
@@ -587,7 +591,7 @@ void idl_es_encode_init_buffer
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("idl_es_encode_init_buffer - unknown encoding style\n");
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "idl_es_encode_init_buffer - unknown encoding style\n");
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -626,7 +630,7 @@ void idl_es_encode_attach_buff
             break;
         default:
 #ifdef DEBUG_INTERP
-            printf("idl_es_encode_attach_buff - unknown encoding style\n");
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "idl_es_encode_attach_buff - unknown encoding style\n");
             exit(0);
 #endif
             RAISE(rpc_x_coding_error);
@@ -1030,8 +1034,7 @@ void idl_es_after_interp_call
                 break;
             default:
 #ifdef DEBUG_INTERP
-                printf(
-                  "idl_es_after_normal_interp_call - unknown encoding style\n");
+               asl_log(NULL, NULL, ASL_LEVEL_ERR, "idl_es_after_normal_interp_call - unknown encoding style\n");
                 exit(0);
 #endif
                 RAISE(rpc_x_coding_error);

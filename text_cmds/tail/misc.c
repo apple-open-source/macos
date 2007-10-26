@@ -36,6 +36,7 @@
 
 #include <sys/cdefs.h>
 
+__FBSDID("$FreeBSD: src/usr.bin/tail/misc.c,v 1.9 2005/01/10 20:19:46 dwmalone Exp $");
 
 #ifndef lint
 static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
@@ -72,15 +73,13 @@ oerr()
  * absolute file offset `startoff'. May move map window.
  */
 int
-mapprint(mip, startoff, len)
-	struct mapinfo *mip;
-	off_t startoff, len;
+mapprint(struct mapinfo *mip, off_t startoff, off_t len)
 {
 	int n;
 
 	while (len > 0) {
 		if (startoff < mip->mapoff || startoff >= mip->mapoff +
-		    mip->maplen) {
+		    (off_t)mip->maplen) {
 			if (maparound(mip, startoff) != 0)
 				return (1);
 		}
@@ -100,9 +99,7 @@ mapprint(mip, startoff, len)
  * aligned.
  */
 int
-maparound(mip, offset)
-	struct mapinfo *mip;
-	off_t offset;
+maparound(struct mapinfo *mip, off_t offset)
 {
 
 	if (mip->start != NULL && munmap(mip->start, mip->maplen) != 0)
@@ -110,7 +107,7 @@ maparound(mip, offset)
 
 	mip->mapoff = offset & ~((off_t)TAILMAPLEN - 1);
 	mip->maplen = TAILMAPLEN;
-	if (mip->maplen > mip->maxoff - mip->mapoff)
+	if ((off_t)mip->maplen > mip->maxoff - mip->mapoff)
 		mip->maplen = mip->maxoff - mip->mapoff;
 	if (mip->maplen <= 0)
 		abort();

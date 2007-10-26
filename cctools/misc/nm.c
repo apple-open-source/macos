@@ -510,7 +510,8 @@ void *cookie)
 	    }
 	    else if((mh_flags & MH_TWOLEVEL) == MH_TWOLEVEL &&
 		    (lc->cmd == LC_LOAD_DYLIB ||
-		     lc->cmd == LC_LOAD_WEAK_DYLIB)){
+		     lc->cmd == LC_LOAD_WEAK_DYLIB ||
+		     lc->cmd == LC_REEXPORT_DYLIB)){
 		process_flags.nlibs++;
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -600,7 +601,9 @@ void *cookie)
 	    j = 0;
 	    lc = ofile->load_commands;
 	    for (i = 0; i < ncmds; i++){
-		if(lc->cmd == LC_LOAD_DYLIB || lc->cmd == LC_LOAD_WEAK_DYLIB){
+		if(lc->cmd == LC_LOAD_DYLIB ||
+		   lc->cmd == LC_LOAD_WEAK_DYLIB ||
+		   lc->cmd == LC_REEXPORT_DYLIB){
 		    dl = (struct dylib_command *)lc;
 		    process_flags.lib_names[j] =
 			(char *)dl + dl->dylib.name.offset;
@@ -1088,8 +1091,12 @@ char *arch_name)
 	    case N_UNDF:
 	    case N_PBUD:
 		if((symbols[i].nl.n_type & N_TYPE) == N_UNDF &&
-		   symbols[i].nl.n_value != 0)
+		   symbols[i].nl.n_value != 0){
 		    printf(" (common) ");
+		    if(GET_COMM_ALIGN(symbols[i].nl.n_desc) != 0)
+			printf("(alignment 2^%d) ",
+			       GET_COMM_ALIGN(symbols[i].nl.n_desc));
+		}
 		else{
 		    if((symbols[i].nl.n_type & N_TYPE) == N_PBUD)
 			printf(" (prebound ");

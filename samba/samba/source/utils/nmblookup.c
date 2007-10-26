@@ -20,8 +20,6 @@
    
 */
 
-#define NO_SYSLOG
-
 #include "includes.h"
 
 extern BOOL AllowDebugChange;
@@ -101,7 +99,7 @@ static void do_node_status(int fd, const char *name, int type, struct in_addr ip
 {
 	struct nmb_name nname;
 	int count, i, j;
-	struct node_status *status;
+	NODE_STATUS_STRUCT *status;
 	struct node_status_extra extra;
 	fstring cleanname;
 
@@ -171,13 +169,12 @@ static BOOL query_one(const char *lookup, unsigned int lookup_type)
 			}
 		}
 		d_printf("%s %s<%02x>\n",inet_ntoa(ip_list[j]),lookup, lookup_type);
-	}
-
-	/* We can only do find_status if the ip address returned
-	   was valid - ie. name_query returned true.
-	*/
-	if (find_status) {
-		do_node_status(ServerFD, lookup, lookup_type, ip_list[0]);
+		/* We can only do find_status if the ip address returned
+		   was valid - ie. name_query returned true.
+		 */
+		if (find_status) {
+			do_node_status(ServerFD, lookup, lookup_type, ip_list[j]);
+		}
 	}
 
 	safe_free(ip_list);
@@ -216,6 +213,8 @@ int main(int argc,char *argv[])
 	
   *lookup = 0;
 
+  load_case_tables();
+
   setup_logging(argv[0],True);
 
   pc = poptGetContext("nmblookup", argc, (const char **)argv, long_options, 
@@ -248,7 +247,7 @@ int main(int argc,char *argv[])
 	  exit(1);
   }
 
-  if (!lp_load(dyn_CONFIGFILE,True,False,False)) {
+  if (!lp_load(dyn_CONFIGFILE,True,False,False,True)) {
 	  fprintf(stderr, "Can't load %s - run testparm to debug it\n", dyn_CONFIGFILE);
   }
 

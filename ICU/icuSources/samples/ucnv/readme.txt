@@ -1,4 +1,4 @@
-Copyright (C) 2002-2003, International Business Machines
+Copyright (C) 2002-2005, International Business Machines
 Corporation and others.  All Rights Reserved.
 
 convsamp: a sample program which demonstrates using ICU conversion
@@ -13,12 +13,12 @@ Files:
     convsamp.c                 Main source file
     flagcb.h                   codepage output convenience header
     flagcb.c                   codepage output convenience implementation
-    ucnv.dsw                   Windows MSVC workspace.  Double-click this to get started.
-    ucnv.dsp                   Windows MSVC project file
+    ucnv.sln                   Windows MSVC workspace.  Double-click this to get started.
+    ucnv.vcproj                Windows MSVC project file
 
 To Build ucnv on Windows
     1.  Install and build ICU
-    2.  In MSVC, open the workspace file icu\samples\ucnv\ucnv.dsw
+    2.  In MSVC, open the workspace file icu\samples\ucnv\ucnv.sln
     3.  Choose a Debug or Release build.
     4.  Build.
 	

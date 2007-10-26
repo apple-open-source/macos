@@ -101,6 +101,8 @@
 # 3246229 - use of sed adds a newline character (0x0a) to the end of the file so
 # we added the tr -d command to remove the newline character.  this is OK since
 # we used tr to change all newlines to carriage returns just before sed.
+# 441975 - use printf instead of echo|tr|tr; it doesn't output a newline, and works no
+# matter which shell is used.
 
 HFS_INSTALLDIR = $(SYSTEM_LIBRARY_DIR)/Filesystems/hfs.fs
 FSCK_STRINGPATH = $(HFS_INSTALLDIR)/Contents/Resources/English.lproj/fsck.strings
@@ -109,7 +111,7 @@ after_install:
 	install -m 755 -o root -g wheel -d $(DSTROOT)/usr/share/man/man8
 	install -m 644 -o root -g wheel -c fsck_hfs.8 $(DSTROOT)/usr/share/man/man8
 	mkdir -p $(DSTROOT)$(HFS_INSTALLDIR)/Contents/Resources/English.lproj
-	echo -n "AB" | tr A \\376 | tr B \\377 > $(DSTROOT)$(FSCK_STRINGPATH)
+	printf "\376\377" > $(DSTROOT)$(FSCK_STRINGPATH)
 	awk -f makestrings strings.c | tr \\012 \\015 | sed 's/./~&/g' | tr -d \\012 | tr \\015 \\012 | tr \\176 \\000 >> $(DSTROOT)$(FSCK_STRINGPATH)
 	chown -Rf root:wheel $(DSTROOT)$(HFS_INSTALLDIR)/Contents
 	find $(DSTROOT)$(HFS_INSTALLDIR)/Contents -type d -exec chmod 755 {} \;

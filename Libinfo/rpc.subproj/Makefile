@@ -25,7 +25,8 @@ CFILES = auth_none.c auth_unix.c authunix_prot.c bindresvport.c\
          xdr_array.c xdr_float.c xdr_mem.c xdr_rec.c xdr_reference.c\
          xdr_sizeof.c xdr_stdio.c getrpcport.c pmap_wakeup.c
 
-OTHERSRCS = Makefile.preamble Makefile
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble \
+	    bindresvport.3 getrpcent.3 getrpcport.3 rpc.3 xdr.3
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

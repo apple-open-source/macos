@@ -51,6 +51,7 @@
 #include "event-top.h"
 #include "inf-loop.h"
 #include "regcache.h"
+#include "exceptions.h"
 
 #include "kdp-udp.h"
 #include "kdp-transactions.h"
@@ -727,7 +728,7 @@ kdp_resume (ptid_t pid, int step, enum target_signal sig)
 
   kdp_stopped = 0;
 
-  if (event_loop_p && target_can_async_p ())
+  if (target_can_async_p ())
     target_async (inferior_event_handler, 0);
 
   if (target_is_async_p ())
@@ -866,10 +867,10 @@ kdp_fetch_registers_ppc (int regno)
          the kernel. */
       for (i = PPC_MACOSX_FIRST_FP_REGNUM; i <= PPC_MACOSX_LAST_FP_REGNUM;
            i++)
-        deprecated_register_valid[i] = 1;
+	set_register_cached (i, 1);
       for (i = PPC_MACOSX_FIRST_FSP_REGNUM; i <= PPC_MACOSX_LAST_FSP_REGNUM;
            i++)
-        deprecated_register_valid[i] = 1;
+	set_register_cached (i, 1);
     }
 #endif
 
@@ -880,10 +881,10 @@ kdp_fetch_registers_ppc (int regno)
          supported in the kernel. */
       for (i = PPC_MACOSX_FIRST_VP_REGNUM; i <= PPC_MACOSX_LAST_VP_REGNUM;
            i++)
-        deprecated_register_valid[i] = 1;
+	set_register_cached (i, 1);
       for (i = PPC_MACOSX_FIRST_VSP_REGNUM; i <= PPC_MACOSX_LAST_VSP_REGNUM;
            i++)
-        deprecated_register_valid[i] = 1;
+	set_register_cached (i, 1);
     }
 }
 #endif /* KDP_TARGET_POWERPC */
@@ -1293,7 +1294,7 @@ interrupt_query (void)
 Give up (and stop debugging it)? "))
     {
       target_mourn_inferior ();
-      throw_exception (RETURN_QUIT);
+      deprecated_throw_reason (RETURN_QUIT);
     }
 
   target_terminal_inferior ();
@@ -1451,6 +1452,52 @@ kdp_async (void (*callback) (enum inferior_event_type event_type,
     }
 }
 
+/* This set of hardware watchpoint stubs currently do nothing, but we
+   have to be sure to set them, so we don't pick up the ones from the
+   macosx "exec" target.  */
+
+int
+kdp_can_use_hw_breakpoint (int unused1, int unused2, int unused3)
+{
+  return 0;
+}
+
+int
+kdp_stopped_by_watchpoint (void)
+{
+  return 0;
+}
+
+int
+kdp_stopped_data_address (struct target_ops *unused1, CORE_ADDR *unused2)
+{
+  return 0;
+}
+
+int
+kdp_insert_watchpoint (CORE_ADDR unused1, int unused2, int unused3)
+{
+  return 0;
+}
+
+int
+kdp_remove_watchpoint (CORE_ADDR unused1, int unused2, int unused3)
+{
+  return 0;
+}
+
+int
+kdp_insert_hw_breakpoint (CORE_ADDR unused1, gdb_byte *unused2)
+{
+  return 0;
+}
+
+int
+kdp_remove_hw_breakpoint (CORE_ADDR unused1, gdb_byte *unused2)
+{
+  return 0;
+}
+
 static void
 init_kdp_ops (void)
 {
@@ -1466,10 +1513,18 @@ init_kdp_ops (void)
   kdp_ops.to_fetch_registers = kdp_fetch_registers;
   kdp_ops.to_store_registers = kdp_store_registers;
   kdp_ops.to_prepare_to_store = kdp_prepare_to_store;
-  kdp_ops.to_xfer_memory = kdp_xfer_memory;
+  kdp_ops.deprecated_xfer_memory = kdp_xfer_memory;
   kdp_ops.to_files_info = kdp_files_info;
   kdp_ops.to_insert_breakpoint = memory_insert_breakpoint;
   kdp_ops.to_remove_breakpoint = memory_remove_breakpoint;
+  kdp_ops.to_can_use_hw_breakpoint = kdp_can_use_hw_breakpoint;
+  kdp_ops.to_stopped_by_watchpoint = kdp_stopped_by_watchpoint;
+  kdp_ops.to_stopped_data_address = kdp_stopped_data_address;
+  kdp_ops.to_insert_watchpoint = kdp_insert_watchpoint;
+  kdp_ops.to_remove_watchpoint = kdp_remove_watchpoint;
+  kdp_ops.to_insert_hw_breakpoint = kdp_insert_hw_breakpoint;
+  kdp_ops.to_remove_hw_breakpoint = kdp_remove_hw_breakpoint;
+  kdp_ops.to_have_continuable_watchpoint = 0;
   kdp_ops.to_detach = kdp_detach;
   kdp_ops.to_kill = kdp_kill;
   kdp_ops.to_load = kdp_load;
@@ -1516,8 +1571,6 @@ _initialize_remote_kdp (void)
 {
   static const char *archlist[] = { "powerpc", "ia32", NULL };
 
-  struct cmd_list_element *cmd = NULL;
-
   init_kdp_ops ();
   add_target (&kdp_ops);
 
@@ -1528,53 +1581,69 @@ _initialize_remote_kdp (void)
   add_com ("kdp-detach", class_run, kdp_detach_command,
            "Reset a (possibly disconnected) remote Mac OS X kernel.\n");
 
-  cmd = add_set_enum_cmd
+  add_setshow_enum_cmd
     ("kdp-default-host-type", class_obscure, archlist,
-     (void *) &kdp_default_host_type_str,
-     "Set CPU type to be used for hosts providing incorect information (powerpc/ia32).",
-     &setlist);
-  set_cmd_sfunc (cmd, update_kdp_default_host_type);
-  add_show_from_set (cmd, &showlist);
+     (const char **) &kdp_default_host_type_str, _("\
+Set CPU type to be used for hosts providing incorrect information (powerpc/ia32)."), _("\
+Show CPU type to be used for hosts providing incorrect information (powerpc/ia32)."), _("\
+No additional help."),
+     update_kdp_default_host_type,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-timeout", class_obscure, var_zinteger,
-     (char *) &kdp_timeout,
-     "Set UDP timeout in milliseconds for (non-exception) KDP transactions.",
-     &setlist);
-  add_show_from_set (cmd, &showlist);
-  set_cmd_sfunc (cmd, set_timeouts);
+  add_setshow_zinteger_cmd
+    ("kdp-timeout", class_obscure, &kdp_timeout, _("\
+Set UDP timeout in milliseconds for (non-exception) KDP transactions."), _("\
+Show UDP timeout in milliseconds for (non-exception) KDP transactions."), _("\
+No additional help."),
+     set_timeouts,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-retries", class_obscure, var_zinteger,
-     (char *) &kdp_retries,
-     "Set number of UDP retries for (non-exception) KDP transactions.",
-     &setlist);
-  add_show_from_set (cmd, &showlist);
-  set_cmd_sfunc (cmd, set_timeouts);
+  add_setshow_zinteger_cmd
+    ("kdp-retries", class_obscure, &kdp_retries, _("\
+Set number of UDP retries for (non-exception) KDP transactions."), _("\
+Show number of UDP retries for (non-exception) KDP transactions."), _("\
+No additional help."),
+     set_timeouts,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-default-port", class_obscure, var_zinteger,
-     (char *) &kdp_default_port,
-     "Set default UDP port on which to attempt to contact KDP.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_uinteger_cmd
+    ("kdp-default-port", class_obscure, &kdp_default_port, _("\
+Set default UDP port on which to attempt to contact KDP."), _("\
+Show default UDP port on which to attempt to contact KDP."), _("\
+No additional help."),
+     NULL,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-debug-level", class_obscure, var_zinteger,
-     (char *) &kdp_debug_level,
-     "Set level of verbosity for KDP debugging information.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_uinteger_cmd
+    ("kdp-debug-level", class_obscure, &kdp_debug_level, _("\
+Set level of verbosity for KDP debugging information."), _("\
+Show level of verbosity for KDP debugging information."), _("\
+No additional help."),
+     NULL,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-sequence-number", class_obscure, var_zinteger,
-     (char *) &c.seqno,
-     "Set current sequence number for KDP transactions.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_uinteger_cmd
+    ("kdp-sequence-number", class_obscure, &c.seqno, _("\
+Set current sequence number for KDP transactions."), _("\
+Show current sequence number for KDP transactions."), _("\
+No additional help."),
+     NULL,
+     NULL,
+     &setlist, &showlist);
 
-  cmd = add_set_cmd
-    ("kdp-exception-sequence-number", class_obscure, var_zinteger,
-     (char *) &c.exc_seqno,
-     "Set current sequence number for KDP exception transactions.", &setlist);
-  add_show_from_set (cmd, &showlist);
+  add_setshow_uinteger_cmd
+    ("kdp-exception-sequence-number", class_obscure, &c.exc_seqno, _("\
+Set current sequence number for KDP exception transactions."), _("\
+Show current sequence number for KDP exception transactions."), _("\
+No additional help."),
+     NULL,
+     NULL,
+     &setlist, &showlist);
 
   kdp_reset (&c);
 }

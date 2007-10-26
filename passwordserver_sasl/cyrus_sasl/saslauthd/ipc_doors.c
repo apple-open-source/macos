@@ -210,8 +210,8 @@ void ipc_cleanup() {
  * result back through the door.
  **************************************************************/
 void do_request(void *cookie, char *data, size_t datasize, door_desc_t *dp, size_t ndesc) {
-	unsigned short		count;                     /* input/output data byte count           */
-	char			*response;                 /* response to send to the client         */
+	unsigned short		count = 0;                 /* input/output data byte count           */
+	char			*response = NULL;          /* response to send to the client         */
 	char			response_buff[1024];       /* temporary response buffer              */
 	char			*dataend;                  /* EOD marker for the door data           */
 	char			login[MAX_REQ_LEN + 1];    /* account name to authenticate           */

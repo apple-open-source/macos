@@ -220,7 +220,7 @@ authunix_create_default()
 	char machname[MAX_MACHINE_NAME + 1];
 	register int uid;
 	register int gid;
-	int gids[NGROUPS];
+	gid_t gids[NGROUPS];
 
 	if (gethostname(machname, MAX_MACHINE_NAME) == -1)
 		abort();
@@ -232,7 +232,7 @@ authunix_create_default()
         if (len > maxgrplist) {
             len = maxgrplist;
         }
-	return (authunix_create(machname, uid, gid, len, gids));
+	return (authunix_create(machname, uid, gid, len, (int *)gids));
 }
 
 /*

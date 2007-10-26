@@ -1,8 +1,8 @@
 " Vim indent file
-" Language:	Fortran90 (and Fortran95, Fortran77, F and elf90)
-" Version:	0.34
+" Language:	Fortran95 (and Fortran90, Fortran77, F and elf90)
+" Version:	0.37
 " URL:		http://www.unb.ca/chem/ajit/indent/fortran.vim
-" Last Change: 2003 Jan. 31
+" Last Change:	2006 Apr. 22
 " Maintainer:	Ajit J. Thakkar <ajit@unb.ca>; <http://www.unb.ca/chem/ajit/>
 " Usage:	Do :help fortran-indent from Vim
 
@@ -13,6 +13,8 @@ endif
 let b:did_indent = 1
 
 setlocal indentkeys+==~end,=~case,=~if,=~else,=~do,=~where,=~elsewhere,=~select
+setlocal indentkeys+==~endif,=~enddo,=~endwhere,=~endselect
+setlocal indentkeys+==~type,=~interface
 
 " Determine whether this is a fixed or free format source file
 " if this hasn't been done yet
@@ -26,11 +28,11 @@ if !exists("b:fortran_fixed_source")
   else
     " f90 and f95 allow both fixed and free source form
     " assume fixed source form unless signs of free source form
-    " are detected in the first five columns of the first 25 lines
+    " are detected in the first five columns of the first 250 lines
     " Detection becomes more accurate and time-consuming if more lines
     " are checked. Increase the limit below if you keep lots of comments at
     " the very top of each file and you have a fast computer
-    let s:lmax = 25
+    let s:lmax = 250
     if ( s:lmax > line("$") )
       let s:lmax = line("$")
     endif
@@ -60,6 +62,9 @@ else
   endif
 endif
 
+let s:cposet=&cpoptions
+set cpoptions-=C
+
 function FortranGetIndent(lnum)
   let ind = indent(a:lnum)
   let prevline=getline(a:lnum)
@@ -77,18 +82,25 @@ function FortranGetIndent(lnum)
   endif
 
   "Add a shiftwidth to statements following if, else, case,
-  "where and elsewhere statements
-  if prevstat =~? '^\s*\(\d\+\s\)\=\s*\(else\|case\|where\|elsewhere\)\>' || prevstat =~? '^\s*\(\d\+\s\)\=\s*\(\a\w*\s*:\)\=\s*if\>'
+  "where, elsewhere, type and interface statements
+  if prevstat =~? '^\s*\(\d\+\s\)\=\s*\(else\|case\|where\|elsewhere\)\>'
+	\ ||prevstat =~? '^\s*\(\d\+\s\)\=\s*\(type\|interface\)\>'
+	\ || prevstat =~? '^\s*\(\d\+\s\)\=\s*\(\a\w*\s*:\)\=\s*if\>'
      let ind = ind + &sw
     " Remove unwanted indent after logical and arithmetic ifs
     if prevstat =~? '\<if\>' && prevstat !~? '\<then\>'
       let ind = ind - &sw
     endif
+    " Remove unwanted indent after type( statements
+    if prevstat =~? '\<type\s*('
+      let ind = ind - &sw
+    endif
   endif
 
   "Subtract a shiftwidth from else, elsewhere, case, end if,
-  " end where and end select statements
-  if getline(v:lnum) =~? '^\s*\(\d\+\s\)\=\s*\(else\|elsewhere\|case\|end\s*\(if\|where\|select\)\)\>'
+  " end where, end select, end interface and end type statements
+  if getline(v:lnum) =~? '^\s*\(\d\+\s\)\=\s*'
+	\. '\(else\|elsewhere\|case\|end\s*\(if\|where\|select\|interface\|type\)\)\>'
     let ind = ind - &sw
     " Fix indent for case statement immediately after select
     if prevstat =~? '\<select\>'
@@ -125,7 +137,8 @@ function FortranGetFixedIndent()
   let lnum = v:lnum - 1
   while lnum > 0
     let prevline=getline(lnum)
-    if (prevline =~ "^[C*!]") || (prevline =~ "^\s*$") || (strpart(prevline,5,1) !~ "[ 0]")
+    if (prevline =~ "^[C*!]") || (prevline =~ "^\s*$")
+	\ || (strpart(prevline,5,1) !~ "[ 0]")
       " Skip comments, blank lines and continuation lines
       let lnum = lnum - 1
     else
@@ -147,5 +160,8 @@ function FortranGetFixedIndent()
   let ind=FortranGetIndent(lnum)
   return ind
 endfunction
+
+let &cpoptions=s:cposet
+unlet s:cposet
 
 " vim:sw=2 tw=130

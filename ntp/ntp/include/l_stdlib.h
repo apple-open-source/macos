@@ -14,6 +14,12 @@
 # include <stdlib.h>
 #endif
 
+#if defined(__STDC__) || defined(HAVE_STDARG_H)
+# include <stdarg.h>
+#else
+# include <varargs.h>
+#endif
+
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #endif
@@ -98,10 +104,6 @@ extern	int	mkstemp		P((char *));
 extern	char   *mktemp		P((char *));	
 #endif
 
-#ifdef DECL_MRAND48_0
-extern	long	mrand48		P((void));
-#endif
-
 #ifdef DECL_NLIST_0
 struct nlist;
 extern int	nlist		P((const char *, struct nlist *));
@@ -145,8 +147,9 @@ extern	int	sigvec		P((int, struct sigvec *, struct sigvec *));
 extern	int	snprintf	P((char *, size_t, const char *, ...));
 #endif
 
-#ifdef DECL_SRAND48_0
-extern	void	srand48		P((long));
+/* HMS: does this need further protection? */
+#ifndef HAVE_VSNPRINTF
+extern	int	vsnprintf	P((char *, size_t, const char *, va_list));
 #endif
 
 #ifdef DECL_STDIO_0
@@ -235,7 +238,7 @@ extern	int	toupper		P((int));
 extern	int	errno;
 #endif
 
-#ifdef DECL_H_ERRNO
+#if defined(DECL_H_ERRNO) && !defined(h_errno)
 extern	int	h_errno;
 #endif
 
@@ -265,10 +268,7 @@ extern	int	fork		P((void));
 extern	int	getdtablesize	P((void));
 extern	int	qsort		(void *, int , int,
 				   int P((*compar)(void *, void *)));
-extern	long	random		P((void));
-extern	long	mrand48		P((void));
 extern	int	setpgrp		P((int, int));
-extern	void	srandom		P((unsigned int));
 extern	void	bcopy		P((const char *, char *, int));
 #endif
 
@@ -470,8 +470,6 @@ extern	int	execve		P((char *, char **,char **));
 extern	int	fork		P((void));
 extern	int	getdtablesize	P((void));
 extern	int	ran		P((void));
-extern	int	rand		P((void));
-extern	void	srand		P((unsigned int));
 #ifdef _TIME_H_
 extern	int	gettimeofday	P((struct timeval *, struct timezone *));
 extern	int	settimeofday	P((struct timeval *, struct timezone *));

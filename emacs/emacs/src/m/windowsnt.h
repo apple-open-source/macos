@@ -1,6 +1,7 @@
 /* Machine description file for Windows NT.
 
-   Copyright (C) 1993, 1994 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1994, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -16,10 +17,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="<name of system .h file here, without the s- or .h>"  */
 
@@ -87,16 +88,8 @@ Boston, MA 02111-1307, USA.  */
 /* Text does precede data space, but this is never a safe assumption.  */
 #define VIRT_ADDR_VARIES
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-/* #define C_ALLOCA */
+/* For alloca.  */
 #include <malloc.h>
-#define HAVE_ALLOCA
 
 /* Define NO_REMAP if memory segmentation makes it not work well
    to change the boundary between the text section and data section
@@ -127,3 +120,6 @@ Boston, MA 02111-1307, USA.  */
    If you've just fixed a problem in an existing configuration file,
    you should also check `etc/MACHINES' to make sure its descriptions
    of known problems in that configuration should be updated.  */
+
+/* arch-tag: ed6dc0c1-5c01-49df-befd-c25dfadfb8cf
+   (do not change this comment) */

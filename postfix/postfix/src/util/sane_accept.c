@@ -59,6 +59,9 @@ int     sane_accept(int sock, struct sockaddr * sa, SOCKADDR_SIZE *len)
 	EWOULDBLOCK,
 	ENOBUFS,			/* HPUX11 */
 	ECONNABORTED,
+#ifdef EPROTO
+	EPROTO,				/* SunOS 5.5.1 */
+#endif
 	0,
     };
     int     count;
@@ -70,6 +73,10 @@ int     sane_accept(int sock, struct sockaddr * sa, SOCKADDR_SIZE *len)
      * disconnected in the mean time. From then on, UNIX-domain sockets are
      * hosed beyond recovery. There is no point treating this as a beneficial
      * error result because the program would go into a tight loop.
+     * 
+     * XXX Solaris 2.5.1 accept() returns EPROTO when a TCP client has
+     * disconnected in the mean time. Since there is no connection, it is
+     * safe to map the error code onto EAGAIN.
      * 
      * XXX LINUX < 2.1 accept() wakes up before the three-way handshake is
      * complete, so it can fail with ECONNRESET and other "false alarm"
@@ -101,7 +108,11 @@ int     sane_accept(int sock, struct sockaddr * sa, SOCKADDR_SIZE *len)
      * timer.
      */
 #if defined(BROKEN_READ_SELECT_ON_TCP_SOCKET) && defined(SO_KEEPALIVE)
-    else if (sa != 0 && sa->sa_family == AF_INET) {
+    else if (sa && (sa->sa_family == AF_INET
+#ifdef HAS_IPV6
+		    || sa->sa_family == AF_INET6
+#endif
+		    )) {
 	int     on = 1;
 
 	(void) setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,

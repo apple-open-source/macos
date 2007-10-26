@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,6 +31,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)defs.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/sed/defs.h,v 1.5 2004/08/09 15:29:41 dds Exp $
  */
 
 /*
@@ -71,6 +68,19 @@ struct s_subst {
 	char *new;				/* Replacement text */
 };
 
+/*
+ * Translate command.
+ */
+struct s_tr {
+	unsigned char bytetab[256];
+	struct trmulti {
+		int fromlen;
+		char from[MB_LEN_MAX];
+		int tolen;
+		char to[MB_LEN_MAX];
+	} *multis;
+	int nmultis;
+};
 
 /*
  * An internally compiled command.
@@ -84,7 +94,7 @@ struct s_command {
 	union {
 		struct s_command *c;		/* Command(s) for b t { */
 		struct s_subst *s;		/* Substitute command */
-		u_char *y;			/* Replace command array */
+		struct s_tr *y;			/* Replace command array */
 		int fd;				/* File descriptor for w */
 	} u;
 	char code;				/* Command code */

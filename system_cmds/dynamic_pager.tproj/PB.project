@@ -10,7 +10,8 @@
             default_pager_alerts.defs, 
             backing_store_alerts.defs, 
             backing_store_triggers.defs,
-            dynamic_pager.8
+            dynamic_pager.8,
+	    com.apple.dynamic_pager.plist
         ); 
     }; 
     LANGUAGE = English; 

@@ -1,0 +1,24 @@
+--- Src/init.c	2007-01-30 10:42:55.000000000 -0800
++++ Src/init.c	2007-05-14 13:42:58.000000000 -0700
+@@ -1273,7 +1273,7 @@
+ 
+ /**/
+ mod_export int
+-zsh_main(UNUSED(int argc), char **argv)
++zsh_main(int argc, char **argv)
+ {
+     char **t;
+     int t0;
+@@ -1281,6 +1281,12 @@
+     setlocale(LC_ALL, "");
+ #endif
+ 
++    if (argc < 1) {
++	argzero = "zsh";
++	zerr("too few arguments", NULL, 0);
++	exit(1);
++    }
++
+     init_jobs(argv, environ);
+ 
+     /*

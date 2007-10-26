@@ -196,6 +196,7 @@ pw_edit(notsetuid)
 	if (!(editpid = vfork())) {
 		if (notsetuid) {
 			(void)setgid(getgid());
+			(void)initgroups(getlogin(), getgid());
 			(void)setuid(getuid());
 		}
 		execlp(editor, p, tempname, NULL);

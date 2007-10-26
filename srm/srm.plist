@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-22</string>
+	<key>OpenSourceLicense</key>
+	<string>MIT</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>srm.txt</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>srm-1: &lt;rdar://3183653&gt; srm 1.2.6 with Apple mods, including large file and resource fork support</string>
+		<string>srm-2: Import changes from srm 1.2.7 release</string>
+		<string>srm-3: Import changes from srm 1.2.8 release</string>
+		<string>srm-3: &lt;rdar://3570942&gt; srm on directory containing an immutable file causes it to be renamed, but not unlinked</string>
+		<string>srm-3: &lt;rdar://3784283&gt; srm should be built with -mdynamic-no-pic</string>
+		<string>srm-4: Added write verification support (with --verify option)</string>
+		<string>srm-4: &lt;rdar://3846412&gt; srm needs an open source plist</string>
+		<string>srm-4: &lt;rdar://4096410&gt; srm: could overwrite end of buffer if blocksize mod 3 = 2</string>
+		<string>srm-4: &lt;rdar://4096414&gt; srm: overwrite_bytes restarts pattern every buffsize bytes</string>
+		<string>srm-4: &lt;rdar://4096417&gt; srm: performance on large files could improve if we don't erase 4k at a time</string>
+		<string>srm-4: &lt;rdar://4096418&gt; srm: when doing an random overwrite, we re-use the same 4K pattern during a single pass</string>
+		<string>srm-4: &lt;rdar://4096421&gt; srm: should avoid using buffer cache in target file being overwritten</string>
+		<string>srm-4: &lt;rdar://4498712&gt; srm: check for non-empty directory is broken</string>
+		<string>srm-5: &lt;rdar://4567692&gt; srm is crashing doing a secure erase</string>
+		<string>srm-6: &lt;rdar://4686608&gt; crash (divide by 0) when using srm -v on an empty file (Intel only)</string>
+	</array>
+	<key>OpenSourceProject</key>
+	<string>srm</string>
+	<key>OpenSourceSHA1</key>
+	<string>8b7aafc95b3ef67e2c737030567222bf50082188</string>
+	<key>OpenSourceURL</key>
+	<string>http://prdownloads.sourceforge.net/srm/srm-1.2.8.tar.gz?download</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.8</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://sourceforge.net/projects/srm/</string>
+</dict>
+</plist>

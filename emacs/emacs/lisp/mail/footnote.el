@@ -1,6 +1,7 @@
 ;;; footnote.el --- footnote support for message mode  -*- coding: iso-latin-1;-*-
 
-;; Copyright (C) 1997, 2000 by Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Steven L Baur <steve@xemacs.org>
 ;; Keywords: mail, news
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the Free
-;; Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-;; 02111-1307, USA.
+;; Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+;; MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -87,8 +88,11 @@ If nil, no blank line will be inserted."
 
 ;;; Interface variables that probably shouldn't be changed
 
-(defconst footnote-section-tag "Footnotes: "
-  "*Tag inserted at beginning of footnote section.")
+(defcustom footnote-section-tag "Footnotes: "
+  "*Tag inserted at beginning of footnote section."
+  :version "22.1"
+  :type 'string
+  :group 'footnote)
 
 (defcustom footnote-section-tag-regexp "Footnotes\\(\\[.\\]\\)?: "
   "*Regexp which indicates the start of a footnote section.
@@ -161,7 +165,7 @@ Wrapping around the alphabet implies successive repetitions of letters."
       (setq rc (concat rc chr))
       (setq rep (1- rep)))
     rc))
-  
+
 ;;; ENGLISH LOWER
 (defconst footnote-english-lower "abcdefghijklmnopqrstuvwxyz"
   "Lower case English alphabet.")
@@ -263,14 +267,17 @@ Wrapping around the alphabet implies successive repetitions of letters."
 
 ;; Latin-1
 
-(defconst footnote-latin-regexp "¹²³ºª§¶"
+(defconst footnote-latin-string "¹²³ºª§¶"
+  "String of Latin-1 footnoting characters.")
+
+(defconst footnote-latin-regexp (concat "[" footnote-latin-string "]")
   "Regexp for Latin-1 footnoting characters.")
 
 (defun Footnote-latin (n)
   "Latin-1 footnote style.
 Use a range of Latin-1 non-ASCII characters for footnoting."
-  (string (aref footnote-latin-regexp
-		(mod (1- n) (length footnote-latin-regexp)))))
+  (string (aref footnote-latin-string
+		(mod (1- n) (length footnote-latin-string)))))
 
 ;;; list of all footnote styles
 (defvar footnote-style-alist
@@ -287,14 +294,18 @@ See footnote-han.el, footnote-greek.el and footnote-hebrew.el for more
 exciting styles.")
 
 (defcustom footnote-style 'numeric
-  "*Style used for footnoting.
+  "*Default style used for footnoting.
 numeric == 1, 2, 3, ...
 english-lower == a, b, c, ...
 english-upper == A, B, C, ...
 roman-lower == i, ii, iii, iv, v, ...
 roman-upper == I, II, III, IV, V, ...
 latin == ¹ ² ³ º ª § ¶
-See also variables `footnote-start-tag' and `footnote-end-tag'."
+See also variables `footnote-start-tag' and `footnote-end-tag'.
+
+Customizing this variable has no effect on buffers already
+displaying footnotes.  You can change the style of existing
+buffers using the command `Footnote-set-style'."
   :type (cons 'choice (mapcar (lambda (x) (list 'const (car x)))
 			      footnote-style-alist))
   :group 'footnote)
@@ -482,7 +493,7 @@ styles."
   (Footnote-goto-char-point-max)
   (if (re-search-backward (concat "^" footnote-section-tag-regexp) nil t)
       (save-restriction
-	(when footnote-narrow-to-footnotes-when-editing 
+	(when footnote-narrow-to-footnotes-when-editing
 	  (Footnote-narrow-to-footnotes))
 	(Footnote-goto-footnote (1- arg)) ; evil, FIXME (less evil now)
 	;; (message "Inserting footnote %d" arg)
@@ -497,7 +508,8 @@ styles."
 				 (regexp-quote footnote-end-tag)))
 		       nil t)
 		  (unless (beginning-of-line) t))
-		(goto-char (point-max)))))
+		(Footnote-goto-char-point-max)
+		(re-search-backward (concat "^" footnote-section-tag-regexp) nil t))))
     (unless (looking-at "^$")
       (insert "\n"))
     (when (eobp)
@@ -513,7 +525,7 @@ styles."
 
 (defun Footnote-text-under-cursor ()
   "Return the number of footnote if in footnote text.
-Nil is returned if the cursor is not positioned over the text of
+Return nil if the cursor is not positioned over the text of
 a footnote."
   (when (and (let ((old-point (point)))
 	       (save-excursion
@@ -536,7 +548,7 @@ a footnote."
 
 (defun Footnote-under-cursor ()
   "Return the number of the footnote underneath the cursor.
-Nil is returned if the cursor is not over a footnote."
+Return nil if the cursor is not over a footnote."
   (or (get-text-property (point) 'footnote-number)
       (Footnote-text-under-cursor)))
 
@@ -554,9 +566,9 @@ Nil is returned if the cursor is not over a footnote."
 	  (unless rc
 	    (setq rc (car alist-ptr)))
 	  (save-excursion
-	    (message "Renumbering from %s to %s" 
+	    (message "Renumbering from %s to %s"
 		     (Footnote-index-to-string (car alist-ptr))
-		     (Footnote-index-to-string 
+		     (Footnote-index-to-string
 		      (1+ (car alist-ptr))))
 	    (Footnote-renumber (car alist-ptr)
 			       (1+ (car alist-ptr))
@@ -649,7 +661,7 @@ delete the footnote with that number."
       (while (< i notes)
 	(setq alist-ptr (nth i footnote-pointer-marker-alist))
 	(setq alist-txt (nth i footnote-text-marker-alist))
-	(unless (eq (1+ i) (car alist-ptr))
+	(unless (= (1+ i) (car alist-ptr))
 	  (Footnote-renumber (car alist-ptr) (1+ i) alist-ptr alist-txt))
 	(setq i (1+ i))))))
 
@@ -752,4 +764,5 @@ key		binding
 
 (provide 'footnote)
 
+;;; arch-tag: 9bcfb6d7-2161-4caf-8793-700f62400398
 ;;; footnote.el ends here

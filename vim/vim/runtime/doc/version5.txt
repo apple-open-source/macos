@@ -1,4 +1,4 @@
-*version5.txt*  For Vim version 6.2.  Last change: 2002 Oct 29
+*version5.txt*  For Vim version 7.0.  Last change: 2006 Apr 24
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -10,7 +10,8 @@ Although 5.0 is mentioned here, this is also for version 5.1, 5.2, etc..
 See |vi_diff.txt| for an overview of differences between Vi and Vim 5.0.
 See |version4.txt| for differences between Vim 3.0 and Vim 4.0.
 
-INCOMPATIBLE:
+INCOMPATIBLE:				|incompatible-5|
+
 Default value for 'compatible' changed	|cp-default|
 Text formatting command "Q" changed	|Q-command-changed|
 Command-line arguments changed		|cmdline-changed|
@@ -24,7 +25,8 @@ Tags file format changed		|tags-file-changed|
 Options changed				|options-changed|
 CTRL-B in Insert mode gone		|i_CTRL-B-gone|
 
-NEW FEATURES:
+NEW FEATURES:				|new-5|
+
 Syntax highlighting			|new-highlighting|
 Built-in script language		|new-script|
 Perl and Python support			|new-perl-python|
@@ -41,11 +43,11 @@ New options				|added-options|
 New command-line arguments		|added-cmdline-args|
 Various additions			|added-various|
 
-IMPROVEMENTS				|improvements|
+IMPROVEMENTS				|improvements-5|
 
-COMPILE TIME CHANGES			|compile-changes|
+COMPILE TIME CHANGES			|compile-changes-5|
 
-BUG FIXES				|bug-fixes|
+BUG FIXES				|bug-fixes-5|
 
 VERSION 5.1			|version-5.1|
 Changed					|changed-5.1|
@@ -116,7 +118,7 @@ Added					|added-5.8|
 Fixed					|fixed-5.8|
 
 ==============================================================================
-				 INCOMPATIBLE
+				 INCOMPATIBLE		*incompatible-5*
 
 Default value for 'compatible' changed			*cp-default*
 --------------------------------------
@@ -358,7 +360,7 @@ CTRL-_ key for this |i_CTRL-_|. >
    :imap <C-B> <C-O>:set revins!<CR>
 
 ==============================================================================
-				 NEW FEATURES
+				 NEW FEATURES		*new-5*
 
 Syntax highlighting					*new-highlighting*
 -------------------
@@ -560,11 +562,11 @@ New options						*added-options*
 
 'hlsearch'	Highlight all matches with the last used search pattern.
 
-'hkmapp'	Phonetic Hebrew mapping (Ilya Dogolazky).
+'hkmapp'	Phonetic Hebrew mapping. (Ilya Dogolazky)
 
-'iconstring'	Define the name of the icon, when not empty. (version 5.2: the
+'iconstring'	Define the name of the icon, when not empty.  (Version 5.2: the
 		string is used literally, a newline can be used to make two
-		lines).
+		lines.)
 
 'lazyredraw'	Don't redraw the screen while executing macros, registers or
 		other not typed commands.
@@ -589,9 +591,9 @@ New options						*added-options*
 		changing the value of 'tabstop'.  Makes it more easy to keep
 		'ts' at 8, while still getting four spaces for a <Tab>.
 
-'titlestring'	String for the window title, when not empty.  (version 5.2:
+'titlestring'	String for the window title, when not empty.  (Version 5.2:
 		this string is used literally, a newline can be used to make
-		two lines).
+		two lines.)
 
 'verbose'	Level of verbosity.  Makes it possible to show which .vimrc,
 		.exrc, .viminfo files etc. are used for initializing.  Also
@@ -633,7 +635,7 @@ Included support for the Farsi language (Shiran).  Only when enabled at
 compile time.  See |farsi|.
 
 ==============================================================================
-				 IMPROVEMENTS		*improvements*
+				 IMPROVEMENTS		*improvements-5*
 
 Performance:
 - When 'showcmd' was set, mappings would execute much more slowly because the
@@ -726,7 +728,7 @@ Autocommands:
 - VimLeave autocommands are executed after writing the viminfo file, instead
   of before.  |VimLeave|
 - Allow changing autocommands while executing them.  This allows for
-  self-modifying autocommands. (idea from Goldberg)
+  self-modifying autocommands.  (idea from Goldberg)
 - When using autocommands with two or more patterns, could not split
   ":if/:endif" over two lines.  Now all matching autocommands are executed in
   one do_cmdline().
@@ -927,7 +929,7 @@ Some versions of Motif require "-lXpm".  Added check for this in configure.
 Don't add "-L/usr/lib" to the link line, causes problems on a few systems.
 
 ==============================================================================
-			     COMPILE TIME CHANGES	*compile-changes*
+			     COMPILE TIME CHANGES	*compile-changes-5*
 
 When compiling, allow a choice for minimal, normal or maximal features in an
 easy way, by changing a single line in src/feature.h.
@@ -973,7 +975,7 @@ Don't use HPUX digraphs by default, but only when HPUX_DIGRAPHS is defined.
 |digraphs-default|
 
 ==============================================================================
-				 BUG FIXES		*bug-fixes*
+				 BUG FIXES		*bug-fixes-5*
 
 Note:	Some of these fixes may only apply to test versions which were
 	created after version 4.6, but before 5.0.
@@ -1044,7 +1046,7 @@ in the wrong line and the window to be scrolled (Acevedo).
 
 After ":set all&", 'lines' and 'ttytype' were still non-default, because the
 defaults never got set.  Now the defaults for 'lines' and 'columns' are set
-after detecting the window size. 'term' and 'ttytype' defaults are set when
+after detecting the window size.  'term' and 'ttytype' defaults are set when
 detecting the terminal type.
 
 For (most) non-Unix systems, don't add file names with illegal characters when
@@ -1355,7 +1357,7 @@ caused various errors and a crash.
 DJGPP version could not save long lines (>64000) for undo.
 
 "yw" on the last char in the file didn't work.  Also fixed "6x" at the end of
-the line. "6X" at the start of a line fails, but does not break a mapping.  In
+the line.  "6X" at the start of a line fails, but does not break a mapping.  In
 general, a movement for an operator doesn't beep or flush a mapping, but when
 there is nothing to operate on it beeps (this is Vi compatible).
 
@@ -1515,7 +1517,7 @@ Menus defined in the .vimrc were removed when GUI started.
 
 Crash when pasting with the mouse in insert mode.
 
-Crash whith ":unmenu *" in .gvimrc for Athena.
+Crash with ":unmenu *" in .gvimrc for Athena.
 
 "5>>" shifted 5 lines 5 times, instead of 1 time.
 
@@ -1775,7 +1777,7 @@ Added "g]" to always do ":tselect" for the ident under the cursor.
 Added ":tjump" and ":stjump" commands.
 Improved listing of ":tselect" when tag names are a bit long.
 
-Included patches for the Macintosh version. Also for Python interface.
+Included patches for the Macintosh version.  Also for Python interface.
 (St-Amant)
 
 ":buf foo" now also restores cursor column, when the buffer was used before.
@@ -2024,7 +2026,7 @@ $vim/macros".  If no initial dir specified for ":browse e", can be compiled to
 either begin in the current directory, or that of the current buffer. (Negri
 and Kahn)
 Added the 'browsedir' option, with value "current", "last" or "buffer".  Tells
-wether a browse dialog starts in last used dir, dir of current buffer, or
+whether a browse dialog starts in last used dir, dir of current buffer, or
 current dir.  ":browse w" is unaffected.
 The default menus have been changed to use the ":browse" command.
 
@@ -2068,7 +2070,7 @@ a printable character replaces the selection.
 - Added 'mousemodel' option: Change use of mouse buttons.
 - Added 'keymodel' option: tells to use shifted special keys to start a
   Visual or Select mode selection.
-- Added ":behave". Can be used to quickly set 'selectmode', 'mousemodel'
+- Added ":behave".  Can be used to quickly set 'selectmode', 'mousemodel'
   and 'keymodel' for MS-Windows and xterm behavior.
 - The xterm-like selection is now called modeless selection.
 - Visual mode mappings and menus are used in Select mode.  They automatically
@@ -2105,7 +2107,7 @@ redone with ".".
 'maxfuncdepth' option.  Restricts the depth of function calls.  Avoids trouble
 (crash because of out-of-memory) when a function uses endless recursion.
 
-User defineable Ex commands: ":command", ":delcommand" and ":comclear".
+User definable Ex commands: ":command", ":delcommand" and ":comclear".
 (Moore)  See |user-commands|.
 
 
@@ -2148,7 +2150,7 @@ New functions						*new-functions-5.2*
 |browse()|	puts up a file requester when available. (Negri)
 |escape()|	escapes characters in a string with a backslash.
 |fnamemodify()|	modifies a file name.
-|input()|	asks the user to enter a line. (Aaron) There is a separate
+|input()|	asks the user to enter a line. (Aaron)  There is a separate
 		history for lines typed for the input() function.
 |argc()|
 |argv()|	can be used to access the argument list.
@@ -2392,7 +2394,7 @@ events.  Makes cursor blinking work for Terhaar, breaks it for me.
 
 Non-text in ":list" output is highlighted with NonText.
 
-Added text objects: "i(" and "i)" as synonym for "ib". "i{" and "i}" as
+Added text objects: "i(" and "i)" as synonym for "ib".  "i{" and "i}" as
 synonym for "iB".  New: "i<" and "i>", to select <thing>.  All this also for
 "a" objects.
 
@@ -2605,7 +2607,7 @@ Graceful handling of NULLs in drag-dropped file list.  Handle passing NULL to
 Fullname_save(). (Negri)
 
 Win32: ":!start" to invoke a program without opening a console, swapping
-screens, or waiting for completion in either console or gui version. e.g. you
+screens, or waiting for completion in either console or gui version, e.g. you
 can type ":!start winfile".  ALSO fixes "can't delete swapfile after spawning
 a shell" bug. (enhancement of Aaron patch) (Negri)
 
@@ -3541,7 +3543,7 @@ Added character classes to search patterns, to avoid the need for removing the
 'l' flag from 'cpoptions': |[:tab:]|, |[:return:]|, |[:backspace:]| and
 |[:escape:]|.
 
-By adding a '?' after a comparitive operator in an expression, the comparison
+By adding a '?' after a comparative operator in an expression, the comparison
 is done by ignoring case. |expr-==?|
 
 
@@ -3665,8 +3667,8 @@ and starts Vim on it.  "make install" now also copies the tutor.
 In the output of ":clist" the current entry is highlighted, with the 'i'
 highlighting (same as used for 'incsearch').
 
-For the ":clist" command, you can scroll backwards with "b" (one screenfull),
-"u" (half a screenfull) and "k" (one line).
+For the ":clist" command, you can scroll backwards with "b" (one screenful),
+"u" (half a screenful) and "k" (one line).
 
 Multi-byte support:
 - X-input method for multi-byte characters.  And various fixes for multi-byte
@@ -3781,7 +3783,7 @@ Macintosh: (St-Amant)
 - Weak-linking of Python 1.5.1 (only on PPC).  Python is supported when the
   library is available.
 - If an error is encountered when sourcing the users .vimrc, the alert box now
-  shows right away with the OK button defaulted. There's no more "Delete"-key
+  shows right away with the OK button defaulted.  There's no more "Delete"-key
   sign at the start of each line
 - Better management of environment variables.  Now $VIM is calculated only
   once, not regenerated every time it is used.
@@ -4065,7 +4067,7 @@ Various XIM and multi-byte fixes:
 - Fix user cannot see his language while he is typing his language with
   off-the-spot method. (Nagano)
 - Fix preedit position using text/edit area (using gui.wid). (Nagano)
-- remove 'fix dead key' codes. It was needed since XNFocusWindow was
+- remove 'fix dead key' codes.  It was needed since XNFocusWindow was
   "x11_window", XNFocusWindow is now gui.wid. (Nagano)
 - Remove some compile warnings and fix typos. (Namsh)
 - For status area, check the gtk+ version while Vim runs.  I believe it is
@@ -4580,7 +4582,7 @@ buffers, only beep and continue with the insert command.
 Dos and Win32 console: Setting t_me didn't work to get another color.  Made
 this works backwards compatible.
 
-For turkish (LANG = "tr") uppercase 'i' is not an 'I'.  Use ASCII uppercase
+For Turkish (LANG = "tr") uppercase 'i' is not an 'I'.  Use ASCII uppercase
 translation in vim_strup() to avoid language problems. (Komur)
 
 Unix: Use usleep() or nanosleep() for mch_delay() when available.  Hopefully
@@ -4781,7 +4783,7 @@ translated to "}" before the shell got it.  Now don't remove backslashes when
 wildcards are going to be expanded.
 
 Unix: ":e /tmp/$uid" didn't work.  When expanding environment variables in a
-file name doesn't work, use the shell to expand the file name. ":e /tmp/$tty"
+file name doesn't work, use the shell to expand the file name.  ":e /tmp/$tty"
 still doesn't work though.
 
 "make test" didn't always work on DOS/Windows for test30, because it depended
@@ -4826,7 +4828,7 @@ doesn't match, the cursor would jump to the first line.
 Unix: Dependencies for pty.c were not included in Makefile.  Dependency of
 ctags/config.h was not included (only matters for parallel make).
 
-Removed a few Unitialized Memory Reads (potential crashes).  In do_call()
+Removed a few Uninitialized Memory Reads (potential crashes).  In do_call()
 calling clear_var() when not evaluating.  In win32_expandpath() and
 dos_expandpath() calling backslash_halve() past the end of a file name.
 
@@ -6716,7 +6718,7 @@ to avoid depending on $PATH.  Fixed "make clean".
 Many fixes to Macintosh specific parts: (mostly by Dany StAmant)
 - Only one Help menu.
 - No more crash when removing a menu item.
-- Support as External Editor for Codewarior (still some little glitches).
+- Support as External Editor for Codewarrior (still some little glitches).
 - Popup menu support.
 - Fixed crash when pasting after application switch.
 - Color from rgb.txt properly displayed.
@@ -7118,7 +7120,7 @@ Files:	    src/screen.c
 Patch 5.6.056 (extra)
 Problem:    MS-DOS: F11 and F12 don't work when 'bioskey' is set.
 Solution:   Use enhanced keyboard functions. (Vince Negri)
-	    Detect presence of enhanced keybard and set bioskey_read and
+	    Detect presence of enhanced keyboard and set bioskey_read and
 	    bioskey_ready.
 Files:	    src/os_msdos.c
 
@@ -7576,7 +7578,7 @@ Fixed compiling under NeXT. (Jeroen C.M. Goudswaard)
 
 optwin.vim gave an error when used in Vi compatible mode ('cpo' contains 'C').
 
-Tcl interpreter: "buffer" command didn't check for precense of an argument.
+Tcl interpreter: "buffer" command didn't check for presense of an argument.
 (Dave Bodenstab)
 
 dosinst.c: Added checks for too long file name.
@@ -7617,7 +7619,7 @@ Win32: Gvimext could not edit more than a few files at once, the length of the
 argument was fixed.
 
 
-Previosly released patches for Vim 5.7:
+Previously released patches for Vim 5.7:
 
 Patch 5.7.001
 Problem:    When the current buffer is crypted, and another modified buffer

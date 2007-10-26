@@ -12,12 +12,21 @@ NAME = sort
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = sort.c error.c getopt.c getopt1.c long-options.c version.c xstrtod.c
+CFILES = sort.c error.c getopt.c getopt1.c long-options.c version.c xstrtod.c \
+	closeout.c exitfail.c fopen-safer.c hard-locale.c mkstemp-safer.c \
+	physmem.c posixver.c quote.c strnumcmp.c version-etc.c xmalloc.c \
+	xmemcoll.c __fpending.c calloc.c dup-safer.c fd-safer.c memcoll.c \
+	quotearg.c umaxtostr.c version-etc-fsf.c xalloc-die.c xstrtoumax.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble sort.1 \
 	    config.h error.h getopt.h long-options.h system.h version.h \
-	    xstrtod.h COPYING
-
+	    xstrtod.h pathmax.h localedir.h memrchr.h exitfail.h \
+	    stat-macros.h timespec.h gettext.h xalloc.h verify.h \
+	    unlocked-io.h closeout.h version-etc.h intprops.h hard-locale.h \
+	    inttostr.h physmem.h posixver.h quote.h stdlib--.h stdio--.h \
+	    strnumcmp.h xmemcoll.h xstrtol.h stdlib-safer.h stdio-safer.h \
+	    getopt_int.h quotearg.h __fpending.h exit.h unistd-safer.h \
+	    strdup.h strnumcmp-in.h memcoll.h inttostr.c xstrtol.c COPYING
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -30,7 +39,7 @@ PROF_LIBS = $(LIBS)
 
 
 
-NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/doc_cmds/Build
+NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 NEXTSTEP_PB_CFLAGS = -DHAVE_CONFIG_H

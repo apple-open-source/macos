@@ -30,6 +30,7 @@
 
 #include <stdio.h>
 #include <netdb.h>
+#include "autoconf.h"
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
 #endif
@@ -38,8 +39,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <krb5.h>
 #include <k5-int.h> /* for KRB5_ADM_DEFAULT_PORT */
+#include <krb5.h>
 #ifdef __STDC__
 #include <stdlib.h>
 #endif
@@ -65,6 +66,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 				   kadm5_config_params *params,
 				   krb5_ui_4 struct_version,
 				   krb5_ui_4 api_version,
+				   char **db_args,
 				   void **server_handle);
 
 static kadm5_ret_t
@@ -99,11 +101,12 @@ kadm5_ret_t kadm5_init_with_creds(char *client_name,
 				  kadm5_config_params *params,
 				  krb5_ui_4 struct_version,
 				  krb5_ui_4 api_version,
+				  char **db_args,
 				  void **server_handle)
 {
      return _kadm5_init_any(client_name, INIT_CREDS, NULL, ccache,
 			    service_name, params,
-			    struct_version, api_version,
+			    struct_version, api_version, db_args,
 			    server_handle);
 }
 
@@ -113,11 +116,12 @@ kadm5_ret_t kadm5_init_with_password(char *client_name, char *pass,
 				     kadm5_config_params *params,
 				     krb5_ui_4 struct_version,
 				     krb5_ui_4 api_version,
+				     char **db_args,
 				     void **server_handle)
 {
      return _kadm5_init_any(client_name, INIT_PASS, pass, NULL,
 			    service_name, params, struct_version,
-			    api_version, server_handle);
+			    api_version, db_args, server_handle);
 }
 
 kadm5_ret_t kadm5_init(char *client_name, char *pass,
@@ -125,11 +129,12 @@ kadm5_ret_t kadm5_init(char *client_name, char *pass,
 		       kadm5_config_params *params,
 		       krb5_ui_4 struct_version,
 		       krb5_ui_4 api_version,
+		       char **db_args,
 		       void **server_handle)
 {
      return _kadm5_init_any(client_name, INIT_PASS, pass, NULL,
 			    service_name, params, struct_version,
-			    api_version, server_handle);
+			    api_version, db_args, server_handle);
 }
 
 kadm5_ret_t kadm5_init_with_skey(char *client_name, char *keytab,
@@ -137,11 +142,12 @@ kadm5_ret_t kadm5_init_with_skey(char *client_name, char *keytab,
 				 kadm5_config_params *params,
 				 krb5_ui_4 struct_version,
 				 krb5_ui_4 api_version,
+				 char **db_args,
 				 void **server_handle)
 {
      return _kadm5_init_any(client_name, INIT_SKEY, keytab, NULL,
 			    service_name, params, struct_version,
-			    api_version, server_handle);
+			    api_version, db_args, server_handle);
 }
 
 static kadm5_ret_t _kadm5_init_any(char *client_name,
@@ -152,6 +158,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 				   kadm5_config_params *params_in,
 				   krb5_ui_4 struct_version,
 				   krb5_ui_4 api_version,
+				   char **db_args,
 				   void **server_handle)
 {
      struct sockaddr_in addr;
@@ -168,7 +175,7 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      generic_ret *r;
 
      initialize_ovk_error_table();
-     initialize_adb_error_table();
+/*      initialize_adb_error_table(); */
      initialize_ovku_error_table();
      
      if (! server_handle) {
@@ -249,11 +256,8 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
 	  return KADM5_BAD_CLIENT_PARAMS;
      }
 			
-     if ((code = kadm5_get_config_params(handle->context,
-					DEFAULT_PROFILE_PATH,
-					"KRB5_CONFIG",
-					params_in,
-					&handle->params))) {
+     if ((code = kadm5_get_config_params(handle->context, 0,
+					 params_in, &handle->params))) {
 	  krb5_free_context(handle->context);
 	  free(handle);
 	  return(code);
@@ -318,11 +322,11 @@ static kadm5_ret_t _kadm5_init_any(char *client_name,
      if (code)
 	  goto error;
 
-     r = init_1(&handle->api_version, handle->clnt);
+     r = init_2(&handle->api_version, handle->clnt);
      if (r == NULL) {
 	  code = KADM5_RPC_ERROR;
 #ifdef DEBUG
-	  clnt_perror(handle->clnt, "init_1 null resp");
+	  clnt_perror(handle->clnt, "init_2 null resp");
 #endif
 	  goto error;
      }
@@ -740,4 +744,9 @@ int _kadm5_check_handle(void *handle)
 {
      CHECK_HANDLE(handle);
      return 0;
+}
+
+krb5_error_code kadm5_init_krb5_context (krb5_context *ctx)
+{
+    return krb5_init_context(ctx);
 }

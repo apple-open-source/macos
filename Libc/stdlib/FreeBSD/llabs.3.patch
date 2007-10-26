@@ -1,0 +1,17 @@
+--- _SB/Libc/stdlib/FreeBSD/llabs.3	2003-05-20 15:23:24.000000000 -0700
++++ _SB/Libc/stdlib/FreeBSD/llabs.3.edit	2006-06-28 16:55:53.000000000 -0700
+@@ -35,12 +35,12 @@
+ .Sh SYNOPSIS
+ .In stdlib.h
+ .Ft "long long"
+-.Fn llabs "long long j"
++.Fn llabs "long long i"
+ .Sh DESCRIPTION
+ The
+ .Fn llabs
+ function returns the absolute value of
+-.Fa j .
++.Fa i .
+ .Sh SEE ALSO
+ .Xr abs 3 ,
+ .Xr fabs 3 ,

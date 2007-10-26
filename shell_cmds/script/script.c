@@ -1,5 +1,3 @@
-/*	$NetBSD: script.c,v 1.6 1998/04/02 11:08:34 kleink Exp $	*/
-
 /*
  * Copyright (c) 1980, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,17 +32,18 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+
+__FBSDID("$FreeBSD: src/usr.bin/script/script.c,v 1.24 2004/02/15 17:30:13 cperciva Exp $");
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1992, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: script.c,v 1.6 1998/04/02 11:08:34 kleink Exp $");
-#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)script.c	8.1 (Berkeley) 6/6/93";
+#endif
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -55,161 +54,201 @@ __RCSID("$NetBSD: script.c,v 1.6 1998/04/02 11:08:34 kleink Exp $");
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#ifndef __APPLE__
+#include <libutil.h>
+#endif /* !__APPLE__ */
 #include <paths.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <termios.h>
-#include <time.h>
-#include <tzfile.h>
 #include <unistd.h>
+#ifdef __APPLE__
 #include <util.h>
+#endif /* __APPLE__ */
 
 FILE	*fscript;
 int	master, slave;
-int	child, subchild;
-int	outcc;
-char	*fname;
+int	child;
+const char *fname;
+int	qflg, ttyflg;
 
 struct	termios tt;
 
-void	done __P((void));
-void	dooutput __P((void));
-void	doshell __P((void));
-void	fail __P((void));
-void	finish __P((int));
-int	main __P((int, char **));
-void	scriptflush __P((int));
+void	done(int) __dead2;
+void	dooutput(void);
+void	doshell(char **);
+void	fail(void);
+void	finish(void);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int cc;
-	struct termios rtt;
+	struct termios rtt, stt;
 	struct winsize win;
-	int aflg, ch;
+	int aflg, kflg, ch, n;
+	struct timeval tv, *tvp;
+	time_t tvec, start;
+	char obuf[BUFSIZ];
 	char ibuf[BUFSIZ];
+	fd_set rfd;
+	int flushtime = 30;
 
-	aflg = 0;
-	while ((ch = getopt(argc, argv, "a")) != -1)
+	aflg = kflg = 0;
+	while ((ch = getopt(argc, argv, "aqkt:")) != -1)
 		switch(ch) {
 		case 'a':
 			aflg = 1;
 			break;
+		case 'q':
+			qflg = 1;
+			break;
+		case 'k':
+			kflg = 1;
+			break;
+		case 't':
+			flushtime = atoi(optarg);
+			if (flushtime < 0)
+				err(1, "invalid flush time %d", flushtime);
+			break;
 		case '?':
 		default:
-			(void)fprintf(stderr, "usage: script [-a] [file]\n");
-			exit(1);
+			usage();
 		}
 	argc -= optind;
 	argv += optind;
 
-	if (argc > 0)
+	if (argc > 0) {
 		fname = argv[0];
-	else
+		argv++;
+		argc--;
+	} else
 		fname = "typescript";
 
 	if ((fscript = fopen(fname, aflg ? "a" : "w")) == NULL)
-		err(1, "fopen %s", fname);
+		err(1, "%s", fname);
 
-	(void)tcgetattr(STDIN_FILENO, &tt);
-	(void)ioctl(STDIN_FILENO, TIOCGWINSZ, &win);
-	if (openpty(&master, &slave, NULL, &tt, &win) == -1)
-		err(1, "openpty");
+	if (ttyflg = isatty(STDIN_FILENO)) {
+		if (tcgetattr(STDIN_FILENO, &tt) == -1)
+			err(1, "tcgetattr");
+		if (ioctl(STDIN_FILENO, TIOCGWINSZ, &win) == -1)
+			err(1, "ioctl");
+		if (openpty(&master, &slave, NULL, &tt, &win) == -1)
+			err(1, "openpty");
+	} else {
+		if (openpty(&master, &slave, NULL, NULL, NULL) == -1)
+			err(1, "openpty");
+	}
 
-	(void)printf("Script started, output file is %s\n", fname);
-	rtt = tt;
-	cfmakeraw(&rtt);
-	rtt.c_lflag &= ~ECHO;
-	(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
+	if (!qflg) {
+		tvec = time(NULL);
+		(void)printf("Script started, output file is %s\n", fname);
+		(void)fprintf(fscript, "Script started on %s", ctime(&tvec));
+		fflush(fscript);
+	}
+	if (ttyflg) {
+		rtt = tt;
+		cfmakeraw(&rtt);
+		rtt.c_lflag &= ~ECHO;
+		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &rtt);
+	}
 
-	(void)signal(SIGCHLD, finish);
 	child = fork();
 	if (child < 0) {
 		warn("fork");
-		fail();
+		done(1);
 	}
-	if (child == 0) {
-		subchild = child = fork();
-		if (child < 0) {
-			warn("fork");
-			fail();
-		}
-		if (child)
-			dooutput();
-		else
-			doshell();
-	}
+	if (child == 0)
+		doshell(argv);
+#ifdef __APPLE__
+	(void)close(slave);
+#endif /* __APPLE__ */
 
-	(void)fclose(fscript);
-	while ((cc = read(STDIN_FILENO, ibuf, BUFSIZ)) > 0)
-		(void)write(master, ibuf, cc);
-	done();
-	/* NOTREACHED */
-	return (0);
+	if (flushtime > 0)
+		tvp = &tv;
+	else
+		tvp = NULL;
+
+	start = time(0);
+	FD_ZERO(&rfd);
+	for (;;) {
+		FD_SET(master, &rfd);
+		FD_SET(STDIN_FILENO, &rfd);
+		if (flushtime > 0) {
+			tv.tv_sec = flushtime;
+			tv.tv_usec = 0;
+		}
+		n = select(master + 1, &rfd, 0, 0, tvp);
+		if (n < 0 && errno != EINTR)
+			break;
+		if (n > 0 && FD_ISSET(STDIN_FILENO, &rfd)) {
+			cc = read(STDIN_FILENO, ibuf, BUFSIZ);
+			if (cc < 0)
+				break;
+			if (cc == 0)
+				(void)write(master, ibuf, 0);
+			if (cc > 0) {
+				(void)write(master, ibuf, cc);
+				if (kflg && tcgetattr(master, &stt) >= 0 &&
+				    ((stt.c_lflag & ECHO) == 0)) {
+					(void)fwrite(ibuf, 1, cc, fscript);
+				}
+			}
+		}
+		if (n > 0 && FD_ISSET(master, &rfd)) {
+			cc = read(master, obuf, sizeof (obuf));
+			if (cc <= 0)
+				break;
+			(void)write(STDOUT_FILENO, obuf, cc);
+			(void)fwrite(obuf, 1, cc, fscript);
+		}
+		tvec = time(0);
+		if (tvec - start >= flushtime) {
+			fflush(fscript);
+			start = tvec;
+		}
+	}
+	finish();
+	done(0);
+}
+
+static void
+usage(void)
+{
+	(void)fprintf(stderr,
+	    "usage: script [-akq] [-t time] [file [command ...]]\n");
+	exit(1);
 }
 
 void
-finish(signo)
-	int signo;
+finish(void)
 {
-	int die, pid;
-	union wait status;
+	pid_t pid;
+	int die, e, status;
 
-	die = 0;
-	while ((pid = wait3((int *)&status, WNOHANG, 0)) > 0)
-		if (pid == child)
+	die = e = 0;
+	while ((pid = wait3(&status, WNOHANG, 0)) > 0)
+	        if (pid == child) {
 			die = 1;
+			if (WIFEXITED(status))
+				e = WEXITSTATUS(status);
+			else if (WIFSIGNALED(status))
+				e = WTERMSIG(status);
+			else /* can't happen */
+				e = 1;
+		}
 
 	if (die)
-		done();
+		done(e);
 }
 
 void
-dooutput()
+doshell(char **av)
 {
-	struct itimerval value;
-	int cc;
-	time_t tvec;
-	char obuf[BUFSIZ];
-
-	(void)close(STDIN_FILENO);
-	tvec = time(NULL);
-	(void)fprintf(fscript, "Script started on %s", ctime(&tvec));
-
-	(void)signal(SIGALRM, scriptflush);
-	value.it_interval.tv_sec = SECSPERMIN / 2;
-	value.it_interval.tv_usec = 0;
-	value.it_value = value.it_interval;
-	(void)setitimer(ITIMER_REAL, &value, NULL);
-	for (;;) {
-		cc = read(master, obuf, sizeof (obuf));
-		if (cc <= 0)
-			break;
-		(void)write(1, obuf, cc);
-		(void)fwrite(obuf, 1, cc, fscript);
-		outcc += cc;
-	}
-	done();
-}
-
-void
-scriptflush(signo)
-	int signo;
-{
-	if (outcc) {
-		(void)fflush(fscript);
-		outcc = 0;
-	}
-}
-
-void
-doshell()
-{
-	char *shell;
+	const char *shell;
 
 	shell = getenv("SHELL");
 	if (shell == NULL)
@@ -218,32 +257,36 @@ doshell()
 	(void)close(master);
 	(void)fclose(fscript);
 	login_tty(slave);
-	execl(shell, shell, "-i", NULL);
-	warn("execl %s", shell);
+	if (av[0]) {
+		execvp(av[0], av);
+		warn("%s", av[0]);
+	} else {
+		execl(shell, shell, "-i", (char *)NULL);
+		warn("%s", shell);
+	}
 	fail();
 }
 
 void
-fail()
+fail(void)
 {
-
 	(void)kill(0, SIGTERM);
-	done();
+	done(1);
 }
 
 void
-done()
+done(int eno)
 {
 	time_t tvec;
 
-	if (subchild) {
-		tvec = time(NULL);
-		(void)fprintf(fscript,"\nScript done on %s", ctime(&tvec));
-		(void)fclose(fscript);
-		(void)close(master);
-	} else {
+	if (ttyflg)
 		(void)tcsetattr(STDIN_FILENO, TCSAFLUSH, &tt);
-		(void)printf("Script done, output file is %s\n", fname);
+	tvec = time(NULL);
+	if (!qflg) {
+		(void)fprintf(fscript,"\nScript done on %s", ctime(&tvec));
+		(void)printf("\nScript done, output file is %s\n", fname);
 	}
-	exit(0);
+	(void)fclose(fscript);
+	(void)close(master);
+	exit(eno);
 }

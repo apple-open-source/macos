@@ -4,3 +4,9 @@ SHLIB_VERPFX = $(srcdir)/config/i386/darwin-libgcc
 LIB1ASMSRC = i386/lib1funcs.asm
 LIB1ASMFUNCS = _get_pc_thunk_ax _get_pc_thunk_dx _get_pc_thunk_cx _get_pc_thunk_bx _get_pc_thunk_si _get_pc_thunk_di _get_pc_thunk_bp
 # APPLE LOCAL end 4099000
+# APPLE LOCAL begin x86_64 support
+ifneq ($(shell lipo -info /usr/lib/libSystem.B.dylib | grep x86_64),)
+MULTILIB_OPTIONS = m64
+MULTILIB_DIRNAMES = x86_64
+endif
+# APPLE LOCAL end x86_64 support

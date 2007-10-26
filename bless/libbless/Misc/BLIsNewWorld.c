@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,42 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLIsNewWorld.c,v 1.8 2005/02/03 00:42:27 ssen Exp $
- *
- *  $Log: BLIsNewWorld.c,v $
- *  Revision 1.8  2005/02/03 00:42:27  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.7  2004/04/20 21:40:44  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.6  2003/07/22 15:58:34  ssen
- *  APSL 2.0
- *
- *  Revision 1.5  2003/04/19 00:11:12  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.4  2003/04/16 23:57:33  ssen
- *  Update Copyrights
- *
- *  Revision 1.3  2002/06/11 00:50:49  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.2  2002/02/23 04:13:06  ssen
- *  Update to context-based API
- *
- *  Revision 1.1  2001/11/16 05:36:47  ssen
- *  Add libbless files
- *
- *  Revision 1.6  2001/11/11 06:20:59  ssen
- *  readding files
- *
- *  Revision 1.4  2001/10/26 04:19:41  ssen
- *  Add dollar Id and dollar Log
- *
+ *  $Id: BLIsNewWorld.c,v 1.9 2006/02/20 22:49:56 ssen Exp $
  *
  */
 

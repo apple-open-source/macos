@@ -1,7 +1,7 @@
 CC = @CC@
-CFLAGS = -Wall -Wstrict-prototypes -Wmissing-prototypes -O
+CFLAGS += -Wall -Wstrict-prototypes -Wmissing-prototypes
 OBJECTS = man2html.o cgibase.o abbrev.o strdefs.o
-bindir = $(DESTDIR)$(PREFIX)@bindir@
+bindir = $(DESTDIR)$(PREFIX)/usr/bin
 mandir = $(DESTDIR)$(PREFIX)@mandir@
 vardir = $(DESTDIR)$(PREFIX)/var
 httpdir = $(DESTDIR)$(PREFIX)/home/httpd

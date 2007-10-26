@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 #
 #   irb.rb - intaractive ruby
-#   	$Release Version: 0.7.3 $
-#   	$Revision: 1.2 $
-#   	$Date: 2002/11/19 02:00:18 $
-#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
+#   	$Release Version: 0.9.5 $
+#   	$Revision: 11708 $
+#   	$Date: 2007-02-13 08:01:19 +0900 (Tue, 13 Feb 2007) $
+#   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 
 require "irb"

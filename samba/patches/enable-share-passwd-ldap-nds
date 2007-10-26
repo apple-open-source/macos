@@ -1,0 +1,25 @@
+Index: samba/source/Makefile.in
+===================================================================
+--- samba/source/Makefile.in.orig
++++ samba/source/Makefile.in
+@@ -1330,9 +1330,9 @@ bin/sam.@SHLIBEXT@: proto_exists $(AUTH_
+ 	@echo "Building plugin $@"
+ 	@$(SHLD) $(LDSHFLAGS) -o $@ $(AUTH_SAM_OBJ) @SONAMEFLAG@`basename $@`
+ 
+-bin/ldapsam.@SHLIBEXT@: passdb/pdb_ldap.o
++bin/ldapsam.@SHLIBEXT@: passdb/pdb_ldap.o passdb/pdb_nds.o
+ 	@echo "Building plugin $@"
+-	@$(SHLD) $(LDSHFLAGS) $(LDAP_LIBS) -o $@ passdb/pdb_ldap.o \
++	@$(SHLD) $(LDSHFLAGS) $(LDAP_LIBS) -o $@ passdb/pdb_ldap.o passdb/pdb_nds.o \
+ 		@SONAMEFLAG@`basename $@`
+ 
+ bin/tdbsam.@SHLIBEXT@: proto_exists passdb/pdb_tdb.o
+@@ -1608,6 +1608,8 @@ installmodules: modules installdirs
+ 	@$(SHELL) $(srcdir)/script/installmodules.sh $(INSTALLPERMS) $(DESTDIR) $(prefix) $(NSSINFOLIBDIR) $(NSS_INFO_MODULES)
+ 	@$(SHELL) $(srcdir)/script/installmodules.sh $(INSTALLPERMS) $(DESTDIR) $(prefix) $(CHARSETLIBDIR) $(CHARSET_MODULES)
+ 	@$(SHELL) $(srcdir)/script/installmodules.sh $(INSTALLPERMS) $(DESTDIR) $(prefix) $(AUTHLIBDIR) $(AUTH_MODULES)
++	@$(SHELL) $(srcdir)/script/linkmodules.sh $(DESTDIR)$(PDBLIBDIR) ldapsam.@SHLIBEXT@ NDS_ldapsam.@SHLIBEXT@
++	@$(SHELL) $(srcdir)/script/linkmodules.sh $(DESTDIR)$(PDBLIBDIR) ldapsam.@SHLIBEXT@ NDS_ldapsam_compat.@SHLIBEXT@
+ 	@$(SHELL) $(srcdir)/script/linkmodules.sh $(DESTDIR)$(PDBLIBDIR) ldapsam.@SHLIBEXT@ ldapsam_compat.@SHLIBEXT@
+ 	@$(SHELL) $(srcdir)/script/linkmodules.sh $(DESTDIR)$(AUTHLIBDIR) rhosts.@SHLIBEXT@ hostsequiv.@SHLIBEXT@
+ 	@$(SHELL) $(srcdir)/script/linkmodules.sh $(DESTDIR)$(AUTHLIBDIR) sam.@SHLIBEXT@ sam_ignoredomain.@SHLIBEXT@

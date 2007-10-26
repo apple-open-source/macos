@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2004, International Business Machines
+ *   Copyright (C) 2003-2006, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -24,7 +24,9 @@
 #include "unicode/parseerr.h"
   
 /**
- *\file
+ * \file
+ * \brief C API: Internationalized Domain Names in Applications Tranformation
+ *
  * UIDNA API implements the IDNA protocol as defined in the IDNA RFC 
  * (http://www.ietf.org/rfc/rfc3490.txt).
  * The RFC defines 2 operations: ToASCII and ToUnicode. Domain labels 
@@ -46,8 +48,6 @@
  * ToASCII(ToASCII(ToASCII...(ToASCII(string))) == ToASCII(string).
  *
  */
-
-#ifndef U_HIDE_DRAFT_API
 
 /** 
  * Option to prohibit processing of unassigned codepoints in the input and
@@ -72,8 +72,6 @@
  */
 #define UIDNA_USE_STD3_RULES   0x0002
 
-#endif /*U_HIDE_DRAFT_API*/
-    
 /**
  * This function implements the ToASCII operation as defined in the IDNA RFC.
  * This operation is done on <b>single labels</b> before sending it to something that expects

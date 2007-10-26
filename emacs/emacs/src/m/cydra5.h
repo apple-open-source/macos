@@ -1,5 +1,6 @@
 /* machine description file for Cydrome's CYDRA 5 mini super computer
-   Copyright (C) 1988, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1999, 2001, 2002, 2003, 2004,
+                 2005, 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,11 +16,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="usg5-3"  */
 
@@ -79,16 +80,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef VIRT_ADDR_VARIES
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define C_ALLOCA
-#undef HAVE_ALLOCA
-
 /* The data segment in this machine always starts at address 0x10000000.
    An address of data cannot be stored correctly in a Lisp object;
    we always lose the high bits.  We must tell XPNTR to add them back.  */
@@ -104,9 +95,6 @@ Boston, MA 02111-1307, USA.  */
 #define NO_REMAP
 #define BROKEN_FIONREAD /* We son't even have it */
 #define	LIBS_MACHINE	-lsocket -lnsl
-
-/* Stack grows downward in memory.  */
-#define	STACK_DIRECTION -1
 
 /* The data section in a coff file must be aligned in the file.  */
 #define	DATA_SECTION_ALIGNMENT	0xFFF
@@ -124,3 +112,6 @@ Boston, MA 02111-1307, USA.  */
 /* We can't do interrupt-driven input, so don't let user try.  */
 
 #define BROKEN_SIGIO
+
+/* arch-tag: ad70aae4-1f54-4e67-8677-6eeafb9bcbd9
+   (do not change this comment) */

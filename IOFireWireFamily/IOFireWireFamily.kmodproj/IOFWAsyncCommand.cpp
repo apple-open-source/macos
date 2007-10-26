@@ -30,9 +30,13 @@
 
 // system
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommand.h>
+
+// private
+#import "FWDebugging.h"
+
+#define kIOFWAsyncCommandMaxExecutionTime		30000	// try to get the command out for up to 30 seconds
 
 #pragma mark -
 
@@ -110,6 +114,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 		fFailOnReset = failOnReset;
 		fMembers->fAckCode = 0;
 		fMembers->fResponseCode = 0xff;
+		fMembers->fResponseSpeed = 0xff;
 	}
 		
     return success;
@@ -162,6 +167,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
 		fFailOnReset = true;
 		fMembers->fAckCode = 0;
 		fMembers->fResponseCode = 0xff;
+		fMembers->fResponseSpeed = 0xff;
 	}
 	
     return success;
@@ -264,6 +270,7 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
     fFailOnReset = failOnReset;
 	fMembers->fAckCode = 0;
 	fMembers->fResponseCode = 0xff;
+	fMembers->fResponseSpeed = 0xff;
 	
     return fStatus = kIOReturnSuccess;
 }
@@ -301,6 +308,7 @@ IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMem
 	}
 	fMembers->fAckCode = 0;
 	fMembers->fResponseCode = 0xff;
+	fMembers->fResponseSpeed = 0xff;
 
     return fStatus = kIOReturnSuccess;
 }
@@ -334,6 +342,31 @@ IOReturn IOFWAsyncCommand::updateNodeID(UInt32 generation, UInt16 nodeID)
     if(fStatus == kIOFireWireBusReset)
         fStatus = kIOReturnSuccess;
     return fStatus;
+}
+
+// checkProgress
+//
+//
+
+IOReturn IOFWAsyncCommand::checkProgress( void )
+{
+	IOReturn status = kIOReturnSuccess;		// all is well
+	
+	AbsoluteTime now;
+	UInt32 milliDelta;
+	UInt64 nanoDelta;
+		
+	clock_get_uptime( &now );
+	SUB_ABSOLUTETIME( &now, &IOFWCommand::fMembers->fSubmitTime );
+	absolutetime_to_nanoseconds( now, &nanoDelta );
+	milliDelta = nanoDelta / 1000000;
+	
+	if( milliDelta > kIOFWAsyncCommandMaxExecutionTime )
+	{
+		status = kIOReturnTimeout;
+	}
+	
+	return status;
 }
 
 // complete
@@ -371,22 +404,29 @@ IOReturn IOFWAsyncCommand::complete(IOReturn status)
     // the command should be retried after a bus reset, put it on the
     // 'after reset queue'
     // If we aren't still scanning the bus, and we're supposed to retry after bus resets, turn it into device offline 
-    if((completion_status == kIOFireWireBusReset) && !fFailOnReset) 
+    if( (completion_status == kIOFireWireBusReset) && !fFailOnReset ) 
 	{
-        if(fControl->scanningBus()) 
+		// first check if we're not making forward progress with this command
+		IOReturn progress_status = checkProgress();
+		if( progress_status != kIOReturnSuccess )
 		{
-            setHead(fControl->getAfterResetHandledQ());
-            return fStatus = kIOFireWirePending;	// On a queue waiting to execute
-        }
-        else if(fDevice) 
+			status = progress_status;
+		}
+		else
 		{
-            IOLog("Command for device %p that's gone away\n", fDevice);
-            completion_status = kIOReturnOffline;	// device must have gone.
-        }
-    }
-	
-    // First check for retriable error
-    if(completion_status == kIOReturnTimeout) 
+			if(fControl->scanningBus()) 
+			{
+				setHead(fControl->getAfterResetHandledQ());
+				return fStatus = kIOFireWirePending;	// On a queue waiting to execute
+			}
+			else if(fDevice) 
+			{
+				DebugLog( "FireWire: Command for device %p that's gone away\n", fDevice );
+				completion_status = kIOReturnOffline;	// device must have gone.
+			}
+		}
+	}
+    else if(completion_status == kIOReturnTimeout) 
 	{
         if(fCurRetries--) 
 		{

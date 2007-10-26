@@ -47,9 +47,13 @@
 .Sh SYNOPSIS
 .In time.h
 .Ft void
-.Fn tzset void
+.Fo tzset
+.Fa void
+.Fc
 .Ft void
-.Fn tzsetwall void
+.Fo tzsetwall
+.Fa void
+.Fc
 .Sh DESCRIPTION
 The
 .Fn tzset
@@ -66,13 +70,13 @@ does not appear in the environment, the best available approximation to
 local wall clock time, as specified by the
 .Xr tzfile 5 Ns -format
 file
-.Pa /etc/localtime
+.Pa /etc/localtime ,
 is used.
 .Pp
 If
 .Ev TZ
-appears in the environment but its value is a null string, Coordinated
-Universal Time
+appears in the environment but its value is a null string,
+Coordinated Universal Time
 .Pq Tn UTC
 is used (without leap second correction).
 .Pp
@@ -84,7 +88,7 @@ the rest of its value is used as a pathname of a
 .Xr tzfile 5 Ns -format
 file from which to read the time conversion information.
 If the first character of the pathname is a slash
-.Pq Ql /
+.Pq Ql / ,
 it is used as
 an absolute pathname; otherwise, it is used as a pathname relative to
 the system time conversion information directory.

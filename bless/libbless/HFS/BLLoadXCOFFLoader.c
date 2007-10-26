@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,81 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
- *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2007 Apple Inc. All Rights Reserved.
  *
- *  $Id: BLLoadXCOFFLoader.c,v 1.18 2005/08/22 20:49:23 ssen Exp $
- *
- *  $Log: BLLoadXCOFFLoader.c,v $
- *  Revision 1.18  2005/08/22 20:49:23  ssen
- *  Change functions to take "char *foo" instead of "char foo[]".
- *  It should be semantically identical, and be more consistent with
- *  other system APIs
- *
- *  Revision 1.17  2005/06/24 16:39:50  ssen
- *  Don't use "unsigned char[]" for paths. If regular char*s are
- *  good enough for the BSD system calls, they're good enough for
- *  bless.
- *
- *  Revision 1.16  2005/02/03 00:42:25  ssen
- *  Update copyrights to 2005
- *
- *  Revision 1.15  2004/04/20 21:40:42  ssen
- *  Update copyrights to 2004
- *
- *  Revision 1.14  2004/03/17 01:21:53  ssen
- *  Initialize a uint32_t explicitly with 0xFFFFFFFF
- *
- *  Revision 1.13  2003/10/16 23:50:05  ssen
- *  Partially finish cleanup of headers to add "const" to char[] arguments
- *  that won't be modified.
- *
- *  Revision 1.12  2003/07/22 15:58:31  ssen
- *  APSL 2.0
- *
- *  Revision 1.11  2003/04/23 00:06:49  ssen
- *  Print checksum for xcoff
- *
- *  Revision 1.10  2003/04/19 00:11:08  ssen
- *  Update to APSL 1.2
- *
- *  Revision 1.9  2003/04/16 23:57:31  ssen
- *  Update Copyrights
- *
- *  Revision 1.8  2003/04/12 03:52:19  ssen
- *  Straggling function prototype that still had void **data instead
- *  of CFDataRef *data
- *
- *  Revision 1.7  2003/03/20 05:06:20  ssen
- *  remove some more non-c99 types
- *
- *  Revision 1.6  2003/03/20 03:40:57  ssen
- *  Merge in from PR-3202649
- *
- *  Revision 1.5.2.3  2003/03/20 03:23:32  ssen
- *  swap the entry point
- *
- *  Revision 1.5.2.2  2003/03/20 03:13:42  ssen
- *  typo
- *
- *  Revision 1.5.2.1  2003/03/20 03:11:42  ssen
- *  swap XCOFF data structures
- *
- *  Revision 1.5  2003/03/19 22:57:02  ssen
- *  C99 types
- *
- *  Revision 1.4  2002/06/11 00:50:46  ssen
- *  All function prototypes need to use BLContextPtr. This is really
- *  a minor change in all of the files.
- *
- *  Revision 1.3  2002/04/27 17:54:59  ssen
- *  Rewrite output logic to format the string before sending of to logger
- *
- *  Revision 1.2  2002/04/25 07:27:27  ssen
- *  Go back to using errorprint and verboseprint inside library
- *
- *  Revision 1.1  2002/03/05 00:01:42  ssen
- *  code reorg of secondary loader
- *
+ *  $Id: BLLoadXCOFFLoader.c,v 1.19 2006/02/20 22:49:55 ssen Exp $
  *
  */
 

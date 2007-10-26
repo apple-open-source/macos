@@ -38,7 +38,7 @@
 #include <ctype.h>
 #include <kparse.h>
 #include <string.h>
-#include "krb5/autoconf.h"
+#include "autoconf.h"
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -563,8 +563,8 @@ static char * strutol( start )
 {
     char *q;
     for (q=start; *q; q++)
-        if (isupper((int) *q))
-	    *q=tolower((int) *q);
+        if (isupper((unsigned char) *q))
+	    *q=tolower((unsigned char) *q);
     return(start);
 }
 

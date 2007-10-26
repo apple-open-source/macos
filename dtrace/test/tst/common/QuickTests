@@ -1,0 +1,98 @@
+# perl ../../cmd/scripts/dtest.pl -d /var/tmp/Sandbox/ `grep -v '#' QuickTests `
+# N.B. The shell gets tetchy when the "grep -v" just above returns more than 29K characters or so.
+begin/tst.begin.d
+begin/tst.multibegin.d
+end/tst.end.d
+end/tst.endwithoutbegin.d
+end/tst.multibeginend.d
+end/tst.multiend.d
+error/tst.DTRACEFLT_BADADDR.d
+error/tst.DTRACEFLT_DIVZERO.d
+error/tst.DTRACEFLT_UNKNOWN.d
+error/tst.error.d
+error/tst.errorend.d
+fbtprovider/tst.basic.d
+fbtprovider/tst.functionentry.d
+fbtprovider/tst.functionreturnvalue.d
+fbtprovider/tst.ioctlargs.d
+fbtprovider/tst.offset.d
+fbtprovider/tst.offsetzero.d
+fbtprovider/tst.return.d
+fbtprovider/tst.return0.d
+fbtprovider/tst.tailcall.d
+## io/tst.fds.d									/* RADAR 4906214: Awaits translator for fileinfo_t */
+## misc/tst.include.ksh							/* RADAR 4768973: "dtrace -C" is confused by, e.g. #include <stdio.h> */
+pid/tst.coverage.d
+## plockstat/tst.available.d						/* RADAR 4689416: Await Darwin plockstat provider. */
+## plockstat/tst.libmap.d
+proc/tst.create.ksh
+proc/tst.discard.ksh
+proc/tst.exec.ksh
+proc/tst.execfail.ENOENT.ksh
+proc/tst.execfail.ksh
+profile-n/tst.argtest.d
+profile-n/tst.basic.d
+profile-n/tst.func.ksh
+profile-n/tst.mod.ksh
+profile-n/tst.profilehz.d
+profile-n/tst.profilems.d
+profile-n/tst.profilemsec.d
+profile-n/tst.profilenhz.d
+profile-n/tst.profilens.d
+profile-n/tst.profilensec.d
+profile-n/tst.profiles.d
+profile-n/tst.profilesec.d
+profile-n/tst.profileus.d
+profile-n/tst.profileusec.d
+profile-n/tst.sym.ksh
+profile-n/tst.ufunc.ksh
+profile-n/tst.umod.ksh
+profile-n/tst.usym.ksh
+providers/tst.basics.d
+providers/tst.beginexit.d
+providers/tst.beginprof.d
+providers/tst.probattrs.d
+providers/tst.probefunc.d
+providers/tst.probemod.d
+providers/tst.probename.d
+providers/tst.probprov.d
+providers/tst.profend.d
+providers/tst.profexit.d
+providers/tst.trace.d
+providers/tst.twoprof.d
+## sched/tst.enqueue.d							/* RADAR 4487709: Await Darwin sched provider. */
+## sched/tst.oncpu.d
+## sched/tst.stackdepth.d
+stack/tst.default.d
+stackdepth/tst.default.d
+## syscall/tst.openret.ksh						/* RADAR 4487709: Awaits "dtrace -c". */
+tick-n/tst.tickarg0.d
+tick-n/tst.tickms.d
+tick-n/tst.tickmsec.d
+tick-n/tst.tickns.d
+tick-n/tst.ticknsec.d
+tick-n/tst.ticks.d
+tick-n/tst.ticksec.d
+tick-n/tst.tickus.d
+tick-n/tst.tickusec.d
+## usdt/argmap.d									/* DEFERRED: Await Darwin usdt provider. */
+## usdt/args.d
+## usdt/tst.andpid.ksh
+## usdt/tst.argmap.d
+## usdt/tst.args.d
+## usdt/tst.dlclose1.ksh
+## usdt/tst.dlclose2.ksh
+## usdt/tst.enabled.ksh
+## usdt/tst.entryreturn.ksh
+## usdt/tst.fork.ksh
+## usdt/tst.header.ksh
+## usdt/tst.linkpriv.ksh
+## usdt/tst.linkunpriv.ksh
+## usdt/tst.multiple.ksh
+## usdt/tst.onlyenabled.ksh
+## usdt/tst.reeval.ksh
+## usdt/tst.static.ksh
+## usdt/tst.static2.ksh
+## usdt/tst.user.ksh
+## ustack/tst.depth.ksh							/* RADAR 4487709: Awaits "dtrace -c". */
+## ustack/tst.spin.ksh							/* RADAR 4487709: Awaits "dtrace -c". */

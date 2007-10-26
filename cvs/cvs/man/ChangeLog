@@ -1,3 +1,11 @@
+2005-03-22  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerated.
+
+2005-01-31  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notices.
+
 2004-04-30  Derek Price  <derek@ximbiot.com>
 
 	First pass at closing issue #3 from cvshome.org.
@@ -24,9 +32,29 @@
 	Use consistent spelling of `initialization'.
 	(Patch from Ville Skyttä <scop@cvshome.org>.)
 
+2003-11-25  Mark D. Baushke  <mdb@cvshome.org>
+
+	* Makefile.in: Regenerate for new configure.in.
+
+2003-06-11  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate for new configure.in.
+
 2003-05-21  Derek Price  <derek@ximbiot.com>
 
 	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-05-20  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-05-09  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-04-30  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
 
 2003-04-10  Larry Jones  <lawrence.jones@eds.com>
 
@@ -38,9 +66,26 @@
 
 	* Makefile.in: Regenerated.
 
-2003-03-05  Mark D. Baushke  <mdb@cvshome.org>
+2003-03-19  Mark D. Baushke  <mdb@cvshome.org>
 
-	* cvs.1 (CVS_LOCAL_BRANCH_NUM): Backout CVS_LOCAL_BRANCH_NUM feature.
+	* cvs.1 (CVS_RSH): Note that the default "rsh" value may be set by
+	the --with-rsh configure option.
+
+	* Makefile.in: Regenerated.
+
+	* cvs.1 (Environment Variables): Document new CVS_PID variable.
+
+2003-03-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-16  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.1 (program): Document new `-R' global option for read-only
+	file-system repository mode.
+	(CVSREADONLYFS): Document new environment variable.
+
+2003-03-03  Mark D. Baushke  <mdb@cvshome.org>
 
 	* cvs.1 (CVS_LOCAL_BRANCH_NUM): Document new environment variable.
 

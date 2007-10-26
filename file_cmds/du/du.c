@@ -46,8 +46,9 @@ static const char sccsid[] = "@(#)du.c	8.5 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/du/du.c,v 1.28 2002/12/30 18:13:07 mike Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/du/du.c,v 1.38 2005/04/09 14:31:40 stefanf Exp $");
 
+#include <sys/mount.h>
 #include <sys/param.h>
 #include <sys/queue.h>
 #include <sys/stat.h>
@@ -56,19 +57,19 @@ __RCSID("$FreeBSD: src/usr.bin/du/du.c,v 1.28 2002/12/30 18:13:07 mike Exp $");
 #include <errno.h>
 #include <fnmatch.h>
 #include <fts.h>
+#include <locale.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include <sys/param.h>
-#include <sys/mount.h>
 
 #ifdef __APPLE__
-#include "get_compat.h"
+#include <get_compat.h>
 #else
-#define COMPAT_MODE(func, mode) 1
+#define COMPAT_MODE(func, mode) (1)
 #endif
 
 #define	KILO_SZ(n) (n)
@@ -105,7 +106,7 @@ struct ignentry {
 	SLIST_ENTRY(ignentry)	next;
 };
 
-int		linkchk(FTSENT *);
+static int	linkchk(FTSENT *);
 static void	usage(void);
 void		prthumanval(double);
 unit_t		unit_adjust(double *);
@@ -118,6 +119,7 @@ main(int argc, char *argv[])
 {
 	FTS		*fts;
 	FTSENT		*p;
+	off_t		savednumber = 0;
 	long		blocksize;
 	int		ftsoptions;
 	int		listall;
@@ -125,38 +127,32 @@ main(int argc, char *argv[])
 	int		Hflag, Lflag, Pflag, aflag, sflag, dflag, cflag, hflag, ch, notused, rval;
 	char 		**save;
 	static char	dot[] = ".";
-	off_t           *ftsnum, *ftsparnum, savednumber = 0;
+	off_t           *ftsnum, *ftsparnum;
+
+	setlocale(LC_ALL, "");
 
 	Hflag = Lflag = Pflag = aflag = sflag = dflag = cflag = hflag = 0;
-	
+
 	save = argv;
 	ftsoptions = 0;
 	depth = INT_MAX;
 	SLIST_INIT(&ignores);
-	
-	while ((ch = getopt(argc, argv, "HI:LPasd:chkrx")) != -1)
+
+	while ((ch = getopt(argc, argv, "HI:LPasd:chkmrx")) != -1)
 		switch (ch) {
 			case 'H':
+				Lflag = Pflag = 0;
 				Hflag = 1;
-				Pflag = Lflag = 0;
 				break;
 			case 'I':
 				ignoreadd(optarg);
 				break;
 			case 'L':
-				if (Pflag && COMPAT_MODE("bin/du", "legacy")) {
-					usage();
-				} else {
-					Hflag = Pflag = 0;
-				}
+				Hflag = Pflag = 0;
 				Lflag = 1;
 				break;
 			case 'P':
-				if (Lflag && COMPAT_MODE("bin/du", "legacy")) {
-					usage();
-				} else {
-					Hflag = Lflag = 0;
-				}
+				Hflag = Lflag = 0;
 				Pflag = 1;
 				break;
 			case 'a':
@@ -183,8 +179,12 @@ main(int argc, char *argv[])
 				valp = vals_base2;
 				break;
 			case 'k':
-				if (!hflag)
-					putenv("BLOCKSIZE=1024");
+				hflag = 0;
+				putenv("BLOCKSIZE=1024");
+				break;
+			case 'm':
+				hflag = 0;
+				putenv("BLOCKSIZE=1048576");
 				break;
 			case 'r':		 /* Compatibility. */
 				break;
@@ -249,7 +249,7 @@ main(int argc, char *argv[])
 	blocksize /= 512;
 
 	rval = 0;
-	
+
 	if ((fts = fts_open(argv, ftsoptions, NULL)) == NULL)
 		err(1, "fts_open");
 
@@ -270,14 +270,14 @@ main(int argc, char *argv[])
 				} else {
 				    ftsparnum[0] += ftsnum[0] += howmany(p->fts_statp->st_size, 512LL);
 				}
-				
+
 				if (p->fts_level <= depth) {
 					if (hflag) {
 						(void) prthumanval(howmany(*ftsnum, blocksize));
 						(void) printf("\t%s\n", p->fts_path);
 					} else {
-					(void) printf("%lld\t%s\n",
-					    howmany(*ftsnum, blocksize),
+					(void) printf("%jd\t%s\n",
+					    (intmax_t)howmany(*ftsnum, blocksize),
 					    p->fts_path);
 					}
 				}
@@ -307,7 +307,7 @@ main(int argc, char *argv[])
 
 				if (p->fts_statp->st_nlink > 1 && linkchk(p))
 					break;
-				
+
 				if (listall || p->fts_level == 0) {
 					if (hflag) {
 					    if (p->fts_statp->st_size < TWO_TB) {
@@ -320,12 +320,12 @@ main(int argc, char *argv[])
 						(void) printf("\t%s\n", p->fts_path);
 					} else {
 					    if (p->fts_statp->st_size < TWO_TB) {
-						(void) printf("%qd\t%s\n",
-							(long long)howmany(p->fts_statp->st_blocks, blocksize),
+						(void) printf("%jd\t%s\n",
+							(intmax_t)howmany(p->fts_statp->st_blocks, blocksize),
 							p->fts_path);
 					    } else {
-						(void) printf("%qd\t%s\n",
-							(long long)howmany(howmany(p->fts_statp->st_size, 512LL), blocksize),
+						(void) printf("%jd\t%s\n",
+							(intmax_t)howmany(howmany(p->fts_statp->st_size, 512LL), blocksize),
 							p->fts_path);
 					    }
 					}
@@ -349,7 +349,7 @@ main(int argc, char *argv[])
 			(void) prthumanval(howmany(savednumber, blocksize));
 			(void) printf("\ttotal\n");
 		} else {
-			(void) printf("%lld\ttotal\n", howmany(savednumber, blocksize));
+			(void) printf("%jd\ttotal\n", (intmax_t)howmany(savednumber, blocksize));
 		}
 	}
 
@@ -357,36 +357,136 @@ main(int argc, char *argv[])
 	exit(rval);
 }
 
-
-typedef struct _ID {
-	dev_t	dev;
-	ino_t	inode;
-} ID;
-
-
-int
+static int
 linkchk(FTSENT *p)
 {
-	static ID *files;
-	static int maxfiles, nfiles;
-	ID *fp, *start;
-	ino_t ino;
-	dev_t dev;
+	struct links_entry {
+		struct links_entry *next;
+		struct links_entry *previous;
+		int	 links;
+		dev_t	 dev;
+		ino_t	 ino;
+	};
+	static const size_t links_hash_initial_size = 8192;
+	static struct links_entry **buckets;
+	static struct links_entry *free_list;
+	static size_t number_buckets;
+	static unsigned long number_entries;
+	static char stop_allocating;
+	struct links_entry *le, **new_buckets;
+	struct stat *st;
+	size_t i, new_size;
+	int hash;
 
-	ino = p->fts_statp->st_ino;
-	dev = p->fts_statp->st_dev;
-	if ((start = files) != NULL)
-		for (fp = start + nfiles - 1; fp >= start; --fp)
-			if (ino == fp->inode && dev == fp->dev) {
-				return (1);
+	st = p->fts_statp;
+
+	/* If necessary, initialize the hash table. */
+	if (buckets == NULL) {
+		number_buckets = links_hash_initial_size;
+		buckets = malloc(number_buckets * sizeof(buckets[0]));
+		if (buckets == NULL)
+			errx(1, "No memory for hardlink detection");
+		for (i = 0; i < number_buckets; i++)
+			buckets[i] = NULL;
+	}
+
+	/* If the hash table is getting too full, enlarge it. */
+	if (number_entries > number_buckets * 10 && !stop_allocating) {
+		new_size = number_buckets * 2;
+		new_buckets = malloc(new_size * sizeof(struct links_entry *));
+
+		/* Try releasing the free list to see if that helps. */
+		if (new_buckets == NULL && free_list != NULL) {
+			while (free_list != NULL) {
+				le = free_list;
+				free_list = le->next;
+				free(le);
 			}
+			new_buckets = malloc(new_size * sizeof(new_buckets[0]));
+		}
 
-	if (nfiles == maxfiles && (files = realloc((char *)files,
-	    (u_int)(sizeof(ID) * (maxfiles += 128)))) == NULL)
-		errx(1, "can't allocate memory");
-	files[nfiles].inode = ino;
-	files[nfiles].dev = dev;
-	++nfiles;
+		if (new_buckets == NULL) {
+			stop_allocating = 1;
+			warnx("No more memory for tracking hard links");
+		} else {
+			memset(new_buckets, 0,
+			    new_size * sizeof(struct links_entry *));
+			for (i = 0; i < number_buckets; i++) {
+				while (buckets[i] != NULL) {
+					/* Remove entry from old bucket. */
+					le = buckets[i];
+					buckets[i] = le->next;
+
+					/* Add entry to new bucket. */
+					hash = (le->dev ^ le->ino) % new_size;
+
+					if (new_buckets[hash] != NULL)
+						new_buckets[hash]->previous =
+						    le;
+					le->next = new_buckets[hash];
+					le->previous = NULL;
+					new_buckets[hash] = le;
+				}
+			}
+			free(buckets);
+			buckets = new_buckets;
+			number_buckets = new_size;
+		}
+	}
+
+	/* Try to locate this entry in the hash table. */
+	hash = ( st->st_dev ^ st->st_ino ) % number_buckets;
+	for (le = buckets[hash]; le != NULL; le = le->next) {
+		if (le->dev == st->st_dev && le->ino == st->st_ino) {
+			/*
+			 * Save memory by releasing an entry when we've seen
+			 * all of it's links.
+			 */
+			if (--le->links <= 0) {
+				if (le->previous != NULL)
+					le->previous->next = le->next;
+				if (le->next != NULL)
+					le->next->previous = le->previous;
+				if (buckets[hash] == le)
+					buckets[hash] = le->next;
+				number_entries--;
+				/* Recycle this node through the free list */
+				if (stop_allocating) {
+					free(le);
+				} else {
+					le->next = free_list;
+					free_list = le;
+				}
+			}
+			return (1);
+		}
+	}
+
+	if (stop_allocating)
+		return (0);
+
+	/* Add this entry to the links cache. */
+	if (free_list != NULL) {
+		/* Pull a node from the free list if we can. */
+		le = free_list;
+		free_list = le->next;
+	} else
+		/* Malloc one if we have to. */
+		le = malloc(sizeof(struct links_entry));
+	if (le == NULL) {
+		stop_allocating = 1;
+		warnx("No more memory for tracking hard links");
+		return (0);
+	}
+	le->dev = st->st_dev;
+	le->ino = st->st_ino;
+	le->links = st->st_nlink - 1;
+	number_entries++;
+	le->next = buckets[hash];
+	le->previous = NULL;
+	if (buckets[hash] != NULL)
+		buckets[hash]->previous = le;
+	buckets[hash] = le;
 	return (0);
 }
 
@@ -437,7 +537,7 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k] [-x] [-I mask] [file ...]\n");
+		"usage: du [-H | -L | -P] [-a | -s | -d depth] [-c] [-h | -k | -m] [-x] [-I mask] [file ...]\n");
 	exit(EX_USAGE);
 }
 
@@ -473,6 +573,7 @@ ignorep(FTSENT *ent)
 {
 	struct ignentry *ign;
 
+#ifdef __APPLE__
 	if (S_ISDIR(ent->fts_statp->st_mode) && !strcmp("fd", ent->fts_name)) {
 		struct statfs sfsb;
 		int rc = statfs(ent->fts_accpath, &sfsb);
@@ -483,6 +584,7 @@ ignorep(FTSENT *ent)
 			return 1;
 		}
 	}
+#endif /* __APPLE__ */
 	SLIST_FOREACH(ign, &ignores, next)
 		if (fnmatch(ign->mask, ent->fts_name, 0) != FNM_NOMATCH)
 			return 1;

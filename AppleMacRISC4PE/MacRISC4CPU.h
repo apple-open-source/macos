@@ -33,7 +33,6 @@
 #include <IOKit/IOCPU.h>
 
 #include "MacRISC4PE.h"
-#include "IOPlatformPlugin.h"
 
 class MacRISC4PE;
 class MacRISC4CPUInterruptController;

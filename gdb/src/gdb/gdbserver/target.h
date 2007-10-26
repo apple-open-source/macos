@@ -1,5 +1,5 @@
 /* Target operations for the remote server for GDB.
-   Copyright 2002, 2003, 2004
+   Copyright 2002, 2003, 2004, 2005
    Free Software Foundation, Inc.
 
    Contributed by MontaVista Software.
@@ -31,7 +31,7 @@
 
 struct thread_resume
 {
-  int thread;
+  unsigned long thread;
 
   /* If non-zero, leave this thread stopped.  */
   int leave_stopped;
@@ -61,7 +61,7 @@ struct target_ops
      PID is the process ID to attach to, specified by the user
      or a higher layer.  */
 
-  int (*attach) (int pid);
+  int (*attach) (unsigned long pid);
 
   /* Kill all inferiors.  */
 
@@ -73,7 +73,7 @@ struct target_ops
 
   /* Return 1 iff the thread with process ID PID is alive.  */
 
-  int (*thread_alive) (int pid);
+  int (*thread_alive) (unsigned long pid);
 
   /* Resume the inferior process.  */
 
@@ -102,9 +102,11 @@ struct target_ops
   /* Read memory from the inferior process.  This should generally be
      called through read_inferior_memory, which handles breakpoint shadowing.
 
-     Read LEN bytes at MEMADDR into a buffer at MYADDR.  */
+     Read LEN bytes at MEMADDR into a buffer at MYADDR.
+  
+     Returns 0 on success and errno on failure.  */
 
-  void (*read_memory) (CORE_ADDR memaddr, char *myaddr, int len);
+  int (*read_memory) (CORE_ADDR memaddr, unsigned char *myaddr, int len);
 
   /* Write memory to the inferior process.  This should generally be
      called through write_inferior_memory, which handles breakpoint shadowing.
@@ -113,7 +115,8 @@ struct target_ops
 
      Returns 0 on success and errno on failure.  */
 
-  int (*write_memory) (CORE_ADDR memaddr, const char *myaddr, int len);
+  int (*write_memory) (CORE_ADDR memaddr, const unsigned char *myaddr,
+		       int len);
 
   /* Query GDB for the values of any symbols we're interested in.
      This function is called whenever we receive a "qSymbols::"
@@ -130,7 +133,29 @@ struct target_ops
 
      Read LEN bytes at OFFSET into a buffer at MYADDR.  */
 
-  int (*read_auxv) (CORE_ADDR offset, char *myaddr, unsigned int len);
+  int (*read_auxv) (CORE_ADDR offset, unsigned char *myaddr,
+		    unsigned int len);
+
+  /* Insert and remove a hardware watchpoint.
+     Returns 0 on success, -1 on failure and 1 on unsupported.  
+     The type is coded as follows:
+       2 = write watchpoint
+       3 = read watchpoint
+       4 = access watchpoint
+  */
+
+  int (*insert_watchpoint) (char type, CORE_ADDR addr, int len);
+  int (*remove_watchpoint) (char type, CORE_ADDR addr, int len);
+
+  /* Returns 1 if target was stopped due to a watchpoint hit, 0 otherwise.  */
+
+  int (*stopped_by_watchpoint) (void);
+
+  /* Returns the address associated with the watchpoint that hit, if any;  
+     returns 0 otherwise.  */
+
+  CORE_ADDR (*stopped_data_address) (void);
+
 };
 
 extern struct target_ops *the_target;
@@ -160,9 +185,10 @@ void set_target_ops (struct target_ops *);
 
 unsigned char mywait (char *statusp, int connected_wait);
 
-void read_inferior_memory (CORE_ADDR memaddr, char *myaddr, int len);
+int read_inferior_memory (CORE_ADDR memaddr, unsigned char *myaddr, int len);
 
-int write_inferior_memory (CORE_ADDR memaddr, const char *myaddr, int len);
+int write_inferior_memory (CORE_ADDR memaddr, const unsigned char *myaddr,
+			   int len);
 
 void set_desired_inferior (int id);
 

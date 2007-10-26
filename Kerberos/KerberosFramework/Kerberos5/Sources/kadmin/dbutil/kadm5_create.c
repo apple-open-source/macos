@@ -35,13 +35,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <kadm5/adb.h>
+#include <k5-int.h>
+#include <kdb.h>
 #include <kadm5/admin.h>
-#include <krb5/adm_proto.h>
+#include <adm_proto.h>
+
+#include "fake-addrinfo.h"
 
 
 #include <krb5.h>
-#include <krb5/kdb.h>
+#include <kdb.h>
 #include "kdb5_util.h"
 
 static int add_admin_princ(void *handle, krb5_context context,
@@ -72,21 +75,16 @@ int kadm5_create(kadm5_config_params *params)
 
      kadm5_config_params lparams;
 
-     if ((retval = krb5_init_context(&context)))
+     if ((retval = kadm5_init_krb5_context(&context)))
 	  exit(ERR);
 
      /*
       * The lock file has to exist before calling kadm5_init, but
       * params->admin_lockfile may not be set yet...
       */
-     if ((retval = kadm5_get_config_params(context, NULL, NULL,
+     if ((retval = kadm5_get_config_params(context, 1,
 					   params, &lparams))) {
 	  com_err(progname, retval, "while looking up the Kerberos configuration");
-	  return 1;
-     }
-
-     if ((retval = osa_adb_create_policy_db(&lparams))) {
-	  com_err(progname, retval, str_CREATING_POLICY_DB);
 	  return 1;
      }
 
@@ -110,6 +108,7 @@ int kadm5_create_magic_princs(kadm5_config_params *params,
      if ((retval = kadm5_init(progname, NULL, NULL, params,
 			      KADM5_STRUCT_VERSION,
 			      KADM5_API_VERSION_2,
+			      db5util_db_args,
 			      &handle))) {
 	  com_err(progname, retval, "while initializing the Kerberos admin interface");
 	  return retval;
@@ -175,20 +174,33 @@ static int add_admin_princs(void *handle, krb5_context context, char *realm)
   krb5_error_code ret = 0;
   char service_name[MAXHOSTNAMELEN + 8];
   char localname[MAXHOSTNAMELEN];
-  struct hostent *hp;
+  struct addrinfo *ai, ai_hints;
+  int gai_error;
 
   if (gethostname(localname, MAXHOSTNAMELEN)) {
       ret = errno;
       perror("gethostname");
       goto clean_and_exit;
   }
-  hp = gethostbyname(localname);
-  if (hp == NULL) {
-      ret = errno;
-      perror("gethostbyname");
+  memset(&ai_hints, 0, sizeof(ai_hints));
+  ai_hints.ai_flags = AI_CANONNAME;
+  gai_error = getaddrinfo(localname, (char *)NULL, &ai_hints, &ai);
+  if (gai_error) {
+      ret = EINVAL;
+      fprintf(stderr, "getaddrinfo(%s): %s\n", localname,
+	      gai_strerror(gai_error));
       goto clean_and_exit;
   }
-  sprintf(service_name, "kadmin/%s", hp->h_name);
+  if (ai->ai_canonname == NULL) {
+      ret = EINVAL;
+      fprintf(stderr,
+	      "getaddrinfo(%s): Cannot determine canonical hostname.\n",
+	      localname);
+      freeaddrinfo(ai);
+      goto clean_and_exit;
+  }
+  sprintf(service_name, "kadmin/%s", ai->ai_canonname);
+  freeaddrinfo(ai);
 
   if ((ret = add_admin_princ(handle, context,
 			     service_name, realm,

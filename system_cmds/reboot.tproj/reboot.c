@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 1980, 1986, 1993
  *	The Regents of the University of California.  All rights reserved.
+ * Portions copyright (c) 2007 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,11 +11,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -60,8 +57,20 @@ static const char rcsid[] =
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include "kextmanager.h"
+#include <IOKit/kext/kextmanager_types.h>
+#include <mach/mach_port.h>		// allocate
+#include <mach/mach.h>			// task_self, etc
+#include <servers/bootstrap.h>	// bootstrap
+#include <reboot2.h>
+#endif
+
 void usage(void);
 u_int get_pageins(void);
+#ifdef __APPLE__
+int reserve_reboot(void);
+#endif
 
 int dohalt;
 
@@ -69,10 +78,14 @@ int
 main(int argc, char *argv[])
 {
 	struct passwd *pw;
-	int ch, howto, i, fd, kflag, lflag, nflag, qflag, pflag, sverrno;
-	u_int pageins;
-	char *kernel, *p;
+	int ch, howto, kflag, lflag, nflag, qflag, uflag;
+	char *p;
 	const char *user;
+#ifndef __APPLE__
+	int i, fd, pflag, sverrno;
+	u_int pageins;
+	char *kernel;
+#endif
 
 	if (strstr((p = rindex(*argv, '/')) ? p + 1 : *argv, "halt")) {
 		dohalt = 1;
@@ -83,7 +96,7 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "dk:lnpq")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "lnq")) != -1)
+	while ((ch = getopt(argc, argv, "lnqu")) != -1)
 #endif
 		switch(ch) {
 #ifndef __APPLE__
@@ -109,6 +122,10 @@ main(int argc, char *argv[])
 			howto |= RB_POWEROFF;
 			break;
 #endif
+		case 'u':
+			uflag = 1;
+			howto |= RB_UPSDELAY;
+			break;
 		case 'q':
 			qflag = 1;
 			break;
@@ -127,6 +144,13 @@ main(int argc, char *argv[])
 		errno = EPERM;
 		err(1, NULL);
 	}
+
+#ifdef __APPLE__
+	if (!lflag) {	// shutdown(8) has already checked w/kextd
+		if ((errno = reserve_reboot()) && !qflag)
+			err(1, "couldn't lock for reboot");
+	}
+#endif
 
 	if (qflag) {
 		reboot(howto);
@@ -153,7 +177,8 @@ main(int argc, char *argv[])
 			    pw->pw_name : "???";
 		if (dohalt) {
 			openlog("halt", 0, LOG_AUTH | LOG_CONS);
-			syslog(LOG_CRIT, "halted by %s", user);
+			syslog(LOG_CRIT, "halted by %s%s", user, 
+			     (howto & RB_UPSDELAY) ? " with UPS delay":"");
 		} else {
 			openlog("reboot", 0, LOG_AUTH | LOG_CONS);
 			syslog(LOG_CRIT, "rebooted by %s", user);
@@ -169,9 +194,11 @@ main(int argc, char *argv[])
 	if (!nflag)
 		sync();
 
+#ifndef __APPLE__
 	/* Just stop init -- if we fail, we'll restart it. */
 	if (kill(1, SIGTSTP) == -1)
 		err(1, "SIGTSTP init");
+#endif
 
 	/* Ignore the SIGHUP we get when our parent shell dies. */
 	(void)signal(SIGHUP, SIG_IGN);
@@ -213,6 +240,10 @@ main(int argc, char *argv[])
 	}
 #endif
 
+#ifdef __APPLE__
+	// launchd(8) handles reboot.  This call returns NULL on success.
+	exit(reboot2(howto) == NULL ? EXIT_SUCCESS : EXIT_FAILURE);
+#else /* __APPLE__ */
 	reboot(howto);
 	/* FALLTHROUGH */
 
@@ -221,6 +252,7 @@ restart:
 	errx(1, "%s%s", kill(1, SIGHUP) == -1 ? "(can't restart init): " : "",
 	    strerror(sverrno));
 	/* NOTREACHED */
+#endif /* __APPLE__ */
 }
 
 void
@@ -249,3 +281,63 @@ get_pageins()
 	}
 	return pageins;
 }
+
+#ifdef __APPLE__
+// XX this routine is also in shutdown.tproj; it would be nice to share
+
+#define WAITFORLOCK 1
+/*
+ * contact kextd to lock for reboot
+ */
+int
+reserve_reboot()
+{
+	int rval = ELAST + 1;
+	kern_return_t macherr = KERN_FAILURE;
+	mach_port_t kxport, tport = MACH_PORT_NULL, myport = MACH_PORT_NULL;
+	int busyStatus = ELAST + 1;
+	mountpoint_t busyVol;
+
+	macherr = bootstrap_look_up(bootstrap_port, KEXTD_SERVER_NAME, &kxport);
+	if (macherr)  goto finish;
+
+	// allocate a port to pass to kextd (in case we die)
+	tport = mach_task_self();
+	if (tport == MACH_PORT_NULL)  goto finish;
+	macherr = mach_port_allocate(tport, MACH_PORT_RIGHT_RECEIVE, &myport);
+	if (macherr)  goto finish;
+
+	// try to lock for reboot
+	macherr = kextmanager_lock_reboot(kxport, myport, !WAITFORLOCK, busyVol,
+                                      &busyStatus);
+	if (macherr)  goto finish;
+
+	if (busyStatus == EBUSY) {
+		warnx("%s is busy updating; waiting for lock", busyVol);
+		macherr = kextmanager_lock_reboot(kxport, myport, WAITFORLOCK,
+										  busyVol, &busyStatus);
+		if (macherr)	goto finish;
+	}
+
+	if (busyStatus == EALREADY) {
+		// reboot already in progress
+		rval = 0;
+	} else {
+		rval = busyStatus;
+	}
+
+finish:
+	// in general, we want to err on the side of allowing the reboot
+	if (macherr) {
+		if (macherr != BOOTSTRAP_UNKNOWN_SERVICE)
+			warnx("WARNING: couldn't lock kext manager for reboot: %s",
+					mach_error_string(macherr));
+		rval = 0;
+	} 
+	// unless we got the lock, clean up our port
+	if (busyStatus != 0 && myport != MACH_PORT_NULL)
+		mach_port_mod_refs(tport, myport, MACH_PORT_RIGHT_RECEIVE, -1);
+
+	return rval;
+}
+#endif

@@ -1,5 +1,6 @@
 /* Process support for GNU Emacs on the Microsoft W32 API.
-   Copyright (C) 1992, 1995, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1995, 1999, 2000, 2001, 2002, 2003, 2004,
+		 2005, 2006, 2007 Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,8 +16,8 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 
    Drew Bliss                   Oct 14, 1993
      Adapted from alarm.c by Tim Fleehart
@@ -28,9 +29,14 @@ Boston, MA 02111-1307, USA.
 #include <io.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <sys/file.h>
 
 /* must include CRT headers *before* config.h */
-#include "config.h"
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #undef signal
 #undef wait
 #undef spawnve
@@ -43,6 +49,11 @@ Boston, MA 02111-1307, USA.
 extern BOOL WINAPI IsValidLocale(LCID, DWORD);
 #endif
 
+#ifdef HAVE_LANGINFO_CODESET
+#include <nl_types.h>
+#include <langinfo.h>
+#endif
+
 #include "lisp.h"
 #include "w32.h"
 #include "w32heap.h"
@@ -51,6 +62,11 @@ extern BOOL WINAPI IsValidLocale(LCID, DWORD);
 #include "process.h"
 #include "syssignal.h"
 #include "w32term.h"
+
+#define RVA_TO_PTR(var,section,filedata) \
+  ((void *)((section)->PointerToRawData					\
+	    + ((DWORD)(var) - (section)->VirtualAddress)		\
+	    + (filedata).file_base))
 
 /* Control whether spawnve quotes arguments as necessary to ensure
    correct parsing by child process.  Because not all uses of spawnve
@@ -77,7 +93,7 @@ Lisp_Object Vw32_start_process_inherit_error_mode;
    avoids the inefficiency of frequently reading small amounts of data.
    This is primarily necessary for handling DOS processes on Windows 95,
    but is useful for W32 processes on both Windows 95 and NT as well.  */
-Lisp_Object Vw32_pipe_read_delay;
+int w32_pipe_read_delay;
 
 /* Control conversion of upper case file names to lower case.
    nil means no, t means yes. */
@@ -115,11 +131,11 @@ typedef void (_CALLBACK_ *signal_handler)(int);
 static signal_handler sig_handlers[NSIG];
 
 /* Fake signal implementation to record the SIGCHLD handler.  */
-signal_handler 
+signal_handler
 sys_signal (int sig, signal_handler handler)
 {
   signal_handler old;
-  
+
   if (sig != SIGCHLD)
     {
       errno = EINVAL;
@@ -146,7 +162,7 @@ new_child (void)
 {
   child_process *cp;
   DWORD id;
-  
+
   for (cp = child_procs+(child_proc_count-1); cp >= child_procs; cp--)
     if (!CHILD_ACTIVE (cp))
       goto Initialise;
@@ -177,7 +193,7 @@ new_child (void)
   return NULL;
 }
 
-void 
+void
 delete_child (child_process *cp)
 {
   int i;
@@ -252,14 +268,14 @@ find_child_pid (DWORD pid)
    is normally blocked until woken by select() to check for input by
    reading one char.  When the read completes, char_avail is signalled
    to wake up the select emulator and the thread blocks itself again. */
-DWORD WINAPI 
+DWORD WINAPI
 reader_thread (void *arg)
 {
   child_process *cp;
-  
+
   /* Our identity */
   cp = (child_process *)arg;
-  
+
   /* We have to wait for the go-ahead before we can start */
   if (cp == NULL
       || WaitForSingleObject (cp->char_consumed, INFINITE) != WAIT_OBJECT_0)
@@ -269,7 +285,10 @@ reader_thread (void *arg)
     {
       int rc;
 
-      rc = _sys_read_ahead (cp->fd);
+      if (fd_info[cp->fd].flags & FILE_LISTEN)
+	rc = _sys_wait_accept (cp->fd);
+      else
+	rc = _sys_read_ahead (cp->fd);
 
       /* The name char_avail is a misnomer - it really just means the
 	 read-ahead has completed, whether successfully or not. */
@@ -282,11 +301,11 @@ reader_thread (void *arg)
 
       if (rc == STATUS_READ_ERROR)
 	return 1;
-        
+
       /* If the read died, the child has died so let the thread die */
       if (rc == STATUS_READ_FAILED)
 	break;
-        
+
       /* Wait until our input is acknowledged before reading again */
       if (WaitForSingleObject (cp->char_consumed, INFINITE) != WAIT_OBJECT_0)
         {
@@ -303,7 +322,7 @@ reader_thread (void *arg)
    sys_spawnve, and is not generally valid at any other time.  */
 static char * process_dir;
 
-static BOOL 
+static BOOL
 create_child (char *exe, char *cmdline, char *env, int is_gui_app,
 	      int * pPid, child_process *cp)
 {
@@ -314,12 +333,12 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
 #endif
   DWORD flags;
   char dir[ MAXPATHLEN ];
-  
+
   if (cp == NULL) abort ();
-  
+
   memset (&start, 0, sizeof (start));
   start.cb = sizeof (start);
-  
+
 #ifdef HAVE_NTGUI
   if (NILP (Vw32_start_process_show_window) && !is_gui_app)
     start.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
@@ -342,7 +361,7 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
   sec_attrs.nLength = sizeof (sec_attrs);
   sec_attrs.lpSecurityDescriptor = NULL /* &sec_desc */;
   sec_attrs.bInheritHandle = FALSE;
-  
+
   strcpy (dir, process_dir);
   unixtodos_filename (dir);
 
@@ -362,7 +381,7 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
     cp->pid = -cp->pid;
 
   /* pid must fit in a Lisp_Int */
-  cp->pid = (cp->pid & VALMASK);
+  cp->pid = cp->pid & INTMASK;
 
   *pPid = cp->pid;
 
@@ -378,22 +397,22 @@ create_child (char *exe, char *cmdline, char *env, int is_gui_app,
    to register the handle with the process
    This way the select emulator knows how to match file handles with
    entries in child_procs.  */
-void 
+void
 register_child (int pid, int fd)
 {
   child_process *cp;
-  
+
   cp = find_child_pid (pid);
   if (cp == NULL)
     {
       DebPrint (("register_child unable to find pid %lu\n", pid));
       return;
     }
-  
+
 #ifdef FULL_DEBUG
   DebPrint (("register_child registered fd %d with pid %lu\n", fd, pid));
 #endif
-  
+
   cp->fd = fd;
 
   /* thread is initially blocked until select is called; set status so
@@ -414,7 +433,7 @@ register_child (int pid, int fd)
    signal failure to the select emulator.
    The select emulator then calls this routine to clean up.
    Since the thread signaled failure we can assume it is exiting.  */
-static void 
+static void
 reap_subprocess (child_process *cp)
 {
   if (cp->procinfo.hProcess)
@@ -443,7 +462,7 @@ reap_subprocess (child_process *cp)
    When it does, close its handle
    Return the pid and fill in the status if non-NULL.  */
 
-int 
+int
 sys_wait (int *status)
 {
   DWORD active, retval;
@@ -451,7 +470,7 @@ sys_wait (int *status)
   int pid;
   child_process *cp, *cps[MAX_CHILDREN];
   HANDLE wait_hnd[MAX_CHILDREN];
-  
+
   nh = 0;
   if (dead_child != NULL)
     {
@@ -467,14 +486,15 @@ sys_wait (int *status)
     {
       for (cp = child_procs+(child_proc_count-1); cp >= child_procs; cp--)
 	/* some child_procs might be sockets; ignore them */
-	if (CHILD_ACTIVE (cp) && cp->procinfo.hProcess)
+	if (CHILD_ACTIVE (cp) && cp->procinfo.hProcess
+	    && (cp->fd < 0 || (fd_info[cp->fd].flags & FILE_AT_EOF) != 0))
 	  {
 	    wait_hnd[nh] = cp->procinfo.hProcess;
 	    cps[nh] = cp;
 	    nh++;
 	  }
     }
-  
+
   if (nh == 0)
     {
       /* Nothing to wait on, so fail */
@@ -530,7 +550,7 @@ get_result:
     retval = SIGINT;
   else
     retval <<= 8;
-  
+
   cp = cps[active];
   pid = cp->pid;
 #ifdef FULL_DEBUG
@@ -566,7 +586,7 @@ get_result:
     }
 
   reap_subprocess (cp);
-  
+
   return pid;
 }
 
@@ -575,7 +595,7 @@ w32_executable_type (char * filename, int * is_dos_app, int * is_cygnus_app, int
 {
   file_data executable;
   char * p;
-  
+
   /* Default values in case we can't tell for sure.  */
   *is_dos_app = FALSE;
   *is_cygnus_app = FALSE;
@@ -585,7 +605,7 @@ w32_executable_type (char * filename, int * is_dos_app, int * is_cygnus_app, int
     return;
 
   p = strrchr (filename, '.');
-  
+
   /* We can only identify DOS .com programs from the extension. */
   if (p && stricmp (p, ".com") == 0)
     *is_dos_app = TRUE;
@@ -618,11 +638,11 @@ w32_executable_type (char * filename, int * is_dos_app, int * is_cygnus_app, int
 
       nt_header = (PIMAGE_NT_HEADERS) ((char *) dos_header + dos_header->e_lfanew);
 
-      if ((char *) nt_header > (char *) dos_header + executable.size) 
+      if ((char *) nt_header > (char *) dos_header + executable.size)
 	{
 	  /* Some dos headers (pkunzip) have bogus e_lfanew fields.  */
 	  *is_dos_app = TRUE;
-	} 
+	}
       else if (nt_header->Signature != IMAGE_NT_SIGNATURE
 	       && LOWORD (nt_header->Signature) != IMAGE_OS2_SIGNATURE)
   	{
@@ -659,7 +679,7 @@ w32_executable_type (char * filename, int * is_dos_app, int * is_cygnus_app, int
 	  *is_gui_app = (nt_header->OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI);
   	}
     }
-  
+
 unwind:
   close_file_data (&executable);
 }
@@ -712,7 +732,7 @@ merge_and_sort_env (char **envp1, char **envp2, char **new_envp)
 
 /* When a new child process is created we need to register it in our list,
    so intercept spawn requests.  */
-int 
+int
 sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 {
   Lisp_Object program, full;
@@ -741,10 +761,10 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
   if (NILP (Ffile_executable_p (program)))
     {
       struct gcpro gcpro1;
-      
+
       full = Qnil;
       GCPRO1 (program);
-      openp (Vexec_path, program, EXEC_SUFFIXES, &full, 1);
+      openp (Vexec_path, program, Vexec_suffixes, &full, make_number (X_OK));
       UNGCPRO;
       if (NILP (full))
 	{
@@ -755,7 +775,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
     }
 
   /* make sure argv[0] and cmdname are both in DOS format */
-  cmdname = XSTRING (program)->data;
+  cmdname = SDATA (program);
   unixtodos_filename (cmdname);
   argv[0] = cmdname;
 
@@ -779,12 +799,12 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
 	strcpy (cmdname, egetenv ("CMDPROXY"));
       else
 	{
-	  strcpy (cmdname, XSTRING (Vinvocation_directory)->data);
+	  strcpy (cmdname, SDATA (Vinvocation_directory));
 	  strcat (cmdname, "cmdproxy.exe");
 	}
       unixtodos_filename (cmdname);
     }
-  
+
   /* we have to do some conjuring here to put argv and envp into the
      form CreateProcess wants...  argv needs to be a space separated/null
      terminated list of parameters, and envp is a null
@@ -825,8 +845,8 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       else
 	escape_char = is_cygnus_app ? '"' : '\\';
     }
-  
-  /* Cygwin apps needs quoting a bit more often */ 
+
+  /* Cygwin apps needs quoting a bit more often */
   if (escape_char == '"')
     sepchars = "\r\n\t\f '";
 
@@ -961,7 +981,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       targ++;
     }
   *--parg = '\0';
-  
+
   /* and envp...  */
   arglen = 1;
   targ = envp;
@@ -972,7 +992,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       numenv++;
     }
   /* extra env vars... */
-  sprintf (ppid_env_var_buffer, "EM_PARENT_PROCESS_ID=%d", 
+  sprintf (ppid_env_var_buffer, "EM_PARENT_PROCESS_ID=%d",
 	   GetCurrentProcessId ());
   arglen += strlen (ppid_env_var_buffer) + 1;
   numenv++;
@@ -999,7 +1019,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       errno = EAGAIN;
       return -1;
     }
-  
+
   /* Now create the process.  */
   if (!create_child (cmdname, cmdline, env, is_gui_app, &pid, cp))
     {
@@ -1007,7 +1027,7 @@ sys_spawnve (int mode, char *cmdname, char **argv, char **envp)
       errno = ENOEXEC;
       return -1;
     }
-  
+
   return pid;
 }
 
@@ -1038,7 +1058,7 @@ extern HANDLE interrupt_handle;
 /* From process.c */
 extern int proc_buffered_char[];
 
-int 
+int
 sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
 	    EMACS_TIME *timeout)
 {
@@ -1049,11 +1069,11 @@ sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
   child_process *cp, *cps[MAX_CHILDREN];
   HANDLE wait_hnd[MAXDESC + MAX_CHILDREN];
   int fdindex[MAXDESC];   /* mapping from wait handles back to descriptors */
-  
+
   timeout_ms = timeout ? (timeout->tv_sec * 1000 + timeout->tv_usec / 1000) : INFINITE;
 
   /* If the descriptor sets are NULL but timeout isn't, then just Sleep.  */
-  if (rfds == NULL && wfds == NULL && efds == NULL && timeout != NULL) 
+  if (rfds == NULL && wfds == NULL && efds == NULL && timeout != NULL)
     {
       Sleep (timeout_ms);
       return 0;
@@ -1065,7 +1085,7 @@ sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
       errno = EINVAL;
       return -1;
     }
-  
+
   orfds = *rfds;
   FD_ZERO (rfds);
   nr = 0;
@@ -1073,7 +1093,7 @@ sys_select (int nfds, SELECT_TYPE *rfds, SELECT_TYPE *wfds, SELECT_TYPE *efds,
   /* Always wait on interrupt_handle, to detect C-g (quit).  */
   wait_hnd[0] = interrupt_handle;
   fdindex[0] = -1;
-  
+
   /* Build a list of pipe handles to wait on.  */
   nh = 1;
   for (i = 0; i < nfds; i++)
@@ -1190,15 +1210,15 @@ count_children:
 	cps[nc] = cp;
 	nc++;
       }
-  
+
   /* Nothing to look for, so we didn't find anything */
-  if (nh + nc == 0) 
+  if (nh + nc == 0)
     {
       if (timeout)
 	Sleep (timeout_ms);
       return 0;
     }
-  
+
   start_time = GetTickCount ();
 
   /* Wait for input or child death to be signalled.  If user input is
@@ -1213,7 +1233,7 @@ count_children:
     {
       DebPrint (("select.WaitForMultipleObjects (%d, %lu) failed with %lu\n",
 		 nh + nc, timeout_ms, GetLastError ()));
-      /* don't return EBADF - this causes wait_reading_process_input to
+      /* don't return EBADF - this causes wait_reading_process_output to
 	 abort; WAIT_FAILED is returned when single-stepping under
 	 Windows 95 after switching thread focus in debugger, and
 	 possibly at other times. */
@@ -1357,14 +1377,14 @@ find_child_console (HWND hwnd, LPARAM arg)
   return TRUE;
 }
 
-int 
+int
 sys_kill (int pid, int sig)
 {
   child_process *cp;
   HANDLE proc_hand;
   int need_to_free = 0;
   int rc = 0;
-  
+
   /* Only handle signals that will result in the process dying */
   if (sig != SIGINT && sig != SIGKILL && sig != SIGQUIT && sig != SIGHUP)
     {
@@ -1391,7 +1411,7 @@ sys_kill (int pid, int sig)
       /* Try to locate console window for process. */
       EnumWindows (find_child_console, (LPARAM) cp);
     }
-  
+
   if (sig == SIGINT || sig == SIGQUIT)
     {
       if (NILP (Vw32_start_process_share_console) && cp && cp->hwnd)
@@ -1567,15 +1587,15 @@ prepare_standard_handles (int in, int out, int err, HANDLE handles[3])
   handles[2] = GetStdHandle (STD_ERROR_HANDLE);
 
   /* make inheritable copies of the new handles */
-  if (!DuplicateHandle (parent, 
+  if (!DuplicateHandle (parent,
 		       (HANDLE) _get_osfhandle (in),
 		       parent,
-		       &newstdin, 
-		       0, 
-		       TRUE, 
+		       &newstdin,
+		       0,
+		       TRUE,
 		       DUPLICATE_SAME_ACCESS))
     report_file_error ("Duplicating input handle for child", Qnil);
-  
+
   if (!DuplicateHandle (parent,
 		       (HANDLE) _get_osfhandle (out),
 		       parent,
@@ -1584,7 +1604,7 @@ prepare_standard_handles (int in, int out, int err, HANDLE handles[3])
 		       TRUE,
 		       DUPLICATE_SAME_ACCESS))
     report_file_error ("Duplicating output handle for child", Qnil);
-  
+
   if (!DuplicateHandle (parent,
 		       (HANDLE) _get_osfhandle (err),
 		       parent,
@@ -1597,7 +1617,7 @@ prepare_standard_handles (int in, int out, int err, HANDLE handles[3])
   /* and store them as our std handles */
   if (!SetStdHandle (STD_INPUT_HANDLE, newstdin))
     report_file_error ("Changing stdin handle", Qnil);
-  
+
   if (!SetStdHandle (STD_OUTPUT_HANDLE, newstdout))
     report_file_error ("Changing stdout handle", Qnil);
 
@@ -1646,14 +1666,14 @@ extern BOOL init_winsock (int load_now);
 extern Lisp_Object Vsystem_name;
 
 DEFUN ("w32-has-winsock", Fw32_has_winsock, Sw32_has_winsock, 0, 1, 0,
-  "Test for presence of the Windows socket library `winsock'.\n\
-Returns non-nil if winsock support is present, nil otherwise.\n\
-\n\
-If the optional argument LOAD-NOW is non-nil, the winsock library is\n\
-also loaded immediately if not already loaded.  If winsock is loaded,\n\
-the winsock local hostname is returned (since this may be different from\n\
-the value of `system-name' and should supplant it), otherwise t is\n\
-returned to indicate winsock support is present.")
+       doc: /* Test for presence of the Windows socket library `winsock'.
+Returns non-nil if winsock support is present, nil otherwise.
+
+If the optional argument LOAD-NOW is non-nil, the winsock library is
+also loaded immediately if not already loaded.  If winsock is loaded,
+the winsock local hostname is returned (since this may be different from
+the value of `system-name' and should supplant it), otherwise t is
+returned to indicate winsock support is present.  */)
   (load_now)
      Lisp_Object load_now;
 {
@@ -1682,10 +1702,10 @@ returned to indicate winsock support is present.")
 
 DEFUN ("w32-unload-winsock", Fw32_unload_winsock, Sw32_unload_winsock,
        0, 0, 0,
-  "Unload the Windows socket library `winsock' if loaded.\n\
-This is provided to allow dial-up socket connections to be disconnected\n\
-when no longer needed.  Returns nil without unloading winsock if any\n\
-socket connections still exist.")
+       doc: /* Unload the Windows socket library `winsock' if loaded.
+This is provided to allow dial-up socket connections to be disconnected
+when no longer needed.  Returns nil without unloading winsock if any
+socket connections still exist.  */)
   ()
 {
   return term_winsock () ? Qt : Qnil;
@@ -1704,21 +1724,21 @@ socket connections still exist.")
   } while (0)
 
 DEFUN ("w32-short-file-name", Fw32_short_file_name, Sw32_short_file_name, 1, 1, 0,
-  "Return the short file name version (8.3) of the full path of FILENAME.\n\
-If FILENAME does not exist, return nil.\n\
-All path elements in FILENAME are converted to their short names.")
+       doc: /* Return the short file name version (8.3) of the full path of FILENAME.
+If FILENAME does not exist, return nil.
+All path elements in FILENAME are converted to their short names.  */)
      (filename)
      Lisp_Object filename;
 {
   char shortname[MAX_PATH];
 
-  CHECK_STRING (filename, 0);
+  CHECK_STRING (filename);
 
   /* first expand it.  */
   filename = Fexpand_file_name (filename, Qnil);
 
   /* luckily, this returns the short version of each element in the path.  */
-  if (GetShortPathName (XSTRING (filename)->data, shortname, MAX_PATH) == 0)
+  if (GetShortPathName (SDATA (filename), shortname, MAX_PATH) == 0)
     return Qnil;
 
   CORRECT_DIR_SEPS (shortname);
@@ -1729,20 +1749,20 @@ All path elements in FILENAME are converted to their short names.")
 
 DEFUN ("w32-long-file-name", Fw32_long_file_name, Sw32_long_file_name,
        1, 1, 0,
-  "Return the long file name version of the full path of FILENAME.\n\
-If FILENAME does not exist, return nil.\n\
-All path elements in FILENAME are converted to their long names.")
+       doc: /* Return the long file name version of the full path of FILENAME.
+If FILENAME does not exist, return nil.
+All path elements in FILENAME are converted to their long names.  */)
   (filename)
      Lisp_Object filename;
 {
   char longname[ MAX_PATH ];
 
-  CHECK_STRING (filename, 0);
+  CHECK_STRING (filename);
 
   /* first expand it.  */
   filename = Fexpand_file_name (filename, Qnil);
 
-  if (!w32_get_long_filename (XSTRING (filename)->data, longname, MAX_PATH))
+  if (!w32_get_long_filename (SDATA (filename), longname, MAX_PATH))
     return Qnil;
 
   CORRECT_DIR_SEPS (longname);
@@ -1750,15 +1770,15 @@ All path elements in FILENAME are converted to their long names.")
   return build_string (longname);
 }
 
-DEFUN ("w32-set-process-priority", Fw32_set_process_priority, Sw32_set_process_priority,
-       2, 2, 0,
-  "Set the priority of PROCESS to PRIORITY.\n\
-If PROCESS is nil, the priority of Emacs is changed, otherwise the\n\
-priority of the process whose pid is PROCESS is changed.\n\
-PRIORITY should be one of the symbols high, normal, or low;\n\
-any other symbol will be interpreted as normal.\n\
-\n\
-If successful, the return value is t, otherwise nil.")
+DEFUN ("w32-set-process-priority", Fw32_set_process_priority,
+       Sw32_set_process_priority, 2, 2, 0,
+       doc: /* Set the priority of PROCESS to PRIORITY.
+If PROCESS is nil, the priority of Emacs is changed, otherwise the
+priority of the process whose pid is PROCESS is changed.
+PRIORITY should be one of the symbols high, normal, or low;
+any other symbol will be interpreted as normal.
+
+If successful, the return value is t, otherwise nil.  */)
   (process, priority)
      Lisp_Object process, priority;
 {
@@ -1766,14 +1786,14 @@ If successful, the return value is t, otherwise nil.")
   DWORD  priority_class = NORMAL_PRIORITY_CLASS;
   Lisp_Object result = Qnil;
 
-  CHECK_SYMBOL (priority, 0);
+  CHECK_SYMBOL (priority);
 
   if (!NILP (process))
     {
       DWORD pid;
       child_process *cp;
 
-      CHECK_NUMBER (process, 0);
+      CHECK_NUMBER (process);
 
       /* Allow pid to be an internally generated one, or one obtained
 	 externally.  This is necessary because real pids on Win95 are
@@ -1803,20 +1823,84 @@ If successful, the return value is t, otherwise nil.")
   return result;
 }
 
+#ifdef HAVE_LANGINFO_CODESET
+/* Emulation of nl_langinfo.  Used in fns.c:Flocale_info.  */
+char *nl_langinfo (nl_item item)
+{
+  /* Conversion of Posix item numbers to their Windows equivalents.  */
+  static const LCTYPE w32item[] = {
+    LOCALE_IDEFAULTANSICODEPAGE,
+    LOCALE_SDAYNAME1, LOCALE_SDAYNAME2, LOCALE_SDAYNAME3,
+    LOCALE_SDAYNAME4, LOCALE_SDAYNAME5, LOCALE_SDAYNAME6, LOCALE_SDAYNAME7,
+    LOCALE_SMONTHNAME1, LOCALE_SMONTHNAME2, LOCALE_SMONTHNAME3,
+    LOCALE_SMONTHNAME4, LOCALE_SMONTHNAME5, LOCALE_SMONTHNAME6,
+    LOCALE_SMONTHNAME7, LOCALE_SMONTHNAME8, LOCALE_SMONTHNAME9,
+    LOCALE_SMONTHNAME10, LOCALE_SMONTHNAME11, LOCALE_SMONTHNAME12
+  };
 
-DEFUN ("w32-get-locale-info", Fw32_get_locale_info, Sw32_get_locale_info, 1, 2, 0,
-  "Return information about the Windows locale LCID.\n\
-By default, return a three letter locale code which encodes the default\n\
-language as the first two characters, and the country or regionial variant\n\
-as the third letter.  For example, ENU refers to `English (United States)',\n\
-while ENC means `English (Canadian)'.\n\
-\n\
-If the optional argument LONGFORM is t, the long form of the locale\n\
-name is returned, e.g. `English (United States)' instead; if LONGFORM\n\
-is a number, it is interpreted as an LCTYPE constant and the corresponding\n\
-locale information is returned.\n\
-\n\
-If LCID (a 16-bit number) is not a valid locale, the result is nil.")
+  static char *nl_langinfo_buf = NULL;
+  static int   nl_langinfo_len = 0;
+
+  if (nl_langinfo_len <= 0)
+    nl_langinfo_buf = xmalloc (nl_langinfo_len = 1);
+
+  if (item < 0 || item >= _NL_NUM)
+    nl_langinfo_buf[0] = 0;
+  else
+    {
+      LCID cloc = GetThreadLocale ();
+      int need_len = GetLocaleInfo (cloc, w32item[item] | LOCALE_USE_CP_ACP,
+				    NULL, 0);
+
+      if (need_len <= 0)
+	nl_langinfo_buf[0] = 0;
+      else
+	{
+	  if (item == CODESET)
+	    {
+	      need_len += 2;	/* for the "cp" prefix */
+	      if (need_len < 8)	/* for the case we call GetACP */
+		need_len = 8;
+	    }
+	  if (nl_langinfo_len <= need_len)
+	    nl_langinfo_buf = xrealloc (nl_langinfo_buf,
+					nl_langinfo_len = need_len);
+	  if (!GetLocaleInfo (cloc, w32item[item] | LOCALE_USE_CP_ACP,
+			      nl_langinfo_buf, nl_langinfo_len))
+	    nl_langinfo_buf[0] = 0;
+	  else if (item == CODESET)
+	    {
+	      if (strcmp (nl_langinfo_buf, "0") == 0 /* CP_ACP */
+		  || strcmp (nl_langinfo_buf, "1") == 0) /* CP_OEMCP */
+		sprintf (nl_langinfo_buf, "cp%u", GetACP ());
+	      else
+		{
+		  memmove (nl_langinfo_buf + 2, nl_langinfo_buf,
+			   strlen (nl_langinfo_buf) + 1);
+		  nl_langinfo_buf[0] = 'c';
+		  nl_langinfo_buf[1] = 'p';
+		}
+	    }
+	}
+    }
+  return nl_langinfo_buf;
+}
+#endif	/* HAVE_LANGINFO_CODESET */
+
+DEFUN ("w32-get-locale-info", Fw32_get_locale_info,
+       Sw32_get_locale_info, 1, 2, 0,
+       doc: /* Return information about the Windows locale LCID.
+By default, return a three letter locale code which encodes the default
+language as the first two characters, and the country or regionial variant
+as the third letter.  For example, ENU refers to `English (United States)',
+while ENC means `English (Canadian)'.
+
+If the optional argument LONGFORM is t, the long form of the locale
+name is returned, e.g. `English (United States)' instead; if LONGFORM
+is a number, it is interpreted as an LCTYPE constant and the corresponding
+locale information is returned.
+
+If LCID (a 16-bit number) is not a valid locale, the result is nil.  */)
      (lcid, longform)
      Lisp_Object lcid, longform;
 {
@@ -1825,7 +1909,7 @@ If LCID (a 16-bit number) is not a valid locale, the result is nil.")
   char abbrev_name[32] = { 0 };
   char full_name[256] = { 0 };
 
-  CHECK_NUMBER (lcid, 0);
+  CHECK_NUMBER (lcid);
 
   if (!IsValidLocale (XINT (lcid), LCID_SUPPORTED))
     return Qnil;
@@ -1859,10 +1943,11 @@ If LCID (a 16-bit number) is not a valid locale, the result is nil.")
 }
 
 
-DEFUN ("w32-get-current-locale-id", Fw32_get_current_locale_id, Sw32_get_current_locale_id, 0, 0, 0,
-  "Return Windows locale id for current locale setting.\n\
-This is a numerical value; use `w32-get-locale-info' to convert to a\n\
-human-readable form.")
+DEFUN ("w32-get-current-locale-id", Fw32_get_current_locale_id,
+       Sw32_get_current_locale_id, 0, 0, 0,
+       doc: /* Return Windows locale id for current locale setting.
+This is a numerical value; use `w32-get-locale-info' to convert to a
+human-readable form.  */)
      ()
 {
   return make_number (GetThreadLocale ());
@@ -1896,10 +1981,11 @@ BOOL CALLBACK enum_locale_fn (LPTSTR localeNum)
   return TRUE;
 }
 
-DEFUN ("w32-get-valid-locale-ids", Fw32_get_valid_locale_ids, Sw32_get_valid_locale_ids, 0, 0, 0,
-  "Return list of all valid Windows locale ids.\n\
-Each id is a numerical value; use `w32-get-locale-info' to convert to a\n\
-human-readable form.")
+DEFUN ("w32-get-valid-locale-ids", Fw32_get_valid_locale_ids,
+       Sw32_get_valid_locale_ids, 0, 0, 0,
+       doc: /* Return list of all valid Windows locale ids.
+Each id is a numerical value; use `w32-get-locale-info' to convert to a
+human-readable form.  */)
      ()
 {
   Vw32_valid_locale_ids = Qnil;
@@ -1912,11 +1998,11 @@ human-readable form.")
 
 
 DEFUN ("w32-get-default-locale-id", Fw32_get_default_locale_id, Sw32_get_default_locale_id, 0, 1, 0,
-  "Return Windows locale id for default locale setting.\n\
-By default, the system default locale setting is returned; if the optional\n\
-parameter USERP is non-nil, the user default locale setting is returned.\n\
-This is a numerical value; use `w32-get-locale-info' to convert to a\n\
-human-readable form.")
+       doc: /* Return Windows locale id for default locale setting.
+By default, the system default locale setting is returned; if the optional
+parameter USERP is non-nil, the user default locale setting is returned.
+This is a numerical value; use `w32-get-locale-info' to convert to a
+human-readable form.  */)
      (userp)
      Lisp_Object userp;
 {
@@ -1925,14 +2011,14 @@ human-readable form.")
   return make_number (GetUserDefaultLCID ());
 }
 
-  
+
 DEFUN ("w32-set-current-locale", Fw32_set_current_locale, Sw32_set_current_locale, 1, 1, 0,
-  "Make Windows locale LCID be the current locale setting for Emacs.\n\
-If successful, the new locale id is returned, otherwise nil.")
+       doc: /* Make Windows locale LCID be the current locale setting for Emacs.
+If successful, the new locale id is returned, otherwise nil.  */)
      (lcid)
      Lisp_Object lcid;
 {
-  CHECK_NUMBER (lcid, 0);
+  CHECK_NUMBER (lcid);
 
   if (!IsValidLocale (XINT (lcid), LCID_SUPPORTED))
     return Qnil;
@@ -1960,8 +2046,9 @@ BOOL CALLBACK enum_codepage_fn (LPTSTR codepageNum)
   return TRUE;
 }
 
-DEFUN ("w32-get-valid-codepages", Fw32_get_valid_codepages, Sw32_get_valid_codepages, 0, 0, 0,
-  "Return list of all valid Windows codepages.")
+DEFUN ("w32-get-valid-codepages", Fw32_get_valid_codepages,
+       Sw32_get_valid_codepages, 0, 0, 0,
+       doc: /* Return list of all valid Windows codepages.  */)
      ()
 {
   Vw32_valid_codepages = Qnil;
@@ -1973,22 +2060,24 @@ DEFUN ("w32-get-valid-codepages", Fw32_get_valid_codepages, Sw32_get_valid_codep
 }
 
 
-DEFUN ("w32-get-console-codepage", Fw32_get_console_codepage, Sw32_get_console_codepage, 0, 0, 0,
-  "Return current Windows codepage for console input.")
+DEFUN ("w32-get-console-codepage", Fw32_get_console_codepage,
+       Sw32_get_console_codepage, 0, 0, 0,
+       doc: /* Return current Windows codepage for console input.  */)
      ()
 {
   return make_number (GetConsoleCP ());
 }
 
-  
-DEFUN ("w32-set-console-codepage", Fw32_set_console_codepage, Sw32_set_console_codepage, 1, 1, 0,
-  "Make Windows codepage CP be the current codepage setting for Emacs.\n\
-The codepage setting affects keyboard input and display in tty mode.\n\
-If successful, the new CP is returned, otherwise nil.")
+
+DEFUN ("w32-set-console-codepage", Fw32_set_console_codepage,
+       Sw32_set_console_codepage, 1, 1, 0,
+       doc: /* Make Windows codepage CP be the current codepage setting for Emacs.
+The codepage setting affects keyboard input and display in tty mode.
+If successful, the new CP is returned, otherwise nil.  */)
      (cp)
      Lisp_Object cp;
 {
-  CHECK_NUMBER (cp, 0);
+  CHECK_NUMBER (cp);
 
   if (!IsValidCodePage (XINT (cp)))
     return Qnil;
@@ -2000,22 +2089,24 @@ If successful, the new CP is returned, otherwise nil.")
 }
 
 
-DEFUN ("w32-get-console-output-codepage", Fw32_get_console_output_codepage, Sw32_get_console_output_codepage, 0, 0, 0,
-  "Return current Windows codepage for console output.")
+DEFUN ("w32-get-console-output-codepage", Fw32_get_console_output_codepage,
+       Sw32_get_console_output_codepage, 0, 0, 0,
+       doc: /* Return current Windows codepage for console output.  */)
      ()
 {
   return make_number (GetConsoleOutputCP ());
 }
 
-  
-DEFUN ("w32-set-console-output-codepage", Fw32_set_console_output_codepage, Sw32_set_console_output_codepage, 1, 1, 0,
-  "Make Windows codepage CP be the current codepage setting for Emacs.\n\
-The codepage setting affects keyboard input and display in tty mode.\n\
-If successful, the new CP is returned, otherwise nil.")
+
+DEFUN ("w32-set-console-output-codepage", Fw32_set_console_output_codepage,
+       Sw32_set_console_output_codepage, 1, 1, 0,
+       doc: /* Make Windows codepage CP be the current codepage setting for Emacs.
+The codepage setting affects keyboard input and display in tty mode.
+If successful, the new CP is returned, otherwise nil.  */)
      (cp)
      Lisp_Object cp;
 {
-  CHECK_NUMBER (cp, 0);
+  CHECK_NUMBER (cp);
 
   if (!IsValidCodePage (XINT (cp)))
     return Qnil;
@@ -2027,15 +2118,16 @@ If successful, the new CP is returned, otherwise nil.")
 }
 
 
-DEFUN ("w32-get-codepage-charset", Fw32_get_codepage_charset, Sw32_get_codepage_charset, 1, 1, 0,
-  "Return charset of codepage CP.\n\
-Returns nil if the codepage is not valid.")
+DEFUN ("w32-get-codepage-charset", Fw32_get_codepage_charset,
+       Sw32_get_codepage_charset, 1, 1, 0,
+       doc: /* Return charset of codepage CP.
+Returns nil if the codepage is not valid.  */)
      (cp)
      Lisp_Object cp;
 {
   CHARSETINFO info;
 
-  CHECK_NUMBER (cp, 0);
+  CHECK_NUMBER (cp);
 
   if (!IsValidCodePage (XINT (cp)))
     return Qnil;
@@ -2047,9 +2139,10 @@ Returns nil if the codepage is not valid.")
 }
 
 
-DEFUN ("w32-get-valid-keyboard-layouts", Fw32_get_valid_keyboard_layouts, Sw32_get_valid_keyboard_layouts, 0, 0, 0,
-  "Return list of Windows keyboard languages and layouts.\n\
-The return value is a list of pairs of language id and layout id.")
+DEFUN ("w32-get-valid-keyboard-layouts", Fw32_get_valid_keyboard_layouts,
+       Sw32_get_valid_keyboard_layouts, 0, 0, 0,
+       doc: /* Return list of Windows keyboard languages and layouts.
+The return value is a list of pairs of language id and layout id.  */)
      ()
 {
   int num_layouts = GetKeyboardLayoutList (0, NULL);
@@ -2072,9 +2165,10 @@ The return value is a list of pairs of language id and layout id.")
 }
 
 
-DEFUN ("w32-get-keyboard-layout", Fw32_get_keyboard_layout, Sw32_get_keyboard_layout, 0, 0, 0,
-  "Return current Windows keyboard language and layout.\n\
-The return value is the cons of the language id and the layout id.")
+DEFUN ("w32-get-keyboard-layout", Fw32_get_keyboard_layout,
+       Sw32_get_keyboard_layout, 0, 0, 0,
+       doc: /* Return current Windows keyboard language and layout.
+The return value is the cons of the language id and the layout id.  */)
      ()
 {
   DWORD kl = (DWORD) GetKeyboardLayout (dwWindowsThreadId);
@@ -2083,19 +2177,20 @@ The return value is the cons of the language id and the layout id.")
 		make_number ((kl >> 16) & 0xffff));
 }
 
-  
-DEFUN ("w32-set-keyboard-layout", Fw32_set_keyboard_layout, Sw32_set_keyboard_layout, 1, 1, 0,
-  "Make LAYOUT be the current keyboard layout for Emacs.\n\
-The keyboard layout setting affects interpretation of keyboard input.\n\
-If successful, the new layout id is returned, otherwise nil.")
+
+DEFUN ("w32-set-keyboard-layout", Fw32_set_keyboard_layout,
+       Sw32_set_keyboard_layout, 1, 1, 0,
+       doc: /* Make LAYOUT be the current keyboard layout for Emacs.
+The keyboard layout setting affects interpretation of keyboard input.
+If successful, the new layout id is returned, otherwise nil.  */)
      (layout)
      Lisp_Object layout;
 {
   DWORD kl;
 
-  CHECK_CONS (layout, 0);
-  CHECK_NUMBER (XCAR (layout), 0);
-  CHECK_NUMBER (XCDR (layout), 0);
+  CHECK_CONS (layout);
+  CHECK_NUMBER_CAR (layout);
+  CHECK_NUMBER_CDR (layout);
 
   kl = (XINT (XCAR (layout)) & 0xffff)
     | (XINT (XCDR (layout)) << 16);
@@ -2124,6 +2219,8 @@ syms_of_ntproc ()
 {
   Qhigh = intern ("high");
   Qlow = intern ("low");
+  staticpro (&Qhigh);
+  staticpro (&Qlow);
 
 #ifdef HAVE_SOCKETS
   defsubr (&Sw32_has_winsock);
@@ -2150,75 +2247,80 @@ syms_of_ntproc ()
   defsubr (&Sw32_set_keyboard_layout);
 
   DEFVAR_LISP ("w32-quote-process-args", &Vw32_quote_process_args,
-    "Non-nil enables quoting of process arguments to ensure correct parsing.\n\
-Because Windows does not directly pass argv arrays to child processes,\n\
-programs have to reconstruct the argv array by parsing the command\n\
-line string.  For an argument to contain a space, it must be enclosed\n\
-in double quotes or it will be parsed as multiple arguments.\n\
-\n\
-If the value is a character, that character will be used to escape any\n\
-quote characters that appear, otherwise a suitable escape character\n\
-will be chosen based on the type of the program.");
+	       doc: /* Non-nil enables quoting of process arguments to ensure correct parsing.
+Because Windows does not directly pass argv arrays to child processes,
+programs have to reconstruct the argv array by parsing the command
+line string.  For an argument to contain a space, it must be enclosed
+in double quotes or it will be parsed as multiple arguments.
+
+If the value is a character, that character will be used to escape any
+quote characters that appear, otherwise a suitable escape character
+will be chosen based on the type of the program.  */);
   Vw32_quote_process_args = Qt;
 
   DEFVAR_LISP ("w32-start-process-show-window",
 	       &Vw32_start_process_show_window,
-    "When nil, new child processes hide their windows.\n\
-When non-nil, they show their window in the method of their choice.\n\
-This variable doesn't affect GUI applications, which will never be hidden.");
+	       doc: /* When nil, new child processes hide their windows.
+When non-nil, they show their window in the method of their choice.
+This variable doesn't affect GUI applications, which will never be hidden.  */);
   Vw32_start_process_show_window = Qnil;
 
   DEFVAR_LISP ("w32-start-process-share-console",
 	       &Vw32_start_process_share_console,
-    "When nil, new child processes are given a new console.\n\
-When non-nil, they share the Emacs console; this has the limitation of\n\
-allowing only only DOS subprocess to run at a time (whether started directly\n\
-or indirectly by Emacs), and preventing Emacs from cleanly terminating the\n\
-subprocess group, but may allow Emacs to interrupt a subprocess that doesn't\n\
-otherwise respond to interrupts from Emacs.");
+	       doc: /* When nil, new child processes are given a new console.
+When non-nil, they share the Emacs console; this has the limitation of
+allowing only one DOS subprocess to run at a time (whether started directly
+or indirectly by Emacs), and preventing Emacs from cleanly terminating the
+subprocess group, but may allow Emacs to interrupt a subprocess that doesn't
+otherwise respond to interrupts from Emacs.  */);
   Vw32_start_process_share_console = Qnil;
 
   DEFVAR_LISP ("w32-start-process-inherit-error-mode",
 	       &Vw32_start_process_inherit_error_mode,
-    "When nil, new child processes revert to the default error mode.\n\
-When non-nil, they inherit their error mode setting from Emacs, which stops\n\
-them blocking when trying to access unmounted drives etc.");
+	       doc: /* When nil, new child processes revert to the default error mode.
+When non-nil, they inherit their error mode setting from Emacs, which stops
+them blocking when trying to access unmounted drives etc.  */);
   Vw32_start_process_inherit_error_mode = Qt;
 
-  DEFVAR_INT ("w32-pipe-read-delay", &Vw32_pipe_read_delay,
-    "Forced delay before reading subprocess output.\n\
-This is done to improve the buffering of subprocess output, by\n\
-avoiding the inefficiency of frequently reading small amounts of data.\n\
-\n\
-If positive, the value is the number of milliseconds to sleep before\n\
-reading the subprocess output.  If negative, the magnitude is the number\n\
-of time slices to wait (effectively boosting the priority of the child\n\
-process temporarily).  A value of zero disables waiting entirely.");
-  Vw32_pipe_read_delay = 50;
+  DEFVAR_INT ("w32-pipe-read-delay", &w32_pipe_read_delay,
+	      doc: /* Forced delay before reading subprocess output.
+This is done to improve the buffering of subprocess output, by
+avoiding the inefficiency of frequently reading small amounts of data.
+
+If positive, the value is the number of milliseconds to sleep before
+reading the subprocess output.  If negative, the magnitude is the number
+of time slices to wait (effectively boosting the priority of the child
+process temporarily).  A value of zero disables waiting entirely.  */);
+  w32_pipe_read_delay = 50;
 
   DEFVAR_LISP ("w32-downcase-file-names", &Vw32_downcase_file_names,
-    "Non-nil means convert all-upper case file names to lower case.\n\
-This applies when performing completions and file name expansion.\n\
-Note that the value of this setting also affects remote file names,\n\
-so you probably don't want to set to non-nil if you use case-sensitive\n\
-filesystems via ange-ftp."); 
+	       doc: /* Non-nil means convert all-upper case file names to lower case.
+This applies when performing completions and file name expansion.
+Note that the value of this setting also affects remote file names,
+so you probably don't want to set to non-nil if you use case-sensitive
+filesystems via ange-ftp.  */);
   Vw32_downcase_file_names = Qnil;
 
 #if 0
   DEFVAR_LISP ("w32-generate-fake-inodes", &Vw32_generate_fake_inodes,
-    "Non-nil means attempt to fake realistic inode values.\n\
-This works by hashing the truename of files, and should detect \n\
-aliasing between long and short (8.3 DOS) names, but can have\n\
-false positives because of hash collisions.  Note that determing\n\
-the truename of a file can be slow.");
+	       doc: /* Non-nil means attempt to fake realistic inode values.
+This works by hashing the truename of files, and should detect
+aliasing between long and short (8.3 DOS) names, but can have
+false positives because of hash collisions.  Note that determing
+the truename of a file can be slow.  */);
   Vw32_generate_fake_inodes = Qnil;
 #endif
 
   DEFVAR_LISP ("w32-get-true-file-attributes", &Vw32_get_true_file_attributes,
-    "Non-nil means determine accurate link count in file-attributes.\n\
-This option slows down file-attributes noticeably, so is disabled by\n\
-default.  Note that it is only useful for files on NTFS volumes,\n\
-where hard links are supported.");
-  Vw32_get_true_file_attributes = Qnil;
+	       doc: /* Non-nil means determine accurate link count in `file-attributes'.
+Note that this option is only useful for files on NTFS volumes, where hard links
+are supported.  Moreover, it slows down `file-attributes' noticeably.  */);
+  Vw32_get_true_file_attributes = Qt;
+
+  staticpro (&Vw32_valid_locale_ids);
+  staticpro (&Vw32_valid_codepages);
 }
 /* end of ntproc.c */
+
+/* arch-tag: 23d3a34c-06d2-48a1-833b-ac7609aa5250
+   (do not change this comment) */

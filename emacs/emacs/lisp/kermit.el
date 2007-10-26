@@ -1,6 +1,7 @@
 ;;; kermit.el --- additions to shell mode for use with kermit
 
-;; Copyright (C) 1988 Free Software Foundation, Inc.
+;; Copyright (C) 1988, 2001, 2002, 2003, 2004, 2005,
+;;   2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Jeff Norden <jeff@colgate.csnet>
 ;; Maintainer: FSF
@@ -21,8 +22,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -54,7 +55,7 @@
 ;; ^C^Q^C to send an interrupt, and ^C^Q^Z for a stop signal, etc.  (since ^C^C
 ;; just generates a local stop signal, which kermit ignores).
 ;; To connect to a VMS system, I use a shell script to invoke kermit thru the
-;; tr filter, do "M-X kermit-send-cr", and then tell VMS that I'm on a 
+;; tr filter, do "M-X kermit-send-cr", and then tell VMS that I'm on a
 ;; half-duplex terminal.
 
 ;; Some caveats:
@@ -84,14 +85,14 @@
 (defun kermit-esc ()
   "For sending escape sequences to a kermit running in shell mode."
   (interactive)
-  (process-send-string 
+  (process-send-string
    (get-buffer-process (current-buffer))
    (concat kermit-esc-char (char-to-string (read-char)))))
 
 (defun kermit-send-char ()
   "Send an arbitrary character to a program in shell mode."
   (interactive)
-  (process-send-string 
+  (process-send-string
    (get-buffer-process (current-buffer))
    (char-to-string (read-char))))
 
@@ -149,4 +150,5 @@ command `kermit | tr -d '\\015''."
 
 (provide 'kermit)
 
+;;; arch-tag: 6633215d-6c47-4e66-9f27-16fba02a8dce
 ;;; kermit.el ends here

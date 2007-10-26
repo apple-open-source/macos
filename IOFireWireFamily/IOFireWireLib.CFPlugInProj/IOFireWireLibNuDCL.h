@@ -6,8 +6,17 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  *	$Log: IOFireWireLibNuDCL.h,v $
- *	Revision 1.6.24.1  2006/04/19 17:48:20  ayanowit
- *	Merged in changes for Leopard
+ *	Revision 1.9  2007/03/14 01:01:14  collin
+ *	*** empty log message ***
+ *	
+ *	Revision 1.8  2007/01/26 20:52:32  ayanowit
+ *	changes to user-space isoch stuff to support 64-bit apps.
+ *	
+ *	Revision 1.7  2006/02/09 00:21:55  niels
+ *	merge chardonnay branch to tot
+ *	
+ *	Revision 1.6.20.1  2006/01/17 00:35:00  niels
+ *	<rdar://problem/4399365> FireWire NuDCL APIs need Rosetta support
  *	
  *	Revision 1.6  2003/08/25 08:39:17  niels
  *	*** empty log message ***
@@ -109,16 +118,36 @@ namespace IOFireWireLib {
 			inline NuDCLSharedData( Type type ) ;
 	} ;
 
+	typedef struct NuDCLExportDataStruct
+	{
+		UInt32 type;
+		uint64_t branchIndex;
+		mach_vm_address_t callback;
+		uint64_t timeStampOffset;
+		UInt32 rangeCount;
+		IOAddressRange ranges[6];
+		uint64_t updateCount;
+		uint64_t statusOffset;
+		mach_vm_address_t refcon;
+		UInt32 flags;
+	} __attribute__ ((packed)) NuDCLExportData;
+	
 	class ReceiveNuDCLSharedData
 	{
 		public :
 		
 			UInt8		headerBytes ;
-			bool		wait ;
+			UInt8		wait ;
 			
 			inline ReceiveNuDCLSharedData() : headerBytes( 0 ), wait( false ) {}
 	} ;
 
+	typedef struct ReceiveNuDCLExportDataStruct
+	{
+		UInt8		headerBytes ;
+		UInt8		wait ;
+	} __attribute__ ((packed)) ReceiveNuDCLExportData;
+	
 	class SendNuDCLSharedData
 	{
 		public :
@@ -157,6 +186,17 @@ namespace IOFireWireLib {
 			}
 	} ;
 
+	typedef struct SendNuDCLExportDataStruct
+	{
+		uint64_t userHeaderOffset;
+		uint64_t userHeaderMaskOffset;
+		uint64_t skipBranchIndex;
+		mach_vm_address_t skipCallback;
+		mach_vm_address_t skipRefcon ;
+		UInt8 syncBits ;
+		UInt8 tagBits ;
+	} __attribute__ ((packed)) SendNuDCLExportData;
+	
 #ifndef KERNEL	
 	class CoalesceTree ;
 	class NuDCLPool ;
@@ -172,7 +212,7 @@ namespace IOFireWireLib {
 			
 		public:
 		
-			NuDCL( NuDCLPool & pool, UInt32 numRanges, IOVirtualRange ranges[], NuDCLSharedData :: Type type ) ;
+			NuDCL( NuDCLPool & pool, UInt32 numRanges, IOVirtualRange ranges[], NuDCLSharedData::Type type ) ;
 			virtual ~NuDCL() ;
 		
 		public:
@@ -231,7 +271,7 @@ namespace IOFireWireLib {
 			IOReturn				SetWaitControl ( bool wait ) ;
 
 			virtual void		 	Print ( FILE* file ) const ;
-//			virtual IOByteCount		GetExportSize ( void ) const								{ return NuDCL :: GetExportSize() + sizeof ( fReceiveData ) ; }
+//			virtual IOByteCount		GetExportSize ( void ) const								{ return NuDCL::GetExportSize() + sizeof ( fReceiveData ) ; }
 			virtual IOByteCount		Export ( 
 													IOVirtualAddress * 		where,
 													IOVirtualRange			bufferRanges[],
@@ -279,7 +319,7 @@ namespace IOFireWireLib {
 	{
 		public:
 		
-			SkipCycleNuDCL( NuDCLPool & pool ): NuDCL( pool, 0, nil, NuDCLSharedData :: kSkipCycleType ) {}
+			SkipCycleNuDCL( NuDCLPool & pool ): NuDCL( pool, 0, nil, NuDCLSharedData::kSkipCycleType ) {}
 	
 		public:
 		
@@ -293,7 +333,7 @@ namespace IOFireWireLib {
 	} ;
 #endif
 
-	NuDCLSharedData :: NuDCLSharedData( Type type )
+	NuDCLSharedData::NuDCLSharedData( Type type )
 	: type( type )
 	, callback( NULL )
 	, rangeCount( 0 )

@@ -109,8 +109,17 @@ main(int argc, char *argv[])
 	real_uid = getuid();
 	seteuid(real_uid); 
 
-	/* Start disks transferring immediately. */
-	sync();
+	/*
+	 * We used to call sync(2) here, but this should be unneccessary
+	 * given that a sync occurs at a more proper level (VFS_SYNC()
+	 * in dounmount() in the non-forced unmount case).
+	 *
+	 * We add the sync() back in for the -f case below to cover the
+	 * situation where the filesystem was mounted RW and force
+	 * unmounted when it really didn't have to be.
+	 *
+	 * See 5328558 for some context.
+	 */
 
 	all = 0;
 	while ((ch = getopt(argc, argv, "AaFfh:t:v")) != EOF)
@@ -125,6 +134,7 @@ main(int argc, char *argv[])
 			fake = 1;
 			break;
 		case 'f':
+			sync();	/* see 5328558 for context */
 			fflag = MNT_FORCE;
 			break;
 		case 'h':	/* -h implies -A. */
@@ -249,6 +259,7 @@ umountfs(char *name, char **typelist)
 	CLIENT *clp;
 	int so, isftpfs;
 	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN], *expname, *tname;
+	char *pname = name; /* save the name parameter */
 
 	if (fflag & MNT_FORCE) {
 		/*
@@ -276,6 +287,10 @@ umountfs(char *name, char **typelist)
 	 * Note: in the face of path resolution errors (realpath/stat),
 	 * we just try using the name passed in as is.
 	 */
+	/* even if path resolution succeeds, but can't find mountpoint
+	 * with the resolved path, we still want to try using the name
+	 * as passed in.
+	 */
 
 	if (realpath(name, rname) == NULL) {
 		if (vflag)
@@ -284,33 +299,60 @@ umountfs(char *name, char **typelist)
 		name = rname;
 	}
 
+	/* we could just try MNTON and MNTFROM on name and again (if
+	 * name is not the passed in param) MNTON and MNTFROM on
+	 * pname.
+	 *
+	 * but we stat(name) here to avoid umounting the wrong thing
+	 * if the mount table has an entry with the MNTFROM that is
+	 * the same as the MNTON in another entry.
+	*/
+
 	if (stat(name, &sb) < 0) {
 		if (vflag)
 			warn("stat(%s)", name);
 		/* maybe name is a non-device "mount from" name? */
-		if ((mntpt = getmntname(name, MNTON, &type)) == NULL) {
-			/* or name is a directory we simply can't reach? */
+		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+			goto got_mount_point;
+		} else {
 			mntpt = name;
-			if ((name = getmntname(mntpt, MNTFROM, &type)) == NULL) {
-				warnx("%s: not currently mounted", mntpt);
-				return (1);
+			/* or name is a directory we simply can't reach? */
+			if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
+				goto got_mount_point;
 			}
 		}
 	} else if (S_ISBLK(sb.st_mode)) {
-		if ((mntpt = getmntname(name, MNTON, &type)) == NULL) {
-			warnx("%s: not currently mounted", name);
-			return (1);
+		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+			goto got_mount_point;
 		}
 	} else if (S_ISDIR(sb.st_mode)) {
 		mntpt = name;
-		if ((name = getmntname(mntpt, MNTFROM, &type)) == NULL) {
-			warnx("%s: not currently mounted", mntpt);
-			return (1);
+		if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
+			goto got_mount_point;
 		}
 	} else {
 		warnx("%s: not a directory or special device", name);
-		return (1);
 	}
+
+	/* haven't found mountpoint.
+	 * 
+	 * if we were not using the name as passed in, then try using it.
+	 */
+	if ((NULL == name) || (strcmp(name, pname) != 0)) {
+		name = pname;
+
+		if (NULL != (mntpt = getmntname(name, MNTON, &type))) {
+			goto got_mount_point;
+		} else {
+			mntpt = name;
+			if (NULL != (name = getmntname(mntpt, MNTFROM, &type))) {
+				goto got_mount_point;
+			}
+		}
+	}
+
+	warnx("%s: not currently mounted", pname);
+	return (1);
 
 got_mount_point:
 
@@ -396,7 +438,8 @@ got_mount_point:
 		try.tv_sec = 20;
 		try.tv_usec = 0;
 		clnt_stat = clnt_call(clp,
-		    RPCMNT_UMOUNT, xdr_dir, expname, xdr_void, (caddr_t)0, try);
+		    RPCMNT_UMOUNT, (xdrproc_t)xdr_dir, expname,
+		    (xdrproc_t)xdr_void, (caddr_t)0, try);
 		if (clnt_stat != RPC_SUCCESS) {
 			clnt_perror(clp, "Bad MNT RPC");
 			/* unmount succeeded above, so don't actually return error */

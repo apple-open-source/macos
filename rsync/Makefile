@@ -40,6 +40,7 @@ ifeq ($(AEP),YES)
 	for patchfile in $(AEP_Patches); do \
 		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
+	cd $(SRCROOT)/$(Project) && patch -p0 < patches/mkfifo.diff
 endif
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions

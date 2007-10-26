@@ -88,10 +88,10 @@
 #define kMyProductID		8193
 
 typedef struct MyPrivateData {
-    io_object_t			notification;
-    IOUSBDeviceInterface *	*deviceInterface;
-    CFStringRef			deviceName;
-    UInt32			locationID;
+    io_object_t					notification;
+    IOUSBDeviceInterface245 *	*deviceInterface;
+    CFStringRef					deviceName;
+    UInt32						locationID;
 } MyPrivateData;
 
 //================================================================================================
@@ -210,7 +210,7 @@ void DeviceAdded(void *refCon, io_iterator_t iterator)
 
         // I have the device plugin, I need the device interface
         //
-        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&privateDataRef->deviceInterface);
+        res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID245), (LPVOID)&privateDataRef->deviceInterface);
         IODestroyPlugInInterface(plugInInterface);			// done with this
 		
         if (res || !privateDataRef->deviceInterface)

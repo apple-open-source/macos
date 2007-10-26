@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004,2007 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,7 +67,7 @@ Token::Token()
 
 Token::~Token()
 {
-	secdebug("token", "%p (%s:%ld) destroyed",
+	secdebug("token", "%p (%s:%d) destroyed",
 		this, mGuid.toString().c_str(), mSubservice);
 }
 
@@ -129,6 +129,27 @@ RefPointer<Token> Token::find(uint32 ssid)
 
 
 //
+// We override getAcl to provide PIN state feedback
+//
+void Token::getAcl(const char *tag, uint32 &count, AclEntryInfo *&acls)
+{
+	if (pinFromAclTag(tag, "?")) {	// read from tokend - do not cache
+		AclEntryInfo *racls;
+		token().tokend().getAcl(aclKind(), tokenHandle(), tag, count, racls);
+		// make a chunk-copy because that's the contract we have with the caller
+		acls = Allocator::standard().alloc<AclEntryInfo>(count * sizeof(AclEntryInfo));
+		memcpy(acls, racls, count * sizeof(AclEntryInfo));
+		ChunkCopyWalker copy;
+		for (uint32 n = 0; n < count; n++)
+			walk(copy, acls[n]);
+		return;
+	}
+
+	TokenAcl::cssmGetAcl(tag, count, acls);
+}
+
+
+//
 // Reset management.
 // A Token has a "reset level", a number that is incremented whenever a token
 // (hardware) reset is reported (as an error) by tokend. TokenAcls have their
@@ -154,8 +175,8 @@ void Token::resetAcls()
 		// Make a copy to avoid deadlock with TokenDbCommon lock
 		tmpCommons = mCommons;
 	}
-	for (CommonSet::const_iterator it = tmpCommons.begin(); it != tmpCommons.end(); it++)
-		RefPointer<TokenDbCommon>(*it)->resetAcls();
+	for (CommonSet::const_iterator it = tmpCommons.begin(); it != tmpCommons.end();)
+		RefPointer<TokenDbCommon>(*it++)->resetAcls();
 }
 
 void Token::addCommon(TokenDbCommon &dbc)
@@ -205,12 +226,12 @@ void Token::insert(::Reader &slot)
 
 		// locate or establish cache directories
 		if (tokend->hasTokenUid()) {
-			secdebug("token", "%p CHOOSING %s (score=%ld, uid=\"%s\")",
+			secdebug("token", "%p CHOOSING %s (score=%d, uid=\"%s\")",
 				this, tokend->bundlePath().c_str(), tokend->score(), tokend->tokenUid().c_str());
 			mCache = new TokenCache::Token(reader().cache,
 				tokend->bundleIdentifier() + ":" + tokend->tokenUid());
 		} else {
-			secdebug("token", "%p CHOOSING %s (score=%ld, temporary)",
+			secdebug("token", "%p CHOOSING %s (score=%d, temporary)",
 				this, tokend->bundlePath().c_str(), tokend->score());
 			mCache = new TokenCache::Token(reader().cache);
 		}
@@ -237,7 +258,7 @@ void Token::insert(::Reader &slot)
 			mPrintName = printName;
 		if (mPrintName.empty()) {
 			// last resort - new card and tokend didn't give us one
-			snprintf(printName, sizeof(printName), "smart card #%ld", mSubservice);
+			snprintf(printName, sizeof(printName), "smart card #%d", mSubservice);
 			mPrintName = printName;
 		}
 		if (mCache->type() != TokenCache::Token::existing)
@@ -276,7 +297,7 @@ void Token::insert(::Reader &slot)
 			slot.name().c_str(), mPrintName.c_str(),
 			mTokend->hasTokenUid() ? mTokend->tokenUid().c_str() : "NO UID",
 			mSubservice, mTokend->bundleIdentifier().c_str());
-		secdebug("token", "%p inserted as %s:%ld", this, mGuid.toString().c_str(), mSubservice);
+		secdebug("token", "%p inserted as %s:%d", this, mGuid.toString().c_str(), mSubservice);
 	} catch (const CommonError &err) {
 		Syslog::notice("token in reader %s cannot be used (error %ld)", slot.name().c_str(), err.osStatus());
 		secdebug("token", "exception during insertion processing");
@@ -345,7 +366,7 @@ void Token::fault(bool async)
 		notify(kNotificationCDSAFailure);
 		
 		// cast off our TokenDaemon for good
-		mTokend = NULL;
+//>>>		mTokend = NULL;
 	}
 	
 	// if this is a synchronous fault, abort this operation now
@@ -395,8 +416,8 @@ void Token::kill()
 void Token::notify(NotificationEvent event)
 {
     NameValueDictionary nvd;
-	CssmSubserviceUid ssuid(mGuid, NULL, mSubservice,
-		CSSM_SERVICE_DL | CSSM_SERVICE_CSP);
+	CssmSubserviceUid ssuid(mGuid, NULL, h2n (mSubservice),
+		h2n(CSSM_SERVICE_DL | CSSM_SERVICE_CSP));
 	nvd.Insert(new NameValuePair(SSUID_KEY, CssmData::wrap(ssuid)));
     CssmData data;
     nvd.Export(data);
@@ -420,12 +441,12 @@ void Token::notify(NotificationEvent event)
 RefPointer<TokenDaemon> Token::chooseTokend()
 {
 	//@@@ CodeRepository should learn to update from disk changes to be re-usable
-	CodeRepository<GenericBundle> candidates("Security/tokend", ".tokend", "TOKENDAEMONPATH", false);
+	CodeRepository<Bundle> candidates("Security/tokend", ".tokend", "TOKENDAEMONPATH", false);
 	candidates.update();
 	//@@@ we could sort by reverse "maxScore" and avoid launching those who won't cut it anyway...
 	
 	RefPointer<TokenDaemon> leader;
-	for (CodeRepository<GenericBundle>::const_iterator it = candidates.begin();
+	for (CodeRepository<Bundle>::const_iterator it = candidates.begin();
 			it != candidates.end(); it++) {
 		try {
 			// any pre-launch screening of candidate *it goes here
@@ -473,7 +494,7 @@ Token::Access::~Access()
 void Token::dumpNode()
 {
 	PerGlobal::dumpNode();
-	Debug::dump(" %s[%ld] tokend=%p",
+	Debug::dump(" %s[%d] tokend=%p",
 		mGuid.toString().c_str(), mSubservice, mTokend.get());
 }
 

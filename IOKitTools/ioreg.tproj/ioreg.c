@@ -1,60 +1,98 @@
-// =============================================================================
-// Copyright (c) 2000 Apple Computer, Inc.  All rights reserved. 
-//
-// ioreg.c
-//
+/*
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #include <CoreFoundation/CoreFoundation.h>            // (CFDictionary, ...)
 #include <IOKit/IOCFSerialize.h>                      // (IOCFSerialize, ...)
 #include <IOKit/IOKitLib.h>                           // (IOMasterPort, ...)
-#include <IOKit/IOKitLibPrivate.h>                    // (IOMasterPort, ...)
+#include <IOKit/IOKitLibPrivate.h>                    // (IOServiceGetState, ...)
 #include <sys/ioctl.h>                                // (TIOCGWINSZ, ...)
 #include <term.h>                                     // (tputs, ...)
 #include <unistd.h>                                   // (getopt, ...)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static void assertion(int condition, char * message); // (support routine)
-static void boldinit();                               // (support routine)
-static void boldon();                                 // (support routine)
-static void boldoff();                                // (support routine)
-static void print(const char * format, ...);          // (support routine)
-static void println(const char * format, ...);        // (support routine)
-
-static void CFArrayShow(CFArrayRef object);           // (support routine)
-static void CFBooleanShow(CFBooleanRef object);       // (support routine)
-static void CFDataShow(CFDataRef object);             // (support routine)
-static void CFDictionaryShow(CFDictionaryRef object); // (support routine)
-static void CFNumberShow(CFNumberRef object);         // (support routine)
-static void CFObjectShow(CFTypeRef object);           // (support routine)
-static void CFSetShow(CFSetRef object);               // (support routine)
-static void CFStringShow(CFStringRef object);         // (support routine)
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-const UInt32 kIORegFlagShowBold       = (1 << 0);     // (-b option)
-const UInt32 kIORegFlagShowProperties = (1 << 1);     // (-l option)
-const UInt32 kIORegFlagShowState      = (1 << 2);     // (-s option)
-
 struct options
 {
+    UInt32 bold:1;                                    // (-b option)
+    UInt32 format:1;                                  // (-f option)
+    UInt32 hex:1;                                     // (-x option)
+    UInt32 inheritance:1;                             // (-i option)
+    UInt32 list:1;                                    // (-l option)
+    UInt32 root:1;                                    // (-r option)
+    UInt32 state:1;                                   // (-s option)
+    UInt32 tree:1;                                    // (-t option)
+
     char * class;                                     // (-c option)
-    UInt32 flags;                                     // (see above)
+    UInt32 depth;                                     // (-d option)
+    char * key;                                       // (-k option)
     char * name;                                      // (-n option)
     char * plane;                                     // (-p option)
     UInt32 width;                                     // (-w option)
-    Boolean hex;                                      // (-x option)
 };
 
 struct context
 {
-    UInt32 depth;
-    UInt64 stackOfBits;
+    io_registry_entry_t service;
+    UInt32              serviceDepth;
+    UInt64              stackOfBits;
+    struct options      options;
 };
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static void printinit(struct options opt);            // (support routine)
+static void assertion(int condition, char * message);
+static void boldinit();
+static void boldon();
+static void boldoff();
+static void printinit(int width);
+static void print(const char * format, ...);
+static void println(const char * format, ...);
+
+static void cfshowinit(Boolean hex);
+static void cfshow(CFTypeRef object);
+static void cfarrayshow(CFArrayRef object);
+static void cfbooleanshow(CFBooleanRef object);
+static void cfdatashow(CFDataRef object);
+static void cfdictionaryshow(CFDictionaryRef object);
+static void cfnumbershow(CFNumberRef object);
+static void cfsetshow(CFSetRef object);
+static void cfstringshow(CFStringRef object);
+
+static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef name);
+
+static void printProp(CFStringRef key, CFTypeRef value, struct context * context);
+static void printPhysAddr(CFTypeRef value, struct context * context);
+static void printSlotNames(CFTypeRef value, struct context * context);
+static void printPCIRanges(CFTypeRef value, struct context * context);
+static void printInterruptMap(CFTypeRef value, struct context * context);
+static void printInterrupts(CFTypeRef value, struct context * context);
+static void printInterruptParent( CFTypeRef value, struct context * context );
+static void printData(CFTypeRef value, struct context * context);
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static Boolean compare( io_registry_entry_t service,
+                        struct options      options );
 
 static void indent( Boolean isNode,
                     UInt32  serviceDepth,
@@ -63,15 +101,20 @@ static void indent( Boolean isNode,
 static void scan( io_registry_entry_t service,
                   Boolean             serviceHasMoreSiblings,
                   UInt32              serviceDepth,
-                  UInt64              stackOfBits,      // (see indent routine)
+                  UInt64              stackOfBits,
                   struct options      options );
+
+static void search( io_registry_entry_t service,
+                    UInt32              serviceDepth,
+                    io_registry_entry_t stackOfObjects[],
+                    struct options      options );
 
 static void show( io_registry_entry_t service,
                   UInt32              serviceDepth,
                   UInt64              stackOfBits,
                   struct options      options );
 
-static void showItem( const void * key,
+static void showitem( const void * key,
                       const void * value,
                       void *       parameter );
 
@@ -81,20 +124,30 @@ static void usage();
 
 int main(int argc, char ** argv)
 {
-    int                 argument  = 0;
+    int                 argument = 0;
     struct options      options;
-    io_registry_entry_t service   = 0; // (needs release)
-    kern_return_t       status    = KERN_SUCCESS;
+    io_registry_entry_t service  = 0; // (needs release)
+    io_registry_entry_t stackOfObjects[64];
     struct winsize      winsize;
 
     // Initialize our minimal state.
 
+    options.bold        = FALSE;
+    options.format      = FALSE;
+    options.hex         = FALSE;
+    options.inheritance = FALSE;
+    options.list        = FALSE;
+    options.root        = FALSE;
+    options.state       = TRUE;
+    options.tree        = FALSE;
+
     options.class = 0;
-    options.flags = 0;
+    options.depth = UINT32_MAX;
+    options.key   = 0;
     options.name  = 0;
     options.plane = kIOServicePlane;
+    options.root  = 0;
     options.width = 0;
-    options.hex   = 0;
 
     // Obtain the screen width.
 
@@ -104,20 +157,33 @@ int main(int argc, char ** argv)
         options.width = winsize.ws_col;
 
     // Obtain the command-line arguments.
-    options.flags |= kIORegFlagShowState;
 
-    while ( (argument = getopt(argc, argv, ":bc:ln:p:sSw:x")) != -1 )
+    while ( (argument = getopt(argc, argv, ":bc:d:fik:ln:p:rsStw:x")) != -1 )
     {
         switch (argument)
         {
             case 'b':
-                options.flags |= kIORegFlagShowBold;
+                options.bold = TRUE;
                 break;
             case 'c':
                 options.class = optarg;
                 break;
+            case 'd':
+                options.depth = atoi(optarg);
+                assertion(options.depth >= 0, "invalid depth");
+                if (options.depth == 0)  options.depth = UINT32_MAX; 
+                break;
+            case 'f':
+                options.format = TRUE;
+                break;
+            case 'i':
+                options.inheritance = TRUE;
+                break;
+            case 'k':
+                options.key = optarg;
+                break;
             case 'l':
-                options.flags |= kIORegFlagShowProperties;
+                options.list = TRUE;
                 break;
             case 'n':
                 options.name = optarg;
@@ -125,19 +191,25 @@ int main(int argc, char ** argv)
             case 'p':
                 options.plane = optarg;
                 break;
+            case 'r':
+                options.root = TRUE;
+                break;
             case 's':
-                options.flags |= kIORegFlagShowState;
+                options.state = TRUE;
                 break;
             case 'S':
-                options.flags &= ~kIORegFlagShowState;
+                options.state = FALSE;
+                break;
+            case 't':
+                options.tree = TRUE;
                 break;
             case 'w':
                 options.width = atoi(optarg);
                 assertion(options.width >= 0, "invalid width");
                 break;
-	    case 'x':
-		options.hex = TRUE;
-		break;
+            case 'x':
+                options.hex = TRUE;
+                break;
             default:
                 usage();
                 break;
@@ -146,9 +218,11 @@ int main(int argc, char ** argv)
 
     // Initialize text output functions.
 
-    printinit(options);
+    cfshowinit(options.hex);
 
-    if (options.flags & kIORegFlagShowBold)  boldinit();
+    printinit(options.width);
+
+    if (options.bold)  boldinit();
 
     // Obtain the I/O Kit root service.
 
@@ -157,11 +231,21 @@ int main(int argc, char ** argv)
 
     // Traverse over all the I/O Kit services.
 
-    scan( /* service                */ service,
-          /* serviceHasMoreSiblings */ FALSE,
-          /* serviceDepth           */ 0,
-          /* stackOfBits            */ 0,
-          /* options                */ options );
+    if (options.root)
+    {
+        search( /* service        */ service,
+                /* serviceDepth   */ 0,
+                /* stackOfObjects */ stackOfObjects,
+                /* options        */ options );
+    }
+    else
+    {
+        scan( /* service                */ service,
+              /* serviceHasMoreSiblings */ FALSE,
+              /* serviceDepth           */ 0,
+              /* stackOfBits            */ 0,
+              /* options                */ options );
+    }
 
     // Release resources.
 
@@ -170,6 +254,161 @@ int main(int argc, char ** argv)
     // Quit.
 
     exit(0);	
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static Boolean compare( io_registry_entry_t service,
+                        struct options      options )
+{
+    CFStringRef   key      = 0; // (needs release)
+    io_name_t     location;     // (don't release)
+    Boolean       match    = FALSE;
+    io_name_t     name;         // (don't release)
+    kern_return_t status   = KERN_SUCCESS;
+    CFTypeRef     value    = 0; // (needs release)
+
+    // Determine whether the class of the service is a match.
+
+    if (options.class)
+    {
+        if (IOObjectConformsTo(service, options.class) == FALSE)
+        {
+            return FALSE;
+        }
+
+        match = TRUE;
+    }
+
+    // Determine whether the key of the service is a match.
+
+    if (options.key)
+    {
+        key = CFStringCreateWithCString( kCFAllocatorDefault,
+                                         options.key,
+                                         kCFStringEncodingUTF8 );
+        assertion(key != NULL, "can't create key");
+
+        value = IORegistryEntryCreateCFProperty( service,
+                                                 key,
+                                                 kCFAllocatorDefault,
+                                                 kNilOptions );
+
+        CFRelease(key);
+
+        if (value == NULL)
+        {
+            return FALSE;
+        }
+
+        CFRelease(value);
+
+        match = TRUE;
+    }
+
+    // Determine whether the name of the service is a match.
+
+    if (options.name)
+    {
+        // Obtain the name of the service.
+
+        status = IORegistryEntryGetNameInPlane(service, options.plane, name);
+        assertion(status == KERN_SUCCESS, "can't obtain name");
+
+        if (strchr(options.name, '@'))
+        {
+            strcat(name, "@");
+
+            // Obtain the location of the service.
+
+            status = IORegistryEntryGetLocationInPlane(service, options.plane, location);
+            if (status == KERN_SUCCESS)  strcat(name, location);
+        }
+
+        if (strcmp(options.name, name))
+        {
+            return FALSE;
+        }
+
+        match = TRUE;
+    }
+
+    return match;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void search( io_registry_entry_t service,
+                    UInt32              serviceDepth,
+                    io_registry_entry_t stackOfObjects[],
+                    struct options      options )
+{
+    io_registry_entry_t child       = 0; // (needs release)
+    io_registry_entry_t childUpNext = 0; // (don't release)
+    io_iterator_t       children    = 0; // (needs release)
+    UInt32              index       = 0;
+    kern_return_t       status      = KERN_SUCCESS;
+
+    // Determine whether the service is a match.
+
+    if (compare(service, options))
+    {
+        if (options.tree)
+        {
+            for (index = 0; index < serviceDepth; index++)
+            {
+                show(stackOfObjects[index], index, (2 << index), options);
+            }
+
+            options.depth += serviceDepth;
+
+            scan( /* service                */ service,
+                  /* serviceHasMoreSiblings */ FALSE,
+                  /* serviceDepth           */ serviceDepth,
+                  /* stackOfBits            */ 0,
+                  /* options                */ options );
+
+            options.depth -= serviceDepth;
+        }
+        else
+        {
+            scan( /* service                */ service,
+                  /* serviceHasMoreSiblings */ FALSE,
+                  /* serviceDepth           */ 0,
+                  /* stackOfBits            */ 0,
+                  /* options                */ options );
+        }
+
+        println("");
+    }
+    else
+    {
+        stackOfObjects[serviceDepth] = service;
+
+        // Obtain the service's children.
+
+        status = IORegistryEntryGetChildIterator(service, options.plane, &children);
+        assertion(status == KERN_SUCCESS, "can't obtain children");
+
+        childUpNext = IOIteratorNext(children);
+
+        // Traverse over the children of this service.
+
+        while (childUpNext)
+        {
+            child       = childUpNext;
+            childUpNext = IOIteratorNext(children);
+
+            search( /* service        */ child,
+                    /* serviceDepth   */ serviceDepth + 1,
+                    /* stackOfObjects */ stackOfObjects,
+                    /* options        */ options );
+
+            IOObjectRelease(child); child = 0;
+        }
+
+        IOObjectRelease(children); children = 0;
+    }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -201,10 +440,13 @@ static void scan( io_registry_entry_t service,
 
     // Save has-children state into stackOfBits for this depth.
 
-    if (childUpNext)
-        stackOfBits |=  (2 << serviceDepth);
-    else
-        stackOfBits &= ~(2 << serviceDepth);
+    if (options.depth > serviceDepth + 1)
+    {
+        if (childUpNext)
+            stackOfBits |=  (2 << serviceDepth);
+        else
+            stackOfBits &= ~(2 << serviceDepth);
+    }
 
     // Print out the relevant service information.
 
@@ -212,18 +454,21 @@ static void scan( io_registry_entry_t service,
 
     // Traverse over the children of this service.
 
-    while (childUpNext)
+    if (options.depth > serviceDepth + 1)
     {
-        child       = childUpNext;
-        childUpNext = IOIteratorNext(children);
+        while (childUpNext)
+        {
+            child       = childUpNext;
+            childUpNext = IOIteratorNext(children);
 
-        scan( /* service                */ child,
-              /* serviceHasMoreSiblings */ (childUpNext) ? TRUE : FALSE,
-              /* serviceDepth           */ serviceDepth + 1,
-              /* stackOfBits            */ stackOfBits,
-              /* options                */ options );
+            scan( /* service                */ child,
+                  /* serviceHasMoreSiblings */ (childUpNext) ? TRUE : FALSE,
+                  /* serviceDepth           */ serviceDepth + 1,
+                  /* stackOfBits            */ stackOfBits,
+                  /* options                */ options );
 
-        IOObjectRelease(child); child = 0;
+            IOObjectRelease(child); child = 0;
+        }
     }
 
     IOObjectRelease(children); children = 0;
@@ -236,14 +481,14 @@ static void show( io_registry_entry_t service,
                   UInt64              stackOfBits,
                   struct options      options )
 {
-    io_name_t       class;          // (don't release)
-    struct context  context    = { serviceDepth, stackOfBits };
-    int             integer    = 0; // (don't release)
-    uint64_t	    state;
-    io_name_t       location;       // (don't release)
-    io_name_t       name;           // (don't release)
-    CFDictionaryRef properties = 0; // (needs release)
-    kern_return_t   status     = KERN_SUCCESS;
+    io_name_t              class;          // (don't release)
+    struct context         context    = { service, serviceDepth, stackOfBits, options };
+    uint32_t               integer    = 0;
+    UInt64                 state      = 0;
+    io_name_t              location;       // (don't release)
+    io_name_t              name;           // (don't release)
+    CFMutableDictionaryRef properties = 0; // (needs release)
+    kern_return_t          status     = KERN_SUCCESS;
 
     // Print out the name of the service.
 
@@ -252,11 +497,11 @@ static void show( io_registry_entry_t service,
 
     indent(TRUE, serviceDepth, stackOfBits);
 
-    if (options.flags & kIORegFlagShowBold)  boldon();
+    if (options.bold)  boldon();
 
     print("%s", name);
 
-    if (options.flags & kIORegFlagShowBold)  boldoff();
+    if (options.bold)  boldoff();
 
     // Print out the location of the service.
 
@@ -265,14 +510,37 @@ static void show( io_registry_entry_t service,
 
     // Print out the class of the service.
 
-    status = IOObjectGetClass(service, class);
-    assertion(status == KERN_SUCCESS, "can't obtain class name");
+    print("  <class ");
 
-    print("  <class %s", class);
+    if (options.inheritance)
+    {
+        CFStringRef classCFStr;
+        CFStringRef ancestryCFStr;
+        char *      aCStr;
+
+        classCFStr = IOObjectCopyClass (service);
+        ancestryCFStr = createInheritanceStringForIORegistryClassName (classCFStr);
+
+        aCStr = (char *) CFStringGetCStringPtr (ancestryCFStr, kCFStringEncodingMacRoman);
+        if (NULL != aCStr)
+        {
+            print(aCStr);
+        }
+			
+        CFRelease (classCFStr);
+        CFRelease (ancestryCFStr);
+    }
+    else
+    {
+        status = IOObjectGetClass(service, class);
+        assertion(status == KERN_SUCCESS, "can't obtain class name");
+
+        print("%s", class);
+    }
 
     // Prepare to print out the service's useful debug information.
 
-    if (options.flags & kIORegFlagShowState)
+    if (options.state)
     {
         // Print out the busy state of the service (for IOService objects).
 
@@ -281,10 +549,10 @@ static void show( io_registry_entry_t service,
             status = IOServiceGetState(service, &state);
             assertion(status == KERN_SUCCESS, "can't obtain state");
 
-            print(", %sregistered, %smatched, %sactive",
-		    state & kIOServiceMatchedState    ? "" : "!",
-		    state & kIOServiceRegisteredState ? "" : "!",
-		    state & kIOServiceInactiveState   ? "in" : "" );
+            print( ", %sregistered, %smatched, %sactive",
+                   state & kIOServiceRegisteredState ? "" : "!",
+                   state & kIOServiceMatchedState    ? "" : "!",
+                   state & kIOServiceInactiveState   ? "in" : "" );
 
             status = IOServiceGetBusyState(service, &integer);
             assertion(status == KERN_SUCCESS, "can't obtain busy state");
@@ -297,36 +565,30 @@ static void show( io_registry_entry_t service,
         integer = IOObjectGetRetainCount(service);
         assertion(integer >= 0, "can't obtain retain count");
 
-        print(", retain count %d", integer);
+        print(", retain %d", integer);
     }
 
     println(">");
 
     // Prepare to print out the service's properties.
 
-    if (options.class && IOObjectConformsTo(service, options.class))
-        options.flags |= kIORegFlagShowProperties;
-
-    if (options.name && !strcmp(name, options.name))
-        options.flags |= kIORegFlagShowProperties;
-
-    if (options.flags & kIORegFlagShowProperties)
+    if (options.list || compare(service, options))
     {
         indent(FALSE, serviceDepth, stackOfBits);
         println("{");
 
         // Obtain the service's properties.
 
-        status = IORegistryEntryCreateCFProperties(service,
-                                                   &properties,
-                                                   kCFAllocatorDefault,
-                                                   kNilOptions);
+        status = IORegistryEntryCreateCFProperties( service,
+                                                    &properties,
+                                                    kCFAllocatorDefault,
+                                                    kNilOptions );
         assertion(status == KERN_SUCCESS, "can't obtain properties");
         assertion(CFGetTypeID(properties) == CFDictionaryGetTypeID(), NULL);
 
         // Print out the service's properties.
 
-        CFDictionaryApplyFunction(properties, showItem, &context);
+        CFDictionaryApplyFunction(properties, showitem, &context);
 
         indent(FALSE, serviceDepth, stackOfBits);
         println("}");
@@ -341,23 +603,31 @@ static void show( io_registry_entry_t service,
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static void showItem(const void * key, const void * value, void * parameter)
+static void showitem(const void * key, const void * value, void * parameter)
 {
     struct context * context = parameter; // (don't release)
 
     // Print out one of the service's properties.
 
-    indent(FALSE, context->depth, context->stackOfBits);
+    indent(FALSE, context->serviceDepth, context->stackOfBits);
     print("  ");
-    CFStringShow(key);
+    cfshow(key);
     print(" = ");
-    CFObjectShow(value);
-    println("");
+
+    if (context->options.format)
+    {
+        printProp(key, value, context);
+    }
+    else
+    {
+        cfshow(value);
+        println("");
+    }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static void indent(Boolean isNode, UInt32 depth, UInt64 stackOfBits)
+static void indent(Boolean isNode, UInt32 serviceDepth, UInt64 stackOfBits)
 {
     // stackOfBits representation, given current zero-based depth is n:
     //   bit n+1             = does depth n have children?       1=yes, 0=no
@@ -367,14 +637,14 @@ static void indent(Boolean isNode, UInt32 depth, UInt64 stackOfBits)
 
     if (isNode)
     {
-        for (index = 0; index < depth; index++)
+        for (index = 0; index < serviceDepth; index++)
             print( (stackOfBits & (1 << index)) ? "| " : "  " );
 
         print("+-o ");
     }
     else // if (!isNode)
     {
-        for (index = 0; index <= depth + 1; index++)
+        for (index = 0; index <= serviceDepth + 1; index++)
             print( (stackOfBits & (1 << index)) ? "| " : "  " );
     }
 }
@@ -384,16 +654,23 @@ static void indent(Boolean isNode, UInt32 depth, UInt64 stackOfBits)
 void usage()
 {
     fprintf( stderr,
-     "usage: ioreg [-b] [-c class | -l | -n name] [-p plane] [-s] [-w width] [-x]\n"
+     "usage: ioreg [-bfilrsStx] [-c class] [-d depth] [-k key] [-n name] [-p plane] [-w width]\n"
      "where options are:\n"
      "\t-b show object name in bold\n"
      "\t-c list properties of objects with the given class\n"
+     "\t-d limit tree to the given depth\n"
+     "\t-f enable smart formatting\n"
+     "\t-i show object inheritance\n"
+     "\t-k list properties of objects with the given key\n"
      "\t-l list properties of all objects\n"
      "\t-n list properties of objects with the given name\n"
      "\t-p traverse registry over the given plane (IOService is default)\n"
+     "\t-r show subtrees rooted by the given criteria\n"
      "\t-s show object state (eg. busy state, retain count)\n"
+     "\t-S don't show object state (eg. busy state, retain count)\n"
+     "\t-t show location of each substree\n"
      "\t-w clip output to the given line width (0 is unlimited)\n"
-     "\t-x print numeric property values in hexadecimal\n"
+     "\t-x show data and numbers as hexadecimal\n"
      );
     exit(1);
 }
@@ -458,19 +735,17 @@ static char * printbuf     = 0;
 static int    printbufclip = FALSE;
 static int    printbufleft = 0;
 static int    printbufsize = 0;
-static Boolean printhex = FALSE;
 
-static void printinit(struct options opt)
+static void printinit(int width)
 {
-    if (opt.width)
+    if (width)
     {
-        printbuf     = malloc(opt.width);
-        printbufleft = opt.width;
-        printbufsize = opt.width;
+        printbuf     = malloc(width);
+        printbufleft = width;
+        printbufsize = width;
 
         assertion(printbuf != NULL, "can't allocate buffer");
     }
-    printhex = opt.hex;
 }
 
 static void printva(const char * format, va_list arguments)
@@ -523,7 +798,28 @@ static void println(const char * format, ...)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-static void CFArrayShow_Applier(const void * value, void * parameter)
+static Boolean cfshowhex;
+
+static void cfshowinit(Boolean hex)
+{
+    cfshowhex = hex;
+}
+
+static void cfshow(CFTypeRef object)
+{
+    CFTypeID type = CFGetTypeID(object);
+
+    if      ( type == CFArrayGetTypeID()      )  cfarrayshow(object);
+    else if ( type == CFBooleanGetTypeID()    )  cfbooleanshow(object);
+    else if ( type == CFDataGetTypeID()       )  cfdatashow(object);
+    else if ( type == CFDictionaryGetTypeID() )  cfdictionaryshow(object);
+    else if ( type == CFNumberGetTypeID()     )  cfnumbershow(object);
+    else if ( type == CFSetGetTypeID()        )  cfsetshow(object);
+    else if ( type == CFStringGetTypeID()     )  cfstringshow(object);
+    else print("<unknown object>");
+}
+
+static void cfarrayshowapplier(const void * value, void * parameter)
 {
     Boolean * first = (Boolean *) parameter;
 
@@ -532,25 +828,25 @@ static void CFArrayShow_Applier(const void * value, void * parameter)
     else
         print(",");
 
-    CFObjectShow(value);
+    cfshow(value);
 }
 
-static void CFArrayShow(CFArrayRef object)
+static void cfarrayshow(CFArrayRef object)
 {
     Boolean first = TRUE;
     CFRange range = { 0, CFArrayGetCount(object) };
 
     print("(");
-    CFArrayApplyFunction(object, range, CFArrayShow_Applier, &first);
+    CFArrayApplyFunction(object, range, cfarrayshowapplier, &first);
     print(")");
 }
 
-static void CFBooleanShow(CFBooleanRef object)
+static void cfbooleanshow(CFBooleanRef object)
 {
     print(CFBooleanGetValue(object) ? "Yes" : "No");
 }
 
-static void CFDataShow(CFDataRef object)
+static void cfdatashow(CFDataRef object)
 {
     UInt32        asciiNormalCount = 0;
     UInt32        asciiSymbolCount = 0;
@@ -575,7 +871,9 @@ static void CFDataShow(CFDataRef object)
     {
         if (bytes[index] == 0)       // (detected null in place of a new string,
         {                            //  ensure remainder of the string is null)
+#ifdef __ppc__
             for (; index < length && bytes[index] == 0; index++) { }
+#endif
 
             break;          // (either end of data or a non-null byte in stream)
         }
@@ -601,6 +899,8 @@ static void CFDataShow(CFDataRef object)
     if ((asciiNormalCount >> 2) < asciiSymbolCount)    // (is 80% normal ascii?)
         index = 0;
     else if (length == 1)                                 // (is just one byte?)
+        index = 0;
+    else if (cfshowhex)
         index = 0;
 
     if (index >= length && asciiNormalCount) // (is a string or set of strings?)
@@ -643,9 +943,9 @@ static void CFDataShow(CFDataRef object)
     print(">");
 }
 
-static void CFDictionaryShow_Applier( const void * key,
-                                      const void * value,
-                                      void *       parameter )
+static void cfdictionaryshowapplier( const void * key,
+                                     const void * value,
+                                     void *       parameter )
 {
     Boolean * first = (Boolean *) parameter;
 
@@ -654,49 +954,34 @@ static void CFDictionaryShow_Applier( const void * key,
     else
         print(",");
 
-    CFObjectShow(key);
+    cfshow(key);
     print("=");
-    CFObjectShow(value);
+    cfshow(value);
 }
 
-static void CFDictionaryShow(CFDictionaryRef object)
+static void cfdictionaryshow(CFDictionaryRef object)
 {
     Boolean first = TRUE;
 
     print("{");
-    CFDictionaryApplyFunction(object, CFDictionaryShow_Applier, &first);
+    CFDictionaryApplyFunction(object, cfdictionaryshowapplier, &first);
     print("}");
 }
 
-static void CFNumberShow(CFNumberRef object)
+static void cfnumbershow(CFNumberRef object)
 {
     long long number;
 
     if (CFNumberGetValue(object, kCFNumberLongLongType, &number))
     {
-        if (printhex) {
+        if (cfshowhex)
             print("0x%qx", number); 
-        } else {
+        else
             print("%qu", number); 
-        }
     }
 }
 
-static void CFObjectShow(CFTypeRef object)
-{
-    CFTypeID type = CFGetTypeID(object);
-
-    if      ( type == CFArrayGetTypeID()      )  CFArrayShow(object);
-    else if ( type == CFBooleanGetTypeID()    )  CFBooleanShow(object);
-    else if ( type == CFDataGetTypeID()       )  CFDataShow(object);
-    else if ( type == CFDictionaryGetTypeID() )  CFDictionaryShow(object);
-    else if ( type == CFNumberGetTypeID()     )  CFNumberShow(object);
-    else if ( type == CFSetGetTypeID()        )  CFSetShow(object);
-    else if ( type == CFStringGetTypeID()     )  CFStringShow(object);
-    else print("<unknown object>");
-}
-
-static void CFSetShow_Applier(const void * value, void * parameter)
+static void cfsetshowapplier(const void * value, void * parameter)
 {
     Boolean * first = (Boolean *) parameter;
 
@@ -705,18 +990,18 @@ static void CFSetShow_Applier(const void * value, void * parameter)
     else
         print(",");
 
-    CFObjectShow(value);
+    cfshow(value);
 }
 
-static void CFSetShow(CFSetRef object)
+static void cfsetshow(CFSetRef object)
 {
     Boolean first = TRUE;
     print("[");
-    CFSetApplyFunction(object, CFSetShow_Applier, &first);
+    CFSetApplyFunction(object, cfsetshowapplier, &first);
     print("]");
 }
 
-static void CFStringShow(CFStringRef object)
+static void cfstringshow(CFStringRef object)
 {
     const char * c = CFStringGetCStringPtr(object, kCFStringEncodingMacRoman);
 
@@ -739,4 +1024,775 @@ static void CFStringShow(CFStringRef object)
             free(buffer);
         }
     }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef name)
+{
+	CFStringRef				curClassCFStr;
+	CFStringRef				oldClassCFStr;
+	CFMutableStringRef		outCFStr;
+	
+	outCFStr = CFStringCreateMutable (NULL, 512);
+	CFStringInsert (outCFStr, 0, name);
+	
+	curClassCFStr = CFStringCreateCopy (NULL, name);
+	
+	for (;;)
+	{
+		oldClassCFStr = curClassCFStr;
+		curClassCFStr = IOObjectCopySuperclassForClass (curClassCFStr);
+		CFRelease (oldClassCFStr);
+		
+		if (FALSE == CFEqual (curClassCFStr, CFSTR ("OSObject")))
+		{
+			CFStringInsert (outCFStr, 0, CFSTR (":"));
+			CFStringInsert (outCFStr, 0, curClassCFStr);
+		}
+		else
+		{
+			break;
+		}
+	}
+	
+	// Return the CFMutableStringRef as a CFStringRef because it is derived and compatible:
+	return (CFStringRef) outCFStr;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void printProp(CFStringRef key, CFTypeRef value, struct context * context)
+{
+    kern_return_t       status     = KERN_SUCCESS;
+    Boolean             valueShown = FALSE;  // Flag is set when property is printed
+    io_registry_entry_t thisObj;
+    
+    thisObj = context->service;
+    
+	// Match "reg" property for PCI devices. 
+	if (CFStringCompare(key, CFSTR("reg"), 0 ) == 0)
+	{
+		io_registry_entry_t parentObj;  // (needs release)
+		io_name_t parentName;
+		
+		// If the parent entry in the IODeviceTree plane is "pci",
+		// then we've found what we're looking for.
+		
+		status = IORegistryEntryGetParentEntry( thisObj,
+												kIODeviceTreePlane,
+												&parentObj );
+		if (status == KERN_SUCCESS)
+		{
+            status = IORegistryEntryGetNameInPlane( parentObj,
+                                                    kIODeviceTreePlane,
+                                                    parentName );
+            assertion(status == KERN_SUCCESS, "could not get name of parent");
+            
+            IOObjectRelease(parentObj);
+            
+            if (strncmp(parentName, "pci", 3) == 0)
+            {
+                printPhysAddr(value, context);
+                valueShown = TRUE;
+            }
+		}
+	}
+	
+	// Match "assigned-addresses" property.
+	else if (CFStringCompare(key, CFSTR("assigned-addresses"), 0) == 0)
+	{
+		printPhysAddr(value, context);
+		valueShown = TRUE;
+	}
+	
+	// Match "slot-names" property.
+	else if (CFStringCompare(key, CFSTR("slot-names"), 0) == 0)
+	{
+		printSlotNames(value, context);
+		valueShown = TRUE;
+	}
+
+	// Match "ranges" property.
+	else if (CFStringCompare(key, CFSTR("ranges"), 0) == 0)
+	{            
+		printPCIRanges(value, context);
+		valueShown = TRUE;
+	}
+	
+	// Match "interrupt-map" property.
+	else if (CFStringCompare(key, CFSTR("interrupt-map"), 0) == 0)
+	{
+		printInterruptMap(value, context);
+		valueShown = TRUE;
+	}
+
+	// Match "interrupts" property.
+	else if ( CFStringCompare( key, CFSTR("interrupts"), 0) == 0 )
+	{
+		printInterrupts( value, context );
+		valueShown = TRUE;
+	}
+
+	// Match "interrupt-parent" property.
+	else if ( CFStringCompare( key, CFSTR("interrupt-parent"), 0) == 0 )
+	{
+		printInterruptParent( value, context );
+		valueShown = TRUE;
+	}
+
+    // Print the value if it doesn't have a formatter.
+    if (valueShown == FALSE)
+    {
+        if (CFGetTypeID(value) == CFDataGetTypeID())
+        {
+            printData(value, context);
+        }
+        else
+        {
+            cfshow(value);
+            println("");
+        }
+    }
+}
+
+/* The following data structures, masks and shift values are used to decode
+ * physical address properties as defined by IEEE 1275-1994.  The format is
+ * used in 'reg' and 'assigned-address' properties.
+ *
+ * The format of the physHi word is as follows:
+ *
+ * npt000ss bbbbbbbb dddddfff rrrrrrrr
+ *
+ * n         1 = Relocatable, 0 = Absolute               (1 bit)
+ * p         1 = Prefetchable                            (1 bit)
+ * t         1 = Alias                                   (1 bit)
+ * ss        Space code (Config, I/O, Mem, 64-bit Mem)   (2 bits)
+ * bbbbbbbb  Bus number                                  (8 bits)
+ * ddddd     Device number                               (5 bits)
+ * fff       Function number                             (3 bits)
+ * rrrrrrrr  Register number                             (8 bits)
+ */
+ 
+struct physAddrProperty {
+    UInt32  physHi;
+    UInt32  physMid;
+    UInt32  physLo;
+    UInt32  sizeHi;
+    UInt32  sizeLo;
+};
+
+#define kPhysAbsoluteMask   0x80000000
+#define kPhysPrefetchMask   0x40000000
+#define kPhysAliasMask      0x20000000
+#define kPhysSpaceMask      0x03000000
+#define kPhysSpaceShift     24
+#define kPhysBusMask        0x00FF0000
+#define kPhysBusShift       16
+#define kPhysDeviceMask     0x0000F800
+#define kPhysDeviceShift    11
+#define kPhysFunctionMask   0x00000700
+#define kPhysFunctionShift  8
+#define kPhysRegisterMask   0x000000FF
+#define kPhysRegisterShift  0
+
+static SInt32
+getRecursivePropValue( io_registry_entry_t thisRegEntry, CFStringRef propertyNameToLookFor )
+{
+	SInt32		returnValue;
+	CFTypeRef	ptr;
+
+    ptr = IORegistryEntrySearchCFProperty(thisRegEntry,
+                                          kIODeviceTreePlane,
+                                          propertyNameToLookFor,
+                                          kCFAllocatorDefault,
+                                          kIORegistryIterateParents | kIORegistryIterateRecursively);
+    assertion( ptr != NULL, "unable to get properties" );
+
+	returnValue = *(SInt32 *)CFDataGetBytePtr( (CFDataRef) ptr );
+
+	CFRelease( ptr );
+	return( returnValue );
+}
+
+static void printPhysAddr(CFTypeRef value, struct context * context)
+{
+    CFIndex length;                      // stores total byte count in this prop.
+    struct physAddrProperty *physAddr;   // points to current physAddr property
+    UInt32 numPhysAddr,                  // how many physAddr's to decode?
+           count,                        // loop counter variable
+           tmpCell;                      // temp storage for a single word
+           
+    UInt32 busNumber,                    // temp storage for decoded values
+           deviceNumber,
+           functionNumber,
+           registerNumber;
+    const char *addressType,
+               *isPrefetch,
+               *isAlias,
+               *isAbsolute;
+
+    // Ensure that the object passed in is in fact a CFData object.
+
+    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
+
+    // Make sure there is actually data in the object.
+    length = CFDataGetLength((CFDataRef)value);
+    
+    if (length == 0)
+    {
+        println("<>");
+        return;
+    }
+
+    numPhysAddr = length / sizeof(struct physAddrProperty);
+    physAddr = (struct physAddrProperty *)CFDataGetBytePtr((CFDataRef)value);
+
+    println("");
+
+    for (count = 0; count < numPhysAddr; count++)
+    {
+        tmpCell = physAddr[count].physHi;  // copy physHi word to a temp var
+
+        // Decode the fields in the physHi word.
+
+        busNumber      = (tmpCell & kPhysBusMask) >> kPhysBusShift;
+        deviceNumber   = (tmpCell & kPhysDeviceMask) >> kPhysDeviceShift; 
+        functionNumber = (tmpCell & kPhysFunctionMask) >> kPhysFunctionShift;
+        registerNumber = (tmpCell & kPhysRegisterMask) >> kPhysRegisterShift;
+        isAbsolute     = ((tmpCell & kPhysAbsoluteMask) != 0) ? "abs" : "rel";
+        isPrefetch     = ((tmpCell & kPhysPrefetchMask) != 0) ? ", prefetch" : "";
+        isAlias        = ((tmpCell & kPhysAliasMask) != 0) ? ", alias" : "";
+        switch ((tmpCell & kPhysSpaceMask) >> kPhysSpaceShift)
+        {
+            case 0:  addressType = "Config"; break;
+            case 1:  addressType = "I/O";    break;
+            case 2:  addressType = "Mem";    break;
+            case 3:  addressType = "64-bit"; break;
+            default: addressType = "?";      break;
+        }
+        
+        // Format and print the information for this entry.
+        
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        println("    %02u: phys.hi: %08lx phys.mid: %08lx phys.lo: %08lx",
+                count,
+                physAddr[count].physHi,
+                physAddr[count].physMid,
+                physAddr[count].physLo );
+
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        println("        size.hi: %08lx size.lo: %08lx",
+                physAddr[count].sizeHi,
+                physAddr[count].sizeLo );
+
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        println("        bus: %u dev: %u func: %u reg: %u",
+                busNumber,
+                deviceNumber,
+                functionNumber,
+                registerNumber );
+
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        println("        type: %s flags: %s%s%s",
+                addressType,
+                isAbsolute,
+                isPrefetch,
+                isAlias );
+    }
+}
+
+static void printSlotNames(CFTypeRef value, struct context * context)
+{
+    CFIndex length;
+    char * bytePtr;
+    UInt32 count;
+    UInt32 * avail_slots;
+    
+    // Ensure that the object passed in is in fact a CFData object.
+
+    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid phys addr");
+
+    // Make sure there is actually data in the object.
+    
+    length = CFDataGetLength((CFDataRef)value);
+    
+    if (length == 0)
+    {
+        println("<>");
+        return;
+    }
+
+    avail_slots = (UInt32 *)CFDataGetBytePtr((CFDataRef)value);
+    bytePtr = (char *)avail_slots + sizeof(UInt32);
+
+    // Ignore entries that have no named slots.
+    
+    if (*avail_slots == 0)
+    {
+        println("<>");
+        return;
+    }
+
+    println("");
+
+    // Cycle through all 32 bit positions and print slot names.
+
+    for (count = 0; count < 32; count++)
+    {
+        if ((*avail_slots & (1 << count)) != 0)
+        {
+            indent(FALSE, context->serviceDepth, context->stackOfBits);
+            println("    %02u: %s", count, bytePtr);
+            bytePtr += strlen(bytePtr) + 1;  // advance to next string
+        }
+    }
+}
+
+static void printPCIRanges(CFTypeRef value, struct context * context)
+{
+    kern_return_t		   status = KERN_SUCCESS;
+    CFIndex 			   length;
+    UInt32                 *quadletPtr;
+    SInt32				   parentACells, childACells, childSCells, elemSize;
+    io_registry_entry_t    parentObj;   // must be released
+    int                    i,j,nRanges;
+    int					   counts[3];
+    const char			   *titles[] = {"-child--", "-parent-", "-size---"};
+    
+    // Ensure that the object passed in is in fact a CFData object.
+    assertion(CFGetTypeID(value) == CFDataGetTypeID(), "invalid ranges");
+
+    // Make sure there is actually data in the object.
+    length = CFDataGetLength((CFDataRef)value);
+    
+    if (length == 0)
+    {
+        println("<>");
+        return;
+    }
+
+    quadletPtr = (UInt32 *)CFDataGetBytePtr((CFDataRef)value);
+
+    // Get #address-cells of device-tree parent
+    status = IORegistryEntryGetParentEntry( context->service, kIODeviceTreePlane, &parentObj );
+    assertion(status == KERN_SUCCESS, "unable to get device tree parent");
+
+	parentACells = getRecursivePropValue( parentObj, CFSTR( "#address-cells" ) );
+
+    IOObjectRelease( parentObj );
+
+    // Get #address-cells and #size-cells for owner
+	childACells = getRecursivePropValue( context->service, CFSTR( "#address-cells" ) );
+	childSCells = getRecursivePropValue( context->service, CFSTR( "#size-cells"    ) );
+    
+    // ranges property is a list of [[child addr][parent addr][size]]
+    elemSize = childACells + parentACells + childSCells;
+
+    // print a title line
+    println("");
+    indent(FALSE, context->serviceDepth, context->stackOfBits);
+    print("    ");
+
+    // set up array of cell counts (only used to print title)
+    counts[0] = childACells;
+    counts[1] = parentACells;
+    counts[2] = childSCells;
+    
+    for (j = 0; j < 3; j++)
+    {
+        print("%s", titles[j]);  // titles is init'ed at start of func.
+        if (counts[j] > 1)
+        {
+            print("-");
+            for( i = 2; i <= counts[j]; i++)
+            {
+                if(i == counts[j])
+                    print("-------- ");
+                else
+                    print("---------");
+            }
+        }
+        else
+            print(" ");
+    }
+    println("");
+
+    nRanges = length/(elemSize * sizeof(UInt32));
+
+    for(j = 0; j < nRanges; j++)
+    {
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        print("    ");
+        for(i = 0; i < elemSize; i++) print("%08x ", *quadletPtr++);
+        println("");
+    }
+}
+
+// constructs a path string for a node in the device tree
+static void makepath(io_registry_entry_t target, io_string_t path)
+{
+    kern_return_t status = KERN_SUCCESS;
+    
+    status = IORegistryEntryGetPath(target, kIODeviceTreePlane, path);
+    assertion(status == KERN_SUCCESS, "unable to get path");
+
+    strcpy(path, strchr(path, ':') + 1);
+}
+
+static Boolean lookupPHandle(UInt32 phandle, io_registry_entry_t * device)
+{
+    CFDictionaryRef props;
+    Boolean         ret = FALSE;  // pre-set to failure
+    CFStringRef     key = CFSTR(kIOPropertyMatchKey);
+    CFDictionaryRef value;
+    CFStringRef     phandleKey = CFSTR("AAPL,phandle");
+    CFDataRef		data;
+
+    data = CFDataCreate(NULL, (void *)&phandle, sizeof(UInt32));
+
+    props = CFDictionaryCreate( NULL,
+                                (void *)&phandleKey,
+                                (void *)&data,
+                                1,	
+                                &kCFCopyStringDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks );
+
+    value = CFDictionaryCreate( NULL,
+                                (void *)&key,
+                                (void *)&props,
+                                1,	
+                                &kCFCopyStringDictionaryKeyCallBacks,
+                                &kCFTypeDictionaryValueCallBacks );
+
+    *device = IOServiceGetMatchingService(kIOMasterPortDefault, value);
+
+    if (*device)
+        ret = TRUE;
+
+    CFRelease(props);
+    CFRelease(data);
+
+    return(ret);
+}
+
+static void printInterruptMap(CFTypeRef value, struct context * context)
+{
+    io_registry_entry_t		intParent;
+    io_string_t				path;
+    SInt32					childCells, parentCells;
+    UInt32					*position, *end;
+    int						length, count, index;
+    
+    // Get #address-cells and #interrupt-cells for owner
+	childCells = getRecursivePropValue( context->service, CFSTR("#address-cells"   ) )
+			   + getRecursivePropValue( context->service, CFSTR("#interrupt-cells" ) );
+
+    // Walk through each table entry.
+    position = (UInt32 *)CFDataGetBytePtr((CFDataRef)value);
+    length = CFDataGetLength((CFDataRef)value)/sizeof(UInt32);
+    end = position + length;
+    count = 0;
+
+    println("");
+
+    while (position < end)
+    {
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        print("    %02d: ", count);
+        
+        // Display the child's unit interrupt specifier.
+        print("  child: ");
+        for (index = 0; index < childCells; index++) print("%08x ", *position++);
+        println("");
+
+        // Lookup the phandle and retreive needed info.
+        assertion( lookupPHandle(*position, &intParent), "error looking up phandle" );
+
+		parentCells = getRecursivePropValue( intParent, CFSTR( "#address-cells"   ) )
+					+ getRecursivePropValue( intParent, CFSTR( "#interrupt-cells" ) );
+
+        *path = '\0';
+        makepath(intParent, path);
+
+        IOObjectRelease(intParent);
+        
+        // Display the phandle, corresponding device path, and
+        // the parent interrupt specifier.
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        println("        phandle: %08x (%s)", *position++, path);
+        
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        print("         parent: ");
+        for (index = 0; index < parentCells; index++) print("%08x ", *position++);
+        println("");
+
+        count++;
+    }
+}
+
+static void printInterrupts(CFTypeRef value, struct context * context)
+{
+    UInt32					*position, *end;
+    int						length, count, index;
+
+    // Walk through each table entry.
+    position = (UInt32 *)CFDataGetBytePtr((CFDataRef)value);
+    length   = CFDataGetLength((CFDataRef)value) / sizeof(UInt32);
+    end      = position + length;
+    count    = 0;
+	index    = 0;
+
+    println("");
+
+    while (position < end)
+    {
+        indent(FALSE, context->serviceDepth, context->stackOfBits);
+        print("    %02d: ", index);
+        
+		if ( count < (length-1) )
+		{
+			print("specifier: %08x (vector: %02lx) sense: %08x (", *position, (*position) & 0x000000FF, *(position+1) );
+			position ++;
+			count    ++;
+			if ( (*position & 0x00000002 ) )	// HyperTransport
+			{
+				print( "HyperTransport vector: %04lx, ", (*position >> 16) & 0x0000FFFF );
+			}
+
+			println( "%s)", (*position & 1)? "level" : "edge" );
+		}
+		else
+		{
+			println("parent interrupt-map entry: %08x", *position );
+		}
+
+		position ++;
+        count ++;
+		index ++;
+    }
+}
+
+static void printInterruptParent( CFTypeRef value, struct context * context )
+{
+io_registry_entry_t		parentRegEntry;
+io_string_t				path;
+UInt32					* pHandleValue = (UInt32 *) CFDataGetBytePtr( (CFDataRef) value );
+
+	if ( lookupPHandle( *pHandleValue, &parentRegEntry ) )
+	{
+        *path = '\0';
+		makepath( parentRegEntry, path );
+
+		print( "<%08x>", *pHandleValue );
+		if ( *path != '\0' )
+			print( " (%s)", path );
+		println( "" );
+
+		IOObjectRelease( parentRegEntry );
+	}
+}
+
+static char ToAscii(UInt32 nibble)
+{
+    nibble &= 0x0F;
+
+    if (nibble >= 0 && nibble <= 9)
+        return((char)nibble + '0');
+    else
+        return((char)nibble - 10 + 'A');
+}
+
+static void printData(CFTypeRef value, struct context * context)
+{
+    UInt32        asciiNormalCount = 0;
+    UInt32        asciiSymbolCount = 0;
+    const UInt8 * bytes;
+    CFIndex       index;
+    CFIndex       length;
+
+    length = CFDataGetLength(value);
+    bytes  = CFDataGetBytePtr(value);
+
+    //
+    // This algorithm detects ascii strings, or a set of ascii strings, inside a
+    // stream of bytes.  The string, or last string if in a set, needn't be null
+    // terminated.  High-order symbol characters are accepted, unless they occur
+    // too often (80% of characters must be normal).  Zero padding at the end of
+    // the string(s) is valid.  If the data stream is only one byte, it is never
+    // considered to be a string.
+    //
+
+    for (index = 0; index < length; index++)  // (scan for ascii string/strings)
+    {
+        if (bytes[index] == 0)       // (detected null in place of a new string,
+        {                            //  ensure remainder of the string is null)
+            for (; index < length && bytes[index] == 0; index++) { }
+
+            break;          // (either end of data or a non-null byte in stream)
+        }
+        else                         // (scan along this potential ascii string)
+        {
+            for (; index < length; index++)
+            {
+                if (isprint(bytes[index]))
+                    asciiNormalCount++;
+                else if (bytes[index] >= 128 && bytes[index] <= 254)
+                    asciiSymbolCount++;
+                else
+                    break;
+            }
+
+            if (index < length && bytes[index] == 0)          // (end of string)
+                continue;
+            else             // (either end of data or an unprintable character)
+                break;
+        }
+    }
+
+    if ((asciiNormalCount >> 2) < asciiSymbolCount)    // (is 80% normal ascii?)
+        index = 0;
+    else if (length == 1)                                 // (is just one byte?)
+        index = 0;
+    else if (cfshowhex)
+        index = 0;
+
+    if (index >= length && asciiNormalCount) // (is a string or set of strings?)
+    {
+        Boolean quoted = FALSE;
+
+        print("<");
+        
+        for (index = 0; index < length; index++)
+        {
+            if (bytes[index])
+            {
+                if (quoted == FALSE)
+                {
+                    quoted = TRUE;
+                    if (index)
+                        print(",\"");
+                    else
+                        print("\"");
+                }
+                print("%c", bytes[index]);
+            }
+            else
+            {
+                if (quoted == TRUE)
+                {
+                    quoted = FALSE;
+                    print("\"");
+                }
+                else
+                    break;
+            }
+        }
+        if (quoted == TRUE)
+            print("\"");
+            
+        print(">");
+    }
+        
+    else if (length > 8)                        // (is not a string or set of strings)
+    {
+        SInt8  work[ 256 ];
+        SInt8* p;
+        UInt32    i;
+        UInt32 offset;
+        UInt32 totalBytes;
+        UInt32 nBytesToDraw;
+        UInt32 bytesPerLine;
+        UInt8  c;
+
+        totalBytes = length;	// assume length is greater than zero
+
+        // Calculate number of bytes per line to print, use as much screen
+        // as possible.  The numbers used are derived by counting the number
+        // of characters that are always printed (data address offset, white
+        // space, etc ~= 20), indentation from the tree structure (2*depth)
+        // and 4 characters printed per byte (two hex digits, one space, and
+        // one ascii char).
+        
+        bytesPerLine = (context->options.width - 20 - (2*context->serviceDepth))/4;
+        
+        // Make sure we don't overflow the work buffer (256 bytes)
+        bytesPerLine = bytesPerLine > 32 ? 32 : bytesPerLine;
+
+        for ( offset = 0; offset < totalBytes; offset += bytesPerLine )
+        {
+            UInt32 offsetCopy;
+            UInt16 text;
+
+            println("");
+
+            if ( ( offset + bytesPerLine ) <= totalBytes )
+                nBytesToDraw = bytesPerLine;
+            else
+                nBytesToDraw = totalBytes - offset;
+
+            offsetCopy = offset;
+
+            // Convert offset to ASCII.
+            work[ 8 ] = ':';
+            p = &work[ 7 ];
+
+            while ( offsetCopy != 0 )
+            {
+                *p-- = ToAscii( offsetCopy & 0x0F );
+                offsetCopy >>= 4;
+            }
+
+            // Insert leading zeros.
+            while ( p >= work )
+                *p-- = '0';
+
+            // Add kBytesPerLine bytes of data.
+            p = &work[ 9 ];
+            for ( i = 0; i < nBytesToDraw; i++ )
+            {
+                c = bytes[ offset + i ];
+                *p++ = ' ';
+                *p++ = ToAscii( ( c & 0xF0 ) >> 4 );
+                *p++ = ToAscii( c & 0x0F );
+            }
+
+            // Add padding spaces.
+            for ( ; i < bytesPerLine; i++ )
+            {
+                text = ( ( ' ' << 8 ) | ' ' );
+                *( UInt16 * ) p = text;
+                p[ 2 ] = ' ';
+                p += 3;
+            }
+
+            *p++ = ' ';
+
+            // Insert ASCII representation of data.
+            for ( i = 0; i < nBytesToDraw; i++ )
+            {
+                c = bytes[ offset + i ];
+                if ( ( c < ' ' ) || ( c > '~' ) )
+                    c = '.';
+
+                *p++ = c;
+            }
+
+            *p = 0;
+            
+            // Print this line.
+            indent(FALSE, context->serviceDepth, context->stackOfBits);
+            print("    %s", work);
+            
+        } // for
+        
+    } // else if (length > 32)
+    else
+    {
+        print("<");
+        for (index = 0; index < length; index++)  print("%02x", bytes[index]);
+        print(">");
+    }
+
+    println("");
 }

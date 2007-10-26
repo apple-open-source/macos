@@ -44,12 +44,14 @@ static char sccsid[] = "@(#)banner.c	8.4 (Berkeley) 4/29/95";
 #endif
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/banner/banner.c,v 1.15 2002/03/22 01:19:22 imp Exp $");
 
 /*
  * banner - prints large signs
  * banner [-w#] [-d] [-t] message ...
  */
 
+#include <sys/types.h>
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1027,7 +1029,7 @@ char	print[DWIDTH];
 int	debug, i, j, linen, max, nchars, pc, term, trace, x, y;
 int	width = DWIDTH;	/* -w option: scrunch letters to 80 columns */
 
-static void usage __P((void));
+static void usage(void);
 
 int
 main(int argc, char *argv[])

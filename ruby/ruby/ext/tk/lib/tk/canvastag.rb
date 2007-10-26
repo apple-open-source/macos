@@ -13,7 +13,7 @@ require 'tk/canvas'
 
 module TkcTagAccess
   def addtag(tag)
-    @c.addtag(tag, 'with', @id)
+    @c.addtag(tag, 'withtag', @id)
     self
   end
 
@@ -27,7 +27,7 @@ module TkcTagAccess
   #end
   def bind(seq, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -42,7 +42,7 @@ module TkcTagAccess
   #end
   def bind_append(seq, *args)
     # if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -93,6 +93,7 @@ module TkcTagAccess
     @c.dtag(@id, tag_to_del)
     self
   end
+  alias deltag dtag
 
   def find
     @c.find('withtag', @id)
@@ -112,8 +113,8 @@ module TkcTagAccess
     self
   end
 
-  def index(index)
-    @c.index(@id, index)
+  def index(idx)
+    @c.index(@id, idx)
   end
 
   def insert(beforethis, string)
@@ -210,7 +211,7 @@ class TkcTag<TkObject
 
   def initialize(parent, mode=nil, *args)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @c = parent
     @cpath = parent.path
@@ -297,7 +298,7 @@ class TkcTagString<TkcTag
 
   def initialize(parent, name, mode=nil, *args)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @c = parent
     @cpath = parent.path
@@ -314,7 +315,7 @@ TkcNamedTag = TkcTagString
 class TkcTagAll<TkcTag
   def initialize(parent)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @c = parent
     @cpath = parent.path
@@ -327,7 +328,7 @@ end
 class TkcTagCurrent<TkcTag
   def initialize(parent)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @c = parent
     @cpath = parent.path
@@ -342,7 +343,7 @@ class TkcGroup<TkcTag
   #def create_self(parent, *args)
   def initialize(parent, *args)
     #unless parent.kind_of?(TkCanvas)
-    #  fail ArguemntError, "expect TkCanvas for 1st argument"
+    #  fail ArgumentError, "expect TkCanvas for 1st argument"
     #end
     @c = parent
     @cpath = parent.path
@@ -351,20 +352,23 @@ class TkcGroup<TkcTag
     CTagID_TBL[@cpath] = {} unless CTagID_TBL[@cpath]
     CTagID_TBL[@cpath][@id] = self
     Tk_cGroup_ID[1].succ!
-    add(*args) if args != []
+    include(*args) if args != []
   end
   #private :create_self
   
   def include(*tags)
     for i in tags
-      i.addtag(@id)
+      #i.addtag(@id)
+      @c.addtag_withtag(@id, i)
     end
     self
   end
+  alias add include
 
   def exclude(*tags)
     for i in tags
-      i.delete(@id)
+      #i.dtag(@id)
+      @c.dtag(i, @id)
     end
     self
   end

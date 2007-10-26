@@ -4,7 +4,7 @@
 # assumes that gmake has put TOP and RPC_TEST_SRVTAB into the
 # environment. 
 #
-# $Id: rpc_test_setup.sh 12495 2000-06-30 23:57:42Z raeburn $
+# $Id: rpc_test_setup.sh 17357 2005-08-25 22:04:59Z tlyu $
 # $Source$
 
 DUMMY=${TESTDIR=$TOP/testing}

@@ -88,7 +88,7 @@
  */
 #define HASHFACTOR 5
 static struct entry **entry;
-static long entrytblsize;
+static size_t entrytblsize;
 
 static void		 addino __P((ino_t, struct entry *));
 static struct entry	*lookupparent __P((char *));
@@ -557,7 +557,7 @@ initsymtable(filename)
 	char *filename;
 {
 	char *base;
-	long tblsize;
+	size_t tblsize;
 	register struct entry *ep;
 	struct entry *baseep, *lep;
 	struct symtableheader hdr;
@@ -624,6 +624,12 @@ initsymtable(filename)
 	}
 	maxino = hdr.maxino;
 	entrytblsize = hdr.entrytblsize;
+
+	if (entrytblsize > SIZE_T_MAX / sizeof(struct entry *) || 
+		entrytblsize * sizeof(struct entry *) > tblsize ){
+		fprintf(stderr, "Invalid entrytblsize: %d\n", (int)entrytblsize);
+		done(1);
+	}
 	entry = (struct entry **)
 		(base + tblsize - (entrytblsize * sizeof(struct entry *)));
 	baseep = (struct entry *)(base + hdr.stringsize - sizeof(struct entry));

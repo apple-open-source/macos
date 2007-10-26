@@ -1,0 +1,9 @@
+# Plugin definitions
+PLUGIN 			= rhabout
+PLUGIN_OBJS 		= rhabout.$(OBJEXT)
+PLUGIN_IMAGE_BASE 	= 0x65000000
+PLUGIN_INSTALL_SRCDIR	= rhabout.itcl
+# Comment out this to install the example plugin
+PLUGIN_INSTALL_TARGET   = nothing
+
+nothing:

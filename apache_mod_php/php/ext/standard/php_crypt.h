@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -12,13 +12,13 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Bakken <ssb@gaurdian.no>                               |
+   | Authors: Stig Bakken <ssb@php.net>                                   |
    |          Zeev Suraski <zeev@zend.com>                                |
    |          Rasmus Lerdorf <rasmus@php.net>                             |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_crypt.h,v 1.13.8.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_crypt.h,v 1.18.2.1.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #ifndef PHP_CRYPT_H
 #define PHP_CRYPT_H

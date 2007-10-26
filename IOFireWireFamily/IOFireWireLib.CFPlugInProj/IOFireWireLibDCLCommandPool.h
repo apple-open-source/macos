@@ -95,7 +95,7 @@ namespace IOFireWireLib {
 												IOByteCount				inSize,
 												IOByteCount				inPacketSize,
 												UInt32					inBufferOffset) ;
-			DCLCommand*			AllocateCallProcDCL( DCLCommand* inDCL, DCLCallCommandProc* proc, UInt32 procData) ;
+			DCLCommand*			AllocateCallProcDCL( DCLCommand* inDCL, DCLCallCommandProc* proc, DCLCallProcDataType procData) ;
 			DCLCommand*			AllocateLabelDCL( DCLCommand* dcl ) ;
 			DCLCommand*			AllocateJumpDCL( DCLCommand* dcl, DCLLabel* pInJumpDCLLabel ) ;
 			DCLCommand*			AllocateSetTagSyncBitsDCL( DCLCommand* dcl, UInt16 tagBits, UInt16 syncBits ) ;
@@ -200,7 +200,7 @@ namespace IOFireWireLib {
 												IOByteCount						inSize,
 												IOByteCount						inPacketSize,
 												UInt32							inBufferOffset) ;
-			static DCLCommand*		SAllocateCallProcDCL( IOFireWireLibDCLCommandPoolRef self, DCLCommand* dcl,  DCLCallCommandProc* proc, UInt32 procData ) ;
+			static DCLCommand*		SAllocateCallProcDCL( IOFireWireLibDCLCommandPoolRef self, DCLCommand* dcl,  DCLCallCommandProc* proc, DCLCallProcDataType procData ) ;
 			static DCLCommand*		SAllocateLabelDCL( IOFireWireLibDCLCommandPoolRef self, DCLCommand* dcl ) ;
 			static DCLCommand*		SAllocateJumpDCL( IOFireWireLibDCLCommandPoolRef self, DCLCommand* dcl, DCLLabel* jumpDCLLabel) ;
 			static DCLCommand*		SAllocateSetTagSyncBitsDCL(

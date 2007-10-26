@@ -40,6 +40,14 @@
 
 #define NO_PRINT	1
 
+#define HN_DECIMAL 0x01
+#define HN_NOSPACE 0x02
+#define HN_B 0x04
+#define HN_DIVISOR_1000 0x08
+
+#define HN_GETSCALE 0x10
+#define HN_AUTOSCALE 0x20
+
 extern long blocksize;		/* block size units */
 
 extern int f_accesstime;	/* use time of last access */
@@ -58,10 +66,13 @@ extern int f_statustime;	/* use time of last mode change */
 extern int f_notabs;		/* don't use tab-separated multi-col output */
 extern int f_type;		/* add type character for non-regular files */
 extern int f_acl;		/* print ACLs in long format */
+extern int f_xattr;		/* print extended attributes in long format  */
 extern int f_group;		/* list group without owner */
+extern int f_owner;		/* list owner without group */
 #ifdef COLORLS
 extern int f_color;		/* add type in color for non-regular files */
 #endif
+extern int f_numericonly;	/* don't convert uid/gid to name */
 
 typedef struct {
 	FTSENT *list;

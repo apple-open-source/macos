@@ -26,7 +26,6 @@
  * Dispatch an incoming packet.
  */
 
-#define NEED_SOCKETS
 #include "k5-int.h"
 #include <syslog.h>
 #include "kdc_util.h"
@@ -50,7 +49,7 @@ dispatch(krb5_data *pkt, const krb5_fulladdr *from, krb5_data **response)
 
 #ifndef NOCACHE
     /* try the replay lookaside buffer */
-    if (kdc_check_lookaside(pkt, from, response)) {
+    if (kdc_check_lookaside(pkt, response)) {
 	/* a hit! */
 	const char *name = 0;
 	char buf[46];
@@ -95,7 +94,7 @@ dispatch(krb5_data *pkt, const krb5_fulladdr *from, krb5_data **response)
 	     * pointer.
 	     */
 	    if (!(retval = setup_server_realm(as_req->server))) {
-		retval = process_as_req(as_req, from, response);
+		retval = process_as_req(as_req, pkt, from, response);
 	    }
 	    krb5_free_kdc_req(kdc_context, as_req);
 	}
@@ -109,7 +108,7 @@ dispatch(krb5_data *pkt, const krb5_fulladdr *from, krb5_data **response)
 #ifndef NOCACHE
     /* put the response into the lookaside buffer */
     if (!retval)
-	kdc_insert_lookaside(pkt, from, *response);
+	kdc_insert_lookaside(pkt, *response);
 #endif
 
     return retval;

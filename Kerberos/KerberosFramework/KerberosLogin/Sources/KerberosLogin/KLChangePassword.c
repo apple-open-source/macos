@@ -51,127 +51,100 @@ KLStatus KLChangePasswordWithPasswords (KLPrincipal   inPrincipal,
                                         char        **outRejectionDescription)
 {
     KLStatus err = klNoErr;
-
+    krb5_context context = NULL;
+    krb5_creds   creds;
+    KLBoolean    gotV5Creds = false;
+    int          result_code;
+    krb5_data    result_code_string, result_string;
+    
     if (err == klNoErr) {
         if (inPrincipal   == NULL) { err = KLError_ (klBadPrincipalErr); }
         if (inOldPassword == NULL) { err = KLError_ (klBadPasswordErr); }
         if (inNewPassword == NULL) { err = KLError_ (klBadPasswordErr); }
         if (outRejected   == NULL) { err = KLError_ (klParameterErr); }
     }
-
+    
     if (err == klNoErr) {
         if ((strlen (inNewPassword) <= 0) || (strlen (inOldPassword) <= 0)) {
             err = KLError_ (klBadPasswordErr);
         }
     }
 
-    if (__KLPrincipalShouldUseKerberos5ChangePasswordProtocol (inPrincipal)) {
-        krb5_context context = NULL;
-        krb5_creds   creds;
-        KLBoolean    gotV5Creds = false;
-        int          result_code;
-        krb5_data    result_code_string, result_string;
+    if (err == klNoErr) {
+        err = krb5_init_context (&context);
+    }
+    
+    if (err == klNoErr) {
+        err = __KLGetKerberos5ChangePasswordTicketForPrincipal (inPrincipal, inOldPassword, context, &creds);
+        if (err == klNoErr) { gotV5Creds = true; }
+    }
+    
+    if (err == klNoErr) {
+        err = krb5_change_password (context, &creds, (char *)inNewPassword, &result_code, &result_code_string, &result_string);
+        dprintf ("krb5_change_password() returned %d '%s'\n", err, error_message (err));
+    }
+    
+    if (err == klNoErr && result_code) {
+        char *result_code_cstring = NULL;
+        char *result_cstring = NULL;
         
         if (err == klNoErr) {
-            err = krb5_init_context (&context);
-        }
-
-        if (err == klNoErr) {
-            err = __KLGetKerberos5ChangePasswordTicketForPrincipal (inPrincipal, inOldPassword, context, &creds);
-            if (err == klNoErr) { gotV5Creds = true; }
-        }
-        
-        if (err == klNoErr) {
-            err = krb5_change_password (context, &creds, (char *)inNewPassword, &result_code, &result_code_string, &result_string);
-            dprintf ("krb5_change_password() returned %d '%s'\n", err, error_message (err));
-        }
-
-        if (err == klNoErr) {
-            if (result_code) {
-                char *result_code_cstring = NULL;
-                char *result_cstring = NULL;
-
-                if (err == klNoErr) {
-                    if ((result_code_string.data != NULL) && (result_code_string.length > 0)) {
-                        err = __KLCreateStringFromBuffer (result_code_string.data, result_code_string.length,
-                                                          &result_code_cstring);
-                    } else {
-                        err = __KLGetLocalizedString ("KLStringChangePasswordFailed", &result_code_cstring);
-                    }
-                }
-                
-                if (err == klNoErr) {
-                    if ((result_string.data != NULL) && (result_string.length > 0)) {
-                        err = __KLCreateStringFromBuffer (result_string.data, result_string.length,
-                                                          &result_cstring);
-                    } else {
-                        err = __KLGetLocalizedString ("KLStringPasswordRejected", &result_cstring);
-                    }
-                }
-
-                if (err == klNoErr) {
-                    char *c;
-                    
-                    // replace all \n and \r characters with spaces
-                    for (c = result_code_cstring; *c != '\0'; c++) {
-                        if ((*c == '\n') || (*c == '\r')) { *c = ' '; }
-                    }
-                    
-                    for (c = result_cstring; *c != '\0'; c++) {
-                        if ((*c == '\n') || (*c == '\r')) { *c = ' '; }
-                    }
-                }
-
-                if (err == klNoErr) {
-                    *outRejected = true;
-
-                    if (outRejectionError != NULL) {
-                        *outRejectionError = result_code_cstring;
-                        result_code_cstring = NULL;
-                    }
-                        
-                    if (outRejectionDescription != NULL) {
-                        *outRejectionDescription = result_cstring;
-                        result_cstring = NULL;
-                    }
-                }
-
-                if (result_code_cstring != NULL) { KLDisposeString (result_code_cstring); }
-                if (result_cstring      != NULL) { KLDisposeString (result_cstring); }
-
-                krb5_free_data_contents (context, &result_code_string);
-                krb5_free_data_contents (context, &result_string);
+            if ((result_code_string.data != NULL) && (result_code_string.length > 0)) {
+                err = __KLCreateStringFromBuffer (result_code_string.data, result_code_string.length,
+                                                  &result_code_cstring);
             } else {
-                *outRejected = false;
+                err = __KLGetLocalizedString ("KLStringChangePasswordFailed", &result_code_cstring);
             }
         }
         
-        if (gotV5Creds     ) { krb5_free_cred_contents (context, &creds); }
-        if (context != NULL) { krb5_free_context (context); }
-        
-    } else if (__KLPrincipalShouldUseKerberos4ChangePasswordProtocol (inPrincipal)) {
-        char *name = NULL;
-        char *instance = NULL;
-        char *realm = NULL;
+        if (err == klNoErr) {
+            if ((result_string.data != NULL) && (result_string.length > 0)) {
+                err = __KLCreateStringFromBuffer (result_string.data, result_string.length,
+                                                  &result_cstring);
+            } else {
+                err = __KLGetLocalizedString ("KLStringPasswordRejected", &result_cstring);
+            }
+        }
         
         if (err == klNoErr) {
-            err = __KLGetTripletFromPrincipal (inPrincipal, kerberosVersion_V4, &name, &instance, &realm);
+            char *c;
+            
+            // replace all \n and \r characters with spaces
+            for (c = result_code_cstring; *c != '\0'; c++) {
+                if ((*c == '\n') || (*c == '\r')) { *c = ' '; }
+            }
+            
+            for (c = result_cstring; *c != '\0'; c++) {
+                if ((*c == '\n') || (*c == '\r')) { *c = ' '; }
+            }
         }
-
-        if (err == klNoErr) {
-            err = krb_change_password (name, instance, realm, (char *)inOldPassword, (char *)inNewPassword);
-            dprintf ("krb_change_password (%s, %s, %s) returned %d '%s'\n", name, instance, realm, err, error_message (err));
-            err = __KLRemapKerberos4Error (err);
-        }
-
-        if (name     != NULL) { KLDisposeString (name); }
-        if (instance != NULL) { KLDisposeString (instance); }
-        if (realm    != NULL) { KLDisposeString (realm); }
         
+        if (err == klNoErr) {
+            *outRejected = true;
+            
+            if (outRejectionError != NULL) {
+                *outRejectionError = result_code_cstring;
+                result_code_cstring = NULL;
+            }
+            
+            if (outRejectionDescription != NULL) {
+                *outRejectionDescription = result_cstring;
+                result_cstring = NULL;
+            }
+        }
+        
+        if (result_code_cstring != NULL) { KLDisposeString (result_code_cstring); }
+        if (result_cstring      != NULL) { KLDisposeString (result_cstring); }
+        
+        krb5_free_data_contents (context, &result_code_string);
+        krb5_free_data_contents (context, &result_string);
     } else {
-        err = KLError_ (klRealmDoesNotExistErr);
+        *outRejected = false;
     }
-    
+        
+    if (gotV5Creds     ) { krb5_free_cred_contents (context, &creds); }
+    if (context != NULL) { krb5_free_context (context); }
+        
     return KLError_ (err);
 }
 
@@ -199,13 +172,7 @@ KLStatus __KLGetKerberos5ChangePasswordTicketForPrincipal (KLPrincipal   inPrinc
     }
 
     if (err == klNoErr) {
-        if (!__KLPrincipalShouldUseKerberos5ChangePasswordProtocol (inPrincipal)) {
-            err = KLError_ (klBadPrincipalErr);
-        }
-    }
-
-    if (err == klNoErr) {
-        err = __KLGetRealmFromPrincipal (inPrincipal, kerberosVersion_V5, &realm);
+        err = __KLGetRealmFromPrincipal (inPrincipal, &realm);
     }
 
     if (err == klNoErr) {
@@ -228,7 +195,7 @@ KLStatus __KLGetKerberos5ChangePasswordTicketForPrincipal (KLPrincipal   inPrinc
         krb5_get_init_creds_opt_set_proxiable (&opts, 0);
 
         err = krb5_get_init_creds_password (inContext, outCreds,
-                                            __KLGetKerberos5PrincipalFromPrincipal (inPrincipal),
+                                            __KLPrincipalGetKerberos5Principal (inPrincipal),
                                             (char *)inPassword, __KLPrompter, NULL, 0,
                                             service, &opts);
     }

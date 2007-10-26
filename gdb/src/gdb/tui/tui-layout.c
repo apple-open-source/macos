@@ -248,10 +248,7 @@ tui_set_layout (enum tui_layout_type layout_type,
 	    }
 	  if (regs_populate)
 	    {
-	      layout_def->regs_display_type =
-		(regs_display_type == TUI_UNDEFINED_REGS ?
-		 TUI_GENERAL_REGS : regs_display_type);
-	      tui_show_registers (layout_def->regs_display_type);
+              tui_show_registers (TUI_DATA_WIN->detail.data_display_info.current_group);
 	    }
 	}
     }
@@ -375,8 +372,8 @@ tui_default_win_viewport_height (enum tui_win_type type,
 void
 _initialize_tui_layout (void)
 {
-  add_com ("layout", class_tui, tui_layout_command,
-           "Change the layout of windows.\n\
+  add_com ("layout", class_tui, tui_layout_command, _("\
+Change the layout of windows.\n\
 Usage: layout prev | next | <layout_name> \n\
 Layout names are:\n\
    src   : Displays source and command windows.\n\
@@ -387,14 +384,14 @@ Layout names are:\n\
            register window is displayed. If the\n\
            source/assembly/command (split) is displayed, \n\
            the register window is displayed with \n\
-           the window that has current logical focus.\n");
+           the window that has current logical focus.\n"));
   if (xdb_commands)
     {
-      add_com ("td", class_tui, tui_toggle_layout_command,
-               "Toggle between Source/Command and Disassembly/Command layouts.\n");
-      add_com ("ts", class_tui, tui_toggle_split_layout_command,
-               "Toggle between Source/Command or Disassembly/Command and \n\
-Source/Disassembly/Command layouts.\n");
+      add_com ("td", class_tui, tui_toggle_layout_command, _("\
+Toggle between Source/Command and Disassembly/Command layouts.\n"));
+      add_com ("ts", class_tui, tui_toggle_split_layout_command, _("\
+Toggle between Source/Command or Disassembly/Command and \n\
+Source/Disassembly/Command layouts.\n"));
     }
 }
 
@@ -426,7 +423,7 @@ tui_set_layout_for_display_command (const char *layout_name)
       /* First check for ambiguous input */
       if (strlen (buf_ptr) <= 1 && (*buf_ptr == 'S' || *buf_ptr == '$'))
 	{
-	  warning ("Ambiguous command input.\n");
+	  warning (_("Ambiguous command input."));
 	  status = TUI_FAILURE;
 	}
       else
@@ -595,7 +592,7 @@ tui_layout_command (char *arg, int from_tty)
 
   /* Switch to the selected layout.  */
   if (tui_set_layout_for_display_command (arg) != TUI_SUCCESS)
-    warning ("Invalid layout specified.\n%s", LAYOUT_USAGE);
+    warning (_("Invalid layout specified.\n%s"), LAYOUT_USAGE);
 
 }
 

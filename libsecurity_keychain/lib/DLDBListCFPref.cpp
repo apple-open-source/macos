@@ -381,8 +381,7 @@ void DLDbListCFPref::save()
         {
             loginArray = CFArrayCreate(kCFAllocatorDefault, NULL, 0, &kCFTypeArrayCallBacks);
         }
-        else if (!(mLoginDLDbIdentifier == LoginDLDbIdentifier())
-            && !(mLoginDLDbIdentifier == JaguarLoginDLDbIdentifier()))
+        else if (!(mLoginDLDbIdentifier == LoginDLDbIdentifier()))
         {
             CFDictionaryRef aDict = dlDbIdentifierToCFDictionaryRef(mLoginDLDbIdentifier);
             const void *value = reinterpret_cast<const void *>(aDict);
@@ -678,10 +677,16 @@ bool DLDbListCFPref::revert(bool force)
 void
 DLDbListCFPref::add(const DLDbIdentifier &dldbIdentifier)
 {
-	if (member(dldbIdentifier))
+	// convert the location specified in dldbIdentifier to a standard form
+	// make a canonical form of the database name
+	std::string canon = ExpandTildesInPath(AbbreviatedPath(dldbIdentifier.dbName()).c_str());
+
+	DLDbIdentifier localIdentifier  (dldbIdentifier.ssuid(), canon.c_str(), dldbIdentifier.dbLocation ());
+	
+	if (member(localIdentifier))
 		return;
 
-    mSearchList.push_back(dldbIdentifier);
+    mSearchList.push_back(localIdentifier);
     changed(true);
 }
 
@@ -729,8 +734,32 @@ DLDbListCFPref::member(const DLDbIdentifier &dldbIdentifier)
 {
     for (vector<DLDbIdentifier>::const_iterator ix = searchList().begin(); ix != mSearchList.end(); ++ix)
 	{
-        if (*ix==dldbIdentifier)		// already in list
-            return true;
+		// compare the dldbIdentifiers based on the full, real path to the keychain
+		if (ix->ssuid() == dldbIdentifier.ssuid())
+		{
+			char localPath[PATH_MAX],
+				 inPath[PATH_MAX];
+			
+			// try to resolve these down to a canonical form
+			const char* localPathPtr = realpath(ix->dbName(), localPath);
+			const char* inPathPtr = realpath(dldbIdentifier.dbName(), inPath);
+
+			// if either of the paths didn't resolve for some reason, use the originals
+			if (localPathPtr == NULL)
+			{
+				localPathPtr = ix->dbName();
+			}
+			
+			if (inPathPtr == NULL)
+			{
+				inPathPtr = dldbIdentifier.dbName();
+			}
+			
+			if (strcmp(localPathPtr, inPathPtr) == 0)
+			{
+				return true;
+			}
+		}
 	}
 
 	return false;
@@ -801,6 +830,7 @@ DLDbListCFPref::defaultDLDbIdentifier(const DLDbIdentifier &dlDbIdentifier)
 const DLDbIdentifier &
 DLDbListCFPref::defaultDLDbIdentifier()
 {
+	
     if (!mDefaultDLDbIdentifierSet)
     {
         CFArrayRef defaultArray = reinterpret_cast<CFArrayRef>(CFDictionaryGetValue(mPropertyList, kDefaultKeychainKey));
@@ -825,24 +855,32 @@ DLDbListCFPref::defaultDLDbIdentifier()
     
         if (!defaultArray)
         {
+			
             // If the Panther style login keychain actually exists we use that otherwise no
             // default is set.
             mDefaultDLDbIdentifier = loginDLDbIdentifier();
-            x_debug1("Now we think the default keychain is %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
+            x_debug1("Now we think the default keychain is: %s", (mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : 
+			"Name doesn't exist");
+			
+			
+			//"Name doesn't exist");
 
             struct stat st;
             int st_result = stat(mDefaultDLDbIdentifier.dbName(), &st);
+			
+			
             if (st_result)
             {
-                x_debug2("stat() of %s returned %d", mDefaultDLDbIdentifier.dbName(), st_result);
-                mDefaultDLDbIdentifier  = DLDbIdentifier();
+				x_debug2("stat() of %s returned %d", mDefaultDLDbIdentifier.dbName(), st_result);
+                mDefaultDLDbIdentifier  = DLDbIdentifier(); // initialize a NULL keychain
                 x_debug1("After DLDbIdentifier(), we think the default keychain is %s", static_cast<bool>(mDefaultDLDbIdentifier) ? mDefaultDLDbIdentifier.dbName() : "<NULL>");
             }
         }
-
+		
         mDefaultDLDbIdentifierSet = true;
     }
-
+	
+	
 	return mDefaultDLDbIdentifier;
 }
 
@@ -883,21 +921,8 @@ DLDbListCFPref::loginDLDbIdentifier()
     
         if (!loginArray)
         {
-            // If the jaguar login keychain actually exists we use that otherwise no
-            // login keychain is set.
-            x_debug("No loginDict found, calling JaguarLoginDLDbIdentifier()");
-            mLoginDLDbIdentifier = JaguarLoginDLDbIdentifier();
-            x_debug1("After JaguarLoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
-    
-            struct stat st;
-            int st_result = stat(mLoginDLDbIdentifier.dbName(), &st);
-            if (st_result)
-            {
-                // Jaguar login Keychain didn't exist, so assume new style one.
-                x_debug2("stat() of %s returned %d", mLoginDLDbIdentifier.dbName(), st_result);
-                mLoginDLDbIdentifier = LoginDLDbIdentifier();
-                x_debug1("After LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
-            }
+			mLoginDLDbIdentifier = LoginDLDbIdentifier();
+			x_debug1("After LoginDLDbIdentifier(), we think the login keychain is %s", static_cast<bool>(mLoginDLDbIdentifier) ? mLoginDLDbIdentifier.dbName() : "<NULL>");
         }
 
         mLoginDLDbIdentifierSet = true;

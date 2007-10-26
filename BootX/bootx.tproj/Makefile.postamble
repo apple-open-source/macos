@@ -120,3 +120,7 @@ bootx_after_install:
 	install -d -m 555 $(DSTROOT)/usr/standalone/ppc
 	install -c -m 444 $(SYMROOT)/bootx.bootinfo $(DSTROOT)/usr/standalone/ppc/bootx.bootinfo
 	install -c -m 444 $(SYMROOT)/bootx.xcoff $(DSTROOT)/usr/standalone/ppc/bootx.xcoff
+	install -d -m 555 $(DSTROOT)/usr/local/OpenSourceVersions
+	install -m 444 $(SRCROOT)/BootX.plist $(DSTROOT)/usr/local/OpenSourceVersions/BootX.plist
+	install -d -m 555 $(DSTROOT)/usr/local/OpenSourceLicenses
+	install -m 444 $(SRCROOT)/BootX.txt $(DSTROOT)/usr/local/OpenSourceLicenses/BootX.txt

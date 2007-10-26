@@ -41,6 +41,7 @@
 #include <pwd.h>
 #include <dirent.h>
 #include <syslog.h>
+#include <DirectoryServiceCore/SharedConsts.h>
 
 #include "PwdPolicyTool.h"
 #include "dstools_version.h"
@@ -53,11 +54,19 @@
 #define kNotPasswordServerUserMsg			"%s is not a password server account.\n"
 #define kUserNotOnNodeMsg					"%s is not a user on this directory node.\n"
 #define kPasswordServerNodePrefix			"/PasswordServer/"
-#define kDatePolicy1						"expirationDateGMT="
-#define kDatePolicy2						"hardExpireDateGMT="
-#define kNetInfoNodePrefix					"/NetInfo"
 
-enum {
+static const char *sDatePolicyStr[] = {
+	"expirationDateGMT=",
+	"hardExpireDateGMT=",
+	"warnOfExpirationMinutes=",
+	"warnOfDisableMinutes=",
+	"projectedPasswordExpireDate=",
+	"projectedAccountDisableDate=",
+	NULL
+};
+
+typedef enum Command {
+	// 0-6 are order-dependent
 	kCmdNone,
 	kCmdGetGlobalPolicy,
 	kCmdSetGlobalPolicy,
@@ -65,12 +74,23 @@ enum {
 	kCmdSetPolicy,
 	kCmdSetPolicyGlobal,
 	kCmdSetPassword,
+	
+	// not order-dependent
 	kCmdEnableUser,
 	kCmdGetGlobalHashTypes,
 	kCmdSetGlobalHashTypes,
 	kCmdGetHashTypes,
-	kCmdSetHashTypes
-};
+	kCmdSetHashTypes,
+	kCmdGetEffectivePolicy,
+	kCmdEnableWindowsSharing,
+	kCmdDisableWindowsSharing,
+	kCmdAppleVersion
+} Command;
+
+typedef struct CommandTableEntry {
+	const char *name;
+	Command cmd;
+} CommandTableEntry;
 
 typedef enum AuthAuthType {
 	kAuthTypeUnknown,
@@ -80,6 +100,7 @@ typedef enum AuthAuthType {
 	kAuthTypeDisabled
 };
 
+Command get_command_id( const char *commandStr );
 void PrintErrorMessage( long error, const char *username );
 
 char *ConvertPolicyLongs(const char *inPolicyStr);
@@ -89,6 +110,7 @@ Boolean PreflightDate(const char *theDateStr);
 long GetAuthAuthority(
 	const char *inNodeName,
 	const char *inUsername,
+	const char *inRecordType,
 	AuthAuthType *outAuthAuthType,
     char *inOutUserID,
 	char *inOutServerAddress,
@@ -97,6 +119,7 @@ long GetAuthAuthority(
 	
 long GetAuthAuthorityWithSearchNode(
 	const char *inUsername,
+	const char *inRecordType,
 	AuthAuthType *outAuthAuthType,
     char *inOutUserID,
 	char *inOutServerAddress,
@@ -106,21 +129,38 @@ long GetAuthAuthorityWithSearchNode(
 long GetAuthAuthorityWithNode(
 	const char *inNodeName,
 	const char *inUsername,
+	const char *inRecordType,
 	AuthAuthType *outAuthAuthType,
     char *inOutUserID,
 	char *inOutServerAddress,
 	char **outAAData );
 
 AuthAuthType ConvertTagToConstant( const char *inAuthAuthorityTag );
-
-long ParseAuthAuthority ( const char *inAuthAuthority,
-                            char ** outVersion,
-                            char ** outAuthTag,
-                            char ** outAuthData );
-
 void GetPWServerAddresses(char *outAddressStr);
 
 // Globals
+CommandTableEntry gCommandTable[] = 
+{
+	{ "-appleversion",				kCmdAppleVersion },
+	{ "-getglobalpolicy",			kCmdGetGlobalPolicy },
+	{ "-setglobalpolicy",			kCmdSetGlobalPolicy },
+	{ "-getpolicy",					kCmdGetPolicy },
+	{ "-setpolicy",					kCmdSetPolicy },
+	{ "-setpolicyglobal",			kCmdSetPolicyGlobal },
+	{ "-setpassword",				kCmdSetPassword },
+	{ "-enableuser",				kCmdEnableUser },
+	{ "-getglobalhashtypes",		kCmdGetGlobalHashTypes },
+	{ "-setglobalhashtypes",		kCmdSetGlobalHashTypes },
+	{ "-gethashtypes",				kCmdGetHashTypes },
+	{ "-sethashtypes",				kCmdSetHashTypes },
+	{ "--get-effective-policy",		kCmdGetEffectivePolicy },
+	{ "--enable-windows-sharing",	kCmdEnableWindowsSharing },
+	{ "--disable-windows-sharing",	kCmdDisableWindowsSharing },
+	
+	{ NULL,						kCmdNone }
+};
+
+
 bool	gVerbose			= false;
 bool	sTerminateServer	= false;
 
@@ -128,15 +168,15 @@ void	DoHelp		( FILE *inFile, const char *inArgv0 );
 void	usage(void);
 char *read_passphrase(const char *prompt, int from_stdin);
 
-const unsigned long kMaxTestUsers		= 150;
-const unsigned long kStressTestUsers	= 2000;
-const unsigned long kAllTestUsers		= 123;
+const UInt32 kMaxTestUsers		= 150;
+const UInt32 kStressTestUsers	= 2000;
+const UInt32 kAllTestUsers		= 123;
 
 PwdPolicyTool myClass;
 
-//--------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // * main()
-//--------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 int main ( int argc, char * const *argv )
 {
@@ -148,8 +188,8 @@ int main ( int argc, char * const *argv )
     char				password[512]			= {0};
 	Boolean				bReadPassword			= false;
 	tDirNodeReference   nodeRef					= 0;
-    short				commandNum				= kCmdNone;
-	short				tmpCommandNum			= kCmdNone;
+    Command				commandNum				= kCmdNone;
+	Command				tmpCommandNum			= kCmdNone;
 	int					commandArgIndex			= 0;
 	char				serverAddress[1024]		= {0};
 	char				nodeName[1024]			= {0};
@@ -161,134 +201,120 @@ int main ( int argc, char * const *argv )
 	char			   *aaData					= NULL;
 	AuthAuthType		authType				= kAuthTypeUnknown;
 	AuthAuthType		userAuthType			= kAuthTypeUnknown;
-	
+	char				**localNodeNameList		= NULL;
+	bool				useRootPrivileges		= false;
+	bool				authenticatorIsDefault	= false;
+	bool				userIsDefault			= false;
+	const char			*recordType				= kDSStdRecordTypeUsers;
+
+
 	// read command line
 	for ( int index = 1; index < argc; index++ )
 	{
-		if ( strcmp(argv[index], "-appleversion") == 0 )
+		tmpCommandNum = get_command_id( argv[index] );
+		switch ( tmpCommandNum )
 		{
-			// print appleversion and quit
-			dsToolAppleVersionExit( argv[0] );
-		}
-		else
-		if ( strcmp(argv[index], "-getglobalpolicy") == 0 )
-		{
-			tmpCommandNum = kCmdGetGlobalPolicy;
-		}
-		else
-		if ( strcmp(argv[index], "-setglobalpolicy") == 0 )
-		{
-			tmpCommandNum = kCmdSetGlobalPolicy;
-		}
-		else
-		if ( strcmp(argv[index], "-getpolicy") == 0 )
-		{
-			tmpCommandNum = kCmdGetPolicy;
-		}
-		else
-		if ( strcmp(argv[index], "-setpolicy") == 0 )
-		{
-			tmpCommandNum = kCmdSetPolicy;
-		}
-		else
-		if ( strcmp(argv[index], "-setpolicyglobal") == 0 )
-		{
-			tmpCommandNum = kCmdSetPolicyGlobal;
-		}
-		else
-		if ( strcmp(argv[index], "-setpassword") == 0 )
-		{
-			tmpCommandNum = kCmdSetPassword;
-		}
-		else
-		if ( strcmp(argv[index], "-enableuser") == 0 )
-		{
-			tmpCommandNum = kCmdEnableUser;
-		}
-		else
-		if ( strcmp(argv[index], "-getglobalhashtypes") == 0 )
-		{
-			tmpCommandNum = kCmdGetGlobalHashTypes;
-		}
-		else
-		if ( strcmp(argv[index], "-setglobalhashtypes") == 0 )
-		{
-			tmpCommandNum = kCmdSetGlobalHashTypes;
-		}
-		else
-		if ( strcmp(argv[index], "-gethashtypes") == 0 )
-		{
-			tmpCommandNum = kCmdGetHashTypes;
-		}
-		else
-		if ( strcmp(argv[index], "-sethashtypes") == 0 )
-		{
-			tmpCommandNum = kCmdSetHashTypes;
-		}
-		else
-		if ( argv[index][0] == '-' )
-		{
-			p = argv[index];
-			p++;
+			case kCmdAppleVersion:
+				dsToolAppleVersionExit( argv[0] );
+				break;
 			
-			while (*p)
-			{
-				if ( *p == 'a' || *p == 'u' || *p == 'p' || *p == 'n' )
-					if ( index+1 >= argc )
-					{
-						usage();
-						exit(0);
-					}
+			case kCmdGetGlobalPolicy:
+			case kCmdGetPolicy:
+			case kCmdGetGlobalHashTypes:
+			case kCmdGetHashTypes:
+			case kCmdGetEffectivePolicy:
+				break;
 				
-				switch(*p)
+			case kCmdSetGlobalPolicy:
+			case kCmdSetPolicy:
+			case kCmdSetPolicyGlobal:
+			case kCmdSetPassword:
+			case kCmdEnableUser:
+			case kCmdSetGlobalHashTypes:
+			case kCmdSetHashTypes:
+			case kCmdEnableWindowsSharing:
+			case kCmdDisableWindowsSharing:
+				bReadPassword = true;
+				break;
+			
+			default:
+				if ( argv[index][0] == '-' )
 				{
-					case 'a':
-						authenticator = argv[index+1];
-						bReadPassword = true;
-						break;
+					p = argv[index];
+					p++;
 					
-					case 'h':
-						DoHelp( stderr, argv[0] );
-						exit( 1 );
-						break;
+					while (*p)
+					{
+						if ( *p == 'a' || *p == 'c' || *p == 'u' || *p == 'p' || *p == 'n' )
+							if ( index+1 >= argc )
+							{
+								usage();
+								exit(0);
+							}
+						
+						switch(*p)
+						{
+							case 'a':
+								authenticator = argv[index+1];
+								bReadPassword = true;
+								break;
+							
+							case 'c':
+								if ( username != NULL ) {
+									fprintf( stderr, "-u and -c are mutually exclusive and may only appear once.\n" );
+									exit( EX_USAGE );
+								}
+								username = argv[index+1];
+								recordType = kDSStdRecordTypeComputers;
+								break;
+							
+							case 'h':
+								DoHelp( stderr, argv[0] );
+								exit( 1 );
+								break;
+							
+							case 'n':
+								nodename = argv[index+1];
+								break;
+							
+							case 'p':
+								// copy the password and clear it from the arg list
+								// so that it does not show up in a ps listing
+								strcpy( password, argv[index+1] );
+								bzero( argv[index+1], strlen(argv[index+1]) );
+								break;
+							
+							case 'u':
+								if ( username != NULL ) {
+									fprintf( stderr, "-u and -c are mutually exclusive and may only appear once.\n" );
+									exit( EX_USAGE );
+								}
+								username = argv[index+1];
+								break;
 					
-					case 'n':
-						nodename = argv[index+1];
-						break;
-					
-					case 'p':
-						// copy the password and clear it from the arg list
-						// so that it does not show up in a ps listing
-						strcpy( password, argv[index+1] );
-						memset( argv[index+1], 0, strlen(argv[index+1]) );
-						break;
-					
-					case 'u':
-						username = argv[index+1];
-						break;
-			
-					case 'v':
-						gVerbose = true;
-						break;
-					
-					case '0':
-					case '1':
-					case '2':
-					case '3':
-					case '4':
-					case '5':
-					case '6':
-						tmpCommandNum = *p - '0' + 1;
-						break;
-					
-					default:
-						usage();
-						exit(0);
-						break;
+							case 'v':
+								gVerbose = true;
+								break;
+							
+							case '0':
+							case '1':
+							case '2':
+							case '3':
+							case '4':
+							case '5':
+							case '6':
+								tmpCommandNum = (Command)(*p - '0' + 1);
+								break;
+							
+							default:
+								usage();
+								exit(0);
+								break;
+						}
+						
+						p++;
+					}
 				}
-				
-				p++;
-			}
 		}
 		
 		// allow only one command on the line
@@ -305,13 +331,12 @@ int main ( int argc, char * const *argv )
 			commandArgIndex = index;
 		}
 	}
-
+	
 	debug( "\npwpolicy tool, version 1.2.1\n\n" );
 	
 	// if data is required, check the last parameter for '-'
 	if ( commandNum == kCmdSetGlobalPolicy ||
 		 commandNum == kCmdSetPolicy ||
-		 commandNum == kCmdSetPassword ||
 		 commandNum == kCmdSetGlobalHashTypes ||
 		 commandNum == kCmdSetHashTypes )
 	{
@@ -322,8 +347,29 @@ int main ( int argc, char * const *argv )
 		}
 	}
 	
+	// if no username or authenticator is specified, assume the identity of the session
+	useRootPrivileges = (geteuid() == 0 && authenticator == NULL);
+	if ( username == NULL || authenticator == NULL )
+	{
+		struct passwd *userRec = getpwuid(geteuid());
+		if ( userRec != NULL && userRec->pw_name != NULL )
+		{
+			/* global static mem is volatile; must strdup */
+			/* this is a one-shot tool, so no need to worry about */
+			/* calling free at the end */
+			if ( username == NULL ) {
+				username = strdup( userRec->pw_name );
+				userIsDefault = true;
+			}
+			if ( authenticator == NULL ) {
+				authenticator = strdup( userRec->pw_name );
+				authenticatorIsDefault = true;
+			}
+		}
+	}
+	
 	// prompt for password if required and not provided on the command line
-	if ( bReadPassword && password[0] == '\0' )
+	if ( bReadPassword && password[0] == '\0' && !useRootPrivileges )
 	{
 		char *passPtr;
 		
@@ -351,50 +397,112 @@ int main ( int argc, char * const *argv )
 		// get this one first so that the authenticator's server address overrides
 		if ( username != NULL )
 		{
-			siStatus = GetAuthAuthority( nodename, username, &authType, userID, serverAddress, &metaNode, &aaData );
+			siStatus = GetAuthAuthority( nodename, username, recordType, &userAuthType, userID, serverAddress, &metaNode, &aaData );
 			if ( siStatus != eDSNoErr )
 			{
-				PrintErrorMessage( siStatus, username );
-				exit(0);
+				if ( userIsDefault ) {
+					free( username );
+					username = NULL;
+					siStatus = eDSNoErr;
+				}
+				else {
+					PrintErrorMessage( siStatus, username );
+					exit(0);
+				}
 			}
-			userAuthType = authType;
 		}
 		
 		// get authenticator info (if applicable)
 		if ( authenticator != NULL )
 		{
-			siStatus = GetAuthAuthority( nodename, authenticator, &authType, authenticatorID, serverAddress, NULL, NULL );
+			siStatus = GetAuthAuthority( nodename, authenticator, kDSStdRecordTypeUsers, &authType, authenticatorID, serverAddress, NULL, NULL );
 			if ( siStatus != eDSNoErr )
 			{
-				PrintErrorMessage( siStatus, authenticator );
-				exit(0);
+				if ( authenticatorIsDefault ) {
+					free( authenticator );
+					authenticator = NULL;
+					siStatus = eDSNoErr;
+				}
+				else {
+					PrintErrorMessage( siStatus, authenticator );
+					exit(0);
+				}
 			}
 		}
 		
-		if ( authType == kAuthTypeUnknown &&
-			 (commandNum == kCmdGetGlobalPolicy || commandNum == kCmdSetGlobalPolicy) )
+		if ( userAuthType != authType && authenticatorIsDefault )
 		{
-			if ( nodename != NULL && strncmp( nodename, kNetInfoNodePrefix, sizeof(kNetInfoNodePrefix)-1 ) == 0 )
+			free( authenticator );
+			authenticator = NULL;
+			authType = kAuthTypeUnknown;
+		}
+		
+		// userAuthType must be known for some commands
+		if ( userAuthType == kAuthTypeUnknown )
+		{
+			switch ( commandNum )
 			{
+				case kCmdGetPolicy:
+				case kCmdSetPolicy:
+				case kCmdSetPassword:
+				case kCmdGetEffectivePolicy:
+					usage();
+					break;
+			}
+		}
+		
+		// if authType is still unknown, take a best guess.
+		if ( authType == kAuthTypeUnknown &&
+			 (commandNum == kCmdGetGlobalPolicy ||
+			  commandNum == kCmdSetGlobalPolicy ||
+			  commandNum == kCmdGetPolicy ||
+			  commandNum == kCmdGetEffectivePolicy) )
+		{
+			// default
+			authType = kAuthTypePasswordServer;
+			
+			// check for local node if possible
+			if ( nodename != NULL &&
+				 myClass.FindDirectoryNodes(NULL, eDSLocalNodeNames, &localNodeNameList, false) == eDSNoErr &&
+				 localNodeNameList != NULL )
+			{
+				// eDSLocalNodeNames should be called "eDSLocalNodeName" because there is only one.
+				if ( localNodeNameList[0] != NULL ) {
+					if ( strcmp(nodename, localNodeNameList[0]) == 0 ) {
+						username = "";
+						authType = kAuthTypeShadowHash;
+					}
+					free( localNodeNameList[0] );
+				}
+				free( localNodeNameList );
+			}
+		}
+		
+		// -getglobalpolicy with no arguments gets the password server's global policy
+		if ( commandNum == kCmdGetGlobalPolicy && nodename == NULL && userIsDefault && authenticatorIsDefault )
+			authType = kAuthTypePasswordServer;
+		
+		switch( commandNum )
+		{
+			case kCmdGetGlobalHashTypes:
+			case kCmdSetGlobalHashTypes:
 				username = "";
 				authType = kAuthTypeShadowHash;
-			}
-			else
-				authType = kAuthTypePasswordServer;
-		}
-		if ( commandNum == kCmdGetGlobalHashTypes || commandNum == kCmdSetGlobalHashTypes )
-		{
-			username = "";
-			authType = kAuthTypeShadowHash;
-		}
+				break;
+			
+			case kCmdGetHashTypes:
+			case kCmdSetHashTypes:
+			case kCmdEnableWindowsSharing:
+			case kCmdDisableWindowsSharing:
+				if ( userAuthType != kAuthTypeShadowHash )
+				{
+					fprintf(stderr, "The hash types can be set only for ShadowHash accounts.\n");
+					exit(0);
+				}
+				break;
 		
-		if ( commandNum == kCmdGetHashTypes || commandNum == kCmdSetHashTypes )
-		{
-			if ( userAuthType != kAuthTypeShadowHash )
-			{
-				fprintf(stderr, "The hash types can be set only for ShadowHash accounts.\n");
-				exit(0);
-			}
+			default:
+				break;
 		}
 		
 		switch( authType )
@@ -428,7 +536,18 @@ int main ( int argc, char * const *argv )
 				
 			case kAuthTypeShadowHash:
 			case kAuthTypeDisabled:
-				strcpy(nodeName, kNetInfoNodePrefix"/DefaultLocalNode");
+				if ( myClass.FindDirectoryNodes( NULL, eDSLocalNodeNames, &localNodeNameList, false ) == eDSNoErr &&
+					 localNodeNameList != NULL || localNodeNameList[0] != NULL )
+				{
+					strcpy( nodeName, localNodeNameList[0] );
+					free( localNodeNameList[0] );
+					free( localNodeNameList );
+				}
+				else
+				{
+					fprintf(stderr, "Error: could not resolve the name of the local node.\n");
+					exit(0);
+				}
 				break;
 			
 			case kAuthTypeKerberos:
@@ -450,9 +569,12 @@ int main ( int argc, char * const *argv )
 			case kCmdGetGlobalPolicy:
 				if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 				{
-					myClass.DoNodePWAuth( nodeRef, username ? username : "", "", kDSStdAuthGetGlobalPolicy, "", NULL, authResult );
+					myClass.DoNodePWAuth(
+								nodeRef,
+								(username && !userIsDefault) ? username : "", "",
+								kDSStdAuthGetGlobalPolicy, "", NULL, recordType, authResult );
 					tptr = ConvertPolicyLongs( authResult );
-					printf("%s\n", tptr);
+					printf("%s\n", tptr ? tptr : authResult);
 					free(tptr);
 					myClass.CloseDirectoryNode( nodeRef );
 				}
@@ -464,9 +586,12 @@ int main ( int argc, char * const *argv )
 				{
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 					{
-						myClass.DoNodePWAuth( nodeRef, authenticatorID, password,
-												kDSStdAuthSetGlobalPolicy,
-												tptr, NULL, NULL );
+						myClass.DoNodePWAuth( nodeRef,
+											useRootPrivileges ? "" : authenticatorID,
+											useRootPrivileges ? "" : password,
+											kDSStdAuthSetGlobalPolicy,
+											tptr, NULL, recordType, NULL );
+						
 						myClass.CloseDirectoryNode( nodeRef );
 						
 						free( tptr );
@@ -479,15 +604,21 @@ int main ( int argc, char * const *argv )
 				break;
 			
 			case kCmdGetPolicy:
+			case kCmdGetEffectivePolicy:
 				if ( username != NULL )
 				{
-					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
+					char *nodeToUse = metaNode ? metaNode : nodeName;
+					if ( strstr(nodeToUse, "/PasswordServer") == NULL )
+						strlcpy( userID, username, sizeof(userID) );
+					
+					printf( "Getting policy for %s\n\n", username );
+					if ( myClass.OpenDirNode( nodeToUse, &nodeRef ) == eDSNoErr )
 					{
 						myClass.DoNodePWAuth( nodeRef,
-											userID ? userID : "",
-											"",
-											kDSStdAuthGetPolicy,
-											userID, NULL, authResult );
+											 useRootPrivileges ? "" : authenticatorID,
+											 useRootPrivileges ? "" : password,
+											(commandNum == kCmdGetPolicy) ? kDSStdAuthGetPolicy : kDSStdAuthGetEffectivePolicy,
+											userID, NULL, recordType, authResult );
 						tptr = ConvertPolicyLongs( authResult );
 						printf("%s\n", tptr);
 						free(tptr);
@@ -505,14 +636,15 @@ int main ( int argc, char * const *argv )
 				tptr = ConvertPolicyDates( argv[argc-1] );
 				if ( authenticator != NULL && password != NULL && username != NULL && tptr != NULL )
 				{
+					printf( "Setting policy for %s\n", username );
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 					{
 						myClass.DoNodePWAuth( nodeRef,
-												authenticatorID,
-												password,
+												useRootPrivileges ? "" : authenticatorID,
+												useRootPrivileges ? "" : password,
 												kDSStdAuthSetPolicy,
 												userID,
-												tptr, NULL );
+												tptr, NULL, NULL );
 						
 						free( tptr );
 						
@@ -531,15 +663,15 @@ int main ( int argc, char * const *argv )
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 					{
 						myClass.DoNodePWAuth( nodeRef,
-											authenticatorID,
-											password,
+											useRootPrivileges ? "" : authenticatorID,
+											useRootPrivileges ? "" : password,
 											kDSStdAuthSetPolicy,
 											userID,
 											"newPasswordRequired=0 usingHistory=0 usingExpirationDate=0 "
 											"usingHardExpirationDate=0 requiresAlpha=0 requiresNumeric=0 "
 											"maxMinutesUntilChangePassword=0 maxMinutesUntilDisabled=0 "
 											"maxMinutesOfNonUse=0 maxFailedLoginAttempts=0 "
-											"minChars=0 maxChars=0 resetToGlobalDefaults=1", NULL );
+											"minChars=0 maxChars=0 resetToGlobalDefaults=1", recordType, NULL );
 						myClass.CloseDirectoryNode( nodeRef );
 					}
 				}
@@ -552,15 +684,56 @@ int main ( int argc, char * const *argv )
 			case kCmdSetPassword:
 				if ( authenticator != NULL && username != NULL )
 				{
+					char *userPassPtr = NULL;
+					char *verifyPassPtr = NULL;
+					
+					printf( "Setting password for %s\n", username );
+					if ( strcmp(argv[argc-1], "-setpassword") == 0 )
+					{
+						char prompt[256];
+						snprintf(prompt, sizeof(prompt), "Enter new password for %s:", username);
+						userPassPtr = read_passphrase( prompt, 1 );
+						verifyPassPtr = read_passphrase( "Verify new password:", 1 );
+						if ( strcmp(userPassPtr, verifyPassPtr) != 0 )
+						{
+							printf( "Password mismatch.\n" );
+							bzero( userPassPtr, strlen(userPassPtr) );
+							free( userPassPtr );
+							bzero( verifyPassPtr, strlen(verifyPassPtr) );
+							free( verifyPassPtr );
+							return EX_TEMPFAIL;
+						}
+					}
+					else
+					{
+						userPassPtr = strdup( argv[argc-1] );
+					}
+					
 					if ( myClass.OpenDirNode( nodeName, &nodeRef ) == eDSNoErr )
 					{
-						myClass.DoNodePWAuth( nodeRef,
-												userID,
-												argv[argc-1],
-												kDSStdAuthSetPasswd,
-												authenticatorID,
-												password, NULL );
+						if ( useRootPrivileges && password[0] == '\0' && userAuthType == kAuthTypeShadowHash )
+						{
+							myClass.DoNodePWAuth( nodeRef,
+													userID,
+													userPassPtr,
+													kDSStdAuthSetPasswdAsRoot,
+													NULL, NULL, NULL, NULL );
+						}
+						else
+						{
+							myClass.DoNodePWAuth( nodeRef,
+													userID,
+													userPassPtr,
+													kDSStdAuthSetPasswd,
+													authenticatorID,
+													password, NULL, NULL );
+						}
 						myClass.CloseDirectoryNode( nodeRef );
+					}
+					if ( userPassPtr != NULL )
+					{
+						bzero( userPassPtr, strlen(userPassPtr) );
+						free( userPassPtr );
 					}
 				}
 				else
@@ -572,6 +745,7 @@ int main ( int argc, char * const *argv )
 			case kCmdEnableUser:
 				if ( authenticator != NULL && username != NULL )
 				{
+					printf( "Enabling account for user %s\n\n", username );
 					switch( userAuthType )
 					{
 						case kAuthTypeShadowHash:
@@ -585,7 +759,7 @@ int main ( int argc, char * const *argv )
 								
 								if ( myClass.DoNodeNativeAuth( nodeRef, authenticator, password ) == eDSNoErr )
 								{
-									if ( myClass.OpenRecord( nodeRef, kDSStdRecordTypeUsers, username, &recRef ) == eDSNoErr )
+									if ( myClass.OpenRecord( nodeRef, recordType, username, &recRef ) == eDSNoErr )
 									{
 										myClass.ChangeAuthAuthorityToShadowHash( recRef );
 										dsCloseRecord( recRef );
@@ -628,7 +802,7 @@ int main ( int argc, char * const *argv )
 			
 			case kCmdSetGlobalHashTypes:
 				if ( (geteuid() == 0) || (authenticator != NULL && password != NULL) )
-					myClass.SetHashTypes( authenticator, password, commandArgIndex + 1, argc, argv );
+					myClass.SetHashTypes( authenticator, useRootPrivileges ? NULL : password, commandArgIndex + 1, argc, argv );
 				else
 					usage();
 				break;
@@ -640,6 +814,8 @@ int main ( int argc, char * const *argv )
 					char *hashListPtr = NULL;
 					char *hashListStr = strdup( aaData );
 					char *endPtr = NULL;
+					
+					printf( "Getting hash types for user %s\n\n", username );
 					
 					hashListPtr = hashListStr;
 					if ( strncasecmp( hashListPtr, kHashNameListPrefix, sizeof(kHashNameListPrefix)-1 ) == 0 )
@@ -677,6 +853,8 @@ int main ( int argc, char * const *argv )
 			case kCmdSetHashTypes:
 				if ( (geteuid() == 0) || (authenticator != NULL && password != NULL) )
 				{
+					printf( "Setting hash types for user %s\n", username );
+					
 					if ( myClass.OpenDirNode( metaNode ? metaNode : nodeName, &nodeRef ) == eDSNoErr )
 					{
 						tRecordReference recRef;
@@ -687,7 +865,7 @@ int main ( int argc, char * const *argv )
 						
 						if ( siStatus == eDSNoErr )
 						{
-							if ( myClass.OpenRecord( nodeRef, kDSStdRecordTypeUsers, username, &recRef ) == eDSNoErr )
+							if ( myClass.OpenRecord( nodeRef, recordType, username, &recRef ) == eDSNoErr )
 							{
 								result = myClass.SetUserHashList( recRef, commandArgIndex + 1, argc, argv );
 								dsCloseRecord( recRef );
@@ -711,6 +889,37 @@ int main ( int argc, char * const *argv )
 				else
 					usage();
 				break;
+			
+			case kCmdEnableWindowsSharing:
+			case kCmdDisableWindowsSharing:
+				if ( (geteuid() == 0) || (authenticator != NULL && password != NULL) )
+				{
+					printf( "%s Windows sharing for user %s\n",
+							(commandNum == kCmdEnableWindowsSharing) ? "Enabling" : "Disabling",
+							username );
+					
+					if ( myClass.OpenDirNode(metaNode ? metaNode : nodeName, &nodeRef) == eDSNoErr )
+					{
+						tRecordReference recRef;
+						int result = 0;
+						
+						if ( authenticator != NULL )
+							siStatus = myClass.DoNodeNativeAuth( nodeRef, authenticator, password );
+						
+						siStatus = myClass.DoNodePWAuth( nodeRef, username, argv[argc-1],
+										(commandNum == kCmdEnableWindowsSharing) ? kDSStdAuthSetShadowHashWindows : kDSStdAuthSetShadowHashSecure,
+										NULL, NULL, recordType, NULL );
+						
+						myClass.CloseDirectoryNode( nodeRef );
+					}
+					
+					if ( siStatus != eDSNoErr )
+						printf( "Could not access account <%s>.\n", username );
+				}
+				else
+					usage();
+				break;
+				
 		}
 		
 		myClass.Deinitialize();
@@ -721,6 +930,22 @@ int main ( int argc, char * const *argv )
 		exit( 1 );
 	}
 } // main
+
+
+//-----------------------------------------------------------------------------
+//	get_command_id
+//-----------------------------------------------------------------------------
+
+Command get_command_id( const char *commandStr )
+{	
+	for ( int index = 0; gCommandTable[index].name != NULL; index++ )
+	{
+		if ( strcmp(gCommandTable[index].name, commandStr) == 0 )
+			return gCommandTable[index].cmd;
+	}
+	
+	return kCmdNone;
+}
 
 
 //-----------------------------------------------------------------------------
@@ -756,6 +981,10 @@ void PrintErrorMessage( long error, const char *username )
 //
 //	invoked when 'h' is on the command line
 //-----------------------------------------------------------------------------
+typedef struct UsageLine {
+	const char *cmd;
+	const char *desc;
+} UsageLine;
 
 void DoHelp ( FILE *inFile, const char *inArgv0 )
 {
@@ -770,42 +999,47 @@ void DoHelp ( FILE *inFile, const char *inArgv0 )
 	}
 	while ( tmpToolName != NULL );
 	
-	static const char * const	_szpUsage =
+	static const char * _szpUsage =
 		"Usage: %s [-h]\n"
-		"Usage: %s [-v] [-a authenticator] [-p password] [-u username]\n"
+		"Usage: %s [-v] [-a authenticator] [-p password] [-u username | -c computername]\n"
         	"                [-n nodename] command command-arg\n"
-		"Usage: %s [-v] [-a authenticator] [-p password] [-u username]\n"
+		"Usage: %s [-v] [-a authenticator] [-p password] [-u username | -c computername]\n"
         	"                [-n nodename] command \"policy1=value1 policy2=value2 ...\"\n"
 		"\n"
 		"  -a       name of the authenticator\n"
+		"  -c       name of the computer account to modify\n"
 		"  -p       password (omit this option for a secure prompt)\n"
-		"  -u       name of the user to modify\n"
+		"  -u       name of the user account to modify\n"
 		"  -h       help\n"
 		"  -n       directory-node to search, uses search node by default\n"
 		"  -v       verbose\n"
-		"\n"
-		"  -getglobalpolicy     Get global policies.\n"
-		"                       Specify a user if the password server\n"
-		"                       is not configured locally.\n"
-		"  -setglobalpolicy     Set global policies\n"
-		"  -getpolicy           Get policies for a user\n"
-		"  -setpolicy           Set policies for a user\n"
-		"  -setpolicyglobal     Set a user account to use global policies\n"
-		"  -setpassword         Set a new password for a user\n"
-		"  -enableuser          Enable a shadowhash user account that was disabled\n"
-		"                       by a password policy event.\n"
-		"  -getglobalhashtypes  Returns a list of password hashes stored on disk by\n"
-		"                       default.\n"
-		"  -setglobalhashtypes  Edits the list of password hashes stored on disk by\n"
-		"                       default.\n"
-		"  -gethashtypes        Returns a list of password hashes stored on disk for\n"
-		"                       a user account.\n"
-		"  -sethashtypes        Edits the list of password hashes stored on disk for\n"
-		"                       a user account.\n"
-		"\n"
-		"";
+		"\n";
+	
+	fprintf( inFile, _szpUsage, toolName, toolName, toolName );
 
-	::fprintf( inFile, _szpUsage, toolName, toolName, toolName );
+	static UsageLine usage_line[] = {
+		{"-getglobalpolicy",		"Get global policies."},
+		{"",						"Specify a user if the password server"},
+		{"",						"is not configured locally."},
+		{"-setglobalpolicy",		"Set global policies"},
+		{"-getpolicy",				"Get policies for a user"},
+		{"--get-effective-policy",	"Gets the combination of global and user policies that apply to the user."},
+		{"-setpolicy",				"Set policies for a user"},
+		{"-setpolicyglobal",		"Set a user account to use global policies"},
+		{"-setpassword",			"Set a new password for a user"},
+		{"-enableuser",				"Enable a shadowhash user account that was disabled"},
+		{"",						"by a password policy event."},
+		{"-getglobalhashtypes",		"Returns a list of password hashes stored on disk by default."},
+		{"-setglobalhashtypes",		"Edits the list of password hashes stored on disk by default."},
+		{"-gethashtypes",			"Returns a list of password hashes stored on disk for"},
+		{"",						"a user account."},
+		{"-sethashtypes",			"Edits the list of password hashes stored on disk for"},
+		{"",						"a user account."},
+		{NULL, NULL}
+	};
+	
+	for ( int idx = 0; usage_line[idx].cmd != NULL; idx++ )
+		fprintf( inFile, "%25s\t%s\n", usage_line[idx].cmd, usage_line[idx].desc );
 } // DoHelp
 
 
@@ -815,7 +1049,7 @@ void DoHelp ( FILE *inFile, const char *inArgv0 )
 
 void usage(void)
 {
-    fprintf(stdout, "usage: [-v] [-a authenticator] [-p password] [-u username] [-n nodename] command args\n");
+    fprintf(stdout, "usage: [-v] [-a authenticator] [-p password] [-u username | -c computername] [-n nodename] command args\n");
     exit(EX_USAGE);
 }
 
@@ -919,10 +1153,10 @@ read_passphrase(const char *prompt, int from_stdin)
 
 
 //-----------------------------------------------------------------------------
-//	ConvertPolicyDates
+//	ConvertPolicyLongs
 //
 //	Returns: malloc'd C-str, or NULL if a value is bad.
-//	substitutes unsigned longs with human-readable dates
+//	substitutes UInt32s with human-readable dates
 //-----------------------------------------------------------------------------
 
 char *ConvertPolicyLongs(const char *inPolicyStr)
@@ -934,79 +1168,38 @@ char *ConvertPolicyLongs(const char *inPolicyStr)
 	time_t timeval;
 	char scratchStr[256];
 	
-	try
+	tempString = (char *)malloc( strlen(inPolicyStr) + 100 );
+	if ( tempString == NULL )
+		return NULL;
+	
+	returnString = (char *)malloc( strlen(inPolicyStr) + 100 );
+	if ( returnString == NULL ) {
+		free( tempString );
+		return NULL;
+	}
+	
+	strcpy( returnString, inPolicyStr );
+	
+	for ( int idx = 0; sDatePolicyStr[idx] != NULL; idx++ )
 	{
-		tempString = (char *)malloc( strlen(inPolicyStr) + 100 );
-		value = strstr( inPolicyStr, kDatePolicy1 );
+		value = strstr( returnString, sDatePolicyStr[idx] );
 		if ( value != NULL )
 		{
-			// kDatePolicy1
-			value += strlen( kDatePolicy1 );
-			strncpy( tempString, inPolicyStr, value - inPolicyStr );
-			tempString[value - inPolicyStr] = '\0';
-			
+			value += strlen( sDatePolicyStr[idx] );
+			strlcpy( tempString, returnString, value - returnString + 1 );
 			timeval = 0;
 			sscanf( value, "%lu", &timeval );
 			timerec = ::gmtime( &timeval );
-			strftime(scratchStr, sizeof(scratchStr), "%m/%d/%y", timerec);
+			strftime( scratchStr, sizeof(scratchStr), "%m/%d/%y", timerec );
 			strcat( tempString, scratchStr );
 			value = strchr( value, ' ' );
 			if ( value != NULL )
 				strcat( tempString, value );
-		}
-		else
-		{
-			strcpy( tempString, inPolicyStr );
-		}
-	}
-	catch(...)
-	{
-		if ( tempString != NULL )
-		{
-			free( tempString );
-			tempString = NULL;
-		}
-	}
-	
-	// kDatePolicy2
-	try
-	{
-		if ( tempString == NULL )
-			throw(-1);
-		
-		returnString = (char *)malloc( strlen(tempString) + 100 );
-		value = strstr( tempString, kDatePolicy2 );
-		if ( value != NULL )
-		{
-			value += strlen( kDatePolicy2 );
-			strncpy( returnString, tempString, value - tempString );
-			returnString[value - tempString] = '\0';
-			
-			timeval = 0;
-			sscanf( value, "%lu", &timeval );
-			timerec = ::gmtime( &timeval );
-			strftime(scratchStr, sizeof(scratchStr), "%m/%d/%y", timerec);
-			strcat( returnString, scratchStr );
-			value = strchr( value, ' ' );
-			if ( value != NULL )
-				strcat( returnString, value );
-		}
-		else
-		{
 			strcpy( returnString, tempString );
 		}
 	}
-	catch(...)
-	{
-		if ( returnString != NULL )
-		{
-			free( returnString );
-			returnString = NULL;
-		}
-	}
 	
-	if ( tempString != NULL )
-	{
+	if ( tempString != NULL ) {
 		free( tempString );
 		tempString = NULL;
 	}
@@ -1019,123 +1212,76 @@ char *ConvertPolicyLongs(const char *inPolicyStr)
 //	ConvertPolicyDates
 //
 //	Returns: malloc'd C-str, or NULL if a date is bad.
-//	substitutes human-typeable dates into unsigned longs
+//	substitutes human-typeable dates for UInt32s
 //-----------------------------------------------------------------------------
 
 char *ConvertPolicyDates(const char *inPolicyStr)
 {
 	char *returnString = NULL;
 	char *value = NULL;
-	char *firstNonNeeded = NULL;
 	char *tempString = NULL;
+	char *firstNonNeeded = NULL;
 	struct tm timerec;
+	int index;
 	char scratchStr[256];
 	
+	tempString = (char *)malloc( strlen(inPolicyStr) + 100 );
+	if ( tempString == NULL )
+		return NULL;
+
 	try
 	{
-		tempString = (char *)malloc( strlen(inPolicyStr) + 100 );
-		value = strstr( inPolicyStr, kDatePolicy1 );
-		if ( value != NULL )
-		{
-			// kDatePolicy1
-			value += strlen( kDatePolicy1 );
-			strncpy( tempString, inPolicyStr, value - inPolicyStr );
-			tempString[value - inPolicyStr] = '\0';
-			
-			strncpy( scratchStr, value, 8 );
-			scratchStr[8] = '\0';
-			for (int index = 0; index < 8; index++)
-			{
-				if (scratchStr[index] == ' ')
-				{
-					scratchStr[index] = '\0';
-					break;
-				}
-			}
-			
-			if ( ! PreflightDate(scratchStr) )
-				throw(-1);
-			
-			memset(&timerec, 0, sizeof(timerec));
-			firstNonNeeded = strptime(value, "%m/%d/%y", &timerec);
-			if ( firstNonNeeded == NULL )
-				throw(-1);
-			
-			sprintf( scratchStr, "%lu", mktime(&timerec) );
-			strcat( tempString, scratchStr );
-			value = strchr( value, ' ' );
-			if ( value != NULL )
-				strcat( tempString, value );
-		}
-		else
-		{
-			strcpy( tempString, inPolicyStr );
-		}
-	}
-	catch(...)
-	{
-		if ( tempString != NULL )
-		{
-			free( tempString );
-			tempString = NULL;
-		}
-	}
-	
-	// kDatePolicy2
-	try
-	{
-		if ( tempString == NULL )
-			throw(-1);
+		returnString = (char *)malloc( strlen(inPolicyStr) + 100 );
+		if ( returnString == NULL )
+			throw(1);
 		
-		returnString = (char *)malloc( strlen(tempString) + 100 );
-		value = strstr( tempString, kDatePolicy2 );
-		if ( value != NULL )
+		strcpy( returnString, inPolicyStr );
+		
+		for ( int idx = 0; sDatePolicyStr[idx] != NULL; idx++ )
 		{
-			value += strlen( kDatePolicy2 );
-			strncpy( returnString, tempString, value - tempString );
-			returnString[value - tempString] = '\0';
-			
-			strncpy( scratchStr, value, 8 );
-			scratchStr[8] = '\0';
-			for (int index = 0; index < 8; index++)
-			{
-				if (scratchStr[index] == ' ')
-				{
-					scratchStr[index] = '\0';
-					break;
-				}
-			}
-			
-			if ( ! PreflightDate(scratchStr) )
-				throw(-1);
-			
-			memset(&timerec, 0, sizeof(timerec));
-			firstNonNeeded = strptime(value, "%m/%d/%y", &timerec);
-			if ( firstNonNeeded == NULL )
-				throw(-1);
-			
-			sprintf( scratchStr, "%lu", mktime(&timerec) );
-			strcat( returnString, scratchStr );
-			value = strchr( value, ' ' );
+			value = strstr( returnString, sDatePolicyStr[idx] );
 			if ( value != NULL )
-				strcat( returnString, value );
-		}
-		else
-		{
-			strcpy( returnString, tempString );
+			{
+				value += strlen( sDatePolicyStr[idx] );
+				strlcpy( tempString, returnString, value - returnString + 1 );
+				strlcpy( scratchStr, value, 9 );
+				for ( index = 0; index < 8; index++ )
+				{
+					if ( scratchStr[index] == ' ' )
+					{
+						scratchStr[index] = '\0';
+						break;
+					}
+				}
+				
+				if ( ! PreflightDate(scratchStr) )
+					throw(1);
+				
+				bzero(&timerec, sizeof(timerec));
+				firstNonNeeded = strptime(value, "%m/%d/%y", &timerec);
+				if ( firstNonNeeded == NULL )
+					throw(1);
+				
+				sprintf( scratchStr, "%lu", mktime(&timerec) );
+				strcat( tempString, scratchStr );
+				
+				value = strchr( value, ' ' );
+				if ( value != NULL )
+					strcat( tempString, value );
+				strcpy( returnString, tempString );
+			}
 		}
 	}
 	catch(...)
 	{
-		if ( returnString != NULL )
-		{
+		// fatal error, return NULL
+		if ( returnString != NULL ) {
 			free( returnString );
 			returnString = NULL;
 		}
 	}
 	
-	if ( tempString != NULL )
-	{
+	if ( tempString != NULL ) {
 		free( tempString );
 		tempString = NULL;
 	}
@@ -1148,7 +1294,7 @@ char *ConvertPolicyDates(const char *inPolicyStr)
 //	PreflightDate
 //
 //	Returns: TRUE if the date is in a valid format
-//	substitutes human-typeable dates into unsigned longs
+//	substitutes human-typeable dates into UInt32s
 //-----------------------------------------------------------------------------
 Boolean PreflightDate(const char *theDateStr)
 {
@@ -1201,6 +1347,7 @@ Boolean PreflightDate(const char *theDateStr)
 long GetAuthAuthority(
 	const char *inNodeName,
 	const char *inUsername,
+	const char *inRecordType,
     AuthAuthType *outAuthAuthType,
 	char *inOutUserID,
 	char *inOutServerAddress,
@@ -1210,9 +1357,9 @@ long GetAuthAuthority(
 	long result = -1;
 	
 	if ( inNodeName == NULL )
-		result = GetAuthAuthorityWithSearchNode( inUsername, outAuthAuthType, inOutUserID, inOutServerAddress, outMetaNode, outAAData );
+		result = GetAuthAuthorityWithSearchNode( inUsername, inRecordType, outAuthAuthType, inOutUserID, inOutServerAddress, outMetaNode, outAAData );
 	else
-		result = GetAuthAuthorityWithNode( inNodeName, inUsername, outAuthAuthType, inOutUserID, inOutServerAddress, outAAData );
+		result = GetAuthAuthorityWithNode( inNodeName, inUsername, inRecordType, outAuthAuthType, inOutUserID, inOutServerAddress, outAAData );
 	
 	if ( result == eDSNoErr && *outAuthAuthType == kAuthTypePasswordServer && (*inOutUserID == '\0' || *inOutServerAddress == '\0') )
 		result = -1;
@@ -1229,6 +1376,7 @@ long GetAuthAuthority(
 
 long GetAuthAuthorityWithSearchNode(
 	const char *inUsername,
+	const char *inRecordType,
     AuthAuthType *outAuthAuthType,
 	char *inOutUserID,
 	char *inOutServerAddress,
@@ -1253,7 +1401,7 @@ long GetAuthAuthorityWithSearchNode(
 	
 	try
 	{
-		status = myClass.GetUserByName( myClass.GetSearchNodeRef(), inUsername, &authAuthorityStr, &metaNodeStr );
+		status = myClass.GetUserByName( myClass.GetSearchNodeRef(), inUsername, inRecordType, &authAuthorityStr, &metaNodeStr );
 		if ( status != eDSNoErr )
 			throw( status );
 		
@@ -1262,7 +1410,7 @@ long GetAuthAuthorityWithSearchNode(
 		else
 			free( metaNodeStr );
 		
-		status = ParseAuthAuthority( authAuthorityStr, &aaVersion, &aaTag, &aaData );
+		status = dsParseAuthAuthority( authAuthorityStr, &aaVersion, &aaTag, &aaData );
 		if ( status != eDSNoErr )
 			throw( status );
 		
@@ -1311,6 +1459,7 @@ long GetAuthAuthorityWithSearchNode(
 long GetAuthAuthorityWithNode(
 	const char *inNodeName,
 	const char *inUsername,
+	const char *inRecordType,
 	AuthAuthType *outAuthAuthType,
     char *inOutUserID,
 	char *inOutServerAddress,
@@ -1322,10 +1471,10 @@ long GetAuthAuthorityWithNode(
     long						status				= eDSNoErr;
     tContextData				context				= nil;
 	tAttributeValueEntry	   *pExistingAttrValue	= NULL;
-    unsigned long				index				= 0;
-    unsigned long				nodeCount			= 0;
-	unsigned long				attrValIndex		= 0;
-    unsigned long				attrValCount		= 0;
+    UInt32					index				= 0;
+    UInt32					nodeCount			= 0;
+	UInt32					attrValIndex		= 0;
+    UInt32					attrValCount		= 0;
 	tDataList				   *nodeName			= nil;
     tRecordReference			recordRef			= 0;
     tDataNode				   *attrTypeNode		= nil;
@@ -1388,7 +1537,7 @@ long GetAuthAuthorityWithNode(
             debug("dsOpenDirNode = %ld\n", status);
             if (status != eDSNoErr) continue;
             
-            recordTypeNode = dsDataNodeAllocateString( dsRef, kDSStdRecordTypeUsers );
+            recordTypeNode = dsDataNodeAllocateString( dsRef, inRecordType );
             recordNameNode = dsDataNodeAllocateString( dsRef, inUsername );
             status = dsOpenRecord( nodeRef, recordTypeNode, recordNameNode, &recordRef );
             debug("dsOpenRecord = %ld\n", status);
@@ -1408,9 +1557,13 @@ long GetAuthAuthorityWithNode(
                     debug("dsGetRecordAttributeValueByIndex = %ld\n", status);
                     if (status != eDSNoErr) continue;
                     
-                    status = ParseAuthAuthority( pExistingAttrValue->fAttributeValueData.fBufferData, &aaVersion, &aaTag, &aaData );
+                    status = dsParseAuthAuthority( pExistingAttrValue->fAttributeValueData.fBufferData, &aaVersion, &aaTag, &aaData );
                     if (status != eDSNoErr) continue;
                     
+					if ( strstr(inNodeName, "/Local") != NULL &&
+						 strcmp(aaTag, "Kerberosv5") == 0 )
+						 continue;
+					
 					*outAuthAuthType = ConvertTagToConstant( aaTag );
 					switch( *outAuthAuthType )
 					{
@@ -1482,8 +1635,8 @@ void GetPWServerAddresses(char *outAddressStr)
     long						status				= eDSNoErr;
     tContextData				context				= nil;
 	tAttributeValueEntry	   *pAttrValueEntry		= NULL;
-    unsigned long				index				= 0;
-    unsigned long				nodeCount			= 0;
+    UInt32					index				= 0;
+    UInt32					nodeCount			= 0;
 	tDataList				   *nodeName			= nil;
     tRecordReference			recordRef			= 0;
     tDataNode				   *attrTypeNode		= nil;
@@ -1638,56 +1791,4 @@ AuthAuthType ConvertTagToConstant( const char *inAuthAuthorityTag )
 	
 	return returnType;
 }
-
-
-// ---------------------------------------------------------------------------
-//	* ParseAuthAuthority
-//    retrieve version, tag, and data from authauthority
-//    format is version;tag;data
-// ---------------------------------------------------------------------------
-
-long ParseAuthAuthority ( const char *inAuthAuthority,
-                            char ** outVersion,
-                            char ** outAuthTag,
-                            char ** outAuthData )
-{
-	char* authAuthority = NULL;
-	char* current = NULL;
-	char* tempPtr = NULL;
-	long result = eDSAuthFailed;
-	if ( inAuthAuthority == NULL || outVersion == NULL 
-		 || outAuthTag == NULL || outAuthData == NULL )
-	{
-		return eDSAuthFailed;
-	}
-	authAuthority = strdup(inAuthAuthority);
-	if (authAuthority == NULL)
-	{
-		return eDSAuthFailed;
-	}
-	current = authAuthority;
-	do
-	{
-		tempPtr = strsep(&current, ";");
-		if (tempPtr == NULL) break;
-		*outVersion = strdup(tempPtr);
-		
-		tempPtr = strsep(&current, ";");
-		if (tempPtr == NULL) break;
-		*outAuthTag = strdup(tempPtr);
-		
-		result = eDSNoErr;
-		
-		*outAuthData = NULL;
-		tempPtr = strsep(&current, ";");
-		if (tempPtr == NULL) break;
-		*outAuthData = strdup(tempPtr);
-	}
-	while (false);
-	
-	free(authAuthority);
-	authAuthority = NULL;
-	return result;
-}
-
 

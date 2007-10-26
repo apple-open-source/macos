@@ -1,0 +1,296 @@
+CrackLib:	A ProActive Password Sanity Library
+By: 		Alec Muffett
+Address:	alecm@crypto.dircon.co.uk
+Date:		Sun Dec 14 22:16:48 GMT 1997
+
+- This software is not my fault in any way, nor indeed anybody's -
+
+
+*** What is CrackLib ***
+
+
+CrackLib is a library containing a C function (well, lots of functions
+really, but you only need to use one of them) which may be used in a
+"passwd"-like program.
+
+The idea is simple: try to prevent users from choosing passwords that
+could be guessed by "Crack" by filtering them out, at source.
+
+CrackLib is an offshoot of the the version 5 "Crack" software, and
+contains a considerable number of ideas nicked from the new software.
+
+At the time of writing, Crack 5 is incomplete (still awaiting purchase
+of my home box) - but I though I could share this with you.
+
+[ Incidentally, if Dell or anyone would like to "donate" a Linuxable
+486DX2-66MHz box (EISA/16Mb RAM/640MB HD/AHA1740) as a development
+platform for Crack, I'd be more than grateful to hear from you.  8-) ]
+
+
+NOTE THIS WELL: CrackLib is NOT a replacement "passwd" program.
+CrackLib is a LIBRARY.  CrackLib is what trendy marketdroid types would
+probably call an "enabler".
+
+The idea is that you wire it into your _own_ "passwd" program (if you
+have source); alternatively, you wire it into something like "shadow"
+from off of the net.  You can use it in other things, too.
+
+You can use it almost _everywhere_.
+
+
+*** Advantages of CrackLib ***
+
+
+1) it WORKS!
+
+I wrote something similar ("goodpass") a few years back, which went out
+with Crack v3.x.
+
+Goodpass was slow and buggy and I think it was used (at least in part)
+in "npasswd".  Hopefully, CrackLib will supplant "goodpass" entirely.
+
+
+2) it's FAST!
+
+CrackLib finds potential passwords quickly, by using an index file to
+access dictionary words, and by keeping a table to assist binary
+searching.
+
+
+3) it's SMALL!
+
+CrackLib's dictionary is modified-DAWG compressed with a chunksize of 16
+words (see Crack v5.0 docs (when it comes out) for details) - and then
+the index file is built, with one entry per chunk.
+
+The upshot of all this is that CrackLib can do indexed, binary searches
+in a 1.4 million word dictionary (raw size ~ 15Mb), but the CrackLib
+files (data+index+watermarks) occupy only ~ 7Mb.  (45% original size)
+
+It's even efficient over NFS !
+
+
+4) it's MIND-NUMBINGLY THOROUGH!
+
+(is this beginning to read like a B-movie flyer, or what?)
+
+CrackLib makes literally hundreds of tests to determine whether you've
+chosen a bad password.
+
+* It tries to generate words from your username and gecos entry to tries
+to match them against what you've chosen.
+
+* It checks for simplistic patterns.
+
+* It then tries to reverse-engineer your password into a dictionary
+word, and searches for it in your dictionary.
+
+- after all that, it's PROBABLY a safe(-ish) password.  8-)
+
+
+*** Instructions for building CrackLib...
+
+
+STEP 0) Engage your brain.
+
+I'm interested in improving the CrackLib software, doing bugfixes,
+"guessing technique" improvements, and portability enhancements. 
+
+I'm NOT interested in unhelpful comments like "well, _my_ operating
+system doesn't come with a dictionary".  If it doesn't, either complain
+to your vendor, or GO AND GET a dictionary off the net. 
+
+CrackLib is NOT a TOOL.  It is not a complete package.  It is not
+something you can utilise directly. 
+
+It is a resource, an aid, something to enhance the functionality of
+other software.  You need to (either) write OR modify other software to
+use it.  If you can't do this, then you shouldn't be wasting your time
+with it. 
+
+Regarding bugs and portability problems: please try to work them out for
+yourself, and then (please) TELL me about them.  This will help me
+improve future versions. 
+
+
+STEP 1) Edit the Makefile to set your preferred value of DICTPATH
+
+This it the directory+filename-prefix that your version of CrackLib will
+go hunting for, and it must be visible to all programs on all hosts that
+use CrackLib
+
+Hence, if you want to use a CrackLib binary on a distributed network,
+these files are probably best placed on an NFS server.
+
+Note: You have to specify a FILENAME PREFIX too, eg:
+
+	DICTPATH=/usr/local/lib/pw_dict
+
+which will generate:
+
+	/usr/local/lib/pw_dict.pwd
+	/usr/local/lib/pw_dict.pwi
+	/usr/local/lib/pw_dict.hwm
+
+which are the files that CrackLib needs.
+
+These files are NOT byte-order independent, in fact they are probably
+ARCHITECTURE SPECIFIC, mostly due to speed constraints.  If this is a
+problem, I suggest you use:
+
+	DICTPATH=/usr/local/lib/pw_dict.sun4
+	DICTPATH=/usr/local/lib/pw_dict.i386
+	DICTPATH=/usr/local/lib/pw_dict.cray
+
+...etc, and build several sets of files, as appropriate.
+
+
+(Hackers Note: Strictly, only *.pwi and *.hwm should be architecture
+dependent; however, if you build two dictionaries on two different
+platforms, you MAY wind up with different *.pwd files too, due to
+incompatibilities in the std Unix utilities, or from using different
+SOURCEDICTs.
+
+I may try to work this out in the next release.  In the mean time, if
+your *.pwd files are EXACTLY identical (use "cmp" to test), you can
+delete the multiple copies and use softlinks instead.)
+
+
+STEP 2) Add to the SOURCEDICT variable, any files continaing extra words
+that you wish CrackLib to use.  CrackLib merges all of these files
+together, removes redundant characters, and compresses them.  Generally,
+the output file is 40..60% the size of all the input files, combined.
+
+NOTE: THE DEFAULT VALUE OF "SOURCEDICT" CONTAINS "/usr/dict/words" -
+this is a file which can be found on many BSD-type Unix systems,
+containing a list of words, one per line, suitable for use with
+"cracklib".  If you do not have such a file, refer to STEP 0.
+
+
+STEP 3) do:
+
+	% make all
+
+then do:
+
+	% make install
+
+which will build the CrackLib dictionary in $DICTPATH.
+
+
+*** NOTE THIS WELL ***
+
+If you supply massive amounts of text to CrackLib to use a a dictionary,
+you must have enough free space available for use by the "sort" command,
+when the dictionary is built.
+
+So: If you do not have (say) about 20Mb free in /usr/tmp (or whatever
+temporary area your "sort" command uses), have a look at the
+"util/mkdict" script.
+
+You can usually tweak the "sort" command to use any large area of disk
+you desire, by use of the "-T" option, and "mkdict" has a hook for this.
+
+
+STEP 4) Wire a call to "FascistCheck()" into your "passwd" program
+
+
+- Left as an exercise for the reader.
+
+
+*** Example of how to invoke CrackLib
+
+Insert a call to the routine FascistCheck, which is defined thusly:
+
+NAME
+	FascistCheck - check a potential password for guessability
+
+
+SYNOPSIS
+
+	char *FascistCheck(char *pw, char *dictpath);
+
+
+DESCRIPTION
+
+	FascistCheck() takes 2 arguments:
+
+	pw - a string continaing the users chosen "potential password"
+
+	dictpath - the full path name + filename prefix of the
+	CrackLib dictionary, specified in the installation Makefile.
+	(If you still haven't sussed, I'm talking about DICTPATH).
+
+
+RETURN VALUE
+
+	FascistCheck() returns the NULL pointer for a good password,
+	or a pointer to a diagnostic string if it is a bad password.
+
+
+BUGS
+	- it can't catch everything. Just most things.
+
+	- it calls getpwuid(getuid()) to look up the user,
+	  this MAY affect poorly written programs
+
+	- using more than one pw_dict file, eg:
+
+		char *msg;
+		if (msg = FascistCheck(pw, "onepath") ||
+		    msg = FascistCheck(pw, "anotherpath"))
+		{
+		    printf("Bad Password: because %s\n", msg);
+		}
+
+	   ...works, but it's a kludge. AVOID IT IF POSSIBLE.
+	   Using just the one dictionary is more efficient, anyway.
+
+	- PWOpen() routines should cope with having more than 1
+	  dictionary open at a time.  I'll fix this RSN.
+
+
+WORKED EXAMPLE
+
+---- modified extract from BSD distribution - "local_passwd.c" ----
+
+#ifndef CRACKLIB_DICTPATH /* if possible, get from the same Makefile as CrackLib */
+#define CRACKLIB_DICTPATH "/usr/local/lib/pw_dict"
+#endif		/* see examples on how to import DICTPATH into CRACKLIB_DICTPATH */
+...
+...
+...
+	for (buf[0] = '\0', tries = 0;;) {
+		p = getpass("New password:");
+		if (!*p) {
+			(void)printf("Password unchanged.\n");
+			pw_error(NULL, 0, 0);
+		}
+
+#ifndef CRACKLIB_DICTPATH
+		if (strlen(p) <= 5 && (uid != 0 || ++tries < 2)) {
+			(void)printf("Please enter a longer password.\n");
+			continue;
+		}
+		for (t = p; *t && islower(*t); ++t);
+		if (!*t && (uid != 0 || ++tries < 2)) {
+			(void)printf("Please don't use an all-lower case password.\nUnusual capitalization, control characters or digits are suggested.\n");
+			continue;
+		}
+#else
+		{
+			char *msg;
+			if (msg = (char *) FascistCheck(pwbuf, CRACKLIB_DICTPATH)) {
+				printf("Please use a different password.\n");
+				printf("The one you have chosen is unsuitable because %s.\n", msg);
+				continue;	/* go round and round until they get it right */
+			}
+		}
+#endif /* CRACKLIB_DICTPATH */
+
+		(void)strcpy(buf, p);
+		if (!strcmp(buf, getpass("Retype new password:")))
+			break;
+		(void)printf("Mismatch; try again, EOF to quit.\n");
+	}
+---- end of extract ----

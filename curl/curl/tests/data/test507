@@ -1,3 +1,4 @@
+<testcase>
 # Server-side
 <reply>
 </reply>
@@ -14,7 +15,7 @@ multi interface get with non-existing host name
 lib507
 </tool>
 <command>
-http://doesnotexist.foo/
+http://doesnotexist.foo./
 </command>
 </client>
 
@@ -24,3 +25,4 @@ http://doesnotexist.foo/
 6
 </errorcode>
 </verify>
+</testcase>

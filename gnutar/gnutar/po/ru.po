@@ -1,794 +1,185 @@
-# Russian messages for GNU tar.
-# Copyright (C) 1998, 1999 Free Software Foundation, Inc.
+# Translation of tar-1.14.91.po to Russian
+# Copyright (C) 1998, 1999, 2004 Free Software Foundation, Inc.
 # Const Kaplinsky <const@ce.cctpu.edu.ru>, 1998, 1999.
+# Pavel Maryanov <acid_jack@ukr.net>, 2004.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: tar 1.13.7\n"
+"Project-Id-Version: tar-1.14.91\n"
 "Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
-"POT-Creation-Date: 2004-05-10 14:53+0300\n"
-"PO-Revision-Date: 1999-08-23 09:31+08:00\n"
-"Last-Translator: Const Kaplinsky <const@ce.cctpu.edu.ru>\n"
+"POT-Creation-Date: 2004-12-21 17:11+0200\n"
+"PO-Revision-Date: 2004-12-20 11:56+0200\n"
+"Last-Translator: Pavel Maryanov <acid_jack@ukr.net>\n"
 "Language-Team: Russian <ru@li.org>\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=koi8-r\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Generator: KBabel 1.3\n"
+"Plural-Forms: nplurals=2; plural=n == 1 ? 0 : 1;\n"
 
-#: lib/argmatch.c:133
-#, fuzzy, c-format
+#: lib/argmatch.c:137
+#, c-format
 msgid "invalid argument %s for %s"
-msgstr "неверный аргумент %s для `%s'"
+msgstr "п╫п╣п╡п╣я─п╫я▀п╧ п╟я─пЁя┐п╪п╣п╫я┌ %s п╢п╩я▐ %s"
 
-#: lib/argmatch.c:134
-#, fuzzy, c-format
+#: lib/argmatch.c:138
+#, c-format
 msgid "ambiguous argument %s for %s"
-msgstr "неоднозначный аргумент %s для `%s'"
+msgstr "п╫п╣п╬п╢п╫п╬п╥п╫п╟я┤п╫я▀п╧ п╟я─пЁя┐п╪п╣п╫я┌ %s п╢п╩я▐ %s"
 
-#: lib/argmatch.c:153
+#: lib/argmatch.c:157
 #, c-format
 msgid "Valid arguments are:"
-msgstr "Допустимые аргументы:"
+msgstr "п■п╬п©я┐я│я┌п╦п╪я▀п╣ п╟я─пЁя┐п╪п╣п╫я┌я▀:"
 
-#: lib/error.c:127 src/rmt.c:92
+#: lib/error.c:123 rmt/rmt.c:92
 msgid "Unknown system error"
-msgstr "Неизвестная системная ошибка"
+msgstr "п²п╣п╦п╥п╡п╣я│я┌п╫п╟я▐ я│п╦я│я┌п╣п╪п╫п╟я▐ п╬я┬п╦п╠п╨п╟"
 
-#: lib/getopt.c:570 lib/getopt.c:589
+#: lib/getopt.c:551 lib/getopt.c:570
 #, c-format
 msgid "%s: option `%s' is ambiguous\n"
-msgstr "%s: неоднозначный ключ `%s'\n"
+msgstr "%s: п╬п©я├п╦я▐ `%s' п╫п╣ п╬п╢п╫п╬п╥п╫п╟я┤п╫п╟\n"
 
-#: lib/getopt.c:622 lib/getopt.c:626
+#: lib/getopt.c:603 lib/getopt.c:607
 #, c-format
 msgid "%s: option `--%s' doesn't allow an argument\n"
-msgstr "%s: ключ `--%s' не допускает указания аргумента\n"
+msgstr "%s: п╬п©я├п╦я▐ `--%s' п╫п╣ я─п╟п╥я─п╣я┬п╟п╣я┌ п╦я│п©п╬п╩я▄п╥п╬п╡п╟я┌я▄ п╟я─пЁя┐п╪п╣п╫я┌\n"
 
-#: lib/getopt.c:635 lib/getopt.c:640
+#: lib/getopt.c:616 lib/getopt.c:621
 #, c-format
 msgid "%s: option `%c%s' doesn't allow an argument\n"
-msgstr "%s: ключ `%c%s' не допускает указания аргумента\n"
+msgstr "%s: п╬п©я├п╦я▐ `%c%s' п╫п╣ я─п╟п╥я─п╣я┬п╟п╣я┌ п╦я│п©п╬п╩я▄п╥п╬п╡п╟я┌я▄ п╟я─пЁя┐п╪п╣п╫я┌\n"
 
-#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#: lib/getopt.c:667 lib/getopt.c:689 lib/getopt.c:1020 lib/getopt.c:1042
 #, c-format
 msgid "%s: option `%s' requires an argument\n"
-msgstr "%s: ключ `%s' требует указания аргумента\n"
+msgstr "%s: п╢п╩я▐ п╬п©я├п╦п╦ `%s' я┌я─п╣п╠я┐п╣я┌я│я▐ п╟я─пЁя┐п╪п╣п╫я┌\n"
 
-#: lib/getopt.c:746 lib/getopt.c:749
+#: lib/getopt.c:727 lib/getopt.c:730
 #, c-format
 msgid "%s: unrecognized option `--%s'\n"
-msgstr "%s: неизвестный ключ `--%s'\n"
+msgstr "%s: п╫п╣я─п╟я│п©п╬п╥п╫п╟п╫п╫п╟я▐ п╬п©я├п╦я▐ `--%s'\n"
 
-#: lib/getopt.c:757 lib/getopt.c:760
+#: lib/getopt.c:738 lib/getopt.c:741
 #, c-format
 msgid "%s: unrecognized option `%c%s'\n"
-msgstr "%s: неизвестный ключ `%c%s'\n"
+msgstr "%s: п╫п╣я─п╟я│п©п╬п╥п╫п╟п╫п╫п╟я▐ п╬п©я├п╦я▐ `%c%s'\n"
 
-#: lib/getopt.c:815 lib/getopt.c:818
+#: lib/getopt.c:796 lib/getopt.c:799
 #, c-format
 msgid "%s: illegal option -- %c\n"
-msgstr "%s: недопустимый ключ -- %c\n"
+msgstr "%s: п╫п╣п╢п╬п©я┐я│я┌п╦п╪п╟я▐ п╬п©я├п╦я▐ -- %c\n"
 
-#: lib/getopt.c:824 lib/getopt.c:827
+#: lib/getopt.c:805 lib/getopt.c:808
 #, c-format
 msgid "%s: invalid option -- %c\n"
-msgstr "%s: неверный ключ -- %c\n"
+msgstr "%s: п╫п╣п╡п╣я─п╫п╟я▐ п╬п©я├п╦я▐  -- %c\n"
 
-#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#: lib/getopt.c:863 lib/getopt.c:882 lib/getopt.c:1095 lib/getopt.c:1116
 #, c-format
 msgid "%s: option requires an argument -- %c\n"
-msgstr "%s: ключ требует указания аргумента -- %c\n"
+msgstr "%s: п╢п╩я▐ п╬п©я├п╦п╦ я┌я─п╣п╠я┐п╣я┌я│я▐ п╟я─пЁя┐п╪п╣п╫я┌ -- %c\n"
 
-#: lib/getopt.c:954 lib/getopt.c:973
+#: lib/getopt.c:935 lib/getopt.c:954
 #, c-format
 msgid "%s: option `-W %s' is ambiguous\n"
-msgstr "%s: недопустимый ключ `-W %s'\n"
+msgstr "%s: п╬п©я├п╦я▐ `-W %s' п╫п╣ п╬п╢п╫п╬п╥п╫п╟я┤п╫п╟\n"
 
-#: lib/getopt.c:997 lib/getopt.c:1018
+#: lib/getopt.c:978 lib/getopt.c:999
 #, c-format
 msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr "%s: ключ `-W %s' не допускает указания аргумента\n"
+msgstr "%s: п╬п©я├п╦я▐ `-W %s' п╫п╣ я─п╟п╥я─п╣я┬п╟п╣я┌ п╦я│п©п╬п╩я▄п╥п╬п╡п╟я┌я▄ п╟я─пЁя┐п╪п╣п╫я┌\n"
 
-#: lib/human.c:483
-#, fuzzy
+#: lib/human.c:484
 msgid "block size"
-msgstr "блок %s: "
+msgstr "я─п╟п╥п╪п╣я─ п╠п╩п╬п╨п╟"
 
-#: lib/quotearg.c:238
+#: lib/quotearg.c:240
 msgid "`"
 msgstr "`"
 
-#: lib/quotearg.c:239
+#: lib/quotearg.c:241
 msgid "'"
 msgstr "'"
 
-#: lib/xmalloc.c:53
-#, fuzzy
-msgid "memory exhausted"
-msgstr "Память исчерпана"
+#: lib/rtapelib.c:297
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: п║п╩я┐п╤п╠п╟ п╫п╣п╢п╬я│я┌я┐п©п╫п╟"
 
-#: src/buffer.c:139
-#, fuzzy, c-format
-msgid "Total bytes written: %s (%s, %s/s)\n"
-msgstr "Общее число записанных байт: "
+#: lib/rtapelib.c:301
+msgid "stdin"
+msgstr "stdin"
 
-#: src/buffer.c:216
-msgid "(pipe)"
-msgstr ""
+#: lib/rtapelib.c:304
+msgid "stdout"
+msgstr "stdout"
 
-#: src/buffer.c:264
-msgid "Invalid value for record_size"
-msgstr "Недопустимое значение для record_size"
+#: lib/rtapelib.c:512
+msgid "Cannot execute remote shell"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╥п╟п©я┐я│я┌п╦я┌я▄ я┐п╢п╟п╩п╣п╫п╫я▀п╧ п╨п╬п╪п╟п╫п╢п╫я▀п╧ п©я─п╬я├п╣я│я│п╬я─"
 
-#: src/buffer.c:267
-msgid "No archive name given"
-msgstr "Не указано имя архива"
-
-#: src/buffer.c:282
-#, fuzzy, c-format
-msgid "Cannot allocate memory for blocking factor %d"
-msgstr "Не удалось выделить память под буфер блоков размером %d"
-
-#: src/buffer.c:316
-msgid "Cannot verify stdin/stdout archive"
-msgstr "Проверка архива в стандартном вводе/выводе невозможна"
-
-#: src/buffer.c:392
-#, fuzzy, c-format
-msgid "Archive not labeled to match %s"
-msgstr "Метка архива не соответствует `%s'"
-
-#: src/buffer.c:395 src/buffer.c:752
-#, fuzzy, c-format
-msgid "Volume %s does not match %s"
-msgstr "Том `%s' не соответствует `%s'"
-
-#: src/buffer.c:433
+#: lib/argp-help.c:194
 #, c-format
-msgid "Write checkpoint %d"
-msgstr "Контрольная точка записи %d"
+msgid "%.*s: ARGP_HELP_FMT parameter requires a value"
+msgstr "%.*s: п■п╩я▐ п©п╟я─п╟п╪п╣я┌я─п╟ ARGP_HELP_FMT я┌я─п╣п╠я┐п╣я┌я│я▐ п╥п╫п╟я┤п╣п╫п╦п╣"
 
-#: src/buffer.c:592
-msgid "At beginning of tape, quitting now"
-msgstr "Текущая позиция -- начало ленты, прекращение работы"
-
-#: src/buffer.c:598
-msgid "Too many errors, quitting"
-msgstr "Слишком много ошибок, прекращение работы"
-
-#: src/buffer.c:622
-#, fuzzy, c-format
-msgid "Read %s bytes from %s"
-msgstr "%s переименован в %s"
-
-#: src/buffer.c:633
-#, fuzzy, c-format
-msgid "Unaligned block (%lu byte) in archive"
-msgid_plural "Unaligned block (%lu bytes) in archive"
-msgstr[0] "Прочитано только %lu байт из архива %s"
-msgstr[1] "Прочитано только %lu байт из архива %s"
-
-#: src/buffer.c:653
-#, fuzzy, c-format
-msgid "Record size = %lu block"
-msgid_plural "Record size = %lu blocks"
-msgstr[0] "Размер записи (в блоках) = %lu"
-msgstr[1] "Размер записи (в блоках) = %lu"
-
-#: src/buffer.c:670
+#: lib/argp-help.c:203
 #, c-format
-msgid "Read checkpoint %d"
-msgstr "Контрольная точка чтения %d"
+msgid "%.*s: Unknown ARGP_HELP_FMT parameter"
+msgstr "%.*s: п²п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ п©п╟я─п╟п╪п╣я┌я─ ARGP_HELP_FMT"
 
-#: src/buffer.c:761 src/extract.c:1082
+#: lib/argp-help.c:215
 #, c-format
-msgid "Reading %s\n"
-msgstr "Чтение %s\n"
+msgid "Garbage in ARGP_HELP_FMT: %s"
+msgstr "п°я┐я│п╬я─ п╡ ARGP_HELP_FMT: %s"
 
-#: src/buffer.c:765
-msgid "WARNING: No volume header"
-msgstr "ПРЕДУПРЕЖДЕНИЕ: Нет заголовка тома"
-
-#: src/buffer.c:773
-#, c-format
-msgid "%s is not continued on this volume"
-msgstr "%s не продолжается на этом томе"
-
-#: src/buffer.c:787
-#, c-format
-msgid "%s is the wrong size (%s != %s + %s)"
-msgstr "У %s неверный размер (%s != %s + %s)"
-
-#: src/buffer.c:799
-msgid "This volume is out of sequence"
-msgstr "Этот том нарушает последовательность"
-
-#: src/buffer.c:881
-#, fuzzy
-msgid "Cannot backspace archive file; it may be unreadable without -i"
-msgstr "Не удалось прокрутить архив назад; он может не читаться без -i"
-
-#: src/buffer.c:927
-#, c-format
-msgid "%s: contains invalid volume number"
-msgstr ""
-
-#: src/buffer.c:979
-msgid "Volume number overflow"
-msgstr ""
-
-#: src/buffer.c:998
-#, c-format
-msgid "`%s' command failed"
-msgstr ""
-
-#: src/buffer.c:1007
-#, c-format
-msgid "Prepare volume #%d for %s and hit return: "
-msgstr "Приготовьте том номер %d для %s и нажмите клавишу ввода: "
-
-#: src/buffer.c:1013
-msgid "EOF where user reply was expected"
-msgstr "Конец файла при ожидании ответа пользователя"
-
-#: src/buffer.c:1018 src/buffer.c:1048
-msgid "WARNING: Archive is incomplete"
-msgstr "ПРЕДУПРЕЖДЕНИЕ: Архив не полный"
-
-#: src/buffer.c:1032
-#, c-format
+#: lib/argp-help.c:1188
 msgid ""
-" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
-" q          Abort tar\n"
-" !          Spawn a subshell\n"
-" ?          Print this list\n"
+"Mandatory or optional arguments to long options are also mandatory or "
+"optional for any corresponding short options."
 msgstr ""
-" n [name]   Дать новое имя для следующего тома (и последующих томов)\n"
-" q          Прервать выполнение tar\n"
-" !          Вызвать командный процессор\n"
-" ?          Напечатать этот список\n"
+"п·п╠я▐п╥п╟я┌п╣п╩я▄п╫я▀п╣ п╦п╩п╦ п╫п╣п╬п╠я▐п╥п╟я┌п╣п╩я▄п╫я▀п╣ п╟я─пЁя┐п╪п╣п╫я┌я▀ п╢п╩я▐ п╢п╩п╦п╫п╫я▀п╧ п╬п©я├п╦п╧ я┌п╟п╨п╤п╣ я▐п╡п╩я▐я▌я┌я│я▐ "
+"п╬п╠я▐п╥п╟я┌п╣п╩я▄п╫я▀п╪п╦ п╦п╩п╦ п╫п╣п╬п╠я▐п╥п╟я┌п╣п╩я▄п╫я▀п╪п╦ п╢п╩я▐ я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦я┘ п╨п╬я─п╬я┌п╨п╦я┘ п╬п©я├п╦п╧."
 
-#: src/buffer.c:1043
-msgid "No new volume; exiting.\n"
-msgstr "Нет нового тома, прекращение работы.\n"
+#: lib/argp-help.c:1575
+msgid "Usage:"
+msgstr "п≤я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣:"
 
-#: src/compare.c:106
-#, fuzzy, c-format
-msgid "Could only read %lu of %lu byte"
-msgid_plural "Could only read %lu of %lu bytes"
-msgstr[0] "Удалось прочитать только %lu из %lu байт"
-msgstr[1] "Удалось прочитать только %lu из %lu байт"
+#: lib/argp-help.c:1579
+msgid "  or: "
+msgstr " п╦п╩п╦: "
 
-#: src/compare.c:117 src/compare.c:133
-msgid "Contents differ"
-msgstr "Содержимое различается"
+#: lib/argp-help.c:1591
+msgid " [OPTION...]"
+msgstr " [п·п÷п╕п≤п╞...]"
 
-#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
-#: src/list.c:398 src/list.c:1244
-msgid "Unexpected EOF in archive"
-msgstr "Непредвиденный конец файла в архиве"
-
-#: src/compare.c:213
+#: lib/argp-help.c:1618
 #, c-format
-msgid "Verify "
-msgstr "Проверка "
-
-#: src/compare.c:220
-#, fuzzy, c-format
-msgid "%s: Unknown file type '%c', diffed as normal file"
-msgstr "Неизвестный тип '%c' файла %s, сравнен как обычный файл"
-
-#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
-msgid "File type differs"
-msgstr "Типы файлов различаются"
-
-#: src/compare.c:250 src/compare.c:379 src/compare.c:423
-msgid "Mode differs"
-msgstr "Права доступа различаются"
-
-#: src/compare.c:253
-msgid "Uid differs"
-msgstr "Uid различаются"
-
-#: src/compare.c:255
-msgid "Gid differs"
-msgstr "Gid различаются"
-
-#: src/compare.c:258
-msgid "Mod time differs"
-msgstr "Времена модификации различаются"
-
-#: src/compare.c:262 src/compare.c:452
-msgid "Size differs"
-msgstr "Размеры различаются"
-
-#: src/compare.c:320
-#, c-format
-msgid "Not linked to %s"
-msgstr "Не ссылается на %s"
-
-#: src/compare.c:343
-msgid "Symlink differs"
-msgstr "Символьные ссылки различаются"
-
-#: src/compare.c:373
-msgid "Device number differs"
-msgstr "Номера устройств различаются"
-
-#: src/compare.c:564
-#, fuzzy, c-format
-msgid "VERIFY FAILURE: %d invalid header detected"
-msgid_plural "VERIFY FAILURE: %d invalid headers detected"
-msgstr[0] "ОШИБКА ПРОВЕРКИ: обнаружено неверных заголовков: %d"
-msgstr[1] "ОШИБКА ПРОВЕРКИ: обнаружено неверных заголовков: %d"
-
-#: src/create.c:145
-msgid "Generating negative octal headers"
+msgid "Try `%s --help' or `%s --usage' for more information.\n"
 msgstr ""
+"п÷п╬п©я─п╬п╠я┐п╧я┌п╣ `%s --help' п╦п╩п╦ `%s --usage' п╢п╩я▐ п©п╬п╩я┐я┤п╣п╫п╦я▐ п╢п╬п©п╬п╩п╫п╦я┌п╣п╩я▄п╫п╬п╧ "
+"п╦п╫я└п╬я─п╪п╟я├п╦п╦.\n"
 
-#: src/create.c:196
-#, fuzzy, c-format
-msgid "value %s out of %s range %s..%s; substituting %s"
-msgstr "значение %s (%s) вне диапазона %s..%s; замена на %s"
-
-#: src/create.c:202
-#, fuzzy, c-format
-msgid "value %s out of %s range %s..%s"
-msgstr "значение %s (%s) вне диапазона %s..%s"
-
-#: src/create.c:462 src/create.c:525
-#, fuzzy, c-format
-msgid "%s: file name is too long (max %d); not dumped"
-msgstr "%s: не изменен; не сброшен"
-
-#: src/create.c:472
+#: lib/argp-help.c:1646 src/tar.c:1252
 #, c-format
-msgid "%s: file name is too long (cannot be split); not dumped"
-msgstr ""
+msgid "Report bugs to %s.\n"
+msgstr "п·я┌я┤п╣я┌я▀ п╬п╠ п╬я┬п╦п╠п╨п╟я┘ п╬я┌п©я─п╟п╡п╩я▐п╧я┌п╣ п╫п╟ %s.\n"
 
-#: src/create.c:499
-#, fuzzy, c-format
-msgid "%s: link name is too long; not dumped"
-msgstr "%s: не изменен; не сброшен"
-
-#: src/create.c:865
-#, fuzzy, c-format
-msgid "%s: File shrank by %s byte; padding with zeros"
-msgid_plural "%s: File shrank by %s bytes; padding with zeros"
-msgstr[0] "Файл %s меньше, чем ожидалось, на %s байт; дополнение нулями"
-msgstr[1] "Файл %s меньше, чем ожидалось, на %s байт; дополнение нулями"
-
-#: src/create.c:891
-#, c-format
-msgid "%s: file changed as we read it"
-msgstr "%s: содержимое файла изменено во время чтения"
-
-#: src/create.c:991
-#, fuzzy, c-format
-msgid "%s: file is on a different filesystem; not dumped"
-msgstr "%s: На другой файловой системе; не сброшен"
-
-#: src/create.c:1151
-#, c-format
-msgid "%s: Unknown file type; file ignored"
-msgstr "%s: Неизвестный тип файла; игнорируется"
-
-#: src/create.c:1250
-#, fuzzy, c-format
-msgid "Missing links to '%s'.\n"
-msgstr " ссылка на %s\n"
-
-#: src/create.c:1313
-#, fuzzy, c-format
-msgid "%s: file is unchanged; not dumped"
-msgstr "%s: не изменен; не сброшен"
-
-#: src/create.c:1322
-#, fuzzy, c-format
-msgid "%s: file is the archive; not dumped"
-msgstr "%s -- архив; не сброшен"
-
-#: src/create.c:1357
-#, fuzzy, c-format
-msgid "%s: File removed before we read it"
-msgstr "%s: содержимое файла изменено во время чтения"
-
-#: src/create.c:1450
-#, c-format
-msgid "%s: socket ignored"
-msgstr ""
-
-#: src/create.c:1455
-#, c-format
-msgid "%s: door ignored"
-msgstr ""
-
-#: src/delete.c:209 src/list.c:169 src/update.c:160
-msgid "This does not look like a tar archive"
-msgstr "Это не похоже на tar-архив"
-
-#: src/delete.c:215 src/list.c:183 src/update.c:165
-msgid "Skipping to next header"
-msgstr "Пропуск до следующего заголовка"
-
-#: src/delete.c:280
-msgid "Deleting non-header from archive"
-msgstr "Удаление \"незаголовка\" из архива"
-
-#: src/extract.c:195
-#, fuzzy, c-format
-msgid "%s: implausibly old time stamp %s"
-msgstr "%s: неверная отметка времени `%s' игнорируется"
-
-#: src/extract.c:198
-#, c-format
-msgid "%s: time stamp %s is %lu s in the future"
-msgstr ""
-
-#: src/extract.c:346
-#, c-format
-msgid "%s: Unexpected inconsistency when making directory"
-msgstr ""
-
-#: src/extract.c:463
-#, fuzzy, c-format
-msgid "Current `%s' is newer"
-msgstr "Каталог %s -- новый"
-
-#: src/extract.c:575
-#, c-format
-msgid "%s: Directory renamed before its status could be extracted"
-msgstr ""
-
-#: src/extract.c:640
-#, c-format
-msgid "%s: Was unable to backup this file"
-msgstr "%s: Не удалось создать резервную копию данного файла"
-
-#: src/extract.c:707
-msgid "Extracting contiguous files as regular files"
-msgstr "Извлечение непрерывных файлов как обычных"
-
-#: src/extract.c:894
-msgid "Attempting extraction of symbolic links as hard links"
-msgstr "Попытка извлечь символьные ссылки как жесткие"
-
-#: src/extract.c:1091
-#, fuzzy, c-format
-msgid "%s: Cannot extract -- file is continued from another volume"
-msgstr "Невозможно извлечь `%s' -- файл продолжается на другом томе"
-
-#: src/extract.c:1100
-msgid "Visible long name error"
-msgstr "Ошибка из-за длинного имени"
-
-#: src/extract.c:1108
-#, fuzzy, c-format
-msgid "%s: Unknown file type '%c', extracted as normal file"
-msgstr "Неизвестный тип '%c' файла %s, извлечен как обычный файл"
-
-#: src/extract.c:1193
-msgid "Error is not recoverable: exiting now"
-msgstr ""
-
-#: src/incremen.c:193
-#, fuzzy, c-format
-msgid "%s: Directory has been renamed"
-msgstr "Каталог %s был переименован"
-
-#: src/incremen.c:205
-#, fuzzy, c-format
-msgid "%s: Directory is new"
-msgstr "Каталог %s -- новый"
-
-#: src/incremen.c:354
-#, fuzzy
-msgid "Invalid time stamp"
-msgstr "Неверная длина ленты"
-
-#: src/incremen.c:357
-#, fuzzy
-msgid "Time stamp out of range"
-msgstr "Смещение позиционирования вне диапазона"
-
-#: src/incremen.c:381
-#, fuzzy
-msgid "Invalid device number"
-msgstr "Неверный размер записи"
-
-#: src/incremen.c:385
-msgid "Device number out of range"
-msgstr "Номер устройства вне диапазона"
-
-#: src/incremen.c:393
-#, fuzzy
-msgid "Invalid inode number"
-msgstr "Неверный размер записи"
-
-#: src/incremen.c:397
-msgid "Inode number out of range"
-msgstr "Номер узла Inode вне диапазона"
-
-#: src/incremen.c:523
-#, c-format
-msgid "%s: Deleting %s\n"
-msgstr "%s: Удаление %s\n"
-
-#: src/incremen.c:528
-#, fuzzy, c-format
-msgid "%s: Cannot remove"
-msgstr "Невозможно удалить %s"
-
-#: src/list.c:117
-#, fuzzy, c-format
-msgid "%s: Omitting"
-msgstr "Пропуск %s"
-
-#: src/list.c:133
-#, c-format
-msgid "block %s: ** Block of NULs **\n"
-msgstr "блок %s: ** Блок нулей **\n"
-
-#: src/list.c:146
-#, c-format
-msgid "A lone zero block at %s"
-msgstr ""
-
-#: src/list.c:157
-#, c-format
-msgid "block %s: ** End of File **\n"
-msgstr "блок %s: ** Конец файла **\n"
-
-#: src/list.c:180 src/list.c:994 src/list.c:1219
-#, c-format
-msgid "block %s: "
-msgstr "блок %s: "
-
-#: src/list.c:625
-#, c-format
-msgid "Blanks in header where numeric %s value expected"
-msgstr "В заголовке пустое поле вместо ожидаемого числового значения %s"
-
-#: src/list.c:678
-#, c-format
-msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
-msgstr ""
-
-#: src/list.c:688
-#, fuzzy, c-format
-msgid "Archive octal value %.*s is out of %s range"
-msgstr "Числовое значение `%.*s' для %s вне допустимого диапазона"
-
-#: src/list.c:704
-msgid "Archive contains obsolescent base-64 headers"
-msgstr ""
-
-#: src/list.c:717
-#, c-format
-msgid "Archive signed base-64 string %s is out of %s range"
-msgstr ""
-
-#: src/list.c:748
-#, fuzzy, c-format
-msgid "Archive base-256 value is out of %s range"
-msgstr "Этот том нарушает последовательность"
-
-#: src/list.c:775
-#, fuzzy, c-format
-msgid "Archive contains %.*s where numeric %s value expected"
-msgstr "Заголовок содержит `%.*s' вместо ожидаемого числового значения %s"
-
-#: src/list.c:796
-#, fuzzy, c-format
-msgid "Archive value %s is out of %s range %s.%s"
-msgstr "значение %s (%s) вне диапазона %s..%s"
-
-#: src/list.c:1025
-msgid "Visible longname error"
-msgstr "Ошибка из-за длинного имени"
-
-#: src/list.c:1150
-#, c-format
-msgid " link to %s\n"
-msgstr " ссылка на %s\n"
-
-#: src/list.c:1158
-#, fuzzy, c-format
-msgid " unknown file type %s\n"
-msgstr " неизвестный тип файла `%c'\n"
-
-#: src/list.c:1176
-#, c-format
-msgid "--Long Link--\n"
-msgstr ""
-
-#: src/list.c:1180
-#, c-format
-msgid "--Long Name--\n"
-msgstr ""
-
-#: src/list.c:1184
-#, c-format
-msgid "--Volume Header--\n"
-msgstr "--Заголовок тома--\n"
-
-#: src/list.c:1192
-#, c-format
-msgid "--Continued at byte %s--\n"
-msgstr "--Продолжение с позиции %s--\n"
-
-#: src/list.c:1196
-#, c-format
-msgid "--Mangled file names--\n"
-msgstr "--Рубленые имена файлов--\n"
-
-#: src/list.c:1224
-msgid "Creating directory:"
-msgstr "Создание каталога:"
-
-#: src/mangle.c:54
-msgid "Unexpected EOF in mangled names"
-msgstr "Непредвиденный конец файла в рубленых именах"
-
-#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
-#, fuzzy, c-format
-msgid "%s: Cannot rename to %s"
-msgstr "Невозможно переименовать %s в %s"
-
-#: src/mangle.c:93
-#, c-format
-msgid "Renamed %s to %s"
-msgstr "%s переименован в %s"
-
-#: src/mangle.c:110
-#, fuzzy, c-format
-msgid "%s: Cannot symlink to %s"
-msgstr "Невозможно создать символьную ссылку %s на %s"
-
-#: src/mangle.c:113
-#, c-format
-msgid "Symlinked %s to %s"
-msgstr "Создана символьная ссылка %s на %s"
-
-#: src/mangle.c:117
-#, c-format
-msgid "Unknown demangling command %s"
-msgstr "Неизвестная команда %s восстановления рубленых имен"
-
-#: src/misc.c:378
-#, fuzzy, c-format
-msgid "Renaming %s to %s\n"
-msgstr "%s переименован в %s"
-
-#: src/misc.c:410
-#, fuzzy, c-format
-msgid "Renaming %s back to %s\n"
-msgstr "Переименование `%s' обратно в `%s'\n"
-
-#: src/misc.c:490
-#, fuzzy
-msgid "Cannot save working directory"
-msgstr "Невозможно перейти в каталог %s"
-
-#: src/misc.c:496
-#, fuzzy
-msgid "Cannot change working directory"
-msgstr "Невозможно перейти в каталог %s"
-
-#: src/misc.c:540 src/misc.c:549
-#, fuzzy, c-format
-msgid "%s: Cannot %s"
-msgstr "Невозможно получить статус %s"
-
-#: src/misc.c:558
-#, c-format
-msgid "%s: Warning: Cannot %s"
-msgstr ""
-
-#: src/misc.c:573
-#, fuzzy, c-format
-msgid "%s: Cannot change mode to %s"
-msgstr "%s: Невозможно сменить режим доступа на %04lo"
-
-#: src/misc.c:581
-#, fuzzy, c-format
-msgid "%s: Cannot change ownership to uid %lu, gid %lu"
-msgstr "%s: Невозможно сменить владельца на uid %lu, gid %lu"
-
-#: src/misc.c:616
-#, fuzzy, c-format
-msgid "%s: Cannot hard link to %s"
-msgstr "Невозможно прочитать ссылку %s"
-
-#: src/misc.c:677 src/misc.c:718
-#, fuzzy, c-format
-msgid "%s: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Read error at byte %s, reading %lu bytes"
-msgstr[0] "Ошибка чтения на байте %s, при чтении %lu байт из файла %s"
-msgstr[1] "Ошибка чтения на байте %s, при чтении %lu байт из файла %s"
-
-#: src/misc.c:690
-#, fuzzy, c-format
-msgid "%s: Warning: Read error at byte %s, reading %lu byte"
-msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
-msgstr[0] "Ошибка чтения на байте %s, при чтении %lu байт из файла %s"
-msgstr[1] "Ошибка чтения на байте %s, при чтении %lu байт из файла %s"
-
-#: src/misc.c:778
-#, fuzzy, c-format
-msgid "%s: Cannot seek to %s"
-msgstr "Не удалось записать в %s"
-
-#: src/misc.c:794
-#, c-format
-msgid "%s: Warning: Cannot seek to %s"
-msgstr ""
-
-#: src/misc.c:812
-#, fuzzy, c-format
-msgid "%s: Cannot create symlink to %s"
-msgstr "%s: Не удалось создать символьную ссылку на `%s'"
-
-#: src/misc.c:880
-#, fuzzy, c-format
-msgid "%s: Wrote only %lu of %lu byte"
-msgid_plural "%s: Wrote only %lu of %lu bytes"
-msgstr[0] "%s: Удалось записать только %lu из %lu байт"
-msgstr[1] "%s: Удалось записать только %lu из %lu байт"
-
-#: src/misc.c:906
-msgid "child process"
-msgstr ""
-
-#: src/misc.c:915
-msgid "interprocess channel"
-msgstr ""
-
-#: src/names.c:368 src/names.c:417 src/names.c:461
-msgid "Missing file name after -C"
-msgstr "Пропущено имя файла после -C"
-
-#: src/names.c:638 src/names.c:654
-#, c-format
-msgid "%s: Not found in archive"
-msgstr "%s: В архиве не найден"
-
-#: src/names.c:641
-#, fuzzy, c-format
-msgid "%s: Required occurrence not found in archive"
-msgstr "%s: В архиве не найден"
-
-#: src/names.c:1053
-#, fuzzy, c-format
-msgid "Removing leading `%s' from member names"
-msgstr "Удаление начального `/' из имен ссылок"
-
-#: src/names.c:1054
-#, fuzzy, c-format
-msgid "Removing leading `%s' from hard link targets"
-msgstr "Удаление начального `/' из имен ссылок"
-
-#: src/names.c:1067
-msgid "Substituting `.' for empty member name"
-msgstr ""
-
-#: src/names.c:1068
-msgid "Substituting `.' for empty hard link target"
-msgstr ""
-
-#: src/rmt.c:144
+#: rmt/rmt.c:144
 msgid "rmtd: Cannot allocate buffer space\n"
-msgstr "rmtd: Невозможно получить место для буфера\n"
+msgstr "rmtd: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╡я▀п╢п╣п╩п╦я┌я▄ п╠я┐я└п╣я─п╫п╬п╣ п©я─п╬я│я┌я─п╟п╫я│я┌п╡п╬\n"
 
-#: src/rmt.c:146
+#: rmt/rmt.c:146
 msgid "Cannot allocate buffer space"
-msgstr "Невозможно выделить место для буфера"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╡я▀п╢п╣п╩п╦я┌я▄ п╠я┐я└п╣я─п╫п╬п╣ п©я─п╬я│я┌я─п╟п╫я│я┌п╡п╬"
 
-#: src/rmt.c:256 src/tar.c:349
+#: rmt/rmt.c:256
 #, c-format
 msgid "Try `%s --help' for more information.\n"
-msgstr "Попробуйте `%s --help' для получения более подробной информации.\n"
+msgstr "п÷п╬п©я─п╬п╠я┐п╧я┌п╣ `%s --help' п╢п╩я▐ п©п╬п╩я┐я┤п╣п╫п╦я▐ п╢п╬п©п╬п╩п╫п╦я┌п╣п╩я▄п╫п╬п╧ п╦п╫я└п╬я─п╪п╟я├п╦п╦.\n"
 
-#: src/rmt.c:260
+#: rmt/rmt.c:260
 #, c-format
 msgid ""
 "Usage: %s [OPTION]\n"
@@ -797,396 +188,788 @@ msgid ""
 "  --version  Output version info.\n"
 "  --help  Output this help.\n"
 msgstr ""
+"п≤я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣: %s [п·п÷п╕п≤п╞]\n"
+"пёп©я─п╟п╡п╩я▐п╣я┌ п╫п╟п╨п╬п©п╦я┌п╣п╩я▐п╪п╦ п╫п╟ п╪п╟пЁп╫п╦я┌п╫п╬п╧ п╩п╣п╫я┌п╣, п©я─п╦п╫п╦п╪п╟я▐ п╨п╬п╪п╟п╫п╢я▀ п╦п╥ я┐п╢п╟п╩п╣п╫п╫п╬пЁп╬ "
+"п©я─п╬я├п╣я│я│п╟.\n"
+"\n"
+"  --version  п▓я▀п╡п╬п╢ п╦п╫я└п╬я─п╪п╟я├п╦п╦ п╬ п╡п╣я─я│п╦п╦.\n"
+"  --help     п▓я▀п╡п╬п╢ я█я┌п╬п╧ я│п©я─п╟п╡п╨п╦.\n"
 
-#: src/rmt.c:267 src/tar.c:542
-#, fuzzy, c-format
+#: rmt/rmt.c:267
+#, c-format
 msgid ""
 "\n"
 "Report bugs to <%s>.\n"
 msgstr ""
 "\n"
-"Об ошибках сообщайте по адресу <bug-tar@gnu.org>.\n"
+"п·я┌я┤п╣я┌я▀ п╬п╠ п╬я┬п╦п╠п╨п╟я┘ п╬я┌п©я─п╟п╡п╩я▐п╧я┌п╣ п╫п╟ <%s>.\n"
 
-#: src/rmt.c:300 src/tar.c:1300
+#: rmt/rmt.c:301
 msgid ""
 "This program comes with NO WARRANTY, to the extent permitted by law.\n"
 "You may redistribute it under the terms of the GNU General Public License;\n"
 "see the file named COPYING for details."
 msgstr ""
+"п╜я┌п╟ п©я─п╬пЁя─п╟п╪п╪п╟ п©п╬я│я┌п╟п╡п╩я▐п╣я┌я│я▐ п▒п∙п≈ п⌠п░п═п░п²п╒п≤п≤ п╡ п╪п╟я│п╨п╦п╪п╟п╩я▄п╫п╬п╧ я│я┌п╣п©п╣п╫п╦,\n"
+"п╢п╬п©я┐я│п╨п╟п╣п╪п╬п╧ п©я─п╦п╪п╣п╫п╦п╪я▀п╪ п╥п╟п╨п╬п╫п╬п╢п╟я┌п╣п╩я▄я│я┌п╡п╬п╪. п▓я▀ п╪п╬п╤п╣я┌п╣ я─п╟я│п©я─п╬я│я┌я─п╟п╫я▐я┌я▄\n"
+"п╣п╣ п╢п╟п╩п╣п╣ я│п╬пЁп╩п╟я│п╫п╬ я┐я│п╩п╬п╡п╦я▐п╪ GNU General Public License; п╢п╬п©п╬п╩п╫п╦я┌п╣п╩я▄п╫я┐я▌\n"
+"п╦п╫я└п╬я─п╪п╟я├п╦я▌ я│п╪п╬я┌я─п╦я┌п╣ п╡ я└п╟п╧п╩п╣ COPYING."
 
-#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+#: rmt/rmt.c:400 rmt/rmt.c:520 rmt/rmt.c:530
 msgid "Seek offset out of range"
-msgstr "Смещение позиционирования вне диапазона"
+msgstr "п║п╪п╣я┴п╣п╫п╦п╣ п©п╬п╦я│п╨п╟ п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟"
 
-#: src/rmt.c:412
+#: rmt/rmt.c:413
 msgid "Seek direction out of range"
-msgstr "Направление позиционирования вне диапазона"
+msgstr "п²п╟п©я─п╟п╡п╩п╣п╫п╦п╣ п©п╬п╦я│п╨п╟ п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟"
 
-#: src/rmt.c:451
+#: rmt/rmt.c:452
 msgid "rmtd: Premature eof\n"
-msgstr "rmtd: Преждевременный конец файла\n"
+msgstr "rmtd: п÷я─п╣п╤п╢п╣п╡я─п╣п╪п╣п╫п╫я▀п╧ п╨п╬п╫п╣я├ я└п╟п╧п╩п╟\n"
 
-#: src/rmt.c:453
+#: rmt/rmt.c:454
 msgid "Premature end of file"
-msgstr "Преждевременный конец файла"
+msgstr "п÷я─п╣п╤п╢п╣п╡я─п╣п╪п╣п╫п╫я▀п╧ п╨п╬п╫п╣я├ я└п╟п╧п╩п╟"
 
-#: src/rmt.c:561
+#: rmt/rmt.c:562
 #, c-format
 msgid "rmtd: Garbage command %c\n"
-msgstr "rmtd: Неверная команда %c\n"
+msgstr "rmtd: п²п╣п╡п╣я─п╫п╟я▐ п╨п╬п╪п╟п╫п╢п╟ %c\n"
 
-#: src/rmt.c:563
+#: rmt/rmt.c:564
 msgid "Garbage command"
-msgstr "Неверная команда"
+msgstr "п²п╣п╡п╣я─п╫п╟я▐ п╨п╬п╪п╟п╫п╢п╟"
 
-#: src/rtapelib.c:292
-msgid "exec/tcp: Service not available"
-msgstr "exec/tcp: Услуга недоступна"
+#: src/buffer.c:263
+#, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "п▓я│п╣пЁп╬ п╥п╟п©п╦я│п╟п╫п╬ п╠п╟п╧я┌: %s (%s, %s/s)\n"
 
-#: src/rtapelib.c:296
-msgid "stdin"
-msgstr "стандартный ввод"
+#: src/buffer.c:340
+msgid "(pipe)"
+msgstr "(п╨п╟п╫п╟п╩)"
 
-#: src/rtapelib.c:299
-msgid "stdout"
-msgstr "стандартный вывод"
+#: src/buffer.c:388
+msgid "Invalid value for record_size"
+msgstr "п²п╣п╡п╣я─п╫п╬п╣ п╥п╫п╟я┤п╣п╫п╦п╣ п╢п╩я▐ record_size"
 
-#: src/rtapelib.c:506
-msgid "Cannot execute remote shell"
-msgstr "Невозможно запустить удаленный командный процессор"
+#: src/buffer.c:391
+msgid "No archive name given"
+msgstr "п²п╣ я┐п╨п╟п╥п╟п╫п╬ п╦п╪я▐ п╟я─я┘п╦п╡п╟"
 
-#: src/tar.c:70
+#: src/buffer.c:441
+msgid "Cannot verify stdin/stdout archive"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п©я─п╬п╡п╣я─п╦я┌я▄ п╟я─я┘п╦п╡ п╫п╟ stdin/stdout"
+
+#: src/buffer.c:454
+#, c-format
+msgid "Archive is compressed. Use %s option"
+msgstr "п░я─я┘п╦п╡ я│п╤п╟я┌. п≤я│п©п╬п╩я▄п╥я┐п╧я┌п╣ п╬п©я├п╦я▌ %s"
+
+#: src/buffer.c:526
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "п°п╣я┌п╨п╟ п╟я─я┘п╦п╡п╟ п╫п╣ я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐п╣я┌ %s"
+
+#: src/buffer.c:529 src/buffer.c:896
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "п╒п╬п╪ %s п╫п╣ я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐п╣я┌ %s"
+
+#: src/buffer.c:567
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "п п╬п╫я┌я─п╬п╩я▄п╫п╟я▐ я┌п╬я┤п╨п╟ п╥п╟п©п╦я│п╦ %d"
+
+#: src/buffer.c:654
+#, c-format
+msgid "%s: file name too long to be stored in a GNU multivolume header"
+msgstr ""
+"%s: я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╬п╣ п╦п╪я▐ я└п╟п╧п╩п╟ п╢п╩я▐ я│п╬я┘я─п╟п╫п╣п╫п╦я▐ п╡ п╪п╫п╬пЁп╬я┌п╬п╪п╫п╬п╪ п╥п╟пЁп╬п╩п╬п╡п╨п╣ GNU"
+
+#: src/buffer.c:733
+msgid "At beginning of tape, quitting now"
+msgstr "п²п╟я┤п╟п╩п╬ п╩п╣п╫я┌я▀, п╥п╟п╡п╣я─я┬п╣п╫п╦п╣ я─п╟п╠п╬я┌я▀"
+
+#: src/buffer.c:739
+msgid "Too many errors, quitting"
+msgstr "п║п╩п╦я┬п╨п╬п╪ п╪п╫п╬пЁп╬ п╬я┬п╦п╠п╬п╨, п╥п╟п╡п╣я─я┬п╣п╫п╦п╣ я─п╟п╠п╬я┌я▀"
+
+#: src/buffer.c:765
+#, c-format
+msgid "Read %s bytes from %s"
+msgstr "п÷я─п╬я┤п╦я┌п╟п╫п╬ %s п╠п╟п╧я┌ п╦п╥ %s"
+
+#: src/buffer.c:777
+#, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "п²п╣п╡я▀я─п╬п╡п╫п╣п╫п╫я▀п╧ п╠п╩п╬п╨ (%lu п╠п╟п╧я┌) п╡ п╟я─я┘п╦п╡п╣"
+msgstr[1] "п²п╣п╡я▀я─п╬п╡п╫п╣п╫п╫я▀п╧ п╠п╩п╬п╨ (%lu п╠п╟п╧я┌) п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/buffer.c:797
+#, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "п═п╟п╥п╪п╣я─ п╥п╟п©п╦я│п╦ = %lu п╠п╩п╬п╨"
+msgstr[1] "п═п╟п╥п╪п╣я─ п╥п╟п©п╦я│п╦ = %lu п╠п╩п╬п╨п╬п╡"
+
+#: src/buffer.c:814
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "п п╬п╫я┌я─п╬п╩я▄п╫п╟я▐ я┌п╬я┤п╨п╟ я┤я┌п╣п╫п╦я▐ %d"
+
+#: src/buffer.c:905 src/extract.c:1100
+#, c-format
+msgid "Reading %s\n"
+msgstr "п║я┤п╦я┌я▀п╡п╟п╣я┌я│я▐ %s\n"
+
+#: src/buffer.c:909
+msgid "WARNING: No volume header"
+msgstr "п÷п═п∙п■пёп÷п═п∙п√п■п∙п²п≤п∙: п²п╣я┌ п╪п╣я┌п╨п╦ я┌п╬п╪п╟"
+
+#: src/buffer.c:917
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s п╫п╣ п©я─п╬п╢п╬п╩п╤п╟п╣я┌я│я▐ п╫п╟ я█я┌п╬п╪ я┌п╬п╪п╣"
+
+#: src/buffer.c:931
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s я▐п╡п╩я▐п╣я┌я│я▐ п╫п╣п╡п╣я─п╫я▀п╪ я─п╟п╥п╪п╣я─п╬п╪ (%s != %s + %s)"
+
+#: src/buffer.c:943
+msgid "This volume is out of sequence"
+msgstr "п╜я┌п╬я┌ я┌п╬п╪ п╫п╟я─я┐я┬п╟п╣я┌ п©п╬я│п╩п╣п╢п╬п╡п╟я┌п╣п╩я▄п╫п╬я│я┌я▄"
+
+#: src/buffer.c:1025
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+"п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╡п╣я─п╫я┐я┌я▄я│я▐ п╫п╟п╥п╟п╢ п╫п╟ п╬п╢п╦п╫ п╟я─я┘п╦п╡п╫я▀п╧ я└п╟п╧п╩; п╬п╫ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ п╫п╣я┤п╦я┌п╟п╣п╪я▀п╪ "
+"п╠п╣п╥ -i"
+
+#: src/buffer.c:1057
+msgid "rmtlseek not stopped at a record boundary"
+msgstr "rmtlseek п╫п╣ п╬я│я┌п╟п╫п╬п╡п╦п╩я│я▐ п╫п╟ пЁя─п╟п╫п╦я├п╣ п╥п╟п©п╦я│п╦"
+
+#: src/buffer.c:1108
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: я│п╬п╢п╣я─п╤п╦я┌ п╫п╣п╡п╣я─п╫я▀п╧ п╫п╬п╪п╣я─ я┌п╬п╪п╟"
+
+#: src/buffer.c:1160
+msgid "Volume number overflow"
+msgstr "п÷п╣я─п╣п©п╬п╩п╫п╣п╫п╦п╣ п╫п╬п╪п╣я─п╟ я┌п╬п╪п╟"
+
+#: src/buffer.c:1179
+#, c-format
+msgid "`%s' command failed"
+msgstr "п║п╠п╬п╧ п╨п╬п╪п╟п╫п╢я▀ `%s'"
+
+#: src/buffer.c:1188
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "п÷я─п╦пЁп╬я┌п╬п╡я▄я┌п╣ я┌п╬п╪ п²п╬п╪п╣я─ %d п╢п╩я▐ %s п╦ п╫п╟п╤п╪п╦я┌п╣ Enter: "
+
+#: src/buffer.c:1194
+msgid "EOF where user reply was expected"
+msgstr "п п╬п╫п╣я├ я└п╟п╧п╩п╟ п╡п╪п╣я│я┌п╬ п╬п╤п╦п╢п╟п╣п╪п╬пЁп╬ п╬я┌п╡п╣я┌п╟ п©п╬п╩я▄п╥п╬п╡п╟я┌п╣п╩я▐"
+
+#: src/buffer.c:1199 src/buffer.c:1229
+msgid "WARNING: Archive is incomplete"
+msgstr "п÷п═п∙п■пёп÷п═п∙п√п■п∙п²п≤п∙: п░я─я┘п╦п╡ п╫п╣ п©п╬п╩п╫я▀п╧"
+
+#: src/buffer.c:1213
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [п╦п╪я▐]    пёп╨п╟п╥п╟п╫п╦п╣ п╫п╬п╡п╬пЁп╬ п╦п╪п╣п╫п╦ я└п╟п╧п╩п╟ п╢п╩я▐ я│п╩п╣п╢я┐я▌я┴п╣пЁп╬ (п╦ п©п╬я│п╩п╣п╢я┐я▌я┴п╦я┘) "
+"я┌п╬п╪п╬п╡\n"
+" q          п▓я▀я┘п╬п╢ п╦п╥ tar\n"
+" !          п÷п╬я─п╬п╤п╢п╣п╫п╦п╣ п©п╬п╢п©я─п╬я├п╣я│я│п╟ п╨п╬п╪п╟п╫п╢п╫п╬пЁп╬ п©я─п╬я├п╣я│я│п╬я─п╟\n"
+" ?          п▓я▀п╡п╬п╢ я█я┌п╬пЁп╬ я│п©п╦я│п╨п╟\n"
+
+#: src/buffer.c:1224
+msgid "No new volume; exiting.\n"
+msgstr "п²п╣я┌ п╫п╬п╡п╬пЁп╬ я┌п╬п╪п╟, п╥п╟п╡п╣я─я┬п╣п╫п╦п╣ я─п╟п╠п╬я┌я▀.\n"
+
+#: src/compare.c:105
+#, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "п°п╬п╤п╫п╬ п╠я▀п╩п╬ п©я─п╬я┤п╦я┌п╟я┌я▄ я┌п╬п╩я▄п╨п╬ %lu п╠п╟п╧я┌ п╦п╥ %lu"
+msgstr[1] "п°п╬п╤п╫п╬ п╠я▀п╩п╬ п©я─п╬я┤п╦я┌п╟я┌я▄ я┌п╬п╩я▄п╨п╬ %lu п╠п╟п╧я┌ п╦п╥ %lu"
+
+#: src/compare.c:116 src/compare.c:132
+msgid "Contents differ"
+msgstr "п║п╬п╢п╣я─п╤п╦п╪п╬п╣ п╬я┌п╩п╦я┤п╟п╣я┌я│я▐"
+
+#: src/compare.c:158 src/extract.c:763 src/incremen.c:496 src/list.c:235
+#: src/list.c:412 src/list.c:1282
+msgid "Unexpected EOF in archive"
+msgstr "п²п╣п╬п╤п╦п╢п╟п╫п╫я▀п╧ п╨п╬п╫п╣я├ я└п╟п╧п╩п╟ п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/compare.c:212
+#, c-format
+msgid "Verify "
+msgstr "п÷я─п╬п╡п╣я─п╨п╟ "
+
+#: src/compare.c:219
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s: п²п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ я┌п╦п© я└п╟п╧п╩п╟ '%c', я│я─п╟п╡п╫п╣п╫ п╨п╟п╨ п╬п╠я▀я┤п╫я▀п╧ я└п╟п╧п╩"
+
+#: src/compare.c:242 src/compare.c:364 src/compare.c:416 src/compare.c:443
+msgid "File type differs"
+msgstr "п╒п╦п©я▀ я└п╟п╧п╩п╬п╡ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:249 src/compare.c:378 src/compare.c:422
+msgid "Mode differs"
+msgstr "п÷я─п╟п╡п╟ п╢п╬я│я┌я┐п©п╟ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:252
+msgid "Uid differs"
+msgstr "Uid п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:254
+msgid "Gid differs"
+msgstr "Gid п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:257
+msgid "Mod time differs"
+msgstr "п▓я─п╣п╪я▐ п╦п╥п╪п╣п╫п╣п╫п╦я▐ п╬я┌п╩п╦я┤п╟п╣я┌я│я▐"
+
+#: src/compare.c:261 src/compare.c:451
+msgid "Size differs"
+msgstr "п═п╟п╥п╪п╣я─я▀ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:319
+#, c-format
+msgid "Not linked to %s"
+msgstr "п²п╣ я│я│я▀п╩п╟п╣я┌я│я▐ п╫п╟ %s"
+
+#: src/compare.c:342
+msgid "Symlink differs"
+msgstr "п║п╦п╪п╡п╬п╩п╦я┤п╣я│п╨п╦п╣ я│я│я▀п╩п╨п╦ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:372
+msgid "Device number differs"
+msgstr "п²п╬п╪п╣я─п╟ я┐я│я┌я─п╬п╧я│я┌п╡ п╬я┌п╩п╦я┤п╟я▌я┌я│я▐"
+
+#: src/compare.c:500
+msgid "Archive contains file names with leading prefixes removed."
+msgstr "п░я─я┘п╦п╡ я│п╬п╢п╣я─п╤п╦я┌ я└п╟п╧п╩я▀ я│ п╦п╪п╣п╫п╟п╪п╦, п╦п╥ п╨п╬я┌п╬я─я▀я┘ я┐п╢п╟п╩п╣п╫я▀ п©я─п╣я└п╦п╨я│я▀."
+
+#: src/compare.c:502
+msgid "Verification may fail to locate original files."
+msgstr "п÷я─п╦ п©я─п╬п╡п╣я─п╨п╣ п╬я─п╦пЁп╦п╫п╟п╩я▄п╫я▀п╣ я└п╟п╧п╩я▀ п╪п╬пЁя┐я┌ п╠я▀я┌я▄ п╫п╣ п╫п╟п╧п╢п╣п╫я▀."
+
+#: src/compare.c:572
+#, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "п║п▒п·п≥ п÷п═п·п▓п∙п═п п≤: п╬п╠п╫п╟я─я┐п╤п╣п╫ %d п╫п╣п╡п╣я─п╫я▀п╧ п╥п╟пЁп╬п╩п╬п╡п╬п╨"
+msgstr[1] "п║п▒п·п≥ п÷п═п·п▓п∙п═п п≤: п╬п╠п╫п╟я─я┐п╤п╣п╫п╬ %d п╫п╣п╡п╣я─п╫я▀я┘ п╥п╟пЁп╬п╩п╬п╡п╨п╬п╡"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "п║п╬п╥п╢п╟я▌я┌я│я▐ п╬я┌я─п╦я├п╟я┌п╣п╩я▄п╫я▀п╣ п╡п╬я│я▄п╪п╣я─п╦я┤п╫я▀п╣ п╥п╟пЁп╬п╩п╬п╡п╨п╦"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "п╥п╫п╟я┤п╣п╫п╦п╣ %s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ %s п╢п╦п╟п©п╟п╥п╬п╫п╟ %s..%s; п╥п╟п╪п╣п╫я▐п╣я┌я│я▐ п╫п╟ %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "п╥п╫п╟я┤п╣п╫п╦п╣ %s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ %s п╢п╦п╟п©п╟п╥п╬п╫п╟ %s..%s"
+
+#: src/create.c:481 src/create.c:544
+#, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: п╦п╪я▐ я└п╟п╧п╩п╟ я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╬п╣ (п╪п╟п╨я│п╦я│п╪я┐п╪ %d); п╫п╣ я│п╠я─п╬я┬п╣п╫п╬"
+
+#: src/create.c:491
+#, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: п╦п╪я▐ я└п╟п╧п╩п╟ я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╬п╣ (п╫п╣ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ я─п╟п╥п╢п╣п╩п╣п╫п╬); п╫п╣ я│п╠я─п╬я┬п╣п╫п╬"
+
+#: src/create.c:518
+#, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: п╦п╪я▐ я│я│я▀п╩п╨п╦ я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╬п╣; п╫п╣ я│п╠я─п╬я┬п╣п╫п╬"
+
+#: src/create.c:884
+#, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: п╓п╟п╧п╩ я┐я─п╣п╥п╟п╫ п╫п╟ %s п╠п╟п╧я┌; п╢п╬п©п╬п╩п╫п╣п╫ п╫я┐п╩я▐п╪п╦"
+msgstr[1] "%s: п╓п╟п╧п╩ я┐я─п╣п╥п╟п╫ п╫п╟ %s п╠п╟п╧я┌; п╢п╬п©п╬п╩п╫п╣п╫ п╫я┐п╩я▐п╪п╦"
+
+#: src/create.c:910
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: я└п╟п╧п╩ п╦п╥п╪п╣п╫п╦п╩я│я▐ п╡п╬ п╡я─п╣п╪я▐ я┤я┌п╣п╫п╦я▐"
+
+#: src/create.c:1051
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: я└п╟п╧п╩ п╫п╟я┘п╬п╢п╦я┌я│я▐ п╫п╟ п╢я─я┐пЁп╬п╧ я└п╟п╧п╩п╬п╡п╬п╧ я│п╦я│я┌п╣п╪п╣; п╫п╣ я│п╠я─п╬я┬п╣п╫"
+
+#: src/create.c:1061
+#, c-format
+msgid "%s: contains a cache directory tag; not dumped"
+msgstr "%s: я│п╬п╢п╣я─п╤п╦я┌ п╨п╟я┌п╟п╩п╬пЁ я│ п╨я█я┬п╣п╪ я┌п╣пЁп╬п╡; п╫п╣ я│п╠я─п╬я┬п╣п╫"
+
+#: src/create.c:1221
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: п²п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ я┌п╦п© я└п╟п╧п╩п╟; я└п╟п╧п╩ п©я─п╬п╦пЁп╫п╬я─п╦я─п╬п╡п╟п╫"
+
+#: src/create.c:1320
+#, c-format
+msgid "Missing links to '%s'.\n"
+msgstr "п·я┌я│я┐я┌я│я┌п╡я┐я▌я┌ я│я│я▀п╩п╨п╦ п╫п╟ '%s'.\n"
+
+#: src/create.c:1387
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: я└п╟п╧п╩ п╫п╣ п╦п╥п╪п╣п╫п╣п╫; п╫п╣ я│п╠я─п╬я┬п╣п╫"
+
+#: src/create.c:1395
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s: я└п╟п╧п╩ я▐п╡п╩я▐п╣я┌я│я▐ п╟я─я┘п╦п╡п╬п╪; п╫п╣ я│п╠я─п╬я┬п╣п╫"
+
+#: src/create.c:1430
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: п╓п╟п╧п╩п╟ я┐п╢п╟п╩п╣п╫ п╢п╬ п╣пЁп╬ я│я┤п╦я┌я▀п╡п╟п╫п╦я▐"
+
+#: src/create.c:1523
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: я│п╬п╨п╣я┌ п©я─п╬п╦пЁп╫п╬я─п╦я─п╬п╡п╟п╫"
+
+#: src/create.c:1528
+#, c-format
+msgid "%s: door ignored"
+msgstr "%s: door п©я─п╬п╦пЁп╫п╬я─п╦я─п╬п╡п╟п╫"
+
+#: src/delete.c:209 src/list.c:171 src/update.c:163
+msgid "This does not look like a tar archive"
+msgstr "п╜я┌п╬ п╫п╣ п©п╬я┘п╬п╤п╣ п╫п╟ tar-п╟я─я┘п╦п╡"
+
+#: src/delete.c:215 src/list.c:185 src/update.c:168
+msgid "Skipping to next header"
+msgstr "п÷я─п╬п©я┐я│п╨п╟п╣я┌я│я▐ п╢п╬ я│п╩п╣п╢я┐я▌я┴п╣пЁп╬ п╥п╟пЁп╬п╩п╬п╡п╨п╟"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "пёп╢п╟п╩я▐п╣я┌я│я▐ п╫п╣-п╥п╟пЁп╬п╩п╬п╡п╬п╨ п╦п╥ п╟я─я┘п╦п╡п╟"
+
+#: src/extract.c:208
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr "%s: п╫п╣п╡п╣я─п╬я▐я┌п╫п╬ я│я┌п╟я─п╟я▐ п╡я─п╣п╪п╣п╫п╫п╟я▐ п╪п╣я┌п╨п╟ %s"
+
+#: src/extract.c:211
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: п╡я─п╣п╪п╣п╫п╫п╟я▐ п╪п╣я┌п╨п╟ %s - %lu я│ п╡ п╠я┐п╢я┐я┴п╣п╪"
+
+#: src/extract.c:359
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: п²п╣п╬п╤п╦п╢п╟п╫п╫п╟я▐ п©я─п╬я┌п╦п╡п╬я─п╣я┤п╦п╡п╬я│я┌я▄ п©я─п╦ я│п╬п╥п╢п╟п╫п╦п╦ п╨п╟я┌п╟п╩п╬пЁп╟"
+
+#: src/extract.c:478
+#, c-format
+msgid "Current `%s' is newer"
+msgstr "п╒п╣п╨я┐я┴п╦п╧ %s п╠п╬п╩п╣п╣ п╫п╬п╡я▀п╧"
+
+#: src/extract.c:590
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: п п╟я┌п╟п╩п╬пЁ п©п╣я─п╣п╦п╪п╣п╫п╬п╡п╟п╫ п╢п╬ я┌п╬пЁп╬, п╨п╟п╨ п╪п╬пЁ п╠я▀я┌я▄ п╦п╥п╡п╩п╣я┤п╣п╫ п╣пЁп╬ я│я┌п╟я┌я┐я│"
+
+#: src/extract.c:655
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╠я▀п╩п╬ п╡я▀п©п╬п╩п╫п╦я┌я▄ я─п╣п╥п╣я─п╡п╫п╬п╣ п╨п╬п©п╦я─п╬п╡п╟п╫п╦п╣ я█я┌п╬я┌ я└п╟п╧п╩п╟"
+
+#: src/extract.c:722
+msgid "Extracting contiguous files as regular files"
+msgstr "п²п╣п©я─п╣я─я▀п╡п╫я▀п╣ я└п╟п╧п╩я▀ п╦п╥п╡п╩п╣п╨п╟я▌я┌я│я▐ п╨п╟п╨ п╬п╠я▀я┤п╫я▀п╣"
+
+#: src/extract.c:908
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "п▓я▀п©п╬п╩п╫я▐п╣я┌я│я▐ п©п╬п©я▀я┌п╨п╟ п╦п╥п╡п╩п╣я┤я▄ я│п╦п╪п╡п╬п╩п╦я┤п╣я│п╨п╦п╣ я│я│я▀п╩п╨п╦ п╨п╟п╨ п╤п╣я│я┌п╨п╦п╣"
+
+#: src/extract.c:1109
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╦п╥п╡п╩п╣я┤я▄ -- я└п╟п╧п╩ п©я─п╬п╢п╬п╩п╤п╟п╣я┌я│я▐ я│ п╢я─я┐пЁп╬пЁп╬ я┌п╬п╪п╟"
+
+#: src/extract.c:1118
+msgid "Visible long name error"
+msgstr "п÷п╬-п╡п╦п╢п╦п╪п╬п╪я┐, п╬я┬п╦п╠п╨п╟ п╥п╟ п╢п╩п╦п╫п╫п╬пЁп╬ п╦п╪п╣п╫п╦"
+
+#: src/extract.c:1126
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: п²п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ я┌п╦п© я└п╟п╧п╩п╟ '%c', п╦п╥п╡п╩п╣я┤п╣п╫ п╨п╟п╨ п╬п╠я▀я┤п╫я▀п╧ я└п╟п╧п╩"
+
+#: src/extract.c:1211
+msgid "Error is not recoverable: exiting now"
+msgstr "п²п╣п╦я│п©я─п╟п╡п╦п╪п╟я▐ п╬я┬п╦п╠п╨п╟: п╥п╟п╡п╣я─я┬п╣п╫п╦п╣ я─п╟п╠п╬я┌я▀"
+
+#: src/extract.c:1218
+msgid "memory exhausted"
+msgstr "п©п╟п╪я▐я┌я▄ п╦я│я┤п╣я─п©п╟п╫п╟"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: п п╟я┌п╟п╩п╬пЁ п╠я▀п╩ п©п╣я─п╣п╦п╪п╣п╫п╬п╡п╟п╫"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: п п╟я┌п╟п╩п╬пЁ п╫п╬п╡я▀п╧"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "п²п╣п╡п╣я─п╫п╟я▐ п╡я─п╣п╪п╣п╫п╫п╟я▐ п╪п╣я┌п╨п╟"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "п▓я─п╣п╪п╣п╫п╫п╟я▐ п╪п╣я┌п╨п╟ п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "п²п╣п╡п╣я─п╫я▀п╧ п╫п╬п╪п╣я─ я┐я│я┌я─п╬п╧я│я┌п╡п╟"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "п²п╬п╪п╣я─ я┐я│я┌я─п╬п╧я│я┌п╡п╟ п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "п²п╣п╡п╣я─п╫я▀п╧ п╫п╬п╪п╣я─ inode"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "п²п╬п╪п╣я─ inode п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟"
+
+#: src/incremen.c:524
+#, c-format
+msgid "%s: Not purging directory: unable to stat"
+msgstr "%s: п п╟я┌п╟п╩п╬пЁ п╫п╣ я┐п╢п╟п╩п╣п╫: п╫п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╡я▀п©п╬п╩п╫п╦я┌я▄ stat"
+
+#: src/incremen.c:531
+#, c-format
+msgid "%s: directory is on a different device: not purging"
+msgstr "%s: п п╟я┌п╟п╩п╬пЁ п╫п╟я┘п╬п╢п╦я┌я│я▐ п╫п╟ п╢я─я┐пЁп╬п╪ я┐я│я┌я─п╬п╧я│я┌п╡п╣: п╫п╣ я┐п╢п╟п╩п╣п╫"
+
+#: src/incremen.c:539
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: пёп╢п╟п╩я▐п╣я┌я│я▐ %s\n"
+
+#: src/incremen.c:544
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ я┐п╢п╟п╩п╦я┌я▄"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: п÷я─п╬п©я┐я│п╨п╟п╣я┌я│я▐"
+
+#: src/list.c:135
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "п╠п╩п╬п╨ %s: ** п▒п╩п╬п╨ п╫я┐п╩п╣п╧ **\n"
+
+#: src/list.c:148
+#, c-format
+msgid "A lone zero block at %s"
+msgstr "п²я┐п╩п╣п╡п╬п╧ п╠п╩п╬п╨ п╡ %s"
+
+#: src/list.c:159
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "п╠п╩п╬п╨ %s: ** п п╬п╫п╣я├ я└п╟п╧п╩п╟ **\n"
+
+#: src/list.c:182 src/list.c:1017 src/list.c:1244
+#, c-format
+msgid "block %s: "
+msgstr "п╠п╩п╬п╨ %s: "
+
+#: src/list.c:644
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "п▓ п╥п╟пЁп╬п╩п╬п╡п╨п╣ п©я┐я│я┌п╬п╣ п©п╬п╩п╣ п╡п╪п╣я│я┌п╬ п╬п╤п╦п╢п╟п╣п╪п╬пЁп╬ я┤п╦я│п╩п╬п╡п╬пЁп╬ п╥п╫п╟я┤п╣п╫п╦я▐ %s"
+
+#: src/list.c:698
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"п▓п╬я│я▄п╪п╣я─п╦я┤п╫п╬п╣ п╥п╫п╟я┤п╣п╫п╦п╣ п╟я─я┘п╦п╡п╟ %.*s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟ %s; п©я─п╣п╢п©п╬п╩п╟пЁп╟п╣я┌я│я▐ "
+"п╢п╬п©п╬п╩п╫п╣п╫п╦п╣ п╢п╬ п╢п╡я┐я┘"
+
+#: src/list.c:708
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "п▓п╬я│я▄п╪п╣я─п╦я┤п╫п╬п╣ п╥п╫п╟я┤п╣п╫п╦п╣ п╟я─я┘п╦п╡п╟ %.*s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟ %s"
+
+#: src/list.c:725
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "п░я─я┘п╦п╡ я│п╬п╢п╣я─п╤п╦я┌ я┐я│я┌п╟я─п╣п╡п╟я▌я┴п╦п╣ п╥п╟пЁп╬п╩п╬п╡п╨п╦ base-64"
+
+#: src/list.c:738
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr "п░я─я┘п╦п╡ п©п╬п╢п©п╦я│п╟п╫ я│я┌я─п╬п╨п╬п╧ base-64 %s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟ %s"
+
+#: src/list.c:769
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "п≈п╫п╟я┤п╣п╫п╦п╣ base-256 п╟я─я┘п╦п╡п╟ п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ п╢п╦п╟п©п╟п╥п╬п╫п╟ %s"
+
+#: src/list.c:797
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "п≈п╟пЁп╬п╩п╬п╡п╬п╨ я│п╬п╢п╣я─п╤п╦я┌ %.*s п╡п╪п╣я│я┌п╬ п╬п╤п╦п╢п╟п╣п╪п╬пЁп╬ я┤п╦я│п╩п╬п╡п╬пЁп╬ п╥п╫п╟я┤п╣п╫п╦я▐ %s"
+
+#: src/list.c:818
+#, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "п≈п╫п╟я┤п╣п╫п╦п╣ п╟я─я┘п╦п╡п╟ %s п╥п╟ п©я─п╣п╢п╣п╩п╟п╪п╦ %s п╢п╦п╟п©п╟п╥п╬п╫п╟ %s.%s"
+
+#: src/list.c:1048
+msgid "Visible longname error"
+msgstr "п÷п╬-п╡п╦п╢п╦п╪п╬п╪я┐, п╬я┬п╦п╠п╨п╟ п╢п╩п╦п╫п╫п╬пЁп╬ п╦п╪п╣п╫п╦"
+
+#: src/list.c:1175
+#, c-format
+msgid " link to %s\n"
+msgstr " я│я│я▀п╩п╨п╟ п╫п╟ %s\n"
+
+#: src/list.c:1183
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " п╫п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ я┌п╦п© я└п╟п╧п╩п╟ %s\n"
+
+#: src/list.c:1201
+#, c-format
+msgid "--Long Link--\n"
+msgstr "--п■п╩п╦п╫п╫п╟я▐ я│я│я▀п╩п╨п╟--\n"
+
+#: src/list.c:1205
+#, c-format
+msgid "--Long Name--\n"
+msgstr "--п■п╩п╦п╫п╫п╬п╣ п╦п╪я▐--\n"
+
+#: src/list.c:1209
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--п≈п╟пЁп╬п╩п╬п╡п╬п╨ я┌п╬п╪п╟--\n"
+
+#: src/list.c:1217
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--п÷я─п╬п╢п╬п╩п╤п╣п╫п╦п╣ я│ п©п╬п╥п╦я├п╦п╦ %s--\n"
+
+#: src/list.c:1221
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--п═я┐п╠п╩п╣п╫я▀п╣ п╦п╪п╣п╫п╟ я└п╟п╧п╩п╬п╡--\n"
+
+#: src/list.c:1249
+msgid "Creating directory:"
+msgstr "п║п╬п╥п╢п╟п╫п╦п╣ п╨п╟я┌п╟п╩п╬пЁп╟:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "п²п╣п╬п╤п╦п╢п╟п╫п╫я▀п╧ п╨п╬п╫п╣я├ я└п╟п╧п╩п╟ п╡ я─я┐п╠п╩п╣п╫я▀я┘ п╦п╪п╣п╫п╟я┘"
+
+#: src/mangle.c:90 src/misc.c:399 src/misc.c:417
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п©п╣я─п╣п╦п╪п╣п╫п╬п╡п╟я┌я▄ п╡ %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "%s п©п╣я─п╣п╦п╪п╣п╫п╬п╡п╟п╫ п╡ %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ я│п╬п╥п╢п╟я┌я▄ я│п╦п╪п╡п╬п╩п╦я┤п╣я│п╨я┐я▌ я│я│я▀п╩п╨я┐ п╫п╟ %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "п║п╬п╥п╢п╟п╫п╟ я│п╦п╪п╡п╬п╩я▄п╫п╟я▐ я│я│я▀п╩п╨п╟ %s п╫п╟ %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "п²п╣п╦п╥п╡п╣я│я┌п╫п╟я▐ п╨п╬п╪п╟п╫п╢п╟ %s п╢п╩я▐ п╡п╬я│я│я┌п╟п╫п╬п╡п╩п╣п╫п╦я▐ я─я┐п╠п╩п╣п╫я▀я┘ п╦п╪п╣п╫"
+
+#: src/misc.c:390
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "%s п©п╣я─п╣п╦п╪п╣п╫п╬п╡п╟п╫ п╡ %s\n"
+
+#: src/misc.c:422
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "%s п©п╣я─п╣п╦п╪п╣п╫п╬п╡я▀п╡п╟п╣я┌я│я▐ п╫п╟п╥п╟п╢ п╡ %s\n"
+
+#: src/misc.c:502
+msgid "Cannot save working directory"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ я│п╬я┘я─п╟п╫п╦я┌я▄ я─п╟п╠п╬я┤п╦п╧ п╨п╟я┌п╟п╩п╬пЁ"
+
+#: src/misc.c:508
+msgid "Cannot change working directory"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╦п╥п╪п╣п╫п╦я┌я▄ я─п╟п╠п╬я┤п╦п╧ п╨п╟я┌п╟п╩п╬пЁ"
+
+#: src/misc.c:552 src/misc.c:561
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ %s"
+
+#: src/misc.c:570
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ %s"
+
+#: src/misc.c:585
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╦п╥п╪п╣п╫п╦я┌я▄ п©я─п╟п╡п╟ п╢п╬я│я┌я┐п©п╟ п╫п╟ %s"
+
+#: src/misc.c:593
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╦п╥п╪п╣п╫п╦я┌я▄ п╡п╩п╟п╢п╣п╩я▄я├п╟ п╫п╟ uid %lu, gid %lu"
+
+#: src/misc.c:628
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ я│п╬п╥п╢п╟я┌я▄ п╤п╣я│я┌п╨я┐я▌ я│я│я▀п╩п╨я┐ п╫п╟ %s"
+
+#: src/misc.c:689 src/misc.c:730
+#, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: п·я┬п╦п╠п╨п╟ я┤я┌п╣п╫п╦я▐ я│ п©п╬п╥п╦я├п╦п╦ %s, я│я┤п╦я┌я▀п╡п╟п╣я┌я│я▐ %lu п╠п╟п╧я┌"
+msgstr[1] "%s: п·я┬п╦п╠п╨п╟ я┤я┌п╣п╫п╦я▐ я│ п©п╬п╥п╦я├п╦п╦ %s, я│я┤п╦я┌я▀п╡п╟я▌я┌я│я▐ %lu п╠п╟п╧я┌"
+
+#: src/misc.c:702
+#, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] ""
+"%s: п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п·я┬п╦п╠п╨п╟ я┤я┌п╣п╫п╦я▐ я│ п©п╬п╥п╦я├п╦п╦ %s, я│я┤п╦я┌я▀п╡п╟п╣я┌я│я▐ %lu п╠п╟п╧я┌"
+msgstr[1] ""
+"%s: п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п·я┬п╦п╠п╨п╟ я┤я┌п╣п╫п╦я▐ я│ п©п╬п╥п╦я├п╦п╦ %s, я│я┤п╦я┌я▀п╡п╟я▌я┌я│я▐ %lu п╠п╟п╧я┌"
+
+#: src/misc.c:790
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╫п╟п╧я┌п╦ п╡ %s"
+
+#: src/misc.c:806
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╫п╟п╧я┌п╦ п╡ %s"
+
+#: src/misc.c:824
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ я│п╬п╥п╢п╟я┌я▄ я│п╦п╪п╡п╬п╩п╦я┤п╣я│п╨я┐я▌ я│я│я▀п╩п╨я┐ п╫п╟ %s"
+
+#: src/misc.c:892
+#, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: п≈п╟п©п╦я│п╟п╫ я┌п╬п╩я▄п╨п╬ %lu п╠п╟п╧я┌ п╦п╥ %lu"
+msgstr[1] "%s: п≈п╟п©п╦я│п╟п╫п╬ я┌п╬п╩я▄п╨п╬ %lu п╠п╟п╧я┌ п╦п╥ %lu"
+
+#: src/misc.c:918
+msgid "child process"
+msgstr "п╢п╬я┤п╣я─п╫п╦п╧ п©я─п╬я├п╣я│я│"
+
+#: src/misc.c:927
+msgid "interprocess channel"
+msgstr "п╪п╣п╤п©я─п╬я├п╣я│я│п╬я─п╫я▀п╧ п╨п╟п╫п╟п╩"
+
+#: src/names.c:372 src/names.c:421 src/names.c:465
+msgid "Missing file name after -C"
+msgstr "п·я┌я│я┐я┌я│я┌п╡я┐п╣я┌ п╦п╪я▐ я└п╟п╧п╩п╟ п©п╬я│п╩п╣ -C"
+
+#: src/names.c:642 src/names.c:658
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: п²п╣ п╫п╟п╧п╢п╣п╫ п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/names.c:645
+#, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: п╒я─п╣п╠я┐п╣п╪п╬п╣ п╡я┘п╬п╤п╢п╣п╫п╦п╣ п╫п╣ п╫п╟п╧п╢п╣п╫п╬ п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/names.c:1093
+#, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "пёп╢п╟п╩я▐п╣я┌я│я▐ п╫п╟я┤п╟п╩я▄п╫я▀п╧ `%s' п╦п╥ п╦п╪п╣п╫ п╬п╠я┼п╣п╨я┌п╬п╡"
+
+#: src/names.c:1094
+#, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "пёп╢п╟п╩я▐я▌я┌я│я▐ п╫п╟я┤п╟п╩я▄п╫я▀п╣ `%s' п╦п╥ я├п╣п╩п╣п╧ п╤п╣я│я┌п╨п╦я┘ я│я│я▀п╩п╬п╨"
+
+#: src/names.c:1107
+msgid "Substituting `.' for empty member name"
+msgstr "`.' п╥п╟п╪п╣п╫я▐я▌я┌я│я▐ п©я┐я│я┌я▀п╪п╦ п╦п╪п╣п╫п╟п╪п╦ п╬п╠я┼п╣п╨я┌п╬п╡"
+
+#: src/names.c:1108
+msgid "Substituting `.' for empty hard link target"
+msgstr "`.' п╥п╟п╪п╣п╫я▐я▌я┌я│я▐ п©я┐я│я┌я▀п╪п╦ я├п╣п╩я▐п╪п╦ п╤п╣я│я┌п╨п╦я┘ я│я│я▀п╩п╬п╨"
+
+#: src/tar.c:71
 #, c-format
 msgid "Options `-%s' and `-%s' both want standard input"
-msgstr "Оба ключа `-%s' и `-%s' используют стандартный ввод"
+msgstr "п·п╠п╣ п╬п©я├п╦п╦ `-%s' п╦ `-%s' п╦я│п©п╬п╩я▄п╥я┐я▌я┌ я│я┌п╟п╫п╢п╟я─я┌п╫я▀п╧ п╡п╡п╬п╢"
 
-#: src/tar.c:141
-#, fuzzy, c-format
-msgid "%s: Invalid archive format"
-msgstr "Неверный формат даты -- `%s'"
-
-#: src/tar.c:165
-msgid "GNU features wanted on incompatible archive format"
-msgstr "Расширения GNU запрошены на несовместимом формате архива"
-
-#: src/tar.c:353
-msgid ""
-"GNU `tar' saves many files together into a single tape or disk archive, and\n"
-"can restore individual files from the archive.\n"
-msgstr ""
-"GNU `tar' сохраняет множество файлов в одном архиве на ленте или диске\n"
-"и может восставливать отдельные файлы из архива.\n"
-
-#: src/tar.c:357
+#: src/tar.c:143
 #, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: п²п╣п╡п╣я─п╫я▀п╧ я└п╬я─п╪п╟я┌ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:167
+msgid "GNU features wanted on incompatible archive format"
+msgstr "п≈п╟п©я─п╬я┬п╣п╫я▀ я─п╟я│я┬п╦я─п╣п╫п╦я▐ GNU п╢п╩я▐ п╫п╣я│п╬п╡п╪п╣я│я┌п╦п╪п╬пЁп╬ я└п╬я─п╪п╟я┌п╟ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:241
 msgid ""
-"\n"
-"Usage: %s [OPTION]... [FILE]...\n"
+"GNU `tar' saves many files together into a single tape or disk archive, and "
+"can restore individual files from the archive.\n"
 "\n"
 "Examples:\n"
-"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
-"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
-"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
-msgstr ""
-
-#: src/tar.c:364
-msgid ""
-"\n"
-"If a long option shows an argument as mandatory, then it is mandatory\n"
-"for the equivalent short option also.  Similarly for optional arguments.\n"
-msgstr ""
-"\n"
-"Если для длинного ключа нужен аргумент, то он также нужен и для\n"
-"эквивалентного короткого ключа. Аналогично с необязательными аргументами.\n"
-
-#: src/tar.c:369
-msgid ""
-"\n"
-"Main operation mode:\n"
-"  -t, --list              list the contents of an archive\n"
-"  -x, --extract, --get    extract files from an archive\n"
-"  -c, --create            create a new archive\n"
-"  -d, --diff, --compare   find differences between archive and file system\n"
-"  -r, --append            append files to the end of an archive\n"
-"  -u, --update            only append files newer than copy in archive\n"
-"  -A, --catenate          append tar files to an archive\n"
-"      --concatenate       same as -A\n"
-"      --delete            delete from the archive (not on mag tapes!)\n"
-msgstr ""
-"\n"
-"Основные операции:\n"
-"  -t, --list              вывести список содержимого архива\n"
-"  -x, --extract, --get    извлечь файлы из архива\n"
-"  -c, --create            создать новый архив\n"
-"  -d, --diff, --compare   найти различия между архивом и файловой системой\n"
-"  -r, --append            присоединить файлы к концу архива\n"
-"  -u, --update            присоединить только те файлы, которые новее, чем\n"
-"                           их копии в архиве\n"
-"  -A, --catenate          присоединить tar-файлы к архиву\n"
-"      --concatenate       то же, что и -A\n"
-"      --delete            удалить из архива (не на магнитных лентах!)\n"
-
-#: src/tar.c:382
-msgid ""
-"\n"
-"Operation modifiers:\n"
-"  -W, --verify               attempt to verify the archive after writing it\n"
-"      --remove-files         remove files after adding them to the archive\n"
-"  -k, --keep-old-files       don't replace existing files when extracting\n"
-"      --keep-newer-files     don't replace existing files that are newer\n"
-"                             than their archive copies\n"
-"      --overwrite            overwrite existing files when extracting\n"
-"      --no-overwrite-dir     preserve metadata of existing directories\n"
-"  -U, --unlink-first         remove each file prior to extracting over it\n"
-"      --recursive-unlink     empty hierarchies prior to extracting "
-"directory\n"
-"  -S, --sparse               handle sparse files efficiently\n"
-"  -O, --to-stdout            extract files to standard output\n"
-"  -G, --incremental          handle old GNU-format incremental backup\n"
-"  -g, --listed-incremental=FILE\n"
-"                             handle new GNU-format incremental backup\n"
-"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
-"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
-"in\n"
-"                             the archive. This option is valid only in\n"
-"                             conjunction with one of the subcommands --"
-"delete,\n"
-"                             --diff, --extract or --list and when a list of\n"
-"                             files is given either on the command line or\n"
-"                             via -T option.\n"
-"                             NUM defaults to 1.\n"
-msgstr ""
-
-#: src/tar.c:408
-#, fuzzy
-msgid ""
-"\n"
-"Handling of file attributes:\n"
-"      --owner=NAME             force NAME as owner for added files\n"
-"      --group=NAME             force NAME as group for added files\n"
-"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
-"files\n"
-"      --atime-preserve         don't change access times on dumped files\n"
-"  -m, --modification-time      don't extract file modified time\n"
-"      --same-owner             try extracting files with the same ownership\n"
-"      --no-same-owner          extract files as yourself\n"
-"      --numeric-owner          always use numbers for user/group names\n"
-"  -p, --same-permissions       extract permissions information\n"
-"      --no-same-permissions    do not extract permissions information\n"
-"      --preserve-permissions   same as -p\n"
-"  -s, --same-order             sort names to extract to match archive\n"
-"      --preserve-order         same as -s\n"
-"      --preserve               same as both -p and -s\n"
-msgstr ""
-"\n"
-"Обработка атрибутов файлов:\n"
-"      --owner=ИМЯ              делать ИМЯ владельцем добавляемых файлов\n"
-"      --group=ИМЯ              делать ИМЯ группой владения добавляемых "
-"файлов\n"
-"      --mode=РЕЖИМ             присваивать добавляемым файлам РЕЖИМ доступа\n"
-"      --atime-preserve         не изменять время доступа сбрасываемых "
-"файлов\n"
-"  -m, --modification-time      не извлекать время изменения файла\n"
-"      --same-owner             пытаться восстанавливать владельца из архива\n"
-"      --numeric-owner          всегда использовать числа вместо имен\n"
-"                                владельца и группы\n"
-"  -p, --same-permissions       извлекать всю информацию о правах доступа\n"
-"      --preserve-permissions   то же, что и -p\n"
-"  -s, --same-order             сортировать имена файлов для извлечения в\n"
-"                                том порядке, в котором они лежат в архиве\n"
-"      --preserve-order         то же, что и -s\n"
-"      --preserve               эквивалентно сочетанию ключей -p и -s\n"
-
-#: src/tar.c:426
-#, fuzzy
-msgid ""
-"\n"
-"Device selection and switching:\n"
-"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
-"      --force-local              archive file is local even if has a colon\n"
-"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
-"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
-"  -[0-7][lmh]                    specify drive and density\n"
-"  -M, --multi-volume             create/list/extract multi-volume archive\n"
-"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
-"  -F, --info-script=FILE         run script at end of each tape (implies -"
-"M)\n"
-"      --new-volume-script=FILE   same as -F FILE\n"
-"      --volno-file=FILE          use/update the volume number in FILE\n"
-msgstr ""
-"\n"
-"Выбор устройств:\n"
-"  -f, --file=АРХИВ               использовать файл или устройство АРХИВ\n"
-"      --force-local              считать архив локальным, даже если есть "
-"`:'\n"
-"      --rsh-command=КОМАНДА      использовать КОМАНДУ для удаленной работы\n"
-"  -[0-7][lmh]                    указать устройство и плотность\n"
-"  -M, --multi-volume             работать с многотомными архивами\n"
-"  -L, --tape-length=ЧИСЛО        сменить ленту после записи ЧИСЛО x 1024 "
-"байт\n"
-"  -F, --info-script=ФАЙЛ         запускать программу ФАЙЛ после каждой "
-"ленты\n"
-"      --new-volume-script=ФАЙЛ   то же, что и -F ФАЙЛ\n"
-"      --volno-file=ФАЙЛ          читать/писать номер тома из/в ФАЙЛ(А)\n"
-
-#: src/tar.c:440
-msgid ""
-"\n"
-"Device blocking:\n"
-"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
-"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
-"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
-"EOF)\n"
-"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
-msgstr ""
-"\n"
-"Работа с блоками:\n"
-"  -b, --blocking-factor=БЛОКИ    БЛОКИ x 512 байт для одной записи\n"
-"      --record-size=РАЗМЕР       РАЗМЕР записи в байтах, кратный 512\n"
-"  -i, --ignore-zeros             игнорировать пустые (EOF) блоки\n"
-"  -B, --read-full-records        собирать блоки в блоки при чтении\n"
-"                                  (для каналов 4.2BSD)\n"
-
-#: src/tar.c:448
-msgid ""
-"\n"
-"Archive format selection:\n"
-"      --format=FMTNAME               create archive of the given format.\n"
-"                                     FMTNAME is one of the following:\n"
-"                                     v7        old V7 tar format\n"
-"                                     oldgnu    GNU format as per tar <= "
-"1.12\n"
-"                                     gnu       GNU tar 1.13 format\n"
-"                                     ustar     POSIX 1003.1-1988 (ustar) "
-"format\n"
-"                                     posix     POSIX 1003.1-2001 (pax) "
-"format\n"
-"      --old-archive, --portability   same as --format=v7\n"
-"      --posix                        same as --format=posix\n"
-"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
-"                                     control pax keywords\n"
-"  -V, --label=NAME                   create archive with volume name NAME\n"
-"              PATTERN                at list/extract time, a globbing "
-"PATTERN\n"
-"  -j, --bzip2                        filter the archive through bzip2\n"
-"  -z, --gzip, --ungzip               filter the archive through gzip\n"
-"  -Z, --compress, --uncompress       filter the archive through compress\n"
-"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
-msgstr ""
-
-#: src/tar.c:469
-#, fuzzy
-msgid ""
-"\n"
-"Local file selection:\n"
-"  -C, --directory=DIR          change to directory DIR\n"
-"  -T, --files-from=NAME        get names to extract or create from file "
-"NAME\n"
-"      --null                   -T reads null-terminated names, disable -C\n"
-"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
-"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
-"      --anchored               exclude patterns match file name start "
-"(default)\n"
-"      --no-anchored            exclude patterns match after any /\n"
-"      --ignore-case            exclusion ignores case\n"
-"      --no-ignore-case         exclusion is case sensitive (default)\n"
-"      --wildcards              exclude patterns use wildcards (default)\n"
-"      --no-wildcards           exclude patterns are plain strings\n"
-"      --wildcards-match-slash  exclude pattern wildcards match "
-"'/' (default)\n"
-"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
-"  -P, --absolute-names         don't strip leading `/'s from file names\n"
-"  -h, --dereference            dump instead the files symlinks point to\n"
-"      --no-recursion           avoid descending automatically in "
-"directories\n"
-"  -l, --one-file-system        stay in local file system when creating "
-"archive\n"
-"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
-"      --strip-path=NUM         strip NUM leading components from file names\n"
-"                               before extraction\n"
-msgstr ""
-"\n"
-"Выбор локальных файлов:\n"
-"  -C, --directory=КАТАЛОГ    сделать заданный КАТАЛОГ текущим\n"
-"  -T, --files-from=ФАЙЛ      брать имена для извлечения или создания из "
-"ФАЙЛА\n"
-"      --null                 с ключом -T читать строки, оканчивающиеся "
-"нулем,\n"
-"                              запретить ключ -C\n"
-"      --exclude=ШАБЛОН       исключить файлы, соответствующие ШАБЛОНУ\n"
-"  -X, --exclude-from=ФАЙЛ    исключить файлы, соотв. шаблонам из ФАЙЛА\n"
-"  -P, --absolute-names       не удалять начальные `/' из абсолютных путей\n"
-"  -h, --dereference          сохранять вместо символьных ссылок файлы,\n"
-"                              на которые эти ссылки указывают\n"
-"      --no-recursion         выключить автоматический переход в подкаталоги\n"
-"  -l, --one-file-system      оставаться в локальной файловой системе во "
-"время\n"
-"                              создания архива\n"
-"  -K, --starting-file=ИМЯ    начинать с файла ИМЯ в архиве\n"
-
-#: src/tar.c:494
-#, fuzzy
-msgid ""
-"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
-"      --newer-mtime=DATE       compare date and time when data changed only\n"
-"      --after-date=DATE        same as -N\n"
-msgstr ""
-"  -N, --newer=ДАТА             сохранять только файлы, которые новее ДАТЫ\n"
-"      --newer-mtime            сравнивать только время изменения файла\n"
-"      --after-date=ДАТА        то же, что и -N\n"
-
-#: src/tar.c:500
-#, fuzzy
-msgid ""
-"      --backup[=CONTROL]       backup before removal, choose version "
-"control\n"
-"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
-msgstr ""
-"      --backup[=ТИП]           перед удалением делать резервную копию типа "
-"ТИП\n"
-"      --suffix=СУФФИКС         делать резервные копии с расширением СУФФИКС\n"
-
-#: src/tar.c:504
-#, fuzzy
-msgid ""
-"\n"
-"Informative output:\n"
-"      --help            print this help, then exit\n"
-"      --version         print tar program version number, then exit\n"
-"  -v, --verbose         verbosely list files processed\n"
-"      --checkpoint      print directory names while reading the archive\n"
-"      --check-links     print a message if not all links are dumped\n"
-"      --totals          print total bytes written while creating archive\n"
-"      --index-file=FILE send verbose output to FILE\n"
-"      --utc             print file modification dates in UTC\n"
-"  -R, --block-number    show block number within archive with each message\n"
-"  -w, --interactive     ask for confirmation for every action\n"
-"      --confirmation    same as -w\n"
-msgstr ""
-"\n"
-"Вывод информации:\n"
-"      --help            вывести эту подсказку и выйти\n"
-"      --version         вывести версию этой программы и выйти\n"
-"  -v, --verbose         выводить имена обрабатываемых файлов\n"
-"      --checkpoint      выводить имена каталогов при чтении из архива\n"
-"      --totals          вывести общее количество записанных байт\n"
-"  -R, --block-number    выводить номер блока архива в каждом сообщении\n"
-"  -w, --interactive     запрашивать подтверждение при каждом действии\n"
-"      --confirmation    то же, что и -w\n"
-
-#: src/tar.c:519
-msgid ""
-"\n"
-"Compatibility options:\n"
-"  -o                                 when creating, same as --old-archive\n"
-"                                     when extracting, same as --no-same-"
-"owner\n"
-msgstr ""
-
-#: src/tar.c:526
-msgid ""
-"\n"
-"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"  tar -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  tar -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  tar -xf archive.tar          # Extract all files from archive.tar.\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
 "The version control may be set with --backup or VERSION_CONTROL, values "
 "are:\n"
 "\n"
@@ -1194,645 +977,841 @@ msgid ""
 "  nil, existing   numbered if numbered backups exist, simple otherwise\n"
 "  never, simple   always make simple backups\n"
 msgstr ""
+"GNU `tar' я│п╬я┘я─п╟п╫я▐п╣я┌ п╫п╣я│п╨п╬п╩я▄п╨п╬ я└п╟п╧п╩п╬п╡ п╫п╟ п╪п╟пЁп╫п╦я┌п╫я┐я▌ п╩п╣п╫я┌я┐ п╦п╩п╦ п╡ п╟я─я┘п╦п╡ п╫п╟ п╢п╦я│п╨п╣ "
+"п╦ п╪п╬п╤п╣я┌ п╡п╬я│я│я┌п╟п╫п╬п╡п╩п╦п╡п╟я┌я▄ п╬я┌п╢п╣п╩я▄п╫я▀п╣ я└п╟п╧п╩я▀ п╦п╥ п╟я─я┘п╦п╡п╟.\n"
 "\n"
-"Имена резервных копий заканчиваются символом `~', если с помощью --suffix\n"
-"или SIMPLE_BACKUP_SUFFIX не установлен иной суффикс.\n"
-"Управление версиями можно установить с помощью --backup или "
-"VERSION_CONTROL,\n"
-"при этом возможны следующие значения:\n"
+"п÷я─п╦п╪п╣я─я▀:\n"
+"  tar -cf archive.tar foo bar  # п║п╬п╥п╢п╟п╫п╦п╣ archive.tar п╦п╥ я└п╟п╧п╩п╬п╡ foo п╦ bar.\n"
+"  tar -tvf archive.tar         # п▓я▀п╡п╬п╢ п©п╬п╢я─п╬п╠п╫п╬пЁп╬ я│п©п╦я│п╨п╟ п╡я│п╣я┘ я└п╟п╧п╩п╬п╡ п╡ "
+"п╟я─я┘п╦п╡п╣ archive.tar.\n"
+"  tar -xf archive.tar          # п≤п╥п╡п╩п╣я┤п╣п╫п╦п╣ п╡я│п╣я┘ я└п╟п╧п╩п╬п╡ п╦п╥ archive.tar.\n"
 "\n"
-"  t, numbered     делать нумерованные резервные копии\n"
-"  nil, existing   нумерованные, если таковые уже есть, иначе простые\n"
-"  never, simple   всегда делать простые резервные копии\n"
+"п║я┐я└я└п╦п╨я│ п╢п╩я▐ я─п╣п╥п╣я─п╡п╫я▀я┘ п╨п╬п©п╦п╧ - `~', п╣я│п╩п╦ п╬п╫ п╫п╣ я┐я│я┌п╟п╫п╬п╡п╩п╣п╫ я┤п╣я─п╣п╥ --suffix\n"
+"п╦п╩п╦ SIMPLE_BACKUP_SUFFIX. пёп©я─п╟п╡п╩п╣п╫п╦п╣ п╡п╣я─я│п╦я▐п╪п╦ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ я┐я│я┌п╟п╫п╬п╡п╩п╣п╫п╬\n"
+"я┤п╣я─п╣п╥ --backup п╦п╩п╦ VERSION_CONTROL, п╥п╫п╟я┤п╣п╫п╦я▐п╪п╦ п╪п╬пЁя┐я┌ п╠я▀я┌я▄:\n"
+"\n"
+"  t, numbered     я│п╬п╥п╢п╟п╫п╦п╣ п╫я┐п╪п╣я─п╬п╡п╟п╫п╫я▀я┘ я─п╣п╥п╣я─п╡п╫я▀я┘ п╨п╬п©п╦п╧\n"
+"  nil, existing   п╫я┐п╪п╣я─п╬п╡п╟п╫п╫я▀п╣, п╣я│п╩п╦ я│я┐я┴п╣я│я┌п╡я┐я▌я┌ п╫я┐п╪п╣я─п╬п╡п╟п╫п╫я▀п╣ п╨п╬п©п╦п╦, п╦п╫п╟я┤п╣ "
+"п©я─п╬я│я┌я▀п╣\n"
+"  never, simple   я│п╬п╥п╢п╟п╫п╦п╣ п©я─п╬я│я┌я▀я┘ я─п╣п╥п╣я─п╡п╫я▀я┘ п╨п╬п©п╦п╧\n"
+
+#: src/tar.c:270
+msgid "Main operation mode:"
+msgstr "п·я│п╫п╬п╡п╫п╬п╧ я─п╣п╤п╦п╪ я─п╟п╠п╬я┌я▀:"
+
+#: src/tar.c:273
+msgid "list the contents of an archive"
+msgstr "п╡я▀п╡п╬п╢ я│п©п╦я│п╨п╟ я│п╬п╢п╣я─п╤п╦п╪п╬пЁп╬ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:275
+msgid "extract files from an archive"
+msgstr "п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡ п╦п╥ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:278
+msgid "create a new archive"
+msgstr "я│п╬п╥п╢п╟п╫п╦п╣ п╫п╬п╡п╬пЁп╬ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:280
+msgid "find differences between archive and file system"
+msgstr "п©п╬п╦я│п╨ я─п╟п╥п╩п╦я┤п╦п╧ п╪п╣п╤п╢я┐ п╟я─я┘п╦п╡п╬п╪ п╦ я└п╟п╧п╩п╬п╡п╬п╧ я│п╦я│я┌п╣п╪п╬п╧"
+
+#: src/tar.c:283
+msgid "append files to the end of an archive"
+msgstr "п╢п╬п╠п╟п╡п╩п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡ п╡ п╨п╬п╫п╣я├ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:285
+msgid "only append files newer than copy in archive"
+msgstr "п╢п╬п╠п╟п╡п╩п╣п╫п╦п╣ п╡ п╟я─я┘п╦п╡ я┌п╬п╩я▄п╨п╬ п╠п╬п╩п╣п╣ п╫п╬п╡я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:287
+msgid "append tar files to an archive"
+msgstr "п©я─п╦я│п╬п╣п╢п╦п╫п╦п╫п╦п╣ tar-я└п╟п╧п╩п╬п╡ п╨ п╟я─я┘п╦п╡я┐"
+
+#: src/tar.c:290
+msgid "delete from the archive (not on mag tapes!)"
+msgstr "я┐п╢п╟п╩п╣п╫п╦п╣ п╦п╥ п╟я─я┘п╦п╡п╟ (п╫п╣ п╫п╟ п╪п╟пЁп╫п╦я┌п╫я▀я┘ п╩п╣п╫я┌п╟я┘!)"
+
+#: src/tar.c:293
+msgid "Operation modifiers:"
+msgstr "п°п╬п╢п╦я└п╦п╨п╟я┌п╬я─я▀:"
+
+#: src/tar.c:296
+msgid "attempt to verify the archive after writing it"
+msgstr "п©п╬п©я▀я┌п╨п╟ п©я─п╬п╡п╣я─п╦я┌я▄ п╟я─я┘п╦п╡ п©п╬я│п╩п╣ п╣пЁп╬ п╥п╟п©п╦я│п╦"
+
+#: src/tar.c:298
+msgid "remove files after adding them to the archive"
+msgstr "я┐п╢п╟п╩п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡ п©п╬я│п╩п╣ п╦я┘ п╢п╬п╠п╟п╡п╩п╣п╫п╦я▐ п╡ п╟я─я┘п╦п╡"
+
+#: src/tar.c:300
+msgid "don't replace existing files when extracting"
+msgstr "п╫п╣ п©п╣я─п╣п╥п╟п©п╦я│я▀п╡п╟я┌я▄ я│я┐я┴п╣я│я┌п╡я┐я▌я┴п╦п╣ я└п╟п╧п╩я▀ п©я─п╦ п╦п╥п╡п╩п╣я┤п╣п╫п╦п╦"
+
+#: src/tar.c:302
+msgid "don't replace existing files that are newer than their archive copies"
+msgstr ""
+"п╫п╣ п©п╣я─п╣п╥п╟п©п╦я│я▀п╡п╟я┌я▄ я│я┐я┴п╣я│я┌п╡я┐я▌я┴п╦п╣ я└п╟п╧п╩я▀, п╨п╬я┌п╬я─я▀п╣ п╠п╬п╩п╣п╣ п╫п╬п╡я▀п╣, я┤п╣п╪ п╦я┘ п╨п╬п©п╦п╦ п╡ "
+"п╟я─я┘п╦п╡п╣"
+
+#: src/tar.c:304
+msgid "preserve metadata of existing directories"
+msgstr "я│п╬я┘я─п╟п╫п╣п╫п╦п╣ п╪п╣я┌п╟п╢п╟п╫п╫я▀я┘ я│я┐я┴п╣я│я┌п╡я┐я▌я┴п╦я┘ п╨п╟я┌п╟п╩п╬пЁп╬п╡"
+
+#: src/tar.c:306
+msgid "overwrite existing files when extracting"
+msgstr "п©п╣я─п╣п╥п╟п©п╦я│я▄ я│я┐я┴п╣я│я┌п╡я┐я▌я┴п╦я┘ я└п╟п╧п╩п╬п╡ п©я─п╦ п╦п╥п╡п╩п╣я┤п╣п╫п╦п╦"
+
+#: src/tar.c:308
+msgid "remove each file prior to extracting over it"
+msgstr "я┐п╢п╟п╩п╣п╫п╦п╣ п╨п╟п╤п╢п╬пЁп╬ я└п╟п╧п╩п╟ п╢п╬ п╦п╥п╡п╩п╣я┤п╣п╫п╦я▐ п©п╬п╡п╣я─я┘ п╫п╣пЁп╬"
+
+#: src/tar.c:310
+msgid "empty hierarchies prior to extracting directory"
+msgstr "п╬я┤п╦я│я┌п╨п╟ п╡я│п╣п╧ п╦п╣я─п╟я─я┘п╦п╦ п╢п╬ п╦п╥п╡п╩п╣я┤п╣п╫п╦я▐ п╨п╟я┌п╟п╩п╬пЁп╟"
+
+#: src/tar.c:312
+msgid "handle sparse files efficiently"
+msgstr "я─п╟я├п╦п╬п╫п╟п╩я▄п╫п╟я▐ п╬п╠я─п╟п╠п╬я┌п╨п╟ я─п╟п╥п╠я─п╬я│п╟п╫п╫я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:314
+msgid "extract files to standard output"
+msgstr "п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡ п╫п╟ я│я┌п╟п╫п╢п╟я─я┌п╫я▀п╧ п╡я▀п╡п╬п╢"
+
+#: src/tar.c:316
+msgid "handle old GNU-format incremental backup"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╢п╬п╠п╟п╡п╬я┤п╫п╬пЁп╬ я─п╣п╥п╣я─п╡п╦я─п╬п╡п╟п╫п╦я▐ я│я┌п╟я─п╬пЁп╬ я└п╬я─п╪п╟я┌п╟ GNU"
+
+#: src/tar.c:317 src/tar.c:390 src/tar.c:455 src/tar.c:514
+msgid "FILE"
+msgstr "п╓п░п≥п⌡"
+
+#: src/tar.c:318
+msgid "handle new GNU-format incremental backup"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╢п╬п╠п╟п╡п╬я┤п╫п╬пЁп╬ я─п╣п╥п╣я─п╡п╦я─п╬п╡п╟п╫п╦я▐ п╫п╬п╡п╬пЁп╬ я└п╬я─п╪п╟я┌п╟ GNU"
+
+#: src/tar.c:320
+msgid "do not exit with nonzero on unreadable files"
+msgstr "п╫п╣ п╥п╟п╡п╣я─я┬п╟я┌я▄ я─п╟п╠п╬я┌я┐ п©я─п╦ п╫п╣п╫я┐п╩п╣п╡п╬п╪ я│я┌п╟я┌я┐я│п╣ п╢п╩я▐ п╫п╣я┤п╦я┌п╟п╣п╪я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:321 src/tar.c:385 src/tar.c:398 src/tar.c:484
+msgid "NUMBER"
+msgstr "N"
+
+#: src/tar.c:322
+msgid ""
+"process only the NUMth occurrence of each file in the archive. This option "
+"is valid only in conjunction with one of the subcommands --delete, --diff, --"
+"extract or --list and when a list of files is given either on the command "
+"line or via -T option. NUMBER defaults to 1."
+msgstr ""
+"п╬п╠я─п╟п╠п╬я┌п╨п╟ я┌п╬п╩я▄п╨п╬ N-п╬пЁп╬ п╡я┘п╬п╤п╢п╣п╫п╦я▐ п╢п╩я▐ п╨п╟п╤п╢п╬пЁп╬ я└п╟п╧п╩п╟ п╡ п╟я─я┘п╦п╡п╣. п╜я┌п╟ п╬п©я├п╦я▐ п╡п╣я─п╫п╟ "
+"я┌п╬п╩я▄п╨п╬ п╡ я│п╬я┤п╣я┌п╟п╫п╦п╦ я│ п╬п╢п╫п╬п╧ п╦п╥ п©п╬п╢п╨п╬п╪п╟п╫п╢ --delete, --diff, --extract п╦п╩п╦ --"
+"list, п╦ п╨п╬пЁп╢п╟ я│п©п╦я│п╬п╨ я└п╟п╧п╩п╬п╡ п╥п╟п╢п╟п╫ п╩п╦п╠п╬ п╡ п╨п╬п╪п╟п╫п╢п╫п╬п╧ я│я┌я─п╬п╨п╣, п╩п╦п╠п╬ я┤п╣я─п╣п╥ п╬п©я├п╦я▌ -"
+"T. п÷п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌ N я─п╟п╡п╣п╫ 1."
+
+#: src/tar.c:324
+msgid "Archive is seekable"
+msgstr "п■п╬я│я┌я┐п©п╣п╫ п©п╬п╦я│п╨ п©п╬ п╟я─я┘п╦п╡я┐"
+
+#: src/tar.c:327
+msgid "Handling of file attributes:"
+msgstr "п·п╠я─п╟п╠п╬я┌п╨п╟ п╟я┌я─п╦п╠я┐я┌п╬п╡ я└п╟п╧п╩п╬п╡:"
+
+#: src/tar.c:329 src/tar.c:331 src/tar.c:387
+msgid "NAME"
+msgstr "п≤п°п╞"
+
+#: src/tar.c:330
+msgid "force NAME as owner for added files"
+msgstr "я┐я│я┌п╟п╫п╬п╡п╨п╟ п╡п╩п╟п╢п╣п╩я▄я├п╟ п╢п╩я▐ п╢п╬п╠п╟п╡п╩п╣п╫п╫я▀я┘ я└п╟п╧п╩п╬п╡ п╡ п≤п°п╞"
+
+#: src/tar.c:332
+msgid "force NAME as group for added files"
+msgstr "я┐я│я┌п╟п╫п╬п╡п╨п╟ пЁя─я┐п©п©я▀ п╢п╩я▐ п╢п╬п╠п╟п╡п╩п╣п╫п╫я▀я┘ я└п╟п╧п╩п╬п╡ п╡ п≤п°п╞"
+
+#: src/tar.c:333
+msgid "CHANGES"
+msgstr "п═п∙п√п≤п°"
+
+#: src/tar.c:334
+msgid "force (symbolic) mode CHANGES for added files"
+msgstr "я┐я│я┌п╟п╫п╬п╡п╨п╟ (я│п╦п╪п╡п╬п╩я▄п╫п╬пЁп╬) п═п∙п√п≤п°п░ п╢п╬я│я┌я┐п©п╟ п╢п╩я▐ п╢п╬п╠п╟п╡п╩я▐п╣п╪я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:336
+msgid "don't change access times on dumped files"
+msgstr "п╫п╣ п╦п╥п╪п╣п╫я▐я┌я▄ п╡я─п╣п╪я▐ п╢п╬я│я┌я┐п©п╟ п╢п╩я▐ я│п╠я─п╬я┬п╣п╫п╫я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:338
+msgid "don't extract file modified time"
+msgstr "п╫п╣ п╦п╥п╡п╩п╣п╨п╟я┌я▄ п╡я─п╣п╪я▐ п╦п╥п╪п╣п╫п╣п╫п╦я▐ я└п╟п╧п╩п╟"
+
+#: src/tar.c:340
+msgid "try extracting files with the same ownership"
+msgstr "п©п╬п©я▀я┌п╨п╟ п╦п╥п╡п╩п╣я┤п╣п╫п╦я▐ я└п╟п╧п╩п╬п╡ я│ я┌п╣п╪ п╤п╣ п╡п╩п╟п╢п╣п╩я▄я├п╣п╪"
+
+#: src/tar.c:342
+msgid "extract files as yourself"
+msgstr "п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡ п╨п╟п╨ я│п╡п╬п╦я┘ я│п╬п╠я│я┌п╡п╣п╫п╫я▀я┘"
+
+#: src/tar.c:344
+msgid "always use numbers for user/group names"
+msgstr "п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣ я┤п╦я│п╣п╩ п╡п╪п╣я│я┌п╬ п╦п╪п╣п╫ п╡п╩п╟п╢п╣п╩я▄я├п╟/пЁя─я┐п©п©я▀"
+
+#: src/tar.c:346
+msgid "extract permissions information"
+msgstr "п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣ п╦п╫я└п╬я─п╪п╟я├п╦п╦ п╬ я─п╟п╥я─п╣я┬п╣п╫п╦я▐я┘"
+
+#: src/tar.c:349
+msgid "do not extract permissions information"
+msgstr "п╫п╣ п╦п╥п╡п╩п╣п╨п╟я┌я▄ п╦п╫я└п╬я─п╪п╟я├п╦я▌ п╬ я─п╟п╥я─п╣я┬п╣п╫п╦я▐я┘"
+
+#: src/tar.c:351
+msgid "sort names to extract to match archive"
+msgstr "я│п╬я─я┌п╦я─п╬п╡п╨п╟ п╦п╥п╡п╩п╣п╨п╟п╣п╪я▀я┘ п╦п╪п╣п╫ п╡ я┌п╬п╪ п╤п╣ п©п╬я─я▐п╢п╨п╣, я┤я┌п╬ п╦ п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/tar.c:354
+msgid "same as both -p and -s"
+msgstr "я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ -p п╦ -s"
+
+#: src/tar.c:357
+msgid "Device selection and switching:"
+msgstr "п▓я▀п╠п╬я─ п╦ п©п╣я─п╣п╨п╩я▌я┤п╣п╫п╦п╣ я┐я│я┌я─п╬п╧я│я┌п╡:"
+
+#: src/tar.c:359
+msgid "ARCHIVE"
+msgstr "п░п═п╔п≤п▓"
+
+#: src/tar.c:360
+msgid "use archive file or device ARCHIVE"
+msgstr "п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣ я└п╟п╧п╩п╟ п╦п╩п╦ я┐я│я┌я─п╬п╧я│я┌п╡п╟ п░п═п╔п≤п▓"
+
+#: src/tar.c:362
+msgid "archive file is local even if has a colon"
+msgstr "я└п╟п╧п╩ п╟я─я┘п╦п╡п╟ я▐п╡п╩я▐п╣я┌я│я▐ п╩п╬п╨п╟п╩я▄п╫я▀п╪, п╢п╟п╤п╣ п╣я│п╩п╦ я│п╬п╢п╣я─п╤п╦я┌ п╢п╡п╬п╣я┌п╬я┤п╦п╣"
+
+#: src/tar.c:363 src/tar.c:365
+msgid "COMMAND"
+msgstr "п п·п°п░п²п■п░"
+
+#: src/tar.c:364
+msgid "use given rmt COMMAND instead of rmt"
+msgstr "п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣ я┐п╨п╟п╥п╟п╫п╫п╬п╧ п п·п°п░п²п■п╚ rmt п╡п╪п╣я│я┌п╬ rmt"
+
+#: src/tar.c:366
+msgid "use remote COMMAND instead of rsh"
+msgstr "п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣ я┐п╢п╟п╩п╣п╫п╫п╬п╧ п п·п°п░п²п■п╚ п╡п╪п╣я│я┌п╬ rsh"
+
+#: src/tar.c:370
+msgid "specify drive and density"
+msgstr "я┐п╨п╟п╥п╟п╫п╦п╣ я┐я│я┌я─п╬п╧я│я┌п╡п╟ п╦ п©п╩п╬я┌п╫п╬я│я┌п╦"
+
+#: src/tar.c:384
+msgid "create/list/extract multi-volume archive"
+msgstr "я│п╬п╥п╢п╟п╫п╦п╣/п╩п╦я│я┌п╦п╫пЁ/п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣ п╪п╫п╬пЁп╬я┌п╬п╪п╫я▀я┘ п╟я─я┘п╦п╡п╬п╡"
+
+#: src/tar.c:386
+msgid "change tape after writing NUMBER x 1024 bytes"
+msgstr "я│п╪п╣п╫п╟ п╩п╣п╫я┌я▀ п©п╬я│п╩п╣ п╥п╟п©п╦я│п╦ п╖п≤п║п⌡п· x 1024 п╠п╟п╧я┌"
+
+#: src/tar.c:388
+msgid "run script at end of each tape (implies -M)"
+msgstr ""
+"п╥п╟п©я┐я│п╨ я│п╨я─п╦п©я┌п╟ п©п╬ п╬п╨п╬п╫я┤п╟п╫п╦п╦ п╨п╟п╤п╢п╬п╧ п╩п╣п╫я┌я▀ (п©п╬п╢я─п╟п╥я┐п╪п╣п╡п╟п╣я┌я│я▐ п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣ -п°)"
+
+#: src/tar.c:391
+msgid "use/update the volume number in FILE"
+msgstr "п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╣/п╬п╠п╫п╬п╡п╩п╣п╫п╦п╣ п╫п╬п╪п╣я─п╟ я┌п╬п╪п╟ п╡ п╓п░п≥п⌡п∙"
+
+#: src/tar.c:394
+msgid "Device blocking:"
+msgstr "п═п╟п╥п╠п╦п╣п╫п╦п╣ п╫п╟ п╠п╩п╬п╨п╦:"
+
+#: src/tar.c:396
+msgid "BLOCKS"
+msgstr "п▒п⌡п·п п≤"
+
+#: src/tar.c:397
+msgid "BLOCKS x 512 bytes per record"
+msgstr "я┤п╦я│п╩п╬ п▒п⌡п·п п·п▓ x 512 п╠п╟п╧я┌ п╫п╟ п╥п╟п©п╦я│я▄"
+
+#: src/tar.c:399
+msgid "SIZE bytes per record, multiple of 512"
+msgstr "п©п╬ п═п░п≈п°п∙п═ п╠п╟п╧я┌ п╫п╟ п╥п╟п©п╦я│я▄, п╨я─п╟я┌п╫я▀п╧ 512"
+
+#: src/tar.c:401
+msgid "ignore zeroed blocks in archive (means EOF)"
+msgstr "п╦пЁп╫п╬я─п╦я─п╬п╡п╟п╫п╦п╣ п╫я┐п╩п╣п╡я▀я┘ п╠п╩п╬п╨п╬п╡ п╡ п╟я─я┘п╦п╡п╣ (я┌.п╣. EOF)"
+
+#: src/tar.c:403
+msgid "reblock as we read (for 4.2BSD pipes)"
+msgstr "п©п╣я─п╣я─п╟п╥п╠п╦п╡п╨п╟ п╫п╟ п╠п╩п╬п╨п╦ п©я─п╦ я┤я┌п╣п╫п╦п╦ (п╢п╩я▐ п╨п╟п╫п╟п╩п╬п╡ 4.2BSD)"
+
+#: src/tar.c:406
+msgid "Archive format selection:"
+msgstr "п▓я▀п╠п╬я─ я└п╬я─п╪п╟я┌п╟ п╟я─я┘п╦п╡п╟:"
+
+#: src/tar.c:408
+msgid "FORMAT"
+msgstr "п╓п·п═п°п░п╒"
+
+#: src/tar.c:409
+msgid "create archive of the given format."
+msgstr "я│п╬п╥п╢п╟п╫п╦п╣ п╟я─я┘п╦п╡п╟ я┐п╨п╟п╥п╟п╫п╫п╬пЁп╬ я└п╬я─п╪п╟я┌п╟."
+
+#: src/tar.c:411
+msgid "FORMAT is one of the following:"
+msgstr "п╓п·п═п°п░п╒ п╪п╬п╤п╣я┌ п╠я▀я┌я▄:"
+
+#: src/tar.c:412
+msgid "old V7 tar format"
+msgstr "я│я┌п╟я─я▀п╧ я└п╬я─п╪п╟я┌ tar V7"
+
+#: src/tar.c:414
+msgid "GNU format as per tar <= 1.12"
+msgstr "я└п╬я─п╪п╟я┌ GNU п╨п╟п╨ п╡ tar <= 1.12"
+
+#: src/tar.c:416
+msgid "GNU tar 1.13.x format"
+msgstr "я└п╬я─п╪п╟я┌ GNU tar 1.13.я┘"
+
+#: src/tar.c:418
+msgid "POSIX 1003.1-1988 (ustar) format"
+msgstr "я└п╬я─п╪п╟я┌ POSIX 1003.1-1988 (ustar)"
+
+#: src/tar.c:420
+msgid "POSIX 1003.1-2001 (pax) format"
+msgstr "я└п╬я─п╪п╟я┌ POSIX 1003.1-2001 (pax)"
+
+#: src/tar.c:421
+msgid "Same as pax"
+msgstr "я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ pax"
+
+#: src/tar.c:424
+msgid "same as --format=v7"
+msgstr "я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ --format=v7"
+
+#: src/tar.c:427
+msgid "same as --format=posix"
+msgstr "я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ --format=posix"
+
+#: src/tar.c:428
+msgid "keyword[[:]=value][,keyword[[:]=value], ...]"
+msgstr "keyword[[:]=п╥п╫п╟я┤п╣п╫п╦п╣][,keyword[[:]=п╥п╫п╟я┤п╣п╫п╦п╣], ...]"
+
+#: src/tar.c:429
+msgid "control pax keywords"
+msgstr "я┐п©я─п╟п╡п╩я▐я▌я┴п╦п╣ п╨п╩я▌я┤п╣п╡я▀п╣ я│п╩п╬п╡п╟ pax"
+
+#: src/tar.c:430
+msgid "TEXT"
+msgstr "п╒п∙п п║п╒"
+
+#: src/tar.c:431
+msgid ""
+"create archive with volume name NAME. At list/extract time, use TEXT as a "
+"globbing pattern"
+msgstr ""
+"я│п╬п╥п╢п╟п╫п╦п╣ п╟я─я┘п╦п╡п╟ я│ п╦п╪п╣п╫п╣п╪ я┌п╬п╪п╟ п≤п°п╞. п÷я─п╦ п╩п╦я│я┌п╦п╫пЁп╣/п╦п╥п╡п╩п╣я┤п╣п╫п╦п╦ п╢п╩я▐ "
+"я┐п╫п╦п╡п╣я─я│п╟п╩п╦п╥п╟я├п╦п╦ п╦п╪п╣п╫ я└п╟п╧п╩п╬п╡ п╦я│п©п╬п╩я▄п╥я┐п╧я┌п╣ п╗п░п▒п⌡п·п²"
+
+#: src/tar.c:433
+msgid "filter the archive through bzip2"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╟я─я┘п╦п╡п╟ п©п╬я│я─п╣п╢я│я┌п╡п╬п╪ bzip2"
+
+#: src/tar.c:435
+msgid "filter the archive through gzip"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╟я─я┘п╦п╡п╟ п©п╬я│я─п╣п╢я│я┌п╡п╬п╪ gzip"
+
+#: src/tar.c:439
+msgid "filter the archive through compress"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╟я─я┘п╦п╡п╟ п©п╬я│я─п╣п╢я│я┌п╡п╬п╪ compress"
+
+#: src/tar.c:441
+msgid "PROG"
+msgstr "п÷п═п·п⌠"
+
+#: src/tar.c:442
+msgid "filter through PROG (must accept -d)"
+msgstr "п╬п╠я─п╟п╠п╬я┌п╨п╟ п╟я─я┘п╦п╡п╟ п©п╬я│я─п╣п╢я│я┌п╡п╬п╪ п÷п═п·п⌠ (п╢п╬п╩п╤п╫п╟ п©п╬п╢п╢п╣я─п╤п╦п╡п╟я┌я▄ -d)"
+
+#: src/tar.c:445
+msgid "Local file selection:"
+msgstr "п▓я▀п╠п╬я─ п╩п╬п╨п╟п╩я▄п╫я▀я┘ я└п╟п╧п╩п╬п╡:"
+
+#: src/tar.c:447
+msgid "DIR"
+msgstr "п п░п╒п░п⌡п·п⌠"
+
+#: src/tar.c:448
+msgid "change to directory DIR"
+msgstr "п©п╣я─п╣я┘п╬п╢ п╡ п п░п╒п░п⌡п·п⌠"
+
+#: src/tar.c:449
+msgid "FILE-OF-NAMES"
+msgstr "п╓п░п≥п⌡-п║-п≤п°п∙п²п░п°п≤"
+
+#: src/tar.c:450
+msgid "get names to extract or create from file NAME"
+msgstr "п©п╬п╩я┐я┤п╣п╫п╦п╣ п╦п╪п╣п╫ п╢п╩я▐ п╦п╥п╡п╩п╣я┤п╣п╫п╦я▐ п╦п╩п╦ я│п╬п╥п╢п╟п╫п╦я▐ п╦п╥ я└п╟п╧п╩п╟ п≤п°п╞"
+
+#: src/tar.c:452
+msgid "-T reads null-terminated names, disable -C"
+msgstr "-T я┤п╦я┌п╟п╣я┌ я│я┌я─п╬п╨п╦, п╬п╨п╟п╫я┤п╦п╡п╟я▌я┴п╦п╣я│я▐ п╫я┐п╩п╣п╪, п╬я┌п╨п╩я▌я┤п╟п╣я┌ п╬п©я├п╦я▌ -C"
+
+#: src/tar.c:453
+msgid "PATTERN"
+msgstr "п╗п░п▒п⌡п·п²"
+
+#: src/tar.c:454
+msgid "exclude files, given as a PATTERN"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я└п╟п╧п╩п╬п╡, я┐п╨п╟п╥п╟п╫п╫я▀я┘ п╡ п╡п╦п╢п╣ п╗п░п▒п⌡п·п²п░"
+
+#: src/tar.c:456
+msgid "exclude patterns listed in FILE"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я┬п╟п╠п╩п╬п╫п╬п╡, п©п╣я─п╣я┤п╦я│п╩п╣п╫п╫я▀я┘ п╡ п╓п░п≥п⌡п∙"
+
+#: src/tar.c:458
+msgid "exclude directories containing a cache tag"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ п╨п╟я┌п╟п╩п╬пЁп╬п╡, я│п╬п╢п╣я─п╤п╟я┴п╦я┘ п╨я█я┬ я┌п╣пЁп╬п╡ "
+
+#: src/tar.c:460
+msgid "exclusion ignores case"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ п╦пЁп╫п╬я─п╦я─я┐п╣я┌ я─п╣пЁп╦я│я┌я─"
+
+#: src/tar.c:462
+msgid "exclude patterns match file name start"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я┬п╟п╠п╩п╬п╫п╬п╡, я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦я┘ п╫п╟я┤п╟п╩я┐ п╦п╪п╣п╫п╦ я└п╟п╧п╩п╟"
+
+#: src/tar.c:464
+msgid "exclude patterns match after any / (default)"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я┬п╟п╠п╩п╬п╫п╬п╡, я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦я┘ п©п╬я│п╩п╣ п╩я▌п╠п╬пЁп╬ / (п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌)"
+
+#: src/tar.c:466
+msgid "exclusion is case sensitive (default)"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я┤я┐п╡я│я┌п╡п╦я┌п╣п╩я▄п╫п╬ п╨ я─п╣пЁп╦я│я┌я─я┐ (п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌)"
+
+#: src/tar.c:468
+msgid "exclude patterns are plain strings"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ я┬п╟п╠п╩п╬п╫п╬п╡, я▐п╡п╩я▐я▌я┴п╦я┘я│я▐ п╬п╠я▀я┤п╫я▀п╪п╦ я│я┌я─п╬п╨п╟п╪п╦"
+
+#: src/tar.c:470
+msgid "exclude pattern wildcards do not match '/'"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ п╪п╟я│п╬п╨ я┬п╟п╠п╩п╬п╫п╟, п╫п╣ я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦я┘ '/'"
+
+#: src/tar.c:472
+msgid "avoid descending automatically in directories"
+msgstr "п╬я┌п╨п╩я▌я┤п╣п╫п╦п╣ п╟п╡я┌п╬п╪п╟я┌п╦я┤п╣я│п╨п╬пЁп╬ я│п©я┐я│п╨п╟ п©п╬ п╨п╟я┌п╟п╩п╬пЁп╟п╪"
+
+#: src/tar.c:474
+msgid "stay in local file system when creating archive"
+msgstr "п╬я│я┌п╟п╡п╟я┌я▄я│я▐ п╡ п╩п╬п╨п╟п╩я▄п╫п╬п╧ я└п╟п╧п╩п╬п╡п╬п╧ я│п╦я│я┌п╣п╪п╣ п©я─п╦ я│п╬п╥п╢п╟п╫п╦п╦ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:477
+msgid "recurse into directories (default)"
+msgstr "я─п╣п╨я┐я─я│п╦п╡п╫я▀п╧ я│п©я┐я│п╨ п©п╬ п╨п╟я┌п╟п╩п╬пЁп╟п╪ (п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌)"
+
+#: src/tar.c:479
+msgid "don't strip leading `/'s from file names"
+msgstr "п╫п╣ я┐п╢п╟п╩я▐я┌я▄ п╫п╟я┤п╟п╩я▄п╫я▀п╣ `/' п╦п╥ п╦п╪п╣п╫ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:481
+msgid "dump instead the files symlinks point to"
+msgstr ""
+"я│п╬я┘я─п╟п╫п╣п╫п╦п╣ я│п╦п╪п╡п╬п╩п╦я┤п╣я│п╨п╦я┘ я│я│я▀п╩п╬п╨ п╡п╪п╣я│я┌п╬ я└п╟п╧п╩п╬п╡, п╫п╟ п╨п╬я┌п╬я─я▀п╣ п╬п╫п╦ я┐п╨п╟п╥я▀п╡п╟я▌я┌"
+
+#: src/tar.c:482
+msgid "MEMBER-NAME"
+msgstr "п≤п°п╞-п╖п⌡п∙п²п░"
+
+#: src/tar.c:483
+msgid "begin at member MEMBER-NAME in the archive"
+msgstr "п╫п╟я┤п╦п╫п╟я┌я▄ я│ я┤п╩п╣п╫п╟ п≤п°п╞-п╖п⌡п∙п²п░ п╡ п╟я─я┘п╦п╡п╣"
+
+#: src/tar.c:485
+msgid "strip NUMBER leading components from file names"
+msgstr "я┐п╢п╟п╩п╣п╫п╦п╣ п╖п≤п║п⌡п· п╫п╟я┤п╟п╩я▄п╫я▀я┘ п╨п╬п╪п©п╬п╫п╣п╫я┌ п╦п╥ п╦п╪п╣п╫ я└п╟п╧п╩п╬п╡ п©п╣я─п╣п╢ п╦п╥п╡п╩п╣я┤п╣п╫п╦п╣п╪"
+
+#: src/tar.c:486
+msgid "DATE-OR-FILE"
+msgstr "п■п░п╒п░-п≤п⌡п≤-п╓п░п≥п⌡"
+
+#: src/tar.c:487
+msgid "only store files newer than DATE-OR-FILE"
+msgstr "я│п╬я┘я─п╟п╫п╣п╫п╦п╣ я┌п╬п╩я▄п╨п╬ я┌п╣я┘ я└п╟п╧п╩п╬п╡, п╨п╬я┌п╬я─я▀п╣ п╫п╬п╡п╣п╣ п■п░п╒п░-п≤п⌡п≤-п╓п░п≥п⌡"
+
+#: src/tar.c:488 src/tar.c:490
+msgid "DATE"
+msgstr "п■п░п╒п░"
+
+#: src/tar.c:489
+msgid "compare date and time when data changed only"
+msgstr "я│я─п╟п╡п╫п╣п╫п╦п╣ я┌п╬п╩я▄п╨п╬ п╢п╟я┌я▀ п╦ п╡я─п╣п╪п╣п╫п╦ п╦п╥п╪п╣п╫п╣п╫п╦я▐ п╢п╟п╫п╫я▀я┘"
+
+#: src/tar.c:491
+msgid "same as -N"
+msgstr "я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ -N"
+
+#: src/tar.c:492
+msgid "CONTROL"
+msgstr "пёп÷п═п░п▓п⌡п∙п²п≤п∙"
+
+#: src/tar.c:493
+msgid "backup before removal, choose version CONTROL"
+msgstr "я─п╣п╥п╣я─п╡п╫п╬п╣ п╨п╬п©п╦я─п╬п╡п╟п╫п╦п╣ п©п╣я─п╣п╢ я┐п╢п╟п╩п╣п╫п╦п╣п╪, п╡я▀п╠п╣я─п╦я┌п╣ пёп÷п═п░п▓п⌡п∙п²п≤п∙ п╡п╣я─я│п╦я▐п╪п╦"
+
+#: src/tar.c:494
+msgid "STRING"
+msgstr "п║п╒п═п·п п░"
+
+#: src/tar.c:495
+msgid ""
+"backup before removal, override usual suffix ('~' unless overridden by "
+"environment variable SIMPLE_BACKUP_SUFFIX"
+msgstr ""
+"я─п╣п╥п╣я─п╡п╫п╬п╣ п╨п╬п©п╦я─п╬п╡п╟п╫п╦п╣ п©п╣я─п╣п╢ я┐п╢п╟п╩п╣п╫п╦п╣п╪, п©п╣я─п╣п╬п©я─п╣п╢п╣п╩я▐п╣я┌ п╬п╠я▀я┤п╫я▀п╧ я│я┐я└я└п╦п╨я│ ('~', "
+"п╣я│п╩п╦ я┌п╬п╩я▄п╨п╬ п╬п╫ п╫п╣ п╠я┐п╢п╣я┌ п©п╣я─п╣п╬п©я─п╣п╢п╣п╩п╣п╫"
+
+#: src/tar.c:497
+msgid "exclude patterns use wildcards (default)"
+msgstr ""
+"п©п╣я─п╣п╪п╣п╫п╫п╬п╧ п╬п╨я─я┐п╤п╣п╫п╦я▐ SIMPLE_BACKUP_SUFFIX, п╥п╟ п╦я│п╨п╩я▌я┤п╣п╫п╦п╣п╪ я┬п╟п╠п╩п╬п╫п╬п╡, "
+"п╦я│п©п╬п╩я▄п╥я┐я▌я┴п╦я┘ п╪п╟я│п╨п╦ (п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌)"
+
+#: src/tar.c:499
+msgid "exclude pattern wildcards match '/' (default)"
+msgstr "п╦я│п╨п╩я▌я┤п╣п╫п╦п╣ п╪п╟я│п╬п╨ я┬п╟п╠п╩п╬п╫п╟, я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╦я┘ '/' (п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌)"
+
+#: src/tar.c:502
+msgid "Informative output:"
+msgstr "п▓я▀п╡п╬п╢ п╦п╫я└п╬я─п╪п╟я├п╦п╦:"
+
+#: src/tar.c:505
+msgid "verbosely list files processed"
+msgstr "п©п╬п╢я─п╬п╠п╫я▀п╧ п╩п╦я│я┌п╦п╫пЁ п╬п╠я─п╟п╠п╟я┌я▀п╡п╟п╣п╪я▀я┘ я└п╟п╧п╩п╬п╡"
+
+#: src/tar.c:507
+msgid "display progress messages every 10th record"
+msgstr "п╡я▀п╡п╬п╢ я│п╬п╬п╠я┴п╣п╫п╦п╧ я┤п╣я─п╣п╥ п╨п╟п╤п╢я▀п╣ 10 п╥п╟п©п╦я│п╣п╧"
+
+#: src/tar.c:509
+msgid "print a message if not all links are dumped"
+msgstr "п╡я▀п╡п╬п╢ я│п╬п╬п╠я┴п╣п╫п╦п╧, п╣я│п╩п╦ я│п╠я─п╬я┬п╣п╫я▀ п╫п╣ п╡я│п╣ я│я│я▀п╩п╨п╦"
+
+#: src/tar.c:511
+msgid "print total bytes written while creating archive"
+msgstr "п╡я▀п╡п╬п╢ п╬п╠я┴п╣пЁп╬ п╬п╠я┼п╣п╪п╟ п╥п╟п©п╦я│п╟п╫п╫я▀я┘ п╠п╟п╧я┌ п©я─п╦ я│п╬п╥п╢п╟п╫п╦п╦ п╟я─я┘п╦п╡п╟"
+
+#: src/tar.c:513
+msgid "print file modification dates in UTC"
+msgstr "п╡я▀п╡п╬п╢ п╢п╟я┌я▀ п╦п╥п╪п╣п╫п╣п╫п╦я▐ я└п╟п╧п╩п╟ п╡ я└п╬я─п╪п╟я┌п╣ UTC"
+
+#: src/tar.c:515
+msgid "send verbose output to FILE"
+msgstr "п╬я┌п©я─п╟п╡п╨п╟ п©п╬п╢я─п╬п╠п╫п╬пЁп╬ п╡я▀п╡п╬п╢п╟ п╢п╟п╫п╫я▀я┘ п╡ FILE"
+
+#: src/tar.c:517
+msgid "show block number within archive with each message"
+msgstr "п╡я▀п╡п╬п╢ п╫п╬п╪п╣я─п╟ п╠п╩п╬п╨п╟ п╟я─я┘п╦п╡п╟ п╡ п╨п╟п╤п╢п╬п╪ я│п╬п╬п╠я┴п╣п╫п╦п╦"
+
+#: src/tar.c:519
+msgid "ask for confirmation for every action"
+msgstr "п╥п╟п©я─п╬я│ п©п╬п╢я┌п╡п╣я─п╤п╢п╣п╫п╦я▐ п╢п╩я▐ п╨п╟п╤п╢п╬пЁп╬ п╢п╣п╧я│я┌п╡п╦я▐"
+
+#: src/tar.c:522
+msgid "Show tar defaults"
+msgstr "п▓я▀п╡п╬п╢ п╥п╫п╟я┤п╣п╫п╦п╧ tar п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌"
+
+#: src/tar.c:524
+msgid ""
+"When listing or extracting, list each directory that does not match search "
+"criteria"
+msgstr ""
+"п÷я─п╦ п╡я▀п╡п╬п╢п╣ я│п©п╦я│п╨п╟ п╦п╩п╦ п╦п╥п╡п╩п╣я┤п╣п╫п╦п╦, я┐п©п╬п╪п╦п╫п╟я┌я▄ п╬ п╨п╟п╤п╢п╬п╪ п╨п╟я┌п╟п╩п╬пЁп╣, п╫п╣ "
+"я│п╬п╬я┌п╡п╣я┌я│я┌п╡я┐я▌я┴п╣п╪ я┐я│п╩п╬п╡п╦я▌ п©п╬п╦я│п╨п╟"
+
+#: src/tar.c:527
+msgid "Compatibility options:"
+msgstr "п·п©я├п╦п╦ я│п╬п╡п╪п╣я│я┌п╦п╪п╬я│я┌п╦:"
+
+#: src/tar.c:530
+msgid ""
+"when creating, same as --old-archive. When extracting, same as --no-same-"
+"owner"
+msgstr ""
+"п©я─п╦ я│п╬п╥п╢п╟п╫п╦п╦, я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ --old-archive. п÷я─п╦ п╦п╥п╡п╩п╣я┤п╣п╫п╦п╦, я█п╨п╡п╦п╡п╟п╩п╣п╫я┌ --no-same-"
+"owner"
+
+#: src/tar.c:533
+msgid "Other options:"
+msgstr "п■я─я┐пЁп╦п╣ п╬п©я├п╦п╦:"
 
 #: src/tar.c:535
+msgid "Give this help list"
+msgstr "п▓я▀п╡п╬п╢ я█я┌п╬п╧ я│п©я─п╟п╡п╨п╦"
+
+#: src/tar.c:536
+msgid "Give a short usage message"
+msgstr "п▓я▀п╡п╬п╢ п╨п╬я─п╬я┌п╨п╬пЁп╬ я│п╬п╬п╠я┴п╣п╫п╦я▐ п╬п╠ п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╦п╦"
+
+#: src/tar.c:537
+msgid "Print license and exit"
+msgstr "п▓я▀п╡п╬п╢ п╩п╦я├п╣п╫п╥п╦п╦ п╦ п╡я▀я┘п╬п╢"
+
+#: src/tar.c:538
+msgid "Print program version"
+msgstr "п▓я▀п╡п╬п╢ п╡п╣я─я│п╦п╦ п©я─п╬пЁя─п╟п╪п╪я▀"
+
+#: src/tar.c:575
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "п▓я▀ п╪п╬п╤п╣я┌п╣ я┐п╨п╟п╥п╟я┌я▄ п╫п╣ п╠п╬п╩п╣п╣ п╬п╢п╫п╬п╧ п╬п©я├п╦п╦ `-Acdtrux'"
+
+#: src/tar.c:585
+msgid "Conflicting compression options"
+msgstr "п п╬п╫я└п╩п╦п╨я┌ п╬п©я├п╦п╧ я│п╤п╟я┌п╦я▐"
+
+#: src/tar.c:595
+msgid ""
+"Based on the work of John Gilmore and Jay Fenlason. See AUTHORS\n"
+"for complete list of authors.\n"
+msgstr ""
+"п·я│п╫п╬п╡п╟п╫ п╫п╟ я─п╣п╥я┐п╩я▄я┌п╟я┌п╟я┘ я─п╟п╠п╬я┌я▀ п■п╤п╬п╫п╟ п⌠п╦п╩п╪п╬я─п╟ (John Gilmore) п╦ п■п╤п╣я▐ "
+"п╓п╣п╫п╩п╟п╫я│п╬п╫п╟\n"
+"(Jay Fenlason). п÷п╬п╩п╫я▀п╧ я│п©п╦я│п╬п╨ п╟п╡я┌п╬я─п╬п╡ я│п╪п╬я┌я─п╦я┌п╣ п╡ я└п╟п╧п╩п╣ AUTHORS.\n"
+
+#: src/tar.c:597
+#, c-format
+msgid ""
+"   GNU tar is free software; you can redistribute it and/or modify\n"
+"   it under the terms of the GNU General Public License as published by\n"
+"   the Free Software Foundation; either version 2 of the License, or\n"
+"   (at your option) any later version.\n"
+"\n"
+"   GNU tar is distributed in the hope that it will be useful,\n"
+"   but WITHOUT ANY WARRANTY; without even the implied warranty of\n"
+"   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n"
+"   GNU General Public License for more details.\n"
+"\n"
+"   You should have received a copy of the GNU General Public License\n"
+"   along with GNU tar; if not, write to the Free Software\n"
+"   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307  USA\n"
+"\n"
+msgstr ""
+"   GNU tar я▐п╡п╩я▐п╣я┌я│я▐ п╬я┌п╨я─я▀я┌я▀п╪ п©я─п╬пЁя─п╟п╪п╪п╫я▀п╪ п╬п╠п╣я│п©п╣я┤п╣п╫п╦п╣п╪; п╡я▀ п╪п╬п╤п╣я┌п╣\n"
+"   я─п╟я│п©я─п╬я│я┌я─п╟п╫я▐я┌я▄ п╣п╣ п╢п╟п╩п╣п╣ п╦/п╦п╩п╦ п╦п╥п╪п╣п╫я▐я┌я▄ п╣п╣ я│п╬пЁп╩п╟я│п╫п╬ я┐я│п╩п╬п╡п╦я▐п╪п╦ GNU\n"
+"   General Public License, п╬п©я┐п╠п╩п╦п╨п╬п╡п╟п╫п╫п╬п╧ Free Software Foundation 2-п╧\n"
+"   п╡п╣я─я│п╦п╦ п╦п╩п╦ (п╫п╟ п╡п╟я┬п╣ я┐я│п╪п╬я┌я─п╣п╫п╦п╣) п╩я▌п╠п╬п╧ п╢я─я┐пЁп╬п╧ п╠п╬п╩п╣п╣ п©п╬п╥п╢п╫п╣п╧ п╡п╣я─я│п╦п╦.\n"
+"\n"
+"   GNU tar я─п╟я│п©я─п╬я│я┌я─п╟п╫я▐п╣я┌я│я▐ п╡ п╫п╟п╢п╣п╤п╢п╣, я┤я┌п╬ п╬п╫п╟ п╠я┐п╢п╣я┌ п©п╬п╩п╣п╥п╫п╟,\n"
+"   п╫п╬ п▒п∙п≈ п▓п║п╞п п·п≥ п⌠п░п═п░п²п╒п≤п≤; п╢п╟п╤п╣ п╠п╣п╥ п©п╬п╢я─п╟п╥я┐п╪п╣п╡п╟п╣п╪п╬п╧ пЁп╟я─п╟п╫я┌п╦п╦\n"
+"   п÷п═п≤п⌠п·п■п²п·п║п╒п≤ п■п⌡п╞ п÷п═п·п■п░п√п≤ п╦п╩п╦ п÷п═п≤п°п∙п²п≤п°п·п║п╒п≤ п■п⌡п╞ п п·п²п п═п∙п╒п²п·п≥ п╕п∙п⌡п≤. п≈п╟ п╠п╬п╩п╣п╣\n"
+"   п©п╬п╢я─п╬п╠п╫п╬п╧ п╦п╫я└п╬я─п╪п╟я├п╦п╣п╧ п╬п╠я─п╟я┴п╟п╧я┌п╣я│я▄ п╨ GNU General Public License.\n"
+"\n"
+"   п▓я▀ п╢п╬п╩п╤п╫я▀ п╠я▀п╩п╦ п©п╬п╩я┐я┤п╦я┌я▄ п╨п╬п©п╦я▌ GNU General Public License п╡п╪п╣я│я┌п╣ я│ я█я┌п╬п╧\n"
+"   п©я─п╬пЁя─п╟п╪п╪п╬п╧; п╣я│п╩п╦ я█я┌п╬ п╫п╣ я┌п╟п╨, я│п╬п╬п╠я┴п╦я┌п╣ п╬п╠ я█я┌п╬п╪ Free Software Foundation,\n"
+"   Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA. \n"
+
+#: src/tar.c:638
+msgid "Invalid blocking factor"
+msgstr "п²п╣п╡п╣я─п╫я▀п╧ я─п╟п╥п╪п╣я─ п╣п╪п╨п╬я│я┌п╦ п╠п╩п╬п╨п╟"
+
+#: src/tar.c:713
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr ""
+"п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п╬п©я├п╦я▐ -I п╫п╣ п©п╬п╢п╢п╣я─п╤п╦п╡п╟п╣я┌я│я▐; п╡п╬п╥п╪п╬п╤п╫п╬ п╡я▀ п╦п╪п╣п╩п╦ п╡ п╡п╦п╢я┐ -j п╦п╩п╦ -"
+"T?"
+
+#: src/tar.c:738
+msgid "Semantics of -l option will change in the future releases."
+msgstr "п║п╣п╪п╟п╫я┌п╦п╨п╟ п╬п©я├п╦п╦ -l п╦п╥п╪п╣п╫п╦я┌я│я▐ п╡ п╠я┐п╢я┐я┴п╦я┘ п╡п╣я─я│п╦я▐я┘."
+
+#: src/tar.c:740
+msgid "Please use --one-file-system option instead."
+msgstr "п÷п╬п╤п╟п╩я┐п╧я│я┌п╟, п╦я│п©п╬п╩я▄п╥я┐п╧я┌п╣ п╡п╪п╣я│я┌п╬ п╫п╣я▒ п╬п©я├п╦я▌ --one-file-system."
+
+#: src/tar.c:753
+msgid "Invalid tape length"
+msgstr "п²п╣п╡п╣я─п╫п╟я▐ п╢п╩п╦п╫п╟ п╩п╣п╫я┌я▀"
+
+#: src/tar.c:781
+msgid "More than one threshold date"
+msgstr "п▒п╬п╩я▄я┬п╣ п╬п╢п╫п╬п╧ п©п╬я─п╬пЁп╬п╡п╬п╧ п╢п╟я┌я▀"
+
+#: src/tar.c:791
+msgid "Date file not found"
+msgstr "п╓п╟п╧п╩ п╢п╟я┌я▀ п╫п╣ п╫п╟п╧п╢п╣п╫"
+
+#: src/tar.c:800
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr "%s п╥п╟п╪п╣п╫я▐п╣я┌я│я▐ п╫п╟ п╫п╣п╦п╥п╡п╣я│я┌п╫я▀п╧ я└п╬я─п╪п╟я┌ п╢п╟я┌я▀ %s"
+
+#: src/tar.c:905
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr ""
+"п÷я─п╣п╢я┐п©я─п╣п╤п╢п╣п╫п╦п╣: п╬п©я├п╦я▐ -y п╫п╣ п©п╬п╢п╢п╣я─п╤п╦п╡п╟п╣я┌я│я▐; п╡п╬п╥п╪п╬п╤п╫п╬ п╡я▀ п╦п╪п╣п╩п╦ п╡ п╡п╦п╢я┐ -j?"
+
+#: src/tar.c:981
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: п²п╣п╡п╣я─п╫п╟я▐ пЁя─я┐п©п©п╟"
+
+#: src/tar.c:990
+msgid "Invalid mode given on option"
+msgstr "п▓ п╬п©я├п╦п╦ я┐п╨п╟п╥п╟п╫ п╫п╣п╡п╣я─п╫я▀п╧ я─п╣п╤п╦п╪ п╢п╬я│я┌я┐п©п╟"
+
+#: src/tar.c:1033
+msgid "Invalid number"
+msgstr "п²п╣п╡п╣я─п╫п╬п╣ я┤п╦я│п╩п╬"
+
+#: src/tar.c:1051
+msgid "Invalid owner"
+msgstr "п²п╣п╡п╣я─п╫я▀п╧ п╡п╩п╟п╢п╣п╩п╣я├"
+
+#: src/tar.c:1075
+msgid "Invalid record size"
+msgstr "п²п╣п╡п╣я─п╫я▀п╧ я─п╟п╥п╪п╣я─ п╥п╟п©п╦я│п╦"
+
+#: src/tar.c:1078
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "п═п╟п╥п╪п╣я─ п╥п╟п©п╦я│п╦ п╢п╬п╩п╤п╣п╫ п╠я▀я┌я▄ п╨я─п╟я┌п╣п╫ %d."
+
+#: src/tar.c:1110
+msgid "Invalid number of elements"
+msgstr "п²п╣п╡п╣я─п╫п╬п╣ я┤п╦я│п╩п╬ я█п╩п╣п╪п╣п╫я┌п╬п╡"
+
+#: src/tar.c:1185
+#, c-format
+msgid "Malformed density argument: '%s'"
+msgstr "п²п╣п╡п╣я─п╫п╬ я│я└п╬я─п╪п╦я─п╬п╡п╟п╫ п╟я─пЁя┐п╪п╣п╫я┌ п©п╩п╬я┌п╫п╬я│я┌п╦: '%s'"
+
+#: src/tar.c:1221
+#, c-format
+msgid "Unknown density: '%c'"
+msgstr "п²п╣п╦п╥п╡п╣я│я┌п╫п╟я▐ п©п╩п╬я┌п╫п╬я│я┌я▄: '%c'"
+
+#: src/tar.c:1241
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "п·п©я├п╦п╦ `-[0-7][lmh]' п╫п╣ п©п╬п╢п╢п╣я─п╤п╦п╡п╟я▌я┌я│я▐ *я█я┌п╦п╪* tar'п╬п╪"
+
+#: src/tar.c:1249
 #, c-format
 msgid ""
 "\n"
-"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
-"date\n"
-"or a file name starting with `/' or `.', in which case the file's date is "
-"used.\n"
-"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
-msgstr ""
-
-#: src/tar.c:568
-msgid "You may not specify more than one `-Acdtrux' option"
-msgstr "Вы не можете указать более одного ключа `-Acdtrux'"
-
-#: src/tar.c:577
-msgid "Conflicting compression options"
-msgstr "Несовместимые ключи, указывающие тип сжатия"
-
-#: src/tar.c:649
-#, c-format
-msgid "Old option `%c' requires an argument."
-msgstr "Старый ключ `%c' требует указания аргумента."
-
-#: src/tar.c:702
-msgid "Invalid blocking factor"
-msgstr "Неверный размер блока записи"
-
-#: src/tar.c:777
-msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
-msgstr ""
-
-#: src/tar.c:807
-msgid "Invalid tape length"
-msgstr "Неверная длина ленты"
-
-#: src/tar.c:831
-msgid "More than one threshold date"
-msgstr "Больше одной пороговой даты"
-
-#: src/tar.c:841
-msgid "Date file not found"
-msgstr ""
-
-#: src/tar.c:850
-#, c-format
-msgid "Substituting %s for unknown date format %s"
-msgstr ""
-
-#: src/tar.c:955
-msgid "Warning: the -y option is not supported; perhaps you meant -j?"
-msgstr ""
-
-#: src/tar.c:1027
-#, fuzzy, c-format
-msgid "%s: Invalid group"
-msgstr "%s: неверный ключ -- %c\n"
-
-#: src/tar.c:1036
-msgid "Invalid mode given on option"
-msgstr "Указан неверный режим доступа"
-
-#: src/tar.c:1079
-#, fuzzy
-msgid "Invalid number"
-msgstr "Неверный размер записи"
-
-#: src/tar.c:1097
-#, fuzzy
-msgid "Invalid owner"
-msgstr "Неверный размер записи"
-
-#: src/tar.c:1121
-msgid "Invalid record size"
-msgstr "Неверный размер записи"
-
-#: src/tar.c:1124
-#, c-format
-msgid "Record size must be a multiple of %d."
-msgstr "Размер записи должен быть кратен %d."
-
-#: src/tar.c:1158
-#, fuzzy
-msgid "Invalid number of elements"
-msgstr "Неверная длина ленты"
-
-#: src/tar.c:1259
-msgid "Options `-[0-7][lmh]' not supported by *this* tar"
-msgstr "Данная версия программы tar не поддерживает ключи `-[0-7][lmh]'"
-
-#: src/tar.c:1305
-#, fuzzy
-msgid "Written by John Gilmore and Jay Fenlason."
+"*This* tar defaults to:\n"
 msgstr ""
 "\n"
-"Авторы: John Gilmore и Jay Fenlason.\n"
+"п≈п╫п╟я┤п╣п╫п╦я▐ п©п╬ я┐п╪п╬п╩я┤п╟п╫п╦я▌ *я█я┌п╬пЁп╬* tar:\n"
 
-#: src/tar.c:1340
+#: src/tar.c:1278
+msgid "[FILE]..."
+msgstr "[п╓п░п≥п⌡]..."
+
+#: src/tar.c:1375
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "п■п╩я▐ я│я┌п╟я─п╬п╧ п╬п©я├п╦п╦ `%c' я┌я─п╣п╠я┐п╣я┌я│я▐ я┐п╨п╟п╥п╟п╫п╦п╣ п╟я─пЁя┐п╪п╣п╫я┌п╟."
+
+#: src/tar.c:1458
 msgid "--occurrence is meaningless without a file list"
-msgstr ""
+msgstr "--occurrence п╠п╣я│п©п╬п╩п╣п╥п╫п╟ п╠п╣п╥ я│п©п╦я│п╨п╟ я└п╟п╧п╩п╬п╡"
 
-#: src/tar.c:1346
+#: src/tar.c:1464
 msgid "--occurrence cannot be used in the requested operation mode"
-msgstr ""
+msgstr "--occurrence п╫п╣ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╟ п╥п╟п©я─п╬я┬п╣п╫п╬п╪ я─п╣п╤п╦п╪п╣ я─п╟п╠п╬я┌я▀"
 
-#: src/tar.c:1364
-#, fuzzy
+#: src/tar.c:1494
 msgid "Multiple archive files require `-M' option"
-msgstr "Создание нескольких архивов требует ключа `-M'"
+msgstr "п■п╩я▐ п╫п╣я│п╨п╬п╩я▄п╨п╦я┘ я└п╟п╧п╩п╬п╡ п╟я─я┘п╦п╡п╬п╡ я┌я─п╣п╠я┐п╣я┌я│я▐ п╬п©я├п╦я▐ `-M'"
 
-#: src/tar.c:1369
+#: src/tar.c:1499
 msgid "Cannot combine --listed-incremental with --newer"
-msgstr "Ключи --listed-incremental и --newer нельзя указывать вместе"
+msgstr "п²п╣п╩я▄п╥я▐ п╨п╬п╪п╠п╦п╫п╦я─п╬п╡п╟я┌я▄ --listed-incremental я│ --newer"
 
-#: src/tar.c:1384
+#: src/tar.c:1514
 #, c-format
 msgid "%s: Volume label is too long (limit is %lu byte)"
 msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "%s: п°п╣я┌п╨п╟ я┌п╬п╪п╟ я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╟я▐ (п╪п╟п╨я│п╦п╪я┐п╪ %lu п╠п╟п╧я┌)"
+msgstr[1] "%s: п°п╣я┌п╨п╟ я┌п╬п╪п╟ я│п╩п╦я┬п╨п╬п╪ п╢п╩п╦п╫п╫п╟я▐ (п╪п╟п╨я│п╦п╪я┐п╪ %lu п╠п╟п╧я┌)"
 
-#: src/tar.c:1394
+#: src/tar.c:1524
 msgid "Cannot verify multi-volume archives"
-msgstr "Проверка многотомных архивов невозможна"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п©я─п╬п╡п╣я─п╦я┌я▄ п╪п╫п╬пЁп╬я┌п╬п╪п╫я▀п╣ п╟я─я┘п╦п╡я▀"
 
-#: src/tar.c:1396
+#: src/tar.c:1526
 msgid "Cannot verify compressed archives"
-msgstr "Проверка сжатых архивов невозможна"
-
-#: src/tar.c:1402
-msgid "Cannot use multi-volume compressed archives"
-msgstr "Использование сжатых многотомных архивов невозможно"
-
-#: src/tar.c:1404
-msgid "Cannot update compressed archives"
-msgstr "Обновление сжатых архивов невозможно"
-
-#: src/tar.c:1416
-msgid "--pax-option can be used only on POSIX archives"
-msgstr ""
-
-#: src/tar.c:1436
-msgid "Cowardly refusing to create an empty archive"
-msgstr "Робкий отказ от создания пустого архива"
-
-#: src/tar.c:1457
-msgid "Options `-Aru' are incompatible with `-f -'"
-msgstr "Ключи `-Aru' не совместимы с `-f -'"
-
-#: src/tar.c:1479
-#, c-format
-msgid "Treating date `%s' as %s + %ld nanoseconds"
-msgstr ""
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п©я─п╬п╡п╣я─п╦я┌я▄ я│п╤п╟я┌я▀п╣ п╟я─я┘п╦п╡я▀"
 
 #: src/tar.c:1532
-msgid "You must specify one of the `-Acdtrux' options"
-msgstr "Вы должны указать один из ключей `-Acdtrux'"
+msgid "Cannot use multi-volume compressed archives"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╦я│п©п╬п╩я▄п╥п╬п╡п╟я┌я▄ п╪п╫п╬пЁп╬я┌п╬п╪п╫я▀п╣ я│п╤п╟я┌я▀п╣ п╟я─я┘п╦п╡я▀"
+
+#: src/tar.c:1534
+msgid "Cannot update compressed archives"
+msgstr "п²п╣п╡п╬п╥п╪п╬п╤п╫п╬ п╬п╠п╫п╬п╡п╦я┌я▄ я│п╤п╟я┌я▀п╣ п╟я─я┘п╦п╡я▀"
+
+#: src/tar.c:1546
+msgid "--pax-option can be used only on POSIX archives"
+msgstr "--pax-option п╪п╬п╤п╣я┌ п╠я▀я┌я▄ п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫п╟ я┌п╬п╩я▄п╨п╬ я│ п╟я─я┘п╦п╡п╟п╪п╦ POSIX"
+
+#: src/tar.c:1563
+msgid "Cowardly refusing to create an empty archive"
+msgstr "п═п╬п╠п╨п╦п╧ п╬я┌п╨п╟п╥ п╬я┌ я│п╬п╥п╢п╟п╫п╦я▐ п©я┐я│я┌п╬пЁп╬ п╟я─я┘п╦п╡п╟"
 
 #: src/tar.c:1584
-msgid "Error in writing to standard output"
-msgstr ""
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "п·п©я├п╦п╦ `-Aru' п╫п╣ я│п╬п╡п╪п╣я│я┌п╦п╪я▀ я│ `-f -'"
 
-#: src/tar.c:1586
+#: src/tar.c:1607
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanosecond"
+msgid_plural "Treating date `%s' as %s + %ld nanoseconds"
+msgstr[0] "п■п╟я┌п╟ `%s' я─п╟я│я│п╪п╟я┌я─п╦п╡п╟п╣я┌я│я▐ п╨п╟п╨ %s + %ld п╫п╟п╫п╬я│п╣п╨я┐п╫п╢п╟"
+msgstr[1] "п■п╟я┌п╟ `%s' я─п╟я│я│п╪п╟я┌я─п╦п╡п╟п╣я┌я│я▐ п╨п╟п╨ %s + %ld п╫п╟п╫п╬я│п╣п╨я┐п╫п╢"
+
+#: src/tar.c:1663
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "п▓я▀ п╢п╬п╩п╤п╫я▀ я┐п╨п╟п╥п╟я┌я▄ п╬п╢п╫я┐ п╦п╥ п╬п©я├п╦п╧ `-Acdtrux'"
+
+#: src/tar.c:1715
+msgid "Error in writing to standard output"
+msgstr "п·я┬п╦п╠п╨п╟ п©я─п╦ п╥п╟п©п╦я│п╦ п╫п╟ я│я┌п╟п╫п╢п╟я─я┌п╫я▀п╧ п╡я▀п╡п╬п╢"
+
+#: src/tar.c:1717
 msgid "Error exit delayed from previous errors"
-msgstr "Выход, отложенный по результатам предыдущих ошибок"
+msgstr "п▓я▀я┘п╬п╢, п╬я┌п╩п╬п╤п╣п╫п╫я▀п╧ п©п╬ я─п╣п╥я┐п╩я▄я┌п╟я┌п╟п╪ п©я─п╣п╢я▀п╢я┐я┴п╦я┘ п╬я┬п╦п╠п╬п╨"
 
 #: src/update.c:86
-#, fuzzy, c-format
+#, c-format
 msgid "%s: File shrank by %s byte"
 msgid_plural "%s: File shrank by %s bytes"
-msgstr[0] "%s: Файл меньше, чем ожидалось, на %s байт"
-msgstr[1] "%s: Файл меньше, чем ожидалось, на %s байт"
+msgstr[0] "%s: п╓п╟п╧п╩ я┐я─п╣п╥п╟п╫ п╫п╟ %s п╠п╟п╧я┌"
+msgstr[1] "%s: п╓п╟п╧п╩ я┐я─п╣п╥п╟п╫ п╫п╟ %s п╠п╟п╧я┌"
 
 #: src/xheader.c:140
 #, c-format
 msgid "Keyword %s is unknown or not yet imlemented"
-msgstr ""
+msgstr "п п╩я▌я┤п╣п╡п╬п╣ я│п╩п╬п╡п╬ %s п╫п╣ п╦п╥п╡п╣я│я┌п╫п╬ п╦п╩п╦ п╣я┴п╣ п╫п╣ я─п╣п╟п╩п╦п╥п╬п╡п╟п╫п╬"
 
 #: src/xheader.c:166
 #, c-format
 msgid "Pattern %s cannot be used"
-msgstr ""
+msgstr "п╗п╟п╠п╩п╬п╫ %s п╫п╣ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ п╦я│п©п╬п╩я▄п╥п╬п╡п╟п╫"
 
 #: src/xheader.c:176
 #, c-format
 msgid "Keyword %s cannot be overridden"
-msgstr ""
+msgstr "п п╩я▌я┤п╣п╡п╬п╣ я│п╩п╬п╡п╬ %s п╫п╣ п╪п╬п╤п╣я┌ п╠я▀я┌я▄ п©п╣я─п╣п╨я─я▀я┌п╬"
 
 #: src/xheader.c:490
 msgid "Malformed extended header: missing whitespace after the length"
 msgstr ""
+"п²п╣п╡п╣я─п╫п╬ я│я└п╬я─п╪п╦я─п╬п╡п╟п╫ я─п╟я│я┬п╦я─п╣п╫п╫я▀п╧ п╥п╟пЁп╬п╩п╬п╡п╬п╨: п©п╬я│п╩п╣ п╢п╩п╦п╫я▀ п╬я┌я│я┐я┌я│я┌п╡я┐п╣я┌ п©я─п╬п╠п╣п╩"
 
 #: src/xheader.c:501
 msgid "Malformed extended header: missing equal sign"
-msgstr ""
+msgstr "п²п╣п╡п╣я─п╫п╬ я│я└п╬я─п╪п╦я─п╬п╡п╟п╫ я─п╟я│я┬п╦я─п╣п╫п╫я▀п╧ п╥п╟пЁп╬п╩п╬п╡п╬п╨: п╬я┌я│я┐я┌я│я┌п╡я┐п╣я┌ п╥п╫п╟п╨ я─п╟п╡п╣п╫я│я┌п╡п╟ "
 
-#~ msgid "Cannot close file #%d"
-#~ msgstr "Ошибка закрытия файла #%d"
-
-#~ msgid "Cannot close descriptor %d"
-#~ msgstr "Ошибка закрытия дескриптора %d"
-
-#~ msgid "Cannot properly duplicate %s"
-#~ msgstr "Ошибка при дублировании %s"
-
-#~ msgid "Cannot use compressed or remote archives"
-#~ msgstr "Использование сжатых или удаленных архивов невозможно"
-
-#~ msgid "Cannot open pipe"
-#~ msgstr "Ошибка открытия канала"
-
-#~ msgid "Cannot fork"
-#~ msgstr "Ошибка порождения процесса"
-
-#~ msgid "tar (child)"
-#~ msgstr "tar (потомок)"
-
-#~ msgid "(child) Pipe to stdin"
-#~ msgstr "(потомок) Канал в стандартный ввод"
-
-#~ msgid "Cannot open archive %s"
-#~ msgstr "Ошибка открытия архива %s"
-
-#~ msgid "Archive to stdout"
-#~ msgstr "Архив в стандартный вывод"
-
-#~ msgid "Cannot exec %s"
-#~ msgstr "Ошибка запуска %s"
-
-#~ msgid "Child cannot fork"
-#~ msgstr "Процесс-потомок не может создать новый процесс"
-
-#~ msgid "((child)) Pipe to stdout"
-#~ msgstr "((потомок)) Канал в стандартный вывод"
-
-#~ msgid "tar (grandchild)"
-#~ msgstr "tar (потомок потомка)"
-
-#~ msgid "(grandchild) Pipe to stdin"
-#~ msgstr "(потомок потомка) Канал в стандартный ввод"
-
-#~ msgid "Cannot read from compression program"
-#~ msgstr "Ошибка чтения данных с выхода программы сжатия"
-
-#~ msgid "(child) Pipe to stdout"
-#~ msgstr "(потомок) Канал в стандартный вывод"
-
-#~ msgid "Archive to stdin"
-#~ msgstr "Архив в стандартный ввод"
-
-#~ msgid "((child)) Pipe to stdin"
-#~ msgstr "((потомок)) Канал в стандартный ввод"
-
-#~ msgid "(grandchild) Pipe to stdout"
-#~ msgstr "(потомок потомка) Канал в стандартный вывод"
-
-#~ msgid "Cannot write to compression program"
-#~ msgstr "Ошибка записи данных на вход программы сжатия"
-
-#~ msgid "Write to compression program short %lu bytes"
-#~ msgstr "Запись оставшихся %lu байт на вход программы сжатия"
-
-#~ msgid "Only wrote %lu of %lu bytes to %s"
-#~ msgstr "Записано только %lu из %lu байт в %s"
-
-#~ msgid "Read error on %s"
-#~ msgstr "Ошибка чтения из %s"
-
-#~ msgid "Archive %s EOF not on block boundary"
-#~ msgstr "Конец файла архива %s не на границе блока"
-
-#~ msgid "WARNING: Cannot close %s (%d, %d)"
-#~ msgstr "ПРЕДУПРЕЖДЕНИЕ: Невозможно закрыть %s (%d, %d)"
-
-#~ msgid "WARNING: Cannot truncate %s"
-#~ msgstr "ПРЕДУПРЕЖДЕНИЕ: Невозможно усечь %s"
-
-#~ msgid "While waiting for child"
-#~ msgstr "При ожиданиии дочернего процесса"
-
-#~ msgid "Child died with signal %d"
-#~ msgstr "Выполнение процесса-потомка завершено сигналом %d"
-
-#~ msgid "Child returned status %d"
-#~ msgstr "Процесс-потомок возвратил статус %d"
-
-#~ msgid "Cannot fork!"
-#~ msgstr "Невозможно создать новый процесс!"
-
-#~ msgid "Cannot exec a shell %s"
-#~ msgstr "Невозможно запустить командный процессор %s"
-
-#~ msgid "Cannot open %s"
-#~ msgstr "Не удалось открыть %s"
-
-#~ msgid "Could not allocate memory for diff buffer of %lu bytes"
-#~ msgstr "Не удалось выделить память для буфера сравнения размером %lu байт"
-
-#~ msgid "Cannot read %s"
-#~ msgstr "Невозможно прочитать %s"
-
-#~ msgid "Unexpected EOF on archive file"
-#~ msgstr "Неожиданный конец файла архива"
-
-#~ msgid "Cannot seek to %s in file %s"
-#~ msgstr "Невозможно перейти к позиции %s в файле %s"
-
-#~ msgid "Error while closing %s"
-#~ msgstr "Ошибка при закрытии %s"
-
-#~ msgid "Could not rewind archive file for verify"
-#~ msgstr "Не удалось перемотать архив на начало для проверки"
-
-#~ msgid "Removing `%.*s' prefix from archive names"
-#~ msgstr "Удаление префикса `%.*s' из имен архивов"
-
-#~ msgid "Removing leading `/' from archive names"
-#~ msgstr "Удаление начального `/' из имен архивов"
-
-#~ msgid "Wrote %s of %s bytes to file %s"
-#~ msgstr "Записано %s из %s байт в файл %s"
-
-#~ msgid "lseek error at byte %s in file %s"
-#~ msgstr "Ошибка позиционирования на байте %s файла %s"
-
-#~ msgid "File %s shrunk, padding with zeros"
-#~ msgstr "Файл %s меньше, чем ожидалось; дополнение нулями"
-
-#~ msgid "Cannot add file %s"
-#~ msgstr "Невозможно добавить файл %s"
-
-#~ msgid "%s: close"
-#~ msgstr "%s: close"
-
-#~ msgid "Cannot add directory %s"
-#~ msgstr "Невозможно добавить каталог %s"
-
-#~ msgid "Cannot open directory %s"
-#~ msgstr "Невозможно открыть каталог %s"
-
-#~ msgid "File name %s%s too long"
-#~ msgstr "Имя файла %s%s слишком длинное"
-
-#~ msgid "Could not re-position archive file"
-#~ msgstr "Не удалось переустановить позицию в архиве"
-
-#~ msgid "%s: Could not change access and modification times"
-#~ msgstr "%s: Не удалось сменить время доступа и модификации"
-
-#~ msgid "%s: Cannot lchown to uid %lu gid %lu"
-#~ msgstr "%s: Невозможно установить uid %lu gid %lu с помощью lchown"
-
-#~ msgid "%s: Cannot chown to uid %lu gid %lu"
-#~ msgstr "%s: Невозможно установить uid %lu gid %lu с помощью chown"
-
-#~ msgid "%s: lseek error at byte %s"
-#~ msgstr "%s: ошибка позиционирования в позиции %s"
-
-#~ msgid "%s: Could not write to file"
-#~ msgstr "%s: Невозможно записать в файл"
-
-#~ msgid "%s: Could only write %s of %s bytes"
-#~ msgstr "%s: Удалось записать только %s из %s байт"
-
-#~ msgid "%s: Could not create file"
-#~ msgstr "%s: Не удалось создать файл"
-
-#~ msgid "%s: Error while closing"
-#~ msgstr "%s: Ошибка при закрытии"
-
-#~ msgid "%s: Could not link to `%s'"
-#~ msgstr "%s: Не удалось создать ссылку на `%s'"
-
-#~ msgid "%s: Could not make node"
-#~ msgstr "%s: Не удалось создать специальный файл"
-
-#~ msgid "%s: Could not make fifo"
-#~ msgstr "%s: Не удалось создать именованный канал"
-
-#~ msgid "%s: Could not create directory"
-#~ msgstr "%s: Не удалось создать каталог"
-
-#~ msgid "Added write and execute permission to directory %s"
-#~ msgstr "Добавлены права на запись и выполнение для каталога %s"
-
-#~ msgid "Could not get current directory"
-#~ msgstr "Не удалось получить текущий каталог"
-
-#~ msgid "Could not get current directory: %s"
-#~ msgstr "Не удалось получить текущий каталог: %s"
-
-#~ msgid "File name %s/%s too long"
-#~ msgstr "Имя файла %s/%s -- слишком длинное"
-
-#~ msgid "%s: out-of-range timestamp `%s' ignored"
-#~ msgstr "%s: отметка времени `%s' за пределами диапазона; игнорируется"
-
-#~ msgid "Cannot chdir to %s"
-#~ msgstr "Невозможно перейти в каталог %s"
-
-#~ msgid "Error while deleting %s"
-#~ msgstr "Ошибка при удалении %s"
-
-#~ msgid "Hmm, this doesn't look like a tar archive"
-#~ msgstr "Хм, это не похоже на tar-архив"
-
-#~ msgid "Skipping to next file header"
-#~ msgstr "Пропуск до следующего заголовка файла"
-
-#~ msgid "EOF in archive file"
-#~ msgstr "Конец файла архива"
-
-#~ msgid "Only wrote %lu of %lu bytes to file %s"
-#~ msgstr "Записано только %lu из %lu байт в файл %s"
-
-#~ msgid "Renaming previous `%s' to `%s'\n"
-#~ msgstr "Переименование бывшего `%s' в `%s'\n"
-
-#~ msgid "%s: Cannot rename for backup"
-#~ msgstr "%s: невозможно переименовать для резервного копирования"
-
-#~ msgid "%s: Cannot rename from backup"
-#~ msgstr "%s: невозможно переименовать резервную копию"
-
-#~ msgid "Cannot open file %s"
-#~ msgstr "Невозможно открыть файл %s"
-
-#~ msgid "Cannot read confirmation from user"
-#~ msgstr "Невозможно прочитать подтверждение от пользователя"
-
-#~ msgid ""
-#~ "\n"
-#~ "Usage: %s [OPTION]... [FILE]...\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Использование: %s [КЛЮЧИ]... [ФАЙЛ]...\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Operation modifiers:\n"
-#~ "  -W, --verify               attempt to verify the archive after writing "
-#~ "it\n"
-#~ "      --remove-files         remove files after adding them to the "
-#~ "archive\n"
-#~ "  -k, --keep-old-files       don't overwrite existing files when "
-#~ "extracting\n"
-#~ "  -U, --unlink-first         remove each file prior to extracting over "
-#~ "it\n"
-#~ "      --recursive-unlink     empty hierarchies prior to extracting "
-#~ "directory\n"
-#~ "  -S, --sparse               handle sparse files efficiently\n"
-#~ "  -O, --to-stdout            extract files to standard output\n"
-#~ "  -G, --incremental          handle old GNU-format incremental backup\n"
-#~ "  -g, --listed-incremental   handle new GNU-format incremental backup\n"
-#~ "      --ignore-failed-read   do not exit with nonzero on unreadable "
-#~ "files\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Модификаторы операций:\n"
-#~ "  -W, --verify               пытаться проверить архив после его записи\n"
-#~ "      --remove-files         удалять файлы после их добавления в архив\n"
-#~ "  -k, --keep-old-files       не перезаписывать существующие на диске "
-#~ "файлы\n"
-#~ "                              при извлечении из архива\n"
-#~ "  -U, --unlink-first         удалять существующие файлы до их извлечения\n"
-#~ "      --recursive-unlink     очищать содержимое каталогов до извлечения\n"
-#~ "  -S, --sparse               эффективно работать с разреженными файлами\n"
-#~ "  -O, --to-stdout            извлекать файлы в стандартный вывод\n"
-#~ "  -G, --incremental          работать со старым GNU-форматом\n"
-#~ "                             последовательного резервного копирования\n"
-#~ "  -g, --listed-incremental   работать со новым GNU-форматом\n"
-#~ "                             последовательного резервного копирования\n"
-#~ "      --ignore-failed-read   не прекращать работу из-за нечитаемых "
-#~ "файлов\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Archive format selection:\n"
-#~ "  -V, --label=NAME                   create archive with volume name "
-#~ "NAME\n"
-#~ "              PATTERN                at list/extract time, a globbing "
-#~ "PATTERN\n"
-#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
-#~ "      --posix                        write a POSIX conformant archive\n"
-#~ "  -y, --bzip2                        filter the archive through bzip2\n"
-#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
-#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
-#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
-#~ "d)\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Выбор формата архива:\n"
-#~ "  -V, --label=ИМЯ                    создавать архив с меткой тома ИМЯ\n"
-#~ "              ШАБЛОН                 при чтении/записи работать с "
-#~ "архивами,\n"
-#~ "                                      которые имеют метку, соотв. "
-#~ "ШАБЛОНУ\n"
-#~ "  -o, --old-archive, --portability   записывать архив в формате V7\n"
-#~ "      --posix                        записывать архив, совместимый с "
-#~ "POSIX\n"
-#~ "  -y, --bzip2                        пропускать архив через bzip2\n"
-#~ "  -z, --gzip, --ungzip               пропускать архив через gzip\n"
-#~ "  -Z, --compress, --uncompress       пропускать архив через compress\n"
-#~ "      --use-compress-program=ПРОГР   пропускать через программу сжатия "
-#~ "ПРОГР\n"
-#~ "                                      (программа должна поддерживать ключ "
-#~ "-d)\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "GNU tar cannot read nor produce `--posix' archives.  If POSIXLY_CORRECT\n"
-#~ "is set in the environment, GNU extensions are disallowed with `--posix'.\n"
-#~ "Support for POSIX is only partially implemented, don't count on it yet.\n"
-#~ "ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; and FILE may be a file\n"
-#~ "or a device.  *This* `tar' defaults to `-f%s -b%d'.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "GNU tar не может читать или создавать архивы типа `--posix'. Если "
-#~ "установлена\n"
-#~ "переменная среды POSIXLY_CORRECT, ключ `--posix' запрещает расширения "
-#~ "GNU.\n"
-#~ "Поддержка POSIX сделана только частично, не рассчитывайте на нее. АРХИВ "
-#~ "может\n"
-#~ "быть задан в формах ФАЙЛ, КОМПЬЮТЕР:ФАЙЛ или ПОЛЬЗОВАТЕЛЬ@КОМПЬЮТЕР:"
-#~ "ФАЙЛ;\n"
-#~ "при этом ФАЙЛ может быть как обычным файлом, так и устройством. *Этот* "
-#~ "tar\n"
-#~ "по умолчанию использует ключи `-f%s -b%d'.\n"
-
-#~ msgid "Obsolete option, now implied by --blocking-factor"
-#~ msgstr "Устаревший ключ, теперь реализуется с помощью --blocking-factor"
-
-#~ msgid "Obsolete option name replaced by --blocking-factor"
-#~ msgstr "Устаревшее имя ключа заменено на --blocking-factor"
-
-#~ msgid "Obsolete option name replaced by --read-full-records"
-#~ msgstr "Устаревшее имя ключа заменено на --read-full-records"
-
-#~ msgid "Obsolete option name replaced by --touch"
-#~ msgstr "Устаревшее имя ключа заменено на --touch"
-
-#~ msgid "Conflicting archive format options"
-#~ msgstr "Несовместимые ключи, указывающие формат архива"
-
-#~ msgid "Obsolete option name replaced by --absolute-names"
-#~ msgstr "Устаревшее имя ключа заменено на --absolute-names"
-
-#~ msgid "Obsolete option name replaced by --block-number"
-#~ msgstr "Устаревшее имя ключа заменено на --block-number"
-
-#~ msgid "Obsolete option name replaced by --backup"
-#~ msgstr "Устаревшее имя ключа заменено на --backup"
-
-#~ msgid "Invalid group given on option"
-#~ msgstr "Указана неверная группа владения"
-
-#~ msgid "Invalid owner given on option"
-#~ msgstr "Указан неверный владелец"
-
-#~ msgid ""
-#~ "\n"
-#~ "Copyright 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
-#~ "Inc.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Copyright 1988, 92,93,94,95,96,97,98, 1999 Free Software Foundation, "
-#~ "Inc.\n"
-
-#~ msgid ""
-#~ "This is free software; see the source for copying conditions.  There is "
-#~ "NO\n"
-#~ "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR "
-#~ "PURPOSE.\n"
-#~ msgstr ""
-#~ "Эта программа -- свободное программное обеспечение; условия ее "
-#~ "копирования\n"
-#~ "смотрите в исходных текстах. Не предоставляется НИКАКОЙ гарантии; в том "
-#~ "числе\n"
-#~ "подразумеваемой гарантии ПОЛЕЗНОСТИ или ПРИГОДНОСТИ ДЛЯ ОПРЕДЕЛЕННОЙ "
-#~ "ЦЕЛИ.\n"
-
-#~ msgid "Read error at byte %s reading %lu bytes in file %s"
-#~ msgstr "Ошибка чтения на байте %s при чтении %lu байт из файла %s"
-
-#~ msgid "Generate data files for GNU tar test suite.\n"
-#~ msgstr "Формирование файлов данных для тестирования GNU tar.\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Usage: %s [OPTION]...\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Использование: %s [КЛЮЧИ]...\n"
-
-#~ msgid ""
-#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
-#~ "for the equivalent short option also.\n"
-#~ "\n"
-#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
-#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
-#~ "      --help                 display this help and exit\n"
-#~ "      --version              output version information and exit\n"
-#~ msgstr ""
-#~ "Если для длинного ключа нужен аргумент, то он также нужен и для\n"
-#~ "эквивалентного короткого ключа. Аналогично с необязательными "
-#~ "аргументами.\n"
-#~ "\n"
-#~ "   -l, --file-length=ДЛИНА    ДЛИНА формируемого файла\n"
-#~ "   -p, --pattern=ШАБЛОН       ШАБЛОН должен быть `default' или `zeros'\n"
-#~ "       --help                 вывести эту подсказку и выйти\n"
-#~ "       --version              вывести информацию о версии и выйти\n"
-
-#~ msgid "Ambiguous pattern `%s'"
-#~ msgstr "Неоднозначный шаблон `%s'"
-
-#~ msgid "Unknown pattern `%s'"
-#~ msgstr "Неизвестный шаблон `%s'"
-
-#~ msgid ""
-#~ "\n"
-#~ "Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Copyright (C) 1995, 1996, 1997 Free Software Foundation, Inc.\n"
-
-#~ msgid ""
-#~ "\n"
-#~ "Written by FranГois Pinard <pinard@iro.umontreal.ca>.\n"
-#~ msgstr ""
-#~ "\n"
-#~ "Автор: Francois Pinard <pinard@iro.umontreal.ca>.\n"
+#~ msgid "Quitting now."
+#~ msgstr "п≈п╟п╡п╣я─я┬п╣п╫п╦п╣ я─п╟п╠п╬я┌я▀."

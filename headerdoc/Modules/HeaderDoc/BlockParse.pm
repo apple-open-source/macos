@@ -4,7 +4,7 @@
 # Synopsis: Block parser code
 #
 # Author: David Gatwood (dgatwood@apple.com)
-# Last Updated: $Date: 2005/01/15 01:41:55 $
+# Last Updated: $Date: 2007/09/18 01:31:21 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -50,7 +50,7 @@ use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertC
 use strict;
 use vars qw($VERSION @ISA);
 use File::Basename qw(basename);
-$VERSION = '$Revision: 1.1.2.93 $';
+$VERSION = '$Revision: 1.1.2.139 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -71,6 +71,11 @@ my $cppDebug = 0;
 my $nestedcommentwarn = 0;
 my $warnAllMultipleDefinitions = 1;
 
+# Change this to 0 if you want to hide the parameter name
+# for unlabeled parameters (old behavior)
+$HeaderDoc::useParmNameForUnlabeledParms = 1;
+
+sub cpp_subparse($);
 
 ################ Code ###################################
 
@@ -109,6 +114,10 @@ sub getLangAndSublangFromClassType
 	$sublang = "occ";
     } elsif ($classtype =~ /class/) {
 	$sublang = "cpp";
+    } elsif ($classtype =~ /interface/) {
+	$sublang = "IDL";
+    } elsif ($classtype =~ /module/) {
+	$sublang = "IDL";
     }
 
     return ($lang, $sublang);
@@ -126,6 +135,11 @@ sub peekmatch
 	my @stack = @{$ref};
 	my $tos = pop(@stack);
 	push(@stack, $tos);
+
+	if (!$tos) {
+		# popped off top of stack.  Outside a macro, this is an error.
+		return "";
+	}
 
 	SWITCH: {
 	    ($tos eq "{") && do {
@@ -158,12 +172,15 @@ sub peekmatch
 	    ($tos eq "\@interface") && do {
 			return "\@end";
 		};
+	    ($tos eq "\@implementation") && do {
+			return "\@end";
+		};
 	    ($tos eq "\@protocol") && do {
 			return "\@end";
 		};
 	    {
 		# default case
-		warn "$filename:$linenum:Unknown block delimiter \"$tos\".  Please file a bug.\n";
+		warn "$filename:$linenum: warning: Unknown block delimiter \"$tos\".  Please file a bug.\n";
 		return $tos;
 	    };
 	}
@@ -203,6 +220,7 @@ sub blockParse
     # Debugging switches
     my $retDebug         = 0;
     my $localDebug       = 0 || $HeaderDoc::fileDebug;
+    my $operatorDebug    = 0;
     my $listDebug        = 0;
     my $parseDebug       = 0 || $HeaderDoc::fileDebug;
     my $sodDebug         = 0 || $HeaderDoc::fileDebug;
@@ -218,6 +236,8 @@ sub blockParse
     my $parserStackDebug = 0 || $HeaderDoc::fileDebug;
     my $hangDebug        = 0;
     my $offsetDebug      = 0;
+    my $classDebug       = 0;
+    my $occMethodNameDebug = 0;
 
     $cppDebug = $cppDebugDefault || $HeaderDoc::fileDebug;
 
@@ -255,7 +275,7 @@ sub blockParse
     my $treeTop = HeaderDoc::ParseTree->new(); # top of parse tree.
     my $treeCur = $treeTop;   # current position in parse tree
     my $treeSkip = 0;         # set to 1 if "part" should be dropped in tree.
-    my $treePopTwo = 0;       # set to 1 for tokens that nest, but have no
+    # my $treePopTwo = 0;       # set to 1 for tokens that nest, but have no
                               # explicit ending token ([+-:]).
     my $treePopOnNewLine = 0; # set to 1 for single-line comments, macros.
     my @treeStack = ();       # stack of parse trees.  Used for popping
@@ -270,6 +290,7 @@ sub blockParse
     # The argparse switch is a trigger....
     if ($argparse && $apDebug) { 
 	$localDebug   = 1;
+	$retDebug     = 1;
 	$listDebug    = 1;
 	$parseDebug   = 1;
 	$sodDebug     = 1;
@@ -283,12 +304,18 @@ sub blockParse
 	$ilcDebug     = 1;
 	$regexpDebug  = 1;
     }
+    my $disable_cpp = 0;
     if ($argparse && ($localDebug || $apDebug)) {
 	print "ARGPARSE MODE!\n";
 	print "IPC: $inputCounter\nNLINES: ".$#inputLines."\n";
     }
 
     print "INBP\n" if ($localDebug);
+
+    if ($argparse) {
+	# Avoid double-processing macro inclusions.
+	$disable_cpp = 1;
+    }
 
 # warn("in BlockParse\n");
 
@@ -342,9 +369,11 @@ sub blockParse
     # Get the parse tokens from Utilities.pm.
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
 	$typedefname, $varname, $constname, $structisbrace, $macronameref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp)
-		= parseTokens($lang, $sublang);
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	$propname) = parseTokens($lang, $sublang);
+# print "INITIAL PROPNAME $propname\n";
 
     if ($parseDebug) {
 	print "SOT: $sotemplate EOF: $eotemplate OP: $operator SOC: $soc EOC: $eoc ILC: $ilc\n";
@@ -458,6 +487,7 @@ sub blockParse
     while ($continue && ($inputCounter <= $nlines)) {
 	$HeaderDoc::CurLine = $inputCounter + $fileoffset;
 	my $line = $inputLines[$inputCounter++];
+	# print "GOT LINE: $line\n";
 	my @parts = ();
 
 	$line =~ s/^\s*//go;
@@ -518,7 +548,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "PARTLIST: $
 	#
 	my $part = "";
 	my $argparse = 0;
-	if (1 || $HeaderDoc::enable_cpp) {
+	if (!$disable_cpp && (1 || $HeaderDoc::enable_cpp)) {
 		my $newrawline = "";
 		my $incppargs = 0;
 		my $cppstring = "";
@@ -565,7 +595,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "PARTLIST: $
 		    my $pos = 0;
 		    my $dropargs = 0;
 		    while ($pos < scalar(@parts)) {
-			my $part = @parts[$pos];
+			my $part = $parts[$pos];
 			if (length($part)) {
 			    print "CPPLEADPART: $part\n"if ($cppleaddebug);
 			    if (!$inString && !$inChar) {
@@ -678,11 +708,19 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "PARTLIST: $
 					$lastcpppart = $part;
 				} elsif (!$inChar && !$inString && !$inComment && !$inSLC) {
 					if ($part eq "(") {
+						# Put in the token first, then nest.
+						$cpptreecur = $cpptreecur->next(HeaderDoc::ParseTree->new());
+						$cpptreecur->token($part);
+						$skip = 1;
+
 						$inParen++;
 						push(@cpptrees, $cpptreecur);
 						$cpptreecur = $cpptreecur->firstchild(HeaderDoc::ParseTree->new());
 					} elsif ($part eq ")") {
 						$inParen--;
+
+						# Go out one nesting level, then
+						# insert the token.
 						if (scalar(@cpptrees)) {
 							$cpptreecur = pop(@cpptrees);
 							while ($cpptreecur && $cpptreecur->next()) {
@@ -697,6 +735,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "PARTLIST: $
 							$skip = 1;
 							$incppargs = 0;
 							if (!$dropargs) {
+								print "CALLING ARGPARSE FROM blockParse() [1].\n" if ($cppDebug);
 								my $addon = cpp_argparse($cppname, $HeaderDoc::CurLine, \@cppargs);
 								if ($inMacro) {
 									print "CHANGING ADDON FROM \"$addon\" TO " if ($cppDebug);
@@ -719,6 +758,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "PARTLIST: $
 					} elsif (($part =~ /\s/) && (!$inParen)) {
 						$incppargs = 0;
 						if (!$dropargs) {
+							print "CALLING ARGPARSE FROM blockParse() [2].\n" if ($cppDebug);
 							my $addon = cpp_argparse($cppname, $HeaderDoc::CurLine, \@cppargs);
 							if ($inMacro) {
 									print "CHANGING ADDON FROM \"$addon\" TO " if ($cppDebug);
@@ -801,7 +841,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 
 	foreach my $nextpart (@parts) {
 	    $treeSkip = 0;
-	    $treePopTwo = 0;
+	    # $treePopTwo = 0;
 	    # $treePopOnNewLine = 0;
 
 	    # The current token is now in "part", and the literal next
@@ -827,6 +867,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 	    }
 	    print "PART IS \"$part\"\n" if ($localDebug || $parserStackDebug);
 	    print "CURLINE IS \"$curline\"\n" if ($localDebug || $hangDebug);
+	    print "INOP: ".$parserState->{inOperator}."\n" if ($operatorDebug);
 
 	    if (!length($nextpart)) {
 		print "SKIP NP\n" if ($localDebug);
@@ -844,7 +885,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			print "occPushParserStateOnWordTokenAfterNext -> $occPushParserStateOnWordTokenAfterNext (--)\n" if ($localDebug || $parseDebug);
 		}
 	    } elsif ($occPushParserStateOnWordTokenAfterNext) {
-		if ($part =~ /\w/) {
+		# if ($part !~ /(\s|<)/) {
+		if ($part =~ /(\/\/|\/\*|\-|\+|\w|\@)/) {
 			$parserState->{lastTreeNode} = $treeCur;
 			print "parserState pushed onto stack[occPushParserStateOnWordTokenAfterNext]\n" if ($parserStackDebug);
 			$curline = "";
@@ -874,6 +916,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 
 	    if ($parseDebug) {
 		print "PART: $part, type: $parserState->{typestring}, inComment: $parserState->{inComment}, inInlineComment: $parserState->{inInlineComment}, inChar: $parserState->{inChar}.\n" if ($localDebug);
+		print "PART: inBrackets: $parserState->{inBrackets}\n" if ($localDebug);
 		print "PART: onlyComments: $parserState->{onlyComments}, inClass: $parserState->{inClass}\n";
 		print "PART: classIsObjC: $parserState->{classIsObjC}, PPSAT: $pushParserStateAfterToken, PPSAWordT: $pushParserStateAfterWordToken, PPSABrace: $pushParserStateAtBrace, occPPSOnWordTokenAfterNext: $occPushParserStateOnWordTokenAfterNext\n";
 		print "PART: bracecount: " . scalar(@braceStack) . " (init was $parserState->{initbsCount}).\n";
@@ -916,8 +959,43 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 
 	    # Here be the parser.  Abandon all hope, ye who enter here.
 	    $treepart = "";
+	    if ($parserState->{inProtocol} == 1) {
+		print "INPROTOCOL: 1\n" if ($parseDebug || $classDebug); 
+		if ($part =~ /\w/) {
+			print "INPROTOCOL: 1 -> 2\n" if ($parseDebug || $classDebug); 
+			$parserState->{inProtocol} = 2;
+		}
+	    } elsif ($parserState->{inProtocol} == 2) {
+		print "INPROTOCOL: 2\n" if ($parseDebug || $classDebug); 
+		if ($part eq "<") {
+			print "INPROTOCOL: 2 -> 3\n" if ($parseDebug || $classDebug); 
+			$parserState->{extendsProtocol} = "";
+			$parserState->{inProtocol} = 3;
+		} elsif ($part =~ /\S/) {
+			# PUSH PARSER STATE
+			print "parserState pushed onto stack[PROTOCOL]\n" if ($parserStackDebug);
+			$parserState->{inProtocol} = -1;
+			$parserState->{lastTreeNode} = $treeCur;
+			$curline = "";
+			push(@parserStack, $parserState);
+			$parserState = HeaderDoc::ParserState->new();
+			$parserState->{skiptoken} = 1;
+			$parserState->{lang} = $lang;
+			$parserState->{inputCounter} = $inputCounter;
+			$parserState->{initbsCount} = scalar(@braceStack);
+			$pushParserStateAfterWordToken = 0;
+		}
+	    } elsif ($parserState->{inProtocol} == 3) {
+		print "INPROTOCOL: 3\n" if ($parseDebug || $classDebug); 
+		if ($part eq ">") {
+			print "INPROTOCOL: 3 -> 2\n" if ($parseDebug || $classDebug); 
+			$parserState->{inProtocol} = 2;
+		} else {
+			$parserState->{extendsProtocol} .= $part;
+		}
+	    }
 	    if ($parserState->{inClass} == 3) {
-		print "INCLASS3\n" if ($parseDebug);
+		print "INCLASS3\n" if ($parseDebug || $classDebug);
 		if ($part eq ")") {
 			$parserState->{inClass} = 1;
 			$parserState->{categoryClass} .= $part;
@@ -955,7 +1033,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			$parserState->{categoryClass} .= $part;
 		}
 	    } elsif ($parserState->{inClass} == 2) {
-		print "INCLASS2\n" if ($parseDebug);
+		print "INCLASS2\n" if ($parseDebug || $classDebug);
 		if ($part eq ")") {
 			$parserState->{inClass} = 1;
 			$parserState->{lastTreeNode} = $treeCur;
@@ -980,15 +1058,15 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			$parserState->{inClass} = 3;
 		}
 	    } elsif ($parserState->{inClass} == 1) {
-		print "INCLASS1\n" if ($parseDebug);
+		print "INCLASS1\n" if ($parseDebug || $classDebug);
 		# print "inclass Part is $part\n";
 		if ($part eq ":") {
-			print "INCLASS COLON\n" if ($parseDebug);
+			print "INCLASS COLON\n" if ($parseDebug || $classDebug);
 			$parserState->{forceClassName} = $parserState->{sodname};
 			$parserState->{forceClassSuper} = "";
 			# print "XSUPER: $parserState->{forceClassSuper}\n";
 		} elsif ($part eq "{" || $part eq ";") {
-			print "INCLASS BRCSEMI\n" if ($parseDebug);
+			print "INCLASS BRCSEMI\n" if ($parseDebug || $classDebug);
 			$parserState->{forceClassDone} = 1;
 			if ($parserState->{classIsObjC} && $part eq "{") {
 				$parserState->{lastTreeNode} = $treeCur;
@@ -1011,7 +1089,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 				$pushParserStateAfterToken = 0;
 			}
 		} elsif ($parserState->{forceClassName} && !$parserState->{forceClassDone}) {
-			print "INCLASS ADD\n" if ($parseDebug);
+			print "INCLASS ADD\n" if ($parseDebug || $classDebug);
 			if ($part =~ /[\n\r]/) {
 				$parserState->{forceClassSuper} .= " ";
 			} else {
@@ -1019,25 +1097,27 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			}
 			# print "SUPER IS $parserState->{forceClassSuper}\n";
 		} elsif ($part =~ /</ && $parserState->{classIsObjC} && $occPushParserStateOnWordTokenAfterNext) {
-			print "INCLASS <\n" if ($parseDebug);
+			print "INCLASS <\n" if ($parseDebug || $classDebug);
 			print "pushParserStateAfterWordToken -> 0 (Conforming)\n" if ($localDebug || $parseDebug);
 			print "inClassConformingToProtocol -> 1\n" if ($localDebug || $parseDebug);
 			$pushParserStateAfterWordToken = 0;
 			$parserState->{inClassConformingToProtocol} = 1;
 			$occPushParserStateOnWordTokenAfterNext = 0;
 		} elsif ($part =~ />/ && $parserState->{classIsObjC} && $parserState->{inClassConformingToProtocol}) {
-			print "INCLASS >\n" if ($parseDebug);
+			print "INCLASS >\n" if ($parseDebug || $classDebug);
 			print "inClassConformingToProtocol -> 0\n" if ($localDebug || $parseDebug);
 			$pushParserStateAfterToken = 1;
 			print "pushParserStateAfterWordToken -> 1 (Conforming)\n" if ($localDebug || $parseDebug);
 			$parserState->{inClassConformingToProtocol} = 0;
 		} elsif ($occPushParserStateOnWordTokenAfterNext && $part =~ /\w/) {
-			print "INCLASS OCCSUPER\n" if ($parseDebug);
+			print "INCLASS OCCSUPER\n" if ($parseDebug || $classDebug);
 			$parserState->{occSuper} = $part;
+			# $occPushParserStateOnWordTokenAfterNext = 0;
+			# $pushParserStateAfterToken = 1;
 		} elsif (!$parserState->{classIsObjC}) {
-			print "INCLASS NOTOBJC (OTHER)\n" if ($parseDebug);
+			print "INCLASS NOTOBJC (OTHER)\n" if ($parseDebug || $classDebug);
 			if ($part =~ /[\*\(]/) {
-				print "INCLASS DROP\n" if ($parseDebug);
+				print "INCLASS DROP\n" if ($parseDebug || $classDebug);
 				$parserState->{inClass} = 0; # We're an instance.  Either a variable or a function.
 				$parserState->{sodtype} = $parserState->{preclasssodtype} . $parserState->{sodtype};
 			}
@@ -1045,7 +1125,23 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			# print "BUG\n";
 		}
 	    };
+	    if ($parserState->{inClassConformingToProtocol} == 1) {
+		$parserState->{inClassConformingToProtocol} = 2;
+	    } elsif ($parserState->{inClassConformingToProtocol}) {
+		$parserState->{conformsToList} .= $part;
+	    }
+	if ($macroDebug) {
+		print "MNT: ".$parserState->{macroNoTrunc}."\n";
+	}
 	    SWITCH: {
+		# Blank declaration handlers (mostly for misuse of
+		# OSMetaClassDeclareReservedUsed and similar)
+
+		(($part eq ";") && ($parserState->{startOfDec} == 1) && !$parserState->{inMacro} && !$parserState->{inMacroLine} && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
+			print "Dropping empty declaration\n" if ($localDebug || $parseDebug);
+			$part = "";
+			last SWITCH;
+		};
 
 		# Macro handlers
 
@@ -1057,6 +1153,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			my $pound = $treeCur->token();
 			if ($pound eq "$sopreproc") {
 				$treeNest = 2;
+				if ($treeDebug) { print "TS TREENEST -> 2 [1]\n"; }
 				$treePopOnNewLine = 2;
 				$pound .= $part;
 				$treeCur->token($pound);
@@ -1071,12 +1168,14 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			my $pound = $treeCur->token();
 			if ($pound eq "$sopreproc") {
 				$treeNest = 2;
+				if ($treeDebug) { print "TS TREENEST -> 2 [2]\n"; }
 				$treePopOnNewLine = 1;
 				$pound .= $part;
 				$treeCur->token($pound);
 				if ($part eq "endif") {
 					# the rest of the line is not part of the macro
 					$treeNest = 0;
+					if ($treeDebug) { print "TS TREENEST -> 0 [3]\n"; }
 					$treePopOnNewLine = 0;
 					$treeSkip = 1;
 				}
@@ -1091,14 +1190,17 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 				$treeCur->token($pound);
 				if ($part =~ /define/o) {
 					$treeNest = 2;
+					if ($treeDebug) { print "TS TREENEST -> 2 [4]\n"; }
 					$treePopOnNewLine = 2;
 				} elsif ($part eq "endif") {
 					# the rest of the line is not part of the macro
 					$treeNest = 0;
+					if ($treeDebug) { print "TS TREENEST -> 0 [5]\n"; }
 					$treePopOnNewLine = 0;
 					$treeSkip = 1;
 				} else {
 					$treeNest = 2;
+					if ($treeDebug) { print "TS TREENEST -> 2 [6]\n"; }
 					$treePopOnNewLine = 1;
 				}
 			}
@@ -1114,15 +1216,20 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 			print "INMACRO > 1, PART NE //" if ($parseDebug || $localDebug);
 			print "PART: $part\n" if ($macroDebug);
 			if ($parserState->{seenMacroPart} && $HeaderDoc::truncate_inline) {
+				print "MACRO: SMP&TI\n" if ($macroDebug);
 				if (!(scalar(@braceStack) - $parserState->{initbsCount})) {
+					print "MACRO: NOSTACK\n" if ($macroDebug);
 					if ($part =~ /\s/o && $parserState->{macroNoTrunc} == 1) {
+						print "MACRO: ENDOFNAME\n" if ($macroDebug);
 						$parserState->{macroNoTrunc} = 0;
 					} elsif ($part =~ /[\{\(]/o) {
+						print "MACRO: BRACE\n" if ($macroDebug);
 						if (!$parserState->{macroNoTrunc}) {
 							# $parserState->{seenBraces} = 1;
 							$HeaderDoc::hidetokens = 3;
 						}
 					} else {
+						print "MACRO: OTHERTOKEN\n" if ($macroDebug);
 						$parserState->{macroNoTrunc} = 2;
 					}
 				}
@@ -1132,7 +1239,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print "POSTCPPPART
 				print "PUSH\n" if ($macroDebug);
 			} elsif ($part =~ /[\}\)]/o) {
 				if ($part ne peekmatch(\@braceStack, $filename, $inputCounter)) {
-					warn("$filename:$inputCounter:Initial braces in macro name do not match.\nWe may have a problem.\n");
+					if ($parserState->{macroNoTrunc} == 1) {
+						# We haven't reached the end of the first part of the declaration, so this is an error.
+						warn("$filename:$inputCounter: warning: Initial braces in macro name do not match.\nWe may have a problem.\n");
+					}
 				}
 				pop(@braceStack);
 				print "POP\n" if ($macroDebug);
@@ -1304,7 +1414,8 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$sethollow = 1;
 				    }
 				    $treeNest = 1;
-				    $treePopTwo = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [7]\n"; }
+				    $parserState->{treePopTwo} = 1;
 				}
 			    }
 			    last SWITCH;
@@ -1315,7 +1426,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 		($part =~ /[\n\r]/o) && do {
 				$treepart = $part;
 				if ($inRegexp) {
-					warn "$filename:$inputCounter:multi-line regular expression\n";
+					warn "$filename:$inputCounter: warning: multi-line regular expression\n";
 				}
 				print "NLCR\n" if ($tsDebug || $treeDebug || $localDebug);
 				if ($lastchar !~ /[\,\;\{\(\)\}]/o && $nextpart !~ /[\{\}\(\)]/o) {
@@ -1341,7 +1452,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$treeCur = pop(@treeStack);
 					if (!$treeCur) {
 						$treeCur = $treeTop;
-						warn "$filename:$inputCounter:Attempted to pop off top of tree\n";
+						warn "$filename:$inputCounter: warning: Attempted to pop off top of tree\n";
 					}
 					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
 					$treeCur = $treeCur->lastSibling();
@@ -1357,25 +1468,27 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$treeCur = pop(@treeStack);
 					if (!$treeCur) {
 						$treeCur = $treeTop;
-						warn "$filename:$inputCounter:Attempted to pop off top of tree\n";
+						warn "$filename:$inputCounter: warning: Attempted to pop off top of tree\n";
 					}
 					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
 					$treeCur = $treeCur->lastSibling();
 					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur = $treeCur->addSibling("", 0); # empty token
 					print "TSPOP [1a]\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 					$treePopOnNewLine = 0;
+					$HeaderDoc::hidetokens = 0;
 				}
 				next SWITCH;
 			};
 
 		# C++ template handlers
 
-		($part eq $sotemplate && !$parserState->{seenBraces}) && do {
+		($part eq $sotemplate && !$parserState->{seenBraces} && ($parserState->{inOperator} != 1)) && do {
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
-				print "inTemplate -> 1\n" if ($localDebug);
+				print "inTemplate -> ".($parserState->{inTemplate}+1)."\n" if ($localDebug);
 	print "SBS: " . scalar(@braceStack) . ".\n" if ($localDebug);
-				$parserState->{inTemplate} = 1;
+				$parserState->{inTemplate}++;
 				if (!(scalar(@braceStack) - $parserState->{initbsCount})) {
 					$parserState->{preTemplateSymbol} = $parserState->{lastsymbol};
 				}
@@ -1385,6 +1498,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 				push(@braceStack, $part); pbs(@braceStack);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [8]\n"; }
 					# push(@treeStack, $treeCur);
 					# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 					# bless($treeCur, "HeaderDoc::ParseTree");
@@ -1393,11 +1507,11 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 			    }
 			    last SWITCH;
 			};
-		($part eq $eotemplate && !$parserState->{seenBraces}) && do {
+		($part eq $eotemplate && !$parserState->{seenBraces} && ($parserState->{inOperator} != 1)) && do {
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && (!(scalar(@braceStack)-$parserState->{initbsCount}) || $parserState->{inTemplate})) {
 				if ($parserState->{inTemplate})  {
-					print "parserState->{inTemplate} -> 0\n" if ($localDebug);
-					$parserState->{inTemplate} = 0;
+					print "parserState->{inTemplate} -> ".($parserState->{inTemplate}-1)."\n" if ($localDebug);
+					$parserState->{inTemplate}--;
 					$parserState->{lastsymbol} = "";
 					$lastchar = $part;
 					$curline .= " ";
@@ -1415,7 +1529,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				if ($top ne "$sotemplate") {
-					warn("$filename:$inputCounter:Template (angle) brackets do not match.\nWe may have a problem.\n");
+					warn("$filename:$inputCounter: warning: Template (angle) brackets do not match.\nWe may have a problem.\n");
 				}
 			    }
 			    last SWITCH;
@@ -1446,10 +1560,22 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 		(length($accessregexp) && ($part =~ /$accessregexp/)) && do {
 			if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				# We're special.
-				print "TEMPORARY ACS CHANGE from $HeaderDoc::AccessControlState to $1\n" if ($localDebug);
-				$parserState->{sodname} = "";
-				$lastACS = $HeaderDoc::AccessControlState;
-				$HeaderDoc::AccessControlState = $1;
+				if ($part =~ /^\@(.*)$/) {
+					print "PERMANENT ACS CHANGE from $HeaderDoc::AccessControlState to $1\n" if ($localDebug);
+					$parserState->{sodname} = "";
+					$parserState->{typestring} = "";
+					$parserState->{hollow} = undef;
+					$parserState->{onlyComments} = 1;
+					$hollowskip = 1;
+					$HeaderDoc::AccessControlState = $1;
+					$lastACS = $1;
+					last SWITCH;
+				} else {
+					print "TEMPORARY ACS CHANGE from $HeaderDoc::AccessControlState to $1\n" if ($localDebug);
+					$parserState->{sodname} = "";
+					$lastACS = $HeaderDoc::AccessControlState;
+					$HeaderDoc::AccessControlState = $1;
+				}
 			} else {
 				next SWITCH;
 			}
@@ -1465,7 +1591,19 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 			if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if ($parserState->{occmethod}) {
 				    $parserState->{name} = $parserState->{lastsymbol};
-				    $parserState->{occmethodname} .= "$parserState->{lastsymbol}:";
+				    if ($parserState->{occparmlabelfound}) {
+					$parserState->{occmethodname} .= "$parserState->{lastsymbol}:";
+					if ($occMethodNameDebug) {
+						print "OCC method name now ".$parserState->{occmethodname}." (lastsymbol was \"".$parserState->{lastsymbol}."\").\n";
+					}
+					$parserState->{occparmlabelfound} = -1; # next token is name of this parameter, followed by label for next parameter.
+				    } else {
+					if ($occMethodNameDebug) {
+						print "OCC method name missing.\n";
+						print "OCC method name still ".$parserState->{occmethodname}." (lastsymbol was \"".$parserState->{lastsymbol}."\").\n";
+					}
+					$parserState->{occparmlabelfound} = -2; # Special case: grab the parameter name instead because parameter has no label.
+				    }
 				    # Start doing line splitting here.
 				    # Also, capture the method's name.
 				    if ($parserState->{occmethod} == 1) {
@@ -1512,7 +1650,8 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 			    if (!$parserState->{seenBraces} && !$parserState->{occmethod}) { # TREEDONE
 				    # $treeCur->addSibling($part, 0); $treeSkip = 1;
 				    $treeNest = 1;
-				    $treePopTwo = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [9]\n"; }
+				    $parserState->{treePopTwo} = 1;
 				    # $treeCur = pop(@treeStack) || $treeTop;
 				    # bless($treeCur, "HeaderDoc::ParseTree");
 			    }
@@ -1550,6 +1689,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 						if (!$parserState->{inString}) {
 						    if (!$parserState->{seenBraces}) { # TREEDONE
 							$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [10]\n"; }
 							# push(@treeStack, $treeCur);
 							# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 							# bless($treeCur, "HeaderDoc::ParseTree");
@@ -1574,8 +1714,11 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 				last SWITCH;
 			};
 		($part eq "[") && do {
+			    # left square bracket (square brace)
+			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && $regexpNoInterpolate)) {
 				print "lbracket\n" if ($localDebug);
 
+				print "LBRACKET DEBUG TRACE: SODNAME: ".$parserState->{sodname}." SODTYPE: ".$parserState->{sodtype}." SIMPLETDCONTENTS: ".$parserState->{simpleTDcontents}."\n" if ($localDebug);
 				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString})) {
 					$parserState->{onlyComments} = 0;
 					print "[f]onlyComments -> 0\n" if ($macroDebug);
@@ -1583,17 +1726,22 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 				push(@braceStack, $part); pbs(@braceStack);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [11]\n"; }
 					# push(@treeStack, $treeCur);
 					# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 					# bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				$curline = spacefix($curline, $part, $lastchar);
 				$parserState->{lastsymbol} = "";
-				$lastchar = $part;
+				$parserState->{inBrackets} += 1;
+			    }
+			    $lastchar = $part;
 
-				last SWITCH;
+			    last SWITCH;
 			};
 		($part eq "]") && do {
+			    # right square bracket (square brace)
+			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && $regexpNoInterpolate)) {
 				print "rbracket\n" if ($localDebug);
 
 				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString})) {
@@ -1611,26 +1759,29 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				if ($top ne "[") {
-					warn("$filename:$inputCounter:Square brackets do not match.\nWe may have a problem.\n");
+					warn("$filename:$inputCounter: warning: Square brackets do not match.\nWe may have a problem.\n");
 					warn("Declaration to date: $declaration$curline\n");
 				}
 				pbs(@braceStack);
 				$curline = spacefix($curline, $part, $lastchar);
 				$parserState->{lastsymbol} = "";
-				$lastchar = $part;
+				$parserState->{inBrackets} -= 1;
+			    }
+			    $lastchar = $part;
 
-				last SWITCH;
+			    last SWITCH;
 			};
 		($part eq "'") && do {
 				print "squo\n" if ($localDebug);
 
 				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString})) {
-					if ($lastchar ne "\\") {
+					if (($lasttoken !~ /\\$/o) && ($curstring !~ /\\$/o)) {
 						$parserState->{onlyComments} = 0;
 						print "[h]onlyComments -> 0\n" if ($macroDebug);
 						if (!$parserState->{inChar}) {
 						    if (!$parserState->{seenBraces}) { # TREEDONE
 							$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [12]\n"; }
 							# push(@treeStack, $treeCur);
 							# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 							# bless($treeCur, "HeaderDoc::ParseTree");
@@ -1670,6 +1821,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$curline = spacefix($curline, $part, $lastchar, $soc, $eoc, $ilc);
 					if (!$parserState->{seenBraces}) { # TREEDONE
 						$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [13]\n"; }
 
 						if (!$treePopOnNewLine) {
 							$treePopOnNewLine = 1;
@@ -1688,7 +1840,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					if (!$argparse) {
 						# We've already seen these.
 						if ($nestedcommentwarn) {
-							warn("$filename:$linenum:Nested comment found [1].  Ignoring.\n");
+							warn("$filename:$linenum: warning: Nested comment found [1].  Ignoring.\n");
 						}
 						# This isn't really a problem.
 						# Don't warn to avoid bogus
@@ -1714,6 +1866,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$curline = spacefix($curline, $part, $lastchar);
 					if (!$parserState->{seenBraces}) {
 						$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [14]\n"; }
 						# print "TSPUSH\n" if ($tsDebug || $treeDebug);
 						# push(@treeStack, $treeCur);
 						# $treeCur = $treeCur->addChild("", 0);
@@ -1726,7 +1879,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					# IOFireWireDeviceInterface/AddIsochCallbackDispatcherToRunLoop/*Add
 					# IsochCallbackDispatcherToRunLoopIOFireWireLibDeviceRefCFRunLoopRef)
 					if ($nestedcommentwarn) {
-						warn("$filename:$linenum:Nested comment found [2].  Ignoring.\n");
+						warn("$filename:$linenum: warning: Nested comment found [2].  Ignoring.\n");
 					}
 				}
 				$parserState->{lastsymbol} = "";
@@ -1750,15 +1903,14 @@ print "REGEXP POINT C\n" if ($regexpDebug);
                                         	print "TSPOP [6]\n" if ($tsDebug || $treeDebug);
                                         	bless($treeCur, "HeaderDoc::ParseTree");
 					}
-}
-				elsif (!$parserState->{inComment}) {
+				} elsif (!$parserState->{inComment} && !$parserState->{inInlineComment}) {
 					my $linenum = $inputCounter + $fileoffset;
-					warn("$filename:$linenum:Unmatched close comment tag found.  Ignoring.\n");
+					warn("$filename:$linenum: warning: Unmatched close comment tag found.  Ignoring.\n");
 				} elsif ($parserState->{inInlineComment}) {
 					my $linenum = $inputCounter + $fileoffset;
 					# We'll leave this one on for now.
 					if (1 || $nestedcommentwarn) {
-						warn("$filename:$linenum:Nested comment found [3].  Ignoring.\n");
+						warn("$filename:$linenum: warning: Nested comment found [3].  Ignoring.\n");
 					}
 				}
 				$parserState->{lastsymbol} = "";
@@ -1789,8 +1941,7 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					$parserState->{sodname} = $parserState->{lastsymbol};
 					$parserState->{sodclass} = "function";
 
-					# @@@ DAG CHECKME.  I think this needed
-					# to be changed to respect freezereturn
+					# DAG: changed to respect freezereturn
 					# and hollow, but in the unlikely event
 					# that we should start seeing any weird
 					# "missing return type info" bugs,
@@ -1813,10 +1964,25 @@ print "REGEXP POINT C\n" if ($regexpDebug);
 					print "callbackNamePending -> 3\n" if ($localDebug || $cbnDebug);
 				}
 				print "lparen\n" if ($localDebug);
+			        if ($parserState->{cbsodname} && (scalar(@braceStack)-$parserState->{initbsCount}) == 0) {
+					# At the top level, if we see a second open parenthesis after setting a callback
+					# name, the first token in the first set of open parentheses is the name of
+					# the callback, so clear cbsodname.
+					# 
+					# Until this point, the value in cbsodname was a copy of the already-cleared
+					# sodname field, and would replace the callbackName field at the end of
+					# processing.
 
+					$parserState->{cbsodname} = "";
+				}
+
+				if ($parserState->{inOperator} == 1) {
+					$parserState->{inOperator} = 2;
+				}
 				push(@braceStack, $part); pbs(@braceStack);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [15]\n"; }
 					# push(@treeStack, $treeCur);
 					# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 					# bless($treeCur, "HeaderDoc::ParseTree");
@@ -1915,8 +2081,9 @@ print "SCARYCASE\n" if ($localDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				if (!($test eq "(")) {		# ) brace hack for vi
-					warn("$filename:$inputCounter:Parentheses do not match.\nWe may have a problem.\n");
+					warn("$filename:$inputCounter: warning: Parentheses do not match.\nWe may have a problem.\n");
 					warn("Declaration to date: $declaration$curline\n");
+					# cluck("backtrace follows\n");
 				}
 				$curline = spacefix($curline, $part, $lastchar);
 				$parserState->{lastsymbol} = "";
@@ -1949,6 +2116,8 @@ print "SCARYCASE\n" if ($localDebug);
 				$parserState->{noInsert} = 1;
 			    }
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && $regexpNoInterpolate)) {
+				$parserState->{bracePending} = 0;
+				print "bracePending -> 0 [brace]\n" if ($localDebug);
 				$parserState->{onlyComments} = 0;
 				print "[k]onlyComments -> 0\n" if ($macroDebug);
 				if (scalar(@{$parserState->{parsedParamList}})) {
@@ -1967,7 +2136,10 @@ print "SCARYCASE\n" if ($localDebug);
 				print "parsedParamParse -> 2\n" if ($parmDebug);
 				$parsedParamParse = 2;
 
-				if (!$parserState->{inClass} && ($parserState->{sodclass} eq "function" || $parserState->{inOperator})) {
+				# print "statecheck: ".$parserState->{inClass}."X".$parserState->{sodclass}."X".$parserState->{inOperator}."X".$parserState->{occmethod}."\n"; # @@@ CHECKME - Do this for Obj-C methods too?
+				if (!$parserState->{inClass} && ($parserState->{sodclass} eq "function" || $parserState->{inOperator} || $parserState->{occmethod})) {
+					# This is the opening brace of a function.  Start ignoring everything
+					# until the matching brace is encountered.
 					$parserState->{seenBraces} = 1;
 					if (!$parserState->{stackFrozen}) {
 						@{$parserState->{freezeStack}} = @{$parserState->{pplStack}};
@@ -1987,6 +2159,7 @@ print "SCARYCASE\n" if ($localDebug);
 				push(@braceStack, $part); pbs(@braceStack);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [16]\n"; }
 					print "TN -> 1\n" if ($localDebug);
 					# push(@treeStack, $treeCur);
 					# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
@@ -2104,7 +2277,7 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				if (!($test eq "$lbrace") && (!length($structname) || (!($test eq $structname) && $structisbrace))) {		# } brace hack for vi.
-					warn("$filename:$inputCounter:Braces do not match.\nWe may have a problem.\n");
+					warn("$filename:$inputCounter: warning: Braces do not match.\nWe may have a problem.\n");
 					warn("Declaration to date: $declaration$curline\n");
 				}
 				$curline = spacefix($curline, $part, $lastchar);
@@ -2127,19 +2300,31 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 
 		# Typedef, struct, enum, and union handlers.
 
-		(length($classregexp) && $part =~ /^\@$/ && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
+		# Merge the '@' symbol onto @protocol, @property, @public, and similar.
+		(((length($propname) && $propname =~ /\@/) || length($classregexp) || (length($accessregexp) && $accessregexp =~ /\@/)) && $part =~ /^\@$/ && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
 				my $temp = "\@".$nextpart;
-				if ($temp =~ /$classregexp/) {
+				# print "TEMP IS $temp PROPNAME is $propname\n";
+				if ($temp =~ /$accessregexp/) {
+					print "MERGE $part $nextpart\n" if ($localDebug);
+					$nextpart = "\@".$nextpart;
+					$parserState->{classIsObjC} = 1;
+				} elsif ($temp =~ /$classregexp/) {
 					$nextpart = "\@".$nextpart;
 					$parserState->{classIsObjC} = 1;
 				} elsif ($temp =~ /$classclosebraceregexp/) {
 					$nextpart = "\@".$nextpart;
+				} elsif ($temp eq $propname) {
+					# This shows up in a declaration, so delete the token
+					$part = "";
+					print "MERGE $part $nextpart\n" if ($localDebug);
+					$nextpart = "\@".$nextpart;
 				}
 				next SWITCH;
 			};
+
 		(length($classclosebraceregexp) && ($part =~ /$classclosebraceregexp/) && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
 				if ($part ne peekmatch(\@braceStack, $filename, $inputCounter)) {
-					warn("$filename:inputCounter:Class braces do not match.\nWe may have a problem.\n");
+					warn("$filename:inputCounter: warning: Class braces do not match.\nWe may have a problem.\n");
 				}
 				$parserState->{seenBraces} = 1;
 				pop(@braceStack);
@@ -2164,7 +2349,7 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print "continue -> 0 [occend]\n" if ($localDebug);
 					} else {
 					    if (!$parserState->{onlyComments}) {
-						# @@@ Process entry here
+						# Process entry here
 						if ($parserState->{noInsert}) {
 							print "parserState insertion skipped[\@end]\n" if ($parserStackDebug);
 						} elsif ($parserState->{hollow}) {
@@ -2191,7 +2376,18 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					}
 				}
 			};
-		(!$parserState->{inTemplate} && length($classregexp) && $part =~ /$classregexp/) && do {
+		(!$parserState->{inTemplate} && !$parserState->{inComment} && !$parserState->{inInlineComment} && !$parserState->{inString} && !$parserState->{inChar} && length($classregexp) && $part =~ /$classregexp/) && do {
+			if ($parserState->{classIsObjC}) { $sublang = "occ"; }
+			else { $sublang = "cpp"; }
+			print "LANG $lang SUBLANG $sublang\n" if ($localDebug || $parseDebug || $classDebug);
+			# Update the class regular expressions because our language has changed.
+			($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
+				$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+				$enumname,
+				$typedefname, $varname, $constname, $structisbrace, $macronameref,
+				$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+				$propname) = parseTokens($lang, $sublang);
+			print "PROPNAME NOW $propname\n" if ($localDebug || $parseDebug || $classDebug);
 			my $localclasstype = $1;
 			if ($part =~ /^\@/) { $part =~ s/^\@//s; }
 			if (!(scalar(@braceStack)-$parserState->{initbsCount})) {
@@ -2205,6 +2401,11 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						$parserState->{inClass} = 2;
 						$pushParserStateAtBrace = 0;
 					} elsif ($localclasstype =~ /\@protocol/) {
+						$pushParserStateAtBrace = 0;
+						$pushParserStateAfterWordToken = 0;
+						$parserState->{inClass} = 0;
+						$parserState->{inProtocol} = 1;
+					} elsif ($localclasstype =~ /\@implementation/) {
 						$pushParserStateAtBrace = 0;
 						$pushParserStateAfterWordToken = 2;
 					}
@@ -2223,6 +2424,7 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print "CLASS ($localclasstype) IS A BRACE.\n" if ($localDebug);
 						push(@braceStack, $localclasstype); pbs(@braceStack);
 						$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [17]\n"; }
 					# } else {
 						# print "CBRE: \"$classbraceregexp\"\n";
 					}
@@ -2234,9 +2436,11 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 
 					($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 						$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+						$enumname,
 						$typedefname, $varname, $constname, $structisbrace, $macronameref,
-						$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp)
-							= parseTokens($lang, $sublang);
+						$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+						$propname) = parseTokens($lang, $sublang);
+# print "PROPNAME2: $propname\n";
 					print "ARP: $accessregexp\n" if ($localDebug);
 
 
@@ -2246,7 +2450,12 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 			}
 		};
 
-		($part eq $structname || $part =~ /^enum$/o || $part =~ /^union$/o) && do {
+		($part eq $propname) && do {
+			print "PROPERTY FOUND\n" if ($localDebug);
+			$parserState->{isProperty} = 1; # Basically treat it like a normal variable, but flag it.
+			last SWITCH;
+		};
+		($part eq $structname || $part eq $enumname || $part eq $unionname) && do {
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if ($structisbrace) {
                                 	if ($parserState->{sodclass} eq "function") {
@@ -2268,6 +2477,7 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
                                 	push(@braceStack, $part); pbs(@braceStack);
 					if (!$parserState->{seenBraces}) { # TREEDONE
 						$treeNest = 1;
+					if ($treeDebug) { print "TS TREENEST -> 1 [18]\n"; }
 						# push(@treeStack, $treeCur);
 						# $treeCur = $treeCur->addChild($part, 0); $treeSkip = 1;
 						# bless($treeCur, "HeaderDoc::ParseTree");
@@ -2288,6 +2498,7 @@ print "parserState: ENDOFSTATE\n" if ($parserStackDebug);
                                 	}
 				} else {
 					if (!$parserState->{simpleTypedef}) {
+						print "simpleTypedef -> 2\n" if ($localDebug);
 						$parserState->{simpleTypedef} = 2;
 					}
 					# if (!$parserState->{seenBraces}) { # TREEDONE
@@ -2322,7 +2533,7 @@ print "sodname cleared (seu)\n" if ($sodDebug);
 				$parserState->{onlyComments} = 0;
 				print "[o]onlyComments -> 0\n" if ($macroDebug);
 				$continuation = 1;
-				$parserState->{simpleTypedef} = 1;
+				$parserState->{simpleTypedef} = 1; print "simpleTypedef -> 1\n" if ($localDebug);
 				# previous case falls through, so be explicit.
 				if ($part =~ /^$typedefname$/) {
 				    if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString} || $parserState->{inChar})) {
@@ -2398,13 +2609,16 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 					# $parserState->{lastsymbol} .= $part;
 				    }
 				    if (!$bsCount) {
+					$treeCur = $treeCur->addSibling(";"); $treepart = " "; # $treeSkip = 1;
 					$treeCur = pop(@treeStack) || $treeTop;
 					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
 					$treeCur = $treeCur->lastSibling();
 					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
 					print "TSPOP [8]\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
-					while ($treePopTwo--) {
+					# $parserState->{lastTreeNode} = $treeCur;
+					# print "LASTTREENODE -> $treeCur (".$treeCur->token().")\n";
+					while ($parserState->{treePopTwo}--) {
 						$treeCur = pop(@treeStack) || $treeTop;
 						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
 						$treeCur = $treeCur->lastSibling();
@@ -2412,13 +2626,13 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 						print "TSPOP [9]\n" if ($tsDebug || $treeDebug);
 						bless($treeCur, "HeaderDoc::ParseTree");
 					}
-					$treePopTwo = 0;
+					$parserState->{treePopTwo} = 0;
 				    }
 				}
 				$lastchar = $part;
 			    }; # end if
 			}; # end do
-		($part eq "=" && ($parserState->{lastsymbol} ne "operator") && (!($parserState->{inOperator} && $parserState->{lastsymbol} =~ /\W/ && $parserState->{lastsymbol} =~ /\S/)) && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
+		($part eq "=" && ($parserState->{lastsymbol} ne "operator") && (!(($parserState->{inOperator} == 1) && $parserState->{lastsymbol} =~ /\W/ && $parserState->{lastsymbol} =~ /\S/)) && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
 				$parserState->{onlyComments} = 0;
 				print "[q]onlyComments -> 0\n" if ($macroDebug);
 				if ($part =~ /=/o && !(scalar(@braceStack)-$parserState->{initbsCount}) &&
@@ -2453,6 +2667,8 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 		    # Handler for all other text (data types, string contents,
 		    # comment contents, character contents, etc.)
 
+		    print "DEFAULT CASE\n" if ($localDebug || $parseDebug);
+
 	# print "TEST CURLINE IS \"$curline\".\n";
 		    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 		      if (!ignore($part, $ignoreref, $perheaderignoreref)) {
@@ -2484,7 +2700,7 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 				$lastchar = $part;
 				if ($part =~ /\w/o || $part eq "::") {
 				    if ($parserState->{callbackNamePending} == 1) {
-					if (!($part =~ /^struct$/o || $part =~ /^enum$/o || $part =~ /^union$/o || $part =~ /^$typedefname$/)) {
+					if (!($part eq $structname || $part eq $enumname || $part eq $unionname || $part eq $typedefname)) {
 						# we've seen the initial type.  The name of
 						# the callback is after the next open
 						# parenthesis.
@@ -2497,6 +2713,7 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 					$parserState->{callbackName} = $part;
 					$parserState->{name} = "";
 					$parserState->{sodclass} = "";
+					$parserState->{cbsodname} = $parserState->{sodname};
 					$parserState->{sodname} = "";
 				    } elsif ($parserState->{callbackNamePending} == 4) {
 					if ($part eq "::") {
@@ -2519,13 +2736,41 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 				    if ($parserState->{namePending} == 2) {
 					$parserState->{namePending} = 1;
 					print "namePending -> 1 [4]\n" if ($parseDebug);
+					if (!(scalar(@braceStack)-$parserState->{initbsCount}) && ($parserState->{simpleTypedef} == 2)) {
+						print "bracePending -> 1\n" if ($localDebug);
+						$parserState->{bracePending} = 1;
+					}
 				    } elsif ($parserState->{namePending}) {
 					if ($parserState->{name} eq "") { $parserState->{name} = $part; }
 					$parserState->{namePending} = 0;
 					print "namePending -> 0 [5]\n" if ($parseDebug);
+				    } elsif ($parserState->{bracePending} == 1) {
+					if ($part eq "::") {
+						# struct foo::bar ....
+						# "foo::bar" is the name of
+						# the struct and should not
+						# trigger this (though we might
+						# trigger it on the following
+						# word.
+						print "bracePending -> 2 [classmember]\n" if ($localDebug);
+						$parserState->{bracePending} = 2;
+					} else {
+						# Word token when brace pending.  It's
+						# a variable.
+						print "IT'S A VARIABLE!  NAME WAS \"$part\".\n" if ($localDebug);
+						$parserState->{sodname} = $part;
+						# $parserState->{sodtype} = $parserState->{returntype}; #  . " " . $parserState->{name};
+						$parserState->{sodtype} = "$declaration$curline";
+						$parserState->{sodclass} = "constant";
+						$parserState->{frozensodname} = $part;
+						print "bracePending -> 0 [word]\n" if ($localDebug);
+						$parserState->{bracePending} = 0;
+					}
+				    } elsif ($parserState->{bracePending} == 2) {
+					$parserState->{bracePending}--;
 				    }
 				} # end if ($part =~ /\w/o)
-				if ($part !~ /[;\[\]]/o && !$parserState->{inBrackets})  {
+				if ($part !~ /[,;\[\]]/o && !$parserState->{inBrackets})  {
 					my $opttilde = "";
 					if ($parserState->{seenTilde}) { $opttilde = "~"; }
 					if ($parserState->{startOfDec} == 1) {
@@ -2538,7 +2783,7 @@ print "sodname cleared ($typedefname)\n" if ($sodDebug);
 						if ($part =~ /\w/o && !$parserState->{inTemplate}) {
 							$parserState->{preTemplateSymbol} = "";
 						}
-						if ($parserState->{inOperator}) {
+						if ($parserState->{inOperator} == 1) {
 						    $parserState->{sodname} .= $part;
 						} else {
 						    if (length($parserState->{sodname})) {
@@ -2588,7 +2833,7 @@ print "sodname set to $part\n" if ($sodDebug);
 
 	    my $ignoretoken = ignore($part, $ignoreref, $perheaderignoreref);
 	    my $hide = ($ignoretoken && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}));
-	    print "TPONL: $treePopOnNewLine TPTWO: $treePopTwo\n" if ($tsDebug);
+	    print "TPONL: $treePopOnNewLine TPTWO: ".$parserState->{treePopTwo}."\n" if ($tsDebug);
 	    print "TN: $treeNest TS: $treeSkip nTS: ".scalar(@treeStack)."\n" if ($tsDebug);
 	    if (!$treeSkip) {
 		if (!$parserState->{seenBraces}) { # TREEDONE
@@ -2636,12 +2881,17 @@ print "sodname set to $part\n" if ($sodDebug);
 		$parserState->{inInlineComment} = 3;
 	    }
 	    $treeNest = 0;
+	    if ($treeDebug) { print "TS TREENEST -> 0 [19]\n"; }
 
 	    if (!$parserState->{freezereturn} && $parserState->{hollow}) {
+		# print "WARNING: RETURN TYPE CHANGE[A]".$parserState->{returntype}." CHANGED TO $declaration$curline.\n";
 		$parserState->{returntype} = "$declaration$curline";
  	    } elsif (!$parserState->{freezereturn} && !$parserState->{hollow}) {
+		# print "WARNING: RETURN TYPE CHANGE[B]".$parserState->{returntype}." CHANGED TO $curline.\n";
 		$parserState->{returntype} = "$curline";
 		$declaration = "";
+	    # } else {
+		# print "WARNING: LEAVING RETURN TYPE ALONE: ".$parserState->{returntype}." NOT CHANGED TO $curline.\n";
 	    }
 
 	    # From here down is... magic.  This is where we figure out how
@@ -2680,7 +2930,7 @@ print "sodname set to $part\n" if ($sodDebug);
 				if (length($curline) + length($curstring) >
 				    $HeaderDoc::maxDecLen) {
 					$scratch = nspaces($prespace);
-					# @@@ WAS != /\n/ which is clearly
+					# Was != /\n/ which is clearly
 					# wrong.  Suspect the next line
 					# if we start losing leading spaces
 					# where we shouldn't (or don't where
@@ -2706,7 +2956,7 @@ print "sodname set to $part\n" if ($sodDebug);
 			}
 			if ((length($curline) + length($part) > $HeaderDoc::maxDecLen)) {
 				$scratch = nspaces($prespace);
-				# @@@ WAS != /\n/ which is clearly
+				# Was != /\n/ which is clearly
 				# wrong.  Suspect the next line
 				# if we start losing leading spaces
 				# where we shouldn't (or don't where
@@ -2786,7 +3036,7 @@ print "sodname set to $part\n" if ($sodDebug);
 			    $continue = 0;
 			    print "continue -> 0 [3]\n" if ($localDebug);
 			} elsif (!$parserState->{onlyComments}) {
-				# @@@ Process entry here
+				# Process entry here
 				if ($parserState->{noInsert}) {
 					print "parserState insertion skipped[SEMI-1]\n" if ($parserStackDebug);
 				} elsif ($parserState->{hollow}) {
@@ -2823,11 +3073,28 @@ print "sodname set to $part\n" if ($sodDebug);
 		    ($nextpart ne ";")) {
 			# Function declarations end at the close curly brace.
 			# No ';' necessary (though we'll eat it if it's there.
+
+			if ($parserState->{treePopTwo}) {
+				# Fix nesting.
+				# print "LASTTREENODE -> $treeCur (".$treeCur->token().")\n";
+				while ($parserState->{treePopTwo}--) {
+					$treeCur = pop(@treeStack) || $treeTop;
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur = $treeCur->lastSibling();
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					print "TSPOP [13]\n" if ($tsDebug || $treeDebug);
+					bless($treeCur, "HeaderDoc::ParseTree");
+				}
+				$treeCur = $treeCur->addSibling(";", 0);
+				$parserState->{lastTreeNode} = $treeCur;
+				$parserState->{treePopTwo} = 0;
+			}
+
 			if (!scalar(@parserStack)) {
 				$continue = 0;
 				print "continue -> 0 [4]\n" if ($localDebug);
 			} elsif (!$parserState->{onlyComments}) {
-				# @@@ Process entry here
+				# Process entry here
 				if ($parserState->{noInsert}) {
 					print "parserState insertion skipped[SEMI-2]\n" if ($parserStackDebug);
 				} elsif ($parserState->{hollow}) {
@@ -2858,10 +3125,17 @@ print "sodname set to $part\n" if ($sodDebug);
 				$continue = 0;
 				print "continue -> 0 [5]\n" if ($localDebug);
 			} elsif (!$parserState->{onlyComments}) {
-				# @@@ Process entry here
+				# Process entry here
 				print "DONE WITH MACRO.  HANDLING.\n" if ($localDebug || $parseDebug);
 
-				if ($parserState->{inMacro} == 3) { cpp_add($parserState->{hollow}); }
+				if ($parserState->{inMacro} == 3) {
+					if (!$HeaderDoc::skipNextPDefine) {
+						cpp_add($parserState->{hollow});
+					} else {
+						cpp_add($parserState->{hollow}, 1);
+						$HeaderDoc::skipNextPDefine = 0;
+					}
+				}
 
 				if ($parserState->{noInsert}) {
 					print "parserState insertion skipped\n" if ($parserStackDebug);
@@ -2887,7 +3161,7 @@ print "sodname set to $part\n" if ($sodDebug);
 		    }
 	        } elsif ($parserState->{inMacro} == 2) {
 		    my $linenum = $inputCounter + $fileoffset;
-		    warn "$filename:$linenum:Declaration starts with # but is not preprocessor macro\n";
+		    warn "$filename:$linenum: warning: Declaration starts with # but is not preprocessor macro\n";
 	        } elsif ($parserState->{inMacro} == 3 && $parserState->{lastsymbol} eq "\\") {
 			print "TAIL BACKSLASH ($continue)\n" if ($localDebug || $macroDebug);
 		}
@@ -2981,6 +3255,32 @@ print "sodname set to $part\n" if ($sodDebug);
 		}
 	    }
 
+	    if ($part =~ /\w+/) {
+		if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar} || $parserState->{skiptoken} || $hollowskip)) {
+		    if ($parserState->{occparmlabelfound} == -2) {
+			if (!($parserState->{initbsCount} - scalar(@braceStack) )) { # Skip types
+				$parserState->{occparmlabelfound} = 0; # Next token is the label for the next parameter.
+				if ($HeaderDoc::useParmNameForUnlabeledParms) {
+					$parserState->{occmethodname} .= "$part:";
+				} else {
+					$parserState->{occmethodname} .= ":";
+				}
+				if ($occMethodNameDebug) {
+					print "OCC parameter name substituted; OCC method name now ".$parserState->{occmethodname}." (lastsymbol was \"".$parserState->{lastsymbol}."\", part was \"".$part."\").\n";
+				}
+			}
+		    } else {
+			if (!($parserState->{initbsCount} - scalar(@braceStack) )) { # Skip types
+				$parserState->{occparmlabelfound}++;
+				if ($occMethodNameDebug && ($parserState->{occparmlabelfound} > 0)) {
+					print "OCC possible label: \"$part\".\n";
+				}
+			}
+		    }
+		}
+	    }
+
+
 	    if (length($part) && $part =~ /\S/o) { $lastnspart = $part; }
 	    if ($parserState->{seenTilde} && length($part) && $part !~ /\s/o) { $parserState->{seenTilde}--; }
 	    $part = $nextpart;
@@ -3006,7 +3306,12 @@ print "sodname set to $part\n" if ($sodDebug);
 print "PARSERSTATE: $parserState\n" if ($localDebug);
 
     if ($parserState->{inMacro} == 3) {
-	cpp_add($treeTop);
+	if (!$HeaderDoc::skipNextPDefine) {
+		cpp_add($treeTop);
+	} else {
+		cpp_add($treeTop, 1);
+		$HeaderDoc::skipNextPDefine = 0;
+	}
     }
 
 print "LEFTBPMAIN\n" if ($localDebug || $hangDebug);
@@ -3070,6 +3375,8 @@ if ($forcedebug) { print "FD\n"; }
     }
 
     # if ($parserState->{simpleTypedef}) { $parserState->{name} = ""; }
+
+    my $conformsToList = $parserState->{conformsToList};
 
     # From here down is a bunch of code for determining which names
     # for a given type/function/whatever are legit and which aren't.
@@ -3159,7 +3466,12 @@ print "SN: \"$parserState->{sodname}\"\nST: \"$parserState->{sodtype}\"\nSC: \"$
     $parserState->{callbackName} =~ s/^.*:://o;
     $parserState->{callbackName} =~ s/^\*+//o;
     print "CBN: \"$parserState->{callbackName}\"\n" if ($localDebug || $listDebug);
+    print "CBNP: \"$parserState->{callbackNamePending}\"\n" if ($localDebug || $listDebug);
+    print "CBSN: \"$parserState->{cbsodname}\"\n" if ($localDebug || $listDebug);
     if (length($parserState->{callbackName})) {
+	if (length($parserState->{cbsodname})) {
+		$parserState->{callbackName} = $parserState->{cbsodname};
+	}
 	$parserState->{name} = $parserState->{callbackName};
 	print "DEC: \"$declaration\"\n" if ($localDebug || $listDebug);
 	$namelist = $parserState->{name};
@@ -3336,16 +3648,28 @@ print "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
 	}
     }
     if (length($parserState->{simpleTDcontents})) {
-	print "SIMPLETYPEDEF: $inputCounter, $declaration, $typelist, $namelist, $parserState->{posstypes}, $parserState->{value}, OMITTED pplStack, $parserState->{returntype}, $privateDeclaration, $treeTop, $parserState->{simpleTDcontents}, $parserState->{availability}\n" if ($parseDebug || $sodDebug || $localDebug);
+	my $psc = @pplStack;
+	print "SIMPLETYPEDEF: $inputCounter, $declaration, $typelist, $namelist, $parserState->{posstypes}, $parserState->{value}, OMITTED $psc, $parserState->{returntype}, $privateDeclaration, $treeTop, $parserState->{simpleTDcontents}, $parserState->{availability}\n" if ($parseDebug || $sodDebug || $localDebug);
 	$typelist = "typedef";
-	$namelist = $parserState->{sodname};
+	if (length($parserState->{sodname})) {
+		# typedefs w/o struct/enum/union, e.g. "typedef uint32_t foo;"
+		# don't have a sodname, so we'd better return something....
+		$namelist = $parserState->{sodname};
+	}
 	$parserState->{posstypes} = "";
     }
 
     # If we have a class, do some funky stuff.
-    if ($parserState->{inClass}) {
+    if ($parserState->{inClass} || $parserState->{inProtocol}) {
+	# if ($parserState->{inProtocol}) {
+		# print "PROTOCOL\n";
+		# $localDebug = 1;
+	# }
 	print "INCLASS!\n" if ($localDebug);
 	print "PTS: $parserState->{preTemplateSymbol}\n" if ($localDebug);
+
+	$declaration = $treeTop->textTree();
+
 	$parserState->{sodtype} =~ s/^\s*//s;
 	my @classparts = split(/\s/, $parserState->{sodtype}, 2);
 	my $classname = "";
@@ -3360,6 +3684,16 @@ print "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
 		print "NO CLASSPARTS FOUND.\n" if ($localDebug);
 		$classname = $parserState->{sodname};
 		$superclass = "";
+	}
+	if ($parserState->{inProtocol}) {
+		# Get the class name a different way.
+		$superclass = $parserState->{extendsProtocol};
+		$superclass =~ s/\s+//sg;
+		$superclass =~ s/,,/,/sg;
+		$superclass =~ s/^,//sg;
+		$superclass =~ s/,$//sg;
+		$superclass =~ s/,/\cA/sg;
+		print "PROTOCOLSUPER: $superclass\n" if ($localDebug);
 	}
 	$namelist = $classname;
 	# print "RETURNING CLASS: NAMELIST IS $classname\n";
@@ -3389,6 +3723,20 @@ print "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
 
     # print "Return type was: $parserState->{returntype}\n" if ($argparse || $parserState->{sodclass} eq "function" || $parserState->{occmethod});
     if (length($parserState->{sodtype}) && !$parserState->{occmethod}) {
+
+	$parserState->{sodtype} =~ s/\* \*/**/g;
+
+	# Note: the following code was added while tracking down a bug.  Do not reenable this.  This warning
+	# will flag a lot of valid changes as warnings.
+	# $b = $parserState->{returntype};
+	# $a = $parserState->{sodtype};
+	# $a =~ s/^\s*//sg; $a =~ s/\s*$//sg;
+	# $b =~ s/^\s*//sg; $b =~ s/\s*$//sg;
+	# if ($a ne $b) {
+		# print "WARNING: CHANGED RETURN TYPE FROM ".$parserState->{returntype}." TO ".$parserState->{sodtype}."\n";
+		# $treeTop->dbprint();
+	# }
+
 	$parserState->{returntype} = $parserState->{sodtype};
     }
     # print "Return type: $parserState->{returntype}\n" if ($argparse || $parserState->{sodclass} eq "function" || $parserState->{occmethod});
@@ -3402,9 +3750,22 @@ print "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
     }
 
 print "LEFTBP\n" if ($localDebug);
+    if ($parserState->{isProperty}) {
+		print "isProperty Set.\n" if ($localDebug || $listDebug);
+		$typelist = "property";
+		$parserState->{posstypes}="property";
+		$parserState->{sodclass}="";
+    }
+
+print "UPDATED:\n" if ($localDebug || $listDebug);
+print "NL: \"$namelist\".\n" if ($localDebug || $listDebug);
+print "TL: \"$typelist\".\n" if ($localDebug || $listDebug);
+print "PT: \"$parserState->{posstypes}\"\n" if ($localDebug || $listDebug);
+print "SN: \"$parserState->{sodname}\"\nST: \"$parserState->{sodtype}\"\nSC: \"$parserState->{sodclass}\"\n" if ($localDebug || $sodDebug);
+
 
     # We're outta here.
-    return ($inputCounter, $declaration, $typelist, $namelist, $parserState->{posstypes}, $parserState->{value}, \@pplStack, $parserState->{returntype}, $privateDeclaration, $treeTop, $parserState->{simpleTDcontents}, $parserState->{availability}, $fileoffset);
+    return ($inputCounter, $declaration, $typelist, $namelist, $parserState->{posstypes}, $parserState->{value}, \@pplStack, $parserState->{returntype}, $privateDeclaration, $treeTop, $parserState->{simpleTDcontents}, $parserState->{availability}, $fileoffset, $conformsToList);
 }
 
 
@@ -3520,13 +3881,13 @@ sub defParmParse
 		print "close paren\n" if ($localDebug);
 		my $top = pop(@braceStack);
 		if ($top !~ /\(/o) {
-			warn("$filename:$inputCounter:Parentheses do not match (macro).\nWe may have a problem.\n");
+			warn("$filename:$inputCounter: warning: Parentheses do not match (macro).\nWe may have a problem.\n");
 		}
 	} elsif ($token =~ /\]/o) {
 		print "close bracket\n" if ($localDebug);
 		my $top = pop(@braceStack);
 		if ($top !~ /\[/o) {
-			warn("$filename:$inputCounter:Braces do not match (macro).\nWe may have a problem.\n");
+			warn("$filename:$inputCounter: warning: Braces do not match (macro).\nWe may have a problem.\n");
 		}
 	} elsif ($token =~ /,/o && (scalar(@braceStack) == 1)) {
 		$curname =~ s/^\s*//sgo;
@@ -3635,12 +3996,23 @@ sub blockParseOutside
     my $nodec = shift;
 
 # $localDebug = 1; $blockDebug = 1;
+    my $nameDebug = 0;
+    my $nestClassDebug = 0;
 
+    if ($inClass && $nestClassDebug) {
+	$localDebug = 1; $blockDebug = 1; $hangDebug = 1; # turn on the kitchen sink.
+    }
+
+    # The number of curly braces at the top level---aids in skipping
+    # declarations at the outer levels
+    my $numcurlybraces = 0;
 
     if ($localDebug) { if ($subparse) { print "SUBPARSE\n"; } else { print "PARSE\n"; } }
 
     my $lastParseTree = undef;
     my $slowokay = ($subparse == 2) ? 1 : 0;
+
+    my @linkobjs = ();
 
     my $old_enable_cpp = $HeaderDoc::enable_cpp;
     if ($subparse) {
@@ -3675,8 +4047,11 @@ print "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 				if ($inUnknown || $inTypedef || $inStruct || $inEnum || $inUnion || $inConstant || $inVar || $inFunction || ($inMethod && $methods_with_new_parser) || $inPDefine || $inClass) {
 				    my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 					$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-					$typedefname, $varname, $constname, $structisbrace, $macronameref)
-					= parseTokens($lang, $HeaderDoc::sublang);
+					$enumname,
+					$typedefname, $varname, $constname, $structisbrace, $macronameref,
+					$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+					$propname) = parseTokens($lang, $HeaderDoc::sublang);
+# print "PROPNAME3: $propname\n";
 				    my $varIsConstant = 0;
 				    my $blockmode = 0;
 				    my $curtype = "";
@@ -3685,7 +4060,10 @@ print "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 				    my $parmDebug = 0 || $localDebug;
 				    # my $localDebug = 1;
 
-				    if ($inPDefine == 2) { $blockmode = 1; }
+				    if ($inPDefine == 2) {
+					print "BLOCKMODE -> 1\n" if ($localDebug);
+					$blockmode = 1;
+				    }
 				    if ($inFunction || $inMethod) {
 					if ($localDebug) {
 						if ($inMethod) {
@@ -3694,12 +4072,13 @@ print "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 							print "inFunction\n";
 						}
 					}
-					# @@@ FIXME DAG (OBJC)
 					my $method = 0;
 					if ($classType eq "occ" ||
 						$classType eq "intf" ||
 						$classType eq "occCat") {
-							$method = 1;
+							if ($apiOwner !~ /^HeaderDoc::Header/) {
+								$method = 1;
+							}
 					}
 					if ($method) {
 						$curObj = HeaderDoc::Method->new;
@@ -3787,12 +4166,13 @@ print "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 						$classKeyword = "auto";
 					} else {
 						$curObj = HeaderDoc::APIOwner->new;
-						$classKeyword = @fields[0];
+						$classKeyword = $fields[0];
 						$classKeyword =~ s/^\s*\/\*\!\s*//s;
 						if (!length($classKeyword)) {
-							$classKeyword = @fields[1];
+							$classKeyword = $fields[1];
 						}
 					}
+                                        $curObj->filename($filename);
 					$curObj->group($HeaderDoc::globalGroup);
 					if ($xml_output) {
 					    $curObj->outputformat("hdxml");
@@ -3889,8 +4269,14 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 	my $typelist = ""; my $innertype = ""; my $posstypes = "";
 	print "PTCT: $posstypes =? $curtype\n" if ($localDebug || $blockDebug);
 	my $blockDec = "";
+	$localDebug = 0 || $nestClassDebug;
 	my $hangDebug = 0 || $localDebug;
-	while (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/)) && ($inputCounter <= $nlines)) { # ($typestring !~ /$typedefname/)
+	my $subparseDebug = 0 || $localDebug;
+	my $lastParserState = undef;
+	print "LOOPTEST: (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && ($inputCounter <= $nlines))\n" if ($localDebug);
+	my $previousInputCounter = $inputCounter;
+	my $bail = 0;
+	while (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && ($inputCounter <= $nlines)) { # ($typestring !~ /$typedefname/)
 
 		if ($hangDebug) { print "In Block Loop\n"; }
 
@@ -3899,9 +4285,12 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 			# last;
 		# } else { print "OK\n"; }
 		print "DOING SOMETHING\n" if ($localDebug);
-		$HeaderDoc::ignore_apiuid_errors = 1;
-		my $junk = $curObj->apirefSetup();
-		$HeaderDoc::ignore_apiuid_errors = 0;
+		# $HeaderDoc::ignore_apiuid_errors = 1;
+		# my $oldisdoc = $curObj->appleRefIsDoc();
+		# $curObj->appleRefIsDoc(1);
+		# my $junk = $curObj->apirefSetup();
+		# $curObj->appleRefIsDoc($oldisdoc);
+		# $HeaderDoc::ignore_apiuid_errors = 0;
 		# the value of a constant
 		my $value = "";
 		my $pplref = undef;
@@ -3910,23 +4299,48 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 		my $parseTree = undef;
 		my $simpleTDcontents = "";
 		my $bpavail = "";
+		my $conformsToList; # Suddenly feeling nonconformist.
 		print "Entering blockParse\n" if ($hangDebug);
 		if ($subparse) {
+			print "subparse\n" if ($localDebug || $blockDebug || $hangDebug);
 			if ($lastParseTree) {
-				# print "GOING FOR ANOTHER PARSE TREE.\n";
-				$parseTree = $lastParseTree->nextTokenNoComments($soc, $ilc);
+				# second parse tree encountered (i.e. last one didn't match)
+				if ($subparseDebug) {
+					print "GOING FOR ANOTHER PARSE TREE.\n";
+					$lastParseTree->printTree();
+				}
+				if ($lastParserState) {
+					my $lastend = $lastParserState->{lastTreeNode};
+					$parseTree = $lastend->nextTokenNoComments($soc, $ilc);
+				} else {
+					$parseTree = $lastParseTree->nextTokenNoComments($soc, $ilc);
+				}
+				if ($subparseDebug) {
+					print "FOUND:\n";
+					$parseTree->printTree();
+				}
 				if (!$parseTree) {
 					my $curname = $curObj->name();
 					warn("End of parse tree reached while searching for matching declaration.\n");
 					warn "No matching declaration found.  Last name was $curname\n";
 					warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
 					$HeaderDoc::enable_cpp = $old_enable_cpp;
+					objlink(\@linkobjs);
 					return ($inputCounter, $cppAccessControlState);
 				}
 				$lastParseTree = $parseTree;
 			} else {
-				# print "FIRST PARSE TREE.\n";
+				# first parse tree encountered
+				print "FIRST PARSE TREE.\n" if ($subparseDebug);
+
 				$parseTree = $subparseTree;;
+
+				if ($subparseDebug) {
+					print "PARSETREE FOLLOWS:\n";
+					$parseTree->printTree();
+				}
+
+				print "HERE\n" if ($localDebug);
 				$lastParseTree = $parseTree;
 				if (!$parseTree) {
 					my $curname = $curObj->name();
@@ -3934,9 +4348,16 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 					warn "No matching declaration found.  Last name was $curname\n";
 					warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
 					$HeaderDoc::enable_cpp = $old_enable_cpp;
+					objlink(\@linkobjs);
 					return ($inputCounter, $cppAccessControlState);
 				}
 			}
+			# From here down happens for every parse tree.
+			print "THERE\n" if ($localDebug);
+
+			# print "Dumping parse tree (debug)\n";
+			# print $parseTree->textTree();
+			# print "Done dumping parse tree (debug)\n";
 			my @ppl = ();
 			@ppl = $parseTree->parsedParams();
 			$pplref = \@ppl;
@@ -3948,6 +4369,7 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				warn "No matching declaration found.  Last name was $curname\n";
 				warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
 				$HeaderDoc::enable_cpp = $old_enable_cpp;
+				objlink(\@linkobjs);
 				return ($inputCounter, $cppAccessControlState);
 			}
 			@inputLines = ();
@@ -3967,14 +4389,32 @@ print "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				$parserState = $findstate->parserState;
 				$findstate = $findstate->next();
 			}
-			if (!$parserState) {
-				if (!$slowokay) {
+			if (!$parserState || $inClass) {
+				# Failure case.  Something is broken in the block parser.
+				print "NOPARSERSTATE\n" if ($localDebug);
+				if (!$slowokay && !$inClass) {
 					warn("Couldn't find parser state.  Using slow method.\n");
 					$localDebug = 1;
 					$hangDebug = 1;
+
+					if (0) {
+						warn "APIO: PT: ".$apiOwner->parseTree()."\n";
+						my $tree = ${$apiOwner->parseTree()};
+						bless($tree, "HeaderDoc::ParseTree");
+						print "TREE is $tree\n";
+						$tree->dbprint();
+					}
 				}
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset) = &blockParse($filename, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList) = &blockParse($filename, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
 print "NC: $newcount\n" if ($localDebug);
+                                $numcurlybraces += $parseTree->curlycount($lbrace);
+				if ($inClass && $nestClassDebug) {
+					print "NESTCLASS TEST:\n";
+					$parseTree->dbprint();
+					print "END NESTCLASS TEST:\n";
+					print "(\$newcount, \$declaration, \$typelist, \$namelist, \$posstypes, \$value, \$pplref, \$returntype, \$pridec, \$parseTree, \$simpleTDcontents, \$bpavail, \$blockOffset) = ";
+					print "($newcount, DECLARATION OMITTED, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset)\n";
+				}
 				print "newcount IS $newcount\n" if ($localDebug);
 				print "dec is $declaration\n" if ($localDebug);
 				print "TYPELIST IS \"$typelist\"\n" if ($localDebug);
@@ -3983,10 +4423,19 @@ print "NC: $newcount\n" if ($localDebug);
 				print "PPLREF IS $pplref\n" if ($localDebug);
 				print "RETURNTYPE IS \"$returntype\"\n" if ($localDebug);
 				print "parseTree IS \"$parseTree\"\n" if ($localDebug);
+				$lastParserState = undef; # prevent infinite loop.
+
+				if ($typelist eq "MACRO" && ($declaration !~ /\#define/)) {
+					if ($blockmode != 2) { warn("$filename:".($inputCounter + $blockOffset).": warning: Macros found between comments and delcaration.  Ignoring.\n"); }
+					$inputCounter = $newcount;
+					next;
+				}
 			} else {
+				# Normal case.
 				my $bogusblockoffset;
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset) = &blockParseReturnState($parserState, $parseTree, 0, "", 0, "", "");
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset, $conformsToList) = &blockParseReturnState($parserState, $parseTree, 0, "", 0, "", "");
 				$newcount = 1;
+                                $numcurlybraces += $parseTree->curlycount($lbrace, $parserState->{lastTreeNode});
 
 				print "newcount IS $newcount\n" if ($localDebug);
 				print "dec is $declaration\n" if ($localDebug);
@@ -3996,19 +4445,45 @@ print "NC: $newcount\n" if ($localDebug);
 				print "PPLREF IS $pplref\n" if ($localDebug);
 				print "RETURNTYPE IS \"$returntype\"\n" if ($localDebug);
 				print "parseTree IS \"$parseTree\"\n" if ($localDebug);
+				$lastParserState = $parserState;
+
+				if ($typelist eq "MACRO" && ($declaration !~ /\#define/)) {
+					if ($blockmode != 2) { warn("$filename:".($inputCounter + $blockOffset).": warning: Macros found between comments and delcaration.  Ignoring.\n"); }
+					$inputCounter = $newcount;
+					next;
+				}
 			}
 		} else {
+			# NOT subparse
+			print "Parsing\n" if ($localDebug);
 			if ($nodec) {
-				# print "NODEC\n";
+				print "NODEC\n" if ($localDebug);
 				$declaration = "";
 				$parseTree = HeaderDoc::ParseTree->new();
 				my @ppl = ();
 				$pplref = \@ppl;
 				$newcount = $inputCounter;
 			} else {
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset) = &blockParse($filename, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList) = &blockParse($filename, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+				if ($inClass) {
+					if ($typelist eq "MACRO") {
+						# print "INCLASS: returned $typelist\n";
+						warn("$filename:".($inputCounter + $blockOffset).": warning: Macros found between class comments and class.  Ignoring.\n");
+						$inputCounter = $newcount;
+						next;
+					}
+				} else {
+					if ($typelist eq "MACRO" && ($declaration !~ /\#define/)) {
+						if ($blockmode != 2) { warn("$filename:".($inputCounter + $blockOffset).": warning: Macros found between comments and delcaration.  Ignoring.\n"); }
+						$inputCounter = $newcount;
+						next;
+					}
+				}
 			}
 		}
+		# print "TYPELIST: $typelist\n";
+		# print "POSSTYPES: $posstypes\n";
+		# print "NAMELIST: $namelist\n";
 
 		if ($hangDebug) {
 			print "DUMPING PARSE TREE:\n";$parseTree->dbprint();print "PARSETREEDONE\n";
@@ -4019,13 +4494,6 @@ print "NC: $newcount\n" if ($localDebug);
 
 		print "Left blockParse\n" if ($hangDebug);
 
-		if ($outertype eq $curtype || $innertype eq $curtype || $posstypes =~ /$curtype/) {
-			# Make sure we have the right UID for methods
-			$curObj->declaration($declaration);
-			$HeaderDoc::ignore_apiuid_errors = 1;
-			my $junk = $curObj->apirefSetup(1);
-			$HeaderDoc::ignore_apiuid_errors = 0;
-		}
 		$curObj->privateDeclaration($pridec);
 		$parseTree->addAPIOwner($curObj);
 		$curObj->parseTree(\$parseTree);
@@ -4038,23 +4506,16 @@ print "NC: $newcount\n" if ($localDebug);
 		print "VALUE IS $value\n" if ($localDebug);
 		# warn("nc: $newcount.  ts: $typestring.  nl: $namelist\nBEGIN:\n$declaration\nEND.\n");
 
-		my $method = 0;
-		if ($classType eq "occ" ||
-			$classType eq "intf" ||
-			$classType eq "occCat") {
-				$method = 1;
-		}
-
 		$declaration =~ s/^\s*//so;
 		# if (!length($declaration)) { next; }
 
 	print "obtained declaration\n" if ($localDebug);
-		if ($localDebug) {
+		if ($localDebug || $nameDebug) {
 			print("IC: $inputCounter\n");
 			print("DC: \"$declaration\"\n");
 			print("TL: \"$typelist\"\n");
-			print("DC: \"$namelist\"\n");
-			print("DC: \"$posstypes\"\n");
+			print("NL: \"$namelist\"\n");
+			print("PT: \"$posstypes\"\n");
 		}
 
 		$inputCounter = $newcount;
@@ -4067,7 +4528,7 @@ print "NC: $newcount\n" if ($localDebug);
 			$outertype = $curtype;
 			my $linenum = $inputCounter + $blockOffset;
 			if (!$nodec) {
-				warn("$filename:$linenum:Parser bug: empty outer type\n");
+				warn("$filename:$linenum: WARNING: anonymous type.\n");
 				warn("IC: $inputCounter\n");
 				warn("DC: \"$declaration\"\n");
 				warn("TL: \"$typelist\"\n");
@@ -4084,15 +4545,19 @@ print "NC: $newcount\n" if ($localDebug);
 			}
 		}
 
-		my $explicit_name = 1;
-		my $curname = $curObj->name();
+		my $explicit_name_differs = 1;
+		my $explicit_name_canonical = 0;
+		my $curname = $curObj->rawname();
 		$curname =~ s/^\s*//o;
 		$curname =~ s/\s*$//o;
 		my @names = ( ); #$curname
 		my @types = ( ); #$outertype
 
-		my $nameDebug = 0;
+		# my $nameDebug = 0;
+		my $dropped = 0;
 		print "names:\n" if ($nameDebug);
+
+		# Fix up user-specified names that should end in a colon but don't.
 		if ($curname !~ /:$/o) {
 		    foreach my $name (@oldnames) {
 			my $NCname = $name;
@@ -4104,15 +4569,96 @@ print "NC: $newcount\n" if ($localDebug);
 			    $curname .= ":";
 			    $curObj->name($curname);
 			    $curObj->rawname($curname);
+			# } elsif ($name eq $curname) {
+			    # $dropped = 1;
+			    # print "dropped ($name = $curname)\n" if ($nameDebug);
+			}
+		    }
+		}
+		# Fix up user-specified names that should not end in a colon but do.
+		if ($curname =~ /:$/o) {
+		    foreach my $name (@oldnames) {
+			my $NCname = $name;
+			my $NCcurname = $curname;
+			$NCname =~ s/:$//so;
+			$NCcurname =~ s/:$//so;
+			print "NM \"$name\" CN: \"$curname\"\n" if ($nameDebug);
+			if ($NCname eq $NCcurname && $name ne $curname) {
+			    $curname = $NCcurname;
+			    $curObj->name($curname);
+			    $curObj->rawname($curname);
+			# } elsif ($name eq $curname) {
+			    # $dropped = 1;
+			    # print "dropped ($name = $curname)\n" if ($nameDebug);
 			}
 		    }
 		}
 		print "endnames\n" if ($nameDebug);
+	# print "DROPPED: $dropped\n";
 
-		if (length($curname) && length($curtype)) {
-			push(@names, $curname);
-			push(@types, $outertype);
+		# Normally, initialize to 0, but initialize to 1 if
+		# we're in an @defineblock block.  The parsed type
+		# of a block define doesn't match the type generated
+		# by the presence of an @defineblock directive
+		# (intentionally to avoid an early exit).  Thus,
+		# the type comparison code fails for that case.
+		# Fortunately, in that case, we always want to add
+		# the name, so we just initialize this to the value
+		# stored in $blockmode....  :-)
+
+		# The curname (user-specified name) should be inserted
+		# only if:
+		# 	1.  The type matches.
+		#	2.  The name does not match.
+
+		# See if the type matches.
+		my $docname = "";
+		my $found = $blockmode;
+		foreach my $ot (@oldtypes) {
+			my $ottrim = $ot;
+			$ottrim =~ s/\W//sg;
+
+			# DAG - Not sure why, but in some cases, the types
+			# from $typelist are simply listed as 'define'
+			# instead of '#define'.  Fix those up.
+			if ($ottrim eq "define") { $ottrim = "#define"; }
+
+			# Now do the comparison....
+			if ($ottrim eq $curtype) { $found = 1; }
+			print "CMP_O $ottrim $curtype\n" if ($nameDebug);
 		}
+		my @ptlist = split(/\s/, $posstypes);
+		foreach my $pt (@ptlist) {
+			my $pttrim = $pt;
+			$pttrim =~ s/\W//sg;
+			if ($pttrim eq $curtype) { $found = 1; }
+			print "CMP_P $pttrim $curtype\n" if ($nameDebug);
+		}
+
+		my $curname_inserted = 0;
+		my $force_explicit = 0;
+		my $numnames = @names;
+		# Insert curname into list if it matches the current type
+		# or if there is no other name.
+		if (length($curname) && length($curtype)) {
+			my $nmcount = @oldnames;
+			if ($found || !$nmcount) {
+				if (!$nmcount) { 
+					print "Explicit name is canonical name\n" if ($nameDebug);
+					$explicit_name_canonical = 1;
+				}
+				push(@names, $curname);
+				push(@types, $outertype);
+				if (($curtype ne $outertype) && !$explicit_name_canonical && !$blockmode) {
+					# warn("TYPE MISMATCH");
+					$curObj->unregister();
+				}
+				$curname_inserted = 1;
+			}
+		}
+		$numnames = @names;
+		my $on = @oldnames;
+		print "NUMNAMES: $numnames, OLDNAMES: $on, FOUND: $found CURNAME: $curname, ".$curObj->name." FORCE_EXPLICIT: $force_explicit\n" if ($nameDebug);
 		my $count = 0;
 		my $operator = 0;
 		if ($typelist eq "operator") {
@@ -4124,22 +4670,87 @@ print "NC: $newcount\n" if ($localDebug);
 				$name = "operator $name";
 				$curname =~ s/^operator(\s*)(\S+)/operator $2/so;
 			}
-# print "NAME \"$name\"\nCURNAME \"$curname\"\n";
-			if (($name eq $curname) && ($oldtypes[$count] eq $outertype)) {
-				$explicit_name = 0;
+# print "NAME \"$name\"\nCURNAME \"$curname\"\n" if ($nameDebug);
+			# If we have a valid tag name, we normally don't insert it if it is the same as the
+			# parsed name to avoid duplication.  If we didn't insert it before, though, we had
+			# better insert it here.  It will be inserted either above or here, depending on
+			# whether we have a type match.  If we have an anonymous type, it will always be
+			# inserted above.
+			if ((($name eq $curname) && ($oldtypes[$count] eq $outertype)) && $curname_inserted)  {
+				print "Explicit name matches parsed.\n" if ($nameDebug);
+				# We've already inserted this name.
+				$explicit_name_differs = 0;
 				$count++;
 			} else {
+				print "Explicit name ($curname) does NOT match parsed ($name) or type ($outertype) does not match (".$oldtypes[$count].") or not curname_inserted ($curname_inserted).  Adding to list.\n" if ($nameDebug);
+				if (($name eq $curname)) { $curname_inserted = 1; }
+				print "DOCNAME: $curname\n" if ($nameDebug);
+				$docname = $curname;
 				push(@names, $name);
 				push(@types, $oldtypes[$count++]);
 			}
 		}
+		# if (!$curname_inserted && $found) {
+			# push(@names, $curname);
+			# push(@types, $outertype);
+		# }
 		# foreach my $xname (@names) { print "XNAME: $xname\n"; }
 		if ($hangDebug) { print "Point A\n"; }
-		# $explicit_name = 0;
-		my $count = 0;
+		# $explicit_name_differs = 0;
+
+		print "END: $explicit_name_differs; ENC: $explicit_name_canonical\n" if ($nameDebug);
+		if ($explicit_name_differs && !$explicit_name_canonical && ($curname_inserted || $curname =~ /\W/) && $found) {
+			# If we are the only name for an
+			# object, the user-entered name is
+			# treated as canonical for apple_ref
+			# purposes.  Otherwise, the user-
+			# entered name is just a special
+			# doc name.
+			print "Setting APPLEREFISDOC for $curObj : \"".$curObj->name()."\" [1]\n" if ($nameDebug);
+			$curObj->appleRefIsDoc(1);
+			$HeaderDoc::ignore_apiuid_errors = 1;
+			my $junk = $curObj->apirefSetup(1);
+			print "APIREF: ".$curObj->apiref()."\n" if ($nameDebug);
+			$HeaderDoc::ignore_apiuid_errors = 0; 
+		} else {
+			if ($curname =~ /[^\w\:]/) {
+				print "Setting APPLEREFISDOC for $curObj : \"".$curObj->name()."\" [2]\n" if ($nameDebug);
+				$curObj->appleRefIsDoc(1);
+				$HeaderDoc::ignore_apiuid_errors = 1;
+				my $junk = $curObj->apirefSetup(1);
+				print "APIREF: ".$curObj->apiref()."\n" if ($nameDebug);
+				$HeaderDoc::ignore_apiuid_errors = 0; 
+			} else {
+				print "Clearing APPLEREFISDOC for $curObj : ".$curObj->name()."\n" if ($nameDebug);
+				$curObj->appleRefIsDoc(0);
+				$HeaderDoc::ignore_apiuid_errors = 1;
+				my $junk = $curObj->apirefSetup(1);
+				print "APIREF: ".$curObj->apiref()."\n" if ($nameDebug);
+				$HeaderDoc::ignore_apiuid_errors = 0; 
+			}
+		}
+		print "CUROBJ IS $curObj\n" if ($nameDebug);
+		my $matching_declaration = 0;
+		if ($outertype eq $curtype || $innertype eq $curtype || $posstypes =~ /$curtype/) {
+			$matching_declaration = 1;
+			# Make sure we have the right UID for methods
+			$curObj->declaration($declaration);
+			# $HeaderDoc::ignore_apiuid_errors = 1;
+
+			# my $oldisdoc = $curObj->appleRefIsDoc();
+			# $curObj->appleRefIsDoc(1);
+			# my $junk = $curObj->apirefSetup();
+			# $curObj->appleRefIsDoc($oldisdoc);
+			# $HeaderDoc::ignore_apiuid_errors = 0;
+		} else {
+			print "NOMATCH: OUTER: $outertype CUR: $curtype INNER: $innertype POSS: $posstypes\n" if ($nameDebug);
+		}
+
+		$count = 0;
 		foreach my $name (@names) {
-		    # my $localDebug = 0;
+		    my $localDebug = 0 || $nameDebug || $nestClassDebug;
 		    my $typestring = $types[$count++];
+		    my $rawname = $name;
 
 		    print "NAME IS $name\n" if ($localDebug);
 		    print "CURNAME IS $curname\n" if ($localDebug);
@@ -4156,14 +4767,22 @@ print "DEC ($name / $typestring): $declaration\n" if ($localDebug);
 		    $cmpname =~ s/:$//so;
 		    $cmpcurname =~ s/:$//so;
 		    if (!length($name)) { next; }
+		    my $extra_needs_setup = 0;
+
 			print "Got $name ($curname)\n" if ($localDebug);
 
 			my $extra = undef;
 
 			if ($typestring eq $curtype && ($cmpname eq $cmpcurname || !length($curname))) {
 				print "$curtype = $typestring\n" if ($localDebug);
+				# $HeaderDoc::ignore_apiuid_errors = 1;
+				# my $junk = $curObj->apirefSetup();
+				# $HeaderDoc::ignore_apiuid_errors = 0;
+
 				$extra = $curObj;
 # print "E=C\n$extra\n$curObj\n";
+
+				push(@linkobjs, \$extra);
 				if ($blockmode) {
 					$blockDec .= $declaration;
 					print "SPDF[1]\n" if ($hangDebug);
@@ -4173,14 +4792,16 @@ print "DEC ($name / $typestring): $declaration\n" if ($localDebug);
 					# $declaration = $curObj->declaration() . $declaration;
 				}
 			} else {
+			    $extra_needs_setup = 1;
 				print "NAME IS $name\n" if ($localDebug);
 			    if ($curtype eq "function" && $posstypes =~ /function/o) {
 				$curtype = "UNKNOWN";
 print "setting curtype to UNKNOWN\n" if ($localDebug);
 			    }
 			    if ($typestring eq $outertype || !$HeaderDoc::outerNamesOnly) {
-				if ($typestring =~ /^(class|\@class|\@interface|\@protocol)/ || $inClass) {
+				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module)/ || $inClass) && !$inTypedef) {
                                         print "blockParse returned class\n" if ($localDebug);
+					print "RAWDEC: $declaration\n" if ($localDebug);
 					$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $filename, $inputCounter+$blockOffset, $HeaderDoc::sublang);
 					if ($classType eq "intf") {
 						$extra = HeaderDoc::ObjCProtocol->new();
@@ -4191,9 +4812,10 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					} else {
 						$extra = HeaderDoc::CPPClass->new();
 						if ($inInterface || $typestring =~ /typedef/) {
+							# cluck "Setting isCOMInterface -> 1 ($inInterface, $typestring)\n";
 							$inInterface = 0;
 							$extra->isCOMInterface(1);
-							$extra->tocTitlePrefix('COM Interface:');
+							$extra->tocTitlePrefix('COM&nbsp;Interface:');
 						}
 					}
 					if ($typestring =~ /typedef/) {
@@ -4210,6 +4832,8 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					my $superclassfieldname = "Superclass";
 					if ($class =~ /HeaderDoc::ObjCCategory/) {
 						$superclassfieldname = "Extends&nbsp;Class";
+					} elsif ($class =~ /HeaderDoc::ObjCProtocol/) {
+						$superclassfieldname = "Extends&nbsp;Protocol";
 					}
 					if (length($superclass) && (!($extra->checkShortLongAttributes($superclassfieldname))) && !$extra->CClass()) {
 						$extra->attribute($superclassfieldname, $superclass, 0);
@@ -4235,8 +4859,13 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 						# $headerObject->addToClasses($extra);
 					# }
 
-				} elsif ($typestring =~ /^$typedefname/ && length($typedefname)) {
+				} elsif (($typestring =~ /^$typedefname/ && length($typedefname)) || $typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/) {
 					print "blockParse returned $typedefname\n" if ($localDebug);
+					if ($localDebug) {
+						foreach my $field (@fields) {
+							print "FIELD $field\n";
+						}
+					}
 					$extra = HeaderDoc::Typedef->new;
 					$extra->group($HeaderDoc::globalGroup);
                                         $extra->filename($filename);
@@ -4284,6 +4913,17 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					if ($curtype eq "UNKNOWN") {
 						$extra->processComment(\@fields);
 					}
+				} elsif ($typestring =~ /^property/o) {
+					$varIsConstant = 0;
+					print "blockParse returned property\n" if ($localDebug);
+					$extra = HeaderDoc::Var->new;
+					$extra->group($HeaderDoc::globalGroup);
+                                       	$extra->filename($filename);
+					$extra->linenum($inputCounter+$blockOffset);
+					$extra->isProperty(1);
+					if ($curtype eq "UNKNOWN") {
+						$extra->processComment(\@fields);
+					}
 				} elsif ($typestring =~ /^constant/o) {
 					if ($declaration =~ /\s+const\s+/o) {
 						$varIsConstant = 1;
@@ -4308,7 +4948,7 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					}
 				} elsif ($typestring =~ /^(function|method|operator|ftmplt)/o) {
 					print "blockParse returned function or method\n" if ($localDebug);
-					if ($method) {
+					if ($typestring =~ /method/) {
 						$extra = HeaderDoc::Method->new;
 						if (length($functionGroup)) {
 							$extra->group($functionGroup);
@@ -4338,12 +4978,38 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					}
 				} else {
 					my $linenum = $inputCounter + $blockOffset;
-					warn("$filename:$linenum:Unknown keyword $typestring in block-parsed declaration\n");
+					warn("$filename:$linenum: warning: Unknown keyword $typestring in block-parsed declaration\n");
 				}
 			    } else {
 				print "Dropping alternate name\n" if ($localDebug);
 			    }
 			}
+
+			# print "CHECKING TYPE: ";
+			if ($extra) {
+				if ($matching_declaration) {
+					# print "$name: YES ($extra)\n";
+					$extra->suppressChildren(0);
+				} else {
+					# print "$name: NO ($extra)\n";
+					$extra->suppressChildren(1);
+				}
+			}
+
+			# print "CHECKING NAME: ";
+			# if ($extra && ($rawname eq $docname) && (!$explicit_name_canonical || !$matching_declaration )) {
+				# print "NAME: $rawname DOCNAME: $docname EXPLICIT: $explicit_name_canonical CURTYPE: $curtype TYPESTRING: $typestring MATCHING: $matching_declaration\n";
+				# # $extra->appleRefIsDoc(1);
+				# print "YES\n";
+			# } else {
+				# if ($extra) {
+					# # $extra->appleRefIsDoc(0);
+					# # $extra->wipeUIDCache();
+					# # $extra->apirefSetup(1);
+					# print "NO: $docname != $rawname \n";
+				# }
+			# }
+
 			# print "HERE\n";
 			if ($hangDebug) { print "Point NEWB\n"; }
 			if ($curtype eq "UNKNOWN" && $extra) {
@@ -4351,11 +5017,22 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 				bless($orig_parsetree_ref, "HeaderDoc::ParseTree");
 				my $pt = ${$orig_parsetree_ref};
 				$curObj = $extra;
+
+				$HeaderDoc::ignore_apiuid_errors = 2;
+
+				# my $oldisdoc = $curObj->appleRefIsDoc();
+				# $curObj->appleRefIsDoc(1);
+				# my $junk = $curObj->apirefSetup();
+				# $curObj->appleRefIsDoc($oldisdoc);
+
+				$HeaderDoc::ignore_apiuid_errors = 0;
+
 				$pt->addAPIOwner($extra);
 				$curObj->parseTree($orig_parsetree_ref);
 			}
 			if ($extra) {
 				print "Processing \"extra\" ($extra).\n" if ($localDebug);
+				print "EXTRANAME: ".$name."\n" if ($localDebug);
 				if ($bpavail && length($bpavail)) {
 					$extra->availability($bpavail);
 				}
@@ -4369,6 +5046,7 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 				my $extraclass = ref($extra) || $extra;
 				my $abstract = $curObj->abstract();
 				my $discussion = $curObj->discussion();
+				print "OLD DISCUSSION: $discussion\n" if ($nameDebug);
 				my $pridec = $curObj->privateDeclaration();
 				$extra->privateDeclaration($pridec);
 
@@ -4396,7 +5074,7 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					} elsif ($altDiscussionRef) {
 						my @altDiscEntries = @{$altDiscussionRef};
 						foreach my $field (@altDiscEntries) {
-						    my ($dname, $ddisc) = &getAPINameAndDisc($field);
+						    my ($dname, $ddisc, $namedisc) = &getAPINameAndDisc($field);
 						    if ($name eq $dname) {
 						    	$discussion = $ddisc;
 						    }
@@ -4476,7 +5154,8 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 							my $simpleTDcontents = "";
 							my $bpavail = "";
 							my $bogusblockoffset;
-							($foo, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset) = &blockParse($filename, $extra->linenum(), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+							my $conformsToList; # throw this away here.
+							($foo, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset, $conformsToList) = &blockParse($filename, $extra->linenum(), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
 						}
 						if ($ppDebug) {
 							print "NAME: $name\n";
@@ -4496,7 +5175,7 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 						} elsif (!length($returntype)) {
 							$returntype .= " $name";
 							if ($name !~ /\.\.\./) {
-								$name = "anonymous$name";
+								$name = ""; # WAS anonymous$name, which broke parameter checking
 							}
 						}
 						print "NM: $name RT $returntype\n" if ($ppDebug);
@@ -4506,28 +5185,73 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 						$extra->addParsedParameter($param);
 					    }
 					}
-				} else {
+				} elsif ($extraclass eq "HeaderDoc::Method") {
 					# we're a method
 					$extra->returntype($returntype);
 					my @newpps = $parseTree->objCparsedParams();
+					# print "PPLIST for $name:\n";
 					foreach my $newpp (@newpps) {
+						# print "Parsed param: ".$newpp->{NAME}."\n";
 						$extra->addParsedParameter($newpp);
 					}
+					# print "END PPLIST:\n";
+					# $extra->dbprint();
 				}
-				my $extradirty = 0;
+				if ($extra->{CLASS} ne "HeaderDoc::PDefine" && $blockmode == 2) {
+					# Bail out of block mode if something other than a #define appears.
+					my $linenum = $inputCounter + $blockOffset;
+
+					warn("$filename:$linenum: warning: Unterminated \@defineblock detected.\n");
+
+					$blockmode = 0;
+
+					print "\$extra->{CLASS}=\"".$extra->{CLASS}."\"\n" if ($localDebug);
+
+					# Now try to back off a bit so that we can get the previous HeaderDoc
+					# block, if any.  If we're just reprocessing existing parse trees,
+					# this isn't needed.
+					if (!$subparse) {
+						my $poplines = 0;
+						print "Previous line number was ".($previousInputCounter + $blockOffset).".\n" if ($localDebug);
+						$inputCounter = $previousInputCounter;
+						while ($inputCounter >= 1) {
+							my $checkline = $inputLines[$inputCounter];
+							print "IC: $inputCounter CL: $checkline\n" if ($localDebug);
+
+							if ($checkline =~ /\/\*\!/) { last; }
+							if ($checkline =~ /\#\s*define/) { last; }
+							$inputCounter--;
+							$poplines++;
+						}
+						$inputCounter--;
+						$curObj->dropParsedParameter();
+						# $curObj->dbprint();
+
+						$bail = 1;
+						last;
+					}
+				}
 				if (length($simpleTDcontents)) {
 					$extra->typedefContents($simpleTDcontents);
 				}
-				print "Point B3\n" if ($hangDebug);
+				print "Point B3\n" if ($hangDebug || $nameDebug);
 				if (length($preAtPart)) {
 					print "preAtPart: $preAtPart\n" if ($localDebug);
-					$extra->discussion($preAtPart);
+					if ($blockmode == 2) {
+						$extra->blockDiscussion($preAtPart);
+					} else {
+						$extra->discussion($preAtPart);
+					}
 				} elsif ($extra != $curObj) {
 					# Otherwise this would be bad....
-					$extra->discussion($discussion);
+					if ($blockmode == 2) {
+						$extra->blockDiscussion($discussion);
+					} else {
+						$extra->discussion($discussion);
+					}
 
 				}
-				print "Point B4\n" if ($hangDebug);
+				print "Point B4\n" if ($hangDebug || $nameDebug);
 				$extra->abstract($abstract);
 				if (length($value)) { $extra->value($value); }
 				if ($extra != $curObj || !length($curObj->name())) {
@@ -4536,17 +5260,21 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 				print "NAME IS $name\n" if ($localDebug);
 				$extra->rawname($name);
 				# my $namestring = $curObj->name();
-				# if ($explicit_name && 0) {
+				# if ($explicit_name_differs && 0) {
 					# $extra->name("$name ($namestring)");
 				# } else {
 					# $extra->name($name);
 				# }
 				print "Point B5\n" if ($hangDebug);
-				$HeaderDoc::ignore_apiuid_errors = 1;
+				# $HeaderDoc::ignore_apiuid_errors = 1;
 				$extra->name($name);
-				my $junk = $extra->apirefSetup();
-				$HeaderDoc::ignore_apiuid_errors = 0;
+				# my $junk = $extra->apirefSetup();
+				# $HeaderDoc::ignore_apiuid_errors = 0;
 
+				# Set up Objective-C "Conforming To" list.
+				if ($extra =~ /HeaderDoc::ObjC/) {
+					$extra->conformsToList($conformsToList)
+				}
 
 				# print "NAMES: \"".$curObj->name()."\" & \"".$extra->name()."\"\n";
 				# print "ADDYS: ".$curObj." & ".$extra."\n";
@@ -4554,13 +5282,11 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 				if ($extra != $curObj) {
 				    my @params = $curObj->taggedParameters();
 				    foreach my $param (@params) {
-					$extradirty = 1;
 					# print "CONSTANT $param\n";
 					$extra->addTaggedParameter($param->clone());
 				    }
 				    my @constants = $curObj->constants();
 				    foreach my $constant (@constants) {
-					$extradirty = 1;
 					# print "CONSTANT $constant\n";
 					if ($extra->can("addToConstants")) {
 					    $extra->addToConstants($constant->clone());
@@ -4575,27 +5301,16 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 				    if (length($curObj->name())) {
 	# my $a = $extra->rawname(); my $b = $curObj->rawname(); my $c = $curObj->name();
 	# print "EXTRA RAWNAME: $a\nCUROBJ RAWNAME: $b\nCUROBJ NAME: $c\n";
-					# change whitespace to ctrl-d to
-					# allow multi-word names.
-					my $ern = $extra->rawname();
-					if ($ern =~ /\s/o && $localDebug) {
-						print "changed space to ctrl-d\n";
-						print "ref is ".$extra->apiuid()."\n";
-					}
-					$ern =~ s/\s/\cD/sgo;
-					my $crn = $curObj->rawname();
-					if ($crn =~ /\s/o && $localDebug) {
-						print "changed space to ctrl-d\n";
-						print "ref is ".$curObj->apiuid()."\n";
-					}
-					$crn =~ s/\s/\cD/sgo;
-					$curObj->attributelist("See Also", $ern." ".$extra->apiuid());
-					$extra->attributelist("See Also", $crn." ".$curObj->apiuid());
+					push(@linkobjs, \$extra);
+					# $curObj->attributelist("See Also", $ern." ".$extra->apiuid());
+					# $extra->attributelist("See Also", $crn." ".$curObj->apiuid());
 				    }
 				}
 				print "Point B7 TS = $typestring\n" if ($hangDebug);
 				if (ref($apiOwner) ne "HeaderDoc::Header") {
+				    if (!$apiOwner->isCOMInterface()) {
 					$extra->accessControl($cppAccessControlState); # @@@ FIXME DAG CHECK FOR OBJC
+				    }
 				}
 				if ($extra != $curObj && $curtype ne "UNKNOWN" && $curObj->can("fields") && $extra->can("fields")) {
 					my @fields = $curObj->fields();
@@ -4604,7 +5319,6 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 					foreach my $field (@fields) {
 						bless($field, "HeaderDoc::MinorAPIElement");
 						my $newfield = $field->clone();
-						$extradirty = 1;
 						$extra->addField($newfield);
 						# print "Added field ".$newfield->name()." to $extra ".$extra->name()."\n";
 					}
@@ -4619,15 +5333,17 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 
 		# warn("Added ".$extra->name()." ".$extra->apiuid().".\n");
 
+				# print "ITD: $inTypedef\n";
 				print "B8X blockmode=$blockmode ts=$typestring\n" if ($localDebug || $hangDebug);
-				if ($typestring =~ /^(class|\@class|\@interface|\@protocol)/ || $inClass) {
+				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module)/ || $inClass) && !$inTypedef) {
 					print "ITSACLASS!\n" if ($localDebug);
 					$extra->declaration($declaration);
 					$extra->declarationInHTML($declaration);
 
-					if (!$subparse || ($extra != $curObj)) {
+					# if (!$subparse || ($extra != $curObj)) {
 					    # my $localDebug = 1;
 						print "ADDING TO CLASSES/PROTOCOLS/*\n" if ($localDebug);
+					print "RAWDEC: $declaration\n" if ($localDebug);
 						$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $filename, $inputCounter+$blockOffset, $HeaderDoc::sublang);
 						if ($classType eq "intf") {
 							push (@classObjects, $extra);
@@ -4652,8 +5368,8 @@ print "setting curtype to UNKNOWN\n" if ($localDebug);
 								# print "ADDING CLASS\n";
 							}
 						}
-					}
-				} elsif ($typestring =~ /$typedefname/ && length($typedefname)) {
+					# }
+				} elsif (($typestring =~ /$typedefname/ && length($typedefname)) || ($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/)) {
 	                		if (length($declaration)) {
                         			$extra->setTypedefDeclaration($declaration);
 					}
@@ -4694,26 +5410,33 @@ print "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 					print "END SPDF[3]\n" if ($hangDebug);
 					if (($blockmode != 2) || ($extra != $curObj)) { $headerObject->addToPDefines($extra); }
 				} elsif ($typestring =~ /(function|method|operator|ftmplt)/o) {
-					if ($method) {
+					if ($typestring =~ /method/) {
 						$extra->setMethodDeclaration($declaration);
-						$HeaderDoc::ignore_apiuid_errors = 1;
-						my $junk = $extra->apirefSetup(1);
-						$extradirty = 0;
-						$HeaderDoc::ignore_apiuid_errors = 0;
+						# $HeaderDoc::ignore_apiuid_errors = 1;
+						# my $junk = $extra->apirefSetup(1);
+						# $HeaderDoc::ignore_apiuid_errors = 0;
 						if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToMethods($extra); }
 					} else {
 						print "SFD\n" if ($hangDebug);
 						$extra->setFunctionDeclaration($declaration);
 						print "END SFD\n" if ($hangDebug);
-						$HeaderDoc::ignore_apiuid_errors = 1;
-						my $junk = $extra->apirefSetup(1);
-						$extradirty = 0;
-						$HeaderDoc::ignore_apiuid_errors = 0;
+						# $HeaderDoc::ignore_apiuid_errors = 1;
+						# my $junk = $extra->apirefSetup(1);
+						# $HeaderDoc::ignore_apiuid_errors = 0;
 						if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToFunctions($extra); }
 					}
 					if ($typestring eq "ftmplt") {
 						$extra->isTemplate(1);
 					}
+				} elsif ($typestring =~ /^property/o) {
+					$varIsConstant = 0;
+					$extra->isProperty(1);
+					$extra->declaration($declaration);
+					$extra->setVarDeclaration($declaration);
+					if (ref($apiOwner) ne "HeaderDoc::Header") {
+						$extra->accessControl($cppAccessControlState);
+					}
+					if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToProps($extra); }
 				} elsif ($typestring =~ /constant/o) {
 					$extra->declaration($declaration);
 					if ($varIsConstant) {
@@ -4735,12 +5458,14 @@ print "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 					}
 				} else {
 					my $linenum = $inputCounter + $blockOffset;
-					warn("$filename:$linenum:Unknown typestring $typestring returned by blockParse\n");
+					warn("$filename:$linenum: warning: Unknown typestring $typestring returned by blockParse\n");
 				}
 				print "B9 blockmode=$blockmode ts=$typestring\n" if ($localDebug || $hangDebug);
+		    print "DOC REF: ".$extra->appleRefIsDoc()."\n" if ($nameDebug);
 				$extra->checkDeclaration();
 				$HeaderDoc::ignore_apiuid_errors = 1;
-				my $junk = $extra->apirefSetup($extradirty);
+				my $junk = $extra->apirefSetup(1);
+				print "APIREF (".$extra->name()."): ".$extra->apiref()."\n" if ($nameDebug);
 				$HeaderDoc::ignore_apiuid_errors = 0;
 			}
 		}
@@ -4749,27 +5474,34 @@ print "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 			print "inputCounter is $inputCounter, #inputLines is $nlines\n";
 		}
 
-		while ($inputLines[$inputCounter] !~ /\S/o && ($inputCounter <= $nlines)) { $inputCounter++; }
-		if ($hangDebug) { print "Point D\n"; }
-		if ($curtype eq "UNKNOWN") { $curtype = $outertype; }
-		if ((($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/)) && (($inputCounter > $nlines) || warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockParse:$outertype", "18a"))) {
-			warn "No matching declaration found.  Last name was $curname\n";
-			warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
+		if (!$bail) {
+			while ($inputLines[$inputCounter] !~ /\S/o && ($inputCounter <= $nlines)) { $inputCounter++; }
+			if ($hangDebug) { print "Point D\n"; }
+			if ($curtype eq "UNKNOWN") { $curtype = $outertype; }
+			if ((($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && (($inputCounter > $nlines) || warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockParse:$outertype", "18a"))) {
+				warn "No matching declaration found.  Last name was $curname\n";
+				warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
+				last;
+			}
+			if ($hangDebug) { print "Point E\n"; }
+			if ($blockmode) {
+				warn "next line: ".$inputLines[$inputCounter]."\n" if ($hangDebug);
+				print "BLOCKMODE -> 2\n" if ($localDebug);
+				$blockmode = 2;
+				$HeaderDoc::ignore_apiuid_errors = 1;
+				if (warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockMode:$outertype", "18a") == 1) {
+					# print "OT: $outertype\n";
+					$blockmode = 0;
+					print "BLOCKMODE -> 0\n" if ($localDebug);
+					warn "Block Mode Ending\n" if ($hangDebug);
+				}
+				$HeaderDoc::ignore_apiuid_errors = 0;
+			}
+			print "PTCT: $posstypes =? $curtype\n" if ($localDebug || $blockDebug);
+			$previousInputCounter = $inputCounter;
+		} else {
 			last;
 		}
-		if ($hangDebug) { print "Point E\n"; }
-		if ($blockmode) {
-			warn "next line: ".$inputLines[$inputCounter]."\n" if ($hangDebug);
-			$blockmode = 2;
-			$HeaderDoc::ignore_apiuid_errors = 1;
-			if (warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockMode:$outertype", "18a") == 1) {
-				# print "OT: $outertype\n";
-				$blockmode = 0;
-				warn "Block Mode Ending\n" if ($hangDebug);
-			}
-			$HeaderDoc::ignore_apiuid_errors = 0;
-		}
-		print "PTCT: $posstypes =? $curtype\n" if ($localDebug || $blockDebug);
 	}
 	if (length($blockDec)) {
 		$curObj->declaration($blockDec);
@@ -4787,15 +5519,84 @@ print "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 	if ($subparse) {
 		$HeaderDoc::enable_cpp = $old_enable_cpp;
 	}
-	return ($inputCounter, $cppAccessControlState, $classType, \@classObjects, \@categoryObjects, $blockOffset);
+	objlink(\@linkobjs);
+	return ($inputCounter, $cppAccessControlState, $classType, \@classObjects, \@categoryObjects, $blockOffset, $numcurlybraces);
 }
 
-sub cpp_add($)
+sub objlink
+{
+    my $listref = shift;
+    my @list = @{$listref};
+    my @reflist = ();
+    my @masterreflist = ();
+    my $localDebug = 0;
+    my $masterobj = undef;
+
+    foreach my $objref (@list) {
+	my $obj = ${$objref};
+	bless($obj, "HeaderDoc::HeaderElement");
+	bless($obj, $obj->{CLASS});
+
+	if ($obj =~ /HeaderDoc::PDefine/) {
+		if ($obj->isBlock) {
+			$masterobj = $obj;
+		}
+	}
+	print "Obj: $obj\n" if ($localDebug);
+    }
+    print "MO: $masterobj\n" if ($localDebug);
+
+    foreach my $objref (@list) {
+	my $obj = ${$objref};
+	# change whitespace to ctrl-d to
+	# allow multi-word names.
+	my $ern = $obj->rawname();
+	if ($ern =~ /\s/o && $localDebug) {
+		print "changed space to ctrl-d\n";
+		print "ref is ".$obj->apiuid()."\n";
+	}
+	$ern =~ s/\s/\cD/sgo;
+	if ($obj != $masterobj) {
+		push(@reflist, $ern." ".$obj->apiuid());
+	}
+    }
+    if ($masterobj) {
+	my $ern = $masterobj->rawname();
+	if ($ern =~ /\s/o && $localDebug) {
+		print "changed space to ctrl-d\n";
+		print "ref is ".$masterobj->apiuid()."\n";
+	}
+	$ern =~ s/\s/\cD/sgo;
+	@masterreflist = @reflist;
+	@reflist = ();
+	push(@reflist, $ern." ".$masterobj->apiuid());
+	foreach my $apiref (@masterreflist) {
+		$masterobj->attributelist("See Also", $apiref);
+	}
+    }
+    foreach my $objref (@list) {
+	my $obj = ${$objref};
+	if ($obj != $masterobj) {
+	    my $uid = $obj->apiuid();
+	    foreach my $apiref (@reflist) {
+		my $rawref = $apiref;
+		$rawref =~ s/.* //s;
+		if ($rawref ne $uid) {
+			$obj->attributelist("See Also", $apiref);
+		}
+	    }
+	}
+    }
+}
+
+sub cpp_add($$)
 {
     my $parseTree = shift;
     my $string = $parseTree->textTree($HeaderDoc::lang, $HeaderDoc::sublang);
     my $localDebug = 0;
+    my $dropdeclaration = shift;
 
+    $string =~ s/\n$//s;
     my $slstring = $string;
     $slstring =~ s/\\\n/ /sg;
 
@@ -4803,7 +5604,18 @@ sub cpp_add($)
     print "SLSTRING: $slstring\n" if ($localDebug || $cppDebug);
 
     # if ($slstring =~ s/^\s*#define\s+(\w+)\(//s) {
-    if ($slstring =~ s/^(?:\/\*.*?\*\/)?\s*#define\s+((?:\w|::|->)+)(\s|\(|\{)//s) {
+    if ($dropdeclaration && $slstring =~ s/^\s*#define\s+(\w+)(\s|$)//s) {
+	my $name = $1;
+
+	print "Dropping declaration \"$name\"." if ($localDebug || $cppDebug || 1);
+
+	# Deleting token by force.
+	if ($CPP_HASH{$name}) {
+		warn "Multiple definitions for $name\n" if ($cppDebug || $warnAllMultipleDefinitions);
+	} else {
+		$CPP_HASH{$name} = "";
+	}
+    } elsif ($slstring =~ s/^(?:\/\*.*?\*\/)?\s*#define\s+((?:\w|::|->)+)(\s|\(|\{)//s) {
 	my $name = $1;
 	my $namequot = quote($name);
 	# my $firsttoken = $2;
@@ -4825,6 +5637,7 @@ sub cpp_add($)
 	my $inChar = 0; my $inString = 0; my $inComment = 0; my $inSLC = 0;
 	my $inParen = 0;
 	foreach my $token (@tokens) {
+	    if (!$token) { next; };
 	    print "TOK: $token LAS: $lasttoken ICH: $inChar ICO: $inComment ISL: $inSLC IST: $inString\n" if ($localDebug || $cppDebug);
 	    if (!$fpdone) {
 		if (!$inParen && $token =~ /\w/) {
@@ -4875,6 +5688,7 @@ sub cpp_add($)
 		}
 		$firstpart .= $token;
 	    } else {
+		print "TAILTOKEN: \"$token\"\n" if ($cppDebug);
 		if ($token eq "//" && !$inComment) {
 			$inSLC = 1;
 			$token = "/*";
@@ -4903,19 +5717,22 @@ sub cpp_add($)
 		my $definition = "";
 
 		foreach my $line (@lines) {
-			$line =~ s/\\\s*$//s;
-			$line .= "\n";
-			$definition .= $line;
+			if ($line) {
+				$line =~ s/\\\s*$//s;
+				$line .= "\n";
+				$definition .= $line;
+			}
 		}
-		$lastline .= "\n";
+		# $lastline .= "\n";
+		print "LL: \"$lastline\"\n" if ($cppDebug);
 
 		push(@lines, $lastline);
-		$definition .= "$lastline\n";
+		$definition .= "$lastline";
 
 		print "ADDING NAME=\"$name\" ARGS=\"$firstpart\" DEFINITION=\"$definition\"\n" if ($cppDebug);
 
-		if ($CPP_HASH{$name}) {
-			warn "WARNING: Multiple definitions for $name\n" if (($cppDebug || $warnAllMultipleDefinitions) && $HeaderDoc::enable_cpp);
+		if (defined $CPP_HASH{$name}) {
+			warn "Multiple definitions for $name\n" if (($cppDebug || $warnAllMultipleDefinitions) && $HeaderDoc::enable_cpp);
 		} else {
 			$CPP_HASH{$name} = $definition;
 			if (length($firstpart)) {
@@ -4926,16 +5743,24 @@ sub cpp_add($)
 		# This is defining a function-like macro to wipe.
 		# warn("Unable to process #define macro \"$name\".\n");
 		if ($CPP_HASH{$name}) {
-			warn "WARNING: Multiple definitions for $name\n" if ($cppDebug || $warnAllMultipleDefinitions);
+			warn "Multiple definitions for $name\n" if ($cppDebug || $warnAllMultipleDefinitions);
 		} else {
 			$CPP_HASH{$name} = "";
 			if (length($firstpart)) {
-				$CPP_ARG_HASH{$name} = "";
+				$CPP_ARG_HASH{$name} = $firstpart;
 			}
 		}
 	}
+    } elsif ($slstring =~ s/^\s*#define\s+(\w+)\s*$//s) {
+	my $name = $1;
+	# This is defining a single token to delete.
+	if ($CPP_HASH{$name}) {
+		warn "Multiple definitions for $name\n" if ($cppDebug || $warnAllMultipleDefinitions);
+	} else {
+		$CPP_HASH{$name} = "";
+	}
     } else {
-	warn "WARNING: CAN'T HANDLE \"$string\".\n" if ($HeaderDoc::enable_cpp);
+	warn "CAN'T HANDLE \"$string\".\n" if ($HeaderDoc::enable_cpp);
     }
 }
 
@@ -4975,7 +5800,8 @@ sub cpp_preprocess
 	my %arghash = %{$arghashref};
 
 	my $altpart = $hash{$part};
-	if ($altpart && length($altpart)) {
+	my $exists = defined $hash{$part};
+	if ($exists) {
 		print "EXTHASH FOUND NAME=\"$part\" REPLACEMENT=\"$altpart\"\n" if ($cppDebug);
 		if ($arghash{$part}) { $hasargs = 1; }
 		print "HASARGS: $hasargs\n" if ($cppDebug);
@@ -4984,9 +5810,10 @@ sub cpp_preprocess
       }
 
       my $altpart = $CPP_HASH{$part};
-      if ($altpart && length($altpart)) {
+      my $exists = defined $CPP_HASH{$part};
+      if ($exists) {
 	print "FOUND NAME=\"$part\" REPLACEMENT=\"$altpart\"\n" if ($cppDebug);
-	if ($CPP_ARG_HASH{$part}) { $hasargs = 1; }
+	if (defined($CPP_ARG_HASH{$part})) { $hasargs = 1; }
 	print "HASARGS: $hasargs\n" if ($cppDebug);
 	return ($altpart, $hasargs, $CPP_ARG_HASH{$part});
       }
@@ -5054,6 +5881,7 @@ sub cpp_argparse
 	} else {
 		print "CALLING ON ".$arglist[$count]."\n" if ($cppDebug);
 		$arghash{$part} = cpp_subparse($arglist[$count]); #, $cpphashref, $cpparghashref);
+		print "PART \"$part\" VALUE: \"".$arghash{$part}."\"\n" if ($cppDebug)
 	}
 	print "POINTS TO $arghash{$part}\n" if ($cppDebug);
 	$count++;
@@ -5061,26 +5889,56 @@ sub cpp_argparse
 
     my $retstring = "";
     my @ntparts = split(/(\W)/, $newtoken);
+    my $lastpart = "";
+    my $poundcount = 0;
     foreach my $part (@ntparts) {
 	if (length($part)) {
 		print "PART WAS $part\n" if ($cppDebug);
-		if (defined($arghash{$part})) {
-			$retstring .= $arghash{$part};
+		if ($part eq "#") {
+			$poundcount++;
 		} else {
-			$retstring .= $part;
+			my $curpart = "";
+			if (defined($arghash{$part})) {
+				# 1 pound means stringify the next argument
+				print "Inserting argument (".$arghash{$part}.") for $part\n" if ($cppDebug);
+				$curpart = (($poundcount == 1) ? "\"" : "").$arghash{$part}.(($poundcount == 1) ? "\"" : "");
+			} else {
+				# 1 pound means stringify the next argument
+				print "No arguments found for $part\n" if ($cppDebug);
+				$curpart = (($poundcount == 1) ? "\"" : "").$part.(($poundcount == 1) ? "\"" : "");
+			}
+			if ($poundcount < 2) {
+				# poundcount of 1 means just stringify, 0 means just insert the token.
+				# Either way, commit the previous token and set the new last token value
+				# to the current token.
+				$retstring .= $lastpart;
+				$lastpart = $curpart;
+			} else {
+				# 2 means concatenate with the last token
+				# Concatenate this token onto the last token for further processing.
+				$lastpart .= $curpart;
+			}
+			$poundcount = 0;
 		}
 	}
     }
+    $retstring .= $lastpart;
     return $retstring;
 }
 
-sub cpp_subparse($$)
+sub cpp_subparse($)
 {
     my $tree = shift;
     # my $hashlistref = shift;
     # my $arghashlistref = shift;
 
     my ($newtoken, $has_args) = cpp_preprocess($tree->token(), $tree->linenum()); #, $hashlistref, $arghashlistref);
+
+    if ($cppDebug) {
+	print "SUBPARSE: ARGS: $has_args\n";
+	$tree->dbprint();
+	print "END SUBPARSE DUMP\n";
+    }
     if ($has_args) {
 	my $name = $tree->token();
 	my $paren = $tree->next();
@@ -5088,21 +5946,38 @@ sub cpp_subparse($$)
 	if ($paren->token() =~ /\(/) {
 		# Recurse.
 		my @parts = ();
-		my $fc = $paren->firstchild;
+		my $fc = $paren->firstchild();
 		my $subparsetop = HeaderDoc::ParseTree->new();
 		my $subparsecur = $subparsetop;
-		while ($fc && $fc->next) { # drop closing ')'
-			if ($fc == ',') {
+		while ($fc) { # drop closing ')'
+			my $fct = $fc->token();
+			print "FCT: $fct\n" if ($cppDebug);
+			if ($fct eq ',') {
+				print "PUSH\n" if ($cppDebug);
 				push(@parts, $subparsetop);
 				$subparsetop = $subparsecur = HeaderDoc::ParseTree->new();
 			} else {
+				print "NEXT\n" if ($cppDebug);
 				$subparsecur = $subparsecur->next(HeaderDoc::ParseTree->new());
-				$subparsecur->token($fc);
+				$subparsecur->token($fct);
 			}
+			$fc = $fc->next();
 		}
 		push(@parts, $subparsetop);
 
-		cpp_argparse($name, $tree->linenum(), \@parts); #, $hashlistref, $arghashlistref);
+		print "CALLING ARGPARSE FROM cpp_subparse().\n" if ($cppDebug);
+		my $ap = cpp_argparse($name, $tree->linenum(), \@parts); #, $hashlistref, $arghashlistref);
+		print "Changed token from $tree (\"".$tree->token."\") to \"$ap\"\n" if ($cppDebug);
+		$tree->token($ap);
+		$paren->token("");
+		$paren->firstchild(undef);
+		if ($paren->next->token ne ")") {
+			warn("Tree structure problem (cpp_subparse point 1).  Please file a bug.\n");
+		} else {
+			$paren->next->token("");
+		}
+	} else {
+		warn("Tree structure problem (cpp_subparse point 2).  Please file a bug.\n");
 	}
     } else {
 	$tree->token($newtoken);
@@ -5131,9 +6006,11 @@ sub cppsupers
     my $cursuper = "";
     my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $sofunction,
 	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	$enumname,
 	$typedefname, $varname, $constname, $structisbrace, $macronameref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp)
-		= parseTokens($lang, $sublang);
+	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	$propname) = parseTokens($lang, $sublang);
+# print "PROPNAME4: $propname\n";
 
     my $inTemplate = 0;
 

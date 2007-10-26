@@ -59,4 +59,4 @@ dsstatus nistore_vital_statistics(dsstore *s, u_int32_t dsid, u_int32_t *vers, u
 
 dsrecord *nistore_statistics(dsstore *s);
 
-#endif __NISTORE_H__
+#endif /* __NISTORE_H__ */

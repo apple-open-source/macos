@@ -105,14 +105,6 @@ SOURCE=.\gzio.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\infblock.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\infcodes.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\inffast.c
 # End Source File
 # Begin Source File
@@ -122,10 +114,6 @@ SOURCE=.\inflate.c
 # Begin Source File
 
 SOURCE=.\inftrees.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\infutil.c
 # End Source File
 # Begin Source File
 
@@ -145,15 +133,11 @@ SOURCE=.\zutil.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl;fi;fd"
 # Begin Source File
 
+SOURCE=.\crc32.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\deflate.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\infblock.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\infcodes.h
 # End Source File
 # Begin Source File
 
@@ -165,11 +149,11 @@ SOURCE=.\inffixed.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\inftrees.h
+SOURCE=.\inflate.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\infutil.h
+SOURCE=.\inftrees.h
 # End Source File
 # Begin Source File
 

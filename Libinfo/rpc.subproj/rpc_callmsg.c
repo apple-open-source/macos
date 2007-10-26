@@ -79,7 +79,11 @@ xdr_callmsg(xdrs, cmsg)
 	register XDR *xdrs;
 	register struct rpc_msg *cmsg;
 {
+#ifdef __LP64__
+	int *buf;
+#else
 	register long *buf;
+#endif
 	register struct opaque_auth *oa;
 
 	if (xdrs->x_op == XDR_ENCODE) {
@@ -89,10 +93,17 @@ xdr_callmsg(xdrs, cmsg)
 		if (cmsg->rm_call.cb_verf.oa_length > MAX_AUTH_BYTES) {
 			return (FALSE);
 		}
+#ifdef __LP64__
+		buf = (int *)XDR_INLINE(xdrs, 8 * BYTES_PER_XDR_UNIT
+								 + RNDUP(cmsg->rm_call.cb_cred.oa_length)
+								 + 2 * BYTES_PER_XDR_UNIT
+								 + RNDUP(cmsg->rm_call.cb_verf.oa_length));
+#else
 		buf = (long *)XDR_INLINE(xdrs, 8 * BYTES_PER_XDR_UNIT
-			+ RNDUP(cmsg->rm_call.cb_cred.oa_length)
-			+ 2 * BYTES_PER_XDR_UNIT
-			+ RNDUP(cmsg->rm_call.cb_verf.oa_length));
+								 + RNDUP(cmsg->rm_call.cb_cred.oa_length)
+								 + 2 * BYTES_PER_XDR_UNIT
+								 + RNDUP(cmsg->rm_call.cb_verf.oa_length));
+#endif
 		if (buf != NULL) {
 			IXDR_PUT_LONG(buf, cmsg->rm_xid);
 			IXDR_PUT_ENUM(buf, cmsg->rm_direction);
@@ -111,7 +122,11 @@ xdr_callmsg(xdrs, cmsg)
 			IXDR_PUT_LONG(buf, oa->oa_length);
 			if (oa->oa_length) {
 				bcopy(oa->oa_base, (caddr_t)buf, oa->oa_length);
+#ifdef __LP64__
+				buf += RNDUP(oa->oa_length) / sizeof (int);
+#else
 				buf += RNDUP(oa->oa_length) / sizeof (long);
+#endif
 			}
 			oa = &cmsg->rm_call.cb_verf;
 			IXDR_PUT_ENUM(buf, oa->oa_flavor);
@@ -119,6 +134,7 @@ xdr_callmsg(xdrs, cmsg)
 			if (oa->oa_length) {
 				bcopy(oa->oa_base, (caddr_t)buf, oa->oa_length);
 				/* no real need....
+				* N.B. Fix this for __LP64__ if it is uncommented *
 				buf += RNDUP(oa->oa_length) / sizeof (long);
 				*/
 			}
@@ -126,7 +142,11 @@ xdr_callmsg(xdrs, cmsg)
 		}
 	}
 	if (xdrs->x_op == XDR_DECODE) {
+#ifdef __LP64__
+		buf = (int *)XDR_INLINE(xdrs, 8 * BYTES_PER_XDR_UNIT);
+#else
 		buf = (long *)XDR_INLINE(xdrs, 8 * BYTES_PER_XDR_UNIT);
+#endif
 		if (buf != NULL) {
 			cmsg->rm_xid = IXDR_GET_LONG(buf);
 			cmsg->rm_direction = IXDR_GET_ENUM(buf, enum msg_type);
@@ -151,7 +171,11 @@ xdr_callmsg(xdrs, cmsg)
 					oa->oa_base = (caddr_t)
 						mem_alloc(oa->oa_length);
 				}
+#ifdef __LP64__
+				buf = (int *)XDR_INLINE(xdrs, RNDUP(oa->oa_length));
+#else
 				buf = (long *)XDR_INLINE(xdrs, RNDUP(oa->oa_length));
+#endif
 				if (buf == NULL) {
 					if (xdr_opaque(xdrs, oa->oa_base,
 					    oa->oa_length) == FALSE) {
@@ -161,13 +185,17 @@ xdr_callmsg(xdrs, cmsg)
 					bcopy((caddr_t)buf, oa->oa_base,
 					    oa->oa_length);
 					/* no real need....
-					buf += RNDUP(oa->oa_length) /
-						sizeof (long);
+					* N.B. Fix this for __LP64__ if it is uncommented *
+					buf += RNDUP(oa->oa_length) / sizeof (long);
 					*/
 				}
 			}
 			oa = &cmsg->rm_call.cb_verf;
+#ifdef __LP64__
+			buf = (int *)XDR_INLINE(xdrs, 2 * BYTES_PER_XDR_UNIT);
+#else
 			buf = (long *)XDR_INLINE(xdrs, 2 * BYTES_PER_XDR_UNIT);
+#endif
 			if (buf == NULL) {
 				if (xdr_enum(xdrs, &oa->oa_flavor) == FALSE ||
 				    xdr_u_int(xdrs, &oa->oa_length) == FALSE) {
@@ -185,7 +213,11 @@ xdr_callmsg(xdrs, cmsg)
 					oa->oa_base = (caddr_t)
 						mem_alloc(oa->oa_length);
 				}
+#ifdef __LP64__
+				buf = (int *)XDR_INLINE(xdrs, RNDUP(oa->oa_length));
+#else
 				buf = (long *)XDR_INLINE(xdrs, RNDUP(oa->oa_length));
+#endif
 				if (buf == NULL) {
 					if (xdr_opaque(xdrs, oa->oa_base,
 					    oa->oa_length) == FALSE) {
@@ -195,8 +227,8 @@ xdr_callmsg(xdrs, cmsg)
 					bcopy((caddr_t)buf, oa->oa_base,
 					    oa->oa_length);
 					/* no real need...
-					buf += RNDUP(oa->oa_length) /
-						sizeof (long);
+					* N.B. Fix this for __LP64__ if it is uncommented *
+					buf += RNDUP(oa->oa_length) / sizeof (long);
 					*/
 				}
 			}

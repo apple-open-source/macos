@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,9 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: apache_config.c,v 1.1.2.3.8.3 2007/01/01 09:46:51 sebastian Exp $ */
+/* $Id: apache_config.c,v 1.7.2.1.2.4 2007/08/03 09:33:17 jani Exp $ */
+
+#define ZEND_INCLUDE_FULL_WINDOWS_HEADERS
 
 #include "php.h"
 #include "php_ini.h"
@@ -33,7 +35,7 @@
 #include "http_log.h"
 #include "http_main.h"
 #include "util_script.h"
-#include "http_core.h"                         
+#include "http_core.h"
 
 #ifdef PHP_AP_DEBUG
 #define phpapdebug(a) fprintf a
@@ -49,6 +51,7 @@ typedef struct {
 	char *value;
 	size_t value_len;
 	char status;
+	char htaccess;
 } php_dir_entry;
 
 static const char *real_value_hnd(cmd_parms *cmd, void *dummy, const char *name, const char *value, int status)
@@ -65,7 +68,8 @@ static const char *real_value_hnd(cmd_parms *cmd, void *dummy, const char *name,
 	e.value = apr_pstrdup(cmd->pool, value);
 	e.value_len = strlen(value);
 	e.status = status;
-	
+	e.htaccess = ((cmd->override & (RSRC_CONF|ACCESS_CONF)) == 0);
+
 	zend_hash_update(&d->config, (char *) name, strlen(name) + 1, &e, sizeof(e), NULL);
 	return NULL;
 }
@@ -168,7 +172,7 @@ void apply_config(void *dummy)
 			zend_hash_move_forward(&d->config)) {
 		zend_hash_get_current_data(&d->config, (void **) &data);
 		phpapdebug((stderr, "APPLYING (%s)(%s)\n", str, data->value));
-		if (zend_alter_ini_entry(str, str_len, data->value, data->value_len, data->status, PHP_INI_STAGE_RUNTIME) == FAILURE) {
+		if (zend_alter_ini_entry(str, str_len, data->value, data->value_len, data->status, data->htaccess?PHP_INI_STAGE_HTACCESS:PHP_INI_STAGE_ACTIVATE) == FAILURE) {
 			phpapdebug((stderr, "..FAILED\n"));
 		}	
 	}

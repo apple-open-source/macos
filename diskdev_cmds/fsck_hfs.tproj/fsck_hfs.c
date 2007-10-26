@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2000, 2002-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2000, 2002-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,19 +37,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 #include "fsck_hfs.h"
 #include "fsck_debug.h"
 #include "dfalib/CheckHFS.h"
-
-/*
- * The definition of CACHE_IOSIZE below matches the definition in SVerify1.c.
- * If you change it here, then change it there, too.  Or else put it in some
- * common header file.
- */
-#define CACHE_IOSIZE	32768
-#define CACHE_BLOCKS	128
-#define CACHE_HASHSIZE	111
 
 /*
  * These definitions are duplicated from xnu's hfs_readwrite.c, and could live
@@ -77,6 +69,7 @@ char	rebuildCatalogBtree;  /* rebuild catalog btree file */
 char	modeSetting;	/* set the mode when creating "lost+found" directory */
 int		upgrading;		/* upgrading format */
 int		lostAndFoundMode = 0; /* octal mode used when creating "lost+found" directory */
+uint64_t userCacheSize;	/* Cache size provided by the user */
 
 int	fsmodified;		/* 1 => write done to file system */
 int	fsreadfd;		/* file descriptor for reading file system */
@@ -100,14 +93,36 @@ main(argc, argv)
 	int ret;
 	extern int optind;
 	extern char *optarg;
+	char * lastChar;
 
 	if ((progname = strrchr(*argv, '/')))
 		++progname;
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "D:dfglm:npqruy")) != EOF) {
+	while ((ch = getopt(argc, argv, "c:D:dfglm:npqruy")) != EOF) {
 		switch (ch) {
+		case 'c':
+			/* Cache size to use in fsck_hfs */
+			userCacheSize = strtoull(optarg, &lastChar, 0);
+			if (*lastChar) {
+				switch (tolower(*lastChar)) {
+					case 'g':
+						userCacheSize *= 1024ULL;
+						/* fall through */
+					case 'm':
+						userCacheSize *= 1024ULL;
+						/* fall through */
+					case 'k':
+						userCacheSize *= 1024ULL;
+						break;
+					default:
+						userCacheSize = 0;
+						break;
+				};
+			}
+			break;
+
 		case 'd':
 			debug++;
 			break;
@@ -116,7 +131,7 @@ main(argc, argv)
 			/* Input value should be in hex example: -D 0x5 */
 			cur_debug_level = strtoul(optarg, NULL, 0);
 			if (cur_debug_level == 0) {
-				(void) fprintf (stderr, "%s: invalid debug development argument.  Assuming zero\n", progname);
+				(void) fplog (stderr, "%s: invalid debug development argument.  Assuming zero\n", progname);
 			}
 			break;
 
@@ -140,7 +155,7 @@ main(argc, argv)
 			lostAndFoundMode = strtol( optarg, NULL, 8 );
 			if ( lostAndFoundMode == 0 )
 			{
-				(void) fprintf(stderr, "%s: invalid mode argument \n", progname);
+				(void) fplog(stderr, "%s: invalid mode argument \n", progname);
 				usage();
 			}
 			break;
@@ -184,7 +199,7 @@ main(argc, argv)
 		(void)signal(SIGINT, catch);
 
 	if (argc < 1) {
-		(void) fprintf(stderr, "%s: missing special-device\n", progname);
+		(void) fplog(stderr, "%s: missing special-device\n", progname);
 		usage();
 	}
 
@@ -193,6 +208,18 @@ main(argc, argv)
 		ret |= checkfilesys(blockcheck(*argv++));
 
 	exit(ret);
+}
+
+int fs_fd=-1;  // fd to the root-dir of the fs we're checking (only w/lfag == 1)
+
+void
+cleanup_fs_fd(void)
+{
+    if (fs_fd >= 0) {
+	fcntl(fs_fd, F_THAW_FS, NULL);
+	close(fs_fd);
+	fs_fd = -1;
+    }
 }
 
 static int
@@ -204,7 +231,6 @@ checkfilesys(char * filesys)
 	int blockDevice_fd, canWrite;
 	char *unraw, *mntonname;
 	struct statfs *fsinfo;
-	int fs_fd=-1;  // fd to the root-dir of the fs we're checking (only w/lfag == 1)
 
 	flags = 0;
 	cdevname = filesys;
@@ -212,6 +238,13 @@ checkfilesys(char * filesys)
 	canWrite = 0;
 	unraw = NULL;
 	mntonname = NULL;
+
+	//
+	// initialize the printing/logging without actually printing anything
+	// DO NOT DELETE THIS or else you can deadlock during a live fsck
+	// when something is printed and we try to create the log file.
+	//
+	plog(""); 
 
 	if (lflag) {
 		result = getmntinfo(&fsinfo, MNT_NOWAIT);
@@ -228,7 +261,7 @@ checkfilesys(char * filesys)
 		if (mntonname != NULL) {
 		    fs_fd = open(mntonname, O_RDONLY);
 		    if (fs_fd < 0) {
-			printf("ERROR: could not open %s to freeze the volume.\n", mntonname);
+			plog("ERROR: could not open %s to freeze the volume.\n", mntonname);
 			free(mntonname);
 			free(unraw);
 			return 0;
@@ -237,7 +270,7 @@ checkfilesys(char * filesys)
 		    if (fcntl(fs_fd, F_FREEZE_FS, NULL) != 0) {
 			free(mntonname);
 			free(unraw);
-			printf("ERROR: could not freeze volume (%s)\n", strerror(errno));
+			plog("ERROR: could not freeze volume (%s)\n", strerror(errno));
 			return 0;
 		    }
 		}
@@ -255,7 +288,7 @@ checkfilesys(char * filesys)
 
 	if (preen == 0) {
 		if (hotroot && !guiControl)
-			printf("** Root file system\n");
+		    plog("** Root file system\n");
 	}
 
 	/* start with defaults for dfa back-end */
@@ -292,8 +325,9 @@ checkfilesys(char * filesys)
 	/*
 	 * go check HFS volume...
 	 */
-	result = CheckHFS(	fsreadfd, fswritefd, chkLev, repLev, logLev, 
-						guiControl, lostAndFoundMode, canWrite, &fsmodified );
+	result = CheckHFS( filesys, fsreadfd, fswritefd, chkLev, repLev, logLev, 
+						guiControl, lostAndFoundMode, canWrite, &fsmodified,
+						lflag );
 	if (!hotroot) {
 		ckfini(1);
 		if (quick) {
@@ -335,7 +369,7 @@ checkfilesys(char * filesys)
 		 * it, unless it is read-write, so we can continue.
 		 */
 		if (!preen)
-			printf("\n***** FILE SYSTEM WAS MODIFIED *****\n");
+			plog("\n***** FILE SYSTEM WAS MODIFIED *****\n");
 		if (flags & MNT_RDONLY) {		
 			bzero(&args, sizeof(args));
 			flags |= MNT_UPDATE | MNT_RELOAD;
@@ -345,7 +379,7 @@ checkfilesys(char * filesys)
 			}
 		}
 		if (!preen)
-			printf("\n***** REBOOT NOW *****\n");
+			plog("\n***** REBOOT NOW *****\n");
 		sync();
 		result = FIXEDROOTEXIT;
 		goto ExitThisRoutine;
@@ -355,8 +389,11 @@ checkfilesys(char * filesys)
 	
 ExitThisRoutine:
 	if (lflag) {
-	    fcntl(fs_fd, F_THAW_FS, NULL);
-	    close(fs_fd);
+	    if (fs_fd >= 0) {
+		fcntl(fs_fd, F_THAW_FS, NULL);
+		close(fs_fd);
+		fs_fd = -1;
+	    }
 	    free(unraw);
 	    free(mntonname);
 	}
@@ -380,13 +417,15 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 {
 	struct stat statb;
 	int devBlockSize;
+	uint32_t cacheBlockSize;
+	uint32_t cacheTotalBlocks;
 
 	fswritefd = -1;
 	*blockDevice_fdPtr = -1;
 	*canWritePtr = 0;
 	
 	if (stat(dev, &statb) < 0) {
-		printf("Can't stat %s: %s\n", dev, strerror(errno));
+		plog("Can't stat %s: %s\n", dev, strerror(errno));
 		return (0);
 	}
 	if ((statb.st_mode & S_IFMT) != S_IFCHR) {
@@ -395,7 +434,7 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 			return (0);
 	}
 	if ((fsreadfd = open(dev, O_RDONLY)) < 0) {
-		printf("Can't open %s: %s\n", dev, strerror(errno));
+		plog("Can't open %s: %s\n", dev, strerror(errno));
 		return (0);
 	}
 
@@ -404,25 +443,31 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 	getWriteAccess( dev, blockDevice_fdPtr, canWritePtr );
 	
 	if (preen == 0 && !guiControl)
-		printf("** %s", dev);
-	if (nflag || (fswritefd = open(dev, O_WRONLY)) < 0) {
+		plog("** %s", dev);
+	if (nflag || quick || (fswritefd = open(dev, O_WRONLY)) < 0) {
 		fswritefd = -1;
 		if (preen)
 			pfatal("NO WRITE ACCESS");
 		if (!guiControl)
-			printf(" (NO WRITE)");
+			plog(" (NO WRITE)");
 	}
 	if (preen == 0 && !guiControl)
-		printf("\n");
+		plog("\n");
 
 	/* Get device block size to initialize cache */
 	if (ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize) < 0) {
 		pfatal ("Can't get device block size\n");
 		return (0);
 	}
+
+	 /* calculate the cache block size and total blocks */
+	if (CalculateCacheSize(userCacheSize, &cacheBlockSize, &cacheTotalBlocks, debug) != 0) {
+		return (0);
+	}
+
 	/* Initialize the cache */
 	if (CacheInit (&fscache, fsreadfd, fswritefd, devBlockSize,
-			CACHE_IOSIZE, CACHE_BLOCKS, CACHE_HASHSIZE) != EOK) {
+			cacheBlockSize, cacheTotalBlocks, CacheHashSize) != EOK) {
 		pfatal("Can't initialize disk cache\n");
 		return (0);
 	}	
@@ -507,17 +552,18 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fprintf(stderr, "usage: %s [-dfl m [mode] npqruy] special-device\n", progname);
-	(void) fprintf(stderr, "  d = output debugging info\n");
-	(void) fprintf(stderr, "  f = force fsck even if clean (preen only) \n");
-	(void) fprintf(stderr, "  l = live fsck (lock down and test-only)\n");
-	(void) fprintf(stderr, "  m arg = octal mode used when creating lost+found directory \n");
-	(void) fprintf(stderr, "  n = assume a no response \n");
-	(void) fprintf(stderr, "  p = just fix normal inconsistencies \n");
-	(void) fprintf(stderr, "  q = quick check returns clean, dirty, or failure \n");
-	(void) fprintf(stderr, "  r = rebuild catalog btree \n");
-	(void) fprintf(stderr, "  u = usage \n");
-	(void) fprintf(stderr, "  y = assume a yes response \n");
+	(void) fplog(stderr, "usage: %s [-c [size] dfl m [mode] npqruy] special-device\n", progname);
+	(void) fplog(stderr, "  c size = cache size (ex. 512m, 1g)\n");
+	(void) fplog(stderr, "  d = output debugging info\n");
+	(void) fplog(stderr, "  f = force fsck even if clean (preen only) \n");
+	(void) fplog(stderr, "  l = live fsck (lock down and test-only)\n");
+	(void) fplog(stderr, "  m arg = octal mode used when creating lost+found directory \n");
+	(void) fplog(stderr, "  n = assume a no response \n");
+	(void) fplog(stderr, "  p = just fix normal inconsistencies \n");
+	(void) fplog(stderr, "  q = quick check returns clean, dirty, or failure \n");
+	(void) fplog(stderr, "  r = rebuild catalog btree \n");
+	(void) fplog(stderr, "  u = usage \n");
+	(void) fplog(stderr, "  y = assume a yes response \n");
 	
 	exit(1);
 }

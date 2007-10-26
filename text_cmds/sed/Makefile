@@ -18,7 +18,7 @@ CFILES = compile.c main.c misc.c process.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble POSIX sed.1
 
-NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID
+NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID -D__DARWIN_UNIX03=1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,6 +1,6 @@
 # -*- mode: ruby; ruby-indent-level: 4; tab-width: 4 -*-
 #												vim:sw=4:ts=4
-# $Id: test_yaml.rb,v 1.5.2.1 2004/05/16 16:09:41 why Exp $
+# $Id: test_yaml.rb 11708 2007-02-12 23:01:19Z shyouhei $
 #
 require 'test/unit'
 require 'yaml'
@@ -632,15 +632,17 @@ EOY
 	end
 
 	def test_spec_domain_prefix
-		YAML.add_domain_type( "domain.tld,2002", /(invoice|customer)/ ) { |type, val|
-			if Hash === val
+        customer_proc = proc { |type, val|
+            if Hash === val
                 scheme, domain, type = type.split( ':', 3 )
-				val['type'] = "domain #{type}"
-				val
-			else
-				raise ArgumentError, "Not a Hash in domain.tld,2002/invoice: " + val.inspect
-			end
-		}
+                val['type'] = "domain #{type}"
+                val
+            else
+                raise ArgumentError, "Not a Hash in domain.tld,2002/invoice: " + val.inspect
+            end
+        }
+        YAML.add_domain_type( "domain.tld,2002", 'invoice', &customer_proc )
+        YAML.add_domain_type( "domain.tld,2002", 'customer', &customer_proc )
 		assert_parse_only( { "invoice"=> { "customers"=> [ { "given"=>"Chris", "type"=>"domain customer", "family"=>"Dumars" } ], "type"=>"domain invoice" } }, <<EOY
 # 'http://domain.tld,2002/invoice' is some type family.
 invoice: !domain.tld,2002/^invoice
@@ -744,9 +746,9 @@ EOY
 	end
 
 	def test_spec_explicit_families
-		YAML.add_domain_type( "somewhere.com,2002", /^type$/ ) { |type, val|
-			"SOMEWHERE: #{val}"
-		}
+        YAML.add_domain_type( "somewhere.com,2002", 'type' ) { |type, val|
+            "SOMEWHERE: #{val}"
+        }
 		assert_parse_only(
 			{ 'not-date' => '2002-04-28', 'picture' => "GIF89a\f\000\f\000\204\000\000\377\377\367\365\365\356\351\351\345fff\000\000\000\347\347\347^^^\363\363\355\216\216\216\340\340\340\237\237\237\223\223\223\247\247\247\236\236\236i^\020' \202\n\001\000;", 'hmm' => "SOMEWHERE: family above is short for\nhttp://somewhere.com/type\n" }, <<EOY
 not-date: !str 2002-04-28
@@ -1049,17 +1051,6 @@ EOY
 		)
 	end
 
-	def test_perl_regexp
-		# Parsing perl regular expressions from YAML.pm
-		assert_parse_only(
-			[ /bozo$/i ], <<EOY
-- !perl/regexp:
-  regexp: bozo$
-  mods: i
-EOY
-		)
-	end
-
     #
     # Test of Ranges
     #
@@ -1234,6 +1225,53 @@ EOY
         inspect_str = "[[...], [...]]"
         assert_equal( inspect_str, YAML::load( a.to_yaml ).inspect )
     end
+
+    #
+    # Test Symbol cycle
+    #
+    def test_symbol_cycle
+      #
+      # From Aaron Schrab [ruby-Bugs:2535]
+      #
+      assert_cycle(:"^foo")
+    end
+
+    #
+    # Test Numeric cycle
+    #
+    class NumericTest < Numeric
+      def initialize(value)
+        @value = value
+      end
+      def ==(other)
+        @value == other.instance_eval{ @value }
+      end
+    end
+    def test_numeric_cycle
+      assert_cycle(1) # Fixnum
+      assert_cycle(111111111111111111111111111111111) # Bignum
+      assert_cycle(NumericTest.new(3)) # Subclass of Numeric
+    end
+
+    #
+    # Test empty map/seq in map cycle
+    #
+    def test_empty_map_key
+      #
+      # empty seq as key
+      #
+      o = YAML.load({[]=>""}.to_yaml)
+      assert_equal(Hash, o.class)
+      assert_equal([[]], o.keys)
+
+      #
+      # empty map as key
+      #
+      o = YAML.load({{}=>""}.to_yaml)
+      assert_equal(Hash, o.class)
+      assert_equal([{}], o.keys)
+    end
+
 end
 
 if $0 == __FILE__

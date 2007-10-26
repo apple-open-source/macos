@@ -30,6 +30,7 @@
 #include "SecImportExportUtils.h"
 #include "SecImportExportPkcs8.h"
 #include "SecImportExportCrypto.h"
+#include "SecImportExportOpenSSH.h"
 #include <security_utilities/errors.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecCertificate.h>
@@ -75,7 +76,7 @@ protected:
 		SecItemImportExportFlags			flags,	
 		const SecKeyImportExportParameters	*keyParams,		// optional 
 		CFMutableDataRef					outData,		// data appended here
-		const char							**pemHeader);   // e.g., "RSA PUBLIC KEY"
+		const char							**pemHeader);   // e.g., "CERTIFICATE"
 };
 
 }   /* namespace SecExport */
@@ -168,7 +169,7 @@ SecExport::Key::Key(
 			break;
 		default:
 			SecImpExpDbg("SecExportRep::Key(): invalid KeyClass (%lu)",  
-				mCssmKey->KeyHeader.KeyClass);
+				(unsigned long)mCssmKey->KeyHeader.KeyClass);
 			MacOSError::throwMe(errSecInvalidItemRef);
 	}
 	mKeyAlg = mCssmKey->KeyHeader.AlgorithmId;
@@ -194,8 +195,25 @@ OSStatus SecExport::Key::exportRep(
 	assert(mKcItem != NULL);
 	assert(mCssmKey != NULL);
 		
+	/*
+	 * Currently only OpsnSSH formats allow for a DescriptiveData field
+	 * in either wrapped or NULL wrap forms. (In OpenSSH parlance this is 
+	 * the 'comment' field). Infer the DescriptiveData to be embedded
+	 * in the exported key from the item's PrintName attribute.
+	 */
+	CssmAutoData descrData(Allocator::standard());
+	switch(format) {
+		case kSecFormatSSH:
+		case kSecFormatSSHv2:
+		case kSecFormatWrappedSSH:
+			impExpOpensshInferDescData((SecKeyRef)mKcItem, descrData);
+			break;
+		default:
+			break;
+	}
+	
 	/* 
-	 * Reject unsupported formats here.
+	 * Handle wrapped key formats. 
 	 */
 	switch(format) {
 		case kSecFormatWrappedPKCS8:
@@ -204,8 +222,9 @@ OSStatus SecExport::Key::exportRep(
 		case kSecFormatWrappedOpenSSL:
 			return impExpWrappedKeyOpenSslExport((SecKeyRef)mKcItem, flags, keyParams,
 				outData, pemHeader, &mPemParamLines);
-		case kSecFormatSSH:
 		case kSecFormatWrappedSSH:
+			return impExpWrappedOpenSSHExport((SecKeyRef)mKcItem, flags, keyParams, 
+				descrData, outData);
 		case kSecFormatWrappedLSH:
 			return errSecUnsupportedFormat;
 		default:
@@ -214,7 +233,7 @@ OSStatus SecExport::Key::exportRep(
 	
 	/* 
 	 * Remaining formats just do a NULL key wrap. Figure out the appropriate
-	 * CDSA_specific format and wrap parameters. 
+	 * CDSA-specific format and wrap parameters. 
 	 */
 	OSStatus ortn = noErr;
 	CSSM_KEYBLOB_FORMAT blobForm;
@@ -233,7 +252,7 @@ OSStatus SecExport::Key::exportRep(
 					break; 
 				default:
 					SecImpExpDbg("SecExportRep::exportRep unknown public key alg %lu",
-						mKeyAlg);
+						(unsigned long)mKeyAlg);
 					return errSecUnsupportedFormat;
 			}		/* end switch(mKeyAlg) */
 			break;  /* from case externType kSecItemTypePublicKey */
@@ -251,7 +270,7 @@ OSStatus SecExport::Key::exportRep(
 					break;  /* from case RSA private */
 				default:
 					SecImpExpDbg("SecExportRep::exportRep unknown private key alg "
-						"%lu", mKeyAlg);
+						"%lu", (unsigned long)mKeyAlg);
 					return errSecUnsupportedFormat;
 			}		/* end switch(mKeyAlg) */
 			break;  /* from case externType kSecItemTypePrivateKey */
@@ -295,6 +314,7 @@ OSStatus SecExport::Key::exportRep(
 	/* perform the NULL wrap --> wrapped Key */
 	CSSM_KEY wrappedKey;
 	memset(&wrappedKey, 0, sizeof(wrappedKey));
+	const CSSM_DATA &dd = descrData;
 	ortn = impExpExportKeyCommon(cspHand, 
 		(SecKeyRef)mKcItem, 
 		NULL,							// wrappingKey not used for NULL
@@ -305,6 +325,7 @@ OSStatus SecExport::Key::exportRep(
 		CSSM_KEYBLOB_WRAPPED_FORMAT_NONE, 
 		formatAttrType,
 		blobForm,
+		&dd,							// descriptiveData
 		NULL);							// IV
 		
 	if(ortn == CSSM_OK) {
@@ -376,6 +397,7 @@ SecImportRep::SecImportRep(
 	SecExternalFormat				externFormat,	// may be unknown
 	CSSM_ALGORITHMS					keyAlg,			// may be unknown, CSSM_ALGID_NONE
 	CFArrayRef						pemParamLines /* = NULL */ ) :
+		mPrintName(NULL),
 		mExternal(external),
 		mExternType(externType),
 		mExternFormat(externFormat),
@@ -387,6 +409,9 @@ SecImportRep::SecImportRep(
 
 SecImportRep::~SecImportRep()
 {
+	if(mPrintName) {
+		free(mPrintName);
+	}
 	if(mExternal) {
 		CFRelease(mExternal);
 	}
@@ -453,14 +478,28 @@ OSStatus SecImportRep::importRep(
 		return errSecMultiplePrivKeys;
 	}
 
+	/* optionally infer PrintName attribute */
+	switch(mExternFormat) {
+		case kSecFormatSSH:
+		case kSecFormatWrappedSSH:
+		case kSecFormatSSHv2:
+			mPrintName = impExpOpensshInferPrintName(mExternal, mExternType, mExternFormat);
+			break;
+		default:
+			/* use defaults */
+			break;
+	}
+	
 	OSStatus ortn = noErr;
+	
 	switch(mExternFormat) {
 		case kSecFormatOpenSSL:
-		case kSecFormatSSH:
+		case kSecFormatSSH:	
+		case kSecFormatSSHv2:
 		case kSecFormatBSAFE:
 		case kSecFormatRawKey:
 			ortn = impExpImportRawKey(mExternal, mExternFormat, mExternType,
-				mKeyAlg, importKeychain, cspHand, flags, keyParams, outArray);
+				mKeyAlg, importKeychain, cspHand, flags, keyParams, mPrintName, outArray);
 			break;
 		case kSecFormatWrappedPKCS8:
 			ortn = impExpPkcs8Import(mExternal, importKeychain, cspHand, flags,
@@ -471,6 +510,9 @@ OSStatus SecImportRep::importRep(
 				outArray);
 			break;
 		case kSecFormatWrappedSSH:
+			ortn =  impExpWrappedOpenSSHImport(mExternal, importKeychain, cspHand, 
+				flags, keyParams, mPrintName, outArray);
+			break;
 		case kSecFormatWrappedLSH:
 		default:
 			return errSecUnknownFormat;

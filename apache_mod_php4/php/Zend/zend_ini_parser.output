@@ -1,0 +1,327 @@
+State 7 conflicts: 2 shift/reduce
+
+
+Grammar
+
+    0 $accept: statement_list $end
+
+    1 statement_list: statement_list statement
+    2               | /* empty */
+
+    3 statement: TC_STRING '=' string_or_value
+    4          | TC_STRING
+    5          | SECTION
+    6          | '\n'
+
+    7 string_or_value: expr
+    8                | TC_ENCAPSULATED_STRING
+    9                | CFG_TRUE
+   10                | CFG_FALSE
+   11                | '\n'
+   12                | /* empty */
+
+   13 expr: constant_string
+   14     | expr '|' expr
+   15     | expr '&' expr
+   16     | '~' expr
+   17     | '!' expr
+   18     | '(' expr ')'
+
+   19 constant_string: TC_STRING
+
+
+Terminals, with rules where they appear
+
+$end (0) 0
+'\n' (10) 6 11
+'!' (33) 17
+'&' (38) 15
+'(' (40) 18
+')' (41) 18
+'=' (61) 3
+'|' (124) 14
+'~' (126) 16
+error (256)
+TC_STRING (258) 3 4 19
+TC_ENCAPSULATED_STRING (259) 8
+SECTION (260) 5
+CFG_TRUE (261) 9
+CFG_FALSE (262) 10
+
+
+Nonterminals, with rules where they appear
+
+$accept (16)
+    on left: 0
+statement_list (17)
+    on left: 1 2, on right: 0 1
+statement (18)
+    on left: 3 4 5 6, on right: 1
+string_or_value (19)
+    on left: 7 8 9 10 11 12, on right: 3
+expr (20)
+    on left: 13 14 15 16 17 18, on right: 7 14 15 16 17 18
+constant_string (21)
+    on left: 19, on right: 13
+
+
+state 0
+
+    0 $accept: . statement_list $end
+
+    $default  reduce using rule 2 (statement_list)
+
+    statement_list  go to state 1
+
+
+state 1
+
+    0 $accept: statement_list . $end
+    1 statement_list: statement_list . statement
+
+    $end       shift, and go to state 2
+    TC_STRING  shift, and go to state 3
+    SECTION    shift, and go to state 4
+    '\n'       shift, and go to state 5
+
+    statement  go to state 6
+
+
+state 2
+
+    0 $accept: statement_list $end .
+
+    $default  accept
+
+
+state 3
+
+    3 statement: TC_STRING . '=' string_or_value
+    4          | TC_STRING .
+
+    '='  shift, and go to state 7
+
+    $default  reduce using rule 4 (statement)
+
+
+state 4
+
+    5 statement: SECTION .
+
+    $default  reduce using rule 5 (statement)
+
+
+state 5
+
+    6 statement: '\n' .
+
+    $default  reduce using rule 6 (statement)
+
+
+state 6
+
+    1 statement_list: statement_list statement .
+
+    $default  reduce using rule 1 (statement_list)
+
+
+state 7
+
+    3 statement: TC_STRING '=' . string_or_value
+
+    TC_STRING               shift, and go to state 8
+    TC_ENCAPSULATED_STRING  shift, and go to state 9
+    CFG_TRUE                shift, and go to state 10
+    CFG_FALSE               shift, and go to state 11
+    '~'                     shift, and go to state 12
+    '!'                     shift, and go to state 13
+    '\n'                    shift, and go to state 14
+    '('                     shift, and go to state 15
+
+    TC_STRING  [reduce using rule 12 (string_or_value)]
+    '\n'       [reduce using rule 12 (string_or_value)]
+    $default   reduce using rule 12 (string_or_value)
+
+    string_or_value  go to state 16
+    expr             go to state 17
+    constant_string  go to state 18
+
+
+state 8
+
+   19 constant_string: TC_STRING .
+
+    $default  reduce using rule 19 (constant_string)
+
+
+state 9
+
+    8 string_or_value: TC_ENCAPSULATED_STRING .
+
+    $default  reduce using rule 8 (string_or_value)
+
+
+state 10
+
+    9 string_or_value: CFG_TRUE .
+
+    $default  reduce using rule 9 (string_or_value)
+
+
+state 11
+
+   10 string_or_value: CFG_FALSE .
+
+    $default  reduce using rule 10 (string_or_value)
+
+
+state 12
+
+   16 expr: '~' . expr
+
+    TC_STRING  shift, and go to state 8
+    '~'        shift, and go to state 12
+    '!'        shift, and go to state 13
+    '('        shift, and go to state 15
+
+    expr             go to state 19
+    constant_string  go to state 18
+
+
+state 13
+
+   17 expr: '!' . expr
+
+    TC_STRING  shift, and go to state 8
+    '~'        shift, and go to state 12
+    '!'        shift, and go to state 13
+    '('        shift, and go to state 15
+
+    expr             go to state 20
+    constant_string  go to state 18
+
+
+state 14
+
+   11 string_or_value: '\n' .
+
+    $default  reduce using rule 11 (string_or_value)
+
+
+state 15
+
+   18 expr: '(' . expr ')'
+
+    TC_STRING  shift, and go to state 8
+    '~'        shift, and go to state 12
+    '!'        shift, and go to state 13
+    '('        shift, and go to state 15
+
+    expr             go to state 21
+    constant_string  go to state 18
+
+
+state 16
+
+    3 statement: TC_STRING '=' string_or_value .
+
+    $default  reduce using rule 3 (statement)
+
+
+state 17
+
+    7 string_or_value: expr .
+   14 expr: expr . '|' expr
+   15     | expr . '&' expr
+
+    '|'  shift, and go to state 22
+    '&'  shift, and go to state 23
+
+    $default  reduce using rule 7 (string_or_value)
+
+
+state 18
+
+   13 expr: constant_string .
+
+    $default  reduce using rule 13 (expr)
+
+
+state 19
+
+   14 expr: expr . '|' expr
+   15     | expr . '&' expr
+   16     | '~' expr .
+
+    $default  reduce using rule 16 (expr)
+
+
+state 20
+
+   14 expr: expr . '|' expr
+   15     | expr . '&' expr
+   17     | '!' expr .
+
+    $default  reduce using rule 17 (expr)
+
+
+state 21
+
+   14 expr: expr . '|' expr
+   15     | expr . '&' expr
+   18     | '(' expr . ')'
+
+    '|'  shift, and go to state 22
+    '&'  shift, and go to state 23
+    ')'  shift, and go to state 24
+
+
+state 22
+
+   14 expr: expr '|' . expr
+
+    TC_STRING  shift, and go to state 8
+    '~'        shift, and go to state 12
+    '!'        shift, and go to state 13
+    '('        shift, and go to state 15
+
+    expr             go to state 25
+    constant_string  go to state 18
+
+
+state 23
+
+   15 expr: expr '&' . expr
+
+    TC_STRING  shift, and go to state 8
+    '~'        shift, and go to state 12
+    '!'        shift, and go to state 13
+    '('        shift, and go to state 15
+
+    expr             go to state 26
+    constant_string  go to state 18
+
+
+state 24
+
+   18 expr: '(' expr ')' .
+
+    $default  reduce using rule 18 (expr)
+
+
+state 25
+
+   14 expr: expr . '|' expr
+   14     | expr '|' expr .
+   15     | expr . '&' expr
+
+    $default  reduce using rule 14 (expr)
+
+
+state 26
+
+   14 expr: expr . '|' expr
+   15     | expr . '&' expr
+   15     | expr '&' expr .
+
+    $default  reduce using rule 15 (expr)

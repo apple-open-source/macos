@@ -1,5 +1,6 @@
 ## automake - create Makefile.in from Makefile.am
-## Copyright 1994, 1995, 1996, 1998, 1999, 2001 Free Software Foundation, Inc.
+## Copyright (C) 1994, 1995, 1996, 1998, 1999, 2001, 2002, 2003, 2004, 2006
+## Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -13,33 +14,26 @@
 
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
-## 02111-1307, USA.
+## Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+## 02110-1301, USA.
 
-
-## ----------- ##
-## Variables.  ##
-## ----------- ##
-
-if %?FIRST%
-AR = ar
-## For now this is detected when we see AC_PROG_RANLIB
-## RANLIB = @RANLIB@
-endif %?FIRST%
+if %?INSTALL%
+include inst-vars.am
+endif %?INSTALL%
 
 ## ------------ ##
 ## Installing.  ##
 ## ------------ ##
 
 if %?INSTALL%
-_am_installdirs += $(DESTDIR)$(%NDIR%dir)
+am__installdirs += "$(DESTDIR)$(%NDIR%dir)"
 ?BASE?%DIR%LIBRARIES_INSTALL = $(INSTALL_DATA)
 ?!BASE?%DIR%LIBRARIES_INSTALL = $(install_sh_DATA)
 ?EXEC?.PHONY install-exec-am: install-%DIR%LIBRARIES
 ?!EXEC?.PHONY install-data-am: install-%DIR%LIBRARIES
 install-%DIR%LIBRARIES: $(%DIR%_LIBRARIES)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(%NDIR%dir)
+	test -z "$(%NDIR%dir)" || $(MKDIR_P) "$(DESTDIR)$(%NDIR%dir)"
 ## Funny invocation because Makefile variable can be empty, leading to
 ## a syntax error in sh.
 	@list='$(%DIR%_LIBRARIES)'; for p in $$list; do \
@@ -47,10 +41,10 @@ install-%DIR%LIBRARIES: $(%DIR%_LIBRARIES)
 ## Compute basename of source file.  Unless this is a nobase_ target, we
 ## want to install 'python/foo.py' as '$(DESTDIR)$(%NDIR%dir)/foo.yo',
 ## not '$(DESTDIR)$(%NDIR%dir)/python/foo.yo'.
-?BASE?	    f="`echo $$p | sed -e 's|^.*/||'`"; \
-?!BASE?	    f="$$p"; \
-	    echo " $(%DIR%LIBRARIES_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f"; \
-	    $(%DIR%LIBRARIES_INSTALL) $$p $(DESTDIR)$(%NDIR%dir)/$$f; \
+?BASE?	    f=$(am__strip_dir) \
+?!BASE?	    f=$$p; \
+	    echo " $(%DIR%LIBRARIES_INSTALL) '$$p' '$(DESTDIR)$(%NDIR%dir)/$$f'"; \
+	    $(%DIR%LIBRARIES_INSTALL) "$$p" "$(DESTDIR)$(%NDIR%dir)/$$f"; \
 	  else :; fi; \
 	done
 ## We do two loops here so that $(POST_INSTALL) can be empty.  If we
@@ -61,10 +55,10 @@ install-%DIR%LIBRARIES: $(%DIR%_LIBRARIES)
 	@$(POST_INSTALL)
 	@list='$(%DIR%_LIBRARIES)'; for p in $$list; do \
 	  if test -f $$p; then \
-?BASE?	    p="`echo $$p | sed -e 's|^.*/||'`"; \
+?BASE?	    p=$(am__strip_dir) \
 ## Must ranlib after installing because mod time changes.
-	    echo " $(RANLIB) $(DESTDIR)$(%NDIR%dir)/$$p"; \
-	    $(RANLIB) $(DESTDIR)$(%NDIR%dir)/$$p; \
+	    echo " $(RANLIB) '$(DESTDIR)$(%NDIR%dir)/$$p'"; \
+	    $(RANLIB) "$(DESTDIR)$(%NDIR%dir)/$$p"; \
 	  else :; fi; \
 	done
 endif %?INSTALL%
@@ -79,9 +73,9 @@ if %?INSTALL%
 uninstall-%DIR%LIBRARIES:
 	@$(NORMAL_UNINSTALL)
 	@list='$(%DIR%_LIBRARIES)'; for p in $$list; do \
-?BASE?	  p="`echo $$p | sed -e 's|^.*/||'`"; \
-	  echo " rm -f $(DESTDIR)$(%NDIR%dir)/$$p"; \
-	  rm -f $(DESTDIR)$(%NDIR%dir)/$$p; \
+?BASE?	  p=$(am__strip_dir) \
+	  echo " rm -f '$(DESTDIR)$(%NDIR%dir)/$$p'"; \
+	  rm -f "$(DESTDIR)$(%NDIR%dir)/$$p"; \
 	done
 endif %?INSTALL%
 

@@ -158,6 +158,11 @@ AC_ARG_ENABLE(lckpwdf,
 	WITH_LCKPWDF=no, WITH_LCKPWDF=yes)
 AC_SUBST(WITH_LCKPWDF)
 
+AC_ARG_ENABLE(libcrack,
+[  --disable-libcrack do not use libcrack],
+	WITH_LIBCRACK=no, WITH_LIBCRACK=yes)
+AC_SUBST(WITH_LIBCRACK)
+
 AC_CHECK_HEADERS(paths.h)
 AC_ARG_WITH(mailspool,
 [  --with-mailspool         path to mail spool directory
@@ -201,8 +206,10 @@ dnl
 dnl At least on Solaris, the existing libcrack must be dynamic.
 dnl Ought to introduce a check for this.
 dnl
-AC_CHECK_LIB(crack, FascistCheck, HAVE_LIBCRACK=yes ; AC_DEFINE(HAVE_LIBCRACK),
-	HAVE_LIBCRACK=no)
+if test x$WITH_LIBCRACK == xset ; then
+	AC_CHECK_LIB(crack, FascistCheck, HAVE_LIBCRACK=yes ; AC_DEFINE(HAVE_LIBCRACK),
+		HAVE_LIBCRACK=no)
+fi
 AC_SUBST(HAVE_LIBCRACK)
 
 AC_CHECK_LIB(crypt, fcrypt, HAVE_LIBCRYPT=yes ; AC_DEFINE(HAVE_LIBCRYPT),

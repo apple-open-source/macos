@@ -14,6 +14,7 @@ module Tk::BLT
     WidgetClassNames[WidgetClassName] = self
 
     include PlotComponent
+    include GraphCommand
 
     def __boolval_optkeys
       ['bufferelements', 'buffergraph', 'invertxy']
@@ -21,10 +22,12 @@ module Tk::BLT
     private :__boolval_optkeys
 
     def __strval_optkeys
-      ['text', 'label', 'title', 'file']
+      ['text', 'label', 'title', 'file', 
+        'background', 'plotbackground']
     end
     private :__strval_optkeys
 
+=begin
     BarElement_ID = ['blt_stripchart_bar'.freeze, '00000'.taint].freeze
 
     def bar(elem=nil, keys={})
@@ -39,6 +42,7 @@ module Tk::BLT
       tk_send('bar', elem, keys)
       Element.new(self, elem, :without_creating=>true)
     end
+=end
 
     def extents(item)
       num_or_str(tk_send_without_enc('extents', item))

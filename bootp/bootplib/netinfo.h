@@ -26,17 +26,16 @@
 /*
  * netinfo.h - Header file for netinfo routines.
  */
-#import <string.h>
-#import <unistd.h>
-#import <stdlib.h>
-#import	<mach/boolean.h>
-#import <sys/socket.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/if_ether.h>
-#import <netinet/in.h>
-#import <netinfo/ni.h>
-#import <netinfo/ni_util.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <mach/boolean.h>
+#include <sys/socket.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/if_ether.h>
+#include <netinet/in.h>
 
 /*
  * Constants
@@ -77,9 +76,91 @@
 #define NIPROP_SERVES		"serves"
 #define NIPROP__CREATOR		"_creator"
 
+#define NI_INDEX_NULL ((ni_index)-1)
+#define NI_INIT(objp) bzero((void *)(objp), sizeof(*(objp)))
+
+typedef char *ni_name;
+typedef const char *ni_name_const;
+
+typedef struct {
+	u_int ni_namelist_len;
+	ni_name *ni_namelist_val;
+} ni_namelist;
+
+typedef unsigned long ni_index;
+
+typedef struct ni_property {
+	ni_name nip_name;
+	ni_namelist nip_val;
+} ni_property;
+
+typedef struct {
+	u_int ni_proplist_len;
+	ni_property *ni_proplist_val;
+} ni_proplist;
+
+enum ni_status {
+	NI_OK = 0,
+	NI_BADID = 1,
+	NI_STALE = 2,
+	NI_NOSPACE = 3,
+	NI_PERM = 4,
+	NI_NODIR = 5,
+	NI_NOPROP = 6,
+	NI_NONAME = 7,
+	NI_NOTEMPTY = 8,
+	NI_UNRELATED = 9,
+	NI_SERIAL = 10,
+	NI_NETROOT = 11,
+	NI_NORESPONSE = 12,
+	NI_RDONLY = 13,
+	NI_SYSTEMERR = 14,
+	NI_ALIVE = 15,
+	NI_NOTMASTER = 16,
+	NI_CANTFINDADDRESS = 17,
+	NI_DUPTAG = 18,
+	NI_NOTAG = 19,
+	NI_AUTHERROR = 20,
+	NI_NOUSER = 21,
+	NI_MASTERBUSY = 22,
+	NI_INVALIDDOMAIN = 23,
+	NI_BADOP = 24,
+	NI_FAILED = 9999,
+};
+typedef enum ni_status ni_status;
+
+/*
+ * Define some shortcuts
+ */
+#define ninl_len ni_namelist_len
+#define ninl_val ni_namelist_val
+
+#define nipl_len ni_proplist_len
+#define nipl_val ni_proplist_val
+
+
 /*
  * Prototypes
  */
+ni_name ni_name_dup(ni_name_const);
+void ni_name_free(ni_name *);
+int ni_name_match(ni_name_const, ni_name_const);
+
+ni_namelist ni_namelist_dup(const ni_namelist);
+void ni_namelist_free(ni_namelist *);
+void ni_namelist_insert(ni_namelist *, ni_name_const, ni_index);
+void ni_namelist_delete(ni_namelist *, ni_index);
+ni_index ni_namelist_match(const ni_namelist, ni_name_const);
+
+ni_property ni_prop_dup(const ni_property);
+void ni_prop_free(ni_property *);
+
+void ni_proplist_insert(ni_proplist *, const ni_property, ni_index);
+void ni_proplist_delete(ni_proplist *, ni_index);
+ni_index ni_proplist_match(const ni_proplist, ni_name_const, ni_name_const);
+ni_proplist ni_proplist_dup(const ni_proplist);
+void ni_proplist_free(ni_proplist *);
+
 void		ni_proplist_dump(ni_proplist * pl);
 
 boolean_t	ni_get_checksum(void * h, unsigned long * checksum);
@@ -155,63 +236,6 @@ ni_proplist_addprops(
 	ni_namelist_free(&prop.nip_val);
 }
 
-/*
- * Function: ni_create_path
- * Purpose:
- *   Create directories for each component of the given path if they
- *   don't exist.
- */
-
-static __inline__ boolean_t
-ni_create_path(void * d, u_char * dirname, ni_id * dir_p)
-{
-    boolean_t	done = FALSE;
-    u_char	path[128];
-    u_char *	scan;
-
-    if (ni_pathsearch(d, dir_p, dirname) == NI_OK) { /* it already exists */
-	return (TRUE);
-    }
-    if (ni_root(d, dir_p) != NI_OK) {
-	return (FALSE);
-    }
-
-    path[0] = '\0';
-    scan = dirname;
-    while (done == FALSE) {
-	ni_id		child_id;
-	u_char		component[32];
-	u_char * 	next_sep;
-
-	if (scan == NULL || *scan != '/')
-	    return (FALSE);
-	scan++;
-	next_sep = strchr(scan, '/');
-	if (next_sep == 0) {
-	    done = TRUE;
-	    next_sep = dirname + strlen(dirname);
-	}
-	strncpy(component, scan , next_sep - scan);
-	component[next_sep - scan] = '\0';
-	strcat(path, "/");
-	strcat(path, component);
-	if (ni_pathsearch(d, &child_id, path) != NI_OK) {
-	    ni_proplist pl;
-	    /* create it */
-	    NI_INIT(&pl);
-	    ni_proplist_addprop(&pl, "name", component);
-	    if (ni_create(d, dir_p, pl, &child_id, NI_INDEX_NULL) != NI_OK) {
-		ni_proplist_free(&pl);
-		return (FALSE);
-	    }
-	    ni_proplist_free(&pl);
-	}
-	*dir_p = child_id;
-	scan = next_sep;
-    }
-    return (TRUE);
-}
-
 static __inline__ ni_namelist *
 ni_nlforprop(ni_proplist * pl, ni_name name)
 {
@@ -226,7 +250,7 @@ ni_nlforprop(ni_proplist * pl, ni_name name)
     return (NULL);
 }
 
-static __inline__ const ni_name
+static __inline__ ni_name
 ni_valforprop(ni_proplist * pl, ni_name name)
 {
     ni_namelist * nl_p = ni_nlforprop(pl, name);

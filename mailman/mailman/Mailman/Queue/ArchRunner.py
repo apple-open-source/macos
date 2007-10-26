@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Archive queue runner."""
 
@@ -49,7 +49,7 @@ class ArchRunner(Runner):
                 elif abs(now - mktime_tz(tup)) > \
                          mm_cfg.ARCHIVER_ALLOWABLE_SANE_DATE_SKEW:
                     clobber = 1
-            except ValueError:
+            except (ValueError, OverflowError):
                 # The likely cause of this is that the year in the Date: field
                 # is horribly incorrect, e.g. (from SF bug # 571634):
                 # Date: Tue, 18 Jun 0102 05:12:09 +0500

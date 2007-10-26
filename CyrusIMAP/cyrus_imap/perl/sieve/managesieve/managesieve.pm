@@ -37,7 +37,7 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: managesieve.pm,v 1.5 2005/03/05 00:37:34 dasenbro Exp $
+# $Id: managesieve.pm,v 1.8 2002/05/25 19:57:51 leg Exp $
 #
 package Cyrus::SIEVE::managesieve;
 

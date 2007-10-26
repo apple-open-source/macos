@@ -1,10 +1,12 @@
+<testcase>
 #
 # Server-side
 <reply>
-<data>
+<data mode="text">
 HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
+Content-Length: 3
 
 OK
 </data>
@@ -36,10 +38,10 @@ http://%HOSTIP:%HTTPPORT/516
 </strip>
 <protocol>
 POST /516 HTTP/1.1
-Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
+Host: %HOSTIP:%HTTPPORT
 Accept: */*
 Content-Length: 0
 
 </protocol>
 </verify>
+</testcase>

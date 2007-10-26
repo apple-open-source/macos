@@ -1,10 +1,10 @@
-;;; cvs-status.el --- Major mode for browsing `cvs status' output
+;;; cvs-status.el --- major mode for browsing `cvs status' output -*- coding: utf-8 -*-
 
-;; Copyright (C) 1999, 2000  Free Software Foundation, Inc.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
-;; Author: Stefan Monnier <monnier@cs.yale.edu>
-;; Keywords: pcl-cvs cvs status tree
-;; Revision: $Id: cvs-status.el,v 1.1.1.1 2001/10/31 17:55:36 jevans Exp $
+;; Author: Stefan Monnier <monnier@iro.umontreal.ca>
+;; Keywords: pcl-cvs cvs status tree tools
 
 ;; This file is part of GNU Emacs.
 
@@ -20,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -33,6 +33,7 @@
 
 (eval-when-compile (require 'cl))
 (require 'pcvs-util)
+(eval-when-compile (require 'pcvs))
 
 ;;;
 
@@ -49,7 +50,8 @@
     ("\M-n"	. cvs-status-next)
     ("\M-p"	. cvs-status-prev)
     ("t"	. cvs-status-cvstrees)
-    ("T"	. cvs-status-trees))
+    ("T"	. cvs-status-trees)
+    (">"        . cvs-mode-checkout))
   "CVS-Status' keymap."
   :group 'cvs-status
   :inherit 'cvs-mode-map)
@@ -72,8 +74,8 @@
 
 (defconst cvs-status-font-lock-keywords
   `((,cvs-status-entry-leader-re
-     (1 'cvs-filename-face)
-     (2 'cvs-need-action-face))
+     (1 'cvs-filename)
+     (2 'cvs-need-action))
     (,cvs-status-tags-leader-re
      (,cvs-status-rev-re
       (save-excursion (re-search-forward "^\n" nil 'move) (point))
@@ -87,8 +89,8 @@
       (1 font-lock-function-name-face)))))
 (defconst cvs-status-font-lock-defaults
   '(cvs-status-font-lock-keywords t nil nil nil (font-lock-multiline . t)))
-  
 
+(defvar cvs-minor-wrap-function)
 (put 'cvs-status-mode 'mode-class 'special)
 ;;;###autoload
 (define-derived-mode cvs-status-mode fundamental-mode "CVS-Status"
@@ -107,7 +109,8 @@
     (let* ((file (match-string 1))
 	   (cvsdir (and (re-search-backward cvs-status-dir-re nil t)
 			(match-string 1)))
-	   (pcldir (and (re-search-backward cvs-pcl-cvs-dirchange-re nil t)
+	   (pcldir (and (if (boundp 'cvs-pcl-cvs-dirchange-re)
+			    (re-search-backward cvs-pcl-cvs-dirchange-re nil t))
 			(match-string 1)))
 	   (dir ""))
       (let ((default-directory ""))
@@ -219,7 +222,7 @@ or a string (in which case it should simply return its argument).
 A tag cannot be a CONS.  The return value can also be a list of strings,
 if several nodes where merged into one.
 The tree will be printed no closer than column COLUMN."
-  
+
   (let* ((eol (save-excursion (end-of-line) (current-column)))
 	 (column (max (+ eol 2) column)))
     (if (null tags) column
@@ -278,10 +281,10 @@ BEWARE:  because of stability issues, this is not a symetric operation."
 	       (cvs-tree-merge (cdr tree1) (cdr tree2))))))
      ((> l1 l2)
       (cvs-tree-merge
-       (list (cons (cvs-tag-make (cvs-butlast vl1)) tree1)) tree2))
+       (list (cons (cvs-tag-make (butlast vl1)) tree1)) tree2))
      ((< l1 l2)
       (cvs-tree-merge
-       tree1 (list (cons (cvs-tag-make (cvs-butlast vl2)) tree2)))))))))
+       tree1 (list (cons (cvs-tag-make (butlast vl2)) tree2)))))))))
 
 (defun cvs-tag-make-tag (tag)
   (let ((vl (mapcar 'string-to-number (split-string (nth 2 tag) "\\."))))
@@ -294,7 +297,7 @@ BEWARE:  because of stability issues, this is not a symetric operation."
 	  (lambda (tag)
 	    (let ((tag (cvs-tag-make-tag tag)))
 	      (list (if (not (eq (cvs-tag->type tag) 'branch)) tag
-		      (list (cvs-tag-make (cvs-butlast (cvs-tag->vlist tag)))
+		      (list (cvs-tag-make (butlast (cvs-tag->vlist tag)))
 			    tag)))))
 	  tags)))
     (while (cdr tags)
@@ -306,7 +309,7 @@ BEWARE:  because of stability issues, this is not a symetric operation."
 
 (defun cvs-status-get-tags ()
   "Look for a list of tags, read them in and delete them.
-Returns NIL if there was an empty list of tags and T if there wasn't
+Return nil if there was an empty list of tags and t if there wasn't
 even a list.  Else, return the list of tags where each element of
 the list is a three-string list TAG, KIND, REV."
   (let ((tags nil))
@@ -385,23 +388,45 @@ the list is a three-string list TAG, KIND, REV."
 ;;;; CVSTree-style trees
 ;;;;
 
-(defvar cvs-tree-use-jisx0208
-  nil ;; (and (char-display-font 'japanese-jisx0208) t)
+(defvar cvs-tree-use-jisx0208 nil)	;Old compat var.
+(defvar cvs-tree-use-charset
+  (cond
+   (cvs-tree-use-jisx0208 'jisx0208)
+   ((char-displayable-p ?━) 'unicode)
+   ((char-displayable-p (make-char 'japanese-jisx0208 40 44)) 'jisx0208))
   "*Non-nil if we should use the graphical glyphs from `japanese-jisx0208'.
 Otherwise, default to ASCII chars like +, - and |.")
 
 (defconst cvs-tree-char-space
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 33 33) "  "))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 33 33))
+    (unicode " ")
+    (t "  ")))
 (defconst cvs-tree-char-hbar
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 40 44) "--"))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 40 44))
+    (unicode "━")
+    (t "--")))
 (defconst cvs-tree-char-vbar
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 40 45) "| "))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 40 45))
+    (unicode "┃")
+    (t "| ")))
 (defconst cvs-tree-char-branch
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 40 50) "+-"))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 40 50))
+    (unicode "┣")
+    (t "+-")))
 (defconst cvs-tree-char-eob		;end of branch
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 40 49) "`-"))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 40 49))
+    (unicode "┗")
+    (t "`-")))
 (defconst cvs-tree-char-bob		;beginning of branch
-  (if cvs-tree-use-jisx0208 (make-char 'japanese-jisx0208 40 51) "+-"))
+  (case cvs-tree-use-charset
+    (jisx0208 (make-char 'japanese-jisx0208 40 51))
+    (unicode "┳")
+    (t "+-")))
 
 (defun cvs-tag-lessp (tag1 tag2)
   (eq (cvs-tag-compare tag1 tag2) 'more2))
@@ -412,7 +437,7 @@ Otherwise, default to ASCII chars like +, - and |.")
   "Look for a list of tags, and replace it with a tree.
 Optional prefix ARG chooses between two representations."
   (interactive "P")
-  (when (and cvs-tree-use-jisx0208
+  (when (and cvs-tree-use-charset
 	     (not enable-multibyte-characters))
     ;; We need to convert the buffer from unibyte to multibyte
     ;; since we'll use multibyte chars for the tree.
@@ -488,9 +513,9 @@ Optional prefix ARG chooses between two representations."
 	  (setq pe eq)))
       (nreverse nas))))
 
-;;;; 
+;;;;
 ;;;; Merged trees from different files
-;;;; 
+;;;;
 
 (defun cvs-tree-fuzzy-merge-1 (trees tree prev)
   )
@@ -510,51 +535,9 @@ Optional prefix ARG chooses between two representations."
       (erase-buffer)
       (let ((cvs-tag-print-rev nil))
 	(cvs-tree-print tree 'cvs-tag->string 3)))))
-      
+
 
 (provide 'cvs-status)
 
-;;; Change Log:
-;; $Log: cvs-status.el,v $
-;; Revision 1.1.1.1  2001/10/31 17:55:36  jevans
-;; Import emacs 21.1 onto the vendor branch.
-;;
-;; Revision 1.10  2000/12/18 03:17:31  monnier
-;; Remove useless Version.
-;;
-;; Revision 1.9  2000/12/06 19:50:12  fx
-;; Fix copyright years.
-;;
-;; Revision 1.8  2000/11/06 07:01:10  monnier
-;; (cvs-tree-merge): Use cvs-butlast (avoid CL).
-;; (cvs-status-get-tags): Fix regexp.
-;; (cvs-status-trees, cvs-status-cvstrees):
-;; Combine after change hooks and don't sit-for.
-;; (cvs-tree-use-jisx0208): Renamed from cvs-tree-dstr-2byte-ready.
-;; (cvs-tree-char-*): Renamed from cvs-tree-dstr-char-*.
-;; Use make-char rather than hard-coded cryptic data.
-;; (cvs-status-cvstrees): Convert the buffer to multibyte if necessary.
-;;
-;; Revision 1.7  2000/09/29 02:19:10  monnier
-;; (cvs-status-entry-leader-re): Minor fix.
-;;
-;; Revision 1.6  2000/08/16 20:46:32  monnier
-;; *** empty log message ***
-;;
-;; Revision 1.5  2000/08/06 09:18:02  gerd
-;; Use `nth' instead of `first', `second', and `third'.
-;;
-;; Revision 1.4  2000/05/10 22:08:28  monnier
-;; (cvs-status-minor-wrap): Use mark-active.
-;;
-;; Revision 1.3  2000/03/22 01:08:08  monnier
-;; (cvs-status-mode): Use define-derived-mode.
-;;
-;; Revision 1.2  2000/03/22 01:01:36  monnier
-;; (cvs-status-(prev|next)): Rename from
-;; cvs-status-(prev|next)-entry and use easy-mmode-define-navigation.
-;; (cvs-tree-dstr-*): Rename from cvstree-dstr-* and use two ascii chars
-;; to let the output "breathe" a little more (more readable).
-;;
-
+;; arch-tag: db8b5094-d02a-473e-a476-544e89ff5ad0
 ;;; cvs-status.el ends here

@@ -2,6 +2,8 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,7 +31,6 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_usr.c,v 1.15.178.1 2005/11/15 01:45:30 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -51,106 +52,6 @@
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
 
-/*
- * helpers for nsmb device. Can be moved to the smb_dev.c file.
- */
-static void smb_usr_vcspec_free(struct smb_vcspec *spec);
-
-static int
-smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
-{
-	int flags = 0;
-	int error;
-
-	bzero(spec, sizeof(*spec));
-	if (dp->ioc_server == NULL)
-		return EINVAL;
-	if (dp->ioc_localcs[0] == 0) {
-		SMBERROR("no local charset ?\n");
-		return EINVAL;
-	}
-	/*
-	 * Something went bad in user land, just get out. This would cause a
-	 * hang on Intel and a panic on PPC. See Radar 4321020 for more 
-	 * information.
-	 */
-	if (! dp->ioc_svlen ) {
-		SMBERROR("server name's length is zero ?\n");
-		return EINVAL;
-	}
-	spec->sap = smb_memdupin(dp->ioc_server, dp->ioc_svlen);
-	if (spec->sap == NULL)
-		return ENOMEM;
-	if (dp->ioc_local) {
-		spec->lap = smb_memdupin(dp->ioc_local, dp->ioc_lolen);
-		if (spec->lap == NULL) {
-			smb_usr_vcspec_free(spec);
-			return ENOMEM;
-		}
-	}
-	if (dp->ioc_intok) {
-		if ((error = copyin(CAST_USER_ADDR_T(dp->ioc_intok), &spec->toklen,
-				    sizeof spec->toklen))) {
-			smb_usr_vcspec_free(spec);
-			return error;
-		}
-		if (spec->toklen) {
-			spec->tok = malloc(spec->toklen, M_SMBSTR, M_WAITOK);
-			if ((error = copyin(CAST_USER_ADDR_T((char *)dp->ioc_intok +
-						    sizeof spec->toklen),
-					    spec->tok, spec->toklen))) {
-				smb_usr_vcspec_free(spec);
-				return error;
-			}
-		}
-	}
-	spec->srvname = dp->ioc_srvname;
-	spec->pass = dp->ioc_password;
-	spec->domain = dp->ioc_workgroup;
-	spec->username = dp->ioc_user;
-	spec->mode = dp->ioc_mode;
-	spec->rights = dp->ioc_rights;
-	spec->owner = dp->ioc_owner;
-	spec->group = dp->ioc_group;
-	spec->localcs = dp->ioc_localcs;
-	spec->servercs = dp->ioc_servercs;
-	if (dp->ioc_opt & SMBVOPT_PRIVATE)
-		flags |= SMBV_PRIVATE;
-	if (dp->ioc_opt & SMBVOPT_SINGLESHARE)
-		flags |= SMBV_PRIVATE | SMBV_SINGLESHARE;
-	if (dp->ioc_opt & SMBVOPT_EXT_SEC)
-		flags |= SMBV_EXT_SEC;
-	switch (dp->ioc_opt & SMBVOPT_MINAUTH) {
-
-	case SMBVOPT_MINAUTH_NONE:
-		/* this is probably optimized away */
-		flags |= SMBV_MINAUTH_NONE;
-		break;
-
-	case SMBVOPT_MINAUTH_LM:
-		flags |= SMBV_MINAUTH_LM;
-		break;
-
-	case SMBVOPT_MINAUTH_NTLM:
-		flags |= SMBV_MINAUTH_NTLM;
-		break;
-
-	case SMBVOPT_MINAUTH_NTLMV2:
-		flags |= SMBV_MINAUTH_NTLMV2;
-		break;
-
-	case SMBVOPT_MINAUTH_KERBEROS:
-		flags |= SMBV_MINAUTH_KERBEROS;
-		break;
-
-	default:
-		smb_usr_vcspec_free(spec);
-		return EINVAL;
-	}
-	spec->flags = flags;
-	return 0;
-}
-
 static void
 smb_usr_vcspec_free(struct smb_vcspec *spec)
 {
@@ -160,13 +61,54 @@ smb_usr_vcspec_free(struct smb_vcspec *spec)
 	if (spec->lap)
 		smb_memfree(spec->lap);
 	spec->lap = NULL;
-	if (spec->tok)
-		smb_memfree(spec->tok);
-	spec->tok = NULL;
 }
 
 static int
-smb_usr_share2spec(struct smbioc_oshare *dp, struct smb_sharespec *spec)
+smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
+{
+	bzero(spec, sizeof(*spec));
+	if (!dp->ioc_kern_server)
+		return EINVAL;
+	if (dp->ioc_localcs[0] == 0) {
+		SMBERROR("no local charset ?\n");
+		return EINVAL;
+	}
+	/*
+	 * Most likely something went bad in user land, just get out. 
+	 */
+	if (dp->ioc_svlen < sizeof(*spec->sap)) {
+		SMBERROR("server name's length is zero ?\n");
+		return EINVAL;
+	}
+	spec->sap = smb_memdupin(dp->ioc_kern_server, dp->ioc_svlen);
+	if (spec->sap == NULL)
+		return ENOMEM;
+	if (dp->ioc_kern_local) {
+		spec->lap = smb_memdupin(dp->ioc_kern_local, dp->ioc_lolen);
+		if (spec->lap == NULL) {
+			smb_usr_vcspec_free(spec);
+			return ENOMEM;
+		}
+	}
+
+	spec->srvname = dp->ioc_srvname;
+	spec->pass = dp->ioc_password;
+	spec->domain = dp->ioc_domain;
+	spec->username = dp->ioc_user;
+	spec->mode = dp->ioc_mode;
+	spec->rights = dp->ioc_rights;
+	spec->owner = dp->ioc_owner;
+	spec->group = dp->ioc_group;
+	
+	spec->reconnect_wait_time = dp->ioc_reconnect_wait_time;
+
+	spec->localcs = dp->ioc_localcs;
+	spec->servercs = dp->ioc_servercs;
+	spec->flags = dp->ioc_opt;
+	return 0;
+}
+
+static void smb_usr_share2spec(struct smbioc_oshare *dp, struct smb_sharespec *spec)
 {
 	bzero(spec, sizeof(*spec));
 	spec->mode = dp->ioc_mode;
@@ -176,132 +118,84 @@ smb_usr_share2spec(struct smbioc_oshare *dp, struct smb_sharespec *spec)
 	spec->name = dp->ioc_share;
 	spec->stype = dp->ioc_stype;
 	spec->pass = dp->ioc_password;
-	return 0;
 }
 
 
 int
-smb_usr_negotiate(struct smbioc_lookup *dp, struct smb_cred *scred,
-		  struct smb_vc **vcpp, struct smb_share **sspp)
+smb_usr_negotiate(struct smbioc_negotiate *dp, struct smb_cred *scred, struct smb_vc **vcpp, struct smb_dev *sdp)
 {
 	struct smb_vc *vcp = NULL;
 	struct smb_vcspec vspec;
-	struct smb_sharespec sspec, *sspecp = NULL;
 	int error;
-	size_t t;
 
-	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
-		return EINVAL;
 	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
 	if (error)
 		return error;
-	if (dp->ioc_flags & SMBLK_CREATE)
-		vspec.flags |= SMBV_CREATE;
-	if (dp->ioc_level >= SMBL_SHARE) {
-		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
-		if (error)
-			goto out;
-		sspecp = &sspec;
+	/* Do they want us to try both ports while connecting */
+	sdp->sd_flags |= (dp->vc_conn_state & NSMBFL_TRYBOTH);
+	error = smb_sm_negotiate(&vspec, scred, &vcp, sdp);
+	/* Clear it out we don't want this to happen during reconnect */
+	sdp->sd_flags &= ~(dp->vc_conn_state & NSMBFL_TRYBOTH);
+	if (error)
+		goto out;
+
+	*vcpp = vcp;
+		/* Return to the user the server's capablilities */
+	dp->vc_caps = vcp->vc_sopt.sv_caps;
+	dp->flags = vcp->vc_flags;
+	dp->spn_len = 0;
+	/* We are sharing the vc return the user name if there is one */
+	dp->vc_conn_state = (sdp->sd_flags & NSMBFL_SHAREVC);
+	if ((sdp->sd_flags & NSMBFL_SHAREVC) && vcp->vc_username && (dp->ioc_ssn.ioc_user[0] == 0))
+		strlcpy(dp->ioc_ssn.ioc_user, vcp->vc_username, SMB_MAXUSERNAMELEN + 1);
+		
+	if ((vcp->vc_flags & SMBV_KERBEROS_SUPPORT) && vcp->vc_gss.gss_spn && (vcp->vc_gss.gss_spnlen < sizeof(dp->spn))) {
+		bcopy(vcp->vc_gss.gss_spn, dp->spn, vcp->vc_gss.gss_spnlen);
+		dp->spn_len = vcp->vc_gss.gss_spnlen;	
+		smb_get_username_from_kcpn(vcp, dp->ioc_ssn.ioc_kuser);
 	}
-	error = smb_sm_negotiate(&vspec, sspecp, scred, &vcp);
-	if (error == 0) {
-		*vcpp = vcp;
-		*sspp = vspec.ssp;
-		if (dp->ioc_ssn.ioc_outtok &&
-		    !(error = copyin(CAST_USER_ADDR_T(dp->ioc_ssn.ioc_outtok), &t, sizeof t)) &&
-		    !(error = copyout(&vcp->vc_outtoklen,
-				      CAST_USER_ADDR_T(dp->ioc_ssn.ioc_outtok),
-				      sizeof(size_t))) &&
-		    vcp->vc_outtoklen && vcp->vc_outtoklen <= t &&
-		    !(error = copyout(vcp->vc_outtok,
-				      CAST_USER_ADDR_T((char *)dp->ioc_ssn.ioc_outtok +
-							 sizeof(size_t)),
-				      vcp->vc_outtoklen))) {
-			/*
-			 * Save this blob in vc_negtok.  We need it in
-			 * case we have to reconnect
-			 */
-			if (vcp->vc_negtok)
-				free(vcp->vc_negtok, M_SMBTEMP);
-			vcp->vc_negtok = vcp->vc_outtok;
-			vcp->vc_outtok = NULL;
-			vcp->vc_negtoklen = vcp->vc_outtoklen;
-			vcp->vc_outtoklen = 0;
-		}
-	}
-out:
+	
+out: 
 	smb_usr_vcspec_free(&vspec);
 	return error;
 }
 
 int
-smb_usr_ssnsetup(struct smbioc_lookup *dp, struct smb_cred *scred,
-	struct smb_vc *vcp, struct smb_share **sspp)
+smb_usr_ssnsetup(struct smbioc_ssnsetup *dp, struct smb_cred *scred, struct smb_vc *vcp)
 {
 	struct smb_vcspec vspec;
-	struct smb_sharespec sspec, *sspecp = NULL;
 	int error;
-	size_t t;
 
-	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
-		return EINVAL;
 	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
 	if (error)
 		return error;
-	if (dp->ioc_level >= SMBL_SHARE) {
-		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
-		if (error)
-			goto out;
-		sspecp = &sspec;
-	}
-	error = smb_sm_ssnsetup(&vspec, sspecp, scred, vcp);
-	if (error == 0) {
-		*sspp = vspec.ssp;
-		if (vcp->vc_outtoklen &&
-		    !(error = copyin(CAST_USER_ADDR_T(dp->ioc_ssn.ioc_outtok), &t, sizeof t)) &&
-		    !(error = copyout(&vcp->vc_outtoklen,
-				      CAST_USER_ADDR_T(dp->ioc_ssn.ioc_outtok),
-				      sizeof(size_t))) &&
-		    vcp->vc_outtoklen <= t &&
-		    !(error = copyout(vcp->vc_outtok,
-				      CAST_USER_ADDR_T((char *)dp->ioc_ssn.ioc_outtok +
-							 sizeof(size_t)),
-				      vcp->vc_outtoklen))) {
-			vcp->vc_outtoklen = 0;
-			free(vcp->vc_outtok, M_SMBTEMP);
-			vcp->vc_outtok = NULL;
-		}
-	}
-out:
+
+	error = smb_sm_ssnsetup(dp, &vspec, scred, vcp);
+
 	smb_usr_vcspec_free(&vspec);
 	return error;
 }
 
 
 int
-smb_usr_tcon(struct smbioc_lookup *dp, struct smb_cred *scred,
+smb_usr_tcon(struct smbioc_treeconn *dp, struct smb_cred *scred,
 	struct smb_vc *vcp, struct smb_share **sspp)
 {
 	struct smb_vcspec vspec;
 	struct smb_sharespec sspec, *sspecp = NULL;
 	int error;
 
-	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
-		return EINVAL;
 	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
 	if (error)
 		return error;
-	if (dp->ioc_level >= SMBL_SHARE) {
-		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
-		if (error)
-			goto out;
-		sspecp = &sspec;
-	}
+	
+	smb_usr_share2spec(&dp->ioc_sh, &sspec);
+	sspecp = &sspec;
+	
 	error = smb_sm_tcon(&vspec, sspecp, scred, vcp);
-	if (error == 0) {
+	if (error == 0)
 		*sspp = vspec.ssp;
-	}
-out:
+
 	smb_usr_vcspec_free(&vspec);
 	return error;
 }
@@ -313,8 +207,7 @@ out:
  */
 
 int
-smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
-	struct smb_cred *scred)
+smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp, struct smb_cred *scred)
 {
 	struct smb_rq rq, *rqp = &rq;
 	struct mbchain *mbp;
@@ -322,6 +215,7 @@ smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
 	u_int8_t wc;
 	u_int16_t bc;
 	int error;
+	vfs_context_t context =  scred->scr_vfsctx;
 
 	switch (dp->ioc_cmd) {
 	    case SMB_COM_TRANSACTION2:
@@ -340,12 +234,12 @@ smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
 		return error;
 	mbp = &rqp->sr_rq;
 	smb_rq_wstart(rqp);
-	error = mb_put_mem(mbp, dp->ioc_twords, dp->ioc_twc * 2, MB_MUSER);
+	error = mb_put_user_mem(mbp, dp->ioc_kern_twords, dp->ioc_twc * 2, 0, context);
 	if (error)
 		goto bad;
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
-	error = mb_put_mem(mbp, dp->ioc_tbytes, dp->ioc_tbc, MB_MUSER);
+	error = mb_put_user_mem(mbp, dp->ioc_kern_tbytes, dp->ioc_tbc, 0, context);
 	if (error)
 		goto bad;
 	smb_rq_bend(rqp);
@@ -360,7 +254,7 @@ smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
 		error = EBADRPC;
 		goto bad;
 	}
-	error = md_get_mem(mdp, dp->ioc_rpbuf, wc, MB_MUSER);
+	error = md_get_user_mem(mdp, dp->ioc_kern_rpbuf, wc, 0, context);
 	if (error)
 		goto bad;
 	md_get_uint16le(mdp, &bc);
@@ -369,7 +263,7 @@ smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
 		goto bad;
 	}
 	dp->ioc_rbc = bc;
-	error = md_get_mem(mdp, dp->ioc_rpbuf + wc, bc, MB_MUSER);
+	error = md_get_user_mem(mdp, dp->ioc_kern_rpbuf, bc, wc, context);
 bad:
 	dp->ioc_errclass = rqp->sr_errclass;
 	dp->ioc_serror = rqp->sr_serror;
@@ -379,38 +273,37 @@ bad:
 
 }
 
-static int
-smb_cpdatain(struct mbchain *mbp, int len, caddr_t data)
+static int smb_cpdatain(struct mbchain *mbp, user_addr_t data, int len, vfs_context_t context)
 {
 	int error;
 
 	if (len == 0)
 		return 0;
 	error = mb_init(mbp);
-	if (error)
-		return error;
-	return mb_put_mem(mbp, data, len, MB_MUSER);
+	if (! error)	
+		error = mb_put_user_mem(mbp, data, len, 0, context);
+	return error;
 }
 
 int
-smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp,
-	struct smb_cred *scred)
+smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp, struct smb_cred *scred)
 {
 	struct smb_t2rq t2, *t2p = &t2;
 	struct mdchain *mdp;
 	int error, len;
+	vfs_context_t context =  scred->scr_vfsctx;
 
 	if (dp->ioc_setupcnt > SMB_MAXSETUPWORDS)
 		return EINVAL;
-	error = smb_t2_init(t2p, SSTOCP(ssp), dp->ioc_setup, dp->ioc_setupcnt,
-	    scred);
+	error = smb_t2_init(t2p, SSTOCP(ssp), dp->ioc_setup, dp->ioc_setupcnt, scred);
 	if (error)
 		return error;
 	len = t2p->t2_setupcount = dp->ioc_setupcnt;
 	if (len > 1)
 		t2p->t2_setupdata = dp->ioc_setup; 
-	if (dp->ioc_name) {
-		t2p->t_name = smb_strdupin(dp->ioc_name, 128);
+	/* ioc_name_len includes the null byte, ioc_kern_name is a c-style string */
+	if (dp->ioc_kern_name && dp->ioc_name_len) {
+		t2p->t_name = smb_memdupin(dp->ioc_kern_name, dp->ioc_name_len);
 		if (t2p->t_name == NULL) {
 			error = ENOMEM;
 			goto bad;
@@ -419,12 +312,13 @@ smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp,
 	t2p->t2_maxscount = 0;
 	t2p->t2_maxpcount = dp->ioc_rparamcnt;
 	t2p->t2_maxdcount = dp->ioc_rdatacnt;
-	error = smb_cpdatain(&t2p->t2_tparam, dp->ioc_tparamcnt, dp->ioc_tparam);
+	
+	error = smb_cpdatain(&t2p->t2_tparam, dp->ioc_kern_tparam, dp->ioc_tparamcnt, context);
+	if (! error)
+		error = smb_cpdatain(&t2p->t2_tdata, dp->ioc_kern_tdata, dp->ioc_tdatacnt, context);
 	if (error)
 		goto bad;
-	error = smb_cpdatain(&t2p->t2_tdata, dp->ioc_tdatacnt, dp->ioc_tdata);
-	if (error)
-		goto bad;
+
 	error = smb_t2_request(t2p);
 	dp->ioc_errclass = t2p->t2_sr_errclass;
 	dp->ioc_serror = t2p->t2_sr_serror;
@@ -440,7 +334,7 @@ smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp,
 			goto bad;
 		}
 		dp->ioc_rparamcnt = len;
-		error = md_get_mem(mdp, dp->ioc_rparam, len, MB_MUSER);
+		error = md_get_user_mem(mdp, dp->ioc_kern_rparam, len, 0, context);
 		if (error)
 			goto bad;
 	} else
@@ -453,7 +347,7 @@ smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp,
 			goto bad;
 		}
 		dp->ioc_rdatacnt = len;
-		error = md_get_mem(mdp, dp->ioc_rdata, len, MB_MUSER);
+		error = md_get_user_mem(mdp, dp->ioc_kern_rdata, len, 0, context);
 	} else
 		dp->ioc_rdatacnt = 0;
 bad:

@@ -1,6 +1,6 @@
 " Vim plugin with helper function(s) for --remote-wait
 " Maintainer: Flemming Madsen <fma@cci.dk>
-" Last Change: 2002 Feb 26
+" Last Change: 2004 May 30
 
 " Has this already been loaded?
 if exists("loaded_rrhelper")
@@ -24,8 +24,12 @@ if has("clientserver")
       " Handle same file from more clients and file being more than once
       " on the command line by encoding this stuff in the group name
       let uniqueGroup = "RemoteReply_".id."_".cnt
+
+      " Path separators are always forward slashes for the autocommand pattern.
+      " Escape special characters with a backslash.
+      let f = escape(substitute(argv(cnt), '\\', '/', "g"), ' *,?[{')
       execute "augroup ".uniqueGroup
-      execute 'autocmd '.uniqueGroup.' BufUnload '.argv(cnt).'  call DoRemoteReply("'.id.'", "'.cnt.'", "'.uniqueGroup.'", "'.argv(cnt).'")'
+      execute "autocmd ".uniqueGroup." BufUnload ". f ."  call DoRemoteReply('".id."', '".cnt."', '".uniqueGroup."', '". f ."')"
       let cnt = cnt + 1
     endwhile
     augroup END

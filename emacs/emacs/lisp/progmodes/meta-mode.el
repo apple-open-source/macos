@@ -1,6 +1,7 @@
 ;;; meta-mode.el --- major mode for editing Metafont or MetaPost sources
 
-;; Copyright (C) 1997 Free Software Foundation, Inc.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;; Free Software Foundation, Inc.
 
 ;; Author: Ulrik Vieth <vieth@thphy.uni-duesseldorf.de>
 ;; Version: 1.0
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -32,7 +33,7 @@
 ;; a major mode including an approriate syntax table, keymap, and a
 ;; mode-specific pull-down menu.  It also provides a sophisticated set
 ;; of font-lock patterns, a fancy indentation function adapted from
-;; AUC-TeX's latex.el, and some basic mode-specific editing functions
+;; AUCTeX's latex.el, and some basic mode-specific editing functions
 ;; such as functions to move to the beginning or end of the enclosing
 ;; environment, or to mark, re-indent, or comment-out environments.
 ;; On the other hand, it doesn't yet provide any functionality for
@@ -41,15 +42,15 @@
 ;; package or as a separate Emacs Lisp package.
 
 ;; Installation:
-;; 
+;;
 ;; An interface to running Metafont or MetaPost as a shell process
 ;; from within Emacs is currently under development as a separate
 ;; Emacs Lisp package (meta-buf.el).  In order to have that package
 ;; loaded automatically when first entering Metafont or MetaPost mode,
 ;; you might use the load-hook provided in this package by adding
 ;; these lines to your startup file:
-;; 
-;;  (add-hook 'meta-mode-load-hook 
+;;
+;;  (add-hook 'meta-mode-load-hook
 ;;            '(lambda () (require 'meta-buf)))
 ;;
 ;; The add-on package loaded this way may in turn make use of the
@@ -72,7 +73,7 @@
 ;; global-font-lock-mode or font-lock-support-mode, you can also
 ;; activate fontification in Metafont and/or MetaPost mode by adding
 ;; the following lines to your startup file:
-;; 
+;;
 ;;  (add-hook 'meta-common-mode-hook 'turn-on-font-lock)
 ;;  (add-hook 'meta-common-mode-hook 'turn-on-lazy-lock)
 
@@ -109,7 +110,7 @@
 ;;                          Improved and debbuged indentation function.
 ;; v 0.4 -- 1997/02/18  UV  Added functions to indent regions for M-C-q,
 ;;                          also added a preliminary mode-specific menu.
-;; v 0.5 -- 1997/02/19  UV  Added functions to skip to next or previous 
+;; v 0.5 -- 1997/02/19  UV  Added functions to skip to next or previous
 ;;                          defun and to re-indent or comment-out defuns.
 ;; v 0.6 -- 1997/02/20  UV  More debugging, testing and clean-up.
 ;; v 0.7 -- 1997/02/22  UV  Use easymenu to define mode-specific menu.
@@ -134,6 +135,7 @@
 
 (defgroup meta-font nil
   "Major mode for editing Metafont or MetaPost sources."
+  :link '(custom-group-link :tag "Font Lock Faces group" font-lock-faces)
   :group 'languages)
 
 ;;; Fontification.
@@ -247,7 +249,7 @@
                '((1 font-lock-keyword-face)
                  (2 font-lock-constant-face)))
          ;; embedded Metafont/MetaPost code in comments
-         (cons "|\\([^|]+\\)|" 
+         (cons "|\\([^|]+\\)|"
                '(1 font-lock-constant-face t))
      ))
   "Default expressions to highlight in Metafont or MetaPost mode.")
@@ -286,10 +288,10 @@
 ;;   grep '^primitive' texk-7.0/web2c/{mf,mp}.web |\
 ;;   sed 's/primitive(\("[a-zA-Z]*"\).*/\1/' > {mf,mp}_prim.list
 ;;
-;;   grep '\(let\|def\|vardef\|primarydef\|secondarydef\|tertiarydef\)' 
+;;   grep '\(let\|def\|vardef\|primarydef\|secondarydef\|tertiarydef\)'
 ;;     texmf/meta{font,post}/plain.{mf,mp} > {mf,mp}_plain.list
 
-(defconst meta-common-primitives-list 
+(defconst meta-common-primitives-list
   '("ASCII" "addto" "also" "and" "angle" "atleast" "batchmode"
     "begingroup" "boolean" "boundarychar" "char" "charcode" "chardp"
     "charexists" "charext" "charht" "charic" "charlist" "charwd"
@@ -317,10 +319,10 @@
     "transform" "transformed" "true" "turningnumber" "uniformdeviate"
     "unknown" "until" "vardef" "warningcheck" "withpen" "xpart"
     "xscaled" "xxpart" "xypart" "year" "ypart" "yscaled" "yxpart"
-    "yypart" "zscaled") 
+    "yypart" "zscaled")
   "List of primitives common to Metafont and MetaPost.")
 
-(defconst metafont-primitives-list 
+(defconst metafont-primitives-list
   '("at" "autorounding" "chardx" "chardy" "cull" "display"
     "dropping" "fillin" "from" "granularity" "hppp" "inwindow"
     "keeping" "numspecial" "openwindow" "proofing" "smoothing"
@@ -328,7 +330,7 @@
     "withweight" "xoffset" "yoffset")
   "List of primitives only defined in Metafont.")
 
-(defconst metapost-primitives-list 
+(defconst metapost-primitives-list
   '("arclength" "arctime" "bluepart" "bounded" "btex" "clip"
     "clipped" "color" "dashed" "dashpart" "etex" "filled" "fontpart"
     "fontsize" "greenpart" "infont" "linecap" "linejoin" "llcorner"
@@ -338,7 +340,7 @@
     "verbatimtex" "withcolor" "within" "write")
   "List of primitives only defined in MetaPost.")
 
-(defconst meta-common-plain-macros-list 
+(defconst meta-common-plain-macros-list
   '( "abs" "bot" "bye" "byte" "ceiling" "clear_pen_memory"
      "clearit" "clearpen" "clearxy" "counterclockwise" "cutdraw" "decr"
      "dir" "direction" "directionpoint" "div" "dotprod" "downto" "draw"
@@ -353,7 +355,7 @@
      "unitvector" "upto" "whatever")
   "List of macros common to plain Metafont and MetaPost.")
 
-(defconst metafont-plain-macros-list 
+(defconst metafont-plain-macros-list
   '("beginchar" "change_width" "culldraw" "cullit" "cutoff"
     "define_blacker_pixels" "define_corrected_pixels"
     "define_good_x_pixels" "define_good_y_pixels"
@@ -370,24 +372,24 @@
     "mode_proof" "mode_setup" "mode_smoke" "nodisplays" "notransforms"
     "openit" "penrazor" "pensquare" "proofoffset" "proofrule"
     "proofrulethickness" "screenchars" "screenrule" "screenstrokes"
-    "showit" "slantfont" "smode" "titlefont" "vround") 
+    "showit" "slantfont" "smode" "titlefont" "vround")
   "List of macros only defined in plain Metafont.")
 
-(defconst metapost-plain-macros-list 
+(defconst metapost-plain-macros-list
   '("arrowhead" "bbox" "beginfig" "buildcycle" "center" "cutafter"
     "cutbefore" "dashpattern" "dotlabel" "dotlabels" "drawarrow"
     "drawdblarrow" "drawoptions" "endfig" "image" "label" "off" "on"
-    "thelabel") 
+    "thelabel")
   "List of macros only defined in plain MetaPost.")
 
-(defconst metapost-graph-macros-list 
-  '("augment" "auto.x" "auto.y" "autogrid" "begingraph" "endgraph" 
-    "format" "frame" "gdata" "gdotlabel" "gdraw" "gdrawarrow" 
-    "gdrawdblarrow" "gfill" "glabel" "grid" "itick" "otick" "plot" 
+(defconst metapost-graph-macros-list
+  '("augment" "auto.x" "auto.y" "autogrid" "begingraph" "endgraph"
+    "format" "frame" "gdata" "gdotlabel" "gdraw" "gdrawarrow"
+    "gdrawdblarrow" "gfill" "glabel" "grid" "itick" "otick" "plot"
     "setcoords" "setrange")
   "List of macros only defined in MetaPost \"graph\" package.")
-  
-(defconst metapost-boxes-macros-list 
+
+(defconst metapost-boxes-macros-list
   '("boxit" "boxjoin" "bpath" "circleit" "drawboxed" "drawboxes"
     "drawunboxed" "fixpos" "fixsize" "pic" "rboxit")
   "List of macros only defined in MetaPost \"boxes\" package.")
@@ -413,7 +415,7 @@
 (defvar meta-symbol-list nil
   "List of known symbols to complete in Metafont or MetaPost mode.")
 
-(defvar meta-symbol-changed nil 
+(defvar meta-symbol-changed nil
   "Flag indicating whether `meta-symbol-list' has been initialized.")
 
 (defvar meta-complete-list nil
@@ -508,7 +510,7 @@ If the list was changed, sort the list and remove duplicates first."
                  (message "Making completion list...")
                  (let ((list (all-completions symbol list nil)))
                    (with-output-to-temp-buffer "*Completions*"
-                     (display-completion-list list)))
+                     (display-completion-list list symbol)))
                  (message "Making completion list... done"))))
       (funcall (nth 1 entry)))))
 
@@ -517,7 +519,7 @@ If the list was changed, sort the list and remove duplicates first."
   ;; utility function used in `meta-complete-symbol'
   (let ((pos (point)))
     (save-excursion
-      (and (re-search-backward 
+      (and (re-search-backward
             regexp (if limit (max (point-min) (- (point) limit))) t)
            (eq (match-end 0) pos)))))
 
@@ -585,7 +587,7 @@ If the list was changed, sort the list and remove duplicates first."
            (looking-at meta-left-comment-regexp))
       (current-column)
     (skip-chars-backward "\t ")
-    (max (if (bolp) 0 (1+ (current-column))) 
+    (max (if (bolp) 0 (1+ (current-column)))
          comment-column)))
 
 (defun meta-indent-line ()
@@ -605,7 +607,7 @@ If the list was changed, sort the list and remove duplicates first."
   "Return the indentation of current line of Metafont or MetaPost source."
   (save-excursion
     (back-to-indentation)
-    (cond 
+    (cond
       ;; Comments to the left margin.
      ((and meta-left-comment-regexp
            (looking-at meta-left-comment-regexp))
@@ -615,15 +617,15 @@ If the list was changed, sort the list and remove duplicates first."
            (looking-at meta-right-comment-regexp))
       comment-column)
      ;; Comments best left alone.
-     ((and meta-ignore-comment-regexp 
+     ((and meta-ignore-comment-regexp
            (looking-at meta-ignore-comment-regexp))
       (current-indentation))
      ;; Backindent at end of environments.
-     ((looking-at 
+     ((looking-at
        (concat "\\<" meta-end-environment-regexp "\\>"))
       (- (meta-indent-calculate-last) meta-indent-level))
      ;; Backindent at keywords within environments.
-     ((looking-at 
+     ((looking-at
        (concat "\\<" meta-within-environment-regexp "\\>"))
       (- (meta-indent-calculate-last) meta-indent-level))
      (t (meta-indent-calculate-last)))))
@@ -645,11 +647,11 @@ If the list was changed, sort the list and remove duplicates first."
            (meta-indent-level-count)
            (cond
             ;; Compensate for backindent at end of environments.
-            ((looking-at 
+            ((looking-at
               (concat "\\<"meta-end-environment-regexp "\\>"))
              meta-indent-level)
             ;; Compensate for backindent within environments.
-            ((looking-at 
+            ((looking-at
               (concat "\\<" meta-within-environment-regexp "\\>"))
              meta-indent-level)
             (t 0)))))
@@ -660,7 +662,7 @@ If the list was changed, sort the list and remove duplicates first."
   (save-excursion
     (save-restriction
       (let ((count 0))
-        (narrow-to-region 
+        (narrow-to-region
          (point) (save-excursion
                    (re-search-forward "[^\\\\\"]%\\|\n\\|\\'" nil t)
                    (backward-char) (point)))
@@ -669,12 +671,12 @@ If the list was changed, sort the list and remove duplicates first."
             (goto-char (match-beginning 0))
             (cond
              ;; Count number of begin-end keywords within line.
-             ((looking-at 
+             ((looking-at
                (concat "\\<" meta-begin-environment-regexp "\\>"))
               (setq count (+ count meta-indent-level)))
-             ((looking-at 
+             ((looking-at
                (concat "\\<" meta-end-environment-regexp "\\>"))
-              (setq count (- count meta-indent-level)))     
+              (setq count (- count meta-indent-level)))
              ;; Count number of open-close parentheses within line.
              ((looking-at "(")
               (setq count (+ count meta-indent-level)))
@@ -682,92 +684,6 @@ If the list was changed, sort the list and remove duplicates first."
               (setq count (- count meta-indent-level)))
              )))
         count))))
-
-
-
-;;; Filling paragraphs.
-
-(defun meta-fill-paragraph (&optional justify)
-  "Like \\[fill-paragraph], but handle Metafont or MetaPost comments.
-If any part of the current line is a comment, fill the comment or the
-paragraph of it that point is in, preserving the comment's indentation
-and initial semicolons."
-  (interactive "P")
-  (let (has-comment             ; Non-nil if line contains a comment.
-        has-code-and-comment    ; Non-nil if line contains code and a comment.
-        comment-fill-prefix     ; If has-comment, fill-prefix for the comment.
-        )
-    ;; Figure out what kind of comment we are looking at.
-    (save-excursion
-      (beginning-of-line)
-      (cond
-       ;; A line with nothing but a comment on it?
-       ((looking-at (concat "[ \t]*" comment-start-skip))
-        (setq has-comment t)
-        (setq comment-fill-prefix 
-              (buffer-substring (match-beginning 0) (match-end 0))))
-       ;; A line with some code, followed by a comment?  
-       ((condition-case nil
-            (save-restriction
-              (narrow-to-region (point-min)
-                                (save-excursion (end-of-line) (point)))
-              (while (not (looking-at (concat comment-start "\\|$")))
-                (skip-chars-forward (concat "^" comment-start "\n\"\\\\"))
-                (cond
-                 ((eq (char-after (point)) ?\\) (forward-char 2))
-                 ((eq (char-after (point)) ?\") (forward-sexp 1))))
-              (looking-at comment-start-skip))
-          (error nil))
-        (setq has-comment t 
-              has-code-and-comment t)
-        (setq comment-fill-prefix
-              (concat (make-string (/ (current-column) 8) ?\t)
-                      (make-string (% (current-column) 8) ?\ )
-                      (buffer-substring (match-beginning 0) (match-end 0)))))
-       ))
-    (if (not has-comment)
-        (fill-paragraph justify)
-      ;; Narrow to include only the comment, and then fill the region.
-      (save-excursion
-        (save-restriction
-          (beginning-of-line)
-          (narrow-to-region
-           ;; Find the first line we should include in the region to fill.
-           (save-excursion
-             (while (and (zerop (forward-line -1))
-                         (looking-at (concat "^[ \t]*" comment-start))))
-             (or (looking-at (concat ".*" comment-start)) 
-                 (forward-line 1))
-             (point))
-           ;; Find the beginning of the first line past the region to fill.
-           (save-excursion
-             (while (progn (forward-line 1)
-                           (looking-at (concat "^[ \t]*" comment-start))))
-             (point)))
-          (let* ((paragraph-start 
-                  (concat paragraph-start "\\|[ \t%]*$"))
-                 (paragraph-separate  
-                  (concat paragraph-start "\\|[ \t%]*$"))
-                 (paragraph-ignore-fill-prefix nil)
-                 (fill-prefix comment-fill-prefix)
-                 (after-line (if has-code-and-comment
-                                 (save-excursion (forward-line 1) (point))))
-                 (end (progn (forward-paragraph)
-                             (or (bolp) (newline 1))
-                             (point)))
-                 (beg (progn (backward-paragraph)
-                             (if (eq (point) after-line) (forward-line -1))
-                             (point)))
-                 (after-pos  (save-excursion
-                               (goto-char beg)
-                               (if (not (looking-at fill-prefix))
-                                   (progn
-                                     (re-search-forward comment-start-skip)
-                                     (point)))))
-                 )
-            (fill-region-as-paragraph beg end justify nil after-pos))
-          )))
-    t))
 
 
 
@@ -789,21 +705,21 @@ and initial semicolons."
 
 (defun meta-beginning-of-defun (&optional arg)
   "Move backward to beginnning of a defun in Metafont or MetaPost code.
-With numeric argument, do it that many times.  
+With numeric argument, do it that many times.
 Negative arg -N means move forward to Nth following beginning of defun.
 Returns t unless search stops due to beginning or end of buffer."
   (interactive "p")
   (if (or (null arg) (= 0 arg)) (setq arg 1))
   (and arg (< arg 0) (not (eobp)) (forward-char 1))
-  (and (re-search-backward 
+  (and (re-search-backward
         (concat "\\<" meta-begin-defun-regexp "\\>") nil t arg)
        (progn (goto-char (match-beginning 0))
               (skip-chars-backward "%")
               (skip-chars-backward " \t") t)))
-      
+
 (defun meta-end-of-defun (&optional arg)
   "Move forward to end of a defun in Metafont or MetaPost code.
-With numeric argument, do it that many times. 
+With numeric argument, do it that many times.
 Negative argument -N means move back to Nth preceding end of defun.
 Returns t unless search stops due to beginning or end of buffer."
   (interactive "p")
@@ -926,7 +842,7 @@ The environment marked is the one that contains point or follows point."
     ()
   (setq meta-mode-map (make-sparse-keymap))
   (define-key meta-mode-map "\t"        'meta-indent-line)
-  (define-key meta-mode-map "\C-m"      'reindent-then-newline-and-indent)  
+  (define-key meta-mode-map "\C-m"      'reindent-then-newline-and-indent)
   ;; Comment Paragraphs:
 ; (define-key meta-mode-map "\M-a"      'backward-sentence)
 ; (define-key meta-mode-map "\M-e"      'forward-sentence)
@@ -950,11 +866,11 @@ The environment marked is the one that contains point or follows point."
   (define-key meta-mode-map "\M-\t"     'meta-complete-symbol)
   ;; Shell Commands:
 ; (define-key meta-mode-map "\C-c\C-c"  'meta-command-file)
-; (define-key meta-mode-map "\C-c\C-k"  'meta-kill-job)            
+; (define-key meta-mode-map "\C-c\C-k"  'meta-kill-job)
 ; (define-key meta-mode-map "\C-c\C-l"  'meta-recenter-output)
   )
 
-(easy-menu-define 
+(easy-menu-define
  meta-mode-menu meta-mode-map
  "Menu used in Metafont or MetaPost mode."
  (list "Meta"
@@ -963,15 +879,15 @@ The environment marked is the one that contains point or follows point."
        "--"
        ["Indent Line"                   meta-indent-line t]
        ["Indent Environment"            meta-indent-defun t]
-       ["Indent Region"                 meta-indent-region 
+       ["Indent Region"                 meta-indent-region
         :active (meta-mark-active)]
        ["Indent Buffer"                 meta-indent-buffer t]
        "--"
        ["Comment Out Environment"       meta-comment-defun t]
        ["Uncomment Environment"         meta-uncomment-defun t]
-       ["Comment Out Region"            meta-comment-region 
+       ["Comment Out Region"            meta-comment-region
         :active (meta-mark-active)]
-       ["Uncomment Region"              meta-uncomment-region 
+       ["Uncomment Region"              meta-uncomment-region
         :active (meta-mark-active)]
        "--"
        ["Complete Symbol"               meta-complete-symbol t]
@@ -984,7 +900,7 @@ The environment marked is the one that contains point or follows point."
 ;; Compatibility: XEmacs doesn't have the  `mark-active' variable.
 (defun meta-mark-active ()
   "Return whether the mark and region are currently active in this buffer."
-  (or (and (boundp 'mark-active) mark-active) (mark)))
+  (if (boundp 'mark-active) mark-active (mark)))
 
 
 
@@ -1019,9 +935,9 @@ The environment marked is the one that contains point or follows point."
 
   (make-local-variable 'paragraph-start)
   (make-local-variable 'paragraph-separate)
-  (setq paragraph-start 
+  (setq paragraph-start
         (concat page-delimiter "\\|$"))
-  (setq paragraph-separate 
+  (setq paragraph-separate
         (concat page-delimiter "\\|$"))
 
   (make-local-variable 'paragraph-ignore-fill-prefix)
@@ -1041,8 +957,6 @@ The environment marked is the one that contains point or follows point."
 
   (make-local-variable 'comment-indent-function)
   (setq comment-indent-function 'meta-comment-indent)
-  (make-local-variable 'fill-paragraph-function)
-  (setq fill-paragraph-function 'meta-fill-paragraph)
   (make-local-variable 'indent-line-function)
   (setq indent-line-function 'meta-indent-line)
   ;; No need to define a mode-specific 'indent-region-function.
@@ -1086,7 +1000,7 @@ Turning on Metafont mode calls the value of the variables
   (setq meta-complete-list
         (list (list "\\<\\(\\sw+\\)" 1 'meta-symbol-list)
               (list "" 'ispell-complete-word)))
-  (run-hooks 'meta-common-mode-hook 'metafont-mode-hook))
+  (run-mode-hooks 'meta-common-mode-hook 'metafont-mode-hook))
 
 ;;;###autoload
 (defun metapost-mode ()
@@ -1111,7 +1025,7 @@ Turning on MetaPost mode calls the value of the variable
   (setq meta-complete-list
         (list (list "\\<\\(\\sw+\\)" 1 'meta-symbol-list)
               (list "" 'ispell-complete-word)))
-  (run-hooks 'meta-common-mode-hook 'metapost-mode-hook))
+  (run-mode-hooks 'meta-common-mode-hook 'metapost-mode-hook))
 
 
 ;;; Just in case ...
@@ -1119,4 +1033,5 @@ Turning on MetaPost mode calls the value of the variable
 (provide 'meta-mode)
 (run-hooks 'meta-mode-load-hook)
 
+;;; arch-tag: ec2916b2-3a83-4cf7-962d-d8019370c006
 ;;; meta-mode.el ends here

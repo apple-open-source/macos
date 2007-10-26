@@ -16,12 +16,17 @@
 /*	const char *name;
 /*	const char *value;
 /*
+/*	void	set_mail_conf_time_int(name, value)
+/*	const char *name;
+/*	int     value;
+/*
 /*	void	get_mail_conf_time_table(table)
 /*	CONFIG_TIME_TABLE *table;
 /* AUXILIARY FUNCTIONS
-/*	int	get_mail_conf_time2(name1, name2, defval, min, max);
+/*	int	get_mail_conf_time2(name1, name2, defval, def_unit, min, max);
 /*	const char *name1;
 /*	const char *name2;
+/*	int	defval;
 /*	int	def_unit;
 /*	int	min;
 /*	int	max;
@@ -82,46 +87,20 @@
 
 /* Global library. */
 
+#include "conv_time.h"
 #include "mail_conf.h"
-
-#define MINUTE	(60)
-#define HOUR	(60 * MINUTE)
-#define DAY	(24 * HOUR)
-#define WEEK	(7 * DAY)
 
 /* convert_mail_conf_time - look up and convert integer parameter value */
 
 static int convert_mail_conf_time(const char *name, int *intval, int def_unit)
 {
     const char *strval;
-    char    unit;
-    char    junk;
 
     if ((strval = mail_conf_lookup_eval(name)) == 0)
 	return (0);
-
-    switch (sscanf(strval, "%d%c%c", intval, &unit, &junk)) {
-    case 1:
-	unit = def_unit;
-    case 2:
-	switch (unit) {
-	case 'w':
-	    *intval *= WEEK;
-	    return (1);
-	case 'd':
-	    *intval *= DAY;
-	    return (1);
-	case 'h':
-	    *intval *= HOUR;
-	    return (1);
-	case 'm':
-	    *intval *= MINUTE;
-	    return (1);
-	case 's':
-	    return (1);
-	}
-    }
-    msg_fatal("parameter %s: bad time unit: %s", name, strval);
+    if (conv_time(strval, intval, def_unit) == 0)
+	msg_fatal("parameter %s: bad time value or unit: %s", name, strval);
+    return (1);
 }
 
 /* check_mail_conf_time - validate integer value */
@@ -172,16 +151,14 @@ int     get_mail_conf_time(const char *name, const char *defval, int min, int ma
 /* get_mail_conf_time2 - evaluate integer-valued configuration variable */
 
 int     get_mail_conf_time2(const char *name1, const char *name2,
-			            const char *defval, int min, int max)
+			            int defval, int def_unit, int min, int max)
 {
     int     intval;
     char   *name;
-    int     def_unit;
 
     name = concatenate(name1, name2, (char *) 0);
-    def_unit = get_def_time_unit(name, defval);
     if (convert_mail_conf_time(name, &intval, def_unit) == 0)
-	set_mail_conf_time(name, defval);
+	set_mail_conf_time_int(name, defval);
     if (convert_mail_conf_time(name, &intval, def_unit) == 0)
 	msg_panic("get_mail_conf_time2: parameter not found: %s", name);
     check_mail_conf_time(name, intval, min, max);
@@ -194,6 +171,16 @@ int     get_mail_conf_time2(const char *name1, const char *name2,
 void    set_mail_conf_time(const char *name, const char *value)
 {
     mail_conf_update(name, value);
+}
+
+/* set_mail_conf_time_int - update integer-valued configuration dictionary entry */
+
+void    set_mail_conf_time_int(const char *name, int value)
+{
+    char    buf[BUFSIZ];		/* yeah! crappy code! */
+
+    sprintf(buf, "%ds", value);		        /* yeah! more crappy code! */
+    mail_conf_update(name, buf);
 }
 
 /* get_mail_conf_time_table - look up table of integers */
@@ -237,6 +224,7 @@ int     main(int unused_argc, char **unused_argv)
     vstream_printf("10 days = %d\n", days);
     vstream_printf("10 weeks = %d\n", weeks);
     vstream_fflush(VSTREAM_OUT);
+    return (0);
 }
 
 #endif

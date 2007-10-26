@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
@@ -13,31 +13,6 @@
 		</array>
 		<key>name</key>
 		<string>enable-network</string>
-	</dict>
-	<dict>
-		<key>keys</key>
-		<array>
-			<string>State:/Network/Global/DNS</string>
-			<string>State:/Network/Global/IPv4</string>
-			<string>State:/Network/Global/IPv6</string>
-			<string>State:/Network/Global/NetInfo</string>
-		</array>
-		<key>name</key>
-		<string>network_change</string>
-		<key>postName</key>
-		<string>com.apple.system.config.network_change</string>
-	</dict>
-	<dict>
-		<key>execCommand</key>
-		<string>/usr/sbin/AppleFileServer</string>
-		<key>execUID</key>
-		<integer>0</integer>
-		<key>keys</key>
-		<array>
-			<string>daemon:AppleFileServer</string>
-		</array>
-		<key>name</key>
-		<string>AppleFileServer</string>
 	</dict>
 </array>
 </plist>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,48 @@
 
 
 /*
+ * Some useful cluster numbers.
+ */
+#define	MSDOSFSROOT	0		/* cluster 0 means the root dir */
+#define	CLUST_FREE	0		/* cluster 0 also means a free cluster */
+#define	MSDOSFSFREE	CLUST_FREE
+#define	CLUST_FIRST	2		/* first legal cluster number */
+#define	CLUST_RSRVD	0xfffffff6	/* reserved cluster range */
+#define	CLUST_BAD	0xfffffff7	/* a cluster with a defect */
+#define	CLUST_EOFS	0xfffffff8	/* start of eof cluster range */
+#define	CLUST_EOFE	0xffffffff	/* end of eof cluster range */
+
+/*
+ * Note: FILENO_EMPTY must be larger than FAT32_MASK so that it can't accidentally
+ * occur as a valid cluster number.
+ */
+#define FILENO_EMPTY	999999999	/* Fake file number used for empty files */
+#define FILENO_ROOT	1		/* File number used for root directory of FAT12 and FAT16 */
+
+#define	FAT12_MASK	0x00000fff	/* mask for 12 bit cluster numbers */
+#define	FAT16_MASK	0x0000ffff	/* mask for 16 bit cluster numbers */
+#define	FAT32_MASK	0x0fffffff	/* mask for FAT32 cluster numbers */
+
+/*
+ * MSDOSFS:
+ * Return true if filesystem uses 12 bit fats. Microsoft Programmer's
+ * Reference says if the maximum cluster number in a filesystem is greater
+ * than 4078 ((CLUST_RSRVS - CLUST_FIRST) & FAT12_MASK) then we've got a
+ * 16 bit fat filesystem. While mounting, the result of this test is stored
+ * in pm_fatentrysize.
+ * GEMDOS-flavour (atari):
+ * If the filesystem is on floppy we've got a 12 bit fat filesystem, otherwise
+ * 16 bit. We check the d_type field in the disklabel struct while mounting
+ * and store the result in the pm_fatentrysize. Note that this kind of
+ * detection gets flakey when mounting a vnd-device.
+ */
+#define	FAT12(pmp)	(pmp->pm_fatmask == FAT12_MASK)
+#define	FAT16(pmp)	(pmp->pm_fatmask == FAT16_MASK)
+#define	FAT32(pmp)	(pmp->pm_fatmask == FAT32_MASK)
+
+#define	MSDOSFSEOF(pmp, cn)	((((cn) | ~(pmp)->pm_fatmask) & CLUST_EOFS) == CLUST_EOFS)
+
+/*
 		Symbolic Links for FAT
 
 FAT does not have native support for symbolic links (symlinks).  We
@@ -119,49 +161,6 @@ struct symlink {
 	char link[SYMLINK_LINK_MAX]; /* "length" bytes, padded by '\n' and spaces */
 };
 
-
-/*
- * Some useful cluster numbers.
- */
-#define	MSDOSFSROOT	0		/* cluster 0 means the root dir */
-#define	CLUST_FREE	0		/* cluster 0 also means a free cluster */
-#define	MSDOSFSFREE	CLUST_FREE
-#define	CLUST_FIRST	2		/* first legal cluster number */
-#define	CLUST_RSRVD	0xfffffff6	/* reserved cluster range */
-#define	CLUST_BAD	0xfffffff7	/* a cluster with a defect */
-#define	CLUST_EOFS	0xfffffff8	/* start of eof cluster range */
-#define	CLUST_EOFE	0xffffffff	/* end of eof cluster range */
-
-/*
- * Note: FILENO_EMPTY must be larger than FAT32_MASK so that it can't accidentally
- * occur as a valid cluster number.
- */
-#define FILENO_EMPTY	999999999	/* Fake file number used for empty files */
-#define FILENO_ROOT	1		/* File number used for root directory of FAT12 and FAT16 */
-
-#define	FAT12_MASK	0x00000fff	/* mask for 12 bit cluster numbers */
-#define	FAT16_MASK	0x0000ffff	/* mask for 16 bit cluster numbers */
-#define	FAT32_MASK	0x0fffffff	/* mask for FAT32 cluster numbers */
-
-/*
- * MSDOSFS:
- * Return true if filesystem uses 12 bit fats. Microsoft Programmer's
- * Reference says if the maximum cluster number in a filesystem is greater
- * than 4078 ((CLUST_RSRVS - CLUST_FIRST) & FAT12_MASK) then we've got a
- * 16 bit fat filesystem. While mounting, the result of this test is stored
- * in pm_fatentrysize.
- * GEMDOS-flavour (atari):
- * If the filesystem is on floppy we've got a 12 bit fat filesystem, otherwise
- * 16 bit. We check the d_type field in the disklabel struct while mounting
- * and store the result in the pm_fatentrysize. Note that this kind of
- * detection gets flakey when mounting a vnd-device.
- */
-#define	FAT12(pmp)	(pmp->pm_fatmask == FAT12_MASK)
-#define	FAT16(pmp)	(pmp->pm_fatmask == FAT16_MASK)
-#define	FAT32(pmp)	(pmp->pm_fatmask == FAT32_MASK)
-
-#define	MSDOSFSEOF(pmp, cn)	((((cn) | ~(pmp)->pm_fatmask) & CLUST_EOFS) == CLUST_EOFS)
-
 #ifdef KERNEL
 /*
  * These are the values for the function argument to the function
@@ -180,28 +179,37 @@ struct symlink {
 
 void msdosfs_fat_init(void);
 void msdosfs_fat_uninit(void);
-int  msdosfs_fat_init_vol(struct msdosfsmount *pmp, vfs_context_t context);
+int  msdosfs_fat_init_vol(struct msdosfsmount *pmp);
 void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp);
-int pcbmap __P((struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp, vfs_context_t context));
-int clusterfree __P((struct msdosfsmount *pmp, u_long cn, u_long *oldcnp, vfs_context_t context));
-int clusteralloc __P((struct msdosfsmount *pmp, u_long start, u_long count, u_long fillwith, u_long *retcluster, u_long *got, vfs_context_t context));
-int fatentry __P((int function, struct msdosfsmount *pmp, u_long cluster, u_long *oldcontents, u_long newcontents, vfs_context_t context));
-int freeclusterchain __P((struct msdosfsmount *pmp, u_long startchain, vfs_context_t context));
-int extendfile __P((struct denode *dep, u_long count, vfs_context_t context));
-void fc_purge __P((struct denode *dep, u_int frcn));
+int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t context);
+int pcbmap (struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp);
+int pcbmap_internal(struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp);
+int clusterfree __P((struct msdosfsmount *pmp, u_long cn, u_long *oldcnp));
+int clusteralloc __P((struct msdosfsmount *pmp, u_long start, u_long count, u_long fillwith, u_long *retcluster, u_long *got));
+int fatentry __P((int function, struct msdosfsmount *pmp, u_long cluster, u_long *oldcontents, u_long newcontents));
+int freeclusterchain __P((struct msdosfsmount *pmp, u_long startchain));
+int extendfile __P((struct denode *dep, u_long count));
 
 /* [2753891]
  * Routine to mark a FAT16 or FAT32 volume as "clean" or "dirty" by manipulating the upper bit
  * of the FAT entry for cluster 1.  Note that this bit is not defined for FAT12 volumes.
  */
-int markvoldirty(struct msdosfsmount *pmp, int dirty, vfs_context_t context);
+int markvoldirty(struct msdosfsmount *pmp, int dirty);
 
 /*
  * Write the primary/active FAT and all directories to the device.  This
  * skips the boot sector, FSInfo sector, and non-active copies of the FAT.
  */
-void msdosfs_meta_flush(struct msdosfsmount *pmp);
+void msdosfs_meta_flush(struct msdosfsmount *pmp, int sync);
+void msdosfs_meta_sync_callback(void *pmp, void *unused);
 
 enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context);
+
+__private_extern__ u_char l2u[256];
+
+/*
+ * Tunables to control delayed metadata sync.
+ */
+extern uint32_t msdosfs_meta_delay;
 
 #endif	/* KERNEL */

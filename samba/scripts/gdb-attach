@@ -1,0 +1,43 @@
+#! /bin/bash
+
+PROG=${PROG:-/usr/sbin/smbd}
+GDBSCRIPT=/tmp/.$(basename $0).$$
+
+cat > $GDBSCRIPT <<GDB
+# USR1 is used for samba messaging, we rarely want to know about it
+handle SIGUSR1 nostop
+# TERM is used for exiting messaging, we rarely want to know about it
+handle SIGTERM nostop
+
+# Always break on malloc errors
+break malloc_printf
+break malloc_error_break
+
+define errno
+    print *(int*)__error()
+end
+
+document errno
+Print the value of the global variable "errno".
+end
+
+define getegid
+    print (gid_t)getegid()
+end
+
+define geteuid
+    print (uid_t)geteuid()
+end
+
+document geteuid
+Print the result of geteuid()
+end
+
+document getegid
+Print the result of getegid()
+end
+
+GDB
+
+trap "rm -f $GDBSCRIPT" 0 1 2 3 15
+gdb -x $GDBSCRIPT $PROG "$@"

@@ -86,12 +86,16 @@ module MonitorMixin
   class ConditionVariable
     class Timeout < Exception; end
     
+    # Create a new timer with the argument timeout, and add the
+    # current thread to the list of waiters.  Then the thread is
+    # stopped.  It will be resumed when a corresponding #signal 
+    # occurs.
     def wait(timeout = nil)
-      @monitor.__send__(:mon_check_owner)
+      @monitor.instance_eval {mon_check_owner()}
       timer = create_timer(timeout)
       
       Thread.critical = true
-      count = @monitor.__send__(:mon_exit_for_cond)
+      count = @monitor.instance_eval {mon_exit_for_cond()}
       @waiters.push(Thread.current)
 
       begin
@@ -101,31 +105,38 @@ module MonitorMixin
         return false
       ensure
 	Thread.critical = true
-	if timer && timer.alive?
-	  Thread.kill(timer)
+	begin
+	  if timer && timer.alive?
+	    Thread.kill(timer)
+	  end
+	  if @waiters.include?(Thread.current)  # interrupted?
+	    @waiters.delete(Thread.current)
+	  end
+	  @monitor.instance_eval {mon_enter_for_cond(count)}
+	ensure
+	  Thread.critical = false
 	end
-	if @waiters.include?(Thread.current)  # interrupted?
-	  @waiters.delete(Thread.current)
-	end
-        @monitor.__send__(:mon_enter_for_cond, count)
-	Thread.critical = false
       end
     end
     
+
+    # call #wait while the supplied block returns +true+.
     def wait_while
       while yield
 	wait
       end
     end
     
+    # call #wait until the supplied block returns +true+.
     def wait_until
       until yield
 	wait
       end
     end
     
+    # Wake up and run the next waiter
     def signal
-      @monitor.__send__(:mon_check_owner)
+      @monitor.instance_eval {mon_check_owner()}
       Thread.critical = true
       t = @waiters.shift
       t.wakeup if t
@@ -133,8 +144,9 @@ module MonitorMixin
       Thread.pass
     end
     
+    # Wake up all the waiters.
     def broadcast
-      @monitor.__send__(:mon_check_owner)
+      @monitor.instance_eval {mon_check_owner()}
       Thread.critical = true
       for t in @waiters
 	t.wakeup
@@ -172,7 +184,7 @@ module MonitorMixin
   
   def self.extend_object(obj)
     super(obj)
-    obj.__send__(:mon_initialize)
+    obj.instance_eval {mon_initialize()}
   end
   
   #
@@ -201,6 +213,7 @@ module MonitorMixin
     Thread.critical = true
     mon_acquire(@mon_entering_queue)
     @mon_count += 1
+  ensure
     Thread.critical = false
   end
   
@@ -235,6 +248,9 @@ module MonitorMixin
   
   #
   # FIXME: This isn't documented in Nutshell.
+  # 
+  # Create a new condition variable for this monitor.
+  # This facilitates control of the monitor with #signal and #wait.
   #
   def new_cond
     return ConditionVariable.new(self)
@@ -247,6 +263,7 @@ module MonitorMixin
     mon_initialize
   end
 
+  # called by initialize method to set defaults for instance variables.
   def mon_initialize
     @mon_owner = nil
     @mon_count = 0
@@ -254,6 +271,8 @@ module MonitorMixin
     @mon_waiting_queue = []
   end
 
+  # Throw a ThreadError exception if the current thread
+  # does't own the monitor
   def mon_check_owner
     if @mon_owner != Thread.current
       raise ThreadError, "current thread not owner"
@@ -284,11 +303,23 @@ module MonitorMixin
   def mon_exit_for_cond
     count = @mon_count
     @mon_count = 0
-    mon_release
     return count
+  ensure
+    mon_release
   end
 end
 
+# Monitors provide means of mutual exclusion for Thread programming.
+# A critical region is created by means of the synchronize method,
+# which takes a block.
+# The condition variables (created with #new_cond) may be used 
+# to control the execution of a monitor with #signal and #wait.
+#
+# the Monitor class wraps MonitorMixin, and provides aliases
+#  alias try_enter try_mon_enter
+#  alias enter mon_enter
+#  alias exit mon_exit
+# to access its methods more concisely.
 class Monitor
   include MonitorMixin
   alias try_enter try_mon_enter

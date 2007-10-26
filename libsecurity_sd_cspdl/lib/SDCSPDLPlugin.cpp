@@ -101,7 +101,7 @@ void SDCSPDLPlugin::consume(NotificationDomain domain, NotificationEvent event,
 		CssmSubserviceUid *uid = (CssmSubserviceUid *)uidp->Value().data();
 		assert(uid);
 		secdebug("sdcspdl", "sending callback %ld upstream", event);
-		sendCallback(event, uid->subserviceId(), CSSM_SERVICE_DL | CSSM_SERVICE_CSP);
+		sendCallback(event, n2h (uid->subserviceId()), CSSM_SERVICE_DL | CSSM_SERVICE_CSP);
 	} else
 		secdebug("sdcspdl", "callback event %ld has no SSUID data", event);
 }

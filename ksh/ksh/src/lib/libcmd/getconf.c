@@ -1,37 +1,33 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1992-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*               Glenn Fowler <gsf@research.att.com>                *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1992-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                 Glenn Fowler <gsf@research.att.com>                  *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * Glenn Fowler
- * AT&T Labs Research
+ * AT&T Research
  *
  * getconf - get configuration values
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: getconf (AT&T Labs Research) 2003-05-31 $\n]"
+"[-?\n@(#)$Id: getconf (AT&T Research) 2007-02-07 $\n]"
 USAGE_LICENSE
 "[+NAME?getconf - get configuration values]"
 "[+DESCRIPTION?\bgetconf\b displays the system configuration value for"
@@ -53,10 +49,15 @@ USAGE_LICENSE
 "[+?If no operands are specified then all known variables are written in"
 "	\aname\a=\avalue\a form to the standard output, one per line."
 "	Only one of \b--call\b, \b--name\b or \b--standard\b may be specified.]"
+"[+?This implementation uses the \bastgetconf\b(3) string interface to the native"
+"	\bsysconf\b(2), \bconfstr\b(2), \bpathconf\b(2), and \bsysinfo\b(2)"
+"	system calls. If \bgetconf\b on \b$PATH\b is not the default native"
+"	\bgetconf\b, named by \b$(getconf GETCONF)\b, then \bastgetconf\b(3)"
+"	checks only \bast\b specific extensions and the native system calls;"
+"	invalid options and/or names not supported by \bastgetconf\b(3) cause"
+"	the \bgetconf\b on \b$PATH\b to be executed.]"
 
-"[a:all?All known variables are written in \aname\a=\avalue\a form to the"
-"	standard output, one per line. Present for compatibility with other"
-"	implementations.]"
+"[a:all?Call the native \bgetconf\b(1) with option \b-a\b.]"
 "[b:base?List base variable name sans call and standard prefixes.]"
 "[c:call?Display variables with call prefix that matches \aRE\a. The call"
 "	prefixes are:]:[RE]{"
@@ -82,6 +83,7 @@ USAGE_LICENSE
 "		[+AES]"
 "		[+AST]"
 "		[+C]"
+"		[+GNU]"
 "		[+POSIX]"
 "		[+SVID]"
 "		[+XBS5]"
@@ -93,7 +95,8 @@ USAGE_LICENSE
 "[w:writable?Display the named \bwritable\b variables in \aname\a=\avalue\a"
 "	form. If \aname\a is omitted then all \bwritable\b variables are"
 "	listed.]"
-"[v:specification?Ignored by this implementation.]:[name]"
+"[v:specification?Call the native \bgetconf\b(1) with option"
+"	\b-v\b \aname\a.]:[name]"
 
 "\n"
 "\n[ name [ path [ value ] ] ... ]\n"
@@ -112,32 +115,57 @@ USAGE_LICENSE
 "	\bsysconf\b(2), \bastgetconf\b(3)]"
 ;
 
-#include <cmdlib.h>
+#include <cmd.h>
+#include <proc.h>
+#include <ls.h>
+
+typedef struct Path_s
+{
+	const char*	path;
+	int		len;
+} Path_t;
 
 int
 b_getconf(int argc, char** argv, void* context)
 {
-	register char*	name;
-	register char*	path;
-	register char*	value;
-	register char*	s;
-	char*		pattern;
-	int		all;
-	int		flags;
+	register char*		name;
+	register char*		path;
+	register char*		value;
+	register const char*	s;
+	register const char*	t;
+	char*			pattern;
+	char*			native;
+	char*			cmd;
+	Path_t*			e;
+	Path_t*			p;
+	int			flags;
+	int			n;
+	int			i;
+	int			m;
+	int			q;
+	char**			oargv;
+	char			buf[PATH_MAX];
+	Path_t			std[64];
+	struct stat		st0;
+	struct stat		st1;
 
-	static char	empty[] = "-";
+	static const char	empty[] = "-";
+	static const Path_t	equiv[] = { { "/bin", 4 }, { "/usr/bin", 8 } };
 
-	NoP(argc);
-	cmdinit(argv, context, ERROR_CATALOG, 0);
-	all = 0;
+	cmdinit(argc, argv, context, ERROR_CATALOG, 0);
+	oargv = argv;
+	if (*(native = astconf("GETCONF", NiL, NiL)) != '/')
+		native = 0;
 	flags = 0;
+	name = 0;
 	pattern = 0;
 	for (;;)
 	{
 		switch (optget(argv, usage))
 		{
 		case 'a':
-			all = opt_info.num;
+			if (native)
+				goto defer;
 			continue;
 		case 'b':
 			flags |= ASTCONF_base;
@@ -172,10 +200,16 @@ b_getconf(int argc, char** argv, void* context)
 		case 't':
 			flags |= ASTCONF_table;
 			continue;
+		case 'v':
+			if (native)
+				goto defer;
+			continue;
 		case 'w':
 			flags |= ASTCONF_write;
 			continue;
 		case ':':
+			if (native)
+				goto defer;
 			error(2, "%s", opt_info.arg);
 			break;
 		case '?':
@@ -185,43 +219,176 @@ b_getconf(int argc, char** argv, void* context)
 		break;
 	}
 	argv += opt_info.index;
-	if (error_info.errors || (name = *argv) && all)
-		error(ERROR_usage(2), "%s", optusage(NiL));
-	do
+	if (!(name = *argv))
+		path = 0;
+	else if (streq(name, empty))
 	{
-		if (!name)
+		name = 0;
+		if (path = *++argv)
 		{
-			path = 0;
-			value = 0;
+			argv++;
+			if (streq(path, empty))
+				path = 0;
 		}
-		else
+	}
+	if (error_info.errors || !name && *argv)
+		error(ERROR_usage(2), "%s", optusage(NiL));
+	if (!name)
+		astconflist(sfstdout, path, flags, pattern);
+	else
+	{
+		flags = native ? (ASTCONF_system|ASTCONF_error) : 0;
+		do
 		{
-			if (streq(name, empty))
-				name = 0;
 			if (!(path = *++argv))
 				value = 0;
 			else
 			{
 				if (streq(path, empty))
+				{
 					path = 0;
+					flags = 0;
+				}
 				if ((value = *++argv) && (streq(value, empty)))
+				{
 					value = 0;
+					flags = 0;
+				}
 			}
-		}
-		if (!name)
-			astconflist(sfstdout, path, flags, pattern);
-		else if (!(s = astgetconf(name, path, value, errorf)))
-			break;
-		else if (!value)
-		{
-			if (flags & X_OK)
+			s = astgetconf(name, path, value, flags, errorf);
+			if (error_info.errors)
+				break;
+			if (!s)
+				goto defer;
+			if (!value)
 			{
-				sfputr(sfstdout, name, ' ');
-				sfputr(sfstdout, path ? path : empty, ' ');
+				if (flags & ASTCONF_write)
+				{
+					sfputr(sfstdout, name, ' ');
+					sfputr(sfstdout, path ? path : empty, ' ');
+				}
+				sfputr(sfstdout, s, '\n');
 			}
-			sfputr(sfstdout, *s ? s : "undefined", '\n');
-		}
-	} while (*argv && (name = *++argv));
-	error_info.flags &= ~ERROR_LIBRARY;
+		} while (*argv && (name = *++argv));
+	}
 	return error_info.errors != 0;
+
+ defer:
+
+	/*
+	 * defer to argv[0] if absolute and it exists
+	 */
+
+	if ((cmd = oargv[0]) && *cmd == '/' && !access(cmd, X_OK))
+		goto found;
+
+	/*
+	 * defer to the first getconf on $PATH that is also on the standard PATH
+	 */
+
+	e = std;
+	s = astconf("PATH", NiL, NiL); 
+	q = !stat(equiv[0].path, &st0) && !stat(equiv[1].path, &st1) && st0.st_ino == st1.st_ino && st0.st_dev == st1.st_dev;
+	m = 0;
+	do
+	{
+		for (t = s; *s && *s != ':'; s++);
+		if ((n = s - t) && *t == '/')
+		{
+			if (q)
+				for (i = 0; i < 2; i++)
+					if (n == equiv[i].len && !strncmp(t, equiv[i].path, n))
+					{
+						if (m & (i+1))
+							t = 0;
+						else
+						{
+							m |= (i+1);
+							if (!(m & (!i+1)))
+							{
+								m |= (!i+1);
+								e->path = t;
+								e->len = n;
+								e++;
+								if (e >= &std[elementsof(std)])
+									break;
+								t = equiv[!i].path;
+								n = equiv[!i].len;
+							}
+						}
+					}
+			if (t)
+			{
+				e->path = t;
+				e->len = n;
+				e++;
+			}
+		}
+		while (*s == ':')
+			s++;
+	} while (*s && e < &std[elementsof(std)]);
+	if (e < &std[elementsof(std)])
+	{
+		e->len = strlen(e->path = "/usr/sbin");
+		if (++e < &std[elementsof(std)])
+		{
+			e->len = strlen(e->path = "/sbin");
+			e++;
+		}
+	}
+	if (s = getenv("PATH"))
+		do
+		{
+			for (t = s; *s && *s != ':'; s++);
+			if ((n = s - t) && *t == '/')
+			{
+				for (p = std; p < e; p++)
+					if (p->len == n && !strncmp(t, p->path, n))
+					{
+						sfsprintf(buf, sizeof(buf), "%-*.*s/%s", n, n, t, error_info.id);
+						if (!access(buf, X_OK))
+						{
+							cmd = buf;
+							goto found;
+						}
+					}
+			}
+			while (*s == ':')
+				s++;
+		} while (*s);
+
+	/*
+	 * defer to the first getconf on the standard PATH
+	 */
+
+	for (p = std; p < e; p++)
+	{
+		sfsprintf(buf, sizeof(buf), "%-*.*s/%s", p->len, p->len, p->path, error_info.id);
+		if (!access(buf, X_OK))
+		{
+			cmd = buf;
+			goto found;
+		}
+	}
+
+	/*
+	 * out of deferrals
+	 */
+
+	if (name)
+		error(4, "%s: unknown name -- no native getconf(1) to defer to", name);
+	else
+		error(4, "no native getconf(1) to defer to");
+	return 2;
+
+ found:
+
+	/*
+	 * don't blame us for crappy diagnostics
+	 */
+
+	oargv[0] = cmd;
+	if ((n = sh_run(context, argc, oargv)) >= EXIT_NOEXEC)
+		error(ERROR_SYSTEM|2, "%s: exec error [%d]", cmd, n);
+	return n;
 }

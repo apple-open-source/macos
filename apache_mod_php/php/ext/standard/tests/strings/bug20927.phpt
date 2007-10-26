@@ -1,6 +1,5 @@
 --TEST--
-Segfault on wordwrap statement bug #20927
---SKIPIF--
+Bug #20927 (Segfault on wordwrap statement)
 --FILE--
 <?php
 $string		= str_repeat("1234567890 X ", 10);

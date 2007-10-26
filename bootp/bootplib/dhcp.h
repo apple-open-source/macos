@@ -33,6 +33,7 @@
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <netinet/udp.h>
+#include <stdint.h>
 
 struct dhcp {
     u_char		dp_op;		/* packet opcode type */
@@ -83,10 +84,10 @@ typedef enum {
     dhcp_msgtype_inform_e	= DHCPINFORM,
 } dhcp_msgtype_t;
 
-static __inline__ unsigned char *
+static __inline__ const char *
 dhcp_msgtype_names(dhcp_msgtype_t type)
 {
-    unsigned char * names[] = {
+    const char * names[] = {
 	"<none>",
 	"DISCOVER",
 	"OFFER",
@@ -107,6 +108,7 @@ dhcp_msgtype_names(dhcp_msgtype_t type)
 #define DHCP_OVERLOAD_SNAME	2
 #define DHCP_OVERLOAD_BOTH	3
 
+typedef uint32_t 		dhcptag_t;
 typedef int32_t			dhcp_time_secs_t; /* absolute time */
 typedef dhcp_time_secs_t	dhcp_interval_secs_t; /* relative interval */
 typedef dhcp_interval_secs_t	dhcp_lease_t;
@@ -133,7 +135,7 @@ typedef enum {
     dhcp_cstate_last_e		= dhcp_cstate_rebind_e,
 } dhcp_cstate_t;
 
-static __inline__ const u_char *
+static __inline__ const char *
 dhcp_cstate_str(dhcp_cstate_t state)
 {
     static const char * list[] = {"<none>", 

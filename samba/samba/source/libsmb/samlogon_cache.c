@@ -59,15 +59,16 @@ BOOL netsamlogon_cache_shutdown(void)
 ***********************************************************************/
 void netsamlogon_clear_cached_user(TDB_CONTEXT *tdb, NET_USER_INFO_3 *user)
 {
-	fstring domain;
-	TDB_DATA key;
 	BOOL got_tdb = False;
+	DOM_SID sid;
+	fstring key_str, sid_string;
 
 	/* We may need to call this function from smbd which will not have
            winbindd_cache.tdb open.  Open the tdb if a NULL is passed. */
 
 	if (!tdb) {
-		tdb = tdb_open_log(lock_path("winbindd_cache.tdb"), 5000,
+		tdb = tdb_open_log(lock_path("winbindd_cache.tdb"), 
+				   WINBINDD_CACHE_TDB_DEFAULT_HASH_SIZE,
 				   TDB_DEFAULT, O_RDWR, 0600);
 		if (!tdb) {
 			DEBUG(5, ("netsamlogon_clear_cached_user: failed to open cache\n"));
@@ -76,29 +77,24 @@ void netsamlogon_clear_cached_user(TDB_CONTEXT *tdb, NET_USER_INFO_3 *user)
 		got_tdb = True;
 	}
 
-	unistr2_to_ascii(domain, &user->uni_logon_dom, sizeof(domain) - 1);
+	sid_copy(&sid, &user->dom_sid.sid);
+	sid_append_rid(&sid, user->user_rid);
 
-	/* Clear U/DOMAIN/RID cache entry */
+	/* Clear U/SID cache entry */
 
-	asprintf(&key.dptr, "U/%s/%d", domain, user->user_rid);
-	key.dsize = strlen(key.dptr) - 1; /* keys are not NULL terminated */
+	fstr_sprintf(key_str, "U/%s", sid_to_string(sid_string, &sid));
 
-	DEBUG(10, ("netsamlogon_clear_cached_user: clearing %s\n", key.dptr));
+	DEBUG(10, ("netsamlogon_clear_cached_user: clearing %s\n", key_str));
 
-	tdb_delete(tdb, key);
+	tdb_delete(tdb, string_tdb_data(key_str));
 
-	SAFE_FREE(key.dptr);
+	/* Clear UG/SID cache entry */
 
-	/* Clear UG/DOMAIN/RID cache entry */
+	fstr_sprintf(key_str, "UG/%s", sid_to_string(sid_string, &sid));
 
-	asprintf(&key.dptr, "UG/%s/%d", domain, user->user_rid);
-	key.dsize = strlen(key.dptr) - 1; /* keys are not NULL terminated */
+	DEBUG(10, ("netsamlogon_clear_cached_user: clearing %s\n", key_str));
 
-	DEBUG(10, ("netsamlogon_clear_cached_user: clearing %s\n", key.dptr));
-
-	tdb_delete(tdb, key);
-
-	SAFE_FREE(key.dptr);
+	tdb_delete(tdb, string_tdb_data(key_str));
 
 	if (got_tdb)
 		tdb_close(tdb);
@@ -109,7 +105,7 @@ void netsamlogon_clear_cached_user(TDB_CONTEXT *tdb, NET_USER_INFO_3 *user)
  username should be in UTF-8 format
 ***********************************************************************/
 
-BOOL netsamlogon_cache_store(TALLOC_CTX *mem_ctx, const char * username, NET_USER_INFO_3 *user)
+BOOL netsamlogon_cache_store( const char *username, NET_USER_INFO_3 *user )
 {
 	TDB_DATA 	data;
         fstring 	keystr;
@@ -117,6 +113,7 @@ BOOL netsamlogon_cache_store(TALLOC_CTX *mem_ctx, const char * username, NET_USE
 	BOOL 		result = False;
 	DOM_SID		user_sid;
 	time_t		t = time(NULL);
+	TALLOC_CTX 	*mem_ctx;
 	
 
 	if (!netsamlogon_cache_init()) {
@@ -136,18 +133,26 @@ BOOL netsamlogon_cache_store(TALLOC_CTX *mem_ctx, const char * username, NET_USE
 	/* so we fill it in since winbindd_getpwnam() makes use of it */
 	
 	if ( !user->uni_user_name.buffer ) {
-		init_unistr2( &user->uni_user_name, username, STR_TERMINATE );
+		init_unistr2( &user->uni_user_name, username, UNI_STR_TERMINATE );
 		init_uni_hdr( &user->hdr_user_name, &user->uni_user_name );
 	}
 		
 	/* Prepare data */
 	
-	prs_init( &ps,MAX_PDU_FRAG_LEN , mem_ctx, MARSHALL);
-	
-	if ( !prs_uint32( "timestamp", &ps, 0, (uint32*)&t ) )
+	if ( !(mem_ctx = TALLOC_P( NULL, int )) ) {
+		DEBUG(0,("netsamlogon_cache_store: talloc() failed!\n"));
 		return False;
+	}
+
+	prs_init( &ps, RPC_MAX_PDU_FRAG_LEN, mem_ctx, MARSHALL);
 	
-	if ( net_io_user_info3("", user, &ps, 0, 3) ) 
+	{
+		uint32 ts = (uint32)t;
+		if ( !prs_uint32( "timestamp", &ps, 0, &ts ) )
+			return False;
+	}
+	
+	if ( net_io_user_info3("", user, &ps, 0, 3, 0) ) 
 	{
 		data.dsize = prs_offset( &ps );
 		data.dptr = prs_data_p( &ps );
@@ -157,6 +162,8 @@ BOOL netsamlogon_cache_store(TALLOC_CTX *mem_ctx, const char * username, NET_USE
 		
 		prs_mem_free( &ps );
 	}
+
+	TALLOC_FREE( mem_ctx );
 		
 	return result;
 }
@@ -175,7 +182,7 @@ NET_USER_INFO_3* netsamlogon_cache_get( TALLOC_CTX *mem_ctx, const DOM_SID *user
 	uint32		t;
 	
 	if (!netsamlogon_cache_init()) {
-		DEBUG(0,("netsamlogon_cache_store: cannot open %s for write!\n", NETSAMLOGON_TDB));
+		DEBUG(0,("netsamlogon_cache_get: cannot open %s for write!\n", NETSAMLOGON_TDB));
 		return False;
 	}
 
@@ -187,20 +194,23 @@ NET_USER_INFO_3* netsamlogon_cache_get( TALLOC_CTX *mem_ctx, const DOM_SID *user
 	data = tdb_fetch( netsamlogon_tdb, key );
 	
 	if ( data.dptr ) {
-		
-		if ( (user = SMB_MALLOC_P(NET_USER_INFO_3)) == NULL )
+
+		user = TALLOC_ZERO_P(mem_ctx, NET_USER_INFO_3);
+		if (user == NULL) {
 			return NULL;
-			
+		}
+
 		prs_init( &ps, 0, mem_ctx, UNMARSHALL );
 		prs_give_memory( &ps, data.dptr, data.dsize, True );
 		
 		if ( !prs_uint32( "timestamp", &ps, 0, &t ) ) {
 			prs_mem_free( &ps );
+			TALLOC_FREE(user);
 			return False;
 		}
 		
-		if ( !net_io_user_info3("", user, &ps, 0, 3) ) {
-			SAFE_FREE( user );
+		if ( !net_io_user_info3("", user, &ps, 0, 3, 0) ) {
+			TALLOC_FREE( user );
 		}
 			
 		prs_mem_free( &ps );
@@ -219,7 +229,7 @@ NET_USER_INFO_3* netsamlogon_cache_get( TALLOC_CTX *mem_ctx, const DOM_SID *user
 		if ( (time_diff < 0 ) || (time_diff > lp_winbind_cache_time()) ) {
 			DEBUG(10,("netsamlogon_cache_get: cache entry expired \n"));
 			tdb_delete( netsamlogon_tdb, key );
-			SAFE_FREE( user );
+			TALLOC_FREE( user );
 		}
 #endif
 	}
@@ -241,7 +251,6 @@ BOOL netsamlogon_cache_have(const DOM_SID *user_sid)
 	result = (user != NULL);
 
 	talloc_destroy(mem_ctx);
-	SAFE_FREE(user);
 
 	return result;
 }

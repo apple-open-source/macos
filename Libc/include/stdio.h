@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2005, 2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -62,13 +62,17 @@
 #define	_STDIO_H_
 
 #include <_types.h>
-#include <sys/cdefs.h>
 
 #ifndef _VA_LIST
 #define _VA_LIST
 /* DO NOT REMOVE THIS COMMENT: fixincludes needs to see:
  * __gnuc_va_list and include <stdarg.h> */
 typedef __darwin_va_list	va_list;
+#endif
+
+#ifndef	_OFF_T
+#define	_OFF_T
+typedef	__darwin_off_t		off_t;
 #endif
 
 #ifndef	_SIZE_T
@@ -80,11 +84,7 @@ typedef	__darwin_size_t		size_t;
 #define NULL __DARWIN_NULL
 #endif /* ! NULL */
 
-#if !defined(_ANSI_SOURCE) && !defined(__STRICT_ANSI__)
 typedef __darwin_off_t		fpos_t;
-#else
-typedef __int64_t		fpos_t;
-#endif
 
 #define	_FSTDIO			/* Define for new stdio with functions. */
 
@@ -257,19 +257,44 @@ char	*fgets(char * __restrict, int, FILE *);
 FILE	*fopen(const char * __restrict, const char * __restrict);
 int	 fprintf(FILE * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(fprintf);
 int	 fputc(int, FILE *);
-int	 fputs(const char * __restrict, FILE * __restrict);
+//Begin-Libc
+#ifndef LIBC_ALIAS_FPUTS
+//End-Libc
+int	 fputs(const char * __restrict, FILE * __restrict) __DARWIN_ALIAS(fputs);
+//Begin-Libc
+#else /* LIBC_ALIAS_FPUTS */
+int	 fputs(const char * __restrict, FILE * __restrict) LIBC_ALIAS(fputs);
+#endif /* !LIBC_ALIAS_FPUTS */
+//End-Libc
 size_t	 fread(void * __restrict, size_t, size_t, FILE * __restrict);
+//Begin-Libc
+#ifndef LIBC_ALIAS_FREOPEN
+//End-Libc
 FILE	*freopen(const char * __restrict, const char * __restrict,
 	    FILE * __restrict) __DARWIN_ALIAS(freopen);
+//Begin-Libc
+#else /* LIBC_ALIAS_FREOPEN */
+FILE	*freopen(const char * __restrict, const char * __restrict,
+	    FILE * __restrict) LIBC_ALIAS(freopen);
+#endif /* !LIBC_ALIAS_FREOPEN */
+//End-Libc
 int	 fscanf(FILE * __restrict, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(fscanf);
 int	 fseek(FILE *, long, int);
 int	 fsetpos(FILE *, const fpos_t *);
 long	 ftell(FILE *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_FWRITE
+//End-Libc
 size_t	 fwrite(const void * __restrict, size_t, size_t, FILE * __restrict) __DARWIN_ALIAS(fwrite);
+//Begin-Libc
+#else /* LIBC_ALIAS_FWRITE */
+size_t	 fwrite(const void * __restrict, size_t, size_t, FILE * __restrict) LIBC_ALIAS(fwrite);
+#endif /* !LIBC_ALIAS_FWRITE */
+//End-Libc
 int	 getc(FILE *);
 int	 getchar(void);
 char	*gets(char *);
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 extern __const int sys_nerr;		/* perror(3) external variables */
 extern __const char *__const sys_errlist[];
 #endif
@@ -292,7 +317,7 @@ int	 ungetc(int, FILE *);
 int	 vfprintf(FILE * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vfprintf);
 int	 vprintf(const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vprintf);
 int	 vsprintf(char * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsprintf);
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
 int	 asprintf(char **, const char *, ...) __DARWIN_LDBL_COMPAT(asprintf);
 int	 vasprintf(char **, const char *, va_list) __DARWIN_LDBL_COMPAT(vasprintf);
 #endif
@@ -302,50 +327,57 @@ __END_DECLS
  * Functions defined in POSIX 1003.1.
  */
 #ifndef _ANSI_SOURCE
-#define	L_cuserid	9	/* size for cuserid(); UT_NAMESIZE + 1 */
 #define	L_ctermid	1024	/* size for ctermid(); PATH_MAX */
 
 __BEGIN_DECLS
 char	*ctermid(char *);
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 char	*ctermid_r(char *);
 #endif /* not POSIX */
 FILE	*fdopen(int, const char *);
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 char	*fgetln(FILE *, size_t *);
 #endif /* not POSIX */
 int	 fileno(FILE *);
 void	 flockfile(FILE *);
-#ifndef _POSIX_C_SOURCE
-__const char 
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+__const char
 	*fmtcheck(const char *, const char *);
 int	 fpurge(FILE *);
 #endif /* not POSIX */
-int	 fseeko(FILE *, fpos_t, int);
-fpos_t	 ftello(FILE *);
+int	 fseeko(FILE *, off_t, int);
+off_t	 ftello(FILE *);
 int	 ftrylockfile(FILE *);
 void	 funlockfile(FILE *);
 int	 getc_unlocked(FILE *);
 int	 getchar_unlocked(void);
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 int	 getw(FILE *);
 #endif /* not POSIX */
 int	 pclose(FILE *);
 FILE	*popen(const char *, const char *);
 int	 putc_unlocked(int, FILE *);
 int	 putchar_unlocked(int);
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 int	 putw(int, FILE *);
 void	 setbuffer(FILE *, char *, int);
 int	 setlinebuf(FILE *);
 #endif /* not POSIX */
 int	 snprintf(char * __restrict, size_t, const char * __restrict, ...) __DARWIN_LDBL_COMPAT(snprintf);
-char	*tempnam(const char *, const char *);
+//Begin-Libc
+#ifndef LIBC_ALIAS_TEMPNAM
+//End-Libc
+char	*tempnam(const char *, const char *) __DARWIN_ALIAS(tempnam);
+//Begin-Libc
+#else /* LIBC_ALIAS_TEMPNAM */
+char	*tempnam(const char *, const char *) LIBC_ALIAS(tempnam);
+#endif /* !LIBC_ALIAS_TEMPNAM */
+//End-Libc
 int	 vfscanf(FILE * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vfscanf);
 int	 vscanf(const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vscanf);
 int	 vsnprintf(char * __restrict, size_t, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsnprintf);
 int	 vsscanf(const char * __restrict, const char * __restrict, va_list) __DARWIN_LDBL_COMPAT(vsscanf);
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 FILE	*zopen(const char *, const char *, int);
 #endif /* not POSIX */
 __END_DECLS
@@ -353,7 +385,7 @@ __END_DECLS
 /*
  * Stdio function-access interface.
  */
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 __BEGIN_DECLS
 FILE	*funopen(const void *,
 		int (*)(void *, char *, int),
@@ -376,7 +408,7 @@ int	__swbuf(int, FILE *);
 __END_DECLS
 
 /*
- * The __sfoo macros are here so that we can 
+ * The __sfoo macros are here so that we can
  * define function versions in the C library.
  */
 #define	__sgetc(p) (--(p)->_r < 0 ? __srget(p) : (int)(*(p)->_p++))
@@ -407,7 +439,7 @@ static __inline int __sputc(int _c, FILE *_p) {
 #define	__sfileno(p)	((p)->_file)
 
 #ifndef _ANSI_SOURCE
-#ifndef _POSIX_C_SOURCE
+#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
 #define	feof_unlocked(p)	__sfeof(p)
 #define	ferror_unlocked(p)	__sferror(p)
 #define	clearerr_unlocked(p)	__sclearerr(p)
@@ -426,5 +458,10 @@ static __inline int __sputc(int _c, FILE *_p) {
 #ifdef _USE_EXTENDED_LOCALES_
 #include <xlocale/_stdio.h>
 #endif /* _USE_EXTENDED_LOCALES_ */
+
+#if defined (__GNUC__) && _FORTIFY_SOURCE > 0 && !defined (__cplusplus)
+/* Security checking functions.  */
+#include <secure/_stdio.h>
+#endif
 
 #endif /* _STDIO_H_ */

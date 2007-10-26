@@ -1,7 +1,8 @@
 --TEST--
-Bug #21523 number_format tries to allocate negative amount of memory
+Bug #21523 (number_format tries to allocate negative amount of memory)
 --FILE--
-<?php // $Id: bug21523.phpt,v 1.1.2.1 2003/01/09 16:54:15 iliaa Exp $ vim600:syn=php
+<?php // $Id: bug21523.phpt,v 1.2.4.1 2006/03/22 19:27:47 tony2001 Exp $ vim600:syn=php
+set_time_limit(5);
 
 var_dump(number_format(-2000, 2768));
 echo "OK";

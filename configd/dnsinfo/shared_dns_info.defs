@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,4 +56,5 @@ routine shared_dns_infoGet	(	server		: mach_port_t;
 				 out	data		: dnsDataOut, dealloc);
 
 routine shared_dns_infoSet	(	server		: mach_port_t;
-					data		: dnsData);
+					data		: dnsData;
+		    ServerAuditToken	audit_token	: audit_token_t);

@@ -158,8 +158,33 @@ do_start()
 
 }
 
-do_computername()
+do_init()
 {
+    # attach the shadow file to the root disk image
+    do_start
+
+    # make sure the root filesystem is clean
+    fsck -p || fsck -fy || Failed "Could not clean root filesystem"
+
+    # make it writable
+    mount -uw /
+
+    # adjust /private/var/vm to point to the writable area (if not diskless)
+    swapdir=/private/var/vm
+    mounted_from=$(mount | sed -n 's:\(.*\) on .*/var/netboot.*:\1:p')
+    case "${mounted_from}" in
+	/dev/*)
+		netboot_dir="${NETBOOT_MOUNT}/.com.apple.NetBootX"
+		if [ -d "${netboot_dir}" ]; then
+			rm -rf "${swapdir}"
+			ln -s "${netboot_dir}" "${swapdir}"
+		fi
+		;;
+	*)
+	;;
+    esac
+
+    # set the ComputerName based on what the NetBoot server told us it was
     machine_name=$(ipconfig netbootoption machine_name 2>&1)
     if [ $? -ne 0 ]; then
 	echo "no machine name option available"
@@ -169,25 +194,6 @@ do_computername()
     fi
 }
 
-do_vm()
-{
-    swapdir=${1:-/private/var/vm}
-
-    mounted_from=$(mount | sed -n 's:\(.*\) on .*/var/netboot.*:\1:p')
-
-    case "${mounted_from}" in
-	/dev/*)
-		netboot_dir="${NETBOOT_MOUNT}/.com.apple.NetBootX"
-		if [ -d "${netboot_dir}" ]; then
-			rm -rf "${netboot_dir}/app_profile"
-			rm -rf "${swapdir}"
-			ln -s "${netboot_dir}" "${swapdir}"
-		fi
-		;;
-	*)
-	;;
-    esac
-}
 
 if [ $# -lt 1 ] ; then
     exit 0
@@ -198,14 +204,8 @@ command=$1
 shift
 
 case "${command}" in
-    start)
-	do_start $@
-	;;
-    setup_vm)
-	do_vm $@
-	;;
-    setup_computername)
-	do_computername $@
+    init)
+	do_init $@
 	;;
 esac 
 

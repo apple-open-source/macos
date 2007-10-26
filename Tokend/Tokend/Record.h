@@ -77,4 +77,3 @@ protected:
 
 #endif /* !_TOKEND_RECORD_H_ */
 
-/* arch-tag: E931F716-DF80-11D8-A25D-000A95C4302E */

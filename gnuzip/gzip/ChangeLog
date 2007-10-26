@@ -1,3 +1,527 @@
+2006-12-30  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS: Version 1.3.10 released.
+	* configure.ac (AC_INIT): Likewise.
+
+	* Makefile.am (check-local): Don't assume $(srcdir) is '.'.
+	(MAINTAINERCLEANFILES): Move gzip.doc.gz from here ...
+	(MOSTLYCLEANFILES): ... to here.
+
+2006-12-29  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* zless.in: Work around a bug in less 394 and earlier; it
+	mishandles $%=~ in file names.  Problem reported by
+	Sami Liedes in <http://bugs.debian.org/383358>.
+
+	* doc/gzip.texi: Swap order of dircategory entries, to pacify
+	Debian install-info 1.10.28.  This should fix
+	<http://bugs.debian.org/404048>.
+
+	* zgrep.in (version): Fix bug: $grep wasn't evaluated.
+
+	* zgrep.in: Rewrite to make the option processing more
+	compatible with GNU and POSIX grep.  Assume POSIX shell
+	for more stuff, since we're already assuming that.
+	* Makefile.am (check-local): Check zgrep -iV.
+
+2006-12-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix Debian bug 367673 <http://bugs.debian.org/367673> plus several
+	other bugs discovered in the neighborhood.
+	* NEWS: gzip -q now exits with status 2 (not 1) on SIGPIPE.
+	zgrep has many bugs fixed with argument handling, special characters,
+	and exit status.
+	* gzip.c (abort_gzip_signal): Implement gzip -q change.
+	* zgrep.in: Implement zgrep change.
+
+2006-12-23  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS: Fix bug reported by Martin Mares in
+	<http://bugs.debian.org/177942>.
+	* gzip.c (treat_stdin): Remove NO_STDIN_FSTAT and NO_PIPE_TIMESTAMP
+	stuff.  It didn't work (led to syntax errors) and was confusing.
+	Report an error if stdin cannot be statted even if !list && no_time.
+	Get stdin's size if it is regular.
+	(treat_file): Do not report an error with setuid, setgid,
+	sticky, or non-regular, non-directory files if to_stdout.
+	Allow 'force' to override the caution about sticky files.
+	Use the same form for time stamps that treat_stdin uses.
+
+	* zdiff.in: Fix typo that broke most usages.  Problem reported by
+	Jari Aalto in <http://bugs.debian.org/404114>.  While we're at it,
+	fix a bunch of other problems.  Handle "-" better.  Send
+	diagnostics to stderr, not stdout.  Use expr rather than echo |
+	sed, to handle special characters better.  Report a diagnostic in
+	the 1-arg case, if the argument doesn't end in .gz or the like,
+	rather than having incomprehensible behavior.  Do not require that
+	the inputs be regular files.  Avoid creating a temporary entirely,
+	if /dev/fd works.  If not, then resist denial-of-service attacks
+	better, by using mktemp.
+	* NEWS: Document this.
+	* Makefile.am (gzip.doc.gz): New rule.
+	(check-local): Depend on it, and test zdiff for Debian bug 404114.
+
+2006-12-22  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* zdiff.1: Mention that these programs currently understand only
+	formats that gzip does.  Problem reported by Jari Aalto in
+	<http://bugs.debian.org/404099>.
+
+2006-12-20  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* inflate.c (huft_build): Fix regression that caused gzip to
+	refuse to uncompress null input (all zero length codes).  Problem
+	reported by Yiorgos Adamopoulos.  This regression was caused by
+	the security patch installed 2006-11-20, which in turn came from
+	Debian, which in turn apparently came from Thomas Biege of SuSe.
+
+2006-12-15  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS, configure.ac (AC_INIT):
+	Version 1.3.9 released.
+
+	* Makefile.am (MOSTLYCLEANFILES): Add _match.i.
+	* configure.ac (for an assembler syntax supported by this package):
+	Remove _match.i.
+
+	* bootstrap (gnulib_tool_options_extras): New var.
+	(gnulib_tool_options): Use it.
+	* bootstrap.conf (gnulib_tool_options_extras): Avoid getline and
+	rpmatch.  gzip doesn't need them, since it doesn't ENABLE_NLS.
+
+2006-12-13  Bruno Haible  <bruno@clisp.org>
+
+	* configure.ac: Use $CPPFLAGS everywhere $CPP is used, and use
+	$CPPFLAGS $CFLAGS everywhere $CC is used.
+	* lib/Makefile.am (match.$(OBJEXT)): Likewise.
+	* configure.ac: Test the exit code of the $CPP and $ASCPPPOST commands
+	separately.
+
+2006-12-11  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* configure.ac (ASCPPPOST): Simplify to use just 'sed'.
+	* lib/Makefile.am (match.$(OBJEXT)): Check for CPP failure.
+
+2006-12-11  Bruno Haible  <bruno@clisp.org>
+
+	Cross-compilation support.
+	* configure.ac (ASCPP): Remove substituted variable.
+	(ASCPPPOST, ASCPPFLAGS): New substituted variables.
+	* lib/Makefile.am (ASCPP, LN_S): Remove unnecessary macro definitions.
+	(match.$(OBJEXT)): Use CPP, ASCPPFLAGS, ASCPPPOST instead of ASCPP.
+	* configure.ac: Add test for chown function.
+	* gzip.c (treat_file) [!HAVE_CHOWN]: Don't call chown.
+	* gzip.c: Include "timespec.h".  This doesn't fix any bugs, but
+	it is clearer.
+
+2006-12-11  Paul Eggert  <eggert@cs.ucla.edu>
+
+	The SSIZE_MAX fix didn't work on NSK, so fix it in a more-reliable
+	(albeit more-complicated) way.  Problem reported by Matthew Woehlke.
+	* gzip.h (read_buffer): New decl.
+	* unlzw.c (unlzw): Use read_buffer rather than read.
+	* zip.c (file_read): Likewise.
+	* util.c (copy, fill_inbuf): Likewise.
+	(read_buffer, write_buffer): New functions.
+	(write_buf): Use write_buffer rather than write.
+
+	Undo the previous SSIZE_MAX-related change; it didn't work.
+	* gzip.c: Include <limits.h>.
+	* util.c: Likewise.
+	* gzip.h: Don't include <limits.h>.
+	(INBUFSIZ): Don't worry about SSIZE_MAX here.
+
+2006-12-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS, configure.ac (AC_INIT):
+	Version 1.3.8 released.
+
+	* gzexe.in (mktemp_status): New var, used to see whether
+	mktemp is a known command.  Use this instead of confounding
+	mktemp's existence with its success.
+
+	* zdiff.in: Remove first line containing ":".  This follows
+	up on the SEDCMD fix of 2006-12-01.
+	* zforce.in: Likewise.
+	* zgrep.in: Likewise.
+	* zless.in: Likewise.
+	* zmore.in: Likewise.
+	* znew.in: Likewise.
+
+	Fix problems in porting to NSK reported by Matthew Woehlke in
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-12/msg00025.html> and
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-12/msg00027.html>.
+	* gzip.h: Include <limits.h>, for SSIZE_MAX.
+	(INBUFSIZE): Don't make it any larger than SSIZE_MAX.
+	Problem reported by Matthew Woehlke in
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-11/msg00013.html>.
+	* gzip.c: Don't include <limits.h>, as gzip.h now does this.
+	* util.c: Likewise.
+	* gzip.c (main): Set exiting_signal before installing signal handlers.
+	(install_signal_handlers): Don't set exiting_signal here.  This
+	fixes a C99ism.
+	* zip.c: Include timespec.h, for time_stamp type.
+
+2006-12-08  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>  (tiny change)
+
+	* gzexe.in: Work around FreeBSD shell trap bug.
+	* gzip.1: Fix typo.
+	* doc/gzip.texi: Likewise.
+
+2006-12-08  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* .cvsignore: Add .deps, gzexe, gzip, zdiff, zforce, zgrep,
+	zless, zmore, znew.
+	* doc/.cvsignore: Add Makefile.
+	* lib/.cvsignore: Add .deps, Makefile, alloca.h, config.h, fcntl.h,
+	stamp-h1, stdint.h, sys.
+
+	* configure.ac (for assembler): Set ASFLAGS_config to
+	-Wa,--noexecstack if this seems advisable on this platform.
+	Problem reported by Mike Frysinger in
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-12/msg00018.html>.
+	* lib/Makefile.am (match.$(OBJEXT)): Use ASFLAGS_config.
+
+2006-12-07  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* Makefile.am (install-exec-hook): Fix bug when installing
+	symbolic links as aliases.  Problem reported by Mike Frysinger.
+
+	* deflate.c (deflate_fast, deflate): Avoid core dump.  Problem
+	originally reported by Jochen Friedrich and trivial patch supplied
+	by Anthony Towns; see <http://bugs.debian.org/184057>.
+
+2006-12-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS, configure.ac (AC_INIT):
+	Version 1.3.7 released.
+
+2006-12-06  Bruno Haible  <bruno@clisp.org>  (tiny change)
+	and Paul Eggert  <eggert@cs.ucla.edu>
+
+	Fix build failure on case-insensitive file systems.
+	* configure.ac: Use match_.s instead of _match.s.
+	* Makefile.am (MOSTLYCLEANFILES): Likewise.
+	* lib/Makefile.am (match.$(OBJEXT)): Likewise.
+	(MOSTLYCLEANFILES): Likewise.
+
+2006-12-06  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS: Document the fixes below.
+	* configure.ac (AC_CHECK_FUNCS_ONCE): Add siginterrupt.
+	* gzip.c (lstat) [!defined(HAVE_LSTAT) && !defined(lstat)]: Remove.
+	(SA_NOCLDSTOP, sigprocmask, sigset_t) [!defined SA_NOCLDSTOP]:
+	New macros.
+	(siginterrupt) [!defined SA_NOCLDSTOP && ! HAVE_SIGINTERRUPT]:
+	New macro.
+	(HAVE_WORKING_O_NOFOLLOW): Define to 0 if not defined.
+	(caught_signals, exiting_signal, remove_ofname_fd): New vars.
+	(remove_ofname): Remove; all uses changed to remove_ofname_fd.
+	(same_file, name_too_long): Remove.
+	(install_signal_handlers): New function.  It prefers sigaction,
+	which is more reliable in the presence of race conditions.
+	Catch SIGXCPU and SIGXFSZ, too.
+	(main): Use it instead of installing them by hand.
+	(treat_file): Check for read error when closing ifd.
+	(treat_file, create_outfile, remove_output_file):
+	Avoid race conditions with signals.
+	(create_outfile, check_ofname): Remove most of the gorp about
+	working around ENAMETOOLONG deficiencies.  It's obsolete now, and
+	anyway it had race conditions.  Just rely on O_EXCL and
+	ENAMETOOLONG.  The worst that can happen is that a file name will
+	be silently truncated on an obsolete machine, but no data will be lost.
+	(open_and_stat): Use HAVE_WORKING_O_NOFOLLOW rather than O_NOFOLLOW
+	to work around some O_NOFOLLOW bugs.  Otherwise, fall back on
+	lstat only if lstat is available, as symlinks don't exist otherwise.
+	(open_input_file): Use O_NONBLOCK and O_NOCTTY too, to avoid
+	hanging gzip on special files.
+	(abort_gzip_signal): If sigaction is not available, ignore
+	signals.  If we get the exiting signal, exit with ERROR status
+	rather than raising a signal.
+	* tailor.h (NO_ST_INO): Remove; no longer used now that same_file
+	is gone.
+
+2006-12-05  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Port to Tandem NSK/OSS, which lacks fchdir.  Problem reported by
+	Matthew Woehlke in
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-11/msg00013.html>.
+	* bootstrap.conf (gnulib_modules): Remove openat, as it pulls in
+	fchdir.
+	* configure.ac: Check for fdopendir.
+	* gzip.c: Don't include openat.h; no longer needed.
+	(treat_dir) [!HAVE_FDOPENDIR]: Fall back on the old opendir method
+	since fdopendir is not available.
+
+2006-12-04  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS: Describe the following change briefly.
+	* bootstrap.conf (gnulib_modules): Remove stat-macros; no longer
+	needed.
+	* gzip.c: Don't include stat-macros.h; no longer needed.
+	(treat_file): Refuse to compress files that are setuid, or setgid,
+	as this can in theory lead to security holes.  Also, refuse to
+	compress files with the sticky bit set, on general principle.
+	(copy_stat): Don't copy the setuid, setgid, or sticky bits,
+	as (given the above change) they'll always be zero here.
+	Invoke chmod before chown, to close a race condition.
+
+	* .cvsignore: Add *.doc, build-aux.
+	* doc/.cvignore: New file.
+	* lib/.cvsignore: New file.
+	* m4/.cvsignore: New file.
+
+2006-12-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* doc/gzip.texi (Overview): Mention limits of gzip format's
+	time stamps.  Also, gzip doesn't always preserve time stamps.
+
+	* gzip.c (abort_gzip_signal): Don't call abort () as a "safeguard",
+	since it actually causes a core dump.  Problem reported by
+	Jakub Bogusz.
+
+	* NEWS: Describe gzexe changes noted below.
+	* Makefile.am (.in): Don't bother with SEDCMD.  This stuff isn't needed
+	any more (the hosts it caters to are long extinct), and was
+	questionable anyway since the code assumes the skip= line was line 2.
+	* configure.ac (AC_SYS_INTERPRETER, SEDCMD): Remove; no longer needed.
+
+	* gzexe.in: Sweep the code and fix some bugs.
+	My, what sharp teeth you have, gzexe!
+	The straw that broke this camel's back was Matthew Burgess's bug report
+	<http://lists.gnu.org/archive/html/bug-gzip/2006-11/msg00012.html>.
+
+	(IFS): Set it to the standard value, both here and in the
+	script gzexe generates.
+	Check for missing operand after parsing options, not before.
+	This fixes the case for "cpexe --".
+	Check for tail -n problem separately in gzexe and in the executable
+	it generates, in case it's a different 'tail'.
+	(trap): Remove $tmp only if $tmp is not the empty string.
+	Preserve exit status.
+	Don't use the nonstandard (and rarely available) "cpmod" utility.
+	Don't use "set -C"; it's no longer useful and it breaks things
+	in some cases.
+	(main loop): Handle file names beginning with "-".
+	Exit with status of failing program, not with 1.
+	Fix some bugs in printing diagnostics, and in quoting.
+	Require the skip= line to have at least one digit.
+	Use test -u and test -g rather than using the (less-reliable) ls.
+	Refuse to compress more programs, e.g., sh.
+	Use mktemp rather than tempfile.  Build a copy of
+	the compressed or uncompressed executable in the same
+	directory as the executable, as that's less likely to go wrong
+	if disk space is low.  Have the executable exit with status 127,
+	not 1, if the decompression process fails; this is more compatible
+	with meta-programs like nohup.  Have the executable
+	uncompress to a temp file with the same basename as the executable;
+	this is more likely to go right.  Fix a race condition where the
+	executable temporarily did not exist (in either old or new forms).
+	Check for race conditions better when mv fails.  Do not attempt
+	to use cp to do the real work, only to copy permissions to a temp
+	file, since we don't want to trash running executables.
+
+2006-11-26  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* inflate.c (inflate_dynamic, inflate): Don't send output to
+	stderr unless DEBUG is defined and 'verbose'.  Problem reported by
+	Santiago Vila.
+
+	* zgrep.in: If the file name contains newline, &, \, or |, escape
+	the character so that 'sed' doesn't mishandle it as a replacement.
+	Problem reported by Bdale Garbee.
+
+2006-11-25  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* gzip.1 (OPTIONS): ouput -> output.  Problem reported by Matt
+	Taggart.
+	* vms/gzip.hlp: Likewise.
+
+	* Makefile.am (FILES_TO_CHECK): New macro.
+	(check-local): Check only the files in FILES_TO_CHECK, since some
+	files under the working directory might be mutating as the test is
+	run, e.g., with "make check >log".  Problem reported by Jim
+	Meyering.
+
+2006-11-20  Paul Eggert  <eggert@cs.ucla.edu>
+
+	* NEWS, configure.ac (AC_INIT):
+	Version 1.3.6 released.
+
+	* NEWS: Describe 1.3.6's changes.
+	* NEWS, README, README-alpha, TODO: Change from GPL to FDL.
+	* .cvsignore, README-cvs, bootstrap, bootstrap.conf: New files.
+	* doc/Makefile.am, lib/Makefile.am: New files.
+	* THANKS: Change own email address to cs.ucla.edu.  Add Sverre Jarp.
+	* TODO: Add new tasks to remove porting cruft and
+	all those buggy scripts.
+
+	* configure.ac: Renamed from configure.in.
+	(AC_PREREQ): Bump to 2.60.
+	(AC_INIT): Bump version to 1.3.6.
+	(AC_CONFIG_AUX_DIR): New.
+	(AC_CONFIG_HEADERS): Move config.h to lib.
+	Input is now lib/config.hin.
+	(AM_INIT_AUTOMAKE): Add gnits, dist-shar.
+	(AC_PROG_CC_STDC): New, replacing AC_PROG_CC.
+	(AM_PROG_CC_C_O, AC_PROG_RANLIB): New.
+	(AC_AIX, AC_GNU_SOURCE, AC_MINIX): Remove; gnulib does them now.
+	(gl_EARLY, gl_INIT): New.
+	match.c was moved to lib/match.c.
+	(AC_CHECK_HEADERS_ONCE): Replace AC_CHECK_HEADERS.  Don't check
+	for sys/utime.h or utime.h.
+	(AC_CHECK_FUNCS_ONCE): Replace AC_CHECK_FUNCS.  Check for fchmod
+	and fchown, not utime.
+	(AC_REPLACE_FUNCS): Remove; rpmatch is now done by gnulib.
+	(AC_CONFIG_FILES): Add doc/Makefile, lib/Makefile.
+
+	* bits.c: Use the more-usual form for copyright notices in source code.
+	* deflate.c: Likewise.
+	* gzip.c: Likewise.
+	* gzip.h: Likewise.
+	* inflate.c: Likewise.
+	* lzw.h: Likewise.
+	* revision.h: Likewise.
+	* tailor.h: Likewise.
+	* trees.c: Likewise.
+	* unpack.c: Likewise.
+	* unzip.c: Likewise.
+	* util.c: Likewise.
+	* crypt.c (dummy): Add decl so that pedantic compilers won't
+	complain about an empty file.
+	* gzip.c (license_msg): Use more-modern wording.
+	Include fcntl-safer.h, openat.h, stat-macros.h, stat-time.h.
+	Simply include <dirent.h> if !NO_DIR, removing a rats-nest of
+	#ifdefs.
+	Simply include <utimens.h> if !defined NO_UTIME, removing a
+	another rats-nest of #ifdefs.
+	(DIR_OPT, TIME_OPT): Remove.
+	(_D_EXACT_NAMLEN): Renamed from NAMLEN.  All uses changed.
+	(S_ISDIR, S_ISREG, O_BINARY, O_CREAT, O_EXCL, S_IRUSR, S_IWUSR):
+	Remove; gnulib now does this.
+	(RETSIGTYPE): Remove; Autoconf does this.
+	(program_name): Renamed from progname, for compatibility with gnulib.
+	All uses changed.
+	(time_stamp): Now struct timespec, not time_t.  All uses changd.
+	(remove_oftime): Now volatile.
+	(reset_times): Remove; now done by futimens.
+	(usage): Remove.
+	(try_help): New function.
+	(help, license): Don't output date as part of version.
+	A version number suffices.
+	(help): Redo help message to match style of coreutils etc.
+	(version): Don't bother printing compile-time configuration info
+	like STDC_HEADERS.
+	(main): Don't assume strlen (argv[0]) < INT_MAX (!).
+	On usage errors, suggest --help without outputting all the help.
+	(main, do_list): Remove unnecessary casts.
+	(treat_stdin, treat_file, get_method, copy_stat):
+	Support sub-second time stamp resolution.
+	(treat_file, copy_istat): Close some race conditions if files are
+	renamed as we read or write them.
+	(treat_file): Do not attempt to reset the access times of
+	directories that we read.
+	(open_and_stat, open_input_file): New functions.
+	(do_stat, get_istat): Remove; most of the contents went to these new
+	functions.
+	(make_ofname): Don't use WARN, as it affects exit status.
+	(get_method): When the original file name was truncated,
+	restore from its base name, not from its full name.
+	(do_list): Avoid undefined behavior with out-of-range time stamps.
+	ctime, for example, cannot be invoked on arbitrary time stamps safely,
+	since it might overrun an internal buffer.  Do not assume that
+	localtime succeeds.
+	(copy_stat): Do not remove input file; that's now the caller's
+	responsibility.  This avoids a problem if there is a write error
+	when the caller closes the output file.
+	(treat_dir): New arg FD, to avoid a race condition.  All uses changed.
+	(remove_output_file): New function.
+	(abort_gzip): Use it.
+	(abort_gzip_signal): New function, which is async-signal-safe.
+	Exit with the signal that we got.
+	* gzip.h (program_name, time_stamp, abort_gzip): Adjust decls to
+	match gzip.c changes.
+	* inflate.c (huft_build): Return 2 if null input.
+	* tailor.h (HAVE_UTIME): Do not define; gnulib does this now.
+	(OPEN): Use open_safer, not plain open.
+	* unlzh.c (NPT): Set to 1<<TBIT, not to the maximum of NT and NP.
+	(make_table): Report an error if 1<<tablebits < nextcode.
+	(read_pt_len): Report an error if 16 < c.
+	* unpack.c (read_tree): Report an error if the tree has too many
+	leaves while reading it.  Fix off-by-one error in final check.
+	* util.c: Include <xalloc.h>, for xalloc_die decl.
+	(gzip_base_name): Renamed from base_name, so we don't collide
+	with gnulib.  All uses changed.
+	(add_envopt): Use xstrdup instead of xmalloc+strcpy.
+	Use xcalloc rather than calloc + check.
+	(gzip_error): Renamed from error, so we don't collide with gnulib.
+	All uses changed.
+	(xalloc_die): New function.
+	(xmalloc): Remove; no longer needed.
+	* zip.c (zip): Watch for time stamp overflow; the old code
+	mishandled negative time stamps.
+
+	* gzexe.in: Add support for --help, --version, --.
+	Don't call basename or sed if we can avoid it.
+	* zdiff.in: Likewise.
+	* zforce.in: Likewise.
+	* zgrep.in: Likewise.
+	* zless.in: Likewise.
+	* zmore.in: Likewise.
+	* znew.in: Likewise.
+	* zdiff.in: Protect against file names beginning with "-".
+	* zmore.in: Likewise.
+	* zgrep.in: Use printf rather than echo, to avoid problems with
+	leading "-" and backslash.  Return status of subsidiary grep.
+	* zless.in: Add copyright notice.
+
+	* zless.1: We now pass "--" to LESSOPEN.
+	(BUGS): Mention that input file arguments are required.
+	Add copyright notice.
+
+	* COPYING: Update to current version.
+
+	* Makefile.am (SUBDIRS): New macro.
+	(AUTOMAKE_OPTIONS): Remove; now done in configure.ac.
+	(M4DIR, ACINCLUDE_INPUTS): Remove.
+	(EXTRA_DIST): Remove getopt.h.
+	(gzip_SOURCES): Remove getopt.c, getopt1.c, yesno.c.
+	(gzip_LDADD): Change from @LIBOBJS@ to lib/libgzip.a.
+	(AM_MAKEINFOFLAGS, info_TEXINFOS, gzip_TEXINFOS, ASCPP, LN_S):
+	(match.$(OBJEXT)): Move to subdirectory makefiles.
+	(.in): Substitute @VERSION@, too.
+	(check-local): New rule.
+	(MOSTLYCLEANFILES): Add _match.S.
+
+	* doc/gzip.texi: Renamed from gzip.texi.  Change to GNU FDL
+	without invariant sections or cover texts.  Don't put
+	version number or date into sample gzip -h output.
+	* lib/match.c: Renamed from match.c.  Add ia64 version
+	written by Sverre Jarp (HP Labs).
+
+	* INSTALL: Remove from CVS; now created automatically by
+	the bootstrap script.
+	* Makefile.in: Likewise.
+	* aclocal.m4: Likewise.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* depcomp: Likewise.
+	* fdl.texi: Likewise.
+	* getopt.c: Likewise.
+	* getopt.h: Likewise.
+	* getopt1.c: Likewise.
+	* gzip.doc: Likewise.
+	* gzip.info: Likewise.
+	* install-sh: Likewise.
+	* mdate-sh: Likewise.
+	* missing: Likewise.
+	* mkinstalldirs: Likewise.
+	* rpmatch.c: Likewise.
+	* stamp-vti: Likewise.
+	* texinfo.tex: Likewise.
+	* version.texi: Likewise.
+	* yesno.c: Likewise.
+
 2002-09-30  Paul Eggert  <eggert@twinsun.com>
 
 	* NEWS, README, revision.h, configure.in (AM_INIT_AUTOMAKE):
@@ -14,7 +538,7 @@
 
 	* match.c: Accept __i386 and __i386__ as synonyms for i386.
 	Bug reported by "fork __" <bouloumag@hotmail.com>.
-	
+
 2002-09-29  Paul Eggert  <eggert@twinsun.com>
 
 	* gzip.texi (Overview): Suggest how to use gunzip on zip files.
@@ -31,7 +555,7 @@
 	names longer than 14 bytes.  Rely on "mv"'s error-reporting.
 	This fixes a portability bug reported by Ralf Neubauer, along
 	with some other bugs.
-	
+
 	Remove dangling output symlinks properly.
 	Bug reported by Kalle Olavi Niemitalo.
 	* gzip.c (lstat): New macro, for platforms lacking lstat.
@@ -54,7 +578,7 @@
 	Check against compressing "tail".
 	Check against "skip=" line with no integer.
 	* zgrep.in: Exit with status 2 if trouble, for consistency with grep.
-	
+
 	* gzip.c (main): Avoid core dump in diagnostic message if
 	incorrect suffix is given.
 
@@ -62,7 +586,7 @@
 
 	* zdiff.in: Use "trap -" instead of "trap".  Patch by Nicolas Boullis.
 	Use names, not numbers, for signals.  Patch by Andrew Stribblehill.
-	
+
 	* NEWS, README, revision.h, configure.in (AM_INIT_AUTOMAKE):
 	Revision 1.3.4, dated today.
 
@@ -104,7 +628,7 @@
 	* README-alpha: Now using latest stable GNU tools.
 	Using the latest tools allows gzip to build correctly on hosts
 	conforming to POSIX 1003.1-2001.
-	
+
 	* configure.in (match): Use AC_LIBOBJ; Autoconf 2.53 requires it.
 	(LIBOBJS): No longer need to subst, since AC_LIBOBJ does it.
 	(AC_PREREQ): Bump to 2.53.
@@ -114,7 +638,7 @@
 
 	* gzip.c (license_msg): Update copyright.
 	(z_len): Now of type size_t.
-	
+
 2001-11-03  Paul Eggert  <eggert@twinsun.com>
 
 	* NEWS, README, revision.h, gzip.texi, configure.in (AM_INIT_AUTOMAKE):
@@ -134,7 +658,7 @@
 	* gzip.texi, gzip.1: Add pointers to RFCs 1951 and 1952.
 	Mention that gzip --list reports file sizes modulo 2^32.
 	* gzip.1: Remove incorrect report of 2 GB bug.  Add copyright notice.
-	
+
 2001-09-30  Paul Eggert  <eggert@twinsun.com>
 
 	* NEWS, README, revision.h, gzip.texi, configure.in (AM_INIT_AUTOMAKE):
@@ -169,7 +693,7 @@
 	(get_method): "get newer version of gzip" -> "not supported"
 	(check_ofname): Use yesno instead of checking for 'y' ourselves.
 	(treat_file): Do not assume link count fits in int.
-	
+
 	* gzip.h (yesno): New decl.
 
 	* util.c (display_ratio): Use floating point to compute ratio:
@@ -1061,24 +1585,13 @@ Sat Oct 31 12:46:00 1992  Jean-loup Gailly  (jloup@chorus.fr)
 	  much tested, sorry.
 
 
-Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation,
-Inc.
-	
-Copyright (C) 1992, 1993 Jean-loup Gailly
+	-----
 
-This file is part of gzip (GNU zip).
+	Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2006 Free
+	Software Foundation, Inc.
 
-gzip is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+	Copyright (C) 1992, 1993 Jean-loup Gailly
 
-gzip is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with gzip; see the file COPYING.  If not, write to
-the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.
+	Copying and distribution of this file, with or without
+	modification, are permitted provided the copyright notice
+	and this notice are preserved.

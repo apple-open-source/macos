@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Marcel Moolenaar
  * All rights reserved.
  *
@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * $FreeBSD: src/sbin/gpt/gpt.h,v 1.6 2004/10/25 02:23:39 marcel Exp $
+ * $FreeBSD: src/sbin/gpt/gpt.h,v 1.7.2.2 2006/07/07 03:30:37 marcel Exp $
  */
 
 #ifndef _GPT_H_
@@ -32,23 +32,18 @@
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 #include <IOKit/storage/IOGUIDPartitionScheme.h>
-#include <uuid/uuid.h>
 #else
 #include <sys/endian.h>
 #include <sys/gpt.h>
+#endif
+
+#ifdef __APPLE__
+#include <uuid/uuid.h>
+#else
 #include <uuid.h>
 #endif
 
 #ifdef __APPLE__
-#ifndef bswap16
-#define bswap16(x)  OSSwapInt16((x))
-#endif
-#ifndef bswap32
-#define bswap32(x)  OSSwapInt32((x))
-#endif
-#ifndef bswap64
-#define bswap64(x)  OSSwapInt64((x))
-#endif
 #ifndef htole16
 #define htole16(x)  OSSwapHostToLittleInt16((x))
 #endif
@@ -67,23 +62,30 @@
 #ifndef le64toh
 #define le64toh(x)  OSSwapLittleToHostInt64((x))
 #endif
+#ifndef uuid_create
+#define uuid_create(x, z)  uuid_generate(*(x))
 #endif
-
-#ifdef __APPLE__
+#ifndef uuid_create_nil
+#define uuid_create_nil(x, z)  uuid_copy(*(x), GPT_ENT_TYPE_UNUSED)
+#endif
+#ifndef uuid_equal
+#define uuid_equal(x, y, z)  !uuid_compare(*(x), *(y))
+#endif
+#ifndef uuid_is_nil
+#define uuid_is_nil(x, z)  uuid_is_null(*(x))
+#endif
+#ifndef uuid_to_string
+#define uuid_to_string(x, y, z)  *(y) = malloc(40);  uuid_unparse(*(x), *(y))
+#endif
 UUID_DEFINE(GPT_ENT_TYPE_APPLE_HFS,0x48,0x46,0x53,0x00,0x00,0x00,0x11,0xAA,0xAA,0x11,0x00,0x30,0x65,0x43,0xEC,0xAC);
-UUID_DEFINE(GPT_ENT_TYPE_APPLE_UFS,0x55,0x46,0x53,0x00,0x00,0x00,0x11,0xAA,0xAA,0x11,0x00,0x30,0x65,0x43,0xEC,0xAC);
 UUID_DEFINE(GPT_ENT_TYPE_EFI,0xC1,0x2A,0x73,0x28,0xF8,0x1F,0x11,0xD2,0xBA,0x4B,0x00,0xA0,0xC9,0x3E,0xC9,0x3B);
 UUID_DEFINE(GPT_ENT_TYPE_MS_BASIC_DATA,0xEB,0xD0,0xA0,0xA2,0xB9,0xE5,0x44,0x33,0x87,0xC0,0x68,0xB6,0xB7,0x26,0x99,0xC7);
 UUID_DEFINE(GPT_ENT_TYPE_UNUSED,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00);
 #endif
 
-#ifdef __APPLE__
-void	le_uuid_dec(void const *, uuid_t);
-void	le_uuid_enc(void *, uuid_t const);
-#else
 void	le_uuid_dec(void const *, uuid_t *);
 void	le_uuid_enc(void *, uuid_t const *);
-#endif
+int	parse_uuid(const char *, uuid_t *);
 
 struct mbr_part {
 	uint8_t		part_flag;		/* bootstrap flags */
@@ -107,7 +109,7 @@ struct mbr {
 #define	MBR_SIG		0xAA55
 };
 
-extern char device_name[];
+extern char *device_name;
 extern off_t mediasz;
 extern u_int parts;
 extern u_int secsz;
@@ -118,11 +120,14 @@ void	gpt_close(int);
 int	gpt_open(const char *);
 void*	gpt_read(int, off_t, size_t);
 int	gpt_write(int, map_t *);
-void	unicode16(short *, const wchar_t *, size_t);
+
+uint8_t *utf16_to_utf8(uint16_t *);
+void	utf8_to_utf16(const uint8_t *, uint16_t *, size_t);
 
 int	cmd_add(int, char *[]);
 int	cmd_create(int, char *[]);
 int	cmd_destroy(int, char *[]);
+int	cmd_label(int, char *[]);
 int	cmd_migrate(int, char *[]);
 int	cmd_recover(int, char *[]);
 int	cmd_remove(int, char *[]);

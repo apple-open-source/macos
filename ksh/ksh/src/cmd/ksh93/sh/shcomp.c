@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * David Korn
@@ -31,13 +27,15 @@
  */
 
 static const char usage[] =
-"[-?\n@(#)$Id: shcomp (AT&T Labs Research) 2003-03-02 $\n]"
+"[-?\n@(#)$Id: shcomp (AT&T Research) 2003-03-02 $\n]"
 USAGE_LICENSE
 "[+NAME?shcomp - compile a shell script]"
 "[+DESCRIPTION?Unless \b-D\b is specified, \bshcomp\b takes a shell script, "
 	"\ainfile\a, and creates a binary format file, \aoutfile\a, that "
 	"\bksh\b can read and execute with the same effect as the original "
 	"script.]"
+"[+?Since aliases are processed as the script is read, alias definitions "
+	"whose value requires variable expansion will not work correctly.]"
 "[+?If \b-D\b is specifed, all double quoted strings that are preceded by "
 	"\b$\b are output.  These are the messages that need to be "
 	"translated to locale specific versions for internationalization.]"
@@ -62,17 +60,18 @@ USAGE_LICENSE
 
 #include	<shell.h>
 #include	"shnodes.h"
+#include	"sys/stat.h"
 
 #define CNTL(x)	((x)&037)
 #define VERSION	3
 static const char header[6] = { CNTL('k'),CNTL('s'),CNTL('h'),0,VERSION,0 };
 
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	Sfio_t *in, *out;
 	Shell_t	*shp;
 	Namval_t *np;
-	union anynode *t;
+	Shnode_t *t;
 	char *cp;
 	int n, nflag=0, vflag=0, dflag=0;
 	error_info.id = argv[0];
@@ -131,8 +130,10 @@ main(int argc, char *argv[])
 	while(1)
 	{
 		stakset((char*)0,0);
-		if(t = (union anynode*)sh_parse(shp,in,0))
+		if(t = (Shnode_t*)sh_parse(shp,in,0))
 		{
+			if(t->tre.tretyp==0 && t->com.comnamp && strcmp(nv_name((Namval_t*)t->com.comnamp),"alias")==0)
+				sh_exec(t,0);
 			if(!dflag && sh_tdump(out,t) < 0)
 				errormsg(SH_DICT,ERROR_exit(1),"dump failed");
 		}

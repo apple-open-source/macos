@@ -1,0 +1,83 @@
+2007-02-05  Dave Brolley  <brolley@redhat.com>
+	    Richard Sandiford  <rsandifo@redhat.com>
+	    DJ Delorie  <dj@redhat.com>
+	    Graydon Hoare  <graydon@redhat.com>
+	    Frank Ch. Eigler  <fche@redhat.com>
+	    Ben Elliston  <bje@redhat.com>
+
+	* Makefile.am (HFILES): Add mep-desc.h mep-opc.h.
+	(CFILES): Add mep-*.c
+	(ALL_MACHINES): Add mep-*.lo.
+	(CLEANFILES): Add stamp-mep.
+	(CGEN_CPUS): Add mep.
+	(MEP_DEPS): New variable.
+	(mep-*): New targets.
+	* configure.in: Handle bfd_mep_arch.
+	* disassemble.c (ARCH_mep): New macro.
+	(disassembler): Handle bfd_arch_mep.
+	(disassemble_init_for_target): Likewise.
+	* mep-*: New files for Toshiba Media Processor (MeP).
+	* Makefile.in: Regenerated.
+	* configure: Regenerated.
+
+2007-02-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* i386-dis.c (OP_J): Undo the last change. Properly handle 64K
+	wrap around within the same segment in 16bit mode.
+
+2007-02-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* i386-dis.c (OP_J): Mask to 16bit only if there is a data16
+	prefix.
+
+2007-02-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* avr-dis.c (avr_operand): Correct PR number in comment.
+
+2007-02-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* disassemble.c (disassembler_usage): Call
+	print_i386_disassembler_options for i386 disassembler.
+
+	* i386-dis.c (print_i386_disassembler_options): New.
+	(print_insn): Support the new addr64 option.
+
+2007-02-02  Hiroki Kaminaga  <kaminaga@sm.sony.co.jp>
+
+	* ppc-dis.c (powerpc_dialect): Handle ppc440.
+	* ppc-dis.c (print_ppc_disassembler_options): Note the -M440 can
+	be used.
+
+2007-02-02  Alan Modra  <amodra@bigpond.net.au>
+
+	* ppc-opc.c (insert_bdm): -Many comment.
+	(valid_bo): Add "extract" param.  Accept both powerpc and power4
+	BO fields when disassembling with -Many.
+	(insert_bo, extract_bo, insert_boe, extract_boe): Adjust valid_bo call.
+
+2007-01-08  Kazu Hirata  <kazu@codesourcery.com>
+
+	* m68k-opc.c (m68k_opcodes): Replace cpu32 with
+	cpu32 | fido_a except on tbl instructions.
+
+2007-01-04  Paul Brook  <paul@codesourcery.com>
+
+	* arm-dis.c (arm_opcodes): Fix cpsie and cpsid entries.
+
+2007-01-04  Andreas Schwab  <schwab@suse.de>
+
+	* m68k-opc.c: Fix encoding of signed bit in the cpu32 tbls insns.
+
+2007-01-04  Julian Brown  <julian@codesourcery.com>
+
+	* arm-dis.c (neon_opcode): Fix disassembly for vshl, vqshl, vrshl,
+	vqrshl instructions.
+
+For older changes see ChangeLog-2006
+
+Local Variables:
+mode: change-log
+left-margin: 8
+fill-column: 74
+version-control: never
+End:

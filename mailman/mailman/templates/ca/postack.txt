@@ -1,8 +1,4 @@
-El seu missatge titolat
-
-    %(subject)s
-
-va ser rebut amb èxit per la llista de correu %(listname)s.
-
-pàgina d'informació de la llista: %(listinfo_url)s
-Les seves preferències: %(optionsurl)s
+El vostre missatge amb el subjecte:    %(subject)sha estat rebut amb èxit per la llista de correu %(listname)s.Pàgina d'informació de la llista:
+%(listinfo_url)s
+Les vostres preferències:
+%(optionsurl)s

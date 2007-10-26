@@ -384,6 +384,16 @@ struct object *object)
 		    sizeof(struct dylib_module) +
 		object->dyst->nextrefsyms *
 		    sizeof(struct dylib_reference);
+	    if(object->split_info_cmd != NULL){
+		object->output_split_info_data = 
+		(object->object_addr + object->split_info_cmd->dataoff);
+		object->output_split_info_data_size = 
+		    object->split_info_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->split_info_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->split_info_cmd->datasize;
+	    }
 	    if(object->hints_cmd != NULL){
 		object->output_hints = (struct twolevel_hint *)
 		    (object->object_addr +
@@ -395,13 +405,28 @@ struct object *object)
 		    object->hints_cmd->nhints *
 		    sizeof(struct twolevel_hint);
 	    }
+	    if(object->code_sig_cmd != NULL){
+		object->output_code_sig_data = object->object_addr +
+		    object->code_sig_cmd->dataoff;
+		object->output_code_sig_data_size = 
+		    object->code_sig_cmd->datasize;
+		object->input_sym_info_size =
+		    round(object->input_sym_info_size, 16);
+		object->input_sym_info_size +=
+		    object->code_sig_cmd->datasize;
+		object->output_sym_info_size =
+		    round(object->output_sym_info_size, 16);
+		object->output_sym_info_size +=
+		    object->code_sig_cmd->datasize;
+	    }
 	}
 #endif /* OUTPUT_OPTION */
 }
 
 /*
  * update_load_commands() changes the install names the LC_LOAD_DYLIB,
- * LC_LOAD_WEAK_DYLIB and LC_PREBOUND_DYLIB commands for the specified arch.
+ * LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB and LC_PREBOUND_DYLIB commands for
+ * the specified arch.
  */
 static
 void
@@ -456,6 +481,7 @@ unsigned long *header_size)
 
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
+	    case LC_REEXPORT_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
 		for(j = 0; j < nchanges; j++){
@@ -573,6 +599,7 @@ unsigned long *header_size)
 
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
+	    case LC_REEXPORT_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
 		for(j = 0; j < nchanges; j++){
@@ -692,10 +719,20 @@ unsigned long *header_size)
 		sg = (struct segment_command *)lc1;
 		if(strcmp(sg->segname, SEG_LINKEDIT) == 0)
 		    arch->object->seg_linkedit = sg;
+		break;
 	    case LC_SEGMENT_64:
 		sg64 = (struct segment_command_64 *)lc1;
 		if(strcmp(sg64->segname, SEG_LINKEDIT) == 0)
 		    arch->object->seg_linkedit64 = sg64;
+		break;
+	    case LC_CODE_SIGNATURE:
+		arch->object->code_sig_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_SEGMENT_SPLIT_INFO:
+		arch->object->split_info_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
 	    }
 	    lc1 = (struct load_command *)((char *)lc1 + lc1->cmdsize);
 	}

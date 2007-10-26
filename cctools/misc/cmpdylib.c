@@ -55,6 +55,7 @@ static enum byte_sex host_byte_sex = UNKNOWN_BYTE_SEX;
  */
 static char *strings = NULL;
 static struct nlist *symbols = NULL;
+static struct nlist_64 *symbols64 = NULL;
 
 static void process_old(
     struct ofile *ofile,
@@ -79,6 +80,18 @@ static void check_global_symbols(
 static int dylib_bsearch(
     const char *symbol_name,
     const struct dylib_table_of_contents *toc);
+
+static int dylib_bsearch64(
+    const char *symbol_name,
+    const struct dylib_table_of_contents *toc);
+
+static int nlist_bsearch(
+    const char *symbol_name,
+    const struct nlist *sym);
+
+static int nlist_bsearch64(
+    const char *symbol_name,
+    const struct nlist_64 *sym64);
 
 /*
  * The program cmpdylib.  This compares an old and an new dynamic shared library
@@ -133,10 +146,10 @@ void *cookie)
 
 	/* fill in the architecure info */
 	arch_flag.name = (char *)get_arch_name_from_types(
-						old_ofile->mh->cputype,
-						old_ofile->mh->cpusubtype);
-	arch_flag.cputype = old_ofile->mh->cputype;
-	arch_flag.cpusubtype = old_ofile->mh->cpusubtype;
+						old_ofile->mh_cputype,
+						old_ofile->mh_cpusubtype);
+	arch_flag.cputype = old_ofile->mh_cputype;
+	arch_flag.cpusubtype = old_ofile->mh_cpusubtype;
 
 	arch_processed = FALSE;
 	arch_name_being_processed = arch_name;
@@ -167,6 +180,7 @@ void *cookie)
     struct dylib_command *old_dl, *new_dl;
     char *old_install_name, *new_install_name;
     enum bool new_api_allowed;
+    uint32_t ncmds;
 
 	arch_name = arch_name_being_processed;
 
@@ -178,7 +192,11 @@ void *cookie)
 	/* Get the LC_ID_DYLIB from the old dylib */
 	old_dl = NULL;
 	lc = old_ofile->load_commands;
-	for(i = 0; i < old_ofile->mh->ncmds; i++){
+	if(old_ofile->mh != NULL)
+	    ncmds = old_ofile->mh->ncmds;
+	else
+	    ncmds = old_ofile->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(old_dl == NULL && lc->cmd == LC_ID_DYLIB){
 		old_dl = (struct dylib_command *)lc;
 	    }
@@ -207,7 +225,11 @@ void *cookie)
 	/* Get the LC_ID_DYLIB from the new dylib */
 	new_dl = NULL;
 	lc = new_ofile->load_commands;
-	for(i = 0; i < new_ofile->mh->ncmds; i++){
+	if(new_ofile->mh != NULL)
+	    ncmds = new_ofile->mh->ncmds;
+	else
+	    ncmds = new_ofile->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(new_dl == NULL && lc->cmd == LC_ID_DYLIB){
 		new_dl = (struct dylib_command *)lc;
 	    }
@@ -286,15 +308,15 @@ char *arch_name)
 {
 	if(ofile->file_type == OFILE_FAT){
 	    if(ofile->arch_type != OFILE_Mach_O ||
-	       (ofile->mh->filetype != MH_DYLIB &&
-	        ofile->mh->filetype != MH_DYLIB_STUB))
+	       (ofile->mh_filetype != MH_DYLIB &&
+	        ofile->mh_filetype != MH_DYLIB_STUB))
 	    fatal("for architecture %s file: %s is not a dynamic shared "
 		  "library", ofile->arch_flag.name, ofile->file_name);
 	}
 	else
 	    if(ofile->file_type != OFILE_Mach_O ||
-	       (ofile->mh->filetype != MH_DYLIB &&
-	        ofile->mh->filetype != MH_DYLIB_STUB))
+	       (ofile->mh_filetype != MH_DYLIB &&
+	        ofile->mh_filetype != MH_DYLIB_STUB))
 		fatal("file: %s is not a dynamic shared library",
 		      ofile->file_name);
 }
@@ -317,14 +339,16 @@ enum bool new_api_allowed)
 {
     unsigned long i;
     struct load_command *lc;
-    enum bool new_api, missing_symbols;
+    enum bool new_api, missing_symbols, found;
 
     struct symtab_command *old_st, *new_st;
     struct dysymtab_command *old_dyst, *new_dyst;
-    struct nlist *old_symbols, *new_symbols;
+    struct nlist *old_symbols, *new_symbols, *sym;
+    struct nlist_64 *old_symbols64, *new_symbols64, *sym64;
     char *old_strings, *new_strings;
     struct dylib_table_of_contents *old_tocs, *new_tocs, *toc;
     char *symbol_name;
+    uint32_t ncmds, n_strx;
 
 	/*
 	 * Pickup the symbolic info for the old dylib.
@@ -332,7 +356,11 @@ enum bool new_api_allowed)
 	old_st = NULL;
 	old_dyst = NULL;
 	lc = old_ofile->load_commands;
-	for(i = 0; i < old_ofile->mh->ncmds; i++){
+	if(old_ofile->mh != NULL)
+	    ncmds = old_ofile->mh->ncmds;
+	else
+	    ncmds = old_ofile->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(old_st == NULL && lc->cmd == LC_SYMTAB){
 		old_st = (struct symtab_command *)lc;
 	    }
@@ -349,20 +377,34 @@ enum bool new_api_allowed)
 		fatal("old dynamic shared library: %s has no symbol table",
 		      old_dylib);
 	}
-	old_symbols = (struct nlist *)
+	if(old_ofile->mh != NULL){
+	    old_symbols = (struct nlist *)
 		(old_ofile->object_addr + old_st->symoff);
-	old_strings = (char *)
-		(old_ofile->object_addr + old_st->stroff);
+	    old_symbols64 = NULL;
+	}
+	else{
+	    old_symbols64 = (struct nlist_64 *)
+		(old_ofile->object_addr + old_st->symoff);
+	    old_symbols = NULL;
+	}
 	old_tocs = (struct dylib_table_of_contents *)
 		(old_ofile->object_addr + old_dyst->tocoff);
+	old_strings = (char *)
+		(old_ofile->object_addr + old_st->stroff);
 	if(old_ofile->object_byte_sex != host_byte_sex){
-	    swap_nlist(old_symbols, old_st->nsyms, host_byte_sex);
+	    if(old_ofile->mh != NULL)
+		swap_nlist(old_symbols, old_st->nsyms, host_byte_sex);
+	    else
+		swap_nlist_64(old_symbols64, old_st->nsyms, host_byte_sex);
 	    swap_dylib_table_of_contents(old_tocs, old_dyst->ntoc,
-		host_byte_sex);
+		    host_byte_sex);
 	}
 	for(i = 0; i < old_st->nsyms; i++){
-	    if(old_symbols[i].n_un.n_strx != 0 &&
-	       (unsigned long)old_symbols[i].n_un.n_strx > old_st->strsize){
+	    if(old_ofile->mh != NULL)
+		n_strx = old_symbols[i].n_un.n_strx;
+	    else
+		n_strx = old_symbols64[i].n_un.n_strx;
+	    if(n_strx != 0 && n_strx > old_st->strsize){
 		if(arch_name != NULL)
 		    fatal("malformed dynamic shared library: %s (for "
 			"architecture %s) (bad string table index for symbol "
@@ -392,7 +434,11 @@ enum bool new_api_allowed)
 	new_st = NULL;
 	new_dyst = NULL;
 	lc = new_ofile->load_commands;
-	for(i = 0; i < new_ofile->mh->ncmds; i++){
+	if(new_ofile->mh != NULL)
+	    ncmds = new_ofile->mh->ncmds;
+	else
+	    ncmds = new_ofile->mh64->ncmds;
+	for(i = 0; i < ncmds; i++){
 	    if(new_st == NULL && lc->cmd == LC_SYMTAB){
 		new_st = (struct symtab_command *)lc;
 	    }
@@ -409,20 +455,34 @@ enum bool new_api_allowed)
 		fatal("new dynamic shared library: %s has no symbol table",
 		      new_dylib);
 	}
-	new_symbols = (struct nlist *)
+	if(new_ofile->mh != NULL){
+	    new_symbols = (struct nlist *)
 		(new_ofile->object_addr + new_st->symoff);
+	    new_symbols64 = NULL;
+	}
+	else{
+	    new_symbols64 = (struct nlist_64 *)
+		(new_ofile->object_addr + new_st->symoff);
+	    new_symbols = NULL;
+	}
 	new_strings = (char *)
 		(new_ofile->object_addr + new_st->stroff);
 	new_tocs = (struct dylib_table_of_contents *)
 		(new_ofile->object_addr + new_dyst->tocoff);
 	if(new_ofile->object_byte_sex != host_byte_sex){
-	    swap_nlist(new_symbols, new_st->nsyms, host_byte_sex);
+	    if(new_ofile->mh != NULL)
+		swap_nlist(new_symbols, new_st->nsyms, host_byte_sex);
+	    else
+		swap_nlist_64(new_symbols64, new_st->nsyms, host_byte_sex);
 	    swap_dylib_table_of_contents(new_tocs, new_dyst->ntoc,
-		host_byte_sex);
+		    host_byte_sex);
 	}
 	for(i = 0; i < new_st->nsyms; i++){
-	    if(new_symbols[i].n_un.n_strx != 0 &&
-	       (unsigned long)new_symbols[i].n_un.n_strx > new_st->strsize){
+	    if(new_ofile->mh != NULL)
+		n_strx = new_symbols[i].n_un.n_strx;
+	    else
+		n_strx = new_symbols64[i].n_un.n_strx;
+	    if(n_strx != 0 && n_strx > new_st->strsize){
 		if(arch_name != NULL)
 		    fatal("malformed dynamic shared library: %s (for "
 			"architecture %s) (bad string table index for symbol "
@@ -453,18 +513,63 @@ enum bool new_api_allowed)
 	 */
 	missing_symbols = FALSE;
 	strings = new_strings;
-	symbols = new_symbols;
+	if(new_dyst->ntoc != 0){
+	    symbols = new_symbols;
+	    symbols64 = new_symbols64;
+	}
+	else{
+	    if(new_ofile->mh != NULL){
+		symbols = new_symbols + new_dyst->iextdefsym;
+		symbols64 = NULL;
+	    }
+	    else{
+		symbols64 = new_symbols64 + new_dyst->iextdefsym;
+		symbols = NULL;
+	    }
+	}
 	for(i = 0; i < old_dyst->nextdefsym; i++){
-	    symbol_name = old_strings +
-			  old_symbols[i + old_dyst->iextdefsym].n_un.n_strx;
-	    toc = bsearch(symbol_name, new_tocs, new_dyst->ntoc,
-			  sizeof(struct dylib_table_of_contents),
-			  (int (*)(const void *, const void *))dylib_bsearch);
-	    if(toc == NULL){
+	    if(new_ofile->mh != NULL)
+		n_strx = old_symbols[i + old_dyst->iextdefsym].n_un.n_strx;
+	    else
+		n_strx = old_symbols64[i + old_dyst->iextdefsym].n_un.n_strx;
+	    symbol_name = old_strings + n_strx;
+	    if(new_dyst->ntoc != 0){
+		if(new_ofile->mh != NULL){
+		    toc = bsearch(symbol_name, new_tocs, new_dyst->ntoc,
+			          sizeof(struct dylib_table_of_contents),
+			          (int (*)(const void *, const void *))
+				  dylib_bsearch);
+		}
+		else{
+		    toc = bsearch(symbol_name, new_tocs, new_dyst->ntoc,
+			          sizeof(struct dylib_table_of_contents),
+			          (int (*)(const void *, const void *))
+				  dylib_bsearch64);
+		}
+		found = toc != NULL;
+	    }
+	    else{
+		if(new_ofile->mh != NULL){
+		    sym = bsearch(symbol_name, symbols, new_dyst->nextdefsym,
+				  sizeof(struct nlist),
+				  (int (*)(const void *, const void *))
+				  nlist_bsearch);
+		    found = sym != NULL;
+		}
+		else{
+		    sym64 = bsearch(symbol_name, symbols64,new_dyst->nextdefsym,
+				  sizeof(struct nlist_64),
+				  (int (*)(const void *, const void *))
+				  nlist_bsearch64);
+		    found = sym64 != NULL;
+		}
+	    }
+	    if(found == FALSE){
 		if(missing_symbols == FALSE){
 		    if(arch_name != NULL)
-			printf("For architecture %s symbols defined in %s not "
-			    "defined in %s:\n",arch_name, old_dylib, new_dylib);
+			printf("For architecture %s symbols defined in %s "
+			       "not defined in %s:\n", arch_name, old_dylib,
+			       new_dylib);
 		    else
 			printf("symbols defined in %s not defined in %s:\n",
 			    old_dylib, new_dylib);
@@ -487,14 +592,58 @@ enum bool new_api_allowed)
 	 */
 	new_api = FALSE;
 	strings = old_strings;
-	symbols = old_symbols;
+	if(old_dyst->ntoc != 0){
+	    symbols = old_symbols;
+	    symbols64 = old_symbols64;
+	}
+	else{
+	    if(old_ofile->mh != NULL){
+		symbols = old_symbols + old_dyst->iextdefsym;
+		symbols64 = NULL;
+	    }
+	    else{
+		symbols64 = old_symbols64 + old_dyst->iextdefsym;
+		symbols = NULL;
+	    }
+	}
 	for(i = 0; i < new_dyst->nextdefsym; i++){
-	    symbol_name = new_strings +
-			  new_symbols[i + new_dyst->iextdefsym].n_un.n_strx;
-	    toc = bsearch(symbol_name, old_tocs, old_dyst->ntoc,
-			  sizeof(struct dylib_table_of_contents),
-			  (int (*)(const void *, const void *))dylib_bsearch);
-	    if(toc == NULL){
+	    if(new_ofile->mh != NULL)
+		n_strx = new_symbols[i + new_dyst->iextdefsym].n_un.n_strx;
+	    else
+		n_strx = new_symbols64[i + new_dyst->iextdefsym].n_un.n_strx;
+	    symbol_name = new_strings + n_strx;
+	    if(old_dyst->ntoc != 0){
+		if(new_ofile->mh != NULL){
+		    toc = bsearch(symbol_name, old_tocs, old_dyst->ntoc,
+			          sizeof(struct dylib_table_of_contents),
+			          (int (*)(const void *, const void *))
+				  dylib_bsearch);
+		}
+		else{
+		    toc = bsearch(symbol_name, old_tocs, old_dyst->ntoc,
+			          sizeof(struct dylib_table_of_contents),
+			          (int (*)(const void *, const void *))
+				  dylib_bsearch64);
+		}
+		found = toc != NULL;
+	    }
+	    else{
+		if(new_ofile->mh != NULL){
+		    sym = bsearch(symbol_name, symbols, old_dyst->nextdefsym,
+				  sizeof(struct nlist),
+				  (int (*)(const void *, const void *))
+				  nlist_bsearch);
+		    found = sym != NULL;
+		}
+		else{
+		    sym64 = bsearch(symbol_name, symbols64,old_dyst->nextdefsym,
+				  sizeof(struct nlist_64),
+				  (int (*)(const void *, const void *))
+				  nlist_bsearch64);
+		    found = sym64 != NULL;
+		}
+	    }
+	    if(found == FALSE){
 		if(new_api == FALSE){
 		    if(arch_name != NULL)
 			printf("For architecture %s compatibility versions are "
@@ -524,4 +673,36 @@ const struct dylib_table_of_contents *toc)
 {
 	return(strcmp(symbol_name,
 		      strings + symbols[toc->symbol_index].n_un.n_strx));
+}
+
+static
+int
+dylib_bsearch64(
+const char *symbol_name,
+const struct dylib_table_of_contents *toc)
+{
+	return(strcmp(symbol_name,
+		      strings + symbols64[toc->symbol_index].n_un.n_strx));
+}
+
+/*
+ * Function for bsearch() for finding a symbol name in the sorted list of
+ * defined external symbols.
+ */
+static
+int
+nlist_bsearch(
+const char *symbol_name,
+const struct nlist *sym)
+{
+	return(strcmp(symbol_name, strings + sym->n_un.n_strx));
+}
+
+static
+int
+nlist_bsearch64(
+const char *symbol_name,
+const struct nlist_64 *sym64)
+{
+	return(strcmp(symbol_name, strings + sym64->n_un.n_strx));
 }

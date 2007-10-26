@@ -1,0 +1,57 @@
+#!/bin/sh
+#
+# SpamAssassin auto learn script
+#
+
+SA_LEARN_PATH="/usr/bin/sa-learn"
+JUNK_MAIL_USER="user/junkmail"
+NOT_JUNK_MAIL_USER="user/notjunkmail"
+MAIL_STORE_PATH=`cat /etc/imapd.conf | grep partition-default | sed 's/^.* / /'`
+
+# Check for root user
+if [ `whoami` != "root" ]
+then
+  echo "You must be root to execute this script"
+  exit 0;
+fi
+
+# Does the mail store exist
+if [ ! -d $MAIL_STORE_PATH ]
+then
+  echo "Database path: $MAIL_STORE_PATH does not exist" 
+  exit 1
+fi
+
+# Does the sa-learn tool exits
+if [ ! -e $SA_LEARN_PATH ]
+then
+  echo "Mail tool: $SA_LEARN_PATH does not exist"
+  exit 2
+fi
+
+# Has the junk-mail user account been created
+if [ -d $MAIL_STORE_PATH/$JUNK_MAIL_USER ]
+then
+  echo "Learning what is junk mail"
+  cd $MAIL_STORE_PATH/$JUNK_MAIL_USER
+  for file in *. ; do
+    if [ -f $file ]; then
+      cat $file | su - _amavisd -c "sa-learn --spam --no-sync >> /dev/null";
+    fi
+  done
+fi
+
+# Has the not-junk-mail user account been created
+if [ -d $MAIL_STORE_PATH/$NOT_JUNK_MAIL_USER ]
+then
+  echo "Learning what is not junk mail"
+  cd $MAIL_STORE_PATH/$NOT_JUNK_MAIL_USER
+  for file in *. ; do
+    if [ -f $file ]; then
+      cat $file | su - _amavisd -c "sa-learn --ham --no-sync >> /dev/null";
+    fi
+  done
+fi
+
+# Force a database sync
+su - _amavisd  -c "sa-learn --sync >> /dev/null"

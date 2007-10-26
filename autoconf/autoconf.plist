@@ -4,15 +4,15 @@
 	<key>OpenSourceProject</key>
 	<string>autoconf</string>
 	<key>OpenSourceVersion</key>
-	<string>2.59</string>
+	<string>2.61</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.gnu.org/software/autoconf/</string>
 	<key>OpenSourceURL</key>
-	<string>http://ftp.gnu.org/gnu/autoconf/autoconf-2.59.tar.bz2</string>
+	<string>http://ftp.gnu.org/gnu/autoconf/autoconf-2.61.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>d366a07b2d99c95b7f24395aa8a8e023d8b93b69</string>
+	<string>cc4b2f1a3e41f5542594b089ecdf7974890b3190</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-11-20</string>
+	<string>2006-11-30</string>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>
 	<key>OpenSourceLicenseFile</key>

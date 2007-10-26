@@ -94,6 +94,7 @@ private:
     IOByteCount                 _maxReportSize[kIOHIDReportTypeCount];
 
     struct ExpansionData { 
+        UInt32                  reportInterval;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -212,7 +213,9 @@ public:
                                 UInt32                      completionTimeout   = 0,
                                 CompletionAction *          completion          = 0);
                                     
-    OSMetaClassDeclareReservedUnused(IOHIDInterface,  0);
+    OSMetaClassDeclareReservedUsed(IOHIDInterface,  0);
+    virtual UInt32             getReportInterval ();
+    
     OSMetaClassDeclareReservedUnused(IOHIDInterface,  1);
     OSMetaClassDeclareReservedUnused(IOHIDInterface,  2);
     OSMetaClassDeclareReservedUnused(IOHIDInterface,  3);

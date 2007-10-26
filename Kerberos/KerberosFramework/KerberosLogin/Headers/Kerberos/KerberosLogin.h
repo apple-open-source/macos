@@ -47,10 +47,7 @@ extern "C" {
 #endif
 
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import on
-#    endif
-#    pragma options align=mac68k
+#    pragma pack(push,2)
 #endif
 
     /* 
@@ -470,10 +467,7 @@ KLStatus KLDisposeLoginOptions(KLLoginOptions ioOptions);
 KLStatus KLDisposeString (char *inStringToDispose);
 
 #if TARGET_OS_MAC
-#    if defined(__MWERKS__)
-#        pragma import reset
-#    endif
-#    pragma options align=reset
+#    pragma pack(pop)
 #endif
 
 #ifdef __cplusplus

@@ -1,0 +1,12 @@
+--- /SourceCache/vim/vim-32/vim/src/normal.c	2006-08-09 20:39:25.000000000 -0700
++++ src/normal.c	2007-01-05 15:52:32.000000000 -0800
+@@ -6731,7 +6731,8 @@ nv_replace(cap)
+ #endif
+ 	stuffcharReadbuff('\r');
+ 	stuffcharReadbuff(ESC);
+-
++	if (curbuf->b_p_ai && Unix2003_compat)
++	    stuffcharReadbuff('^');
+ 	/* Give 'r' to edit(), to get the redo command right. */
+ 	invoke_edit(cap, TRUE, 'r', FALSE);
+     }

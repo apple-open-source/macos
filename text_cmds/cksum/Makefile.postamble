@@ -1,4 +1,0 @@
-include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
-
-after_install::
-	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/sum

@@ -1,4 +1,4 @@
-static const char rcsid[] = "#(@) $Id: base64.c,v 1.2.8.2 2004/04/27 17:34:05 iliaa Exp $";
+static const char rcsid[] = "#(@) $Id: base64.c,v 1.4.6.1 2007/03/04 18:24:49 iliaa Exp $";
 
 /*
 
@@ -49,7 +49,7 @@ void buffer_delete(struct buffer_st *b)
   b->data = NULL;
 }
 
-void base64_encode(struct buffer_st *b, const char *source, int length)
+void base64_encode_xmlrpc(struct buffer_st *b, const char *source, int length)
 {
   int i, hiteof = 0;
   int offset = 0;
@@ -114,7 +114,7 @@ void base64_encode(struct buffer_st *b, const char *source, int length)
   buffer_add(b, '\n');
 }
 
-void base64_decode(struct buffer_st *bfr, const char *source, int length)
+void base64_decode_xmlrpc(struct buffer_st *bfr, const char *source, int length)
 {
     int i;
     int offset = 0;

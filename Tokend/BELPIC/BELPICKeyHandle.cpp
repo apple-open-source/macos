@@ -90,7 +90,7 @@ static const unsigned char md5sigheader[] =
 void BELPICKeyHandle::generateSignature(const Context &context,
 	CSSM_ALGORITHMS signOnly, const CssmData &input, CssmData &signature)
 {
-	secdebug("crypto", "generateSignature alg: %lu signOnly: %lu",
+	secdebug("crypto", "generateSignature alg: %u signOnly: %u",
 		context.algorithm(), signOnly);
 	IFDUMPING("crypto", context.dump("signature context"));
 
@@ -243,7 +243,7 @@ void BELPICKeyHandle::encrypt(const Context &context,
 void BELPICKeyHandle::decrypt(const Context &context,
 	const CssmData &cipher, CssmData &clear)
 {
-	secdebug("crypto", "decrypt alg: %lu", context.algorithm());
+	secdebug("crypto", "decrypt alg: %u", context.algorithm());
 	CssmError::throwMe(CSSMERR_CSP_KEY_USAGE_INCORRECT);
 }
 
@@ -272,5 +272,3 @@ Tokend::KeyHandle *BELPICKeyHandleFactory::keyHandle(
 	return new BELPICKeyHandle(belpicToken, metaRecord, key);
 }
 
-
-/* arch-tag: 8B1B6D68-124C-11D9-B5E6-000A9595DEEE */

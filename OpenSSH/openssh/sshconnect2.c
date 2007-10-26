@@ -63,6 +63,7 @@
 #include "msg.h"
 #include "pathnames.h"
 #include "uidswap.h"
+#include "keychain.h"
 
 #ifdef GSSAPI
 #include "ssh-gss.h"
@@ -1088,7 +1089,9 @@ load_identity_file(char *filename)
 		snprintf(prompt, sizeof prompt,
 		    "Enter passphrase for key '%.100s': ", filename);
 		for (i = 0; i < options.number_of_password_prompts; i++) {
-			passphrase = read_passphrase(prompt, 0);
+			passphrase = keychain_read_passphrase(filename);
+			if (passphrase == NULL)
+				passphrase = read_passphrase(prompt, 0);
 			if (strcmp(passphrase, "") != 0) {
 				private = key_load_private_type(KEY_UNSPEC,
 				    filename, passphrase, NULL, NULL);

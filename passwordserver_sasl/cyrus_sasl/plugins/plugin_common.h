@@ -1,7 +1,7 @@
 
 /* Generic SASL plugin utility functions
  * Rob Siemborski
- * $Id: plugin_common.h,v 1.5.4.1 2005/11/09 19:11:23 snsimon Exp $
+ * $Id: plugin_common.h,v 1.8 2006/02/03 22:33:14 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -133,7 +133,7 @@ PLUG_API int sasl_canonuser_init(const sasl_utils_t *utils, \
 #ifndef SASLINT_H
 typedef struct buffer_info 
 {
-    char *data;
+    unsigned char *data;
     unsigned curlen;   /* Current length of data in buffer */
     unsigned reallen;  /* total length of buffer (>= curlen) */
 } buffer_info_t;
@@ -147,8 +147,8 @@ int _plug_ipfromstring(const sasl_utils_t *utils, const char *addr,
 		       struct sockaddr *out, socklen_t outlen);
 int _plug_iovec_to_buf(const sasl_utils_t *utils, const struct iovec *vec,
 		       unsigned numiov, buffer_info_t **output);
-int _plug_buf_alloc(const sasl_utils_t *utils, char **rwbuf,
-		    unsigned *curlen, unsigned newlen);
+int _plug_buf_alloc(const sasl_utils_t *utils, unsigned char **rwbuf,
+		    unsigned int *curlen, unsigned int newlen);
 int _plug_strdup(const sasl_utils_t * utils, const char *in,
 	         char **out, int *outlen);
 void _plug_free_string(const sasl_utils_t *utils, char **str);
@@ -186,7 +186,7 @@ typedef struct decode_context {
     unsigned int needsize;	/* How much of the 4-byte size do we need? */
     char sizebuf[4];		/* Buffer to accumulate the 4-byte size */
     unsigned int size;		/* Absolute size of the encoded packet */
-    char *buffer;		/* Buffer to accumulate an encoded packet */
+    unsigned char *buffer;		/* Buffer to accumulate an encoded packet */
     unsigned int cursize;	/* Amount of packet data in the buffer */
     unsigned long in_maxbuf;	/* Maximum allowed size of an encoded packet */
 } decode_context_t;
@@ -195,11 +195,11 @@ void _plug_decode_init(decode_context_t *text,
 		       const sasl_utils_t *utils, unsigned int in_maxbuf);
 
 int _plug_decode(decode_context_t *text,
-		 const char *input, unsigned inputlen,
-		 char **output, unsigned *outputsize, unsigned *outputlen,
+		 const unsigned char *input, unsigned int inputlen,
+		 unsigned char **output, unsigned int *outputsize, unsigned int *outputlen,
 		 int (*decode_pkt)(void *rock,
-				   const char *input, unsigned inputlen,
-				   char **output, unsigned *outputlen),
+				   const unsigned char *input, unsigned int inputlen,
+				   unsigned char **output, unsigned int *outputlen),
 		 void *rock);
 
 void _plug_decode_free(decode_context_t *text);
@@ -207,6 +207,9 @@ void _plug_decode_free(decode_context_t *text);
 int _plug_parseuser(const sasl_utils_t *utils,
 		    char **user, char **realm, const char *user_realm, 
 		    const char *serverFQDN, const char *input);
+
+int _plug_make_fulluser(const sasl_utils_t *utils,
+			char **fulluser, const char * useronly, const char *realm);
 
 char * _plug_get_error_message (const sasl_utils_t *utils,
 #ifdef WIN32

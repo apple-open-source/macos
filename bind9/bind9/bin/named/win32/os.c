@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: os.c,v 1.5.2.3.8.12 2005/03/17 03:58:26 marka Exp $ */
+/* $Id: os.c,v 1.20.18.4 2005/06/22 22:05:43 marka Exp $ */
 
 #include <config.h>
 #include <stdarg.h>

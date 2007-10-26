@@ -31,7 +31,6 @@
 #include "gdb_assert.h"
 
 #include "sparc-tdep.h"
-#include "nbsd-tdep.h"
 
 /* Signal trampolines.  */
 
@@ -111,15 +110,16 @@ sparc32obsd_frame_this_id (struct frame_info *next_frame, void **this_cache,
 static void
 sparc32obsd_frame_prev_register (struct frame_info *next_frame,
 				 void **this_cache,
-				 int regnum, int *optimizedp,
+				 /* APPLE LOCAL variable opt states.  */
+				 int regnum, enum opt_state *optimizedp,
 				 enum lval_type *lvalp, CORE_ADDR *addrp,
-				 int *realnump, void *valuep)
+				 int *realnump, gdb_byte *valuep)
 {
   struct sparc_frame_cache *cache =
     sparc32obsd_frame_cache (next_frame, this_cache);
 
-  trad_frame_prev_register (next_frame, cache->saved_regs, regnum,
-			    optimizedp, lvalp, addrp, realnump, valuep);
+  trad_frame_get_prev_register (next_frame, cache->saved_regs, regnum,
+				optimizedp, lvalp, addrp, realnump, valuep);
 }
 
 static const struct frame_unwind sparc32obsd_frame_unwind =
@@ -148,15 +148,10 @@ sparc32obsd_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 {
   struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
 
-  /* OpenBSD doesn't support the 128-bit `long double' from the psABI.  */
-  set_gdbarch_long_double_bit (gdbarch, 64);
-  set_gdbarch_long_double_format (gdbarch, &floatformat_ieee_double_big);
+  /* OpenBSD/sparc is very similar to NetBSD/sparc ELF.  */
+  sparc32nbsd_elf_init_abi (info, gdbarch);
 
-  set_gdbarch_pc_in_sigtramp (gdbarch, sparc32obsd_pc_in_sigtramp);
   frame_unwind_append_sniffer (gdbarch, sparc32obsd_sigtramp_frame_sniffer);
-
-  set_solib_svr4_fetch_link_map_offsets
-    (gdbarch, nbsd_ilp32_solib_svr4_fetch_link_map_offsets);
 }
 
 

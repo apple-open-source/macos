@@ -17,7 +17,7 @@
 # Makefile.am for the SASL plugins
 # Rob Siemborski
 # Rob Earhart
-# $Id: Makefile,v 1.2 2004/07/07 22:45:18 snsimon Exp $
+# $Id: Makefile.in,v 1.6 2006/01/24 20:37:09 snsimon Exp $
 #
 ################################################################
 # Copyright (c) 2000 Carnegie Mellon University.  All rights reserved.
@@ -81,18 +81,19 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-host_triplet = powerpc-apple-darwin8.0.0b1
-ACLOCAL = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run aclocal-1.7 -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
+host_triplet = powerpc-apple-darwin9.0.0d4
+ACLOCAL = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run aclocal-1.7 -I $(top_srcdir)/cmulocal -I $(top_srcdir)/config
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run tar
-AUTOCONF = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run autoconf
-AUTOHEADER = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run autoheader
-AUTOMAKE = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run automake-1.7
+AMTAR = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run tar
+AUTOCONF = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoconf
+AUTOHEADER = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run autoheader
+AUTOMAKE = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run automake-1.7
 AWK = awk
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -Wall -W -g -O2
+CMU_LIB_SUBDIR = @CMU_LIB_SUBDIR@
 CPP = gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -100,8 +101,8 @@ DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
 DIRS = 
 DMALLOC_LIBS = 
-ECHO_C = 
-ECHO_N = -n
+ECHO_C = \c
+ECHO_N = 
 ECHO_T = 
 EGREP = grep -E
 EXEEXT = 
@@ -128,10 +129,13 @@ LIBS = -lresolv -lresolv
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIB_CRYPT = 
 LIB_DES = -lcrypto
+LIB_DOOR = @LIB_DOOR@
+LIB_LDAP = @LIB_LDAP@
 
 LIB_MYSQL = 
 LIB_PGSQL = 
 LIB_SOCKET = 
+LIB_SQLITE = @LIB_SQLITE@
 LN_S = ln -s
 LTGETADDRINFOOBJS = 
 LTGETNAMEINFOOBJS = 
@@ -139,7 +143,7 @@ LTLIBOBJS =
 LTSNPRINTFOBJS = 
 MACOSX_FALSE = #
 MACOSX_TRUE = 
-MAKEINFO = ${SHELL} /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/missing --run makeinfo
+MAKEINFO = ${SHELL} /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/missing --run makeinfo
 NM = /usr/bin/nm -p
 NO_SASL_DB_MANS_FALSE = 
 NO_SASL_DB_MANS_TRUE = #
@@ -152,6 +156,7 @@ PACKAGE_NAME =
 PACKAGE_STRING = 
 PACKAGE_TARNAME = 
 PACKAGE_VERSION = 
+PASSDSS_LIBS = @PASSDSS_LIBS@
 PATH_SEPARATOR = :
 PLAIN_LIBS = 
 PURECOV = 
@@ -175,6 +180,7 @@ SASL_KRB_LIB =
 SASL_MECHS =  libsasldb.la libcrammd5.la libdigestmd5.la libotp.la libgssapiv2.la libplain.la libanonymous.la
 SASL_STATIC_LIBS = 
 SASL_STATIC_OBJS =  ../plugins/gssapi.o
+SASL_STATIC_SRCS = @SASL_STATIC_SRCS@
 SASL_UTIL_HEADERS_EXTRA = 
 SASL_UTIL_LIBS_EXTRA = 
 SET_MAKE = 
@@ -194,21 +200,21 @@ am__fastdepCC_TRUE =
 am__include = include
 am__quote = 
 bindir = ${exec_prefix}/bin
-build = powerpc-apple-darwin8.0.0b1
+build = powerpc-apple-darwin9.0.0d4
 build_alias = 
 build_cpu = powerpc
-build_os = darwin8.0.0b1
+build_os = darwin9.0.0d4
 build_vendor = apple
 datadir = ${prefix}/share
 exec_prefix = ${prefix}
-host = powerpc-apple-darwin8.0.0b1
+host = powerpc-apple-darwin9.0.0d4
 host_alias = 
 host_cpu = powerpc
-host_os = darwin8.0.0b1
+host_os = darwin9.0.0d4
 host_vendor = apple
 includedir = ${prefix}/include
 infodir = ${prefix}/info
-install_sh = /Volumes/Tenacious/__backup3/Users/steve/Desktop/cyrus-sasl-2.1.18/config/install-sh
+install_sh = /Volumes/Forty/svn/passwordserver_sasl/cyrus_sasl/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localstatedir = ${prefix}/var
@@ -222,26 +228,28 @@ sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 subdirs =  saslauthd
 sysconfdir = ${prefix}/etc
-target = powerpc-apple-darwin8.0.0b1
+target = powerpc-apple-darwin9.0.0d4
 target_alias = 
 target_cpu = powerpc
-target_os = darwin8.0.0b1
+target_os = darwin9.0.0d4
 target_vendor = apple
 
 # Library version info - here at the top, for sanity
 # CURRENT:REVISION:AGE
-anonymous_version = 2:18:0
-digestmd5_version = 2:18:0
-kerberos4_version = 2:18:0
-gssapiv2_version = 2:18:0
-crammd5_version = 2:18:0
-sasldb_version = 2:18:0
-login_version = 2:18:0
-plain_version = 2:18:0
-ntlm_version = 2:18:0
-otp_version = 2:18:0
-sql_version = 2:18:0
-srp_version = 2:18:0
+anonymous_version = 2:22:0
+digestmd5_version = 2:22:0
+kerberos4_version = 2:22:0
+gssapiv2_version = 2:22:0
+crammd5_version = 2:22:0
+passdss_version = 2:22:0
+sasldb_version = 2:22:0
+login_version = 2:22:0
+plain_version = 2:22:0
+ntlm_version = 2:22:0
+otp_version = 2:22:0
+sql_version = 2:22:0
+ldapdb_version = 2:22:0
+srp_version = 2:22:0
 
 INCLUDES = -I$(top_srcdir)/include -I$(top_srcdir)/lib -I$(top_srcdir)/sasldb -I$(top_builddir)/include
 AM_LDFLAGS = -module -export-dynamic -rpath $(plugindir)
@@ -257,7 +265,7 @@ sasldir = $(prefix)/lib/sasl2
 sasl_LTLIBRARIES =  libsasldb.la libcrammd5.la libdigestmd5.la libotp.la libgssapiv2.la libplain.la libanonymous.la
 EXTRA_LTLIBRARIES = libplain.la libanonymous.la libkerberos4.la libcrammd5.la \
 	libgssapiv2.la libdigestmd5.la liblogin.la libsrp.la libotp.la \
-	libntlm.la libsasldb.la libsql.la
+	libntlm.la libpassdss.la libsasldb.la libsql.la libldapdb.la
 
 
 libplain_la_SOURCES = plain.c plain_init.c $(common_sources)
@@ -310,14 +318,24 @@ libntlm_la_LDFLAGS = -version-info $(ntlm_version)
 libntlm_la_DEPENDENCIES = $(COMPAT_OBJS)
 libntlm_la_LIBADD = $(NTLM_LIBS) $(COMPAT_OBJS)
 
+libpassdss_la_SOURCES = passdss.c passdss_init.c $(common_sources)
+libpassdss_la_LDFLAGS = -version-info $(passdss_version)
+libpassdss_la_DEPENDENCIES = $(COMPAT_OBJS)
+libpassdss_la_LIBADD = $(PASSDSS_LIBS) $(COMPAT_OBJS)
+
 # Auxprop Plugins
 libsasldb_la_SOURCES = sasldb.c sasldb_init.c $(common_sources)
 libsasldb_la_LDFLAGS = -version-info $(sasldb_version)
 libsasldb_la_DEPENDENCIES = $(COMPAT_OBJS)
 libsasldb_la_LIBADD = ../sasldb/libsasldb.la $(SASL_DB_LIB) $(COMPAT_OBJS)
 
+libldapdb_la_SOURCES = ldapdb.c ldapdb_init.c $(common_sources)
+libldapdb_la_LDFLAGS = $(LIB_LDAP) -version-info $(ldapdb_version)
+libldapdb_la_DEPENDENCIES = $(COMPAT_OBJS)
+libldapdb_la_LIBADD = $(COMPAT_OBJS)
+
 libsql_la_SOURCES = sql.c sql_init.c $(common_sources)
-libsql_la_LDFLAGS = $(LIB_MYSQL) $(LIB_PGSQL) -version-info $(sql_version)
+libsql_la_LDFLAGS = $(LIB_MYSQL) $(LIB_PGSQL) $(LIB_SQLITE) -version-info $(sql_version)
 libsql_la_DEPENDENCIES = $(COMPAT_OBJS)
 libsql_la_LIBADD = $(COMPAT_OBJS)
 
@@ -325,7 +343,7 @@ libsql_la_LIBADD = $(COMPAT_OBJS)
 # Instructions for making the _init files
 init_src = anonymous_init.c crammd5_init.c digestmd5_init.c gssapiv2_init.c \
 kerberos4_init.c login_init.c plain_init.c srp_init.c otp_init.c ntlm_init.c \
-sasldb_init.c sql_init.c
+passdss_init.c sasldb_init.c sql_init.c ldapdb_init.c
 
 
 CLEANFILES = $(init_src)
@@ -349,12 +367,16 @@ libgssapiv2_la_OBJECTS = $(am_libgssapiv2_la_OBJECTS)
 am_libkerberos4_la_OBJECTS = kerberos4.lo kerberos4_init.lo \
 	$(am__objects_1)
 libkerberos4_la_OBJECTS = $(am_libkerberos4_la_OBJECTS)
+am_libldapdb_la_OBJECTS = ldapdb.lo ldapdb_init.lo $(am__objects_1)
+libldapdb_la_OBJECTS = $(am_libldapdb_la_OBJECTS)
 am_liblogin_la_OBJECTS = login.lo login_init.lo $(am__objects_1)
 liblogin_la_OBJECTS = $(am_liblogin_la_OBJECTS)
 am_libntlm_la_OBJECTS = ntlm.lo ntlm_init.lo $(am__objects_1)
 libntlm_la_OBJECTS = $(am_libntlm_la_OBJECTS)
 am_libotp_la_OBJECTS = otp.lo otp_init.lo $(am__objects_1)
 libotp_la_OBJECTS = $(am_libotp_la_OBJECTS)
+am_libpassdss_la_OBJECTS = passdss.lo passdss_init.lo $(am__objects_1)
+libpassdss_la_OBJECTS = $(am_libpassdss_la_OBJECTS)
 am_libplain_la_OBJECTS = plain.lo plain_init.lo $(am__objects_1)
 libplain_la_OBJECTS = $(am_libplain_la_OBJECTS)
 am_libsasldb_la_OBJECTS = sasldb.lo sasldb_init.lo $(am__objects_1)
@@ -378,10 +400,13 @@ DEP_FILES = ./$(DEPDIR)/anonymous.Plo \
 	./$(DEPDIR)/gssapiv2_init.Plo \
 	./$(DEPDIR)/kerberos4.Plo \
 	./$(DEPDIR)/kerberos4_init.Plo \
+	./$(DEPDIR)/ldapdb.Plo ./$(DEPDIR)/ldapdb_init.Plo \
 	./$(DEPDIR)/login.Plo ./$(DEPDIR)/login_init.Plo \
 	./$(DEPDIR)/ntlm.Plo ./$(DEPDIR)/ntlm_init.Plo \
 	./$(DEPDIR)/otp.Plo ./$(DEPDIR)/otp_init.Plo \
-	./$(DEPDIR)/plain.Plo ./$(DEPDIR)/plain_init.Plo \
+	./$(DEPDIR)/passdss.Plo \
+	./$(DEPDIR)/passdss_init.Plo ./$(DEPDIR)/plain.Plo \
+	./$(DEPDIR)/plain_init.Plo \
 	./$(DEPDIR)/plugin_common.Plo \
 	./$(DEPDIR)/sasldb.Plo ./$(DEPDIR)/sasldb_init.Plo \
 	./$(DEPDIR)/sql.Plo ./$(DEPDIR)/sql_init.Plo \
@@ -395,12 +420,13 @@ LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 DIST_SOURCES = $(libanonymous_la_SOURCES) $(libcrammd5_la_SOURCES) \
 	$(libdigestmd5_la_SOURCES) $(libgssapiv2_la_SOURCES) \
-	$(libkerberos4_la_SOURCES) $(liblogin_la_SOURCES) \
-	$(libntlm_la_SOURCES) $(libotp_la_SOURCES) \
+	$(libkerberos4_la_SOURCES) $(libldapdb_la_SOURCES) \
+	$(liblogin_la_SOURCES) $(libntlm_la_SOURCES) \
+	$(libotp_la_SOURCES) $(libpassdss_la_SOURCES) \
 	$(libplain_la_SOURCES) $(libsasldb_la_SOURCES) \
 	$(libsql_la_SOURCES) $(libsrp_la_SOURCES)
 DIST_COMMON = Makefile.am Makefile.in
-SOURCES = $(libanonymous_la_SOURCES) $(libcrammd5_la_SOURCES) $(libdigestmd5_la_SOURCES) $(libgssapiv2_la_SOURCES) $(libkerberos4_la_SOURCES) $(liblogin_la_SOURCES) $(libntlm_la_SOURCES) $(libotp_la_SOURCES) $(libplain_la_SOURCES) $(libsasldb_la_SOURCES) $(libsql_la_SOURCES) $(libsrp_la_SOURCES)
+SOURCES = $(libanonymous_la_SOURCES) $(libcrammd5_la_SOURCES) $(libdigestmd5_la_SOURCES) $(libgssapiv2_la_SOURCES) $(libkerberos4_la_SOURCES) $(libldapdb_la_SOURCES) $(liblogin_la_SOURCES) $(libntlm_la_SOURCES) $(libotp_la_SOURCES) $(libpassdss_la_SOURCES) $(libplain_la_SOURCES) $(libsasldb_la_SOURCES) $(libsql_la_SOURCES) $(libsrp_la_SOURCES)
 
 all: all-am
 
@@ -449,12 +475,16 @@ libgssapiv2.la: $(libgssapiv2_la_OBJECTS) $(libgssapiv2_la_DEPENDENCIES)
 	$(LINK)  $(libgssapiv2_la_LDFLAGS) $(libgssapiv2_la_OBJECTS) $(libgssapiv2_la_LIBADD) $(LIBS)
 libkerberos4.la: $(libkerberos4_la_OBJECTS) $(libkerberos4_la_DEPENDENCIES) 
 	$(LINK)  $(libkerberos4_la_LDFLAGS) $(libkerberos4_la_OBJECTS) $(libkerberos4_la_LIBADD) $(LIBS)
+libldapdb.la: $(libldapdb_la_OBJECTS) $(libldapdb_la_DEPENDENCIES) 
+	$(LINK)  $(libldapdb_la_LDFLAGS) $(libldapdb_la_OBJECTS) $(libldapdb_la_LIBADD) $(LIBS)
 liblogin.la: $(liblogin_la_OBJECTS) $(liblogin_la_DEPENDENCIES) 
 	$(LINK)  $(liblogin_la_LDFLAGS) $(liblogin_la_OBJECTS) $(liblogin_la_LIBADD) $(LIBS)
 libntlm.la: $(libntlm_la_OBJECTS) $(libntlm_la_DEPENDENCIES) 
 	$(LINK)  $(libntlm_la_LDFLAGS) $(libntlm_la_OBJECTS) $(libntlm_la_LIBADD) $(LIBS)
 libotp.la: $(libotp_la_OBJECTS) $(libotp_la_DEPENDENCIES) 
 	$(LINK)  $(libotp_la_LDFLAGS) $(libotp_la_OBJECTS) $(libotp_la_LIBADD) $(LIBS)
+libpassdss.la: $(libpassdss_la_OBJECTS) $(libpassdss_la_DEPENDENCIES) 
+	$(LINK)  $(libpassdss_la_LDFLAGS) $(libpassdss_la_OBJECTS) $(libpassdss_la_LIBADD) $(LIBS)
 libplain.la: $(libplain_la_OBJECTS) $(libplain_la_DEPENDENCIES) 
 	$(LINK)  $(libplain_la_LDFLAGS) $(libplain_la_OBJECTS) $(libplain_la_LIBADD) $(LIBS)
 libsasldb.la: $(libsasldb_la_OBJECTS) $(libsasldb_la_DEPENDENCIES) 
@@ -480,12 +510,16 @@ include ./$(DEPDIR)/gssapi.Plo
 include ./$(DEPDIR)/gssapiv2_init.Plo
 include ./$(DEPDIR)/kerberos4.Plo
 include ./$(DEPDIR)/kerberos4_init.Plo
+include ./$(DEPDIR)/ldapdb.Plo
+include ./$(DEPDIR)/ldapdb_init.Plo
 include ./$(DEPDIR)/login.Plo
 include ./$(DEPDIR)/login_init.Plo
 include ./$(DEPDIR)/ntlm.Plo
 include ./$(DEPDIR)/ntlm_init.Plo
 include ./$(DEPDIR)/otp.Plo
 include ./$(DEPDIR)/otp_init.Plo
+include ./$(DEPDIR)/passdss.Plo
+include ./$(DEPDIR)/passdss_init.Plo
 include ./$(DEPDIR)/plain.Plo
 include ./$(DEPDIR)/plain_init.Plo
 include ./$(DEPDIR)/plugin_common.Plo

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000,2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000,2002-2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,77 +189,6 @@ public:
 private:
     const char *name;
 };
-
-
-/* Credentials are less than comparable so they can be put in sets or maps. */
-class CredentialImpl : public RefCount
-{
-public:
-	CredentialImpl(const string &username, const uid_t uid, gid_t gid, bool shared);
-	CredentialImpl(const string &username, const string &password, bool shared);
-	~CredentialImpl();
-
-	bool operator < (const CredentialImpl &other) const;
-
-	// Returns true if this credential should be shared.
-	bool isShared() const;
-
-	// Merge with other
-	void merge(const CredentialImpl &other);
-
-	// The time at which this credential was obtained.
-	CFAbsoluteTime creationTime() const;
-
-	// Return true iff this credential is valid.
-	bool isValid() const;
-
-	// Make this credential invalid.
-	void invalidate();
-
-	// We could make Rule a friend but instead we just expose this for now
-	inline const string& username() const { return mUsername; }
-	inline const uid_t uid() const { return mUid; }
-	inline const gid_t gid() const { return mGid; }
-
-
-private:
-	// The username of the user that provided his password.
-	// This and mShared are what make this credential unique.
-	// @@@ We do not deal with the domain as of yet.
-	string mUsername;
-
-	// True iff this credential is shared.
-	bool mShared;
-
-	// Fields below are not used by less than operator
-
-	// cached pw-data as returned by getpwnam(mUsername)
-	uid_t mUid;
-	gid_t mGid;
-
-	CFAbsoluteTime mCreationTime;
-	bool mValid;
-};
-
-
-/* Credentials are less than comparable so they can be put in sets or maps. */
-class Credential : public RefPointer<CredentialImpl>
-{
-public:
-	Credential();
-	Credential(CredentialImpl *impl);
-	Credential(const string &username, const uid_t uid, gid_t gid, bool shared);
-	Credential(const string &username, const string &password, bool shared);
-	~Credential();
-
-	bool operator < (const Credential &other) const;
-};
-
-
-typedef set<Credential> CredentialSet;
-
-
-
 
 }; // namespace Authorization
 

@@ -732,10 +732,10 @@ myCFStringCreateFromPrintableBERSequence(CFAllocatorRef alloc,
     if (!getASN1ItemInfo(item_data.Data, item_data.Length, &item)) {
 	return (NULL);
     }
-    eos = (char *)((UInt32)item_data.Data + item.headerSize + item.length);
+    eos = (char *)(item_data.Data + (UInt32)item.headerSize + item.length);
     while (getASN1ItemInfo(item_data.Data, item_data.Length, &item)) {
-	if (((UInt32)item_data.Data + item.headerSize + item.length) 
-	    > (UInt32)eos) {
+	if (((char *)item_data.Data + (UInt32)item.headerSize + item.length) 
+	    > eos) {
 	    break;
 	}
 	item_data.Data += item.headerSize;
@@ -856,11 +856,11 @@ parse_subject_alt_name(CFMutableDictionaryRef dict, const CSSM_DATA * d)
 		    if (unparsed_len > (oid_len + header_len)) {
 			tmp_oid.Length = oid_len;
 			tmp_oid.Data 
-			    = (uint8*)((uint32)tmp_oid.Data + header_len);
+			    = (uint8*)(tmp_oid.Data + (uint32)header_len);
 			tmp_value.Length 
 			    = unparsed_len - (oid_len + header_len);
 			tmp_value.Data 
-			    = (uint8*)((uint32)tmp_oid.Data + tmp_oid.Length);
+			    = (uint8*)(tmp_oid.Data + (uint32)tmp_oid.Length);
 		    }
 		}
 	    }

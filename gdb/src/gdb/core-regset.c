@@ -69,7 +69,7 @@ fetch_core_registers (char *core_reg_sect, unsigned core_reg_size, int which,
     {
     case 0:
       if (core_reg_size != sizeof (gregset))
-	warning ("Wrong size gregset in core file.");
+	warning (_("Wrong size gregset in core file."));
       else
 	{
 	  memcpy (&gregset, core_reg_sect, sizeof (gregset));
@@ -79,7 +79,7 @@ fetch_core_registers (char *core_reg_sect, unsigned core_reg_size, int which,
 
     case 2:
       if (core_reg_size != sizeof (fpregset))
-	warning ("Wrong size fpregset in core file.");
+	warning (_("Wrong size fpregset in core file."));
       else
 	{
 	  memcpy (&fpregset, core_reg_sect, sizeof (fpregset));
@@ -115,5 +115,5 @@ extern void _initialize_core_regset (void);
 void
 _initialize_core_regset (void)
 {
-  add_core_fns (&regset_core_fns);
+  deprecated_add_core_fns (&regset_core_fns);
 }

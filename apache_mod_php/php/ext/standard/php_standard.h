@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_standard.h,v 1.16.4.1.8.2 2007/01/01 09:46:48 sebastian Exp $ */
+/* $Id: php_standard.h,v 1.24.2.2.2.1 2007/01/01 09:36:08 sebastian Exp $ */
 
 #include "basic_functions.h"
 #include "php_math.h"
@@ -59,9 +59,11 @@
 #include "php_versioning.h"
 #include "php_ftok.h"
 #include "php_type.h"
-#include "aggregation.h"
 
 #define phpext_standard_ptr basic_functions_module_ptr
+PHP_MINIT_FUNCTION(standard_filters);
+PHP_MSHUTDOWN_FUNCTION(standard_filters);
+
 
 /*
  * Local variables:

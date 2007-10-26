@@ -11,7 +11,7 @@
 ## Updated by: Craig Davison <cd@securityfocus.com>
 ## release-ssl added by Miklos Nemeth <mnemeth@kfkisystems.com>
 ## winmm.lib added by Miklos Nemeth <mnemeth@kfkisystems.com> to support
-## timeGetTime() in timeval.c
+## timeGetTime() in curlutil.c
 
 PROGRAM_NAME = curl.exe
 
@@ -21,6 +21,28 @@ ZLIB_PATH = ../../zlib-1.2.1
 
 !IFNDEF OPENSSL_PATH
 OPENSSL_PATH = ../../openssl-0.9.7e
+!ENDIF
+
+!IFNDEF MACHINE
+MACHINE  = X86
+!ENDIF
+
+# USE_WINDOWS_SSPI uses windows libraries to allow NTLM authentication
+# without an openssl installation and offers the ability to authenticate
+# using the "current logged in user".  It does however require that the
+# Windows SDK be installed.
+#
+# If, for some reason the Windows SDK is installed but not installed
+# in the default location, you can specify WINDOWS_SDK_PATH.
+# It can be downloaded from:
+# http://www.microsoft.com/msdownload/platformsdk/sdkupdate/
+
+# USE_WINDOWS_SSPI = 1
+
+!IFDEF WINDOWS_SSPI
+!IFNDEF WINDOWS_SDK_PATH
+WINDOWS_SDK_PATH = "C:\Program Files\Microsoft SDK"
+!ENDIF
 !ENDIF
 
 ########################################################
@@ -46,9 +68,12 @@ LINKD = link.exe /incremental:yes /debug /libpath:"../lib"
 RCD   = rc.exe /dCURLDEBUG=1
 
 CFLAGS   = /I../lib /I../include /nologo /W3 /GX /DWIN32 /YX /FD /c
-LFLAGS   = /nologo /out:$(PROGRAM_NAME) /subsystem:console /machine:I386
+LFLAGS   = /nologo /out:$(PROGRAM_NAME) /subsystem:console /machine:$(MACHINE)
 RESFLAGS = /i../include
 
+!IFDEF WINDOWS_SSPI
+CFLAGS = $(CFLAGS) /DUSE_WINDOWS_SSPI /I$(WINDOWS_SDK_PATH)\include
+!ENDIF
 
 RELEASE_OBJS= \
 	hugehelpr.obj \
@@ -56,7 +81,7 @@ RELEASE_OBJS= \
 	urlglobr.obj \
 	getpassr.obj \
 	homedirr.obj \
-	timevalr.obj \
+	curlutilr.obj \
 	strtoofftr.obj \
 	mainr.obj \
 	curlr.res
@@ -67,7 +92,7 @@ DEBUG_OBJS= \
 	urlglobd.obj \
 	getpassd.obj \
 	homedird.obj \
-	timevald.obj \
+	curlutild.obj \
 	strtoofftd.obj \
 	maind.obj \
 	curld.res
@@ -200,8 +225,8 @@ getpassr.obj: getpass.c
 	$(CCR) $(CFLAGS) /Fo"$@" getpass.c
 homedirr.obj: homedir.c
 	$(CCR) $(CFLAGS) /Fo"$@" homedir.c
-timevalr.obj: ../lib/timeval.c
-	$(CCR) $(CFLAGS) /Fo"$@" ../lib/timeval.c
+curlutilr.obj: curlutil.c
+	$(CCR) $(CFLAGS) /Fo"$@" curlutil.c
 strtoofftr.obj: ../lib/strtoofft.c
 	$(CCR) $(CFLAGS) /Fo"$@" ../lib/strtoofft.c
 mainr.obj: main.c
@@ -220,8 +245,8 @@ getpassd.obj: getpass.c
 	$(CCD) $(CFLAGS) /Fo"$@" getpass.c
 homedird.obj: homedir.c
 	$(CCD) $(CFLAGS) /Fo"$@" homedir.c
-timevald.obj: ../lib/timeval.c
-	$(CCD) $(CFLAGS) /Fo"$@" ../lib/timeval.c
+curlutild.obj: curlutil.c
+	$(CCD) $(CFLAGS) /Fo"$@" curlutil.c
 strtoofftd.obj: ../lib/strtoofft.c
 	$(CCD) $(CFLAGS) /Fo"$@" ../lib/strtoofft.c
 maind.obj: main.c

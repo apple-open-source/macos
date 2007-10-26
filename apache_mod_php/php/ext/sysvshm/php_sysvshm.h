@@ -1,6 +1,6 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_sysvshm.h,v 1.11.8.1.8.2 2007/01/01 09:46:49 sebastian Exp $ */
+/* $Id: php_sysvshm.h,v 1.17.2.1.2.1 2007/01/01 09:36:09 sebastian Exp $ */
 
 #ifndef PHP_SYSVSHM_H
 #define PHP_SYSVSHM_H
@@ -35,14 +35,12 @@ typedef struct {
 	long init_mem;
 } sysvshm_module;
 
-
 typedef struct {
 	long key;
 	long length;
 	long next;
 	char mem;
 } sysvshm_chunk;
-
 
 typedef struct {
 	char magic[8];
@@ -52,14 +50,11 @@ typedef struct {
 	long total;
 } sysvshm_chunk_head;
 
-
 typedef struct {
-	key_t key;					/* Key set by user */
-	long id;					/* Returned by shmget. */
-	sysvshm_chunk_head *ptr;			/* memoryaddress of shared memory */ 
+	key_t key;               /* Key set by user */
+	long id;                 /* Returned by shmget. */
+	sysvshm_chunk_head *ptr; /* memoryaddress of shared memory */ 
 } sysvshm_shm;
-
-
 
 PHP_MINIT_FUNCTION(sysvshm);
 PHP_FUNCTION(shm_attach);
@@ -68,9 +63,6 @@ PHP_FUNCTION(shm_remove);
 PHP_FUNCTION(shm_put_var);
 PHP_FUNCTION(shm_get_var);
 PHP_FUNCTION(shm_remove_var);
-int php_put_shm_data(sysvshm_chunk_head *ptr,long key,char *data, long len);
-long php_check_shm_data(sysvshm_chunk_head *ptr, long key);
-int php_remove_shm_data(sysvshm_chunk_head *ptr, long shm_varpos);
 
 extern sysvshm_module php_sysvshm;
 

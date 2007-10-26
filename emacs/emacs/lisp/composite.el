@@ -1,7 +1,8 @@
 ;;; composite.el --- support character composition
 
-;; Copyright (C) 1999 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: mule, multilingual, character composition
 
@@ -19,8 +20,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 
@@ -77,12 +78,16 @@ follows (the point `*' corresponds to both reference points):
     +----+-----+ <--- new descent
 ")
 
-;; Encode composition rule RULE into an integer value.  RULE is a cons
-;; of global and new reference point symbols.
-;; This must be compatible with C macro COMPOSITION_ENCODE_RULE
-;; defined in composite.h.
 
+;;;###autoload
 (defun encode-composition-rule (rule)
+  "Encode composition rule RULE into an integer value.
+RULE is a cons of global and new reference point symbols
+\(see `reference-point-alist')."
+
+  ;; This must be compatible with C macro COMPOSITION_ENCODE_RULE
+  ;; defined in composite.h.
+
   (if (and (integerp rule) (< rule 144))
       ;; Already encoded.
       rule
@@ -95,7 +100,7 @@ follows (the point `*' corresponds to both reference points):
       (or (integerp nref)
 	  (setq nref (cdr (assq nref reference-point-alist))))
       (or (and (>= gref 0) (< gref 12) (>= nref 0) (< nref 12))
-	  (error "Invalid composition rule: %S" rule))	
+	  (error "Invalid composition rule: %S" rule))
       (+ (* gref 12) nref))))
 
 ;; Decode encoded composition rule RULE-CODE.  The value is a cons of
@@ -158,13 +163,17 @@ follows (the point `*' corresponds to both reference points):
 (defun compose-region (start end &optional components modification-func)
   "Compose characters in the current region.
 
+Characters are composed relatively, i.e. composed by overstricking or
+stacking depending on ascent, descent and other properties.
+
 When called from a program, expects these four arguments.
 
 First two arguments START and END are positions (integers or markers)
 specifying the region.
 
 Optional 3rd argument COMPONENTS, if non-nil, is a character or a
-sequence (vector, list, or string) of integers.
+sequence (vector, list, or string) of integers.  In this case,
+characters are composed not relatively but according to COMPONENTS.
 
 If it is a character, it is an alternate character to display instead
 of the text in the region.
@@ -189,7 +198,7 @@ text in the composition."
     (if (or (vectorp components) (listp components))
 	(setq components (encode-composition-components components)))
     (compose-region-internal start end components modification-func)
-    (set-buffer-modified-p modified-p)))
+    (restore-buffer-modified-p modified-p)))
 
 ;;;###autoload
 (defun decompose-region (start end)
@@ -211,7 +220,7 @@ The return value is STRING where `composition' property is put on all
 the characters in it.
 
 Optional 2nd and 3rd arguments START and END specify the range of
-STRING to be composed.  They defaults to the beginning and the end of
+STRING to be composed.  They default to the beginning and the end of
 STRING respectively.
 
 Optional 4th argument COMPONENTS, if non-nil, is a character or a
@@ -327,7 +336,7 @@ This function is the default value of `compose-chars-after-function'."
     (when tail
       (save-match-data
 	(save-excursion
-	  (while (and tail (not func))		  
+	  (while (and tail (not func))
 	    (setq pattern (car (car tail))
 		  func (cdr (car tail)))
 	    (goto-char pos)
@@ -347,11 +356,11 @@ The argument is a parameterized event of the form
 where N is the number of characters before point to compose,
 COMPONENTS, if non-nil, is the same as the argument to `compose-region'
 \(which see).  If it is nil, `compose-chars-after' is called,
-and that function find a proper rule to compose the target characters.
+and that function finds a proper rule to compose the target characters.
 This function is intended to be used from input methods.
 The global keymap binds special event `compose-last-chars' to this
 function.  Input method may generate an event (compose-last-chars N COMPONENTS)
-after a sequence character events."
+after a sequence of character events."
   (interactive "e")
   (let ((chars (nth 1 args)))
     (if (and (numberp chars)
@@ -364,21 +373,24 @@ after a sequence character events."
 
 
 ;;; The following codes are only for backward compatibility with Emacs
-;;; 20.4 and the earlier.
+;;; 20.4 and earlier.
 
 ;;;###autoload
 (defun decompose-composite-char (char &optional type with-composition-rule)
   "Convert CHAR to string.
-This is only for backward compatibility with Emacs 20.4 and the earlier.
 
 If optional 2nd arg TYPE is non-nil, it is `string', `list', or
-`vector'.  In this case, CHAR is converted string, list of CHAR, or
-vector of CHAR respectively."
+`vector'.  In this case, CHAR is converted to string, list of CHAR, or
+vector of CHAR respectively.
+Optional 3rd arg WITH-COMPOSITION-RULE is ignored."
   (cond ((or (null type) (eq type 'string)) (char-to-string char))
 	((eq type 'list) (list char))
 	(t (vector char))))
 
+;;;###autoload
 (make-obsolete 'decompose-composite-char 'char-to-string "21.1")
 
 
+
+;;; arch-tag: ee703d77-1723-45d4-a31f-e9f0f867aa33
 ;;; composite.el ends here

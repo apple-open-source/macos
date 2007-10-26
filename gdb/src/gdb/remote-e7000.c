@@ -1,7 +1,7 @@
 /* Remote debugging interface for Renesas E7000 ICE, for GDB
 
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support. 
 
@@ -43,6 +43,7 @@
 #include "value.h"
 #include "command.h"
 #include "gdb_string.h"
+#include "exceptions.h"
 #include "gdbcmd.h"
 #include <sys/types.h>
 #include "serial.h"
@@ -51,7 +52,8 @@
 #include "regcache.h"
 #include <time.h>
 #include <ctype.h>
-
+/* APPLE LOCAL - subroutine inlining  */
+#include "inlining.h"
 
 #if 1
 #define HARD_BREAKPOINTS	/* Now handled by set option. */
@@ -151,7 +153,7 @@ static void
 puts_e7000debug (char *buf)
 {
   if (!e7000_desc)
-    error ("Use \"target e7000 ...\" first.");
+    error (_("Use \"target e7000 ...\" first."));
 
   if (remote_debug)
     printf_unfiltered ("Sending %s\n", buf);
@@ -209,10 +211,10 @@ readchar (int timeout)
       if (timeout == 0)
 	return -1;
       echo = 0;
-      error ("Timeout reading from remote system.");
+      error (_("Timeout reading from remote system."));
     }
   else if (c < 0)
-    error ("Serial communication error");
+    error (_("Serial communication error"));
 
   if (remote_debug)
     {
@@ -362,7 +364,7 @@ get_hex_regs (int n, int regno)
       val = 0;
       for (j = 0; j < 8; j++)
 	val = (val << 4) + get_hex_digit (j == 0);
-      supply_register (regno++, (char *) &val);
+      regcache_raw_supply (current_regcache, regno++, (char *) &val);
     }
 }
 #endif
@@ -371,15 +373,16 @@ get_hex_regs (int n, int regno)
    user types "run" after having attached.  */
 
 static void
-e7000_create_inferior (char *execfile, char *args, char **env)
+e7000_create_inferior (char *execfile, char *args, char **env,
+		       int from_tty)
 {
   int entry_pt;
 
   if (args && *args)
-    error ("Can't pass arguments to remote E7000DEBUG process");
+    error (_("Can't pass arguments to remote E7000DEBUG process"));
 
   if (execfile == 0 || exec_bfd == 0)
-    error ("No executable file specified");
+    error (_("No executable file specified"));
 
   entry_pt = (int) bfd_get_start_address (exec_bfd);
 
@@ -458,7 +461,7 @@ e7000_login_command (char *args, int from_tty)
     }
   else
     {
-      error ("Syntax is ftplogin <machine> <user> <passwd> <directory>");
+      error (_("Syntax is ftplogin <machine> <user> <passwd> <directory>"));
     }
 }
 
@@ -522,10 +525,10 @@ e7000_parse_device (char *args, char *dev_name, int baudrate)
 
       if (n != 1 && n != 2)
 	{
-	  error ("Bad arguments.  Usage:\ttarget e7000 <device> <speed>\n\
+	  error (_("Bad arguments.  Usage:\ttarget e7000 <device> <speed>\n\
 or \t\ttarget e7000 <host>[:<port>]\n\
 or \t\ttarget e7000 tcp_remote <host>[:<port>]\n\
-or \t\ttarget e7000 pc\n");
+or \t\ttarget e7000 pc\n"));
 	}
 
 #if !defined(__GO32__) && !defined(_WIN32) && !defined(__CYGWIN__)
@@ -612,7 +615,7 @@ e7000_start_remote (void *dummy)
   if (!sync)
     {
       fprintf_unfiltered (gdb_stderr, "Giving up after %d tries...\n", try);
-      error ("Unable to synchronize with target.\n");
+      error (_("Unable to synchronize with target."));
     }
 
   puts_e7000debug ("\r");
@@ -629,7 +632,15 @@ e7000_start_remote (void *dummy)
   flush_cached_frames ();
   registers_changed ();
   stop_pc = read_pc ();
-  print_stack_frame (get_selected_frame (), -1, 1);
+  /* APPLE LOCAL begin subroutine inlining  */
+  /* If the PC has changed since the last time we updated the
+     global_inlined_call_stack data, we need to verify the current
+     data and possibly update it.  */
+  if (stop_pc != inlined_function_call_stack_pc ())
+    inlined_function_update_call_stack (stop_pc);
+  print_stack_frame (get_selected_frame (NULL), 0, SRC_AND_LOC);
+  clear_inlined_subroutine_print_frames ();
+  /* APPLE LOCAL end subroutine inlining  */
 
   return 1;
 }
@@ -786,7 +797,7 @@ fetch_regs_from_dump (int (*nextchar) (), char *want)
   int thischar = nextchar ();
 
   if (want == NULL)
-    internal_error (__FILE__, __LINE__, "Register set not selected.");
+    internal_error (__FILE__, __LINE__, _("Register set not selected."));
 
   while (*want)
     {
@@ -824,7 +835,7 @@ fetch_regs_from_dump (int (*nextchar) (), char *want)
 	    }
 	  else
 	    {
-	      error ("out of sync in fetch registers wanted <%s>, got <%c 0x%x>",
+	      error (_("out of sync in fetch registers wanted <%s>, got <%c 0x%x>"),
 		     want, thischar, thischar);
 	    }
 
@@ -875,12 +886,12 @@ fetch_regs_from_dump (int (*nextchar) (), char *want)
 		}
 
 	      else
-		internal_error (__FILE__, __LINE__, "failed internal consistency check");
+		internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
 	    }
 	  store_signed_integer (buf,
-				DEPRECATED_REGISTER_RAW_SIZE (regno),
+				register_size (current_gdbarch, regno),
 				(LONGEST) get_hex (&thischar));
-	  supply_register (regno, buf);
+	  regcache_raw_supply (current_regcache, regno, buf);
 	  break;
 	}
     }
@@ -891,12 +902,14 @@ e7000_fetch_registers (void)
 {
   int regno;
   char *wanted = NULL;
+  int realregs = 0;
 
   puts_e7000debug ("R\r");
 
   if (TARGET_ARCHITECTURE->arch == bfd_arch_sh)
     {
       wanted = want_sh;
+      realregs = 59;
       switch (TARGET_ARCHITECTURE->mach)
 	{
 	case bfd_mach_sh3:
@@ -908,6 +921,7 @@ e7000_fetch_registers (void)
   if (TARGET_ARCHITECTURE->arch == bfd_arch_h8300)
     {
       wanted = want_h8300h;
+      realregs = 10;
       switch (TARGET_ARCHITECTURE->mach)
 	{
 	case bfd_mach_h8300s:
@@ -915,17 +929,18 @@ e7000_fetch_registers (void)
 	case bfd_mach_h8300sx:
 	case bfd_mach_h8300sxn:
 	  wanted = want_h8300s;
+	  realregs = 11;
 	}
     }
 
   fetch_regs_from_dump (gch, wanted);
 
   /* And supply the extra ones the simulator uses */
-  for (regno = NUM_REALREGS; regno < NUM_REGS; regno++)
+  for (regno = realregs; regno < NUM_REGS; regno++)
     {
       int buf = 0;
 
-      supply_register (regno, (char *) (&buf));
+      regcache_raw_supply (current_regcache, regno, (char *) (&buf));
     }
 }
 
@@ -944,8 +959,18 @@ static void
 e7000_store_registers (void)
 {
   int regno;
+  int realregs = 0;
 
-  for (regno = 0; regno < NUM_REALREGS; regno++)
+  if (TARGET_ARCHITECTURE->arch == bfd_arch_sh)
+    realregs = 59;
+  if (TARGET_ARCHITECTURE->arch == bfd_arch_h8300) {
+    realregs = ((TARGET_ARCHITECTURE->mach == bfd_mach_h8300s ||
+		 TARGET_ARCHITECTURE->mach == bfd_mach_h8300sn ||
+		 TARGET_ARCHITECTURE->mach == bfd_mach_h8300sx ||
+		 TARGET_ARCHITECTURE->mach == bfd_mach_h8300sxn) ? 11 : 10);
+  }
+
+  for (regno = 0; regno < realregs; regno++)
     e7000_store_register (regno);
 
   registers_changed ();
@@ -1179,7 +1204,7 @@ write_large (CORE_ADDR memaddr, unsigned char *myaddr, int len)
 	{
 	  /* Hmm, it's trying to tell us something */
 	  expect (":");
-	  error ("Error writing memory");
+	  error (_("Error writing memory"));
 	}
       else
 	{
@@ -1388,7 +1413,7 @@ fast_but_for_the_pause_e7000_read_inferior_memory (CORE_ADDR memaddr,
   if (c != ENQ)
     {
       /* Got an error */
-      error ("Memory read error");
+      error (_("Memory read error"));
     }
   putchar_e7000 (ACK);
   expect ("SV s");
@@ -1534,7 +1559,7 @@ e7000_load (char *args, int from_tty)
       else if (strncmp (arg, "-nostart", strlen (arg)) == 0)
 	nostart = 1;
       else
-	error ("unknown option `%s'", arg);
+	error (_("unknown option `%s'"), arg);
     }
 
   if (!filename)
@@ -1549,7 +1574,7 @@ e7000_load (char *args, int from_tty)
   old_chain = make_cleanup_bfd_close (pbfd);
 
   if (!bfd_check_format (pbfd, bfd_object))
-    error ("\"%s\" is not an object file: %s", filename,
+    error (_("\"%s\" is not an object file: %s"), filename,
 	   bfd_errmsg (bfd_get_error ()));
 
   start_time = time (NULL);
@@ -1568,7 +1593,7 @@ e7000_load (char *args, int from_tty)
 	  file_ptr fptr;
 
 	  section_address = bfd_get_section_vma (pbfd, section);
-	  section_size = bfd_get_section_size_before_reloc (section);
+	  section_size = bfd_get_section_size (section);
 
 	  if (!quiet)
 	    printf_filtered ("[Loading section %s at 0x%s (%s bytes)]\n",
@@ -1686,7 +1711,7 @@ static CORE_ADDR breakaddr[MAX_BREAKPOINTS] =
 {0};
 
 static int
-e7000_insert_breakpoint (CORE_ADDR addr, char *shadow)
+e7000_insert_breakpoint (CORE_ADDR addr, bfd_byte *shadow)
 {
   int i;
   char buf[200];
@@ -1723,13 +1748,13 @@ e7000_insert_breakpoint (CORE_ADDR addr, char *shadow)
 	return 0;
       }
 
-  error ("Too many breakpoints ( > %d) for the E7000\n",
+  error (_("Too many breakpoints ( > %d) for the E7000."),
 	 MAX_E7000DEBUG_BREAKPOINTS);
   return 1;
 }
 
 static int
-e7000_remove_breakpoint (CORE_ADDR addr, char *shadow)
+e7000_remove_breakpoint (CORE_ADDR addr, bfd_byte *shadow)
 {
   int i;
   char buf[200];
@@ -1764,7 +1789,7 @@ e7000_remove_breakpoint (CORE_ADDR addr, char *shadow)
 	return 0;
       }
  
-  warning ("Can't find breakpoint associated with 0x%s\n", paddr_nz (addr));
+  warning (_("Can't find breakpoint associated with 0x%s."), paddr_nz (addr));
   return 1;
 }
 
@@ -1780,7 +1805,7 @@ e7000_command (char *args, int fromtty)
   echo = 0;
 
   if (!e7000_desc)
-    error ("e7000 target not open.");
+    error (_("e7000 target not open."));
   if (!args)
     {
       puts_e7000debug ("\r");
@@ -1963,9 +1988,9 @@ sub2_from_pc (void)
   char buf2[200];
 
   store_signed_integer (buf,
-			DEPRECATED_REGISTER_RAW_SIZE (PC_REGNUM),
+			register_size (current_gdbarch, PC_REGNUM),
 			read_register (PC_REGNUM) - 2);
-  supply_register (PC_REGNUM, buf);
+  regcache_raw_supply (current_regcache, PC_REGNUM, buf);
   sprintf (buf2, ".PC %s\r", phex_nz (read_register (PC_REGNUM), 0));
   puts_e7000debug (buf2);
 }
@@ -1996,6 +2021,7 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
   int had_sleep = 0;
   int loop = 1;
   char *wanted_nopc = NULL;
+  int realregs = 0;
 
   /* Then echo chars until PC= string seen */
   gch ();			/* Drop cr */
@@ -2037,6 +2063,7 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
   if (TARGET_ARCHITECTURE->arch == bfd_arch_sh)
     {
       wanted_nopc = want_nopc_sh;
+      realregs = 59;
       switch (TARGET_ARCHITECTURE->mach)
 	{
 	case bfd_mach_sh3:
@@ -2048,6 +2075,7 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
   if (TARGET_ARCHITECTURE->arch == bfd_arch_h8300)
     {
       wanted_nopc = want_nopc_h8300h;
+      realregs = 10;
       switch (TARGET_ARCHITECTURE->mach)
 	{
 	case bfd_mach_h8300s:
@@ -2055,15 +2083,16 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
 	case bfd_mach_h8300sx:
 	case bfd_mach_h8300sxn:
 	  wanted_nopc = want_nopc_h8300s;
+	  realregs = 11;
 	}
     }
   fetch_regs_from_dump (gch, wanted_nopc);
 
   /* And supply the extra ones the simulator uses */
-  for (regno = NUM_REALREGS; regno < NUM_REGS; regno++)
+  for (regno = realregs; regno < NUM_REGS; regno++)
     {
       int buf = 0;
-      supply_register (regno, (char *) &buf);
+      regcache_raw_supply (current_regcache, regno, (char *) &buf);
     }
 
   stop_reason = why_stop ();
@@ -2110,7 +2139,7 @@ e7000_wait (ptid_t ptid, struct target_waitstatus *status)
       break;
     default:
       /* Get the user's attention - this should never happen. */
-      internal_error (__FILE__, __LINE__, "failed internal consistency check");
+      internal_error (__FILE__, __LINE__, _("failed internal consistency check"));
     }
 
   return inferior_ptid;
@@ -2149,7 +2178,7 @@ target e7000 foobar";
   e7000_ops.to_fetch_registers = e7000_fetch_register;
   e7000_ops.to_store_registers = e7000_store_register;
   e7000_ops.to_prepare_to_store = e7000_prepare_to_store;
-  e7000_ops.to_xfer_memory = e7000_xfer_inferior_memory;
+  e7000_ops.deprecated_xfer_memory = e7000_xfer_inferior_memory;
   e7000_ops.to_files_info = e7000_files_info;
   e7000_ops.to_insert_breakpoint = e7000_insert_breakpoint;
   e7000_ops.to_remove_breakpoint = e7000_remove_breakpoint;
@@ -2176,19 +2205,22 @@ _initialize_remote_e7000 (void)
   add_target (&e7000_ops);
 
   add_com ("e7000", class_obscure, e7000_command,
-	   "Send a command to the e7000 monitor.");
+	   _("Send a command to the e7000 monitor."));
 
   add_com ("ftplogin", class_obscure, e7000_login_command,
-	   "Login to machine and change to directory.");
+	   _("Login to machine and change to directory."));
 
   add_com ("ftpload", class_obscure, e7000_ftp_command,
-	   "Fetch and load a file from previously described place.");
+	   _("Fetch and load a file from previously described place."));
 
   add_com ("drain", class_obscure, e7000_drain_command,
-	   "Drain pending e7000 text buffers.");
+	   _("Drain pending e7000 text buffers."));
 
-  add_show_from_set (add_set_cmd ("usehardbreakpoints", no_class,
-				var_integer, (char *) &use_hard_breakpoints,
-	"Set use of hardware breakpoints for all breakpoints.\n", &setlist),
-		     &showlist);
+  add_setshow_integer_cmd ("usehardbreakpoints", no_class,
+			   &use_hard_breakpoints, _("\
+Set use of hardware breakpoints for all breakpoints."), _("\
+Show use of hardware breakpoints for all breakpoints."), NULL,
+			   NULL,
+			   NULL, /* FIXME: i18n: */
+			   &setlist, &showlist);
 }

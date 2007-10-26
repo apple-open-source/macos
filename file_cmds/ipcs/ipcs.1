@@ -36,11 +36,11 @@
 .Nm ipcs
 .Nd report System V interprocess communication facilities status
 .Sh SYNOPSIS
-.Nm
-.Op Fl abcmopqstMQST
+.Nm ipcs
+.Op Fl abcMmopQqSsTt
 .Sh DESCRIPTION
 The
-.Nm
+.Nm ipcs
 utility provides information on System V interprocess communication
 (IPC) facilities on the system.
 .Pp
@@ -68,6 +68,8 @@ or the number of semaphores in a set of semaphores.
 .It Fl c
 Show the creator's name and group for active semaphores, message queues,
 and shared memory segments.
+.It Fl M
+Display system information about shared memory.
 .It Fl m
 Display information about active shared memory segments.
 .It Fl o
@@ -84,10 +86,17 @@ is the last process to send a message to or receive a message from
 a message queue,
 the process that created a semaphore, or the last process to attach
 or detach a shared memory segment.
+.It Fl Q
+Display system information about messages queues.
 .It Fl q
 Display information about active message queues.
+.It Fl S
+Display system information about semaphores.
 .It Fl s
 Display information about active semaphores.
+.It Fl T
+Display system information about shared memory, message queues
+and semaphores.
 .It Fl t
 Show access times for active semaphores, message queues,
 and shared memory segments.  The access times is the time
@@ -95,15 +104,6 @@ of the last control operation on an IPC object,
 the last send or receive of a message,
 the last attach or detach of a shared memory segment,
 or the last operation on a semaphore.
-.It Fl M
-Display system information about shared memory.
-.It Fl Q
-Display system information about messages queues.
-.It Fl S
-Display system information about semaphores.
-.It Fl T
-Display system information about shared memory, message queues
-and semaphores.
 .El
 .Pp
 If none of the
@@ -118,14 +118,14 @@ options are specified, information about all active IPC facilities is
 listed.
 .Sh RESTRICTIONS
 System data structures may change while
-.Nm
+.Nm ipcs
 is running; the output of
-.Nm
+.Nm ipcs
 is not guaranteed to be consistent.
 .Sh BUGS
 This manual page is woefully incomplete, because it does not
 at all attempt to explain the information printed by
-.Nm .
+.Nm ipcs .
 .Sh SEE ALSO
 .Xr ipcrm 1
 .Sh AUTHORS

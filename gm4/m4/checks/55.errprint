@@ -1,5 +1,0 @@
-dnl ../doc/m4.texinfo:3028: Origin of test
-errprint(`Illegal arguments to forloop
-')
-dnl @error{}Illegal arguments to forloop
-dnl @result{}

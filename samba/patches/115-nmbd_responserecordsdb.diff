@@ -1,6 +1,8 @@
---- samba/source/nmbd/nmbd_responserecordsdb.c.orig	Fri Aug 29 14:14:59 2003
-+++ samba/source/nmbd/nmbd_responserecordsdb.c	Fri Dec 19 08:31:22 2003
-@@ -63,6 +63,11 @@ static void add_response_record(struct s
+Index: samba/source/nmbd/nmbd_responserecordsdb.c
+===================================================================
+--- samba/source/nmbd/nmbd_responserecordsdb.c.orig
++++ samba/source/nmbd/nmbd_responserecordsdb.c
+@@ -61,6 +61,11 @@ static void add_response_record(struct s
  void remove_response_record(struct subnet_record *subrec,
  				struct response_record *rrec)
  {

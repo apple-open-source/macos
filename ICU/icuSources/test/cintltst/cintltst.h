@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation and
+ * Copyright (c) 1997-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -22,6 +22,7 @@ The main root for C API tests
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
 #include "unicode/ctest.h"
+#include <stdlib.h>
 
 #ifndef U_USE_DEPRECATED_API
 #define U_USE_DEPRECATED_API 1
@@ -39,15 +40,6 @@ U_CFUNC const char* ctest_dataOutDir(void);
  * for out of source builds too returns the source directory
  */
 U_CFUNC const char* ctest_dataSrcDir(void);
-
-/**
- *complete a relative path to a full pathname, and convert to platform-specific syntax. 
- * The character seperating directories for the relative path is '|'.
- * @fullname the full path name
- * @maxsize the maximum size of the string
- * @relPath the relative path name
- */
-U_CFUNC void ctest_pathnameInContext(char* fullname, int32_t maxsize, const char* relPath ) ;
 
 U_CFUNC UChar* CharsToUChars(const char* chars);
 
@@ -105,5 +97,12 @@ U_CFUNC UBool assertTrue(const char* msg, int condition);
  */
 U_CFUNC UBool assertEquals(const char* msg, const char* expectedString,
                            const char* actualString);
+
+/**
+ * Time bomb - allows temporary behavior that expires at a given
+ *             release
+ *
+ */
+U_CFUNC UBool isICUVersionAtLeast(const UVersionInfo x);
 
 #endif

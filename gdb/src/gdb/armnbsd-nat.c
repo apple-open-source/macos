@@ -1,5 +1,6 @@
 /* Native-dependent code for BSD Unix running on ARM's, for GDB.
-   Copyright 1988, 1989, 1991, 1992, 1994, 1996, 1999, 2002
+
+   Copyright 1988, 1989, 1991, 1992, 1994, 1996, 1999, 2002, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -20,20 +21,19 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdbcore.h"
+#include "inferior.h"
+#include "regcache.h"
+#include "target.h"
 
-#ifndef FETCH_INFERIOR_REGISTERS
-#error Not FETCH_INFERIOR_REGISTERS 
-#endif /* !FETCH_INFERIOR_REGISTERS */
-
-#include "arm-tdep.h"
-
+#include "gdb_string.h"
 #include <sys/types.h>
 #include <sys/ptrace.h>
 #include <machine/reg.h>
 #include <machine/frame.h>
-#include "inferior.h"
-#include "regcache.h"
-#include "gdbcore.h"
+
+#include "arm-tdep.h"
+#include "inf-ptrace.h"
 
 extern int arm_apcs_32;
 
@@ -45,18 +45,22 @@ supply_gregset (struct reg *gregset)
 
   /* Integer registers.  */
   for (regno = ARM_A1_REGNUM; regno < ARM_SP_REGNUM; regno++)
-    supply_register (regno, (char *) &gregset->r[regno]);
+    regcache_raw_supply (current_regcache, regno, (char *) &gregset->r[regno]);
 
-  supply_register (ARM_SP_REGNUM, (char *) &gregset->r_sp);
-  supply_register (ARM_LR_REGNUM, (char *) &gregset->r_lr);
+  regcache_raw_supply (current_regcache, ARM_SP_REGNUM,
+		       (char *) &gregset->r_sp);
+  regcache_raw_supply (current_regcache, ARM_LR_REGNUM,
+		       (char *) &gregset->r_lr);
   /* This is ok: we're running native...  */
   r_pc = ADDR_BITS_REMOVE (gregset->r_pc);
-  supply_register (ARM_PC_REGNUM, (char *) &r_pc);
+  regcache_raw_supply (current_regcache, ARM_PC_REGNUM, (char *) &r_pc);
 
   if (arm_apcs_32)
-    supply_register (ARM_PS_REGNUM, (char *) &gregset->r_cpsr);
+    regcache_raw_supply (current_regcache, ARM_PS_REGNUM,
+			 (char *) &gregset->r_cpsr);
   else
-    supply_register (ARM_PS_REGNUM, (char *) &gregset->r_pc);
+    regcache_raw_supply (current_regcache, ARM_PS_REGNUM,
+			 (char *) &gregset->r_pc);
 }
 
 static void
@@ -65,10 +69,11 @@ supply_fparegset (struct fpreg *fparegset)
   int regno;
 
   for (regno = ARM_F0_REGNUM; regno <= ARM_F7_REGNUM; regno++)
-    supply_register
-      (regno, (char *) &fparegset->fpr[regno - ARM_F0_REGNUM]);
+    regcache_raw_supply (current_regcache, regno,
+			 (char *) &fparegset->fpr[regno - ARM_F0_REGNUM]);
 
-  supply_register (ARM_FPS_REGNUM, (char *) &fparegset->fpr_fpsr);
+  regcache_raw_supply (current_regcache, ARM_FPS_REGNUM,
+		       (char *) &fparegset->fpr_fpsr);
 }
 
 static void
@@ -78,39 +83,45 @@ fetch_register (int regno)
   int ret;
 
   ret = ptrace (PT_GETREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch general register");
+      warning (_("unable to fetch general register"));
       return;
     }
 
   switch (regno)
     {
     case ARM_SP_REGNUM:
-      supply_register (ARM_SP_REGNUM, (char *) &inferior_registers.r_sp);
+      regcache_raw_supply (current_regcache, ARM_SP_REGNUM,
+			   (char *) &inferior_registers.r_sp);
       break;
 
     case ARM_LR_REGNUM:
-      supply_register (ARM_LR_REGNUM, (char *) &inferior_registers.r_lr);
+      regcache_raw_supply (current_regcache, ARM_LR_REGNUM,
+			   (char *) &inferior_registers.r_lr);
       break;
 
     case ARM_PC_REGNUM:
       /* This is ok: we're running native... */
       inferior_registers.r_pc = ADDR_BITS_REMOVE (inferior_registers.r_pc);
-      supply_register (ARM_PC_REGNUM, (char *) &inferior_registers.r_pc);
+      regcache_raw_supply (current_regcache, ARM_PC_REGNUM,
+			   (char *) &inferior_registers.r_pc);
       break;
 
     case ARM_PS_REGNUM:
       if (arm_apcs_32)
-	supply_register (ARM_PS_REGNUM, (char *) &inferior_registers.r_cpsr);
+	regcache_raw_supply (current_regcache, ARM_PS_REGNUM,
+			     (char *) &inferior_registers.r_cpsr);
       else
-	supply_register (ARM_PS_REGNUM, (char *) &inferior_registers.r_pc);
+	regcache_raw_supply (current_regcache, ARM_PS_REGNUM,
+			     (char *) &inferior_registers.r_pc);
       break;
 
     default:
-      supply_register (regno, (char *) &inferior_registers.r[regno]);
+      regcache_raw_supply (current_regcache, regno,
+			   (char *) &inferior_registers.r[regno]);
       break;
     }
 }
@@ -123,11 +134,11 @@ fetch_regs (void)
   int regno;
 
   ret = ptrace (PT_GETREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch general registers");
+      warning (_("unable to fetch general registers"));
       return;
     }
 
@@ -141,24 +152,24 @@ fetch_fp_register (int regno)
   int ret;
 
   ret = ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_fp_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_fp_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch floating-point register");
+      warning (_("unable to fetch floating-point register"));
       return;
     }
 
   switch (regno)
     {
     case ARM_FPS_REGNUM:
-      supply_register (ARM_FPS_REGNUM,
-		       (char *) &inferior_fp_registers.fpr_fpsr);
+      regcache_raw_supply (current_regcache, ARM_FPS_REGNUM,
+			   (char *) &inferior_fp_registers.fpr_fpsr);
       break;
 
     default:
-      supply_register
-	(regno, (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
+      regcache_raw_supply (current_regcache, regno,
+			   (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
       break;
     }
 }
@@ -171,19 +182,19 @@ fetch_fp_regs (void)
   int regno;
 
   ret = ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_fp_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_fp_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch general registers");
+      warning (_("unable to fetch general registers"));
       return;
     }
 
   supply_fparegset (&inferior_fp_registers);
 }
 
-void
-fetch_inferior_registers (int regno)
+static void
+armnbsd_fetch_registers (int regno)
 {
   if (regno >= 0)
     {
@@ -207,32 +218,36 @@ store_register (int regno)
   int ret;
 
   ret = ptrace (PT_GETREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch general registers");
+      warning (_("unable to fetch general registers"));
       return;
     }
 
   switch (regno)
     {
     case ARM_SP_REGNUM:
-      regcache_collect (ARM_SP_REGNUM, (char *) &inferior_registers.r_sp);
+      regcache_raw_collect (current_regcache, ARM_SP_REGNUM,
+			    (char *) &inferior_registers.r_sp);
       break;
 
     case ARM_LR_REGNUM:
-      regcache_collect (ARM_LR_REGNUM, (char *) &inferior_registers.r_lr);
+      regcache_raw_collect (current_regcache, ARM_LR_REGNUM,
+			    (char *) &inferior_registers.r_lr);
       break;
 
     case ARM_PC_REGNUM:
       if (arm_apcs_32)
-	regcache_collect (ARM_PC_REGNUM, (char *) &inferior_registers.r_pc);
+	regcache_raw_collect (current_regcache, ARM_PC_REGNUM,
+			      (char *) &inferior_registers.r_pc);
       else
 	{
 	  unsigned pc_val;
 
-	  regcache_collect (ARM_PC_REGNUM, (char *) &pc_val);
+	  regcache_raw_collect (current_regcache, ARM_PC_REGNUM,
+				(char *) &pc_val);
 	  
 	  pc_val = ADDR_BITS_REMOVE (pc_val);
 	  inferior_registers.r_pc
@@ -243,12 +258,14 @@ store_register (int regno)
 
     case ARM_PS_REGNUM:
       if (arm_apcs_32)
-	regcache_collect (ARM_PS_REGNUM, (char *) &inferior_registers.r_cpsr);
+	regcache_raw_collect (current_regcache, ARM_PS_REGNUM,
+			      (char *) &inferior_registers.r_cpsr);
       else
 	{
 	  unsigned psr_val;
 
-	  regcache_collect (ARM_PS_REGNUM, (char *) &psr_val);
+	  regcache_raw_collect (current_regcache, ARM_PS_REGNUM,
+				(char *) &psr_val);
 
 	  psr_val ^= ADDR_BITS_REMOVE (psr_val);
 	  inferior_registers.r_pc = ADDR_BITS_REMOVE (inferior_registers.r_pc);
@@ -257,15 +274,16 @@ store_register (int regno)
       break;
 
     default:
-      regcache_collect (regno, (char *) &inferior_registers.r[regno]);
+      regcache_raw_collect (current_regcache, regno,
+			    (char *) &inferior_registers.r[regno]);
       break;
     }
 
   ret = ptrace (PT_SETREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_registers, 0);
 
   if (ret < 0)
-    warning ("unable to write register %d to inferior", regno);
+    warning (_("unable to write register %d to inferior"), regno);
 }
 
 static void
@@ -277,23 +295,30 @@ store_regs (void)
 
 
   for (regno = ARM_A1_REGNUM; regno < ARM_SP_REGNUM; regno++)
-    regcache_collect (regno, (char *) &inferior_registers.r[regno]);
+    regcache_raw_collect (current_regcache, regno,
+			  (char *) &inferior_registers.r[regno]);
 
-  regcache_collect (ARM_SP_REGNUM, (char *) &inferior_registers.r_sp);
-  regcache_collect (ARM_LR_REGNUM, (char *) &inferior_registers.r_lr);
+  regcache_raw_collect (current_regcache, ARM_SP_REGNUM,
+			(char *) &inferior_registers.r_sp);
+  regcache_raw_collect (current_regcache, ARM_LR_REGNUM,
+			(char *) &inferior_registers.r_lr);
 
   if (arm_apcs_32)
     {
-      regcache_collect (ARM_PC_REGNUM, (char *) &inferior_registers.r_pc);
-      regcache_collect (ARM_PS_REGNUM, (char *) &inferior_registers.r_cpsr);
+      regcache_raw_collect (current_regcache, ARM_PC_REGNUM,
+			    (char *) &inferior_registers.r_pc);
+      regcache_raw_collect (current_regcache, ARM_PS_REGNUM,
+			    (char *) &inferior_registers.r_cpsr);
     }
   else
     {
       unsigned pc_val;
       unsigned psr_val;
 
-      regcache_collect (ARM_PC_REGNUM, (char *) &pc_val);
-      regcache_collect (ARM_PS_REGNUM, (char *) &psr_val);
+      regcache_raw_collect (current_regcache, ARM_PC_REGNUM,
+			    (char *) &pc_val);
+      regcache_raw_collect (current_regcache, ARM_PS_REGNUM,
+			    (char *) &psr_val);
 	  
       pc_val = ADDR_BITS_REMOVE (pc_val);
       psr_val ^= ADDR_BITS_REMOVE (psr_val);
@@ -302,10 +327,10 @@ store_regs (void)
     }
 
   ret = ptrace (PT_SETREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_registers, 0);
 
   if (ret < 0)
-    warning ("unable to store general registers");
+    warning (_("unable to store general registers"));
 }
 
 static void
@@ -315,32 +340,32 @@ store_fp_register (int regno)
   int ret;
 
   ret = ptrace (PT_GETFPREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_fp_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_fp_registers, 0);
 
   if (ret < 0)
     {
-      warning ("unable to fetch floating-point registers");
+      warning (_("unable to fetch floating-point registers"));
       return;
     }
 
   switch (regno)
     {
     case ARM_FPS_REGNUM:
-      regcache_collect (ARM_FPS_REGNUM,
-			(char *) &inferior_fp_registers.fpr_fpsr);
+      regcache_raw_collect (current_regcache, ARM_FPS_REGNUM,
+			    (char *) &inferior_fp_registers.fpr_fpsr);
       break;
 
     default:
-      regcache_collect
-	(regno, (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
+      regcache_raw_collect (current_regcache, regno,
+			    (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
       break;
     }
 
   ret = ptrace (PT_SETFPREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_fp_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_fp_registers, 0);
 
   if (ret < 0)
-    warning ("unable to write register %d to inferior", regno);
+    warning (_("unable to write register %d to inferior"), regno);
 }
 
 static void
@@ -352,20 +377,21 @@ store_fp_regs (void)
 
 
   for (regno = ARM_F0_REGNUM; regno <= ARM_F7_REGNUM; regno++)
-    regcache_collect
-      (regno, (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
+    regcache_raw_collect (current_regcache, regno,
+			  (char *) &inferior_fp_registers.fpr[regno - ARM_F0_REGNUM]);
 
-  regcache_collect (ARM_FPS_REGNUM, (char *) &inferior_fp_registers.fpr_fpsr);
+  regcache_raw_collect (current_regcache, ARM_FPS_REGNUM,
+			(char *) &inferior_fp_registers.fpr_fpsr);
 
   ret = ptrace (PT_SETFPREGS, PIDGET (inferior_ptid),
-		(PTRACE_ARG3_TYPE) &inferior_fp_registers, 0);
+		(PTRACE_TYPE_ARG3) &inferior_fp_registers, 0);
 
   if (ret < 0)
-    warning ("unable to store floating-point registers");
+    warning (_("unable to store floating-point registers"));
 }
 
-void
-store_inferior_registers (int regno)
+static void
+armnbsd_store_registers (int regno)
 {
   if (regno >= 0)
     {
@@ -410,7 +436,7 @@ fetch_elfcore_registers (char *core_reg_sect, unsigned core_reg_size,
     {
     case 0:	/* Integer registers.  */
       if (core_reg_size != sizeof (struct reg))
-	warning ("wrong size of register set in core file");
+	warning (_("wrong size of register set in core file"));
       else
 	{
 	  /* The memcpy may be unnecessary, but we can't really be sure
@@ -422,7 +448,7 @@ fetch_elfcore_registers (char *core_reg_sect, unsigned core_reg_size,
 
     case 2:
       if (core_reg_size != sizeof (struct fpreg))
-	warning ("wrong size of FPA register set in core file");
+	warning (_("wrong size of FPA register set in core file"));
       else
 	{
 	  /* The memcpy may be unnecessary, but we can't really be sure
@@ -459,6 +485,13 @@ static struct core_fns arm_netbsd_elfcore_fns =
 void
 _initialize_arm_netbsd_nat (void)
 {
-  add_core_fns (&arm_netbsd_core_fns);
-  add_core_fns (&arm_netbsd_elfcore_fns);
+  struct target_ops *t;
+
+  t = inf_ptrace_target ();
+  t->to_fetch_registers = armnbsd_fetch_registers;
+  t->to_store_registers = armnbsd_store_registers;
+  add_target (t);
+
+  deprecated_add_core_fns (&arm_netbsd_core_fns);
+  deprecated_add_core_fns (&arm_netbsd_elfcore_fns);
 }

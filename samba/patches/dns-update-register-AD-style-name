@@ -1,0 +1,227 @@
+Index: samba/source/utils/net_ads.c
+===================================================================
+--- samba/source/utils/net_ads.c.orig
++++ samba/source/utils/net_ads.c
+@@ -1285,28 +1285,83 @@ DNS_ERROR DoDNSUpdate(char *pszServerNam
+ 		      const char *pszHostName,
+ 		      const struct in_addr *iplist, int num_addrs );
+ 
++/* XXX this symbol is currently private. We are asking MIT about making
++ * it public -- jpeach Thu Jun 28 12:36:36 PDT 2007
++ */
++extern krb5_error_code KRB5_CALLCONV krb5_get_realm_domain
++         (krb5_context, const char *, char ** );
++
++static NTSTATUS map_krb_realm_to_dns_domain(ADS_STRUCT *ads,
++			    char ** dnsdomain)
++{
++	krb5_error_code rc = 0;
++	krb5_context	kctx = 0;
++
++	rc = krb5_init_context(&kctx);
++	if (rc) {
++		DEBUG(1,("krb5_init_context failed (%s)\n",
++			 error_message(rc)));
++		return krb5_to_nt_status(rc);
++	}
++
++	/* Map the KRB5 realm to the DNS domain. */
++	rc = krb5_get_realm_domain(kctx, ads->config.realm, dnsdomain);
++	if (rc) {
++		d_printf("Unable to find DNS domain for %s realm: %s\n",
++		    ads->config.realm, error_message(rc));
++
++		krb5_free_context(kctx);
++		return krb5_to_nt_status(rc);
++	}
++
++	krb5_free_context(kctx);
++	return NT_STATUS_OK;
++}
++
++static const char *dns_errstr(DNS_ERROR err)
++{
++	if (ERR_DNS_EQUAL(err, ERROR_DNS_SUCCESS)) {
++		return "success";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_RECORD_NOT_FOUND)) {
++		return "DNS record not found";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_BAD_RESPONSE)) {
++		return "bad DNS response";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_INVALID_PARAMETER)) {
++		return "invalid DNS parameter";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_NO_MEMORY)) {
++		return "out of memory";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_INVALID_NAME_SERVER)) {
++		return "invalild name server";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_CONNECTION_FAILED)) {
++		return "connection failed";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_GSS_ERROR)) {
++		return "GSS error";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_INVALID_NAME)) {
++		return "invalid DNS name";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_INVALID_MESSAGE)) {
++		return "invalid DNS message";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_SOCKET_ERROR)) {
++		return "socket error";
++	} else if (ERR_DNS_EQUAL(err, ERROR_DNS_UPDATE_FAILED)) {
++		return "DNS update failed";
++	} else {
++		return "invalid DNS error code";
++	}
+ 
++}
+ static NTSTATUS net_update_dns_internal(TALLOC_CTX *ctx, ADS_STRUCT *ads,
+ 					const char *machine_name,
++					const char *dnsdomain,
+ 					const struct in_addr *addrs,
+ 					int num_addrs)
+ {
+ 	struct dns_rr_ns *nameservers = NULL;
+ 	int ns_count = 0;
+ 	NTSTATUS status = NT_STATUS_UNSUCCESSFUL;
+-	DNS_ERROR dns_err;
++	DNS_ERROR dns_err = ERROR_DNS_SUCCESS;
+ 	fstring dns_server;
+-	const char *dnsdomain = NULL;	
+ 	char *root_domain = NULL;	
+ 
+-	if ( (dnsdomain = strchr_m( machine_name, '.')) == NULL ) {
+-		d_printf("No DNS domain configured for %s. "
+-			 "Unable to perform DNS Update.\n", machine_name);
+-		status = NT_STATUS_INVALID_PARAMETER;
+-		goto done;
+-	}
+-	dnsdomain++;
+-
+ 	status = ads_dns_lookup_ns( ctx, dnsdomain, &nameservers, &ns_count );
+ 	if ( !NT_STATUS_IS_OK(status) || (ns_count == 0)) {
+ 		/* Child domains often do not have NS records.  Look
+@@ -1348,13 +1403,11 @@ static NTSTATUS net_update_dns_internal(
+ 		status = ads_dns_lookup_ns( ctx, root_domain, &nameservers, &ns_count );
+ 		
+ 		if ( !NT_STATUS_IS_OK(status) || (ns_count == 0)) {			
+-		DEBUG(3,("net_ads_join: Failed to find name server for the %s "
++			DEBUG(3,("net_update_dns_internal: Failed to find name server for the %s "
+ 			 "realm\n", ads->config.realm));
+-		goto done;
+-	}
++			goto done;
++		}
+ 
+-		dnsdomain = root_domain;		
+-		
+ 	}
+ 
+ 	/* Now perform the dns update - we'll try non-secure and if we fail,
+@@ -1362,13 +1415,27 @@ static NTSTATUS net_update_dns_internal(
+ 
+ 	fstrcpy( dns_server, nameservers[0].hostname );
+ 
+-	dns_err = DoDNSUpdate(dns_server, dnsdomain, machine_name, addrs, num_addrs);
++	dns_err = DoDNSUpdate(dns_server,
++			root_domain ? root_domain : dnsdomain,
++			machine_name, addrs, num_addrs);
+ 	if (!ERR_DNS_IS_OK(dns_err)) {
+ 		status = NT_STATUS_UNSUCCESSFUL;
+ 	}
+ 
+ done:
+ 
++	if (!NT_STATUS_IS_OK(status)) {
++		if (!ERR_DNS_IS_OK(dns_err)) {
++			d_printf("DNS update for %s failed: %s\n",
++				machine_name,
++				dns_errstr(dns_err));
++		} else {
++			d_printf("DNS update for %s failed: %s\n",
++				machine_name,
++				get_friendly_nt_error_msg(status));
++		}
++	}
++
+ 	SAFE_FREE( root_domain );
+ 	
+ 	return status;
+@@ -1378,25 +1445,45 @@ static NTSTATUS net_update_dns(TALLOC_CT
+ {
+ 	int num_addrs;
+ 	struct in_addr *iplist = NULL;
+-	fstring machine_fqdn;
++	char * machine_fqdn = NULL;
++	char * dnsdomain = NULL;
+ 	NTSTATUS status;
+ 
+-	machine_fqdn[0] = '\0';
+-	get_mydnsfullname(machine_fqdn);
+-	strlower_m( machine_fqdn );
++	/* The name we register should be the computer name with the
++	 * DNS domain appended. See http://support.microsoft.com/kb/317590.
++	 * We derive the DNS domain from the KRB5 realm because we can't rely
++	 * on the domain being configured correctly (or at all).
++	 */
++	status = map_krb_realm_to_dns_domain(ads, &dnsdomain);
++	if (!NT_STATUS_IS_OK(status)) {
++		goto done;
++	}
+ 
++	machine_fqdn = talloc_asprintf(mem_ctx, "%s.%s",
++			    global_myname(), dnsdomain);
++	if (machine_fqdn == NULL) {
++		status = NT_STATUS_NO_MEMORY;
++		goto done;
++	}
++
++	strlower_m(machine_fqdn);
++	DEBUG(4, ("updating DNS registration for name '%s'\n",
++		    machine_fqdn));
+ 	/* Get our ip address (not the 127.0.0.x address but a real ip
+ 	 * address) */
+ 
+ 	num_addrs = get_my_ip_address( &iplist );
+ 	if ( num_addrs <= 0 ) {
+-		DEBUG(4,("net_ads_join: Failed to find my non-loopback IP "
++		DEBUG(4,("net_update_dns: Failed to find my non-loopback IP "
+ 			 "addresses!\n"));
+-		return NT_STATUS_INVALID_PARAMETER;
++		status = NT_STATUS_INVALID_PARAMETER;
++		goto done;
+ 	}
+ 
+ 	status = net_update_dns_internal(mem_ctx, ads, machine_fqdn,
+-					 iplist, num_addrs);
++					dnsdomain, iplist, num_addrs);
++done:
++	SAFE_FREE(dnsdomain);
+ 	SAFE_FREE( iplist );
+ 	return status;
+ }
+Index: samba/source/libaddns/dnsutils.c
+===================================================================
+--- samba/source/libaddns/dnsutils.c.orig
++++ samba/source/libaddns/dnsutils.c
+@@ -35,17 +35,15 @@ static DNS_ERROR LabelList( TALLOC_CTX *
+ 	const char *dot;
+ 
+ 	for (dot = name; *dot != '\0'; dot += 1) {
+-		char c = *dot;
+-
+-		if (c == '.')
++		/* Don't bother checking for legal hostname characters here.
++		 * RFC 1034 says that the "preferred" syntax for a hostname
++		 * consists only of alphanumerics and '-'. I interpret the work
++		 * "preferred" as "throw it at the server and let it pick up
++		 * the pieces" --jpeach
++		 */
++		if (*dot == '.') {
+ 			break;
+-
+-		if (c == '-') continue;
+-		if ((c >= 'a') && (c <= 'z')) continue;
+-		if ((c >= 'A') && (c <= 'Z')) continue;
+-		if ((c >= '0') && (c <= '9')) continue;
+-
+-		return ERROR_DNS_INVALID_NAME;
++		}
+ 	}
+ 
+ 	if ((dot - name) > 63) {

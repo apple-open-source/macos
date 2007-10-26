@@ -2,8 +2,8 @@
 # xbs-compatible wrapper Makefile for cyrus imap
 #
 
-PROJECT=cyrus
-VERSION=2.2.10
+PROJECT=CyrusIMAP
+VERSION=2.3.7
 
 SHELL := /bin/sh
 
@@ -19,20 +19,28 @@ CFLAGS=-Os $(RC_CFLAGS)
 #
 
 PROJECT_NAME=cyrus_imap
+SW_VERS=`sw_vers | grep BuildVersion | sed 's/^.*://'`
 
-BUILD_EXTRAS=build_extras
-BIN_DIR=/usr/bin/cyrus/bin
-TOOLSDIR=/usr/bin/cyrus/tools
-TESTDIR=/usr/bin/cyrus/test
-ADMINDIR=/usr/bin/cyrus/admin
-ETCDIR=/private/etc
-SHAREDIR=/usr/share/man
-SETUPEXTRASDIR=SetupExtras
-SASCRIPTSDIR=/System/Library/ServerSetup/SetupExtras
-LAUNCHDDIR=/System/Library/LaunchDaemons
-OSV_DIR=/usr/local/OpenSourceVersions
-OSL_DIR=/usr/local/OpenSourceLicenses
+OPEN_SRC_INFO_SRC_DIR=/CyrusIMAP.OpenSourceInfo
+OPEN_SRC_VERS_DST_DIR=/usr/local/OpenSourceVersions
+OPEN_SRC_LICS_DST_DIR=/usr/local/OpenSourceLicenses
 
+SETUP_EXTRAS_SRC_DIR=CyrusIMAP.SetupExtras
+SETUP_EXTRAS_DST_DIR=/System/Library/ServerSetup/SetupExtras
+MIGRATION_EXTRAS_DST_DIR=/System/Library/ServerSetup/MigrationExtras
+
+LAUNCHD_SRC_DIR=/CyrusIMAP.LaunchDaemons
+LAUNCHD_DST_DIR=/System/Library/LaunchDaemons
+
+CONFIG_SRC_DIR=/CyrusIMAP.Config
+CONFIG_DST_DIR=/private/etc
+
+BIN_DST_DIR=/usr/bin/cyrus/bin
+TEST_DST_DIR=/usr/bin/cyrus/test
+SIEVE_DST_DIR=/usr/bin/cyrus/sieve
+TOOLS_DST_DIR=/usr/bin/cyrus/tools
+ADMIN_DST_DIR=/usr/bin/cyrus/admin
+MAN_DST_DIR=/usr/share/man
 
 STRIP=/usr/bin/strip
 
@@ -41,7 +49,13 @@ PERL_VER=`perl -V:version | sed -n -e "s/[^0-9.]*\([0-9.]*\).*/\1/p"`
 
 CYRUS_TOOLS= dohash mkimap mupdate-loadgen.pl not-mkdep rehash \
 			 translatesieve undohash upgradesieve
-LOCAL_DIRS= System bin include lib man usr
+LOCAL_DIRS= System bin include lib share usr
+CYRUS_BINS= arbitron chk_cyrus ctl_cyrusdb ctl_deliver ctl_mboxlist \
+			cvt_cyrusdb cyr_expire cyrdump cyrus-notifyd cyrus-quota \
+			deliver fud idled imapd ipurge lmtpd make_md5 master mbexamine \
+			mbpath mupdate pop3d pop3proxyd proxyd reconstruct sievec smmapd \
+			squatter sync_client sync_reset sync_server timsieved tls_prune \
+			cyr_dbtool unexpunge
 
 CYRUS_CONFIG = \
 	--build=powerpc-apple-netbsd \
@@ -56,15 +70,16 @@ CYRUS_CONFIG = \
 	--enable-gssapi \
 	--disable-krb4 \
 	--with-com_err \
-	--with-snmp=/usr/share/snmp \
-	--with-extraident="OS X 10.4.8" \
+	--with-extraident="OS X Server 10.5:$(SW_VERS)" \
 	--enable-murder \
-	--with-service-path=$(BIN_DIR) \
+	--enable-replication \
+	--enable-idled \
+	--with-service-path=$(BIN_DST_DIR) \
 	--with-pidfile=/var/run/cyrus-master.pid \
-	--with-cyrus-user=cyrusimap \
-	--without-snmp \
+	--with-cyrus-user=_cyrus \
 	--mandir=/usr/share/man \
-	BI_RC_CFLAGS="$(RC_CFLAGS)"
+	--without-snmp \
+	BI_RC_CFLAGS="$(CFLAGS)"
 
 # These includes provide the proper paths to system utilities
 #
@@ -105,7 +120,7 @@ clean_src :
 		$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make distclean)\
 	fi
 
-configure_imap : $(SRCROOT)/$(BUILD_EXTRAS)
+configure_imap :
 	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- configure_imap"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
 	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
@@ -121,7 +136,7 @@ clean_imap_src :
 	fi
 	$(SILENT) $(ECHO) "Cleaning $(PROJECT_NAME) complete."
 
-build_imap : $(SRCROOT)/$(BUILD_EXTRAS)
+build_imap :
 	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) -------------- build_imap"
 	$(SILENT) $(ECHO) "Configuring $(PROJECT_NAME)..."
 	$(SILENT) if [ ! -e "$(SRCROOT)/$(PROJECT_NAME)/Makefile" ]; then\
@@ -132,35 +147,77 @@ build_imap : $(SRCROOT)/$(BUILD_EXTRAS)
 	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make DESTDIR="$(DSTROOT)" install)
 	$(SILENT) $(ECHO) "---- Building $(PROJECT_NAME) complete."
 
-install_imap :  $(DSTROOT)$(TOOLSDIR) $(DSTROOT)$(TESTDIR) $(DSTROOT)$(ADMINDIR) $(DSTROOT)$(ETCDIR) \
-		$(DSTROOT)$(SHAREDIR) $(DSTROOT)$(SASCRIPTSDIR) $(DSTROOT)$(LIB_PERL) $(DSTROOT)$(LAUNCHDDIR) \
-		$(DSTROOT)$(OSV_DIR) $(DSTROOT)$(OSL_DIR)
+install_imap : $(DSTROOT)$(LIB_PERL)
 	$(SILENT) $(ECHO) "-------------- $(PROJECT_NAME) --------------"
 	$(SILENT) $(ECHO) "Installing $(PROJECT_NAME)..."
+
 	$(SILENT) ($(CD) "$(SRCROOT)/$(PROJECT_NAME)" && make install DESTDIR="$(DSTROOT)")
 	$(SILENT) if [ -d "$(DSTROOT)/usr/local/lib/perl5/site_perl" ]; then\
 		$(SILENT) ($(CD) "$(DSTROOT)/usr/local/lib/perl5/site_perl/" && $(CP) -rpf * "$(DSTROOT)$(LIB_PERL)$(PERL_VER)")\
 	fi
-	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/bin" && $(CP) -rpf sieveshell "$(DSTROOT)$(TESTDIR)")
-	$(SILENT) ($(CP) -rpf "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)$(ADMINDIR)/")
-	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/man" && $(CP) -r * "$(DSTROOT)/$(SHAREDIR)/")
-	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/master.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-master.8")
-	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DIR)/notifyd" "$(DSTROOT)/$(BIN_DIR)/cyrus-notifyd")
-	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/notifyd.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-notifyd.8")
-	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DIR)/quota" "$(DSTROOT)/$(BIN_DIR)/cyrus-quota")
-	$(SILENT) ($(MV) "$(DSTROOT)/$(SHAREDIR)/man8/quota.8" "$(DSTROOT)/$(SHAREDIR)/man8/cyrus-quota.8")
-	$(SILENT) install -m 0555 "$(SRCROOT)/$(SETUPEXTRASDIR)/cyrus" "$(DSTROOT)$(SASCRIPTSDIR)"
-	$(SILENT) install -m 0555 "$(SRCROOT)/$(SETUPEXTRASDIR)/upgradedb" "$(DSTROOT)$(SASCRIPTSDIR)"
-	$(SILENT) install -m 0555 "$(SRCROOT)/$(SETUPEXTRASDIR)/upgrade_cyrus_user" "$(DSTROOT)$(SASCRIPTSDIR)"
-	$(SILENT) install -m 0640 "$(SRCROOT)/$(SETUPEXTRASDIR)/etc/cyrus.conf.default" "$(DSTROOT)$(ETCDIR)"
-	$(SILENT) install -m 0640 "$(SRCROOT)/$(SETUPEXTRASDIR)/etc/imapd.conf.default" "$(DSTROOT)$(ETCDIR)"
-	$(SILENT) install -m 0644 "$(SRCROOT)/$(SETUPEXTRASDIR)/$(LAUNCHDDIR)/edu.cmu.andrew.cyrus.master.plist" "$(DSTROOT)/$(LAUNCHDDIR)"
-	$(SILENT) install -m 0444 "$(SRCROOT)/$(SETUPEXTRASDIR)/CyrusIMAP.plist" "$(DSTROOT)/$(OSV_DIR)"
-	$(SILENT) install -m 0444 "$(SRCROOT)/$(SETUPEXTRASDIR)/CyrusIMAP.txt" "$(DSTROOT)/$(OSL_DIR)"
+
+	# Cyrus admin app
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(ADMIN_DST_DIR)
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)/$(ADMIN_DST_DIR)/"
+
+	# Install man pages
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(MAN_DST_DIR)
+	$(SILENT) ($(CD) "$(DSTROOT)/usr/local/share/man" && $(CP) -r * "$(DSTROOT)/$(MAN_DST_DIR)/")
+
+	# Renaming man pages
+	$(SILENT) ($(MV) "$(DSTROOT)/$(MAN_DST_DIR)/man8/master.8" "$(DSTROOT)/$(MAN_DST_DIR)/man8/cyrus-master.8")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DST_DIR)/notifyd" "$(DSTROOT)/$(BIN_DST_DIR)/cyrus-notifyd")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(MAN_DST_DIR)/man8/notifyd.8" "$(DSTROOT)/$(MAN_DST_DIR)/man8/cyrus-notifyd.8")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(BIN_DST_DIR)/quota" "$(DSTROOT)/$(BIN_DST_DIR)/cyrus-quota")
+	$(SILENT) ($(MV) "$(DSTROOT)/$(MAN_DST_DIR)/man8/quota.8" "$(DSTROOT)/$(MAN_DST_DIR)/man8/cyrus-quota.8")
+
+	# Install sieve apps
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(SIEVE_DST_DIR)
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/sieveshell" "$(DSTROOT)/$(SIEVE_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/installsieve" "$(DSTROOT)/$(SIEVE_DST_DIR)"
+
+	# Install test apps
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(TEST_DST_DIR)
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/imtest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/lmtptest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/mupdatetest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/nntptest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/pop3test" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/sivtest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/smtptest" "$(DSTROOT)/$(TEST_DST_DIR)"
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/synctest" "$(DSTROOT)/$(TEST_DST_DIR)"
+
+	# Creating tools directories
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(TOOLS_DST_DIR)
+	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/sieveshell" "$(DSTROOT)/$(TOOLS_DST_DIR)"
 	for file in $(CYRUS_TOOLS); \
 	do \
-		$(SILENT) install -m 755 "$(SRCROOT)/$(PROJECT_NAME)/tools/$$file" "$(DSTROOT)$(TOOLSDIR)" ; \
+		$(SILENT) install -m 755 "$(SRCROOT)/$(PROJECT_NAME)/tools/$$file" "$(DSTROOT)$(TOOLS_DST_DIR)" ; \
 	done
+
+	# Setup & Migration Extras
+	$(SILENT) install -d -m 0755 $(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)
+	$(SILENT) install -d -m 0755 $(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)
+	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/cyrus" "$(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)"
+	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/migrate_cyrus_db" "$(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)/61_migrate_cyrus_db"
+	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/upgrade_cyrus_opts" "$(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)/62_upgrade_cyrus_opts"
+	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/migrate_pan_db" "$(DSTROOT)/$(TOOLS_DST_DIR)/migrate_pan_db"
+
+	# Config Files
+	$(SILENT) install -d -m 755 $(DSTROOT)/$(CONFIG_DST_DIR)
+	$(SILENT) install -m 0640 "$(SRCROOT)/$(CONFIG_SRC_DIR)/cyrus.conf.default" "$(DSTROOT)/$(CONFIG_DST_DIR)/cyrus.conf.default"
+	$(SILENT) install -m 0640 "$(SRCROOT)/$(CONFIG_SRC_DIR)/imapd.conf.default" "$(DSTROOT)/$(CONFIG_DST_DIR)/imapd.conf.default"
+
+	# Launchd plist
+	$(SILENT) install -d -m 755 "$(DSTROOT)/$(LAUNCHD_DST_DIR)"
+	$(SILENT) install -m 0444 "$(SRCROOT)/$(LAUNCHD_SRC_DIR)/edu.cmu.andrew.cyrus.master.plist" "$(DSTROOT)/$(LAUNCHD_DST_DIR)"
+
+	# Open Source Info
+	$(SILENT) install -d -m 755 "$(DSTROOT)/$(OPEN_SRC_VERS_DST_DIR)"
+	$(SILENT) install -d -m 755 "$(DSTROOT)/$(OPEN_SRC_LICS_DST_DIR)"
+	$(SILENT) install -m 0444 "$(SRCROOT)/$(OPEN_SRC_INFO_SRC_DIR)/CyrusIMAP.plist" "$(DSTROOT)/$(OPEN_SRC_VERS_DST_DIR)"
+	$(SILENT) install -m 0444 "$(SRCROOT)/$(OPEN_SRC_INFO_SRC_DIR)/CyrusIMAP.txt" "$(DSTROOT)/$(OPEN_SRC_LICS_DST_DIR)"
+
 	$(SILENT) $(ECHO) "---- Installing $(PROJECT_NAME) complete."
 
 strip_imap_binaries:
@@ -170,47 +227,27 @@ strip_imap_binaries:
 	$(SILENT) ($(STRIP) -S $(DSTROOT)$(LIB_PERL)$(PERL_VER)/darwin-thread-multi-2level/auto/Cyrus/SIEVE/managesieve/managesieve.bundle)
 	$(SILENT) (/bin/echo "$(PROJECT)$(VERSION)" >> $(DSTROOT)$(LIB_PERL)$(PERL_VER)/darwin-thread-multi-2level/auto/Cyrus/IMAP/IMAP.bs)
 	$(SILENT) (/bin/echo "$(PROJECT)$(VERSION)" >> $(DSTROOT)$(LIB_PERL)$(PERL_VER)/darwin-thread-multi-2level/auto/Cyrus/SIEVE/managesieve/managesieve.bs)
-	for dir in $(LOCAL_DIRS); \
+	for local_dir in $(LOCAL_DIRS); \
 	do \
-		$(SILENT) if [ -d "$(DSTROOT)/usr/local/$$dir" ]; then \
-			$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/local/$$dir") \
+		$(SILENT) if [ -d "$(DSTROOT)/usr/local/$$local_dir" ]; then \
+			$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/local/$$local_dir") \
 		fi \
 	done
+
+	for cyrus_bin in $(CYRUS_BINS); \
+	do \
+		$(SILENT) if [ -e "$(DSTROOT)$(BIN_DST_DIR)/$$cyrus_bin" ]; then \
+			$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/$$cyrus_bin") \
+		fi \
+	done
+	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/proxyd")
+	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/pop3proxyd")
+	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/lmtpproxyd")
 
 .PHONY: clean installhdrs installsrc build install 
 
 $(DSTROOT) :
 	$(SILENT) $(MKDIRS) $@
 
-$(DSTROOT)$(ETCDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(TOOLSDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(TESTDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(ADMINDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(SRCROOT)/$(BUILD_EXTRAS) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(SHAREDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(SASCRIPTSDIR) :
-	$(SILENT) $(MKDIRS) $@
-
 $(DSTROOT)$(LIB_PERL) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(LAUNCHDDIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(OSV_DIR) :
-	$(SILENT) $(MKDIRS) $@
-
-$(DSTROOT)$(OSL_DIR) :
 	$(SILENT) $(MKDIRS) $@

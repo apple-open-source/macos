@@ -516,7 +516,7 @@ must understand how to obtain these structures from the dialect's
 kernel.  Look for kernel access functions -- e.g., the AIX readx()
 function, Sun and Sun-like kvm_*() functions, or SGI's syssgi()
 function.  Look for clues in header files -- e.g. external declarations
-and macroes.
+and macros.
 
 If you have access to them, look at sources to programs like ps(1),
 or the freely available monitor and top programs.  They may give
@@ -574,7 +574,7 @@ they're connected.  You must answer questions like:
     *  How are the nodes organized?  To what other nodes do they
        lead and how?  Where are the common bits of information in
        nodes -- device, node number, size -- stored?  Hint: look
-       in the header files for nodes for macroes that may be used
+       in the header files for nodes for macros that may be used
        to obtain the address of one node from another -- e.g., the
        VTOI() macro that leads from a vnode to an inode.
 
@@ -670,6 +670,10 @@ possibilities
     DEVDEV_PATH		defines the path to the directory where device
 			nodes are stored, usually /dev.  Solaris 10
 			uses /devices.
+
+    DIALECT_WARNING	may be defined by a dialect to provide a
+			warning message that will be displayed with
+			help (-h) and version (-v) output.
 
     FSV_DEFAULT		defines the default file structure values to
 			list.  It may be composed of or'd FSV_*
@@ -1122,6 +1126,9 @@ possibilities
 
     HASSECURITY         enables/disables restricting open file
 			information access.  (Also see HASNOSOCKSECURITY.)
+
+    HASSELINUX          indicates the Linux dialect has SELinux security
+			context support available.
 
     HASSETLOCALE	is defined if the dialect has <locale.h> and
 			setlocale().
@@ -1597,7 +1604,7 @@ Here are some general rules for constructing the dialect Makefile.
     *  Don't put ``\"'' in a compiler flags -D<symbol>=<string>
        clause in your Makefile.  Leave off the ``\"'' even though
        you want <string> to be a string literal and instead adapt
-       the N_UNIX* macroes you'll find in Makefiles for FreeBSD
+       the N_UNIX* macros you'll find in Makefiles for FreeBSD
        and Linux.  That will allow the Makefile's version.h rule
        to put CFLAGS into version.h without having to worry about
        the ``\"'' sequences.
@@ -1750,4 +1757,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-April 10, 2006
+April 24, 2007

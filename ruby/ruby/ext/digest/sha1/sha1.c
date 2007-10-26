@@ -1,7 +1,7 @@
 /*	$NetBSD: sha1.c,v 1.2 2001/03/22 09:51:48 agc Exp $	*/
 /*	$OpenBSD: sha1.c,v 1.9 1997/07/23 21:12:32 kstailey Exp $	*/
 /*	$RoughId: sha1.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: sha1.c,v 1.1 2001/07/13 20:06:14 knu Exp $	*/
+/*	$Id: sha1.c 11708 2007-02-12 23:01:19Z shyouhei $	*/
 
 /*
  * SHA-1 in C
@@ -129,9 +129,7 @@ do_R4(uint32_t *a, uint32_t *b, uint32_t *c, uint32_t *d, uint32_t *e, CHAR64LON
 /*
  * Hash a single 512-bit block. This is the core of the algorithm.
  */
-void SHA1_Transform(state, buffer)
-    uint32_t state[5];
-    const uint8_t buffer[64];
+void SHA1_Transform(uint32_t state[5], const uint8_t buffer[64])
 {
     uint32_t a, b, c, d, e;
     CHAR64LONG16 *block;
@@ -201,8 +199,7 @@ void SHA1_Transform(state, buffer)
 /*
  * SHA1_Init - Initialize new context
  */
-void SHA1_Init(context)
-    SHA1_CTX *context;
+void SHA1_Init(SHA1_CTX *context)
 {
 
     _DIAGASSERT(context != 0);
@@ -220,10 +217,7 @@ void SHA1_Init(context)
 /*
  * Run your data through this.
  */
-void SHA1_Update(context, data, len)
-    SHA1_CTX *context;
-    const uint8_t *data;
-    size_t len;
+void SHA1_Update(SHA1_CTX *context, const uint8_t *data, size_t len)
 {
     uint32_t i, j;
 
@@ -250,9 +244,7 @@ void SHA1_Update(context, data, len)
 /*
  * Add padding and return the message digest.
  */
-void SHA1_Final(digest, context)
-    uint8_t digest[20];
-    SHA1_CTX* context;
+void SHA1_Finish(SHA1_CTX* context, uint8_t digest[20])
 {
     size_t i;
     uint8_t finalcount[8];
@@ -274,10 +266,4 @@ void SHA1_Final(digest, context)
 	    digest[i] = (uint8_t)
 		((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
     }
-}
-
-int SHA1_Equal(SHA1_CTX* pctx1, SHA1_CTX* pctx2) {
-	return memcmp(pctx1->count, pctx2->count, sizeof(pctx1->count)) == 0
-		&& memcmp(pctx1->state, pctx2->state, sizeof(pctx1->state)) == 0
-		&& memcmp(pctx1->buffer, pctx2->buffer, sizeof(pctx1->buffer)) == 0;
 }

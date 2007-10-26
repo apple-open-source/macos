@@ -31,7 +31,6 @@
 #include <err.h>
 #include <fcntl.h>
 #include <grp.h>
-#include <kvm.h>
 #include <nlist.h>
 #include <limits.h>
 #include <paths.h>
@@ -41,54 +40,51 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 #include <sys/types.h>
 #include <sys/ucred.h>
+#include <sys/time.h>
 #include <sys/proc.h>
 #include <sys/param.h>
-#include <sys/time.h>
 #include <sys/sysctl.h>
-
-#define KERNEL
-
-#include <sys/ipc.h>
-#include <sys/sem_internal.h>
-#include <sys/shm_internal.h>
-#include <sys/msg.h>
-
+#include <errno.h>
 #include "sys/ipcs.h"
+#define KERNEL 1		/* To get new ipc_perm and __(sem|shm|msg)ds_new */
+#include "sys/ipc.h"
+#include "sys/sem_internal.h"
+#include "sys/shm_internal.h"
+#include "sys/msg.h"
+
 
 /* The following is a kludge, until the problem of multiple inclusions
    of ipc.h is taken care of. */
 #ifndef IXSEQ_TO_IPCID
-#define IXSEQ_TO_IPCID(ix,perm) (((perm.seq) << 16) | (ix & 0xffff))
+#define IXSEQ_TO_IPCID(ix,perm) (((perm._seq) << 16L) | (ix & 0xffff))
 #endif
 
 char   *
-fmt_perm(mode)
-	u_short mode;
+fmt_perm(u_short mode, char write_char)
 {
 	static char buffer[100];
 
 	buffer[0] = '-';
 	buffer[1] = '-';
 	buffer[2] = ((mode & 0400) ? 'r' : '-');
-	buffer[3] = ((mode & 0200) ? 'w' : '-');
-	buffer[4] = ((mode & 0100) ? 'a' : '-');
+	buffer[3] = ((mode & 0200) ? write_char : '-');
+	buffer[4] = '-';
 	buffer[5] = ((mode & 0040) ? 'r' : '-');
-	buffer[6] = ((mode & 0020) ? 'w' : '-');
-	buffer[7] = ((mode & 0010) ? 'a' : '-');
+	buffer[6] = ((mode & 0020) ? write_char : '-');
+	buffer[7] = '-';
 	buffer[8] = ((mode & 0004) ? 'r' : '-');
-	buffer[9] = ((mode & 0002) ? 'w' : '-');
-	buffer[10] = ((mode & 0001) ? 'a' : '-');
+	buffer[9] = ((mode & 0002) ? write_char : '-');
+	buffer[10] = '-';
 	buffer[11] = '\0';
 	return (&buffer[0]);
 }
 
 void
-cvt_time(t, buf)
-	time_t  t;
-	char   *buf;
+cvt_time(time_t t, char *buf)
 {
 	struct tm *tm;
 
@@ -113,15 +109,46 @@ cvt_time(t, buf)
 #define PID		8
 #define TIME		16
 
+void usage()
+{
+	errx(EX_USAGE, "%s","usage: ipcs [-abcmopqstMQST]\n");
+}
+
+int safe_sysctlbyname(const char *name, void *oldp, size_t *oldlenp, void *newp, 		  
+		      size_t newlen)
+
+{
+	int rv, sv_errno=0;
+
+	if (seteuid(0)) /* iterator needs root write access to sysctl */
+		err(1, "seteuid(0) failed");
+
+	rv = sysctlbyname(name, oldp, oldlenp, newp, newlen);
+	if (rv < 0)
+		sv_errno = errno;
+
+	if (seteuid(getuid()))
+		err(1, "seteuid(%d) failed", getuid());
+
+	if (rv < 0)
+		errno = sv_errno;
+	return rv;
+}
+
 int
 main(argc, argv)
 	int     argc;
 	char   *argv[];
 {
-	int     display = SHMINFO | MSGINFO | SEMINFO;
+	int     display = 0;
 	int     option = 0;
-	char	kvmoferr[_POSIX2_LINE_MAX];  /* Error buf for kvm_openfiles. */
-	int     i;
+	int	exit_val = 0;
+	time_t	now;
+	char	datestring[100];
+	int	i;
+
+	if (seteuid(getuid()))	/* run as user */
+		err(1, "seteuid(%d) failed", getuid());
 
 	while ((i = getopt(argc, argv, "MmQqSsabcoptT")) != -1)
 		switch (i) {
@@ -129,19 +156,19 @@ main(argc, argv)
 			display = SHMTOTAL;
 			break;
 		case 'm':
-			display = SHMINFO;
+			display |= SHMINFO;
 			break;
 		case 'Q':
 			display = MSGTOTAL;
 			break;
 		case 'q':
-			display = MSGINFO;
+			display |= MSGINFO;
 			break;
 		case 'S':
 			display = SEMTOTAL;
 			break;
 		case 's':
-			display = SEMINFO;
+			display |= SEMINFO;
 			break;
 		case 'T':
 			display = SHMTOTAL | MSGTOTAL | SEMTOTAL;
@@ -167,7 +194,12 @@ main(argc, argv)
 		default:
 			usage();
 		}
-
+	if (display == 0)
+		display = SHMINFO | MSGINFO | SEMINFO;
+	now = time(0);
+	if (0 == strftime(datestring, sizeof(datestring), "%a %b %e %H:%M:%S %Z %Y", localtime(&now)))
+	    errx(1, "strftime failed\n");
+	printf("IPC status from <running system> as of %s\n", datestring);
 	if ((display & (MSGINFO | MSGTOTAL))) {
 		if (display & MSGTOTAL) {
 			struct IPCS_command ic;
@@ -180,7 +212,16 @@ main(argc, argv)
 			ic.ipcs_data = &msginfo;
 			ic.ipcs_datalen = sizeof(msginfo);
 
-			sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size);
+			if (safe_sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+				if (errno != EPERM) {
+					char buffer[1024];
+					snprintf(buffer, 1024, "sysctlbyname(IPCS_MSG_SYSCTL, op=CONF, &ic, &%ld) datalen=%d",
+						 sizeof(ic), ic.ipcs_datalen);
+					perror(buffer);
+				} else
+					perror("sysctlbyname IPCS_MSG_SYSCTL");
+			}
+
 			printf("msginfo:\n");
 			printf("\tmsgmax: %6d\t(max characters in a message)\n",
 			    msginfo.msgmax);
@@ -197,11 +238,10 @@ main(argc, argv)
 		}
 		if (display & MSGINFO) {
 			struct IPCS_command ic;
-			struct msqid_ds ds;
-			struct msqid_ds *msqptr = &ds;
+			struct __msqid_ds_new ds;
+			struct __msqid_ds_new *msqptr = &ds;
 			size_t ic_size = sizeof(ic);
 
-			printf("Message Queues:\n");
 			printf("T     ID     KEY        MODE       OWNER    GROUP");
 			if (option & CREATOR)
 				printf("  CREATOR   CGROUP");
@@ -213,15 +253,19 @@ main(argc, argv)
 				printf(" LSPID LRPID");
 			if (option & TIME)
 				printf("   STIME    RTIME    CTIME");
-			printf("\n");
+			printf("\nMessage Queues:\n");
 
 			ic.ipcs_magic = IPCS_MAGIC;
 			ic.ipcs_op = IPCS_MSG_ITER;
 			ic.ipcs_cursor = 0;	/* start */
-			ic.ipcs_data = msqptr;
 			ic.ipcs_datalen = sizeof(*msqptr);
+			ic.ipcs_data = msqptr;
 
-			while(!(sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			memset(msqptr, 0, sizeof(*msqptr));
+
+			while(!(safe_sysctlbyname(IPCS_MSG_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+				ic.ipcs_data = msqptr;
+
 				if (msqptr->msg_qbytes != 0) {
 					char    stime_buf[100], rtime_buf[100],
 					        ctime_buf[100];
@@ -230,10 +274,10 @@ main(argc, argv)
 					cvt_time(msqptr->msg_rtime, rtime_buf);
 					cvt_time(msqptr->msg_ctime, ctime_buf);
 
-					printf("q %6d %10d %s %8s %8s",
-					    IXSEQ_TO_IPCID(i, msqptr->msg_perm),
-					    (int)msqptr->msg_perm.key,
-					    fmt_perm(msqptr->msg_perm.mode),
+					printf("q %6d 0x%08x %s %8s %8s",
+					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, msqptr->msg_perm),
+					    (int)msqptr->msg_perm._key,
+					    fmt_perm(msqptr->msg_perm.mode, 'w'),
 					    user_from_uid(msqptr->msg_perm.uid, 0),
 					    group_from_gid(msqptr->msg_perm.gid, 0));
 
@@ -264,13 +308,22 @@ main(argc, argv)
 
 					printf("\n");
 				}
+				memset(msqptr, 0, sizeof(*msqptr));
+				errno = 0;
+			}
+
+			if (errno != ENOENT && errno != ERANGE) {
+				if (errno != EPERM) {
+					errx(1, "sysctlbyname(IPCS_MSG_SYSCTL, op=ITER, &ic, &%ld) datalen=%d failed:%s\n",
+						 sizeof(ic), ic.ipcs_datalen, strerror(errno));
+				} else
+					errx(1, "sysctlbyname IPCS_MSG_SYSCTL: %s", strerror(errno));
 			}
 			printf("\n");
 		}
 	} else
 		if (display & (MSGINFO | MSGTOTAL)) {
-			fprintf(stderr,
-			    "SVID messages facility not configured in the system\n");
+			errx(1, "%s", "SVID messages facility not configured in the system\n");
 		}
 
 	if ((display & (SHMINFO | SHMTOTAL))) {
@@ -285,26 +338,31 @@ main(argc, argv)
 			ic.ipcs_data = &shminfo;
 			ic.ipcs_datalen = sizeof(shminfo);
 
-			sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size);
+			if (safe_sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+				if (errno != EPERM) {
+					errx(1, "sysctlbyname(IPCS_SHM_SYSCTL, op=CONF, &ic, &%ld) datalen=%d failed: %s\n",
+					     sizeof(ic), ic.ipcs_datalen, strerror(errno));
+				} else
+					errx(1, "sysctlbyname: %s", strerror(errno));
+			}
 			printf("shminfo:\n");
-			printf("\tshmmax: %7d\t(max shared memory segment size)\n",
+			printf("\tshmmax: %7lld\t(max shared memory segment size)\n",
 			    shminfo.shmmax);
-			printf("\tshmmin: %7d\t(min shared memory segment size)\n",
+			printf("\tshmmin: %7lld\t(min shared memory segment size)\n",
 			    shminfo.shmmin);
-			printf("\tshmmni: %7d\t(max number of shared memory identifiers)\n",
+			printf("\tshmmni: %7lld\t(max number of shared memory identifiers)\n",
 			    shminfo.shmmni);
-			printf("\tshmseg: %7d\t(max shared memory segments per process)\n",
+			printf("\tshmseg: %7lld\t(max shared memory segments per process)\n",
 			    shminfo.shmseg);
-			printf("\tshmall: %7d\t(max amount of shared memory in pages)\n\n",
+			printf("\tshmall: %7lld\t(max amount of shared memory in pages)\n\n",
 			    shminfo.shmall);
 		}
 		if (display & SHMINFO) {
 			struct IPCS_command ic;
-			struct shmid_ds ds;
-			struct shmid_ds *shmptr = &ds;
+			struct __shmid_ds_new ds;
+			struct __shmid_ds_new *shmptr = &ds;
 			size_t ic_size = sizeof(ic);
 
-			printf("Shared Memory:\n");
 			printf("T     ID     KEY        MODE       OWNER    GROUP");
 			if (option & CREATOR)
 				printf("  CREATOR   CGROUP");
@@ -316,16 +374,19 @@ main(argc, argv)
 				printf("  CPID  LPID");
 			if (option & TIME)
 				printf("   ATIME    DTIME    CTIME");
-			printf("\n");
+			printf("\nShared Memory:\n");
 		{	/* XXX */
 
 			ic.ipcs_magic = IPCS_MAGIC;
 			ic.ipcs_op = IPCS_SHM_ITER;
 			ic.ipcs_cursor = 0;	/* start */
-			ic.ipcs_data = shmptr;
 			ic.ipcs_datalen = sizeof(*shmptr);
+			ic.ipcs_data = shmptr;
+			memset(shmptr, 0, sizeof(shmptr));
 
-			while(!(sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			while(!(safe_sysctlbyname(IPCS_SHM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+				ic.ipcs_data = shmptr; /* xnu workaround */
+
 				if (shmptr->shm_perm.mode & 0x0800) {
 					char    atime_buf[100], dtime_buf[100],
 					        ctime_buf[100];
@@ -334,10 +395,10 @@ main(argc, argv)
 					cvt_time(shmptr->shm_dtime, dtime_buf);
 					cvt_time(shmptr->shm_ctime, ctime_buf);
 
-					printf("m %6d %10d %s %8s %8s",
-					    IXSEQ_TO_IPCID(i, shmptr->shm_perm),
-					    (int)shmptr->shm_perm.key,
-					    fmt_perm(shmptr->shm_perm.mode),
+					printf("m %6d 0x%08x %s %8s %8s",
+					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, shmptr->shm_perm),
+					    (int)shmptr->shm_perm._key,
+					    fmt_perm(shmptr->shm_perm.mode, 'w'),
 					    user_from_uid(shmptr->shm_perm.uid, 0),
 					    group_from_gid(shmptr->shm_perm.gid, 0));
 
@@ -351,7 +412,7 @@ main(argc, argv)
 						    shmptr->shm_nattch);
 
 					if (option & BIGGEST)
-						printf(" %6d",
+						printf(" %6ld",
 						    shmptr->shm_segsz);
 
 					if (option & PID)
@@ -367,6 +428,16 @@ main(argc, argv)
 
 					printf("\n");
 				}
+				memset(shmptr, 0, sizeof(*shmptr));
+				errno = 0;
+			}
+
+			if (errno != ENOENT && errno != ERANGE) {
+				if (errno != EPERM) {
+					errx(1, "sysctlbyname(IPCS_SHM_SYSCTL, op=ITER, &ic, &%ld) datalen=%d failed:%s\n",
+						 sizeof(ic), ic.ipcs_datalen, strerror(errno));
+				} else
+					errx(1, "sysctlbyname: %s", strerror(errno));
 			}
 		}	/* XXX */
 			printf("\n");
@@ -374,8 +445,7 @@ main(argc, argv)
 	}
 else
 		if (display & (SHMINFO | SHMTOTAL)) {
-			fprintf(stderr,
-			    "SVID shared memory facility not configured in the system\n");
+			errx(1, "%s", "SVID shared memory facility not configured in the system\n");
 		}
 
 	if ((display & (SEMINFO | SEMTOTAL))) {
@@ -390,7 +460,16 @@ else
 			ic.ipcs_data = &seminfo;
 			ic.ipcs_datalen = sizeof(seminfo);
 
-			sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size);
+			if (safe_sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size)) {
+				if (errno != EPERM) {
+					char buffer[1024];
+					snprintf(buffer, 1024, "sysctlbyname(IPCS_SEM_SYSCTL, op=CONF, &ic, &%ld) datalen=%d",
+						 sizeof(ic), ic.ipcs_datalen);
+					perror(buffer);
+				} else
+					perror("sysctlbyname IPCS_SEM_SYSCTL/SEM_CONF");
+			}
+
 			printf("seminfo:\n");
 			printf("\tsemmap: %6d\t(# of entries in semaphore map)\n",
 			    seminfo.semmap);
@@ -415,11 +494,10 @@ else
 		}
 		if (display & SEMINFO) {
 			struct IPCS_command ic;
-			struct semid_ds ds;
-			struct semid_ds *semaptr = &ds;
+			struct __semid_ds_new ds;
+			struct __semid_ds_new *semaptr = &ds;
 			size_t ic_size = sizeof(ic);
 
-			printf("Semaphores:\n");
 			printf("T     ID     KEY        MODE       OWNER    GROUP");
 			if (option & CREATOR)
 				printf("  CREATOR   CGROUP");
@@ -427,25 +505,29 @@ else
 				printf(" NSEMS");
 			if (option & TIME)
 				printf("   OTIME    CTIME");
-			printf("\n");
+			printf("\nSemaphores:\n");
 
 			ic.ipcs_magic = IPCS_MAGIC;
 			ic.ipcs_op = IPCS_SEM_ITER;
 			ic.ipcs_cursor = 0;	/* start */
-			ic.ipcs_data = semaptr;
 			ic.ipcs_datalen = sizeof(*semaptr);
+			ic.ipcs_data = semaptr;
 
-			while(!(sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+			memset(semaptr, 0, sizeof(*semaptr));
+
+			while(!(safe_sysctlbyname(IPCS_SEM_SYSCTL, &ic, &ic_size, &ic, ic_size))) {
+				ic.ipcs_data = semaptr;	/* xnu workaround */
+
 				if ((semaptr->sem_perm.mode & SEM_ALLOC) != 0) {
 					char    ctime_buf[100], otime_buf[100];
 
 					cvt_time(semaptr->sem_otime, otime_buf);
 					cvt_time(semaptr->sem_ctime, ctime_buf);
 
-					printf("s %6d %10d %s %8s %8s",
-					    IXSEQ_TO_IPCID(i, semaptr->sem_perm),
-					    (int)semaptr->sem_perm.key,
-					    fmt_perm(semaptr->sem_perm.mode),
+					printf("s %6d 0x%08x %s %8s %8s",
+					    IXSEQ_TO_IPCID(ic.ipcs_cursor-1, semaptr->sem_perm),
+					    (int)semaptr->sem_perm._key,
+					    fmt_perm(semaptr->sem_perm.mode, 'a'),
 					    user_from_uid(semaptr->sem_perm.uid, 0),
 					    group_from_gid(semaptr->sem_perm.gid, 0));
 
@@ -465,22 +547,23 @@ else
 
 					printf("\n");
 				}
+				memset(semaptr, 0, sizeof(*semaptr));
+				errno = 0;
 			}
 
+			if (errno != ENOENT && errno != ERANGE) {
+				if (errno != EPERM) {
+					errx(1, "sysctlbyname(IPCS_SEM_SYSCTL/ITER, op=ITER, &ic, &%ld) datalen=%d failed: %s\n",
+						 sizeof(ic), ic.ipcs_datalen, strerror(errno));
+				} else
+					errx(1, "sysctlbyname: IPCS_SEM_SYSCTL %s", strerror(errno));
+			}
 			printf("\n");
 		}
 	} else
 		if (display & (SEMINFO | SEMTOTAL)) {
-			fprintf(stderr, "SVID semaphores facility not configured in the system\n");
+			errx(1, "%s", "SVID semaphores facility not configured in the system\n");
 		}
 
-	exit(0);
-}
-
-usage()
-{
-
-	fprintf(stderr,
-	    "usage: ipcs [-abcmopqstMQST]\n");
-	exit(1);
+	exit(exit_val);
 }

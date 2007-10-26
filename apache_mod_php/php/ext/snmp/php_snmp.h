@@ -1,6 +1,6 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP Version 4                                                        |
+  | PHP Version 5                                                        |
   +----------------------------------------------------------------------+
   | Copyright (c) 1997-2007 The PHP Group                                |
   +----------------------------------------------------------------------+
@@ -20,7 +20,7 @@
   +----------------------------------------------------------------------+
 */
 
-/* $Id: php_snmp.h,v 1.14.2.7.2.2 2007/01/01 09:46:47 sebastian Exp $ */
+/* $Id: php_snmp.h,v 1.25.2.1.2.2 2007/01/01 09:36:06 sebastian Exp $ */
 
 #ifndef PHP_SNMP_H
 #define PHP_SNMP_H
@@ -39,15 +39,17 @@ extern zend_module_entry snmp_module_entry;
 #endif
 
 PHP_MINIT_FUNCTION(snmp);
+PHP_MSHUTDOWN_FUNCTION(snmp);
 PHP_MINFO_FUNCTION(snmp);
 
 PHP_FUNCTION(snmpget);
+PHP_FUNCTION(snmpgetnext);
 PHP_FUNCTION(snmpwalk);
 PHP_FUNCTION(snmprealwalk);
 PHP_FUNCTION(snmp_get_quick_print);
 PHP_FUNCTION(snmp_set_quick_print);
 PHP_FUNCTION(snmp_set_enum_print);
-PHP_FUNCTION(snmp_set_oid_numeric_print);
+PHP_FUNCTION(snmp_set_oid_output_format);
 PHP_FUNCTION(snmpset);
 
 PHP_FUNCTION(snmp2_get);
@@ -57,12 +59,16 @@ PHP_FUNCTION(snmp2_real_walk);
 PHP_FUNCTION(snmp2_set);
 
 PHP_FUNCTION(snmp3_get);
+PHP_FUNCTION(snmp3_getnext);
 PHP_FUNCTION(snmp3_walk);
 PHP_FUNCTION(snmp3_real_walk);
 PHP_FUNCTION(snmp3_set);
 
 PHP_FUNCTION(snmp_set_valueretrieval);
 PHP_FUNCTION(snmp_get_valueretrieval);
+
+PHP_FUNCTION(snmp_read_mib);
+
 
 ZEND_BEGIN_MODULE_GLOBALS(snmp)
       int valueretrieval;

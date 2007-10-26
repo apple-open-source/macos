@@ -12,7 +12,7 @@
 .\" The University of Texas at Austin
 .\" Austin, Texas  78712
 .\"
-.TH whatis 1 "Jan 5, 1991"
+.TH whatis 1 "September 19, 2005"
 .LO 1
 .SH NAME
 whatis \- search the whatis database for complete words.
@@ -24,6 +24,11 @@ whatis searches a set of database files containing short descriptions
 of system commands for keywords and displays the result on the
 standard output.  Only complete word matches are displayed.
 
-The whatis database is created using the command @makewhatis@.
+The whatis database is created using the command /usr/libexec/makewhatis.
+.SH AUTHOR
+John W. Eaton was the original author of
+.BR "man" .
+Zeyd M. Ben-Halim released man 1.2, and Andries Brouwer followed up with versions 1.3 thru 1.5p.
+Federico Lucifredi <flucifredi@acm.org> is the current maintainer.
 .SH "SEE ALSO"
 apropos(1), man(1).

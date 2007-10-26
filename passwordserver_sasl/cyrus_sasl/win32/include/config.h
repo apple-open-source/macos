@@ -55,7 +55,7 @@
 #define PACKAGE "cyrus-sasl"
 
 /* Our version */
-#define VERSION "2.1.18"
+#define VERSION "2.1.22"
 
 /* Visual Studio supports prototypes */
 #define PROTOTYPES     1
@@ -99,7 +99,7 @@ typedef int		    intptr_t;
 /* #undef STATIC_KERBEROS4 */
 #define STATIC_LOGIN 1
 /* #undef STATIC_MYSQL */
-/* #undef STATIC_OTP */
+#define STATIC_OTP 1
 #define STATIC_PLAIN 1
 #define STATIC_SASLDB 1
 #define STATIC_SRP 1
@@ -138,6 +138,25 @@ typedef int		    intptr_t;
 typedef int socklen_t;
 #endif /* HAVE_SOCKLEN_T */
 
+/* If we expect to run on XP and later, we have IPv6 support natively */
+#if TARGET_WIN_SYSTEM >= 51
+#if !defined(_WIN32_WINNT)
+/* This forces the inclusion of OS supported functions, with no fallback */
+#define _WIN32_WINNT	0x0510
+#endif
+#endif
+
+#if defined(_MSC_VER) && (_MSC_VER >= 1300)
+/* The following two defines will prevent our own definitions below */
+#define HAVE_GETADDRINFO
+#define HAVE_GETNAMEINFO
+#define HAVE_STRUCT_SOCKADDR_STORAGE
+/* Unless _WIN32_WINNT > 0x0500, Ws2tcpip.h will try to find OS provided
+   getaddrinfo at runtime. It will fallback to Microsoft emulation,
+   if not found */
+#include <Ws2tcpip.h>
+#endif
+
 #if !defined(HAVE_STRUCT_SOCKADDR_STORAGE) && !defined(_SS_MAXSIZE)
 #define	_SS_MAXSIZE	128	/* Implementation specific max size */
 #define	_SS_PADSIZE	(_SS_MAXSIZE - sizeof (struct sockaddr))
@@ -157,9 +176,22 @@ struct sockaddr_storage {
 #ifndef HAVE_GETADDRINFO
 #define	getaddrinfo	sasl_getaddrinfo
 #define	freeaddrinfo	sasl_freeaddrinfo
-#define	getnameinfo	sasl_getnameinfo
 #define	gai_strerror	sasl_gai_strerror
+#endif
+
+#ifndef HAVE_GETNAMEINFO
+#define	getnameinfo	sasl_getnameinfo
+#endif
+
+#if !defined(HAVE_GETNAMEINFO) || !defined(HAVE_GETADDRINFO)
 #include "gai.h"
+#endif
+
+#ifndef AI_NUMERICHOST   /* support glibc 2.0.x */
+#define AI_NUMERICHOST  4
+#define NI_NUMERICHOST  2
+#define NI_NAMEREQD     4
+#define NI_NUMERICSERV  8
 #endif
 
 #include <time.h>

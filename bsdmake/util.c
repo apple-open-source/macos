@@ -1,4 +1,4 @@
-/*
+/*-
  * Copyright (c) 2002 Juli Mallett.  All rights reserved.
  * Copyright (c) 1988, 1989, 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -40,6 +40,7 @@
  */
 
 #include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/make/util.c,v 1.19 2005/05/13 13:47:41 harti Exp $");
 
 /*-
  * util.c --
@@ -49,19 +50,18 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <err.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <sysexits.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
-#include "make.h"
-#include "hash.h"
-#include "dir.h"
+#include "globals.h"
 #include "job.h"
-#include "pathnames.h"
+#include "targ.h"
+#include "util.h"
+
+static void enomem(void) __dead2;
 
 /*-
  * Debug --
@@ -80,9 +80,27 @@ Debug(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	(void)vfprintf(stderr, fmt, ap);
+	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	(void)fflush(stderr);
+	fflush(stderr);
+}
+
+/*-
+ * Print a debugging message given its format and append the current
+ * errno description. Terminate with a newline.
+ */
+/* VARARGS */
+void
+DebugM(const char *fmt, ...)
+{
+	va_list	ap;
+	int e = errno;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, ": %s\n", strerror(e));
+	va_end(ap);
+	fflush(stderr);
 }
 
 /*-
@@ -102,10 +120,10 @@ Error(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	(void)vfprintf(stderr, fmt, ap);
+	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	(void)fflush(stderr);
+	fprintf(stderr, "\n");
+	fflush(stderr);
 }
 
 /*-
@@ -129,10 +147,10 @@ Fatal(const char *fmt, ...)
 	if (jobsRunning)
 		Job_Wait();
 
-	(void)vfprintf(stderr, fmt, ap);
+	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	(void)fflush(stderr);
+	fprintf(stderr, "\n");
+	fflush(stderr);
 
 	if (DEBUG(GRAPH2))
 		Targ_PrintGraph(2);
@@ -157,11 +175,11 @@ Punt(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	(void)fprintf(stderr, "make: ");
-	(void)vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "make: ");
+	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	(void)fflush(stderr);
+	fprintf(stderr, "\n");
+	fflush(stderr);
 
 	DieHorribly();
 }
@@ -200,6 +218,7 @@ DieHorribly(void)
 void
 Finish(int errors)
 {
+
 	Fatal("%d error%s", errors, errors == 1 ? "" : "s");
 }
 
@@ -214,7 +233,7 @@ emalloc(size_t len)
 
 	if ((p = malloc(len)) == NULL)
 		enomem();
-	return(p);
+	return (p);
 }
 
 /*
@@ -228,7 +247,7 @@ estrdup(const char *str)
 
 	if ((p = strdup(str)) == NULL)
 		enomem();
-	return(p);
+	return (p);
 }
 
 /*
@@ -238,16 +257,17 @@ estrdup(const char *str)
 void *
 erealloc(void *ptr, size_t size)
 {
+
 	if ((ptr = realloc(ptr, size)) == NULL)
 		enomem();
-	return(ptr);
+	return (ptr);
 }
 
 /*
  * enomem --
  *	die when out of memory.
  */
-void
+static void
 enomem(void)
 {
 	err(2, NULL);
@@ -263,22 +283,34 @@ eunlink(const char *file)
 	struct stat st;
 
 	if (lstat(file, &st) == -1)
-		return -1;
+		return (-1);
 
 	if (S_ISDIR(st.st_mode)) {
 		errno = EISDIR;
-		return -1;
+		return (-1);
 	}
-	return unlink(file);
+	return (unlink(file));
 }
 
 /*
- * Printaddr --
- * 	Print the address of a node, used as an interative function.
+ * Convert a flag word to a printable thing and print it
  */
-int
-PrintAddr(void *a, void *b __unused)
+void
+print_flags(FILE *fp, const struct flag2str *tab, u_int flags, int par)
 {
-    printf("%p ", a);
-    return 0;
+	int first = 1;
+
+	if (par)
+		fprintf(fp, "(");
+	while (tab->str != NULL) {
+		if (flags & tab->flag) {
+			if (!first)
+				fprintf(fp, par ? "|" : " ");
+			first = 0;
+			fprintf(fp, "%s", tab->str);
+		}
+		tab++;
+	}
+	if (par)
+		fprintf(fp, ")");
 }

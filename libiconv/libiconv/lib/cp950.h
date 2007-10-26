@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2001 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2001, 2005 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -14,8 +14,8 @@
  *
  * You should have received a copy of the GNU Library General Public
  * License along with the GNU LIBICONV Library; see the file COPYING.LIB.
- * If not, write to the Free Software Foundation, Inc., 59 Temple Place -
- * Suite 330, Boston, MA 02111-1307, USA.
+ * If not, write to the Free Software Foundation, Inc., 51 Franklin Street,
+ * Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
 /*
@@ -59,6 +59,27 @@
  *
  *    We implement this omission, because said range is marked "uncertain"
  *    in the unicode.org BIG5 table.
+ *
+ * The table found on Microsoft's website furthermore adds:
+ *
+ * 4. A single character:
+ *
+ *     code   CP950.TXT
+ *    0xA3E1  0x20AC # EURO SIGN
+ *
+ * Many variants of BIG5 or CP950 (in JDK, Solaris, OSF/1, Windows-2000, ICU,
+ * as well as our BIG5-2003 converter) also add:
+ *
+ * 5. Private area mappings:
+ *
+ *              code                 Unicode
+ *    0x{81..8D}{40..7E,A1..FE}  U+EEB8..U+F6B0
+ *    0x{8E..A0}{40..7E,A1..FE}  U+E311..U+EEB7
+ *    0x{FA..FE}{40..7E,A1..FE}  U+E000..U+E310
+ *
+ * We add them too because, although there are backward compatibility problems
+ * when a character from a private area is moved to an official Unicode code
+ * point, they are useful for some people in practice.
  */
 
 static const unsigned short cp950_2uni_pagea1[314] = {
@@ -116,24 +137,41 @@ cp950_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
   if (c < 0x80)
     return ascii_mbtowc(conv,pwc,s,n);
   /* Code set 1 (BIG5 extended) */
-  if (c >= 0xa1 && c < 0xff) {
+  if (c >= 0x81 && c < 0xff) {
     if (n < 2)
       return RET_TOOFEW(0);
     {
       unsigned char c2 = s[1];
       if ((c2 >= 0x40 && c2 < 0x7f) || (c2 >= 0xa1 && c2 < 0xff)) {
-        if (c < 0xa3) {
-          unsigned int i = 157 * (c - 0xa1) + (c2 - (c2 >= 0xa1 ? 0x62 : 0x40));
-          unsigned short wc = cp950_2uni_pagea1[i];
-          if (wc != 0xfffd) {
-            *pwc = (ucs4_t) wc;
+        if (c >= 0xa1) {
+          if (c < 0xa3) {
+            unsigned int i = 157 * (c - 0xa1) + (c2 - (c2 >= 0xa1 ? 0x62 : 0x40));
+            unsigned short wc = cp950_2uni_pagea1[i];
+            if (wc != 0xfffd) {
+              *pwc = (ucs4_t) wc;
+              return 2;
+            }
+          }
+          if (!((c == 0xc6 && c2 >= 0xa1) || c == 0xc7)) {
+            int ret = big5_mbtowc(conv,pwc,s,2);
+            if (ret != RET_ILSEQ)
+              return ret;
+          }
+          if (c == 0xa3 && c2 == 0xe1) {
+            *pwc = 0x20ac;
             return 2;
           }
-        }
-        if (!((c == 0xc6 && c2 >= 0xa1) || c == 0xc7)) {
-          int ret = big5_mbtowc(conv,pwc,s,2);
-          if (ret != RET_ILSEQ)
-            return ret;
+          if (c >= 0xfa) {
+            /* User-defined characters */
+            *pwc = 0xe000 + 157 * (c - 0xfa) + (c2 - (c2 >= 0xa1 ? 0x62 : 0x40));
+            return 2;
+          }
+        } else {
+          /* 0x81 <= c < 0xa1. */
+          /* User-defined characters */
+          *pwc = (c >= 0x8e ? 0xdb18 : 0xeeb8) + 157 * (c - 0x81)
+                 + (c2 - (c2 >= 0xa1 ? 0x62 : 0x40));
+          return 2;
         }
       }
     }
@@ -169,6 +207,7 @@ cp950_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
       break;
     case 0x20:
       if (wc == 0x2027) { buf[0] = 0xa1; buf[1] = 0x45; ret = 2; break; }
+      if (wc == 0x20ac) { buf[0] = 0xa3; buf[1] = 0xe1; ret = 2; break; }
       if (wc == 0x2022 || wc == 0x203e)
         return RET_ILUNI;
       break;
@@ -185,6 +224,23 @@ cp950_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
     case 0x26:
       if (wc == 0x2609 || wc == 0x2641)
         return RET_ILUNI;
+      break;
+    case 0xe0: case 0xe1: case 0xe2: case 0xe3: case 0xe4: case 0xe5:
+    case 0xe6: case 0xe7: case 0xe8: case 0xe9: case 0xea: case 0xeb:
+    case 0xec: case 0xed: case 0xee: case 0xef: case 0xf0: case 0xf1:
+    case 0xf2: case 0xf3: case 0xf4: case 0xf5: case 0xf6:
+      {
+        /* User-defined characters */
+        unsigned int i = wc - 0xe000;
+        if (i < 5809) {
+          unsigned int c1 = i / 157;
+          unsigned int c2 = i % 157;
+          buf[0] = c1 + (c1 < 5 ? 0xfa : c1 < 24 ? 0x89 : 0x69);
+          buf[1] = c2 + (c2 < 0x3f ? 0x40 : 0x62);
+          ret = 2;
+          break;
+        }
+      }
       break;
     case 0xfe:
       if (wc == 0xfe51) { buf[0] = 0xa1; buf[1] = 0x4e; ret = 2; break; }

@@ -29,6 +29,11 @@ class Tk::BWidget::NoteBook
     end
   end
 
+  def __boolval_optkeys
+    super() << 'homogeneous'
+  end
+  private :__boolval_optkeys
+
   def tagid(id)
     if id.kind_of?(TkWindow)
       #id.path
@@ -47,7 +52,7 @@ class Tk::BWidget::NoteBook
   #end
   def tabbind(context, *args)
     #if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new
@@ -63,7 +68,7 @@ class Tk::BWidget::NoteBook
   #end
   def tabbind_append(context, *args)
     #if args[0].kind_of?(Proc) || args[0].kind_of?(Method)
-    if TkComm._callback_entry?(args[0])
+    if TkComm._callback_entry?(args[0]) || !block_given?
       cmd = args.shift
     else
       cmd = Proc.new

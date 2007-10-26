@@ -415,7 +415,8 @@ CFDataRef AppleManifest::Export (ManifestInternal& manifest)
 	CFDataRef retData = CFDataCreate (kCFAllocatorDefault, (UInt8*) finalMessage.Data, finalMessage.Length);
 	
 	SecArenaPoolFree(arena, false);
-	
+	SecCmsMessageDestroy (cmsMessage);
+
 	CFRelease (data);
 
 	return retData;
@@ -712,6 +713,8 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 		SecPolicySearchRef search;
 		OSStatus result;
 		
+		SecPolicyRef originalPolicy = policy;
+		
 		if (policy == NULL)
 		{
 			// get a basic SecPolicy
@@ -752,7 +755,7 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 			result = SecCmsSignedDataImportCerts (signedData, NULL, certUsageObjectSigner, true);
 			if (result != 0)
 			{
-				MacOSError::throwMe (errSecManifestDidNotVerify);
+				MacOSError::throwMe (result);
 			}
 			
 			int numberOfSigners = SecCmsSignedDataSignerInfoCount (signedData);
@@ -766,43 +769,57 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 			for (j = 0; j < numberOfSigners; ++j)
 			{
 				SecTrustResultType resultType;
-				SecTrustRef trustRef;
+				SecTrustRef trustRef = NULL;
 				
-				result = SecCmsSignedDataVerifySignerInfo (signedData, j, NULL, policy, &trustRef);
-				
-				if (result != 0)
+				try
 				{
-					MacOSError::throwMe (errSecManifestDidNotVerify);
-				}
-				
-				SecManifestTrustCallbackResult tcResult = setupCallback (trustRef, setupContext);
-				switch (tcResult)
-				{
-					case kSecManifestDoNotVerify:
-						continue;
+					result = SecCmsSignedDataVerifySignerInfo (signedData, j, NULL, policy, &trustRef);
 					
-					case kSecManifestSignerVerified:
-						continue;
-					
-					case kSecManifestFailed:
-						MacOSError::throwMe (errSecManifestDidNotVerify);
-					
-					case kSecManifestContinue:
-					break;
-				}
-				
-				result = SecTrustEvaluate (trustRef, &resultType);
-				if (result != noErr)
-				{
-					MacOSError::throwMe (errSecManifestDidNotVerify);
-				}
-				
-				if (resultType != kSecTrustResultProceed)
-				{
-					if (evaluateCallback (trustRef, resultType, evaluateContext) != kSecManifestSignerVerified)
+					if (result != 0)
 					{
-						MacOSError::throwMe (errSecManifestDidNotVerify);
+						MacOSError::throwMe (result);
 					}
+					
+					SecManifestTrustCallbackResult tcResult = setupCallback (trustRef, setupContext);
+					switch (tcResult)
+					{
+						case kSecManifestDoNotVerify:
+							continue;
+						
+						case kSecManifestSignerVerified:
+							continue;
+						
+						case kSecManifestFailed:
+							MacOSError::throwMe (errSecManifestDidNotVerify);
+						
+						case kSecManifestContinue:
+						break;
+					}
+					
+					result = SecTrustEvaluate (trustRef, &resultType);
+					if (result != noErr)
+					{
+						MacOSError::throwMe (result);
+					}
+					
+					if (resultType != kSecTrustResultProceed)
+					{
+						if (evaluateCallback (trustRef, resultType, evaluateContext) != kSecManifestSignerVerified)
+						{
+							MacOSError::throwMe (errSecManifestDidNotVerify);
+						}
+					}
+					
+					CFRelease (trustRef);
+				}
+				catch (...)
+				{
+					if (trustRef != NULL)
+					{
+						CFRelease (trustRef);
+					}
+					
+					throw;
 				}
 			}
 		}
@@ -814,6 +831,10 @@ void AppleManifest::Verify (CFDataRef data, SecManifestTrustSetupCallback setupC
 		}
 		
 		SecCmsMessageDestroy (cmsMessage);
+		if (originalPolicy == NULL)
+		{
+			CFRelease (policy);
+		}
 	}
 	catch (...)
 	{

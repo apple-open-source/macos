@@ -1,4 +1,4 @@
-This is a port of GNU Libiconv 1.7 to MSDOS/DJGPP.
+This is a port of GNU Libiconv 1.11 to MSDOS/DJGPP.
 
 1.:     DJGPP specific changes.
         =======================
@@ -14,9 +14,9 @@ This is a port of GNU Libiconv 1.7 to MSDOS/DJGPP.
 2.1.:   Copy the binary distribution into the top DJGPP installation
         directory and unzip the binary distribution running *ONE* of
         the following commands:
-          unzip32 licv16b.zip      or
-          djtarx licv16b.zip       or
-          pkunzip -d licv16b.zip
+          unzip32 licv111b.zip      or
+          djtarx licv111b.zip       or
+          pkunzip -d licv111b.zip
 
 
 
@@ -41,13 +41,13 @@ This is a port of GNU Libiconv 1.7 to MSDOS/DJGPP.
         Previuos and/or later versions of this packages may do the job as well but
         I have not tested this.
 
-3.2.:   Create a temporary directory and copy the source package: licv16s.zip
+3.2.:   Create a temporary directory and copy the source package: licv111s.zip
         into the temporary directory. If you download the source distribution
         from one of the DJGPP archives, just unzip it preserving the directory
         structure, runnig ONE of the following commands:
-          unzip32 licv16s.zip      or
-          djtarx licv16s.zip       or
-          pkunzip -d licv16s.zip
+          unzip32 licv111s.zip      or
+          djtarx licv111s.zip       or
+          pkunzip -d licv111s.zip
 
         Source distributions downloaded from one of the GNU FTP sites need
         some more work to unpack.  First, you MUST use the `djtar' program to
@@ -59,11 +59,11 @@ This is a port of GNU Libiconv 1.7 to MSDOS/DJGPP.
         to retrieve that file, and then invoke `djtar' to unpack the
         distribution.  Here's how:
 
-          djtar -x -p -o libiconv-1.7/djgpp/fnchange.lst libiconv-1.7.tar.gz > lst
-          djtar -x -n lst libiconv-1.7.tar.gz
+          djtar -x -p -o libiconv-1.11/djgpp/fnchange.lst libiconv-1.11.tar.gz > lst
+          djtar -x -n lst libiconv-1.11.tar.gz
 
         (The name of the distribution archive and the top-level directory will
-        be different for versions other than 1.7.)
+        be different for versions other than 1.11.)
 
 
 3.3.:   The package is preconfigured for djdev203. To build the products you

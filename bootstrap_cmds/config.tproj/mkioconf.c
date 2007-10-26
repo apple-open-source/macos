@@ -49,19 +49,28 @@
  */
 
 #include <stdio.h>
+#include <unistd.h>	/* for unlink */
 #include "y.tab.h"
 #include "config.h"
 
 /*
  * build the ioconf.c file
  */
-char	*qu();
-char	*intv();
-char	*intv2();
+char	*intv(struct device *dev);
+char	*intv2(struct device *dev);
+void	i386_pseudo_inits(FILE *fp);	/* XXX function in wrong block */
+void	check_vector(struct idlst *vec);
+void	nrw_ioconf(void);
+void	m88k_pseudo_inits(FILE *fp);
+void	m98k_pseudo_inits(FILE *fp);
+char	*m88k_dn(char *name);
+char	*m98k_dn(char *name);
+char	*concat3(char *buf, const char *p1, const char *p2, const char *p3);
 
 #if MACHINE_VAX
 
-vax_ioconf()
+void
+vax_ioconf(void)
 {
 	register struct device *dp, *mp, *np;
 	register int uba_n, slave;
@@ -316,8 +325,10 @@ vax_ioconf()
 #define	VEC_LO	64
 #define	VEC_HI	255
 
-check_vector(vec)
-	register struct idlst *vec;
+void pseudo_inits(FILE *fp);
+
+void
+check_vector(struct idlst *vec)
 {
 
 	if (vec->id_vec == 0)
@@ -328,7 +339,8 @@ check_vector(vec)
 			vec->id_vec, vec->id, VEC_LO, VEC_HI);
 }
 
-sun_ioconf()
+void
+sun_ioconf(void)
 {
 	register struct device *dp, *mp;
 	register int slave;
@@ -428,9 +440,9 @@ sun_ioconf()
 			continue;
 		}
 		if (dp->d_flags) {
-			printf("controllers (e.g. %s%d) don't have flags, ");
-			printf("only devices do\n",
+			printf("controllers (e.g. %s%d) don't have flags, ",
 			    dp->d_name, dp->d_unit);
+			printf("only devices do\n");
 			continue;
 		}
 		if (machine == MACHINE_SUN4)
@@ -530,13 +542,13 @@ sun_ioconf()
 	(void) fclose(fp);
 }
 
-pseudo_inits(fp)
-	FILE *fp;
+void
+pseudo_inits(FILE *fp)
 {
+#ifdef	notdef
 	register struct device *dp;
 	int count;
 
-#ifdef	notdef
 	for (dp = dtab; dp != 0; dp = dp->d_next) {
 		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
 			continue;
@@ -561,7 +573,8 @@ pseudo_inits(fp)
 #endif
 
 #if MACHINE_ROMP
-romp_ioconf()
+void
+romp_ioconf(void)
 {
 	register struct device *dp, *mp;
 	register int slave;
@@ -634,9 +647,9 @@ romp_ioconf()
 			continue;
 		}
 		if (dp->d_flags) {
-			printf("controllers (e.g. %s%d) don't have flags, ");
-			printf("only devices do\n",
+			printf("controllers (e.g. %s%d) don't have flags, ",
 			    dp->d_name, dp->d_unit);
+			printf("only devices do\n");
 			continue;
 		}
 		fprintf(fp, "\t{ &%sdriver,\t%d,\t0,\tC 0x%x,\t%d },\n",
@@ -721,10 +734,10 @@ romp_ioconf()
 #endif	MACHINE_ROMP
 
 #if	MACHINE_MMAX
-mmax_ioconf()
+void
+mmax_ioconf(void)
 {
 	register struct device *dp, *dp1, *mp;
-	register int slave;
 	FILE *fp;
 	int	unit;
 
@@ -882,7 +895,7 @@ mmax_ioconf()
 #define	P_UB	2
 
 struct p_entry {
-	char 	*p_name;			/* name of field */
+	const char 	*p_name;		/* name of field */
 	long	p_def;				/* default value */
 	long 	p_lb;				/* lower bound for field */
 	long	p_ub;				/* upper bound of field */ 
@@ -890,7 +903,7 @@ struct p_entry {
 };
 
 struct proto {
-	char	*p_name;			/* name of controller type */
+	const char	*p_name;		/* name of controller type */
 	struct  p_entry	p_fields[NFIELDS];	/* ordered list of fields */
 	int	p_seen;				/* any seen? */
 };
@@ -908,6 +921,7 @@ static	struct	proto	mbad_proto = {
 	{ "maps",	0,	0,	256,	P_LB|P_UB },
 	{ "bin",	0,	0,	7,	P_LB|P_UB },
 	{ "intr",	0,	0,	7,	P_LB|P_UB },},
+	0
 };
 
 /*
@@ -924,6 +938,7 @@ static	struct	proto	sec_proto = {
 	{ "index",	0,	0,	0,	0 },
 	{ "target",	-1,	0,	7,	P_LB|P_UB },
 	{ "unit",	0,	0,	0,	0 },},
+	0
 };
 
 /*
@@ -941,6 +956,7 @@ static	struct	proto	zdc_proto = {
        {{ "index",	0,	0,	31,	P_LB|P_UB },
 	{ "drive",	0,	-1,	7,	P_LB|P_UB },
 	{ "drive_type",	0,	-1,	1,	P_LB|P_UB },},
+	0
 };
 
 static	struct	proto	*ptab[] = {
@@ -956,8 +972,7 @@ static	struct	proto	*ptab[] = {
  */
 
 static struct proto *
-find_proto(str)
-	register char *str;
+find_proto(const char *str)
 {
 	register struct proto *ptp;
 	register int	ptbx;
@@ -969,10 +984,8 @@ find_proto(str)
 	return(NULL);
 }
 
-dev_param(dp, str, num)
-	register struct device *dp;
-	register char *str;
-	long	num;
+void
+dev_param(struct device *dp, const char *str, long num)
 {
 	register struct p_entry *entry;
 	register struct proto *ptp;
@@ -1002,11 +1015,12 @@ dev_param(dp, str, num)
 	yyerror("invalid parameter");
 }
 
-sqt_ioconf()
+void
+sqt_ioconf(void)
 {
 	register struct device *dp, *mp;
 	register int count;
-	register char *namep;
+	const char *namep;
 	register struct proto *ptp;
 	register struct p_entry *entry;
 	FILE	*fp;
@@ -1085,7 +1099,7 @@ sqt_ioconf()
 				if (eq(entry->p_name,"index"))
 					fprintf(fp, "\t%d,", mp->d_unit);
 				else
-					fprintf(fp, "\t%d,",
+					fprintf(fp, "\t%lu,",
 						dp->d_fields[entry-ptp->p_fields]);
 			}
 			fprintf(fp, "\t},\t/* %s%d */\n", dp->d_name, count++);
@@ -1195,7 +1209,8 @@ sqt_ioconf()
 
 #endif	MACHINE_SQT
 #if	MACHINE_I386
-i386_ioconf()
+void
+i386_ioconf(void)
 {
 	FILE *fp;
 
@@ -1214,14 +1229,19 @@ i386_ioconf()
 	(void) fclose(fp);
 }
 #endif	MACHINE_I386
+
 #if MACHINE_MIPSY || MACHINE_MIPS
-mips_ioconf()
+
+void declare(const char *cp);
+int is_declared(const char *cp);
+
+void
+mips_ioconf(void)
 {
 	register struct device *dp, *mp, *np;
 	register int slave;
 	FILE *fp;
 	char buf1[64], buf2[64];
-	char *concat3();
 
 	unlink(path("ioconf.c"));
 	fp = fopen(path("ioconf.c"), "w");
@@ -1443,21 +1463,20 @@ closefile:
 }
 
 char *
-intv2(dev)
-register struct device *dev;
+intv2(struct device *dev)
 {
 	static char buf[20];
 
-	if (dev->d_vec == 0)
-		return ("NULL");
-	(void) sprintf(buf, "_%sint", dev->d_name);
+	if (dev->d_vec == 0) {
+		strcpy(buf, "NULL");
+	} else {
+		(void) sprintf(buf, "_%sint", dev->d_name);
+	}
 	return (buf);
 }
 
 char *
-concat3(buf, p1, p2, p3)
-char *buf;
-char *p1, *p2, *p3;
+concat3(char *buf, const char *p1, const char *p2, const char *p3)
 {
 	(void) sprintf(buf, "%s%s%s", p1, p2, p3);
 	return (buf);
@@ -1467,24 +1486,24 @@ char *p1, *p2, *p3;
 #define	DEVLEN	10
 char decl_devices[MAXDEVS][DEVLEN];
 
-declare(cp)
-register char *cp;
+void
+declare(const char *cp)
 {
-	register i;
+	register int i;
 
 	for (i = 0; i < MAXDEVS; i++)
 		if (decl_devices[i][0] == 0) {
-			strncpy(decl_devices, cp, DEVLEN);
+			strncpy(decl_devices[i], cp, DEVLEN);
 			return;
 		}
 	printf("device table full, fix mkioconf.c\n");
 	exit(1);
 }
 
-is_declared(cp)
-register char *cp;
+int
+is_declared(const char *cp)
 {
-	register i;
+	register int i;
 
 	for (i = 0; i < MAXDEVS; i++) {
 		if (decl_devices[i][0] == 0)
@@ -1497,13 +1516,14 @@ register char *cp;
 #endif MACHINE_MIPSY || MACHINE_MIPS
 
 #if	MACHINE_M68K
-char	*m68k_dn();
+char	*m68k_dn(const char *name);
+void	m68k_pseudo_inits(FILE *fp);
 
-m68k_ioconf()
+void
+m68k_ioconf(void)
 {
 	register struct device *dp, *mp;
 	register int slave;
-	register struct idlst *vp;
 	FILE *fp;
 
 	unlink(path("ioconf.c"));
@@ -1551,9 +1571,9 @@ m68k_ioconf()
 			continue;
 		}
 		if (dp->d_flags) {
-			printf("controllers (e.g. %s%d) don't have flags, ");
-			printf("only devices do\n",
+			printf("controllers (e.g. %s%d) don't have flags, ",
 			    dp->d_name, dp->d_unit);
+			printf("only devices do\n");
 			continue;
 		}
 		fprintf(fp,
@@ -1636,8 +1656,8 @@ m68k_ioconf()
 	(void) fclose(fp);
 }
 
-m68k_pseudo_inits(fp)
-	FILE *fp;
+void
+m68k_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1660,8 +1680,8 @@ m68k_pseudo_inits(fp)
 	fprintf(fp, "\t0,\t0,\n};\n");
 }
 
-i386_pseudo_inits(fp)
-	FILE *fp;
+void
+i386_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1685,21 +1705,19 @@ i386_pseudo_inits(fp)
 }
 
 char *
-m68k_dn(name)
-char *name;
+m68k_dn(const char *name)
 {
 	sprintf(errbuf, "&%sdriver", name); return ns(errbuf);
 }
 #endif	MACHINE_M68K
 
 #if	MACHINE_M88K || MACHINE_M98K
-char	*nrw_dn();
+char	*nrw_dn(char *name);
+void	nrw_pseudo_inits(FILE *fp);
 
-nrw_ioconf()
+void
+nrw_ioconf(void)
 {
-	register struct device *dp, *mp;
-	register int slave;
-	register struct idlst *vp;
 	FILE *fp;
 
 	unlink(path("ioconf.c"));
@@ -1714,8 +1732,8 @@ nrw_ioconf()
 	(void) fclose(fp);
 }
 
-nrw_pseudo_inits(fp)
-	FILE *fp;
+void
+nrw_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1739,44 +1757,44 @@ nrw_pseudo_inits(fp)
 }
 
 char *
-nrw_dn(name)
-	char *name;
+nrw_dn(char *name)
 {
-	return(sprintf(errbuf, "&%sdriver,", name));
+	sprintf(errbuf, "&%sdriver,", name);
+	return(errbuf);
 }
 
-m88k_ioconf()
-{
-	nrw_ioconf();
-}
-
-m98k_ioconf()
+void
+m88k_ioconf(void)
 {
 	nrw_ioconf();
 }
 
-m88k_pseudo_inits(fp)
-	FILE *fp;
+void
+m98k_ioconf(void)
+{
+	nrw_ioconf();
+}
+
+void
+m88k_pseudo_inits(FILE *fp)
 {
 	nrw_pseudo_inits(fp);
 }
 
-m98k_pseudo_inits(fp)
-	FILE *fp;
+void
+m98k_pseudo_inits(FILE *fp)
 {
 	nrw_pseudo_inits(fp);
 }
 
 char *
-m88k_dn(name)
-	char *name;
+m88k_dn(char *name)
 {
 	return(nrw_dn(name));
 }
 
 char *
-m98k_dn(name)
-	char *name;
+m98k_dn(char *name)
 {
 	return(nrw_dn(name));
 }
@@ -1785,13 +1803,12 @@ m98k_dn(name)
 #endif	MACHINE_M88K || MACHINE_M98K
 
 #ifdef MACHINE_HPPA
-char	*hppa_dn();
+char	*hppa_dn(char *name);
+void	hppa_pseudo_inits(FILE *fp);
 
-hppa_ioconf()
+void
+hppa_ioconf(void)
 {
-	register struct device *dp, *mp;
-	register int slave;
-	register struct idlst *vp;
 	FILE *fp;
 
 	unlink(path("ioconf.c"));
@@ -1806,8 +1823,8 @@ hppa_ioconf()
 	(void) fclose(fp);
 }
 
-hppa_pseudo_inits(fp)
-	FILE *fp;
+void
+hppa_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1831,22 +1848,22 @@ hppa_pseudo_inits(fp)
 }
 
 char *
-hppa_dn(name)
-	char *name;
+hppa_dn(char *name)
 {
-	return sprintf(errbuf, "&%sdriver,", name);
+	sprintf(errbuf, "&%sdriver,", name);
+
+	return (errbuf);
 }
 
 #endif MACHINE_HPPA
 
 #ifdef MACHINE_SPARC
-char	*sparc_dn();
+char	*sparc_dn(char *name);
+void	sparc_pseudo_inits(FILE *fp);
 
-sparc_ioconf()
+void
+sparc_ioconf(void)
 {
-	register struct device *dp, *mp;
-	register int slave;
-	register struct idlst *vp;
 	FILE *fp;
 
 	unlink(path("ioconf.c"));
@@ -1861,8 +1878,8 @@ sparc_ioconf()
 	(void) fclose(fp);
 }
 
-sparc_pseudo_inits(fp)
-	FILE *fp;
+void
+sparc_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1886,22 +1903,21 @@ sparc_pseudo_inits(fp)
 }
 
 char *
-sparc_dn(name)
-	char *name;
+sparc_dn(char *name)
 {
-	return sprintf(errbuf, "&%sdriver,", name);
+	sprintf(errbuf, "&%sdriver,", name);
+	return (errbuf);
 }
 
 #endif MACHINE_SPARC
 
 #ifdef MACHINE_PPC
-char	*ppc_dn();
+char	*ppc_dn(char *name);
+void	ppc_pseudo_inits(FILE *fp);
 
-ppc_ioconf()
+void
+ppc_ioconf(void)
 {
-	register struct device *dp, *mp;
-	register int slave;
-	register struct idlst *vp;
 	FILE *fp;
 
 	unlink(path("ioconf.c"));
@@ -1916,8 +1932,8 @@ ppc_ioconf()
 	(void) fclose(fp);
 }
 
-ppc_pseudo_inits(fp)
-	FILE *fp;
+void
+ppc_pseudo_inits(FILE *fp)
 {
 	register struct device *dp;
 	int count;
@@ -1944,34 +1960,81 @@ char *
 ppc_dn(name)
 	char *name;
 {
-	return sprintf(errbuf, "&%sdriver,", name);
+	sprintf(errbuf, "&%sdriver,", name);
+	return (errbuf);
 }
 
 #endif MACHINE_PPC
 
-char *intv(dev)
-	register struct device *dev;
+#ifdef MACHINE_ARM
+void	arm_pseudo_inits(FILE *fp);
+
+void
+arm_ioconf(void)
+{
+	FILE *fp;
+
+	unlink(path("ioconf.c"));
+	fp = fopen(path("ioconf.c"), "w");
+	if (fp == 0) {
+		perror(path("ioconf.c"));
+		exit(1);
+	}
+	fprintf(fp, "#include <dev/busvar.h>\n");
+	fprintf(fp, "\n");
+	arm_pseudo_inits (fp);
+	(void) fclose(fp);
+}
+
+void
+arm_pseudo_inits(FILE *fp)
+{
+	register struct device *dp;
+	int count;
+
+	fprintf(fp, "\n");
+	for (dp = dtab; dp != 0; dp = dp->d_next) {
+		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
+			continue;
+		fprintf(fp, "extern %s();\n", dp->d_init);
+	}
+	fprintf(fp, "\nstruct pseudo_init pseudo_inits[] = {\n");
+	for (dp = dtab; dp != 0; dp = dp->d_next) {
+		if (dp->d_type != PSEUDO_DEVICE || dp->d_init == 0)
+			continue;
+		count = dp->d_slave;
+		if (count <= 0)
+			count = 1;
+		fprintf(fp, "\t%d,\t%s,\n", count, dp->d_init);
+	}
+	fprintf(fp, "\t0,\t0,\n};\n");
+}
+
+#endif /* MACHINE_ARM */
+
+char *
+intv(struct device *dev)
 {
 	static char buf[20];
 
-	if (dev->d_vec == 0)
-		return ("     0");
-	(void) sprintf(buf, "%sint%d", dev->d_name, dev->d_unit);
+	if (dev->d_vec == 0) {
+		strcpy(buf, "     0");
+	} else {
+		(void) sprintf(buf, "%sint%d", dev->d_name, dev->d_unit);
+	}
 	return ns(buf);
 }
 
 char *
-qu(num)
+qu(int num)
 {
 
-	if (num == QUES)
-		return ("'?'");
-	if (num == UNKNOWN)
-		return (" -1");
-	(void) sprintf(errbuf, "%3d", num);
-#if	NeXT
+	if (num == QUES) {
+		strcpy(errbuf, "'?'");
+	} else if (num == UNKNOWN) {
+		strcpy(errbuf, " -1");
+	} else {
+		(void) sprintf(errbuf, "%3d", num);
+	}
 	return ns(errbuf);
-#else	NeXT
-	return (errbuf);
-#endif	NeXT
 }

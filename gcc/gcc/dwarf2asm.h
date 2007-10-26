@@ -1,5 +1,6 @@
 /* Dwarf2 assembler output helper routines.
-   Copyright (C) 2001, 2003 Free Software Foundation, Inc.
+   APPLE LOCAL mainline 2006-03-16 dwarf 4383509
+   Copyright (C) 2001, 2003, 2005, 2006 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,9 +30,12 @@ extern void dw2_asm_output_delta (int, const char *, const char *,
 				  const char *, ...)
      ATTRIBUTE_NULL_PRINTF_4;
 
-extern void dw2_asm_output_offset (int, const char *, const char *, ...)
-     ATTRIBUTE_NULL_PRINTF_3;
+/* APPLE LOCAL begin mainline 2006-03-16 dwarf 4383509 */
+extern void dw2_asm_output_offset (int, const char *, const char *, 
+				   const char *, ...)
+     ATTRIBUTE_NULL_PRINTF_4;
 
+/* APPLE LOCAL end mainline 2006-03-16 dwarf 4383509 */
 extern void dw2_asm_output_addr (int, const char *, const char *, ...)
      ATTRIBUTE_NULL_PRINTF_3;
 

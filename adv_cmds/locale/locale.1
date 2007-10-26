@@ -18,31 +18,43 @@
 .Op ...
 .Sh DESCRIPTION
 .Nm
-displays information about the current locale, or a list of all avilable 
+displays information about the current locale, or a list of all available 
 locales.
 .Pp
 When
 .Nm
-is run with no arguments it will display the current source of each 
-locale category.
+is run with no arguments,
+it will display the current source of each locale category.
 .Pp
 When
 .Nm
-is given the name of a category it acts as if it had been given each
-keyword in that category.  For each keyword it is given the current value 
+is given the name of a category,
+it acts as if it had been given each keyword in that category.
+For each keyword it is given, the current value
 is displayed.
 .Sh OPTIONS
 .Bl -tag -width -indent
 .It Fl a
 Lists all public locales.
-.It Fl c
-Lists the category name before each keyword, unless it is the same category
-as the previously displayed keyword.
-.It Fl k
-Displays the name of each keyword prior to it's value.
+.It Fl c Ar name ...
+Lists the category name before each keyword,
+unless it is the same category as the previously displayed keyword.
+.It Fl k Ar name ...
+Displays the name of each keyword prior to its value.
 .It Fl m
-Lists all avilable public charmaps.  This is currently an empty list.
+Lists all available public charmaps.
+This is currently an empty list.
 .El
+.Pp
+.Sh OPERANDS
+The following operand is supported:
+.Pp
+.Ar name
+is the name of a keyword or category to display.  A list of all keywords
+and categories can be shown with the following command:
+.Bd -literal
+locale -ck LC_ALL
+.Ed
 .Pp
 .Sh ENVIRONMENT
 .Bl -tag -width "LC_MESSAGES"
@@ -51,15 +63,15 @@ Used as a substitute for any unset
 .Ev LC_* 
 variable.  If
 .Ev LANG
-is unset it will act as if set to "C".  If any of
+is unset, it will act as if set to "C".  If any of
 .Ev LANG
 or
 .Ev LC_*
-are set to invalide values
+are set to invalid values,
 .Nm
 acts as if they are all unset.
 .It Ev LC_ALL
-Will overide the setting of all other
+Will override the setting of all other
 .Ev LC_*
 variables.
 .It Ev LC_COLLATE
@@ -76,16 +88,14 @@ Sets the locale for the LC_NUMERIC category.
 Sets the locale for the LC_TIME category.
 .El                      
 .Sh SEE ALSO 
-.\" List links in ascending order by section, alphabetically within a section.
-.\" Please do not reference files that do not exist without filing a bug report
 .Xr localedef 1 , 
-.Xr setlocale 3 ,
 .Xr localeconv 3 ,
 .Xr nl_langinfo 3 ,
+.Xr setlocale 3
 .Sh STANDARDS
 The
 .Nm
 utility conforms to IEEE Std 1003.1-2001 (``POSIX.1'').
-.Sh HISTORY           \" Document history if command behaves in a unique manner 
+.Sh HISTORY
 .Nm
 appeared in Mac OS X 10.4

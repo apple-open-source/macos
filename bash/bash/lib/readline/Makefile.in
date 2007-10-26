@@ -4,7 +4,7 @@
 #								            #
 #############################################################################
 
-# Copyright (C) 1994 Free Software Foundation, Inc.
+# Copyright (C) 1994-2005 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111 USA.
+
+PACKAGE = @PACKAGE_NAME@
+VERSION = @PACKAGE_VERSION@
+
+PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
+PACKAGE_NAME = @PACKAGE_NAME@
+PACKAGE_STRING = @PACKAGE_STRING@
+PACKAGE_VERSION = @PACKAGE_VERSION@
 
 srcdir = @srcdir@
 VPATH = .:@srcdir@
@@ -345,7 +353,7 @@ search.o: search.c
 shell.o: shell.c
 signals.o: signals.c
 terminal.o: terminal.c
-text.o: terminal.c
+text.o: text.c
 tilde.o: tilde.c
 undo.o: undo.c
 util.o: util.c

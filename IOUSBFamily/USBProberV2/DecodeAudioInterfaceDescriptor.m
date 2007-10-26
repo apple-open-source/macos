@@ -25,15 +25,23 @@
 
 #import "DecodeAudioInterfaceDescriptor.h"
 
-
 @implementation DecodeAudioInterfaceDescriptor
-
 +(void)decodeBytes:(UInt8 *)descriptor forDevice:(BusProbeDevice *)thisDevice {
+    GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
+    auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc;
+	pAudioHdrDesc = (AudioCtrlHdrDescriptorPtr)desc;
 
+	if ( [[thisDevice lastInterfaceClassInfo]protocolNum] < 0x20 )
+		decodeBytes10( descriptor, thisDevice );
+	else
+		decodeBytes20( descriptor, thisDevice );
+}
+
+void decodeBytes10( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
     static  char			buf[256];
     static  char			buf2[256];
 	static  char			dump[256];
-    auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc;
+    auto AudioCtrlHdrDescriptorPtr		pAudioHdrDesc = NULL;
     auto AudioCtrlInTermDescriptorPtr		pAudioInTermDesc;
     auto AudioCtrlOutTermDescriptorPtr		pAudioOutTermDesc;
     auto AudioCtrlMixerDescriptorPtr		pAudioMixerDesc;
@@ -45,6 +53,7 @@
     auto CSAS_InterfaceDescriptorPtr		pAudioGeneralDesc;
     auto CSAS_FormatTypeIDescPtr		pAudioFormatTypeDesc;
     UInt16					i,n,ch, freqIndex, tempIndex;
+	UInt16					audioHeaderDescVersion = 0;
     UInt8					*p, *srcIdPtr;
     char					*s;
 	bool					addedAttribute;
@@ -153,9 +162,9 @@
             // Refer to USB Device Class Definition for Audio Devices 1.0 p. 37.
             case ACS_HEADER:
                 pAudioHdrDesc = (AudioCtrlHdrDescriptorPtr)desc;
-                i = Swap16(&pAudioHdrDesc->descVersNum);
+                audioHeaderDescVersion = Swap16(&pAudioHdrDesc->descVersNum);
                 sprintf((char *)buf, "%1x%1x.%1x%1x",
-                        (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, (i>>0)&0x000f );
+                        (audioHeaderDescVersion>>12)&0x000f, (audioHeaderDescVersion>>8)&0x000f, (audioHeaderDescVersion>>4)&0x000f, (audioHeaderDescVersion>>0)&0x000f );
                 [thisDevice addProperty:"Descriptor Version Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
                 sprintf((char *)buf, "%u", Swap16(&pAudioHdrDesc->descTotalLength) );
@@ -497,9 +506,16 @@
                 //
                 // So, ch = ((len-7)/n) - 1;
                 //
-                n = pAudioFeatureDesc->descCtrlSize;
+				if ( audioHeaderDescVersion < 0x0200 )
+				{
+					n = pAudioFeatureDesc->descCtrlSize;
+					ch = ((pAudioFeatureDesc->descLen - 7)/n) - 1;
+				} else {
+					n = 4;
+					ch = ((pAudioFeatureDesc->descLen - 6)/n) - 1;
+				}
                 ch = ((pAudioFeatureDesc->descLen - 7)/n) - 1;
-                sprintf((char *)buf,	"%u", ch );
+					sprintf((char *)buf,	"%u", ch );
                 [thisDevice addProperty:"Number of Channels (ch):" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
                 p=&pAudioFeatureDesc->descControls[0];
@@ -586,7 +602,7 @@
                 sprintf((char *)buf, "%u", pAudioExtDesc->descUnitID );
                 [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
-                sprintf((char *)buf, "0x%x", Swap16(&pAudioExtDesc->descVendorCode) );
+                sprintf((char *)buf, "0x%x", Swap16(&pAudioExtDesc->descExtensionCode) );
                 [thisDevice addProperty:"Vendor Ext. Code:" withValue:buf atDepth:INTERFACE_LEVEL+1];
 
                 sprintf((char *)buf, "%u", pAudioExtDesc->descNumPins );
@@ -772,5 +788,688 @@
                         }
 }
 
+#define DUMPIT( des, x )	dump[0] = 0; \
+				for (tempIndex = 0; tempIndex < des->descLen; tempIndex++) \
+				{ \
+					buf2[0] = ((char *)des)[tempIndex]; \
+					buf2[1] = '\0'; \
+					sprintf ((char *)buf, "%02X ", buf2[0]); \
+					strcat ((char *)dump, (char *)buf); \
+				} \
+				[thisDevice addProperty:"Dump Contents (hex):" withValue:dump atDepth:INTERFACE_LEVEL+(x)]
 
+void decodeBytes20( UInt8 *descriptor, BusProbeDevice * thisDevice ) {
+    static  char			buf[256];
+    static  char			buf2[256];
+	static  char			dump[256];
+    auto Audio20CtrlHdrDescriptorPtr		pAudioHdrDesc;
+    auto Audio20CtrlInTermDescriptorPtr		pAudioInTermDesc;
+    auto Audio20ClockSourceDescriptorPtr		pAudioClockSourceDesc;
+    auto Audio20CtrlOutTermDescriptorPtr		pAudioOutTermDesc;
+    auto AudioCtrlMixerDescriptorPtr		pAudioMixerDesc;
+    auto AudioCtrlSelectorDescriptorPtr		pAudioSelectorDesc;
+    auto Audio20CtrlFeatureDescriptorPtr		pAudioFeatureDesc;
+    auto Audio20CtrlExtDescriptorPtr		pAudioExtDesc;
+    auto ac20ProcessingDescriptorPtr		pAudioProcDesc;
+    auto ac20ProcessingDescriptorContPtr		pAudioProcContDesc;
+    auto CS20AS_InterfaceDescriptorPtr		pAudioGeneralDesc;
+    auto CS20AS_FormatTypeIDescPtr		pAudioFormatTypeDesc;
+    UInt16					i,n,ch,tempIndex;
+    UInt8					*p, *srcIdPtr;
+    char					*s;
+	bool					addedAttribute;
+    UInt16					srcIndex;
+    GenericAudioDescriptorPtr			desc = (GenericAudioDescriptorPtr) descriptor;
+
+    if ( ((GenericAudioDescriptorPtr)desc)->descType == kUSBAudioEndPointDesc )
+    {
+        IOUSBEndpointDescriptor	*	pEndpointDesc = ( IOUSBEndpointDescriptor * ) desc;
+
+        if( sizeof( AS_IsocEndPtDesc ) == desc->descLen )
+            sprintf((char *)buf, "Standard AS Audio EndPoint");
+        else
+            sprintf((char *)buf, "Class-Specific AS Audio EndPoint"); 
+
+        sprintf((char *)buf2, " - %s ",
+                ((pEndpointDesc->bmAttributes & 0x3) == 3) ? "Interrupt":
+                ((pEndpointDesc->bmAttributes & 0x3) == 2) ? "Bulk":
+                ((pEndpointDesc->bmAttributes & 0x3) == 1) ? "Isochronous" : "Control");
+        strcat((char *)buf, (char *)buf2);
+        sprintf((char *)buf2, "%s", (pEndpointDesc->bEndpointAddress & 0x80) ? "input" : "output");
+        strcat((char *)buf, (char *)buf2);
+        [thisDevice addProperty:buf withValue:"" atDepth:(int)INTERFACE_LEVEL];
+
+        sprintf((char *)buf, "0x%02x  %s %s %s", pEndpointDesc->bmAttributes,
+                ((pEndpointDesc->bmAttributes & 0x01) == 0x01) ? "Sample Frequency,":"",
+                ((pEndpointDesc->bmAttributes & 0x02) == 0x02) ? "Pitch,":"",
+                ((pEndpointDesc->bmAttributes & 0x80) == 0x80) ? "MaxPacketsOnly":"" );
+        [thisDevice addProperty:"Attributes:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+        sprintf((char *)buf, "0x%02x  %s", ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits,
+                (0 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(UNDEFINED)" :
+                (1 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Milliseconds)" :
+                (2 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "(Decoded PCM Samples)" :
+                "(RESERVED)" );
+        [thisDevice addProperty:"bLockDelayUnits:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+        sprintf((char *)buf, "%d    %s", Swap16(&((CSAS_IsocEndPtDescPtr)pEndpointDesc)->wLockDelay),
+                (1 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "ms" :
+                (2 == ((CSAS_IsocEndPtDescPtr)pEndpointDesc)->bLockDelayUnits) ? "Decoded PCM Samples" :
+                "" );
+        [thisDevice addProperty:"wLockDelay:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+    }
+
+    if ( ((GenericAudioDescriptorPtr)desc)->descType != CS_INTERFACE )
+        return;
+
+    if( AC_CONTROL_SUBCLASS == [[thisDevice lastInterfaceClassInfo] subclassNum] )
+    {
+        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        {
+            case ACS_HEADER:
+                sprintf((char *)buf, "Audio Control Class Specific Header");
+                break;
+            case ACS_INPUT_TERMINAL:
+                sprintf((char *)buf, "Audio Class Specific Input Terminal");
+                break;
+            case AC20S_CLOCK_SOURCE:
+                sprintf((char *)buf, "Audio Class Specific Clock Source");
+                break;
+            case ACS_OUTPUT_TERMINAL:
+                sprintf((char *)buf, "Audio Class Specific Ouput Terminal");
+                break;
+            case ACS_MIXER_UNIT:
+                sprintf((char *)buf, "Audio Class Specific Mixer Unit");
+                break;
+            case ACS_SELECTOR_UNIT:
+                sprintf((char *)buf, "Audio Class Specific Selector Unit");
+                break;
+            case ACS_FEATURE_UNIT:
+                sprintf((char *)buf, "Audio Class Specific Feature");
+                break;
+            case ACS_PROCESSING_UNIT:
+                sprintf((char *)buf, "Audio Class Specific Processing Unit");
+                break;
+            case ACS_EXTENSION_UNIT:
+                sprintf((char *)buf, "Audio Class Specific Extension");
+                break;
+	    default:
+                sprintf((char *)buf, "Uknown AC_CONTROL_SUBCLASS SubClass");
+        }
+    }
+    else if( AC_STREAM_SUBCLASS == [[thisDevice lastInterfaceClassInfo] subclassNum] )
+    {
+        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        {
+            case ACS_HEADER:
+                sprintf((char *)buf, "Audio Control Class Specific Header");
+                break;
+            case ACS_FORMAT_TYPE:
+                sprintf((char *)buf, "Audio Class Specific Audio Data Format");
+                break;
+                break;
+	    default:
+                sprintf((char *)buf, "Uknown AC_STREAM_SUBCLASS Type");
+        }
+    }
+    else
+	sprintf((char *)buf, "Uknown Interface SubClass Type");
+    
+    [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL];
+
+
+    if ( [[thisDevice lastInterfaceClassInfo] subclassNum]==0x01  ) {
+		// Audio Control
+        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+        {
+            // Once the header is read, should the code read the rest of the desc. since the
+            //    happens to include a total size?
+            // Refer to USB Device Class Definition for Audio Devices 1.0 p. 37.
+            case ACS_HEADER:
+                pAudioHdrDesc = (Audio20CtrlHdrDescriptorPtr)desc;
+                i = Swap16(&pAudioHdrDesc->descVersNum);
+                sprintf((char *)buf, "%1x%1x.%1x%1x",
+                        (i>>12)&0x000f, (i>>8)&0x000f, (i>>4)&0x000f, (i>>0)&0x000f );
+                [thisDevice addProperty:"Descriptor Version Number:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioHdrDesc->descCategory );
+                [thisDevice addProperty:"Category:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", Swap16(&pAudioHdrDesc->descTotalLength) );
+                [thisDevice addProperty:"Class Specific Size:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioHdrDesc->descbmControls );
+                [thisDevice addProperty:"bmControls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				DUMPIT( pAudioHdrDesc, 1 );
+				break;
+
+            case ACS_INPUT_TERMINAL:
+                pAudioInTermDesc = (Audio20CtrlInTermDescriptorPtr)desc;
+                //sprintf((char *)buf, "ACS_INPUT_TERMINAL" );
+                //// AddStringChild(item, buf);
+                sprintf((char *)buf, "%u", pAudioInTermDesc->descTermID );
+                [thisDevice addProperty:"Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // To get input terminal types refer to USB PDF files for Termt10.pdf pp. 7-8.
+                switch ( Swap16(&pAudioInTermDesc->descTermType) )
+                {
+                    //Should 0x0100 to 0x01ff be included here?  They are not input terminal
+                    //   types, but Jazz says they are.
+                    case 0x100: s="USB Undefined"; break;
+                    case 0x101: s="USB streaming"; break;
+                    case 0x1ff: s="USB vendor specific"; break;
+
+                    case 0x200: s="Input Undefined"; break;
+                    case 0x201: s="Microphone"; break;
+                    case 0x202: s="Desktop microphone"; break;
+                    case 0x203: s="Personal microphone"; break;
+                    case 0x204: s="Omni-directional microphone"; break;
+                    case 0x205: s="Microphone array"; break;
+                    case 0x206: s="Processing microphone array"; break;
+
+                    case 0x400: s="Bi-directional Terminal, Undefined"; break;
+                    case 0x401: s="Bi-directional Handset"; break;
+                    case 0x402: s="Bi-directional Headset"; break;
+                    case 0x403: s="Bi-directional Speakerphone (no echo reduction)"; break;
+                    case 0x404: s="Bi-directional Speakerphone (echo supression)"; break;
+                    case 0x405: s="Bi-directional Speakerphone (echo canceling)"; break;
+
+                    case 0x500: s="Telephony Terminal, Undefined"; break;
+                    case 0x501: s="Telephony Phoneline"; break;
+                    case 0x502: s="Telephony Telephone"; break;
+                    case 0x503: s="Telephony Down Line Phone"; break;
+
+                    case 0x600: s="External Undefined"; break;
+                    case 0x601: s="Analog connector"; break;
+                    case 0x602: s="Digital audio connector"; break;
+                    case 0x603: s="Line connector"; break;
+                    case 0x604: s="Legacy audio connector"; break;
+                    case 0x605: s="S/PDIF interface"; break;
+                    case 0x606: s="1394 DA stream"; break;
+                    case 0x607: s="1394 DV stream soundtrack"; break;
+
+                    case 0x700: s="Embedded Terminal Undefined"; break;
+                    case 0x703: s="Embedded Audio CD"; break;
+                    case 0x704: s="Embedded Digital Audio Tape"; break;
+                    case 0x705: s="Embedded Digital Compact Cassette"; break;
+                    case 0x706: s="Embedded MiniDisk"; break;
+                    case 0x707: s="Embedded Analog Tape"; break;
+                    case 0x708: s="Embedded Vinyl Record Player"; break;
+                    case 0x709: s="Embedded VCR Audio"; break;
+                    case 0x70a: s="Embedded Video Disk Audio"; break;
+                    case 0x70b: s="Embedded DVD Audio"; break;
+                    case 0x70c: s="Embedded TV Tuner Audio"; break;
+                    case 0x70d: s="Embedded Satellite Receiver Audio"; break;
+                    case 0x70e: s="Embedded Cable Tuner Audio"; break;
+                    case 0x70f: s="Embedded DSS Audio"; break;
+                    case 0x710: s="Embedded Radio Receiver"; break;
+                    case 0x712: s="Embedded Multi-track Recorder"; break;
+                    case 0x713: s="Embedded Synthesizer"; break;
+                    default: s="Invalid Input Terminal Type";
+                }
+
+                sprintf((char *)buf, 	"0x%x (%s)", pAudioInTermDesc->descTermType, s );
+                [thisDevice addProperty:"Input Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                if( !pAudioInTermDesc->descOutTermID )
+                {
+                    sprintf((char *)buf, "%u [NONE]", pAudioInTermDesc->descOutTermID );
+                }
+                    else
+                    {
+                        sprintf((char *)buf, "%u", pAudioInTermDesc->descOutTermID );
+                    }
+                    [thisDevice addProperty:"OutTerminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioInTermDesc->descNumChannels );
+                [thisDevice addProperty:"Number of Channels:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                Swap16(&pAudioInTermDesc->descChannelConfig);
+                sprintf((char *)buf, "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d",
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 15 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 14 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 13 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 12 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 11 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 << 10 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  9 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  8 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  7 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  6 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  5 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  4 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  3 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  2 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  1 ) ? 1 : 0,
+                        (pAudioInTermDesc->descChannelConfig) & ( 1 <<  0 ) ? 1 : 0 );
+                [thisDevice addProperty:"Spatial config of channels:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                for( tempIndex = 0; tempIndex < 12; tempIndex++ )
+                {
+                    if( pAudioInTermDesc->descChannelConfig & (1 <<  tempIndex) )
+                    {
+                        switch( tempIndex )
+                        {
+                            case 11:	sprintf((char *)buf, "    ^ииииииииииии  Top");			break;
+                            case 10:	sprintf((char *)buf, "     ^иииииииииии  Side Right");		break;
+                            case 9:		sprintf((char *)buf, "      ^ииииииииии  Side Left");		break;
+                            case 8:		sprintf((char *)buf, "       ^иииииииии  Surround");		break;
+                            case 7:		sprintf((char *)buf, "        ^ииииииии  Right of Center");	break;
+                            case 6:		sprintf((char *)buf, "         ^иииииии  Left of Center");	break;
+                            case 5:		sprintf((char *)buf, "          ^ииииии  Right Surround");	break;
+                            case 4:		sprintf((char *)buf, "           ^иииии  Left Surround");	break;
+                            case 3:		sprintf((char *)buf, "            ^ииии  Low Frequency Effects");	break;
+                            case 2:		sprintf((char *)buf, "             ^иии  Center");		break;
+                            case 1:		sprintf((char *)buf, "              ^ии  Right Front");		break;
+                            case 0:		sprintf((char *)buf, "               ^и  Left Front");		break;
+                        }
+                        [thisDevice addProperty:"" withValue:buf atDepth:INTERFACE_LEVEL+1];
+                    }
+                }
+
+                sprintf((char *)buf, "%u", pAudioInTermDesc->descChannelNames );
+                [thisDevice addProperty:"String index for first logical channel:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                if( !pAudioInTermDesc->descTermName )
+                {
+                    sprintf((char *)buf, "%u [NONE]", pAudioInTermDesc->descTermName );
+                }
+                    else
+                    {
+                        sprintf((char *)buf, "%u", pAudioInTermDesc->descTermName );
+                    }
+                    [thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				DUMPIT( pAudioInTermDesc, 1 );
+                break;
+
+            case AC20S_CLOCK_SOURCE:
+                pAudioClockSourceDesc = (Audio20ClockSourceDescriptorPtr)desc;
+                sprintf((char *)buf, "%u", pAudioClockSourceDesc->descClockID );
+                [thisDevice addProperty:"Clock ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				switch( pAudioClockSourceDesc->descAttributes & 3 ) {
+					case 0: sprintf((char *)buf, "External Clock" ); break;
+					case 1: sprintf((char *)buf, "Internal Fixed Clock" ); break;
+					case 2: sprintf((char *)buf, "Internal Variable Clock" ); break;
+					case 3: sprintf((char *)buf, "Internal Programmable Clock" ); break;
+				}
+				if ( 4 & pAudioClockSourceDesc->descAttributes ) strcat( (char *) buf, " Sync'd to SOF" );
+				[thisDevice addProperty:"Attributes:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+			
+				sprintf((char *)buf, "%u", pAudioClockSourceDesc->descbmControls );
+				[thisDevice addProperty:"Controls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+  
+				sprintf((char *)buf, "%u", pAudioClockSourceDesc->descAssocTermID );
+				[thisDevice addProperty:"Associated Terminal:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+  
+				if( !pAudioClockSourceDesc->desciClockSourceName )
+                {
+                    sprintf((char *)buf, "%u [NONE]", pAudioClockSourceDesc->desciClockSourceName );
+                }
+				else
+				{
+					sprintf((char *)buf, "%u", pAudioClockSourceDesc->desciClockSourceName );
+				}
+				[thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				DUMPIT( pAudioClockSourceDesc, 1 );
+
+                break;
+
+            case ACS_OUTPUT_TERMINAL:
+                pAudioOutTermDesc = (Audio20CtrlOutTermDescriptorPtr)desc;
+                //sprintf((char *)buf, "ACS_OUTPUT_TERMINAL" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, 	"%u", pAudioOutTermDesc->descTermID );
+                [thisDevice addProperty:"Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // To get output terminal types refer to USB PDF files for Termt10.pdf p. 8.
+                switch ( Swap16(&pAudioOutTermDesc->descTermType) )
+                {
+                    case 0x100: s="USB Undefined"; break;
+                    case 0x101: s="USB Isochronous Stream"; break;
+                    case 0x1ff: s="USB vendor specific"; break;
+
+                    case 0x0300: s="Output Undefined"; break;
+                    case 0x0301: s="Speaker"; break;
+                    case 0x0302: s="Headphones"; break;
+                    case 0x0303: s="Head Mounted Display Audio"; break;
+                    case 0x0304: s="Desktop speaker"; break;
+                    case 0x0305: s="Room speaker"; break;
+                    case 0x0306: s="Communication speaker"; break;
+                    case 0x0307: s="Low frequency effects speaker"; break;
+
+                    case 0x400: s="Bi-directional Terminal, Undefined"; break;
+                    case 0x401: s="Bi-directional Handset"; break;
+                    case 0x402: s="Bi-directional Headset"; break;
+                    case 0x403: s="Bi-directional Speakerphone (no echo reduction)"; break;
+                    case 0x404: s="Bi-directional Speakerphone (echo supression)"; break;
+                    case 0x405: s="Bi-directional Speakerphone (echo canceling)"; break;
+
+                    case 0x500: s="Telephony Terminal, Undefined"; break;
+                    case 0x501: s="Telephony Phoneline"; break;
+                    case 0x502: s="Telephony Telephone"; break;
+                    case 0x503: s="Telephony Down Line Phone"; break;
+
+                    case 0x600: s="External Undefined"; break;
+                    case 0x601: s="Analog connector"; break;
+                    case 0x602: s="Digital audio connector"; break;
+                    case 0x603: s="Line connector"; break;
+                    case 0x604: s="Legacy audio connector"; break;
+                    case 0x605: s="S/PDIF interface"; break;
+                    case 0x606: s="1394 DA stream"; break;
+                    case 0x607: s="1394 DV stream soundtrack"; break;
+
+                    case 0x700: s="Embedded Terminal Undefined"; break;
+                    case 0x701: s="Embedded Level Calibration Noise"; break;
+                    case 0x702: s="Embedded Equalization Noise"; break;
+                    case 0x704: s="Embedded Digital Audio Tape"; break;
+                    case 0x705: s="Embedded Digital Compact Cassette"; break;
+                    case 0x706: s="Embedded MiniDisk"; break;
+                    case 0x707: s="Embedded Analog Tape"; break;
+                    case 0x708: s="Phonograph"; break;
+                    case 0x709: s="VCR Audio"; break;
+                    case 0x70A: s="Video Disc Audio"; break;
+                    case 0x70B: s="DVD Audio"; break;
+                    case 0x70C: s="TV Tuner Audio"; break;
+                    case 0x70D: s="Satellite Receiver Audio"; break;
+                    case 0x70E: s="Cable Tuner Audio"; break;
+                    case 0x70F: s="DSS Audio"; break;
+                    case 0x710: s="Radio Receiver"; break;
+                    case 0x711: s="Embedded AM/FM Radio Transmitter"; break;
+                    case 0x712: s="Embedded Multi-track Recorder"; break;
+                    case 0x713: s="Synthesizer"; break;
+                    default: s="Invalid Output Terminal Type";
+                }
+
+                sprintf((char *)buf, 	"0x%x (%s)", pAudioOutTermDesc->descTermType, s );
+                [thisDevice addProperty:"Output Terminal Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                if( !pAudioOutTermDesc->descInTermID )
+                {
+                    sprintf((char *)buf, "%u [NONE]", pAudioOutTermDesc->descInTermID );
+                }
+                    else
+                    {
+                        sprintf((char *)buf, "%u", pAudioOutTermDesc->descInTermID );
+                    }
+                    [thisDevice addProperty:"InTerminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+
+                sprintf((char *)buf, "%u", pAudioOutTermDesc->descSourceID );
+                [thisDevice addProperty:"Source ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+
+                if( !pAudioOutTermDesc->descTermName )
+                {
+                    sprintf((char *)buf, "%u [NONE]", pAudioOutTermDesc->descTermName );
+                }
+                    else
+                    {
+                        sprintf((char *)buf, "%u", pAudioOutTermDesc->descTermName );
+                    }
+                    [thisDevice addProperty:"Terminal Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+				DUMPIT( pAudioOutTermDesc, 1 );
+                break;
+            case ACS_MIXER_UNIT:
+                pAudioMixerDesc = (AudioCtrlMixerDescriptorPtr)desc;
+                sprintf((char *)buf, "ACS_MIXER_UNIT" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, 	"%u", pAudioMixerDesc->descUnitID );
+                [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, 	"%u", pAudioMixerDesc->descNumPins );
+                [thisDevice addProperty:"Number of pins:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // Add parsing for other pin IDs and channel configurations.
+                for( i=0; i < pAudioMixerDesc->descNumPins; i++ )
+                {
+
+                    sprintf((char *)buf2,	"Source ID Pin[%d]:", i+1);
+                    sprintf((char *)buf,	"%u", pAudioMixerDesc->descSourcePID[i] );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+                }
+				DUMPIT( pAudioMixerDesc, 1 );
+				break;
+
+            case ACS_SELECTOR_UNIT:
+                pAudioSelectorDesc = (AudioCtrlSelectorDescriptorPtr)desc;
+                sprintf((char *)buf, "ACS_SELECTOR_UNIT" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, 	"%u", pAudioSelectorDesc->descUnitID );
+                [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, 	"%u", pAudioSelectorDesc->descNumPins );
+                [thisDevice addProperty:"Number of pins:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // Add parsing for other pin IDs and channel configurations.
+                for( i=0; i < pAudioSelectorDesc->descNumPins; i++ )
+                {
+                    sprintf((char *)buf2,	"Source ID Pin[%d]:", i);
+                    sprintf((char *)buf,	"%u", pAudioSelectorDesc->descSourcePID[i] );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+                }
+				DUMPIT( pAudioSelectorDesc, 1 );
+                    break;
+
+            case ACS_FEATURE_UNIT:
+                pAudioFeatureDesc = (Audio20CtrlFeatureDescriptorPtr)desc;
+                //sprintf((char *)buf, "ACS_FEATURE_UNIT" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, 	"%u", pAudioFeatureDesc->descUnitID );
+                [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, 	"%u", pAudioFeatureDesc->descSourceID );
+                [thisDevice addProperty:"Source ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // The feature descriptor length equals len=7+(ch+1)*n from Audio Class
+                //    Devices p. 43).
+                //
+                // Algebra:
+                //        len - 7 = (ch + 1)*n
+                //        (len-7)/n = ch + 1
+                //        ((len-7)/n) - 1 = ch
+                //
+                // So, ch = ((len-7)/n) - 1;
+                //
+				n = 4;
+				ch = ((pAudioFeatureDesc->descLen - 6)/n) - 1;
+                sprintf((char *)buf,	"%u", ch );
+                [thisDevice addProperty:"Number of Channels (ch):" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                p=&pAudioFeatureDesc->descControls[0];
+                for ( tempIndex = 0; tempIndex <= ch; tempIndex++ )
+                {
+                    buf[0] = 0;
+					s = (char*)buf;
+                    switch( tempIndex )
+                    {
+                        case 0:		strcat  (s, "Master Channel:......................... ( " );	break;
+                        case 1:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 2:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 3:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 4:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 5:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 6:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 7:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 8:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        case 9:	sprintf (s, "Channel %d:............................. ( ", tempIndex );	break;
+                        default:sprintf (s, "Channel %2d:............................ ( ", tempIndex );	break;
+                    }
+
+#define BM_BITS( str, x, sh ) if ( ( x & ( 3 << sh ) ) >> sh ) { \
+							strcat (s, str ); switch( ( x & ( 3 << sh ) ) >> sh ) { \
+							case 1: strcat(s, "RO " ); addedAttribute = true; break; \
+							case 2: strcat(s, "Invalid " ); addedAttribute = true; break; \
+							case 3: strcat(s, "RW " ); addedAttribute = true; break; } }
+                    // The number of bytes for each field is indicated by descCtrlSize.
+					addedAttribute = FALSE;
+					BM_BITS( "Mute:", p[0], 0 );
+					BM_BITS( "Volume:", p[0], 2 );
+					BM_BITS( "Bass:", p[0], 4 );
+					BM_BITS( "Mid:", p[0], 6 );
+					BM_BITS( "Treble:", p[1], 0 );
+					BM_BITS( "Graphic EQ:", p[1],2 );
+					BM_BITS( "AGC:", p[1], 4 );
+					BM_BITS( "Delay:", p[1], 6 );
+					BM_BITS( "Bass Boost:", p[2], 0 );
+					BM_BITS( "Loudness:", p[2], 2 );
+					BM_BITS( "InputGain:", p[2], 4 );
+					BM_BITS( "InputGainPad:", p[2], 6 );
+					BM_BITS( "Phase Inverter:", p[3], 0 );
+					BM_BITS( "UnderFlow:", p[3], 2 );
+					BM_BITS( "OverFlow:", p[3], 4 );
+					BM_BITS( "Reserved:", p[3], 6 );
+                    p += n;
+					
+					// Destroy trailing comma or spaces by terminating string early if necessary
+                    if (addedAttribute)
+					{
+					//	*(s + strlen(s) - 2) = 0;
+                    }
+					strcat (s, " )" );
+					[thisDevice addProperty:" " withValue:s atDepth:INTERFACE_LEVEL+1];
+                    // AddStringChild(item, buf);
+                }
+
+                    // p points to the next descriptor byte.
+                    sprintf((char *)buf, "%u", *p );
+                [thisDevice addProperty:"Feature Unit Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				DUMPIT( pAudioFeatureDesc, 1 );
+                break;
+            case ACS_EXTENSION_UNIT:
+                pAudioExtDesc = (Audio20CtrlExtDescriptorPtr)desc;
+                //sprintf((char *)buf, "ACS_EXTENSION_UNIT" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, "%u", pAudioExtDesc->descUnitID );
+                [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "0x%x", Swap16(&pAudioExtDesc->descExtensionCode) );
+                [thisDevice addProperty:"Vendor Ext. Code:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioExtDesc->descNumPins );
+                [thisDevice addProperty:"Number of Input Pins:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                // The feature descriptor length equals len=13+descNumPins+bControlSize
+                //    from Audio Class Devices p. 56.
+
+                // Add parsing for other pin IDs and channel configurations.
+                for( i=0; i < pAudioExtDesc->descNumPins; i++ )
+                {
+                    sprintf((char *)buf2,	"Source ID Pin[%d]:", i);
+                    sprintf((char *)buf,	"%u", pAudioExtDesc->descSourcePID[i] );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+                }
+				DUMPIT( pAudioExtDesc, 1 );
+
+                break;
+            case ACS_PROCESSING_UNIT:
+                pAudioProcDesc = (ac20ProcessingDescriptorPtr)desc;
+                //sprintf((char *)buf, "ACS_PROCESSING_UNIT" ); // AddStringChild(item, buf);
+                sprintf((char *)buf, "%u", pAudioProcDesc->bUnitID );
+                [thisDevice addProperty:"Unit ID:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "0x%04x", Swap16(&pAudioProcDesc->wProcessType) );
+                [thisDevice addProperty:"Process Type:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioProcDesc->bNrPins );
+                [thisDevice addProperty:"Number of Input Pins:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                for( srcIndex = 0, srcIdPtr = (UInt8*)&pAudioProcDesc->bNrPins; srcIndex < pAudioProcDesc->bNrPins; srcIndex++ )
+                {
+                    sprintf((char *)buf2, "SourceID(%u):", srcIndex);
+                    sprintf((char *)buf, "%u", *srcIdPtr++ );
+                    [thisDevice addProperty:buf2 withValue:buf atDepth:INTERFACE_LEVEL+1];
+                }
+                    pAudioProcContDesc = (ac20ProcessingDescriptorContPtr)srcIdPtr;
+                sprintf((char *)buf, "%u", pAudioProcContDesc->bNrChannels );
+                [thisDevice addProperty:"Number of Channels:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "0x%04x", Swap16(&pAudioProcContDesc->wChannelConfig ));
+                [thisDevice addProperty:"Channel Configuration:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioProcContDesc->iChannelNames );
+                [thisDevice addProperty:"Channel Names:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "0x%04x", Swap16(&pAudioProcContDesc->bmControls ));
+                [thisDevice addProperty:"Controls:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+
+                sprintf((char *)buf, "%u", pAudioProcContDesc->iProcessing );
+                [thisDevice addProperty:"Process Unit Name:" withValue:buf atDepth:INTERFACE_LEVEL+1];
+				DUMPIT( pAudioProcDesc, 1 );
+
+                break;
+				}
+			}
+			
+            else            if ( [[thisDevice lastInterfaceClassInfo] subclassNum]==0x02 /*AudioStreaming*/ )
+                switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+                {
+
+                    case ACS_ASTREAM_GENERAL:
+                        sprintf((char *)buf, "Audio Stream General" );
+                        [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL+1];
+
+                        pAudioGeneralDesc = (CS20AS_InterfaceDescriptorPtr)desc;
+                        sprintf((char *)buf, "%u", pAudioGeneralDesc->terminalID );
+                        [thisDevice addProperty:"Endpoint Terminal ID:" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+                        sprintf((char *)buf, "%u", pAudioGeneralDesc->formatType );
+                        [thisDevice addProperty:"Format Type:" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						
+						buf[ 0 ] = 0;
+						UInt32 tempFormat = Swap32( & pAudioGeneralDesc->bmFormats );
+						if ( 1 == pAudioGeneralDesc->formatType )
+						{
+							for ( tempIndex = 0; ( tempIndex < 32 ) && tempFormat; tempIndex++ )
+							{
+								char lilbuf[14] = { 0 };
+								if ( tempFormat & 1 ) switch( tempIndex ) {
+									case 0: strcat( ( char * ) buf, "PCM "); break;
+									case 1: strcat( ( char * ) buf, "PCM8 "); break;
+									case 2: strcat( ( char * ) buf, "Float "); break;
+									case 3: strcat( ( char * ) buf, "ALAW "); break;
+									case 4: strcat( ( char * ) buf, "uLAW "); break;
+									case 31: strcat( ( char * ) buf, "RAW "); break;
+									default: sprintf( lilbuf, "Reserved:%d ", tempIndex ); strcat( ( char * ) buf,  lilbuf ); break;
+								}
+								tempFormat >>= 1;
+							}
+						} else {
+							sprintf((char *)buf, "%u", (unsigned int) Swap32( & pAudioGeneralDesc->bmFormats ) );
+						}
+                        [thisDevice addProperty:"Formats" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+						sprintf((char *)buf, "%d", (unsigned int) pAudioGeneralDesc->numChannels );
+                        [thisDevice addProperty:"Number of Channels" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+						sprintf((char *)buf, "%u", (unsigned int) Swap32( & pAudioGeneralDesc->channelConfig ) );
+                        [thisDevice addProperty:"Channel Configuration" withValue:buf atDepth:INTERFACE_LEVEL+2];
+						DUMPIT( pAudioGeneralDesc, 2 );
+
+                        break;
+                    case ACS_ASTREAM_TYPE:
+                        sprintf((char *)buf, "Audio Stream Format Type Desc." );
+                        [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL+1];
+
+                        pAudioFormatTypeDesc = (CS20AS_FormatTypeIDescPtr)desc;
+                        sprintf((char *)buf, "%u", pAudioFormatTypeDesc->formatType );
+                        [thisDevice addProperty:"Format Type:" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+                        sprintf((char *)buf, "%u", pAudioFormatTypeDesc->slotSize );
+                        [thisDevice addProperty:"Slot Size:" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+                        sprintf((char *)buf, "%u", pAudioFormatTypeDesc->bitResolution );
+                        [thisDevice addProperty:"Bit Resolution:" withValue:buf atDepth:INTERFACE_LEVEL+2];
+
+						DUMPIT( pAudioFormatTypeDesc, 2 );
+						break;
+                    default:
+                        sprintf((char *)buf, "AudioStreaming Subclass" );
+                        [thisDevice addProperty:buf withValue:"" atDepth:INTERFACE_LEVEL+1];
+	}
+                    else if ( [[thisDevice lastInterfaceClassInfo] subclassNum]==0x03 /*MIDIStreaming*/ )
+                        switch ( ((GenericAudioDescriptorPtr)desc)->descSubType )
+                        {
+                        }
+
+}
 @end

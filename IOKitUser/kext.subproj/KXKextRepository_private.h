@@ -1,19 +1,23 @@
+#if !__LP64__
+
 #ifndef __KXKEXTREPOSITORY_PRIVATE_H__
 #define __KXKEXTREPOSITORY_PRIVATE_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 #include "KXKextRepository.h"
 #include "KXKextManager_private.h"
 #include "KXKext_private.h"
 
 #define _CACHE_VERSION_KEY  		CFSTR("KextCacheVersion")
-#define _CACHE_PATH_KEY     		CFSTR("RepositoryPath")
 #define _CACHE_SCANS_KEY    		CFSTR("ScansForKexts")
 #define _CACHE_KEXTS_KEY    		CFSTR("Kexts")
 #define _CACHE_PERSONALITIES_KEY        CFSTR("Personalities")
+
+#define _kKXKextCachesFolderName       "Caches"
+#define _kKXKextPlistCacheFilename     "com.apple.kext.info"
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than
@@ -101,8 +105,7 @@ KXKextManagerError KXKextRepositoryInitFromMultikextArchive(
 
 #endif 0
 
-#ifdef __cplusplus
-}
-#endif
+__END_DECLS
 
 #endif __KXKEXTREPOSITORY_PRIVATE_H__
+#endif // !__LP64__

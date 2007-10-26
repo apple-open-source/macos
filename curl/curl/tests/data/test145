@@ -1,5 +1,9 @@
+<testcase>
 # Server-side
 <reply>
+<servercmd>
+REPLY NLST 550 Have a taste on this!
+</servercmd>
 <data>
 </data>
 </reply>
@@ -15,9 +19,6 @@ FTP NLST dir list with weird reply code, using PORT
  <command>
 ftp://%HOSTIP:%FTPPORT/ -P - -l
 </command>
-<file name="log/ftpserver.cmd">
-REPLY NLST 550 Have a taste on this!
-</file>
 </client>
 
 # Verify data after the test has been "shot"
@@ -33,7 +34,7 @@ REPLY NLST 550 Have a taste on this!
 </strip>
 <protocol>
 USER anonymous
-PASS curl_by_daniel@haxx.se
+PASS ftp@example.com
 PWD
 PORT 127,0,0,1,243,212
 TYPE A
@@ -41,3 +42,4 @@ NLST
 QUIT
 </protocol>
 </verify>
+</testcase>

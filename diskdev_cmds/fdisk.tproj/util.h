@@ -98,12 +98,10 @@ struct __sFILE;
 struct login_cap;
 struct passwd;
 struct termios;
-struct utmp;
 struct winsize;
 
 __BEGIN_DECLS
 char   *fparseln __P((struct __sFILE *, size_t *, size_t *, const char[3], int));
-void	login __P((struct utmp *));
 int	login_tty __P((int));
 int	logout __P((const char *));
 void	logwtmp __P((const char *, const char *, const char *));

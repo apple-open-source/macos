@@ -1,0 +1,31 @@
+
+</itemize>
+
+<![ %manpages; [
+<p>
+Manual pages:
+<itemize>
+<item><htmlurl name="Section 1" url="manindex1.html">: Commands
+<item><htmlurl name="Section 3" url="manindex3.html">: Library Functions
+<item><htmlurl name="Section &drvsuffix;" url="manindex&drvsuffix;.html">: Drivers
+<item><htmlurl name="Section &filesuffix;" url="manindex&filesuffix;.html">: Files and file formats
+<item><htmlurl name="Section &miscsuffix;" url="manindex&miscsuffix;.html">: Miscellaneous
+</itemize>
+<p>
+]]>
+
+<![ %specdocs; [
+<p>
+Other:
+<itemize>
+<item><htmlurl name="Specification and Related Documents" url="specindex.html">
+</itemize>
+<p>
+]]>
+
+
+</article>
+
+<!--
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/index.post,v 1.2 2000/03/21 19:57:10 dawes Exp $
+-->

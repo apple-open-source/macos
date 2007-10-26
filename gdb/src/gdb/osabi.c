@@ -1,5 +1,6 @@
 /* OS ABI variant handling for GDB.
-   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -69,12 +70,11 @@ static const char * const gdb_osabi_names[] =
   "Interix",
   "HP/UX ELF",
   "HP/UX SOM",
+  /* APPLE LOCAL begin Darwin */
   "Darwin",
   "Darwin64",
+  /* APPLE LOCAL end Darwin */
 
-  "ARM EABI v1",
-  "ARM EABI v2",
-  "ARM APCS",
   "QNX Neutrino",
 
   "Cygwin",
@@ -118,9 +118,9 @@ gdbarch_register_osabi (enum bfd_architecture arch, unsigned long machine,
     {
       internal_error
 	(__FILE__, __LINE__,
-	 "gdbarch_register_osabi: An attempt to register a handler for "
+	 _("gdbarch_register_osabi: An attempt to register a handler for "
          "OS ABI \"%s\" for architecture %s was made.  The handler will "
-	 "not be registered",
+	 "not be registered"),
 	 gdbarch_osabi_name (osabi),
 	 bfd_printable_arch_mach (arch, machine));
       return;
@@ -136,8 +136,8 @@ gdbarch_register_osabi (enum bfd_architecture arch, unsigned long machine,
 	{
 	  internal_error
 	    (__FILE__, __LINE__,
-	     "gdbarch_register_osabi: A handler for OS ABI \"%s\" "
-	     "has already been registered for architecture %s",
+	     _("gdbarch_register_osabi: A handler for OS ABI \"%s\" "
+	     "has already been registered for architecture %s"),
 	     gdbarch_osabi_name (osabi),
 	     arch_info->printable_name);
 	  /* If user wants to continue, override previous definition.  */
@@ -201,13 +201,18 @@ gdbarch_register_osabi_sniffer (enum bfd_architecture arch,
 enum gdb_osabi
 gdbarch_lookup_osabi (bfd *abfd)
 {
-  struct gdb_osabi_sniffer *sniffer;
-  enum gdb_osabi osabi, match;
-  int match_specific;
-
   /* If we aren't in "auto" mode, return the specified OS ABI.  */
   if (user_osabi_state == osabi_user)
     return user_selected_osabi;
+  return gdbarch_lookup_osabi_from_bfd (abfd);
+}
+
+enum gdb_osabi
+gdbarch_lookup_osabi_from_bfd (bfd *abfd)
+{
+  struct gdb_osabi_sniffer *sniffer;
+  enum gdb_osabi osabi, match;
+  int match_specific;
 
   /* If we don't have a binary, return the default OS ABI (if set) or
      an inconclusive result (otherwise).  */
@@ -234,8 +239,8 @@ gdbarch_lookup_osabi (bfd *abfd)
 	    {
 	      internal_error
 		(__FILE__, __LINE__,
-		 "gdbarch_lookup_osabi: invalid OS ABI (%d) from sniffer "
-		 "for architecture %s flavour %d",
+		 _("gdbarch_lookup_osabi: invalid OS ABI (%d) from sniffer "
+		 "for architecture %s flavour %d"),
 		 (int) osabi,
 		 bfd_printable_arch_mach (bfd_get_arch (abfd), 0),
 		 (int) bfd_get_flavour (abfd));
@@ -253,9 +258,9 @@ gdbarch_lookup_osabi (bfd *abfd)
 		    {
 		      internal_error
 		        (__FILE__, __LINE__,
-		         "gdbarch_lookup_osabi: multiple %sspecific OS ABI "
+		         _("gdbarch_lookup_osabi: multiple %sspecific OS ABI "
 			 "match for architecture %s flavour %d: first "
-			 "match \"%s\", second match \"%s\"",
+			 "match \"%s\", second match \"%s\""),
 			 match_specific ? "" : "non-",
 		         bfd_printable_arch_mach (bfd_get_arch (abfd), 0),
 		         (int) bfd_get_flavour (abfd),
@@ -448,8 +453,8 @@ generic_elf_osabi_sniff_abi_tag_sections (bfd *abfd, asection *sect, void *obj)
 	      break;
 
 	    default:
-	      internal_error (__FILE__, __LINE__, "\
-generic_elf_osabi_sniff_abi_tag_sections: unknown OS number %d",
+	      internal_error (__FILE__, __LINE__, _("\
+generic_elf_osabi_sniff_abi_tag_sections: unknown OS number %d"),
 			      abi_tag);
 	    }
 	  return;
@@ -503,10 +508,11 @@ generic_elf_osabi_sniffer (bfd *abfd)
   switch (elfosabi)
     {
     case ELFOSABI_NONE:
-      /* When elfosabi is ELFOSABI_NONE (0), then the ELF structures in the
-         file are conforming to the base specification for that machine
-	 (there are no OS-specific extensions).  In order to determine the
-	 real OS in use we must look for OS notes that have been added.  */
+      /* When the EI_OSABI field in the ELF header is ELFOSABI_NONE
+         (0), then the ELF structures in the file are conforming to
+         the base specification for that machine (there are no
+         OS-specific extensions).  In order to determine the real OS
+         in use we must look for OS-specific notes.  */
       bfd_map_over_sections (abfd,
 			     generic_elf_osabi_sniff_abi_tag_sections,
 			     &osabi);
@@ -533,7 +539,14 @@ generic_elf_osabi_sniffer (bfd *abfd)
       break;
 
     case ELFOSABI_HPUX:
+      /* For some reason the default value for the EI_OSABI field is
+         ELFOSABI_HPUX for all PA-RISC targets (with the exception of
+         GNU/Linux).  We use HP-UX ELF as the default, but let any
+         OS-specific notes override this.  */
       osabi = GDB_OSABI_HPUX_ELF;
+      bfd_map_over_sections (abfd,
+			     generic_elf_osabi_sniff_abi_tag_sections,
+			     &osabi);
       break;
     }
 
@@ -549,6 +562,28 @@ generic_elf_osabi_sniffer (bfd *abfd)
   return osabi;
 }
 
+int
+set_osabi_from_string (char *in_osabi_string)
+{
+  struct gdbarch_info info;
+  int i;
+  for (i = 1; i < GDB_OSABI_INVALID; i++)
+    if (strcmp (in_osabi_string, gdbarch_osabi_name (i)) == 0)
+      {
+	set_osabi_string = xstrdup (in_osabi_string);
+	user_selected_osabi = i;
+	user_osabi_state = osabi_user;
+	break;
+      }
+  if (i == GDB_OSABI_INVALID)
+    return 0;
+  gdbarch_info_init (&info);
+  if (! gdbarch_update_p (info))
+    return 0;
+
+  return 1;
+}
+
 static void
 set_osabi (char *args, int from_tty, struct cmd_list_element *c)
 {
@@ -578,7 +613,7 @@ set_osabi (char *args, int from_tty, struct cmd_list_element *c)
 	  }
       if (i == GDB_OSABI_INVALID)
 	internal_error (__FILE__, __LINE__,
-			"Invalid OS ABI \"%s\" passed to command handler.",
+			_("Invalid OS ABI \"%s\" passed to command handler."),
 			set_osabi_string);
     }
 
@@ -586,22 +621,24 @@ set_osabi (char *args, int from_tty, struct cmd_list_element *c)
      graceful here.  */
   gdbarch_info_init (&info);
   if (! gdbarch_update_p (info))
-    internal_error (__FILE__, __LINE__, "Updating OS ABI failed.");
+    internal_error (__FILE__, __LINE__, _("Updating OS ABI failed."));
 }
 
 static void
-show_osabi (char *args, int from_tty)
+show_osabi (struct ui_file *file, int from_tty, struct cmd_list_element *c,
+	    const char *value)
 {
   if (user_osabi_state == osabi_auto)
-    printf_filtered ("The current OS ABI is \"auto\" (currently \"%s\").\n",
-		     gdbarch_osabi_name (gdbarch_osabi (current_gdbarch)));
+    fprintf_filtered (file,
+		      _("The current OS ABI is \"auto\" (currently \"%s\").\n"),
+		      gdbarch_osabi_name (gdbarch_osabi (current_gdbarch)));
   else
-    printf_filtered ("The current OS ABI is \"%s\".\n",
-		     gdbarch_osabi_name (user_selected_osabi));
+    fprintf_filtered (file, _("The current OS ABI is \"%s\".\n"),
+		      gdbarch_osabi_name (user_selected_osabi));
 
   if (GDB_OSABI_DEFAULT != GDB_OSABI_UNKNOWN)
-    printf_filtered ("The default OS ABI is \"%s\".\n",
-		     gdbarch_osabi_name (GDB_OSABI_DEFAULT));
+    fprintf_filtered (file, _("The default OS ABI is \"%s\".\n"),
+		      gdbarch_osabi_name (GDB_OSABI_DEFAULT));
 }
 
 extern initialize_file_ftype _initialize_gdb_osabi; /* -Wmissing-prototype */
@@ -614,7 +651,7 @@ _initialize_gdb_osabi (void)
   if (strcmp (gdb_osabi_names[GDB_OSABI_INVALID], "<invalid>") != 0)
     internal_error
       (__FILE__, __LINE__,
-       "_initialize_gdb_osabi: gdb_osabi_names[] is inconsistent");
+       _("_initialize_gdb_osabi: gdb_osabi_names[] is inconsistent"));
 
   /* Register a generic sniffer for ELF flavoured files.  */
   gdbarch_register_osabi_sniffer (bfd_arch_unknown,
@@ -622,11 +659,12 @@ _initialize_gdb_osabi (void)
 				  generic_elf_osabi_sniffer);
 
   /* Register the "set osabi" command.  */
-  c = add_set_enum_cmd ("osabi", class_support, gdb_osabi_available_names,
-			&set_osabi_string, "Set OS ABI of target.", &setlist);
-
-  set_cmd_sfunc (c, set_osabi);
-  add_cmd ("osabi", class_support, show_osabi, "Show OS/ABI of target.",
-	   &showlist);
+  add_setshow_enum_cmd ("osabi", class_support, gdb_osabi_available_names,
+			&set_osabi_string, _("\
+Set OS ABI of target."), _("\
+Show OS ABI of target."), NULL,
+			set_osabi,
+			show_osabi,
+			&setlist, &showlist);
   user_osabi_state = osabi_auto;
 }

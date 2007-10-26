@@ -1,7 +1,7 @@
 --TEST--
 Bug #24054 (Assignment operator *= broken)
 --FILE--
-<?php // $Id: bug24054.phpt,v 1.1.2.2 2004/03/26 20:07:34 abies Exp $
+<?php // $Id: bug24054.phpt,v 1.3 2003/09/13 19:49:50 abies Exp $
 
 define('LONG_MAX', is_int(5000000000)? 9223372036854775807 : 0x7FFFFFFF);
 define('LONG_MIN', -LONG_MAX - 1);

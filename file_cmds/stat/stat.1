@@ -34,17 +34,17 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/stat/stat.1,v 1.6 2003/06/02 11:19:23 ru Exp $
+.\" $FreeBSD: src/usr.bin/stat/stat.1,v 1.8 2005/06/14 11:50:53 ru Exp $
 .\"
 .Dd May 8, 2003
 .Dt STAT 1
 .Os
 .Sh NAME
-.Nm stat ,
-.Nm readlink
+.Nm readlink ,
+.Nm stat
 .Nd display file status
 .Sh SYNOPSIS
-.Nm
+.Nm stat
 .Op Fl FLnq
 .Op Fl f Ar format | Fl l | r | s | x
 .Op Fl t Ar timefmt
@@ -54,14 +54,14 @@
 .Op Ar
 .Sh DESCRIPTION
 The
-.Nm
+.Nm stat
 utility displays information about the file pointed to by
 .Ar file .
 Read, write or execute permissions of the named file are not required, but
 all directories listed in the path name leading to the file must be
 searchable.
 If no argument is given,
-.Nm
+.Nm stat
 displays information about the file descriptor for standard input.
 .Pp
 When invoked as
@@ -77,6 +77,7 @@ with the given argument and evaluating the returned structure.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
+.\" ==========
 .It Fl F
 As in
 .Xr ls 1 ,
@@ -102,20 +103,34 @@ The use of
 .Fl F
 implies
 .Fl l .
+.\" ==========
+.It Fl f Ar format
+Display information using the specified format.
+See the
+.Sx FORMATS
+section for a description of valid formats.
+.\" ==========
 .It Fl L
 Use
 .Xr stat 2
 instead of
 .Xr lstat 2 .
 The information reported by
-.Nm
+.Nm stat
 will refer to the target of
 .Ar file ,
 if file is a symbolic link, and not to
 .Ar file
 itself.
+.\" ==========
+.It Fl l
+Display output in
+.Nm ls Fl lT
+format.
+.\" ==========
 .It Fl n
 Do not force a newline to appear at the end of each piece of output.
+.\" ==========
 .It Fl q
 Suppress failure messages if calls to
 .Xr stat 2
@@ -125,15 +140,7 @@ fail.
 When run as
 .Nm readlink ,
 error messages are automatically suppressed.
-.It Fl f Ar format
-Display information using the specified format.
-See the
-.Sx FORMATS
-section for a description of valid formats.
-.It Fl l
-Display output in
-.Nm ls Fl lT
-format.
+.\" ==========
 .It Fl r
 Display raw information.
 That is, for all the fields in the
@@ -141,19 +148,22 @@ That is, for all the fields in the
 structure,
 display the raw, numerical value (for example, times in seconds since the
 epoch, etc.).
+.\" ==========
 .It Fl s
 Display information in
 .Dq "shell output" ,
 suitable for initializing variables.
-.It Fl x
-Display information in a more verbose way as known from some
-.Tn Linux
-distributions.
+.\" ==========
 .It Fl t Ar timefmt
 Display timestamps using the specified format.
 This format is
 passed directly to
 .Xr strftime 3 .
+.\" ==========
+.It Fl x
+Display information in a more verbose way as known from some
+.Tn Linux
+distributions.
 .El
 .Ss Formats
 Format strings are similar to
@@ -430,7 +440,7 @@ that points from
 to
 .Pa / ,
 you would use
-.Nm
+.Nm stat
 as follows:
 .Bd -literal -offset indent
 \*[Gt] stat -F /tmp/foo
@@ -507,13 +517,15 @@ Apr 24 16:47:35 2002 /tmp/foo
 .Xr strftime 3
 .Sh HISTORY
 The
-.Nm
+.Nm stat
 utility appeared in
-.Nx 1.6 .
+.Nx 1.6
+and
+.Fx 4.10 .
 .Sh AUTHORS
 .An -nosplit
 The
-.Nm
+.Nm stat
 utility was written by
 .An Andrew Brown
 .Aq atatat@NetBSD.org .

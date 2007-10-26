@@ -1,6 +1,6 @@
 " Vim Keymap file for Hanyu Pinyin tone marks through numbers.
 " Maintainer: Fredrik Roubert <roubert@df.lth.se>
-" Last Changed: October 6, 2002
+" Last Changed: February 15, 2004
 
 " All characters are given literally.
 scriptencoding utf-8
@@ -15,7 +15,7 @@ a2	á
 a3	ǎ
 a4	à
 a5	a
-a0	e
+e0	e
 e1	ē
 e2	é
 e3	ě

@@ -1,5 +1,6 @@
 /* machine description file for PowerPC.
-   Copyright (C) 1987 Free Software Foundation, Inc.
+   Copyright (C) 1987, 2001, 2002, 2003, 2004, 2005,
+                 2006, 2007  Free Software Foundation, Inc.
 
 This file is part of GNU Emacs.
 
@@ -15,9 +16,10 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with GNU Emacs; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+the Free Software Foundation, 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
 
-/* The following line tells the configuration script what sort of 
+/* The following line tells the configuration script what sort of
    operating system this machine is likely to run.
    USUAL-OPSYS="Solaris2.5.1 Windows/NT AIX 4.1.2"
 */
@@ -54,19 +56,8 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #define LOAD_AVE_CVT(x) (int) (((double) (x)) * 100.0 / FSCALE)
 
-/* Define C_ALLOCA if this machine does not support a true alloca
-   and the one written in C should be used instead.
-   Define HAVE_ALLOCA to say that the system provides a properly
-   working alloca function and it should be used.
-   Define neither one if an assembler-language alloca
-   in the file alloca.s should be used.  */
-
-#define HAVE_ALLOCA
-#ifndef NOT_C_CODE
-#if __GNUC__ < 2 /* Modern versions of GCC handle alloca directly.  */
-#include <alloca.h>
-#endif
-#endif
-
 /* Control a conditional in unexelf.c.  */
 #define SOLARIS_POWERPC
+
+/* arch-tag: dc2c3cb6-4683-45ae-961f-0a4f2bda3c61
+   (do not change this comment) */

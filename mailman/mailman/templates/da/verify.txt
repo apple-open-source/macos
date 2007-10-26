@@ -1,9 +1,11 @@
-Bekræftigelse på din tilmelding til listen %(listname)s
+Bekræftelse på din tilmelding til listen %(listname)s
 
-Vi har modtaget en forespørsel%(remote)s om at tilmelde din e-mailadresse
+Vi har modtaget en anmodning%(remote)s om at tilmelde din e-mailadresse
 "%(email)s" til listen %(listaddr)s. Hvis det er korrekt at du ønsker
-dette, skal du sende et svar på denne e-mail, med samme emne som denne 
-m-mail har. Eller du kan besøge denne webside:
+at tilmelde dig maillisten, skal du svare med en mail, der indeholder
+samme tekst i Emnefeltet som denne mail.
+
+Alternativt kan du besøge denne web-side:
 
     %(confirmurl)s
 
@@ -12,11 +14,13 @@ følgende) indhold:
 
     confirm %(cookie)s
 
-Bemærk, for at svare på denne mail, burde de fleste mailprogrammer
-kunne benyttes hvis du benytter 'Svar' eller 'Reply'. Dette medfører
-normalt at indhold i Subjectfeltet (med tilføjelse af 'Re:' eller 'Sv')
-beholdes
+Bemærk: For at svare på denne mail, burde i de fleste mailprogrammer
+kunne benyttes 'Svar' eller 'Reply'. Dette medfører
+normalt at indholdet i Emnefeltet (med tilføjelse af 'Re:' eller 'Sv')
+bevares.
 
-Hvis du ikke ønsker at tilmelde dig til denne mailliste, skal du blot
-slette denne mail. Hvis du mener at andre har tilmeldt dig, eller
-hvis du har andre spørgsmål, send en mail til %(listadmin)s.
+Hvis du ikke ønsker at tilmelde dig denne mailliste, skal du blot
+slette denne mail.
+
+Send en mail til %(listadmin)s, hvis du mener at
+andre har tilmeldt dig - eller hvis du har andre spørgsmål.

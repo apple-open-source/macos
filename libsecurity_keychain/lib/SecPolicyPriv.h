@@ -37,16 +37,6 @@
 extern "C" {
 #endif
 
-
-/*!
-	@function SecPolicySetValue
-	@abstract Sets a policy's value.
-    @param policyRef A policy reference.
-    @param value The value to be set into the policy object, replacing any previous value.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
-*/
-OSStatus SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value);
-
 /*!
 	@function SecPolicyCopy
 	@abstract Returns a copy of a policy reference based on certificate type and OID.

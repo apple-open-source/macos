@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,15 +45,6 @@
 		application into the network stack, can leave the local
 		computer.  Note that reachability does <i>not</i> guarantee
 		that the data packet will actually be received by the host.
-
-		The SCNetworkInterfaceRefreshConfiguration function sends a
-		notification to interested network configuration agents to
-		retry their configuration immediately. For example, calling
-		this function will cause the DHCP client to contact the DHCP
-		server immediately rather than waiting until its timeout has
-		expired.  The utility of this function is to allow the caller
-		to give a hint to the system that the network infrastructure
-		or configuration has changed.
  */
 
 /*!
@@ -134,7 +125,7 @@ __BEGIN_DECLS
 Boolean
 SCNetworkCheckReachabilityByAddress	(
 					const struct sockaddr		*address,
-					int				addrlen,
+					socklen_t			addrlen,
 					SCNetworkConnectionFlags	*flags
 					);
 
@@ -167,11 +158,12 @@ SCNetworkCheckReachabilityByName	(
 	@param ifName The BSD name of the network interface, such as
 		CFSTR("en0").
 	@result Returns TRUE if the notification was sent; FALSE otherwise.
+	@deprecated in version 10.4. Replaced with SCNetworkInterfaceForceConfigurationRefresh.
  */
 Boolean
 SCNetworkInterfaceRefreshConfiguration	(
 					CFStringRef ifName
-					);
+					)	DEPRECATED_IN_MAC_OS_X_VERSION_10_5_AND_LATER;
 
 __END_DECLS
 

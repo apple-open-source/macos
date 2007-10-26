@@ -1,9 +1,8 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,40 +26,90 @@
 
 #include "AppleEHCItdMemoryBlock.h"
 
-#define super IOBufferMemoryDescriptor
-OSDefineMetaClassAndStructors(AppleEHCItdMemoryBlock, IOBufferMemoryDescriptor);
+#define super OSObject
+OSDefineMetaClassAndStructors(AppleEHCItdMemoryBlock, OSObject);
 
 AppleEHCItdMemoryBlock*
 AppleEHCItdMemoryBlock::NewMemoryBlock(void)
 {
     AppleEHCItdMemoryBlock					*me = new AppleEHCItdMemoryBlock;
-    EHCIGeneralTransferDescriptorSharedPtr	sharedPtr;
     IOByteCount								len;
+	IODMACommand							*dmaCommand = NULL;
+	UInt64									offset = 0;
+	IODMACommand::Segment32					segments;
+	UInt32									numSegments = 1;
+	IOReturn								status = kIOReturnSuccess;
+    EHCIGeneralTransferDescriptorSharedPtr	sharedPtr;
     IOPhysicalAddress						sharedPhysical;
     UInt32									i;
     
-    if (!me)
+    if (me)
+	{
+		// Use IODMACommand to get the physical address
+		dmaCommand = IODMACommand::withSpecification(kIODMACommandOutputHost32, 32, PAGE_SIZE, (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly));
+		if (!dmaCommand)
+		{
+			USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock - could not create IODMACommand");
+			return NULL;
+		}
+		USBLog(6, "AppleEHCItdMemoryBlock::NewMemoryBlock - got IODMACommand %p", dmaCommand);
+		
+		// allocate one page on a page boundary below the 4GB line
+		me->_buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask(kernel_task, kIOMemoryUnshared | kIODirectionInOut, kEHCIPageSize, kEHCIStructureAllocationPhysicalMask);
+		
+		// allocate exactly one physical page
+		if (me->_buffer) 
+		{
+			status = me->_buffer->prepare();
+			if (status)
+			{
+				USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock - could not prepare buffer");
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			sharedPtr = (EHCIGeneralTransferDescriptorSharedPtr)me->_buffer->getBytesNoCopy();
+			bzero(sharedPtr, kEHCIPageSize);
+			status = dmaCommand->setMemoryDescriptor(me->_buffer);
+			if (status)
+			{
+				USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock - could not set memory descriptor");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				dmaCommand->release();
+				return NULL;
+			}
+			status = dmaCommand->gen32IOVMSegments(&offset, &segments, &numSegments);
+			dmaCommand->clearMemoryDescriptor();
+			dmaCommand->release();
+			if (status || (numSegments != 1) || (segments.fLength != kEHCIPageSize))
+			{
+				USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock - could not get physical segment");
+				me->_buffer->complete();
+				me->_buffer->release();
+				me->release();
+				return NULL;
+			}
+			sharedPhysical = segments.fIOVMAddr;
+			for (i=0; i < TDsPerBlock; i++)
+			{
+				me->_TDs[i].pPhysical = sharedPhysical+(i * sizeof(EHCIGeneralTransferDescriptorShared));
+				me->_TDs[i].pShared = &sharedPtr[i];
+			}
+		}
+		else
+		{
+			USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, could not allocate buffer!");
+			me->release();
+			me = NULL;
+		}
+	}
+	else
+	{
 		USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, constructor failed!");
-	
-    // allocate exactly one physical page
-    if (me && !me->initWithOptions(kIOMemorySharingTypeMask, kEHCIPageSize, kEHCIPageSize)) 
-    {
-		USBError(1, "AppleEHCItdMemoryBlock::NewMemoryBlock, initWithOptions failed!");
-		me->release();
-		return NULL;
     }
-    
-    me->prepare();
-    sharedPtr = (EHCIGeneralTransferDescriptorSharedPtr)me->getBytesNoCopy();
-    bzero(sharedPtr, kEHCIPageSize);
-    sharedPhysical = me->getPhysicalSegment(0, &len);
-    
-    for (i=0; i < TDsPerBlock; i++)
-    {
-		me->_TDs[i].pPhysical = sharedPhysical+(i * sizeof(EHCIGeneralTransferDescriptorShared));
-		me->_TDs[i].pShared = &sharedPtr[i];
-    }
-    
     return me;
 }
 

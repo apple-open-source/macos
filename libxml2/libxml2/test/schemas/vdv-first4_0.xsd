@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header: /cvs/gnome/gnome-xml/test/schemas/vdv-first4_0.xsd,v 1.1 2003/11/24 13:04:35 veillard Exp $ -->
+<!-- $Header: /home/cvsroot/w3c-xml-schema/user/examples/first-complex-types.xsd,v 1.1 2001/11/12 20:54:00 vdv Exp $ -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
   <xs:simpleType name="string255">

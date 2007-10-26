@@ -1,4 +1,5 @@
 set	prototyped
+ref	-D_def_map_ast=1
 iff	SFSTDIO
 cat{
 	#define __FILE_typedef	1
@@ -12,7 +13,6 @@ cat{
 
 	#undef	FILE
 	#undef	_FILE
-	#undef	__FILE
 	#undef	fpos_t
 	#undef	fpos64_t
 
@@ -20,7 +20,11 @@ cat{
 
 	#define FILE		_sfio_FILE
 	#define _FILE		FILE
+
+	#if !defined(__FILE) && !__CYGWIN__
+	#undef	__FILE
 	#define __FILE		FILE
+	#endif
 
 	#if defined(_AST_H) || defined(_SFIO_H)
 
@@ -46,7 +50,7 @@ cat{
 	#define SEEK_END	2
 	#endif
 
-	#include <ast_common.h>
+	#include <ast_std.h>
 
 	#include <sfio_s.h>
 
@@ -61,15 +65,23 @@ cat{
 
 	#endif
 
+	#ifdef _NO_LARGEFILE64_SOURCE
+	#undef _LARGEFILE64_SOURCE
+	#endif
+
+	#ifdef _LARGEFILE64_SOURCE
+	#undef	off_t
+	#endif
+
 	#define fpos_t		_ast_fpos_t
-	#ifdef _ast_int8_t
+	#if _typ_int64_t
 	#define fpos64_t	_ast_fpos_t
 	#endif
 
 	typedef struct _ast_fpos_s
 	{
-		_ast_intmax_t	_sf_offset;
-		unsigned char	_sf_state[64 - sizeof(_ast_intmax_t)];
+		intmax_t	_sf_offset;
+		unsigned char	_sf_state[64 - sizeof(intmax_t)];
 	} _ast_fpos_t;
 
 	#define _base		_data
@@ -87,8 +99,8 @@ cat{
 	#undef	strerror
 	extern char*	strerror(int) __THROW;
 
-	extern int	_doprnt(const char*, _ast_va_list, FILE*);
-	extern int	_doscan(FILE*, const char*, _ast_va_list);
+	extern int	_doprnt(const char*, va_list, FILE*);
+	extern int	_doscan(FILE*, const char*, va_list);
 	extern int	asprintf(char**, const char*, ...);
 	extern int	clearerr(FILE*);
 	extern int	fclose(FILE*);
@@ -136,26 +148,23 @@ cat{
 	extern int	sscanf(const char*, const char*, ...);
 	extern FILE*	tmpfile(void);
 	extern int	ungetc(int, FILE*);
-	extern int	vasprintf(char**, const char*, _ast_va_list);
-	extern int	vfprintf(FILE*, const char*, _ast_va_list);
-	extern int	vfscanf(FILE*, const char*, _ast_va_list);
-	extern int	vprintf(const char*, _ast_va_list);
-	extern int	vscanf(const char*, _ast_va_list);
-	extern int	vsnprintf(char*, int, const char*, _ast_va_list);
-	extern int	vsprintf(char*, const char*, _ast_va_list);
-	extern int	vsscanf(const char*, const char*, _ast_va_list);
+	extern int	vasprintf(char**, const char*, va_list);
+	extern int	vfprintf(FILE*, const char*, va_list);
+	extern int	vfscanf(FILE*, const char*, va_list);
+	extern int	vprintf(const char*, va_list);
+	extern int	vscanf(const char*, va_list);
+	extern int	vsnprintf(char*, int, const char*, va_list);
+	extern int	vsprintf(char*, const char*, va_list);
+	extern int	vsscanf(const char*, const char*, va_list);
 
-	#ifdef fpos64_t
+	#if _typ_int64_t
 
-	extern int	fgetpos64(FILE*, fpos64_t*);
-	extern int	fsetpos64(FILE*, const fpos64_t*);
-
-	#endif
-
-	#ifdef _ast_int8_t
-
-	extern int		fseek64(FILE*, _ast_int8_t, int);
-	extern _ast_int8_t	ftell64(FILE*);
+	extern int		fgetpos64(FILE*, fpos64_t*);
+	extern int		fsetpos64(FILE*, const fpos64_t*);
+	extern int		fseek64(FILE*, int64_t, int);
+	extern int		fseeko64(FILE*, int64_t, int);
+	extern int64_t		ftell64(FILE*);
+	extern int64_t		ftello64(FILE*);
 
 	#endif
 
@@ -188,8 +197,7 @@ cat{
 	#endif
 }end
 output{
-	#include "iffeio.h"
-	#include "FEATURE/limits"
+	#include <stdio.h>
 	#ifndef FILENAME_MAX
 	#ifndef NAME_MAX
 	#ifndef _POSIX_NAME_MAX
@@ -200,6 +208,9 @@ output{
 	#define FILENAME_MAX	NAME_MAX
 	#endif
 	#ifndef FOPEN_MAX
+	#ifdef STREAM_MAX
+	#define FOPEN_MAX	STREAM_MAX
+	#else
 	#ifndef OPEN_MAX
 	#ifndef _POSIX_OPEN_MAX
 	#define _POSIX_OPEN_MAX	20
@@ -208,9 +219,11 @@ output{
 	#endif
 	#define FOPEN_MAX	OPEN_MAX
 	#endif
+	#endif
 	#ifndef TMP_MAX
 	#define TMP_MAX		33520641
 	#endif
+	int
 	main()
 	{
 		printf("#ifndef FILENAME_MAX\n");
@@ -243,13 +256,15 @@ output{
 		printf("#define freopen		_ast_freopen\n");
 		printf("#define fscanf		_ast_fscanf\n");
 		printf("#define fseek		_ast_fseek\n");
-		printf("#define fseeko		_ast_fseeko\n");
 		printf("#define fseek64		_ast_fseek64\n");
+		printf("#define fseeko		_ast_fseeko\n");
+		printf("#define fseeko64	_ast_fseeko64\n");
 		printf("#define fsetpos		_ast_fsetpos\n");
 		printf("#define fsetpos64	_ast_fsetpos64\n");
 		printf("#define ftell		_ast_ftell\n");
-		printf("#define ftello		_ast_ftello\n");
 		printf("#define ftell64		_ast_ftell64\n");
+		printf("#define ftello		_ast_ftello\n");
+		printf("#define ftello64	_ast_ftello64\n");
 		printf("#define fwrite		_ast_fwrite\n");
 		printf("#define gets		_ast_gets\n");
 		printf("#define getw		_ast_getw\n");
@@ -261,6 +276,7 @@ output{
 		printf("#define rewind		_ast_rewind\n");
 		printf("#define scanf		_ast_scanf\n");
 		printf("#define setbuf		_ast_setbuf\n");
+		printf("#undef	setbuffer\n");
 		printf("#define setbuffer	_ast_setbuffer\n");
 		printf("#define setlinebuf	_ast_setlinebuf\n");
 		printf("#define setvbuf		_ast_setvbuf\n");
@@ -306,7 +322,6 @@ output{
 	}
 }end
 macro{
-	#include "iffeio.h"
 	<<"#if defined(__STDPP__directive) && defined(__STDPP__initial)">>
 	<<"__STDPP__directive pragma pp:initial">>
 	<<"#endif">>
@@ -356,8 +371,8 @@ cat{
 	#define extern		__EXPORT__
 	#endif
 
-	extern int	_doprnt(const char*, _ast_va_list, FILE*);
-	extern int	_doscan(FILE*, const char*, _ast_va_list);
+	extern int	_doprnt(const char*, va_list, FILE*);
+	extern int	_doscan(FILE*, const char*, va_list);
 	extern int	asprintf(char**, const char*, ...);
 	extern int	clearerr(FILE*);
 	extern int	fclose(FILE*);
@@ -405,26 +420,50 @@ cat{
 	extern int	sscanf(const char*, const char*, ...);
 	extern FILE*	tmpfile(void);
 	extern int	ungetc(int, FILE*);
-	extern int	vasprintf(char**, const char*, _ast_va_list);
-	extern int	vfprintf(FILE*, const char*, _ast_va_list);
-	extern int	vfscanf(FILE*, const char*, _ast_va_list);
-	extern int	vprintf(const char*, _ast_va_list);
-	extern int	vscanf(const char*, _ast_va_list);
-	extern int	vsnprintf(char*, int, const char*, _ast_va_list);
-	extern int	vsprintf(char*, const char*, _ast_va_list);
-	extern int	vsscanf(const char*, const char*, _ast_va_list);
+	extern int	vasprintf(char**, const char*, va_list);
+	extern int	vfprintf(FILE*, const char*, va_list);
+	extern int	vfscanf(FILE*, const char*, va_list);
+	extern int	vprintf(const char*, va_list);
+	extern int	vscanf(const char*, va_list);
+	extern int	vsnprintf(char*, int, const char*, va_list);
+	extern int	vsprintf(char*, const char*, va_list);
+	extern int	vsscanf(const char*, const char*, va_list);
 
-	#ifdef fpos64_t
+	#if _typ_int64_t
 
-	extern int	fgetpos64(FILE*, fpos64_t*);
-	extern int	fsetpos64(FILE*, const fpos64_t*);
+	extern int		fgetpos64(FILE*, fpos64_t*);
+	extern int		fsetpos64(FILE*, const fpos64_t*);
+	extern int		fseek64(FILE*, int64_t, int);
+	extern int		fseeko64(FILE*, int64_t, int);
+	extern int64_t		ftell64(FILE*);
+	extern int64_t		ftello64(FILE*);
 
+	#ifdef _LARGEFILE64_SOURCE
+
+	#undef	fpos_t
+	#undef	off_t
+	#undef	fgetpos
+	#undef	fsetpos
+	#undef	fseek
+	#undef	fseeko
+	#undef	ftell
+	#undef	ftello
+
+	#define	fpos_t		fpos64_t
+	#if _typ_off64_t
+	#define	off_t		off64_t
+	#else
+	#define	off_t		int64_t
 	#endif
 
-	#ifdef _ast_int8_t
+	#define fgetpos		fgetpos64
+	#define fsetpos		fsetpos64
+	#define	fseek		fseek64
+	#define	fseeko		fseeko64
+	#define ftell		ftell64
+	#define ftello		ftello64
 
-	extern int		fseek64(FILE*, _ast_int8_t, int);
-	extern _ast_int8_t	ftell64(FILE*);
+	#endif
 
 	#endif
 

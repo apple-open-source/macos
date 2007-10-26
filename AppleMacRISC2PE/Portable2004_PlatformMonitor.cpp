@@ -939,7 +939,7 @@ IOReturn Portable2004_PlatformMonitor::setAggressiveness(unsigned long selector,
 // **********************************************************************************
 void Portable2004_PlatformMonitor::setBusSlew (UInt32 newLevel)
 {
-        OSDictionary 		*dict;
+        OSDictionary 		*dict = NULL;
         const OSObject		*target_value[1];
         const OSSymbol		*key[1];
         
@@ -958,10 +958,13 @@ void Portable2004_PlatformMonitor::setBusSlew (UInt32 newLevel)
             }
             conSensorArray[kSlewController].conSensor->setProperties(dict);
         }
-        
-        key[0]->release();
-        target_value[0]->release();
-        dict->release();
+
+        if ( key[0] )
+			key[0]->release();
+		if ( target_value[0] )
+			target_value[0]->release();
+		if ( dict )
+			dict->release();
 	return;			
 }
 
@@ -1653,7 +1656,7 @@ bool Portable2004_PlatformMonitor::handleThermalEvent (IOPMonEventData *eventDat
                         {
                             if (maxState < kMaxThermalStates)	// Don't want to set a thermal state too high
                             {
-                                kprintf("*** Portable2004_PlatformMonitor::handleThermalEvent,  maxState = %d, currentThermalState = %d ***\n", maxState, currentThermalState);
+                                kprintf("*** Portable2004_PlatformMonitor::handleThermalEvent,  maxState = %ld, currentThermalState = %ld ***\n", maxState, currentThermalState);
                                 
                                 currentThermalState = maxState;
                                 result = adjustPlatformState ();

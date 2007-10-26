@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,121 +86,27 @@ static const char rcsid[] =
 #include <sysexits.h>
 #include <unistd.h>
 #include <fcntl.h>
-
-//#include <util.h>
+#include <mntopts.h>
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
 
-/* bek 5/20/98 - [2238317] - mntopts.h needs to be installed in a public place */
-
-#define Radar_2238317 1
-
-#if ! Radar_2238317
-
-#include <mntopts.h>
-
-#else //  Radar_2238317
-
-/*-
- * Copyright (c) 1994
- *      The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- *	@(#)mntopts.h	8.7 (Berkeley) 3/29/95
- */
-
-struct mntopt {
-    const char *m_option;	/* option name */
-    int m_inverse;		/* if a negative option, eg "dev" */
-    int m_flag;		/* bit to set, eg. MNT_RDONLY */
-    int m_altloc;		/* 1 => set bit in altflags */
-};
-
-/* User-visible MNT_ flags. */
-#define MOPT_ASYNC		{ "async",	0, MNT_ASYNC, 0 }
-#define MOPT_NODEV		{ "dev",	1, MNT_NODEV, 0 }
-#define MOPT_NOEXEC		{ "exec",	1, MNT_NOEXEC, 0 }
-#define MOPT_NOSUID		{ "suid",	1, MNT_NOSUID, 0 }
-#define MOPT_RDONLY		{ "rdonly",	0, MNT_RDONLY, 0 }
-#define MOPT_SYNC		{ "sync",	0, MNT_SYNCHRONOUS, 0 }
-#define MOPT_UNION		{ "union",	0, MNT_UNION, 0 }
-#define MOPT_USERQUOTA		{ "userquota",	0, 0, 0 }
-#define MOPT_GROUPQUOTA		{ "groupquota",	0, 0, 0 }
-#define MOPT_PERMISSIONS	{ "perm", 1, MNT_UNKNOWNPERMISSIONS, 0 }
-#define MOPT_BROWSE             { "browse",     1, MNT_DONTBROWSE, 0 }
-#define MOPT_AUTOMOUNTED        { "automounted",0, MNT_AUTOMOUNTED, 0 }
-#define MOPT_DEFWRITE           { "defwrite",   0, MNT_DEFWRITE, 0}
-
-/* Control flags. */
-#define MOPT_FORCE		{ "force",	0, MNT_FORCE, 0 }
-#define MOPT_UPDATE		{ "update",	0, MNT_UPDATE, 0 }
-#define MOPT_RO			{ "ro",		0, MNT_RDONLY, 0 }
-#define MOPT_RW			{ "rw",		1, MNT_RDONLY, 0 }
-
-/* This is parsed by mount(8), but is ignored by specific mount_*(8)s. */
-#define MOPT_AUTO		{ "auto",	0, 0, 0 }
-
-#define MOPT_FSTAB_COMPAT						\
-    MOPT_RO,							\
-    MOPT_RW,							\
-    MOPT_AUTO
-
-/* Standard options which all mounts can understand. */
-#define MOPT_STDOPTS							\
-	MOPT_USERQUOTA,							\
-	MOPT_GROUPQUOTA,						\
-	MOPT_FSTAB_COMPAT,						\
-	MOPT_NODEV,							\
-	MOPT_NOEXEC,							\
-	MOPT_NOSUID,							\
-	MOPT_RDONLY,							\
-	MOPT_UNION,							\
-	MOPT_PERMISSIONS,						\
-	MOPT_BROWSE
-
-void getmntopts __P((const char *, const struct mntopt *, int *, int *));
-void checkpath __P((const char *, char resolved_path[]));
-void rmslashes __P((char *, char *));
-extern int getmnt_silent;
-
-#endif // Radar_2238317
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 /*
- * XXX - no way to specify "foo=<bar>"-type options; that's what we'd
- * want for "-u", "-g", "-m", "-L", and "-W".
+ * TODO: The -u, -g, and -m options could be expressed as ordinary mount
+ * options now that we're using the new getmntopts from libutil.  That
+ * would make it possible to specify those options in /etc/fstab...
  */
 static struct mntopt mopts[] = {
 	MOPT_STDOPTS,
 	MOPT_FORCE,
+	MOPT_ASYNC,
 	MOPT_SYNC,
+	MOPT_DEFWRITE,
+	MOPT_NOATIME,
 	MOPT_UPDATE,
 	{ NULL }
 };
@@ -210,37 +116,133 @@ static uid_t	a_uid __P((char *));
 static mode_t	a_mask __P((char *));
 static void		usage __P((void));
 
-static int checkLoadable();
+static int checkLoadable(void);
 static char *progname;
-static int load_kmod();
+static int load_kmod(void);
 static void FindVolumeName(struct msdosfs_args *args);
 
-#define DEBUG 0
-#if DEBUG
-#define dprintf(x) printf x;
-#else
-#define dprintf(x) ;
-#endif
+/* Taken from diskdev_cmds/disklib/getmntopts.c */
+static void
+checkpath(const char *path, char resolved[MAXPATHLEN])
+{
+	struct stat sb;
+
+	if (realpath(path, resolved) != NULL && stat(resolved, &sb) == 0) {
+		if (!S_ISDIR(sb.st_mode)) 
+			errx(EX_USAGE, "%s: not a directory", resolved);
+	} else
+		errx(EX_USAGE, "%s: %s", resolved, strerror(errno));
+}
+
+/* Adapted from diskdev_cmds/disklib/getmntopts.c, with fixes. */
+static void
+rmslashes(const char *rrpin, char rrpout[MAXPATHLEN])
+{
+	char *rrpoutstart;
+
+	for (rrpoutstart = rrpout; *rrpin != '\0'; *rrpout++ = *rrpin++) {
+		/* skip all double slashes */
+		while (*rrpin == '/' && *(rrpin + 1) == '/')
+			 rrpin++;
+	}
+
+	/* remove trailing slash if necessary */
+	if (rrpout - rrpoutstart > 1 && *(rrpout - 1) == '/')
+		*(rrpout - 1) = '\0';
+	else
+		*rrpout = '\0';
+}
+
+
+/*
+ * Given a BSD disk name (eg., "disk0s3" or "disk1"), return non-zero if
+ * that disk is an internal disk.
+ */
+static int disk_is_internal(char *disk)
+{
+    io_iterator_t iter;
+	kern_return_t err;
+	int internal = 0;
+	
+	err = IOServiceGetMatchingServices(kIOMasterPortDefault,
+		IOBSDNameMatching(kIOMasterPortDefault, 0, disk), &iter);
+	if (err == 0)
+	{
+		io_object_t obj;
+		obj = IOIteratorNext(iter);
+		if (obj)
+		{
+			CFDictionaryRef protocolCharacteristics;
+			protocolCharacteristics = IORegistryEntrySearchCFProperty(obj,
+				kIOServicePlane,
+				CFSTR(kIOPropertyProtocolCharacteristicsKey),
+				kCFAllocatorDefault,
+				kIORegistryIterateRecursively|kIORegistryIterateParents);
+			
+			if (protocolCharacteristics && CFDictionaryGetTypeID() == CFGetTypeID(protocolCharacteristics))
+			{
+				CFStringRef location;
+				location = CFDictionaryGetValue(protocolCharacteristics, CFSTR(kIOPropertyPhysicalInterconnectLocationKey));
+				if(location && CFStringGetTypeID() == CFGetTypeID(location))
+				{
+					if(CFEqual(location, CFSTR(kIOPropertyInternalKey)))
+						internal = 1;
+				}
+
+				if (location) CFRelease(location);
+			}
+			
+			IOObjectRelease(obj);
+		}
+		
+		IOObjectRelease(iter);
+	}
+	
+	return internal;
+}
+
 
 int
 main(argc, argv)
 	int argc;
 	char **argv;
 {
-        struct msdosfs_args args;
-        struct stat sb;
-        int c, mntflags, set_gid, set_uid, set_mask;
-        //int error;
-        char *dev, *dir, mntpath[MAXPATHLEN];
-        // struct vfsconf vfc;
-        struct timezone local_tz;
+	struct msdosfs_args args;
+	struct stat sb;
+	int c, mntflags, set_gid, set_uid, set_mask;
+	mntoptparse_t mp;
+	char dev[MAXPATHLEN], mntpath[MAXPATHLEN];
+	struct timezone local_tz;
+        char *options = "u:g:m:o:";	/* getopt options */
         
 	mntflags = set_gid = set_uid = set_mask = 0;
 	(void)memset(&args, '\0', sizeof(args));
 	args.magic = MSDOSFS_ARGSMAGIC;
-        progname = argv[0];
+	progname = argv[0];
 
-	while ((c = getopt(argc, argv, "sl9u:g:m:o:")) != -1) {
+	/*
+	 * Parse through the command line options once, in order to find the
+	 * block device parameter.  We'll need that to set the default value
+	 * for MNT_ASYNC, before we parse the normal options (so MNT_ASYNC can
+	 * be overridden either way via the command line).
+	 */
+	while ((c = getopt(argc, argv, options)) != -1) {
+	}
+	
+	if (optind + 2 != argc)
+		usage();
+
+	rmslashes(argv[optind], dev);
+	/* Check if <dev> is an internal drive; set MNT_ASYNC if so. */
+	if (!strncmp(dev, "/dev/disk", 9) && disk_is_internal(dev+5))
+		mntflags |= MNT_ASYNC;
+	
+	/*
+	 * Now parse the options for real.
+	 */
+	optreset = 1;
+	optind = 1;
+	while ((c = getopt(argc, argv, options)) != -1) {
 		switch (c) {
 		case 'u':
 			args.uid = a_uid(optarg);
@@ -255,7 +257,10 @@ main(argc, argv)
 			set_mask = 1;
 			break;
 		case 'o':
-			getmntopts(optarg, mopts, &mntflags, &args.flags);
+			mp = getmntopts(optarg, mopts, &mntflags, (int *)&args.flags);
+			if (mp == NULL)
+				err(1, NULL);
+			freemntopts(mp);
 			break;
 		case '?':
 		default:
@@ -264,18 +269,11 @@ main(argc, argv)
 		}
 	}
 
-	if (optind + 2 != argc)
-		usage();
-
-	dev = argv[optind];
-	dir = argv[optind + 1];
-
 	/*
 	 * Resolve the mountpoint with realpath(3) and remove unnecessary
 	 * slashes from the devicename if there are any.
 	 */
-	(void)checkpath(dir, mntpath);
-	(void)rmslashes(dev, dev);
+	checkpath(argv[optind + 1], mntpath);
 
 	if (!set_gid || !set_uid || !set_mask) {
 		if (stat(mntpath, &sb) == -1)
@@ -302,8 +300,10 @@ main(argc, argv)
 			(local_tz.tz_dsttime ? 3600 : 0);
 	args.flags |= MSDOSFSMNT_SECONDSWEST;
 
-	FindVolumeName(&args);
-
+	if ((mntflags & MNT_UPDATE) == 0) {
+		FindVolumeName(&args);
+	}
+	
 	if (checkLoadable())		/* Is it already loaded? */
 		if (load_kmod())		/* Load it in */
 			errx(EX_OSERR, "msdos filesystem is not available");
@@ -400,7 +400,7 @@ static int checkLoadable(void)
 #define MSDOS_MODULE_PATH "/System/Library/Extensions/msdosfs.kext"
 
 
-static int load_kmod()
+static int load_kmod(void)
 {
 
         int pid;
@@ -464,8 +464,8 @@ static CFStringEncoding GetDefaultDOSEncoding(void)
 	 */
 	encoding = kCFStringEncodingMacRoman;	/* Default to Roman/Latin */
 	if ((passwdp = getpwuid(getuid()))) {
-		strcpy(buffer, passwdp->pw_dir);
-		strcat(buffer, "/.CFUserTextEncoding");
+		strlcpy(buffer, passwdp->pw_dir, sizeof(buffer));
+		strlcat(buffer, "/.CFUserTextEncoding", sizeof(buffer));
 
 		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
 			size = read(fd, buffer, MAXPATHLEN);
@@ -573,7 +573,7 @@ static void FindVolumeName(struct msdosfs_args *args)
 	off_t	readOffset;		/* Byte offset of current sector */
 	ssize_t	readAmount;
 	unsigned char buf[MAX_DOS_BLOCKSIZE];
-	unsigned char label[12];
+	char label[12];
 	CFStringRef cfstr;
 
 	bzero(label, sizeof(label));	/* Default to no label */
@@ -732,7 +732,7 @@ end_of_dir:
 	if (cfstr == NULL)
 		args->label[0] = 0;
 	else {
-		CFStringGetCString(cfstr, args->label, sizeof(args->label), kCFStringEncodingUTF8);
+		CFStringGetCString(cfstr, (char *)args->label, sizeof(args->label), kCFStringEncodingUTF8);
 		CFRelease(cfstr);
 	}
 	args->flags |= MSDOSFSMNT_LABEL;

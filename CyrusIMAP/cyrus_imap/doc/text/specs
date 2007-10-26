@@ -7,7 +7,7 @@ IMAP
 
     RFC 1730 Internet Message Access Protocol - version 4
 
-    RFC 2086 IMAP4 ACL extension
+    RFC 4314 IMAP4 Access Control List (ACL) Extension
 
     RFC 2087 IMAP4 QUOTA extension
 
@@ -15,13 +15,14 @@ IMAP
 
     RFC 2177 IMAP4 IDLE command
 
-    RFC 2192 IMAP URL Scheme
+    RFC 2192 IMAP URL Scheme 
+    being updated by draft-ietf-lemonade-rfc2192bis
 
     RFC 2193 IMAP4 Mailbox Referrals
 
     RFC 2342 IMAP4 Namespace
 
-    RFC 2359 IMAP4 UIDPLUS extension
+    RFC 4315 Internet Message Access Protocol (IMAP) - UIDPLUS extension
 
     RFC 2971 IMAP4 ID extension
 
@@ -32,6 +33,15 @@ IMAP
     RFC 3516 IMAP4 Binary Content Extension
 
     RFC 3691 Internet Message Access Protocol (IMAP) UNSELECT command
+
+    RFC 4467 Internet Message Access Protocol (IMAP) - URLAUTH Extension
+
+    RFC 4469 Internet Message Access Protocol (IMAP) CATENATE Extension
+
+    RFC 4550 Internet Email to Support Diverse Service Environments
+    (Lemonade) Profile
+
+    RFC 4551 IMAP Extension for Conditional STORE operation
 
     draft-ietf-imapext-sort IMAP SORT and THREAD Extension
 
@@ -57,43 +67,46 @@ POP
 
 NNTP
 
-    RFC 977 Network News Transfer Protocol 
-    being updated by draft-ietf-nntpext-base
+    RFC 3977 Network News Transfer Protocol (NNTP)
+
+    RFC 4642 Using Transport Layer Security (TLS) with Network News
+    Transfer Protocol (NNTP)
+
+    RFC 4643 Network News Transfer Protocol (NNTP) Extension for
+    Authentication
+
+    RFC 4644 Network News Transfer Protocol (NNTP) Extension for Streaming
+    Feeds
 
     RFC 2980 Common NNTP Extensions
 
-    draft-ietf-nntpext-streaming NNTP Extension for Streaming Feeds
-
-    draft-ietf-nntpext-authinfo NNTP Extension for Authentication
-
-    draft-ietf-nntpext-tls-nntp Using TLS with NNTP
-
 SASL
 
-    RFC 2222 Simple Authentication and Security Layer (SASL) 
-    being revised by draft-ietf-sasl-rfc2222bis
+    RFC 4422 Simple Authentication and Security Layer (SASL)
+
+    RFC 4505 Anonymous Simple Authentication and Security Layer (SASL)
+    Mechanism
+
+    RFC 4616 The PLAIN Simple Authentication and Security Layer (SASL)
+    Mechanism
 
     RFC 2195 IMAP/POP AUTHorize Extension for Simple Challenge/Response 
     being revised by draft-ietf-sasl-crammd5
 
-    RFC 2245 Anonymous SASL Mechanism 
-    being revised by draft-ietf-sasl-anon
-
     RFC 2444 The One-Time-Password SASL Mechanism
-
-    RFC 2595 Using TLS with IMAP, POP3 and ACAP 
-    being revised by draft-ietf-sasl-plain
 
     RFC 2831 Using Digest Authentication as a SASL Mechanism 
     being revised by draft-ietf-sasl-rfc2831bis
 
 TLS/SSL
 
-    RFC 2246 TLS Protocol
+    RFC 4346 The Transport Layer Security (TLS) Protocol Version 1.1
+
+    RFC 2246 The TLS Protocol Version 1.0
 
     draft-freier-ssl-version3 The SSL Protocol Version 3.0
 
-    draft-hickman-netscape-ssl The SSL Protocol
+    draft-hickman-netscape-ssl The SSL Protocol Version 2.0
 
 LMTP
 
@@ -125,20 +138,28 @@ LMTP
 
 Sieve
 
-    RFC 3028 Sieve: A Mail Filtering Language
+    RFC 3028 Sieve: A Mail Filtering Language 
+    being updated by draft-ietf-sieve-3028bis
 
     RFC 3431 Sieve Extension: Relational Tests
 
-    RFC 3598 Sieve Email Filtering -- Subaddress Extension
+    RFC 3598 Sieve Email Filtering -- Subaddress Extension 
+    being updated by draft-ietf-sieve-rfc3598bis
+
+    RFC 3894 Sieve Extension: Copying Without Side Effects
 
     RFC 2298 Extensible Message Format for Message Disposition
     Notifications (MDNs)
 
-    draft-showalter-sieve-vacation Sieve -- Vacation Extension
+    draft-ietf-sieve-vacation Sieve Email Filtering: Vacation Extension
+
+    draft-ietf-sieve-body Sieve Mail Filtering Language: Body Extension
+
+    draft-ietf-sieve-regex Sieve -- Regular Expression Extension
+
+    draft-daboo-sieve-include SIEVE Include Extension
 
     draft-melnikov-sieve-imapflags Sieve -- IMAP flag Extension
-
-    draft-murchison-sieve-regex Sieve -- Regular Expression Extension
 
     draft-martin-sieve-notify Sieve -- An extension for providing instant
     notifications

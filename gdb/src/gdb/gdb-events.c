@@ -1,6 +1,7 @@
 /* User Interface Events.
 
-   Copyright 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1999, 2001, 2002, 2004, 2005 Free Software Foundation,
+   Inc.
 
    Contributed by Cygnus Solutions.
 
@@ -32,22 +33,25 @@
    If editing this file, please also run gdb-events.sh and merge any
    changes into that script. Conversely, when making sweeping changes
    to this file, modifying gdb-events.sh and using its output may
-   prove easier. */
+   prove easier.  */
 
 
 #include "defs.h"
 #include "gdb-events.h"
 #include "gdbcmd.h"
 
-#if WITH_GDB_EVENTS
 static struct gdb_events null_event_hooks;
 static struct gdb_events queue_event_hooks;
 static struct gdb_events *current_event_hooks = &null_event_hooks;
-#endif
 
 int gdb_events_debug;
+static void
+show_gdb_events_debug (struct ui_file *file, int from_tty,
+		       struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Event debugging is %s.\n"), value);
+}
 
-#if WITH_GDB_EVENTS
 
 void
 breakpoint_create_event (int b)
@@ -129,41 +133,8 @@ architecture_changed_event (void)
   current_event_hooks->architecture_changed ();
 }
 
-void
-target_changed_event (void)
-{
-  if (gdb_events_debug)
-    fprintf_unfiltered (gdb_stdlog, "target_changed_event\n");
-  if (!current_event_hooks->target_changed)
-    return;
-  current_event_hooks->target_changed ();
-}
-
-void
-selected_frame_level_changed_event (int level)
-{
-  if (gdb_events_debug)
-    fprintf_unfiltered (gdb_stdlog, "selected_frame_level_changed_event\n");
-  if (!current_event_hooks->selected_frame_level_changed)
-    return;
-  current_event_hooks->selected_frame_level_changed (level);
-}
-
-void
-selected_thread_changed_event (int thread_num)
-{
-  if (gdb_events_debug)
-    fprintf_unfiltered (gdb_stdlog, "selected_thread_changed_event\n");
-  if (!current_event_hooks->selected_thread_changed)
-    return;
-  current_event_hooks->selected_thread_changed (thread_num);
-}
-
-#endif
-
-#if WITH_GDB_EVENTS
 struct gdb_events *
-set_gdb_event_hooks (struct gdb_events *vector)
+deprecated_set_gdb_event_hooks (struct gdb_events *vector)
 {
   struct gdb_events *old_events = current_event_hooks;
   if (vector == NULL)
@@ -172,15 +143,12 @@ set_gdb_event_hooks (struct gdb_events *vector)
     current_event_hooks = vector;
   return old_events;
 }
-#endif
 
-#if WITH_GDB_EVENTS
 void
 clear_gdb_event_hooks (void)
 {
-  set_gdb_event_hooks (&null_event_hooks);
+  deprecated_set_gdb_event_hooks (&null_event_hooks);
 }
-#endif
 
 enum gdb_event
 {
@@ -192,9 +160,6 @@ enum gdb_event
   tracepoint_delete,
   tracepoint_modify,
   architecture_changed,
-  target_changed,
-  selected_frame_level_changed,
-  selected_thread_changed,
   nr_gdb_events
 };
 
@@ -233,16 +198,6 @@ struct tracepoint_modify
     int number;
   };
 
-struct selected_frame_level_changed
-  {
-    int level;
-  };
-
-struct selected_thread_changed
-  {
-    int thread_num;
-  };
-
 struct event
   {
     enum gdb_event type;
@@ -256,8 +211,6 @@ struct event
 	struct tracepoint_create tracepoint_create;
 	struct tracepoint_delete tracepoint_delete;
 	struct tracepoint_modify tracepoint_modify;
-	struct selected_frame_level_changed selected_frame_level_changed;
-	struct selected_thread_changed selected_thread_changed;
       }
     data;
   };
@@ -346,32 +299,6 @@ queue_architecture_changed (void)
   append (event);
 }
 
-static void
-queue_target_changed (void)
-{
-  struct event *event = XMALLOC (struct event);
-  event->type = target_changed;
-  append (event);
-}
-
-static void
-queue_selected_frame_level_changed (int level)
-{
-  struct event *event = XMALLOC (struct event);
-  event->type = selected_frame_level_changed;
-  event->data.selected_frame_level_changed.level = level;
-  append (event);
-}
-
-static void
-queue_selected_thread_changed (int thread_num)
-{
-  struct event *event = XMALLOC (struct event);
-  event->type = selected_thread_changed;
-  event->data.selected_thread_changed.thread_num = thread_num;
-  append (event);
-}
-
 void
 gdb_events_deliver (struct gdb_events *vector)
 {
@@ -425,17 +352,6 @@ gdb_events_deliver (struct gdb_events *vector)
 	case architecture_changed:
 	  vector->architecture_changed ();
 	  break;
-	case target_changed:
-	  vector->target_changed ();
-	  break;
-	case selected_frame_level_changed:
-	  vector->selected_frame_level_changed
-	    (event->data.selected_frame_level_changed.level);
-	  break;
-	case selected_thread_changed:
-	  vector->selected_thread_changed
-	    (event->data.selected_thread_changed.thread_num);
-	  break;
 	}
       delivering_events = event->next;
       xfree (event);
@@ -447,7 +363,6 @@ void
 _initialize_gdb_events (void)
 {
   struct cmd_list_element *c;
-#if WITH_GDB_EVENTS
   queue_event_hooks.breakpoint_create = queue_breakpoint_create;
   queue_event_hooks.breakpoint_delete = queue_breakpoint_delete;
   queue_event_hooks.breakpoint_modify = queue_breakpoint_modify;
@@ -456,22 +371,13 @@ _initialize_gdb_events (void)
   queue_event_hooks.tracepoint_delete = queue_tracepoint_delete;
   queue_event_hooks.tracepoint_modify = queue_tracepoint_modify;
   queue_event_hooks.architecture_changed = queue_architecture_changed;
-  queue_event_hooks.target_changed = queue_target_changed;
-  queue_event_hooks.selected_frame_level_changed = queue_selected_frame_level_changed;
-  queue_event_hooks.selected_thread_changed = queue_selected_thread_changed;
-#endif
 
-  c = add_set_cmd ("eventdebug", class_maintenance, var_zinteger,
-		   (char *) (&gdb_events_debug), "Set event debugging.\n\
-When non-zero, event/notify debugging is enabled.", &setlist);
-  deprecate_cmd (c, "set debug event");
-  deprecate_cmd (add_show_from_set (c, &showlist), "show debug event");
-
-  add_show_from_set (add_set_cmd ("event",
-				  class_maintenance,
-				  var_zinteger,
-				  (char *) (&gdb_events_debug),
-				  "Set event debugging.\n\
-When non-zero, event/notify debugging is enabled.", &setdebuglist),
-		     &showdebuglist);
+  add_setshow_zinteger_cmd ("event", class_maintenance,
+			    &gdb_events_debug, _("\
+Set event debugging."), _("\
+Show event debugging."), _("\
+When non-zero, event/notify debugging is enabled."),
+			    NULL,
+			    show_gdb_events_debug,
+			    &setdebuglist, &showdebuglist);
 }

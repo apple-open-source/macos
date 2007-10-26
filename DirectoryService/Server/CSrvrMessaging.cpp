@@ -59,11 +59,11 @@ CSrvrMessaging::~CSrvrMessaging ( void )
 //	* Add_tDataBuff_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_tDataBuff_ToMsg ( sComData **inMsg, tDataBuffer *inBuff, eValueType inType )
+SInt32 CSrvrMessaging::Add_tDataBuff_ToMsg ( sComData **inMsg, tDataBuffer *inBuff, eValueType inType )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
+	UInt32			offset	= 0;
 
 	result = GetEmptyObj( (*inMsg), inType, &pObj );
 	if ( result == eDSNoErr )
@@ -97,13 +97,13 @@ sInt32 CSrvrMessaging::Add_tDataBuff_ToMsg ( sComData **inMsg, tDataBuffer *inBu
 //	* Add_tDataList_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_tDataList_ToMsg ( sComData **inMsg, tDataList *inList, eValueType inType )
+SInt32 CSrvrMessaging::Add_tDataList_ToMsg ( sComData **inMsg, tDataList *inList, eValueType inType )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	bool				done		= false;
-	uInt32				offset		= 0;
-	uInt32				length		= 0;
-	uInt32				len			= 0;
+	UInt32				offset		= 0;
+	UInt32				length		= 0;
+	UInt32				len			= 0;
 	tDataNodePtr		pCurrNode	= nil;
 	tDataBufferPriv	   *pPrivData	= nil;
 	sObject			   *pObj		= nil;
@@ -115,7 +115,7 @@ sInt32 CSrvrMessaging::Add_tDataList_ToMsg ( sComData **inMsg, tDataList *inList
 		{
 			pObj->type		= inType;  // == ktDataList
 			pObj->count		= inList->fDataNodeCount;
-			pObj->length	= ::dsGetDataLengthPriv( inList ) + (inList->fDataNodeCount * sizeof( uInt32 ));
+			pObj->length	= ::dsGetDataLengthPriv( inList ) + (inList->fDataNodeCount * sizeof( UInt32 ));
 			length			= pObj->length;
 			offset			= pObj->offset;
 
@@ -158,16 +158,16 @@ sInt32 CSrvrMessaging::Add_tDataList_ToMsg ( sComData **inMsg, tDataList *inList
 //	* Add_Value_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_Value_ToMsg ( sComData *inMsg, uInt32 inValue, eValueType inType )
+SInt32 CSrvrMessaging::Add_Value_ToMsg ( sComData *inMsg, UInt32 inValue, eValueType inType )
 {
-	sInt32			result		= eDSNoErr;
+	SInt32			result		= eDSNoErr;
 	sObject		   *pObj		= nil;
 
 	result = GetEmptyObj( inMsg, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type		= inType;
-		pObj->count		= inValue; //this is many times an sInt32 assignment of siResult to the uInt32 count
+		pObj->count		= inValue; //this is many times an SInt32 assignment of siResult to the UInt32 count
 		pObj->length	= 0;
 	}
 
@@ -180,12 +180,12 @@ sInt32 CSrvrMessaging::Add_Value_ToMsg ( sComData *inMsg, uInt32 inValue, eValue
 //	* Add_tAttrEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_tAttrEntry_ToMsg ( sComData **inMsg, tAttributeEntry *inData )
+SInt32 CSrvrMessaging::Add_tAttrEntry_ToMsg ( sComData **inMsg, tAttributeEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 
 	result = GetEmptyObj( (*inMsg), ktAttrValueEntry, &pObj );
 	if ( result == eDSNoErr )
@@ -220,12 +220,12 @@ sInt32 CSrvrMessaging::Add_tAttrEntry_ToMsg ( sComData **inMsg, tAttributeEntry 
 //	* Add_tAttrValueEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_tAttrValueEntry_ToMsg ( sComData **inMsg, tAttributeValueEntry *inData )
+SInt32 CSrvrMessaging::Add_tAttrValueEntry_ToMsg ( sComData **inMsg, tAttributeValueEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 
 	result = GetEmptyObj( (*inMsg), ktAttrValueEntry, &pObj );
 	if ( result == eDSNoErr )
@@ -261,12 +261,12 @@ sInt32 CSrvrMessaging::Add_tAttrValueEntry_ToMsg ( sComData **inMsg, tAttributeV
 //	* Add_tRecordEntry_ToMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Add_tRecordEntry_ToMsg ( sComData **inMsg, tRecordEntry *inData )
+SInt32 CSrvrMessaging::Add_tRecordEntry_ToMsg ( sComData **inMsg, tRecordEntry *inData )
 {
-	sInt32			result	= eDSNoErr;
+	SInt32			result	= eDSNoErr;
 	sObject		   *pObj	= nil;
-	uInt32			offset	= 0;
-	uInt32			length	= 0;
+	UInt32			offset	= 0;
+	UInt32			length	= 0;
 
 	result = GetEmptyObj( (*inMsg), ktRecordEntry, &pObj );
 	if ( result == eDSNoErr )
@@ -300,11 +300,11 @@ sInt32 CSrvrMessaging::Add_tRecordEntry_ToMsg ( sComData **inMsg, tRecordEntry *
 //	* Get_tDataBuff_FromMsg		ktDataBuff
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_tDataBuff_FromMsg ( sComData *inMsg, tDataBuffer **outBuff, eValueType inType )
+SInt32 CSrvrMessaging::Get_tDataBuff_FromMsg ( sComData *inMsg, tDataBuffer **outBuff, eValueType inType )
 {
-	sInt32		result	= eDSNoErr;
-	uInt32		offset	= 0;
-	uInt32		length	= 0;
+	SInt32		result	= eDSNoErr;
+	UInt32		offset	= 0;
+	UInt32		length	= 0;
 	sObject	   *pObj	= nil;
 
 	result = GetThisObj( inMsg, inType, &pObj );
@@ -353,16 +353,15 @@ sInt32 CSrvrMessaging::Get_tDataBuff_FromMsg ( sComData *inMsg, tDataBuffer **ou
 //	* Get_tDataList_FromMsg		ktDataList
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_tDataList_FromMsg ( sComData *inMsg, tDataList **outList, eValueType inType )
+SInt32 CSrvrMessaging::Get_tDataList_FromMsg ( sComData *inMsg, tDataList **outList, eValueType inType )
 {
-	sInt32		siResult	= eDSNoErr;
-	uInt32		offset		= 0;
-	uInt32		length		= 0;
-	uInt32		count		= 0;
-	uInt32		cntr		= 0;
+	SInt32		siResult	= eDSNoErr;
+	UInt32		offset		= 0;
+	UInt32		length		= 0;
+	UInt32		count		= 0;
+	UInt32		cntr		= 0;
 	sObject	   *pObj		= nil;
 	tDataList  *pOutList	= nil;
-	char	   *tmpStr		= nil;
 
 	try
 	{
@@ -374,22 +373,59 @@ sInt32 CSrvrMessaging::Get_tDataList_FromMsg ( sComData *inMsg, tDataList **outL
 				pOutList = ::dsDataListAllocatePriv();
 				if ( pOutList != nil )
 				{
+					tDataBufferPriv    *pCurNodeData    = NULL;
+					char               *pMsg            = (char *) inMsg;
+					
 					offset	= pObj->offset;
 					count	= pObj->count;
-
+					
 					while ( cntr < count )
 					{
-						::memcpy( &length, (char *)inMsg + offset, 4 );
+						tDataBufferPriv    *pNewNodeData;
+						
+						::bcopy( pMsg + offset, &length, 4 );
 						offset += 4;
-
-						tmpStr = (char *)calloc(1, length+1);
-						if ( tmpStr == nil ) throw((sInt32)eMemoryAllocError);
-						strncpy(tmpStr, (char *)inMsg + offset, length);
-						::dsAppendStringToListAllocPriv( pOutList, tmpStr );
-						free( tmpStr );
-
+						
+						// if the buffer is more that 1 gig, something is wrong.
+						if( length > 1024 * 1024 * 1024 )
+						{
+							siResult = eMemoryError;
+							break;
+						}
+						
+						pNewNodeData = (tDataBufferPriv *)::calloc( sizeof(tDataBufferPriv) + length, sizeof(char) );
+						if ( pNewNodeData != nil )
+						{
+							pNewNodeData->fBufferSize = length;
+							pNewNodeData->fBufferLength = length;
+							
+							bcopy( pMsg + offset, pNewNodeData->fBufferData, length );
+							
+							// Get the new node's header and point it to the prevous end
+							pNewNodeData->fPrevPtr	= (tDataNodePtr) pCurNodeData;
+							
+							// Set the script code to ASCII
+							pNewNodeData->fScriptCode = kASCIICodeScript;
+						}
+						else
+						{
+							siResult = eMemoryError;
+							break;
+						}
+						
+						// if we have a current node, means we are appending to the list
+						if( pCurNodeData != nil )
+							pCurNodeData->fNextPtr = (tDataNodePtr) pNewNodeData;
+						else
+							pOutList->fDataListHead = (tDataNodePtr) pNewNodeData;
+						
+						// increment offset
 						offset += length;
 						cntr++;
+						
+						pCurNodeData = pNewNodeData;
+						
+						pOutList->fDataNodeCount++;
 					}
 					*outList = pOutList;
 				}
@@ -405,9 +441,9 @@ sInt32 CSrvrMessaging::Get_tDataList_FromMsg ( sComData *inMsg, tDataList **outL
 		}
 	}
 
-	catch( sInt32 err )
+	catch( SInt32 err )
 	{
-		DBGLOG1( 0x00FF, "***CSrvrMessaging::Get_tDataList_FromMsg with error %l", err ); 
+		DbgLog( 0x00FF, "***CSrvrMessaging::Get_tDataList_FromMsg with error %l", err ); 
 
 		if ( pOutList != nil )
 		{
@@ -428,9 +464,9 @@ sInt32 CSrvrMessaging::Get_tDataList_FromMsg ( sComData *inMsg, tDataList **outL
 //	* Get_Value_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_Value_FromMsg ( sComData *inMsg, uInt32 *outValue, eValueType inType )
+SInt32 CSrvrMessaging::Get_Value_FromMsg ( sComData *inMsg, UInt32 *outValue, eValueType inType )
 {
-	uInt32		result	= eDSNoErr;
+	UInt32		result	= eDSNoErr;
 	sObject	   *pObj	= nil;
 
 	result = GetThisObj( inMsg, inType, &pObj );
@@ -447,9 +483,9 @@ sInt32 CSrvrMessaging::Get_Value_FromMsg ( sComData *inMsg, uInt32 *outValue, eV
 //	* Get_tAttrEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_tAttrEntry_FromMsg ( sComData *inMsg, tAttributeEntry **outAttrEntry, eValueType inType )
+SInt32 CSrvrMessaging::Get_tAttrEntry_FromMsg ( sComData *inMsg, tAttributeEntry **outAttrEntry, eValueType inType )
 {
-	sInt32				result		= eDSNoErr;
+	SInt32				result		= eDSNoErr;
 	sObject			   *pObj		= nil;
 	tAttributeEntry	   *pAttrEntry	= nil;
 
@@ -480,11 +516,11 @@ sInt32 CSrvrMessaging::Get_tAttrEntry_FromMsg ( sComData *inMsg, tAttributeEntry
 //	* Get_tAttrValueEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_tAttrValueEntry_FromMsg ( sComData				*inMsg,
+SInt32 CSrvrMessaging::Get_tAttrValueEntry_FromMsg ( sComData				*inMsg,
 												tAttributeValueEntry **outAttrValue,
 												eValueType				inType )
 {
-	sInt32						result			= eDSNoErr;
+	SInt32						result			= eDSNoErr;
 	sObject					   *pObj			= nil;
 	tAttributeValueEntry	   *pAttrValueEntry	= nil;
 
@@ -515,9 +551,9 @@ sInt32 CSrvrMessaging::Get_tAttrValueEntry_FromMsg ( sComData				*inMsg,
 //	* Get_tRecordEntry_FromMsg
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::Get_tRecordEntry_FromMsg ( sComData *inMsg, tRecordEntry **outRecEntry, eValueType inType )
+SInt32 CSrvrMessaging::Get_tRecordEntry_FromMsg ( sComData *inMsg, tRecordEntry **outRecEntry, eValueType inType )
 {
-	sInt32		   		result			= eDSNoErr;
+	SInt32		   		result			= eDSNoErr;
 	sObject		   	   *pObj			= nil;
 	tRecordEntry	   *pRecordEntry	= nil;
 
@@ -548,10 +584,10 @@ sInt32 CSrvrMessaging::Get_tRecordEntry_FromMsg ( sComData *inMsg, tRecordEntry 
 //	* GetEmptyObj
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **outObj )
+SInt32 CSrvrMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject **outObj )
 {
-	sInt32		siResult	= eDSIndexNotFound;
-	uInt32		i;
+	SInt32		siResult	= eDSIndexNotFound;
+	UInt32		i;
 
 	for ( i = 0; i < 10; i++ )
 	{
@@ -560,12 +596,12 @@ sInt32 CSrvrMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject
 			*outObj = &inMsg->obj[ i ];
 			if ( i == 0 )
 			{
-				//offset was incorrect ie. missing 2 more uInt32 fixed below ie. now 3*
+				//offset was incorrect ie. missing 2 more UInt32 fixed below ie. now 3*
 				// but should really use offsetof here since it is a fixed size object
 				(*outObj)->offset = offsetof(struct sComData, data);
 				//(*outObj)->offset = sizeof( mach_msg_header_t ) +
 				//					sizeof( mach_msg_type_t ) +
-				//					3*sizeof( uInt32 ) +
+				//					3*sizeof( UInt32 ) +
 				//				   (sizeof( sObject ) * 10);
 			}
 			else
@@ -575,7 +611,7 @@ sInt32 CSrvrMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject
 			siResult = eDSNoErr;
 			break;
 		}
-		else if ( inMsg->obj[ i ].type == (uInt32)inType )
+		else if ( inMsg->obj[ i ].type == (UInt32)inType )
 		{
 			//siResult = kDupInList;
 			break;
@@ -591,14 +627,14 @@ sInt32 CSrvrMessaging::GetEmptyObj ( sComData *inMsg, eValueType inType, sObject
 //	* GetThisObj
 //------------------------------------------------------------------------------------
 
-sInt32 CSrvrMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **outObj )
+SInt32 CSrvrMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **outObj )
 {
-	sInt32		siResult	= eDSIndexNotFound;
-	uInt32		i;
+	SInt32		siResult	= eDSIndexNotFound;
+	UInt32		i;
 
 	for ( i = 0; i < 10; i++ )
 	{
-		if ( inMsg->obj[ i ].type == (uInt32)inType )
+		if ( inMsg->obj[ i ].type == (UInt32)inType )
 		{
 			*outObj = &inMsg->obj[ i ];
 			siResult = eDSNoErr;
@@ -642,9 +678,9 @@ void CSrvrMessaging::ClearMessageBlock ( sComData *inMsg )
 //	* Grow
 //------------------------------------------------------------------------------------
 
-void CSrvrMessaging::Grow ( sComData **inMsg, uInt32 inOffset, uInt32 inSize )
+void CSrvrMessaging::Grow ( sComData **inMsg, UInt32 inOffset, UInt32 inSize )
 {
-	uInt32			newSize		= 0;
+	UInt32			newSize		= 0;
 	sComData	   *pNewPtr		= nil;
 
 	// Is there anything to do
@@ -667,7 +703,7 @@ void CSrvrMessaging::Grow ( sComData **inMsg, uInt32 inOffset, uInt32 inSize )
 		pNewPtr = (sComData *)::calloc( 1, sizeof( sComData ) + newSize );
 		if ( pNewPtr == nil )
 		{
-			throw( (sInt32)eMemoryAllocError );
+			throw( (SInt32)eMemoryAllocError );
 		}
 
 		// Copy the old data to the new destination

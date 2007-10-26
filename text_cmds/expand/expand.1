@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)expand.1	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/usr.bin/expand/expand.1,v 1.13 2004/07/02 22:22:24 ru Exp $
+.\" $FreeBSD: src/usr.bin/expand/expand.1,v 1.14 2005/01/17 07:44:17 ru Exp $
 .\"
 .Dd April 21, 2002
 .Dt EXPAND 1
@@ -90,7 +90,11 @@ resultant file by replacing two or more characters.
 Set tab stops at column positions
 .Ar tab1 , tab2 , ... , tabn .
 If only a single number is given, tab stops are set that number of
-column positions apart instead of the default number of 8.
+column positions apart instead of the default number of 8. If the
+.Fl t
+option is specified, it overrides the
+.Fl a
+option.
 .El
 .Sh ENVIRONMENT
 The
@@ -103,7 +107,7 @@ and
 .Nm unexpand
 as described in
 .Xr environ 7 .
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std expand unexpand
 .Sh STANDARDS
 The

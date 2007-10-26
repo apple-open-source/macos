@@ -1,0 +1,173 @@
+Index: samba/source/libsmb/asn1.c
+===================================================================
+--- samba/source/libsmb/asn1.c.orig
++++ samba/source/libsmb/asn1.c
+@@ -261,6 +261,19 @@ BOOL asn1_read_uint8(ASN1_DATA *data, ui
+ 	return asn1_read(data, v, 1);
+ }
+ 
++/*
++ * Check thta the value of the ASN1 buffer at the current offset equals tag.
++ */
++BOOL asn1_check_tag(ASN1_DATA *data, uint8 tag)
++{
++	if (data->has_error || data->ofs >= data->length || data->ofs < 0) {
++		data->has_error = True;
++		return False;
++	}
++
++	return (tag == data->data[data->ofs]);
++}
++
+ /* start reading a nested asn1 structure */
+ BOOL asn1_start_tag(ASN1_DATA *data, uint8 tag)
+ {
+Index: samba/source/libsmb/clispnego.c
+===================================================================
+--- samba/source/libsmb/clispnego.c.orig
++++ samba/source/libsmb/clispnego.c
+@@ -247,6 +247,18 @@ BOOL parse_negTokenTarg(DATA_BLOB blob, 
+ 	asn1_end_tag(&data);
+ 	asn1_end_tag(&data);
+ 
++	/* Skip any optional req_flags that are sent per RFC 4178 */
++	if (asn1_check_tag(&data, ASN1_CONTEXT(1))) {
++		uint8 flags;
++
++		asn1_start_tag(&data, ASN1_CONTEXT(1));
++		asn1_start_tag(&data, ASN1_BITFIELD);
++		while (asn1_tag_remaining(&data) > 0)
++			asn1_read_uint8(&data, &flags);
++		asn1_end_tag(&data);
++		asn1_end_tag(&data);
++	}
++
+ 	asn1_start_tag(&data, ASN1_CONTEXT(2));
+ 	asn1_read_OctetString(&data,secblob);
+ 	asn1_end_tag(&data);
+Index: samba/source/smbd/sesssetup.c
+===================================================================
+--- samba/source/smbd/sesssetup.c.orig
++++ samba/source/smbd/sesssetup.c
+@@ -226,6 +226,7 @@ static BOOL make_krb5_skew_error(DATA_BL
+ static int reply_spnego_kerberos(connection_struct *conn, 
+ 				 char *inbuf, char *outbuf,
+ 				 int length, int bufsize,
++				 char *mechOID,
+ 				 DATA_BLOB *secblob,
+ 				 BOOL *p_invalidate_vuid)
+ {
+@@ -562,7 +563,7 @@ static int reply_spnego_kerberos(connect
+ 	} else {
+ 		ap_rep_wrapped = data_blob(NULL, 0);
+ 	}
+-	response = spnego_gen_auth_response(&ap_rep_wrapped, ret, OID_KERBEROS5_OLD);
++	response = spnego_gen_auth_response(&ap_rep_wrapped, ret, mechOID);
+ 	reply_sesssetup_blob(conn, outbuf, response, ret);
+ 
+ 	data_blob_free(&ap_rep);
+@@ -658,12 +659,13 @@ static BOOL reply_spnego_ntlmssp(connect
+  Is this a krb5 mechanism ?
+ ****************************************************************************/
+ 
+-static NTSTATUS parse_spnego_mechanisms(DATA_BLOB blob_in, DATA_BLOB *pblob_out, BOOL *p_is_krb5)
++static NTSTATUS parse_spnego_mechanisms(DATA_BLOB blob_in, DATA_BLOB *pblob_out, char **kerb_mechOID)
+ {
+ 	char *OIDs[ASN1_MAX_OIDS];
+ 	int i;
++	NTSTATUS ret = NT_STATUS_OK;
+ 
+-	*p_is_krb5 = False;
++	*kerb_mechOID = NULL;
+ 
+ 	/* parse out the OIDs and the first sec blob */
+ 	if (!parse_negTokenTarg(blob_in, OIDs, pblob_out)) {
+@@ -683,7 +685,9 @@ static NTSTATUS parse_spnego_mechanisms(
+ #ifdef HAVE_KRB5	
+ 	if (strcmp(OID_KERBEROS5, OIDs[0]) == 0 ||
+ 	    strcmp(OID_KERBEROS5_OLD, OIDs[0]) == 0) {
+-		*p_is_krb5 = True;
++		*kerb_mechOID = strdup(OIDs[0]);
++		if (*kerb_mechOID == NULL)
++			ret = NT_STATUS_NO_MEMORY;
+ 	}
+ #endif
+ 		
+@@ -691,7 +695,7 @@ static NTSTATUS parse_spnego_mechanisms(
+ 		DEBUG(5,("parse_spnego_mechanisms: Got OID %s\n", OIDs[i]));
+ 		free(OIDs[i]);
+ 	}
+-	return NT_STATUS_OK;
++	return ret;
+ }
+ 
+ /****************************************************************************
+@@ -708,10 +712,10 @@ static int reply_spnego_negotiate(connec
+ {
+ 	DATA_BLOB secblob;
+ 	DATA_BLOB chal;
+-	BOOL got_kerberos_mechanism = False;
++	char *kerb_mech;
+ 	NTSTATUS status;
+ 
+-	status = parse_spnego_mechanisms(blob1, &secblob, &got_kerberos_mechanism);
++	status = parse_spnego_mechanisms(blob1, &secblob, &kerb_mech);
+ 	if (!NT_STATUS_IS_OK(status)) {
+ 		/* Kill the intermediate vuid */
+ 		invalidate_vuid(vuid);
+@@ -721,17 +725,21 @@ static int reply_spnego_negotiate(connec
+ 	DEBUG(3,("reply_spnego_negotiate: Got secblob of size %lu\n", (unsigned long)secblob.length));
+ 
+ #ifdef HAVE_KRB5
+-	if ( got_kerberos_mechanism && ((lp_security()==SEC_ADS) || lp_use_kerberos_keytab()) ) {
++	if ( kerb_mech && ((lp_security()==SEC_ADS) || lp_use_kerberos_keytab()) ) {
+ 		BOOL destroy_vuid = True;
+ 		int ret = reply_spnego_kerberos(conn, inbuf, outbuf, 
+-						length, bufsize, &secblob, &destroy_vuid);
++						length, bufsize, kerb_mech,
++						&secblob, &destroy_vuid);
+ 		data_blob_free(&secblob);
+ 		if (destroy_vuid) {
+ 			/* Kill the intermediate vuid */
+ 			invalidate_vuid(vuid);
+ 		}
++		free(kerb_mech);
+ 		return ret;
+ 	}
++	if (kerb_mech)
++		free(kerb_mech);
+ #endif
+ 
+ 	if (*auth_ntlmssp_state) {
+@@ -787,23 +795,27 @@ static int reply_spnego_auth(connection_
+ 	if (auth.data[0] == ASN1_APPLICATION(0)) {
+ 		/* Might be a second negTokenTarg packet */
+ 
+-		BOOL got_krb5_mechanism = False;
+-		status = parse_spnego_mechanisms(auth, &secblob, &got_krb5_mechanism);
++		char *kerb_mech = NULL;
++		status = parse_spnego_mechanisms(auth, &secblob, &kerb_mech);
+ 		if (NT_STATUS_IS_OK(status)) {
+ 			DEBUG(3,("reply_spnego_auth: Got secblob of size %lu\n", (unsigned long)secblob.length));
+ #ifdef HAVE_KRB5
+-			if ( got_krb5_mechanism && ((lp_security()==SEC_ADS) || lp_use_kerberos_keytab()) ) {
++			if ( kerb_mech && ((lp_security()==SEC_ADS) || lp_use_kerberos_keytab()) ) {
+ 				BOOL destroy_vuid = True;
+ 				int ret = reply_spnego_kerberos(conn, inbuf, outbuf, 
+-								length, bufsize, &secblob, &destroy_vuid);
++								length, bufsize, kerb_mech,
++								&secblob, &destroy_vuid);
+ 				data_blob_free(&secblob);
+ 				data_blob_free(&auth);
+ 				if (destroy_vuid) {
+ 					/* Kill the intermediate vuid */
+ 					invalidate_vuid(vuid);
+ 				}
++				free(kerb_mech);
+ 				return ret;
+ 			}
++			if (kerb_mech)
++				free(kerb_mech);
+ #endif
+ 		}
+ 	}

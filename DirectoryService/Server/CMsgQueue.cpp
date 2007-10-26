@@ -40,7 +40,8 @@
 #include "CMsgQueue.h"
 #include "CLog.h"
 
-#include <time.h>
+#include <sys/time.h>	// for struct timespec and gettimeofday();
+#include <errno.h>
 
 //--------------------------------------------------------------------------------------------------
 //	* CMsgQueue()
@@ -49,10 +50,14 @@
 
 CMsgQueue::CMsgQueue ( void )
 {
-	fListTail		= nil;
+	fListTail           = nil;
 
-	fMsgCount		= 0;
-	fTotalMsgCnt	= 0;
+	fMsgCount           = 0;
+	fTotalMsgCnt        = 0;
+    fHandlersAvailable  = 0;
+    
+    pthread_mutex_init( &fMutex, NULL );
+    pthread_cond_init( &fCondition, NULL );
 } // CMsgQueue
 
 
@@ -63,7 +68,8 @@ CMsgQueue::CMsgQueue ( void )
 
 CMsgQueue::~CMsgQueue()
 {
-
+    pthread_mutex_destroy( &fMutex );
+    pthread_cond_destroy( &fCondition );
 } // ~CMsgQueue
 
 
@@ -72,13 +78,13 @@ CMsgQueue::~CMsgQueue()
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CMsgQueue::QueueMessage ( void *inMsgData )
+bool CMsgQueue::QueueMessage ( void *inMsgData )
 {
-	sInt32			result	= eDSNoErr;
+	bool           result	= false;
 	sQueueItem	   *newObj	= nil;
 
 	// Wait for our turn
-	fMutex.Wait();
+    fQueueLock.WaitLock();
 
 	// Create our message object
 	newObj = new sQueueItem;
@@ -104,13 +110,21 @@ sInt32 CMsgQueue::QueueMessage ( void *inMsgData )
 	}
 	else
 	{
-		result = kMemoryErr;
-		DBGLOG2( kLogMsgQueue, "File: %s. Line: %d", __FILE__, __LINE__ );
-		DBGLOG( kLogMsgQueue, "  Memory error." );
+		DbgLog( kLogMsgQueue, "File: %s. Line: %d", __FILE__, __LINE__ );
+		DbgLog( kLogMsgQueue, "  Memory error." );
 	}
 
-	fMutex.Signal();
-
+    fQueueLock.SignalLock();
+    
+    // signal one of the threads there is something to do
+    pthread_mutex_lock( &fMutex );
+    if( fHandlersAvailable > 0 )
+    {
+        result = true;
+        pthread_cond_signal( &fCondition );
+    }
+    pthread_mutex_unlock( &fMutex );    
+    
 	return( result );
 
 } // QueueMessage
@@ -121,13 +135,13 @@ sInt32 CMsgQueue::QueueMessage ( void *inMsgData )
 //
 //--------------------------------------------------------------------------------------------------
 
-sInt32 CMsgQueue::DequeueMessage ( void **outMsgData )
+bool CMsgQueue::DequeueMessage ( void **outMsgData )
 {
-	sInt32			result		= eDSNoErr;
+	bool			result		= false;
 	sQueueItem	   *tmpObj		= nil;
 
 	// Wait for our turn
-	fMutex.Wait();
+    fQueueLock.WaitLock();
 
 	if ( fListTail != nil )
 	{
@@ -149,21 +163,21 @@ sInt32 CMsgQueue::DequeueMessage ( void **outMsgData )
 			tmpObj = nil;
 			fMsgCount--;
 		}
+        
+		result = true;
 	}
 	else
 	{
 		if ( fMsgCount != 0 )
 		{
-			DBGLOG2( kLogMsgQueue, "File: %s. Line: %d", __FILE__, __LINE__ );
-			DBGLOG1( kLogMsgQueue, "  *** Bad message count.  Should be 0 but is %l.", fMsgCount );
+			DbgLog( kLogMsgQueue, "File: %s. Line: %d", __FILE__, __LINE__ );
+			DbgLog( kLogMsgQueue, "  *** Bad message count.  Should be 0 but is %l.", fMsgCount );
 		}
-		result = kNoMessages;
 	}
 
-	// Let it //free
-	fMutex.Signal();
-
-	return( result );
+    fQueueLock.SignalLock();
+    
+    return( result );
 
 } // DequeueMessage
 
@@ -173,17 +187,17 @@ sInt32 CMsgQueue::DequeueMessage ( void **outMsgData )
 //
 //--------------------------------------------------------------------------------------------------
 
-uInt32 CMsgQueue::GetMsgCount ( void )
+UInt32 CMsgQueue::GetMsgCount ( void )
 {
-	uInt32		result = 0;
+	UInt32		result = 0;
 
 	// Wait for our turn
-	fMutex.Wait();
+    fQueueLock.WaitLock();
 
 	result = fMsgCount;
 
 	// Let it //free
-	fMutex.Signal();
+    fQueueLock.SignalLock();
 
 	return( result );
 
@@ -195,13 +209,13 @@ uInt32 CMsgQueue::GetMsgCount ( void )
 //
 //--------------------------------------------------------------------------------------------------
 
-void CMsgQueue::ResetMsgCount ( void )
+void CMsgQueue::ClearMsgQueue ( void )
 {
-	uInt32			count		= 0;
+	UInt32			count		= 0;
 	sQueueItem	   *queueObj	= nil;
 
 	// Wait for our turn
-	fMutex.Wait();
+    fQueueLock.WaitLock();
 
 	if ( fListTail != nil )
 	{
@@ -215,8 +229,50 @@ void CMsgQueue::ResetMsgCount ( void )
 
 	fMsgCount = count;
 
-	// Let it //free
-	fMutex.Signal();
+    // flushed queue, let's broadcast so all waiting threads go away
+    pthread_mutex_lock( &fMutex );
+    pthread_cond_broadcast( &fCondition );
+    pthread_mutex_unlock( &fMutex );    
+    
+    // Let it free
+    fQueueLock.SignalLock();
 
 } // ResetMsgCount
+
+bool CMsgQueue::WaitOnMessage( UInt32 inMilliSecs )
+{
+    bool bReturn = true;
+
+    pthread_mutex_lock( &fMutex );
+    
+    fHandlersAvailable++;
+    
+    // we only lock if we didn't have a broadcast
+    if( inMilliSecs == 0 ) // wait forever
+    {
+        pthread_cond_wait( &fCondition, &fMutex );
+    }
+    else if( inMilliSecs > 0 )
+    {
+        struct timeval	tvNow;
+        struct timespec	tsTimeout;
+        
+        gettimeofday( &tvNow, NULL );
+        TIMEVAL_TO_TIMESPEC ( &tvNow, &tsTimeout );
+        tsTimeout.tv_sec += (inMilliSecs / 1000);
+        tsTimeout.tv_nsec += ((inMilliSecs % 1000) * 1000000);
+        
+        if( pthread_cond_timedwait(&fCondition, &fMutex, &tsTimeout) == ETIMEDOUT )
+        {
+            // we timed out, our return is now false, nothing to do
+            bReturn = false;
+        }
+    }
+    
+    fHandlersAvailable--;
+    pthread_mutex_unlock( &fMutex );
+
+    // now return whether there is something to do or not
+    return bReturn;
+}
 

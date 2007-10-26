@@ -3,7 +3,7 @@
 
 LIB=	telnet
 SRCS=	genget.c getent.c misc.c encrypt.c enc_des.c auth.c kerberos.c krb4encpwd.c kerberos5.c forward.c sra.c read_password.c
-CFLAGS+= -Wno-unused -DHAS_CGETENT -DAUTHENTICATION -DENCRYPTION -DDES_ENCRYPTION -DRSA -DKRB4 -DKRB5 -DFORWARD -I.
+CFLAGS+= -Wno-unused -DHAS_CGETENT -DAUTHENTICATION -DENCRYPTION -DDES_ENCRYPTION -DRSA -DKRB4 -DKRB5 -DFORWARD -DHAVE_STDLIB_H -I.
 NOPIC=	true
 
 #

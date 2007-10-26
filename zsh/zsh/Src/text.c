@@ -537,7 +537,19 @@ gettext2(Estate state)
 		}
 	    } else if (state->pc < s->u._case.end) {
 		tindent--;
-		taddstr(WC_CASE_TYPE(code) == WC_CASE_OR ? " ;;" : ";&");
+		switch (WC_CASE_TYPE(code)) {
+		case WC_CASE_OR:
+		    taddstr(" ;;");
+		    break;
+
+		case WC_CASE_AND:
+		    taddstr(";&");
+		    break;
+
+		default:
+		    taddstr(";|");
+		    break;
+		}
 		if (tnewlins)
 		    taddnl();
 		else
@@ -553,7 +565,19 @@ gettext2(Estate state)
 			  s->u._case.end);
 	    } else {
 		tindent--;
-		taddstr(WC_CASE_TYPE(code) == WC_CASE_OR ? " ;;" : ";&");
+		switch (WC_CASE_TYPE(code)) {
+		case WC_CASE_OR:
+		    taddstr(" ;;");
+		    break;
+
+		case WC_CASE_AND:
+		    taddstr(";&");
+		    break;
+
+		default:
+		    taddstr(";|");
+		    break;
+		}
 		tindent--;
 		if (tnewlins)
 		    taddnl();
@@ -789,20 +813,26 @@ getredirs(LinkList redirs)
 	case REDIR_MERGEOUT:
 	case REDIR_INPIPE:
 	case REDIR_OUTPIPE:
-	    if (f->fd1 != (IS_READFD(f->type) ? 0 : 1))
+	    if (f->varid) {
+		taddchr('{');
+		taddstr(f->varid);
+		taddchr('}');
+	    } else if (f->fd1 != (IS_READFD(f->type) ? 0 : 1))
 		taddchr('0' + f->fd1);
 	    taddstr(fstr[f->type]);
-	    taddchr(' ');
-	    if (f->type == REDIR_HERESTR) {
-                if (has_token(f->name)) {
-                    taddchr('\"');
-                    taddstr(bslashquote(f->name, NULL, 2));
-                    taddchr('\"');
-                } else {
-                    taddchr('\'');
-                    taddstr(bslashquote(f->name, NULL, 1));
-                    taddchr('\'');
-                }
+	    if (f->type != REDIR_MERGEIN && f->type != REDIR_MERGEOUT)
+		taddchr(' ');
+	    if (f->type == REDIR_HERESTR && !has_token(f->name)) {
+		/*
+		 * Strings that came from here-documents are converted
+		 * to here strings without quotation, so add that
+		 * now.  If tokens are already present taddstr()
+		 * will do the right thing (anyway, adding more
+		 * quotes certainly isn't right in that case).
+		 */
+		taddchr('\'');
+		taddstr(quotestring(f->name, NULL, QT_SINGLE));
+		taddchr('\'');
 	    } else
 		taddstr(f->name);
 	    taddchr(' ');

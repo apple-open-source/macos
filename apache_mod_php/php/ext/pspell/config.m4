@@ -1,10 +1,10 @@
 dnl
-dnl $Id: config.m4,v 1.8.2.2 2005/02/17 03:51:50 sniper Exp $
+dnl $Id: config.m4,v 1.12 2005/05/29 23:16:43 sniper Exp $
 dnl
 
 PHP_ARG_WITH(pspell,for PSPELL support,
 [  --with-pspell[=DIR]     Include PSPELL support.
-                          GNU Aspell version 0.50.0 or higher required.])
+                          GNU Aspell version 0.50.0 or higher required])
 
 if test "$PHP_PSPELL" != "no"; then
 	PHP_NEW_EXTENSION(pspell, pspell.c, $ext_shared)
@@ -27,7 +27,7 @@ if test "$PHP_PSPELL" != "no"; then
 		AC_MSG_ERROR(Cannot find pspell)
 	fi
 
-	PSPELL_LIBDIR=$PSPELL_DIR/lib
+	PSPELL_LIBDIR=$PSPELL_DIR/$PHP_LIBDIR
 
 	PHP_ADD_LIBRARY_WITH_PATH(pspell, $PSPELL_LIBDIR, PSPELL_SHARED_LIBADD)
 

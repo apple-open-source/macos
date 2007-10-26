@@ -58,7 +58,7 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 /*!
 	@function SecAccessCreateWithTrustedApplications
 	@abstract Creates a SecAccess object with the specified trusted applications.
-    @param SecAccessCreateWithPList A full path to the .plist file that contains the trusted applications. The extension must end in ".plist".
+    @param trustedApplicationsPListPath A full path to the .plist file that contains the trusted applications. The extension must end in ".plist".
 	@param accessLabel The access label for the new SecAccessRef.
 	@param allowAny Flag that determines allow access to any application.
 	@param returnedAccess On return, a new SecAccessRef.

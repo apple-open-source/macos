@@ -51,44 +51,43 @@
  */
 
 #include <stdio.h>
+#include <fcntl.h>	/* open */
+#include "config.h"
 
-int open();
-int searchp();
+
+int openp(const char *fpath, char *file, char *complete, int flags, int mode);
 
 static int flgs,mod,value;
-static char *ftyp;
+static const char *ftyp;
 static FILE *fvalue;
 
-static int func (fnam)
-char *fnam;
+static int
+func(char *fnam)
 {
 	value = open (fnam,flgs,mod);
 	return (value < 0);
 }
 
-static int ffunc (fnam)
-char *fnam;
+static int
+ffunc(char *fnam)
 {
 	fvalue = fopen (fnam,ftyp);
 	return (fvalue == 0);
 }
 
-int openp (path,file,complete,flags,mode)
-char *path, *file, *complete;
-int flags, mode;
+int
+openp(const char *fpath, char *file, char *complete, int flags, int mode)
 {
-	register char *p;
 	flgs = flags;
 	mod = mode;
-	if (searchp(path,file,complete,func) < 0)  return (-1);
+	if (searchp(fpath,file,complete,func) < 0)  return (-1);
 	return (value);
 }
 
-FILE *fopenp (path,file,complete,ftype)
-char *path, *file, *complete, *ftype;
+FILE *
+fopenp(const char *fpath, char *file, char *complete, const char *ftype)
 {
-	register char *p;
 	ftyp = ftype;
-	if (searchp(path,file,complete,ffunc) < 0)  return (0);
+	if (searchp(fpath,file,complete,ffunc) < 0)  return (0);
 	return (fvalue);
 }

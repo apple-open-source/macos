@@ -1,11 +1,8 @@
-Index: samba/source/utils/pdbedit.c
+Index: PR-4741524/samba/source/utils/pdbedit.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/utils/pdbedit.c,v
-retrieving revision 1.10
-diff -u -d -b -r1.10 pdbedit.c
---- samba/source/utils/pdbedit.c.orig	2004/08/26 22:07:38	1.10
-+++ samba/source/utils/pdbedit.c	2004/11/19 23:09:40
-@@ -529,7 +529,7 @@
+--- PR-4741524.orig/samba/source/utils/pdbedit.c
++++ PR-4741524/samba/source/utils/pdbedit.c
+@@ -529,7 +529,7 @@ static int new_machine (struct pdb_conte
  	fstrcat(machineaccount, "$");
  
  	if ((pwd = getpwnam_alloc(machineaccount))) {
@@ -14,14 +11,11 @@ diff -u -d -b -r1.10 pdbedit.c
  			fprintf(stderr, "Could not init sam from pw\n");
  			passwd_free(&pwd);
  			return -1;
-Index: samba/source/auth/auth_util.c
+Index: PR-4741524/samba/source/auth/auth_util.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/auth/auth_util.c,v
-retrieving revision 1.1.1.10
-diff -u -d -b -r1.1.1.10 auth_util.c
---- samba/source/auth/auth_util.c.orig	2004/08/26 21:35:08	1.1.1.10
-+++ samba/source/auth/auth_util.c	2004/09/14 00:29:48
-@@ -107,7 +107,7 @@
+--- PR-4741524.orig/samba/source/auth/auth_util.c
++++ PR-4741524/samba/source/auth/auth_util.c
+@@ -107,7 +107,7 @@ NTSTATUS auth_get_sam_account(const char
  		if (!pass) 
  			return NT_STATUS_NO_SUCH_USER;
  
@@ -30,7 +24,7 @@ diff -u -d -b -r1.1.1.10 auth_util.c
  			return nt_status;
  		}
  	}
-@@ -660,7 +660,11 @@
+@@ -660,7 +660,11 @@ static NTSTATUS get_user_groups(const ch
  	
  	/* Try winbind first */
  
@@ -42,16 +36,16 @@ diff -u -d -b -r1.1.1.10 auth_util.c
  		n_unix_groups = winbind_getgroups( username, unix_groups );
  
  		DEBUG(10,("get_user_groups: winbind_getgroups(%s): result = %s\n", username, 
-@@ -857,7 +861,7 @@
+@@ -857,7 +861,7 @@ NTSTATUS make_server_info_pw(auth_server
  {
  	NTSTATUS nt_status;
  	SAM_ACCOUNT *sampass = NULL;
 -	if (!NT_STATUS_IS_OK(nt_status = pdb_init_sam_pw(&sampass, pwd))) {		
-+	if (!NT_STATUS_IS_OK(nt_status = pdb_init_sam_pw(&sampass, pwd, True))) {		
++	if (!NT_STATUS_IS_OK(nt_status = pdb_init_sam_pw(&sampass, pwd, True))) {
  		return nt_status;
  	}
  	if (!NT_STATUS_IS_OK(nt_status = make_server_info(server_info))) {
-@@ -959,7 +963,7 @@
+@@ -964,7 +968,7 @@ static NTSTATUS fill_sam_account(TALLOC_
  	DEBUG(5,("fill_sam_account: located username was [%s]\n",
  		*found_username));
  
@@ -60,14 +54,11 @@ diff -u -d -b -r1.1.1.10 auth_util.c
  }
  
  /****************************************************************************
-Index: samba/source/passdb/passdb.c
+Index: PR-4741524/samba/source/passdb/passdb.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/passdb/passdb.c,v
-retrieving revision 1.1.1.14
-diff -u -d -b -r1.1.1.14 passdb.c
---- samba/source/passdb/passdb.c.orig	2004/08/26 21:35:12	1.1.1.14
-+++ samba/source/passdb/passdb.c	2004/09/13 21:13:47
-@@ -185,12 +185,15 @@
+--- PR-4741524.orig/samba/source/passdb/passdb.c
++++ PR-4741524/samba/source/passdb/passdb.c
+@@ -185,12 +185,15 @@ NTSTATUS pdb_init_sam(SAM_ACCOUNT **user
   * 									SSS
   ***************************************************************************/
  
@@ -84,7 +75,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  	if (!account_data || !pwd) {
  		return NT_STATUS_INVALID_PARAMETER;
  	}
-@@ -213,7 +216,12 @@
+@@ -213,7 +216,12 @@ static NTSTATUS pdb_set_sam_sids(SAM_ACC
  		}
  	}
  
@@ -98,7 +89,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  		DEBUG(0,("Can't set User SID from RID!\n"));
  		return NT_STATUS_INVALID_PARAMETER;
  	}
-@@ -230,7 +238,12 @@
+@@ -230,7 +238,12 @@ static NTSTATUS pdb_set_sam_sids(SAM_ACC
  		}
  	} 
  	else {
@@ -112,7 +103,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  			DEBUG(0,("Can't set Group SID\n"));
  			return NT_STATUS_INVALID_PARAMETER;
  		}
-@@ -241,9 +254,12 @@
+@@ -241,9 +254,12 @@ static NTSTATUS pdb_set_sam_sids(SAM_ACC
  
  /*************************************************************
   Initialises a struct sam_passwd with sane values.
@@ -126,7 +117,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  {
  	NTSTATUS ret;
  
-@@ -270,7 +286,7 @@
+@@ -270,7 +286,7 @@ NTSTATUS pdb_fill_sam_pw(SAM_ACCOUNT *sa
  	   -- abartlet 11-May-02
  	*/
  
@@ -135,7 +126,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  	if (!NT_STATUS_IS_OK(ret)) return ret;
  
  	/* check if this is a user account or a machine account */
-@@ -321,7 +337,7 @@
+@@ -321,7 +337,7 @@ NTSTATUS pdb_fill_sam_pw(SAM_ACCOUNT *sa
   Initialises a struct sam_passwd with sane values.
   ************************************************************/
  
@@ -144,7 +135,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  {
  	NTSTATUS nt_status;
  
-@@ -335,7 +351,7 @@
+@@ -335,7 +351,7 @@ NTSTATUS pdb_init_sam_pw(SAM_ACCOUNT **n
  		return nt_status;
  	}
  
@@ -153,7 +144,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  		pdb_free_sam(new_sam_acct);
  		new_sam_acct = NULL;
  		return nt_status;
-@@ -357,12 +373,25 @@
+@@ -357,12 +373,25 @@ NTSTATUS pdb_init_sam_new(SAM_ACCOUNT **
  	struct passwd 	*pwd;
  	BOOL		ret;
  	
@@ -163,11 +154,11 @@ diff -u -d -b -r1.1.1.14 passdb.c
 +		become_root();
 +		ret = pdb_getsampwnam(*new_sam_acct, username);
 +		unbecome_root();
-+		
++
 +		if (ret != True) {
 +			pdb_free_sam(new_sam_acct);
 +			*new_sam_acct = NULL;
-+			DEBUG(0, ("could not find new user/computer %s in passdb.\n", username)); 
++			DEBUG(0, ("could not find new user/computer %s in passdb.\n", username));
 +		}
 +	} else {
  	pwd = Get_Pwnam(username);
@@ -180,7 +171,7 @@ diff -u -d -b -r1.1.1.14 passdb.c
  		*new_sam_acct = NULL;
  		return nt_status;
  	}
-@@ -376,6 +405,7 @@
+@@ -376,6 +405,7 @@ NTSTATUS pdb_init_sam_new(SAM_ACCOUNT **
  	/* set the new SID */
  	
  	ret = pdb_set_user_sid_from_rid( *new_sam_acct, rid, PDB_SET );
@@ -188,14 +179,11 @@ diff -u -d -b -r1.1.1.14 passdb.c
  	 
  	return (ret ? NT_STATUS_OK : NT_STATUS_NO_SUCH_USER);
  }
-Index: samba/source/passdb/pdb_smbpasswd.c
+Index: PR-4741524/samba/source/passdb/pdb_smbpasswd.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/passdb/pdb_smbpasswd.c,v
-retrieving revision 1.1.1.8
-diff -u -d -b -r1.1.1.8 pdb_smbpasswd.c
---- samba/source/passdb/pdb_smbpasswd.c.orig	2004/08/26 21:35:12	1.1.1.8
-+++ samba/source/passdb/pdb_smbpasswd.c	2004/09/13 21:14:44
-@@ -1184,7 +1184,7 @@
+--- PR-4741524.orig/samba/source/passdb/pdb_smbpasswd.c
++++ PR-4741524/samba/source/passdb/pdb_smbpasswd.c
+@@ -1206,7 +1206,7 @@ static BOOL build_sam_account(struct smb
  			return False;
  	}
  	
@@ -204,14 +192,11 @@ diff -u -d -b -r1.1.1.8 pdb_smbpasswd.c
  		return False;
  		
  	passwd_free(&pwfile);
-Index: samba/source/lib/username.c
+Index: PR-4741524/samba/source/lib/username.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/lib/username.c,v
-retrieving revision 1.1.1.12
-diff -u -d -b -r1.1.1.12 username.c
---- samba/source/lib/username.c.orig	2004/08/26 21:35:09	1.1.1.12
-+++ samba/source/lib/username.c	2004/09/10 23:08:27
-@@ -217,18 +217,18 @@
+--- PR-4741524.orig/samba/source/lib/username.c
++++ PR-4741524/samba/source/lib/username.c
+@@ -217,18 +217,18 @@ static struct passwd *Get_Pwnam_internal
  	if (!user || !(*user))
  		return(NULL);
  
@@ -237,14 +222,11 @@ diff -u -d -b -r1.1.1.12 username.c
  		if(ret)
  			goto done;
  	}
-Index: samba/source/passdb/lookup_sid.c
+Index: PR-4741524/samba/source/passdb/lookup_sid.c
 ===================================================================
-RCS file: /cvs/root/samba/samba/source/passdb/lookup_sid.c,v
-retrieving revision 1.1.1.4
-diff -d -u -b -r1.1.1.4 lookup_sid.c
---- samba/source/passdb/lookup_sid.c.orig	2004/08/26 21:35:12	1.1.1.4
-+++ samba/source/passdb/lookup_sid.c	2004/09/13 23:27:04
-@@ -304,7 +304,7 @@
+--- PR-4741524.orig/samba/source/passdb/lookup_sid.c
++++ PR-4741524/samba/source/passdb/lookup_sid.c
+@@ -304,7 +304,7 @@ NTSTATUS uid_to_sid(DOM_SID *psid, uid_t
  	if ( lp_server_role()==ROLE_DOMAIN_MEMBER 
  		|| (lp_idmap_uid(&low, &high) && uid >= low && uid <= high) ) 
  	{

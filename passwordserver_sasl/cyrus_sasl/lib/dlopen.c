@@ -1,7 +1,7 @@
 /* dlopen.c--Unix dlopen() dynamic loader interface
  * Rob Siemborski
  * Rob Earhart
- * $Id: dlopen.c,v 1.6 2005/03/03 02:29:14 snsimon Exp $
+ * $Id: dlopen.c,v 1.7 2005/05/17 21:56:43 snsimon Exp $
  */
 /* 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
@@ -244,6 +244,7 @@ static int _parse_la(const char *prefix, const char *in, char *out)
 {
     FILE *file;
     size_t length;
+	int has64bit = 1;
     char line[MAX_LINE];
     char *ntmp = NULL;
 
@@ -313,16 +314,31 @@ static int _parse_la(const char *prefix, const char *in, char *out)
 		strcpy(out, prefix);
 		strcat(out, ntmp);
 	    }
+#if !__LP64__
 	    break;
+#endif
 	}
+#if __LP64__
+	else
+	if (!strncmp(line, "64bit=", sizeof("64bit=") - 1)) {
+		if (strstr(line, "no") != NULL) {
+			has64bit = 0;
+		}
+	}
+#endif
     }
-    if(ferror(file) || feof(file)) {
+    if(ferror(file) || *out == '\0') {
 	_sasl_log(NULL, SASL_LOG_WARN,
 		  "Error reading .la: %s\n", in);
 	fclose(file);
 	return SASL_FAIL;
     }
     fclose(file);
+
+#if __LP64__
+	if (has64bit == 0)
+		return SASL_FAIL;
+#endif
 
     if(!(*out)) {
 	_sasl_log(NULL, SASL_LOG_WARN,
@@ -522,6 +538,11 @@ int _sasl_load_plugins(const add_plugin_list_t *entrypoints,
 	    }
 
 	    closedir(dp);
+	} else {
+	    _sasl_log(NULL, SASL_LOG_DEBUG,
+		      "looking for plugins in '%s', failed to open directory, error: %s",
+		      str,
+		      strerror(errno));
 	}
 
     } while ((c!='=') && (c!=0));

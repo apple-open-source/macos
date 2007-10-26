@@ -1,3 +1,326 @@
+2005-05-19  Derrick Brashear <shadow@andrew.cmu.edu>    
+	* config/libtool.m4: do proper quoting, from Andreas Winkelmann
+	* configure.in: clean up enable switches, from Patrick Welche
+	* config/sasldb.m4: fix macro names, from Andreas Winkelmann
+	* lib/client.c: deal with gcc4 strictness, from Steven Simon
+	
+2005-05-16  Derrick Brashear <shadow@andrew.cmu.edu>   
+	* configure.in, include/sasl.h, lib/Makefile.am,
+	  plugins/Makefile.am, saslauthd/configure.in, sasldb/Makefile.am,
+	  win32/common.mak, win32/include/config.h: 2.1.21
+	* Makefile.am: fix dist-hook to run makeinit.sh in plugins/
+
+2005-05-15  Derrick Brashear <shadow@andrew.cmu.edu>  
+	* saslauthd/lak.c: leak fix from Igor Brezac
+	
+2005-05-15  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/NTMakefile: ldapdb on Windows might depend on OpenSSL.
+
+2005-05-06  Derrick Brashear <shadow@andrew.cmu.edu> 
+	* configure.in, saslauthd/auth_pam.c: detect pam header location also
+	  where MacOS provides it, and use it there
+	* utils/Makefile.am: change link order for MacOS
+	* configure.in: provide option to disable installing MacOS SASL2 
+	  framework
+	* configure.in, config/kerberos_v4.m4, config/plain.m4,
+	  config/sasldb.m4, lib/Makefile.am, sasldb/Makefile.am,
+	  (cmulocal/sasl2.m4): fix case where we are building 
+	  --enable-static --with-dblib=none causing automake's dependancy
+	  stuff to screw us when we try to build files with .. in their path
+	
+2005-04-11  Derrick Brashear <shadow@andrew.cmu.edu>
+	* configure.in, plugins/digestmd5.c: detect and include des.h if it 
+	  exists, otherwise assume we don't need it (Solaris 9)
+
+2005-04-11  Derrick Brashear <shadow@andrew.cmu.edu>
+	* sasldb/Makefile.am, config/sasldb.m4: work around HP-UX make's
+	  inability to have pipes in $(shell ...) by setting 
+	  LOCAL_SASL_DB_BACKEND_STATIC at the same time as
+	  SASL_DB_BACKEND_STATIC.
+	
+2005-03-15  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/dlopen.c: log the reason for opendir() failure
+	  when loading plugin.
+
+2005-03-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* man/sasl_auxprop.3, man/sasl_auxprop_getctx.3,
+	  man/sasl_auxprop_request.3, man/sasl_canon_user_t.3,
+	  man/sasl_client_init.3, man/sasl_client_new.3,
+	  man/sasl_client_start.3, man/sasl_client_step.3,
+	  man/sasl_decode.3, man/sasl_errdetail.3, man/sasl_errstring.3,
+	  man/sasl_getpath_t.3, man/sasl_getrealm_t.3,
+	  man/sasl_getsecret_t.3, man/sasl_server_init.3,
+	  man/sasl_server_new.3, man/sasl_server_start.3,
+	  man/sasl_server_step.3, man/sasl_setpass.3,
+	  man/sasl_user_exists.3, man/sasl_verifyfile_t.3: multiple
+	  spelling corrections from Steven Simon <steven_si@sbcglobal.net>.
+
+2005-03-07  Alexey Melnikov <alexey.melnikov@isode.com>
+	* utils/saslpasswd2.8, utils/sasldblistusers2.8: updated manpages.
+
+2005-03-01  Derrick Brashear <shadow@andrew.cmu.edu>  
+	* lib/common.c: honor log level setting
+	
+2005-02-28  Derrick Brashear <shadow@andrew.cmu.edu>   
+	* README.ldapdb: ldapdb license info
+	
+2005-02-25  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/sasl.h, lib/common.c: Added SASL_VERSION_FULL
+	  define
+
+2005-02-22  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/NTMakefile, win32/common.mak: Windows build of the ldapdb
+	  auxprop plugin
+
+2005-02-16  Derrick Brashear <shadow@andrew.cmu.edu> 
+	* configure.in, doc/install.html, doc/options.html, doc/readme.html,
+	  doc/sysadmin.html, lib/staticopen.h, plugins/Makefile.am,
+	  plugins/ldapdb.c, plugins/makeinit.sh: pull in ldapdb auxprop
+	  plugin, from Igor Brezac (Howard Chu's plugin)
+
+2005-02-14  Derrick Brashear <shadow@andrew.cmu.edu>
+	* saslauthd/krbtf.c: updated from CMUCS
+	* saslauthd/auth_krb5.c: log the krb5 error return if get_creds fails 
+	
+2005-02-01  Alexey Melnikov <alexey.melnikov@isode.com>
+	* win32/include/config.h: Updated to match gai.h changes.
+	* win32/include/config.h: added define for the OTP plugin.
+
+2005-01-27  Derrick Brashear <shadow@andrew.cmu.edu>
+	* configure.in, include/gai.h: move AI_NUMERICHOSTS definitions
+	  to config.h because gai.h is not always included.
+
+2005-01-10  Derrick Brashear <shadow@andrew.cmu.edu>
+	* saslauthd/auth_krb5.c, saslauthd/auth_krb4.c,
+	  saslauthd/krbtf.h (added), saslauthd/krbtf.c (added),
+	  saslauthd/cfile.h (added), saslauthd/cfile.c (added),
+	  saslauthd/Makefile.am: Kerberos V4/V5 alternate keytab
+	  in saslauthd, plus common code merging (from David Eckhardt
+	  via Dale Moore)
+
+2004-12-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* doc/windows.html: Updated as per recent build changes.
+	* plugins/ntlm.c: Fixed NTLM build on Windows,
+	  as compiler was complaining about array size not being
+	  a const.
+	* lib/NTMakefile, plugins/NTMakefile, win32/common.mak,
+	  win32/include/config.h: Use native IPv6 support on Windows,
+	  falling back to Microsoft emulation. Cleaner support
+	  for Visual Studio 6.
+
+2004-11-24  Ken Murchison <ken@oceana.com>
+	* plugins/sql.c: squashed unused parameter warnings
+
+2004-11-24  Ken Murchison <ken@oceana.com>
+	* plugins/passdss.c: added; PASSDSS-3DES-1 implementation
+	* configure.in, plugins/Makefile.am, plugins/makeinit.sh:
+	  added support for PASSDSS
+	* doc/draft-newman-sasl-passdss-xx.txt: added
+	* doc/index.html, doc/Makefile.am: added PASSDSS draft
+
+2004-11-19  Derrick Brashear <shadow@andrew.cmu.edu>
+	* saslauthd/auth_krb5.c: verify against the service we
+	  were passed. needs to be made configurable.
+
+2004-11-10  Alexey Melnikov <alexey.melnikov@isode.com>
+	* doc/draft-burdis-cat-srp-sasl-08.txt: deleted
+	* doc/draft-ietf-sasl-anon-02.txt: deleted
+	* doc/draft-ietf-sasl-crammd5-01.txt: deleted
+	* doc/draft-ietf-sasl-gssapi-00.txt: deleted
+	* doc/draft-ietf-sasl-plain-03.txt: deleted
+	* doc/draft-ietf-sasl-rfc2222bis-03.txt: deleted
+	* doc/draft-ietf-sasl-rfc2831bis-02.txt: deleted
+	* doc/draft-ietf-sasl-saslprep-04.txt: deleted
+	* doc/draft-newman-sasl-c-api-01.txt: deleted
+	* doc/draft-burdis-cat-srp-sasl-xx.txt: added
+	* doc/draft-ietf-sasl-anon-xx.txt: added
+	* doc/draft-ietf-sasl-crammd5-xx.txt: added
+	* doc/draft-ietf-sasl-gssapi-xx.txt: added
+	* doc/draft-ietf-sasl-plain-xx.txt: added
+	* doc/draft-ietf-sasl-rfc2222bis-xx.txt: added
+	* doc/draft-ietf-sasl-rfc2831bis-xx.txt: added
+	* doc/draft-ietf-sasl-saslprep-xx.txt: added
+	* doc/draft-newman-sasl-c-api-xx.txt: added
+	* doc/index.html, doc/Makefile.am: Renamed the files
+
+2004-11-02  Alexey Melnikov <alexey.melnikov@isode.com>
+	* include/saslplug.h, lib/common.c, lib/saslint.h,
+	  lib/client.c: Added sasl_client_plugin_info().
+
+2004-10-26  Alexey Melnikov <alexey.melnikov@isode.com>
+	* sample/sample-client.c, sample/sample-server.c: Fixed several
+	  64 bit portability warnings.
+	* utils/testsuite.c: Fixed several 64 bit portability warnings.
+	* utils/saslpasswd.c: Fixed typo in an auxprop name.
+	* include/saslplug.h, lib/common.c, lib/saslint.h,
+	  lib/server.c: Added sasl_server_plugin_info().
+
+2004-10-24  Derrick Brashear <shadow@andrew.cmu.edu> 
+	* lib/common.c: initialize path in case caller didn't.
+
+2004-10-24  Derrick Brashear <shadow@andrew.cmu.edu> 
+	* Prep for 2.1.20
+
+2004-10-19  Derrick Brashear <shadow@dementia.org>
+	* Makefile.am, saslauthd/Makefile.am: require automake 1.7;
+	  prior versions require AM_CONFIG_HEADER and dislike AM_LDFLAGS
+
+2004-10-14  Ken Murchison <ken@oceana.com>
+	* plugins/ntlm.c: portability fixes from Alexey, and squashed a
+	  signed/unsigned warning
+
+2004-10-14  Alexey Melnikov <alexey.melnikov@isode.com>
+	* lib/NTMakefile: Don't install intermediate file libsasl.res
+
+2004-09-22  Derrick Brashear <shadow@andrew.cmu.edu>
+	* lib/common.c: don't honor SASL_PATH in setuid environment. 
+	  from Gentoo
+	
+2004-09-08  Alexey Melnikov <alexey.melnikov@isode.com>
+	* plugins/cram.c, plugins/anonymous.c, plugins/login.c,
+	  plugins/plain.c, plugins/sasldb.c: Fixed several 64 bit
+	  portability warnings
+
+2004-09-02  Derrick Brashear <shadow@andrew.cmu.edu>
+	* plugins/kerberosv4.c: simple explanation in the code of one 
+	  possible error you might see in strange circumstances; 
+	  i should probably make openssl's des unable to be used if
+	  mit krb5 is being used.
+
+2004-08-06  Derrick Brashear <shadow@andrew.cmu.edu>
+	* plugins/cram.c: initialize authid to null so stack garbage 
+	  is not pushed into _sasl_canon_user
+	
+2004-07-29  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* plugins/digestmd5.c: Fix handling of client realm callback
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-07-21  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* plugins/gssapi.c: Memory management cleanup
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-07-15  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* configure.in, plugins/gssapi.c: Wrap all GSS calls
+	  in mutexes when required by the implementation.
+	  (based on a patch by Simon Wilkinson <simon@sxw.org.uk>)
+
+2004-07-06  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* plugins/digestmd5.c: Fix potential buffer overflow, call
+	  add_to_challenge in 2 more places (Alexey Melnikov
+	  <Alexey.Melnikov@isode.com>)
+	* lib/server.c, lib/saslint.h, lib/common.c: don't directly
+	  store buffers in the params structure
+	* plugins/gssapi.c: Fix server side maxoutbuf calculation
+	  (Sam Hartman <hartmans@mit.edu>)
+	* plugins/gssapi.c: Use gss_wrap_size_limit on client side too
+	* Ready for 2.1.19
+
+2004-07-01  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* Prep for 2.1.19
+
+2004-06-30  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* saslauthd/auth_rimap.c: Fix Tru64 compilation problem
+	* plugins/sql.c: Don't leak settings variable if init fails
+	* utils/testsuite.c: Update for current library
+	* plugins/digestmd5.c: Quoting fixes for client side
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-06-23  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* saslauthd/lak.c: Minor bugfixes, support %R token
+	  (Igor Brezac <igor@ypass.net>)
+	* plugins/otp.c: Use plugin supplied authid for mech calculations
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+	* lib/auxprop.c: Use getopt callback from connection context when
+	  storing auxprops (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+	* plugins/otp.c, plugins/srp.c, plugins/plugin_common.c: Use correct
+	  form of userid (user@realm) when running setpass methods
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+	* saslauthd/configure.in: Handle LTLIBOBJS
+
+2004-06-18  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* plugins/NTMakefile: Remove only recognized (generated) .rc files,
+	  not just *.rc. This will allow for plugins with own resource files.
+	  Also corrected spelling mistake in OPENSSL (Alexey Melnikov
+	  <Alexey.Melnikov@isode.com>)
+	* lib/server.c, include/sasl.h: Support for SASL_SET_CURMECH_ONLY
+	  flag to sasl_setpass() (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-06-16  Ken Murchison <ken@oceana.com>
+	* lib/server.c: use more accurate errors codes for mech_permitted()
+
+2004-06-16  Ken Murchison <ken@oceana.com>
+	* plugins/srp.c: don't used the parsed authid for calculations
+	  (Alexey Melnikov <alexey.melnikov@isode.com>)
+
+2004-06-16  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* Support for forwarding of GSSAPI credentials
+	  (Morten Olsen <mso@medical-insight.com & 
+	   Alexey Melnikov <alexey.melnikov@isode.com>)
+
+2004-06-03  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* win32/config.mak: Remove unneeded libraries
+	  (Alexey Melnikov <alexey.melnikov@isode.com>)
+
+2004-06-02  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* Spelling Fixes (selsky@columbia.edu)
+
+2004-05-27  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* SQLite support (Norikatsu Shigemura <nork@ninth-nine.com>)
+	* SQLite support on windows (Alexey Melnikov
+	  <Alexey.Melnikov@isode.com>)
+
+2004-05-25  Ken Murchison <ken@oceana.com>
+	* plugins/digest-md5.c: use separate global contexts for client/server
+
+2004-05-21  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* configure.in, lib/Makefile.am: Better handling of -ldoor library
+	  addition (only add it to base library, don't add -lpthread)
+	* saslauthd/auth_krb5.c: zero out the krb5_data structure
+	  before use
+
+2004-05-20  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* include/sasl.h, lib/common.c, lib/saslint.h, lib/server.c:
+	  Add SASL_APPNAME to sasl_getprop/sasl_setprop for further
+	  compatibilty with SASL C API draft
+	  (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-05-18  Ken Murchison <ken@oceana.com>
+	* plugins/digest-md5.c: made the global context a struct
+	  containing the reauth_cache so we can NULL it after we free it
+
+2004-05-07  Ken Murchison <ken@oceana.com>
+	* contrib/stripplus_canonuser.patch: added
+
+2004-04-27  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* saslauthd/auth_shadow.c: Make thread-safe
+	  (Steve Barber <steveb@cme.nist.gov>)
+
+2004-04-26  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* saslauthd/auth_krb5.c: Alternate realm support for Kerberos 5
+
+2004-04-16  Ken Murchison <ken@oceana.com>
+	* plugins/ntlm.c: Mac OS X fix
+	  (Chris Ridd <chris.ridd@isode.com>)
+
+2004-04-14  Ken Murchison <ken@oceana.com>
+	* plugins/plain.c: don't include authzid in response unless
+	  specified by client
+
+2004-03-29  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* sample/server.c: Ensure that len has a value
+
+2004-03-25  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* saslauthd/saslauthd-main.c: add -r option to saslauthd for combining
+	  user and realm into user@realm (for the userid).  Based on a patch
+	  by Jeremy Rumpf <jrumpf@heavyload.net>.
+
+2004-03-17  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* lib/checkpw.c: Include errno.h when HAVE_AUTHDAEMON is defined
+	* doc/windows.html: Updates (Alexey Melnikov <Alexey.Melnikov@isode.com>)
+
+2004-03-16  Rob Siemborski <rjs3@andrew.cmu.edu>
+	* configure.in: Properly use CMU_ADD_LIBPATH_TO for pgsql and mysql
+
 2004-03-10  Rob Siemborski <rjs3@andrew.cmu.edu>
 	* lib/dlopen.c: HPUX 11 Fix (Alexey Melnikov <Alexey.Melnikov@isode.com>)
 	* Add sasl_version_info() (Alexey Melnikov <Alexey.Melnikov@isode.com>)
@@ -1828,7 +2151,7 @@
 	* plugins/plugin_common.c (_plug_ipfromstring): add call to
 	  freeaddrinfo()
 
-	* lib/saslutil.c (sasl_randseed): actually initilize the randpool
+	* lib/saslutil.c (sasl_randseed): actually initialize the randpool
 
 	* saslauthd/auth_getpwent.c (auth_getpwent): clear a warning
 	* saslauthd/auth_shadow.c (auth_shadow): clear a similar warning

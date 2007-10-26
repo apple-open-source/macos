@@ -3,8 +3,10 @@
 
 @ifclear autoconf
 
-Copyright @copyright{} 1994, 1995, 1996, 1999, 2000, 2001, 2002 Free Software
-Foundation, Inc.
+@unnumbered Installation Instructions
+
+Copyright @copyright{} 1994, 1995, 1996, 1999, 2000, 2001, 2002, 2004,
+2005, 2006 Free Software Foundation, Inc.
 
 This file is free documentation; the Free Software Foundation gives
 unlimited permission to copy, distribute and modify it.
@@ -14,7 +16,10 @@ unlimited permission to copy, distribute and modify it.
 @node Basic Installation
 @section Basic Installation
 
-These are generic installation instructions.
+Briefly, the shell commands @samp{./configure; make; make install}
+should configure, build, and install this package.  The following
+more-detailed instructions are generic; see the @file{README} file for
+instructions specific to this package.
 
 The @command{configure} shell script attempts to guess correct values
 for various system-dependent variables used during compilation.  It uses
@@ -28,8 +33,8 @@ output (useful mainly for debugging @command{configure}).
 It can also use an optional file (typically called @file{config.cache}
 and enabled with @option{--cache-file=config.cache} or simply
 @option{-C}) that saves the results of its tests to speed up
-reconfiguring.  (Caching is disabled by default to prevent problems with
-accidental use of stale cache files.)
+reconfiguring.  Caching is disabled by default to prevent problems with
+accidental use of stale cache files.
 
 If you need to do unusual things to compile the package, please try to
 figure out how @command{configure} could check whether to do them, and
@@ -39,7 +44,7 @@ cache, and at some point @file{config.cache} contains results you don't
 want to keep, you may remove or edit it.
 
 The file @file{configure.ac} (or @file{configure.in}) is used to create
-@file{configure} by a program called @code{autoconf}.  You only need
+@file{configure} by a program called @code{autoconf}.  You need
 @file{configure.ac} if you want to change it or regenerate
 @file{configure} using a newer version of @code{autoconf}.
 
@@ -49,12 +54,9 @@ The simplest way to compile this package is:
 @enumerate
 @item
 @code{cd} to the directory containing the package's source code and type
-@samp{./configure} to configure the package for your system.  If you're
-using @code{csh} on an old version of System V, you might need to type
-@samp{sh ./configure} instead to prevent @code{csh} from trying to
-execute @command{configure} itself.
+@samp{./configure} to configure the package for your system.
 
-Running @command{configure} takes awhile.  While running, it prints some
+Running @command{configure} might take a while.  While running, it prints some
 messages telling which features it is checking for.
 
 @item
@@ -91,7 +93,7 @@ parameters by setting variables in the command line or in the environment.
 Here is an example:
 
 @example
-./configure CC=c89 CFLAGS=-O2 LIBS=-lposix
+./configure CC=c99 CFLAGS=-g LIBS=-lposix
 @end example
 
 @xref{Defining Variables}, for more details.
@@ -102,15 +104,14 @@ Here is an example:
 
 You can compile the package for more than one kind of computer at the
 same time, by placing the object files for each architecture in their
-own directory.  To do this, you must use a version of @command{make}
-that supports the @code{VPATH} variable, such as GNU @command{make}.
+own directory.  To do this, you can use @acronym{GNU} @command{make}.
 @command{cd} to the directory where you want the object files and
 executables to go and run the @command{configure} script.
 @command{configure} automatically checks for the source code in the
 directory that @command{configure} is in and in @file{..}.
 
-If you have to use a @command{make} that does not support the
-@code{VPATH} variable, you have to compile the package for one
+With a non-@acronym{GNU} @command{make},
+it is safer to compile the package for one
 architecture at a time in the source code directory.  After you have
 installed the package for one architecture, use @samp{make distclean}
 before reconfiguring for another architecture.
@@ -118,20 +119,21 @@ before reconfiguring for another architecture.
 @node Installation Names
 @section Installation Names
 
-By default, @samp{make install} will install the package's files in
-@file{/usr/local/bin}, @file{/usr/local/man}, etc.  You can specify an
+By default, @samp{make install} installs the package's commands under
+@file{/usr/local/bin}, include files under @file{/usr/local/include}, etc.
+You can specify an
 installation prefix other than @file{/usr/local} by giving
-@command{configure} the option @option{--prefix=@var{path}}.
+@command{configure} the option @option{--prefix=@var{prefix}}.
 
 You can specify separate installation prefixes for architecture-specific
-files and architecture-independent files.  If you give
-@command{configure} the option @option{--exec-prefix=@var{path}}, the
-package will use @var{path} as the prefix for installing programs and
-libraries.  Documentation and other data files will still use the
+files and architecture-independent files.  If you pass the option
+@option{--exec-prefix=@var{prefix}} to @command{configure}, the
+package uses @var{prefix} as the prefix for installing programs and
+libraries.  Documentation and other data files still use the
 regular prefix.
 
 In addition, if you use an unusual directory layout you can give options
-like @option{--bindir=@var{path}} to specify different values for
+like @option{--bindir=@var{dir}} to specify different values for
 particular kinds of files.  Run @samp{configure --help} for a list of
 the directories you can set and what kinds of files go in them.
 
@@ -185,7 +187,7 @@ If @file{config.sub} isn't included in this package, then this package
 doesn't need to know the machine type.
 
 If you are @emph{building} compiler tools for cross-compiling, you
-should use the @option{--target=@var{type}} option to select the type of
+should use the option @option{--target=@var{type}} to select the type of
 system they will produce code for.
 
 If you want to @emph{use} a cross compiler, that generates code for a
@@ -221,9 +223,17 @@ For example:
 @end example
 
 @noindent
-will cause the specified gcc to be used as the C compiler (unless it is
+causes the specified @command{gcc} to be used as the C compiler (unless it is
 overridden in the site shell script).
 
+@noindent
+Unfortunately, this technique does not work for @env{CONFIG_SHELL} due
+to an Autoconf bug.  Until the bug is fixed you can use this
+workaround:
+
+@example
+CONFIG_SHELL=/bin/bash /bin/bash ./configure CONFIG_SHELL=/bin/bash
+@end example
 
 @node configure Invocation
 @section @command{configure} Invocation

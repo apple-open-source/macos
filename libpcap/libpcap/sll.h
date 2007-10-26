@@ -35,7 +35,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/root/libpcap/libpcap/sll.h,v 1.1.1.2 2004/02/05 19:22:28 rbraun Exp $ (LBL)
+ * @(#) $Header: /tcpdump/master/libpcap/sll.h,v 1.7 2002/06/11 17:04:48 itojun Exp $ (LBL)
  */
 
 /*

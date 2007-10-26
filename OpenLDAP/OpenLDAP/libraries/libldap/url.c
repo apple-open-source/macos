@@ -1,8 +1,8 @@
 /* LIBLDAP url.c -- LDAP URL (RFC 2255) related routines */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/url.c,v 1.74.2.6 2004/08/30 00:59:22 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/url.c,v 1.84.2.7 2006/04/03 19:49:55 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Copyright 1998-2006 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@
 #include <stdio.h>
 
 #include <ac/stdlib.h>
+#include <ac/ctype.h>
 
 #include <ac/socket.h>
 #include <ac/string.h>
@@ -52,7 +53,7 @@ static const char* skip_url_prefix LDAP_P((
 
 int ldap_pvt_url_scheme2proto( const char *scheme )
 {
-	assert( scheme );
+	assert( scheme != NULL );
 
 	if( scheme == NULL ) {
 		return -1;
@@ -80,7 +81,7 @@ int ldap_pvt_url_scheme2proto( const char *scheme )
 
 int ldap_pvt_url_scheme_port( const char *scheme, int port )
 {
-	assert( scheme );
+	assert( scheme != NULL );
 
 	if( port ) return port;
 	if( scheme == NULL ) return port;
@@ -109,7 +110,7 @@ int ldap_pvt_url_scheme_port( const char *scheme, int port )
 int
 ldap_pvt_url_scheme2tls( const char *scheme )
 {
-	assert( scheme );
+	assert( scheme != NULL );
 
 	if( scheme == NULL ) {
 		return -1;
@@ -273,188 +274,498 @@ static int str2scope( const char *p )
 
 	} else if ( strcasecmp( p, "subtree" ) == 0 ) {
 		return LDAP_SCOPE_SUBTREE;
+
+#ifdef LDAP_SCOPE_SUBORDINATE
+	} else if ( strcasecmp( p, "subordinate" ) == 0 ) {
+		return LDAP_SCOPE_SUBORDINATE;
+
+	} else if ( strcasecmp( p, "children" ) == 0 ) {
+		return LDAP_SCOPE_SUBORDINATE;
+#endif
 	}
 
 	return( -1 );
 }
 
-static int hex_escape( char *buf, const char *s, int list )
+static const char	hex[] = "0123456789ABCDEF";
+
+#define URLESC_NONE	0x0000U
+#define URLESC_COMMA	0x0001U
+#define URLESC_SLASH	0x0002U
+
+static int
+hex_escape_len( const char *s, unsigned list )
 {
-	int i;
-	int pos;
-	static const char hex[] = "0123456789ABCDEF";
+	int	len;
 
-	if( s == NULL ) return 0;
+	if ( s == NULL ) {
+		return 0;
+	}
 
-	for( pos=0,i=0; s[i]; i++ ) {
-		int escape = 0;
-		switch( s[i] ) {
-			case ',':
-				escape = list;
-				break;
-			case '%':
-			case '?':
-			case ' ':
-			case '<':
-			case '>':
-			case '"':
-			case '#':
-			case '{':
-			case '}':
-			case '|':
-			case '\\':
-			case '^':
-			case '~':
-			case '`':
-			case '[':
-			case ']':
+	for ( len = 0; s[0]; s++ ) {
+		switch ( s[0] ) {
+		/* RFC 2396: reserved */
+		case '?':
+			len += 3;
+			break;
+
+		case ',':
+			if ( list & URLESC_COMMA ) {
+				len += 3;
+			} else {
+				len++;
+			}
+			break;
+
+		case '/':
+			if ( list & URLESC_SLASH ) {
+				len += 3;
+			} else {
+				len++;
+			}
+			break;
+
+		case ';':
+		case ':':
+		case '@':
+		case '&':
+		case '=':
+		case '+':
+		case '$':
+
+		/* RFC 2396: unreserved mark */
+		case '-':
+		case '_':
+		case '.':
+		case '!':
+		case '~':
+		case '*':
+		case '\'':
+		case '(':
+		case ')':
+			len++;
+			break;
+			
+		/* RFC 2396: unreserved alphanum */
+		default:
+			if ( !isalnum( (unsigned char) s[0] ) ) {
+				len += 3;
+			} else {
+				len++;
+			}
+			break;
+		}
+	}
+
+	return len;
+}
+
+static int
+hex_escape( char *buf, int len, const char *s, unsigned list )
+{
+	int	i;
+	int	pos;
+
+	if ( s == NULL ) {
+		return 0;
+	}
+
+	for ( pos = 0, i = 0; s[i] && pos < len; i++ ) {
+		int	escape = 0;
+
+		switch ( s[i] ) {
+		/* RFC 2396: reserved */
+		case '?':
+			escape = 1;
+			break;
+
+		case ',':
+			if ( list & URLESC_COMMA ) {
 				escape = 1;
-				break;
+			}
+			break;
 
-			default:
-				escape = s[i] < 0x20 || 0x1f >= s[i];
+		case '/':
+			if ( list & URLESC_SLASH ) {
+				escape = 1;
+			}
+			break;
+
+		case ';':
+		case ':':
+		case '@':
+		case '&':
+		case '=':
+		case '+':
+		case '$':
+
+		/* RFC 2396: unreserved mark */
+		case '-':
+		case '_':
+		case '.':
+		case '!':
+		case '~':
+		case '*':
+		case '\'':
+		case '(':
+		case ')':
+			break;
+			
+		/* RFC 2396: unreserved alphanum */
+		default:
+			if ( !isalnum( (unsigned char) s[i] ) ) {
+				escape = 1;
+			}
+			break;
 		}
 
-		if( escape ) {
+		if ( escape ) {
 			buf[pos++] = '%';
 			buf[pos++] = hex[ (s[i] >> 4) & 0x0f ];
 			buf[pos++] = hex[ s[i] & 0x0f ];
+
 		} else {
 			buf[pos++] = s[i];
 		}
 	}
 
 	buf[pos] = '\0';
+
 	return pos;
 }
 
-static int hex_escape_args( char *buf, char **s )
+static int
+hex_escape_len_list( char **s, unsigned flags )
 {
-	int pos;
-	int i;
+	int	len;
+	int	i;
 
-	if( s == NULL ) return 0;
+	if ( s == NULL ) {
+		return 0;
+	}
+
+	len = 0;
+	for ( i = 0; s[i] != NULL; i++ ) {
+		if ( len ) {
+			len++;
+		}
+		len += hex_escape_len( s[i], flags );
+	}
+
+	return len;
+}
+
+static int
+hex_escape_list( char *buf, int len, char **s, unsigned flags )
+{
+	int	pos;
+	int	i;
+
+	if ( s == NULL ) {
+		return 0;
+	}
 
 	pos = 0;
-	for( i=0; s[i] != NULL; i++ ) {
-		if( pos ) {
+	for ( i = 0; s[i] != NULL; i++ ) {
+		int	curlen;
+
+		if ( pos ) {
 			buf[pos++] = ',';
+			len--;
 		}
-		pos += hex_escape( &buf[pos], s[i], 1 );
+		curlen = hex_escape( &buf[pos], len, s[i], flags );
+		len -= curlen;
+		pos += curlen;
 	}
 
 	return pos;
 }
 
-char * ldap_url_desc2str( LDAPURLDesc *u )
+static int
+desc2str_len( LDAPURLDesc *u )
 {
-	char *s;
-	int i;
-	int sep = 0;
-	int sofar;
-	size_t len = 0;
-	if( u == NULL ) return NULL;
+	int	sep = 0;
+	int	len = 0;
 
-	if( u->lud_exts ) {
-		for( i=0; u->lud_exts[i]; i++ ) {
-			len += strlen( u->lud_exts[i] ) + 1;
+	if ( u == NULL ) {
+		return -1;
+	}
+
+	if ( u->lud_exts ) {
+		len += hex_escape_len_list( u->lud_exts, URLESC_COMMA );
+		if ( !sep ) {
+			sep = 5;
 		}
-		if( !sep ) sep = 5;
 	}
 
-	if( u->lud_filter ) {
-		len += strlen( u->lud_filter );
-		if( !sep ) sep = 4;
+	if ( u->lud_filter ) {
+		len +=  hex_escape_len( u->lud_filter, URLESC_NONE );
+		if ( !sep ) {
+			sep = 4;
+		}
 	}
-	if ( len ) len++; /* ? */
 
-	switch( u->lud_scope ) {
-		case LDAP_SCOPE_ONELEVEL:
-		case LDAP_SCOPE_SUBTREE:
+	switch ( u->lud_scope ) {
+	case LDAP_SCOPE_BASE:
+	case LDAP_SCOPE_ONELEVEL:
+	case LDAP_SCOPE_SUBTREE:
+#ifdef LDAP_SCOPE_SUBORDINATE
+	case LDAP_SCOPE_SUBORDINATE:
+#endif
+		switch ( u->lud_scope ) {
 		case LDAP_SCOPE_BASE:
-			len += sizeof("base");
-			if( !sep ) sep = 3;
+			len += STRLENOF( "base" );
 			break;
 
-		default:
-			if ( len ) len++; /* ? */
+		case LDAP_SCOPE_ONELEVEL:
+			len += STRLENOF( "one" );
+			break;
+
+		case LDAP_SCOPE_SUBTREE:
+			len += STRLENOF( "sub" );
+			break;
+
+#ifdef LDAP_SCOPE_SUBORDINATE
+		case LDAP_SCOPE_SUBORDINATE:
+			len += STRLENOF( "subordinate" );
+			break;
+
+#endif
+		}
+
+		if ( !sep ) {
+			sep = 3;
+		}
+		break;
+
+	default:
+		break;
 	}
 
-	if( u->lud_attrs ) {
-		for( i=0; u->lud_attrs[i]; i++ ) {
-			len += strlen( u->lud_attrs[i] ) + 1;
+	if ( u->lud_attrs ) {
+		len +=  hex_escape_len_list( u->lud_attrs, URLESC_NONE );
+		if ( !sep ) {
+			sep = 2;
 		}
-		if( !sep ) sep = 2;
-	} else if ( len ) len++; /* ? */
+	}
 
-	if( u->lud_dn ) {
-		len += strlen( u->lud_dn ) + 1;
-		if( !sep ) sep = 1;
+	if ( u->lud_dn && u->lud_dn[0] ) {
+		len += hex_escape_len( u->lud_dn, URLESC_NONE );
+		if ( !sep ) {
+			sep = 1;
+		}
 	};
 
-	if( u->lud_port ) {
-		len += sizeof(":65535") - 1;
-	}
+	len += sep;
 
-	if( u->lud_host ) {
-		len+=strlen( u->lud_host );
-	}
+	if ( u->lud_port ) {
+		char	buf[] = ":65535";
 
-	len += strlen( u->lud_scheme ) + sizeof("://");
+		len += snprintf( buf, sizeof( buf ), ":%d", u->lud_port );
+		if ( u->lud_host && u->lud_host[0] ) {
+			len += strlen( u->lud_host );
+		}
 
-	/* allocate enough to hex escape everything -- overkill */
-	s = LDAP_MALLOC( 3*len );
-
-	if( s == NULL ) return NULL;
-
-	if( u->lud_port ) {
-		sprintf( s,	"%s://%s:%d%n", u->lud_scheme,
-			u->lud_host, u->lud_port, &sofar );
 	} else {
-		sprintf( s,	"%s://%s%n", u->lud_scheme,
-			u->lud_host, &sofar );
+		if ( u->lud_host && u->lud_host[0] ) {
+			len += hex_escape_len( u->lud_host, URLESC_SLASH );
+		}
 	}
-	
-	if( sep < 1 ) goto done;
+
+	len += strlen( u->lud_scheme ) + STRLENOF( "://" );
+
+	return len;
+}
+
+int
+desc2str( LDAPURLDesc *u, char *s, int len )
+{
+	int	i;
+	int	sep = 0;
+	int	sofar = 0;
+	int	gotscope = 0;
+
+	if ( u == NULL ) {
+		return -1;
+	}
+
+	if ( s == NULL ) {
+		return -1;
+	}
+
+	switch ( u->lud_scope ) {
+	case LDAP_SCOPE_BASE:
+	case LDAP_SCOPE_ONELEVEL:
+	case LDAP_SCOPE_SUBTREE:
+#ifdef LDAP_SCOPE_SUBORDINATE
+	case LDAP_SCOPE_SUBORDINATE:
+#endif
+		gotscope = 1;
+		break;
+	}
+
+	if ( u->lud_exts ) {
+		sep = 5;
+	} else if ( u->lud_filter ) {
+		sep = 4;
+	} else if ( gotscope ) {
+		sep = 3;
+	} else if ( u->lud_attrs ) {
+		sep = 2;
+	} else if ( u->lud_dn && u->lud_dn[0] ) {
+		sep = 1;
+	}
+
+	if ( u->lud_port ) {
+		len -= sprintf( s, "%s://%s:%d%n", u->lud_scheme,
+				u->lud_host ? u->lud_host : "",
+				u->lud_port, &sofar );
+
+	} else {
+		len -= sprintf( s, "%s://%n", u->lud_scheme, &sofar );
+		if ( u->lud_host && u->lud_host[0] ) {
+			i = hex_escape( &s[sofar], len, u->lud_host, URLESC_SLASH );
+			sofar += i;
+			len -= i;
+		}
+	}
+
+	assert( len >= 0 );
+
+	if ( sep < 1 ) {
+		goto done;
+	}
+
 	s[sofar++] = '/';
+	len--;
 
-	sofar += hex_escape( &s[sofar], u->lud_dn, 0 );
+	assert( len >= 0 );
 
-	if( sep < 2 ) goto done;
+	if ( u->lud_dn && u->lud_dn[0] ) {
+		i = hex_escape( &s[sofar], len, u->lud_dn, URLESC_NONE );
+		sofar += i;
+		len -= i;
+
+		assert( len >= 0 );
+	}
+
+	if ( sep < 2 ) {
+		goto done;
+	}
 	s[sofar++] = '?';
+	len--;
 
-	sofar += hex_escape_args( &s[sofar], u->lud_attrs );
+	assert( len >= 0 );
 
-	if( sep < 3 ) goto done;
+	i = hex_escape_list( &s[sofar], len, u->lud_attrs, URLESC_NONE );
+	sofar += i;
+	len -= i;
+
+	assert( len >= 0 );
+
+	if ( sep < 3 ) {
+		goto done;
+	}
 	s[sofar++] = '?';
+	len--;
 
-	switch( u->lud_scope ) {
+	assert( len >= 0 );
+
+	switch ( u->lud_scope ) {
 	case LDAP_SCOPE_BASE:
 		strcpy( &s[sofar], "base" );
-		sofar += sizeof("base") - 1;
+		sofar += STRLENOF("base");
+		len -= STRLENOF("base");
 		break;
+
 	case LDAP_SCOPE_ONELEVEL:
 		strcpy( &s[sofar], "one" );
-		sofar += sizeof("one") - 1;
+		sofar += STRLENOF("one");
+		len -= STRLENOF("one");
 		break;
+
 	case LDAP_SCOPE_SUBTREE:
 		strcpy( &s[sofar], "sub" );
-		sofar += sizeof("sub") - 1;
+		sofar += STRLENOF("sub");
+		len -= STRLENOF("sub");
 		break;
+
+#ifdef LDAP_SCOPE_SUBORDINATE
+	case LDAP_SCOPE_SUBORDINATE:
+		strcpy( &s[sofar], "children" );
+		sofar += STRLENOF("children");
+		len -= STRLENOF("children");
+		break;
+#endif
 	}
 
-	if( sep < 4 ) goto done;
+	assert( len >= 0 );
+
+	if ( sep < 4 ) {
+		goto done;
+	}
 	s[sofar++] = '?';
+	len--;
 
-	sofar += hex_escape( &s[sofar], u->lud_filter, 0 );
+	assert( len >= 0 );
 
-	if( sep < 5 ) goto done;
+	i = hex_escape( &s[sofar], len, u->lud_filter, URLESC_NONE );
+	sofar += i;
+	len -= i;
+
+	assert( len >= 0 );
+
+	if ( sep < 5 ) {
+		goto done;
+	}
 	s[sofar++] = '?';
+	len--;
 
-	sofar += hex_escape_args( &s[sofar], u->lud_exts );
+	assert( len >= 0 );
+
+	i = hex_escape_list( &s[sofar], len, u->lud_exts, URLESC_COMMA );
+	sofar += i;
+	len -= i;
+
+	assert( len >= 0 );
 
 done:
-	s[sofar] = '\0';
+	if ( len < 0 ) {
+		return -1;
+	}
+
+	return sofar;
+}
+
+char *
+ldap_url_desc2str( LDAPURLDesc *u )
+{
+	int	len;
+	char	*s;
+
+	if ( u == NULL ) {
+		return NULL;
+	}
+
+	len = desc2str_len( u );
+	if ( len < 0 ) {
+		return NULL;
+	}
+	
+	/* allocate enough to hex escape everything -- overkill */
+	s = LDAP_MALLOC( len + 1 );
+
+	if ( s == NULL ) {
+		return NULL;
+	}
+
+	if ( desc2str( u, s, len ) != len ) {
+		LDAP_FREE( s );
+		return NULL;
+	}
+
+	s[len] = '\0';
+
 	return s;
 }
 
@@ -482,11 +793,7 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 	 * because a call to LDAP_INT_GLOBAL_OPT() will try to allocate
 	 * the options and cause infinite recursion
 	 */
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_url_parse_ext(%s)\n", url_in, 0, 0 );
-#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_url_parse_ext(%s)\n", url_in, 0, 0 );
-#endif
 #endif
 
 	*ludpp = NULL;	/* pessimistic */
@@ -497,7 +804,7 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 		return LDAP_URL_ERR_BADSCHEME;
 	}
 
-	assert( scheme );
+	assert( scheme != NULL );
 
 	/* make working copy of the remainder of the URL */
 	url = LDAP_STRDUP( url_tmp );
@@ -529,7 +836,6 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 	ludp->lud_port = 0;
 	ludp->lud_dn = NULL;
 	ludp->lud_attrs = NULL;
-	ludp->lud_filter = NULL;
 	ludp->lud_scope = LDAP_SCOPE_DEFAULT;
 	ludp->lud_filter = NULL;
 	ludp->lud_exts = NULL;
@@ -577,7 +883,7 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 		}
 
 		ludp->lud_port = strtol( q, &next, 10 );
-		if ( next == NULL || next[0] != '\0' ) {
+		if ( next == q || next[0] != '\0' ) {
 			LDAP_FREE( url );
 			ldap_free_urldesc( ludp );
 			return LDAP_URL_ERR_BADURL;
@@ -736,7 +1042,6 @@ ldap_url_parse_ext( LDAP_CONST char *url_in, LDAPURLDesc **ludpp )
 			return LDAP_URL_ERR_BADFILTER;
 		}
 
-		LDAP_FREE( ludp->lud_filter );
 		ludp->lud_filter = LDAP_STRDUP( p );
 
 		if( ludp->lud_filter == NULL ) {
@@ -923,14 +1228,9 @@ ldap_url_duplist (LDAPURLDesc *ludlist)
 	return dest;
 }
 
-int
-ldap_url_parselist (LDAPURLDesc **ludlist, const char *url )
-{
-	return ldap_url_parselist_ext( ludlist, url, ", " );
-}
-
-int
-ldap_url_parselist_ext (LDAPURLDesc **ludlist, const char *url, const char *sep )
+static int
+ldap_url_parselist_int (LDAPURLDesc **ludlist, const char *url, const char *sep,
+	int (*url_parse)( const char *, LDAPURLDesc ** ) )
 {
 	int i, rc;
 	LDAPURLDesc *ludp;
@@ -949,7 +1249,7 @@ ldap_url_parselist_ext (LDAPURLDesc **ludlist, const char *url, const char *sep 
 	for (i = 0; urls[i] != NULL; i++) ;
 	/* ...and put them in the "stack" backward */
 	while (--i >= 0) {
-		rc = ldap_url_parse( urls[i], &ludp );
+		rc = url_parse( urls[i], &ludp );
 		if ( rc != 0 ) {
 			ldap_charray_free(urls);
 			ldap_free_urllist(*ludlist);
@@ -961,6 +1261,18 @@ ldap_url_parselist_ext (LDAPURLDesc **ludlist, const char *url, const char *sep 
 	}
 	ldap_charray_free(urls);
 	return LDAP_URL_SUCCESS;
+}
+
+int
+ldap_url_parselist (LDAPURLDesc **ludlist, const char *url )
+{
+	return ldap_url_parselist_int( ludlist, url, ", ", ldap_url_parse );
+}
+
+int
+ldap_url_parselist_ext (LDAPURLDesc **ludlist, const char *url, const char *sep )
+{
+	return ldap_url_parselist_int( ludlist, url, sep, ldap_url_parse_ext );
 }
 
 int
@@ -1008,12 +1320,18 @@ ldap_url_parsehosts(
 					specs[i] = ludp->lud_host;
 					ludp->lud_host = p;
 					p = strchr( ludp->lud_host, ']' );
-					if ( p == NULL )
+					if ( p == NULL ) {
+						LDAP_FREE(ludp);
+						ldap_charray_free(specs);
 						return LDAP_PARAM_ERROR;
+					}
 					*p++ = '\0';
 					if ( *p != ':' ) {
-						if ( *p != '\0' )
+						if ( *p != '\0' ) {
+							LDAP_FREE(ludp);
+							ldap_charray_free(specs);
 							return LDAP_PARAM_ERROR;
+						}
 						p = NULL;
 					}
 				} else {
@@ -1026,7 +1344,9 @@ ldap_url_parsehosts(
 				*p++ = 0;
 				ldap_pvt_hex_unescape(p);
 				ludp->lud_port = strtol( p, &next, 10 );
-				if ( next == NULL || next[0] != '\0' ) {
+				if ( next == p || next[0] != '\0' ) {
+					LDAP_FREE(ludp);
+					ldap_charray_free(specs);
 					return LDAP_PARAM_ERROR;
 				}
 			}
@@ -1088,50 +1408,50 @@ char *
 ldap_url_list2urls(
 	LDAPURLDesc *ludlist )
 {
-	LDAPURLDesc *ludp;
-	int size;
-	char *s, *p, buf[32];	/* big enough to hold a long decimal # (overkill) */
+	LDAPURLDesc	*ludp;
+	int		size, sofar;
+	char		*s;
 
-	if (ludlist == NULL)
+	if ( ludlist == NULL ) {
 		return NULL;
+	}
 
 	/* figure out how big the string is */
-	size = 1;	/* nul-term */
-	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
-		size += strlen(ludp->lud_scheme);
-		if ( ludp->lud_host ) {
-			size += strlen(ludp->lud_host);
-			/* will add [ ] below */
-			if (strchr(ludp->lud_host, ':'))
-				size += 2;
+	for ( size = 0, ludp = ludlist; ludp != NULL; ludp = ludp->lud_next ) {
+		int	len = desc2str_len( ludp );
+		if ( len < 0 ) {
+			return NULL;
 		}
-		size += sizeof(":/// ");
-
-		if (ludp->lud_port != 0) {
-			size += sprintf(buf, ":%d", ludp->lud_port);
-		}
+		size += len + 1;
 	}
+	
+	s = LDAP_MALLOC( size );
 
-	s = LDAP_MALLOC(size);
-	if (s == NULL) {
+	if ( s == NULL ) {
 		return NULL;
 	}
 
-	p = s;
-	for (ludp = ludlist; ludp != NULL; ludp = ludp->lud_next) {
-		p += sprintf(p, "%s://", ludp->lud_scheme);
-		if ( ludp->lud_host ) {
-			p += sprintf(p, strchr(ludp->lud_host, ':') 
-					? "[%s]" : "%s", ludp->lud_host);
+	for ( sofar = 0, ludp = ludlist; ludp != NULL; ludp = ludp->lud_next ) {
+		int	len;
+
+		len = desc2str( ludp, &s[sofar], size );
+		
+		if ( len < 0 ) {
+			LDAP_FREE( s );
+			return NULL;
 		}
-		if (ludp->lud_port != 0)
-			p += sprintf(p, ":%d", ludp->lud_port);
-		*p++ = '/';
-		*p++ = ' ';
+
+		sofar += len;
+		size -= len;
+
+		s[sofar++] = ' ';
+		size--;
+
+		assert( size >= 0 );
 	}
-	if (p != s)
-		p--;	/* nuke that extra space */
-	*p = 0;
+
+	s[sofar - 1] = '\0';
+
 	return s;
 }
 
@@ -1181,6 +1501,30 @@ ldap_free_urldesc( LDAPURLDesc *ludp )
 }
 
 static int
+ldap_int_is_hexpair( char *s )
+{
+	int	i;
+
+	for ( i = 0; i < 2; i++ ) {
+		if ( s[i] >= '0' && s[i] <= '9' ) {
+			continue;
+		}
+
+		if ( s[i] >= 'A' && s[i] <= 'F' ) {
+			continue;
+		}
+
+		if ( s[i] >= 'a' && s[i] <= 'f' ) {
+			continue;
+		}
+
+		return 0;
+	}
+	
+	return 1;	
+}
+	
+static int
 ldap_int_unhex( int c )
 {
 	return( c >= '0' && c <= '9' ? c - '0'
@@ -1195,10 +1539,20 @@ ldap_pvt_hex_unescape( char *s )
 	 * Remove URL hex escapes from s... done in place.  The basic concept for
 	 * this routine is borrowed from the WWW library HTUnEscape() routine.
 	 */
-	char	*p;
+	char	*p,
+		*save_s = s;
 
 	for ( p = s; *s != '\0'; ++s ) {
 		if ( *s == '%' ) {
+			/*
+			 * FIXME: what if '%' is followed
+			 * by non-hexpair chars?
+			 */
+			if ( !ldap_int_is_hexpair( s + 1 ) ) {
+				p = save_s;
+				break;
+			}
+
 			if ( *++s == '\0' ) {
 				break;
 			}
@@ -1214,5 +1568,4 @@ ldap_pvt_hex_unescape( char *s )
 
 	*p = '\0';
 }
-
 

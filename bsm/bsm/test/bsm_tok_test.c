@@ -56,15 +56,15 @@ void write_arb_token(int fd)
 	int dec[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }; 
 	char str[10] = "abcdefghij"; 
 
-	tok1 = au_to_data(AUP_BINARY, AUR_BYTE, 10, (char *)bin);
+	tok1 = au_to_data(AUP_BINARY, AUR_BYTE, 10, (const char *)bin);
 	WRITE_TOKEN(fd, tok1, "arbitrary");
-	tok2 = au_to_data(AUP_OCTAL, AUR_SHORT, 10, (char *)oct);
+	tok2 = au_to_data(AUP_OCTAL, AUR_SHORT, 10, (const char *)oct);
 	WRITE_TOKEN(fd, tok2, "arbitrary");
-	tok3 = au_to_data(AUP_HEX, AUR_BYTE, 10, (char *)hex);
+	tok3 = au_to_data(AUP_HEX, AUR_BYTE, 10, (const char *)hex);
 	WRITE_TOKEN(fd, tok3, "arbitrary");
-	tok4 = au_to_data(AUP_DECIMAL, AUR_LONG, 10, (char *)dec);
+	tok4 = au_to_data(AUP_DECIMAL, AUR_LONG, 10, (const char *)dec);
 	WRITE_TOKEN(fd, tok4, "arbitrary");
-	tok5 = au_to_data(AUP_STRING, AUR_BYTE, 10, (char *)str);
+	tok5 = au_to_data(AUP_STRING, AUR_BYTE, 10, (const char *)str);
 	WRITE_TOKEN(fd, tok5, "arbitrary");
 }
 
@@ -204,8 +204,13 @@ void write_ipcpermtoken(int fd)
 	perm.cuid = 2;
 	perm.cgid = 3;
 	perm.mode = 4;
+#if defined (__DARWIN_UNIX03) || defined(__LP64__)
+	perm._seq = 5;
+	perm._key = 6;
+#else
 	perm.seq = 5;
 	perm.key = 6;
+#endif
 
 	tok = au_to_ipc_perm(&perm);
 	WRITE_TOKEN(fd, tok, "ipcperm");

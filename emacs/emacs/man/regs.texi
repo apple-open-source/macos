@@ -1,7 +1,8 @@
 @c This is part of the Emacs manual.
-@c Copyright (C) 1985, 86, 87, 93, 94, 95, 1997 Free Software Foundation, Inc.
+@c Copyright (C) 1985, 1986, 1987, 1993, 1994, 1995, 1997, 2001, 2002,
+@c   2003, 2004, 2005, 2006, 2007  Free Software Foundation, Inc.
 @c See file emacs.texi for copying conditions.
-@node Registers, Display, Rectangles, Top
+@node Registers, Display, CUA Bindings, Top
 @chapter Registers
 @cindex registers
 
@@ -12,26 +13,30 @@ once, or many times; you can move point to a position saved in a
 register once, or many times.
 
 @findex view-register
-  Each register has a name, which consists of a single character.
-A register can
-store a piece of text, a rectangle, a position, a window configuration,
-or a file name, but only one thing at any given time.  Whatever you
-store in a register remains there until you store something else in that
-register.  To see what a register @var{r} contains, use @kbd{M-x
-view-register}.
+  Each register has a name, which consists of a single character.  A
+register can store a number, a piece of text, a rectangle, a position,
+a window configuration, or a file name, but only one thing at any
+given time.  Whatever you store in a register remains there until you
+store something else in that register.  To see what a register @var{r}
+contains, use @kbd{M-x view-register}.
 
 @table @kbd
 @item M-x view-register @key{RET} @var{r}
 Display a description of what register @var{r} contains.
 @end table
 
+  @dfn{Bookmarks} record files and positions in them, so you can
+return to those positions when you look at the file again.
+Bookmarks are similar enough in spirit to registers that they
+seem to belong in this chapter.
+
 @menu
 * Position: RegPos.           Saving positions in registers.
 * Text: RegText.              Saving text in registers.
 * Rectangle: RegRect.         Saving rectangles in registers.
 * Configurations: RegConfig.  Saving window configurations in registers.
-* Files: RegFiles.            File names in registers.
 * Numbers: RegNumbers.        Numbers in registers.
+* Files: RegFiles.            File names in registers.
 * Bookmarks::                 Bookmarks are like registers, but persistent.
 @end menu
 
@@ -103,10 +108,10 @@ well; you can think of this as ``moving'' the region text into the register.
   @kbd{M-x append-to-register @key{RET} @var{r}} appends the copy of
 the text in the region to the text already stored in the register
 named @var{r}.  If invoked with a numeric argument, it deletes the
-region after appending it to the register.  A similar command
-@code{prepend-to-register} works the same, except that it
-@emph{prepends} the region text to the text in the register, rather
-than @emph{appending} it.
+region after appending it to the register.  The command
+@code{prepend-to-register} is similar, except that it @emph{prepends}
+the region text to the text in the register, rather than
+@emph{appending} it.
 
   @kbd{C-x r i @var{r}} inserts in the buffer the text from register
 @var{r}.  Normally it leaves point before the text and places the mark
@@ -185,18 +190,18 @@ Store @var{number} into register @var{r} (@code{number-to-register}).
 @findex increment-register
 Increment the number in register @var{r} by @var{number}
 (@code{increment-register}).
-@item C-x r g @var{r}
+@item C-x r i @var{r}
 Insert the number from register @var{r} into the buffer.
 @end table
 
-  @kbd{C-x r g} is the same command used to insert any other sort of
+  @kbd{C-x r i} is the same command used to insert any other sort of
 register contents into the buffer.  @kbd{C-x r +} with no numeric
 argument increments the register value by 1; @kbd{C-x r n} with no
 numeric argument stores zero in the register.
 
 @node RegFiles
 @section Keeping File Names in Registers
-@cindex saving fuile name in a register
+@cindex saving file name in a register
 
   If you visit certain file names frequently, you can visit them more
 conveniently if you put their names in registers.  Here's the Lisp code
@@ -319,3 +324,7 @@ points to.
 Insert in the buffer the @emph{contents} of the file that bookmark
 @var{bookmark} points to.
 @end table
+
+@ignore
+   arch-tag: b00af991-ebc3-4b3a-8e82-a3ac81ff2e64
+@end ignore

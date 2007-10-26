@@ -1,7 +1,11 @@
 ;;; tibet-util.el --- utilities for Tibetan   -*- coding: iso-2022-7bit; -*-
 
-;; Copyright (C) 1995 Electrotechnical Laboratory, JAPAN.
-;; Licensed to the Free Software Foundation.
+;; Copyright (C) 1997, 2001, 2002, 2003, 2004, 2005, 2006, 2007
+;;   Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007
+;;   National Institute of Advanced Industrial Science and Technology (AIST)
+;;   Registration Number H14PRO021
 
 ;; Keywords: multilingual, Tibetan
 
@@ -19,8 +23,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;; Author: Toru TOMABECHI, <Toru.Tomabechi@orient.unil.ch>
 
@@ -34,6 +38,23 @@
 ;;; Commentary:
 
 ;;; Code:
+
+(defconst tibetan-obsolete-glyphs
+  `(("$(7!=(B" . "$(8!=(B")			; 2 col <-> 1 col
+    ("$(7!?(B" . "$(8!?(B")
+    ("$(7!@(B" . "$(8!@(B")
+    ("$(7!A(B" . "$(8!A(B")
+    ("$(7"`(B" . "$(8"`(B")
+    ("$(7!;(B" . "$(8!;(B")
+    ("$(7!D(B" . "$(8!D(B")
+    ;; Yes these are dirty. But ...
+    ("$(7!>(B $(7!>(B" . ,(compose-string "$(7!>(B $(7!>(B" 0 3 [?$(7!>(B (Br . Bl) ?  (Br . Bl) ?$(7!>(B]))
+    ("$(7!4!5!5(B" . ,(compose-string
+		  "$(7#R#S#S#S(B" 0 4
+		  [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
+    ("$(7!4!5(B" . ,(compose-string "$(7#R#S#S(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (Br . Bl) ?$(7#S(B]))
+    ("$(7!6(B" . ,(compose-string "$(7#R#S!I(B" 0 3 [?$(7#R(B (Br . Bl) ?$(7#S(B (br . tr) ?$(7!I(B]))
+    ("$(7!4(B"   . ,(compose-string "$(7#R#S(B" 0 2 [?$(7#R(B (Br . Bl) ?$(7#S(B]))))
 
 ;;;###autoload
 (defun tibetan-char-p (ch)
@@ -146,7 +167,7 @@ The returned string has no composition information."
     ;; If 'a follows a consonant, turn it into the subjoined form.
     ;; * Disabled by Tomabechi 2000/06/09 *
     ;; Because in Unicode, $(7"A(B may follow directly a consonant without
-    ;; any intervening vowel, as in 4$(7"90"914""0"""Q14"A0"A1!;(B=4$(7"90"91(B 4$(7""0""1(B 4$(7"A0"A1(B not 4$(7"90"91(B 4$(7""0""1(B $(7"Q(B 4$(7"A0"A1(B  
+    ;; any intervening vowel, as in 4$(7"90"914""0"""Q14"A0"A1!;(B=4$(7"90"91(B 4$(7""0""1(B 4$(7"A0"A1(B not 4$(7"90"91(B 4$(7""0""1(B $(7"Q(B 4$(7"A0"A1(B
     ;;(if (and (= char ?$(7"A(B)
     ;;	     (aref (char-category-set (car last)) ?0))
     ;;	(setq char ?$(7"R(B)) ;; modified for new font by Tomabechi 1999/12/10
@@ -261,7 +282,7 @@ The returned string has no composition information."
 (defun tibetan-decompose-region (from to)
   "Decompose Tibetan text in the region FROM and TO.
 This is different from decompose-region because precomposed Tibetan characters
-are decomposed into normal Tiebtan character sequences."
+are decomposed into normal Tibetan character sequences."
   (interactive "r")
   (save-restriction
     (narrow-to-region from to)
@@ -281,7 +302,7 @@ are decomposed into normal Tiebtan character sequences."
 (defun tibetan-decompose-string (str)
   "Decompose Tibetan string STR.
 This is different from decompose-string because precomposed Tibetan characters
-are decomposed into normal Tiebtan character sequences."
+are decomposed into normal Tibetan character sequences."
   (let ((new "")
 	(len (length str))
 	(idx 0)
@@ -350,6 +371,65 @@ See also docstring of the function tibetan-compose-region."
     ;; Should return nil as annotations.
     nil))
 
+
+;;;
+;;; Unicode-related definitions.
+;;;
+
+(defvar tibetan-canonicalize-for-unicode-alist
+  '(("$(7"Q(B" . "")	;; remove vowel a
+    ("$(7"T(B" . "$(7"R"S(B") ;; decompose vowels whose use is ``discouraged'' in Unicode 3.0
+    ("$(7"V(B" . "$(7"R"U(B")
+    ("$(7"W(B" . "$(7#C"a(B")
+    ("$(7"X(B" . "$(7#C"R"a(B")
+    ("$(7"Y(B" . "$(7#D"a(B")
+    ("$(7"Z(B" . "$(7#D"R"a(B")
+    ("$(7"b(B" . "$(7"R"a(B"))
+  "Rules for canonicalizing Tibetan vowels for Unicode.")
+
+(defvar tibetan-canonicalize-for-unicode-regexp
+  "[$(7"Q"T"V"W"X"Y"Z"b(B]"
+  "Regexp for Tibetan vowels to be canonicalized in Unicode.")
+
+(defun tibetan-canonicalize-for-unicode-region (from to)
+  (save-restriction
+    (narrow-to-region from to)
+    (goto-char from)
+    (while (re-search-forward tibetan-canonicalize-for-unicode-regexp nil t)
+      (let (
+	    ;;(from (match-beginning 0))
+	    ;;(to (match-end 0))
+	    (canonical-form
+	     (cdr (assoc (match-string 0)
+			 tibetan-canonicalize-for-unicode-alist))))
+	;;(goto-char from)
+	;;(delete-region from to)
+	;;(insert canonical-form)
+	(replace-match canonical-form)
+	))))
+
+(defvar tibetan-strict-unicode t
+  "*Flag to control Tibetan canonicalizing for Unicode.
+
+If non-nil, the vowel a is removed and composite vowels are decomposed
+before writing buffer in Unicode.  See also
+`tibetan-canonicalize-for-unicode-regexp' and
+`tibetan-canonicalize-for-unicode-alist'.")
+
+;;;###autoload
+(defun tibetan-pre-write-canonicalize-for-unicode (from to)
+  (let ((old-buf (current-buffer))
+	(strict-unicode tibetan-strict-unicode))
+    (set-buffer (generate-new-buffer " *temp*"))
+    (if (stringp from)
+	(insert from)
+      (insert-buffer-substring old-buf from to))
+    (if strict-unicode
+	(tibetan-canonicalize-for-unicode-region (point-min) (point-max)))
+    ;; Should return nil as annotations.
+    nil))
+
 (provide 'tibet-util)
 
+;;; arch-tag: 7a7333e8-1584-446c-b39c-a02b9def265d
 ;;; tibet-util.el ends here

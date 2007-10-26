@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_content_types.c,v 1.24.2.2.8.2 2007/01/01 09:46:50 sebastian Exp $ */
+/* $Id: php_content_types.c,v 1.32.2.1.2.4 2007/05/07 23:27:59 iliaa Exp $ */
 
 #include "php.h"
 #include "SAPI.h"
@@ -37,21 +37,21 @@ static sapi_post_entry php_post_entries[] = {
  */
 SAPI_API SAPI_POST_READER_FUNC(php_default_post_reader)
 {
-	char *data = NULL;
-	int length = 0;
+	char *data;
+	int length;
 
 	/* $HTTP_RAW_POST_DATA registration */
-	if(!strcmp(SG(request_info).request_method, "POST")) {
-		if(NULL == SG(request_info).post_entry) {
+	if (!strcmp(SG(request_info).request_method, "POST")) {
+		if (NULL == SG(request_info).post_entry) {
 			/* no post handler registered, so we just swallow the data */
 			sapi_read_standard_form_data(TSRMLS_C);
-			length = SG(request_info).post_data_length;
-			data = estrndup(SG(request_info).post_data, length);
-		} else if(PG(always_populate_raw_post_data) && SG(request_info).post_data) {
-			length = SG(request_info).post_data_length;
-			data = estrndup(SG(request_info).post_data, length);
 		}
-		if(data) {
+
+		/* For unknown content types we create HTTP_RAW_POST_DATA even if always_populate_raw_post_data off,
+		 * this is in-effecient, but we need to keep doing it for BC reasons (for now) */
+		if ((PG(always_populate_raw_post_data) || NULL == SG(request_info).post_entry) && SG(request_info).post_data) {
+			length = SG(request_info).post_data_length;
+			data = estrndup(SG(request_info).post_data, length);
 			SET_VAR_STRINGL("HTTP_RAW_POST_DATA", data, length);
 		}
 	}
@@ -62,21 +62,30 @@ SAPI_API SAPI_POST_READER_FUNC(php_default_post_reader)
 	 in the long run post handlers should be changed to not touch
 	 request_info.post_data for memory preservation reasons
 	*/
-	if(SG(request_info).post_data) {
+	if (SG(request_info).post_data) {
 		SG(request_info).raw_post_data = estrndup(SG(request_info).post_data, SG(request_info).post_data_length);
 		SG(request_info).raw_post_data_length = SG(request_info).post_data_length;
 	}
-
 }
 /* }}} */
 
 /* {{{ php_startup_sapi_content_types
  */
-int php_startup_sapi_content_types(void)
+int php_startup_sapi_content_types(TSRMLS_D)
 {
-	sapi_register_post_entries(php_post_entries);
 	sapi_register_default_post_reader(php_default_post_reader);
 	sapi_register_treat_data(php_default_treat_data);
+	sapi_register_input_filter(php_default_input_filter);
+	return SUCCESS;
+}
+/* }}} */
+
+/* {{{ php_setup_sapi_content_types
+ */
+int php_setup_sapi_content_types(TSRMLS_D)
+{
+	sapi_register_post_entries(php_post_entries TSRMLS_CC);
+
 	return SUCCESS;
 }
 /* }}} */

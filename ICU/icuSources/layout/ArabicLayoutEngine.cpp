@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
  *
  */
 
@@ -34,16 +34,25 @@ le_bool CharSubstitutionFilter::accept(LEGlyphID glyph) const
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ArabicOpenTypeLayoutEngine)
 
 ArabicOpenTypeLayoutEngine::ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
-                        const GlyphSubstitutionTableHeader *gsubTable)
-    : OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, gsubTable)
+                        le_int32 typoFlags, const GlyphSubstitutionTableHeader *gsubTable)
+    : OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags, gsubTable)
 {
-    /**/ fFeatureOrder = ArabicShaping::getFeatureOrder();
+    fFeatureMap = ArabicShaping::getFeatureMap(fFeatureMapCount);
+    fFeatureOrder = TRUE;
 }
 
-ArabicOpenTypeLayoutEngine::ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode)
-    : OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode)
+ArabicOpenTypeLayoutEngine::ArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
+						       le_int32 typoFlags)
+    : OpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags)
 {
-    // fFeatureOrder = ArabicShaping::getFeatureOrder();
+    fFeatureMap = ArabicShaping::getFeatureMap(fFeatureMapCount);
+
+    // NOTE: We don't need to set fFeatureOrder to TRUE here
+    // because this constructor is only called by the constructor
+    // for UnicodeArabicOpenTypeLayoutEngine, which uses a pre-built
+    // GSUB table that has the features in the correct order.
+
+    //fFeatureOrder = TRUE;
 }
 
 ArabicOpenTypeLayoutEngine::~ArabicOpenTypeLayoutEngine()
@@ -55,7 +64,7 @@ ArabicOpenTypeLayoutEngine::~ArabicOpenTypeLayoutEngine()
 // Output: characters, char indices, tags
 // Returns: output character count
 le_int32 ArabicOpenTypeLayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-        LEUnicode *&/*outChars*/, LEGlyphStorage &glyphStorage, LEErrorCode &success)
+        LEUnicode *&outChars, LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return 0;
@@ -66,14 +75,26 @@ le_int32 ArabicOpenTypeLayoutEngine::characterProcessing(const LEUnicode chars[]
         return 0;
     }
 
-    glyphStorage.adoptGlyphCount(count);
-    glyphStorage.allocateAuxData(success);
+    outChars = LE_NEW_ARRAY(LEUnicode, count);
 
-    if (LE_FAILURE(success)) {
+    if (outChars == NULL) {
         success = LE_MEMORY_ALLOCATION_ERROR;
         return 0;
     }
 
+    glyphStorage.allocateGlyphArray(count, rightToLeft, success);
+    glyphStorage.allocateAuxData(success);
+
+    if (LE_FAILURE(success)) {
+        LE_DELETE_ARRAY(outChars);
+        return 0;
+    }
+
+    CanonShaping::reorderMarks(&chars[offset], count, rightToLeft, outChars, glyphStorage);
+
+    // Note: This processes the *original* character array so we can get context
+    // for the first and last characters. This is OK because only the marks
+    // will have been reordered, and they don't contribute to shaping.
     ArabicShaping::shape(chars, offset, count, max, rightToLeft, glyphStorage);
 
     return count;
@@ -105,8 +126,8 @@ void ArabicOpenTypeLayoutEngine::adjustGlyphPositions(const LEUnicode chars[], l
     }
 }
 
-UnicodeArabicOpenTypeLayoutEngine::UnicodeArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode)
-    : ArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode)
+UnicodeArabicOpenTypeLayoutEngine::UnicodeArabicOpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags)
+    : ArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, typoFlags)
 {
     fGSUBTable = (const GlyphSubstitutionTableHeader *) CanonShaping::glyphSubstitutionTable;
     fGDEFTable = (const GlyphDefinitionTableHeader *) CanonShaping::glyphDefinitionTable;
@@ -143,14 +164,14 @@ le_int32 UnicodeArabicOpenTypeLayoutEngine::glyphPostProcessing(LEGlyphStorage &
 
     glyphStorage.adoptCharIndicesArray(tempGlyphStorage);
 
-    ArabicOpenTypeLayoutEngine::mapCharsToGlyphs(tempChars, 0, tempGlyphCount, FALSE, TRUE, glyphStorage, success);
+    ArabicOpenTypeLayoutEngine::mapCharsToGlyphs(tempChars, 0, tempGlyphCount, FALSE, TRUE, TRUE, glyphStorage, success);
 
     LE_DELETE_ARRAY(tempChars);
 
     return tempGlyphCount;
 }
 
-void UnicodeArabicOpenTypeLayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool /*mirror*/, LEGlyphStorage &glyphStorage, LEErrorCode &success)
+void UnicodeArabicOpenTypeLayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool /*mirror*/, le_bool /*filterZeroWidth*/, LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return;

@@ -1,7 +1,3 @@
-Received: by main.nlenet.net (mbox bob)
- (with Cubic Circle's cucipop (v1.31 1998/05/13) Sun Nov  4 02:46:01 2001)
-X-From_: postmaster@btconnect.com  Sun Nov  4 02:45:50 2001
->From bob  Sun Nov  4 02:45:50 2001
 Return-Path: <postmaster@btconnect.com>
 Delivered-To: bob@nlenet.net
 Received: from c2bapps1.btconnect.com (c2bapps1.btconnect.com [193.113.209.21])

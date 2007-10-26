@@ -29,8 +29,8 @@ Report problems and direct all questions to:
 
 /*
  * $Log: rcskeys.c,v $
- * Revision 1.1.1.1  1999/04/23 01:43:39  wsanchez
- * Import of rcs 5.7
+ * Revision 1.1  1999/04/23 01:43:39  wsanchez
+ * Initial revision
  *
  * Revision 1.1.1.1  1997/08/14 18:40:33  wsanchez
  * Import of RCS 5.7
@@ -70,7 +70,7 @@ Report problems and direct all questions to:
 
 #include "rcsbase.h"
 
-libId(keysId, "$Id: rcskeys.c,v 1.1.1.1 1999/04/23 01:43:39 wsanchez Exp $")
+libId(keysId, "$Id: rcskeys.c,v 1.1 1999/04/23 01:43:39 wsanchez Exp $")
 
 
 char const *const Keyword[] = {

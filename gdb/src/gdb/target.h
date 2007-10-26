@@ -245,23 +245,23 @@ enum target_object
 
 extern LONGEST target_read_partial (struct target_ops *ops,
 				    enum target_object object,
-				    const char *annex, void *buf,
+				    const char *annex, gdb_byte *buf,
 				    ULONGEST offset, LONGEST len);
 
 extern LONGEST target_write_partial (struct target_ops *ops,
 				     enum target_object object,
-				     const char *annex, const void *buf,
+				     const char *annex, const gdb_byte *buf,
 				     ULONGEST offset, LONGEST len);
 
 /* Wrappers to perform the full transfer.  */
 extern LONGEST target_read (struct target_ops *ops,
 			    enum target_object object,
-			    const char *annex, void *buf,
+			    const char *annex, gdb_byte *buf,
 			    ULONGEST offset, LONGEST len);
 
 extern LONGEST target_write (struct target_ops *ops,
 			     enum target_object object,
-			     const char *annex, const void *buf,
+			     const char *annex, const gdb_byte *buf,
 			     ULONGEST offset, LONGEST len);
 
 /* Wrappers to target read/write that perform memory transfers.  They
@@ -272,7 +272,7 @@ extern LONGEST target_write (struct target_ops *ops,
    which in turn lifted it from read_memory.  */
 
 extern void get_target_memory (struct target_ops *ops, CORE_ADDR addr,
-			       void *buf, LONGEST len);
+			       gdb_byte *buf, LONGEST len);
 extern ULONGEST get_target_memory_unsigned (struct target_ops *ops,
 					    CORE_ADDR addr, int len);
 
@@ -312,6 +312,7 @@ struct target_ops
     void (*to_detach) (char *, int);
     void (*to_disconnect) (char *, int);
     void (*to_resume) (ptid_t, int, enum target_signal);
+    /* APPLE LOCAL target */
     ptid_t (*to_wait) (ptid_t, struct target_waitstatus *, gdb_client_data client_data);
     void (*to_post_wait) (ptid_t, int);
     void (*to_fetch_registers) (int);
@@ -334,24 +335,27 @@ struct target_ops
 
        negative (call its absolute value N) means that we cannot
        transfer right at MEMADDR, but we could transfer at least
-       something at MEMADDR + N.  */
+       something at MEMADDR + N.
 
-    int (*to_xfer_memory) (CORE_ADDR memaddr, char *myaddr,
-			   int len, int write,
-			   struct mem_attrib *attrib,
-			   struct target_ops *target);
+       NOTE: cagney/2004-10-01: This has been entirely superseeded by
+       to_xfer_partial and inferior inheritance.  */
+
+    int (*deprecated_xfer_memory) (CORE_ADDR memaddr, gdb_byte *myaddr,
+				   int len, int write,
+				   struct mem_attrib *attrib,
+				   struct target_ops *target);
 
     void (*to_files_info) (struct target_ops *);
-    int (*to_insert_breakpoint) (CORE_ADDR, char *);
-    int (*to_remove_breakpoint) (CORE_ADDR, char *);
+    int (*to_insert_breakpoint) (CORE_ADDR, gdb_byte *);
+    int (*to_remove_breakpoint) (CORE_ADDR, gdb_byte *);
     int (*to_can_use_hw_breakpoint) (int, int, int);
-    int (*to_insert_hw_breakpoint) (CORE_ADDR, char *);
-    int (*to_remove_hw_breakpoint) (CORE_ADDR, char *);
+    int (*to_insert_hw_breakpoint) (CORE_ADDR, gdb_byte *);
+    int (*to_remove_hw_breakpoint) (CORE_ADDR, gdb_byte *);
     int (*to_remove_watchpoint) (CORE_ADDR, int, int);
     int (*to_insert_watchpoint) (CORE_ADDR, int, int);
     int (*to_stopped_by_watchpoint) (void);
     int to_have_continuable_watchpoint;
-    CORE_ADDR (*to_stopped_data_address) (void);
+    int (*to_stopped_data_address) (struct target_ops *, CORE_ADDR *);
     int (*to_region_size_ok_for_hw_watchpoint) (int);
     void (*to_terminal_init) (void);
     void (*to_terminal_inferior) (void);
@@ -362,15 +366,15 @@ struct target_ops
     void (*to_kill) (void);
     void (*to_load) (char *, int);
     int (*to_lookup_symbol) (char *, CORE_ADDR *);
-    void (*to_create_inferior) (char *, char *, char **);
+    void (*to_create_inferior) (char *, char *, char **, int);
     void (*to_post_startup_inferior) (ptid_t);
     void (*to_acknowledge_created_inferior) (int);
-    int (*to_insert_fork_catchpoint) (int);
+    void (*to_insert_fork_catchpoint) (int);
     int (*to_remove_fork_catchpoint) (int);
-    int (*to_insert_vfork_catchpoint) (int);
+    void (*to_insert_vfork_catchpoint) (int);
     int (*to_remove_vfork_catchpoint) (int);
     int (*to_follow_fork) (int);
-    int (*to_insert_exec_catchpoint) (int);
+    void (*to_insert_exec_catchpoint) (int);
     int (*to_remove_exec_catchpoint) (int);
     int (*to_reported_exec_events_per_exec_call) (void);
     int (*to_has_exited) (int, int, int *);
@@ -419,7 +423,7 @@ struct target_ops
        thread-local storage hasn't been allocated yet, this function
        may return an error.  */
     CORE_ADDR (*to_get_thread_local_address) (ptid_t ptid,
-					      struct objfile *objfile,
+					      CORE_ADDR load_module_addr,
 					      CORE_ADDR offset);
 
     /* Perform partial transfers on OBJECT.  See target_read_partial
@@ -427,7 +431,7 @@ struct target_ops
        only one, of readbuf or writebuf must be non-NULL.  */
     LONGEST (*to_xfer_partial) (struct target_ops *ops,
 				enum target_object object, const char *annex,
-				void *readbuf, const void *writebuf,
+				gdb_byte *readbuf, const gdb_byte *writebuf,
 				ULONGEST offset, LONGEST len);
 
     /* APPLE LOCAL: Check whether calling a function on the current
@@ -568,19 +572,20 @@ extern void target_disconnect (char *, int);
 
 extern DCACHE *target_dcache;
 
-extern int do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-			   struct mem_attrib *attrib);
+extern int do_xfer_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len,
+			   int write, struct mem_attrib *attrib);
 
 extern int target_read_string (CORE_ADDR, char **, int, int *);
 
-extern int target_read_memory (CORE_ADDR memaddr, char *myaddr, int len);
+extern int target_read_memory (CORE_ADDR memaddr, gdb_byte *myaddr, int len);
 
-extern int target_write_memory (CORE_ADDR memaddr, char *myaddr, int len);
+extern int target_write_memory (CORE_ADDR memaddr, const gdb_byte *myaddr,
+				int len);
 
-extern int xfer_memory (CORE_ADDR, char *, int, int,
+extern int xfer_memory (CORE_ADDR, gdb_byte *, int, int,
 			struct mem_attrib *, struct target_ops *);
 
-extern int child_xfer_memory (CORE_ADDR, char *, int, int,
+extern int child_xfer_memory (CORE_ADDR, gdb_byte *, int, int,
 			      struct mem_attrib *, struct target_ops *);
 
 /* Make a single attempt at transfering LEN bytes.  On a successful
@@ -603,17 +608,15 @@ extern char *child_core_file_to_sym_file (char *);
 extern void child_post_attach (int);
 #endif
 
-extern void child_post_wait (ptid_t, int);
-
 extern void child_post_startup_inferior (ptid_t);
 
 extern void child_acknowledge_created_inferior (int);
 
-extern int child_insert_fork_catchpoint (int);
+extern void child_insert_fork_catchpoint (int);
 
 extern int child_remove_fork_catchpoint (int);
 
-extern int child_insert_vfork_catchpoint (int);
+extern void child_insert_vfork_catchpoint (int);
 
 extern int child_remove_vfork_catchpoint (int);
 
@@ -621,7 +624,7 @@ extern void child_acknowledge_created_inferior (int);
 
 extern int child_follow_fork (int);
 
-extern int child_insert_exec_catchpoint (int);
+extern void child_insert_exec_catchpoint (int);
 
 extern int child_remove_exec_catchpoint (int);
 
@@ -738,8 +741,8 @@ extern void target_load (char *arg, int from_tty);
    ENV is the environment vector to pass.  Errors reported with error().
    On VxWorks and various standalone systems, we ignore exec_file.  */
 
-#define	target_create_inferior(exec_file, args, env)	\
-     (*current_target.to_create_inferior) (exec_file, args, env)
+#define	target_create_inferior(exec_file, args, env, FROM_TTY)	\
+     (*current_target.to_create_inferior) (exec_file, args, env, (FROM_TTY))
 
 
 /* Some targets (such as ttrace-based HPUX) don't allow us to request
@@ -957,8 +960,6 @@ extern void gdb_set_async_override (int on);
 
 extern int target_async_mask (int mask);
 
-extern void target_link (char *, CORE_ADDR *);
-
 /* Converts a process id to a string.  Usually, the string just contains
    `process xyz', but on some systems it may contain
    `process xyz thread abc'.  */
@@ -990,19 +991,19 @@ extern char *normal_pid_to_str (ptid_t ptid);
  * The old way of doing this is to define a macro 'target_new_objfile'
  * that points to the function that you want to be called on every
  * objfile/shlib load.
- *
- * The new way is to grab the function pointer, 'target_new_objfile_hook',
- * and point it to the function that you want to be called on every
- * objfile/shlib load.
- *
- * If multiple clients are willing to be cooperative, they can each
- * save a pointer to the previous value of target_new_objfile_hook
- * before modifying it, and arrange for their function to call the
- * previous function in the chain.  In that way, multiple clients
- * can receive this notification (something like with signal handlers).
- */
 
-extern void (*target_new_objfile_hook) (struct objfile *);
+   The new way is to grab the function pointer,
+   'deprecated_target_new_objfile_hook', and point it to the function
+   that you want to be called on every objfile/shlib load.
+
+   If multiple clients are willing to be cooperative, they can each
+   save a pointer to the previous value of
+   deprecated_target_new_objfile_hook before modifying it, and arrange
+   for their function to call the previous function in the chain.  In
+   that way, multiple clients can receive this notification (something
+   like with signal handlers).  */
+
+extern void (*deprecated_target_new_objfile_hook) (struct objfile *);
 
 #ifndef target_pid_or_tid_to_str
 #define target_pid_or_tid_to_str(ID) \
@@ -1100,18 +1101,6 @@ extern void (*target_new_objfile_hook) (struct objfile *);
    (current_target.to_have_continuable_watchpoint)
 #endif
 
-/* HP-UX supplies these operations, which respectively disable and enable
-   the memory page-protections that are used to implement hardware watchpoints
-   on that platform.  See wait_for_inferior's use of these.  */
-
-#if !defined(TARGET_DISABLE_HW_WATCHPOINTS)
-#define TARGET_DISABLE_HW_WATCHPOINTS(pid)
-#endif
-
-#if !defined(TARGET_ENABLE_HW_WATCHPOINTS)
-#define TARGET_ENABLE_HW_WATCHPOINTS(pid)
-#endif
-
 /* Provide defaults for hardware watchpoint functions.  */
 
 /* If the *_hw_beakpoint functions have not been defined
@@ -1153,18 +1142,14 @@ extern void (*target_new_objfile_hook) (struct objfile *);
      (*current_target.to_remove_hw_breakpoint) (addr, save)
 #endif
 
+extern int target_stopped_data_address_p (struct target_ops *);
+
 #ifndef target_stopped_data_address
-#define target_stopped_data_address() \
-    (*current_target.to_stopped_data_address) ()
-#endif
-
-/* Sometimes gdb may pick up what appears to be a valid target address
-   from a minimal symbol, but the value really means, essentially,
-   "This is an index into a table which is populated when the inferior
-   is run.  Therefore, do not attempt to use this as a PC."  */
-
-#if !defined(PC_REQUIRES_RUN_BEFORE_USE)
-#define PC_REQUIRES_RUN_BEFORE_USE(pc) (0)
+#define target_stopped_data_address(target, x) \
+    (*target.to_stopped_data_address) (target, x)
+#else
+/* Horrible hack to get around existing macros :-(.  */
+#define target_stopped_data_address_p(CURRENT_TARGET) (1)
 #endif
 
 /* This will only be defined by a target that supports catching vfork events,
@@ -1235,13 +1220,13 @@ struct section_table *target_section_by_addr (struct target_ops *target,
 
 /* From mem-break.c */
 
-extern int memory_remove_breakpoint (CORE_ADDR, char *);
+extern int memory_remove_breakpoint (CORE_ADDR, gdb_byte *);
 
-extern int memory_insert_breakpoint (CORE_ADDR, char *);
+extern int memory_insert_breakpoint (CORE_ADDR, gdb_byte *);
 
-extern int default_memory_remove_breakpoint (CORE_ADDR, char *);
+extern int default_memory_remove_breakpoint (CORE_ADDR, gdb_byte *);
 
-extern int default_memory_insert_breakpoint (CORE_ADDR, char *);
+extern int default_memory_insert_breakpoint (CORE_ADDR, gdb_byte *);
 
 
 /* From target.c */
@@ -1252,7 +1237,7 @@ extern void noprocess (void);
 
 extern void find_default_attach (char *, int);
 
-extern void find_default_create_inferior (char *, char *, char **);
+extern void find_default_create_inferior (char *, char *, char **, int);
 
 extern struct target_ops *find_run_target (void);
 
@@ -1316,6 +1301,9 @@ extern void push_remote_target (char *name, int from_tty);
 /* Blank target vector entries are initialized to target_ignore. */
 void target_ignore (void);
 
+/* APPLE LOCAL update current target */
 void update_current_target (void);
+
+extern struct target_ops deprecated_child_ops;
 
 #endif /* !defined (TARGET_H) */

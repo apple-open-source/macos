@@ -91,5 +91,4 @@ private:
 
 #endif /* !_BELPICRECORD_H_ */
 
-/* arch-tag: 8ACEDD1C-124C-11D9-90F9-000A9595DEEE */
 

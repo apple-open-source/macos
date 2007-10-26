@@ -1,5 +1,3 @@
-.\"	$NetBSD: look.1,v 1.5 1998/04/28 06:00:57 fair Exp $
-.\"
 .\" Copyright (c) 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,8 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)look.1	8.1 (Berkeley) 6/14/93
+.\" $FreeBSD: src/usr.bin/look/look.1,v 1.17 2005/01/17 07:44:22 ru Exp $
 .\"
-.Dd June 14, 1993
+.Dd July 17, 2004
 .Dt LOOK 1
 .Os
 .Sh NAME
@@ -44,9 +43,9 @@
 .Op Fl df
 .Op Fl t Ar termchar
 .Ar string
-.Op Ar file
+.Op Ar
 .Sh DESCRIPTION
-The 
+The
 .Nm
 utility displays any lines in
 .Ar file
@@ -66,34 +65,41 @@ is not specified, the file
 is used, only alphanumeric characters are compared and the case of
 alphabetic characters is ignored.
 .Pp
-Options:
-.Bl -tag -width Ds
+The following options are available:
+.Bl -tag -width indent
 .It Fl d
-Dictionary character set and order, i.e. only alphanumeric characters
+Dictionary character set and order, i.e., only alphanumeric characters
 are compared.
 .It Fl f
 Ignore the case of alphabetic characters.
 .It Fl t
-Specify a string termination character, i.e. only the characters
+Specify a string termination character, i.e., only the characters
 in
 .Ar string
 up to and including the first occurrence of
 .Ar termchar
 are compared.
 .El
-.Pp
+.Sh ENVIRONMENT
 The
+.Ev LANG , LC_ALL
+and
+.Ev LC_CTYPE
+environment variables affect the execution of the
 .Nm
-utility exits 0 if one or more lines were found and displayed,
-1 if no lines were found, and >1 if an error occurred.
+utility.
+Their effect is described in
+.Xr environ 7 .
 .Sh FILES
 .Bl -tag -width /usr/share/dict/words -compact
 .It Pa /usr/share/dict/words
 the dictionary
 .El
-.Sh SEE ALSO
-.Xr grep 1 ,
-.Xr sort 1
+.Sh EXIT STATUS
+The
+.Nm
+utility exits 0 if one or more lines were found and displayed,
+1 if no lines were found, and >1 if an error occurred.
 .Sh COMPATIBILITY
 The original manual page stated that tabs and blank characters participated
 in comparisons when the
@@ -101,7 +107,18 @@ in comparisons when the
 option was specified.
 This was incorrect and the current man page matches the historic
 implementation.
+.Sh SEE ALSO
+.Xr grep 1 ,
+.Xr sort 1
 .Sh HISTORY
+A
 .Nm
-appeared in
+utility appeared in
 .At v7 .
+.Sh BUGS
+Lines are not compared according to the current locale's collating
+order.
+Input files must be sorted with
+.Ev LC_COLLATE
+set to
+.Ql C .

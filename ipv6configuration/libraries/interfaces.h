@@ -32,22 +32,16 @@
 #include <net/if_types.h>
 
 #include "dynarray.h"
+#include "configthreads_types.h"
 
 #define INDEX_BAD	((int)(-1))
 
-/*
- * Type: interface_t
- * Purpose:
- *   Enclose IP6 and link-level information for a particular
- *   interface.
+/* Service-specific address info - this is used  
+ * to store address info in the service record
  */
 typedef struct {
-    struct in6_addr	addr;
-    int			prefixlen;
-    int			addr_flags;
-    struct in6_addr	prefixmask;
-    struct in6_addr	netaddr;
-    struct in6_addr	router;
+	ip6_addrinfo_list_t	addrs;
+	struct in6_addr		router;
 } inet6_addrinfo_t;
 
 #define MAX_LINK_ADDR_LEN	16
@@ -58,11 +52,16 @@ typedef struct {
     u_char		type;
 } link_addr_t;
 
+/*
+ * Type: interface_t
+ * Purpose:
+ *   Enclose IP6 and link-level information for a particular
+ *   interface.
+ */
 typedef struct {
     char 		name[IFNAMSIZ + 1]; /* eg. en0 */
     short		flags;
     u_char		type;	/* e.g. IFT_ETHER */
-    dynarray_t		inet;
     link_addr_t		link_address;
     u_int32_t		user_defined;
 } interface_t;

@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2004, International Business Machines Corporation and    *
+* Copyright (C) 1997-2005, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -31,6 +31,7 @@
 #include "unicode/ustring.h"
 #include "unicode/ucnv_err.h"
 #include "unicode/uchar.h"
+#include "unicode/umsg.h"
 #include "unicode/rbnf.h"
 #include "ustrfmt.h"
 #include "cmemory.h"
@@ -1169,6 +1170,27 @@ MessageFormat::parseObject( const UnicodeString& source,
         result.adoptArray(tmpResult, cnt);
 }
   
+UnicodeString 
+MessageFormat::autoQuoteApostrophe(const UnicodeString& pattern, UErrorCode& status) {
+  UnicodeString result;
+  if (U_SUCCESS(status)) {
+    int32_t plen = pattern.length();
+    const UChar* pat = pattern.getBuffer();
+    int32_t blen = plen * 2 + 1; // space for null termination, convenience
+    UChar* buf = result.getBuffer(blen);
+    if (buf == NULL) {
+      status = U_MEMORY_ALLOCATION_ERROR;
+    } else {
+      int32_t len = umsg_autoQuoteApostrophe(pat, plen, buf, blen, &status);
+      result.releaseBuffer(U_SUCCESS(status) ? len : 0);
+    }
+  }
+  if (U_FAILURE(status)) {
+    result.setToBogus();
+  }
+  return result;
+}
+
 // -------------------------------------
 
 static Format* makeRBNF(URBNFRuleSetTag tag, const Locale& locale, const UnicodeString& defaultRuleSet, UErrorCode& ec) {
@@ -1331,7 +1353,7 @@ int32_t MessageFormat::findKeyword(const UnicodeString& s,
     UnicodeString buffer = s;
     // Trims the space characters and turns all characters
     // in s to lower case.
-    buffer.trim().toLower();
+    buffer.trim().toLower("");
     for (int32_t i = 0; list[i]; ++i) {
         if (!buffer.compare(list[i], u_strlen(list[i]))) {
             return i;
@@ -1388,7 +1410,7 @@ MessageFormat::copyAndFixQuotes(const UnicodeString& source,
 NumberFormat* 
 MessageFormat::createIntegerFormat(const Locale& locale, UErrorCode& status) const {
     NumberFormat *temp = NumberFormat::createInstance(locale, status);
-    if (temp->getDynamicClassID() == DecimalFormat::getStaticClassID()) {
+    if (temp != NULL && temp->getDynamicClassID() == DecimalFormat::getStaticClassID()) {
         DecimalFormat *temp2 = (DecimalFormat*) temp;
         temp2->setMaximumFractionDigits(0);
         temp2->setDecimalSeparatorAlwaysShown(FALSE);

@@ -9,17 +9,17 @@
 		<key>ISO</key>
 		<dict>
 			<key>FSName</key>
-			<string>ISO 9660 File System</string>
+			<string>ISO 9660</string>
 		</dict>
 		<key>ISO Joliet</key>
 		<dict>
 			<key>FSName</key>
-			<string>ISO 9660 File System (Joliet)</string>
+			<string>ISO 9660 (Joliet)</string>
 		</dict>
 		<key>ISO Rockridge</key>
 		<dict>
 			<key>FSName</key>
-			<string>ISO 9660 File System (Rockridge)</string>
+			<string>ISO 9660 (Rockridge)</string>
 		</dict>
 	</dict>
 </dict>

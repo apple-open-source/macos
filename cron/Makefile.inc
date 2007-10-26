@@ -1,4 +1,4 @@
-# $FreeBSD: src/usr.sbin/cron/Makefile.inc,v 1.2 1999/08/28 01:15:48 peter Exp $
+# $FreeBSD: src/usr.sbin/cron/Makefile.inc,v 1.4 2005/06/10 06:12:52 des Exp $
 
 .if exists(${.OBJDIR}/../lib)
 LIBCRON=${.OBJDIR}/../lib/libcron.a

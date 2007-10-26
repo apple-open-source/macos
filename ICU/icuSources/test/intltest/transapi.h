@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2001-2003, International Business Machines Corporation and
+ * Copyright (c) 2001-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /************************************************************************
@@ -58,6 +58,8 @@ public:
     void TestLatinDevanagari(void);
     
     void TestDevanagariLatinRT(void);
+
+    void TestUnicodeFunctor(void);
 
     /*Internal functions used*/
     void doTest(const UnicodeString& , const UnicodeString& , const UnicodeString& );

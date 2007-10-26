@@ -63,6 +63,7 @@
 #include "defs.h"
 #include <sys/ioctl.h>
 #include <errno.h>
+#include <search.h>
 #include <sys/syslog.h>
 
 #ifndef DEBUG
@@ -125,7 +126,7 @@ rtfind(dst)
 	register u_int hash;
 	struct afhash h;
 	int af = dst->sa_family;
-	int doinghost = 1, (*match)();
+	int doinghost = 1, (*match)() = NULL;
 
 	if (af >= af_max)
 		return (0);
@@ -165,6 +166,7 @@ again:
 	return (0);
 }
 
+void
 rtadd(dst, gate, metric, state)
 	struct sockaddr *dst, *gate;
 	int metric, state;
@@ -233,6 +235,7 @@ rtadd(dst, gate, metric, state)
 	}
 }
 
+void
 rtchange(rt, gate, metric)
 	struct rt_entry *rt;
 	struct sockaddr *gate;
@@ -305,6 +308,7 @@ rtchange(rt, gate, metric)
 #endif
 }
 
+void
 rtdelete(rt)
 	struct rt_entry *rt;
 {
@@ -325,6 +329,7 @@ rtdelete(rt)
 	free((char *)rt);
 }
 
+void
 rtdeleteall(sig)
 	int sig;
 {
@@ -361,6 +366,7 @@ again:
  * but this entry prevents us from listening to other people's defaults
  * and installing them in the kernel here.
  */
+void
 rtdefault()
 {
 	extern struct sockaddr inet_default;
@@ -369,6 +375,7 @@ rtdefault()
 		RTS_CHANGED | RTS_PASSIVE | RTS_INTERNAL);
 }
 
+void
 rtinit()
 {
 	register struct rthash *rh;
@@ -379,6 +386,7 @@ rtinit()
 		rh->rt_forw = rh->rt_back = (struct rt_entry *)rh;
 }
 
+int 
 rtioctl(action, ort)
 	int action;
 	struct rtuentry *ort;

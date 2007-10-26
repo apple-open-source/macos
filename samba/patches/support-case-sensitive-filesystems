@@ -1,0 +1,150 @@
+Index: samba/source/include/smb.h
+===================================================================
+--- samba/source/include/smb.h.orig
++++ samba/source/include/smb.h
+@@ -664,10 +664,14 @@ typedef struct connection_struct {
+ 	int num_files_open;
+ 	unsigned int num_smb_operations; /* Count of smb operations on this tree. */
+ 
++	/* Semantics requested by the client or forced by the server config. */
+ 	BOOL case_sensitive;
+ 	BOOL case_preserve;
+ 	BOOL short_case_preserve;
+ 
++	/* Semantics provided by the underlying filesystem. */
++	int fs_capabilities;
++
+ 	name_compare_entry *hide_list; /* Per-share list of files to return as hidden. */
+ 	name_compare_entry *veto_list; /* Per-share list of files to veto (never show). */
+ 	name_compare_entry *veto_oplock_list; /* Per-share list of files to refuse oplocks on. */       
+Index: samba/source/smbd/service.c
+===================================================================
+--- samba/source/smbd/service.c.orig
++++ samba/source/smbd/service.c
+@@ -1025,6 +1025,21 @@ static connection_struct *make_connectio
+ 		vfs_ChDir(conn,conn->connectpath);
+ 	}
+ #endif
++
++	/* Figure out the characteristics of the underlying filesystem. This
++	 * assumes that all the filesystem mounted withing a share path have
++	 * the same characteristics, which is likely but not guaranteed.
++	 */
++	{
++		vfs_statvfs_struct svfs;
++
++		conn->fs_capabilities =
++		    FILE_CASE_SENSITIVE_SEARCH | FILE_CASE_PRESERVED_NAMES;
++
++		if (SMB_VFS_STATVFS(conn, conn->connectpath, &svfs) == 0) {
++			conn->fs_capabilities = svfs.FsCapabilities;
++		}
++	}
+ 	
+ 	/*
+ 	 * Print out the 'connected as' stuff here as we need
+Index: samba/source/smbd/filename.c
+===================================================================
+--- samba/source/smbd/filename.c.orig
++++ samba/source/smbd/filename.c
+@@ -557,6 +557,15 @@ static BOOL scan_directory(connection_st
+ 	if (*path == 0)
+ 		path = ".";
+ 
++	/* If we have a case-sensitive filesystem, it doesn't do us any
++	 * good to search for a name. If a case variation of the name was
++	 * there, then the original stat(2) would have found it.
++	 */
++	if (!(conn->fs_capabilities & FILE_CASE_SENSITIVE_SEARCH)) {
++		errno = ENOENT;
++		return False;
++	}
++
+ 	/*
+ 	 * The incoming name can be mangled, and if we de-mangle it
+ 	 * here it will not compare correctly against the filename (name2)
+Index: samba/source/smbd/dir.c
+===================================================================
+--- samba/source/smbd/dir.c.orig
++++ samba/source/smbd/dir.c
+@@ -630,10 +630,13 @@ const char *dptr_ReadDirName(struct dptr
+ 			}
+ 		}
+ 
+-		/* In case sensitive mode we don't search - we know if it doesn't exist 
+-		   with a stat we will fail. */
++		/* Stat failed. We know this is authoratiative if we are
++		 * providing case sensitive semantics or the underlying
++		 * filesystem is case sensitive.
++		 */
+ 
+-		if (dptr->conn->case_sensitive) {
++		if (dptr->conn->case_sensitive ||
++		    !(dptr->conn->fs_capabilities & FILE_CASE_SENSITIVE_SEARCH)) {
+ 			/* We need to set the underlying dir_hnd offset to -1 also as
+ 			   this function is usually called with the output from TellDir. */
+ 			dptr->dir_hnd->offset = *poffset = END_OF_DIRECTORY_OFFSET;
+@@ -869,12 +872,7 @@ static BOOL user_can_read_file(connectio
+ 		return True;
+ 	}
+ 
+-	/* If we can't stat it does not show it */
+-	if (!VALID_STAT(*pst) && (SMB_VFS_STAT(conn, name, pst) != 0)) {
+-		DEBUG(10,("user_can_read_file: SMB_VFS_STAT failed for file %s with error %s\n",
+-			name, strerror(errno) ));
+-		return False;
+-	}
++	SMB_ASSERT(VALID_STAT(*pst));
+ 
+ 	/* Pseudo-open the file (note - no fd's created). */
+ 
+@@ -933,10 +931,7 @@ static BOOL user_can_write_file(connecti
+ 		return True;
+ 	}
+ 
+-	/* If we can't stat it does not show it */
+-	if (!VALID_STAT(*pst) && (SMB_VFS_STAT(conn, name, pst) != 0)) {
+-		return False;
+-	}
++	SMB_ASSERT(VALID_STAT(*pst));
+ 
+ 	/* Pseudo-open the file */
+ 
+@@ -984,9 +979,7 @@ static BOOL file_is_special(connection_s
+ 	if (conn->admin_user)
+ 		return False;
+ 
+-	/* If we can't stat it does not show it */
+-	if (!VALID_STAT(*pst) && (SMB_VFS_STAT(conn, name, pst) != 0))
+-		return True;
++	SMB_ASSERT(VALID_STAT(*pst));
+ 
+ 	if (S_ISREG(pst->st_mode) || S_ISDIR(pst->st_mode) || S_ISLNK(pst->st_mode))
+ 		return False;
+@@ -995,7 +988,9 @@ static BOOL file_is_special(connection_s
+ }
+ 
+ /*******************************************************************
+- Should the file be seen by the client ?
++ Should the file be seen by the client ? NOTE: A successful return
++ is no guarantee of the file's existence ... you also have to check
++ whether pst is valid.
+ ********************************************************************/
+ 
+ BOOL is_visible_file(connection_struct *conn, const char *dir_path, const char *name, SMB_STRUCT_STAT *pst, BOOL use_veto)
+@@ -1032,6 +1027,15 @@ BOOL is_visible_file(connection_struct *
+ 			return True;
+ 		}
+ 
++		/* If the file name does not exist, there's no point checking
++		 * the configuration options. We succeed, on the basis that the
++		 * checks *might* have passed if the file was present.
++		 */
++		if (SMB_VFS_STAT(conn, entry, pst) != 0) {
++		        SAFE_FREE(entry);
++		        return True;
++		}
++
+ 		/* Honour _hide unreadable_ option */
+ 		if (hide_unreadable && !user_can_read_file(conn, entry, pst)) {
+ 			DEBUG(10,("is_visible_file: file %s is unreadable.\n", entry ));

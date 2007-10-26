@@ -15,7 +15,7 @@ Received: from lerami.lerctr.org (lerami.lerctr.org [207.158.72.11])
 	by tnmx01.mgw.rr.com (8.12.5/8.12.5) with ESMTP id gAL0wLBM020447
 	for <acinsp1@midsouth.rr.com>; Wed, 20 Nov 2002 19:58:21 -0500 (EST)
 Received: from lerami.lerctr.org (localhost [127.0.0.1])
-	by lerami.lerctr.org (8.12.6/8.12.6/20020902/$Revision: 1.1.1.1 $) with ESMTP id gAL0wHwV016400
+	by lerami.lerctr.org (8.12.6/8.12.6/20020902/$Revision: 5940 $) with ESMTP id gAL0wHwV016400
 	for <acinsp1@midsouth.rr.com>; Wed, 20 Nov 2002 18:58:18 -0600 (CST)
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"

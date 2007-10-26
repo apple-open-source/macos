@@ -1,6 +1,7 @@
 ;;; expand.el --- make abbreviations more usable
 
-;; Copyright (C) 1995, 1996 Free Software Foundation, Inc.
+;; Copyright (C) 1995, 1996, 2001, 2002, 2003, 2004,
+;;   2005, 2006, 2007 Free Software Foundation, Inc.
 
 ;; Author: Frederic Lepied <Frederic.Lepied@sugix.frmug.org>
 ;; Maintainer: Frederic Lepied <Frederic.Lepied@sugix.frmug.org>
@@ -20,8 +21,8 @@
 
 ;; You should have received a copy of the GNU General Public License
 ;; along with GNU Emacs; see the file COPYING.  If not, write to the
-;; Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-;; Boston, MA 02111-1307, USA.
+;; Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+;; Boston, MA 02110-1301, USA.
 
 ;;; Commentary:
 ;;
@@ -47,20 +48,20 @@
 ;;     ("default" "default:\n\nbreak;" 10)
 ;;     ("main" "int\nmain(int argc, char * argv[])\n{\n\n}\n" 37))
 ;;   "Expansions for C mode")
-;; 
+;;
 ;;   and enter Abbrev mode with the following hook :
 ;;
-;; (add-hook 'c-mode-hook (function (lambda ()
-;; 				   (expand-add-abbrevs c-mode-abbrev-table c-expand-list)
-;; 				   (abbrev-mode))))
+;; (add-hook 'c-mode-hook
+;; 	  (lambda ()
+;; 	    (expand-add-abbrevs c-mode-abbrev-table c-expand-list)
+;; 	    (abbrev-mode 1)))
 ;;
 ;;   you can also init some post-process hooks :
 ;;
 ;; (add-hook 'expand-load-hook
-;; 	  (function
-;; 	   (lambda ()
-;; 	     (add-hook 'expand-expand-hook 'indent-according-to-mode)
-;; 	     (add-hook 'expand-jump-hook 'indent-according-to-mode))))
+;; 	  (lambda ()
+;; 	    (add-hook 'expand-expand-hook 'indent-according-to-mode)
+;; 	    (add-hook 'expand-jump-hook 'indent-according-to-mode)))
 ;;
 ;; Remarks:
 ;;
@@ -100,8 +101,7 @@
   "Loop var: "
   "for(" str _ @ "=0; " str @ "; " str @ ") {" \n
   @ _ \n
-  "}" >
-  )
+  "}" > \n)
 
 (defconst expand-c-sample-expand-list
   '(("if" "if () {\n \n} else {\n \n}" (5 10 21))
@@ -145,7 +145,7 @@
     (concat
      "(defmacro  ()\n"
      "  \"\"\n"
-     "  (` \n"
+     "  `( \n"
      "    ))")
     (list 11 13 18 25))
 
@@ -185,7 +185,7 @@
 
     )
    "Expansions for Lisp mode. See `expand-add-abbrevs'.")
- 
+
 ;; perl example from Jari Aalto <jaalto@tre.tele.nokia.fi>
 (defconst expand-sample-perl-mode-expand-list
   (list
@@ -296,7 +296,7 @@ If ARG is omitted, point is placed at the end of the expanded text."
 (defvar expand-list nil "Temporary variable used by the Expand package.")
 
 (defvar expand-pos nil
-  "If non nil, stores a vector containing markers to positions defined by the last expansion.
+  "If non-nil, stores a vector containing markers to positions defined by the last expansion.
 This variable is local to a buffer.")
 (make-variable-buffer-local 'expand-pos)
 
@@ -336,6 +336,7 @@ This variable is local to a buffer.")
       'expand-abbrev-hook)))
 
 (put 'expand-abbrev-hook 'no-self-insert t)
+;;;###autoload
 (defun expand-abbrev-hook ()
   "Abbrev hook used to do the expansion job of expand abbrevs.
 See `expand-add-abbrevs'.  Value is non-nil if expansion was done."
@@ -497,7 +498,7 @@ This is used only in conjunction with `expand-add-abbrevs'."
 (defun expand-skeleton-end-hook ()
   (if skeleton-positions
       (setq expand-list skeleton-positions)))
-  
+
 (add-hook 'skeleton-end-hook (function expand-skeleton-end-hook))
 
 (provide 'expand)
@@ -505,4 +506,5 @@ This is used only in conjunction with `expand-add-abbrevs'."
 ;; run load hooks
 (run-hooks 'expand-load-hook)
 
+;;; arch-tag: fee53e9e-30e3-4ef3-b191-9785e1f8e885
 ;;; expand.el ends here

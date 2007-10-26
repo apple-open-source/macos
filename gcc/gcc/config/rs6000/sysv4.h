@@ -824,7 +824,8 @@ extern int fixuplabelno;
 /* Override svr4.h definition.  */
 #undef	ASM_SPEC
 #define	ASM_SPEC "%(asm_cpu) \
-%{.s: %{mregnames} %{mno-regnames}} %{.S: %{mregnames} %{mno-regnames}} \
+"/* APPLE LOCAL mainline 2007-03-13 5040758 */" \
+%{,assembler|,assembler-with-cpp: %{mregnames} %{mno-regnames}} \
 %{v:-V} %{Qy:} %{!Qn:-Qy} %{n} %{T} %{Ym,*} %{Yd,*} %{Wa,*:%*} \
 %{mrelocatable} %{mrelocatable-lib} %{fpic|fpie|fPIC|fPIE:-K PIC} \
 %{memb|msdata|msdata=eabi: -memb} \
@@ -876,7 +877,9 @@ extern int fixuplabelno;
 %{profile: -p}"
 
 /* Don't put -Y P,<path> for cross compilers.  */
-#ifndef CROSS_COMPILE
+/* APPLE LOCAL begin mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
+#ifndef CROSS_DIRECTORY_STRUCTURE
+/* APPLE LOCAL end mainline 4.3 2006-12-13 CROSS_DIRECTORY_STRUCTURE 4697325 */
 #define LINK_PATH_SPEC "\
 %{!R*:%{L*:-R %*}} \
 %{!nostdlib: %{!YP,*: \

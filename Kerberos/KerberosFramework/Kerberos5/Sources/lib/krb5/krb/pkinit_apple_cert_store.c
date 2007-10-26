@@ -76,72 +76,29 @@
  */
 static OSStatus pkinit_get_cert_issuer_sn(
     SecCertificateRef certRef, 
-    CSSM_DATA *issuerSerial)		// mallocd and RETURNED
+    CSSM_DATA *issuerSerial)		/* mallocd and RETURNED */
 {
     OSStatus ortn;
     CSSM_DATA certData;
-    CSSM_CL_HANDLE clHand;
-    CSSM_HANDLE resultHand;
-    uint32 numFields;
-    CSSM_DATA_PTR issuer = NULL;
-    CSSM_DATA_PTR serial = NULL;
-    krb5_data INIT_KDATA(issuerKrb);
-    krb5_data INIT_KDATA(serialKrb);
     krb5_data INIT_KDATA(issuerSerialKrb);
+    krb5_data certDataKrb;
+    krb5_error_code krtn;
     
     assert(certRef != NULL);
     assert(issuerSerial != NULL);
     
-    /* break the cert down into CDSA-layer components */
     ortn = SecCertificateGetData(certRef, &certData);
     if(ortn) {
 	pkiCssmErr("SecCertificateGetData", ortn);
 	return ortn;
     }
-    ortn = SecCertificateGetCLHandle(certRef, &clHand);
-    if(ortn) {
-	pkiCssmErr("SecCertificateGetData", ortn);
-	return ortn;
+    PKI_CSSM_TO_KRB_DATA(&certData, &certDataKrb);
+    krtn = krb5int_pkinit_get_issuer_serial(&certDataKrb, &issuerSerialKrb);
+    if(krtn) {
+	return CSSMERR_CL_INVALID_DATA;
     }
-    
-    /* get the DER encoded issuer (not normalized) */
-    ortn = CSSM_CL_CertGetFirstFieldValue(clHand, &certData, 
-	&CSSMOID_X509V1IssuerNameStd, &resultHand, &numFields, &issuer);
-    if(ortn) {
-	pkiCssmErr("CSSM_CL_CertGetFirstFieldValue(issuer)", ortn);
-	return ortn;
-    }
-    /* subsequent errors to errOut: */
-    CSSM_CL_CertAbortQuery(clHand, resultHand);
-    
-    /* get the serial number */
-    ortn = CSSM_CL_CertGetFirstFieldValue(clHand, &certData, &CSSMOID_X509V1SerialNumber,
-	&resultHand, &numFields, &serial);
-    if(ortn) {
-	pkiCssmErr("CSSM_CL_CertGetFirstFieldValue(serial)", ortn);
-	goto errOut;
-    }
-    CSSM_CL_CertAbortQuery(clHand, resultHand);
-    
-    /* encode them together */
-    PKI_CSSM_TO_KRB_DATA(issuer, &issuerKrb);
-    PKI_CSSM_TO_KRB_DATA(serial, &serialKrb);
-    ortn = pkinit_issuer_serial_encode(&issuerKrb, &serialKrb, &issuerSerialKrb);
-    if(ortn) {
-	pkiCssmErr("pkinit_issuer_serial_encode", ortn);
-	goto errOut;
-    }
-    
-    /* transfer ownership to caller */
     PKI_KRB_TO_CSSM_DATA(&issuerSerialKrb, issuerSerial);
-errOut:
-    if(issuer) {
-	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1IssuerNameStd, issuer);
-    }
-    if(serial) {
-	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1SerialNumber, serial);
-    }
-    return ortn;
+    return noErr;
 }
 
 /* 
@@ -194,8 +151,8 @@ errOut:
 static OSStatus pkinit_search_ident(
     CFTypeRef		keychainOrArray,
     CSSM_KEYUSE		keyUsage,
-    const CSSM_DATA     *issuerSerial,  // optional
-    SecIdentityRef      *foundId)	// RETURNED
+    const CSSM_DATA     *issuerSerial,  /* optional */
+    SecIdentityRef      *foundId)	/* RETURNED */
 {
     OSStatus ortn;
     SecIdentityRef idRef = NULL;
@@ -238,8 +195,8 @@ static OSStatus pkinit_search_ident(
  * In Mac OS terms, get the keychain on which a given identity resides. 
  */
 static krb5_error_code pkinit_cert_to_db(
-    pkinit_signing_cert_t   idRef,
-    pkinit_cert_db_t	    *dbRef)
+    krb5_pkinit_signing_cert_t   idRef,
+    krb5_pkinit_cert_db_t	 *dbRef)
 {
     SecKeychainRef kcRef = NULL;
     SecKeyRef keyRef = NULL;
@@ -256,7 +213,7 @@ static krb5_error_code pkinit_cert_to_db(
 	pkiCssmErr("SecKeychainItemCopyKeychain", ortn);
     }
     else {
-	*dbRef = (pkinit_cert_db_t)kcRef;
+	*dbRef = (krb5_pkinit_cert_db_t)kcRef;
     }
     CFRelease(keyRef);
     return ortn;
@@ -288,27 +245,28 @@ static OSStatus pkinit_get_pref_dict(
 #pragma mark --- Public client side functions ---
 
 /*
- * Obtain signing cert for specified principal. On successful (non-NULL) return, 
- * caller must eventually release the cert with pkinit_release_cert().
+ * Obtain signing cert for specified principal. On successful return, 
+ * caller must eventually release the cert with krb5_pkinit_release_cert().
  */
-krb5_error_code pkinit_get_client_cert(
-    const char		    *principal,     // full principal string
-    pkinit_signing_cert_t   *client_cert)
+krb5_error_code krb5_pkinit_get_client_cert(
+    const char			*principal,     /* full principal string */
+    krb5_pkinit_signing_cert_t	*client_cert)
 {
     CFDataRef issuerSerial = NULL;
     CSSM_DATA issuerSerialData;
     SecIdentityRef idRef = NULL;
     OSStatus ortn;
     CFDictionaryRef theDict = NULL;
+    krb5_error_code ourRtn = 0;
     
     if(principal == NULL) {
-	return errSecItemNotFound;
+	return KRB5_PRINC_NOMATCH;
     }
     
     /* Is there a stored preference for PKINIT certs for this user? */
     ortn = pkinit_get_pref_dict(&theDict);
     if(ortn) {
-	return ortn;
+	return KRB5_PRINC_NOMATCH;
     }
     
     /* Entry in the dictionary for specified principal? */
@@ -317,13 +275,13 @@ krb5_error_code pkinit_get_client_cert(
     issuerSerial = (CFDataRef)CFDictionaryGetValue(theDict, cfPrinc);
     CFRelease(cfPrinc);
     if(issuerSerial == NULL) {
-	pkiDebug("pkinit_get_client_cert: no identity found\n");
-	ortn = errSecItemNotFound;
+	pkiDebug("krb5_pkinit_get_client_cert: no identity found\n");
+	ourRtn = KRB5_PRINC_NOMATCH;
 	goto errOut;
     }
     if(CFGetTypeID(issuerSerial) != CFDataGetTypeID()) {
-	pkiDebug("pkinit_get_client_cert: bad kPkinitClientCertKey value\n");
-	ortn = errSecItemNotFound;
+	pkiDebug("krb5_pkinit_get_client_cert: bad kPkinitClientCertKey value\n");
+	ourRtn = KRB5_PRINC_NOMATCH;
 	goto errOut;
     }
     
@@ -334,53 +292,107 @@ krb5_error_code pkinit_get_client_cert(
     ortn = pkinit_search_ident(NULL, CSSM_KEYUSE_SIGN | CSSM_KEYUSE_ENCRYPT, 
 	&issuerSerialData, &idRef);
     if(ortn) {
-	pkiDebug("pkinit_get_client_cert: no identity found!\n");
+	pkiDebug("krb5_pkinit_get_client_cert: no identity found!\n");
 	pkiCssmErr("pkinit_search_ident", ortn);
+	ourRtn = KRB5_PRINC_NOMATCH;
     }
     else {
-	*client_cert = (pkinit_signing_cert_t)idRef;
+	*client_cert = (krb5_pkinit_signing_cert_t)idRef;
     }
 errOut:
     if(theDict) {
 	CFRelease(theDict);
     }
-    return ortn;
+    return ourRtn;
+}
+
+/* 
+ * Determine if the specified client has a signing cert. Returns TRUE
+ * if so, else returns FALSE.
+ */
+krb5_boolean krb5_pkinit_have_client_cert(
+    const char			*principal)	/* full principal string */
+{
+    krb5_pkinit_signing_cert_t signing_cert = NULL;
+    krb5_error_code krtn;
+    
+    krtn = krb5_pkinit_get_client_cert(principal, &signing_cert);
+    if(krtn) {
+	return FALSE;
+    }
+    if(signing_cert != NULL) {
+	krb5_pkinit_release_cert(signing_cert);
+	return TRUE;
+    }
+    else {
+	return FALSE;
+    }
 }
 
 /*
  * Store the specified certificate (or, more likely, some platform-dependent
- * reference to it) as the specified principal's signing cert. Passing
+ * reference to it) as the specified principal's signing certificate. Passing
  * in NULL for the client_cert has the effect of deleting the relevant entry
  * in the cert storage.
  */
-krb5_error_code pkinit_set_client_cert(
-    const char		    *principal,     // full principal string
-    pkinit_signing_cert_t   client_cert)
+krb5_error_code krb5_pkinit_set_client_cert_from_signing_cert(
+    const char			*principal,     /* full principal string */
+    krb5_pkinit_signing_cert_t	client_cert)
 {
     SecIdentityRef idRef = (SecIdentityRef)client_cert;
+    SecCertificateRef certRef = NULL;
+    OSStatus ortn;
+    krb5_error_code ourRtn = 0;
+
+    if (NULL != idRef) {
+	if (CFGetTypeID(idRef) != SecIdentityGetTypeID()) {
+	    ourRtn = KRB5KRB_ERR_GENERIC;
+	    goto fin;
+	}
+	/* Get the cert */
+	ortn = SecIdentityCopyCertificate(idRef, &certRef);
+	if (ortn) {
+	    pkiCssmErr("SecIdentityCopyCertificate", ortn);
+	    ourRtn = KRB5KRB_ERR_GENERIC;
+	    goto fin;
+	}
+    }
+    ourRtn = krb5_pkinit_set_client_cert(principal, (krb5_pkinit_cert_t)certRef);
+fin:
+    if (certRef)
+	CFRelease(certRef);
+    return ourRtn;
+}
+
+
+/*
+ * Store the specified certificate (or, more likely, some platform-dependent
+ * reference to it) as the specified principal's certificate. Passing
+ * in NULL for the client_cert has the effect of deleting the relevant entry
+ * in the cert storage.
+ */
+krb5_error_code krb5_pkinit_set_client_cert(
+    const char			*principal,     /* full principal string */
+    krb5_pkinit_cert_t		client_cert)
+{
+    SecCertificateRef certRef = (SecCertificateRef)client_cert;
     OSStatus ortn;
     CSSM_DATA issuerSerial = {0, NULL};
     CFDataRef cfIssuerSerial = NULL;
     CFDictionaryRef existDict = NULL;
     CFMutableDictionaryRef newDict = NULL;
-    SecCertificateRef certRef = NULL;
     CFStringRef keyStr = NULL;
-
-    if(idRef != NULL) {
-	if(CFGetTypeID(idRef) != SecIdentityGetTypeID()) {
-	    return paramErr;
+    krb5_error_code ourRtn = 0;
+    
+    if(certRef != NULL) {
+	if(CFGetTypeID(certRef) != SecCertificateGetTypeID()) {
+	    return KRB5KRB_ERR_GENERIC;
 	}
     
-	/* Get the cert */
-	ortn = SecIdentityCopyCertificate(idRef, &certRef);
-	if(ortn) {
-	    pkiCssmErr("SecIdentityCopyCertificate", ortn);
-	    return ortn;
-	}
-	
 	/* Cook up DER-encoded issuer/serial number */
 	ortn = pkinit_get_cert_issuer_sn(certRef, &issuerSerial);
 	if(ortn) {
+	    ourRtn = KRB5KRB_ERR_GENERIC;
 	    goto errOut;
 	}
     }
@@ -395,21 +407,21 @@ krb5_error_code pkinit_set_client_cert(
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, existDict);
     }
     else {
-	if(idRef == NULL) {
+	if(certRef == NULL) {
 	    /* no existing entry, nothing to delete, we're done */
-	    return noErr;
+	    return 0;
 	}
 	newDict = CFDictionaryCreateMutable(NULL, 0,
 	    &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     }
     if(newDict == NULL) {
-	ortn = ENOMEM;
+	ourRtn = ENOMEM;
 	goto errOut;
     }
 
     /* issuer / serial number ==> that dictionary */
     keyStr = CFStringCreateWithCString(NULL, principal, kCFStringEncodingASCII);
-    if(idRef == NULL) {
+    if(certRef == NULL) {
 	CFDictionaryRemoveValue(newDict, keyStr);
     }
     else {
@@ -422,15 +434,12 @@ krb5_error_code pkinit_set_client_cert(
 	CFSTR(kPkinitClientCertApp), kCFPreferencesCurrentUser, kCFPreferencesAnyHost);
     if(CFPreferencesSynchronize(CFSTR(kPkinitClientCertApp), kCFPreferencesCurrentUser, 
 	    kCFPreferencesAnyHost)) {
-	ortn = noErr;
+	ourRtn = 0;
     }
     else {
-	ortn = wrPermErr;   /* any better ideas? */
+	ourRtn = EACCES;   /* any better ideas? */
     }
 errOut:
-    if(certRef) {
-	CFRelease(certRef);
-    }   
     if(cfIssuerSerial) {
 	CFRelease(cfIssuerSerial);
     }
@@ -446,25 +455,25 @@ errOut:
     if(keyStr) {
 	CFRelease(keyStr);
     }
-    return ortn;
+    return ourRtn;
 }
 
 /* 
  * Obtain a reference to the client's cert database. Specify either principal
- * name or client_cert as obtained from pkinit_get_client_cert().
+ * name or client_cert as obtained from krb5_pkinit_get_client_cert().
  */
-krb5_error_code pkinit_get_client_cert_db(
-    const char		    *principal,     // full principal string
-    pkinit_signing_cert_t   client_cert,    // optional, from pkinit_get_client_cert()
-    pkinit_cert_db_t	    *client_cert_db)   // RETURNED
+krb5_error_code krb5_pkinit_get_client_cert_db(
+    const char			*principal,     /* full principal string */
+    krb5_pkinit_signing_cert_t	client_cert,    /* optional, from krb5_pkinit_get_client_cert() */
+    krb5_pkinit_cert_db_t	*client_cert_db)/* RETURNED */
 {
     krb5_error_code krtn;
-    pkinit_signing_cert_t local_cert;
+    krb5_pkinit_signing_cert_t local_cert;
     
     assert((client_cert != NULL) || (principal != NULL));
     if(client_cert == NULL) {
 	/* caller didn't provide, look it up */
-	krtn = pkinit_get_client_cert(principal, &local_cert);
+	krtn = krb5_pkinit_get_client_cert(principal, &local_cert);
 	if(krtn) {
 	    return krtn;
 	}
@@ -475,76 +484,65 @@ krb5_error_code pkinit_get_client_cert_db(
     }
     krtn = pkinit_cert_to_db(local_cert, client_cert_db);
     if(client_cert == NULL) {
-	pkinit_release_cert(local_cert);
+	krb5_pkinit_release_cert(local_cert);
     }
     return krtn;
 }
 
 #pragma mark --- Public server side functions ---
 
-/* 
- * Due to Radar 3680128, the KDC keychain does NOT auto-unlock. We unlock it here
- * with a hard coded password. Don't even think of actually shipping this code. 
- */
-#define KDC_KEYCHAIN_MANUAL_UNLOCK  0
-#if     KDC_KEYCHAIN_MANUAL_UNLOCK
-#define KDC_KC_PWD  "password"
-#endif
-
 /*
- * Obtain the KDC signing cert.
+ * Obtain the KDC signing cert, with optional CA and specific cert specifiers.
+ * CAs and cert specifiers are in the form of DER-encoded issuerAndSerialNumbers.
+ *
+ * The client_spec argument is typically provided by the client as kdcPkId.
  */
-krb5_error_code pkinit_get_kdc_cert(
-    pkinit_signing_cert_t *kdc_cert)
+krb5_error_code krb5_pkinit_get_kdc_cert(
+    krb5_ui_4			num_trusted_CAs,    /* sizeof *trusted_CAs */
+    krb5_data			*trusted_CAs,	    /* optional */
+    krb5_data			*client_spec,	    /* optional */
+    krb5_pkinit_signing_cert_t *kdc_cert)
 {
     SecIdentityRef idRef = NULL;
-    SecKeychainRef kcRef = NULL;
     OSStatus ortn;
+    krb5_error_code ourRtn = 0;
     
-    ortn = SecKeychainOpen(KDC_KEYCHAIN, &kcRef);
+    /* OS X: trusted_CAs and client_spec ignored */
+    
+    ortn = SecIdentityCopySystemIdentity(kSecIdentityDomainKerberosKDC,
+	&idRef, NULL);
     if(ortn) {
-	pkiCssmErr("SecKeychainOpen", ortn);
-	return ortn;
+	pkiCssmErr("SecIdentityCopySystemIdentity", ortn);
+	return KRB5_PRINC_NOMATCH;
     }
-    #if KDC_KEYCHAIN_MANUAL_UNLOCK
-    SecKeychainUnlock(kcRef, strlen(KDC_KC_PWD), KDC_KC_PWD, TRUE);
-    #endif
-    ortn = pkinit_search_ident(kcRef, CSSM_KEYUSE_SIGN, NULL, &idRef);
-    if(ortn) {
-	pkiDebug("pkinit_get_kdc_cert: no identity found!\n");
-	pkiCssmErr("pkinit_search_ident", ortn);
-    }
-    else {
-	*kdc_cert = (pkinit_signing_cert_t)idRef;
-    }
-    CFRelease(kcRef);
-    return ortn;
+    *kdc_cert = (krb5_pkinit_signing_cert_t)idRef;
+    return ourRtn;
 }
 
 /* 
  * Obtain a reference to the KDC's cert database.
  */
-krb5_error_code pkinit_get_kdc_cert_db(
-    pkinit_cert_db_t   *kdc_cert_db)
+krb5_error_code krb5_pkinit_get_kdc_cert_db(
+    krb5_pkinit_cert_db_t   *kdc_cert_db)
 {
-    pkinit_signing_cert_t kdcCert = NULL;
+    krb5_pkinit_signing_cert_t kdcCert = NULL;
     krb5_error_code krtn;
     
-    krtn = pkinit_get_kdc_cert(&kdcCert);
+    krtn = krb5_pkinit_get_kdc_cert(0, NULL, NULL, &kdcCert);
     if(krtn) {
 	return krtn;
     }
     krtn = pkinit_cert_to_db(kdcCert, kdc_cert_db);
-    pkinit_release_cert(kdcCert);
+    krb5_pkinit_release_cert(kdcCert);
     return krtn;
 }
 
 /*
- * Release certificate references obtained via pkinit_get_client_cert() and
- * pkinit_get_kdc_cert().
+ * Release certificate references obtained via krb5_pkinit_get_client_cert() and
+ * krb5_pkinit_get_kdc_cert().
  */
-void pkinit_release_cert(
-    pkinit_signing_cert_t   cert)
+void krb5_pkinit_release_cert(
+    krb5_pkinit_signing_cert_t   cert)
 {
     if(cert == NULL) {
 	return;
@@ -553,11 +551,11 @@ void pkinit_release_cert(
 }
 
 /*
- * Release database references obtained via pkinit_get_client_cert_db() and
- * pkinit_get_kdc_cert_db().
+ * Release database references obtained via krb5_pkinit_get_client_cert_db() and
+ * krb5_pkinit_get_kdc_cert_db().
  */
-extern void pkinit_release_cert_db(
-    pkinit_cert_db_t	    cert_db)
+extern void krb5_pkinit_release_cert_db(
+    krb5_pkinit_cert_db_t	    cert_db)
 {
     if(cert_db == NULL) {
 	return;
@@ -571,7 +569,7 @@ extern void pkinit_release_cert_db(
  * Only error is a NULL return indicating memory failure. 
  * Caller must free the returned string.
  */
-char *pkinit_cert_hash_str(
+char *krb5_pkinit_cert_hash_str(
     const krb5_data *cert)
 {
     CC_SHA1_CTX ctx;
@@ -598,3 +596,23 @@ char *pkinit_cert_hash_str(
     return outstr;
 }
 
+/* 
+ * Obtain a client's optional list of trusted KDC CA certs (trustedCertifiers)
+ * and/or trusted KDC cert (kdcPkId) for a given client and server. 
+ * All returned values are mallocd and must be freed by caller; the contents 
+ * of the krb5_datas are DER-encoded certificates. 
+ */
+krb5_error_code krb5_pkinit_get_server_certs(
+    const char *client_principal,
+    const char *server_principal,
+    krb5_data **trusted_CAs,	    /* RETURNED, though return value may be NULL */
+    krb5_ui_4 *num_trusted_CAs,	    /* RETURNED */
+    krb5_data *kdc_cert)	    /* RETURNED, though may be 0/NULL */
+{
+    /* nothing for now */
+    *trusted_CAs = NULL;
+    *num_trusted_CAs = 0;
+    kdc_cert->data = NULL;
+    kdc_cert->length = 0;
+    return 0;
+}

@@ -1,19 +1,22 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
-  
+
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2006 Free Software
+   Foundation, Inc.
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-  
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-  
+
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+   02110-1301  USA
 */
 
 /* This file contains the functions, that performs the basic argument
@@ -21,8 +24,8 @@
 
 #include "m4.h"
 
-static void expand_macro _((symbol *));
-static void expand_token _((struct obstack *, token_type, token_data *));
+static void expand_macro (symbol *);
+static void expand_token (struct obstack *, token_type, token_data *);
 
 /* Current recursion level in expand_macro ().  */
 int expansion_level = 0;
@@ -63,6 +66,9 @@ expand_token (struct obstack *obs, token_type t, token_data *td)
     case TOKEN_MACDEF:
       break;
 
+    case TOKEN_OPEN:
+    case TOKEN_COMMA:
+    case TOKEN_CLOSE:
     case TOKEN_SIMPLE:
     case TOKEN_STRING:
       shipout_text (obs, TOKEN_DATA_TEXT (td), strlen (TOKEN_DATA_TEXT (td)));
@@ -73,7 +79,7 @@ expand_token (struct obstack *obs, token_type t, token_data *td)
       if (sym == NULL || SYMBOL_TYPE (sym) == TOKEN_VOID
 	  || (SYMBOL_TYPE (sym) == TOKEN_FUNC
 	      && SYMBOL_BLIND_NO_ARGS (sym)
-	      && peek_input () != '('))
+	      && peek_token () != TOKEN_OPEN))
 	{
 #ifdef ENABLE_CHANGEWORD
 	  shipout_text (obs, TOKEN_DATA_ORIG_TEXT (td),
@@ -89,7 +95,7 @@ expand_token (struct obstack *obs, token_type t, token_data *td)
 
     default:
       M4ERROR ((warning_status, 0,
-		"INTERNAL ERROR: Bad token type in expand_token ()"));
+		"INTERNAL ERROR: bad token type in expand_token ()"));
       abort ();
     }
 }
@@ -112,6 +118,8 @@ expand_argument (struct obstack *obs, token_data *argp)
   token_data td;
   char *text;
   int paren_level;
+  const char *file = current_file;
+  int line = current_line;
 
   TOKEN_DATA_TYPE (argp) = TOKEN_VOID;
 
@@ -120,7 +128,7 @@ expand_argument (struct obstack *obs, token_data *argp)
     {
       t = next_token (&td);
     }
-  while (t == TOKEN_SIMPLE && isspace (*TOKEN_DATA_TEXT (&td)));
+  while (t == TOKEN_SIMPLE && isspace (to_uchar (*TOKEN_DATA_TEXT (&td))));
 
   paren_level = 0;
 
@@ -129,11 +137,10 @@ expand_argument (struct obstack *obs, token_data *argp)
 
       switch (t)
 	{			/* TOKSW */
-	case TOKEN_SIMPLE:
-	  text = TOKEN_DATA_TEXT (&td);
-	  if ((*text == ',' || *text == ')') && paren_level == 0)
+	case TOKEN_COMMA:
+	case TOKEN_CLOSE:
+	  if (paren_level == 0)
 	    {
-
 	      /* The argument MUST be finished, whether we want it or not.  */
 	      obstack_1grow (obs, '\0');
 	      text = obstack_finish (obs);
@@ -143,8 +150,12 @@ expand_argument (struct obstack *obs, token_data *argp)
 		  TOKEN_DATA_TYPE (argp) = TOKEN_TEXT;
 		  TOKEN_DATA_TEXT (argp) = text;
 		}
-	      return (boolean) (*TOKEN_DATA_TEXT (&td) == ',');
+	      return (boolean) (t == TOKEN_COMMA);
 	    }
+	  /* fallthru */
+	case TOKEN_OPEN:
+	case TOKEN_SIMPLE:
+	  text = TOKEN_DATA_TEXT (&td);
 
 	  if (*text == '(')
 	    paren_level++;
@@ -154,8 +165,10 @@ expand_argument (struct obstack *obs, token_data *argp)
 	  break;
 
 	case TOKEN_EOF:
-	  M4ERROR ((EXIT_FAILURE, 0,
-		    "ERROR: EOF in argument list"));
+	  /* current_file changed to "" if we see TOKEN_EOF, use the
+	     previous value we stored earlier.  */
+	  M4ERROR_AT_LINE ((EXIT_FAILURE, 0, file, line,
+			    "ERROR: end of file in argument list"));
 	  break;
 
 	case TOKEN_WORD:
@@ -168,13 +181,12 @@ expand_argument (struct obstack *obs, token_data *argp)
 	    {
 	      TOKEN_DATA_TYPE (argp) = TOKEN_FUNC;
 	      TOKEN_DATA_FUNC (argp) = TOKEN_DATA_FUNC (&td);
-	      TOKEN_DATA_FUNC_TRACED (argp) = TOKEN_DATA_FUNC_TRACED (&td);
 	    }
 	  break;
 
 	default:
 	  M4ERROR ((warning_status, 0,
-		    "INTERNAL ERROR: Bad token type in expand_argument ()"));
+		    "INTERNAL ERROR: bad token type in expand_argument ()"));
 	  abort ();
 	}
 
@@ -192,7 +204,6 @@ static void
 collect_arguments (symbol *sym, struct obstack *argptr,
 		   struct obstack *arguments)
 {
-  int ch;			/* lookahead for ( */
   token_data td;
   token_data *tdp;
   boolean more_args;
@@ -200,11 +211,10 @@ collect_arguments (symbol *sym, struct obstack *argptr,
 
   TOKEN_DATA_TYPE (&td) = TOKEN_TEXT;
   TOKEN_DATA_TEXT (&td) = SYMBOL_NAME (sym);
-  tdp = (token_data *) obstack_copy (arguments, (voidstar) &td, sizeof (td));
-  obstack_grow (argptr, (voidstar) &tdp, sizeof (tdp));
+  tdp = (token_data *) obstack_copy (arguments, &td, sizeof (td));
+  obstack_grow (argptr, &tdp, sizeof (tdp));
 
-  ch = peek_input ();
-  if (ch == '(')
+  if (peek_token () == TOKEN_OPEN)
     {
       next_token (&td);		/* gobble parenthesis */
       do
@@ -217,8 +227,8 @@ collect_arguments (symbol *sym, struct obstack *argptr,
 	      TOKEN_DATA_TEXT (&td) = "";
 	    }
 	  tdp = (token_data *)
-	    obstack_copy (arguments, (voidstar) &td, sizeof (td));
-	  obstack_grow (argptr, (voidstar) &tdp, sizeof (tdp));
+	    obstack_copy (arguments, &td, sizeof (td));
+	  obstack_grow (argptr, &tdp, sizeof (tdp));
 	}
       while (more_args);
     }
@@ -250,7 +260,7 @@ call_macro (symbol *sym, int argc, token_data **argv,
 
     default:
       M4ERROR ((warning_status, 0,
-		"INTERNAL ERROR: Bad symbol type in call_macro ()"));
+		"INTERNAL ERROR: bad symbol type in call_macro ()"));
       abort ();
     }
 }
@@ -260,7 +270,7 @@ call_macro (symbol *sym, int argc, token_data **argv,
 | arguments, using collect_arguments (), and builds a table of pointers to |
 | the arguments.  The arguments themselves are stored on a local obstack.  |
 | Expand_macro () uses call_macro () to do the call of the macro.	   |
-| 									   |
+|									   |
 | Expand_macro () is potentially recursive, since it calls expand_argument |
 | (), which might call expand_token (), which might call expand_macro ().  |
 `-------------------------------------------------------------------------*/
@@ -277,10 +287,11 @@ expand_macro (symbol *sym)
   boolean traced;
   int my_call_id;
 
+  SYMBOL_PENDING_EXPANSIONS (sym)++;
   expansion_level++;
   if (expansion_level > nesting_limit)
     M4ERROR ((EXIT_FAILURE, 0,
-	      "ERROR: Recursion limit of %d exceeded, use -L<N> to change it",
+	      "ERROR: recursion limit of %d exceeded, use -L<N> to change it",
 	      nesting_limit));
 
   macro_call_id++;
@@ -310,6 +321,10 @@ expand_macro (symbol *sym)
     trace_post (SYMBOL_NAME (sym), my_call_id, argc, argv, expanded);
 
   --expansion_level;
+  --SYMBOL_PENDING_EXPANSIONS (sym);
+
+  if (SYMBOL_DELETED (sym))
+    free_symbol (sym);
 
   obstack_free (&arguments, NULL);
   obstack_free (&argptr, NULL);

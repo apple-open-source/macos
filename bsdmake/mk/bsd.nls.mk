@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.nls.mk,v 1.10 2002/07/02 12:37:07 ru Exp $
+# $FreeBSD: src/share/mk/bsd.nls.mk,v 1.13 2005/04/11 07:13:29 harti Exp $
 #
 # This include file <bsd.nls.mk> handles building and installing Native
 # Language Support (NLS) catalogs
@@ -6,7 +6,7 @@
 # +++ variables +++
 #
 # GENCAT	A program for converting .msg files into compiled NLS
-#		.cat files. [gencat -new]
+#		.cat files. [gencat]
 #
 # NLS		Source or intermediate .msg files. [set in Makefile]
 #
@@ -25,7 +25,7 @@
 .error bsd.nls.mk cannot be included directly.
 .endif
 
-GENCAT?=	gencat -new
+GENCAT?=	gencat
 
 .SUFFIXES: .cat .msg
 
@@ -73,4 +73,4 @@ SYMLINKS+=	../${file:R}/${NLSNAME}.cat ${NLSDIR}/${dst}/${NLSNAME}.cat
 .endfor
 .endfor
 
-.endif defined(NLS) && !empty(NLS) && !defined(NO_NLS)
+.endif # defined(NLS) && !empty(NLS) && !defined(NO_NLS)

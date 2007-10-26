@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2007 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,9 +36,9 @@
 #include <sys/kernel_types.h>
 #include <IOKit/storage/IOMedia.h>
 
-/* DEPRECATED */ class  AnchorTable;
-/* DEPRECATED */ class  MinorTable;
-/* DEPRECATED */ struct MinorSlot;
+class  AnchorTable;
+class  MinorTable;
+struct MinorSlot;
 
 /*
  * Class
@@ -111,9 +111,9 @@ public:
 
     virtual bool terminate(IOOptionBits options);
 
-    /* DEPRECATED */ virtual AnchorTable * getAnchors();
-    /* DEPRECATED */ virtual MinorTable *  getMinors();
-    /* DEPRECATED */ virtual MinorSlot *   getMinor(UInt32 minorID);
+    virtual AnchorTable * getAnchors()             __attribute__ ((deprecated));
+    virtual MinorTable *  getMinors()              __attribute__ ((deprecated));
+    virtual MinorSlot *   getMinor(UInt32 minorID) __attribute__ ((deprecated));
 
     /*
      * Process a foreign ioctl.
@@ -121,7 +121,7 @@ public:
 
     virtual int ioctl(dev_t, u_long cmd, caddr_t data, int, proc_t);
 
-    OSMetaClassDeclareReservedUsed(IOMediaBSDClient, 0);
+    OSMetaClassDeclareReservedUsed(IOMediaBSDClient, 0); /* 10.1.0 */
 
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  1);
     OSMetaClassDeclareReservedUnused(IOMediaBSDClient,  2);

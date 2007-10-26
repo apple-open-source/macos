@@ -3,6 +3,7 @@
 	ProjectType="Visual C++"
 	Version="7.10"
 	Name="ctestfw"
+	ProjectGUID="{E7D9BA19-6ED3-4325-8D0D-D724F6D29C65}"
 	SccProjectName=""
 	SccLocalPath="">
 	<Platforms>
@@ -20,14 +21,14 @@
 			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				InlineFunctionExpansion="2"
 				ImproveFloatingPointConsistency="TRUE"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\common"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;CTESTFW_EXPORTS;T_CTEST_IMPLEMENTATION"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\toolutil"
+				PreprocessorDefinitions="WIN32;NDEBUG;T_CTEST_IMPLEMENTATION"
 				StringPooling="TRUE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Release/icutest.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -39,11 +40,11 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				OutputFile="..\..\..\bin\icutest.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				ProgramDatabaseFile=".\..\..\..\lib\icutest.pdb"
+				EnableCOMDATFolding="2"
 				ImportLibrary=".\..\..\..\lib\icutest.lib"/>
 			<Tool
 				Name="VCMIDLTool"
@@ -85,12 +86,13 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				ImproveFloatingPointConsistency="TRUE"
-				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="..\..\..\include,..\..\common"
-				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;_USRDLL;CTESTFW_EXPORTS;T_CTEST_IMPLEMENTATION"
+				AdditionalIncludeDirectories="..\..\..\include;..\..\common;..\toolutil"
+				PreprocessorDefinitions="WIN32;_DEBUG;T_CTEST_IMPLEMENTATION"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				BufferSecurityCheck="TRUE"
 				DisableLanguageExtensions="TRUE"
+				TreatWChar_tAsBuiltInType="TRUE"
 				PrecompiledHeaderFile=".\Debug/icutest.pch"
 				AssemblerListingLocation=".\Debug/"
 				ObjectFile=".\Debug/"
@@ -104,7 +106,6 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
 				OutputFile="..\..\..\bin\icutestd.dll"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
@@ -158,6 +159,21 @@
 			<File
 				RelativePath=".\tstdtmod.cpp">
 			</File>
+			<File
+				RelativePath=".\uperf.cpp">
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						DisableLanguageExtensions="FALSE"/>
+				</FileConfiguration>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -179,6 +195,12 @@
 			</File>
 			<File
 				RelativePath=".\unicode\tstdtmod.h">
+			</File>
+			<File
+				RelativePath=".\unicode\uperf.h">
+			</File>
+			<File
+				RelativePath=".\unicode\utimer.h">
 			</File>
 		</Filter>
 		<Filter

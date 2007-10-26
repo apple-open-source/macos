@@ -27,8 +27,8 @@
  */
 
 #import "KerberosController.h"
-#import "CacheCollection.h"
-#import "Principal.h"
+#import "KerberosCacheCollection.h"
+#import "KerberosPrincipal.h"
 
 /*
  * This is a category for NSApplication which implements AppleScript commands
@@ -37,7 +37,7 @@
 
 @interface NSApplication (KerberosApplication) 
 
-- (Principal *) getPrincipalArgumentForCommand: (NSScriptCommand *) command;
+- (KerberosPrincipal *) getPrincipalArgumentForCommand: (NSScriptCommand *) command;
 
 - (id) handleShowTicketListScriptCommand: (NSScriptCommand *) command;
 - (id) handleGetTicketsScriptCommand: (NSScriptCommand *) command;
@@ -46,8 +46,8 @@
 - (id) handleChangePasswordScriptCommand: (NSScriptCommand *) command;
 
 - (NSString *) testString;
-- (CacheCollection *) cacheCollection;
+- (KerberosCacheCollection *) cacheCollection;
 - (NSArray *) caches;
-- (Cache *) defaultCache;
+- (KerberosCache *) defaultCache;
 
 @end

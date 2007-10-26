@@ -52,4 +52,3 @@ private:
 #endif /* !_KEYRECORD_H_ */
 
 
-/* arch-tag: BB95F5A0-F573-11D8-951B-000A95C4302E */

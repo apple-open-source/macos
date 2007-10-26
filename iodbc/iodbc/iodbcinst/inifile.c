@@ -1,20 +1,24 @@
 /*
  *  inifile.c
  *
- *  $Id: inifile.c,v 1.3 2004/11/11 01:52:41 luesang Exp $
+ *  $Id: inifile.c,v 1.8 2006/12/15 14:04:16 source Exp $
  *
  *  Configuration File Management
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1999-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1996-2006 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
+ *
+ *  Note that the only valid version of the LGPL license as far as this
+ *  project is concerned is the original GNU Library General Public License
+ *  Version 2, dated June 1991.
  *
  *  While not mandated by the BSD license, any patches you make to the
  *  iODBC source code may be contributed back into the iODBC project
@@ -28,8 +32,8 @@
  *  ============================================
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ *  License as published by the Free Software Foundation; only
+ *  Version 2 of the License dated June 1991.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +42,7 @@
  *
  *  You should have received a copy of the GNU Library General Public
  *  License along with this library; if not, write to the Free
- *  Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *
  *  The BSD License
@@ -70,8 +74,9 @@
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #include <iodbc.h>
-#include <iodbcinst.h>
+#include <odbcinst.h>
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -387,7 +392,7 @@ __iodbcdm_cfg_parse (PCONFIG pconfig)
 	    }
 	  lp = __iodbcdm_cfg_skipwhite (lp);
 	}
-      else if (*lp != ';')
+      else if (*lp != ';' && *lp != '#')
 	{
 	  /* Try to parse
 	   *   1. Key = Value
@@ -416,7 +421,7 @@ __iodbcdm_cfg_parse (PCONFIG pconfig)
 		}
 	      else if (*lp == '"' || *lp == '\'')
 		inString = *lp;
-	      else if (*lp == ';' && iswhite (lp[-1]))
+	      else if ((*lp == ';' || *lp == '#') && iswhite (lp[-1]))
 		{
 		  *lp = 0;
 		  comment = lp + 1;
@@ -430,7 +435,7 @@ __iodbcdm_cfg_parse (PCONFIG pconfig)
       /*
        *  Parse Comment
        */
-      if (*lp == ';')
+      if (*lp == ';' || *lp == '#')
 	comment = lp + 1;
 
       if (_iodbcdm_cfg_storeentry (pconfig, section, id, value, comment,
@@ -969,8 +974,6 @@ _iodbcdm_cfg_search_init(PCONFIG *ppconf, const char *filename, int doCreate)
 {
   char pathbuf[1024];
 
-  /*if (access(filename, R_OK) == 0)
-     return _iodbcdm_cfg_init (ppconf, filename, doCreate); */
   if (strstr (filename, "odbc.ini") || strstr (filename, "ODBC.INI"))
     return _iodbcdm_cfg_init (ppconf, _iodbcadm_getinifile (pathbuf,
 	    sizeof (pathbuf), FALSE, doCreate), doCreate);
@@ -978,6 +981,8 @@ _iodbcdm_cfg_search_init(PCONFIG *ppconf, const char *filename, int doCreate)
       || strstr (filename, "ODBCINST.INI"))
     return _iodbcdm_cfg_init (ppconf, _iodbcadm_getinifile (pathbuf,
 	    sizeof (pathbuf), TRUE, doCreate), doCreate);
+  else if (doCreate || (!doCreate && access(filename, R_OK) == 0))
+    return _iodbcdm_cfg_init (ppconf, filename, doCreate);
   else
     return -1;
 }

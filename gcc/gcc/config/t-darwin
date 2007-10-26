@@ -17,13 +17,25 @@ darwin-c.o: $(srcdir)/config/darwin-c.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 
 gt-darwin.h : s-gtype ; @true
 
-# Explain how to build crt2.o
-$(T)crt2$(objext): $(srcdir)/config/darwin-crt2.c $(GCC_PASSES) \
-	$(TCONFIG_H) stmp-int-hdrs tsystem.h
-	# APPLE LOCAL use -mlongcall for large text support
-	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) -mlongcall \
-	  -c $(srcdir)/config/darwin-crt2.c -o $(T)crt2$(objext)
+# APPLE LOCAL begin 4697325
+darwin-driver.o: $(srcdir)/config/darwin-driver.c \
+  $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H)
+	$(CC) -c $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) \
+	  $(srcdir)/config/darwin-driver.c
+# APPLE LOCAL end 4697325
 
+ # APPLE LOCAL begin mainline 2006-03-15 3992198
+ # APPLE LOCAL begin 4505290
+# How to build crt3.o
+EXTRA_MULTILIB_PARTS=crt3.o
+$(T)crt3$(objext): $(srcdir)/config/darwin-crt3.c $(GCC_PASSES) \
+	$(TCONFIG_H) stmp-int-hdrs tsystem.h
+	$(GCC_FOR_TARGET) $(GCC_CFLAGS) $(INCLUDES) $(MULTILIB_CFLAGS) \
+	$(DARWIN_EXTRA_CRT_BUILD_CFLAGS) \
+	  -c $(srcdir)/config/darwin-crt3.c -o $(T)crt3$(objext)
+  
+ # APPLE LOCAL end 4505290
+ # APPLE LOCAL end mainline 2006-03-15 3992198
 # Use unwind-dw2-fde-darwin
 LIB2ADDEH = $(srcdir)/unwind-dw2.c $(srcdir)/unwind-dw2-fde-darwin.c \
   $(srcdir)/unwind-sjlj.c $(srcdir)/unwind-c.c

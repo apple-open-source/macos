@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /*
  * This is a program to execute 'execute only' and suid/sgid shell scripts.
@@ -30,7 +26,6 @@
  *
  *  Written by David Korn
  *  AT&T Labs
- *  research!dgk
  *  Enhanced by Rob Stampfli
  */
 
@@ -57,6 +52,8 @@
 #include	<ls.h>
 #include	<sig.h>
 #include	<error.h>
+#include	<sys/wait.h>
+#include	"version.h"
 
 #define SPECIAL		04100	/* setuid execute only by owner */
 #define FDIN		10	/* must be same as /dev/fd below */
@@ -82,7 +79,7 @@ static int endsh(const char*);
     static void setids(int,int,int);
 #endif /* _lib_setreuid */
 
-static const char version[]	= "\n@(#)$Id: suid_exec 1993-12-28 h $\n";
+static const char version[]	= "\n@(#)$Id: suid_exec "SH_RELEASE" $\n";
 static const char badopen[]	= "cannot open";
 static const char badexec[]	= "cannot exec";
 static const char devfd[]	= "/dev/fd/10";	/* must match FDIN above */
@@ -97,7 +94,7 @@ static gid_t rgroupid;
 static gid_t egroupid;
 static struct stat statb;
 
-main(int argc,char *argv[])
+int main(int argc,char *argv[])
 {
 	register int m,n;
 	register char *p;
@@ -232,7 +229,9 @@ main(int argc,char *argv[])
 		
 	if(mode)
 		setids(mode, effuid, effgid);
+#ifndef _lib_setreuid
 exec:
+#endif /* _lib_setreuid */
 	/* only use SHELL if file is in trusted directory and ends in sh */
 	shell = getenv("SHELL");
 	if(shell == 0 || !endsh(shell) || (
@@ -291,7 +290,7 @@ static void error_exit(const char *message)
  * This version of access checks against effective uid and effective gid
  */
 
-eaccess(register const char *name, register int mode)
+int eaccess(register const char *name, register int mode)
 {	
 	struct stat statb;
 	if (stat(name, &statb) == 0)

@@ -96,12 +96,6 @@ main(int argc, char **argv)
 	}
 
 	if (argv[optind + 1] == NULL) { /* confstr or sysconf */
-#ifdef APPLE_GETCONF_SPEC
-		if ((valid = find_progenv(name, &alt_path)) != 0) {
-			printf(valid > 0 ? "defined\n" : "undefined\n");
-			return 0;
-		}
-#endif /* APPLE_GETCONF_SPEC */
 		if ((valid = find_limit(name, &limitval)) != 0) {
 			if (valid > 0)
 				printf("%" PRIdMAX "\n", limitval);
@@ -146,13 +140,15 @@ do_confstr(const char *name, int key)
 {
 	size_t len;
 
+	errno = 0;
 	len = confstr(key, 0, 0);
-	if (len == (size_t)-1)
-		err(EX_OSERR, "confstr: %s", name);
-	
-	if (len == 0)
-		printf("undefined\n");
-	else {
+	if (len == 0) {
+		if (errno != 0) {
+			err(EX_OSERR, "confstr: %s", name);
+		} else {
+			printf("undefined\n");
+		}
+	} else {
 		char buf[len + 1];
 
 		confstr(key, buf, len);

@@ -2,6 +2,8 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
+ * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
@@ -29,41 +31,10 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_lib.h,v 1.4.180.3 2005/11/15 01:45:30 lindak Exp $
  */
 #ifndef _NETSMB_NB_LIB_H_
 #define	_NETSMB_NB_LIB_H_
 
-/*
- * Error codes
- */
-#define NBERR_INVALIDFORMAT	0x0001
-#define NBERR_SRVFAILURE	0x0002
-#define NBERR_NAMENOTFOUND	0x0003
-#define NBERR_IMP		0x0004
-#define NBERR_REFUSED		0x0005
-#define NBERR_ACTIVE		0x0006
-#define NBERR_HOSTNOTFOUND	0x0101
-#define NBERR_TOOMANYREDIRECTS	0x0102
-#define NBERR_INVALIDRESPONSE	0x0103
-#define NBERR_NAMETOOLONG	0x0104
-#define	NBERR_NOBCASTIFS	0x0105
-#define NBERR_MAX		0x0106
-#define NBERROR(e)		((e) |  SMB_NB_ERROR)
-
-#define	NBCF_RESOLVED	0x0001
-
-/*
- * nb environment
- */
-struct nb_ctx {
-	int		nb_flags;
-	int		nb_timo;
-	char *		nb_scope;	/* NetBIOS scope */
-	char *		nb_nsname;	/* name server */
-	struct sockaddr_in	nb_ns;	/* ip addr of name server */
-	struct sockaddr_in	nb_lastns;
-};
 
 /*
  * resource record
@@ -137,25 +108,22 @@ int nb_name_encode(struct nb_name *, u_char *, u_int8_t UCflag);
 int nb_encname_len(const char *);
 
 int  nb_snballoc(int namelen, struct sockaddr_nb **);
-void nb_snbfree(struct sockaddr*);
 int  nb_sockaddr(struct sockaddr *, struct nb_name *, struct sockaddr_nb **);
 
-int  nb_resolvehost_in(const char *, struct sockaddr **);
+int  nb_resolvehost_in(const char *, struct sockaddr **, u_int16_t, int);
 int  nbns_resolvename(const char *, struct nb_ctx *, struct smb_ctx *, struct sockaddr **);
 int  nbns_getnodestatus(struct sockaddr *targethost,
 	struct nb_ctx *ctx, char *system, char *workgroup);
 int  nb_getlocalname(char *name, size_t);
 int  nb_enum_if(struct nb_ifdesc **, int);
+int nb_error_to_errno(int error);
 
-const char *nb_strerror(int error);
-
-int  nb_ctx_create(struct nb_ctx **);
 void nb_ctx_done(struct nb_ctx *);
 int  nb_ctx_setns(struct nb_ctx *, const char *);
 int  nb_ctx_setscope(struct nb_ctx *, const char *);
 int  nb_ctx_resolve(struct nb_ctx *);
 int  nb_ctx_readrcsection(struct rcfile *, struct nb_ctx *, const char *, int);
-
+void nb_ctx_readcodepage(struct rcfile *rcfile, const char *sname);
 __END_DECLS
 
 #endif /* !_NETSMB_NB_LIB_H_ */

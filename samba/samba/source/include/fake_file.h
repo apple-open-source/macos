@@ -39,12 +39,4 @@ typedef struct _FAKE_FILE_HANDLE {
 	void (*free_pd)(void **pd); /* free private_data */
 } FAKE_FILE_HANDLE;
 
-typedef struct _FAKE_FILE {
-	const char *name;
-	enum FAKE_FILE_TYPE type;
-	void *(*init_pd)(TALLOC_CTX *men_ctx);
-	void (*free_pd)(void **pd);
-} FAKE_FILE;
-
-
 #endif /* _FAKE_FILE_H */

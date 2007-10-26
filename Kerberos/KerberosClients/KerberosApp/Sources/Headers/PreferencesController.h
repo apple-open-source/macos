@@ -28,7 +28,7 @@
 
 
 #import <Cocoa/Cocoa.h>
-#import "Preferences.h"
+#import "KerberosPreferences.h"
 
 @interface PreferencesController : NSWindowController
 {
@@ -81,7 +81,7 @@
     IBOutlet NSTextField *renewableMinimumHoursTextField;
     IBOutlet NSTextField *renewableMinimumMinutesTextField;
     
-    Preferences *preferences;
+    KerberosPreferences *preferences;
 }
 
 - (id) init;

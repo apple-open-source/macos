@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 200-20043, International Business Machines Corporation and
+ * Copyright (c) 2003-2005, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -123,6 +123,7 @@ static void TestHeapFunctions() {
     UErrorCode       status = U_ZERO_ERROR;
     UResourceBundle *rb     = NULL;
     char            *icuDataDir;
+    UVersionInfo unicodeVersion = {0,0,0,0};
 
     UTraceEntry   *traceEntryFunc;           /* Tracing function ptrs.  We need to save    */
     UTraceExit    *traceExitFunc;            /*  and restore them across calls to          */
@@ -135,6 +136,20 @@ static void TestHeapFunctions() {
 
     utrace_getFunctions(&traceContext, &traceEntryFunc, &traceExitFunc, &traceDataFunc);
     traceLevel = utrace_getLevel();
+
+    /* Verify that ICU can be cleaned up and reinitialized successfully.
+     *  Failure here usually means that some ICU service didn't clean up successfully,
+     *  probably because some earlier test accidently left something open. */
+    u_cleanup();
+    utrace_setFunctions(traceContext, traceEntryFunc, traceExitFunc, traceDataFunc);
+    utrace_setLevel(traceLevel);
+    status = U_ZERO_ERROR;
+    u_setDataDirectory(icuDataDir);
+    u_init(&status);
+    TEST_STATUS(status, U_ZERO_ERROR);
+    if (U_FAILURE(status)) {
+        return;
+    }
 
     /* Can not set memory functions if ICU is already initialized */
     u_setMemoryFunctions(&gContext, myMemAlloc, myMemRealloc, myMemFree, &status);
@@ -187,6 +202,10 @@ static void TestHeapFunctions() {
     utrace_setFunctions(traceContext, traceEntryFunc, traceExitFunc, traceDataFunc);
     utrace_setLevel(traceLevel);
     u_setDataDirectory(icuDataDir);
+    u_getUnicodeVersion(unicodeVersion);
+    if (unicodeVersion[0] <= 0) {
+        log_err("Properties doesn't reinitialize without u_init.\n");
+    }
     status = U_ZERO_ERROR;
     u_init(&status);
     TEST_STATUS(status, U_ZERO_ERROR);
@@ -282,6 +301,20 @@ static void TestMutexFunctions() {
     utrace_getFunctions(&traceContext, &traceEntryFunc, &traceExitFunc, &traceDataFunc);
     traceLevel = utrace_getLevel();
 
+    /* Verify that ICU can be cleaned up and reinitialized successfully.
+     *  Failure here usually means that some ICU service didn't clean up successfully,
+     *  probably because some earlier test accidently left something open. */
+    u_cleanup();
+    utrace_setFunctions(traceContext, traceEntryFunc, traceExitFunc, traceDataFunc);
+    utrace_setLevel(traceLevel);
+    status = U_ZERO_ERROR;
+    u_setDataDirectory(icuDataDir);
+    u_init(&status);
+    TEST_STATUS(status, U_ZERO_ERROR);
+    if (U_FAILURE(status)) {
+        return;
+    }
+
     /* Can not set mutex functions if ICU is already initialized */
     u_setMutexFunctions(&gContext, myMutexInit, myMutexDestroy, myMutexLock, myMutexUnlock, &status);
     TEST_STATUS(status, U_INVALID_STATE_ERROR);
@@ -372,11 +405,12 @@ static void TestMutexFunctions() {
 int         gIncCount             = 0;
 int         gDecCount             = 0;
 const void *gIncDecContext;
+const void *gExpectedContext = &gIncDecContext;
 
 
 static int32_t U_CALLCONV myIncFunc(const void *context, int32_t *p) {
     int32_t  retVal;
-    TEST_ASSERT(context == gIncDecContext);
+    TEST_ASSERT(context == gExpectedContext);
     gIncCount++;
     retVal = ++(*p);
     return retVal;
@@ -384,7 +418,7 @@ static int32_t U_CALLCONV myIncFunc(const void *context, int32_t *p) {
 
 static int32_t U_CALLCONV myDecFunc(const void *context, int32_t *p) {
     int32_t  retVal;
-    TEST_ASSERT(context == gIncDecContext);
+    TEST_ASSERT(context == gExpectedContext);
     gDecCount++;
     retVal = --(*p);
     return retVal;
@@ -404,14 +438,31 @@ static void TestIncDecFunctions() {
     const void      *traceContext;
     int32_t          traceLevel;
 
+    /* Save ICU's data dir and tracing functions so that they can be resored 
+       after cleanup and reinit.  */
+    dataDir = safeGetICUDataDirectory();
+    utrace_getFunctions(&traceContext, &traceEntryFunc, &traceExitFunc, &traceDataFunc);
+    traceLevel = utrace_getLevel();
+
+    /* Verify that ICU can be cleaned up and reinitialized successfully.
+     *  Failure here usually means that some ICU service didn't clean up successfully,
+     *  probably because some earlier test accidently left something open. */
+    u_cleanup();
+    utrace_setFunctions(traceContext, traceEntryFunc, traceExitFunc, traceDataFunc);
+    utrace_setLevel(traceLevel);
+    status = U_ZERO_ERROR;
+    u_setDataDirectory(dataDir);
+    u_init(&status);
+    TEST_STATUS(status, U_ZERO_ERROR);
+    if (U_FAILURE(status)) {
+        return;
+    }
+
     /* Can not set mutex functions if ICU is already initialized */
     u_setAtomicIncDecFunctions(&gIncDecContext, myIncFunc, myDecFunc,  &status);
     TEST_STATUS(status, U_INVALID_STATE_ERROR);
 
-    /* Un-initialize ICU */
-    dataDir = safeGetICUDataDirectory();
-    utrace_getFunctions(&traceContext, &traceEntryFunc, &traceExitFunc, &traceDataFunc);
-    traceLevel = utrace_getLevel();
+    /* Clean up ICU */
     u_cleanup();
     utrace_setFunctions(traceContext, traceEntryFunc, traceExitFunc, traceDataFunc);
     utrace_setLevel(traceLevel);
@@ -426,8 +477,10 @@ static void TestIncDecFunctions() {
 
     /* u_setIncDecFunctions() should work with null or non-null context pointer */
     status = U_ZERO_ERROR;
+    gExpectedContext = NULL;
     u_setAtomicIncDecFunctions(NULL, myIncFunc, myDecFunc,  &status);
     TEST_STATUS(status, U_ZERO_ERROR);
+    gExpectedContext = &gIncDecContext;
     u_setAtomicIncDecFunctions(&gIncDecContext, myIncFunc, myDecFunc,  &status);
     TEST_STATUS(status, U_ZERO_ERROR);
 
@@ -437,6 +490,7 @@ static void TestIncDecFunctions() {
     u_setDataDirectory(dataDir);
     u_init(&status);
     TEST_STATUS(status, U_ZERO_ERROR);
+    gExpectedContext = &gIncDecContext;
     u_setAtomicIncDecFunctions(&gIncDecContext, myIncFunc, myDecFunc,  &status);
     TEST_STATUS(status, U_INVALID_STATE_ERROR);
 

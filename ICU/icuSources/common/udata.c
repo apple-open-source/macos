@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2006, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -78,6 +78,7 @@ static UDataMemory *gStubICUData   = NULL;    /* If gCommonICUData does get upda
 
 static UHashtable  *gCommonDataCache = NULL;  /* Global hash table of opened ICU data files.  */
 
+static UDataFileAccess  gDataFileAccess = UDATA_DEFAULT_ACCESS;
 
 static UBool U_CALLCONV
 udata_cleanup(void)
@@ -138,7 +139,6 @@ setCommonICUData(UDataMemory *pData,     /*  The new common data.  Belongs to ca
         uprv_free(newCommonData);
     }
     umtx_unlock(NULL);
-    return;
 }
 
 static const char *
@@ -193,7 +193,7 @@ typedef struct DataCacheElement {
  *         udata cleanup function closes the hash table; hash table in turn calls back to
  *         here for each entry.
  */
-static void  U_EXPORT2 U_CALLCONV DataCacheElement_deleter(void *pDCEl) {
+static void U_CALLCONV DataCacheElement_deleter(void *pDCEl) {
     DataCacheElement *p = (DataCacheElement *)pDCEl;
     udata_close(p->item);              /* unmaps storage */
     uprv_free(p->name);                /* delete the hash key string. */
@@ -217,7 +217,7 @@ static UHashtable *udata_getHashTable() {
         return gCommonDataCache;
     }
 
-    tHT = uhash_open(uhash_hashChars, uhash_compareChars, &err);
+    tHT = uhash_open(uhash_hashChars, uhash_compareChars, NULL, &err);
     uhash_setValueDeleter(tHT, DataCacheElement_deleter);
 
     umtx_lock(NULL);
@@ -283,6 +283,7 @@ static UDataMemory *udata_cacheDataItem(const char *path, UDataMemory *item, UEr
     }
     newElement->item = UDataMemory_createNewInstance(pErr);
     if (U_FAILURE(*pErr)) {
+        uprv_free(newElement);
         return NULL;
     }
     UDatamemory_assign(newElement->item, item);
@@ -292,6 +293,8 @@ static UDataMemory *udata_cacheDataItem(const char *path, UDataMemory *item, UEr
     newElement->name = uprv_malloc(nameLen+1);
     if (newElement->name == NULL) {
         *pErr = U_MEMORY_ALLOCATION_ERROR;
+        uprv_free(newElement->item);
+        uprv_free(newElement);
         return NULL;
     }
     uprv_strcpy(newElement->name, baseName);
@@ -492,11 +495,6 @@ static void udata_pathiter_init(UDataPathIterator *iter, const char *path, const
     iter->basename = findBasename(item);
     iter->basenameLen = (int32_t)uprv_strlen(iter->basename);
 
-    if(iter->basename == NULL) {
-        iter->nextPath = NULL;
-        return;
-    }
-
     /** Item path **/
     iter->itemPath   = iter->itemPathBuf;
     if(iter->basename == item) {
@@ -534,7 +532,7 @@ static void udata_pathiter_init(UDataPathIterator *iter, const char *path, const
      *   Get an upper bound of possible string size, and make sure that the buffer
      *   is big enough (sum of length of each piece, 2 extra delimiters, + trailing NULL) */
     {
-        int32_t  maxPathLen = (int32_t)uprv_strlen(iter->path) + uprv_strlen(item) + uprv_strlen(iter->suffix) + iter->packageStubLen + 3;  
+        int32_t  maxPathLen = (int32_t)(uprv_strlen(iter->path) + uprv_strlen(item) + uprv_strlen(iter->suffix) + iter->packageStubLen + 3);
         iter->pathBuffer = iter->pathBufferA;
         if (maxPathLen >= U_DATA_PATHITER_BUFSIZ) {
             iter->pathBuffer = (char *)uprv_malloc(maxPathLen);
@@ -566,20 +564,16 @@ static void udata_pathiter_init(UDataPathIterator *iter, const char *path, const
  * @param len  If set, pointer to the length of the returned path, for convenience. 
  * @return Pointer to the next path segment, or NULL if there are no more.
  */
-static const char *udata_pathiter_next(UDataPathIterator *iter, int32_t *outPathLen)
+static const char *udata_pathiter_next(UDataPathIterator *iter)
 {
     const char *path = NULL;
     uint32_t     pathLen = 0;
     const char *pathBasename;
 
-    if(outPathLen != NULL) {
-        *outPathLen = 0;
-    }
-
     do
     {
         if( iter->nextPath == NULL ) {
-            return NULL;
+            break;
         }
         
         path = iter->nextPath;
@@ -676,11 +670,6 @@ static const char *udata_pathiter_next(UDataPathIterator *iter, int32_t *outPath
             
         }
 
-        /* return value of path size */
-        if( outPathLen ) {
-            *outPathLen = pathLen; 
-        }
-
 #ifdef UDATA_DEBUG
         fprintf(stderr, " -->  %s\n", iter->pathBuffer);
 #endif
@@ -705,6 +694,10 @@ static void udata_pathiter_dt(UDataPathIterator *iter) {
      if (iter->pathBuffer != iter->pathBufferA) {
          uprv_free(iter->pathBuffer);
          iter->pathBuffer = NULL;
+     }
+     if (iter->packageStub != iter->packageStubBuf) {
+         uprv_free(iter->packageStub);
+         iter->packageStub = NULL;
      }
 }
 
@@ -732,7 +725,7 @@ extern  const DataHeader U_DATA_API U_ICUDATA_ENTRY_POINT;
  *                                                                      *
  *----------------------------------------------------------------------*/
 static UDataMemory *
-openCommonData(const char *path,          /*  Path from OpenCHoice?          */
+openCommonData(const char *path,          /*  Path from OpenChoice?          */
                UBool isICUData,           /*  ICU Data true if path == NULL  */
                UErrorCode *pErrorCode)
 {
@@ -797,7 +790,7 @@ openCommonData(const char *path,          /*  Path from OpenCHoice?          */
     udata_pathiter_init(&iter, u_getDataDirectory(), inBasename, path, ".dat", TRUE);
 
     while((UDataMemory_isLoaded(&tData)==FALSE) && 
-          (pathBuffer = udata_pathiter_next(&iter, NULL)) != NULL)
+          (pathBuffer = udata_pathiter_next(&iter)) != NULL)
     {
 #ifdef UDATA_DEBUG
         fprintf(stderr, "ocd: trying path %s - ", pathBuffer);
@@ -1017,8 +1010,133 @@ checkDataItem
     return rDataMem;
 }
 
+/**
+ * @return 0 if not loaded, 1 if loaded or err 
+ */
+static UDataMemory *doLoadFromIndividualFiles(const char *pkgName, 
+        const char *dataPath, const char *tocEntryPathSuffix,
+            /* following arguments are the same as doOpenChoice itself */
+            const char *path, const char *type, const char *name,
+             UDataMemoryIsAcceptable *isAcceptable, void *context,
+             UErrorCode *subErrorCode,
+             UErrorCode *pErrorCode)
+{
+    UDataMemory *retVal = NULL;
+    const char         *pathBuffer;
+    UDataMemory         dataMemory;
+    UDataMemory *pEntryData;
 
+    UDataPathIterator   iter;
+    /* look in ind. files: package\nam.typ  ========================= */
+    /* init path iterator for individual files */
+    udata_pathiter_init(&iter, dataPath, pkgName, path, tocEntryPathSuffix, FALSE);
 
+    while((pathBuffer = udata_pathiter_next(&iter)))
+    {
+#ifdef UDATA_DEBUG
+        fprintf(stderr, "UDATA: trying individual file %s\n", pathBuffer);
+#endif
+        if(uprv_mapFile(&dataMemory, pathBuffer))
+        {
+            pEntryData = checkDataItem(dataMemory.pHeader, isAcceptable, context, type, name, subErrorCode, pErrorCode);
+            if (pEntryData != NULL) {
+                /* Data is good.
+                *  Hand off ownership of the backing memory to the user's UDataMemory.
+                *  and return it.   */
+                pEntryData->mapAddr = dataMemory.mapAddr;
+                pEntryData->map     = dataMemory.map;
+
+#ifdef UDATA_DEBUG
+                fprintf(stderr, "** Mapped file: %s\n", pathBuffer);
+#endif
+                retVal = pEntryData;
+                goto commonReturn;
+            }
+
+            /* the data is not acceptable, or some error occured.  Either way, unmap the memory */
+            udata_close(&dataMemory);
+
+            /* If we had a nasty error, bail out completely.  */
+            if (U_FAILURE(*pErrorCode)) {
+                retVal = NULL;
+                goto commonReturn;
+            }
+
+            /* Otherwise remember that we found data but didn't like it for some reason  */
+            *subErrorCode=U_INVALID_FORMAT_ERROR;
+        }
+#ifdef UDATA_DEBUG
+        fprintf(stderr, "%s\n", UDataMemory_isLoaded(&dataMemory)?"LOADED":"not loaded");
+#endif
+    }
+commonReturn:
+    udata_pathiter_dt(&iter);
+    return retVal;
+}
+
+/**
+ * @return 0 if not loaded, 1 if loaded or err 
+ */
+static UDataMemory *doLoadFromCommonData(UBool isICUData, const char *pkgName, 
+        const char *dataPath, const char *tocEntryPathSuffix, const char *tocEntryName,
+            /* following arguments are the same as doOpenChoice itself */
+            const char *path, const char *type, const char *name,
+             UDataMemoryIsAcceptable *isAcceptable, void *context,
+             UErrorCode *subErrorCode,
+             UErrorCode *pErrorCode)
+{
+    UDataMemory *retVal = NULL;
+    UDataMemory        *pEntryData;
+    const DataHeader   *pHeader;
+    UDataMemory        *pCommonData;
+    /* try to get common data.  The loop is for platforms such as the 390 that do
+     *  not initially load the full set of ICU data.  If the lookup of an ICU data item
+     *  fails, the full (but slower to load) set is loaded, the and the loop repeats,
+     *  trying the lookup again.  Once the full set of ICU data is loaded, the loop wont
+     *  repeat because the full set will be checked the first time through.
+     *
+     *  The loop also handles the fallback to a .dat file if the application linked
+     *   to the stub data library rather than a real library.
+     */
+    for (;;) {
+        pCommonData=openCommonData(path, isICUData, subErrorCode); /** search for pkg **/
+
+        if(U_SUCCESS(*subErrorCode)) {
+            int32_t length;
+
+            /* look up the data piece in the common data */
+            pHeader=pCommonData->vFuncs->Lookup(pCommonData, tocEntryName, &length, subErrorCode);
+#ifdef UDATA_DEBUG
+            fprintf(stderr, "%s: pHeader=%p - %s\n", tocEntryName, pHeader, u_errorName(*subErrorCode));
+#endif
+
+            if(pHeader!=NULL) {
+                pEntryData = checkDataItem(pHeader, isAcceptable, context, type, name, subErrorCode, pErrorCode);
+#ifdef UDATA_DEBUG
+                fprintf(stderr, "pEntryData=%p\n", pEntryData);
+#endif
+                if (U_FAILURE(*pErrorCode)) {
+                    retVal = NULL;
+                    goto commonReturn;
+                }
+                if (pEntryData != NULL) {
+                    pEntryData->length = length;
+                    retVal =  pEntryData;
+                    goto commonReturn;
+                }
+            }
+        }
+        /* Data wasn't found.  If we were looking for an ICUData item and there is
+         * more data available, load it and try again,
+         * otherwise break out of this loop. */
+        if (!(isICUData && pCommonData && extendICUData(pCommonData, subErrorCode))) {
+            break;
+        }
+    }
+
+commonReturn:
+    return retVal;
+}
 
 /*
  *  A note on the ownership of Mapped Memory
@@ -1058,46 +1176,37 @@ doOpenChoice(const char *path, const char *type, const char *name,
              UErrorCode *pErrorCode)
 {
     UDataMemory         *retVal = NULL;
-
-    const char         *pathBuffer;
-
+    
     TinyString          tocEntryName; /* entry name in tree format. ex:  'icudt28b/coll/ar.res' */
     TinyString          tocEntryPath; /* entry name in path format. ex:  'icudt28b\\coll\\ar.res' */
-    TinyString          oldIndFileName; /* ex:  icudt28b_ar.res */
-    TinyString          oldStylePath;
-    TinyString          oldStylePathBasename;
 
     TinyString          pkgName;
     TinyString          treeName;
-#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)  /*  '/' vs '\' */
     TinyString          altSepPath;
 #endif
 
     const char         *dataPath;
 
-    const char         *tocEntrySuffix;
     int32_t             tocEntrySuffixIndex;
     const char         *tocEntryPathSuffix;
-    UDataMemory         dataMemory;
-    UDataMemory        *pCommonData;
-    UDataMemory        *pEntryData;
-    const DataHeader   *pHeader;
-    const char         *inBasename;
-    UErrorCode          errorCode=U_ZERO_ERROR;
+    UErrorCode          subErrorCode=U_ZERO_ERROR;
     const char         *treeChar;
 
     UBool               isICUData = FALSE;
 
+
+    /* Is this path ICU data? */
     if(path == NULL ||
-       !strcmp(path, U_ICUDATA_ALIAS) ||
-       !uprv_strncmp(path, U_ICUDATA_NAME U_TREE_SEPARATOR_STRING,
-                     uprv_strlen(U_ICUDATA_NAME U_TREE_SEPARATOR_STRING)) ||
-       !uprv_strncmp(path, U_ICUDATA_ALIAS U_TREE_SEPARATOR_STRING,
+       !strcmp(path, U_ICUDATA_ALIAS) ||  /* "ICUDATA" */
+       !uprv_strncmp(path, U_ICUDATA_NAME U_TREE_SEPARATOR_STRING, /* "icudt26e-" */
+                     uprv_strlen(U_ICUDATA_NAME U_TREE_SEPARATOR_STRING)) ||  
+       !uprv_strncmp(path, U_ICUDATA_ALIAS U_TREE_SEPARATOR_STRING, /* "ICUDATA-" */
                      uprv_strlen(U_ICUDATA_ALIAS U_TREE_SEPARATOR_STRING))) {
       isICUData = TRUE;
     }
 
-#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)  /* Windows:  try "foo\bar" and "foo/bar" */
     /* remap from alternate path char to the main one */
     TinyString_init(&altSepPath);
     if(path) {
@@ -1115,16 +1224,13 @@ doOpenChoice(const char *path, const char *type, const char *name,
     }
 #endif
 
-    TinyString_init(&oldIndFileName);
     TinyString_init(&tocEntryName);
     TinyString_init(&tocEntryPath);
-    TinyString_init(&oldStylePath);
-    TinyString_init(&oldStylePathBasename);
 
     TinyString_init(&pkgName);
     TinyString_init(&treeName);
 
-    
+    /* ======= Set up strings */
     if(path==NULL) {
         TinyString_append(&pkgName, U_ICUDATA_NAME); 
     } else {
@@ -1143,16 +1249,23 @@ doOpenChoice(const char *path, const char *type, const char *name,
             treeChar = uprv_strchr(path, U_TREE_SEPARATOR);
             if(treeChar) { 
                 TinyString_append(&treeName, treeChar+1); /* following '-' */
-                if(!isICUData) {
-                    TinyString_appendn(&pkgName, path, (int32_t)(treeChar-path));
-                } else {
+                if(isICUData) {
                     TinyString_append(&pkgName, U_ICUDATA_NAME);
+                } else {
+                    TinyString_appendn(&pkgName, path, (int32_t)(treeChar-path));
+                    if (first == NULL) {
+                        /*
+                        This user data has no path, but there is a tree name.
+                        Look up the correct path from the data cache later.
+                        */
+                        path = pkgName.s;
+                    }
                 }
             } else {
-                if(!isICUData) {
-                    TinyString_append(&pkgName, path);
-                } else {
+                if(isICUData) {
                     TinyString_append(&pkgName, U_ICUDATA_NAME);
+                } else {
+                    TinyString_append(&pkgName, path);
                 }
             }
         }
@@ -1162,14 +1275,14 @@ doOpenChoice(const char *path, const char *type, const char *name,
     fprintf(stderr, " P=%s T=%s\n", pkgName.s, treeName.s);
 #endif
 
-    /* Make up a full name by appending the type to the supplied
+    /* setting up the entry name and file name 
+     * Make up a full name by appending the type to the supplied
      *  name, assuming that a type was supplied.
      */
 
     /* prepend the package */
     TinyString_append(&tocEntryName, pkgName.s);
     TinyString_append(&tocEntryPath, pkgName.s);
-    TinyString_append(&oldIndFileName, pkgName.s);
     tocEntrySuffixIndex = tocEntryName.length;
 
     if(treeName.s[0]) {
@@ -1180,10 +1293,8 @@ doOpenChoice(const char *path, const char *type, const char *name,
         TinyString_append(&tocEntryPath, treeName.s);
     }
 
-    TinyString_append(&oldIndFileName, "_");
     TinyString_append(&tocEntryName, U_TREE_ENTRY_SEP_STRING);
     TinyString_append(&tocEntryPath, U_FILE_SEP_STRING);
-    TinyString_append(&oldIndFileName, name);
     TinyString_append(&tocEntryName, name);
     TinyString_append(&tocEntryPath, name);
     if(type!=NULL && *type!=0) {
@@ -1191,30 +1302,16 @@ doOpenChoice(const char *path, const char *type, const char *name,
         TinyString_append(&tocEntryName, type);
         TinyString_append(&tocEntryPath, ".");
         TinyString_append(&tocEntryPath, type);
-        TinyString_append(&oldIndFileName, ".");
-        TinyString_append(&oldIndFileName, type);
     }
-    tocEntrySuffix = tocEntryName.s+tocEntrySuffixIndex; /* suffix starts here */
     tocEntryPathSuffix = tocEntryPath.s+tocEntrySuffixIndex; /* suffix starts here */
 
 #ifdef UDATA_DEBUG
     fprintf(stderr, " tocEntryName = %s\n", tocEntryName.s);
     fprintf(stderr, " tocEntryPath = %s\n", tocEntryName.s);
-    fprintf(stderr, " oldIndFileName = %s\n", oldIndFileName.s);
 #endif    
 
-
-    /* the data was not found in the common data,  look further, */
-    /* try to get an individual data file */
     if(path == NULL) {
-        path = COMMON_DATA_NAME;
-        inBasename = COMMON_DATA_NAME;
-    } else {
-        if(isICUData) {
-            inBasename=COMMON_DATA_NAME;
-        } else {
-            inBasename=findBasename(path);
-        }
+        path = COMMON_DATA_NAME; /* "icudt26e" */
     }
 
     /************************ Begin loop looking for ind. files ***************/
@@ -1222,206 +1319,82 @@ doOpenChoice(const char *path, const char *type, const char *name,
     fprintf(stderr, "IND: inBasename = %s, pkg=%s\n", inBasename, packageNameFromPath(path));
 #endif
 
-    /* Deal with a null basename */
-    if( (*inBasename==0) && (uprv_strlen(path) > 3) ) {
-        /* the purpose of this exercise is to turn  /tmp/foo/bar/  into
-           path=  /tmp/foo/bar/bar   and basename= bar 
-           (i.e. /tmp/foo/bar/bar.dat  or /tmp/foo/bar/bar_en_US.res )
-        */
+    /* End of dealing with a null basename */
+    dataPath = u_getDataDirectory();
 
-        char *rightSlash;
-        TinyString_append(&oldStylePath, path);
-        /* chop off trailing slash */
-        oldStylePath.length--;
-        oldStylePath.s[oldStylePath.length] = 0;
-        
-        rightSlash = (char*)uprv_strrchr(oldStylePath.s, U_FILE_SEP_CHAR);
-        if(rightSlash != NULL) {
-            rightSlash++;
-            TinyString_append(&oldStylePathBasename, rightSlash);
-            inBasename = oldStylePathBasename.s;
-            TinyString_append(&oldStylePath, U_FILE_SEP_STRING);
-            TinyString_append(&oldStylePath, inBasename);  /* one more time, for the base name */
-            path = oldStylePath.s;
-        } else {
-            *pErrorCode = U_FILE_ACCESS_ERROR;  /* hopelessly bad case */
-            retVal = NULL;
+    /****    COMMON PACKAGE  - only if packages are first. */
+    if(gDataFileAccess == UDATA_PACKAGES_FIRST) {
+#ifdef UDATA_DEBUG
+        fprintf(stderr, "Trying packages (UDATA_PACKAGES_FIRST)\n");
+#endif
+        /* #2 */
+        retVal = doLoadFromCommonData(isICUData, 
+                            pkgName.s, dataPath, tocEntryPathSuffix, tocEntryName.s,
+                            path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+        if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
             goto commonReturn;
         }
     }
-    /* End of dealing with a null basename */
-
-    dataPath = u_getDataDirectory();
-
-    /* Check to make sure that there is a dataPath to iterate over */
-    if ((dataPath && *dataPath) || !isICUData) {
-        UDataPathIterator   iter;
-        /* #1a look in ind. files: package\nam.typ  ========================= */
-        /* init path iterator for individual files */
-        udata_pathiter_init(&iter, dataPath, pkgName.s, path, tocEntryPathSuffix, FALSE);
-
-        while((pathBuffer = udata_pathiter_next(&iter, NULL)))
-        {
+    
+    /****    INDIVIDUAL FILES  */
+    if((gDataFileAccess==UDATA_PACKAGES_FIRST) ||
+       (gDataFileAccess==UDATA_FILES_FIRST)) {
 #ifdef UDATA_DEBUG
-            fprintf(stderr, "UDATA: trying individual file %s\n", pathBuffer);
+        fprintf(stderr, "Trying individual files\n");
 #endif
-            if( uprv_mapFile(&dataMemory, pathBuffer) ||
-                (inBasename!=pathBuffer && uprv_mapFile(&dataMemory, inBasename)))
-            {
-                pEntryData = checkDataItem(dataMemory.pHeader, isAcceptable, context, type, name, &errorCode, pErrorCode);
-                if (pEntryData != NULL) {
-                    /* Data is good.
-                    *  Hand off ownership of the backing memory to the user's UDataMemory.
-                    *  and return it.   */
-                    pEntryData->mapAddr = dataMemory.mapAddr;
-                    pEntryData->map     = dataMemory.map;
-
-#ifdef UDATA_DEBUG
-                    fprintf(stderr, "** Mapped file: %s\n", pathBuffer);
-#endif
-                    udata_pathiter_dt(&iter);
-                    retVal = pEntryData;
-                    goto commonReturn;
-                }
-
-                /* the data is not acceptable, or some error occured.  Either way, unmap the memory */
-                udata_close(&dataMemory);
-
-                /* If we had a nasty error, bail out completely.  */
-                if (U_FAILURE(*pErrorCode)) {
-                    udata_pathiter_dt(&iter);
-                    retVal = NULL;
-                    goto commonReturn;
-                }
-
-                /* Otherwise remember that we found data but didn't like it for some reason  */
-                errorCode=U_INVALID_FORMAT_ERROR;
+        /* Check to make sure that there is a dataPath to iterate over */
+        if ((dataPath && *dataPath) || !isICUData) {
+            retVal = doLoadFromIndividualFiles(pkgName.s, dataPath, tocEntryPathSuffix,
+                            path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+            if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
+                goto commonReturn;
             }
-#ifdef UDATA_DEBUG
-            fprintf(stderr, "%s\n", UDataMemory_isLoaded(&dataMemory)?"LOADED":"not loaded");
-#endif
         }
-        udata_pathiter_dt(&iter);
-
-        /* #1b look in ind. files - with old naming  (package_nam.typ  not package\nam.typ) ==================== */
-        /* init path iterator for individual files */
-        udata_pathiter_init(&iter, dataPath, "", path, oldIndFileName.s, FALSE);
-
-        while((pathBuffer = udata_pathiter_next(&iter, NULL)))
-        {
-#ifdef UDATA_DEBUG
-            fprintf(stderr, "UDATA: trying individual file %s\n", pathBuffer);
-#endif
-            if( uprv_mapFile(&dataMemory, pathBuffer) ||
-                (inBasename!=pathBuffer && uprv_mapFile(&dataMemory, inBasename)))
-            {
-                pEntryData = checkDataItem(dataMemory.pHeader, isAcceptable, context, type, name, &errorCode, pErrorCode);
-                if (pEntryData != NULL) {
-                    /* Data is good.
-                    *  Hand off ownership of the backing memory to the user's UDataMemory.
-                    *  and return it.   */
-                    pEntryData->mapAddr = dataMemory.mapAddr;
-                    pEntryData->map     = dataMemory.map;
-
-#ifdef UDATA_DEBUG
-                    fprintf(stderr, "** Mapped file: %s\n", pathBuffer);
-#endif
-                    udata_pathiter_dt(&iter);
-                    retVal = pEntryData;
-                    goto commonReturn;
-                }
-
-                /* the data is not acceptable, or some error occured.  Either way, unmap the memory */
-                udata_close(&dataMemory);
-
-                /* If we had a nasty error, bail out completely.  */
-                if (U_FAILURE(*pErrorCode)) {
-                    udata_pathiter_dt(&iter);
-                    retVal = NULL;
-                    goto commonReturn;
-                }
-
-                /* Otherwise remember that we found data but didn't like it for some reason  */
-                errorCode=U_INVALID_FORMAT_ERROR;
-            }
-#ifdef UDATA_DEBUG
-            fprintf(stderr, "%s\n", UDataMemory_isLoaded(&dataMemory)?"LOADED":"not loaded");
-#endif
-        }
-        udata_pathiter_dt(&iter);
     }
 
-    /* #2 */
-
-    /* try to get common data.  The loop is for platforms such as the 390 that do
-     *  not initially load the full set of ICU data.  If the lookup of an ICU data item
-     *  fails, the full (but slower to load) set is loaded, the and the loop repeats,
-     *  trying the lookup again.  Once the full set of ICU data is loaded, the loop wont
-     *  repeat because the full set will be checked the first time through.
-     *
-     *  The loop also handles the fallback to a .dat file if the application linked
-     *   to the stub data library rather than a real library.
-     */
-    for (;;) {
-        pCommonData=openCommonData(path, isICUData, &errorCode); /** search for pkg **/
-
-        if(U_SUCCESS(errorCode)) {
-            int32_t length;
-
-            /* look up the data piece in the common data */
-            pHeader=pCommonData->vFuncs->Lookup(pCommonData, tocEntryName.s, &length, &errorCode);
+    /****    COMMON PACKAGE  */
+    if((gDataFileAccess==UDATA_ONLY_PACKAGES) || 
+       (gDataFileAccess==UDATA_FILES_FIRST)) {
 #ifdef UDATA_DEBUG
-            fprintf(stderr, "%s: pHeader=%p - %s\n", tocEntryName.s, pHeader, u_errorName(errorCode));
+        fprintf(stderr, "Trying packages (UDATA_ONLY_PACKAGES || UDATA_FILES_FIRST)\n");
 #endif
-            if((pHeader == NULL) && !U_FAILURE(errorCode)) {
-                pHeader=pCommonData->vFuncs->Lookup(pCommonData, oldIndFileName.s, /* oldIndFileName is preceded by a slash */
-                    &length, &errorCode);
-#ifdef UDATA_DEBUG
-                fprintf(stderr, "[OLD name] %s: pHeader=%p - %s\n", oldIndFileName.s, pHeader, u_errorName(errorCode));
-#endif
-            }
-
-            if(pHeader!=NULL) {
-                pEntryData = checkDataItem(pHeader, isAcceptable, context, type, name, &errorCode, pErrorCode);
-#ifdef UDATA_DEBUG
-                fprintf(stderr, "pEntryData=%p\n", pEntryData);
-#endif
-                if (U_FAILURE(*pErrorCode)) {
-                    retVal = NULL;
-                    goto commonReturn;
-                }
-                if (pEntryData != NULL) {
-                    pEntryData->length = length;
-                    retVal =  pEntryData;
-                    goto commonReturn;
-                }
-            }
+        retVal = doLoadFromCommonData(isICUData, 
+                            pkgName.s, dataPath, tocEntryPathSuffix, tocEntryName.s,
+                            path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+        if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
+            goto commonReturn;
         }
-        /* Data wasn't found.  If we were looking for an ICUData item and there is
-         * more data available, load it and try again,
-         * otherwise break out of this loop. */
-        if (!(isICUData && pCommonData && extendICUData(pCommonData, &errorCode))) {
-            break;
+    }
+    
+    /* Load from DLL.  If we haven't attempted package load, we also haven't had any chance to
+        try a DLL (static or setCommonData/etc)  load.
+         If we ever have a "UDATA_ONLY_FILES", add it to the or list here.  */  
+    if(gDataFileAccess==UDATA_NO_FILES) {
+#ifdef UDATA_DEBUG
+        fprintf(stderr, "Trying common data (UDATA_NO_FILES)\n");
+#endif
+        retVal = doLoadFromCommonData(isICUData, 
+                            pkgName.s, "", tocEntryPathSuffix, tocEntryName.s,
+                            path, type, name, isAcceptable, context, &subErrorCode, pErrorCode);
+        if((retVal != NULL) || U_FAILURE(*pErrorCode)) {
+            goto commonReturn;
         }
     }
 
     /* data not found */
     if(U_SUCCESS(*pErrorCode)) {
-        if(U_SUCCESS(errorCode)) {
+        if(U_SUCCESS(subErrorCode)) {
             /* file not found */
             *pErrorCode=U_FILE_ACCESS_ERROR;
         } else {
             /* entry point not found or rejected */
-            *pErrorCode=errorCode;
+            *pErrorCode=subErrorCode;
         }
     }
 
 commonReturn:
     TinyString_dt(&tocEntryName);
     TinyString_dt(&tocEntryPath);
-    TinyString_dt(&oldIndFileName);
-    TinyString_dt(&oldStylePath);
-    TinyString_dt(&oldStylePathBasename);
     TinyString_dt(&pkgName);
     TinyString_dt(&treeName);
 #if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
@@ -1494,3 +1467,10 @@ udata_getInfo(UDataMemory *pData, UDataInfo *pInfo) {
         }
     }
 }
+
+
+U_CAPI void U_EXPORT2 udata_setFileAccess(UDataFileAccess access, UErrorCode *status)
+{
+    gDataFileAccess = access;
+}
+

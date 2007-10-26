@@ -1,5 +1,5 @@
 /*
- * $Id: ossl_pkey_dsa.c,v 1.5.2.2 2004/06/30 18:34:59 gotoyuzo Exp $
+ * $Id: ossl_pkey_dsa.c 12043 2007-03-12 04:12:32Z knu $
  * 'OpenSSL for Ruby' project
  * Copyright (C) 2001-2002  Michal Rokos <m.rokos@sh.cvut.cz>
  * All rights reserved.
@@ -20,13 +20,7 @@
 } while (0)
 
 #define DSA_HAS_PRIVATE(dsa) ((dsa)->priv_key)
-
-#ifdef OSSL_ENGINE_ENABLED
-#  define DSA_PRIVATE(dsa) (DSA_HAS_PRIVATE(dsa) || (dsa)->engine)
-#else
-#  define DSA_PRIVATE(dsa) DSA_HAS_PRIVATE(dsa)
-#endif
-
+#define DSA_PRIVATE(obj,dsa) (DSA_HAS_PRIVATE(dsa)||OSSL_PKEY_IS_PRIVATE(obj))
 
 /*
  * Classes
@@ -190,7 +184,7 @@ ossl_dsa_is_private(VALUE self)
 	
     GetPKeyDSA(self, pkey);
 	
-    return (DSA_PRIVATE(pkey->pkey.dsa)) ? Qtrue : Qfalse;
+    return (DSA_PRIVATE(self, pkey->pkey.dsa)) ? Qtrue : Qfalse;
 }
 
 static VALUE
@@ -336,7 +330,7 @@ ossl_dsa_sign(VALUE self, VALUE data)
 
     GetPKeyDSA(self, pkey);
     StringValue(data);
-    if (!DSA_PRIVATE(pkey->pkey.dsa)) {
+    if (!DSA_PRIVATE(self, pkey->pkey.dsa)) {
 	ossl_raise(eDSAError, "Private DSA key needed!");
     }
     str = rb_str_new(0, ossl_dsa_buf_size(pkey));
@@ -384,6 +378,11 @@ OSSL_PKEY_BN(dsa, priv_key);
 void
 Init_ossl_dsa()
 {
+#if 0 /* let rdoc know about mOSSL and mPKey */
+    mOSSL = rb_define_module("OpenSSL");
+    mPKey = rb_define_module_under(mOSSL, "PKey");
+#endif
+
     eDSAError = rb_define_class_under(mPKey, "DSAError", ePKeyError);
 
     cDSA = rb_define_class_under(mPKey, "DSA", cPKey);

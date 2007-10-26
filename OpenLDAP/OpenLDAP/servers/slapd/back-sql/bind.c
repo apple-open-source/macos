@@ -1,8 +1,9 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/bind.c,v 1.16.2.5 2004/09/24 14:09:15 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/bind.c,v 1.28.2.4 2006/01/03 22:16:24 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Copyright 1999-2006 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
+ * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -15,12 +16,11 @@
  */
 /* ACKNOWLEDGEMENTS:
  * This work was initially developed by Dmitry Kovalev for inclusion
- * by OpenLDAP Software.
+ * by OpenLDAP Software.  Additional significant contributors include
+ * Pierangelo Masarati.
  */
 
 #include "portable.h"
-
-#ifdef SLAPD_SQL
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -31,16 +31,12 @@
 int 
 backsql_bind( Operation *op, SlapReply *rs )
 {
-	backsql_info		*bi = (backsql_info*)op->o_bd->be_private;
-	backsql_entryID		user_id = BACKSQL_ENTRYID_INIT;
-	SQLHDBC			dbh;
-	AttributeDescription	*password = slap_schema.si_ad_userPassword;
-	Entry			*e, user_entry;
+	SQLHDBC			dbh = SQL_NULL_HDBC;
+	Entry			e = { 0 };
 	Attribute		*a;
-	backsql_srch_info	bsi;
+	backsql_srch_info	bsi = { 0 };
 	AttributeName		anlist[2];
 	int			rc;
-	struct berval		dn;
  
  	Debug( LDAP_DEBUG_TRACE, "==>backsql_bind()\n", 0, 0, 0 );
 
@@ -48,7 +44,7 @@ backsql_bind( Operation *op, SlapReply *rs )
      		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
 		Debug( LDAP_DEBUG_TRACE, "<==backsql_bind() root bind\n", 
 				0, 0, 0 );
-		return 0;
+		return LDAP_SUCCESS;
 	}
 
 	ber_dupbv( &op->oq_bind.rb_edn, &op->o_req_ndn );
@@ -57,98 +53,71 @@ backsql_bind( Operation *op, SlapReply *rs )
 		rs->sr_err = LDAP_STRONG_AUTH_NOT_SUPPORTED;
 		rs->sr_text = "authentication method not supported"; 
 		send_ldap_result( op, rs );
-		return 1;
+		return rs->sr_err;
 	}
 
 	/*
 	 * method = LDAP_AUTH_SIMPLE
 	 */
 	rs->sr_err = backsql_get_db_conn( op, &dbh );
-	if (!dbh) {
+	if ( !dbh ) {
      		Debug( LDAP_DEBUG_TRACE, "backsql_bind(): "
 			"could not get connection handle - exiting\n",
 			0, 0, 0 );
 
 		rs->sr_text = ( rs->sr_err == LDAP_OTHER )
 			? "SQL-backend error" : NULL;
-		send_ldap_result( op, rs );
-		return 1;
-	}
-
-	dn = op->o_req_dn;
-	if ( backsql_api_dn2odbc( op, rs, &dn ) ) {
-		Debug( LDAP_DEBUG_TRACE, "backsql_search(): "
-			"backsql_api_dn2odbc failed\n", 
-			0, 0, 0 );
-		rs->sr_err = LDAP_OTHER;
-		rs->sr_text = "SQL-backend error";
 		goto error_return;
 	}
 
-	rc = backsql_dn2id( bi, &user_id, dbh, &dn );
-	if ( rc != LDAP_SUCCESS ) {
-		Debug( LDAP_DEBUG_TRACE, "backsql_bind(): "
-			"could not retrieve bind dn id - no such entry\n", 
-			0, 0, 0 );
-		rs->sr_err = LDAP_INVALID_CREDENTIALS;
-		send_ldap_result( op, rs );
-		return 1;
-	}
-
-	anlist[0].an_name = password->ad_cname;
-	anlist[0].an_desc = password;
+	anlist[0].an_name = slap_schema.si_ad_userPassword->ad_cname;
+	anlist[0].an_desc = slap_schema.si_ad_userPassword;
 	anlist[1].an_name.bv_val = NULL;
 
-	backsql_init_search( &bsi, &dn, LDAP_SCOPE_BASE, 
-			-1, -1, -1, NULL, dbh, op, rs, anlist );
-	bsi.bsi_e = &user_entry;
-	rc = backsql_id2entry( &bsi, &user_id );
+	bsi.bsi_e = &e;
+	rc = backsql_init_search( &bsi, &op->o_req_ndn, LDAP_SCOPE_BASE, 
+			(time_t)(-1), NULL, dbh, op, rs, anlist,
+			BACKSQL_ISF_GET_ENTRY );
 	if ( rc != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE, "backsql_bind(): "
-			"error %d in backsql_id2entry() "
-			"- auth failed\n", rc, 0, 0 );
+			"could not retrieve bindDN ID - no such entry\n", 
+			0, 0, 0 );
 		rs->sr_err = LDAP_INVALID_CREDENTIALS;
 		goto error_return;
 	}
-	e = &user_entry;
 
-	if ( ! access_allowed( op, e, password, NULL, ACL_AUTH, NULL ) ) {
-#if 1
-		rs->sr_err = LDAP_INVALID_CREDENTIALS;
-#else
-		rs->sr_err = LDAP_INSUFFICIENT_ACCESS;
-#endif
-		goto error_return;
-	}
-
-	a = attr_find( e->e_attrs, password );
+	a = attr_find( e.e_attrs, slap_schema.si_ad_userPassword );
 	if ( a == NULL ) {
-#if 1
 		rs->sr_err = LDAP_INVALID_CREDENTIALS;
-#else
-		rs->sr_err = LDAP_INAPPROPRIATE_AUTH;
-#endif
 		goto error_return;
 	}
 
-	if ( slap_passwd_check( op->o_conn, a, &op->oq_bind.rb_cred, &rs->sr_text ) != 0 ) {
+	if ( slap_passwd_check( op, &e, a, &op->oq_bind.rb_cred,
+				&rs->sr_text ) != 0 )
+	{
 		rs->sr_err = LDAP_INVALID_CREDENTIALS;
 		goto error_return;
 	}
 
 error_return:;
-	if ( rs->sr_err ) {
+	if ( !BER_BVISNULL( &bsi.bsi_base_id.eid_ndn ) ) {
+		(void)backsql_free_entryID( op, &bsi.bsi_base_id, 0 );
+	}
+
+	if ( !BER_BVISNULL( &e.e_nname ) ) {
+		backsql_entry_clean( op, &e );
+	}
+
+	if ( bsi.bsi_attrs != NULL ) {
+		op->o_tmpfree( bsi.bsi_attrs, op->o_tmpmemctx );
+	}
+
+	if ( rs->sr_err != LDAP_SUCCESS ) {
 		send_ldap_result( op, rs );
-		return 1;
 	}
 	
-	if ( dn.bv_val != op->o_req_dn.bv_val ) {
-		ch_free( dn.bv_val );
-	}
+	Debug( LDAP_DEBUG_TRACE,"<==backsql_bind()\n", 0, 0, 0 );
 
-	Debug(LDAP_DEBUG_TRACE,"<==backsql_bind()\n",0,0,0);
-	return 0;
+	return rs->sr_err;
 }
  
-#endif /* SLAPD_SQL */
-

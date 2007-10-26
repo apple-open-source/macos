@@ -118,7 +118,7 @@ EventTraceCauseDesc IrLogEvents[] = {
     {kLogNormSmallerData,       "IrQOS: shrinking data size to fit, new="}
 };
 
-#define XTRACE(x, y, z) IrDALogAdd( x, y, z, IrLogEvents, true )
+#define XTRACE(x, y, z) IrDALogAdd( x, y, (int)z & 0xffff, IrLogEvents, true )
 
 #else
 #define XTRACE(x,y,z)   ((void)0)
@@ -195,7 +195,7 @@ TIrQOS::tIrQOS(USBIrDAQoS *qos)
 {
     TIrQOS *obj = new TIrQOS;
     
-    XTRACE(kLogNew, (int)obj >> 16, (short)obj);
+    XTRACE(kLogNew, (int)obj >> 16, obj);
     
     if (obj && !obj->init(qos)) {
 	obj->release();
@@ -223,7 +223,7 @@ bool TIrQOS::init(USBIrDAQoS *qos)
 //--------------------------------------------------------------------------------
 void TIrQOS::free(void)
 {
-    XTRACE(kLogFree, (int)this >> 16, (short)this);     // only reason we have a free
+    XTRACE(kLogFree, (int)this >> 16, this);     // only reason we have a free
     super::free();                                      // is for the log
 }
 
@@ -238,7 +238,7 @@ void TIrQOS::Reset()
     UInt16 THROTTLE = THROTTLE_SPEED;       // 0x3 = 9600 or slower, 0x7 = 19.2, 0f=38.4
 #endif
 
-    XTRACE(kLogReset, (int)this >> 16, (short)this);
+    XTRACE(kLogReset, (int)this >> 16, this);
     
     // todo - could init from kext prefs file instead of compiled-in
 
@@ -320,7 +320,7 @@ IrDAErr TIrQOS::SetBaudRate(BitRate bitsPerSec)
 	    break;
     }
 
-    XTRACE(kLogSetBaud1, bitsPerSec >> 16, (short)bitsPerSec);
+    XTRACE(kLogSetBaud1, bitsPerSec >> 16, bitsPerSec);
     XTRACE(kLogSetBaud2, result, fBaudRate);
     
     return result;
@@ -366,7 +366,7 @@ IrDAErr TIrQOS::SetDataSize(ULong bufferSize)
 	    break;
     }
 
-    XTRACE(kLogSetData1, bufferSize >> 16, (short)bufferSize);
+    XTRACE(kLogSetData1, bufferSize >> 16, bufferSize);
     XTRACE(kLogSetData2, result, fDataSize);
     return result;
 
@@ -569,7 +569,7 @@ TTimeout TIrQOS::GetMinTurnAroundTime()
     
     bitpos = HighestBitOn(fMinTurnAroundTime);
     result = IrMinTurnTimeTable[bitpos];
-    XTRACE(kLogGetMin, result >> 16, (short)result);
+    XTRACE(kLogGetMin, result >> 16, result);
     return result;
     
 Fail:
@@ -591,7 +591,7 @@ TTimeout TIrQOS::GetLinkDiscThresholdTime()
     
     bitpos = HighestBitOn(fLinkDiscThreshold);
     result = IrLinkDiscThreshold[bitpos];
-    XTRACE(kLogGetDisconnect, result >> 16, (short)result);
+    XTRACE(kLogGetDisconnect, result >> 16, result);
     
     return result;
     
@@ -670,7 +670,7 @@ IrDAErr TIrQOS::ExtractInfoFromBuffer(CBufferSegment* buffer)
     ULong value;
     UByte idLenVal[3];      // id byte, length byte, value byte
     
-    XTRACE(kLogExtract, (int)buffer >> 16, (short)buffer);
+    XTRACE(kLogExtract, (int)buffer >> 16, buffer);
 
     // Preset fields to default values (in case some values are not provided)
     fBaudRate           = kQOS9600bps;
@@ -845,7 +845,7 @@ IrDAErr TIrQOS::NormalizeInfo()
 	    default: 
 		maxLineCapacity = IrMaxLineCapacityTable1[HighestBitOn(fBaudRate>>1)];
 	}
-	XTRACE(kLogNormMaxLine, maxLineCapacity >> 16, (short)maxLineCapacity);
+	XTRACE(kLogNormMaxLine, maxLineCapacity >> 16, maxLineCapacity);
     }   
 
     extraBOFs = GetExtraBOFs();                 // Don't need these for FIR 
@@ -881,7 +881,7 @@ IrDAErr TIrQOS::NormalizeInfo()
 	else
 	    requestedLineCapacity = ((GetDataSize() + 6 + extraBOFs) * GetWindowSize()) + minTurnTimeInBytes;
 	
-	XTRACE(kLogNormRequested, requestedLineCapacity >> 16, (short)requestedLineCapacity); 
+	XTRACE(kLogNormRequested, requestedLineCapacity >> 16, requestedLineCapacity); 
 	
 	if (requestedLineCapacity < maxLineCapacity) break;
 

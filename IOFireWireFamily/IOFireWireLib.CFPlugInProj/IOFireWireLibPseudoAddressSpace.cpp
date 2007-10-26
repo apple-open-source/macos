@@ -32,13 +32,14 @@
 #import "IOFireWireLibDevice.h"
 
 #import <IOKit/iokitmig.h>
+#import <System/libkern/OSCrossEndian.h>
 
 namespace IOFireWireLib {
 	
 	PseudoAddressSpace::Interface PseudoAddressSpace::sInterface =
 	{
 		INTERFACEIMP_INTERFACE,
-		1, 0, // version/revision
+		1, 1, // version/revision
 		& PseudoAddressSpace::SSetWriteHandler,
 		& PseudoAddressSpace::SSetReadHandler,
 		& PseudoAddressSpace::SSetSkippedPacketHandler,
@@ -191,27 +192,65 @@ namespace IOFireWireLib {
 		AddressSpaceInfo info ;
 
 		IOReturn error ;
-		IOByteCount outputSize = sizeof( info ) ;
-		error = ::IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_GetFWAddrInfo, 1, & outputSize, mKernAddrSpaceRef, &info ) ;
+		
+		uint32_t outputCnt = 0;
+		size_t outputStructSize =  sizeof( info ) ;
+		const uint64_t inputs[1]={(const uint64_t)mKernAddrSpaceRef};
+
+		error = IOConnectCallMethod(mUserClient.GetUserClientConnection(), 
+									kPseudoAddrSpace_GetFWAddrInfo,
+									inputs,1,
+									NULL,0,
+									NULL,&outputCnt,
+									&info,&outputStructSize);
 		if (error)
 		{
 			throw error ;
 		}
+
+#ifndef __LP64__		
+		ROSETTA_ONLY(
+			{
+				info.address.nodeID = OSSwapInt16( info.address.nodeID );
+				info.address.addressHi = OSSwapInt16( info.address.addressHi );
+				info.address.addressLo = OSSwapInt32( info.address.addressLo );
+			}
+		);
+#endif
 		
 		mFWAddress = info.address ;
 	}
 	
 	PseudoAddressSpace::~PseudoAddressSpace()
 	{
+
+		uint32_t outputCnt = 0;
+		const uint64_t inputs[1]={(const uint64_t)mKernAddrSpaceRef};
+
 #if IOFIREWIREUSERCLIENTDEBUG > 0
 		IOReturn error = 
 #endif
+	
+		IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+								  kReleaseUserObject,
+								  inputs,1,NULL,&outputCnt);
 		
-		IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
-										kReleaseUserObject, 1, 0, mKernAddrSpaceRef ) ;
-
 		DebugLogCond( error, "PseudoAddressSpace::~PseudoAddressSpace: error %x releasing address space!\n", error ) ;
 	
+		if( mPendingLocks )
+		{
+			::CFDictionaryRemoveAllValues( mPendingLocks );
+			::CFRelease( mPendingLocks );
+			mPendingLocks = 0;
+		}
+			
+		if( mBuffer and mBufferSize > 0 )	
+		{
+			delete[] mBuffer;
+			mBuffer		= 0;
+			mBufferSize = 0;
+		}
+			
 		mUserClient.Release() ;
 	}
 	
@@ -255,9 +294,6 @@ namespace IOFireWireLib {
 	{
 		IOReturn				err					= kIOReturnSuccess ;
 		io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
-		io_scalar_inband_t		params ;
-		io_scalar_inband_t		output ;
-		mach_msg_type_number_t	size = 0 ;
 	
 		// if notification is already on, skip out.
 		if (mNotifyIsOn)
@@ -268,42 +304,47 @@ namespace IOFireWireLib {
 		
 		if ( kIOReturnSuccess == err )
 		{
-			params[0]	= (UInt32)mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) & PseudoAddressSpace::Writer ;
-			params[2]	= (UInt32) callBackRefCon;
-		
-			err = io_async_method_scalarI_scalarO(
-					connection,
-					mUserClient.GetAsyncPort(),
-					mPacketAsyncRef,
-					1,
-					kSetAsyncRef_Packet,
-					params,
-					3,
-					output,
-					& size) ;
-			
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)0;
+			const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)&PseudoAddressSpace::Writer, (const uint64_t)callBackRefCon};
+			uint32_t outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_Packet,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
 		}
 		
 		if ( kIOReturnSuccess == err)
 		{
-			size=0 ;
-			params[0]	= (UInt32) mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback2) & SkippedPacket ;
-			params[2]	= (UInt32) callBackRefCon;
-			
-			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mSkippedPacketAsyncRef, 1,
-					kSetAsyncRef_SkippedPacket, params, 3, output, & size) ;
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)0;
+			const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)& SkippedPacket, (const uint64_t)callBackRefCon};
+			uint32_t outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_SkippedPacket,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
 		}
 		
 		if ( kIOReturnSuccess == err)
 		{
-			params[0]	= (UInt32) mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) & Reader ;
-			params[2]	= (UInt32) callBackRefCon ;
-			
-			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mReadPacketAsyncRef, 1,
-					kSetAsyncRef_Read, params, 3, params, & size ) ;
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)0;
+			const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)& Reader, (const uint64_t)callBackRefCon};
+			uint32_t outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_Read,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
 		}
 	
 		if ( kIOReturnSuccess == err )
@@ -317,8 +358,6 @@ namespace IOFireWireLib {
 	{
 		IOReturn				err					= kIOReturnSuccess ;
 		io_connect_t			connection			= mUserClient.GetUserClientConnection() ;
-		io_scalar_inband_t		params ;
-		mach_msg_type_number_t	size = 0 ;
 		
 		// if notification isn't on, skip out.
 		if (!mNotifyIsOn)
@@ -329,30 +368,34 @@ namespace IOFireWireLib {
 	
 		if ( kIOReturnSuccess == err )
 		{
-			// set callback for writes to 0
-			params[0]	= (UInt32) mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[2]	= (UInt32) this ;
-		
-			err = ::io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mPacketAsyncRef,
-							1, kSetAsyncRef_Packet, params, 3, params, & size) ;
-			
 	
-			// set callback for skipped packets to 0
-			params[0]	= (UInt32) mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[2]	= (UInt32) this ;
-			
-			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(), mSkippedPacketAsyncRef, 
-							1, kSetAsyncRef_SkippedPacket, params, 3, params, & size) ;
-	
-			// set callback for skipped packets to 0
-			params[0]	= (UInt32) mKernAddrSpaceRef ;
-			params[1]	= (UInt32)(IOAsyncCallback) 0 ;
-			params[2]	= (UInt32) this ;
-			
-			err = io_async_method_scalarI_scalarO( connection, mUserClient.GetAsyncPort(),
-					mReadPacketAsyncRef, 1, kSetAsyncRef_Read, params, 3, params, & size) ;
+			uint64_t refrncData[kOSAsyncRef64Count];
+			refrncData[kIOAsyncCalloutFuncIndex] = (uint64_t) 0;
+			refrncData[kIOAsyncCalloutRefconIndex] = (unsigned long)0;
+			const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)0, (const uint64_t)this};
+			uint32_t outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_Packet,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
+
+			outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_SkippedPacket,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
+
+			outputCnt = 0;
+			err = IOConnectCallAsyncScalarMethod(connection,
+												 kSetAsyncRef_Read,
+												 mUserClient.GetAsyncPort(), 
+												 refrncData,kOSAsyncRef64Count,
+												 inputs,3,
+												 NULL,&outputCnt);
 		}
 		
 		mNotifyIsOn = false ;
@@ -373,26 +416,26 @@ namespace IOFireWireLib {
 			++args ;	// we tacked on an extra arg at the beginning, so we undo that.
 			
 			bool	equal ;
-			UInt32	offset = (UInt32)args[6] ;
+			UInt32	offset = (unsigned long)args[6] ;
 			
-			if ( (UInt32) args[1] == 8 )
+			if ( (unsigned long) args[1] == 8 )
 				// 32-bit compare
-				equal = *(UInt32*)((char*)mBackingStore + offset) == *(UInt32*)(mBuffer + (UInt32)args[2]) ;
+				equal = *(UInt32*)((char*)mBackingStore + offset) == *(UInt32*)(mBuffer + (unsigned long)args[2]) ;
 			else
 				// 64-bit compare
-				equal = *(UInt64*)((char*)mBackingStore + offset) == *(UInt64*)(mBuffer + (UInt32)args[2]) ;
+				equal = *(UInt64*)((char*)mBackingStore + offset) == *(UInt64*)(mBuffer + (unsigned long)args[2]) ;
 	
 			if ( equal )
 			{
 				mWriter(
 					addressSpaceRef,
 					(FWClientCommandID)(args[0]),						// commandID,
-					(UInt32)(args[1]) >> 1,								// packetSize
-					mBuffer + (UInt32)args[2] + ( (UInt32) args[1] == 8 ? 4 : 8),// packet
-					(UInt16)(UInt32)args[3],							// nodeID
-					(UInt32)(args[5]),									// addr.nodeID, addr.addressHi,
-					(UInt32)(args[6]),
-					(UInt32) mRefCon) ;									// refcon
+					(unsigned long)(args[1]) >> 1,								// packetSize
+					mBuffer + (unsigned long)args[2] + ( (unsigned long) args[1] == 8 ? 4 : 8),// packet
+					(UInt16)(unsigned long)args[3],							// nodeID
+					(unsigned long)(args[5]),									// addr.nodeID, addr.addressHi,
+					(unsigned long)(args[6]),
+					(void*) mRefCon) ;									// refcon
 			}
 			else
 				status = kFWResponseAddressError ;
@@ -400,13 +443,23 @@ namespace IOFireWireLib {
 			delete[] (args-1) ;
 		}
 	
+		uint32_t outputCnt = 0;		
+		const uint64_t inputs[3] = {(const uint64_t)mKernAddrSpaceRef, (const uint64_t)commandID, status};
+
 		#if IOFIREWIREUSERCLIENTDEBUG > 0
 		OSStatus err = 
 		#endif
-		::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_ClientCommandIsComplete,
-				3, 0, mKernAddrSpaceRef, commandID, status) ;
-								
-		DebugLogCond( err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08lX\n", err ) ;
+		
+		IOConnectCallScalarMethod(mUserClient.GetUserClientConnection(), 
+								  kPseudoAddrSpace_ClientCommandIsComplete,
+								  inputs,3,
+								  NULL,&outputCnt);
+
+#ifdef __LP64__		
+		DebugLogCond( err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08X\n", (UInt32)err ) ;
+#else
+		DebugLogCond( err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08lX\n", (UInt32)err ) ;
+#endif
 	}
 	
 	void
@@ -422,23 +475,23 @@ namespace IOFireWireLib {
 		else if ( (bool)args[7] )
 		{
 //			void** lockValues 	= new (void*)[numArgs+1] ;
-			void** lockValues 	= (void**) new ( UInt32 * )[numArgs+1] ;
+			void** lockValues 	= (void**) new UInt32 *[numArgs+1] ;
 	
 			bcopy( args, & lockValues[1], sizeof(void*) * numArgs ) ;
 			lockValues[0] = refcon ;
 		
 			::CFDictionaryAddValue( me->mPendingLocks, args[0], lockValues ) ;
 	
-			UInt32 offset = (UInt32)args[6] ;	// !!! hack - all address spaces have 0 for addressLo
+			UInt32 offset = (unsigned long)args[6] ;	// !!! hack - all address spaces have 0 for addressLo
 	
 			(me->mReader)( (AddressSpaceRef) refcon,
 							(FWClientCommandID)(args[0]),					// commandID,
-							(UInt32)(args[1]),								// packetSize
+							(unsigned long)(args[1]),								// packetSize
 							offset,											// packetOffset
-							(UInt16)(UInt32)(args[3]),						// nodeID; double cast avoids compiler warning
-							(UInt32)(args[5]),								// addr.addressHi,
-							(UInt32)(args[6]),								// addr.addressLo
-							(UInt32) me->mRefCon) ;							// refcon
+							(UInt16)(unsigned long)(args[3]),						// nodeID; double cast avoids compiler warning
+							(unsigned long)(args[5]),								// addr.addressHi,
+							(unsigned long)(args[6]),								// addr.addressLo
+							(void*) me->mRefCon) ;							// refcon
 	
 		}
 		else
@@ -446,12 +499,12 @@ namespace IOFireWireLib {
 			(me->mWriter)(
 				(AddressSpaceRef) refcon,
 				(FWClientCommandID) args[0],						// commandID,
-				(UInt32)(args[1]),									// packetSize
-				me->mBuffer + (UInt32)(args[2]),					// packet
-				(UInt16)(UInt32)(args[3]),							// nodeID
-				(UInt32)(args[5]),									// addr.addressHi, addr.addressLo
-				(UInt32)(args[6]),
-				(UInt32) me->mRefCon) ;								// refcon
+				(unsigned long)(args[1]),									// packetSize
+				me->mBuffer + (unsigned long)(args[2]),					// packet
+				(UInt16)(unsigned long)(args[3]),							// nodeID
+				(unsigned long)(args[5]),									// addr.addressHi, addr.addressLo
+				(unsigned long)(args[6]),
+				(void*) me->mRefCon) ;								// refcon
 	
 		}
 	}
@@ -475,12 +528,12 @@ namespace IOFireWireLib {
 		{
 			(me->mReader)( (AddressSpaceRef) refcon,
 						(FWClientCommandID) args[0],					// commandID,
-						(UInt32)(args[1]),								// packetSize
-						(UInt32)(args[2]),								// packetOffset
-						(UInt16)(UInt32)(args[3]),						// nodeID
-						(UInt32)(args[5]),								// addr.nodeID, addr.addressHi,
-						(UInt32)(args[6]),
-						(UInt32) me->mRefCon) ;							// refcon
+						(unsigned long)(args[1]),								// packetSize
+						(unsigned long)(args[2]),								// packetOffset
+						(UInt16)(unsigned long)(args[3]),						// nodeID
+						(unsigned long)(args[5]),								// addr.nodeID, addr.addressHi,
+						(unsigned long)(args[6]),
+						(void*) me->mRefCon) ;							// refcon
 		}
 		else
 			me->ClientCommandIsComplete( args[0], //commandID

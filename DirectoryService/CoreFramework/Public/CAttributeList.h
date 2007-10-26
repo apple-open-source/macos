@@ -38,8 +38,8 @@ public:
 		   			CAttributeList			( char *inNode );
 	virtual		   ~CAttributeList			( void );
 
-	uInt32			GetCount				( void );
-	sInt32			GetAttribute			( uInt32 inIndex, char **outData );
+	UInt32			GetCount				( void );
+	SInt32			GetAttribute			( UInt32 inIndex, char **outData );
 
 protected:
 

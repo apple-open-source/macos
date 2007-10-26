@@ -15,14 +15,6 @@
 #include "com_err.h"
 #include "profile.h"
 
-#define STAT_ONCE_PER_SECOND
-
-#if defined(_WIN32)
-#define SIZEOF_INT      4
-#define SIZEOF_SHORT    2
-#define SIZEOF_LONG     4
-#endif
-
 typedef long prf_magic_t;
 
 /*
@@ -38,10 +30,9 @@ struct _prf_data_t {
 	prf_magic_t	magic;
 	k5_mutex_t	lock;
 	struct profile_node *root;
-#ifdef STAT_ONCE_PER_SECOND
 	time_t		last_stat;
-#endif
 	time_t		timestamp; /* time tree was last updated from file */
+	unsigned long	frac_ts;   /* fractional part of timestamp, if any */
 	int		flags;	/* r/w, dirty */
 	int		upd_serial; /* incremented when data changes */
 	char		*comment;
@@ -200,6 +191,8 @@ errcode_t profile_rename_node
 	(struct profile_node *node, const char *new_name);
 
 /* prof_file.c */
+
+errcode_t KRB5_CALLCONV profile_copy (profile_t, profile_t *);
 
 errcode_t profile_open_file
 	(const_profile_filespec_t file, prf_file_t *ret_prof);

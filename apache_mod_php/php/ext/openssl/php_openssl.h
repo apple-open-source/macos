@@ -1,6 +1,6 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP Version 4                                                        |
+   | PHP Version 5                                                        |
    +----------------------------------------------------------------------+
    | Copyright (c) 1997-2007 The PHP Group                                |
    +----------------------------------------------------------------------+
@@ -17,28 +17,16 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_openssl.h,v 1.10.8.6.4.2 2007/01/01 09:46:45 sebastian Exp $ */
+/* $Id: php_openssl.h,v 1.16.2.1.2.4 2007/04/04 21:24:01 pajoye Exp $ */
 
 #ifndef PHP_OPENSSL_H
 #define PHP_OPENSSL_H
-
-#ifdef PHP_WIN32
-# undef PHP_OPENSSL_API
-# ifdef OPENSSL_EXPORTS
-#  define PHP_OPENSSL_API __declspec(dllexport)
-# else
-#  define PHP_OPENSSL_API __declspec(dllimport)
-# endif
-#else
-# undef PHP_OPENSSL_API
-# define PHP_OPENSSL_API /* nothing special */
-#endif
-
 /* HAVE_OPENSSL would include SSL MySQL stuff */
-#if defined(HAVE_OPENSSL_EXT) || defined(HAVE_OPENSSL_SHARED_EXT)
-
+#ifdef HAVE_OPENSSL_EXT
 extern zend_module_entry openssl_module_entry;
 #define phpext_openssl_ptr &openssl_module_entry
+
+php_stream_transport_factory_func php_openssl_ssl_socket_factory;
 
 PHP_MINIT_FUNCTION(openssl);
 PHP_MSHUTDOWN_FUNCTION(openssl);
@@ -50,6 +38,7 @@ PHP_FUNCTION(openssl_pkey_free);
 PHP_FUNCTION(openssl_pkey_new);
 PHP_FUNCTION(openssl_pkey_export);
 PHP_FUNCTION(openssl_pkey_export_to_file);
+PHP_FUNCTION(openssl_pkey_get_details);
 
 PHP_FUNCTION(openssl_sign);
 PHP_FUNCTION(openssl_verify);
@@ -74,16 +63,17 @@ PHP_FUNCTION(openssl_x509_checkpurpose);
 PHP_FUNCTION(openssl_x509_export);
 PHP_FUNCTION(openssl_x509_export_to_file);
 PHP_FUNCTION(openssl_x509_check_private_key);
+
+PHP_FUNCTION(openssl_pkcs12_export);
+PHP_FUNCTION(openssl_pkcs12_export_to_file);
+PHP_FUNCTION(openssl_pkcs12_read);
+
 PHP_FUNCTION(openssl_csr_new);
 PHP_FUNCTION(openssl_csr_export);
 PHP_FUNCTION(openssl_csr_export_to_file);
 PHP_FUNCTION(openssl_csr_sign);
-
-#include <openssl/ssl.h>
-int php_openssl_apply_verification_policy(SSL *ssl, X509 *peer, php_stream *stream TSRMLS_DC);
-SSL *php_SSL_new_from_context(SSL_CTX *ctx, php_stream *stream TSRMLS_DC);
-
-
+PHP_FUNCTION(openssl_csr_get_subject);
+PHP_FUNCTION(openssl_csr_get_public_key);
 #else
 
 #define phpext_openssl_ptr NULL

@@ -32,7 +32,7 @@
 
 // ---------------------------------------------------------------------------
 
-- (id) initWithCredential: (Credential *) aCredential
+- (id) initWithCredential: (KerberosCredential *) aCredential
 {
     dprintf ("Entering initWithCredential:...");
     if ((self = [super initWithWindowNibName: @"TicketInfo"])) {
@@ -41,7 +41,7 @@
         credential = aCredential;  
         
         timeFormatter = [[NSDateFormatter alloc] initWithDateFormat: @"%c" allowNaturalLanguage: NO];
-        if (timeFormatter == NULL) {
+        if (!timeFormatter) {
             [self release];
             return NULL;
         }
@@ -55,9 +55,9 @@
 
 - (void) dealloc 
 {
-    if (timeFormatter != NULL) { [timeFormatter release]; }
+    if (timeFormatter) { [timeFormatter release]; }
     
-    if (stateTimer != NULL) {
+    if (stateTimer) {
         // invalidate a TargetOwnedTimer before releasing it
         [stateTimer invalidate];
         [stateTimer release];
@@ -88,8 +88,7 @@
     [clientPrincipalTextField setObjectValue: clientPrincipal];
     [servicePrincipalTextField setObjectValue: servicePrincipal];
     format = NSLocalizedString (@"KAppStringTicketInfoVersionFormat", NULL);
-    [versionTextField setObjectValue: [NSString stringWithFormat: format, version]];
-    [statusTextField setObjectValue: [credential stringValueForTicketInfoWindow]];
+    [self updateStatusTextField];
     
     // Times Tab
     [issuedTimeTextField setFormatter: timeFormatter];
@@ -132,14 +131,8 @@
     }
     
     // Encryption Tab
-    if ([credential version] == cc_credentials_v4) {
-        [ticketTabView removeTabViewItem: v5EncryptionTabViewItem];
-        [stringToKeyTypeTextField setObjectValue: [credential stringToKeyTypeString]];
-    } else {
-        [ticketTabView removeTabViewItem: v4EncryptionTabViewItem];
-        [sessionKeyEnctypeTextField       setObjectValue: [credential sessionKeyEnctypeString]];
-        [servicePrincipalEnctypeTextField setObjectValue: [credential servicePrincipalKeyEnctypeString]];
-    }
+    [sessionKeyEnctypeTextField       setObjectValue: [credential sessionKeyEnctypeString]];
+    [servicePrincipalEnctypeTextField setObjectValue: [credential servicePrincipalKeyEnctypeString]];
     
     [ticketTabView selectFirstTabViewItem: self];
 
@@ -156,7 +149,24 @@
 
 - (void) stateTimer: (TargetOwnedTimer *) timer 
 {
-    [statusTextField setObjectValue: [credential stringValueForTicketInfoWindow]];
+    [self updateStatusTextField];
+}
+
+// ---------------------------------------------------------------------------
+
+- (void) updateStatusTextField
+{
+    int state = [credential state];
+    NSString *stateString = [credential longStateString];
+    
+    if (state == CredentialValid) {
+        [statusTextField setObjectValue: stateString];
+    } else {
+        NSDictionary *attributes = [NSDictionary dictionaryWithObject: [NSColor redColor]
+                                                               forKey: NSForegroundColorAttributeName];
+        [statusTextField setObjectValue: [[[NSAttributedString alloc] initWithString: stateString
+                                                                 attributes: attributes] autorelease]];
+    }
 }
 
 #pragma mark --- Data Source Methods --

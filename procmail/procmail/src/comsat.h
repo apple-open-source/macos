@@ -1,4 +1,4 @@
-/* $Id: comsat.h,v 1.1.1.1 2001/07/20 19:38:15 bbraun Exp $ */
+/* $Id: comsat.h,v 1.1 2001/07/20 19:38:15 bbraun Exp $ */
 
 #ifndef NO_COMSAT
 

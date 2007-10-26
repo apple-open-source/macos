@@ -40,6 +40,15 @@ struct webdav_parse_cachevalidators_struct
 	char *entity_tag;
 };
 
+struct webdav_quotas
+{
+	int			use_bytes_values;		/* if TRUE, use quota_available_bytes and quota_used_bytes */
+	uint64_t	quota_available_bytes;	/* DAV:quota-available-bytes property value */
+	uint64_t	quota_used_bytes;		/* DAV:quota-used-bytes property value */
+	uint64_t	quota;					/* deprecated DAV:quota property value */
+	uint64_t	quotaused;				/* deprecated DAV:quotaused property value */
+};
+
 /* This needs to be big enough for a pathname where every character comes to us
  * in URI Escaped Encoding. That means that each character could expand to
  * 3 characters (i.e., ' ' = '%20').
@@ -117,8 +126,14 @@ extern int parse_cachevalidators(const UInt8 *xmlp, CFIndex xmlp_len, time_t *la
 #define WEBDAV_STAT_MODDATE 3
 
 #define WEBDAV_STATFS_IGNORE 1
-#define WEBDAV_STATFS_QUOTA 2
-#define WEBDAV_STATFS_QUOTAUSED 3
+#define WEBDAV_STATFS_QUOTA_AVAILABLE_BYTES 2
+#define WEBDAV_STATFS_QUOTA_USED_BYTES 3
+/*
+ * WEBDAV_STATFS_QUOTA and WEBDAV_STATFS_QUOTAUSED correspond to
+ * the deprecated "quota" and "quotaused" properties in the "DAV:" namespace.
+ */
+#define WEBDAV_STATFS_QUOTA 4
+#define WEBDAV_STATFS_QUOTAUSED 5
 
 #define WEBDAV_LOCK_CONTINUE 1
 #define WEBDAV_LOCK_TOKEN 1

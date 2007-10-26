@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,11 +56,11 @@
 
 #include <unistd.h>
 
-extern int _setlogin(const char* name);
+extern int __setlogin(const char* name);
 
 extern int _logname_valid;		/* shared with getlogin() */
 
 int setlogin(const char* name)
 {
-	return (_logname_valid = _setlogin(name));
+	return (_logname_valid = __setlogin(name));
 }

@@ -2,8 +2,8 @@
 
   io.c -
 
-  $Author: matz $
-  $Date: 2004/12/25 10:56:39 $
+  $Author: shyouhei $
+  $Date: 2007-05-23 01:28:10 +0900 (Wed, 23 May 2007) $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -32,7 +32,7 @@
 # define NO_LONG_FNAME
 #endif
 
-#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(sun) || defined(_nec_ews)
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(sun) || defined(_nec_ews)
 # define USE_SETVBUF
 #endif
 
@@ -41,7 +41,7 @@
 #endif
 
 #include <sys/types.h>
-#if !defined(DJGPP) && !defined(_WIN32) && !defined(__human68k__)
+#if defined(HAVE_SYS_IOCTL_H) && !defined(DJGPP) && !defined(_WIN32) && !defined(__human68k__)
 #include <sys/ioctl.h>
 #endif
 #if defined(HAVE_FCNTL_H) || defined(_WIN32)
@@ -72,6 +72,12 @@
 #endif
 
 #ifdef HAVE_UNISTD_H
+#ifdef HAVE_SYSCALL_H
+#include <syscall.h>
+#elif defined HAVE_SYS_SYSCALL_H
+#include <sys/syscall.h>
+#endif
+
 #include <unistd.h>
 #endif
 
@@ -92,6 +98,14 @@ extern void Init_File _((void));
 
 #if SIZEOF_OFF_T > SIZEOF_LONG && !defined(HAVE_LONG_LONG)
 # error off_t is bigger than long, but you have no long long...
+#endif
+
+#ifndef PIPE_BUF
+# ifdef _POSIX_PIPE_BUF
+#  define PIPE_BUF _POSIX_PIPE_BUF
+# else
+#  define PIPE_BUF 512 /* is this ok? */
+# endif
 #endif
 
 VALUE rb_cIO;
@@ -130,6 +144,19 @@ static VALUE lineno = INT2FIX(0);
 #    define READ_DATA_PENDING_COUNT(fp) ((fp)->_egptr - (fp)->_gptr)
 #    define READ_DATA_PENDING_PTR(fp) ((fp)->_gptr)
 #  endif
+#elif defined(_LP64) && (defined(__sun__) || defined(__sun))
+typedef struct _FILE64 {
+  unsigned char        *_ptr;  /* next character from/to here in buffer */
+  unsigned char        *_base; /* the buffer */
+  unsigned char        *_end;  /* the end of the buffer */
+  ssize_t      _cnt;   /* number of available characters in buffer */
+  int          _file;  /* UNIX System file descriptor */
+  unsigned int _flag;  /* the state of the stream */
+  char         __fill[80];     /* filler to bring size to 128 bytes */
+} FILE64;
+#  define READ_DATA_PENDING(fp) (((FILE64*)(fp))->_cnt > 0)
+#  define READ_DATA_PENDING_COUNT(fp) (((FILE64*)(fp))->_cnt)
+#  define READ_DATA_PENDING_PTR(fp) ((char *)((FILE64*)(fp))->_ptr)
 #elif defined(FILE_COUNT)
 #  define READ_DATA_PENDING(fp) ((fp)->FILE_COUNT > 0)
 #  define READ_DATA_PENDING_COUNT(fp) ((fp)->FILE_COUNT)
@@ -142,6 +169,10 @@ static VALUE lineno = INT2FIX(0);
 #  define READ_DATA_PENDING_COUNT(fp) ((unsigned int)(*(fp))->_cnt)
 #  define READ_DATA_PENDING(fp)       (((unsigned int)(*(fp))->_cnt) > 0)
 #  define READ_DATA_BUFFERED(fp) 0
+#elif defined(__DragonFly__)
+/* FILE is an incomplete struct type since DragonFly BSD 1.4.0 */
+#  define READ_DATA_PENDING(fp) (((struct __FILE_public *)(fp))->_r > 0)
+#  define READ_DATA_PENDING_COUNT(fp) (((struct __FILE_public *)(fp))->_r)
 #else
 /* requires systems own version of the ReadDataPending() */
 extern int ReadDataPending();
@@ -173,7 +204,7 @@ extern int ReadDataPending();
 void
 rb_eof_error()
 {
-    rb_raise(rb_eEOFError, "End of file reached");
+    rb_raise(rb_eEOFError, "end of file reached");
 }
 
 VALUE
@@ -236,7 +267,7 @@ rb_io_check_readable(fptr)
     if (!(fptr->mode & FMODE_READABLE)) {
 	rb_raise(rb_eIOError, "not opened for reading");
     }
-#if NEED_IO_SEEK_BETWEEN_RW
+#ifdef NEED_IO_SEEK_BETWEEN_RW
     if (((fptr->mode & FMODE_WBUF) ||
 	 (fptr->mode & (FMODE_SYNCWRITE|FMODE_RBUF)) == FMODE_SYNCWRITE) &&
 	!feof(fptr->f) &&
@@ -287,7 +318,7 @@ ruby_dup(orig)
 
     fd = dup(orig);
     if (fd < 0) {
-	if (errno == EMFILE || errno == ENFILE) {
+	if (errno == EMFILE || errno == ENFILE || errno == ENOMEM) {
 	    rb_gc();
 	    fd = dup(orig);
 	}
@@ -388,13 +419,38 @@ rb_io_wait_writable(f)
     }
 }
 
+#ifndef S_ISREG
+#   define S_ISREG(m) ((m & S_IFMT) == S_IFREG)
+#endif
+
+static int
+wsplit_p(OpenFile *fptr)
+{
+    FILE *f = GetWriteFile(fptr);
+    int r;
+    if (!(fptr->mode & FMODE_WSPLIT_INITIALIZED)) {
+        struct stat buf;
+        if (fstat(fileno(f), &buf) == 0 &&
+            !S_ISREG(buf.st_mode)
+#if defined(HAVE_FCNTL) && defined(F_GETFL) && defined(O_NONBLOCK)
+            && (r = fcntl(fileno(f), F_GETFL)) != -1 &&
+            !(r & O_NONBLOCK)
+#endif
+            ) {
+            fptr->mode |= FMODE_WSPLIT;
+        }
+        fptr->mode |= FMODE_WSPLIT_INITIALIZED;
+    }
+    return fptr->mode & FMODE_WSPLIT;
+}
+
 /* writing functions */
 static long
 io_fwrite(str, fptr)
     VALUE str;
     OpenFile *fptr;
 {
-    long len, n, r, offset = 0;
+    long len, n, r, l, offset = 0;
     FILE *f = GetWriteFile(fptr);
 
     len = RSTRING(str)->len;
@@ -405,7 +461,16 @@ io_fwrite(str, fptr)
 	    rb_io_check_closed(fptr);
 	}
       retry:
-	r = write(fileno(f), RSTRING(str)->ptr+offset, n);
+        l = n;
+        if (PIPE_BUF < l &&
+            !rb_thread_critical &&
+            !rb_thread_alone() &&
+            wsplit_p(fptr)) {
+            l = PIPE_BUF;
+        }
+        TRAP_BEG;
+	r = write(fileno(f), RSTRING(str)->ptr+offset, l);
+        TRAP_END;
         if (r == n) return len;
         if (0 <= r) {
             offset += r;
@@ -663,7 +728,7 @@ rb_io_seek_m(argc, argv, io)
 
 /*
  *  call-seq:
- *     ios.pos = integer    => 0
+ *     ios.pos = integer    => integer
  *  
  *  Seeks to the given position (in bytes) in <em>ios</em>.
  *     
@@ -723,13 +788,32 @@ rb_io_rewind(io)
  *  call-seq:
  *     ios.eof     => true or false
  *     ios.eof?    => true or false
- *  
- *  Returns true if <em>ios</em> is at end of file. The stream must be
- *  opened for reading or an <code>IOError</code> will be raised.
- *     
+ *
+ *  Returns true if <em>ios</em> is at end of file that means
+ *  there are no more data to read.
+ *  The stream must be opened for reading or an <code>IOError</code> will be
+ *  raised.
+ *
  *     f = File.new("testfile")
  *     dummy = f.readlines
  *     f.eof   #=> true
+ *
+ *  If <em>ios</em> is a stream such as pipe or socket, <code>IO#eof?</code>
+ *  blocks until the other end sends some data or closes it.
+ *
+ *     r, w = IO.pipe
+ *     Thread.new { sleep 1; w.close }
+ *     r.eof?  #=> true after 1 second blocking
+ *
+ *     r, w = IO.pipe
+ *     Thread.new { sleep 1; w.puts "a" }
+ *     r.eof?  #=> false after 1 second blocking
+ *
+ *     r, w = IO.pipe
+ *     r.eof?  # blocks forever
+ *
+ *  Note that <code>IO#eof?</code> reads data to a input buffer.
+ *  So <code>IO#sysread</code> doesn't work with <code>IO#eof?</code>.
  */
 
 VALUE
@@ -745,6 +829,7 @@ rb_io_eof(io)
     if (feof(fptr->f)) return Qtrue;
     if (READ_DATA_PENDING(fptr->f)) return Qfalse;
     READ_CHECK(fptr->f);
+    clearerr(fptr->f);
     TRAP_BEG;
     ch = getc(fptr->f);
     TRAP_END;
@@ -925,7 +1010,7 @@ rb_io_inspect(obj)
 	len += 9;
     }
     buf = ALLOCA_N(char, len);
-    sprintf(buf, "#<%s:%s%s>", cname, fptr->path, st);
+    snprintf(buf, len, "#<%s:%s%s>", cname, fptr->path, st);
     return rb_str_new2(buf);
 }
 
@@ -944,7 +1029,30 @@ rb_io_to_io(io)
 }
 
 /* reading functions */
-long
+static long
+read_buffered_data(ptr, len, f)
+    char *ptr;
+    long len;
+    FILE *f;
+{
+    long n;
+
+#ifdef READ_DATA_PENDING_COUNT
+    n = READ_DATA_PENDING_COUNT(f);
+    if (n <= 0) return 0;
+    if (n > len) n = len;
+    return fread(ptr, 1, n, f);
+#else
+    int c;
+
+    for (n = 0; n < len && READ_DATA_PENDING(f) && (c = getc(f)) != EOF; ++n) {
+	*ptr++ = c;
+    }
+    return n;
+#endif
+}
+
+static long
 io_fread(ptr, len, fptr)
     char *ptr;
     long len;
@@ -952,32 +1060,18 @@ io_fread(ptr, len, fptr)
 {
     long n = len;
     int c;
+    int saved_errno;
 
     while (n > 0) {
-#ifdef READ_DATA_PENDING_COUNT
-	long i = READ_DATA_PENDING_COUNT(fptr->f);
-	if (i <= 0) {
-	    rb_thread_wait_fd(fileno(fptr->f));	
-	    rb_io_check_closed(fptr);
-	    i = READ_DATA_PENDING_COUNT(fptr->f);
-	}
-	if (i > 0) {
-	    if (i > n) i = n;
-	    TRAP_BEG;
-	    c = fread(ptr, 1, i, fptr->f);
-	    TRAP_END;
-	    if (c < 0) goto eof;
-	    ptr += c;
-	    n -= c;
-	    if (c < i) goto eof;
-	    continue;
-	}
-#else
-	if (!READ_DATA_PENDING(fptr->f)) {
-	    rb_thread_wait_fd(fileno(fptr->f));
-	    rb_io_check_closed(fptr);
-	}
-#endif
+        c = read_buffered_data(ptr, n, fptr->f);
+        if (c < 0) goto eof;
+        if (c > 0) {
+            ptr += c;
+            if ((n -= c) <= 0) break;
+        }
+        rb_thread_wait_fd(fileno(fptr->f));
+        rb_io_check_closed(fptr);
+	clearerr(fptr->f);
 	TRAP_BEG;
 	c = getc(fptr->f);
 	TRAP_END;
@@ -998,6 +1092,9 @@ io_fread(ptr, len, fptr)
 		    if (len > n) {
 			clearerr(fptr->f);
 		    }
+                    saved_errno = errno;
+                    rb_warning("nonblocking IO#read is obsolete; use IO#readpartial or IO#sysread");
+                    errno = saved_errno;
 		}
 		if (len == n) return 0;
 	    }
@@ -1021,10 +1118,6 @@ rb_io_fread(ptr, len, f)
     of.f2 = NULL;
     return io_fread(ptr, len, &of);
 }
-
-#ifndef S_ISREG
-#   define S_ISREG(m) ((m & S_IFMT) == S_IFREG)
-#endif
 
 #define SMALLBUF 100
 
@@ -1092,16 +1185,264 @@ read_all(fptr, siz, str)
     return str;
 }
 
+void rb_io_set_nonblock(OpenFile *fptr)
+{
+    int flags;
+#ifdef F_GETFL
+    flags = fcntl(fileno(fptr->f), F_GETFL);
+    if (flags == -1) {
+        rb_sys_fail(fptr->path);
+    }
+#else
+    flags = 0;
+#endif
+    if ((flags & O_NONBLOCK) == 0) {
+        flags |= O_NONBLOCK;
+        if (fcntl(fileno(fptr->f), F_SETFL, flags) == -1) {
+            rb_sys_fail(fptr->path);
+        }
+    }
+    if (fptr->f2) {
+#ifdef F_GETFL
+        flags = fcntl(fileno(fptr->f2), F_GETFL);
+        if (flags == -1) {
+            rb_sys_fail(fptr->path);
+        }
+#else
+        flags = 0;
+#endif
+        if ((flags & O_NONBLOCK) == 0) {
+            flags |= O_NONBLOCK;
+            if (fcntl(fileno(fptr->f2), F_SETFL, flags) == -1) {
+                rb_sys_fail(fptr->path);
+            }
+        }
+    }
+}
+
+static VALUE
+io_getpartial(int argc, VALUE *argv, VALUE io, int nonblock)
+{
+    OpenFile *fptr;
+    VALUE length, str;
+    long n, len;
+
+    rb_scan_args(argc, argv, "11", &length, &str);
+
+    if ((len = NUM2LONG(length)) < 0) {
+        rb_raise(rb_eArgError, "negative length %ld given", len);
+    }
+
+    if (NIL_P(str)) {
+        str = rb_str_new(0, len);
+    }
+    else {
+        StringValue(str);
+        rb_str_modify(str);
+        rb_str_resize(str, len);
+    }
+    OBJ_TAINT(str);
+
+    GetOpenFile(io, fptr);
+    rb_io_check_readable(fptr);
+
+    if (len == 0)
+        return str;
+
+    if (!nonblock) {
+        READ_CHECK(fptr->f);
+    }
+    if (RSTRING(str)->len != len) {
+      modified:
+        rb_raise(rb_eRuntimeError, "buffer string modified");
+    }
+    n = read_buffered_data(RSTRING(str)->ptr, len, fptr->f);
+    if (n <= 0) {
+      again:
+        if (RSTRING(str)->len != len) goto modified;
+        if (nonblock) {
+            rb_io_set_nonblock(fptr);
+            n = read(fileno(fptr->f), RSTRING(str)->ptr, len);
+        }
+        else {
+            TRAP_BEG;
+            n = read(fileno(fptr->f), RSTRING(str)->ptr, len);
+            TRAP_END;
+        }
+        if (n < 0) {
+            if (!nonblock && rb_io_wait_readable(fileno(fptr->f)))
+                goto again;
+            rb_sys_fail(fptr->path);
+        }
+    }
+    rb_str_resize(str, n);
+
+    if (n == 0)
+        return Qnil;
+    else
+        return str;
+}
+
 /*
  *  call-seq:
- *     ios.read([integer [, buffer]])    => string, buffer, or nil
- *  
- *  Reads at most <i>integer</i> bytes from the I/O stream, or to the
- *  end of file if <i>integer</i> is omitted or is <code>nil</code>.
+ *     ios.readpartial(maxlen)              => string
+ *     ios.readpartial(maxlen, outbuf)      => outbuf
+ *
+ *  Reads at most <i>maxlen</i> bytes from the I/O stream.
+ *  It blocks only if <em>ios</em> has no data immediately available.
+ *  It doesn't block if some data available.
+ *  If the optional <i>outbuf</i> argument is present,
+ *  it must reference a String, which will receive the data.
+ *  It raises <code>EOFError</code> on end of file.
+ *
+ *  readpartial is designed for streams such as pipe, socket, tty, etc.
+ *  It blocks only when no data immediately available.
+ *  This means that it blocks only when following all conditions hold.
+ *  * the buffer in the IO object is empty.
+ *  * the content of the stream is empty.
+ *  * the stream is not reached to EOF.
+ *
+ *  When readpartial blocks, it waits data or EOF on the stream.
+ *  If some data is reached, readpartial returns with the data.
+ *  If EOF is reached, readpartial raises EOFError.
+ *
+ *  When readpartial doesn't blocks, it returns or raises immediately.
+ *  If the buffer is not empty, it returns the data in the buffer.
+ *  Otherwise if the stream has some content,
+ *  it returns the data in the stream. 
+ *  Otherwise if the stream is reached to EOF, it raises EOFError.
+ *
+ *     r, w = IO.pipe           #               buffer          pipe content
+ *     w << "abc"               #               ""              "abc".
+ *     r.readpartial(4096)      #=> "abc"       ""              ""
+ *     r.readpartial(4096)      # blocks because buffer and pipe is empty.
+ *
+ *     r, w = IO.pipe           #               buffer          pipe content
+ *     w << "abc"               #               ""              "abc"
+ *     w.close                  #               ""              "abc" EOF
+ *     r.readpartial(4096)      #=> "abc"       ""              EOF
+ *     r.readpartial(4096)      # raises EOFError
+ *
+ *     r, w = IO.pipe           #               buffer          pipe content
+ *     w << "abc\ndef\n"        #               ""              "abc\ndef\n"
+ *     r.gets                   #=> "abc\n"     "def\n"         ""
+ *     w << "ghi\n"             #               "def\n"         "ghi\n"
+ *     r.readpartial(4096)      #=> "def\n"     ""              "ghi\n"
+ *     r.readpartial(4096)      #=> "ghi\n"     ""              ""
+ *
+ *  Note that readpartial behaves similar to sysread.
+ *  The differences are:
+ *  * If the buffer is not empty, read from the buffer instead of "sysread for buffered IO (IOError)".
+ *  * It doesn't cause Errno::EAGAIN and Errno::EINTR.  When readpartial meets EAGAIN and EINTR by read system call, readpartial retry the system call.
+ *
+ *  The later means that readpartial is nonblocking-flag insensitive.
+ *  It blocks on the situation IO#sysread causes Errno::EAGAIN as if the fd is blocking mode.
+ *
+ */
+
+static VALUE
+io_readpartial(int argc, VALUE *argv, VALUE io)
+{
+    VALUE ret;
+
+    ret = io_getpartial(argc, argv, io, 0);
+    if (NIL_P(ret))
+        rb_eof_error();
+    else
+        return ret;
+}
+
+/*
+ *  call-seq:
+ *     ios.read_nonblock(maxlen)              => string
+ *     ios.read_nonblock(maxlen, outbuf)      => outbuf
+ *
+ *  Reads at most <i>maxlen</i> bytes from <em>ios</em> using
+ *  read(2) system call after O_NONBLOCK is set for
+ *  the underlying file descriptor.
+ *
+ *  If the optional <i>outbuf</i> argument is present,
+ *  it must reference a String, which will receive the data.
+ *
+ *  read_nonblock just calls read(2).
+ *  It causes all errors read(2) causes: EAGAIN, EINTR, etc.
+ *  The caller should care such errors.
+ *
+ *  read_nonblock causes EOFError on EOF.
+ *
+ *  If the read buffer is not empty,
+ *  read_nonblock reads from the buffer like readpartial.
+ *  In this case, read(2) is not called.
+ *
+ */
+
+static VALUE
+io_read_nonblock(int argc, VALUE *argv, VALUE io)
+{
+    VALUE ret;
+
+    ret = io_getpartial(argc, argv, io, 1);
+    if (NIL_P(ret))
+        rb_eof_error();
+    else
+        return ret;
+}
+
+/*
+ *  call-seq:
+ *     ios.write_nonblock(string)   => integer
+ *
+ *  Writes the given string to <em>ios</em> using
+ *  write(2) system call after O_NONBLOCK is set for
+ *  the underlying file descriptor.
+ *
+ *  write_nonblock just calls write(2).
+ *  It causes all errors write(2) causes: EAGAIN, EINTR, etc.
+ *  The result may also be smaller than string.length (partial write).
+ *  The caller should care such errors and partial write.
+ *
+ */
+
+static VALUE
+rb_io_write_nonblock(VALUE io, VALUE str)
+{
+    OpenFile *fptr;
+    FILE *f;
+    long n;
+
+    rb_secure(4);
+    if (TYPE(str) != T_STRING)
+	str = rb_obj_as_string(str);
+
+    GetOpenFile(io, fptr);
+    rb_io_check_writable(fptr);
+
+    f = GetWriteFile(fptr);
+
+    rb_io_set_nonblock(fptr);
+    n = write(fileno(f), RSTRING(str)->ptr, RSTRING(str)->len);
+
+    if (n == -1) rb_sys_fail(fptr->path);
+
+    return LONG2FIX(n);
+}
+
+/*
+ *  call-seq:
+ *     ios.read([length [, buffer]])    => string, buffer, or nil
+ *
+ *  Reads at most <i>length</i> bytes from the I/O stream, or to the
+ *  end of file if <i>length</i> is omitted or is <code>nil</code>.
+ *  <i>length</i> must be a non-negative integer or nil.
  *  If the optional <i>buffer</i> argument is present, it must reference
- *  a String, which will receive the data. Returns <code>nil</code>
- *  if called at end of file.
- *     
+ *  a String, which will receive the data.
+ *
+ *  At end of file, it returns <code>nil</code> or <code>""</code>
+ *  depend on <i>length</i>.
+ *  <code><i>ios</i>.read()</code> and
+ *  <code><i>ios</i>.read(nil)</code> returns <code>""</code>.
+ *  <code><i>ios</i>.read(<i>positive-integer</i>)</code> returns nil.
+ *
  *     f = File.new("testfile")
  *     f.read(16)   #=> "This is line one"
  */
@@ -1220,6 +1561,7 @@ appendline(fptr, delim, strp)
 #else
 	READ_CHECK(f);
 #endif
+	clearerr(f);
 	TRAP_BEG;
 	c = getc(f);
 	TRAP_END;
@@ -1297,6 +1639,7 @@ swallow(fptr, term)
 #else
 	READ_CHECK(f);
 #endif
+	clearerr(f);
 	TRAP_BEG;
 	c = getc(f);
 	TRAP_END;
@@ -1559,7 +1902,7 @@ rb_io_readline(argc, argv, io)
  *  
  *  Reads all of the lines in <em>ios</em>, and returns them in
  *  <i>anArray</i>. Lines are separated by the optional
- *  <i>sep_string</i>. If <i>set_string</i> is <code>nil</code>, the
+ *  <i>sep_string</i>. If <i>sep_string</i> is <code>nil</code>, the
  *  rest of the stream is returned as a single record.
  *  The stream must be opened for reading or an
  *  <code>IOError</code> will be raised.
@@ -1661,6 +2004,7 @@ rb_io_each_byte(io)
 	rb_io_check_readable(fptr);
 	f = fptr->f;
 	READ_CHECK(f);
+	clearerr(f);
 	TRAP_BEG;
 	c = getc(f);
 	TRAP_END;
@@ -1705,6 +2049,7 @@ rb_io_getc(io)
 
   retry:
     READ_CHECK(f);
+    clearerr(f);
     TRAP_BEG;
     c = getc(f);
     TRAP_END;
@@ -1730,6 +2075,7 @@ rb_getc(f)
     if (!READ_DATA_PENDING(f)) {
 	rb_thread_wait_fd(fileno(f));
     }
+    clearerr(f);
     TRAP_BEG;
     c = getc(f);
     TRAP_END;
@@ -1925,6 +2271,9 @@ rb_io_close(io)
  *  an <code>IOError</code> is raised if such an attempt is made. I/O
  *  streams are automatically closed when they are claimed by the
  *  garbage collector.
+ *
+ *  If <em>ios</em> is opened by <code>IO.popen</code>,
+ *  <code>close</code> sets <code>$?</code>.
  */
 
 static VALUE
@@ -1940,10 +2289,17 @@ rb_io_close_m(io)
 }
 
 static VALUE
-io_close(io)
+io_call_close(io)
     VALUE io;
 {
     return rb_funcall(io, rb_intern("close"), 0, 0);
+}
+
+static VALUE
+io_close(io)
+    VALUE io;
+{
+    return rb_rescue(io_call_close, io, 0, 0);
 }
 
 /*
@@ -2107,7 +2463,7 @@ rb_io_sysseek(argc, argv, io)
 
 /*
  *  call-seq:
- *     ios.syswrite(string )   => integer
+ *     ios.syswrite(string)   => integer
  *  
  *  Writes the given string to <em>ios</em> using a low-level write.
  *  Returns the number of bytes written. Do not mix with other methods
@@ -2140,7 +2496,9 @@ rb_io_syswrite(io, str)
     if (!rb_thread_fd_writable(fileno(f))) {
         rb_io_check_closed(fptr);
     }
+    TRAP_BEG;
     n = write(fileno(f), RSTRING(str)->ptr, RSTRING(str)->len);
+    TRAP_END;
 
     if (n == -1) rb_sys_fail(fptr->path);
 
@@ -2277,7 +2635,7 @@ rb_io_flags_mode(flags)
 	}
 	return MODE_BINMODE("r+", "rb+");
     }
-    rb_raise(rb_eArgError, "illegal access mode %o", flags);
+    rb_raise(rb_eArgError, "illegal access modenum %o", flags);
     return NULL;		/* not reached */
 }
 
@@ -2668,11 +3026,29 @@ pipe_open(pstr, pname, mode)
 {
     int modef = rb_io_mode_flags(mode);
     OpenFile *fptr;
-
 #if defined(DJGPP) || defined(__human68k__) || defined(__VMS)
     FILE *f;
+#else
+    int pid;
+#ifdef _WIN32
+    FILE *fpr, *fpw;
+#else
+    int pr[2], pw[2];
+#endif
+#endif
+    volatile int doexec;
 
-    if (!pname) pname = StringValuePtr(pstr);
+    if (!pname) pname = StringValueCStr(pstr);
+    doexec = (strcmp("-", pname) != 0);
+
+#if defined(DJGPP) || defined(__human68k__) || defined(__VMS) || defined(_WIN32)
+    if (!doexec) {
+	rb_raise(rb_eNotImpError,
+		 "fork() function is unimplemented on this machine");
+    }
+#endif
+
+#if defined(DJGPP) || defined(__human68k__) || defined(__VMS)
     f = popen(pname, mode);
     
     if (!f) rb_sys_fail(pname);
@@ -2694,11 +3070,6 @@ pipe_open(pstr, pname, mode)
     }
 #else
 #ifdef _WIN32
-    int pid;
-    FILE *fpr, *fpw;
-
-    if (!pname) pname = StringValuePtr(pstr);
-
 retry:
     pid = pipe_exec(pname, rb_io_mode_modenum(mode), &fpr, &fpw);
     if (pid == -1) {		/* exec failed */
@@ -2728,16 +3099,10 @@ retry:
 	return (VALUE)port;
     }
 #else
-    int pid, pr[2], pw[2];
-    volatile int doexec;
-
-    if (!pname) pname = StringValuePtr(pstr);
-
     if (((modef & FMODE_READABLE) && pipe(pr) == -1) ||
 	((modef & FMODE_WRITABLE) && pipe(pw) == -1))
 	rb_sys_fail(pname);
 
-    doexec = (strcmp("-", pname) != 0);
     if (!doexec) {
 	fflush(stdin);		/* is it really needed? */
 	fflush(stdout);
@@ -2781,8 +3146,19 @@ retry:
 	    rb_thread_sleep(1);
 	    goto retry;
 	}
-	close(pr[0]); close(pw[1]);
-	rb_sys_fail(pname);
+	else {
+	    int e = errno;
+	    if ((modef & FMODE_READABLE)) {
+		close(pr[0]);
+		close(pr[1]);
+	    }
+	    if ((modef & FMODE_WRITABLE)) {
+		close(pw[0]);
+		close(pw[1]);
+	    }
+	    errno = e;
+	    rb_sys_fail(pname);
+	}
 	break;
 
       default:			/* parent */
@@ -2832,7 +3208,9 @@ retry:
  *     
  *  If a block is given, Ruby will run the command as a child connected
  *  to Ruby with a pipe. Ruby's end of the pipe will be passed as a
- *  parameter to the block. In this case <code>IO::popen</code> returns
+ *  parameter to the block.
+ *  At the end of block, Ruby close the pipe and sets <code>$?</code>.
+ *  In this case <code>IO::popen</code> returns
  *  the value of the block.
  *     
  *  If a block is given with a <i>cmd_string</i> of ``<code>-</code>'',
@@ -2848,6 +3226,7 @@ retry:
  *     puts "Parent is #{Process.pid}"
  *     IO.popen ("date") { |f| puts f.gets }
  *     IO.popen("-") {|f| $stderr.puts "#{Process.pid} is here, f is #{f}"}
+ *     p $?
  *     
  *  <em>produces:</em>
  *     
@@ -2856,6 +3235,7 @@ retry:
  *     Wed Apr  9 08:53:52 CDT 2003
  *     26169 is here, f is
  *     26166 is here, f is #<IO:0x401b3d44>
+ *     #<Process::Status: pid=26166,exited(0)>
  */
 
 static VALUE
@@ -2996,7 +3376,7 @@ rb_io_s_sysopen(argc, argv)
 /*
  *  call-seq:
  *     open(path [, mode [, perm]] )                => io or nil
- *     open(path [, mode [. perm]] ) {|io| block }  => nil
+ *     open(path [, mode [, perm]] ) {|io| block }  => obj
  *  
  *  Creates an <code>IO</code> object connected to the given stream,
  *  file, or subprocess.
@@ -3009,8 +3389,8 @@ rb_io_s_sysopen(argc, argv)
  *     
  *  If a block is specified, it will be invoked with the
  *  <code>File</code> object as a parameter, and the file will be
- *  automatically closed when the block terminates. The call always
- *  returns <code>nil</code> in this case.
+ *  automatically closed when the block terminates. The call
+ *  returns the value of the block.
  *     
  *  If <i>path</i> starts with a pipe character, a subprocess is
  *  created, connected to the caller by a pair of pipes. The returned
@@ -3311,6 +3691,7 @@ rb_io_reopen(argc, argv, file)
     return file;
 }
 
+/* :nodoc: */
 static VALUE
 rb_io_init_copy(dest, io)
     VALUE dest, io;
@@ -3427,7 +3808,7 @@ rb_f_printf(argc, argv)
  *     ios.print(obj, ...)     => nil
  *  
  *  Writes the given object(s) to <em>ios</em>. The stream must be
- *  opened for writing. If the output record separator (<code>$\</code>)
+ *  opened for writing. If the output record separator (<code>$\\</code>)
  *  is not <code>nil</code>, it will be appended to the output. If no
  *  arguments are given, prints <code>$_</code>. Objects that aren't
  *  strings will be converted by calling their <code>to_s</code> method.
@@ -3483,7 +3864,7 @@ rb_io_print(argc, argv, out)
  *  Prints each object in turn to <code>$stdout</code>. If the output
  *  field separator (<code>$,</code>) is not +nil+, its
  *  contents will appear between each field. If the output record
- *  separator (<code>$\</code>) is not +nil+, it will be
+ *  separator (<code>$\\</code>) is not +nil+, it will be
  *  appended to the output. If no arguments are given, prints
  *  <code>$_</code>. Objects that aren't strings will be converted by
  *  calling their <code>to_s</code> method.
@@ -3655,8 +4036,7 @@ rb_p(obj)			/* for debug print within C code */
  *  
  *  For each object, directly writes
  *  _obj_.+inspect+ followed by the current output
- *  record separator to the program's standard output. +p+
- *  bypasses the Ruby I/O libraries.
+ *  record separator to the program's standard output.
  *     
  *     S = Struct.new(:name, :state)
  *     s = S['dave', 'TX']
@@ -3968,16 +4348,18 @@ rb_io_s_for_fd(argc, argv, klass)
 static int binmode = 0;
 
 static VALUE
-argf_forward()
+argf_forward(int argc, VALUE *argv)
 {
-    return rb_funcall3(current_file, ruby_frame->last_func,
-		       ruby_frame->argc, ruby_frame->argv);
+    return rb_funcall3(current_file, ruby_frame->last_func, argc, argv);
 }
 
-#define ARGF_FORWARD() do { if (TYPE(current_file) != T_FILE) return argf_forward(); } while (0)
-#define NEXT_ARGF_FORWARD() do {\
+#define ARGF_FORWARD(argc, argv) do {\
+  if (TYPE(current_file) != T_FILE)\
+     return argf_forward(argc, argv);\
+} while (0)
+#define NEXT_ARGF_FORWARD(argc, argv) do {\
      if (!next_argv()) return Qnil;\
-      ARGF_FORWARD();\
+     ARGF_FORWARD(argc, argv);\
 } while (0)
 
 static void
@@ -4221,7 +4603,7 @@ rb_gets()
 
 /*
  *  call-seq:
- *     readline(separator=$/    => string
+ *     readline(separator=$/)   => string
  *  
  *  Equivalent to <code>Kernel::gets</code>, except
  *  +readline+ raises +EOFError+ at end of file.
@@ -4235,7 +4617,7 @@ rb_f_readline(argc, argv)
     VALUE line;
 
     if (!next_argv()) rb_eof_error();
-    ARGF_FORWARD();
+    ARGF_FORWARD(argc, argv);
     line = rb_f_gets(argc, argv);
     if (NIL_P(line)) {
 	rb_eof_error();
@@ -4263,7 +4645,7 @@ rb_f_getc()
  *     readlines(separator=$/)    => array
  *  
  *  Returns an array containing the lines returned by calling
- *  <code>Kernel.gets(<i>aString</i>)</code> until the end of file.
+ *  <code>Kernel.gets(<i>separator</i>)</code> until the end of file.
  */
 
 static VALUE
@@ -4273,7 +4655,7 @@ rb_f_readlines(argc, argv)
 {
     VALUE line, ary;
 
-    NEXT_ARGF_FORWARD();
+    NEXT_ARGF_FORWARD(argc, argv);
     ary = rb_ary_new();
     while (!NIL_P(line = argf_getline(argc, argv))) {
 	rb_ary_push(ary, line);
@@ -4300,7 +4682,8 @@ static VALUE
 rb_f_backquote(obj, str)
     VALUE obj, str;
 {
-    VALUE port, result;
+    volatile VALUE port;
+    VALUE result;
     OpenFile *fptr;
 
     SafeStringValue(str);
@@ -4558,6 +4941,16 @@ rb_io_ctl(io, req, arg, io_p)
 	io_cntl(fileno(fptr->f2), cmd, narg, io_p);
     }
 
+    if (!io_p && cmd == F_SETFL) {
+      if (narg & O_NONBLOCK) {
+        fptr->mode |= FMODE_WSPLIT_INITIALIZED;
+        fptr->mode &= ~FMODE_WSPLIT;
+      }
+      else {
+        fptr->mode &= ~(FMODE_WSPLIT_INITIALIZED|FMODE_WSPLIT);
+      }
+    }
+
     return INT2NUM(retval);
 #else
     rb_notimplement();
@@ -4661,6 +5054,8 @@ rb_f_syscall(argc, argv)
     rb_secure(2);
     if (argc == 0)
 	rb_raise(rb_eArgError, "too few arguments for syscall");
+    if (argc > sizeof(arg) / sizeof(arg[0]))
+	rb_raise(rb_eArgError, "too many arguments for syscall");
     arg[0] = NUM2LONG(argv[0]); argv++;
     while (items--) {
 	VALUE v = rb_check_string_type(*argv);
@@ -4929,7 +5324,7 @@ io_s_read(arg)
 
 /*
  *  call-seq:
- *     IO.read(rane, [length [, offset]] )   => string
+ *     IO.read(name, [length [, offset]] )   => string
  *  
  *  Opens the file, optionally seeks to the given offset, then returns
  *  <i>length</i> bytes (defaulting to the rest of the file).
@@ -4967,7 +5362,7 @@ argf_tell()
     if (!next_argv()) {
 	rb_raise(rb_eArgError, "no stream to tell");
     }
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     return rb_io_tell(current_file);
 }
 
@@ -4980,7 +5375,7 @@ argf_seek_m(argc, argv, self)
     if (!next_argv()) {
 	rb_raise(rb_eArgError, "no stream to seek");
     }
-    ARGF_FORWARD();
+    ARGF_FORWARD(argc, argv);
     return rb_io_seek_m(argc, argv, current_file);
 }
 
@@ -4991,7 +5386,7 @@ argf_set_pos(self, offset)
     if (!next_argv()) {
 	rb_raise(rb_eArgError, "no stream to set position");
     }
-    ARGF_FORWARD();
+    ARGF_FORWARD(1, &offset);
     return rb_io_set_pos(current_file, offset);
 }
 
@@ -5001,7 +5396,7 @@ argf_rewind()
     if (!next_argv()) {
 	rb_raise(rb_eArgError, "no stream to rewind");
     }
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     return rb_io_rewind(current_file);
 }
 
@@ -5011,7 +5406,7 @@ argf_fileno()
     if (!next_argv()) {
 	rb_raise(rb_eArgError, "no stream");
     }
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     return rb_io_fileno(current_file);
 }
 
@@ -5019,7 +5414,7 @@ static VALUE
 argf_to_io()
 {
     next_argv();
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     return current_file;
 }
 
@@ -5028,7 +5423,7 @@ argf_eof()
 {
     if (current_file) {
 	if (init_p == 0) return Qtrue;
-	ARGF_FORWARD();
+	ARGF_FORWARD(0, 0);
 	if (rb_io_eof(current_file)) {
 	    return Qtrue;
 	}
@@ -5059,7 +5454,7 @@ argf_read(argc, argv)
 	return str;
     }
     if (TYPE(current_file) != T_FILE) {
-	tmp = argf_forward();
+	tmp = argf_forward(argc, argv);
     }
     else {
 	tmp = io_read(argc, argv, current_file);
@@ -5110,7 +5505,7 @@ argf_readchar()
 {
     VALUE c;
 
-    NEXT_ARGF_FORWARD();
+    NEXT_ARGF_FORWARD(0, 0);
     c = argf_getc();
     if (NIL_P(c)) {
 	rb_eof_error();
@@ -5169,7 +5564,7 @@ argf_binmode()
 {
     binmode = 1;
     next_argv();
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     rb_io_binmode(current_file);
     return argf;
 }
@@ -5200,7 +5595,7 @@ static VALUE
 argf_closed()
 {
     next_argv();
-    ARGF_FORWARD();
+    ARGF_FORWARD(0, 0);
     return rb_io_closed(current_file);
 }
 
@@ -5370,9 +5765,9 @@ Init_IO()
     rb_output_fs = Qnil;
     rb_define_hooked_variable("$,", &rb_output_fs, 0, rb_str_setter);
 
+    rb_global_variable(&rb_default_rs);
     rb_rs = rb_default_rs = rb_str_new2("\n");
     rb_output_rs = Qnil;
-    rb_global_variable(&rb_default_rs);
     OBJ_FREEZE(rb_default_rs);	/* avoid modifying RS_default */
     rb_define_hooked_variable("$/", &rb_rs, 0, rb_str_setter);
     rb_define_hooked_variable("$-0", &rb_rs, 0, rb_str_setter);
@@ -5409,6 +5804,9 @@ Init_IO()
 
     rb_define_method(rb_cIO, "readlines",  rb_io_readlines, -1);
 
+    rb_define_method(rb_cIO, "read_nonblock",  io_read_nonblock, -1);
+    rb_define_method(rb_cIO, "write_nonblock", rb_io_write_nonblock, 1);
+    rb_define_method(rb_cIO, "readpartial",  io_readpartial, -1);
     rb_define_method(rb_cIO, "read",  io_read, -1);
     rb_define_method(rb_cIO, "write", io_write, 1);
     rb_define_method(rb_cIO, "gets",  rb_io_gets_m, -1);
@@ -5444,12 +5842,12 @@ Init_IO()
     rb_define_method(rb_cIO, "pid", rb_io_pid, 0);
     rb_define_method(rb_cIO, "inspect",  rb_io_inspect, 0);
 
-    rb_stdin = prep_stdio(stdin, FMODE_READABLE, rb_cIO);
     rb_define_variable("$stdin", &rb_stdin);
-    rb_stdout = prep_stdio(stdout, FMODE_WRITABLE, rb_cIO);
+    rb_stdin = prep_stdio(stdin, FMODE_READABLE, rb_cIO);
     rb_define_hooked_variable("$stdout", &rb_stdout, 0, stdout_setter);
-    rb_stderr = prep_stdio(stderr, FMODE_WRITABLE, rb_cIO);
+    rb_stdout = prep_stdio(stdout, FMODE_WRITABLE, rb_cIO);
     rb_define_hooked_variable("$stderr", &rb_stderr, 0, stdout_setter);
+    rb_stderr = prep_stdio(stderr, FMODE_WRITABLE, rb_cIO);
     rb_define_hooked_variable("$>", &rb_stdout, 0, stdout_setter);
     orig_stdout = rb_stdout;
     rb_deferr = orig_stderr = rb_stderr;
@@ -5463,10 +5861,9 @@ Init_IO()
     rb_define_global_const("STDOUT", rb_stdout);
     rb_define_global_const("STDERR", rb_stderr);
 
+    rb_define_readonly_variable("$<", &argf);
     argf = rb_obj_alloc(rb_cObject);
     rb_extend_object(argf, rb_mEnumerable);
-
-    rb_define_readonly_variable("$<", &argf);
     rb_define_global_const("ARGF", argf);
 
     rb_define_singleton_method(argf, "to_s", argf_to_s, 0);
@@ -5505,8 +5902,8 @@ Init_IO()
     rb_define_singleton_method(argf, "lineno=",  argf_set_lineno, 1);
 
     rb_global_variable(&current_file);
-    filename = rb_str_new2("-");
     rb_define_readonly_variable("$FILENAME", &filename);
+    filename = rb_str_new2("-");
 
     rb_define_virtual_variable("$-i", opt_i_get, opt_i_set);
 

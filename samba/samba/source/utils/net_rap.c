@@ -112,7 +112,7 @@ static int rap_file_user(int argc, const char **argv)
 	if (argc == 0)
 		return net_rap_file_usage(argc, argv);
 
-	d_printf("net rap file user not implemented yet\n");
+	d_fprintf(stderr, "net rap file user not implemented yet\n");
 	return -1;
 }
 
@@ -200,6 +200,10 @@ static int rap_share_add(int argc, const char **argv)
 
 	sharename = SMB_STRDUP(argv[0]);
 	p = strchr(sharename, '=');
+	if (p == NULL) {
+		d_printf("Server path not specified\n");
+		return net_rap_share_usage(argc, argv);
+	}
 	*p = 0;
 	strlcpy(sinfo.share_name, sharename, sizeof(sinfo.share_name));
 	sinfo.reserved1 = '\0';
@@ -403,12 +407,44 @@ int net_rap_server_usage(int argc, const char **argv)
 	net_common_flags_usage(argc, argv);
 	return -1;
 }
+
+static int net_rap_server_name(int argc, const char *argv[])
+{
+	struct cli_state *cli;
+	char *name;
+
+	if (!(cli = net_make_ipc_connection(0))) 
+                return -1;
+
+	if (!cli_get_server_name(NULL, cli, &name)) {
+		d_fprintf(stderr, "cli_get_server_name failed\n");
+		cli_shutdown(cli);
+		return -1;
+	}
+
+	d_printf("Server name = %s\n", name);
+
+	TALLOC_FREE(name);
+	cli_shutdown(cli);
+	return 0;
+}
 		    
 int net_rap_server(int argc, const char **argv)
 {
 	struct cli_state *cli;
 	int ret;
-	
+
+	if (argc > 0) {
+		if (strequal(argv[0], "name")) {
+			return net_rap_server_name(argc, argv);
+		}
+		/* smb4k uses 'net [rap|rpc] server domain' to query servers in a domain */
+		/* Fall through for 'domain', any other forms will cause to show usage message */
+		if (!strequal(argv[0], "domain")) {
+			return net_rap_server_usage(argc-1, argv+1);
+		}
+	}
+
 	if (!(cli = net_make_ipc_connection(0))) 
                 return -1;
 
@@ -589,9 +625,7 @@ static int net_rap_user_usage(int argc, const char **argv)
 	return net_help_user(argc, argv);
 } 
 	
-static void user_fn(const char *user_name, const char *comment,
-		    const char * home_dir, const char * logon_script,
-		    void *state)
+static void user_fn(const char *user_name, void *state)
 {
 	d_printf("%-21.21s\n", user_name);
 }
@@ -696,7 +730,7 @@ int net_rap_user(int argc, const char **argv)
 			cli_shutdown(cli);
 			goto done;
 		}
-		ret = cli_RNetUserEnum(cli, user_fn, NULL); 
+		ret = cli_RNetUserEnum0(cli, user_fn, NULL); 
 		cli_shutdown(cli);
 		goto done;
 	}
@@ -721,7 +755,7 @@ static void long_group_fn(const char *group_name, const char *comment,
 	d_printf("%-21.21s %s\n", group_name, comment);
 }
 
-static void group_fn(const char *group_name, const char *comment, void *state)
+static void group_fn(const char *group_name, void *state)
 {
 	d_printf("%-21.21s\n", group_name);
 }
@@ -787,7 +821,7 @@ int net_rap_group(int argc, const char **argv)
 			cli_shutdown(cli);
 			return ret;
 		}
-		ret = cli_RNetGroupEnum(cli, group_fn, NULL); 
+		ret = cli_RNetGroupEnum0(cli, group_fn, NULL); 
 		cli_shutdown(cli);
 		return ret;
 	}
@@ -912,6 +946,12 @@ static int rap_service_stop(int argc, const char **argv)
 	return errmsg_not_implemented();
 }
 
+static void service_fn(const char *service_name, const char *dummy,
+		       void *state)
+{
+	d_printf("%-21.21s\n", service_name);
+}
+
 int net_rap_service(int argc, const char **argv)
 {
 	struct functable func[] = {
@@ -931,7 +971,7 @@ int net_rap_service(int argc, const char **argv)
 			d_printf("-----------------------------\n");
 			ret = cli_RNetServiceEnum(cli, long_group_fn, NULL);
 		}
-		ret = cli_RNetServiceEnum(cli, group_fn, NULL); 
+		ret = cli_RNetServiceEnum(cli, service_fn, NULL); 
 		cli_shutdown(cli);
 		return ret;
 	}

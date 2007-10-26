@@ -1,4 +1,25 @@
-/* s- file for Interactive (ISC) Unix version 3.0 on the 386.  */
+/* s- file for Interactive (ISC) Unix version 3.0 on the 386.
+
+Copyright (C) 1999, 2001, 2002, 2003, 2004, 2005, 2006,
+  2007  Free Software Foundation, Inc.
+
+This file is part of GNU Emacs.
+
+GNU Emacs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
+
+GNU Emacs is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Emacs; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.  */
+
 
 #include "isc2-2.h"
 
@@ -44,3 +65,6 @@
    It won't be needed for 4.1.  */
 #define EXTRA_INITIALIZE __setostype (0)
 #endif
+
+/* arch-tag: c1aca3f2-813d-4c1c-ad64-ca6c20ec9bfb
+   (do not change this comment) */

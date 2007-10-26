@@ -213,6 +213,9 @@ Objects are unordered.
 \f5Dtset\fP keeps unique objects.
 \f5Dtbag\fP allows repeatable objects and always keeps them together
 (note the effect on dictionary walking.)
+These methods use a hash table with chaining to manage the objects.
+See also the event \f5DT_HASHSIZE\fP below on how to manage hash table
+resizing when objects are inserted.
 .PP
 .Ss "  Dtlist"
 Objects are kept in a list.
@@ -303,12 +306,13 @@ so that it can be used to initialize other dictionaries (see below.)
 .PP
 .Ss "  int (*eventf)(Dt_t* dt, int type, Void_t* data, Dtdisc_t* disc)"
 If not \f5NULL\fP, \f5eventf\fP announces various events.
-If it returns a negative value, the calling operation will terminate with failure.
-Unless noted otherwise, a non-negative return value let the
-calling function proceed normally. Following are the events:
+Each event may have particular handling of the return values from \f5eventf\fP.
+But a negative return value typically means failure.
+Following are the events:
 .Tp
 \f5DT_OPEN\fP:
 \f5dt\fP is being opened.
+If \f5eventf\fP returns negative, the opening process terminates with failure.
 If \f5eventf\fP returns zero, the opening process proceeds normally.
 A positive return value indicates special treatment of memory as follows.
 If \f5*(Void_t**)data\fP is set to point to some memory segment
@@ -344,6 +348,17 @@ The discipline of \f5dt\fP is being changed to a new one given in
 \f5DT_METH\fP:
 The method of \f5dt\fP is being changed to a new one given in
 \f5(Dtmethod_t*)data\fP.
+.Tp
+\f5DT_HASHSIZE\fP:
+The hash table (for \f5Dtset\fP and \f5Dtbag\fP) is being resized.
+In this case, \f5*(int*)data\fP has the current size of the table.
+The application can set the new table size by first changing
+\f5*(int*)data\fP to the desired size, then return a positive value.
+The application can also fix the table size at the current value
+forever by setting \f5*(int*)data\fP to a negative value, then
+again return a positive value. A non-positive return value from
+the event handling function means that Cdt will be responsible
+for choosing the hash table size.
 .PP
 .Ss "#define DTOFFSET(struct_s,member)"
 This macro function computes the offset of \f5member\fP from the start

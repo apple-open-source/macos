@@ -1,7 +1,6 @@
+dnl $Id: arx.m4,v 1.4 2006/01/20 20:21:08 snsimon Exp $
 
-
-AC_DEFUN(CMU_ARX_INC_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_ARX_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS
 CPPFLAGS="$saved_CPPFLAGS -I$1"
 AC_TRY_COMPILE([#include <arx.h>],
@@ -11,7 +10,7 @@ ac_cv_found_arx_inc=no)
 CPPFLAGS=$saved_CPPFLAGS
 ])
 
-AC_DEFUN(CMU_ARX_INC_WHERE, [
+AC_DEFUN([CMU_ARX_INC_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for arx headers in $i)
       CMU_ARX_INC_WHERE1($i)
@@ -30,8 +29,7 @@ AC_DEFUN(CMU_ARX_INC_WHERE, [
 # Test for lib files
 #
 
-AC_DEFUN(CMU_ARX_LIB_WHERE1, [
-AC_REQUIRE([AC_PROG_CC_GNU])
+AC_DEFUN([CMU_ARX_LIB_WHERE1], [
 AC_REQUIRE([CMU_AFS])
 AC_REQUIRE([CMU_KRB4])
 saved_LIBS=$LIBS
@@ -43,7 +41,7 @@ ac_cv_found_arx_lib=no)
 LIBS=$saved_LIBS
 ])
 
-AC_DEFUN(CMU_ARX_LIB_WHERE, [
+AC_DEFUN([CMU_ARX_LIB_WHERE], [
    for i in $1; do
       AC_MSG_CHECKING(for arx libraries in $i)
       CMU_ARX_LIB_WHERE1($i)
@@ -58,7 +56,8 @@ AC_DEFUN(CMU_ARX_LIB_WHERE, [
     done
 ])
 
-AC_DEFUN(CMU_USE_ARX, [
+AC_DEFUN([CMU_USE_ARX], [
+AC_REQUIRE([CMU_FIND_LIB_SUBDIR])
 AC_ARG_WITH(arx,
 	[  --with-arx=PREFIX      Compile with arx support],
 	[if test "X$with_arx" = "X"; then
@@ -77,7 +76,7 @@ AC_ARG_WITH(arx-include,
 
 	if test "X$with_arx" != "X"; then
 	  if test "$with_arx" != "yes"; then
-	    ac_cv_arx_where_lib=$with_arx/lib
+	    ac_cv_arx_where_lib=$with_arx/${CMU_LIB_SUBDIR}
 	    ac_cv_arx_where_inc=$with_arx/include
 	  fi
 	fi
@@ -86,7 +85,7 @@ AC_ARG_WITH(arx-include,
 	  ac_cv_arx_where_lib=$with_arx_lib
 	fi
 	if test "X$ac_cv_arx_where_lib" = "X"; then
-	  CMU_ARX_LIB_WHERE(/usr/athena/lib /usr/local/lib /usr/lib)
+	  CMU_ARX_LIB_WHERE(/usr/athena/${CMU_LIB_SUBDIR} /usr/local/${CMU_LIB_SUBDIR} /usr/${CMU_LIB_SUBDIR})
 	fi
 
 	if test "X$with_arx_include" != "X"; then

@@ -306,6 +306,11 @@ Wimport
 C ObjC C++ ObjC++
 Deprecated.  This switch has no effect.
 
+;APPLE LOCAL begin mainline 2883585 2005-04-20
+Wint-to-pointer-cast
+C ObjC Var(warn_int_to_pointer_cast) Init(1)
+Warn when there is a cast to a pointer from an integer of a different size
+;APPLE LOCAL end mainline 2883585 2005-04-20
 Winvalid-offsetof
 C++ ObjC++ Var(warn_invalid_offsetof) Init(1)
 Warn about invalid uses of the \"offsetof\" macro
@@ -420,6 +425,11 @@ Wpointer-arith
 C ObjC C++ ObjC++ Var(warn_pointer_arith)
 Warn about function pointer arithmetic
 
+;APPLE LOCAL begin mainline 2883585 2005-04-20
+Wpointer-to-int-cast
+C ObjC Var(warn_pointer_to_int_cast) Init(1)
+Warn when a pointer is cast to an integer of a different size
+;APPLE LOCAL end mainline 2883585 2005-04-20
 Wprotocol
 ObjC ObjC++ Var(warn_protocol) Init(1)
 Warn if inherited methods are unimplemented
@@ -702,6 +712,12 @@ C++ ObjC++ Joined
 fnew-abi
 C++ ObjC++
 
+; APPLE LOCAL begin nested functions 4258406 4357979
+fnested-functions
+C ObjC Var(flag_nested_functions)
+Allow nested functions.
+; APPLE LOCAL end nested functions 4258406 4357979
+
 fnext-runtime
 ObjC ObjC++
 Generate code for NeXT (Apple Mac OS X) runtime environment
@@ -722,21 +738,47 @@ C++ ObjC++
 fnonnull-objects
 C++ ObjC++
 
+; APPLE LOCAL begin radar 4705250
+fobjc-atdefs
+ObjC ObjC++ Var(flag_objc_atdefs) Init(-1)
+Allow use of @defs
+; APPLE LOCAL end radar 4705250
+
 ; APPLE LOCAL begin mainline
 fobjc-call-cxx-cdtors
-ObjC++
+ObjC++ Var(flag_objc_call_cxx_cdtors) Init(-1)
 Generate special ObjC methods to initialize/destroy non-POD C++ ivars, if needed
 ; APPLE LOCAL end mainline
 
 ; APPLE LOCAL begin mainline
+; APPLE LOCAL begin radar 4590221
 fobjc-direct-dispatch
-ObjC ObjC++ Var(flag_objc_direct_dispatch)
+ObjC ObjC++ Var(flag_objc_direct_dispatch) Init(-1)
 Allow fast jumps (via comm page) to the message dispatcher
+; APPLE LOCAL end radar 4590221
 ; APPLE LOCAL end mainline
 
 fobjc-exceptions
 ObjC ObjC++
 Enable Objective-C exception and synchronization syntax
+
+; APPLE LOCAL begin radar 2848255
+fobjc-zerocost-exceptions
+ObjC ObjC++ Var(flag_objc_zerocost_exceptions) Init(0)
+Enable Objective-C zero-cost exception
+; APPLE LOCAL end radar 2848255
+
+; APPLE LOCAL begin objc new property - not for  merge to the FSF
+fobjc-new-property
+C C++ ObjC ObjC++ Var(flag_objc_new_property) Init(1)
+Enable Objective-C new property syntax and semantics
+; APPLE LOCAL end objc new property - not for  merge to the FSF
+
+; APPLE LOCAL begin radar 4810609
+fobjc-gc-only
+ObjC ObjC++ Var(flag_objc_gc_only)  Init(0)
+Program only supprts (GC) in ObjC/ObjC++ programs
+; APPLE LOCAL end radar 4810609
 
 ; APPLE LOCAL begin mainline
 fobjc-gc
@@ -848,9 +890,21 @@ fuse-cxa-atexit
 C++ ObjC++
 Use __cxa_atexit to register destructors
 
+; APPLE LOCAL begin mainline 2006-02-24 4086777
+fuse-cxa-get-exception-ptr
+C++ ObjC++
+Use __cxa_get_exception_ptr in exception handling
+
+; APPLE LOCAL end mainline 2006-02-24 4086777
 fvisibility-inlines-hidden
 C++ ObjC++
 Marks all inlined methods as having hidden visibility
+
+; APPLE LOCAL begin ms tinfo compat 4230099
+fvisibility-ms-compat
+C++ ObjC++ Var(flag_visibility_ms_compat)
+Changes visibility to match Microsoft Visual Studio by default
+; APPLE LOCAL end ms tinfo compat 4230099
 
 fvtable-gc
 C++ ObjC++
@@ -949,6 +1003,12 @@ C ObjC C++ ObjC++
 print-objc-runtime-info
 ObjC ObjC++
 Generate C header of platform-specific features
+
+; APPLE LOCAL begin radar 5082000
+print-objc-ivar-layout
+ObjC ObjC++
+Generate GC ivar layout information
+; APPLE LOCAL end radar 5082000
 
 ; APPLE LOCAL begin mainline 4.1 2005-06-17 3988498
 print-pch-checksum

@@ -1,3 +1,11 @@
+<testcase>
+<info>
+<keywords>
+HTTP
+HTTP GET
+cookies
+</keywords>
+</info>
 # Server-side
 <reply>
 <data>
@@ -38,9 +46,9 @@ HTTP, junk session cookies
 <protocol>
 GET /want/53 HTTP/1.1
 Host: 127.0.0.1:%HTTPPORT
-Pragma: no-cache
 Accept: */*
 Cookie: mooo=indeed
 
 </protocol>
 </verify>
+</testcase>

@@ -43,7 +43,8 @@ static char *abspath(const char *opath, char *absbuf);
 
 const char *progname;
 
-void main(int argc, const char * const *argv)
+int
+main(int argc, const char * const *argv)
 {
 	const char *arg;
 	const char *base_dir = NULL;

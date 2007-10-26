@@ -1,9 +1,11 @@
---- exit.c.orig	Wed Mar 10 14:20:34 2004
-+++ exit.c	Wed Mar 10 14:38:14 2004
-@@ -46,26 +46,12 @@
- void (*__cleanup)();
+--- exit.c.orig	2006-08-08 16:13:56.000000000 -0700
++++ exit.c	2006-08-11 22:12:56.000000000 -0700
+@@ -44,15 +44,7 @@
+ #include "atexit.h"
  
- /*
+ void (*__cleanup)();
+-
+-/*
 - * This variable is zero until a process has created a thread.
 - * It is used to avoid calling locking functions in libc when they
 - * are not required. By default, libc is intended to be(come)
@@ -11,11 +13,11 @@
 - * processes.
 - */
 -int	__isthreaded	= 0;
--
--/*
++extern void __exit(int);
+ 
+ /*
   * Exit, flushing stdio buffers if necessary.
-  */
- void
+@@ -61,13 +53,8 @@
  exit(status)
  	int status;
  {
@@ -27,3 +29,6 @@
  	__cxa_finalize(NULL);
  	if (__cleanup)
  		(*__cleanup)();
+-	_exit(status);
++	__exit(status);
+ }

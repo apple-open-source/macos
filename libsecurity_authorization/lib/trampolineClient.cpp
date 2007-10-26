@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <Security/Authorization.h>
+#include <security_utilities/endian.h>
 #include <security_utilities/debugging.h>
 
 //
@@ -64,7 +65,7 @@ static const char **argVector(const char *trampoline,
 //
 OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	const char *pathToTool,
-	unsigned long flags,
+	AuthorizationFlags flags,
 	char *const *arguments,
 	FILE **communicationsPipe)
 {
@@ -135,7 +136,9 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			// get status notification from child
 			OSStatus status;
 			secdebug("authexec", "parent waiting for status");
-			switch (IFDEBUG(ssize_t rc =) read(notify[READ], &status, sizeof(status))) {
+			ssize_t rc = read(notify[READ], &status, sizeof(status));
+			status = n2h(status);
+			switch (rc) {
 			default:				// weird result of read: post error
 				secdebug("authexec", "unexpected read return value %ld", long(rc));
 				status = errAuthorizationToolEnvironmentError;

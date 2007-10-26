@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2004,2006 Apple Computer, Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,6 +38,13 @@
 //
 AclValidationContext::~AclValidationContext()
 { /* virtual */ }
+
+
+void AclValidationContext::init(ObjectAcl *acl, AclSubject *subject)
+{
+	mAcl = acl;
+	mSubject = subject;
+}
 
 
 const char *AclValidationContext::credTag() const
@@ -135,8 +142,19 @@ void AclSubject::debugDump() const
 		Debug::dump("ANY");
 		break;
 	default:
-		Debug::dump("subject type=%ld", type());
+		Debug::dump("subject type=%d", type());
 		break;
 	}
 #endif //DEBUGDUMP
 }
+
+#if defined(DEBUGDUMP)
+
+void AclSubject::dump(const char *title) const
+{
+	Debug::dump(" ** %s ", title);
+	this->debugDump();
+	Debug::dump("\n");
+}
+
+#endif //DEBUGDUMP

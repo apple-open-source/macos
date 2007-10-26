@@ -110,10 +110,12 @@ static int dead_or_predicable (basic_block, basic_block, basic_block,
 			       basic_block, int);
 static void noce_emit_move_insn (rtx, rtx);
 static rtx block_has_only_trap (basic_block);
-static void mark_loop_exit_edges (void);
+/* APPLE LOCAL 4538899 mainline */
+void mark_loop_exit_edges (void);
 
 /* Sets EDGE_LOOP_EXIT flag for all loop exits.  */
-static void
+/* APPLE LOCAL 4538899 mainline */
+void
 mark_loop_exit_edges (void)
 {
   struct loops loops;
@@ -313,6 +315,22 @@ cond_exec_process_insns (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
 	  goto insn_done;
 	}
 
+      /* APPLE LOCAL begin ARM enhance conditional insn generation */
+#ifdef TARGET_ARM
+      /* If we've got a comparison in the block, we can continue to merge
+	 provided all following insns are COND_EXEC with a condition identical
+	 to TEST.  The existing instruction is just fine in this case, no
+	 modifications needed.  Misleading name of "must_be_last" retained to 
+	 minimize changes.  */
+      /* This probably won't work on some other targets.  */
+
+      if (must_be_last
+	  && GET_CODE (PATTERN (insn)) == COND_EXEC
+	  && rtx_equal_p (COND_EXEC_TEST (PATTERN (insn)), test))
+	goto insn_done;
+#endif
+      /* APPLE LOCAL end ARM enhance conditional insn generation */
+
       /* Last insn wasn't last?  */
       if (must_be_last)
 	return FALSE;
@@ -323,6 +341,13 @@ cond_exec_process_insns (ce_if_block_t *ce_info ATTRIBUTE_UNUSED,
 	    return FALSE;
 	  must_be_last = TRUE;
 	}
+
+      /* APPLE LOCAL begin ARM make calls predicable */
+      /* Calls with NORETURN notes cannot easily be conditionally executed,
+	 since all insns following such calls have been removed as dead. */
+      if (CALL_P (insn) && find_reg_note (insn, REG_NORETURN,  NULL_RTX))
+	return FALSE;
+      /* APPLE LOCAL end ARM make calls predicable */
 
       /* Now build the conditional form of the instruction.  */
       pattern = PATTERN (insn);
@@ -395,9 +420,33 @@ cond_exec_get_condition (rtx jump)
   return cond;
 }
 
+/* APPLE LOCAL begin ARM enhance conditional insn generation */
+/* Test whether two conditional branches have the same destination.  We've
+   checked elsewhere that the conditions are compatible; if one is
+   reversed, so must the other be.  */
+static bool 
+cond_exec_branch_targets_equiv (rtx insn1, rtx insn2)
+{
+  rtx cond1, cond2;
+  if (!any_condjump_p (insn1) || !any_condjump_p (insn2))
+    return false;
+  cond1 = SET_SRC (pc_set (insn1));
+  cond2 = SET_SRC (pc_set (insn2));
+  if (rtx_equal_p (XEXP (cond1, 1), XEXP (cond2, 1))
+      && rtx_equal_p (XEXP (cond1, 2), XEXP (cond2, 2)))
+    return true;
+  return false;
+}
+
 /* Given a simple IF-THEN or IF-THEN-ELSE block, attempt to convert it
    to conditional execution.  Return TRUE if we were successful at
    converting the block.  */
+/* In addition to the above, we're locally handling the case where multiple
+   && or || blocks precede the THEN, but we cannot convert the THEN block
+   for some reason (e.g. it has multiple successors, or THEN and ELSE do
+   not join.)  We can still convert and merge the && or || blocks.
+   This case is indicated by ce_info->then_bb==NULL.  Heavy modifications 
+   in this routine.  */
 
 static int
 cond_exec_process_if_block (ce_if_block_t * ce_info,
@@ -407,8 +456,8 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
   basic_block then_bb = ce_info->then_bb;	/* THEN */
   basic_block else_bb = ce_info->else_bb;	/* ELSE or NULL */
   rtx test_expr;		/* expression in IF_THEN_ELSE that is tested */
-  rtx then_start;		/* first insn in THEN block */
-  rtx then_end;			/* last insn + 1 in THEN block */
+  rtx then_start = NULL_RTX;	/* first insn in THEN block */
+  rtx then_end = NULL_RTX;	/* last insn + 1 in THEN block */
   rtx else_start = NULL_RTX;	/* first insn in ELSE block or NULL */
   rtx else_end = NULL_RTX;	/* last insn + 1 in ELSE block */
   int max;			/* max # of insns to convert.  */
@@ -417,7 +466,7 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
   rtx false_expr;		/* test for then block insns */
   rtx true_prob_val;		/* probability of else block */
   rtx false_prob_val;		/* probability of then block */
-  int n_insns;
+  int n_insns = 0;
   enum rtx_code false_code;
 
   /* If test is comprised of && or || elements, and we've failed at handling
@@ -448,21 +497,24 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
   /* Collect the bounds of where we're to search, skipping any labels, jumps
      and notes at the beginning and end of the block.  Then count the total
      number of insns and see if it is small enough to convert.  */
-  then_start = first_active_insn (then_bb);
-  then_end = last_active_insn (then_bb, TRUE);
-  n_insns = ce_info->num_then_insns = count_bb_insns (then_bb);
-  max = MAX_CONDITIONAL_EXECUTE;
-
-  if (else_bb)
+  if (then_bb)
     {
-      max *= 2;
-      else_start = first_active_insn (else_bb);
-      else_end = last_active_insn (else_bb, TRUE);
-      n_insns += ce_info->num_else_insns = count_bb_insns (else_bb);
-    }
+      then_start = first_active_insn (then_bb);
+      then_end = last_active_insn (then_bb, TRUE);
+      n_insns = ce_info->num_then_insns = count_bb_insns (then_bb);
+      max = MAX_CONDITIONAL_EXECUTE;
 
-  if (n_insns > max)
-    return FALSE;
+      if (else_bb)
+	{
+	  max *= 2;
+	  else_start = first_active_insn (else_bb);
+	  else_end = last_active_insn (else_bb, TRUE);
+	  n_insns += ce_info->num_else_insns = count_bb_insns (else_bb);
+	}
+
+      if (n_insns > max)
+	return FALSE;
+    }
 
   /* Map test_expr/test_jump into the appropriate MD tests to use on
      the conditionally executed code.  */
@@ -510,13 +562,24 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
 	  rtx start, end;
 	  rtx t, f;
 	  enum rtx_code f_code;
+	  int mod_ok = 0;
 
 	  bb = block_fallthru (bb);
 	  start = first_active_insn (bb);
 	  end = last_active_insn (bb, TRUE);
+
+	  /* If the condition at the next block is same as this one, and they
+	     share a target, we can conditionally redefine CC within the block. 
+	     This should work on targets with a single CC register and conditional
+	     compares. */
+	  t = cond_exec_get_condition (BB_END (bb));
+	  if (t && rtx_equal_p (t, true_expr) 
+	        && cond_exec_branch_targets_equiv (BB_END (bb), BB_END (test_bb)))
+	    mod_ok = 1;
+
 	  if (start
 	      && ! cond_exec_process_insns (ce_info, start, end, false_expr,
-					    false_prob_val, FALSE))
+					    false_prob_val, mod_ok))
 	    goto fail;
 
 	  /* If the conditional jump is more than just a conditional jump, then
@@ -534,15 +597,21 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
 	    goto fail;
 
 	  f = gen_rtx_fmt_ee (f_code, GET_MODE (t), XEXP (t, 0), XEXP (t, 1));
+	  /* The ORs and ANDs in the following are reversed from mainline.  The true_expr
+	     is the condition that means the 'else' block is executed, i.e. the branch
+	     is taken.  In an && that means any of the conditions at the ends of the &&
+	     blocks are true, so we want to OR them.  Etc.  At least that's my understanding; 
+	     the only other target that uses this much is FRV, and it may work differently
+	     somehow.  But my current opinion is, this is a bug in mainline. */
 	  if (ce_info->and_and_p)
-	    {
-	      t = gen_rtx_AND (GET_MODE (t), true_expr, t);
-	      f = gen_rtx_IOR (GET_MODE (t), false_expr, f);
-	    }
-	  else
 	    {
 	      t = gen_rtx_IOR (GET_MODE (t), true_expr, t);
 	      f = gen_rtx_AND (GET_MODE (t), false_expr, f);
+	    }
+	  else
+	    {
+	      t = gen_rtx_AND (GET_MODE (t), true_expr, t);
+	      f = gen_rtx_IOR (GET_MODE (t), false_expr, f);
 	    }
 
 	  /* If the machine description needs to modify the tests, such as
@@ -560,6 +629,13 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
 	  false_expr = f;
 	}
       while (bb != last_test_bb);
+      /* If tests from several blocks were merged, change the last branch to use the
+	 merged tests, which may of course be invalid.  We need do this only in the
+	 &&-only case, as the branch will be removed if we have a then block. */
+      if (!then_bb && !rtx_equal_p (true_expr, test_expr))
+	if (any_condjump_p (BB_END (bb)))
+	    validate_change (BB_END (bb), &XEXP (SET_SRC (pc_set (BB_END (bb))), 0), 
+			 true_expr, 1);
     }
 
   /* For IF-THEN-ELSE blocks, we don't allow modifications of the test
@@ -569,7 +645,7 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
   /* Go through the THEN and ELSE blocks converting the insns if possible
      to conditional execution.  */
 
-  if (then_end
+  if (then_bb && then_end
       && (! false_expr
 	  || ! cond_exec_process_insns (ce_info, then_start, then_end,
 					false_expr, false_prob_val,
@@ -616,6 +692,7 @@ cond_exec_process_if_block (ce_if_block_t * ce_info,
   cancel_changes (0);
   return FALSE;
 }
+/* APPLE LOCAL end ARM enhance conditional insn generation */
 
 /* Used by noce_process_if_block to communicate with its subroutines.
 
@@ -2184,7 +2261,10 @@ process_if_block (struct ce_if_block * ce_info)
       if (cond_exec_process_if_block (ce_info, TRUE))
 	return TRUE;
 
-      if (ce_info->num_multiple_test_blocks)
+      /* APPLE LOCAL begin ARM enhance conditional insn generation */
+      /* The &&-only case can't do anything useful here, so don't try. */
+      if (ce_info->num_multiple_test_blocks && ce_info->then_bb)
+      /* APPLE LOCAL end ARM enhance conditional insn generation */
 	{
 	  cancel_changes (0);
 
@@ -2542,22 +2622,23 @@ find_if_block (struct ce_if_block * ce_info)
 	}
     }
 
+  /* APPLE LOCAL begin ARM enhance conditional insn generation */
   /* The THEN block of an IF-THEN combo must have exactly one predecessor,
      other than any || blocks which jump to the THEN block.  */
   if ((EDGE_COUNT (then_bb->preds) - ce_info->num_or_or_blocks) != 1)
-    return FALSE;
+    goto combine_and_and_only;
     
   /* The edges of the THEN and ELSE blocks cannot have complex edges.  */
   FOR_EACH_EDGE (cur_edge, ei, then_bb->preds)
     {
       if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
+	goto combine_and_and_only;
     }
 
   FOR_EACH_EDGE (cur_edge, ei, else_bb->preds)
     {
       if (cur_edge->flags & EDGE_COMPLEX)
-	return FALSE;
+	goto combine_and_and_only;
     }
 
   /* The THEN block of an IF-THEN combo must have zero or one successors.  */
@@ -2565,7 +2646,7 @@ find_if_block (struct ce_if_block * ce_info)
       && (EDGE_COUNT (then_bb->succs) > 1
           || (EDGE_SUCC (then_bb, 0)->flags & EDGE_COMPLEX)
 	  || (flow2_completed && tablejump_p (BB_END (then_bb), NULL, NULL))))
-    return FALSE;
+    goto combine_and_and_only;
 
   /* If the THEN block has no successors, conditional execution can still
      make a conditional call.  Don't do this unless the ELSE block has
@@ -2587,13 +2668,13 @@ find_if_block (struct ce_if_block * ce_info)
 	  if (last_insn
 	      && JUMP_P (last_insn)
 	      && ! simplejump_p (last_insn))
-	    return FALSE;
+	    goto combine_and_and_only;
 
 	  join_bb = else_bb;
 	  else_bb = NULL_BLOCK;
 	}
       else
-	return FALSE;
+	goto combine_and_and_only;
     }
 
   /* If the THEN block's successor is the other edge out of the TEST block,
@@ -2614,30 +2695,51 @@ find_if_block (struct ce_if_block * ce_info)
 	   && ! (flow2_completed && tablejump_p (BB_END (else_bb), NULL, NULL)))
     join_bb = EDGE_SUCC (else_bb, 0)->dest;
 
-  /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination.  */
+  /* Otherwise it is not an IF-THEN or IF-THEN-ELSE combination. */
+  else
+    goto combine_and_and_only;
+ 
+  /* Fallthrough means one of the recognized cases above matched. */
+  goto if_block_found;
+
+  /* This is not a recognizable if-then-else for some reason.  If we have multiple 
+     && blocks, we can still try to combine them.  This case is indicated by marking
+     everything else null.  */
+combine_and_and_only:;
+  if (ce_info->num_and_and_blocks || ce_info->num_or_or_blocks)
+    {
+      join_bb = else_bb = NULL_BLOCK;
+      then_bb = ce_info->then_bb = NULL_BLOCK;
+    }
   else
     return FALSE;
 
+if_block_found:;
   num_possible_if_blocks++;
 
   if (dump_file)
     {
       fprintf (dump_file,
-	       "\nIF-THEN%s block found, pass %d, start block %d "
-	       "[insn %d], then %d [%d]",
+	       "\nIF%s%s block found, pass %d, start block %d "
+	       "[insn %d]",
+	       (then_bb) ? "-THEN" : "",
 	       (else_bb) ? "-ELSE" : "",
 	       ce_info->pass,
 	       test_bb->index,
-	       BB_HEAD (test_bb) ? (int)INSN_UID (BB_HEAD (test_bb)) : -1,
-	       then_bb->index,
-	       BB_HEAD (then_bb) ? (int)INSN_UID (BB_HEAD (then_bb)) : -1);
+	       BB_HEAD (test_bb) ? (int)INSN_UID (BB_HEAD (test_bb)) : -1);
+
+      if (then_bb)
+	fprintf (dump_file, ", then %d [%d]",
+		 then_bb->index,
+		 BB_HEAD (then_bb) ? (int)INSN_UID (BB_HEAD (then_bb)) : -1);
 
       if (else_bb)
 	fprintf (dump_file, ", else %d [%d]",
 		 else_bb->index,
 		 BB_HEAD (else_bb) ? (int)INSN_UID (BB_HEAD (else_bb)) : -1);
 
-      fprintf (dump_file, ", join %d [%d]",
+      if (join_bb)
+	fprintf (dump_file, ", join %d [%d]",
 	       join_bb->index,
 	       BB_HEAD (join_bb) ? (int)INSN_UID (BB_HEAD (join_bb)) : -1);
 
@@ -2658,20 +2760,25 @@ find_if_block (struct ce_if_block * ce_info)
      first condition for free, since we've already asserted that there's a
      fallthru edge from IF to THEN.  Likewise for the && and || blocks, since
      we checked the FALLTHRU flag, those are already adjacent to the last IF
-     block.  */
+     block.  (When then_bb is null, we are only looking at the && blocks, which
+     were already verified.)  */
   /* ??? As an enhancement, move the ELSE block.  Have to deal with
      BLOCK notes, if by no other means than aborting the merge if they
      exist.  Sticky enough I don't want to think about it now.  */
-  next = then_bb;
-  if (else_bb && (next = next->next_bb) != else_bb)
-    return FALSE;
-  if ((next = next->next_bb) != join_bb && join_bb != EXIT_BLOCK_PTR)
+  if (then_bb)
     {
-      if (else_bb)
-	join_bb = NULL;
-      else
+      next = then_bb;
+      if (else_bb && (next = next->next_bb) != else_bb)
 	return FALSE;
+      if ((next = next->next_bb) != join_bb && join_bb != EXIT_BLOCK_PTR)
+	{
+	  if (else_bb)
+	    join_bb = NULL;
+	  else
+	    return FALSE;
+	}
     }
+  /* APPLE LOCAL end ARM enhance conditional insn generation */
 
   /* Do the real work.  */
   ce_info->else_bb = else_bb;

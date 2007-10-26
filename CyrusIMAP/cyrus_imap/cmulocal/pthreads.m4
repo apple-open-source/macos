@@ -1,6 +1,6 @@
 dnl pthreads.m4--pthreads setup macro
 dnl Rob Earhart
-dnl $Id: pthreads.m4,v 1.5 2005/03/05 00:36:12 dasenbro Exp $
+dnl $Id: pthreads.m4,v 1.11 2003/10/08 20:35:25 rjs3 Exp $
 
 AC_DEFUN([CMU_PTHREADS], [
    AC_REQUIRE([AC_CANONICAL_HOST])

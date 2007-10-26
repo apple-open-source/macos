@@ -65,6 +65,7 @@ short	ospeed;		      /* Baud rate (1-16, 1=300, 16=19200), as in stty */
 # endif
 #endif
 
+    int
 tgetent(tbuf, term)
     char    *tbuf;		/* Buffer to hold termcap entry, TBUFSZ bytes max */
     char    *term;		/* Name of terminal */
@@ -216,6 +217,7 @@ nextent(tbuf, termcap, buflen)		/* Read 1 entry from TERMCAP file */
  * Returned values: 1 for success, 0 for failure.
  */
 
+    int
 tgetflag(id)
     char *id;
 {
@@ -234,6 +236,7 @@ tgetflag(id)
  * Returned values: -1 for failure, else numerical value.
  */
 
+    int
 tgetnum(id)
     char *id;
 {
@@ -332,7 +335,7 @@ tgetstr(id, buf)
 		    case '9':
 			**buf = 0;
 			    /* get up to three digits */
-			for (i = 0; i < 3 && isdigit(*tmp); ++i)
+			for (i = 0; i < 3 && VIM_ISDIGIT(*tmp); ++i)
 			    **buf = **buf * 8 + *tmp++ - '0';
 			(*buf)++;
 			tmp--;
@@ -477,7 +480,7 @@ tgoto(cm, col, line)
     if (addup)					/* add upline */
 	if (UP) {
 	    ptr=UP;
-	    while (isdigit(*ptr) || *ptr == '.')
+	    while (VIM_ISDIGIT(*ptr) || *ptr == '.')
 		ptr++;
 	    if (*ptr == '*')
 		ptr++;
@@ -488,7 +491,7 @@ tgoto(cm, col, line)
     if (addbak)					/* add backspace */
 	if (BC) {
 	    ptr=BC;
-	    while (isdigit(*ptr) || *ptr == '.')
+	    while (VIM_ISDIGIT(*ptr) || *ptr == '.')
 		ptr++;
 	    if (*ptr == '*')
 		ptr++;
@@ -529,6 +532,7 @@ long _bauds[16]={
     600,    1200,   1800,   2400,
     4800,   9600,   19200,  19200 };
 
+    int
 tputs(cp, affcnt, outc)
     char *cp;				/* string to print */
     int affcnt;				/* Number of lines affected */
@@ -538,13 +542,13 @@ tputs(cp, affcnt, outc)
 	counter,			/* digits */
 	atol __ARGS((const char *));
 
-    if (isdigit(*cp)) {
+    if (VIM_ISDIGIT(*cp)) {
 	counter = 0;
 	frac = 1000;
-	while (isdigit(*cp))
+	while (VIM_ISDIGIT(*cp))
 	    counter = counter * 10L + (long)(*cp++ - '0');
 	if (*cp == '.')
-	    while (isdigit(*++cp)) {
+	    while (VIM_ISDIGIT(*++cp)) {
 		counter = counter * 10L + (long)(*cp++ - '0');
 		frac = frac * 10;
 	    }

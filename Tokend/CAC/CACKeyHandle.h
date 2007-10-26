@@ -88,5 +88,4 @@ public:
 
 #endif /* !_CACKEYHANDLE_H_ */
 
-/* arch-tag: 36A35766-0DBC-11D9-BB4D-000A9595DEEE */
 

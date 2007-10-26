@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2002 - 2003
- * NetGroup, Politecnico di Torino (Italy)
+ * Copyright (c) 2002 - 2005 NetGroup, Politecnico di Torino (Italy)
+ * Copyright (c) 2005 - 2006 CACE Technologies, Davis (California)
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -12,9 +12,10 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  * notice, this list of conditions and the following disclaimer in the
  * documentation and/or other materials provided with the distribution.
- * 3. Neither the name of the Politecnico di Torino nor the names of its
- * contributors may be used to endorse or promote products derived from
- * this software without specific prior written permission.
+ * 3. Neither the name of the Politecnico di Torino, CACE Technologies 
+ * nor the names of its contributors may be used to endorse or promote 
+ * products derived from this software without specific prior written 
+ * permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
@@ -32,7 +33,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-    "@(#) $Header: /cvs/root/libpcap/libpcap/fad-win32.c,v 1.1.1.1 2004/02/05 19:22:28 rbraun Exp $ (LBL)";
+    "@(#) $Header: /tcpdump/master/libpcap/fad-win32.c,v 1.11.2.3 2006/02/22 17:09:32 gianluca Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -41,7 +42,7 @@ static const char rcsid[] _U_ =
 
 #include <pcap.h>
 #include <pcap-int.h>
-#include <packet32.h>
+#include <Packet32.h>
 
 #include <errno.h>
 	
@@ -155,8 +156,7 @@ pcap_add_if_win32(pcap_if_t **devlist, char *name, const char *desc,
 	/*
 	 * Add an entry for this interface, with no addresses.
 	 */
-	if (add_or_find_if(&curdev, devlist, (char *)name, 0, (char *)desc,
-	    errbuf) == -1) {
+	if (add_or_find_if(&curdev, devlist, name, 0, desc, errbuf) == -1) {
 		/*
 		 * Failure.
 		 */
@@ -221,14 +221,41 @@ pcap_findalldevs(pcap_if_t **alldevsp, char *errbuf)
 	pcap_if_t *devlist = NULL;
 	int ret = 0;
 	const char *desc;
-	char AdaptersName[8192];
-	ULONG NameLength = 8192;
+	char *AdaptersName;
+	ULONG NameLength;
 	char *name;
 	
+	if (!PacketGetAdapterNames(NULL, &NameLength))
+	{
+		DWORD last_error = GetLastError();
+
+		if (last_error != ERROR_INSUFFICIENT_BUFFER)
+		{
+			snprintf(errbuf, PCAP_ERRBUF_SIZE,
+				"PacketGetAdapterNames: %s",
+				pcap_win32strerror());
+			return (-1);
+		}
+	}
+
+	if (NameLength > 0)
+		AdaptersName = (char*) malloc(NameLength);
+	else
+	{
+		*alldevsp = NULL;
+		return 0;
+	}
+	if (AdaptersName == NULL)
+	{
+		snprintf(errbuf, PCAP_ERRBUF_SIZE, "Cannot allocate enough memory to list the adapters.");
+		return (-1);
+	}			
+
 	if (!PacketGetAdapterNames(AdaptersName, &NameLength)) {
 		snprintf(errbuf, PCAP_ERRBUF_SIZE,
 			"PacketGetAdapterNames: %s",
 			pcap_win32strerror());
+		free(AdaptersName);
 		return (-1);
 	}
 	
@@ -261,14 +288,13 @@ pcap_findalldevs(pcap_if_t **alldevsp, char *errbuf)
 	 */
 	name = &AdaptersName[0];
 	while (*name != '\0') {
-	/*
-	 * Add an entry for this interface.
-	 */
-	if (pcap_add_if_win32(&devlist, name, desc,
-			errbuf) == -1) {
+		/*
+		 * Add an entry for this interface.
+		 */
+		if (pcap_add_if_win32(&devlist, name, desc, errbuf) == -1) {
 			/*
-			* Failure.
-			*/
+			 * Failure.
+			 */
 			ret = -1;
 			break;
 		}
@@ -277,15 +303,16 @@ pcap_findalldevs(pcap_if_t **alldevsp, char *errbuf)
 	}
 	
 	if (ret == -1) {
-	/*
-	 * We had an error; free the list we've been constructing.
-	 */
-	if (devlist != NULL) {
+		/*
+		 * We had an error; free the list we've been constructing.
+		 */
+		if (devlist != NULL) {
 			pcap_freealldevs(devlist);
 			devlist = NULL;
 		}
 	}
 	
 	*alldevsp = devlist;
+	free(AdaptersName);
 	return (ret);
 }

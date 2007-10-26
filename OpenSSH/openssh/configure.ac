@@ -557,6 +557,7 @@ mips-sony-bsd|mips-sony-newsos4)
 	    AC_DEFINE(SSH_TUN_NO_L2, 1, [No layer 2 tunnel support]))
 	AC_DEFINE(SSH_TUN_PREPEND_AF, 1,
 	    [Prepend the address family to IP tunnel traffic])
+	KEYCHAIN="apple"
 	;;
 *-*-freebsd*)
 	check_for_libcrypt_later=1
@@ -3951,6 +3952,33 @@ fi
 if test ! -z "$blibpath" ; then
 	LDFLAGS="$LDFLAGS $blibflags$blibpath"
 	AC_MSG_WARN([Please check and edit blibpath in LDFLAGS in Makefile])
+fi
+
+dnl Keychain support
+AC_ARG_WITH(keychain,
+	[  --with-keychain=apple   Use Mac OS X Keychain],
+	[
+		case "$withval" in
+		apple|no)
+			KEYCHAIN=$withval
+			;;
+		*)
+			AC_MSG_ERROR(invalid keychain type: $withval)
+			;;
+		esac
+	]
+)
+if test ! -z "$KEYCHAIN" -a "$KEYCHAIN" != "no"; then
+	case "$KEYCHAIN" in
+	apple)
+		AC_CHECK_HEADERS(Security/Security.h, [
+				CPPFLAGS="$CPPFLAGS -D__APPLE_KEYCHAIN__"
+				KEYCHAIN_LDFLAGS="-framework Security -framework CoreFoundation"
+				AC_SUBST(KEYCHAIN_LDFLAGS)
+				],
+				AC_MSG_WARN([Security framework not found. Disabling Mac OS X Keychain support.]))
+		;;
+	esac
 fi
 
 dnl Adding -Werror to CFLAGS early prevents configure tests from running.

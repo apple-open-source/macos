@@ -1,0 +1,81 @@
+$XFree86: xc/programs/xedit/lisp/TODO,v 1.8 2002/11/23 08:26:47 paulo Exp $
+
+LAST UPDATED:	$Date$
+
+  Small todo list
+
+o Change function/macro body to know if a &key or &optional argument was not
+  provided, and initialize to the default value in the function, for
+  interpreted and builtin functions it is better done before the function is
+  called, but for bytecode it is better in the function.
+o Following the previous idea, change function definitions in the format:
+  (defun afun (a &aux b (c (some-code))) ...)
+  to
+  (defun afun (a) (let* ((b (c (some-code)))) ...))
+  This can significatively reduce bytecode size, and also simplify function
+  calls.
+o Optimize text redisplay in Xaw, instead of allocating a copy of the buffer
+  for the paint-list, should use the text in place, and only allocate small
+  buffers when required, i.e. displaying control characters, etc.
+o Add an interface to create new object types dinamically.
+o Add a special string object to simplify and avoid too many copies of
+  portions of the text buffers. This special string should be read-only
+  and not gc-collected.
+o Make the bytecode compiler smarter to detect some constructs like:
+  (builtin-or-bytecode-function-call arg1 arg2 (return))
+  this will not properly restore the internal stacks.
+
+o When an Init function is present in every file, call LispAddBuiltin from
+  that initialization function.
+o Cleanup the code, make it optional to build some uncommon features (as well
+  as the entire interpreter?). Implement more functions directly in lisp.
+o Finish an "specification" for loadable modules. Write a FFI interface.
+  Without the possibility of using already existing libraries, the interpreter
+  won't be too much useful due to a poor library. It is very desirable to
+  "auto-generate" directly from C header files the interface to the lisp
+  code, and from that, dlload a shared library. In some cases, it is required
+  to link statically with a new interpreter binary, make it easy.
+o Implement a better string type. That should support characters larger than
+  8 bits, and that should allow embeded nuls.
+o Implement a richer set of math functions. This, if properly done can be
+  made a loadable module.
+o Optmize mathimp.c, comparing a double with a bignum should never cause an
+  error. Implement mp?_initsetXXX functions?
+o Finish missing features in read.c, and simplify it.
+o (close) probably should not send a signal when closing a pipe.
+o Implement "real" vectors, they exist to make access to field elements
+  at constant time, implementing vectors as lists may be very slow.
+o Use float and double as floating points formats.
+o Implement support for vectors of "atomic" types. Vectors of floats would
+  be useful for example if a OpenGL binding is done.
+o Implement a multiple precision floating point format. Either a 128 bits
+  (or configurable length?) IEEE 754 like number, or some format using
+  ratios, a epsilon for rouding, rounding modes, exact/inexact flag, a good
+  amount of guard digits, etc.
+o Write more functions and optimization for bignums. Try to make the code
+  as reusable as possible, either by other software or at least by the
+  different number types.
+o Instead of using mathimp.c for a large amount of functions, implement a
+  "generic number" type and implement the calculations directly in the
+  mp library.
+o Add more missing Common Lisp features, like &allow-other-keys for function
+  definitions, the missing structure features, CLOS etc.
+o Fix the Postgresql module, make it compile everywhere.
+o Add support for multi-threaded applications?
+o Make it possible to know if a object has only one reference, this is
+  required to make "inplace" changes of variables. Very useful for things
+  like (incf) and (decf), and also when dealing with bignums.
+o Maybe have a freelist for objects depending on the type. Bignums can be
+  reused, and having some large ones expecting to be freed by the gc can
+  consume a lot of memory.
+o Internationalization. Support ',' in floats? Correctly treat characters
+  for {up,down}-casing.
+o Synch the Xaw text code for supporting tables, text alignment/paragraphs,
+  etc, and add bindings to the interpreter. Add support for incremental
+  changes of those properties, currently it is "read-only".
+o Write some type of "hyperlinks", this is the only feature missing to even
+  allow writting a web browser inside xedit.
+o Write some "demos" (maybe a file manager or a simple mail reader) using the
+  Xt/Xaw bindings (needs modules working in all systems).
+o Remove all calls to the macros GCDisable and GCEnable. This is unsafe
+  and should be removed.

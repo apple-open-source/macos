@@ -39,7 +39,7 @@ srcdir = .
 # Programs used by "make":
 CC = cl
 CFLAGS = $(MFLAGS) -W1 $(OPTIMFLAGS)
-INCLUDES = -I. -I..\include -I..\lib
+INCLUDES = -I. -I..\include -I..\srclib -I..\lib
 RM = -del
 
 #### End of system configuration section. ####
@@ -57,7 +57,7 @@ uninstall :
 check : all table-from.exe table-to.exe ../src/iconv.exe uniq-u.exe
 	$(srcdir)\check-stateless.bat $(srcdir) ASCII
 #	/* General multi-byte encodings */
-	$(CC) $(CFLAGS) $(srcdir)\genutf8.c -Fegenutf8.exe
+	$(CC) $(INCLUDES) $(CFLAGS) $(srcdir)\genutf8.c -Fegenutf8.exe
 	$(RM) genutf8.obj
 	.\genutf8 > UTF-8.TXT
 	$(srcdir)\check-stateless.bat . UTF-8
@@ -85,6 +85,7 @@ check : all table-from.exe table-to.exe ../src/iconv.exe uniq-u.exe
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-8
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-9
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-10
+	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-11
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-13
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-14
 	$(srcdir)\check-stateless.bat $(srcdir) ISO-8859-15
@@ -124,6 +125,7 @@ check : all table-from.exe table-to.exe ../src/iconv.exe uniq-u.exe
 	$(srcdir)\check-stateless.bat $(srcdir) Georgian-Academy
 	$(srcdir)\check-stateless.bat $(srcdir) Georgian-PS
 	$(srcdir)\check-stateless.bat $(srcdir) KOI8-T
+	$(srcdir)\check-stateless.bat $(srcdir) PT154
 	$(srcdir)\check-stateless.bat $(srcdir) MuleLao-1
 	$(srcdir)\check-stateless.bat $(srcdir) CP1133
 	$(srcdir)\check-stateless.bat $(srcdir) TIS-620
@@ -149,14 +151,25 @@ check : all table-from.exe table-to.exe ../src/iconv.exe uniq-u.exe
 	$(srcdir)\check-stateful.bat $(srcdir) ISO-2022-JP-1
 	$(srcdir)\check-stateless.bat $(srcdir) EUC-CN
 	$(srcdir)\check-stateless.bat $(srcdir) GBK
-	$(srcdir)\check-stateless.bat $(srcdir) GB18030
+	$(srcdir)\check-stateless.bat $(srcdir) CP936
+	$(CC) $(INCLUDES) $(CFLAGS) $(srcdir)\gengb18030z.c -Fegengb18030z.exe
+	$(RM) gengb18030z.obj
+	.\gengb18030z > GB18030Z.TXT
+	copy /b $(srcdir)\GB18030-BMP.TXT + GB18030Z.TXT GB18030TMP.TXT
+	$(RM) GB18030Z.TXT
+	sort < GB18030TMP.TXT > GB18030.TXT
+	$(RM) GB18030TMP.TXT
+	$(srcdir)\check-stateless.bat . GB18030
+	$(RM) gengb18030z.exe
+	$(RM) GB18030.TXT
 	$(srcdir)\check-stateful.bat $(srcdir) ISO-2022-CN
 	$(srcdir)\check-stateful.bat $(srcdir) ISO-2022-CN-EXT
 	$(srcdir)\check-stateful.bat $(srcdir) HZ
 	$(srcdir)\check-stateless.bat $(srcdir) EUC-TW
 	$(srcdir)\check-stateless.bat $(srcdir) BIG5
 	$(srcdir)\check-stateless.bat $(srcdir) CP950
-	$(srcdir)\check-stateless.bat $(srcdir) BIG5-HKSCS
+#	$(srcdir)\check-stateless.bat $(srcdir) BIG5-HKSCS
+#	$(srcdir)\check-stateful.bat $(srcdir) BIG5-HKSCS
 	$(srcdir)\check-stateless.bat $(srcdir) EUC-KR
 	$(srcdir)\check-stateless.bat $(srcdir) CP949
 	$(srcdir)\check-stateless.bat $(srcdir) JOHAB
@@ -208,6 +221,9 @@ clean : force
 	$(RM) *.exe
 	$(RM) tmp*
 	$(RM) UTF-8.TXT
+	$(RM) GB18030Z.TXT
+	$(RM) GB18030TMP.TXT
+	$(RM) GB18030.TXT
 
 distclean : clean
 

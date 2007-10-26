@@ -60,14 +60,15 @@ typedef struct _DISK_metrics {
 	int cylinders;
 	int heads;
 	int sectors;
-	int size;
+	int size;		/* Number of sectors in disk */
+	int sector_size;	/* Bytes per sector */
 } DISK_metrics;
 
 typedef struct _disk_t {
 	char *name;
-	DISK_metrics *bios;
-	DISK_metrics *label;
-	DISK_metrics *real;
+	DISK_metrics *bios;	/* Metrics as reported by BIOS (always NULL) */
+	DISK_metrics *label;	/* As reported by device ioctls */
+	DISK_metrics *real;	/* Metrics we're using (BIOS, ioctls, user-supplied) */
 } disk_t;
 
 /* Prototypes */
@@ -75,6 +76,7 @@ int DISK_open __P((char *, int));
 int DISK_openshared __P((char *, int, int *));
 int DISK_close __P((int));
 int DISK_getmetrics __P((disk_t *, DISK_metrics *));
+int DISK_get_sector_size __P((disk_t *, DISK_metrics *));
 int DISK_printmetrics __P((disk_t *));
 void DISK_fake_CHS __P((DISK_metrics *));
 

@@ -4,6 +4,8 @@
 
 /* { dg-do compile } */
 /* { dg-options "-fgnu-runtime" } */
+/* APPLE LOCAL radar 4895746 */
+/* { dg-skip-if "" { *-*-darwin* } { "-m64" } { "" } } */
 
 #include <objc/Object.h>
 #include <string.h>

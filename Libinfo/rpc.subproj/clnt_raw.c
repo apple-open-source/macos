@@ -109,13 +109,18 @@ void	svc_getreq();
  */
 CLIENT *
 clntraw_create(prog, vers)
+#ifdef __LP64__
+	uint32_t prog;
+	uint32_t vers;
+#else
 	u_long prog;
 	u_long vers;
+#endif
 {
 	register struct clntraw_private *clp = clntraw_private;
 	struct rpc_msg call_msg;
 	XDR *xdrs = &clp->xdr_stream;
-	CLIENT	*client = &clp->client_object;
+	CLIENT *client = &clp->client_object;
 
 	if (clp == 0) {
 		clp = (struct clntraw_private *)calloc(1, sizeof (*clp));
@@ -153,7 +158,7 @@ clntraw_create(prog, vers)
 static enum clnt_stat 
 clntraw_call(h, proc, xargs, argsp, xresults, resultsp, timeout)
 	CLIENT *h;
-	u_long proc;
+	rpc_uint proc;
 	xdrproc_t xargs;
 	caddr_t argsp;
 	xdrproc_t xresults;
@@ -175,12 +180,17 @@ call_again:
 	xdrs->x_op = XDR_ENCODE;
 	XDR_SETPOS(xdrs, 0);
 	((struct rpc_msg *)clp->mashl_callmsg)->rm_xid ++ ;
+#ifdef __LP64__
 	if ((! XDR_PUTBYTES(xdrs, clp->mashl_callmsg, clp->mcnt)) ||
-	    (! XDR_PUTLONG(xdrs, (long *)&proc)) ||
+	    (! XDR_PUTLONG(xdrs, (int *)&proc)) ||
 	    (! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
-	    (! (*xargs)(xdrs, argsp))) {
-		return (RPC_CANTENCODEARGS);
-	}
+	    (! (*xargs)(xdrs, argsp))) return (RPC_CANTENCODEARGS);
+#else
+	if ((! XDR_PUTBYTES(xdrs, clp->mashl_callmsg, clp->mcnt)) ||
+		(! XDR_PUTLONG(xdrs, (long *)&proc)) ||
+		(! AUTH_MARSHALL(h->cl_auth, xdrs)) ||
+		(! (*xargs)(xdrs, argsp))) return (RPC_CANTENCODEARGS);
+#endif
 	(void)XDR_GETPOS(xdrs);  /* called just to cause overhead */
 
 	/*

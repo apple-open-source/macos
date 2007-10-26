@@ -60,4 +60,4 @@ void dsfilter_release(dsfilter *);
 
 Logic3 dsfilter_test(dsfilter *, dsrecord *);
 
-#endif __DSFILTER_H__
+#endif /* __DSFILTER_H__ */

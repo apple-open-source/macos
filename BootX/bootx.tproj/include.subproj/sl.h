@@ -22,7 +22,7 @@
 /*
  *  sl.h - Headers for configuring the Secondary Loader
  *
- *  Copyright (c) 1998-2003 Apple Computer, Inc.
+ *  Copyright (c) 1998-2005 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -35,26 +35,36 @@
 
 /*
 
-Memory Map:  assumes 96 MB
+Memory Map:  assumed 96 MB (temporarily bumping to 112 MB for 4359362)
 
 Physical Address
 
 Open Firmware Version    3x, 4x, ...
 00000000 - 00003FFF  :   Exception Vectors
 00004000 - 057FFFFF  :   Free Memory
-05800000 - 05FFFFFF  :   OF Image
+// 05800000 - 05FFFFFF  :   OF Image (top 8 MB reserved) [96 MB map]
+06800000 - 06FFFFFF  :   OF Image (top 8 MB reserved) [112 MB map]
 
 
 Logical Address
 
+// 96 MB map (currently unused - 4363357 tracks re-adoption)
 00000000 - 00003FFF  : Exception Vectors
-00004000 - 03FFFFFF  : Kernel Image, Boot Struct and Drivers
-04000000 - 04FFFFFF  : File Load Area
-05000000 - 053FFFFF  : FS Cache
-05400000 - 055FFFFF  : Malloc Zone
-05600000 - 057FFFFF  : BootX Image
-05800000 - 05FFFFFF  : Unused
+00004000 - 03FFFFFF  : Kernel Image, Boot Struct and Drivers (~64 MB)
+04000000 - 04FFFFFF  : File Load Area (16 MB) 	[80 MB]
+05000000 - 053FFFFF  : FS Cache    (4 MB)  	[84 MB]
+05400000 - 055FFFFF  : Malloc Zone (2 MB)	[86 MB]
+05600000 - 057FFFFF  : BootX Image (2 MB)	[88 MB]
+05800000 - 05FFFFFF  : Unused/OF   (8 MB)	[96 MB]
 
+// 112 MB map (per 4359362)
+00000000 - 00003FFF  : Exception Vectors
+00004000 - 03FFFFFF  : Kernel Image, Boot Struct and Drivers (~64 MB)
+04000000 - 05FFFFFF  : File Load Area (32 MB) 	[96 MB]
+06000000 - 063FFFFF  : FS Cache    (4 MB)  	[100 MB]
+06400000 - 065FFFFF  : Malloc Zone (2 MB)	[102 MB]
+06600000 - 067FFFFF  : BootX Image (2 MB)	[104 MB]
+06800000 - 06FFFFFF  : Unused/OF   (8 MB)	[112 MB]
 */
 
 #define kVectorAddr     (0x00000000)
@@ -74,17 +84,18 @@ Logical Address
 #define kImageSize2     (0x03B00000)
 
 #define kLoadAddr       (0x04000000)
-#define kLoadSize       (0x01000000)
+#define kLoadSize       (0x02000000)	// 32 MB @ 64
+#define kMaxMKextSize   (0x01000000)	// only allow 16 MB of drivers
 
-#define kFSCacheAddr    (0x05000000)
-#define kFSCacheSize    (0x00400000)
+#define kFSCacheAddr    (0x06000000)
+#define kFSCacheSize    (0x00400000)	// 4 MB @ 96
 
-#define kMallocAddr     (0x05400000)
-#define kMallocSize     (0x00200000)
+#define kMallocAddr     (0x06400000)
+#define kMallocSize     (0x00200000)	// 2 MB @ 100
 
-#define kMallocAddr_H   (0x05400000)
+#define kMallocAddr_H   (0x06400000)	// ditto for hibernate
 #define kMallocSize_H   (0x00200000)
-#define kImageAddr_H    (0x06000000)
+#define kImageAddr_H    (0x07000000)	// fallback for hiberate image buffer
 
 // Default Output Level
 #define kOutputLevelOff  (0)
@@ -261,8 +272,6 @@ extern int decompress_lzss(u_int8_t *dst, u_int8_t *src, u_int32_t srclen);
 
 
 // Externs for plist.c
-#define PLIST_DEBUG 0	// whether report parsing errors, etc
-
 extern TagPtr GetProperty(TagPtr dict, char *key);
 extern long ParseXML(char *buffer, TagPtr *dict);
 extern void FreeTag(TagPtr tag);

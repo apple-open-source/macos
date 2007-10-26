@@ -1,4 +1,4 @@
-/* $Header: /cvs/root/tcsh/tcsh/tw.h,v 1.1.1.3 2003/01/17 03:41:27 nicolai Exp $ */
+/* $Header: /src/pub/tcsh/tw.h,v 3.24 2004/11/23 02:10:50 christos Exp $ */
 /*
  * tw.h: TwENEX functions headers
  */
@@ -100,6 +100,12 @@ extern int curchoice;
 extern int non_unique_match;
 
 extern int match_unique_match;
+
+extern int InsideCompletion;
+
+extern struct varent completions;
+
+extern int color_context_ls;
 
 #include "tw.decls.h"
 

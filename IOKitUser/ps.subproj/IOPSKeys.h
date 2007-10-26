@@ -121,10 +121,17 @@
 
 /*!
     @define kIOPSMaxCapacityKey
-    @abstract CFDictionary key for the current power source's maximum capacity
+    @abstract CFDictionary key for the current power source's maximum or "Full Charge Capacity"
         <br>Type CFNumber (signed integer), units are %
 */
 #define kIOPSMaxCapacityKey            "Max Capacity"
+
+/*!
+    @define kIOPSMaxCapacityKey
+    @abstract CFDictionary key for the current power source's design capacity
+        <br>Type CFNumber (signed integer), units are %
+*/
+#define kIOPSDesignCapacityKey          "DesignCapacity"
 
 /*!
     @define kIOPSTimeToEmptyKey
@@ -201,6 +208,29 @@
 */
 #define kIOPSVendorDataKey          "Vendor Specific Data"
 
+/*!
+    @define kIOPSBatteryHealthKey
+    @abstract CFDictionary key for the current power source's "health" estimate
+        <br>Type CFStringRef
+*/
+#define kIOPSBatteryHealthKey       "BatteryHealth"
+
+/*!
+    @define kIOPSBatteryHealthConfidenceKey
+    @abstract CFDictionary key for our confidence in the accuracy of our 
+        power source's "health" estimate
+        <br>Type CFStringRef
+*/
+#define kIOPSHealthConfidenceKey    "HealthConfidence"
+
+
+/*!
+    @define kIOPSMaxErrKey
+    @abstract CFDictionary key for the current power source's percentage error
+        in capacity reporting.
+        <br>Type CFNumberRef, non-negative integer
+*/
+#define kIOPSMaxErrKey              "MaxErr"
 
 /*
  * Transport types
@@ -244,5 +274,24 @@
     @abstract Value for key kIOPSPowerSourceStateKey. Power source is currently using the internal battery.
 */
 #define kIOPSBatteryPowerValue         "Battery Power"
+
+/*
+ * Battery Health & Confidence values
+ */
+/*!
+    @define kIOPSPoorValue
+    @abstract Value for key kIOPSBatteryHealthKey & kIOPMPSHealthConfidenceKey.
+*/
+#define kIOPSPoorValue                  "Poor"
+/*!
+    @define kIOPSFairValue
+    @abstract Value for key kIOPSBatteryHealthKey & kIOPMPSHealthConfidenceKey.
+*/
+#define kIOPSFairValue                  "Fair"
+/*!
+    @define kIOPSGoodValue
+    @abstract Value for key kIOPSBatteryHealthKey & kIOPMPSHealthConfidenceKey.
+*/
+#define kIOPSGoodValue                  "Good"
 
 #endif

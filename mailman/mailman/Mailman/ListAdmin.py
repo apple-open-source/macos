@@ -12,7 +12,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 
 """Mixin class for MailList which handles administrative requests.
 
@@ -60,6 +60,12 @@ LOST = 2
 DASH = '-'
 NL = '\n'
 
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
+
 
 
 class ListAdmin:
@@ -83,6 +89,8 @@ class ListAdmin:
             except IOError, e:
                 if e.errno <> errno.ENOENT: raise
                 self.__db = {}
+                # put version number in new database
+                self.__db['version'] = IGN, mm_cfg.REQUESTS_FILE_SCHEMA_VERSION
 
     def __closedb(self):
         if self.__db is not None:
@@ -122,7 +130,7 @@ class ListAdmin:
 
     def NumRequestsPending(self):
         self.__opendb()
-        # Subtrace one for the version pseudo-entry
+        # Subtract one for the version pseudo-entry
         return len(self.__db) - 1
 
     def __getmsgids(self, rtype):

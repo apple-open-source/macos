@@ -51,7 +51,6 @@ typedef struct {
     int			addr_flags;
     struct in6_addr	our_relay;
     struct in6_addr	prefixmask;
-    struct in6_addr	netaddr;
 } Service_6to4_t;
 
 #define TEN_NET		0x0a000000	/* 10.0.0.0 */
@@ -93,7 +92,7 @@ static void
 stf_construct_6to4_address(struct in_addr * ip4_addr, struct in6_addr * ip6_addr, boolean_t relay)
 {
     char	str[64];
-    uint32_t	tmp_addr = (uint32_t)ip4_addr->s_addr;
+    uint32_t	tmp_addr = ntohl((uint32_t)ip4_addr->s_addr);
 
     /*	Constructing 6to4 address:
      *		- start with 2002 prefix
@@ -252,7 +251,9 @@ stf_resolve_callback(SCNetworkReachabilityRef target,
         if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_6to4_addr)) {
             service_publish_clear(service_p);
             (void)service_set_address(service_p, &stf->our_6to4_addr,
-                stf->our_prefixLen);
+                stf->our_prefixLen, stf->addr_flags);
+			memcpy(&service_p->info.router, &stf->our_relay, sizeof(struct in6_addr));
+			service_publish_success(service_p);
         }
     }
     
@@ -310,21 +311,30 @@ stf_get_relay_address(Service_t * service_p, void * event_data)
     my_log(LOG_DEBUG, "stf_get_relay_address: relay address type is %s", 
             relay_address_type_string(relay_info->addr_type));
     
+	/* only change the relay address if there is a new address */
     switch(relay_info->addr_type) {
         case relay_address_type_ipv6_e: {
-            memcpy(&stf->our_relay, &relay_info->relay_address_u.ip6_relay_addr, 
-                    sizeof(struct in6_addr));
+            if (!IN6_IS_ADDR_UNSPECIFIED(&relay_info->relay_address_u.ip6_relay_addr) && 
+                !IN6_ARE_ADDR_EQUAL(&stf->our_relay, &relay_info->relay_address_u.ip6_relay_addr)) {
+                memcpy(&stf->our_relay, &relay_info->relay_address_u.ip6_relay_addr, 
+                        sizeof(struct in6_addr));
+            }
             break;
         }
         case relay_address_type_ipv4_e: {
-            stf_construct_6to4_address(&relay_info->relay_address_u.ip4_relay_addr, 
-                                    &stf->our_relay, TRUE);
+            if (relay_info->relay_address_u.ip4_relay_addr.s_addr != INADDR_ANY) {
+                bzero(&stf->our_relay, sizeof(struct in6_addr));
+                stf_construct_6to4_address(&relay_info->relay_address_u.ip4_relay_addr, 
+                                            &stf->our_relay, TRUE);
+            }
             break;
         }
         case relay_address_type_dns_e: {
-            my_log(LOG_DEBUG, "stf_get_relay_address: resolving hostname");
-            stf_resolve_hostname(relay_info->relay_address_u.dns_relay_addr, 
-                                    service_p);
+            if (relay_info->relay_address_u.dns_relay_addr) {
+                my_log(LOG_DEBUG, "stf_get_relay_address: resolving hostname");
+                stf_resolve_hostname(relay_info->relay_address_u.dns_relay_addr, 
+                                        service_p);
+            }
             break;
         }
         default: {
@@ -372,9 +382,12 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             stf_configure_address(service_p, event_data);
             stf_get_relay_address(service_p, event_data);
             
-            if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_relay)) {
+            if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_6to4_addr) &&
+				!IN6_IS_ADDR_UNSPECIFIED(&stf->our_relay)) {
                 (void)service_set_address(service_p, &stf->our_6to4_addr,
-                                        stf->our_prefixLen);
+                                        stf->our_prefixLen, stf->addr_flags);
+				memcpy(&service_p->info.router, &stf->our_relay, sizeof(struct in6_addr));
+                service_publish_success(service_p);
             }
             
             break;
@@ -394,7 +407,7 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             }
             
             /* remove 6to4 address and route */
-            service_remove_address(service_p);
+            service_remove_addresses(service_p);
             service_publish_clear(service_p);
             
             if (stf->target) {
@@ -409,7 +422,7 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             break;
         }
         case IFEventID_change_e: {
-            /* Relay address changed */
+            /* Change event */
             change_event_data_t *	evdata = ((change_event_data_t *)event_data);
 
             my_log(LOG_DEBUG, "STF_THREAD %s: CHANGE", if_name(if_p));
@@ -430,19 +443,21 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             
             service_publish_clear(service_p);
             
-            bzero(&stf->our_relay, sizeof(struct in6_addr));
+            /* get relay address in case that changed */
             stf_get_relay_address(service_p, event_data);
 
-            if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_relay)) {
-                /* set new route */
+            /* Check both the address and the relay before publishing */
+            if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_relay) &&
+				!IN6_IS_ADDR_UNSPECIFIED(&stf->our_6to4_addr)) {
+                /* set route and publish */
                 memcpy(&service_p->info.router, &stf->our_relay, sizeof(struct in6_addr));
                 service_publish_success(service_p);
             }
             else {
-                /* Remove existing address. It will be 
-                 * added later if the hostname resolves.
-                 */
-                service_remove_address(service_p);
+                /* The addresses aren't ready. Remove the existing 
+                 * address and wait till we have what we need. 
+		 */
+                service_remove_addresses(service_p);
             }
             
             evdata->needs_stop = FALSE;
@@ -462,36 +477,38 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             }
                         
             /* go through the address list; if addr is not autoconf and
-             * not linklocal then deal with it
+             * not linklocal then deal with it; there is only one address
+             * possible here so stop after the first hit
              */
-                
             for (i = 0; i < ip6_addrs->n_addrs; i++) {
-                ip6_addrinfo_t	new_addr = ip6_addrs->addr_list[i];
+                ip6_addrinfo_t	*new_addr = ip6_addrs->addr_list + i;
                 
-                if (!IN6_IS_ADDR_LINKLOCAL(&new_addr.addr) 
-                        && !(new_addr.flags & IN6_IFF_AUTOCONF)) {
-                    
-                    /* first copy the info into service_p */
-                    memcpy(&service_p->info.addr, &new_addr.addr, 
+                if (!IN6_IS_ADDR_LINKLOCAL(&new_addr->addr) 
+                        && !(new_addr->flags & IN6_IFF_AUTOCONF)) {
+			if (service_p->info.addrs.addr_list)
+				free(service_p->info.addrs.addr_list);
+			service_p->info.addrs.addr_list = malloc(sizeof(ip6_addrinfo_t));
+			if (!service_p->info.addrs.addr_list) {
+				my_log(LOG_ERR, 
+					   "STF_THREAD: error allocating memory for addresses");
+				status = ip6config_status_allocation_failed_e;
+				break;
+			}
+			memcpy(&service_p->info.addrs.addr_list[0].addr, 
+				   &new_addr->addr, 
                                 sizeof(struct in6_addr));
-                    service_p->info.prefixlen = new_addr.prefixlen;
-                    service_p->info.addr_flags = new_addr.flags;
-
-                    /* fill in new prefix and netaddr */
-                    prefixLen2mask(&service_p->info.prefixmask, 
-                                    service_p->info.prefixlen);
-                    network_addr(&service_p->info.addr, 
-                                    &service_p->info.prefixmask,
-                                    &service_p->info.netaddr);
+                    service_p->info.addrs.addr_list[0].prefixlen = new_addr->prefixlen;
+                    service_p->info.addrs.addr_list[0].flags = new_addr->flags;
+                    prefixLen2mask(&service_p->info.addrs.addr_list[0].prefixmask, 
+                                    service_p->info.addrs.addr_list[0].prefixlen);
 
                     /* update private data */
-                    memcpy(&stf->our_6to4_addr, &service_p->info.addr, 
+                    memcpy(&stf->our_6to4_addr, 
+                                &service_p->info.addrs.addr_list[0].addr, 
                                 sizeof(struct in6_addr));
-                    stf->our_prefixLen = service_p->info.prefixlen;
-                    stf->addr_flags = service_p->info.addr_flags;
-                    memcpy(&stf->prefixmask, &service_p->info.prefixmask, 
-                                sizeof(struct in6_addr));
-                    memcpy(&stf->netaddr, &service_p->info.netaddr, 
+                    stf->our_prefixLen = service_p->info.addrs.addr_list[0].prefixlen;
+                    stf->addr_flags = service_p->info.addrs.addr_list[0].flags;
+                    memcpy(&stf->prefixmask, &service_p->info.addrs.addr_list[0].prefixmask, 
                                 sizeof(struct in6_addr));
                     
                     /* set route */
@@ -519,7 +536,7 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
             
             if (!IN6_ARE_ADDR_EQUAL(&old_addr, &stf->our_6to4_addr)) {
                 /* remove 6to4 address */
-                service_remove_address(service_p);
+                service_remove_addresses(service_p);
                 service_publish_clear(service_p);
                 
                 /* if the 6to4 address is not specified then don't set it, and
@@ -529,8 +546,18 @@ stf_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
                  */
                 if (!IN6_IS_ADDR_UNSPECIFIED(&stf->our_6to4_addr) &&
                     !IN6_IS_ADDR_UNSPECIFIED(&stf->our_relay)) {
-                    (void)service_set_address(service_p, &stf->our_6to4_addr,
-                        stf->our_prefixLen);
+			char			buf1[64], buf2[64];
+			
+			my_log(LOG_DEBUG, "STF_THREAD: ipv4_primary_change: addr: %s",
+					inet_ntop(AF_INET6, &stf->our_6to4_addr, buf1, sizeof(buf1)));
+			(void)service_set_address(service_p, 
+									   &stf->our_6to4_addr, 
+									   stf->our_prefixLen,
+									   stf->addr_flags);
+			my_log(LOG_DEBUG, "STF_THREAD: ipv4_primary_change: relay: %s",
+					inet_ntop(AF_INET6, &stf->our_relay, buf2, sizeof(buf2)));
+                    memcpy(&service_p->info.router, &stf->our_relay, sizeof(struct in6_addr));
+                    service_publish_success(service_p);
                 }
             }
             

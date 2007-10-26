@@ -65,11 +65,20 @@
 #include <unistd.h>
 #include <syslog.h>
 
-#include <openssl/sha.h>
+/*
+ * CommonCrypto provides a more stable API than OpenSSL guarantees;
+ * the #define causes it to use the same API for MD5 and SHA1, so the rest of
+ * the code need not change.
+ */
+#define COMMON_DIGEST_FOR_OPENSSL
+#include  <CommonCrypto/CommonDigest.h>
 
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 
 #include <CoreFoundation/CFString.h>
+
+#include <System/uuid/uuid.h>
+#include <System/uuid/namespace.h>
 
 #define READ_DEFAULT_ENCODING 1
 
@@ -95,6 +104,10 @@
 
 #ifndef FSUC_UNJNL
 #define FSUC_UNJNL   'U'
+#endif
+
+#ifndef FSUC_UNJNL_RAW
+#define FSUC_UNJNL_RAW 'N'
 #endif
 
 #ifndef FSUC_JNLINFO
@@ -181,6 +194,7 @@ static int	DoDisown( const char * theDeviceNamePtr );
 extern int  DoMakeJournaled( const char * volNamePtr, int journalSize );  // XXXdbg
 extern int  DoUnJournal( const char * volNamePtr );      // XXXdbg
 extern int  DoGetJournalInfo( const char * volNamePtr );
+extern int  RawDisableJournaling( const char *devname );
 
 static int	ParseArgs( int argc, const char * argv[], const char ** actionPtr, const char ** mountPointPtr, boolean_t * isEjectablePtr, boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr );
 
@@ -212,6 +226,8 @@ static int	GetEncodingBias(void);
 
 
 CF_EXPORT Boolean _CFStringGetFileSystemRepresentation(CFStringRef string, UInt8 *buffer, CFIndex maxBufLen);
+
+static void     uuid_create_md5_from_name(uuid_t result_uuid, const uuid_t namespace, const void *name, int namelen);
 
 /*
  * The fuction CFStringGetSystemEncoding does not work correctly in
@@ -434,6 +450,10 @@ int main (int argc, const char *argv[])
 
 		case FSUC_UNJNL:
 			result = DoUnJournal( argv[2] );
+			break;
+			
+		case FSUC_UNJNL_RAW:
+			result = RawDisableJournaling( argv[2] );
 			break;
 			
 		case FSUC_JNLINFO:
@@ -675,8 +695,8 @@ DoProbe(char *deviceNamePtr)
 		goto Return;
 
 	/* get classic HFS volume name (from MDB) */
-	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
-	    NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
+	if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
+	    OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) != kHFSPlusSigWord) {
 	    	Boolean cfOK;
 		CFStringRef cfstr;
 		CFStringEncoding encoding;
@@ -688,7 +708,7 @@ DoProbe(char *deviceNamePtr)
 		}
 
 		/* Check for an encoding hint in the Finder Info (field 4). */
-		encoding = GET_HFS_TEXT_ENCODING(NXSwapBigLongToHost(mdbPtr->drFndrInfo[4]));
+		encoding = GET_HFS_TEXT_ENCODING(OSSwapBigToHostInt32(mdbPtr->drFndrInfo[4]));
 		if (encoding == kCFStringEncodingInvalidId) {
 			/* Next try the encoding bias in the kernel. */
 			encoding = GetEncodingBias();
@@ -722,13 +742,13 @@ DoProbe(char *deviceNamePtr)
  		}
  
  	/* get HFS Plus volume name (from Catalog) */
-	} else if ((NXSwapBigShortToHost(volHdrPtr->signature) == kHFSPlusSigWord)  ||
-	           (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSXSigWord)  ||
-		   (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
-		    NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord)) {
+	} else if ((OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSPlusSigWord)  ||
+	           (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSXSigWord)  ||
+		   (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
+		    OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord)) {
 		off_t startOffset;
 
-		if (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSSigWord) {
+		if (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSSigWord) {
 			/* embedded volume, first find offset */
 			result = GetEmbeddedHFSPlusVol(mdbPtr, &startOffset);
 			if ( result != FSUR_IO_SUCCESS )
@@ -769,11 +789,34 @@ Return:
 
 } /* DoProbe */
 
+/*
+ * Create a version 3 UUID from a unique "name" in the given "name space".  
+ * Version 3 UUID are derived using "name" via MD5 checksum.
+ *
+ * Parameters:
+ *	result_uuid	- resulting UUID.
+ *	namespace	- namespace in which given name exists and UUID should be created.
+ *	name		- unique string used to create version 3 UUID.
+ *	namelen     - length of the name string.
+ */
+static void
+uuid_create_md5_from_name(uuid_t result_uuid, const uuid_t namespace, const void *name, int namelen)
+{
+    MD5_CTX c;
+
+    MD5_Init(&c);
+    MD5_Update(&c, namespace, sizeof(uuid_t));
+    MD5_Update(&c, name, namelen);
+    MD5_Final(result_uuid, &c);
+
+    result_uuid[6] = (result_uuid[6] & 0x0F) | 0x30;
+    result_uuid[8] = (result_uuid[8] & 0x3F) | 0x80;
+}
 
 
 /* **************************************** DoGetUUIDKey *******************************************
 Purpose -
-    This routine will open the given block device and return the volume UUID in text form written to stdout.
+    This routine will open the given block device and return the 128-bit volume UUID in text form written to stdout.
 Input -
     theDeviceNamePtr - pointer to the device name (full path, like /dev/disk0s2).
 Output -
@@ -783,13 +826,18 @@ static int
 DoGetUUIDKey( const char * theDeviceNamePtr ) {
 	int result;
 	VolumeUUID targetVolumeUUID;
-	VolumeUUIDString UUIDString;
-	char uuidLine[VOLUMEUUIDLENGTH+2];
-	
+	uuid_t uuid;
+	char uuidLine[40];
+
+	unsigned char rawUUID[8];
+
 	if ((result = GetVolumeUUID(theDeviceNamePtr, &targetVolumeUUID, FALSE)) != FSUR_IO_SUCCESS) goto Err_Exit;
-	
-	ConvertVolumeUUIDToString( &targetVolumeUUID, UUIDString);
-	strncpy(uuidLine, UUIDString, VOLUMEUUIDLENGTH+1);
+
+	((uint32_t *)rawUUID)[0] = OSSwapHostToBigInt32(targetVolumeUUID.v.high);
+	((uint32_t *)rawUUID)[1] = OSSwapHostToBigInt32(targetVolumeUUID.v.low);
+
+	uuid_create_md5_from_name(uuid, kFSUUIDNamespaceSHA1, rawUUID, sizeof(rawUUID));
+	uuid_unparse(uuid, uuidLine);
 	write(1, uuidLine, strlen(uuidLine));
 	result = FSUR_IO_SUCCESS;
 	
@@ -1050,6 +1098,11 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 			doLengthCheck = 0;
 			break;
 
+		case FSUC_UNJNL_RAW:
+			index = 0;
+			doLengthCheck = 0;
+			break;
+
 		case FSUC_JNLINFO:
 			index = 0;
 			doLengthCheck = 0;
@@ -1143,6 +1196,7 @@ DoDisplayUsage(const char *argv[])
     printf("       -%c (Adopt permissions)\n", FSUC_ADOPT);
 	printf("       -%c (Make a file system journaled)\n", FSUC_MKJNL);
 	printf("       -%c (Turn off journaling on a file system)\n", FSUC_UNJNL);
+	printf("       -%c (Turn off journaling on a raw device)\n", FSUC_UNJNL_RAW);
 	printf("       -%c (Get size & location of journaling on a file system)\n", FSUC_JNLINFO);
     printf("device_arg:\n");
     printf("       device we are acting upon (for example, 'disk0s2')\n");
@@ -1240,8 +1294,8 @@ ReadHeaderBlock(int fd, void *bufPtr, off_t *startOffset, VolumeUUID **finderInf
 	 * If this is a wrapped HFS Plus volume, read the Volume Header from
 	 * sector 2 of the embedded volume.
 	 */
-	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord &&
-		NXSwapBigShortToHost(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord) {
+	if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord &&
+		OSSwapBigToHostInt16(mdbPtr->drEmbedSigWord) == kHFSPlusSigWord) {
 		result = GetEmbeddedHFSPlusVol(mdbPtr, startOffset);
 		if (result != FSUR_IO_SUCCESS)
 			goto Err_Exit;
@@ -1255,10 +1309,10 @@ ReadHeaderBlock(int fd, void *bufPtr, off_t *startOffset, VolumeUUID **finderInf
 	 * volumes (including wrapped HFS Plus).  Verify the signature and grab the
 	 * UUID from the Finder Info.
 	 */
-	if (NXSwapBigShortToHost(mdbPtr->drSigWord) == kHFSSigWord) {
+	if (OSSwapBigToHostInt16(mdbPtr->drSigWord) == kHFSSigWord) {
 	    *finderInfoUUIDPtr = (VolumeUUID *)(&mdbPtr->drFndrInfo[6]);
-	} else if (NXSwapBigShortToHost(volHdrPtr->signature) == kHFSPlusSigWord ||
-				NXSwapBigShortToHost(volHdrPtr->signature) == kHFSXSigWord) {
+	} else if (OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSPlusSigWord ||
+				OSSwapBigToHostInt16(volHdrPtr->signature) == kHFSXSigWord) {
 	    *finderInfoUUIDPtr = (VolumeUUID *)&volHdrPtr->finderInfo[24];
 	} else {
 		result = FSUR_UNRECOGNIZED;
@@ -1312,8 +1366,8 @@ GetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
 	/*
 	 * Copy the volume UUID out of the Finder Info
 	 */
-	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
-	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
+	volumeUUIDPtr->v.high = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.low);
 
 Err_Exit:
 	if (fd > 0) close(fd);
@@ -1369,8 +1423,8 @@ SetVolumeUUIDRaw(const char *deviceNamePtr, VolumeUUID *volumeUUIDPtr)
 	/*
 	 * Update the UUID in the Finder Info
 	 */
-	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
-	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
 
 	/*
 	 * Write the modified MDB or VHB back to disk
@@ -1422,8 +1476,8 @@ GetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr)
 
 	/* Copy the UUID from the Finder Into to caller's buffer */
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	volumeUUIDPtr->v.high = NXSwapBigLongToHost(finderInfoUUIDPtr->v.high);
-	volumeUUIDPtr->v.low = NXSwapBigLongToHost(finderInfoUUIDPtr->v.low);
+	volumeUUIDPtr->v.high = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.high);
+	volumeUUIDPtr->v.low = OSSwapBigToHostInt32(finderInfoUUIDPtr->v.low);
 	result = FSUR_IO_SUCCESS;
 
 Err_Exit:
@@ -1465,8 +1519,8 @@ SetVolumeUUIDAttr(const char *path, VolumeUUID *volumeUUIDPtr)
 
 	/* Update the UUID in the Finder Info */
 	finderInfoUUIDPtr = (VolumeUUID *)(&volFinderInfo.finderinfo[6]);
-	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(volumeUUIDPtr->v.high);
-	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(volumeUUIDPtr->v.low);
+	finderInfoUUIDPtr->v.high = OSSwapHostToBigInt32(volumeUUIDPtr->v.high);
+	finderInfoUUIDPtr->v.low = OSSwapHostToBigInt32(volumeUUIDPtr->v.low);
 
 	/* Write the Finder Info back to the volume */
 	result = setattrlist(path, &alist, &volFinderInfo.finderinfo, sizeof(volFinderInfo.finderinfo), 0);
@@ -1595,21 +1649,21 @@ GetEmbeddedHFSPlusVol (HFSMasterDirectoryBlock * hfsMasterDirectoryBlockPtr, off
     int		result = FSUR_IO_SUCCESS;
     u_int32_t	allocationBlockSize, firstAllocationBlock, startBlock, blockCount;
 
-    if (NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drSigWord) != kHFSSigWord) {
+    if (OSSwapBigToHostInt16(hfsMasterDirectoryBlockPtr->drSigWord) != kHFSSigWord) {
         result = FSUR_UNRECOGNIZED;
         goto Return;
     }
 
-    allocationBlockSize = NXSwapBigLongToHost(hfsMasterDirectoryBlockPtr->drAlBlkSiz);
-    firstAllocationBlock = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drAlBlSt);
+    allocationBlockSize = OSSwapBigToHostInt32(hfsMasterDirectoryBlockPtr->drAlBlkSiz);
+    firstAllocationBlock = OSSwapBigToHostInt16(hfsMasterDirectoryBlockPtr->drAlBlSt);
 
-    if (NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedSigWord) != kHFSPlusSigWord) {
+    if (OSSwapBigToHostInt16(hfsMasterDirectoryBlockPtr->drEmbedSigWord) != kHFSPlusSigWord) {
         result = FSUR_UNRECOGNIZED;
         goto Return;
     }
 
-    startBlock = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedExtent.startBlock);
-    blockCount = NXSwapBigShortToHost(hfsMasterDirectoryBlockPtr->drEmbedExtent.blockCount);
+    startBlock = OSSwapBigToHostInt16(hfsMasterDirectoryBlockPtr->drEmbedExtent.startBlock);
+    blockCount = OSSwapBigToHostInt16(hfsMasterDirectoryBlockPtr->drEmbedExtent.blockCount);
 
     if ( startOffsetPtr )
         *startOffsetPtr = ((u_int64_t)startBlock * (u_int64_t)allocationBlockSize) +
@@ -1663,8 +1717,8 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 
     /* Verify that it is an HFS+ volume. */
 
-    if (NXSwapBigShortToHost(volHdrPtr->signature) != kHFSPlusSigWord &&
-        NXSwapBigShortToHost(volHdrPtr->signature) != kHFSXSigWord) {
+    if (OSSwapBigToHostInt16(volHdrPtr->signature) != kHFSPlusSigWord &&
+        OSSwapBigToHostInt16(volHdrPtr->signature) != kHFSXSigWord) {
         result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
         fprintf(stderr, "hfs.util: GetNameFromHFSPlusVolumeStartingAt: volHdrPtr->signature != kHFSPlusSigWord\n");
@@ -1672,7 +1726,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
         goto Return;
     }
 
-    blockSize = NXSwapBigLongToHost(volHdrPtr->blockSize);
+    blockSize = OSSwapBigToHostInt32(volHdrPtr->blockSize);
     catalogExtents = (HFSPlusExtentDescriptor *) malloc(sizeof(HFSPlusExtentRecord));
     if ( ! catalogExtents ) {
         result = FSUR_IO_FAIL;
@@ -1682,7 +1736,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 	catalogExtCount = kHFSPlusExtentDensity;
 
 	/* if there are overflow catalog extents, then go get them */
-	if (NXSwapBigLongToHost(catalogExtents[7].blockCount) != 0) {
+	if (OSSwapBigToHostInt32(catalogExtents[7].blockCount) != 0) {
 		result = GetCatalogOverflowExtents(fd, hfsPlusVolumeOffset, volHdrPtr, &catalogExtents, &catalogExtCount);
 		if (result != FSUR_IO_SUCCESS)
 			goto Return;
@@ -1722,7 +1776,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
         HFSPlusCatalogKey	*	k;
 	CFStringRef cfstr;
 
-        if ( bTreeNodeDescriptorPtr->numRecords < 1) {
+        if ( OSSwapBigToHostInt16(bTreeNodeDescriptorPtr->numRecords) < 1) {
             result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
 			fprintf(stderr, "hfs.util: ERROR: bTreeNodeDescriptorPtr->numRecords < 1\n");
@@ -1737,12 +1791,12 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 
 	// Get a pointer to the first record.
 
-        p = bufPtr + NXSwapBigShortToHost(*v); // pointer arithmetic in bytes
+        p = bufPtr + OSSwapBigToHostInt16(*v); // pointer arithmetic in bytes
         k = (HFSPlusCatalogKey *)p;
 
 	// There should be only one record whose parent is the root parent.  It should be the first record.
 
-        if (NXSwapBigLongToHost(k->parentID) != kHFSRootParentID) {
+        if (OSSwapBigToHostInt32(k->parentID) != kHFSRootParentID) {
             result = FSUR_IO_FAIL;
 #if TRACE_HFS_UTIL
             fprintf(stderr, "hfs.util: ERROR: k->parentID != kHFSRootParentID\n");
@@ -1761,10 +1815,10 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
 		result = FSUR_IO_FAIL;
 		goto Return;
 	    }
-	    swapped->length = NXSwapBigShortToHost(k->nodeName.length);
+	    swapped->length = OSSwapBigToHostInt16(k->nodeName.length);
 	    
 	    for (i=0; i<swapped->length; i++) {
-		swapped->unicode[i] = NXSwapBigShortToHost(k->nodeName.unicode[i]);
+		swapped->unicode[i] = OSSwapBigToHostInt16(k->nodeName.unicode[i]);
 	    }
 	    swapped->unicode[i] = 0;
 	    cfstr = CFStringCreateWithCharacters(kCFAllocatorDefault, swapped->unicode, swapped->length);
@@ -1836,12 +1890,12 @@ GetBTreeNodeInfo(int fd, off_t hfsPlusVolumeOffset, u_int32_t blockSize,
 		goto free;
 	}
 
-	*nodeSize = NXSwapBigShortToHost(bTreeHeaderPtr->header.nodeSize);
+	*nodeSize = OSSwapBigToHostInt16(bTreeHeaderPtr->header.nodeSize);
 
-	if (NXSwapBigLongToHost(bTreeHeaderPtr->header.leafRecords) == 0)
+	if (OSSwapBigToHostInt32(bTreeHeaderPtr->header.leafRecords) == 0)
 		*firstLeafNode = 0;
 	else
-		*firstLeafNode = NXSwapBigLongToHost(bTreeHeaderPtr->header.firstLeafNode);
+		*firstLeafNode = OSSwapBigToHostInt32(bTreeHeaderPtr->header.firstLeafNode);
 
 free:;
 	free((char*) bTreeHeaderPtr);
@@ -1864,6 +1918,7 @@ GetCatalogOverflowExtents(int fd, off_t hfsPlusVolumeOffset,
 		u_int32_t *catalogExtCount)
 {
 	off_t offset;
+	u_int32_t numRecords;
 	u_int32_t nodeSize;
 	u_int32_t leafNode;
 	u_int32_t blockSize;
@@ -1874,10 +1929,10 @@ GetCatalogOverflowExtents(int fd, off_t hfsPlusVolumeOffset,
 	int i;
 	int result;
 
-	blockSize = NXSwapBigLongToHost(volHdrPtr->blockSize);
+	blockSize = OSSwapBigToHostInt32(volHdrPtr->blockSize);
 	listsize = *catalogExtCount * sizeof(HFSPlusExtentDescriptor);
 	extents = *catalogExtents;
-	offset = (off_t)volHdrPtr->extentsFile.extents[0].startBlock *
+	offset = (off_t)OSSwapBigToHostInt32(volHdrPtr->extentsFile.extents[0].startBlock) *
 		    (off_t)blockSize;
 
 	/* Read the header node of the extents B-Tree */
@@ -1918,7 +1973,8 @@ again:
 		goto Return;
 	}
 
-	for (i = 1; i <= bTreeNodeDescriptorPtr->numRecords; ++i) {
+	numRecords = OSSwapBigToHostInt16(bTreeNodeDescriptorPtr->numRecords);
+	for (i = 1; i <= numRecords; ++i) {
 		u_int16_t * v;
 		char * p;
 		HFSPlusExtentKey * k;
@@ -1932,23 +1988,23 @@ again:
 
 		/* Get a pointer to the record */
 
-		p = bufPtr + NXSwapBigShortToHost(*v); /* pointer arithmetic in bytes */
+		p = bufPtr + OSSwapBigToHostInt16(*v); /* pointer arithmetic in bytes */
 		k = (HFSPlusExtentKey *)p;
 
-		if (NXSwapBigLongToHost(k->fileID) != kHFSCatalogFileID)
+		if (OSSwapBigToHostInt32(k->fileID) != kHFSCatalogFileID)
 			goto Return;
 
 		/* grow list and copy additional extents */
 		listsize += sizeof(HFSPlusExtentRecord);
 		extents = (HFSPlusExtentDescriptor *) realloc(extents, listsize);
-		bcopy(p + NXSwapBigShortToHost(k->keyLength) + sizeof(u_int16_t),
+		bcopy(p + OSSwapBigToHostInt16(k->keyLength) + sizeof(u_int16_t),
 			&extents[*catalogExtCount], sizeof(HFSPlusExtentRecord));
 
 		*catalogExtCount += kHFSPlusExtentDensity;
 		*catalogExtents = extents;
 	}
 	
-	if ((leafNode = bTreeNodeDescriptorPtr->fLink) != 0) {
+	if ((leafNode = OSSwapBigToHostInt32(bTreeNodeDescriptorPtr->fLink)) != 0) {
 	
 		offset = (off_t) leafNode * (off_t) nodeSize;
 		
@@ -1997,7 +2053,7 @@ static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
 	/* Find the extent containing logicalBlock */
 	for (extent = 0; extent < extentCount; ++extent)
 	{
-		blockCount = NXSwapBigLongToHost(extentList[extent].blockCount);
+		blockCount = OSSwapBigToHostInt32(extentList[extent].blockCount);
 		
 		if (blockCount == 0)
 			return FSUR_IO_FAIL;	/* Tried to map past physical end of file */
@@ -2017,7 +2073,7 @@ static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
 	 */
 	
 	/* Compute the physical starting position */
-	temp = NXSwapBigLongToHost(extentList[extent].startBlock) + logicalBlock;	/* First physical block */
+	temp = OSSwapBigToHostInt32(extentList[extent].startBlock) + logicalBlock;	/* First physical block */
 	temp *= blockSize;	/* Byte offset of first physical block */
 	*physicalOffset = temp + offset;
 

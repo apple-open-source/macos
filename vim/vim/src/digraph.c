@@ -38,11 +38,11 @@ static garray_T	user_digraphs = {0, 0, sizeof(digr_T), 10, NULL};
  * Note: Characters marked with XX are not included literally, because some
  * compilers cannot handle them (Amiga SAS/C is the most picky one).
  */
+static digr_T digraphdefault[] =
 #if defined(MSDOS) || defined(OS2)
 	/*
 	 * MSDOS digraphs.
 	 */
-digr_T	digraphdefault[] =
        {{'C', ',', 128},	/* ~@ XX */
 	{'u', '"', 129},	/*  */
 	{'e', '\'', 130},	/* ‚ */
@@ -111,7 +111,6 @@ digr_T	digraphdefault[] =
 	/*
 	 * ATARI digraphs
 	 */
-digr_T	digraphdefault[] =
        {{'C', ',', 128},	/* ~@ XX */
 	{'u', '"', 129},	/*  */
 	{'e', '\'', 130},	/* ‚ */
@@ -178,7 +177,6 @@ digr_T	digraphdefault[] =
 	/*
 	 * different HPUX digraphs
 	 */
-digr_T	digraphdefault[] =
        {{'A', '`', 161},	/* ¡ */
 	{'A', '^', 162},	/* ¢ */
 	{'E', '`', 163},	/* £ */
@@ -285,7 +283,6 @@ digr_T	digraphdefault[] =
 	 * EBCDIC - ISO digraphs
 	 * TODO: EBCDIC Table is Code-Page 1047
 	 */
-digr_T	digraphdefault[] =
        {{'a', '^',    66},	/* â */
 	{'a', '"',    67},	/* ä */
 	{'a', '`',    68},	/* à */
@@ -339,6 +336,7 @@ digr_T	digraphdefault[] =
 	{'A', 'E',   158},	/* Æ */
 	{'o', 'x',   159},	/* ¤ - currency symbol in ISO 8859-1 */
 	{'e', '=',   159},	/* ¤ - euro symbol in ISO 8859-15 */
+	{'E', 'u',   159},	/* ¤ - euro symbol in ISO 8859-15 */
 	{'j', 'u',   160},	/* µ */
 	{'y', '"',   167},	/* x XX */
 	{'~', '!',   170},	/* ¡ */
@@ -390,12 +388,11 @@ digr_T	digraphdefault[] =
 	};
 
 #   else
-#    ifdef MACOS
+#    if defined(MACOS) && !defined(FEAT_MBYTE)
 
 	/*
 	 * Macintosh digraphs
 	 */
-digr_T	digraphdefault[] =
        {{'a', 't', 64},		/* @ */
 	{'A', '"', 128},	/* ~@ XX */
 	{'A', 'o', 129},	/* Å */
@@ -526,7 +523,6 @@ digr_T	digraphdefault[] =
 	/*
 	 * digraphs compatible with Vim 5.x
 	 */
-digr_T	digraphdefault[] =
        {{'~', '!', 161},	/* ¡ */
 	{'c', '|', 162},	/* ¢ */
 	{'$', '$', 163},	/* £ */
@@ -635,7 +631,6 @@ digr_T	digraphdefault[] =
 	 * digraphs for Unicode from RFC1345
 	 * (also work for ISO-8859-1 aka latin1)
 	 */
-digr_T	digraphdefault[] =
        {
 	{'N', 'U', 0x0a},	/* LF for NUL */
 	{'S', 'H', 0x01},
@@ -813,6 +808,7 @@ digr_T	digraphdefault[] =
 	{'y', ':', 0xff},
 
 #      ifdef FEAT_MBYTE
+#	define USE_UNICODE_DIGRAPHS
 
 	{'A', '-', 0x0100},
 	{'a', '-', 0x0101},
@@ -1427,6 +1423,8 @@ digr_T	digraphdefault[] =
 	{'L', 'i', 0x20a4},
 	{'P', 't', 0x20a7},
 	{'W', '=', 0x20a9},
+	{'=', 'e', 0x20ac}, /* euro */
+	{'E', 'u', 0x20ac}, /* euro */
 	{'o', 'C', 0x2103},
 	{'c', 'o', 0x2105},
 	{'o', 'F', 0x2109},
@@ -2110,6 +2108,32 @@ getexactdigraph(char1, char2, meta)
 	}
     }
 #ifdef FEAT_MBYTE
+# ifdef USE_UNICODE_DIGRAPHS
+    if (retval != 0 && !enc_utf8)
+    {
+	char_u	    buf[6], *to;
+	vimconv_T   vc;
+
+	/*
+	 * Convert the Unicode digraph to 'encoding'.
+	 */
+	i = utf_char2bytes(retval, buf);
+	retval = 0;
+	vc.vc_type = CONV_NONE;
+	if (convert_setup(&vc, (char_u *)"utf-8", p_enc) == OK)
+	{
+	    vc.vc_fail = TRUE;
+	    to = string_convert(&vc, buf, &i);
+	    if (to != NULL)
+	    {
+		retval = (*mb_ptr2char)(to);
+		vim_free(to);
+	    }
+	    (void)convert_setup(&vc, NULL, NULL);
+	}
+    }
+# endif
+
     /* Ignore multi-byte characters when not in multi-byte mode. */
     if (!has_mbyte && retval > 0xff)
 	retval = 0;
@@ -2173,9 +2197,9 @@ putdigraph(str)
 	    return;
 	}
 	str = skipwhite(str);
-	if (!isdigit(*str))
+	if (!VIM_ISDIGIT(*str))
 	{
-	    EMSG(_(e_number));
+	    EMSG(_(e_number_exp));
 	    return;
 	}
 	n = getdigits(&str);
@@ -2202,7 +2226,6 @@ putdigraph(str)
 		dp->char2 = char2;
 		dp->result = n;
 		++user_digraphs.ga_len;
-		--user_digraphs.ga_room;
 	    }
 	}
     }
@@ -2219,12 +2242,25 @@ listdigraphs()
     dp = digraphdefault;
     for (i = 0; dp->char1 != NUL && !got_int; ++i)
     {
+#if defined(USE_UNICODE_DIGRAPHS) && defined(FEAT_MBYTE)
+	digr_T tmp;
+
+	/* May need to convert the result to 'encoding'. */
+	tmp.char1 = dp->char1;
+	tmp.char2 = dp->char2;
+	tmp.result = getexactdigraph(tmp.char1, tmp.char2, FALSE);
+	if (tmp.result != 0 && tmp.result != tmp.char2
+					  && (has_mbyte || tmp.result <= 255))
+	    printdigraph(&tmp);
+#else
+
 	if (getexactdigraph(dp->char1, dp->char2, FALSE) == dp->result
-#ifdef FEAT_MBYTE
+# ifdef FEAT_MBYTE
 		&& (has_mbyte || dp->result <= 255)
-#endif
+# endif
 		)
 	    printdigraph(dp);
+#endif
 	++dp;
 	ui_breakcheck();
     }
@@ -2333,12 +2369,12 @@ keymap_init()
 # ifdef FEAT_MBYTE
 	/* try finding "keymap/'keymap'_'encoding'.vim"  in 'runtimepath' */
 	sprintf((char *)buf, "keymap/%s_%s.vim", curbuf->b_p_keymap, p_enc);
-	if (cmd_runtime(buf, FALSE) == FAIL)
+	if (source_runtime(buf, FALSE) == FAIL)
 # endif
 	{
 	    /* try finding "keymap/'keymap'.vim" in 'runtimepath'  */
 	    sprintf((char *)buf, "keymap/%s.vim", curbuf->b_p_keymap);
-	    if (cmd_runtime(buf, FALSE) == FAIL)
+	    if (source_runtime(buf, FALSE) == FAIL)
 	    {
 		vim_free(buf);
 		return (char_u *)N_("E544: Keymap file not found");
@@ -2366,7 +2402,7 @@ ex_loadkeymap(eap)
     int		i;
     char_u	*save_cpo = p_cpo;
 
-    if (eap->getline != getsourceline)
+    if (!getline_equal(eap->getline, eap->cookie, getsourceline))
     {
 	EMSG(_("E105: Using :loadkeymap not in a sourced file"));
 	return;
@@ -2388,7 +2424,7 @@ ex_loadkeymap(eap)
      */
     for (;;)
     {
-	line = getsourceline(0, eap->cookie, 0);
+	line = eap->getline(0, eap->cookie, 0);
 	if (line == NULL)
 	    break;
 
@@ -2403,16 +2439,16 @@ ex_loadkeymap(eap)
 	    kp->to = vim_strnsave(p, (int)(s - p));
 
 	    if (kp->from == NULL || kp->to == NULL
-		    || STRLEN(kp->from) + STRLEN(kp->to) >= KMAP_LLEN)
+		    || STRLEN(kp->from) + STRLEN(kp->to) >= KMAP_LLEN
+		    || *kp->from == NUL || *kp->to == NUL)
 	    {
+		if (kp->to != NULL && *kp->to == NUL)
+		    EMSG(_("E791: Empty keymap entry"));
 		vim_free(kp->from);
 		vim_free(kp->to);
 	    }
 	    else
-	    {
 		++curbuf->b_kmap_ga.ga_len;
-		--curbuf->b_kmap_ga.ga_room;
-	    }
 	}
 	vim_free(line);
     }
@@ -2422,7 +2458,7 @@ ex_loadkeymap(eap)
      */
     for (i = 0; i < curbuf->b_kmap_ga.ga_len; ++i)
     {
-	sprintf((char *)buf, "<buffer> %s %s",
+	vim_snprintf((char *)buf, sizeof(buf), "<buffer> %s %s",
 				((kmap_T *)curbuf->b_kmap_ga.ga_data)[i].from,
 				 ((kmap_T *)curbuf->b_kmap_ga.ga_data)[i].to);
 	(void)do_map(2, buf, LANGMAP, FALSE);
@@ -2455,8 +2491,8 @@ keymap_unload()
     /* clear the ":lmap"s */
     for (i = 0; i < curbuf->b_kmap_ga.ga_len; ++i)
     {
-	sprintf((char *)buf, "<buffer> %s",
-		((kmap_T *)curbuf->b_kmap_ga.ga_data)[i].from);
+	vim_snprintf((char *)buf, sizeof(buf), "<buffer> %s",
+			       ((kmap_T *)curbuf->b_kmap_ga.ga_data)[i].from);
 	(void)do_map(1, buf, LANGMAP, FALSE);
     }
 
@@ -2464,6 +2500,7 @@ keymap_unload()
 
     ga_clear(&curbuf->b_kmap_ga);
     curbuf->b_kmap_state &= ~KEYMAP_LOADED;
+    do_cmdline_cmd((char_u *)"unlet! b:keymap_name");
 #ifdef FEAT_WINDOWS
     status_redraw_curbuf();
 #endif

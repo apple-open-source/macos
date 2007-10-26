@@ -1,26 +1,22 @@
-/*******************************************************************
-*                                                                  *
-*             This software is part of the ast package             *
-*                Copyright (c) 1982-2004 AT&T Corp.                *
-*        and it may only be used by you under license from         *
-*                       AT&T Corp. ("AT&T")                        *
-*         A copy of the Source Code Agreement is available         *
-*                at the AT&T Internet web site URL                 *
-*                                                                  *
-*       http://www.research.att.com/sw/license/ast-open.html       *
-*                                                                  *
-*    If you have copied or used this software without agreeing     *
-*        to the terms of the license you are infringing on         *
-*           the license and copyright and are violating            *
-*               AT&T's intellectual property rights.               *
-*                                                                  *
-*            Information and Software Systems Research             *
-*                        AT&T Labs Research                        *
-*                         Florham Park NJ                          *
-*                                                                  *
-*                David Korn <dgk@research.att.com>                 *
-*                                                                  *
-*******************************************************************/
+/***********************************************************************
+*                                                                      *
+*               This software is part of the ast package               *
+*           Copyright (c) 1982-2007 AT&T Knowledge Ventures            *
+*                      and is licensed under the                       *
+*                  Common Public License, Version 1.0                  *
+*                      by AT&T Knowledge Ventures                      *
+*                                                                      *
+*                A copy of the License is available at                 *
+*            http://www.opensource.org/licenses/cpl1.0.txt             *
+*         (with md5 checksum 059e8cd6165cb4c31e351f2b69388fd9)         *
+*                                                                      *
+*              Information and Software Systems Research               *
+*                            AT&T Research                             *
+*                           Florham Park NJ                            *
+*                                                                      *
+*                  David Korn <dgk@research.att.com>                   *
+*                                                                      *
+***********************************************************************/
 #pragma prototyped
 /* Adapted for ksh by David Korn */
 /*+	VI.C			P.D. Sullivan
@@ -64,29 +60,30 @@
 
 #define	MAXCHAR	MAXLINE-2		/* max char per line */
 
-#undef isblank
 #if SHOPT_MULTIBYTE
+#   include	"lexstates.h"
 #   define gencpy(a,b)	ed_gencpy(a,b)
 #   define genncpy(a,b,n)	ed_genncpy(a,b,n)
 #   define genlen(str)	ed_genlen(str)
 #   define digit(c)	((c&~STRIP)==0 && isdigit(c))
 #   define is_print(c)	((c&~STRIP) || isprint(c))
 #   if !_lib_iswprint && !defined(iswprint)
-#	define iswprint(c)	is_print((c))
+#	define iswprint(c)	((c&~0177) || isprint(c))
 #   endif
     static int _isalph(int);
     static int _ismetach(int);
     static int _isblank(int);
+#   undef  isblank
 #   define isblank(v)	_isblank(virtual[v])
 #   define isalph(v)	_isalph(virtual[v])
 #   define ismetach(v)	_ismetach(virtual[v])
-#   include	"lexstates.h"
 #else
     static genchar	_c;
 #   define gencpy(a,b)	strcpy((char*)(a),(char*)(b))
 #   define genncpy(a,b,n) strncpy((char*)(a),(char*)(b),n)
 #   define genlen(str)	strlen(str)
 #   define isalph(v)	((_c=virtual[v])=='_'||isalnum(_c))
+#   undef  isblank
 #   define isblank(v)	isspace(virtual[v])
 #   define ismetach(v)	ismeta(virtual[v])
 #   define digit(c)	isdigit(c)
@@ -190,6 +187,7 @@ typedef struct _vi_
 
 static const char paren_chars[] = "([{)]}";   /* for % command */
 
+static void	cursor(Vi_t*, int);
 static void	del_line(Vi_t*,int);
 static int	getcount(Vi_t*,int);
 static void	getline(Vi_t*,int);
@@ -216,7 +214,7 @@ static int	textmod(Vi_t*,int,int);
 /*
  * if reedit is non-zero, initialize edit buffer with reedit chars
  */
-ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
+int ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
 {
 	Edit_t *ed = (Edit_t*)context;
 	register int i;			/* general variable */
@@ -226,22 +224,23 @@ ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
 	genchar Physical[2*MAXLINE];	/* physical image */
 	genchar Ubuf[MAXLINE];	/* used for U command */
 	genchar ubuf[MAXLINE];	/* used for u command */
-	genchar Window[MAXWINDOW+10];	/* window image */
+	genchar Window[MAXLINE];	/* window image */
 	int Globals[9];			/* local global variables */
 	int esc_or_hang=0;		/* <ESC> or hangup */
 	char cntl_char=0;		/* TRUE if control character present */
 #if SHOPT_RAWONLY
-# 	define viraw	1
+#   define viraw	1
 #else
 	int viraw = (sh_isoption(SH_VIRAW) || sh.st.trap[SH_KEYTRAP]);
-#endif /* SHOPT_RAWONLY */
-#ifndef FIORDCHK
+#   ifndef FIORDCHK
 	clock_t oldtime, newtime;
 	struct tms dummy;
-#endif	/* FIORDCHK */
+#   endif /* FIORDCHK */
+#endif /* SHOPT_RAWONLY */
 	if(!vp)
 	{
 		ed->e_vi = vp =  newof(0,Vi_t,1,0);
+		vp->lastline = (genchar*)malloc(MAXLINE*CHARSIZE);
 		vp->direction = -1;
 		vp->ed = ed;
 	}
@@ -363,9 +362,8 @@ ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
 	/*** Initialize some things ***/
 
 	virtual = (genchar*)shbuf;
-#undef virtual
-#define virtual		((genchar*)shbuf)
 #if SHOPT_MULTIBYTE
+	virtual = (genchar*)roundof((char*)virtual-(char*)0,sizeof(genchar));
 	shbuf[i+1] = 0;
 	i = ed_internal(shbuf,virtual)-1;
 #endif /* SHOPT_MULTIBYTE */
@@ -390,18 +388,8 @@ ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
 	window = Window;
 	window[0] = '\0';
 
-#if KSHELL && (2*CHARSIZE*MAXLINE)<IOBSIZE
-	yankbuf = (genchar*)(shbuf + MAXLINE*sizeof(genchar));
-#else
-	if(yankbuf==0)
-		yankbuf = (genchar*)malloc(sizeof(genchar)*(MAXLINE));
-#endif
-#if KSHELL && (3*CHARSIZE*MAXLINE)<IOBSIZE
-	vp->lastline = (genchar*)(shbuf + (MAXLINE+MAXLINE)*sizeof(genchar));
-#else
-	if(vp->lastline==0)
-		vp->lastline = (genchar*)malloc(sizeof(genchar)*(MAXLINE));
-#endif
+	if(!yankbuf)
+		yankbuf = (genchar*)malloc(MAXLINE*CHARSIZE);
 	if( vp->last_cmd == '\0' )
 	{
 		/*** first time for this shell ***/
@@ -595,6 +583,8 @@ ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
 		getline(vp,APPEND);
 	else
 		getline(vp,ESC);
+	if(vp->ed->e_multiline)
+		cursor(vp, last_phys);
 	/*** add a new line if user typed unescaped \n ***/
 	/* to cause the shell to process the line */
 	tty_cooked(ERRIO);
@@ -636,9 +626,6 @@ ed_viread(void *context, int fd, register char *shbuf, int nchar, int reedit)
  *		REPLACE, replace char if possible
  *
 }*/
-
-#undef virtual
-#define virtual		editb.e_inbuf	/* pointer to virtual image buffer */
 
 static void append(Vi_t *vp,int c, int mode)
 {
@@ -1037,42 +1024,11 @@ static int cntlmode(Vi_t *vp)
 
 static void cursor(Vi_t *vp,register int x)
 {
-	register int delta;
-
 #if SHOPT_MULTIBYTE
 	while(physical[x]==MARKER)
 		x++;
 #endif /* SHOPT_MULTIBYTE */
-	delta = x - cur_phys;
-
-	if( delta == 0 )
-		return;
-
-	if( delta > 0 )
-	{
-		/*** move to right ***/
-		putstring(vp,cur_phys, delta);
-	}
-	else
-	{
-		/*** move to left ***/
-
-		delta = -delta;
-
-		/*** attempt to optimize cursor movement ***/
-		if(!crallowed || (delta <= ((cur_phys-vp->first_wind)+plen)>>1) )
-		{
-			while( delta-- )
-				putchar('\b');
-		}
-		else
-		{
-			pr_string(vp,Prompt);
-			putstring(vp,vp->first_wind, x - vp->first_wind);
-		}
-	}
-	cur_phys = x;
-	return;
+	cur_phys = ed_setcursor(vp->ed, physical, cur_phys,x,vp->first_wind);
 }
 
 /*{	DELETE( nchars, mode )
@@ -1212,7 +1168,7 @@ static int delmotion(Vi_t *vp,int motion, int mode)
 	}
 	else
 	{
-		delta = -delta;
+		delta = -delta + (motion=='%');
 	}
 
 	cdelete(vp,delta, mode);
@@ -1516,13 +1472,24 @@ static void getline(register Vi_t* vp,register int mode)
 			if( mode != SEARCH )
 				save_last(vp);
 			refresh(vp,INPUT);
+			last_phys++;
 			return;
 
 		case '\t':		/** command completion **/
-			if(mode!=SEARCH && last_virt>=0 && cur_virt>=last_virt && !isblank(cur_virt) && vp->ed->sh->nextprompt)
+			if(mode!=SEARCH && last_virt>=0 && (vp->ed->e_tabcount|| !isblank(cur_virt)) && vp->ed->sh->nextprompt)
 			{
-				ed_ungetchar(vp->ed,'\\');
-				goto escape;
+				if(vp->ed->e_tabcount==0)
+				{
+					ed_ungetchar(vp->ed,'\\');
+					vp->ed->e_tabcount=1;
+					goto escape;
+				}
+				else if(vp->ed->e_tabcount==1)
+				{
+					ed_ungetchar(vp->ed,'=');
+					goto escape;
+				}
+				vp->ed->e_tabcount = 0;
 			}
 			/* FALL THRU*/
 		default:
@@ -2321,6 +2288,10 @@ addin:
 			/***** Input commands *****/
 
 #if KSHELL
+        case '\t':
+		if(vp->ed->e_tabcount!=1)
+			return(BAD);
+		c = '=';
 	case '*':		/** do file name expansion in place **/
 	case '\\':		/** do file name completion in place **/
 		if( cur_virt == INVALID )
@@ -2329,9 +2300,17 @@ addin:
 		save_v(vp);
 		i = last_virt;
 		++last_virt;
+		mode = cur_virt-1;
 		virtual[last_virt] = 0;
-		if( ed_expand(vp->ed,(char*)virtual, &cur_virt, &last_virt, c, vp->repeat_set?vp->repeat:-1) )
+		if(ed_expand(vp->ed,(char*)virtual, &cur_virt, &last_virt, c, vp->repeat_set?vp->repeat:-1)<0)
 		{
+			if(vp->ed->e_tabcount)
+			{
+				vp->ed->e_tabcount=2;
+				ed_ungetchar(vp->ed,'\t');
+				--last_virt;
+				return(APPEND);
+			}
 			last_virt = i;
 			ed_ringbell();
 		}
@@ -2347,6 +2326,8 @@ addin:
 			--cur_virt;
 			--last_virt;
 			vp->ocur_virt = MAXCHAR;
+			if(c=='=' || (mode<cur_virt && (virtual[cur_virt]==' ' || virtual[cur_virt]=='/')))
+				vp->ed->e_tabcount = 0;
 			return(APPEND);
 		}
 		break;

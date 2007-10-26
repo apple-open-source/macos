@@ -110,9 +110,9 @@ static Node* deepFocusableNode(FocusDirection direction, Node* node, KeyboardEve
     return node;
 }
 
-bool FocusController::setInitialFocus(FocusDirection direction, KeyboardEvent* event)
+bool FocusController::setInitialFocus(KeyboardEvent* event)
 {
-    return advanceFocus(direction, event, true);
+    return advanceFocus((event && event->shiftKey()) ? FocusDirectionBackward : FocusDirectionForward, event, true);
 }
 
 bool FocusController::advanceFocus(KeyboardEvent* event)

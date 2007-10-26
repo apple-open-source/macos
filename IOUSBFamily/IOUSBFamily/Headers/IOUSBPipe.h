@@ -30,6 +30,8 @@
 #include <IOKit/usb/IOUSBController.h>
 #include <IOKit/usb/IOUSBControllerV2.h>
 
+class IOUSBInterface;
+
 /*!
     @class IOUSBPipe
     @abstract The object representing an open pipe for a device.
@@ -90,8 +92,8 @@ public:
     virtual UInt8 GetStatus(void);
     /*!
         @function Abort
-	 This method causes all outstanding I/O on a pipe to complete with return code kIOReturnAborted. It also clears both the halted bit and the
-	 toggle bit on the endpoint in the controller. After aborting, the driver may need to synchronize the data toggle. see ClearPipeStall.
+	 This method causes all outstanding I/O on a pipe to complete with return code kIOReturnAborted. It  clears the halted bit but does NOT clear the
+	 toggle bit on the endpoint in the controller.  If you wish to clear the toggle bit, see ClearPipeStall
 	 */
     virtual IOReturn Abort(void);
     /*!

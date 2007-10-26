@@ -41,6 +41,7 @@
 //
 class FaultRelay {
 public:
+	virtual ~FaultRelay();
 	virtual void relayFault(bool async) = 0;
 };
 
@@ -61,12 +62,12 @@ public:
 // it right there and then. That's good enough for hard error recovery, though you may
 // try to let it down easier to allow it to save its caches and wind down. Caller's choice.
 //
-// NB: If you ever want to make TokenDaemon BE a GenericBundle, you must switch NodeCore
+// NB: If you ever want to make TokenDaemon BE a Bundle, you must switch NodeCore
 // AND OSXCode to virtually derive RefCount.
 //
 class TokenDaemon : public PerGlobal, public ServerChild, public Tokend::ClientSession {
 public:
-	TokenDaemon(RefPointer<GenericBundle> code,
+	TokenDaemon(RefPointer<Bundle> code,
 		const std::string &reader, const PCSC::ReaderState &state, TokenCache &cache);
 	virtual ~TokenDaemon();
 	
@@ -99,7 +100,7 @@ protected:
 	void fault();				// relay from Tokend::ClientSession
 
 private:
-	RefPointer<GenericBundle> mMe; // code object for the tokend (it's an Application)
+	RefPointer<Bundle> mMe; // code object for the tokend (it's an Application)
 	std::string mReaderName;	// PCSC name of reader we're working with
 	PCSC::ReaderState mState;	// card state at time of creation (not updated after that)
 

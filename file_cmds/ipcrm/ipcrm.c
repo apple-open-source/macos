@@ -31,7 +31,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-	"$Id: ipcrm.c,v 1.2.30.1 2005/02/26 03:36:38 nicolai Exp $";
+	"$Id: ipcrm.c,v 1.3 2005/02/03 07:31:33 josborne Exp $";
 #endif /* not lint */
 
 #include <ctype.h>
@@ -42,10 +42,8 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
-#if 0
 #include <sys/msg.h>
 #include <sys/sem.h>
-#endif
 #include <sys/shm.h>
 
 #define IPC_TO_STR(x) (x == 'Q' ? "msq" : (x == 'M' ? "shm" : "sem"))
@@ -66,13 +64,11 @@ int msgrm(key, id)
     key_t key;
     int id;
 {
-#if 0
     if (key) {
 	id = msgget(key, 0);
 	if (id == -1)
 	    return -1;
     }
-#endif
     return msgctl(id, IPC_RMID, NULL);
 }
 
@@ -92,7 +88,6 @@ int semrm(key, id)
     key_t key;
     int id;
 {
-#if 0
     union semun arg;
 
     if (key) {
@@ -101,7 +96,6 @@ int semrm(key, id)
 	    return -1;
     }
     return semctl(id, 0, IPC_RMID, arg);
-#endif
 }
 
 void not_configured()
@@ -116,6 +110,7 @@ int main(argc, argv)
 {
     int c, result, errflg, target_id;
     key_t target_key;
+    char *en;
 
     errflg = 0;
     signal(SIGSYS, not_configured);
@@ -126,7 +121,12 @@ int main(argc, argv)
 	case 'q':
 	case 'm':
 	case 's':
-	    target_id = atoi(optarg);
+	    target_id = strtol(optarg, &en, 0);
+	    if (*en) {
+		warnx("%s: '%s' is not a number",
+		    IPC_TO_STRING(toupper(c)), optarg);
+		continue;
+	    }
 	    if (c == 'q')
 		result = msgrm(0, target_id);
 	    else if (c == 'm')
@@ -145,7 +145,11 @@ int main(argc, argv)
 	case 'Q':
 	case 'M':
 	case 'S':
-	    target_key = atol(optarg);
+	    target_key = strtol(optarg, &en, 0);
+	    if (*en) {
+		warnx("%s: '%s' is not a number", IPC_TO_STRING(c), optarg);
+		continue;
+	    }
 	    if (target_key == IPC_PRIVATE) {
 		warnx("can't remove private %ss", IPC_TO_STRING(c));
 		continue;
@@ -159,7 +163,7 @@ int main(argc, argv)
 	    if (result < 0) {
 		errflg++;
 		if (!signaled)
-		    warn("%key(%ld): ", IPC_TO_STR(c), target_key);
+		    warn("%s key(%ld): ", IPC_TO_STRING(c), target_key);
 		else
 		    warnx("%ss are not configured in the running kernel",
 			  IPC_TO_STRING(c));
@@ -180,4 +184,3 @@ int main(argc, argv)
     }
     exit(errflg);
 }
-

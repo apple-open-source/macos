@@ -71,7 +71,7 @@ struct part {
 	struct	part *next;		/* forward link of partitions on disk */
 	char	*name;			/* device name */
 	char	*fsname;		/* mounted filesystem name */
-	long	auxdata;		/* auxillary data for application */
+	char	*vfstype;		/* file system type (eg., "hfs" or "msdos") */
 } *badlist, **badnext = &badlist;
 
 struct disk {
@@ -84,11 +84,11 @@ struct disk {
 int	nrun, ndisks;
 char	hotroot;
 
-static void addpart __P((char *name, char *fsname, long auxdata));
+static void addpart __P((char *name, char *fsname, char *vfstype));
 static struct disk *finddisk __P((char *name));
 static char *rawname __P((char *name));
 static int startdisk __P((struct disk *dk,
-		int (*checkit)(char *, char *, long, int)));
+		int (*checkit)(char *, char *, char *, int)));
 static char *unrawname __P((char *name));
 
 int
@@ -96,13 +96,12 @@ checkfstab(preen, maxrun, docheck, chkit)
 	int preen;
 	int maxrun;
 	int (*docheck)(struct fstab *);
-	int (*chkit)(char *, char *, long, int);
+	int (*chkit)(char *, char *, char *, int);
 {
 	register struct fstab *fsp;
 	register struct disk *dk, *nextdisk;
 	register struct part *pt;
 	int ret, pid, retcode, passno, sumstatus, status;
-	long auxdata;
 	char *name;
 
 	sumstatus = 0;
@@ -113,13 +112,13 @@ checkfstab(preen, maxrun, docheck, chkit)
 			return (8);
 		}
 		while ((fsp = getfsent()) != 0) {
-			if ((auxdata = (*docheck)(fsp)) == 0)
+			if ((*docheck)(fsp) == 0)
 				continue;
 			if (preen == 0 ||
 			    (passno == 1 && fsp->fs_passno == 1)) {
 				if ((name = blockcheck(fsp->fs_spec)) != 0) {
 					if ((sumstatus = (*chkit)(name,
-					    fsp->fs_file, auxdata, 0)) != 0)
+					    fsp->fs_file, fsp->fs_vfstype, 0)) != 0)
 						return (sumstatus);
 				} else if (preen)
 					return (8);
@@ -130,7 +129,7 @@ checkfstab(preen, maxrun, docheck, chkit)
 					sumstatus |= 8;
 					continue;
 				}
-				addpart(name, fsp->fs_file, auxdata);
+				addpart(name, fsp->fs_file, fsp->fs_vfstype);
 			}
 		}
 		if (preen == 0)
@@ -174,7 +173,7 @@ checkfstab(preen, maxrun, docheck, chkit)
 				dk->part = dk->part->next;
 				*badnext = NULL;
 			} else
-				dk->part = dk->part->next;
+				dk->part = dk->part->next;	/* Leaks dk->part */
 			dk->pid = 0;
 			nrun--;
 			if (dk->part == NULL)
@@ -226,11 +225,22 @@ finddisk(name)
 	register char *p;
 	size_t len;
 
-	for (len = strlen(name), p = name + len - 1; p >= name; --p)
-		if (isdigit(*p)) {
-			len = p - name + 1;
-			break;
-		}
+	/*
+	 * Find the disk name.  It is assumed that the disk name ends with the
+	 * first run of digit(s) in the last component of the path.
+	 */
+	p = strrchr(name, '/');		/* Find the last component of the path */
+	if (p == NULL)
+		p = name;
+	else
+		p++;
+	for (; *p && !isdigit(*p); p++)	/* Skip non-digits */
+		continue;
+	for (; *p && isdigit(*p); p++)	/* Skip to end of consecutive digits */
+		continue;
+	len = p - name;
+	if (len == 0)
+		len = strlen(name);
 
 	for (dk = disks, dkp = &disks; dk; dkp = &dk->next, dk = dk->next) {
 		if (strncmp(dk->name, name, len) == 0 &&
@@ -256,9 +266,7 @@ finddisk(name)
 }
 
 static void
-addpart(name, fsname, auxdata)
-	char *name, *fsname;
-	long auxdata;
+addpart(char *name, char *fsname, char *vfstype)
 {
 	struct disk *dk = finddisk(name);
 	register struct part *pt, **ppt = &dk->part;
@@ -284,13 +292,17 @@ addpart(name, fsname, auxdata)
 	}
 	(void)strcpy(pt->fsname, fsname);
 	pt->next = NULL;
-	pt->auxdata = auxdata;
+	pt->vfstype = strdup(vfstype);
+	if (pt->vfstype == NULL) {
+		fprintf(stderr, "out of memory");
+		exit (8);
+	}
 }
 
 static int
 startdisk(dk, checkit)
 	register struct disk *dk;
-	int (*checkit)(char *, char *, long, int);
+	int (*checkit)(char *, char *, char *, int);
 {
 	register struct part *pt = dk->part;
 
@@ -300,7 +312,7 @@ startdisk(dk, checkit)
 		return (8);
 	}
 	if (dk->pid == 0)
-		exit((*checkit)(pt->name, pt->fsname, pt->auxdata, 1));
+		exit((*checkit)(pt->name, pt->fsname, pt->vfstype, 1));
 	nrun++;
 	return (0);
 }

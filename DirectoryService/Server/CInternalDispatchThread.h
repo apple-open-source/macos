@@ -34,10 +34,10 @@
 class CInternalDispatchThread : public DSCThread
 {
 public:
-					CInternalDispatchThread		( const OSType inThreadSig );
+					CInternalDispatchThread		( const UInt32 inThreadSig );
 	virtual		   ~CInternalDispatchThread		( void );
 
-	virtual long	ThreadMain			( void ) = 0;	// pure virtual
+	virtual SInt32	ThreadMain			( void ) = 0;	// pure virtual
 
 	//handles internal dispatch message buffers
 	void			SetHandlerInternalMsgData   ( void );
@@ -50,10 +50,11 @@ public:
 protected:
 
 private:
-	sInt32			fInternalDispatchStackHeight;
+	SInt32			fInternalDispatchStackHeight;
 	sComData	   *fHandlerInternalMsgData;
 	sComData	   *fInternalMsgDataList[kMaxInternalDispatchRecursion];
 	bool			bInternalDispatchActive;
+	bool			bInternalLockCalledList[kMaxInternalDispatchRecursion]; //make sure that lock/unlock always go together ie. no singular unlocks allowed for internal dispatch
 };
 
 #endif

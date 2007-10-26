@@ -1,9 +1,8 @@
 " Vim syntax file
-" Language:	Inform
-" Maintainer:	Stephen Thomas (informvim@stephenthomas.uklinux.net)
-" URL:		http://www.stephenthomas.uklinux.net/informvim
-" Last Change:	2003 May 04
-
+" Language:     Inform
+" Maintainer:   Stephen Thomas (stephen@gowarthomas.com)
+" URL:		http://www.gowarthomas.com/informvim
+" Last Change:  2006 April 20
 
 " Quit when a syntax file was already loaded
 if version < 600
@@ -54,21 +53,33 @@ if !exists("inform_highlight_simple")
   syn keyword informLibProp number time_out daemon each_turn capacity
   syn keyword informLibProp name short_name short_name_indef parse_name
   syn keyword informLibProp articles inside_description
+  if !exists("inform_highlight_old")
+    syn keyword informLibProp compass_look before_implicit
+    syn keyword informLibProp ext_initialise ext_messages
+  endif
 
   syn keyword informLibObj e_obj se_obj s_obj sw_obj w_obj nw_obj n_obj
   syn keyword informLibObj ne_obj u_obj d_obj in_obj out_obj compass
   syn keyword informLibObj thedark selfobj player location second actor
   syn keyword informLibObj noun
+  if !exists("inform_highlight_old")
+    syn keyword informLibObj LibraryExtensions
+  endif
 
-  syn keyword informLibRoutine Achieved AddToScope AllowPushDir CDefArt
-  syn keyword informLibRoutine ChangeDefault ChangePlayer DefArt DoMenu
-  syn keyword informLibRoutine EnglishNumber HasLightSource InDefArt
-  syn keyword informLibRoutine Locale LoopOverScope NextWord
-  syn keyword informLibRoutine NextWordStopped NounDomain OffersLight
+  syn keyword informLibRoutine Achieved AfterRoutines AddToScope
+  syn keyword informLibRoutine AllowPushDir Banner ChangeDefault
+  syn keyword informLibRoutine ChangePlayer CommonAncestor DictionaryLookup
+  syn keyword informLibRoutine DisplayStatus DoMenu DrawStatusLine
+  syn keyword informLibRoutine EnglishNumber HasLightSource GetGNAOfObject
+  syn keyword informLibRoutine IndirectlyContains IsSeeThrough Locale
+  syn keyword informLibRoutine LoopOverScope LTI_Insert MoveFloatingObjects
+  syn keyword informLibRoutine NextWord NextWordStopped NounDomain
+  syn keyword informLibRoutine ObjectIsUntouchable OffersLight ParseToken
   syn keyword informLibRoutine PlaceInScope PlayerTo PrintShortName
-  syn keyword informLibRoutine ScopeWithin SetTime StartDaemon StartTimer
-  syn keyword informLibRoutine StopDaemon StopTimer TestScope TryNumber
-  syn keyword informLibRoutine UnsignedCompare WordAddress WordLength
+  syn keyword informLibRoutine PronounNotice ScopeWithin SetPronoun SetTime
+  syn keyword informLibRoutine StartDaemon StartTimer StopDaemon StopTimer
+  syn keyword informLibRoutine TestScope TryNumber UnsignedCompare
+  syn keyword informLibRoutine WordAddress WordInProperty WordLength
   syn keyword informLibRoutine WriteListFrom YesOrNo ZRegion RunRoutines
   syn keyword informLibRoutine AfterLife AfterPrompt Amusing BeforeParsing
   syn keyword informLibRoutine ChooseObjects DarkToDark DeathMessage
@@ -79,6 +90,17 @@ if !exists("inform_highlight_simple")
   if exists("inform_highlight_glulx")
      syn keyword informLibRoutine  IdentifyGlkObject HandleGlkEvent
      syn keyword informLibRoutine  InitGlkWindow
+  endif
+  if !exists("inform_highlight_old")
+     syn keyword informLibRoutine  KeyCharPrimitive KeyDelay ClearScreen
+     syn keyword informLibRoutine  MoveCursor MainWindow StatusLineHeight
+     syn keyword informLibRoutine  ScreenWidth ScreenHeight SetColour
+     syn keyword informLibRoutine  DecimalNumber PrintToBuffer Length
+     syn keyword informLibRoutine  UpperCase LowerCase PrintCapitalised
+     syn keyword informLibRoutine  Cap Centre
+     if exists("inform_highlight_glulx")
+	syn keyword informLibRoutine  PrintAnything PrintAnyToArray
+     endif
   endif
 
   syn keyword informLibAction  Quit Restart Restore Verify Save
@@ -118,6 +140,7 @@ if !exists("inform_highlight_simple")
   syn keyword informLibVariable parser_action scope_stage scope_reason
   syn keyword informLibVariable action_to_be menu_item item_name item_width
   syn keyword informLibVariable lm_o lm_n inventory_style task_scores
+  syn keyword informLibVariable inventory_stage
 
   syn keyword informLibConst AMUSING_PROVIDED DEBUG Headline MAX_CARRIED
   syn keyword informLibConst MAX_SCORE MAX_TIMERS NO_PLACES NUMBER_TASKS
@@ -133,6 +156,15 @@ if !exists("inform_highlight_simple")
   syn keyword informLibConst NOTHELD_PE MULTI_PE MMULTI_PE VAGUE_PE EXCEPT_PE
   syn keyword informLibConst ANIMA_PE VERB_PE SCENERY_PE ITGONE_PE
   syn keyword informLibConst JUNKAFTER_PE TOOFEW_PE NOTHING_PE ASKSCOPE_PE
+  if !exists("inform_highlight_old")
+     syn keyword informLibConst WORDSIZE TARGET_ZCODE TARGET_GLULX
+     syn keyword informLibConst LIBRARY_PARSER LIBRARY_VERBLIB LIBRARY_GRAMMAR
+     syn keyword informLibConst LIBRARY_ENGLISH NO_SCORE START_MOVE
+     syn keyword informLibConst CLR_DEFAULT CLR_BLACK CLR_RED CLR_GREEN
+     syn keyword informLibConst CLR_YELLOW CLR_BLUE CLR_MAGENTA CLR_CYAN
+     syn keyword informLibConst CLR_WHITE CLR_PURPLE CLR_AZURE
+     syn keyword informLibConst WIN_ALL WIN_MAIN WIN_STATUS
+  endif
 endif
 
 " Now the case sensitive stuff.
@@ -168,6 +200,9 @@ syn keyword informSysConst array_names_array array_flags_array lowest_constant_n
 syn keyword informSysConst highest_constant_number constants_array constant_names_array
 syn keyword informSysConst lowest_class_number highest_class_number class_objects_array
 syn keyword informSysConst lowest_object_number highest_object_number
+if !exists("inform_highlight_old")
+  syn keyword informSysConst sys_statusline_flag
+endif
 
 syn keyword informConditional default else if switch
 
@@ -185,11 +220,15 @@ syn keyword informKeyword expressions lines tokens linker on off alias long
 syn keyword informKeyword additive score time string table
 syn keyword informKeyword with private has class error fatalerror
 syn keyword informKeyword warning self
+if !exists("inform_highlight_old")
+  syn keyword informKeyword buffer
+endif
 
 syn keyword informMetaAttrib remaining create destroy recreate copy call
+syn keyword informMetaAttrib print_to_array
 
-syn keyword informPredicate contained has hasnt in notin ofclass or
-syn keyword informPredicate contained provides
+syn keyword informPredicate has hasnt in notin ofclass or
+syn keyword informPredicate provides
 
 syn keyword informGrammar contained noun held multi multiheld multiexcept
 syn keyword informGrammar contained multiinside creature special number
@@ -247,6 +286,9 @@ else
   syn keyword informAsm contained read_mouse mouse_window push_stack
   syn keyword informAsm contained put_wind_prop print_form make_menu
   syn keyword informAsm contained picture_table
+  if !exists("inform_highlight_old")
+     syn keyword informAsm contained check_unicode print_unicode
+  endif
   syn keyword informAsmObsolete contained print_paddr print_addr print_char
 endif
 
@@ -298,7 +340,7 @@ syn match informComment "!.*" contains=informTodo
 " Syncronization
 syn sync match informSyncStringEnd grouphere NONE /"[;,]\s*$/
 syn sync match informSyncRoutineEnd grouphere NONE /][;,]\s*$/
-syn sync match informSyncCommentEnd grouphere NONE /^\s!.*$/
+syn sync match informSyncCommentEnd grouphere NONE /^\s*!.*$/
 syn sync match informSyncRoutine groupthere informGrammarSection "\<Verb\|Extend\>"
 syn sync maxlines=500
 

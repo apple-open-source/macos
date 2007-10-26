@@ -40,17 +40,23 @@
 #include <AppleTalk/at_proto.h>
 #include <AppleTalk/at_paths.h>
 
-#define   ATOL(str)       strtol(str, (char **) NULL, 0)
+#ifndef _OPEN_SOURCE_
+#include <SystemIntegrity.h>
+#endif
+
+#include <ifaddrs.h>
+
+#define   ATOL(str)	   strtol(str, (char **) NULL, 0)
 
 static char *usage = 
 "  Startup in single port mode:\n\
 	-u <interface, e.g. en0>  Bring up in single-interface mode.\n\
-    modifier:\n\
+	modifier:\n\
 	-q don't ask for zones (non-interactive mode)\n\
   Startup for multiple ports:\n\
 	-r bring up Appletalk in routing mode\n\
 	-x bring up Appletalk in multihoming mode\n\
-    modifiers:\n\
+	modifiers:\n\
 	-f <router config file>\n\
 	-c check config file only\n\
 	-e check & display configuration only\n\
@@ -124,14 +130,10 @@ static void
 
 /* *** end appletalk exit codes *** */
 
-
-#define IFR_NEXT(ifr)   \
-  ((struct ifreq *) ((char *) (ifr) + sizeof(*(ifr)) + \
-      MAX(0, (int) (ifr)->ifr_addr.sa_len - (int) sizeof((ifr)->ifr_addr))))
 		
 int main(argc, argv)
-     int	argc;
-     char	*argv[];
+	 int	argc;
+	 char	*argv[];
 {
 	int opterr;
 	int ch;
@@ -159,6 +161,11 @@ int main(argc, argv)
 	int router_mix = 0;
  	int flag = 0;		/* used on AIOCSTOPATALK to force shutdown */
 	int ret; 		/* used for do_init() return value */
+	
+#ifndef _OPEN_SOURCE_
+	SystemIntegrityCheck('atlk', kSystemIntegrityHasRootEUID);
+#endif
+
 
 	checkCfg = 0;
 	displayCfg = 0;
@@ -309,52 +316,52 @@ int main(argc, argv)
 
 	/* error-check the options */
 	if (u_option || d_option || r_option || rt_param.multihome || 
-	    C_option || h_option || m_option) {
+		C_option || h_option || m_option) {
 	  /* single-port startup, stop, router startup, multihome startup,
-	     setting the computer name, and changing the default zone require
-	     root access */
-	  if (getuid () != 0) {
-	    fprintf (stderr, 
-		     "%s: Permission denied; must be super-user.\n", progname);
-	    exit(AT_CMD_PERMISSION_DENIED );
-	  }
+		 setting the computer name, and changing the default zone require
+		 root access */
+		if (getuid () != 0) {
+			fprintf (stderr, 
+				"%s: Permission denied; must be super-user.\n", progname);
+			exit(AT_CMD_PERMISSION_DENIED );
+		}
 	}
 
 	if ((u_option + r_option + rt_param.multihome) > 1) {
-	    fprintf(stderr, 
-		    "%s: Only one of [-u -r -x] may be used  at the same time.\n",
-		    progname);
-	    opterr++;
+		fprintf(stderr, 
+			"%s: Only one of [-u -r -x] may be used  at the same time.\n",
+			progname);
+		opterr++;
 	}
 
 	if (u_option || r_option || rt_param.multihome) {
-	  if (d_option) {
-	    fprintf(stderr, 
-		    "%s: -%c and -d options are incompatible\n",
-		    progname, 
-		    (r_option)? 'r': (rt_param.multihome)? 'x' : 'u');
-	    opterr++;
-	  }
-	  if (u_option && (checkCfg || displayCfg || cfgFileName || v_option || w_option)) {
-	    fprintf(stderr, 
-		    "%s: -c, -e, -f, -v and -w can only be used with -r or -x option\n",
-		    progname);
-	    opterr++;
-	  }
-	}
-	else {
-	    if (q_option) {
-		fprintf(stderr, 
-			"%s: -q can only be used with -u, -r, or -x option\n",
-			progname);
-		opterr++;
-	    }
-	    if (checkCfg || displayCfg || cfgFileName || v_option || w_option) {
+		if (d_option) {
+			fprintf(stderr, 
+				"%s: -%c and -d options are incompatible\n",
+				progname, 
+				(r_option)? 'r': (rt_param.multihome)? 'x' : 'u');
+			opterr++;
+		}
+		if (u_option && (checkCfg || displayCfg || cfgFileName || v_option || w_option)) {
 		fprintf(stderr, 
 			"%s: -c, -e, -f, -v and -w can only be used with -r or -x option\n",
 			progname);
 		opterr++;
-	    }
+	  }
+	}
+	else {
+		if (q_option) {
+		fprintf(stderr, 
+			"%s: -q can only be used with -u, -r, or -x option\n",
+			progname);
+		opterr++;
+		}
+		if (checkCfg || displayCfg || cfgFileName || v_option || w_option) {
+		fprintf(stderr, 
+			"%s: -c, -e, -f, -v and -w can only be used with -r or -x option\n",
+			progname);
+		opterr++;
+		}
 	}
 
 	if (opterr || no_option) {
@@ -364,17 +371,17 @@ int main(argc, argv)
 
 	/* process options which start Appletalk */
 	if (u_option || r_option || rt_param.multihome) {
-	    if (checkATStack() == RUNNING) {
-	        fprintf(stderr,"The AppleTalk stack is already running.\n");
+		if (checkATStack() == RUNNING) {
+			fprintf(stderr,"The AppleTalk stack is already running.\n");
 		exit(AT_CMD_ALREADY_RUNNING);
-	    } else {
+		} else {
 		if (r_option || rt_param.multihome) {
 			router = TRUE;
 			if (!cfgFileName) /* alternate cfg file specified? */
 			   if (rt_param.multihome)
-			      cfgFileName = MH_CFG_FILE;
+				  cfgFileName = MH_CFG_FILE;
 			   else
-			      cfgFileName = AT_CFG_FILE;
+				  cfgFileName = AT_CFG_FILE;
 
 			/* does cfg file exist? */
 			if (access(cfgFileName,0)) {
@@ -385,17 +392,17 @@ int main(argc, argv)
 			}
 		}
 
-	        if ((ret = do_init())) {
-		    exit(ret);
+			if ((ret = do_init())) {
+			exit(ret);
 		}
 		if (checkCfg || displayCfg) {
-		    exit(AT_CMD_SUCCESS);
+			exit(AT_CMD_SUCCESS);
 		}
 
 		/* if not -q, ask for default zone */
 		if (!q_option)
 			zone_prompt = TRUE;
-	    }
+		}
 	}
 
 	/* Either Appletalk was just started, or it should have been 
@@ -407,12 +414,12 @@ int main(argc, argv)
 		exit(AT_CMD_SYSTEM_ERROR);
 	}
 	if (global_state.flags & AT_ST_STARTED) {
-	    if (d_option) {
-	        exit(do_shutdown());
-	    }
+		if (d_option) {
+			exit(do_shutdown());
+		}
 
-	    if (zone_prompt || h_option || n_option || s_option || j_option) {
-	      if ((!(global_state.flags & AT_ST_MULTIHOME)) && 
+		if (zone_prompt || h_option || n_option || s_option || j_option) {
+		  if ((!(global_state.flags & AT_ST_MULTIHOME)) && 
 		  (s_option || n_option || h_option || zone_prompt)) {
 
 		/* if in routing and single-port modes, only get the 
@@ -427,68 +434,58 @@ int main(argc, argv)
 		  cfg.zonename.str[cfg.zonename.len] = '\0';
 
 		if (h_option || zone_prompt)
-		    	displayZoneDef(fd, &cfg);
+				displayZoneDef(fd, &cfg);
 		if (s_option || n_option)
 			print_nodeid(&cfg);
 		if (s_option & (!(global_state.flags & AT_ST_ROUTER)))
 			print_routerid(&cfg);  
-	      } else {
-	        /* for each interface that is configured for Appletalk */
-		struct ifconf ifc;
-		struct ifreq ifrbuf[30], *ifr;
+		} else {
+			/* for each interface that is configured for Appletalk */
+			struct ifaddrs *ifa_list = NULL, *ifa;
 
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-	        ifc.ifc_len = sizeof (ifrbuf);
-		if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+			if (getifaddrs(&ifa_list) == -1) {
 #ifdef APPLETALK_DEBUG
-			fprintf(stderr, "%s: error calling SIOCGIFCONF", 
-				progname);
+				fprintf(stderr, "%s: error calling getifaddrs", 
+					progname);
 #endif
-			(void)close(fd);
-			exit(AT_CMD_SYSTEM_ERROR);
+				(void)close(fd);
+				exit(AT_CMD_SYSTEM_ERROR);
+			}
+
+			for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+				if (ifa->ifa_addr->sa_family != AF_APPLETALK)
+					continue;
+
+				if (*ifa->ifa_name == '\0')
+					continue;
+
+				strncpy(cfg.ifr_name, ifa->ifa_name, sizeof(cfg.ifr_name));
+				cfg.ifr_name[sizeof(cfg.ifr_name)] = 0;
+				if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
+					continue;
+
+				/* if there's room, terminate the zone string for printing */
+				if (cfg.zonename.len < NBP_NVE_STR_SIZE)
+					cfg.zonename.str[cfg.zonename.len] = '\0';
+				
+				if (h_option || zone_prompt)
+					displayZoneDef(fd, &cfg);
+				else if (n_option || s_option)
+					print_nodeid(&cfg);
+				else if (j_option)
+					showRouterStats();
+			} /* for */
+			
+			if (ifa_list != NULL)
+				freeifaddrs(ifa_list);
+		  } /* multihome mode */
+		  if (s_option)
+			(void)print_statistics();
 		}
 
-		for (ifr = (struct ifreq *) ifc.ifc_buf;
-		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
-		     ifr = IFR_NEXT(ifr)) {
-		  	unsigned char *p, c;
-
-			if (ifr->ifr_addr.sa_family != AF_APPLETALK)
-				continue;
-
-			if (*ifr->ifr_name == '\0')
-				continue;
-
-			/*
-			 * Adapt to buggy kernel implementation (> 9 of a type)
-			 */
-			p = &ifr->ifr_name[strlen(ifr->ifr_name)-1];
-			if ((c = *p) > '0'+9)
-			  	sprintf(p, "%d", c-'0');
-
-			strcpy(cfg.ifr_name, ifr->ifr_name);
-			if (ioctl(fd, AIOCGETIFCFG, (caddr_t)&cfg) < 0)
-				continue;
-
-			/* if there's room, terminate the zone string for printing */
-			if (cfg.zonename.len < NBP_NVE_STR_SIZE)
-			  cfg.zonename.str[cfg.zonename.len] = '\0';
-
-			if (h_option || zone_prompt)
-				displayZoneDef(fd, &cfg);
-			else if (n_option || s_option)
-				print_nodeid(&cfg);
-			else if (j_option)
-				showRouterStats();
-		} /* for */
-	      } /* multihome mode */
-	      if (s_option)
-			(void)print_statistics();
-	    }
-
-	    /* register the node after the default zone has been selected */
-	    if (u_option || r_option || rt_param.multihome)
-		    if (register_this_node(fd) != 0) {
+		/* register the node after the default zone has been selected */
+		if (u_option || r_option || rt_param.multihome)
+			if (register_this_node(fd) != 0) {
 			fprintf(stderr,
 				"%s: node registration failed\n", progname);
 /* Commented out for now, because this doesn't have to be a fatal error.
@@ -498,25 +495,25 @@ int main(argc, argv)
 				"Failed to start the AppleTalk stack.\n");
 			exit(AT_CMD_NBP_REG_ERROR);
 */
-		    }
+			}
 
-	    if (t_option) {
+		if (t_option) {
 		showRoutes();
-	    }
-	    if (z_option) {
-		showZones();
-	    }
-	    if (m_option && !r_option) {
-	        size_t size = (size_t)sizeof(int);
-
-	        /* set the router mix in the kernel */
-	        if (sysctlbyname("net.appletalk.routermix", 
-				 0, 0, (void *)&router_mix, size) < 0) {
-		    fprintf(stderr, "%s: error setting router mix in kernel\n",
-			    progname);
-		    exit(AT_CMD_SYSTEM_ERROR);
 		}
-	    }
+		if (z_option) {
+		showZones();
+		}
+		if (m_option && !r_option) {
+			size_t size = (size_t)sizeof(int);
+
+			/* set the router mix in the kernel */
+			if (sysctlbyname("net.appletalk.routermix", 
+				 0, 0, (void *)&router_mix, size) < 0) {
+			fprintf(stderr, "%s: error setting router mix in kernel\n",
+				progname);
+			exit(AT_CMD_SYSTEM_ERROR);
+		}
+		}
 	} else { /* not RUNNING */
 		if (!p_option) {
 			fprintf(stderr, "The AppleTalk stack is not running.\n");
@@ -524,47 +521,31 @@ int main(argc, argv)
 		}
 	}
 	if (p_option) {
-		struct ifconf ifc;
-		struct ifreq ifrbuf[30], *ifr;
+		struct ifaddrs *ifa_list = NULL, *ifa;
 
-		ifc.ifc_buf = (caddr_t)ifrbuf;
-	        ifc.ifc_len = sizeof (ifrbuf);
-		if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+		if (getifaddrs(&ifa_list) == -1) {
 #ifdef APPLETALK_DEBUG
-			fprintf(stderr, "%s: error calling SIOCGIFCONF", 
+			fprintf(stderr, "%s: error calling getifaddrs", 
 				progname);
 #endif
 			(void)close(fd);
 			exit(AT_CMD_SYSTEM_ERROR);
 		}
 
-		for (ifr = (struct ifreq *) ifc.ifc_buf;
-		     (char *) ifr < &ifc.ifc_buf[ifc.ifc_len];
-		     ifr = IFR_NEXT(ifr)) {
-
+		for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
 			unsigned char *p, c;
-			struct ifreq *ifr2;
+			struct ifaddrs *ifa2;
 
-			/* skip duplicate names */
-			for (ifr2 = (struct ifreq *) ifc.ifc_buf; ifr2 < ifr;
-			     ifr2 = IFR_NEXT(ifr2))
-			  if (strncmp(ifr2->ifr_name, ifr->ifr_name,
-				      sizeof(ifr->ifr_name)) == 0)
-			    break;
-			if (ifr2 < ifr)
-			  continue;
+			if (ifa->ifa_addr->sa_family != AF_LINK)
+				continue;
 
-			if (*ifr->ifr_name == '\0')
-			  continue;
-			/*
-			 * Adapt to buggy kernel implementation (> 9 of a type)
-			 */
-			p = &ifr->ifr_name[strlen(ifr->ifr_name)-1];
-			if ((c = *p) > '0'+9)
-			  sprintf(p, "%d", c-'0');
+			if (*ifa->ifa_name == '\0')
+				continue;
 
-			(void)print_pram_info(ifr->ifr_name);
+			(void)print_pram_info(ifa->ifa_name);
 		}
+		if (ifa_list != NULL)
+			freeifaddrs(ifa_list);
 	}
 	(void)close(fd);
 	exit(AT_CMD_SUCCESS);
@@ -572,23 +553,23 @@ int main(argc, argv)
 
 
 static void print_routerid(cfg)
-     at_if_cfg_t *cfg;
+	 at_if_cfg_t *cfg;
 {
 	printf("\tBridge net ...................... %u (0x%x)\n",
-	       cfg->router.s_net, cfg->router.s_net);
+		   cfg->router.s_net, cfg->router.s_net);
 	printf("\tBridge number ................... %u (0x%x)\n",
-	       cfg->router.s_node, cfg->router.s_node);
+		   cfg->router.s_node, cfg->router.s_node);
 }
 
 static int print_pram_info(ifName)
-     char *ifName;
+	 char *ifName;
 {
 	at_nvestr_t zonename;
 	struct at_addr netnumber;
-	char zone[sizeof(zonename.str+1)];
+	char zone[sizeof(zonename.str) + 1];
 
 	if (!ifName || !strlen(ifName))
-                return(-1);
+				return(-1);
 
 	if (at_getdefaultzone(ifName, &zonename) < 0)
 		return(-1);
@@ -599,22 +580,22 @@ static int print_pram_info(ifName)
 	if (zonename.len == 0)
 		strcpy(zone, "*");
 	else {
-		strncpy(zone, zonename.str, zonename.len);
+		strncpy(zone, zonename.str, sizeof(zone));
 		zone[zonename.len] = '\0';
 	}
 
 	printf("\n\tAppleTalk interface.............. %s\n", ifName);
 	printf("\tPRAM default zonename ........... %s\n", zone);
 	printf("\tPRAM netnumber .................. %u (%#x)\n",
-	       netnumber.s_net, netnumber.s_net);
+			netnumber.s_net, netnumber.s_net);
 	printf("\tPRAM node id .................... %u (%#x)\n",
-	       netnumber.s_node, netnumber.s_node);
+			netnumber.s_node, netnumber.s_node);
 
 	return(0);
 } /* print_pram_info */
 
 static void print_nodeid(cfg)
-     at_if_cfg_t *cfg;
+	 at_if_cfg_t *cfg;
 {
 	printf("\n");
 	printf("\tAppleTalk interface.............. %s\n", cfg->ifr_name);
@@ -643,7 +624,7 @@ static int print_statistics()
 		return(-1);
 	}
 
-	printf("\n    DDP statistics:\n\n");
+	printf("\n	DDP statistics:\n\n");
 	printf("\tPackets Transmitted ............. %u\n",
 		ddp_stats.xmit_packets);
 	printf("\tBytes Transmitted ............... %u\n",
@@ -670,7 +651,7 @@ static int print_statistics()
 }
 
 int routerStartup(s)
-     int s;
+	 int s;
 {
 	at_kern_err_t ke;
 
@@ -762,15 +743,15 @@ and not %d as asked in our configuration\n",
 static int
 get_if_flags(int s, char * ifname, short * flags)
 {
-    	struct ifreq	ifr;
+		struct ifreq	ifr;
 	int		ret;
 
 	bzero(&ifr, sizeof(ifr));
 	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	ret = ioctl(s, SIOCGIFFLAGS, (caddr_t)&ifr);
 	if (ret < 0) {
-	    perror("SIOCGIFFLAGS");
-	    return (ret);
+		perror("SIOCGIFFLAGS");
+		return (ret);
 	}
 	*flags = ifr.ifr_flags;
 	return (0);
@@ -779,7 +760,7 @@ get_if_flags(int s, char * ifname, short * flags)
 static int
 set_if_flags(int s, char * ifname, short flags)
 {
-    	struct ifreq	ifr;
+		struct ifreq	ifr;
 	int		ret;
 
 	bzero(&ifr, sizeof(ifr));
@@ -787,8 +768,8 @@ set_if_flags(int s, char * ifname, short flags)
 	ifr.ifr_flags = flags;
 	ret = ioctl(s, SIOCSIFFLAGS, (caddr_t)&ifr);
 	if (ret < 0) {
-	    perror("SIOCSIFFLAGS");
-	    return (ret);
+		perror("SIOCSIFFLAGS");
+		return (ret);
 	}
 	return (0);
 }
@@ -796,29 +777,29 @@ set_if_flags(int s, char * ifname, short flags)
 static int
 mark_interface_up(char * ifname)
 {
-    	short	flags = 0;
+		short	flags = 0;
 	int	ret = FALSE;
 	int	s = -1;
 	
 	if ((s = socket(AF_APPLETALK, SOCK_RAW, 0)) < 0) {
-	    perror("socket");
-	    goto error;
+		perror("socket");
+		goto error;
 	}
 	if (get_if_flags(s, ifname, &flags) != 0) {
-	    goto error;
+		goto error;
 	}
 	if (flags & IFF_UP)
-	    ;
+		;
 	else {
-	    flags |= IFF_UP;
-	    if (set_if_flags(s, ifname, flags) != 0) {
+		flags |= IFF_UP;
+		if (set_if_flags(s, ifname, flags) != 0) {
 		goto error;
-	    }
+		}
 	}
 	ret = TRUE;
  error:
 	if (s >= 0) {
-	    close(s);
+		close(s);
 	}
 	return (ret);
 }
@@ -838,7 +819,7 @@ int do_init()
 	memset(&elapcfg[0], 0, sizeof(elapcfg));
 	if (router) {
 	  	/* read & validate config file */
-	    	if (getConfigInfo(elapcfg, if_zones, cfgFileName, 
+			if (getConfigInfo(elapcfg, if_zones, cfgFileName, 
 				  checkCfg, displayCfg, rt_param.multihome)) {
 			return(AT_CMD_CONFIG_ERROR);
 		}
@@ -848,7 +829,7 @@ int do_init()
 			return(AT_CMD_SUCCESS);	
 				/* if just checking cfg, we passed */
 	} else {
-	        at_nvestr_t zone_name;
+			at_nvestr_t zone_name;
 		struct at_addr init_addr;
 
 		elapcfg[0].flags |= ELAP_CFG_HOME;
@@ -861,10 +842,10 @@ int do_init()
 			if (!DEFAULT_ZONE(&zone_name)) {
 			  elapcfg[0].zonename = zone_name;
 			  /* Check if we can reuse the same net/node address
-			     we have saved.  Don't try to reuse the old address
-			     unless there's a good zone to go with it. */
+				 we have saved.  Don't try to reuse the old address
+				 unless there's a good zone to go with it. */
 			  if (at_getdefaultaddr(et_interface, &init_addr) == 0)
-                                elapcfg[0].node = init_addr;
+								elapcfg[0].node = init_addr;
 			}
 	}
 
@@ -881,7 +862,7 @@ int do_init()
 	  	if (ioctl(s, AIOCSETROUTER, (caddr_t)&rt_param) < 0) {
 #ifdef APPLETALK_DEBUG
 			fprintf(stderr,
-                                "%s: AIOCSETROUTER returned %s (%d)\n", 
+								"%s: AIOCSETROUTER returned %s (%d)\n", 
 				progname, sys_errlist[errno], errno);
 #endif
 			ret = AT_CMD_SYSTEM_ERROR;
@@ -891,7 +872,7 @@ int do_init()
 
 	/* configure all of the interfaces up */
 	for (i=0; elapcfg[i].ifr_name[0] ; i++) {
-	        /* make sure that the interface name is valid */
+			/* make sure that the interface name is valid */
 		for (p = elapcfg[i].ifr_name; *p != '\0'; p++) {
 			if (isdigit(*p))
 				break;
@@ -979,20 +960,20 @@ int do_init()
 	/* communicate zone info to kernel */
 	if (router) {
 		if (!rt_param.multihome) {
-		    /* in router mode, add zones for interfaces being seeded */
-		    for (i=0; 
+			/* in router mode, add zones for interfaces being seeded */
+			for (i=0; 
 			 i < MAX_ZONES && if_zones[i].zone_name.len; i++) {
 			if (ioctl(s, AIOCSETZNUSAGE, (caddr_t)&if_zones[i])) {
-			    /* if length permits null terminate string for 
-			       printing */
-			    if (if_zones[i].zone_name.len < NBP_NVE_STR_SIZE)
+				/* if length permits null terminate string for 
+				   printing */
+				if (if_zones[i].zone_name.len < NBP_NVE_STR_SIZE)
 				if_zones[i].zone_name.str[if_zones[i].zone_name.len] = '\0';
-			    fprintf(stderr, "%s: error adding zone %s\n", 
-				    progname, if_zones[i].zone_name.str);
-			    ret = AT_CMD_ROUTER_ERROR;
-			    goto error;
+				fprintf(stderr, "%s: error adding zone %s\n", 
+					progname, if_zones[i].zone_name.str);
+				ret = AT_CMD_ROUTER_ERROR;
+				goto error;
 			}
-		    }
+			}
 		}
 		if (routerStartup(s) < 0) {
 			ret = AT_CMD_ROUTER_ERROR;
@@ -1008,13 +989,13 @@ int do_init()
 		int count = 0, context = ZIP_FIRST_ZONE;
 
 		while (context != ZIP_NO_MORE_ZONES) {
-		    if ((count = zip_getlocalzones(ZIP_DEF_INTERFACE,
-					       &context, 
-					       &(buf[0]),
-					       (ATP_DATA_SIZE+1))) > 0) {
-		       for (i=0, cp=buf, zp = (at_nvestr_t *)cp; 
-			    i < count && zp->len;
-			    i++, cp += (zp->len+1), zp = (at_nvestr_t *)cp) {
+			if ((count = zip_getlocalzones(ZIP_DEF_INTERFACE,
+						   &context, 
+						   &(buf[0]),
+						   (ATP_DATA_SIZE+1))) > 0) {
+			   for (i=0, cp=buf, zp = (at_nvestr_t *)cp; 
+				i < count && zp->len;
+				i++, cp += (zp->len+1), zp = (at_nvestr_t *)cp) {
 
 			 /* feed local zone to NBP, in the kernel */
 			 if (ioctl(s, AIOCREGLOCALZN, (caddr_t)zp)) { 
@@ -1024,44 +1005,44 @@ int do_init()
 				ret = AT_CMD_LZONE_NOT_SET;
 				goto error;
 			 }
-		       }
-		    } else {
+			   }
+			} else {
 			break;  
-		    }
+			}
 		}
 	}
 
 	/* set and/or save default zones from/in persistent storage */
 	for (i=0; elapcfg[i].ifr_name[0] ; i++) {
 		if ((elapcfg[i].flags & ELAP_CFG_HOME) ||
-		    rt_param.multihome) {
+			rt_param.multihome) {
 
-		    /* in router / multihome mode, if a default zone can be 
-		       read from the nvram file for the interface, the 
-		       kernel is updated after startup has taken place */
-		    if (router) {
+			/* in router / multihome mode, if a default zone can be 
+			   read from the nvram file for the interface, the 
+			   kernel is updated after startup has taken place */
+			if (router) {
 		  	at_nvestr_t nvramzone;
 
 			if (!at_getdefaultzone(elapcfg[i].ifr_name, 
-					       &nvramzone)) {
-			      at_def_zone_t defzone;
+						   &nvramzone)) {
+				  at_def_zone_t defzone;
 
-			      strcpy(defzone.ifr_name, elapcfg[i].ifr_name);
-			      defzone.zonename = nvramzone;
+				  strcpy(defzone.ifr_name, elapcfg[i].ifr_name);
+				  defzone.zonename = nvramzone;
 							  
-			      if ((ioctl(s, AIOCSETDEFZONE, (caddr_t)&defzone))) {
+				  if ((ioctl(s, AIOCSETDEFZONE, (caddr_t)&defzone))) {
 				if (nvramzone.len < NBP_NVE_STR_SIZE)
 					nvramzone.str[nvramzone.len] = '\0';
 				fprintf(stderr, 
 					"%s: AIOCSETDEFZONE failed for %s %s\n", 
 					progname, elapcfg[i].ifr_name, nvramzone.str);
-			      }
+				  }
 			}
-		    }
+			}
 
-		    /* in any case, save the values AppleTalk came up with
-		       in the nvram file, for next time */
-		    (void)at_savecfgdefaults(s, elapcfg[i].ifr_name);
+			/* in any case, save the values AppleTalk came up with
+			   in the nvram file, for next time */
+			(void)at_savecfgdefaults(s, elapcfg[i].ifr_name);
 		}
 	}
 
@@ -1101,7 +1082,7 @@ static int do_shutdown()
 } /* do_shutdown */
 
 static int register_this_node(fd)
-     int fd;		/* control socket */
+	 int fd;		/* control socket */
 {
 	struct utsname	u_name;
 	int ret = 0;
@@ -1119,8 +1100,8 @@ static int register_this_node(fd)
 
 		len = strlen(computerName);
 		if ((len > 2) &&
-		    (computerName[0] == '*') && (computerName[len-1] == '*') &&
-		    ((len & 1) == 0)) {
+			(computerName[0] == '*') && (computerName[len-1] == '*') &&
+			((len & 1) == 0)) {
 			/* if encoded string markers are present and len OK */
 			char	buf[NBP_NVE_STR_SIZE];
 			int	cp, bp;
@@ -1128,7 +1109,7 @@ static int register_this_node(fd)
 			len = (len - 2) / 2;
 			memset(&buf[0], 0, sizeof(buf));
 			for (cp = 1, bp = 0; bp < len; cp += 2, bp++) {
-				int     byte;
+				int	 byte;
 
 				if (sscanf(&computerName[cp], "%2x", &byte) != 1)
 					goto proceed;
@@ -1146,16 +1127,16 @@ static int register_this_node(fd)
 		}
 	}
 
-    proceed :
+	proceed :
 
 	if ((ret = nbp_reg_lookup(&reg.name, &retry)) != 0) {
 		if (ret > 0)  
-		    fprintf(stderr, 
-			    "%s: identical node was previously registered\n",
-			    progname);
+			fprintf(stderr, 
+				"%s: identical node was previously registered\n",
+				progname);
 #ifdef APPLETALK_DEBUG
 		else	
-		    fprintf(stderr, "%s: nbp_reg_lookup() failed\n", progname);
+			fprintf(stderr, "%s: nbp_reg_lookup() failed\n", progname);
 #endif
 		return (-1);
 	}
@@ -1177,35 +1158,35 @@ static int register_this_node(fd)
 } /* register_this_node */
 
 static void displayZoneDef(fd, cfg)
-     int fd;
-     at_if_cfg_t *cfg;
+	 int fd;
+	 at_if_cfg_t *cfg;
 {
 #define DISPLAY_ZONES 10
 	at_nvestr_t *zp;
 	at_def_zone_t defzone;
 	u_char buf[ATP_DATA_SIZE+1];
 	char input_buff[80], 
-	     zone[DISPLAY_ZONES][ZIP_MAX_ZONE_LENGTH],
-	     *cp;
+		 zone[DISPLAY_ZONES][ZIP_MAX_ZONE_LENGTH],
+		 *cp;
 	int start = ZIP_FIRST_ZONE, 
-	    i = 0, times = 0, count = 0, zone_index = 0;
+		i = 0, times = 0, count = 0, zone_index = 0;
 
 	if (!fd) 
 		return;
 
 	printf("Current zone for interface %s is %s\n",
-	       cfg->ifr_name, cfg->zonename.str);
+		   cfg->ifr_name, cfg->zonename.str);
 
 	while (times < DISPLAY_ZONES && zone_index < DISPLAY_ZONES && 
-	       start != ZIP_NO_MORE_ZONES && count != -1) {
+		   start != ZIP_NO_MORE_ZONES && count != -1) {
 		if ((count = 
-		     zip_getlocalzones(cfg->ifr_name, &start, buf, sizeof(buf))) > 0) {
+			 zip_getlocalzones(cfg->ifr_name, &start, buf, sizeof(buf))) > 0) {
 		  if (count && !zone_index) 
 		  	printf("Zones found:\n");
 		  for (i=zone_index, cp=buf, zp = (at_nvestr_t *)cp; 
-		       i < (count+zone_index) && i < DISPLAY_ZONES && zp->len;
-		       i++, cp += (zp->len+1), zp = (at_nvestr_t *)cp) {
-			strncpy(zone[i], zp->str, zp->len);
+			   i < (count+zone_index) && i < DISPLAY_ZONES && zp->len;
+			   i++, cp += (zp->len+1), zp = (at_nvestr_t *)cp) {
+			strncpy(zone[i], zp->str, ZIP_MAX_ZONE_LENGTH);
 			zone[i][zp->len] = '\0';
 			printf("%2d: %s\n", i+1, zone[i]);
 		  }
@@ -1252,9 +1233,9 @@ again:
 #define STATS_HEADER1 \
 "\n-------- Appletalk Configuration -----------\n"
 #define STATS_HEADER2 \
-"                             Network:\n"
+"							 Network:\n"
 #define STATS_HEADER3 \
-" I/F  State             Range       Node      Default Zone\n"
+" I/F  State			 Range	   Node	  Default Zone\n"
 #define STATS_HEADER4 \
 " ---- ----------------- ----------- --------- -------------------------\n"
 
@@ -1278,10 +1259,10 @@ static int showRouterStats()
 		(state == LAP_ONLINE_ZONELESS)? "Online zoneless": "Unknown");
 
 	fprintf(stdout, "%5d-%-5d %5d:%-3d ", 
-		    cfg.netStart,
-		    cfg.netEnd,
-		    cfg.node.s_net,
-		    cfg.node.s_node);
+			cfg.netStart,
+			cfg.netEnd,
+			cfg.node.s_net,
+			cfg.node.s_node);
 	fprintf(stdout, "%s\n", cfg.zonename.str);
 
 	/* *** Should stats be printed too? *** */

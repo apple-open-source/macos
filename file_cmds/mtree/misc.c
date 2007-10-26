@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,27 +27,26 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
-#endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.8.2.1 2000/06/28 02:33:17 joe Exp $";
 #endif /*not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.16 2005/03/29 11:44:17 tobez Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <err.h>
 #include <fts.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include "mtree.h"
 #include "extern.h"
 
-extern int lineno;
-
 typedef struct _key {
-	char *name;			/* key name */
+	const char *name;			/* key name */
 	u_int val;			/* value */
 
 #define	NEEDVALUE	0x01
@@ -66,17 +61,20 @@ static KEY keylist[] = {
 	{"gname",	F_GNAME,	NEEDVALUE},
 	{"ignore",	F_IGN,		0},
 	{"link",	F_SLINK,	NEEDVALUE},
-#ifdef MD5
+#ifdef ENABLE_MD5
 	{"md5digest",	F_MD5,		NEEDVALUE},
 #endif
 	{"mode",	F_MODE,		NEEDVALUE},
 	{"nlink",	F_NLINK,	NEEDVALUE},
 	{"nochange",	F_NOCHANGE,	0},
-#ifdef RMD160
+#ifdef ENABLE_RMD160
 	{"ripemd160digest", F_RMD160,	NEEDVALUE},
 #endif
-#ifdef SHA1
+#ifdef ENABLE_SHA1
 	{"sha1digest",	F_SHA1,		NEEDVALUE},
+#endif
+#ifdef ENABLE_SHA256
+	{"sha256digest",	F_SHA256,		NEEDVALUE},
 #endif
 	{"size",	F_SIZE,		NEEDVALUE},
 	{"time",	F_TIME,		NEEDVALUE},
@@ -85,13 +83,12 @@ static KEY keylist[] = {
 	{"uname",	F_UNAME,	NEEDVALUE},
 };
 
+int keycompare(const void *, const void *);
+
 u_int
-parsekey(name, needvaluep)
-	char *name;
-	int *needvaluep;
+parsekey(char *name, int *needvaluep)
 {
 	KEY *k, tmp;
-	int keycompare __P((const void *, const void *));
 
 	tmp.name = name;
 	k = (KEY *)bsearch(&tmp, keylist, sizeof(keylist) / sizeof(KEY),
@@ -105,15 +102,13 @@ parsekey(name, needvaluep)
 }
 
 int
-keycompare(a, b)
-	const void *a, *b;
+keycompare(const void *a, const void *b)
 {
-	return (strcmp(((KEY *)a)->name, ((KEY *)b)->name));
+	return (strcmp(((const KEY *)a)->name, ((const KEY *)b)->name));
 }
 
 char *
-flags_to_string(fflags)
-	u_long fflags;
+flags_to_string(u_long fflags)
 {
 	char *string;
 

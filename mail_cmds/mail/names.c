@@ -381,7 +381,7 @@ outof(names, fo, hp)
 			 * on one another.
 			 */
 			if ((sh = value("SHELL")) == NULL)
-				sh = _PATH_CSHELL;
+				sh = _PATH_BSHELL;
 			(void)sigemptyset(&nset);
 			(void)sigaddset(&nset, SIGHUP);
 			(void)sigaddset(&nset, SIGINT);

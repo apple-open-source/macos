@@ -278,8 +278,7 @@ BC_coalesce_playlist(struct BC_playlist_entry **ppc, int *pnentries)
 			/* adjust length if required */
 			pc->pce_length = MAX((pc->pce_offset + pc->pce_length),
 			    ((pc + j)->pce_offset + (pc + j)->pce_length)) - pc->pce_offset;
-			if ((pc + j)->pce_flags & PCE_PREFETCH)
-				pc->pce_flags |= PCE_PREFETCH;
+			pc->pce_batch = MIN(pc->pce_batch, (pc + j)->pce_batch);
 		}
 
 		/* save entry */
@@ -342,7 +341,7 @@ BC_convert_history(const struct BC_history_entry *he, struct BC_playlist_entry *
 {
 	struct BC_playlist_entry *pc, *pcp;
 	u_int64_t end;
-	int oentries, nentries, ent, pent, have_prefetch;
+	int oentries, nentries, ent, curbatch;
 
 	if (he == NULL)
 		return(0);
@@ -352,16 +351,14 @@ BC_convert_history(const struct BC_history_entry *he, struct BC_playlist_entry *
 		return(ENOMEM);
 
 	/* scan history and convert */
-	have_prefetch = 0;
+	curbatch = 0;
 	pcp = pc;
 	nentries = 0;
 	for (ent = 0; ent < oentries; ent++, he++) {
 
-		/* if we find a prefetch tag, mark all earlier entries */
-		if (he->he_flags == BC_HE_TAG) {
-			have_prefetch = 1;
-			for (pent = 0; pent < ent; pent++)
-				(pc + pent)->pce_flags |= PCE_PREFETCH;
+		/* if we find a tag, mark the next batch */
+		if ((he->he_flags == BC_HE_TAG) && (curbatch < CE_BATCH_MASK)) {
+			curbatch++;
 			continue;
 		}
 
@@ -373,12 +370,11 @@ BC_convert_history(const struct BC_history_entry *he, struct BC_playlist_entry *
 		pcp->pce_offset = BLOCK_ROUNDDOWN(he->he_offset);
 		end = he->he_offset + he->he_length;
 		pcp->pce_length = BLOCK_ROUNDUP(end) - pcp->pce_offset;
+		pcp->pce_batch = curbatch;
 		pcp++;
 		nentries++;
 	}
 
-	if (have_prefetch != 0)
-		nentries--;
 	*ppc = pc;
 	*pnentries = nentries;
 	return(0);
@@ -458,7 +454,7 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 {
 	FILE *fp;
 	struct timeval tv;
-	int msec;
+	int msec, b;
 
 	if (ss == NULL)
 		return(0);
@@ -478,34 +474,33 @@ BC_print_statistics(char *fname, struct BC_statistics *ss)
 	fprintf(fp, "blocks read               %u\n", ss->ss_read_blocks);
 	fprintf(fp, "read errors               %u\n", ss->ss_read_errors);
 	fprintf(fp, "blocks discarded by error %u\n", ss->ss_error_discards);
-	if ((ss->ss_pfetch_stop.tv_sec > 0) || (ss->ss_pfetch_stop.tv_usec > 0)) {
-		timersub(&ss->ss_pfetch_stop, &ss->ss_cache_start, &tv);
-		msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-		if (msec > 0) {
-			fprintf(fp, "prefetch time             %d.%03ds\n",
-			    msec / 1000, msec % 1000);
+	for(b = 0; b < STAT_BATCHMAX - 1; b++) {
+		if ((ss->ss_batch_time[b + 1].tv_sec > 0) || (ss->ss_batch_time[b + 1].tv_usec > 0)) {
+			timersub(&ss->ss_batch_time[b + 1], &ss->ss_batch_time[b], &tv);
+			msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+			if (msec > 0) {
+				fprintf(fp, "batch %d time              %d.%03ds\n",
+						b, msec / 1000, msec % 1000);
+			}
 		}
 	}
-	if ((ss->ss_read_stop.tv_sec > 0) || (ss->ss_read_stop.tv_usec > 0)) {
-		timersub(&ss->ss_read_stop, &ss->ss_cache_start, &tv);
-		msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-		if (msec > 0) {
-			fprintf(fp, "readahead time            %d.%03ds\n",
-			    msec / 1000, msec % 1000);
-			fprintf(fp, "readahead rate            %ukB/s, %utps\n",
-			    (u_int)(((unsigned long long)ss->ss_read_blocks * ss->ss_blocksize * 1000) / (msec * 1024)),
-			    (ss->ss_initiated_reads * 1000) / msec);
-		}
+	timersub(&ss->ss_batch_time[STAT_BATCHMAX], &ss->ss_batch_time[0], &tv);
+	msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+	if (msec > 0) {
+		fprintf(fp, "reader thread rate        %ukB/s, %utps\n",
+				(u_int)(((unsigned long long)ss->ss_read_blocks * ss->ss_blocksize * 1000) / (msec * 1024)),
+				(ss->ss_initiated_reads * 1000) / msec);
 	}
-	
+
 	/* inbound strategy */
 	fprintf(fp, "total strategy calls      %u\n", ss->ss_strategy_calls);
 	fprintf(fp, "non-read strategy calls   %u\n", ss->ss_strategy_nonread);
 	fprintf(fp, "bypassed strategy calls   %u\n", ss->ss_strategy_bypassed);
 	fprintf(fp, "bypasses while active     %u\n", ss->ss_strategy_bypass_active);
 	fprintf(fp, "filled strategy calls     %u\n", ss->ss_strategy_calls - ss->ss_strategy_bypassed);
+	fprintf(fp, "filled during active I/O  %u\n", ss->ss_strategy_duringio);
 	if ((ss->ss_cache_stop.tv_sec > 0) || (ss->ss_cache_stop.tv_usec > 0)) {
-		timersub(&ss->ss_cache_stop, &ss->ss_cache_start, &tv);
+		timersub(&ss->ss_cache_stop, &ss->ss_batch_time[0], &tv);
 		msec = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 		if (msec > 0) {
 			fprintf(fp, "active time               %d.%03ds\n",

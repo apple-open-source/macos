@@ -200,7 +200,9 @@ else
 endif
 
 ifeq "$(JAVAC)" ""
+ifneq "" "$(wildcard /usr/bin/javaconfig)"
 JAVAC = $(shell javaconfig Compiler)
+endif
 endif
 
 ifeq "WINDOWS" "$(OS)"

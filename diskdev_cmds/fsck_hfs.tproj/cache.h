@@ -29,6 +29,21 @@
 #define _CACHE_H_
 #include <stdint.h>
 
+/* Different values for initializing cache */
+enum {
+	/* Default sizes */
+	DefaultCacheBlockSize	=	0x8000,		/* 32K */
+	DefaultCacheBlocks		=	1024,
+	DefaultCacheSize		=	(DefaultCacheBlockSize * DefaultCacheBlocks), 
+
+	/* Minimum allowed sizes */
+	MinCacheBlockSize		=	0x8000,		/* 32K */
+	MinCacheBlocks			=	128,
+	MinCacheSize			=	(MinCacheBlockSize * MinCacheBlocks), 
+
+	CacheHashSize			=	257,		/* prime number */
+};
+
 /*
  * Some nice lowercase shortcuts.
  */
@@ -135,7 +150,15 @@ typedef struct Cache_t
 	uint32_t	Span;		/* Requests that spanned cache blocks */
 } Cache_t;
 
+extern Cache_t fscache;
 
+/*
+ * CalculateCacheSize
+ *
+ * Determine the cache size that should be used to initialize the cache.
+ */
+int CalculateCacheSize(uint64_t userCacheSize, uint32_t *calcBlockSize, uint32_t *calcTotalBlocks, 
+					   char debug);
 /*
  * CacheInit
  *
@@ -200,14 +223,22 @@ int CacheEvict (Cache_t *cache, Tag_t *tag);
 int 
 CacheFlush( Cache_t *cache );
 
-/*
- * CacheFlushRange
+/* CacheCopyDiskBlocks 
  *
- * Flush, and optionally remove, all cache blocks that intersect
- * a given range.
+ * Perform direct disk block copy from from_offset to to_offset of given length. 
  */
-int
-CacheFlushRange( Cache_t *cache, uint64_t start, uint64_t len, int remove);
+int CacheCopyDiskBlocks (Cache_t *cache, uint64_t from_offset, uint64_t to_offset, uint32_t len);
 
+/* CacheWriteBufferToDisk 
+ *
+ * Write data on disk starting at given offset for upto write_len.
+ * The data from given buffer upto buf_len is written to the disk starting
+ * at given offset.  If the amount of data written on disk is greater than 
+ * the length of buffer, all the remaining data is written as zeros.
+ * 
+ * If no buffer is provided or if length of buffer is zero, the function
+ * writes zeros on disk from offset upto write_len bytes.
+ */
+int CacheWriteBufferToDisk (Cache_t *cache, uint64_t offset, uint32_t write_len, u_char *buffer, uint32_t buf_len);
 #endif
 
